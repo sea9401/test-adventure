@@ -37,6 +37,10 @@ import {
   miningProgressionView,
 } from "@/adventure/v2/miningProgression";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
+import {
+  activeAutoGatheringActivity,
+  lockAutoGatheringStatesForUpdate,
+} from "@/lib/server/lifeActivityLock";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -79,6 +83,15 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const result = await db.transaction(async (tx) => {
+    const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+    const activeAutoActivity = activeAutoGatheringActivity(autoStates);
+    if (activeAutoActivity) {
+      return {
+        success: false as const,
+        reason: "auto_active" as const,
+        activeAutoActivity,
+      };
+    }
     const session = parseMiningSession(
       await lockSaveForUpdate(tx, userId, MINING_SESSION_KEY, {}),
     );
@@ -249,6 +262,17 @@ export async function POST(req: Request) {
       guardBehaviorSignal: guardUpdate.behaviorSignal,
     };
   });
+
+  if (!result.success && result.reason === "auto_active") {
+    return Response.json(
+      {
+        ok: false,
+        error: "auto_active",
+        activeAutoActivity: result.activeAutoActivity,
+      },
+      { status: 409 },
+    );
+  }
 
   if ("guardStrongSignal" in result && result.guardStrongSignal && "guardState" in result) {
     recordStrongActivitySignalSoon({

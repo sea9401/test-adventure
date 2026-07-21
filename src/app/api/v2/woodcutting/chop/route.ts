@@ -46,6 +46,10 @@ import {
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
+import {
+  activeAutoGatheringActivity,
+  lockAutoGatheringStatesForUpdate,
+} from "@/lib/server/lifeActivityLock";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import {
   FARM_SAVE_KEY,
@@ -85,6 +89,15 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const result = await db.transaction(async (tx) => {
+    const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+    const activeAutoActivity = activeAutoGatheringActivity(autoStates);
+    if (activeAutoActivity) {
+      return {
+        success: false as const,
+        reason: "auto_active" as const,
+        activeAutoActivity,
+      };
+    }
     const session = parseWoodcuttingSession(
       await lockSaveForUpdate(tx, userId, WOODCUTTING_SESSION_KEY, {}),
     );
@@ -271,6 +284,17 @@ export async function POST(req: Request) {
       guardBehaviorSignal: guardUpdate.behaviorSignal,
     };
   });
+
+  if (!result.success && result.reason === "auto_active") {
+    return Response.json(
+      {
+        ok: false,
+        error: "auto_active",
+        activeAutoActivity: result.activeAutoActivity,
+      },
+      { status: 409 },
+    );
+  }
 
   if ("guardStrongSignal" in result && result.guardStrongSignal && "guardState" in result) {
     recordStrongActivitySignalSoon({

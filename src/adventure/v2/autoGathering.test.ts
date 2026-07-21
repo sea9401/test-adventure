@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AUTO_GATHERING_DURATION_MS,
   beginAutoGathering,
+  cancelAutoGathering,
   createAutoGatheringSession,
   emptyAutoGatheringState,
   parseAutoGatheringState,
@@ -66,5 +67,35 @@ describe("30분 자동 생활 작업", () => {
     expect(parseAutoGatheringState({ session: { sessionId: "broken" } })).toEqual(
       emptyAutoGatheringState(),
     );
+  });
+
+  it("취소하면 미정산 세션만 제거하고 누적 나머지는 보존한다", () => {
+    const session = createAutoGatheringSession({
+      sessionId: "cancel-me",
+      sourceId: "oak",
+      sourceName: "참나무",
+      materialId: "v2_oak_log",
+      now: 1_000,
+      cycleDurationMs: 5_000,
+      successRate: 0.8,
+      baseXp: 10,
+    });
+    const state = beginAutoGathering(
+      {
+        session: null,
+        remainders: {
+          successes: { oak: 0.25 },
+          materials: { v2_oak_log: 0.5 },
+          xp: 0.75,
+          mastery: 0.4,
+        },
+      },
+      session,
+    );
+
+    expect(cancelAutoGathering(state)).toEqual({
+      session: null,
+      remainders: state.remainders,
+    });
   });
 });

@@ -15,6 +15,11 @@ import type {
   ReelOutcome,
 } from "./FishingView";
 import { useActivityVerification } from "./useActivityVerification";
+import type { AutoGatheringActivity } from "./autoGathering";
+
+function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
+  return value === "woodcutting" || value === "mining" ? value : null;
+}
 
 function parseDailyCatchCoins(value: unknown): FishingDailyCatchCoins | undefined {
   if (!value || typeof value !== "object") return undefined;
@@ -44,6 +49,8 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
     useState<FishingProgressionView | null>(null);
   const [progressionLoading, setProgressionLoading] = useState(true);
   const [challengeBadgeCount, setChallengeBadgeCount] = useState(0);
+  const [activeAutoActivity, setActiveAutoActivity] =
+    useState<AutoGatheringActivity | null>(null);
   const mounted = useRef(true);
   const beginCast = useSingleFlightGuard();
   const beginReel = useSingleFlightGuard();
@@ -82,6 +89,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         if (!mounted.current || !j?.ok) return;
         const next = parseDailyCatchCoins(j.dailyCatchCoins);
         if (next) setDailyCatchCoins(next);
+        setActiveAutoActivity(parseAutoActivity(j.activeAutoActivity));
       })
       .catch(() => {
         // 표시용 상태라 실패해도 낚시 자체는 막지 않는다.
@@ -101,7 +109,11 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         body: JSON.stringify({ spotId }),
       });
       const j = await readJson(res);
-      if (!res.ok) throw new Error("cast_failed");
+      if (!res.ok) {
+        const active = parseAutoActivity(j?.activeAutoActivity);
+        if (active) setActiveAutoActivity(active);
+        throw new Error(j?.error === "auto_active" ? "auto_active" : "cast_failed");
+      }
       if (
         !j?.ok ||
         typeof j.castId !== "string" ||
@@ -135,7 +147,11 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
           body: JSON.stringify({ castId, reactionMs }),
         });
         const j = await readJson(res);
-        if (!res.ok) throw new Error("reel_failed");
+        if (!res.ok) {
+          const active = parseAutoActivity(j?.activeAutoActivity);
+          if (active) setActiveAutoActivity(active);
+          throw new Error(j?.error === "auto_active" ? "auto_active" : "reel_failed");
+        }
         if (!j?.ok) throw new Error("reel_failed");
         const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
         if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
@@ -264,6 +280,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
     progression,
     progressionLoading,
     challengeBadgeCount,
+    activeAutoActivity,
     verification,
     verifyHuman,
   };

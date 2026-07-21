@@ -14,6 +14,11 @@ import type {
   AutoGatheringResultView,
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
+import type { AutoGatheringActivity } from "./autoGathering";
+
+function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
+  return value === "woodcutting" || value === "mining" ? value : null;
+}
 
 function parseLog(value: unknown): WoodcuttingLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -95,6 +100,8 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const [autoSession, setAutoSession] = useState<AutoGatheringSessionView | null>(null);
   const [autoResult, setAutoResult] = useState<AutoGatheringResultView | null>(null);
   const [autoLoading, setAutoLoading] = useState(false);
+  const [activeAutoActivity, setActiveAutoActivity] =
+    useState<AutoGatheringActivity | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -110,6 +117,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
           Math.min(50, Math.max(0, Number(json.durationReductionPct) || 0)),
         );
         setAutoSession(parseAutoSession(json.autoSession));
+        setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -126,7 +134,11 @@ export function useWoodcutting(): WoodcuttingHandlers {
       body: JSON.stringify({ spotId }),
     });
     const json = await readJson(response);
-    if (!response.ok) throw new Error("woodcutting_start_failed");
+    if (!response.ok) {
+      const active = parseAutoActivity(json?.activeAutoActivity);
+      if (active) setActiveAutoActivity(active);
+      throw new Error("woodcutting_start_failed");
+    }
     const durationMs = Math.max(1, Math.floor(Number(json?.durationMs) || 0));
     const chops = Math.max(1, Math.floor(Number(json?.chops) || 0));
     if (!json?.ok || typeof json.sessionId !== "string" || !durationMs || !chops) {
@@ -155,7 +167,11 @@ export function useWoodcutting(): WoodcuttingHandlers {
         body: JSON.stringify({ sessionId }),
       });
       const json = await readJson(response);
-      if (!response.ok) throw new Error("woodcutting_finish_failed");
+      if (!response.ok) {
+        const active = parseAutoActivity(json?.activeAutoActivity);
+        if (active) setActiveAutoActivity(active);
+        throw new Error("woodcutting_finish_failed");
+      }
       if (!json?.ok) throw new Error("woodcutting_finish_failed");
       if (!json.success && json.reason === "not_ready" && attempt === 0) {
         await wait(Math.max(25, Math.floor(Number(json.retryAfterMs) || 0) + 25));
@@ -220,8 +236,13 @@ export function useWoodcutting(): WoodcuttingHandlers {
         body: JSON.stringify({ action: "start", spotId }),
       });
       const json = await readJson(response);
-      if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_start_failed");
+      if (!response.ok || !json?.ok) {
+        const active = parseAutoActivity(json?.activeAutoActivity);
+        if (active) setActiveAutoActivity(active);
+        throw new Error("woodcutting_auto_start_failed");
+      }
       setAutoSession(parseAutoSession(json.autoSession));
+      setActiveAutoActivity("woodcutting");
       setAutoResult(null);
     } finally {
       setAutoLoading(false);
@@ -241,7 +262,26 @@ export function useWoodcutting(): WoodcuttingHandlers {
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
       setAutoSession(null);
+      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       setAutoResult(parseAutoResult(json));
+    } finally {
+      setAutoLoading(false);
+    }
+  }, [readJson]);
+
+  const cancelAuto = useCallback(async (): Promise<void> => {
+    setAutoLoading(true);
+    try {
+      const response = await fetch("/api/v2/woodcutting/auto", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const json = await readJson(response);
+      if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_cancel_failed");
+      setAutoSession(null);
+      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
+      setAutoResult(null);
     } finally {
       setAutoLoading(false);
     }
@@ -256,8 +296,10 @@ export function useWoodcutting(): WoodcuttingHandlers {
     autoSession,
     autoResult,
     autoLoading,
+    activeAutoActivity,
     startAuto,
     claimAuto,
+    cancelAuto,
     verification,
     verifyHuman,
   };

@@ -30,9 +30,9 @@ import {
   woodcuttingProgressionView,
 } from "@/adventure/v2/woodcuttingProgression";
 import {
-  parseAutoGatheringState,
-  WOODCUTTING_AUTO_KEY,
-} from "@/adventure/v2/autoGathering";
+  activeAutoGatheringActivity,
+  lockAutoGatheringStatesForUpdate,
+} from "@/lib/server/lifeActivityLock";
 import {
   equippedWoodcuttingBonuses,
   parseV2SkillsState,
@@ -97,16 +97,22 @@ export async function POST(req: Request) {
   });
 
   const started = await db.transaction(async (tx) => {
-    const autoState = parseAutoGatheringState(
-      await lockSaveForUpdate(tx, userId, WOODCUTTING_AUTO_KEY, {}),
-    );
-    if (autoState.session) return false;
+    const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+    const activeAutoActivity = activeAutoGatheringActivity(autoStates);
+    if (activeAutoActivity) return { activeAutoActivity };
     await lockSaveForUpdate(tx, userId, WOODCUTTING_SESSION_KEY, {});
     await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, session);
-    return true;
+    return { activeAutoActivity: null };
   });
-  if (!started) {
-    return Response.json({ ok: false, error: "auto_active" }, { status: 409 });
+  if (started.activeAutoActivity) {
+    return Response.json(
+      {
+        ok: false,
+        error: "auto_active",
+        activeAutoActivity: started.activeAutoActivity,
+      },
+      { status: 409 },
+    );
   }
 
   const materials = woodcuttingMaterialBalances(charSave.materials);

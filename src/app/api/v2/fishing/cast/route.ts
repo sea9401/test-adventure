@@ -39,6 +39,10 @@ import {
   FISHING_WALLET_KEY,
   fishingCatchCoinProgress,
 } from "@/lib/server/fishing/coins";
+import {
+  activeAutoGatheringActivity,
+  lockAutoGatheringStatesForUpdate,
+} from "@/lib/server/lifeActivityLock";
 
 // POST /api/v2/fishing/cast — 찌 던지기.
 //
@@ -155,11 +159,21 @@ export async function POST(req: Request) {
     fishingSpotId: fishingSpot.id,
   };
 
-  await db.transaction(async (tx) => {
+  const activeAutoActivity = await db.transaction(async (tx) => {
+    const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+    const active = activeAutoGatheringActivity(autoStates);
+    if (active) return active;
     // 직전 세션을 잠그고 덮어쓴다 — 새 캐스팅은 이전 캐스팅을 무효화(castId 불일치로 reel 거부).
     await lockSaveForUpdate(tx, userId, FISHING_SESSION_KEY, {});
     await upsertSave(tx, userId, FISHING_SESSION_KEY, session);
+    return null;
   });
+  if (activeAutoActivity) {
+    return Response.json(
+      { ok: false, error: "auto_active", activeAutoActivity },
+      { status: 409 },
+    );
+  }
 
   const progression = fishingProgressionView(progress);
   const dailyCatchCoins = fishingCatchCoinProgress(

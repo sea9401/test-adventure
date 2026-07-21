@@ -2,6 +2,10 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
+import {
+  activeAutoGatheringActivity,
+  lockAutoGatheringStatesForUpdate,
+} from "@/lib/server/lifeActivityLock";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -137,6 +141,15 @@ export async function POST(req: Request) {
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
+    const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+    const activeAutoActivity = activeAutoGatheringActivity(autoStates);
+    if (activeAutoActivity) {
+      return {
+        caught: false as const,
+        reason: "auto_active" as const,
+        activeAutoActivity,
+      };
+    }
     const session = parseFishingSession(
       await lockSaveForUpdate(tx, userId, FISHING_SESSION_KEY, {}),
     );
@@ -495,6 +508,17 @@ export async function POST(req: Request) {
       nextActionAt,
     };
   });
+
+  if (!result.caught && result.reason === "auto_active") {
+    return Response.json(
+      {
+        ok: false,
+        error: "auto_active",
+        activeAutoActivity: result.activeAutoActivity,
+      },
+      { status: 409 },
+    );
+  }
 
   if (result.guardStrongSignal) {
     recordStrongActivitySignalSoon({

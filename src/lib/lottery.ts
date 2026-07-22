@@ -19,6 +19,21 @@ export type LotteryWinnerView = {
   mine: boolean;
 };
 
+export type LotteryRoundResultView = {
+  id: number;
+  status: "settled" | "refunded" | "rolled_over";
+  totalTickets: number;
+  participantCount: number;
+  grossPool: number;
+  carryIn: number;
+  feeAmount: number;
+  prizePool: number;
+  settledAt: number;
+  commitHash: string;
+  revealSecret: string;
+  winners: LotteryWinnerView[];
+};
+
 export type LotterySnapshot = {
   round: {
     id: number;
@@ -41,20 +56,8 @@ export type LotterySnapshot = {
     createdAt: number;
     mine: boolean;
   }>;
-  previousRound: null | {
-    id: number;
-    status: "settled" | "refunded" | "rolled_over";
-    totalTickets: number;
-    participantCount: number;
-    grossPool: number;
-    carryIn: number;
-    feeAmount: number;
-    prizePool: number;
-    settledAt: number;
-    commitHash: string;
-    revealSecret: string;
-    winners: LotteryWinnerView[];
-  };
+  recentRounds: LotteryRoundResultView[];
+  previousRound: LotteryRoundResultView | null;
   viewerGold: number;
   viewerBankedGold: number;
 };

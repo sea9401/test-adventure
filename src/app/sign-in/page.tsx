@@ -11,7 +11,26 @@ import { LandingContent } from "./LandingContent";
 export const metadata: Metadata = {
   title: "무슨무슨게임 — 웹 어드벤처 RPG",
   description:
-    "전투 패턴을 설계하고 모험가에서 다양한 직업으로 성장하세요. 사냥·전직·환생·생활·협동 보스·길드 영토전까지 즐기는 웹 어드벤처 RPG.",
+    "전투 패턴을 설계하고 다양한 직업으로 성장하는 웹 RPG. 사냥·전직·생활·협동 보스·길드 영토전을 즐겨보세요.",
+  alternates: { canonical: "/sign-in" },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    siteName: "무슨무슨게임",
+    title: "무슨무슨게임 — 웹 어드벤처 RPG",
+    description:
+      "전투 패턴을 설계하고 다양한 직업으로 성장하는 웹 RPG. 사냥·전직·생활·협동 보스·길드 영토전을 즐겨보세요.",
+    url: "/sign-in",
+    locale: "ko_KR",
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "무슨무슨게임",
+      },
+    ],
+  },
 };
 
 // 대문(랜딩) 통계 — 총 모험가 수 + 최근 접속자 수.

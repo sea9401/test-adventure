@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 // 다른 모험가 프로필 — 이제 v2 네이티브 /character/<닉네임> 으로 일원화. 기존 진입점(랭킹·채팅·
 // 접속자 이름 클릭)이 /profile/<name> 으로 보내므로 여기서 리다이렉트해 v2 정보 화면으로 모은다.

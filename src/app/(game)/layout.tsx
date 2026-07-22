@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { GameClientBoundary } from "@/adventure/v2/GameClientBoundary";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 // 게임 라우트 그룹 공유 레이아웃 (server component).
 // 클라이언트 경계는 GameClientBoundary 가 명시 — 여기서 SaveProvider/STARTER_SAVES 등을

@@ -22,5 +22,6 @@ describe("대문 로그인 선택지", () => {
 
     expect(html).not.toContain("캐릭터 만들고 시작하기");
     expect(html).toContain("카카오톡으로 로그인");
+    expect(html).toContain(">무슨무슨게임</h1>");
   });
 });

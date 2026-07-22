@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from "node:crypto";
-import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { economyEvents } from "@/db/schema";
 import {
@@ -28,6 +28,7 @@ import { drawLotteryTickets } from "./lotteryDraw";
 type LotteryRoundRow = typeof lotteryRounds.$inferSelect;
 type LotteryPurchaseRow = typeof lotteryPurchases.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const LOTTERY_RESULT_HISTORY_LIMIT = 10;
 
 export type LotteryPurchaseError =
   | "invalid_ticket_count"
@@ -313,27 +314,71 @@ async function snapshotInTx(
   const myTickets = currentPurchases
     .filter((purchase) => purchase.userId === userId)
     .reduce((sum, purchase) => sum + purchase.ticketCount, 0);
-  const [previous] = await tx
+  const recentRounds = await tx
     .select()
     .from(lotteryRounds)
     .where(
       inArray(lotteryRounds.status, ["settled", "refunded", "rolled_over"]),
     )
     .orderBy(desc(lotteryRounds.endsAt))
-    .limit(1);
-  const winners = previous
+    .limit(LOTTERY_RESULT_HISTORY_LIMIT);
+  const recentRoundIds = recentRounds.map((round) => round.id);
+  const historicalWinners = recentRoundIds.length
     ? await tx
         .select()
         .from(lotteryWinners)
-        .where(eq(lotteryWinners.roundId, previous.id))
-        .orderBy(asc(lotteryWinners.rank))
+        .where(inArray(lotteryWinners.roundId, recentRoundIds))
+        .orderBy(desc(lotteryWinners.roundId), asc(lotteryWinners.rank))
     : [];
-  const previousPurchases = previous
+  const historicalParticipants = recentRoundIds.length
     ? await tx
-        .select({ userId: lotteryPurchases.userId })
+        .select({
+          roundId: lotteryPurchases.roundId,
+          participantCount: sql<number>`count(distinct ${lotteryPurchases.userId})::int`,
+        })
         .from(lotteryPurchases)
-        .where(eq(lotteryPurchases.roundId, previous.id))
+        .where(inArray(lotteryPurchases.roundId, recentRoundIds))
+        .groupBy(lotteryPurchases.roundId)
     : [];
+  const participantCountByRound = new Map(
+    historicalParticipants.map((row) => [row.roundId, row.participantCount]),
+  );
+  const winnersByRound = new Map<
+    number,
+    LotterySnapshot["recentRounds"][number]["winners"]
+  >();
+  for (const winner of historicalWinners) {
+    const roundWinners = winnersByRound.get(winner.roundId) ?? [];
+    roundWinners.push({
+      rank: winner.rank,
+      actorName: winner.actorName,
+      ticketNumber: winner.ticketNumber,
+      prizeAmount: Number(winner.prizeAmount),
+      mine: winner.userId === userId,
+    });
+    winnersByRound.set(winner.roundId, roundWinners);
+  }
+  const recentRoundResults: LotterySnapshot["recentRounds"] = recentRounds.map(
+    (round) => ({
+      id: round.id,
+      status:
+        round.status === "refunded"
+          ? "refunded"
+          : round.status === "rolled_over"
+            ? "rolled_over"
+            : "settled",
+      totalTickets: round.totalTickets,
+      participantCount: participantCountByRound.get(round.id) ?? 0,
+      grossPool: Number(round.grossPool),
+      carryIn: Number(round.carryIn),
+      feeAmount: Number(round.feeAmount),
+      prizePool: Number(round.prizePool),
+      settledAt: round.settledAt?.getTime() ?? round.endsAt.getTime(),
+      commitHash: round.commitHash,
+      revealSecret: round.drawSecret,
+      winners: winnersByRound.get(round.id) ?? [],
+    }),
+  );
   const character = await readSave<Record<string, unknown>>(
     tx as DbExecutor,
     userId,
@@ -369,35 +414,8 @@ async function snapshotInTx(
       createdAt: purchase.createdAt.getTime(),
       mine: purchase.userId === userId,
     })),
-    previousRound: previous
-      ? {
-          id: previous.id,
-          status:
-            previous.status === "refunded"
-              ? "refunded"
-              : previous.status === "rolled_over"
-                ? "rolled_over"
-                : "settled",
-          totalTickets: previous.totalTickets,
-          participantCount: new Set(
-            previousPurchases.map((purchase) => purchase.userId),
-          ).size,
-          grossPool: Number(previous.grossPool),
-          carryIn: Number(previous.carryIn),
-          feeAmount: Number(previous.feeAmount),
-          prizePool: Number(previous.prizePool),
-          settledAt: previous.settledAt?.getTime() ?? previous.endsAt.getTime(),
-          commitHash: previous.commitHash,
-          revealSecret: previous.drawSecret,
-          winners: winners.map((winner) => ({
-            rank: winner.rank,
-            actorName: winner.actorName,
-            ticketNumber: winner.ticketNumber,
-            prizeAmount: Number(winner.prizeAmount),
-            mine: winner.userId === userId,
-          })),
-        }
-      : null,
+    recentRounds: recentRoundResults,
+    previousRound: recentRoundResults[0] ?? null,
     viewerGold: int(character.gold),
     viewerBankedGold: int(character.bankedGold),
   };

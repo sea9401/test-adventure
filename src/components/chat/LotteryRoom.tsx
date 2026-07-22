@@ -9,6 +9,7 @@ import {
   LOTTERY_TICKET_PRICE,
   lotteryPrizeAmounts,
   parseLotteryCommand,
+  type LotteryRoundResultView,
   type LotterySnapshot,
 } from "@/lib/lottery";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -60,6 +61,58 @@ function LotteryRules() {
   );
 }
 
+export function LotteryRoundResultCard({
+  round,
+}: {
+  round: LotteryRoundResultView;
+}) {
+  return (
+    <div className={`${SURFACE_INSET} p-3`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+          제 {round.id}회 추첨 결과
+        </p>
+        <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+          참여 {round.participantCount}명 · 판매 {round.totalTickets}장
+        </p>
+      </div>
+      {round.status === "rolled_over" ? (
+        <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+          추첨 없이 상금 {round.prizePool.toLocaleString()}G가 다음 회차로
+          이월되었습니다.
+        </p>
+      ) : round.status === "refunded" ? (
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          이전 운영 규칙에 따라 구매액이 전액 환불되었습니다.
+        </p>
+      ) : (
+        <ol className="mt-2 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+          {round.winners.map((winner) => (
+            <li
+              key={winner.rank}
+              className={
+                winner.mine
+                  ? "font-semibold text-amber-700 dark:text-amber-300"
+                  : ""
+              }
+            >
+              {winner.rank}등 {winner.actorName} · #
+              {winner.ticketNumber.toLocaleString()} ·{" "}
+              {winner.prizeAmount.toLocaleString()}G
+              {winner.mine ? " (나)" : ""}
+            </li>
+          ))}
+        </ol>
+      )}
+      <details className="mt-2 text-[10px] text-zinc-400 dark:text-zinc-500">
+        <summary className="cursor-pointer">추첨 검증값</summary>
+        <p className="mt-1 break-all">commit {round.commitHash}</p>
+        <p className="mt-1 break-all">secret {round.revealSecret}</p>
+      </details>
+    </div>
+  );
+}
+
 export function LotteryRoom() {
   const { setGold, setBankedGold } = useGameState();
   const [snapshot, setSnapshot] = useState<LotterySnapshot | null>(null);
@@ -69,6 +122,7 @@ export function LotteryRoom() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // 응답을 받지 못한 결제 재시도는 같은 requestId 를 재사용해 중복 차감을 막는다.
   const pendingRequestRef = useRef<{ command: string; id: string } | null>(null);
 
@@ -103,6 +157,11 @@ export function LotteryRoom() {
       ).prizes,
     [snapshot?.round.carryIn, snapshot?.round.grossPool],
   );
+  const resultHistory = snapshot?.recentRounds?.length
+    ? snapshot.recentRounds
+    : snapshot?.previousRound
+      ? [snapshot.previousRound]
+      : [];
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -207,49 +266,34 @@ export function LotteryRoom() {
         </button>
         {rulesOpen && <LotteryRules />}
 
-        {snapshot?.previousRound && (
-          <section className={`${SURFACE_INSET} p-3`}>
-            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
-              제 {snapshot.previousRound.id}회 추첨 결과
-            </p>
-            {snapshot.previousRound.status === "rolled_over" ? (
-              <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-                참여자 {snapshot.previousRound.participantCount}명으로 추첨 없이 상금{" "}
-                {snapshot.previousRound.prizePool.toLocaleString()}G가 다음 회차로
-                이월되었습니다.
+        {resultHistory.length > 0 && (
+          <section className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                최근 추첨 결과
               </p>
-            ) : snapshot.previousRound.status === "refunded" ? (
-              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                이전 운영 규칙에 따라 구매액이 전액 환불되었습니다.
-              </p>
-            ) : (
-              <ol className="mt-2 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-                {snapshot.previousRound.winners.map((winner) => (
-                  <li
-                    key={winner.rank}
-                    className={
-                      winner.mine
-                        ? "font-semibold text-amber-700 dark:text-amber-300"
-                        : ""
-                    }
-                  >
-                    {winner.rank}등 {winner.actorName} · #
-                    {winner.ticketNumber.toLocaleString()} ·{" "}
-                    {winner.prizeAmount.toLocaleString()}G
-                    {winner.mine ? " (나)" : ""}
-                  </li>
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                최대 10회
+              </span>
+            </div>
+            <LotteryRoundResultCard round={resultHistory[0]} />
+            {historyOpen &&
+              resultHistory
+                .slice(1)
+                .map((round) => (
+                  <LotteryRoundResultCard key={round.id} round={round} />
                 ))}
-              </ol>
+            {resultHistory.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setHistoryOpen((open) => !open)}
+                className="text-xs font-medium text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+              >
+                {historyOpen
+                  ? "이전 회차 접기"
+                  : `이전 ${resultHistory.length - 1}개 회차 더 보기`}
+              </button>
             )}
-            <details className="mt-2 text-[10px] text-zinc-400 dark:text-zinc-500">
-              <summary className="cursor-pointer">추첨 검증값</summary>
-              <p className="mt-1 break-all">
-                commit {snapshot.previousRound.commitHash}
-              </p>
-              <p className="mt-1 break-all">
-                secret {snapshot.previousRound.revealSecret}
-              </p>
-            </details>
           </section>
         )}
 

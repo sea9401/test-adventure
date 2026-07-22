@@ -6,6 +6,10 @@ import { CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import { ARENA_INITIAL_RATING } from "@/lib/server/arena";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import {
+  ARENA_TOURNAMENT_MIN_MATCHES,
+  arenaTournamentBracketSize,
+} from "@/lib/server/pvp/arenaTournament";
+import {
   readMuseunCosmeticAppearanceMap,
   readProfileAvatarMap,
 } from "@/lib/server/museunCosmetics";
@@ -14,7 +18,7 @@ import {
 //   실유저 랭크전으로 적립된 pvp_ratings 만 정렬해 상위 N + 본인 순위를 돌려준다.
 //   봇 연습전은 비랭크라 이 목록에 들어오지 않는다.
 const PROFILE_KEY = "character-profile.v2";
-const TOP_N = 20;
+const TOP_N = 32;
 
 export async function GET() {
   const userId = await ensureUser();
@@ -27,6 +31,8 @@ export async function GET() {
       userId: pvpRatings.userId,
       score: pvpRatings.rating,
       wins: pvpRatings.wins,
+      losses: pvpRatings.losses,
+      draws: pvpRatings.draws,
       updatedAt: pvpRatings.updatedAt,
     })
     .from(pvpRatings)
@@ -38,6 +44,9 @@ export async function GET() {
       userId: r.userId,
       score: r.score,
       wins: r.wins,
+      losses: r.losses,
+      draws: r.draws,
+      matches: r.wins + r.losses + r.draws,
       updatedAtMs: new Date(r.updatedAt).getTime(),
     }))
     .sort(
@@ -49,6 +58,13 @@ export async function GET() {
     );
 
   const myIndex = scored.findIndex((s) => s.userId === userId);
+  const eligible = scored.filter(
+    (entry) => entry.matches >= ARENA_TOURNAMENT_MIN_MATCHES,
+  );
+  const projectedBracketSize = arenaTournamentBracketSize(eligible.length);
+  const qualifiedIds = new Set(
+    eligible.slice(0, projectedBracketSize).map((entry) => entry.userId),
+  );
   const top = scored.slice(0, TOP_N);
   const topIds = top.map((t) => t.userId);
 
@@ -94,6 +110,8 @@ export async function GET() {
     name: nameByUser.get(t.userId) ?? "모험가",
     level: levelByUser.get(t.userId) ?? 1,
     score: t.score,
+    matches: t.matches,
+    qualified: qualifiedIds.has(t.userId),
     isMe: t.userId === userId,
     avatar: avatarByUser.get(t.userId) ?? "male1",
     profileBorder:
@@ -106,5 +124,10 @@ export async function GET() {
     myRank: myIndex >= 0 ? myIndex + 1 : null,
     myScore: myIndex >= 0 ? scored[myIndex]!.score : ARENA_INITIAL_RATING,
     totalRanked: scored.length,
+    minimumMatches: ARENA_TOURNAMENT_MIN_MATCHES,
+    eligibleCount: eligible.length,
+    projectedBracketSize,
+    qualifiedCount: qualifiedIds.size,
+    myQualified: qualifiedIds.has(userId),
   });
 }

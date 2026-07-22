@@ -26,14 +26,14 @@ import {
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
 import { FISH, isBigCatch } from "@/adventure/data/v2/fish";
-import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
-  addCumLevel,
+  addJobHistory,
   addJobCumLevel,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
 import {
-  isFishingJobId,
+  highestVisitedFishingJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { MULTTAE_BY_ID, multtaeAt } from "@/adventure/data/v2/multtae";
@@ -300,15 +300,14 @@ export async function POST(req: Request) {
     );
     const progressView = fishingProgressionView(progressResult.state);
 
-    // 낚시 숙련도 — 성공한 챔질 1회당 생존자 직군 +1. 현재 직업과 관계없이
-    // 낚시꾼 전직 조건을 쌓되, 상위 낚시 직업 숙련도는 해당 직업일 때만 올린다.
+    // 낚시 숙련도 — 현재 직업과 관계없이 직접 전직해 본 낚시 직업 중
+    // 가장 높은 차수의 직업 숙련도만 성공한 챔질당 +1. 생존자 직군 숙련도는 올리지 않는다.
     // 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
     const charSave = await lockSaveForUpdate<{
       class?: unknown;
       specChoice?: unknown;
     }>(tx, userId, "character.v2", {});
     const playerClass = parseV2Class(charSave.class);
-    const group = tier1ClassOf(playerClass);
     const jobId = jobIdFromLegacy(
       playerClass,
       typeof charSave.specChoice === "string" ? charSave.specChoice : null,
@@ -317,12 +316,13 @@ export async function POST(req: Request) {
       await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
       charSave,
     );
-    prof = addCumLevel(prof, "survivor", 1);
-    const masteryGained = 1;
-    let masteryAfter = prof.groups.survivor?.cumLevel ?? 0;
-    if (group !== "none" && isFishingJobId(jobId)) {
-      prof = addJobCumLevel(prof, jobId, 1);
-      masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
+    const masteryJobId = highestVisitedFishingJobId(prof, jobId);
+    prof = addJobHistory(prof, jobId, masteryJobId);
+    const masteryGained = masteryJobId ? 1 : 0;
+    let masteryAfter: number | null = null;
+    if (masteryJobId) {
+      prof = addJobCumLevel(prof, masteryJobId, 1);
+      masteryAfter = prof.jobCumLevel?.[masteryJobId] ?? 0;
     }
     await upsertSave(tx, userId, "proficiency.v2", prof);
 

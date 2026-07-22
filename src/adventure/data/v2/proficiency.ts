@@ -36,6 +36,9 @@ export type V2ProficiencyState = {
   //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 승리당 +1.
   //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
   jobCumLevel?: Record<string, number>;
+  // 직접 전직해 본 직업 id. 현재 직업을 벗어난 후에도 생활 콘텐츠 숙련도를
+  // 이력상 가장 높은 차수의 직업에 귀속시키는 데 사용한다. 순서는 최초 기록 순서.
+  jobHistory?: string[];
   // 숙련도 스케일 마이그레이션 버전.
   // 1 = 레벨 기반 cumLevel → 승리 기반 숙련도 전환 보정(×6), 2 = 요구치 1.5배 상향 보정(총 ×9) 적용.
   masteryScaleVersion?: number;
@@ -174,6 +177,7 @@ export function emptyProficiency(): V2ProficiencyState {
     caps: {},
     grown: {},
     jobCumLevel: {},
+    jobHistory: [],
     masteryScaleVersion: 2,
     growthScaleVersion: 1,
     postCapGrowthProgress: 0,
@@ -217,6 +221,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     caps?: unknown;
     grown?: unknown;
     jobCumLevel?: unknown;
+    jobHistory?: unknown;
     masteryScaleVersion?: unknown;
     growthScaleVersion?: unknown;
     postCapGrowthProgress?: unknown;
@@ -304,6 +309,18 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
   if ((jobCumLevel.elementalist ?? 0) > (jobCumLevel.firemage ?? 0)) {
     jobCumLevel.firemage = jobCumLevel.elementalist;
   }
+  const jobHistory: string[] = [];
+  if (Array.isArray(obj.jobHistory)) {
+    const seen = new Set<string>();
+    for (const rawJobId of obj.jobHistory) {
+      if (typeof rawJobId !== "string") continue;
+      const jobId = rawJobId.trim();
+      if (!jobId || jobId === "none" || seen.has(jobId)) continue;
+      seen.add(jobId);
+      jobHistory.push(jobId);
+      if (jobHistory.length >= 200) break;
+    }
+  }
   const parsedGrown = parseStatMap(obj.grown);
   const grown =
     growthScaleVersion >= 1
@@ -315,6 +332,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     caps,
     grown,
     jobCumLevel,
+    jobHistory,
     masteryScaleVersion,
     growthScaleVersion: 1,
     postCapGrowthProgress:
@@ -556,6 +574,24 @@ export function addJobCumLevel(
     ...p,
     jobCumLevel: { ...cur, [jobId]: (cur[jobId] ?? 0) + amount },
   };
+}
+
+// 직접 전직해 본 직업을 중복 없이 기록. 숙련도를 주지 않고 이력만 보존한다.
+export function addJobHistory(
+  p: V2ProficiencyState,
+  ...jobIds: Array<string | null | undefined>
+): V2ProficiencyState {
+  const next = [...(p.jobHistory ?? [])];
+  const seen = new Set(next);
+  for (const rawJobId of jobIds) {
+    const jobId = rawJobId?.trim();
+    if (!jobId || jobId === "none" || seen.has(jobId)) continue;
+    seen.add(jobId);
+    next.push(jobId);
+  }
+  return next.length === (p.jobHistory?.length ?? 0)
+    ? p
+    : { ...p, jobHistory: next };
 }
 
 // 특정 직업의 숙련도(하이브리드 해금 게이트 조회). 미적립=0.

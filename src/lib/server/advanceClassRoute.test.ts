@@ -119,8 +119,10 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     const stored = store.get("proficiency.v2") as {
       points?: number;
       groups?: Record<string, { points?: number }>;
+      jobHistory?: string[];
     };
     expect(stored.points).toBe(5000);
+    expect(stored.jobHistory).toEqual(["mage", "warrior"]);
     for (const g of Object.values(stored.groups ?? {})) {
       expect(g.points).toBeUndefined();
     }

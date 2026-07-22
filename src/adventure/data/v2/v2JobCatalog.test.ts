@@ -32,6 +32,7 @@ import {
   jobUnlockSpBonus,
   jobUnlockConditionText,
   cumLevelForJob,
+  highestVisitedFishingJobId,
   isFarmingJobId,
   isFishingJobId,
   isWoodcuttingJobId,
@@ -1274,5 +1275,23 @@ describe("cumLevelForJob (직업별 숙련도 — 전직 화면 표기)", () => 
     expect(cumLevelForJob(prof, V2_JOB_CATALOG.paladin)).toBe(333);
     // jobCumLevel 에 없는 상위 직업은 0.
     expect(cumLevelForJob(prof, V2_JOB_CATALOG.caster)).toBe(0);
+  });
+});
+
+describe("highestVisitedFishingJobId (이력상 최고 차수 낚시 직업)", () => {
+  it("이력과 기존 숙련도 기록 중 차수가 가장 높은 직업을 고른다", () => {
+    const prof = {
+      ...emptyProficiency(),
+      jobHistory: ["fisher", "fullcatchking"],
+      jobCumLevel: { angler: 50, masterangler: 1 },
+    };
+    expect(highestVisitedFishingJobId(prof, "mage")).toBe("fullcatchking");
+  });
+
+  it("현재 낚시 직업은 숙련도 0이어도 인정한다", () => {
+    expect(highestVisitedFishingJobId(emptyProficiency(), "seagod")).toBe(
+      "seagod",
+    );
+    expect(highestVisitedFishingJobId(emptyProficiency(), "mage")).toBeNull();
   });
 });

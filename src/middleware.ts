@@ -8,11 +8,11 @@ const { auth } = NextAuth(authConfig);
 // health check 가 살아 있게 함. 정적 자원은 matcher 에서 이미 제외.
 const STAGING_ALLOW = new Set<string>(["/api/health"]);
 
-// 점검(maintenance) 모드 — prod 에서 DB 작업/마이그/복구 시 켜는 토글. staging 게이트와 독립.
-//   MAINTENANCE_MODE=true (EC2 .env.production.local) + restart 로 ON, false/미설정이면 OFF.
-//   (.env*.local 은 gitignore 라 배포 git reset 에 안 씻김 → 켠 채 배포해도 유지.)
+// 예전 앱-레벨 점검 모드와의 호환용 fallback. 현재 운영 토글은 앱이 완전히 내려가도
+// 화면을 유지하도록 nginx 플래그(/etc/nginx/msmsge-maintenance.on)를 사용한다.
+//   MAINTENANCE_MODE=true 가 예전 .env.production.local 에 남은 경우에만 여기서 동작.
 //   /api/health 는 통과 → 모니터/헬스가 점검 중에도 살아있어 업타임 알림 오발 방지.
-//   토글 편의 스크립트: deploy/maintenance.sh on|off
+//   deploy/maintenance.sh off 가 legacy 값을 false 로 정리한 뒤 nginx 플래그를 해제한다.
 const MAINTENANCE_ALLOW = new Set<string>(["/api/health"]);
 
 // 점검 중 보일 HTML. CLOSED_HTML 과 동일 톤(니어블랙·미니멀·이모지 없음). 앱 의존 없이 인라인.

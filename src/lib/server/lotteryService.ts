@@ -10,9 +10,9 @@ import {
 import { spendGoldWith } from "@/adventure/data/v2/coreLoopConfig";
 import {
   LOTTERY_MAX_TICKETS_PER_ROUND,
-  LOTTERY_MIN_TICKETS_TO_DRAW,
   LOTTERY_PURCHASE_COOLDOWN_MS,
   LOTTERY_TICKET_PRICE,
+  hasEnoughLotteryParticipants,
   lotteryPrizeAmounts,
   lotteryRoundWindow,
   type LotterySnapshot,
@@ -142,14 +142,18 @@ async function creditBankedGold(
   return balances;
 }
 
-async function settleRound(tx: Tx, roundId: number, now: Date) {
+async function settleRound(
+  tx: Tx,
+  roundId: number,
+  now: Date,
+): Promise<number | null> {
   const [round] = await tx
     .select()
     .from(lotteryRounds)
     .where(eq(lotteryRounds.id, roundId))
     .for("update")
     .limit(1);
-  if (!round || round.status !== "open" || round.endsAt > now) return;
+  if (!round || round.status !== "open" || round.endsAt > now) return null;
 
   const purchases = await tx
     .select()
@@ -160,48 +164,41 @@ async function settleRound(tx: Tx, roundId: number, now: Date) {
     (sum, purchase) => sum + purchase.ticketCount,
     0,
   );
+  const participantCount = new Set(purchases.map((purchase) => purchase.userId)).size;
+  const { feeAmount, prizePool, prizes } = lotteryPrizeAmounts(
+    Number(round.grossPool),
+    Number(round.carryIn),
+  );
 
-  if (eligibleTickets < LOTTERY_MIN_TICKETS_TO_DRAW) {
-    const refunds = new Map<string, number>();
-    for (const purchase of purchases) {
-      refunds.set(
-        purchase.userId,
-        (refunds.get(purchase.userId) ?? 0) + Number(purchase.amountPaid),
-      );
-    }
-    await creditBankedGold(tx, refunds);
-    for (const [userId, amount] of refunds) {
-      await tx.insert(economyEvents).values({
-        userId,
-        eventType: "reward.lottery.refund",
-        goldDelta: economyGoldDelta(amount),
-        itemKind: "lottery_ticket",
-        itemId: String(round.id),
-        quantity: purchases
-          .filter((purchase) => purchase.userId === userId)
-          .reduce((sum, purchase) => sum + purchase.ticketCount, 0),
-        detail: {
-          roundId: round.id,
-          reason: "not_enough_tickets",
-          actualGoldDelta: amount,
-        },
-      });
-    }
+  if (!hasEnoughLotteryParticipants(participantCount)) {
+    await tx.insert(economyEvents).values({
+      eventType: "lottery.rollover",
+      goldDelta: 0,
+      itemKind: "lottery_prize_pool",
+      itemId: String(round.id),
+      quantity: participantCount,
+      detail: {
+        roundId: round.id,
+        participantCount,
+        totalTickets: eligibleTickets,
+        carryIn: Number(round.carryIn),
+        grossPool: Number(round.grossPool),
+        feeAmount,
+        rolloverAmount: prizePool,
+      },
+    });
     await tx
       .update(lotteryRounds)
       .set({
-        status: "refunded",
-        feeAmount: 0,
-        prizePool: 0,
+        status: "rolled_over",
+        feeAmount,
+        prizePool,
         settledAt: now,
       })
       .where(eq(lotteryRounds.id, round.id));
-    return;
+    return prizePool;
   }
 
-  const { feeAmount, prizePool, prizes } = lotteryPrizeAmounts(
-    Number(round.grossPool),
-  );
   const ordinals = drawLotteryTickets(
     eligibleTickets,
     round.drawSecret,
@@ -259,6 +256,28 @@ async function settleRound(tx: Tx, roundId: number, now: Date) {
       settledAt: now,
     })
     .where(eq(lotteryRounds.id, round.id));
+  return null;
+}
+
+async function applyCarryToRound(
+  tx: Tx,
+  roundId: number,
+  carryIn: number,
+): Promise<LotteryRoundRow> {
+  const [round] = await tx
+    .select()
+    .from(lotteryRounds)
+    .where(eq(lotteryRounds.id, roundId))
+    .for("update")
+    .limit(1);
+  if (!round) throw new Error("lottery carry target not found");
+  if (round.status !== "open" || round.carryIn > 0 || carryIn <= 0) return round;
+  const [updated] = await tx
+    .update(lotteryRounds)
+    .set({ carryIn })
+    .where(eq(lotteryRounds.id, round.id))
+    .returning();
+  return updated ?? { ...round, carryIn };
 }
 
 async function advanceRounds(tx: Tx, now: Date) {
@@ -267,8 +286,18 @@ async function advanceRounds(tx: Tx, now: Date) {
     .from(lotteryRounds)
     .where(and(eq(lotteryRounds.status, "open"), lte(lotteryRounds.endsAt, now)))
     .orderBy(asc(lotteryRounds.endsAt));
-  for (const round of due) await settleRound(tx, round.id, now);
-  return ensureCurrentRound(tx, now);
+  let pendingCarry: number | null = null;
+  for (const round of due) {
+    if (pendingCarry !== null) {
+      await applyCarryToRound(tx, round.id, pendingCarry);
+    }
+    pendingCarry = await settleRound(tx, round.id, now);
+  }
+  let current = await ensureCurrentRound(tx, now);
+  if (pendingCarry !== null) {
+    current = await applyCarryToRound(tx, current.id, pendingCarry);
+  }
+  return current;
 }
 
 async function snapshotInTx(
@@ -287,7 +316,9 @@ async function snapshotInTx(
   const [previous] = await tx
     .select()
     .from(lotteryRounds)
-    .where(inArray(lotteryRounds.status, ["settled", "refunded"]))
+    .where(
+      inArray(lotteryRounds.status, ["settled", "refunded", "rolled_over"]),
+    )
     .orderBy(desc(lotteryRounds.endsAt))
     .limit(1);
   const winners = previous
@@ -297,13 +328,22 @@ async function snapshotInTx(
         .where(eq(lotteryWinners.roundId, previous.id))
         .orderBy(asc(lotteryWinners.rank))
     : [];
+  const previousPurchases = previous
+    ? await tx
+        .select({ userId: lotteryPurchases.userId })
+        .from(lotteryPurchases)
+        .where(eq(lotteryPurchases.roundId, previous.id))
+    : [];
   const character = await readSave<Record<string, unknown>>(
     tx as DbExecutor,
     userId,
     "character.v2",
     {},
   );
-  const currentPrizes = lotteryPrizeAmounts(Number(currentRound.grossPool));
+  const currentPrizes = lotteryPrizeAmounts(
+    Number(currentRound.grossPool),
+    Number(currentRound.carryIn),
+  );
 
   return {
     round: {
@@ -312,7 +352,11 @@ async function snapshotInTx(
       endsAt: currentRound.endsAt.getTime(),
       ticketPrice: currentRound.ticketPrice,
       totalTickets: currentRound.totalTickets,
+      participantCount: new Set(
+        currentPurchases.map((purchase) => purchase.userId),
+      ).size,
       grossPool: Number(currentRound.grossPool),
+      carryIn: Number(currentRound.carryIn),
       prizePool: currentPrizes.prizePool,
       commitHash: currentRound.commitHash,
     },
@@ -328,9 +372,18 @@ async function snapshotInTx(
     previousRound: previous
       ? {
           id: previous.id,
-          status: previous.status === "refunded" ? "refunded" : "settled",
+          status:
+            previous.status === "refunded"
+              ? "refunded"
+              : previous.status === "rolled_over"
+                ? "rolled_over"
+                : "settled",
           totalTickets: previous.totalTickets,
+          participantCount: new Set(
+            previousPurchases.map((purchase) => purchase.userId),
+          ).size,
           grossPool: Number(previous.grossPool),
+          carryIn: Number(previous.carryIn),
           feeAmount: Number(previous.feeAmount),
           prizePool: Number(previous.prizePool),
           settledAt: previous.settledAt?.getTime() ?? previous.endsAt.getTime(),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LOTTERY_CYCLE_MS,
+  hasEnoughLotteryParticipants,
   lotteryPrizeAmounts,
   lotteryRoundWindow,
   parseLotteryCommand,
@@ -26,6 +27,21 @@ describe("lottery rules", () => {
       prizes: [283_500, 81_000, 40_500],
     });
     expect(result.prizes.reduce((sum, prize) => sum + prize, 0)).toBe(result.prizePool);
+  });
+
+  it("이월 상금에는 수수료를 다시 떼지 않고 새 구매액의 순액만 더한다", () => {
+    const result = lotteryPrizeAmounts(600_000, 405_000);
+    expect(result).toEqual({
+      feeAmount: 60_000,
+      prizePool: 945_000,
+      prizes: [661_500, 189_000, 94_500],
+    });
+  });
+
+  it("고유 참여자 2명 이하는 이월하고 3명부터 추첨한다", () => {
+    expect(hasEnoughLotteryParticipants(0)).toBe(false);
+    expect(hasEnoughLotteryParticipants(2)).toBe(false);
+    expect(hasEnoughLotteryParticipants(3)).toBe(true);
   });
 
   it("/복권은 1장, 숫자는 1~10장만 허용한다", () => {

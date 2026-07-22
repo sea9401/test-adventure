@@ -62,6 +62,7 @@ export async function resolveActor(userId: string): Promise<ResolvedActor> {
         className?: unknown;
         equippedTitleId?: unknown;
         museunCosmetics?: unknown;
+        arenaChampionshipBadges?: unknown;
       }
     | undefined;
   const profile = byKey["character-profile.v2"] as
@@ -95,6 +96,10 @@ export async function resolveActor(userId: string): Promise<ResolvedActor> {
     avatar,
     className,
     title,
-    cosmetics: museunCosmeticAppearance(character?.museunCosmetics),
+    cosmetics: museunCosmeticAppearance(
+      character?.museunCosmetics,
+      Date.now(),
+      character?.arenaChampionshipBadges,
+    ),
   };
 }

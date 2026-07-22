@@ -975,9 +975,8 @@ export const pvpMatches = pgTable(
   ],
 );
 
-// 주간 아레나 일요일 토너먼트. 시즌당 한 행으로 대진·3판 2선승 결과를 JSON 스냅샷에
-// 보관한다. 생성 트랜잭션에서 결과와 우편 보상까지 함께 확정하고 rewardsGrantedAt 으로
-// 중복 지급을 방지한다.
+// 주간 아레나 일요일 토너먼트. 자정에 대진·전투 스냅샷을 동결하고 정오부터 5분마다
+// bracket 의 다음 경기를 확정한다. snapshots 는 서버 전용이며 API 응답에 노출하지 않는다.
 export const pvpTournaments = pgTable(
   "pvp_tournaments",
   {
@@ -987,6 +986,7 @@ export const pvpTournaments = pgTable(
     bracketSize: integer("bracket_size").notNull(),
     status: text("status").notNull(),
     bracket: jsonb("bracket").notNull(),
+    snapshots: jsonb("snapshots").notNull().default(sql`'{}'::jsonb`),
     championUserId: text("champion_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -998,8 +998,43 @@ export const pvpTournaments = pgTable(
     index("pvp_tournaments_created_at_idx").on(t.createdAt),
     check(
       "pvp_tournaments_status_valid",
-      sql`${t.status} IN ('completed','not_enough_players')`,
+      sql`${t.status} IN ('scheduled','in_progress','completed','not_enough_players')`,
     ),
+  ],
+);
+
+// 챔피언십 경기별 유저 풀 베팅. 한 유저는 경기당 한 번만 베팅할 수 있고,
+// 경기 row 대신 시즌 row를 먼저 잠가 경기 확정과 베팅 마감의 race를 막는다.
+export const pvpTournamentBets = pgTable(
+  "pvp_tournament_bets",
+  {
+    seasonId: text("season_id")
+      .notNull()
+      .references(() => pvpTournaments.seasonId, { onDelete: "cascade" }),
+    matchId: text("match_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chosenUserId: text("chosen_user_id").notNull(),
+    amount: integer("amount").notNull(),
+    status: text("status").notNull().default("pending"),
+    payout: integer("payout").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    settledAt: timestamp("settled_at"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.seasonId, t.matchId, t.userId] }),
+    index("pvp_tournament_bets_match_idx").on(t.seasonId, t.matchId),
+    index("pvp_tournament_bets_user_idx").on(t.userId, t.createdAt),
+    check(
+      "pvp_tournament_bets_amount_valid",
+      sql`${t.amount} BETWEEN 100 AND 50000`,
+    ),
+    check(
+      "pvp_tournament_bets_status_valid",
+      sql`${t.status} IN ('pending','won','lost','refunded')`,
+    ),
+    check("pvp_tournament_bets_payout_valid", sql`${t.payout} >= 0`),
   ],
 );
 

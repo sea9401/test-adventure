@@ -212,6 +212,7 @@ export async function GET(req: Request) {
     equippedTitleId?: unknown;
     spFruitUsed?: unknown;
     museunCosmetics?: unknown;
+    arenaChampionshipBadges?: unknown;
   };
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
@@ -389,7 +390,11 @@ export async function GET(req: Request) {
       activeUntil: adventureSupportState?.activeUntil ?? null,
       regenBonusPct: staminaConfig.regenBonusPct,
     },
-    cosmetics: museunCosmeticAppearance(charSave.museunCosmetics),
+    cosmetics: museunCosmeticAppearance(
+      charSave.museunCosmetics,
+      now,
+      charSave.arenaChampionshipBadges,
+    ),
     hotTime: hotTime.active
       ? {
           title: hotTime.title,

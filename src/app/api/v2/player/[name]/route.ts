@@ -221,7 +221,11 @@ export async function GET(_req: Request, ctx: Ctx) {
       classDisplayName,
     },
     guild: guildId == null ? null : { name: guildName ?? "—" },
-    cosmetics: museunCosmeticAppearance(charSave.museunCosmetics),
+    cosmetics: museunCosmeticAppearance(
+      charSave.museunCosmetics,
+      Date.now(),
+      charSave.arenaChampionshipBadges,
+    ),
     stats: { base: combat.baseAllocatedStats, total: combat.totalStats },
     combat: {
       atk: combat.player.atk,

@@ -37,7 +37,11 @@ import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
-import { ChatCosmeticBadge, chatNameClass } from "./chat/ChatCosmetics";
+import {
+  ArenaChampionshipBadge,
+  ChatCosmeticBadge,
+  chatNameClass,
+} from "./chat/ChatCosmetics";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { ChatRoomManager } from "./chat/ChatRoomManager";
 import {
@@ -202,6 +206,9 @@ function ChatRoomList({
                     latest.content.replace(/\s+/g, " ")
                   ) : (
                     <>
+                      <ArenaChampionshipBadge
+                        badge={latest.cosmetics?.championshipBadge}
+                      />
                       <ChatCosmeticBadge badge={latest.cosmetics?.chatBadge} />
                       <span
                         className={chatNameClass(
@@ -968,6 +975,9 @@ export function ChatPanel({
                         {u.title}
                       </span>
                     )}
+                    <ArenaChampionshipBadge
+                      badge={u.cosmetics?.championshipBadge}
+                    />
                     <ChatCosmeticBadge badge={u.cosmetics?.chatBadge} />
                     {u.mine ? (
                       <span

@@ -239,6 +239,7 @@ export async function GET() {
       honor?: unknown;
       honorEarned?: unknown;
       museunCosmetics?: unknown;
+      arenaChampionshipBadges?: unknown;
     } | null;
     if (typeof v?.level === "number") levelByUser.set(r.userId, v.level);
     const cls = parseV2Class(v?.class);
@@ -255,7 +256,11 @@ export async function GET() {
     );
     cosmeticsByUser.set(
       r.userId,
-      museunCosmeticAppearance(v?.museunCosmetics),
+      museunCosmeticAppearance(
+        v?.museunCosmetics,
+        Date.now(),
+        v?.arenaChampionshipBadges,
+      ),
     );
   }
   const artisanByUser = new Map<

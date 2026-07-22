@@ -29,7 +29,6 @@ import {
 } from "@/adventure/data/v2/codex";
 import {
   V2_CORE_LOOP_V2,
-  V2_LEVEL_CAP,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
@@ -39,6 +38,7 @@ import {
   isRootJobSelectable,
   jobUnlockSpBonus,
   jobIdFromLegacy,
+  rejobRequiredLevel,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
@@ -65,8 +65,9 @@ import {
 import { miningProgressionView } from "@/adventure/v2/miningProgression";
 
 // POST /api/v2/me/advance-class.
-// 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 V2_LEVEL_CAP + v2JobCatalog
-// 해금 조건(직업 숙련도/추가 조건)이며, 같은 직업 재전직은 해금 조건을 다시 보지 않는다.
+// 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 현재 직업별 필요 레벨 +
+// v2JobCatalog 해금 조건(직업 숙련도/추가 조건)이며, 생산 직업은 Lv 1, 나머지는 Lv 100을 요구한다.
+// 같은 직업 재전직은 해금 조건을 다시 보지 않는다.
 // 코어루프 off: 옛 차수 승급/환생 경로. 현 차수 레벨캡 + 3·4차 모험의 서 요건만 본다
 // (옛 숙련도 임계 55/110/170은 레벨캡과 충돌해 폐지).
 
@@ -147,13 +148,18 @@ export async function POST(req: Request) {
     //     해금된 직업으로 갈아타고 레벨1·exp0·grown 리셋, 숙련도/points/caps 보존. ===
     if (V2_CORE_LOOP_V2) {
       const lvl = Math.max(1, charSave.level ?? 1);
-      if (lvl < V2_LEVEL_CAP) {
+      const currentJobId = jobIdFromLegacy(
+        parseV2Class(charSave.class),
+        typeof charSave.specChoice === "string" ? charSave.specChoice : null,
+      );
+      const requiredLevel = rejobRequiredLevel(currentJobId);
+      if (lvl < requiredLevel) {
         return {
           status: 400,
           body: {
             ok: false as const,
             error: "level_too_low" as const,
-            required: V2_LEVEL_CAP,
+            required: requiredLevel,
             have: lvl,
           },
         };
@@ -176,10 +182,6 @@ export async function POST(req: Request) {
       // 🔑 같은 직업 재전직(환생 루프)이면 해금 게이트를 건너뛴다 — 이미 그 직업을 보유 중이므로
       //   해금 규칙이 나중에 바뀌어도(예: 직군 게이팅 → 계보 게이팅) 자기 직업 환생은 항상 가능해야
       //   한다(옛 규칙으로 얻은 직업이 새 규칙 미달이라 재전직조차 막히는 잠금 방지).
-      const currentJobId = jobIdFromLegacy(
-        parseV2Class(charSave.class),
-        typeof charSave.specChoice === "string" ? charSave.specChoice : null,
-      );
       const isReJobToCurrent = targetJobId === currentJobId;
       // 해금 게이트 = 직업 숙련도 prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
       //   prereqs 비어 통과(위 레벨 한계가 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.

@@ -201,6 +201,42 @@ describe("advance-class — 생활 직업 레벨 조건", () => {
     store.set("skills.v2", { learned: [], equipped: [] });
   }
 
+  it("생산 직업은 캐릭터 Lv.1에서도 재전직할 수 있다", async () => {
+    seedLifestyleCandidate("miner");
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "miner",
+      level: 1,
+    });
+
+    const res = await POST(advanceReq("miner"));
+    const json = (await res.json()) as { ok?: boolean; reincarnated?: boolean };
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, reincarnated: true });
+  });
+
+  it("전투 직업은 여전히 캐릭터 Lv.100을 요구한다", async () => {
+    seed("warrior", "warrior", 0);
+    store.set("character.v2", {
+      class: "warrior",
+      specChoice: null,
+      level: 1,
+    });
+
+    const res = await POST(advanceReq("warrior"));
+    const json = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      required?: number;
+    };
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({
+      ok: false,
+      error: "level_too_low",
+      required: 100,
+    });
+  });
+
   it("광부가 채광 Lv.10이면 광산 기술자로 전직된다", async () => {
     seedLifestyleCandidate("miner");
     store.set("mining-log.v1", {

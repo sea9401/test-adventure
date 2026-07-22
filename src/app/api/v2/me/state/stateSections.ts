@@ -30,7 +30,6 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   V2_CORE_LOOP_V2,
-  V2_LEVEL_CAP,
   HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   OFFLINE_MAX_MS,
@@ -67,6 +66,7 @@ import {
   jobIdFromLegacy,
   jobUnlockConditionText,
   cumLevelForJob,
+  rejobRequiredLevel,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
@@ -169,7 +169,7 @@ export function jobsV2Section(params: {
   return {
     currentJobId,
     currentJobName,
-    atLevelCap: level >= V2_LEVEL_CAP,
+    atLevelCap: level >= rejobRequiredLevel(currentJobId),
     jobs: V2_JOB_LIST.filter(
       // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
       (job) => isRootJobSelectable(job),

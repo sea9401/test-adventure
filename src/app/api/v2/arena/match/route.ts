@@ -643,6 +643,7 @@ export async function POST() {
     const historyEntry: ArenaHistoryEntry = {
       id: `${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
       at: now.toISOString(),
+      role: "attacker",
       outcome,
       opponent: { name: oppName, level: oppLevel, userId: oppUserId, botId: oppBotId },
       scoreBefore: elo.attackerScoreBefore,
@@ -659,6 +660,7 @@ export async function POST() {
               Math.random() * 1e6,
             ).toString(36)}`,
             at: now.toISOString(),
+            role: "defender",
             outcome: oppositeArenaOutcome(outcome),
             opponent: { name: viewerName, level: myLevel, userId },
             scoreBefore: elo.defenderScoreBefore,

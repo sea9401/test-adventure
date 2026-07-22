@@ -28,6 +28,7 @@ import {
 const histEntry = (id: string): ArenaHistoryEntry => ({
   id,
   at: "2026-06-08T00:00:00.000Z",
+  role: "attacker",
   outcome: "win",
   opponent: { name: "상대", level: 30 },
   scoreBefore: 100,
@@ -64,6 +65,19 @@ describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
   it("parseArenaHistory 도 MAX 로 자른다(오염 세이브 방어)", () => {
     const big = Array.from({ length: ARENA_HISTORY_MAX + 10 }, (_, i) => histEntry(`x${i}`));
     expect(parseArenaHistory(big)).toHaveLength(ARENA_HISTORY_MAX);
+  });
+
+  it("구형 기록의 공격/방어 역할을 골드 보상으로 판별한다", () => {
+    const { role: _attackRole, ...legacyAttack } = histEntry("attack");
+    const { role: _defenseRole, ...legacyDefense } = {
+      ...histEntry("defense"),
+      goldGained: 0,
+    };
+
+    expect(parseArenaHistory([legacyAttack, legacyDefense])).toMatchObject([
+      { id: "attack", role: "attacker" },
+      { id: "defense", role: "defender" },
+    ]);
   });
 });
 

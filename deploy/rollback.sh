@@ -6,7 +6,7 @@
 #       git revert <나쁜커밋> && git push     (안 하면 다음 배포가 나쁜 코드를 다시 당겨온다)
 # ⚠️ 나쁜 배포가 DB 마이그레이션을 포함했다면 코드 롤백만으론 부족 —
 #       백업 복원(deploy/backup-db.sh 산출물) 또는 교정 마이그가 필요. 스키마-코드 정합 확인.
-# 💡 롤백 중 유저에게 점검 페이지를 보이려면 먼저:  bash deploy/maintenance.sh on   (끝나면 off)
+# 롤백을 시작하면 nginx 점검 페이지를 자동으로 켜고, 앱 health 확인 뒤 해제한다.
 #
 # 사용:  bash deploy/rollback.sh           # 최근 커밋 목록(어디로 되돌릴지 고르기)
 #        bash deploy/rollback.sh <sha>     # 그 커밋으로 롤백
@@ -34,12 +34,19 @@ FROM=$(git rev-parse --short HEAD)
 TO=$(git rev-parse --short "$TARGET")
 echo "롤백: $FROM → $TO   [$(git log -1 --pretty=%s "$TARGET")]"
 
+# reset 대상이 예전 커밋이어도 현재 무중단 토글을 끝까지 쓸 수 있게 임시 보관한다.
+MAINTENANCE_TOOL=$(mktemp)
+cp deploy/maintenance.sh "$MAINTENANCE_TOOL"
+trap 'rm -f "$MAINTENANCE_TOOL"' EXIT
+PROJECT_DIR="$PWD" bash "$MAINTENANCE_TOOL" on
+
 git reset --hard "$TARGET"
 bash deploy/install-deps.sh
 rm -rf .next
 npm run build
 sudo systemctl restart adventure-rpg
 sleep 3
+PROJECT_DIR="$PWD" bash "$MAINTENANCE_TOOL" off
 
 echo
 echo "service : $(systemctl is-active adventure-rpg)"

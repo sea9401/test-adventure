@@ -12,6 +12,9 @@ git fetch --prune origin
 git checkout main
 git reset --hard origin/main   # 로컬 변경 무시하고 origin/main 에 맞춤
 
+echo "▶ nginx maintenance on"
+bash deploy/maintenance.sh on
+
 echo "▶ deps"
 bash deploy/install-deps.sh
 
@@ -31,5 +34,8 @@ sudo systemctl --no-pager status adventure-rpg | head -n 4
 
 echo "▶ health check"
 curl -fsS -o /dev/null -w 'http=%{http_code}\n' http://127.0.0.1:3000/api/health || true
+
+echo "▶ nginx maintenance off"
+bash deploy/maintenance.sh off
 
 echo "▶ done"

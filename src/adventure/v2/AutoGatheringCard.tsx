@@ -122,7 +122,7 @@ export function AutoGatheringCard({
       ) : null}
 
       {session ? (
-        <div className={ready ? "grid gap-2 sm:grid-cols-2" : "space-y-2"}>
+        <div className="space-y-2">
           <Button
             disabled={loading || !ready}
             onClick={() => {
@@ -141,27 +141,29 @@ export function AutoGatheringCard({
                 ? "자동 작업 보상 받기"
                 : `자동 ${activityName} 진행 중`}
           </Button>
-          <Button
-            disabled={loading}
-            onClick={() => {
-              setError(null);
-              if (
-                !window.confirm(
-                  `자동 ${activityName}을 취소할까요? 진행 중인 보상은 받을 수 없습니다.`,
-                )
-              ) {
-                return;
-              }
-              void onCancel().catch(() => {
-                setError(`자동 ${activityName}을 취소하지 못했습니다.`);
-              });
-            }}
-            variant="danger"
-            size="md"
-            fullWidth
-          >
-            자동 {activityName} 취소
-          </Button>
+          {!ready ? (
+            <Button
+              disabled={loading}
+              onClick={() => {
+                setError(null);
+                if (
+                  !window.confirm(
+                    `자동 ${activityName}을 중단할까요? 지금까지 완료된 작업은 정산됩니다.`,
+                  )
+                ) {
+                  return;
+                }
+                void onCancel().catch(() => {
+                  setError(`자동 ${activityName}을 중간 정산하지 못했습니다.`);
+                });
+              }}
+              variant="danger"
+              size="md"
+              fullWidth
+            >
+              진행분 정산 후 중단
+            </Button>
+          ) : null}
         </div>
       ) : (
         <Button

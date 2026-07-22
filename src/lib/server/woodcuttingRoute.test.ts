@@ -141,7 +141,8 @@ describe("woodcutting routes", () => {
     });
   });
 
-  it("자동 벌목을 중간 취소하면 보상 없이 세션만 제거한다", async () => {
+  it("자동 벌목을 중단하면 완료된 진행분을 정산한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
     store.set(WOODCUTTING_AUTO_KEY, {
       session: {
         sessionId: "wood-auto",
@@ -150,7 +151,7 @@ describe("woodcutting routes", () => {
         materialId: OAK,
         startedAt: NOW,
         readyAt: NOW + 30 * 60_000,
-        cycleDurationMs: 7_000,
+        cycleDurationMs: 9_000,
         attempts: 200,
         successRate: 0.9,
         bonusMaterialRate: 0,
@@ -173,16 +174,32 @@ describe("woodcutting routes", () => {
     );
 
     expect(response.status).toBe(200);
+    await expect(response.clone().json()).resolves.toMatchObject({
+      ok: true,
+      canceled: true,
+      attempts: 100,
+      successes: 90,
+      materialsGained: 72,
+      xpGained: 630,
+    });
     expect(store.get(WOODCUTTING_AUTO_KEY)).toMatchObject({
       session: null,
       remainders: {
         successes: { oak: 0.25 },
         materials: { [OAK]: 0.5 },
         xp: 0.75,
-        mastery: 0.4,
       },
     });
-    expect(charOf().materials?.[OAK]).toBe(3);
+    const autoState = store.get(WOODCUTTING_AUTO_KEY) as {
+      remainders: { mastery: number };
+    };
+    expect(autoState.remainders.mastery).toBeCloseTo(0.4);
+    expect(charOf().materials?.[OAK]).toBe(75);
+    expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
+      cuts: 90,
+      xp: 630,
+      timberEarned: 72,
+    });
   });
 
   it("수동 낚시 중에는 자동 벌목을 시작할 수 없다", async () => {

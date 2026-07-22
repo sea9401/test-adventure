@@ -279,9 +279,11 @@ export function useWoodcutting(): WoodcuttingHandlers {
       });
       const json = await readJson(response);
       if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_cancel_failed");
+      setMaterials(parseMaterials(json.materials));
+      setLog(parseLog(json.log));
       setAutoSession(null);
       setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
-      setAutoResult(null);
+      setAutoResult(parseAutoResult(json));
     } finally {
       setAutoLoading(false);
     }

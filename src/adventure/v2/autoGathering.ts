@@ -170,6 +170,17 @@ export function cancelAutoGathering(
   return { session: null, remainders: state.remainders };
 }
 
+export function autoGatheringCompletedAttempts(
+  session: AutoGatheringSession,
+  now: number,
+): number {
+  const elapsedMs = Math.max(0, finiteNumber(now) - session.startedAt);
+  return Math.min(
+    session.attempts,
+    Math.max(0, Math.floor(elapsedMs / session.cycleDurationMs)),
+  );
+}
+
 export type AutoGatheringSettlement = {
   attempts: number;
   successes: number;
@@ -186,13 +197,19 @@ function splitWholeReward(value: number): { whole: number; remainder: number } {
 
 export function settleAutoGathering(
   state: AutoGatheringState,
+  attempts: number = state.session?.attempts ?? 0,
 ): AutoGatheringSettlement | null {
   const session = state.session;
   if (!session) return null;
 
+  const settledAttempts = Math.min(
+    session.attempts,
+    Math.max(0, Math.floor(finiteNumber(attempts))),
+  );
+
   const expectedSuccesses =
     (state.remainders.successes[session.sourceId] ?? 0) +
-    session.attempts * session.successRate;
+    settledAttempts * session.successRate;
   const successReward = splitWholeReward(expectedSuccesses);
   const successes = successReward.whole;
   const expectedMaterials =
@@ -213,7 +230,7 @@ export function settleAutoGathering(
   const masteryGained = masteryReward.whole;
 
   return {
-    attempts: session.attempts,
+    attempts: settledAttempts,
     successes,
     materialsGained,
     xpGained,

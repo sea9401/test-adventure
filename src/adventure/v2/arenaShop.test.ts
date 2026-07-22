@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  ARENA_SHOP_CONSUMABLES,
   ARENA_SHOP_TITLES,
+  arenaShopConsumablePriceFor,
   arenaShopEntries,
   arenaShopPriceFor,
 } from "./arenaShop";
@@ -36,5 +38,16 @@ describe("투기장 코인 상점 카탈로그", () => {
     expect(gladiator?.price).toBe(200);
     expect((gladiator?.name.length ?? 0)).toBeGreaterThan(0);
     expect((gladiator?.description.length ?? 0)).toBeGreaterThan(0);
+  });
+
+  it("소비품에 스태미나 회복약을 투기장 코인 200으로 둔다", () => {
+    expect(ARENA_SHOP_CONSUMABLES).toHaveLength(1);
+    expect(ARENA_SHOP_CONSUMABLES[0]).toMatchObject({
+      itemId: "stamina_potion",
+      name: "스태미나 회복약",
+      price: 200,
+    });
+    expect(arenaShopConsumablePriceFor("stamina_potion")).toBe(200);
+    expect(arenaShopConsumablePriceFor("not_an_item")).toBeUndefined();
   });
 });

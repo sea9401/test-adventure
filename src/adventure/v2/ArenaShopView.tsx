@@ -1,15 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { CoinTitleShopList } from "./CoinShopLists";
-import { arenaShopEntries } from "./arenaShop";
+import {
+  CoinConsumableShopList,
+  CoinTitleShopList,
+} from "./CoinShopLists";
+import {
+  ARENA_SHOP_CONSUMABLES,
+  arenaShopEntries,
+} from "./arenaShop";
 import type { BuyResult, ArenaShopState } from "./useArenaShop";
 import { useSystemToast } from "./RewardToastProvider";
 import { CoinAmount } from "./CoinAmount";
 
-// 투기장 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useArenaShop).
+// 투기장 코인 상점 — 칭호/소비품 구매. 데이터·구매 핸들러는 주입(useArenaShop).
 // V2ArenaView 의 "상점" 탭 안에 임베드되므로 자체 헤더(SubViewHeader)는 두지 않고
-// 코인 잔액 줄 + 칭호 목록만 렌더한다. (낚시 코인 상점 FishingShopView 미러.)
+// 코인 잔액 줄 + 상품 목록만 렌더한다. (낚시 코인 상점 FishingShopView 미러.)
 
 const ENTRIES = arenaShopEntries();
 
@@ -19,12 +25,14 @@ export function ArenaShopView({
   error,
   buying,
   onBuy,
+  onBuyConsumable,
 }: {
   state: ArenaShopState | null;
   loading: boolean;
   error?: string | null;
   buying: string | null;
   onBuy: (titleId: string) => Promise<BuyResult>;
+  onBuyConsumable: (itemId: string) => Promise<BuyResult>;
 }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -37,13 +45,20 @@ export function ArenaShopView({
     notifySystem(r.message, r.ok ? "success" : "error");
   };
 
+  const handleBuyConsumable = async (itemId: string) => {
+    const r = await onBuyConsumable(itemId);
+    setMessage({ ok: r.ok, text: r.message });
+    notifySystem(r.message, r.ok ? "success" : "error");
+  };
+
   const coins = state?.coins ?? 0;
+  const staminaPotions = state?.staminaPotions ?? 0;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          주간 시즌 순위 보상으로 받은 투기장 코인으로 칭호를 구매하세요.
+          주간 시즌 순위 보상으로 받은 투기장 코인으로 칭호와 소비품을 구매하세요.
         </p>
         <CoinAmount
           amount={coins}
@@ -72,14 +87,34 @@ export function ArenaShopView({
           {error}
         </p>
       ) : (
-        <CoinTitleShopList
-          entries={ENTRIES}
-          coins={coins}
-          ownedTitleIds={state?.ownedTitleIds ?? []}
-          buying={buying}
-          onBuy={handleBuy}
-          accent="sky"
-        />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <p className="px-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              칭호
+            </p>
+            <CoinTitleShopList
+              entries={ENTRIES}
+              coins={coins}
+              ownedTitleIds={state?.ownedTitleIds ?? []}
+              buying={buying}
+              onBuy={handleBuy}
+              accent="sky"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <p className="px-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              소비품
+            </p>
+            <CoinConsumableShopList
+              consumables={ARENA_SHOP_CONSUMABLES}
+              coins={coins}
+              staminaPotions={staminaPotions}
+              buying={buying}
+              onBuyConsumable={handleBuyConsumable}
+              accent="sky"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

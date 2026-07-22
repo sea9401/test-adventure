@@ -20,6 +20,7 @@ import { Pool } from "pg";
 import { readdir, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
+import { createDatabaseConnectionOptions } from "./databaseTls.mjs";
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -28,8 +29,7 @@ if (!url) {
 }
 
 const pool = new Pool({
-  connectionString: url,
-  ssl: { rejectUnauthorized: false },
+  ...createDatabaseConnectionOptions(url),
 });
 try {
   await pool.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);

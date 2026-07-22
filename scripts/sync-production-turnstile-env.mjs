@@ -13,6 +13,9 @@ const required = {
   TURNSTILE_EXPECTED_HOSTNAMES:
     process.env.TURNSTILE_EXPECTED_HOSTNAMES?.trim(),
 };
+const optionalOpsAlert = {
+  OPS_ALERT_WEBHOOK_URL: process.env.OPS_ALERT_WEBHOOK_URL?.trim(),
+};
 const optionalCaptcha = {
   HCAPTCHA_SITE_KEY: process.env.HCAPTCHA_SITE_KEY?.trim(),
   HCAPTCHA_SECRET_KEY: process.env.HCAPTCHA_SECRET_KEY?.trim(),
@@ -30,6 +33,9 @@ const optionalReviewLogin = {
   REVIEW_LOGIN_PASSWORD: process.env.REVIEW_LOGIN_PASSWORD,
   REVIEW_LOGIN_USER_EMAIL: process.env.REVIEW_LOGIN_USER_EMAIL?.trim(),
 };
+const productionDefaults = {
+  DATABASE_CA_CERT_PATH: "/etc/pki/rds/global-bundle.pem",
+};
 
 for (const [key, value] of Object.entries(required)) {
   if (!value) {
@@ -38,6 +44,15 @@ for (const [key, value] of Object.entries(required)) {
   }
   if (/[\r\n\0]/.test(value)) {
     console.error(`✗ deployment secret contains invalid characters: ${key}`);
+    process.exit(1);
+  }
+}
+if (optionalOpsAlert.OPS_ALERT_WEBHOOK_URL) {
+  try {
+    const opsWebhookUrl = new URL(optionalOpsAlert.OPS_ALERT_WEBHOOK_URL);
+    if (opsWebhookUrl.protocol !== "https:") throw new Error();
+  } catch {
+    console.error("✗ OPS_ALERT_WEBHOOK_URL must be a valid https URL");
     process.exit(1);
   }
 }
@@ -85,7 +100,9 @@ for (const [key, value] of Object.entries(optionalReviewLogin)) {
 }
 
 const synchronized = {
+  ...productionDefaults,
   ...required,
+  ...(optionalOpsAlert.OPS_ALERT_WEBHOOK_URL ? optionalOpsAlert : {}),
   ...(suppliedCaptchaCredentials.length === 2
     ? {
         HCAPTCHA_SITE_KEY: optionalCaptcha.HCAPTCHA_SITE_KEY,
@@ -123,8 +140,13 @@ for (const [key, value] of Object.entries(synchronized)) {
 const next = `${lines.join("\n").replace(/\n*$/, "")}\n`;
 const mode = statSync(envPath).mode & 0o777;
 const temporaryPath = `${envPath}.turnstile.tmp`;
-writeFileSync(temporaryPath, next, { encoding: "utf8", mode });
-chmodSync(temporaryPath, mode);
+if ((mode & 0o077) !== 0) {
+  console.warn(
+    `⚠ ${envPath} permissions ${mode.toString(8)} tightened to 600`,
+  );
+}
+writeFileSync(temporaryPath, next, { encoding: "utf8", mode: 0o600 });
+chmodSync(temporaryPath, 0o600);
 renameSync(temporaryPath, envPath);
 
 console.log(

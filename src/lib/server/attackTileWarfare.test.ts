@@ -124,7 +124,15 @@ vi.mock("@/db", () => {
     c.from = () => c;
     c.where = () => c;
     c.for = () => c;
-    c.orderBy = () => rows(cols); // 수비 큐 종단
+    c.orderBy = () => {
+      // 기존 쿼리는 orderBy가 종단이고, replay 보존 쿼리는 orderBy→offset→limit 체인.
+      // 둘 다 지원해 부수효과 실패 로그가 실제 회귀를 가리지 않게 한다.
+      const result = rows(cols) as Promise<unknown[]> & {
+        offset: () => Record<string, unknown>;
+      };
+      result.offset = () => c;
+      return result;
+    };
     c.limit = () => rows(cols); // 그 외 종단
     return c;
   }
@@ -152,6 +160,7 @@ vi.mock("@/db", () => {
     db: {
       transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(tx)),
       select: (cols?: unknown) => chain(cols),
+      update: () => ({ set: () => ({ where: async () => undefined }) }),
     },
   };
 });

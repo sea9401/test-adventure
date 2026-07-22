@@ -16,15 +16,16 @@ import {
   type APSkillCondition,
 } from "@/adventure/character/apSkills";
 import {
-  MAX_STAMINA,
   parseStaminaFromSave,
   type StaminaState,
 } from "@/adventure/v2/stamina";
+import {
+  HP_LIFT_V1,
+  INITIAL_CHARACTER_SAVE,
+} from "@/adventure/starterSaveValues";
 
 // PR #140 (baseCharacter.maxHp 47 → 97) 이전 캐릭터의 hp 저장값에 +50 을 일률 보정하는
 // 일회성 마이그레이션 키. derivePlayerCombat 가 maxHp 로 클램프하므로 maxHp 초과해도 안전.
-const HP_LIFT_V1 = "hpLift_v1";
-
 export type CharacterDynamicState = {
   hp: number;
   level: number;
@@ -85,18 +86,8 @@ function todayLocalDateKey(): string {
   return new Date().toLocaleDateString("sv-SE");
 }
 
-export const initialCharacterState: CharacterDynamicState = {
-  hp: 97,
-  level: 1,
-  exp: 0,
-  gold: 50,
-  fame: 0,
-  equippedTitleId: null,
-  // 신규 유저는 이미 +50 후 베이스로 시작하므로 마이그레이션 적용된 것으로 시드.
-  migrations: { [HP_LIFT_V1]: true },
-  // lastUpdatedAt 0 — 첫 readInitial 시 nowMs 까지의 시간이 흘러 자연히 만피.
-  stamina: { current: MAX_STAMINA, lastUpdatedAt: 0 },
-};
+export const initialCharacterState: CharacterDynamicState =
+  INITIAL_CHARACTER_SAVE;
 
 // 저장된 EquipItem 슬롯 매핑을 "지금" 데이터 정의로 다시 만들어 옛 인스턴스가 남지 않게.
 // 실제 변환은 rehydrateEquippedItem 공용 헬퍼 — craftTier/dropQuality 가 일관되게 반영되도록.

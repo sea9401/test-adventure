@@ -32,7 +32,8 @@ ssh -i ~/.ssh/msmsge-key.pem ec2-user@54.180.28.29
 # DB 접속 (EC2 안에서 — prod URL은 거기에만 있음)
 cd ~/adventure-rpg
 DBURL=$(grep "^DATABASE_URL=" .env.production.local | cut -d= -f2- | tr -d '"')
-psql "$DBURL"
+CA=$(grep "^DATABASE_CA_CERT_PATH=" .env.production.local | cut -d= -f2- | tr -d '"')
+PGSSLMODE=verify-full PGSSLROOTCERT="$CA" psql "$DBURL"
 ```
 EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node` 있음. 단 **aws CLI 자격증명 없음**(IAM 역할/키 미부착) → AWS 리소스 조작은 콘솔 또는 역할 부착 후.
 
@@ -40,7 +41,7 @@ EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node` 있음. 단 
 
 ## 3. 배포
 
-**배포 = `main` 에 머지** (push:main → 자동). 흐름: GitHub Action `deploy.yml`(appleboy/ssh-action, 시크릿 `EC2_HOST`/`EC2_SSH_KEY`) → EC2에서 `git reset --hard origin/main` → **nginx 점검 ON** → `install-deps.sh` → `migrate.mjs`(대기 마이그 적용) → `npm run build` → `sudo systemctl restart adventure-rpg` → **스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → **점검 OFF**. 중간 실패 시 점검 화면을 유지한다.
+**배포 = `main` 에 머지** (CI 성공 후 자동). 흐름: GitHub Action `deploy.yml`이 CI가 검증한 정확한 SHA를 EC2에서 체크아웃 → **nginx 점검 ON** → `install-deps.sh` → 운영 환경 사전 검사 → `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl restart adventure-rpg` → **스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → **점검 OFF**. 중간 실패 시 점검 화면을 유지한다.
 
 > ✅ **배포 후 스모크**: 재시작 뒤 라이브를 찔러보고 200 이 아니면 **배포 Action 을 빨간불**로 만든다(빌드 성공 ≠ 앱 정상 — 마이그 0-테이블 같은 사고도 잡음). 빨간불 뜨면 → `rollback.sh` 로 되돌린다.
 
@@ -91,13 +92,24 @@ bash deploy/rollback.sh <좋은sha>        # reset→install→build→restart�
 ## 4. DB 운영
 
 ### 백업
-- **자동(일일)**: `deploy/backup-db.sh` 가 매일 **17:00 UTC(02:00 KST)** RDS → `~/backups/auto_*.sql.gz` (gzip·14일 로테이션·무결성 검증). crontab 등록은 `deploy/crontab.txt` 참고. 로그 `~/backups/backup.log`.
+- **자동(일일)**: `deploy/backup-db.sh` 가 매일 **17:00 UTC(02:00 KST)** RDS → `~/backups/auto_*.sql.gz` (TLS 호스트 검증·gzip·14일 로테이션·무결성 검증). `BACKUP_S3_URI`가 있으면 S3에 SSE-S3 암호화 복제한다. crontab 등록은 `deploy/crontab.txt` 참고. 로그 `~/backups/backup.log`.
 - **수동(작업 직전 임시)**:
 ```bash
 cd ~/adventure-rpg && bash deploy/backup-db.sh         # 자동백업 스크립트 그대로(검증 포함)
 # 또는 직접: pg_dump "$DBURL" --no-owner --no-acl -f ~/backups/backup_$(date +%F_%H%M%S).sql
 ```
-- **2중 안전(권장)**: AWS 콘솔에서 **RDS 자동 스냅샷/PITR 보존기간 > 0** 확인(관리형·시점복원). + 추후 IAM 역할 붙이면 `backup-db.sh` 에 S3 업로드 한 줄 추가.
+- **2중 안전(권장)**: AWS 콘솔에서 **RDS 자동 스냅샷/PITR 보존기간 > 0** 확인(관리형·시점복원). EC2 IAM 역할에 백업 prefix 쓰기 권한을 부여하고 `BACKUP_S3_URI`를 설정한다.
+
+### RDS 인증서 검증
+
+```bash
+cd ~/adventure-rpg
+bash deploy/install-rds-ca.sh
+# .env.production.local
+DATABASE_CA_CERT_PATH=/etc/pki/rds/global-bundle.pem
+```
+
+`DATABASE_URL`에는 `sslmode`나 `sslrootcert`를 붙이지 않는다. 앱·마이그레이션은 위 CA로 인증서와 호스트명을 검증하고, `backup-db.sh`는 `verify-full`로 동일하게 검증한다.
 
 ### 복구
 ```bash
@@ -157,7 +169,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 - `/api/version` = 빌드 정보.
 - 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정, 매크로 의심 점수 확인.
 - 운영 현황의 매크로 의심 userId/IP는 `이상 행동`·`경제 로그` 필터로 바로 연결된다.
-- `OPS_ALERT_WEBHOOK_URL` 이 설정되어 있으면 임계치 알림과 일일 운영 리포트가 webhook으로 발송된다.
+- `OPS_ALERT_WEBHOOK_URL`은 선택이다. 설정하면 임계치 알림·일일 운영 리포트·크론 실패가 webhook으로 발송되고, 없으면 웹훅 알림만 비활성화된다.
 - 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
 - ⬜ 외부 업타임 모니터(Route53 헬스체크/CloudWatch/UptimeRobot)는 미설정 — 추후.
 
@@ -165,13 +177,18 @@ bash deploy/maintenance.sh status   # 현재 상태
 
 ## 6. 크론 (EC2 `crontab -l`, UTC)
 정기 작업이 EC2 crontab으로 돈다(각 라우트가 `CRON_SECRET` Bearer 검사). 종류:
-- **일일 04:00 UTC**: chat/bulletin/guilds cleanup
+- **매분**: 협동 보스 리스폰
+- **매시 00분**: 복권 정산 · NPC 공격
+- **매시 05분**: 거래소 만료 매물 정리
+- **일일 04:00 UTC**: 채팅 · 길드 정리
 - **일일 04:20 UTC**: ops-retention(이상 행동/경제 로그 보관 기간 초과분 정리)
 - **일일 04:25 UTC**: ops-daily-report(최근 24시간 운영 지표 webhook 리포트)
-- **일요일 15:0x UTC**: tower-weekly-cycle · pvp-season-rollover · pvp/fishing/treasure **season-rewards** · war-season-rollover(제거 대상이면 해제)
+- **일일 17:00 UTC**: DB 백업(선택적으로 `BACKUP_S3_URI`에도 암호화 업로드)
+- **토요일 15:00 UTC**: PvP 토너먼트
+- **일요일 15:0x UTC**: 탑 주간 초기화 · PvP 시즌 전환 · PvP/낚시 시즌 보상
 - TLS: `certbot-renew.timer`(systemd, 하루 2회)
 
-크론 실패는 현재 **알림 없음**(추후 모니터링 대상). 점검: `ssh … 'crontab -l'`, 로그 `journalctl`.
+각 작업은 `deploy/run-cron.sh`를 통해 실행되며, HTTP 오류·타임아웃 시 `OPS_ALERT_WEBHOOK_URL`로 즉시 알린다. 점검: `ssh … 'crontab -l'`, 로그 `journalctl`.
 
 ---
 

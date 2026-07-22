@@ -15,6 +15,7 @@ import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { existsSync } from "node:fs";
+import { createDatabaseConnectionOptions } from "./databaseTls.mjs";
 
 // drizzle/ 폴더가 아직 없으면(첫 generate 이전) 무중단 종료.
 if (!existsSync("./drizzle/meta/_journal.json")) {
@@ -35,8 +36,7 @@ if (!url) {
 }
 
 const pool = new Pool({
-  connectionString: url,
-  ssl: { rejectUnauthorized: false },
+  ...createDatabaseConnectionOptions(url),
 });
 try {
   console.log("→ migrations 적용 시작…");

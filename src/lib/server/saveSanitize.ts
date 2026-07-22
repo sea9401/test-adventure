@@ -103,6 +103,31 @@ function sanitizeCharacter(value: unknown): string | null {
   return null;
 }
 
+function sanitizeStoryFlags(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "story flags must be object";
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((key) => key !== "flags")) {
+    return "story flags contains unknown fields";
+  }
+  if (!Array.isArray(record.flags) || record.flags.length > 512) {
+    return "story flags must be an array with at most 512 entries";
+  }
+  const unique = new Set<string>();
+  for (const flag of record.flags) {
+    if (
+      typeof flag !== "string" ||
+      !/^[A-Za-z0-9._:-]{1,120}$/.test(flag) ||
+      unique.has(flag)
+    ) {
+      return "invalid story flag";
+    }
+    unique.add(flag);
+  }
+  return null;
+}
+
 /**
  * key 별 위생 검사. ok=true 면 통과, ok=false 면 422 응답 + reason.
  */
@@ -118,6 +143,11 @@ export function sanitizeSavePayload(
   // character.v2 는 권위 키라 추가 검사.
   if (key === "character.v2") {
     const err = sanitizeCharacter(value);
+    if (err) return { ok: false, reason: err };
+  }
+
+  if (key === "storyFlags.v2") {
+    const err = sanitizeStoryFlags(value);
     if (err) return { ok: false, reason: err };
   }
 

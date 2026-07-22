@@ -1,6 +1,7 @@
 name: Deploy to EC2
 
-# main 에 push 되면 EC2 로 SSH 접속해 prod (~/adventure-rpg) 코드 갱신 + 재빌드 + 재시작.
+# main CI가 성공하면 그 검증된 SHA만 EC2에 배포한다. 수동 실행도 runner에서 같은
+# 출시 검증을 먼저 통과해야 한다.
 # v2 운영 승격 후 prod-only. 옛 staging(~/adventure-rpg-test) 단계는 제거했다 — staging 이
 # 운영 DB(test_adventurerpg)와 분리된 자체 DB 를 받기 전까지 자동배포 대상에서 빼둔다.
 # (재도입 시 deploy-test.sh 가 운영 DB 를 건드리지 않도록 별도 DB 가드 먼저.)
@@ -10,9 +11,12 @@ name: Deploy to EC2
 #   TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY — Cloudflare Turnstile 위젯 키
 #   HCAPTCHA_SITE_KEY, HCAPTCHA_SECRET_KEY — 강신호용 2단계 CAPTCHA 키(선택)
 #   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME — 길드 엠블럼 저장소
+#   OPS_ALERT_WEBHOOK_URL — 운영 이상 신호·크론 실패 수신 webhook(선택)
 #   REVIEW_LOGIN_ID, REVIEW_LOGIN_PASSWORD, REVIEW_LOGIN_USER_EMAIL — 심사용 기존 카카오 계정 로그인(선택, 세 값 함께 설정)
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch: # 수동 실행 버튼
 
@@ -21,9 +25,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check-images
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npx vitest run
+      - run: npm audit --omit=dev --audit-level=moderate
+      - run: npm run build
+
   deploy:
+    needs: [verify-manual]
+    if: >-
+      always() &&
+      ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+       (github.event_name == 'workflow_dispatch' && needs.verify-manual.result == 'success'))
     runs-on: ubuntu-latest
     environment: msmsge.com
+    env:
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     # private repo fetch 용 GITHUB_TOKEN 에 contents:read 보장.
     permissions:
       contents: read
@@ -46,6 +76,7 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
           REVIEW_LOGIN_ID: ${{ secrets.REVIEW_LOGIN_ID }}
           REVIEW_LOGIN_PASSWORD: ${{ secrets.REVIEW_LOGIN_PASSWORD }}
           REVIEW_LOGIN_USER_EMAIL: ${{ secrets.REVIEW_LOGIN_USER_EMAIL }}
@@ -53,7 +84,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GH_TOKEN,TURNSTILE_SITE_KEY,TURNSTILE_SECRET_KEY,TURNSTILE_EXPECTED_HOSTNAMES,HCAPTCHA_SITE_KEY,HCAPTCHA_SECRET_KEY,R2_ACCOUNT_ID,R2_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY,R2_BUCKET_NAME,REVIEW_LOGIN_ID,REVIEW_LOGIN_PASSWORD,REVIEW_LOGIN_USER_EMAIL
+          envs: GH_TOKEN,DEPLOY_SHA,TURNSTILE_SITE_KEY,TURNSTILE_SECRET_KEY,TURNSTILE_EXPECTED_HOSTNAMES,HCAPTCHA_SITE_KEY,HCAPTCHA_SECRET_KEY,R2_ACCOUNT_ID,R2_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY,R2_BUCKET_NAME,OPS_ALERT_WEBHOOK_URL,REVIEW_LOGIN_ID,REVIEW_LOGIN_PASSWORD,REVIEW_LOGIN_USER_EMAIL
           script_stop: true
           command_timeout: 30m
           script: |
@@ -63,21 +94,22 @@ jobs:
             # repo private — 박스 SSH origin 은 비대화형 deploy 컨텍스트에 키가 없어 fetch 실패.
             # runner 의 GITHUB_TOKEN(ephemeral, contents:read)으로 HTTPS fetch 해 우회.
             git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
-            git checkout main
-            git reset --hard origin/main
+            git checkout --detach --force "$DEPLOY_SHA"
             echo "▶ [prod] cleanup stale Next builds"
             # SSH command timeout 뒤 원격에 남은 빌드가 다음 배포와 메모리를 다투지 않게 한다.
             pkill -f '[n]ext build' || true
             echo "▶ [prod] sync anti-macro environment"
             node scripts/sync-production-turnstile-env.mjs .env.production.local
+            echo "▶ [prod] install AWS RDS CA bundle"
+            DATABASE_CA_CERT_PATH=$(grep '^DATABASE_CA_CERT_PATH=' .env.production.local | cut -d= -f2- | tr -d '"')
+            export DATABASE_CA_CERT_PATH
+            bash deploy/install-rds-ca.sh
             echo "▶ [prod] anti-macro env preflight"
             node --env-file=.env.production.local scripts/check-production-env.mjs
             echo "▶ [prod] nginx maintenance on"
             bash deploy/maintenance.sh on
             echo "▶ [prod] deps"
             bash deploy/install-deps.sh
-            echo "▶ [prod] db migrate"
-            node --env-file=.env.production.local src/db/migrate.mjs
             echo "▶ [prod] clean previous Next build"
             rm -rf .next
             echo "▶ [prod] build"
@@ -90,6 +122,8 @@ jobs:
             kill "$build_heartbeat_pid" 2>/dev/null || true
             wait "$build_heartbeat_pid" 2>/dev/null || true
             [ "$build_status" -eq 0 ] || exit "$build_status"
+            echo "▶ [prod] db migrate"
+            node --env-file=.env.production.local src/db/migrate.mjs
             echo "▶ [prod] restart"
             sudo systemctl restart adventure-rpg
             sleep 2

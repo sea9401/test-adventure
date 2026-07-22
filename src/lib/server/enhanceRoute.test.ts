@@ -74,6 +74,7 @@ type CharSave = { gold: number; materials: Record<string, number> };
 
 describe("POST /api/v2/me/enhance", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     seed();
   });
   afterEach(() => {

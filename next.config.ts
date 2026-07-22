@@ -27,7 +27,45 @@ function resolveBuildId(): string {
 
 const BUILD_ID = resolveBuildId();
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self' https://accounts.google.com https://kauth.kakao.com",
+  // Next hydration과 초기 테마 스크립트 때문에 inline script/style은 현재 허용한다.
+  // 외부 실행 출처는 사람 확인 공급자로 한정한다.
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com",
+  "style-src 'self' 'unsafe-inline' https://*.hcaptcha.com",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://challenges.cloudflare.com https://*.hcaptcha.com",
+  "frame-src https://challenges.cloudflare.com https://*.hcaptcha.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  ...(process.env.NODE_ENV === "production"
+    ? ["upgrade-insecure-requests"]
+    : []),
+].join("; ");
+
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=31536000; includeSubDomains",
+  },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   env: {
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
   },
@@ -40,6 +78,10 @@ const nextConfig: NextConfig = {
   // /public/sw.js 는 Next.js 가 자동 정적 서빙 — 헤더만 보강.
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
       {
         source: "/sw.js",
         headers: [

@@ -1,4 +1,5 @@
 import { and, eq, gte } from "drizzle-orm";
+import { isIP } from "node:net";
 import { db } from "@/db";
 import { abuseEvents } from "@/db/schema";
 import { recordOpsSignal } from "@/lib/server/opsAlert";
@@ -18,16 +19,19 @@ function cleanIp(ip: string | null | undefined): string | null {
 }
 
 export function clientIpFromRequest(req: Request): string | null {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return cleanIp(first);
+  // 운영 Nginx가 외부 입력을 덮어써서 보내는 X-Real-IP를 최우선 신뢰한다.
+  // X-Forwarded-For의 첫 값은 클라이언트가 임의로 넣을 수 있으므로 사용하지 않는다.
+  const trustedSingleHeaders = ["x-real-ip", "cf-connecting-ip"];
+  for (const name of trustedSingleHeaders) {
+    const value = req.headers.get(name)?.trim();
+    if (value && isIP(value)) return cleanIp(value);
   }
-  return cleanIp(
-    req.headers.get("x-real-ip") ??
-      req.headers.get("cf-connecting-ip") ??
-      req.headers.get("x-client-ip"),
-  );
+
+  // 직접 실행/테스트처럼 X-Real-IP가 없는 경우에는 가장 가까운 프록시가 추가한
+  // 오른쪽 끝 주소만 fallback으로 사용한다. 유효한 IP가 아니면 rate-limit key로 쓰지 않는다.
+  const forwarded = req.headers.get("x-forwarded-for");
+  const nearest = forwarded?.split(",").at(-1)?.trim();
+  return nearest && isIP(nearest) ? cleanIp(nearest) : null;
 }
 
 export async function recordAbuseEvent(entry: AbuseEventInput): Promise<void> {

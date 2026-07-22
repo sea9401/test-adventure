@@ -66,7 +66,8 @@ export const users = pgTable(
 );
 
 // Auth.js 연동 계정 — OAuth 공급자(Google/Kakao)와 users.id 매핑.
-// allowDangerousEmailAccountLinking 으로 같은 이메일의 복수 공급자를 한 계정에 연동.
+// 공급자 이메일만으로 자동 병합하지 않는다. 로그인한 사용자가 명시적으로 시작한
+// account_link_intents 를 소비한 경우에만 다른 공급자를 연결한다.
 export const accounts = pgTable(
   "accounts",
   {
@@ -105,6 +106,29 @@ export const verificationTokens = pgTable(
     expires: timestamp("expires", { mode: "date" }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
+);
+
+// OAuth 계정 연결 의도. 브라우저에는 원문 random token 만 두고 DB에는 SHA-256 hash만
+// 저장한다. OAuth callback에서 행을 DELETE ... RETURNING 으로 소비하므로 재사용할 수 없다.
+export const accountLinkIntents = pgTable(
+  "account_link_intents",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [
+    check(
+      "account_link_intents_provider_check",
+      sql`${t.provider} in ('google', 'kakao')`,
+    ),
+    index("account_link_intents_expires_idx").on(t.expiresAt),
+    index("account_link_intents_user_provider_idx").on(t.userId, t.provider),
+  ],
 );
 
 // 게임 진행 상태는 키별로 분리 저장. localStorage 패턴과 동일.

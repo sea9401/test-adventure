@@ -39,7 +39,7 @@ perl -0pi -e '
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 300s;
     }
@@ -51,7 +51,7 @@ perl -0pi -e '
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 300s;
     }
@@ -64,7 +64,7 @@ perl -0pi -e '
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 300s;
     }
@@ -81,7 +81,7 @@ perl -0pi -e '
     $1 . "        limit_req zone=page_per_ip burst=180 nodelay;\n        limit_req_status 429;\n"/ge;
 
   s/(proxy_set_header\s+X-Forwarded-Proto\s+\$scheme;\n)(?!\s*proxy_set_header\s+X-Forwarded-For)/
-    $1 . "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n        proxy_set_header X-Real-IP \$remote_addr;\n"/ge;
+    $1 . "        proxy_set_header X-Forwarded-For \$remote_addr;\n        proxy_set_header X-Real-IP \$remote_addr;\n"/ge;
 
   s/(client_max_body_size[^\n]*;\n)/$1 . "    include \/etc\/nginx\/snippets\/msmsge-maintenance-server.conf;\n"/e
     unless /msmsge-maintenance-server\.conf/;

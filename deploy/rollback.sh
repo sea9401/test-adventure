@@ -45,7 +45,14 @@ bash deploy/install-deps.sh
 rm -rf .next
 npm run build
 sudo systemctl restart adventure-rpg
-sleep 3
+ok=0
+for i in $(seq 1 20); do
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/api/health || echo 000)
+  if [ "$code" = "200" ]; then ok=1; echo "health 200 (try $i)"; break; fi
+  echo "health $code — 롤백 앱 부팅 대기 $i/20"
+  sleep 3
+done
+[ "$ok" = "1" ] || { echo "✗ rollback health failed; maintenance remains on" >&2; exit 1; }
 PROJECT_DIR="$PWD" bash "$MAINTENANCE_TOOL" off
 
 echo

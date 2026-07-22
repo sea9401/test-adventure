@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 // (SaveProvider/STARTER_SAVES 의 client hook chain 이 server build graph 로 끌려오는 것 회피).
 export default async function CreatePage() {
   const session = await auth();
-  // 비로그인은 미들웨어가 이미 /sign-in 으로 보내지만 방어적으로 한 번 더.
+  // 비로그인은 Proxy가 이미 /sign-in 으로 보내지만 방어적으로 한 번 더.
   if (!session?.user) redirect("/sign-in");
   // 이미 캐릭터를 만든 유저(복귀 로그인 등)는 생성 화면 대신 게임으로. callbackUrl=/create 로
   // 들어온 기존 유저가 생성 단계를 다시 보는 것을 막는다. OnboardingGate 와 동일

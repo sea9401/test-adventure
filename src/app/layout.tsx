@@ -19,6 +19,7 @@ const geistMono = Geist_Mono({
 
 const SITE_NAME = "무슨무슨게임";
 const SITE_DESC = "브라우저로 즐기는 어드벤처 RPG";
+const SOCIAL_PREVIEW_IMAGE = "/og-20260722.jpg";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://msmsge.com"),
@@ -49,13 +50,20 @@ export const metadata: Metadata = {
     description: SITE_DESC,
     url: "/",
     locale: "ko_KR",
-    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: SITE_NAME }],
+    images: [
+      {
+        url: SOCIAL_PREVIEW_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: SITE_NAME,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_NAME,
     description: SITE_DESC,
-    images: ["/og.jpg"],
+    images: [SOCIAL_PREVIEW_IMAGE],
   },
 };
 

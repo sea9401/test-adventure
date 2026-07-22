@@ -52,7 +52,10 @@ function LotteryRules() {
         서로 다른 티켓 번호를 추첨하며, 여러 장 구매자는 복수 등수에 당첨될 수
         있습니다.
       </p>
-      <p>총 판매가 3장 미만이면 해당 회차 구매액을 전액 환불합니다.</p>
+      <p>
+        고유 참여자가 2명 이하이면 추첨하지 않고, 수수료를 제외한 상금 전액을 다음
+        회차로 이월합니다.
+      </p>
     </div>
   );
 }
@@ -93,8 +96,12 @@ export function LotteryRoom() {
   }, [setBankedGold, setGold]);
 
   const prizes = useMemo(
-    () => lotteryPrizeAmounts(snapshot?.round.grossPool ?? 0).prizes,
-    [snapshot?.round.grossPool],
+    () =>
+      lotteryPrizeAmounts(
+        snapshot?.round.grossPool ?? 0,
+        snapshot?.round.carryIn ?? 0,
+      ).prizes,
+    [snapshot?.round.carryIn, snapshot?.round.grossPool],
   );
 
   const submit = async (event: React.FormEvent) => {
@@ -151,6 +158,11 @@ export function LotteryRoom() {
               <p className="mt-1 text-lg font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
                 당첨금 {snapshot?.round.prizePool.toLocaleString() ?? "-"}G
               </p>
+              {(snapshot?.round.carryIn ?? 0) > 0 && (
+                <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  이전 회차 이월금 {snapshot?.round.carryIn.toLocaleString()}G 포함
+                </p>
+              )}
             </div>
             <div className="text-right text-xs text-zinc-600 dark:text-zinc-300">
               <span className="inline-flex items-center gap-1 font-semibold tabular-nums">
@@ -175,7 +187,8 @@ export function LotteryRoom() {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
             <span className="inline-flex items-center gap-1">
               <Ticket size={15} weight="duotone" /> 판매{" "}
-              {snapshot?.round.totalTickets ?? 0}장 · 내 복권{" "}
+              {snapshot?.round.totalTickets ?? 0}장 · 참여{" "}
+              {snapshot?.round.participantCount ?? 0}명 · 내 복권{" "}
               {snapshot?.myTickets ?? 0}장
             </span>
             <span className="inline-flex items-center gap-1 tabular-nums">
@@ -199,9 +212,15 @@ export function LotteryRoom() {
             <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
               제 {snapshot.previousRound.id}회 추첨 결과
             </p>
-            {snapshot.previousRound.status === "refunded" ? (
+            {snapshot.previousRound.status === "rolled_over" ? (
+              <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                참여자 {snapshot.previousRound.participantCount}명으로 추첨 없이 상금{" "}
+                {snapshot.previousRound.prizePool.toLocaleString()}G가 다음 회차로
+                이월되었습니다.
+              </p>
+            ) : snapshot.previousRound.status === "refunded" ? (
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                판매 3장 미만으로 구매액이 전액 환불되었습니다.
+                이전 운영 규칙에 따라 구매액이 전액 환불되었습니다.
               </p>
             ) : (
               <ol className="mt-2 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">

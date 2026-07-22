@@ -25,6 +25,7 @@ export const lotteryRounds = pgTable(
     ticketPrice: integer("ticket_price").notNull(),
     totalTickets: integer("total_tickets").notNull().default(0),
     grossPool: bigint("gross_pool", { mode: "number" }).notNull().default(0),
+    carryIn: bigint("carry_in", { mode: "number" }).notNull().default(0),
     feeAmount: bigint("fee_amount", { mode: "number" }).notNull().default(0),
     prizePool: bigint("prize_pool", { mode: "number" }).notNull().default(0),
     commitHash: text("commit_hash").notNull(),
@@ -37,10 +38,11 @@ export const lotteryRounds = pgTable(
     index("lottery_rounds_status_ends_at_idx").on(t.status, t.endsAt),
     check(
       "lottery_rounds_status_check",
-      sql`${t.status} IN ('open','settled','refunded')`,
+      sql`${t.status} IN ('open','settled','refunded','rolled_over')`,
     ),
     check("lottery_rounds_ticket_price_check", sql`${t.ticketPrice} > 0`),
     check("lottery_rounds_total_tickets_check", sql`${t.totalTickets} >= 0`),
+    check("lottery_rounds_carry_in_check", sql`${t.carryIn} >= 0`),
   ],
 );
 

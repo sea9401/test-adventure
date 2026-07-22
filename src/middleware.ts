@@ -101,6 +101,13 @@ export default auth((req) => {
       });
     }
   }
+
+  // 비로그인 루트 요청은 라우트가 렌더링되기 전에 공개 대문으로 이동시킨다.
+  // page 의 redirect() 는 스트리밍이 먼저 시작되면 200 + 클라이언트 이동이 될 수 있어,
+  // 검색 로봇에도 명확한 HTTP 307 응답을 주려면 이 단계에서 처리해야 한다.
+  if (req.nextUrl.pathname === "/" && !req.auth?.user) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
+  }
 });
 
 export const config = {

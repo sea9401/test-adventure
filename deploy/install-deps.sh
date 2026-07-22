@@ -5,9 +5,9 @@
 # 건너뛰면 배포가 빨라지고, npm ci 가 node_modules 를 통째로 지웠다 다시 까는 "위험 창"
 # 자체가 사라진다 (그 창에 돌고 있는 서버가 lazy-require 하다 죽는 일 방지).
 #
-# 변경 판단은 package-lock.json 의 sha256 을 마커 파일과 비교 — git diff 로 PREV/NEW 를
-# 넘길 필요가 없어 deploy.yml 인라인 스크립트에 if/subshell 을 추가하지 않아도 된다
-# (그 인라인 스크립트는 multi-line if/subshell 에 약한 이력이 있어 한 줄 호출로만 끼운다).
+# 변경 판단은 package-lock.json 의 sha256 을 마커 파일과 비교하고, 빌드에 필요한 네이티브
+# 모듈이 현재 CPU에서 실제 로딩되는지도 확인한다. git diff 로 PREV/NEW 를 넘길 필요가 없어
+# deploy.yml 인라인 스크립트에 if/subshell 을 추가하지 않아도 된다.
 #
 # 마커는 node_modules 안에 둔다 — npm ci 가 node_modules 를 지우면 마커도 함께 사라져
 # 자동으로 무효화된다. 마커 기록은 반드시 npm ci 성공 *후*.
@@ -22,11 +22,19 @@ current_hash() {
   sha256sum "$LOCKFILE" | cut -d' ' -f1
 }
 
-if [ -d node_modules ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$(current_hash)" ]; then
+native_modules_ready() {
+  node -e 'require("lightningcss"); require("@tailwindcss/oxide")' >/dev/null 2>&1
+}
+
+if [ -d node_modules ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$(current_hash)" ] && native_modules_ready; then
   echo "▶ npm ci skipped ($LOCKFILE 변경 없음)"
   exit 0
 fi
 
-echo "▶ npm ci ($LOCKFILE 변경 또는 node_modules 부재)"
-npm ci
+echo "▶ npm ci ($LOCKFILE 변경, node_modules 부재 또는 네이티브 모듈 복구 필요)"
+npm ci --include=optional
+if ! native_modules_ready; then
+  echo "❌ 빌드용 네이티브 모듈 로딩 실패" >&2
+  exit 1
+fi
 current_hash > "$MARKER"

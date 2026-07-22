@@ -28,6 +28,7 @@ import {
 } from "@/adventure/v2/miningProgression";
 import {
   MINING_AUTO_KEY,
+  autoGatheringCompletedAttempts,
   beginAutoGathering,
   cancelAutoGathering,
   createAutoGatheringSession,
@@ -154,37 +155,8 @@ export async function POST(req: Request) {
     });
   }
 
-  if (body?.action === "cancel") {
-    const canceled = await db.transaction(async (tx) => {
-      const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
-      if (!autoStates.mining.session) return null;
-      await upsertSave(
-        tx,
-        userId,
-        MINING_AUTO_KEY,
-        cancelAutoGathering(autoStates.mining),
-      );
-      return {
-        activeAutoActivity: autoStates.woodcutting.session
-          ? "woodcutting" as const
-          : null,
-      };
-    });
-    if (!canceled) {
-      return Response.json(
-        { ok: false, error: "no_session" },
-        { status: 404 },
-      );
-    }
-    return Response.json({
-      ok: true,
-      canceled: true,
-      autoSession: null,
-      activeAutoActivity: canceled.activeAutoActivity,
-    });
-  }
-
-  if (body?.action !== "claim") {
+  const canceling = body?.action === "cancel";
+  if (!canceling && body?.action !== "claim") {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
@@ -194,7 +166,7 @@ export async function POST(req: Request) {
     const autoState = autoStates.mining;
     const session = autoState.session;
     if (!session) return { error: "no_session" as const };
-    if (now < session.readyAt) {
+    if (!canceling && now < session.readyAt) {
       return { error: "not_ready" as const, retryAfterMs: session.readyAt - now };
     }
     if (!isMiningNodeId(session.sourceId)) {
@@ -206,7 +178,12 @@ export async function POST(req: Request) {
       );
       return { error: "invalid_session" as const };
     }
-    const settlement = settleAutoGathering(autoState);
+    const settlement = settleAutoGathering(
+      autoState,
+      canceling
+        ? autoGatheringCompletedAttempts(session, now)
+        : session.attempts,
+    );
     if (!settlement) return { error: "no_session" as const };
     const node = MINING_NODES[session.sourceId];
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -273,6 +250,7 @@ export async function POST(req: Request) {
       jobName: isMiningJobId(jobId) ? V2_JOB_CATALOG[jobId]?.name ?? jobId : null,
       materials: miningMaterialBalances(materials),
       log,
+      canceled: canceling,
       activeAutoActivity: autoStates.woodcutting.session
         ? "woodcutting" as const
         : null,
@@ -283,25 +261,28 @@ export async function POST(req: Request) {
     const status = result.error === "not_ready" ? 409 : 404;
     return Response.json({ ok: false, ...result }, { status });
   }
-  recordLifeGatheringTelemetrySoon({
-    userId,
-    activity: "mining",
-    sourceId: result.node.id,
-    sourceName: result.node.name,
-    grade: result.node.grade,
-    success: true,
-    failureRate: 1 - result.settlement.successes / result.settlement.attempts,
-    xpGained: result.xpGained,
-    drops: [
-      {
-        materialId: result.node.materialId,
-        quantity: result.settlement.materialsGained,
-        primary: true,
-      },
-    ],
-  });
+  if (result.settlement.attempts > 0) {
+    recordLifeGatheringTelemetrySoon({
+      userId,
+      activity: "mining",
+      sourceId: result.node.id,
+      sourceName: result.node.name,
+      grade: result.node.grade,
+      success: true,
+      failureRate: 1 - result.settlement.successes / result.settlement.attempts,
+      xpGained: result.xpGained,
+      drops: [
+        {
+          materialId: result.node.materialId,
+          quantity: result.settlement.materialsGained,
+          primary: true,
+        },
+      ],
+    });
+  }
   return Response.json({
     ok: true,
+    canceled: result.canceled,
     attempts: result.settlement.attempts,
     successes: result.settlement.successes,
     materialName: result.materialName,

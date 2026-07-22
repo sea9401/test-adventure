@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTO_GATHERING_DURATION_MS,
+  autoGatheringCompletedAttempts,
   beginAutoGathering,
   cancelAutoGathering,
   createAutoGatheringSession,
@@ -61,6 +62,35 @@ describe("30분 자동 생활 작업", () => {
       beginAutoGathering(firstResult!.state, second),
     );
     expect(secondResult).toMatchObject({ materialsGained: 1, xpGained: 1 });
+  });
+
+  it("취소 시점까지 완료된 작업 횟수만 계산하고 30분이 지나면 전부 계산한다", () => {
+    const session = createAutoGatheringSession({
+      sessionId: "partial-settlement",
+      sourceId: "iron",
+      sourceName: "철 광맥",
+      materialId: "iron",
+      now: 1_000,
+      cycleDurationMs: 9_000,
+      successRate: 1,
+      baseXp: 10,
+    });
+
+    expect(autoGatheringCompletedAttempts(session, 1_000 + 15 * 60_000)).toBe(100);
+    expect(autoGatheringCompletedAttempts(session, session.readyAt)).toBe(200);
+    expect(autoGatheringCompletedAttempts(session, session.readyAt + 60_000)).toBe(200);
+
+    const result = settleAutoGathering(
+      beginAutoGathering(emptyAutoGatheringState(), session),
+      100,
+    );
+    expect(result).toMatchObject({
+      attempts: 100,
+      successes: 100,
+      materialsGained: 80,
+      xpGained: 700,
+      masteryGained: 70,
+    });
   });
 
   it("손상된 저장값은 안전한 빈 상태로 읽는다", () => {

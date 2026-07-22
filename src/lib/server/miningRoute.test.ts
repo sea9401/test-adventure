@@ -33,6 +33,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST as START } from "@/app/api/v2/mining/start/route";
 import { POST as STRIKE } from "@/app/api/v2/mining/strike/route";
+import { POST as AUTO } from "@/app/api/v2/mining/auto/route";
 import { GET as STATUS } from "@/app/api/v2/mining/status/route";
 import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
 import {
@@ -96,6 +97,48 @@ describe("mining routes", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: "auto_active",
       activeAutoActivity: "woodcutting",
+    });
+  });
+
+  it("자동 채광을 중단하면 완료된 진행분을 정산한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    const iron = MINING_MATERIAL_ID.iron;
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-auto",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: iron,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 1,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set("character.v2", { materials: { [iron]: 2 } });
+
+    const response = await AUTO(request("auto", { action: "cancel" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      canceled: true,
+      attempts: 100,
+      successes: 100,
+      materialsGained: 80,
+      xpGained: 700,
+    });
+    expect(store.get(MINING_AUTO_KEY)).toMatchObject({ session: null });
+    expect(store.get("character.v2")).toMatchObject({
+      materials: { [iron]: 82 },
+    });
+    expect(store.get(MINING_LOG_KEY)).toMatchObject({
+      successes: 100,
+      xp: 700,
+      oreEarned: 80,
     });
   });
 

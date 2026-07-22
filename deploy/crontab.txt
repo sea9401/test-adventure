@@ -8,6 +8,7 @@
 #     echo "0 4 * * * curl -fsS $H $U/chat/cleanup";
 #     echo "0 4 * * * curl -fsS $H $U/bulletin/cleanup";
 #     echo "0 4 * * * curl -fsS $H $U/cron/guilds-cleanup";
+#     echo "0 * * * * curl -fsS $H $U/cron/lottery-settle";
 #     echo "0 15 * * 6 curl -fsS $H $U/cron/pvp-tournament";
 #     echo "59 14 * * 0 curl -fsS $H $U/cron/guilds-quests-deadline";
 #     echo "0 15 * * 0 curl -fsS $H $U/cron/guilds-quests-cycle";
@@ -33,6 +34,7 @@ SECRET=<.env.production.local 의 CRON_SECRET>
 0 4 * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/chat/cleanup
 0 4 * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/bulletin/cleanup
 0 4 * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/guilds-cleanup
+0 * * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/lottery-settle
 0 15 * * 6 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/pvp-tournament
 59 14 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/guilds-quests-deadline
 0 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/guilds-quests-cycle

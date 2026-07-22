@@ -22,6 +22,7 @@ import {
   Plus,
   ShieldChevron,
   SignOut,
+  Ticket,
   UserPlus,
   Users,
   X,
@@ -48,9 +49,10 @@ import {
   type CustomChatRoom,
   type CustomChatRoomInvite,
 } from "./chat/chatRoomsApi";
+import { LotteryRoom } from "./chat/LotteryRoom";
 
 export type ChatChannel = "global" | "guild" | "room";
-type ChatRoomKey = "chat" | "guild" | "notice";
+type ChatRoomKey = "chat" | "guild" | "notice" | "lottery";
 
 export type ChatMessage = {
   id: number;
@@ -79,6 +81,7 @@ const CHAT_ROOM_LABELS: Record<ChatRoomKey, string> = {
   chat: "전체 채팅방",
   guild: "길드 채팅방",
   notice: "시스템 알림",
+  lottery: "복권방",
 };
 
 function ChatRoomIcon({ room, size = 22 }: { room: ChatRoomKey; size?: number }) {
@@ -87,6 +90,9 @@ function ChatRoomIcon({ room, size = 22 }: { room: ChatRoomKey; size?: number })
   }
   if (room === "notice") {
     return <BellRinging size={size} weight="duotone" />;
+  }
+  if (room === "lottery") {
+    return <Ticket size={size} weight="duotone" />;
   }
   return <GlobeHemisphereWest size={size} weight="duotone" />;
 }
@@ -121,6 +127,7 @@ function ChatRoomList({
     custom: CustomChatRoom | null;
     label: string;
     latest: ChatMessage | null;
+    description?: string;
     unread: boolean;
     available: boolean;
   }>;
@@ -141,6 +148,8 @@ function ChatRoomList({
             ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
             : room.builtin === "guild"
               ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
+              : room.builtin === "lottery"
+                ? "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
               : "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300";
 
         return (
@@ -206,7 +215,7 @@ function ChatRoomList({
                     </>
                   )
                 ) : (
-                  "메시지가 없습니다."
+                  room.description ?? "메시지가 없습니다."
                 )}
               </span>
             </span>
@@ -538,6 +547,16 @@ export function ChatPanel({
         unread: unreadNotice,
         available: true,
       },
+      {
+        id: "lottery",
+        builtin: "lottery" as const,
+        custom: null,
+        label: CHAT_ROOM_LABELS.lottery,
+        latest: null,
+        description: "매시 정각 추첨 · /복권 1~10",
+        unread: false,
+        available: true,
+      },
       ...customRooms.map((room) => ({
         id: `room:${room.id}`,
         builtin: null,
@@ -821,6 +840,8 @@ export function ChatPanel({
                         ? "text-blue-600 dark:text-blue-300"
                         : activeRoom === "guild"
                           ? "text-emerald-600 dark:text-emerald-300"
+                          : activeRoom === "lottery"
+                            ? "text-amber-600 dark:text-amber-300"
                           : "text-violet-600 dark:text-violet-300"
                   }`}
                 >
@@ -1017,6 +1038,8 @@ export function ChatPanel({
             refreshRooms={refreshCustomRooms}
             onOpenRoom={enterCustomRoom}
           />
+        ) : activeRoom === "lottery" ? (
+          <LotteryRoom />
         ) : activeRoom || activeCustomRoom ? (
           <>
             <MessageList

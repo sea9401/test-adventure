@@ -112,7 +112,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "plaza",
     title: "광장과 소통",
-    summary: "게시판·거래소·우편함·랭킹·채팅의 이용 방법을 안내합니다.",
+    summary: "게시판·거래소·우편함·채팅방·복권의 이용 방법을 안내합니다.",
     group: "world",
   },
   {
@@ -124,13 +124,13 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "arena",
     title: "투기장과 대련",
-    summary: "투기장 대전과 대련장 빌드 시험의 차이를 정리합니다.",
+    summary: "투기장 대전·일요일 챔피언십·베팅과 대련장을 안내합니다.",
     group: "versus",
   },
   {
     slug: "pastimes",
     title: "생활 콘텐츠",
-    summary: "농장·벌목·채광·낚시의 진행 방식과 보상을 안내합니다.",
+    summary: "농장·자동 벌목·자동 채광·낚시의 진행 방식과 보상을 안내합니다.",
     group: "world",
   },
 ];

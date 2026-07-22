@@ -1422,6 +1422,14 @@ export function isLifestyleMasteryJobId(jobId: string): boolean {
   );
 }
 
+/**
+ * 현재 직업에서 재전직할 수 있는 캐릭터 레벨.
+ * 생산 직업은 생활 콘텐츠 자체로 숙련도를 쌓으므로 캐릭터 전투 레벨을 요구하지 않는다.
+ */
+export function rejobRequiredLevel(jobId: string): number {
+  return isLifestyleMasteryJobId(jobId) ? 1 : V2_LEVEL_CAP;
+}
+
 export function isRootJobSelectable(job: V2JobDefinition): boolean {
   return job.tier > 0 || job.id === "none" || job.id === "survivor";
 }

@@ -37,6 +37,7 @@ import {
   isWoodcuttingJobId,
   isMiningJobId,
   isLifestyleMasteryJobId,
+  rejobRequiredLevel,
   type V2JobDefinition,
   type ExtraJobCondition,
   type JobUnlockContext,
@@ -1174,6 +1175,23 @@ describe("생활 직업 숙련도 획득 분기", () => {
     expect(isLifestyleMasteryJobId("healthtrainer")).toBe(false);
     expect(isFishingJobId("physicalcoach")).toBe(false);
     expect(isFishingJobId("mastertrainer")).toBe(false);
+  });
+
+  it("생산 직업은 Lv 1, 전투 직업은 Lv 100에서 재전직한다", () => {
+    for (const jobId of [
+      "fisher",
+      "seagod",
+      "farmer",
+      "earthartisan",
+      "lumberjack",
+      "legendarylumberjack",
+      "miner",
+      "legendaryminer",
+    ]) {
+      expect(rejobRequiredLevel(jobId), jobId).toBe(1);
+    }
+    expect(rejobRequiredLevel("warrior")).toBe(V2_LEVEL_CAP);
+    expect(rejobRequiredLevel("healthtrainer")).toBe(V2_LEVEL_CAP);
   });
 });
 

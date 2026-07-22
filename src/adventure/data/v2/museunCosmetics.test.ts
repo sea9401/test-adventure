@@ -275,6 +275,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
       profileBorder: null,
       chatBadge: "starlight",
       chatNameEffect: "aurora",
+      championshipBadge: null,
     });
   });
 
@@ -287,6 +288,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
       profileBorder: null,
       chatBadge: null,
       chatNameEffect: null,
+      championshipBadge: null,
     });
     expect(
       equipChromaName(active, "aurora", NOW + MUSEUN_COSMETIC_ACCESS_MS),

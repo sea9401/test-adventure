@@ -8,7 +8,10 @@ import {
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import type { Avatar } from "@/adventure/profile/avatars";
 
-type CharacterCosmeticsSave = { museunCosmetics?: unknown };
+type CharacterCosmeticsSave = {
+  museunCosmetics?: unknown;
+  arenaChampionshipBadges?: unknown;
+};
 
 export async function readMuseunCosmeticAppearanceMap(
   userIds: readonly string[],
@@ -29,7 +32,11 @@ export async function readMuseunCosmeticAppearanceMap(
       const character = row.value as CharacterCosmeticsSave | null;
       return [
         row.userId,
-        museunCosmeticAppearance(character?.museunCosmetics),
+        museunCosmeticAppearance(
+          character?.museunCosmetics,
+          Date.now(),
+          character?.arenaChampionshipBadges,
+        ),
       ] as const;
     }),
   );

@@ -97,6 +97,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     const value = (row.value ?? null) as {
       level?: unknown;
       museunCosmetics?: unknown;
+      arenaChampionshipBadges?: unknown;
     } | null;
     if (
       typeof value?.level === "number" &&
@@ -107,7 +108,11 @@ export async function GET(_req: Request, { params }: Ctx) {
     }
     cosmeticsByUser.set(
       row.userId,
-      museunCosmeticAppearance(value?.museunCosmetics),
+      museunCosmeticAppearance(
+        value?.museunCosmetics,
+        Date.now(),
+        value?.arenaChampionshipBadges,
+      ),
     );
   }
 

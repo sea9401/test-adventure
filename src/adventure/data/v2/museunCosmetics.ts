@@ -3,6 +3,10 @@ import {
   MUSEUN_CASH_ITEM_IDS,
   type MuseunCashItemId,
 } from "./museunCashItems";
+import {
+  bestArenaChampionshipBadge,
+  type ArenaChampionshipBadge,
+} from "./arenaChampionshipBadges";
 
 export type MuseunCosmeticItemId = {
   [K in MuseunCashItemId]: (typeof MUSEUN_CASH_ITEMS)[K]["delivery"] extends "entitlement"
@@ -199,6 +203,7 @@ export type MuseunCosmeticAppearance = {
   profileBorder: ProfileBorderId | null;
   chatBadge: ChatBadgeId | null;
   chatNameEffect: ChromaNameId | null;
+  championshipBadge: ArenaChampionshipBadge | null;
 };
 
 export const MUSEUN_COSMETIC_ITEM_IDS = MUSEUN_CASH_ITEM_IDS.filter(
@@ -744,6 +749,7 @@ export function drawChromaNameByRoll(
 export function museunCosmeticAppearance(
   value: unknown,
   now: number = Date.now(),
+  arenaChampionshipBadges?: unknown,
 ): MuseunCosmeticAppearance {
   const cosmetics = parseMuseunCosmetics(value);
   const profileBorder = PROFILE_BORDER_VARIANTS.find(
@@ -771,5 +777,6 @@ export function museunCosmeticAppearance(
       )
         ? cosmetics.equippedChromaName
         : null,
+    championshipBadge: bestArenaChampionshipBadge(arenaChampionshipBadges),
   };
 }

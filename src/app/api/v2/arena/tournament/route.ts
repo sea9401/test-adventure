@@ -5,6 +5,7 @@ import {
   arenaSeasonPhase,
 } from "@/lib/server/pvp/arenaTournament";
 import {
+  arenaTournamentBetView,
   ensureArenaTournament,
   latestArenaTournament,
 } from "@/lib/server/pvp/arenaTournamentService";
@@ -28,6 +29,9 @@ export async function GET() {
   const myReward = latest?.bracket.rewards.find(
     (reward) => reward.userId === userId,
   );
+  const betting = latest
+    ? await arenaTournamentBetView(latest.seasonId, userId)
+    : null;
 
   return Response.json({
     ok: true,
@@ -43,6 +47,7 @@ export async function GET() {
           isCurrent: latest.seasonId === season.id,
           bracket: latest.bracket,
           myReward: myReward ?? null,
+          betting,
         }
       : null,
   });

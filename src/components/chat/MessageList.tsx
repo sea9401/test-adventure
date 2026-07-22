@@ -4,7 +4,11 @@ import { useEffect, useRef } from "react";
 import { formatRelative } from "@/lib/notifications";
 import type { ChatMessage } from "../ChatPanel";
 import { MessageBody } from "./MessageBody";
-import { ChatCosmeticBadge, chatNameClass } from "./ChatCosmetics";
+import {
+  ArenaChampionshipBadge,
+  ChatCosmeticBadge,
+  chatNameClass,
+} from "./ChatCosmetics";
 
 // 스크롤 가능한 메시지 리스트 — 채팅/길드/알림 탭의 메시지를 렌더하고 자동 스크롤을 처리.
 export function MessageList({
@@ -76,6 +80,7 @@ export function MessageList({
             )}
             {m.mine ? (
               <span>
+                <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
                 <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
                 <span
                   className={chatNameClass(
@@ -88,6 +93,7 @@ export function MessageList({
               </span>
             ) : (
               <>
+                <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
                 <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
                 <button
                   type="button"

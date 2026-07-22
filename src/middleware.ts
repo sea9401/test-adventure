@@ -60,18 +60,26 @@ const CLOSED_HTML = `<!DOCTYPE html>
 <meta name="robots" content="noindex,nofollow" />
 <title>테스트 서버 운영중이지 않습니다</title>
 <style>
-  html,body{margin:0;padding:0;height:100%;background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-  main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem}
-  .box{max-width:28rem;text-align:center}
-  h1{font-size:1.5rem;font-weight:700;margin:0 0 0.75rem}
-  p{font-size:0.875rem;color:#a3a3a3;line-height:1.6;margin:0}
+  html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
+  .box{width:min(100%,32rem);box-sizing:border-box;padding:2.75rem 2rem;text-align:center;background:#18181b;border:1px solid #3f3f46;border-radius:1rem;box-shadow:0 1.5rem 4rem rgba(0,0,0,.4)}
+  .status{display:inline-flex;align-items:center;gap:.5rem;margin-bottom:1.25rem;padding:.4rem .75rem;border:1px solid #3f3f46;border-radius:999px;color:#d4d4d8;font-size:.75rem;font-weight:700;letter-spacing:.04em}
+  .status::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:#71717a;box-shadow:0 0 0 .2rem rgba(113,113,122,.16)}
+  h1{font-size:clamp(1.6rem,6vw,2rem);font-weight:800;letter-spacing:-.035em;margin:0}
+  .lead{margin:1rem 0 0;color:#d4d4d8;font-size:1rem;font-weight:600;line-height:1.7}
+  .divider{width:3rem;height:1px;margin:1.5rem auto;background:#3f3f46}
+  .note{margin:0;color:#a1a1aa;font-size:.875rem;line-height:1.75}
+  @media (max-width:30rem){main{padding:1rem}.box{padding:2.25rem 1.35rem;border-radius:.875rem}}
 </style>
 </head>
 <body>
 <main>
-  <div class="box">
-    <h1>테스트 서버 운영중이지 않습니다</h1>
-    <p>현재 점검 또는 작업 중이라 잠시 접근을 막아두었어요.<br />다음 테스트가 열리면 다시 방문해 주세요.</p>
+  <div class="box" role="status" aria-live="polite">
+    <div class="status">테스트 서버</div>
+    <h1>현재는 운영 중이 아닙니다</h1>
+    <p class="lead">외부 테스트를 잠시 닫아두었어요.</p>
+    <div class="divider" aria-hidden="true"></div>
+    <p class="note">다음 테스트가 시작되면<br />다시 안내드리겠습니다.</p>
   </div>
 </main>
 </body>

@@ -975,6 +975,34 @@ export const pvpMatches = pgTable(
   ],
 );
 
+// 주간 아레나 일요일 토너먼트. 시즌당 한 행으로 대진·3판 2선승 결과를 JSON 스냅샷에
+// 보관한다. 생성 트랜잭션에서 결과와 우편 보상까지 함께 확정하고 rewardsGrantedAt 으로
+// 중복 지급을 방지한다.
+export const pvpTournaments = pgTable(
+  "pvp_tournaments",
+  {
+    seasonId: text("season_id")
+      .primaryKey()
+      .references(() => pvpSeasons.id, { onDelete: "cascade" }),
+    bracketSize: integer("bracket_size").notNull(),
+    status: text("status").notNull(),
+    bracket: jsonb("bracket").notNull(),
+    championUserId: text("champion_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+    rewardsGrantedAt: timestamp("rewards_granted_at"),
+  },
+  (t) => [
+    index("pvp_tournaments_created_at_idx").on(t.createdAt),
+    check(
+      "pvp_tournaments_status_valid",
+      sql`${t.status} IN ('completed','not_enough_players')`,
+    ),
+  ],
+);
+
 // v2 거점 점령 상태. row 가 있으면 점령된 거점, 없으면 NPC 운영(비점령).
 // outpostId = data/v2/outposts.ts 의 Outpost.id (코드 정적 데이터라 FK X).
 // occupiedByUserId/Guild — 둘 다 nullable. 솔로 점령은 user 만, 길드 점령은 guild 만.

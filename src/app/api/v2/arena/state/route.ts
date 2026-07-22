@@ -5,6 +5,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { ARENA_STATE_KEY } from "@/lib/storage-keys";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import {
+  arenaRankedEndsAt,
+  arenaSeasonPhase,
+} from "@/lib/server/pvp/arenaTournament";
+import { ensureArenaTournament } from "@/lib/server/pvp/arenaTournamentService";
+import {
   ARENA_MATCH_COOLDOWN_MS,
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
@@ -50,6 +55,10 @@ export async function GET() {
     staminaConfig.regenBonusPct,
   );
   const season = await getOrCreateCurrentSeason(now);
+  const phase = arenaSeasonPhase(season.endAt, now);
+  // 일요일 첫 아레나 진입도 크론 누락을 자가 복구한다. 시즌 row 잠금 + 시즌당 PK로
+  // 중복 생성/보상은 발생하지 않는다.
+  if (phase === "tournament") await ensureArenaTournament(now);
   const ratingRow = await db
     .select({
       rating: pvpRatings.rating,
@@ -76,7 +85,9 @@ export async function GET() {
       season: {
         id: season.id,
         startAt: season.startAt.toISOString(),
+        rankedEndsAt: arenaRankedEndsAt(season.endAt).toISOString(),
         endAt: season.endAt.toISOString(),
+        phase,
         rating: ratingRow?.rating ?? 1000,
         wins: ratingRow?.wins ?? 0,
         losses: ratingRow?.losses ?? 0,

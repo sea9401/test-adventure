@@ -14,6 +14,8 @@ type RankEntry = {
   name: string;
   level: number;
   score: number;
+  matches: number;
+  qualified: boolean;
   isMe: boolean;
   avatar: Avatar;
   profileBorder: ProfileBorderId | null;
@@ -24,6 +26,11 @@ type RankingResp = {
   myRank?: number | null;
   myScore?: number;
   totalRanked?: number;
+  minimumMatches?: number;
+  eligibleCount?: number;
+  projectedBracketSize?: number;
+  qualifiedCount?: number;
+  myQualified?: boolean;
 };
 
 export function V2ArenaRankingTab() {
@@ -72,6 +79,12 @@ export function V2ArenaRankingTab() {
             / {data.totalRanked}명 · {data.myScore}점
           </span>
         )}
+        <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+          일요일 예상 {data.projectedBracketSize || "미개최"}
+          {data.projectedBracketSize ? "강" : ""} · 조건 충족 {data.eligibleCount ?? 0}명
+          {" · "}최소 {data.minimumMatches ?? 10}경기
+          {data.myQualified ? " · 본선권" : ""}
+        </div>
       </div>
 
       {top.length === 0 ? (
@@ -122,6 +135,14 @@ export function V2ArenaRankingTab() {
                   {e.isMe && (
                     <span className="ml-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
                       (나)
+                    </span>
+                  )}
+                  <span className="ml-1 text-xs text-zinc-500">
+                    {e.matches}전
+                  </span>
+                  {e.qualified && (
+                    <span className="ml-1 rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      본선권
                     </span>
                   )}
                 </span>

@@ -7,6 +7,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Pagination } from "@/components/ui/Pagination";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
+import { V2ArenaTournamentTab } from "@/adventure/v2/V2ArenaTournamentTab";
 import { V2ArenaLoadoutTab } from "@/adventure/v2/V2ArenaLoadoutTab";
 import { ArenaShopPanel } from "@/adventure/v2/ArenaShopPanel";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
@@ -18,7 +19,7 @@ import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 
-// v2 1:1 아레나 — 5탭: 메인(도전·요약) / 전투 기록 / 순위표 / 세팅(로드아웃) / 상점.
+// v2 1:1 아레나 — 메인 / 순위표 / 일요일 본선 / 세팅 / 전투 기록 / 상점.
 
 type StateResp = {
   ok?: boolean;
@@ -31,7 +32,9 @@ type StateResp = {
     season?: {
       id: string;
       startAt: string;
+      rankedEndsAt: string;
       endAt: string;
+      phase: "ranked" | "tournament" | "closed";
       rating: number;
       wins: number;
       losses: number;
@@ -99,6 +102,7 @@ type MatchResp =
       scoreDelta: number;
       goldGained: number;
       ranked: boolean;
+      seasonPhase?: "ranked" | "tournament" | "closed";
       opponentScoreBefore: number;
       opponentScoreAfter: number;
       opponentScoreDelta: number;
@@ -124,11 +128,12 @@ type MatchResp =
       stamina?: StaminaState;
     };
 
-type Tab = "main" | "history" | "ranking" | "loadout" | "shop";
+type Tab = "main" | "history" | "ranking" | "tournament" | "loadout" | "shop";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "main", label: "메인" },
   { id: "ranking", label: "순위표" },
+  { id: "tournament", label: "본선" },
   { id: "loadout", label: "전투 세팅" },
   { id: "history", label: "기록" },
   { id: "shop", label: "상점" },
@@ -551,6 +556,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const lowStamina = liveStamina < nextStaminaCost;
   const canChallenge = !busy && !onCooldown && !lowStamina;
   const season = state?.state?.season;
+  const tournamentDay = season?.phase === "tournament";
   const seasonMatches =
     (season?.wins ?? 0) + (season?.losses ?? 0) + (season?.draws ?? 0);
   const recent = history[0];
@@ -572,14 +578,14 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       />
 
       {/* 탭 바 */}
-      <nav className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+      <nav className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-100 p-1 sm:grid-cols-6 dark:bg-zinc-800">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={
-              "flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition " +
+              "rounded-md px-2 py-1.5 text-sm font-medium transition " +
               (tab === t.id
                 ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
                 : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200")
@@ -629,7 +635,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
               <span>시즌 {season?.id ?? "-"}</span>
-              <span>정산 {formatKst(season?.endAt)}</span>
+              <span>
+                {tournamentDay ? "정산" : "예선 마감"}{" "}
+                {formatKst(tournamentDay ? season?.endAt : season?.rankedEndsAt)}
+              </span>
               {recent && (
                 <span>
                   최근 {ROLE_LABEL[recent.role]} {OUTCOME_LABEL[recent.outcome]} · {recent.scoreDelta >= 0 ? "+" : ""}
@@ -651,7 +660,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 ? `재도전까지 ${cooldownLeftSec}초`
                 : lowStamina
                   ? `스태미나 부족 (${nextStaminaCost} 필요)`
-                  : `도전 (스태미나 ${nextStaminaCost})`}
+                  : tournamentDay
+                    ? `일요일 연습전 (스태미나 ${nextStaminaCost})`
+                    : `도전 (스태미나 ${nextStaminaCost})`}
           </button>
 
           {error && (
@@ -680,7 +691,11 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>점수</dt>
-                  <dd className="text-right">Elo K=32 · 승패 양쪽 정산</dd>
+                  <dd className="text-right">
+                    {tournamentDay
+                      ? "일요일 연습전 · Elo 변동 없음"
+                      : "Elo K=32 · 승패 양쪽 정산"}
+                  </dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>피해 보정</dt>
@@ -692,7 +707,11 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>골드</dt>
-                  <dd className="text-right">승리 Lv×50 · 패배/무승부 Lv×10</dd>
+                  <dd className="text-right">
+                    {tournamentDay
+                      ? "일요일 연습전 보상 없음"
+                      : "승리 Lv×50 · 패배/무승부 Lv×10"}
+                  </dd>
                 </div>
               </dl>
             </div>
@@ -718,7 +737,8 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 ))}
               </div>
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                주간 레이팅 순위 기준입니다. 매주 월요일 00:00(KST)에 시즌이 넘어갑니다.
+                토요일 23:59 레이팅 순위 기준입니다. 일요일 본선 후 매주 월요일
+                00:00(KST)에 시즌이 넘어갑니다.
               </p>
             </div>
           </section>
@@ -740,6 +760,8 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       )}
 
       {tab === "ranking" && <V2ArenaRankingTab />}
+
+      {tab === "tournament" && <V2ArenaTournamentTab />}
 
       {tab === "loadout" && <V2ArenaLoadoutTab />}
 

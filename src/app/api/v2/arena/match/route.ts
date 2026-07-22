@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { savesKv, pvpRatings } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
+import { arenaSeasonPhase } from "@/lib/server/pvp/arenaTournament";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   derivePlayerCombatV2,
@@ -89,7 +90,7 @@ import {
 //   6. weightForCandidate 가중 랜덤 추첨.
 //   7. 선정된 상대만 derive (real user snapshot) 또는 봇 snapshot 사용.
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동, 아레나 피해 ×0.65.
-//   9. outcome → 실유저전은 양쪽 Elo 정산(K=32), 봇전은 비랭크.
+//   9. outcome → 월~토 실유저전은 양쪽 Elo 정산(K=32). 일요일·봇전은 비랭크 연습전.
 //  10. 공격자/방어자 pvp_ratings(Elo/전적) + arena-state.v2(쿨타임/최근 상대) 저장.
 //  11. 양쪽 전투 로그(각자 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX).
 
@@ -172,6 +173,7 @@ export async function POST() {
   const now = new Date();
   // 순위표와 매치가 같은 주간 시즌을 보도록 트랜잭션 전에 한 번 확정한다.
   const season = await getOrCreateCurrentSeason(now);
+  const seasonPhase = arenaSeasonPhase(season.endAt, now);
 
   const result = await db.transaction(async (tx) => {
     // 1. 본인 character.v2 lock — 같은 유저의 동시 매치 요청을 직렬화한다.
@@ -489,7 +491,9 @@ export async function POST() {
           ? "loss"
           : "draw";
 
-    const ranked = oppUserId != null;
+    // 월~토 예선만 Elo/상대 전적에 반영한다. 일요일은 같은 스냅샷 전투를 무점수
+    // 연습전으로 제공해 토너먼트 확정 순위가 흔들리지 않게 한다.
+    const ranked = oppUserId != null && seasonPhase === "ranked";
     const ensureSaveRowsForSettlement = async (
       ids: string[],
       key: string,
@@ -606,7 +610,8 @@ export async function POST() {
         };
     const scoreDelta = elo.attackerDelta;
     const newScore = elo.attackerScoreAfter;
-    const goldGain = computeGoldReward(myLevel, outcome);
+    const goldGain =
+      seasonPhase === "tournament" ? 0 : computeGoldReward(myLevel, outcome);
 
     // 주간 레이팅이 순위표·점수 계산의 단일 권위다. Elo와 전적을 매치와 같은
     // 트랜잭션에서 갱신해 어느 한쪽만 반영되는 드리프트를 막는다.
@@ -747,6 +752,7 @@ export async function POST() {
           botId: oppBotId,
         },
         ranked,
+        seasonPhase,
         opponentScoreBefore: elo.defenderScoreBefore,
         opponentScoreAfter: elo.defenderScoreAfter,
         opponentScoreDelta: elo.defenderDelta,

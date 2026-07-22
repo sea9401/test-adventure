@@ -20,6 +20,7 @@ import {
   addCumLevel,
   addReincarnation,
   addJobCumLevel,
+  addJobHistory,
   jobCumLevelOf,
   groupCumLevel,
   totalCumLevel,
@@ -126,6 +127,18 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
         groups: { warrior: { cumLevel: 9 } },
       }).masteryScaleVersion,
     ).toBe(2);
+  });
+
+  it("parse/addJobHistory — 전직 이력을 정제하고 중복 없이 누적한다", () => {
+    const parsed = parseProficiency({
+      jobHistory: ["fisher", " ", "fisher", "none", 3, "angler"],
+    });
+    expect(parsed.jobHistory).toEqual(["fisher", "angler"]);
+    expect(addJobHistory(parsed, "angler", "masterangler", null).jobHistory).toEqual([
+      "fisher",
+      "angler",
+      "masterangler",
+    ]);
   });
 
   it("parse — growthScaleVersion 없던 기존 grown 은 1회 75% 압축 후 버전 기록", () => {

@@ -14,6 +14,7 @@ import {
   setGroupTier,
   flattenGroupTiers,
   addReincarnation,
+  addJobHistory,
   emptyProficiency,
   effectiveLevelCap,
   type V2ProficiencyState,
@@ -216,8 +217,10 @@ export async function POST(req: Request) {
       //   환생 1회 기록(addReincarnation) — 같은 직업 재전직도 "다시 태어나다" 퀘스트가 깨지도록.
       // 직업 숙련도는 사냥 승리에서만 오르므로, 재전직/환생 진입 자체는 숙련도를 더하지 않는다.
       const targetGroup = tier1ClassOf(targetClass);
-      const nextProf = addReincarnation(
-        flattenGroupTiers(setGrown(prof, {}), targetGroup),
+      const nextProf = addJobHistory(
+        addReincarnation(flattenGroupTiers(setGrown(prof, {}), targetGroup)),
+        currentJobId,
+        targetJobId,
       );
       const codexBonus = await readCodexSpBonus(tx, userId);
       // 코어루프 — 환생: 모아둔 로드아웃 보존 + SP 예산 초과분만 빠진다(강제 재산출 아님 →

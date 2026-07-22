@@ -1365,16 +1365,37 @@ export function cumLevelForJob(
     : (prof.jobCumLevel?.[job.id] ?? 0);
 }
 
-const V2_FISHING_JOB_IDS = new Set([
+export const V2_FISHING_JOB_IDS = [
   "fisher",
   "angler",
   "masterangler",
   "fullcatchking",
   "seagod",
-]);
+] as const;
+const V2_FISHING_JOB_ID_SET = new Set<string>(V2_FISHING_JOB_IDS);
 
 export function isFishingJobId(jobId: string): boolean {
-  return V2_FISHING_JOB_IDS.has(jobId);
+  return V2_FISHING_JOB_ID_SET.has(jobId);
+}
+
+// 전직 이력상 가장 높은 차수의 낚시 직업. 이력 필드 도입 전 캐릭터는
+// 기존 jobCumLevel 기록을 전직 증거로 소급 인정하고, 현재 낚시 직업도 항상 인정한다.
+export function highestVisitedFishingJobId(
+  prof: V2ProficiencyState,
+  currentJobId?: string | null,
+): string | null {
+  const visited = new Set(prof.jobHistory ?? []);
+  if (currentJobId && isFishingJobId(currentJobId)) visited.add(currentJobId);
+  for (const jobId of V2_FISHING_JOB_IDS) {
+    if ((prof.jobCumLevel?.[jobId] ?? 0) > 0) visited.add(jobId);
+  }
+  return V2_FISHING_JOB_IDS.reduce<string | null>((highest, jobId) => {
+    if (!visited.has(jobId)) return highest;
+    if (!highest) return jobId;
+    return V2_JOB_CATALOG[jobId].tier > V2_JOB_CATALOG[highest].tier
+      ? jobId
+      : highest;
+  }, null);
 }
 
 const V2_FARMING_JOB_IDS = new Set([

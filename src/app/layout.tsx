@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   verification: {
     other: {
       "naver-site-verification":
-        "403e051ef948c435ae1de6c33d51fb001e23e998",
+        "896570a7353224074d09a91ac516e37a556f2da3",
     },
   },
   // 링크 공유 시 미리보기 카드 (카카오톡·슬랙·디스코드·X 등)

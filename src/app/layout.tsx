@@ -31,6 +31,12 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
+  verification: {
+    other: {
+      "naver-site-verification":
+        "403e051ef948c435ae1de6c33d51fb001e23e998",
+    },
+  },
   // 링크 공유 시 미리보기 카드 (카카오톡·슬랙·디스코드·X 등)
   openGraph: {
     type: "website",

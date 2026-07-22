@@ -83,6 +83,8 @@ export type ArenaHistoryEntry = {
   id: string;
   /** ISO 시각. */
   at: string;
+  /** 이 기록의 사용자 관점 — 내가 도전했으면 attacker, 상대가 나를 공격했으면 defender. */
+  role: "attacker" | "defender";
   outcome: ArenaMatchOutcome;
   opponent: { name: string; level: number; userId?: string; botId?: string };
   scoreBefore: number;
@@ -109,7 +111,15 @@ export function parseArenaHistory(value: unknown): ArenaHistoryEntry[] {
     if (!replay || typeof replay !== "object" || !Array.isArray(replay.log)) {
       continue;
     }
-    out.push(e as ArenaHistoryEntry);
+    // role 도입 전 기록 호환: 공격자는 결과와 무관하게 골드 보상을 받았고 방어자는 0이었다.
+    // 새 기록은 항상 role 을 명시하므로 이 추론은 구형 저장 데이터에만 적용된다.
+    const role =
+      o.role === "attacker" || o.role === "defender"
+        ? o.role
+        : typeof o.goldGained === "number" && o.goldGained > 0
+          ? "attacker"
+          : "defender";
+    out.push({ ...(e as ArenaHistoryEntry), role });
     if (out.length >= ARENA_HISTORY_MAX) break;
   }
   return out;

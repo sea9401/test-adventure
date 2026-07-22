@@ -44,6 +44,7 @@ type StateResp = {
 type ArenaHistoryEntry = {
   id: string;
   at: string;
+  role: "attacker" | "defender";
   outcome: "win" | "loss" | "draw";
   opponent: {
     name: string;
@@ -151,6 +152,11 @@ const OUTCOME_LABEL: Record<ArenaHistoryEntry["outcome"], string> = {
   draw: "무승부",
 };
 
+const ROLE_LABEL: Record<ArenaHistoryEntry["role"], string> = {
+  attacker: "공격",
+  defender: "방어",
+};
+
 function outcomeColor(outcome: ArenaHistoryEntry["outcome"]): string {
   return outcome === "win"
     ? "text-emerald-600 dark:text-emerald-400"
@@ -230,6 +236,16 @@ function RecentBattleList({
             >
               <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
                 {OUTCOME_LABEL[h.outcome]}
+              </span>
+              <span
+                className={
+                  "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold " +
+                  (h.role === "attacker"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                    : "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200")
+                }
+              >
+                {ROLE_LABEL[h.role]}
               </span>
               {h.opponent.avatar && (
                 <CosmeticAvatar
@@ -616,7 +632,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               <span>정산 {formatKst(season?.endAt)}</span>
               {recent && (
                 <span>
-                  최근 {OUTCOME_LABEL[recent.outcome]} · {recent.scoreDelta >= 0 ? "+" : ""}
+                  최근 {ROLE_LABEL[recent.role]} {OUTCOME_LABEL[recent.outcome]} · {recent.scoreDelta >= 0 ? "+" : ""}
                   {recent.scoreDelta} · {timeAgo(recent.at)}
                 </span>
               )}

@@ -46,6 +46,7 @@
     "vitest": "^4.1.10"
   },
   "optionalDependencies": {
+    "@tailwindcss/oxide-linux-arm64-gnu": "4.2.4",
     "lightningcss-linux-arm64-gnu": "1.32.0"
   },
   "overrides": {

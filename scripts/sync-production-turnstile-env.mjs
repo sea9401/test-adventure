@@ -12,6 +12,8 @@ const required = {
   TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY?.trim(),
   TURNSTILE_EXPECTED_HOSTNAMES:
     process.env.TURNSTILE_EXPECTED_HOSTNAMES?.trim(),
+};
+const optionalOpsAlert = {
   OPS_ALERT_WEBHOOK_URL: process.env.OPS_ALERT_WEBHOOK_URL?.trim(),
 };
 const optionalCaptcha = {
@@ -45,12 +47,14 @@ for (const [key, value] of Object.entries(required)) {
     process.exit(1);
   }
 }
-try {
-  const opsWebhookUrl = new URL(required.OPS_ALERT_WEBHOOK_URL);
-  if (opsWebhookUrl.protocol !== "https:") throw new Error();
-} catch {
-  console.error("✗ OPS_ALERT_WEBHOOK_URL must be a valid https URL");
-  process.exit(1);
+if (optionalOpsAlert.OPS_ALERT_WEBHOOK_URL) {
+  try {
+    const opsWebhookUrl = new URL(optionalOpsAlert.OPS_ALERT_WEBHOOK_URL);
+    if (opsWebhookUrl.protocol !== "https:") throw new Error();
+  } catch {
+    console.error("✗ OPS_ALERT_WEBHOOK_URL must be a valid https URL");
+    process.exit(1);
+  }
 }
 
 const suppliedCaptchaCredentials = [
@@ -98,6 +102,7 @@ for (const [key, value] of Object.entries(optionalReviewLogin)) {
 const synchronized = {
   ...productionDefaults,
   ...required,
+  ...(optionalOpsAlert.OPS_ALERT_WEBHOOK_URL ? optionalOpsAlert : {}),
   ...(suppliedCaptchaCredentials.length === 2
     ? {
         HCAPTCHA_SITE_KEY: optionalCaptcha.HCAPTCHA_SITE_KEY,

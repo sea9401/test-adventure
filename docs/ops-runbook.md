@@ -169,7 +169,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 - `/api/version` = 빌드 정보.
 - 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정, 매크로 의심 점수 확인.
 - 운영 현황의 매크로 의심 userId/IP는 `이상 행동`·`경제 로그` 필터로 바로 연결된다.
-- `OPS_ALERT_WEBHOOK_URL`은 필수다. 임계치 알림·일일 운영 리포트·크론 실패가 webhook으로 발송된다.
+- `OPS_ALERT_WEBHOOK_URL`은 선택이다. 설정하면 임계치 알림·일일 운영 리포트·크론 실패가 webhook으로 발송되고, 없으면 웹훅 알림만 비활성화된다.
 - 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
 - ⬜ 외부 업타임 모니터(Route53 헬스체크/CloudWatch/UptimeRobot)는 미설정 — 추후.
 

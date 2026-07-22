@@ -14,7 +14,6 @@ const required = [
   "DATABASE_CA_CERT_PATH",
   "ADMIN_EMAILS",
   "CRON_SECRET",
-  "OPS_ALERT_WEBHOOK_URL",
   "TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
   "TURNSTILE_EXPECTED_HOSTNAMES",
@@ -81,12 +80,14 @@ if (
   process.exit(1);
 }
 
-try {
-  const opsWebhookUrl = new URL(process.env.OPS_ALERT_WEBHOOK_URL.trim());
-  if (opsWebhookUrl.protocol !== "https:") throw new Error();
-} catch {
-  console.error("✗ OPS_ALERT_WEBHOOK_URL must be a valid https URL");
-  process.exit(1);
+if (process.env.OPS_ALERT_WEBHOOK_URL?.trim()) {
+  try {
+    const opsWebhookUrl = new URL(process.env.OPS_ALERT_WEBHOOK_URL.trim());
+    if (opsWebhookUrl.protocol !== "https:") throw new Error();
+  } catch {
+    console.error("✗ OPS_ALERT_WEBHOOK_URL must be a valid https URL");
+    process.exit(1);
+  }
 }
 
 const captchaKeys = ["HCAPTCHA_SITE_KEY", "HCAPTCHA_SECRET_KEY"];

@@ -158,4 +158,28 @@ describe("sanitizeSavePayload", () => {
       expect(r.ok).toBe(false);
     });
   });
+
+  describe("클라이언트 쓰기 storyFlags.v2", () => {
+    it("정상 플래그 목록만 허용한다", () => {
+      expect(
+        sanitizeSavePayload("storyFlags.v2", {
+          flags: ["tutorial.enabled", "tutorial.v2-first-levelup"],
+        }),
+      ).toEqual({ ok: true });
+    });
+
+    it("중복·미지정 필드·과대 목록을 거절한다", () => {
+      expect(
+        sanitizeSavePayload("storyFlags.v2", { flags: ["same", "same"] }).ok,
+      ).toBe(false);
+      expect(
+        sanitizeSavePayload("storyFlags.v2", { flags: [], gold: 999 }).ok,
+      ).toBe(false);
+      expect(
+        sanitizeSavePayload("storyFlags.v2", {
+          flags: Array.from({ length: 513 }, (_, i) => `flag.${i}`),
+        }).ok,
+      ).toBe(false);
+    });
+  });
 });

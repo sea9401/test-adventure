@@ -14,6 +14,7 @@ const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "src");
 const IMAGES = path.join(ROOT, "public", "images");
 const FISH_DATA = path.join(SRC, "adventure", "data", "v2", "fish.ts");
+const WORLD_DATA = path.join(SRC, "adventure", "data", "world.ts");
 
 const STRICT = process.argv.includes("--strict");
 
@@ -79,6 +80,16 @@ async function collectRefs(files) {
     }
   } catch {
     // fish.ts 가 없는 빌드 컨텍스트에서는 일반 이미지 참조 검사만 수행한다.
+  }
+  try {
+    // RegionBackground의 `/images/ui/${regionId}.webp` 암묵 매핑은 실제 파일명이
+    // 문자열로 등장하지 않는다. RegionId union을 단일 출처로 삼아 참조에 포함한다.
+    const worldText = await fs.readFile(WORLD_DATA, "utf8");
+    for (const match of worldText.matchAll(/^\s*\|\s*"([a-z0-9_]+)"/gm)) {
+      literals.add(`/images/ui/${match[1]}.webp`);
+    }
+  } catch {
+    // world.ts가 없는 빌드 컨텍스트에서는 일반 이미지 참조 검사만 수행한다.
   }
   return { literals, templates };
 }

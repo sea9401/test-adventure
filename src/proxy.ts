@@ -8,7 +8,8 @@ const { auth } = NextAuth(authConfig);
 // health check 가 살아 있게 함. 정적 자원은 matcher 에서 이미 제외.
 const STAGING_ALLOW = new Set<string>(["/api/health"]);
 
-// 예전 앱-레벨 점검 모드와의 호환용 fallback. 현재 운영 토글은 앱이 완전히 내려가도
+// 예전 앱-레벨 점검 모드와의 호환용 fallback. Proxy는 편의 게이트일 뿐 보안 인가의
+// 진실 출처가 아니며, 각 Route Handler가 세션·역할을 다시 검증한다. 현재 운영 토글은 앱이 완전히 내려가도
 // 화면을 유지하도록 nginx 플래그(/etc/nginx/msmsge-maintenance.on)를 사용한다.
 //   MAINTENANCE_MODE=true 가 예전 .env.production.local 에 남은 경우에만 여기서 동작.
 //   /api/health 는 통과 → 모니터/헬스가 점검 중에도 살아있어 업타임 알림 오발 방지.
@@ -119,7 +120,7 @@ export default auth((req) => {
   }
 
   // 비로그인 루트 요청은 라우트가 렌더링되기 전에 공개 대문으로 이동시킨다.
-  // page 의 redirect() 는 스트리밍이 먼저 시작되면 200 + 클라이언트 이동이 될 수 있어,
+  // page의 redirect()는 스트리밍이 먼저 시작되면 200 + 클라이언트 이동이 될 수 있어,
   // 검색 로봇에도 명확한 HTTP 307 응답을 주려면 이 단계에서 처리해야 한다.
   if (req.nextUrl.pathname === "/" && !req.auth?.user) {
     return NextResponse.redirect(new URL("/sign-in", req.url));

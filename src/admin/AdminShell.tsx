@@ -1,25 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Lock, PencilSimple } from "@phosphor-icons/react";
 import { AdminProvider, useAdmin } from "./AdminContext";
-import { UsersTab } from "./tabs/UsersTab";
-import { StatsTab } from "./tabs/StatsTab";
-import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
-import { GridDungeonAnalyticsTab } from "./tabs/GridDungeonAnalyticsTab";
-import { SeasonOpsTab } from "./tabs/SeasonOpsTab";
-import { OpsDashboardTab } from "./tabs/OpsDashboardTab";
-import { OpsWorkflowsTab } from "./tabs/OpsWorkflowsTab";
-import { AbuseLogTab } from "./tabs/AbuseLogTab";
-import { EconomyLogTab } from "./tabs/EconomyLogTab";
-import { LifeGatheringTelemetryTab } from "./tabs/LifeGatheringTelemetryTab";
-import { AuditLogTab } from "./tabs/AuditLogTab";
-import { BroadcastTab } from "./tabs/BroadcastTab";
-import { FeedbackTab } from "./tabs/FeedbackTab";
-import { OpsManualTab } from "./tabs/OpsManualTab";
-import { OpsSearchTab } from "./tabs/OpsSearchTab";
+
+const adminTabLoading = () => (
+  <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+    운영 도구를 불러오는 중입니다.
+  </div>
+);
+
+// 운영 도구는 탭마다 의존성이 크므로, 현재 선택한 탭의 코드만 내려받는다.
+const UsersTab = dynamic(() => import("./tabs/UsersTab").then((module) => module.UsersTab), { loading: adminTabLoading });
+const StatsTab = dynamic(() => import("./tabs/StatsTab").then((module) => module.StatsTab), { loading: adminTabLoading });
+const BalanceTelemetryTab = dynamic(() => import("./tabs/BalanceTelemetryTab").then((module) => module.BalanceTelemetryTab), { loading: adminTabLoading });
+const GridDungeonAnalyticsTab = dynamic(() => import("./tabs/GridDungeonAnalyticsTab").then((module) => module.GridDungeonAnalyticsTab), { loading: adminTabLoading });
+const SeasonOpsTab = dynamic(() => import("./tabs/SeasonOpsTab").then((module) => module.SeasonOpsTab), { loading: adminTabLoading });
+const OpsDashboardTab = dynamic(() => import("./tabs/OpsDashboardTab").then((module) => module.OpsDashboardTab), { loading: adminTabLoading });
+const OpsWorkflowsTab = dynamic(() => import("./tabs/OpsWorkflowsTab").then((module) => module.OpsWorkflowsTab), { loading: adminTabLoading });
+const AbuseLogTab = dynamic(() => import("./tabs/AbuseLogTab").then((module) => module.AbuseLogTab), { loading: adminTabLoading });
+const EconomyLogTab = dynamic(() => import("./tabs/EconomyLogTab").then((module) => module.EconomyLogTab), { loading: adminTabLoading });
+const LifeGatheringTelemetryTab = dynamic(() => import("./tabs/LifeGatheringTelemetryTab").then((module) => module.LifeGatheringTelemetryTab), { loading: adminTabLoading });
+const AuditLogTab = dynamic(() => import("./tabs/AuditLogTab").then((module) => module.AuditLogTab), { loading: adminTabLoading });
+const BroadcastTab = dynamic(() => import("./tabs/BroadcastTab").then((module) => module.BroadcastTab), { loading: adminTabLoading });
+const FeedbackTab = dynamic(() => import("./tabs/FeedbackTab").then((module) => module.FeedbackTab), { loading: adminTabLoading });
+const OpsManualTab = dynamic(() => import("./tabs/OpsManualTab").then((module) => module.OpsManualTab), { loading: adminTabLoading });
+const OpsSearchTab = dynamic(() => import("./tabs/OpsSearchTab").then((module) => module.OpsSearchTab), { loading: adminTabLoading });
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
 // 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.

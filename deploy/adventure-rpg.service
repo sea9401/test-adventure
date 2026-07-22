@@ -16,6 +16,13 @@ User=ec2-user
 Group=ec2-user
 StandardOutput=journal
 StandardError=journal
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ec2-user/adventure-rpg/.next
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=multi-user.target

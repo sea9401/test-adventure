@@ -1,8 +1,6 @@
 // 일회성 진단 스크립트 — 플루의 sim 적용 여부 추적용 상세 dump.
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
-
-if (typeof WebSocket === "undefined") neonConfig.webSocketConstructor = ws;
+import { Pool } from "pg";
+import { createDatabaseConnectionOptions } from "../src/db/databaseTls.mjs";
 
 const name = process.argv[2];
 if (!name) {
@@ -10,7 +8,9 @@ if (!name) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  ...createDatabaseConnectionOptions(process.env.DATABASE_URL),
+});
 
 async function main() {
   const { rows: matches } = await pool.query(

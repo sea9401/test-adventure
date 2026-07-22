@@ -4,7 +4,17 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { sanitizeSavePayload } from "@/lib/server/saveSanitize";
-import { isSyncedKey } from "@/lib/storage/synced-keys";
+import {
+  isClientWritableSyncedKey,
+  isSyncedKey,
+} from "@/lib/storage/synced-keys";
+import {
+  INITIAL_CHARACTER_SAVE,
+  INITIAL_INVENTORY_SAVE,
+} from "@/adventure/starterSaveValues";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+
+const MAX_CLIENT_SAVE_BODY_BYTES = 128 * 1024;
 
 // GET /api/save — 로그인한 사용자의 모든 동기화 키-값을 한 번에 반환.
 // 클라이언트는 마운트 시 1회 호출해 Context 에 hydrate.
@@ -15,6 +25,24 @@ export async function GET(req: Request) {
   if (!userId) return new Response("unauthorized", { status: 401 });
   const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "save:read",
+    userLimit: 120,
+    ipLimit: 600,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
+  // 신규/옛 계정의 핵심 초기값은 서버 상수로만 생성한다. 클라이언트 starter payload를
+  // 허용하면 DELETE→재시드나 값 변조로 재화·충전량을 무한 생성할 수 있다.
+  await db
+    .insert(savesKv)
+    .values([
+      { userId, key: "character.v2", value: INITIAL_CHARACTER_SAVE, version: 1 },
+      { userId, key: "inventory.v2", value: INITIAL_INVENTORY_SAVE, version: 1 },
+    ])
+    .onConflictDoNothing();
 
   const rows = await db
     .select({
@@ -37,7 +65,8 @@ export async function GET(req: Request) {
   return Response.json(out);
 }
 
-// PATCH /api/save?key=character.v2 — 단일 키 upsert + 낙관적 동시성 제어.
+// PATCH /api/save?key=storyFlags.v2 — 클라이언트 쓰기가 허용된 단일 키의
+// upsert + 낙관적 동시성 제어. 캐릭터·인벤토리 등 서버 권한 키는 403으로 거부한다.
 // 본문: { value: <jsonb>, expectedVersion?: number | null }
 //   - expectedVersion === null: row 가 없을 거라 기대 (INSERT). 이미 있으면 409.
 //   - expectedVersion === <number>: 현재 version 과 일치할 때만 UPDATE. 불일치 → 409.
@@ -49,11 +78,33 @@ export async function PATCH(req: Request) {
   if (!userId) return new Response("unauthorized", { status: 401 });
   const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "save:write",
+    userLimit: 60,
+    ipLimit: 300,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
+  const declaredLength = Number(req.headers.get("content-length"));
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_CLIENT_SAVE_BODY_BYTES
+  ) {
+    return new Response("payload too large", { status: 413 });
+  }
 
   const url = new URL(req.url);
   const key = url.searchParams.get("key");
   if (!key || !isSyncedKey(key)) {
     return new Response(`unknown key: ${key}`, { status: 400 });
+  }
+  if (!isClientWritableSyncedKey(key)) {
+    return Response.json(
+      { error: "server_authoritative_key" },
+      { status: 403 },
+    );
   }
 
   let body: { value: unknown; expectedVersion?: number | null };
@@ -68,8 +119,11 @@ export async function PATCH(req: Request) {
   if (body.value === undefined) {
     return new Response("missing value", { status: 400 });
   }
+  if (JSON.stringify(body.value).length > MAX_CLIENT_SAVE_BODY_BYTES) {
+    return new Response("payload too large", { status: 413 });
+  }
 
-  // 위생 검사 — NaN/Infinity 차단 + character.v2 절대값 가드.
+  // 위생 검사 — 알 수 없는 필드, 중복/과다 플래그, 비정상 문자열을 차단한다.
   // 삭제 의도(value=null)는 검사 안 함 — sanitize 통과시켜 아래 null 분기로.
   if (body.value !== null) {
     const sanitized = sanitizeSavePayload(key, body.value);
@@ -203,27 +257,37 @@ export async function PATCH(req: Request) {
   return Response.json({ ok: true, version: result[0].version });
 }
 
-// DELETE /api/save — 사용자의 모든 동기화 데이터 제거 (관리자 페이지에서 사용).
-// DELETE /api/save?key=character.v1 — 단일 키만 제거.
+// DELETE /api/save — 클라이언트 쓰기 허용 키만 삭제한다. 계정 전체 삭제는
+// /api/account/delete가 users cascade로 처리하며, 권위 세이브 reset API는 제공하지 않는다.
 export async function DELETE(req: Request) {
   const userId = await ensureUser({ skipDeviceCheck: true });
   if (!userId) return new Response("unauthorized", { status: 401 });
   const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "save:delete",
+    userLimit: 20,
+    ipLimit: 100,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const url = new URL(req.url);
   const key = url.searchParams.get("key");
 
-  if (key) {
-    if (!isSyncedKey(key)) {
-      return new Response(`unknown key: ${key}`, { status: 400 });
-    }
-    await db
-      .delete(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, key)));
-  } else {
-    await db.delete(savesKv).where(eq(savesKv.userId, userId));
+  if (!key || !isSyncedKey(key)) {
+    return new Response(`unknown key: ${key}`, { status: 400 });
   }
+  if (!isClientWritableSyncedKey(key)) {
+    return Response.json(
+      { error: "server_authoritative_key" },
+      { status: 403 },
+    );
+  }
+  await db
+    .delete(savesKv)
+    .where(and(eq(savesKv.userId, userId), eq(savesKv.key, key)));
 
   return Response.json({ ok: true });
 }

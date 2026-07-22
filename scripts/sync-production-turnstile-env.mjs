@@ -30,6 +30,9 @@ const optionalReviewLogin = {
   REVIEW_LOGIN_PASSWORD: process.env.REVIEW_LOGIN_PASSWORD,
   REVIEW_LOGIN_USER_EMAIL: process.env.REVIEW_LOGIN_USER_EMAIL?.trim(),
 };
+const productionDefaults = {
+  DATABASE_CA_CERT_PATH: "/etc/pki/rds/global-bundle.pem",
+};
 
 for (const [key, value] of Object.entries(required)) {
   if (!value) {
@@ -85,6 +88,7 @@ for (const [key, value] of Object.entries(optionalReviewLogin)) {
 }
 
 const synchronized = {
+  ...productionDefaults,
   ...required,
   ...(suppliedCaptchaCredentials.length === 2
     ? {
@@ -123,8 +127,13 @@ for (const [key, value] of Object.entries(synchronized)) {
 const next = `${lines.join("\n").replace(/\n*$/, "")}\n`;
 const mode = statSync(envPath).mode & 0o777;
 const temporaryPath = `${envPath}.turnstile.tmp`;
-writeFileSync(temporaryPath, next, { encoding: "utf8", mode });
-chmodSync(temporaryPath, mode);
+if ((mode & 0o077) !== 0) {
+  console.warn(
+    `⚠ ${envPath} permissions ${mode.toString(8)} tightened to 600`,
+  );
+}
+writeFileSync(temporaryPath, next, { encoding: "utf8", mode: 0o600 });
+chmodSync(temporaryPath, 0o600);
 renameSync(temporaryPath, envPath);
 
 console.log(

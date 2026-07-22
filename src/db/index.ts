@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import { createDatabaseConnectionOptions } from "./databaseTls.mjs";
 
 // DATABASE_URL 은 EC2 의 .env.production.local 에서 주입.
 // 로컬 개발은 .env.development.local 에 Aurora endpoint 작성.
@@ -13,16 +14,15 @@ function getPool(): Pool {
       "DATABASE_URL is not set. .env.development.local 에 Aurora endpoint 작성 필요.",
     );
   }
-  // Aurora / RDS 모두 TLS 강제. 같은 VPC 내부 통신이라 CA 검증 생략(rejectUnauthorized:false).
-  // 외부 망에서 접근시키게 되면 RDS CA bundle 로 `ssl.ca` 채워야 함.
+  // TLS는 항상 서버 인증서와 호스트명을 검증한다. RDS는
+  // DATABASE_CA_CERT_PATH의 AWS CA bundle을 사용하고, 그 밖의 DB는 시스템 trust store를 쓴다.
   //
   // 풀 가드 — 한 트랜잭션이 멈춰(좀비) 커넥션을 영영 쥐거나 쿼리가 폭주하면 풀이 고갈돼
   // 이후 모든 요청이 커넥션을 못 받아 서버 전체가 멈추는 사고를 막는다. 기본값은 가드가
   // 전혀 없어 무한 대기였다. 마이그레이션은 migrate.mjs 의 별도 Pool(가드 없음)로 도니
   // 여기 statement_timeout 의 영향을 받지 않는다.
   pool = new Pool({
-    connectionString: url,
-    ssl: { rejectUnauthorized: false },
+    ...createDatabaseConnectionOptions(url),
     // 동시 커넥션 상한 — 단일 노드 프로세스 + 작은 RDS 인스턴스에 맞춰 보수적으로.
     max: 10,
     // 풀이 다 찼을 때 무한 대기 대신 빠르게 실패 → 요청이 "영원히 로딩" 대신 에러로 끝남.

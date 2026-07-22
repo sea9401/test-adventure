@@ -25,6 +25,17 @@ export const SYNCED_KEYS = [
 
 export type SyncedKey = (typeof SYNCED_KEYS)[number];
 
+// 범용 /api/save PATCH에서 클라이언트가 직접 쓸 수 있는 비권위 키.
+// 재화·인벤토리·성장·보상 키는 전용 서버 mutator만 변경한다.
+export const CLIENT_WRITABLE_SYNCED_KEYS = ["storyFlags.v2"] as const satisfies
+  readonly SyncedKey[];
+
 export function isSyncedKey(key: string): key is SyncedKey {
   return (SYNCED_KEYS as readonly string[]).includes(key);
+}
+
+export function isClientWritableSyncedKey(
+  key: SyncedKey,
+): key is (typeof CLIENT_WRITABLE_SYNCED_KEYS)[number] {
+  return (CLIENT_WRITABLE_SYNCED_KEYS as readonly string[]).includes(key);
 }

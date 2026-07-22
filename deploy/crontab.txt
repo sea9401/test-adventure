@@ -1,53 +1,42 @@
 # vercel.json 의 "crons" 를 대체하는 EC2 crontab (ec2-user).
-# 등록 방법 — 서버에서 CRON_SECRET 을 .env.production.local 에서 읽어 자동 주입:
+# 등록 방법 — 각 실행이 `.env.production.local`의 CRON_SECRET과 webhook을 직접 읽는다:
 #
-#   S=$(grep '^CRON_SECRET=' ~/adventure-rpg/.env.production.local | cut -d= -f2- | tr -d '"')
-#   H='-H "Authorization: Bearer $SECRET"'
-#   U=http://127.0.0.1:3000/api
-#   { echo "SHELL=/bin/bash"; echo "CRON_TZ=UTC"; echo "SECRET=$S";
-#     echo "0 4 * * * curl -fsS $H $U/chat/cleanup";
-#     echo "0 4 * * * curl -fsS $H $U/bulletin/cleanup";
-#     echo "0 4 * * * curl -fsS $H $U/cron/guilds-cleanup";
-#     echo "0 * * * * curl -fsS $H $U/cron/lottery-settle";
-#     echo "0 15 * * 6 curl -fsS $H $U/cron/pvp-tournament";
-#     echo "*/15 10-11 * * 0 curl -fsS $H $U/cron/pvp-tournament";
-#     echo "59 14 * * 0 curl -fsS $H $U/cron/guilds-quests-deadline";
-#     echo "0 15 * * 0 curl -fsS $H $U/cron/guilds-quests-cycle";
-#     echo "1 15 * * 0 curl -fsS $H $U/cron/tower-weekly-cycle";
-#     echo "2 15 * * 0 curl -fsS $H $U/cron/pvp-season-rollover";
-#     echo "3 15 * * 0 curl -fsS -X POST $H $U/v2/cron/war-season-rollover";
-#     echo "5 15 * * 0 curl -fsS $H $U/cron/pvp-season-rewards";
-#     echo "7 15 * * 0 curl -fsS $H $U/cron/fishing-season-rewards";
-#     echo "8 15 * * 0 curl -fsS $H $U/cron/treasure-season-rewards";
-#     echo "* * * * * curl -fsS $H $U/cron/coop-respawn";
-#     echo "0 * * * * curl -fsS -X POST $H $U/v2/cron/npc-attacks";
-#     echo "20 4 * * * curl -fsS -X POST $H $U/v2/cron/ops-retention";
-#     echo "25 4 * * * curl -fsS -X POST $H $U/v2/cron/ops-daily-report";
+#   C='bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh'
+#   { echo "SHELL=/bin/bash"; echo "CRON_TZ=UTC";
+#     echo "0 4 * * * $C GET /api/chat/cleanup";
+#     echo "0 4 * * * $C GET /api/cron/guilds-cleanup";
+#     echo "0 * * * * $C GET /api/cron/lottery-settle";
+#     echo "5 * * * * $C POST /api/v2/cron/marketplace-expire";
+#     echo "0 15 * * 6 $C GET /api/cron/pvp-tournament";
+#     echo "*/15 10-11 * * 0 $C GET /api/cron/pvp-tournament";
+#     echo "1 15 * * 0 $C GET /api/cron/tower-weekly-cycle";
+#     echo "2 15 * * 0 $C GET /api/cron/pvp-season-rollover";
+#     echo "5 15 * * 0 $C GET /api/cron/pvp-season-rewards";
+#     echo "7 15 * * 0 $C GET /api/cron/fishing-season-rewards";
+#     echo "* * * * * $C GET /api/cron/coop-respawn";
+#     echo "0 * * * * $C POST /api/v2/cron/npc-attacks";
+#     echo "20 4 * * * $C POST /api/v2/cron/ops-retention";
+#     echo "25 4 * * * $C POST /api/v2/cron/ops-daily-report";
 #     echo "0 17 * * * cd ~/adventure-rpg && bash deploy/backup-db.sh >> ~/backups/backup.log 2>&1"; } | crontab -
 #
-# (cron 의 SHELL 이 $SECRET 을 런타임에 치환. 시간대는 UTC — Vercel 과 동일.)
+# 시간대는 UTC. run-cron.sh가 HTTP 오류·타임아웃을 운영 webhook으로 알린다.
 # crond 가 동작하려면: sudo dnf install -y cronie && sudo systemctl enable --now crond
 #
 # 등록 결과(`crontab -l`):
 SHELL=/bin/bash
 CRON_TZ=UTC
-SECRET=<.env.production.local 의 CRON_SECRET>
-0 4 * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/chat/cleanup
-0 4 * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/bulletin/cleanup
-0 4 * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/guilds-cleanup
-0 * * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/lottery-settle
-0 15 * * 6 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/pvp-tournament
-*/15 10-11 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/pvp-tournament
-59 14 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/guilds-quests-deadline
-0 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/guilds-quests-cycle
-1 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/tower-weekly-cycle
-2 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/pvp-season-rollover
-3 15 * * 0 curl -fsS -X POST -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/v2/cron/war-season-rollover
-5 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/pvp-season-rewards
-7 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/fishing-season-rewards
-8 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/treasure-season-rewards
-* * * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/coop-respawn
-0 * * * * curl -fsS -X POST -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/v2/cron/npc-attacks
-20 4 * * * curl -fsS -X POST -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/v2/cron/ops-retention
-25 4 * * * curl -fsS -X POST -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/v2/cron/ops-daily-report
+0 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/chat/cleanup
+0 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/guilds-cleanup
+0 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/lottery-settle
+5 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/marketplace-expire
+0 15 * * 6 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
+*/15 10-11 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
+1 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/tower-weekly-cycle
+2 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-season-rollover
+5 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-season-rewards
+7 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/fishing-season-rewards
+* * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/coop-respawn
+0 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/npc-attacks
+20 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-retention
+25 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-daily-report
 0 17 * * * cd ~/adventure-rpg && bash deploy/backup-db.sh >> ~/backups/backup.log 2>&1

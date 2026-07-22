@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     locale: "ko_KR",
     images: [
       {
-        url: "/og-20260722.jpg",
+        url: "/og-shield-20260723.jpg",
         width: 1200,
         height: 630,
         alt: "무슨무슨게임",

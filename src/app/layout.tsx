@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 const SITE_NAME = "무슨무슨게임";
 const SITE_DESC = "브라우저로 즐기는 어드벤처 RPG";
-const SOCIAL_PREVIEW_IMAGE = "/og-20260722.jpg";
+const SOCIAL_PREVIEW_IMAGE = "/og-shield-20260723.jpg";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://msmsge.com"),

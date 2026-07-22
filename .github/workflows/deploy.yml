@@ -108,20 +108,11 @@ jobs:
             node --env-file=.env.production.local scripts/check-production-env.mjs
             echo "▶ [prod] nginx maintenance on"
             bash deploy/maintenance.sh on
+            trap 'bash deploy/maintenance.sh off || true' EXIT
             echo "▶ [prod] deps"
             bash deploy/install-deps.sh
-            echo "▶ [prod] clean previous Next build"
-            rm -rf .next
             echo "▶ [prod] build"
-            ( while true; do sleep 60; echo "  build still running"; done ) &
-            build_heartbeat_pid=$!
-            set +e
-            NODE_OPTIONS=--max-old-space-size=2048 npm run build
-            build_status=$?
-            set -e
-            kill "$build_heartbeat_pid" 2>/dev/null || true
-            wait "$build_heartbeat_pid" 2>/dev/null || true
-            [ "$build_status" -eq 0 ] || exit "$build_status"
+            bash deploy/build-production.sh
             echo "▶ [prod] db migrate"
             node --env-file=.env.production.local src/db/migrate.mjs
             echo "▶ [prod] restart"
@@ -145,4 +136,5 @@ jobs:
             echo "  deploy-smoke 200"
             echo "▶ [prod] nginx maintenance off"
             bash deploy/maintenance.sh off
+            trap - EXIT
             echo "✓ [prod] smoke pass · done"

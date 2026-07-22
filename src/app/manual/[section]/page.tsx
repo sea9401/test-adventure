@@ -37,7 +37,7 @@ export async function generateMetadata({
       locale: "ko_KR",
       images: [
         {
-          url: "/og.jpg",
+          url: "/og-20260722.jpg",
           width: 1200,
           height: 630,
           alt: "무슨무슨게임",

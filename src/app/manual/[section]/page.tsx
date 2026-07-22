@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ManualLayout } from "../ManualLayout";
 import { MANUAL_CONTENT } from "../content";
@@ -16,13 +17,33 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ section: string }>;
-}) {
+}): Promise<Metadata> {
   const { section } = await params;
   const meta = getSection(section);
-  if (!meta) return { title: "게임 안내서" };
+  if (!meta) {
+    return { title: "게임 안내서", robots: { index: false, follow: false } };
+  }
   return {
     title: `${meta.title} · 게임 안내서`,
     description: meta.summary,
+    alternates: { canonical: `/manual/${meta.slug}` },
+    robots: { index: true, follow: true },
+    openGraph: {
+      type: "article",
+      siteName: "무슨무슨게임",
+      title: `${meta.title} · 게임 안내서`,
+      description: meta.summary,
+      url: `/manual/${meta.slug}`,
+      locale: "ko_KR",
+      images: [
+        {
+          url: "/og.jpg",
+          width: 1200,
+          height: 630,
+          alt: "무슨무슨게임",
+        },
+      ],
+    },
   };
 }
 

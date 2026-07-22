@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
 import { CreateCharacterPageContents } from "./CreateCharacterPageContents";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 // 캐릭터 생성 페이지. 신규 유저는 카카오 로그인 직후(callbackUrl=/create) 또는 대문의
 // "시작하기"로 들어온다. 이름·외형을 정한 뒤 게임(/)으로 진입.

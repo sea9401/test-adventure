@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 // 모든 /dev/* 프리뷰 라우트 일괄 가드.
 // production 빌드에선 통째로 404. 다만 staging(IS_STAGING=true)은 통과 — 게이트로

@@ -1,0 +1,24 @@
+import { describe, expect, it } from "vitest";
+import { MANUAL_SECTIONS } from "./manual/sections";
+import sitemap from "./sitemap";
+
+describe("sitemap.xml", () => {
+  it("대문과 모든 게임 안내서 섹션을 제공한다", () => {
+    const urls = sitemap().map((entry) => entry.url);
+
+    expect(urls).toEqual([
+      "https://msmsge.com/sign-in",
+      ...MANUAL_SECTIONS.map(
+        (section) => `https://msmsge.com/manual/${section.slug}`,
+      ),
+    ]);
+  });
+
+  it("리다이렉트와 로그인 전용 주소는 포함하지 않는다", () => {
+    const urls = sitemap().map((entry) => entry.url);
+
+    expect(urls).not.toContain("https://msmsge.com/");
+    expect(urls).not.toContain("https://msmsge.com/manual");
+    expect(urls.some((url) => url.includes("/battle"))).toBe(false);
+  });
+});

@@ -86,6 +86,10 @@ perl -0pi -e '
   s/(client_max_body_size[^\n]*;\n)/$1 . "    include \/etc\/nginx\/snippets\/msmsge-maintenance-server.conf;\n"/e
     unless /msmsge-maintenance-server\.conf/;
 
+  s{(^([ \t]*)server_name\s+(?=[^;\n]*\bmsmsge\.com\b)(?=[^;\n]*\bwww\.msmsge\.com\b)[^;\n]*;\n)
+     (?![ \t]*include\s+/etc/nginx/snippets/msmsge-canonical-host\.conf;)}
+    {$1 . $2 . "include /etc/nginx/snippets/msmsge-canonical-host.conf;\n"}gmex;
+
   s{(^[ \t]*)(proxy_pass http://127\.0\.0\.1:3000;)}
     {$1 . "include /etc/nginx/snippets/msmsge-maintenance-check.conf;\n" . $1 . $2}gme
     unless /msmsge-maintenance-check\.conf/;
@@ -93,6 +97,7 @@ perl -0pi -e '
 
 $SUDO_CMD install -d -m 0755 "$MAINTENANCE_DIR" "$SNIPPET_DIR"
 $SUDO_CMD install -m 0644 deploy/maintenance.html "$MAINTENANCE_DIR/maintenance.html"
+$SUDO_CMD install -m 0644 deploy/nginx-canonical-host.conf "$SNIPPET_DIR/msmsge-canonical-host.conf"
 $SUDO_CMD install -m 0644 deploy/nginx-maintenance-check.conf "$SNIPPET_DIR/msmsge-maintenance-check.conf"
 $SUDO_CMD install -m 0644 deploy/nginx-maintenance-server.conf "$SNIPPET_DIR/msmsge-maintenance-server.conf"
 

@@ -25,6 +25,10 @@ export const metadata: Metadata = {
   title: SITE_NAME,
   description: SITE_DESC,
   applicationName: SITE_NAME,
+  icons: {
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     title: "무슨게임",

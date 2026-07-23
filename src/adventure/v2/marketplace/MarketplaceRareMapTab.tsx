@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -91,9 +92,14 @@ export function MarketplaceRareMapTab({
           <Card key={itemId} padding="sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-                <span className="shrink-0 text-base" aria-hidden>
-                  {definition.recipe.icon}
-                </span>
+                <Image
+                  src={definition.recipe.imageSrc}
+                  alt=""
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-10 shrink-0 object-contain"
+                />
                 <span className="min-w-0">
                   <span className="block truncate">{definition.name}</span>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">

@@ -38,7 +38,7 @@ const prices: MarketplacePreviewData["prices"] = Object.fromEntries(
 const preview: MarketplacePreviewData = {
   viewerId: "dev-viewer",
   viewerGold: 12_340_000,
-  ttlDays: 7,
+  ttlDays: 2,
   listings,
   prices,
 };

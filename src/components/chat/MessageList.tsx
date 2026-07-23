@@ -67,13 +67,13 @@ export function MessageList({
             : "아직 메시지가 없습니다."}
         </div>
       ) : (
-        // 발신자 열을 고정해 닉네임 길이와 관계없이 모든 메시지 본문이 같은 위치에서 시작한다.
+        // 메타 정보와 본문을 두 줄로 나눠 긴 닉네임이 본문 폭을 줄이지 않게 한다.
         messages.map((m) => (
           <div
             key={m.id}
-            className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)] items-baseline gap-x-2 text-sm leading-relaxed text-zinc-800 dark:text-zinc-100"
+            className="text-sm text-zinc-800 dark:text-zinc-100"
           >
-            <span className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
+            <div className="flex min-w-0 items-center overflow-hidden whitespace-nowrap leading-5">
               {m.title && (
                 <span className="mr-1 max-w-16 shrink-0 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
                   {m.title}
@@ -110,13 +110,13 @@ export function MessageList({
                   </button>
                 </>
               )}
-            </span>
-            <span className="min-w-0 whitespace-pre-wrap break-words">
-              <MessageBody content={m.content} />
-              <span className="ml-1.5 inline-block whitespace-nowrap align-baseline text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
+              <span className="ml-1.5 shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
                 {formatRelative(m.createdAt)}
               </span>
-            </span>
+            </div>
+            <div className="whitespace-pre-wrap break-words leading-relaxed">
+              <MessageBody content={m.content} />
+            </div>
           </div>
         ))
       )}

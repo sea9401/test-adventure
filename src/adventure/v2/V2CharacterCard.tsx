@@ -5,8 +5,6 @@ import { createPortal } from "react-dom";
 import {
   CaretRight,
   CookingPot,
-  Circle,
-  Diamond,
   HandFist,
   Shield,
   Sneaker,
@@ -16,6 +14,7 @@ import {
   X,
   type Icon,
 } from "@phosphor-icons/react";
+import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
@@ -91,8 +90,13 @@ const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string
   { slot: "armor", label: "갑옷", Icon: Shield, color: "text-sky-500" },
   { slot: "gloves", label: "장갑", Icon: HandFist, color: "text-amber-500" },
   { slot: "boots", label: "신발", Icon: Sneaker, color: "text-emerald-500" },
-  { slot: "ring", label: "반지", Icon: Circle, color: "text-violet-500" },
-  { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
+  { slot: "ring", label: "반지", Icon: RingIcon, color: "text-violet-500" },
+  {
+    slot: "necklace",
+    label: "목걸이",
+    Icon: NecklaceIcon,
+    color: "text-pink-500",
+  },
 ];
 
 function CharacterPortrait({ gender }: { gender: Gender }) {

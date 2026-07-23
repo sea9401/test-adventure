@@ -40,9 +40,8 @@ import {
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
 import { useFarm } from "./useFarm";
-import { CookingPanel } from "./CookingPanel";
 
-type FarmSectionKey = "grow" | "delivery" | "kitchen" | "shop";
+type FarmSectionKey = "grow" | "delivery" | "shop";
 
 type FarmToast = {
   id: number;
@@ -56,7 +55,13 @@ const ITEM_LABELS = Object.fromEntries(
   Object.entries(FARM_ITEMS).map(([id, item]) => [id, item.name]),
 ) as Record<FarmItemId, string>;
 
-export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
+export function AdventurerFarmPanel({
+  onBack,
+  onOpenKitchen,
+}: {
+  onBack: () => void;
+  onOpenKitchen: () => void;
+}) {
   const {
     loading,
     busyPlotId,
@@ -140,11 +145,6 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           label: "납품",
           icon: <Package size={16} weight="duotone" />,
           badge: deliverableCount > 0 ? deliverableCount : undefined,
-        },
-        {
-          key: "kitchen",
-          label: "주방",
-          icon: <CookingPot size={16} weight="duotone" />,
         },
         {
           key: "shop",
@@ -242,11 +242,11 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
             priority={false}
           />
           <div className="absolute inset-0 bg-white/75 dark:bg-zinc-950/75" />
-          <div className="relative flex items-center gap-3">
+          <div className="relative flex flex-wrap items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
               <PottedPlant size={24} weight="duotone" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
                 아침에 심고, 모험 뒤에 거두는 작은 밭
               </h2>
@@ -254,6 +254,14 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 증표를 확보합니다.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={onOpenKitchen}
+              className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-zinc-900 dark:text-amber-200 dark:hover:bg-amber-950"
+            >
+              <CookingPot size={18} weight="duotone" aria-hidden />
+              주방으로 이동
+            </button>
           </div>
         </div>
 
@@ -354,12 +362,6 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 onBuy={buyShopItem}
               />
             </div>
-
-            {activeSection === "kitchen" ? (
-              <div className="space-y-4">
-                <CookingPanel onFarmChanged={refresh} />
-              </div>
-            ) : null}
           </div>
         ) : (
           <div className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">

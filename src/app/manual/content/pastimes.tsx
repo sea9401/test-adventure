@@ -97,7 +97,7 @@ export function PastimesContent() {
       <H2>개인 요리</H2>
       <UL>
         <li>
-          모험가 농장의 <Em>주방</Em>에서 농작물과 낚시 보관함의 일반·신선·고급·특급·전설
+          마을의 독립 생활 메뉴인 <Em>주방</Em>에서 농작물과 낚시 보관함의 일반·신선·고급·특급·전설
           어획물을 재료로 사용합니다. 현재 요리법은 <Em>{COOKING_RECIPES.length}종</Em>입니다.
         </li>
         <li>

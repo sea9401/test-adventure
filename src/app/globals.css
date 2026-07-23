@@ -1664,11 +1664,15 @@ body {
   --profile-frame-rgb: 34 197 94;
   --profile-frame-gradient: linear-gradient(110deg, #14532d, #16a34a, #84cc16, #facc15, #22c55e, #14532d);
   --profile-decoration-background:
+    url("/images/ui/profile-decorations/verdant-art.webp"),
     url("/images/ui/profile-decorations/verdant.svg"),
     linear-gradient(135deg, rgb(22 163 74 / 0.08), transparent 38%, transparent 66%, rgb(132 204 22 / 0.08));
-  --profile-decoration-size: 100% 100%, 100% 100%;
-  --profile-decoration-opacity: 0.68;
-  --profile-avatar-decoration-opacity: 0.38;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
+  --profile-decoration-opacity: 0.78;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/verdant-emblem.webp");
+  --profile-avatar-decoration-size: 68% 68%;
+  --profile-avatar-decoration-position: right -6% bottom -6%;
+  --profile-avatar-decoration-opacity: 0.86;
   --profile-decoration-animation: profile-decoration-drift 12s ease-in-out infinite;
 }
 
@@ -1688,11 +1692,15 @@ body {
   --profile-frame-rgb: 113 63 18;
   --profile-frame-gradient: linear-gradient(110deg, #09090b, #3f3f46, #991b1b, #f97316, #27272a, #09090b);
   --profile-decoration-background:
+    url("/images/ui/profile-decorations/obsidian-art.webp"),
     url("/images/ui/profile-decorations/obsidian.svg"),
     radial-gradient(ellipse at 50% 100%, rgb(127 29 29 / 0.1), transparent 70%);
-  --profile-decoration-size: 100% 100%, 100% 100%;
-  --profile-decoration-opacity: 0.64;
-  --profile-avatar-decoration-opacity: 0.34;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
+  --profile-decoration-opacity: 0.76;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/obsidian-emblem.webp");
+  --profile-avatar-decoration-size: 68% 68%;
+  --profile-avatar-decoration-position: right -6% bottom -6%;
+  --profile-avatar-decoration-opacity: 0.84;
   --profile-decoration-animation: profile-decoration-pulse 4.2s ease-in-out infinite;
 }
 
@@ -1736,11 +1744,15 @@ body {
   --profile-frame-rgb: 126 34 206;
   --profile-frame-gradient: linear-gradient(110deg, #581c87, #7e22ce, #facc15, #fde68a, #9333ea, #581c87);
   --profile-decoration-background:
+    url("/images/ui/profile-decorations/royal-art.webp"),
     url("/images/ui/profile-decorations/royal.svg"),
     radial-gradient(ellipse at 50% 50%, rgb(126 34 206 / 0.08), transparent 68%);
-  --profile-decoration-size: 100% 100%, 100% 100%;
-  --profile-decoration-opacity: 0.7;
-  --profile-avatar-decoration-opacity: 0.38;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
+  --profile-decoration-opacity: 0.82;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/royal-emblem.webp");
+  --profile-avatar-decoration-size: 68% 68%;
+  --profile-avatar-decoration-position: right -6% bottom -6%;
+  --profile-avatar-decoration-opacity: 0.88;
   --profile-decoration-animation: profile-decoration-pulse 5s ease-in-out infinite;
 }
 
@@ -1872,10 +1884,16 @@ body {
   z-index: 2;
   inset: 2px;
   border-radius: calc(0.75rem - 2px);
-  background: var(--profile-decoration-background, none);
-  background-position: center;
+  background: var(
+    --profile-avatar-decoration-background,
+    var(--profile-decoration-background, none)
+  );
+  background-position: var(--profile-avatar-decoration-position, center);
   background-repeat: no-repeat;
-  background-size: var(--profile-decoration-size, auto);
+  background-size: var(
+    --profile-avatar-decoration-size,
+    var(--profile-decoration-size, auto)
+  );
   content: "";
   opacity: var(
     --profile-avatar-decoration-opacity,

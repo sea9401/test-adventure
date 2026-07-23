@@ -208,7 +208,7 @@ describe("guild workshop recipes", () => {
     });
     expect(GUILD_WORKSHOP_RECIPES.crafted_master_ring).toMatchObject({
       equipmentId: "v2_crafted_master_ring",
-      requiredArtisanLevel: 5,
+      requiredArtisanLevel: 7,
       requiredSmithyLevel: 2,
     });
     expect(GUILD_WORKSHOP_RECIPES.crafted_ward_plate).toMatchObject({

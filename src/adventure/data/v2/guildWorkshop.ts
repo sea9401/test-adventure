@@ -446,7 +446,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     cost: guildWorkshopResourceCostForTier(6, "fury"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
-    requiredArtisanLevel: 5,
+    requiredArtisanLevel: 7,
     requiredSmithyLevel: 2,
     artisanXp: 66,
     note: "격노 세트 반지",

@@ -75,6 +75,7 @@ export const BLACKSMITH_MASTERWORK_LEVEL = 8;
 export const BLACKSMITH_PLUS2_QUALITY_LEVEL = 9;
 export const BLACKSMITH_MATERIAL_SENSE_LEVEL = 4;
 export const BLACKSMITH_DISMANTLE_LEVEL = 6;
+export const BLACKSMITH_MASTER_MARK_LEVEL = 10;
 
 export const BLACKSMITH_ARTISAN_JOBS: readonly ArtisanJobDefinition[] = [
   {
@@ -197,10 +198,10 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     id: "blacksmith_master_mark",
     jobId: "master_blacksmith",
     effectScope: "crafting",
-    level: 10,
+    level: BLACKSMITH_MASTER_MARK_LEVEL,
     kind: "passive",
     name: "명장의 각인",
-    description: "명장 제작품 납품과 거래 가치 확장",
+    description: "Lv 10 이상에 만든 명장 제작품의 납품 보너스 추가 강화",
     implemented: true,
   },
 ];
@@ -254,7 +255,7 @@ export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
   {
     level: 10,
     title: "왕도 명장",
-    description: "명장 제작품 납품 가치 극대화",
+    description: "Lv 10 이상 명장 제작품의 납품 보너스 추가 강화",
   },
 ];
 

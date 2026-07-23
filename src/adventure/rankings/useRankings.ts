@@ -2,7 +2,10 @@
 
 import { useAsyncData } from "@/lib/useAsyncData";
 import type { Avatar } from "@/adventure/profile/avatars";
-import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import type {
+  ChromaNameId,
+  ProfileBorderId,
+} from "@/adventure/data/v2/museunCosmetics";
 
 // 개인 metric 5종(숙련/전투/생활/도감/숙련의 탑) + 길드 누적 명성 1종.
 // 명성·옛 고탑(주간/도전) API 는 호환용으로 남지만 UI 에서는 노출하지 않는다.
@@ -37,6 +40,7 @@ export type RankingEntry = {
   challengeHighest: number;
   mine: boolean;
   profileBorder: ProfileBorderId | null;
+  chatNameEffect: ChromaNameId | null;
 };
 
 export type RankingMe = {
@@ -57,6 +61,7 @@ export type RankingMe = {
   weekHighest: number;
   challengeHighest: number;
   profileBorder: ProfileBorderId | null;
+  chatNameEffect: ChromaNameId | null;
 };
 
 export type GuildRankingEntry = {

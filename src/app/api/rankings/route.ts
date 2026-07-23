@@ -886,6 +886,7 @@ export async function GET(req: Request) {
     challengeHighest: r.challengeHighest,
     mine: r.userId === userId,
     profileBorder: cosmeticByUser.get(r.userId)?.profileBorder ?? null,
+    chatNameEffect: cosmeticByUser.get(r.userId)?.chatNameEffect ?? null,
   }));
 
   const me = myRow
@@ -908,6 +909,8 @@ export async function GET(req: Request) {
         challengeHighest: myRow.challengeHighest,
         profileBorder:
           cosmeticByUser.get(myRow.userId)?.profileBorder ?? null,
+        chatNameEffect:
+          cosmeticByUser.get(myRow.userId)?.chatNameEffect ?? null,
       }
     : null;
 

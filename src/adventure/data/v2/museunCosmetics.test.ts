@@ -330,7 +330,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
   });
 
   it("최초 상자는 일반 72%·희귀 20%·영웅 6%·전설 2%로 추첨한다", () => {
-    expect(CHROMA_NAME_VARIANTS).toHaveLength(50);
+    expect(CHROMA_NAME_VARIANTS).toHaveLength(56);
     expect(
       Object.fromEntries(
         ["common", "rare", "epic", "legendary"].map((rarity) => [
@@ -340,7 +340,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
           ).length,
         ]),
       ),
-    ).toEqual({ common: 22, rare: 14, epic: 9, legendary: 5 });
+    ).toEqual({ common: 22, rare: 14, epic: 14, legendary: 6 });
     const odds = chromaNameOdds(null);
     const probabilityByRarity = Object.fromEntries(
       ["common", "rare", "epic", "legendary"].map((rarity) => [
@@ -360,9 +360,31 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(probabilityByRarity.legendary).toBeCloseTo(2);
 
     expect(drawChromaNameByRoll(null, 0)).toBe("crimson");
-    expect(drawChromaNameByRoll(null, 1_889)).toBe("crimson");
-    expect(drawChromaNameByRoll(null, 1_890)).toBe("coral");
-    expect(drawChromaNameByRoll(null, 57_749)).toBe("genesis");
+    expect(drawChromaNameByRoll(null, 1_511)).toBe("crimson");
+    expect(drawChromaNameByRoll(null, 1_512)).toBe("coral");
+    expect(drawChromaNameByRoll(null, 46_199)).toBe("petalfall");
+  });
+
+  it("각 등급이 남아 있는 동안 닉네임 보유 개수와 무관하게 등급 확률을 유지한다", () => {
+    const odds = chromaNameOdds({
+      chromaNames: ["crimson", "coral", "abyss", "spectrum", "hellfire"],
+    });
+    const probabilityByRarity = Object.fromEntries(
+      ["common", "rare", "epic", "legendary"].map((rarity) => [
+        rarity,
+        odds
+          .filter((entry) =>
+            CHROMA_NAME_VARIANTS.some(
+              (variant) => variant.id === entry.id && variant.rarity === rarity,
+            ),
+          )
+          .reduce((sum, entry) => sum + entry.probabilityPct, 0),
+      ]),
+    );
+    expect(probabilityByRarity.common).toBeCloseTo(72);
+    expect(probabilityByRarity.rare).toBeCloseTo(20);
+    expect(probabilityByRarity.epic).toBeCloseTo(6);
+    expect(probabilityByRarity.legendary).toBeCloseTo(2);
   });
 
   it("등급과 관계없이 마지막 미보유 항목은 100%가 되고 완성 후 추첨하지 않는다", () => {

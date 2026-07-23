@@ -86,6 +86,7 @@ export function V2AdventureHome() {
             activePresetName={activePresetName}
             adventureSupport={state.adventureSupport}
             profileBorder={state.cosmetics?.profileBorder ?? null}
+            chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
             championshipBadge={state.cosmetics?.championshipBadge ?? null}
           />
         )}

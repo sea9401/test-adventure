@@ -33,10 +33,10 @@ export type MuseunCosmeticsState = {
 };
 
 export const CHROMA_NAME_RARITIES = {
-  common: { name: "일반", effect: "단색", weight: 1890 },
-  rare: { name: "희귀", effect: "투톤", weight: 825 },
-  epic: { name: "영웅", effect: "흐르는 크로마", weight: 385 },
-  legendary: { name: "전설", effect: "특수 크로마", weight: 231 },
+  common: { name: "일반", effect: "단색", weight: 72 },
+  rare: { name: "희귀", effect: "투톤", weight: 20 },
+  epic: { name: "영웅", effect: "흐르는 크로마", weight: 6 },
+  legendary: { name: "전설", effect: "주변 특수 효과", weight: 2 },
 } as const;
 
 export type ChromaNameRarity = keyof typeof CHROMA_NAME_RARITIES;
@@ -87,11 +87,17 @@ export const CHROMA_NAME_VARIANTS = [
   { id: "galaxy", name: "은하", theme: "성운·우주", rarity: "epic" },
   { id: "neon", name: "네온", theme: "전광·형광", rarity: "epic" },
   { id: "phantom", name: "환영", theme: "청록·유령빛", rarity: "epic" },
-  { id: "royal", name: "로열", theme: "금빛·보라", rarity: "legendary" },
-  { id: "celestial", name: "천상", theme: "백금·성운", rarity: "legendary" },
-  { id: "hologram", name: "홀로그램", theme: "프리즘·오팔", rarity: "legendary" },
-  { id: "eclipse", name: "이클립스", theme: "암흑·태양", rarity: "legendary" },
-  { id: "genesis", name: "창세", theme: "태초의 빛·혼돈", rarity: "legendary" },
+  { id: "royal", name: "로열", theme: "금빛·보라", rarity: "epic" },
+  { id: "celestial", name: "천상", theme: "백금·성운", rarity: "epic" },
+  { id: "hologram", name: "홀로그램", theme: "프리즘·오팔", rarity: "epic" },
+  { id: "eclipse", name: "이클립스", theme: "암흑·태양", rarity: "epic" },
+  { id: "genesis", name: "창세", theme: "태초의 빛·혼돈", rarity: "epic" },
+  { id: "hellfire", name: "겁화", theme: "타오르는 불꽃", rarity: "legendary" },
+  { id: "stormcall", name: "천뢰", theme: "쏟아지는 뇌전", rarity: "legendary" },
+  { id: "permafrost", name: "빙결", theme: "서리와 눈꽃", rarity: "legendary" },
+  { id: "constellation", name: "성좌", theme: "별빛과 성운", rarity: "legendary" },
+  { id: "umbral", name: "암영", theme: "피어오르는 그림자", rarity: "legendary" },
+  { id: "petalfall", name: "낙화", theme: "흩날리는 꽃잎", rarity: "legendary" },
 ] as const satisfies readonly {
   id: string;
   name: string;
@@ -104,6 +110,10 @@ export type ChromaNameId = (typeof CHROMA_NAME_VARIANTS)[number]["id"];
 export const CHROMA_NAME_IDS = CHROMA_NAME_VARIANTS.map(
   (variant) => variant.id,
 ) as ChromaNameId[];
+
+const CHROMA_NAME_DRAW_VARIANTS = CHROMA_NAME_VARIANTS.map(
+  ({ id, rarity }) => ({ itemId: id, rarity }),
+);
 
 export const PROFILE_BORDER_VARIANTS = [
   { id: "prismatic", itemId: "prismatic_profile_border", name: "프리즘", rarity: "epic", motion: "animated" },
@@ -704,27 +714,24 @@ export function chromaNameOdds(value: unknown): Array<{
   probabilityPct: number;
 }> {
   const available = unownedChromaNames(value);
-  if (available.length === 0) return [];
-  const totalWeight = available.reduce(
-    (sum, id) => sum + chromaNameWeight(id),
-    0,
+  const weights = rarityFirstItemWeights(
+    available,
+    CHROMA_NAME_DRAW_VARIANTS,
+    CHROMA_NAME_RARITIES,
   );
-  return available.map((id) => ({
-    id,
-    probabilityPct: (chromaNameWeight(id) / totalWeight) * 100,
-  }));
-}
-
-export function chromaNameWeight(chromaId: ChromaNameId): number {
-  const variant = getChromaNameVariant(chromaId);
-  return CHROMA_NAME_RARITIES[variant.rarity].weight;
+  return weightedItemOdds(available, (id) => weights.get(id) ?? 0).map(
+    ({ itemId, probabilityPct }) => ({ id: itemId, probabilityPct }),
+  );
 }
 
 export function chromaNameDrawWeight(value: unknown): number {
-  return unownedChromaNames(value).reduce(
-    (sum, id) => sum + chromaNameWeight(id),
-    0,
+  const available = unownedChromaNames(value);
+  const weights = rarityFirstItemWeights(
+    available,
+    CHROMA_NAME_DRAW_VARIANTS,
+    CHROMA_NAME_RARITIES,
   );
+  return available.reduce((sum, id) => sum + (weights.get(id) ?? 0), 0);
 }
 
 export function drawChromaNameByRoll(
@@ -732,18 +739,12 @@ export function drawChromaNameByRoll(
   roll: number,
 ): ChromaNameId | null {
   const available = unownedChromaNames(value);
-  const totalWeight = available.reduce(
-    (sum, id) => sum + chromaNameWeight(id),
-    0,
+  const weights = rarityFirstItemWeights(
+    available,
+    CHROMA_NAME_DRAW_VARIANTS,
+    CHROMA_NAME_RARITIES,
   );
-  if (totalWeight === 0) return null;
-  let cursor = Math.max(0, Math.min(totalWeight - 1, Math.floor(roll)));
-  for (const id of available) {
-    const weight = chromaNameWeight(id);
-    if (cursor < weight) return id;
-    cursor -= weight;
-  }
-  return available.at(-1) ?? null;
+  return drawWeightedItem(available, (id) => weights.get(id) ?? 0, roll);
 }
 
 export function museunCosmeticAppearance(

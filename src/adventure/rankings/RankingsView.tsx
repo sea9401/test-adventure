@@ -14,6 +14,7 @@ import { usePagination } from "@/lib/usePagination";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import { chatNameClass } from "@/components/chat/ChatCosmetics";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import {
@@ -324,8 +325,15 @@ function RankingRow({
           sizes="44px"
           className="h-11 w-11 rounded-xl"
         />
-        <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
-          {entry.name}
+        <span className="min-w-0 truncate text-sm font-medium">
+          <span
+            className={chatNameClass(
+              entry.chatNameEffect,
+              "text-zinc-800 dark:text-zinc-100",
+            )}
+          >
+            {entry.name}
+          </span>
           {entry.mine && (
             <span className="ml-1 text-[10px] font-normal text-emerald-700 dark:text-emerald-400">
               (나)

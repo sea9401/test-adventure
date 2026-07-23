@@ -47,7 +47,7 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
   }
   if (effect.kind === "profile_border_box") return "미보유 프로필 테두리 1종 확정";
   if (effect.kind === "chat_badge_box") return "미보유 채팅 배지 1종 확정";
-  return "미보유 크로마 닉네임 1종 확정";
+  return "미보유 닉네임 꾸미기 1종 확정";
 }
 
 // 소모품 탭 — SP 열매 섹션 + 실제 소모품 목록. 레어맵은 사냥터 목록에서 표시한다.

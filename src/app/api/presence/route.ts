@@ -1,4 +1,4 @@
-import { gt, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { presence } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -7,47 +7,6 @@ import { APP_BUILD_VERSION } from "@/lib/clientVersion";
 import { clientIpFromRequest } from "@/lib/server/abuseLog";
 import { recordSameIpPresenceSoon } from "@/lib/server/sameIpPresence";
 import { requireActiveDeviceSession } from "@/lib/server/checkSession";
-import {
-  readMuseunCosmeticAppearanceMap,
-  readProfileAvatarMap,
-} from "@/lib/server/museunCosmetics";
-
-const ONLINE_WINDOW_SECONDS = 60;
-
-export async function GET() {
-  const userId = await ensureUser();
-  if (!userId) return new Response("unauthorized", { status: 401 });
-
-  const since = new Date(Date.now() - ONLINE_WINDOW_SECONDS * 1000);
-  const rows = await db
-    .select({
-      userId: presence.userId,
-      name: presence.name,
-      className: presence.className,
-      title: presence.title,
-    })
-    .from(presence)
-    .where(gt(presence.lastSeenAt, since))
-    .orderBy(presence.lastSeenAt);
-
-  const presenceUserIds = rows.map((row) => row.userId);
-  const [cosmeticByUser, avatarByUser] = await Promise.all([
-    readMuseunCosmeticAppearanceMap(presenceUserIds),
-    readProfileAvatarMap(presenceUserIds),
-  ]);
-
-  return Response.json(
-    rows.map((r) => ({
-      name: r.name,
-      className: r.className,
-      title: r.title,
-      mine: r.userId === userId,
-      avatar: avatarByUser.get(r.userId) ?? "male1",
-      cosmetics: cosmeticByUser.get(r.userId) ?? null,
-    })),
-  );
-}
-
 export async function POST(req: Request) {
   // 하트비트는 비활성 기기에 명시적인 410을 내려 클라이언트가 즉시 로그아웃하게 한다.
   const userId = await ensureUser({ skipDeviceCheck: true });

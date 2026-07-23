@@ -25,6 +25,7 @@ import {
 import {
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_COOKING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   type JobUnlockContext,
@@ -44,6 +45,12 @@ import {
   parseMiningLog,
 } from "@/adventure/v2/miningSession";
 import { miningProgressionView } from "@/adventure/v2/miningProgression";
+import {
+  COOKING_SAVE_KEY,
+  activeCookingBuff,
+  cookingLevelForXp,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
@@ -108,6 +115,7 @@ const STATE_SAVE_KEYS = [
   "inventory.v2",
   EQUIPMENT_CODEX_KEY,
   FARM_SAVE_KEY,
+  COOKING_SAVE_KEY,
   WOODCUTTING_LOG_KEY,
   MINING_LOG_KEY,
 ] as const;
@@ -213,6 +221,7 @@ export async function GET(req: Request) {
     spFruitUsed?: unknown;
     museunCosmetics?: unknown;
     arenaChampionshipBadges?: unknown;
+    activeFoodBuff?: unknown;
   };
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
@@ -330,6 +339,13 @@ export async function GET(req: Request) {
               ),
             }
           : {}),
+        ...(CATALOG_USES_COOKING_LEVEL_CONDITION
+          ? {
+              cookingLevel: cookingLevelForXp(
+                parseCookingState(stateSaves.get(COOKING_SAVE_KEY)).xp,
+              ),
+            }
+          : {}),
         ...(CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
           ? {
               woodcuttingLevel: woodcuttingProgressionView(
@@ -403,6 +419,7 @@ export async function GET(req: Request) {
           serverNow: now,
         }
       : null,
+    activeFoodBuff: activeCookingBuff(charSave.activeFoodBuff, now),
     // 사냥이 스태미나 모드인가(코어루프 on + 스태미나 다이얼) — 클라가 스태미나 바/UI 표시 판정.
     huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
     // 사냥 쿨다운 — 쿨다운 모드만 객체, 스태미나 모드/off 면 null(스태미나 판정).

@@ -52,6 +52,11 @@ import { EquipmentTab } from "./inventory/EquipmentTab";
 import { MaterialsTab } from "./inventory/MaterialsTab";
 import { RareMapsTab } from "./inventory/RareMapsTab";
 import { useSystemToast } from "./RewardToastProvider";
+import {
+  type ActiveCookingBuff,
+  type CookingFoodId,
+  type CookingFoodInventory,
+} from "./cooking";
 
 // 강화/재련 등 다른 화면도 같은 장비 카드 그리드를 쓴다 — 기존 import 경로 유지를 위해
 // 분리한 컴포넌트를 여기서 재노출(re-export).
@@ -109,6 +114,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
+  const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
   useEffect(() => {
     if (tab !== "consumable") return;
     let alive = true;
@@ -194,8 +200,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         const j = (await invRes.json()) as {
           materials?: Partial<Record<V2MaterialId, number>>;
           spFruitUsed?: Partial<Record<SpFruitTier, number>>;
+          cookingFoods?: CookingFoodInventory;
         };
         setMaterials(j.materials ?? {});
+        setCookingFoods(j.cookingFoods ?? {});
         setSpFruitUsed({
           1: j.spFruitUsed?.[1] ?? 0,
           2: j.spFruitUsed?.[2] ?? 0,
@@ -404,6 +412,45 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setCashItems(data.cashItems ?? {});
         await refreshGameState();
         notifySystem(`✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`);
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem, refreshGameState],
+  );
+
+  const useCookingFood = useCallback(
+    async (itemId: CookingFoodId) => {
+      setBusy(`cooking_food_${itemId}`);
+      try {
+        const res = await fetch("/api/v2/me/use-cooking-food", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ itemId }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          cookingFoods?: CookingFoodInventory;
+          activeBuff?: ActiveCookingBuff;
+        } | null;
+        if (!res.ok || !data?.ok) {
+          notifySystem(
+            `✗ ${
+              data?.error === "not_owned"
+                ? "보유한 음식이 없습니다"
+                : (data?.error ?? `http ${res.status}`)
+            }`,
+          );
+          return;
+        }
+        setCookingFoods(data.cookingFoods ?? {});
+        await refreshGameState();
+        notifySystem(
+          `✓ ${data.activeBuff?.recipeName ?? "음식"} 효과가 적용됐습니다`,
+        );
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
@@ -652,6 +699,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             rareMaps={rareMaps}
             cashItems={cashItems}
             onUseCashItem={useCashItem}
+            cookingFoods={cookingFoods}
+            onUseCookingFood={useCookingFood}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />

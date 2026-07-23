@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Clock,
+  CookingPot,
   FlowerTulip,
   Leaf,
   Package,
@@ -20,6 +21,7 @@ import {
   FARM_CROPS,
   FARM_ITEMS,
   FARM_MAX_PLOT_COUNT,
+  FARM_RARE_PITY_HARVESTS,
   canPlantFarmCrop,
   farmAvailableReputation,
   farmingLevelForState,
@@ -53,7 +55,13 @@ const ITEM_LABELS = Object.fromEntries(
   Object.entries(FARM_ITEMS).map(([id, item]) => [id, item.name]),
 ) as Record<FarmItemId, string>;
 
-export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
+export function AdventurerFarmPanel({
+  onBack,
+  onOpenKitchen,
+}: {
+  onBack: () => void;
+  onOpenKitchen: () => void;
+}) {
   const {
     loading,
     busyPlotId,
@@ -234,11 +242,11 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
             priority={false}
           />
           <div className="absolute inset-0 bg-white/75 dark:bg-zinc-950/75" />
-          <div className="relative flex items-center gap-3">
+          <div className="relative flex flex-wrap items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
               <PottedPlant size={24} weight="duotone" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
                 아침에 심고, 모험 뒤에 거두는 작은 밭
               </h2>
@@ -246,6 +254,14 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 증표를 확보합니다.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={onOpenKitchen}
+              className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-zinc-900 dark:text-amber-200 dark:hover:bg-amber-950"
+            >
+              <CookingPot size={18} weight="duotone" aria-hidden />
+              주방으로 이동
+            </button>
           </div>
         </div>
 
@@ -387,7 +403,7 @@ function FarmSummary({ farm }: { farm: FarmState }) {
   )} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농사 레벨"
@@ -406,6 +422,15 @@ function FarmSummary({ farm }: { farm: FarmState }) {
         icon={<Sparkle size={17} weight="duotone" />}
         label="농장 증표"
         value={`${farmAvailableReputation(farm).toLocaleString("ko-KR")}개`}
+      />
+      <SummaryTile
+        icon={<Sparkle size={17} weight="duotone" />}
+        label="희귀 수확 보정"
+        value={`${farm.stats.rareMissStreak} / ${FARM_RARE_PITY_HARVESTS - 1}`}
+        progress={{
+          value: farm.stats.rareMissStreak,
+          max: FARM_RARE_PITY_HARVESTS - 1,
+        }}
       />
     </div>
   );
@@ -600,7 +625,9 @@ function WeeklyDeliveryBoard({
               rewardText={formatFarmDeliveryReward(
                 delivery.rewardReputation,
                 delivery.rewardSeeds,
-              )}
+              ) + (delivery.optionalRareItemId
+                ? ` · 선택 보너스: ${delivery.optionalRareItemName ?? ITEM_LABELS[delivery.optionalRareItemId]} 1개 보유 시 자동 사용, 증표 +${delivery.optionalRareBonusReputation ?? 0}`
+                : "")}
               buttonText={
                 busy
                   ? "납품 중..."

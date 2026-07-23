@@ -1610,7 +1610,10 @@ body {
   background-repeat: no-repeat;
   background-size: var(--profile-decoration-size, auto);
   content: "";
-  opacity: var(--profile-decoration-opacity, 0);
+  opacity: var(
+    --profile-decoration-card-opacity,
+    var(--profile-decoration-opacity, 0)
+  );
   pointer-events: none;
   transform-origin: center;
   animation: var(--profile-decoration-animation, none);
@@ -1621,6 +1624,59 @@ body {
 .ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic) > * {
   position: relative;
   z-index: 1;
+}
+
+/* 캐릭터 카드에서는 구매한 프로필 장식이 넓은 영역에서도 충분히 보이도록 한다.
+   상점 미리보기와 작은 아바타 장식의 투명도는 기존 값을 유지한다. */
+.ui-character-card.ui-profile-frame-cosmetic:not(.ui-profile-frame-static) {
+  --profile-decoration-card-opacity: 0.86;
+}
+
+/* 크로마 닉네임에는 영향을 주지 않고 일반 보조 정보에만 외곽 대비를 준다. */
+.ui-profile-frame-cosmetic .ui-profile-readable-copy {
+  text-shadow:
+    0 1px 1px rgb(255 255 255 / 0.95),
+    0 0 4px rgb(255 255 255 / 0.85);
+}
+
+.ui-profile-frame-cosmetic
+  .ui-profile-decoration-readable
+  .ui-stat-bar-copy {
+  color: rgb(39 39 42);
+  font-weight: 600;
+}
+
+/* 황실처럼 명암이 강한 장식에서도 수치만큼은 항상 읽히도록 하는 작은 불투명 칩. */
+.ui-profile-frame-cosmetic
+  .ui-profile-decoration-readable
+  .ui-profile-value-chip {
+  display: inline-block;
+  border-radius: 0.25rem;
+  padding-inline: 0.25rem;
+  background-color: rgb(255 255 255);
+  box-shadow: 0 0 0 1px rgb(39 39 42 / 0.08);
+  text-shadow: none;
+}
+
+.dark .ui-profile-frame-cosmetic .ui-profile-readable-copy {
+  text-shadow:
+    0 1px 1px rgb(0 0 0 / 0.95),
+    0 0 4px rgb(0 0 0 / 0.85);
+}
+
+.dark
+  .ui-profile-frame-cosmetic
+  .ui-profile-decoration-readable
+  .ui-stat-bar-copy {
+  color: rgb(228 228 231);
+}
+
+.dark
+  .ui-profile-frame-cosmetic
+  .ui-profile-decoration-readable
+  .ui-profile-value-chip {
+  background-color: rgb(9 9 11);
+  box-shadow: 0 0 0 1px rgb(228 228 231 / 0.12);
 }
 
 .ui-profile-decoration-canvas {
@@ -1662,10 +1718,11 @@ body {
   --profile-frame-rgb: 239 68 68;
   --profile-frame-gradient: linear-gradient(110deg, #7f1d1d, #dc2626, #fb923c, #facc15, #dc2626, #7f1d1d);
   --profile-decoration-background:
-    url("/images/ui/profile-decorations/infernal.svg"),
+    url("/images/ui/profile-decorations/infernal-art.webp"),
     linear-gradient(to top, rgb(220 38 38 / 0.1), transparent 64%);
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.64;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/infernal.svg");
   --profile-avatar-decoration-opacity: 0.35;
   --profile-decoration-animation: profile-decoration-drift 6.5s ease-in-out infinite;
 }
@@ -1674,10 +1731,11 @@ body {
   --profile-frame-rgb: 14 165 233;
   --profile-frame-gradient: linear-gradient(110deg, #164e63, #0891b2, #38bdf8, #2563eb, #67e8f9, #164e63);
   --profile-decoration-background:
-    url("/images/ui/profile-decorations/oceanic.svg"),
+    url("/images/ui/profile-decorations/oceanic-art.webp"),
     linear-gradient(to top, rgb(14 165 233 / 0.1), transparent 60%);
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.62;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/oceanic.svg");
   --profile-avatar-decoration-opacity: 0.34;
   --profile-decoration-animation: profile-decoration-drift 10s ease-in-out infinite;
 }
@@ -1702,10 +1760,11 @@ body {
   --profile-frame-rgb: 168 85 247;
   --profile-frame-gradient: linear-gradient(110deg, #f8fafc, #facc15, #c084fc, #38bdf8, #f0abfc, #f8fafc);
   --profile-decoration-background:
-    url("/images/ui/profile-decorations/celestial.svg"),
+    url("/images/ui/profile-decorations/celestial-art.webp"),
     radial-gradient(ellipse at 50% 40%, rgb(168 85 247 / 0.1), rgb(56 189 248 / 0.05) 38%, transparent 70%);
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.72;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/celestial.svg");
   --profile-avatar-decoration-opacity: 0.4;
   --profile-decoration-animation: profile-decoration-drift 14s ease-in-out infinite;
 }
@@ -1730,10 +1789,11 @@ body {
   --profile-frame-rgb: 6 182 212;
   --profile-frame-gradient: linear-gradient(110deg, #e0f2fe, #67e8f9, #38bdf8, #a5b4fc, #f8fafc, #e0f2fe);
   --profile-decoration-background:
-    url("/images/ui/profile-decorations/frozen.svg"),
+    url("/images/ui/profile-decorations/frozen-art.webp"),
     linear-gradient(135deg, rgb(255 255 255 / 0.1), transparent 28%, transparent 72%, rgb(103 232 249 / 0.08));
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/frozen.svg");
   --profile-avatar-decoration-opacity: 0.38;
   --profile-decoration-animation: profile-decoration-drift 10s ease-in-out infinite;
 }
@@ -1742,10 +1802,11 @@ body {
   --profile-frame-rgb: 99 102 241;
   --profile-frame-gradient: linear-gradient(110deg, #18181b, #475569, #facc15, #818cf8, #1e293b, #18181b);
   --profile-decoration-background:
-    url("/images/ui/profile-decorations/storm.svg"),
+    url("/images/ui/profile-decorations/storm-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(30 41 59 / 0.14), transparent 74%);
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/storm.svg");
   --profile-avatar-decoration-opacity: 0.36;
   --profile-decoration-animation: profile-decoration-storm-flash 5.5s linear infinite;
 }
@@ -1754,10 +1815,11 @@ body {
   --profile-frame-rgb: 225 29 72;
   --profile-frame-gradient: linear-gradient(110deg, #881337, #e11d48, #fb7185, #fbbf24, #be123c, #881337);
   --profile-decoration-background:
-    url("/images/ui/profile-decorations/rose.svg"),
+    url("/images/ui/profile-decorations/rose-art.webp"),
     linear-gradient(145deg, rgb(225 29 72 / 0.07), transparent 52%, rgb(251 191 36 / 0.06));
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
+  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/rose.svg");
   --profile-avatar-decoration-opacity: 0.38;
   --profile-decoration-animation: profile-decoration-drift 11s ease-in-out infinite;
 }
@@ -1963,15 +2025,26 @@ body {
 }
 
 .ui-chat-badge {
+  box-sizing: border-box;
+  flex: 0 0 18px;
   align-items: center;
   justify-content: center;
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 18px;
+  height: 18px;
   border: 1px solid rgb(var(--chat-badge-rgb, 139 92 246) / 0.55);
   border-radius: 9999px;
   background: var(--chat-badge-background, linear-gradient(135deg, #e0f2fe, #ede9fe 52%, #fce7f3));
   color: var(--chat-badge-color, #7c3aed);
   box-shadow: 0 0 8px rgb(var(--chat-badge-rgb, 139 92 246) / 0.22);
+  line-height: 0;
+  vertical-align: -2px;
+}
+
+.ui-chat-badge > svg {
+  display: block;
+  flex: none;
+  width: 12px;
+  height: 12px;
 }
 
 .ui-chat-badge--crown {

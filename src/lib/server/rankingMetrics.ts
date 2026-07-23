@@ -26,6 +26,7 @@ import {
 } from "@/adventure/v2/woodcuttingProgression";
 import { parseWoodcuttingLog } from "@/adventure/v2/woodcuttingSession";
 import { jobUnlockContextFromSaves } from "@/lib/server/jobUnlockContext";
+import { cookingLevelForXp, parseCookingState } from "@/adventure/v2/cooking";
 import { parseClaimed } from "@/lib/server/v2QuestContext";
 
 const FARMING_RANKING_LEVEL_CAP = 50;
@@ -37,6 +38,7 @@ export type LifeMasteryRanking = {
   woodcuttingLevel: number;
   miningLevel: number;
   fishingLevel: number;
+  cookingLevel: number;
 };
 
 export function lifeMasteryRankingFromSaves(input: {
@@ -44,11 +46,13 @@ export function lifeMasteryRankingFromSaves(input: {
   woodcuttingRaw?: unknown;
   miningRaw?: unknown;
   fishingRaw?: unknown;
+  cookingRaw?: unknown;
 }): LifeMasteryRanking {
   const farm = parseFarmState(input.farmRaw);
   const woodcutting = parseWoodcuttingLog(input.woodcuttingRaw);
   const mining = parseMiningLog(input.miningRaw);
   const fishing = parseFishingProgression(input.fishingRaw);
+  const cooking = parseCookingState(input.cookingRaw);
   const farmingLevel = Math.min(
     FARMING_RANKING_LEVEL_CAP,
     farmingLevelForState(farm),
@@ -62,15 +66,17 @@ export function lifeMasteryRankingFromSaves(input: {
     miningProgressionView(mining.successes, mining.xp).level,
   );
   const fishingLevel = fishingLevelForXp(fishing.xp);
+  const cookingLevel = cookingLevelForXp(cooking.xp);
   return {
     totalLevel:
-      farmingLevel + woodcuttingLevel + miningLevel + fishingLevel,
+      farmingLevel + woodcuttingLevel + miningLevel + fishingLevel + cookingLevel,
     totalXp:
-      farm.stats.farmingXp + woodcutting.xp + mining.xp + fishing.xp,
+      farm.stats.farmingXp + woodcutting.xp + mining.xp + fishing.xp + cooking.xp,
     farmingLevel,
     woodcuttingLevel,
     miningLevel,
     fishingLevel,
+    cookingLevel,
   };
 }
 
@@ -86,6 +92,7 @@ export function codexCompletionRankingFromSaves(input: {
   characterRaw?: unknown;
   proficiencyRaw?: unknown;
   farmRaw?: unknown;
+  cookingRaw?: unknown;
   woodcuttingRaw?: unknown;
   miningRaw?: unknown;
   questsRaw?: unknown;
@@ -110,6 +117,7 @@ export function codexCompletionRankingFromSaves(input: {
     specChoice,
     jobUnlockContextFromSaves({
       farmRaw: input.farmRaw,
+      cookingRaw: input.cookingRaw,
       woodcuttingRaw: input.woodcuttingRaw,
       miningRaw: input.miningRaw,
       completedQuestIds: parseClaimed(input.questsRaw),

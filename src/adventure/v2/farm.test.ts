@@ -4,6 +4,7 @@ import {
   FARM_FISHING_SHOP_SEED_REWARD,
   FARM_CROP_REQUIRED_SKILL_ID,
   FARM_CROP_UNLOCK_SKILLS,
+  FARM_CROPS,
   buyFarmPlotUpgrade,
   buyFarmShopItem,
   canPlantFarmCrop,
@@ -121,6 +122,7 @@ describe("adventurer farm", () => {
       reputation: 0,
       reputationSpent: 0,
       farmingXp: 60,
+      rareMissStreak: 0,
     });
     expect(result.farmingXpGained).toBe(60);
     expect(result.farmingXp).toBe(60);
@@ -148,6 +150,26 @@ describe("adventurer farm", () => {
     expect(state.inventory.wheat).toBe(5);
     expect(state.inventory.golden_wheat).toBe(1);
     expect(result.farmingXpGained).toBe(15);
+  });
+
+  it("guarantees one rare crop by the 20th consecutive miss", () => {
+    let state = emptyFarmState(1_000);
+    state = { ...state, seeds: { wheat: 20 } };
+    let lastRareQuantity = 0;
+    for (let index = 0; index < 20; index += 1) {
+      const planted = plantCrop(state, "plot-1", "wheat", index * 10_000);
+      const harvested = harvestPlot(
+        planted,
+        "plot-1",
+        index * 10_000 + FARM_CROPS.wheat.growMs,
+        () => 0.99,
+      );
+      state = harvested.state;
+      lastRareQuantity = harvested.result.rareQuantity;
+      if (index < 19) expect(lastRareQuantity).toBe(0);
+    }
+    expect(lastRareQuantity).toBe(1);
+    expect(state.stats.rareMissStreak).toBe(0);
   });
 
   it("reduces the hourly farming xp rate after four hours", () => {
@@ -473,6 +495,7 @@ describe("adventurer farm", () => {
       reputation: 4,
       reputationSpent: 0,
       farmingXp: 0,
+      rareMissStreak: 0,
     });
   });
 });

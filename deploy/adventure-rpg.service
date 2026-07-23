@@ -10,6 +10,10 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/home/ec2-user/adventure-rpg
 ExecStart=/usr/bin/npm start
+# `npm start` exits with SIGTERM (128 + 15) during an intentional systemctl
+# stop/restart. Treat that as a clean shutdown so routine deploys do not leave
+# a misleading failed result in the journal.
+SuccessExitStatus=143
 Restart=always
 RestartSec=3
 User=ec2-user

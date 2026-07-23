@@ -69,7 +69,7 @@ export function CodexTitlePanel({
           <EmptyState
             icon={<Crown size={40} weight="duotone" />}
             title="아직 획득한 칭호가 없습니다"
-            message="낚시·투기장 상점과 수집 보상으로 칭호를 모으면 여기서 장착할 수 있어요. 장착한 칭호는 채팅과 접속자 목록에 표시됩니다."
+            message="낚시·투기장 상점과 수집 보상으로 칭호를 모으면 여기서 장착할 수 있어요. 장착한 칭호는 채팅에 표시됩니다."
           />
         ) : (
           <div className={`${CODEX_PANEL_SURFACE} space-y-4`}>

@@ -28,7 +28,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "controls",
     title: "화면과 조작",
-    summary: "메인 탭과 상단 메뉴의 위치, 화면을 오가는 방법을 안내합니다.",
+    summary: "메인 탭과 상단 메뉴, 라이트·다크·은신 모드의 사용법을 안내합니다.",
     group: "intro",
   },
   {
@@ -100,7 +100,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "town",
     title: "마을 시설",
-    summary: "치료소·상점·대장간·은행 등 마을에서 이용할 시설을 소개합니다.",
+    summary: "치료소·상점·대장간·은행·농장·주방 등 마을 시설을 소개합니다.",
     group: "world",
   },
   {
@@ -130,7 +130,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "pastimes",
     title: "생활 콘텐츠",
-    summary: "농장·자동 벌목·자동 채광·낚시의 진행 방식과 보상을 안내합니다.",
+    summary: "농장·주방·자동 벌목·자동 채광·낚시의 진행 방식과 보상을 안내합니다.",
     group: "world",
   },
 ];

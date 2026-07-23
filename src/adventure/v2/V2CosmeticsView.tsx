@@ -700,7 +700,7 @@ function BadgeCodex({
   return (
     <CollectionLayout
       title="채팅 배지 도감"
-      description="채팅과 접속자 목록에서 닉네임 앞에 표시할 배지입니다."
+      description="채팅에서 닉네임 앞에 표시할 배지입니다."
     >
       {SORTED_CHAT_BADGE_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);

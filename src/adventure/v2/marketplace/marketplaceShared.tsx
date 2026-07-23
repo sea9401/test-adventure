@@ -27,7 +27,7 @@ export const netPreview = (price: number) =>
 export type PriceStat = { n: number; avg: number; min: number; max: number };
 
 export type MarketplacePricePosition = {
-  tone: "deal" | "fair" | "high";
+  tone: "deal" | "fair";
   label: string;
 };
 
@@ -44,10 +44,7 @@ export function marketplacePricePosition(
     };
   }
   if (differencePct >= 5) {
-    return {
-      tone: "high",
-      label: `평균보다 ${Math.round(differencePct)}% 높음`,
-    };
+    return null;
   }
   return { tone: "fair", label: "시세 수준" };
 }
@@ -150,7 +147,6 @@ export function PricePositionBadge({
   const toneClass = {
     deal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
     fair: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
-    high: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
   }[position.tone];
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${toneClass}`}>

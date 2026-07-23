@@ -22,6 +22,7 @@ import {
   FARM_DAILY_DELIVERY_LIMIT,
   FARM_MAX_PLOT_COUNT,
   FARM_PLOT_COUNT,
+  FARM_RARE_PITY_HARVESTS,
 } from "@/adventure/v2/farm";
 import {
   AUTO_GATHERING_DURATION_MS,
@@ -30,6 +31,13 @@ import {
 } from "@/adventure/v2/autoGathering";
 import { WOODCUTTING_SPOT_IDS } from "@/adventure/data/v2/woodcuttingSpots";
 import { MINING_SPOT_IDS } from "@/adventure/data/v2/miningSpots";
+import {
+  COOKING_BUFF_MAX_HOURS,
+  COOKING_DAILY_ORDER_COUNT,
+  COOKING_RECIPES,
+  COOKING_SURPLUS_BATCH_SIZE,
+  COOKING_SURPLUS_DAILY_LIMIT,
+} from "@/adventure/v2/cooking";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 const CATCH_COIN_BY_TIER: Record<FishTier, number> = {
@@ -56,7 +64,7 @@ export function PastimesContent() {
     <>
       <H2>생활 콘텐츠 한눈에 보기</H2>
       <P>
-        생활 콘텐츠에는 <Em>농장·벌목·채광·낚시</Em>가 있습니다. 각 콘텐츠는
+        생활 콘텐츠에는 <Em>농장·요리·벌목·채광·낚시</Em>가 있습니다. 각 콘텐츠는
         별도의 레벨과 기록을 쌓으며, 얻은 작물·원목·광석은 길드 시설과 제작,
         거래소에서 사용합니다. 낚시는 별도 코인과 어보, 주간 최대어 기록을
         중심으로 진행됩니다.
@@ -79,7 +87,48 @@ export function PastimesContent() {
         </li>
         <li>
           수확할 때 농사 경험치를 얻습니다. 낮은 확률로 희귀 작물이 함께 나오며,
-          장착한 농장 패시브가 수확량과 희귀 수확 확률을 높입니다.
+          장착한 농장 패시브가 수확량과 희귀 수확 확률을 높입니다. 희귀 작물을 연속으로
+          얻지 못하면 <Em>{FARM_RARE_PITY_HARVESTS}번째 수확</Em>에서 반드시 희귀 작물이 나옵니다.
+        </li>
+        <li>
+          주간 납품의 일반 작물은 기본 조건이고 희귀 작물은 선택 보너스입니다. 희귀 작물을
+          보유한 채 납품하면 1개가 자동 사용되고 추가 농장 증표를 받습니다.
+        </li>
+      </UL>
+
+      <H2>개인 요리</H2>
+      <UL>
+        <li>
+          마을의 독립 생활 메뉴인 <Em>주방</Em>에서 농작물과 낚시 보관함의 일반·신선·고급·특급·전설
+          어획물을 재료로 사용합니다. 현재 요리법은 <Em>{COOKING_RECIPES.length}종</Em>이며,
+          요리 레벨이 오르면 상위 요리법이 열립니다. 자주 만드는 요리는 즐겨찾기에 모으고,
+          보유 재료 범위 안에서 여러 개를 한 번에 조리할 수 있습니다.
+        </li>
+        <li>
+          완성한 음식은 거래 가능한 소모품으로 인벤토리에 보관됩니다. 인벤토리의 소모품
+          탭에서 사용하면 일정 시간 능력치가 오릅니다. 같은 음식은 남은 시간을 연장하고,
+          다른 음식은 기존 효과를 교체합니다. 적용 중인 효과는 모험 탭의 캐릭터 간략 정보에서
+          확인할 수 있으며, 같은 음식으로 연장할 수 있는 남은 시간은 최대{" "}
+          <Em>{COOKING_BUFF_MAX_HOURS}시간</Em>입니다. 음식 효과는 <Em>사냥 PvE 전용</Em>이며
+          아레나·챔피언십·거점전·훈련 대련·전투력 랭킹에는 반영되지 않습니다.
+        </li>
+        <li>
+          희귀 작물을 추가하면 강화 효과를 노릴 수 있고, 정성작·걸작은 수치와 지속 시간이
+          더 높습니다. 최종 요리는 상위 사냥에서 체감할 수 있도록 주 능력치를 크게 올립니다.
+        </li>
+        <li>
+          매일 선술집 주문 {COOKING_DAILY_ORDER_COUNT}건을 납품해 골드·농장 증표·추가 요리 경험치를 얻습니다.
+          일반 작물은 {COOKING_SURPLUS_BATCH_SIZE}개당 증표 1개로 하루 최대{" "}
+          {COOKING_SURPLUS_DAILY_LIMIT}회 떨이 교환할 수 있습니다.
+        </li>
+        <li>
+          완성한 음식은 거래소의 소모품으로 사고팔 수 있습니다. 같은 요리라도{" "}
+          <Em>일반·정성작·걸작, 희귀 특선, 장시간</Em> 여부가 다른 음식은 별도
+          품목으로 취급되며, 거래 후에도 해당 품질과 효과가 유지됩니다.
+        </li>
+        <li>
+          요리 Lv.5부터 요리사로 전직할 수 있으며 전문 요리사·수석 요리사·요리 명장·전설의
+          요리사로 성장합니다. 상위 단계는 경험치, 품질, 재료 절약, 지속 시간, 걸작 보정을 줍니다.
         </li>
       </UL>
 

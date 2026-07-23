@@ -11,6 +11,11 @@ import { AdventureRankingPreview } from "./AdventureRankingPreview";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import type { ActiveCookingBuff } from "@/adventure/v2/cooking";
+import type {
+  V2EquipInstance,
+  V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -24,6 +29,7 @@ type StateResponse = {
     regenBonusPct: number;
   };
   cosmetics?: MuseunCosmeticAppearance;
+  activeFoodBuff?: ActiveCookingBuff | null;
   hotTime?: {
     title: string;
     endsAt: string;
@@ -45,16 +51,31 @@ type StateResponse = {
   };
 };
 
+type EquipmentResponse = {
+  ok?: boolean;
+  owned?: V2EquipInstance[];
+  equipped?: Partial<Record<V2EquipSlot, string>>;
+};
+
 export function V2AdventureHome() {
   const [state, setState] = useState<StateResponse | null>(null);
+  const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const stateRes = await fetch("/api/v2/me/state");
-      const j = (await stateRes.json().catch(() => null)) as StateResponse | null;
-      setState(j ?? { ok: false });
+      const [stateRes, equipmentRes] = await Promise.all([
+        fetch("/api/v2/me/state").then((response) =>
+          response.ok ? response.json() : null,
+        ),
+        fetch("/api/v2/me/equipment").then((response) =>
+          response.ok ? response.json() : null,
+        ),
+      ]);
+      setState((stateRes as StateResponse | null) ?? { ok: false });
+      setEquipment(equipmentRes as EquipmentResponse | null);
     } catch {
       setState({ ok: false });
+      setEquipment(null);
     }
   }, []);
 
@@ -88,6 +109,9 @@ export function V2AdventureHome() {
             profileBorder={state.cosmetics?.profileBorder ?? null}
             chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
             championshipBadge={state.cosmetics?.championshipBadge ?? null}
+            activeFoodBuff={state.activeFoodBuff ?? null}
+            equipped={equipment?.equipped}
+            owned={equipment?.owned}
           />
         )}
 

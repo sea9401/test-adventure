@@ -12,6 +12,7 @@ import {
   CastleTurret,
   CloudLightning,
   Compass,
+  CookingPot,
   FirstAid,
   Hammer,
   Lightning,
@@ -121,6 +122,7 @@ const TABS: TabDef[] = [
       { label: "대장간", href: "/town/smithy", Icon: Hammer, color: "text-amber-600" },
       { label: "생활 지도", href: "/map", Icon: Compass, color: "text-sky-600" },
       { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
+      { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
     ],
   },
   {

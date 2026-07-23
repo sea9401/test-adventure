@@ -14,6 +14,7 @@ import {
   FISHING_CODEX_KEY,
 } from "@/adventure/v2/fishingCodex";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
@@ -211,11 +212,13 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
       wood.value AS woodcutting_save,
       mining.value AS mining_save,
       fishing.value AS fishing_save,
+      cooking.value AS cooking_save,
       GREATEST(
         COALESCE(farm.updated_at, u.created_at),
         COALESCE(wood.updated_at, u.created_at),
         COALESCE(mining.updated_at, u.created_at),
-        COALESCE(fishing.updated_at, u.created_at)
+        COALESCE(fishing.updated_at, u.created_at),
+        COALESCE(cooking.updated_at, u.created_at)
       ) AS updated_at
     FROM users u
     LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
@@ -223,6 +226,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv wood ON wood.user_id = u.id AND wood.key = ${WOODCUTTING_LOG_KEY}
     LEFT JOIN saves_kv mining ON mining.user_id = u.id AND mining.key = ${MINING_LOG_KEY}
     LEFT JOIN saves_kv fishing ON fishing.user_id = u.id AND fishing.key = ${FISHING_PROGRESS_KEY}
+    LEFT JOIN saves_kv cooking ON cooking.user_id = u.id AND cooking.key = ${COOKING_SAVE_KEY}
     WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
   `);
@@ -234,6 +238,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
     woodcutting_save: unknown;
     mining_save: unknown;
     fishing_save: unknown;
+    cooking_save: unknown;
     updated_at: Date | string;
   };
   return (result.rows as unknown as DbRow[])
@@ -243,6 +248,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
         woodcuttingRaw: r.woodcutting_save,
         miningRaw: r.mining_save,
         fishingRaw: r.fishing_save,
+        cookingRaw: r.cooking_save,
       });
       return {
         userId: String(r.user_id),
@@ -299,6 +305,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
       c.value AS character_save,
       pr.value AS proficiency_save,
       farm.value AS farm_save,
+      cooking.value AS cooking_save,
       wood.value AS woodcutting_save,
       mining.value AS mining_save,
       quests.value AS quests_save,
@@ -308,6 +315,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
         COALESCE(c.updated_at, u.created_at),
         COALESCE(pr.updated_at, u.created_at),
         COALESCE(farm.updated_at, u.created_at),
+        COALESCE(cooking.updated_at, u.created_at),
         COALESCE(wood.updated_at, u.created_at),
         COALESCE(mining.updated_at, u.created_at),
         COALESCE(quests.updated_at, u.created_at),
@@ -319,6 +327,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
     LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
     LEFT JOIN saves_kv farm ON farm.user_id = u.id AND farm.key = ${FARM_SAVE_KEY}
+    LEFT JOIN saves_kv cooking ON cooking.user_id = u.id AND cooking.key = ${COOKING_SAVE_KEY}
     LEFT JOIN saves_kv wood ON wood.user_id = u.id AND wood.key = ${WOODCUTTING_LOG_KEY}
     LEFT JOIN saves_kv mining ON mining.user_id = u.id AND mining.key = ${MINING_LOG_KEY}
     LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
@@ -334,6 +343,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
     character_save: unknown;
     proficiency_save: unknown;
     farm_save: unknown;
+    cooking_save: unknown;
     woodcutting_save: unknown;
     mining_save: unknown;
     quests_save: unknown;
@@ -347,6 +357,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
         characterRaw: r.character_save,
         proficiencyRaw: r.proficiency_save,
         farmRaw: r.farm_save,
+        cookingRaw: r.cooking_save,
         woodcuttingRaw: r.woodcutting_save,
         miningRaw: r.mining_save,
         questsRaw: r.quests_save,
@@ -653,6 +664,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
         equipmentSave: r.equipment_save,
         proficiencyRaw: r.proficiency_save,
         skillsRaw: r.skills_save,
+        includeCookingBuff: false,
       });
       if (!combat) return [];
       const combatPower = derivePowerScore({

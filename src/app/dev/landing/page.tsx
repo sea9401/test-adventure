@@ -6,8 +6,8 @@ import { LandingContent } from "../../sign-in/LandingContent";
 export default function LandingPreview() {
   return (
     <>
-      <LandingContent total={1284} online={37} />
-      <LandingContent total={1284} online={37} authed />
+      <LandingContent />
+      <LandingContent authed />
     </>
   );
 }

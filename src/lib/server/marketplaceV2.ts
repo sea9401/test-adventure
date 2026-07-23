@@ -21,6 +21,10 @@ import {
   MUSEUN_CASH_ITEMS,
   isMuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  cookingFoodDefinition,
+  isCookingFoodId,
+} from "@/adventure/v2/cooking";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -38,9 +42,9 @@ export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).
 export const MARKETPLACE_V2_HISTORY_LIMIT = 50;
-// 매물 만료 — 등록 후 이 일수가 지나면 cron 이 만료(status='expired') + 판매자에게 아이템 반환.
+// 매물 만료 — 등록 후 48시간이 지나면 cron 이 만료(status='expired') + 판매자에게 아이템 반환.
 //   묵은 매물이 영원히 쌓여 둘러보기 한도(100)를 밀어내는 것 방지. 단일 다이얼.
-export const MARKETPLACE_V2_LISTING_TTL_DAYS = 7;
+export const MARKETPLACE_V2_LISTING_TTL_DAYS = 2;
 
 export type MarketKind = "equip" | "material" | "consumable";
 
@@ -136,6 +140,7 @@ export function itemDisplayName(kind: MarketKind, id: string): string | null {
   if (kind === "equip") return isTradableEquip(id) ? V2_EQUIPMENT[id].name : null;
   if (kind === "consumable") {
     if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
+    if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? null;
     return id in RARE_MAP_KINDS
       ? RARE_MAP_KINDS[id as keyof typeof RARE_MAP_KINDS].name
       : null;
@@ -152,7 +157,9 @@ export function currentMarketplaceItemName(
 ): string {
   if (!isMarketKind(kind)) return storedName;
   if (kind === "consumable") {
-    return isMuseunCashItemId(id) ? MUSEUN_CASH_ITEMS[id].name : storedName;
+    if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
+    if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? storedName;
+    return storedName;
   }
   return itemDisplayName(kind, id) ?? storedName;
 }

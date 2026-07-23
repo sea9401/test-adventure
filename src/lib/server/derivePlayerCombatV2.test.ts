@@ -697,6 +697,28 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     expect(viaWrapper).toEqual(viaSaves); // 리팩터 동등성 — 래퍼 = select + FromSaves
     expect(viaSaves!.player.atk).toBeGreaterThan(0);
   });
+
+  it("applies active food stats in PvE and excludes them when requested for PvP", () => {
+    const saves = {
+      character: {
+        ...character,
+        activeFoodBuff: {
+          recipeId: "flame_corn_stew",
+          recipeName: "불꽃 옥수수 스튜",
+          statPct: { str: 20, vit: 10 },
+          quality: "normal",
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { learned: [], equipped: [] },
+    };
+    const pve = derivePlayerCombatV2FromSaves(saves)!;
+    const pvp = derivePlayerCombatV2FromSaves({ ...saves, includeCookingBuff: false })!;
+    expect(pve.totalStats.str).toBeGreaterThan(pvp.totalStats.str);
+    expect(pve.totalStats.vit).toBeGreaterThan(pvp.totalStats.vit);
+  });
 });
 
 describe("derivePlayerCombatV2 preloaded (사냥 배치 char/equip 중복 select 제거)", () => {

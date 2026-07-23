@@ -570,7 +570,7 @@ export const marketplaceListingsV2 = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     sellerName: text("seller_name").notNull(),
-    kind: text("kind").notNull(), // 'equip' | 'material' | 'consumable'(레어맵 등)
+    kind: text("kind").notNull(), // 'equip' | 'material' | 'consumable'(레어맵·음식 등)
     itemId: text("item_id").notNull(),
     itemName: text("item_name").notNull(),
     quantity: integer("quantity").notNull(),

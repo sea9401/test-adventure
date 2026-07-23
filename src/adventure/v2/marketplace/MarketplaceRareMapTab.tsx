@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -16,6 +17,11 @@ import {
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
+  cookingFoodDefinition,
+  type CookingFoodId,
+  type CookingFoodInventory,
+} from "@/adventure/v2/cooking";
+import {
   PriceInput,
   PriceRefLine,
   type MarketplacePager,
@@ -26,6 +32,7 @@ import {
 export function MarketplaceRareMapTab({
   rareMaps,
   cashItems,
+  cookingFoods,
   pager,
   prices,
   setPrices,
@@ -35,9 +42,11 @@ export function MarketplaceRareMapTab({
   busy,
   onListConsumable,
   onListCashItem,
+  onListCookingFood,
 }: {
   rareMaps: RareMapInstance[];
   cashItems: MuseunCashItemCounts;
+  cookingFoods: CookingFoodInventory;
   pager: MarketplacePager<RareMapInstance>;
   prices: Record<string, string>;
   setPrices: Dispatch<SetStateAction<Record<string, string>>>;
@@ -47,21 +56,90 @@ export function MarketplaceRareMapTab({
   busy: boolean;
   onListConsumable: (iid: string) => void;
   onListCashItem: (itemId: MuseunCashItemId) => void;
+  onListCookingFood: (itemId: CookingFoodId) => void;
 }) {
   const heldCashItems = MUSEUN_TRADEABLE_ITEM_IDS.filter(
     (itemId) => (cashItems[itemId] ?? 0) > 0,
   );
-  if (rareMaps.length === 0 && heldCashItems.length === 0) {
+  const heldCookingFoods = Object.entries(cookingFoods)
+    .map(([itemId, count]) => ({
+      itemId: itemId as CookingFoodId,
+      count: Math.max(0, Math.floor(count ?? 0)),
+      definition: cookingFoodDefinition(itemId),
+    }))
+    .filter((entry) => entry.count > 0 && entry.definition != null);
+  if (
+    rareMaps.length === 0 &&
+    heldCashItems.length === 0 &&
+    heldCookingFoods.length === 0
+  ) {
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          팔 수 있는 캐시 소모품이나 레어맵이 없어요.
+          팔 수 있는 음식·캐시 소모품이나 레어맵이 없어요.
         </div>
       </Card>
     );
   }
   return (
     <div className="space-y-2">
+      {heldCookingFoods.map(({ itemId, count, definition }) => {
+        if (!definition) return null;
+        const statLine = Object.entries(definition.statPct)
+          .map(([key, value]) => `${key.toUpperCase()} +${value}%`)
+          .join(" · ");
+        return (
+          <Card key={itemId} padding="sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                <Image
+                  src={definition.recipe.imageSrc}
+                  alt=""
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-10 shrink-0 object-contain"
+                />
+                <span className="min-w-0">
+                  <span className="block truncate">{definition.name}</span>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    보유 {count}개 · {statLine}
+                  </span>
+                  <span className="ml-1.5">
+                    <PriceRefLine stat={priceRef[itemId]} />
+                  </span>
+                </span>
+              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <NumberInput
+                  aria-label={`${definition.name} 판매 수량`}
+                  value={qtys[itemId] ?? "1"}
+                  onValueChange={(value) =>
+                    setQtys((current) => ({ ...current, [itemId]: value }))
+                  }
+                  min={1}
+                  max={count}
+                  className="w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
+                />
+                <PriceInput
+                  value={prices[itemId] ?? ""}
+                  onChange={(value) =>
+                    setPrices((current) => ({ ...current, [itemId]: value }))
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => onListCookingFood(itemId)}
+                  disabled={busy}
+                  className="rounded-md border border-emerald-600 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                >
+                  등록
+                </button>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
       {heldCashItems.map((itemId) => {
         const item = MUSEUN_CASH_ITEMS[itemId];
         const held = cashItems[itemId] ?? 0;

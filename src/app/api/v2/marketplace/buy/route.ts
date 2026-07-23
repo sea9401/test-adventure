@@ -29,6 +29,10 @@ import {
   isMuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import {
+  addCookingFood,
+  isCookingFoodId,
+} from "@/adventure/v2/cooking";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -43,6 +47,10 @@ type CharSave = {
   rareMaps?: unknown;
   cashItems?: unknown;
   [k: string]: unknown;
+};
+
+type InventorySave = Record<string, unknown> & {
+  cookingFoods?: unknown;
 };
 
 function bad(error: string, status = 400) {
@@ -112,7 +120,8 @@ export async function POST(req: Request) {
     //   스냅샷만 죽은 매물). 죽었으면 매물 자체를 expired 처리(대금 이동 0, 그대로 소멸).
     if (
       listing.kind === "consumable" &&
-      !isMuseunCashItemId(listing.itemId)
+      !isMuseunCashItemId(listing.itemId) &&
+      !isCookingFoodId(listing.itemId)
     ) {
       const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
       if (!inst) {
@@ -157,6 +166,21 @@ export async function POST(req: Request) {
             listing.quantity,
           ),
         };
+      } else if (isCookingFoodId(listing.itemId)) {
+        const inventory = await lockSaveForUpdate<InventorySave>(
+          tx,
+          userId,
+          "inventory.v2",
+          {},
+        );
+        await upsertSave(tx, userId, "inventory.v2", {
+          ...inventory,
+          cookingFoods: addCookingFood(
+            inventory.cookingFoods,
+            listing.itemId,
+            listing.quantity,
+          ),
+        });
       } else {
         const myMaps = parseRareMaps(charSave.rareMaps, Date.now());
         if (myMaps.length >= RARE_MAP_CAP) {

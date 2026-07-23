@@ -27,12 +27,16 @@ import {
   isTradeableMuseunCashItemId,
   removeMuseunCashItem,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  isCookingFoodId,
+  removeCookingFood,
+} from "@/adventure/v2/cooking";
 
 // POST /api/v2/marketplace/list — 매물 등록(에스크로: 내 save 에서 빼서 listing 으로 묶음).
 //   body(장비):   { kind:"equip", iid:string, price:int }
 //   body(재료):   { kind:"material", itemId:string, quantity:int, price:int }
 //   body(소모품): { kind:"consumable", iid:string, price:int } — 레어맵 개체
-//                 { kind:"consumable", itemId:string, quantity:int, price:int } — 캐시 소모품 스택
+//                 { kind:"consumable", itemId:string, quantity:int, price:int } — 캐시/음식 스택
 // 활성 매물 슬롯 상한 체크. 장비=미강화·미장착·미잠금 개체만. 가격은 정수 [1, 999,999,999].
 
 type CharSave = {
@@ -41,6 +45,10 @@ type CharSave = {
   rareMaps?: unknown;
   cashItems?: unknown;
   [k: string]: unknown;
+};
+
+type InventorySave = Record<string, unknown> & {
+  cookingFoods?: unknown;
 };
 
 function bad(error: string, status = 400) {
@@ -198,6 +206,62 @@ export async function POST(req: Request) {
             quantity,
             price,
             instancePayload: { kind: "museun_cash_item" },
+          })
+          .returning({ id: marketplaceListingsV2.id });
+        return {
+          status: 200,
+          log: {
+            listingId: row.id,
+            itemKind: "consumable",
+            itemId,
+            quantity,
+            price,
+          },
+          body: { ok: true as const, listingId: row.id },
+        };
+      }
+
+      if (isCookingFoodId(body.itemId)) {
+        if (!isValidMaterialQty(body.quantity)) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "bad_quantity" },
+          };
+        }
+        const itemId = body.itemId;
+        const quantity = body.quantity;
+        const inventory = await lockSaveForUpdate<InventorySave>(
+          tx,
+          userId,
+          "inventory.v2",
+          {},
+        );
+        const cookingFoods = removeCookingFood(
+          inventory.cookingFoods,
+          itemId,
+          quantity,
+        );
+        if (!cookingFoods) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "not_owned" },
+          };
+        }
+        await upsertSave(tx, userId, "inventory.v2", {
+          ...inventory,
+          cookingFoods,
+        });
+        const [row] = await tx
+          .insert(marketplaceListingsV2)
+          .values({
+            sellerId: userId,
+            sellerName,
+            kind: "consumable",
+            itemId,
+            itemName: itemDisplayName("consumable", itemId) ?? itemId,
+            quantity,
+            price,
+            instancePayload: { kind: "cooking_food" },
           })
           .returning({ id: marketplaceListingsV2.id });
         return {

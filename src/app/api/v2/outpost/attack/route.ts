@@ -246,6 +246,7 @@ export async function POST(req: Request) {
       tx,
       userId,
       charSave: attackerSave,
+      includeCookingBuff: false,
     });
     if (!attackerActor) {
       return {
@@ -407,6 +408,7 @@ export async function POST(req: Request) {
           tx,
           userId: defender1Id,
           charSave: defenderSave,
+          includeCookingBuff: false,
         });
         if (!defenderActor) {
           await tx
@@ -604,6 +606,7 @@ export async function POST(req: Request) {
         tx,
         userId: d.userId,
         charSave: defenderSave,
+        includeCookingBuff: false,
       });
       if (!defenderActor) {
         // 스테일 수비자(캐릭 없음) → 자동 격파.

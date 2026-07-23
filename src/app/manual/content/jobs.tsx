@@ -68,7 +68,7 @@ export function JobsContent() {
       <H2>전직</H2>
       <P>
         <Em>수행 화면</Em>(캐릭터 → 성장의 신전)의 직업 사다리에서 전직합니다.
-        전투 직업은 레벨 {V2_LEVEL_CAP}, <Em>낚시·농사·벌목·채광 계열</Em>은
+        전투 직업은 레벨 {V2_LEVEL_CAP}, <Em>낚시·농사·요리·벌목·채광 계열</Em>은
         레벨 1부터 조건을 갖춘 상위 직업으로 전직할 수 있습니다. 전직에
         골드는 들지 않습니다.
       </P>
@@ -113,7 +113,7 @@ export function JobsContent() {
         </li>
         <li>
           <Em>전투 직업 숙련도</Em>는 현재 직업으로 사냥에서 승리할 때마다 1씩
-          쌓입니다. <Em>낚시·농사·벌목·채광 직업</Em>은 각 생활 콘텐츠에서
+          쌓입니다. <Em>낚시·농사·요리·벌목·채광 직업</Em>은 각 생활 콘텐츠에서
           성공하거나 수확할 때 숙련도를 얻습니다. 숙련도는 전직해도 줄지 않고,
           전직 조건과 스탯 하한의 기준이 됩니다.
         </li>
@@ -328,6 +328,9 @@ function prereqText(job: V2JobDefinition): string {
         break;
       case "farmingLevel":
         parts.push(`농사 Lv.${condition.min}`);
+        break;
+      case "cookingLevel":
+        parts.push(`요리 Lv.${condition.min}`);
         break;
       case "woodcuttingLevel":
         parts.push(`벌목 Lv.${condition.min}`);

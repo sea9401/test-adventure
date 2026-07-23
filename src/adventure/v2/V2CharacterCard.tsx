@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CaretRight,
-  Circle,
-  Diamond,
+  CookingPot,
   HandFist,
   Shield,
   Sneaker,
@@ -15,6 +14,7 @@ import {
   X,
   type Icon,
 } from "@phosphor-icons/react";
+import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
@@ -53,6 +53,10 @@ import {
   ArenaChampionshipBadge,
   chatNameClass,
 } from "@/components/chat/ChatCosmetics";
+import {
+  cookingQualityName,
+  type ActiveCookingBuff,
+} from "@/adventure/v2/cooking";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -83,8 +87,13 @@ const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string
   { slot: "armor", label: "갑옷", Icon: Shield, color: "text-sky-500" },
   { slot: "gloves", label: "장갑", Icon: HandFist, color: "text-amber-500" },
   { slot: "boots", label: "신발", Icon: Sneaker, color: "text-emerald-500" },
-  { slot: "ring", label: "반지", Icon: Circle, color: "text-violet-500" },
-  { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
+  { slot: "ring", label: "반지", Icon: RingIcon, color: "text-violet-500" },
+  {
+    slot: "necklace",
+    label: "목걸이",
+    Icon: NecklaceIcon,
+    color: "text-pink-500",
+  },
 ];
 
 function CharacterPortrait({ gender }: { gender: Gender }) {
@@ -123,6 +132,7 @@ export function V2CharacterCard({
   profileBorder = null,
   chatNameEffect = null,
   championshipBadge = null,
+  activeFoodBuff = null,
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
@@ -142,6 +152,7 @@ export function V2CharacterCard({
   profileBorder?: MuseunCosmeticAppearance["profileBorder"];
   chatNameEffect?: MuseunCosmeticAppearance["chatNameEffect"];
   championshipBadge?: MuseunCosmeticAppearance["championshipBadge"];
+  activeFoodBuff?: ActiveCookingBuff | null;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
 }) {
@@ -252,6 +263,9 @@ export function V2CharacterCard({
                 </span>
               </div>
             )}
+            {activeFoodBuff ? (
+              <ActiveFoodBuffBadge buff={activeFoodBuff} />
+            ) : null}
             {isAtCap && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
                 레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요.
@@ -367,6 +381,41 @@ export function V2CharacterCard({
       )}
     </>
   );
+}
+
+function ActiveFoodBuffBadge({ buff }: { buff: ActiveCookingBuff }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const remaining = buff.expiresAt - now;
+  if (remaining <= 0) return null;
+  const stats = Object.entries(buff.statPct)
+    .map(([key, value]) => `${key.toUpperCase()} +${value}%`)
+    .join(" · ");
+  return (
+    <div
+      title={`${buff.recipeName} · ${cookingQualityName(buff.quality)} · ${stats}`}
+      className="flex min-w-0 items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+    >
+      <CookingPot size={15} weight="duotone" className="shrink-0" aria-hidden />
+      <span className="min-w-0 truncate text-[11px]">
+        <span className="font-semibold">{buff.recipeName}</span> · {stats}
+      </span>
+      <span className="shrink-0 text-[11px] text-amber-700 dark:text-amber-300">
+        {formatCookingBuffRemaining(remaining)}
+      </span>
+    </div>
+  );
+}
+
+function formatCookingBuffRemaining(ms: number): string {
+  const minutes = Math.max(1, Math.ceil(ms / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours <= 0) return `${remainder}분`;
+  return remainder > 0 ? `${hours}시간 ${remainder}분` : `${hours}시간`;
 }
 
 function AdventureSupportModal({

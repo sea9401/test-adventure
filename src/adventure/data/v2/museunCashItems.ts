@@ -191,7 +191,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "starlight_chat_badge",
     name: "별빛 채팅 배지",
     description:
-      "전체·길드 채팅과 접속자 목록의 닉네임 앞에 별빛 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "전체·길드 채팅의 닉네임 앞에 별빛 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -201,7 +201,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "crown_chat_badge",
     name: "왕관 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 왕관 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 왕관 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -211,7 +211,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "flame_chat_badge",
     name: "불꽃 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 불꽃 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 불꽃 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -221,7 +221,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "crystal_chat_badge",
     name: "수정 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 수정 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 수정 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -231,7 +231,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "leaf_chat_badge",
     name: "새싹 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 새싹 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 새싹 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -241,7 +241,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "sword_chat_badge",
     name: "검 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 검 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 검 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -251,7 +251,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "shield_chat_badge",
     name: "방패 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 방패 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 방패 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -261,7 +261,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "trophy_chat_badge",
     name: "트로피 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 트로피 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 트로피 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -271,7 +271,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "moon_chat_badge",
     name: "달빛 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 달빛 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 달빛 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -281,7 +281,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "sun_chat_badge",
     name: "태양 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 태양 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 태양 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -291,7 +291,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "heart_chat_badge",
     name: "하트 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 하트 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 하트 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -301,7 +301,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "skull_chat_badge",
     name: "해골 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 해골 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 해골 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -311,7 +311,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "lightning_chat_badge",
     name: "번개 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 번개 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 번개 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -321,7 +321,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "snowflake_chat_badge",
     name: "눈꽃 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 눈꽃 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 눈꽃 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -331,7 +331,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "paw_chat_badge",
     name: "발자국 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 발자국 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 발자국 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -341,7 +341,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "feather_chat_badge",
     name: "깃털 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 깃털 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 깃털 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -351,7 +351,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "anchor_chat_badge",
     name: "닻 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 닻 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 닻 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -361,7 +361,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "music_chat_badge",
     name: "음표 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 음표 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 음표 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -371,7 +371,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "clover_chat_badge",
     name: "네잎클로버 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 네잎클로버 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 네잎클로버 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -381,7 +381,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "star_chat_badge",
     name: "별 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 별 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 별 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -391,7 +391,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "vein_chat_badge",
     name: "광맥 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 광맥 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 광맥 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -401,7 +401,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "fish_chat_badge",
     name: "물고기 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 물고기 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 물고기 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -411,7 +411,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "axe_chat_badge",
     name: "도끼 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 도끼 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 도끼 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -421,7 +421,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "hammer_chat_badge",
     name: "망치 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 망치 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 망치 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -431,7 +431,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "alchemy_chat_badge",
     name: "연금술 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 연금술 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 연금술 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -441,7 +441,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "compass_chat_badge",
     name: "나침반 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 나침반 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 나침반 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -451,7 +451,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "dragon_eye_chat_badge",
     name: "용안 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 용안 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 용안 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
@@ -461,7 +461,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "five_elements_chat_badge",
     name: "오원소 문장 채팅 배지",
     description:
-      "채팅과 접속자 목록의 닉네임 앞에 오원소 문장 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "채팅의 닉네임 앞에 오원소 문장 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,

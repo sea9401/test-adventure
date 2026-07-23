@@ -199,6 +199,12 @@ export function GuildContent() {
           <Em>숙련도 {GUILD_TRAINING_WEEKLY_BONUS_MASTERY}</Em> 보너스를 받을 수
           있습니다.
         </li>
+        <li>
+          훈련장 Lv.{GUILD_TRAINING_DRILLS.tactical_simulation.minBuildingLevel}와
+          캐릭터 Lv.{GUILD_TRAINING_DRILLS.tactical_simulation.minCharacterLevel}부터{" "}
+          <Em>{GUILD_TRAINING_DRILLS.tactical_simulation.title}</Em>이 열립니다.
+          Lv.5의 전직 대비 훈련으로 넘어가기 전 공용 숙련도를 보강하는 단계입니다.
+        </li>
       </UL>
       <Table
         head={["훈련", "분류", "해금", "기본 숙련도"]}
@@ -218,6 +224,9 @@ export function GuildContent() {
       <P>
         탐사 본부는 길드 단위 주간 탐사 의뢰를 관리하는 시설입니다. 시설 레벨이
         오르면 한 주에 진행할 수 있는 탐사 수와 의뢰 진척 보너스가 늘어납니다.
+        원정은 시설 Lv.1부터 Lv.5까지 단계마다 한 종류씩, 총{" "}
+        <Em>{GUILD_EXPLORATION_EXPEDITION_IDS.length}종</Em>이 열리며 상위 원정일수록
+        시간이 오래 걸리는 대신 골드·명성·지도 조각 보상이 커집니다.
         기본 협동보스 목표는 단순 처치가 아니라{" "}
         <Em>
           {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}

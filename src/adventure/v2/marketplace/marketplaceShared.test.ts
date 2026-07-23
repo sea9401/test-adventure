@@ -18,11 +18,8 @@ describe("marketplacePricePosition", () => {
     });
   });
 
-  it("평균보다 5% 이상 높은 매물을 구분한다", () => {
-    expect(marketplacePricePosition(125_000, stat)).toEqual({
-      tone: "high",
-      label: "평균보다 25% 높음",
-    });
+  it("평균보다 5% 이상 높은 매물에는 평가 태그를 표시하지 않는다", () => {
+    expect(marketplacePricePosition(125_000, stat)).toBeNull();
   });
 
   it("유효한 거래 통계가 없으면 표시하지 않는다", () => {

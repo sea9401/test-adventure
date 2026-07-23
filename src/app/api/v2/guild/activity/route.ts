@@ -7,7 +7,8 @@ import { ensureUser } from "@/lib/server/ensureUser";
 //   길드 정보 탭 하단 표시. 이름은 현재 닉네임으로 batch 해석(로그엔 userId 만 저장).
 //   무소속 → activity=[].
 
-const ACTIVITY_LIMIT = 30;
+// 클라이언트는 페이지당 10건을 표시하므로 최근 10페이지까지 조회한다.
+const ACTIVITY_LIMIT = 100;
 
 export async function GET() {
   const userId = await ensureUser();

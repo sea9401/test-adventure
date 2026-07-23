@@ -89,9 +89,14 @@ import {
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  cookingFoodDefinition,
+  type CookingFoodId,
+  type CookingFoodInventory,
+} from "./cooking";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
-// v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시 소모품 거래(고정가).
+// v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시·음식 소모품 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
 //   타입·시세 헬퍼·시세줄/가격입력 leaf 컴포넌트는 marketplace/marketplaceShared 공용.
 
@@ -230,6 +235,7 @@ export function V2MarketplaceView({
   const [materials, setMaterials] = useState<Partial<Record<V2MaterialId, number>>>({});
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
+  const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -300,8 +306,10 @@ export function V2MarketplaceView({
     if (inv.ok) {
       const j = (await inv.json()) as {
         materials?: Partial<Record<V2MaterialId, number>>;
+        cookingFoods?: CookingFoodInventory;
       };
       setMaterials(j.materials ?? {});
+      setCookingFoods(j.cookingFoods ?? {});
     }
     if (rm.ok) {
       const j = (await rm.json()) as {
@@ -491,6 +499,26 @@ export function V2MarketplaceView({
       "/api/v2/marketplace/list",
       { kind: "consumable", itemId, quantity, price },
       `✓ ${MUSEUN_CASH_ITEMS[itemId].name} ${quantity}개 등록`,
+      loadInventory,
+    );
+  };
+
+  const listCookingFood = (itemId: CookingFoodId) => {
+    const price = parseAmount(prices[itemId]);
+    const quantity = parseAmount(qtys[itemId] ?? "1");
+    if (!Number.isInteger(price) || price < 1) {
+      setError("가격은 1 이상 정수로 입력하세요.");
+      return;
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setError("수량은 1 이상 정수로 입력하세요.");
+      return;
+    }
+    const name = cookingFoodDefinition(itemId)?.name ?? "음식";
+    return act(
+      "/api/v2/marketplace/list",
+      { kind: "consumable", itemId, quantity, price },
+      `✓ ${name} ${quantity}개 등록`,
       loadInventory,
     );
   };
@@ -1028,6 +1056,7 @@ export function V2MarketplaceView({
             <MarketplaceRareMapTab
               rareMaps={rareMaps}
               cashItems={cashItems}
+              cookingFoods={cookingFoods}
               pager={sellRareMapPager}
               prices={prices}
               setPrices={setPrices}
@@ -1037,6 +1066,7 @@ export function V2MarketplaceView({
               busy={busy}
               onListConsumable={listConsumable}
               onListCashItem={listCashItem}
+              onListCookingFood={listCookingFood}
             />
           ) : sellTab === "material" ? (
             <MarketplaceMaterialTab

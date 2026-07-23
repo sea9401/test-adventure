@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import {
-  Circle,
-  Diamond,
   FloppyDisk,
   HandFist,
   Shield,
@@ -13,6 +11,7 @@ import {
   Trash,
   type Icon,
 } from "@phosphor-icons/react";
+import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import {
   V2_EQUIPMENT,
   type V2EquipInstance,
@@ -56,8 +55,13 @@ const EQUIP_SLOTS: {
   { slot: "armor", label: "갑옷", Icon: Shield, color: "text-sky-500" },
   { slot: "gloves", label: "장갑", Icon: HandFist, color: "text-amber-500" },
   { slot: "boots", label: "신발", Icon: Sneaker, color: "text-emerald-500" },
-  { slot: "ring", label: "반지", Icon: Circle, color: "text-violet-500" },
-  { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
+  { slot: "ring", label: "반지", Icon: RingIcon, color: "text-violet-500" },
+  {
+    slot: "necklace",
+    label: "목걸이",
+    Icon: NecklaceIcon,
+    color: "text-pink-500",
+  },
 ];
 
 function formatKst(iso: string | undefined): string {

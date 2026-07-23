@@ -26,6 +26,32 @@ export const netPreview = (price: number) =>
 // 시세 집계(/api/v2/marketplace/prices) — itemId 별 최근 판매 통계.
 export type PriceStat = { n: number; avg: number; min: number; max: number };
 
+export type MarketplacePricePosition = {
+  tone: "deal" | "fair" | "high";
+  label: string;
+};
+
+export function marketplacePricePosition(
+  price: number,
+  stat?: PriceStat,
+): MarketplacePricePosition | null {
+  if (!stat || stat.n <= 0 || stat.avg <= 0) return null;
+  const differencePct = ((price - stat.avg) / stat.avg) * 100;
+  if (differencePct <= -5) {
+    return {
+      tone: "deal",
+      label: `평균보다 ${Math.round(Math.abs(differencePct))}% 저렴`,
+    };
+  }
+  if (differencePct >= 5) {
+    return {
+      tone: "high",
+      label: `평균보다 ${Math.round(differencePct)}% 높음`,
+    };
+  }
+  return { tone: "fair", label: "시세 수준" };
+}
+
 export type Listing = {
   id: number;
   sellerId: string;
@@ -108,6 +134,27 @@ export function PriceRefLine({
     <span className="text-[11px] text-sky-600 dark:text-sky-400">
       {scoped ? "동급 시세" : "시세"} 평균 {stat.avg.toLocaleString()}골드 (
       {stat.n}건{range})
+    </span>
+  );
+}
+
+export function PricePositionBadge({
+  price,
+  stat,
+}: {
+  price: number;
+  stat?: PriceStat;
+}) {
+  const position = marketplacePricePosition(price, stat);
+  if (!position) return null;
+  const toneClass = {
+    deal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    fair: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+    high: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
+  }[position.tone];
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${toneClass}`}>
+      {position.label}
     </span>
   );
 }

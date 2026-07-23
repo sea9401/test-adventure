@@ -88,6 +88,33 @@ export const accounts = pgTable(
   (t) => [primaryKey({ columns: [t.provider, t.providerAccountId] })],
 );
 
+// 카카오 이용이 어려운 해외 이용자에게 운영자가 개별 발급하는 로그인 계정.
+// 비밀번호 원문은 저장하지 않고 versioned scrypt 해시만 보관한다. login_id 는 표시용,
+// normalized_login_id 는 대소문자를 무시한 로그인과 중복 방지의 권위 컬럼이다.
+export const passwordCredentials = pgTable(
+  "password_credentials",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    loginId: text("login_id").notNull(),
+    normalizedLoginId: text("normalized_login_id").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    disabledAt: timestamp("disabled_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("password_credentials_normalized_login_id_idx").on(
+      t.normalizedLoginId,
+    ),
+  ],
+);
+
 // Auth.js DB 세션 — JWT 전략 사용 시 미사용. 스키마만 유지 (adapter 요구).
 export const sessions = pgTable("sessions", {
   sessionToken: text("session_token").primaryKey(),

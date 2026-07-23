@@ -13,6 +13,7 @@ describe("대문 로그인 선택지", () => {
     expect(html).not.toContain("Google 계정으로 로그인");
     expect(html).toContain("카카오톡으로 로그인");
     expect(html).toContain("아이디·비밀번호로 로그인");
+    expect(html).toContain("운영자가 개별 발급합니다");
   });
 
   it("비로그인 대문은 로그인 선택지만 제공한다", () => {

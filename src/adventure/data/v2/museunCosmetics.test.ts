@@ -328,9 +328,9 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(odds.reduce((sum, entry) => sum + entry.probabilityPct, 0)).toBeCloseTo(
       100,
     );
-    const granted = grantChromaName(before, "inferno");
-    expect(granted.chromaNames).toContain("inferno");
-    expect(granted.equippedChromaName).toBe("inferno");
+    const granted = grantChromaName(before, "solar");
+    expect(granted.chromaNames).toContain("solar");
+    expect(granted.equippedChromaName).toBe("solar");
     expect(equipChromaName(granted, "aurora")?.equippedChromaName).toBe(
       "aurora",
     );
@@ -339,8 +339,43 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(parseMuseunCosmetics(unequipped).equippedChromaName).toBeNull();
   });
 
+  it("정리된 중복 닉네임 꾸미기는 보유 데이터와 추첨 목록에서 제거한다", () => {
+    const removedIds = [
+      "tangerine",
+      "gold",
+      "olive",
+      "jade",
+      "azure",
+      "ocean",
+      "ember",
+      "forest",
+      "candy",
+      "dusk",
+      "neon",
+      "inferno",
+      "celestial",
+    ];
+    const variantIds = CHROMA_NAME_VARIANTS.map((variant) => variant.id);
+    expect(variantIds).not.toEqual(expect.arrayContaining(removedIds));
+    expect(chromaNameOdds(null).map((entry) => entry.id)).not.toEqual(
+      expect.arrayContaining(removedIds),
+    );
+
+    expect(
+      parseMuseunCosmetics({
+        chromaNames: ["tangerine", "solar"],
+        equippedChromaName: "tangerine",
+        accessUntil: { tangerine: NOW + 1_000, solar: NOW + 2_000 },
+      }),
+    ).toMatchObject({
+      chromaNames: ["solar"],
+      equippedChromaName: "solar",
+      accessUntil: { solar: NOW + 2_000 },
+    });
+  });
+
   it("최초 상자는 일반 72%·희귀 20%·영웅 6%·전설 2%로 추첨한다", () => {
-    expect(CHROMA_NAME_VARIANTS).toHaveLength(56);
+    expect(CHROMA_NAME_VARIANTS).toHaveLength(43);
     expect(
       Object.fromEntries(
         ["common", "rare", "epic", "legendary"].map((rarity) => [
@@ -350,7 +385,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
           ).length,
         ]),
       ),
-    ).toEqual({ common: 22, rare: 14, epic: 14, legendary: 6 });
+    ).toEqual({ common: 17, rare: 9, epic: 11, legendary: 6 });
     const odds = chromaNameOdds(null);
     const probabilityByRarity = Object.fromEntries(
       ["common", "rare", "epic", "legendary"].map((rarity) => [
@@ -370,9 +405,9 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(probabilityByRarity.legendary).toBeCloseTo(2);
 
     expect(drawChromaNameByRoll(null, 0)).toBe("crimson");
-    expect(drawChromaNameByRoll(null, 1_511)).toBe("crimson");
-    expect(drawChromaNameByRoll(null, 1_512)).toBe("coral");
-    expect(drawChromaNameByRoll(null, 46_199)).toBe("petalfall");
+    expect(drawChromaNameByRoll(null, 14_255)).toBe("crimson");
+    expect(drawChromaNameByRoll(null, 14_256)).toBe("coral");
+    expect(drawChromaNameByRoll(null, 336_599)).toBe("petalfall");
   });
 
   it("각 등급이 남아 있는 동안 닉네임 보유 개수와 무관하게 등급 확률을 유지한다", () => {

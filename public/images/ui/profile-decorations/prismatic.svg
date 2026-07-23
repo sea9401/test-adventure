@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="facet" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#67e8f9" stop-opacity=".72"/>
+      <stop offset=".36" stop-color="#a78bfa" stop-opacity=".58"/>
+      <stop offset=".7" stop-color="#f9a8d4" stop-opacity=".52"/>
+      <stop offset="1" stop-color="#fde68a" stop-opacity=".68"/>
+    </linearGradient>
+    <linearGradient id="glint" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#facet)" stroke="#e0f2fe" stroke-opacity=".58" stroke-width="2">
+    <path d="M0 0h176l-58 66L0 104z"/>
+    <path d="M0 104 118 66l74 91L62 206z" opacity=".62"/>
+    <path d="m62 206 130-49-20 123H0z" opacity=".48"/>
+    <path d="M800 0H624l58 66 118 38z"/>
+    <path d="m800 104-118-38-74 91 130 49z" opacity=".62"/>
+    <path d="m738 206-130-49 20 123h172z" opacity=".48"/>
+  </g>
+  <g fill="none" stroke="url(#facet)" stroke-width="3" stroke-linejoin="round" opacity=".68">
+    <path d="m250 34 48 44-28 58 51 43-30 67"/>
+    <path d="m550 34-48 44 28 58-51 43 30 67"/>
+    <path d="m298 78 102-42 102 42-102 166-102-166Z" opacity=".35"/>
+  </g>
+  <path d="M174 34h452" stroke="url(#glint)" stroke-width="5" opacity=".52"/>
+  <path d="M220 248h360" stroke="url(#glint)" stroke-width="3" opacity=".38"/>
+</svg>

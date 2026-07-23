@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
   <title id="title">꾸미기 30일 연장권</title>
-  <desc id="desc">보라색 타일 위 달력과 노란색 연장 화살표 아이콘</desc>
+  <desc id="desc">황금빛 갈색 타일 위 달력과 노란색 연장 화살표 아이콘</desc>
 
-  <rect width="256" height="256" rx="54" fill="#4c158f"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#6f35b3" stroke-width="4"/>
+  <rect width="256" height="256" rx="54" fill="#92400e"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#fbbf24" stroke-width="4"/>
 
   <!-- 연장 화살표: 달력 뒤에서 아래와 오른쪽을 감싸도록 배치 -->
   <path

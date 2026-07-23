@@ -2746,36 +2746,15 @@ body {
   }
 }
 
-/* 은신 모드 — 게임 장면 배경과 눈에 띄는 계정 꾸미기 연출을 감추고,
-   업무용 스프레드시트에 가까운 평평한 표 화면으로 바꾼다. */
-html.ui-discreet-mode {
-  --discreet-sheet-bg: #f8faf9;
-  --discreet-sheet-cell: rgb(148 163 154 / 0.22);
-  --discreet-sheet-border: #cbd5ce;
-  --discreet-sheet-header: #e2f0d9;
-  --discreet-sheet-header-border: #70ad47;
-  --discreet-sheet-accent: #217346;
-}
-
-html.dark.ui-discreet-mode {
-  --discreet-sheet-bg: #111713;
-  --discreet-sheet-cell: rgb(134 160 142 / 0.18);
-  --discreet-sheet-border: #45544a;
-  --discreet-sheet-header: #1e3828;
-  --discreet-sheet-header-border: #548b62;
-  --discreet-sheet-accent: #75b98a;
-}
-
+/* 은신 모드 — 게임 장면 배경과 눈에 띄는 계정 꾸미기 연출을 감춘다.
+   기능성 이미지와 로딩 상태는 유지해 조작 정보가 사라지지 않게 한다. */
 html.ui-discreet-mode body {
-  background-color: var(--discreet-sheet-bg);
-  background-image:
-    linear-gradient(to right, var(--discreet-sheet-cell) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--discreet-sheet-cell) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-color: #f4f4f5;
+  background-image: none;
 }
 
 html.dark.ui-discreet-mode body {
-  background-color: var(--discreet-sheet-bg);
+  background-color: #09090b;
 }
 
 html.ui-discreet-mode .game-scene-background {
@@ -2803,76 +2782,4 @@ html.ui-discreet-mode .ui-chat-name-chroma {
   filter: none;
   color: inherit;
   -webkit-text-fill-color: currentColor;
-}
-
-html.ui-discreet-mode .game-desktop-compact {
-  font-family: Arial, "Noto Sans KR", sans-serif;
-}
-
-html.ui-discreet-mode .game-top-bar {
-  border-color: var(--discreet-sheet-header-border);
-  background: var(--discreet-sheet-header);
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-html.ui-discreet-mode .game-main-tab-nav > div:first-child {
-  border: 1px solid var(--discreet-sheet-border);
-  border-top: 0;
-  background: var(--discreet-sheet-bg);
-}
-
-html.ui-discreet-mode .game-main-tab-nav > div:first-child > button {
-  border-right: 1px solid var(--discreet-sheet-border);
-  padding-block: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-html.ui-discreet-mode
-  .game-main-tab-nav
-  > div:first-child
-  > button[data-active="true"] {
-  background: var(--discreet-sheet-header);
-  color: var(--discreet-sheet-accent);
-  box-shadow: inset 0 -2px 0 var(--discreet-sheet-accent);
-}
-
-html.ui-discreet-mode
-  .game-desktop-compact
-  :is(.rounded-2xl, .rounded-xl, .rounded-lg, .rounded-md) {
-  border-radius: 2px;
-}
-
-html.ui-discreet-mode
-  .game-desktop-compact
-  :is(.shadow-2xl, .shadow-xl, .shadow-lg, .shadow-md, .shadow, .shadow-sm) {
-  box-shadow: none;
-}
-
-html.ui-discreet-mode .game-desktop-compact :is(button, input, select, textarea) {
-  border-radius: 2px;
-}
-
-html.ui-discreet-mode
-  .game-desktop-compact
-  :is(input, select, textarea):focus-visible {
-  outline: 2px solid var(--discreet-sheet-accent);
-  outline-offset: -1px;
-  box-shadow: none;
-}
-
-html.ui-discreet-mode .game-desktop-compact table {
-  border-collapse: collapse;
-  background: var(--discreet-sheet-bg);
-}
-
-html.ui-discreet-mode .game-desktop-compact :is(th, td) {
-  border: 1px solid var(--discreet-sheet-border);
-}
-
-html.ui-discreet-mode .game-desktop-compact th {
-  background: var(--discreet-sheet-header);
-  color: inherit;
-  font-weight: 600;
 }

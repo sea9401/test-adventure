@@ -669,7 +669,7 @@ function BorderCodex({
                 activeUntil: cosmetics.accessUntil[variant.itemId] ?? null,
               })
             }
-            className={`ui-profile-frame-cosmetic ui-profile-frame-${variant.id} ${variant.motion === "static" ? "ui-profile-frame-static" : ""}`}
+            className={`ui-profile-frame-cosmetic ui-profile-decoration-readable ui-profile-frame-${variant.id} ${variant.motion === "static" ? "ui-profile-frame-static" : ""}`}
             title={`${variant.name} 테두리`}
             rarity={variant.rarity}
             detail={`${PROFILE_BORDER_RARITIES[variant.rarity].effect} · ${variant.feature}`}

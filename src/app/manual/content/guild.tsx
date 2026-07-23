@@ -283,13 +283,22 @@ export function GuildContent() {
         </li>
         <li>
           관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. Lv.3부터
-          메뉴 두 종류를 함께 운영할 수 있습니다.
+          메뉴 두 종류, Lv.5부터 세 종류를 함께 운영할 수 있습니다.
         </li>
         <li>
           식권·기여도·메뉴는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
           같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
         </li>
       </UL>
+      <Table
+        head={["시설 레벨", "주간 식권", "동시 운영 메뉴"]}
+        rows={DINING_HALL_UPGRADES.map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          `${upgrade.weeklyMealTickets}장`,
+          `${upgrade.weeklyMenuSlots}종`,
+        ])}
+        caption="시설 레벨마다 신규 메뉴가 하나씩 열립니다. Lv.5에서는 메뉴 세 종류를 골라 한 주 동안 운영할 수 있습니다."
+      />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
         rows={FISHING_CATCH_ITEM_LIST.map((item) => {
@@ -313,7 +322,7 @@ export function GuildContent() {
           `Lv.${menu.minFacilityLevel}`,
           menu.description,
         ])}
-        caption="모험가 정식과 일꾼 도시락은 식권 1장당 12시간 적용됩니다. 같은 메뉴는 남은 시간에 12시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다."
+        caption="지속 효과 메뉴는 식권 1장당 12시간 적용됩니다. 같은 메뉴는 남은 시간에 12시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다."
       />
 
       <H2>길드 교역소</H2>

@@ -589,15 +589,15 @@ export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
   {
     level: 4,
     cost: facilityUpgradeCost(4, 90_000_000, 1250),
-    weeklyMealTickets: 3,
+    weeklyMealTickets: 4,
     weeklyMenuSlots: 2,
     label: "연회 준비실",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 160_000_000, 2500),
-    weeklyMealTickets: 4,
-    weeklyMenuSlots: 2,
+    weeklyMealTickets: 5,
+    weeklyMenuSlots: 3,
     label: "길드 대연회장",
   },
 ];

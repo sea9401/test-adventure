@@ -67,51 +67,56 @@ export function MessageList({
             : "아직 메시지가 없습니다."}
         </div>
       ) : (
-        // 말풍선 없이 평문 한 줄로 — 이름(클릭 시 프로필) + 시간 + 본문이 그대로 흐른다.
+        // 발신자 열을 고정해 닉네임 길이와 관계없이 모든 메시지 본문이 같은 위치에서 시작한다.
         messages.map((m) => (
           <div
             key={m.id}
-            className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-800 dark:text-zinc-100"
+            className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)] items-baseline gap-x-2 text-sm leading-relaxed text-zinc-800 dark:text-zinc-100"
           >
-            {m.title && (
-              <span className="mr-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                {m.title}
-              </span>
-            )}
-            {m.mine ? (
-              <span>
-                <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
-                <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
-                <span
-                  className={chatNameClass(
-                    m.cosmetics?.chatNameEffect,
-                    "font-semibold text-blue-600 dark:text-blue-400",
-                  )}
-                >
-                {m.name}
+            <span className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
+              {m.title && (
+                <span className="mr-1 max-w-16 shrink-0 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
+                  {m.title}
                 </span>
-              </span>
-            ) : (
-              <>
-                <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
-                <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
-                <button
-                  type="button"
-                  onClick={() => onSelectName(m.name)}
-                  title="프로필 보기"
-                  className={chatNameClass(
-                    m.cosmetics?.chatNameEffect,
-                    "font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200",
-                  )}
-                >
-                  {m.name}
-                </button>
-              </>
-            )}
-            <span className="mx-1.5 align-baseline text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
-              {formatRelative(m.createdAt)}
+              )}
+              {m.mine ? (
+                <>
+                  <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
+                  <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
+                  <span
+                    title={m.name}
+                    className={chatNameClass(
+                      m.cosmetics?.chatNameEffect,
+                      "min-w-0 truncate font-semibold text-blue-600 dark:text-blue-400",
+                    )}
+                  >
+                    {m.name}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
+                  <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
+                  <button
+                    type="button"
+                    onClick={() => onSelectName(m.name)}
+                    title={`${m.name} 프로필 보기`}
+                    className={chatNameClass(
+                      m.cosmetics?.chatNameEffect,
+                      "min-w-0 truncate font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200",
+                    )}
+                  >
+                    {m.name}
+                  </button>
+                </>
+              )}
             </span>
-            <MessageBody content={m.content} />
+            <span className="min-w-0 whitespace-pre-wrap break-words">
+              <MessageBody content={m.content} />
+              <span className="ml-1.5 inline-block whitespace-nowrap align-baseline text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
+                {formatRelative(m.createdAt)}
+              </span>
+            </span>
           </div>
         ))
       )}

@@ -2727,3 +2727,41 @@ body {
     display: none;
   }
 }
+
+/* 은신 모드 — 게임 장면 배경과 눈에 띄는 계정 꾸미기 연출을 감춘다.
+   기능성 이미지와 로딩 상태는 유지해 조작 정보가 사라지지 않게 한다. */
+html.ui-discreet-mode body {
+  background-color: #f4f4f5;
+  background-image: none;
+}
+
+html.dark.ui-discreet-mode body {
+  background-color: #09090b;
+}
+
+html.ui-discreet-mode .game-scene-background {
+  display: none;
+}
+
+html.ui-discreet-mode .ui-profile-frame-cosmetic {
+  border-color: rgb(161 161 170 / 0.55);
+  background-image: none;
+  box-shadow: none;
+}
+
+html.ui-discreet-mode .ui-profile-frame-cosmetic::before,
+html.ui-discreet-mode .ui-profile-frame-cosmetic::after,
+html.ui-discreet-mode .ui-profile-avatar-frame-cosmetic::after,
+html.ui-discreet-mode .ui-chat-name-chroma::before,
+html.ui-discreet-mode .ui-chat-name-chroma::after {
+  display: none;
+}
+
+html.ui-discreet-mode .ui-profile-avatar-frame-cosmetic,
+html.ui-discreet-mode .ui-chat-name-chroma {
+  animation: none;
+  background: none;
+  filter: none;
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+}

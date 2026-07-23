@@ -10,6 +10,8 @@ import {
   ChatsCircle,
   CoinVertical,
   EnvelopeSimple,
+  Eye,
+  EyeSlash,
   List,
   Megaphone,
   Moon,
@@ -21,6 +23,11 @@ import {
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import {
+  DISCREET_MODE_CLASS,
+  DISCREET_MODE_STORAGE_KEY,
+  DISCREET_MODE_STORED_VALUE,
+} from "./discreetMode";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 게임 안내서 +
 // 다크 토글 + 로그아웃/회원탈퇴. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
@@ -38,6 +45,7 @@ const DeleteAccountModal = dynamic(
 export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [discreetMode, setDiscreetMode] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +55,9 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
       : "light";
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(initial);
+    setDiscreetMode(
+      document.documentElement.classList.contains(DISCREET_MODE_CLASS),
+    );
   }, []);
 
   useEffect(() => {
@@ -69,6 +80,22 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
     document.documentElement.classList.toggle("dark", next === "dark");
     try {
       localStorage.setItem("theme", next);
+    } catch {}
+  };
+
+  const toggleDiscreetMode = () => {
+    const next = !discreetMode;
+    setDiscreetMode(next);
+    document.documentElement.classList.toggle(DISCREET_MODE_CLASS, next);
+    try {
+      if (next) {
+        localStorage.setItem(
+          DISCREET_MODE_STORAGE_KEY,
+          DISCREET_MODE_STORED_VALUE,
+        );
+      } else {
+        localStorage.removeItem(DISCREET_MODE_STORAGE_KEY);
+      }
     } catch {}
   };
 
@@ -161,6 +188,28 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                   <Moon size={18} weight="duotone" />
                 )}
                 {isDark ? "라이트 모드" : "다크 모드"}
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={toggleDiscreetMode}
+                aria-pressed={discreetMode}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {discreetMode ? (
+                  <Eye size={18} weight="duotone" />
+                ) : (
+                  <EyeSlash size={18} weight="duotone" />
+                )}
+                <span className="min-w-0">
+                  <span className="block">
+                    {discreetMode ? "은신 모드 해제" : "은신 모드"}
+                  </span>
+                  <span className="block text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
+                    배경·화려한 장식 숨김
+                  </span>
+                </span>
               </button>
             </li>
             <li>

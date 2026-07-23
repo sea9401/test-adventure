@@ -33,6 +33,11 @@ import {
   COOP_MASTERY_TOME_MATERIAL_ID,
 } from "@/adventure/data/v2/coopRewards";
 import {
+  cookingFoodDefinition,
+  type CookingFoodId,
+  type CookingFoodInventory,
+} from "@/adventure/v2/cooking";
+import {
   V2SimpleItemInfoCard,
   anchorOf,
   type ItemCardAnchor,
@@ -61,6 +66,8 @@ export function RareMapsTab({
   rareMaps,
   cashItems,
   onUseCashItem,
+  cookingFoods,
+  onUseCookingFood,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
@@ -71,6 +78,8 @@ export function RareMapsTab({
   rareMaps: RareMapInstance[] | null;
   cashItems: MuseunCashItemCounts;
   onUseCashItem: (itemId: MuseunCashItemId) => void;
+  cookingFoods: CookingFoodInventory;
+  onUseCookingFood: (itemId: CookingFoodId) => void;
 }) {
   const router = useRouter();
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -83,8 +92,16 @@ export function RareMapsTab({
   const hasCashItem = MUSEUN_UTILITY_ITEM_IDS.some(
     (id) => (cashItems[id] ?? 0) > 0,
   );
+  const hasCookingFood = Object.values(cookingFoods).some(
+    (count) => (count ?? 0) > 0,
+  );
   return (
     <div className="space-y-4">
+      <CookingFoodSection
+        cookingFoods={cookingFoods}
+        busy={busy}
+        onUse={onUseCookingFood}
+      />
       <CashItemSection
         cashItems={cashItems}
         busy={busy}
@@ -119,7 +136,11 @@ export function RareMapsTab({
       <ConsumableList
         maps={rareMaps}
         suppressEmpty={
-          hasCashItem || hasSpFruit || hasEquipmentBox || hasMasteryTome
+          hasCookingFood ||
+          hasCashItem ||
+          hasSpFruit ||
+          hasEquipmentBox ||
+          hasMasteryTome
         }
         onUse={(m) => {
           // 경험치의 비약(테스트) — 화면 이동 없이 즉시 EXP 지급 후 새로고침
@@ -140,6 +161,83 @@ export function RareMapsTab({
       />
     </div>
   );
+}
+
+function CookingFoodSection({
+  cookingFoods,
+  busy,
+  onUse,
+}: {
+  cookingFoods: CookingFoodInventory;
+  busy: string | null;
+  onUse: (itemId: CookingFoodId) => void;
+}) {
+  const foods = Object.entries(cookingFoods)
+    .flatMap(([itemId, count]) => {
+      const food = cookingFoodDefinition(itemId);
+      return food && (count ?? 0) > 0 ? [{ food, count: count ?? 0 }] : [];
+    })
+    .sort(
+      (a, b) =>
+        b.food.recipe.requiredLevel - a.food.recipe.requiredLevel ||
+        a.food.name.localeCompare(b.food.name, "ko"),
+    );
+  if (foods.length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+        음식 · 거래 가능 · 사용 시 PvE 능력치 효과
+      </div>
+      <ul className="space-y-1.5">
+        {foods.map(({ food, count }) => {
+          const isBusy = busy === `cooking_food_${food.id}`;
+          return (
+            <li key={food.id} className={`${SURFACE_CARD} px-3 py-2`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <span className="text-lg" aria-hidden>
+                      {food.recipe.icon}
+                    </span>
+                    <span className="truncate">{food.name}</span>
+                    <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                      ×{count}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    {cookingStatText(food.statPct)} · {formatFoodDuration(food.durationMs)}
+                  </div>
+                </div>
+                <Button
+                  disabled={isBusy}
+                  onClick={() => onUse(food.id)}
+                  variant="warning"
+                  size="xs"
+                  className="shrink-0"
+                >
+                  {isBusy ? "사용 중…" : "사용"}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function cookingStatText(stats: Partial<Record<string, number>>): string {
+  return Object.entries(stats)
+    .map(([key, value]) => `${key.toUpperCase()} +${value}%`)
+    .join(" · ");
+}
+
+function formatFoodDuration(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder > 0 ? `${hours}시간 ${remainder}분` : `${hours}시간`;
 }
 
 function CashItemSection({

@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   COOKING_RECIPES,
+  addCookingFood,
   adjustedCookingXp,
+  cookingFoodDefinition,
+  cookingFoodId,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrders,
   cookingQuality,
   cookingStatPct,
   emptyCookingState,
+  parseCookingFoodInventory,
   parseCookingState,
+  removeCookingFood,
 } from "./cooking";
 
 describe("personal cooking", () => {
@@ -65,5 +70,49 @@ describe("personal cooking", () => {
     const recipe = COOKING_RECIPES.find((entry) => entry.id === "flame_corn_stew")!;
     expect(cookingQuality({ cookingJobTier: 6, usedRare: true, rng: () => 0.99 })).toBe("masterpiece");
     expect(cookingStatPct(recipe, "masterpiece", true)).toMatchObject({ str: 24, vit: 12 });
+  });
+
+  it("preserves crafted quality, rare ingredients, and chef duration in the food item id", () => {
+    const itemId = cookingFoodId({
+      recipeId: "flame_corn_stew",
+      quality: "masterpiece",
+      usedRare: true,
+      extended: true,
+    });
+    const food = cookingFoodDefinition(itemId);
+
+    expect(food).toMatchObject({
+      id: itemId,
+      recipeId: "flame_corn_stew",
+      quality: "masterpiece",
+      usedRare: true,
+      extended: true,
+      statPct: { str: 24, vit: 12 },
+    });
+    expect(food?.durationMs).toBe(5 * 60 * 60 * 1000);
+  });
+
+  it("normalizes, stacks, and consumes cooking food inventory", () => {
+    const itemId = cookingFoodId({
+      recipeId: "rustic_bread",
+      quality: "normal",
+      usedRare: false,
+      extended: false,
+    });
+    expect(
+      parseCookingFoodInventory({
+        [itemId]: 2.9,
+        "food:unknown:normal:base:standard": 10,
+        invalid: 5,
+      }),
+    ).toEqual({ [itemId]: 2 });
+    expect(addCookingFood({ [itemId]: 2 }, itemId, 3)).toEqual({
+      [itemId]: 5,
+    });
+    expect(removeCookingFood({ [itemId]: 2 }, itemId, 1)).toEqual({
+      [itemId]: 1,
+    });
+    expect(removeCookingFood({ [itemId]: 1 }, itemId, 1)).toEqual({});
+    expect(removeCookingFood({}, itemId, 1)).toBeNull();
   });
 });

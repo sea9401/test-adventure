@@ -7,7 +7,6 @@ import { FARM_CROP_LIST, FARM_ITEMS, type FarmItemInventory } from "./farm";
 import {
   COOKING_SURPLUS_BATCH_SIZE,
   COOKING_SURPLUS_DAILY_LIMIT,
-  type ActiveCookingBuff,
   type CookingOrder,
   type CookingRecipe,
   type CookingState,
@@ -29,13 +28,12 @@ type CookingResponse = {
   farmItems: FarmItemInventory;
   farmReputation: number;
   fishingItems: Partial<Record<FishingCatchItemId, number>>;
-  activeBuff: ActiveCookingBuff | null;
   cookingJobId: string | null;
   cookingJobName: string | null;
   cookingJobTier: number;
   result?: {
     recipeName: string;
-    action: "eat" | "order";
+    action: "cook" | "order";
     quantity: number;
     quality: string;
     earnedXp: number;
@@ -87,7 +85,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
 
   const cook = useCallback(async (
     recipe: CookingRecipe,
-    action: "eat" | "order",
+    action: "cook" | "order",
     quantity = 1,
   ) => {
     setBusy(`${action}:${recipe.id}`);
@@ -100,16 +98,20 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           recipeId: recipe.id,
           action,
           quantity,
-          useRare: action === "eat" && useRareByRecipe[recipe.id] === true,
+          useRare: action === "cook" && useRareByRecipe[recipe.id] === true,
         }),
       });
       const json = await response.json() as CookingResponse & { error?: string };
       if (!response.ok || !json.ok) throw new Error(json.error ?? "cooking_failed");
       setData(json);
       const result = json.result;
-      setNotice(result
-        ? `${result.recipeName} ${result.quantity}개 완성 · ${qualityName(result.quality)} · 요리 XP +${result.earnedXp}`
-        : "요리를 완성했습니다.");
+      setNotice(
+        result
+          ? result.action === "order"
+            ? `${result.recipeName} 주문 납품 완료 · 요리 XP +${result.earnedXp}`
+            : `${result.recipeName} ${result.quantity}개 완성 · ${qualityName(result.quality)} · 인벤토리에 보관 · 요리 XP +${result.earnedXp}`
+          : "요리를 완성했습니다.",
+      );
       onFarmChanged?.();
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
@@ -195,7 +197,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           <div>
             <h3 className="font-bold text-zinc-900 dark:text-zinc-100">🍳 개인 주방 · 요리 Lv {data.level}</h3>
             <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-              농작물과 어획물을 조리해 PvE 전용 능력치 버프를 얻습니다. 아레나·챔피언십·거점전에는 적용되지 않습니다.
+              농작물과 어획물을 거래 가능한 음식으로 조리합니다. 완성된 음식은 인벤토리 소모품에서 사용합니다.
             </p>
           </div>
           <div className="text-right text-xs text-zinc-600 dark:text-zinc-300">
@@ -212,7 +214,6 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
         </div>
       </section>
 
-      <ActiveBuffCard buff={data.activeBuff} now={data.now} />
       <OrderBoard data={data} busy={busy} onCook={cook} />
 
       <section className={`${SURFACE_CARD} p-4`}>
@@ -284,10 +285,10 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
                       key={quantity}
                       type="button"
                       disabled={!unlocked || max < quantity || busy != null}
-                      onClick={() => void cook(recipe, "eat", quantity)}
+                      onClick={() => void cook(recipe, "cook", quantity)}
                       className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
                     >
-                      {busy === `eat:${recipe.id}` ? "조리 중..." : quantity === Math.min(20, max) && quantity !== 1 && quantity !== 5 ? `최대 ${quantity}개` : `${quantity}개 먹기`}
+                      {busy === `cook:${recipe.id}` ? "조리 중..." : quantity === Math.min(20, max) && quantity !== 1 && quantity !== 5 ? `최대 ${quantity}개 조리` : `${quantity}개 조리`}
                     </button>
                   ))}
                   {!unlocked ? <span className="self-center text-xs text-rose-600">레벨 부족</span> : max === 0 ? <span className="self-center text-xs text-rose-600">재료 부족</span> : null}
@@ -300,21 +301,6 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
 
       <SurplusExchange data={data} busy={busy} onExchange={exchange} />
     </div>
-  );
-}
-
-function ActiveBuffCard({ buff, now }: { buff: ActiveCookingBuff | null; now: number }) {
-  return (
-    <section className={`${SURFACE_CARD} p-4`}>
-      <h3 className="font-bold text-zinc-900 dark:text-zinc-100">현재 음식 효과</h3>
-      {buff ? (
-        <div className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <span className="font-semibold">{buff.recipeName}</span> · {qualityName(buff.quality)} · {statText(buff.statPct)} · 남은 시간 {formatDuration(buff.expiresAt - now)}
-        </div>
-      ) : (
-        <p className="mt-2 text-sm text-zinc-500">적용 중인 음식이 없습니다.</p>
-      )}
-    </section>
   );
 }
 
@@ -426,11 +412,6 @@ function statText(stats: Partial<Record<string, number>>): string {
 
 function qualityName(quality: string): string {
   return quality === "masterpiece" ? "걸작" : quality === "careful" ? "정성작" : "일반";
-}
-
-function formatDuration(ms: number): string {
-  const minutes = Math.max(0, Math.ceil(ms / 60_000));
-  return `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`;
 }
 
 function chefBenefitText(tier: number): string {

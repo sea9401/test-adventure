@@ -11,7 +11,7 @@ export const COOKING_SURPLUS_DAILY_LIMIT = 5;
 export const COOKING_BUFF_MAX_HOURS = 8;
 
 export type CookingQuality = "normal" | "careful" | "masterpiece";
-export type CookingAction = "eat" | "order";
+export type CookingAction = "cook" | "order";
 
 export type CookingRecipe = {
   id: string;
@@ -55,6 +55,29 @@ export type CookingOrder = {
   bonusXp: number;
 };
 
+type CookingFoodRareKind = "base" | "rare";
+type CookingFoodDurationKind = "standard" | "extended";
+
+export type CookingFoodId =
+  `food:${string}:${CookingQuality}:${CookingFoodRareKind}:${CookingFoodDurationKind}`;
+
+export type CookingFoodInventory = Partial<Record<CookingFoodId, number>>;
+
+export type CookingFoodVariant = {
+  id: CookingFoodId;
+  recipeId: string;
+  quality: CookingQuality;
+  usedRare: boolean;
+  extended: boolean;
+};
+
+export type CookingFoodDefinition = CookingFoodVariant & {
+  recipe: CookingRecipe;
+  name: string;
+  durationMs: number;
+  statPct: Partial<Record<V2StatKey, number>>;
+};
+
 const recipe = (value: CookingRecipe): CookingRecipe => value;
 
 export const COOKING_RECIPES: readonly CookingRecipe[] = [
@@ -81,6 +104,118 @@ export const COOKING_RECIPES: readonly CookingRecipe[] = [
 export const COOKING_RECIPE_BY_ID = new Map(
   COOKING_RECIPES.map((entry) => [entry.id, entry]),
 );
+
+export function cookingQualityName(quality: CookingQuality): string {
+  if (quality === "masterpiece") return "걸작";
+  if (quality === "careful") return "정성작";
+  return "일반";
+}
+
+export function cookingFoodId(args: {
+  recipeId: string;
+  quality: CookingQuality;
+  usedRare: boolean;
+  extended: boolean;
+}): CookingFoodId {
+  const rare: CookingFoodRareKind = args.usedRare ? "rare" : "base";
+  const duration: CookingFoodDurationKind = args.extended
+    ? "extended"
+    : "standard";
+  return `food:${args.recipeId}:${args.quality}:${rare}:${duration}`;
+}
+
+export function parseCookingFoodId(value: unknown): CookingFoodVariant | null {
+  if (typeof value !== "string") return null;
+  const [prefix, recipeId, qualityRaw, rareRaw, durationRaw, extra] =
+    value.split(":");
+  if (prefix !== "food" || extra !== undefined) return null;
+  const recipe = COOKING_RECIPE_BY_ID.get(recipeId);
+  const quality: CookingQuality | null =
+    qualityRaw === "masterpiece" || qualityRaw === "careful" || qualityRaw === "normal"
+      ? qualityRaw
+      : null;
+  const usedRare = rareRaw === "rare";
+  if (
+    !recipe ||
+    !quality ||
+    (rareRaw !== "base" && rareRaw !== "rare") ||
+    (durationRaw !== "standard" && durationRaw !== "extended") ||
+    (usedRare && !recipe.optionalRareItemId)
+  ) {
+    return null;
+  }
+  return {
+    id: value as CookingFoodId,
+    recipeId,
+    quality,
+    usedRare,
+    extended: durationRaw === "extended",
+  };
+}
+
+export function isCookingFoodId(value: unknown): value is CookingFoodId {
+  return parseCookingFoodId(value) !== null;
+}
+
+export function cookingFoodDefinition(
+  value: unknown,
+): CookingFoodDefinition | null {
+  const variant = parseCookingFoodId(value);
+  if (!variant) return null;
+  const recipe = COOKING_RECIPE_BY_ID.get(variant.recipeId)!;
+  const tags = [
+    cookingQualityName(variant.quality),
+    variant.usedRare ? "희귀 특선" : "",
+    variant.extended ? "장시간" : "",
+  ].filter(Boolean);
+  return {
+    ...variant,
+    recipe,
+    name: `${recipe.name} (${tags.join(" · ")})`,
+    durationMs: cookingBuffDurationMs(variant.quality, variant.extended ? 5 : 0),
+    statPct: cookingStatPct(recipe, variant.quality, variant.usedRare),
+  };
+}
+
+export function parseCookingFoodInventory(raw: unknown): CookingFoodInventory {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const parsed: CookingFoodInventory = {};
+  for (const [id, rawCount] of Object.entries(raw)) {
+    if (!isCookingFoodId(id)) continue;
+    const count = safeInt(rawCount);
+    if (count > 0) parsed[id] = count;
+  }
+  return parsed;
+}
+
+export function addCookingFood(
+  raw: unknown,
+  itemId: CookingFoodId,
+  quantity: number,
+): CookingFoodInventory {
+  const inventory = parseCookingFoodInventory(raw);
+  const count = Math.max(0, Math.floor(quantity));
+  if (count < 1) return inventory;
+  return {
+    ...inventory,
+    [itemId]: (inventory[itemId] ?? 0) + count,
+  };
+}
+
+export function removeCookingFood(
+  raw: unknown,
+  itemId: CookingFoodId,
+  quantity: number,
+): CookingFoodInventory | null {
+  const inventory = parseCookingFoodInventory(raw);
+  const count = Math.max(0, Math.floor(quantity));
+  const held = inventory[itemId] ?? 0;
+  if (count < 1 || held < count) return null;
+  const next = { ...inventory };
+  if (held === count) delete next[itemId];
+  else next[itemId] = held - count;
+  return next;
+}
 
 export function cookingDayKey(now = Date.now()): string {
   return new Intl.DateTimeFormat("en-CA", {

@@ -8,6 +8,7 @@ import type { MaterialId } from "../data/materials";
 import type { PotionId } from "../data/potions";
 import type { RuneGrade, RuneId } from "../data/runes";
 import type { EquipmentInstance } from "./equipmentInstances";
+import type { CookingFoodInventory } from "../v2/cooking";
 
 // 제작산 품질 등급 인스턴스 — itemId → (등급 문자열 "-2"|"-1"|"1"|"2" → 개수).
 // 등급 0(일반)은 베이스와 동일하므로 별도로 두지 않고 equipment[] 에 합산한다.
@@ -35,6 +36,8 @@ export type InventoryState = {
   vault: VaultState;
   materials: Partial<Record<MaterialId, number>>;
   consumables: Partial<Record<ConsumableId, number>>;
+  /** 개인 주방에서 만든 거래 가능한 음식 소모품. */
+  cookingFoods?: CookingFoodInventory;
   /**
    * 스킬북 — 사용 시 1개 소비되어 캐릭터에 AP 스킬 학습. 학습 후엔 책 자체는 의미 X
    * (학습 1회만 효과). 미학습 책은 마켓 거래 가능 (SKILL_BOOKS[id].tradable).
@@ -63,6 +66,7 @@ export const emptyInventory = (): InventoryState => ({
   vault: {},
   materials: { branch: 2 },
   consumables: {},
+  cookingFoods: {},
   skillBooks: {},
   runes: {},
   equipmentInstances: [],

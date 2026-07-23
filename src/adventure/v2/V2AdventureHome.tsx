@@ -11,6 +11,7 @@ import { AdventureRankingPreview } from "./AdventureRankingPreview";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import type { ActiveCookingBuff } from "@/adventure/v2/cooking";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -24,6 +25,7 @@ type StateResponse = {
     regenBonusPct: number;
   };
   cosmetics?: MuseunCosmeticAppearance;
+  activeFoodBuff?: ActiveCookingBuff | null;
   hotTime?: {
     title: string;
     endsAt: string;
@@ -88,6 +90,7 @@ export function V2AdventureHome() {
             profileBorder={state.cosmetics?.profileBorder ?? null}
             chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
             championshipBadge={state.cosmetics?.championshipBadge ?? null}
+            activeFoodBuff={state.activeFoodBuff ?? null}
           />
         )}
 

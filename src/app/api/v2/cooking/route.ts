@@ -30,21 +30,18 @@ import {
   spendFishingCatchItem,
 } from "@/adventure/v2/fishingStock";
 import {
-  COOKING_BUFF_MAX_HOURS,
   COOKING_RECIPE_BY_ID,
   COOKING_RECIPES,
   COOKING_SAVE_KEY,
-  activeCookingBuff,
+  addCookingFood,
   adjustedCookingXp,
-  cookingBuffDurationMs,
+  cookingFoodId,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrders,
   cookingQuality,
-  cookingStatPct,
   emptyCookingState,
   parseCookingState,
-  type ActiveCookingBuff,
   type CookingAction,
 } from "@/adventure/v2/cooking";
 
@@ -52,7 +49,10 @@ type CharacterSave = Record<string, unknown> & {
   gold?: number;
   class?: unknown;
   level?: number;
-  activeFoodBuff?: ActiveCookingBuff;
+};
+
+type InventorySave = Record<string, unknown> & {
+  cookingFoods?: unknown;
 };
 
 function currentCookingJob(char: CharacterSave) {
@@ -93,7 +93,6 @@ function cookingView(userId: string, now: number, values: {
     farmReputation: farm.stats.reputation,
     fishingItems: fishing.items,
     fishingItemDefinitions: FISHING_CATCH_ITEMS,
-    activeBuff: activeCookingBuff(values.character.activeFoodBuff, now),
     cookingJobId: job.jobId,
     cookingJobName: job.jobId ? V2_JOB_CATALOG[job.jobId]?.name ?? job.jobId : null,
     cookingJobTier: job.tier,
@@ -143,7 +142,8 @@ export async function POST(req: Request) {
     quantity?: unknown;
   } | null;
   const recipeId = typeof body?.recipeId === "string" ? body.recipeId : "";
-  const action: CookingAction | null = body?.action === "eat" || body?.action === "order" ? body.action : null;
+  const action: CookingAction | null =
+    body?.action === "cook" || body?.action === "order" ? body.action : null;
   const useRare = body?.useRare === true;
   const requestedQuantity = Math.max(1, Math.min(20, Math.floor(Number(body?.quantity) || 1)));
   const quantity = action === "order" ? 1 : requestedQuantity;
@@ -167,6 +167,12 @@ export async function POST(req: Request) {
         await lockSaveForUpdate(tx, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
         now,
       );
+      const inventory = await lockSaveForUpdate<InventorySave>(
+        tx,
+        userId,
+        "inventory.v2",
+        {},
+      );
       const level = cookingLevelForXp(cooking.xp);
       if (level < recipe.requiredLevel) throw new Error("recipe_locked");
 
@@ -178,7 +184,7 @@ export async function POST(req: Request) {
         ]),
       );
       const usedRare = Boolean(
-        action === "eat" && useRare && recipe.optionalRareItemId,
+        action === "cook" && useRare && recipe.optionalRareItemId,
       );
       if (usedRare && recipe.optionalRareItemId) farmRequirements[recipe.optionalRareItemId] = quantity;
       if (!hasFarmItems(farm.inventory, farmRequirements)) throw new Error("not_enough_farm_items");
@@ -226,32 +232,36 @@ export async function POST(req: Request) {
         },
       };
 
-      let nextCharacter: CharacterSave = {
+      const nextCharacter: CharacterSave = {
         ...character,
         gold: Math.max(0, Math.floor(Number(character.gold) || 0)) + (order?.rewardGold ?? 0),
       };
-      let buff: ActiveCookingBuff | null = null;
-      if (action === "eat") {
-        const current = activeCookingBuff(character.activeFoodBuff, now);
-        const duration = cookingBuffDurationMs(quality, job.tier) * quantity;
-        const expiresAt = Math.min(
-          now + COOKING_BUFF_MAX_HOURS * 60 * 60 * 1000,
-          (current?.recipeId === recipe.id ? Math.max(now, current.expiresAt) : now) + duration,
-        );
-        buff = {
-          recipeId: recipe.id,
-          recipeName: recipe.name,
-          statPct: cookingStatPct(recipe, quality, usedRare),
-          quality,
-          expiresAt,
-        };
-        nextCharacter = { ...nextCharacter, activeFoodBuff: buff };
-      }
+      const foodId = action === "cook"
+        ? cookingFoodId({
+            recipeId: recipe.id,
+            quality,
+            usedRare,
+            extended: job.tier >= 5,
+          })
+        : null;
+      const nextInventory = foodId
+        ? {
+            ...inventory,
+            cookingFoods: addCookingFood(
+              inventory.cookingFoods,
+              foodId,
+              quantity,
+            ),
+          }
+        : inventory;
 
       await upsertSave(tx, userId, FARM_SAVE_KEY, nextFarm);
       await upsertSave(tx, userId, FISHING_STOCK_KEY, fishing);
       await upsertSave(tx, userId, COOKING_SAVE_KEY, cooking);
       await upsertSave(tx, userId, "character.v2", nextCharacter);
+      if (foodId) {
+        await upsertSave(tx, userId, "inventory.v2", nextInventory);
+      }
 
       let masteryGained = 0;
       let masteryAfter: number | null = null;
@@ -284,7 +294,7 @@ export async function POST(req: Request) {
           earnedXp,
           orderRewardGold: order?.rewardGold ?? 0,
           orderRewardReputation: order?.rewardReputation ?? 0,
-          buff,
+          foodId,
           masteryGained,
           masteryAfter,
         },

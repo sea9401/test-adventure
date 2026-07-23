@@ -21,6 +21,10 @@ import {
   MUSEUN_CASH_ITEMS,
   isMuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  cookingFoodDefinition,
+  isCookingFoodId,
+} from "@/adventure/v2/cooking";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -136,6 +140,7 @@ export function itemDisplayName(kind: MarketKind, id: string): string | null {
   if (kind === "equip") return isTradableEquip(id) ? V2_EQUIPMENT[id].name : null;
   if (kind === "consumable") {
     if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
+    if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? null;
     return id in RARE_MAP_KINDS
       ? RARE_MAP_KINDS[id as keyof typeof RARE_MAP_KINDS].name
       : null;
@@ -152,7 +157,9 @@ export function currentMarketplaceItemName(
 ): string {
   if (!isMarketKind(kind)) return storedName;
   if (kind === "consumable") {
-    return isMuseunCashItemId(id) ? MUSEUN_CASH_ITEMS[id].name : storedName;
+    if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
+    if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? storedName;
+    return storedName;
   }
   return itemDisplayName(kind, id) ?? storedName;
 }

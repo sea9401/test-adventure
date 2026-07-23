@@ -112,7 +112,7 @@ export function ChatCosmeticBadge({
     <span
       aria-label={label}
       title={label}
-      className={`ui-chat-badge ui-chat-badge--${badge} mr-1 inline-flex align-[-0.12em]`}
+      className={`ui-chat-badge ui-chat-badge--${badge} mr-1 inline-flex`}
     >
       <Icon size={12} weight="fill" aria-hidden="true" />
     </span>

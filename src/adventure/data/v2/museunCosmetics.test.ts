@@ -79,7 +79,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(second.state).toEqual(first.state);
   });
 
-  it("프로필 테두리 15종과 채팅 배지 28종을 독립 장착한다", () => {
+  it("프로필 꾸미기 15종과 채팅 배지 28종을 독립 장착한다", () => {
     expect(PROFILE_BORDER_VARIANTS).toHaveLength(15);
     expect(CHAT_BADGE_VARIANTS).toHaveLength(28);
     for (const variant of PROFILE_BORDER_VARIANTS) {
@@ -112,7 +112,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(equipChatBadge(badges, null)?.equippedChatBadge).toBeNull();
   });
 
-  it("테두리와 배지를 전설부터 일반까지 정렬하고 동급 순서를 유지한다", () => {
+  it("프로필 꾸미기와 배지를 전설부터 일반까지 정렬하고 동급 순서를 유지한다", () => {
     expect(COSMETIC_RARITY_DISPLAY_ORDER).toEqual([
       "legendary",
       "epic",
@@ -146,7 +146,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expectRarityOrder(CHAT_BADGE_VARIANTS);
   });
 
-  it("테두리 상자는 일반 60%·희귀 27%·영웅 10%·전설 3%로 추첨한다", () => {
+  it("프로필 꾸미기 상자는 일반 60%·희귀 27%·영웅 10%·전설 3%로 추첨한다", () => {
     expect(
       Object.fromEntries(
         ["common", "rare", "epic", "legendary"].map((rarity) => [
@@ -156,7 +156,17 @@ describe("무슨 코인 기간제 꾸미기", () => {
           ).length,
         ]),
       ),
-    ).toEqual({ common: 9, rare: 3, epic: 2, legendary: 1 });
+    ).toEqual({ common: 5, rare: 4, epic: 5, legendary: 1 });
+    expect(
+      PROFILE_BORDER_VARIANTS.filter(
+        (variant) => variant.rarity === "common",
+      ).every((variant) => variant.interior === "none"),
+    ).toBe(true);
+    expect(
+      PROFILE_BORDER_VARIANTS.filter(
+        (variant) => variant.rarity !== "common",
+      ).map((variant) => variant.interior),
+    ).not.toContain("none");
     const odds = profileBorderOdds(null);
     const probabilityByRarity = Object.fromEntries(
       (Object.keys(PROFILE_BORDER_RARITIES) as Array<

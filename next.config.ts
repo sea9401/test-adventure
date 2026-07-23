@@ -32,7 +32,7 @@ const contentSecurityPolicy = [
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
-  "form-action 'self' https://accounts.google.com https://kauth.kakao.com",
+  "form-action 'self' https://kauth.kakao.com",
   // Next hydration과 초기 테마 스크립트 때문에 inline script/style은 현재 허용한다.
   // 외부 실행 출처는 사람 확인 공급자로 한정한다.
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com",

@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm";
@@ -56,7 +55,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
   providers: [
     // 공급자 이메일 일치만으로 계정을 자동 병합하지 않는다. 다른 공급자 연결은
     // /api/auth/link가 만든 일회성 의도를 OAuth callback에서 검증한 경우에만 허용한다.
-    Google,
     Kakao({
       // 카카오 이메일 권한이 잠겨 있을 때(사업자 미등록) ID 기반 플레이스홀더 이메일 사용.
       // kakao_<id>@kakao.oauth 형태 — 같은 카카오 계정이면 항상 동일 이메일 생성.
@@ -140,6 +138,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
         return true;
       }
 
+      // 정식 출시에서는 카카오 OAuth만 제공한다. provider 설정이 실수로 늘어나더라도
+      // 지원하지 않는 OAuth callback은 로그인이나 계정 연결로 이어지지 않게 막는다.
+      if (account.provider !== "kakao") return false;
+
       const intentToken = cookieStore.get(ACCOUNT_LINK_INTENT_COOKIE)?.value;
       if (!intentToken) {
         // OAuth 로그인을 실제로 마친 브라우저만 기존 활성 기기를 교체할 수 있다.
@@ -153,20 +155,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
           priority: "high",
         });
 
-        if (account.provider !== "google") return true;
-
-        // 신규 가입은 카카오만 허용한다. 이미 연결된 Google 계정의 로그인은 계속 지원한다.
-        const [existingGoogle] = await rawDb()
-          .select({ userId: accounts.userId })
-          .from(accounts)
-          .where(
-            and(
-              eq(accounts.provider, "google"),
-              eq(accounts.providerAccountId, account.providerAccountId),
-            ),
-          )
-          .limit(1);
-        return !!existingGoogle;
+        return true;
       }
 
       // 브라우저 쿠키와 DB 행을 모두 한 번만 소비한다. callback 시점에도 연결을 시작한

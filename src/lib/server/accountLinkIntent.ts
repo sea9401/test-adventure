@@ -10,12 +10,12 @@ import { accountLinkIntents, accounts } from "@/db/schema";
 export const ACCOUNT_LINK_INTENT_COOKIE = "account_link_intent";
 export const ACCOUNT_LINK_INTENT_TTL_SECONDS = 5 * 60;
 
-export type AccountLinkProvider = "google" | "kakao";
+export type AccountLinkProvider = "kakao";
 
 export function isAccountLinkProvider(
   value: unknown,
 ): value is AccountLinkProvider {
-  return value === "google" || value === "kakao";
+  return value === "kakao";
 }
 
 export function hashAccountLinkToken(token: string): string {

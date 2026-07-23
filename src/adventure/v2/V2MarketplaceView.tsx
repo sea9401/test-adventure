@@ -1,10 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Storefront } from "@phosphor-icons/react";
+import {
+  Circle,
+  Cube,
+  Flask,
+  HandPalm,
+  ListPlus,
+  MagnifyingGlass,
+  Medal,
+  Package,
+  Receipt,
+  Shield,
+  ShoppingCart,
+  SlidersHorizontal,
+  SneakerMove,
+  Storefront,
+  Sword,
+  X,
+  type Icon,
+} from "@phosphor-icons/react";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
@@ -57,6 +74,7 @@ import {
   equipDetail,
   listingEquipRoll,
   marketplacePriceKeyForPayload,
+  PricePositionBadge,
   PriceRefLine,
   priceStatForKey,
   type Listing,
@@ -72,6 +90,7 @@ import {
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 // v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시 소모품 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -99,6 +118,37 @@ type SellCraftFilter =
   | "quality"
   | "masterwork"
   | "craftOnly";
+
+const MARKETPLACE_TABS: ReadonlyArray<{
+  key: Tab;
+  label: string;
+  description: string;
+  Icon: Icon;
+}> = [
+  { key: "browse", label: "구매", description: "매물 찾기", Icon: ShoppingCart },
+  { key: "sell", label: "판매 등록", description: "아이템 올리기", Icon: ListPlus },
+  { key: "mine", label: "판매 중", description: "내 매물 관리", Icon: Package },
+  { key: "history", label: "거래 내역", description: "최근 체결", Icon: Receipt },
+];
+
+const LISTING_ICON: Record<V2ItemTabKey, Icon> = {
+  weapon: Sword,
+  armor: Shield,
+  gloves: HandPalm,
+  boots: SneakerMove,
+  ring: Circle,
+  necklace: Medal,
+  material: Cube,
+  consumable: Flask,
+};
+
+export type MarketplacePreviewData = {
+  viewerId: string;
+  viewerGold: number;
+  ttlDays: number;
+  listings: Listing[];
+  prices: Record<string, PriceStat>;
+};
 
 // 최근 거래(체결 내역) 한 행 — /api/v2/marketplace/history. status='sold' 스냅샷.
 type Trade = {
@@ -148,7 +198,13 @@ function actionErrorLabel(
   return ERR_LABEL[error ?? ""] ?? error ?? `실패 (${status})`;
 }
 
-export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
+export function V2MarketplaceView({
+  onBack,
+  preview,
+}: {
+  onBack: () => void;
+  preview?: MarketplacePreviewData;
+}) {
   // 구매 affordability — flag off 면 보유(viewerGold)만, on 이면 보유+은행(은행 골드로도 구매).
   const { coreLoopOn, bankedGold, frontierDepth, refreshGameState } =
     useGameState();
@@ -160,8 +216,12 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [sellSort, setSellSort] = useState<SortMode>("default");
   const [sellCraftFilter, setSellCraftFilter] =
     useState<SellCraftFilter>("all");
-  const [viewerId, setViewerId] = useState<string | null>(null);
-  const [listings, setListings] = useState<Listing[] | null>(null);
+  const [viewerId, setViewerId] = useState<string | null>(
+    preview?.viewerId ?? null,
+  );
+  const [listings, setListings] = useState<Listing[] | null>(
+    preview?.listings ?? null,
+  );
   const [mine, setMine] = useState<Listing[] | null>(null);
   // 최근 거래 — Trade 를 Listing 형태로 매핑(ListingList 재사용). createdAt 자리 = 체결 시각.
   const [history, setHistory] = useState<Listing[] | null>(null);
@@ -177,10 +237,11 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const beginAction = useSingleFlightGuard();
   const [msg, setMsg] = useSystemMessageState();
   const [error, setError] = useState<string | null>(null);
-  const [gold, setGold] = useState<number | null>(null);
+  const [gold, setGold] = useState<number | null>(preview?.viewerGold ?? null);
   // 둘러보기 — 구매 확인 모달 + 정렬/필터/검색(클라이언트측, 반환된 매물 위).
   const [confirmBuy, setConfirmBuy] = useState<Listing | null>(null);
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [craftedOnly, setCraftedOnly] = useState(false);
   const [craftedQualityFilter, setCraftedQualityFilter] = useState<
     "all" | "plus1"
@@ -192,8 +253,10 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     "price_asc" | "price_desc" | "roll_desc" | "crafter_desc"
   >("price_asc");
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
-  const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>({});
-  const [ttlDays, setTtlDays] = useState<number | null>(null); // 매물 만료 일수(서버 다이얼).
+  const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>(
+    preview?.prices ?? {},
+  );
+  const [ttlDays, setTtlDays] = useState<number | null>(preview?.ttlDays ?? null); // 매물 만료 일수(서버 다이얼).
   // 아이템 옵션 카드(클릭 시 뜨는 팝오버) — 장비만(재료는 옵션 없음). V2ItemCard 재사용(읽기전용).
   const [card, setCard] = useState<{
     item: V2Equipment;
@@ -287,6 +350,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
   // 탭 전환 시 해당 데이터 로드. 둘러보기·팔기는 시세도 함께(가격 판단 참고).
   useEffect(() => {
+    if (preview) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 탭 전환 시 이전 에러 클리어
     setError(null);
     if (tab === "browse") {
@@ -300,7 +364,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       void loadInventory().catch(() => setError("인벤토리 로드 실패"));
       void loadPrices();
     }
-  }, [tab, loadBrowse, loadInventory, loadPrices, loadHistory]);
+  }, [tab, loadBrowse, loadInventory, loadPrices, loadHistory, preview]);
 
   const handleBrowseTabChange = useCallback((nextTab: V2ItemTabKey) => {
     setBrowseTab(nextTab);
@@ -544,6 +608,18 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       }
       return 0;
     });
+  const activeFilterCount = browseEquipmentTab
+    ? Number(craftedOnly) +
+      Number(craftedQualityFilter !== "all") +
+      Number(craftedLevelFilter !== "all")
+    : 0;
+  const activeSortLabel =
+    browseSortOptions.find(([value]) => value === sort)?.[1] ?? "가격 낮은순";
+  const resetBrowseFilters = () => {
+    setCraftedOnly(false);
+    setCraftedQualityFilter("all");
+    setCraftedLevelFilter("all");
+  };
   const browsePager = usePagination(
     displayedListings,
     MARKETPLACE_PAGE_SIZE,
@@ -579,109 +655,271 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const availableGold =
+    gold === null ? null : coreLoopOn ? gold + bankedGold : gold;
+
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[760px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader title="거래소" onBack={onBack} />
-      {/* 보유 골드 — 헤더 우측에 두면 큰 숫자에서 가운데 타이틀과 겹쳐 별도 줄로(모바일 겹침 수정). */}
-      {gold !== null && (
-        <div className="-mt-2 flex items-center justify-end gap-1 text-xs font-medium tabular-nums text-amber-700 dark:text-amber-400">
-          <GameIcon name="Coins" size={15} />
-          보유 {gold.toLocaleString()}골드
+      <Card padding="none" className="overflow-hidden">
+        <div className="flex items-center justify-between gap-3 p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              <Storefront size={23} weight="duotone" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">모험가 거래소</p>
+              <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                장비와 재료를 시세에 맞춰 안전하게 거래하세요.
+              </p>
+            </div>
+          </div>
+          {availableGold !== null && (
+            <div className={`${SURFACE_INSET} shrink-0 px-3 py-2 text-right`}>
+              <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                사용 가능
+              </p>
+              <p className="mt-0.5 flex items-center justify-end gap-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-400">
+                <GameIcon name="Coins" size={14} />
+                {availableGold.toLocaleString()}G
+              </p>
+            </div>
+          )}
+        </div>
+        <nav
+          aria-label="거래소 메뉴"
+          className="grid grid-cols-4 gap-1 border-t border-zinc-200 p-1.5 dark:border-zinc-700"
+        >
+          {MARKETPLACE_TABS.map(({ key, label, description, Icon }) => {
+            const active = tab === key;
+            const badge = key === "mine" && mine !== null ? mine.length : null;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setTab(key)}
+                className={`flex min-w-0 flex-col items-center justify-center rounded-md px-1.5 py-2 text-center transition sm:flex-row sm:gap-2 ${
+                  active
+                    ? "bg-sky-600 text-white shadow-sm"
+                    : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                }`}
+              >
+                <Icon size={18} weight={active ? "fill" : "duotone"} />
+                <span className="mt-1 min-w-0 sm:mt-0 sm:text-left">
+                  <span className="flex items-center justify-center gap-1 text-xs font-semibold sm:justify-start">
+                    {label}
+                    {badge !== null && badge > 0 ? (
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[9px] leading-none ${
+                          active
+                            ? "bg-white text-sky-700"
+                            : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200"
+                        }`}
+                      >
+                        {badge}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span
+                    className={`hidden text-[10px] sm:block ${
+                      active ? "text-sky-100" : "text-zinc-400 dark:text-zinc-500"
+                    }`}
+                  >
+                    {description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      </Card>
+
+      {msg && (
+        <div className={`${SURFACE_INSET} p-3 text-sm text-emerald-700 dark:text-emerald-400`}>
+          {msg}
+        </div>
+      )}
+      {error && (
+        <div className={`${SURFACE_INSET} p-3 text-sm text-rose-600 dark:text-rose-400`}>
+          {error}
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1.5">
-        {([
-          ["browse", "둘러보기"],
-          ["history", "최근 거래"],
-          ["mine", "내 매물"],
-          ["sell", "팔기"],
-        ] as const).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setTab(k)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-              tab === k
-                ? "bg-sky-600 text-white"
-                : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {msg && <div className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</div>}
-      {error && <div className="text-sm text-rose-600 dark:text-rose-400">{error}</div>}
-
       {tab === "browse" && (
         <>
-          <HeaderPanel className="py-2">
-            <TabBar
-              tabs={V2_ITEM_TABS}
-              active={browseTab}
-              onChange={handleBrowseTabChange}
-              ariaLabel="거래소 목록 분류"
-              size="sm"
-              scrollable
-            />
-          </HeaderPanel>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <input
-              type="text"
-              placeholder="아이템·제작자 검색"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-            />
-            {browseEquipmentTab && (
-              <>
-                <SelectControl
-                  value={craftedQualityFilter}
-                  onChange={(v) =>
-                    setCraftedQualityFilter(v as typeof craftedQualityFilter)
-                  }
-                  options={[
-                    ["all", "전체 품질"],
-                    ["plus1", "★ 제작품"],
-                  ]}
-                />
-                <SelectControl
-                  value={craftedLevelFilter}
-                  onChange={(v) =>
-                    setCraftedLevelFilter(v as typeof craftedLevelFilter)
-                  }
-                  options={[
-                    ["all", "제작자 Lv"],
-                    ["2", "Lv2+"],
-                    ["3", "Lv3+"],
-                    ["4", "Lv4+"],
-                    ["5", "Lv5+"],
-                  ]}
-                />
-              </>
-            )}
-            <SelectControl
-              value={sort}
-              onChange={(v) => setSort(v as typeof sort)}
-              options={browseSortOptions}
-            />
-            {browseEquipmentTab && (
-              <button
-                type="button"
-                aria-pressed={craftedOnly}
-                onClick={() => setCraftedOnly((v) => !v)}
-                className={`rounded border px-2.5 py-1 text-xs font-medium transition ${
-                  craftedOnly
-                    ? "border-emerald-600 bg-emerald-600 text-white"
-                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                제작품만
-              </button>
-            )}
-          </div>
+          <Card padding="none" className="overflow-hidden">
+            <div className="border-b border-zinc-200 px-2 pt-1 dark:border-zinc-700">
+              <TabBar
+                tabs={V2_ITEM_TABS}
+                active={browseTab}
+                onChange={handleBrowseTabChange}
+                ariaLabel="거래소 목록 분류"
+                size="sm"
+                scrollable
+              />
+            </div>
+            <div className="space-y-3 p-3">
+              <div className="flex gap-2">
+                <label className="relative min-w-0 flex-1">
+                  <span className="sr-only">아이템 또는 제작자 검색</span>
+                  <MagnifyingGlass
+                    aria-hidden
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+                  />
+                  <input
+                    type="search"
+                    placeholder="아이템 또는 제작자 검색"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-md border border-zinc-300 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  {search ? (
+                    <button
+                      type="button"
+                      aria-label="검색어 지우기"
+                      onClick={() => setSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : null}
+                </label>
+                <button
+                  type="button"
+                  aria-expanded={filtersOpen}
+                  onClick={() => setFiltersOpen((open) => !open)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
+                    filtersOpen || activeFilterCount > 0
+                      ? "border-sky-600 bg-sky-600 text-white"
+                      : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <SlidersHorizontal size={16} weight="duotone" />
+                  {browseEquipmentTab ? "필터" : "정렬"}
+                  {activeFilterCount > 0 ? (
+                    <span className="rounded-full bg-white px-1.5 text-[9px] leading-4 text-sky-700">
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+
+              {filtersOpen && (
+                <div className={`${SURFACE_INSET} grid gap-3 p-3 sm:grid-cols-2`}>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                      정렬
+                    </span>
+                    <SelectControl
+                      value={sort}
+                      onChange={(v) => setSort(v as typeof sort)}
+                      options={browseSortOptions}
+                      className="w-full"
+                    />
+                  </label>
+                  {browseEquipmentTab && (
+                    <>
+                      <label className="space-y-1">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          제작 품질
+                        </span>
+                        <SelectControl
+                          value={craftedQualityFilter}
+                          onChange={(v) =>
+                            setCraftedQualityFilter(v as typeof craftedQualityFilter)
+                          }
+                          options={[
+                            ["all", "전체 품질"],
+                            ["plus1", "★ 제작품만"],
+                          ]}
+                          className="w-full"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          제작자 숙련도
+                        </span>
+                        <SelectControl
+                          value={craftedLevelFilter}
+                          onChange={(v) =>
+                            setCraftedLevelFilter(v as typeof craftedLevelFilter)
+                          }
+                          options={[
+                            ["all", "전체 레벨"],
+                            ["2", "Lv 2 이상"],
+                            ["3", "Lv 3 이상"],
+                            ["4", "Lv 4 이상"],
+                            ["5", "Lv 5 이상"],
+                          ]}
+                          className="w-full"
+                        />
+                      </label>
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          제작 여부
+                        </span>
+                        <button
+                          type="button"
+                          aria-pressed={craftedOnly}
+                          onClick={() => setCraftedOnly((value) => !value)}
+                          className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition ${
+                            craftedOnly
+                              ? "border-emerald-600 bg-emerald-600 text-white"
+                              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          {craftedOnly ? "✓ 제작품만 보는 중" : "제작품만 보기"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                    매물 {displayedListings.length.toLocaleString()}개
+                  </span>
+                  <span className="text-zinc-400">·</span>
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    {activeSortLabel}
+                  </span>
+                  {q ? (
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                      “{search.trim()}”
+                    </span>
+                  ) : null}
+                  {craftedOnly ? (
+                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      제작품
+                    </span>
+                  ) : null}
+                  {craftedQualityFilter === "plus1" ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      ★ 제작품
+                    </span>
+                  ) : null}
+                  {craftedLevelFilter !== "all" ? (
+                    <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                      제작자 Lv {craftedLevelFilter}+
+                    </span>
+                  ) : null}
+                </div>
+                {activeFilterCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={resetBrowseFilters}
+                    className="font-medium text-sky-700 hover:underline dark:text-sky-300"
+                  >
+                    필터 초기화
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </Card>
           <ListingList
             rows={listings === null ? null : browsePager.pageItems}
             emptyText={listings && listings.length > 0 ? "조건에 맞는 매물이 없어요." : "등록된 매물이 없어요."}
@@ -693,14 +931,16 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                   type="button"
                   onClick={() => setConfirmBuy(l)}
                   disabled={busy}
-                  className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
                 >
+                  <ShoppingCart size={14} weight="bold" />
                   구매
                 </button>
               )
             }
             priceRef={priceRef}
             frontierDepth={frontierDepth}
+            showSeller
             onOpenCard={openCardFor}
           />
           {listings !== null && displayedListings.length > 0 && (
@@ -753,7 +993,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                 type="button"
                 onClick={() => cancel(l)}
                 disabled={busy}
-                className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                className="h-9 shrink-0 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
               >
                 취소
               </button>
@@ -772,16 +1012,18 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       {tab === "sell" && (
         <div className="space-y-3">
           {/* 슬롯 서브탭 — 인벤토리와 동일 구성. 배경 위라 surface 패널로 감쌈(라이트모드 가독성). */}
-          <HeaderPanel className="py-2">
-            <TabBar
-              tabs={V2_ITEM_TABS}
-              active={sellTab}
-              onChange={setSellTab}
-              ariaLabel="판매 슬롯"
-              size="sm"
-              scrollable
-            />
-          </HeaderPanel>
+          <Card padding="none" className="overflow-hidden">
+            <div className="px-2 pt-1">
+              <TabBar
+                tabs={V2_ITEM_TABS}
+                active={sellTab}
+                onChange={setSellTab}
+                ariaLabel="판매 슬롯"
+                size="sm"
+                scrollable
+              />
+            </div>
+          </Card>
 
           {sellTab === "consumable" ? (
             <MarketplaceRareMapTab
@@ -1016,16 +1258,18 @@ function SelectControl({
   value,
   onChange,
   options,
+  className,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: [string, string][];
+  className?: string;
 }) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+      className={`rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900 ${className ?? ""}`}
     >
       {options.map(([v, label]) => (
         <option key={v} value={v}>
@@ -1071,6 +1315,7 @@ function ListingList({
   priceRef,
   frontierDepth,
   expiryDays,
+  showSeller = false,
   onOpenCard,
 }: {
   rows: Listing[] | null;
@@ -1079,6 +1324,7 @@ function ListingList({
   priceRef: Record<string, PriceStat>;
   frontierDepth?: number;
   expiryDays?: number;
+  showSeller?: boolean;
   // 장비 클릭 → 옵션 카드. (재료는 옵션 없어 미클릭.)
   onOpenCard?: (
     itemId: string,
@@ -1091,9 +1337,23 @@ function ListingList({
 }) {
   if (rows === null) {
     return (
-      <Card padding="md">
-        <div className="text-sm text-zinc-500 dark:text-zinc-400">불러오는 중…</div>
-      </Card>
+      <div className="space-y-2" aria-label="매물 불러오는 중">
+        {[0, 1, 2].map((index) => (
+          <Card key={index} padding="none" className="overflow-hidden">
+            <div className="flex animate-pulse gap-3 p-4">
+              <div className="h-12 w-12 shrink-0 rounded-md bg-zinc-200 dark:bg-zinc-800" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-2/5 rounded bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-2.5 w-4/5 rounded bg-zinc-100 dark:bg-zinc-800" />
+                <div className="h-2.5 w-1/3 rounded bg-zinc-100 dark:bg-zinc-800" />
+              </div>
+            </div>
+            <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+              <div className="h-4 w-1/4 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
+            </div>
+          </Card>
+        ))}
+      </div>
     );
   }
   if (rows.length === 0) {
@@ -1140,6 +1400,14 @@ function ListingList({
           l.kind === "equip"
             ? marketplacePriceKeyForPayload(l.itemId, l.instancePayload)
             : l.itemId;
+        const priceStat = priceStatForKey(priceRef, l.itemId, priceKey);
+        const listingTabKey: V2ItemTabKey =
+          l.kind === "equip"
+            ? (item?.slot ?? "weapon")
+            : l.kind === "material"
+              ? "material"
+              : "consumable";
+        const ListingKindIcon = LISTING_ICON[listingTabKey];
         const clickable = l.kind === "equip" && !!onOpenCard;
         const info = (
           <>
@@ -1204,26 +1472,17 @@ function ListingList({
                 착용 조건: {progressionLock.label}
               </div>
             )}
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                {l.price.toLocaleString()}골드
-              </span>
-              <PriceRefLine
-                stat={priceStatForKey(priceRef, l.itemId, priceKey)}
-                scoped={priceKey !== l.itemId && !!priceRef[priceKey]}
-              />
-              {expiryLabel(l.createdAt, expiryDays) && (
-                <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                  {expiryLabel(l.createdAt, expiryDays)}
-                </span>
-              )}
-            </div>
           </>
         );
         return (
-          <Card key={l.id} padding="sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
+          <Card key={l.id} padding="none" className="overflow-hidden">
+            <div className="flex items-start gap-3 p-3 sm:p-4">
+              <div
+                className={`${SURFACE_INSET} flex h-12 w-12 shrink-0 items-center justify-center text-sky-700 dark:text-sky-300`}
+              >
+                <ListingKindIcon size={25} weight="duotone" />
+              </div>
+              <div className="min-w-0 flex-1">
                 {clickable ? (
                   <button
                     type="button"
@@ -1255,6 +1514,36 @@ function ListingList({
                     · 대장장이 Lv {craftedBy.level.toLocaleString()}
                   </div>
                 ) : null}
+                {showSeller ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                    <span>판매자</span>
+                    <PlayerNameLink
+                      name={l.sellerName}
+                      className="font-medium text-zinc-600 dark:text-zinc-300"
+                      fallback="모험가"
+                    />
+                    <span>· {timeAgo(l.createdAt)}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex items-end justify-between gap-3 border-t border-zinc-200 px-3 py-2.5 sm:px-4 dark:border-zinc-700">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-base font-bold tabular-nums text-amber-700 dark:text-amber-400">
+                    {l.price.toLocaleString()}G
+                  </span>
+                  <PricePositionBadge price={l.price} stat={priceStat} />
+                  {expiryLabel(l.createdAt, expiryDays) && (
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                      {expiryLabel(l.createdAt, expiryDays)}
+                    </span>
+                  )}
+                </div>
+                <PriceRefLine
+                  stat={priceStat}
+                  scoped={priceKey !== l.itemId && !!priceRef[priceKey]}
+                />
               </div>
               {action(l)}
             </div>

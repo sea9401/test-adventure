@@ -1,6 +1,7 @@
 import { ADVENTURE_SUPPORT_PASS } from "./adventureSupport";
 
 export const MUSEUN_COIN_WALLET_KEY = "museun-coin-wallet.v1";
+export const MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY = 99;
 
 export const MUSEUN_CASH_ITEMS = {
   profile_image_permit: {
@@ -471,7 +472,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "꾸미기 30일 연장권",
     description:
       "도감에 해금된 닉네임 꾸미기, 프로필 테두리 또는 채팅 배지 한 종류의 사용 기간을 30일 연장합니다. 사용 전에는 거래소에 등록할 수 있습니다.",
-    coinPrice: 300,
+    coinPrice: 400,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "cosmetic_extension", days: 30 },
@@ -639,4 +640,31 @@ export function parseMuseunCoinBalance(value: unknown): number {
   if (!value || typeof value !== "object") return 0;
   const coins = Math.floor(Number((value as { coins?: unknown }).coins));
   return Number.isFinite(coins) ? Math.max(0, coins) : 0;
+}
+
+export function parseMuseunCoinShopPurchaseQuantity(
+  value: unknown,
+): number | null {
+  const quantity = Number(value);
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < 1 ||
+    quantity > MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY
+  ) {
+    return null;
+  }
+  return quantity;
+}
+
+export function maxMuseunCoinShopPurchaseQuantity(
+  coins: number,
+  unitPrice: number,
+): number {
+  const safeCoins = Math.max(0, Math.floor(Number(coins) || 0));
+  const safePrice = Math.floor(Number(unitPrice) || 0);
+  if (safePrice <= 0) return 0;
+  return Math.min(
+    MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY,
+    Math.floor(safeCoins / safePrice),
+  );
 }

@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
   <title id="title">개명 허가증</title>
-  <desc id="desc">보라색 타일 위 문서와 깃펜으로 표현한 개명 허가증</desc>
+  <desc id="desc">파란색 타일 위 문서와 깃펜으로 표현한 개명 허가증</desc>
 
-  <rect width="256" height="256" rx="54" fill="#4c158f"/>
-  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#6f35b3" stroke-width="4"/>
+  <rect width="256" height="256" rx="54" fill="#1d4ed8"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#60a5fa" stroke-width="4"/>
 
   <path d="M48 39h122l38 38v140H48Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
   <path d="M170 39v39h38" fill="#c6a6f4" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>

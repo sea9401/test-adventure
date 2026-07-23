@@ -24,9 +24,6 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("@/db", () => ({
   db: {
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({ onConflictDoNothing: vi.fn(async () => {}) })),
-    })),
     select: vi.fn(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
@@ -48,26 +45,35 @@ describe("ensureUser impersonation", () => {
   });
 
   it("가장이 없으면 원래 로그인 유저를 반환한다", async () => {
-    mocks.selectRows.push([{ bannedUntil: null, activeSessionId: "device-a" }]);
+    mocks.selectRows.push([
+      { id: "admin", bannedUntil: null, activeSessionId: "device-a" },
+    ]);
     await expect(ensureUser()).resolves.toBe("admin");
+  });
+
+  it("DB에서 삭제된 사용자는 유효한 옛 JWT로 다시 만들지 않는다", async () => {
+    mocks.selectRows.push([]);
+    await expect(ensureOriginalUser()).resolves.toBeNull();
   });
 
   it("유효한 가장 세션은 게임 사용자만 대상으로 전환한다", async () => {
     mocks.impersonation.mockResolvedValue({ targetUserId: "target" });
     mocks.selectRows.push(
-      [{ bannedUntil: null, activeSessionId: "device-a" }],
+      [{ id: "admin", bannedUntil: null, activeSessionId: "device-a" }],
       [{ id: "target" }],
     );
     await expect(ensureUser()).resolves.toBe("target");
 
-    mocks.selectRows.push([{ bannedUntil: null, activeSessionId: "device-a" }]);
+    mocks.selectRows.push([
+      { id: "admin", bannedUntil: null, activeSessionId: "device-a" },
+    ]);
     await expect(ensureOriginalUser()).resolves.toBe("admin");
   });
 
   it("대상이 삭제되면 관리자 계정으로 폴백하지 않는다", async () => {
     mocks.impersonation.mockResolvedValue({ targetUserId: "deleted" });
     mocks.selectRows.push(
-      [{ bannedUntil: null, activeSessionId: "device-a" }],
+      [{ id: "admin", bannedUntil: null, activeSessionId: "device-a" }],
       [],
     );
     await expect(ensureUser()).resolves.toBeNull();
@@ -75,13 +81,17 @@ describe("ensureUser impersonation", () => {
 
   it("활성 기기 쿠키가 다르면 일반 게임 API 사용자 확인을 거부한다", async () => {
     mocks.deviceSessionId = "device-old";
-    mocks.selectRows.push([{ bannedUntil: null, activeSessionId: "device-new" }]);
+    mocks.selectRows.push([
+      { id: "admin", bannedUntil: null, activeSessionId: "device-new" },
+    ]);
     await expect(ensureUser()).resolves.toBeNull();
   });
 
   it("명시적 410 처리가 필요한 라우트는 기기 검사를 건너뛸 수 있다", async () => {
     mocks.deviceSessionId = undefined;
-    mocks.selectRows.push([{ bannedUntil: null, activeSessionId: "device-new" }]);
+    mocks.selectRows.push([
+      { id: "admin", bannedUntil: null, activeSessionId: "device-new" },
+    ]);
     await expect(ensureUser({ skipDeviceCheck: true })).resolves.toBe("admin");
   });
 });

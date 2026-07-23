@@ -5,6 +5,7 @@ import {
   GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH,
   GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
   GUILD_EXPLORATION_EVENTS,
+  GUILD_EXPLORATION_EXPEDITION_IDS,
   GUILD_EXPLORATION_EXPEDITIONS,
   GUILD_EXPLORATION_MAP_FRAGMENT_TARGET,
   GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
@@ -223,19 +224,62 @@ describe("guild exploration weekly missions", () => {
     expect(resolved?.state.content.mapFragments).toBe(0);
   });
 
-  it("halves expedition costs and fame rewards", () => {
+  it("keeps expedition time and rewards on the restrained progression curve", () => {
+    expect(GUILD_EXPLORATION_EXPEDITION_IDS).toEqual([
+      "ancient_ruins",
+      "mist_forest",
+      "red_canyon",
+      "sunken_archive",
+      "starlight_citadel",
+    ]);
     expect(GUILD_EXPLORATION_EXPEDITIONS.ancient_ruins).toMatchObject({
+      minLevel: 1,
+      durationMinutes: 120,
       costGold: 500_000,
-      rewardFame: 40,
+      rewardGold: 700_000,
+      rewardFame: 20,
+      mapFragments: 12,
     });
     expect(GUILD_EXPLORATION_EXPEDITIONS.mist_forest).toMatchObject({
+      minLevel: 2,
+      durationMinutes: 240,
       costGold: 1_250_000,
-      rewardFame: 90,
+      rewardGold: 1_700_000,
+      rewardFame: 40,
+      mapFragments: 24,
+    });
+    expect(GUILD_EXPLORATION_EXPEDITIONS.red_canyon).toMatchObject({
+      minLevel: 3,
+      durationMinutes: 360,
+      costGold: 1_800_000,
+      rewardGold: 2_550_000,
+      rewardFame: 65,
+      mapFragments: 38,
     });
     expect(GUILD_EXPLORATION_EXPEDITIONS.sunken_archive).toMatchObject({
+      minLevel: 4,
+      durationMinutes: 540,
       costGold: 2_500_000,
-      rewardFame: 210,
+      rewardGold: 3_800_000,
+      rewardFame: 95,
+      mapFragments: 55,
     });
+    expect(GUILD_EXPLORATION_EXPEDITIONS.starlight_citadel).toMatchObject({
+      minLevel: 5,
+      durationMinutes: 720,
+      costGold: 4_000_000,
+      rewardGold: 6_000_000,
+      rewardFame: 140,
+      mapFragments: 80,
+    });
+  });
+
+  it("opens one expedition at every exploration HQ level", () => {
+    expect(
+      GUILD_EXPLORATION_EXPEDITION_IDS.map(
+        (id) => GUILD_EXPLORATION_EXPEDITIONS[id].minLevel,
+      ),
+    ).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("starts and claims expedition rewards after the end time", () => {
@@ -258,15 +302,42 @@ describe("guild exploration weekly missions", () => {
 
     const claimed = claimGuildExplorationExpedition(
       started,
-      new Date("2026-07-01T01:01:00Z"),
+      new Date("2026-07-01T02:01:00Z"),
     );
 
     expect(claimed?.reward).toMatchObject({
       expeditionId: "ancient_ruins",
-      rewardFame: 40,
-      mapFragments: 24,
+      rewardFame: 20,
+      mapFragments: 12,
     });
     expect(claimed?.state.content.activeExpedition).toBeNull();
-    expect(claimed?.state.content.mapFragments).toBe(24);
+    expect(claimed?.state.content.mapFragments).toBe(12);
+  });
+
+  it("runs the level five expedition for twelve hours and grants its full reward", () => {
+    const base = parseGuildExplorationWeeklyState(null, "2026-W27");
+    const started = startGuildExplorationExpedition(
+      base,
+      "starlight_citadel",
+      new Date("2026-07-01T00:00:00Z"),
+    );
+
+    expect(started.content.activeExpedition).toMatchObject({
+      expeditionId: "starlight_citadel",
+      endsAt: "2026-07-01T12:00:00.000Z",
+    });
+
+    const claimed = claimGuildExplorationExpedition(
+      started,
+      new Date("2026-07-01T12:00:00Z"),
+    );
+
+    expect(claimed?.reward).toEqual({
+      expeditionId: "starlight_citadel",
+      rewardGold: 6_000_000,
+      rewardFame: 140,
+      mapFragments: 80,
+    });
+    expect(claimed?.state.content.mapFragments).toBe(80);
   });
 });

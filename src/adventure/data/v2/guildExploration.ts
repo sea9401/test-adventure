@@ -59,7 +59,9 @@ export type GuildExplorationWeeklyMissionView =
 export type GuildExplorationExpeditionId =
   | "ancient_ruins"
   | "mist_forest"
-  | "sunken_archive";
+  | "red_canyon"
+  | "sunken_archive"
+  | "starlight_citadel";
 
 export type GuildExplorationExpeditionDef = {
   id: GuildExplorationExpeditionId;
@@ -210,34 +212,56 @@ export const GUILD_EXPLORATION_EXPEDITIONS: Record<
     id: "ancient_ruins",
     name: "고대 유적 답사",
     desc: "짧은 원정. 지도 조각과 소량의 명성을 안정적으로 회수합니다.",
-    durationMinutes: 60,
+    durationMinutes: 120,
     costGold: 500_000,
-    rewardGold: 1_400_000,
-    rewardFame: 40,
-    mapFragments: 24,
+    rewardGold: 700_000,
+    rewardFame: 20,
+    mapFragments: 12,
     minLevel: 1,
   },
   mist_forest: {
     id: "mist_forest",
     name: "안개 숲 수색",
     desc: "중거리 원정. 지도 조각 회수량이 높고 사건 발견에 유리합니다.",
-    durationMinutes: 180,
+    durationMinutes: 240,
     costGold: 1_250_000,
-    rewardGold: 3_400_000,
-    rewardFame: 90,
-    mapFragments: 52,
+    rewardGold: 1_700_000,
+    rewardFame: 40,
+    mapFragments: 24,
     minLevel: 2,
+  },
+  red_canyon: {
+    id: "red_canyon",
+    name: "붉은 협곡 정찰",
+    desc: "중장기 원정. 험준한 협곡의 옛 보급로를 따라 탐사 기록과 명성을 회수합니다.",
+    durationMinutes: 360,
+    costGold: 1_800_000,
+    rewardGold: 2_550_000,
+    rewardFame: 65,
+    mapFragments: 38,
+    minLevel: 3,
   },
   sunken_archive: {
     id: "sunken_archive",
     name: "가라앉은 기록보관소",
     desc: "장거리 원정. 많은 지도 조각과 큰 길드 보상을 노립니다.",
-    durationMinutes: 360,
+    durationMinutes: 540,
     costGold: 2_500_000,
-    rewardGold: 7_200_000,
-    rewardFame: 210,
-    mapFragments: 115,
+    rewardGold: 3_800_000,
+    rewardFame: 95,
+    mapFragments: 55,
     minLevel: 4,
+  },
+  starlight_citadel: {
+    id: "starlight_citadel",
+    name: "별빛 성채 대원정",
+    desc: "최상급 장기 원정. 잊힌 성채의 중심부를 수색해 대량의 탐사 기록을 확보합니다.",
+    durationMinutes: 720,
+    costGold: 4_000_000,
+    rewardGold: 6_000_000,
+    rewardFame: 140,
+    mapFragments: 80,
+    minLevel: 5,
   },
 };
 

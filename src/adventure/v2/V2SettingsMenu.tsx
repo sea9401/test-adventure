@@ -207,7 +207,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                     {discreetMode ? "은신 모드 해제" : "은신 모드"}
                   </span>
                   <span className="block text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
-                    배경·화려한 장식 숨김
+                    배경 숨김·표 화면 적용
                   </span>
                 </span>
               </button>

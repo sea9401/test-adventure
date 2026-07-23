@@ -13,6 +13,8 @@ import {
   guildCombatSupplyNextCost,
 } from "@/adventure/data/v2/guildCombatSupply";
 import {
+  GUILD_EXPLORATION_EXPEDITION_IDS,
+  GUILD_EXPLORATION_EXPEDITIONS,
   GUILD_EXPLORATION_WEEKLY_MISSION_IDS,
   GUILD_EXPLORATION_WEEKLY_MISSIONS,
 } from "@/adventure/data/v2/guildExploration";
@@ -246,6 +248,19 @@ export function GuildContent() {
           ];
         })}
         caption="협동보스 의뢰는 보상 수령 시점에 최초 1회만 집계되며, GOLD 이하는 탐사 진척으로 인정하지 않습니다."
+      />
+      <Table
+        head={["원정", "시설", "시간·비용", "귀환 보상"]}
+        rows={GUILD_EXPLORATION_EXPEDITION_IDS.map((id) => {
+          const expedition = GUILD_EXPLORATION_EXPEDITIONS[id];
+          return [
+            <Em key={id}>{expedition.name}</Em>,
+            `Lv.${expedition.minLevel}`,
+            `${expedition.durationMinutes / 60}시간 · ${expedition.costGold.toLocaleString("ko-KR")} G`,
+            `길드 금고 ${expedition.rewardGold.toLocaleString("ko-KR")} G · 명성 ${expedition.rewardFame.toLocaleString("ko-KR")} · 지도 조각 +${expedition.mapFragments.toLocaleString("ko-KR")}`,
+          ];
+        })}
+        caption="원정대는 한 번에 하나만 파견할 수 있으며, 마스터 또는 관리자가 길드 금고 골드를 사용해 출발시킵니다. 귀환 시간이 지난 뒤에는 길드원 누구나 보상을 회수할 수 있습니다."
       />
 
       <H2>연금 공방</H2>

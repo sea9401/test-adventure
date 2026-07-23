@@ -353,10 +353,16 @@ export function GuildExplorationPanel({
                         {expedition.durationMinutes / 60}시간
                       </span>
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        비용 {expedition.costGold.toLocaleString()}G · 조각 +
-                        {expedition.mapFragments}
+                    <div className="mt-2 flex items-end justify-between gap-2">
+                      <span className="min-w-0 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        <span className="block">
+                          파견 비용 {expedition.costGold.toLocaleString()}G
+                        </span>
+                        <span className="block">
+                          귀환 금고 +{expedition.rewardGold.toLocaleString()}G ·
+                          명성 +{expedition.rewardFame.toLocaleString()} · 지도
+                          조각 +{expedition.mapFragments.toLocaleString()}
+                        </span>
                       </span>
                       <button
                         type="button"

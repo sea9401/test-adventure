@@ -3,6 +3,13 @@ import {
   normalizeDatabaseUrl,
 } from "../src/db/databaseTls.mjs";
 
+// 이 스크립트는 라이브 배포에서만 실행된다. IS_STAGING=true가 섞이면
+// /dev 도구와 스테이징 전용 권한이 운영에서 활성화될 수 있으므로 다른 검사보다 먼저 막는다.
+if (process.env.IS_STAGING?.trim() === "true") {
+  console.error("✗ production IS_STAGING must not be true");
+  process.exit(1);
+}
+
 const required = [
   "AUTH_SECRET",
   "AUTH_URL",

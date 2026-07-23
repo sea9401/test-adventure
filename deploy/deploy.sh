@@ -39,6 +39,10 @@ npm run build
 echo "▶ db migrate"
 node --env-file=.env.production.local src/db/migrate.mjs
 
+echo "▶ sync systemd unit"
+sudo install -m 0644 deploy/adventure-rpg.service /etc/systemd/system/adventure-rpg.service
+sudo systemctl daemon-reload
+
 echo "▶ restart"
 sudo systemctl restart adventure-rpg
 sleep 2

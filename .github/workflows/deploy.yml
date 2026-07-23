@@ -115,6 +115,9 @@ jobs:
             bash deploy/build-production.sh
             echo "▶ [prod] db migrate"
             node --env-file=.env.production.local src/db/migrate.mjs
+            echo "▶ [prod] sync systemd unit"
+            sudo install -m 0644 deploy/adventure-rpg.service /etc/systemd/system/adventure-rpg.service
+            sudo systemctl daemon-reload
             echo "▶ [prod] restart"
             sudo systemctl restart adventure-rpg
             sleep 2

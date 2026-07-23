@@ -6,8 +6,6 @@ import {
 const required = [
   "AUTH_SECRET",
   "AUTH_URL",
-  "AUTH_GOOGLE_ID",
-  "AUTH_GOOGLE_SECRET",
   "AUTH_KAKAO_ID",
   "AUTH_KAKAO_SECRET",
   "DATABASE_URL",

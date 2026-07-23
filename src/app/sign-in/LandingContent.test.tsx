@@ -10,7 +10,7 @@ describe("대문 로그인 선택지", () => {
 
     expect(html).toContain("캐릭터 만들고 시작하기");
     expect(html).toContain("기존 계정으로 로그인");
-    expect(html).toContain("Google 계정으로 로그인 (기존 회원)");
+    expect(html).not.toContain("Google 계정으로 로그인");
     expect(html).toContain("카카오톡으로 로그인");
     expect(html).toContain("아이디·비밀번호로 로그인");
   });

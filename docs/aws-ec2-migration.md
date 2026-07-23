@@ -27,7 +27,7 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 `deploy/` 폴더의 파일들: `adventure-rpg.service`, `nginx-adventure-rpg.conf`, `crontab.txt` (참조용), `deploy.sh` (수동 배포용).
 
 ### 환경변수 (`.env.production.local`)
-앱이 실제로 쓰는 것: `AUTH_SECRET`, `AUTH_GOOGLE_ID/SECRET`, `AUTH_KAKAO_ID/SECRET`, `DATABASE_URL`(Neon), `ADMIN_EMAILS`, `CRON_SECRET`. EC2 추가분: `AUTH_URL=https://msmsge.com`, `AUTH_TRUST_HOST=true`, `NODE_ENV=production`. (Vercel pull 파일의 `CLERK_*`, `TURBO_*`, `VERCEL_*` 등은 미사용 — 옮길 필요 없음.)
+앱이 실제로 쓰는 것: `AUTH_SECRET`, `AUTH_KAKAO_ID/SECRET`, `DATABASE_URL`(Neon), `ADMIN_EMAILS`, `CRON_SECRET`. EC2 추가분: `AUTH_URL=https://msmsge.com`, `AUTH_TRUST_HOST=true`, `NODE_ENV=production`. Google 로그인은 정식 출시 설정에서 제외되어 `AUTH_GOOGLE_ID/SECRET`을 읽지 않는다. (Vercel pull 파일의 `CLERK_*`, `TURBO_*`, `VERCEL_*` 등은 미사용 — 옮길 필요 없음.)
 `db:migrate`(`node src/db/migrate.mjs`)는 `.env` 를 자동 로드하지 않으므로 항상 `node --env-file=.env.production.local src/db/migrate.mjs` 로 실행 (배포 워크플로가 그렇게 함).
 
 ## 배포 (일상)
@@ -64,12 +64,12 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 6. **systemd**: `deploy/adventure-rpg.service` → `/etc/systemd/system/` → `daemon-reload; enable --now adventure-rpg`.
 7. **nginx + HTTPS**: `deploy/nginx-adventure-rpg.conf` → `/etc/nginx/conf.d/msmsge.conf` (server_name 교체) → `systemctl enable --now nginx` → `dnf install -y certbot python3-certbot-nginx` → `certbot --nginx -d msmsge.com -d www.msmsge.com` → `systemctl enable --now certbot-renew.timer`.
 8. **크론**: `systemctl enable --now crond` → `deploy/crontab.txt` 상단 주석의 등록 스크립트 실행.
-9. **OAuth 콜백**: Google Cloud Console / Kakao Developers 에 `https://msmsge.com/api/auth/callback/{google,kakao}` (+ Kakao 사이트 도메인) 추가.
+9. **OAuth 콜백**: Kakao Developers 에 `https://msmsge.com/api/auth/callback/kakao` (+ 카카오 사이트 도메인) 추가.
 10. **CI**: GitHub Secrets `EC2_HOST`, `EC2_SSH_KEY` 등록.
 
 ## 미해결 / TODO
 
-- 채팅 로그에 노출됐던 비밀값 교체: `AUTH_SECRET`, `AUTH_GOOGLE_SECRET`, `AUTH_KAKAO_SECRET`, `DATABASE_URL` 비밀번호, `CRON_SECRET` (교체 후 `.env.production.local` 수정 + `systemctl restart adventure-rpg`; CRON_SECRET 은 crontab 의 `SECRET=` 줄도 같이).
+- 채팅 로그에 노출됐던 사용 중 비밀값 교체: `AUTH_SECRET`, `AUTH_KAKAO_SECRET`, `DATABASE_URL` 비밀번호, `CRON_SECRET` (교체 후 `.env.production.local` 수정 + `systemctl restart adventure-rpg`; CRON_SECRET 은 crontab 의 `SECRET=` 줄도 같이). 사용하지 않는 `AUTH_GOOGLE_ID/SECRET`은 운영 env에서 제거한다.
 - Vercel 프로젝트 일시중지/삭제 (전환 안정화 확인 후) → 과금 중단.
 - DB(Neon)가 `ap-southeast-1` 이라 서울 EC2 와 리전이 다름 — 지연 신경 쓰이면 Neon 프로젝트를 `ap-northeast-2` 로 이전 고려 (선택).
 - 백업: Neon 은 자체 PITR. EC2 는 AMI 스냅샷 1회 떠두면 복구 빠름.

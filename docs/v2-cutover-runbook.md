@@ -26,8 +26,8 @@ v2(스테이징 `test-adventure` / `test.msmsge.com`)를 운영 `msmsge.com` 으
 
 ## 0. 사전 준비 (컷오버 전, 비파괴)
 
-- [ ] **OAuth 콜백** (유저/콘솔) — Google/Kakao 콘솔에 `https://msmsge.com/api/auth/callback/google`,
-      `.../callback/kakao` 등록 확인. v1 앱 재사용이면 이미 있을 가능성 큼. 코드엔 콜백 하드코딩 없음
+- [ ] **OAuth 콜백** (유저/콘솔) — Kakao Developers에 `https://msmsge.com/api/auth/callback/kakao`
+      등록 확인. v1 앱 재사용이면 이미 있을 가능성 큼. 코드엔 콜백 하드코딩 없음
       (상대 `callbackUrl:"/"`), 링크 쿠키 host-scoped → 도메인 충돌 없음.
 - [x] **XP 배율 결정 (확정: 2.2)** — `IS_STAGING` 제거 시 기본이 2.2→1.0 으로 떨어지므로
       (`src/lib/leveling.ts`), `.env.production.local` 에 **`NEXT_PUBLIC_XP_RATE_MULT=2.2`** 를
@@ -178,8 +178,9 @@ git -C "$PROD" log --oneline -1                           # test-adventure main 
 | `V2_AS_ROOT` | **제거** | PR#356 이후 no-op |
 
 > **반드시 그대로 유지(건드리면 로그인/관리자 락아웃)**: `AUTH_SECRET`, `CRON_SECRET`,
-> `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_KAKAO_ID`, `AUTH_KAKAO_SECRET`(Auth.js v5 자동인식),
+> `AUTH_KAKAO_ID`, `AUTH_KAKAO_SECRET`(Auth.js v5 자동인식),
 > `ADMIN_EMAILS`(`src/lib/server/isAdmin.ts`). env 는 **덮어쓰기 말고 위 표의 키만 수정/제거**.
+> Google 로그인은 출시 설정에서 제외되므로 `AUTH_GOOGLE_ID/SECRET`은 필요하지 않다.
 > `metadataBase` 는 코드에 `https://msmsge.com` 하드코딩이라 손댈 것 없음.
 
 ### 3c. 배포 프리즈 (컷오버 중 자동배포 차단)
@@ -226,7 +227,7 @@ curl -fsS -o /dev/null -w 'prod=%{http_code}\n' http://127.0.0.1:3000/api/health
 ### 3f. 검증 (브라우저)
 
 - [ ] `https://msmsge.com` → **v2 게임** 이 뜬다 (루트). 503/게이트 없음.
-- [ ] Google/Kakao 로그인 → 콜백 정상, 세션 생성.
+- [ ] 카카오 로그인 → 콜백 정상, 세션 생성. `/api/auth/providers`에 `google`이 없어야 한다.
 - [ ] 신규 캐릭터 생성 → 빈 DB 에 정상 저장.
 - [ ] `https://msmsge.com/dev/v2-game` → **404** (운영에서 /dev 차단 확인).
 

@@ -96,7 +96,7 @@ describe("account link intent", () => {
   });
 
   it("허용된 OAuth provider만 받아들인다", () => {
-    expect(isAccountLinkProvider("google")).toBe(true);
+    expect(isAccountLinkProvider("google")).toBe(false);
     expect(isAccountLinkProvider("kakao")).toBe(true);
     expect(isAccountLinkProvider("credentials")).toBe(false);
     expect(isAccountLinkProvider(null)).toBe(false);
@@ -104,13 +104,13 @@ describe("account link intent", () => {
 
   it("브라우저 원문 대신 SHA-256 hash와 만료 시각을 저장한다", async () => {
     const before = Date.now();
-    const token = await createAccountLinkIntent("user-1", "google");
+    const token = await createAccountLinkIntent("user-1", "kakao");
     const stored = mocks.insertedValues[0];
 
     expect(token).toMatch(/^[A-Za-z0-9_-]{40,}$/);
     expect(stored).toMatchObject({
       userId: "user-1",
-      provider: "google",
+      provider: "kakao",
       tokenHash: hashAccountLinkToken(token),
     });
     expect(stored.tokenHash).not.toBe(token);
@@ -123,33 +123,33 @@ describe("account link intent", () => {
   it("현재 JWT 사용자와 provider가 모두 일치할 때 한 번만 소비한다", async () => {
     const expiresAt = new Date(Date.now() + 60_000);
     mocks.consumedRows.push(
-      [{ userId: "user-1", provider: "google", expiresAt }],
+      [{ userId: "user-1", provider: "kakao", expiresAt }],
       [],
     );
 
     await expect(
-      consumeAccountLinkIntent("raw-token", "google", "user-1"),
-    ).resolves.toEqual({ userId: "user-1", provider: "google" });
+      consumeAccountLinkIntent("raw-token", "kakao", "user-1"),
+    ).resolves.toEqual({ userId: "user-1", provider: "kakao" });
     await expect(
-      consumeAccountLinkIntent("raw-token", "google", "user-1"),
+      consumeAccountLinkIntent("raw-token", "kakao", "user-1"),
     ).resolves.toBeNull();
   });
 
   it("위조된 사용자·다른 provider·만료된 의도를 모두 거절한다", async () => {
     mocks.consumedRows.push(
-      [{ userId: "victim", provider: "google", expiresAt: new Date(Date.now() + 60_000) }],
-      [{ userId: "user-1", provider: "kakao", expiresAt: new Date(Date.now() + 60_000) }],
-      [{ userId: "user-1", provider: "google", expiresAt: new Date(Date.now() - 1) }],
+      [{ userId: "victim", provider: "kakao", expiresAt: new Date(Date.now() + 60_000) }],
+      [{ userId: "user-1", provider: "google", expiresAt: new Date(Date.now() + 60_000) }],
+      [{ userId: "user-1", provider: "kakao", expiresAt: new Date(Date.now() - 1) }],
     );
 
     await expect(
-      consumeAccountLinkIntent("one", "google", "attacker"),
+      consumeAccountLinkIntent("one", "kakao", "attacker"),
     ).resolves.toBeNull();
     await expect(
-      consumeAccountLinkIntent("two", "google", "user-1"),
+      consumeAccountLinkIntent("two", "kakao", "user-1"),
     ).resolves.toBeNull();
     await expect(
-      consumeAccountLinkIntent("three", "google", "user-1"),
+      consumeAccountLinkIntent("three", "kakao", "user-1"),
     ).resolves.toBeNull();
   });
 
@@ -171,11 +171,11 @@ describe("account link intent", () => {
     mocks.existingAccountRows.push([]);
     await expect(
       linkOAuthAccountForIntent(
-        { userId: "user-1", provider: "google" },
+        { userId: "user-1", provider: "kakao" },
         {
           type: "oauth",
-          provider: "google",
-          providerAccountId: "google-account-1",
+          provider: "kakao",
+          providerAccountId: "kakao-account-1",
           access_token: "access-token",
         },
       ),
@@ -183,8 +183,8 @@ describe("account link intent", () => {
     expect(mocks.linkedAccountValues).toEqual([
       expect.objectContaining({
         userId: "user-1",
-        provider: "google",
-        providerAccountId: "google-account-1",
+        provider: "kakao",
+        providerAccountId: "kakao-account-1",
       }),
     ]);
   });
@@ -193,11 +193,11 @@ describe("account link intent", () => {
     mocks.existingAccountRows.push([{ userId: "victim" }]);
     await expect(
       linkOAuthAccountForIntent(
-        { userId: "attacker", provider: "google" },
+        { userId: "attacker", provider: "kakao" },
         {
           type: "oauth",
-          provider: "google",
-          providerAccountId: "victim-google",
+          provider: "kakao",
+          providerAccountId: "victim-kakao",
         },
       ),
     ).resolves.toBe("account_in_use");
@@ -207,8 +207,8 @@ describe("account link intent", () => {
   it("provider 불일치와 경쟁 insert를 fail closed 처리한다", async () => {
     await expect(
       linkOAuthAccountForIntent(
-        { userId: "user-1", provider: "google" },
-        { type: "oauth", provider: "kakao", providerAccountId: "kakao-1" },
+        { userId: "user-1", provider: "kakao" },
+        { type: "oauth", provider: "google", providerAccountId: "google-1" },
       ),
     ).resolves.toBe("failed");
 
@@ -216,8 +216,8 @@ describe("account link intent", () => {
     mocks.linkInsertThrows = true;
     await expect(
       linkOAuthAccountForIntent(
-        { userId: "user-1", provider: "google" },
-        { type: "oauth", provider: "google", providerAccountId: "google-1" },
+        { userId: "user-1", provider: "kakao" },
+        { type: "oauth", provider: "kakao", providerAccountId: "kakao-1" },
       ),
     ).resolves.toBe("failed");
   });

@@ -1,5 +1,4 @@
 import type { NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 
 const PUBLIC_PATHS = [
@@ -21,7 +20,7 @@ const PUBLIC_PATHS = [
 // Proxy 전용 설정 — adapter 없이 edge-compatible.
 // 실제 DB/OAuth 처리는 src/auth.ts (full config).
 export const authConfig: NextAuthConfig = {
-  providers: [Google, Kakao],
+  providers: [Kakao],
   pages: { signIn: "/sign-in" },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {

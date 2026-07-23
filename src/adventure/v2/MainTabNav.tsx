@@ -194,10 +194,7 @@ export function MainTabNav({
       : (openTab?.sub ?? []);
 
   return (
-    <nav
-      className="game-main-tab-nav relative mx-auto w-full max-w-[720px]"
-      aria-label="메인 메뉴"
-    >
+    <nav className="relative mx-auto w-full max-w-[720px]" aria-label="메인 메뉴">
       <div className="flex gap-0.5 overflow-x-auto border-b border-zinc-200 px-2 sm:px-6 dark:border-zinc-800">
         {TABS.map((t) => {
           const isActive = t.key === activeKey;
@@ -209,7 +206,6 @@ export function MainTabNav({
               type="button"
               aria-haspopup={hasSub ? "menu" : undefined}
               aria-expanded={hasSub ? isOpen : undefined}
-              data-active={isActive ? "true" : undefined}
               onClick={() => {
                 if (hasSub) {
                   const nextOpen = isOpen ? null : t.key;

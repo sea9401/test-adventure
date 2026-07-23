@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { signOut } from "@/auth";
 import { db } from "@/db";
 import { guildMembers, users } from "@/db/schema";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
@@ -17,8 +18,8 @@ import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 // 길드 마스터인 경우 길드 자체가 cascade 로 사라지므로, 트랜잭션 안에서 남는 멤버들의
 // 소속 표기(character.v2.affiliation)를 먼저 "무소속" 으로 정리한다 (disband 라우트와 동일 패턴).
 //
-// 주의: JWT 세션 쿠키가 클라이언트에 남아 있으면 다음 요청에서 ensureUser() 가
-// users 행을 다시 만들어버린다 — 클라이언트는 성공 응답 직후 signOut() 으로 쿠키를 비워야 한다.
+// DB 삭제가 성공하면 같은 응답에서 Auth.js 세션 쿠키도 만료한다. 클라이언트의 후속
+// signOut() 성공 여부에 계정 삭제의 완결성을 의존하지 않는다.
 const FALLBACK_PHRASE = "탈퇴";
 
 export async function POST(req: Request) {
@@ -70,6 +71,8 @@ export async function POST(req: Request) {
     }
     await tx.delete(users).where(eq(users.id, userId));
   });
+
+  await signOut({ redirect: false });
 
   return Response.json({ ok: true });
 }

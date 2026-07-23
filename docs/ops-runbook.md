@@ -118,15 +118,20 @@ psql "$DBURL" < ~/backups/<백업>.sql                     # 평문 수동백업
 ```
 
 ### 복구 테스트 (정기 권장 — 백업은 복원돼야 백업)
-prod 무접촉으로 임시 DB 에 복원해 검증(2026-06-27 실증 통과):
+prod 무접촉으로 임시 DB 에 복원해 검증한다. 2026-07-23 최신 자동백업 실증 결과:
+public 테이블 65개·마이그레이션 122개·사용자/세이브 조회 정상, 임시 DB 정리 완료.
 ```bash
 BK=$(ls -t ~/backups/*.sql* | head -1)
-psql "$DBURL" -c 'DROP DATABASE IF EXISTS restore_test;' && psql "$DBURL" -c 'CREATE DATABASE restore_test;'
-R=$(echo "$DBURL" | sed 's#/test_adventurerpg#/restore_test#')
+RESTORE_DB="restore_verify_$(date -u +%Y%m%d_%H%M%S)_$$"
+R=$(node -e 'const u=new URL(process.argv[1]); u.pathname=`/${process.argv[2]}`; process.stdout.write(u.toString())' "$DBURL" "$RESTORE_DB")
+createdb --maintenance-db="$DBURL" "$RESTORE_DB"
+trap 'dropdb --if-exists --force --maintenance-db="$DBURL" "$RESTORE_DB"' EXIT
 case "$BK" in *.gz) gunzip -c "$BK";; *) cat "$BK";; esac | psql "$R" -v ON_ERROR_STOP=1 -q
-psql "$R" -tAc "select count(*) from information_schema.tables where table_schema='public';"  # 46
+psql "$R" -tAc "select count(*) from information_schema.tables where table_schema='public';"  # 0보다 커야 함
+psql "$R" -tAc "select count(*) from drizzle.__drizzle_migrations;"                              # 0보다 커야 함
 psql "$R" -tAc "select count(*) from saves_kv;"
-psql "$DBURL" -c 'DROP DATABASE restore_test;'   # 정리
+dropdb --force --maintenance-db="$DBURL" "$RESTORE_DB"   # 정리
+trap - EXIT
 ```
 
 ### 전체 초기화 (클린 슬레이트)
@@ -137,9 +142,10 @@ psql "$DBURL" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
   WHERE datname=current_database() AND pid<>pg_backend_pid();"   # 2) 앱 DB 커넥션 종료(DROP 락 경합 방지)
 psql "$DBURL" -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
 psql "$DBURL" -c 'DROP SCHEMA drizzle CASCADE;'           # 🔑 3) 필수! (아래 함정 참고)
-node --env-file=.env.production.local src/db/migrate.mjs  # 4) 89개 재적용 → 46 테이블
+node --env-file=.env.production.local src/db/migrate.mjs  # 4) 현재 마이그레이션 전체 재적용
 bash deploy/maintenance.sh off   # 5) 앱 health 200 확인 후 점검 OFF
-# 검증: psql "$DBURL" -tAc "select count(*) from information_schema.tables where table_schema='public';"  → 46
+# 검증: public 테이블·drizzle migration 수가 모두 0보다 커야 한다.
+# 2026-07-23 운영 기준은 public 67개, migration log 124개(새 마이그 추가 시 증가).
 # (DROP 이 락에 막히면 sudo systemctl stop adventure-rpg 후 진행해도 nginx 점검 화면은 유지됨)
 ```
 

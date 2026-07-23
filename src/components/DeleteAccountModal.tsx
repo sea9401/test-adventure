@@ -8,8 +8,8 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 
 // 회원 탈퇴 확인 모달. 본인 닉네임(없으면 "탈퇴")을 정확히 입력해야 활성화 — 실수 클릭 방어.
-// 성공 시 곧바로 signOut() — 세이브가 모두 삭제됐는데 JWT 쿠키가 남아 있으면
-// 다음 요청에서 빈 유저 행이 다시 생긴다.
+// 서버도 삭제 응답에서 세션을 만료한다. 여기서 signOut()을 한 번 더 호출해 Auth.js의
+// 나머지 인증 쿠키를 정리하고 로그인 화면으로 이동한다.
 export function DeleteAccountModal({
   gameName,
   onClose,

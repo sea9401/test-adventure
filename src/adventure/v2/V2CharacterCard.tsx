@@ -223,7 +223,7 @@ export function V2CharacterCard({
                 {titleName}
               </span>
             )}
-            <span className="inline-flex items-center text-base font-semibold">
+            <span className="inline-flex items-center text-lg font-semibold">
               <ArenaChampionshipBadge badge={championshipBadge} />
               <span className={chatNameClass(chatNameEffect, "text-zinc-900 dark:text-zinc-100")}>
                 {character.name}

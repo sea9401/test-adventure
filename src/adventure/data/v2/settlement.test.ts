@@ -124,16 +124,20 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 연성력 30 · 조제법 Lv.5");
   });
 
-  it("길드 식당은 배치 가능 건물이며 Lv5에서 주간 식권 4장과 메뉴 2종을 연다", () => {
+  it("길드 식당은 배치 가능 건물이며 Lv5에서 주간 식권 5장과 메뉴 3종을 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("dining_hall");
     expect(nextSettlementBuildingUpgrade("dining_hall", 1)).toMatchObject({
       level: 2,
       cost: { crop: 250, ore: 250, gold: 20_000_000, fame: 0 },
       weeklyMealTickets: 2,
     });
-    expect(diningHallUpgradeForLevel(5)).toMatchObject({
+    expect(diningHallUpgradeForLevel(4)).toMatchObject({
       weeklyMealTickets: 4,
       weeklyMenuSlots: 2,
+    });
+    expect(diningHallUpgradeForLevel(5)).toMatchObject({
+      weeklyMealTickets: 5,
+      weeklyMenuSlots: 3,
       label: "길드 대연회장",
     });
     expect(
@@ -141,7 +145,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "dining_hall",
         diningHallUpgradeForLevel(5),
       ),
-    ).toBe("주간 식권 4장 · 메뉴 2종");
+    ).toBe("주간 식권 5장 · 메뉴 3종");
   });
 
   it("길드 교역소는 Lv5에서 주간 계약 5건과 개인 납품 220점을 연다", () => {

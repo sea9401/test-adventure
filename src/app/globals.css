@@ -1602,7 +1602,7 @@ body {
 
 .ui-profile-frame-cosmetic::after {
   position: absolute;
-  z-index: 1;
+  z-index: 0;
   inset: 0;
   border-radius: inherit;
   background: var(--profile-decoration-background, none);
@@ -1616,17 +1616,21 @@ body {
   animation: var(--profile-decoration-animation, none);
 }
 
-/* 불투명 패널 배경은 장식 뒤에 두고, 패널 안의 글자·아이콘·컨트롤만
-   장식 위로 올린다. 이렇게 해야 프레임 아트와 본문 가독성이 모두 산다. */
-.ui-profile-frame-cosmetic.ui-profile-decoration-readable > *,
-.ui-profile-frame-cosmetic .ui-profile-decoration-readable > * {
+/* 장식은 항상 본문·버튼 뒤에 두고, 프레임형 아트가 보이도록 카드
+   가장자리에 전용 안전 영역을 확보한다. 불투명 콘텐츠 박스는 그 안쪽에만 놓인다. */
+.ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic) > * {
   position: relative;
-  z-index: 2;
+  z-index: 1;
+}
+
+.ui-profile-decoration-canvas {
+  padding-block: clamp(2rem, 10%, 5rem);
+  padding-inline: clamp(1.75rem, 12%, 6rem);
 }
 
 .ui-profile-frame-cosmetic::before {
   position: absolute;
-  z-index: 3;
+  z-index: 2;
   inset: -3px;
   padding: 3px;
   border-radius: inherit;

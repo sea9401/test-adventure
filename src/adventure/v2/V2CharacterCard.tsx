@@ -100,7 +100,7 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
   return (
     <div
       aria-label="캐릭터 이미지"
-      className="ui-profile-decoration-readable flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-600"
+      className="flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-600"
     >
       {errored ? (
         <UserIcon size={56} weight="duotone" />
@@ -208,14 +208,14 @@ export function V2CharacterCard({
         padding="md"
         className={`ui-character-card ${
           profileBorder
-            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
+            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"}`
             : ""
         }`}
       >
       <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
         <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
         <div
-          className={`${profileBorder ? `${SURFACE_INSET} ui-profile-decoration-readable p-3` : ""} min-w-0 flex-1 space-y-2`}
+          className={`${profileBorder ? `${SURFACE_INSET} p-3` : ""} min-w-0 flex-1 space-y-2`}
         >
           <div className="flex flex-wrap items-baseline gap-2">
             {titleName && (
@@ -290,7 +290,7 @@ export function V2CharacterCard({
       </div>
       {showGold && (
         <div
-          className={`${profileBorder ? `${SURFACE_INSET} ui-profile-decoration-readable ml-auto max-w-xs px-3 py-2` : ""} mt-3 flex items-center justify-between text-xs`}
+          className={`${profileBorder ? `${SURFACE_INSET} ml-auto max-w-xs px-3 py-2` : ""} mt-3 flex items-center justify-between text-xs`}
         >
           <span className="text-zinc-500 dark:text-zinc-400">골드</span>
           <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
@@ -304,7 +304,7 @@ export function V2CharacterCard({
             const iid = equipped?.[slot];
             const inst = iid ? byIid.get(iid) : undefined;
             const item = inst ? V2_EQUIPMENT[inst.id] : null;
-            const slotClass = `${SURFACE_INSET} ui-profile-decoration-readable ui-character-slot flex flex-col items-center gap-1 px-2 py-2 text-center`;
+            const slotClass = `${SURFACE_INSET} ui-character-slot flex flex-col items-center gap-1 px-2 py-2 text-center`;
             const inner = (
               <>
                 <Icon size={18} weight="duotone" className={color} />

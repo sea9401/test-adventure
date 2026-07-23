@@ -13,7 +13,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   BellRinging,
-  CaretDown,
   CaretRight,
   ChatCircle,
   ChatsCircle,
@@ -24,7 +23,6 @@ import {
   SignOut,
   Ticket,
   UserPlus,
-  Users,
   X,
 } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
@@ -33,7 +31,6 @@ import {
   isChatContentAllowed,
 } from "@/lib/chat-moderation";
 import { postMessage, translateChatError } from "./chat/chatApi";
-import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
@@ -42,7 +39,6 @@ import {
   ChatCosmeticBadge,
   chatNameClass,
 } from "./chat/ChatCosmetics";
-import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { ChatRoomManager } from "./chat/ChatRoomManager";
 import {
   fetchCustomRoomMessages,
@@ -277,8 +273,6 @@ export function ChatPanel({
   onSeen?: (kind: "chat" | "guild" | "notice", lastId: number) => void;
 }) {
   const router = useRouter();
-  const presence = usePresencePoll(open);
-  const [presenceOpen, setPresenceOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   // 채팅방 목록에서 방을 선택한 뒤 메시지 화면으로 진입한다.
@@ -607,7 +601,6 @@ export function ChatPanel({
     setActiveCustomRoom(room.custom);
     setCustomMessages([]);
     setRoomManagerOpen(false);
-    setPresenceOpen(false);
     setInviteOpen(false);
     setInviteFeedback(null);
     setDraft("");
@@ -621,7 +614,6 @@ export function ChatPanel({
     setActiveRoom(null);
     setActiveCustomRoom(null);
     setRoomManagerOpen(false);
-    setPresenceOpen(false);
     setInviteOpen(false);
     setInviteFeedback(null);
     setError(null);
@@ -631,7 +623,6 @@ export function ChatPanel({
     setActiveRoom(null);
     setActiveCustomRoom(null);
     setRoomManagerOpen(false);
-    setPresenceOpen(false);
     setInviteOpen(false);
     setInviteName("");
     setInviteFeedback(null);
@@ -643,7 +634,6 @@ export function ChatPanel({
     setRoomManagerOpen(true);
     setActiveRoom(null);
     setActiveCustomRoom(null);
-    setPresenceOpen(false);
     setError(null);
   };
 
@@ -873,26 +863,6 @@ export function ChatPanel({
             </div>
           )}
           <div className="flex items-center gap-1">
-            {!activeCustomRoom && !roomManagerOpen && (
-              <button
-                type="button"
-                onClick={() => setPresenceOpen((v) => !v)}
-                aria-expanded={presenceOpen}
-                aria-label="접속자 목록"
-                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <Users size={16} weight="duotone" />
-                <span className="hidden tabular-nums sm:inline">
-                  접속 {presence.length}명
-                </span>
-                <span className="tabular-nums sm:hidden">{presence.length}</span>
-                <CaretDown
-                  size={12}
-                  weight="bold"
-                  className={`transition-transform ${presenceOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-            )}
             {!activeRoom && !activeCustomRoom && !roomManagerOpen && (
               <button
                 type="button"
@@ -944,74 +914,6 @@ export function ChatPanel({
             </button>
           </div>
         </header>
-
-        {presenceOpen && (
-          <div className="ui-dropdown-reveal no-scrollbar max-h-40 overflow-y-auto border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
-            {presence.length === 0 ? (
-              <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                접속 중인 유저가 없습니다.
-              </div>
-            ) : (
-              <ul className="space-y-0.5">
-                {presence.map((u) => (
-                  <li
-                    key={u.name}
-                    className="flex items-center gap-1.5 text-xs"
-                  >
-                    <span className="relative shrink-0">
-                      <CosmeticAvatar
-                        avatar={u.avatar}
-                        name={u.name}
-                        profileBorder={u.cosmetics?.profileBorder}
-                        width={24}
-                        height={24}
-                        sizes="24px"
-                        className="h-6 w-6 rounded-md"
-                      />
-                      <span className="absolute -bottom-0.5 -right-0.5 z-10 h-2 w-2 rounded-full border border-zinc-50 bg-emerald-500 dark:border-zinc-900" />
-                    </span>
-                    {u.title && (
-                      <span className="font-medium text-amber-600 dark:text-amber-400">
-                        {u.title}
-                      </span>
-                    )}
-                    <ArenaChampionshipBadge
-                      badge={u.cosmetics?.championshipBadge}
-                    />
-                    <ChatCosmeticBadge badge={u.cosmetics?.chatBadge} />
-                    {u.mine ? (
-                      <span
-                        className={chatNameClass(
-                          u.cosmetics?.chatNameEffect,
-                          "font-semibold text-emerald-700 dark:text-emerald-400",
-                        )}
-                      >
-                        {u.name}
-                        <span className="ml-1 text-[10px] font-normal text-zinc-500 dark:text-zinc-400">
-                          (나)
-                        </span>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          router.push(`/profile/${encodeURIComponent(u.name)}`)
-                        }
-                        title="프로필 보기"
-                        className={chatNameClass(
-                          u.cosmetics?.chatNameEffect,
-                          "rounded font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200",
-                        )}
-                      >
-                        {u.name}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
 
         {inviteOpen && activeCustomRoom?.role === "owner" && (
           <form

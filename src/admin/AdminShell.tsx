@@ -29,11 +29,13 @@ const BroadcastTab = dynamic(() => import("./tabs/BroadcastTab").then((module) =
 const FeedbackTab = dynamic(() => import("./tabs/FeedbackTab").then((module) => module.FeedbackTab), { loading: adminTabLoading });
 const OpsManualTab = dynamic(() => import("./tabs/OpsManualTab").then((module) => module.OpsManualTab), { loading: adminTabLoading });
 const OpsSearchTab = dynamic(() => import("./tabs/OpsSearchTab").then((module) => module.OpsSearchTab), { loading: adminTabLoading });
+const OnlineUsersTab = dynamic(() => import("./tabs/OnlineUsersTab").then((module) => module.OnlineUsersTab), { loading: adminTabLoading });
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
 // 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.
 type TabKey =
   | "users"
+  | "onlineUsers"
   | "stats"
   | "balance"
   | "gridDungeon"
@@ -61,6 +63,7 @@ type AdminTab = {
 
 const TABS: AdminTab[] = [
   { key: "opsDashboard", label: "운영 홈", description: "오늘 확인할 위험 신호와 주요 지표", group: "daily", keywords: "현황 대시보드 알림" },
+  { key: "onlineUsers", label: "현재 접속자", description: "지금 게임에 접속한 유저 명단", group: "daily", keywords: "온라인 동시 접속 presence" },
   { key: "opsSearch", label: "통합 검색", description: "유저·이벤트·IP를 한 번에 검색", group: "daily", keywords: "로그 이벤트" },
   { key: "opsWorkflows", label: "처리 작업", description: "문의·보상 실패·반복 업무 처리", group: "daily", keywords: "워크플로 메모 보상" },
   { key: "users", label: "유저 관리", description: "유저 조회, 지급, 제재와 데이터 수정", group: "daily", keywords: "닉네임 계정 캐릭터" },
@@ -230,6 +233,7 @@ function ShellInner() {
             <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{activeTab.description}</p>
           </div>
           {tab === "users" && <UsersTab />}
+          {tab === "onlineUsers" && <OnlineUsersTab />}
           {tab === "stats" && <StatsTab />}
           {tab === "balance" && <BalanceTelemetryTab />}
           {tab === "gridDungeon" && <GridDungeonAnalyticsTab />}

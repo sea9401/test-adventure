@@ -32,6 +32,8 @@ import {
 import { WOODCUTTING_SPOT_IDS } from "@/adventure/data/v2/woodcuttingSpots";
 import { MINING_SPOT_IDS } from "@/adventure/data/v2/miningSpots";
 import {
+  COOKING_BUFF_MAX_HOURS,
+  COOKING_DAILY_ORDER_COUNT,
   COOKING_RECIPES,
   COOKING_SURPLUS_BATCH_SIZE,
   COOKING_SURPLUS_DAILY_LIMIT,
@@ -98,13 +100,16 @@ export function PastimesContent() {
       <UL>
         <li>
           마을의 독립 생활 메뉴인 <Em>주방</Em>에서 농작물과 낚시 보관함의 일반·신선·고급·특급·전설
-          어획물을 재료로 사용합니다. 현재 요리법은 <Em>{COOKING_RECIPES.length}종</Em>입니다.
+          어획물을 재료로 사용합니다. 현재 요리법은 <Em>{COOKING_RECIPES.length}종</Em>이며,
+          요리 레벨이 오르면 상위 요리법이 열립니다. 자주 만드는 요리는 즐겨찾기에 모으고,
+          보유 재료 범위 안에서 여러 개를 한 번에 조리할 수 있습니다.
         </li>
         <li>
           완성한 음식은 거래 가능한 소모품으로 인벤토리에 보관됩니다. 인벤토리의 소모품
           탭에서 사용하면 일정 시간 능력치가 오릅니다. 같은 음식은 남은 시간을 연장하고,
           다른 음식은 기존 효과를 교체합니다. 적용 중인 효과는 모험 탭의 캐릭터 간략 정보에서
-          확인할 수 있습니다. 음식 효과는 <Em>사냥 PvE 전용</Em>이며
+          확인할 수 있으며, 같은 음식으로 연장할 수 있는 남은 시간은 최대{" "}
+          <Em>{COOKING_BUFF_MAX_HOURS}시간</Em>입니다. 음식 효과는 <Em>사냥 PvE 전용</Em>이며
           아레나·챔피언십·거점전·훈련 대련·전투력 랭킹에는 반영되지 않습니다.
         </li>
         <li>
@@ -112,9 +117,14 @@ export function PastimesContent() {
           더 높습니다. 최종 요리는 상위 사냥에서 체감할 수 있도록 주 능력치를 크게 올립니다.
         </li>
         <li>
-          매일 선술집 주문 3건을 납품해 골드·농장 증표·추가 요리 경험치를 얻습니다.
+          매일 선술집 주문 {COOKING_DAILY_ORDER_COUNT}건을 납품해 골드·농장 증표·추가 요리 경험치를 얻습니다.
           일반 작물은 {COOKING_SURPLUS_BATCH_SIZE}개당 증표 1개로 하루 최대{" "}
           {COOKING_SURPLUS_DAILY_LIMIT}회 떨이 교환할 수 있습니다.
+        </li>
+        <li>
+          완성한 음식은 거래소의 소모품으로 사고팔 수 있습니다. 같은 요리라도{" "}
+          <Em>일반·정성작·걸작, 희귀 특선, 장시간</Em> 여부가 다른 음식은 별도
+          품목으로 취급되며, 거래 후에도 해당 품질과 효과가 유지됩니다.
         </li>
         <li>
           요리 Lv.5부터 요리사로 전직할 수 있으며 전문 요리사·수석 요리사·요리 명장·전설의

@@ -1632,6 +1632,34 @@ body {
   --profile-decoration-card-opacity: 0.86;
 }
 
+/* 카드 폭을 장식에 양보하지 않고, 밝고 어두운 장식 모두에서 글자가 읽히도록
+   요약 정보에 테마별 외곽 대비를 준다. 작은 불투명 패널로 장식을 가리지 않는다. */
+.ui-profile-frame-cosmetic .ui-profile-decoration-readable {
+  text-shadow:
+    0 1px 1px rgb(255 255 255 / 0.95),
+    0 0 4px rgb(255 255 255 / 0.85);
+}
+
+.ui-profile-frame-cosmetic
+  .ui-profile-decoration-readable
+  .ui-stat-bar-copy {
+  color: rgb(39 39 42);
+  font-weight: 600;
+}
+
+.dark .ui-profile-frame-cosmetic .ui-profile-decoration-readable {
+  text-shadow:
+    0 1px 1px rgb(0 0 0 / 0.95),
+    0 0 4px rgb(0 0 0 / 0.85);
+}
+
+.dark
+  .ui-profile-frame-cosmetic
+  .ui-profile-decoration-readable
+  .ui-stat-bar-copy {
+  color: rgb(228 228 231);
+}
+
 .ui-profile-decoration-canvas {
   padding-block: clamp(2rem, 10%, 5rem);
   padding-inline: clamp(1.75rem, 12%, 6rem);

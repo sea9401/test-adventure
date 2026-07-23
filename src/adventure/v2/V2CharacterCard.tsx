@@ -216,7 +216,7 @@ export function V2CharacterCard({
             : ""
         }`}
       >
-      <div className={`${SURFACE_INSET} p-3`}>
+      <div className="p-4 sm:p-5">
         <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
           <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
           <div className="min-w-0 flex-1 space-y-2">

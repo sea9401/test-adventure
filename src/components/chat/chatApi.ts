@@ -1,19 +1,8 @@
 import type { ChatChannel, ChatMessage } from "../ChatPanel";
-import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
-import type { Avatar } from "@/adventure/profile/avatars";
 import {
   CHAT_INAPPROPRIATE_CONTENT_ERROR,
   CHAT_INAPPROPRIATE_CONTENT_MESSAGE,
 } from "@/lib/chat-moderation";
-
-export type PresenceUser = {
-  name: string;
-  className: string;
-  title: string | null;
-  mine: boolean;
-  avatar: Avatar;
-  cosmetics?: MuseunCosmeticAppearance | null;
-};
 
 // 서버 (api/chat/route.ts) 가 반환하는 에러 문자열 → 사용자용 한글 메시지.
 export function translateChatError(msg: string): string {
@@ -28,12 +17,6 @@ export function translateChatError(msg: string): string {
   if (msg === "unauthorized") return "로그인이 만료됐습니다. 새로고침 해주세요.";
   if (msg === "invalid json" || msg.startsWith("missing ")) return "요청 형식이 잘못됐습니다.";
   return "전송 실패";
-}
-
-export async function fetchPresence(): Promise<PresenceUser[]> {
-  const res = await fetch("/api/presence", { cache: "no-store" });
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  return res.json();
 }
 
 export async function postMessage(payload: {

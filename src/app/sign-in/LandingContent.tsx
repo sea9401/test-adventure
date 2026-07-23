@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { SignInButtons } from "./SignInButtons";
 
-// 대문(랜딩)의 순수 표현 컴포넌트 — 통계는 props 로 주입한다.
-// /sign-in (실데이터: auth + DB 카운트) 과 /dev/landing (mock 카운트) 가 공유해
-// 로그인·DB 없이도 비주얼 QA 가 가능하다.
+// 대문(랜딩)의 순수 표현 컴포넌트.
+// /sign-in 과 /dev/landing 이 공유해 로그인·DB 없이도 비주얼 QA 가 가능하다.
 // 디자인 방향: 미니멀 프리미엄 — 니어블랙 + 오프화이트 + 골드 1포인트, 여백·타이포 위주.
 
 const FEATURES = [
@@ -30,12 +29,8 @@ const FEATURES = [
 ];
 
 export function LandingContent({
-  total,
-  online,
   authed = false,
 }: {
-  total: number;
-  online: number;
   // 로그인은 됐지만 아직 캐릭터가 없는 유저 — 로그인 버튼 대신 "시작하기"(→/create) 노출.
   authed?: boolean;
 }) {
@@ -97,20 +92,6 @@ export function LandingContent({
             </p>
           </div>
 
-          {total > 0 && (
-            <p className="mt-10 inline-flex items-center gap-2 text-xs text-zinc-500">
-              {online > 0 && (
-                <span
-                  aria-hidden
-                  className="inline-block h-1.5 w-1.5 rounded-full bg-amber-300/80"
-                />
-              )}
-              함께한 모험가 {total.toLocaleString("ko-KR")}명
-              {online > 0 && (
-                <span className="text-zinc-600">· 지금 {online}명 접속 중</span>
-              )}
-            </p>
-          )}
         </section>
 
         {/* ── 무엇을 하게 되나 ──────────────────────────────── */}

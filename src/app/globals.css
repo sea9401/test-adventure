@@ -1665,8 +1665,8 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #14532d, #16a34a, #84cc16, #facc15, #22c55e, #14532d);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/verdant-art.webp"),
-    url("/images/ui/profile-decorations/verdant.svg"),
-    linear-gradient(135deg, rgb(22 163 74 / 0.08), transparent 38%, transparent 66%, rgb(132 204 22 / 0.08));
+    radial-gradient(ellipse at 50% 0%, rgb(250 204 21 / 0.16), transparent 48%),
+    linear-gradient(135deg, rgb(20 83 45 / 0.34), rgb(22 101 52 / 0.18) 46%, rgb(63 98 18 / 0.28));
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.78;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/verdant-emblem.webp");
@@ -1693,8 +1693,8 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #09090b, #3f3f46, #991b1b, #f97316, #27272a, #09090b);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/obsidian-art.webp"),
-    url("/images/ui/profile-decorations/obsidian.svg"),
-    radial-gradient(ellipse at 50% 100%, rgb(127 29 29 / 0.1), transparent 70%);
+    radial-gradient(ellipse at 50% 112%, rgb(249 115 22 / 0.2), transparent 58%),
+    linear-gradient(135deg, rgb(39 39 42 / 0.38), rgb(9 9 11 / 0.22) 48%, rgb(69 10 10 / 0.32));
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.76;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/obsidian-emblem.webp");
@@ -1745,8 +1745,8 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #581c87, #7e22ce, #facc15, #fde68a, #9333ea, #581c87);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/royal-art.webp"),
-    url("/images/ui/profile-decorations/royal.svg"),
-    radial-gradient(ellipse at 50% 50%, rgb(126 34 206 / 0.08), transparent 68%);
+    radial-gradient(ellipse at 50% 0%, rgb(250 204 21 / 0.18), transparent 46%),
+    linear-gradient(135deg, rgb(88 28 135 / 0.3), rgb(76 29 149 / 0.16) 48%, rgb(126 34 206 / 0.26));
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.82;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/royal-emblem.webp");

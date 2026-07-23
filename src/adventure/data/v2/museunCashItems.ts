@@ -8,7 +8,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "profile_image_permit",
     name: "프로필 이미지 변경권",
     description:
-      "JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수 있습니다. 게임 내 이미지는 변경권 없이 24시간마다 선택할 수 있으며, 변경권은 거래소에서 거래할 수 있습니다.",
+      "JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수 있습니다. 구매 후 가방에 보관되며 사용 전에는 거래소에서 거래할 수 있습니다.",
     coinPrice: 500,
     delivery: "inventory",
     tradeable: true,
@@ -482,7 +482,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "프로필 꾸미기 상자",
     description:
       "미보유 프로필 꾸미기 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 일반 등급은 테두리형이며 높은 등급일수록 카드 내부 연출이 풍부해집니다.",
-    coinPrice: 400,
+    coinPrice: 300,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "profile_border_box" },
@@ -492,7 +492,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "채팅 배지 상자",
     description:
       "미보유 채팅 배지 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 중복은 나오지 않으며, 사용 전에는 거래소에 등록할 수 있습니다.",
-    coinPrice: 300,
+    coinPrice: 200,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "chat_badge_box" },
@@ -502,7 +502,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "닉네임 꾸미기 상자",
     description:
       "미보유 닉네임 색상 또는 특수 효과 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 중복은 나오지 않으며, 사용 전에는 거래소에 등록할 수 있습니다.",
-    coinPrice: 300,
+    coinPrice: 200,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "chroma_name_box" },

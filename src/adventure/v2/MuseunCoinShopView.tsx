@@ -108,7 +108,7 @@ function itemSummary(itemId: MuseunCashItemId): string {
     return "게임 내 이미지 선택 또는 직접 등록으로 프로필 이미지를 한 번 변경합니다.";
   }
   if (item.effect.kind === "chroma_name_box") {
-    return "미보유 크로마 닉네임 한 종류를 중복 없이 획득합니다.";
+    return "미보유 닉네임 꾸미기 한 종류를 중복 없이 획득합니다.";
   }
   if (item.effect.kind === "profile_border_box") {
     return "미보유 프로필 테두리 한 종류를 중복 없이 획득합니다.";
@@ -696,7 +696,7 @@ function CashItemDetailDialog({
             </p>
           ) : itemId === "cosmetic_extension_30d" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-              구매 후 설정의 꾸미기 화면에서 도감에 해금된 크로마 닉네임, 프로필
+              구매 후 설정의 꾸미기 화면에서 도감에 해금된 닉네임 꾸미기, 프로필
               테두리 또는 채팅 배지 한 종류를 골라 사용 기간을 30일 연장할 수
               있습니다. 남은 기간이 있으면 그 뒤에 30일이 더해지며, 사용 전에는
               거래소에 등록할 수 있습니다.
@@ -758,9 +758,10 @@ function ChromaNameBoxPreview({
   return (
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-        미보유 닉네임 색상 중 한 종류를 등급별 확률로 획득합니다. 중복은 나오지
-        않으며, 획득 즉시 30일 사용 기간이 시작됩니다. 기간 중 설정에서 자유롭게
-        바꿔 적용할 수 있고, 사용 전 상자는 거래소에 등록할 수 있습니다.
+        미보유 닉네임 색상 또는 특수 효과 중 한 종류를 등급별 확률로 획득합니다.
+        중복은 나오지 않으며, 획득 즉시 30일 사용 기간이 시작됩니다. 기간 중
+        설정에서 자유롭게 바꿔 적용할 수 있고, 사용 전 상자는 거래소에 등록할 수
+        있습니다.
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(Object.keys(CHROMA_NAME_RARITIES) as ChromaNameRarity[]).map(
@@ -796,7 +797,7 @@ function ChromaNameBoxPreview({
         )}
       </div>
       <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-        위 수치는 아무 색상도 보유하지 않았을 때의 최초 등급 확률입니다.
+        위 수치는 아무 닉네임 꾸미기도 보유하지 않았을 때의 최초 등급 확률입니다.
       </p>
       <div className={`${SURFACE_INSET} p-3`}>
         <div className="flex items-center justify-between gap-3 text-xs">
@@ -840,7 +841,7 @@ function ChromaNameBoxPreview({
           </ul>
         ) : (
           <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-            모든 크로마 닉네임을 보유하고 있습니다.
+            모든 닉네임 꾸미기를 보유하고 있습니다.
           </p>
         )}
       </div>

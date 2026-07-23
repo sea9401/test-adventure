@@ -49,7 +49,10 @@ import {
   formatAdventureSupportRemaining,
 } from "./adventureSupportDisplay";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
-import { ArenaChampionshipBadge } from "@/components/chat/ChatCosmetics";
+import {
+  ArenaChampionshipBadge,
+  chatNameClass,
+} from "@/components/chat/ChatCosmetics";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -118,6 +121,7 @@ export function V2CharacterCard({
   activePresetName = null,
   adventureSupport,
   profileBorder = null,
+  chatNameEffect = null,
   championshipBadge = null,
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
@@ -136,6 +140,7 @@ export function V2CharacterCard({
     regenBonusPct: number;
   };
   profileBorder?: MuseunCosmeticAppearance["profileBorder"];
+  chatNameEffect?: MuseunCosmeticAppearance["chatNameEffect"];
   championshipBadge?: MuseunCosmeticAppearance["championshipBadge"];
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
@@ -205,7 +210,9 @@ export function V2CharacterCard({
             )}
             <span className="inline-flex items-center text-base font-semibold">
               <ArenaChampionshipBadge badge={championshipBadge} />
-              {character.name}
+              <span className={chatNameClass(chatNameEffect, "text-zinc-900 dark:text-zinc-100")}>
+                {character.name}
+              </span>
             </span>
             <span className="text-sm text-zinc-400 dark:text-zinc-500">
               {cappedLevel ? `Lv ${character.level} / ${cappedLevel}` : `Lv.${character.level}`}

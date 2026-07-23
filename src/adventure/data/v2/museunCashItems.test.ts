@@ -38,6 +38,7 @@ describe("무슨 코인 캐시 소모품", () => {
     });
     expect(MUSEUN_CASH_ITEMS.starlight_chat_badge.coinPrice).toBe(300);
     expect(MUSEUN_CASH_ITEMS.chroma_name_box).toMatchObject({
+      name: "닉네임 꾸미기 상자",
       coinPrice: 300,
       delivery: "inventory",
       tradeable: true,

@@ -185,6 +185,7 @@ export function V2CharacterScreen({
           // 공개 보기엔 골드 숨김(사적 정보).
           showGold={!playerName}
           profileBorder={state?.cosmetics?.profileBorder ?? null}
+          chatNameEffect={state?.cosmetics?.chatNameEffect ?? null}
           championshipBadge={state?.cosmetics?.championshipBadge ?? null}
         />
       ) : loading ? (

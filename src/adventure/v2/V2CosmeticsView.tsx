@@ -279,7 +279,7 @@ export function V2CosmeticsView({
         await refreshGameState();
         if (data.chroma) {
           notifySystem(
-            `✓ [${CHROMA_NAME_RARITIES[data.chroma.rarity].name}] ${data.chroma.name} 크로마 획득 · ${MUSEUN_COSMETIC_ACCESS_DAYS}일 사용 기간이 시작됐습니다`,
+            `✓ [${CHROMA_NAME_RARITIES[data.chroma.rarity].name}] ${data.chroma.name} 닉네임 꾸미기 획득 · ${MUSEUN_COSMETIC_ACCESS_DAYS}일 사용 기간이 시작됐습니다`,
           );
         } else if (data.cosmetic) {
           notifySystem(
@@ -342,7 +342,7 @@ export function V2CosmeticsView({
     () => [
       {
         key: "chroma" as const,
-        label: "크로마",
+        label: "닉네임",
         icon: <Palette size={16} weight="duotone" />,
         badge: `${cosmetics.chromaNames.length}/${CHROMA_NAME_VARIANTS.length}`,
       },
@@ -382,7 +382,7 @@ export function V2CosmeticsView({
           </span>
         </div>
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          프로필 이미지 변경과 크로마 닉네임, 프로필 테두리, 채팅 배지를 한곳에서 관리합니다.
+          프로필 이미지 변경과 닉네임 꾸미기, 프로필 테두리, 채팅 배지를 한곳에서 관리합니다.
           상자에서 획득하면 도감에 영구 기록되고 {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
         </p>
       </Card>
@@ -560,8 +560,8 @@ function ChromaCodex({
 }) {
   return (
     <CollectionLayout
-      title="크로마 닉네임 도감"
-      description="채팅과 캐릭터 닉네임에 표시할 색상 효과입니다."
+      title="닉네임 꾸미기 도감"
+      description="채팅과 캐릭터 닉네임에 표시할 색상과 주변 특수 효과입니다."
     >
       {CHROMA_NAME_VARIANTS.map((variant) => {
         const owned = cosmetics.chromaNames.includes(variant.id);
@@ -586,14 +586,14 @@ function ChromaCodex({
                 "chroma_name",
                 active ? null : variant.id,
                 active
-                  ? "크로마 닉네임을 해제했습니다"
-                  : "크로마 닉네임을 착용했습니다",
+                  ? "닉네임 꾸미기를 해제했습니다"
+                  : "닉네임 꾸미기를 착용했습니다",
               )
             }
             onExtend={() =>
               onRequestExtension({
                 id: variant.id,
-                label: `크로마 · ${variant.name}`,
+                label: `닉네임 · ${variant.name}`,
                 activeUntil: cosmetics.accessUntil[variant.id] ?? null,
               })
             }

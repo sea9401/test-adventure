@@ -16,6 +16,7 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import { chatNameClass } from "@/components/chat/ChatCosmetics";
 
 type UserPreviewMetric = Extract<
   RankingMetric,
@@ -266,11 +267,14 @@ function PreviewRankingName({
   entry: PreviewEntry;
   className: string;
 }) {
-  const classes = `block truncate font-bold text-zinc-900 dark:text-zinc-100 ${className}`;
+  const classes = `inline-block max-w-full font-bold text-zinc-900 dark:text-zinc-100 ${className}`;
   return isGuildRankingEntry(entry) ? (
     <span className={classes}>{entry.name}</span>
   ) : (
-    <PlayerNameLink name={entry.name} className={classes} />
+    <PlayerNameLink
+      name={entry.name}
+      className={chatNameClass(entry.chatNameEffect, classes)}
+    />
   );
 }
 

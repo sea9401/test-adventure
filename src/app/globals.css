@@ -2323,12 +2323,7 @@ body {
 .ui-chat-name-chroma--magenta { --chat-name-chroma: #a21caf; }
 .ui-chat-name-chroma--rose { --chat-name-chroma: #be185d; }
 .ui-chat-name-chroma--ruby { --chat-name-chroma: #b91c1c; }
-.ui-chat-name-chroma--tangerine { --chat-name-chroma: #c2410c; }
-.ui-chat-name-chroma--gold { --chat-name-chroma: #a16207; }
-.ui-chat-name-chroma--olive { --chat-name-chroma: #4d7c0f; }
-.ui-chat-name-chroma--jade { --chat-name-chroma: #047857; }
 .ui-chat-name-chroma--aqua { --chat-name-chroma: #0e7490; }
-.ui-chat-name-chroma--azure { --chat-name-chroma: #0369a1; }
 .ui-chat-name-chroma--navy { --chat-name-chroma: #1e3a8a; }
 .ui-chat-name-chroma--lavender { --chat-name-chroma: #8b5cf6; }
 .ui-chat-name-chroma--plum { --chat-name-chroma: #86198f; }
@@ -2346,12 +2341,7 @@ body {
 .dark .ui-chat-name-chroma--magenta { --chat-name-chroma: #e879f9; }
 .dark .ui-chat-name-chroma--rose { --chat-name-chroma: #f472b6; }
 .dark .ui-chat-name-chroma--ruby { --chat-name-chroma: #f87171; }
-.dark .ui-chat-name-chroma--tangerine { --chat-name-chroma: #fb923c; }
-.dark .ui-chat-name-chroma--gold { --chat-name-chroma: #facc15; }
-.dark .ui-chat-name-chroma--olive { --chat-name-chroma: #a3e635; }
-.dark .ui-chat-name-chroma--jade { --chat-name-chroma: #6ee7b7; }
 .dark .ui-chat-name-chroma--aqua { --chat-name-chroma: #67e8f9; }
-.dark .ui-chat-name-chroma--azure { --chat-name-chroma: #7dd3fc; }
 .dark .ui-chat-name-chroma--navy { --chat-name-chroma: #93c5fd; }
 .dark .ui-chat-name-chroma--lavender { --chat-name-chroma: #c4b5fd; }
 .dark .ui-chat-name-chroma--plum { --chat-name-chroma: #f0abfc; }
@@ -2372,10 +2362,6 @@ body {
   --chat-name-chroma: linear-gradient(90deg, #0891b2, #2dd4bf, #8b5cf6, #c084fc, #0891b2);
 }
 
-.ui-chat-name-chroma--inferno {
-  --chat-name-chroma: linear-gradient(90deg, #be123c, #ef4444, #f59e0b, #fde047, #be123c);
-}
-
 .ui-chat-name-chroma--abyss {
   --chat-name-chroma: linear-gradient(90deg, #0f766e, #06b6d4, #1d4ed8, #312e81, #0f766e);
 }
@@ -2392,10 +2378,6 @@ body {
   --chat-name-chroma: linear-gradient(90deg, #3f6212, #84cc16, #22c55e, #059669, #3f6212);
 }
 
-.ui-chat-name-chroma--ocean {
-  --chat-name-chroma: linear-gradient(90deg, #0284c7, #38bdf8, #2563eb);
-}
-
 .ui-chat-name-chroma--sunset {
   --chat-name-chroma: linear-gradient(90deg, #ea580c, #f43f5e, #9333ea);
 }
@@ -2408,28 +2390,12 @@ body {
   --chat-name-chroma: linear-gradient(90deg, #0d9488, #5eead4, #f472b6);
 }
 
-.ui-chat-name-chroma--ember {
-  --chat-name-chroma: linear-gradient(90deg, #7f1d1d, #dc2626, #fb923c);
-}
-
-.ui-chat-name-chroma--forest {
-  --chat-name-chroma: linear-gradient(90deg, #365314, #16a34a, #047857);
-}
-
 .ui-chat-name-chroma--frostfire {
   --chat-name-chroma: linear-gradient(90deg, #0891b2, #67e8f9, #f97316, #dc2626);
 }
 
-.ui-chat-name-chroma--candy {
-  --chat-name-chroma: linear-gradient(90deg, #38bdf8, #c4b5fd, #f472b6);
-}
-
 .ui-chat-name-chroma--thunder {
   --chat-name-chroma: linear-gradient(90deg, #facc15, #38bdf8, #7c3aed);
-}
-
-.ui-chat-name-chroma--dusk {
-  --chat-name-chroma: linear-gradient(90deg, #312e81, #7c3aed, #be123c, #c2410c);
 }
 
 .ui-chat-name-chroma--cyber {
@@ -2448,20 +2414,12 @@ body {
   --chat-name-chroma: linear-gradient(90deg, #111827, #312e81, #7c3aed, #db2777, #38bdf8, #111827);
 }
 
-.ui-chat-name-chroma--neon {
-  --chat-name-chroma: linear-gradient(90deg, #22d3ee, #a3e635, #facc15, #f43f5e, #e879f9, #22d3ee);
-}
-
 .ui-chat-name-chroma--phantom {
   --chat-name-chroma: linear-gradient(90deg, #134e4a, #5eead4, #e2e8f0, #a78bfa, #134e4a);
 }
 
 .ui-chat-name-chroma--royal {
   --chat-name-chroma: linear-gradient(90deg, #a16207, #facc15, #7c3aed, #c084fc, #a16207);
-}
-
-.ui-chat-name-chroma--celestial {
-  --chat-name-chroma: linear-gradient(90deg, #e2e8f0, #38bdf8, #a78bfa, #f0abfc, #f8fafc, #38bdf8);
 }
 
 .ui-chat-name-chroma--hologram {

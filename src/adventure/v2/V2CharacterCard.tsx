@@ -212,11 +212,11 @@ export function V2CharacterCard({
             : ""
         }`}
       >
-      <div
-        className={`${profileBorder ? `${SURFACE_INSET} p-3` : ""} flex items-start gap-3 sm:items-stretch sm:gap-4`}
-      >
+      <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
         <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
-        <div className="min-w-0 flex-1 space-y-2">
+        <div
+          className={`${profileBorder ? `${SURFACE_INSET} p-3` : ""} min-w-0 flex-1 space-y-2`}
+        >
           <div className="flex flex-wrap items-baseline gap-2">
             {titleName && (
               <span className="rounded bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
@@ -290,7 +290,7 @@ export function V2CharacterCard({
       </div>
       {showGold && (
         <div
-          className={`${profileBorder ? `${SURFACE_INSET} px-3 py-2` : ""} mt-3 flex items-center justify-between text-xs`}
+          className={`${profileBorder ? `${SURFACE_INSET} ml-auto max-w-xs px-3 py-2` : ""} mt-3 flex items-center justify-between text-xs`}
         >
           <span className="text-zinc-500 dark:text-zinc-400">골드</span>
           <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
@@ -299,19 +299,12 @@ export function V2CharacterCard({
         </div>
       )}
       {equipped && (
-        <div
-          className={`${
-            profileBorder
-              ? `${SURFACE_INSET} p-3`
-              : "border-t border-zinc-200 pt-3 dark:border-zinc-800"
-          } mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3`}
-        >
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-200 pt-3 sm:grid-cols-3 dark:border-zinc-800">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const iid = equipped?.[slot];
             const inst = iid ? byIid.get(iid) : undefined;
             const item = inst ? V2_EQUIPMENT[inst.id] : null;
-            const slotClass =
-              "ui-character-slot flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900";
+            const slotClass = `${SURFACE_INSET} ui-character-slot flex flex-col items-center gap-1 px-2 py-2 text-center`;
             const inner = (
               <>
                 <Icon size={18} weight="duotone" className={color} />

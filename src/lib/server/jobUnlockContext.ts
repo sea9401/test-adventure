@@ -1,5 +1,6 @@
 import {
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_COOKING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
@@ -22,9 +23,15 @@ import {
 } from "@/adventure/v2/woodcuttingSession";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { readSave, type DbExecutor } from "@/lib/server/savesKv";
+import {
+  COOKING_SAVE_KEY,
+  cookingLevelForXp,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
 
 export function jobUnlockContextFromSaves(input: {
   farmRaw?: unknown;
+  cookingRaw?: unknown;
   woodcuttingRaw?: unknown;
   miningRaw?: unknown;
   completedQuestIds?: ReadonlySet<string>;
@@ -42,6 +49,13 @@ export function jobUnlockContextFromSaves(input: {
     ...(CATALOG_USES_FARMING_LEVEL_CONDITION
       ? {
           farmingLevel: farmingLevelForState(parseFarmState(input.farmRaw)),
+        }
+      : {}),
+    ...(CATALOG_USES_COOKING_LEVEL_CONDITION
+      ? {
+          cookingLevel: cookingLevelForXp(
+            parseCookingState(input.cookingRaw).xp,
+          ),
         }
       : {}),
     ...(woodcuttingLog
@@ -69,12 +83,15 @@ export async function readJobUnlockContext(
   executor: DbExecutor,
   userId: string,
 ): Promise<JobUnlockContext> {
-  const [completedQuestIds, farmRaw, woodcuttingRaw, miningRaw] = await Promise.all([
+  const [completedQuestIds, farmRaw, cookingRaw, woodcuttingRaw, miningRaw] = await Promise.all([
     CATALOG_USES_QUEST_CONDITION
       ? loadCompletedQuestIds(executor, userId)
       : Promise.resolve(undefined),
     CATALOG_USES_FARMING_LEVEL_CONDITION
       ? readSave(executor, userId, FARM_SAVE_KEY, {})
+      : Promise.resolve(undefined),
+    CATALOG_USES_COOKING_LEVEL_CONDITION
+      ? readSave(executor, userId, COOKING_SAVE_KEY, {})
       : Promise.resolve(undefined),
     CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
       ? readSave(executor, userId, WOODCUTTING_LOG_KEY, {})
@@ -85,6 +102,7 @@ export async function readJobUnlockContext(
   ]);
   return jobUnlockContextFromSaves({
     farmRaw,
+    cookingRaw,
     woodcuttingRaw,
     miningRaw,
     completedQuestIds,

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Clock,
+  CookingPot,
   FlowerTulip,
   Leaf,
   Package,
@@ -20,6 +21,7 @@ import {
   FARM_CROPS,
   FARM_ITEMS,
   FARM_MAX_PLOT_COUNT,
+  FARM_RARE_PITY_HARVESTS,
   canPlantFarmCrop,
   farmAvailableReputation,
   farmingLevelForState,
@@ -38,8 +40,9 @@ import {
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
 import { useFarm } from "./useFarm";
+import { CookingPanel } from "./CookingPanel";
 
-type FarmSectionKey = "grow" | "delivery" | "shop";
+type FarmSectionKey = "grow" | "delivery" | "kitchen" | "shop";
 
 type FarmToast = {
   id: number;
@@ -137,6 +140,11 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           label: "납품",
           icon: <Package size={16} weight="duotone" />,
           badge: deliverableCount > 0 ? deliverableCount : undefined,
+        },
+        {
+          key: "kitchen",
+          label: "주방",
+          icon: <CookingPot size={16} weight="duotone" />,
         },
         {
           key: "shop",
@@ -346,6 +354,12 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 onBuy={buyShopItem}
               />
             </div>
+
+            {activeSection === "kitchen" ? (
+              <div className="space-y-4">
+                <CookingPanel onFarmChanged={refresh} />
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
@@ -387,7 +401,7 @@ function FarmSummary({ farm }: { farm: FarmState }) {
   )} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농사 레벨"
@@ -406,6 +420,15 @@ function FarmSummary({ farm }: { farm: FarmState }) {
         icon={<Sparkle size={17} weight="duotone" />}
         label="농장 증표"
         value={`${farmAvailableReputation(farm).toLocaleString("ko-KR")}개`}
+      />
+      <SummaryTile
+        icon={<Sparkle size={17} weight="duotone" />}
+        label="희귀 수확 보정"
+        value={`${farm.stats.rareMissStreak} / ${FARM_RARE_PITY_HARVESTS - 1}`}
+        progress={{
+          value: farm.stats.rareMissStreak,
+          max: FARM_RARE_PITY_HARVESTS - 1,
+        }}
       />
     </div>
   );
@@ -600,7 +623,9 @@ function WeeklyDeliveryBoard({
               rewardText={formatFarmDeliveryReward(
                 delivery.rewardReputation,
                 delivery.rewardSeeds,
-              )}
+              ) + (delivery.optionalRareItemId
+                ? ` · 선택 보너스: ${delivery.optionalRareItemName ?? ITEM_LABELS[delivery.optionalRareItemId]} 1개 보유 시 자동 사용, 증표 +${delivery.optionalRareBonusReputation ?? 0}`
+                : "")}
               buttonText={
                 busy
                   ? "납품 중..."

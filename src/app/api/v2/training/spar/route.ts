@@ -39,7 +39,9 @@ export async function POST(req: Request) {
   }
   const dummyConfig = sanitizeSparringDummyConfig(body);
 
-  const derived = await derivePlayerCombatV2(userId);
+  const derived = await derivePlayerCombatV2(userId, db, {
+    includeCookingBuff: false,
+  });
   if (!derived) {
     return Response.json(
       { ok: false, error: "no_character" },

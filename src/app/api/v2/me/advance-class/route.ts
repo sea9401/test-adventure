@@ -42,6 +42,7 @@ import {
   rejobRequiredLevel,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_COOKING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   LEGACY_CLASS_SPEC_BY_JOB,
@@ -64,6 +65,11 @@ import {
   parseMiningLog,
 } from "@/adventure/v2/miningSession";
 import { miningProgressionView } from "@/adventure/v2/miningProgression";
+import {
+  COOKING_SAVE_KEY,
+  cookingLevelForXp,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
 
 // POST /api/v2/me/advance-class.
 // 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 현재 직업별 필요 레벨 +
@@ -115,6 +121,13 @@ export async function POST(req: Request) {
     const farmingLevel = CATALOG_USES_FARMING_LEVEL_CONDITION
       ? farmingLevelForState(
           parseFarmState(await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, {})),
+        )
+      : undefined;
+    const cookingLevel = CATALOG_USES_COOKING_LEVEL_CONDITION
+      ? cookingLevelForXp(
+          parseCookingState(
+            await lockSaveForUpdate(tx, userId, COOKING_SAVE_KEY, {}),
+          ).xp,
         )
       : undefined;
     const woodcuttingLog = CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
@@ -191,6 +204,7 @@ export async function POST(req: Request) {
           ? { completedQuestIds: await loadCompletedQuestIds(tx, userId) }
           : {}),
         ...(farmingLevel != null ? { farmingLevel } : {}),
+        ...(cookingLevel != null ? { cookingLevel } : {}),
         ...(woodcuttingLevel != null ? { woodcuttingLevel } : {}),
         ...(miningLevel != null ? { miningLevel } : {}),
       };

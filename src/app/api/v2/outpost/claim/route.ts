@@ -357,6 +357,7 @@ export async function POST(req: Request) {
       tx,
       userId,
       charSave,
+      includeCookingBuff: false,
     });
     if (!playerActor) {
       return {
@@ -462,6 +463,7 @@ export async function POST(req: Request) {
         tx,
         userId: pvpDefenderId,
         charSave: defenderSave,
+        includeCookingBuff: false,
       });
       if (!defenderActor) {
         // 점령자 캐릭 없음 = stale occupation (saves 손상/유저 삭제 등).

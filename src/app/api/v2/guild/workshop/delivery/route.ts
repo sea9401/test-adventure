@@ -34,6 +34,12 @@ export async function GET() {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
   const smithyLevel = await readGuildSmithyLevel(db, guildId);
+  if (smithyLevel <= 0) {
+    return Response.json(
+      { ok: false, error: "smithy_required" },
+      { status: 403 },
+    );
+  }
   const dayKey = todayDeliveryKey();
   const out = await db.transaction(async (tx) => {
     const equipmentRaw = await lockSaveForUpdate<Record<string, unknown>>(
@@ -88,6 +94,12 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
   const smithyLevel = await readGuildSmithyLevel(db, guildId);
+  if (smithyLevel <= 0) {
+    return Response.json(
+      { ok: false, error: "smithy_required" },
+      { status: 403 },
+    );
+  }
 
   const result = await db.transaction(async (tx) => {
     const dayKey = todayDeliveryKey();

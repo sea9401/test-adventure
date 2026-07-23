@@ -6,7 +6,7 @@ import {
   consumeGuildDiningEffectState,
   guildDiningPantryTarget,
   parseGuildDiningUserState,
-  type GuildDiningEffectKind,
+  type GuildDiningBonusKind,
   type GuildDiningMenuId,
 } from "@/adventure/data/v2/guildDining";
 import { kstWeekMondayKey } from "@/lib/kst";
@@ -117,7 +117,7 @@ export async function updateGuildDiningWeekly(
 export async function consumeGuildDiningEffect(
   tx: DbExecutor,
   userId: string,
-  kind: GuildDiningEffectKind,
+  kind: GuildDiningBonusKind,
   baseAmount: number,
   now: Date = new Date(),
 ): Promise<{ bonus: number; expiresAt: number; menuId: GuildDiningMenuId | null }> {
@@ -134,7 +134,10 @@ export async function consumeGuildDiningEffect(
     guildId: snapshotGuildId,
     now,
   });
-  if (snapshotState.activeEffect?.kind !== kind) {
+  if (
+    snapshotState.activeEffect?.kind !== kind &&
+    snapshotState.activeEffect?.kind !== "all_xp"
+  ) {
     return { bonus: 0, expiresAt: 0, menuId: null };
   }
 

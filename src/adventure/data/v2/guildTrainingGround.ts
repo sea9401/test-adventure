@@ -12,6 +12,7 @@ export type GuildTrainingDrillId =
   | "shadow_footwork"
   | "recovery_camp"
   | "field_rotation"
+  | "tactical_simulation"
   | "master_trial";
 
 export type GuildTrainingDrillFocus =
@@ -22,6 +23,7 @@ export type GuildTrainingDrillCategory =
   | "basic"
   | "specialized"
   | "field"
+  | "tactical"
   | "advanced";
 
 export type GuildTrainingState = {
@@ -75,6 +77,7 @@ export const GUILD_TRAINING_CATEGORY_LABEL: Record<
   basic: "기초",
   specialized: "특화",
   field: "실전",
+  tactical: "전술",
   advanced: "고급",
 };
 
@@ -152,6 +155,16 @@ export const GUILD_TRAINING_DRILLS: Record<
     minCharacterLevel: 50,
     baseMasteryReward: 22,
   },
+  tactical_simulation: {
+    id: "tactical_simulation",
+    title: "전술 모의전",
+    desc: "변화하는 전장을 가정해 판단과 대응 순서를 반복 훈련합니다.",
+    focus: "common",
+    category: "tactical",
+    minBuildingLevel: 4,
+    minCharacterLevel: 75,
+    baseMasteryReward: 26,
+  },
   master_trial: {
     id: "master_trial",
     title: "전직 대비 훈련",
@@ -172,6 +185,7 @@ export const GUILD_TRAINING_DRILL_IDS: GuildTrainingDrillId[] = [
   "shadow_footwork",
   "recovery_camp",
   "field_rotation",
+  "tactical_simulation",
   "master_trial",
 ];
 

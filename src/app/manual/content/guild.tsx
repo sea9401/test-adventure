@@ -13,6 +13,8 @@ import {
   guildCombatSupplyNextCost,
 } from "@/adventure/data/v2/guildCombatSupply";
 import {
+  GUILD_EXPLORATION_EXPEDITION_IDS,
+  GUILD_EXPLORATION_EXPEDITIONS,
   GUILD_EXPLORATION_WEEKLY_MISSION_IDS,
   GUILD_EXPLORATION_WEEKLY_MISSIONS,
 } from "@/adventure/data/v2/guildExploration";
@@ -59,6 +61,7 @@ import {
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
 } from "@/adventure/data/v2/guildWorkshop";
+import { GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function GuildContent() {
@@ -247,6 +250,19 @@ export function GuildContent() {
         })}
         caption="협동보스 의뢰는 보상 수령 시점에 최초 1회만 집계되며, GOLD 이하는 탐사 진척으로 인정하지 않습니다."
       />
+      <Table
+        head={["원정", "시설", "시간·비용", "귀환 보상"]}
+        rows={GUILD_EXPLORATION_EXPEDITION_IDS.map((id) => {
+          const expedition = GUILD_EXPLORATION_EXPEDITIONS[id];
+          return [
+            <Em key={id}>{expedition.name}</Em>,
+            `Lv.${expedition.minLevel}`,
+            `${expedition.durationMinutes / 60}시간 · ${expedition.costGold.toLocaleString("ko-KR")} G`,
+            `길드 금고 ${expedition.rewardGold.toLocaleString("ko-KR")} G · 명성 ${expedition.rewardFame.toLocaleString("ko-KR")} · 지도 조각 +${expedition.mapFragments.toLocaleString("ko-KR")}`,
+          ];
+        })}
+        caption="원정대는 한 번에 하나만 파견할 수 있으며, 마스터 또는 관리자가 길드 금고 골드를 사용해 출발시킵니다. 귀환 시간이 지난 뒤에는 길드원 누구나 보상을 회수할 수 있습니다."
+      />
 
       <H2>연금 공방</H2>
       <P>
@@ -283,13 +299,22 @@ export function GuildContent() {
         </li>
         <li>
           관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. Lv.3부터
-          메뉴 두 종류를 함께 운영할 수 있습니다.
+          메뉴 두 종류, Lv.5부터 세 종류를 함께 운영할 수 있습니다.
         </li>
         <li>
           식권·기여도·메뉴는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
           같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
         </li>
       </UL>
+      <Table
+        head={["시설 레벨", "주간 식권", "동시 운영 메뉴"]}
+        rows={DINING_HALL_UPGRADES.map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          `${upgrade.weeklyMealTickets}장`,
+          `${upgrade.weeklyMenuSlots}종`,
+        ])}
+        caption="시설 레벨마다 신규 메뉴가 하나씩 열립니다. Lv.5에서는 메뉴 세 종류를 골라 한 주 동안 운영할 수 있습니다."
+      />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
         rows={FISHING_CATCH_ITEM_LIST.map((item) => {
@@ -313,7 +338,7 @@ export function GuildContent() {
           `Lv.${menu.minFacilityLevel}`,
           menu.description,
         ])}
-        caption="모험가 정식과 일꾼 도시락은 식권 1장당 12시간 적용됩니다. 같은 메뉴는 남은 시간에 12시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다."
+        caption="지속 효과 메뉴는 식권 1장당 12시간 적용됩니다. 같은 메뉴는 남은 시간에 12시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다."
       />
 
       <H2>길드 교역소</H2>
@@ -352,8 +377,19 @@ export function GuildContent() {
       <P>
         제작소는 개인이 채집한 원목·광석과 제작 촉매로 장비를 만드는 길드
         시설입니다. 제작은 장인 성장과 연결되고, 누적 제작 기록이 쌓일수록 품질
-        확률 보너스가 붙습니다.
+        확률 보너스가 붙습니다. 제작소 레벨의 주간 진척 보너스는 모든 주간 제작
+        의뢰에 적용되며, 예를 들어 Lv.5에서는 제작 1회가 1.4회분으로 계산됩니다.
       </P>
+      <Table
+        head={["제작소", "시설 단계", "품질 확률", "주간 의뢰 진척"]}
+        rows={GUILD_SMITHY_UPGRADES.map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          <Em key={upgrade.level}>{upgrade.label}</Em>,
+          `+${upgrade.qualityChanceBonusPct}%p`,
+          `+${upgrade.weeklyProgressBonusPct}%`,
+        ])}
+        caption="주간 진척 보너스는 실제 제작 횟수를 바꾸지 않고 의뢰 완료 판정에만 적용됩니다. 제작소 레벨이 오르면 진행 중인 이번 주 의뢰에도 현재 레벨 보너스가 반영됩니다."
+      />
       <UL>
         <li>
           장비 등급에 맞는 원목과 광석을 함께 사용합니다. 1~5등급은 소나무·철,
@@ -384,6 +420,12 @@ export function GuildContent() {
         <li>
           분해는 제작 재료 일부를 돌려받는 기능입니다. 회수율은 최대{" "}
           <Em>{GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT}%</Em>입니다.
+        </li>
+        <li>
+          일일 제작 납품은 매일 00:00 KST에 초기화됩니다. 대장장이 Lv10
+          이상에 만든 명장 제작품은 기존 명장 보너스에 더해{" "}
+          <Em>납품 보너스 +{GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT}%</Em>를
+          추가로 받습니다.
         </li>
       </UL>
       <Table

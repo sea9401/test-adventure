@@ -28,6 +28,7 @@ import {
 } from "../V2ItemCard";
 
 import {
+  DELIVERY_ERROR_TEXT,
   ERROR_TEXT,
   WEEKLY_ERROR_TEXT,
   WORKSHOP_MODE_STORAGE_KEY,
@@ -59,6 +60,7 @@ export function GuildWorkshopPanel({
   const hasSmithy =
     localSmithy || info?.hasGuildSmithy === true || smithyCount > 0;
   const [state, setState] = useState<WorkshopState | null>(null);
+  const [workshopRefreshVersion, setWorkshopRefreshVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useSystemMessageState();
   const [mode, setMode] = useState<"craft" | "ranking">("craft");
@@ -168,6 +170,10 @@ export function GuildWorkshopPanel({
         setWeekly({
           weekKey: String(json.weekKey ?? ""),
           endsAt: String(json.endsAt ?? ""),
+          progressBonusPct: Math.max(
+            0,
+            Math.floor(Number(json.progressBonusPct) || 0),
+          ),
           quests: json.quests,
         });
       } else {
@@ -184,8 +190,9 @@ export function GuildWorkshopPanel({
   }, [setWeeklyMessage]);
 
   useEffect(() => {
+    if (!hasSmithy) return;
     queueMicrotask(() => void loadWeekly());
-  }, [loadWeekly]);
+  }, [hasSmithy, loadWeekly]);
 
   const loadDelivery = useCallback(async () => {
     setDeliveryLoading(true);
@@ -208,8 +215,9 @@ export function GuildWorkshopPanel({
   }, [setDeliveryMessage]);
 
   useEffect(() => {
+    if (!hasSmithy) return;
     queueMicrotask(() => void loadDelivery());
-  }, [loadDelivery]);
+  }, [hasSmithy, loadDelivery]);
 
   useEffect(() => {
     if (!delivery) return;
@@ -285,7 +293,7 @@ export function GuildWorkshopPanel({
     return () => {
       alive = false;
     };
-  }, [hasSmithy, workshopEndpoint, setMessage]);
+  }, [hasSmithy, workshopEndpoint, workshopRefreshVersion, setMessage]);
 
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
   // 해체 패널 → 워크숍 상태 동기화(재료/대장장이 숙련도). 자식에 안정 참조로 전달.
@@ -300,8 +308,10 @@ export function GuildWorkshopPanel({
             }
           : prev,
       );
+      setWorkshopRefreshVersion((version) => version + 1);
+      void loadContributionInfo();
     },
-    [],
+    [loadContributionInfo],
   );
   const hasApiSmithy = state?.hasGuildSmithy ?? hasSmithy;
   const basicMaterialGroups = useMemo(
@@ -422,6 +432,12 @@ export function GuildWorkshopPanel({
       setWeekly({
         weekKey: String(json.weekKey ?? weekly?.weekKey ?? ""),
         endsAt: String(json.endsAt ?? weekly?.endsAt ?? ""),
+        progressBonusPct: Math.max(
+          0,
+          Math.floor(
+            Number(json.progressBonusPct ?? weekly?.progressBonusPct) || 0,
+          ),
+        ),
         quests: Array.isArray(json.quests) ? json.quests : [],
       });
       const text = `길드 자금 +${Number(
@@ -449,7 +465,9 @@ export function GuildWorkshopPanel({
       });
       const json = await res.json();
       if (!json.ok) {
-        setDeliveryMessage("납품에 실패했습니다.");
+        setDeliveryMessage(
+          DELIVERY_ERROR_TEXT[json.error ?? ""] ?? "납품에 실패했습니다.",
+        );
         return;
       }
       setDelivery({
@@ -463,6 +481,8 @@ export function GuildWorkshopPanel({
       ).toLocaleString()}`;
       setDeliveryMessage(`납품 완료 · ${text}`);
       notifyReward("납품 완료", text);
+      setWorkshopRefreshVersion((version) => version + 1);
+      void loadContributionInfo();
       void loadDelivery();
     } catch {
       setDeliveryMessage("납품에 실패했습니다.");
@@ -479,7 +499,8 @@ export function GuildWorkshopPanel({
             주간 제작 의뢰
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            길드원 제작 기록을 합산합니다.
+            길드원 제작 기록을 합산합니다. · 제작소 진척 보너스 +
+            {weekly?.progressBonusPct ?? 0}%
             {weekly?.endsAt ? (
               <>
                 {" "}
@@ -553,7 +574,14 @@ export function GuildWorkshopPanel({
                   />
                 </div>
                 <div className="mt-1 text-right text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-                  {Math.min(quest.progress, quest.goal).toLocaleString()}/
+                  {quest.progressBonusPct > 0 ? (
+                    <>
+                      기본 {quest.rawProgress.toLocaleString("ko-KR")}회 · 적용{" "}
+                    </>
+                  ) : null}
+                  {Math.min(quest.progress, quest.goal).toLocaleString("ko-KR", {
+                    maximumFractionDigits: 2,
+                  })}/
                   {quest.goal.toLocaleString()}
                 </div>
               </div>
@@ -656,6 +684,11 @@ export function GuildWorkshopPanel({
                           {selected.masterworkBonusPct > 0 ? (
                             <span className="rounded bg-rose-100 px-1.5 py-px text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
                               명장 +{selected.masterworkBonusPct}%
+                            </span>
+                          ) : null}
+                          {selected.masterMarkBonusPct > 0 ? (
+                            <span className="rounded bg-amber-100 px-1.5 py-px text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                              왕도 명장 +{selected.masterMarkBonusPct}%
                             </span>
                           ) : null}
                           {selected.bonusPct > 0 ? (
@@ -971,7 +1004,7 @@ export function GuildWorkshopPanel({
 
       {workshopMode === "main" ? (
         <div className="space-y-3">
-          <GuildArtisanContributionPanel info={info ?? contributionInfo} />
+          <GuildArtisanContributionPanel info={contributionInfo ?? info} />
           {recommendationCard}
           <div className="grid gap-3 lg:grid-cols-2">
             {weeklyCard}

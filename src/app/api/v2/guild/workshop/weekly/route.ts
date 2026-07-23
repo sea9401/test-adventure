@@ -7,6 +7,7 @@ import {
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
+import { readGuildSmithyLevel } from "@/lib/server/guildFacilities";
 import {
   currentGuildWorkshopWeek,
   lockGuildWorkshopWeeklyState,
@@ -19,6 +20,7 @@ import {
   guildWorkshopWeeklyQuestViews,
   isGuildWorkshopWeeklyQuestId,
 } from "@/adventure/data/v2/guildWorkshopWeekly";
+import { guildSmithyUpgradeForLevel } from "@/adventure/data/v2/settlement";
 
 
 export async function GET() {
@@ -32,16 +34,32 @@ export async function GET() {
   }
 
   const week = currentGuildWorkshopWeek();
-  const state = await db.transaction((tx) =>
-    readGuildWorkshopWeeklyState(tx, guildId, week.key),
-  );
-  return Response.json({
-    ok: true,
-    weekKey: week.key,
-    endsAt: week.endsAt.toISOString(),
-    state,
-    quests: guildWorkshopWeeklyQuestViews(state),
+  const result = await db.transaction(async (tx) => {
+    const smithyLevel = await readGuildSmithyLevel(tx, guildId);
+    if (smithyLevel <= 0) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "smithy_required" as const },
+      };
+    }
+    const smithy = guildSmithyUpgradeForLevel(smithyLevel);
+    const state = await readGuildWorkshopWeeklyState(tx, guildId, week.key);
+    return {
+      status: 200,
+      body: {
+        ok: true as const,
+        weekKey: week.key,
+        endsAt: week.endsAt.toISOString(),
+        progressBonusPct: smithy.weeklyProgressBonusPct,
+        state,
+        quests: guildWorkshopWeeklyQuestViews(
+          state,
+          smithy.weeklyProgressBonusPct,
+        ),
+      },
+    };
   });
+  return Response.json(result.body, { status: result.status });
 }
 
 export async function POST(req: Request) {
@@ -70,8 +88,18 @@ export async function POST(req: Request) {
 
   const week = currentGuildWorkshopWeek();
   const result = await db.transaction(async (tx) => {
+    const smithyLevel = await readGuildSmithyLevel(tx, guildId);
+    if (smithyLevel <= 0) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "smithy_required" as const },
+      };
+    }
+    const progressBonusPct = guildSmithyUpgradeForLevel(
+      smithyLevel,
+    ).weeklyProgressBonusPct;
     const state = await lockGuildWorkshopWeeklyState(tx, guildId, week.key);
-    const view = guildWorkshopWeeklyQuestViews(state).find(
+    const view = guildWorkshopWeeklyQuestViews(state, progressBonusPct).find(
       (quest) => quest.id === body.questId,
     );
     if (!view) {
@@ -92,7 +120,8 @@ export async function POST(req: Request) {
         body: {
           ok: false as const,
           error: "not_complete" as const,
-          quests: guildWorkshopWeeklyQuestViews(state),
+          progressBonusPct,
+          quests: guildWorkshopWeeklyQuestViews(state, progressBonusPct),
         },
       };
     }
@@ -121,8 +150,9 @@ export async function POST(req: Request) {
         ok: true as const,
         weekKey: week.key,
         endsAt: week.endsAt.toISOString(),
+        progressBonusPct,
         state: nextState,
-        quests: guildWorkshopWeeklyQuestViews(nextState),
+        quests: guildWorkshopWeeklyQuestViews(nextState, progressBonusPct),
         rewardGold: view.rewardGold,
         rewardFame: view.rewardFame,
       },

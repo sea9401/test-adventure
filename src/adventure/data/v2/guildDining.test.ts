@@ -4,6 +4,7 @@ import {
   consumeGuildDiningEffectState,
   GUILD_DINING_EFFECT_DURATION_MS,
   GUILD_DINING_INGREDIENTS,
+  GUILD_DINING_MENUS,
   guildDiningDonationPoints,
   guildDiningMenu,
   guildDiningPantryTarget,
@@ -73,6 +74,19 @@ describe("guild dining", () => {
     });
   });
 
+  it("Lv3부터 Lv5까지 단계마다 신규 메뉴를 연다", () => {
+    expect(
+      GUILD_DINING_MENUS.map((menu) => [menu.id, menu.minFacilityLevel]),
+    ).toEqual([
+      ["hearty_stew", 1],
+      ["adventurer_meal", 1],
+      ["worker_lunch", 2],
+      ["hunters_barbecue", 3],
+      ["artisan_seafood_rice", 4],
+      ["guild_grand_feast", 5],
+    ]);
+  });
+
   it("12시간 동안 횟수 제한 없이 소수 보너스를 정확히 누적한다", () => {
     let state = parseGuildDiningUserState(
       {
@@ -125,6 +139,31 @@ describe("guild dining", () => {
       kind: "life_xp",
       expiresAt: now.getTime() + GUILD_DINING_EFFECT_DURATION_MS,
     });
+  });
+
+  it("길드 대연회는 사냥과 생활 경험치에 모두 적용된다", () => {
+    const grandFeast = guildDiningMenu("guild_grand_feast")!;
+    const activeEffect = activeEffectForMenu(grandFeast, {
+      currentEffect: null,
+      now,
+      weekKey: "2026-07-13",
+    });
+    let state = parseGuildDiningUserState(
+      {
+        weekKey: "2026-07-13",
+        guildId: 1,
+        activeEffect,
+      },
+      { weekKey: "2026-07-13", guildId: 1, now },
+    );
+
+    const hunt = consumeGuildDiningEffectState(state, "hunt_exp", 1_000, now);
+    state = hunt.state;
+    const life = consumeGuildDiningEffectState(state, "life_xp", 500, now);
+
+    expect(hunt.bonus).toBe(100);
+    expect(life.bonus).toBe(50);
+    expect(life.state.activeEffect?.kind).toBe("all_xp");
   });
 
   it("만료된 효과는 적용하지 않는다", () => {

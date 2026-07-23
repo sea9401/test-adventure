@@ -102,12 +102,16 @@ export function guildDiningDonationPoints(
   return (quantity / ingredient.batchSize) * ingredient.pointValue;
 }
 
-export type GuildDiningEffectKind = "hunt_exp" | "life_xp";
+export type GuildDiningBonusKind = "hunt_exp" | "life_xp";
+export type GuildDiningEffectKind = GuildDiningBonusKind | "all_xp";
 
 export type GuildDiningMenuId =
   | "hearty_stew"
   | "adventurer_meal"
-  | "worker_lunch";
+  | "worker_lunch"
+  | "hunters_barbecue"
+  | "artisan_seafood_rice"
+  | "guild_grand_feast";
 
 export type GuildDiningMenu = {
   id: GuildDiningMenuId;
@@ -158,6 +162,45 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     effect: {
       kind: "life_xp",
       bonusPct: 5,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
+  },
+  {
+    id: "hunters_barbecue",
+    name: "사냥꾼 바비큐",
+    icon: "🍖",
+    imageSrc: "/images/items/dining/hunters_barbecue.webp",
+    description: "12시간 동안 사냥 경험치가 7% 증가합니다.",
+    minFacilityLevel: 3,
+    effect: {
+      kind: "hunt_exp",
+      bonusPct: 7,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
+  },
+  {
+    id: "artisan_seafood_rice",
+    name: "장인의 해산물 덮밥",
+    icon: "🍤",
+    imageSrc: "/images/items/dining/artisan_seafood_rice.webp",
+    description: "12시간 동안 생활 경험치가 7% 증가합니다.",
+    minFacilityLevel: 4,
+    effect: {
+      kind: "life_xp",
+      bonusPct: 7,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
+  },
+  {
+    id: "guild_grand_feast",
+    name: "길드 대연회",
+    icon: "🍽️",
+    imageSrc: "/images/items/dining/guild_grand_feast.webp",
+    description: "12시간 동안 사냥과 생활 경험치가 10% 증가합니다.",
+    minFacilityLevel: 5,
+    effect: {
+      kind: "all_xp",
+      bonusPct: 10,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -314,13 +357,18 @@ export function activeEffectForMenu(
 
 export function consumeGuildDiningEffectState(
   state: GuildDiningUserState,
-  kind: GuildDiningEffectKind,
+  kind: GuildDiningBonusKind,
   baseAmount: number,
   now: Date = new Date(),
 ): { state: GuildDiningUserState; bonus: number; consumed: boolean } {
   const active = state.activeEffect;
   const base = Math.max(0, Math.floor(baseAmount));
-  if (!active || active.kind !== kind || active.expiresAt <= now.getTime() || base <= 0) {
+  if (
+    !active ||
+    (active.kind !== kind && active.kind !== "all_xp") ||
+    active.expiresAt <= now.getTime() ||
+    base <= 0
+  ) {
     return { state, bonus: 0, consumed: false };
   }
   const rawBonus = base * active.bonusPct + active.roundingRemainder;

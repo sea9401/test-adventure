@@ -317,7 +317,8 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 {state.smithyBonus?.label ?? "기본 제작"}
               </span>
               <span className="font-semibold">
-                품질 +{state.smithyBonus?.qualityChanceBonusPct ?? 0}%p
+                품질 +{state.smithyBonus?.qualityChanceBonusPct ?? 0}%p · 주간
+                진척 +{state.smithyBonus?.weeklyProgressBonusPct ?? 0}%
               </span>
             </div>
             <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">

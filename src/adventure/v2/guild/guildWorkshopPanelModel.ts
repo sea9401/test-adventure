@@ -148,7 +148,9 @@ export type WeeklyQuestView = {
   goal: number;
   rewardGold: number;
   rewardFame: number;
+  rawProgress: number;
   progress: number;
+  progressBonusPct: number;
   complete: boolean;
   claimed: boolean;
   canClaim: boolean;
@@ -157,6 +159,7 @@ export type WeeklyQuestView = {
 export type WeeklyState = {
   weekKey: string;
   endsAt: string;
+  progressBonusPct: number;
   quests: WeeklyQuestView[];
 };
 
@@ -189,6 +192,7 @@ export type DeliveryView = {
     rewardGold: number;
     bonusPct: number;
     masterworkBonusPct: number;
+    masterMarkBonusPct: number;
   }[];
 };
 
@@ -272,9 +276,18 @@ export const ERROR_TEXT: Record<string, string> = {
 export const WEEKLY_ERROR_TEXT: Record<string, string> = {
   unauthorized: "로그인이 필요합니다.",
   no_guild: "길드에 가입해야 사용할 수 있습니다.",
+  smithy_required: "제작소가 필요합니다.",
   invalid_quest: "수령할 수 없는 의뢰입니다.",
   already_claimed: "이미 수령한 의뢰입니다.",
   not_complete: "아직 달성하지 못한 의뢰입니다.",
+};
+
+export const DELIVERY_ERROR_TEXT: Record<string, string> = {
+  unauthorized: "로그인이 필요합니다.",
+  no_guild: "길드에 가입해야 사용할 수 있습니다.",
+  smithy_required: "제작소가 필요합니다.",
+  already_claimed: "이미 완료한 납품입니다.",
+  not_deliverable: "납품할 수 없는 장비입니다.",
 };
 
 export const DISMANTLE_ERROR_TEXT: Record<string, string> = {

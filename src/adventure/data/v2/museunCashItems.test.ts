@@ -26,6 +26,12 @@ describe("무슨 코인 캐시 소모품", () => {
       tradeable: true,
       effect: { kind: "profile_image" },
     });
+    expect(MUSEUN_CASH_ITEMS.profile_image_permit.description).toContain(
+      "이미지를 직접 등록",
+    );
+    expect(MUSEUN_CASH_ITEMS.profile_image_permit.description).not.toContain(
+      "게임 내 이미지",
+    );
     expect(MUSEUN_CASH_ITEMS.rename_permit).toMatchObject({
       coinPrice: 400,
       effect: { kind: "rename" },
@@ -42,20 +48,20 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(MUSEUN_CASH_ITEMS.starlight_chat_badge.coinPrice).toBe(300);
     expect(MUSEUN_CASH_ITEMS.chroma_name_box).toMatchObject({
       name: "닉네임 꾸미기 상자",
-      coinPrice: 300,
+      coinPrice: 200,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "chroma_name_box" },
     });
     expect(MUSEUN_CASH_ITEMS.profile_border_box).toMatchObject({
       name: "프로필 꾸미기 상자",
-      coinPrice: 400,
+      coinPrice: 300,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "profile_border_box" },
     });
     expect(MUSEUN_CASH_ITEMS.chat_badge_box).toMatchObject({
-      coinPrice: 300,
+      coinPrice: 200,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "chat_badge_box" },

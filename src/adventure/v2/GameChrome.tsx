@@ -48,7 +48,7 @@ function TabBackground({
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+      className="game-scene-background pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

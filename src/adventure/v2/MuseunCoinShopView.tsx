@@ -107,7 +107,7 @@ function itemSummary(itemId: MuseunCashItemId): string {
   }
   if (item.effect.kind === "rename") return "캐릭터 이름을 한 번 변경합니다.";
   if (item.effect.kind === "profile_image") {
-    return "게임 내 이미지 선택 또는 직접 등록으로 프로필 이미지를 한 번 변경합니다.";
+    return "직접 등록한 이미지로 프로필 이미지를 한 번 변경합니다.";
   }
   if (item.effect.kind === "chroma_name_box") {
     return "미보유 닉네임 꾸미기 한 종류를 중복 없이 획득합니다.";
@@ -782,8 +782,8 @@ function CashItemDetailDialog({
           ) : itemId === "profile_image_permit" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               구매 후 JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수
-              있습니다. 게임에 포함된 캐릭터·NPC·몬스터 이미지는 변경권 없이 24시간마다
-              선택할 수 있으며, 변경권은 사용하기 전에 거래소에 등록할 수 있습니다.
+              있습니다. 변경권은 사용하기 전에 거래소에 등록해 다른 모험가와 거래할 수
+              있습니다.
             </p>
           ) : itemId === "cosmetic_extension_30d" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
@@ -1133,7 +1133,7 @@ function CosmeticCollectionItemPreview({
       </div>
       {kind === "profile_border" ? (
         <div
-          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style as ProfileBorderId} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-4`}
+          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style as ProfileBorderId} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
         >
           <div className="flex items-center gap-3">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 text-sm font-black text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
@@ -1193,7 +1193,7 @@ function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
       </p>
       {cosmeticEffect.slot === "profile_border" ? (
         <div
-          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${cosmeticEffect.style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-4`}
+          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${cosmeticEffect.style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
         >
           <div className={`${SURFACE_INSET} ml-auto w-4/5 p-3`}>
             <div className="text-xs text-zinc-500 dark:text-zinc-400">

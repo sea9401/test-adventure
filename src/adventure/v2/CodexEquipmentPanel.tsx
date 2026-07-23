@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import {
   CheckCircle,
-  Circle,
-  Diamond,
   HandFist,
   Shield,
   Sneaker,
   Sword,
   type Icon,
 } from "@phosphor-icons/react";
+import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -84,8 +83,8 @@ const EQUIPMENT_SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = 
   armor: { Icon: Shield, color: "text-sky-500" },
   gloves: { Icon: HandFist, color: "text-amber-500" },
   boots: { Icon: Sneaker, color: "text-emerald-500" },
-  ring: { Icon: Circle, color: "text-violet-500" },
-  necklace: { Icon: Diamond, color: "text-pink-500" },
+  ring: { Icon: RingIcon, color: "text-violet-500" },
+  necklace: { Icon: NecklaceIcon, color: "text-pink-500" },
 };
 const DEFAULT_EQUIPMENT_CODEX_META: EquipmentCodexMeta = {
   registeredCount: 0,

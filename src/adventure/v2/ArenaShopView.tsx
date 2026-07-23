@@ -58,7 +58,7 @@ export function ArenaShopView({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          주간 시즌과 챔피언십 보상으로 받은 투기장 코인으로 칭호와 소비품을 구매하세요.
+          주간 시즌 순위 보상으로 받은 투기장 코인으로 칭호와 소비품을 구매하세요.
         </p>
         <CoinAmount
           amount={coins}

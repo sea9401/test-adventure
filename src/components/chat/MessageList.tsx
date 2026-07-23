@@ -67,51 +67,56 @@ export function MessageList({
             : "아직 메시지가 없습니다."}
         </div>
       ) : (
-        // 말풍선 없이 평문 한 줄로 — 이름(클릭 시 프로필) + 시간 + 본문이 그대로 흐른다.
+        // 메타 정보와 본문을 두 줄로 나눠 긴 닉네임이 본문 폭을 줄이지 않게 한다.
         messages.map((m) => (
           <div
             key={m.id}
-            className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-800 dark:text-zinc-100"
+            className="text-sm text-zinc-800 dark:text-zinc-100"
           >
-            {m.title && (
-              <span className="mr-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                {m.title}
-              </span>
-            )}
-            {m.mine ? (
-              <span>
-                <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
-                <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
-                <span
-                  className={chatNameClass(
-                    m.cosmetics?.chatNameEffect,
-                    "font-semibold text-blue-600 dark:text-blue-400",
-                  )}
-                >
-                {m.name}
+            <div className="flex min-w-0 items-center overflow-hidden whitespace-nowrap leading-5">
+              {m.title && (
+                <span className="mr-1 max-w-16 shrink-0 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
+                  {m.title}
                 </span>
+              )}
+              {m.mine ? (
+                <>
+                  <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
+                  <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
+                  <span
+                    title={m.name}
+                    className={chatNameClass(
+                      m.cosmetics?.chatNameEffect,
+                      "min-w-0 truncate font-semibold text-blue-600 dark:text-blue-400",
+                    )}
+                  >
+                    {m.name}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
+                  <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
+                  <button
+                    type="button"
+                    onClick={() => onSelectName(m.name)}
+                    title={`${m.name} 프로필 보기`}
+                    className={chatNameClass(
+                      m.cosmetics?.chatNameEffect,
+                      "min-w-0 truncate font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200",
+                    )}
+                  >
+                    {m.name}
+                  </button>
+                </>
+              )}
+              <span className="ml-1.5 shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
+                {formatRelative(m.createdAt)}
               </span>
-            ) : (
-              <>
-                <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
-                <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
-                <button
-                  type="button"
-                  onClick={() => onSelectName(m.name)}
-                  title="프로필 보기"
-                  className={chatNameClass(
-                    m.cosmetics?.chatNameEffect,
-                    "font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200",
-                  )}
-                >
-                  {m.name}
-                </button>
-              </>
-            )}
-            <span className="mx-1.5 align-baseline text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
-              {formatRelative(m.createdAt)}
-            </span>
-            <MessageBody content={m.content} />
+            </div>
+            <div className="whitespace-pre-wrap break-words leading-relaxed">
+              <MessageBody content={m.content} />
+            </div>
           </div>
         ))
       )}

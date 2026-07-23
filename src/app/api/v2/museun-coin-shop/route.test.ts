@@ -56,15 +56,15 @@ describe("무슨 코인 상점 일괄 구매", () => {
       ok: true,
       itemId: "chroma_name_box",
       quantity: 5,
-      totalPrice: 1_500,
-      coins: 1_500,
+      totalPrice: 1_000,
+      coins: 2_000,
       cashItems: { chroma_name_box: 7 },
     });
     expect(upsertSave).toHaveBeenCalledWith(
       expect.anything(),
       "u-buyer",
       MUSEUN_COIN_WALLET_KEY,
-      { coins: 1_500 },
+      { coins: 2_000 },
     );
   });
 

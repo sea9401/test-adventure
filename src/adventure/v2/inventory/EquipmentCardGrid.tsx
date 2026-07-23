@@ -2,7 +2,6 @@
 
 import {
   CheckCircle,
-  Circle,
   Diamond,
   HandFist,
   Lock,
@@ -11,6 +10,7 @@ import {
   Sword,
   type Icon,
 } from "@phosphor-icons/react";
+import { NecklaceIcon, RingIcon } from "../EquipmentSlotIcons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
@@ -47,8 +47,8 @@ const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
   armor: { Icon: Shield, color: "text-sky-500" },
   gloves: { Icon: HandFist, color: "text-amber-500" },
   boots: { Icon: Sneaker, color: "text-emerald-500" },
-  ring: { Icon: Circle, color: "text-violet-500" },
-  necklace: { Icon: Diamond, color: "text-pink-500" },
+  ring: { Icon: RingIcon, color: "text-violet-500" },
+  necklace: { Icon: NecklaceIcon, color: "text-pink-500" },
 };
 
 // 카드 스탯줄 — 개체 굴림 반영 기본 전투 스탯 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/

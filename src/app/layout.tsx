@@ -1,4 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import {
+  DISCREET_MODE_CLASS,
+  DISCREET_MODE_STORAGE_KEY,
+  DISCREET_MODE_STORED_VALUE,
+} from "@/adventure/v2/discreetMode";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
@@ -75,6 +80,7 @@ export const viewport: Viewport = {
 };
 
 const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`;
+const discreetModeInit = `(function(){try{if(localStorage.getItem(${JSON.stringify(DISCREET_MODE_STORAGE_KEY)})===${JSON.stringify(DISCREET_MODE_STORED_VALUE)})document.documentElement.classList.add(${JSON.stringify(DISCREET_MODE_CLASS)});}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -90,6 +96,7 @@ export default function RootLayout({
       >
         <head>
           <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+          <script dangerouslySetInnerHTML={{ __html: discreetModeInit }} />
         </head>
         <body className="min-h-full flex flex-col font-sans">
           <AdminImpersonationBanner />

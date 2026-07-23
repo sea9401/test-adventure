@@ -2,13 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Circle,
   Cube,
   Flask,
   HandPalm,
   ListPlus,
   MagnifyingGlass,
-  Medal,
   Package,
   Receipt,
   Shield,
@@ -20,6 +18,7 @@ import {
   X,
   type Icon,
 } from "@phosphor-icons/react";
+import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -136,8 +135,8 @@ const LISTING_ICON: Record<V2ItemTabKey, Icon> = {
   armor: Shield,
   gloves: HandPalm,
   boots: SneakerMove,
-  ring: Circle,
-  necklace: Medal,
+  ring: RingIcon,
+  necklace: NecklaceIcon,
   material: Cube,
   consumable: Flask,
 };

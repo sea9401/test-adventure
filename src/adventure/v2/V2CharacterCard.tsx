@@ -212,11 +212,11 @@ export function V2CharacterCard({
         padding="md"
         className={`ui-character-card ${
           profileBorder
-            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"}`
+            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
             : ""
         }`}
       >
-      <div className="p-4 sm:p-5">
+      <div className={profileBorder ? "ui-profile-decoration-readable" : ""}>
         <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
           <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
           <div className="min-w-0 flex-1 space-y-2">
@@ -232,13 +232,13 @@ export function V2CharacterCard({
                 {character.name}
               </span>
             </span>
-            <span className="text-sm text-zinc-400 dark:text-zinc-500">
+            <span className="text-sm text-zinc-700 dark:text-zinc-200">
               {cappedLevel ? `Lv ${character.level} / ${cappedLevel}` : `Lv.${character.level}`}
             </span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-zinc-700 dark:text-zinc-200">
               · {jobName}
             </span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-zinc-700 dark:text-zinc-200">
               · {guild ? guild.name : "무소속"}
             </span>
           </div>
@@ -293,7 +293,7 @@ export function V2CharacterCard({
         </div>
         {showGold && (
           <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
-            <span className="text-zinc-500 dark:text-zinc-400">골드</span>
+            <span className="text-zinc-700 dark:text-zinc-200">골드</span>
             <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
               {character.gold.toLocaleString()}
             </span>

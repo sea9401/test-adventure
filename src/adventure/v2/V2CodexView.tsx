@@ -847,7 +847,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 return (
                   <li
                     key={id}
-                    className={`ui-codex-card px-3 py-2.5 ${found ? "is-registered" : "opacity-50"}`}
+                    className={`ui-codex-card px-3 py-2.5 ${found ? "is-registered" : "text-zinc-500 dark:text-zinc-400"}`}
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -970,7 +970,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     return (
                       <li
                         key={id}
-                        className={`px-3 py-2.5 ${found ? "" : "opacity-50"}`}
+                        className={`px-3 py-2.5 ${found ? "" : "text-zinc-500 dark:text-zinc-400"}`}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">

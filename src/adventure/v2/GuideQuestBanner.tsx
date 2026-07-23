@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Compass, Gift, CaretRight, Circle } from "@phosphor-icons/react";
+import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
 import { isTutorialLine, type QuestView } from "@/adventure/data/v2/v2Quests";
 
 // 홈 상단 배너 — 튜토리얼 우선.
@@ -87,7 +88,7 @@ function TutorialChecklist({
     <button
       type="button"
       onClick={onOpen}
-      className={`ui-quest-card flex w-full flex-col gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-left transition hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 ${
+      className={`${SURFACE_CARD} ui-quest-card flex w-full flex-col gap-2 border-emerald-300 px-4 py-3 text-left transition hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950 ${
         claimableCount > 0 ? "is-claimable" : ""
       }`}
     >
@@ -160,10 +161,10 @@ function CurrentGoalBanner({
     <button
       type="button"
       onClick={onOpen}
-      className={`ui-quest-card ${claimable ? "is-claimable" : ""} flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left transition ${
+      className={`${claimable ? SURFACE_ACCENT : SURFACE_CARD} ui-quest-card ${claimable ? "is-claimable" : ""} flex w-full items-center gap-3 px-4 py-3 text-left transition ${
         claimable
-          ? "border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
-          : "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
+          ? "hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900"
+          : "border-emerald-300 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950"
       }`}
     >
       {claimable ? (

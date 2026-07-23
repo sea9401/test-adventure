@@ -312,8 +312,12 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(prof.jobCumLevel?.warrior).toBe(5);
   });
 
-  it("거점(미점령) 사냥 — NPC 세금 차감 + 수취 라벨 '거점 금고'", async () => {
-    const res = await POST(huntReq({ floor: 2, outpostId: OUTPOSTS[0].id }));
+  it("거점 id를 body에서 빼도 서버의 현재 거점 기준으로 NPC 세금을 적용한다", async () => {
+    store.set("character.v2", {
+      ...(store.get("character.v2") as object),
+      lastVisitedOutpost: { outpostId: OUTPOSTS[0].id, at: Date.now() },
+    });
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -337,6 +341,10 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
   });
 
   it("배치 + 거점 — totalGoldGross/totalGoldTaxed 합산 + 수취 라벨", async () => {
+    store.set("character.v2", {
+      ...(store.get("character.v2") as object),
+      lastVisitedOutpost: { outpostId: OUTPOSTS[0].id, at: Date.now() },
+    });
     const res = await POST(
       huntReq({ floor: 2, count: 3, outpostId: OUTPOSTS[0].id }),
     );
@@ -358,6 +366,27 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       json.batch.totalGoldGross - json.batch.totalGoldTaxed,
     );
     expect(json.batch.taxOwnerLabel).toBe("거점 금고");
+  });
+
+  it("body의 거점이 서버에 저장된 현재 거점과 다르면 보상 처리 전에 거절한다", async () => {
+    const currentOutpostId = OUTPOSTS[0].id;
+    const forgedOutpostId = OUTPOSTS[1].id;
+    const before = {
+      ...(store.get("character.v2") as Record<string, unknown>),
+      lastVisitedOutpost: { outpostId: currentOutpostId, at: Date.now() },
+    };
+    store.set("character.v2", before);
+
+    const res = await POST(
+      huntReq({ floor: 2, outpostId: forgedOutpostId }),
+    );
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: "location_mismatch",
+      currentOutpostId,
+    });
+    expect(store.get("character.v2")).toEqual(before);
   });
 
   it("스태미나 부족 — 첫 판부터 막히면 409(단판과 동일 에러)", async () => {

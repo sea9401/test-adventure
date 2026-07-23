@@ -179,6 +179,10 @@ describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 
       atRiskGold: 200,
       gold: 1000,
       lastBattleAt: Date.now() - HUNT_COOLDOWN_MS - 1000,
+      lastVisitedOutpost: {
+        outpostId: "neutral_north_outpost",
+        at: Date.now(),
+      },
     });
     battleOutcome.value = "lose";
 

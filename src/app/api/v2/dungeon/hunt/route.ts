@@ -37,7 +37,10 @@ import {
   applyGuildCombatRewardBonus,
   guildCombatSupplyBonuses,
 } from "@/adventure/data/v2/guildCombatSupply";
-import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
+import {
+  OUTPOST_BY_ID,
+  OUTPOST_NPC_TAX_RATE,
+} from "@/adventure/data/v2/outposts";
 import {
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
@@ -150,8 +153,24 @@ type CharSave = {
   atRiskGold?: number; // 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(패배 시 절반 소실 대상).
   lastHuntDepth?: number; // 코어루프 오프라인 정산 farm 깊이(마지막 정상 사냥 깊이).
   frontierDepth?: number; // 프론티어 최고 도달 깊이(오프라인 깊이 검증·게이트에 사용).
+  lastVisitedOutpost?: { outpostId?: unknown; at?: unknown };
+  tilePos?: { col?: unknown; row?: unknown; at?: unknown };
   [k: string]: unknown;
 };
+
+function authoritativeCatalogOutpostId(charSave: CharSave): string | null {
+  const saved = charSave.lastVisitedOutpost?.outpostId;
+  return typeof saved === "string" && OUTPOST_BY_ID.has(saved) ? saved : null;
+}
+
+function authoritativeTileOutpostId(charSave: CharSave): string | null {
+  if (!V2_TILE_WARFARE) return null;
+  const col = Number(charSave.tilePos?.col);
+  const row = Number(charSave.tilePos?.row);
+  return Number.isInteger(col) && Number.isInteger(row)
+    ? tileOutpostId(col, row)
+    : null;
+}
 
 type HuntTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type RunOneHuntCtx = {
@@ -159,7 +178,12 @@ export type RunOneHuntCtx = {
   userId: string;
   depth: number;
   dropFloor: DungeonFloorId;
+  // 온라인 요청에서는 character.v2에서 미리 읽은 서버 권위 위치. 클라이언트 body 값이 아니다.
+  // null = 아직 방문 거점 없음. 오프라인 정산은 기존 의미를 보존해 null을 넘긴다.
   outpostId: string | null;
+  // undefined = 오프라인 정산의 기존 경로(잠근 character.tilePos에서 뒤늦게 판정).
+  // 온라인은 null|string을 반드시 넘기고 character lock 뒤 동일 위치인지 재검증한다.
+  tileOutpostId?: string | null;
   // 레어맵 입장 — 보유 지도 iid. 검증(소유·깊이 일치·잔여 판수)은 save lock 후.
   rareMapIid: string | null;
   // 오프라인 정산 모드 — 전투 쿨다운 게이트·per-battle lastBattleAt 기록을 건너뛴다(정산
@@ -176,28 +200,66 @@ export type RunOneHuntCtx = {
 //   fullReplay=true 면 BattleScene 용 log 를 보존한다. 온라인 단판/5·10·50회 사냥은 기록 확인이
 //   필요하므로 full, 오프라인 정산은 결과 집계만 쓰므로 lite 로 둔다.
 export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
-  const { tx, userId, depth, dropFloor, outpostId, rareMapIid } = ctx;
+  const {
+    tx,
+    userId,
+    depth,
+    dropFloor,
+    outpostId,
+    tileOutpostId: lockedTileOutpostId,
+    rareMapIid,
+  } = ctx;
   // === 1. outpost 점령 조회 (FOR UPDATE) ===
   // v2 의 lock 순서 통일: outpost FOR UPDATE → getGuildId → character.v2.
   // FOR UPDATE 로 정책 게이트 평가와 세금 결정이 같은 스냅샷을 사용 — 점령자가
   // hunt 도중 정책을 바꿔도 이 hunt 는 진입 시점 정책으로 일관.
-  let occRow: {
+  type OccupationRow = {
     occupiedByUserId: string | null;
     occupiedByGuildId: number | null;
     policy: string;
     taxRate: string;
-  } | null = null;
-  if (outpostId) {
-    occRow =
+  };
+  const occupationById = new Map<string, OccupationRow>();
+  const locationIds = [
+    ...new Set(
+      [outpostId, lockedTileOutpostId].filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      ),
+    ),
+  ].sort();
+  // 후보가 둘(카탈로그 거점+자유 타일)이어도 id 정렬 순으로 잠가 동시 사냥 간 교착을 막는다.
+  for (const locationId of locationIds) {
+    const row =
       (
         await tx
-          .select()
+          .select({
+            occupiedByUserId: outpostOccupations.occupiedByUserId,
+            occupiedByGuildId: outpostOccupations.occupiedByGuildId,
+            policy: outpostOccupations.policy,
+            taxRate: outpostOccupations.taxRate,
+          })
           .from(outpostOccupations)
-          .where(eq(outpostOccupations.outpostId, outpostId))
+          .where(eq(outpostOccupations.outpostId, locationId))
           .for("update")
           .limit(1)
       )[0] ?? null;
+    if (row) occupationById.set(locationId, row);
   }
+  // 자유 타일은 길드 점령행이 실제로 있을 때만 카탈로그 거점보다 우선한다.
+  // 빈 칸/개인 개척지는 종전처럼 현재 카탈로그 거점의 정책·세금을 따른다.
+  const lockedTileOccupation = lockedTileOutpostId
+    ? (occupationById.get(lockedTileOutpostId) ?? null)
+    : null;
+  const useLockedTileOccupation =
+    lockedTileOccupation?.occupiedByGuildId != null;
+  const effectiveOutpostId = useLockedTileOccupation
+    ? lockedTileOutpostId!
+    : outpostId;
+  const occRow = useLockedTileOccupation
+    ? lockedTileOccupation
+    : outpostId
+      ? (occupationById.get(outpostId) ?? null)
+      : null;
 
   // === 2. 사냥자 길드 확인 (정책 게이트 + 세금 면제 판정용) ===
   // 무소속이면 null — same-guild 세금면제 분기에서 false 로 통과.
@@ -236,7 +298,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   let npcTaxOutpostId: string | null = null;
   // 타일 전쟁 — 마커가 길드 점령 정착지 위면 사냥세 행선지(그 타일 금고). charSave lock 후 결정.
   let tileTaxOutpostId: string | null = null;
-  if (
+  if (useLockedTileOccupation && effectiveOutpostId && occRow) {
+    // 자유 타일 영토세는 종전과 같이 길드원 포함 모든 사냥자에게 적용하고 타일 금고로 적립한다.
+    tileTaxOutpostId = effectiveOutpostId;
+    taxRate = Math.max(0, Math.min(1, Number(occRow.taxRate) || 0));
+  } else if (
     occRow &&
     occRow.occupiedByUserId &&
     occRow.occupiedByUserId !== userId
@@ -297,6 +363,27 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       "character.v2",
       {},
     );
+  }
+
+  // 위치를 미리 읽은 뒤 outpost 행을 먼저 잠그는 동안 이동 요청이 끼어들 수 있다.
+  // character 행 잠금까지 얻은 시점에 같은 위치인지 재검증해, 다른 거점의 정책·세율로
+  // 사냥이 커밋되는 TOCTOU를 차단한다. undefined는 내부 오프라인 정산의 기존 경로다.
+  if (lockedTileOutpostId !== undefined) {
+    const currentOutpostId = authoritativeCatalogOutpostId(charSave);
+    const currentTileOutpostId = authoritativeTileOutpostId(charSave);
+    if (
+      currentOutpostId !== outpostId ||
+      currentTileOutpostId !== lockedTileOutpostId
+    ) {
+      return {
+        ok: false as const,
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "location_changed" as const,
+        },
+      };
+    }
   }
 
   // equipment.v2 조기 잠금 (드랍/굴림 한 번에 기록). lock 순서 char→equipment.
@@ -672,7 +759,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 타일 전쟁(flag) — 마커(charSave.tilePos)가 길드 점령 정착지 위면 사냥세를 그 타일 금고로
   //   돌린다(점령자 개인 X·영토 우선). 서버 권위(클라 신뢰 X)·비잠금 read(treasury 키=타일 id
   //   안정·증분 원자적 → FOR UPDATE 불요로 락 순서 보존). off → 블록 스킵(byte-identical).
-  if (V2_TILE_WARFARE) {
+  if (V2_TILE_WARFARE && lockedTileOutpostId === undefined) {
     const tp = charSave.tilePos as
       | { col?: unknown; row?: unknown }
       | null
@@ -1046,15 +1133,6 @@ export async function POST(req: Request) {
   const depth = body.floor;
   const dropFloor = Math.min(depth, DROP_FLOOR_CAP) as DungeonFloorId;
 
-  // outpostId 는 선택적. 있으면 점령자 lookup + 골드 세금 transfer.
-  // 없으면(또는 모르는 id) 세금 없이 사냥자가 100% gold.
-  let outpostId: string | null = null;
-  if (typeof body.outpostId === "string" && body.outpostId.length > 0) {
-    if (OUTPOSTS.some((o) => o.id === body.outpostId)) {
-      outpostId = body.outpostId;
-    }
-  }
-
   // 일괄 사냥 횟수 — character.v2 지원권 만료 시각을 서버에서 읽어 활성 계정만 50회.
   // 클라이언트 옵션 숨김만으로 우회되지 않도록 API에서도 상한을 검증한다.
   // 쿨다운 모드 — 일괄 폐지(V1식 한판한판·전투 쿨다운이 throttle). 누적 판수는 오프라인 정산이 담당.
@@ -1065,6 +1143,30 @@ export async function POST(req: Request) {
     "character.v2",
     {},
   );
+  // 현재 사냥 위치는 character.v2가 단일 진실 출처다. body.outpostId는 오래된 화면/탭을
+  // 감지하는 힌트일 뿐 정책·세금 판정에 사용하지 않는다. 누락해도 서버 위치의 세금은 적용된다.
+  const outpostId = authoritativeCatalogOutpostId(supportCharacter);
+  const lockedTileOutpostId = authoritativeTileOutpostId(supportCharacter);
+  const claimedOutpostId =
+    typeof body.outpostId === "string" && body.outpostId.length > 0
+      ? body.outpostId
+      : null;
+  if (claimedOutpostId && !OUTPOST_BY_ID.has(claimedOutpostId)) {
+    return Response.json(
+      { ok: false, error: "bad_outpost" },
+      { status: 400 },
+    );
+  }
+  if (claimedOutpostId && claimedOutpostId !== outpostId) {
+    return Response.json(
+      {
+        ok: false,
+        error: "location_mismatch",
+        currentOutpostId: outpostId,
+      },
+      { status: 409 },
+    );
+  }
   const hasAdventureSupport = adventureSupportActive(
     supportCharacter.adventureSupport,
   );
@@ -1104,6 +1206,7 @@ export async function POST(req: Request) {
       depth,
       dropFloor,
       outpostId,
+      tileOutpostId: lockedTileOutpostId,
       rareMapIid,
     };
 
@@ -1330,9 +1433,23 @@ export async function POST(req: Request) {
   const taxedTotal = resultBody.batch
     ? (resultBody.batch.totalGoldTaxed ?? 0)
     : (resultBody.result?.goldTaxed ?? 0);
-  if (outpostId && taxedTotal > 0) {
+  if (taxedTotal > 0) {
     try {
-      const label = await resolveTaxOwnerLabel(outpostId);
+      let taxOutpostId = outpostId;
+      if (lockedTileOutpostId) {
+        const [tileOcc] = await db
+          .select({ occupiedByGuildId: outpostOccupations.occupiedByGuildId })
+          .from(outpostOccupations)
+          .where(eq(outpostOccupations.outpostId, lockedTileOutpostId))
+          .limit(1);
+        if (tileOcc?.occupiedByGuildId != null) {
+          taxOutpostId = lockedTileOutpostId;
+        }
+      }
+      const label = taxOutpostId
+        ? await resolveTaxOwnerLabel(taxOutpostId)
+        : null;
+      if (!label) throw new Error("tax outpost unavailable");
       if (resultBody.batch) resultBody.batch.taxOwnerLabel = label;
       else if (resultBody.result) resultBody.result.taxOwnerLabel = label;
     } catch (err) {

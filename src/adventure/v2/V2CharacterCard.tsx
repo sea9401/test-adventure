@@ -30,9 +30,6 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
 import {
-  CraftQualityBadge,
-  EnhanceLevelBadge,
-  MasterworkBadge,
   V2ItemCard,
   anchorOf,
   powerNameClass,
@@ -232,13 +229,13 @@ export function V2CharacterCard({
                 {character.name}
               </span>
             </span>
-            <span className="text-sm text-zinc-700 dark:text-zinc-200">
+            <span className="ui-profile-readable-copy text-sm text-zinc-700 dark:text-zinc-200">
               {cappedLevel ? `Lv ${character.level} / ${cappedLevel}` : `Lv.${character.level}`}
             </span>
-            <span className="text-xs text-zinc-700 dark:text-zinc-200">
+            <span className="ui-profile-readable-copy text-xs text-zinc-700 dark:text-zinc-200">
               · {jobName}
             </span>
-            <span className="text-xs text-zinc-700 dark:text-zinc-200">
+            <span className="ui-profile-readable-copy text-xs text-zinc-700 dark:text-zinc-200">
               · {guild ? guild.name : "무소속"}
             </span>
           </div>
@@ -259,7 +256,7 @@ export function V2CharacterCard({
               <span className="shrink-0 rounded bg-teal-50 px-1.5 py-0.5 font-medium text-teal-700 dark:bg-teal-950 dark:text-teal-300">
                 활성 프리셋
               </span>
-              <span className="min-w-0 truncate font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="ui-profile-readable-copy min-w-0 truncate font-medium text-zinc-700 dark:text-zinc-300">
                 {activePresetName}
               </span>
             </div>
@@ -268,7 +265,7 @@ export function V2CharacterCard({
             <ActiveFoodBuffBadge buff={activeFoodBuff} />
           ) : null}
           {isAtCap && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+            <p className="ui-profile-readable-copy text-[11px] text-amber-600 dark:text-amber-400">
               레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요.
             </p>
           )}
@@ -293,28 +290,27 @@ export function V2CharacterCard({
         </div>
         {showGold && (
           <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
-            <span className="text-zinc-700 dark:text-zinc-200">골드</span>
-            <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
+            <span className="ui-profile-readable-copy text-zinc-700 dark:text-zinc-200">
+              골드
+            </span>
+            <span className="ui-profile-value-chip font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
               {character.gold.toLocaleString()}
             </span>
           </div>
         )}
       </div>
       {equipped && (
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-200 pt-3 sm:grid-cols-3 dark:border-zinc-800">
+        <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-zinc-200 pt-3 sm:grid-cols-6 dark:border-zinc-800">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const iid = equipped?.[slot];
             const inst = iid ? byIid.get(iid) : undefined;
             const item = inst ? V2_EQUIPMENT[inst.id] : null;
-            const slotClass = `${SURFACE_INSET} ui-character-slot flex flex-col items-center gap-1 px-2 py-2 text-center`;
+            const slotClass = `${SURFACE_INSET} ui-character-slot flex min-w-0 flex-col items-center gap-0.5 px-1.5 py-1.5 text-center`;
             const inner = (
               <>
-                <Icon size={18} weight="duotone" className={color} />
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                  {label}
-                </div>
-                <div
-                  className={`flex min-h-[2rem] w-full min-w-0 items-start justify-center gap-0.5 text-xs font-medium leading-tight ${
+                <Icon size={14} weight="duotone" className={color} />
+                <span
+                  className={`w-full truncate text-[11px] font-medium leading-tight ${
                     item
                       ? powerNameClass(
                           item,
@@ -325,17 +321,8 @@ export function V2CharacterCard({
                       : "text-zinc-400 dark:text-zinc-600"
                   }`}
                 >
-                  <span className="min-w-0 break-keep line-clamp-2">
-                    {item?.name ?? "—"}
-                  </span>
-                </div>
-                {inst ? (
-                  <div className="flex max-w-full flex-wrap justify-center gap-1">
-                    <EnhanceLevelBadge enhance={inst.enhance} />
-                    <CraftQualityBadge craftQuality={inst.craftQuality} />
-                    {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
-                  </div>
-                ) : null}
+                  {item?.name ?? label}
+                </span>
               </>
             );
             // 아이템이 있으면 클릭 가능한 버튼 → 옵션 카드 팝업. 빈 슬롯은 정적 표시.
@@ -343,6 +330,8 @@ export function V2CharacterCard({
               <button
                 key={slot}
                 type="button"
+                aria-label={`${label}: ${item.name}`}
+                title={`${label}: ${item.name}`}
                 onClick={(e) =>
                   setSelected({
                     item,
@@ -358,7 +347,7 @@ export function V2CharacterCard({
                 {inner}
               </button>
             ) : (
-              <div key={slot} className={slotClass}>
+              <div key={slot} className={slotClass} title={`${label}: 비어 있음`}>
                 {inner}
               </div>
             );

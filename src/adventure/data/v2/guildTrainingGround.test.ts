@@ -126,6 +126,32 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
       available: true,
       rewardMastery: 26,
     });
+    expect(views.find((v) => v.id === "tactical_simulation")).toMatchObject({
+      available: false,
+      lockedReason: "훈련장 Lv 4 필요",
+    });
+    expect(views.find((v) => v.id === "master_trial")).toMatchObject({
+      available: false,
+      lockedReason: "훈련장 Lv 5 필요",
+    });
+  });
+
+  it("Lv4에서 전술 모의전을 해금해 Lv3과 Lv5 사이를 잇는다", () => {
+    const views = guildTrainingDrillViews({
+      state: { dayKey: "2026-07-01", claimed: [] },
+      buildingLevel: 4,
+      characterLevel: 75,
+      hasJob: true,
+      currentClass: "rogue",
+    });
+
+    expect(views.find((v) => v.id === "tactical_simulation")).toMatchObject({
+      available: true,
+      categoryLabel: "전술",
+      focusLabel: "공용",
+      rewardMastery: 35,
+      recommended: true,
+    });
     expect(views.find((v) => v.id === "master_trial")).toMatchObject({
       available: false,
       lockedReason: "훈련장 Lv 5 필요",
@@ -169,6 +195,10 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     expect(views.find((v) => v.id === "field_rotation")).toMatchObject({
       rewardMastery: 33,
     });
+    expect(views.find((v) => v.id === "tactical_simulation")).toMatchObject({
+      available: true,
+      rewardMastery: 39,
+    });
     expect(views.find((v) => v.id === "master_trial")).toMatchObject({
       available: true,
       rewardMastery: 45,
@@ -193,7 +223,7 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     });
   });
 
-  it("6차 트레이너 누적 보너스와 5레벨 훈련장으로 하루 최대 121 숙련도를 준다", () => {
+  it("6차 트레이너 누적 보너스와 5레벨 훈련장으로 하루 최대 139 숙련도를 준다", () => {
     const views = guildTrainingDrillViews({
       state: { dayKey: "2026-07-01", claimed: [] },
       buildingLevel: 5,
@@ -204,8 +234,16 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     });
 
     expect(views.find((v) => v.id === "master_trial")?.rewardMastery).toBe(54);
+    expect(views.find((v) => v.id === "tactical_simulation")?.rewardMastery).toBe(46);
     expect(views.find((v) => v.id === "field_rotation")?.rewardMastery).toBe(39);
     expect(views.find((v) => v.id === "recovery_camp")?.rewardMastery).toBe(28);
+    expect(
+      ["master_trial", "tactical_simulation", "field_rotation"].reduce(
+        (total, id) =>
+          total + (views.find((view) => view.id === id)?.rewardMastery ?? 0),
+        0,
+      ),
+    ).toBe(139);
   });
 
   it("훈련장 레벨별 일일 훈련 횟수를 초과하면 남은 훈련을 잠근다", () => {

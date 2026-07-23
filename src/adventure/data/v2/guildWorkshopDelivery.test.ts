@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   GUILD_WORKSHOP_DELIVERIES,
+  GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT,
   claimGuildWorkshopDelivery,
   guildWorkshopDeliveryReward,
   guildWorkshopDeliveryViews,
   parseGuildWorkshopDeliveryState,
+  todayDeliveryKey,
 } from "./guildWorkshopDelivery";
 import type { V2EquipInstance } from "./v2Equipment";
 
@@ -19,6 +21,15 @@ describe("guild workshop delivery", () => {
       craftedAt: new Date(0).toISOString(),
     },
   };
+
+  it("resets the delivery day at midnight KST", () => {
+    expect(todayDeliveryKey(new Date("2026-07-23T14:59:59Z"))).toBe(
+      "2026-07-23",
+    );
+    expect(todayDeliveryKey(new Date("2026-07-23T15:00:00Z"))).toBe(
+      "2026-07-24",
+    );
+  });
 
   it("resets malformed or stale state to the current day", () => {
     expect(parseGuildWorkshopDeliveryState(null, "2026-06-30")).toEqual({
@@ -80,6 +91,7 @@ describe("guild workshop delivery", () => {
       rewardGold: 325000,
       bonusPct: 30,
       masterworkBonusPct: 0,
+      masterMarkBonusPct: 0,
     });
   });
 
@@ -96,8 +108,27 @@ describe("guild workshop delivery", () => {
     expect(reward).toMatchObject({
       bonusPct: 35,
       masterworkBonusPct: 25,
+      masterMarkBonusPct: 0,
     });
     expect(reward.rewardGold).toBe(945000);
+  });
+
+  it("adds an extra delivery premium to masterwork equipment crafted at level 10", () => {
+    const reward = guildWorkshopDeliveryReward(
+      GUILD_WORKSHOP_DELIVERIES.daily_masterwork,
+      {
+        ...crafted,
+        id: "v2_crafted_sunforge_blade",
+        craftedBy: { ...crafted.craftedBy!, level: 10, masterwork: true },
+      },
+      3,
+    );
+    expect(reward).toMatchObject({
+      bonusPct: 45,
+      masterworkBonusPct: 25,
+      masterMarkBonusPct: GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT,
+    });
+    expect(reward.rewardGold).toBe(1_015_000);
   });
 
   it("requires craft-only equipment with a masterwork mark for masterwork delivery", () => {

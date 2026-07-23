@@ -1,3 +1,5 @@
+import { kstDayKey } from "@/lib/kst";
+import { BLACKSMITH_MASTER_MARK_LEVEL } from "./artisan";
 import { V2_EQUIPMENT, type V2EquipInstance } from "./v2Equipment";
 
 export type GuildWorkshopDeliveryId =
@@ -20,6 +22,7 @@ export type GuildWorkshopDeliveryReward = {
   rewardGold: number;
   bonusPct: number;
   masterworkBonusPct: number;
+  masterMarkBonusPct: number;
 };
 
 export type GuildWorkshopDeliveryState = {
@@ -73,6 +76,7 @@ export const GUILD_WORKSHOP_DELIVERIES: Record<
 };
 
 export const GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT = 25;
+export const GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT = 10;
 
 export const GUILD_WORKSHOP_DELIVERY_IDS = Object.keys(
   GUILD_WORKSHOP_DELIVERIES,
@@ -88,7 +92,7 @@ export function isGuildWorkshopDeliveryId(
 }
 
 export function todayDeliveryKey(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return kstDayKey(now);
 }
 
 export function parseGuildWorkshopDeliveryState(
@@ -157,11 +161,19 @@ export function guildWorkshopDeliveryReward(
     inst.craftedBy?.masterwork === true
       ? GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT
       : 0;
+  const masterMarkBonusPct =
+    inst.craftedBy?.masterwork === true &&
+    (inst.craftedBy.level ?? 1) >= BLACKSMITH_MASTER_MARK_LEVEL
+      ? GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT
+      : 0;
   const bonusPct = Math.min(
     125,
     Math.max(
       0,
-      (safeSmithyLevel - 1) * 5 + craftQualityLevel * 10 + masterworkBonusPct,
+      (safeSmithyLevel - 1) * 5 +
+        craftQualityLevel * 10 +
+        masterworkBonusPct +
+        masterMarkBonusPct,
     ),
   );
   const mult = 1 + bonusPct / 100;
@@ -170,6 +182,7 @@ export function guildWorkshopDeliveryReward(
     rewardGold: Math.floor(delivery.rewardGold * mult),
     bonusPct,
     masterworkBonusPct,
+    masterMarkBonusPct,
   };
 }
 

@@ -53,6 +53,36 @@ describe("guild workshop weekly quests", () => {
     );
   });
 
+  it("applies the smithy bonus to weekly quest progress without changing raw counts", () => {
+    const state = {
+      weekKey: "2026-W26",
+      craftCount: 15,
+      qualityCount: 2,
+      weaponCount: 10,
+      armorCount: 0,
+      craftOnlyCount: 0,
+      masterworkCount: 0,
+      highTierCount: 0,
+      claimed: [],
+    };
+    const views = guildWorkshopWeeklyQuestViews(state, 40);
+
+    expect(views.find((q) => q.id === "weekly_craft_20")).toMatchObject({
+      rawProgress: 15,
+      progress: 21,
+      progressBonusPct: 40,
+      complete: true,
+      canClaim: true,
+    });
+    expect(views.find((q) => q.id === "weekly_quality_3")).toMatchObject({
+      rawProgress: 2,
+      progress: 2.8,
+      complete: false,
+    });
+    expect(state.craftCount).toBe(15);
+    expect(state.qualityCount).toBe(2);
+  });
+
   it("increments progress and claims once", () => {
     const base = {
       weekKey: "2026-W26",

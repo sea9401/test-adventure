@@ -868,7 +868,7 @@ export function settlementBuildingUpgradeSummary(
     return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 완료 보상 +${trade.completionRewardBonusPct}%`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
-  return `품질 +${smithy.qualityChanceBonusPct}%p`;
+  return `품질 +${smithy.qualityChanceBonusPct}%p · 주간 의뢰 진척 +${smithy.weeklyProgressBonusPct}%`;
 }
 
 export function settlementBuildingUpgradeCostText(

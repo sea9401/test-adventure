@@ -61,6 +61,7 @@ import {
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
 } from "@/adventure/data/v2/guildWorkshop";
+import { GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function GuildContent() {
@@ -376,8 +377,19 @@ export function GuildContent() {
       <P>
         제작소는 개인이 채집한 원목·광석과 제작 촉매로 장비를 만드는 길드
         시설입니다. 제작은 장인 성장과 연결되고, 누적 제작 기록이 쌓일수록 품질
-        확률 보너스가 붙습니다.
+        확률 보너스가 붙습니다. 제작소 레벨의 주간 진척 보너스는 모든 주간 제작
+        의뢰에 적용되며, 예를 들어 Lv.5에서는 제작 1회가 1.4회분으로 계산됩니다.
       </P>
+      <Table
+        head={["제작소", "시설 단계", "품질 확률", "주간 의뢰 진척"]}
+        rows={GUILD_SMITHY_UPGRADES.map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          <Em key={upgrade.level}>{upgrade.label}</Em>,
+          `+${upgrade.qualityChanceBonusPct}%p`,
+          `+${upgrade.weeklyProgressBonusPct}%`,
+        ])}
+        caption="주간 진척 보너스는 실제 제작 횟수를 바꾸지 않고 의뢰 완료 판정에만 적용됩니다. 제작소 레벨이 오르면 진행 중인 이번 주 의뢰에도 현재 레벨 보너스가 반영됩니다."
+      />
       <UL>
         <li>
           장비 등급에 맞는 원목과 광석을 함께 사용합니다. 1~5등급은 소나무·철,
@@ -408,6 +420,12 @@ export function GuildContent() {
         <li>
           분해는 제작 재료 일부를 돌려받는 기능입니다. 회수율은 최대{" "}
           <Em>{GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT}%</Em>입니다.
+        </li>
+        <li>
+          일일 제작 납품은 매일 00:00 KST에 초기화됩니다. 대장장이 Lv10
+          이상에 만든 명장 제작품은 기존 명장 보너스에 더해{" "}
+          <Em>납품 보너스 +{GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT}%</Em>를
+          추가로 받습니다.
         </li>
       </UL>
       <Table

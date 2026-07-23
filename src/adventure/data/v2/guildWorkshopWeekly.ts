@@ -49,7 +49,9 @@ export type GuildWorkshopWeeklyProgressInput =
     };
 
 export type GuildWorkshopWeeklyQuestView = GuildWorkshopWeeklyQuest & {
+  rawProgress: number;
   progress: number;
+  progressBonusPct: number;
   complete: boolean;
   claimed: boolean;
   canClaim: boolean;
@@ -251,15 +253,23 @@ function weeklyProgressForMetric(
 
 export function guildWorkshopWeeklyQuestViews(
   state: GuildWorkshopWeeklyState,
+  progressBonusPct = 0,
 ): GuildWorkshopWeeklyQuestView[] {
+  const bonusPct = Math.min(
+    100,
+    Math.max(0, Math.floor(Number(progressBonusPct) || 0)),
+  );
   return GUILD_WORKSHOP_WEEKLY_QUEST_IDS.map((id) => {
     const quest = GUILD_WORKSHOP_WEEKLY_QUESTS[id];
-    const progress = weeklyProgressForMetric(state, quest.metric);
+    const rawProgress = weeklyProgressForMetric(state, quest.metric);
+    const progress = Math.round(rawProgress * (100 + bonusPct)) / 100;
     const claimed = state.claimed.includes(id);
     const complete = progress >= quest.goal;
     return {
       ...quest,
+      rawProgress,
       progress,
+      progressBonusPct: bonusPct,
       complete,
       claimed,
       canClaim: complete && !claimed,

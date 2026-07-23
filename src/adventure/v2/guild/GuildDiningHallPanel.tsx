@@ -396,10 +396,10 @@ export function GuildDiningHallPanel() {
                   <Image
                     src={menu.imageSrc}
                     alt=""
-                    width={48}
-                    height={48}
+                    width={80}
+                    height={80}
                     unoptimized
-                    className="h-12 w-12 shrink-0 object-contain"
+                    className="h-[72px] w-[72px] shrink-0 object-contain md:h-20 md:w-20"
                   />
                   <div className="min-w-0 flex-1">
                     <h5 className="text-sm font-bold">{menu.name}</h5>

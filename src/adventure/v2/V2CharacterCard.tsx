@@ -48,7 +48,10 @@ import {
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
 } from "./adventureSupportDisplay";
-import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import {
+  getProfileBorderVariant,
+  type MuseunCosmeticAppearance,
+} from "@/adventure/data/v2/museunCosmetics";
 import {
   ArenaChampionshipBadge,
   chatNameClass,
@@ -164,6 +167,9 @@ export function V2CharacterCard({
       ? adventureSupport.activeUntil
       : null;
   const [supportDetailsOpen, setSupportDetailsOpen] = useState(false);
+  const profileDecoration = profileBorder
+    ? getProfileBorderVariant(profileBorder)
+    : null;
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -195,7 +201,7 @@ export function V2CharacterCard({
         padding="md"
         className={`ui-character-card ${
           profileBorder
-            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder}`
+            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
             : ""
         }`}
       >

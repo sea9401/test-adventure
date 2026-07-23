@@ -39,9 +39,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   prismatic_profile_border: {
     id: "prismatic_profile_border",
-    name: "프리즘 프로필 테두리",
+    name: "프리즘 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 은은하게 흐르는 프리즘 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 흐르는 프리즘 테두리와 오팔빛 내부 광휘를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -49,9 +49,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   infernal_profile_border: {
     id: "infernal_profile_border",
-    name: "업화 프로필 테두리",
+    name: "업화 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 붉은 불꽃이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 붉은 불꽃 테두리와 피어오르는 불씨를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -59,9 +59,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   oceanic_profile_border: {
     id: "oceanic_profile_border",
-    name: "심해 프로필 테두리",
+    name: "심해 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 푸른 물결이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 푸른 물결 테두리와 움직이는 물빛·기포를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -69,9 +69,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   verdant_profile_border: {
     id: "verdant_profile_border",
-    name: "세계수 프로필 테두리",
+    name: "세계수 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 초록빛 생명이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 생명의 테두리와 내부의 덩굴·잎사귀를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -79,9 +79,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   celestial_profile_border: {
     id: "celestial_profile_border",
-    name: "천상 프로필 테두리",
+    name: "천상 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 금빛과 성운이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드 전체에 금빛 테두리와 성운·별자리 전용 연출을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 500,
     delivery: "entitlement",
     tradeable: false,
@@ -89,9 +89,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   obsidian_profile_border: {
     id: "obsidian_profile_border",
-    name: "흑요석 프로필 테두리",
+    name: "흑요석 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 검붉은 흑요석이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 검붉은 테두리와 빛나는 용암 균열을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -99,9 +99,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   frozen_profile_border: {
     id: "frozen_profile_border",
-    name: "빙결 프로필 테두리",
+    name: "빙결 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 차가운 서리가 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 얼음 테두리와 흩날리는 서리·눈 결정을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -109,9 +109,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   storm_profile_border: {
     id: "storm_profile_border",
-    name: "폭풍 프로필 테두리",
+    name: "폭풍 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 번개와 먹구름이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 폭풍 테두리와 먹구름·번개 섬광을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -119,9 +119,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   rose_profile_border: {
     id: "rose_profile_border",
-    name: "장미 프로필 테두리",
+    name: "장미 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 장미와 금빛이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 장미빛 테두리와 흩날리는 꽃잎을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -129,9 +129,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   royal_profile_border: {
     id: "royal_profile_border",
-    name: "황실 프로필 테두리",
+    name: "황실 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 황금과 자색이 흐르는 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 황금·자색 테두리와 움직이는 황실 문양을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 500,
     delivery: "entitlement",
     tradeable: false,
@@ -139,9 +139,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   iron_profile_border: {
     id: "iron_profile_border",
-    name: "철제 프로필 테두리",
+    name: "철제 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 무광 철제 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 무광 철제 단색 테두리를 적용하는 기본형 꾸미기입니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -149,9 +149,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   bronze_profile_border: {
     id: "bronze_profile_border",
-    name: "청동 프로필 테두리",
+    name: "청동 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 무광 청동 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 무광 청동 단색 테두리를 적용하는 기본형 꾸미기입니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -159,9 +159,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   sapphire_profile_border: {
     id: "sapphire_profile_border",
-    name: "사파이어 프로필 테두리",
+    name: "사파이어 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 무광 사파이어 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 사파이어 단색 테두리를 적용하는 기본형 꾸미기입니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -169,9 +169,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   amethyst_profile_border: {
     id: "amethyst_profile_border",
-    name: "자수정 프로필 테두리",
+    name: "자수정 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 무광 자수정 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 자수정 단색 테두리를 적용하는 기본형 꾸미기입니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -179,9 +179,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   jade_profile_border: {
     id: "jade_profile_border",
-    name: "비취 프로필 테두리",
+    name: "비취 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 무광 비취 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+      "캐릭터 프로필 카드에 비취 단색 테두리를 적용하는 기본형 꾸미기입니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -471,7 +471,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "cosmetic_extension_30d",
     name: "꾸미기 30일 연장권",
     description:
-      "도감에 해금된 닉네임 꾸미기, 프로필 테두리 또는 채팅 배지 한 종류의 사용 기간을 30일 연장합니다. 사용 전에는 거래소에 등록할 수 있습니다.",
+      "도감에 해금된 닉네임 꾸미기, 프로필 꾸미기 또는 채팅 배지 한 종류의 사용 기간을 30일 연장합니다. 사용 전에는 거래소에 등록할 수 있습니다.",
     coinPrice: 400,
     delivery: "inventory",
     tradeable: true,
@@ -479,9 +479,9 @@ export const MUSEUN_CASH_ITEMS = {
   },
   profile_border_box: {
     id: "profile_border_box",
-    name: "프로필 테두리 상자",
+    name: "프로필 꾸미기 상자",
     description:
-      "미보유 프로필 테두리 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 중복은 나오지 않으며, 사용 전에는 거래소에 등록할 수 있습니다.",
+      "미보유 프로필 꾸미기 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 일반 등급은 테두리형이며 높은 등급일수록 카드 내부 연출이 풍부해집니다.",
     coinPrice: 400,
     delivery: "inventory",
     tradeable: true,

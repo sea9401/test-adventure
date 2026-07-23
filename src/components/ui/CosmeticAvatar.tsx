@@ -33,14 +33,21 @@ export function CosmeticAvatar({
 }) {
   const src = avatarImageSrc(avatar);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const profileDecoration = profileBorder
+    ? getProfileBorderVariant(profileBorder)
+    : null;
   const cosmeticClass = profileBorder
-    ? `ui-profile-avatar-frame-cosmetic ui-profile-frame-${profileBorder} ${getProfileBorderVariant(profileBorder).motion === "static" ? "ui-profile-frame-static" : ""}`
+    ? `ui-profile-avatar-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
     : "";
 
   return (
     <span
       className={`ui-profile-avatar-frame ${cosmeticClass} ${className}`}
-      title={profileBorder ? `${name}님의 프로필 테두리` : undefined}
+      title={
+        profileDecoration
+          ? `${name}님의 ${profileDecoration.name} 프로필 꾸미기`
+          : undefined
+      }
     >
       {failedSrc === src ? (
         <span

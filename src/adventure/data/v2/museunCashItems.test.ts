@@ -48,6 +48,7 @@ describe("무슨 코인 캐시 소모품", () => {
       effect: { kind: "chroma_name_box" },
     });
     expect(MUSEUN_CASH_ITEMS.profile_border_box).toMatchObject({
+      name: "프로필 꾸미기 상자",
       coinPrice: 400,
       delivery: "inventory",
       tradeable: true,

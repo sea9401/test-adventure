@@ -348,7 +348,7 @@ export function V2CosmeticsView({
       },
       {
         key: "border" as const,
-        label: "테두리",
+        label: "프로필",
         icon: <FrameCorners size={16} weight="duotone" />,
         badge: `${PROFILE_BORDER_VARIANTS.filter((item) => cosmetics.owned.includes(item.itemId)).length}/${PROFILE_BORDER_VARIANTS.length}`,
       },
@@ -382,7 +382,7 @@ export function V2CosmeticsView({
           </span>
         </div>
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          프로필 이미지 변경과 닉네임 꾸미기, 프로필 테두리, 채팅 배지를 한곳에서 관리합니다.
+          프로필 이미지 변경과 닉네임 꾸미기, 프로필 꾸미기, 채팅 배지를 한곳에서 관리합니다.
           상자에서 획득하면 도감에 영구 기록되고 {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
         </p>
       </Card>
@@ -632,8 +632,8 @@ function BorderCodex({
 }) {
   return (
     <CollectionLayout
-      title="프로필 테두리 도감"
-      description="캐릭터 프로필 카드 바깥쪽에 표시할 테두리입니다."
+      title="프로필 꾸미기 도감"
+      description="테두리와 카드 내부의 테마 연출을 함께 바꿉니다. 높은 등급일수록 내부 효과가 풍부해집니다."
     >
       {SORTED_PROFILE_BORDER_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
@@ -658,21 +658,21 @@ function BorderCodex({
                 "profile_border",
                 active ? null : variant.itemId,
                 active
-                  ? "프로필 테두리를 해제했습니다"
-                  : "프로필 테두리를 착용했습니다",
+                  ? "프로필 꾸미기를 해제했습니다"
+                  : "프로필 꾸미기를 착용했습니다",
               )
             }
             onExtend={() =>
               onRequestExtension({
                 id: variant.itemId,
-                label: `테두리 · ${variant.name}`,
+                label: `프로필 · ${variant.name}`,
                 activeUntil: cosmetics.accessUntil[variant.itemId] ?? null,
               })
             }
             className={`ui-profile-frame-cosmetic ui-profile-frame-${variant.id} ${variant.motion === "static" ? "ui-profile-frame-static" : ""}`}
             title={`${variant.name} 테두리`}
             rarity={variant.rarity}
-            detail={PROFILE_BORDER_RARITIES[variant.rarity].effect}
+            detail={`${PROFILE_BORDER_RARITIES[variant.rarity].effect} · ${variant.feature}`}
           />
         );
       })}

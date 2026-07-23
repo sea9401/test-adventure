@@ -101,7 +101,7 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
   return (
     <div
       aria-label="캐릭터 이미지"
-      className="flex aspect-square w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 sm:w-28 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-600"
+      className="flex aspect-square w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 sm:w-24 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-600"
     >
       {errored ? (
         <UserIcon size={56} weight="duotone" />
@@ -206,15 +206,21 @@ export function V2CharacterCard({
   return (
     <>
       <Card padding="md" className="ui-character-card">
-        <div
-          className={`${SURFACE_INSET} ui-profile-decoration-banner ${
-            profileBorder
-              ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
-              : ""
-          } flex items-center p-2 sm:p-3`}
-          title={profileDecoration?.name}
-        >
+        <div className="flex items-stretch gap-2 sm:gap-3">
           <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
+          <div
+            aria-label={
+              profileDecoration
+                ? `프로필 꾸미기: ${profileDecoration.name}`
+                : "프로필 꾸미기 영역"
+            }
+            className={`${SURFACE_INSET} ui-profile-decoration-banner ${
+              profileBorder
+                ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
+                : ""
+            } min-w-0 flex-1 overflow-hidden`}
+            title={profileDecoration?.name}
+          />
         </div>
 
         <div className={`${SURFACE_INSET} mt-3 p-3`}>

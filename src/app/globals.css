@@ -2479,9 +2479,8 @@ body {
 }
 
 @keyframes nickname-hellfire-embers {
-  0% { transform: translateY(0); opacity: 0; }
-  25% { opacity: 0.5; }
-  100% { transform: translateY(-0.62em); opacity: 0; }
+  from { background-position: 0 0, 0.2em 0.3em, 0.55em 0.15em; }
+  to { background-position: 0 -1.2em, 0.2em -1.15em, 0.55em -1.45em; }
 }
 
 @keyframes nickname-stormcall-flash {
@@ -2490,9 +2489,8 @@ body {
 }
 
 @keyframes nickname-frost-drift {
-  0% { transform: translate3d(-0.15em, -0.05em, 0); opacity: 0; }
-  20% { opacity: 0.52; }
-  100% { transform: translate3d(0.28em, 0.45em, 0); opacity: 0; }
+  from { background-position: 0 0, 0.25em -0.15em, 0.6em 0.2em, 0.9em -0.3em; }
+  to { background-position: 1.25em 1.2em, 1.7em 1.35em, 2.3em 1.55em, 2.8em 1.35em; }
 }
 
 @keyframes nickname-constellation-twinkle {
@@ -2507,9 +2505,10 @@ body {
 }
 
 @keyframes nickname-petalfall-drift {
-  0% { transform: translate3d(-0.24em, -0.36em, 0) rotate(-14deg); opacity: 0; }
-  18% { opacity: 0.54; }
-  100% { transform: translate3d(0.36em, 0.48em, 0) rotate(34deg); opacity: 0; }
+  0% { transform: translate3d(-0.22em, -0.48em, 0) rotate(-16deg); opacity: 0; }
+  14% { opacity: 0.52; }
+  82% { opacity: 0.52; }
+  100% { transform: translate3d(0.34em, 0.56em, 0) rotate(32deg); opacity: 0; }
 }
 
 .ui-chat-name-chroma--legendary {
@@ -2553,7 +2552,10 @@ body {
     radial-gradient(circle at 16% 75%, #fde047 0 0.06em, transparent 0.08em),
     radial-gradient(circle at 54% 58%, #fb923c 0 0.05em, transparent 0.07em),
     radial-gradient(circle at 82% 78%, #fef08a 0 0.055em, transparent 0.075em);
-  animation: nickname-hellfire-embers 1.35s ease-out infinite;
+  background-repeat: repeat;
+  background-size: 1.1em 1.2em, 1.35em 1.45em, 1.65em 1.6em;
+  opacity: 0.48;
+  animation: nickname-hellfire-embers 1.8s linear infinite;
 }
 
 .ui-chat-name-chroma--stormcall {
@@ -2602,7 +2604,10 @@ body {
     radial-gradient(circle at 42% 2%, #67e8f9 0 0.05em, transparent 0.07em),
     radial-gradient(circle at 72% 28%, #f8fafc 0 0.065em, transparent 0.085em),
     radial-gradient(circle at 94% 8%, #bae6fd 0 0.045em, transparent 0.065em);
-  animation: nickname-frost-drift 2.4s linear infinite;
+  background-repeat: repeat;
+  background-size: 1.25em 1.2em, 1.45em 1.5em, 1.7em 1.35em, 1.9em 1.65em;
+  opacity: 0.5;
+  animation: nickname-frost-drift 3.2s linear infinite;
 }
 
 .ui-chat-name-chroma--constellation {
@@ -2657,21 +2662,25 @@ body {
 }
 
 .ui-chat-name-chroma--petalfall::before {
-  inset: -0.22em -0.2em;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(251, 113, 133, 0.16), rgba(249, 168, 212, 0.06) 55%, transparent 72%);
-  filter: blur(0.07em);
+  inset: -0.42em -0.16em -0.2em;
+  background:
+    radial-gradient(ellipse at 14% 8%, #fecdd3 0 0.06em, transparent 0.08em),
+    radial-gradient(ellipse at 56% 26%, #fb7185 0 0.055em, transparent 0.075em),
+    radial-gradient(ellipse at 86% 2%, #f9a8d4 0 0.065em, transparent 0.085em);
+  filter: drop-shadow(0 0 0.03em rgba(190, 24, 93, 0.34));
+  animation: nickname-petalfall-drift 3.6s linear -1.8s infinite;
 }
 
 .ui-chat-name-chroma--petalfall::after {
-  inset: -0.36em -0.12em -0.18em;
+  z-index: -1;
+  inset: -0.42em -0.16em -0.2em;
   background:
     radial-gradient(ellipse at 7% 10%, #f9a8d4 0 0.07em, transparent 0.09em),
     radial-gradient(ellipse at 38% 28%, #fb7185 0 0.06em, transparent 0.08em),
     radial-gradient(ellipse at 70% 4%, #fecdd3 0 0.065em, transparent 0.085em),
     radial-gradient(ellipse at 94% 35%, #fdba74 0 0.055em, transparent 0.075em);
   filter: drop-shadow(0 0 0.03em rgba(190, 24, 93, 0.4));
-  animation: nickname-petalfall-drift 2.7s ease-in-out infinite;
+  animation: nickname-petalfall-drift 3.6s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

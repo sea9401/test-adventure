@@ -17,6 +17,16 @@ import {
 } from "./cooking";
 
 describe("personal cooking", () => {
+  it("maps every recipe to its own cooking image asset", () => {
+    const paths = COOKING_RECIPES.map((recipe) => recipe.imageSrc);
+    expect(paths).toEqual(
+      COOKING_RECIPES.map(
+        (recipe) => `/images/items/cooking/${recipe.id}.webp`,
+      ),
+    );
+    expect(new Set(paths).size).toBe(COOKING_RECIPES.length);
+  });
+
   it("uses both farm crops and every fishing stock grade", () => {
     expect(COOKING_RECIPES.some((recipe) => Object.keys(recipe.farmIngredients).length > 0)).toBe(true);
     const fishIds = new Set(COOKING_RECIPES.flatMap((recipe) => Object.keys(recipe.fishingIngredients ?? {})));

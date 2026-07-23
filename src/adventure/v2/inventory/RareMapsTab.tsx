@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Diamond } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
@@ -197,9 +198,14 @@ function CookingFoodSection({
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    <span className="text-lg" aria-hidden>
-                      {food.recipe.icon}
-                    </span>
+                    <Image
+                      src={food.recipe.imageSrc}
+                      alt=""
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="h-10 w-10 shrink-0 object-contain"
+                    />
                     <span className="truncate">{food.name}</span>
                     <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                       ×{count}

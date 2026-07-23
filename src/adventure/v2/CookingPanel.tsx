@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Star } from "@phosphor-icons/react";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { FARM_CROP_LIST, FARM_ITEMS, type FarmItemInventory } from "./farm";
@@ -244,7 +245,14 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
             return (
               <article key={recipe.id} className={`${SURFACE_INSET} flex flex-col p-3`}>
                 <div className="flex items-start gap-2">
-                  <span className="text-2xl" aria-hidden>{recipe.icon}</span>
+                  <Image
+                    src={recipe.imageSrc}
+                    alt=""
+                    width={72}
+                    height={72}
+                    unoptimized
+                    className="h-[72px] w-[72px] shrink-0 object-contain"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <h4 className="font-bold text-zinc-900 dark:text-zinc-100">{recipe.name}</h4>
@@ -325,7 +333,17 @@ function OrderBoard({
           const possible = maxCookable(recipe, data, false) > 0;
           return (
             <div key={order.id} className={`${SURFACE_INSET} p-3 text-sm`}>
-              <div className="font-semibold text-zinc-900 dark:text-zinc-100">{recipe.icon} {recipe.name}</div>
+              <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                <Image
+                  src={recipe.imageSrc}
+                  alt=""
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-10 shrink-0 object-contain"
+                />
+                <span>{recipe.name}</span>
+              </div>
               <div className="mt-1 text-xs text-zinc-500">{order.rewardGold.toLocaleString()} 골드 · 증표 {order.rewardReputation} · XP +{order.bonusXp}</div>
               <button
                 type="button"

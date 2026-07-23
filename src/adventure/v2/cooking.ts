@@ -17,6 +17,7 @@ export type CookingRecipe = {
   id: string;
   name: string;
   icon: string;
+  imageSrc: string;
   requiredLevel: number;
   farmIngredients: FarmItemInventory;
   fishingIngredients?: Partial<Record<FishingCatchItemId, number>>;
@@ -78,7 +79,12 @@ export type CookingFoodDefinition = CookingFoodVariant & {
   statPct: Partial<Record<V2StatKey, number>>;
 };
 
-const recipe = (value: CookingRecipe): CookingRecipe => value;
+const recipe = (
+  value: Omit<CookingRecipe, "imageSrc">,
+): CookingRecipe => ({
+  ...value,
+  imageSrc: `/images/items/cooking/${value.id}.webp`,
+});
 
 export const COOKING_RECIPES: readonly CookingRecipe[] = [
   recipe({ id: "rustic_bread", name: "투박한 밀빵", icon: "🍞", requiredLevel: 1, farmIngredients: { wheat: 15 }, optionalRareItemId: "golden_wheat", xp: 12, baseStatPct: { vit: 5 }, specialStatPct: { vit: 7 }, description: "든든한 빵으로 활력을 높입니다." }),

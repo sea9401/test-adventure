@@ -33,7 +33,9 @@ import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import {
   MUSEUN_CASH_ITEMS,
+  MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY,
   MUSEUN_COSMETIC_BOX_ITEM_IDS,
+  maxMuseunCoinShopPurchaseQuantity,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
@@ -214,19 +216,20 @@ export function MuseunCoinShopView() {
     };
   }, []);
 
-  async function purchase(itemId: MuseunCashItemId) {
+  async function purchase(itemId: MuseunCashItemId, quantity: number) {
     if (buying) return;
     setBuying(itemId);
     try {
       const res = await fetch("/api/v2/museun-coin-shop", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ itemId }),
+        body: JSON.stringify({ itemId, quantity }),
       });
       const data = (await res.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
         itemName?: string;
+        quantity?: number;
         coins?: number;
         cashItems?: MuseunCashItemCounts;
         cosmetics?: MuseunCosmeticsState;
@@ -248,7 +251,7 @@ export function MuseunCoinShopView() {
       notifySystem(
         data.delivery === "entitlement"
           ? `✓ 구매 완료 — ${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
-          : `✓ 구매 완료 — ${data.itemName ?? "캐시 아이템"}을 가방에 넣었습니다.`,
+          : `✓ 구매 완료 — ${data.itemName ?? "캐시 아이템"} ${(data.quantity ?? quantity).toLocaleString()}개를 가방에 넣었습니다.`,
       );
       setDetailItemId(null);
     } catch {
@@ -363,7 +366,7 @@ export function MuseunCoinShopView() {
           itemId={confirmItemId}
           coins={coins}
           buying={buying === confirmItemId}
-          onConfirm={() => void purchase(confirmItemId)}
+          onConfirm={(quantity) => void purchase(confirmItemId, quantity)}
           onClose={() => setConfirmItemId(null)}
         />
       )}
@@ -381,7 +384,7 @@ function CashItemPurchaseConfirmDialog({
   itemId: MuseunCashItemId;
   coins: number;
   buying: boolean;
-  onConfirm: () => void;
+  onConfirm: (quantity: number) => void;
   onClose: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -392,7 +395,31 @@ function CashItemPurchaseConfirmDialog({
   useModalA11y(contentRef);
 
   const item = MUSEUN_CASH_ITEMS[itemId];
-  const balanceAfterPurchase = Math.max(0, coins - item.coinPrice);
+  const maxQuantity = maxMuseunCoinShopPurchaseQuantity(
+    coins,
+    item.coinPrice,
+  );
+  const [quantityInput, setQuantityInput] = useState("1");
+  const parsedQuantity = Number(quantityInput);
+  const quantity =
+    Number.isInteger(parsedQuantity) &&
+    parsedQuantity >= 1 &&
+    parsedQuantity <= maxQuantity
+      ? parsedQuantity
+      : 0;
+  const totalPrice = item.coinPrice * quantity;
+  const balanceAfterPurchase = Math.max(0, coins - totalPrice);
+  const canPurchase = !buying && quantity > 0;
+
+  const setClampedQuantity = useCallback(
+    (next: number) => {
+      const upperBound = Math.max(1, maxQuantity);
+      setQuantityInput(
+        String(Math.min(upperBound, Math.max(1, Math.floor(next) || 1))),
+      );
+    },
+    [maxQuantity],
+  );
 
   return createPortal(
     <div
@@ -433,7 +460,8 @@ function CashItemPurchaseConfirmDialog({
           <strong className="text-zinc-900 dark:text-zinc-100">
             {item.name}
           </strong>
-          의 구매를 확정하면 무슨 코인이 즉시 차감됩니다.
+          의 구매 수량을 선택해 주세요. 구매를 확정하면 무슨 코인이 즉시
+          차감됩니다.
         </p>
 
         <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
@@ -441,6 +469,64 @@ function CashItemPurchaseConfirmDialog({
             <span className="text-zinc-500 dark:text-zinc-400">상품 가격</span>
             <strong className="tabular-nums text-amber-700 dark:text-amber-300">
               {item.coinPrice.toLocaleString()}코인
+            </strong>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="cash-item-purchase-quantity"
+              className="text-zinc-500 dark:text-zinc-400"
+            >
+              구매 수량
+            </label>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                aria-label="구매 수량 1개 줄이기"
+                disabled={buying || quantityInput === "1"}
+                onClick={() => setClampedQuantity((quantity || 1) - 1)}
+                className="ui-game-button flex size-8 items-center justify-center rounded-md border border-zinc-300 bg-white font-bold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+              >
+                −
+              </button>
+              <input
+                id="cash-item-purchase-quantity"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={Math.max(1, maxQuantity)}
+                step={1}
+                value={quantityInput}
+                disabled={buying}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setQuantityInput(event.target.value)}
+                onBlur={() => setClampedQuantity(parsedQuantity)}
+                className="h-8 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center font-bold tabular-nums text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+              <button
+                type="button"
+                aria-label="구매 수량 1개 늘리기"
+                disabled={
+                  buying || maxQuantity === 0 || quantity >= maxQuantity
+                }
+                onClick={() => setClampedQuantity((quantity || 0) + 1)}
+                className="ui-game-button flex size-8 items-center justify-center rounded-md border border-zinc-300 bg-white font-bold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                disabled={buying || maxQuantity === 0}
+                onClick={() => setClampedQuantity(maxQuantity)}
+                className="ui-game-button h-8 rounded-md border border-amber-400 bg-amber-50 px-2 text-xs font-bold text-amber-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+              >
+                최대
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">총 결제액</span>
+            <strong className="tabular-nums text-amber-700 dark:text-amber-300">
+              {totalPrice.toLocaleString()}코인
             </strong>
           </div>
           <div className="flex items-center justify-between gap-3">
@@ -458,7 +544,8 @@ function CashItemPurchaseConfirmDialog({
         </div>
 
         <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          캐시 재화를 사용하는 구매입니다. 상품과 가격을 다시 확인해 주세요.
+          보유 코인으로 최대 {maxQuantity.toLocaleString()}개, 한 번에 최대{" "}
+          {MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY}개까지 구매할 수 있습니다.
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-2">
@@ -468,10 +555,14 @@ function CashItemPurchaseConfirmDialog({
           <Button
             size="md"
             variant="warning"
-            disabled={buying}
-            onClick={onConfirm}
+            disabled={!canPurchase}
+            onClick={() => onConfirm(quantity)}
           >
-            {buying ? "구매 중…" : `${item.coinPrice.toLocaleString()}코인 구매`}
+            {buying
+              ? "구매 중…"
+              : quantity > 0
+                ? `${quantity.toLocaleString()}개 · ${totalPrice.toLocaleString()}코인 구매`
+                : "수량 확인 필요"}
           </Button>
         </div>
       </div>

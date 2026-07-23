@@ -5,11 +5,14 @@ import {
   MUSEUN_COSMETIC_INVENTORY_ITEM_IDS,
   MUSEUN_SHOP_ITEM_IDS,
   MUSEUN_UTILITY_ITEM_IDS,
+  MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY,
   addMuseunCashItem,
   isMuseunCashItemId,
   isMuseunCosmeticBoxItemId,
   parseMuseunCashItems,
   parseMuseunCoinBalance,
+  parseMuseunCoinShopPurchaseQuantity,
+  maxMuseunCoinShopPurchaseQuantity,
   removeMuseunCashItem,
   isTradeableMuseunCashItemId,
   isMuseunShopItemId,
@@ -57,7 +60,7 @@ describe("무슨 코인 캐시 소모품", () => {
       effect: { kind: "chat_badge_box" },
     });
     expect(MUSEUN_CASH_ITEMS.cosmetic_extension_30d).toMatchObject({
-      coinPrice: 300,
+      coinPrice: 400,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "cosmetic_extension", days: 30 },
@@ -149,5 +152,18 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(parseMuseunCoinBalance({ coins: 1_234.9 })).toBe(1_234);
     expect(parseMuseunCoinBalance({ coins: -1 })).toBe(0);
     expect(parseMuseunCoinBalance({ coins: "broken" })).toBe(0);
+  });
+
+  it("상점 일괄 구매 수량을 1~99개 정수로 제한하고 구매 가능 최대치를 계산한다", () => {
+    expect(MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY).toBe(99);
+    expect(parseMuseunCoinShopPurchaseQuantity(1)).toBe(1);
+    expect(parseMuseunCoinShopPurchaseQuantity("12")).toBe(12);
+    expect(parseMuseunCoinShopPurchaseQuantity(99)).toBe(99);
+    expect(parseMuseunCoinShopPurchaseQuantity(0)).toBeNull();
+    expect(parseMuseunCoinShopPurchaseQuantity(1.5)).toBeNull();
+    expect(parseMuseunCoinShopPurchaseQuantity(100)).toBeNull();
+    expect(maxMuseunCoinShopPurchaseQuantity(2_050, 400)).toBe(5);
+    expect(maxMuseunCoinShopPurchaseQuantity(100_000, 300)).toBe(99);
+    expect(maxMuseunCoinShopPurchaseQuantity(1_000, 0)).toBe(0);
   });
 });

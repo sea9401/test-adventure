@@ -13,6 +13,7 @@ import {
   isMuseunShopItemId,
   parseMuseunCashItems,
   parseMuseunCoinBalance,
+  parseMuseunCoinShopPurchaseQuantity,
 } from "@/adventure/data/v2/museunCashItems";
 import { parseMuseunCosmetics } from "@/adventure/data/v2/museunCosmetics";
 
@@ -54,15 +55,18 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { itemId?: unknown };
+  let body: { itemId?: unknown; quantity?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return bad("invalid_json");
   }
   if (!isMuseunShopItemId(body.itemId)) return bad("invalid_item");
+  const quantity = parseMuseunCoinShopPurchaseQuantity(body.quantity ?? 1);
+  if (quantity === null) return bad("invalid_quantity");
   const itemId = body.itemId;
   const item = MUSEUN_CASH_ITEMS[itemId];
+  const totalPrice = item.coinPrice * quantity;
 
   const result = await db.transaction(async (tx) => {
     // 게임 내 공통 잠금 순서에 맞춰 캐릭터를 먼저 잠근다.
@@ -80,17 +84,22 @@ export async function POST(req: Request) {
     );
     const currentCashItems = parseMuseunCashItems(character.cashItems);
     const coins = parseMuseunCoinBalance(wallet);
-    if (coins < item.coinPrice) {
+    if (coins < totalPrice) {
       return {
         status: 400,
-        body: { ok: false as const, error: "insufficient_coins", coins },
+        body: {
+          ok: false as const,
+          error: "insufficient_coins",
+          coins,
+          requiredCoins: totalPrice,
+        },
       };
     }
 
-    const nextCoins = coins - item.coinPrice;
+    const nextCoins = coins - totalPrice;
     const cashItems =
       item.delivery === "inventory"
-        ? addMuseunCashItem(currentCashItems, itemId, 1)
+        ? addMuseunCashItem(currentCashItems, itemId, quantity)
         : currentCashItems;
     const cosmetics = parseMuseunCosmetics(character.museunCosmetics);
     await upsertSave(tx, userId, "character.v2", {
@@ -109,6 +118,8 @@ export async function POST(req: Request) {
         ok: true as const,
         itemId,
         itemName: item.name,
+        quantity,
+        totalPrice,
         coins: nextCoins,
         cashItems,
         cosmetics,

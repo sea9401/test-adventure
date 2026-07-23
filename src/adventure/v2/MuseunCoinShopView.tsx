@@ -1135,11 +1135,11 @@ function CosmeticCollectionItemPreview({
         <div
           className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style as ProfileBorderId} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-4`}
         >
-          <div className={`${SURFACE_INSET} flex items-center gap-3 p-3`}>
+          <div className="flex items-center gap-3">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 text-sm font-black text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
               모
             </div>
-            <div className="min-w-0">
+            <div className={`${SURFACE_INSET} min-w-0 flex-1 p-3`}>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 프로필 카드
               </div>
@@ -1195,7 +1195,7 @@ function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
         <div
           className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${cosmeticEffect.style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-4`}
         >
-          <div className={`${SURFACE_INSET} p-3`}>
+          <div className={`${SURFACE_INSET} ml-auto w-4/5 p-3`}>
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
               프로필 미리보기
             </div>

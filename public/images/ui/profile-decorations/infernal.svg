@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="fire" x1="0" y1="1" x2="0" y2="0">
+      <stop stop-color="#991b1b" stop-opacity=".72"/>
+      <stop offset=".48" stop-color="#f97316" stop-opacity=".68"/>
+      <stop offset="1" stop-color="#fde047" stop-opacity=".48"/>
+    </linearGradient>
+    <radialGradient id="ember">
+      <stop stop-color="#fef08a"/>
+      <stop offset=".45" stop-color="#fb923c" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#dc2626" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g fill="url(#fire)" stroke="#fb923c" stroke-opacity=".55" stroke-width="2">
+    <path d="M0 280V146c36 18 43-52 74-83-3 53 45 61 20 127 42-30 47-86 33-130 72 56 94 134 53 220H0Z"/>
+    <path d="M800 280V146c-36 18-43-52-74-83 3 53-45 61-20 127-42-30-47-86-33-130-72 56-94 134-53 220h180Z"/>
+    <path d="M218 280c-18-34 2-76 31-102-7 38 31 48 10 102h-41Z" opacity=".55"/>
+    <path d="M582 280c18-34-2-76-31-102 7 38-31 48-10 102h41Z" opacity=".55"/>
+  </g>
+  <path d="M188 262c87-28 337-28 424 0" fill="none" stroke="#f97316" stroke-width="4" stroke-opacity=".34"/>
+  <g fill="url(#ember)">
+    <circle cx="94" cy="54" r="10"/><circle cx="158" cy="120" r="7"/>
+    <circle cx="236" cy="72" r="6"/><circle cx="706" cy="54" r="10"/>
+    <circle cx="642" cy="120" r="7"/><circle cx="564" cy="72" r="6"/>
+  </g>
+</svg>

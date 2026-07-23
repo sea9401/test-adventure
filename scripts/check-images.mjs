@@ -31,7 +31,7 @@ async function walk(dir, out = []) {
     if (e.isDirectory()) {
       if (e.name === "node_modules" || e.name.startsWith(".")) continue;
       await walk(full, out);
-    } else if (e.isFile() && /\.(ts|tsx|js|jsx|md)$/.test(e.name)) {
+    } else if (e.isFile() && /\.(ts|tsx|js|jsx|md|css)$/.test(e.name)) {
       out.push(full);
     }
   }

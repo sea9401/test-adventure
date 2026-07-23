@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" preserveAspectRatio="none">
+  <defs>
+    <radialGradient id="nebula">
+      <stop stop-color="#c084fc" stop-opacity=".28"/>
+      <stop offset=".46" stop-color="#38bdf8" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#312e81" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="constellation" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fde68a"/><stop offset=".5" stop-color="#e0f2fe"/><stop offset="1" stop-color="#f0abfc"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="400" cy="140" rx="300" ry="125" fill="url(#nebula)"/>
+  <g fill="none" stroke="url(#constellation)" stroke-width="2" stroke-opacity=".56">
+    <path d="m70 198 72-112 90 48 82-82 86 88 88-62 92 76 82-105 70 115"/>
+    <path d="m232 134 168 6 180 14" stroke-dasharray="7 10" opacity=".62"/>
+  </g>
+  <g fill="#fff7cc" stroke="#fde68a" stroke-width="2">
+    <path d="m70 187 4 8 9 2-7 6 1 9-7-4-8 4 2-9-7-6 9-2 4-8Z"/>
+    <path d="m314 39 4 9 10 1-8 7 2 10-8-5-9 5 2-10-8-7 10-1 5-9Z"/>
+    <path d="m488 66 4 8 9 2-7 6 1 9-7-4-8 4 2-9-7-6 9-2 4-8Z"/>
+    <path d="m732 151 4 9 10 1-8 7 2 10-8-5-9 5 2-10-8-7 10-1 5-9Z"/>
+  </g>
+  <g fill="#e0f2fe" opacity=".78">
+    <circle cx="142" cy="86" r="6"/><circle cx="232" cy="134" r="5"/>
+    <circle cx="400" cy="140" r="7"/><circle cx="580" cy="154" r="5"/>
+    <circle cx="662" cy="49" r="6"/>
+  </g>
+</svg>

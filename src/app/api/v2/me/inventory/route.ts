@@ -12,6 +12,7 @@ import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
+import { parseCookingFoodInventory } from "@/adventure/v2/cooking";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.
 //
@@ -37,7 +38,11 @@ export async function GET() {
 
   let charSave: { materials?: Record<string, unknown>; spFruitUsed?: unknown } =
     {};
-  let invSave: { hpCharges?: number; mpCharges?: number } = {};
+  let invSave: {
+    hpCharges?: number;
+    mpCharges?: number;
+    cookingFoods?: unknown;
+  } = {};
   for (const r of rows) {
     if (r.key === "character.v2")
       charSave = (r.value ?? {}) as typeof charSave;
@@ -72,6 +77,7 @@ export async function GET() {
     materials,
     hpCharges,
     mpCharges,
+    cookingFoods: parseCookingFoodInventory(invSave.cookingFoods),
     spFruitUsed,
     spCapBonus,
   });

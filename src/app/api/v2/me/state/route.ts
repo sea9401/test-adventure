@@ -47,6 +47,7 @@ import {
 import { miningProgressionView } from "@/adventure/v2/miningProgression";
 import {
   COOKING_SAVE_KEY,
+  activeCookingBuff,
   cookingLevelForXp,
   parseCookingState,
 } from "@/adventure/v2/cooking";
@@ -220,6 +221,7 @@ export async function GET(req: Request) {
     spFruitUsed?: unknown;
     museunCosmetics?: unknown;
     arenaChampionshipBadges?: unknown;
+    activeFoodBuff?: unknown;
   };
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
@@ -417,6 +419,7 @@ export async function GET(req: Request) {
           serverNow: now,
         }
       : null,
+    activeFoodBuff: activeCookingBuff(charSave.activeFoodBuff, now),
     // 사냥이 스태미나 모드인가(코어루프 on + 스태미나 다이얼) — 클라가 스태미나 바/UI 표시 판정.
     huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
     // 사냥 쿨다운 — 쿨다운 모드만 객체, 스태미나 모드/off 면 null(스태미나 판정).

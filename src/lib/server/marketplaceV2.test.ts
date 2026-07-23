@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
+import { cookingFoodId } from "@/adventure/v2/cooking";
 import {
   MARKETPLACE_V2_LISTING_TTL_DAYS,
   MARKETPLACE_V2_MATERIAL_QTY_MAX,
@@ -144,6 +145,15 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(itemDisplayName("consumable", "rename_permit")).toBe(
       MUSEUN_CASH_ITEMS.rename_permit.name,
     );
+    const foodId = cookingFoodId({
+      recipeId: "rustic_bread",
+      quality: "careful",
+      usedRare: true,
+      extended: true,
+    });
+    expect(itemDisplayName("consumable", foodId)).toBe(
+      "투박한 밀빵 (정성작 · 희귀 특선 · 장시간)",
+    );
     expect(itemDisplayName("consumable", "nope")).toBeNull();
   });
 
@@ -166,6 +176,15 @@ describe("tradable 판정 + 이름 스냅샷", () => {
         "옛 개명권 이름",
       ),
     ).toBe(MUSEUN_CASH_ITEMS.rename_permit.name);
+    const foodId = cookingFoodId({
+      recipeId: "rustic_bread",
+      quality: "normal",
+      usedRare: false,
+      extended: false,
+    });
+    expect(
+      currentMarketplaceItemName("consumable", foodId, "옛 음식 이름"),
+    ).toBe("투박한 밀빵 (일반)");
     expect(currentMarketplaceItemName("gold", "coin", "골드")).toBe("골드");
   });
 });

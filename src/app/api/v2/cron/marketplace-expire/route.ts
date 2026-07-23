@@ -12,6 +12,10 @@ import {
   addMuseunCashItem,
   isMuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  addCookingFood,
+  isCookingFoodId,
+} from "@/adventure/v2/cooking";
 
 // POST /api/v2/cron/marketplace-expire — 만료 매물 sweep (cron 주기 호출, 예: 매시간). CRON_SECRET.
 //   등록 후 TTL(MARKETPLACE_V2_LISTING_TTL_DAYS) 지난 active 매물을 판매자에게 반환(장비=새 개체,
@@ -24,6 +28,9 @@ type CharSave = {
   rareMaps?: unknown;
   cashItems?: unknown;
   [k: string]: unknown;
+};
+type InventorySave = Record<string, unknown> & {
+  cookingFoods?: unknown;
 };
 const BATCH = 200; // 1회 처리 상한(폭주/장기 tx 방지 — 다음 cron 이 나머지 처리).
 
@@ -69,6 +76,21 @@ export async function POST(req: Request) {
             ...charSave,
             cashItems: addMuseunCashItem(
               charSave.cashItems,
+              l.itemId,
+              l.quantity,
+            ),
+          });
+        } else if (isCookingFoodId(l.itemId)) {
+          const inventory = await lockSaveForUpdate<InventorySave>(
+            tx,
+            l.sellerId,
+            "inventory.v2",
+            {},
+          );
+          await upsertSave(tx, l.sellerId, "inventory.v2", {
+            ...inventory,
+            cookingFoods: addCookingFood(
+              inventory.cookingFoods,
               l.itemId,
               l.quantity,
             ),

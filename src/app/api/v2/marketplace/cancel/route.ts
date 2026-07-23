@@ -13,6 +13,10 @@ import {
   addMuseunCashItem,
   isMuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  addCookingFood,
+  isCookingFoodId,
+} from "@/adventure/v2/cooking";
 
 // POST /api/v2/marketplace/cancel — 내 활성 매물 취소(에스크로 반환).
 //   body: { listingId:int }
@@ -24,6 +28,10 @@ type CharSave = {
   cashItems?: unknown;
   materials?: Record<string, number>;
   [k: string]: unknown;
+};
+
+type InventorySave = Record<string, unknown> & {
+  cookingFoods?: unknown;
 };
 
 function bad(error: string, status = 400) {
@@ -82,6 +90,21 @@ export async function POST(req: Request) {
           ...charSave,
           cashItems: addMuseunCashItem(
             charSave.cashItems,
+            listing.itemId,
+            listing.quantity,
+          ),
+        });
+      } else if (isCookingFoodId(listing.itemId)) {
+        const inventory = await lockSaveForUpdate<InventorySave>(
+          tx,
+          userId,
+          "inventory.v2",
+          {},
+        );
+        await upsertSave(tx, userId, "inventory.v2", {
+          ...inventory,
+          cookingFoods: addCookingFood(
+            inventory.cookingFoods,
             listing.itemId,
             listing.quantity,
           ),

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   FISH_TIERS,
   formatFishSize,
@@ -1681,7 +1682,7 @@ export function FishingView({
 
   return (
     <>
-      <main className="mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-2.5 rounded-2xl border border-zinc-200 bg-white/90 p-3 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:space-y-3 sm:p-5">
+    <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-2.5 rounded-2xl p-3 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:space-y-3 sm:p-5`}>
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
 
         {verification && verifyHuman ? (

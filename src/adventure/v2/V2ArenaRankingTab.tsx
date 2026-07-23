@@ -7,6 +7,7 @@ import { Crown, CaretRight } from "@phosphor-icons/react";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 
 type RankEntry = {
   rank: number;
@@ -68,7 +69,7 @@ export function V2ArenaRankingTab() {
 
   return (
     <section className="space-y-3">
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800/50 dark:bg-amber-950/30">
+      <div className={`${SURFACE_ACCENT} p-3 text-sm`}>
         내 순위{" "}
         <strong className="tabular-nums">
           {data.myRank != null ? `${data.myRank}위` : "기록 없음"}
@@ -100,7 +101,7 @@ export function V2ArenaRankingTab() {
                 onClick={() => router.push(`/character/${encodeURIComponent(e.name)}`)}
                 className={
                   "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
-                  (e.isMe ? "bg-amber-50 dark:bg-amber-950/30" : "bg-white dark:bg-zinc-900")
+                  (e.isMe ? "bg-amber-50 dark:bg-amber-950" : "bg-white dark:bg-zinc-900")
                 }
               >
                 <span

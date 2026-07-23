@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   MINING_MATERIALS,
   MINING_NODES,
@@ -584,7 +585,7 @@ export function MiningView({
   );
 
   return (
-    <main className="mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 text-zinc-900 shadow-lg backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-5">
+    <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-3 rounded-2xl p-3 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-5`}>
       <SubViewHeader title="채광장" onBack={onBack} />
 
       {verification && verifyHuman ? (

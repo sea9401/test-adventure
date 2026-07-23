@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { requireAdminRole } from "@/lib/server/isAdmin";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
   ) {
     return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+
+  const adminGate = await requireAdminRole("super");
+  if (adminGate) return adminGate;
 
   const userId = await ensureUser();
   if (!userId) {

@@ -1,9 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, adminGate } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  adminGate: { response: null as Response | null },
+}));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
+}));
+vi.mock("@/lib/server/isAdmin", () => ({
+  requireAdminRole: vi.fn(async () => adminGate.response),
 }));
 
 vi.mock("@/db", () => ({
@@ -34,6 +40,7 @@ function req(body: unknown): Request {
 
 describe("POST /api/v2/dev/grant", () => {
   beforeEach(() => {
+    adminGate.response = null;
     store.clear();
     store.set("character.v2", {
       class: "warrior",
@@ -65,5 +72,15 @@ describe("POST /api/v2/dev/grant", () => {
     expect(prof.groups.warrior?.cumLevel).toBe(37);
     expect(prof.jobCumLevel?.warrior).toBe(12);
     expect(prof.points).toBe(100);
+  });
+
+  it("최고 관리자 권한이 없으면 지급하지 않는다", async () => {
+    adminGate.response = new Response("forbidden", { status: 403 });
+    const before = structuredClone(store.get("character.v2"));
+
+    const res = await POST(req({ gold: 1_000_000 }));
+
+    expect(res.status).toBe(403);
+    expect(store.get("character.v2")).toEqual(before);
   });
 });

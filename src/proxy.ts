@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
+import { isApiRequestBodyTooLarge } from "@/lib/apiRequestBodyLimit";
 import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
@@ -117,6 +118,13 @@ export default auth((req) => {
         },
       });
     }
+  }
+
+  if (isApiRequestBodyTooLarge(req, req.nextUrl.pathname)) {
+    return NextResponse.json(
+      { ok: false, error: "payload_too_large" },
+      { status: 413 },
+    );
   }
 
   // 비로그인 루트 요청은 라우트가 렌더링되기 전에 공개 대문으로 이동시킨다.

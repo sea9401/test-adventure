@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { requireAdminRole } from "@/lib/server/isAdmin";
 import { resetUserCharacterData } from "@/lib/server/resetCharacterData";
 
 // POST /api/v2/dev/reset-me — 본인 데이터 wipe (staging dev 도구).
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
   ) {
     return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+
+  const adminGate = await requireAdminRole("super");
+  if (adminGate) return adminGate;
 
   const userId = await ensureUser();
   if (!userId) {

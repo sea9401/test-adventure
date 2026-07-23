@@ -28,6 +28,7 @@ export type ExtraJobCondition =
   | { type: "monsterKilled"; monsterId: string; minCount: number }
   | { type: "statThreshold"; stat: V2StatKey; min: number }
   | { type: "farmingLevel"; min: number }
+  | { type: "cookingLevel"; min: number }
   | { type: "woodcuttingLevel"; min: number }
   | { type: "miningLevel"; min: number }
   | { type: "jobUnlocked"; jobId: string };
@@ -40,6 +41,8 @@ export type JobUnlockContext = {
   killCounts?: Readonly<Record<string, number>>;
   /** 농장 콘텐츠 전체 숙련 레벨(farm.v2 stats.farmingXp 에서 파생). */
   farmingLevel?: number;
+  /** 개인 요리 콘텐츠 숙련 레벨(cooking.v1 xp 에서 파생). */
+  cookingLevel?: number;
   /** 벌목 콘텐츠 레벨(woodcutting-log.v1 XP에서 파생). */
   woodcuttingLevel?: number;
   /** 채광 콘텐츠 레벨(mining-log.v1 XP에서 파생). */
@@ -121,6 +124,13 @@ export const FARMING_LEVEL_REQUIREMENTS = {
   masterfarmer: 20,
   harvestking: 35,
   earthartisan: 50,
+} as const;
+export const COOKING_LEVEL_REQUIREMENTS = {
+  cook: 5,
+  professionalcook: 10,
+  headchef: 20,
+  masterchef: 35,
+  legendarychef: 50,
 } as const;
 
 /**
@@ -229,6 +239,19 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 3, luk: 2 }, // 농장 생활 루트 입문 — 수확 보너스는 장착 패시브가 담당
     unlock: { prereqs: { survivor: FARMING_TIER2_UNLOCK_CUMLEVEL } },
+  },
+  cook: {
+    id: "cook",
+    name: "요리사",
+    tier: 2,
+    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    jobBonus: { int: 3, spi: 2 },
+    unlock: {
+      prereqs: { survivor: FARMING_TIER2_UNLOCK_CUMLEVEL },
+      extraConditions: [
+        { type: "cookingLevel", min: COOKING_LEVEL_REQUIREMENTS.cook },
+      ],
+    },
   },
   lumberjack: {
     id: "lumberjack",
@@ -478,6 +501,23 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       extraConditions: [
         { type: "jobUnlocked", jobId: "farmer" },
         { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.horticulturist },
+      ],
+    },
+  },
+  professionalcook: {
+    id: "professionalcook",
+    name: "전문 요리사",
+    tier: 3,
+    cultivateProfile: { int: 2, luk: 1, spi: 1 },
+    jobBonus: { int: 8, luk: 7 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "cook" },
+        {
+          type: "cookingLevel",
+          min: COOKING_LEVEL_REQUIREMENTS.professionalcook,
+        },
       ],
     },
   },
@@ -776,6 +816,23 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       ],
     },
   },
+  headchef: {
+    id: "headchef",
+    name: "수석 요리사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    jobBonus: { int: 12, spi: 10 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "professionalcook" },
+        {
+          type: "cookingLevel",
+          min: COOKING_LEVEL_REQUIREMENTS.headchef,
+        },
+      ],
+    },
+  },
   masterlumberjack: {
     id: "masterlumberjack",
     name: "벌목 명인",
@@ -972,6 +1029,23 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       ],
     },
   },
+  masterchef: {
+    id: "masterchef",
+    name: "요리 명장",
+    tier: 5,
+    cultivateProfile: { int: 2, luk: 1, spi: 1 },
+    jobBonus: { int: 16, luk: 12 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "headchef" },
+        {
+          type: "cookingLevel",
+          min: COOKING_LEVEL_REQUIREMENTS.masterchef,
+        },
+      ],
+    },
+  },
   forestmaster: {
     id: "forestmaster",
     name: "산림 대가",
@@ -1165,6 +1239,23 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       ],
     },
   },
+  legendarychef: {
+    id: "legendarychef",
+    name: "전설의 요리사",
+    tier: 6,
+    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    jobBonus: { int: 24, spi: 16 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "masterchef" },
+        {
+          type: "cookingLevel",
+          min: COOKING_LEVEL_REQUIREMENTS.legendarychef,
+        },
+      ],
+    },
+  },
   legendarylumberjack: {
     id: "legendarylumberjack",
     name: "전설의 나무꾼",
@@ -1228,6 +1319,11 @@ export const CATALOG_USES_FARMING_LEVEL_CONDITION: boolean = V2_JOB_LIST.some(
     (job.unlock.extraConditions ?? []).some((c) => c.type === "farmingLevel"),
 );
 
+export const CATALOG_USES_COOKING_LEVEL_CONDITION: boolean = V2_JOB_LIST.some(
+  (job) =>
+    (job.unlock.extraConditions ?? []).some((c) => c.type === "cookingLevel"),
+);
+
 export const CATALOG_USES_WOODCUTTING_LEVEL_CONDITION: boolean = V2_JOB_LIST.some(
   (job) =>
     (job.unlock.extraConditions ?? []).some((c) => c.type === "woodcuttingLevel"),
@@ -1264,6 +1360,8 @@ function extraConditionMet(
       return (ctx?.killCounts?.[cond.monsterId] ?? 0) >= cond.minCount;
     case "farmingLevel":
       return (ctx?.farmingLevel ?? 1) >= cond.min;
+    case "cookingLevel":
+      return (ctx?.cookingLevel ?? 1) >= cond.min;
     case "woodcuttingLevel":
       return (ctx?.woodcuttingLevel ?? 1) >= cond.min;
     case "miningLevel":
@@ -1331,6 +1429,7 @@ export function jobUnlockConditionText(job: V2JobDefinition): string {
   );
   for (const cond of job.unlock.extraConditions ?? []) {
     if (cond.type === "farmingLevel") conditions.push(`농사 Lv ${cond.min}`);
+    if (cond.type === "cookingLevel") conditions.push(`요리 Lv ${cond.min}`);
     if (cond.type === "woodcuttingLevel") conditions.push(`벌목 Lv ${cond.min}`);
     if (cond.type === "miningLevel") conditions.push(`채광 Lv ${cond.min}`);
     if (cond.type === "jobUnlocked") {
@@ -1434,12 +1533,26 @@ export function isMiningJobId(jobId: string): boolean {
   return V2_MINING_JOB_IDS.has(jobId);
 }
 
+export const V2_COOKING_JOB_IDS = [
+  "cook",
+  "professionalcook",
+  "headchef",
+  "masterchef",
+  "legendarychef",
+] as const;
+const V2_COOKING_JOB_ID_SET = new Set<string>(V2_COOKING_JOB_IDS);
+
+export function isCookingJobId(jobId: string): boolean {
+  return V2_COOKING_JOB_ID_SET.has(jobId);
+}
+
 export function isLifestyleMasteryJobId(jobId: string): boolean {
   return (
     isFishingJobId(jobId) ||
     isFarmingJobId(jobId) ||
     isWoodcuttingJobId(jobId) ||
-    isMiningJobId(jobId)
+    isMiningJobId(jobId) ||
+    isCookingJobId(jobId)
   );
 }
 
@@ -1488,6 +1601,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   fisher: { class: "survivor", spec: "fisher" },
   healthtrainer: { class: "survivor", spec: "healthtrainer" },
   farmer: { class: "survivor", spec: "farmer" },
+  cook: { class: "survivor", spec: "cook" },
   lumberjack: { class: "survivor", spec: "lumberjack" },
   miner: { class: "survivor", spec: "miner" },
   fieldmedic: { class: "survivor", spec: "fieldmedic" },
@@ -1495,6 +1609,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   angler: { class: "survivor", spec: "angler" },
   physicalcoach: { class: "survivor", spec: "physicalcoach" },
   horticulturist: { class: "survivor", spec: "horticulturist" },
+  professionalcook: { class: "survivor", spec: "professionalcook" },
   foresttechnician: { class: "survivor", spec: "foresttechnician" },
   miningtechnician: { class: "survivor", spec: "miningtechnician" },
   shieldman: { class: "warrior", spec: "knight" },
@@ -1553,6 +1668,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   masterangler: { class: "survivor", spec: "masterangler" },
   mastertrainer: { class: "survivor", spec: "mastertrainer" },
   masterfarmer: { class: "survivor", spec: "masterfarmer" },
+  headchef: { class: "survivor", spec: "headchef" },
   masterlumberjack: { class: "survivor", spec: "masterlumberjack" },
   masterminer: { class: "survivor", spec: "masterminer" },
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
@@ -1575,6 +1691,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   championmaker: { class: "survivor", spec: "championmaker" },
   fullcatchking: { class: "survivor", spec: "fullcatchking" },
   harvestking: { class: "survivor", spec: "harvestking" },
+  masterchef: { class: "survivor", spec: "masterchef" },
   forestmaster: { class: "survivor", spec: "forestmaster" },
   minemaster: { class: "survivor", spec: "minemaster" },
   transcendent: { class: "warrior", spec: "transcendent" },
@@ -1597,6 +1714,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   legendarytrainer: { class: "survivor", spec: "legendarytrainer" },
   seagod: { class: "survivor", spec: "seagod" },
   earthartisan: { class: "survivor", spec: "earthartisan" },
+  legendarychef: { class: "survivor", spec: "legendarychef" },
   legendarylumberjack: { class: "survivor", spec: "legendarylumberjack" },
   legendaryminer: { class: "survivor", spec: "legendaryminer" },
   blooddemon: { class: "warrior", spec: "blooddemon" },

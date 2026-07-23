@@ -83,6 +83,7 @@ import {
 } from "@/adventure/data/v2/v2JobPassives";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
+import { activeCookingBuff } from "@/adventure/v2/cooking";
 import {
   ACCURACY_PCT_CAP,
   ACCURACY_PCT_PER_DEX,
@@ -136,6 +137,8 @@ export type SavedCharacterV2 = {
   equippedSpells?: unknown;
   // specChoice = 직업 저장 브리지(jobIdFromLegacy 로 현재 직업 id 복원). 전투 효과 아님.
   specChoice?: unknown;
+  /** 개인 요리로 얻은 PvE 전용 능력치 버프. 만료 여부는 derive 시점에 검사한다. */
+  activeFoodBuff?: unknown;
 };
 
 export type DerivedPlayerCombatV2 = {
@@ -759,6 +762,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
   equipmentSave: unknown;
   proficiencyRaw: unknown;
   skillsRaw: unknown;
+  /** 아레나·훈련 대련처럼 음식 효과를 제외할 때 false. 기본은 PvE 적용. */
+  includeCookingBuff?: boolean;
 }): DerivedPlayerCombatV2 | null {
   const { character, equipmentSave, proficiencyRaw, skillsRaw } = saves;
   if (!character) return null;
@@ -800,7 +805,16 @@ export function derivePlayerCombatV2FromSaves(saves: {
     if (b) jobBonus[k] = (jobBonus[k] ?? 0) + b;
   }
   const atkPerDexCoef = passiveAgg.atkPerDexCoef;
-  const statPct = passiveAgg.statPct;
+  const statPct: Partial<Record<V2StatKey, number>> = { ...passiveAgg.statPct };
+  const foodBuff = saves.includeCookingBuff === false
+    ? null
+    : activeCookingBuff(character.activeFoodBuff);
+  if (foodBuff) {
+    for (const k of V2_STAT_KEYS) {
+      const bonus = foodBuff.statPct[k];
+      if (bonus) statPct[k] = (statPct[k] ?? 0) + bonus;
+    }
+  }
   const maxHpPct = passiveAgg.maxHpPct;
   const maxMpPct = passiveAgg.maxMpPct;
   // 직업 효과 패시브(받피감·spd 등) — specEff 경로로 주입(현재 V2_JOB_PASSIVES 비어 inert).
@@ -872,6 +886,7 @@ export async function derivePlayerCombatV2(
     equipmentSave?: unknown;
     proficiencyRaw?: unknown;
     skillsRaw?: unknown;
+    includeCookingBuff?: boolean;
   },
 ): Promise<DerivedPlayerCombatV2 | null> {
   const haveChar = preloaded?.character !== undefined;
@@ -907,5 +922,6 @@ export async function derivePlayerCombatV2(
     equipmentSave,
     proficiencyRaw,
     skillsRaw,
+    includeCookingBuff: preloaded?.includeCookingBuff,
   });
 }

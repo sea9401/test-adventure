@@ -5,6 +5,7 @@ export const FARM_PLOT_COUNT = 2;
 export const FARM_MAX_PLOT_COUNT = 6;
 
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
+export const FARM_RARE_PITY_HARVESTS = 20;
 
 export const FARMING_LEVEL_XP_SCALE = 10;
 // 짧은 작물은 4분당 1점을 주되, 4시간을 넘는 장기 작물은 초과 시간의 효율을
@@ -264,6 +265,8 @@ export type FarmState = {
     reputation: number;
     reputationSpent: number;
     farmingXp: number;
+    /** 희귀 작물을 얻지 못한 연속 수확 횟수. 20회째 희귀 수확을 보장한다. */
+    rareMissStreak: number;
   };
 };
 
@@ -327,6 +330,9 @@ export type FarmWeeklyDeliveryRequest = {
   requiredItems: FarmItemInventory;
   rewardSeeds: FarmSeedInventory;
   rewardReputation: number;
+  optionalRareItemId?: FarmItemId;
+  optionalRareItemName?: string;
+  optionalRareBonusReputation?: number;
 };
 
 export type FarmWeeklyDeliveryResult = {
@@ -334,6 +340,7 @@ export type FarmWeeklyDeliveryResult = {
   title: string;
   rewardSeeds: FarmSeedInventory;
   rewardReputation: number;
+  rareBonusApplied: boolean;
 };
 
 export type FarmShopItem = {
@@ -556,6 +563,7 @@ export function emptyFarmState(now = Date.now()): FarmState {
       reputation: 0,
       reputationSpent: 0,
       farmingXp: 0,
+      rareMissStreak: 0,
     },
   };
 }
@@ -571,6 +579,10 @@ export function parseFarmState(raw: unknown): FarmState {
     reputation: nonNegativeInt(value.stats?.reputation),
     reputationSpent: nonNegativeInt(value.stats?.reputationSpent),
     farmingXp: nonNegativeInt(value.stats?.farmingXp),
+    rareMissStreak: Math.min(
+      FARM_RARE_PITY_HARVESTS - 1,
+      nonNegativeInt(value.stats?.rareMissStreak),
+    ),
   };
   const savedPlots = Array.isArray(value.plots) ? value.plots : [];
   const plotCount = Math.max(
@@ -765,25 +777,34 @@ export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
       id: "weekly-bakery-crate",
       title: "주간 제빵소 밀 상자",
       note: "이번 주 여관과 제빵소에 들어갈 밀을 한 번에 납품합니다.",
-      requiredItems: { wheat: 30, golden_wheat: 1 },
+      requiredItems: { wheat: 30 },
       rewardSeeds: {},
-      rewardReputation: 8,
+      rewardReputation: 6,
+      optionalRareItemId: "golden_wheat",
+      optionalRareItemName: "황금 밀",
+      optionalRareBonusReputation: 2,
     },
     {
       id: "weekly-clinic-bundle",
       title: "주간 치료소 약초 묶음",
       note: "치료소가 회복약 재료를 넉넉히 확보하려 합니다.",
-      requiredItems: { herb: 16, silverleaf: 1 },
+      requiredItems: { herb: 16 },
       rewardSeeds: {},
-      rewardReputation: 9,
+      rewardReputation: 7,
+      optionalRareItemId: "silverleaf",
+      optionalRareItemName: "은빛잎",
+      optionalRareBonusReputation: 2,
     },
     {
       id: "weekly-market-cart",
       title: "주간 장터 간식 수레",
       note: "오래 자란 옥수수와 희귀 수확을 모아 장터에 보냅니다.",
-      requiredItems: { corn: 24, sweet_corn: 1 },
+      requiredItems: { corn: 24 },
       rewardSeeds: {},
-      rewardReputation: 10,
+      rewardReputation: 8,
+      optionalRareItemId: "sweet_corn",
+      optionalRareItemName: "달콤 옥수수",
+      optionalRareBonusReputation: 2,
     },
   ];
 }
@@ -1019,10 +1040,21 @@ export function claimFarmWeeklyDelivery(
   if (!hasFarmItems(weeklyState.inventory, request.requiredItems)) {
     throw new FarmError("not_enough_items");
   }
+  const rareBonusApplied = Boolean(
+    request.optionalRareItemId &&
+      (weeklyState.inventory[request.optionalRareItemId] ?? 0) > 0,
+  );
+  const requiredItems = { ...request.requiredItems };
+  if (rareBonusApplied && request.optionalRareItemId) {
+    requiredItems[request.optionalRareItemId] = 1;
+  }
+  const rewardReputation =
+    request.rewardReputation +
+    (rareBonusApplied ? (request.optionalRareBonusReputation ?? 0) : 0);
   const seedState = grantFarmSeeds(weeklyState, request.rewardSeeds);
   const nextState = normalizeFarmPlotCount({
     ...seedState,
-    inventory: spendFarmItems(seedState.inventory, request.requiredItems),
+    inventory: spendFarmItems(seedState.inventory, requiredItems),
     weekly: {
       ...seedState.weekly,
       claimedIds: [...seedState.weekly.claimedIds, request.id],
@@ -1030,7 +1062,7 @@ export function claimFarmWeeklyDelivery(
     stats: {
       ...seedState.stats,
       deliveries: seedState.stats.deliveries + 1,
-      reputation: seedState.stats.reputation + request.rewardReputation,
+      reputation: seedState.stats.reputation + rewardReputation,
     },
   });
 
@@ -1040,7 +1072,8 @@ export function claimFarmWeeklyDelivery(
       requestId: request.id,
       title: request.title,
       rewardSeeds: request.rewardSeeds,
-      rewardReputation: request.rewardReputation,
+      rewardReputation,
+      rareBonusApplied,
     },
   };
 }
@@ -1201,7 +1234,8 @@ export function harvestPlot(
     0.75,
     crop.rareChance + Math.max(0, options.rareChancePct ?? 0) / 100,
   );
-  const gotRare = rng() < rareChance;
+  const pityReady = state.stats.rareMissStreak >= FARM_RARE_PITY_HARVESTS - 1;
+  const gotRare = pityReady || rng() < rareChance;
   const rareQuantity = gotRare ? 1 : 0;
   const inventory = { ...state.inventory };
   inventory[crop.itemId] = (inventory[crop.itemId] ?? 0) + quantity;
@@ -1226,6 +1260,7 @@ export function harvestPlot(
         harvests: state.stats.harvests + 1,
         rareHarvests: state.stats.rareHarvests + rareQuantity,
         farmingXp,
+        rareMissStreak: gotRare ? 0 : state.stats.rareMissStreak + 1,
       },
     },
     result: {
@@ -1327,7 +1362,7 @@ function parseWeeklyState(raw: unknown): FarmState["weekly"] {
   };
 }
 
-function hasFarmItems(
+export function hasFarmItems(
   inventory: FarmItemInventory,
   requirements: FarmItemInventory,
 ): boolean {
@@ -1337,7 +1372,7 @@ function hasFarmItems(
   });
 }
 
-function spendFarmItems(
+export function spendFarmItems(
   inventory: FarmItemInventory,
   requirements: FarmItemInventory,
 ): FarmItemInventory {

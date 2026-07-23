@@ -244,6 +244,7 @@ async function buildCombatEntrants(
       equipmentSave: equipmentSaveForArena(equipmentRaw, loadout),
       proficiencyRaw,
       skillsRaw: skills,
+      includeCookingBuff: false,
     });
     if (!combat) continue;
     entrants.push({

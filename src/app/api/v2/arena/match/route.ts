@@ -283,6 +283,7 @@ export async function POST() {
       equipmentSave: equipmentSaveForArena(myEquipmentRaw, viewerArenaLoadout),
       proficiencyRaw: myProfRaw,
       skillsRaw: mySkills,
+      includeCookingBuff: false,
     });
     if (!viewerCombat) {
       return {
@@ -433,6 +434,7 @@ export async function POST() {
         equipmentSave: equipmentSaveForArena(oppRow("equipment.v2"), oppLoadout),
         proficiencyRaw: oppRow("proficiency.v2"),
         skillsRaw: oppSkills,
+        includeCookingBuff: false,
       });
     }
     if (!opponentCombat) {

@@ -22,6 +22,7 @@ import {
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_COOKING_LEVEL_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
   jobIdFromLegacy,
@@ -37,6 +38,7 @@ import {
   isFishingJobId,
   isWoodcuttingJobId,
   isMiningJobId,
+  isCookingJobId,
   isLifestyleMasteryJobId,
   rejobRequiredLevel,
   type V2JobDefinition,
@@ -178,16 +180,16 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("115개 직업(루트 2 + 기본 4 + 상위 17 + 고차 23 + 심화 28 + 5차 21 + 6차 20)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(115);
+  it("120개 직업(기존 115 + 요리 직업 5)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(120);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(17);
-    expect(byTier(3)).toBe(23);
-    expect(byTier(4)).toBe(28);
-    expect(byTier(5)).toBe(21);
-    expect(byTier(6)).toBe(20);
+    expect(byTier(2)).toBe(18);
+    expect(byTier(3)).toBe(24);
+    expect(byTier(4)).toBe(29);
+    expect(byTier(5)).toBe(22);
+    expect(byTier(6)).toBe(21);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -962,9 +964,10 @@ describe("extraConditions 추가 해금 조건 (#818)", () => {
     expect(isJobUnlocked(job, profWithCaps({ str: 49 }), ctx)).toBe(false);
   });
 
-  it("현 카탈로그는 농부·나무꾼·광부 상위 직업에 생활 레벨 조건을 쓴다", () => {
+  it("현 카탈로그는 농부·요리사·나무꾼·광부 상위 직업에 생활 레벨 조건을 쓴다", () => {
     expect(CATALOG_USES_QUEST_CONDITION).toBe(false);
     expect(CATALOG_USES_FARMING_LEVEL_CONDITION).toBe(true);
+    expect(CATALOG_USES_COOKING_LEVEL_CONDITION).toBe(true);
     expect(CATALOG_USES_WOODCUTTING_LEVEL_CONDITION).toBe(true);
     expect(CATALOG_USES_MINING_LEVEL_CONDITION).toBe(true);
     for (const job of V2_JOB_LIST) {
@@ -974,6 +977,15 @@ describe("extraConditions 추가 해금 조건 (#818)", () => {
           expect.arrayContaining([
             expect.objectContaining({ type: "jobUnlocked" }),
             expect.objectContaining({ type: "farmingLevel" }),
+          ]),
+        );
+      } else if (isCookingJobId(job.id)) {
+        expect(extra, `${job.id} 는 요리 레벨 조건을 사용`).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ type: "cookingLevel" }),
+            ...(job.id === "cook"
+              ? []
+              : [expect.objectContaining({ type: "jobUnlocked" })]),
           ]),
         );
       } else if (isWoodcuttingJobId(job.id) && job.id !== "lumberjack") {

@@ -11,6 +11,7 @@ import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { buildJobCodex } from "@/adventure/data/v2/v2JobCodex";
 import {
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_COOKING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
@@ -32,6 +33,11 @@ import {
 } from "@/adventure/v2/miningSession";
 import { miningProgressionView } from "@/adventure/v2/miningProgression";
 import {
+  COOKING_SAVE_KEY,
+  cookingLevelForXp,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
+import {
   GUIDE_QUESTS_KEY,
   parseClaimed,
 } from "@/lib/server/v2QuestContext";
@@ -47,6 +53,7 @@ export async function GET() {
   const saveKeys = ["character.v2", "proficiency.v2", "skills.v2"];
   if (CATALOG_USES_QUEST_CONDITION) saveKeys.push(GUIDE_QUESTS_KEY);
   if (CATALOG_USES_FARMING_LEVEL_CONDITION) saveKeys.push(FARM_SAVE_KEY);
+  if (CATALOG_USES_COOKING_LEVEL_CONDITION) saveKeys.push(COOKING_SAVE_KEY);
   if (CATALOG_USES_WOODCUTTING_LEVEL_CONDITION) {
     saveKeys.push(WOODCUTTING_LOG_KEY);
   }
@@ -86,6 +93,13 @@ export async function GET() {
       ? {
           farmingLevel: farmingLevelForState(
             parseFarmState(byKey.get(FARM_SAVE_KEY)),
+          ),
+        }
+      : {}),
+    ...(CATALOG_USES_COOKING_LEVEL_CONDITION
+      ? {
+          cookingLevel: cookingLevelForXp(
+            parseCookingState(byKey.get(COOKING_SAVE_KEY)).xp,
           ),
         }
       : {}),

@@ -38,12 +38,15 @@ export async function prepareV2BattleActor({
   charSave,
   equipmentSave: preloadedEquipmentSave,
   deriveSkills = "stored",
+  includeCookingBuff = true,
 }: {
   tx: DbExecutor;
   userId: string;
   charSave: SavedCharacterForBattle;
   equipmentSave?: unknown;
   deriveSkills?: "stored" | "sanitized";
+  /** 거점전처럼 플레이어 간 전투이면 false. */
+  includeCookingBuff?: boolean;
 }): Promise<PreparedV2BattleActor | null> {
   const equipmentSave =
     preloadedEquipmentSave ??
@@ -83,6 +86,7 @@ export async function prepareV2BattleActor({
     equipmentSave,
     proficiencyRaw,
     skillsRaw: deriveSkillsRaw,
+    includeCookingBuff,
   });
   if (!player) return null;
 

@@ -197,11 +197,13 @@ export async function POST(req: Request) {
       tx,
       userId,
       charSave: attackerSave,
+      includeCookingBuff: false,
     });
     const defenderActor = await prepareV2BattleActor({
       tx,
       userId: targetUserId,
       charSave: defenderSave,
+      includeCookingBuff: false,
     });
     if (!attackerActor) {
       return {

@@ -25,6 +25,7 @@ import {
 import {
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_COOKING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   type JobUnlockContext,
@@ -44,6 +45,11 @@ import {
   parseMiningLog,
 } from "@/adventure/v2/miningSession";
 import { miningProgressionView } from "@/adventure/v2/miningProgression";
+import {
+  COOKING_SAVE_KEY,
+  cookingLevelForXp,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
@@ -108,6 +114,7 @@ const STATE_SAVE_KEYS = [
   "inventory.v2",
   EQUIPMENT_CODEX_KEY,
   FARM_SAVE_KEY,
+  COOKING_SAVE_KEY,
   WOODCUTTING_LOG_KEY,
   MINING_LOG_KEY,
 ] as const;
@@ -327,6 +334,13 @@ export async function GET(req: Request) {
           ? {
               farmingLevel: farmingLevelForState(
                 parseFarmState(stateSaves.get(FARM_SAVE_KEY)),
+              ),
+            }
+          : {}),
+        ...(CATALOG_USES_COOKING_LEVEL_CONDITION
+          ? {
+              cookingLevel: cookingLevelForXp(
+                parseCookingState(stateSaves.get(COOKING_SAVE_KEY)).xp,
               ),
             }
           : {}),

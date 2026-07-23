@@ -3,6 +3,7 @@ import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
 import {
+  MARKETPLACE_V2_LISTING_TTL_DAYS,
   MARKETPLACE_V2_MATERIAL_QTY_MAX,
   MARKETPLACE_V2_PRICE_MAX,
   MARKETPLACE_V2_TAX_RATE,
@@ -19,6 +20,12 @@ import {
   saleProceeds,
   saleTax,
 } from "./marketplaceV2";
+
+describe("매물 만료", () => {
+  it("등록 후 48시간이 지나면 반환 대상으로 처리한다", () => {
+    expect(MARKETPLACE_V2_LISTING_TTL_DAYS).toBe(2);
+  });
+});
 
 describe("판매세 (sink) — saleProceeds / saleTax", () => {
   it("proceeds = floor(price × (1−세율)), 세금 = price − proceeds (보존: 골드 신규생성 0)", () => {

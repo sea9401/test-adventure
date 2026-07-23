@@ -107,7 +107,7 @@ function itemSummary(itemId: MuseunCashItemId): string {
   }
   if (item.effect.kind === "rename") return "캐릭터 이름을 한 번 변경합니다.";
   if (item.effect.kind === "profile_image") {
-    return "게임 내 이미지 선택 또는 직접 등록으로 프로필 이미지를 한 번 변경합니다.";
+    return "직접 등록한 이미지로 프로필 이미지를 한 번 변경합니다.";
   }
   if (item.effect.kind === "chroma_name_box") {
     return "미보유 닉네임 꾸미기 한 종류를 중복 없이 획득합니다.";
@@ -782,8 +782,8 @@ function CashItemDetailDialog({
           ) : itemId === "profile_image_permit" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               구매 후 JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수
-              있습니다. 게임에 포함된 캐릭터·NPC·몬스터 이미지는 변경권 없이 24시간마다
-              선택할 수 있으며, 변경권은 사용하기 전에 거래소에 등록할 수 있습니다.
+              있습니다. 변경권은 사용하기 전에 거래소에 등록해 다른 모험가와 거래할 수
+              있습니다.
             </p>
           ) : itemId === "cosmetic_extension_30d" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">

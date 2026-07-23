@@ -98,7 +98,11 @@ bash deploy/rollback.sh <좋은sha>        # reset→install→build→restart�
 cd ~/adventure-rpg && bash deploy/backup-db.sh         # 자동백업 스크립트 그대로(검증 포함)
 # 또는 직접: pg_dump "$DBURL" --no-owner --no-acl -f ~/backups/backup_$(date +%F_%H%M%S).sql
 ```
-- **2중 안전(권장)**: AWS 콘솔에서 **RDS 자동 스냅샷/PITR 보존기간 > 0** 확인(관리형·시점복원). EC2 IAM 역할에 백업 prefix 쓰기 권한을 부여하고 `BACKUP_S3_URI`를 설정한다.
+- **S3 오프사이트(구성 완료)**: EC2 역할 `MsmsgeProdDbBackupEc2Role`이
+  `s3://msmsge-prod-db-backups-983903215138-ap-northeast-2-an/adventure-rpg/`에만
+  암호화 쓰기·복구 읽기 권한을 가진다. 2026-07-23 실제 업로드 객체를 다시 읽어
+  gzip·pg_dump 완결 마커·SSE-S3(AES256)·버전 ID를 검증했다.
+- **관리형 복구(확인 필요)**: AWS 콘솔에서 **RDS 자동 스냅샷/PITR 보존기간 > 0**인지 확인한다.
 
 ### RDS 인증서 검증
 
@@ -202,6 +206,8 @@ bash deploy/maintenance.sh status   # 현재 상태
 | 항목 | 위치 |
 |---|---|
 | `DATABASE_URL`, OAuth(Kakao) 키, `CRON_SECRET` 등 | EC2 `~/adventure-rpg/.env.production.local` (레포·개발박스엔 없음) |
+| `BACKUP_S3_URI` | EC2 `~/adventure-rpg/.env.production.local` · 값은 위 S3 `adventure-rpg/` prefix |
+| S3 백업 권한 | EC2 IAM 역할 `MsmsgeProdDbBackupEc2Role` · 장기 액세스 키 없음 |
 | 배포 SSH·사람 확인 | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` · `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` · 선택 항목 `HCAPTCHA_SITE_KEY` · `HCAPTCHA_SECRET_KEY` (배포 시 EC2 env로 동기화) |
 | SSH 키 .pem | 로컬 `~/.ssh/msmsge-key.pem` |
 | 빌드타임 플래그 | tracked `.env.production` (예: `NEXT_PUBLIC_*` 운영 플래그) |
@@ -282,9 +288,9 @@ bash deploy/maintenance.sh status   # 현재 상태
 ---
 
 ## 9. 운영 성숙도 — 남은 TODO
-- [x] **자동 백업 + 복구 테스트** — `deploy/backup-db.sh`(일일·14일 로테) + 복구테스트 절차(§4 검증완료). ⬜ S3 오프사이트(IAM 역할 후)
+- [x] **자동 백업 + 복구 테스트** — `deploy/backup-db.sh`(일일·14일 로테) + 임시 DB 복구 + S3 오프사이트 업로드/읽기 검증 완료
 - [ ] 외부 업타임 모니터 + 알림 (Route53/CloudWatch/SNS)
-- [ ] 배포 후 자동 스모크
+- [x] 배포 후 자동 스모크 — health·sign-in·핵심 모듈 로드·운영 cron 인증 확인
 - [x] 점검(maintenance) 모드 — `deploy/maintenance.sh` (§4b)
 - [ ] 시크릿을 SSM/Secrets Manager로
 - [ ] 노출 자격증명 로테이션(베타 준비 중 채팅 노출분)

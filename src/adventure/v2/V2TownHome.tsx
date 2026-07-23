@@ -72,7 +72,6 @@ export function V2TownHome({
             />
           }
           title="모험가 농장"
-          description="작물을 재배하고 납품합니다."
           onClick={() => onAction({ kind: "open-farm" })}
         />
         <EntryCard
@@ -84,7 +83,6 @@ export function V2TownHome({
             />
           }
           title="주방"
-          description="농작물과 어획물로 음식을 만듭니다."
           onClick={() => onAction({ kind: "open-kitchen" })}
         />
       </div>

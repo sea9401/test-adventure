@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="vine" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#14532d" stop-opacity=".7"/>
+      <stop offset=".55" stop-color="#22c55e" stop-opacity=".62"/>
+      <stop offset="1" stop-color="#a3e635" stop-opacity=".52"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#15803d" stop-opacity=".76"/>
+      <stop offset="1" stop-color="#bef264" stop-opacity=".58"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#vine)" stroke-width="6" stroke-linecap="round">
+    <path d="M-8 276C48 228 34 146 102 110c55-29 83-3 111-61"/>
+    <path d="M808 276c-56-48-42-130-110-166-55-29-83-3-111-61"/>
+  </g>
+  <g fill="url(#leaf)" stroke="#86efac" stroke-opacity=".5" stroke-width="2">
+    <path d="M42 220c-34-35-12-72 38-72 2 48-13 69-38 72Zm0 0 29-51"/>
+    <path d="M78 154c-19-45 14-72 61-54-15 43-37 59-61 54Zm0 0 44-39"/>
+    <path d="M125 112c-5-43 31-60 68-31-26 35-49 42-68 31Zm0 0 53-20"/>
+    <path d="M758 220c34-35 12-72-38-72-2 48 13 69 38 72Zm0 0-29-51"/>
+    <path d="M722 154c19-45-14-72-61-54 15 43 37 59 61 54Zm0 0-44-39"/>
+    <path d="M675 112c5-43-31-60-68-31 26 35 49 42 68 31Zm0 0-53-20"/>
+  </g>
+  <g fill="#d9f99d" opacity=".55">
+    <circle cx="220" cy="42" r="5"/><circle cx="254" cy="76" r="3"/>
+    <circle cx="580" cy="42" r="5"/><circle cx="546" cy="76" r="3"/>
+  </g>
+</svg>

@@ -1610,7 +1610,10 @@ body {
   background-repeat: no-repeat;
   background-size: var(--profile-decoration-size, auto);
   content: "";
-  opacity: var(--profile-decoration-opacity, 0);
+  opacity: var(
+    --profile-decoration-card-opacity,
+    var(--profile-decoration-opacity, 0)
+  );
   pointer-events: none;
   transform-origin: center;
   animation: var(--profile-decoration-animation, none);
@@ -1621,6 +1624,12 @@ body {
 .ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic) > * {
   position: relative;
   z-index: 1;
+}
+
+/* 캐릭터 카드에서는 구매한 프로필 장식이 넓은 영역에서도 충분히 보이도록 한다.
+   상점 미리보기와 작은 아바타 장식의 투명도는 기존 값을 유지한다. */
+.ui-character-card.ui-profile-frame-cosmetic:not(.ui-profile-frame-static) {
+  --profile-decoration-card-opacity: 0.86;
 }
 
 .ui-profile-decoration-canvas {

@@ -101,8 +101,10 @@ cd ~/adventure-rpg && bash deploy/backup-db.sh         # 자동백업 스크립�
 - **S3 오프사이트(구성 완료)**: EC2 역할 `MsmsgeProdDbBackupEc2Role`이
   `s3://msmsge-prod-db-backups-983903215138-ap-northeast-2-an/adventure-rpg/`에만
   암호화 쓰기·복구 읽기 권한을 가진다. 2026-07-23 실제 업로드 객체를 다시 읽어
-  gzip·pg_dump 완결 마커·SSE-S3(AES256)·버전 ID를 검증했다.
-- **관리형 복구(확인 필요)**: AWS 콘솔에서 **RDS 자동 스냅샷/PITR 보존기간 > 0**인지 확인한다.
+  gzip·pg_dump 완결 마커·SSE-S3(AES256)·버전 ID를 검증했다. 버킷 수명 주기는
+  `adventure-rpg/`의 현재 버전과 이전 버전을 각각 90일 기준으로 만료한다.
+- **RDS 관리형 복구(구성 완료)**: 자동 백업 보존기간 7일이며 PITR 최근 복원 가능
+  시간이 정상 갱신되는 것을 2026-07-24 확인했다.
 
 ### RDS 인증서 검증
 
@@ -288,7 +290,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 ---
 
 ## 9. 운영 성숙도 — 남은 TODO
-- [x] **자동 백업 + 복구 테스트** — `deploy/backup-db.sh`(일일·14일 로테) + 임시 DB 복구 + S3 오프사이트 업로드/읽기 검증 완료
+- [x] **자동 백업 + 복구 테스트** — `deploy/backup-db.sh`(일일·14일 로테) + 임시 DB 복구 + S3 90일 오프사이트 업로드/읽기 + RDS 7일 PITR 검증 완료
 - [ ] 외부 업타임 모니터 + 알림 (Route53/CloudWatch/SNS)
 - [x] 배포 후 자동 스모크 — health·sign-in·핵심 모듈 로드·운영 cron 인증 확인
 - [x] 점검(maintenance) 모드 — `deploy/maintenance.sh` (§4b)

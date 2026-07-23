@@ -1524,7 +1524,8 @@ body {
 }
 
 /* ── 계정 귀속 꾸미기 상품 ────────────────────────────────────────
-   프로필 본문의 불투명 surface 위에 테마 배경을 얹고 테두리는 바깥에서 흐른다. */
+   카드의 불투명 surface 위에 테마 배경을 깔고, 본문은 그 위에 올린다.
+   테두리는 가장 앞 레이어에서 흐른다. */
 @keyframes profile-frame-prismatic-flow {
   to {
     background-position: 200% 50%;
@@ -1601,7 +1602,7 @@ body {
 
 .ui-profile-frame-cosmetic::after {
   position: absolute;
-  z-index: -1;
+  z-index: 0;
   inset: 0;
   border-radius: inherit;
   background: var(--profile-decoration-background, none);
@@ -1613,6 +1614,13 @@ body {
   pointer-events: none;
   transform-origin: center;
   animation: var(--profile-decoration-animation, none);
+}
+
+/* 장식이 카드 배경 뒤로 내려가 가려지 않게 하면서,
+   텍스트와 컨트롤은 항상 장식 위에 유지한다. */
+.ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic) > * {
+  position: relative;
+  z-index: 1;
 }
 
 .ui-profile-frame-cosmetic::before {

@@ -15,6 +15,7 @@
     "knip": "knip --no-exit-code",
     "optimize-images": "node scripts/optimize-images.mjs",
     "check-images": "node scripts/check-images.mjs",
+    "account:create": "node scripts/create-password-account.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node src/db/migrate.mjs",
     "db:baseline-mark": "node src/db/baseline-mark.mjs"

@@ -4,20 +4,22 @@ import { signIn } from "next-auth/react";
 import { useState, type FormEvent } from "react";
 
 export function SignInButtons() {
-  const [reviewLoginError, setReviewLoginError] = useState<string | null>(null);
-  const [reviewLoginPending, setReviewLoginPending] = useState(false);
+  const [passwordLoginError, setPasswordLoginError] = useState<string | null>(
+    null,
+  );
+  const [passwordLoginPending, setPasswordLoginPending] = useState(false);
 
-  async function submitReviewLogin(event: FormEvent<HTMLFormElement>) {
+  async function submitPasswordLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (reviewLoginPending) return;
+    if (passwordLoginPending) return;
 
     const formData = new FormData(event.currentTarget);
     const loginId = formData.get("loginId");
     const password = formData.get("password");
     if (typeof loginId !== "string" || typeof password !== "string") return;
 
-    setReviewLoginError(null);
-    setReviewLoginPending(true);
+    setPasswordLoginError(null);
+    setPasswordLoginPending(true);
     try {
       const result = await signIn("review-credentials", {
         loginId,
@@ -26,14 +28,14 @@ export function SignInButtons() {
         redirectTo: "/",
       });
       if (!result.ok || result.error || !result.url) {
-        setReviewLoginError("아이디 또는 비밀번호를 확인해 주세요.");
+        setPasswordLoginError("아이디 또는 비밀번호를 확인해 주세요.");
         return;
       }
       window.location.assign(result.url);
     } catch {
-      setReviewLoginError("로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      setPasswordLoginError("로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
-      setReviewLoginPending(false);
+      setPasswordLoginPending(false);
     }
   }
 
@@ -66,7 +68,7 @@ export function SignInButtons() {
             ▾
           </span>
         </summary>
-        <form className="mt-3 space-y-2" onSubmit={submitReviewLogin}>
+        <form className="mt-3 space-y-2" onSubmit={submitPasswordLogin}>
           <div className="grid grid-cols-2 gap-2">
             <label className="sr-only" htmlFor="review-login-id">
               아이디
@@ -76,7 +78,8 @@ export function SignInButtons() {
               name="loginId"
               type="text"
               required
-              maxLength={128}
+              minLength={3}
+              maxLength={32}
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
@@ -91,7 +94,8 @@ export function SignInButtons() {
               name="password"
               type="password"
               required
-              maxLength={256}
+              minLength={6}
+              maxLength={128}
               autoComplete="current-password"
               placeholder="비밀번호"
               className="min-w-0 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-400"
@@ -99,29 +103,22 @@ export function SignInButtons() {
           </div>
           <button
             type="submit"
-            disabled={reviewLoginPending}
+            disabled={passwordLoginPending}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-60"
           >
-            {reviewLoginPending ? "로그인 중..." : "로그인"}
+            {passwordLoginPending ? "로그인 중..." : "로그인"}
           </button>
-          {reviewLoginError && (
+          {passwordLoginError && (
             <p
               role="alert"
               className="text-center text-[11px] text-rose-400"
             >
-              {reviewLoginError}
+              {passwordLoginError}
             </p>
           )}
           <p className="text-[10px] leading-relaxed text-zinc-600">
-            아이디/비밀번호로는 회원가입할 수 없습니다. 회원 가입은 카카오톡
-            계정으로만 가능합니다.{" "}
-            <a
-              href="https://msmsgr.com/sign-in"
-              className="underline decoration-zinc-700 underline-offset-2 hover:text-zinc-400"
-            >
-              https://msmsgr.com/sign-in
-            </a>{" "}
-            페이지에서 &apos;카카오톡으로 로그인&apos; 버튼을 통해 진행해주세요.
+            아이디·비밀번호 계정은 카카오 이용이 어려운 해외 이용자에게
+            운영자가 개별 발급합니다. 직접 회원가입은 지원하지 않습니다.
           </p>
         </form>
       </details>

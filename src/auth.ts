@@ -26,6 +26,7 @@ import {
   readCurrentAuthUserId,
 } from "@/lib/server/accountLinkIntent";
 import { mapKakaoOAuthProfile } from "@/lib/server/kakaoOAuthProfile";
+import { authenticatePasswordAccount } from "@/lib/server/passwordAccount";
 
 declare module "next-auth" {
   interface Session {
@@ -70,16 +71,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
         password: { label: "비밀번호", type: "password" },
       },
       async authorize(credentials, request) {
-        const config = readReviewLoginConfig();
-        if (!config) return null;
-
         const clientKey =
           request.headers.get("x-real-ip") ??
           request.headers.get("x-forwarded-for")?.split(",").at(-1) ??
           "unknown";
         if (!reviewLoginThrottle.canAttempt(clientKey)) return null;
 
+        const issuedUser = await authenticatePasswordAccount(
+          credentials.loginId,
+          credentials.password,
+        );
+        if (issuedUser) {
+          reviewLoginThrottle.clear(clientKey);
+          return issuedUser;
+        }
+
+        const config = readReviewLoginConfig();
+
         if (
+          !config ||
           !matchesReviewLoginCredentials(
             {
               loginId: credentials.loginId,
@@ -92,8 +102,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
           return null;
         }
 
-        // 심사용 자격 증명은 사용자를 만들지 않는다. 카카오 계정이 이미 연결된 지정 사용자만
-        // 찾아 기존 JWT 세션을 발급한다.
+        // 환경변수 기반 심사용 자격 증명은 사용자를 만들지 않는다. 카카오 계정이 이미 연결된
+        // 지정 사용자만 찾아 기존 JWT 세션을 발급한다. 운영자 발급 계정은 위의 별도 테이블을 쓴다.
         const [reviewUser] = await rawDb()
           .select({
             id: users.id,
@@ -130,8 +140,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       // 과거 구현의 사용자 ID 평문 쿠키는 어떤 callback에서도 신뢰하지 않고 제거한다.
       cookieStore.set("link_user_id", "", { maxAge: 0, path: "/" });
 
-      // Credentials provider 는 기존 카카오 사용자를 JWT 로만 인증한다. OAuth 계정 연동
-      // 테이블을 건드리면 안 되므로 아래 OAuth 전용 분기에는 진입시키지 않는다.
+      // Credentials provider 는 운영자 발급 계정 또는 기존 심사용 사용자를 JWT 로만
+      // 인증한다. OAuth 계정 연동 테이블을 건드리면 안 되므로 아래 분기에는 진입시키지 않는다.
       if (account.type === "credentials") {
         cookieStore.set(ACCOUNT_LINK_INTENT_COOKIE, "", {
           maxAge: 0,

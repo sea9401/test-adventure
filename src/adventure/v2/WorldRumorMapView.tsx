@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import {
-  Compass,
-  Fish,
-  Hammer,
-  MapPin,
-  TreeEvergreen,
-  type Icon,
-} from "@phosphor-icons/react";
+import { ArrowRight, Compass, MapPin, Sparkle } from "@phosphor-icons/react";
 import { FISH } from "@/adventure/data/v2/fish";
 import {
   FISHING_SPOTS,
@@ -30,6 +23,7 @@ import {
 } from "@/adventure/data/v2/miningSpots";
 import { woodcuttingFailureRate } from "@/adventure/v2/woodcuttingProgression";
 import { miningFailureRate } from "@/adventure/v2/miningProgression";
+import { LifeActivityIcon } from "@/adventure/v2/LifeActivityIcons";
 import {
   WORLD_ACTIVITY_KIND_LABEL,
   WORLD_ACTIVITY_REGIONS,
@@ -40,19 +34,54 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
-const KIND_ICON: Record<WorldActivityKind, Icon> = {
-  fishing: Fish,
-  woodcutting: TreeEvergreen,
-  mining: Hammer,
+const KIND_STYLE: Record<
+  WorldActivityKind,
+  {
+    icon: string;
+    badge: string;
+    activeCard: string;
+    detail: string;
+    cta: string;
+  }
+> = {
+  fishing: {
+    icon: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-200",
+    badge:
+      "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
+    activeCard:
+      "border-sky-500 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-700 dark:bg-sky-950 dark:text-sky-100",
+    detail: "border-l-4 border-l-sky-500 dark:border-l-sky-500",
+    cta:
+      "border-sky-700 bg-sky-600 hover:bg-sky-700 dark:border-sky-600 dark:bg-sky-700 dark:hover:bg-sky-600",
+  },
+  woodcutting: {
+    icon:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
+    badge:
+      "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+    activeCard:
+      "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100",
+    detail: "border-l-4 border-l-emerald-500 dark:border-l-emerald-500",
+    cta:
+      "border-emerald-700 bg-emerald-600 hover:bg-emerald-700 dark:border-emerald-600 dark:bg-emerald-700 dark:hover:bg-emerald-600",
+  },
+  mining: {
+    icon:
+      "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200",
+    badge:
+      "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
+    activeCard:
+      "border-amber-500 bg-amber-50 text-amber-950 shadow-sm dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100",
+    detail: "border-l-4 border-l-amber-500 dark:border-l-amber-500",
+    cta:
+      "border-amber-700 bg-amber-600 hover:bg-amber-700 dark:border-amber-600 dark:bg-amber-700 dark:hover:bg-amber-600",
+  },
 };
 
-const KIND_TONE: Record<WorldActivityKind, string> = {
-  fishing:
-    "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  woodcutting:
-    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  mining:
-    "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
+const KIND_GUIDE: Record<WorldActivityKind, string> = {
+  fishing: "물때와 어종을 살피고 원하는 낚시터를 골라보세요.",
+  woodcutting: "수종과 작업 시간을 비교해 벌목지를 선택하세요.",
+  mining: "광맥 등급과 성공률을 확인하고 채광지로 이동하세요.",
 };
 
 const TIER_LABEL: Record<string, string> = {
@@ -101,6 +130,23 @@ function activityDescription(region: WorldActivityRegion): string {
     return `채광 광맥: ${miningNodeForSpot(spot).name}`;
   }
   return region.summary;
+}
+
+function regionSecondaryLabel(region: WorldActivityRegion): string {
+  if (isFishingSpotId(region.id)) {
+    return `낚시터 · ${
+      FISHING_SPOT_DIFFICULTY_LABEL[FISHING_SPOTS[region.id].difficulty]
+    }`;
+  }
+  if (isWoodcuttingSpotId(region.id)) {
+    return `벌목지 · ${
+      woodcuttingTreeForSpot(WOODCUTTING_SPOTS[region.id]).name
+    }`;
+  }
+  if (isMiningSpotId(region.id)) {
+    return `채광지 · ${miningNodeForSpot(MINING_SPOTS[region.id]).name}`;
+  }
+  return WORLD_ACTIVITY_KIND_LABEL[region.kind];
 }
 
 function FishingSpotMeta({ id }: { id: string }) {
@@ -211,150 +257,214 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
     filteredRegions.find((region) => region.id === selectedId) ??
     filteredRegions[0] ??
     null;
-  const SelectedKindIcon = selected ? KIND_ICON[selected.kind] : null;
+  const selectedStyle = selected ? KIND_STYLE[selected.kind] : null;
 
   return (
     <PageShell spacing="normal">
       <SubViewHeader title="생활 지도" onBack={onBack} />
 
       <section className={`${SURFACE_CARD} overflow-hidden`}>
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          <div className="flex items-center gap-2">
-            <Compass
-              size={20}
-              weight="duotone"
-              className="shrink-0 text-emerald-600 dark:text-emerald-300"
-            />
-            <h2 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-zinc-100">
-              지역 현황
-            </h2>
+        <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
+          <div className="flex items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+              <Compass size={25} weight="duotone" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                  모험가 생활 안내판
+                </h2>
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
+                  탐사 지역 {WORLD_ACTIVITY_REGIONS.length}곳
+                </span>
+              </div>
+              <p className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">
+                활동을 고른 뒤 지역별 자원과 난이도를 비교해 목적지를 정해보세요.
+              </p>
+            </div>
           </div>
         </div>
 
+        <div className="grid gap-2 p-3 sm:grid-cols-3">
+          {REGION_FILTERS.map((filter) => {
+            const active = regionFilter === filter.id;
+            const style = KIND_STYLE[filter.id];
+            const count = WORLD_ACTIVITY_REGIONS.filter((region) =>
+              regionMatchesFilter(region, filter.id),
+            ).length;
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setRegionFilter(filter.id);
+                  const first = WORLD_ACTIVITY_REGIONS.find((region) =>
+                    regionMatchesFilter(region, filter.id),
+                  );
+                  if (first) setSelectedId(first.id);
+                }}
+                className={`group min-w-0 rounded-lg border p-3 text-left transition ${
+                  active
+                    ? style.activeCard
+                    : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <span className="flex items-start justify-between gap-2">
+                  <span
+                    className={`flex size-12 shrink-0 items-center justify-center rounded-lg ${style.icon}`}
+                  >
+                    <LifeActivityIcon kind={filter.id} className="size-11" />
+                  </span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold tabular-nums text-zinc-500 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+                    {count}곳
+                  </span>
+                </span>
+                <span className="mt-2 block text-sm font-bold">
+                  {filter.label}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {KIND_GUIDE[filter.id]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className={`${SURFACE_CARD} overflow-hidden`}>
         <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
-          <div className="space-y-2 border-b border-zinc-200 bg-zinc-50 p-3 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
-              {REGION_FILTERS.map((filter) => {
-                const active = regionFilter === filter.id;
-                const count = WORLD_ACTIVITY_REGIONS.filter((region) =>
-                  regionMatchesFilter(region, filter.id),
-                ).length;
+          <div className="border-b border-zinc-200 p-3 md:border-b-0 md:border-r dark:border-zinc-800">
+            <div className="mb-3 flex items-end justify-between gap-3 px-1">
+              <div>
+                <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  선택 가능한 지역
+                </div>
+                <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {WORLD_ACTIVITY_KIND_LABEL[regionFilter]} {filteredRegions.length}곳
+                </div>
+              </div>
+              <div className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500">
+                지역을 눌러 상세 확인
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {filteredRegions.length === 0 ? (
+                <div
+                  className={`${SURFACE_INSET} px-3 py-8 text-center text-xs font-medium text-zinc-400 dark:text-zinc-500`}
+                >
+                  표시할 지역 없음
+                </div>
+              ) : null}
+
+              {filteredRegions.map((region, index) => {
+                const style = KIND_STYLE[region.kind];
+                const active = region.id === selected?.id;
                 return (
                   <button
-                    key={filter.id}
+                    key={region.id}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => {
-                      setRegionFilter(filter.id);
-                      const first = WORLD_ACTIVITY_REGIONS.find((region) =>
-                        regionMatchesFilter(region, filter.id),
-                      );
-                      if (first) setSelectedId(first.id);
-                    }}
-                    className={`min-w-0 rounded-md px-2 py-1.5 text-xs font-semibold transition ${
+                    onClick={() => setSelectedId(region.id)}
+                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition ${
                       active
-                        ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-100"
-                        : "text-zinc-500 hover:bg-white/60 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                        ? style.activeCard
+                        : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
                     }`}
                   >
-                    <span className="block truncate">{filter.label}</span>
-                    <span className="mt-0.5 block text-[10px] tabular-nums opacity-70">
-                      {count}
+                    <span
+                      className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${style.icon}`}
+                    >
+                      <LifeActivityIcon kind={region.kind} className="size-10" />
                     </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-sm font-bold">
+                          {region.name}
+                        </span>
+                        <span className="shrink-0 text-[10px] font-bold tabular-nums text-zinc-400 dark:text-zinc-500">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                        {regionSecondaryLabel(region)}
+                      </span>
+                    </span>
+                    <ArrowRight
+                      size={16}
+                      weight="bold"
+                      className="shrink-0 text-zinc-400 dark:text-zinc-500"
+                      aria-hidden
+                    />
                   </button>
                 );
               })}
             </div>
-
-            {filteredRegions.length === 0 ? (
-              <div className="rounded-md border border-dashed border-zinc-300 bg-white px-3 py-8 text-center text-xs font-medium text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500">
-                표시할 지역 없음
-              </div>
-            ) : null}
-
-            {filteredRegions.map((region) => {
-              const RegionIcon = KIND_ICON[region.kind];
-              const active = region.id === selected?.id;
-              return (
-                <button
-                  key={region.id}
-                  type="button"
-                  onClick={() => setSelectedId(region.id)}
-                  className={`flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
-                    active
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
-                      : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                    <RegionIcon size={20} weight="duotone" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">
-                      {region.name}
-                    </span>
-                    <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
-                      {isFishingSpotId(region.id)
-                        ? `낚시터 · ${
-                            FISHING_SPOT_DIFFICULTY_LABEL[
-                              FISHING_SPOTS[region.id].difficulty
-                            ]
-                          }`
-                        : isWoodcuttingSpotId(region.id)
-                          ? `벌목지 · ${woodcuttingTreeForSpot(
-                              WOODCUTTING_SPOTS[region.id],
-                            ).name}`
-                          : isMiningSpotId(region.id)
-                            ? `채광지 · ${miningNodeForSpot(
-                                MINING_SPOTS[region.id],
-                              ).name}`
-                        : WORLD_ACTIVITY_KIND_LABEL[region.kind]}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
           </div>
 
           <div className="space-y-3 p-4">
-            {selected && SelectedKindIcon ? (
+            {selected && selectedStyle ? (
               <>
-                <div>
-                  <div
-                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold ${
-                      KIND_TONE[selected.kind]
-                    }`}
-                  >
-                    <SelectedKindIcon size={14} weight="duotone" />
-                    {WORLD_ACTIVITY_KIND_LABEL[selected.kind]}
-                  </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <MapPin
-                      size={18}
-                      weight="fill"
-                      className="shrink-0 text-zinc-500 dark:text-zinc-400"
-                    />
-                    <h3 className="min-w-0 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                      {selected.name}
-                    </h3>
+                <div className={`${SURFACE_INSET} ${selectedStyle.detail} p-4`}>
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`flex size-16 shrink-0 items-center justify-center rounded-xl ${selectedStyle.icon}`}
+                    >
+                      <LifeActivityIcon
+                        kind={selected.kind}
+                        className="size-14"
+                      />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-bold ${selectedStyle.badge}`}
+                        >
+                          {WORLD_ACTIVITY_KIND_LABEL[selected.kind]}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
+                          <Sparkle size={11} weight="fill" aria-hidden />
+                          생활 활동
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                        {selected.name}
+                      </h3>
+                    </div>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                     {selected.headline}
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                    {activityDescription(selected)}
-                  </p>
                 </div>
 
-                <div className={`${SURFACE_INSET} flex flex-wrap gap-1.5 p-2`}>
-                  {selected.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded bg-white px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+                <div className={`${SURFACE_INSET} p-3`}>
+                  <div className="flex items-start gap-2">
+                    <MapPin
+                      size={17}
+                      weight="fill"
+                      className="mt-0.5 shrink-0 text-zinc-500 dark:text-zinc-400"
+                      aria-hidden
+                    />
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                        지역 자원
+                      </div>
+                      <p className="mt-0.5 text-sm leading-5 text-zinc-700 dark:text-zinc-200">
+                        {activityDescription(selected)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                    {selected.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded bg-white px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 <FishingSpotMeta id={selected.id} />
@@ -363,10 +473,11 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
 
                 <Link
                   href={selected.action.href}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold text-white shadow-sm transition ${selectedStyle.cta}`}
                 >
-                  <SelectedKindIcon size={16} weight="duotone" />
+                  <LifeActivityIcon kind={selected.kind} className="size-6" />
                   {selected.action.label}
+                  <ArrowRight size={16} weight="bold" aria-hidden />
                 </Link>
               </>
             ) : (

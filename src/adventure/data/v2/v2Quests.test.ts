@@ -14,6 +14,7 @@ import {
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { TITLES } from "../titles";
+import { COOKING_RECIPES } from "../../v2/cooking";
 
 // 신규 캐릭터 기준(전사, 아무것도 안 함). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
@@ -659,7 +660,18 @@ describe("오늘 추가된 요리·길드 시설 업적", () => {
   it("요리 레벨과 발견한 요리법 마일스톤", () => {
     expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 9 })).toBe(false);
     expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 10 })).toBe(true);
-    expect(questById("cooking_recipe18")!.check({ ...ZERO, cookingRecipesDiscovered: 18 })).toBe(true);
+    expect(
+      questById("cooking_recipe18")!.check({
+        ...ZERO,
+        cookingRecipesDiscovered: COOKING_RECIPES.length - 1,
+      }),
+    ).toBe(false);
+    expect(
+      questById("cooking_recipe18")!.check({
+        ...ZERO,
+        cookingRecipesDiscovered: COOKING_RECIPES.length,
+      }),
+    ).toBe(true);
   });
 
   it("식당·훈련·원정·납품·연금·교역 누적 마일스톤", () => {

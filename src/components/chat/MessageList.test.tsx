@@ -15,6 +15,39 @@ const message: ChatMessage = {
 };
 
 describe("MessageList", () => {
+  it("배지를 맨 앞에 두고 칭호를 대괄호로 구분한다", () => {
+    const html = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[
+          {
+            ...message,
+            name: "모험가",
+            title: "수다쟁이",
+            cosmetics: {
+              profileBorder: null,
+              chatBadge: "star",
+              chatNameEffect: null,
+              championshipBadge: "gold",
+            },
+          },
+        ]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    const championshipBadge = html.indexOf("아레나 챔피언십 1위 메달");
+    const chatBadge = html.indexOf("별 채팅 배지");
+    const title = html.indexOf("[수다쟁이]");
+    const name = html.indexOf("모험가");
+
+    expect(championshipBadge).toBeGreaterThanOrEqual(0);
+    expect(chatBadge).toBeGreaterThan(championshipBadge);
+    expect(title).toBeGreaterThan(chatBadge);
+    expect(name).toBeGreaterThan(title);
+  });
+
   it("일반 채팅 본문을 들여쓰기 없이 두 줄로 표시한다", () => {
     const html = renderToStaticMarkup(
       <MessageList

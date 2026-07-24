@@ -80,15 +80,15 @@ export function MessageList({
                   : "flex min-w-0 items-center overflow-hidden whitespace-nowrap leading-5"
               }
             >
+              <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
+              <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
               {m.title && (
                 <span className="mr-1 max-w-16 shrink-0 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
-                  {m.title}
+                  [{m.title}]
                 </span>
               )}
               {m.mine ? (
                 <>
-                  <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
-                  <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
                   <span
                     title={m.name}
                     className={chatNameClass(
@@ -101,8 +101,6 @@ export function MessageList({
                 </>
               ) : (
                 <>
-                  <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
-                  <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
                   <button
                     type="button"
                     onClick={() => onSelectName(m.name)}

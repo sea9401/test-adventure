@@ -1586,10 +1586,17 @@ body {
   --profile-decoration-background:
     url("/images/ui/profile-decorations/prismatic.svg"),
     linear-gradient(115deg, transparent 20%, rgb(129 140 248 / 0.08) 50%, transparent 80%);
-  --profile-decoration-art: url("/images/ui/profile-decorations/prismatic.svg");
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.58;
-  --profile-theme-art-opacity: 0.9;
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(244 114 182 / 0.46), transparent 26%),
+    radial-gradient(circle at 68% 86%, rgb(56 189 248 / 0.42), transparent 34%),
+    linear-gradient(125deg, #312e81, #581c87 48%, #0e7490);
+  --profile-theme-pattern:
+    linear-gradient(125deg, transparent 0 42%, rgb(255 255 255 / 0.18) 43% 44%, transparent 45% 100%),
+    linear-gradient(55deg, transparent 0 64%, rgb(196 181 253 / 0.16) 65% 66%, transparent 67% 100%);
+  --profile-theme-pattern-size: 54px 54px, 72px 72px;
+  --profile-theme-pattern-opacity: 0.72;
   --profile-avatar-decoration-opacity: 0.34;
   --profile-decoration-animation: profile-decoration-drift 9s ease-in-out infinite;
   position: relative;
@@ -1602,56 +1609,21 @@ body {
     0 10px 28px rgb(var(--profile-frame-rgb) / 0.16);
 }
 
-/* 큰 장식 그림은 카드 본문에 깔지 않는다. 카드 바깥쪽 0.625rem만 마스킹해
-   장비·수치 패널과 겹치지 않는 외곽 장식으로 사용한다. */
-.ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic)::after {
-  position: absolute;
-  z-index: 3;
-  inset: -0.625rem;
-  padding: 0.625rem;
-  border-radius: inherit;
-  background: var(
-    --profile-avatar-decoration-background,
-    var(--profile-decoration-background, none)
-  );
-  background-position: var(--profile-avatar-decoration-position, center);
-  background-repeat: no-repeat;
-  background-size: var(
-    --profile-avatar-decoration-size,
-    var(--profile-decoration-size, 100% 100%)
-  );
-  content: "";
-  opacity: min(
-    1,
-    calc(var(--profile-avatar-decoration-opacity, 0) + 0.12)
-  );
-  pointer-events: none;
-  transform-origin: center;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: var(--profile-decoration-animation, none);
-}
-
-/* 프레임은 카드 외곽에만 두고 실제 콘텐츠는 항상 그 위의 불투명 표면에 둔다. */
+/* 구매한 전체 카드 테두리만 유지한다. 콘텐츠 위에 별도 장식물을 얹지 않는다. */
 .ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic) > * {
   position: relative;
   z-index: 1;
 }
 
-/* 프로필 테마 그림은 신원 정보가 있는 상단 헤더의 배경만 교체한다.
-   기본색은 불투명하며, 아래 수치·장비 패널로 그림이 새지 않는다. */
+/* 상단은 테두리 그림 대신 불투명 테마 배경과 우측 패턴으로 꾸민다.
+   패턴은 콘텐츠 뒤에만 있고 좌측 프로필 이미지 영역에서는 사라진다. */
 .ui-profile-theme-header {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgb(var(--profile-frame-rgb) / 0.5);
   border-radius: 0.5rem;
   background-color: rgb(24 24 27);
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.08),
     inset 0 0 32px rgb(var(--profile-frame-rgb) / 0.26),
     inset 8rem 0 7rem -6rem rgb(0 0 0 / 0.58),
     inset 0 -24px 48px rgb(0 0 0 / 0.2);
@@ -1668,23 +1640,23 @@ body {
 
 .ui-profile-theme-header::before {
   z-index: 0;
-  background: var(--profile-decoration-background, none);
+  background: var(--profile-theme-background, rgb(24 24 27));
   background-position: center;
   background-repeat: no-repeat;
-  background-size: var(--profile-decoration-size, 100% 100%);
-  opacity: min(1, calc(var(--profile-decoration-opacity, 0) + 0.16));
+  background-size: 100% 100%;
   transform-origin: center;
   animation: var(--profile-decoration-animation, none);
 }
 
 .ui-profile-theme-header::after {
-  z-index: 2;
-  background: var(--profile-decoration-art, none);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  opacity: var(--profile-theme-art-opacity, 0);
+  z-index: 0;
+  background: var(--profile-theme-pattern, none);
+  background-position: right center;
+  background-size: var(--profile-theme-pattern-size, auto);
+  opacity: var(--profile-theme-pattern-opacity, 0);
   transform-origin: center;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0 34%, #000 58% 100%);
+  mask-image: linear-gradient(90deg, transparent 0 34%, #000 58% 100%);
   animation: var(--profile-decoration-animation, none);
 }
 
@@ -1732,7 +1704,14 @@ body {
     url("/images/ui/profile-decorations/infernal-art.webp"),
     radial-gradient(ellipse at 50% 108%, rgb(251 146 60 / 0.2), transparent 58%),
     linear-gradient(135deg, rgb(127 29 29 / 0.3), rgb(69 10 10 / 0.16) 48%, rgb(154 52 18 / 0.26));
-  --profile-decoration-art: url("/images/ui/profile-decorations/infernal-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 82% 76%, rgb(251 146 60 / 0.62), transparent 28%),
+    radial-gradient(circle at 68% 20%, rgb(220 38 38 / 0.46), transparent 25%),
+    linear-gradient(125deg, #450a0a, #7f1d1d 52%, #9a3412);
+  --profile-theme-pattern:
+    radial-gradient(circle, rgb(254 240 138 / 0.95) 0 1px, transparent 2px),
+    radial-gradient(circle, rgb(251 146 60 / 0.8) 0 2px, transparent 3px);
+  --profile-theme-pattern-size: 34px 34px, 61px 61px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.64;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/infernal.svg");
@@ -1747,7 +1726,14 @@ body {
     url("/images/ui/profile-decorations/oceanic-art.webp"),
     radial-gradient(ellipse at 50% 110%, rgb(103 232 249 / 0.18), transparent 58%),
     linear-gradient(135deg, rgb(8 47 73 / 0.28), rgb(8 145 178 / 0.14) 48%, rgb(30 64 175 / 0.24));
-  --profile-decoration-art: url("/images/ui/profile-decorations/oceanic-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(103 232 249 / 0.42), transparent 28%),
+    radial-gradient(circle at 68% 92%, rgb(37 99 235 / 0.5), transparent 36%),
+    linear-gradient(125deg, #083344, #0e7490 52%, #1e3a8a);
+  --profile-theme-pattern:
+    radial-gradient(circle, transparent 0 3px, rgb(165 243 252 / 0.48) 4px 5px, transparent 6px),
+    radial-gradient(circle, transparent 0 6px, rgb(56 189 248 / 0.34) 7px 8px, transparent 9px);
+  --profile-theme-pattern-size: 42px 42px, 76px 76px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.62;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/oceanic.svg");
@@ -1762,7 +1748,14 @@ body {
     url("/images/ui/profile-decorations/verdant-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(250 204 21 / 0.16), transparent 48%),
     linear-gradient(135deg, rgb(20 83 45 / 0.34), rgb(22 101 52 / 0.18) 46%, rgb(63 98 18 / 0.28));
-  --profile-decoration-art: url("/images/ui/profile-decorations/verdant-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 82% 16%, rgb(190 242 100 / 0.42), transparent 26%),
+    radial-gradient(circle at 72% 88%, rgb(34 197 94 / 0.48), transparent 34%),
+    linear-gradient(125deg, #052e16, #166534 52%, #3f6212);
+  --profile-theme-pattern:
+    radial-gradient(ellipse at 30% 70%, rgb(190 242 100 / 0.52) 0 3px, transparent 4px),
+    radial-gradient(ellipse at 70% 30%, rgb(74 222 128 / 0.42) 0 4px, transparent 5px);
+  --profile-theme-pattern-size: 38px 52px, 62px 46px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.78;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/verdant-emblem.webp");
@@ -1779,7 +1772,14 @@ body {
     url("/images/ui/profile-decorations/celestial-art.webp"),
     radial-gradient(ellipse at 50% 16%, rgb(192 132 252 / 0.2), rgb(56 189 248 / 0.09) 42%, transparent 72%),
     linear-gradient(135deg, rgb(49 46 129 / 0.28), rgb(88 28 135 / 0.14) 48%, rgb(14 116 144 / 0.22));
-  --profile-decoration-art: url("/images/ui/profile-decorations/celestial-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 80% 22%, rgb(216 180 254 / 0.52), transparent 25%),
+    radial-gradient(circle at 70% 86%, rgb(56 189 248 / 0.38), transparent 34%),
+    linear-gradient(125deg, #1e1b4b, #581c87 52%, #164e63);
+  --profile-theme-pattern:
+    radial-gradient(circle, rgb(255 255 255 / 0.9) 0 1px, transparent 1.5px),
+    linear-gradient(145deg, transparent 48%, rgb(196 181 253 / 0.3) 49% 50%, transparent 51%);
+  --profile-theme-pattern-size: 28px 28px, 84px 84px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.72;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/celestial.svg");
@@ -1794,7 +1794,14 @@ body {
     url("/images/ui/profile-decorations/obsidian-art.webp"),
     radial-gradient(ellipse at 50% 112%, rgb(249 115 22 / 0.2), transparent 58%),
     linear-gradient(135deg, rgb(39 39 42 / 0.38), rgb(9 9 11 / 0.22) 48%, rgb(69 10 10 / 0.32));
-  --profile-decoration-art: url("/images/ui/profile-decorations/obsidian-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 84% 74%, rgb(249 115 22 / 0.54), transparent 28%),
+    radial-gradient(circle at 68% 16%, rgb(153 27 27 / 0.44), transparent 24%),
+    linear-gradient(125deg, #09090b, #3f0b0b 56%, #7c2d12);
+  --profile-theme-pattern:
+    linear-gradient(118deg, transparent 0 46%, rgb(251 146 60 / 0.48) 47%, transparent 49% 100%),
+    linear-gradient(62deg, transparent 0 68%, rgb(220 38 38 / 0.38) 69%, transparent 71% 100%);
+  --profile-theme-pattern-size: 58px 72px, 92px 64px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.76;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/obsidian-emblem.webp");
@@ -1811,7 +1818,14 @@ body {
     url("/images/ui/profile-decorations/frozen-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 0.2), rgb(165 243 252 / 0.1) 42%, transparent 70%),
     linear-gradient(135deg, rgb(186 230 253 / 0.28), rgb(224 242 254 / 0.14) 48%, rgb(129 140 248 / 0.2));
-  --profile-decoration-art: url("/images/ui/profile-decorations/frozen-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(255 255 255 / 0.5), transparent 24%),
+    radial-gradient(circle at 72% 88%, rgb(165 180 252 / 0.42), transparent 34%),
+    linear-gradient(125deg, #0c4a6e, #0369a1 54%, #4338ca);
+  --profile-theme-pattern:
+    linear-gradient(132deg, transparent 0 44%, rgb(224 242 254 / 0.48) 45% 46%, transparent 47% 100%),
+    linear-gradient(48deg, transparent 0 66%, rgb(165 243 252 / 0.36) 67% 68%, transparent 69% 100%);
+  --profile-theme-pattern-size: 46px 46px, 72px 72px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/frozen.svg");
@@ -1826,7 +1840,14 @@ body {
     url("/images/ui/profile-decorations/storm-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(168 85 247 / 0.18), transparent 62%),
     linear-gradient(135deg, rgb(15 23 42 / 0.36), rgb(49 46 129 / 0.18) 48%, rgb(30 41 59 / 0.32));
-  --profile-decoration-art: url("/images/ui/profile-decorations/storm-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 82% 20%, rgb(129 140 248 / 0.44), transparent 25%),
+    radial-gradient(circle at 72% 86%, rgb(71 85 105 / 0.58), transparent 36%),
+    linear-gradient(125deg, #0f172a, #312e81 52%, #1e293b);
+  --profile-theme-pattern:
+    linear-gradient(118deg, transparent 0 46%, rgb(253 224 71 / 0.68) 47% 48%, transparent 49% 100%),
+    radial-gradient(ellipse, rgb(148 163 184 / 0.32) 0 18%, transparent 20%);
+  --profile-theme-pattern-size: 68px 82px, 96px 58px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/storm.svg");
@@ -1841,7 +1862,14 @@ body {
     url("/images/ui/profile-decorations/rose-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(251 191 36 / 0.15), transparent 54%),
     linear-gradient(145deg, rgb(136 19 55 / 0.28), rgb(159 18 57 / 0.13) 50%, rgb(120 53 15 / 0.22));
-  --profile-decoration-art: url("/images/ui/profile-decorations/rose-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(253 164 175 / 0.5), transparent 25%),
+    radial-gradient(circle at 70% 88%, rgb(225 29 72 / 0.5), transparent 34%),
+    linear-gradient(125deg, #4c0519, #9f1239 54%, #78350f);
+  --profile-theme-pattern:
+    radial-gradient(ellipse at 35% 65%, rgb(254 205 211 / 0.62) 0 3px, transparent 4px),
+    radial-gradient(ellipse at 65% 35%, rgb(251 113 133 / 0.48) 0 4px, transparent 5px);
+  --profile-theme-pattern-size: 42px 56px, 64px 48px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/rose.svg");
@@ -1856,7 +1884,14 @@ body {
     url("/images/ui/profile-decorations/royal-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(250 204 21 / 0.18), transparent 46%),
     linear-gradient(135deg, rgb(88 28 135 / 0.3), rgb(76 29 149 / 0.16) 48%, rgb(126 34 206 / 0.26));
-  --profile-decoration-art: url("/images/ui/profile-decorations/royal-art.webp");
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(253 230 138 / 0.54), transparent 25%),
+    radial-gradient(circle at 72% 88%, rgb(147 51 234 / 0.5), transparent 34%),
+    linear-gradient(125deg, #3b0764, #6b21a8 54%, #713f12);
+  --profile-theme-pattern:
+    linear-gradient(45deg, transparent 0 44%, rgb(253 230 138 / 0.44) 45% 47%, transparent 48% 100%),
+    linear-gradient(135deg, transparent 0 44%, rgb(216 180 254 / 0.36) 45% 47%, transparent 48% 100%);
+  --profile-theme-pattern-size: 44px 44px, 44px 44px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.82;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/royal-emblem.webp");
@@ -1896,7 +1931,7 @@ body {
   --profile-decoration-background: none;
   --profile-decoration-animation: none;
   --profile-decoration-opacity: 0;
-  --profile-theme-art-opacity: 0;
+  --profile-theme-pattern-opacity: 0;
   --profile-avatar-decoration-opacity: 0;
   background-size: 100% 100%;
   box-shadow:

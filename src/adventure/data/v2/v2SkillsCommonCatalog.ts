@@ -69,6 +69,11 @@ export type V2CommonSkillId =
   | "v2c_masterfarmer_composting" // 퇴비 배합 (수확량 + 희귀 수확)
   | "v2c_harvestking_abundance" // 풍작 감각 (수확량 + 희귀 수확)
   | "v2c_earthartisan_landcare" // 대지 돌보기 (수확량 + 희귀 수확)
+  | "v2c_cook_prepwork" // 기초 손질 (요리 경험치)
+  | "v2c_professionalcook_seasoning" // 섬세한 간 (정성작 확률)
+  | "v2c_headchef_batchcooking" // 효율적인 조리 (묶음 재료 절약)
+  | "v2c_masterchef_heatcontrol" // 장인의 불 조절 (걸작 확률)
+  | "v2c_legendarychef_secretrecipe" // 비전의 레시피 (희귀 재료 보존)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -800,6 +805,36 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     spCost: 1,
     passive: { farmYieldBonusPct: 15, farmRareChancePct: 5 },
+  },
+  v2c_cook_prepwork: {
+    id: "v2c_cook_prepwork", name: "기초 손질", stat: "int", category: "passive", tier: 2,
+    description: "재료를 미리 손질하고 조리 순서를 정리해 요리 경험치를 더 얻는다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { cookingXpBonusPct: 5 },
+  },
+  v2c_professionalcook_seasoning: {
+    id: "v2c_professionalcook_seasoning", name: "섬세한 간", stat: "luk", category: "passive", tier: 3,
+    description: "맛의 미세한 차이를 살려 정성작으로 완성할 확률을 높인다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { cookingCarefulChancePct: 8 },
+  },
+  v2c_headchef_batchcooking: {
+    id: "v2c_headchef_batchcooking", name: "효율적인 조리", stat: "dex", category: "passive", tier: 3,
+    description: "묶음 조리의 동선을 다듬어 희귀 재료를 제외한 일반 재료 소모량을 줄인다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { cookingMaterialReductionPct: 10 },
+  },
+  v2c_masterchef_heatcontrol: {
+    id: "v2c_masterchef_heatcontrol", name: "장인의 불 조절", stat: "int", category: "passive", tier: 3,
+    description: "불의 세기와 조리 시간을 정교하게 맞춰 걸작으로 완성할 확률을 높인다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { cookingMasterpieceChancePct: 5 },
+  },
+  v2c_legendarychef_secretrecipe: {
+    id: "v2c_legendarychef_secretrecipe", name: "비전의 레시피", stat: "luk", category: "passive", tier: 3,
+    description: "희귀 재료의 풍미만 온전히 끌어내 일정 확률로 재료를 보존한다. 특선 효과는 그대로 적용된다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { cookingRareIngredientSaveChancePct: 25 },
   },
   v2c_ironman_body: {
     id: "v2c_ironman_body", name: "단련된 몸", stat: "vit", category: "passive", tier: 2,

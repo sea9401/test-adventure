@@ -4,6 +4,7 @@ import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
 import {
   V2_SKILLS,
   aggregateEquippedPassives,
+  equippedCookingBonuses,
   equippedFarmBonuses,
   equippedProfPerKillBonus,
   spCostOf,
@@ -240,6 +241,48 @@ describe("직업 킷 — 스킬셋", () => {
         "v2c_masterfarmer_composting",
       ]),
     ).toEqual({ yieldBonusPct: 18, rareChancePct: 5 });
+  });
+
+  it("요리사 생활 직업 라인은 차수별 장착형 요리 패시브를 배운다", () => {
+    expect(skillsForJob("cook")).toEqual(["v2c_cook_prepwork"]);
+    expect(skillsForJob("professionalcook")).toEqual([
+      "v2c_professionalcook_seasoning",
+    ]);
+    expect(skillsForJob("headchef")).toEqual([
+      "v2c_headchef_batchcooking",
+    ]);
+    expect(skillsForJob("masterchef")).toEqual([
+      "v2c_masterchef_heatcontrol",
+    ]);
+    expect(skillsForJob("legendarychef")).toEqual([
+      "v2c_legendarychef_secretrecipe",
+    ]);
+    for (const jobId of [
+      "cook",
+      "professionalcook",
+      "headchef",
+      "masterchef",
+      "legendarychef",
+    ]) {
+      for (const id of skillsForJob(jobId)) {
+        expect(V2_SKILLS[id].category, id).toBe("passive");
+      }
+    }
+    expect(
+      equippedCookingBonuses([
+        "v2c_cook_prepwork",
+        "v2c_professionalcook_seasoning",
+        "v2c_headchef_batchcooking",
+        "v2c_masterchef_heatcontrol",
+        "v2c_legendarychef_secretrecipe",
+      ]),
+    ).toEqual({
+      xpBonusPct: 5,
+      carefulChancePct: 8,
+      materialReductionPct: 10,
+      masterpieceChancePct: 5,
+      rareIngredientSaveChancePct: 25,
+    });
   });
 
   it("나무꾼 계열은 차수별 장착형 벌목 패시브를 배운다", () => {

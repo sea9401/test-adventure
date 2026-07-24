@@ -33,6 +33,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   fisher: ["v2c_camper_tidereading"], // 낚시꾼 — 물때 읽기
   healthtrainer: ["v2c_healthtrainer_routine"], // 헬스 트레이너 — 운동 루틴
   farmer: ["v2c_farmer_seedselection"], // 농부 — 씨앗 선별
+  cook: ["v2c_cook_prepwork"], // 요리사 — 기초 손질
   lumberjack: ["v2c_lumberjack_woodreading"], // 나무꾼 — 나무결 읽기
   foresttechnician: ["v2c_foresttechnician_axecare"], // 산림 기술자 — 도끼날 세우기
   miner: ["v2c_miner_veinreading"], // 광부 — 광맥 읽기
@@ -56,6 +57,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   angler: ["v2c_angler_pointreading"], // 명인 낚시꾼 — 포인트 짚기
   physicalcoach: ["v2c_physicalcoach_conditioning"], // 피지컬 코치 — 컨디셔닝 프로그램
   horticulturist: ["v2c_horticulturist_soilreading"], // 원예가 — 토양 읽기
+  professionalcook: ["v2c_professionalcook_seasoning"], // 전문 요리사 — 섬세한 간
   masterlumberjack: ["v2c_masterlumberjack_recoverycut"], // 벌목 명인 — 위기 수습
   masterminer: ["v2c_masterminer_recoverystroke"], // 채광 명인 — 타격 교정
   // ── 하이브리드(tier 3·전사×마법) ──
@@ -93,6 +95,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   masterangler: ["v2c_masterangler_bigcatchsense"], // 강태공 — 대물 감각
   mastertrainer: ["v2c_mastertrainer_elitetraining"], // 마스터 트레이너 — 엘리트 트레이닝
   masterfarmer: ["v2c_masterfarmer_composting"], // 숙련 농부 — 퇴비 배합
+  headchef: ["v2c_headchef_batchcooking"], // 수석 요리사 — 효율적인 조리
   forestmaster: ["v2c_forestmaster_efficientwork"], // 산림 대가 — 능숙한 벌목
   minemaster: ["v2c_minemaster_efficientmining"], // 광산 대가 — 능숙한 채광
   crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"], // 성전사: 성전의 심판 + 불굴의 맹세
@@ -115,6 +118,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   championmaker: ["v2c_championmaker_championprogram"], // 챔피언 메이커 — 챔피언 프로그램
   fullcatchking: ["v2c_fullcatchking_bountyhaul"], // 만선왕 — 만선 조업
   harvestking: ["v2c_harvestking_abundance"], // 농업 장인 — 풍작 감각
+  masterchef: ["v2c_masterchef_heatcontrol"], // 요리 명장 — 장인의 불 조절
   transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"], // 초월자: 만상검 + 초월 조화
   bloodlord: ["v2c_bloodlord_brand", "v2c_bloodlord_martyrdom"], // 혈성군주: 왕혈 낙인(HP소모/처형) + 불사의 순교(흡혈)
   calamitycaller: ["v2c_calamitycaller_brand", "v2c_calamitycaller_omen"], // 재앙술사: 재앙의 낙인 + 흉조 III
@@ -135,6 +139,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   legendarytrainer: ["v2c_legendarytrainer_mentorship"], // 전설의 트레이너 — 전설의 지도
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기
+  legendarychef: ["v2c_legendarychef_secretrecipe"], // 전설의 요리사 — 비전의 레시피
   legendarylumberjack: ["v2c_legendarylumberjack_bountifulcut"], // 전설의 나무꾼 — 전설의 벌목
   legendaryminer: ["v2c_legendaryminer_richvein"], // 전설의 광부 — 풍부한 광맥
   blooddemon: ["v2c_blooddemon_reign", "v2c_blooddemon_immortalblood"], // 혈마: 혈마군림 + 불사마혈

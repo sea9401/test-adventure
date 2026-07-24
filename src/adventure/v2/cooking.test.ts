@@ -5,6 +5,7 @@ import {
   adjustedCookingXp,
   cookingFoodDefinition,
   cookingFoodId,
+  cookingIngredientRequirement,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrders,
@@ -15,6 +16,7 @@ import {
   parseCookingFoodInventory,
   parseCookingState,
   removeCookingFood,
+  savedRareCookingIngredientCount,
 } from "./cooking";
 
 describe("personal cooking", () => {
@@ -162,6 +164,55 @@ describe("personal cooking", () => {
       masterpiecesCooked: 5,
       rareIngredientDishes: 5,
     });
+  });
+
+  it("equipped cooking skills improve careful and masterpiece rolls", () => {
+    expect(cookingQuality({ cookingJobTier: 2, rng: () => 0.2 })).toBe(
+      "normal",
+    );
+    expect(
+      cookingQuality({
+        cookingJobTier: 2,
+        carefulBonusPct: 8,
+        rng: () => 0.2,
+      }),
+    ).toBe("careful");
+    expect(cookingQuality({ cookingJobTier: 3, rng: () => 0.05 })).toBe(
+      "careful",
+    );
+    expect(
+      cookingQuality({
+        cookingJobTier: 3,
+        masterpieceBonusPct: 5,
+        rng: () => 0.05,
+      }),
+    ).toBe("masterpiece");
+  });
+
+  it("reduces bundled ingredients and preserves rare ingredients", () => {
+    expect(
+      cookingIngredientRequirement({
+        countPerDish: 10,
+        quantity: 5,
+        cookingJobTier: 4,
+        materialReductionPct: 10,
+      }),
+    ).toBe(41);
+    expect(
+      cookingIngredientRequirement({
+        countPerDish: 1,
+        quantity: 10,
+        materialReductionPct: 10,
+      }),
+    ).toBe(9);
+    const rolls = [0.1, 0.3, 0.2, 0.9];
+    expect(
+      savedRareCookingIngredientCount({
+        quantity: 4,
+        saveChancePct: 25,
+        rng: () => rolls.shift() ?? 1,
+      }),
+    ).toBe(2);
   });
 
   it("preserves crafted quality, rare ingredients, and chef duration in the food item id", () => {

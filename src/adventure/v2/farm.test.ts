@@ -15,6 +15,9 @@ import {
   farmCropMasteryGain,
   farmAvailableReputation,
   farmingLevelForXp,
+  getFarmDeliveryRequests,
+  getFarmShopItems,
+  getFarmWeeklyDeliveryRequests,
   grantFarmSeeds,
   harvestPlot,
   nextFarmPlotUpgrade,
@@ -27,6 +30,29 @@ describe("adventurer farm", () => {
     expect(emptyFarmState().plots).toHaveLength(2);
   });
 
+  it("초반 확인 주기는 늘리고 후반 재배 시간은 16시간 이하로 제한한다", () => {
+    expect(
+      Object.fromEntries(
+        Object.values(FARM_CROPS).map((crop) => [
+          crop.id,
+          crop.growMs / (60 * 60 * 1000),
+        ]),
+      ),
+    ).toEqual({
+      wheat: 2,
+      herb: 3,
+      corn: 4,
+      tomato: 4,
+      strawberry: 6,
+      potato: 8,
+      onion: 10,
+      rice: 12,
+      soybean: 12,
+      sugarcane: 14,
+      cacao: 16,
+    });
+  });
+
   it("plants a crop into an empty plot", () => {
     const now = 1_000;
     const state = plantCrop(emptyFarmState(), "plot-1", "wheat", now);
@@ -35,7 +61,7 @@ describe("adventurer farm", () => {
       id: "plot-1",
       cropId: "wheat",
       plantedAt: now,
-      readyAt: now + 60 * 60 * 1000,
+      readyAt: now + 2 * 60 * 60 * 1000,
     });
     expect(state.seeds.wheat).toBe(2);
   });
@@ -71,7 +97,7 @@ describe("adventurer farm", () => {
     };
     const next = grantFarmSeeds(state, FARM_DAILY_QUEST_SEED_REWARD);
 
-    expect(next.seeds).toEqual({ wheat: 5, herb: 2, corn: 1 });
+    expect(next.seeds).toEqual({ wheat: 9, herb: 4, corn: 2 });
   });
 
   it("grants farm seeds from the fishing coin shop pouch", () => {
@@ -140,7 +166,7 @@ describe("adventurer farm", () => {
     const { state, result } = harvestPlot(
       planted,
       "plot-1",
-      1_000 + 60 * 60 * 1000,
+      1_000 + FARM_CROPS.wheat.growMs,
       () => 0.5,
       { yieldBonusPct: 10, rareChancePct: 50 },
     );
@@ -149,7 +175,7 @@ describe("adventurer farm", () => {
     expect(result.rareItemId).toBe("golden_wheat");
     expect(state.inventory.wheat).toBe(5);
     expect(state.inventory.golden_wheat).toBe(1);
-    expect(result.farmingXpGained).toBe(15);
+    expect(result.farmingXpGained).toBe(30);
   });
 
   it("guarantees one rare crop by the 20th consecutive miss", () => {
@@ -173,17 +199,17 @@ describe("adventurer farm", () => {
   });
 
   it("reduces the hourly farming xp rate after four hours", () => {
-    expect(farmCropMasteryGain("wheat")).toBe(15);
-    expect(farmCropMasteryGain("herb")).toBe(30);
+    expect(farmCropMasteryGain("wheat")).toBe(30);
+    expect(farmCropMasteryGain("herb")).toBe(45);
     expect(farmCropMasteryGain("tomato")).toBe(60);
     expect(farmCropMasteryGain("strawberry")).toBe(76);
     expect(farmCropMasteryGain("corn")).toBe(60);
     expect(farmCropMasteryGain("potato")).toBe(92);
     expect(farmCropMasteryGain("onion")).toBe(108);
     expect(farmCropMasteryGain("rice")).toBe(124);
-    expect(farmCropMasteryGain("soybean")).toBe(156);
-    expect(farmCropMasteryGain("sugarcane")).toBe(188);
-    expect(farmCropMasteryGain("cacao")).toBe(220);
+    expect(farmCropMasteryGain("soybean")).toBe(124);
+    expect(farmCropMasteryGain("sugarcane")).toBe(140);
+    expect(farmCropMasteryGain("cacao")).toBe(156);
     expect(farmingLevelForXp(0)).toBe(1);
     expect(farmingLevelForXp(810)).toBe(10);
     expect(farmingLevelForXp(24010)).toBe(50);
@@ -203,15 +229,21 @@ describe("adventurer farm", () => {
 
     expect(result).toMatchObject({
       requestId: "bakery-wheat",
-      rewardSeeds: {},
+      rewardSeeds: { wheat: 2 },
       rewardReputation: 2,
     });
     expect(next.inventory.wheat).toBeUndefined();
-    expect(next.seeds).toEqual({});
+    expect(next.seeds).toEqual({ wheat: 2 });
     expect(next.deliveries.claimedIds).toEqual(["bakery-wheat"]);
     expect(next.stats.deliveries).toBe(1);
     expect(next.stats.reputation).toBe(2);
     expect(next.stats.reputationSpent).toBe(0);
+  });
+
+  it("모든 일반 일일 납품이 같은 작물 씨앗 2개를 돌려준다", () => {
+    for (const request of getFarmDeliveryRequests()) {
+      expect(request.rewardSeeds).toEqual({ [request.requiredItemId]: 2 });
+    }
   });
 
   it("claims a rare harvest delivery as a repeatable sink", () => {
@@ -289,8 +321,21 @@ describe("adventurer farm", () => {
     const { state: next } = buyFarmShopItem(state, "horticulture-seed-box", {
       learnedSkillIds: [FARM_CROP_UNLOCK_SKILLS.horticulturist.id],
     });
-    expect(next.seeds.tomato).toBe(2);
-    expect(next.seeds.strawberry).toBe(1);
+    expect(next.seeds.tomato).toBe(4);
+    expect(next.seeds.strawberry).toBe(2);
+  });
+
+  it("고급 씨앗 상자는 확장 밭을 채울 수 있도록 지급량을 늘린다", () => {
+    const rewards = Object.fromEntries(
+      getFarmShopItems().map((item) => [item.id, item.rewardSeeds]),
+    );
+    expect(rewards["horticulture-seed-box"]).toEqual({
+      tomato: 4,
+      strawberry: 2,
+    });
+    expect(rewards["staple-seed-box"]).toEqual({ potato: 4, onion: 4 });
+    expect(rewards["artisan-seed-box"]).toEqual({ rice: 4, soybean: 4 });
+    expect(rewards["legendary-seed-box"]).toEqual({ sugarcane: 4, cacao: 2 });
   });
 
   it("rejects farm shop purchases without enough available reputation", () => {
@@ -377,6 +422,7 @@ describe("adventurer farm", () => {
     expect(claimed.weekly.claimedIds).toEqual(["weekly-bakery-crate"]);
     expect(claimed.inventory.wheat).toBe(30);
     expect(claimed.inventory.golden_wheat).toBe(1);
+    expect(claimed.seeds.wheat).toBe(6);
     expect(claimed.stats.reputation).toBe(8);
     expect(() =>
       claimFarmWeeklyDelivery(claimed, "weekly-bakery-crate", monday),
@@ -388,7 +434,14 @@ describe("adventurer farm", () => {
       nextMonday,
     );
     expect(reset.weekly.claimedIds).toEqual(["weekly-bakery-crate"]);
+    expect(reset.seeds.wheat).toBe(12);
     expect(reset.stats.reputation).toBe(16);
+  });
+
+  it("주간 기본 납품은 해당 작물 씨앗 6개를 지급한다", () => {
+    expect(
+      getFarmWeeklyDeliveryRequests().map((request) => request.rewardSeeds),
+    ).toEqual([{ wheat: 6 }, { herb: 6 }, { corn: 6 }]);
   });
 
   it("buys farm plot growth with available reputation", () => {

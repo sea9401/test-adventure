@@ -44,27 +44,19 @@ describe("무슨 코인 상점 상품 그룹", () => {
     ]);
   });
 
-  it("꾸미기 상자와 30일 연장권을 꾸미기 목록 하나에 표시한다", () => {
+  it("대표 배지 전시대와 꾸미기 상품을 꾸미기 목록 하나에 표시한다", () => {
     const group = SHOP_ITEM_GROUPS.find(
       (candidate) => candidate.id === "cosmetic",
     );
     expect(group?.title).toBe("꾸미기");
     expect(group?.itemIds).toEqual([
+      "profile_badge_display_stand",
       "chroma_name_box",
       "profile_border_box",
       "chat_badge_box",
       "cosmetic_extension_30d",
     ]);
-    expect(SHOP_ITEM_GROUPS).toHaveLength(3);
-  });
-
-  it("대표 배지 전시대는 별도의 영구 프로필 상품으로 표시한다", () => {
-    const group = SHOP_ITEM_GROUPS.find(
-      (candidate) => candidate.id === "profile",
-    );
-
-    expect(group?.title).toBe("프로필 전시");
-    expect(group?.itemIds).toEqual(["profile_badge_display_stand"]);
+    expect(SHOP_ITEM_GROUPS).toHaveLength(2);
   });
 
   it("꾸미기 획득 목록을 전설부터 일반까지 등급순으로 정렬한다", () => {

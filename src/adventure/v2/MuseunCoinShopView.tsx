@@ -133,12 +133,6 @@ function itemSummary(itemId: MuseunCashItemId): string {
 
 export const SHOP_ITEM_GROUPS = [
   {
-    id: "profile",
-    title: "프로필 전시",
-    description: "프로필에 영구 적용되는 전시 기능입니다.",
-    itemIds: [PROFILE_BADGE_STAND_ITEM_ID],
-  },
-  {
     id: "consumable",
     title: "이용권·소모품",
     description: "구매 후 가방에서 사용하는 기능성 상품입니다.",
@@ -147,8 +141,12 @@ export const SHOP_ITEM_GROUPS = [
   {
     id: "cosmetic",
     title: "꾸미기",
-    description: "꾸미기 상자와 해금된 꾸미기에 사용하는 30일 연장권입니다.",
-    itemIds: [...MUSEUN_COSMETIC_BOX_ITEM_IDS, "cosmetic_extension_30d"],
+    description: "프로필 전시 기능, 꾸미기 상자와 30일 연장권입니다.",
+    itemIds: [
+      PROFILE_BADGE_STAND_ITEM_ID,
+      ...MUSEUN_COSMETIC_BOX_ITEM_IDS,
+      "cosmetic_extension_30d",
+    ],
   },
 ] as const;
 

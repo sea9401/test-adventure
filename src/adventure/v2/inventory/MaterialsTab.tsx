@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Diamond, Package } from "@phosphor-icons/react";
+import { Diamond } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -16,6 +16,7 @@ import {
   anchorOf,
   type ItemCardAnchor,
 } from "../V2ItemCard";
+import { InventoryItemIcon } from "./InventoryItemIcon";
 
 // 재료 탭 — 보유 재료(드랍)만 모아 2열 카드 그리드 + 페이지네이션. 보유 0인 재료는 숨김.
 export function MaterialsTab({
@@ -97,7 +98,7 @@ function MaterialCardGrid({
             className={`${SURFACE_CARD} flex min-h-[7rem] flex-col gap-1 p-3 text-left transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:hover:bg-zinc-900`}
           >
             <div className="flex items-start justify-between gap-1">
-              <Package size={20} weight="duotone" className="text-amber-500" />
+              <InventoryItemIcon itemId={id} size={22} />
               <span className="shrink-0 rounded bg-zinc-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                 ×{count}
               </span>

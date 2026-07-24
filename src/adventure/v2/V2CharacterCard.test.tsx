@@ -33,7 +33,7 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).toMatch(/ui-profile-theme-copy text-sm/);
   });
 
-  it("renders the showcase in its own responsive column", () => {
+  it("renders the badge rack in its own responsive column", () => {
     const title = Object.values(TITLES)[0];
     const html = renderToStaticMarkup(
       <V2CharacterCard
@@ -43,10 +43,25 @@ describe("V2CharacterCard profile theme", () => {
       />,
     );
 
-    expect(html).toContain("프로필 쇼케이스");
-    expect(html).toContain(`「${title.name}」`);
-    expect(html).toContain("쇼케이스 편집");
+    expect(html).toContain("대표 배지 전시대");
+    expect(html).toContain(title.name);
+    expect(html).toContain("대표 배지 편집");
+    expect(html.match(/잠김/g)).toHaveLength(2);
     expect(html).toContain("sm:grid-cols-[7rem_minmax(0,1fr)_minmax(13rem,0.95fr)]");
     expect(html).toContain("col-span-2 min-w-0 sm:col-span-1");
+  });
+
+  it("shows only the selected medal on a public profile", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        profileShowcase={{ kind: "achievement", achievementId: "combat_10" }}
+      />,
+    );
+
+    expect(html).toContain("몸풀기");
+    expect(html).toContain("5점");
+    expect(html).not.toContain("잠김");
+    expect(html).not.toContain("대표 배지 편집");
   });
 });

@@ -4,7 +4,10 @@ import {
   PROFILE_IMAGE_MAX_BYTES,
   PROFILE_IMAGE_SIZE,
 } from "@/adventure/profile/avatars";
-import { processProfileImage } from "./profileImage";
+import {
+  createProfileImageThumbnail,
+  processProfileImage,
+} from "./profileImage";
 
 async function animatedWebp(delays: number[]): Promise<Buffer> {
   const width = 16;
@@ -86,6 +89,18 @@ describe("processProfileImage", () => {
       width: PROFILE_IMAGE_SIZE,
       height: PROFILE_IMAGE_SIZE,
     });
+  });
+
+  it("기존 애니메이션 원본에서도 첫 프레임 정지 썸네일을 만든다", async () => {
+    const input = await animatedWebp([100, 100]);
+    const thumbnail = await createProfileImageThumbnail(input);
+
+    await expect(sharp(thumbnail, { animated: true }).metadata()).resolves.toMatchObject({
+      format: "webp",
+      width: PROFILE_IMAGE_SIZE,
+      height: PROFILE_IMAGE_SIZE,
+    });
+    expect((await sharp(thumbnail, { animated: true }).metadata()).pages).toBeUndefined();
   });
 
   it("빈 파일과 MIME 위장 파일을 거절한다", async () => {

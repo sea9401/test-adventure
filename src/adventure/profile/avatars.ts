@@ -115,7 +115,8 @@ export function avatarImageSrc(
   if (customKey) {
     const match = PROFILE_IMAGE_OBJECT_KEY.exec(customKey);
     if (match) {
-      const suffix = motion === "static" ? ".thumb.webp" : ".webp";
+      // v2 쿼리는 썸네일 도입 직후 원본 애니메이션으로 잘못 캐시된 응답을 즉시 무효화한다.
+      const suffix = motion === "static" ? ".thumb.webp?v=2" : ".webp";
       return `/api/profile/image/${match[1]}/${match[2]}${suffix}`;
     }
   }

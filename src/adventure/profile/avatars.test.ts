@@ -18,7 +18,7 @@ describe("커스텀 프로필 이미지 키", () => {
     expect(isStoredAvatarId(KEY)).toBe(true);
     expect(isValidAvatarId(KEY)).toBe(false);
     expect(avatarImageSrc(KEY)).toBe(
-      "/api/profile/image/123e4567-e89b-42d3-a456-426614174000/223e4567-e89b-42d3-b456-426614174000.thumb.webp",
+      "/api/profile/image/123e4567-e89b-42d3-a456-426614174000/223e4567-e89b-42d3-b456-426614174000.thumb.webp?v=2",
     );
     expect(avatarImageSrc(KEY, "animated")).toBe(
       "/api/profile/image/123e4567-e89b-42d3-a456-426614174000/223e4567-e89b-42d3-b456-426614174000.webp",

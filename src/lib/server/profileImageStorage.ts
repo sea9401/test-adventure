@@ -112,6 +112,26 @@ export async function readProfileImage(key: string): Promise<Uint8Array | null> 
   }
 }
 
+export async function uploadProfileImageThumbnail(
+  key: string,
+  bytes: Uint8Array,
+): Promise<void> {
+  const normalized = normalizeProfileImageAssetKey(key);
+  if (!normalized?.endsWith(".thumb.webp")) {
+    throw new Error("invalid_profile_image_thumbnail_key");
+  }
+  const { client, bucket } = storage();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: normalized,
+      Body: bytes,
+      ContentType: "image/webp",
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
+  );
+}
+
 export async function deleteProfileImage(key: unknown): Promise<void> {
   const normalized = normalizeProfileImageObjectKey(key);
   if (!normalized) return;

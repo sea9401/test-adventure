@@ -2,9 +2,10 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import {
   Crown,
+  Eye,
+  EyeSlash,
   PencilSimple,
   Plus,
   SpinnerGap,
@@ -16,7 +17,6 @@ import { TITLES } from "@/adventure/data/titles";
 import { V2_EQUIPMENT, type V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import { questById } from "@/adventure/data/v2/v2Quests";
 import {
-  PROFILE_BADGE_STAND_PRICE,
   type ProfileShowcaseSelection,
   type ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
@@ -92,25 +92,90 @@ const BADGE_TONE: Record<
 export function ProfileBadgeRack({
   initialSlots,
   standOwned,
+  initialVisible,
   owned,
   editable,
 }: {
   initialSlots: ProfileShowcaseSlots;
   standOwned: boolean;
+  initialVisible: boolean;
   owned: V2EquipInstance[];
   editable: boolean;
 }) {
   const [slots, setSlots] = useState<ProfileShowcaseSlots>(initialSlots);
+  const [visible, setVisible] = useState(initialVisible);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [visibilityError, setVisibilityError] = useState(false);
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [optionsFailed, setOptionsFailed] = useState(false);
   const [achievementOptions, setAchievementOptions] = useState<AchievementOption[]>([]);
   const contents = slots.map((selection) => resolveBadgeContent(selection, owned));
 
-  if (!standOwned) {
-    return editable ? <BadgeStandOffer /> : null;
+  const updateVisibility = async (nextVisible: boolean) => {
+    if (visibilitySaving) return;
+    setVisibilitySaving(true);
+    setVisibilityError(false);
+    try {
+      const response = await fetch("/api/v2/me/profile-showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible: nextVisible }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { ok?: boolean; visible?: boolean }
+        | null;
+      if (!response.ok || !data?.ok) throw new Error("visibility save failed");
+      setVisible(data.visible ?? nextVisible);
+    } catch {
+      setVisibilityError(true);
+    } finally {
+      setVisibilitySaving(false);
+    }
+  };
+
+  if (!standOwned) return null;
+  if (!editable && (!visible || contents.every((content) => content === null))) {
+    return null;
   }
-  if (!editable && contents.every((content) => content === null)) return null;
+  if (editable && !visible) {
+    return (
+      <section
+        aria-label="대표 배지 전시대 비공개 설정"
+        className={`${SURFACE_INSET} flex min-h-20 items-center gap-3 p-3`}
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+          <EyeSlash size={21} weight="duotone" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+            대표 배지 전시대 비공개
+          </p>
+          <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+            다른 모험가에게는 전시대가 보이지 않습니다.
+          </p>
+          {visibilityError ? (
+            <p className="mt-1 text-[10px] text-rose-600 dark:text-rose-400">
+              설정을 저장하지 못했어요. 다시 시도해 주세요.
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          disabled={visibilitySaving}
+          onClick={() => void updateVisibility(true)}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500 bg-amber-500 px-2.5 py-1.5 text-[10px] font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+        >
+          {visibilitySaving ? (
+            <SpinnerGap size={13} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Eye size={13} weight="bold" aria-hidden="true" />
+          )}
+          공개하기
+        </button>
+      </section>
+    );
+  }
 
   const openEditor = async (slotIndex: number) => {
     setEditingSlot(slotIndex);
@@ -142,20 +207,36 @@ export function ProfileBadgeRack({
         className={`${SURFACE_INSET} relative min-h-28 overflow-hidden p-2`}
       >
         {editable ? (
-          <button
-            type="button"
-            onClick={() =>
-              void openEditor(
-                slots.findIndex((selection) => selection === null) >= 0
-                  ? slots.findIndex((selection) => selection === null)
-                  : 0,
-              )
-            }
-            aria-label="대표 배지 편집"
-            className="absolute right-1.5 top-1.5 z-20 rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-amber-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-amber-300"
-          >
-            <PencilSimple size={14} weight="bold" aria-hidden="true" />
-          </button>
+          <div className="absolute right-1.5 top-1.5 z-20 flex gap-0.5">
+            <button
+              type="button"
+              disabled={visibilitySaving}
+              onClick={() => void updateVisibility(false)}
+              aria-label="대표 배지 전시대 숨기기"
+              title="전시대 숨기기"
+              className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-amber-700 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-amber-300"
+            >
+              {visibilitySaving ? (
+                <SpinnerGap size={14} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <EyeSlash size={14} weight="bold" aria-hidden="true" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void openEditor(
+                  slots.findIndex((selection) => selection === null) >= 0
+                    ? slots.findIndex((selection) => selection === null)
+                    : 0,
+                )
+              }
+              aria-label="대표 배지 편집"
+              className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-amber-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-amber-300"
+            >
+              <PencilSimple size={14} weight="bold" aria-hidden="true" />
+            </button>
+          </div>
         ) : null}
 
         <div className="flex min-h-24 items-end justify-center gap-1.5">
@@ -176,6 +257,11 @@ export function ProfileBadgeRack({
             ) : null,
           )}
         </div>
+        {visibilityError ? (
+          <p className="absolute bottom-1 left-2 text-[9px] text-rose-600 dark:text-rose-400">
+            공개 설정을 저장하지 못했어요.
+          </p>
+        ) : null}
       </section>
 
       {editingSlot != null ? (
@@ -193,33 +279,6 @@ export function ProfileBadgeRack({
         />
       ) : null}
     </>
-  );
-}
-
-function BadgeStandOffer() {
-  return (
-    <section
-      aria-label="대표 배지 전시대 구매 안내"
-      className={`${SURFACE_INSET} flex min-h-28 items-center gap-3 p-3`}
-    >
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-amber-300 bg-amber-50 text-amber-700 shadow-inner dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300">
-        <Trophy size={25} weight="duotone" aria-hidden="true" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-          대표 배지 전시대
-        </p>
-        <p className="mt-1 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-          배지 3칸 영구 해금 · {PROFILE_BADGE_STAND_PRICE.toLocaleString()}코인
-        </p>
-        <Link
-          href="/settings/coin-shop"
-          className="mt-2 inline-flex rounded-md border border-amber-500 bg-amber-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-600"
-        >
-          코인 상점에서 보기
-        </Link>
-      </div>
-    </section>
   );
 }
 

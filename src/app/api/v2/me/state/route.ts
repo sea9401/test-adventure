@@ -73,6 +73,7 @@ import { parseAdventureSupportState } from "@/adventure/data/v2/adventureSupport
 import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
+  parseProfileBadgeStandVisible,
   parseProfileShowcase,
   parseProfileShowcaseSlots,
   ownsProfileBadgeStand,
@@ -425,6 +426,9 @@ export async function GET(req: Request) {
       stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
     ),
     profileBadgeStandOwned: ownsProfileBadgeStand(charSave),
+    profileBadgeStandVisible: parseProfileBadgeStandVisible(
+      stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
+    ),
     hotTime: hotTime.active
       ? {
           title: hotTime.title,

@@ -8,6 +8,7 @@ import {
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
+  parseProfileBadgeStandVisible,
   parseProfileShowcase,
   parseProfileShowcaseSelection,
   parseProfileShowcaseSlots,
@@ -54,6 +55,7 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     standOwned: ownsProfileBadgeStand(characterRaw),
+    visible: parseProfileBadgeStandVisible(showcaseRaw),
     selection: parseProfileShowcase(showcaseRaw),
     slots: parseProfileShowcaseSlots(showcaseRaw),
     titleOptions: Object.values(TITLES)
@@ -84,37 +86,56 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { selection?: unknown; slots?: unknown };
+  let body: { selection?: unknown; slots?: unknown; visible?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const requested = Array.isArray(body.slots)
-    ? body.slots
-    : body.selection === null
-      ? []
-      : [body.selection];
-  if (requested.length > 3) {
+  const updatesSlots = body.slots !== undefined || body.selection !== undefined;
+  const updatesVisibility = body.visible !== undefined;
+  if (!updatesSlots && !updatesVisibility) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
-  const slots = [0, 1, 2].map((index) => {
-    const raw = requested[index] ?? null;
-    return raw === null ? null : parseProfileShowcaseSelection(raw);
-  }) as ProfileShowcaseSlots;
-  if (
-    requested.some(
-      (raw, index) => raw !== null && index < 3 && slots[index] === null,
-    )
-  ) {
+  if (updatesVisibility && typeof body.visible !== "boolean") {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
-  const selectionKeys = slots
-    .filter((slot): slot is ProfileShowcaseSelection => slot !== null)
-    .map((slot) => JSON.stringify(slot));
-  if (new Set(selectionKeys).size !== selectionKeys.length) {
-    return Response.json({ ok: false, error: "duplicate_selection" }, { status: 400 });
+
+  let requestedSlots: ProfileShowcaseSlots | null = null;
+  if (updatesSlots) {
+    if (body.slots !== undefined && !Array.isArray(body.slots)) {
+      return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    const requested = Array.isArray(body.slots)
+      ? body.slots
+      : body.selection === null
+        ? []
+        : [body.selection];
+    if (requested.length > 3) {
+      return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    requestedSlots = [0, 1, 2].map((index) => {
+      const raw = requested[index] ?? null;
+      return raw === null ? null : parseProfileShowcaseSelection(raw);
+    }) as ProfileShowcaseSlots;
+    if (
+      requested.some(
+        (raw, index) =>
+          raw !== null && index < 3 && requestedSlots?.[index] === null,
+      )
+    ) {
+      return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    const selectionKeys = requestedSlots
+      .filter((slot): slot is ProfileShowcaseSelection => slot !== null)
+      .map((slot) => JSON.stringify(slot));
+    if (new Set(selectionKeys).size !== selectionKeys.length) {
+      return Response.json(
+        { ok: false, error: "duplicate_selection" },
+        { status: 400 },
+      );
+    }
   }
 
   const [characterRaw, equipmentRaw, adventureLogRaw, claimedRaw] =
@@ -132,7 +153,7 @@ export async function POST(req: Request) {
   const ownedTitleIds = new Set(ownedTitleIdsOf(adventureLogRaw));
   const claimed = parseClaimed(claimedRaw);
 
-  for (const slot of slots) {
+  for (const slot of requestedSlots ?? []) {
     if (slot?.kind === "equipment") {
       if (!owned.some((item) => item.iid === slot.iid)) {
         return Response.json({ ok: false, error: "not_owned" }, { status: 400 });
@@ -161,10 +182,29 @@ export async function POST(req: Request) {
     }
   }
 
-  await db.transaction(async (tx) => {
-    await lockSaveForUpdate(tx, userId, PROFILE_SHOWCASE_SAVE_KEY, {});
-    await upsertSave(tx, userId, PROFILE_SHOWCASE_SAVE_KEY, { slots });
+  const saved = await db.transaction(async (tx) => {
+    const currentRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      PROFILE_SHOWCASE_SAVE_KEY,
+      {},
+    );
+    const slots = requestedSlots ?? parseProfileShowcaseSlots(currentRaw);
+    const visible =
+      typeof body.visible === "boolean"
+        ? body.visible
+        : parseProfileBadgeStandVisible(currentRaw);
+    await upsertSave(tx, userId, PROFILE_SHOWCASE_SAVE_KEY, {
+      slots,
+      visible,
+    });
+    return { slots, visible };
   });
 
-  return Response.json({ ok: true, selection: slots[0], slots });
+  return Response.json({
+    ok: true,
+    selection: saved.slots[0],
+    slots: saved.slots,
+    visible: saved.visible,
+  });
 }

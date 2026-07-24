@@ -162,6 +162,7 @@ export function V2CharacterCard({
   profileShowcase = null,
   profileShowcaseSlots,
   profileBadgeStandOwned = false,
+  profileBadgeStandVisible = true,
   showcaseEditable = false,
   profileImageMotion = "static",
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
@@ -187,6 +188,7 @@ export function V2CharacterCard({
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
   profileBadgeStandOwned?: boolean;
+  profileBadgeStandVisible?: boolean;
   showcaseEditable?: boolean;
   profileImageMotion?: ProfileImageMotion;
   equipped?: Partial<Record<V2EquipSlot, string>>;
@@ -222,8 +224,9 @@ export function V2CharacterCard({
     null,
   ];
   const showBadgeRack =
-    showcaseEditable ||
-    (profileBadgeStandOwned && badgeSlots.some((slot) => slot !== null));
+    profileBadgeStandOwned &&
+    (showcaseEditable ||
+      (profileBadgeStandVisible && badgeSlots.some((slot) => slot !== null)));
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -320,6 +323,7 @@ export function V2CharacterCard({
                 <ProfileBadgeRack
                   initialSlots={badgeSlots}
                   standOwned={profileBadgeStandOwned}
+                  initialVisible={profileBadgeStandVisible}
                   owned={owned ?? []}
                   editable={showcaseEditable}
                 />

@@ -26,6 +26,25 @@ export type ProfileImageCheckError =
   | "animation_too_long"
   | "animation_too_fast";
 
+export async function createProfileImageThumbnail(
+  input: Uint8Array,
+): Promise<Uint8Array> {
+  return sharp(input, {
+    page: 0,
+    pages: 1,
+    failOn: "error",
+    limitInputPixels: MAX_DECODED_PIXELS,
+    sequentialRead: true,
+  })
+    .rotate()
+    .resize(PROFILE_IMAGE_SIZE, PROFILE_IMAGE_SIZE, {
+      fit: "cover",
+      position: "centre",
+    })
+    .webp({ quality: 78, effort: 4 })
+    .toBuffer();
+}
+
 export async function processProfileImage(
   value: unknown,
 ): Promise<
@@ -114,20 +133,7 @@ export async function processProfileImage(
       return { ok: false, error: "image_too_large" };
     }
 
-    const thumbnailBytes = await sharp(input, {
-      page: 0,
-      pages: 1,
-      failOn: "error",
-      limitInputPixels: MAX_DECODED_PIXELS,
-      sequentialRead: true,
-    })
-      .rotate()
-      .resize(PROFILE_IMAGE_SIZE, PROFILE_IMAGE_SIZE, {
-        fit: "cover",
-        position: "centre",
-      })
-      .webp({ quality: 78, effort: 4 })
-      .toBuffer();
+    const thumbnailBytes = await createProfileImageThumbnail(input);
 
     return { ok: true, bytes, thumbnailBytes, animated };
   } catch {

@@ -6,7 +6,9 @@ import {
 import {
   isProfileImageStorageConfigured,
   readProfileImage,
+  uploadProfileImageThumbnail,
 } from "@/lib/server/profileImageStorage";
+import { createProfileImageThumbnail } from "@/lib/server/profileImage";
 
 export async function GET(
   _req: Request,
@@ -21,11 +23,21 @@ export async function GET(
 
   try {
     let bytes = await readProfileImage(key);
-    // 썸네일 도입 전 등록된 이미지는 원본 자체가 정지 WebP다. 파생 썸네일이 없으면 원본을
-    // 그대로 제공해 기존 프로필이 깨지지 않게 한다.
+    // 썸네일 도입 전에 등록된 애니메이션도 목록에서 움직이지 않도록 원본의 첫 프레임으로
+    // 정지 썸네일을 만든다. R2에 한 번 보강하되, 보강 저장 실패 시에도 변환 결과는 제공한다.
     if (!bytes && key.endsWith(".thumb.webp")) {
       const originalKey = profileImageOriginalObjectKey(key);
-      if (originalKey) bytes = await readProfileImage(originalKey);
+      const originalBytes = originalKey
+        ? await readProfileImage(originalKey)
+        : null;
+      if (originalBytes) {
+        bytes = await createProfileImageThumbnail(originalBytes);
+        try {
+          await uploadProfileImageThumbnail(key, bytes);
+        } catch (error) {
+          console.error("profile image thumbnail backfill failed", error);
+        }
+      }
     }
     if (!bytes) return new Response(null, { status: 404 });
     return new Response(Buffer.from(bytes), {

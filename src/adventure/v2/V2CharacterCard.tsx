@@ -17,7 +17,11 @@ import {
 import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
-import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
+import {
+  avatarImageSrc,
+  type Gender,
+  type ProfileImageMotion,
+} from "@/adventure/profile/avatars";
 import {
   V2_EQUIPMENT,
   type V2Equipment,
@@ -98,8 +102,16 @@ const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string
   },
 ];
 
-function CharacterPortrait({ gender }: { gender: Gender }) {
+function CharacterPortrait({
+  gender,
+  motion,
+}: {
+  gender: Gender;
+  motion: ProfileImageMotion;
+}) {
   const [errored, setErrored] = useState(false);
+  const staticSrc = avatarImageSrc(gender, "static");
+  const src = avatarImageSrc(gender, motion);
   return (
     <div
       aria-label="캐릭터 이미지"
@@ -108,13 +120,22 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
       {errored ? (
         <UserIcon size={56} weight="duotone" />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatarImageSrc(gender)}
-          alt=""
-          onError={() => setErrored(true)}
-          className="h-full w-full object-contain"
-        />
+        <picture className="h-full w-full">
+          {motion === "animated" ? (
+            <source
+              media="(prefers-reduced-motion: reduce)"
+              srcSet={staticSrc}
+            />
+          ) : null}
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={() => setErrored(true)}
+            className="h-full w-full object-contain"
+          />
+        </picture>
       )}
     </div>
   );
@@ -137,6 +158,7 @@ export function V2CharacterCard({
   activeFoodBuff = null,
   profileShowcase = null,
   showcaseEditable = false,
+  profileImageMotion = "static",
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
@@ -159,6 +181,7 @@ export function V2CharacterCard({
   activeFoodBuff?: ActiveCookingBuff | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   showcaseEditable?: boolean;
+  profileImageMotion?: ProfileImageMotion;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
 }) {
@@ -231,6 +254,7 @@ export function V2CharacterCard({
           <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(13rem,0.95fr)] sm:gap-4">
             <CharacterPortrait
               gender={(character.gender ?? "male1") as Gender}
+              motion={profileImageMotion}
             />
             <div className="min-w-0">
               {titleName && (

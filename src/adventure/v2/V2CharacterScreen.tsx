@@ -191,6 +191,7 @@ export function V2CharacterScreen({
           championshipBadge={state?.cosmetics?.championshipBadge ?? null}
           profileShowcase={state?.profileShowcase ?? null}
           showcaseEditable={!playerName}
+          profileImageMotion="animated"
         />
       ) : loading ? (
         <Card padding="md">

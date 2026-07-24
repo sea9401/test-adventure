@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import {
-  PROFILE_IMAGE_MAX_BYTES,
   isProfileImageObjectKey,
+  PROFILE_IMAGE_MAX_BYTES,
 } from "@/adventure/profile/avatars";
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import {
@@ -83,7 +83,11 @@ export async function POST(req: Request) {
 
   let avatar: string;
   try {
-    avatar = await uploadProfileImage({ userId, bytes: processed.bytes });
+    avatar = await uploadProfileImage({
+      userId,
+      bytes: processed.bytes,
+      thumbnailBytes: processed.thumbnailBytes,
+    });
   } catch (error) {
     console.error("profile image R2 upload failed", error);
     return Response.json({ ok: false, error: "storage_error" }, { status: 502 });
@@ -116,7 +120,12 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, PROFILE_STORAGE_KEY, { ...profile, gender: avatar });
       return {
         status: 200,
-        body: { ok: true as const, avatar, permits: cashItems[PERMIT_ID] ?? 0 },
+        body: {
+          ok: true as const,
+          avatar,
+          animated: processed.animated,
+          permits: cashItems[PERMIT_ID] ?? 0,
+        },
         previousAvatar: profile.gender,
       };
     });

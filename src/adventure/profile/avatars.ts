@@ -29,6 +29,11 @@ export type Gender = Avatar;
 export const NPC_AVATAR_PREFIX = "npc:";
 export const MONSTER_AVATAR_PREFIX = "monster:";
 export const PROFILE_IMAGE_STORAGE_PREFIX = "profile-images";
+export const PROFILE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+export const PROFILE_IMAGE_SIZE = 256;
+export const PROFILE_IMAGE_MAX_DIMENSION = 4096;
+export const PROFILE_IMAGE_MAX_FRAMES = 120;
+export const PROFILE_IMAGE_MAX_TOTAL_PIXELS = 32 * 1024 * 1024;
 
 const PROFILE_IMAGE_OBJECT_KEY =
   /^profile-images\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.webp$/i;

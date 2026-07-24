@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ImageSquare, Ticket } from "@phosphor-icons/react";
 import { AvatarPicker, type AvatarCategory } from "@/adventure/profile/AvatarPicker";
-import { avatarImageSrc, type Avatar } from "@/adventure/profile/avatars";
-import { GUILD_EMBLEM_IMAGE_MAX_BYTES } from "@/adventure/data/guild-emblems";
+import {
+  PROFILE_IMAGE_MAX_BYTES,
+  avatarImageSrc,
+  type Avatar,
+} from "@/adventure/profile/avatars";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -24,7 +27,8 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_file: "등록할 이미지 파일을 선택해 주세요.",
   not_image: "JPG, PNG, WebP 이미지 파일만 등록할 수 있습니다.",
   image_too_large: "이미지는 2MB 이하여야 합니다.",
-  image_dimensions: "이미지는 가로·세로 4096px 이하여야 합니다.",
+  image_dimensions:
+    "이미지는 프레임당 가로·세로 4096px, 애니메이션은 120프레임 이하여야 합니다.",
   storage_unavailable: "이미지 저장소를 준비 중입니다. 잠시 후 다시 시도해 주세요.",
   storage_error: "이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
 };
@@ -192,7 +196,7 @@ export function ProfileImagePanel() {
 
       <Card>
         <h2 className="flex items-center gap-1.5 font-semibold"><ImageSquare size={20} weight="duotone" /> 직접 이미지 등록</h2>
-        <p className="mb-3 mt-1 text-xs text-zinc-500 dark:text-zinc-400">JPG·PNG·WebP, 2MB 이하. 중앙을 기준으로 정사각형 이미지로 변환됩니다.</p>
+        <p className="mb-3 mt-1 text-xs text-zinc-500 dark:text-zinc-400">JPG·PNG·WebP(움직이는 WebP 포함), 2MB 이하. 중앙을 기준으로 정사각형 이미지로 변환됩니다.</p>
         <div className={`${SURFACE_INSET} flex items-center gap-3 p-3`}>
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
             {previewUrl ? (
@@ -207,11 +211,11 @@ export function ProfileImagePanel() {
             disabled={busy}
             onChange={(event) => {
               const next = event.target.files?.[0] ?? null;
-              if (next && (!["image/jpeg", "image/png", "image/webp"].includes(next.type) || next.size > GUILD_EMBLEM_IMAGE_MAX_BYTES)) {
+              if (next && (!["image/jpeg", "image/png", "image/webp"].includes(next.type) || next.size > PROFILE_IMAGE_MAX_BYTES)) {
                 event.target.value = "";
                 setFile(null);
                 setPreviewUrl(null);
-                setNotice({ kind: "error", text: next.size > GUILD_EMBLEM_IMAGE_MAX_BYTES ? ERROR_TEXT.image_too_large : ERROR_TEXT.not_image });
+                setNotice({ kind: "error", text: next.size > PROFILE_IMAGE_MAX_BYTES ? ERROR_TEXT.image_too_large : ERROR_TEXT.not_image });
                 return;
               }
               setFile(next);

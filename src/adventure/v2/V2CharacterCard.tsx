@@ -239,7 +239,7 @@ export function V2CharacterCard({
                     className={chatNameClass(
                       chatNameEffect,
                       hasProfileTheme
-                        ? "ui-profile-theme-copy truncate text-white"
+                        ? "truncate text-white"
                         : "truncate text-zinc-900 dark:text-zinc-100",
                     )}
                   >

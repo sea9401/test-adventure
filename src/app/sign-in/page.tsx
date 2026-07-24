@@ -29,7 +29,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ referral?: string | string[] }>;
+}) {
   // 대문을 모든 신규 진입의 최우선 화면으로 둔다(로그인/캐릭터 유무 무관).
   //  · 비로그인           → 로그인 버튼이 있는 대문.
   //  · 로그인 + 캐릭터 없음 → "시작하기"(→/create) CTA 가 있는 대문.
@@ -41,5 +45,17 @@ export default async function SignInPage() {
     redirect("/");
   }
 
-  return <LandingContent authed={!!session?.user} />;
+  const referral = (await searchParams).referral;
+  return (
+    <LandingContent
+      authed={!!session?.user}
+      referralStatus={
+        referral === "accepted"
+          ? "accepted"
+          : referral === "invalid"
+            ? "invalid"
+            : null
+      }
+    />
+  );
 }

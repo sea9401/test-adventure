@@ -3,6 +3,7 @@ import Kakao from "next-auth/providers/kakao";
 
 const PUBLIC_PATHS = [
   "/sign-in",
+  "/r",             // 개인 홍보 링크 — 유입 쿠키를 기록한 뒤 공개 대문으로 이동
   "/manual",       // 게임 가이드 — 정적 콘텐츠(세션 비의존). 대문에서 잠재 유저가 미리보게 공개.
   "/robots.txt",   // 검색 로봇 수집 규칙
   "/sitemap.xml",  // 공개 대문·게임 가이드 URL 목록

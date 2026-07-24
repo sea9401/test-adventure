@@ -27,4 +27,13 @@ describe("대문 로그인 선택지", () => {
     expect(html).not.toContain("함께한 모험가");
     expect(html).not.toContain("접속 중");
   });
+
+  it("유효한 홍보 링크가 적용됐음을 대문에서 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <LandingContent referralStatus="accepted" />,
+    );
+
+    expect(html).toContain("홍보 링크가 적용되었습니다");
+    expect(html).toContain("새 캐릭터를 만들면 홍보자에게 보상이 지급됩니다");
+  });
 });

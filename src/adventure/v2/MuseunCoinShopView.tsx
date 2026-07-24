@@ -122,7 +122,7 @@ function itemSummary(itemId: MuseunCashItemId): string {
     return `해금된 꾸미기 한 종류의 사용 기간을 ${item.effect.days}일 연장합니다.`;
   }
   return item.effect.slot === "profile_border"
-    ? "프로필 카드 전체에 적용할 꾸미기를 해금하고 30일간 사용합니다."
+    ? "프로필 바깥 테두리와 상단 배경 꾸미기를 해금하고 30일간 사용합니다."
     : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";
 }
 
@@ -1092,6 +1092,72 @@ function CosmeticCollectionBoxPreview({
   );
 }
 
+function ProfileThemePreview({
+  style,
+  eyebrow,
+}: {
+  style: ProfileBorderId;
+  eyebrow: string;
+}) {
+  const profileDecoration = PROFILE_BORDER_VARIANTS.find(
+    (variant) => variant.id === style,
+  );
+  const hasProfileTheme =
+    profileDecoration != null && profileDecoration.interior !== "none";
+
+  return (
+    <div
+      className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-3`}
+    >
+      <div
+        className={
+          hasProfileTheme ? "ui-profile-theme-header p-3" : `${SURFACE_INSET} p-3`
+        }
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-white bg-white text-sm font-black text-zinc-600 shadow-sm">
+            모
+          </div>
+          <div
+            className={`${hasProfileTheme ? "ui-profile-theme-copy" : ""} min-w-0 flex-1`}
+          >
+            <div
+              className={`text-[11px] ${
+                hasProfileTheme
+                  ? "text-zinc-200"
+                  : "text-zinc-500 dark:text-zinc-400"
+              }`}
+            >
+              {eyebrow}
+            </div>
+            <div
+              className={`truncate font-bold ${
+                hasProfileTheme
+                  ? "text-white"
+                  : "text-zinc-900 dark:text-zinc-100"
+              }`}
+            >
+              별을 걷는 모험가{" "}
+              <span
+                className={`text-xs font-normal ${
+                  hasProfileTheme
+                    ? "text-zinc-200"
+                    : "text-zinc-600 dark:text-zinc-300"
+                }`}
+              >
+                Lv.42
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className={`${SURFACE_INSET} mt-2 p-2 text-[10px] text-zinc-500 dark:text-zinc-400`}>
+        수치와 장비 영역은 읽기 편한 기본 배경을 유지합니다.
+      </div>
+    </div>
+  );
+}
+
 function CosmeticCollectionItemPreview({
   kind,
   name,
@@ -1105,10 +1171,6 @@ function CosmeticCollectionItemPreview({
   probabilityPct: number;
   style: string;
 }) {
-  const profileDecoration =
-    kind === "profile_border"
-      ? PROFILE_BORDER_VARIANTS.find((variant) => variant.id === style)
-      : null;
   const rarityName =
     kind === "profile_border"
       ? PROFILE_BORDER_RARITIES[rarity].name
@@ -1132,30 +1194,10 @@ function CosmeticCollectionItemPreview({
         </span>
       </div>
       {kind === "profile_border" ? (
-        <div
-          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style as ProfileBorderId} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 text-sm font-black text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              모
-            </div>
-            <div className={`${SURFACE_INSET} min-w-0 flex-1 p-3`}>
-              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                프로필 카드
-              </div>
-              <div className="truncate font-bold text-zinc-900 dark:text-zinc-100">
-                별을 걷는 모험가{" "}
-                <span className="text-xs font-normal">Lv.42</span>
-              </div>
-              {profileDecoration && (
-                <div className="mt-0.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                  {PROFILE_BORDER_RARITIES[profileDecoration.rarity].effect} ·{" "}
-                  {profileDecoration.feature}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ProfileThemePreview
+          style={style as ProfileBorderId}
+          eyebrow="프로필 카드"
+        />
       ) : (
         <div className={`${SURFACE_CARD} p-3`}>
           <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -1180,36 +1222,16 @@ function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
   const item = MUSEUN_CASH_ITEMS[itemId];
   if (item.effect.kind !== "cosmetic") return null;
   const cosmeticEffect = item.effect;
-  const profileDecoration =
-    cosmeticEffect.slot === "profile_border"
-      ? PROFILE_BORDER_VARIANTS.find(
-          (variant) => variant.id === cosmeticEffect.style,
-        )
-      : null;
   return (
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
         {item.description}
       </p>
       {cosmeticEffect.slot === "profile_border" ? (
-        <div
-          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${cosmeticEffect.style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
-        >
-          <div className={`${SURFACE_INSET} ml-auto w-4/5 p-3`}>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              프로필 미리보기
-            </div>
-            <div className="mt-1 font-bold text-zinc-900 dark:text-zinc-100">
-              별을 걷는 모험가 <span className="text-xs font-normal">Lv.42</span>
-            </div>
-            {profileDecoration && (
-              <div className="mt-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                {PROFILE_BORDER_RARITIES[profileDecoration.rarity].effect} ·{" "}
-                {profileDecoration.feature}
-              </div>
-            )}
-          </div>
-        </div>
+        <ProfileThemePreview
+          style={cosmeticEffect.style}
+          eyebrow="프로필 미리보기"
+        />
       ) : (
         <div className={`${SURFACE_INSET} p-3 text-sm`}>
           <ChatCosmeticBadge badge={cosmeticEffect.style} />

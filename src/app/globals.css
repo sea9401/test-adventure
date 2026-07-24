@@ -1684,15 +1684,6 @@ body {
   padding-inline: clamp(1.75rem, 12%, 6rem);
 }
 
-/* 캐릭터 간략 정보창의 프로필 꾸미기 전용 배너.
-   꾸미기 원본(800×280, 1920×640)과 같은 비율을 유지한다. */
-.ui-profile-decoration-banner {
-  min-height: 6.5rem;
-  max-height: 13rem;
-  overflow: hidden;
-  aspect-ratio: 20 / 7;
-}
-
 .ui-profile-frame-cosmetic::before {
   position: absolute;
   z-index: 2;

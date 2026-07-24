@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  CaretDown,
+  CaretUp,
   CheckCircle,
   MagnifyingGlass,
   Star,
@@ -110,6 +112,7 @@ export function V2JobLadder({
     (job) =>
       job.id !== currentJobId && job.id !== goalJobId && job.unlocked === false,
   );
+  const isFiltering = query.trim().length > 0 || activeTags.size > 0;
 
   function toggleTag(key: string) {
     setActiveTags((prev) => {
@@ -258,6 +261,9 @@ export function V2JobLadder({
             <JobSection
               title={atLevelCap ? "전직 가능" : "해금됨"}
               jobs={availableJobs}
+              previewLimit={4}
+              forceExpanded={isFiltering}
+              useGrid
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
               goalJobId={goalJobId}
@@ -273,6 +279,9 @@ export function V2JobLadder({
             <JobSection
               title="조건 부족"
               jobs={lockedJobs}
+              collapsedByDefault
+              forceExpanded={isFiltering}
+              useGrid
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
               goalJobId={goalJobId}
@@ -352,6 +361,10 @@ function JobSection({
   goalJobId,
   onSetGoal,
   onPick,
+  previewLimit,
+  collapsedByDefault = false,
+  forceExpanded = false,
+  useGrid = false,
 }: {
   title: string;
   jobs: JobLadderEntry[];
@@ -360,32 +373,100 @@ function JobSection({
   goalJobId: string | null;
   onSetGoal: (jobId: string | null) => void;
   onPick: (job: JobLadderEntry) => void;
+  previewLimit?: number;
+  collapsedByDefault?: boolean;
+  forceExpanded?: boolean;
+  useGrid?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (jobs.length === 0) return null;
+
+  const isOpen = forceExpanded || !collapsedByDefault || expanded;
+  const isPreviewing =
+    isOpen &&
+    !forceExpanded &&
+    !expanded &&
+    previewLimit !== undefined &&
+    jobs.length > previewLimit;
+  const visibleJobs = !isOpen
+    ? []
+    : isPreviewing
+      ? jobs.slice(0, previewLimit)
+      : jobs;
+  const hiddenCount = jobs.length - visibleJobs.length;
+  const canReturnToPreview =
+    !forceExpanded &&
+    !collapsedByDefault &&
+    expanded &&
+    previewLimit !== undefined &&
+    jobs.length > previewLimit;
+
   return (
     <section className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-          {title}
-        </h4>
-        <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
-          {jobs.length}
-        </span>
-      </div>
-      <ul className="space-y-1.5">
-        {jobs.map((job) => (
-          <JobRow
-            key={job.id}
-            job={job}
-            isCurrent={job.id === currentJobId}
-            isGoal={job.id === goalJobId}
-            atLevelCap={atLevelCap}
-            currentJobId={currentJobId}
-            onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
-            onPick={() => onPick(job)}
-          />
-        ))}
-      </ul>
+      {collapsedByDefault && !forceExpanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={isOpen}
+          className={`${SURFACE_INSET} flex min-h-10 w-full items-center justify-between gap-2 px-3 py-2 text-left transition hover:border-zinc-300 hover:bg-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800`}
+        >
+          <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            {title} <span className="tabular-nums text-zinc-400">{jobs.length}</span>
+          </span>
+          <span className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            {isOpen ? "접기" : "펼치기"}
+            {isOpen ? <CaretUp size={13} /> : <CaretDown size={13} />}
+          </span>
+        </button>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+            {title}
+          </h4>
+          <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+            {jobs.length}
+          </span>
+        </div>
+      )}
+
+      {visibleJobs.length > 0 && (
+        <ul className={useGrid ? "grid gap-1.5 sm:grid-cols-2" : "space-y-1.5"}>
+          {visibleJobs.map((job) => (
+            <JobRow
+              key={job.id}
+              job={job}
+              isCurrent={job.id === currentJobId}
+              isGoal={job.id === goalJobId}
+              atLevelCap={atLevelCap}
+              currentJobId={currentJobId}
+              onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+              onPick={() => onPick(job)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {isPreviewing && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className={`${SURFACE_INSET} flex min-h-10 w-full items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800`}
+        >
+          {hiddenCount}개 더 보기
+          <CaretDown size={13} />
+        </button>
+      )}
+
+      {canReturnToPreview && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="flex min-h-9 w-full items-center justify-center gap-1 text-xs font-medium text-zinc-500 transition hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+        >
+          간단히 보기
+          <CaretUp size={13} />
+        </button>
+      )}
     </section>
   );
 }

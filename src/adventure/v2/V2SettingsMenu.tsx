@@ -186,6 +186,18 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </Link>
             </li>
             <li>
+              <Link
+                href="/manual"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <BookOpen size={18} weight="duotone" />
+                게임 안내서
+              </Link>
+            </li>
+          </ul>
+          <ul className="border-t border-zinc-200 py-1 dark:border-zinc-700">
+            <li>
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -231,18 +243,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 건의사항
               </Link>
             </li>
-            <li>
-              <Link
-                href="/manual"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <BookOpen size={18} weight="duotone" />
-                게임 안내서
-              </Link>
-            </li>
-          </ul>
-          <ul className="border-t border-zinc-200 py-1 dark:border-zinc-700">
             <li>
               <button
                 type="button"

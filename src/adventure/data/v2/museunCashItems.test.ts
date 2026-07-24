@@ -20,6 +20,12 @@ import {
 
 describe("무슨 코인 캐시 소모품", () => {
   it("프로필·개명 변경권과 30일 지원권의 가격·효과를 고정한다", () => {
+    expect(MUSEUN_CASH_ITEMS.profile_badge_display_stand).toMatchObject({
+      coinPrice: 600,
+      delivery: "permanent",
+      tradeable: false,
+      effect: { kind: "profile_badge_stand" },
+    });
     expect(MUSEUN_CASH_ITEMS.profile_image_permit).toMatchObject({
       coinPrice: 500,
       delivery: "inventory",
@@ -81,6 +87,7 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isMuseunShopItemId("profile_border_box")).toBe(true);
     expect(isMuseunShopItemId("chat_badge_box")).toBe(true);
+    expect(isMuseunShopItemId("profile_badge_display_stand")).toBe(true);
     expect(isMuseunShopItemId("prismatic_profile_border")).toBe(false);
     expect(MUSEUN_SHOP_ITEM_IDS).not.toContain("starlight_chat_badge");
     expect(isMuseunCashItemId("toString")).toBe(false);
@@ -109,6 +116,9 @@ describe("무슨 코인 캐시 소모품", () => {
   });
 
   it("꾸미기 권리는 계정 귀속이고 인벤토리 아이템만 거래 가능하다", () => {
+    expect(isTradeableMuseunCashItemId("profile_badge_display_stand")).toBe(
+      false,
+    );
     expect(isTradeableMuseunCashItemId("rename_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("adventure_support_30d")).toBe(true);

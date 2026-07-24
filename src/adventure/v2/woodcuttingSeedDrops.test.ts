@@ -6,8 +6,8 @@ import {
 } from "./woodcuttingSeedDrops";
 
 describe("woodcuttingSeedDrops", () => {
-  it("성공 1회당 전체 씨앗 발견률을 0.49%로 제한한다", () => {
-    expect(WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION).toBe(4_900);
+  it("성공 1회당 전체 씨앗 발견률을 약 1.5%로 제한한다", () => {
+    expect(WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION).toBe(14_950);
   });
 
   it("고등급 작물일수록 등급별 최대 발견률이 더 낮다", () => {
@@ -31,12 +31,12 @@ describe("woodcuttingSeedDrops", () => {
       seedName: "밀 씨앗",
       quantity: 1,
     });
-    expect(rollWoodcuttingSeedDrop(() => 0.00488)).toEqual({
+    expect(rollWoodcuttingSeedDrop(() => 0.01493)).toEqual({
       cropId: "cacao",
       seedName: "카카오 묘목",
       quantity: 1,
     });
-    expect(rollWoodcuttingSeedDrop(() => 0.0049)).toBeNull();
+    expect(rollWoodcuttingSeedDrop(() => 0.01495)).toBeNull();
     expect(rollWoodcuttingSeedDrop(() => 0.99)).toBeNull();
   });
 });

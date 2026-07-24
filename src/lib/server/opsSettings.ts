@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { opsSettings } from "@/db/schema";
+import type { DbExecutor } from "@/lib/server/savesKv";
 
 export const HOT_TIME_KEY = "hot-time.v1";
 export const HOT_TIME_SCHEDULES_KEY = "hot-time-schedules.v1";
@@ -332,11 +333,23 @@ function defaultHotTimeRead() {
 
 export async function readActiveHotTime(
   now = Date.now(),
+  executor: DbExecutor = db,
 ): Promise<ActiveHotTime> {
-  const [{ hotTime }, { schedules }] = await Promise.all([
-    readHotTimeSettings(),
-    readHotTimeSchedules(),
-  ]);
+  // 전투/낚시처럼 이미 트랜잭션 커넥션을 쥔 호출부는 반드시 그 executor를 넘긴다.
+  // 전역 db로 두 설정을 병렬 조회하면 요청 하나가 풀 커넥션을 추가로 요구해, 풀이 찬 순간
+  // 모든 트랜잭션이 두 번째 커넥션을 기다리는 교착성 고갈이 생길 수 있다. 두 키를 한 쿼리로
+  // 읽으면 요청당 왕복도 2→1로 줄고 같은 tx 커넥션에서 안전하게 순차 실행된다.
+  if (typeof (executor as { select?: unknown }).select !== "function") {
+    return { ...DEFAULT_HOT_TIME, active: false, source: null };
+  }
+  const rows = await executor
+    .select({ key: opsSettings.key, value: opsSettings.value })
+    .from(opsSettings)
+    .where(inArray(opsSettings.key, [HOT_TIME_KEY, HOT_TIME_SCHEDULES_KEY]))
+    .limit(2);
+  const values = new Map(rows.map((row) => [row.key, row.value]));
+  const hotTime = parseHotTime(values.get(HOT_TIME_KEY));
+  const schedules = parseHotTimeSchedules(values.get(HOT_TIME_SCHEDULES_KEY));
   if (isHotTimeActive(hotTime, now)) {
     return { ...hotTime, active: true, source: "manual" };
   }

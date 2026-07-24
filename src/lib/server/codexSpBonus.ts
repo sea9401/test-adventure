@@ -36,9 +36,14 @@ export async function readCodexSpBonus(
   executor: DbExecutor,
   userId: string,
 ): Promise<ReturnType<typeof codexSpBonusFromRaw>> {
-  const [fishRaw, equipmentRaw] = await Promise.all([
-    readSave(executor, userId, FISHING_CODEX_KEY, {}),
-    readSave(executor, userId, EQUIPMENT_CODEX_KEY, {}),
-  ]);
+  // executor 는 단일 pg client 를 쓰는 transaction 일 수 있다. 같은 client 에
+  // client.query 를 겹쳐 호출하면 pg 9 에서 오류가 되므로 항상 순서대로 읽는다.
+  const fishRaw = await readSave(executor, userId, FISHING_CODEX_KEY, {});
+  const equipmentRaw = await readSave(
+    executor,
+    userId,
+    EQUIPMENT_CODEX_KEY,
+    {},
+  );
   return codexSpBonusFromRaw(fishRaw, equipmentRaw);
 }

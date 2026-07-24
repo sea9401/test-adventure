@@ -411,7 +411,7 @@ export async function POST(req: Request) {
       claim.weeklyBonusMastery > 0
         ? claim.weeklyBonusMastery + trainingBonuses.weeklyBonusMastery
         : 0;
-    const hotTime = await readActiveHotTime();
+    const hotTime = await readActiveHotTime(Date.now(), tx);
     const beforeHotTimeMastery = drill.rewardMastery + weeklyBonusMastery;
     const totalRewardMastery = hotTime.active
       ? applyPctBonus(beforeHotTimeMastery, hotTime.bonuses.masteryPct)

@@ -58,7 +58,7 @@ import {
   type ActiveCookingBuff,
 } from "@/adventure/v2/cooking";
 import type { ProfileShowcaseSelection } from "@/adventure/profile/profileShowcase";
-import { ProfileShowcase } from "./ProfileShowcase";
+import { ProfileBadgeRack } from "./ProfileBadgeRack";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -278,7 +278,7 @@ export function V2CharacterCard({
             </div>
             {(profileShowcase || showcaseEditable) && (
               <div className="col-span-2 min-w-0 sm:col-span-1">
-                <ProfileShowcase
+                <ProfileBadgeRack
                   initialSelection={profileShowcase}
                   owned={owned ?? []}
                   editable={showcaseEditable}

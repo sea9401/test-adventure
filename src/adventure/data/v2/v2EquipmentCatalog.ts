@@ -1018,6 +1018,62 @@ const V2_EQUIPMENT_BASE = {
       buffActions: 2,
     },
   },
+  v2_crafted_luminous_aegis_necklace: {
+    id: "v2_crafted_luminous_aegis_necklace",
+    slot: "necklace",
+    concept: "mana",
+    tier: 8,
+    name: "성광 수호목걸이",
+    description:
+      "별빛 수문장의 성광핵을 미스릴 고리에 봉한 목걸이. 치유 뒤에 남은 빛이 얇은 보호막으로 겹친다.",
+    power: 42,
+    weight: 0,
+    options: { hp: 120, mp: 90, magicDef: 18, healPowerPct: 12 },
+    craftOnly: true,
+    signature: {
+      trigger: "on_heal",
+      label: "성광수호",
+      healToShieldPct: 18,
+    },
+  },
+  v2_crafted_toxic_mist_gloves: {
+    id: "v2_crafted_toxic_mist_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 8,
+    name: "독무 응축장갑",
+    description:
+      "독안개 정령의 독무핵을 손등의 촉매관에 가둔 장갑. 타격할 때마다 짙은 독기가 스며 나온다.",
+    power: 27,
+    weight: 0,
+    options: { crit: 12, eva: 4, spd: 8 },
+    craftOnly: true,
+    signature: {
+      trigger: "on_hit",
+      label: "독무응축",
+      poisonChancePct: 30,
+      poisonStacks: 1,
+    },
+  },
+  v2_crafted_voidstep_boots: {
+    id: "v2_crafted_voidstep_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 8,
+    name: "공허추적 장화",
+    description:
+      "공허 야수의 그림자 발톱을 밑창에 심은 장화. 공격을 흘린 순간 그림자를 밟고 빠르게 파고든다.",
+    power: 25,
+    weight: 0,
+    options: { eva: 14, spd: 14, magicDef: 10 },
+    craftOnly: true,
+    signature: {
+      trigger: "on_dodge",
+      label: "공허추적",
+      spdBuffPct: 20,
+      buffActions: 2,
+    },
+  },
 
   // ── 유니크 (드랍 전용) ────────────────────────────────────────────
   // 옵션 프로필로 슬롯 시그니처를 깬다(파워크리프 회피 사이드그레이드). tier 는 위력 밴드·드랍

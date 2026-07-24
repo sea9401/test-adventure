@@ -14,7 +14,7 @@ describe("monster craft material drops", () => {
   });
 
   it("drops each dedicated material only from its matching defeated monster", () => {
-    expect(MONSTER_CRAFT_MATERIAL_DROP_RULES).toHaveLength(7);
+    expect(MONSTER_CRAFT_MATERIAL_DROP_RULES).toHaveLength(10);
     for (const rule of MONSTER_CRAFT_MATERIAL_DROP_RULES) {
       expect(rollMonsterCraftMaterialDrops(rule.monsterKey, () => 0.0199)).toEqual({
         [rule.materialId]: 1,
@@ -23,6 +23,23 @@ describe("monster craft material drops", () => {
         {},
       );
     }
+  });
+
+  it("fills the 3T progression with sanctuary, swamp, and beast-den materials", () => {
+    expect(
+      MONSTER_CRAFT_MATERIAL_DROP_RULES.filter((rule) =>
+        ["잊힌 성소", "리자드 늪지", "짐승의 소굴"].includes(
+          rule.sourceArea,
+        ),
+      ).map((rule) => [rule.monsterKey, rule.materialId]),
+    ).toEqual([
+      [
+        "별빛 수문장",
+        MONSTER_CRAFT_MATERIAL_ID.starlightGatekeeperLuminousCore,
+      ],
+      ["독안개 정령", MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore],
+      ["공허 야수", MONSTER_CRAFT_MATERIAL_ID.voidBeastShadowClaw],
+    ]);
   });
 
   it("does not consume RNG for monsters without a dedicated material", () => {

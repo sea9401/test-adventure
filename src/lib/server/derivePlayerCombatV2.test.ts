@@ -1097,7 +1097,7 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     });
   });
 
-  it("몬스터 소재 개량 장비 6종 장착 → 각 장비의 고유 시그니처", () => {
+  it("몬스터 소재 개량 장비 9종 장착 → 각 장비의 고유 시그니처", () => {
     const cases = [
       {
         equipped: { weapon: "v2_crafted_fracture_blade" },
@@ -1148,6 +1148,32 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
           trigger: "on_crit",
           label: "심맥파쇄",
           enemyDefDebuffPct: 16,
+          buffActions: 2,
+        },
+      },
+      {
+        equipped: { necklace: "v2_crafted_luminous_aegis_necklace" },
+        signature: {
+          trigger: "on_heal",
+          label: "성광수호",
+          healToShieldPct: 18,
+        },
+      },
+      {
+        equipped: { gloves: "v2_crafted_toxic_mist_gloves" },
+        signature: {
+          trigger: "on_hit",
+          label: "독무응축",
+          poisonChancePct: 30,
+          poisonStacks: 1,
+        },
+      },
+      {
+        equipped: { boots: "v2_crafted_voidstep_boots" },
+        signature: {
+          trigger: "on_dodge",
+          label: "공허추적",
+          spdBuffPct: 20,
           buffActions: 2,
         },
       },

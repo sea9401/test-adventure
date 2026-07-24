@@ -191,7 +191,7 @@ describe("guild workshop recipes", () => {
 
   it("exposes craft-only equipment, monster upgrades, and one boss upgrade recipe", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(48);
+    expect(recipes).toHaveLength(51);
     expect(recipes.every((recipe) => recipe.id.startsWith("crafted_"))).toBe(
       true,
     );
@@ -418,7 +418,7 @@ describe("guild workshop recipes", () => {
     });
   });
 
-  it("crafts the six regular monster-material items directly without base equipment", () => {
+  it("crafts the nine regular monster-material items directly without base equipment", () => {
     const cases = [
       [
         "crafted_pulsestone_guard",
@@ -440,6 +440,27 @@ describe("guild workshop recipes", () => {
         MONSTER_CRAFT_MATERIAL_ID.abyssWormBurrowingJaw,
         6,
         2,
+      ],
+      [
+        "crafted_luminous_aegis_necklace",
+        "v2_crafted_luminous_aegis_necklace",
+        MONSTER_CRAFT_MATERIAL_ID.starlightGatekeeperLuminousCore,
+        7,
+        3,
+      ],
+      [
+        "crafted_toxic_mist_gloves",
+        "v2_crafted_toxic_mist_gloves",
+        MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore,
+        7,
+        3,
+      ],
+      [
+        "crafted_voidstep_boots",
+        "v2_crafted_voidstep_boots",
+        MONSTER_CRAFT_MATERIAL_ID.voidBeastShadowClaw,
+        8,
+        4,
       ],
       [
         "crafted_fracture_blade",

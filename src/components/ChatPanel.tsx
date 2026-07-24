@@ -83,7 +83,7 @@ const customRoomSeenKey = (roomId: number) => `chat:lastSeenRoom:${roomId}`;
 
 // 비동기 요청이 폴링 주기보다 오래 걸려도 요청을 겹치지 않는다. 브라우저 탭이
 // 숨겨지면 타이머를 멈추고, 다시 보이는 순간 즉시 동기화한다.
-function startVisiblePolling(task: () => Promise<void>, intervalMs: number) {
+function startVisiblePolling(task: () => Promise<unknown>, intervalMs: number) {
   let stopped = false;
   let running = false;
   let timeoutId: number | null = null;

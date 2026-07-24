@@ -1,5 +1,6 @@
 import type { ChatRoomVisibility } from "@/lib/chat-rooms";
 import type { ChatMessage } from "../ChatPanel";
+import { fetchChatMessages } from "./chatMessagesApi";
 
 export type CustomChatRoom = {
   id: number;
@@ -115,8 +116,6 @@ export function respondToChatRoomInvite(
   );
 }
 
-export function fetchCustomRoomMessages(roomId: number) {
-  return requestJson<ChatMessage[]>(
-    `/api/chat?channel=room&roomId=${roomId}`,
-  );
+export function fetchCustomRoomMessages(roomId: number, afterId?: number) {
+  return fetchChatMessages({ channel: "room", roomId, afterId });
 }

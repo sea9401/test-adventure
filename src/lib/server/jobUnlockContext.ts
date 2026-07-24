@@ -83,23 +83,23 @@ export async function readJobUnlockContext(
   executor: DbExecutor,
   userId: string,
 ): Promise<JobUnlockContext> {
-  const [completedQuestIds, farmRaw, cookingRaw, woodcuttingRaw, miningRaw] = await Promise.all([
-    CATALOG_USES_QUEST_CONDITION
-      ? loadCompletedQuestIds(executor, userId)
-      : Promise.resolve(undefined),
-    CATALOG_USES_FARMING_LEVEL_CONDITION
-      ? readSave(executor, userId, FARM_SAVE_KEY, {})
-      : Promise.resolve(undefined),
-    CATALOG_USES_COOKING_LEVEL_CONDITION
-      ? readSave(executor, userId, COOKING_SAVE_KEY, {})
-      : Promise.resolve(undefined),
-    CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
-      ? readSave(executor, userId, WOODCUTTING_LOG_KEY, {})
-      : Promise.resolve(undefined),
-    CATALOG_USES_MINING_LEVEL_CONDITION
-      ? readSave(executor, userId, MINING_LOG_KEY, {})
-      : Promise.resolve(undefined),
-  ]);
+  // executor 가 transaction 이면 모든 쿼리가 같은 pg client 를 공유한다. pg client 는
+  // 동시 query 를 지원하지 않으므로 조건별 read 를 순서대로 실행한다.
+  const completedQuestIds = CATALOG_USES_QUEST_CONDITION
+    ? await loadCompletedQuestIds(executor, userId)
+    : undefined;
+  const farmRaw = CATALOG_USES_FARMING_LEVEL_CONDITION
+    ? await readSave(executor, userId, FARM_SAVE_KEY, {})
+    : undefined;
+  const cookingRaw = CATALOG_USES_COOKING_LEVEL_CONDITION
+    ? await readSave(executor, userId, COOKING_SAVE_KEY, {})
+    : undefined;
+  const woodcuttingRaw = CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
+    ? await readSave(executor, userId, WOODCUTTING_LOG_KEY, {})
+    : undefined;
+  const miningRaw = CATALOG_USES_MINING_LEVEL_CONDITION
+    ? await readSave(executor, userId, MINING_LOG_KEY, {})
+    : undefined;
   return jobUnlockContextFromSaves({
     farmRaw,
     cookingRaw,

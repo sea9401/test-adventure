@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { chatRoomMembers, chatRooms, messages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -32,6 +32,14 @@ export async function GET(req: Request) {
   if (!userId) return new Response("unauthorized", { status: 401 });
   const searchParams = new URL(req.url).searchParams;
   const channel = parseChannel(searchParams.get("channel"));
+  const afterIdRaw = searchParams.get("afterId");
+  const afterId = afterIdRaw == null ? null : Number(afterIdRaw);
+  if (
+    afterIdRaw != null &&
+    (!Number.isInteger(afterId) || Number(afterId) < 0)
+  ) {
+    return new Response("invalid after id", { status: 400 });
+  }
   const roomId = channel === "room" ? Number(searchParams.get("roomId")) : null;
   if (channel === "room" && (!Number.isInteger(roomId) || Number(roomId) <= 0)) {
     return new Response("invalid room id", { status: 400 });
@@ -55,6 +63,22 @@ export async function GET(req: Request) {
     if (!membership) return new Response("not in room", { status: 403 });
   }
 
+  const channelWhere =
+    channel === "room"
+      ? and(
+          eq(messages.channel, "room"),
+          eq(messages.roomId, Number(roomId)),
+        )
+      : channel === "guild"
+        ? and(
+            eq(messages.channel, "guild"),
+            eq(messages.guildId, viewerGuild?.guildId ?? -1),
+          )
+        : and(
+            eq(messages.channel, "global"),
+            isNull(messages.guildId),
+            isNull(messages.roomId),
+          );
   const rows = await db
     .select({
       id: messages.id,
@@ -69,23 +93,17 @@ export async function GET(req: Request) {
     })
     .from(messages)
     .where(
-      channel === "room"
-        ? and(
-            eq(messages.channel, "room"),
-            eq(messages.roomId, Number(roomId)),
-          )
-        : channel === "guild"
-        ? and(
-            eq(messages.channel, "guild"),
-            eq(messages.guildId, viewerGuild?.guildId ?? -1),
-          )
-        : and(
-            eq(messages.channel, "global"),
-            isNull(messages.guildId),
-            isNull(messages.roomId),
-          ),
+      afterId == null
+        ? channelWhere
+        : and(channelWhere, gt(messages.id, afterId)),
     )
-    .orderBy(desc(messages.createdAt))
+    // 최초 조회는 최신 50개를 가져온 뒤 시간순으로 뒤집는다. 증분 조회는
+    // afterId 이후를 오래된 순서로 보내 누락 없이 기존 목록 뒤에 합칠 수 있게 한다.
+    .orderBy(
+      ...(afterId == null
+        ? [desc(messages.createdAt), desc(messages.id)]
+        : [asc(messages.createdAt), asc(messages.id)]),
+    )
     .limit(CHAT_FETCH_LIMIT);
 
   const result = rows
@@ -102,7 +120,7 @@ export async function GET(req: Request) {
       mine: r.mine === userId,
       userId: r.mine,
     }))
-    .reverse();
+  if (afterId == null) result.reverse();
 
   const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
     result.map((message) => message.userId),

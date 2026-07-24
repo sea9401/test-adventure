@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChatCircle } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
-import { ChatPanel, type ChatChannel, type ChatMessage } from "./ChatPanel";
+import { ChatPanel, type ChatMessage } from "./ChatPanel";
+import {
+  fetchChatMessages,
+  latestChatMessageId,
+  mergeChatMessages,
+} from "./chat/chatMessagesApi";
 
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
@@ -14,12 +19,6 @@ const POLL_INTERVAL_OPEN_MS = 1500;
 const LAST_SEEN_KEY = "chat:lastSeenId";
 const LAST_SEEN_NOTICE_KEY = "chat:lastSeenNoticeId";
 const LAST_SEEN_GUILD_KEY = "chat:lastSeenGuildId";
-
-async function fetchMessages(channel: ChatChannel): Promise<ChatMessage[]> {
-  const res = await fetch(`/api/chat?channel=${channel}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  return res.json();
-}
 
 function readId(key: string): number {
   if (typeof window === "undefined") return 0;
@@ -60,20 +59,60 @@ export function ChatButton({
   );
   const guildAvailable = viewerGuildId != null;
 
-  // 패널이 닫혀 있어도 항상 폴링 — 새 메시지 도착 감지용.
-  // open 이 바뀌면 effect 가 다시 실행돼 즉시 한 번 fetch + 새 주기로 재시작.
+  // 패널이 닫혀 있어도 새 메시지 배지를 위해 느리게 폴링한다. 첫 응답만 최신
+  // 50개 전체를 받고 이후에는 마지막 id 뒤의 메시지만 받아 합친다. 탭이 숨겨진
+  // 동안에는 멈추고, 다시 보이면 즉시 한 번 동기화한다.
   useEffect(() => {
     let cancelled = false;
     let initialized = false;
+    let globalAfterId = 0;
+    let guildAfterId = 0;
+    let running = false;
+    let timeoutId: number | null = null;
+
+    const clearScheduledTick = () => {
+      if (timeoutId == null) return;
+      window.clearTimeout(timeoutId);
+      timeoutId = null;
+    };
+
+    const scheduleNextTick = () => {
+      clearScheduledTick();
+      if (cancelled || document.visibilityState === "hidden") return;
+      timeoutId = window.setTimeout(
+        () => void tick(),
+        open ? POLL_INTERVAL_OPEN_MS : POLL_INTERVAL_BG_MS,
+      );
+    };
+
     const tick = async () => {
+      if (cancelled || running || document.visibilityState === "hidden") return;
+      running = true;
       try {
         const [next, nextGuild] = await Promise.all([
-          fetchMessages("global"),
-          guildAvailable ? fetchMessages("guild").catch(() => []) : [],
+          fetchChatMessages({
+            channel: "global",
+            ...(initialized ? { afterId: globalAfterId } : {}),
+          }),
+          guildAvailable
+            ? fetchChatMessages({
+                channel: "guild",
+                ...(initialized ? { afterId: guildAfterId } : {}),
+              }).catch(() => [])
+            : [],
         ]);
         if (cancelled) return;
-        setMessages(next);
-        setGuildMessages(nextGuild);
+        globalAfterId = Math.max(globalAfterId, latestChatMessageId(next));
+        guildAfterId = Math.max(guildAfterId, latestChatMessageId(nextGuild));
+        if (initialized) {
+          setMessages((previous) => mergeChatMessages(previous, next));
+          setGuildMessages((previous) =>
+            mergeChatMessages(previous, nextGuild),
+          );
+        } else {
+          setMessages(next);
+          setGuildMessages(nextGuild);
+        }
         if (!initialized) {
           initialized = true;
           // 한 번도 채팅을 본 적 없는 유저라면 (lastSeen === 0), 첫 폴링 결과의
@@ -116,18 +155,25 @@ export function ChatButton({
         }
       } catch {
         // 네트워크 오류는 다음 폴링에서 자동 재시도.
+      } finally {
+        running = false;
+        scheduleNextTick();
       }
     };
-    tick();
-    const interval = setInterval(
-      tick,
-      open ? POLL_INTERVAL_OPEN_MS : POLL_INTERVAL_BG_MS,
-    );
+
+    const handleVisibilityChange = () => {
+      clearScheduledTick();
+      if (document.visibilityState === "visible") void tick();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    if (document.visibilityState === "visible") void tick();
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      clearScheduledTick();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [open, guildAvailable, viewerGuildId]);
+  }, [open, guildAvailable]);
 
   // ChatPanel 이 보고 있는 탭의 최신 메시지를 본 것으로 처리.
   const handleSeen = useCallback(

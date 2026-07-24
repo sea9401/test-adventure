@@ -49,6 +49,10 @@ import {
   type CustomChatRoom,
   type CustomChatRoomInvite,
 } from "./chat/chatRoomsApi";
+import {
+  latestChatMessageId,
+  mergeChatMessages,
+} from "./chat/chatMessagesApi";
 import { LotteryRoom } from "./chat/LotteryRoom";
 
 export type ChatChannel = "global" | "guild" | "room";
@@ -76,6 +80,49 @@ const CUSTOM_ROOM_MESSAGE_POLL_MS = 1500;
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
 const customRoomSeenKey = (roomId: number) => `chat:lastSeenRoom:${roomId}`;
+
+// 비동기 요청이 폴링 주기보다 오래 걸려도 요청을 겹치지 않는다. 브라우저 탭이
+// 숨겨지면 타이머를 멈추고, 다시 보이는 순간 즉시 동기화한다.
+function startVisiblePolling(task: () => Promise<void>, intervalMs: number) {
+  let stopped = false;
+  let running = false;
+  let timeoutId: number | null = null;
+
+  const clearScheduled = () => {
+    if (timeoutId == null) return;
+    window.clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+  const schedule = () => {
+    clearScheduled();
+    if (stopped || document.visibilityState === "hidden") return;
+    timeoutId = window.setTimeout(() => void run(), intervalMs);
+  };
+  const run = async () => {
+    if (stopped || running || document.visibilityState === "hidden") return;
+    running = true;
+    try {
+      await task();
+    } catch {
+      // 일시적인 네트워크 오류는 다음 폴링에서 재시도한다.
+    } finally {
+      running = false;
+      schedule();
+    }
+  };
+  const onVisibilityChange = () => {
+    clearScheduled();
+    if (document.visibilityState === "visible") void run();
+  };
+
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  if (document.visibilityState === "visible") void run();
+  return () => {
+    stopped = true;
+    clearScheduled();
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  };
+}
 
 const CHAT_ROOM_LABELS: Record<ChatRoomKey, string> = {
   chat: "전체 채팅방",
@@ -329,45 +376,37 @@ export function ChatPanel({
 
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        if (!cancelled) await refreshCustomRooms();
-      } catch {
-        // 일시적인 네트워크 오류는 다음 폴링에서 재시도한다.
-      }
-    };
-    tick();
-    const interval = window.setInterval(tick, CUSTOM_ROOM_LIST_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
+    return startVisiblePolling(refreshCustomRooms, CUSTOM_ROOM_LIST_POLL_MS);
   }, [open, refreshCustomRooms]);
 
   useEffect(() => {
     if (!open || !activeCustomRoom) return;
     let cancelled = false;
+    let initialized = false;
+    let afterId = 0;
     const roomId = activeCustomRoom.id;
     const tick = async () => {
-      try {
-        const next = await fetchCustomRoomMessages(roomId);
-        if (!cancelled) {
-          setCustomMessages(next);
-          markCustomRoomSeen(
-            roomId,
-            next.reduce((latest, message) => Math.max(latest, message.id), 0),
-          );
-        }
-      } catch {
-        // 방을 나갔거나 네트워크가 끊긴 경우 목록 새로고침에서 상태를 복구한다.
+      const next = await fetchCustomRoomMessages(
+        roomId,
+        initialized ? afterId : undefined,
+      );
+      if (cancelled) return;
+      afterId = Math.max(afterId, latestChatMessageId(next));
+      if (initialized) {
+        setCustomMessages((previous) => mergeChatMessages(previous, next));
+      } else {
+        initialized = true;
+        setCustomMessages(next);
       }
+      markCustomRoomSeen(roomId, afterId);
     };
-    tick();
-    const interval = window.setInterval(tick, CUSTOM_ROOM_MESSAGE_POLL_MS);
+    const stopPolling = startVisiblePolling(
+      tick,
+      CUSTOM_ROOM_MESSAGE_POLL_MS,
+    );
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [open, activeCustomRoom, markCustomRoomSeen]);
 

@@ -75,10 +75,13 @@ export async function readActiveAutoGatheringActivity(
   executor: DbExecutor,
   userId: string,
 ): Promise<AutoGatheringActivity | null> {
-  const [woodcuttingRaw, miningRaw] = await Promise.all([
-    readSave(executor, userId, WOODCUTTING_AUTO_KEY, {}),
-    readSave(executor, userId, MINING_AUTO_KEY, {}),
-  ]);
+  const woodcuttingRaw = await readSave(
+    executor,
+    userId,
+    WOODCUTTING_AUTO_KEY,
+    {},
+  );
+  const miningRaw = await readSave(executor, userId, MINING_AUTO_KEY, {});
   return activeAutoGatheringActivity({
     woodcutting: parseAutoGatheringState(woodcuttingRaw),
     mining: parseAutoGatheringState(miningRaw),

@@ -3,15 +3,19 @@ import {
   completeReferral,
   createReferralCode,
   normalizeReferralCode,
+  referralLandingUrl,
   referralRewardGold,
 } from "./referrals";
 import { marketplaceInbox, referralConversions } from "@/db/schema";
 
 const originalReward = process.env.REFERRAL_REWARD_GOLD;
+const originalAuthUrl = process.env.AUTH_URL;
 
 afterEach(() => {
   if (originalReward === undefined) delete process.env.REFERRAL_REWARD_GOLD;
   else process.env.REFERRAL_REWARD_GOLD = originalReward;
+  if (originalAuthUrl === undefined) delete process.env.AUTH_URL;
+  else process.env.AUTH_URL = originalAuthUrl;
 });
 
 describe("referrals", () => {
@@ -29,6 +33,13 @@ describe("referrals", () => {
     expect(first).toMatch(/^[a-f0-9]{16}$/);
     expect(second).toMatch(/^[a-f0-9]{16}$/);
     expect(first).not.toBe(second);
+  });
+
+  it("프록시 내부 주소 대신 운영 AUTH_URL로 대문 이동 주소를 만든다", () => {
+    process.env.AUTH_URL = "https://msmsge.com";
+    expect(
+      referralLandingUrl("https://localhost:3000/r/code", "accepted").href,
+    ).toBe("https://msmsge.com/sign-in?referral=accepted");
   });
 
   it("보상액은 환경변수를 쓰되 잘못된 값에는 안전한 기본값을 쓴다", () => {

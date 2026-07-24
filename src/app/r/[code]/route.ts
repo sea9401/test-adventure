@@ -5,6 +5,7 @@ import {
   REFERRAL_COOKIE_MAX_AGE,
   normalizeReferralCode,
   referralCodeIsActive,
+  referralLandingUrl,
 } from "@/lib/server/referrals";
 
 // 공개 홍보 링크. 유효한 코드는 HttpOnly 쿠키에 30일 보관하고 대문으로 보낸다.
@@ -16,8 +17,7 @@ export async function GET(
   const { code: rawCode } = await ctx.params;
   const code = normalizeReferralCode(rawCode);
   const valid = code ? await referralCodeIsActive(db, code) : false;
-  const url = new URL("/sign-in", req.url);
-  url.searchParams.set("referral", valid ? "accepted" : "invalid");
+  const url = referralLandingUrl(req.url, valid ? "accepted" : "invalid");
   const response = NextResponse.redirect(url);
 
   if (valid && code) {

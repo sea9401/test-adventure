@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ImageSquare, Ticket } from "@phosphor-icons/react";
 import { AvatarPicker, type AvatarCategory } from "@/adventure/profile/AvatarPicker";
 import {
-  PROFILE_IMAGE_MAX_BYTES,
   avatarImageSrc,
+  PROFILE_IMAGE_MAX_BYTES,
   type Avatar,
 } from "@/adventure/profile/avatars";
 import { Card } from "@/components/ui/Card";
@@ -26,9 +26,11 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_avatar: "선택할 수 없는 이미지입니다.",
   invalid_file: "등록할 이미지 파일을 선택해 주세요.",
   not_image: "JPG, PNG, WebP 이미지 파일만 등록할 수 있습니다.",
-  image_too_large: "이미지는 2MB 이하여야 합니다.",
-  image_dimensions:
-    "이미지는 프레임당 가로·세로 4096px, 애니메이션은 120프레임 이하여야 합니다.",
+  image_too_large: "이미지는 1MB 이하여야 합니다.",
+  image_dimensions: "이미지는 가로·세로 4096px 이하여야 합니다.",
+  animation_webp_only: "움직이는 이미지는 애니메이션 WebP만 등록할 수 있습니다.",
+  animation_too_long: "애니메이션은 4초 이하여야 합니다.",
+  animation_too_fast: "애니메이션은 초당 15프레임 이하여야 합니다.",
   storage_unavailable: "이미지 저장소를 준비 중입니다. 잠시 후 다시 시도해 주세요.",
   storage_error: "이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
 };
@@ -138,7 +140,13 @@ export function ProfileImagePanel() {
       form.set("image", file);
       const res = await fetch("/api/profile/image", { method: "POST", body: form });
       const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; avatar?: Avatar; permits?: number }
+        | {
+            ok?: boolean;
+            error?: string;
+            avatar?: Avatar;
+            animated?: boolean;
+            permits?: number;
+          }
         | null;
       if (!res.ok || !json?.ok || !json.avatar) {
         throw new Error(json?.error ?? "upload_failed");
@@ -151,7 +159,12 @@ export function ProfileImagePanel() {
       setFile(null);
       setPreviewUrl(null);
       if (inputRef.current) inputRef.current.value = "";
-      setNotice({ kind: "ok", text: "직접 등록한 이미지로 변경했습니다. 변경권 1개가 사용되었습니다." });
+      setNotice({
+        kind: "ok",
+        text: json.animated
+          ? "움직이는 프로필 이미지로 변경했습니다. 목록에서는 정지 이미지로 표시됩니다."
+          : "직접 등록한 이미지로 변경했습니다. 변경권 1개가 사용되었습니다.",
+      });
       await refreshGameState().catch(() => undefined);
     } catch (error) {
       const code = error instanceof Error ? error.message : "upload_failed";
@@ -181,8 +194,17 @@ export function ProfileImagePanel() {
       <Card className="flex items-center gap-4">
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
           {state ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarImageSrc(state.avatar)} alt="현재 프로필" className="h-full w-full object-cover" />
+            <picture className="block h-full w-full">
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcSet={avatarImageSrc(state.avatar, "static")}
+              />
+              <img
+                src={avatarImageSrc(state.avatar, "animated")}
+                alt="현재 프로필"
+                className="h-full w-full object-cover"
+              />
+            </picture>
           ) : null}
         </div>
         <div className="min-w-0">
@@ -196,7 +218,10 @@ export function ProfileImagePanel() {
 
       <Card>
         <h2 className="flex items-center gap-1.5 font-semibold"><ImageSquare size={20} weight="duotone" /> 직접 이미지 등록</h2>
-        <p className="mb-3 mt-1 text-xs text-zinc-500 dark:text-zinc-400">JPG·PNG·WebP(움직이는 WebP 포함), 2MB 이하. 중앙을 기준으로 정사각형 이미지로 변환됩니다.</p>
+        <p className="mb-3 mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          JPG·PNG·WebP, 1MB 이하. 움직이는 WebP는 4초·15fps 이하로 등록할 수 있으며,
+          프로필 상세에서만 재생됩니다. 이미지는 중앙 기준 256px 정사각형으로 변환됩니다.
+        </p>
         <div className={`${SURFACE_INSET} flex items-center gap-3 p-3`}>
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
             {previewUrl ? (

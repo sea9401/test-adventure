@@ -66,6 +66,14 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: {
+    localPatterns: [
+      // Next 16은 쿼리가 붙은 로컬 이미지를 기본 차단한다. 기존 정적 에셋은
+      // 쿼리 없이 허용하고, 프로필 썸네일 캐시 갱신용 버전만 정확히 연다.
+      { pathname: "/**", search: "" },
+      { pathname: "/api/profile/image/**", search: "?v=2" },
+    ],
+  },
   env: {
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
   },

@@ -134,6 +134,27 @@ export type WorkshopState = {
   recipes: WorkshopRecipeView[];
 };
 
+export type WorkshopEquipmentCodexLoadStatus =
+  | "loading"
+  | "ready"
+  | "error";
+export type WorkshopEquipmentCodexStatus =
+  | "loading"
+  | "error"
+  | "registered"
+  | "unregistered";
+
+export function workshopEquipmentCodexStatus(
+  equipmentId: string,
+  registeredEquipmentIds: ReadonlySet<string>,
+  loadStatus: WorkshopEquipmentCodexLoadStatus,
+): WorkshopEquipmentCodexStatus {
+  if (loadStatus !== "ready") return loadStatus;
+  return registeredEquipmentIds.has(equipmentId)
+    ? "registered"
+    : "unregistered";
+}
+
 export type WeeklyQuestView = {
   id: string;
   title: string;

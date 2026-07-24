@@ -43,7 +43,9 @@ import { GUIDE_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 
 const TITLE_ID = Object.keys(TITLES)[0];
 const EQUIPMENT_ID = Object.keys(V2_EQUIPMENT)[0];
-const ACHIEVEMENT = V2_QUESTS.find((quest) => !isTutorialLine(quest.line));
+const ACHIEVEMENT = V2_QUESTS.find(
+  (quest) => !isTutorialLine(quest.line) && quest.badgeTier != null,
+);
 
 function post(selection: unknown) {
   return POST(
@@ -70,7 +72,7 @@ describe("profile showcase route", () => {
       titles: { [TITLE_ID]: { obtainedAt: 1 } },
     });
     store.set(keyOf("u1", GUIDE_QUESTS_KEY), {
-      claimed: ACHIEVEMENT ? [ACHIEVEMENT.id] : [],
+      claimed: ACHIEVEMENT ? [ACHIEVEMENT.id, "combat_10"] : ["combat_10"],
     });
   });
 
@@ -93,6 +95,9 @@ describe("profile showcase route", () => {
     expect((await post({ kind: "equipment", iid: "missing" })).status).toBe(400);
     expect((await post({ kind: "title", titleId: "missing" })).status).toBe(400);
     expect((await post({ kind: "achievement", achievementId: "missing" })).status).toBe(400);
+    expect(
+      (await post({ kind: "achievement", achievementId: "combat_10" })).status,
+    ).toBe(400);
     expect((await post({ kind: "invalid", id: "x" })).status).toBe(400);
   });
 
@@ -195,7 +200,7 @@ describe("profile showcase route", () => {
     expect((await unowned.json()).error).toBe("stand_required");
   });
 
-  it("returns only owned titles and claimed non-tutorial achievements", async () => {
+  it("returns only owned titles and claimed badge milestones", async () => {
     store.set(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY), {
       selection: { kind: "equipment", iid: "eq_owned" },
     });

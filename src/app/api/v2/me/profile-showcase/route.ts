@@ -62,12 +62,16 @@ export async function GET(req: Request) {
       .filter((title) => ownedTitleIds.has(title.id))
       .map(({ id, name, description }) => ({ id, name, description })),
     achievementOptions: V2_QUESTS.filter(
-      (quest) => claimed.has(quest.id) && !isTutorialLine(quest.line),
-    ).map(({ id, title, desc, points }) => ({
+      (quest) =>
+        claimed.has(quest.id) &&
+        !isTutorialLine(quest.line) &&
+        quest.badgeTier != null,
+    ).map(({ id, title, desc, points, badgeTier }) => ({
       id,
       title,
       desc,
       points: points ?? 0,
+      badgeTier,
     })),
   });
 }
@@ -170,7 +174,11 @@ export async function POST(req: Request) {
       }
     } else if (slot?.kind === "achievement") {
       const achievement = questById(slot.achievementId);
-      if (!achievement || isTutorialLine(achievement.line)) {
+      if (
+        !achievement ||
+        isTutorialLine(achievement.line) ||
+        achievement.badgeTier == null
+      ) {
         return Response.json(
           { ok: false, error: "unknown_achievement" },
           { status: 400 },

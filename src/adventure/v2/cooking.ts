@@ -41,6 +41,12 @@ export type CookingState = {
   xp: number;
   discoveredRecipeIds: string[];
   favoriteRecipeIds: string[];
+  stats: {
+    dishesCooked: number;
+    ordersCompleted: number;
+    masterpiecesCooked: number;
+    rareIngredientDishes: number;
+  };
   daily: {
     dayKey: string;
     surplusTrades: number;
@@ -248,6 +254,12 @@ export function emptyCookingState(now = Date.now()): CookingState {
     xp: 0,
     discoveredRecipeIds: [],
     favoriteRecipeIds: [],
+    stats: {
+      dishesCooked: 0,
+      ordersCompleted: 0,
+      masterpiecesCooked: 0,
+      rareIngredientDishes: 0,
+    },
     daily: { dayKey: cookingDayKey(now), surplusTrades: 0, completedOrderIds: [] },
   };
 }
@@ -264,6 +276,12 @@ export function parseCookingState(raw: unknown, now = Date.now()): CookingState 
     xp: safeInt(source.xp),
     discoveredRecipeIds: Array.from(new Set(source.discoveredRecipeIds ?? [])).filter((id) => known.has(id)),
     favoriteRecipeIds: Array.from(new Set(source.favoriteRecipeIds ?? [])).filter((id) => known.has(id)),
+    stats: {
+      dishesCooked: safeInt(source.stats?.dishesCooked),
+      ordersCompleted: safeInt(source.stats?.ordersCompleted),
+      masterpiecesCooked: safeInt(source.stats?.masterpiecesCooked),
+      rareIngredientDishes: safeInt(source.stats?.rareIngredientDishes),
+    },
     daily: {
       dayKey,
       surplusTrades: sameDay ? Math.min(COOKING_SURPLUS_DAILY_LIMIT, safeInt(source.daily?.surplusTrades)) : 0,
@@ -316,6 +334,28 @@ export function cookingQuality(args: { rng?: () => number; cookingJobTier?: numb
   if (roll < masterpieceChance) return "masterpiece";
   if (roll < carefulChance) return "careful";
   return "normal";
+}
+
+export function recordCookingActionStats(
+  state: CookingState,
+  args: {
+    action: CookingAction;
+    quantity: number;
+    quality: CookingQuality;
+    usedRare: boolean;
+  },
+): CookingState["stats"] {
+  const cooked = Math.max(1, safeInt(args.quantity));
+  return {
+    dishesCooked: state.stats.dishesCooked + cooked,
+    ordersCompleted:
+      state.stats.ordersCompleted + (args.action === "order" ? 1 : 0),
+    masterpiecesCooked:
+      state.stats.masterpiecesCooked +
+      (args.quality === "masterpiece" ? cooked : 0),
+    rareIngredientDishes:
+      state.stats.rareIngredientDishes + (args.usedRare ? cooked : 0),
+  };
 }
 
 export function cookingBuffDurationMs(quality: CookingQuality, cookingJobTier = 0): number {

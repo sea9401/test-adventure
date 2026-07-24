@@ -33,12 +33,24 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
       cookingRaw: {
         xp: 810,
         discoveredRecipeIds: ["rustic_bread", "herb_tea", "rustic_bread"],
+        stats: {
+          dishesCooked: 120,
+          ordersCompleted: 15,
+          masterpiecesCooked: 7,
+          rareIngredientDishes: 9,
+        },
       },
       extras: EXTRAS,
     });
 
     expect(ctx.cookingLevel).toBe(10);
     expect(ctx.cookingRecipesDiscovered).toBe(2);
+    expect(ctx).toMatchObject({
+      cookingDishesCooked: 120,
+      cookingOrdersCompleted: 15,
+      cookingMasterpiecesCooked: 7,
+      cookingRareIngredientDishes: 9,
+    });
     expect(ctx).toMatchObject({
       guildDiningMeals: 10,
       guildTrainingDrills: 20,
@@ -63,5 +75,6 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
 
     expect(ctx.cookingLevel).toBe(1);
     expect(ctx.cookingRecipesDiscovered).toBe(0);
+    expect(ctx.cookingDishesCooked).toBe(0);
   });
 });

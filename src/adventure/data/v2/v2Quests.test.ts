@@ -77,6 +77,10 @@ const ZERO: QuestCtx = {
   gridDungeonClears: 0,
   cookingLevel: 1,
   cookingRecipesDiscovered: 0,
+  cookingDishesCooked: 0,
+  cookingOrdersCompleted: 0,
+  cookingMasterpiecesCooked: 0,
+  cookingRareIngredientDishes: 0,
   guildDiningMeals: 0,
   guildTrainingDrills: 0,
   guildExpeditions: 0,
@@ -95,6 +99,18 @@ describe("v2Quests 카탈로그 무결성", () => {
     for (const q of V2_QUESTS) {
       expect(lineIds.has(q.line), `${q.id} 라인`).toBe(true);
     }
+  });
+
+  it("대표 배지는 일부 핵심 마일스톤에만 부여하고 네 단계가 모두 존재한다", () => {
+    const achievements = V2_QUESTS.filter((quest) => quest.points != null);
+    const badges = achievements.filter((quest) => quest.badgeTier != null);
+
+    expect(badges.length).toBeGreaterThan(40);
+    expect(badges.length).toBeLessThan(achievements.length);
+    expect(new Set(badges.map((quest) => quest.badgeTier))).toEqual(
+      new Set(["bronze", "silver", "gold", "legendary"]),
+    );
+    expect(badges.every((quest) => quest.goal != null)).toBe(true);
   });
 
   it("보상 장비는 카탈로그에 존재(쇠사슬 갑옷 등)", () => {
@@ -559,6 +575,10 @@ describe("currentGuideQuest (홈 배너)", () => {
       gridDungeonClears: 10,
       cookingLevel: 50,
       cookingRecipesDiscovered: 18,
+      cookingDishesCooked: 9999,
+      cookingOrdersCompleted: 999,
+      cookingMasterpiecesCooked: 999,
+      cookingRareIngredientDishes: 999,
       guildDiningMeals: 50,
       guildTrainingDrills: 50,
       guildExpeditions: 20,
@@ -670,6 +690,33 @@ describe("오늘 추가된 요리·길드 시설 업적", () => {
       questById("cooking_recipe18")!.check({
         ...ZERO,
         cookingRecipesDiscovered: COOKING_RECIPES.length,
+      }),
+    ).toBe(true);
+  });
+
+  it("완성·의뢰·걸작·희귀 재료 요리를 별도 마일스톤으로 추적한다", () => {
+    expect(
+      questById("cooking_dish500")!.check({
+        ...ZERO,
+        cookingDishesCooked: 500,
+      }),
+    ).toBe(true);
+    expect(
+      questById("cooking_order100")!.check({
+        ...ZERO,
+        cookingOrdersCompleted: 99,
+      }),
+    ).toBe(false);
+    expect(
+      questById("cooking_masterpiece25")!.check({
+        ...ZERO,
+        cookingMasterpiecesCooked: 25,
+      }),
+    ).toBe(true);
+    expect(
+      questById("cooking_rare250")!.check({
+        ...ZERO,
+        cookingRareIngredientDishes: 250,
       }),
     ).toBe(true);
   });

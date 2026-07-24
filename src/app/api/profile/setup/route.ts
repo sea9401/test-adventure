@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { db } from "@/db";
 import { users, savesKv } from "@/db/schema";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
@@ -15,6 +16,7 @@ import {
   type Avatar,
 } from "@/adventure/profile/avatars";
 import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
+import { completeReferral, REFERRAL_COOKIE } from "@/lib/server/referrals";
 
 // 트랜잭션 안에서 "이름 중복" 신호용 — Postgres 23505 또는 legacy hit 양쪽을 한곳에서 처리.
 class TakenError extends Error {
@@ -55,6 +57,8 @@ export async function POST(req: Request) {
   const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
   const uid = userId;
+  const cookieStore = await cookies();
+  const referralCode = cookieStore.get(REFERRAL_COOKIE)?.value;
 
   let body: { name?: unknown; gender?: unknown };
   try {
@@ -118,7 +122,7 @@ export async function POST(req: Request) {
           });
           await upsertSave(tx, uid, PROFILE_STORAGE_KEY, healedProfile);
         }
-        return { profile: healedProfile, isNew: false };
+        return { profile: healedProfile, isNew: false, referralRewarded: false };
       }
 
       // ── 신규 경로 — 중복 검사 후 둘 다 쓰기. 트랜잭션 안에서 진행돼 한쪽만 박히는 일 없음.
@@ -174,8 +178,17 @@ export async function POST(req: Request) {
         owned: starterOwned,
         equipped: starterEquipped,
       });
-      return { profile, isNew: true };
+      const referral = await completeReferral(tx, uid, name, referralCode);
+      return {
+        profile,
+        isNew: true,
+        referralRewarded: referral.rewarded,
+      };
     });
+
+    // 완료된 온보딩에서는 유효/무효 여부와 무관하게 후보를 소비한다. 캐릭터 생성 트랜잭션이
+    // 실패한 경우에는 이 줄에 도달하지 않아 쿠키가 남고, 재시도 때 정상 처리된다.
+    if (referralCode) cookieStore.delete(REFERRAL_COOKIE);
 
     // 새 모험가 합류를 서버 전체 소식/전광판에 한 줄 알림(첫 캐릭터 생성에서만). 부수 효과 —
     // insertFeedEntry 가 실패를 자체 삼키므로 캐릭터 생성 응답에는 영향 없음. 닉네임은 이미
@@ -184,7 +197,11 @@ export async function POST(req: Request) {
       await insertFeedEntry(uid, "newcomer", { newcomer: true });
     }
 
-    return Response.json({ ok: true, profile: finalProfile.profile });
+    return Response.json({
+      ok: true,
+      profile: finalProfile.profile,
+      referralApplied: finalProfile.referralRewarded,
+    });
   } catch (e) {
     if (e instanceof TakenError) {
       return Response.json({ error: "taken" }, { status: 409 });

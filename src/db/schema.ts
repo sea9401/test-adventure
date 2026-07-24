@@ -158,6 +158,51 @@ export const accountLinkIntents = pgTable(
   ],
 );
 
+// 개인 홍보 링크. 코드는 URL에 노출되는 임의 64-bit hex 값이며 사용자당 하나만 발급한다.
+// disabledAt 이 박히면 기존 링크 유입만 중단되고 이미 완료된 홍보 실적은 보존된다.
+export const referralCodes = pgTable(
+  "referral_codes",
+  {
+    code: text("code").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    disabledAt: timestamp("disabled_at"),
+  },
+  (t) => [uniqueIndex("referral_codes_user_idx").on(t.userId)],
+);
+
+// 홍보 링크를 통해 신규 캐릭터 생성을 완료한 기록. referredUserId PK가 한 계정의
+// 중복 귀속/중복 지급을 막고, profile/setup 트랜잭션에서 보상 우편과 함께 원자적으로 쓴다.
+export const referralConversions = pgTable(
+  "referral_conversions",
+  {
+    referredUserId: text("referred_user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    referrerUserId: text("referrer_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    referralCode: text("referral_code")
+      .notNull()
+      .references(() => referralCodes.code, { onDelete: "cascade" }),
+    rewardGold: integer("reward_gold").notNull(),
+    convertedAt: timestamp("converted_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("referral_conversions_referrer_created_idx").on(
+      t.referrerUserId,
+      t.convertedAt,
+    ),
+    check(
+      "referral_conversions_not_self_check",
+      sql`${t.referredUserId} <> ${t.referrerUserId}`,
+    ),
+    check("referral_conversions_reward_nonnegative_check", sql`${t.rewardGold} >= 0`),
+  ],
+);
+
 // 게임 진행 상태는 키별로 분리 저장. localStorage 패턴과 동일.
 // 새 키 추가 시 마이그레이션 없이 행만 추가.
 // version — 낙관적 동시성 제어. 매 write 마다 증가. PATCH 시 클라이언트가 expectedVersion 을

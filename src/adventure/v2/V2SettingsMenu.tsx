@@ -16,6 +16,7 @@ import {
   Megaphone,
   Moon,
   Palette,
+  ShareNetwork,
   SignOut,
   Storefront,
   Sun,
@@ -174,6 +175,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               >
                 <CoinVertical size={18} weight="duotone" />
                 무슨 코인 상점
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/settings/referrals"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
+              >
+                <ShareNetwork size={18} weight="duotone" />
+                게임 홍보
               </Link>
             </li>
             <li>

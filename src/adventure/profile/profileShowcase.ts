@@ -1,9 +1,18 @@
 export const PROFILE_SHOWCASE_SAVE_KEY = "profile-showcase.v1";
+export const PROFILE_BADGE_STAND_ITEM_ID = "profile_badge_display_stand";
+export const PROFILE_BADGE_STAND_PRICE = 600;
+export const PROFILE_BADGE_STAND_SLOT_COUNT = 3;
 
 export type ProfileShowcaseSelection =
   | { kind: "equipment"; iid: string }
   | { kind: "achievement"; achievementId: string }
   | { kind: "title"; titleId: string };
+
+export type ProfileShowcaseSlots = [
+  ProfileShowcaseSelection | null,
+  ProfileShowcaseSelection | null,
+  ProfileShowcaseSelection | null,
+];
 
 const MAX_SHOWCASE_ID_LENGTH = 160;
 
@@ -40,8 +49,28 @@ export function parseProfileShowcaseSelection(
 export function parseProfileShowcase(
   raw: unknown,
 ): ProfileShowcaseSelection | null {
-  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return null;
-  return parseProfileShowcaseSelection(
-    (raw as { selection?: unknown }).selection,
+  return parseProfileShowcaseSlots(raw)[0];
+}
+
+export function parseProfileShowcaseSlots(raw: unknown): ProfileShowcaseSlots {
+  const empty: ProfileShowcaseSlots = [null, null, null];
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return empty;
+  const value = raw as { slots?: unknown; selection?: unknown };
+  if (Array.isArray(value.slots)) {
+    const rawSlots = value.slots;
+    return [0, 1, 2].map((index) =>
+      parseProfileShowcaseSelection(rawSlots[index]),
+    ) as ProfileShowcaseSlots;
+  }
+  return [parseProfileShowcaseSelection(value.selection), null, null];
+}
+
+export function ownsProfileBadgeStand(characterRaw: unknown): boolean {
+  return (
+    characterRaw != null &&
+    typeof characterRaw === "object" &&
+    !Array.isArray(characterRaw) &&
+    (characterRaw as { profileBadgeStandOwned?: unknown })
+      .profileBadgeStandOwned === true
   );
 }

@@ -1,9 +1,23 @@
 import { ADVENTURE_SUPPORT_PASS } from "./adventureSupport";
+import {
+  PROFILE_BADGE_STAND_ITEM_ID,
+  PROFILE_BADGE_STAND_PRICE,
+} from "@/adventure/profile/profileShowcase";
 
 export const MUSEUN_COIN_WALLET_KEY = "museun-coin-wallet.v1";
 export const MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY = 99;
 
 export const MUSEUN_CASH_ITEMS = {
+  [PROFILE_BADGE_STAND_ITEM_ID]: {
+    id: PROFILE_BADGE_STAND_ITEM_ID,
+    name: "대표 배지 전시대",
+    description:
+      "프로필에 대표 배지 3개를 동시에 전시할 수 있는 전시대를 영구 해금합니다. 계정에 귀속되며 기간 제한이 없습니다.",
+    coinPrice: PROFILE_BADGE_STAND_PRICE,
+    delivery: "permanent",
+    tradeable: false,
+    effect: { kind: "profile_badge_stand" },
+  },
   profile_image_permit: {
     id: "profile_image_permit",
     name: "프로필 이미지 변경권",
@@ -559,8 +573,11 @@ export const MUSEUN_UTILITY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
 
 // 상점에서는 사용 가능한 아이템만 직접 판매한다. 꾸미기는 각 전용 상자에서 해금되고
 // 통합 연장권으로 사용 기간을 늘린다.
-export const MUSEUN_SHOP_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS;
-export type MuseunShopItemId = MuseunInventoryItemId;
+export const MUSEUN_SHOP_ITEM_IDS = [
+  PROFILE_BADGE_STAND_ITEM_ID,
+  ...MUSEUN_INVENTORY_ITEM_IDS,
+] as const;
+export type MuseunShopItemId = (typeof MUSEUN_SHOP_ITEM_IDS)[number];
 
 export function isMuseunShopItemId(value: unknown): value is MuseunShopItemId {
   return (

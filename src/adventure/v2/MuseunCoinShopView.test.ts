@@ -12,14 +12,21 @@ import {
 } from "./MuseunCoinShopView";
 
 describe("무슨 코인 상점 상품 그룹", () => {
-  it("상점에 노출되는 일곱 상품 모두 전용 SVG 이미지를 연결한다", () => {
+  it("상점에 여덟 상품을 노출하고 기존 소모품에는 전용 SVG 이미지를 연결한다", () => {
     const shopItemIds = SHOP_ITEM_GROUPS.flatMap((group) => group.itemIds);
 
-    expect(shopItemIds).toHaveLength(7);
+    expect(shopItemIds).toHaveLength(8);
+    expect(shopItemIds).toContain("profile_badge_display_stand");
     expect(Object.keys(CASH_ITEM_ART_PATHS)).toEqual(
-      expect.arrayContaining(shopItemIds),
+      expect.arrayContaining(
+        shopItemIds.filter(
+          (itemId) => itemId !== "profile_badge_display_stand",
+        ),
+      ),
     );
-    for (const itemId of shopItemIds) {
+    for (const itemId of shopItemIds.filter(
+      (candidate) => candidate !== "profile_badge_display_stand",
+    )) {
       expect(CASH_ITEM_ART_PATHS[itemId]).toBe(
         `/images/items/cash/${itemId}.svg`,
       );
@@ -48,7 +55,16 @@ describe("무슨 코인 상점 상품 그룹", () => {
       "chat_badge_box",
       "cosmetic_extension_30d",
     ]);
-    expect(SHOP_ITEM_GROUPS).toHaveLength(2);
+    expect(SHOP_ITEM_GROUPS).toHaveLength(3);
+  });
+
+  it("대표 배지 전시대는 별도의 영구 프로필 상품으로 표시한다", () => {
+    const group = SHOP_ITEM_GROUPS.find(
+      (candidate) => candidate.id === "profile",
+    );
+
+    expect(group?.title).toBe("프로필 전시");
+    expect(group?.itemIds).toEqual(["profile_badge_display_stand"]);
   });
 
   it("꾸미기 획득 목록을 전설부터 일반까지 등급순으로 정렬한다", () => {

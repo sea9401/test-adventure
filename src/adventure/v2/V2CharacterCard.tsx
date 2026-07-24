@@ -61,7 +61,10 @@ import {
   cookingQualityName,
   type ActiveCookingBuff,
 } from "@/adventure/v2/cooking";
-import type { ProfileShowcaseSelection } from "@/adventure/profile/profileShowcase";
+import type {
+  ProfileShowcaseSelection,
+  ProfileShowcaseSlots,
+} from "@/adventure/profile/profileShowcase";
 import { ProfileBadgeRack } from "./ProfileBadgeRack";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
@@ -157,6 +160,8 @@ export function V2CharacterCard({
   championshipBadge = null,
   activeFoodBuff = null,
   profileShowcase = null,
+  profileShowcaseSlots,
+  profileBadgeStandOwned = false,
   showcaseEditable = false,
   profileImageMotion = "static",
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
@@ -180,6 +185,8 @@ export function V2CharacterCard({
   championshipBadge?: MuseunCosmeticAppearance["championshipBadge"];
   activeFoodBuff?: ActiveCookingBuff | null;
   profileShowcase?: ProfileShowcaseSelection | null;
+  profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileBadgeStandOwned?: boolean;
   showcaseEditable?: boolean;
   profileImageMotion?: ProfileImageMotion;
   equipped?: Partial<Record<V2EquipSlot, string>>;
@@ -209,6 +216,14 @@ export function V2CharacterCard({
     : null;
   const hasProfileTheme =
     profileDecoration != null && profileDecoration.interior !== "none";
+  const badgeSlots: ProfileShowcaseSlots = profileShowcaseSlots ?? [
+    profileShowcase,
+    null,
+    null,
+  ];
+  const showBadgeRack =
+    showcaseEditable ||
+    (profileBadgeStandOwned && badgeSlots.some((slot) => slot !== null));
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -300,10 +315,11 @@ export function V2CharacterCard({
                 <span>{guild ? guild.name : "무소속"}</span>
               </div>
             </div>
-            {(profileShowcase || showcaseEditable) && (
+            {showBadgeRack && (
               <div className="col-span-2 min-w-0 sm:col-span-1">
                 <ProfileBadgeRack
-                  initialSelection={profileShowcase}
+                  initialSlots={badgeSlots}
+                  standOwned={profileBadgeStandOwned}
                   owned={owned ?? []}
                   editable={showcaseEditable}
                 />

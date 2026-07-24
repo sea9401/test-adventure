@@ -74,6 +74,8 @@ import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
   parseProfileShowcase,
+  parseProfileShowcaseSlots,
+  ownsProfileBadgeStand,
 } from "@/adventure/profile/profileShowcase";
 import {
   STAMINA_POTIONS_KEY,
@@ -419,6 +421,10 @@ export async function GET(req: Request) {
     profileShowcase: parseProfileShowcase(
       stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
     ),
+    profileShowcaseSlots: parseProfileShowcaseSlots(
+      stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
+    ),
+    profileBadgeStandOwned: ownsProfileBadgeStand(charSave),
     hotTime: hotTime.active
       ? {
           title: hotTime.title,

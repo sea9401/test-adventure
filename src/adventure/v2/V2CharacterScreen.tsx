@@ -20,7 +20,10 @@ import type {
 } from "@/adventure/data/v2/v2Equipment";
 import { V2CharacterBasics } from "./V2CharacterBasics";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
-import type { ProfileShowcaseSelection } from "@/adventure/profile/profileShowcase";
+import type {
+  ProfileShowcaseSelection,
+  ProfileShowcaseSlots,
+} from "@/adventure/profile/profileShowcase";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -42,6 +45,8 @@ type StateResponse = {
   guild?: { name: string };
   cosmetics?: MuseunCosmeticAppearance;
   profileShowcase?: ProfileShowcaseSelection | null;
+  profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileBadgeStandOwned?: boolean;
   stats?: {
     base: Record<V2StatKey, number>;
     total: Record<V2StatKey, number>;
@@ -190,6 +195,8 @@ export function V2CharacterScreen({
           chatNameEffect={state?.cosmetics?.chatNameEffect ?? null}
           championshipBadge={state?.cosmetics?.championshipBadge ?? null}
           profileShowcase={state?.profileShowcase ?? null}
+          profileShowcaseSlots={state?.profileShowcaseSlots}
+          profileBadgeStandOwned={state?.profileBadgeStandOwned === true}
           showcaseEditable={!playerName}
           profileImageMotion="animated"
         />

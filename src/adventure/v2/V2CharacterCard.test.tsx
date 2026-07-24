@@ -38,7 +38,12 @@ describe("V2CharacterCard profile theme", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard
         character={CHARACTER}
-        profileShowcase={{ kind: "title", titleId: title.id }}
+        profileBadgeStandOwned
+        profileShowcaseSlots={[
+          { kind: "title", titleId: title.id },
+          null,
+          null,
+        ]}
         showcaseEditable
       />,
     );
@@ -46,7 +51,9 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).toContain("대표 배지 전시대");
     expect(html).toContain(title.name);
     expect(html).toContain("대표 배지 편집");
-    expect(html.match(/잠김/g)).toHaveLength(2);
+    expect(html).toContain("2번 칸");
+    expect(html).toContain("3번 칸");
+    expect(html).not.toContain("잠김");
     expect(html).toContain("sm:grid-cols-[7rem_minmax(0,1fr)_minmax(13rem,0.95fr)]");
     expect(html).toContain("col-span-2 min-w-0 sm:col-span-1");
   });
@@ -55,7 +62,12 @@ describe("V2CharacterCard profile theme", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard
         character={CHARACTER}
-        profileShowcase={{ kind: "achievement", achievementId: "combat_10" }}
+        profileBadgeStandOwned
+        profileShowcaseSlots={[
+          { kind: "achievement", achievementId: "combat_10" },
+          null,
+          null,
+        ]}
       />,
     );
 
@@ -63,5 +75,25 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).toContain("5점");
     expect(html).not.toContain("잠김");
     expect(html).not.toContain("대표 배지 편집");
+  });
+
+  it("offers the whole three-slot stand instead of a free badge slot", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        profileShowcaseSlots={[
+          { kind: "achievement", achievementId: "combat_10" },
+          null,
+          null,
+        ]}
+        showcaseEditable
+      />,
+    );
+
+    expect(html).toContain("대표 배지 전시대 구매 안내");
+    expect(html).toContain("배지 3칸 영구 해금");
+    expect(html).toContain("600코인");
+    expect(html).toContain('href="/settings/coin-shop"');
+    expect(html).not.toContain("몸풀기");
   });
 });

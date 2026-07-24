@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  ownsProfileBadgeStand,
   parseProfileShowcase,
   parseProfileShowcaseSelection,
+  parseProfileShowcaseSlots,
 } from "./profileShowcase";
 
 describe("profile showcase parser", () => {
@@ -28,5 +30,31 @@ describe("profile showcase parser", () => {
       }),
     ).toBeNull();
     expect(parseProfileShowcase({ selection: { kind: "unknown", id: "x" } })).toBeNull();
+  });
+
+  it("parses three slots and migrates the legacy single selection", () => {
+    const title = { kind: "title" as const, titleId: "hero" };
+    const achievement = {
+      kind: "achievement" as const,
+      achievementId: "first_hunt",
+    };
+
+    expect(parseProfileShowcaseSlots({ slots: [title, null, achievement] })).toEqual([
+      title,
+      null,
+      achievement,
+    ]);
+    expect(parseProfileShowcaseSlots({ selection: title })).toEqual([
+      title,
+      null,
+      null,
+    ]);
+  });
+
+  it("only treats an explicit ownership flag as an owned display stand", () => {
+    expect(ownsProfileBadgeStand({ profileBadgeStandOwned: true })).toBe(true);
+    expect(ownsProfileBadgeStand({ profileBadgeStandOwned: false })).toBe(false);
+    expect(ownsProfileBadgeStand({ profileBadgeStandOwned: 1 })).toBe(false);
+    expect(ownsProfileBadgeStand(null)).toBe(false);
   });
 });

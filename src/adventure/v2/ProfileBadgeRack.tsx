@@ -2,9 +2,9 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   Crown,
-  LockSimple,
   PencilSimple,
   Plus,
   SpinnerGap,
@@ -15,7 +15,11 @@ import {
 import { TITLES } from "@/adventure/data/titles";
 import { V2_EQUIPMENT, type V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import { questById } from "@/adventure/data/v2/v2Quests";
-import type { ProfileShowcaseSelection } from "@/adventure/profile/profileShowcase";
+import {
+  PROFILE_BADGE_STAND_PRICE,
+  type ProfileShowcaseSelection,
+  type ProfileShowcaseSlots,
+} from "@/adventure/profile/profileShowcase";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -86,25 +90,30 @@ const BADGE_TONE: Record<
 };
 
 export function ProfileBadgeRack({
-  initialSelection,
+  initialSlots,
+  standOwned,
   owned,
   editable,
 }: {
-  initialSelection?: ProfileShowcaseSelection | null;
+  initialSlots: ProfileShowcaseSlots;
+  standOwned: boolean;
   owned: V2EquipInstance[];
   editable: boolean;
 }) {
-  const [selection, setSelection] = useState(initialSelection ?? null);
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [slots, setSlots] = useState<ProfileShowcaseSlots>(initialSlots);
+  const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [optionsFailed, setOptionsFailed] = useState(false);
   const [achievementOptions, setAchievementOptions] = useState<AchievementOption[]>([]);
-  const content = resolveBadgeContent(selection, owned);
+  const contents = slots.map((selection) => resolveBadgeContent(selection, owned));
 
-  if (!content && !editable) return null;
+  if (!standOwned) {
+    return editable ? <BadgeStandOffer /> : null;
+  }
+  if (!editable && contents.every((content) => content === null)) return null;
 
-  const openEditor = async () => {
-    setEditorOpen(true);
+  const openEditor = async (slotIndex: number) => {
+    setEditingSlot(slotIndex);
     setLoadingOptions(true);
     setOptionsFailed(false);
     try {
@@ -135,7 +144,13 @@ export function ProfileBadgeRack({
         {editable ? (
           <button
             type="button"
-            onClick={openEditor}
+            onClick={() =>
+              void openEditor(
+                slots.findIndex((selection) => selection === null) >= 0
+                  ? slots.findIndex((selection) => selection === null)
+                  : 0,
+              )
+            }
             aria-label="대표 배지 편집"
             className="absolute right-1.5 top-1.5 z-20 rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-amber-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-amber-300"
           >
@@ -143,38 +158,68 @@ export function ProfileBadgeRack({
           </button>
         ) : null}
 
-        <div className={`flex min-h-24 items-end justify-center ${editable ? "gap-1.5" : "gap-4"}`}>
-          {content ? (
-            <BadgeMedallion
-              content={content}
-              onClick={editable ? openEditor : undefined}
-            />
-          ) : (
-            <EmptyBadgeSlot onClick={openEditor} />
+        <div className="flex min-h-24 items-end justify-center gap-1.5">
+          {contents.map((content, index) =>
+            content ? (
+              <BadgeMedallion
+                key={index}
+                content={content}
+                compact
+                onClick={editable ? () => void openEditor(index) : undefined}
+              />
+            ) : editable ? (
+              <EmptyBadgeSlot
+                key={index}
+                slotIndex={index}
+                onClick={() => void openEditor(index)}
+              />
+            ) : null,
           )}
-          {editable ? (
-            <>
-              <LockedBadgeSlot />
-              <LockedBadgeSlot />
-            </>
-          ) : null}
         </div>
       </section>
 
-      {editorOpen ? (
+      {editingSlot != null ? (
         <BadgeEditor
-          initialSelection={selection}
+          slots={slots}
+          slotIndex={editingSlot}
           options={achievementOptions}
           loading={loadingOptions}
           failed={optionsFailed}
-          onClose={() => setEditorOpen(false)}
+          onClose={() => setEditingSlot(null)}
           onSaved={(next) => {
-            setSelection(next);
-            setEditorOpen(false);
+            setSlots(next);
+            setEditingSlot(null);
           }}
         />
       ) : null}
     </>
+  );
+}
+
+function BadgeStandOffer() {
+  return (
+    <section
+      aria-label="대표 배지 전시대 구매 안내"
+      className={`${SURFACE_INSET} flex min-h-28 items-center gap-3 p-3`}
+    >
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-amber-300 bg-amber-50 text-amber-700 shadow-inner dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300">
+        <Trophy size={25} weight="duotone" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+          대표 배지 전시대
+        </p>
+        <p className="mt-1 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+          배지 3칸 영구 해금 · {PROFILE_BADGE_STAND_PRICE.toLocaleString()}코인
+        </p>
+        <Link
+          href="/settings/coin-shop"
+          className="mt-2 inline-flex rounded-md border border-amber-500 bg-amber-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-600"
+        >
+          코인 상점에서 보기
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -200,12 +245,12 @@ function BadgeMedallion({
       />
       <span
         className={`relative z-10 flex items-center justify-center rounded-full border-4 shadow-md ${
-          compact ? "size-12" : "size-14"
+          compact ? "size-11" : "size-14"
         } ${tone.outer}`}
       >
         <span
           className={`flex items-center justify-center rounded-full border-2 ${
-            compact ? "size-8" : "size-10"
+            compact ? "size-7" : "size-10"
           } ${tone.inner} ${tone.icon}`}
         >
           {content.icon}
@@ -215,21 +260,21 @@ function BadgeMedallion({
   );
 
   return (
-    <div className={`flex min-w-0 flex-col items-center ${compact ? "w-20" : "w-[4.5rem]"}`}>
+    <div className={`flex min-w-0 flex-col items-center ${compact ? "w-14" : "w-[4.5rem]"}`}>
       {onClick ? (
         <button
           type="button"
           onClick={onClick}
           title={`${content.title} · ${content.description}`}
           aria-label={`${content.title} 배지 편집`}
-          className="relative flex h-[4.5rem] items-start justify-center rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          className={`relative flex items-start justify-center rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${compact ? "h-16" : "h-[4.5rem]"}`}
         >
           {medal}
         </button>
       ) : (
         <div
           title={`${content.title} · ${content.description}`}
-          className="relative flex h-[4.5rem] items-start justify-center"
+          className={`relative flex items-start justify-center ${compact ? "h-16" : "h-[4.5rem]"}`}
         >
           {medal}
         </div>
@@ -244,52 +289,48 @@ function BadgeMedallion({
   );
 }
 
-function EmptyBadgeSlot({ onClick }: { onClick: () => void }) {
+function EmptyBadgeSlot({
+  slotIndex,
+  onClick,
+}: {
+  slotIndex: number;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-[4.5rem] flex-col items-center rounded-md text-zinc-500 transition-colors hover:text-amber-700 dark:text-zinc-400 dark:hover:text-amber-300"
+      aria-label={`${slotIndex + 1}번 배지 선택`}
+      className="flex w-14 flex-col items-center rounded-md text-zinc-500 transition-colors hover:text-amber-700 dark:text-zinc-400 dark:hover:text-amber-300"
     >
-      <span className="flex size-14 items-center justify-center rounded-full border-2 border-dashed border-zinc-300 bg-white shadow-inner dark:border-zinc-600 dark:bg-zinc-900">
+      <span className="flex size-11 items-center justify-center rounded-full border-2 border-dashed border-zinc-300 bg-white shadow-inner dark:border-zinc-600 dark:bg-zinc-900">
         <Plus size={20} weight="bold" aria-hidden="true" />
       </span>
-      <span className="mt-1 text-[10px] font-semibold">배지 선택</span>
-      <span className="text-[9px]">무료 슬롯</span>
+      <span className="mt-1 text-[10px] font-semibold">{slotIndex + 1}번 칸</span>
+      <span className="text-[9px]">배지 선택</span>
     </button>
   );
 }
 
-function LockedBadgeSlot() {
-  return (
-    <div
-      title="추가 배지 슬롯은 준비 중이에요."
-      className="flex w-12 flex-col items-center text-zinc-400 dark:text-zinc-600"
-    >
-      <span className="flex size-10 items-center justify-center rounded-full border-2 border-zinc-300 bg-zinc-100 shadow-inner dark:border-zinc-700 dark:bg-zinc-800">
-        <LockSimple size={15} weight="fill" aria-hidden="true" />
-      </span>
-      <span className="mt-1 text-[9px] font-medium">잠김</span>
-    </div>
-  );
-}
-
 function BadgeEditor({
-  initialSelection,
+  slots,
+  slotIndex,
   options,
   loading,
   failed,
   onClose,
   onSaved,
 }: {
-  initialSelection: ProfileShowcaseSelection | null;
+  slots: ProfileShowcaseSlots;
+  slotIndex: number;
   options: AchievementOption[];
   loading: boolean;
   failed: boolean;
   onClose: () => void;
-  onSaved: (selection: ProfileShowcaseSelection | null) => void;
+  onSaved: (slots: ProfileShowcaseSlots) => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const initialSelection = slots[slotIndex];
   const [draftId, setDraftId] = useState(
     initialSelection?.kind === "achievement"
       ? initialSelection.achievementId
@@ -297,8 +338,20 @@ function BadgeEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const usedAchievementIds = new Set(
+    slots.flatMap((slot, index) =>
+      index !== slotIndex && slot?.kind === "achievement"
+        ? [slot.achievementId]
+        : [],
+    ),
+  );
+  const availableOptions = options.filter(
+    (option) => !usedAchievementIds.has(option.id),
+  );
   const selectedId =
-    options.some((option) => option.id === draftId) ? draftId : (options[0]?.id ?? "");
+    availableOptions.some((option) => option.id === draftId)
+      ? draftId
+      : (availableOptions[0]?.id ?? "");
 
   useEscapeKey(() => {
     if (!saving) onClose();
@@ -306,22 +359,24 @@ function BadgeEditor({
   useModalA11y(contentRef);
 
   const save = async (selection: ProfileShowcaseSelection | null) => {
+    const nextSlots = [...slots] as ProfileShowcaseSlots;
+    nextSlots[slotIndex] = selection;
     setSaving(true);
     setError(null);
     try {
       const response = await fetch("/api/v2/me/profile-showcase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selection }),
+        body: JSON.stringify({ slots: nextSlots }),
       });
       const data = (await response.json().catch(() => null)) as
-        | { ok?: boolean; selection?: ProfileShowcaseSelection | null }
+        | { ok?: boolean; slots?: ProfileShowcaseSlots }
         | null;
       if (!response.ok || !data?.ok) {
         setError("대표 배지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
         return;
       }
-      onSaved(data.selection ?? null);
+      onSaved(data.slots ?? nextSlots);
     } catch {
       setError("네트워크 오류로 저장하지 못했어요.");
     } finally {
@@ -345,7 +400,7 @@ function BadgeEditor({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-              무료 대표 슬롯 1칸
+              전시대 {slotIndex + 1}번 칸
             </p>
             <h2 id="badge-editor-title" className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100">
               대표 배지 선택
@@ -375,13 +430,13 @@ function BadgeEditor({
             <p className="py-14 text-center text-xs text-rose-600 dark:text-rose-400">
               배지 목록을 불러오지 못했어요. 창을 닫고 다시 시도해 주세요.
             </p>
-          ) : options.length === 0 ? (
+          ) : availableOptions.length === 0 ? (
             <p className="py-14 text-center text-xs text-zinc-500 dark:text-zinc-400">
-              아직 획득한 업적 배지가 없어요.
+              이 칸에 전시할 수 있는 다른 업적 배지가 없어요.
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {options.map((option) => {
+              {availableOptions.map((option) => {
                 const selected = option.id === selectedId;
                 const content = achievementBadgeContent(option);
                 return (
@@ -426,7 +481,7 @@ function BadgeEditor({
               onClick={() => void save({ kind: "achievement", achievementId: selectedId })}
               disabled={saving || loading || failed || selectedId.length === 0}
             >
-              {saving ? "저장 중…" : "대표 배지로 설정"}
+              {saving ? "저장 중…" : "이 칸에 전시"}
             </Button>
           </div>
         </div>

@@ -59,6 +59,9 @@ describe("profile showcase route", () => {
   beforeEach(() => {
     store.clear();
     vi.mocked(ensureUser).mockResolvedValue("u1");
+    store.set(keyOf("u1", "character.v2"), {
+      profileBadgeStandOwned: true,
+    });
     store.set(keyOf("u1", "equipment.v2"), {
       owned: [{ iid: "eq_owned", id: EQUIPMENT_ID }],
       equipped: {},
@@ -74,6 +77,16 @@ describe("profile showcase route", () => {
   it("requires authentication", async () => {
     vi.mocked(ensureUser).mockResolvedValueOnce(null);
     expect((await post(null)).status).toBe(401);
+  });
+
+  it("requires the display stand before any slot can be changed", async () => {
+    store.set(keyOf("u1", "character.v2"), {});
+
+    const response = await post(null);
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toBe("stand_required");
+    expect(store.has(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY))).toBe(false);
   });
 
   it("rejects malformed and unowned selections", async () => {
@@ -95,8 +108,37 @@ describe("profile showcase route", () => {
       expect(response.status).toBe(200);
       expect(
         store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY)),
-      ).toEqual({ selection });
+      ).toEqual({ slots: [selection, null, null] });
     }
+  });
+
+  it("saves all three unlocked slots and rejects duplicate badges", async () => {
+    if (!ACHIEVEMENT) throw new Error("achievement fixture missing");
+    const slots = [
+      { kind: "equipment", iid: "eq_owned" },
+      { kind: "title", titleId: TITLE_ID },
+      { kind: "achievement", achievementId: ACHIEVEMENT.id },
+    ];
+    const response = await POST(
+      new Request("http://t/api/v2/me/profile-showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slots }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY))).toEqual({ slots });
+
+    const duplicate = await POST(
+      new Request("http://t/api/v2/me/profile-showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slots: [slots[2], slots[2], null] }),
+      }),
+    );
+    expect(duplicate.status).toBe(400);
+    expect((await duplicate.json()).error).toBe("duplicate_selection");
   });
 
   it("returns only owned titles and claimed non-tutorial achievements", async () => {
@@ -107,12 +149,20 @@ describe("profile showcase route", () => {
       new Request("http://t/api/v2/me/profile-showcase"),
     );
     const body = (await response.json()) as {
+      standOwned: boolean;
       selection: unknown;
+      slots: unknown[];
       titleOptions: { id: string }[];
       achievementOptions: { id: string }[];
     };
     expect(response.status).toBe(200);
+    expect(body.standOwned).toBe(true);
     expect(body.selection).toEqual({ kind: "equipment", iid: "eq_owned" });
+    expect(body.slots).toEqual([
+      { kind: "equipment", iid: "eq_owned" },
+      null,
+      null,
+    ]);
     expect(body.titleOptions.map((option) => option.id)).toEqual([TITLE_ID]);
     expect(body.achievementOptions.map((option) => option.id)).toEqual([
       ACHIEVEMENT?.id,

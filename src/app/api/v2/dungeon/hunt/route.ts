@@ -41,6 +41,7 @@ import {
   OUTPOST_BY_ID,
   OUTPOST_NPC_TAX_RATE,
 } from "@/adventure/data/v2/outposts";
+import { resolveCurrentOutpostId } from "@/adventure/data/v2/outpostGraph";
 import {
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
@@ -158,9 +159,9 @@ type CharSave = {
   [k: string]: unknown;
 };
 
-function authoritativeCatalogOutpostId(charSave: CharSave): string | null {
+function authoritativeCatalogOutpostId(charSave: CharSave): string {
   const saved = charSave.lastVisitedOutpost?.outpostId;
-  return typeof saved === "string" && OUTPOST_BY_ID.has(saved) ? saved : null;
+  return resolveCurrentOutpostId(typeof saved === "string" ? saved : null);
 }
 
 function authoritativeTileOutpostId(charSave: CharSave): string | null {

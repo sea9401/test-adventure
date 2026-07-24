@@ -57,6 +57,8 @@ import {
   cookingQualityName,
   type ActiveCookingBuff,
 } from "@/adventure/v2/cooking";
+import type { ProfileShowcaseSelection } from "@/adventure/profile/profileShowcase";
+import { ProfileShowcase } from "./ProfileShowcase";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -133,6 +135,8 @@ export function V2CharacterCard({
   chatNameEffect = null,
   championshipBadge = null,
   activeFoodBuff = null,
+  profileShowcase = null,
+  showcaseEditable = false,
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
@@ -153,6 +157,8 @@ export function V2CharacterCard({
   chatNameEffect?: MuseunCosmeticAppearance["chatNameEffect"];
   championshipBadge?: MuseunCosmeticAppearance["championshipBadge"];
   activeFoodBuff?: ActiveCookingBuff | null;
+  profileShowcase?: ProfileShowcaseSelection | null;
+  showcaseEditable?: boolean;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
 }) {
@@ -222,11 +228,11 @@ export function V2CharacterCard({
               : `${SURFACE_INSET} p-3`
           }
         >
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(13rem,0.95fr)] sm:gap-4">
             <CharacterPortrait
               gender={(character.gender ?? "male1") as Gender}
             />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               {titleName && (
                 <span className="mb-1 inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
                   {titleName}
@@ -270,6 +276,15 @@ export function V2CharacterCard({
                 <span>{guild ? guild.name : "무소속"}</span>
               </div>
             </div>
+            {(profileShowcase || showcaseEditable) && (
+              <div className="col-span-2 min-w-0 sm:col-span-1">
+                <ProfileShowcase
+                  initialSelection={profileShowcase}
+                  owned={owned ?? []}
+                  editable={showcaseEditable}
+                />
+              </div>
+            )}
           </div>
         </div>
 

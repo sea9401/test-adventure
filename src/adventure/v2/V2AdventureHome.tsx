@@ -16,6 +16,7 @@ import type {
   V2EquipInstance,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import type { ProfileShowcaseSelection } from "@/adventure/profile/profileShowcase";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -30,6 +31,7 @@ type StateResponse = {
   };
   cosmetics?: MuseunCosmeticAppearance;
   activeFoodBuff?: ActiveCookingBuff | null;
+  profileShowcase?: ProfileShowcaseSelection | null;
   hotTime?: {
     title: string;
     endsAt: string;
@@ -110,6 +112,8 @@ export function V2AdventureHome() {
             chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
             championshipBadge={state.cosmetics?.championshipBadge ?? null}
             activeFoodBuff={state.activeFoodBuff ?? null}
+            profileShowcase={state.profileShowcase ?? null}
+            showcaseEditable
             equipped={equipment?.equipped}
             owned={equipment?.owned}
           />

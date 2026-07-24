@@ -72,7 +72,7 @@ type RankRow = {
   name: string;
   avatar: Avatar;
   level: number;
-  /** 총 직업 숙련도 = 모든 직군 cumLevel 합(환생/전직 리셋 안 됨). level 탭 정렬·표시. */
+  /** 총 직업 숙련도 = 모든 직군 cumLevel 합(재전직 후에도 유지). level 탭 정렬·표시. */
   cumLevel: number;
   /** 파라곤 레벨 = 적립 EXP 로 획득한 총 포인트(0~150). 만렙 미만은 0. level 탭 표시·정렬용. */
   paragonLevel: number;
@@ -129,7 +129,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
   // level 탭 = "총 직업 숙련도"(cum_level) 순. API metric 키는 호환을 위해 level 유지.
-  // cumLevel 은 환생으로 리셋되지 않는 직군 숙련도라 차수 환생/전직 진행이 그대로 반영된다.
+  // cumLevel 은 재전직으로 리셋되지 않는 직군 숙련도라 장기 성장 진행이 그대로 반영된다.
   // 동률은 현재 레벨 → 갱신시각 순.
   const orderBy =
     metric === "level"
@@ -422,6 +422,17 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       FROM outpost_claim_attempts
       WHERE attacker_user_id IS NOT NULL
       GROUP BY attacker_user_id
+    ), guild_activity AS (
+      SELECT actor_user_id AS user_id,
+        COUNT(*) FILTER (WHERE type = 'dining_meal')::bigint AS dining_meals,
+        COUNT(*) FILTER (WHERE type = 'training_drill_claim')::bigint AS training_drills,
+        COUNT(*) FILTER (WHERE type = 'exploration_expedition_claim')::bigint AS expeditions,
+        COUNT(*) FILTER (WHERE type = 'workshop_delivery')::bigint AS workshop_deliveries,
+        COUNT(*) FILTER (WHERE type = 'alchemy_craft')::bigint AS alchemy_crafts,
+        COUNT(*) FILTER (WHERE type = 'trade_contract_complete')::bigint AS trade_contracts
+      FROM guild_activity_log
+      WHERE actor_user_id IS NOT NULL
+      GROUP BY actor_user_id
     )
     SELECT
       u.id AS user_id,
@@ -440,12 +451,19 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       equipment_codex.value AS equipment_codex_save,
       tower.value AS tower_save,
       grid_history.value AS grid_history_save,
+      cooking.value AS cooking_save,
       quests.value AS quests_save,
       fishing_codex.value AS fishing_codex_save,
       COALESCE(pvp.wins, 0)::bigint AS arena_wins,
       COALESCE(pvp.matches, 0)::bigint AS arena_matches,
       COALESCE(claims.attempts, 0)::bigint AS siege_attempts,
       COALESCE(claims.wins, 0)::bigint AS siege_wins,
+      COALESCE(guild_activity.dining_meals, 0)::bigint AS guild_dining_meals,
+      COALESCE(guild_activity.training_drills, 0)::bigint AS guild_training_drills,
+      COALESCE(guild_activity.expeditions, 0)::bigint AS guild_expeditions,
+      COALESCE(guild_activity.workshop_deliveries, 0)::bigint AS guild_workshop_deliveries,
+      COALESCE(guild_activity.alchemy_crafts, 0)::bigint AS guild_alchemy_crafts,
+      COALESCE(guild_activity.trade_contracts, 0)::bigint AS guild_trade_contracts,
       EXISTS (SELECT 1 FROM guild_members gm WHERE gm.user_id = u.id) AS has_guild,
       EXISTS (
         SELECT 1 FROM marketplace_listings_v2 ml
@@ -472,10 +490,12 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv equipment_codex ON equipment_codex.user_id = u.id AND equipment_codex.key = ${EQUIPMENT_CODEX_KEY}
     LEFT JOIN saves_kv tower ON tower.user_id = u.id AND tower.key = ${MASTERY_TOWER_SAVE_KEY}
     LEFT JOIN saves_kv grid_history ON grid_history.user_id = u.id AND grid_history.key = ${GRID_DUNGEON_HISTORY_KEY}
+    LEFT JOIN saves_kv cooking ON cooking.user_id = u.id AND cooking.key = ${COOKING_SAVE_KEY}
     LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
     LEFT JOIN pvp ON pvp.user_id = u.id
     LEFT JOIN claims ON claims.user_id = u.id
+    LEFT JOIN guild_activity ON guild_activity.user_id = u.id
     WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
   `);
@@ -485,9 +505,15 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     equipment_save: unknown; skills_save: unknown; crafting_save: unknown;
     farm_save: unknown; woodcutting_save: unknown; mining_save: unknown;
     fishing_save: unknown; equipment_codex_save: unknown; tower_save: unknown;
-    grid_history_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
+    grid_history_save: unknown; cooking_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
     arena_wins: number | string; arena_matches: number | string;
     siege_attempts: number | string; siege_wins: number | string;
+    guild_dining_meals: number | string;
+    guild_training_drills: number | string;
+    guild_expeditions: number | string;
+    guild_workshop_deliveries: number | string;
+    guild_alchemy_crafts: number | string;
+    guild_trade_contracts: number | string;
     has_guild: boolean; has_traded: boolean; has_outpost: boolean;
     updated_at: Date | string;
   };
@@ -512,6 +538,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         equipmentCodexRaw: r.equipment_codex_save,
         masteryTowerRaw: r.tower_save,
         gridDungeonHistoryRaw: r.grid_history_save,
+        cookingRaw: r.cooking_save,
         extras: {
           hasGuild: r.has_guild,
           hasTraded: r.has_traded,
@@ -524,6 +551,12 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
           siegeAttempts: Number(r.siege_attempts),
           fishCaught,
           arenaTimes: [],
+          guildDiningMeals: Number(r.guild_dining_meals ?? 0),
+          guildTrainingDrills: Number(r.guild_training_drills ?? 0),
+          guildExpeditions: Number(r.guild_expeditions ?? 0),
+          guildWorkshopDeliveries: Number(r.guild_workshop_deliveries ?? 0),
+          guildAlchemyCrafts: Number(r.guild_alchemy_crafts ?? 0),
+          guildTradeContracts: Number(r.guild_trade_contracts ?? 0),
         },
       });
       const summary = achievementSummary(ctx, parseClaimed(r.quests_save));

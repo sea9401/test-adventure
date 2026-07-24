@@ -74,6 +74,14 @@ const ZERO: QuestCtx = {
   equipmentCodexTotal: 240,
   masteryTowerFloor: 0,
   gridDungeonClears: 0,
+  cookingLevel: 1,
+  cookingRecipesDiscovered: 0,
+  guildDiningMeals: 0,
+  guildTrainingDrills: 0,
+  guildExpeditions: 0,
+  guildWorkshopDeliveries: 0,
+  guildAlchemyCrafts: 0,
+  guildTradeContracts: 0,
 };
 
 const none = new Set<string>();
@@ -151,7 +159,7 @@ describe("v2Quests 카탈로그 무결성", () => {
     expect(tut.indexOf("basics")).toBeLessThan(tut.indexOf("growth"));
   });
 
-  it("직업 차수(class_*) 전용 라인은 제거됨 — 전직 퀘스트가 목표 차수를 직접 안내", () => {
+  it("직업 차수(class_*) 전용 라인은 제거됨 — 전직 업적은 현재 6차까지 안내", () => {
     expect(QUEST_LINES.some((l) => l.id.startsWith("class_"))).toBe(false);
     expect(V2_QUESTS.some((q) => q.line.startsWith("class_"))).toBe(false);
     expect(questById("g_advance2")!.title + questById("g_advance2")!.desc).toContain(
@@ -163,6 +171,16 @@ describe("v2Quests 카탈로그 무결성", () => {
     expect(questById("a_apex")!.title + questById("a_apex")!.desc).toContain(
       "4차",
     );
+    expect(questById("growth_tier5")!.desc).toContain("5차");
+    expect(questById("growth_tier6")!.desc).toContain("6차");
+  });
+
+  it("사용자에게 보이는 업적 문구에서 옛 환생·윤회 용어를 제거", () => {
+    const visibleCopy = [
+      ...QUEST_LINES.flatMap((line) => [line.name, line.subtitle]),
+      ...V2_QUESTS.flatMap((quest) => [quest.title, quest.desc]),
+    ].join(" ");
+    expect(visibleCopy).not.toMatch(/환생|윤회|다시 태어나다/);
   });
 });
 
@@ -267,12 +285,12 @@ describe("전직 마일스톤 — 목표 차수 노출, 내부 tier 판정 유�
     expect(`${third.title} ${third.desc}`).toContain("3차 전직");
   });
 
-  it("재전직 직후 전직 퀘스트가 잠기지 않음 — 환생 레벨 리셋 회귀", () => {
-    // 정점(레벨캡)을 찍고 재전직한 직후. 환생이 현재 레벨을 1로 리셋하지만
+  it("재전직 직후 전직 퀘스트가 잠기지 않음 — 레벨 리셋 회귀", () => {
+    // 정점(레벨캡)을 찍고 재전직한 직후. 현재 레벨은 1로 리셋되지만
     // cumLevel 은 보존된다(100). 앞 성장 단계 조건은 모두 충족된 상태.
     const afterReincarnate: QuestCtx = {
       ...ZERO,
-      level: 1, // 환생으로 리셋됨(과거 버그의 방아쇠)
+      level: 1, // 재전직으로 리셋됨(과거 버그의 방아쇠)
       cumLevel: 100, // 보존 — 정점 조건은 숙련도 기준이라 유지
       tier: 2,
       battleCount: 5,
@@ -280,7 +298,7 @@ describe("전직 마일스톤 — 목표 차수 노출, 내부 tier 판정 유�
       frontierDepth: 6,
       cultivations: 1,
     };
-    // 정점은 숙련도 기준이라 환생 후에도 충족(현재 레벨 기준이면 false 였음).
+    // 정점은 숙련도 기준이라 재전직 후에도 충족(현재 레벨 기준이면 false 였음).
     expect(questById("g_cap1")!.check(afterReincarnate)).toBe(true);
     // 따라서 전직 퀘스트는 locked 가 아니라 조건이 노출되고 수령 가능해야 한다.
     expect(questStatus(questById("g_advance2")!, afterReincarnate, none)).toBe(
@@ -538,6 +556,14 @@ describe("currentGuideQuest (홈 배너)", () => {
       equipmentCodexTotal: 240,
       masteryTowerFloor: 50,
       gridDungeonClears: 10,
+      cookingLevel: 50,
+      cookingRecipesDiscovered: 18,
+      guildDiningMeals: 50,
+      guildTrainingDrills: 50,
+      guildExpeditions: 20,
+      guildWorkshopDeliveries: 50,
+      guildAlchemyCrafts: 25,
+      guildTradeContracts: 25,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();
@@ -588,7 +614,7 @@ describe("deriveQuestViews", () => {
   });
 });
 
-describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
+describe("확장 라인(전쟁/재전직/생활/도감) 판정", () => {
   it("거점 전쟁 — 각 기록은 독립 업적", () => {
     expect(questById("w_first_claim")!.check(ZERO)).toBe(false);
     expect(questById("w_first_claim")!.check({ ...ZERO, claimAttempted: true })).toBe(true);
@@ -601,9 +627,8 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     expect(questStatus(questById("w_hold")!, { ...ZERO, hasOutpost: true }, none)).toBe("claimable");
   });
 
-  it("윤회의 길 — 첫 퀘스트는 환생 1회로 판정(숙련도 무관)", () => {
-    // 한 생애 숙련도(~99)는 환생 직후 101 문턱 아래라, cumLevel 임계로는 같은 직업
-    // 재전직만으로 안 깨지던 사각지대가 있었다. 이제 환생 횟수(행동)로 판정한다.
+  it("재전직 기록 — 첫 업적은 재전직 1회로 판정(숙련도 무관)", () => {
+    // 한 직업 숙련도만으로 행동을 추측하지 않고 실제 재전직 카운터로 판정한다.
     expect(
       questById("r_first")!.check({ ...ZERO, reincarnations: 0, cumLevel: 100 }),
     ).toBe(false);
@@ -612,7 +637,7 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     ).toBe(true);
   });
 
-  it("윤회의 길 — 후속 마일스톤은 숙련도 경계", () => {
+  it("직업 숙련도 — 장기 마일스톤 경계", () => {
     expect(questById("r_300")!.check({ ...ZERO, cumLevel: 449 })).toBe(false);
     expect(questById("r_300")!.check({ ...ZERO, cumLevel: 450 })).toBe(true);
     expect(questById("r_2000")!.check({ ...ZERO, cumLevel: 3000 })).toBe(true);
@@ -627,6 +652,23 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     expect(questById("b_species35")!.check({ ...ZERO, speciesKilled: 35 })).toBe(true);
     expect(questById("b_band_swamp")!.check({ ...ZERO, frontierDepth: 31 })).toBe(true);
     expect(questById("b_battles5000")!.check({ ...ZERO, battleCount: 5000 })).toBe(true);
+  });
+});
+
+describe("오늘 추가된 요리·길드 시설 업적", () => {
+  it("요리 레벨과 발견한 요리법 마일스톤", () => {
+    expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 9 })).toBe(false);
+    expect(questById("cooking_level10")!.check({ ...ZERO, cookingLevel: 10 })).toBe(true);
+    expect(questById("cooking_recipe18")!.check({ ...ZERO, cookingRecipesDiscovered: 18 })).toBe(true);
+  });
+
+  it("식당·훈련·원정·납품·연금·교역 누적 마일스톤", () => {
+    expect(questById("guild_dining10")!.check({ ...ZERO, guildDiningMeals: 10 })).toBe(true);
+    expect(questById("guild_training10")!.check({ ...ZERO, guildTrainingDrills: 10 })).toBe(true);
+    expect(questById("guild_expedition5")!.check({ ...ZERO, guildExpeditions: 5 })).toBe(true);
+    expect(questById("guild_delivery10")!.check({ ...ZERO, guildWorkshopDeliveries: 10 })).toBe(true);
+    expect(questById("guild_alchemy25")!.check({ ...ZERO, guildAlchemyCrafts: 25 })).toBe(true);
+    expect(questById("guild_trade25")!.check({ ...ZERO, guildTradeContracts: 25 })).toBe(true);
   });
 });
 

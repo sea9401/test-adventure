@@ -1,0 +1,1 @@
+CREATE INDEX "guild_activity_log_actor_created_idx" ON "guild_activity_log" USING btree ("actor_user_id","created_at");

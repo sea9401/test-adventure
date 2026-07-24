@@ -725,7 +725,13 @@ export const guildActivityLog = pgTable(
     meta: jsonb("meta"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("guild_activity_log_guild_created_idx").on(t.guildId, t.createdAt)],
+  (t) => [
+    index("guild_activity_log_guild_created_idx").on(t.guildId, t.createdAt),
+    index("guild_activity_log_actor_created_idx").on(
+      t.actorUserId,
+      t.createdAt,
+    ),
+  ],
 );
 
 // 길드 초대장. 7일 유효, 만료 시 cron 이 status='expired' 처리.

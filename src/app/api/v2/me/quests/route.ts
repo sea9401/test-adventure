@@ -38,6 +38,7 @@ import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
 import { GRID_DUNGEON_HISTORY_KEY } from "@/adventure/data/v2/gridDungeon";
+import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
 
 // GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
@@ -63,6 +64,7 @@ export async function GET() {
     equipmentCodexRaw,
     masteryTowerRaw,
     gridDungeonHistoryRaw,
+    cookingRaw,
     extras,
   ] = await Promise.all([
     readSave(db, userId, "character.v2", {}),
@@ -80,6 +82,7 @@ export async function GET() {
     readSave(db, userId, EQUIPMENT_CODEX_KEY, {}),
     readSave(db, userId, MASTERY_TOWER_SAVE_KEY, {}),
     readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, []),
+    readSave(db, userId, COOKING_SAVE_KEY, {}),
     assembleQuestExtras(db, userId),
   ]);
 
@@ -114,6 +117,7 @@ export async function GET() {
     equipmentCodexRaw,
     masteryTowerRaw,
     gridDungeonHistoryRaw,
+    cookingRaw,
     extras,
   });
   const quests = deriveQuestViews(ctx, claimed);

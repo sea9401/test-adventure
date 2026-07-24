@@ -269,7 +269,7 @@ export function V2CharacterCard({
               : `${SURFACE_INSET} p-3`
           }
         >
-          <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(13rem,0.95fr)] sm:gap-4">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(15rem,1fr)] sm:gap-4">
             <CharacterPortrait
               gender={(character.gender ?? "male1") as Gender}
               motion={profileImageMotion}

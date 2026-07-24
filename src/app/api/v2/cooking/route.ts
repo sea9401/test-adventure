@@ -42,6 +42,7 @@ import {
   cookingQuality,
   emptyCookingState,
   parseCookingState,
+  recordCookingActionStats,
   type CookingAction,
 } from "@/adventure/v2/cooking";
 
@@ -216,6 +217,12 @@ export async function POST(req: Request) {
         ...cooking,
         xp: cooking.xp + earnedXp,
         discoveredRecipeIds: Array.from(new Set([...cooking.discoveredRecipeIds, recipe.id])),
+        stats: recordCookingActionStats(cooking, {
+          action,
+          quantity,
+          quality,
+          usedRare,
+        }),
         daily: {
           ...cooking.daily,
           completedOrderIds: order

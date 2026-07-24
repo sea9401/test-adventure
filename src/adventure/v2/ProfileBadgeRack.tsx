@@ -15,7 +15,10 @@ import {
 } from "@phosphor-icons/react";
 import { TITLES } from "@/adventure/data/titles";
 import { V2_EQUIPMENT, type V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
-import { questById } from "@/adventure/data/v2/v2Quests";
+import {
+  questById,
+  type AchievementBadgeTier,
+} from "@/adventure/data/v2/v2Quests";
 import {
   type ProfileShowcaseSelection,
   type ProfileShowcaseSlots,
@@ -30,6 +33,7 @@ type AchievementOption = {
   title: string;
   desc: string;
   points: number;
+  badgeTier: AchievementBadgeTier;
 };
 
 type ShowcaseOptionsResponse = {
@@ -49,43 +53,37 @@ type BadgeContent = {
 
 const BADGE_TONE: Record<
   BadgeTone,
-  { outer: string; inner: string; icon: string; ribbon: string }
+  { outer: string; inner: string; icon: string }
 > = {
   bronze: {
     outer: "border-orange-700 bg-orange-300 dark:border-orange-500 dark:bg-orange-800",
     inner: "border-orange-200 bg-orange-50 dark:border-orange-700 dark:bg-orange-950",
     icon: "text-orange-700 dark:text-orange-300",
-    ribbon: "bg-orange-700 dark:bg-orange-600",
   },
   silver: {
     outer: "border-zinc-500 bg-zinc-300 dark:border-zinc-400 dark:bg-zinc-700",
     inner: "border-zinc-100 bg-white dark:border-zinc-600 dark:bg-zinc-900",
     icon: "text-zinc-600 dark:text-zinc-200",
-    ribbon: "bg-zinc-500 dark:bg-zinc-500",
   },
   gold: {
     outer: "border-amber-600 bg-amber-300 dark:border-amber-500 dark:bg-amber-800",
     inner: "border-amber-100 bg-amber-50 dark:border-amber-700 dark:bg-amber-950",
     icon: "text-amber-700 dark:text-amber-300",
-    ribbon: "bg-amber-600 dark:bg-amber-500",
   },
   legendary: {
     outer: "border-violet-600 bg-violet-300 dark:border-violet-400 dark:bg-violet-800",
     inner: "border-fuchsia-100 bg-violet-50 dark:border-violet-700 dark:bg-violet-950",
     icon: "text-violet-700 dark:text-violet-200",
-    ribbon: "bg-violet-700 dark:bg-violet-500",
   },
   rose: {
     outer: "border-rose-600 bg-rose-300 dark:border-rose-500 dark:bg-rose-800",
     inner: "border-rose-100 bg-rose-50 dark:border-rose-700 dark:bg-rose-950",
     icon: "text-rose-700 dark:text-rose-300",
-    ribbon: "bg-rose-700 dark:bg-rose-600",
   },
   violet: {
     outer: "border-indigo-600 bg-indigo-300 dark:border-indigo-400 dark:bg-indigo-800",
     inner: "border-indigo-100 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950",
     icon: "text-indigo-700 dark:text-indigo-200",
-    ribbon: "bg-indigo-700 dark:bg-indigo-500",
   },
 };
 
@@ -239,7 +237,7 @@ export function ProfileBadgeRack({
           </div>
         ) : null}
 
-        <div className="flex min-h-24 items-end justify-center gap-1.5">
+        <div className="flex min-h-24 items-center justify-center gap-2">
           {contents.map((content, index) =>
             content ? (
               <BadgeMedallion
@@ -293,52 +291,42 @@ function BadgeMedallion({
 }) {
   const tone = BADGE_TONE[content.tone];
   const medal = (
-    <>
+    <span
+      className={`flex items-center justify-center rounded-full border-4 shadow-md ${
+        compact ? "size-11" : "size-14"
+      } ${tone.outer}`}
+    >
       <span
-        aria-hidden="true"
-        className={`absolute bottom-1 left-1/2 h-7 w-5 -translate-x-[80%] rotate-[10deg] ${tone.ribbon} [clip-path:polygon(0_0,100%_0,86%_100%,50%_76%,14%_100%)]`}
-      />
-      <span
-        aria-hidden="true"
-        className={`absolute bottom-1 left-1/2 h-7 w-5 -translate-x-[20%] -rotate-[10deg] ${tone.ribbon} [clip-path:polygon(0_0,100%_0,86%_100%,50%_76%,14%_100%)]`}
-      />
-      <span
-        className={`relative z-10 flex items-center justify-center rounded-full border-4 shadow-md ${
-          compact ? "size-11" : "size-14"
-        } ${tone.outer}`}
+        className={`flex items-center justify-center rounded-full border-2 ${
+          compact ? "size-7" : "size-10"
+        } ${tone.inner} ${tone.icon}`}
       >
-        <span
-          className={`flex items-center justify-center rounded-full border-2 ${
-            compact ? "size-7" : "size-10"
-          } ${tone.inner} ${tone.icon}`}
-        >
-          {content.icon}
-        </span>
+        {content.icon}
       </span>
-    </>
+    </span>
   );
 
   return (
-    <div className={`flex min-w-0 flex-col items-center ${compact ? "w-14" : "w-[4.5rem]"}`}>
+    <div className={`flex min-w-0 flex-col items-center ${compact ? "w-[4.5rem]" : "w-20"}`}>
       {onClick ? (
         <button
           type="button"
           onClick={onClick}
           title={`${content.title} · ${content.description}`}
           aria-label={`${content.title} 배지 편집`}
-          className={`relative flex items-start justify-center rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${compact ? "h-16" : "h-[4.5rem]"}`}
+          className="relative flex items-center justify-center rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
         >
           {medal}
         </button>
       ) : (
         <div
           title={`${content.title} · ${content.description}`}
-          className={`relative flex items-start justify-center ${compact ? "h-16" : "h-[4.5rem]"}`}
+          className="relative flex items-center justify-center"
         >
           {medal}
         </div>
       )}
-      <span className="-mt-1 w-full truncate text-center text-[10px] font-bold text-zinc-800 dark:text-zinc-100">
+      <span className="mt-1 line-clamp-2 min-h-6 w-full text-center text-[10px] font-bold leading-3 text-zinc-800 dark:text-zinc-100">
         {content.title}
       </span>
       <span className="w-full truncate text-center text-[9px] text-zinc-500 dark:text-zinc-400">
@@ -360,7 +348,7 @@ function EmptyBadgeSlot({
       type="button"
       onClick={onClick}
       aria-label={`${slotIndex + 1}번 배지 선택`}
-      className="flex w-14 flex-col items-center rounded-md text-zinc-500 transition-colors hover:text-amber-700 dark:text-zinc-400 dark:hover:text-amber-300"
+      className="flex w-[4.5rem] flex-col items-center rounded-md text-zinc-500 transition-colors hover:text-amber-700 dark:text-zinc-400 dark:hover:text-amber-300"
     >
       <span className="flex size-11 items-center justify-center rounded-full border-2 border-dashed border-zinc-300 bg-white shadow-inner dark:border-zinc-600 dark:bg-zinc-900">
         <Plus size={20} weight="bold" aria-hidden="true" />
@@ -556,12 +544,13 @@ function resolveBadgeContent(
 ): BadgeContent | null {
   if (selection?.kind === "achievement") {
     const achievement = questById(selection.achievementId);
-    return achievement
+    return achievement?.badgeTier
       ? achievementBadgeContent({
           id: achievement.id,
           title: achievement.title,
           desc: achievement.desc,
           points: achievement.points ?? 0,
+          badgeTier: achievement.badgeTier,
         })
       : null;
   }
@@ -597,13 +586,6 @@ function achievementBadgeContent(option: AchievementOption): BadgeContent {
     description: option.desc,
     detail: `${option.points}점`,
     icon: <Trophy size={23} weight="duotone" aria-hidden="true" />,
-    tone: achievementTone(option.points),
+    tone: option.badgeTier,
   };
-}
-
-function achievementTone(points: number): BadgeTone {
-  if (points >= 50) return "legendary";
-  if (points >= 25) return "gold";
-  if (points >= 10) return "silver";
-  return "bronze";
 }

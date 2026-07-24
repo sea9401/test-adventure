@@ -9,6 +9,7 @@ import {
   cookingLevelXpThreshold,
   cookingOrders,
   cookingQuality,
+  recordCookingActionStats,
   cookingStatPct,
   emptyCookingState,
   parseCookingFoodInventory,
@@ -112,10 +113,22 @@ describe("personal cooking", () => {
       xp: 25,
       discoveredRecipeIds: ["rustic_bread", "unknown"],
       favoriteRecipeIds: ["fish_skewer", "unknown"],
+      stats: {
+        dishesCooked: 12.8,
+        ordersCompleted: 4,
+        masterpiecesCooked: -2,
+        rareIngredientDishes: 3,
+      },
       daily: { dayKey: "old", surplusTrades: 99, completedOrderIds: ["old"] },
     }, 0);
     expect(parsed.discoveredRecipeIds).toEqual(["rustic_bread"]);
     expect(parsed.favoriteRecipeIds).toEqual(["fish_skewer"]);
+    expect(parsed.stats).toEqual({
+      dishesCooked: 12,
+      ordersCompleted: 4,
+      masterpiecesCooked: 0,
+      rareIngredientDishes: 3,
+    });
     expect(parsed.daily.surplusTrades).toBe(0);
   });
 
@@ -123,6 +136,32 @@ describe("personal cooking", () => {
     const recipe = COOKING_RECIPES.find((entry) => entry.id === "flame_corn_stew")!;
     expect(cookingQuality({ cookingJobTier: 6, usedRare: true, rng: () => 0.99 })).toBe("masterpiece");
     expect(cookingStatPct(recipe, "masterpiece", true)).toMatchObject({ str: 24, vit: 12 });
+  });
+
+  it("tracks cooked dishes, orders, masterpieces, and rare-ingredient dishes", () => {
+    const state = emptyCookingState(0);
+    const cooked = recordCookingActionStats(state, {
+      action: "cook",
+      quantity: 5,
+      quality: "masterpiece",
+      usedRare: true,
+    });
+    const ordered = recordCookingActionStats(
+      { ...state, stats: cooked },
+      {
+        action: "order",
+        quantity: 1,
+        quality: "normal",
+        usedRare: false,
+      },
+    );
+
+    expect(ordered).toEqual({
+      dishesCooked: 6,
+      ordersCompleted: 1,
+      masterpiecesCooked: 5,
+      rareIngredientDishes: 5,
+    });
   });
 
   it("preserves crafted quality, rare ingredients, and chef duration in the food item id", () => {

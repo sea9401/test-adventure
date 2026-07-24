@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   matchesDismantleTierFilter,
+  workshopEquipmentCodexStatus,
   workshopEquipmentDisplayTier,
   workshopEquipmentTierLabel,
   type DismantleCandidateView,
@@ -44,5 +45,43 @@ describe("guild workshop equipment tier display", () => {
     expect(matchesDismantleTierFilter(candidate(12), "display4")).toBe(true);
     expect(matchesDismantleTierFilter(candidate(13), "display5")).toBe(true);
     expect(matchesDismantleTierFilter(candidate(12), "display3")).toBe(false);
+  });
+});
+
+describe("guild workshop equipment codex status", () => {
+  const registeredIds = new Set(["registered-equipment"]);
+
+  it("distinguishes registered and unregistered recipe equipment", () => {
+    expect(
+      workshopEquipmentCodexStatus(
+        "registered-equipment",
+        registeredIds,
+        "ready",
+      ),
+    ).toBe("registered");
+    expect(
+      workshopEquipmentCodexStatus(
+        "unregistered-equipment",
+        registeredIds,
+        "ready",
+      ),
+    ).toBe("unregistered");
+  });
+
+  it("does not mislabel loading or failed codex reads as unregistered", () => {
+    expect(
+      workshopEquipmentCodexStatus(
+        "unregistered-equipment",
+        registeredIds,
+        "loading",
+      ),
+    ).toBe("loading");
+    expect(
+      workshopEquipmentCodexStatus(
+        "unregistered-equipment",
+        registeredIds,
+        "error",
+      ),
+    ).toBe("error");
   });
 });

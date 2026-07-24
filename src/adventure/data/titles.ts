@@ -776,15 +776,15 @@ export const TITLES: Record<TitleId, Title> = {
   ach_reborn: {
     id: "ach_reborn",
     name: "새 출발",
-    description: "다시 시작하는 일을 두려워하지 않는 사람.",
-    condition: "업적 '다시 태어나다' 보상 수령",
+    description: "재전직으로 새로운 성장을 시작한 모험가.",
+    condition: "업적 '새로운 출발' 보상 수령",
     category: "character",
   },
   ach_rebirth_apex: {
     id: "ach_rebirth_apex",
     name: "꾸준한 육성가",
     description: "천천히 쌓아 올리는 재미를 아는 사람.",
-    condition: "업적 '윤회의 정점' 보상 수령",
+    condition: "업적 '숙련의 정점' 보상 수령",
     category: "character",
   },
   ach_codex_angler: {

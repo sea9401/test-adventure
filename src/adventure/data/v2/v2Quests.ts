@@ -22,6 +22,7 @@ import type { V2EquipmentId } from "./v2Equipment";
 import type { V2Class } from "./classes";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import type { TitleId } from "../titles";
+import { COOKING_RECIPES } from "../../v2/cooking";
 
 export type QuestLineId = string;
 
@@ -41,7 +42,7 @@ export type QuestCtx = {
   /** 현 직군(전사/무도가/마법사/도적/none). 직업 전용 라인 가시성 판정. */
   class: V2Class;
   level: number;
-  /** 현 직업의 차수(1~4) = 직업 카탈로그 tier(jobIdFromLegacy). 전직 진행 신호. */
+  /** 현 직업의 단계(0~6) = 직업 카탈로그 tier(jobIdFromLegacy). 전직 진행 신호. */
   tier: number;
   /** 누적 전투 수(킬 + 패배). adventure-log.v2. */
   battleCount: number;
@@ -70,9 +71,9 @@ export type QuestCtx = {
   /** 획득한 칭호 수. adventure-log.v2.titles. */
   titleCount: number;
   // ── 확장 신호(2026-06-11, 라인 4종 추가) ─────────────────────────────────
-  /** 총 직업 숙련도(전 직군 합·환생 보존). proficiency totalCumLevel. */
+  /** 총 직업 숙련도(전 직군 합·재전직 후에도 보존). proficiency totalCumLevel. */
   cumLevel: number;
-  /** 환생(재전직) 횟수 — advance-class 환생마다 +1. proficiency.reincarnations. "다시 태어나다" 판정. */
+  /** 재전직 횟수. 저장 호환상 proficiency.reincarnations 카운터를 사용한다. */
   reincarnations: number;
   /** 처치한 몬스터 종 수(kills>0 인 키 수). adventure-log.v2.monsters. */
   speciesKilled: number;
@@ -138,6 +139,16 @@ export type QuestCtx = {
   /** 숙련의 탑 최고 층과 격자 던전 최근 클리어 기록. */
   masteryTowerFloor: number;
   gridDungeonClears: number;
+  /** 개인 요리 누적 성장. cooking.v1. */
+  cookingLevel: number;
+  cookingRecipesDiscovered: number;
+  /** 길드 시설 개인 활동 누적. guild_activity_log. */
+  guildDiningMeals: number;
+  guildTrainingDrills: number;
+  guildExpeditions: number;
+  guildWorkshopDeliveries: number;
+  guildAlchemyCrafts: number;
+  guildTradeContracts: number;
 };
 
 export type QuestDef = {
@@ -216,7 +227,7 @@ const GROWTH: QuestDef[] = [
     title: "정점",
     desc: `레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
     reward: { staminaPotions: 1 },
-    // 현재 레벨 또는 보존 숙련도 기준. level 만 보면 환생 직후 레벨 1 리셋으로 뒤 퀘스트가
+    // 현재 레벨 또는 보존 숙련도 기준. level 만 보면 재전직 직후 레벨 1 리셋으로 뒤 퀘스트가
     // 재잠금되고, cumLevel 만 보면 EXP 묘약 등 레벨 성장 경로와 설명이 어긋난다.
     check: (c) => c.level >= V2_LEVEL_CAP || c.cumLevel >= V2_LEVEL_CAP,
   },
@@ -332,8 +343,11 @@ function milestones(
           ? " G"
           : label.includes("서로 다른")
             ? "종"
-            : label.includes("도감") || label.includes("장비") || label.includes("칭호")
-              ? "개"
+              : label.includes("도감") ||
+                  label.includes("장비") ||
+                  label.includes("칭호") ||
+                  label.includes("요리법")
+                ? "개"
               : label.includes("층")
                 ? "층"
                 : "회"
@@ -363,11 +377,15 @@ const COMBAT: QuestDef[] = [
     { id: "combat_species25", title: "생태 조사원", goal: 25, points: 15 },
     { id: "b_species35", title: "토벌 도감의 주인", goal: 35, points: 30, titleId: "ach_bestiary_master" },
     { id: "combat_species40", title: "모든 흔적을 좇아", goal: 40, points: 40 },
+    { id: "combat_species60", title: "대륙의 생태 기록", goal: 60, points: 50 },
+    { id: "combat_species80", title: "끝없는 추적", goal: 80, points: 60 },
+    { id: "combat_species95", title: "몬스터 도감 완주", goal: 95, points: 80 },
   ]),
   ...milestones("combat", "협동 보스 종류 토벌", (c) => c.bossKills, [
     { id: "a_boss", title: "협동 보스 토벌", goal: 1, points: 10 },
     { id: "combat_boss2", title: "보스 추적자", goal: 2, points: 15 },
     { id: "a_boss_master", title: "보스 마스터", goal: 4, points: 30, titleId: "ach_boss_master" },
+    { id: "combat_boss6", title: "협동 보스 정복자", goal: 6, points: 50 },
   ]),
 ];
 
@@ -386,19 +404,25 @@ const FRONTIER: QuestDef[] = milestones("frontier", "사냥터 깊이", (c) => c
 const GROWTH_ACHIEVEMENTS: QuestDef[] = [
   ...milestones("growth_achievement", "총 직업 숙련도", (c) => c.cumLevel, [
     { id: "growth_cum100", title: "쌓이는 경험", goal: 100, points: 5 },
-    { id: "r_300", title: "세 번째 생", goal: 450, points: 15 },
-    { id: "r_600", title: "윤회의 수레바퀴", goal: 900, points: 20 },
-    { id: "r_1200", title: "천년의 혼", goal: 1_800, points: 30 },
-    { id: "r_2000", title: "윤회의 정점", goal: 3_000, points: 50, titleId: "ach_rebirth_apex" },
+    { id: "r_300", title: "숙련의 길", goal: 450, points: 15 },
+    { id: "r_600", title: "노련한 모험가", goal: 900, points: 20 },
+    { id: "r_1200", title: "깊어진 숙련", goal: 1_800, points: 30 },
+    { id: "r_2000", title: "숙련의 정점", goal: 3_000, points: 50, titleId: "ach_rebirth_apex" },
     { id: "growth_cum5000", title: "영겁의 숙련", goal: 5_000, points: 60 },
+    { id: "growth_cum10000", title: "만 번의 단련", goal: 10_000, points: 70 },
+    { id: "growth_cum20000", title: "대가의 발자취", goal: 20_000, points: 80 },
+    { id: "growth_cum35000", title: "초월의 문턱", goal: 35_000, points: 90 },
+    { id: "growth_cum50000", title: "끝없는 숙련", goal: 50_000, points: 100 },
   ]),
-  ...milestones("growth_achievement", "환생", (c) => c.reincarnations, [
-    { id: "r_first", title: "다시 태어나다", goal: 1, points: 10, titleId: "ach_reborn" },
-    { id: "growth_rebirth3", title: "세 번의 삶", goal: 3, points: 15 },
-    { id: "growth_rebirth10", title: "윤회하는 자", goal: 10, points: 30 },
-    { id: "growth_rebirth25", title: "끝나지 않는 여정", goal: 25, points: 50 },
+  ...milestones("growth_achievement", "재전직", (c) => c.reincarnations, [
+    { id: "r_first", title: "새로운 출발", goal: 1, points: 10, titleId: "ach_reborn" },
+    { id: "growth_rebirth3", title: "세 번의 재도전", goal: 3, points: 15 },
+    { id: "growth_rebirth10", title: "숙련된 전직자", goal: 10, points: 30 },
+    { id: "growth_rebirth25", title: "끝나지 않는 성장", goal: 25, points: 50 },
   ]),
-  { id: "a_apex", line: "growth_achievement", title: "직업의 정점", desc: "최종 단계인 4차 직업으로 전직하세요.", reward: {}, points: 25, progress: (c) => c.tier, goal: 4, check: (c) => c.tier >= 4 },
+  { id: "a_apex", line: "growth_achievement", title: "심화 직업", desc: "4차 직업으로 전직하세요.", reward: {}, points: 25, progress: (c) => c.tier, goal: 4, check: (c) => c.tier >= 4 },
+  { id: "growth_tier5", line: "growth_achievement", title: "상급 직업", desc: "5차 직업으로 전직하세요.", reward: {}, points: 40, progress: (c) => c.tier, goal: 5, check: (c) => c.tier >= 5 },
+  { id: "growth_tier6", line: "growth_achievement", title: "초월 직업", desc: "6차 직업으로 전직하세요.", reward: {}, points: 60, progress: (c) => c.tier, goal: 6, check: (c) => c.tier >= 6 },
 ];
 
 const EQUIPMENT: QuestDef[] = [
@@ -416,6 +440,7 @@ const EQUIPMENT: QuestDef[] = [
     { id: "codex_100", title: "백 가지 장비", goal: 100, points: 25 },
     { id: "codex_150", title: "대수집가", goal: 150, points: 35 },
     { id: "codex_200", title: "도감 박사", goal: 200, points: 50 },
+    { id: "codex_240", title: "장비 도감 완주", goal: 240, points: 70 },
   ]),
   ...milestones("equipment", "장비 최고 강화 +", (c) => c.maxEnhanceLevel, [
     { id: "e_first", title: "첫 단조", goal: 1, points: 5 },
@@ -524,6 +549,24 @@ const FISHING: QuestDef[] = [
   ]),
 ];
 
+const COOKING: QuestDef[] = [
+  ...milestones("cooking", "요리 레벨", (c) => c.cookingLevel, [
+    { id: "cooking_level10", title: "주방에 익숙해지다", goal: 10, points: 10 },
+    { id: "cooking_level25", title: "능숙한 요리사", goal: 25, points: 20 },
+    { id: "cooking_level50", title: "전설의 요리사", goal: 50, points: 50 },
+  ]),
+  ...milestones("cooking", "요리법 발견", (c) => c.cookingRecipesDiscovered, [
+    { id: "cooking_recipe5", title: "차려지는 식탁", goal: 5, points: 10 },
+    { id: "cooking_recipe10", title: "풍성한 차림", goal: 10, points: 25 },
+    {
+      id: "cooking_recipe18",
+      title: "모든 맛의 기록",
+      goal: COOKING_RECIPES.length,
+      points: 50,
+    },
+  ]),
+];
+
 const ARTISAN: QuestDef[] = [
   ...milestones("artisan", "길드 제작소 제작", (c) => c.workshopCrafts, [
     { id: "a_first_craft", title: "첫 제작 의뢰", goal: 1, points: 5 },
@@ -540,6 +583,37 @@ const ARTISAN: QuestDef[] = [
     { id: "a_blacksmith_lv2", title: "대장장이의 손", goal: 2, points: 5 },
     { id: "artisan_smith5", title: "숙련 대장장이", goal: 5, points: 20 },
     { id: "artisan_smith10", title: "전설의 대장장이", goal: 10, points: 50 },
+  ]),
+];
+
+const GUILD_FACILITIES: QuestDef[] = [
+  ...milestones("guild_facilities", "길드 식당 식사", (c) => c.guildDiningMeals, [
+    { id: "guild_dining1", title: "함께하는 한 끼", goal: 1, points: 5 },
+    { id: "guild_dining10", title: "길드 식당 단골", goal: 10, points: 15 },
+    { id: "guild_dining50", title: "백년지기 식탁", goal: 50, points: 35 },
+  ]),
+  ...milestones("guild_facilities", "길드 훈련 완료", (c) => c.guildTrainingDrills, [
+    { id: "guild_training1", title: "첫 합동 훈련", goal: 1, points: 5 },
+    { id: "guild_training10", title: "훈련장 모범생", goal: 10, points: 15 },
+    { id: "guild_training50", title: "전술 훈련의 달인", goal: 50, points: 35 },
+  ]),
+  ...milestones("guild_facilities", "길드 원정 완료", (c) => c.guildExpeditions, [
+    { id: "guild_expedition1", title: "첫 원정 귀환", goal: 1, points: 10 },
+    { id: "guild_expedition5", title: "노련한 원정대", goal: 5, points: 20 },
+    { id: "guild_expedition20", title: "미지의 개척자", goal: 20, points: 40 },
+  ]),
+  ...milestones("guild_facilities", "길드 제작 납품", (c) => c.guildWorkshopDeliveries, [
+    { id: "guild_delivery1", title: "첫 제작 납품", goal: 1, points: 10 },
+    { id: "guild_delivery10", title: "믿음직한 납품가", goal: 10, points: 20 },
+    { id: "guild_delivery50", title: "길드의 명품 공급자", goal: 50, points: 40 },
+  ]),
+  ...milestones("guild_facilities", "길드 연금 제작", (c) => c.guildAlchemyCrafts, [
+    { id: "guild_alchemy1", title: "첫 연금술", goal: 1, points: 10 },
+    { id: "guild_alchemy25", title: "연금 공방의 손", goal: 25, points: 30 },
+  ]),
+  ...milestones("guild_facilities", "길드 교역 계약 완료", (c) => c.guildTradeContracts, [
+    { id: "guild_trade1", title: "첫 길드 교역", goal: 1, points: 10 },
+    { id: "guild_trade25", title: "교역로의 큰손", goal: 25, points: 30 },
   ]),
 ];
 
@@ -611,14 +685,16 @@ export const QUEST_LINES: readonly QuestLine[] = [
   },
   { id: "combat", name: "전투와 토벌", subtitle: "전투 횟수·몬스터 도감·협동 보스 기록.", sequential: false },
   { id: "frontier", name: "프론티어", subtitle: "현재 사냥터의 끝까지 이어지는 개척 기록.", sequential: false },
-  { id: "growth_achievement", name: "성장과 윤회", subtitle: "직업 숙련도·최종 전직·환생 기록.", sequential: false },
+  { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·재전직 기록.", sequential: false },
   { id: "equipment", name: "장비와 도감", subtitle: "장비 수집·도감 등록·강화 기록.", sequential: false },
   { id: "arena_social", name: "경쟁과 교류", subtitle: "길드·거래소·투기장 승리 기록.", sequential: false },
   { id: "farming", name: "농사", subtitle: "수확·희귀 작물·납품·농사 레벨.", sequential: false },
   { id: "woodcutting", name: "벌목", subtitle: "벌목 성공·완벽한 벌목·벌목 레벨.", sequential: false },
   { id: "mining", name: "채광", subtitle: "채광 성공·부산물·채광 레벨.", sequential: false },
   { id: "fishing", name: "낚시", subtitle: "어획·어종 도감·낚시 레벨.", sequential: false },
+  { id: "cooking", name: "요리", subtitle: "요리 레벨과 발견한 요리법 기록.", sequential: false },
   { id: "artisan", name: "제작과 장인", subtitle: "길드 제작소와 대장장이 숙련 기록.", sequential: false },
+  { id: "guild_facilities", name: "길드 시설", subtitle: "식당·훈련장·원정·제작소·연금·교역 활동 기록.", sequential: false },
   { id: "challenge", name: "도전 콘텐츠", subtitle: "숙련의 탑과 격자 던전 정복 기록.", sequential: false },
   { id: "war", name: "거점 전쟁", subtitle: "점령·공성·방어·금고 회수 기록.", sequential: false },
   { id: "collection", name: "부와 명예", subtitle: "골드와 칭호 수집 기록.", sequential: false },
@@ -636,7 +712,9 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...WOODCUTTING,
   ...MINING,
   ...FISHING,
+  ...COOKING,
   ...ARTISAN,
+  ...GUILD_FACILITIES,
   ...CHALLENGE,
   ...WAR,
   ...COLLECTION,

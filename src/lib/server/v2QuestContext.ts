@@ -42,6 +42,7 @@ import {
 } from "@/lib/server/savesKv";
 import {
   guildMembers,
+  guildActivityLog,
   marketplaceListingsV2,
   outpostClaimAttempts,
   outpostOccupations,
@@ -80,6 +81,10 @@ import {
 import {
   parseGridDungeonHistory,
 } from "@/adventure/data/v2/gridDungeon";
+import {
+  cookingLevelForXp,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
 
 type CharSave = {
   class?: unknown;
@@ -112,6 +117,12 @@ export type QuestExtras = {
   hasTraded: boolean;
   arenaPlayed: boolean;
   arenaWins: number;
+  guildDiningMeals: number;
+  guildTrainingDrills: number;
+  guildExpeditions: number;
+  guildWorkshopDeliveries: number;
+  guildAlchemyCrafts: number;
+  guildTradeContracts: number;
   // 전쟁의 길 — outpost_claim_attempts/occupations 파생.
   claimAttempted: boolean;
   hasOutpost: boolean;
@@ -138,6 +149,7 @@ export function buildQuestCtx(args: {
   equipmentCodexRaw?: unknown;
   masteryTowerRaw?: unknown;
   gridDungeonHistoryRaw?: unknown;
+  cookingRaw?: unknown;
   extras: QuestExtras;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
@@ -154,7 +166,7 @@ export function buildQuestCtx(args: {
     Math.floor(Number(charSave.frontierDepth) || 2),
   );
 
-  // 전직 진행(tier 1~4) — 코어루프는 proficiency 차수를 폐지(flattenGroupTiers 로 항상 1)하므로
+  // 전직 진행(tier 0~6) — 코어루프는 proficiency 차수를 폐지(flattenGroupTiers 로 항상 1)하므로
   //   현 직업의 카탈로그 tier 로 본다(직업 사다리 = jobIdFromLegacy(class, specChoice) → 카탈로그).
   //   specChoice 는 advance-class 가 써주는 직업 저장 브리지(전문화 패시브와 무관).
   const spec =
@@ -254,10 +266,13 @@ export function buildQuestCtx(args: {
   const gridDungeonClears = parseGridDungeonHistory(
     args.gridDungeonHistoryRaw,
   ).filter((entry) => entry.outcome === "cleared").length;
+  const cooking = parseCookingState(args.cookingRaw);
+  const cookingLevel = cookingLevelForXp(cooking.xp);
+  const cookingRecipesDiscovered = cooking.discoveredRecipeIds.length;
 
   // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수·전쟁 카운터.
   const cumLevel = totalCumLevel(prof);
-  // 환생(재전직) 횟수 — 윤회의 길 첫 퀘스트("다시 태어나다") 판정. cumLevel 임계 대신 행동 신호.
+  // 재전직 횟수 — 숙련도 임계로 추측하지 않고 실제 행동 카운터를 사용한다.
   const reincarnations = prof.reincarnations ?? 0;
   const speciesKilled = Object.values(advLog.monsters ?? {}).filter(
     (m) => num(m?.kills) > 0,
@@ -325,6 +340,14 @@ export function buildQuestCtx(args: {
     equipmentCodexTotal: equipmentCodex.total,
     masteryTowerFloor: masteryTower.lifetimeBestFloor,
     gridDungeonClears,
+    cookingLevel,
+    cookingRecipesDiscovered,
+    guildDiningMeals: args.extras.guildDiningMeals,
+    guildTrainingDrills: args.extras.guildTrainingDrills,
+    guildExpeditions: args.extras.guildExpeditions,
+    guildWorkshopDeliveries: args.extras.guildWorkshopDeliveries,
+    guildAlchemyCrafts: args.extras.guildAlchemyCrafts,
+    guildTradeContracts: args.extras.guildTradeContracts,
   };
 }
 
@@ -334,7 +357,15 @@ export async function assembleQuestExtras(
   ex: DbExecutor,
   userId: string,
 ): Promise<QuestExtras> {
-  const [guildRows, tradeRows, arenaRaw, arenaAgg, claimAgg, fishRaw] =
+  const [
+    guildRows,
+    tradeRows,
+    arenaRaw,
+    arenaAgg,
+    claimAgg,
+    fishRaw,
+    guildActivityAgg,
+  ] =
     await Promise.all([
       ex
         .select({ id: guildMembers.guildId })
@@ -371,6 +402,17 @@ export async function assembleQuestExtras(
         .from(outpostClaimAttempts)
         .where(eq(outpostClaimAttempts.attackerUserId, userId)),
       readSave(ex, userId, "fishing-codex.v1", {}),
+      ex
+        .select({
+          diningMeals: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'dining_meal')::bigint`,
+          trainingDrills: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'training_drill_claim')::bigint`,
+          expeditions: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'exploration_expedition_claim')::bigint`,
+          workshopDeliveries: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'workshop_delivery')::bigint`,
+          alchemyCrafts: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'alchemy_craft')::bigint`,
+          tradeContracts: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'trade_contract_complete')::bigint`,
+        })
+        .from(guildActivityLog)
+        .where(eq(guildActivityLog.actorUserId, userId)),
     ]);
   const arenaHistory = parseArenaHistory(arenaRaw);
 
@@ -397,6 +439,14 @@ export async function assembleQuestExtras(
       lifetimeArenaWins,
       arenaHistory.filter((e) => e.outcome === "win").length,
     ),
+    guildDiningMeals: Number(guildActivityAgg[0]?.diningMeals ?? 0),
+    guildTrainingDrills: Number(guildActivityAgg[0]?.trainingDrills ?? 0),
+    guildExpeditions: Number(guildActivityAgg[0]?.expeditions ?? 0),
+    guildWorkshopDeliveries: Number(
+      guildActivityAgg[0]?.workshopDeliveries ?? 0,
+    ),
+    guildAlchemyCrafts: Number(guildActivityAgg[0]?.alchemyCrafts ?? 0),
+    guildTradeContracts: Number(guildActivityAgg[0]?.tradeContracts ?? 0),
     claimAttempted: Number(claimAgg[0]?.total ?? 0) > 0,
     hasOutpost,
     siegeWins: Number(claimAgg[0]?.wins ?? 0),

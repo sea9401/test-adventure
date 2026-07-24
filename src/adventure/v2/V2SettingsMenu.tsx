@@ -119,7 +119,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         onClick={() => setOpen((v) => !v)}
         // 광장+설정이 함께 들어있어 "설정"으로만 오인되던 톱니 → 햄버거 "메뉴"로(사용자 피드백).
         aria-label="메뉴"
-        title="메뉴 (광장·설정)"
+        title="메뉴"
         className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         <List size={20} weight="bold" />
@@ -128,9 +128,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         <div
           className={`${SURFACE_CARD} ui-dropdown-reveal absolute right-0 top-full z-[70] mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-lg`}
         >
-          <div className="border-b border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            광장
-          </div>
           <ul className="py-1">
             {(
               [
@@ -153,9 +150,10 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </li>
             ))}
           </ul>
-          <div className="border-b border-t border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            설정
-          </div>
+          <div
+            role="separator"
+            className="mx-3 my-1 border-t border-zinc-200 dark:border-zinc-700"
+          />
           <ul className="py-1">
             <li>
               <Link

@@ -446,6 +446,7 @@ export function V2CharacterCard({
           })}
           </div>
         )}
+      </Card>
       {selected && (
         <V2ItemCard
           item={selected.item}
@@ -458,7 +459,6 @@ export function V2CharacterCard({
           equippedIds={equippedItemIds}
         />
       )}
-      </Card>
       {supportDetailsOpen && supportActiveUntil != null && (
         <AdventureSupportModal
           activeUntil={supportActiveUntil}

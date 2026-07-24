@@ -34,6 +34,7 @@ import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
+  parseProfileBadgeStandVisible,
   parseProfileShowcaseSlots,
   ownsProfileBadgeStand,
 } from "@/adventure/profile/profileShowcase";
@@ -164,10 +165,14 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   const { owned, equipped } = parseEquipmentSave(byKey.get("equipment.v2"));
   const profileBadgeStandOwned = ownsProfileBadgeStand(charSave);
+  const profileBadgeStandVisible = parseProfileBadgeStandVisible(
+    byKey.get(PROFILE_SHOWCASE_SAVE_KEY),
+  );
   const parsedShowcaseSlots = parseProfileShowcaseSlots(
     byKey.get(PROFILE_SHOWCASE_SAVE_KEY),
   );
-  const profileShowcaseSlots = profileBadgeStandOwned
+  const profileShowcaseSlots =
+    profileBadgeStandOwned && profileBadgeStandVisible
     ? parsedShowcaseSlots.map((slot) =>
         slot?.kind !== "equipment" ||
         owned.some((item) => item.iid === slot.iid)
@@ -255,6 +260,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     profileShowcase,
     profileShowcaseSlots,
     profileBadgeStandOwned,
+    profileBadgeStandVisible,
     stats: { base: combat.baseAllocatedStats, total: combat.totalStats },
     combat: {
       atk: combat.player.atk,

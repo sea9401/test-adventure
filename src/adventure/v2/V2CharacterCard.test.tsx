@@ -77,7 +77,7 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).not.toContain("대표 배지 편집");
   });
 
-  it("offers the whole three-slot stand instead of a free badge slot", () => {
+  it("does not show or reserve the badge stand before purchase", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard
         character={CHARACTER}
@@ -90,10 +90,39 @@ describe("V2CharacterCard profile theme", () => {
       />,
     );
 
-    expect(html).toContain("대표 배지 전시대 구매 안내");
-    expect(html).toContain("배지 3칸 영구 해금");
-    expect(html).toContain("600코인");
-    expect(html).toContain('href="/settings/coin-shop"');
+    expect(html).not.toContain("대표 배지 전시대");
+    expect(html).not.toContain("코인 상점에서 보기");
     expect(html).not.toContain("몸풀기");
+    expect(html).not.toContain("col-span-2 min-w-0 sm:col-span-1");
+  });
+
+  it("hides a disabled stand publicly but keeps its owner control available", () => {
+    const slots = [
+      { kind: "achievement" as const, achievementId: "combat_10" },
+      null,
+      null,
+    ] as const;
+    const publicHtml = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        profileBadgeStandOwned
+        profileBadgeStandVisible={false}
+        profileShowcaseSlots={[...slots]}
+      />,
+    );
+    const ownerHtml = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        profileBadgeStandOwned
+        profileBadgeStandVisible={false}
+        profileShowcaseSlots={[...slots]}
+        showcaseEditable
+      />,
+    );
+
+    expect(publicHtml).not.toContain("대표 배지 전시대");
+    expect(publicHtml).not.toContain("몸풀기");
+    expect(ownerHtml).toContain("대표 배지 전시대 비공개");
+    expect(ownerHtml).toContain("공개하기");
   });
 });

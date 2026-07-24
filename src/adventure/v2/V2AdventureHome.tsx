@@ -37,6 +37,7 @@ type StateResponse = {
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
   profileBadgeStandOwned?: boolean;
+  profileBadgeStandVisible?: boolean;
   hotTime?: {
     title: string;
     endsAt: string;
@@ -120,6 +121,7 @@ export function V2AdventureHome() {
             profileShowcase={state.profileShowcase ?? null}
             profileShowcaseSlots={state.profileShowcaseSlots}
             profileBadgeStandOwned={state.profileBadgeStandOwned === true}
+            profileBadgeStandVisible={state.profileBadgeStandVisible !== false}
             showcaseEditable
             equipped={equipment?.equipped}
             owned={equipment?.owned}

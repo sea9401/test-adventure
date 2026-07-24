@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ownsProfileBadgeStand,
+  parseProfileBadgeStandVisible,
   parseProfileShowcase,
   parseProfileShowcaseSelection,
   parseProfileShowcaseSlots,
@@ -56,5 +57,12 @@ describe("profile showcase parser", () => {
     expect(ownsProfileBadgeStand({ profileBadgeStandOwned: false })).toBe(false);
     expect(ownsProfileBadgeStand({ profileBadgeStandOwned: 1 })).toBe(false);
     expect(ownsProfileBadgeStand(null)).toBe(false);
+  });
+
+  it("keeps legacy stands visible and reads an explicit visibility toggle", () => {
+    expect(parseProfileBadgeStandVisible({ slots: [] })).toBe(true);
+    expect(parseProfileBadgeStandVisible({ visible: true })).toBe(true);
+    expect(parseProfileBadgeStandVisible({ visible: false })).toBe(false);
+    expect(parseProfileBadgeStandVisible(null)).toBe(true);
   });
 });

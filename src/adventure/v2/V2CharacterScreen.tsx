@@ -47,6 +47,7 @@ type StateResponse = {
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
   profileBadgeStandOwned?: boolean;
+  profileBadgeStandVisible?: boolean;
   stats?: {
     base: Record<V2StatKey, number>;
     total: Record<V2StatKey, number>;
@@ -197,6 +198,7 @@ export function V2CharacterScreen({
           profileShowcase={state?.profileShowcase ?? null}
           profileShowcaseSlots={state?.profileShowcaseSlots}
           profileBadgeStandOwned={state?.profileBadgeStandOwned === true}
+          profileBadgeStandVisible={state?.profileBadgeStandVisible !== false}
           showcaseEditable={!playerName}
           profileImageMotion="animated"
         />

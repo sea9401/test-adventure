@@ -65,6 +65,11 @@ export function parseProfileShowcaseSlots(raw: unknown): ProfileShowcaseSlots {
   return [parseProfileShowcaseSelection(value.selection), null, null];
 }
 
+export function parseProfileBadgeStandVisible(raw: unknown): boolean {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return true;
+  return (raw as { visible?: unknown }).visible !== false;
+}
+
 export function ownsProfileBadgeStand(characterRaw: unknown): boolean {
   return (
     characterRaw != null &&

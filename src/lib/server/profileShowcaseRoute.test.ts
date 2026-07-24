@@ -108,7 +108,7 @@ describe("profile showcase route", () => {
       expect(response.status).toBe(200);
       expect(
         store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY)),
-      ).toEqual({ slots: [selection, null, null] });
+      ).toEqual({ slots: [selection, null, null], visible: true });
     }
   });
 
@@ -128,7 +128,10 @@ describe("profile showcase route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY))).toEqual({ slots });
+    expect(store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY))).toEqual({
+      slots,
+      visible: true,
+    });
 
     const duplicate = await POST(
       new Request("http://t/api/v2/me/profile-showcase", {
@@ -141,6 +144,57 @@ describe("profile showcase route", () => {
     expect((await duplicate.json()).error).toBe("duplicate_selection");
   });
 
+  it("toggles visibility without changing the three selected slots", async () => {
+    const slots = ACHIEVEMENT
+      ? [{ kind: "achievement", achievementId: ACHIEVEMENT.id }, null, null]
+      : [null, null, null];
+    store.set(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY), {
+      slots,
+      visible: true,
+    });
+
+    const response = await POST(
+      new Request("http://t/api/v2/me/profile-showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible: false }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      slots,
+      visible: false,
+    });
+    expect(store.get(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY))).toEqual({
+      slots,
+      visible: false,
+    });
+  });
+
+  it("rejects visibility changes before purchase and malformed toggle values", async () => {
+    const malformed = await POST(
+      new Request("http://t/api/v2/me/profile-showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible: "off" }),
+      }),
+    );
+    expect(malformed.status).toBe(400);
+
+    store.set(keyOf("u1", "character.v2"), {});
+    const unowned = await POST(
+      new Request("http://t/api/v2/me/profile-showcase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible: false }),
+      }),
+    );
+    expect(unowned.status).toBe(403);
+    expect((await unowned.json()).error).toBe("stand_required");
+  });
+
   it("returns only owned titles and claimed non-tutorial achievements", async () => {
     store.set(keyOf("u1", PROFILE_SHOWCASE_SAVE_KEY), {
       selection: { kind: "equipment", iid: "eq_owned" },
@@ -150,6 +204,7 @@ describe("profile showcase route", () => {
     );
     const body = (await response.json()) as {
       standOwned: boolean;
+      visible: boolean;
       selection: unknown;
       slots: unknown[];
       titleOptions: { id: string }[];
@@ -157,6 +212,7 @@ describe("profile showcase route", () => {
     };
     expect(response.status).toBe(200);
     expect(body.standOwned).toBe(true);
+    expect(body.visible).toBe(true);
     expect(body.selection).toEqual({ kind: "equipment", iid: "eq_owned" });
     expect(body.slots).toEqual([
       { kind: "equipment", iid: "eq_owned" },

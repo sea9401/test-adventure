@@ -39,6 +39,38 @@ describe("personal cooking", () => {
     ]));
   });
 
+  it("offers several distinct choices at every cooking progression tier", () => {
+    const recipeCounts = new Map<number, number>();
+    for (const recipe of COOKING_RECIPES) {
+      recipeCounts.set(
+        recipe.requiredLevel,
+        (recipeCounts.get(recipe.requiredLevel) ?? 0) + 1,
+      );
+    }
+    expect(recipeCounts).toEqual(
+      new Map([
+        [1, 6],
+        [10, 5],
+        [20, 4],
+        [35, 4],
+        [50, 9],
+      ]),
+    );
+  });
+
+  it("uses the previously underused pearl onion and crystal sugarcane specials", () => {
+    expect(
+      COOKING_RECIPES.some(
+        (recipe) => recipe.optionalRareItemId === "pearl_onion",
+      ),
+    ).toBe(true);
+    expect(
+      COOKING_RECIPES.some(
+        (recipe) => recipe.optionalRareItemId === "crystal_sugarcane",
+      ),
+    ).toBe(true);
+  });
+
   it("has high-impact final recipes and rare upgrades", () => {
     const finals = COOKING_RECIPES.filter((recipe) => recipe.requiredLevel === 50);
     expect(finals.length).toBeGreaterThanOrEqual(7);
@@ -62,6 +94,17 @@ describe("personal cooking", () => {
     const state = { ...emptyCookingState(0), xp: cookingLevelXpThreshold(50) };
     expect(cookingOrders("user-a", state)).toHaveLength(3);
     expect(cookingOrders("user-a", state)).toEqual(cookingOrders("user-a", state));
+  });
+
+  it("keeps all three daily orders distinct at every unlock tier", () => {
+    for (const level of [1, 10, 20, 35, 50]) {
+      const state = {
+        ...emptyCookingState(0),
+        xp: cookingLevelXpThreshold(level),
+      };
+      const orders = cookingOrders("user-a", state);
+      expect(new Set(orders.map((order) => order.recipeId)).size).toBe(3);
+    }
   });
 
   it("normalizes daily state and known recipe ids", () => {

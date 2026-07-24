@@ -67,13 +67,19 @@ export function MessageList({
             : "아직 메시지가 없습니다."}
         </div>
       ) : (
-        // 메타 정보와 본문을 두 줄로 나눠 긴 닉네임이 본문 폭을 줄이지 않게 한다.
+        // 일반 채팅은 메타 정보와 본문을 두 줄로, 시스템 알림은 한 줄로 표시한다.
         messages.map((m) => (
           <div
             key={m.id}
             className="text-sm text-zinc-800 dark:text-zinc-100"
           >
-            <div className="flex min-w-0 items-center overflow-hidden whitespace-nowrap leading-5">
+            <div
+              className={
+                tab === "notice"
+                  ? "flex min-w-0 items-baseline overflow-hidden whitespace-nowrap leading-relaxed"
+                  : "flex min-w-0 items-center overflow-hidden whitespace-nowrap leading-5"
+              }
+            >
               {m.title && (
                 <span className="mr-1 max-w-16 shrink-0 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
                   {m.title}
@@ -113,10 +119,17 @@ export function MessageList({
               <span className="ml-1.5 shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
                 {formatRelative(m.createdAt)}
               </span>
+              {tab === "notice" && (
+                <span className="ml-1.5 min-w-0 truncate">
+                  <MessageBody content={m.content} />
+                </span>
+              )}
             </div>
-            <div className="pl-2 whitespace-pre-wrap break-words leading-relaxed">
-              <MessageBody content={m.content} />
-            </div>
+            {tab !== "notice" && (
+              <div className="whitespace-pre-wrap break-words leading-relaxed">
+                <MessageBody content={m.content} />
+              </div>
+            )}
           </div>
         ))
       )}

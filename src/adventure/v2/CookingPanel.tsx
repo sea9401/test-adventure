@@ -8,10 +8,12 @@ import { FARM_CROP_LIST, FARM_ITEMS, type FarmItemInventory } from "./farm";
 import {
   COOKING_SURPLUS_BATCH_SIZE,
   COOKING_SURPLUS_DAILY_LIMIT,
+  cookingIngredientRequirement,
   type CookingOrder,
   type CookingRecipe,
   type CookingState,
 } from "./cooking";
+import type { EquippedCookingBonuses } from "@/adventure/data/v2/v2Skills";
 import {
   FISHING_CATCH_ITEMS,
   type FishingCatchItemId,
@@ -32,12 +34,14 @@ type CookingResponse = {
   cookingJobId: string | null;
   cookingJobName: string | null;
   cookingJobTier: number;
+  cookingSkillBonuses: EquippedCookingBonuses;
   result?: {
     recipeName: string;
     action: "cook" | "order";
     quantity: number;
     quality: string;
     earnedXp: number;
+    savedRareIngredients: number;
   };
 };
 
@@ -110,7 +114,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
         result
           ? result.action === "order"
             ? `${result.recipeName} 주문 납품 완료 · 요리 XP +${result.earnedXp}`
-            : `${result.recipeName} ${result.quantity}개 완성 · ${qualityName(result.quality)} · 인벤토리에 보관 · 요리 XP +${result.earnedXp}`
+            : `${result.recipeName} ${result.quantity}개 완성 · ${qualityName(result.quality)} · 인벤토리에 보관 · 요리 XP +${result.earnedXp}${result.savedRareIngredients > 0 ? ` · 희귀 재료 ${result.savedRareIngredients}개 보존` : ""}`
           : "요리를 완성했습니다.",
       );
       onFarmChanged?.();
@@ -204,6 +208,11 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           <div className="text-right text-xs text-zinc-600 dark:text-zinc-300">
             <div>{data.cookingJobName ?? "요리 직업 미전직"}</div>
             {data.cookingJobTier > 0 ? <div>{chefBenefitText(data.cookingJobTier)}</div> : null}
+            {cookingSkillBenefitText(data.cookingSkillBonuses) ? (
+              <div className="mt-1 text-emerald-700 dark:text-emerald-300">
+                장착 스킬: {cookingSkillBenefitText(data.cookingSkillBonuses)}
+              </div>
+            ) : null}
             <div>농장 증표 {data.farmReputation}</div>
           </div>
         </div>
@@ -272,7 +281,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
                   </div>
                 </div>
                 <div className="mt-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
-                  {ingredientText(recipe, data, data.cookingJobTier)}
+                  {ingredientText(recipe, data)}
                 </div>
                 <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                   효과: {statText(recipe.baseStatPct)}
@@ -399,26 +408,59 @@ function SurplusExchange({
 }
 
 function maxCookable(recipe: CookingRecipe, data: CookingResponse, useRare: boolean): number {
-  const limits: number[] = [];
-  for (const [itemId, rawCount] of Object.entries(recipe.farmIngredients)) {
-    const count = data.cookingJobTier >= 4 ? Math.max(1, Math.ceil((rawCount ?? 0) * 0.9)) : rawCount ?? 0;
-    if (count > 0) limits.push(Math.floor((data.farmItems[itemId as keyof FarmItemInventory] ?? 0) / count));
+  for (let quantity = 20; quantity >= 1; quantity -= 1) {
+    const hasFarmIngredients = Object.entries(recipe.farmIngredients).every(
+      ([itemId, rawCount]) =>
+        (data.farmItems[itemId as keyof FarmItemInventory] ?? 0) >=
+        cookingIngredientRequirement({
+          countPerDish: rawCount ?? 0,
+          quantity,
+          cookingJobTier: data.cookingJobTier,
+          materialReductionPct:
+            data.cookingSkillBonuses.materialReductionPct,
+        }),
+    );
+    const hasFishingIngredients = Object.entries(
+      recipe.fishingIngredients ?? {},
+    ).every(
+      ([itemId, rawCount]) =>
+        (data.fishingItems[itemId as FishingCatchItemId] ?? 0) >=
+        cookingIngredientRequirement({
+          countPerDish: rawCount ?? 0,
+          quantity,
+          materialReductionPct:
+            data.cookingSkillBonuses.materialReductionPct,
+        }),
+    );
+    const hasRareIngredient =
+      !useRare ||
+      !recipe.optionalRareItemId ||
+      (data.farmItems[recipe.optionalRareItemId] ?? 0) >= quantity;
+    if (hasFarmIngredients && hasFishingIngredients && hasRareIngredient) {
+      return quantity;
+    }
   }
-  for (const [itemId, count] of Object.entries(recipe.fishingIngredients ?? {})) {
-    if ((count ?? 0) > 0) limits.push(Math.floor((data.fishingItems[itemId as FishingCatchItemId] ?? 0) / (count ?? 1)));
-  }
-  if (useRare && recipe.optionalRareItemId) limits.push(data.farmItems[recipe.optionalRareItemId] ?? 0);
-  return Math.max(0, Math.min(20, ...(limits.length ? limits : [0])));
+  return 0;
 }
 
-function ingredientText(recipe: CookingRecipe, data: CookingResponse, jobTier: number): string {
+function ingredientText(recipe: CookingRecipe, data: CookingResponse): string {
   const parts: string[] = [];
   for (const [itemId, rawCount] of Object.entries(recipe.farmIngredients)) {
-    const count = jobTier >= 4 ? Math.max(1, Math.ceil((rawCount ?? 0) * 0.9)) : rawCount ?? 0;
+    const count = cookingIngredientRequirement({
+      countPerDish: rawCount ?? 0,
+      quantity: 1,
+      cookingJobTier: data.cookingJobTier,
+      materialReductionPct: data.cookingSkillBonuses.materialReductionPct,
+    });
     parts.push(`${FARM_ITEMS[itemId as keyof typeof FARM_ITEMS]?.name ?? itemId} ${count} (${data.farmItems[itemId as keyof FarmItemInventory] ?? 0})`);
   }
-  for (const [itemId, count] of Object.entries(recipe.fishingIngredients ?? {})) {
+  for (const [itemId, rawCount] of Object.entries(recipe.fishingIngredients ?? {})) {
     const fishId = itemId as FishingCatchItemId;
+    const count = cookingIngredientRequirement({
+      countPerDish: rawCount ?? 0,
+      quantity: 1,
+      materialReductionPct: data.cookingSkillBonuses.materialReductionPct,
+    });
     parts.push(`${FISHING_CATCH_ITEMS[fishId].name} ${count} (${data.fishingItems[fishId] ?? 0})`);
   }
   return `재료: ${parts.join(" · ")}`;
@@ -438,4 +480,18 @@ function chefBenefitText(tier: number): string {
   if (tier >= 4) return "XP +10% · 품질 보정 · 재료 10% 절약";
   if (tier >= 3) return "XP +10% · 품질 보정";
   return "요리 XP +10%";
+}
+
+function cookingSkillBenefitText(bonuses: EquippedCookingBonuses): string {
+  const parts: string[] = [];
+  if (bonuses.xpBonusPct > 0) parts.push(`XP +${bonuses.xpBonusPct}%`);
+  if (bonuses.carefulChancePct > 0)
+    parts.push(`정성작 +${bonuses.carefulChancePct}%`);
+  if (bonuses.materialReductionPct > 0)
+    parts.push(`일반 재료 -${bonuses.materialReductionPct}%`);
+  if (bonuses.masterpieceChancePct > 0)
+    parts.push(`걸작 +${bonuses.masterpieceChancePct}%`);
+  if (bonuses.rareIngredientSaveChancePct > 0)
+    parts.push(`희귀 재료 보존 ${bonuses.rareIngredientSaveChancePct}%`);
+  return parts.join(" · ");
 }

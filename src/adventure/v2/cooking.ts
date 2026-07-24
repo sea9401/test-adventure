@@ -326,11 +326,37 @@ export function cookingOrders(userId: string, state: CookingState): CookingOrder
   });
 }
 
-export function cookingQuality(args: { rng?: () => number; cookingJobTier?: number; usedRare?: boolean }): CookingQuality {
+export function cookingQuality(args: {
+  rng?: () => number;
+  cookingJobTier?: number;
+  usedRare?: boolean;
+  carefulBonusPct?: number;
+  masterpieceBonusPct?: number;
+}): CookingQuality {
   if (args.usedRare && (args.cookingJobTier ?? 0) >= 6) return "masterpiece";
   const roll = (args.rng ?? Math.random)();
-  const carefulChance = 0.15 + Math.max(0, (args.cookingJobTier ?? 0) - 2) * 0.08 + (args.usedRare ? 0.35 : 0);
-  const masterpieceChance = 0.02 + Math.max(0, (args.cookingJobTier ?? 0) - 3) * 0.04 + (args.usedRare ? 0.12 : 0);
+  const baseCarefulThreshold =
+    0.15 +
+    Math.max(0, (args.cookingJobTier ?? 0) - 2) * 0.08 +
+    (args.usedRare ? 0.35 : 0);
+  const baseMasterpieceChance =
+    0.02 +
+    Math.max(0, (args.cookingJobTier ?? 0) - 3) * 0.04 +
+    (args.usedRare ? 0.12 : 0);
+  const carefulOnlyChance = Math.max(
+    0,
+    baseCarefulThreshold - baseMasterpieceChance,
+  );
+  const masterpieceChance = Math.min(
+    1,
+    baseMasterpieceChance + Math.max(0, args.masterpieceBonusPct ?? 0) / 100,
+  );
+  const carefulChance = Math.min(
+    1,
+    masterpieceChance +
+      carefulOnlyChance +
+      Math.max(0, args.carefulBonusPct ?? 0) / 100,
+  );
   if (roll < masterpieceChance) return "masterpiece";
   if (roll < carefulChance) return "careful";
   return "normal";
@@ -356,6 +382,43 @@ export function recordCookingActionStats(
     rareIngredientDishes:
       state.stats.rareIngredientDishes + (args.usedRare ? cooked : 0),
   };
+}
+
+/** 직업 자체 절약을 먼저 적용한 뒤, 장착 스킬의 묶음 조리 절약을 총량에 적용한다. */
+export function cookingIngredientRequirement(args: {
+  countPerDish: number;
+  quantity: number;
+  cookingJobTier?: number;
+  materialReductionPct?: number;
+}): number {
+  const countPerDish = Math.max(0, Math.floor(args.countPerDish));
+  const quantity = Math.max(0, Math.floor(args.quantity));
+  if (countPerDish === 0 || quantity === 0) return 0;
+  const jobAdjustedPerDish =
+    (args.cookingJobTier ?? 0) >= 4
+      ? Math.max(1, Math.ceil(countPerDish * 0.9))
+      : countPerDish;
+  const total = jobAdjustedPerDish * quantity;
+  const reductionPct = Math.min(
+    50,
+    Math.max(0, args.materialReductionPct ?? 0),
+  );
+  return Math.max(1, Math.ceil(total * (1 - reductionPct / 100)));
+}
+
+export function savedRareCookingIngredientCount(args: {
+  quantity: number;
+  saveChancePct?: number;
+  rng?: () => number;
+}): number {
+  const quantity = Math.max(0, Math.floor(args.quantity));
+  const chance = Math.min(100, Math.max(0, args.saveChancePct ?? 0)) / 100;
+  const rng = args.rng ?? Math.random;
+  let saved = 0;
+  for (let index = 0; index < quantity; index += 1) {
+    if (rng() < chance) saved += 1;
+  }
+  return saved;
 }
 
 export function cookingBuffDurationMs(quality: CookingQuality, cookingJobTier = 0): number {

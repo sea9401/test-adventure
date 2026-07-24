@@ -14,6 +14,11 @@ import {
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
+  emptyV2SkillsState,
+  equippedCookingBonuses,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import {
   FARM_SAVE_KEY,
   emptyFarmState,
   hasFarmItems,
@@ -36,6 +41,7 @@ import {
   addCookingFood,
   adjustedCookingXp,
   cookingFoodId,
+  cookingIngredientRequirement,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrders,
@@ -43,6 +49,7 @@ import {
   emptyCookingState,
   parseCookingState,
   recordCookingActionStats,
+  savedRareCookingIngredientCount,
   type CookingAction,
 } from "@/adventure/v2/cooking";
 
@@ -74,6 +81,7 @@ function cookingView(userId: string, now: number, values: {
   cookingRaw: unknown;
   farmRaw: unknown;
   fishingRaw: unknown;
+  skillsRaw: unknown;
   character: CharacterSave;
 }) {
   const cooking = parseCookingState(values.cookingRaw, now);
@@ -81,6 +89,9 @@ function cookingView(userId: string, now: number, values: {
   const fishing = parseFishingStock(values.fishingRaw);
   const level = cookingLevelForXp(cooking.xp);
   const job = currentCookingJob(values.character);
+  const cookingSkillBonuses = equippedCookingBonuses(
+    parseV2SkillsState(values.skillsRaw).equipped,
+  );
   return {
     ok: true,
     now,
@@ -97,6 +108,7 @@ function cookingView(userId: string, now: number, values: {
     cookingJobId: job.jobId,
     cookingJobName: job.jobId ? V2_JOB_CATALOG[job.jobId]?.name ?? job.jobId : null,
     cookingJobTier: job.tier,
+    cookingSkillBonuses,
   };
 }
 
@@ -114,13 +126,20 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
   const now = Date.now();
-  const [cookingRaw, farmRaw, fishingRaw, character] = await Promise.all([
+  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, character] = await Promise.all([
     readSave(db, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
     readSave(db, userId, FISHING_STOCK_KEY, emptyFishingStock()),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave<CharacterSave>(db, userId, "character.v2", {}),
   ]);
-  return Response.json(cookingView(userId, now, { cookingRaw, farmRaw, fishingRaw, character }));
+  return Response.json(cookingView(userId, now, {
+    cookingRaw,
+    farmRaw,
+    fishingRaw,
+    skillsRaw,
+    character,
+  }));
 }
 
 export async function POST(req: Request) {
@@ -157,6 +176,15 @@ export async function POST(req: Request) {
   try {
     const result = await db.transaction(async (tx) => {
       const character = await lockSaveForUpdate<CharacterSave>(tx, userId, "character.v2", {});
+      const skills = parseV2SkillsState(
+        await lockSaveForUpdate(
+          tx,
+          userId,
+          "skills.v2",
+          emptyV2SkillsState(),
+        ),
+      );
+      const cookingSkillBonuses = equippedCookingBonuses(skills.equipped);
       const farm = normalizeFarmForDay(
         parseFarmState(await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now))),
         now,
@@ -181,7 +209,12 @@ export async function POST(req: Request) {
       const farmRequirements: FarmItemInventory = Object.fromEntries(
         Object.entries(recipe.farmIngredients).map(([id, count]) => [
           id,
-          (job.tier >= 4 ? Math.max(1, Math.ceil((count ?? 0) * 0.9)) : count ?? 0) * quantity,
+          cookingIngredientRequirement({
+            countPerDish: count ?? 0,
+            quantity,
+            cookingJobTier: job.tier,
+            materialReductionPct: cookingSkillBonuses.materialReductionPct,
+          }),
         ]),
       );
       const usedRare = Boolean(
@@ -190,11 +223,27 @@ export async function POST(req: Request) {
       if (usedRare && recipe.optionalRareItemId) farmRequirements[recipe.optionalRareItemId] = quantity;
       if (!hasFarmItems(farm.inventory, farmRequirements)) throw new Error("not_enough_farm_items");
 
-      for (const [itemId, quantity] of Object.entries(recipe.fishingIngredients ?? {})) {
+      const savedRareIngredients = usedRare
+        ? savedRareCookingIngredientCount({
+            quantity,
+            saveChancePct:
+              cookingSkillBonuses.rareIngredientSaveChancePct,
+          })
+        : 0;
+      if (usedRare && recipe.optionalRareItemId) {
+        farmRequirements[recipe.optionalRareItemId] =
+          quantity - savedRareIngredients;
+      }
+
+      for (const [itemId, count] of Object.entries(recipe.fishingIngredients ?? {})) {
         const next = spendFishingCatchItem(
           fishing,
           itemId as keyof typeof FISHING_CATCH_ITEMS,
-          (quantity ?? 0) * (action === "order" ? 1 : requestedQuantity),
+          cookingIngredientRequirement({
+            countPerDish: count ?? 0,
+            quantity,
+            materialReductionPct: cookingSkillBonuses.materialReductionPct,
+          }),
         );
         if (!next) throw new Error("not_enough_fishing_items");
         fishing = next;
@@ -207,11 +256,21 @@ export async function POST(req: Request) {
         : null;
       if (action === "order" && !order) throw new Error("order_unavailable");
 
-      const quality = cookingQuality({ cookingJobTier: job.tier, usedRare });
+      const quality = cookingQuality({
+        cookingJobTier: job.tier,
+        usedRare,
+        carefulBonusPct: cookingSkillBonuses.carefulChancePct,
+        masterpieceBonusPct: cookingSkillBonuses.masterpieceChancePct,
+      });
       const baseXp = adjustedCookingXp(recipe.requiredLevel, level, recipe.xp);
       const earnedXp = Math.max(
         1,
-        Math.floor((baseXp * quantity + (order?.bonusXp ?? 0)) * (job.tier >= 2 ? 1.1 : 1)),
+        Math.floor(
+          (baseXp * quantity + (order?.bonusXp ?? 0)) *
+            (1 +
+              (job.tier >= 2 ? 0.1 : 0) +
+              cookingSkillBonuses.xpBonusPct / 100),
+        ),
       );
       cooking = {
         ...cooking,
@@ -289,6 +348,7 @@ export async function POST(req: Request) {
           cookingRaw: cooking,
           farmRaw: nextFarm,
           fishingRaw: fishing,
+          skillsRaw: skills,
           character: nextCharacter,
         }),
         result: {
@@ -298,6 +358,7 @@ export async function POST(req: Request) {
           recipeName: recipe.name,
           quality,
           usedRare,
+          savedRareIngredients,
           earnedXp,
           orderRewardGold: order?.rewardGold ?? 0,
           orderRewardReputation: order?.rewardReputation ?? 0,

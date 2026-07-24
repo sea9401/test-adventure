@@ -178,6 +178,8 @@ export function V2CharacterCard({
   const profileDecoration = profileBorder
     ? getProfileBorderVariant(profileBorder)
     : null;
+  const hasProfileTheme =
+    profileDecoration != null && profileDecoration.interior !== "none";
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -213,94 +215,125 @@ export function V2CharacterCard({
             : ""
         }`}
       >
-      <div className={profileBorder ? "ui-profile-decoration-readable" : ""}>
-        <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
-          <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
-          <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-baseline gap-2">
-            {titleName && (
-              <span className="rounded bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                {titleName}
-              </span>
-            )}
-            <span className="inline-flex items-center text-lg font-semibold">
-              <ArenaChampionshipBadge badge={championshipBadge} />
-              <span className={chatNameClass(chatNameEffect, "text-zinc-900 dark:text-zinc-100")}>
-                {character.name}
-              </span>
-            </span>
-            <span className="ui-profile-readable-copy text-sm text-zinc-700 dark:text-zinc-200">
-              {cappedLevel ? `Lv ${character.level} / ${cappedLevel}` : `Lv.${character.level}`}
-            </span>
-            <span className="ui-profile-readable-copy text-xs text-zinc-700 dark:text-zinc-200">
-              · {jobName}
-            </span>
-            <span className="ui-profile-readable-copy text-xs text-zinc-700 dark:text-zinc-200">
-              · {guild ? guild.name : "무소속"}
-            </span>
+        <div
+          className={
+            hasProfileTheme
+              ? "ui-profile-theme-header p-3"
+              : `${SURFACE_INSET} p-3`
+          }
+        >
+          <div className="flex items-center gap-3 sm:gap-4">
+            <CharacterPortrait
+              gender={(character.gender ?? "male1") as Gender}
+            />
+            <div className="min-w-0 flex-1">
+              {titleName && (
+                <span className="mb-1 inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                  {titleName}
+                </span>
+              )}
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="inline-flex min-w-0 items-center text-lg font-semibold">
+                  <ArenaChampionshipBadge badge={championshipBadge} />
+                  <span
+                    className={chatNameClass(
+                      chatNameEffect,
+                      hasProfileTheme
+                        ? "ui-profile-theme-copy truncate text-white"
+                        : "truncate text-zinc-900 dark:text-zinc-100",
+                    )}
+                  >
+                    {character.name}
+                  </span>
+                </span>
+                <span
+                  className={
+                    hasProfileTheme
+                      ? "ui-profile-theme-copy text-sm text-zinc-100"
+                      : "text-sm text-zinc-700 dark:text-zinc-200"
+                  }
+                >
+                  {cappedLevel
+                    ? `Lv ${character.level} / ${cappedLevel}`
+                    : `Lv.${character.level}`}
+                </span>
+              </div>
+              <div
+                className={
+                  hasProfileTheme
+                    ? "ui-profile-theme-copy mt-1 flex flex-wrap gap-x-1 text-xs text-zinc-100"
+                    : "mt-1 flex flex-wrap gap-x-1 text-xs text-zinc-600 dark:text-zinc-300"
+                }
+              >
+                <span>{jobName}</span>
+                <span aria-hidden>·</span>
+                <span>{guild ? guild.name : "무소속"}</span>
+              </div>
+            </div>
           </div>
-          {supportActiveUntil != null && (
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              onClick={() => setSupportDetailsOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
-            >
-              <Ticket size={15} weight="duotone" aria-hidden="true" />
-              월간 모험 지원권 적용 중
-              <CaretRight size={13} weight="bold" aria-hidden="true" />
-            </button>
-          )}
-          {activePresetName && (
-            <div className="flex min-w-0 items-center gap-2 text-xs">
-              <span className="shrink-0 rounded bg-teal-50 px-1.5 py-0.5 font-medium text-teal-700 dark:bg-teal-950 dark:text-teal-300">
-                활성 프리셋
-              </span>
-              <span className="ui-profile-readable-copy min-w-0 truncate font-medium text-zinc-700 dark:text-zinc-300">
-                {activePresetName}
+        </div>
+
+        <div className={`${SURFACE_INSET} mt-3 p-3`}>
+          <div className="space-y-2">
+            {supportActiveUntil != null && (
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => setSupportDetailsOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+              >
+                <Ticket size={15} weight="duotone" aria-hidden="true" />
+                월간 모험 지원권 적용 중
+                <CaretRight size={13} weight="bold" aria-hidden="true" />
+              </button>
+            )}
+            {activePresetName && (
+              <div className="flex min-w-0 items-center gap-2 text-xs">
+                <span className="shrink-0 rounded bg-teal-50 px-1.5 py-0.5 font-medium text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                  활성 프리셋
+                </span>
+                <span className="min-w-0 truncate font-medium text-zinc-700 dark:text-zinc-300">
+                  {activePresetName}
+                </span>
+              </div>
+            )}
+            {activeFoodBuff ? (
+              <ActiveFoodBuffBadge buff={activeFoodBuff} />
+            ) : null}
+            {isAtCap && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요.
+              </p>
+            )}
+            <div className="space-y-1.5">
+              <StatBar
+                label="HP"
+                value={character.hp}
+                max={character.maxHp}
+                color="bg-red-500"
+              />
+              <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
+              {character.expToNext != null && (
+                <StatBar
+                  label="EXP"
+                  value={character.exp}
+                  max={character.expToNext}
+                  color="bg-amber-400"
+                />
+              )}
+            </div>
+          </div>
+          {showGold && (
+            <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
+              <span className="text-zinc-700 dark:text-zinc-200">골드</span>
+              <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
+                {character.gold.toLocaleString()}
               </span>
             </div>
           )}
-          {activeFoodBuff ? (
-            <ActiveFoodBuffBadge buff={activeFoodBuff} />
-          ) : null}
-          {isAtCap && (
-            <p className="ui-profile-readable-copy text-[11px] text-amber-600 dark:text-amber-400">
-              레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요.
-            </p>
-          )}
-          <div className="space-y-1.5">
-            <StatBar
-              label="HP"
-              value={character.hp}
-              max={character.maxHp}
-              color="bg-red-500"
-            />
-            <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
-            {character.expToNext != null && (
-              <StatBar
-                label="EXP"
-                value={character.exp}
-                max={character.expToNext}
-                color="bg-amber-400"
-              />
-            )}
-          </div>
-          </div>
         </div>
-        {showGold && (
-          <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
-            <span className="ui-profile-readable-copy text-zinc-700 dark:text-zinc-200">
-              골드
-            </span>
-            <span className="ui-profile-value-chip font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
-              {character.gold.toLocaleString()}
-            </span>
-          </div>
-        )}
-      </div>
-      {equipped && (
-        <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-zinc-200 pt-3 sm:grid-cols-6 dark:border-zinc-800">
+        {equipped && (
+          <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-zinc-200 pt-3 sm:grid-cols-6 dark:border-zinc-800">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const iid = equipped?.[slot];
             const inst = iid ? byIid.get(iid) : undefined;
@@ -352,8 +385,8 @@ export function V2CharacterCard({
               </div>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
       {selected && (
         <V2ItemCard
           item={selected.item}

@@ -41,7 +41,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "prismatic_profile_border",
     name: "프리즘 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 흐르는 프리즘 테두리와 오팔빛 내부 광휘를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 흐르는 프리즘 테두리와 상단 배경에 오팔빛 광휘를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -51,7 +51,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "infernal_profile_border",
     name: "업화 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 붉은 불꽃 테두리와 피어오르는 불씨를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 붉은 불꽃 테두리를, 상단 배경에 피어오르는 불씨를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -61,7 +61,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "oceanic_profile_border",
     name: "심해 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 푸른 물결 테두리와 움직이는 물빛·기포를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 푸른 물결 테두리를, 상단 배경에 움직이는 물빛·기포를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -71,7 +71,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "verdant_profile_border",
     name: "세계수 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 생명의 테두리와 내부의 덩굴·잎사귀를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 생명의 테두리를, 상단 배경에 덩굴·잎사귀를 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -81,7 +81,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "celestial_profile_border",
     name: "천상 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드 전체에 금빛 테두리와 성운·별자리 전용 연출을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 금빛 테두리를, 상단 배경에 성운·별자리 전용 연출을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 500,
     delivery: "entitlement",
     tradeable: false,
@@ -91,7 +91,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "obsidian_profile_border",
     name: "흑요석 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 검붉은 테두리와 빛나는 용암 균열을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 검붉은 테두리를, 상단 배경에 빛나는 용암 균열을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -101,7 +101,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "frozen_profile_border",
     name: "빙결 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 얼음 테두리와 흩날리는 서리·눈 결정을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 얼음 테두리를, 상단 배경에 흩날리는 서리·눈 결정을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -111,7 +111,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "storm_profile_border",
     name: "폭풍 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 폭풍 테두리와 먹구름·번개 섬광을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 폭풍 테두리를, 상단 배경에 먹구름·번개 섬광을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -121,7 +121,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "rose_profile_border",
     name: "장미 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 장미빛 테두리와 흩날리는 꽃잎을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 장미빛 테두리를, 상단 배경에 흩날리는 꽃잎을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
@@ -131,7 +131,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "royal_profile_border",
     name: "황실 프로필 꾸미기",
     description:
-      "캐릭터 프로필 카드에 황금·자색 테두리와 움직이는 황실 문양을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
+      "캐릭터 프로필 카드 바깥에 황금·자색 테두리를, 상단 배경에 움직이는 황실 문양을 적용합니다. 해금 후 30일간 사용할 수 있으며 계정에 귀속됩니다.",
     coinPrice: 500,
     delivery: "entitlement",
     tradeable: false,
@@ -481,7 +481,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "profile_border_box",
     name: "프로필 꾸미기 상자",
     description:
-      "미보유 프로필 꾸미기 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 일반 등급은 테두리형이며 높은 등급일수록 카드 내부 연출이 풍부해집니다.",
+      "미보유 프로필 꾸미기 한 종류를 등급별 확률로 해금하고 30일 사용 기간을 받습니다. 일반 등급은 테두리형이며 높은 등급일수록 상단 배경 연출이 풍부해집니다.",
     coinPrice: 300,
     delivery: "inventory",
     tradeable: true,

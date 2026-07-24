@@ -1600,88 +1600,99 @@ body {
     0 10px 28px rgb(var(--profile-frame-rgb) / 0.16);
 }
 
-.ui-profile-frame-cosmetic::after {
+/* 큰 장식 그림은 카드 본문에 깔지 않는다. 카드 바깥쪽 0.5rem만 마스킹해
+   장비·수치 패널과 겹치지 않는 외곽 장식으로 사용한다. */
+.ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic)::after {
   position: absolute;
-  z-index: 0;
-  inset: 0;
+  z-index: 3;
+  inset: -0.5rem;
+  padding: 0.5rem;
   border-radius: inherit;
-  background: var(--profile-decoration-background, none);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: var(--profile-decoration-size, auto);
-  content: "";
-  opacity: var(
-    --profile-decoration-card-opacity,
-    var(--profile-decoration-opacity, 0)
+  background: var(
+    --profile-avatar-decoration-background,
+    var(--profile-decoration-background, none)
   );
+  background-position: var(--profile-avatar-decoration-position, center);
+  background-repeat: no-repeat;
+  background-size: var(
+    --profile-avatar-decoration-size,
+    var(--profile-decoration-size, 100% 100%)
+  );
+  content: "";
+  opacity: var(--profile-avatar-decoration-opacity, 0);
   pointer-events: none;
   transform-origin: center;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
   animation: var(--profile-decoration-animation, none);
 }
 
-/* 장식은 항상 본문·버튼 뒤에 두고, 프레임형 아트가 보이도록 카드
-   가장자리에 전용 안전 영역을 확보한다. 불투명 콘텐츠 박스는 그 안쪽에만 놓인다. */
+/* 프레임은 카드 외곽에만 두고 실제 콘텐츠는 항상 그 위의 불투명 표면에 둔다. */
 .ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic) > * {
   position: relative;
   z-index: 1;
 }
 
-/* 캐릭터 카드에서는 구매한 프로필 장식이 넓은 영역에서도 충분히 보이도록 한다.
-   상점 미리보기와 작은 아바타 장식의 투명도는 기존 값을 유지한다. */
-.ui-character-card.ui-profile-frame-cosmetic:not(.ui-profile-frame-static) {
-  --profile-decoration-card-opacity: 0.86;
+/* 프로필 테마 그림은 신원 정보가 있는 상단 헤더의 배경만 교체한다.
+   기본색은 불투명하며, 아래 수치·장비 패널로 그림이 새지 않는다. */
+.ui-profile-theme-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(var(--profile-frame-rgb) / 0.5);
+  border-radius: 0.5rem;
+  background-color: rgb(24 24 27);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    inset 0 -24px 48px rgb(0 0 0 / 0.2);
+  color: rgb(250 250 250);
 }
 
-/* 크로마 닉네임에는 영향을 주지 않고 일반 보조 정보에만 외곽 대비를 준다. */
-.ui-profile-frame-cosmetic .ui-profile-readable-copy {
+.ui-profile-theme-header::before,
+.ui-profile-theme-header::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.ui-profile-theme-header::before {
+  background: var(--profile-decoration-background, none);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: var(--profile-decoration-opacity, 0);
+  transform-origin: center;
+  animation: var(--profile-decoration-animation, none);
+}
+
+.ui-profile-theme-header::after {
+  background: linear-gradient(
+    90deg,
+    rgb(9 9 11 / 0.64),
+    rgb(9 9 11 / 0.26) 62%,
+    rgb(9 9 11 / 0.08)
+  );
+}
+
+.ui-profile-theme-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ui-profile-theme-copy {
   text-shadow:
-    0 1px 1px rgb(255 255 255 / 0.95),
-    0 0 4px rgb(255 255 255 / 0.85);
+    0 1px 2px rgb(0 0 0 / 0.95),
+    0 0 8px rgb(0 0 0 / 0.72);
 }
 
-.ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-stat-bar-copy {
-  color: rgb(39 39 42);
-  font-weight: 600;
-}
-
-/* 황실처럼 명암이 강한 장식에서도 수치만큼은 항상 읽히도록 하는 작은 불투명 칩. */
-.ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-profile-value-chip {
-  display: inline-block;
-  border-radius: 0.25rem;
-  padding-inline: 0.25rem;
-  background-color: rgb(255 255 255);
-  box-shadow: 0 0 0 1px rgb(39 39 42 / 0.08);
-  text-shadow: none;
-}
-
-.dark .ui-profile-frame-cosmetic .ui-profile-readable-copy {
-  text-shadow:
-    0 1px 1px rgb(0 0 0 / 0.95),
-    0 0 4px rgb(0 0 0 / 0.85);
-}
-
-.dark
-  .ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-stat-bar-copy {
-  color: rgb(228 228 231);
-}
-
-.dark
-  .ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-profile-value-chip {
-  background-color: rgb(9 9 11);
-  box-shadow: 0 0 0 1px rgb(228 228 231 / 0.12);
-}
-
-.ui-profile-decoration-canvas {
-  padding-block: clamp(2rem, 10%, 5rem);
-  padding-inline: clamp(1.75rem, 12%, 6rem);
+.ui-profile-theme-header--compact {
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
 }
 
 .ui-profile-frame-cosmetic::before {
@@ -2730,6 +2741,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .ui-profile-frame-cosmetic::before,
   .ui-profile-frame-cosmetic::after,
+  .ui-profile-theme-header::before,
   .ui-profile-avatar-frame-cosmetic,
   .ui-profile-avatar-frame-cosmetic::after,
   .ui-chat-name-chroma,
@@ -2755,8 +2767,16 @@ body {
   }
 
   .ui-profile-frame-cosmetic::after,
+  .ui-profile-theme-header::before,
+  .ui-profile-theme-header::after,
   .ui-profile-avatar-frame-cosmetic::after {
     display: none;
+  }
+
+  .ui-profile-theme-header {
+    border-color: Highlight;
+    background: Canvas;
+    color: CanvasText;
   }
 
   .ui-chat-name-chroma {
@@ -2795,10 +2815,30 @@ html.ui-discreet-mode .ui-profile-frame-cosmetic {
 
 html.ui-discreet-mode .ui-profile-frame-cosmetic::before,
 html.ui-discreet-mode .ui-profile-frame-cosmetic::after,
+html.ui-discreet-mode .ui-profile-theme-header::before,
+html.ui-discreet-mode .ui-profile-theme-header::after,
 html.ui-discreet-mode .ui-profile-avatar-frame-cosmetic::after,
 html.ui-discreet-mode .ui-chat-name-chroma::before,
 html.ui-discreet-mode .ui-chat-name-chroma::after {
   display: none;
+}
+
+html.ui-discreet-mode .ui-profile-theme-header {
+  border-color: rgb(212 212 216);
+  background: rgb(250 250 250);
+  color: rgb(24 24 27);
+  box-shadow: none;
+}
+
+html.dark.ui-discreet-mode .ui-profile-theme-header {
+  border-color: rgb(63 63 70);
+  background: rgb(24 24 27);
+  color: rgb(244 244 245);
+}
+
+html.ui-discreet-mode .ui-profile-theme-copy {
+  color: inherit;
+  text-shadow: none;
 }
 
 html.ui-discreet-mode .ui-profile-avatar-frame-cosmetic,

@@ -2,6 +2,7 @@ import { and, asc, eq, ne, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, pvpRatings } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import { arenaSeasonPhase } from "@/lib/server/pvp/arenaTournament";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
@@ -164,11 +165,13 @@ function levelOf(value: unknown): number {
   );
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceHighCostRateLimit(req, userId, "arenaMatch");
+  if (limited) return limited;
 
   const now = new Date();
   // 순위표와 매치가 같은 주간 시즌을 보도록 트랜잭션 전에 한 번 확정한다.

@@ -41,7 +41,10 @@ node --env-file=.env.production.local src/db/migrate.mjs
 
 echo "▶ sync systemd unit"
 sudo install -m 0644 deploy/adventure-rpg.service /etc/systemd/system/adventure-rpg.service
+sudo install -m 0644 deploy/adventure-resource-monitor.service /etc/systemd/system/adventure-resource-monitor.service
+sudo install -m 0644 deploy/adventure-resource-monitor.timer /etc/systemd/system/adventure-resource-monitor.timer
 sudo systemctl daemon-reload
+sudo systemctl enable --now adventure-resource-monitor.timer
 
 echo "▶ restart"
 sudo systemctl restart adventure-rpg
@@ -57,6 +60,7 @@ for i in $(seq 1 20); do
   sleep 3
 done
 [ "$ok" = "1" ] || { echo "✗ health check failed; maintenance remains on" >&2; exit 1; }
+sudo systemctl start adventure-resource-monitor.service
 
 echo "▶ nginx maintenance off"
 bash deploy/maintenance.sh off

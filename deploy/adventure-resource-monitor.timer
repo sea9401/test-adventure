@@ -1,0 +1,13 @@
+[Unit]
+Description=Check Adventure RPG EC2 resources every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=20s
+RandomizedDelaySec=15s
+Persistent=true
+Unit=adventure-resource-monitor.service
+
+[Install]
+WantedBy=timers.target

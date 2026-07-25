@@ -117,7 +117,10 @@ jobs:
             node --env-file=.env.production.local src/db/migrate.mjs
             echo "▶ [prod] sync systemd unit"
             sudo install -m 0644 deploy/adventure-rpg.service /etc/systemd/system/adventure-rpg.service
+            sudo install -m 0644 deploy/adventure-resource-monitor.service /etc/systemd/system/adventure-resource-monitor.service
+            sudo install -m 0644 deploy/adventure-resource-monitor.timer /etc/systemd/system/adventure-resource-monitor.timer
             sudo systemctl daemon-reload
+            sudo systemctl enable --now adventure-resource-monitor.timer
             echo "▶ [prod] restart"
             sudo systemctl restart adventure-rpg
             sleep 2
@@ -137,6 +140,7 @@ jobs:
             ops=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 -X POST -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/v2/cron/deploy-smoke || echo 000)
             [ "$ops" = "200" ] || { echo "✗ SMOKE FAIL: deploy-smoke → $ops"; exit 1; }
             echo "  deploy-smoke 200"
+            sudo systemctl start adventure-resource-monitor.service
             echo "▶ [prod] nginx maintenance off"
             bash deploy/maintenance.sh off
             trap - EXIT

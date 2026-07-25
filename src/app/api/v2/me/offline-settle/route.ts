@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { canHuntWithHp } from "@/adventure/v2/hpRegen";
 import {
@@ -7,6 +8,7 @@ import {
   HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   OFFLINE_MAX_MS,
+  OFFLINE_SETTLE_BATCH_SIZE,
   offlineBattlesAccrued,
   offlineFarmDepth,
 } from "@/adventure/data/v2/coreLoopConfig";
@@ -39,7 +41,7 @@ type SettleCharSave = {
   [k: string]: unknown;
 };
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -49,6 +51,8 @@ export async function POST() {
   if (!HUNT_COOLDOWN_MODE) {
     return Response.json({ ok: true, disabled: true, battles: 0 });
   }
+  const limited = enforceHighCostRateLimit(req, userId, "offlineSettle");
+  if (limited) return limited;
 
   const now = Date.now();
 
@@ -69,9 +73,17 @@ export async function POST() {
     const windowEnd = startedAt + OFFLINE_MAX_MS;
     const effectiveNow = Math.min(now, windowEnd);
     const lastBattleAt = Number(charSave.lastBattleAt) || 0;
-    const n = offlineBattlesAccrued(lastBattleAt, effectiveNow);
-    // 창이 다 소진됐으면(effectiveNow≥windowEnd) 정산 후 세션 종료.
-    const windowDone = effectiveNow >= windowEnd;
+    const accrued = offlineBattlesAccrued(lastBattleAt, effectiveNow);
+    const n = Math.min(accrued, OFFLINE_SETTLE_BATCH_SIZE);
+    // 한 요청이 DB 커넥션과 CPU를 오래 독점하지 않게 최대 50판만 처리한다. 남은 판은
+    // 클라이언트가 후속 요청으로 이어서 정산하며, 매 배치마다 트랜잭션을 반납한다.
+    const batchEnd = Math.min(
+      effectiveNow,
+      lastBattleAt + n * HUNT_COOLDOWN_MS,
+    );
+    const remainingBattles = offlineBattlesAccrued(batchEnd, effectiveNow);
+    // 창이 끝났더라도 남은 배치가 있으면 세션을 유지한다. 마지막 배치에서만 종료한다.
+    const windowDone = effectiveNow >= windowEnd && remainingBattles <= 0;
     if (n <= 0) {
       // 누적 0 이지만 창이 끝났으면 세션만 정리.
       if (windowDone) {
@@ -80,7 +92,12 @@ export async function POST() {
           offlineHuntStartedAt: null,
         });
       }
-      return { battles: 0 as const, accrued: 0, active: !windowDone };
+      return {
+        battles: 0 as const,
+        accrued,
+        remainingBattles: 0,
+        active: !windowDone,
+      };
     }
 
     // farm 깊이 — lastHuntDepth, 없으면 frontierDepth−1, [1, frontierDepth] 클램프(잠긴 깊이 방지).
@@ -96,7 +113,7 @@ export async function POST() {
     //   5초 회복부터 시작 → "5초 cadence 액티브"와 동일 HP 경제(오프라인 초과 누수 차단).
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      hpRegenSince: effectiveNow - n * HUNT_COOLDOWN_MS,
+      hpRegenSince: batchEnd - n * HUNT_COOLDOWN_MS,
     });
 
     // === 정산 루프 — runOneHunt 재사용. 각 판이 character.v2 재read 로 HP/exp/골드/레벨/세금 이월. ===
@@ -113,8 +130,8 @@ export async function POST() {
     let stopped: "hp" | "error" | null = null;
 
     for (let i = 0; i < n; i++) {
-      // 판별 시뮬 시각 — 5초 간격, 마지막 판이 effectiveNow(창 끝 클램프 + 멱등 + HP 회복 정확).
-      const nowOverride = effectiveNow - (n - 1 - i) * HUNT_COOLDOWN_MS;
+      // 판별 시뮬 시각 — 5초 간격, 마지막 판이 이번 batchEnd에 맞닿는다.
+      const nowOverride = batchEnd - (n - 1 - i) * HUNT_COOLDOWN_MS;
       const ctx: RunOneHuntCtx = {
         tx,
         userId,
@@ -150,9 +167,8 @@ export async function POST() {
       }
     }
 
-    // 멱등 — 누적시간 소비(조기 중단이어도 전진). lastBattleAt 은 요청-시작 now 가 아니라 루프
-    //   종료 후 신선한 Date.now() 로(정산이 수초 걸려도 anchor 가 commit 시각 이상 → 재시도 N≈0,
-    //   중복 정산 차단). 루프가 쓴 최신 charSave 재read 후 lastBattleAt 만 갱신.
+    // 멱등 — 이번 배치의 누적시간을 소비한다. 조기 중단이어도 batchEnd까지 전진해 같은
+    // 구간을 다시 보상하지 않고, 남은 과거 구간은 후속 요청이 이어서 처리한다.
     const after = await lockSaveForUpdate<SettleCharSave>(
       tx,
       userId,
@@ -161,14 +177,14 @@ export async function POST() {
     );
     await upsertSave(tx, userId, "character.v2", {
       ...after,
-      // 정산한 만큼만 anchor 전진(창 끝 클램프). 창 다 쓰면 세션 종료(offlineHuntStartedAt 제거).
-      lastBattleAt: effectiveNow,
+      lastBattleAt: batchEnd,
       ...(windowDone ? { offlineHuntStartedAt: null } : {}),
     });
 
     return {
       battles: completed,
-      accrued: n,
+      accrued,
+      remainingBattles,
       wins,
       losses,
       totalExp,

@@ -23,6 +23,7 @@ import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import {
   lockSaveForUpdate,
   readSave,
@@ -779,11 +780,13 @@ async function resolveGridDungeonCombat({
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceHighCostRateLimit(req, userId, "gridDungeonRead");
+  if (limited) return limited;
   const [
     run,
     charSave,
@@ -819,6 +822,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceHighCostRateLimit(req, userId, "gridDungeonAction");
+  if (limited) return limited;
 
   let body: GridDungeonAction;
   try {

@@ -16,10 +16,16 @@ $SUDO_CMD cp "$DEST" "$TMP"
 perl -0pi -e '
   my $zones = "limit_req_zone \$binary_remote_addr zone=api_per_ip:10m rate=20r/s;\n"
             . "limit_req_zone \$binary_remote_addr zone=page_per_ip:10m rate=60r/s;\n"
-            . "limit_req_zone \$binary_remote_addr zone=life_per_ip:10m rate=5r/s;\n\n";
+            . "limit_req_zone \$binary_remote_addr zone=life_per_ip:10m rate=5r/s;\n"
+            . "limit_req_zone \$binary_remote_addr zone=heavy_per_ip:10m rate=3r/s;\n"
+            . "limit_conn_zone \$binary_remote_addr zone=conn_per_ip:10m;\n\n";
   $_ = $zones . $_ unless /zone=api_per_ip:10m/;
   $_ = "limit_req_zone \$binary_remote_addr zone=life_per_ip:10m rate=5r/s;\n" . $_
     unless /zone=life_per_ip:10m/;
+  $_ = "limit_req_zone \$binary_remote_addr zone=heavy_per_ip:10m rate=3r/s;\n" . $_
+    unless /zone=heavy_per_ip:10m/;
+  $_ = "limit_conn_zone \$binary_remote_addr zone=conn_per_ip:10m;\n" . $_
+    unless /zone=conn_per_ip:10m/;
 
   my $scanner = q{
     location ~* ^/(?:\.env(?:\..*)?|\.git(?:/|$)|wp-login\.php|xmlrpc\.php|phpmyadmin(?:/|$)|wp-admin(?:/|$)|wp-content(?:/|$)|vendor/phpunit(?:/|$)) {
@@ -41,7 +47,9 @@ perl -0pi -e '
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_read_timeout 300s;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 120s;
     }
 
     location /api/ {
@@ -53,7 +61,27 @@ perl -0pi -e '
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_read_timeout 300s;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 120s;
+    }
+};
+  my $heavy = q{
+    location ~* ^/api/v2/(?:arena/match|grid-dungeon|me/offline-settle|outpost/attack|training/spar)/?$ {
+        limit_req zone=heavy_per_ip burst=10 nodelay;
+        limit_req_status 429;
+        limit_conn conn_per_ip 8;
+        limit_conn_status 429;
+        include /etc/nginx/snippets/msmsge-maintenance-check.conf;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 90s;
     }
 };
   my $life = q{
@@ -66,11 +94,15 @@ perl -0pi -e '
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_read_timeout 300s;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 120s;
     }
 };
   s/(\n\s*location\s+\/api\/auth\/)/"\n$life$1"/e
     unless /limit_req\s+zone=life_per_ip/;
+  s/(\n\s*location\s+\/api\/auth\/)/"\n$heavy$1"/e
+    unless /limit_req\s+zone=heavy_per_ip/;
   s/(\n\s*location\s+\/api\/auth\/\s*\{)/
     (index($`, "return 444;") >= 0) ? $1 : "\n$scanner$1"/se;
 
@@ -86,13 +118,29 @@ perl -0pi -e '
   s/(client_max_body_size[^\n]*;\n)/$1 . "    include \/etc\/nginx\/snippets\/msmsge-maintenance-server.conf;\n"/e
     unless /msmsge-maintenance-server\.conf/;
 
+  s/(client_max_body_size[^\n]*;\n)/$1
+    . "    client_header_timeout 10s;\n"
+    . "    client_body_timeout 15s;\n"
+    . "    send_timeout 60s;\n"
+    . "    keepalive_timeout 30s;\n"
+    . "    limit_conn conn_per_ip 30;\n"
+    . "    limit_conn_status 429;\n"/e
+    unless /limit_conn\s+conn_per_ip\s+30/;
+
+  s/proxy_read_timeout\s+300s;/proxy_read_timeout 120s;/g;
+  s/(^([ \t]*)proxy_set_header\s+X-Real-IP\s+\$remote_addr;\n)(?![ \t]*proxy_connect_timeout)/
+    $1 . $2 . "proxy_connect_timeout 5s;\n"
+      . $2 . "proxy_send_timeout 60s;\n"/gme;
+
   s{(^([ \t]*)server_name\s+(?=[^;\n]*\bmsmsge\.com\b)(?=[^;\n]*\bwww\.msmsge\.com\b)[^;\n]*;\n)
      (?![ \t]*include\s+/etc/nginx/snippets/msmsge-canonical-host\.conf;)}
     {$1 . $2 . "include /etc/nginx/snippets/msmsge-canonical-host.conf;\n"}gmex;
 
   s{(^[ \t]*)(proxy_pass http://127\.0\.0\.1:3000;)}
-    {$1 . "include /etc/nginx/snippets/msmsge-maintenance-check.conf;\n" . $1 . $2}gme
-    unless /msmsge-maintenance-check\.conf/;
+    {(substr($`, -length("include /etc/nginx/snippets/msmsge-maintenance-check.conf;\n"))
+        eq "include /etc/nginx/snippets/msmsge-maintenance-check.conf;\n")
+      ? $1 . $2
+      : $1 . "include /etc/nginx/snippets/msmsge-maintenance-check.conf;\n" . $1 . $2}gme;
 ' "$TMP"
 
 $SUDO_CMD install -d -m 0755 "$MAINTENANCE_DIR" "$SNIPPET_DIR"

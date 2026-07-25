@@ -183,7 +183,18 @@ bash deploy/maintenance.sh status   # 현재 상태
 - 운영 현황의 매크로 의심 userId/IP는 `이상 행동`·`경제 로그` 필터로 바로 연결된다.
 - `OPS_ALERT_WEBHOOK_URL`은 선택이다. 설정하면 임계치 알림·일일 운영 리포트·크론 실패가 webhook으로 발송되고, 없으면 웹훅 알림만 비활성화된다.
 - 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
-- ⬜ 외부 업타임 모니터(Route53 헬스체크/CloudWatch/UptimeRobot)는 미설정 — 추후.
+- GitHub Actions `External uptime monitor`가 5분마다 서버 밖에서 `/api/health`와
+  `/api/version`을 최대 3회 확인한다. 계속 실패하면 Action이 실패하고
+  `OPS_ALERT_WEBHOOK_URL`에도 알린다.
+- EC2의 `adventure-resource-monitor.timer`는 2분마다 5분 load(코어 대비 90%),
+  가용 메모리(15% 이하), 루트 디스크(85% 이상)를 확인한다. 상태 변화 시 즉시,
+  같은 경보가 계속되면 30분마다 webhook으로 알린다.
+
+```bash
+systemctl list-timers adventure-resource-monitor.timer
+sudo systemctl start adventure-resource-monitor.service
+journalctl -u adventure-resource-monitor.service -n 50 --no-pager
+```
 
 ---
 
@@ -280,6 +291,11 @@ bash deploy/maintenance.sh status   # 현재 상태
 - 10분 내 동일 IP에서 6번째 계정이 생활 API를 쓰면 429로 제한하고
   이상 행동 이벤트를 남긴다.
 - nginx는 생활 API 전체를 IP당 5r/s, burst 30으로 제한한다.
+- 경기장·그리드 던전·오프라인 정산·전초기지 공격·대련은 앱의 사용자/IP 제한에
+  더해 nginx에서 IP당 3r/s, burst 10, 동시 8개로 제한한다. 전체 연결도 IP당
+  30개를 넘기지 않는다.
+- 오프라인 정산은 요청 한 번에 최대 50전만 처리하고, 클라이언트가 남은 분량을
+  순차 요청한다. 한 요청이 수백~수천 전투를 한 트랜잭션에서 처리하지 않는다.
 
 ### 배포 후 점검
 1. GitHub Actions `CI`와 `Deploy to EC2` 성공 확인.
@@ -291,8 +307,11 @@ bash deploy/maintenance.sh status   # 현재 상태
 
 ## 9. 운영 성숙도 — 남은 TODO
 - [x] **자동 백업 + 복구 테스트** — `deploy/backup-db.sh`(일일·14일 로테) + 임시 DB 복구 + S3 90일 오프사이트 업로드/읽기 + RDS 7일 PITR 검증 완료
-- [ ] 외부 업타임 모니터 + 알림 (Route53/CloudWatch/SNS)
+- [x] 외부 업타임 + EC2 자원 모니터 — GitHub Actions 5분 외부 확인, systemd 2분 자원 확인, webhook 알림
 - [x] 배포 후 자동 스모크 — health·sign-in·핵심 모듈 로드·운영 cron 인증 확인
 - [x] 점검(maintenance) 모드 — `deploy/maintenance.sh` (§4b)
+- [ ] CDN/WAF — 현재 Route53 A 레코드가 EC2에 직접 연결됨. CloudFront용 원본
+  호스트·ACM 인증서·DNS 전환 및 비용 선택 후 적용. 절차는
+  `docs/cdn-waf-rollout.md` 참고
 - [ ] 시크릿을 SSM/Secrets Manager로
 - [ ] 노출 자격증명 로테이션(베타 준비 중 채팅 노출분)

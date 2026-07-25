@@ -16,6 +16,7 @@
     "optimize-images": "node scripts/optimize-images.mjs",
     "check-images": "node scripts/check-images.mjs",
     "check-migrations": "node scripts/check-migrations.mjs",
+    "load-test": "node scripts/load-test.mjs",
     "account:create": "node scripts/create-password-account.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node src/db/migrate.mjs",

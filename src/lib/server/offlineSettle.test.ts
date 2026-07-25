@@ -57,8 +57,16 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/me/offline-settle/route";
+
+function settleRequest() {
+  return new Request("http://test/api/v2/me/offline-settle", {
+    method: "POST",
+    headers: { "x-real-ip": "203.0.113.30" },
+  });
+}
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
+import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 
 function seedStrongWarrior(lastBattleAt: number, offlineSession = true) {
   store.clear();
@@ -98,6 +106,7 @@ function char() {
 
 describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on)", () => {
   beforeEach(() => {
+    resetUserRateLimitForTests();
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
   });
   afterEach(() => {
@@ -109,7 +118,7 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     seedStrongWarrior(now - 60_000); // 60s 비움 → 12판
     const goldBefore = char().gold;
 
-    const res = await POST();
+    const res = await POST(settleRequest());
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -149,17 +158,45 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
 
   it("멱등 — 정산 직후 재호출은 battles 0(누적 0)", async () => {
     seedStrongWarrior(Date.now() - 60_000);
-    const first = await POST();
+    const first = await POST(settleRequest());
     expect(((await first.json()) as { battles: number }).battles).toBe(12);
 
-    const second = await POST();
+    const second = await POST(settleRequest());
     const j2 = (await second.json()) as { battles: number };
     expect(j2.battles).toBe(0); // lastBattleAt 이 now 로 전진 → 누적 0
   });
 
+  it("긴 정산은 50판 배치로 커넥션을 반납하고 다음 요청에서 이어간다", async () => {
+    seedStrongWarrior(Date.now() - 60 * HUNT_COOLDOWN_MS);
+
+    const first = await POST(settleRequest());
+    const firstJson = (await first.json()) as {
+      battles: number;
+      accrued: number;
+      remainingBattles: number;
+    };
+    expect(firstJson).toMatchObject({
+      battles: 50,
+      accrued: 60,
+      remainingBattles: 10,
+    });
+
+    const second = await POST(settleRequest());
+    const secondJson = (await second.json()) as {
+      battles: number;
+      accrued: number;
+      remainingBattles: number;
+    };
+    expect(secondJson).toMatchObject({
+      battles: 10,
+      accrued: 10,
+      remainingBattles: 0,
+    });
+  });
+
   it("누적 없음(방금 전투) = battles 0, 세이브 무변경", async () => {
     seedStrongWarrior(Date.now() - HUNT_COOLDOWN_MS + 1000); // 쿨다운 1판 미만
-    const res = await POST();
+    const res = await POST(settleRequest());
     const json = (await res.json()) as { battles: number };
     expect(json.battles).toBe(0);
     expect(char().exp).toBe(0);
@@ -167,7 +204,7 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
 
   it("🔑세션 없음(오프라인 사냥 미시작) = battles 0 (opt-in) — 그냥 자리 비운다고 안 쌓임", async () => {
     seedStrongWarrior(Date.now() - 60_000, false); // 충분한 경과지만 세션 없음
-    const res = await POST();
+    const res = await POST(settleRequest());
     const json = (await res.json()) as { battles: number; active?: boolean };
     expect(json.battles).toBe(0);
     expect(char().exp).toBe(0);
@@ -180,7 +217,7 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     const c = char() as Record<string, unknown>;
     c.offlineHuntStartedAt = now - 2 * 3600_000 - 30_000;
     store.set("character.v2", c);
-    const res = await POST();
+    const res = await POST(settleRequest());
     const json = (await res.json()) as {
       battles: number;
       accrued: number;

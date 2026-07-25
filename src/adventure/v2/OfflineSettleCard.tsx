@@ -2,25 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useGameState } from "./GameStateProvider";
+import {
+  settleOfflineHuntBatches,
+  type OfflineSettleResult as SettleResult,
+} from "./offlineSettleApi";
 
 // 오프라인 정산 카드 — 코어루프(V2_CORE_LOOP_V2) flag-on 에서만 동작.
 // me/state 의 offlinePending(안 논 동안 쌓인 판수) > 0 이면 앱 로드 시 한 번 자동으로
 // POST /api/v2/me/offline-settle 을 호출해 정산하고, 결과를 카드로 보여준다. flag off 면
 // offlinePending 이 null 이라 아무것도 안 한다(현행 UI 무변경).
-
-type SettleResult = {
-  battles: number;
-  wins: number;
-  losses: number;
-  totalExp: number;
-  totalGold: number;
-  totalLossTax: number;
-  totalProficiency: number;
-  totalMastery: number;
-  levelsGained: number;
-  spMilestonesGained?: number; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤(>0 일 때만 표기).
-  depth: number;
-};
 
 export function OfflineSettleCard() {
   const { offlinePending, setOfflinePending, refreshGameState } =
@@ -35,31 +25,9 @@ export function OfflineSettleCard() {
     settled.current = true;
     (async () => {
       try {
-        const res = await fetch("/api/v2/me/offline-settle", {
-          method: "POST",
-        });
-        // fetch 는 4xx/5xx 에 throw 안 함 — !ok 면 정산 미반영, settled 풀어 다음 로드 재시도(멱등).
-        if (!res.ok) {
-          settled.current = false;
-          return;
-        }
-        const j = (await res.json()) as Partial<SettleResult> & {
-          battles?: number;
-        };
+        const j = await settleOfflineHuntBatches();
         if ((j.battles ?? 0) > 0) {
-          setResult({
-            battles: j.battles ?? 0,
-            wins: j.wins ?? 0,
-            losses: j.losses ?? 0,
-            totalExp: j.totalExp ?? 0,
-            totalGold: j.totalGold ?? 0,
-            totalLossTax: j.totalLossTax ?? 0,
-            totalProficiency: j.totalProficiency ?? 0,
-            totalMastery: j.totalMastery ?? 0,
-            levelsGained: j.levelsGained ?? 0,
-            spMilestonesGained: j.spMilestonesGained ?? 0,
-            depth: j.depth ?? 0,
-          });
+          setResult(j);
         }
         // 정산 반영(성공 시에만) — 대기 0 + 골드/EXP/레벨 갱신.
         setOfflinePending(0);

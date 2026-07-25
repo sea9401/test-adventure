@@ -26,6 +26,7 @@ import {
   type StaminaState,
 } from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
+import { settleOfflineHuntBatches } from "@/adventure/v2/offlineSettleApi";
 import { MAIN_DUNGEON, huntStageName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
@@ -418,19 +419,7 @@ export function V2DungeonFloorView({
     setOfflineBusy(true);
     try {
       // 먼저 누적분 정산(결과는 한 줄로 표기) → 세션 종료.
-      const res = await fetch("/api/v2/me/offline-settle", { method: "POST" });
-      // 정산이 실패(5xx 등)하면 보상이 새지 않게 세션을 끄지 않고 중단 — 재시도 가능.
-      if (!res.ok) {
-        setOfflineMsg("정산에 실패했어요. 누적은 보존되며 잠시 후 다시 시도할 수 있어요.");
-        return;
-      }
-      const j = (await res.json().catch(() => null)) as {
-        battles?: number;
-        totalExp?: number;
-        totalGold?: number;
-        totalProficiency?: number;
-        totalMastery?: number;
-      } | null;
+      const j = await settleOfflineHuntBatches();
       const stopRes = await fetch("/api/v2/me/offline-hunt", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -442,8 +431,8 @@ export function V2DungeonFloorView({
         return;
       }
       setOfflineMsg(
-        (j?.battles ?? 0) > 0
-          ? `오프라인 사냥 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}${(j!.totalProficiency ?? 0) > 0 ? ` · 숙달 포인트 +${(j!.totalProficiency ?? 0).toLocaleString()}` : ""}${(j!.totalMastery ?? 0) > 0 ? ` · 직업 숙련도 +${(j!.totalMastery ?? 0).toLocaleString()}` : ""}`
+        j.battles > 0
+          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}`
           : "오프라인 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();

@@ -1872,13 +1872,26 @@ body {
   animation: profile-verdant-leaf-fall-c 11s ease-in-out infinite;
 }
 
+.ui-verdant-leaf--fall-d {
+  top: -22%;
+  left: 36%;
+  animation: profile-verdant-leaf-fall-b 8.9s ease-in-out -4.1s infinite;
+}
+
+.ui-verdant-leaf--fall-e {
+  top: -18%;
+  right: 4%;
+  animation: profile-verdant-leaf-fall-c 9.8s ease-in-out -6.4s infinite;
+}
+
 .ui-profile-avatar-frame-cosmetic > .ui-verdant-decoration-motion--compact {
   z-index: 2;
   inset: 2px;
   border-radius: calc(0.75rem - 2px);
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-c {
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-c,
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-e {
   display: none;
 }
 
@@ -1896,6 +1909,13 @@ body {
   top: -14%;
   right: 12%;
   animation-duration: 7.6s;
+}
+
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-d {
+  top: -18%;
+  left: 48%;
+  animation-duration: 7.1s;
+  animation-delay: -3.8s;
 }
 
 .ui-profile-frame-celestial {
@@ -2941,7 +2961,9 @@ body {
 
   .ui-verdant-leaf--fall-a,
   .ui-verdant-leaf--fall-b,
-  .ui-verdant-leaf--fall-c {
+  .ui-verdant-leaf--fall-c,
+  .ui-verdant-leaf--fall-d,
+  .ui-verdant-leaf--fall-e {
     display: none;
   }
 }

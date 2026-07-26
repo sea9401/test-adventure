@@ -15,6 +15,8 @@ describe("ProfileDecorationMotion", () => {
     expect(verdant).not.toContain("ui-verdant-leaf--left");
     expect(verdant).toContain("ui-verdant-leaf--fall-a");
     expect(verdant).toContain("ui-verdant-leaf--fall-c");
+    expect(verdant).toContain("ui-verdant-leaf--fall-d");
+    expect(verdant).toContain("ui-verdant-leaf--fall-e");
     expect(oceanic).toBe("");
   });
 

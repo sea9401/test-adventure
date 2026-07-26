@@ -17,6 +17,8 @@ export function ProfileDecorationMotion({
       <span className="ui-verdant-leaf ui-verdant-leaf--fall-a" />
       <span className="ui-verdant-leaf ui-verdant-leaf--fall-b" />
       <span className="ui-verdant-leaf ui-verdant-leaf--fall-c" />
+      <span className="ui-verdant-leaf ui-verdant-leaf--fall-d" />
+      <span className="ui-verdant-leaf ui-verdant-leaf--fall-e" />
     </span>
   );
 }

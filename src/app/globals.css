@@ -2004,38 +2004,22 @@ body {
   animation: profile-verdant-leaf-fall-c 9.8s ease-in-out -6.4s infinite;
 }
 
-.ui-profile-avatar-frame-cosmetic > .ui-profile-decoration-motion--compact {
-  z-index: 2;
-  inset: 2px;
-  border-radius: calc(0.75rem - 2px);
+.ui-verdant-leaf--fall-f {
+  top: -20%;
+  left: 8%;
+  animation: profile-verdant-leaf-fall-a 10.2s ease-in-out -6.7s infinite;
 }
 
-.ui-profile-decoration-motion--compact .ui-verdant-leaf--fall-c,
-.ui-profile-decoration-motion--compact .ui-verdant-leaf--fall-e {
-  display: none;
+.ui-verdant-leaf--fall-g {
+  top: -24%;
+  left: 68%;
+  animation: profile-verdant-leaf-fall-b 8.1s ease-in-out -5.2s infinite;
 }
 
-.ui-profile-decoration-motion--compact .ui-verdant-leaf {
-  width: 23%;
-}
-
-.ui-profile-decoration-motion--compact .ui-verdant-leaf--fall-a {
+.ui-verdant-leaf--fall-h {
   top: -16%;
-  left: 18%;
-  animation-duration: 6.4s;
-}
-
-.ui-profile-decoration-motion--compact .ui-verdant-leaf--fall-b {
-  top: -14%;
-  right: 12%;
-  animation-duration: 7.6s;
-}
-
-.ui-profile-decoration-motion--compact .ui-verdant-leaf--fall-d {
-  top: -18%;
-  left: 48%;
-  animation-duration: 7.1s;
-  animation-delay: -3.8s;
+  right: 28%;
+  animation: profile-verdant-leaf-fall-c 12.4s ease-in-out -2.8s infinite;
 }
 
 /* 업화 — 불꽃 프레임 대신 작은 불씨가 아래에서 위로 흩어진다. */
@@ -2073,6 +2057,18 @@ body {
   right: 4%;
   animation: profile-infernal-ember-rise-a 5.5s ease-out -4.5s infinite;
 }
+.ui-infernal-ember--f {
+  left: 42%;
+  animation: profile-infernal-ember-rise-b 5.1s ease-out -3.2s infinite;
+}
+.ui-infernal-ember--g {
+  left: 68%;
+  animation: profile-infernal-ember-rise-a 6.5s ease-out -5.6s infinite;
+}
+.ui-infernal-ember--h {
+  right: 22%;
+  animation: profile-infernal-ember-rise-b 4.6s ease-out -1.9s infinite;
+}
 
 /* 심해 — 테두리 그림과 분리된 기포가 느린 S자 경로로 떠오른다. */
 .ui-oceanic-bubble {
@@ -2107,6 +2103,18 @@ body {
 .ui-oceanic-bubble--e {
   right: 4%;
   animation: profile-oceanic-bubble-rise-a 8.1s ease-in-out -5.3s infinite;
+}
+.ui-oceanic-bubble--f {
+  left: 42%;
+  animation: profile-oceanic-bubble-rise-b 8.7s ease-in-out -6.8s infinite;
+}
+.ui-oceanic-bubble--g {
+  left: 68%;
+  animation: profile-oceanic-bubble-rise-a 10.8s ease-in-out -3.1s infinite;
+}
+.ui-oceanic-bubble--h {
+  right: 22%;
+  animation: profile-oceanic-bubble-rise-b 7.4s ease-in-out -5.9s infinite;
 }
 
 /* 장미 — 작은 꽃잎이 회전하며 좌우로 흩날린다. */
@@ -2144,39 +2152,28 @@ body {
   right: 4%;
   animation: profile-rose-petal-fall-a 10.4s ease-in-out -7.5s infinite;
 }
-
-.ui-profile-decoration-motion--compact .ui-infernal-ember--d,
-.ui-profile-decoration-motion--compact .ui-infernal-ember--e,
-.ui-profile-decoration-motion--compact .ui-oceanic-bubble--d,
-.ui-profile-decoration-motion--compact .ui-oceanic-bubble--e,
-.ui-profile-decoration-motion--compact .ui-rose-petal--d,
-.ui-profile-decoration-motion--compact .ui-rose-petal--e {
-  display: none;
+.ui-rose-petal--f {
+  left: 42%;
+  animation: profile-rose-petal-fall-b 9.1s ease-in-out -5.2s infinite;
+}
+.ui-rose-petal--g {
+  left: 68%;
+  animation: profile-rose-petal-fall-a 8.4s ease-in-out -2.6s infinite;
+}
+.ui-rose-petal--h {
+  right: 22%;
+  animation: profile-rose-petal-fall-b 11.2s ease-in-out -8.3s infinite;
 }
 
-.ui-profile-decoration-motion--compact .ui-infernal-ember {
-  width: 12%;
+.ui-profile-decoration-motion--paused > span {
+  animation-play-state: paused;
 }
-.ui-profile-decoration-motion--compact .ui-infernal-ember--a,
-.ui-profile-decoration-motion--compact .ui-oceanic-bubble--a,
-.ui-profile-decoration-motion--compact .ui-rose-petal--a {
-  left: 12%;
-}
-.ui-profile-decoration-motion--compact .ui-infernal-ember--b,
-.ui-profile-decoration-motion--compact .ui-oceanic-bubble--b,
-.ui-profile-decoration-motion--compact .ui-rose-petal--b {
-  left: 46%;
-}
-.ui-profile-decoration-motion--compact .ui-infernal-ember--c,
-.ui-profile-decoration-motion--compact .ui-oceanic-bubble--c,
-.ui-profile-decoration-motion--compact .ui-rose-petal--c {
-  left: 72%;
-}
-.ui-profile-decoration-motion--compact .ui-oceanic-bubble {
-  width: 18%;
-}
-.ui-profile-decoration-motion--compact .ui-rose-petal {
-  width: 19%;
+
+.ui-profile-frame-cosmetic:has(.ui-profile-decoration-motion--paused)::before,
+.ui-profile-frame-cosmetic:has(.ui-profile-decoration-motion--paused)::after,
+.ui-profile-theme-header:has(> .ui-profile-decoration-motion--paused)::before,
+.ui-profile-theme-header:has(> .ui-profile-decoration-motion--paused)::after {
+  animation-play-state: paused;
 }
 
 .ui-profile-frame-celestial {

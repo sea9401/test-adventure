@@ -19,6 +19,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
+import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -49,6 +50,7 @@ import {
   type MuseunCosmeticAccessId,
   type MuseunCosmeticsState,
   type ProfileBorderItemId,
+  type ProfileBorderId,
 } from "@/adventure/data/v2/museunCosmetics";
 import { useGameState } from "./GameStateProvider";
 import { ProfileImagePanel } from "./V2ProfileImageView";
@@ -673,6 +675,7 @@ function BorderCodex({
             title={`${variant.name} 테두리`}
             rarity={variant.rarity}
             detail={`${PROFILE_BORDER_RARITIES[variant.rarity].effect} · ${variant.feature}`}
+            decoration={variant.id}
           />
         );
       })}
@@ -785,6 +788,7 @@ function CosmeticCard({
   title,
   rarity,
   detail,
+  decoration = null,
   className = "",
 }: {
   owned: boolean;
@@ -798,6 +802,7 @@ function CosmeticCard({
   title: React.ReactNode;
   rarity: ChromaNameRarity;
   detail: string;
+  decoration?: ProfileBorderId | null;
   className?: string;
 }) {
   return (
@@ -806,6 +811,7 @@ function CosmeticCard({
         active ? "ring-2 ring-violet-500 ring-offset-1 dark:ring-offset-zinc-900" : ""
       }`}
     >
+      <ProfileDecorationMotion profileBorder={decoration} />
       <div className="min-w-0">
         <div className={`truncate text-sm font-bold ${owned ? "" : "text-zinc-500 dark:text-zinc-400"}`}>
           {title}

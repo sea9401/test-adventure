@@ -39,6 +39,7 @@ import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import {
@@ -214,6 +215,7 @@ export function V2CharacterCard({
           } flex items-center p-2 sm:p-3`}
           title={profileDecoration?.name}
         >
+          <ProfileDecorationMotion profileBorder={profileBorder} />
           <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
         </div>
 

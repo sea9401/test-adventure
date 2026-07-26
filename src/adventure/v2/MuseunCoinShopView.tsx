@@ -26,6 +26,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageShell } from "@/components/ui/PageShell";
+import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -1135,6 +1136,7 @@ function CosmeticCollectionItemPreview({
         <div
           className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style as ProfileBorderId} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
         >
+          <ProfileDecorationMotion profileBorder={style as ProfileBorderId} />
           <div className="flex items-center gap-3">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 text-sm font-black text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
               모
@@ -1195,6 +1197,7 @@ function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
         <div
           className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${cosmeticEffect.style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
         >
+          <ProfileDecorationMotion profileBorder={cosmeticEffect.style as ProfileBorderId} />
           <div className={`${SURFACE_INSET} ml-auto w-4/5 p-3`}>
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
               프로필 미리보기

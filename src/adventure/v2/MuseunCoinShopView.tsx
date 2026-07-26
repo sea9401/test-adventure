@@ -27,6 +27,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageShell } from "@/components/ui/PageShell";
+import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -1188,6 +1189,7 @@ function ProfileThemePreview({
     <div
       className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-3`}
     >
+      <ProfileDecorationMotion profileBorder={style} />
       <div
         className={
           hasProfileTheme ? "ui-profile-theme-header p-3" : `${SURFACE_INSET} p-3`

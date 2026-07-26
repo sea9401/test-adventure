@@ -459,9 +459,9 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
   it("스킬 종류별 합리적 기본 조건", () => {
     // 공격(강타) → 항상.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2_skill_strike)).toEqual({ kind: "always" });
-    // 마나 회복(명상) → MP 낮을 때(매 턴 스팸 방지 — 0코스트라 "항상"이면 무한 발동).
+    // 마나 회복(명상) → MP가 바닥날 때.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_mage_meditate)).toEqual({
-      kind: "self_mp", op: "below", pct: 40,
+      kind: "self_mp", op: "below", pct: 20,
     });
     // 힐(기공 순환) → HP 낮을 때.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_chi)).toEqual({

@@ -186,7 +186,7 @@ export type V2SkillId =
   | "v2_skill_recover" // VIT 회복
   | "v2_skill_dash" // SPD 질주
   | "v2_skill_fortune" // LUK 행운
-  | "v2_skill_meditate" // INT 명상
+  | "v2_skill_meditate" // INT 집중
   // ── 몬스터 전용 상태이상 (PR-9) — 플레이어 미학습, 몹 v2Skills 로만 ──────
   | "mob_venom_bite" // 독니 — 중독(DoT)
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
@@ -1458,7 +1458,7 @@ export function smartDefaultConditionForSkill(
     return { kind: "self_hp", op: "below", pct: 60 }; // 리젠 = 피해 입을 때.
   }
   if (effs.some((e) => e.kind === "manaRestore")) {
-    return { kind: "self_mp", op: "below", pct: 40 }; // 마나 회복(명상) = MP 낮을 때.
+    return { kind: "self_mp", op: "below", pct: 20 }; // 마나 회복(명상) = MP가 바닥날 때만.
   }
   const statBuff = effs.find((e) => e.kind === "selfBuff");
   if (statBuff && statBuff.kind === "selfBuff") {

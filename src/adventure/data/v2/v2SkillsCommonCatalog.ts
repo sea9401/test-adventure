@@ -349,9 +349,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [{ kind: "shield", pctMaxHp: 12, pctMaxMp: 14, turns: 3 }],
   },
   v2c_mage_meditate: {
-    id: "v2c_mage_meditate", name: "명상", stat: "int", category: "buff", tier: 2,
-    description: "정신을 가다듬어 마나를 회복한다.", mpCost: 0, cooldown: 0, procChance: 100,
-    effects: [{ kind: "manaRestore", pctMaxMp: 7 }],
+    id: "v2c_mage_meditate", name: "명상", stat: "int", category: "buff", tier: 1,
+    description: "정신을 가다듬어 마나를 조금 회복한다.", mpCost: 0, cooldown: 0, procChance: 100,
+    effects: [{ kind: "manaRestore", pctMaxMp: 6 }],
   },
 
   // ═══ 도적 (STR 딜 · DEX 앵커 보조) — 정밀/크리/독 (예기 패시브로 DEX 보조) ═══

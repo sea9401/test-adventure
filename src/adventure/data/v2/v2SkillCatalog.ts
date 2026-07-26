@@ -64,11 +64,11 @@ export const V2_BASE_SKILLS = {
   },
   v2_skill_meditate: {
     id: "v2_skill_meditate",
-    name: "명상",
+    name: "집중",
     stat: "int",
     category: "buff",
     tier: 1,
-    description: "정신을 가다듬어 지능이 오른다.",
+    description: "집중력을 끌어올려 지능이 오른다.",
     mpCost: 8,
     cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "int", pct: 10, turns: 3 }],

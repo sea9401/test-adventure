@@ -1,6 +1,7 @@
 // 직업 시스템 v2 — jobId 별 "학습 가능 시그니처 스킬셋".
 // 직업 킷 재설계(2026-06-17): 시작 스킬(자동 보유)은 공통 베이스로 두고, 직업마다 작은 킷만
-//   추가한다(액티브 1 + 패시브 1). 옛 공용 풀(난격·파쇄 등)·계파 스킬은 코어루프 학습 풀에서
+//   추가한다(액티브 1 + 패시브 1). 마법사는 비상용 마나 회복기 1개를 더 배운다.
+//   옛 공용 풀(난격·파쇄 등)·계파 스킬은 코어루프 학습 풀에서
 //   은퇴(이미 배운 건 보존). classes.ts:elementalSkillsForClass 가 코어루프에서 이 표를 jobId
 //   로 조회. 차수 게이팅 없음.
 // 상위 직업 패시브는 모두 서로 다른 축(고유) — 다른 직업을 순회해 다른 패시브를 모으는 메리트.
@@ -14,7 +15,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 기본 직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과) ──
   warrior: ["v2c_warrior_strike", "v2c_warrior_might"], // 강타 + 근력(힘+10%)
   martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 하급 권법(단일딜) + 강건(활력+10%)
-  mage: ["v2c_mage_boltcast", "v2c_mage_acumen"], // 마력탄 + 총명(지능+10%)
+  mage: ["v2c_mage_boltcast", "v2c_mage_acumen", "v2c_mage_meditate"], // 마력탄 + 총명(지능+10%) + 명상(비상 MP 회복)
   rogue: ["v2c_rogue_poison", "v2c_rogue_finesse"], // 독침 + 예기(민첩→공격력)
   survivor: ["v2c_survivor_firstaid", "v2c_survivor_knowledge", "v2c_survivor_baitcraft"], // 응급 처치 + 생존 지식 + 미끼 고르기
   // ── 상위 직업 — 액티브 1 + 고유 패시브 1(직업마다 다른 축/효과) ──

@@ -64,7 +64,7 @@ describe("buildJobCodex", () => {
     expect(codex.jobs.find((j) => j.id === "mage")?.mastery).toBe(0);
   });
 
-  it("현재 직업 표시 + 스킬 수집 진행도(시그니처 2개 중 학습 수, 둘 다=수집 완료)", () => {
+  it("현재 직업 표시 + 스킬 수집 진행도", () => {
     const prof = profWith({ warrior: 50 });
     // 견습 병사 액티브만 학습 → 1/2.
     const onlyActive = buildJobCodex(prof, ["v2c_warrior_strike"], "warrior", null);
@@ -83,10 +83,10 @@ describe("buildJobCodex", () => {
     const w2 = both.jobs.find((j) => j.id === "warrior")!;
     expect(w2.skillsLearned).toBe(w2.skillsTotal);
 
-    // 아무것도 안 배운 직업 = 0/2.
+    // 아무것도 안 배운 마법사 = 0/3(마력탄·총명·명상).
     const mage = both.jobs.find((j) => j.id === "mage")!;
     expect(mage.skillsLearned).toBe(0);
-    expect(mage.skillsTotal).toBe(2);
+    expect(mage.skillsTotal).toBe(3);
   });
 
   it("모험가(none)면 현재 직업으로 매칭되는 직업 없음", () => {

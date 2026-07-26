@@ -12,7 +12,7 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
-  it("기본 직업 = 핵심 액티브 1 + 패시브 스킬 1, 생존자는 생활 패시브 추가", () => {
+  it("기본 직업 = 핵심 액티브 1 + 패시브 스킬 1, 마법사는 비상 회복기·생존자는 생활 패시브 추가", () => {
     expect(skillsForJob("warrior")).toEqual([
       "v2c_warrior_strike",
       "v2c_warrior_might",
@@ -24,7 +24,8 @@ describe("직업 킷 — 스킬셋", () => {
     expect(skillsForJob("mage")).toEqual([
       "v2c_mage_boltcast",
       "v2c_mage_acumen",
-    ]); // 마력탄 + 총명
+      "v2c_mage_meditate",
+    ]); // 마력탄 + 총명 + 명상
     expect(skillsForJob("rogue")).toEqual([
       "v2c_rogue_poison",
       "v2c_rogue_finesse",
@@ -34,6 +35,13 @@ describe("직업 킷 — 스킬셋", () => {
       "v2c_survivor_knowledge",
       "v2c_survivor_baitcraft",
     ]); // 응급 처치 + 생존 지식 + 미끼 고르기
+
+    expect(V2_SKILLS.v2c_mage_meditate).toMatchObject({
+      tier: 1,
+      mpCost: 0,
+      effects: [{ kind: "manaRestore", pctMaxMp: 6 }],
+    });
+    expect(V2_SKILLS.v2c_mage_meditate.oncePerBattle).not.toBe(true);
   });
 
   it("모든 직업 스킬 id 가 전투 카탈로그(V2_SKILLS)에 존재", () => {

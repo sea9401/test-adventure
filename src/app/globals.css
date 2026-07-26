@@ -1565,6 +1565,92 @@ body {
   }
 }
 
+@keyframes profile-verdant-canopy-breathe {
+  0%,
+  100% {
+    opacity: 0.26;
+    transform: scaleX(0.96);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scaleX(1.04);
+  }
+}
+
+@keyframes profile-verdant-leaf-sway-left {
+  0%,
+  100% {
+    transform: rotate(-26deg) scale(0.92);
+  }
+  45% {
+    transform: rotate(-18deg) scale(0.98);
+  }
+}
+
+@keyframes profile-verdant-leaf-sway-right {
+  0%,
+  100% {
+    transform: rotate(154deg) scale(0.78);
+  }
+  55% {
+    transform: rotate(145deg) scale(0.84);
+  }
+}
+
+@keyframes profile-verdant-leaf-fall-a {
+  0%,
+  8% {
+    opacity: 0;
+    transform: translate3d(0, -180%, 0) rotate(-18deg) scale(0.48);
+  }
+  18% {
+    opacity: 0.82;
+  }
+  76% {
+    opacity: 0.68;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(72px, 720%, 0) rotate(238deg) scale(0.38);
+  }
+}
+
+@keyframes profile-verdant-leaf-fall-b {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translate3d(0, -160%, 0) rotate(170deg) scale(0.36);
+  }
+  38% {
+    opacity: 0.72;
+  }
+  82% {
+    opacity: 0.58;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-52px, 640%, 0) rotate(-80deg) scale(0.3);
+  }
+}
+
+@keyframes profile-verdant-leaf-fall-c {
+  0%,
+  48% {
+    opacity: 0;
+    transform: translate3d(0, -130%, 0) rotate(28deg) scale(0.3);
+  }
+  58% {
+    opacity: 0.62;
+  }
+  88% {
+    opacity: 0.48;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(36px, 560%, 0) rotate(290deg) scale(0.24);
+  }
+}
+
 @keyframes chat-name-chroma-flow {
   to {
     background-position: 200% 50%;
@@ -1742,10 +1828,9 @@ body {
 }
 
 .ui-profile-frame-verdant {
-  --profile-frame-rgb: 34 197 94;
-  --profile-frame-gradient: linear-gradient(110deg, #14532d, #16a34a, #84cc16, #facc15, #22c55e, #14532d);
+  --profile-frame-rgb: 22 163 74;
+  --profile-frame-gradient: linear-gradient(110deg, #2a1b0f, #755326, #15803d, #d4a934, #166534, #3f2a16);
   --profile-decoration-background:
-    url("/images/ui/profile-decorations/verdant-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(250 204 21 / 0.16), transparent 48%),
     linear-gradient(135deg, rgb(20 83 45 / 0.34), rgb(22 101 52 / 0.18) 46%, rgb(63 98 18 / 0.28));
   --profile-theme-background:
@@ -1753,16 +1838,125 @@ body {
     radial-gradient(circle at 72% 88%, rgb(34 197 94 / 0.48), transparent 34%),
     linear-gradient(125deg, #052e16, #166534 52%, #3f6212);
   --profile-theme-pattern:
-    radial-gradient(ellipse at 30% 70%, rgb(190 242 100 / 0.52) 0 3px, transparent 4px),
-    radial-gradient(ellipse at 70% 30%, rgb(74 222 128 / 0.42) 0 4px, transparent 5px);
-  --profile-theme-pattern-size: 38px 52px, 62px 46px;
-  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
-  --profile-decoration-opacity: 0.78;
-  --profile-avatar-decoration-background: url("/images/ui/profile-decorations/verdant-emblem.webp");
-  --profile-avatar-decoration-size: 68% 68%;
-  --profile-avatar-decoration-position: right -6% bottom -6%;
-  --profile-avatar-decoration-opacity: 0.86;
-  --profile-decoration-animation: profile-decoration-drift 12s ease-in-out infinite;
+    linear-gradient(128deg, transparent 0 46%, rgb(190 242 100 / 0.24) 47% 48%, transparent 49% 100%),
+    linear-gradient(52deg, transparent 0 68%, rgb(74 222 128 / 0.2) 69% 70%, transparent 71% 100%);
+  --profile-theme-pattern-size: 82px 68px, 116px 92px;
+  --profile-decoration-size: 100% 100%, 100% 100%;
+  --profile-decoration-opacity: 0.46;
+  --profile-avatar-decoration-background: none;
+  --profile-avatar-decoration-opacity: 0;
+  --profile-decoration-animation: profile-verdant-canopy-breathe 7s ease-in-out infinite;
+}
+
+/* 세계수 시범안 — 고정된 가지 프레임과 잎자루 기준 흔들림·낙엽을
+   독립 레이어로 나눠 작은 미리보기에서도 실제 잎의 형태를 유지한다. */
+.ui-profile-frame-cosmetic > .ui-verdant-decoration-motion,
+.ui-profile-theme-header > .ui-verdant-decoration-motion {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.ui-verdant-decoration-motion > span {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.ui-verdant-decoration-frame {
+  inset: 0;
+  background-image: url("/images/ui/profile-decorations/verdant-frame-demo.webp");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: drop-shadow(0 3px 5px rgb(3 25 13 / 0.46));
+}
+
+.ui-verdant-canopy-light {
+  inset: 4% 8%;
+  background:
+    linear-gradient(96deg, transparent 2%, rgb(52 211 153 / 0.13) 7%, transparent 15%),
+    linear-gradient(264deg, transparent 2%, rgb(250 204 21 / 0.11) 8%, transparent 16%);
+  filter: blur(2px);
+  transform-origin: center;
+  animation: profile-verdant-canopy-breathe 7s ease-in-out infinite;
+}
+
+.ui-verdant-leaf {
+  width: clamp(1.15rem, 8%, 3.25rem);
+  aspect-ratio: 256 / 315;
+  background: url("/images/ui/profile-decorations/verdant-leaf-demo.webp") center / contain no-repeat;
+  filter: drop-shadow(0 2px 2px rgb(2 44 22 / 0.5));
+  transform-origin: 8% 94%;
+  will-change: transform, opacity;
+}
+
+.ui-verdant-leaf--left {
+  top: 8%;
+  left: 12%;
+  animation: profile-verdant-leaf-sway-left 4.8s ease-in-out infinite;
+}
+
+.ui-verdant-leaf--right {
+  right: 12%;
+  bottom: 7%;
+  animation: profile-verdant-leaf-sway-right 5.7s ease-in-out infinite;
+}
+
+.ui-verdant-leaf--fall-a {
+  top: -16%;
+  left: 27%;
+  animation: profile-verdant-leaf-fall-a 8.4s ease-in-out infinite;
+}
+
+.ui-verdant-leaf--fall-b {
+  top: -14%;
+  right: 25%;
+  animation: profile-verdant-leaf-fall-b 9.6s ease-in-out infinite;
+}
+
+.ui-verdant-leaf--fall-c {
+  top: -12%;
+  left: 52%;
+  animation: profile-verdant-leaf-fall-c 11s ease-in-out infinite;
+}
+
+.ui-profile-avatar-frame-cosmetic > .ui-verdant-decoration-motion--compact {
+  z-index: 2;
+  inset: 2px;
+  border-radius: calc(0.75rem - 2px);
+}
+
+.ui-verdant-decoration-motion--compact .ui-verdant-decoration-frame {
+  background-image: url("/images/ui/profile-decorations/verdant-emblem.webp");
+  background-position: right -7% bottom -7%;
+  background-size: 74% 74%;
+  filter: drop-shadow(0 1px 3px rgb(3 25 13 / 0.6));
+  opacity: 0.92;
+}
+
+.ui-verdant-decoration-motion--compact .ui-verdant-canopy-light,
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-a,
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-b,
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-c {
+  display: none;
+}
+
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf {
+  width: 31%;
+}
+
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--left {
+  top: -3%;
+  left: 1%;
+}
+
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--right {
+  right: 0;
+  bottom: -1%;
 }
 
 .ui-profile-frame-celestial {
@@ -2798,11 +2992,21 @@ body {
   .ui-profile-theme-header::before,
   .ui-profile-avatar-frame-cosmetic,
   .ui-profile-avatar-frame-cosmetic::after,
+  .ui-verdant-canopy-light,
+  .ui-verdant-leaf,
   .ui-chat-name-chroma,
   .ui-chat-name-chroma::before,
   .ui-chat-name-chroma::after {
     animation: none;
     background-position: 50% 50%;
+  }
+
+  .ui-verdant-leaf--fall-a,
+  .ui-verdant-leaf--fall-b,
+  .ui-verdant-leaf--fall-c,
+  .ui-verdant-leaf--left,
+  .ui-verdant-leaf--right {
+    display: none;
   }
 }
 
@@ -2823,7 +3027,8 @@ body {
   .ui-profile-frame-cosmetic::after,
   .ui-profile-theme-header::before,
   .ui-profile-theme-header::after,
-  .ui-profile-avatar-frame-cosmetic::after {
+  .ui-profile-avatar-frame-cosmetic::after,
+  .ui-verdant-decoration-motion {
     display: none;
   }
 
@@ -2872,6 +3077,7 @@ html.ui-discreet-mode .ui-profile-frame-cosmetic::after,
 html.ui-discreet-mode .ui-profile-theme-header::before,
 html.ui-discreet-mode .ui-profile-theme-header::after,
 html.ui-discreet-mode .ui-profile-avatar-frame-cosmetic::after,
+html.ui-discreet-mode .ui-verdant-decoration-motion,
 html.ui-discreet-mode .ui-chat-name-chroma::before,
 html.ui-discreet-mode .ui-chat-name-chroma::after {
   display: none;

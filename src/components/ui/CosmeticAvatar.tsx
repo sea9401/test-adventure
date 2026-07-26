@@ -11,6 +11,7 @@ import {
   getProfileBorderVariant,
   type ProfileBorderId,
 } from "@/adventure/data/v2/museunCosmetics";
+import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
 
 export function CosmeticAvatar({
   avatar,
@@ -68,6 +69,7 @@ export function CosmeticAvatar({
           onError={() => setFailedSrc(src)}
         />
       )}
+      <ProfileDecorationMotion profileBorder={profileBorder} compact />
     </span>
   );
 }

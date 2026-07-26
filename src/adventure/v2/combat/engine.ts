@@ -38,6 +38,7 @@ import {
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   CRIT_PCT_CAP,
+  STAT_LABELS,
 } from "@/adventure/data/stats";
 import {
   ANALYSIS_PENALTY_CAP_PCT,
@@ -1221,14 +1222,14 @@ export function applyEnemyV2SkillCast(
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
+      text: `[${result.castSkillName ?? "강화"}] ${STAT_LABELS[b.stat]} +${b.pct}% (${b.turns}행동)`,
       turn: "enemy",
     });
   }
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
+      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
       turn: "enemy",
     });
   }
@@ -1591,14 +1592,14 @@ export function applyPlayerV2SkillCast(
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
+      text: `[${result.castSkillName ?? "강화"}] ${STAT_LABELS[b.stat]} +${b.pct}% (${b.turns}행동)`,
       turn: "player",
     });
   }
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
+      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
       turn: "player",
     });
   }
@@ -2014,14 +2015,14 @@ function resolveBattleLegacy(
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
+            text: `[${result.castSkillName ?? "강화"}] ${STAT_LABELS[b.stat]} +${b.pct}% (${b.turns}행동)`,
             turn: "enemy",
           });
         }
         for (const d of result.enemyDebuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
+            text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
             turn: "enemy",
           });
         }

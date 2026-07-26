@@ -35,6 +35,7 @@ import {
 } from "./engine";
 import {
   CRIT_PCT_CAP,
+  STAT_LABELS,
 } from "@/adventure/data/stats";
 import {
   V2_CORE_LOOP_V2,
@@ -1883,14 +1884,14 @@ export function castV2SkillOnAttackerTurnPvP(
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
+      text: `[${result.castSkillName ?? "강화"}] ${STAT_LABELS[b.stat]} +${b.pct}% (${b.turns}행동)`,
       side: who,
     });
   }
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
+      text: `[${result.castSkillName ?? "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
       side: who,
     });
   }

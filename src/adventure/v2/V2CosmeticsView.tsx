@@ -814,7 +814,6 @@ function CosmeticCard({
         active ? "ring-2 ring-violet-500 ring-offset-1 dark:ring-offset-zinc-900" : ""
       }`}
     >
-      <ProfileDecorationMotion profileBorder={decoration} />
       <div
         className={`min-w-0 ${
           themedHeader
@@ -822,6 +821,7 @@ function CosmeticCard({
             : ""
         }`}
       >
+        <ProfileDecorationMotion profileBorder={decoration} />
         <div
           className={`truncate text-sm font-bold ${
             owned

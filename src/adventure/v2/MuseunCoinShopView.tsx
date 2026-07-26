@@ -1189,12 +1189,12 @@ function ProfileThemePreview({
     <div
       className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-3`}
     >
-      <ProfileDecorationMotion profileBorder={style} />
       <div
         className={
           hasProfileTheme ? "ui-profile-theme-header p-3" : `${SURFACE_INSET} p-3`
         }
       >
+        <ProfileDecorationMotion profileBorder={style} />
         <div className="flex items-center gap-3">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-white bg-white text-sm font-black text-zinc-600 shadow-sm">
             모

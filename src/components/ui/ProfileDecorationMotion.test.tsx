@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ProfileDecorationMotion } from "./ProfileDecorationMotion";
 
 describe("ProfileDecorationMotion", () => {
-  it("세계수에만 다층 잎사귀 연출을 렌더링한다", () => {
+  it("세계수에만 낙엽 연출을 렌더링한다", () => {
     const verdant = renderToStaticMarkup(
       <ProfileDecorationMotion profileBorder="verdant" />,
     );
@@ -11,7 +11,9 @@ describe("ProfileDecorationMotion", () => {
       <ProfileDecorationMotion profileBorder="oceanic" />,
     );
 
-    expect(verdant).toContain("ui-verdant-decoration-frame");
+    expect(verdant).not.toContain("ui-verdant-decoration-frame");
+    expect(verdant).not.toContain("ui-verdant-leaf--left");
+    expect(verdant).toContain("ui-verdant-leaf--fall-a");
     expect(verdant).toContain("ui-verdant-leaf--fall-c");
     expect(oceanic).toBe("");
   });

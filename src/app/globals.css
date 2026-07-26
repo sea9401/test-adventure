@@ -1565,53 +1565,25 @@ body {
   }
 }
 
-@keyframes profile-verdant-canopy-breathe {
-  0%,
-  100% {
-    opacity: 0.26;
-    transform: scaleX(0.96);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scaleX(1.04);
-  }
-}
-
-@keyframes profile-verdant-leaf-sway-left {
-  0%,
-  100% {
-    transform: rotate(-26deg) scale(0.92);
-  }
-  45% {
-    transform: rotate(-18deg) scale(0.98);
-  }
-}
-
-@keyframes profile-verdant-leaf-sway-right {
-  0%,
-  100% {
-    transform: rotate(154deg) scale(0.78);
-  }
-  55% {
-    transform: rotate(145deg) scale(0.84);
-  }
-}
-
 @keyframes profile-verdant-leaf-fall-a {
   0%,
   8% {
     opacity: 0;
-    transform: translate3d(0, -180%, 0) rotate(-18deg) scale(0.48);
+    transform: translate3d(0, -180%, 0) rotate(-18deg) scale(0.88);
   }
   18% {
-    opacity: 0.82;
+    opacity: 0.78;
   }
-  76% {
-    opacity: 0.68;
+  42% {
+    transform: translate3d(-18px, 250%, 0) rotate(72deg) scale(0.82);
+  }
+  72% {
+    opacity: 0.64;
+    transform: translate3d(24px, 510%, 0) rotate(168deg) scale(0.78);
   }
   100% {
     opacity: 0;
-    transform: translate3d(72px, 720%, 0) rotate(238deg) scale(0.38);
+    transform: translate3d(6px, 760%, 0) rotate(248deg) scale(0.72);
   }
 }
 
@@ -1619,17 +1591,21 @@ body {
   0%,
   28% {
     opacity: 0;
-    transform: translate3d(0, -160%, 0) rotate(170deg) scale(0.36);
+    transform: translate3d(0, -160%, 0) rotate(170deg) scale(0.72);
   }
   38% {
-    opacity: 0.72;
+    opacity: 0.62;
+  }
+  58% {
+    transform: translate3d(20px, 270%, 0) rotate(92deg) scale(0.68);
   }
   82% {
-    opacity: 0.58;
+    opacity: 0.48;
+    transform: translate3d(-14px, 500%, 0) rotate(-12deg) scale(0.64);
   }
   100% {
     opacity: 0;
-    transform: translate3d(-52px, 640%, 0) rotate(-80deg) scale(0.3);
+    transform: translate3d(12px, 720%, 0) rotate(-112deg) scale(0.58);
   }
 }
 
@@ -1637,17 +1613,21 @@ body {
   0%,
   48% {
     opacity: 0;
-    transform: translate3d(0, -130%, 0) rotate(28deg) scale(0.3);
+    transform: translate3d(0, -130%, 0) rotate(28deg) scale(0.62);
   }
   58% {
-    opacity: 0.62;
+    opacity: 0.56;
+  }
+  72% {
+    transform: translate3d(-16px, 220%, 0) rotate(116deg) scale(0.58);
   }
   88% {
-    opacity: 0.48;
+    opacity: 0.42;
+    transform: translate3d(18px, 430%, 0) rotate(222deg) scale(0.54);
   }
   100% {
     opacity: 0;
-    transform: translate3d(36px, 560%, 0) rotate(290deg) scale(0.24);
+    transform: translate3d(-4px, 680%, 0) rotate(310deg) scale(0.48);
   }
 }
 
@@ -1845,15 +1825,14 @@ body {
   --profile-decoration-opacity: 0.46;
   --profile-avatar-decoration-background: none;
   --profile-avatar-decoration-opacity: 0;
-  --profile-decoration-animation: profile-verdant-canopy-breathe 7s ease-in-out infinite;
+  --profile-decoration-animation: none;
 }
 
-/* 세계수 시범안 — 고정된 가지 프레임과 잎자루 기준 흔들림·낙엽을
-   독립 레이어로 나눠 작은 미리보기에서도 실제 잎의 형태를 유지한다. */
+/* 세계수 — 카드나 아바타의 형태를 덮지 않고, 작은 잎만 바람을 타고 떨어진다. */
 .ui-profile-frame-cosmetic > .ui-verdant-decoration-motion,
 .ui-profile-theme-header > .ui-verdant-decoration-motion {
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   inset: 0;
   overflow: hidden;
   border-radius: inherit;
@@ -1866,27 +1845,8 @@ body {
   pointer-events: none;
 }
 
-.ui-verdant-decoration-frame {
-  inset: 0;
-  background-image: url("/images/ui/profile-decorations/verdant-frame-demo.webp");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  filter: drop-shadow(0 3px 5px rgb(3 25 13 / 0.46));
-}
-
-.ui-verdant-canopy-light {
-  inset: 4% 8%;
-  background:
-    linear-gradient(96deg, transparent 2%, rgb(52 211 153 / 0.13) 7%, transparent 15%),
-    linear-gradient(264deg, transparent 2%, rgb(250 204 21 / 0.11) 8%, transparent 16%);
-  filter: blur(2px);
-  transform-origin: center;
-  animation: profile-verdant-canopy-breathe 7s ease-in-out infinite;
-}
-
 .ui-verdant-leaf {
-  width: clamp(1.15rem, 8%, 3.25rem);
+  width: clamp(0.72rem, 5%, 1.9rem);
   aspect-ratio: 256 / 315;
   background: url("/images/ui/profile-decorations/verdant-leaf-demo.webp") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgb(2 44 22 / 0.5));
@@ -1894,33 +1854,21 @@ body {
   will-change: transform, opacity;
 }
 
-.ui-verdant-leaf--left {
-  top: 8%;
-  left: 12%;
-  animation: profile-verdant-leaf-sway-left 4.8s ease-in-out infinite;
-}
-
-.ui-verdant-leaf--right {
-  right: 12%;
-  bottom: 7%;
-  animation: profile-verdant-leaf-sway-right 5.7s ease-in-out infinite;
-}
-
 .ui-verdant-leaf--fall-a {
-  top: -16%;
-  left: 27%;
+  top: -20%;
+  left: 18%;
   animation: profile-verdant-leaf-fall-a 8.4s ease-in-out infinite;
 }
 
 .ui-verdant-leaf--fall-b {
-  top: -14%;
-  right: 25%;
+  top: -18%;
+  right: 18%;
   animation: profile-verdant-leaf-fall-b 9.6s ease-in-out infinite;
 }
 
 .ui-verdant-leaf--fall-c {
-  top: -12%;
-  left: 52%;
+  top: -16%;
+  left: 54%;
   animation: profile-verdant-leaf-fall-c 11s ease-in-out infinite;
 }
 
@@ -1930,33 +1878,24 @@ body {
   border-radius: calc(0.75rem - 2px);
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-decoration-frame {
-  background-image: url("/images/ui/profile-decorations/verdant-emblem.webp");
-  background-position: right -7% bottom -7%;
-  background-size: 74% 74%;
-  filter: drop-shadow(0 1px 3px rgb(3 25 13 / 0.6));
-  opacity: 0.92;
-}
-
-.ui-verdant-decoration-motion--compact .ui-verdant-canopy-light,
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-a,
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-b,
 .ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-c {
   display: none;
 }
 
 .ui-verdant-decoration-motion--compact .ui-verdant-leaf {
-  width: 31%;
+  width: 23%;
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--left {
-  top: -3%;
-  left: 1%;
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-a {
+  top: -16%;
+  left: 18%;
+  animation-duration: 6.4s;
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--right {
-  right: 0;
-  bottom: -1%;
+.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-b {
+  top: -14%;
+  right: 12%;
+  animation-duration: 7.6s;
 }
 
 .ui-profile-frame-celestial {
@@ -2992,7 +2931,6 @@ body {
   .ui-profile-theme-header::before,
   .ui-profile-avatar-frame-cosmetic,
   .ui-profile-avatar-frame-cosmetic::after,
-  .ui-verdant-canopy-light,
   .ui-verdant-leaf,
   .ui-chat-name-chroma,
   .ui-chat-name-chroma::before,
@@ -3003,9 +2941,7 @@ body {
 
   .ui-verdant-leaf--fall-a,
   .ui-verdant-leaf--fall-b,
-  .ui-verdant-leaf--fall-c,
-  .ui-verdant-leaf--left,
-  .ui-verdant-leaf--right {
+  .ui-verdant-leaf--fall-c {
     display: none;
   }
 }

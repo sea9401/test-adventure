@@ -1,7 +1,9 @@
 import {
+  LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
   V2_JOB_LIST,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -169,16 +171,25 @@ const LIFE_JOB_IDS = new Set([
 ]);
 
 function jobUsesStat(jobId: string, stat: V2StatKey): boolean {
-  const def = V2_JOB_CATALOG[jobId];
-  if (!def) return false;
+  const profile = jobCultivationProfile(jobId);
+  if (!profile) return false;
   // 성장의 신전 스탯 필터/태그는 수행으로 한계치를 올릴 수 있는 스탯만 뜻한다.
   // 직업 보너스까지 섞으면, 예를 들어 궁수의 힘 보너스가 수행 가능 스탯처럼 보인다.
-  return (def.cultivateProfile[stat] ?? 0) > 0;
+  return (profile[stat] ?? 0) > 0;
+}
+
+/** 수행 라우트와 동일한 직군·직업 오버라이드 규칙으로 실효 프로필을 구한다. */
+export function jobCultivationProfile(
+  jobId: string,
+): Partial<Record<V2StatKey, number>> | undefined {
+  if (!V2_JOB_CATALOG[jobId]) return undefined;
+  const group = LEGACY_CLASS_SPEC_BY_JOB[jobId]?.class ?? jobId;
+  return effectiveCultivateProfile(group, jobId);
 }
 
 /** 기본 수행 1회에 오르는 스탯 한계치를 카드 표기용으로 정렬해 반환한다. */
 export function jobCultivationSummary(jobId: string): string {
-  const profile = V2_JOB_CATALOG[jobId]?.cultivateProfile;
+  const profile = jobCultivationProfile(jobId);
   if (!profile) return "";
   return [...V2_STAT_KEYS]
     .filter((stat) => (profile[stat] ?? 0) > 0)

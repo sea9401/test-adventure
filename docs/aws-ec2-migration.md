@@ -69,7 +69,7 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 
 ## 미해결 / TODO
 
-- 채팅 로그에 노출됐던 사용 중 비밀값 교체: `AUTH_SECRET`, `AUTH_KAKAO_SECRET`, `DATABASE_URL` 비밀번호, `CRON_SECRET` (교체 후 `.env.production.local` 수정 + `systemctl restart adventure-rpg`; CRON_SECRET 은 crontab 의 `SECRET=` 줄도 같이). 사용하지 않는 `AUTH_GOOGLE_ID/SECRET`은 운영 env에서 제거한다.
+- 채팅 로그에 노출됐던 사용 중 비밀값 교체: `AUTH_SECRET`, `AUTH_KAKAO_SECRET`, `DATABASE_URL` 비밀번호, `CRON_SECRET`. 저장소 이력 감사·재유출 방지 CI는 완료했고 실제 교체 절차는 `docs/credential-rotation.md`에 있다. 현재 크론은 각 실행 때 `.env.production.local`을 읽으므로 crontab에 비밀값을 중복 수정하지 않는다. 사용하지 않는 `AUTH_GOOGLE_ID/SECRET`은 운영 env에서 제거한다.
 - Vercel 프로젝트 일시중지/삭제 (전환 안정화 확인 후) → 과금 중단.
 - DB(Neon)가 `ap-southeast-1` 이라 서울 EC2 와 리전이 다름 — 지연 신경 쓰이면 Neon 프로젝트를 `ap-northeast-2` 로 이전 고려 (선택).
 - 백업: Neon 은 자체 PITR. EC2 는 AMI 스냅샷 1회 떠두면 복구 빠름.

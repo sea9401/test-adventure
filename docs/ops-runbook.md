@@ -2,7 +2,7 @@
 
 이 게임을 **운영(배포·DB·장애대응)** 할 때 보는 단일 문서. 2026-06-27 베타 준비 중 실제 인프라를 확인해 정리했다.
 
-> 🔒 **비밀값은 여기 두지 않는다** — 위치만 가리킨다. (DB 비밀번호·OAuth 키 = EC2 `.env.production.local`, SSH 키 = 로컬 `.pem`, CRON_SECRET = EC2 crontab.)
+> 🔒 **비밀값은 여기 두지 않는다** — 위치만 가리킨다. (DB 비밀번호·OAuth 키·`CRON_SECRET` = EC2 `.env.production.local`, SSH 키 = 로컬 `.pem`.)
 > 🔁 사실이 바뀌면(서버 이전·리전 변경 등) 이 문서를 먼저 고친다.
 
 ---
@@ -316,3 +316,5 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
   `docs/cdn-waf-rollout.md` 참고
 - [ ] 시크릿을 SSM/Secrets Manager로
 - [ ] 노출 자격증명 로테이션(베타 준비 중 채팅 노출분)
+  — 저장소 전체 이력 감사와 재유출 방지 CI는 완료. 실제 교체는
+  `docs/credential-rotation.md` 순서로 진행한다.

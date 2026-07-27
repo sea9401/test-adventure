@@ -7,6 +7,17 @@ import {
 } from "@/adventure/data/v2/museunCosmetics";
 
 const PROFILE_PARTICLE_SLOTS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+const CELESTIAL_STAR_SLOTS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
+const CELESTIAL_DECORATION_CLASSES = [
+  "ui-celestial-halo",
+  "ui-celestial-constellation ui-celestial-constellation--a",
+  "ui-celestial-constellation ui-celestial-constellation--b",
+  ...CELESTIAL_STAR_SLOTS.map(
+    (slot) => `ui-celestial-star ui-celestial-star--${slot}`,
+  ),
+  "ui-celestial-comet ui-celestial-comet--a",
+  "ui-celestial-comet ui-celestial-comet--b",
+];
 
 const PROFILE_PARTICLE_CLASSES = {
   prismatic: PROFILE_PARTICLE_SLOTS.map(
@@ -21,6 +32,7 @@ const PROFILE_PARTICLE_CLASSES = {
   verdant: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-verdant-leaf ui-verdant-leaf--fall-${slot}`,
   ),
+  celestial: CELESTIAL_DECORATION_CLASSES,
   obsidian: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-obsidian-cinder ui-profile-particle-slot--${slot}`,
   ),

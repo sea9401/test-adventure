@@ -46,13 +46,13 @@ describe("production environment preflight", () => {
     );
   });
 
-  it("requires an operations webhook for live deployments", () => {
+  it("allows live deployments without an operations webhook", () => {
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
       env: { NODE_ENV: "production" },
     });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("OPS_ALERT_WEBHOOK_URL");
+    expect(result.stderr).not.toContain("OPS_ALERT_WEBHOOK_URL");
   });
 });

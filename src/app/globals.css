@@ -2150,8 +2150,8 @@ body {
 }
 
 .ui-celestial-comet {
-  width: clamp(2.8rem, 12%, 6.5rem);
-  height: 2px;
+  width: var(--celestial-comet-width, clamp(2.8rem, 12%, 6.5rem));
+  height: var(--celestial-comet-thickness, 2px);
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, rgb(103 232 249 / 0.22) 26%, #c4b5fd 68%, #fff 100%);
   box-shadow:
@@ -2161,6 +2161,20 @@ body {
   will-change: transform, opacity;
   animation: profile-celestial-comet-cross 12s cubic-bezier(0.22, 0.72, 0.28, 1) infinite;
 }
+
+.ui-celestial-comet::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: var(--celestial-comet-head-size, clamp(0.36rem, 2%, 0.72rem));
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  background: radial-gradient(circle, #fff 0 16%, #fef3c7 34%, #a5f3fc 68%, transparent 72%);
+  box-shadow: 0 0 0.55rem rgb(255 255 255 / 0.9);
+  content: "";
+  transform: translate(48%, -50%) rotate(18deg);
+}
+
 .ui-celestial-comet--a {
   top: 13%;
   left: 72%;
@@ -2172,6 +2186,35 @@ body {
   --celestial-comet-angle: -34deg;
   animation-delay: -6s;
   animation-duration: 13.5s;
+}
+.ui-celestial-comet--c {
+  top: 7%;
+  left: 59%;
+  --celestial-comet-angle: -24deg;
+  --celestial-comet-width: clamp(2rem, 8%, 4.2rem);
+  --celestial-comet-thickness: 1px;
+  --celestial-comet-head-size: clamp(0.28rem, 1.5%, 0.54rem);
+  animation-delay: -10.8s;
+  animation-duration: 15.2s;
+}
+.ui-celestial-comet--d {
+  top: 56%;
+  left: 78%;
+  --celestial-comet-angle: -32deg;
+  --celestial-comet-width: clamp(3.2rem, 14%, 7.4rem);
+  --celestial-comet-head-size: clamp(0.42rem, 2.2%, 0.8rem);
+  animation-delay: -3.4s;
+  animation-duration: 10.8s;
+}
+.ui-celestial-comet--e {
+  top: 24%;
+  left: 96%;
+  --celestial-comet-angle: -38deg;
+  --celestial-comet-width: clamp(1.8rem, 7%, 3.8rem);
+  --celestial-comet-thickness: 1px;
+  --celestial-comet-head-size: clamp(0.26rem, 1.4%, 0.5rem);
+  animation-delay: -13.1s;
+  animation-duration: 16.4s;
 }
 
 .ui-celestial-halo {

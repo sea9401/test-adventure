@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mapKakaoOAuthProfile } from "./kakaoOAuthProfile";
+import {
+  kakaoPlaceholderEmail,
+  mapKakaoOAuthProfile,
+} from "./kakaoOAuthProfile";
 
 describe("Kakao OAuth profile", () => {
   it("유효하고 소유 확인된 이메일만 사용한다", () => {
@@ -27,5 +30,9 @@ describe("Kakao OAuth profile", () => {
         kakao_account: { email: "untrusted@example.com", ...flags },
       }).email,
     ).toBe("kakao_kakao-id@kakao.oauth");
+  });
+
+  it("provider id를 항상 같은 플레이스홀더 이메일로 만든다", () => {
+    expect(kakaoPlaceholderEmail("12345")).toBe("kakao_12345@kakao.oauth");
   });
 });

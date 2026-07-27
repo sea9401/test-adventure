@@ -2176,20 +2176,20 @@ body {
 }
 
 .ui-celestial-comet--a {
-  top: 13%;
-  left: 72%;
+  top: 10%;
+  left: 54%;
   --celestial-comet-angle: -28deg;
 }
 .ui-celestial-comet--b {
-  top: 37%;
-  left: 87%;
+  top: 29%;
+  left: 64%;
   --celestial-comet-angle: -34deg;
   animation-delay: -6s;
   animation-duration: 13.5s;
 }
 .ui-celestial-comet--c {
-  top: 7%;
-  left: 59%;
+  top: 4%;
+  left: 43%;
   --celestial-comet-angle: -24deg;
   --celestial-comet-width: clamp(2rem, 8%, 4.2rem);
   --celestial-comet-thickness: 1px;
@@ -2198,8 +2198,8 @@ body {
   animation-duration: 15.2s;
 }
 .ui-celestial-comet--d {
-  top: 56%;
-  left: 78%;
+  top: 45%;
+  left: 58%;
   --celestial-comet-angle: -32deg;
   --celestial-comet-width: clamp(3.2rem, 14%, 7.4rem);
   --celestial-comet-head-size: clamp(0.42rem, 2.2%, 0.8rem);
@@ -2207,8 +2207,8 @@ body {
   animation-duration: 10.8s;
 }
 .ui-celestial-comet--e {
-  top: 24%;
-  left: 96%;
+  top: 18%;
+  left: 70%;
   --celestial-comet-angle: -38deg;
   --celestial-comet-width: clamp(1.8rem, 7%, 3.8rem);
   --celestial-comet-thickness: 1px;

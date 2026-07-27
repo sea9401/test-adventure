@@ -84,6 +84,7 @@ describe("결계사 마법 방어 패시브", () => {
       { kind: "enemyDamageDown", pct: 12, turns: 3 },
       { kind: "enemySkillProcDown", pct: 22, turns: 3 },
     ]);
+    expect(V2_SKILLS.v2c_spellsealer_sealingfield?.category).toBe("debuff");
     expect(V2_SKILLS.v2c_spellsealer_greatward?.passive).toMatchObject({
       magicDefPct: 35,
       openingMagicDamageReductionPct: 20,
@@ -98,7 +99,7 @@ describe("결계사 마법 방어 패시브", () => {
     ).toEqual({ kind: "self_buff_pct", target: "damageReduction", active: false });
     expect(
       smartDefaultConditionForSkill(V2_SKILLS.v2c_spellsealer_sealingfield),
-    ).toEqual({ kind: "turn", op: "atMost", value: 1 });
+    ).toEqual({ kind: "enemy_debuff", target: "damageDown", active: false });
     expect(
       aggregateEquippedPassives([
         "v2c_warder_ward",
@@ -439,9 +440,9 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
   it("스킬 종류별 합리적 기본 조건", () => {
     // 공격(강타) → 항상.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2_skill_strike)).toEqual({ kind: "always" });
-    // 마나 회복(명상) → MP 낮을 때(매 턴 스팸 방지 — 0코스트라 "항상"이면 무한 발동).
+    // 마나 회복(명상) → MP가 바닥날 때.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_mage_meditate)).toEqual({
-      kind: "self_mp", op: "below", pct: 40,
+      kind: "self_mp", op: "below", pct: 20,
     });
     // 힐(기공 순환) → HP 낮을 때.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_chi)).toEqual({
@@ -570,6 +571,66 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips).toContain("속성 대지");
   });
 
+  it("피해 계수는 실제 기반 스탯을 앞에 명시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
+      "피해 마법 공격력×0.75 +98",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
+      "피해 방어력×1.3 +101",
+    );
+  });
+
+  it("차수 흐름 위에 직업별 발동 템포 차이를 둔다", () => {
+    const representatives = [
+      ["v2c_warrior_strike", 75],
+      ["v2c_shieldman_bash", 70],
+      ["v2c_paladin_cleave", 65],
+      ["v2c_veteran_cleave", 54],
+      ["v2c_swordmaster_cut", 51],
+      ["v2c_fortressknight_ram", 48],
+    ] as const;
+
+    expect(representatives.map(([id]) => V2_SKILLS[id].procChance)).toEqual(
+      representatives.map(([, procChance]) => procChance),
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
+        chip.includes("공격력×0.65 +91"),
+      ),
+    ).toBe(true);
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_fortressknight_ram).some((chip) =>
+        chip.includes("방어력×1.71 +399"),
+      ),
+    ).toBe(true);
+
+    // 같은 2차라도 직업 성향과 개별 스킬 성향이 합쳐져 발동률이 다르다.
+    expect([
+      V2_SKILLS.v2c_caster_bolt.procChance,
+      V2_SKILLS.v2c_squire_cleave.procChance,
+      V2_SKILLS.v2c_shieldman_bash.procChance,
+      V2_SKILLS.v2c_boxer_combo.procChance,
+    ]).toEqual([63, 68, 70, 74]);
+    // 6차도 한 방형·균형형·제어형·연타형이 40~51%로 갈린다.
+    expect([
+      V2_SKILLS.v2c_archmage_collapse.procChance,
+      V2_SKILLS.v2c_absolute_unity.procChance,
+      V2_SKILLS.v2c_fortressknight_ram.procChance,
+      V2_SKILLS.v2c_heavenlybow_orbit.procChance,
+    ]).toEqual([40, 45, 48, 51]);
+
+    // 같은 견습 병사 안에서도 일반기·연타기·제어기가 별도 메타데이터를 가진다.
+    expect([
+      [V2_SKILLS.v2c_warrior_strike.tempo, V2_SKILLS.v2c_warrior_strike.procChance],
+      [V2_SKILLS.v2c_warrior_flurry.tempo, V2_SKILLS.v2c_warrior_flurry.procChance],
+      [V2_SKILLS.v2c_warrior_sunder.tempo, V2_SKILLS.v2c_warrior_sunder.procChance],
+    ]).toEqual([
+      ["balanced", 75],
+      ["rapid", 77],
+      ["control", 76],
+    ]);
+  });
+
   it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
     // 파쇄 = 병사 계열(×1.0) tier 2 → 기준풀 600 × 7% × 1.4 = 58.8 → "MP 59".
     const chips = describeV2Skill(V2_SKILLS.v2c_warrior_sunder);
@@ -584,7 +645,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_acolyte_smite)).toContain(
-      "회복 잃은 체력 6% + 공격력×0.45 +50~50 (마법)",
+      "회복 잃은 체력 6% + 마법 공격력×0.45 +50~50",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
       "피해량 14% 회복",
@@ -617,7 +678,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_sunder)).toContain("MP 59");
     // 같은 t2 에서 도적(×0.7·41) < 병사(59) — 계열 차등 재확인:
     expect(describeV2Skill(V2_SKILLS.v2c_assassin_ambush)).toContain("MP 41");
-    expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain("MP 40");
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).not.toContain("MP 40");
   });
 });
 
@@ -667,10 +728,10 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
   it("5 SP 이하는 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
     expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
-    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(16);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(17);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBe(16);
+    ).toBe(17);
   });
 
   it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {

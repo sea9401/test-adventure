@@ -3,8 +3,8 @@
 //
 // 데미지 = 플랫강화(스탯×~1.0 + 큰 flat) — 예측·off스탯 floor. 다단 = damage effect N개.
 // DoT/디버프는 통합 프리셋(V2_DOT_PRESETS/V2_DEBUFF_PRESETS) spread — 다이얼 일관.
-// procChance: 공격=30/40(저-proc·평타 위주, proc 가 게이트). 단, 마력탄은 마법 공격력 직군의
-//   기본 주문이라 100%지만 MP 를 소모한다. 유틸/힐/버프=100(조건이 게이트 — HP<50·MP<40·버프 비활성 등.
+// procChance/피해 최종 리밸런싱은 v2Skills.ts 에서 실제 직업 차수를 기준으로 일괄 적용한다.
+//   마력탄은 마법 공격력 직군의 기본 공격이라 100%·MP 0. 유틸/힐/버프=100(조건이 게이트 — HP<50·MP<40·버프 비활성 등.
 //   2026-06-21 유저: 조건이 이미 throttle이라 proc 이중게이트 제거).
 // mpCost = 설계 문서값. cooldown 0.
 // 엔진 핸들러(shield/manaRestore/selfRegen/selfBuffPct/heal pctLostHp)는 PR2-B 배선.
@@ -344,9 +344,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [{ kind: "shield", pctMaxHp: 12, pctMaxMp: 14, turns: 3 }],
   },
   v2c_mage_meditate: {
-    id: "v2c_mage_meditate", name: "명상", stat: "int", category: "buff", tier: 2,
-    description: "정신을 가다듬어 마나를 회복한다.", mpCost: 0, cooldown: 0, procChance: 100,
-    effects: [{ kind: "manaRestore", pctMaxMp: 7 }],
+    id: "v2c_mage_meditate", name: "명상", stat: "int", category: "buff", tier: 1,
+    description: "정신을 가다듬어 마나를 조금 회복한다.", mpCost: 0, cooldown: 0, procChance: 100,
+    effects: [{ kind: "manaRestore", pctMaxMp: 6 }],
   },
 
   // ═══ 도적 (STR 딜 · DEX 앵커 보조) — 정밀/크리/독 (예기 패시브로 DEX 보조) ═══
@@ -370,7 +370,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_mage_boltcast: {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
-    description: "마력을 뭉쳐 쏜다.", mpCost: 30, fixedMpCost: 40, cooldown: 0, procChance: 100,
+    description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 100,
     effects: [dmg(1.15, 150, "magic")],
   },
 
@@ -1453,7 +1453,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { healPowerPct: 12, maxHpPct: 8 },
   },
   v2c_spellsealer_sealingfield: {
-    id: "v2c_spellsealer_sealingfield", name: "봉마진", stat: "int", category: "buff", tier: 3,
+    id: "v2c_spellsealer_sealingfield", name: "봉마진", stat: "int", category: "debuff", tier: 3,
     description: "적의 힘과 술식을 봉하는 진을 펼쳐 주는 피해와 스킬 발동률을 함께 낮춘다.",
     mpCost: 44, cooldown: 0, procChance: 100,
     effects: [

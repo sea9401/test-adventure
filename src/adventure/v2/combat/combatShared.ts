@@ -628,6 +628,10 @@ export type V2SkillCastInput = {
     bleedStacks?: number;
     poisonStacks?: number;
     magicVulnStacks?: number;
+    // 전투 패턴의 봉쇄 계열 상태 판정 및 순수 디버프 중복 시전 방지.
+    enemyVulnerabilityActive?: boolean;
+    enemyDamageDownActive?: boolean;
+    enemySkillProcDownActive?: boolean;
     // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
@@ -675,6 +679,9 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
     enemyBleed: t.bleedStacks ?? 0,
     enemyPoison: t.poisonStacks ?? 0,
     enemyVuln: t.magicVulnStacks ?? 0,
+    enemyVulnerabilityActive: t.enemyVulnerabilityActive ?? false,
+    enemyDamageDownActive: t.enemyDamageDownActive ?? false,
+    enemySkillProcDownActive: t.enemySkillProcDownActive ?? false,
     turn: input.turn ?? 1,
   };
 }
@@ -691,9 +698,21 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const isUsable = (sid: string) => {
     if (!equippedSet.has(sid)) return false;
     const d = V2_SKILLS[sid as V2SkillId];
+    const hasUsefulEffect = d?.effects.some((effect) => {
+      if (effect.kind === "enemyDamageDown") {
+        return !(input.target.enemyDamageDownActive ?? false);
+      }
+      if (effect.kind === "enemyVuln") {
+        return !(input.target.enemyVulnerabilityActive ?? false);
+      }
+      if (effect.kind === "enemySkillProcDown") {
+        return !(input.target.enemySkillProcDownActive ?? false);
+      }
+      return true;
+    });
     return (
       !!d &&
-      d.effects.length > 0 &&
+      hasUsefulEffect &&
       (ticked[sid as V2SkillId] ?? 0) === 0 &&
       input.attacker.mp >= v2SkillMpCost(d)
     );

@@ -71,13 +71,20 @@ export async function verifyHcaptchaToken(args: {
     const result = (await response.json()) as HCaptchaResponse;
     const hostname =
       typeof result.hostname === "string" ? result.hostname.toLowerCase() : null;
-    if (!result.success) {
+    const hostnameMismatch =
+      hostname != null &&
+      hostname !== "not-provided" &&
+      config.expectedHostnames.length > 0 &&
+      !config.expectedHostnames.includes(hostname);
+    if (!result.success || hostnameMismatch) {
       return {
         ok: false,
         error: "invalid",
-        codes: Array.isArray(result["error-codes"])
-          ? result["error-codes"].slice(0, 8)
-          : undefined,
+        codes: hostnameMismatch
+          ? ["hostname-mismatch"]
+          : Array.isArray(result["error-codes"])
+            ? result["error-codes"].slice(0, 8)
+            : undefined,
       };
     }
     return { ok: true, hostname };

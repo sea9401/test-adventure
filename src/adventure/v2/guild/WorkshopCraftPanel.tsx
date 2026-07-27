@@ -49,10 +49,13 @@ import {
   craftResultMessage,
   craftResultTone,
   masterworkButtonText,
+  workshopEquipmentCodexStatus,
   workshopEquipmentTierLabel,
   weeklyRecipeHints,
   type CraftResultView,
   type WeeklyState,
+  type WorkshopEquipmentCodexLoadStatus,
+  type WorkshopEquipmentCodexStatus,
   type WorkshopRecipeView,
   type WorkshopState,
 } from "./guildWorkshopPanelModel";
@@ -65,6 +68,32 @@ import {
 const CRAFTED_TAG_SET_ID_SET: ReadonlySet<string> = new Set(
   CRAFTED_EQUIP_TAG_SET_IDS,
 );
+
+const EQUIPMENT_CODEX_STATUS_VIEW: Record<
+  WorkshopEquipmentCodexStatus,
+  { label: string; className: string }
+> = {
+  registered: {
+    label: "도감 등록",
+    className:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
+  },
+  unregistered: {
+    label: "도감 미등록",
+    className:
+      "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+  },
+  loading: {
+    label: "도감 확인 중",
+    className:
+      "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300",
+  },
+  error: {
+    label: "도감 확인 실패",
+    className:
+      "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
+  },
+};
 
 /** 제작 응답 중 부모 워크숍 상태에 반영할 조각 — 부모 콜백(applyCraftServerState)의 입력. */
 export type CraftServerSync = {
@@ -82,6 +111,8 @@ export function WorkshopCraftPanel({
   state,
   weekly,
   recommendedRecipeId,
+  registeredEquipmentIds,
+  equipmentCodexStatus,
   loading,
   onMessage,
   onServerSync,
@@ -95,6 +126,9 @@ export function WorkshopCraftPanel({
   weekly: WeeklyState | null;
   /** 추천 행동의 레시피 id — 목록 상단 고정 + "추천" 배지. */
   recommendedRecipeId: string | null;
+  /** 현재 캐릭터의 장비 도감 등록 ID — 제작 결과물 등록 여부 배지용. */
+  registeredEquipmentIds: ReadonlySet<string>;
+  equipmentCodexStatus: WorkshopEquipmentCodexLoadStatus;
   loading: boolean;
   /** 전 모드 공용 메시지 배너(부모 소유) — 제작 실패 문구 표시. */
   onMessage: (text: string | null) => void;
@@ -205,6 +239,12 @@ export function WorkshopCraftPanel({
     const weeklyHints = weeklyRecipeHints(recipe, weekly);
     const recommended = recommendedRecipeId === recipe.id;
     const equipment = V2_EQUIPMENT[recipe.equipmentId as V2EquipmentId];
+    const codexStatus = workshopEquipmentCodexStatus(
+      recipe.equipmentId,
+      registeredEquipmentIds,
+      equipmentCodexStatus,
+    );
+    const codexStatusView = EQUIPMENT_CODEX_STATUS_VIEW[codexStatus];
     return (
       <div
         key={recipe.id}
@@ -250,6 +290,11 @@ export function WorkshopCraftPanel({
                 {V2_SLOT_LABEL[recipe.slot]}
               </span>
               {recipe.craftOnly ? <CraftOnlyBadge /> : null}
+              <span
+                className={`rounded px-1.5 py-px text-[10px] font-semibold ${codexStatusView.className}`}
+              >
+                {codexStatusView.label}
+              </span>
               {recipe.baseEquipment ? (
                 <span className="rounded bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
                   장비 개량

@@ -58,7 +58,7 @@ export function MessageList({
   return (
     <div
       ref={listRef}
-      className="no-scrollbar flex-1 space-y-1.5 overflow-y-auto px-4 py-3"
+      className="no-scrollbar flex-1 space-y-2 overflow-y-auto px-4 py-3"
     >
       {messages.length === 0 ? (
         <div className="flex h-full items-center justify-center text-xs text-zinc-500 dark:text-zinc-400">
@@ -114,7 +114,7 @@ export function MessageList({
                 {formatRelative(m.createdAt)}
               </span>
             </div>
-            <div className="whitespace-pre-wrap break-words leading-relaxed">
+            <div className="pl-2 whitespace-pre-wrap break-words leading-relaxed">
               <MessageBody content={m.content} />
             </div>
           </div>

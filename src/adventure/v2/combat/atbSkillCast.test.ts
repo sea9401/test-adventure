@@ -28,11 +28,19 @@ const player: PlayerCombat = {
 };
 
 function run(enemy: Monster, randomValue: number): BattleResolution {
+  return runWithSkill(enemy, randomValue, SKILL);
+}
+
+function runWithSkill(
+  enemy: Monster,
+  randomValue: number,
+  skillId: string,
+): BattleResolution {
   vi.spyOn(Math, "random").mockReturnValue(randomValue);
   const res = resolveBattle(player, enemy, "테스터", {
     pickAction: () => ({ kind: "attack" }),
     potions: {},
-    v2Skills: { learned: [SKILL], equipped: [SKILL] },
+    v2Skills: { learned: [skillId], equipped: [skillId] },
   } as never);
   vi.restoreAllMocks();
   return res;
@@ -88,5 +96,49 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     for (const e of winEntries) {
       expect(typeof (e as { t?: number }).t).toBe("number");
     }
+  });
+
+  it("스탯 디버프 로그는 내부 영문 키 대신 한글 이름을 표시한다", () => {
+    const enemy: Monster = {
+      name: "허수아비", tags: [], hp: 2000, atk: 4, def: 3, spd: 6, exp: 0, evasionPct: 0,
+    };
+    const res = runWithSkill(enemy, 0.1, "v2c_warrior_sunder");
+
+    expect(countText(res, "[파쇄 + 무력] 활력 -15% (대상 행동 3회)")).toBeGreaterThan(0);
+    expect(countText(res, "VIT -15%")).toBe(0);
+  });
+
+  it("봉마진은 적 행동 3회를 보호하고 유지 중에는 다른 행동을 막지 않는다", () => {
+    const enemy: Monster = {
+      name: "봉쇄 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 100,
+      spd: 6,
+      exp: 0,
+      evasionPct: 0,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattle(
+      { ...player, spd: 100, atk: 1 },
+      enemy,
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_spellsealer_sealingfield"],
+          equipped: ["v2c_spellsealer_sealingfield"],
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    const summary = res.finalState.combatSummary;
+    expect(summary?.skillUses.봉마진).toBeGreaterThan(1);
+    expect(summary?.basicAttackActions).toBeGreaterThan(0);
+    expect(summary?.controlledEnemyActions).toBeGreaterThanOrEqual(3);
+    expect(countText(res, "적 행동 3회")).toBeGreaterThan(0);
   });
 });

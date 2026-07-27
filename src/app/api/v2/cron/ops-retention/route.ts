@@ -2,6 +2,8 @@ import { inArray, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { abuseEvents, economyEvents } from "@/db/schema";
 import { requireCronAuth } from "@/lib/server/cronAuth";
+import { sendOpsAlert } from "@/lib/server/opsAlert";
+import { processStorageDeletionQueue } from "@/lib/server/storageDeletionQueue";
 
 const ABUSE_RETENTION_DAYS = 90;
 const ECONOMY_RETENTION_DAYS = 180;
@@ -46,6 +48,16 @@ export async function POST(req: Request) {
           .returning({ id: economyEvents.id })
       : [];
 
+  const storageDeletion = await processStorageDeletionQueue();
+  if (storageDeletion.failed > 0) {
+    await sendOpsAlert("[ops] 외부 파일 삭제 재시도 실패", {
+      alertType: "privacy.storage_deletion_cron_failed",
+      eventType: "privacy.storage_deletion.cron_failed",
+      attempted: storageDeletion.attempted,
+      failed: storageDeletion.failed,
+    });
+  }
+
   return Response.json({
     ok: true,
     abuseRetentionDays: ABUSE_RETENTION_DAYS,
@@ -54,5 +66,6 @@ export async function POST(req: Request) {
     economyDeleted: Math.min(economyDeleted.length, economyDue.length),
     abuseMore: abuseDue.length >= MAX_DELETE_ROWS,
     economyMore: economyDue.length >= MAX_DELETE_ROWS,
+    storageDeletion,
   });
 }

@@ -20,6 +20,7 @@ export async function POST(req: Request) {
 
   const adminEmail = await currentAdminEmail();
   await sendOpsAlert(`[ops] webhook test · ${channel}`, {
+    alertType: "ops.webhook_test",
     adminEmail,
     channel,
     at: new Date().toISOString(),

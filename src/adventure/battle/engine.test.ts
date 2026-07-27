@@ -717,7 +717,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     // 라벨은 스킬명. 본문에 "+N% (3행동)" 패턴이 안정적.
     const buffLog = r.finalState.log.find(
       (e) =>
-        e.kind === "info" && e.text.includes("SPD +") && e.text.includes("3행동"),
+        e.kind === "info" && e.text.includes("속도 +") && e.text.includes("3행동"),
     );
     expect(buffLog).toBeDefined();
   });
@@ -908,12 +908,12 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       pickAction: () => ({ kind: "attack" }),
       potions: {},
     });
-    // enemy 의 자강화 로그 — 새 포맷은 [스킬명] STAT +N% (M행동). enemy turn 으로 태깅됨.
+    // enemy 의 자강화 로그 — 새 포맷은 [스킬명] 스탯명 +N% (M행동). enemy turn 으로 태깅됨.
     const buffLog = r.finalState.log.find(
       (e) =>
         e.kind === "info" &&
         e.turn === "enemy" &&
-        /[A-Z]+\s*\+\d+%/.test(e.text) &&
+        /속도\s*\+\d+%/.test(e.text) &&
         e.text.includes("행동)"),
     );
     expect(buffLog).toBeDefined();

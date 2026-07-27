@@ -12,6 +12,7 @@ import {
   EnvelopeSimple,
   Eye,
   EyeSlash,
+  FileText,
   List,
   Megaphone,
   Moon,
@@ -20,6 +21,7 @@ import {
   SignOut,
   Storefront,
   Sun,
+  Ticket,
   UserMinus,
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
@@ -119,7 +121,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         onClick={() => setOpen((v) => !v)}
         // 광장+설정이 함께 들어있어 "설정"으로만 오인되던 톱니 → 햄버거 "메뉴"로(사용자 피드백).
         aria-label="메뉴"
-        title="메뉴 (광장·설정)"
+        title="메뉴"
         className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         <List size={20} weight="bold" />
@@ -128,9 +130,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         <div
           className={`${SURFACE_CARD} ui-dropdown-reveal absolute right-0 top-full z-[70] mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-lg`}
         >
-          <div className="border-b border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            광장
-          </div>
           <ul className="py-1">
             {(
               [
@@ -153,9 +152,10 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </li>
             ))}
           </ul>
-          <div className="border-b border-t border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            설정
-          </div>
+          <div
+            role="separator"
+            className="mx-3 my-1 border-t border-zinc-200 dark:border-zinc-700"
+          />
           <ul className="py-1">
             <li>
               <Link
@@ -167,26 +167,60 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 꾸미기
               </Link>
             </li>
+            {process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true" && (
+              <li>
+                <Link
+                  href="/settings/coin-shop"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
+                >
+                  <CoinVertical size={18} weight="duotone" />
+                  무슨 코인 상점
+                </Link>
+              </li>
+            )}
             <li>
               <Link
-                href="/settings/coin-shop"
+                href="/settings/coupon"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
-                <CoinVertical size={18} weight="duotone" />
-                무슨 코인 상점
+                <Ticket size={18} weight="duotone" />
+                쿠폰 등록
               </Link>
             </li>
             <li>
               <Link
                 href="/settings/referrals"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950"
               >
                 <ShareNetwork size={18} weight="duotone" />
                 게임 홍보
               </Link>
             </li>
+            <li>
+              <Link
+                href="/manual"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <BookOpen size={18} weight="duotone" />
+                게임 안내서
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/privacy"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <FileText size={18} weight="duotone" />
+                정책·약관
+              </Link>
+            </li>
+          </ul>
+          <ul className="border-t border-zinc-200 py-1 dark:border-zinc-700">
             <li>
               <button
                 type="button"
@@ -233,18 +267,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 건의사항
               </Link>
             </li>
-            <li>
-              <Link
-                href="/manual"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <BookOpen size={18} weight="duotone" />
-                게임 안내서
-              </Link>
-            </li>
-          </ul>
-          <ul className="border-t border-zinc-200 py-1 dark:border-zinc-700">
             <li>
               <button
                 type="button"

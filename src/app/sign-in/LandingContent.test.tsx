@@ -24,6 +24,9 @@ describe("대문 로그인 선택지", () => {
     expect(html).not.toContain("캐릭터 만들고 시작하기");
     expect(html).toContain("카카오톡으로 로그인");
     expect(html).toContain(">무슨무슨게임</h1>");
+    expect(html).toContain('href="/terms"');
+    expect(html).toContain('href="/privacy"');
+    expect(html).toContain('href="/operations"');
     expect(html).not.toContain("함께한 모험가");
     expect(html).not.toContain("접속 중");
   });
@@ -35,5 +38,15 @@ describe("대문 로그인 선택지", () => {
 
     expect(html).toContain("홍보 링크가 적용되었습니다");
     expect(html).toContain("새 캐릭터를 만들면 홍보자에게 보상이 지급됩니다");
+  });
+
+  it("OAuth 계정 연결 실패를 로그인 반복 대신 명시적으로 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <LandingContent authError="account-not-linked" />,
+    );
+
+    expect(html).toContain("기존 계정과 카카오 로그인을 연결하지 못했습니다");
+    expect(html).toContain("인게임 닉네임과 함께 운영자에게 문의");
+    expect(html).toContain('role="alert"');
   });
 });

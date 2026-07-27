@@ -11,7 +11,7 @@ name: Deploy to EC2
 #   TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY — Cloudflare Turnstile 위젯 키
 #   HCAPTCHA_SITE_KEY, HCAPTCHA_SECRET_KEY — 강신호용 2단계 CAPTCHA 키(선택)
 #   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME — 길드 엠블럼 저장소
-#   OPS_ALERT_WEBHOOK_URL — 운영 이상 신호·크론 실패 수신 webhook(선택)
+#   OPS_ALERT_WEBHOOK_URL — 운영 이상 신호·크론 실패 수신 webhook(필수)
 #   REVIEW_LOGIN_ID, REVIEW_LOGIN_PASSWORD, REVIEW_LOGIN_USER_EMAIL — 심사용 기존 카카오 계정 로그인(선택, 세 값 함께 설정)
 on:
   workflow_run:
@@ -137,6 +137,15 @@ jobs:
             ops=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 -X POST -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/v2/cron/deploy-smoke || echo 000)
             [ "$ops" = "200" ] || { echo "✗ SMOKE FAIL: deploy-smoke → $ops"; exit 1; }
             echo "  deploy-smoke 200"
+            echo "▶ [prod] sync application crontab"
+            crontab deploy/crontab.txt
+            systemctl is-active --quiet crond
+            for path in \
+              /api/v2/cron/ops-retention \
+              /api/v2/cron/ops-daily-report; do
+              crontab -l | grep -Fq "$path" || { echo "✗ CRON SYNC FAIL: $path 누락"; exit 1; }
+            done
+            echo "  application crontab synced"
             echo "▶ [prod] nginx maintenance off"
             bash deploy/maintenance.sh off
             trap - EXIT

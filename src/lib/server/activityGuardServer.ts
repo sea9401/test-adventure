@@ -82,6 +82,7 @@ export function recordExtremeActivityAlertSoon(args: {
   });
   recordOpsSignal({
     key: `abuse:extreme-activity:${args.activity}:${args.userId}`,
+    alertType: "abuse.extreme_daily_activity",
     label: `extreme daily ${args.activity} activity`,
     threshold: 1,
     windowMs: 24 * 60 * 60_000,
@@ -120,6 +121,7 @@ export function recordStrongActivitySignalSoon(args: {
   });
   recordOpsSignal({
     key: `abuse:strong-activity:${args.activity}:${args.userId}`,
+    alertType: "abuse.strong_automation_signal",
     label: `repeated strong ${args.activity} automation signals`,
     threshold: 1,
     windowMs: 60 * 60_000,
@@ -185,6 +187,7 @@ export function recordBehaviorActivitySignalSoon(args: {
   });
   recordOpsSignal({
     key: `abuse:behavior-pattern:${args.activity}:${args.userId}`,
+    alertType: "abuse.behavior_pattern",
     label: `repeated ${args.activity} behavior pattern`,
     threshold: 3,
     windowMs: 60 * 60_000,

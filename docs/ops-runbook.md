@@ -181,19 +181,19 @@ bash deploy/maintenance.sh status   # 현재 상태
 - `/api/version` = 빌드 정보.
 - 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정, 매크로 의심 점수 확인.
 - 운영 현황의 매크로 의심 userId/IP는 `이상 행동`·`경제 로그` 필터로 바로 연결된다.
-- `OPS_ALERT_WEBHOOK_URL`은 선택이다. 설정하면 임계치 알림·일일 운영 리포트·크론 실패가 webhook으로 발송되고, 없으면 웹훅 알림만 비활성화된다.
+- `OPS_ALERT_WEBHOOK_URL`은 라이브 배포 필수값이다. 임계치 알림·일일 운영 리포트·크론 실패가 개인정보 없는 사건 코드와 집계값만 담아 webhook으로 발송된다. 누락하면 배포 사전검사가 실패한다.
 - 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
 - ⬜ 외부 업타임 모니터(Route53 헬스체크/CloudWatch/UptimeRobot)는 미설정 — 추후.
 
 ---
 
 ## 6. 크론 (EC2 `crontab -l`, UTC)
-정기 작업이 EC2 crontab으로 돈다(각 라우트가 `CRON_SECRET` Bearer 검사). 종류:
+정기 작업이 EC2 crontab으로 돈다(각 라우트가 `CRON_SECRET` Bearer 검사). 배포 성공 시 `deploy/crontab.txt`를 자동 설치하고 ops-retention·ops-daily-report 등록 여부와 `crond` 상태를 확인한다. 종류:
 - **매분**: 협동 보스 리스폰
 - **매시 00분**: 복권 정산 · NPC 공격
 - **매시 05분**: 거래소 만료 매물 정리
 - **일일 04:00 UTC**: 채팅 · 길드 정리
-- **일일 04:20 UTC**: ops-retention(이상 행동/경제 로그 보관 기간 초과분 정리)
+- **일일 04:20 UTC**: ops-retention(이상 행동/경제 로그 보관 기간 초과분 및 실패한 외부 파일 삭제 재처리)
 - **일일 04:25 UTC**: ops-daily-report(최근 24시간 운영 지표 webhook 리포트)
 - **일일 17:00 UTC**: DB 백업(선택적으로 `BACKUP_S3_URI`에도 암호화 업로드)
 - **토요일 15:00 UTC**: PvP 토너먼트

@@ -103,6 +103,7 @@ function logRateLimitExceeded(
   });
   recordOpsSignal({
     key: `rate-limit:${rateLimitAlertGroup(options.action)}`,
+    alertType: "abuse.rate_limit_spike",
     label: `rate limit exceeded repeatedly: ${rateLimitAlertGroup(options.action)}`,
     threshold: rateLimitAlertThreshold(options.action),
     windowMs: 5 * 60_000,
@@ -178,6 +179,7 @@ function lifeIpFanoutResponse(args: {
     });
     recordOpsSignal({
       key: `abuse:life-ip-fanout:${args.ip}`,
+      alertType: "abuse.life_ip_fanout",
       label: "life activity multi-account IP fanout",
       threshold: 1,
       windowMs: LIFE_IP_FANOUT_WINDOW_MS,

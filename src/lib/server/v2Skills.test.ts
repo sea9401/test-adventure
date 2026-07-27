@@ -35,14 +35,19 @@ const FRUIT_BUDGET_LOADOUT = [
 const OVER_BUDGET_LOADOUT = [
   "v2c_warrior_strike",
   "v2c_mage_fireball",
+  "v2c_mage_shield",
+  "v2c_archmage_collapse",
+  "v2c_primordialmage_return",
+  "v2c_absolute_unity",
+] as const;
+
+const FARMING_UNLOCK_LOADOUT = [
+  "v2c_warrior_strike",
+  "v2c_mage_fireball",
   "v2c_mage_barrage",
   "v2c_mage_shield",
   "v2c_martial_combo",
   "v2c_rogue_poison",
-] as const;
-
-const FARMING_UNLOCK_LOADOUT = [
-  ...OVER_BUDGET_LOADOUT,
   "v2c_warrior_warcry",
 ] as const;
 

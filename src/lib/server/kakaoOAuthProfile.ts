@@ -10,6 +10,12 @@ type KakaoOAuthProfile = {
   };
 };
 
+export function kakaoPlaceholderEmail(
+  providerAccountId: string | number,
+): string {
+  return `kakao_${providerAccountId}@kakao.oauth`;
+}
+
 export function mapKakaoOAuthProfile(profile: KakaoOAuthProfile) {
   const account = profile.kakao_account;
   // Kakao가 유효성과 소유 확인을 모두 보장한 주소만 사용자 이메일로 사용한다.
@@ -20,7 +26,7 @@ export function mapKakaoOAuthProfile(profile: KakaoOAuthProfile) {
     typeof account.email === "string" &&
     account.email.length > 0
       ? account.email
-      : `kakao_${profile.id}@kakao.oauth`;
+      : kakaoPlaceholderEmail(profile.id);
 
   return {
     id: String(profile.id),

@@ -47,6 +47,36 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  it("봉마진 효과가 유지 중이면 중복 시전하지 않고 다음 공격으로 넘어간다", () => {
+    const sealingField = "v2c_spellsealer_sealingfield";
+    const strike = "v2c_warrior_strike";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: sealingField },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: strike },
+        },
+      ],
+    };
+    const base = castInput([sealingField, strike], { combatPattern: pattern });
+
+    expect(resolveV2SkillCast(base).castSkillId).toBe(sealingField);
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        target: {
+          ...base.target,
+          enemyDamageDownActive: true,
+          enemySkillProcDownActive: true,
+        },
+      }).castSkillId,
+    ).toBe(strike);
+  });
+
   it("self_shield 조건 — 보호막이 남아 있으면 보호막 스킬을 다시 쓰지 않는다", () => {
     const pattern: V2CombatPattern = {
       blocks: [
@@ -95,7 +125,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
   it("집중 의식은 위력을 올리지 않고 발동 확률만 올린다", () => {
     const fail = resolveV2SkillCast(
       castInput([SKILL], {
-        procRoll: 45,
+        procRoll: 80,
         skills: {
           learned: [SKILL],
           equipped: [SKILL],
@@ -106,7 +136,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
 
     const focused = resolveV2SkillCast(
       castInput([SKILL], {
-        procRoll: 45,
+        procRoll: 80,
         skills: {
           learned: [SKILL],
           equipped: [SKILL],
@@ -116,7 +146,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     );
     const powered = resolveV2SkillCast(
       castInput([SKILL], {
-        procRoll: 45,
+        procRoll: 80,
         skills: {
           learned: [SKILL],
           equipped: [SKILL],

@@ -32,7 +32,10 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ referral?: string | string[] }>;
+  searchParams: Promise<{
+    referral?: string | string[];
+    error?: string | string[];
+  }>;
 }) {
   // 대문을 모든 신규 진입의 최우선 화면으로 둔다(로그인/캐릭터 유무 무관).
   //  · 비로그인           → 로그인 버튼이 있는 대문.
@@ -45,10 +48,19 @@ export default async function SignInPage({
     redirect("/");
   }
 
-  const referral = (await searchParams).referral;
+  const params = await searchParams;
+  const referral = params.referral;
+  const error = Array.isArray(params.error) ? params.error[0] : params.error;
   return (
     <LandingContent
       authed={!!session?.user}
+      authError={
+        error === "OAuthAccountNotLinked"
+          ? "account-not-linked"
+          : error
+            ? "login-failed"
+            : null
+      }
       referralStatus={
         referral === "accepted"
           ? "accepted"

@@ -14,6 +14,7 @@ import {
   finishEnemyAttack,
   finishPlayerTurn,
   type BattleLogEntry,
+  type BattleCombatSummary,
   type BattleResolution,
   type BattleState,
   type PlayerAction,
@@ -138,6 +139,23 @@ function tickEnemyBundleEntry(state: BattleState): BattleState {
   };
 }
 
+function tickEnemyTargetDebuffs(state: BattleState): BattleState {
+  const s = state.stacks;
+  return {
+    ...state,
+    stacks: {
+      ...s,
+      enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
+      enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
+      enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
+      enemyHealReduceTurns: Math.max(0, s.enemyHealReduceTurns - 1),
+      enemyDamageDownTurns: Math.max(0, s.enemyDamageDownTurns - 1),
+      enemySkillProcDownTurns: Math.max(0, s.enemySkillProcDownTurns - 1),
+      enemyDotVulnTurns: Math.max(0, s.enemyDotVulnTurns - 1),
+    },
+  };
+}
+
 // 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 먼저 틱한다. 로그는 플레이어 행동 묶음(tick)에 붙인다.
 function tickPlayerDotsOnAction(
   state: BattleState,
@@ -207,7 +225,12 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
   };
 }
 
-function forceAtbLoss(state: BattleState, turns: number, consumed: Partial<Record<PotionId, number>>): BattleResolution {
+function forceAtbLoss(
+  state: BattleState,
+  turns: number,
+  consumed: Partial<Record<PotionId, number>>,
+  combatSummary: BattleCombatSummary,
+): BattleResolution {
   return {
     outcome: "lose",
     finalState: {
@@ -221,6 +244,7 @@ function forceAtbLoss(state: BattleState, turns: number, consumed: Partial<Recor
       ),
       phase: "ended",
       outcome: "lose",
+      combatSummary,
     },
     potionsConsumed: consumed,
     turns,
@@ -247,6 +271,7 @@ export function resolveBattleAtb(
     ctx.v2Skills,
     ctx.initialEnemyHp,
   );
+  state = { ...state, usesAtb: true };
   if (ctx.isBoss) state = { ...state, isBoss: true };
   const openingExtra: BattleLogEntry[] = ctx.openingNote
     ? [{ kind: "info", text: ctx.openingNote, turn: "player" }]
@@ -270,6 +295,29 @@ export function resolveBattleAtb(
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
+  let enemyActions = 0;
+  let basicAttackActions = 0;
+  let potionActions = 0;
+  const skillUses: Record<string, number> = {};
+  let damageDealt = 0;
+  let damageTaken = 0;
+  let healingDone = 0;
+  let healingWasted = 0;
+  let controlledEnemyActions = 0;
+  const buildSummary = (elapsedTicks: number): BattleCombatSummary => ({
+    elapsedTicks: Math.max(0, Math.min(ATB_TICK_CAP, Math.floor(elapsedTicks))),
+    tickCap: ATB_TICK_CAP,
+    playerActions: turns,
+    enemyActions,
+    basicAttackActions,
+    potionActions,
+    skillUses: { ...skillUses },
+    damageDealt,
+    damageTaken,
+    healingDone,
+    healingWasted,
+    controlledEnemyActions,
+  });
 
   while (state.phase !== "ended") {
     const nextTick = Math.min(playerNextTick, enemyNextTick);
@@ -279,10 +327,12 @@ export function resolveBattleAtb(
       actions >= ATB_ACTION_GUARD ||
       turns >= (ctx.maxTurns ?? Number.POSITIVE_INFINITY)
     ) {
-      return forceAtbLoss(state, turns, consumed);
+      return forceAtbLoss(state, turns, consumed, buildSummary(nextTick));
     }
 
     const actor = nextActor1v1(playerNextTick, enemyNextTick);
+    const playerHpBeforeAction = state.playerHp;
+    const enemyHpBeforeAction = state.enemyHp;
     actions += 1;
     if (actor === "player") {
       state = {
@@ -296,7 +346,11 @@ export function resolveBattleAtb(
       const playerBundleStart = state.log.length;
       state = tickPlayerDotsOnAction(state, playerName);
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
-      if (state.phase === "ended") break;
+      if (state.phase === "ended") {
+        turns += 1;
+        damageTaken += Math.max(0, playerHpBeforeAction - state.playerHp);
+        break;
+      }
       state = tickPlayerBundleEntry(state);
       // 번들 진입 로그가 t 없이 남으면 최종 hp_bar 만 t 를 가져 외톨이 박스가 생긴다.
       // 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
@@ -319,6 +373,12 @@ export function resolveBattleAtb(
           state = cast.state;
           castFired = cast.castFired;
           castSelfHastePct = cast.selfHastePct;
+          if (cast.castFired && cast.castSkillName) {
+            skillUses[cast.castSkillName] =
+              (skillUses[cast.castSkillName] ?? 0) + 1;
+            healingDone += cast.healingDone;
+            healingWasted += cast.healingWasted;
+          }
           if (cast.enemyDelayPct > 0) {
             // 대지 — 적의 다음 행동(enemyNextTick 에 예약됨)을 적 인터벌의 pct% 만큼 뒤로 민다.
             enemyNextTick +=
@@ -365,25 +425,30 @@ export function resolveBattleAtb(
           state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
         }
         if (state.phase !== "ended" && !castFired) {
-        let action: PlayerAction = { kind: "attack" };
-        const picked = ctx.pickAction(state);
-        if (picked.kind === "use_potion") {
-          const have = potions[picked.potionId] ?? 0;
-          if (have > 0) {
-            potions[picked.potionId] = have - 1;
-            consumed[picked.potionId] = (consumed[picked.potionId] ?? 0) + 1;
+          let action: PlayerAction = { kind: "attack" };
+          const picked = ctx.pickAction(state);
+          if (picked.kind === "use_potion") {
+            const have = potions[picked.potionId] ?? 0;
+            if (have > 0) {
+              potions[picked.potionId] = have - 1;
+              consumed[picked.potionId] =
+                (consumed[picked.potionId] ?? 0) + 1;
+              action = picked;
+              potionActions += 1;
+            } else {
+              basicAttackActions += 1;
+            }
+          } else {
             action = picked;
+            basicAttackActions += 1;
           }
-        } else {
-          action = picked;
-        }
-        while (state.phase === "player") {
-          const prevLogLen = state.log.length;
-          state = resolvePlayerPhase(state, atbPlayer, playerName, action);
-          state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
-          action = { kind: "attack" };
-          if (state.phase === "ended") break;
-        }
+          while (state.phase === "player") {
+            const prevLogLen = state.log.length;
+            state = resolvePlayerPhase(state, atbPlayer, playerName, action);
+            state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
+            action = { kind: "attack" };
+            if (state.phase === "ended") break;
+          }
         }
       }
       // 바람 — 이번 행동 후 내 다음 행동 틱을 가속(pct% 만큼 단축). 미시전이면 0 → 무변.
@@ -392,6 +457,13 @@ export function resolveBattleAtb(
         (1 - castSelfHastePct / 100);
       turns += 1;
     } else {
+      enemyActions += 1;
+      if (
+        state.stacks.enemyDamageDownTurns > 0 ||
+        state.stacks.enemySkillProcDownTurns > 0
+      ) {
+        controlledEnemyActions += 1;
+      }
       state = {
         ...state,
         phase: "enemy",
@@ -403,7 +475,10 @@ export function resolveBattleAtb(
       const enemyBundleStart = state.log.length;
       state = tickEnemyDotsOnAction(state);
       state = tagNewLogEntries(state, enemyBundleStart, "enemy", nextTick);
-      if (state.phase === "ended") break;
+      if (state.phase === "ended") {
+        damageDealt += Math.max(0, enemyHpBeforeAction - state.enemyHp);
+        break;
+      }
       state = tickEnemyBundleEntry(state);
       // 적 번들 진입 로그도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
       state = stampTick(state, enemyBundleStart, nextTick);
@@ -443,8 +518,12 @@ export function resolveBattleAtb(
           }
         }
       }
+      if (state.phase !== "ended") state = tickEnemyTargetDebuffs(state);
       enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
     }
+
+    damageDealt += Math.max(0, enemyHpBeforeAction - state.enemyHp);
+    damageTaken += Math.max(0, playerHpBeforeAction - state.playerHp);
 
     if (state.phase !== "ended") {
       state = {
@@ -456,7 +535,11 @@ export function resolveBattleAtb(
 
   return {
     outcome: state.outcome!,
-    finalState: { ...state, log: appendLog(state.log, hpBarEntry(state, lastTick)) },
+    finalState: {
+      ...state,
+      combatSummary: buildSummary(lastTick),
+      log: appendLog(state.log, hpBarEntry(state, lastTick)),
+    },
     potionsConsumed: consumed,
     turns,
   };

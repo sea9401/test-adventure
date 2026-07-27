@@ -25,6 +25,7 @@ import {
   readCurrentAuthUserId,
 } from "@/lib/server/accountLinkIntent";
 import { mapKakaoOAuthProfile } from "@/lib/server/kakaoOAuthProfile";
+import { recoverOrphanedKakaoAccount } from "@/lib/server/orphanedKakaoAccount";
 import { authenticatePasswordAccount } from "@/lib/server/passwordAccount";
 
 declare module "next-auth" {
@@ -131,7 +132,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
     }),
   ],
   callbacks: {
-    async signIn({ account }) {
+    async signIn({ account, user }) {
       if (!account) return true;
 
       const cookieStore = await cookies();
@@ -154,6 +155,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
 
       const intentToken = cookieStore.get(ACCOUNT_LINK_INTENT_COOKIE)?.value;
       if (!intentToken) {
+        // createUser 직후 linkAccount가 실패해 users 행만 남은 과거/경쟁 요청을 복구한다.
+        // 일반 이메일 자동 병합은 금지하고 provider id로 만든 카카오 플레이스홀더가
+        // 정확히 일치하며 OAuth 연결이 전혀 없는 사용자만 대상으로 한다.
+        const recovery = await recoverOrphanedKakaoAccount(
+          user.email,
+          account,
+        );
+        if (recovery === "conflict" || recovery === "failed") {
+          return "/sign-in?error=OAuthAccountNotLinked";
+        }
+
         // OAuth 로그인을 실제로 마친 브라우저만 기존 활성 기기를 교체할 수 있다.
         // 계정 연결은 로그인 전환이 아니므로 이 표식을 만들지 않는다.
         cookieStore.set(DEVICE_SESSION_TAKEOVER_COOKIE, "1", {

@@ -467,6 +467,38 @@ export const feedbackReports = pgTable(
   ],
 );
 
+// R2 객체 삭제 재시도 큐. 회원 탈퇴처럼 DB 행이 먼저 사라지는 흐름에서 외부 저장소가
+// 일시 실패해도 삭제 대상을 잃지 않도록, 같은 트랜잭션에 target 을 남긴다.
+// kind 별 target: profile_user=user UUID, feedback_image=객체 키, guild=길드 id 문자열.
+export const storageDeletionQueue = pgTable(
+  "storage_deletion_queue",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind").notNull(),
+    target: text("target").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    lastAttemptAt: timestamp("last_attempt_at", { mode: "date" }),
+    nextAttemptAt: timestamp("next_attempt_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("storage_deletion_queue_kind_target_idx").on(t.kind, t.target),
+    index("storage_deletion_queue_next_attempt_idx").on(t.nextAttemptAt),
+    check(
+      "storage_deletion_queue_kind_check",
+      sql`${t.kind} in ('profile_user', 'feedback_image', 'guild')`,
+    ),
+  ],
+);
+
 // 전체 소식 (서버 피드) — 서버 전체에 흘러가는 "자랑거리" 한 줄 (유실된 명품 획득, 걸작 제작 성공 등).
 // 글로벌 채팅과 분리 — 대화용 vs 전광판용. 모험탭 하단 패널에서 최근 N개만 노출.
 // append-only — insert 시 보관기간(FEED_RETENTION_MS=3개월) 지난 행을 잘라낸다 (cron 없음).
@@ -596,6 +628,59 @@ export const marketplaceInbox = pgTable(
     index("inbox_from_user_idx")
       .on(t.fromUserId, t.createdAt)
       .where(sql`${t.fromUserId} IS NOT NULL`),
+  ],
+);
+
+// 정식 오픈·이벤트용 1회성 쿠폰 캠페인. reward 는 admin_gift 우편 payload 와 같은
+// 형태로 저장해 쿠폰 입력 시 우편함에 안전하게 적재하고, 실제 자원 반영은 기존 claim
+// 트랜잭션이 담당한다. 코드는 평문을 저장하지 않고 SHA-256 hash 만 보관한다.
+export const couponCampaigns = pgTable(
+  "coupon_campaigns",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    reward: jsonb("reward").notNull(),
+    message: text("message"),
+    startsAt: timestamp("starts_at", { mode: "date" }).notNull(),
+    endsAt: timestamp("ends_at", { mode: "date" }).notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("coupon_campaigns_slug_idx").on(t.slug),
+    check("coupon_campaigns_period_check", sql`${t.endsAt} > ${t.startsAt}`),
+  ],
+);
+
+// issuedForUserId 는 발급 대상 감사·재실행 멱등성용이고, restrictedUserId 는 실제 사용
+// 계정 제한용이다. 정식 오픈 때 계정을 초기화한다면 발급 스크립트의 --transferable 로
+// restrictedUserId 만 NULL 로 두되 issuedForUserId 는 유지할 수 있다.
+export const couponCodes = pgTable(
+  "coupon_codes",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => couponCampaigns.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    codeSuffix: text("code_suffix").notNull(),
+    issuedForUserId: text("issued_for_user_id"),
+    restrictedUserId: text("restricted_user_id"),
+    redeemedByUserId: text("redeemed_by_user_id"),
+    redeemedAt: timestamp("redeemed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("coupon_codes_hash_idx").on(t.codeHash),
+    uniqueIndex("coupon_codes_campaign_issued_user_idx")
+      .on(t.campaignId, t.issuedForUserId)
+      .where(sql`${t.issuedForUserId} IS NOT NULL`),
+    index("coupon_codes_campaign_redeemed_idx").on(t.campaignId, t.redeemedAt),
+    check(
+      "coupon_codes_redeemed_pair_check",
+      sql`(${t.redeemedAt} IS NULL AND ${t.redeemedByUserId} IS NULL) OR (${t.redeemedAt} IS NOT NULL AND ${t.redeemedByUserId} IS NOT NULL)`,
+    ),
   ],
 );
 

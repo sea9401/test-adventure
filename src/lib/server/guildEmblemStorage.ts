@@ -2,8 +2,10 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import {
+  DeleteObjectsCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -96,4 +98,40 @@ export async function deleteGuildEmblemImage(key: unknown): Promise<void> {
   if (!normalized) return;
   const { client, bucket } = storage();
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: normalized }));
+}
+
+// 길드가 계정 삭제의 cascade 로 사라질 때 과거 교체 실패분까지 길드 prefix 단위로 정리한다.
+export async function deleteGuildEmblemImagesForGuild(
+  guildId: unknown,
+): Promise<number> {
+  if (
+    typeof guildId !== "number" ||
+    !Number.isSafeInteger(guildId) ||
+    guildId <= 0
+  ) {
+    throw new Error("invalid_guild_id");
+  }
+  const { client, bucket } = storage();
+  const prefix = `${GUILD_EMBLEM_STORAGE_PREFIX}/${guildId}/`;
+  let deleted = 0;
+
+  while (true) {
+    const listed = await client.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, MaxKeys: 1_000 }),
+    );
+    const keys = (listed.Contents ?? [])
+      .map((entry) => normalizeGuildEmblemObjectKey(entry.Key))
+      .filter((key): key is string => key !== null);
+    if (keys.length === 0) return deleted;
+    const result = await client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+      }),
+    );
+    if ((result.Errors?.length ?? 0) > 0) {
+      throw new Error("guild_emblem_batch_delete_failed");
+    }
+    deleted += keys.length;
+  }
 }

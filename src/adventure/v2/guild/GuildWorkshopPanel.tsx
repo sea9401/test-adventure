@@ -40,6 +40,7 @@ import {
   workshopEquipmentTierLabel,
   workshopRecordQualityText,
   type DeliveryState,
+  type WorkshopEquipmentCodexLoadStatus,
   type WorkshopState,
   type WeeklyState,
 } from "./guildWorkshopPanelModel";
@@ -110,7 +111,9 @@ export function GuildWorkshopPanel({
   const [registeredEquipmentIds, setRegisteredEquipmentIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
-  const [equipmentCodexReady, setEquipmentCodexReady] = useState(false);
+  const [equipmentCodexStatus, setEquipmentCodexStatus] =
+    useState<WorkshopEquipmentCodexLoadStatus>("loading");
+  const equipmentCodexReady = equipmentCodexStatus === "ready";
   const workshopEndpoint = outpostId
     ? `/api/v2/guild/workshop?outpostId=${encodeURIComponent(outpostId)}`
     : "/api/v2/guild/workshop";
@@ -127,10 +130,10 @@ export function GuildWorkshopPanel({
             )
           : [];
         setRegisteredEquipmentIds(new Set(ids));
-        setEquipmentCodexReady(true);
+        setEquipmentCodexStatus("ready");
       })
       .catch(() => {
-        if (alive) setEquipmentCodexReady(false);
+        if (alive) setEquipmentCodexStatus("error");
       });
     return () => {
       alive = false;
@@ -1028,6 +1031,8 @@ export function GuildWorkshopPanel({
           state={state}
           weekly={weekly}
           recommendedRecipeId={workshopRecommendation.recipeId ?? null}
+          registeredEquipmentIds={registeredEquipmentIds}
+          equipmentCodexStatus={equipmentCodexStatus}
           loading={loading}
           onMessage={setMessage}
           onServerSync={applyCraftServerState}

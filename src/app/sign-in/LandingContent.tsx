@@ -31,10 +31,12 @@ const FEATURES = [
 export function LandingContent({
   authed = false,
   referralStatus = null,
+  authError = null,
 }: {
   // 로그인은 됐지만 아직 캐릭터가 없는 유저 — 로그인 버튼 대신 "시작하기"(→/create) 노출.
   authed?: boolean;
   referralStatus?: "accepted" | "invalid" | null;
+  authError?: "account-not-linked" | "login-failed" | null;
 }) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0a0a0b] text-zinc-200">
@@ -69,6 +71,16 @@ export function LandingContent({
           </p>
 
           <div className="mt-10 flex w-full flex-col items-center gap-3">
+            {authError && (
+              <p
+                role="alert"
+                className="w-full max-w-xs rounded-lg border border-rose-300/30 bg-zinc-950 px-4 py-3 text-sm leading-relaxed text-rose-200"
+              >
+                {authError === "account-not-linked"
+                  ? "기존 계정과 카카오 로그인을 연결하지 못했습니다. 같은 화면이 반복되면 인게임 닉네임과 함께 운영자에게 문의해 주세요."
+                  : "로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."}
+              </p>
+            )}
             {referralStatus && (
               <p
                 role="status"
@@ -106,6 +118,10 @@ export function LandingContent({
                 ? "새 캐릭터를 만들거나 기존 계정으로 로그인할 수 있습니다"
                 : "소셜 계정으로 간편하게 시작 · 별도 설치 없음"}
             </p>
+            <p className="max-w-sm text-[11px] leading-5 text-zinc-600">
+              로그인하면 <Link href="/terms" className="underline underline-offset-2 hover:text-zinc-400">이용약관</Link>과{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-zinc-400">개인정보처리방침</Link>에 동의한 것으로 봅니다.
+            </p>
           </div>
 
         </section>
@@ -140,9 +156,18 @@ export function LandingContent({
           <span className="font-medium tracking-wide text-zinc-500">
             무슨무슨게임
           </span>
-          <nav className="flex items-center gap-5">
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link href="/manual" className="transition-colors hover:text-zinc-300">
               게임 가이드
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-zinc-300">
+              이용약관
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-zinc-300">
+              개인정보처리방침
+            </Link>
+            <Link href="/operations" className="transition-colors hover:text-zinc-300">
+              운영정책
             </Link>
             <a
               href="mailto:sea9401@gmail.com"

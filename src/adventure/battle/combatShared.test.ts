@@ -301,7 +301,7 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
 describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 시스템)", () => {
   const fireballMp = v2SkillMpCost(V2_SKILLS["v2c_mage_fireball"]);
 
-  it("화염구 procChance=30 — 롤 < 30 이면 발동 (MP 차감 + 피해)", () => {
+  it("화염구 procChance=72 — 롤 < 72 이면 발동 (MP 차감 + 피해)", () => {
     const r = resolveV2SkillCast({
       skills: {
         learned: ["v2c_mage_fireball"],
@@ -317,14 +317,14 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
     expect(r.enemyDamage).toBeGreaterThan(0);
   });
 
-  it("화염구 procChance=30 — 롤 >= 30 이면 미발동 (평타 폴백, MP·발동 없음)", () => {
+  it("화염구 procChance=72 — 롤 >= 72 이면 미발동 (평타 폴백, MP·발동 없음)", () => {
     const r = resolveV2SkillCast({
       skills: {
         learned: ["v2c_mage_fireball"],
         equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
-      procRoll: 50,
+      procRoll: 75,
       attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
@@ -340,7 +340,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
         equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
-      procRoll: 30,
+      procRoll: 72,
       attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
@@ -371,7 +371,7 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
     expect(r.castSkillId).toBe("v2_skill_strike");
   });
 
-  it("procChanceBonus — 보너스가 procChance 에 합산(화염구 30+30=60 → 롤 50 발동)", () => {
+  it("procChanceBonus — 보너스가 procChance 에 합산(화염구 72+10=82 → 롤 75 발동)", () => {
     const fire = (bonus: number) =>
       resolveV2SkillCast({
         skills: {
@@ -379,14 +379,14 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
           equipped: ["v2c_mage_fireball"],
         },
         cooldowns: {},
-        procRoll: 50,
+        procRoll: 75,
         procChanceBonus: bonus,
         attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
         target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
       });
-    // 보너스 0: 30 → 50>=30 미발동. 보너스 30: 60 → 50<60 발동.
+    // 보너스 0: 72 → 75>=72 미발동. 보너스 10: 82 → 75<82 발동.
     expect(fire(0).castSkillId).toBeNull();
-    expect(fire(30).castSkillId).toBe("v2c_mage_fireball");
+    expect(fire(10).castSkillId).toBe("v2c_mage_fireball");
   });
 });
 
@@ -523,8 +523,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfDebuffs: {},
       },
     });
-    expect(result.enemyDamage).toBe(372);
-    expect(result.selfHeal).toBe(Math.floor(372 * 0.14));
+    expect(result.enemyDamage).toBe(291);
+    expect(result.selfHeal).toBe(Math.floor(291 * 0.14));
   });
 
   it("selfBuff effect — buff 목록 반환 (stat/pct/turns)", () => {
@@ -612,8 +612,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // floor(100 × 0.7 + 90) - 20 = 160 - 20 = 140
-    expect(result.enemyDamage).toBe(140);
+    // 리밸런싱 후 floor(100 × 0.46 + 59) - 20 = 85.
+    expect(result.enemyDamage).toBe(85);
     expect(result.enemyDebuffsToApply).toEqual([
       { stat: "vit", pct: 15, turns: 3 },
     ]);
@@ -864,8 +864,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("화염구");
-    expect(result.enemyDamage).toBe(360);
-    expect(result.magicEnemyDamage).toBe(360);
+    expect(result.enemyDamage).toBe(233);
+    expect(result.magicEnemyDamage).toBe(233);
   });
 
   it("resolveV2SkillCast — 생명 강타(scaling maxHp)는 최대 HP 로 스케일", () => {
@@ -882,7 +882,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("생명 강타");
-    expect(result.enemyDamage).toBe(330);
+    expect(result.enemyDamage).toBe(294);
   });
 
   it("resolveV2SkillCast — 만상검(scaling all)은 올스탯 합계로 스케일", () => {
@@ -900,7 +900,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("만상검");
-    expect(result.enemyDamage).toBe(372);
+    expect(result.enemyDamage).toBe(332);
   });
 
   it("resolveV2SkillCast — 만상귀일은 올스탯 피해와 취약·행동 가속을 함께 적용", () => {
@@ -919,7 +919,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
 
     expect(result.castSkillName).toBe("만상귀일");
-    expect(result.enemyDamage).toBe(634);
+    expect(result.enemyDamage).toBe(603);
     expect(result.enemyVulnToApply).toEqual({ pct: 14, turns: 3 });
     expect(result.selfHasteToApply).toEqual({ pct: 25 });
   });

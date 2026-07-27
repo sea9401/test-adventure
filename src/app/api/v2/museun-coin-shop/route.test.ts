@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MUSEUN_COIN_WALLET_KEY } from "@/adventure/data/v2/museunCashItems";
 
 vi.mock("@/db", () => ({
@@ -21,7 +21,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 function request(body: Record<string, unknown>) {
   return new Request("http://localhost/api/v2/museun-coin-shop", {
@@ -32,6 +32,7 @@ function request(body: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN", "true");
   vi.clearAllMocks();
   vi.mocked(lockSaveForUpdate).mockImplementation(
     async (_tx, _userId, key) => {
@@ -44,7 +45,20 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("무슨 코인 상점 일괄 구매", () => {
+  it("공개 플래그가 꺼지면 조회와 구매를 모두 숨긴다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN", "false");
+
+    expect((await GET()).status).toBe(404);
+    expect((await POST(request({ itemId: "rename_permit" }))).status).toBe(404);
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
   it("선택한 수량의 총액을 한 번에 차감하고 가방 수량을 늘린다", async () => {
     const response = await POST(
       request({ itemId: "chroma_name_box", quantity: 5 }),

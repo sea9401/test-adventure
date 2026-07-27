@@ -3,11 +3,14 @@ import { MANUAL_SECTIONS } from "./manual/sections";
 import sitemap from "./sitemap";
 
 describe("sitemap.xml", () => {
-  it("대문과 모든 게임 안내서 섹션을 제공한다", () => {
+  it("대문, 공개 정책과 모든 게임 안내서 섹션을 제공한다", () => {
     const urls = sitemap().map((entry) => entry.url);
 
     expect(urls).toEqual([
       "https://msmsge.com/sign-in",
+      "https://msmsge.com/terms",
+      "https://msmsge.com/privacy",
+      "https://msmsge.com/operations",
       ...MANUAL_SECTIONS.map(
         (section) => `https://msmsge.com/manual/${section.slug}`,
       ),

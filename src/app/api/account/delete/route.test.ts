@@ -8,9 +8,18 @@ const mocks = vi.hoisted(() => ({
   sessionFailure: null as Response | null,
   userRows: [] as Row[],
   transactionRows: [] as Row[][],
+  queuedTargets: [] as Row[],
+  queuedRows: [] as Array<{ id: number }>,
   deleteUser: vi.fn(async () => undefined),
   clearAffiliation: vi.fn(async () => undefined),
   signOut: vi.fn(async () => undefined),
+  processStorageQueue: vi.fn(async () => ({
+    attempted: 0,
+    completed: 0,
+    failed: 0,
+    objectsDeleted: 0,
+  })),
+  sendOpsAlert: vi.fn(async () => undefined),
 }));
 
 function queryResult(rows: Row[]) {
@@ -34,12 +43,28 @@ vi.mock("@/lib/server/checkSession", () => ({
 vi.mock("@/lib/server/guildAffiliation", () => ({
   clearAffiliationInTx: mocks.clearAffiliation,
 }));
+vi.mock("@/lib/server/storageDeletionQueue", () => ({
+  processStorageDeletionQueue: mocks.processStorageQueue,
+}));
+vi.mock("@/lib/server/opsAlert", () => ({
+  sendOpsAlert: mocks.sendOpsAlert,
+}));
 vi.mock("@/db", () => {
   const tx = {
     select: vi.fn(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => queryResult(mocks.transactionRows.shift() ?? [])),
       })),
+    })),
+    insert: vi.fn(() => ({
+      values: vi.fn((values: Row[]) => {
+        mocks.queuedTargets = values;
+        return {
+          onConflictDoNothing: vi.fn(() => ({
+            returning: vi.fn(async () => mocks.queuedRows),
+          })),
+        };
+      }),
     })),
     delete: vi.fn(() => ({ where: mocks.deleteUser })),
   };
@@ -77,6 +102,14 @@ describe("POST /api/account/delete", () => {
     mocks.sessionFailure = null;
     mocks.userRows = [{ gameName: "용사" }];
     mocks.transactionRows.length = 0;
+    mocks.queuedTargets = [];
+    mocks.queuedRows = [];
+    mocks.processStorageQueue.mockResolvedValue({
+      attempted: 0,
+      completed: 0,
+      failed: 0,
+      objectsDeleted: 0,
+    });
   });
 
   it("관리자 가장 중에는 원래 관리자 계정 삭제를 막는다", async () => {
@@ -134,6 +167,32 @@ describe("POST /api/account/delete", () => {
       expect.anything(),
       "member-3",
     );
+    expect(mocks.deleteUser).toHaveBeenCalledOnce();
+  });
+
+  it("프로필 prefix·문의 이미지·해체되는 길드를 삭제 큐에 넣고 즉시 처리한다", async () => {
+    mocks.userId = "123e4567-e89b-42d3-a456-426614174000";
+    const feedbackKey =
+      "feedback-images/123e4567-e89b-42d3-a456-426614174001.webp";
+    mocks.transactionRows.push(
+      [{ guildId: 7, role: "master" }],
+      [{ userId: mocks.userId }],
+      [{ id: 7 }],
+      [{ imageKey: feedbackKey }, { imageKey: "invalid.webp" }],
+    );
+    mocks.queuedRows = [{ id: 11 }, { id: 12 }, { id: 13 }];
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.queuedTargets).toEqual([
+      { kind: "profile_user", target: mocks.userId },
+      { kind: "guild", target: "7" },
+      { kind: "feedback_image", target: feedbackKey },
+    ]);
+    expect(mocks.processStorageQueue).toHaveBeenCalledWith({
+      ids: [11, 12, 13],
+    });
     expect(mocks.deleteUser).toHaveBeenCalledOnce();
   });
 });

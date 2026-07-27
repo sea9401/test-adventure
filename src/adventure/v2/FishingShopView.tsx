@@ -13,6 +13,7 @@ import {
 import {
   FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_CONSUMABLES,
+  FISHING_STAMINA_POTION_ITEM_ID,
   fishingShopEntries,
 } from "./fishingShop";
 import {
@@ -140,7 +141,20 @@ export function FishingShopView({
   const staminaPotions = state?.staminaPotions ?? 0;
   const progression = state?.progression ?? null;
   const seedPouch = state?.seedPouch ?? null;
+  const staminaPotionLimit = state?.staminaPotionLimit ?? null;
   const consumables = FISHING_SHOP_CONSUMABLES.map((item) => {
+    if (
+      item.itemId === FISHING_STAMINA_POTION_ITEM_ID &&
+      staminaPotionLimit
+    ) {
+      return {
+        ...item,
+        badge: `오늘 ${staminaPotionLimit.boughtToday}/${staminaPotionLimit.dailyLimit}`,
+        disabled: staminaPotionLimit.remainingToday <= 0,
+        buttonLabel:
+          staminaPotionLimit.remainingToday <= 0 ? "오늘 한도" : undefined,
+      };
+    }
     if (item.itemId !== FISHING_SEED_POUCH_ITEM_ID || !seedPouch) return item;
     const nextPrice = seedPouch.nextPrice;
     return {

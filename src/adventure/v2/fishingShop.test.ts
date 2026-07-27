@@ -5,8 +5,11 @@ import {
   FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_CONSUMABLES,
   FISHING_SHOP_TITLES,
+  FISHING_STAMINA_POTION_DAILY_LIMIT,
+  FISHING_STAMINA_POTION_ITEM_ID,
   fishingSeedPouchPriceForPurchase,
   fishingSeedPouchView,
+  fishingStaminaPotionView,
   fishingShopConsumablePriceFor,
   fishingShopEntries,
   fishingShopPriceFor,
@@ -63,7 +66,7 @@ describe("낚시 코인 상점 카탈로그", () => {
 
   it("소비품에 스태미나 회복약과 농장 씨앗 주머니를 둔다", () => {
     expect(FISHING_SHOP_CONSUMABLES.map((item) => item.itemId)).toEqual([
-      "stamina_potion",
+      FISHING_STAMINA_POTION_ITEM_ID,
       FISHING_SEED_POUCH_ITEM_ID,
     ]);
     expect(fishingShopConsumablePriceFor("stamina_potion")).toBe(200);
@@ -71,6 +74,32 @@ describe("낚시 코인 상점 카탈로그", () => {
       FISHING_SEED_POUCH_BASE_PRICE,
     );
     expect(fishingShopConsumablePriceFor("not_an_item")).toBeUndefined();
+  });
+
+  it("스태미나 회복약은 KST 하루 5개까지 구매할 수 있다", () => {
+    expect(FISHING_STAMINA_POTION_DAILY_LIMIT).toBe(5);
+    let state = parseFishingShopState({}, "2026-07-28");
+    for (let i = 0; i < FISHING_STAMINA_POTION_DAILY_LIMIT; i += 1) {
+      state = recordFishingShopPurchase(
+        state,
+        FISHING_STAMINA_POTION_ITEM_ID,
+      );
+    }
+    expect(fishingStaminaPotionView(state)).toEqual({
+      boughtToday: 5,
+      dailyLimit: 5,
+      remainingToday: 0,
+    });
+
+    expect(
+      fishingStaminaPotionView(
+        parseFishingShopState(state, "2026-07-29"),
+      ),
+    ).toEqual({
+      boughtToday: 0,
+      dailyLimit: 5,
+      remainingToday: 5,
+    });
   });
 
   it("씨앗 주머니는 하루 3개까지 80→160→320 가격으로 오른다", () => {

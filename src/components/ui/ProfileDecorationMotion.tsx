@@ -7,6 +7,19 @@ import {
 } from "@/adventure/data/v2/museunCosmetics";
 
 const PROFILE_PARTICLE_SLOTS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+const STORM_RAIN_SLOTS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"];
+const FROZEN_DECORATION_CLASSES = [
+  "ui-frozen-frost ui-frozen-frost--a",
+  "ui-frozen-frost ui-frozen-frost--b",
+  ...PROFILE_PARTICLE_SLOTS.map(
+    (slot) => `ui-frozen-crystal ui-profile-particle-slot--${slot}`,
+  ),
+];
+const STORM_DECORATION_CLASSES = [
+  "ui-storm-lightning ui-storm-lightning--a",
+  "ui-storm-lightning ui-storm-lightning--b",
+  ...STORM_RAIN_SLOTS.map((slot) => `ui-storm-rain ui-storm-rain--${slot}`),
+];
 const CELESTIAL_STAR_SLOTS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
 const CELESTIAL_DECORATION_CLASSES = [
   "ui-celestial-halo",
@@ -36,12 +49,8 @@ const PROFILE_PARTICLE_CLASSES = {
   obsidian: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-obsidian-cinder ui-profile-particle-slot--${slot}`,
   ),
-  frozen: PROFILE_PARTICLE_SLOTS.map(
-    (slot) => `ui-frozen-crystal ui-profile-particle-slot--${slot}`,
-  ),
-  storm: PROFILE_PARTICLE_SLOTS.map(
-    (slot) => `ui-storm-spark ui-profile-particle-slot--${slot}`,
-  ),
+  frozen: FROZEN_DECORATION_CLASSES,
+  storm: STORM_DECORATION_CLASSES,
   rose: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-rose-petal ui-rose-petal--${slot}`,
   ),

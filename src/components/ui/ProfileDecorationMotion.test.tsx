@@ -4,7 +4,7 @@ import { CosmeticAvatar } from "./CosmeticAvatar";
 import { ProfileDecorationMotion } from "./ProfileDecorationMotion";
 
 describe("ProfileDecorationMotion", () => {
-  it("천상을 제외한 움직이는 테두리 9종에 고유 입자 10개를 렌더링한다", () => {
+  it("기본 입자형 테두리 8종에 고유 입자 10개를 렌더링한다", () => {
     const particleThemes = [
       ["prismatic", "ui-prismatic-glint"],
       ["infernal", "ui-infernal-ember"],
@@ -12,7 +12,6 @@ describe("ProfileDecorationMotion", () => {
       ["verdant", "ui-verdant-leaf"],
       ["obsidian", "ui-obsidian-cinder"],
       ["frozen", "ui-frozen-crystal"],
-      ["storm", "ui-storm-spark"],
       ["rose", "ui-rose-petal"],
       ["royal", "ui-royal-mote"],
     ] as const;
@@ -30,6 +29,25 @@ describe("ProfileDecorationMotion", () => {
       ).toHaveLength(10);
     }
     expect(sapphire).toBe("");
+  });
+
+  it("빙결에는 눈 결정과 가장자리 서리층을 렌더링한다", () => {
+    const html = renderToStaticMarkup(
+      <ProfileDecorationMotion profileBorder="frozen" />,
+    );
+
+    expect(html.match(/class="ui-frozen-crystal /g)).toHaveLength(10);
+    expect(html.match(/class="ui-frozen-frost /g)).toHaveLength(2);
+  });
+
+  it("폭풍에는 빗줄기와 배경 번개를 렌더링한다", () => {
+    const html = renderToStaticMarkup(
+      <ProfileDecorationMotion profileBorder="storm" />,
+    );
+
+    expect(html.match(/class="ui-storm-rain /g)).toHaveLength(14);
+    expect(html.match(/class="ui-storm-lightning /g)).toHaveLength(2);
+    expect(html).not.toContain("ui-storm-spark");
   });
 
   it("천상에는 전설 전용 별빛·별자리·유성·광륜을 렌더링한다", () => {

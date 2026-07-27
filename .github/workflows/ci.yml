@@ -23,6 +23,8 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Secret leak guard
+        run: npm run check-secrets
       - run: npm ci
       - name: Image refs (check-images)
         run: npm run check-images

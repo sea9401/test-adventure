@@ -123,4 +123,23 @@ describe("production security surface", () => {
       );
     }
   });
+
+  it("추적 파일의 비밀값 누출을 CI에서 차단한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+    const packageJson = source(join(ROOT, "package.json"));
+    const guard = source(join(ROOT, "scripts/check-secrets.mjs"));
+
+    expect(workflow).toContain("npm run check-secrets");
+    expect(packageJson).toContain('"check-secrets"');
+    for (const marker of [
+      "private-key",
+      "aws-access-key",
+      "github-token",
+      "discord-webhook",
+      "database-url-with-password",
+      "literal-",
+    ]) {
+      expect(guard).toContain(marker);
+    }
+  });
 });

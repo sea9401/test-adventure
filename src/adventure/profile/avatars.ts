@@ -29,12 +29,20 @@ export type Gender = Avatar;
 export const NPC_AVATAR_PREFIX = "npc:";
 export const MONSTER_AVATAR_PREFIX = "monster:";
 export const PROFILE_IMAGE_STORAGE_PREFIX = "profile-images";
+export const PROFILE_IMAGE_MAX_BYTES = 1 * 1024 * 1024;
+export const PROFILE_IMAGE_SIZE = 256;
+export const PROFILE_IMAGE_MAX_DIMENSION = 4096;
+export const PROFILE_IMAGE_MAX_DURATION_MS = 4_000;
+export const PROFILE_IMAGE_MAX_FPS = 15;
+export type ProfileImageMotion = "static" | "animated";
 
 const PROFILE_IMAGE_USER_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const PROFILE_IMAGE_OBJECT_KEY =
   /^profile-images\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.webp$/i;
+const PROFILE_IMAGE_ASSET_KEY =
+  /^profile-images\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(\.thumb)?\.webp$/i;
 
 // portrait 가 있는 NPC 만 선택지로. 가용 카탈로그.
 export const NPC_AVATAR_IDS = NPCS.filter((n) => !!n.portrait).map(
@@ -85,6 +93,22 @@ export function isProfileImageObjectKey(value: unknown): value is string {
   return normalizeProfileImageObjectKey(value) !== null;
 }
 
+export function normalizeProfileImageAssetKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return PROFILE_IMAGE_ASSET_KEY.test(trimmed) ? trimmed : null;
+}
+
+export function profileImageThumbnailObjectKey(value: unknown): string | null {
+  const key = normalizeProfileImageObjectKey(value);
+  return key ? key.replace(/\.webp$/i, ".thumb.webp") : null;
+}
+
+export function profileImageOriginalObjectKey(value: unknown): string | null {
+  const key = normalizeProfileImageAssetKey(value);
+  return key ? key.replace(/\.thumb\.webp$/i, ".webp") : null;
+}
+
 // 저장된 프로필에는 게임 이미지 외에 서버가 발급한 커스텀 이미지 키도 허용한다.
 // 신규 가입/일반 선택 UI는 isValidAvatarId 만 사용해 임의 키 주입을 막는다.
 export function isStoredAvatarId(raw: unknown): raw is Avatar {
@@ -92,11 +116,18 @@ export function isStoredAvatarId(raw: unknown): raw is Avatar {
 }
 
 // 아바타 id → 표시용 이미지 src. 알 수 없는 id 는 기본 캐릭터 외형으로 폴백.
-export function avatarImageSrc(id: Avatar): string {
+export function avatarImageSrc(
+  id: Avatar,
+  motion: ProfileImageMotion = "static",
+): string {
   const customKey = normalizeProfileImageObjectKey(id);
   if (customKey) {
     const match = PROFILE_IMAGE_OBJECT_KEY.exec(customKey);
-    if (match) return `/api/profile/image/${match[1]}/${match[2]}.webp`;
+    if (match) {
+      // v2 쿼리는 썸네일 도입 직후 원본 애니메이션으로 잘못 캐시된 응답을 즉시 무효화한다.
+      const suffix = motion === "static" ? ".thumb.webp?v=2" : ".webp";
+      return `/api/profile/image/${match[1]}/${match[2]}${suffix}`;
+    }
   }
   if (typeof id === "string" && id.startsWith(NPC_AVATAR_PREFIX)) {
     const npcId = id.slice(NPC_AVATAR_PREFIX.length);

@@ -62,7 +62,10 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 import { requiredExpToNext } from "@/lib/leveling";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import {
+  OUTPOSTS,
+  START_OUTPOST_ID,
+} from "@/adventure/data/v2/outposts";
 
 function seedStrongWarrior() {
   store.clear();
@@ -387,6 +390,18 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       currentOutpostId,
     });
     expect(store.get("character.v2")).toEqual(before);
+  });
+
+  it("저장 거점이 없는 신규 계정은 시작 거점 사냥 요청을 정상 처리한다", async () => {
+    const res = await POST(
+      huntReq({ floor: 2, outpostId: START_OUTPOST_ID }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      result: { won: true },
+    });
   });
 
   it("스태미나 부족 — 첫 판부터 막히면 409(단판과 동일 에러)", async () => {

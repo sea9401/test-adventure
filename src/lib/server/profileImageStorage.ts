@@ -11,8 +11,10 @@ import {
 } from "@aws-sdk/client-s3";
 import {
   PROFILE_IMAGE_STORAGE_PREFIX,
+  normalizeProfileImageAssetKey,
   normalizeProfileImageObjectKey,
   normalizeProfileImageUserId,
+  profileImageThumbnailObjectKey,
 } from "@/adventure/profile/avatars";
 
 type R2Config = {
@@ -59,23 +61,42 @@ export function isProfileImageStorageConfigured(): boolean {
 export async function uploadProfileImage(input: {
   userId: string;
   bytes: Uint8Array;
+  thumbnailBytes: Uint8Array;
 }): Promise<string> {
   const { client, bucket } = storage();
   const key = `${PROFILE_IMAGE_STORAGE_PREFIX}/${input.userId}/${randomUUID()}.webp`;
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: input.bytes,
-      ContentType: "image/webp",
-      CacheControl: "public, max-age=31536000, immutable",
-    }),
-  );
+  const thumbnailKey = profileImageThumbnailObjectKey(key);
+  if (!thumbnailKey) throw new Error("invalid_profile_image_key");
+  const common = {
+    Bucket: bucket,
+    ContentType: "image/webp",
+    CacheControl: "public, max-age=31536000, immutable",
+  };
+  try {
+    await Promise.all([
+      client.send(
+        new PutObjectCommand({ ...common, Key: key, Body: input.bytes }),
+      ),
+      client.send(
+        new PutObjectCommand({
+          ...common,
+          Key: thumbnailKey,
+          Body: input.thumbnailBytes,
+        }),
+      ),
+    ]);
+  } catch (error) {
+    await Promise.allSettled([
+      client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })),
+      client.send(new DeleteObjectCommand({ Bucket: bucket, Key: thumbnailKey })),
+    ]);
+    throw error;
+  }
   return key;
 }
 
 export async function readProfileImage(key: string): Promise<Uint8Array | null> {
-  const normalized = normalizeProfileImageObjectKey(key);
+  const normalized = normalizeProfileImageAssetKey(key);
   if (!normalized) return null;
   const { client, bucket } = storage();
   try {
@@ -94,11 +115,41 @@ export async function readProfileImage(key: string): Promise<Uint8Array | null> 
   }
 }
 
+export async function uploadProfileImageThumbnail(
+  key: string,
+  bytes: Uint8Array,
+): Promise<void> {
+  const normalized = normalizeProfileImageAssetKey(key);
+  if (!normalized?.endsWith(".thumb.webp")) {
+    throw new Error("invalid_profile_image_thumbnail_key");
+  }
+  const { client, bucket } = storage();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: normalized,
+      Body: bytes,
+      ContentType: "image/webp",
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
+  );
+}
+
 export async function deleteProfileImage(key: unknown): Promise<void> {
   const normalized = normalizeProfileImageObjectKey(key);
   if (!normalized) return;
   const { client, bucket } = storage();
-  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: normalized }));
+  const thumbnailKey = profileImageThumbnailObjectKey(normalized);
+  const results = await Promise.allSettled([
+    client.send(new DeleteObjectCommand({ Bucket: bucket, Key: normalized })),
+    ...(thumbnailKey
+      ? [client.send(new DeleteObjectCommand({ Bucket: bucket, Key: thumbnailKey }))]
+      : []),
+  ]);
+  const failed = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failed) throw failed.reason;
 }
 
 // 회원 탈퇴 때 현재 프로필에 연결된 한 장뿐 아니라, 과거 교체 삭제가 실패해 남았을 수

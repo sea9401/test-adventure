@@ -16,6 +16,10 @@ import {
   parseMuseunCoinShopPurchaseQuantity,
 } from "@/adventure/data/v2/museunCashItems";
 import { parseMuseunCosmetics } from "@/adventure/data/v2/museunCosmetics";
+import {
+  PROFILE_BADGE_STAND_ITEM_ID,
+  ownsProfileBadgeStand,
+} from "@/adventure/profile/profileShowcase";
 
 type CharacterSave = {
   cashItems?: unknown;
@@ -47,6 +51,7 @@ export async function GET() {
     coins: parseMuseunCoinBalance(wallet),
     cashItems: parseMuseunCashItems(character.cashItems),
     cosmetics: parseMuseunCosmetics(character.museunCosmetics),
+    profileBadgeStandOwned: ownsProfileBadgeStand(character),
   });
 }
 
@@ -76,6 +81,9 @@ export async function POST(req: Request) {
   if (quantity === null) return bad("invalid_quantity");
   const itemId = body.itemId;
   const item = MUSEUN_CASH_ITEMS[itemId];
+  if (item.delivery === "permanent" && quantity !== 1) {
+    return bad("invalid_quantity");
+  }
   const totalPrice = item.coinPrice * quantity;
 
   const result = await db.transaction(async (tx) => {
@@ -93,6 +101,15 @@ export async function POST(req: Request) {
       {},
     );
     const currentCashItems = parseMuseunCashItems(character.cashItems);
+    if (
+      itemId === PROFILE_BADGE_STAND_ITEM_ID &&
+      ownsProfileBadgeStand(character)
+    ) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "already_owned" },
+      };
+    }
     const coins = parseMuseunCoinBalance(wallet);
     if (coins < totalPrice) {
       return {
@@ -112,10 +129,15 @@ export async function POST(req: Request) {
         ? addMuseunCashItem(currentCashItems, itemId, quantity)
         : currentCashItems;
     const cosmetics = parseMuseunCosmetics(character.museunCosmetics);
+    const profileBadgeStandOwned =
+      itemId === PROFILE_BADGE_STAND_ITEM_ID
+        ? true
+        : ownsProfileBadgeStand(character);
     await upsertSave(tx, userId, "character.v2", {
       ...character,
       cashItems,
       museunCosmetics: cosmetics,
+      ...(profileBadgeStandOwned ? { profileBadgeStandOwned: true } : {}),
     });
     await upsertSave(tx, userId, MUSEUN_COIN_WALLET_KEY, {
       ...wallet,
@@ -133,6 +155,7 @@ export async function POST(req: Request) {
         coins: nextCoins,
         cashItems,
         cosmetics,
+        profileBadgeStandOwned,
         delivery: item.delivery,
       },
     };

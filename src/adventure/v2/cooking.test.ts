@@ -5,15 +5,18 @@ import {
   adjustedCookingXp,
   cookingFoodDefinition,
   cookingFoodId,
+  cookingIngredientRequirement,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrders,
   cookingQuality,
+  recordCookingActionStats,
   cookingStatPct,
   emptyCookingState,
   parseCookingFoodInventory,
   parseCookingState,
   removeCookingFood,
+  savedRareCookingIngredientCount,
 } from "./cooking";
 
 describe("personal cooking", () => {
@@ -37,6 +40,38 @@ describe("personal cooking", () => {
       "catch_special",
       "catch_legendary",
     ]));
+  });
+
+  it("offers several distinct choices at every cooking progression tier", () => {
+    const recipeCounts = new Map<number, number>();
+    for (const recipe of COOKING_RECIPES) {
+      recipeCounts.set(
+        recipe.requiredLevel,
+        (recipeCounts.get(recipe.requiredLevel) ?? 0) + 1,
+      );
+    }
+    expect(recipeCounts).toEqual(
+      new Map([
+        [1, 6],
+        [10, 5],
+        [20, 4],
+        [35, 4],
+        [50, 9],
+      ]),
+    );
+  });
+
+  it("uses the previously underused pearl onion and crystal sugarcane specials", () => {
+    expect(
+      COOKING_RECIPES.some(
+        (recipe) => recipe.optionalRareItemId === "pearl_onion",
+      ),
+    ).toBe(true);
+    expect(
+      COOKING_RECIPES.some(
+        (recipe) => recipe.optionalRareItemId === "crystal_sugarcane",
+      ),
+    ).toBe(true);
   });
 
   it("has high-impact final recipes and rare upgrades", () => {
@@ -64,15 +99,38 @@ describe("personal cooking", () => {
     expect(cookingOrders("user-a", state)).toEqual(cookingOrders("user-a", state));
   });
 
+  it("keeps all three daily orders distinct at every unlock tier", () => {
+    for (const level of [1, 10, 20, 35, 50]) {
+      const state = {
+        ...emptyCookingState(0),
+        xp: cookingLevelXpThreshold(level),
+      };
+      const orders = cookingOrders("user-a", state);
+      expect(new Set(orders.map((order) => order.recipeId)).size).toBe(3);
+    }
+  });
+
   it("normalizes daily state and known recipe ids", () => {
     const parsed = parseCookingState({
       xp: 25,
       discoveredRecipeIds: ["rustic_bread", "unknown"],
       favoriteRecipeIds: ["fish_skewer", "unknown"],
+      stats: {
+        dishesCooked: 12.8,
+        ordersCompleted: 4,
+        masterpiecesCooked: -2,
+        rareIngredientDishes: 3,
+      },
       daily: { dayKey: "old", surplusTrades: 99, completedOrderIds: ["old"] },
     }, 0);
     expect(parsed.discoveredRecipeIds).toEqual(["rustic_bread"]);
     expect(parsed.favoriteRecipeIds).toEqual(["fish_skewer"]);
+    expect(parsed.stats).toEqual({
+      dishesCooked: 12,
+      ordersCompleted: 4,
+      masterpiecesCooked: 0,
+      rareIngredientDishes: 3,
+    });
     expect(parsed.daily.surplusTrades).toBe(0);
   });
 
@@ -80,6 +138,81 @@ describe("personal cooking", () => {
     const recipe = COOKING_RECIPES.find((entry) => entry.id === "flame_corn_stew")!;
     expect(cookingQuality({ cookingJobTier: 6, usedRare: true, rng: () => 0.99 })).toBe("masterpiece");
     expect(cookingStatPct(recipe, "masterpiece", true)).toMatchObject({ str: 24, vit: 12 });
+  });
+
+  it("tracks cooked dishes, orders, masterpieces, and rare-ingredient dishes", () => {
+    const state = emptyCookingState(0);
+    const cooked = recordCookingActionStats(state, {
+      action: "cook",
+      quantity: 5,
+      quality: "masterpiece",
+      usedRare: true,
+    });
+    const ordered = recordCookingActionStats(
+      { ...state, stats: cooked },
+      {
+        action: "order",
+        quantity: 1,
+        quality: "normal",
+        usedRare: false,
+      },
+    );
+
+    expect(ordered).toEqual({
+      dishesCooked: 6,
+      ordersCompleted: 1,
+      masterpiecesCooked: 5,
+      rareIngredientDishes: 5,
+    });
+  });
+
+  it("equipped cooking skills improve careful and masterpiece rolls", () => {
+    expect(cookingQuality({ cookingJobTier: 2, rng: () => 0.2 })).toBe(
+      "normal",
+    );
+    expect(
+      cookingQuality({
+        cookingJobTier: 2,
+        carefulBonusPct: 8,
+        rng: () => 0.2,
+      }),
+    ).toBe("careful");
+    expect(cookingQuality({ cookingJobTier: 3, rng: () => 0.05 })).toBe(
+      "careful",
+    );
+    expect(
+      cookingQuality({
+        cookingJobTier: 3,
+        masterpieceBonusPct: 5,
+        rng: () => 0.05,
+      }),
+    ).toBe("masterpiece");
+  });
+
+  it("reduces bundled ingredients and preserves rare ingredients", () => {
+    expect(
+      cookingIngredientRequirement({
+        countPerDish: 10,
+        quantity: 5,
+        cookingJobTier: 4,
+        materialReductionPct: 10,
+      }),
+    ).toBe(41);
+    expect(
+      cookingIngredientRequirement({
+        countPerDish: 1,
+        quantity: 10,
+        materialReductionPct: 10,
+      }),
+    ).toBe(9);
+    const rolls = [0.1, 0.3, 0.2, 0.9];
+    expect(
+      savedRareCookingIngredientCount({
+        quantity: 4,
+        saveChancePct: 25,
+        rng: () => rolls.shift() ?? 1,
+      }),
+    ).toBe(2);
   });
 
   it("preserves crafted quality, rare ingredients, and chef duration in the food item id", () => {

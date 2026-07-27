@@ -180,11 +180,14 @@ export async function readGuildTradeItemBalances(
     group.push(item);
     bySource.set(item.source, group);
   }
-  const records = await Promise.all(
-    [...bySource.entries()].map(([source, sourceItems]) =>
-      SOURCE_READERS[source].readBalances(tx, userId, sourceItems, now),
-    ),
-  );
+  const records: Record<string, number>[] = [];
+  // 이 함수는 transaction executor 로도 호출된다. 단일 pg client 에 쿼리를
+  // 겹쳐 보내지 않도록 공급원별 잔액을 순서대로 읽는다.
+  for (const [source, sourceItems] of bySource.entries()) {
+    records.push(
+      await SOURCE_READERS[source].readBalances(tx, userId, sourceItems, now),
+    );
+  }
   return Object.assign({}, ...records) as Record<string, number>;
 }
 

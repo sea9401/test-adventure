@@ -1565,35 +1565,159 @@ body {
   }
 }
 
-@keyframes profile-verdant-canopy-breathe {
+@keyframes profile-prismatic-glint-rise-a {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 120%, 0) rotate(0deg) scale(0.42);
+  }
+  16% {
+    opacity: 0.82;
+  }
+  48% {
+    transform: translate3d(-10px, -260%, 0) rotate(150deg) scale(0.94);
+  }
+  76% {
+    opacity: 0.62;
+    transform: translate3d(8px, -510%, 0) rotate(255deg) scale(0.72);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-3px, -760%, 0) rotate(360deg) scale(0.28);
+  }
+}
+
+@keyframes profile-prismatic-glint-rise-b {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translate3d(0, 105%, 0) rotate(45deg) scale(0.36);
+  }
+  28% {
+    opacity: 0.72;
+  }
+  56% {
+    transform: translate3d(11px, -300%, 0) rotate(-125deg) scale(0.82);
+  }
+  82% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-8px, -720%, 0) rotate(-315deg) scale(0.24);
+  }
+}
+
+@keyframes profile-frozen-frost-shimmer {
   0%,
   100% {
-    opacity: 0.26;
-    transform: scaleX(0.96);
+    opacity: 0.42;
+    transform: scaleX(var(--frozen-frost-flip, 1)) scale(1);
   }
   50% {
-    opacity: 0.5;
-    transform: scaleX(1.04);
+    opacity: 0.68;
+    transform: scaleX(var(--frozen-frost-flip, 1)) scale(1.035);
   }
 }
 
-@keyframes profile-verdant-leaf-sway-left {
-  0%,
-  100% {
-    transform: rotate(-26deg) scale(0.92);
+@keyframes profile-storm-rain-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(12px, -150%, 0) rotate(8deg);
   }
-  45% {
-    transform: rotate(-18deg) scale(0.98);
+  14% {
+    opacity: 0.66;
+  }
+  82% {
+    opacity: 0.44;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-18px, 920%, 0) rotate(8deg);
   }
 }
 
-@keyframes profile-verdant-leaf-sway-right {
+@keyframes profile-storm-lightning-flash {
+  0%,
+  35%,
+  43%,
+  100% {
+    opacity: 0;
+    filter: brightness(0.7);
+  }
+  36% {
+    opacity: 0.96;
+    filter: brightness(1.65);
+  }
+  37% {
+    opacity: 0.16;
+  }
+  39% {
+    opacity: 0.78;
+  }
+  40% {
+    opacity: 0.08;
+  }
+  42% {
+    opacity: 0.9;
+    filter: brightness(1.4);
+  }
+}
+
+@keyframes profile-celestial-star-map-reveal {
   0%,
   100% {
-    transform: rotate(154deg) scale(0.78);
+    opacity: 0.28;
+    transform: translate3d(0, 2px, 0) scale(0.985);
   }
-  55% {
-    transform: rotate(145deg) scale(0.84);
+  30% {
+    opacity: 0.82;
+    transform: translate3d(-3px, 0, 0) scale(1.01);
+  }
+  54% {
+    opacity: 0.46;
+  }
+  78% {
+    opacity: 0.92;
+    transform: translate3d(2px, -2px, 0) scale(1.02);
+  }
+}
+
+@keyframes profile-celestial-comet-cross {
+  0%,
+  54% {
+    opacity: 0;
+    transform: translate3d(110px, -58px, 0) rotate(var(--celestial-comet-angle)) scaleX(0.42);
+  }
+  57% {
+    opacity: 0.96;
+  }
+  66% {
+    opacity: 0.72;
+    transform: translate3d(-42px, 26px, 0) rotate(var(--celestial-comet-angle)) scaleX(1);
+  }
+  73%,
+  100% {
+    opacity: 0;
+    transform: translate3d(-168px, 96px, 0) rotate(var(--celestial-comet-angle)) scaleX(0.68);
+  }
+}
+
+@keyframes profile-celestial-halo-wave {
+  0%,
+  18% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  28% {
+    opacity: 0.34;
+  }
+  64% {
+    opacity: 0;
+    transform: scale(1.38);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.38);
   }
 }
 
@@ -1601,17 +1725,21 @@ body {
   0%,
   8% {
     opacity: 0;
-    transform: translate3d(0, -180%, 0) rotate(-18deg) scale(0.48);
+    transform: translate3d(0, -180%, 0) rotate(-18deg) scale(0.88);
   }
   18% {
-    opacity: 0.82;
+    opacity: 0.78;
   }
-  76% {
-    opacity: 0.68;
+  42% {
+    transform: translate3d(-18px, 250%, 0) rotate(72deg) scale(0.82);
+  }
+  72% {
+    opacity: 0.64;
+    transform: translate3d(24px, 510%, 0) rotate(168deg) scale(0.78);
   }
   100% {
     opacity: 0;
-    transform: translate3d(72px, 720%, 0) rotate(238deg) scale(0.38);
+    transform: translate3d(6px, 760%, 0) rotate(248deg) scale(0.72);
   }
 }
 
@@ -1619,17 +1747,21 @@ body {
   0%,
   28% {
     opacity: 0;
-    transform: translate3d(0, -160%, 0) rotate(170deg) scale(0.36);
+    transform: translate3d(0, -160%, 0) rotate(170deg) scale(0.72);
   }
   38% {
-    opacity: 0.72;
+    opacity: 0.62;
+  }
+  58% {
+    transform: translate3d(20px, 270%, 0) rotate(92deg) scale(0.68);
   }
   82% {
-    opacity: 0.58;
+    opacity: 0.48;
+    transform: translate3d(-14px, 500%, 0) rotate(-12deg) scale(0.64);
   }
   100% {
     opacity: 0;
-    transform: translate3d(-52px, 640%, 0) rotate(-80deg) scale(0.3);
+    transform: translate3d(12px, 720%, 0) rotate(-112deg) scale(0.58);
   }
 }
 
@@ -1637,17 +1769,145 @@ body {
   0%,
   48% {
     opacity: 0;
-    transform: translate3d(0, -130%, 0) rotate(28deg) scale(0.3);
+    transform: translate3d(0, -130%, 0) rotate(28deg) scale(0.62);
   }
   58% {
-    opacity: 0.62;
+    opacity: 0.56;
+  }
+  72% {
+    transform: translate3d(-16px, 220%, 0) rotate(116deg) scale(0.58);
   }
   88% {
-    opacity: 0.48;
+    opacity: 0.42;
+    transform: translate3d(18px, 430%, 0) rotate(222deg) scale(0.54);
   }
   100% {
     opacity: 0;
-    transform: translate3d(36px, 560%, 0) rotate(290deg) scale(0.24);
+    transform: translate3d(-4px, 680%, 0) rotate(310deg) scale(0.48);
+  }
+}
+
+@keyframes profile-infernal-ember-rise-a {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 140%, 0) rotate(-12deg) scale(0.42);
+  }
+  14% {
+    opacity: 0.92;
+  }
+  52% {
+    transform: translate3d(-8px, -360%, 0) rotate(92deg) scale(0.82);
+  }
+  78% {
+    opacity: 0.68;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(10px, -860%, 0) rotate(218deg) scale(0.28);
+  }
+}
+
+@keyframes profile-infernal-ember-rise-b {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 120%, 0) rotate(18deg) scale(0.34);
+  }
+  18% {
+    opacity: 0.78;
+  }
+  56% {
+    transform: translate3d(10px, -410%, 0) rotate(-86deg) scale(0.7);
+  }
+  82% {
+    opacity: 0.54;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-7px, -820%, 0) rotate(-204deg) scale(0.24);
+  }
+}
+
+@keyframes profile-oceanic-bubble-rise-a {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 120%, 0) scale(0.58);
+  }
+  16% {
+    opacity: 0.72;
+  }
+  48% {
+    transform: translate3d(-7px, -260%, 0) scale(0.9);
+  }
+  78% {
+    opacity: 0.56;
+    transform: translate3d(8px, -520%, 0) scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(2px, -760%, 0) scale(1.12);
+  }
+}
+
+@keyframes profile-oceanic-bubble-rise-b {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0) scale(0.52);
+  }
+  20% {
+    opacity: 0.62;
+  }
+  54% {
+    transform: translate3d(8px, -310%, 0) scale(0.86);
+  }
+  82% {
+    opacity: 0.46;
+    transform: translate3d(-6px, -540%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(3px, -720%, 0) scale(1.08);
+  }
+}
+
+@keyframes profile-rose-petal-fall-a {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -140%, 0) rotate(-24deg) scale(0.74);
+  }
+  14% {
+    opacity: 0.76;
+  }
+  46% {
+    transform: translate3d(-14px, 250%, 0) rotate(88deg) scale(0.68);
+  }
+  76% {
+    opacity: 0.58;
+    transform: translate3d(18px, 520%, 0) rotate(194deg) scale(0.62);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-4px, 780%, 0) rotate(306deg) scale(0.54);
+  }
+}
+
+@keyframes profile-rose-petal-fall-b {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -120%, 0) rotate(168deg) scale(0.62);
+  }
+  18% {
+    opacity: 0.66;
+  }
+  52% {
+    transform: translate3d(16px, 290%, 0) rotate(76deg) scale(0.58);
+  }
+  80% {
+    opacity: 0.48;
+    transform: translate3d(-12px, 510%, 0) rotate(-34deg) scale(0.54);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(5px, 740%, 0) rotate(-142deg) scale(0.46);
   }
 }
 
@@ -1674,6 +1934,15 @@ body {
     linear-gradient(115deg, transparent 20%, rgb(129 140 248 / 0.08) 50%, transparent 80%);
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.58;
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(244 114 182 / 0.46), transparent 26%),
+    radial-gradient(circle at 68% 86%, rgb(56 189 248 / 0.42), transparent 34%),
+    linear-gradient(125deg, #312e81, #581c87 48%, #0e7490);
+  --profile-theme-pattern:
+    linear-gradient(125deg, transparent 0 42%, rgb(255 255 255 / 0.18) 43% 44%, transparent 45% 100%),
+    linear-gradient(55deg, transparent 0 64%, rgb(196 181 253 / 0.16) 65% 66%, transparent 67% 100%);
+  --profile-theme-pattern-size: 54px 54px, 72px 72px;
+  --profile-theme-pattern-opacity: 0.72;
   --profile-avatar-decoration-opacity: 0.34;
   --profile-decoration-animation: profile-decoration-drift 9s ease-in-out infinite;
   position: relative;
@@ -1686,97 +1955,71 @@ body {
     0 10px 28px rgb(var(--profile-frame-rgb) / 0.16);
 }
 
-.ui-profile-frame-cosmetic::after {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--profile-decoration-background, none);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: var(--profile-decoration-size, auto);
-  content: "";
-  opacity: var(
-    --profile-decoration-card-opacity,
-    var(--profile-decoration-opacity, 0)
-  );
-  pointer-events: none;
-  transform-origin: center;
-  animation: var(--profile-decoration-animation, none);
-}
-
-/* 장식은 항상 본문·버튼 뒤에 두고, 프레임형 아트가 보이도록 카드
-   가장자리에 전용 안전 영역을 확보한다. 불투명 콘텐츠 박스는 그 안쪽에만 놓인다. */
+/* 구매한 전체 카드 테두리만 유지한다. 콘텐츠 위에 별도 장식물을 얹지 않는다. */
 .ui-profile-frame-cosmetic:not(.ui-profile-avatar-frame-cosmetic) > * {
   position: relative;
   z-index: 1;
 }
 
-/* 캐릭터 카드에서는 구매한 프로필 장식이 넓은 영역에서도 충분히 보이도록 한다.
-   상점 미리보기와 작은 아바타 장식의 투명도는 기존 값을 유지한다. */
-.ui-character-card.ui-profile-frame-cosmetic:not(.ui-profile-frame-static) {
-  --profile-decoration-card-opacity: 0.86;
-}
-
-/* 크로마 닉네임에는 영향을 주지 않고 일반 보조 정보에만 외곽 대비를 준다. */
-.ui-profile-frame-cosmetic .ui-profile-readable-copy {
-  text-shadow:
-    0 1px 1px rgb(255 255 255 / 0.95),
-    0 0 4px rgb(255 255 255 / 0.85);
-}
-
-.ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-stat-bar-copy {
-  color: rgb(39 39 42);
-  font-weight: 600;
-}
-
-/* 황실처럼 명암이 강한 장식에서도 수치만큼은 항상 읽히도록 하는 작은 불투명 칩. */
-.ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-profile-value-chip {
-  display: inline-block;
-  border-radius: 0.25rem;
-  padding-inline: 0.25rem;
-  background-color: rgb(255 255 255);
-  box-shadow: 0 0 0 1px rgb(39 39 42 / 0.08);
-  text-shadow: none;
-}
-
-.dark .ui-profile-frame-cosmetic .ui-profile-readable-copy {
-  text-shadow:
-    0 1px 1px rgb(0 0 0 / 0.95),
-    0 0 4px rgb(0 0 0 / 0.85);
-}
-
-.dark
-  .ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-stat-bar-copy {
-  color: rgb(228 228 231);
-}
-
-.dark
-  .ui-profile-frame-cosmetic
-  .ui-profile-decoration-readable
-  .ui-profile-value-chip {
-  background-color: rgb(9 9 11);
-  box-shadow: 0 0 0 1px rgb(228 228 231 / 0.12);
-}
-
-.ui-profile-decoration-canvas {
-  padding-block: clamp(2rem, 10%, 5rem);
-  padding-inline: clamp(1.75rem, 12%, 6rem);
-}
-
-/* 캐릭터 간략 정보창의 프로필 꾸미기 전용 배너.
-   꾸미기 원본(800×280, 1920×640)과 같은 비율을 유지한다. */
-.ui-profile-decoration-banner {
-  min-height: 6.5rem;
-  max-height: 13rem;
+/* 상단은 테두리 그림 대신 불투명 테마 배경과 우측 패턴으로 꾸민다.
+   패턴은 콘텐츠 뒤에만 있고 좌측 프로필 이미지 영역에서는 사라진다. */
+.ui-profile-theme-header {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
-  aspect-ratio: 20 / 7;
+  border-radius: 0.5rem;
+  background-color: rgb(24 24 27);
+  box-shadow:
+    inset 0 0 32px rgb(var(--profile-frame-rgb) / 0.26),
+    inset 8rem 0 7rem -6rem rgb(0 0 0 / 0.58),
+    inset 0 -24px 48px rgb(0 0 0 / 0.2);
+  color: rgb(250 250 250);
+}
+
+.ui-profile-theme-header::before,
+.ui-profile-theme-header::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.ui-profile-theme-header::before {
+  z-index: 0;
+  background: var(--profile-theme-background, rgb(24 24 27));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  transform-origin: center;
+  animation: var(--profile-decoration-animation, none);
+}
+
+.ui-profile-theme-header::after {
+  z-index: 0;
+  background: var(--profile-theme-pattern, none);
+  background-position: right center;
+  background-size: var(--profile-theme-pattern-size, auto);
+  opacity: var(--profile-theme-pattern-opacity, 0);
+  transform-origin: center;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0 34%, #000 58% 100%);
+  mask-image: linear-gradient(90deg, transparent 0 34%, #000 58% 100%);
+  animation: var(--profile-decoration-animation, none);
+}
+
+.ui-profile-theme-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ui-profile-theme-copy {
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 0.95),
+    0 0 8px rgb(0 0 0 / 0.72);
+}
+
+.ui-profile-theme-header--compact {
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
 }
 
 .ui-profile-frame-cosmetic::before {
@@ -1805,12 +2048,19 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #7f1d1d, #dc2626, #fb923c, #facc15, #dc2626, #7f1d1d);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/infernal-art.webp"),
-    linear-gradient(to top, rgb(220 38 38 / 0.1), transparent 64%);
-  --profile-decoration-size: 100% 100%, 100% 100%;
+    radial-gradient(ellipse at 50% 108%, rgb(251 146 60 / 0.2), transparent 58%),
+    linear-gradient(135deg, rgb(127 29 29 / 0.3), rgb(69 10 10 / 0.16) 48%, rgb(154 52 18 / 0.26));
+  --profile-theme-background:
+    radial-gradient(circle at 82% 76%, rgb(251 146 60 / 0.62), transparent 28%),
+    radial-gradient(circle at 68% 20%, rgb(220 38 38 / 0.46), transparent 25%),
+    linear-gradient(125deg, #450a0a, #7f1d1d 52%, #9a3412);
+  --profile-theme-pattern: none;
+  --profile-theme-pattern-opacity: 0;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.64;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/infernal.svg");
   --profile-avatar-decoration-opacity: 0.35;
-  --profile-decoration-animation: profile-decoration-drift 6.5s ease-in-out infinite;
+  --profile-decoration-animation: none;
 }
 
 .ui-profile-frame-oceanic {
@@ -1818,12 +2068,19 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #164e63, #0891b2, #38bdf8, #2563eb, #67e8f9, #164e63);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/oceanic-art.webp"),
-    linear-gradient(to top, rgb(14 165 233 / 0.1), transparent 60%);
-  --profile-decoration-size: 100% 100%, 100% 100%;
+    radial-gradient(ellipse at 50% 110%, rgb(103 232 249 / 0.18), transparent 58%),
+    linear-gradient(135deg, rgb(8 47 73 / 0.28), rgb(8 145 178 / 0.14) 48%, rgb(30 64 175 / 0.24));
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(103 232 249 / 0.42), transparent 28%),
+    radial-gradient(circle at 68% 92%, rgb(37 99 235 / 0.5), transparent 36%),
+    linear-gradient(125deg, #083344, #0e7490 52%, #1e3a8a);
+  --profile-theme-pattern: none;
+  --profile-theme-pattern-opacity: 0;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.62;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/oceanic.svg");
   --profile-avatar-decoration-opacity: 0.34;
-  --profile-decoration-animation: profile-decoration-drift 10s ease-in-out infinite;
+  --profile-decoration-animation: none;
 }
 
 .ui-profile-frame-verdant {
@@ -1832,51 +2089,150 @@ body {
   --profile-decoration-background:
     radial-gradient(ellipse at 50% 0%, rgb(250 204 21 / 0.16), transparent 48%),
     linear-gradient(135deg, rgb(20 83 45 / 0.34), rgb(22 101 52 / 0.18) 46%, rgb(63 98 18 / 0.28));
+  --profile-theme-background:
+    radial-gradient(circle at 82% 16%, rgb(190 242 100 / 0.42), transparent 26%),
+    radial-gradient(circle at 72% 88%, rgb(34 197 94 / 0.48), transparent 34%),
+    linear-gradient(125deg, #052e16, #166534 52%, #3f6212);
+  --profile-theme-pattern:
+    linear-gradient(128deg, transparent 0 46%, rgb(190 242 100 / 0.24) 47% 48%, transparent 49% 100%),
+    linear-gradient(52deg, transparent 0 68%, rgb(74 222 128 / 0.2) 69% 70%, transparent 71% 100%);
+  --profile-theme-pattern-size: 82px 68px, 116px 92px;
   --profile-decoration-size: 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.46;
   --profile-avatar-decoration-background: none;
   --profile-avatar-decoration-opacity: 0;
-  --profile-decoration-animation: profile-verdant-canopy-breathe 7s ease-in-out infinite;
+  --profile-decoration-animation: none;
 }
 
-/* 세계수 시범안 — 정지 원화 전체를 흔들지 않고, 고정된 가지 프레임과
-   잎자루 기준 흔들림·낙엽을 독립 레이어로 나눠 작은 미리보기에서도 형태를 살린다. */
-.ui-profile-frame-cosmetic > .ui-verdant-decoration-motion {
+/* 테마 입자는 카드 형태를 덮지 않고 불투명 테마 영역 안에서만 움직인다. */
+.ui-profile-frame-cosmetic > .ui-profile-decoration-motion,
+.ui-profile-theme-header > .ui-profile-decoration-motion {
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   inset: 0;
   overflow: hidden;
   border-radius: inherit;
   pointer-events: none;
 }
 
-.ui-verdant-decoration-motion > span {
+.ui-profile-decoration-motion > span {
   position: absolute;
   display: block;
   pointer-events: none;
 }
 
-.ui-verdant-decoration-frame {
-  inset: 0;
-  background-image: url("/images/ui/profile-decorations/verdant-frame-demo.webp");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  filter: drop-shadow(0 3px 5px rgb(3 25 13 / 0.46));
+/* 새 테마 입자는 우측 장식 영역에 고르게 흩어지고 각기 다른 주기로 움직인다. */
+.ui-profile-particle-slot--a { --profile-particle-x: 42%; --profile-particle-duration: 7.2s; --profile-particle-delay: 0s; }
+.ui-profile-particle-slot--b { --profile-particle-x: 48%; --profile-particle-duration: 8.6s; --profile-particle-delay: -3.1s; }
+.ui-profile-particle-slot--c { --profile-particle-x: 55%; --profile-particle-duration: 6.8s; --profile-particle-delay: -5.4s; }
+.ui-profile-particle-slot--d { --profile-particle-x: 62%; --profile-particle-duration: 9.4s; --profile-particle-delay: -1.8s; }
+.ui-profile-particle-slot--e { --profile-particle-x: 69%; --profile-particle-duration: 7.8s; --profile-particle-delay: -6.7s; }
+.ui-profile-particle-slot--f { --profile-particle-x: 75%; --profile-particle-duration: 10.2s; --profile-particle-delay: -4.2s; }
+.ui-profile-particle-slot--g { --profile-particle-x: 81%; --profile-particle-duration: 6.4s; --profile-particle-delay: -2.5s; }
+.ui-profile-particle-slot--h { --profile-particle-x: 87%; --profile-particle-duration: 8.9s; --profile-particle-delay: -7.2s; }
+.ui-profile-particle-slot--i { --profile-particle-x: 92%; --profile-particle-duration: 7.5s; --profile-particle-delay: -4.9s; }
+.ui-profile-particle-slot--j { --profile-particle-x: 96%; --profile-particle-duration: 9.8s; --profile-particle-delay: -8.1s; }
+
+/* 천상 — 흩어진 점광원 대신 선으로 이어진 별자리 지도, 유성, 광륜을 겹친다. */
+.ui-profile-decoration-motion--celestial {
+  mix-blend-mode: screen;
 }
 
-.ui-verdant-canopy-light {
-  inset: 4% 8%;
-  background:
-    linear-gradient(96deg, transparent 2%, rgb(52 211 153 / 0.13) 7%, transparent 15%),
-    linear-gradient(264deg, transparent 2%, rgb(250 204 21 / 0.11) 8%, transparent 16%);
-  filter: blur(2px);
+.ui-celestial-star-map {
+  inset: 7% 2% 6% 38%;
+  background: url("/images/ui/profile-decorations/celestial-constellations.svg") center / 100% 100% no-repeat;
+  filter:
+    drop-shadow(0 0 4px rgb(224 242 254 / 0.62))
+    drop-shadow(0 0 10px rgb(139 92 246 / 0.42));
   transform-origin: center;
-  animation: profile-verdant-canopy-breathe 7s ease-in-out infinite;
+  will-change: transform, opacity;
+  animation: profile-celestial-star-map-reveal 11.5s ease-in-out -3.2s infinite;
+}
+
+.ui-celestial-comet {
+  width: var(--celestial-comet-width, clamp(2.8rem, 12%, 6.5rem));
+  height: var(--celestial-comet-thickness, 2px);
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgb(103 232 249 / 0.22) 26%, #c4b5fd 68%, #fff 100%);
+  box-shadow:
+    0 0 0.35rem rgb(255 255 255 / 0.84),
+    0 0 0.8rem rgb(129 140 248 / 0.56);
+  transform-origin: right center;
+  will-change: transform, opacity;
+  animation: profile-celestial-comet-cross 12s cubic-bezier(0.22, 0.72, 0.28, 1) infinite;
+}
+
+.ui-celestial-comet::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: var(--celestial-comet-head-size, clamp(0.36rem, 2%, 0.72rem));
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  background: radial-gradient(circle, #fff 0 16%, #fef3c7 34%, #a5f3fc 68%, transparent 72%);
+  box-shadow: 0 0 0.55rem rgb(255 255 255 / 0.9);
+  content: "";
+  transform: translate(48%, -50%) rotate(18deg);
+}
+
+.ui-celestial-comet--a {
+  top: 13%;
+  left: 72%;
+  --celestial-comet-angle: -28deg;
+}
+.ui-celestial-comet--b {
+  top: 37%;
+  left: 87%;
+  --celestial-comet-angle: -34deg;
+  animation-delay: -6s;
+  animation-duration: 13.5s;
+}
+.ui-celestial-comet--c {
+  top: 7%;
+  left: 59%;
+  --celestial-comet-angle: -24deg;
+  --celestial-comet-width: clamp(2rem, 8%, 4.2rem);
+  --celestial-comet-thickness: 1px;
+  --celestial-comet-head-size: clamp(0.28rem, 1.5%, 0.54rem);
+  animation-delay: -10.8s;
+  animation-duration: 15.2s;
+}
+.ui-celestial-comet--d {
+  top: 56%;
+  left: 78%;
+  --celestial-comet-angle: -32deg;
+  --celestial-comet-width: clamp(3.2rem, 14%, 7.4rem);
+  --celestial-comet-head-size: clamp(0.42rem, 2.2%, 0.8rem);
+  animation-delay: -3.4s;
+  animation-duration: 10.8s;
+}
+.ui-celestial-comet--e {
+  top: 24%;
+  left: 96%;
+  --celestial-comet-angle: -38deg;
+  --celestial-comet-width: clamp(1.8rem, 7%, 3.8rem);
+  --celestial-comet-thickness: 1px;
+  --celestial-comet-head-size: clamp(0.26rem, 1.4%, 0.5rem);
+  animation-delay: -13.1s;
+  animation-duration: 16.4s;
+}
+
+.ui-celestial-halo {
+  top: 27%;
+  right: 15%;
+  width: clamp(3.2rem, 20%, 9rem);
+  aspect-ratio: 1;
+  border: 1px solid rgb(224 242 254 / 0.7);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0.65rem rgb(196 181 253 / 0.42),
+    0 0 1rem rgb(103 232 249 / 0.34);
+  will-change: transform, opacity;
+  animation: profile-celestial-halo-wave 7.6s ease-out -2.4s infinite;
 }
 
 .ui-verdant-leaf {
-  width: clamp(1.15rem, 8%, 3.25rem);
+  width: clamp(0.72rem, 5%, 1.9rem);
   aspect-ratio: 256 / 315;
   background: url("/images/ui/profile-decorations/verdant-leaf-demo.webp") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgb(2 44 22 / 0.5));
@@ -1884,69 +2240,420 @@ body {
   will-change: transform, opacity;
 }
 
-.ui-verdant-leaf--left {
-  top: 8%;
-  left: 12%;
-  animation: profile-verdant-leaf-sway-left 4.8s ease-in-out infinite;
-}
-
-.ui-verdant-leaf--right {
-  right: 12%;
-  bottom: 7%;
-  animation: profile-verdant-leaf-sway-right 5.7s ease-in-out infinite;
-}
-
 .ui-verdant-leaf--fall-a {
-  top: -16%;
-  left: 27%;
+  top: -20%;
+  left: 18%;
   animation: profile-verdant-leaf-fall-a 8.4s ease-in-out infinite;
 }
 
 .ui-verdant-leaf--fall-b {
-  top: -14%;
-  right: 25%;
+  top: -18%;
+  right: 18%;
   animation: profile-verdant-leaf-fall-b 9.6s ease-in-out infinite;
 }
 
 .ui-verdant-leaf--fall-c {
-  top: -12%;
-  left: 52%;
+  top: -16%;
+  left: 54%;
   animation: profile-verdant-leaf-fall-c 11s ease-in-out infinite;
 }
 
-.ui-profile-avatar-frame-cosmetic > .ui-verdant-decoration-motion--compact {
-  z-index: 2;
-  inset: 2px;
-  border-radius: calc(0.75rem - 2px);
+.ui-verdant-leaf--fall-d {
+  top: -22%;
+  left: 36%;
+  animation: profile-verdant-leaf-fall-b 8.9s ease-in-out -4.1s infinite;
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-decoration-frame {
-  background-image: url("/images/ui/profile-decorations/verdant-emblem.webp");
-  background-position: right -7% bottom -7%;
-  background-size: 74% 74%;
-  filter: drop-shadow(0 1px 3px rgb(3 25 13 / 0.6));
-  opacity: 0.92;
+.ui-verdant-leaf--fall-e {
+  top: -18%;
+  right: 4%;
+  animation: profile-verdant-leaf-fall-c 9.8s ease-in-out -6.4s infinite;
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-canopy-light,
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-a,
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-b,
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--fall-c {
-  display: none;
+.ui-verdant-leaf--fall-f {
+  top: -20%;
+  left: 8%;
+  animation: profile-verdant-leaf-fall-a 10.2s ease-in-out -6.7s infinite;
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf {
-  width: 31%;
+.ui-verdant-leaf--fall-g {
+  top: -24%;
+  left: 68%;
+  animation: profile-verdant-leaf-fall-b 8.1s ease-in-out -5.2s infinite;
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--left {
-  top: -3%;
-  left: 1%;
+.ui-verdant-leaf--fall-h {
+  top: -16%;
+  right: 28%;
+  animation: profile-verdant-leaf-fall-c 12.4s ease-in-out -2.8s infinite;
 }
 
-.ui-verdant-decoration-motion--compact .ui-verdant-leaf--right {
-  right: 0;
-  bottom: -1%;
+.ui-verdant-leaf--fall-i {
+  top: -22%;
+  left: 27%;
+  animation: profile-verdant-leaf-fall-b 10.8s ease-in-out -8.5s infinite;
+}
+
+.ui-verdant-leaf--fall-j {
+  top: -17%;
+  right: 10%;
+  animation: profile-verdant-leaf-fall-a 9.3s ease-in-out -7.1s infinite;
+}
+
+/* 업화 — 불꽃 프레임 대신 작은 불씨가 아래에서 위로 흩어진다. */
+.ui-infernal-ember {
+  bottom: -18%;
+  width: clamp(0.48rem, 2.4%, 0.9rem);
+  aspect-ratio: 0.72;
+  border-radius: 72% 28% 68% 32%;
+  background:
+    radial-gradient(ellipse at 48% 72%, #fef08a 0 18%, #fb923c 42%, #dc2626 68%, transparent 72%),
+    linear-gradient(160deg, #fde047, #f97316 56%, #991b1b);
+  box-shadow: 0 0 0.45rem rgb(249 115 22 / 0.72);
+  filter: drop-shadow(0 0 2px rgb(254 240 138 / 0.75));
+  transform-origin: 50% 78%;
+  will-change: transform, opacity;
+}
+
+.ui-infernal-ember--a {
+  left: 48%;
+  animation: profile-infernal-ember-rise-a 4.8s ease-out infinite;
+}
+.ui-infernal-ember--b {
+  left: 61%;
+  animation: profile-infernal-ember-rise-b 5.8s ease-out -2.1s infinite;
+}
+.ui-infernal-ember--c {
+  left: 74%;
+  animation: profile-infernal-ember-rise-a 5.2s ease-out -3.7s infinite;
+}
+.ui-infernal-ember--d {
+  right: 14%;
+  animation: profile-infernal-ember-rise-b 6.2s ease-out -1.2s infinite;
+}
+.ui-infernal-ember--e {
+  right: 4%;
+  animation: profile-infernal-ember-rise-a 5.5s ease-out -4.5s infinite;
+}
+.ui-infernal-ember--f {
+  left: 42%;
+  animation: profile-infernal-ember-rise-b 5.1s ease-out -3.2s infinite;
+}
+.ui-infernal-ember--g {
+  left: 68%;
+  animation: profile-infernal-ember-rise-a 6.5s ease-out -5.6s infinite;
+}
+.ui-infernal-ember--h {
+  right: 22%;
+  animation: profile-infernal-ember-rise-b 4.6s ease-out -1.9s infinite;
+}
+.ui-infernal-ember--i {
+  left: 55%;
+  animation: profile-infernal-ember-rise-a 5.9s ease-out -4.9s infinite;
+}
+.ui-infernal-ember--j {
+  right: 9%;
+  animation: profile-infernal-ember-rise-b 6.7s ease-out -5.8s infinite;
+}
+
+/* 심해 — 테두리 그림과 분리된 기포가 느린 S자 경로로 떠오른다. */
+.ui-oceanic-bubble {
+  bottom: -22%;
+  width: clamp(0.55rem, 3%, 1.15rem);
+  aspect-ratio: 1;
+  border: 1px solid rgb(165 243 252 / 0.78);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 26%, rgb(255 255 255 / 0.82) 0 7%, rgb(103 232 249 / 0.2) 19%, transparent 56%);
+  box-shadow:
+    inset -2px -2px 4px rgb(37 99 235 / 0.3),
+    0 0 0.35rem rgb(34 211 238 / 0.28);
+  will-change: transform, opacity;
+}
+
+.ui-oceanic-bubble--a {
+  left: 46%;
+  animation: profile-oceanic-bubble-rise-a 7.8s ease-in-out infinite;
+}
+.ui-oceanic-bubble--b {
+  left: 60%;
+  animation: profile-oceanic-bubble-rise-b 9.2s ease-in-out -4.3s infinite;
+}
+.ui-oceanic-bubble--c {
+  left: 73%;
+  animation: profile-oceanic-bubble-rise-a 8.6s ease-in-out -6.1s infinite;
+}
+.ui-oceanic-bubble--d {
+  right: 15%;
+  animation: profile-oceanic-bubble-rise-b 10.2s ease-in-out -2.4s infinite;
+}
+.ui-oceanic-bubble--e {
+  right: 4%;
+  animation: profile-oceanic-bubble-rise-a 8.1s ease-in-out -5.3s infinite;
+}
+.ui-oceanic-bubble--f {
+  left: 42%;
+  animation: profile-oceanic-bubble-rise-b 8.7s ease-in-out -6.8s infinite;
+}
+.ui-oceanic-bubble--g {
+  left: 68%;
+  animation: profile-oceanic-bubble-rise-a 10.8s ease-in-out -3.1s infinite;
+}
+.ui-oceanic-bubble--h {
+  right: 22%;
+  animation: profile-oceanic-bubble-rise-b 7.4s ease-in-out -5.9s infinite;
+}
+.ui-oceanic-bubble--i {
+  left: 54%;
+  animation: profile-oceanic-bubble-rise-a 9.7s ease-in-out -7.7s infinite;
+}
+.ui-oceanic-bubble--j {
+  right: 9%;
+  animation: profile-oceanic-bubble-rise-b 11.1s ease-in-out -8.6s infinite;
+}
+
+/* 장미 — 작은 꽃잎이 회전하며 좌우로 흩날린다. */
+.ui-rose-petal {
+  top: -18%;
+  width: clamp(0.6rem, 3.4%, 1.3rem);
+  aspect-ratio: 1.32;
+  border-radius: 76% 18% 72% 24%;
+  background: linear-gradient(135deg, #ffe4e6 0 12%, #fda4af 35%, #fb7185 64%, #be123c 100%);
+  box-shadow:
+    inset 2px 1px 2px rgb(255 241 242 / 0.7),
+    0 2px 3px rgb(136 19 55 / 0.34);
+  filter: drop-shadow(0 0 2px rgb(251 113 133 / 0.42));
+  transform-origin: 18% 82%;
+  will-change: transform, opacity;
+}
+
+.ui-rose-petal--a {
+  left: 47%;
+  animation: profile-rose-petal-fall-a 7.6s ease-in-out infinite;
+}
+.ui-rose-petal--b {
+  left: 60%;
+  animation: profile-rose-petal-fall-b 8.8s ease-in-out -3.3s infinite;
+}
+.ui-rose-petal--c {
+  left: 73%;
+  animation: profile-rose-petal-fall-a 9.6s ease-in-out -6.1s infinite;
+}
+.ui-rose-petal--d {
+  right: 15%;
+  animation: profile-rose-petal-fall-b 8.2s ease-in-out -1.7s infinite;
+}
+.ui-rose-petal--e {
+  right: 4%;
+  animation: profile-rose-petal-fall-a 10.4s ease-in-out -7.5s infinite;
+}
+.ui-rose-petal--f {
+  left: 42%;
+  animation: profile-rose-petal-fall-b 9.1s ease-in-out -5.2s infinite;
+}
+.ui-rose-petal--g {
+  left: 68%;
+  animation: profile-rose-petal-fall-a 8.4s ease-in-out -2.6s infinite;
+}
+.ui-rose-petal--h {
+  right: 22%;
+  animation: profile-rose-petal-fall-b 11.2s ease-in-out -8.3s infinite;
+}
+.ui-rose-petal--i {
+  left: 54%;
+  animation: profile-rose-petal-fall-a 10.1s ease-in-out -8.7s infinite;
+}
+.ui-rose-petal--j {
+  right: 9%;
+  animation: profile-rose-petal-fall-b 9.4s ease-in-out -6.8s infinite;
+}
+
+/* 프리즘 — 오팔빛 작은 광편이 회전하며 위로 흘러간다. */
+.ui-prismatic-glint {
+  bottom: -16%;
+  left: var(--profile-particle-x);
+  width: clamp(0.42rem, 2.2%, 0.86rem);
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  background: conic-gradient(from 25deg, #f0abfc, #67e8f9, #fef08a, #86efac, #93c5fd, #f0abfc);
+  box-shadow: 0 0 0.5rem rgb(216 180 254 / 0.62);
+  filter: drop-shadow(0 0 2px rgb(255 255 255 / 0.88));
+  will-change: transform, opacity;
+  animation-duration: var(--profile-particle-duration);
+  animation-delay: var(--profile-particle-delay);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.ui-prismatic-glint:nth-child(odd) { animation-name: profile-prismatic-glint-rise-a; }
+.ui-prismatic-glint:nth-child(even) { animation-name: profile-prismatic-glint-rise-b; }
+
+/* 흑요석 — 검은 파편 속 주황빛 균열이 용암 불티처럼 솟는다. */
+.ui-obsidian-cinder {
+  bottom: -18%;
+  left: var(--profile-particle-x);
+  width: clamp(0.48rem, 2.5%, 0.92rem);
+  aspect-ratio: 0.82;
+  clip-path: polygon(18% 0, 88% 16%, 70% 48%, 100% 76%, 38% 100%, 0 62%);
+  background: linear-gradient(145deg, #18181b 0 28%, #fb923c 34% 46%, #7f1d1d 54% 72%, #09090b 78%);
+  box-shadow: 0 0 0.42rem rgb(249 115 22 / 0.58);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.72));
+  transform-origin: 50% 72%;
+  will-change: transform, opacity;
+  animation-duration: var(--profile-particle-duration);
+  animation-delay: var(--profile-particle-delay);
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+.ui-obsidian-cinder:nth-child(odd) { animation-name: profile-infernal-ember-rise-a; }
+.ui-obsidian-cinder:nth-child(even) { animation-name: profile-infernal-ember-rise-b; }
+
+/* 빙결 — 각진 눈 결정이 천천히 회전하며 내려온다. */
+.ui-frozen-crystal {
+  top: -18%;
+  left: var(--profile-particle-x);
+  width: clamp(0.52rem, 2.7%, 1rem);
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0, 60% 34%, 85% 15%, 66% 40%, 100% 50%, 66% 60%, 85% 85%, 60% 66%, 50% 100%, 40% 66%, 15% 85%, 34% 60%, 0 50%, 34% 40%, 15% 15%, 40% 34%);
+  background: radial-gradient(circle, #fff 0 18%, #a5f3fc 22% 48%, #60a5fa 66%, transparent 69%);
+  filter: drop-shadow(0 0 3px rgb(224 242 254 / 0.86));
+  will-change: transform, opacity;
+  animation-duration: var(--profile-particle-duration);
+  animation-delay: var(--profile-particle-delay);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.ui-frozen-crystal:nth-child(odd) { animation-name: profile-rose-petal-fall-a; }
+.ui-frozen-crystal:nth-child(even) { animation-name: profile-rose-petal-fall-b; }
+
+/* 빙결 — 직선 무늬 대신 가장자리에서 자라난 반투명 얼음 결정층을 둔다. */
+.ui-profile-decoration-motion--frozen {
+  mix-blend-mode: screen;
+}
+
+.ui-frozen-frost {
+  bottom: -14%;
+  right: -2%;
+  width: clamp(5rem, 28%, 13rem);
+  height: 88%;
+  clip-path: polygon(8% 100%, 15% 43%, 28% 68%, 38% 8%, 49% 58%, 63% 20%, 69% 67%, 86% 38%, 94% 100%);
+  background:
+    linear-gradient(108deg, transparent 0 16%, rgb(224 242 254 / 0.64) 19%, rgb(103 232 249 / 0.16) 39%, transparent 43%),
+    linear-gradient(76deg, rgb(255 255 255 / 0.14), rgb(125 211 252 / 0.48) 52%, rgb(99 102 241 / 0.16));
+  box-shadow: inset 0 -0.8rem 1.4rem rgb(224 242 254 / 0.18);
+  filter: drop-shadow(0 0 0.7rem rgb(165 243 252 / 0.42));
+  transform-origin: center bottom;
+  will-change: transform, opacity;
+  animation: profile-frozen-frost-shimmer 8.4s ease-in-out infinite;
+}
+
+.ui-frozen-frost--b {
+  --frozen-frost-flip: -1;
+  right: 22%;
+  bottom: -24%;
+  width: clamp(3.8rem, 19%, 9rem);
+  height: 62%;
+  opacity: 0.5;
+  animation-delay: -4.1s;
+  animation-duration: 10.2s;
+}
+
+/* 폭풍 — 번개는 배경에서 갈라져 번쩍이고, 앞쪽에는 빗줄기가 흐른다. */
+.ui-profile-decoration-motion--storm {
+  mix-blend-mode: screen;
+}
+
+.ui-storm-lightning {
+  top: 4%;
+  right: 9%;
+  width: clamp(1.4rem, 6%, 3rem);
+  height: 88%;
+  clip-path: polygon(58% 0, 100% 0, 72% 34%, 94% 34%, 44% 66%, 64% 66%, 8% 100%, 34% 58%, 18% 58%);
+  background: linear-gradient(180deg, #fff 0 12%, #fef08a 36%, #67e8f9 70%, #818cf8 100%);
+  filter:
+    drop-shadow(0 0 3px rgb(255 255 255 / 0.96))
+    drop-shadow(0 0 8px rgb(103 232 249 / 0.82))
+    drop-shadow(0 0 14px rgb(129 140 248 / 0.62));
+  opacity: 0;
+  will-change: opacity, filter;
+  animation: profile-storm-lightning-flash 6.8s steps(1, end) -1.4s infinite;
+}
+
+.ui-storm-lightning::after {
+  position: absolute;
+  top: 34%;
+  right: 38%;
+  width: 92%;
+  height: 46%;
+  clip-path: inherit;
+  background: inherit;
+  content: "";
+  transform: rotate(46deg) scale(0.68);
+  transform-origin: right top;
+}
+
+.ui-storm-lightning--b {
+  top: 19%;
+  right: 31%;
+  width: clamp(1rem, 4.5%, 2.2rem);
+  height: 68%;
+  transform: rotate(-8deg);
+  animation-delay: -5.3s;
+  animation-duration: 8.6s;
+}
+
+.ui-storm-rain {
+  top: -28%;
+  width: 1px;
+  height: clamp(1.1rem, 8%, 2.4rem);
+  border-radius: 999px;
+  background: linear-gradient(180deg, transparent, rgb(186 230 253 / 0.28) 22%, rgb(103 232 249 / 0.82));
+  box-shadow: 0 0 3px rgb(56 189 248 / 0.34);
+  will-change: transform, opacity;
+  animation: profile-storm-rain-fall var(--storm-rain-duration) linear var(--storm-rain-delay) infinite;
+}
+
+.ui-storm-rain--a { left: 39%; --storm-rain-duration: 1.45s; --storm-rain-delay: -0.3s; }
+.ui-storm-rain--b { left: 44%; --storm-rain-duration: 1.8s; --storm-rain-delay: -1.2s; }
+.ui-storm-rain--c { left: 50%; --storm-rain-duration: 1.25s; --storm-rain-delay: -0.8s; }
+.ui-storm-rain--d { left: 56%; --storm-rain-duration: 1.62s; --storm-rain-delay: -1.5s; }
+.ui-storm-rain--e { left: 62%; --storm-rain-duration: 1.34s; --storm-rain-delay: -0.1s; }
+.ui-storm-rain--f { left: 68%; --storm-rain-duration: 1.72s; --storm-rain-delay: -0.9s; }
+.ui-storm-rain--g { left: 73%; --storm-rain-duration: 1.18s; --storm-rain-delay: -0.5s; }
+.ui-storm-rain--h { left: 78%; --storm-rain-duration: 1.56s; --storm-rain-delay: -1.3s; }
+.ui-storm-rain--i { left: 83%; --storm-rain-duration: 1.28s; --storm-rain-delay: -0.7s; }
+.ui-storm-rain--j { left: 87%; --storm-rain-duration: 1.88s; --storm-rain-delay: -1.6s; }
+.ui-storm-rain--k { left: 91%; --storm-rain-duration: 1.38s; --storm-rain-delay: -0.2s; }
+.ui-storm-rain--l { left: 94%; --storm-rain-duration: 1.68s; --storm-rain-delay: -1s; }
+.ui-storm-rain--m { left: 97%; --storm-rain-duration: 1.22s; --storm-rain-delay: -0.6s; }
+.ui-storm-rain--n { left: 99%; --storm-rain-duration: 1.52s; --storm-rain-delay: -1.4s; }
+
+/* 황실 — 금빛 문장 가루가 별 모양으로 반짝이며 떠오른다. */
+.ui-royal-mote {
+  bottom: -16%;
+  left: var(--profile-particle-x);
+  width: clamp(0.46rem, 2.3%, 0.9rem);
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  background: radial-gradient(circle, #fff 0 8%, #fef3c7 16%, #facc15 48%, #a16207 78%);
+  box-shadow: 0 0 0.48rem rgb(250 204 21 / 0.66);
+  filter: drop-shadow(0 0 2px rgb(253 230 138 / 0.84));
+  will-change: transform, opacity;
+  animation-duration: var(--profile-particle-duration);
+  animation-delay: var(--profile-particle-delay);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.ui-royal-mote:nth-child(odd) { animation-name: profile-prismatic-glint-rise-b; }
+.ui-royal-mote:nth-child(even) { animation-name: profile-prismatic-glint-rise-a; }
+
+.ui-profile-decoration-motion--paused > span {
+  animation-play-state: paused;
+}
+
+.ui-profile-frame-cosmetic:has(.ui-profile-decoration-motion--paused)::before,
+.ui-profile-frame-cosmetic:has(.ui-profile-decoration-motion--paused)::after,
+.ui-profile-theme-header:has(> .ui-profile-decoration-motion--paused)::before,
+.ui-profile-theme-header:has(> .ui-profile-decoration-motion--paused)::after {
+  animation-play-state: paused;
 }
 
 .ui-profile-frame-celestial {
@@ -1954,8 +2661,18 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #f8fafc, #facc15, #c084fc, #38bdf8, #f0abfc, #f8fafc);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/celestial-art.webp"),
-    radial-gradient(ellipse at 50% 40%, rgb(168 85 247 / 0.1), rgb(56 189 248 / 0.05) 38%, transparent 70%);
-  --profile-decoration-size: 100% 100%, 100% 100%;
+    radial-gradient(ellipse at 50% 16%, rgb(192 132 252 / 0.2), rgb(56 189 248 / 0.09) 42%, transparent 72%),
+    linear-gradient(135deg, rgb(49 46 129 / 0.28), rgb(88 28 135 / 0.14) 48%, rgb(14 116 144 / 0.22));
+  --profile-theme-background:
+    radial-gradient(circle at 80% 22%, rgb(216 180 254 / 0.52), transparent 25%),
+    radial-gradient(circle at 70% 86%, rgb(56 189 248 / 0.38), transparent 34%),
+    linear-gradient(125deg, #1e1b4b, #581c87 52%, #164e63);
+  --profile-theme-pattern:
+    radial-gradient(ellipse at 88% 14%, rgb(224 242 254 / 0.2), transparent 28%),
+    radial-gradient(ellipse at 61% 76%, rgb(192 132 252 / 0.18), transparent 34%),
+    radial-gradient(ellipse at 104% 88%, rgb(34 211 238 / 0.16), transparent 30%);
+  --profile-theme-pattern-size: 100% 100%, 100% 100%, 100% 100%;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.72;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/celestial.svg");
   --profile-avatar-decoration-opacity: 0.4;
@@ -1969,6 +2686,14 @@ body {
     url("/images/ui/profile-decorations/obsidian-art.webp"),
     radial-gradient(ellipse at 50% 112%, rgb(249 115 22 / 0.2), transparent 58%),
     linear-gradient(135deg, rgb(39 39 42 / 0.38), rgb(9 9 11 / 0.22) 48%, rgb(69 10 10 / 0.32));
+  --profile-theme-background:
+    radial-gradient(circle at 84% 74%, rgb(249 115 22 / 0.54), transparent 28%),
+    radial-gradient(circle at 68% 16%, rgb(153 27 27 / 0.44), transparent 24%),
+    linear-gradient(125deg, #09090b, #3f0b0b 56%, #7c2d12);
+  --profile-theme-pattern:
+    linear-gradient(118deg, transparent 0 46%, rgb(251 146 60 / 0.48) 47%, transparent 49% 100%),
+    linear-gradient(62deg, transparent 0 68%, rgb(220 38 38 / 0.38) 69%, transparent 71% 100%);
+  --profile-theme-pattern-size: 58px 72px, 92px 64px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.76;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/obsidian-emblem.webp");
@@ -1983,8 +2708,18 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #e0f2fe, #67e8f9, #38bdf8, #a5b4fc, #f8fafc, #e0f2fe);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/frozen-art.webp"),
-    linear-gradient(135deg, rgb(255 255 255 / 0.1), transparent 28%, transparent 72%, rgb(103 232 249 / 0.08));
-  --profile-decoration-size: 100% 100%, 100% 100%;
+    radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 0.2), rgb(165 243 252 / 0.1) 42%, transparent 70%),
+    linear-gradient(135deg, rgb(186 230 253 / 0.28), rgb(224 242 254 / 0.14) 48%, rgb(129 140 248 / 0.2));
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(255 255 255 / 0.5), transparent 24%),
+    radial-gradient(circle at 72% 88%, rgb(165 180 252 / 0.42), transparent 34%),
+    linear-gradient(125deg, #0c4a6e, #0369a1 54%, #4338ca);
+  --profile-theme-pattern:
+    radial-gradient(ellipse at 90% 4%, rgb(255 255 255 / 0.48) 0 5%, rgb(165 243 252 / 0.18) 16%, transparent 31%),
+    radial-gradient(ellipse at 74% 104%, rgb(224 242 254 / 0.34) 0 9%, rgb(96 165 250 / 0.16) 23%, transparent 42%),
+    radial-gradient(circle at 98% 82%, rgb(129 140 248 / 0.18), transparent 27%);
+  --profile-theme-pattern-size: 100% 100%, 100% 100%, 100% 100%;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/frozen.svg");
   --profile-avatar-decoration-opacity: 0.38;
@@ -1996,8 +2731,18 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #18181b, #475569, #facc15, #818cf8, #1e293b, #18181b);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/storm-art.webp"),
-    radial-gradient(ellipse at 50% 0%, rgb(30 41 59 / 0.14), transparent 74%);
-  --profile-decoration-size: 100% 100%, 100% 100%;
+    radial-gradient(ellipse at 50% 0%, rgb(168 85 247 / 0.18), transparent 62%),
+    linear-gradient(135deg, rgb(15 23 42 / 0.36), rgb(49 46 129 / 0.18) 48%, rgb(30 41 59 / 0.32));
+  --profile-theme-background:
+    radial-gradient(circle at 82% 20%, rgb(129 140 248 / 0.44), transparent 25%),
+    radial-gradient(circle at 72% 86%, rgb(71 85 105 / 0.58), transparent 36%),
+    linear-gradient(125deg, #0f172a, #312e81 52%, #1e293b);
+  --profile-theme-pattern:
+    radial-gradient(ellipse at 80% 7%, rgb(148 163 184 / 0.34) 0 15%, transparent 38%),
+    radial-gradient(ellipse at 62% 16%, rgb(71 85 105 / 0.38) 0 13%, transparent 34%),
+    radial-gradient(ellipse at 96% 28%, rgb(99 102 241 / 0.22), transparent 30%);
+  --profile-theme-pattern-size: 100% 100%, 100% 100%, 100% 100%;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/storm.svg");
   --profile-avatar-decoration-opacity: 0.36;
@@ -2009,12 +2754,19 @@ body {
   --profile-frame-gradient: linear-gradient(110deg, #881337, #e11d48, #fb7185, #fbbf24, #be123c, #881337);
   --profile-decoration-background:
     url("/images/ui/profile-decorations/rose-art.webp"),
-    linear-gradient(145deg, rgb(225 29 72 / 0.07), transparent 52%, rgb(251 191 36 / 0.06));
-  --profile-decoration-size: 100% 100%, 100% 100%;
+    radial-gradient(ellipse at 50% 0%, rgb(251 191 36 / 0.15), transparent 54%),
+    linear-gradient(145deg, rgb(136 19 55 / 0.28), rgb(159 18 57 / 0.13) 50%, rgb(120 53 15 / 0.22));
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(253 164 175 / 0.5), transparent 25%),
+    radial-gradient(circle at 70% 88%, rgb(225 29 72 / 0.5), transparent 34%),
+    linear-gradient(125deg, #4c0519, #9f1239 54%, #78350f);
+  --profile-theme-pattern: none;
+  --profile-theme-pattern-opacity: 0;
+  --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.68;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/rose.svg");
   --profile-avatar-decoration-opacity: 0.38;
-  --profile-decoration-animation: profile-decoration-drift 11s ease-in-out infinite;
+  --profile-decoration-animation: none;
 }
 
 .ui-profile-frame-royal {
@@ -2024,6 +2776,14 @@ body {
     url("/images/ui/profile-decorations/royal-art.webp"),
     radial-gradient(ellipse at 50% 0%, rgb(250 204 21 / 0.18), transparent 46%),
     linear-gradient(135deg, rgb(88 28 135 / 0.3), rgb(76 29 149 / 0.16) 48%, rgb(126 34 206 / 0.26));
+  --profile-theme-background:
+    radial-gradient(circle at 82% 18%, rgb(253 230 138 / 0.54), transparent 25%),
+    radial-gradient(circle at 72% 88%, rgb(147 51 234 / 0.5), transparent 34%),
+    linear-gradient(125deg, #3b0764, #6b21a8 54%, #713f12);
+  --profile-theme-pattern:
+    linear-gradient(45deg, transparent 0 44%, rgb(253 230 138 / 0.44) 45% 47%, transparent 48% 100%),
+    linear-gradient(135deg, transparent 0 44%, rgb(216 180 254 / 0.36) 45% 47%, transparent 48% 100%);
+  --profile-theme-pattern-size: 44px 44px, 44px 44px;
   --profile-decoration-size: 100% 100%, 100% 100%, 100% 100%;
   --profile-decoration-opacity: 0.82;
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/royal-emblem.webp");
@@ -2063,6 +2823,7 @@ body {
   --profile-decoration-background: none;
   --profile-decoration-animation: none;
   --profile-decoration-opacity: 0;
+  --profile-theme-pattern-opacity: 0;
   --profile-avatar-decoration-opacity: 0;
   background-size: 100% 100%;
   box-shadow:
@@ -2926,10 +3687,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .ui-profile-frame-cosmetic::before,
   .ui-profile-frame-cosmetic::after,
+  .ui-profile-theme-header::before,
   .ui-profile-avatar-frame-cosmetic,
   .ui-profile-avatar-frame-cosmetic::after,
-  .ui-verdant-canopy-light,
-  .ui-verdant-leaf,
+  .ui-profile-decoration-motion,
   .ui-chat-name-chroma,
   .ui-chat-name-chroma::before,
   .ui-chat-name-chroma::after {
@@ -2937,11 +3698,7 @@ body {
     background-position: 50% 50%;
   }
 
-  .ui-verdant-leaf--fall-a,
-  .ui-verdant-leaf--fall-b,
-  .ui-verdant-leaf--fall-c,
-  .ui-verdant-leaf--left,
-  .ui-verdant-leaf--right {
+  .ui-profile-decoration-motion {
     display: none;
   }
 }
@@ -2961,9 +3718,17 @@ body {
   }
 
   .ui-profile-frame-cosmetic::after,
+  .ui-profile-theme-header::before,
+  .ui-profile-theme-header::after,
   .ui-profile-avatar-frame-cosmetic::after,
-  .ui-verdant-decoration-motion {
+  .ui-profile-decoration-motion {
     display: none;
+  }
+
+  .ui-profile-theme-header {
+    border-color: Highlight;
+    background: Canvas;
+    color: CanvasText;
   }
 
   .ui-chat-name-chroma {
@@ -3002,11 +3767,31 @@ html.ui-discreet-mode .ui-profile-frame-cosmetic {
 
 html.ui-discreet-mode .ui-profile-frame-cosmetic::before,
 html.ui-discreet-mode .ui-profile-frame-cosmetic::after,
+html.ui-discreet-mode .ui-profile-theme-header::before,
+html.ui-discreet-mode .ui-profile-theme-header::after,
 html.ui-discreet-mode .ui-profile-avatar-frame-cosmetic::after,
-html.ui-discreet-mode .ui-verdant-decoration-motion,
+html.ui-discreet-mode .ui-profile-decoration-motion,
 html.ui-discreet-mode .ui-chat-name-chroma::before,
 html.ui-discreet-mode .ui-chat-name-chroma::after {
   display: none;
+}
+
+html.ui-discreet-mode .ui-profile-theme-header {
+  border-color: rgb(212 212 216);
+  background: rgb(250 250 250);
+  color: rgb(24 24 27);
+  box-shadow: none;
+}
+
+html.dark.ui-discreet-mode .ui-profile-theme-header {
+  border-color: rgb(63 63 70);
+  background: rgb(24 24 27);
+  color: rgb(244 244 245);
+}
+
+html.ui-discreet-mode .ui-profile-theme-copy {
+  color: inherit;
+  text-shadow: none;
 }
 
 html.ui-discreet-mode .ui-profile-avatar-frame-cosmetic,

@@ -41,6 +41,7 @@ import {
   OUTPOST_BY_ID,
   OUTPOST_NPC_TAX_RATE,
 } from "@/adventure/data/v2/outposts";
+import { resolveCurrentOutpostId } from "@/adventure/data/v2/outpostGraph";
 import {
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
@@ -158,9 +159,9 @@ type CharSave = {
   [k: string]: unknown;
 };
 
-function authoritativeCatalogOutpostId(charSave: CharSave): string | null {
+function authoritativeCatalogOutpostId(charSave: CharSave): string {
   const saved = charSave.lastVisitedOutpost?.outpostId;
-  return typeof saved === "string" && OUTPOST_BY_ID.has(saved) ? saved : null;
+  return resolveCurrentOutpostId(typeof saved === "string" ? saved : null);
 }
 
 function authoritativeTileOutpostId(charSave: CharSave): string | null {
@@ -209,10 +210,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     tileOutpostId: lockedTileOutpostId,
     rareMapIid,
   } = ctx;
-  // === 1. outpost 점령 조회 (FOR UPDATE) ===
-  // v2 의 lock 순서 통일: outpost FOR UPDATE → getGuildId → character.v2.
-  // FOR UPDATE 로 정책 게이트 평가와 세금 결정이 같은 스냅샷을 사용 — 점령자가
-  // hunt 도중 정책을 바꿔도 이 hunt 는 진입 시점 정책으로 일관.
+  // === 1. outpost 점령 조회 (FOR SHARE) ===
+  // v2 의 lock 순서 통일: outpost FOR SHARE → getGuildId → character.v2.
+  // FOR SHARE 로 정책 게이트 평가와 세금 결정이 같은 스냅샷을 사용 — 점령자가
+  // hunt 도중 정책을 바꿔도 이 hunt 는 진입 시점 정책으로 일관. 공유 잠금은 사냥끼리는
+  // 서로 막지 않아 같은 거점의 모든 이용자가 하나씩 직렬 처리되던 병목을 제거한다.
   type OccupationRow = {
     occupiedByUserId: string | null;
     occupiedByGuildId: number | null;
@@ -240,7 +242,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
           })
           .from(outpostOccupations)
           .where(eq(outpostOccupations.outpostId, locationId))
-          .for("update")
+          .for("share")
           .limit(1)
       )[0] ?? null;
     if (row) occupationById.set(locationId, row);
@@ -712,7 +714,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     mapExpMult,
     mapGoldMult,
   });
-  const hotTime = await readActiveHotTime(now);
+  const hotTime = await readActiveHotTime(now, tx);
   const expAfterGuild = applyGuildCombatRewardBonus(
     baseRewards.expGained,
     guildCombatSupply.expPct,

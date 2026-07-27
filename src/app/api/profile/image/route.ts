@@ -1,13 +1,15 @@
 import { db } from "@/db";
-import { isProfileImageObjectKey } from "@/adventure/profile/avatars";
+import {
+  isProfileImageObjectKey,
+  PROFILE_IMAGE_MAX_BYTES,
+} from "@/adventure/profile/avatars";
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import {
   parseMuseunCashItems,
   removeMuseunCashItem,
 } from "@/adventure/data/v2/museunCashItems";
-import { GUILD_EMBLEM_IMAGE_MAX_BYTES } from "@/adventure/data/guild-emblems";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { processGuildEmblemImage } from "@/lib/server/guildEmblemImage";
+import { processProfileImage } from "@/lib/server/profileImage";
 import {
   deleteProfileImage,
   isProfileImageStorageConfigured,
@@ -18,7 +20,7 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 
 const PERMIT_ID = "profile_image_permit" as const;
-const MAX_MULTIPART_BYTES = GUILD_EMBLEM_IMAGE_MAX_BYTES + 256 * 1024;
+const MAX_MULTIPART_BYTES = PROFILE_IMAGE_MAX_BYTES + 256 * 1024;
 
 async function removeStoredImage(value: unknown): Promise<void> {
   if (!isProfileImageObjectKey(value) || !isProfileImageStorageConfigured()) return;
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_file" }, { status: 400 });
   }
-  const processed = await processGuildEmblemImage(image);
+  const processed = await processProfileImage(image);
   if (!processed.ok) {
     return Response.json(
       { ok: false, error: processed.error },
@@ -81,7 +83,11 @@ export async function POST(req: Request) {
 
   let avatar: string;
   try {
-    avatar = await uploadProfileImage({ userId, bytes: processed.bytes });
+    avatar = await uploadProfileImage({
+      userId,
+      bytes: processed.bytes,
+      thumbnailBytes: processed.thumbnailBytes,
+    });
   } catch (error) {
     console.error("profile image R2 upload failed", error);
     return Response.json({ ok: false, error: "storage_error" }, { status: 502 });
@@ -114,7 +120,12 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, PROFILE_STORAGE_KEY, { ...profile, gender: avatar });
       return {
         status: 200,
-        body: { ok: true as const, avatar, permits: cashItems[PERMIT_ID] ?? 0 },
+        body: {
+          ok: true as const,
+          avatar,
+          animated: processed.animated,
+          permits: cashItems[PERMIT_ID] ?? 0,
+        },
         previousAvatar: profile.gender,
       };
     });

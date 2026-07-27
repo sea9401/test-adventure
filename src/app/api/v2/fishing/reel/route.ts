@@ -398,7 +398,7 @@ export async function POST(req: Request) {
       FISHING_WALLET_KEY,
       {},
     );
-    const hotTime = await readActiveHotTime(now);
+    const hotTime = await readActiveHotTime(now, tx);
     const baseCatchCoin =
       (FISHING_CATCH_COIN_BY_TIER[FISH[session.fishId].tier] ?? 0) +
       streakBuff.coinBonus +

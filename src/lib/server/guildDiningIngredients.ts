@@ -140,14 +140,17 @@ export async function readGuildDiningIngredientBalances(
     group.push(ingredient);
     bySource.set(ingredient.source, group);
   }
-  const entries = await Promise.all(
-    [...bySource.entries()].map(async ([source, ingredients]) => {
-      const reader = SOURCE_READERS[source];
-      return reader
-        ? reader.readBalances(tx, userId, ingredients, now)
-        : Object.fromEntries(ingredients.map((ingredient) => [ingredient.id, 0]));
-    }),
-  );
+  const entries: Record<string, number>[] = [];
+  for (const [source, ingredients] of bySource.entries()) {
+    const reader = SOURCE_READERS[source];
+    entries.push(
+      reader
+        ? await reader.readBalances(tx, userId, ingredients, now)
+        : Object.fromEntries(
+            ingredients.map((ingredient) => [ingredient.id, 0]),
+          ),
+    );
+  }
   return Object.assign({}, ...entries) as Record<string, number>;
 }
 

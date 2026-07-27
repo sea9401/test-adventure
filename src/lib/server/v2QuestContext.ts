@@ -342,6 +342,10 @@ export function buildQuestCtx(args: {
     gridDungeonClears,
     cookingLevel,
     cookingRecipesDiscovered,
+    cookingDishesCooked: cooking.stats.dishesCooked,
+    cookingOrdersCompleted: cooking.stats.ordersCompleted,
+    cookingMasterpiecesCooked: cooking.stats.masterpiecesCooked,
+    cookingRareIngredientDishes: cooking.stats.rareIngredientDishes,
     guildDiningMeals: args.extras.guildDiningMeals,
     guildTrainingDrills: args.extras.guildTrainingDrills,
     guildExpeditions: args.extras.guildExpeditions,
@@ -357,63 +361,54 @@ export async function assembleQuestExtras(
   ex: DbExecutor,
   userId: string,
 ): Promise<QuestExtras> {
-  const [
-    guildRows,
-    tradeRows,
-    arenaRaw,
-    arenaAgg,
-    claimAgg,
-    fishRaw,
-    guildActivityAgg,
-  ] =
-    await Promise.all([
-      ex
-        .select({ id: guildMembers.guildId })
-        .from(guildMembers)
-        .where(eq(guildMembers.userId, userId))
-        .limit(1),
-      ex
-        .select({ id: marketplaceListingsV2.id })
-        .from(marketplaceListingsV2)
-        .where(
-          and(
-            eq(marketplaceListingsV2.status, "sold"),
-            or(
-              eq(marketplaceListingsV2.sellerId, userId),
-              eq(marketplaceListingsV2.buyerId, userId),
-            ),
-          ),
-        )
-        .limit(1),
-      readSave(ex, userId, ARENA_HISTORY_KEY, {}),
-      ex
-        .select({
-          matches: sql<number>`coalesce(sum(${pvpRatings.wins} + ${pvpRatings.losses} + ${pvpRatings.draws}), 0)::bigint`,
-          wins: sql<number>`coalesce(sum(${pvpRatings.wins}), 0)::bigint`,
-        })
-        .from(pvpRatings)
-        .where(eq(pvpRatings.userId, userId)),
-      // 점령 시도/승리 — (attackerUserId, createdAt) 인덱스 단일 집계.
-      ex
-        .select({
-          total: sql<number>`count(*)::bigint`,
-          wins: sql<number>`count(*) filter (where ${outpostClaimAttempts.won})::bigint`,
-        })
-        .from(outpostClaimAttempts)
-        .where(eq(outpostClaimAttempts.attackerUserId, userId)),
-      readSave(ex, userId, "fishing-codex.v1", {}),
-      ex
-        .select({
-          diningMeals: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'dining_meal')::bigint`,
-          trainingDrills: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'training_drill_claim')::bigint`,
-          expeditions: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'exploration_expedition_claim')::bigint`,
-          workshopDeliveries: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'workshop_delivery')::bigint`,
-          alchemyCrafts: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'alchemy_craft')::bigint`,
-          tradeContracts: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'trade_contract_complete')::bigint`,
-        })
-        .from(guildActivityLog)
-        .where(eq(guildActivityLog.actorUserId, userId)),
-    ]);
+  // claim 경로는 transaction 을 넘긴다. pg transaction 의 단일 client 에서
+  // query 를 겹치지 않도록 모든 집계를 순서대로 실행한다.
+  const guildRows = await ex
+    .select({ id: guildMembers.guildId })
+    .from(guildMembers)
+    .where(eq(guildMembers.userId, userId))
+    .limit(1);
+  const tradeRows = await ex
+    .select({ id: marketplaceListingsV2.id })
+    .from(marketplaceListingsV2)
+    .where(
+      and(
+        eq(marketplaceListingsV2.status, "sold"),
+        or(
+          eq(marketplaceListingsV2.sellerId, userId),
+          eq(marketplaceListingsV2.buyerId, userId),
+        ),
+      ),
+    )
+    .limit(1);
+  const arenaRaw = await readSave(ex, userId, ARENA_HISTORY_KEY, {});
+  const arenaAgg = await ex
+    .select({
+      matches: sql<number>`coalesce(sum(${pvpRatings.wins} + ${pvpRatings.losses} + ${pvpRatings.draws}), 0)::bigint`,
+      wins: sql<number>`coalesce(sum(${pvpRatings.wins}), 0)::bigint`,
+    })
+    .from(pvpRatings)
+    .where(eq(pvpRatings.userId, userId));
+  // 점령 시도/승리 — (attackerUserId, createdAt) 인덱스 단일 집계.
+  const claimAgg = await ex
+    .select({
+      total: sql<number>`count(*)::bigint`,
+      wins: sql<number>`count(*) filter (where ${outpostClaimAttempts.won})::bigint`,
+    })
+    .from(outpostClaimAttempts)
+    .where(eq(outpostClaimAttempts.attackerUserId, userId));
+  const fishRaw = await readSave(ex, userId, "fishing-codex.v1", {});
+  const guildActivityAgg = await ex
+    .select({
+      diningMeals: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'dining_meal')::bigint`,
+      trainingDrills: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'training_drill_claim')::bigint`,
+      expeditions: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'exploration_expedition_claim')::bigint`,
+      workshopDeliveries: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'workshop_delivery')::bigint`,
+      alchemyCrafts: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'alchemy_craft')::bigint`,
+      tradeContracts: sql<number>`count(*) filter (where ${guildActivityLog.type} = 'trade_contract_complete')::bigint`,
+    })
+    .from(guildActivityLog)
+    .where(eq(guildActivityLog.actorUserId, userId));
   const arenaHistory = parseArenaHistory(arenaRaw);
 
   // 내 길드 점령 거점 보유 — 길드 소속일 때만 1쿼리 추가.
@@ -547,14 +542,17 @@ export async function rolloverRepeatQuestsBeforeProgress(
   );
   if (!repeatSaveNeedsRollover(locked, now)) return false;
 
-  const [advLogRaw, farmRaw, woodcuttingRaw, miningRaw, craftingRaw, extras] = await Promise.all([
-    readSave(ex, userId, "adventure-log.v2", {}),
-    readSave(ex, userId, FARM_SAVE_KEY, {}),
-    readSave(ex, userId, WOODCUTTING_LOG_KEY, {}),
-    readSave(ex, userId, MINING_LOG_KEY, {}),
-    readSave(ex, userId, "crafting.v2", {}),
-    assembleQuestExtras(ex, userId),
-  ]);
+  const advLogRaw = await readSave(ex, userId, "adventure-log.v2", {});
+  const farmRaw = await readSave(ex, userId, FARM_SAVE_KEY, {});
+  const woodcuttingRaw = await readSave(
+    ex,
+    userId,
+    WOODCUTTING_LOG_KEY,
+    {},
+  );
+  const miningRaw = await readSave(ex, userId, MINING_LOG_KEY, {});
+  const craftingRaw = await readSave(ex, userId, "crafting.v2", {});
+  const extras = await assembleQuestExtras(ex, userId);
   const signals = buildRepeatSignals(advLogRaw, extras, {
     farmRaw,
     woodcuttingRaw,

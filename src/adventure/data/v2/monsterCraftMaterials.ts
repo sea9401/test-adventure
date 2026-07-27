@@ -6,6 +6,10 @@ export const MONSTER_CRAFT_MATERIAL_ID = {
   rockGolemResonantCore: "v2_monster_rock_golem_resonant_core",
   sparkScorpionConductiveSac: "v2_monster_spark_scorpion_conductive_sac",
   abyssWormBurrowingJaw: "v2_monster_abyss_worm_burrowing_jaw",
+  starlightGatekeeperLuminousCore:
+    "v2_monster_starlight_gatekeeper_luminous_core",
+  poisonMistSpiritToxicCore: "v2_monster_poison_mist_spirit_toxic_core",
+  voidBeastShadowClaw: "v2_monster_void_beast_shadow_claw",
   plateauSlayerSerratedBone: "v2_monster_plateau_slayer_serrated_bone",
   lightningOracleThunderRunestone:
     "v2_monster_lightning_oracle_thunder_runestone",
@@ -46,6 +50,24 @@ export const MONSTER_CRAFT_MATERIALS: Record<
     name: "심연 벌레의 굴착턱",
     description:
       "심층 동굴의 암맥을 파고드는 단단한 턱. 방어를 파쇄하는 화살촉을 벼리는 데 쓰인다.",
+  },
+  [MONSTER_CRAFT_MATERIAL_ID.starlightGatekeeperLuminousCore]: {
+    id: MONSTER_CRAFT_MATERIAL_ID.starlightGatekeeperLuminousCore,
+    name: "별빛 수문장의 성광핵",
+    description:
+      "잊힌 성소의 별빛 수문장이 품은 빛의 핵. 치유의 여운을 보호막으로 굳히는 장신구 제작에 쓰인다.",
+  },
+  [MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore]: {
+    id: MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore,
+    name: "독안개 정령의 독무핵",
+    description:
+      "리자드 늪지의 독안개 정령이 남긴 응축핵. 공격에 짙은 독무를 싣는 장갑 제작에 쓰인다.",
+  },
+  [MONSTER_CRAFT_MATERIAL_ID.voidBeastShadowClaw]: {
+    id: MONSTER_CRAFT_MATERIAL_ID.voidBeastShadowClaw,
+    name: "공허 야수의 그림자 발톱",
+    description:
+      "짐승의 소굴을 배회하는 공허 야수의 발톱. 회피 직후 움직임을 가속하는 장화 제작에 쓰인다.",
   },
   [MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone]: {
     id: MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
@@ -97,6 +119,24 @@ export const MONSTER_CRAFT_MATERIAL_DROP_RULES: readonly MonsterCraftMaterialDro
     monsterKey: "심연 벌레",
     sourceArea: "심층 동굴",
     materialId: MONSTER_CRAFT_MATERIAL_ID.abyssWormBurrowingJaw,
+    chance: 0.02,
+  },
+  {
+    monsterKey: "별빛 수문장",
+    sourceArea: "잊힌 성소",
+    materialId: MONSTER_CRAFT_MATERIAL_ID.starlightGatekeeperLuminousCore,
+    chance: 0.02,
+  },
+  {
+    monsterKey: "독안개 정령",
+    sourceArea: "리자드 늪지",
+    materialId: MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore,
+    chance: 0.02,
+  },
+  {
+    monsterKey: "공허 야수",
+    sourceArea: "짐승의 소굴",
+    materialId: MONSTER_CRAFT_MATERIAL_ID.voidBeastShadowClaw,
     chance: 0.02,
   },
   {

@@ -49,8 +49,8 @@ import {
   type ChromaNameRarity,
   type MuseunCosmeticAccessId,
   type MuseunCosmeticsState,
-  type ProfileBorderItemId,
   type ProfileBorderId,
+  type ProfileBorderItemId,
 } from "@/adventure/data/v2/museunCosmetics";
 import { useGameState } from "./GameStateProvider";
 import { ProfileImagePanel } from "./V2ProfileImageView";
@@ -635,7 +635,7 @@ function BorderCodex({
   return (
     <CollectionLayout
       title="프로필 꾸미기 도감"
-      description="테두리와 카드 내부의 테마 연출을 함께 바꿉니다. 높은 등급일수록 내부 효과가 풍부해집니다."
+      description="카드 바깥 테두리와 프로필 상단 배경을 함께 바꿉니다. 수치와 장비 영역은 읽기 편한 기본 배경을 유지합니다."
     >
       {SORTED_PROFILE_BORDER_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
@@ -672,6 +672,7 @@ function BorderCodex({
               })
             }
             className={`ui-profile-frame-cosmetic ui-profile-frame-${variant.id} ${variant.motion === "static" ? "ui-profile-frame-static" : ""}`}
+            themedHeader={variant.interior !== "none"}
             title={`${variant.name} 테두리`}
             rarity={variant.rarity}
             detail={`${PROFILE_BORDER_RARITIES[variant.rarity].effect} · ${variant.feature}`}
@@ -790,6 +791,7 @@ function CosmeticCard({
   detail,
   decoration = null,
   className = "",
+  themedHeader = false,
 }: {
   owned: boolean;
   accessActive: boolean;
@@ -804,6 +806,7 @@ function CosmeticCard({
   detail: string;
   decoration?: ProfileBorderId | null;
   className?: string;
+  themedHeader?: boolean;
 }) {
   return (
     <div
@@ -811,12 +814,32 @@ function CosmeticCard({
         active ? "ring-2 ring-violet-500 ring-offset-1 dark:ring-offset-zinc-900" : ""
       }`}
     >
-      <ProfileDecorationMotion profileBorder={decoration} />
-      <div className="min-w-0">
-        <div className={`truncate text-sm font-bold ${owned ? "" : "text-zinc-500 dark:text-zinc-400"}`}>
+      <div
+        className={`min-w-0 ${
+          themedHeader
+            ? "ui-profile-theme-header ui-profile-theme-header--compact ui-profile-theme-copy"
+            : ""
+        }`}
+      >
+        <ProfileDecorationMotion profileBorder={decoration} />
+        <div
+          className={`truncate text-sm font-bold ${
+            owned
+              ? ""
+              : themedHeader
+                ? "text-zinc-200"
+                : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
           {title}
         </div>
-        <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        <div
+          className={`text-[11px] ${
+            themedHeader
+              ? "text-zinc-200"
+              : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
           <span className={`font-semibold ${RARITY_TEXT_CLASS[rarity]}`}>
             {CHROMA_NAME_RARITIES[rarity].name}
           </span>

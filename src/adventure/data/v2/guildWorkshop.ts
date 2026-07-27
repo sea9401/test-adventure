@@ -92,6 +92,9 @@ export type GuildWorkshopRecipeId =
   | "crafted_pulsestone_guard"
   | "crafted_thundercoil_gloves"
   | "crafted_veinbreaker_bow"
+  | "crafted_luminous_aegis_necklace"
+  | "crafted_toxic_mist_gloves"
+  | "crafted_voidstep_boots"
   | "crafted_fury_necklace"
   | "crafted_pursuit_necklace"
   | "crafted_focus_robe"
@@ -680,6 +683,54 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredSmithyLevel: 2,
     artisanXp: 90,
     note: "몬스터 소재 특수 장비 · 치명타 시 대상 방어력 감소",
+  },
+  crafted_luminous_aegis_necklace: {
+    id: "crafted_luminous_aegis_necklace",
+    equipmentId: "v2_crafted_luminous_aegis_necklace",
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(8, "focus"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.starlightGatekeeperLuminousCore]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 7,
+    requiredSmithyLevel: 3,
+    artisanXp: 108,
+    note: "몬스터 소재 특수 장비 · 회복량 일부를 보호막으로 전환",
+  },
+  crafted_toxic_mist_gloves: {
+    id: "crafted_toxic_mist_gloves",
+    equipmentId: "v2_crafted_toxic_mist_gloves",
+    resourceProfile: "corrosion",
+    cost: guildWorkshopResourceCostForTier(8, "corrosion"),
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 1,
+    },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 7,
+    requiredSmithyLevel: 3,
+    artisanXp: 112,
+    note: "몬스터 소재 특수 장비 · 적중 시 중독",
+  },
+  crafted_voidstep_boots: {
+    id: "crafted_voidstep_boots",
+    equipmentId: "v2_crafted_voidstep_boots",
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(8, "pursuit"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4 },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.voidBeastShadowClaw]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 8,
+    requiredSmithyLevel: 4,
+    artisanXp: 120,
+    note: "몬스터 소재 특수 장비 · 회피 시 속도 상승",
   },
   crafted_fury_necklace: {
     id: "crafted_fury_necklace",

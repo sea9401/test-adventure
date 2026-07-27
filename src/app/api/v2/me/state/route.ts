@@ -72,6 +72,13 @@ import {
 import { parseAdventureSupportState } from "@/adventure/data/v2/adventureSupport";
 import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
+  PROFILE_SHOWCASE_SAVE_KEY,
+  parseProfileBadgeStandVisible,
+  parseProfileShowcase,
+  parseProfileShowcaseSlots,
+  ownsProfileBadgeStand,
+} from "@/adventure/profile/profileShowcase";
+import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
@@ -118,6 +125,7 @@ const STATE_SAVE_KEYS = [
   COOKING_SAVE_KEY,
   WOODCUTTING_LOG_KEY,
   MINING_LOG_KEY,
+  PROFILE_SHOWCASE_SAVE_KEY,
 ] as const;
 
 type StateSaveKey = (typeof STATE_SAVE_KEYS)[number];
@@ -410,6 +418,16 @@ export async function GET(req: Request) {
       charSave.museunCosmetics,
       now,
       charSave.arenaChampionshipBadges,
+    ),
+    profileShowcase: parseProfileShowcase(
+      stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
+    ),
+    profileShowcaseSlots: parseProfileShowcaseSlots(
+      stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
+    ),
+    profileBadgeStandOwned: ownsProfileBadgeStand(charSave),
+    profileBadgeStandVisible: parseProfileBadgeStandVisible(
+      stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
     ),
     hotTime: hotTime.active
       ? {

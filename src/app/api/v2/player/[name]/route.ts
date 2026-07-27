@@ -32,6 +32,12 @@ import {
 } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import {
+  PROFILE_SHOWCASE_SAVE_KEY,
+  parseProfileBadgeStandVisible,
+  parseProfileShowcaseSlots,
+  ownsProfileBadgeStand,
+} from "@/adventure/profile/profileShowcase";
 
 // GET /api/v2/player/[name] — 다른 모험가의 공개 캐릭터 정보. URL 의 [name] = 닉네임.
 //   "내 정보" 화면과 같은 항목(레벨·직업·속성·능력치·전투 스탯·장착 장비·숙련도)을 돌려준다.
@@ -86,6 +92,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           "adventure-log.v2",
           "equipment.v2",
           "crafting.v2",
+          PROFILE_SHOWCASE_SAVE_KEY,
         ]),
       ),
     );
@@ -157,11 +164,35 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   const { owned, equipped } = parseEquipmentSave(byKey.get("equipment.v2"));
+  const profileBadgeStandOwned = ownsProfileBadgeStand(charSave);
+  const profileBadgeStandVisible = parseProfileBadgeStandVisible(
+    byKey.get(PROFILE_SHOWCASE_SAVE_KEY),
+  );
+  const parsedShowcaseSlots = parseProfileShowcaseSlots(
+    byKey.get(PROFILE_SHOWCASE_SAVE_KEY),
+  );
+  const profileShowcaseSlots =
+    profileBadgeStandOwned && profileBadgeStandVisible
+    ? parsedShowcaseSlots.map((slot) =>
+        slot?.kind !== "equipment" ||
+        owned.some((item) => item.iid === slot.iid)
+          ? slot
+          : null,
+      )
+    : [null, null, null];
+  const profileShowcase = profileShowcaseSlots[0] ?? null;
   // 공개 보기엔 장착 중인 개체만 내려보낸다(전체 인벤토리 over-share 방지). 카드는 equipped
   // 슬롯의 iid 를 이 목록으로 해석해 표시하므로 이게 충분하다.
   const equippedIids = new Set(Object.values(equipped));
+  const showcaseEquipmentIids = new Set(
+    profileShowcaseSlots.flatMap((slot) =>
+      slot?.kind === "equipment" ? [slot.iid] : [],
+    ),
+  );
   const ownedPublic = owned
-    .filter((o) => equippedIids.has(o.iid))
+    .filter(
+      (o) => equippedIids.has(o.iid) || showcaseEquipmentIids.has(o.iid),
+    )
     // 카드 표시에 필요한 것만(iid·id·굴림·강화·제작품질·제작자) — locked(즐겨찾기) 등 사적 플래그 제거.
     // 강화(+N)는 뽐내기 목적 그 자체라 공개(2026-06-12 사용자).
     .map(({ iid, id, roll, enhance, craftQuality, craftedBy }) => ({
@@ -226,6 +257,10 @@ export async function GET(_req: Request, ctx: Ctx) {
       Date.now(),
       charSave.arenaChampionshipBadges,
     ),
+    profileShowcase,
+    profileShowcaseSlots,
+    profileBadgeStandOwned,
+    profileBadgeStandVisible,
     stats: { base: combat.baseAllocatedStats, total: combat.totalStats },
     combat: {
       atk: combat.player.atk,

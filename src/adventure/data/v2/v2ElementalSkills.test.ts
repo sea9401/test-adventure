@@ -9,7 +9,7 @@ import { elementalSkillsForClass } from "./classes";
 // 반환한다. 옛 공용+전문화 차수 게이팅은 폐지. (함수명은 레거시 — 호출부 5곳 호환 위해 유지.)
 describe("elementalSkillsForClass — jobId 직업 킷(차수 게이팅 없음)", () => {
   it("기본 직업 = 그 직업 킷, spec 매핑되면 상위 직업 킷", () => {
-    // 기본 직업 — 직업별 킷. 마법사는 비상 MP 회복기까지 3개를 배운다.
+    // 기본 직업 — 킷(액티브 1 + 패시브 1, 마법사는 비상 회복기 추가).
     expect(elementalSkillsForClass("warrior")).toEqual([
       "v2c_warrior_strike",
       "v2c_warrior_might",

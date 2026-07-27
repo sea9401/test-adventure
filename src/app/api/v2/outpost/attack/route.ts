@@ -9,6 +9,7 @@ import {
   tileSettlements,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
@@ -110,6 +111,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceHighCostRateLimit(req, userId, "outpostAttack");
+  if (limited) return limited;
   let body: { outpostId?: unknown; mode?: unknown };
   try {
     body = (await req.json()) as typeof body;

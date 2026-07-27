@@ -17,6 +17,7 @@ import {
   Sparkle,
   Storefront,
   Sword,
+  Trophy,
   X,
 } from "@phosphor-icons/react";
 import {
@@ -61,6 +62,7 @@ import {
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
 import { useSystemToast } from "./RewardToastProvider";
+import { PROFILE_BADGE_STAND_ITEM_ID } from "@/adventure/profile/profileShowcase";
 
 const COSMETIC_RARITY_BADGE_CLASS: Record<
   ChromaNameRarity | CosmeticItemRarity,
@@ -122,8 +124,11 @@ function itemSummary(itemId: MuseunCashItemId): string {
   if (item.effect.kind === "cosmetic_extension") {
     return `해금된 꾸미기 한 종류의 사용 기간을 ${item.effect.days}일 연장합니다.`;
   }
+  if (item.effect.kind === "profile_badge_stand") {
+    return "프로필에 업적 배지 3개를 전시하는 전시대를 영구 해금합니다.";
+  }
   return item.effect.slot === "profile_border"
-    ? "프로필 카드 전체에 적용할 꾸미기를 해금하고 30일간 사용합니다."
+    ? "프로필 바깥 테두리와 상단 배경 꾸미기를 해금하고 30일간 사용합니다."
     : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";
 }
 
@@ -137,8 +142,12 @@ export const SHOP_ITEM_GROUPS = [
   {
     id: "cosmetic",
     title: "꾸미기",
-    description: "꾸미기 상자와 해금된 꾸미기에 사용하는 30일 연장권입니다.",
-    itemIds: [...MUSEUN_COSMETIC_BOX_ITEM_IDS, "cosmetic_extension_30d"],
+    description: "프로필 전시 기능, 꾸미기 상자와 30일 연장권입니다.",
+    itemIds: [
+      PROFILE_BADGE_STAND_ITEM_ID,
+      ...MUSEUN_COSMETIC_BOX_ITEM_IDS,
+      "cosmetic_extension_30d",
+    ],
   },
 ] as const;
 
@@ -192,6 +201,7 @@ export function MuseunCoinShopView() {
   const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>
     parseMuseunCosmetics(null),
   );
+  const [profileBadgeStandOwned, setProfileBadgeStandOwned] = useState(false);
   const [buying, setBuying] = useState<MuseunCashItemId | null>(null);
   const { notifySystem } = useSystemToast();
 
@@ -204,11 +214,13 @@ export function MuseunCoinShopView() {
           coins?: number;
           cashItems?: MuseunCashItemCounts;
           cosmetics?: MuseunCosmeticsState;
+          profileBadgeStandOwned?: boolean;
         } | null) => {
           if (!alive || !data) return;
           setCoins(Math.max(0, Math.floor(data.coins ?? 0)));
           setCashItems(data.cashItems ?? {});
           setCosmetics(parseMuseunCosmetics(data.cosmetics));
+          setProfileBadgeStandOwned(data.profileBadgeStandOwned === true);
         },
       )
       .catch(() => {});
@@ -234,7 +246,8 @@ export function MuseunCoinShopView() {
         coins?: number;
         cashItems?: MuseunCashItemCounts;
         cosmetics?: MuseunCosmeticsState;
-        delivery?: "inventory" | "entitlement";
+        profileBadgeStandOwned?: boolean;
+        delivery?: "inventory" | "entitlement" | "permanent";
       } | null;
       if (!res.ok || !data?.ok) {
         const errorMessage =
@@ -249,8 +262,11 @@ export function MuseunCoinShopView() {
       setCoins(data.coins ?? 0);
       setCashItems(data.cashItems ?? {});
       setCosmetics(parseMuseunCosmetics(data.cosmetics));
+      setProfileBadgeStandOwned(data.profileBadgeStandOwned === true);
       notifySystem(
-        data.delivery === "entitlement"
+        data.delivery === "permanent"
+          ? `✓ 구매 완료 — ${data.itemName ?? "영구 상품"}을 영구 해금했습니다.`
+          : data.delivery === "entitlement"
           ? `✓ 구매 완료 — ${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
           : `✓ 구매 완료 — ${data.itemName ?? "캐시 아이템"} ${(data.quantity ?? quantity).toLocaleString()}개를 가방에 넣었습니다.`,
       );
@@ -325,6 +341,11 @@ export function MuseunCoinShopView() {
                     key={itemId}
                     itemId={itemId}
                     owned={cashItems[itemId] ?? 0}
+                    permanentOwned={
+                      itemId === PROFILE_BADGE_STAND_ITEM_ID
+                        ? profileBadgeStandOwned
+                        : false
+                    }
                     onClick={() => setDetailItemId(itemId)}
                   />
                 ))}
@@ -352,8 +373,10 @@ export function MuseunCoinShopView() {
           coins={coins}
           owned={cashItems[detailItemId] ?? 0}
           permanentOwned={
-            isMuseunCosmeticItemId(detailItemId) &&
-            cosmetics.owned.includes(detailItemId)
+            detailItemId === PROFILE_BADGE_STAND_ITEM_ID
+              ? profileBadgeStandOwned
+              : isMuseunCosmeticItemId(detailItemId) &&
+                cosmetics.owned.includes(detailItemId)
           }
           cosmetics={cosmetics}
           buying={buying === detailItemId}
@@ -396,16 +419,19 @@ function CashItemPurchaseConfirmDialog({
   useModalA11y(contentRef);
 
   const item = MUSEUN_CASH_ITEMS[itemId];
-  const maxQuantity = maxMuseunCoinShopPurchaseQuantity(
-    coins,
-    item.coinPrice,
-  );
+  const permanent = item.delivery === "permanent";
+  const maxQuantity = permanent
+    ? coins >= item.coinPrice
+      ? 1
+      : 0
+    : maxMuseunCoinShopPurchaseQuantity(coins, item.coinPrice);
   const [quantityInput, setQuantityInput] = useState("1");
   const parsedQuantity = Number(quantityInput);
-  const quantity =
-    Number.isInteger(parsedQuantity) &&
-    parsedQuantity >= 1 &&
-    parsedQuantity <= maxQuantity
+  const quantity = permanent
+    ? maxQuantity
+    : Number.isInteger(parsedQuantity) &&
+        parsedQuantity >= 1 &&
+        parsedQuantity <= maxQuantity
       ? parsedQuantity
       : 0;
   const totalPrice = item.coinPrice * quantity;
@@ -461,69 +487,74 @@ function CashItemPurchaseConfirmDialog({
           <strong className="text-zinc-900 dark:text-zinc-100">
             {item.name}
           </strong>
-          의 구매 수량을 선택해 주세요. 구매를 확정하면 무슨 코인이 즉시
-          차감됩니다.
+          {permanent
+            ? "을(를) 영구 해금합니다. 구매를 확정하면 무슨 코인이 즉시 차감됩니다."
+            : "의 구매 수량을 선택해 주세요. 구매를 확정하면 무슨 코인이 즉시 차감됩니다."}
         </p>
 
         <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-zinc-500 dark:text-zinc-400">상품 가격</span>
-            <strong className="tabular-nums text-amber-700 dark:text-amber-300">
-              {item.coinPrice.toLocaleString()}코인
-            </strong>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <label
-              htmlFor="cash-item-purchase-quantity"
-              className="text-zinc-500 dark:text-zinc-400"
-            >
-              구매 수량
-            </label>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                aria-label="구매 수량 1개 줄이기"
-                disabled={buying || quantityInput === "1"}
-                onClick={() => setClampedQuantity((quantity || 1) - 1)}
-                className="ui-game-button flex size-8 items-center justify-center rounded-md border border-zinc-300 bg-white font-bold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
-              >
-                −
-              </button>
-              <input
-                id="cash-item-purchase-quantity"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={Math.max(1, maxQuantity)}
-                step={1}
-                value={quantityInput}
-                disabled={buying}
-                onFocus={(event) => event.currentTarget.select()}
-                onChange={(event) => setQuantityInput(event.target.value)}
-                onBlur={() => setClampedQuantity(parsedQuantity)}
-                className="h-8 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center font-bold tabular-nums text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-              />
-              <button
-                type="button"
-                aria-label="구매 수량 1개 늘리기"
-                disabled={
-                  buying || maxQuantity === 0 || quantity >= maxQuantity
-                }
-                onClick={() => setClampedQuantity((quantity || 0) + 1)}
-                className="ui-game-button flex size-8 items-center justify-center rounded-md border border-zinc-300 bg-white font-bold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                disabled={buying || maxQuantity === 0}
-                onClick={() => setClampedQuantity(maxQuantity)}
-                className="ui-game-button h-8 rounded-md border border-amber-400 bg-amber-50 px-2 text-xs font-bold text-amber-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-              >
-                최대
-              </button>
-            </div>
-          </div>
+          {!permanent ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-zinc-500 dark:text-zinc-400">상품 가격</span>
+                <strong className="tabular-nums text-amber-700 dark:text-amber-300">
+                  {item.coinPrice.toLocaleString()}코인
+                </strong>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="cash-item-purchase-quantity"
+                  className="text-zinc-500 dark:text-zinc-400"
+                >
+                  구매 수량
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="구매 수량 1개 줄이기"
+                    disabled={buying || quantityInput === "1"}
+                    onClick={() => setClampedQuantity((quantity || 1) - 1)}
+                    className="ui-game-button flex size-8 items-center justify-center rounded-md border border-zinc-300 bg-white font-bold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                  >
+                    −
+                  </button>
+                  <input
+                    id="cash-item-purchase-quantity"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={Math.max(1, maxQuantity)}
+                    step={1}
+                    value={quantityInput}
+                    disabled={buying}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => setQuantityInput(event.target.value)}
+                    onBlur={() => setClampedQuantity(parsedQuantity)}
+                    className="h-8 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center font-bold tabular-nums text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                  <button
+                    type="button"
+                    aria-label="구매 수량 1개 늘리기"
+                    disabled={
+                      buying || maxQuantity === 0 || quantity >= maxQuantity
+                    }
+                    onClick={() => setClampedQuantity((quantity || 0) + 1)}
+                    className="ui-game-button flex size-8 items-center justify-center rounded-md border border-zinc-300 bg-white font-bold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    disabled={buying || maxQuantity === 0}
+                    onClick={() => setClampedQuantity(maxQuantity)}
+                    className="ui-game-button h-8 rounded-md border border-amber-400 bg-amber-50 px-2 text-xs font-bold text-amber-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                  >
+                    최대
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : null}
           <div className="flex items-center justify-between gap-3">
             <span className="text-zinc-500 dark:text-zinc-400">총 결제액</span>
             <strong className="tabular-nums text-amber-700 dark:text-amber-300">
@@ -544,10 +575,16 @@ function CashItemPurchaseConfirmDialog({
           </div>
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          보유 코인으로 최대 {maxQuantity.toLocaleString()}개, 한 번에 최대{" "}
-          {MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY}개까지 구매할 수 있습니다.
-        </p>
+        {permanent ? (
+          <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            계정에 영구 귀속되며 한 번만 구매할 수 있습니다.
+          </p>
+        ) : (
+          <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            보유 코인으로 최대 {maxQuantity.toLocaleString()}개, 한 번에 최대{" "}
+            {MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY}개까지 구매할 수 있습니다.
+          </p>
+        )}
 
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Button size="md" disabled={buying} onClick={onClose}>
@@ -561,7 +598,9 @@ function CashItemPurchaseConfirmDialog({
           >
             {buying
               ? "구매 중…"
-              : quantity > 0
+              : permanent
+                ? `${totalPrice.toLocaleString()}코인 영구 구매`
+                : quantity > 0
                 ? `${quantity.toLocaleString()}개 · ${totalPrice.toLocaleString()}코인 구매`
                 : "수량 확인 필요"}
           </Button>
@@ -601,7 +640,9 @@ function CashItemIcon({
     );
   }
   const iconClass =
-    effect.kind === "adventure_support"
+    effect.kind === "profile_badge_stand"
+      ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
+      : effect.kind === "adventure_support"
       ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
       : effect.kind === "rename" || effect.kind === "profile_image"
         ? "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
@@ -613,7 +654,9 @@ function CashItemIcon({
             : "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-950 dark:text-fuchsia-300";
   return (
     <span className={`inline-flex shrink-0 rounded-full p-2 ${iconClass}`}>
-      {effect.kind === "adventure_support" ? (
+      {effect.kind === "profile_badge_stand" ? (
+        <Trophy size={size} weight="duotone" aria-hidden />
+      ) : effect.kind === "adventure_support" ? (
         <Sword size={size} weight="duotone" aria-hidden />
       ) : effect.kind === "rename" || effect.kind === "profile_image" ? (
         <IdentificationCard size={size} weight="duotone" aria-hidden />
@@ -632,10 +675,12 @@ function CashItemIcon({
 function CashItemCard({
   itemId,
   owned,
+  permanentOwned,
   onClick,
 }: {
   itemId: MuseunCashItemId;
   owned: number;
+  permanentOwned: boolean;
   onClick: () => void;
 }) {
   const item = MUSEUN_CASH_ITEMS[itemId];
@@ -662,9 +707,11 @@ function CashItemCard({
           <p className="font-bold tabular-nums text-amber-600 dark:text-amber-300">
             {item.coinPrice.toLocaleString()}코인
           </p>
-          {owned > 0 && (
+          {(owned > 0 || permanentOwned) && (
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              {item.delivery === "entitlement"
+              {item.delivery === "permanent"
+                ? "영구 보유 중"
+                : item.delivery === "entitlement"
                 ? "도감 해금 · 기간 중 장착 가능"
                 : `가방에 ${owned}개 보유`}
             </p>
@@ -786,6 +833,34 @@ function CashItemDetailDialog({
               있습니다. 변경권은 사용하기 전에 거래소에 등록해 다른 모험가와 거래할 수
               있습니다.
             </p>
+          ) : itemId === PROFILE_BADGE_STAND_ITEM_ID ? (
+            <div className="space-y-3">
+              <div className={`${SURFACE_INSET} flex items-center justify-center gap-3 p-4`}>
+                {["브론즈", "골드", "전설"].map((label, index) => (
+                  <div key={label} className="flex flex-col items-center gap-1">
+                    <span
+                      className={`flex size-12 items-center justify-center rounded-full border-4 shadow-sm ${
+                        index === 0
+                          ? "border-orange-600 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
+                          : index === 1
+                            ? "border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                            : "border-violet-500 bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+                      }`}
+                    >
+                      <Trophy size={23} weight="duotone" aria-hidden />
+                    </span>
+                    <span className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
+                      {label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                구매 즉시 프로필의 대표 배지 전시대 3칸이 모두 열립니다. 달성하고
+                보상까지 받은 업적 배지를 골라 전시할 수 있으며 기간 제한 없이
+                영구 사용합니다.
+              </p>
+            </div>
           ) : itemId === "cosmetic_extension_30d" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               구매 후 설정의 꾸미기 화면에서 도감에 해금된 닉네임 꾸미기, 프로필
@@ -812,7 +887,11 @@ function CashItemDetailDialog({
           <div className="mt-4 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
             <span>보유 코인 {coins.toLocaleString()}</span>
             <span>
-              {item.delivery === "entitlement"
+              {item.delivery === "permanent"
+                ? permanentOwned
+                  ? "영구 보유 중"
+                  : "계정 귀속 · 영구 사용"
+                : item.delivery === "entitlement"
                 ? permanentOwned
                   ? "도감 해금 · 기간 중 장착"
                   : "계정 귀속 · 30일 사용"
@@ -1093,6 +1172,73 @@ function CosmeticCollectionBoxPreview({
   );
 }
 
+function ProfileThemePreview({
+  style,
+  eyebrow,
+}: {
+  style: ProfileBorderId;
+  eyebrow: string;
+}) {
+  const profileDecoration = PROFILE_BORDER_VARIANTS.find(
+    (variant) => variant.id === style,
+  );
+  const hasProfileTheme =
+    profileDecoration != null && profileDecoration.interior !== "none";
+
+  return (
+    <div
+      className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""} p-3`}
+    >
+      <div
+        className={
+          hasProfileTheme ? "ui-profile-theme-header p-3" : `${SURFACE_INSET} p-3`
+        }
+      >
+        <ProfileDecorationMotion profileBorder={style} />
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-white bg-white text-sm font-black text-zinc-600 shadow-sm">
+            모
+          </div>
+          <div
+            className={`${hasProfileTheme ? "ui-profile-theme-copy" : ""} min-w-0 flex-1`}
+          >
+            <div
+              className={`text-[11px] ${
+                hasProfileTheme
+                  ? "text-zinc-200"
+                  : "text-zinc-500 dark:text-zinc-400"
+              }`}
+            >
+              {eyebrow}
+            </div>
+            <div
+              className={`truncate font-bold ${
+                hasProfileTheme
+                  ? "text-white"
+                  : "text-zinc-900 dark:text-zinc-100"
+              }`}
+            >
+              별을 걷는 모험가{" "}
+              <span
+                className={`text-xs font-normal ${
+                  hasProfileTheme
+                    ? "text-zinc-200"
+                    : "text-zinc-600 dark:text-zinc-300"
+                }`}
+              >
+                Lv.42
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className={`${SURFACE_INSET} mt-2 p-2 text-[10px] text-zinc-500 dark:text-zinc-400`}>
+        수치와 장비 영역은 읽기 편한 기본 배경을 유지합니다.
+      </div>
+    </div>
+  );
+}
+
 function CosmeticCollectionItemPreview({
   kind,
   name,
@@ -1106,10 +1252,6 @@ function CosmeticCollectionItemPreview({
   probabilityPct: number;
   style: string;
 }) {
-  const profileDecoration =
-    kind === "profile_border"
-      ? PROFILE_BORDER_VARIANTS.find((variant) => variant.id === style)
-      : null;
   const rarityName =
     kind === "profile_border"
       ? PROFILE_BORDER_RARITIES[rarity].name
@@ -1133,31 +1275,10 @@ function CosmeticCollectionItemPreview({
         </span>
       </div>
       {kind === "profile_border" ? (
-        <div
-          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style as ProfileBorderId} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
-        >
-          <ProfileDecorationMotion profileBorder={style as ProfileBorderId} />
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 text-sm font-black text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              모
-            </div>
-            <div className={`${SURFACE_INSET} min-w-0 flex-1 p-3`}>
-              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                프로필 카드
-              </div>
-              <div className="truncate font-bold text-zinc-900 dark:text-zinc-100">
-                별을 걷는 모험가{" "}
-                <span className="text-xs font-normal">Lv.42</span>
-              </div>
-              {profileDecoration && (
-                <div className="mt-0.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                  {PROFILE_BORDER_RARITIES[profileDecoration.rarity].effect} ·{" "}
-                  {profileDecoration.feature}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ProfileThemePreview
+          style={style as ProfileBorderId}
+          eyebrow="프로필 카드"
+        />
       ) : (
         <div className={`${SURFACE_CARD} p-3`}>
           <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -1182,37 +1303,16 @@ function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
   const item = MUSEUN_CASH_ITEMS[itemId];
   if (item.effect.kind !== "cosmetic") return null;
   const cosmeticEffect = item.effect;
-  const profileDecoration =
-    cosmeticEffect.slot === "profile_border"
-      ? PROFILE_BORDER_VARIANTS.find(
-          (variant) => variant.id === cosmeticEffect.style,
-        )
-      : null;
   return (
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
         {item.description}
       </p>
       {cosmeticEffect.slot === "profile_border" ? (
-        <div
-          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${cosmeticEffect.style} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : "ui-profile-decoration-canvas"} p-4`}
-        >
-          <ProfileDecorationMotion profileBorder={cosmeticEffect.style as ProfileBorderId} />
-          <div className={`${SURFACE_INSET} ml-auto w-4/5 p-3`}>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              프로필 미리보기
-            </div>
-            <div className="mt-1 font-bold text-zinc-900 dark:text-zinc-100">
-              별을 걷는 모험가 <span className="text-xs font-normal">Lv.42</span>
-            </div>
-            {profileDecoration && (
-              <div className="mt-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                {PROFILE_BORDER_RARITIES[profileDecoration.rarity].effect} ·{" "}
-                {profileDecoration.feature}
-              </div>
-            )}
-          </div>
-        </div>
+        <ProfileThemePreview
+          style={cosmeticEffect.style}
+          eyebrow="프로필 미리보기"
+        />
       ) : (
         <div className={`${SURFACE_INSET} p-3 text-sm`}>
           <ChatCosmeticBadge badge={cosmeticEffect.style} />

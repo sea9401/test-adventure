@@ -122,7 +122,16 @@ function rateLimitAlertGroup(action: string): string {
   if (action.includes(":woodcutting:")) return "woodcutting";
   if (action.includes(":mining:")) return "mining";
   if (action.includes(":farming:") || action.includes(":farm:")) return "farming";
-  if (action.includes(":dungeon:") || action.includes(":coop:")) return "battle";
+  if (
+    action.includes(":dungeon:") ||
+    action.includes(":coop:") ||
+    action.includes(":arena:") ||
+    action.includes(":grid-dungeon:") ||
+    action.includes(":training:") ||
+    action.includes(":outpost:")
+  ) {
+    return "battle";
+  }
   if (action.includes(":me:state")) return "state";
   return "general";
 }

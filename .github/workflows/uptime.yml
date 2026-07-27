@@ -1,0 +1,25 @@
+name: External uptime monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: external-uptime-monitor
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    environment: msmsge.com
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check public health endpoints
+        env:
+          OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
+        run: bash deploy/check-external-health.sh

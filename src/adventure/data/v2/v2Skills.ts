@@ -128,6 +128,17 @@ export type V2PassiveSkillEffect = {
   farmYieldBonusPct?: number;
   /** 희귀 수확 확률 +%p. */
   farmRareChancePct?: number;
+  // ── 요리(비전투) — 조리 서버 판정에서만 소비. 전투 derive 와 무관.
+  /** 요리로 얻는 경험치 +%. */
+  cookingXpBonusPct?: number;
+  /** 정성작 판정 확률 +%p. */
+  cookingCarefulChancePct?: number;
+  /** 희귀 재료를 제외한 묶음 조리 재료 소모량 감소 +%. */
+  cookingMaterialReductionPct?: number;
+  /** 걸작 판정 확률 +%p. */
+  cookingMasterpieceChancePct?: number;
+  /** 사용한 희귀 재료를 보존할 확률 +%p. 음식의 특선 효과는 유지된다. */
+  cookingRareIngredientSaveChancePct?: number;
   /** 현재 벌목 실패율을 상대적으로 줄이는 비율. 20 = 실패율 ×0.8. */
   woodcuttingFailureReductionPct?: number;
   /** 벌목 소요 시간을 상대적으로 줄이는 비율. */
@@ -1161,6 +1172,44 @@ export function equippedFarmBonuses(equipped: readonly V2SkillId[]): {
   return { yieldBonusPct, rareChancePct };
 }
 
+export type EquippedCookingBonuses = {
+  xpBonusPct: number;
+  carefulChancePct: number;
+  materialReductionPct: number;
+  masterpieceChancePct: number;
+  rareIngredientSaveChancePct: number;
+};
+
+// 장착 패시브의 요리 보너스 합산. 조리 서버 판정에서만 소비한다.
+export function equippedCookingBonuses(
+  equipped: readonly V2SkillId[],
+): EquippedCookingBonuses {
+  let xpBonusPct = 0;
+  let carefulChancePct = 0;
+  let materialReductionPct = 0;
+  let masterpieceChancePct = 0;
+  let rareIngredientSaveChancePct = 0;
+  for (const id of equipped) {
+    const passive = V2_SKILLS[id]?.passive;
+    xpBonusPct += passive?.cookingXpBonusPct ?? 0;
+    carefulChancePct += passive?.cookingCarefulChancePct ?? 0;
+    materialReductionPct += passive?.cookingMaterialReductionPct ?? 0;
+    masterpieceChancePct += passive?.cookingMasterpieceChancePct ?? 0;
+    rareIngredientSaveChancePct +=
+      passive?.cookingRareIngredientSaveChancePct ?? 0;
+  }
+  return {
+    xpBonusPct: Math.min(100, Math.max(0, xpBonusPct)),
+    carefulChancePct: Math.min(100, Math.max(0, carefulChancePct)),
+    materialReductionPct: Math.min(50, Math.max(0, materialReductionPct)),
+    masterpieceChancePct: Math.min(100, Math.max(0, masterpieceChancePct)),
+    rareIngredientSaveChancePct: Math.min(
+      100,
+      Math.max(0, rareIngredientSaveChancePct),
+    ),
+  };
+}
+
 // 장착 패시브의 벌목 실패율 감소 합산. 벌목 시작 시 서버가 세션 확률에 고정한다.
 export function equippedWoodcuttingFailureReductionPct(
   equipped: readonly V2SkillId[],
@@ -1384,6 +1433,16 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.farmYieldBonusPct) chips.push(`농장 수확량 +${p.farmYieldBonusPct}%`);
   if (p.farmRareChancePct)
     chips.push(`희귀 수확 확률 +${p.farmRareChancePct}%`);
+  if (p.cookingXpBonusPct)
+    chips.push(`요리 경험치 +${p.cookingXpBonusPct}%`);
+  if (p.cookingCarefulChancePct)
+    chips.push(`정성작 확률 +${p.cookingCarefulChancePct}%`);
+  if (p.cookingMaterialReductionPct)
+    chips.push(`묶음 조리 일반 재료 -${p.cookingMaterialReductionPct}%`);
+  if (p.cookingMasterpieceChancePct)
+    chips.push(`걸작 확률 +${p.cookingMasterpieceChancePct}%`);
+  if (p.cookingRareIngredientSaveChancePct)
+    chips.push(`희귀 재료 보존 ${p.cookingRareIngredientSaveChancePct}%`);
   if (p.woodcuttingFailureReductionPct)
     chips.push(`벌목 실패율 -${p.woodcuttingFailureReductionPct}%`);
   if (p.woodcuttingDurationReductionPct)

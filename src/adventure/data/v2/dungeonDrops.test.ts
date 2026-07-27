@@ -14,7 +14,7 @@ import {
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
   it("채광 광석과 부산물까지 등재하며 NPC 판매가는 비등재한다", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(51);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(54);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -41,6 +41,13 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.v2_monster_rock_golem_resonant_core).toBeDefined();
     expect(V2_MATERIALS.v2_monster_spark_scorpion_conductive_sac).toBeDefined();
     expect(V2_MATERIALS.v2_monster_abyss_worm_burrowing_jaw).toBeDefined();
+    expect(
+      V2_MATERIALS.v2_monster_starlight_gatekeeper_luminous_core,
+    ).toBeDefined();
+    expect(
+      V2_MATERIALS.v2_monster_poison_mist_spirit_toxic_core,
+    ).toBeDefined();
+    expect(V2_MATERIALS.v2_monster_void_beast_shadow_claw).toBeDefined();
     expect(V2_MATERIALS.v2_monster_plateau_slayer_serrated_bone).toBeDefined();
     expect(
       V2_MATERIALS.v2_monster_lightning_oracle_thunder_runestone,

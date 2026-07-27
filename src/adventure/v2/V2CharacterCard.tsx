@@ -17,7 +17,11 @@ import {
 import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
 import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
-import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
+import {
+  avatarImageSrc,
+  type Gender,
+  type ProfileImageMotion,
+} from "@/adventure/profile/avatars";
 import {
   V2_EQUIPMENT,
   type V2Equipment,
@@ -58,6 +62,11 @@ import {
   cookingQualityName,
   type ActiveCookingBuff,
 } from "@/adventure/v2/cooking";
+import type {
+  ProfileShowcaseSelection,
+  ProfileShowcaseSlots,
+} from "@/adventure/profile/profileShowcase";
+import { ProfileBadgeRack } from "./ProfileBadgeRack";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -97,23 +106,40 @@ const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string
   },
 ];
 
-function CharacterPortrait({ gender }: { gender: Gender }) {
+function CharacterPortrait({
+  gender,
+  motion,
+}: {
+  gender: Gender;
+  motion: ProfileImageMotion;
+}) {
   const [errored, setErrored] = useState(false);
+  const staticSrc = avatarImageSrc(gender, "static");
+  const src = avatarImageSrc(gender, motion);
   return (
     <div
       aria-label="캐릭터 이미지"
-      className="flex aspect-square w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 sm:w-28 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-600"
+      className="flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-md text-zinc-400 dark:text-zinc-600"
     >
       {errored ? (
         <UserIcon size={56} weight="duotone" />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatarImageSrc(gender)}
-          alt=""
-          onError={() => setErrored(true)}
-          className="h-full w-full object-contain"
-        />
+        <picture className="h-full w-full">
+          {motion === "animated" ? (
+            <source
+              media="(prefers-reduced-motion: reduce)"
+              srcSet={staticSrc}
+            />
+          ) : null}
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={() => setErrored(true)}
+            className="h-full w-full object-contain"
+          />
+        </picture>
       )}
     </div>
   );
@@ -134,6 +160,12 @@ export function V2CharacterCard({
   chatNameEffect = null,
   championshipBadge = null,
   activeFoodBuff = null,
+  profileShowcase = null,
+  profileShowcaseSlots,
+  profileBadgeStandOwned = false,
+  profileBadgeStandVisible = true,
+  showcaseEditable = false,
+  profileImageMotion = "static",
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
@@ -154,6 +186,12 @@ export function V2CharacterCard({
   chatNameEffect?: MuseunCosmeticAppearance["chatNameEffect"];
   championshipBadge?: MuseunCosmeticAppearance["championshipBadge"];
   activeFoodBuff?: ActiveCookingBuff | null;
+  profileShowcase?: ProfileShowcaseSelection | null;
+  profileShowcaseSlots?: ProfileShowcaseSlots;
+  profileBadgeStandOwned?: boolean;
+  profileBadgeStandVisible?: boolean;
+  showcaseEditable?: boolean;
+  profileImageMotion?: ProfileImageMotion;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
 }) {
@@ -179,6 +217,17 @@ export function V2CharacterCard({
   const profileDecoration = profileBorder
     ? getProfileBorderVariant(profileBorder)
     : null;
+  const hasProfileTheme =
+    profileDecoration != null && profileDecoration.interior !== "none";
+  const badgeSlots: ProfileShowcaseSlots = profileShowcaseSlots ?? [
+    profileShowcase,
+    null,
+    null,
+  ];
+  const showBadgeRack =
+    profileBadgeStandOwned &&
+    (showcaseEditable ||
+      (profileBadgeStandVisible && badgeSlots.some((slot) => slot !== null)));
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -206,43 +255,87 @@ export function V2CharacterCard({
 
   return (
     <>
-      <Card padding="md" className="ui-character-card">
+      <Card
+        padding="md"
+        className={`ui-character-card ${
+          profileBorder
+            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
+            : ""
+        }`}
+      >
         <div
-          className={`${SURFACE_INSET} ui-profile-decoration-banner ${
-            profileBorder
-              ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder} ${profileDecoration?.motion === "static" ? "ui-profile-frame-static" : ""}`
-              : ""
-          } flex items-center p-2 sm:p-3`}
-          title={profileDecoration?.name}
+          className={
+            hasProfileTheme
+              ? "ui-profile-theme-header p-3"
+              : `${SURFACE_INSET} p-3`
+          }
         >
           <ProfileDecorationMotion profileBorder={profileBorder} />
-          <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(15rem,1fr)] sm:gap-4">
+            <CharacterPortrait
+              gender={(character.gender ?? "male1") as Gender}
+              motion={profileImageMotion}
+            />
+            <div className="min-w-0">
+              {titleName && (
+                <span className="mb-1 inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                  {titleName}
+                </span>
+              )}
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="inline-flex min-w-0 items-center text-lg font-semibold">
+                  <ArenaChampionshipBadge badge={championshipBadge} />
+                  <span
+                    className={chatNameClass(
+                      chatNameEffect,
+                      hasProfileTheme
+                        ? "truncate text-white"
+                        : "truncate text-zinc-900 dark:text-zinc-100",
+                    )}
+                  >
+                    {character.name}
+                  </span>
+                </span>
+                <span
+                  className={
+                    hasProfileTheme
+                      ? "ui-profile-theme-copy text-sm text-zinc-100"
+                      : "text-sm text-zinc-700 dark:text-zinc-200"
+                  }
+                >
+                  {cappedLevel
+                    ? `Lv ${character.level} / ${cappedLevel}`
+                    : `Lv.${character.level}`}
+                </span>
+              </div>
+              <div
+                className={
+                  hasProfileTheme
+                    ? "ui-profile-theme-copy mt-1 flex flex-wrap gap-x-1 text-xs text-zinc-100"
+                    : "mt-1 flex flex-wrap gap-x-1 text-xs text-zinc-600 dark:text-zinc-300"
+                }
+              >
+                <span>{jobName}</span>
+                <span aria-hidden>·</span>
+                <span>{guild ? guild.name : "무소속"}</span>
+              </div>
+            </div>
+            {showBadgeRack && (
+              <div className="col-span-2 min-w-0 sm:col-span-1">
+                <ProfileBadgeRack
+                  initialSlots={badgeSlots}
+                  standOwned={profileBadgeStandOwned}
+                  initialVisible={profileBadgeStandVisible}
+                  owned={owned ?? []}
+                  editable={showcaseEditable}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={`${SURFACE_INSET} mt-3 p-3`}>
           <div className="space-y-2">
-            <div className="flex flex-wrap items-baseline gap-2">
-              {titleName && (
-                <span className="rounded bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                  {titleName}
-                </span>
-              )}
-              <span className="inline-flex items-center text-base font-semibold">
-                <ArenaChampionshipBadge badge={championshipBadge} />
-                <span className={chatNameClass(chatNameEffect, "text-zinc-900 dark:text-zinc-100")}>
-                  {character.name}
-                </span>
-              </span>
-              <span className="text-sm text-zinc-400 dark:text-zinc-500">
-                {cappedLevel ? `Lv ${character.level} / ${cappedLevel}` : `Lv.${character.level}`}
-              </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                · {jobName}
-              </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                · {guild ? guild.name : "무소속"}
-              </span>
-            </div>
             {supportActiveUntil != null && (
               <button
                 type="button"
@@ -291,90 +384,83 @@ export function V2CharacterCard({
               )}
             </div>
           </div>
-
           {showGold && (
             <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
-              <span className="text-zinc-500 dark:text-zinc-400">골드</span>
+              <span className="text-zinc-700 dark:text-zinc-200">골드</span>
               <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
                 {character.gold.toLocaleString()}
               </span>
             </div>
           )}
-
-          {equipped && (
-            <div className="mt-3 grid grid-cols-2 gap-1.5 border-t border-zinc-200 pt-3 sm:grid-cols-3 dark:border-zinc-700">
-              {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
-                const iid = equipped?.[slot];
-                const inst = iid ? byIid.get(iid) : undefined;
-                const item = inst ? V2_EQUIPMENT[inst.id] : null;
-                const slotClass = `${SURFACE_CARD} ui-character-slot flex min-w-0 items-center gap-2 px-2 py-1.5 text-left`;
-                const inner = (
-                  <>
-                    <Icon size={16} weight="duotone" className={`shrink-0 ${color}`} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[9px] leading-none text-zinc-500 dark:text-zinc-400">
-                        {label}
-                      </span>
-                      <span
-                        title={item?.name}
-                        className={`mt-0.5 block truncate text-xs font-medium leading-tight ${
-                          item
-                            ? powerNameClass(
-                                item,
-                                inst?.roll,
-                                inst?.enhance,
-                                inst?.craftQuality,
-                              )
-                            : "text-zinc-400 dark:text-zinc-600"
-                        }`}
-                      >
-                        {item?.name ?? "—"}
-                      </span>
-                    </span>
-                  </>
-                );
-                // 아이템이 있으면 클릭 가능한 버튼 → 옵션 카드 팝업. 빈 슬롯은 정적 표시.
-                return item ? (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={(e) =>
-                      setSelected({
-                        item,
-                        roll: inst?.roll,
-                        enhance: inst?.enhance,
-                        craftQuality: inst?.craftQuality,
-                        craftedBy: inst?.craftedBy,
-                        anchor: anchorOf(e.currentTarget),
-                      })
-                    }
-                    className={`${slotClass} transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800`}
-                  >
-                    {inner}
-                  </button>
-                ) : (
-                  <div key={slot} className={slotClass}>
-                    {inner}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {selected && (
-            <V2ItemCard
-              item={selected.item}
-              roll={selected.roll}
-              enhance={selected.enhance}
-              craftQuality={selected.craftQuality}
-              craftedBy={selected.craftedBy}
-              anchor={selected.anchor}
-              onClose={() => setSelected(null)}
-              equippedIds={equippedItemIds}
-            />
-          )}
         </div>
+        {equipped && (
+          <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-zinc-200 pt-3 sm:grid-cols-6 dark:border-zinc-800">
+          {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
+            const iid = equipped?.[slot];
+            const inst = iid ? byIid.get(iid) : undefined;
+            const item = inst ? V2_EQUIPMENT[inst.id] : null;
+            const slotClass = `${SURFACE_INSET} ui-character-slot flex min-w-0 flex-col items-center gap-0.5 px-1.5 py-1.5 text-center`;
+            const inner = (
+              <>
+                <Icon size={14} weight="duotone" className={color} />
+                <span
+                  className={`w-full truncate text-[11px] font-medium leading-tight ${
+                    item
+                      ? powerNameClass(
+                          item,
+                          inst?.roll,
+                          inst?.enhance,
+                          inst?.craftQuality,
+                        )
+                      : "text-zinc-400 dark:text-zinc-600"
+                  }`}
+                >
+                  {item?.name ?? label}
+                </span>
+              </>
+            );
+            // 아이템이 있으면 클릭 가능한 버튼 → 옵션 카드 팝업. 빈 슬롯은 정적 표시.
+            return item ? (
+              <button
+                key={slot}
+                type="button"
+                aria-label={`${label}: ${item.name}`}
+                title={`${label}: ${item.name}`}
+                onClick={(e) =>
+                  setSelected({
+                    item,
+                    roll: inst?.roll,
+                    enhance: inst?.enhance,
+                    craftQuality: inst?.craftQuality,
+                    craftedBy: inst?.craftedBy,
+                    anchor: anchorOf(e.currentTarget),
+                  })
+                }
+                className={`${slotClass} transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800`}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div key={slot} className={slotClass} title={`${label}: 비어 있음`}>
+                {inner}
+              </div>
+            );
+          })}
+          </div>
+        )}
       </Card>
+      {selected && (
+        <V2ItemCard
+          item={selected.item}
+          roll={selected.roll}
+          enhance={selected.enhance}
+          craftQuality={selected.craftQuality}
+          craftedBy={selected.craftedBy}
+          anchor={selected.anchor}
+          onClose={() => setSelected(null)}
+          equippedIds={equippedItemIds}
+        />
+      )}
       {supportDetailsOpen && supportActiveUntil != null && (
         <AdventureSupportModal
           activeUntil={supportActiveUntil}

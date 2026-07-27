@@ -212,6 +212,26 @@ describe("농부 생활 패시브", () => {
   });
 });
 
+describe("요리사 생활 패시브", () => {
+  it("describeV2Skill 가 요리 효과 칩을 낸다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_cook_prepwork)).toContain(
+      "요리 경험치 +5%",
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_professionalcook_seasoning),
+    ).toContain("정성작 확률 +8%");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_headchef_batchcooking),
+    ).toContain("묶음 조리 일반 재료 -10%");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_masterchef_heatcontrol),
+    ).toContain("걸작 확률 +5%");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_legendarychef_secretrecipe),
+    ).toContain("희귀 재료 보존 25%");
+  });
+});
+
 describe("나무꾼 생활 패시브", () => {
   it("나무결 읽기는 장착 시 벌목 실패율을 상대적으로 낮춘다", () => {
     expect(

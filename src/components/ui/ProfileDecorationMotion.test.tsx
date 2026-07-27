@@ -4,34 +4,36 @@ import { CosmeticAvatar } from "./CosmeticAvatar";
 import { ProfileDecorationMotion } from "./ProfileDecorationMotion";
 
 describe("ProfileDecorationMotion", () => {
-  it("업화·심해·세계수·장미에 고유 입자를 렌더링한다", () => {
-    const infernal = renderToStaticMarkup(
-      <ProfileDecorationMotion profileBorder="infernal" />,
-    );
-    const oceanic = renderToStaticMarkup(
-      <ProfileDecorationMotion profileBorder="oceanic" />,
-    );
-    const verdant = renderToStaticMarkup(
-      <ProfileDecorationMotion profileBorder="verdant" />,
-    );
-    const rose = renderToStaticMarkup(
-      <ProfileDecorationMotion profileBorder="rose" />,
-    );
-    const prismatic = renderToStaticMarkup(
-      <ProfileDecorationMotion profileBorder="prismatic" />,
+  it("천상을 제외한 움직이는 테두리 9종에 고유 입자 10개를 렌더링한다", () => {
+    const particleThemes = [
+      ["prismatic", "ui-prismatic-glint"],
+      ["infernal", "ui-infernal-ember"],
+      ["oceanic", "ui-oceanic-bubble"],
+      ["verdant", "ui-verdant-leaf"],
+      ["obsidian", "ui-obsidian-cinder"],
+      ["frozen", "ui-frozen-crystal"],
+      ["storm", "ui-storm-spark"],
+      ["rose", "ui-rose-petal"],
+      ["royal", "ui-royal-mote"],
+    ] as const;
+    const celestial = renderToStaticMarkup(
+      <ProfileDecorationMotion profileBorder="celestial" />,
     );
     const sapphire = renderToStaticMarkup(
       <ProfileDecorationMotion profileBorder="sapphire" />,
     );
 
-    expect(infernal).toContain("ui-infernal-ember--h");
-    expect(oceanic).toContain("ui-oceanic-bubble--h");
-    expect(verdant).not.toContain("ui-verdant-decoration-frame");
-    expect(verdant).toContain("ui-verdant-leaf--fall-a");
-    expect(verdant).toContain("ui-verdant-leaf--fall-h");
-    expect(rose).toContain("ui-rose-petal--h");
-    expect(prismatic).toContain("ui-profile-decoration-motion--prismatic");
-    expect(prismatic).not.toContain("ui-infernal-ember");
+    for (const [profileBorder, particleClass] of particleThemes) {
+      const html = renderToStaticMarkup(
+        <ProfileDecorationMotion profileBorder={profileBorder} />,
+      );
+      expect(html).toContain(`ui-profile-decoration-motion--${profileBorder}`);
+      expect(
+        html.match(new RegExp(`class="${particleClass}(?: |")`, "g")),
+      ).toHaveLength(10);
+    }
+    expect(celestial).toContain("ui-profile-decoration-motion--celestial");
+    expect(celestial).not.toContain("ui-profile-particle-slot");
     expect(sapphire).toBe("");
   });
 

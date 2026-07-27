@@ -6,18 +6,35 @@ import {
   type ProfileBorderId,
 } from "@/adventure/data/v2/museunCosmetics";
 
+const PROFILE_PARTICLE_SLOTS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+
 const PROFILE_PARTICLE_CLASSES = {
-  infernal: ["a", "b", "c", "d", "e", "f", "g", "h"].map(
+  prismatic: PROFILE_PARTICLE_SLOTS.map(
+    (slot) => `ui-prismatic-glint ui-profile-particle-slot--${slot}`,
+  ),
+  infernal: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-infernal-ember ui-infernal-ember--${slot}`,
   ),
-  oceanic: ["a", "b", "c", "d", "e", "f", "g", "h"].map(
+  oceanic: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-oceanic-bubble ui-oceanic-bubble--${slot}`,
   ),
-  verdant: ["a", "b", "c", "d", "e", "f", "g", "h"].map(
+  verdant: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-verdant-leaf ui-verdant-leaf--fall-${slot}`,
   ),
-  rose: ["a", "b", "c", "d", "e", "f", "g", "h"].map(
+  obsidian: PROFILE_PARTICLE_SLOTS.map(
+    (slot) => `ui-obsidian-cinder ui-profile-particle-slot--${slot}`,
+  ),
+  frozen: PROFILE_PARTICLE_SLOTS.map(
+    (slot) => `ui-frozen-crystal ui-profile-particle-slot--${slot}`,
+  ),
+  storm: PROFILE_PARTICLE_SLOTS.map(
+    (slot) => `ui-storm-spark ui-profile-particle-slot--${slot}`,
+  ),
+  rose: PROFILE_PARTICLE_SLOTS.map(
     (slot) => `ui-rose-petal ui-rose-petal--${slot}`,
+  ),
+  royal: PROFILE_PARTICLE_SLOTS.map(
+    (slot) => `ui-royal-mote ui-profile-particle-slot--${slot}`,
   ),
 } as const satisfies Partial<Record<ProfileBorderId, readonly string[]>>;
 

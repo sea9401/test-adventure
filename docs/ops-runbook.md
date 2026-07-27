@@ -181,7 +181,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 - `/api/version` = 빌드 정보.
 - 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정, 매크로 의심 점수 확인.
 - 운영 현황의 매크로 의심 userId/IP는 `이상 행동`·`경제 로그` 필터로 바로 연결된다.
-- `OPS_ALERT_WEBHOOK_URL`은 라이브 배포 필수값이다. 임계치 알림·일일 운영 리포트·크론 실패가 개인정보 없는 사건 코드와 집계값만 담아 webhook으로 발송된다. 누락하면 배포 사전검사가 실패한다.
+- `OPS_ALERT_WEBHOOK_URL`을 설정하면 임계치 알림·일일 운영 리포트·크론 실패가 개인정보 없는 사건 코드와 집계값만 담아 webhook으로 발송된다. 미설정 상태에서도 배포와 모니터링은 계속되며, 경고는 GitHub Actions와 서버 journal에 기록된다.
 - 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
 - GitHub Actions `External uptime monitor`가 5분마다 서버 밖에서 `/api/health`와
   `/api/version`을 최대 3회 확인한다. 계속 실패하면 Action이 실패하고

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { BattleState } from "../v2/combat/engine";
+import type { BattleCombatSummary, BattleState } from "../v2/combat/engine";
+import { actionInterval } from "../v2/combat/combatTimeline";
 import { BattleLogList } from "./BattleLogList";
 import { MONSTERS } from "../data/monsters";
 import {
@@ -10,6 +11,7 @@ import {
   type NotificationKind,
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import {
@@ -211,10 +213,67 @@ const DETAIL_COLOR: Record<string, string> = {
   "내 명중": "text-sky-600 dark:text-sky-400",
   "적 명중": "text-rose-600 dark:text-rose-400",
   "연타 보정": "text-orange-600 dark:text-orange-400",
+  "행동 비율": "text-emerald-600 dark:text-emerald-400",
 };
 
 function pct(n: number): string {
   return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
+}
+
+export function actionFrequencyLabel(
+  playerSpd: number,
+  enemySpd: number,
+): string {
+  const playerInterval = actionInterval(playerSpd);
+  const enemyInterval = actionInterval(enemySpd);
+  const ratio = enemyInterval / Math.max(1, playerInterval);
+  return `적 1회당 내 ${ratio.toFixed(1)}회`;
+}
+
+export function BattleCombatSummaryPanel({
+  summary,
+}: {
+  summary: BattleCombatSummary;
+}) {
+  const skillEntries = Object.entries(summary.skillUses).sort(
+    ([a], [b]) => a.localeCompare(b, "ko"),
+  );
+  const skillCount = skillEntries.reduce((sum, [, count]) => sum + count, 0);
+  const progress =
+    summary.tickCap > 0
+      ? Math.min(100, Math.round((summary.elapsedTicks / summary.tickCap) * 100))
+      : 0;
+
+  return (
+    <section className={`${SURFACE_INSET} p-3`} aria-label="전투 분석">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          전투 분석
+        </h3>
+        <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          {summary.elapsedTicks.toLocaleString()} / {summary.tickCap.toLocaleString()}틱 · {progress}%
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300 sm:grid-cols-4">
+        <span>내 행동 <strong>{summary.playerActions}회</strong></span>
+        <span>적 행동 <strong>{summary.enemyActions}회</strong></span>
+        <span>평타 <strong>{summary.basicAttackActions}회</strong></span>
+        <span>스킬 <strong>{skillCount}회</strong></span>
+        <span>가한 피해 <strong>{summary.damageDealt.toLocaleString()}</strong></span>
+        <span>받은 피해 <strong>{summary.damageTaken.toLocaleString()}</strong></span>
+        <span>봉쇄 적용 <strong>{summary.controlledEnemyActions}/{summary.enemyActions}회</strong></span>
+        <span>회복 낭비 <strong>{summary.healingWasted.toLocaleString()}</strong></span>
+      </div>
+      {skillEntries.length > 0 && (
+        <p className="mt-2 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">
+          스킬 사용: {skillEntries.map(([name, count]) => `${name} ${count}회`).join(" · ")}
+          {summary.healingDone > 0 || summary.healingWasted > 0
+            ? ` · 유효 회복 ${summary.healingDone.toLocaleString()}`
+            : ""}
+        </p>
+      )}
+    </section>
+  );
 }
 
 // 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
@@ -272,6 +331,13 @@ export function BattleStatStrip({
                 },
               ]
             : []),
+          {
+            label: "행동 비율",
+            value: actionFrequencyLabel(
+              opponentStats.spd,
+              stats.actionSpd ?? stats.spd,
+            ),
+          },
         ]
       : [
           { label: "명중", value: String(Math.round(stats.accuracy ?? 0)) },
@@ -288,7 +354,7 @@ export function BattleStatStrip({
   const hasDetails = details.length > 0;
   const align = center ? " justify-center" : "";
   const dim = "text-zinc-400 dark:text-zinc-500";
-  const speedLabel = variant === "enemy" ? "행동" : "속";
+  const speedLabel = "속";
   const speedValue =
     variant === "enemy" ? (stats.actionSpd ?? stats.spd) : stats.spd;
   return (
@@ -688,6 +754,10 @@ export function BattleScene({
           </>
         )}
       </Card>
+
+      {state.combatSummary && (
+        <BattleCombatSummaryPanel summary={state.combatSummary} />
+      )}
 
       <div
         ref={logRef}

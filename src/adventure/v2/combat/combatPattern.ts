@@ -15,6 +15,10 @@ export const V2_COMBAT_PATTERN_ENABLED = true;
 
 // 적 상태 태그 — 적에게 쌓인 DoT/취약 스택(combatShared V2Dot tag + magicVuln).
 export type V2PatternEnemyStatus = "bleed" | "poison" | "vuln";
+export type V2PatternEnemyDebuff =
+  | "vulnerability"
+  | "damageDown"
+  | "skillProcDown";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -39,6 +43,8 @@ export type V2CombatCondition =
   | { kind: "enemy_hp"; op: "below" | "above"; pct: number }
   // 적 상태 — DoT/취약 스택. atLeast = stacks 이상, none = 0(스택 없을 때).
   | { kind: "enemy_status"; tag: V2PatternEnemyStatus; op: "atLeast" | "none"; stacks: number }
+  // 적에게 걸린 봉쇄 계열 디버프 — 봉마진 같은 순수 유틸의 중복 시전을 막고 만료 시 갱신한다.
+  | { kind: "enemy_debuff"; target: V2PatternEnemyDebuff; active: boolean }
   // 내 공격 차례(턴, 1-based). atMost/atLeast = 이하/이상, every = N 배수(주기).
   | { kind: "turn"; op: "atMost" | "atLeast" | "every"; value: number };
 
@@ -68,6 +74,9 @@ export type V2PatternCtx = {
   enemyBleed: number; // 스택
   enemyPoison: number;
   enemyVuln: number;
+  enemyVulnerabilityActive?: boolean;
+  enemyDamageDownActive?: boolean;
+  enemySkillProcDownActive?: boolean;
   turn: number; // 1-based 공격 차례
 };
 
@@ -113,6 +122,14 @@ export function conditionPasses(
       const stacks = enemyStatusStacks(ctx, cond.tag);
       return cond.op === "none" ? stacks === 0 : stacks >= cond.stacks;
     }
+    case "enemy_debuff":
+      return (
+        (cond.target === "vulnerability"
+          ? (ctx.enemyVulnerabilityActive ?? false)
+          : cond.target === "damageDown"
+            ? (ctx.enemyDamageDownActive ?? false)
+            : (ctx.enemySkillProcDownActive ?? false)) === cond.active
+      );
     case "turn":
       if (cond.value <= 0) return false;
       return cond.op === "atMost"
@@ -261,6 +278,16 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
       const op = c.op === "atLeast" || c.op === "none" ? c.op : null;
       if (!tag || !op || !isFinitePct(c.stacks)) return null;
       return { kind: "enemy_status", tag, op, stacks: Math.max(0, Math.floor(c.stacks)) };
+    }
+    case "enemy_debuff": {
+      const target =
+        c.target === "vulnerability" ||
+        c.target === "damageDown" ||
+        c.target === "skillProcDown"
+          ? c.target
+          : null;
+      if (!target || typeof c.active !== "boolean") return null;
+      return { kind: "enemy_debuff", target, active: c.active };
     }
     case "turn": {
       const op =

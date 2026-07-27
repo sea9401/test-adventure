@@ -54,6 +54,7 @@ function recordAbuseOpsSignal(entry: AbuseEventInput) {
   if (entry.reason === "rate_limited") {
     recordOpsSignal({
       key: `abuse:rate-limited:${entry.action}`,
+      alertType: "abuse.rate_limit_spike",
       label: `rate limit spike: ${entry.action}`,
       threshold: 30,
       windowMs: 10 * 60_000,
@@ -87,6 +88,7 @@ function recordAbuseOpsSignal(entry: AbuseEventInput) {
       if (userIds.size < 3) return;
       recordOpsSignal({
         key: `abuse:shared-ip:${ip}`,
+        alertType: "abuse.shared_ip_candidate",
         label: "shared IP multi-account abuse candidate",
         threshold: 1,
         windowMs: 60 * 60_000,

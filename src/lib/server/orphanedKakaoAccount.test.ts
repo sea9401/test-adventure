@@ -51,7 +51,12 @@ describe("orphaned Kakao account recovery", () => {
   });
 
   it("provider id와 정확히 일치하는 완전한 고아 계정만 복구한다", async () => {
-    mocks.selectRows.push([{ id: "user-1" }], [], [], []);
+    mocks.selectRows.push(
+      [{ id: "user-1" }],
+      [],
+      [],
+      [],
+    );
 
     await expect(
       recoverOrphanedKakaoAccount("kakao_12345@kakao.oauth", kakaoAccount),

@@ -20,6 +20,7 @@ import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
 import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
+import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
   parseCombatPattern,
   parseCombatPresets,
@@ -39,6 +40,7 @@ import {
 import type { V2BuildTagId } from "./buildTags";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
+export type V2SkillTempo = "rapid" | "balanced" | "control" | "burst" | "payoff";
 
 // 패시브 스킬 효과 — 액티브(effects)와 별개. 장착(로드아웃)돼 있으면 derive 가 상시 적용.
 //   stat = 1차 스탯 가산(근력 힘+10 등), atkPerDexCoef = 민첩→공격력 보조(예기).
@@ -370,6 +372,8 @@ export type V2SkillDefinition = {
   /** 발동 확률 % (0~100). 미지정=100=조건 충족 시 항상 발동. <100 이면 매 발동 판정마다
    *  procRoll 롤 — 실패하면 미발동(평타로 폴백, MP·쿨다운 미소모). 스킬 발동확률 패시브 토대. */
   procChance?: number;
+  /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
+  tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
@@ -626,14 +630,348 @@ export function spCostOf(skill: V2SkillDefinition): number {
   return rubricSpCost(skill);
 }
 
-// === 카탈로그 — 스타터 6종 (Tier 1) ──────────────────────────────────
-// 수치는 의도적으로 낮게 (사용자 spec "성장형 느낌"). 후속 PR 에서 강화 요소 도입.
+// 전체 액티브 리밸런싱(2026-07): 낮은 차수는 자주·약하게, 높은 차수는 덜 자주·강하게.
+// 기존 30~40% 확률형은 차수별 바닥까지 올리고, 조건이 이미 throttle 하는 100% 스킬은
+// 내리지 않는다. 더 자주 쓰는 대신 공격 계수·고정 피해를 낮추고 MP 비용은 유지한다.
+// 패시브·몬스터·예전 공용 스타터(v2_skill_*)는 적용하지 않는다.
+type CombatJobTier = 1 | 2 | 3 | 4 | 5 | 6;
 
+const ACTIVE_PROC_FLOOR_BY_JOB_TIER: Record<CombatJobTier, number> = {
+  1: 75,
+  2: 68,
+  3: 62,
+  4: 56,
+  5: 50,
+  6: 45,
+};
 
-export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
+const ACTIVE_DAMAGE_SCALE_BY_JOB_TIER: Record<CombatJobTier, number> = {
+  1: 0.65,
+  2: 0.72,
+  3: 0.78,
+  4: 0.84,
+  5: 0.9,
+  6: 0.95,
+};
+
+// 같은 차수 안에서도 직업의 전투 리듬이 같아지지 않게 ±2~4%p만 미세 조정한다.
+// rapid=연타·궁술·기동, steady=탱커·독 누적·지속전, burst=누커·암살·광전.
+type ActiveJobTempo = "rapid" | "steady" | "burst";
+const ACTIVE_PROC_OFFSET_BY_TEMPO: Record<ActiveJobTempo, number> = {
+  rapid: 4,
+  steady: 2,
+  burst: -4,
+};
+const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
+  // 연타·속사·기동 — 조금 더 자주 발동.
+  martial: "rapid",
+  boxer: "rapid",
+  archer: "rapid",
+  brawler: "rapid",
+  ranger: "rapid",
+  warmonk: "rapid",
+  spellblade: "rapid",
+  sensei: "rapid",
+  runeknight: "rapid",
+  lightningmage: "rapid",
+  windmage: "rapid",
+  dragonfist: "rapid",
+  heavenlybow: "rapid",
+  blackmoon: "rapid",
+  celestialdragon: "rapid",
+  // 방어·누적·지속전 — 기본보다 살짝 안정적으로 발동.
+  rogue: "steady",
+  shieldman: "steady",
+  venomist: "steady",
+  paladin: "steady",
+  guardian: "steady",
+  venomancer: "steady",
+  templar: "steady",
+  crimsontemplar: "steady",
+  crusader: "steady",
+  venomlord: "steady",
+  frostmage: "steady",
+  earthmage: "steady",
+  plaguebringer: "steady",
+  immortal: "steady",
+  fortressknight: "steady",
+  savior: "steady",
+  myriadvenom: "steady",
+  // 큰 한 방·처형·광전 — 한 번의 위력이 높은 대신 조금 덜 발동.
+  mage: "burst",
+  caster: "burst",
+  assassin: "burst",
+  magus: "burst",
+  berserker: "burst",
+  shaman: "burst",
+  shadow: "burst",
+  bloodtemplar: "burst",
+  darkpriest: "burst",
+  sage: "burst",
+  runecaster: "burst",
+  firemage: "burst",
+  archshaman: "burst",
+  warlord: "burst",
+  calamitycaller: "burst",
+  overlord: "burst",
+  arcanist: "burst",
+  elementallord: "burst",
+  inscriber: "burst",
+  marksman: "burst",
+  bloodlord: "burst",
+  swordsaint: "burst",
+  hegemon: "burst",
+  archmage: "burst",
+  primordialmage: "burst",
+  doomprophet: "burst",
+  blooddemon: "burst",
+};
+
+const ACTIVE_PROC_OFFSET_BY_SKILL_TEMPO: Record<V2SkillTempo, number> = {
+  rapid: 2,
+  balanced: 0,
+  control: 1,
+  burst: -1,
+  payoff: -2,
+};
+
+// 직업 안에서 다시 갈리는 개별 기술의 리듬. 목록에 없으면 balanced다.
+// 효과 종류만 보고 자동 추론하지 않아, 같은 다단·디버프라도 의도에 따라 별도 튜닝할 수 있다.
+const ACTIVE_SKILL_TEMPO: Partial<Record<V2SkillId, V2SkillTempo>> = {
+  // 연타·속사 — 한 발은 가볍고 발동은 잦다.
+  v2c_warrior_flurry: "rapid",
+  v2c_martial_combo: "rapid",
+  v2c_mage_barrage: "rapid",
+  v2c_boxer_combo: "rapid",
+  v2c_brawler_combo: "rapid",
+  v2c_ranger_ambush: "rapid",
+  v2c_warmonk_kick: "rapid",
+  v2c_spellblade_strike: "rapid",
+  v2c_sensei_combo: "rapid",
+  v2c_runeknight_carve: "rapid",
+  v2c_lightningmage_thunderbolt: "rapid",
+  v2c_windmage_tempest: "rapid",
+  v2c_dragonfist_rupture: "rapid",
+  v2c_heavenlybow_orbit: "rapid",
+  v2c_blackmoon_flurry: "rapid",
+  v2c_celestialdragon_combo: "rapid",
+  // 제어·지속피해 — 부가효과를 체감할 수 있게 조금 안정적이다.
+  v2c_warrior_sunder: "control",
+  v2c_mage_fireball: "control",
+  v2c_rogue_poison: "control",
+  v2c_archer_volley: "control",
+  v2c_paladin_cleave: "control",
+  v2c_shaman_hex: "control",
+  v2c_crimsontemplar_judgment: "control",
+  v2c_firemage_inferno: "control",
+  v2c_frostmage_glacier: "control",
+  v2c_earthmage_tectonic: "control",
+  v2c_calamitycaller_brand: "control",
+  v2c_swordmaster_cut: "control",
+  v2c_fortressknight_ram: "control",
+  v2c_savior_judgment: "control",
+  // 순수한 큰 한 방 — 조건 없이 강한 대신 살짝 드물다.
+  v2c_caster_bolt: "burst",
+  v2c_magus_bolt: "burst",
+  v2c_sage_bolt: "burst",
+  v2c_runecaster_grandsigil: "burst",
+  v2c_arcanist_burst: "burst",
+  v2c_elementallord_surge: "burst",
+  v2c_inscriber_release: "burst",
+  v2c_marksman_shot: "burst",
+  v2c_swordsaint_flash: "burst",
+  v2c_archmage_collapse: "burst",
+  v2c_primordialmage_return: "burst",
+  // 처형·스택 폭발·HP/특수 스탯 환산 — 준비 조건의 보상이 큰 페이오프다.
+  v2c_assassin_ambush: "payoff",
+  v2c_venomist_toxiccloud: "payoff",
+  v2c_guardian_bash: "payoff",
+  v2c_berserker_bloodslash: "payoff",
+  v2c_shadow_assassinate: "payoff",
+  v2c_venomancer_miasma: "payoff",
+  v2c_bloodtemplar_stigma: "payoff",
+  v2c_darkpriest_reap: "payoff",
+  v2c_veteran_cleave: "payoff",
+  v2c_chief_strike: "payoff",
+  v2c_phantom_ambush: "payoff",
+  v2c_venomlord_plague: "payoff",
+  v2c_archshaman_rite: "payoff",
+  v2c_warlord_bloodbath: "payoff",
+  v2c_overlord_ruin: "payoff",
+  v2c_nightshade_eclipse: "payoff",
+  v2c_plaguebringer_outbreak: "payoff",
+  v2c_immortal_lifestrike: "payoff",
+  v2c_transcendent_mandala: "payoff",
+  v2c_bloodlord_brand: "payoff",
+  v2c_hegemon_annihilation: "payoff",
+  v2c_doomprophet_sentence: "payoff",
+  v2c_myriadvenom_mutation: "payoff",
+  v2c_blooddemon_reign: "payoff",
+};
+
+function combatJobIdForSkill(skillId: V2SkillId): string | null {
+  return skillId.startsWith("v2c_") ? (skillId.split("_")[1] ?? null) : null;
+}
+
+function combatJobTierForSkill(skillId: V2SkillId): CombatJobTier | null {
+  const jobId = combatJobIdForSkill(skillId);
+  if (jobId == null) return null;
+  // 원소술사는 4차 다섯 계통으로 분리됐지만 옛 통합 액티브 id 는 세이브 호환용으로 남아 있다.
+  if (jobId === "elementalist") return 4;
+  const tier = jobId ? V2_JOB_CATALOG[jobId]?.tier : undefined;
+  // 생존자처럼 tier 0 카탈로그에 속한 전투 킷은 입문(tier 1) 정책을 쓴다.
+  if (tier === 0) return 1;
+  return tier != null && tier >= 1 && tier <= 6 ? (tier as CombatJobTier) : null;
+}
+
+function scaledCoef(value: number, scale: number): number {
+  return Math.round((value * scale + 1e-9) * 100) / 100;
+}
+
+function scaledFlat(value: number, scale: number): number {
+  return Math.round(value * scale);
+}
+
+function scaledFlatByTier(
+  value: readonly [number, number, number] | undefined,
+  scale: number,
+): readonly [number, number, number] | undefined {
+  return value?.map((flat) => scaledFlat(flat, scale)) as
+    | readonly [number, number, number]
+    | undefined;
+}
+
+function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEffect {
+  switch (effect.kind) {
+    case "damage":
+      return {
+        ...effect,
+        statCoef: scaledCoef(effect.statCoef, scale),
+        ...(effect.baseFlat != null
+          ? { baseFlat: scaledFlat(effect.baseFlat, scale) }
+          : {}),
+        ...(effect.baseFlatByTier
+          ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
+          : {}),
+      };
+    case "hpCostDamage":
+    case "executeDamage":
+    case "ambushDamage":
+      return {
+        ...effect,
+        statCoef: scaledCoef(effect.statCoef, scale),
+        ...(effect.baseFlatByTier
+          ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
+          : {}),
+      };
+    case "healToDamage":
+      return {
+        ...effect,
+        healStatCoef: scaledCoef(effect.healStatCoef, scale),
+        ...(effect.healFlatByTier
+          ? { healFlatByTier: scaledFlatByTier(effect.healFlatByTier, scale) }
+          : {}),
+      };
+    case "stackPayoffDamage":
+      return {
+        ...effect,
+        statCoef: scaledCoef(effect.statCoef, scale),
+        perStackFlat: scaledFlat(effect.perStackFlat, scale),
+        ...(effect.baseFlatByTier
+          ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
+          : {}),
+      };
+    case "dot":
+      return {
+        ...effect,
+        flatPerStack: scaledFlat(effect.flatPerStack, scale),
+        atkCoefPerStack: scaledCoef(effect.atkCoefPerStack, scale),
+        // 최대 HP 비례분은 계수·고정 추가 피해가 아니며, 소수점 반올림 시 0이 되기 쉬워 유지한다.
+        pctMaxHpPerStack: effect.pctMaxHpPerStack,
+      };
+    default:
+      return effect;
+  }
+}
+
+function rebalanceEffects(
+  effects: readonly V2SkillEffect[],
+  scale: number,
+): readonly V2SkillEffect[] {
+  return effects.map((effect) => rebalanceDamageEffect(effect, scale));
+}
+
+function rebalanceElementEffects(
+  effects: Partial<Record<V2Element, readonly V2SkillEffect[]>>,
+  scale: number,
+): Partial<Record<V2Element, readonly V2SkillEffect[]>> {
+  return Object.fromEntries(
+    Object.entries(effects).map(([element, elementEffects]) => [
+      element,
+      rebalanceEffects(elementEffects, scale),
+    ]),
+  );
+}
+
+function rebalancePlayerSkill(skill: V2SkillDefinition): V2SkillDefinition {
+  if (skill.passive || skill.monsterOnly) return skill;
+  const jobTier = combatJobTierForSkill(skill.id);
+  if (jobTier == null) return skill;
+
+  const scale = ACTIVE_DAMAGE_SCALE_BY_JOB_TIER[jobTier];
+  const currentProc = skill.procChance ?? 100;
+  const jobId = combatJobIdForSkill(skill.id);
+  const tempo = jobId ? ACTIVE_JOB_TEMPO[jobId] : undefined;
+  const procOffset = tempo ? ACTIVE_PROC_OFFSET_BY_TEMPO[tempo] : 0;
+  const skillTempo = skill.tempo ?? ACTIVE_SKILL_TEMPO[skill.id] ?? "balanced";
+  const skillProcOffset = ACTIVE_PROC_OFFSET_BY_SKILL_TEMPO[skillTempo];
+  const targetProc = Math.max(
+    40,
+    ACTIVE_PROC_FLOOR_BY_JOB_TIER[jobTier] + procOffset + skillProcOffset,
+  );
+  return {
+    ...skill,
+    tempo: skillTempo,
+    procChance: Math.max(currentProc, targetProc),
+    effects: rebalanceEffects(skill.effects, scale),
+    ...(skill.elementEffects
+      ? { elementEffects: rebalanceElementEffects(skill.elementEffects, scale) }
+      : {}),
+    ...(skill.equippedSynergies
+      ? {
+          equippedSynergies: skill.equippedSynergies.map((synergy) => ({
+            ...synergy,
+            effects: rebalanceEffects(synergy.effects, scale),
+          })),
+        }
+      : {}),
+    ...(skill.castVariants
+      ? {
+          castVariants: skill.castVariants.map((variant) => ({
+            ...variant,
+            effects: rebalanceEffects(variant.effects, scale),
+          })),
+        }
+      : {}),
+    ...(skill.elementEffectSynergies
+      ? {
+          elementEffectSynergies: skill.elementEffectSynergies.map((synergy) => ({
+            ...synergy,
+            elementEffects: rebalanceElementEffects(synergy.elementEffects, scale),
+          })),
+        }
+      : {}),
+  };
+}
+
+const RAW_V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
   ...V2_COMMON_SKILLS,
 };
+
+export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = Object.fromEntries(
+  Object.entries(RAW_V2_SKILLS).map(([id, skill]) => [id, rebalancePlayerSkill(skill)]),
+) as Record<V2SkillId, V2SkillDefinition>;
 
 // 장착(로드아웃)된 패시브 스킬들의 상시 효과 집계 — 코어루프 derive 가 호출.
 //   대부분은 합산한다. 반격 확률(counterChancePct)은 100%에 쉽게 닿지 않도록 실패 확률을 곱한다.
@@ -951,15 +1289,15 @@ function flatChip(baseFlat?: number, byTier?: readonly [number, number, number])
   if (byTier) return ` +${byTier[0]}~${byTier[2]}`;
   return baseFlat ? ` +${baseFlat}` : "";
 }
-function scalingChip(scaling?: V2DamageScaling): string {
-  if (scaling === "magic") return " (마법)";
-  if (scaling === "def") return " (방어력 기반)";
-  if (scaling === "vit") return " (활력 기반)";
-  if (scaling === "dex") return " (민첩 기반)";
-  if (scaling === "luk") return " (행운 기반)";
-  if (scaling === "all") return " (모든 스탯 기반)";
-  if (scaling === "maxHp") return " (최대 HP 기반)";
-  return "";
+function scalingStatLabel(scaling?: V2DamageScaling): string {
+  if (scaling === "magic") return "마법 공격력";
+  if (scaling === "def") return "방어력";
+  if (scaling === "vit") return "활력";
+  if (scaling === "dex") return "민첩";
+  if (scaling === "luk") return "행운";
+  if (scaling === "all") return "모든 스탯 합";
+  if (scaling === "maxHp") return "최대 HP";
+  return "공격력";
 }
 function actionsChip(actions: number): string {
   return `${actions}행동`;
@@ -971,13 +1309,13 @@ function targetActionsChip(actions: number): string {
 function describeV2Effect(e: V2SkillEffect): string {
   switch (e.kind) {
     case "damage":
-      return `피해 공격력×${e.statCoef}${flatChip(e.baseFlat, e.baseFlatByTier)}${scalingChip(e.scaling)}`;
+      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(e.baseFlat, e.baseFlatByTier)}`;
     case "heal":
       return [
         e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
         e.pctMaxHp != null ? `최대HP ${e.pctMaxHp}%` : "",
         e.statCoef != null
-          ? `공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)}${scalingChip(e.scaling)}`
+          ? `${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)}`
           : "",
         e.flat ? `+${e.flat}` : "",
       ].filter(Boolean).join(" + ").replace(/^/, "회복 ");
@@ -1018,15 +1356,15 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "enemyDotVuln":
       return `적 지속/저주 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "hpCostDamage":
-      return `HP ${e.pctCurrentHp}% 소모 → 피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
+      return `HP ${e.pctCurrentHp}% 소모 → 피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
     case "healToDamage":
-      return `자힐 공격력×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
+      return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
-      return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
+      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
     case "ambushDamage":
-      return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
+      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
     case "stackPayoffDamage":
-      return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 +${e.perStackFlat}`;
+      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 +${e.perStackFlat}`;
     case "dot":
       return `${e.label} 지속피해 +${e.stacks}스택 (${actionsChip(e.turns)})`;
   }

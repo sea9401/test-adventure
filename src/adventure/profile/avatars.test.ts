@@ -5,6 +5,7 @@ import {
   isValidAvatarId,
   normalizeProfileImageAssetKey,
   normalizeProfileImageObjectKey,
+  normalizeProfileImageUserId,
   profileImageOriginalObjectKey,
   profileImageThumbnailObjectKey,
 } from "./avatars";
@@ -37,5 +38,12 @@ describe("커스텀 프로필 이미지 키", () => {
   it("외부 URL과 경로 조작 값은 거부한다", () => {
     expect(normalizeProfileImageObjectKey("https://example.com/avatar.png")).toBeNull();
     expect(normalizeProfileImageObjectKey("profile-images/../avatar.webp")).toBeNull();
+  });
+
+  it("회원 탈퇴용 prefix에는 UUID 사용자 식별자만 허용한다", () => {
+    expect(
+      normalizeProfileImageUserId("123e4567-e89b-42d3-a456-426614174000"),
+    ).toBe("123e4567-e89b-42d3-a456-426614174000");
+    expect(normalizeProfileImageUserId("../other-user")).toBeNull();
   });
 });

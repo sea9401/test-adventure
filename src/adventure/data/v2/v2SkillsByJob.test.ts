@@ -670,7 +670,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_elementallord_surge.category).toBe("attack");
     expect(V2_SKILLS.v2c_elementallord_surge.effects).toEqual([
-      { kind: "damage", statCoef: 2.2, baseFlat: 540, scaling: "magic" },
+      { kind: "damage", statCoef: 1.98, baseFlat: 486, scaling: "magic" },
     ]);
     expect(V2_SKILLS.v2c_elementallord_surge.castVariants).toHaveLength(12);
     expect(V2_SKILLS.v2c_elementallord_surge.castVariants?.[0]).toMatchObject({
@@ -696,7 +696,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_inscriber_release.category).toBe("attack");
     expect(V2_SKILLS.v2c_inscriber_release.effects).toEqual([
-      { kind: "damage", statCoef: 1.75, baseFlat: 390, scaling: "magic" },
+      { kind: "damage", statCoef: 1.58, baseFlat: 351, scaling: "magic" },
     ]);
     expect(
       V2_SKILLS.v2c_inscriber_release.equippedSynergies?.map((s) => ({
@@ -803,7 +803,7 @@ describe("직업 킷 — 스킬셋", () => {
       V2_SKILLS.v2c_bloodlord_martyrdom.passive?.berserkAtkPctPerLostHpPct,
     ).toBeUndefined();
     expect(V2_SKILLS.v2c_calamitycaller_brand.effects).toEqual([
-      { kind: "damage", statCoef: 1.8, baseFlat: 420, scaling: "magic" },
+      { kind: "damage", statCoef: 1.62, baseFlat: 378, scaling: "magic" },
       { kind: "enemyDamageDown", pct: 14, turns: 3 },
       { kind: "enemySkillProcDown", pct: 18, turns: 3 },
     ]);
@@ -820,7 +820,7 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_fortressknight_ram.category).toBe("attack");
     expect(V2_SKILLS.v2c_fortressknight_ram.effects).toEqual([
-      { kind: "damage", statCoef: 1.8, baseFlat: 420, scaling: "def" },
+      { kind: "damage", statCoef: 1.71, baseFlat: 399, scaling: "def" },
       { kind: "enemyDelay", pct: 60 },
     ]);
     expect(V2_SKILLS.v2c_fortressknight_citadel.category).toBe("passive");
@@ -871,7 +871,7 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_archmage_collapse.category).toBe("attack");
     expect(V2_SKILLS.v2c_archmage_collapse.effects).toEqual([
-      { kind: "damage", statCoef: 2.45, baseFlat: 620, scaling: "magic" },
+      { kind: "damage", statCoef: 2.33, baseFlat: 589, scaling: "magic" },
       { kind: "enemyDelay", pct: 35 },
     ]);
     expect(V2_SKILLS.v2c_archmage_theory.category).toBe("passive");
@@ -886,7 +886,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_primordialmage_return.name).toBe("태초회귀");
     expect(V2_SKILLS.v2c_primordialmage_return.category).toBe("attack");
     expect(V2_SKILLS.v2c_primordialmage_return.effects).toEqual([
-      { kind: "damage", statCoef: 2.45, baseFlat: 650, scaling: "magic" },
+      { kind: "damage", statCoef: 2.33, baseFlat: 618, scaling: "magic" },
       { kind: "enemyVuln", pct: 14, turns: 3 },
       { kind: "enemyDelay", pct: 30 },
     ]);
@@ -911,7 +911,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_savior_judgment.category).toBe("attack");
     expect(V2_SKILLS.v2c_savior_judgment.mpCost).toBe(80);
     expect(V2_SKILLS.v2c_savior_judgment.effects).toEqual([
-      { kind: "damage", statCoef: 2.2, baseFlat: 560, scaling: "magic" },
+      { kind: "damage", statCoef: 2.09, baseFlat: 532, scaling: "magic" },
       { kind: "enemyVuln", pct: 16, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_savior_grace.category).toBe("passive");
@@ -1104,14 +1104,14 @@ describe("직업 킷 — 스킬셋", () => {
       {
         kind: "hpCostDamage",
         pctCurrentHp: 14,
-        statCoef: 1.85,
-        baseFlatByTier: [430, 430, 430],
+        statCoef: 1.76,
+        baseFlatByTier: [409, 409, 409],
         soakRatio: 2.3,
       },
       {
         kind: "executeDamage",
-        statCoef: 0.32,
-        baseFlatByTier: [220, 220, 220],
+        statCoef: 0.3,
+        baseFlatByTier: [209, 209, 209],
         hpThresholdPct: 35,
         bonusMult: 2.3,
       },
@@ -1129,7 +1129,7 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_absolute_unity.category).toBe("attack");
     expect(V2_SKILLS.v2c_absolute_unity.effects).toEqual([
-      { kind: "damage", statCoef: 0.22, baseFlat: 480, scaling: "all" },
+      { kind: "damage", statCoef: 0.21, baseFlat: 456, scaling: "all" },
       { kind: "enemyVuln", pct: 14, turns: 3 },
       { kind: "selfHaste", pct: 25 },
     ]);
@@ -1147,7 +1147,7 @@ describe("직업 킷 — 스킬셋", () => {
       skillsForJob(jobId).map((id) => spCostOf(V2_SKILLS[id]));
 
     expect(costs("venomist")).toEqual([4, 3]);
-    expect(costs("venomancer")).toEqual([6, 4]);
+    expect(costs("venomancer")).toEqual([5, 4]);
     expect(costs("venomlord")).toEqual([7, 6]);
     expect(costs("plaguebringer")).toEqual([9, 7]);
     expect(costs("myriadvenom")).toEqual([13, 13]);
@@ -1264,15 +1264,16 @@ describe("직업 킷 — 액티브 스킬", () => {
     expect(eff).toMatchObject({ kind: "damage" });
   });
 
-  it("마력탄 = MP 소모 100% 발동 마법 단일타", () => {
+  it("마력탄 = MP를 쓰지 않는 100% 발동 마법 기본타", () => {
     const s = V2_SKILLS.v2c_mage_boltcast;
-    expect(s.fixedMpCost).toBe(40);
+    expect(s.mpCost).toBe(0);
+    expect(s.fixedMpCost).toBeUndefined();
     expect(s.procChance).toBe(100);
     expect(s.effects[0]).toMatchObject({
       kind: "damage",
       scaling: "magic",
-      statCoef: 1.15,
-      baseFlat: 150,
+      statCoef: 0.75,
+      baseFlat: 98,
     });
   });
 

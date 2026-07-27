@@ -118,6 +118,10 @@ export function LandingContent({
                 ? "새 캐릭터를 만들거나 기존 계정으로 로그인할 수 있습니다"
                 : "소셜 계정으로 간편하게 시작 · 별도 설치 없음"}
             </p>
+            <p className="max-w-sm text-[11px] leading-5 text-zinc-600">
+              로그인하면 <Link href="/terms" className="underline underline-offset-2 hover:text-zinc-400">이용약관</Link>과{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-zinc-400">개인정보처리방침</Link>에 동의한 것으로 봅니다.
+            </p>
           </div>
 
         </section>
@@ -152,9 +156,18 @@ export function LandingContent({
           <span className="font-medium tracking-wide text-zinc-500">
             무슨무슨게임
           </span>
-          <nav className="flex items-center gap-5">
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link href="/manual" className="transition-colors hover:text-zinc-300">
               게임 가이드
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-zinc-300">
+              이용약관
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-zinc-300">
+              개인정보처리방침
+            </Link>
+            <Link href="/operations" className="transition-colors hover:text-zinc-300">
+              운영정책
             </Link>
             <a
               href="mailto:sea9401@gmail.com"

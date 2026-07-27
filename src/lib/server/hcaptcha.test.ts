@@ -56,4 +56,23 @@ describe("hcaptcha", () => {
       verifyHcaptchaToken({ token: "captcha-token" }),
     ).resolves.toEqual({ ok: true, hostname: null });
   });
+
+  it("허용 목록 밖의 hostname으로 발급된 토큰을 거부한다", async () => {
+    vi.stubEnv("HCAPTCHA_SITE_KEY", "site");
+    vi.stubEnv("HCAPTCHA_SECRET_KEY", "secret");
+    vi.stubEnv("HCAPTCHA_EXPECTED_HOSTNAMES", "msmsge.com,www.msmsge.com");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ success: true, hostname: "attacker.example" }),
+      ),
+    );
+
+    await expect(
+      verifyHcaptchaToken({ token: "captcha-token" }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "invalid",
+      codes: ["hostname-mismatch"],
+    });
+  });
 });

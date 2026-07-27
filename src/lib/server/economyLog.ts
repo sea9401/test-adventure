@@ -65,6 +65,7 @@ function recordEconomyOpsSignal(entry: EconomyEventInput) {
   if (goldDelta >= 500_000) {
     recordOpsSignal({
       key: "economy:large-gold-delta",
+      alertType: "economy.large_gold_movement",
       label: "large gold movement detected",
       threshold: 3,
       windowMs: 10 * 60_000,
@@ -79,6 +80,7 @@ function recordEconomyOpsSignal(entry: EconomyEventInput) {
   if (entry.eventType.startsWith("reward.failure.")) {
     recordOpsSignal({
       key: `reward-failure:${entry.eventType}`,
+      alertType: "reward.claim_failure",
       label: `reward claim failures: ${entry.eventType}`,
       threshold: 5,
       windowMs: 10 * 60_000,

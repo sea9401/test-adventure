@@ -3,6 +3,7 @@
 // 동작 계약: 총합(=enemyDamage / boostedTotal)은 불변, 표기만 타마다 쪼개진다.
 
 import { describe, it, expect } from "vitest";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import {
   applyComboFinisherToHits,
   resolveV2SkillCast,
@@ -108,13 +109,16 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
       attacker: { mp: 999, atk: 100, dex: 100, maxHp: 1000, selfBuffs: {}, selfDebuffs: {} },
       target: { def: TARGET_DEF, selfBuffs: {}, selfDebuffs: {} },
     });
-    // 관통사 = { statCoef 0.35, baseFlat 250, scaling dex, pierceDamagePct 20 }.
+    // 관통사 수치는 전역 차수 리밸런싱까지 적용된 최종 카탈로그 값을 기준으로 한다.
     // damageWith(dex) → v2DamageAmount(physical, attackerAtk=dex=100, statScaled→빈 버프맵).
+    const effect = V2_SKILLS.v2c_chief_strike.effects[0];
+    expect(effect.kind).toBe("damage");
+    if (effect.kind !== "damage") throw new Error("관통사 피해 효과 누락");
     const common = {
       attackerAtk: 100,
       scaling: "physical" as const,
-      statCoef: 0.35,
-      baseFlat: 250,
+      statCoef: effect.statCoef,
+      baseFlat: effect.baseFlat ?? 0,
       attackerSelfBuffs: {},
       attackerSelfDebuffs: {},
       targetSelfBuffs: {},
@@ -124,7 +128,9 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
     const base = v2DamageAmount({ ...common, targetDef: TARGET_DEF });
     const noDef = v2DamageAmount({ ...common, targetDef: 0 });
     expect(r.hitDamages).toHaveLength(1); // 단일타 — 관통분은 같은 타에 합산(별도 로그 아님)
-    expect(r.enemyDamage).toBe(base + Math.round(noDef * 0.2));
+    expect(r.enemyDamage).toBe(
+      base + Math.round(noDef * ((effect.pierceDamagePct ?? 0) / 100)),
+    );
     // 관통분(noDef·방어 무시)은 적 방어와 무관 — 본타(base)가 방어로 깎여도 그대로 박힌다.
     expect(r.enemyDamage).toBeGreaterThan(base);
   });

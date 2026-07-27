@@ -28,6 +28,7 @@ export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "proficiency.certificate.use": "숙련 증서 사용",
   "proficiency.guild_training": "길드 훈련장 숙련",
   "reward.claim": "보상 수령",
+  "coupon.redeem": "쿠폰 등록",
   "reward.compensate": "보상 보정",
   "reward.coop.claim": "협동 보스 보상",
   "reward.failure.coop": "협동 보상 실패",

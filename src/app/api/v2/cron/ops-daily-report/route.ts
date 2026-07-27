@@ -56,6 +56,7 @@ export async function POST(req: Request) {
   const rateLimited = abuseRows.filter((row) => row.reason === "rate_limited").length;
 
   const report = {
+    alertType: "ops.daily_report",
     since: since.toISOString(),
     abuseEvents: abuseRows.length,
     rateLimited,

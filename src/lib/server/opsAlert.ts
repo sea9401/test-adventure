@@ -9,6 +9,7 @@ import {
 
 type OpsSignalOptions = {
   key: string;
+  alertType: string;
   label: string;
   threshold: number;
   windowMs: number;
@@ -23,6 +24,133 @@ type SignalBucket = {
 
 const signalBuckets = new Map<string, SignalBucket>();
 
+const SAFE_WEBHOOK_STRING_KEYS = new Set([
+  "alertType",
+  "eventType",
+  "action",
+  "group",
+  "scope",
+  "activity",
+  "riskLevel",
+  "channel",
+]);
+const SAFE_WEBHOOK_NUMBER_KEYS = new Set([
+  "count",
+  "threshold",
+  "windowMs",
+  "accountCount",
+  "dailyCompleted",
+  "globalDailyCompleted",
+  "riskScore",
+  "strongSignals",
+  "behaviorSignals",
+  "goldDelta",
+  "failed",
+  "attempted",
+  "abuseEvents",
+  "rateLimited",
+  "economyEvents",
+  "goldIn",
+  "goldOut",
+  "rewardFailures",
+  "adminActions",
+]);
+const SAFE_WEBHOOK_COUNT_LIST_KEYS = new Set([
+  "topEconomyEvents",
+  "topAbuseActions",
+]);
+const SAFE_CODE = /^[a-zA-Z0-9._:/-]{1,160}$/;
+
+function safeCode(value: unknown): string | null {
+  return typeof value === "string" && SAFE_CODE.test(value) ? value : null;
+}
+
+// 외부 웹훅은 허용 목록으로 새 객체를 만든다. userId/IP/name/accounts/queueIds 등은
+// 키 이름을 바꾸거나 새 호출부가 추가돼도 기본적으로 빠진다. 원본 detail 은 내부
+// ops history 에만 남겨 관리자 화면에서 조사할 수 있다.
+export function sanitizeOpsWebhookDetail(detail: Record<string, unknown>) {
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(detail)) {
+    if (SAFE_WEBHOOK_STRING_KEYS.has(key)) {
+      const code = safeCode(value);
+      if (code !== null) sanitized[key] = code;
+      continue;
+    }
+    if (SAFE_WEBHOOK_NUMBER_KEYS.has(key)) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        sanitized[key] = value;
+      }
+      continue;
+    }
+    if (SAFE_WEBHOOK_COUNT_LIST_KEYS.has(key) && Array.isArray(value)) {
+      sanitized[key] = value.flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return [];
+        const record = entry as Record<string, unknown>;
+        const itemKey = safeCode(record.key);
+        const itemCount = record.count;
+        return itemKey !== null &&
+          typeof itemCount === "number" &&
+          Number.isFinite(itemCount)
+          ? [{ key: itemKey, count: itemCount }]
+          : [];
+      });
+    }
+  }
+  return sanitized;
+}
+
+function webhookMessage(channel: string, detail: Record<string, unknown>) {
+  const alertType = safeCode(detail.alertType);
+  return alertType
+    ? `[ops] ${channel}: ${alertType}`
+    : `[ops] ${channel} alert`;
+}
+
+function isDiscordWebhook(url: string) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return (
+      hostname === "discord.com" ||
+      hostname.endsWith(".discord.com") ||
+      hostname === "discordapp.com" ||
+      hostname.endsWith(".discordapp.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function webhookPayload(
+  url: string,
+  channel: string,
+  detail: Record<string, unknown>,
+  at: string,
+) {
+  const text = webhookMessage(channel, detail);
+  if (!isDiscordWebhook(url)) {
+    return { text, detail, at };
+  }
+
+  const serializedDetail = JSON.stringify(detail, null, 2);
+  const maxDetailLength = 4_000;
+  const displayedDetail =
+    serializedDetail.length > maxDetailLength
+      ? `${serializedDetail.slice(0, maxDetailLength - 1)}…`
+      : serializedDetail;
+
+  return {
+    content: text,
+    embeds: [
+      {
+        description: `\`\`\`json\n${displayedDetail}\n\`\`\``,
+        timestamp: at,
+        color: 0xf59e0b,
+      },
+    ],
+    allowed_mentions: { parse: [] },
+  };
+}
+
 export async function sendOpsAlert(
   message: string,
   detail?: Record<string, unknown>,
@@ -30,6 +158,7 @@ export async function sendOpsAlert(
   const channel = selectOpsAlertChannel(detail);
   const url = channel.url;
   const recordedDetail = { ...(detail ?? {}), channel: channel.key };
+  const webhookDetail = sanitizeOpsWebhookDetail(recordedDetail);
   if (!url) {
     await recordOpsAlertHistory({
       message,
@@ -41,15 +170,21 @@ export async function sendOpsAlert(
   }
 
   try {
-    await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        text: message,
-        detail: recordedDetail,
-        at: new Date().toISOString(),
-      }),
+      body: JSON.stringify(
+        webhookPayload(
+          url,
+          channel.key,
+          webhookDetail,
+          new Date().toISOString(),
+        ),
+      ),
     });
+    if (!response.ok) {
+      throw new Error(`webhook responded with HTTP ${response.status}`);
+    }
     await recordOpsAlertHistory({
       message,
       detail: recordedDetail,
@@ -69,6 +204,7 @@ export async function sendOpsAlert(
 
 export function recordOpsSignal({
   key,
+  alertType,
   label,
   threshold,
   windowMs,
@@ -88,6 +224,7 @@ export function recordOpsSignal({
   bucket.alertedAt = now;
   void sendOpsAlert(`[ops] ${label}`, {
     ...detail,
+    alertType,
     signalKey: key,
     count: bucket.count,
     threshold,

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { MuseunCoinShopView } from "@/adventure/v2/MuseunCoinShopView";
 
 export const metadata = {
@@ -6,5 +7,6 @@ export const metadata = {
 };
 
 export default function MuseunCoinShopPage() {
+  if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true") notFound();
   return <MuseunCoinShopView />;
 }

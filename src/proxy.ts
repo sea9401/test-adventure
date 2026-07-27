@@ -88,6 +88,20 @@ const CLOSED_HTML = `<!DOCTYPE html>
 </html>`;
 
 export default auth((req) => {
+  // 유료 서비스 출시 승인 전에는 인증/정적 렌더보다 앞에서 코인 상점의 존재 자체를 숨긴다.
+  // page의 notFound()만으로는 정적 App Router 셸이 HTTP 200으로 응답할 수 있어 Proxy에서도
+  // 동일한 fail-closed 게이트를 둔다. Route Handler에도 별도 404 검사가 남아 있다.
+  if (
+    process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true" &&
+    (req.nextUrl.pathname === "/settings/coin-shop" ||
+      req.nextUrl.pathname === "/api/v2/museun-coin-shop")
+  ) {
+    return new NextResponse(null, {
+      status: 404,
+      headers: { "cache-control": "no-store" },
+    });
+  }
+
   // 점검 모드 — staging 무관하게 prod 에서도 작동. allow-list(헬스) 외 전부 점검 페이지(503).
   if (process.env.MAINTENANCE_MODE === "true") {
     if (!MAINTENANCE_ALLOW.has(req.nextUrl.pathname)) {

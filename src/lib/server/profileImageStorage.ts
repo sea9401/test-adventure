@@ -2,8 +2,10 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import {
+  DeleteObjectsCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -11,6 +13,7 @@ import {
   PROFILE_IMAGE_STORAGE_PREFIX,
   normalizeProfileImageAssetKey,
   normalizeProfileImageObjectKey,
+  normalizeProfileImageUserId,
   profileImageThumbnailObjectKey,
 } from "@/adventure/profile/avatars";
 
@@ -147,4 +150,34 @@ export async function deleteProfileImage(key: unknown): Promise<void> {
     (result): result is PromiseRejectedResult => result.status === "rejected",
   );
   if (failed) throw failed.reason;
+}
+
+// 회원 탈퇴 때 현재 프로필에 연결된 한 장뿐 아니라, 과거 교체 삭제가 실패해 남았을 수
+// 있는 같은 사용자 prefix 의 객체까지 모두 정리한다.
+export async function deleteProfileImagesForUser(userId: unknown): Promise<number> {
+  const normalizedUserId = normalizeProfileImageUserId(userId);
+  if (!normalizedUserId) throw new Error("invalid_profile_image_user_id");
+  const { client, bucket } = storage();
+  const prefix = `${PROFILE_IMAGE_STORAGE_PREFIX}/${normalizedUserId}/`;
+  let deleted = 0;
+
+  while (true) {
+    const listed = await client.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, MaxKeys: 1_000 }),
+    );
+    const keys = (listed.Contents ?? [])
+      .map((entry) => normalizeProfileImageObjectKey(entry.Key))
+      .filter((key): key is string => key !== null);
+    if (keys.length === 0) return deleted;
+    const result = await client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+      }),
+    );
+    if ((result.Errors?.length ?? 0) > 0) {
+      throw new Error("profile_image_batch_delete_failed");
+    }
+    deleted += keys.length;
+  }
 }

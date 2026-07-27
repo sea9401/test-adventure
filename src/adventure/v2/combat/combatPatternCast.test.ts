@@ -125,7 +125,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
   it("집중 의식은 위력을 올리지 않고 발동 확률만 올린다", () => {
     const fail = resolveV2SkillCast(
       castInput([SKILL], {
-        procRoll: 45,
+        procRoll: 80,
         skills: {
           learned: [SKILL],
           equipped: [SKILL],
@@ -136,7 +136,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
 
     const focused = resolveV2SkillCast(
       castInput([SKILL], {
-        procRoll: 45,
+        procRoll: 80,
         skills: {
           learned: [SKILL],
           equipped: [SKILL],
@@ -146,7 +146,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     );
     const powered = resolveV2SkillCast(
       castInput([SKILL], {
-        procRoll: 45,
+        procRoll: 80,
         skills: {
           learned: [SKILL],
           equipped: [SKILL],

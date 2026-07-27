@@ -36,6 +36,9 @@ export const PROFILE_IMAGE_MAX_DURATION_MS = 4_000;
 export const PROFILE_IMAGE_MAX_FPS = 15;
 export type ProfileImageMotion = "static" | "animated";
 
+const PROFILE_IMAGE_USER_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const PROFILE_IMAGE_OBJECT_KEY =
   /^profile-images\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.webp$/i;
 const PROFILE_IMAGE_ASSET_KEY =
@@ -78,6 +81,12 @@ export function normalizeProfileImageObjectKey(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return PROFILE_IMAGE_OBJECT_KEY.test(trimmed) ? trimmed : null;
+}
+
+export function normalizeProfileImageUserId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return PROFILE_IMAGE_USER_ID.test(trimmed) ? trimmed : null;
 }
 
 export function isProfileImageObjectKey(value: unknown): value is string {

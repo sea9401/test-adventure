@@ -62,6 +62,15 @@ done
 [ "$ok" = "1" ] || { echo "✗ health check failed; maintenance remains on" >&2; exit 1; }
 sudo systemctl start adventure-resource-monitor.service
 
+echo "▶ sync application crontab"
+crontab deploy/crontab.txt
+systemctl is-active --quiet crond
+for path in \
+  /api/v2/cron/ops-retention \
+  /api/v2/cron/ops-daily-report; do
+  crontab -l | grep -Fq "$path" || { echo "✗ cron sync failed: $path missing" >&2; exit 1; }
+done
+
 echo "▶ nginx maintenance off"
 bash deploy/maintenance.sh off
 

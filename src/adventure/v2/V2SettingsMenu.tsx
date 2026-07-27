@@ -12,6 +12,7 @@ import {
   EnvelopeSimple,
   Eye,
   EyeSlash,
+  FileText,
   List,
   Megaphone,
   Moon,
@@ -20,6 +21,7 @@ import {
   SignOut,
   Storefront,
   Sun,
+  Ticket,
   UserMinus,
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
@@ -165,14 +167,26 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 꾸미기
               </Link>
             </li>
+            {process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true" && (
+              <li>
+                <Link
+                  href="/settings/coin-shop"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
+                >
+                  <CoinVertical size={18} weight="duotone" />
+                  무슨 코인 상점
+                </Link>
+              </li>
+            )}
             <li>
               <Link
-                href="/settings/coin-shop"
+                href="/settings/coupon"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
-                <CoinVertical size={18} weight="duotone" />
-                무슨 코인 상점
+                <Ticket size={18} weight="duotone" />
+                쿠폰 등록
               </Link>
             </li>
             <li>
@@ -193,6 +207,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               >
                 <BookOpen size={18} weight="duotone" />
                 게임 안내서
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/privacy"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <FileText size={18} weight="duotone" />
+                정책·약관
               </Link>
             </li>
           </ul>

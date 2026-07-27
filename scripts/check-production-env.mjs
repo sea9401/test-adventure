@@ -10,6 +10,19 @@ if (process.env.IS_STAGING?.trim() === "true") {
   process.exit(1);
 }
 
+if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN?.trim() === "true") {
+  console.error("✗ production coin shop must remain closed before paid-service approval");
+  process.exit(1);
+}
+
+if (
+  process.env.ADMIN_IMPERSONATION_ENABLED?.trim() === "true" ||
+  process.env.ALLOW_PRODUCTION_ADMIN_IMPERSONATION?.trim() === "true"
+) {
+  console.error("✗ production admin impersonation must remain disabled at launch");
+  process.exit(1);
+}
+
 const required = [
   "AUTH_SECRET",
   "AUTH_URL",
@@ -19,6 +32,7 @@ const required = [
   "DATABASE_CA_CERT_PATH",
   "ADMIN_EMAILS",
   "CRON_SECRET",
+  "OPS_ALERT_WEBHOOK_URL",
   "TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
   "TURNSTILE_EXPECTED_HOSTNAMES",
@@ -85,12 +99,20 @@ if (
   process.exit(1);
 }
 
-if (process.env.OPS_ALERT_WEBHOOK_URL?.trim()) {
+const opsWebhookKeys = [
+  "OPS_ALERT_WEBHOOK_URL",
+  "OPS_ALERT_REWARD_WEBHOOK_URL",
+  "OPS_ALERT_ABUSE_WEBHOOK_URL",
+  "OPS_ALERT_ECONOMY_WEBHOOK_URL",
+  "OPS_ALERT_DEPLOY_WEBHOOK_URL",
+];
+for (const key of opsWebhookKeys) {
+  if (!process.env[key]?.trim()) continue;
   try {
-    const opsWebhookUrl = new URL(process.env.OPS_ALERT_WEBHOOK_URL.trim());
+    const opsWebhookUrl = new URL(process.env[key].trim());
     if (opsWebhookUrl.protocol !== "https:") throw new Error();
   } catch {
-    console.error("✗ OPS_ALERT_WEBHOOK_URL must be a valid https URL");
+    console.error(`✗ ${key} must be a valid https URL`);
     process.exit(1);
   }
 }
@@ -147,6 +169,22 @@ const authHostname = authUrlObject.hostname.toLowerCase();
 if (!expectedHostnames.has(authHostname)) {
   console.error("✗ TURNSTILE_EXPECTED_HOSTNAMES does not include AUTH_URL hostname");
   process.exit(1);
+}
+
+if (configuredCaptchaKeys.length === captchaKeys.length) {
+  const hcaptchaHostnames = new Set(
+    (
+      process.env.HCAPTCHA_EXPECTED_HOSTNAMES ??
+      process.env.TURNSTILE_EXPECTED_HOSTNAMES
+    )
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (!hcaptchaHostnames.has(authHostname)) {
+    console.error("✗ hCaptcha expected hostnames do not include AUTH_URL hostname");
+    process.exit(1);
+  }
 }
 
 console.log("✓ production security environment configured");

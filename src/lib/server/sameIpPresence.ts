@@ -92,7 +92,6 @@ export function recordSameIpPresenceSoon(args: {
     userId: user.userId,
     name: user.name,
   }));
-  const names = identities.map((user) => user.name || user.userId.slice(0, 8));
   console.warn("[abuse-monitor] persistent same-IP accounts", {
     ip: alert.ip,
     accounts: identities,
@@ -111,7 +110,8 @@ export function recordSameIpPresenceSoon(args: {
   });
   recordOpsSignal({
     key: `abuse:persistent-same-ip:${alert.ip}:${identities.map((user) => user.userId).join(":")}`,
-    label: `동일 IP 30분 지속 접속: ${names.join(", ")}`,
+    alertType: "abuse.persistent_same_ip",
+    label: "동일 IP 30분 지속 접속",
     threshold: 1,
     windowMs: SAME_IP_PRESENCE_ALERT_COOLDOWN_MS,
     detail: {

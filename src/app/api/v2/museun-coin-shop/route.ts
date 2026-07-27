@@ -31,7 +31,14 @@ function bad(error: string, status = 400) {
   return Response.json({ ok: false, error }, { status });
 }
 
+function unavailable() {
+  return new Response(null, { status: 404 });
+}
+
 export async function GET() {
+  if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true") {
+    return unavailable();
+  }
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
 
@@ -49,6 +56,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true") {
+    return unavailable();
+  }
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
   const limited = enforceUserAndIpRateLimit(req, {

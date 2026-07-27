@@ -124,7 +124,7 @@ export function MessageList({
               )}
             </div>
             {tab !== "notice" && (
-              <div className="whitespace-pre-wrap break-words leading-relaxed">
+                  <div className="whitespace-pre-wrap break-words leading-relaxed">
                 <MessageBody content={m.content} />
               </div>
             )}

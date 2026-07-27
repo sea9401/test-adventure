@@ -56,7 +56,7 @@ describe("ProfileDecorationMotion", () => {
     );
 
     expect(html.match(/class="ui-celestial-star-map"/g)).toHaveLength(1);
-    expect(html.match(/class="ui-celestial-comet /g)).toHaveLength(2);
+    expect(html.match(/class="ui-celestial-comet /g)).toHaveLength(5);
     expect(html.match(/class="ui-celestial-halo"/g)).toHaveLength(1);
     expect(html).not.toContain("ui-celestial-star ");
   });

@@ -25,6 +25,9 @@ const CELESTIAL_DECORATION_CLASSES = [
   "ui-celestial-star-map",
   "ui-celestial-comet ui-celestial-comet--a",
   "ui-celestial-comet ui-celestial-comet--b",
+  "ui-celestial-comet ui-celestial-comet--c",
+  "ui-celestial-comet ui-celestial-comet--d",
+  "ui-celestial-comet ui-celestial-comet--e",
 ];
 
 const PROFILE_PARTICLE_CLASSES = {

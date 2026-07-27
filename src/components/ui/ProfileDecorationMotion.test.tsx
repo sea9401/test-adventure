@@ -16,9 +16,6 @@ describe("ProfileDecorationMotion", () => {
       ["rose", "ui-rose-petal"],
       ["royal", "ui-royal-mote"],
     ] as const;
-    const celestial = renderToStaticMarkup(
-      <ProfileDecorationMotion profileBorder="celestial" />,
-    );
     const sapphire = renderToStaticMarkup(
       <ProfileDecorationMotion profileBorder="sapphire" />,
     );
@@ -32,9 +29,18 @@ describe("ProfileDecorationMotion", () => {
         html.match(new RegExp(`class="${particleClass}(?: |")`, "g")),
       ).toHaveLength(10);
     }
-    expect(celestial).toContain("ui-profile-decoration-motion--celestial");
-    expect(celestial).not.toContain("ui-profile-particle-slot");
     expect(sapphire).toBe("");
+  });
+
+  it("천상에는 전설 전용 별빛·별자리·유성·광륜을 렌더링한다", () => {
+    const html = renderToStaticMarkup(
+      <ProfileDecorationMotion profileBorder="celestial" />,
+    );
+
+    expect(html.match(/class="ui-celestial-star /g)).toHaveLength(12);
+    expect(html.match(/class="ui-celestial-constellation /g)).toHaveLength(2);
+    expect(html.match(/class="ui-celestial-comet /g)).toHaveLength(2);
+    expect(html.match(/class="ui-celestial-halo"/g)).toHaveLength(1);
   });
 
   it("초기 렌더링에서는 화면 교차 감지 대상 클래스를 표시한다", () => {

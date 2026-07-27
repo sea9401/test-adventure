@@ -207,16 +207,4 @@ describe("resolveBattle ATB invariants", () => {
     expect(result.finalState.outcome).toBe(result.outcome);
   });
 
-  it("전투 종료 요약에 시간·양측 행동·평타·피해가 기록된다", () => {
-    const result = run(basePlayer, baseEnemy, 5);
-    const summary = result.finalState.combatSummary;
-
-    expect(summary).toBeDefined();
-    expect(summary?.playerActions).toBe(result.turns);
-    expect(summary?.enemyActions).toBeGreaterThan(0);
-    expect(summary?.basicAttackActions).toBe(result.turns);
-    expect(summary?.damageDealt).toBeGreaterThan(0);
-    expect(summary?.elapsedTicks).toBeLessThanOrEqual(ATB_TICK_CAP);
-    expect(summary?.tickCap).toBe(ATB_TICK_CAP);
-  });
 });

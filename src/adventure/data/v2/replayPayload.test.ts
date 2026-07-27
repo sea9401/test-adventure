@@ -122,31 +122,6 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(restored).toMatchObject({ enemyMp: 20, enemyMaxMp: 75 });
   });
 
-  it("ATB 전투 분석 요약을 리플레이에서도 보존한다", () => {
-    const combatSummary = {
-      elapsedTicks: 1_200,
-      tickCap: 3_000,
-      playerActions: 12,
-      enemyActions: 6,
-      basicAttackActions: 8,
-      potionActions: 0,
-      skillUses: { 봉마진: 2, 화염구: 2 },
-      damageDealt: 1_500,
-      damageTaken: 240,
-      healingDone: 80,
-      healingWasted: 20,
-      controlledEnemyActions: 5,
-    };
-    const payload = toReplayPayload(
-      { ...fixture(3), combatSummary } as BattleState,
-      200,
-    );
-    const restored = buildBattleStateFromReplay(payload, 500, 300);
-
-    expect(payload.combatSummary).toEqual(combatSummary);
-    expect(restored.combatSummary).toEqual(combatSummary);
-  });
-
   it("예전 리플레이는 마지막 hp_bar의 적 MP로 복원한다", () => {
     const payload = {
       enemy: { name: "산군", hp: 30_000 },

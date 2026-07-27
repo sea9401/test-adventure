@@ -20,14 +20,9 @@ const STORM_DECORATION_CLASSES = [
   "ui-storm-lightning ui-storm-lightning--b",
   ...STORM_RAIN_SLOTS.map((slot) => `ui-storm-rain ui-storm-rain--${slot}`),
 ];
-const CELESTIAL_STAR_SLOTS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
 const CELESTIAL_DECORATION_CLASSES = [
   "ui-celestial-halo",
-  "ui-celestial-constellation ui-celestial-constellation--a",
-  "ui-celestial-constellation ui-celestial-constellation--b",
-  ...CELESTIAL_STAR_SLOTS.map(
-    (slot) => `ui-celestial-star ui-celestial-star--${slot}`,
-  ),
+  "ui-celestial-star-map",
   "ui-celestial-comet ui-celestial-comet--a",
   "ui-celestial-comet ui-celestial-comet--b",
 ];

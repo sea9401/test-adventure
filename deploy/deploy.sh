@@ -74,4 +74,8 @@ done
 echo "▶ nginx maintenance off"
 bash deploy/maintenance.sh off
 
+echo "▶ public release smoke"
+PUBLIC_RELEASE_EXPECTED_BUILD_ID="$(git rev-parse --short HEAD)" \
+  npm run check-public-release
+
 echo "▶ done"

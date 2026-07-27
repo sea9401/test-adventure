@@ -5,34 +5,22 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
-import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { inboxValues } from "@/lib/server/inboxPayload";
-import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import {
-  listedEquipEnhance,
-  mintListedEquipInstance,
-} from "@/adventure/data/v2/v2EquipMint";
+import { listedEquipEnhance } from "@/adventure/data/v2/v2EquipMint";
 import {
   isTradableMaterial,
   marketplaceTaxRateForAdventureSupport,
+  marketplaceListingPhase,
   resolvePlayerName,
+  restoreMarketplaceRareMap,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
-import {
-  RARE_MAP_CAP,
-  genRareMapIid,
-  parseRareMaps,
-} from "@/adventure/data/v2/rareMaps";
+import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
-import {
-  addMuseunCashItem,
-  isMuseunCashItemId,
-} from "@/adventure/data/v2/museunCashItems";
+import { isMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
-import {
-  addCookingFood,
-  isCookingFoodId,
-} from "@/adventure/v2/cooking";
+import { isCookingFoodId } from "@/adventure/v2/cooking";
+import { RARE_MAP_CAP, parseRareMaps } from "@/adventure/data/v2/rareMaps";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -47,10 +35,6 @@ type CharSave = {
   rareMaps?: unknown;
   cashItems?: unknown;
   [k: string]: unknown;
-};
-
-type InventorySave = Record<string, unknown> & {
-  cookingFoods?: unknown;
 };
 
 function bad(error: string, status = 400) {
@@ -94,6 +78,36 @@ export async function POST(req: Request) {
     if (listing.sellerId === userId) {
       return { status: 400, body: { ok: false as const, error: "own_listing" } };
     }
+    const phase = marketplaceListingPhase(listing, new Date());
+    if (phase === "bidding") {
+      return { status: 409, body: { ok: false as const, error: "buy_pending" } };
+    }
+    if (phase === "auction_settlement") {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "auction_locked" },
+      };
+    }
+    if (phase !== "fixed") {
+      return { status: 409, body: { ok: false as const, error: "listing_expired" } };
+    }
+    if (
+      !listing.bidResolvedAt &&
+      listing.highestBidderId &&
+      (listing.highestBid ?? 0) > 0
+    ) {
+      await tx.insert(marketplaceInbox).values(
+        inboxValues({
+          userId: listing.highestBidderId,
+          payload: { kind: "bid_refund", gold: listing.highestBid! },
+          message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
+        }),
+      );
+      await tx
+        .update(marketplaceListingsV2)
+        .set({ bidResolvedAt: new Date() })
+        .where(eq(marketplaceListingsV2.id, listingId));
+    }
     if (listing.kind === "material" && !isTradableMaterial(listing.itemId)) {
       return {
         status: 409,
@@ -123,7 +137,7 @@ export async function POST(req: Request) {
       !isMuseunCashItemId(listing.itemId) &&
       !isCookingFoodId(listing.itemId)
     ) {
-      const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
+      const inst = restoreMarketplaceRareMap(listing.instancePayload, Date.now());
       if (!inst) {
         await tx
           .update(marketplaceListingsV2)
@@ -144,64 +158,26 @@ export async function POST(req: Request) {
     if (!spend.ok) {
       return { status: 400, body: { ok: false as const, error: "insufficient_gold" } };
     }
-    let nextChar: CharSave = { ...charSave, gold: spend.gold, bankedGold: spend.bankedGold };
+    if (
+      listing.kind === "consumable" &&
+      !isMuseunCashItemId(listing.itemId) &&
+      !isCookingFoodId(listing.itemId) &&
+      parseRareMaps(charSave.rareMaps, Date.now()).length >= RARE_MAP_CAP
+    ) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "rare_map_cap" },
+      };
+    }
+    const nextChar: CharSave = { ...charSave, gold: spend.gold, bankedGold: spend.bankedGold };
 
-    // 3) 아이템을 구매자에게 지급.
-    if (listing.kind === "equip") {
-      // payload = 굴림(+제작품질) — 옛 행은 raw roll. 방어 파스는 mintListedEquipInstance 공용.
-      await appendEquipInstances(tx, userId, [
-        mintListedEquipInstance(
-          listing.itemId as V2EquipmentId,
-          listing.instancePayload,
-        ),
-      ]);
-      await upsertSave(tx, userId, "character.v2", nextChar);
-    } else if (listing.kind === "consumable") {
-      if (isMuseunCashItemId(listing.itemId)) {
-        nextChar = {
-          ...nextChar,
-          cashItems: addMuseunCashItem(
-            charSave.cashItems,
-            listing.itemId,
-            listing.quantity,
-          ),
-        };
-      } else if (isCookingFoodId(listing.itemId)) {
-        const inventory = await lockSaveForUpdate<InventorySave>(
-          tx,
-          userId,
-          "inventory.v2",
-          {},
-        );
-        await upsertSave(tx, userId, "inventory.v2", {
-          ...inventory,
-          cookingFoods: addCookingFood(
-            inventory.cookingFoods,
-            listing.itemId,
-            listing.quantity,
-          ),
-        });
-      } else {
-        const myMaps = parseRareMaps(charSave.rareMaps, Date.now());
-        if (myMaps.length >= RARE_MAP_CAP) {
-          return {
-            status: 400,
-            body: { ok: false as const, error: "rare_map_cap" },
-          };
-        }
-        const inst = parseRareMaps([listing.instancePayload], Date.now())[0]!;
-        nextChar = {
-          ...nextChar,
-          rareMaps: [...myMaps, { ...inst, iid: genRareMapIid() }],
-        };
-      }
-      await upsertSave(tx, userId, "character.v2", nextChar);
-    } else {
-      // material — 구매자 재료 수량 가산(character.v2 에 누적).
-      const mats = { ...(nextChar.materials ?? {}) };
-      mats[listing.itemId] = Math.max(0, Math.floor(mats[listing.itemId] ?? 0)) + listing.quantity;
-      nextChar = { ...nextChar, materials: mats };
-      await upsertSave(tx, userId, "character.v2", nextChar);
+    // 3) 골드 차감 저장 후 아이템을 구매자에게 지급.
+    await upsertSave(tx, userId, "character.v2", nextChar);
+    const deliveryError = await deliverMarketplaceListing(tx, userId, listing);
+    if (deliveryError) {
+      // 모든 실패 조건은 골드 저장 전에 검증한다. 여기까지 왔다면 손상 데이터나
+      // 예상하지 못한 경합이므로 예외로 롤백해 골드만 차감되는 일을 막는다.
+      throw new Error(`marketplace_delivery_failed:${deliveryError}`);
     }
 
     // 4) listing sold 마킹.

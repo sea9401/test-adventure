@@ -6,16 +6,19 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { listedEquipEnhance } from "@/adventure/data/v2/v2EquipMint";
 import {
   MARKETPLACE_V2_BROWSE_LIMIT,
-  MARKETPLACE_V2_LISTING_TTL_DAYS,
+  MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
+  MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
+  MARKETPLACE_V2_FIXED_LISTING_HOURS,
   currentMarketplaceItemName,
   isMarketKind,
   isTradableMaterial,
+  marketplacePublicListing,
 } from "@/lib/server/marketplaceV2";
 
 // GET /api/v2/marketplace/browse — 활성 매물 목록.
 //   ?kind=equip|material  종류 필터(생략 시 전체)
 //   ?mine=1               내 활성 매물만(취소 UI 용)
-// 최신순, 최대 MARKETPLACE_V2_BROWSE_LIMIT. sellerId 포함(UI 가 본인 매물 표시·구매 비활성).
+// 최신순, 최대 MARKETPLACE_V2_BROWSE_LIMIT. 판매자 식별자는 숨기고 isMine 만 반환한다.
 // viewerGold = 뷰어 현재 골드(구매 가능 여부·구매 확인 표시용 — UI 가 browse 만으로 골드도 최신 유지).
 
 export async function GET(req: Request) {
@@ -44,7 +47,6 @@ export async function GET(req: Request) {
     .select({
       id: marketplaceListingsV2.id,
       sellerId: marketplaceListingsV2.sellerId,
-      sellerName: marketplaceListingsV2.sellerName,
       kind: marketplaceListingsV2.kind,
       itemId: marketplaceListingsV2.itemId,
       itemName: marketplaceListingsV2.itemName,
@@ -52,6 +54,12 @@ export async function GET(req: Request) {
       price: marketplaceListingsV2.price,
       instancePayload: marketplaceListingsV2.instancePayload,
       createdAt: marketplaceListingsV2.createdAt,
+      bidEndsAt: marketplaceListingsV2.bidEndsAt,
+      expiresAt: marketplaceListingsV2.expiresAt,
+      highestBid: marketplaceListingsV2.highestBid,
+      highestBidderId: marketplaceListingsV2.highestBidderId,
+      bidCount: marketplaceListingsV2.bidCount,
+      bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
     })
     .from(marketplaceListingsV2)
     .where(and(...conds))
@@ -71,9 +79,10 @@ export async function GET(req: Request) {
 
   return Response.json({
     ok: true,
-    viewerId: userId,
     viewerGold,
-    ttlDays: MARKETPLACE_V2_LISTING_TTL_DAYS,
+    bidGraceMinHours: MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
+    bidGraceMaxHours: MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
+    fixedListingHours: MARKETPLACE_V2_FIXED_LISTING_HOURS,
     listings: rows
       .filter(
         (row) =>
@@ -82,13 +91,18 @@ export async function GET(req: Request) {
             ? !listedEquipEnhance(row.instancePayload)
             : row.kind !== "material" || isTradableMaterial(row.itemId)),
       )
-      .map((row) => ({
-        ...row,
-        itemName: currentMarketplaceItemName(
-          row.kind,
-          row.itemId,
-          row.itemName,
+      .map((row) =>
+        marketplacePublicListing(
+          {
+            ...row,
+            itemName: currentMarketplaceItemName(
+              row.kind,
+              row.itemId,
+              row.itemName,
+            ),
+          },
+          userId,
         ),
-      })),
+      ),
   });
 }

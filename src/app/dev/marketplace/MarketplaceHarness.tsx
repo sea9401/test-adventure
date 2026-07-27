@@ -14,8 +14,8 @@ const weaponSamples = Object.values(V2_EQUIPMENT)
 
 const listings = weaponSamples.map((item, index) => ({
   id: index + 1,
-  sellerId: `seller-${index + 1}`,
-  sellerName: ["은빛여우", "망치장이", "새벽검객"][index],
+  isMine: false,
+  isHighestBidder: index === 0,
   kind: "equip" as const,
   itemId: item.id,
   itemName: item.name,
@@ -26,6 +26,12 @@ const listings = weaponSamples.map((item, index) => ({
       ? { craftedBy: { name: "망치장이", level: 4, masterwork: true } }
       : {},
   createdAt: new Date(Date.now() - (index + 1) * 18 * 60_000).toISOString(),
+  bidEndsAt: new Date(Date.now() + (index + 1) * 60 * 60_000).toISOString(),
+  expiresAt: new Date(Date.now() + (index + 3) * 60 * 60_000).toISOString(),
+  highestBid: index === 0 ? 850_000 : null,
+  bidCount: index === 0 ? 3 : 0,
+  bidResolvedAt: null,
+  nextBid: index === 0 ? 892_500 : 1,
 }));
 
 const prices: MarketplacePreviewData["prices"] = Object.fromEntries(
@@ -36,9 +42,10 @@ const prices: MarketplacePreviewData["prices"] = Object.fromEntries(
 );
 
 const preview: MarketplacePreviewData = {
-  viewerId: "dev-viewer",
   viewerGold: 12_340_000,
-  ttlDays: 2,
+  bidGraceMinHours: 2,
+  bidGraceMaxHours: 24,
+  fixedListingHours: 2,
   listings,
   prices,
 };

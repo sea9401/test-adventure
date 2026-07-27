@@ -1,13 +1,21 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
-import { marketplaceListingsV2 } from "@/db/schema";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { marketplaceInbox, marketplaceListingsV2 } from "@/db/schema";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
-import { MARKETPLACE_V2_LISTING_TTL_DAYS } from "@/lib/server/marketplaceV2";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { requireCronAuth } from "@/lib/server/cronAuth";
+import { inboxValues } from "@/lib/server/inboxPayload";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  marketplaceTaxRateForAdventureSupport,
+  restoreMarketplaceRareMap,
+  saleProceeds,
+} from "@/lib/server/marketplaceV2";
+import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
+import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import {
   addMuseunCashItem,
   isMuseunCashItemId,
@@ -17,108 +25,232 @@ import {
   isCookingFoodId,
 } from "@/adventure/v2/cooking";
 
-// POST /api/v2/cron/marketplace-expire — 만료 매물 sweep (cron 주기 호출, 예: 매시간). CRON_SECRET.
-//   등록 후 TTL(MARKETPLACE_V2_LISTING_TTL_DAYS) 지난 active 매물을 판매자에게 반환(장비=새 개체,
-//   재료=수량 복원, cancel 라우트와 동형) + status='expired'. 반환은 판매자 save 직접 기록(오프라인 OK).
-//   per-listing tx + listing FOR UPDATE 재확인 → 동시 구매와 직렬화(막 팔린 건 skip, 아이템 중복/소실 0).
-//   잠금 순서 listing → 판매자 save (buy/cancel 과 일관 = 데드락 회피).
-
 type CharSave = {
   materials?: Record<string, number>;
   rareMaps?: unknown;
   cashItems?: unknown;
-  [k: string]: unknown;
+  adventureSupport?: unknown;
+  [key: string]: unknown;
 };
-type InventorySave = Record<string, unknown> & {
-  cookingFoods?: unknown;
-};
-const BATCH = 200; // 1회 처리 상한(폭주/장기 tx 방지 — 다음 cron 이 나머지 처리).
+type InventorySave = Record<string, unknown> & { cookingFoods?: unknown };
 
+const BATCH = 200;
+
+// 공개 입찰 유예 종료와 고정가 등록 만료를 함께 정산한다. cron은 5분마다 호출하며,
+// per-listing FOR UPDATE로 buy/bid/cancel과 직렬화해 중복 지급·환불을 막는다.
 export async function POST(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
 
-  const cutoff = new Date(Date.now() - MARKETPLACE_V2_LISTING_TTL_DAYS * 24 * 60 * 60 * 1000);
-
-  // 1) 만료 후보 id(active + createdAt < cutoff). read-only — 본 처리는 per-listing tx 에서 재확인.
+  const now = new Date();
   const due = await db
     .select({ id: marketplaceListingsV2.id })
     .from(marketplaceListingsV2)
     .where(
       and(
         eq(marketplaceListingsV2.status, "active"),
-        lt(marketplaceListingsV2.createdAt, cutoff),
+        or(
+          and(
+            isNull(marketplaceListingsV2.bidResolvedAt),
+            lte(marketplaceListingsV2.bidEndsAt, now),
+          ),
+          lte(marketplaceListingsV2.expiresAt, now),
+        ),
       ),
     )
     .limit(BATCH);
 
+  let auctionsSold = 0;
+  let bidsRefunded = 0;
   let expired = 0;
   for (const { id } of due) {
-    const ok = await db.transaction(async (tx) => {
-      const [l] = await tx
+    const result = await db.transaction(async (tx) => {
+      const [listing] = await tx
         .select()
         .from(marketplaceListingsV2)
         .where(eq(marketplaceListingsV2.id, id))
         .for("update");
-      // 막 팔림/취소/이미 만료 → skip (동시 구매와 직렬화).
-      if (!l || l.status !== "active" || l.createdAt >= cutoff) return false;
+      if (!listing || listing.status !== "active") return { action: "skip" as const };
 
-      if (l.kind === "equip") {
-        // buy/cancel 과 동일한 payload 복원 — 예전엔 raw roll 만 복원해 만료 회수 시
-        // 강화(+제작품질·제작자 표식)가 소실됐다. mintListedEquipInstance 가 전부 보존.
-        await appendEquipInstances(tx, l.sellerId, [
-          mintListedEquipInstance(l.itemId as V2EquipmentId, l.instancePayload),
-        ]);
-      } else if (l.kind === "consumable") {
-        const charSave = await lockSaveForUpdate<CharSave>(tx, l.sellerId, "character.v2", {});
-        if (isMuseunCashItemId(l.itemId)) {
-          await upsertSave(tx, l.sellerId, "character.v2", {
-            ...charSave,
-            cashItems: addMuseunCashItem(
-              charSave.cashItems,
-              l.itemId,
-              l.quantity,
-            ),
-          });
-        } else if (isCookingFoodId(l.itemId)) {
-          const inventory = await lockSaveForUpdate<InventorySave>(
+      if (listing.bidEndsAt <= now && !listing.bidResolvedAt) {
+        if (
+          listing.highestBidderId &&
+          (listing.highestBid ?? 0) > listing.price
+        ) {
+          const deliveryError = await deliverMarketplaceListing(
             tx,
-            l.sellerId,
-            "inventory.v2",
+            listing.highestBidderId,
+            listing,
+            { enforceRareMapCap: false },
+          );
+          if (deliveryError) return { action: "skip" as const };
+
+          const sellerCharacter = await readSave<CharSave>(
+            tx,
+            listing.sellerId,
+            "character.v2",
             {},
           );
-          await upsertSave(tx, l.sellerId, "inventory.v2", {
-            ...inventory,
-            cookingFoods: addCookingFood(
-              inventory.cookingFoods,
-              l.itemId,
-              l.quantity,
-            ),
-          });
-        } else {
-          const inst = parseRareMaps([l.instancePayload], Date.now())[0];
-          if (inst) {
-            await upsertSave(tx, l.sellerId, "character.v2", {
-              ...charSave,
-              rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
-            });
+          const taxRate = marketplaceTaxRateForAdventureSupport(
+            adventureSupportActive(sellerCharacter.adventureSupport),
+          );
+          const gross = listing.highestBid!;
+          const proceeds = saleProceeds(gross, taxRate);
+          if (proceeds > 0) {
+            await tx.insert(marketplaceInbox).values(
+              inboxValues({
+                userId: listing.sellerId,
+                payload: { kind: "sale_proceeds", gold: proceeds },
+                message: `${listing.itemName} 입찰 판매 대금 ${proceeds.toLocaleString()}골드`,
+              }),
+            );
           }
+          await tx
+            .update(marketplaceListingsV2)
+            .set({
+              status: "sold",
+              buyerId: listing.highestBidderId,
+              price: gross,
+              bidResolvedAt: now,
+              closedAt: now,
+            })
+            .where(eq(marketplaceListingsV2.id, id));
+          return {
+            action: "auction_sold" as const,
+            sellerId: listing.sellerId,
+            buyerId: listing.highestBidderId,
+            itemKind: listing.kind,
+            itemId: listing.itemId,
+            quantity: listing.quantity,
+            gross,
+            proceeds,
+            taxRate,
+          };
         }
-      } else {
-        const charSave = await lockSaveForUpdate<CharSave>(tx, l.sellerId, "character.v2", {});
-        const mats = { ...(charSave.materials ?? {}) };
-        mats[l.itemId] = Math.max(0, Math.floor(mats[l.itemId] ?? 0)) + l.quantity;
-        await upsertSave(tx, l.sellerId, "character.v2", { ...charSave, materials: mats });
+
+        if (listing.highestBidderId && (listing.highestBid ?? 0) > 0) {
+          await tx.insert(marketplaceInbox).values(
+            inboxValues({
+              userId: listing.highestBidderId,
+              payload: { kind: "bid_refund", gold: listing.highestBid! },
+              message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
+            }),
+          );
+        }
+        await tx
+          .update(marketplaceListingsV2)
+          .set({ bidResolvedAt: now })
+          .where(eq(marketplaceListingsV2.id, id));
+        if (listing.expiresAt > now) {
+          return {
+            action: listing.highestBidderId
+              ? ("bid_refunded" as const)
+              : ("resolved" as const),
+          };
+        }
       }
 
+      if (listing.expiresAt > now) return { action: "skip" as const };
+      await returnListing(tx, listing);
       await tx
         .update(marketplaceListingsV2)
-        .set({ status: "expired", closedAt: new Date() })
+        .set({ status: "expired", closedAt: now })
         .where(eq(marketplaceListingsV2.id, id));
-      return true;
+      return { action: "expired" as const };
     });
-    if (ok) expired++;
+
+    if (result.action === "auction_sold") {
+      auctionsSold++;
+      recordEconomyEventSoon({
+        userId: result.sellerId,
+        counterpartyUserId: result.buyerId,
+        eventType: "marketplace.auction.sell",
+        goldDelta: result.proceeds,
+        itemKind: result.itemKind,
+        itemId: result.itemId,
+        quantity: result.quantity,
+        detail: { listingId: id, grossGold: result.gross, taxRate: result.taxRate },
+      });
+    } else if (result.action === "bid_refunded") {
+      bidsRefunded++;
+    } else if (result.action === "expired") {
+      expired++;
+    }
   }
 
-  return Response.json({ ok: true, scanned: due.length, expired });
+  return Response.json({
+    ok: true,
+    scanned: due.length,
+    auctionsSold,
+    bidsRefunded,
+    expired,
+  });
+}
+
+async function returnListing(
+  tx: Parameters<typeof deliverMarketplaceListing>[0],
+  listing: Parameters<typeof deliverMarketplaceListing>[2],
+) {
+  if (listing.kind === "equip") {
+    await appendEquipInstances(tx, listing.sellerId, [
+      mintListedEquipInstance(
+        listing.itemId as V2EquipmentId,
+        listing.instancePayload,
+      ),
+    ]);
+    return;
+  }
+  const charSave = await lockSaveForUpdate<CharSave>(
+    tx,
+    listing.sellerId,
+    "character.v2",
+    {},
+  );
+  if (listing.kind === "consumable") {
+    if (isMuseunCashItemId(listing.itemId)) {
+      await upsertSave(tx, listing.sellerId, "character.v2", {
+        ...charSave,
+        cashItems: addMuseunCashItem(
+          charSave.cashItems,
+          listing.itemId,
+          listing.quantity,
+        ),
+      });
+    } else if (isCookingFoodId(listing.itemId)) {
+      const inventory = await lockSaveForUpdate<InventorySave>(
+        tx,
+        listing.sellerId,
+        "inventory.v2",
+        {},
+      );
+      await upsertSave(tx, listing.sellerId, "inventory.v2", {
+        ...inventory,
+        cookingFoods: addCookingFood(
+          inventory.cookingFoods,
+          listing.itemId,
+          listing.quantity,
+        ),
+      });
+    } else {
+      const restored = restoreMarketplaceRareMap(
+        listing.instancePayload,
+        Date.now(),
+        { preserveIid: true },
+      );
+      if (restored) {
+        await upsertSave(tx, listing.sellerId, "character.v2", {
+          ...charSave,
+          rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), restored],
+        });
+      }
+    }
+    return;
+  }
+  const materials = { ...(charSave.materials ?? {}) };
+  materials[listing.itemId] =
+    Math.max(0, Math.floor(materials[listing.itemId] ?? 0)) + listing.quantity;
+  await upsertSave(tx, listing.sellerId, "character.v2", {
+    ...charSave,
+    materials,
+  });
 }

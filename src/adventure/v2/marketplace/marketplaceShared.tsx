@@ -51,8 +51,8 @@ export function marketplacePricePosition(
 
 export type Listing = {
   id: number;
-  sellerId: string;
-  sellerName: string;
+  isMine: boolean;
+  isHighestBidder: boolean;
   kind: "equip" | "material" | "consumable";
   itemId: string;
   itemName: string;
@@ -60,6 +60,12 @@ export type Listing = {
   price: number;
   instancePayload: unknown;
   createdAt: string;
+  bidEndsAt: string;
+  expiresAt: string;
+  highestBid: number | null;
+  bidCount: number;
+  bidResolvedAt: string | null;
+  nextBid: number;
 };
 
 // 페이지네이션 결과 중 탭 컴포넌트가 쓰는 부분집합(usePagination 반환과 구조 호환).

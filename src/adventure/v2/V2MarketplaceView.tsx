@@ -24,7 +24,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
-import { parseAmount } from "@/components/ui/NumberInput";
+import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import {
   V2_EQUIPMENT,
   parseCraftedBy,
@@ -44,6 +44,7 @@ import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrop
 import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import {
   RARE_MAP_KINDS,
+  RARE_MAP_TTL_MS,
   parseRareMaps,
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
@@ -147,9 +148,10 @@ const LISTING_ICON: Record<V2ItemTabKey, Icon> = {
 };
 
 export type MarketplacePreviewData = {
-  viewerId: string;
   viewerGold: number;
-  ttlDays: number;
+  bidGraceMinHours: number;
+  bidGraceMaxHours: number;
+  fixedListingHours: number;
   listings: Listing[];
   prices: Record<string, PriceStat>;
 };
@@ -157,7 +159,6 @@ export type MarketplacePreviewData = {
 // 최근 거래(체결 내역) 한 행 — /api/v2/marketplace/history. status='sold' 스냅샷.
 type Trade = {
   id: number;
-  sellerName: string;
   kind: string;
   itemId: string;
   itemName: string;
@@ -185,6 +186,13 @@ const ERR_LABEL: Record<string, string> = {
   not_found: "매물을 찾을 수 없어요.",
   not_active: "이미 종료된 매물이에요.",
   not_owner: "내 매물이 아니에요.",
+  bad_grace_hours: "입찰 유예 시간은 2~24시간이어야 해요.",
+  bad_bid: "입찰 금액을 확인해 주세요.",
+  bid_too_low: "현재 최고가보다 최소 5% 높은 금액을 입력하세요.",
+  bidding_closed: "입찰 유예가 종료됐어요.",
+  buy_pending: "입찰 유예 중에는 즉시구매할 수 없어요.",
+  auction_locked: "즉시구매가를 초과해 입찰 판매가 확정된 매물이에요.",
+  has_bids: "입찰이 시작된 매물은 취소할 수 없어요.",
 };
 
 function actionErrorLabel(
@@ -220,9 +228,6 @@ export function V2MarketplaceView({
   const [sellSort, setSellSort] = useState<SortMode>("default");
   const [sellCraftFilter, setSellCraftFilter] =
     useState<SellCraftFilter>("all");
-  const [viewerId, setViewerId] = useState<string | null>(
-    preview?.viewerId ?? null,
-  );
   const [listings, setListings] = useState<Listing[] | null>(
     preview?.listings ?? null,
   );
@@ -238,6 +243,9 @@ export function V2MarketplaceView({
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
+  const [graceHours, setGraceHours] = useState(
+    preview?.bidGraceMinHours ?? 2,
+  );
   const [busy, setBusy] = useState(false);
   const beginAction = useSingleFlightGuard();
   const [msg, setMsg] = useSystemMessageState();
@@ -245,6 +253,11 @@ export function V2MarketplaceView({
   const [gold, setGold] = useState<number | null>(preview?.viewerGold ?? null);
   // 둘러보기 — 구매 확인 모달 + 정렬/필터/검색(클라이언트측, 반환된 매물 위).
   const [confirmBuy, setConfirmBuy] = useState<Listing | null>(null);
+  const [confirmBid, setConfirmBid] = useState<Listing | null>(null);
+  const [bidAmount, setBidAmount] = useState("");
+  const [publicBids, setPublicBids] = useState<
+    Array<{ amount: number; createdAt: string; isMine: boolean }>
+  >([]);
   const [search, setSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [craftedOnly, setCraftedOnly] = useState(false);
@@ -261,7 +274,16 @@ export function V2MarketplaceView({
   const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>(
     preview?.prices ?? {},
   );
-  const [ttlDays, setTtlDays] = useState<number | null>(preview?.ttlDays ?? null); // 매물 만료 일수(서버 다이얼).
+  const [bidGraceMinHours, setBidGraceMinHours] = useState(
+    preview?.bidGraceMinHours ?? 2,
+  );
+  const [bidGraceMaxHours, setBidGraceMaxHours] = useState(
+    preview?.bidGraceMaxHours ?? 24,
+  );
+  const [fixedListingHours, setFixedListingHours] = useState(
+    preview?.fixedListingHours ?? 2,
+  );
+  const [clockMs, setClockMs] = useState(() => Date.now());
   // 아이템 옵션 카드(클릭 시 뜨는 팝오버) — 장비만(재료는 옵션 없음). V2ItemCard 재사용(읽기전용).
   const [card, setCard] = useState<{
     item: V2Equipment;
@@ -276,15 +298,24 @@ export function V2MarketplaceView({
     const res = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : ""}`);
     const j = (await res.json().catch(() => null)) as {
       ok?: boolean;
-      viewerId?: string;
       viewerGold?: number;
-      ttlDays?: number;
+      bidGraceMinHours?: number;
+      bidGraceMaxHours?: number;
+      fixedListingHours?: number;
       listings?: Listing[];
     } | null;
     if (!res.ok || !j?.ok) throw new Error(`목록 로드 실패 (${res.status})`);
-    if (j.viewerId) setViewerId(j.viewerId);
     if (typeof j.viewerGold === "number") setGold(j.viewerGold);
-    if (typeof j.ttlDays === "number") setTtlDays(j.ttlDays);
+    if (typeof j.bidGraceMinHours === "number") {
+      setBidGraceMinHours(j.bidGraceMinHours);
+      setGraceHours((current) => Math.max(j.bidGraceMinHours!, current));
+    }
+    if (typeof j.bidGraceMaxHours === "number") {
+      setBidGraceMaxHours(j.bidGraceMaxHours);
+    }
+    if (typeof j.fixedListingHours === "number") {
+      setFixedListingHours(j.fixedListingHours);
+    }
     if (mineOnly) setMine(j.listings ?? []);
     else setListings(j.listings ?? []);
   }, []);
@@ -342,8 +373,8 @@ export function V2MarketplaceView({
     setHistory(
       (j.trades ?? []).map((t) => ({
         id: t.id,
-        sellerId: "",
-        sellerName: t.sellerName,
+        isMine: false,
+        isHighestBidder: false,
         kind: t.kind as Listing["kind"],
         itemId: t.itemId,
         itemName: t.itemName,
@@ -351,6 +382,12 @@ export function V2MarketplaceView({
         price: t.price,
         instancePayload: t.instancePayload,
         createdAt: t.closedAt ?? "",
+        bidEndsAt: t.closedAt ?? "",
+        expiresAt: t.closedAt ?? "",
+        highestBid: null,
+        bidCount: 0,
+        bidResolvedAt: t.closedAt,
+        nextBid: 1,
       })),
     );
   }, []);
@@ -372,6 +409,11 @@ export function V2MarketplaceView({
       void loadPrices();
     }
   }, [tab, loadBrowse, loadInventory, loadPrices, loadHistory, preview]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleBrowseTabChange = useCallback((nextTab: V2ItemTabKey) => {
     setBrowseTab(nextTab);
@@ -437,6 +479,41 @@ export function V2MarketplaceView({
   const cancel = (l: Listing) =>
     act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물 취소 — 아이템 반환", () => loadBrowse(true));
 
+  const openBid = async (listing: Listing) => {
+    setConfirmBid(listing);
+    setBidAmount(String(listing.nextBid));
+    setPublicBids([]);
+    const res = await fetch(
+      `/api/v2/marketplace/bids?listingId=${listing.id}`,
+    );
+    const payload = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      bids?: Array<{ amount: number; createdAt: string; isMine: boolean }>;
+    } | null;
+    if (res.ok && payload?.ok) setPublicBids(payload.bids ?? []);
+  };
+
+  const placeBid = () => {
+    const listing = confirmBid;
+    const amount = parseAmount(bidAmount);
+    if (!listing || !Number.isInteger(amount) || amount < listing.nextBid) {
+      setError(
+        `다음 입찰가는 ${listing?.nextBid.toLocaleString() ?? 1}골드 이상이어야 합니다.`,
+      );
+      return;
+    }
+    return act(
+      "/api/v2/marketplace/bid",
+      { listingId: listing.id, amount },
+      `✓ ${amount.toLocaleString()}골드 입찰 완료`,
+      async () => {
+        setConfirmBid(null);
+        await loadBrowse(false);
+        await refreshGameState();
+      },
+    );
+  };
+
   const listEquip = (inst: V2EquipInstance) => {
     const price = parseAmount(prices[inst.iid]);
     if (!Number.isInteger(price) || price < 1) {
@@ -445,7 +522,7 @@ export function V2MarketplaceView({
     }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "equip", iid: inst.iid, price },
+      { kind: "equip", iid: inst.iid, price, graceHours },
       `✓ ${V2_EQUIPMENT[inst.id]?.name ?? inst.id} 등록`,
       loadInventory,
     );
@@ -463,7 +540,7 @@ export function V2MarketplaceView({
     }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "material", itemId: matId, quantity: qty, price },
+      { kind: "material", itemId: matId, quantity: qty, price, graceHours },
       `✓ ${V2_MATERIALS[matId]?.name ?? matId} ${qty}개 등록`,
       loadInventory,
     );
@@ -478,7 +555,7 @@ export function V2MarketplaceView({
     }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "consumable", iid, price },
+      { kind: "consumable", iid, price, graceHours },
       "✓ 레어맵 등록",
       loadInventory,
     );
@@ -497,7 +574,7 @@ export function V2MarketplaceView({
     }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "consumable", itemId, quantity, price },
+      { kind: "consumable", itemId, quantity, price, graceHours },
       `✓ ${MUSEUN_CASH_ITEMS[itemId].name} ${quantity}개 등록`,
       loadInventory,
     );
@@ -517,7 +594,7 @@ export function V2MarketplaceView({
     const name = cookingFoodDefinition(itemId)?.name ?? "음식";
     return act(
       "/api/v2/marketplace/list",
-      { kind: "consumable", itemId, quantity, price },
+      { kind: "consumable", itemId, quantity, price, graceHours },
       `✓ ${name} ${quantity}개 등록`,
       loadInventory,
     );
@@ -950,8 +1027,42 @@ export function V2MarketplaceView({
           <ListingList
             rows={listings === null ? null : browsePager.pageItems}
             emptyText={listings && listings.length > 0 ? "조건에 맞는 매물이 없어요." : "등록된 매물이 없어요."}
-            action={(l) =>
-              l.sellerId === viewerId ? (
+            action={(l) => {
+              const bidding = new Date(l.bidEndsAt).getTime() > clockMs;
+              const expired = new Date(l.expiresAt).getTime() <= clockMs;
+              const auctionLocked =
+                !bidding && (l.highestBid ?? 0) > l.price;
+              if (bidding) {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => void openBid(l)}
+                    disabled={busy}
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-sky-700 bg-sky-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-50"
+                  >
+                    {l.isMine ? `입찰 ${l.bidCount}건` : "입찰"}
+                  </button>
+                );
+              }
+              if (auctionLocked) {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => void openBid(l)}
+                    className="h-9 shrink-0 rounded-md border border-amber-300 px-3 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-300"
+                  >
+                    입찰 내역
+                  </button>
+                );
+              }
+              if (expired) {
+                return (
+                  <span className="shrink-0 text-[11px] text-zinc-400">
+                    만료 정산 중
+                  </span>
+                );
+              }
+              return l.isMine ? (
                 <span className="shrink-0 text-[11px] text-zinc-400">내 매물</span>
               ) : (
                 <button
@@ -963,11 +1074,11 @@ export function V2MarketplaceView({
                   <ShoppingCart size={14} weight="bold" />
                   구매
                 </button>
-              )
-            }
+              );
+            }}
             priceRef={priceRef}
             frontierDepth={frontierDepth}
-            showSeller
+            clockMs={clockMs}
             onOpenCard={openCardFor}
           />
           {listings !== null && displayedListings.length > 0 && (
@@ -985,13 +1096,13 @@ export function V2MarketplaceView({
           <ListingList
             rows={history === null ? null : historyPager.pageItems}
             emptyText="아직 체결된 거래가 없어요."
+            historical
             priceRef={{}}
             frontierDepth={frontierDepth}
+            clockMs={clockMs}
             onOpenCard={openCardFor}
             action={(l) => (
               <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
-                {l.sellerName}
-                <br />
                 {timeAgo(l.createdAt)}
               </span>
             )}
@@ -1013,17 +1124,27 @@ export function V2MarketplaceView({
             emptyText="등록한 매물이 없어요."
             priceRef={priceRef}
             frontierDepth={frontierDepth}
-            expiryDays={ttlDays ?? undefined}
+            clockMs={clockMs}
             onOpenCard={openCardFor}
             action={(l) => (
-              <button
-                type="button"
-                onClick={() => cancel(l)}
-                disabled={busy}
-                className="h-9 shrink-0 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-              >
-                취소
-              </button>
+              l.bidCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => void openBid(l)}
+                  className="h-9 shrink-0 rounded-md border border-sky-300 px-3 text-xs font-medium text-sky-800 dark:border-sky-800 dark:text-sky-300"
+                >
+                  입찰 {l.bidCount}건
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => cancel(l)}
+                  disabled={busy}
+                  className="h-9 shrink-0 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                >
+                  취소
+                </button>
+              )
             )}
           />
           {mine !== null && mine.length > 0 && (
@@ -1038,6 +1159,31 @@ export function V2MarketplaceView({
 
       {tab === "sell" && (
         <div className="space-y-3">
+          <Card padding="sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">공개 입찰 유예</div>
+                <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  유예 중에는 입찰만 받고, 초과 입찰이 없으면 이후 {fixedListingHours}시간 동안 즉시구매로 판매합니다.
+                </div>
+              </div>
+              <select
+                value={graceHours}
+                onChange={(event) => setGraceHours(Number(event.target.value))}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900"
+                aria-label="입찰 유예 시간"
+              >
+                {Array.from(
+                  { length: bidGraceMaxHours - bidGraceMinHours + 1 },
+                  (_, index) => bidGraceMinHours + index,
+                ).map((hours) => (
+                  <option key={hours} value={hours}>
+                    {hours}시간
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Card>
           {/* 슬롯 서브탭 — 인벤토리와 동일 구성. 배경 위라 surface 패널로 감쌈(라이트모드 가독성). */}
           <Card padding="none" className="overflow-hidden">
             <div className="px-2 pt-1">
@@ -1108,8 +1254,22 @@ export function V2MarketplaceView({
           bankedGold={bankedGold}
           frontierDepth={frontierDepth}
           busy={busy}
+          clockMs={clockMs}
           onConfirm={confirmedBuy}
           onCancel={() => setConfirmBuy(null)}
+        />
+      )}
+
+      {confirmBid && (
+        <BidDialog
+          listing={confirmBid}
+          bids={publicBids}
+          amount={bidAmount}
+          onAmountChange={setBidAmount}
+          busy={busy}
+          clockMs={clockMs}
+          onSubmit={placeBid}
+          onClose={() => setConfirmBid(null)}
         />
       )}
 
@@ -1128,6 +1288,111 @@ export function V2MarketplaceView({
   );
 }
 
+function BidDialog({
+  listing,
+  bids,
+  amount,
+  onAmountChange,
+  busy,
+  clockMs,
+  onSubmit,
+  onClose,
+}: {
+  listing: Listing;
+  bids: Array<{ amount: number; createdAt: string; isMine: boolean }>;
+  amount: string;
+  onAmountChange: (value: string) => void;
+  busy: boolean;
+  clockMs: number;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  const bidding = new Date(listing.bidEndsAt).getTime() > clockMs;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-base font-bold">공개 입찰</h2>
+        <div className="mt-1 text-sm font-medium">{listing.itemName}</div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div className={`${SURFACE_INSET} p-2.5`}>
+            <div className="text-zinc-500 dark:text-zinc-400">즉시구매가</div>
+            <div className="mt-0.5 font-bold tabular-nums text-amber-700 dark:text-amber-400">
+              {listing.price.toLocaleString()}G
+            </div>
+          </div>
+          <div className={`${SURFACE_INSET} p-2.5`}>
+            <div className="text-zinc-500 dark:text-zinc-400">현재 최고 입찰</div>
+            <div className="mt-0.5 font-bold tabular-nums text-sky-700 dark:text-sky-300">
+              {listing.highestBid?.toLocaleString() ?? "없음"}
+              {listing.highestBid != null ? "G" : ""}
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+          {bidding
+            ? `유예 종료까지 ${remainingLabel(listing.bidEndsAt, clockMs)} · 다음 최소 입찰 ${listing.nextBid.toLocaleString()}G`
+            : (listing.highestBid ?? 0) > listing.price
+              ? "즉시구매가를 초과해 최고 입찰자에게 판매됩니다."
+              : "유예가 종료되어 즉시구매 단계로 전환됐습니다."}
+        </div>
+
+        <div className="mt-4 max-h-44 space-y-1 overflow-y-auto" aria-label="공개 입찰 기록">
+          {bids.length === 0 ? (
+            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-400 dark:border-zinc-700">
+              아직 입찰이 없습니다.
+            </div>
+          ) : (
+            [...bids].reverse().map((bid, index) => (
+              <div
+                key={`${bid.createdAt}:${bid.amount}:${index}`}
+                className="flex items-center justify-between rounded-md bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800"
+              >
+                <span className="font-semibold tabular-nums">
+                  {bid.amount.toLocaleString()}G
+                  {bid.isMine ? " · 내 입찰" : ""}
+                </span>
+                <span className="text-zinc-400">{timeAgo(bid.createdAt)}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {bidding && !listing.isMine ? (
+          <div className="mt-4 flex gap-2">
+            <NumberInput
+              value={amount}
+              onValueChange={onAmountChange}
+              placeholder="입찰 금액"
+              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-950"
+            />
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={busy}
+              className="rounded-md border border-sky-700 bg-sky-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              입찰
+            </button>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
+        >
+          닫기
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // 구매 확인 모달 — 골드가 HP 회복 통화라 오클릭 방지. 잔액 부족이면 확정 비활성.
 function BuyConfirm({
   listing,
@@ -1135,6 +1400,7 @@ function BuyConfirm({
   coreLoopOn,
   bankedGold,
   frontierDepth,
+  clockMs,
   busy,
   onConfirm,
   onCancel,
@@ -1145,6 +1411,7 @@ function BuyConfirm({
   coreLoopOn: boolean;
   bankedGold: number;
   frontierDepth: number;
+  clockMs: number;
   busy: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -1225,7 +1492,7 @@ function BuyConfirm({
           )}
           {listing.kind === "consumable" &&
             (() => {
-              const st = consumableStatusLine(listing.instancePayload);
+              const st = consumableStatusLine(listing.instancePayload, clockMs);
               return st ? (
                 <div
                   className={`flex items-center gap-1 text-[11px] ${
@@ -1309,23 +1576,38 @@ function SelectControl({
   );
 }
 
-// 등록 후 경과 → 만료까지 남은 일수(올림). expiryDays(TTL) 없으면 null.
-function expiryLabel(createdAt: string, ttlDays?: number): string | null {
-  if (!ttlDays) return null;
-  const elapsedMs = Date.now() - new Date(createdAt).getTime();
-  const leftDays = ttlDays - elapsedMs / (24 * 60 * 60 * 1000);
-  if (leftDays <= 0) return "곧 만료";
-  if (leftDays < 1) return "만료까지 1일 미만";
-  return `만료까지 ${Math.ceil(leftDays)}일`;
+function remainingLabel(until: string, nowMs: number): string {
+  const leftMs = new Date(until).getTime() - nowMs;
+  if (leftMs <= 0) return "정산 대기";
+  const minutes = Math.max(1, Math.ceil(leftMs / 60_000));
+  if (minutes < 60) return `${minutes}분 남음`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0 ? `${hours}시간 ${rest}분 남음` : `${hours}시간 남음`;
 }
 
 // 레어맵 매물 상태 — payload 실물 기준 잔여 판수와 30분 만료를 함께 판정.
 // 실물이 없으면(소진/만료/불량 스냅샷) 구매 불가 경고. expiryLabel(매물 자체 TTL)은 별개.
-function consumableStatusLine(payload: unknown): {
+function consumableStatusLine(payload: unknown, nowMs: number): {
   text: string;
   expired: boolean;
 } | null {
-  const inst = parseRareMaps([payload], Date.now())[0];
+  const raw =
+    typeof payload === "object" && payload !== null
+      ? (payload as { marketplaceRemainingMs?: unknown })
+      : null;
+  const remaining = Number(raw?.marketplaceRemainingMs);
+  const candidate =
+    Number.isFinite(remaining) && typeof payload === "object" && payload !== null
+      ? {
+          ...payload,
+          foundAt:
+            nowMs -
+            (RARE_MAP_TTL_MS -
+              Math.max(1, Math.min(RARE_MAP_TTL_MS, Math.floor(remaining)))),
+        }
+      : payload;
+  const inst = parseRareMaps([candidate], nowMs)[0];
   if (!inst) return { text: "실물 없음 — 구매 불가", expired: true };
   const def = RARE_MAP_KINDS[inst.kind];
   const usage =
@@ -1341,19 +1623,19 @@ function ListingList({
   rows,
   emptyText,
   action,
+  historical = false,
   priceRef,
   frontierDepth,
-  expiryDays,
-  showSeller = false,
+  clockMs,
   onOpenCard,
 }: {
   rows: Listing[] | null;
   emptyText: string;
   action: (l: Listing) => React.ReactNode;
+  historical?: boolean;
   priceRef: Record<string, PriceStat>;
   frontierDepth?: number;
-  expiryDays?: number;
-  showSeller?: boolean;
+  clockMs: number;
   // 장비 클릭 → 옵션 카드. (재료는 옵션 없어 미클릭.)
   onOpenCard?: (
     itemId: string,
@@ -1476,7 +1758,7 @@ function ListingList({
             </div>
             {l.kind === "consumable" &&
               (() => {
-                const st = consumableStatusLine(l.instancePayload);
+                const st = consumableStatusLine(l.instancePayload, clockMs);
                 return st ? (
                   <div
                     className={`mt-0.5 flex items-center gap-1 text-[11px] ${
@@ -1543,31 +1825,37 @@ function ListingList({
                     · 대장장이 Lv {craftedBy.level.toLocaleString()}
                   </div>
                 ) : null}
-                {showSeller ? (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-                    <span>판매자</span>
-                    <PlayerNameLink
-                      name={l.sellerName}
-                      className="font-medium text-zinc-600 dark:text-zinc-300"
-                      fallback="모험가"
-                    />
-                    <span>· {timeAgo(l.createdAt)}</span>
-                  </div>
-                ) : null}
+                <div className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                  {historical ? "체결" : "등록"} {timeAgo(l.createdAt)}
+                </div>
               </div>
             </div>
             <div className="flex items-end justify-between gap-3 border-t border-zinc-200 px-3 py-2.5 sm:px-4 dark:border-zinc-700">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {historical ? "체결가" : "즉시구매가"}
+                  </span>
                   <span className="text-base font-bold tabular-nums text-amber-700 dark:text-amber-400">
                     {l.price.toLocaleString()}G
                   </span>
-                  <PricePositionBadge price={l.price} stat={priceStat} />
-                  {expiryLabel(l.createdAt, expiryDays) && (
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                      {expiryLabel(l.createdAt, expiryDays)}
+                  {!historical && l.highestBid != null ? (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                      현재 입찰 {l.highestBid.toLocaleString()}G · {l.bidCount}건
                     </span>
-                  )}
+                  ) : null}
+                  <PricePositionBadge price={l.price} stat={priceStat} />
+                  {!historical ? (
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                      {new Date(l.bidEndsAt).getTime() > clockMs
+                        ? `입찰 유예 · ${remainingLabel(l.bidEndsAt, clockMs)}`
+                        : (l.highestBid ?? 0) > l.price
+                          ? "입찰 판매 확정 · 정산 대기"
+                          : new Date(l.expiresAt).getTime() <= clockMs
+                            ? "등록 만료 · 정산 대기"
+                            : `즉시구매 · ${remainingLabel(l.expiresAt, clockMs)}`}
+                    </span>
+                  ) : null}
                 </div>
                 <PriceRefLine
                   stat={priceStat}

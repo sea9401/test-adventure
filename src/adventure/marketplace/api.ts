@@ -5,6 +5,7 @@ export type InboxItem = {
   id: number;
   kind:
     | "sale_proceeds"
+    | "bid_refund"
     | "purchase_item"
     | "cancel_return"
     | "user_message"

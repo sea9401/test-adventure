@@ -182,6 +182,7 @@ export async function POST(req: Request) {
           case "guild_invite":
             break;
           case "sale_proceeds":
+          case "bid_refund":
             if (parsed.gold > 0) goldTotal += parsed.gold;
             break;
           case "purchase_item":

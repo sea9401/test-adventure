@@ -1,5 +1,5 @@
 // v2 거래소 — 순수 헬퍼 + 상수. DB 트랜잭션은 라우트(/api/v2/marketplace/*)가 보유.
-//   장비 개체(instance) + 재료(스택) 거래. 고정가 등록 → 선착순 구매. 판매세(골드 sink).
+//   장비 개체(instance) + 재료(스택) 거래. 공개 입찰 유예 → 초과 입찰 낙찰/고정가 구매. 판매세.
 //   V1 marketplace.ts(grade·V1 인벤 모델)와 무관 — v2 전용.
 
 import { and, eq } from "drizzle-orm";
@@ -11,7 +11,13 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
-import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import {
+  RARE_MAP_KINDS,
+  RARE_MAP_TTL_MS,
+  genRareMapIid,
+  parseRareMaps,
+  type RareMapInstance,
+} from "@/adventure/data/v2/rareMaps";
 import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
@@ -42,9 +48,12 @@ export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).
 export const MARKETPLACE_V2_HISTORY_LIMIT = 50;
-// 매물 만료 — 등록 후 48시간이 지나면 cron 이 만료(status='expired') + 판매자에게 아이템 반환.
-//   묵은 매물이 영원히 쌓여 둘러보기 한도(100)를 밀어내는 것 방지. 단일 다이얼.
-export const MARKETPLACE_V2_LISTING_TTL_DAYS = 2;
+// 공개 입찰 유예는 판매자가 2~24시간 중 선택. 초과 입찰이 없으면 유예 종료 후
+// 고정가 즉시구매로 2시간 더 노출하고, 그 뒤 만료·반환한다.
+export const MARKETPLACE_V2_BID_GRACE_MIN_HOURS = 2;
+export const MARKETPLACE_V2_BID_GRACE_MAX_HOURS = 24;
+export const MARKETPLACE_V2_FIXED_LISTING_HOURS = 2;
+export const MARKETPLACE_V2_MIN_BID_RAISE_RATE = 0.05;
 
 export type MarketKind = "equip" | "material" | "consumable";
 
@@ -90,6 +99,115 @@ export function isValidPrice(p: unknown): p is number {
     p >= MARKETPLACE_V2_PRICE_MIN &&
     p <= MARKETPLACE_V2_PRICE_MAX
   );
+}
+
+export function isValidBidGraceHours(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= MARKETPLACE_V2_BID_GRACE_MIN_HOURS &&
+    value <= MARKETPLACE_V2_BID_GRACE_MAX_HOURS
+  );
+}
+
+export function marketplaceListingTimes(createdAt: Date, graceHours: number) {
+  const bidEndsAt = new Date(
+    createdAt.getTime() + graceHours * 60 * 60 * 1000,
+  );
+  return {
+    bidEndsAt,
+    expiresAt: new Date(
+      bidEndsAt.getTime() + MARKETPLACE_V2_FIXED_LISTING_HOURS * 60 * 60 * 1000,
+    ),
+  };
+}
+
+/** 첫 입찰은 1골드부터, 이후에는 현재 최고가보다 최소 5% 높은 정수 금액만 허용한다. */
+export function marketplaceNextBidMinimum(currentBid: number | null): number {
+  if (currentBid == null || currentBid <= 0) return MARKETPLACE_V2_PRICE_MIN;
+  return Math.min(
+    MARKETPLACE_V2_PRICE_MAX,
+    Math.max(currentBid + 1, Math.ceil(currentBid * 1.05)),
+  );
+}
+
+export function marketplaceListingPhase(
+  listing: {
+    status: string;
+    price: number;
+    bidEndsAt: Date;
+    expiresAt: Date;
+    highestBid: number | null;
+  },
+  now: Date,
+): "closed" | "bidding" | "auction_settlement" | "fixed" | "expired" {
+  if (listing.status !== "active") return "closed";
+  if (now < listing.bidEndsAt) return "bidding";
+  if ((listing.highestBid ?? 0) > listing.price) return "auction_settlement";
+  if (now < listing.expiresAt) return "fixed";
+  return "expired";
+}
+
+/** 공개 매물 응답에서는 판매자 이름·ID와 최고 입찰자 ID를 제거한다. */
+export function marketplacePublicListing<
+  T extends {
+    sellerId: string;
+    sellerName?: string;
+    highestBidderId: string | null;
+    highestBid: number | null;
+  },
+>(row: T, viewerId: string) {
+  const { sellerId, sellerName: _sellerName, highestBidderId, ...publicRow } =
+    row;
+  return {
+    ...publicRow,
+    isMine: sellerId === viewerId,
+    isHighestBidder: highestBidderId === viewerId,
+    nextBid: marketplaceNextBidMinimum(row.highestBid),
+  };
+}
+
+type ListedRareMapPayload = RareMapInstance & {
+  marketplaceRemainingMs?: number;
+};
+
+/** 거래소 에스크로 동안 레어맵의 30분 실물 유효시간을 정지한다. */
+export function pauseMarketplaceRareMap(
+  inst: RareMapInstance,
+  now: number,
+): ListedRareMapPayload {
+  return {
+    ...inst,
+    marketplaceRemainingMs: Math.max(
+      1,
+      Math.min(RARE_MAP_TTL_MS, inst.foundAt + RARE_MAP_TTL_MS - now),
+    ),
+  };
+}
+
+/** 구매·취소·만료 시 정지했던 남은 시간을 다시 시작한다. */
+export function restoreMarketplaceRareMap(
+  payload: unknown,
+  now: number,
+  options?: { preserveIid?: boolean },
+): RareMapInstance | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const raw = payload as ListedRareMapPayload;
+  const remainingRaw = Number(raw.marketplaceRemainingMs);
+  const remaining = Number.isFinite(remainingRaw)
+    ? Math.max(1, Math.min(RARE_MAP_TTL_MS, Math.floor(remainingRaw)))
+    : Math.max(1, raw.foundAt + RARE_MAP_TTL_MS - now);
+  const [parsed] = parseRareMaps(
+    [
+      {
+        ...raw,
+        iid: options?.preserveIid ? raw.iid : genRareMapIid(),
+        foundAt: now - (RARE_MAP_TTL_MS - remaining),
+      },
+    ],
+    now,
+  );
+  return parsed ?? null;
 }
 
 export function isValidMaterialQty(q: unknown): q is number {

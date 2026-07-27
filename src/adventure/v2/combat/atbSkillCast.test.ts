@@ -135,10 +135,8 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     );
     vi.restoreAllMocks();
 
-    const summary = res.finalState.combatSummary;
-    expect(summary?.skillUses.봉마진).toBeGreaterThan(1);
-    expect(summary?.basicAttackActions).toBeGreaterThan(0);
-    expect(summary?.controlledEnemyActions).toBeGreaterThanOrEqual(3);
+    expect(countText(res, "적 주는 피해 −12%")).toBeGreaterThan(1);
+    expect(countText(res, "공격!")).toBeGreaterThan(0);
     expect(countText(res, "적 행동 3회")).toBeGreaterThan(0);
   });
 });

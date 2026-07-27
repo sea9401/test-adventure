@@ -220,22 +220,6 @@ export type BattleStacks = {
   enemyDotVulnTurns: number;
 };
 
-// ATB 전투 종료 후 전략 조정에 쓰는 요약. 옛 리플레이·레거시 전투에는 없을 수 있다.
-export type BattleCombatSummary = {
-  elapsedTicks: number;
-  tickCap: number;
-  playerActions: number;
-  enemyActions: number;
-  basicAttackActions: number;
-  potionActions: number;
-  skillUses: Record<string, number>;
-  damageDealt: number;
-  damageTaken: number;
-  healingDone: number;
-  healingWasted: number;
-  controlledEnemyActions: number;
-};
-
 export type BattleState = {
   enemy: Monster;
   enemyHp: number;
@@ -282,7 +266,6 @@ export type BattleState = {
   flags: BattleFlags;
   buffs: BattleBuffs;
   stacks: BattleStacks;
-  combatSummary?: BattleCombatSummary;
   /** 보스 전투 여부 — 충돌파/천명 같은 %HP 효과가 BOSS_PCT_HP_DAMAGE_MULT 로 감산. */
   isBoss?: boolean;
   /** ATB에서는 적 대상 디버프 지속시간을 플레이어 차례가 아닌 적 행동 횟수로 소모한다. */

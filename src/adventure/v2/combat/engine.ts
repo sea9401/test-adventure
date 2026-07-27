@@ -75,7 +75,6 @@ export {
 } from "./engineState";
 export type {
   BattleBuffs,
-  BattleCombatSummary,
   BattleFlags,
   BattleLogEntry,
   BattleOutcome,
@@ -1321,9 +1320,6 @@ export function applyPlayerV2SkillCast(
   // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 무시. ATB 루프가 틱 계산에 반영.
   selfHastePct: number;
   enemyDelayPct: number;
-  castSkillName: string | null;
-  healingDone: number;
-  healingWasted: number;
 } {
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
@@ -1508,7 +1504,6 @@ export function applyPlayerV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextLog = state.log;
   let healShieldAmount = 0;
-  let healingDone = 0;
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
   //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
@@ -1548,7 +1543,6 @@ export function applyPlayerV2SkillCast(
     const before = nextPlayerHp;
     nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + result.selfHeal);
     const actual = nextPlayerHp - before;
-    healingDone = actual;
     if (actual > 0) {
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
@@ -1736,9 +1730,6 @@ export function applyPlayerV2SkillCast(
     castFired: result.castSkillId != null,
     selfHastePct: result.selfHasteToApply?.pct ?? 0,
     enemyDelayPct: result.enemyDelayToApply?.pct ?? 0,
-    castSkillName: result.castSkillName ?? null,
-    healingDone,
-    healingWasted: Math.max(0, result.selfHeal - healingDone),
   };
 }
 

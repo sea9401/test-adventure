@@ -14,7 +14,6 @@ import {
   finishEnemyAttack,
   finishPlayerTurn,
   type BattleLogEntry,
-  type BattleCombatSummary,
   type BattleResolution,
   type BattleState,
   type PlayerAction,
@@ -229,7 +228,6 @@ function forceAtbLoss(
   state: BattleState,
   turns: number,
   consumed: Partial<Record<PotionId, number>>,
-  combatSummary: BattleCombatSummary,
 ): BattleResolution {
   return {
     outcome: "lose",
@@ -244,7 +242,6 @@ function forceAtbLoss(
       ),
       phase: "ended",
       outcome: "lose",
-      combatSummary,
     },
     potionsConsumed: consumed,
     turns,
@@ -295,30 +292,6 @@ export function resolveBattleAtb(
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
-  let enemyActions = 0;
-  let basicAttackActions = 0;
-  let potionActions = 0;
-  const skillUses: Record<string, number> = {};
-  let damageDealt = 0;
-  let damageTaken = 0;
-  let healingDone = 0;
-  let healingWasted = 0;
-  let controlledEnemyActions = 0;
-  const buildSummary = (elapsedTicks: number): BattleCombatSummary => ({
-    elapsedTicks: Math.max(0, Math.min(ATB_TICK_CAP, Math.floor(elapsedTicks))),
-    tickCap: ATB_TICK_CAP,
-    playerActions: turns,
-    enemyActions,
-    basicAttackActions,
-    potionActions,
-    skillUses: { ...skillUses },
-    damageDealt,
-    damageTaken,
-    healingDone,
-    healingWasted,
-    controlledEnemyActions,
-  });
-
   while (state.phase !== "ended") {
     const nextTick = Math.min(playerNextTick, enemyNextTick);
     lastTick = nextTick;
@@ -327,12 +300,10 @@ export function resolveBattleAtb(
       actions >= ATB_ACTION_GUARD ||
       turns >= (ctx.maxTurns ?? Number.POSITIVE_INFINITY)
     ) {
-      return forceAtbLoss(state, turns, consumed, buildSummary(nextTick));
+      return forceAtbLoss(state, turns, consumed);
     }
 
     const actor = nextActor1v1(playerNextTick, enemyNextTick);
-    const playerHpBeforeAction = state.playerHp;
-    const enemyHpBeforeAction = state.enemyHp;
     actions += 1;
     if (actor === "player") {
       state = {
@@ -348,7 +319,6 @@ export function resolveBattleAtb(
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
       if (state.phase === "ended") {
         turns += 1;
-        damageTaken += Math.max(0, playerHpBeforeAction - state.playerHp);
         break;
       }
       state = tickPlayerBundleEntry(state);
@@ -373,12 +343,6 @@ export function resolveBattleAtb(
           state = cast.state;
           castFired = cast.castFired;
           castSelfHastePct = cast.selfHastePct;
-          if (cast.castFired && cast.castSkillName) {
-            skillUses[cast.castSkillName] =
-              (skillUses[cast.castSkillName] ?? 0) + 1;
-            healingDone += cast.healingDone;
-            healingWasted += cast.healingWasted;
-          }
           if (cast.enemyDelayPct > 0) {
             // 대지 — 적의 다음 행동(enemyNextTick 에 예약됨)을 적 인터벌의 pct% 만큼 뒤로 민다.
             enemyNextTick +=
@@ -434,13 +398,9 @@ export function resolveBattleAtb(
               consumed[picked.potionId] =
                 (consumed[picked.potionId] ?? 0) + 1;
               action = picked;
-              potionActions += 1;
-            } else {
-              basicAttackActions += 1;
             }
           } else {
             action = picked;
-            basicAttackActions += 1;
           }
           while (state.phase === "player") {
             const prevLogLen = state.log.length;
@@ -457,13 +417,6 @@ export function resolveBattleAtb(
         (1 - castSelfHastePct / 100);
       turns += 1;
     } else {
-      enemyActions += 1;
-      if (
-        state.stacks.enemyDamageDownTurns > 0 ||
-        state.stacks.enemySkillProcDownTurns > 0
-      ) {
-        controlledEnemyActions += 1;
-      }
       state = {
         ...state,
         phase: "enemy",
@@ -476,7 +429,6 @@ export function resolveBattleAtb(
       state = tickEnemyDotsOnAction(state);
       state = tagNewLogEntries(state, enemyBundleStart, "enemy", nextTick);
       if (state.phase === "ended") {
-        damageDealt += Math.max(0, enemyHpBeforeAction - state.enemyHp);
         break;
       }
       state = tickEnemyBundleEntry(state);
@@ -522,9 +474,6 @@ export function resolveBattleAtb(
       enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
     }
 
-    damageDealt += Math.max(0, enemyHpBeforeAction - state.enemyHp);
-    damageTaken += Math.max(0, playerHpBeforeAction - state.playerHp);
-
     if (state.phase !== "ended") {
       state = {
         ...state,
@@ -537,7 +486,6 @@ export function resolveBattleAtb(
     outcome: state.outcome!,
     finalState: {
       ...state,
-      combatSummary: buildSummary(lastTick),
       log: appendLog(state.log, hpBarEntry(state, lastTick)),
     },
     potionsConsumed: consumed,

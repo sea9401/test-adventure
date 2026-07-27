@@ -4,11 +4,7 @@
 // 무거운 객체까지 따라와서 size 비대 위험. 여기서 필요 필드만 추출,
 // 클라가 BattleScene 에 줄 때 안 보는 필드는 minimal default 로 padding.
 
-import type {
-  BattleCombatSummary,
-  BattleLogEntry,
-  BattleState,
-} from "@/adventure/v2/combat/engine";
+import type { BattleLogEntry, BattleState } from "@/adventure/v2/combat/engine";
 import {
   depthSpdCorrection,
   effectiveMonsterSpd,
@@ -47,7 +43,6 @@ export type ReplayPayload = {
   // 복원할 때는 로그의 마지막 HP/MP 스냅샷으로 폴백한다.
   enemyMp?: number;
   enemyMaxMp?: number;
-  combatSummary?: BattleCombatSummary;
   log: BattleLogEntry[];
 };
 
@@ -117,7 +112,6 @@ export function toReplayPayload(
     playerMp: finalState.playerMp,
     enemyMp: finalState.enemyMp,
     enemyMaxMp: finalState.enemyMaxMp,
-    combatSummary: finalState.combatSummary,
     log: clampReplayLog(finalState.log, logCap),
   };
 }
@@ -210,7 +204,6 @@ export function toReplayPayloadLite(
     playerMp: finalState.playerMp,
     enemyMp: finalState.enemyMp,
     enemyMaxMp: finalState.enemyMaxMp,
-    combatSummary: finalState.combatSummary,
     log: [],
   };
 }
@@ -242,7 +235,6 @@ export function buildBattleStateFromReplay(
     enemyHp,
     playerHp,
     playerMaxHp: payload.playerMaxHp,
-    combatSummary: payload.combatSummary,
     // 전투 종료 시점 잔여 MP. 옛 payload(playerMp 미존재) 는 max 로 폴백해 풀로 표시.
     playerMp: payload.playerMp ?? payload.playerMaxMp ?? 0,
     playerMaxMp: payload.playerMaxMp ?? 0,

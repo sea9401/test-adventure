@@ -26,6 +26,7 @@ function queryResult(rows: Row[]) {
   const promise = Promise.resolve(rows);
   return {
     limit: vi.fn(async () => rows),
+    for: vi.fn(async () => rows),
     then: promise.then.bind(promise),
   };
 }
@@ -65,6 +66,9 @@ vi.mock("@/db", () => {
           })),
         };
       }),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
     })),
     delete: vi.fn(() => ({ where: mocks.deleteUser })),
   };

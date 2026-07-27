@@ -58,6 +58,13 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Checkout deployed revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
       # ──────────────────────────────────────────────────────────────────
       # prod 배포 — 실패 시 워크플로 전체 실패. 91fb8d2 까지 잘 돌던 원형 스크립트
       # 를 그대로 유지 (multi-line if/subshell 을 끼우니 prod 헬스 직후 SSH 세션이
@@ -154,3 +161,8 @@ jobs:
             bash deploy/maintenance.sh off
             trap - EXIT
             echo "✓ [prod] smoke pass · done"
+      - name: Verify public release surface
+        env:
+          PUBLIC_RELEASE_EXPECTED_BUILD_ID: ${{ env.DEPLOY_SHA }}
+          OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
+        run: npm run check-public-release

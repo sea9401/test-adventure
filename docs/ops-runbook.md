@@ -41,7 +41,7 @@ EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node` 있음. 단 
 
 ## 3. 배포
 
-**배포 = `main` 에 머지** (CI 성공 후 자동). 흐름: GitHub Action `deploy.yml`이 CI가 검증한 정확한 SHA를 EC2에서 체크아웃 → **nginx 점검 ON** → `install-deps.sh` → 운영 환경 사전 검사 → `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl restart adventure-rpg` → **스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → **점검 OFF**. 중간 실패 시 점검 화면을 유지한다.
+**배포 = `main` 에 머지** (CI 성공 후 자동). 흐름: GitHub Action `deploy.yml`이 CI가 검증한 정확한 SHA를 EC2에서 체크아웃 → **nginx 점검 ON** → `install-deps.sh` → 운영 환경 사전 검사 → `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl restart adventure-rpg` → **내부 스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → **점검 OFF** → **외부 공개 표면 스모크**(실제 도메인·TLS·nginx 경유, 배포 SHA·정책 문서·숨김 경로 검증). 중간 실패 시 Action이 실패하며, 점검 해제 전 실패는 점검 화면을 유지한다.
 
 > ✅ **배포 후 스모크**: 재시작 뒤 라이브를 찔러보고 200 이 아니면 **배포 Action 을 빨간불**로 만든다(빌드 성공 ≠ 앱 정상 — 마이그 0-테이블 같은 사고도 잡음). 빨간불 뜨면 → `rollback.sh` 로 되돌린다.
 
@@ -301,7 +301,8 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 1. GitHub Actions `CI`와 `Deploy to EC2` 성공 확인.
 2. `curl -fsS https://msmsge.com/api/health` 와 `/api/version` 확인.
 3. 배포 Action 의 `deploy-smoke 200` 로그 확인. 낚시 상태, 사냥, 길드 훈련장, 관리자 ops API 모듈 로드도 같이 점검된다.
-4. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로 튀지 않는지 확인.
+4. `Verify public release surface` 성공 확인. `/api/version`이 배포 SHA와 일치하고 정책·로그인·검색 메타 경로는 200, `/dev`와 코인 상점 화면·API 및 개발 API는 404여야 한다.
+5. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로 튀지 않는지 확인.
 
 ---
 

@@ -97,4 +97,30 @@ describe("production security surface", () => {
       );
     }
   });
+
+  it("배포 뒤 실제 공개·비공개 경로와 빌드 식별자를 외부에서 검사한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
+    const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));
+    const smoke = source(join(ROOT, "scripts/check-public-release.mjs"));
+
+    expect(workflow).toContain("npm run check-public-release");
+    expect(workflow).toContain("PUBLIC_RELEASE_EXPECTED_BUILD_ID");
+    expect(manualDeploy).toContain("npm run check-public-release");
+    for (const path of [
+      "/api/health",
+      "/api/version",
+      "/sign-in",
+      "/terms",
+      "/privacy",
+      "/operations",
+      "/dev",
+      "/settings/coin-shop",
+      "/api/v2/museun-coin-shop",
+      "/api/v2/dev/grant",
+    ]) {
+      expect(smoke, `public release smoke is missing ${path}`).toContain(
+        `path: "${path}"`,
+      );
+    }
+  });
 });

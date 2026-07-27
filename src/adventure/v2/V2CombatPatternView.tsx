@@ -42,7 +42,8 @@ const COND_KINDS: { value: CondKind; label: string }[] = [
   { value: "self_buff_pct", label: "내 파생버프" },
   { value: "enemy_hp", label: "적 HP" },
   { value: "enemy_status", label: "적 상태" },
-  { value: "turn", label: "턴" },
+  { value: "enemy_debuff", label: "적 디버프" },
+  { value: "turn", label: "내 공격 차례" },
 ];
 const SIMPLE_COND_KINDS: { value: SimpleCondKind; label: string }[] =
   COND_KINDS.filter((c): c is { value: SimpleCondKind; label: string } =>
@@ -91,6 +92,8 @@ function defaultCondition(kind: CondKind): V2CombatCondition {
       return { kind: "enemy_hp", op: "below", pct: 30 };
     case "enemy_status":
       return { kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 1 };
+    case "enemy_debuff":
+      return { kind: "enemy_debuff", target: "damageDown", active: false };
     case "turn":
       return { kind: "turn", op: "atMost", value: 1 };
   }
@@ -729,7 +732,7 @@ function ConditionParams({
             onChange={(e) => onChange({ ...c, tag: e.target.value as "bleed" | "poison" | "vuln" })}>
             <option value="bleed">출혈</option>
             <option value="poison">중독</option>
-            <option value="vuln">취약</option>
+            <option value="vuln">마법취약</option>
           </select>
           <select className={sel} value={c.op}
             onChange={(e) => onChange({ ...c, op: e.target.value as "atLeast" | "none" })}>
@@ -744,6 +747,22 @@ function ConditionParams({
               onValueChange={(stacks) => onChange({ ...c, stacks })}
             />
           )}
+        </>
+      );
+    case "enemy_debuff":
+      return (
+        <>
+          <select className={sel} value={c.target}
+            onChange={(e) => onChange({ ...c, target: e.target.value as "vulnerability" | "damageDown" | "skillProcDown" })}>
+            <option value="vulnerability">받는 피해 증가(취약)</option>
+            <option value="damageDown">주는 피해 감소</option>
+            <option value="skillProcDown">스킬 발동률 감소</option>
+          </select>
+          <select className={sel} value={c.active ? "y" : "n"}
+            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
+            <option value="n">없을 때</option>
+            <option value="y">있을 때</option>
+          </select>
         </>
       );
     case "turn":
@@ -761,7 +780,7 @@ function ConditionParams({
             value={c.value}
             onValueChange={(value) => onChange({ ...c, value })}
           />
-          <span className="text-zinc-400">턴</span>
+          <span className="text-zinc-400">회</span>
         </>
       );
   }

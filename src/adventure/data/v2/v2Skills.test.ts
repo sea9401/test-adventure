@@ -98,7 +98,7 @@ describe("결계사 마법 방어 패시브", () => {
     ).toEqual({ kind: "self_buff_pct", target: "damageReduction", active: false });
     expect(
       smartDefaultConditionForSkill(V2_SKILLS.v2c_spellsealer_sealingfield),
-    ).toEqual({ kind: "turn", op: "atMost", value: 1 });
+    ).toEqual({ kind: "enemy_debuff", target: "damageDown", active: false });
     expect(
       aggregateEquippedPassives([
         "v2c_warder_ward",

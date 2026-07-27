@@ -122,6 +122,21 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "none", stacks: 0 }, c)).toBe(false);
   });
 
+  it("enemy_debuff — 봉쇄 효과가 없을 때만 재시전한다", () => {
+    const condition = {
+      kind: "enemy_debuff" as const,
+      target: "damageDown" as const,
+      active: false,
+    };
+    expect(conditionPasses(condition, ctx())).toBe(true);
+    expect(
+      conditionPasses(
+        condition,
+        ctx({ enemyDamageDownActive: true }),
+      ),
+    ).toBe(false);
+  });
+
   it("turn atMost/atLeast/every — 오프너/주기", () => {
     expect(conditionPasses({ kind: "turn", op: "atMost", value: 1 }, ctx({ turn: 1 }))).toBe(true);
     expect(conditionPasses({ kind: "turn", op: "atMost", value: 1 }, ctx({ turn: 2 }))).toBe(false);
@@ -238,6 +253,35 @@ describe("parseCombatPattern (저장 검증)", () => {
       })),
     });
     expect(many.blocks).toHaveLength(V2_COMBAT_PATTERN_MAX_BLOCKS);
+  });
+
+  it("봉쇄 디버프 조건만 안전하게 파싱한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_debuff",
+            target: "skillProcDown",
+            active: false,
+          },
+          action: { kind: "skill", skillId: "sealing-field" },
+        },
+        {
+          condition: {
+            kind: "enemy_debuff",
+            target: "unknown",
+            active: false,
+          },
+          action: { kind: "skill", skillId: "invalid" },
+        },
+      ],
+    });
+    expect(parsed.blocks).toHaveLength(1);
+    expect(parsed.blocks[0].condition).toEqual({
+      kind: "enemy_debuff",
+      target: "skillProcDown",
+      active: false,
+    });
   });
 });
 

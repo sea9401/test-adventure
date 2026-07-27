@@ -1488,7 +1488,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { healPowerPct: 12, maxHpPct: 8 },
   },
   v2c_spellsealer_sealingfield: {
-    id: "v2c_spellsealer_sealingfield", name: "봉마진", stat: "int", category: "buff", tier: 3,
+    id: "v2c_spellsealer_sealingfield", name: "봉마진", stat: "int", category: "debuff", tier: 3,
     description: "적의 힘과 술식을 봉하는 진을 펼쳐 주는 피해와 스킬 발동률을 함께 낮춘다.",
     mpCost: 44, cooldown: 0, procChance: 100,
     effects: [

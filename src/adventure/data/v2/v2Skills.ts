@@ -964,6 +964,9 @@ function scalingChip(scaling?: V2DamageScaling): string {
 function actionsChip(actions: number): string {
   return `${actions}행동`;
 }
+function targetActionsChip(actions: number): string {
+  return `대상 행동 ${actions}회`;
+}
 
 function describeV2Effect(e: V2SkillEffect): string {
   switch (e.kind) {
@@ -995,25 +998,25 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "manaRestore":
       return `마나 ${e.pctMaxMp}% 회복`;
     case "enemyDebuff":
-      return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${actionsChip(e.turns)})`;
+      return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${targetActionsChip(e.turns)})`;
     case "enemyVuln":
-      return `적 받는 피해 +${e.pct}% (${actionsChip(e.turns)})`;
+      return `적 받는 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "enemyEvasionDown":
-      return `적 회피 −${e.pct}%p (${actionsChip(e.turns)})`;
+      return `적 회피 −${e.pct}%p (${targetActionsChip(e.turns)})`;
     case "enemyAccuracyDown":
-      return `적 명중 −${e.pct}%p (${actionsChip(e.turns)})`;
+      return `적 명중 −${e.pct}%p (${targetActionsChip(e.turns)})`;
     case "selfHaste":
       return `내 다음 행동 속도 +${e.pct}% (1회)`;
     case "enemyDelay":
       return `적 다음 행동 지연 +${e.pct}% (1회)`;
     case "enemyHealReduce":
-      return `적 회복 −${e.pct}% (${actionsChip(e.turns)})`;
+      return `적 회복 −${e.pct}% (${targetActionsChip(e.turns)})`;
     case "enemyDamageDown":
-      return `적 주는 피해 −${e.pct}% (${actionsChip(e.turns)})`;
+      return `적 주는 피해 −${e.pct}% (${targetActionsChip(e.turns)})`;
     case "enemySkillProcDown":
-      return `적 스킬 발동률 −${e.pct}%p (${actionsChip(e.turns)})`;
+      return `적 스킬 발동률 −${e.pct}%p (${targetActionsChip(e.turns)})`;
     case "enemyDotVuln":
-      return `적 지속/저주 피해 +${e.pct}% (${actionsChip(e.turns)})`;
+      return `적 지속/저주 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "hpCostDamage":
       return `HP ${e.pctCurrentHp}% 소모 → 피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
     case "healToDamage":
@@ -1465,7 +1468,13 @@ export function smartDefaultConditionForSkill(
     return { kind: "self_buff", stat: statBuff.stat, active: false }; // 스탯 버프 = 안 걸렸을 때.
   }
   if (effs.some((e) => e.kind === "enemyVuln")) {
-    return { kind: "enemy_status", tag: "vuln", op: "none", stacks: 0 }; // 취약 = 적이 취약 아닐 때.
+    return { kind: "enemy_debuff", target: "vulnerability", active: false };
+  }
+  if (effs.some((e) => e.kind === "enemyDamageDown")) {
+    return { kind: "enemy_debuff", target: "damageDown", active: false };
+  }
+  if (effs.some((e) => e.kind === "enemySkillProcDown")) {
+    return { kind: "enemy_debuff", target: "skillProcDown", active: false };
   }
   // 파생 버프(회피/치명/받피감 = selfBuffPct) — 그 버프 미활성일 때만(선풍각·철포·집중). 만료 시
   //   재시전·활성 중엔 평타. 오프너 전용(turn≤1)이던 한계(3턴 후 끊김) 해소.

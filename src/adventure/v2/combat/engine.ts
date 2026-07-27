@@ -75,6 +75,7 @@ export {
 } from "./engineState";
 export type {
   BattleBuffs,
+  BattleCombatSummary,
   BattleFlags,
   BattleLogEntry,
   BattleOutcome,
@@ -669,6 +670,8 @@ export function finishPlayerTurn(
         st = applyHealShieldIfAny(st, player, nextHp - before);
       }
     }
+    const enemyTargetTurns = (turns: number) =>
+      st.usesAtb ? turns : Math.max(0, turns - 1);
     st = {
       ...st,
       stacks: {
@@ -678,13 +681,13 @@ export function finishPlayerTurn(
         skillEvasionTurns: Math.max(0, s.skillEvasionTurns - 1),
         skillDmgReduceTurns: Math.max(0, s.skillDmgReduceTurns - 1),
         skillReflectBoostTurns: Math.max(0, s.skillReflectBoostTurns - 1),
-        enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
-        enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
-        enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
-        enemyHealReduceTurns: Math.max(0, s.enemyHealReduceTurns - 1),
-        enemyDamageDownTurns: Math.max(0, s.enemyDamageDownTurns - 1),
-        enemySkillProcDownTurns: Math.max(0, s.enemySkillProcDownTurns - 1),
-        enemyDotVulnTurns: Math.max(0, s.enemyDotVulnTurns - 1),
+        enemyVulnTurns: enemyTargetTurns(s.enemyVulnTurns),
+        enemyEvasionDownTurns: enemyTargetTurns(s.enemyEvasionDownTurns),
+        enemyAccuracyDownTurns: enemyTargetTurns(s.enemyAccuracyDownTurns),
+        enemyHealReduceTurns: enemyTargetTurns(s.enemyHealReduceTurns),
+        enemyDamageDownTurns: enemyTargetTurns(s.enemyDamageDownTurns),
+        enemySkillProcDownTurns: enemyTargetTurns(s.enemySkillProcDownTurns),
+        enemyDotVulnTurns: enemyTargetTurns(s.enemyDotVulnTurns),
       },
     };
   }
@@ -1229,7 +1232,7 @@ export function applyEnemyV2SkillCast(
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
+      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (대상 행동 ${d.turns}회)`,
       turn: "enemy",
     });
   }
@@ -1318,6 +1321,9 @@ export function applyPlayerV2SkillCast(
   // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 무시. ATB 루프가 틱 계산에 반영.
   selfHastePct: number;
   enemyDelayPct: number;
+  castSkillName: string | null;
+  healingDone: number;
+  healingWasted: number;
 } {
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
@@ -1379,6 +1385,9 @@ export function applyPlayerV2SkillCast(
       bleedStacks: state.enemyV2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
       poisonStacks: state.enemyV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
       magicVulnStacks: state.stacks.enemyMagicVulnStacks,
+      enemyVulnerabilityActive: state.stacks.enemyVulnTurns > 0,
+      enemyDamageDownActive: state.stacks.enemyDamageDownTurns > 0,
+      enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
     },
   });
   // 스킬도 명중 영향(2026-06-06) — 데미지 스킬은 발동 후 미스 판정(평타와 같은 공식). 미스면 적
@@ -1499,6 +1508,7 @@ export function applyPlayerV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextLog = state.log;
   let healShieldAmount = 0;
+  let healingDone = 0;
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
   //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
@@ -1538,6 +1548,7 @@ export function applyPlayerV2SkillCast(
     const before = nextPlayerHp;
     nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + result.selfHeal);
     const actual = nextPlayerHp - before;
+    healingDone = actual;
     if (actual > 0) {
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
@@ -1599,7 +1610,7 @@ export function applyPlayerV2SkillCast(
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
+      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (대상 행동 ${d.turns}회)`,
       turn: "player",
     });
   }
@@ -1648,49 +1659,49 @@ export function applyPlayerV2SkillCast(
   if (result.enemyVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (적 행동 ${result.enemyVulnToApply.turns}회)`,
       turn: "player",
     });
   }
   if (result.enemyEvasionDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "실명"}] 적 회피 −${result.enemyEvasionDownToApply.pct}% (${result.enemyEvasionDownToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "실명"}] 적 회피 −${result.enemyEvasionDownToApply.pct}% (적 행동 ${result.enemyEvasionDownToApply.turns}회)`,
       turn: "player",
     });
   }
   if (result.enemyAccuracyDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "암흑"}] 적 명중 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "암흑"}] 적 명중 −${result.enemyAccuracyDownToApply.pct}% (적 행동 ${result.enemyAccuracyDownToApply.turns}회)`,
       turn: "player",
     });
   }
   if (result.enemyHealReduceToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "화상"}] 적 회복 −${result.enemyHealReduceToApply.pct}% (${result.enemyHealReduceToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "화상"}] 적 회복 −${result.enemyHealReduceToApply.pct}% (적 행동 ${result.enemyHealReduceToApply.turns}회)`,
       turn: "player",
     });
   }
   if (result.enemyDamageDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "쇠약"}] 적 주는 피해 −${result.enemyDamageDownToApply.pct}% (${result.enemyDamageDownToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "쇠약"}] 적 주는 피해 −${result.enemyDamageDownToApply.pct}% (적 행동 ${result.enemyDamageDownToApply.turns}회)`,
       turn: "player",
     });
   }
   if (result.enemySkillProcDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "금제"}] 적 스킬 발동률 −${result.enemySkillProcDownToApply.pct}%p (${result.enemySkillProcDownToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "금제"}] 적 스킬 발동률 −${result.enemySkillProcDownToApply.pct}%p (적 행동 ${result.enemySkillProcDownToApply.turns}회)`,
       turn: "player",
     });
   }
   if (result.enemyDotVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "침식"}] 적 지속/저주 피해 +${result.enemyDotVulnToApply.pct}% (${result.enemyDotVulnToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "침식"}] 적 지속/저주 피해 +${result.enemyDotVulnToApply.pct}% (적 행동 ${result.enemyDotVulnToApply.turns}회)`,
       turn: "player",
     });
   }
@@ -1725,6 +1736,9 @@ export function applyPlayerV2SkillCast(
     castFired: result.castSkillId != null,
     selfHastePct: result.selfHasteToApply?.pct ?? 0,
     enemyDelayPct: result.enemyDelayToApply?.pct ?? 0,
+    castSkillName: result.castSkillName ?? null,
+    healingDone,
+    healingWasted: Math.max(0, result.selfHeal - healingDone),
   };
 }
 

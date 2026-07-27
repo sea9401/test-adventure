@@ -7,7 +7,8 @@
 //      - 코인 부족 → 402 (지급/부여 없음)
 //      - 이미 보유 → 409 (차감 없음)
 // 락 순서:
-//   칭호/소비품: fishing-wallet.v1 → adventure-log.v2 또는 stamina-potions.v1/farm.v2
+//   칭호: fishing-wallet.v1 → adventure-log.v2
+//   소비품: fishing-wallet.v1 → fishing-shop.v1 → stamina-potions.v1/farm.v2
 //   도구: fishing-progress.v1 → fishing-wallet.v1
 // 정산(seasonRewards)은 fishing_seasons → fishing-wallet 순이고 adventure-log 를 안 잡으므로 순환 대기 없음.
 
@@ -28,8 +29,11 @@ import {
   FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_STATE_KEY,
   FISHING_SHOP_TITLES,
+  FISHING_STAMINA_POTION_DAILY_LIMIT,
+  FISHING_STAMINA_POTION_ITEM_ID,
   fishingSeedPouchPriceForPurchase,
   fishingSeedPouchView,
+  fishingStaminaPotionView,
   fishingShopPurchaseCount,
   fishingShopConsumablePriceFor,
   fishingShopPriceFor,
@@ -169,6 +173,7 @@ export async function GET() {
     staminaPotions,
     progression,
     seedPouch: fishingSeedPouchView(shop),
+    staminaPotionLimit: fishingStaminaPotionView(shop),
   });
 }
 
@@ -377,10 +382,11 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
   if (price === undefined) {
     return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
   }
-  if (itemId !== "stamina_potion") {
+  if (itemId !== FISHING_STAMINA_POTION_ITEM_ID) {
     return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
   }
 
+  const dailyKey = kstDailyKey(new Date());
   const outcome = await db.transaction(async (tx) => {
     const wallet = await lockSaveForUpdate<FishingWallet>(
       tx,
@@ -389,7 +395,33 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       { coins: 0 },
     );
     const coins = walletCoins(wallet);
-    if (coins < price) return { kind: "insufficient" as const, coins };
+    const shop = parseFishingShopState(
+      await lockSaveForUpdate<FishingShopState>(
+        tx,
+        userId,
+        FISHING_SHOP_STATE_KEY,
+        { daily: { key: dailyKey, purchases: {} } },
+      ),
+      dailyKey,
+    );
+    const boughtToday = fishingShopPurchaseCount(
+      shop,
+      FISHING_STAMINA_POTION_ITEM_ID,
+    );
+    if (boughtToday >= FISHING_STAMINA_POTION_DAILY_LIMIT) {
+      return {
+        kind: "limit" as const,
+        coins,
+        staminaPotionLimit: fishingStaminaPotionView(shop),
+      };
+    }
+    if (coins < price) {
+      return {
+        kind: "insufficient" as const,
+        coins,
+        staminaPotionLimit: fishingStaminaPotionView(shop),
+      };
+    }
 
     const potSave = await lockSaveForUpdate<{ count: number }>(
       tx,
@@ -400,19 +432,45 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     const staminaPotions = staminaPotionCount(potSave) + 1;
     await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: staminaPotions });
 
+    const nextShop = recordFishingShopPurchase(
+      shop,
+      FISHING_STAMINA_POTION_ITEM_ID,
+    );
     const coinBalance = coins - price;
+    await upsertSave(tx, userId, FISHING_SHOP_STATE_KEY, nextShop);
     await upsertSave(
       tx,
       userId,
       FISHING_WALLET_KEY,
       fishingWalletWithCoins(wallet, coinBalance),
     );
-    return { kind: "ok" as const, coinBalance, staminaPotions };
+    return {
+      kind: "ok" as const,
+      coinBalance,
+      staminaPotions,
+      staminaPotionLimit: fishingStaminaPotionView(nextShop),
+    };
   });
 
+  if (outcome.kind === "limit") {
+    return Response.json(
+      {
+        ok: false,
+        error: "limit_reached",
+        coins: outcome.coins,
+        staminaPotionLimit: outcome.staminaPotionLimit,
+      },
+      { status: 409 },
+    );
+  }
   if (outcome.kind === "insufficient") {
     return Response.json(
-      { ok: false, error: "insufficient_coins", coins: outcome.coins },
+      {
+        ok: false,
+        error: "insufficient_coins",
+        coins: outcome.coins,
+        staminaPotionLimit: outcome.staminaPotionLimit,
+      },
       { status: 402 },
     );
   }
@@ -421,6 +479,7 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     itemId,
     coins: outcome.coinBalance,
     staminaPotions: outcome.staminaPotions,
+    staminaPotionLimit: outcome.staminaPotionLimit,
   });
 }
 

@@ -13,8 +13,8 @@ export const FISHING_CATCH_COIN_BY_TIER: Record<FishTier, number> = {
   common: 3,
   uncommon: 3,
   rare: 5,
-  epic: 10,
-  legendary: 20,
+  epic: 8,
+  legendary: 15,
 };
 // 챔질 코인 일일 상한(KST 일자 기준). 낚시는 스태미나 0(무한 캐스팅 가능)이라 트리클 상한으로 통제.
 export const FISHING_CATCH_COIN_DAILY_CAP = 2000;

@@ -17,6 +17,8 @@ import {
 } from "./farm";
 
 export const FISHING_SHOP_STATE_KEY = "fishing-shop.v1";
+export const FISHING_STAMINA_POTION_ITEM_ID = "stamina_potion";
+export const FISHING_STAMINA_POTION_DAILY_LIMIT = 5;
 export const FISHING_SEED_POUCH_ITEM_ID = "farm_seed_pouch";
 export const FISHING_SEED_POUCH_DAILY_LIMIT = 3;
 export const FISHING_SEED_POUCH_BASE_PRICE = 80;
@@ -42,9 +44,9 @@ export type FishingShopConsumable = {
 
 export const FISHING_SHOP_CONSUMABLES: readonly FishingShopConsumable[] = [
   {
-    itemId: "stamina_potion",
+    itemId: FISHING_STAMINA_POTION_ITEM_ID,
     name: "스태미나 회복약",
-    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 보관했다 필요할 때 쓴다.`,
+    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 하루 5개까지 구매할 수 있다.`,
     price: 200, // 2026-06-27 사용자 결정 100→200.
   },
   {
@@ -66,6 +68,12 @@ export type FishingSeedPouchView = {
   remainingToday: number;
   nextPrice: number | null;
   contents: typeof FARM_FISHING_SHOP_SEED_REWARD;
+};
+
+export type FishingStaminaPotionView = {
+  boughtToday: number;
+  dailyLimit: number;
+  remainingToday: number;
 };
 
 function countsOf(raw: unknown): Record<string, number> {
@@ -121,6 +129,23 @@ export function fishingSeedPouchView(
     remainingToday: Math.max(0, FISHING_SEED_POUCH_DAILY_LIMIT - boughtToday),
     nextPrice: fishingSeedPouchPriceForPurchase(boughtToday) ?? null,
     contents: FARM_FISHING_SHOP_SEED_REWARD,
+  };
+}
+
+export function fishingStaminaPotionView(
+  state: FishingShopState,
+): FishingStaminaPotionView {
+  const boughtToday = fishingShopPurchaseCount(
+    state,
+    FISHING_STAMINA_POTION_ITEM_ID,
+  );
+  return {
+    boughtToday,
+    dailyLimit: FISHING_STAMINA_POTION_DAILY_LIMIT,
+    remainingToday: Math.max(
+      0,
+      FISHING_STAMINA_POTION_DAILY_LIMIT - boughtToday,
+    ),
   };
 }
 

@@ -6,6 +6,8 @@ import {
   FISHING_SEED_POUCH_BASE_PRICE,
   FISHING_SEED_POUCH_DAILY_LIMIT,
   FISHING_SEED_POUCH_ITEM_ID,
+  FISHING_STAMINA_POTION_DAILY_LIMIT,
+  FISHING_STAMINA_POTION_ITEM_ID,
   fishingShopConsumablePriceFor,
   fishingSeedPouchPriceForPurchase,
   fishingShopPriceFor,
@@ -43,6 +45,11 @@ export function FishingShopHarness() {
       remainingToday: FISHING_SEED_POUCH_DAILY_LIMIT,
       nextPrice: FISHING_SEED_POUCH_BASE_PRICE,
       contents: FARM_FISHING_SHOP_SEED_REWARD,
+    },
+    staminaPotionLimit: {
+      boughtToday: 0,
+      dailyLimit: FISHING_STAMINA_POTION_DAILY_LIMIT,
+      remainingToday: FISHING_STAMINA_POTION_DAILY_LIMIT,
     },
   });
 
@@ -91,15 +98,34 @@ export function FishingShopHarness() {
       });
       return { ok: true, message: "물가 씨앗 주머니를 구매했다." };
     }
-    const price = fishingShopConsumablePriceFor(itemId);
-    if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
-    if (state.coins < price) return { ok: false, message: "낚시 코인이 부족하다." };
-    setState((s) => ({
-      ...s,
-      coins: s.coins - price,
-      staminaPotions: s.staminaPotions + 1,
-    }));
-    return { ok: true, message: "스태미나 회복약을 구매했다." };
+    if (itemId === FISHING_STAMINA_POTION_ITEM_ID) {
+      if ((state.staminaPotionLimit?.remainingToday ?? 0) <= 0) {
+        return { ok: false, message: "오늘 구매 한도에 도달했다." };
+      }
+      const price = fishingShopConsumablePriceFor(itemId);
+      if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
+      if (state.coins < price) {
+        return { ok: false, message: "낚시 코인이 부족하다." };
+      }
+      setState((s) => {
+        const boughtToday = (s.staminaPotionLimit?.boughtToday ?? 0) + 1;
+        return {
+          ...s,
+          coins: s.coins - price,
+          staminaPotions: s.staminaPotions + 1,
+          staminaPotionLimit: {
+            boughtToday,
+            dailyLimit: FISHING_STAMINA_POTION_DAILY_LIMIT,
+            remainingToday: Math.max(
+              0,
+              FISHING_STAMINA_POTION_DAILY_LIMIT - boughtToday,
+            ),
+          },
+        };
+      });
+      return { ok: true, message: "스태미나 회복약을 구매했다." };
+    }
+    return { ok: false, message: "알 수 없는 품목." };
   };
 
   const buyGear = async (

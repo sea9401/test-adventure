@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
+import {
+  LEGACY_CLASS_SPEC_BY_JOB,
+  V2_JOB_LIST,
+} from "@/adventure/data/v2/v2JobCatalog";
+import {
+  V2_STAT_KEYS,
+  V2_STAT_LABELS,
+} from "@/adventure/data/v2/v2StatKeys";
 import {
   JOB_TAG_FILTERS,
   compareJobExplorerLineOrder,
   isJobVisibleInShrine,
+  jobCultivationProfile,
   jobCultivationSummary,
   jobTags,
   matchesJobExplorerFilters,
@@ -76,6 +86,52 @@ describe("jobExplorer tags", () => {
     expect(matchesJobExplorerFilters(job("archer"), "", strTag)).toBe(false);
     expect(matchesJobExplorerFilters(job("archer"), "", dexTag)).toBe(true);
     expect(jobCultivationSummary("archer")).toBe("민첩 +2 · 행운 +2");
+  });
+
+  it("모험가는 실제 수행과 같이 네 스탯만 표시한다", () => {
+    expect(jobCultivationSummary("none")).toBe(
+      "힘 +1 · 민첩 +1 · 활력 +1 · 지능 +1",
+    );
+    expect(matchesJobExplorerFilters(job("none"), "", new Set(["spi"]))).toBe(
+      false,
+    );
+    expect(matchesJobExplorerFilters(job("none"), "", new Set(["luk"]))).toBe(
+      false,
+    );
+  });
+
+  it("일반 상위 직업과 생활 직업은 저장 직군의 실제 수행 프로필을 표시한다", () => {
+    expect(jobCultivationSummary("shieldman")).toBe(
+      "힘 +2 · 민첩 +1 · 활력 +1",
+    );
+    expect(jobCultivationSummary("fisher")).toBe(
+      "활력 +2 · 힘 +1 · 정신 +1",
+    );
+    expect(jobCultivationSummary("templar")).toBe(
+      "힘 +2 · 활력 +1 · 정신 +1",
+    );
+  });
+
+  it("모든 직업의 수행 설명과 스탯 필터가 실제 적용 프로필과 일치한다", () => {
+    for (const definition of V2_JOB_LIST) {
+      const group =
+        LEGACY_CLASS_SPEC_BY_JOB[definition.id]?.class ?? definition.id;
+      const actual = effectiveCultivateProfile(group, definition.id);
+      const expectedSummary = [...V2_STAT_KEYS]
+        .filter((stat) => (actual?.[stat] ?? 0) > 0)
+        .sort((a, b) => (actual?.[b] ?? 0) - (actual?.[a] ?? 0))
+        .map((stat) => `${V2_STAT_LABELS[stat]} +${actual?.[stat]}`)
+        .join(" · ");
+
+      expect(jobCultivationProfile(definition.id)).toEqual(actual);
+      expect(jobCultivationSummary(definition.id)).toBe(expectedSummary);
+
+      for (const stat of V2_STAT_KEYS) {
+        expect(
+          matchesJobExplorerFilters(job(definition.id), "", new Set([stat])),
+        ).toBe((actual?.[stat] ?? 0) > 0);
+      }
+    }
   });
 
   it("생활 matches explicit non-combat job lines", () => {

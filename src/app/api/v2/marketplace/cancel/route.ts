@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
+import { restoreMarketplaceRareMap } from "@/lib/server/marketplaceV2";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
@@ -74,6 +75,9 @@ export async function POST(req: Request) {
     if (listing.status !== "active") {
       return { status: 409, body: { ok: false as const, error: "not_active" } };
     }
+    if (listing.bidCount > 0) {
+      return { status: 409, body: { ok: false as const, error: "has_bids" } };
+    }
 
     if (listing.kind === "equip") {
       // payload = 굴림(+강화+제작품질) — 옛 행은 raw roll. 방어 파스는 mintListedEquipInstance 공용.
@@ -110,7 +114,11 @@ export async function POST(req: Request) {
           ),
         });
       } else {
-        const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
+        const inst = restoreMarketplaceRareMap(
+          listing.instancePayload,
+          Date.now(),
+          { preserveIid: true },
+        );
         if (inst) {
           await upsertSave(tx, userId, "character.v2", {
             ...charSave,

@@ -911,6 +911,13 @@
       "when": 1785055479307,
       "tag": "0129_wide_lionheart",
       "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1785185621217,
+      "tag": "0130_clammy_ultimates",
+      "breakpoints": true
     }
   ]
 }

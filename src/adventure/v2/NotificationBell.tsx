@@ -19,6 +19,7 @@ const PREVIEW_LIMIT = 5;
 const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
   user_message: "쪽지",
   sale_proceeds: "판매 대금",
+  bid_refund: "입찰금 반환",
   purchase_item: "구매 물품",
   cancel_return: "취소 반환",
   recipe_gift: "제작서 선물",

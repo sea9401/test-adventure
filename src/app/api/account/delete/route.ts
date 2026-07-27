@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { signOut } from "@/auth";
 import { normalizeProfileImageUserId } from "@/adventure/profile/avatars";
 import { db } from "@/db";
@@ -6,6 +6,8 @@ import {
   feedbackReports,
   guildMembers,
   guilds,
+  marketplaceInbox,
+  marketplaceListingsV2,
   storageDeletionQueue,
   users,
 } from "@/db/schema";
@@ -15,6 +17,7 @@ import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
 import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { normalizeFeedbackImageObjectKey } from "@/lib/feedbackImage";
 import { sendOpsAlert } from "@/lib/server/opsAlert";
+import { inboxValues } from "@/lib/server/inboxPayload";
 import {
   processStorageDeletionQueue,
   type StorageDeletionKind,
@@ -138,6 +141,42 @@ export async function POST(req: Request) {
         deletionTargets.push({ kind: "feedback_image", target: imageKey });
       }
     }
+
+    // 탈퇴자가 판매 중인 매물은 users 삭제와 함께 사라진다. 그 전에 현재 선두
+    // 입찰자의 에스크로를 반환해 다른 사용자의 골드가 함께 소멸하지 않게 한다.
+    const listedWithBid = await tx
+      .select({
+        highestBidderId: marketplaceListingsV2.highestBidderId,
+        highestBid: marketplaceListingsV2.highestBid,
+        itemName: marketplaceListingsV2.itemName,
+      })
+      .from(marketplaceListingsV2)
+      .where(
+        and(
+          eq(marketplaceListingsV2.sellerId, userId),
+          eq(marketplaceListingsV2.status, "active"),
+          isNotNull(marketplaceListingsV2.highestBidderId),
+        ),
+      )
+      .for("update");
+    for (const listing of listedWithBid) {
+      if (!listing.highestBidderId || !listing.highestBid) continue;
+      await tx.insert(marketplaceInbox).values(
+        inboxValues({
+          userId: listing.highestBidderId,
+          payload: { kind: "bid_refund", gold: listing.highestBid },
+          message: `${listing.itemName} 판매자 탈퇴 · ${listing.highestBid.toLocaleString()}골드 반환`,
+        }),
+      );
+    }
+
+    // 탈퇴자가 다른 매물의 선두 입찰자라면 FK의 SET NULL 전에 금액도 함께 비워
+    // 최고 입찰가/입찰자 쌍 제약을 지키고, 해당 매물이 정상적으로 계속 진행되게 한다.
+    await tx
+      .update(marketplaceListingsV2)
+      .set({ highestBid: null, highestBidderId: null })
+      .where(eq(marketplaceListingsV2.highestBidderId, userId));
+
     const queued =
       deletionTargets.length > 0
         ? await tx

@@ -34,9 +34,10 @@ export function isSeasonRewardSeason(s: string): s is SeasonRewardSeason {
   return SEASON_REWARD_SEASONS.has(s);
 }
 
-// 8 종 inbox kind. 새 kind 추가 시 이 union + KINDS + parseInboxPayload switch 갱신 필수.
+// inbox kind. 새 kind 추가 시 이 union + KINDS + parseInboxPayload switch 갱신 필수.
 export type InboxPayload =
   | { kind: "sale_proceeds"; gold: number }
+  | { kind: "bid_refund"; gold: number }
   | {
       kind: "purchase_item";
       item_kind: ItemKind;
@@ -105,6 +106,7 @@ export type InboxPayloadKind = InboxPayload["kind"];
 
 const KINDS = new Set<string>([
   "sale_proceeds",
+  "bid_refund",
   "purchase_item",
   "cancel_return",
   "listing_expired",
@@ -131,7 +133,8 @@ export function parseInboxPayload(
   const p = payload as Record<string, unknown>;
 
   switch (kind) {
-    case "sale_proceeds": {
+    case "sale_proceeds":
+    case "bid_refund": {
       const gold = asNonNegInt(p.gold);
       if (gold == null) return null;
       return { kind, gold };

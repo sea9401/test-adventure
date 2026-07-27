@@ -4,27 +4,100 @@ import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
 import { cookingFoodId } from "@/adventure/v2/cooking";
 import {
-  MARKETPLACE_V2_LISTING_TTL_DAYS,
+  MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
+  MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
+  MARKETPLACE_V2_FIXED_LISTING_HOURS,
   MARKETPLACE_V2_MATERIAL_QTY_MAX,
   MARKETPLACE_V2_PRICE_MAX,
   MARKETPLACE_V2_TAX_RATE,
   isMarketKind,
   isTradableEquip,
   isTradableMaterial,
+  isValidBidGraceHours,
   isValidMaterialQty,
   isValidPrice,
   currentMarketplaceItemName,
   itemDisplayName,
   marketplaceEquipListError,
+  marketplaceListingPhase,
+  marketplaceListingTimes,
+  marketplaceNextBidMinimum,
+  marketplacePublicListing,
   marketplaceSlotLimitForAdventureSupport,
   marketplaceTaxRateForAdventureSupport,
   saleProceeds,
   saleTax,
 } from "./marketplaceV2";
 
-describe("매물 만료", () => {
-  it("등록 후 48시간이 지나면 반환 대상으로 처리한다", () => {
-    expect(MARKETPLACE_V2_LISTING_TTL_DAYS).toBe(2);
+describe("공개 입찰 유예와 고정가 등록", () => {
+  it("판매자가 2~24시간 유예를 고르고 이후 고정가 등록은 2시간 유지한다", () => {
+    expect(MARKETPLACE_V2_BID_GRACE_MIN_HOURS).toBe(2);
+    expect(MARKETPLACE_V2_BID_GRACE_MAX_HOURS).toBe(24);
+    expect(MARKETPLACE_V2_FIXED_LISTING_HOURS).toBe(2);
+    const createdAt = new Date("2026-07-28T00:00:00Z");
+    expect(marketplaceListingTimes(createdAt, 6)).toEqual({
+      bidEndsAt: new Date("2026-07-28T06:00:00Z"),
+      expiresAt: new Date("2026-07-28T08:00:00Z"),
+    });
+  });
+
+  it("유예 시간은 정수 2~24시간만 허용한다", () => {
+    expect(isValidBidGraceHours(2)).toBe(true);
+    expect(isValidBidGraceHours(24)).toBe(true);
+    expect(isValidBidGraceHours(1)).toBe(false);
+    expect(isValidBidGraceHours(25)).toBe(false);
+    expect(isValidBidGraceHours(2.5)).toBe(false);
+    expect(isValidBidGraceHours("2")).toBe(false);
+  });
+
+  it("현재 최고 입찰가보다 최소 5% 높은 정수만 다음 입찰가가 된다", () => {
+    expect(marketplaceNextBidMinimum(null)).toBe(1);
+    expect(marketplaceNextBidMinimum(1)).toBe(2);
+    expect(marketplaceNextBidMinimum(100)).toBe(105);
+    expect(marketplaceNextBidMinimum(101)).toBe(107);
+  });
+
+  it("유예 종료 시 즉시구매가 초과 입찰만 입찰 판매로 전환한다", () => {
+    const base = {
+      status: "active",
+      price: 100,
+      bidEndsAt: new Date("2026-07-28T02:00:00Z"),
+      expiresAt: new Date("2026-07-28T04:00:00Z"),
+    };
+    expect(
+      marketplaceListingPhase(
+        { ...base, highestBid: 100 },
+        new Date("2026-07-28T02:00:00Z"),
+      ),
+    ).toBe("fixed");
+    expect(
+      marketplaceListingPhase(
+        { ...base, highestBid: 101 },
+        new Date("2026-07-28T02:00:00Z"),
+      ),
+    ).toBe("auction_settlement");
+  });
+
+  it("공개 매물에서는 판매자 이름·ID와 입찰자 ID를 제거한다", () => {
+    const listing = marketplacePublicListing(
+      {
+        id: 1,
+        sellerId: "seller-secret",
+        sellerName: "판매자이름",
+        highestBidderId: "viewer",
+        highestBid: 100,
+      },
+      "viewer",
+    );
+    expect(listing).not.toHaveProperty("sellerId");
+    expect(listing).not.toHaveProperty("sellerName");
+    expect(listing).not.toHaveProperty("highestBidderId");
+    expect(listing).toMatchObject({
+      id: 1,
+      isMine: false,
+      isHighestBidder: true,
+      nextBid: 105,
+    });
   });
 });
 

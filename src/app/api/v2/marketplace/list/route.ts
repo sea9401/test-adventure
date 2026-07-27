@@ -14,10 +14,13 @@ import {
 import {
   isMarketKind,
   isTradableMaterial,
+  isValidBidGraceHours,
   isValidMaterialQty,
   isValidPrice,
   itemDisplayName,
   marketplaceEquipListError,
+  marketplaceListingTimes,
+  pauseMarketplaceRareMap,
   marketplaceSlotLimitForAdventureSupport,
   resolvePlayerName,
   type MarketKind,
@@ -73,6 +76,7 @@ export async function POST(req: Request) {
     itemId?: unknown;
     quantity?: unknown;
     price?: unknown;
+    graceHours?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -83,7 +87,11 @@ export async function POST(req: Request) {
   if (!isMarketKind(body.kind)) return bad("bad_kind");
   const kind: MarketKind = body.kind;
   if (!isValidPrice(body.price)) return bad("bad_price");
+  if (!isValidBidGraceHours(body.graceHours)) return bad("bad_grace_hours");
   const price = body.price;
+  const createdAt = new Date();
+  const listingTimes = marketplaceListingTimes(createdAt, body.graceHours);
+  const listingWindow = { createdAt, ...listingTimes };
 
   const result = await db.transaction(async (tx) => {
     // 판매자 직렬화 — character.v2 를 먼저 잠가 동시 list 요청이 슬롯 상한을 우회하지 못하게 한다
@@ -138,6 +146,7 @@ export async function POST(req: Request) {
       const [row] = await tx
         .insert(marketplaceListingsV2)
         .values({
+          ...listingWindow,
           sellerId: userId,
           sellerName,
           kind: "equip",
@@ -198,6 +207,7 @@ export async function POST(req: Request) {
         const [row] = await tx
           .insert(marketplaceListingsV2)
           .values({
+            ...listingWindow,
             sellerId: userId,
             sellerName,
             kind: "consumable",
@@ -254,6 +264,7 @@ export async function POST(req: Request) {
         const [row] = await tx
           .insert(marketplaceListingsV2)
           .values({
+            ...listingWindow,
             sellerId: userId,
             sellerName,
             kind: "consumable",
@@ -296,6 +307,7 @@ export async function POST(req: Request) {
       const [row] = await tx
         .insert(marketplaceListingsV2)
         .values({
+          ...listingWindow,
           sellerId: userId,
           sellerName,
           kind: "consumable",
@@ -304,7 +316,7 @@ export async function POST(req: Request) {
           itemName: `${kindName} (${huntStageName(inst.depth)})`,
           quantity: 1,
           price,
-          instancePayload: inst,
+          instancePayload: pauseMarketplaceRareMap(inst, createdAt.getTime()),
         })
         .returning({ id: marketplaceListingsV2.id });
       return {
@@ -343,6 +355,7 @@ export async function POST(req: Request) {
     const [row] = await tx
       .insert(marketplaceListingsV2)
       .values({
+        ...listingWindow,
         sellerId: userId,
         sellerName,
         kind: "material",

@@ -14,7 +14,6 @@ type HistoryPayload = {
   ok: true;
   trades: Array<{
     id: number;
-    sellerName: string | null;
     kind: string;
     itemId: string;
     itemName: string;
@@ -57,7 +56,6 @@ async function loadHistoryPayloadFresh(): Promise<HistoryPayload> {
   const rows = await db
     .select({
       id: marketplaceListingsV2.id,
-      sellerName: marketplaceListingsV2.sellerName,
       kind: marketplaceListingsV2.kind,
       itemId: marketplaceListingsV2.itemId,
       itemName: marketplaceListingsV2.itemName,
@@ -93,7 +91,7 @@ async function loadHistoryPayloadFresh(): Promise<HistoryPayload> {
 
 // GET /api/v2/marketplace/history — 최근 체결된 거래(거래소 "최근 거래" 탭).
 //   status='sold' 매물을 체결 시각(closedAt) 최신순, 최대 MARKETPLACE_V2_HISTORY_LIMIT.
-//   공개 정보(판매자명·아이템·체결가·시각)만 — 구매자(buyerId)는 비노출(프라이버시).
+//   판매자·구매자 식별자는 모두 숨기고 아이템·체결가·시각만 공개한다.
 export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId)

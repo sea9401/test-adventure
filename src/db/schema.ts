@@ -690,7 +690,7 @@ export const couponCodes = pgTable(
 // itemId: V2EquipmentId | V2MaterialId. itemName/sellerName 은 등록 시점 스냅샷.
 // price:  정수 골드 — listing 전체 가격(단가 아님). 성사 시 판매세 차감분만 판매자에 정산(우편).
 // instancePayload: equip 인스턴스 roll 스냅샷(V2EquipRoll, iid 제외) — 구매 시 새 개체로 복원. material=null.
-// status: active→sold|cancelled (활성/종료 모두 보관, 감사).
+// status: active→sold|cancelled|expired (활성/종료 모두 보관, 감사).
 // 에스크로: 등록 시 판매자 save 에서 빠져 이 행으로 묶임 → 구매=구매자 save 합류, 취소=판매자 반환.
 export const marketplaceListingsV2 = pgTable(
   "marketplace_listings_v2",
@@ -708,6 +708,14 @@ export const marketplaceListingsV2 = pgTable(
     instancePayload: jsonb("instance_payload"),
     status: text("status").notNull().default("active"), // 'active'|'sold'|'cancelled'
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    bidEndsAt: timestamp("bid_ends_at").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    highestBid: integer("highest_bid"),
+    highestBidderId: text("highest_bidder_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    bidCount: integer("bid_count").notNull().default(0),
+    bidResolvedAt: timestamp("bid_resolved_at"),
     closedAt: timestamp("closed_at"),
     buyerId: text("buyer_id").references(() => users.id, {
       onDelete: "set null",
@@ -734,6 +742,40 @@ export const marketplaceListingsV2 = pgTable(
     ),
     check("listings_v2_qty_pos", sql`${t.quantity} > 0`),
     check("listings_v2_price_pos", sql`${t.price} > 0`),
+    check("listings_v2_bid_count_nonneg", sql`${t.bidCount} >= 0`),
+    check(
+      "listings_v2_bid_pair_check",
+      sql`(${t.highestBid} IS NULL AND ${t.highestBidderId} IS NULL) OR (${t.highestBid} > 0 AND ${t.highestBidderId} IS NOT NULL)`,
+    ),
+    check("listings_v2_time_order_check", sql`${t.expiresAt} > ${t.bidEndsAt}`),
+  ],
+);
+
+// 공개 입찰 이력. bidder_id는 서버 감사·에스크로 정산에만 사용하고 공개 API에는 내보내지 않는다.
+// 금액·시각은 공개되며, listing 행의 highest_bid/highest_bidder_id가 현재 선두의 권위 캐시다.
+export const marketplaceBidsV2 = pgTable(
+  "marketplace_bids_v2",
+  {
+    id: serial("id").primaryKey(),
+    listingId: integer("listing_id")
+      .notNull()
+      .references(() => marketplaceListingsV2.id, { onDelete: "cascade" }),
+    bidderId: text("bidder_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    amount: integer("amount").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("marketplace_bids_v2_listing_created_idx").on(
+      t.listingId,
+      t.createdAt,
+    ),
+    index("marketplace_bids_v2_bidder_created_idx").on(
+      t.bidderId,
+      t.createdAt,
+    ),
+    check("marketplace_bids_v2_amount_pos", sql`${t.amount} > 0`),
   ],
 );
 

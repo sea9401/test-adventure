@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import OperationsPage from "./operations/page";
 import PrivacyPage from "./privacy/page";
 import TermsPage from "./terms/page";
+import LicensesPage from "./licenses/page";
 
 describe("공개 정책 페이지", () => {
   it.each([
     ["개인정보처리방침", PrivacyPage],
     ["이용약관", TermsPage],
     ["운영정책", OperationsPage],
+    ["오픈소스 고지", LicensesPage],
   ] as const)("%s 문서를 로그인 없이 렌더링한다", (title, Page) => {
     const html = renderToStaticMarkup(<Page />);
 
@@ -16,7 +18,16 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain('href="/terms"');
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/operations"');
+    expect(html).toContain('href="/licenses"');
     expect(html).toContain("sea9401@gmail.com");
+  });
+
+  it("런타임 패키지와 Geist 글꼴의 공개 고지문을 연결한다", () => {
+    const html = renderToStaticMarkup(<LicensesPage />);
+
+    expect(html).toContain('href="/third-party-notices.txt"');
+    expect(html).toContain('href="/licenses/geist-OFL-1.1.txt"');
+    expect(html).toContain("sharp-libvips");
   });
 
   it("현재 유료 결제를 제공하지 않는다고 안내한다", () => {

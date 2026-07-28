@@ -113,6 +113,8 @@ describe("production security surface", () => {
       "/terms",
       "/privacy",
       "/operations",
+      "/licenses",
+      "/third-party-notices.txt",
       "/dev",
       "/settings/coin-shop",
       "/api/v2/museun-coin-shop",

@@ -84,6 +84,18 @@ const checks = [
     bodyIncludes: "운영정책",
   },
   {
+    label: "open source notices",
+    path: "/licenses",
+    status: 200,
+    bodyIncludes: "오픈소스 고지",
+  },
+  {
+    label: "third-party notice file",
+    path: "/third-party-notices.txt",
+    status: 200,
+    bodyIncludes: "THIRD-PARTY SOFTWARE AND FONT NOTICES",
+  },
+  {
     label: "robots",
     path: "/robots.txt",
     status: 200,

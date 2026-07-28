@@ -169,6 +169,9 @@ export function LandingContent({
             <Link href="/operations" className="transition-colors hover:text-zinc-300">
               운영정책
             </Link>
+            <Link href="/licenses" className="transition-colors hover:text-zinc-300">
+              오픈소스 고지
+            </Link>
             <a
               href="mailto:sea9401@gmail.com"
               className="transition-colors hover:text-zinc-300"

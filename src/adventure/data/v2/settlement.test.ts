@@ -77,20 +77,20 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("exploration_hq");
     expect(nextSettlementBuildingUpgrade("exploration_hq", 1)).toMatchObject({
       level: 2,
-      cost: { crop: 250, ore: 250, gold: 22_000_000, fame: 0 },
+      cost: { crop: 500, ore: 500, gold: 22_000_000, fame: 0 },
       weeklyMissionCount: 2,
       missionProgressBonusPct: 10,
     });
     expect(explorationHqUpgradeForLevel(5)).toMatchObject({
       cost: {
-        [WOODCUTTING_MATERIAL_ID.willow]: 400,
-        [MINING_MATERIAL_ID.silver]: 400,
-        [WOODCUTTING_MATERIAL_ID.oak]: 300,
-        [MINING_MATERIAL_ID.gold]: 300,
-        [WOODCUTTING_MATERIAL_ID.cedar]: 200,
-        [MINING_MATERIAL_ID.mythril]: 200,
-        [WOODCUTTING_MATERIAL_ID.cypress]: 100,
-        [MINING_MATERIAL_ID.adamantite]: 100,
+        [WOODCUTTING_MATERIAL_ID.willow]: 2000,
+        [MINING_MATERIAL_ID.silver]: 2000,
+        [WOODCUTTING_MATERIAL_ID.oak]: 1500,
+        [MINING_MATERIAL_ID.gold]: 1500,
+        [WOODCUTTING_MATERIAL_ID.cedar]: 1000,
+        [MINING_MATERIAL_ID.mythril]: 1000,
+        [WOODCUTTING_MATERIAL_ID.cypress]: 500,
+        [MINING_MATERIAL_ID.adamantite]: 500,
         gold: 175_000_000,
         fame: 2800,
       },
@@ -109,7 +109,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("alchemy_workshop");
     expect(nextSettlementBuildingUpgrade("alchemy_workshop", 1)).toMatchObject({
       level: 2,
-      cost: { crop: 250, ore: 250, gold: 20_000_000, fame: 0 },
+      cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
       weeklyEnergy: 16,
     });
     expect(alchemyWorkshopUpgradeForLevel(5)).toMatchObject({
@@ -128,7 +128,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("dining_hall");
     expect(nextSettlementBuildingUpgrade("dining_hall", 1)).toMatchObject({
       level: 2,
-      cost: { crop: 250, ore: 250, gold: 20_000_000, fame: 0 },
+      cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
       weeklyMealTickets: 2,
     });
     expect(diningHallUpgradeForLevel(4)).toMatchObject({
@@ -152,7 +152,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("trade_post");
     expect(nextSettlementBuildingUpgrade("trade_post", 1)).toMatchObject({
       level: 2,
-      cost: { crop: 250, ore: 250, gold: 25_000_000, fame: 0 },
+      cost: { crop: 500, ore: 500, gold: 25_000_000, fame: 0 },
       weeklyContractCount: 3,
       completionRewardBonusPct: 10,
     });
@@ -170,7 +170,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 계약 5건 · 개인 납품 220점 · 완료 보상 +40%");
   });
 
-  it("시설 비용은 상위 생활 재료를 단계적으로 요구하고 Lv2 명성은 무료다", () => {
+  it("시설 재료 비용은 Lv2~5에서 기존 대비 2~5배이며 Lv2 명성은 무료다", () => {
     for (const upgrades of [
       GUILD_SMITHY_UPGRADES,
       TRAINING_GROUND_UPGRADES,
@@ -180,26 +180,35 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       TRADE_POST_UPGRADES,
     ]) {
       expect(upgrades[1].cost.fame).toBe(0);
+      expect(upgrades[1].cost).toMatchObject({ crop: 500, ore: 500 });
       expect(upgrades[2].cost).toMatchObject({
-        [WOODCUTTING_MATERIAL_ID.birch]: 200,
-        [MINING_MATERIAL_ID.copper]: 200,
+        crop: 900,
+        ore: 900,
+        [WOODCUTTING_MATERIAL_ID.birch]: 600,
+        [MINING_MATERIAL_ID.copper]: 600,
       });
       expect(upgrades[3].cost).toMatchObject({
-        [WOODCUTTING_MATERIAL_ID.willow]: 250,
-        [MINING_MATERIAL_ID.silver]: 250,
-        [WOODCUTTING_MATERIAL_ID.oak]: 150,
-        [MINING_MATERIAL_ID.gold]: 150,
+        [WOODCUTTING_MATERIAL_ID.birch]: 1400,
+        [MINING_MATERIAL_ID.copper]: 1400,
+        [WOODCUTTING_MATERIAL_ID.willow]: 1000,
+        [MINING_MATERIAL_ID.silver]: 1000,
+        [WOODCUTTING_MATERIAL_ID.oak]: 600,
+        [MINING_MATERIAL_ID.gold]: 600,
       });
       expect(upgrades[4].cost).toMatchObject({
-        [WOODCUTTING_MATERIAL_ID.cedar]: 200,
-        [MINING_MATERIAL_ID.mythril]: 200,
-        [WOODCUTTING_MATERIAL_ID.cypress]: 100,
-        [MINING_MATERIAL_ID.adamantite]: 100,
+        [WOODCUTTING_MATERIAL_ID.willow]: 2000,
+        [MINING_MATERIAL_ID.silver]: 2000,
+        [WOODCUTTING_MATERIAL_ID.oak]: 1500,
+        [MINING_MATERIAL_ID.gold]: 1500,
+        [WOODCUTTING_MATERIAL_ID.cedar]: 1000,
+        [MINING_MATERIAL_ID.mythril]: 1000,
+        [WOODCUTTING_MATERIAL_ID.cypress]: 500,
+        [MINING_MATERIAL_ID.adamantite]: 500,
       });
     }
   });
 
-  it("시설별 Lv5 누적 비용은 재료 5천 개이며 골드 비중과 명성 절감치를 고정한다", () => {
+  it("시설별 Lv5 누적 비용은 재료 2만 개이며 골드 비중과 명성 절감치를 고정한다", () => {
     const totals = [
       GUILD_SMITHY_UPGRADES,
       TRAINING_GROUND_UPGRADES,
@@ -227,12 +236,12 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         .reduce((sum, upgrade) => sum + (upgrade.cost.fame ?? 0), 0),
     }));
     expect(totals).toEqual([
-      { materials: 5_000, gold: 315_000_000, fame: 4_350 },
-      { materials: 5_000, gold: 380_000_000, fame: 5_350 },
-      { materials: 5_000, gold: 347_000_000, fame: 5_000 },
-      { materials: 5_000, gold: 315_000_000, fame: 4_350 },
-      { materials: 5_000, gold: 315_000_000, fame: 4_350 },
-      { materials: 5_000, gold: 380_000_000, fame: 5_350 },
+      { materials: 20_000, gold: 315_000_000, fame: 4_350 },
+      { materials: 20_000, gold: 380_000_000, fame: 5_350 },
+      { materials: 20_000, gold: 347_000_000, fame: 5_000 },
+      { materials: 20_000, gold: 315_000_000, fame: 4_350 },
+      { materials: 20_000, gold: 315_000_000, fame: 4_350 },
+      { materials: 20_000, gold: 380_000_000, fame: 5_350 },
     ]);
   });
 
@@ -244,7 +253,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(canAffordSettlementBuildingUpgrade(resources, cost)).toBe(true);
     expect(
       canAffordSettlementBuildingUpgrade(
-        { ...resources, [WOODCUTTING_MATERIAL_ID.birch]: 199 },
+        { ...resources, [WOODCUTTING_MATERIAL_ID.birch]: 599 },
         cost,
       ),
     ).toBe(false);
@@ -254,6 +263,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).not.toContain("map_workshop");
     expect(nextSettlementBuildingUpgrade("map_workshop", 1)).toMatchObject({
       level: 2,
+      cost: { crop: 500, ore: 400 },
       fragmentDiscountPct: 10,
     });
     expect(mapWorkshopUpgradeForLevel(5)).toMatchObject({

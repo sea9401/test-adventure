@@ -88,6 +88,10 @@ describe("길드 시설 재료 기부", () => {
   });
 
   it("남은 요구량을 넘는 기부는 재료를 차감하지 않고 거부한다", async () => {
+    vi.mocked(lockGuildFacilityDonationProgress).mockResolvedValue({
+      crop: 450,
+      ore: 100,
+    });
     const response = await POST(request({ [PINE]: 60 }), ctx);
 
     expect(response.status).toBe(409);

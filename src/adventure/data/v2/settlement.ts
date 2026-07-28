@@ -297,35 +297,35 @@ function facilityResourceCostForLevel(
   level: 2 | 3 | 4 | 5,
 ): Partial<Record<SettlementResourceKey, number>> {
   if (level === 2) {
-    return { crop: 250, ore: 250 };
+    return { crop: 500, ore: 500 };
   }
   if (level === 3) {
     return {
-      crop: 300,
-      ore: 300,
-      [WOODCUTTING_MATERIAL_ID.birch]: 200,
-      [MINING_MATERIAL_ID.copper]: 200,
+      crop: 900,
+      ore: 900,
+      [WOODCUTTING_MATERIAL_ID.birch]: 600,
+      [MINING_MATERIAL_ID.copper]: 600,
     };
   }
   if (level === 4) {
     return {
-      [WOODCUTTING_MATERIAL_ID.birch]: 350,
-      [MINING_MATERIAL_ID.copper]: 350,
-      [WOODCUTTING_MATERIAL_ID.willow]: 250,
-      [MINING_MATERIAL_ID.silver]: 250,
-      [WOODCUTTING_MATERIAL_ID.oak]: 150,
-      [MINING_MATERIAL_ID.gold]: 150,
+      [WOODCUTTING_MATERIAL_ID.birch]: 1400,
+      [MINING_MATERIAL_ID.copper]: 1400,
+      [WOODCUTTING_MATERIAL_ID.willow]: 1000,
+      [MINING_MATERIAL_ID.silver]: 1000,
+      [WOODCUTTING_MATERIAL_ID.oak]: 600,
+      [MINING_MATERIAL_ID.gold]: 600,
     };
   }
   return {
-    [WOODCUTTING_MATERIAL_ID.willow]: 400,
-    [MINING_MATERIAL_ID.silver]: 400,
-    [WOODCUTTING_MATERIAL_ID.oak]: 300,
-    [MINING_MATERIAL_ID.gold]: 300,
-    [WOODCUTTING_MATERIAL_ID.cedar]: 200,
-    [MINING_MATERIAL_ID.mythril]: 200,
-    [WOODCUTTING_MATERIAL_ID.cypress]: 100,
-    [MINING_MATERIAL_ID.adamantite]: 100,
+    [WOODCUTTING_MATERIAL_ID.willow]: 2000,
+    [MINING_MATERIAL_ID.silver]: 2000,
+    [WOODCUTTING_MATERIAL_ID.oak]: 1500,
+    [MINING_MATERIAL_ID.gold]: 1500,
+    [WOODCUTTING_MATERIAL_ID.cedar]: 1000,
+    [MINING_MATERIAL_ID.mythril]: 1000,
+    [WOODCUTTING_MATERIAL_ID.cypress]: 500,
+    [MINING_MATERIAL_ID.adamantite]: 500,
   };
 }
 

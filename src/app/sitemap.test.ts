@@ -11,6 +11,7 @@ describe("sitemap.xml", () => {
       "https://msmsge.com/terms",
       "https://msmsge.com/privacy",
       "https://msmsge.com/operations",
+      "https://msmsge.com/licenses",
       ...MANUAL_SECTIONS.map(
         (section) => `https://msmsge.com/manual/${section.slug}`,
       ),

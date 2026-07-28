@@ -28,6 +28,10 @@ jobs:
       - run: npm ci
       - name: Image refs (check-images)
         run: npm run check-images
+      - name: Static asset rights ledger
+        run: npm run check-asset-rights -- --strict
+      - name: Dependency licenses and notices
+        run: npm run check-licenses
       - name: Migration journal order
         run: npm run check-migrations
       - name: Typecheck (tsc --noEmit)

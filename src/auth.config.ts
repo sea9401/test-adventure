@@ -8,6 +8,7 @@ export const PUBLIC_PATHS = [
   "/terms",        // 이용약관
   "/privacy",      // 개인정보처리방침
   "/operations",   // 운영정책
+  "/licenses",     // 오픈소스 고지
   "/robots.txt",   // 검색 로봇 수집 규칙
   "/sitemap.xml",  // 공개 대문·게임 가이드 URL 목록
   "/api/auth",     // Auth.js OAuth 콜백 — Proxy 통과 필수

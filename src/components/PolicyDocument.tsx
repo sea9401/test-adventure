@@ -6,17 +6,20 @@ const POLICY_LINKS = [
   { href: "/terms", label: "이용약관" },
   { href: "/privacy", label: "개인정보처리방침" },
   { href: "/operations", label: "운영정책" },
+  { href: "/licenses", label: "오픈소스 고지" },
 ] as const;
 
 export function PolicyDocument({
   title,
   description,
   effectiveDate,
+  dateLabel = "시행일",
   children,
 }: {
   title: string;
   description: string;
   effectiveDate: string;
+  dateLabel?: string;
   children: ReactNode;
 }) {
   return (
@@ -36,7 +39,7 @@ export function PolicyDocument({
             {description}
           </p>
           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
-            시행일: {effectiveDate}
+            {dateLabel}: {effectiveDate}
           </p>
           <nav
             aria-label="서비스 정책"

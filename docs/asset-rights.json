@@ -1,0 +1,1949 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-07-29",
+  "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
+  "sources": [
+    {
+      "id": "repository-authored-vector",
+      "releaseStatus": "cleared",
+      "rightsBasis": "Original SVG source committed as project code and authored for this repository.",
+      "evidence": [
+        "Git history for public/images/**/*.svg"
+      ]
+    },
+    {
+      "id": "operator-cleared-game-art",
+      "releaseStatus": "cleared",
+      "rightsBasis": "The operator confirmed on 2026-07-29 that every current game raster was created directly, generated through an account they control, or licensed for public distribution in this game, with no source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks.",
+      "evidence": [
+        "docs/image-gen-prompt.md",
+        "https://github.com/sea9401/test-adventure/pull/232",
+        "https://github.com/sea9401/test-adventure/pull/239",
+        "https://github.com/sea9401/test-adventure/pull/642",
+        "https://github.com/sea9401/test-adventure/pull/643",
+        "https://github.com/sea9401/test-adventure/pull/1423",
+        "https://github.com/sea9401/test-adventure/pull/1715"
+      ]
+    },
+    {
+      "id": "operator-cleared-brand-art",
+      "releaseStatus": "cleared",
+      "rightsBasis": "The operator confirmed on 2026-07-29 that all current app icons and social-preview images were created directly, generated through an account they control, or licensed for public distribution in this game.",
+      "evidence": [
+        "Git history for public/icon-* and public/og*"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "path": "public/icon-192.png",
+      "sha256": "e0051c302fd64c51653d4ee60cd4221587692161589745a64b8cd768ef25907a",
+      "source": "operator-cleared-brand-art"
+    },
+    {
+      "path": "public/icon-512.png",
+      "sha256": "14907bc696440df59cf7acaa25eadc83c676d39dc8a8cfaee1cdceb566772965",
+      "source": "operator-cleared-brand-art"
+    },
+    {
+      "path": "public/icon-maskable-512.png",
+      "sha256": "14907bc696440df59cf7acaa25eadc83c676d39dc8a8cfaee1cdceb566772965",
+      "source": "operator-cleared-brand-art"
+    },
+    {
+      "path": "public/images/character/female1.webp",
+      "sha256": "18c36ff266d310af8c4c23749e127efd1ad11e92ce22f68f16ec31df272ceef1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/character/female2.webp",
+      "sha256": "9ea426c9c8366e7cc5d416553395eb80697021bbfcf173f8e4d8d080f014e407",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/character/female3.webp",
+      "sha256": "6ab501d851dbcba3fb01e00d7567f7a9bf5b9e9fd84748e06d6174cece570949",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/character/male1.webp",
+      "sha256": "46e58e2f3a691236b9728bae5f929b2e5de4ff05b3c61a826595048fb135dcfa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/character/male2.webp",
+      "sha256": "2e8d597bb9aa56c7c2733681889fd7dc684c17bcc8fab1430c36a6121536aa08",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/character/male3.webp",
+      "sha256": "2d89e4494c79dcbe8e0c1c6b928730adc161c193a6fde61f4b049fb6a27348f3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/abyss_catfish.webp",
+      "sha256": "79546b36fd37c8cf20f72380e162dd65d98e39a67bc23a75bd4fe4956cf1e86a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/abyssal_leviathan.webp",
+      "sha256": "e28f72a66adf82b9ece6d9d6e233128f728ae79e4cb521d819454609121a6b76",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/ancient_fish.webp",
+      "sha256": "f5f283e12f9bb1575cbbf0acc22ddd10336eec23d3da2ce16baa5dea80789036",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/anglerfish.webp",
+      "sha256": "bebaf91afee45bc0002914ae8db5daaddd447cd9e811511e8c041fe9cb7ca2a0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/bitterling.webp",
+      "sha256": "c028b424583658b0ddee8f037a39467d5edbbf509bfe546efc5a69e39131db3d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/bluefin_tuna.webp",
+      "sha256": "db9cb82baf4a0b18cee13ec8ba88b118a21764a9281902bda701d6de99080eca",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/carp.webp",
+      "sha256": "36ea4ff3e7c3c2f3c17b3582d4611690b4a53d4500649269a0c9d57d9a5c4ec5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/catfish.webp",
+      "sha256": "79546b36fd37c8cf20f72380e162dd65d98e39a67bc23a75bd4fe4956cf1e86a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/chub.webp",
+      "sha256": "a567e3907e134dc8dce1754fb6649bd495766de8c56e904ca92ee585a86adb1f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/crucian_carp.webp",
+      "sha256": "97f06695eb7752ee1771a868489108898e1bf861634fcdead533c8aab76dd7aa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/dodari.webp",
+      "sha256": "597dae2728ccf08b33835d13f144fbb7846146b759bc124cb2f46ccd0e5c1186",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/dragonscale_fish.webp",
+      "sha256": "1f810b007a79bebf28855833a77f3dcea333adfd4882cbedc1ecad456c9ffee5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/flatfish.webp",
+      "sha256": "597dae2728ccf08b33835d13f144fbb7846146b759bc124cb2f46ccd0e5c1186",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/freshwater_eel.webp",
+      "sha256": "c3b7008a26be823b60a9be8019b422f514c412d9b205398063a08a38f91f8c95",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/ghost_eel.webp",
+      "sha256": "c3b7008a26be823b60a9be8019b422f514c412d9b205398063a08a38f91f8c95",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/giant_octopus.webp",
+      "sha256": "af1be3e6c0d73740c21b6b4273d22d985f70bfa2646d5df42e068673139d6109",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/gizzard_shad.webp",
+      "sha256": "3c91af65f7c0f0ba8654d324488a8cfa4e81a8851a7c20a079d43c69374fcd6c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/goby.webp",
+      "sha256": "61b977a38e12402cf33c0a23a0024323f14ff7090ea50f00022312bec1971c27",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/golden_koi.webp",
+      "sha256": "c9f8a1db839e246606491ab2bd48d938aa73d6dcb800c837593f4ed4379e7ffa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/goldeye.webp",
+      "sha256": "3c91af65f7c0f0ba8654d324488a8cfa4e81a8851a7c20a079d43c69374fcd6c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/hairtail.webp",
+      "sha256": "401f14d41ef9b60ed309df2e371434c281c3ed3aad2221ac7c72df9df1128ee7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/halibut.webp",
+      "sha256": "597dae2728ccf08b33835d13f144fbb7846146b759bc124cb2f46ccd0e5c1186",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/killifish.webp",
+      "sha256": "c028b424583658b0ddee8f037a39467d5edbbf509bfe546efc5a69e39131db3d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/loach.webp",
+      "sha256": "304e5b943d0b92fb6ae3b1ca39be9a6e7fab94882c2ef255f357fcbfbeba680d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/mahimahi.webp",
+      "sha256": "2bc798d56135706df7720696934839ad88de8d3ff13d8ee623643cf9ee4c15df",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/marlin.webp",
+      "sha256": "dfcea8b2602baee68d71cfd21e086ae7a365c0fc362666365c782859ed907cd2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/minnow.webp",
+      "sha256": "a567e3907e134dc8dce1754fb6649bd495766de8c56e904ca92ee585a86adb1f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/mist_koi.webp",
+      "sha256": "c9f8a1db839e246606491ab2bd48d938aa73d6dcb800c837593f4ed4379e7ffa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/moonlit_trout.webp",
+      "sha256": "1341bd853ad6b3bb44fbab3cb2e35d8962c39b6e59fdcf25bd2cc04a68ef46f0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/moonshadow_eel.webp",
+      "sha256": "c3b7008a26be823b60a9be8019b422f514c412d9b205398063a08a38f91f8c95",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/mudskipper.webp",
+      "sha256": "1deb5235c4bdda4873f0056f6781526af3a90dfb02e74a84f7539098f7914fdc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/mullet.webp",
+      "sha256": "c028b424583658b0ddee8f037a39467d5edbbf509bfe546efc5a69e39131db3d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/oarfish.webp",
+      "sha256": "fe67361a2b127eece9c69a5b308fccbb4452cb8e74be23d21cc79b20ec3d52b5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/pike.webp",
+      "sha256": "ac485a2414f751e45b7cb1fce06f0a94d7af57163ac5d59f895ed6d017625925",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/platinum_carp.webp",
+      "sha256": "826a6f0a40ef4b5f22a8fb6f56d6c233a9291f0c1560d1b48f359f6b2d061fc1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/pond_smelt.webp",
+      "sha256": "a567e3907e134dc8dce1754fb6649bd495766de8c56e904ca92ee585a86adb1f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/rainbow_trout.webp",
+      "sha256": "1341bd853ad6b3bb44fbab3cb2e35d8962c39b6e59fdcf25bd2cc04a68ef46f0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/red_seabream.webp",
+      "sha256": "441af91f6c717ad077815e9c00e187900cb89c1d6671fe4c8e399ebf64930810",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/river_shrimp.webp",
+      "sha256": "34a26b2810d432dec222f8dd67c5a8bb2e275fef25979754f780d24f3c2d290e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/rockfish.webp",
+      "sha256": "61b977a38e12402cf33c0a23a0024323f14ff7090ea50f00022312bec1971c27",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/sand_gudgeon.webp",
+      "sha256": "61b977a38e12402cf33c0a23a0024323f14ff7090ea50f00022312bec1971c27",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/sea_bass.webp",
+      "sha256": "2061398754d3499d690e191256093871bc08836a33ec36016b68394879c5fff8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/starlit_ray.webp",
+      "sha256": "01e3ce53826fb9cbd63175a46bbe36664e2d5efd38e4048d2a3d25ba1d25857d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/stormrider.webp",
+      "sha256": "abb6a4489624ae3e1c9db3ff38fbd29f475a447dd32abe0adbfb16b2bb83d430",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/sturgeon.webp",
+      "sha256": "f5f283e12f9bb1575cbbf0acc22ddd10336eec23d3da2ce16baa5dea80789036",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/sunfish.webp",
+      "sha256": "270e77b39f690ccea093efc71ba755d225ca785e4145179b81546c2c4c74f834",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/sweetfish.webp",
+      "sha256": "1341bd853ad6b3bb44fbab3cb2e35d8962c39b6e59fdcf25bd2cc04a68ef46f0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/trout.webp",
+      "sha256": "1341bd853ad6b3bb44fbab3cb2e35d8962c39b6e59fdcf25bd2cc04a68ef46f0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/waterfall_salmon.webp",
+      "sha256": "db9cb82baf4a0b18cee13ec8ba88b118a21764a9281902bda701d6de99080eca",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/yellowtail.webp",
+      "sha256": "685269bf762466458e4b10621061f07a3c14679d1fc0ddcfe18a685a64f11123",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cash/adventure_support_30d.svg",
+      "sha256": "fdb779409e523350c3585e8114e53f84279aedcb3cdafdd96358550b03c2a9da",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/chat_badge_box.svg",
+      "sha256": "5282d6b78a18934b6c6025a46b01a5202295d9b8d9512e618d25f361c02cc565",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/chroma_name_box.svg",
+      "sha256": "49492f91ba418ba1e991454be315416fa88a6fea2b4daa1112c8101c161f26b6",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/cosmetic_extension_30d.svg",
+      "sha256": "6635c2340904142b66649e015fd7f25d920a235da2bb085b5aa9669d1c04179e",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/profile_border_box.svg",
+      "sha256": "910b974a063856bf5843063efc57061ce3f8b753fb1bf5e681ce6392a0f584e2",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/profile_image_permit.svg",
+      "sha256": "698de7fed01d8f44419b89ad3b273cf3bf5d65b3edde1ae55802afb0ac363cab",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cash/rename_permit.svg",
+      "sha256": "233565f7a5d148fe807debd150a85eb66f2e56eaaf4ea19acc4d644a64f5788a",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/items/cooking/ancient_tomato_meal.webp",
+      "sha256": "0b77aec9a6869c51367b34540c19cd9358eb3110e37b89743b09772e398849aa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/aromatic_fish_curry.webp",
+      "sha256": "6f76f848c678f04a94a344e5ef85e19a8051268a408df1456c025e96b8c68798",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/corn_tomato_potage.webp",
+      "sha256": "fdca88455c9432121675563815f3a91024c87128b2a7079792859c6c5b08abf0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/crystal_cacao_drink.webp",
+      "sha256": "0bf347dfedd3c3bf43681100039a46ebd57a76c10db72a6dc6ee8bfcc00e67d1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/dragonfire_seafood_hotpot.webp",
+      "sha256": "43c34c072070dd406c004496f67e03cad41a58b03a9b7a6cdb44397907816f06",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/earth_grand_feast.webp",
+      "sha256": "296207ce95bcad4f3bb86485d39b411bae4bb337b4b20c84ed613ab98f97e515",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fish_croquettes.webp",
+      "sha256": "6ce1c86e53eed4531a46a60cf1a04c8f2761d344891051797e5027954a0fa952",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fish_skewer.webp",
+      "sha256": "7ada8e63b30871e600abd788dbc280ac010c6c64bf03dc545815f87e1a990920",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fishermans_pie.webp",
+      "sha256": "34e44c10de5c18b41408210ff263a09dbf5003d51b613087870be0242bf7088c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/flame_corn_stew.webp",
+      "sha256": "cbb2b41aa9517b2a50a2fc105b468a79d18044756842bbf46d6187db78cfae65",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/fresh_fish_soup.webp",
+      "sha256": "a4798e591e271fee757e6840c89a3f47e95680d6272e0c3ff1923b103f5f77fe",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/golden_gratin.webp",
+      "sha256": "65db204f4e7e25451d22ad456d193b3661ad333c1b7248a3d1185cc3db964128",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/grilled_corn.webp",
+      "sha256": "3f16db7c85e9cb1cfd7d3ec61f6a4978d9fad7c2de20eccdc98dca4320638d74",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_flatbread.webp",
+      "sha256": "0ab339055124cfeef31e520a107a85f23fd3ec376ebc3dd71985047b86370954",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/herb_tea.webp",
+      "sha256": "8f312bf257b0c02079e1a009bf1e62d3705a993830803320eac9a54d1709330d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/legendary_sea_banquet.webp",
+      "sha256": "fe5fe754e8ccc924fd49d4901e6a6747737c8db256f57a25472aa9eddbc1f6a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/pearl_onion_soup.webp",
+      "sha256": "a876f25c155b339781912a205440ca97ac89deade3f04844e233b28cc306a0a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/potato_stew.webp",
+      "sha256": "bad069c05daba606953e97319645b578aeb2e6c35e0b5e31b1abcdd18f253604",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/quality_fish_platter.webp",
+      "sha256": "c884b0fc6d5cb2d4c6e89e372ea8f57bd6af9216cf9034bd0ff0d1c0c2fd5307",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/royal_cacao_tart.webp",
+      "sha256": "cee32f2be3c282b8a19b14ea4fed0bb2f91d80f9adeabb05dd3e7a755e35e874",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/rustic_bread.webp",
+      "sha256": "4b570120dec535812c108744ed40f255bed54dde59f98a8f2e285c90ab38aca0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soy_glazed_fish_bowl.webp",
+      "sha256": "2beec77483eeea6afe0beb320798864acd5444c075eb971e778c92c01e67f7c3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soybean_rice.webp",
+      "sha256": "a552233a0f9186615e8e9b6a023cc9669866cc49b418f180de961f71f1f0f9f0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/special_seafood_rice.webp",
+      "sha256": "09fbe9a34e28a9da2923436a8cd44e34d7eabde7325109eb106639d240cbf485",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_herb_punch.webp",
+      "sha256": "628960db11c6852a645361f56c357de7232eecc7f63ddeacf394284df10d6d73",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_tart.webp",
+      "sha256": "1d258ad2d689065bccf75babd0ef4939c31ad6f005dd8650b5276c781f836440",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/tomato_salad.webp",
+      "sha256": "9ea4bd6d39d42134289510562f7c86b68bb17859ad185ccf5f07e1b5a67e7236",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/white_strawberry_dessert.webp",
+      "sha256": "463a8685aad90181f4920d979738bb89b729ac52a63f9bc70d051684367928c9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/adventurer_meal.webp",
+      "sha256": "adba8530037c352fed34528a6a3311ae5b768eed90bbd716a5eecd3c4f8a5061",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/artisan_seafood_rice.webp",
+      "sha256": "b8861d7ce05f2c9f63eb9ceca5703be3dd336cc4e945b8efb255fde8aa740470",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/guild_grand_feast.webp",
+      "sha256": "b6b38987e5870f21de075708f2fd8098050b5ff036b43624a7019bdb0cf381ad",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/hearty_stew.webp",
+      "sha256": "488abc26c3c655ca100c823b76dd318eb3e460c4e8ec87fc08d7f0e7469e1b01",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/hunters_barbecue.webp",
+      "sha256": "c8b5fe48410c980a522ff0c1a0e776c9752e86488da691962eda05fb74d3b363",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/worker_lunch.webp",
+      "sha256": "15afa0f2ee42c63a1c36513b6db13c8530a611dffabd02d324e9ec2782a29c51",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/black_soybean.webp",
+      "sha256": "07207f5fc5a54567518d17898209b73c5ae4ce15220dcaa010c428ee35649efe",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/cacao.webp",
+      "sha256": "6c748ad4f153723b0d14afdd356f102ac793382e3a0774e9c9d735aafdab35bd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/corn.webp",
+      "sha256": "a78ed4ed4a268b1d6418d0c12d581434a804552c92c61e1f9c7992910cd4372f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/crystal_sugarcane.webp",
+      "sha256": "a8941f5f9324c54ff19ebcfef04f0b0800ad640782dbaf7fdbfaff210180d7b3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/golden_potato.webp",
+      "sha256": "a1dfe197ddfacbe778619e26e543f5ab31eba24d0504ad171795511a35c781c3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/golden_rice.webp",
+      "sha256": "d61e04302a04bdd072ed4e21e21c95dbbafe2e5126b5d150416013624bbbf313",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/golden_wheat.webp",
+      "sha256": "d325289a8779dc2e611bfa7324321d591483831fe5a9fea4d01b751ed66f68f4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/heirloom_tomato.webp",
+      "sha256": "fd537206de98791c68e90b3222bddca19a4d58e7db6747b942db3adc3a80bcb3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/herb.webp",
+      "sha256": "fa06ee9fd03af3707d45456edf5cc74a29a858243cec46513015a7176b2c0c08",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/onion.webp",
+      "sha256": "d7d3663023bd0011abc68f5ecea97fc979e1728888a25ed65df2f6030339e930",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/pearl_onion.webp",
+      "sha256": "d0c9279119908799115304d6430daaf2db9bd300024fba8b712a97aa58552f46",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/potato.webp",
+      "sha256": "5896c592948ca0a56ded0333df48ebe0d27f55d63ef37f608f5991ababee28a1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/rice.webp",
+      "sha256": "611e4cbcc82034ac9d80833a9800a670aba5d181d446d34d306fe59cc6f39013",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/royal_cacao.webp",
+      "sha256": "4709598b36c06ec7b40c683168961cd3971162c57907157e3ac4c7fba9842674",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/silverleaf.webp",
+      "sha256": "97ffaa6fa8189723348358fe97f33aa7c77db2f577774fab9695878ce72ec5a8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/soybean.webp",
+      "sha256": "b7da7a0cee9b4cff81728e44891f1d08f12acf52a7638179a6341cc9136694aa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/strawberry.webp",
+      "sha256": "98698853bbf895a4c5c77a9b9e3c76b578ca8978202e4f24aaa55c29707e7f34",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/sugarcane.webp",
+      "sha256": "7c17b0ecbd357b25df23ea70c47cc39f9a109a688cf964c4c41caecc130129ba",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/sweet_corn.webp",
+      "sha256": "240e97293604bfad4f930be6aee1e991da7add7803b740068d2deac5bae6d9ba",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/tomato.webp",
+      "sha256": "1ceeadee7efb7f5090d524fdf4896a8768c5bd48638df8ef83f3b84611dcd54c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/wheat.webp",
+      "sha256": "82ec47a8dd095efa9d58aa441fb0640fe0ca9ca881f127ce86091149aab9e78b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/white_strawberry.webp",
+      "sha256": "832f09d855068cbda93d677e245c8e9e9ce5800cee98a1809b0877bb1054befd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/daily_bait.webp",
+      "sha256": "07d7cd88cd352cc198c7e69b8bd9cb7a6eb635428c72f813d66c1be3153c6617",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/deepcurrent_rod.webp",
+      "sha256": "c4bdfa3b5ad4b1b03d7fbdc066a6f8c3d4bbf7587271613c458c6b592eb01a5a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dough_lure.webp",
+      "sha256": "9c4d52c554532495921a7596bfde38c3b58de381832c89d114230cdbcc97c0f2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/lacquered_rod.webp",
+      "sha256": "aecaa6ef3cd7bee7bf8a90a968659e633f698306b3793fbb617265108a2c3f4f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/master_rod.webp",
+      "sha256": "15568f8475cd2e45fc6729bbca04fb17ea4b0c67fca7c311d4f6af3482482a7c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/prism_lure.webp",
+      "sha256": "af6835fe6ccba43e549f3e9a46970df7fc1d098e16161eb54130a63be8a438a3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/rare_lure.webp",
+      "sha256": "b5afcdcb3b3a45c48fa2c3df00571cedee3e4439b7999ebda716449a48ef0125",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/reed_rod.webp",
+      "sha256": "bb4e0e9343f4a592f8d309f4fd8a90017c43ec253fb1bfdeb6498b71538071e5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/storm_rod.webp",
+      "sha256": "57dd7905f331c1c954d2d93f5573529e698abdf33f1e7ea954de7d13a3cc0d38",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/tide_lure.webp",
+      "sha256": "f655c203706fa4433bb014ba681dda081a0410bf1ea59f1a94e3fa25577afbcf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/trophy_lure.webp",
+      "sha256": "e9f27c1aef6f8568c474e3ac144ff774ce9288d2c6fc035c2ce5cd3bab93ea1c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/acientgolem.webp",
+      "sha256": "05f597456f9da79616bb9162952acc923df0890e99c42b19a7981859a4ccfacd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/ashegolem.webp",
+      "sha256": "489ab2072c3e56b24c1e420881928bd0deb23b052b2b69f10de000ca97f5655c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/ashewolf.webp",
+      "sha256": "f0a6662a305857be6d67146abc8c545988abccc2596ca9bac84a71e5a87c654b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/automaton.webp",
+      "sha256": "b02ee378b0deb1d87a89e8a7eb981e804c968c1a15a6550a08f0720bafaaf164",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/bandit.webp",
+      "sha256": "fc9e8a32804499b832da06a1805eea3d581892eace7ec74f140bb4e1eb200d5b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/bat.webp",
+      "sha256": "bc725e5b36867606cc7f3b7ff12f01303f45395dc7acdb2872f15fb4e8cd534f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/bison.webp",
+      "sha256": "1b32c2341e03579c5b6bef5c43f4a66f85b786483581064d485cccdde1384268",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/brokengolem.webp",
+      "sha256": "7b6d06716cf798fa032fd4d74197a3a8df6905c888703a93b59b9f6f605b15c0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/cavesnake.webp",
+      "sha256": "23950ae3a0114b0666a2648b645448a7ac8db7a67ab3beeb2efbc660aed9f6b8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/celestialapostle.webp",
+      "sha256": "ebe74009bb6227551185730db6dfb773ebaeded0dff599f2781f62cc85bdf2f2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/celestialking.webp",
+      "sha256": "d2bc858941507c493e1cf5c1303b117103bd7a6ea375ab92addcea0c39b38e46",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/celestialpriest.webp",
+      "sha256": "f9050d275b29ec46233b12808033f48bf7ded0dba930105c33ad9be5234cfebd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/celestialwarrior.webp",
+      "sha256": "cd09f520888921d1ce5251dfd020138bc708669bbaca0cedd3d8d291c435b770",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/cloudhunter.webp",
+      "sha256": "5f0998feb2b64aa3c97e6d250591da97b9ae1480cad41bb06f2db74de8390cc8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/coralgolem.webp",
+      "sha256": "581a9b0c10a729797f1899becc2df8cd28f55c81c8d3fe4c8f85a5dc0d8fda71",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/coralmermaid.webp",
+      "sha256": "9d7a7fa1df5a2e466a4c485cbf19545c3be1a2f1d20d70f38eb336765df68478",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/crab.webp",
+      "sha256": "90f11c90521aea8cbe7d6dfc85e6adafd3ad65b9c2ba24ac728e0465ad45f8e6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/curlewsandpiper.webp",
+      "sha256": "e4a997e3db25119ddbb402775cf24b2e476e1cac33e6cb88aa0219287f93103b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/debrisgolem.webp",
+      "sha256": "84ccd01c9eef36f8268eb4fc6b2019f67967f5efddc2f076541406ebd5aed5db",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/deepseamonster.webp",
+      "sha256": "f7618dd8d13b281761064e07eafe9987a339ef9d603819f965e7511e533e3b9f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/deserterbandit.webp",
+      "sha256": "17407c60a1b74579cfe5047fd54f51bce57ecb74b622107f9e5add36edc7386d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/destinyweaver.webp",
+      "sha256": "a286d059e86ab39730eb6acf66db32fbab6f3643b56b230cceeae960162ea60b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/embersalamander.webp",
+      "sha256": "6f213ade80746afc41d061148579267e36024f334d5aa9d139c3bc0e5d3a00ff",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/firelizard.webp",
+      "sha256": "872006172decb40a883c4e30c8ef5224bbf2a83101741cdfb0a6bc954d551f4a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/flamefrog.webp",
+      "sha256": "423dd9a50035068134cd21c92c9e0eb3852cfcd68db785a9c4a0de9e14d5cac8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/flamehawk.webp",
+      "sha256": "b9073829cad889ea5170a630773ccf28ef510a46a8bc93fc7650213c29beba93",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/flockofcrows.webp",
+      "sha256": "652ed61e3468f8cc38a001f05eccac8b5637d94b5ad8aee2210fb06f03ac57f6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/frostgiant.webp",
+      "sha256": "f717c90b376183a8f58d903749ffd13f8f248f22120f5aa45bf56e7b5581b4bb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/gateguard.webp",
+      "sha256": "aa9dc6b99f62f7bafd98cb22b6562b2c8a7a1698bcb3a61c560021b05cfb183f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/highwayman.webp",
+      "sha256": "213bc975dcb6dcc49eb64d71351712328412837fcff42c82b33d88dca21a11f4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/hobo.webp",
+      "sha256": "8ffa3ea87d11a18ea3dec9e5ec1397d1b5d08f35bda4fd4e1405b36bbb40a0ad",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/icespirit.webp",
+      "sha256": "7ac9968d9da6830fe2992bc7523775773a63f96f1fc448c5b62d8a9d9c1ec421",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/imperialbannerknight.webp",
+      "sha256": "348508b225f09560890eafbb9334c715bfa9071692ed57bff5a4a2accb88051f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/lakenymph.webp",
+      "sha256": "22839e1c4c501e26e8c11c04e3460b0ed4d4e6f6af463470329351c11bed2450",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/lavaslime.webp",
+      "sha256": "83166fbe2b1c09d257cfb633f8f6ed3b82152fbfed50f2cbfb73ef350c33d19f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/lordofsky.webp",
+      "sha256": "13c258979ce78fd635e98002c314e45478335a0f9694cc2cff540685c53b8ea7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/minigolem.webp",
+      "sha256": "62096eacf1e6b3bbe0d138209d96ba170a1ec9dc9e07099dce19dde1b060c301",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/mole.webp",
+      "sha256": "58274dd44a8150c51ea382938701b2c19700719c2f5d28e91a27c0a5d33e50a8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/moltengolem.webp",
+      "sha256": "30f6ef2882642a5ed41c4042f77cb47167ac4eca868ec9c1bd9bb9fe86f076f8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/mountaingoat.webp",
+      "sha256": "7bc6b1a18b2bab498f08cba9fbe6113be91a36407197b6a6a5f5f323826ffc96",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/mountainknight.webp",
+      "sha256": "2a319b902b62c6fdf9d1b599674a397babe8429f9f49e6cf8a7e5a2cf33cbe54",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/mountainwolf.webp",
+      "sha256": "bb7fb14ddce233a5309f1317458726c8140ce08a87e045440ca6c82fee2f73d8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/mudloach.webp",
+      "sha256": "b3400325dd362aae4954827f56ac217969eb9adc3dac8141cfbe1706cf2f7310",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/oldfortresscrow.webp",
+      "sha256": "6b82e971204d7bc802bddc827462a9d0932b10e9676f22b9b26808a0aa139609",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/oldgatekeeper.webp",
+      "sha256": "1a0b4ab4d1a2f50d656d83b6f8f123ebcb760a69513cefe82da563018328def6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/orbital_automaton.webp",
+      "sha256": "4bd23bdef664d48b070672de62e2f03cf54b635659528947cd78603ee275f72c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/oreguardian.webp",
+      "sha256": "0ca5fb3023a3c08be527ad7feb011c641dbdc958d9ed19a767ddbf3a9cc0b60b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/plainfalcon.webp",
+      "sha256": "d9c439b6902d2566b03ae2fa9aebcca082934108d35214fa97bc5ddf4a17f8a7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/reedcat.webp",
+      "sha256": "5c3dddb14432cd29a8dfac45b3fb6c8cbf9041b120b0b84b43878e1a9487155e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/rogue.webp",
+      "sha256": "cbf2aa0c12f9db4488c90c5543e467fea70635b3bd262de4a64f46e6a13a7c5c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/ruinwolf.webp",
+      "sha256": "52ca896d66690e59c43f554a17cb54e5e23f90a270997921af516fe0a875fbad",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/scarecrow.webp",
+      "sha256": "e25dd59623fa461e385818830b71c77c504e66da70ef89e8998aa0f4b21a9410",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/sealedfragment.webp",
+      "sha256": "617a10bfe5dfa4c466c25cc5a1a01a9b4acd9707e47d4b5721867224aee87cfc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/shellbandit.webp",
+      "sha256": "1492f919a115094cdd15eb334ddf1f15ba6c5f55a2a839e4286407414548bcbb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/sleepinggiant.webp",
+      "sha256": "cf0bc7552b9e21ceb4c71df930d198920dd06e748b96ad0c50edab1655310e68",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/slime.webp",
+      "sha256": "488fd466d6cfd5659186f1dc5db914356dba6cf0a18b40ad30472f3cb4a7ab32",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/spider.webp",
+      "sha256": "e46609f813d9c8df86c2ae77cc05944b0ea10d3a15bb9a44820bb52477d2cc2c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/starlightshade.webp",
+      "sha256": "1488ca847e501bf2679a7b9aed65250b3c83ce91f89cc2c7094765b9d85289a0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/starlitbat.webp",
+      "sha256": "8de79a9d1ad8a1478d6c4c59de977620b18fc43d63652a42c02fa6bbdb116534",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/starlitcavesnake.webp",
+      "sha256": "5c478aefd2d662d96a0f667c13ad86eced3069263c8a4ff572493a84ba36e69f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/starseer_shade.webp",
+      "sha256": "9acaac5055174150bd90c30f968b603252a3baaa1465567ed10061f19582acc1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/stellarguardian.webp",
+      "sha256": "d448aae79ca890ea5498c3017f8f25bdd9358b1f99de6e3ef6fb687a39b29dc5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/stonefrog.webp",
+      "sha256": "63a21c7a632293aaa2ff9b52a564bcc6c9c37c4b59d0766d56e8caa3d0baab1e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/stonewolf.webp",
+      "sha256": "5d453c1cc5ae76b694c361bc8d8406929b149a4ccc8b06a545a436f0f7932713",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/swordmasterofthrone.webp",
+      "sha256": "67b039a5a16782464eb1b3f6590034e2cf9c02932158eb7ee912ef454c0c10f9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/undeadminer.webp",
+      "sha256": "2665c689d554c8998c298dec9bf26af7874161ecd433167433d52d9f5a9bc010",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/abyssal-pursuer.webp",
+      "sha256": "99f0859bea9b6ff5217bd0b66d2729dc3bc092b1aa37db67ffad55f2e1891d97",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/ash-spearman.webp",
+      "sha256": "d107055b8d0f6b424f06e06bbe5c4ead20270aa28cd5e20df0b9c59239d304c2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/blue-venom-pincer-king.webp",
+      "sha256": "2a5ce37b05a3a062dfcdc136dfed54c54d1240588cb49d7bb8e9f861ab744a73",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/bone-armored-bison.webp",
+      "sha256": "146e1f31b54a0902f342cb88dcb33952b6b7abc58a5465086a09b2dafc0bc7a2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/bone-lord.webp",
+      "sha256": "e1e5b124a9f7df32b3ee610217ded67e4dfd9db745a2fa40116ab755f7b9c2be",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/canyon-bandit.webp",
+      "sha256": "d326d7b92d625cb1d68540a77a527c4b0e91ca29a0afc68d3792f11cd5db442b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/canyon-sand-lizard.webp",
+      "sha256": "5d81def50296744917d1f385d82f91b8ca42e177849ae99167facbcbd734c95c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/canyon-spark-scorpion.webp",
+      "sha256": "532997239c9dc13b9e488a56ed82817bed04f62af983ed9b9af5d9cd1420ed81",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/coldwind-raider-captain.webp",
+      "sha256": "63855822bcc1e4fedf2a4fbd78b6229ebccd8934a25b08f2758f57e5f89b536a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/crow-shaman.webp",
+      "sha256": "a7a86ee35eaf18eafe3f29bcd9f134bc1f0980c5e298915edcd438901b03de2e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/den-giant-bear.webp",
+      "sha256": "bbaa77bcdfc9cdafb15b19df01087be8bb265740b5fe7a142663b3d9f83ef904",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/field-grass-snake.webp",
+      "sha256": "aa6f86d2b0501aeb6368b3e445fa33a18e43d060c7ae16336e6001db013e9907",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/field-hare.webp",
+      "sha256": "9e89a1a50943ff556993ba73d8455db0afe9cc7632472fe7747d09a0a0005eb4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/field-mole.webp",
+      "sha256": "a1ab26af5fabcb423462a1b5ff97dbe5ca75f2d9b3d7f119ee5c3af79f23ceef",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/field-slime.webp",
+      "sha256": "85601db3004c163eda7a358c254d53070d8c2636ab6ed35c468aa7d8a8e341df",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/field-spider.webp",
+      "sha256": "a45e2dc61284fd49fe54faa271dcfbf12eca1a80231a2eaf7943442b3b31763f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/field-wild-dog.webp",
+      "sha256": "2a40bd4ccc178ca1fb7987ca0f8e6877b0eb1d40e79c4a7df00acc72e637971e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/field-wildcat.webp",
+      "sha256": "cee20a614d386dc1d8ab934ad5757fa5305d4949758f21987f29e638b6afcdca",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/forest-boar.webp",
+      "sha256": "b9068bdf935de14dc77b2f63da36a7a0c89102f424b5373174e859d7f758ca7a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/forest-crayfish.webp",
+      "sha256": "4ff807485d44b1ce2926447d9b9a67160d0e9367378f22b751daa7eddc6e29b3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/forest-grey-wolf.webp",
+      "sha256": "89b34f59ae34ea3dc69eb222766af8c0a9f9a537b3b0368ff55a12081baabbed",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/forest-salamander.webp",
+      "sha256": "f16c2e4f2bea5ca466955454e4ff6979697e4e147cc140710a5e500a040c2aa9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/forest-thorn-vine.webp",
+      "sha256": "78c1ce96cbb4beda61fd09706301ac3ced0dce3faab925945212736775397769",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/forest-water-sprite.webp",
+      "sha256": "3bac1f5a54bc36d2b5adcf24d648f2a7e717b3615774b14f95f9ead2a1cf10c5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/lightning-oracle.webp",
+      "sha256": "ad675ab0a994d48244d56a1838e368871b07588b0a59763f36d13f721cb4e906",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/mountain-alpha-wolf.webp",
+      "sha256": "81b8b54f1b185a3283d3f4e67468832ac390224741c33c2dd8ef5e86cc9ea3b0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/mountain-spike-golem.webp",
+      "sha256": "69b30957a391d05878a001265269c8be67217f7a9e588afa2b4786bee7a2e9a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/nessi.webp",
+      "sha256": "0aabfb771244353785a7eb702d98d1d75960c6a889707225fcd940b525bc1fad",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/plateau-slayer.webp",
+      "sha256": "a07cdfd14cf32d19694a2a5f93540ecb9a8ec91b605f059b2702f86bc4f6deca",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/powder-thrower.webp",
+      "sha256": "9568d0685d334328731bf1c69392f57aadfe438deeacead1de27acf17190293b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/red-mane-wolf.webp",
+      "sha256": "e51cd6a97d07d4054da03c350fbee466550e2214f7cea759a8d1d3d2390e3b37",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/rockback-guardian-beast.webp",
+      "sha256": "9ee4b985a6435bbd547bc99e66c5e0d58b89813c862c461ef733832a372ea7a2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/ruins-stardust-sprite.webp",
+      "sha256": "c87fdd0b8ad2a45d3a29305f4f8dad5989b240d49a0b7fc9635f4fa5c8763477",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/ruins-starlit-bat.webp",
+      "sha256": "a3029e3b861c277e7c95b985684f7ad7bdd0018ac54aa9102c53c48e4736a284",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/ruins-viper.webp",
+      "sha256": "7624988caf201aed0ad1ac2d71192f2ec6d1453b4f6e95fb67939d9ce9fbcc34",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/ruins-wraith.webp",
+      "sha256": "5e500c59e8fc02ce4dc27600aed85f9a26b47e01e1425bca747acb910d1ab9bc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/sangoon.webp",
+      "sha256": "e9fcdbf5f832df82217ea7b2901f85a5f4ba7d6132787e7e0a5ff467946695de",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/scorpionking.webp",
+      "sha256": "743c5b92f00560ed3fe5475f5ae55fa60012bc8c51ea2915e480e98c3967df9c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/skeleton-rider.webp",
+      "sha256": "dbbd29afa9fab8a13846e2bca84fb547e21ef25e3be6ac00a07c2da1559cc4b0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/snow-blizzard-hunter.webp",
+      "sha256": "a6f6f0b8420dc23755d7c492c6d57aa6d96943338295f087ffe470ac9be1e619",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/snow-frost-acolyte.webp",
+      "sha256": "889c4ff7fac4fd54bd98a51cf4ca8fb484f6c22c7cdfd35a1d9a558c198311c8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/snow-ice-colossus.webp",
+      "sha256": "35f1df52e4fb4fb581954ee91801fa75b88f5cbfe371e9790acf76696823df2e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/snow-ice-sprite.webp",
+      "sha256": "9abf26c99c459b540091f48f8e2b01e23a95cd4a426a31ea38cbb68ff8706ead",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/snow-leopard.webp",
+      "sha256": "dbcfe01bdf1dbfd55017972fc7830d5559850bcac850337e800dec6d1032a8ce",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/snow-wraith.webp",
+      "sha256": "622beb2eef644a52ea737dedc0009c8c5ecc0f387225068fe9f0844fa0fc9d56",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/storm-standard-bearer.webp",
+      "sha256": "e73cb329796e5536f3d6e026c11d027fbaeec8649d4c4d65484925d17e175921",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/stormcloud-cliff-wolf.webp",
+      "sha256": "d52308c26a9cbd1cdf9d949ba8f5294903ac370619a5b7251283069850dc66b9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/stormhorn-behemoth.webp",
+      "sha256": "8806111dc2a71d0ef074eec51cdbcef2e96ddec9e1009ea2daf93c287278f0bf",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/sunken-wraith.webp",
+      "sha256": "fe57584421934cc0d5bfcde9ab962424d4444c96bf32aab6f6a16c11db32f56e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/throne-abyss-executor.webp",
+      "sha256": "16bc827c7531f29c065e0f352dc9fd27c58103e80d87661dfc84dd2e3aca0600",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/throne-armored-warden.webp",
+      "sha256": "11200ee0031851c2574db830808b5b0b52eef9021e63630484b1d4f718473f0a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/throne-gatekeeper.webp",
+      "sha256": "84da3073eb685450af459e9a05190a744b131e440f3e00597f15940938e47ad8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/throne-guardian.webp",
+      "sha256": "702096adcfdfd7313e25af3f311e99060281216ff572a7f150f759e44536ae93",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/throne-scout.webp",
+      "sha256": "d488333f943ed406bc15377bf58255cababe17273a0310e706a64bb3a56186c4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/throne-star-hunter-crow.webp",
+      "sha256": "8c90825cde38dffee6fdc0792ad6a70fda0602c9e030a9617f35e78af04b75be",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/throne-void-knight.webp",
+      "sha256": "83967158178d5ede3269ee83fcc3bd3c953e2a885b0c8c69298f195a72feedcc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/trench-apostle.webp",
+      "sha256": "3596150668885a8e43e3bb8acc143ef2d3434c8fbabab0b8ddc4daa69ddf77a7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/undertow-sentinel.webp",
+      "sha256": "7608e2e1d238f722e8f4fb2704ff1d7d1d216bc818d2a45a831dce3c70df514e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/volcano-ash-golem.webp",
+      "sha256": "0f26e2cc1adbcd92145e27957f5d489e4fa11bd4884495e7d7c36f492e94bec0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/volcano-ash-hound.webp",
+      "sha256": "585a0edca358d1b0c9084595a851d69b1c9634067d44fbaeef9af303cf48254e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/volcano-firebird.webp",
+      "sha256": "6d0f9c79294da9dc1242a29cfdcf7551bebf247cd8fec5e130ef6ddbd8bfcf5e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/volcano-flame-lizard.webp",
+      "sha256": "78da0be906c6efc85265a7bfba3782c83b9f51a05ebf5dd31df5f18c77c1f58a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/war-armored-bison.webp",
+      "sha256": "13f79baa7aa3c520040f397b1033c1d070f7004fa57665b84d8847584ec9fb62",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/volcanicheart.webp",
+      "sha256": "9b44b6c95c21083603c509f87b2985aa8a4a4e907919f74f5e221eb41b00582e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/wandering_maid.webp",
+      "sha256": "d304baa6f43012e809d10ec9ce627c11a47f4d3c46e6b88e166233aec7ac0b18",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/wilddog.webp",
+      "sha256": "028e44e6695bee5cf01d7d42154c13b0eabebc2353d64b4735f5e39fdeb0795e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/wolfchieftain.webp",
+      "sha256": "ad87008f8cc4d877193055f55df3051a6536e74900e0a9d0a84f6129606eb7e4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/wraith.webp",
+      "sha256": "bb0b9f9d238a200dff88bbf443cdb017a8b95deca7c10583a7efd073e9987f0b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/bakwoon.webp",
+      "sha256": "2d08a86619e35e892e67cb9d196fbfc8533eb9c3c09b98518b3cea87cd7196a7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/bold.webp",
+      "sha256": "c04f3ff424e7e3e6833f71b25a42d6475708c4578a21ec0c257b2b69bac63d12",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/bomal.webp",
+      "sha256": "38fa0268f1c9c50cb75cfd3f29a07180d8d766e16a0eb43156a5593ce3e73d7f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/boro.webp",
+      "sha256": "db2af90742f5343160105eb0199eb015e1478972f085458726ee4c47d51e8d04",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/chungram.webp",
+      "sha256": "9a6ffe288e811914c38ee2bd68b3147261a807bda231ff38a246841544ff9225",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/doyeon.webp",
+      "sha256": "a9adea14bce7bfc82c595ef7f9fad2c010cd67e570467fb1dc7ebaccd7d82cb4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/duru.webp",
+      "sha256": "5786e7b9252c888490da2950844b782682cd0933ef5129c3e581ea87b51073f7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/galmae.webp",
+      "sha256": "ff6a67b2aac463a47a766aaf7b08727c807d1f58f099a4c47d03f68110832255",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/gum.webp",
+      "sha256": "7836fcb58a721acf7a5b289c0b798526ee6803a554d548d403abd0ba195e110e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/haemoo.webp",
+      "sha256": "1141856ad7bbd72289ba9b818a4a4692915446171cdf03531adf9ab02b23648d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/haerang.webp",
+      "sha256": "1d88347a5069df9570124404a026346d86b80a2eab1bd7f0028a54fabee08188",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/hoodguy.webp",
+      "sha256": "dc2bbaa7d6e8247511591b10cc4176e39bb4a09bdfb7c6bdcd8055e193d6a54f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/jimmy.webp",
+      "sha256": "1bd47b5a7ac591c86b4fbb114f55a251e4ba7365d73adaa157fa41c200b2110d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/kai.webp",
+      "sha256": "40f1f4f3d5c5496c3719474716039d2f2f2ae457110a072738755463fa733485",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/manwar.webp",
+      "sha256": "27b306206a1680f6edfc3ea8ff08d119afcc8f6d1d3f47ec07d0f9f473240510",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/marin.webp",
+      "sha256": "e995c3ce00d37f56b4edaa750895adb5ac59217180d0fbfa9b3726ba3dc45580",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/maro.webp",
+      "sha256": "d98f3520c962fa83cc2000e7200d33198241d1ef3502ae50367e602f2e940f9d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/mirr.webp",
+      "sha256": "f6456036d3083dff4314a55e836eaeb079b592da52949bb3312fa64bfb6857ff",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/mujin.webp",
+      "sha256": "21b9af9414d7a476e0a1416a56df8e4d1f28108f4791d636c09d0907dba4fdd0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/narae.webp",
+      "sha256": "d03d6f740e9986ac7b154e371929c5ed738bf9919e51c91790302948322b768a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/noeul.webp",
+      "sha256": "2c835bc98cbab606092b84a672aca2d03268b112ddf805805df6f49ecdbaf4dc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/nora.webp",
+      "sha256": "56fe3f2b53c570e7f5bf3c4c68b054c44076b1a1c4f6e5253dadd0301df436e0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/pilgrim.webp",
+      "sha256": "e14f3db373d896c0ef7f48b9c2de25243c11e8a5d1e9ad0ebe8731be15a33a12",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/rio.webp",
+      "sha256": "d375a3831e1ebbaf3f29de2e9ccf5a3b14fb29b937575569a99aebbbdcf70082",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/sanha.webp",
+      "sha256": "7e6c702213c76b38b2d95bd1ac521c91280a39f8a8c6615c5fcb0270ac309b5e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/sion.webp",
+      "sha256": "e8a244d094c4e7de3baa339a322a3e85f636d245275be29600e25b44b944bb89",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/smith.webp",
+      "sha256": "68e074a2a258d3f7b6178a047b1e18d631249b6d8193c29d9aa9a11c3a46e6e7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/solgae.webp",
+      "sha256": "d8e4c5ecd1fe1a1fb2145c47512e5ff0d2d2349923d344e152088fa548bd0521",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/suzy.webp",
+      "sha256": "85e7d281022e5d3f193abf099f955b2fa4672d1f1723e72b9676e8df505ac10e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/unha.webp",
+      "sha256": "012d97db31bc2f7f23adc9264d79f320a5e6ee6b9758041e338a496c4c9d3e33",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/vory.webp",
+      "sha256": "2f4b0b0c2e35309835f56e52166cf0283e06f9f96944b1277930c6c490a62b3f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/windavalebard.webp",
+      "sha256": "b6390509faa775e5693c2be84620c74e1e789fffc08afef984922417a56a80d4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/yeowool.webp",
+      "sha256": "e1cda376fb7cbdc0a93037166538acd796ad79fa026d4bc24e688342b3847b16",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/npc/yousung.webp",
+      "sha256": "053af2f05f315e9937f81f33717b79bc48d62f4b4f3b0d8c762e554b1a5d78a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/apex_throne.webp",
+      "sha256": "a65683eca30208892b8e2271e012627d1e83dd078690add04483fe6941d424f3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/arena.webp",
+      "sha256": "301c9b6b05b17f7ae7dc90ca1f25788fc20e92ef2fc29a3ebc3d5e9957da7484",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/ashen_pass.webp",
+      "sha256": "3a9cb29e0da148592c5a3502b34001f243ff5cf7e51979e11f4acca4183ea8c4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/bank.webp",
+      "sha256": "b273ce61be65b51ad4b1cd7598f6258cb5e798a6062c272b8183852a3928e702",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/battle.webp",
+      "sha256": "3d9ab9e76ce7040b011733acbe3fcd5fa9034f7ff3d483a9fd54a0ef42becc82",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/bone_marches.webp",
+      "sha256": "095d0a9ab3be884248469917a8a3fed8616077459a8a8b67931796ecdf1c7286",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/canyon.webp",
+      "sha256": "777deb0c6b287333c07b9cb60196172beb8308b4a4a7ac40379406019b30a9f5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/cave.webp",
+      "sha256": "c41d166bc1e238fd62068063c2ba56be7ad816391a4f53b149b8c10e0b65fb2f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/cloud_plain.webp",
+      "sha256": "fe9227292b95db016c90547b5ae6055add038e107a9a1ffaa896786c01a8376e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/deep_cave.webp",
+      "sha256": "738630a636be1096e2dbe27e28eaeedd65c8384061973acf3bcee4ee6202bd95",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/diola.webp",
+      "sha256": "99dabb8f038527266db4013c57c9a8d5655162f3d59325449a9a2ebd13c5630d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/dragon_nest.webp",
+      "sha256": "ab2bdec837bb149316245bd5ee458a370b4653ce6eb88555dbe66b13ea762e90",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/dustford.webp",
+      "sha256": "f47fb6a46c452d7bb75045d8d45edd047db80be0456a5f43346cf940f38683c4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/farm.webp",
+      "sha256": "8f20fa704fcb9158fdc28f47d3a9b4d4e95fc1c6b260a0a34d5707b1109f70d4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/fishing-pond.webp",
+      "sha256": "45cd903c797d713389f43bcb45068f6aa81b09c09dd357b192e7129792297add",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/fishing.webp",
+      "sha256": "1971a00dd96749429682ac0f1dc01a8cccd8300baf84c8411f6e83d30bb16eb5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/forest.webp",
+      "sha256": "93bd31f202b7fc0bc2aa9c174041f5ff53fbd446b73d3901d0005a0083cf7645",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/forge.webp",
+      "sha256": "3ef754f9e75a88f4801d2dcdf24ce2a8f650d477707751db0004481fdac1ef44",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/forgotten_seal.webp",
+      "sha256": "46da50a043d55b35d27fec3a08de0c0f585b0dbfe78010f81179abbd7f70e905",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/guild.webp",
+      "sha256": "7f1f41d52db70a3afebb04925704f4e4e8cd3e72e10b20bf559d556b9ade0bb7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/healingcenter.webp",
+      "sha256": "97948c4363fd676731c508d37864ebb3f6d0db3e3829d0c904d02f7b0f010586",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/highland.webp",
+      "sha256": "c67b8b017801b5f2c9a0deec3c07c89dbfa7b373a22f01d18e61e34daba8fcee",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/hunt.webp",
+      "sha256": "a35c2879c9ec4402dbad7aa43305dbe6cad75c0e37eac490903de09cc698282d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/lake.webp",
+      "sha256": "44e5da5309deb4d17c5bcba513070235c7d490be8b3c53a373789de2bc806fa0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/manual.webp",
+      "sha256": "fd9fa55998454a093debb44b307178e389877200648dc642757843e47dc929d5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/masterytower.webp",
+      "sha256": "120d9e0a02de4598a3f9299997d0fb60af47dc2a3443c5432262b8e84174df50",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/mining-ores.webp",
+      "sha256": "8068b95f9b868e660a07be9c45c50cbceb8b455f51508cacf20c69ce638535a7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/mining-pickaxe.webp",
+      "sha256": "301206b50caa0142d2363601f23e58501932fb2b98acfd4568776124a4100be2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/oldwall_keep.webp",
+      "sha256": "51ab8710a4b4663a03ecfc45e3a3753f623077fe78289b034df20341f1200ccc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/phoenix_ridge.webp",
+      "sha256": "f5f268b8c664436557b848e3cb09c7247dbad6504c3886b6cefd843ce18682e4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/plains.webp",
+      "sha256": "6b353ab1cf5155caf688a9e508fc42c4a8b2af8d18b5b70a2d998fb70a33872d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/celestial-art.webp",
+      "sha256": "155d9a5b8b955af0bf7ba20dde0a53289a97624e4884e29c88fba096c797bee4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/celestial-constellations.svg",
+      "sha256": "a9c268cc8c3798086e94cc535cc96407017ae9fa40db778dc9ba1154a9e12b39",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/celestial.svg",
+      "sha256": "5bde1ee80a2588750502e34d904b59db47ff809a3a7004d707c75f08068c9dd2",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/frozen-art.webp",
+      "sha256": "998a1d725d578b2521b7e5c7efe91dc6e27b2bc760c78eacac51f2a2a3a6edb6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/frozen.svg",
+      "sha256": "50ff8f1264e7aa9524b26f1e9a574d4b87635bde072ac45ae7d0f4ad01487670",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/infernal-art.webp",
+      "sha256": "ae28186b2d16e3406978353ba9dd22fb23eb6ec6bf15e6b1a39252a3c477069e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/infernal.svg",
+      "sha256": "c28ee6509f92d488e559f28369e1d5a5f57c68be0bc1ca7f101787b502f68bbe",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/obsidian-art.webp",
+      "sha256": "dd4a7a3ed8241d49f8b50910ff801558ca4e0e2dc123ddaf236fd61509a739fb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/obsidian-emblem.webp",
+      "sha256": "da9141e1b75df20fc69b4e9741a8b4058e17d7ce23b213d7063db2f14e830ce1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/oceanic-art.webp",
+      "sha256": "3e0fb449aa889617d90b2a4caa66f5851da9fad5095479409d4b21a8fb877502",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/oceanic.svg",
+      "sha256": "51a70b3f3422dafa4a3e7a29d4b4ef09506a0dc80c314b48ead58151b313d381",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/prismatic.svg",
+      "sha256": "36371dc21a33a0753c534eba7ae1df2f8b1a5425de24f39f8c35eb8cc5a0cfa3",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/rose-art.webp",
+      "sha256": "81e2398df813b7a9b3cafa940b3cd2f1595f9b9caf0a0c8daa71c65cfb0dcf47",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/rose.svg",
+      "sha256": "dfb9eb72104ae2c66e2ba763f10e87e5e2a63860830c2c3d37281d93894a2cf8",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/royal-art.webp",
+      "sha256": "64d103037b4d7b8ab5c2f5b4ee3065145806e1645d38789af8ec4b17aaded270",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/royal-emblem.webp",
+      "sha256": "6941abbfe3a2f1a13053e48c8b826e344a9cfb94e6e4b7da642d4669e9383d55",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/storm-art.webp",
+      "sha256": "8882c189cac92a765cc1abcb7a28bbd5c214662b49c01a07b82b234bf9f41787",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/storm.svg",
+      "sha256": "a7f41f50ab9c0bf4b075085d86fdf790c597de3b6639265b4c994fab8788355a",
+      "source": "repository-authored-vector"
+    },
+    {
+      "path": "public/images/ui/profile-decorations/verdant-leaf-demo.webp",
+      "sha256": "ab3a92b91a75d839a2d62782f6a9aac4d7598a782f419f13f5dcf76c7d5b2b59",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/quarry.webp",
+      "sha256": "6c8c3128a71088b069af22c7872ff59ad41d34e1229d4dffa261f738b0a36fba",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/reef_isle.webp",
+      "sha256": "16e618efb1baf595991ae239bd73edd9e6cf014f576ce0d9b4720d3ef2ffa06a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/ruins.webp",
+      "sha256": "e2e8047f5e8f6852a139c5b5b0ec916a1fc91ade18ea25db55867ae74a59d84d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/saltmarsh.webp",
+      "sha256": "5f81a60953193f729734294af515119a9aae6e812e1859b595e608dd4ef6fe22",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/scalefall_barrows.webp",
+      "sha256": "1a646e88b332ba779fc1c60ed2e13eba826a1ded8f98bba1ffb1a56cd8a3904e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/shop.webp",
+      "sha256": "3a96b69d82f82a7493fda6c315d59a5b92d85ca606e17074ce8f66ca52054309",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/skyfolk_ruins.webp",
+      "sha256": "06ee698964b340e84632e2f5cb2bed04256a1aab0eb038aace2c42423a7aea94",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/skyreach.webp",
+      "sha256": "a6ff0ec1164d379c1f36e4ec2725e52b5d0aa1cd9fb7b0a3ef682948e180fb4c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/star_corridor.webp",
+      "sha256": "415135c2cf9b02befd72a791bcbe359de19d1dabe775e272c887a4b2bbe0cfae",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/star_haven.webp",
+      "sha256": "dd0fa8392e36e62798249c3159097a6745a70940a90135f189bcb7205a2310b8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/starfall_cave.webp",
+      "sha256": "fd3d6dd55a7457b49f5ff5795bec5402e7dd47e2eab00e817b962524a2e8ee9b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/starlit_canyon.webp",
+      "sha256": "141ee818a4046aa078bab152eb783c16f1ef19170380327e875b97f29109f0aa",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/starlit_crossroads.webp",
+      "sha256": "fcff3949bd6f4c57544553b9cb5b8f5264e2aff9a44c00b0b69cb2a914311b9c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/starlit_keep.webp",
+      "sha256": "ee41db9fd8fa073c3302b5cabd44666f02e19c6d6e0eef020c3194c03d89efca",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/starlit_reef.webp",
+      "sha256": "d4fc45a65ee3f582e0fddf723c4bf448063953d3d48ed63a90cdadec48d02429",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/starspire.webp",
+      "sha256": "6a51c3c38d50fcb9955cc1f41e7c394471b316a750410a9fa1140c041492697e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/throne_road.webp",
+      "sha256": "d8398a655fa72897d48856adc7f2d56cf9677d55badd69ec4a1f8810c46fd875",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/tideflats.webp",
+      "sha256": "0038b1cad843365e0f0d1a61c43d5dae193e56260409c57ee72a8d664eee2f3f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/tower_foot.webp",
+      "sha256": "1e1be6925399aa02c12cfe9f41dd8c7db9c3385c405f88f9c1316dd8953c5bd7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/townhall.webp",
+      "sha256": "3677238d7d56c4104323b2eef7b73f084375b22f01c72169644a3c3dba52e78f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/unhyang.webp",
+      "sha256": "1159b5b4f318cf9c4fdafb1893f7be69a12c7b8694cb22ded721f23797b855c8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/village.webp",
+      "sha256": "3016bcba5ae725f16c93520bba3da031491b724f21c934aa8438094193bc0e20",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/volcanic_badlands.webp",
+      "sha256": "1800cfd4da073309e854204449c721c48d5db019b42ce6a422b68eea59db4329",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/westgate.webp",
+      "sha256": "50c2103558b6459128668601c70092f2ac1778a49f25da4085ea46bde5934f91",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/windvale.webp",
+      "sha256": "2fd292584895be6628685687c9bbee396e95970ee66816fe94a0792ab79464d7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/woodcutting-axe.webp",
+      "sha256": "7d5d5181aef65c5127143e810816b5c333a7ccf5a45242baec44ba473f778839",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/woodcutting-trees.webp",
+      "sha256": "25abe00ef40c8e110a29a5e2d0621a1ab1a4c6bf50dfe8f58618f30b54331f26",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/og-20260722.jpg",
+      "sha256": "c5d062e3a83c7d8b0adc33eb8e4a03658d4e23446a38b63ad0390b685cd1457f",
+      "source": "operator-cleared-brand-art"
+    },
+    {
+      "path": "public/og-question-20260723.jpg",
+      "sha256": "0eede3363b9b693269e4779ddaffa7fbfc2cc269d32594e07d33e0ff1414fbba",
+      "source": "operator-cleared-brand-art"
+    },
+    {
+      "path": "public/og-shield-20260723.jpg",
+      "sha256": "0131fa8691fde8283b61326b8bec67e8196d75662cb49f5cb091fca428429392",
+      "source": "operator-cleared-brand-art"
+    },
+    {
+      "path": "public/og.jpg",
+      "sha256": "d584daee068bbc6419ddd0e51db4d65529854a732b23b42a64f35c3558d3071d",
+      "source": "operator-cleared-brand-art"
+    }
+  ]
+}

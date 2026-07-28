@@ -60,8 +60,8 @@ beforeEach(() => {
     jobs: {},
   });
   vi.mocked(lockGuildFacilityDonationProgress).mockResolvedValue({
-    crop: 250,
-    ore: 250,
+    crop: 500,
+    ore: 500,
   });
 });
 
@@ -88,8 +88,8 @@ describe("길드 시설 업그레이드 완료", () => {
 
   it("기부 재료가 덜 모였으면 완료할 수 없고 진행도는 유지한다", async () => {
     vi.mocked(lockGuildFacilityDonationProgress).mockResolvedValue({
-      crop: 249,
-      ore: 250,
+      crop: 499,
+      ore: 500,
     });
 
     const response = await POST(new Request("http://localhost"), ctx);

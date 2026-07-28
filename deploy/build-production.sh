@@ -7,6 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PREVIOUS_BUILD=".next.previous"
+ENV_PATH="${PRODUCTION_ENV_PATH:-/run/adventure-rpg/production.env}"
 
 restore_previous_build() {
   local build_status=$?
@@ -27,7 +28,8 @@ if [ -d .next ]; then
   mv .next "$PREVIOUS_BUILD"
 fi
 
-NODE_OPTIONS=--max-old-space-size=2048 npm run build
+NODE_OPTIONS=--max-old-space-size=2048 \
+  node --env-file="$ENV_PATH" "$(command -v npm)" run build
 
 rm -rf "$PREVIOUS_BUILD"
 trap - EXIT

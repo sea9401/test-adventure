@@ -8,11 +8,8 @@ name: Deploy to EC2
 # 필요한 GitHub Secrets (Settings → Secrets and variables → Actions):
 #   EC2_HOST    — EC2 의 고정 IP 또는 도메인 (예: 54.180.28.29)
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
-#   TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY — Cloudflare Turnstile 위젯 키
-#   HCAPTCHA_SITE_KEY, HCAPTCHA_SECRET_KEY — 강신호용 2단계 CAPTCHA 키(선택)
-#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME — 길드 엠블럼 저장소
-#   OPS_ALERT_WEBHOOK_URL — 운영 이상 신호·크론 실패 수신 webhook(선택, 미설정 시 로그만 기록)
-#   REVIEW_LOGIN_ID, REVIEW_LOGIN_PASSWORD, REVIEW_LOGIN_USER_EMAIL — 심사용 기존 카카오 계정 로그인(선택, 세 값 함께 설정)
+#   OPS_ALERT_WEBHOOK_URL — 외부 공개 표면 검사 실패 알림 전용(선택)
+# 앱 런타임 비밀값은 EC2에서 SSM /adventure-rpg/production/env를 직접 읽는다.
 on:
   workflow_run:
     workflows: [CI]
@@ -74,24 +71,11 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
-          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
-          TURNSTILE_EXPECTED_HOSTNAMES: msmsge.com,www.msmsge.com
-          HCAPTCHA_SITE_KEY: ${{ secrets.HCAPTCHA_SITE_KEY }}
-          HCAPTCHA_SECRET_KEY: ${{ secrets.HCAPTCHA_SECRET_KEY }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-          OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
-          REVIEW_LOGIN_ID: ${{ secrets.REVIEW_LOGIN_ID }}
-          REVIEW_LOGIN_PASSWORD: ${{ secrets.REVIEW_LOGIN_PASSWORD }}
-          REVIEW_LOGIN_USER_EMAIL: ${{ secrets.REVIEW_LOGIN_USER_EMAIL }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GH_TOKEN,DEPLOY_SHA,TURNSTILE_SITE_KEY,TURNSTILE_SECRET_KEY,TURNSTILE_EXPECTED_HOSTNAMES,HCAPTCHA_SITE_KEY,HCAPTCHA_SECRET_KEY,R2_ACCOUNT_ID,R2_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY,R2_BUCKET_NAME,OPS_ALERT_WEBHOOK_URL,REVIEW_LOGIN_ID,REVIEW_LOGIN_PASSWORD,REVIEW_LOGIN_USER_EMAIL
+          envs: GH_TOKEN,DEPLOY_SHA
           script_stop: true
           command_timeout: 30m
           script: |
@@ -105,14 +89,17 @@ jobs:
             echo "▶ [prod] cleanup stale Next builds"
             # SSH command timeout 뒤 원격에 남은 빌드가 다음 배포와 메모리를 다투지 않게 한다.
             pkill -f '[n]ext build' || true
-            echo "▶ [prod] sync anti-macro environment"
-            node scripts/sync-production-turnstile-env.mjs .env.production.local
+            PRODUCTION_ENV_PATH=/run/adventure-rpg/production.env
+            export PRODUCTION_ENV_PATH
+            echo "▶ [prod] sync production env from SSM"
+            sudo install -d -o ec2-user -g ec2-user -m 0700 /run/adventure-rpg
+            node scripts/sync-production-env-from-ssm.mjs "$PRODUCTION_ENV_PATH"
             echo "▶ [prod] install AWS RDS CA bundle"
-            DATABASE_CA_CERT_PATH=$(grep '^DATABASE_CA_CERT_PATH=' .env.production.local | cut -d= -f2- | tr -d '"')
+            DATABASE_CA_CERT_PATH=$(grep '^DATABASE_CA_CERT_PATH=' "$PRODUCTION_ENV_PATH" | cut -d= -f2- | tr -d '"')
             export DATABASE_CA_CERT_PATH
             bash deploy/install-rds-ca.sh
-            echo "▶ [prod] anti-macro env preflight"
-            node --env-file=.env.production.local scripts/check-production-env.mjs
+            echo "▶ [prod] production env preflight"
+            node --env-file="$PRODUCTION_ENV_PATH" scripts/check-production-env.mjs
             echo "▶ [prod] nginx maintenance on"
             bash deploy/maintenance.sh on
             trap 'bash deploy/maintenance.sh off || true' EXIT
@@ -121,8 +108,10 @@ jobs:
             echo "▶ [prod] build"
             bash deploy/build-production.sh
             echo "▶ [prod] db migrate"
-            node --env-file=.env.production.local src/db/migrate.mjs
+            node --env-file="$PRODUCTION_ENV_PATH" src/db/migrate.mjs
             echo "▶ [prod] sync systemd unit"
+            sudo install -d -m 0755 /usr/local/libexec/adventure-rpg
+            sudo install -m 0755 scripts/sync-production-env-from-ssm.mjs /usr/local/libexec/adventure-rpg/sync-production-env-from-ssm.mjs
             sudo install -m 0644 deploy/adventure-rpg.service /etc/systemd/system/adventure-rpg.service
             sudo install -m 0644 deploy/adventure-resource-monitor.service /etc/systemd/system/adventure-resource-monitor.service
             sudo install -m 0644 deploy/adventure-resource-monitor.timer /etc/systemd/system/adventure-resource-monitor.timer
@@ -143,7 +132,7 @@ jobs:
             sc=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/sign-in || echo 000)
             [ "$sc" = "200" ] || { echo "✗ SMOKE FAIL: /sign-in → $sc"; exit 1; }
             echo "  /sign-in 200"
-            CRON_SECRET=$(grep '^CRON_SECRET=' .env.production.local | cut -d= -f2- | tr -d '"')
+            CRON_SECRET=$(grep '^CRON_SECRET=' "$PRODUCTION_ENV_PATH" | cut -d= -f2- | tr -d '"')
             ops=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 -X POST -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/v2/cron/deploy-smoke || echo 000)
             [ "$ops" = "200" ] || { echo "✗ SMOKE FAIL: deploy-smoke → $ops"; exit 1; }
             echo "  deploy-smoke 200"

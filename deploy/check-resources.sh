@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-ENV_PATH="${RESOURCE_MONITOR_ENV_PATH:-.env.production.local}"
+ENV_PATH="${RESOURCE_MONITOR_ENV_PATH:-/run/adventure-rpg/production.env}"
 STATE_PATH="${RESOURCE_MONITOR_STATE_PATH:-/tmp/adventure-resource-monitor.state}"
 ALERT_COOLDOWN_SECONDS="${RESOURCE_ALERT_COOLDOWN_SECONDS:-1800}"
 LOAD_MAX_PCT="${RESOURCE_LOAD_MAX_PCT:-90}"

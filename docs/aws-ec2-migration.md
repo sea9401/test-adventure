@@ -15,20 +15,21 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 | 디스크 | EBS gp3 20 GiB |
 | 스왑 | `/swapfile` 2 GiB (빌드 OOM 방지) |
 | 도메인 | `msmsge.com` (Route 53 등록 + 호스팅 영역) — A 레코드 `msmsge.com`, `www` → `54.180.28.29` |
-| 런타임 | Node.js 22 (NodeSource), `npm start` (= `next start`, 포트 3000) |
+| 런타임 | Node.js 22 (NodeSource), `next start`, 포트 3000 |
 | 프로세스 관리 | systemd 유닛 `adventure-rpg.service` (`Restart=always`, `enable`) |
 | 리버스 프록시 | nginx, `/etc/nginx/conf.d/msmsge.conf` → `127.0.0.1:3000` |
 | HTTPS | Let's Encrypt (`certbot --nginx`), 자동갱신 `certbot-renew.timer` |
 | 크론 | `ec2-user` crontab (vercel.json crons 대체) — `crond`(cronie) |
 | 코드 위치 | `/home/ec2-user/adventure-rpg` (GitHub `sea9401/adventure` 의 deploy key 로 clone) |
-| 환경변수 | `/home/ec2-user/adventure-rpg/.env.production.local` (`chmod 600`, git 미추적) |
+| 환경변수 원본 | SSM SecureString `/adventure-rpg/production/env` |
+| 환경변수 런타임 캐시 | `/run/adventure-rpg/production.env` (디렉터리 `700`, 파일 `600`) |
 | 배포 | `main` push → GitHub Actions(`.github/workflows/deploy.yml`) → SSH → `git reset --hard origin/main` → `npm ci` → `db:migrate` → `npm run build` → `systemctl restart` |
 
 `deploy/` 폴더의 파일들: `adventure-rpg.service`, `nginx-adventure-rpg.conf`, `crontab.txt` (참조용), `deploy.sh` (수동 배포용).
 
-### 환경변수 (`.env.production.local`)
+### 환경변수 (AWS SSM Parameter Store)
 앱이 실제로 쓰는 것: `AUTH_SECRET`, `AUTH_KAKAO_ID/SECRET`, `DATABASE_URL`(Neon), `ADMIN_EMAILS`, `CRON_SECRET`. EC2 추가분: `AUTH_URL=https://msmsge.com`, `AUTH_TRUST_HOST=true`, `NODE_ENV=production`. Google 로그인은 정식 출시 설정에서 제외되어 `AUTH_GOOGLE_ID/SECRET`을 읽지 않는다. (Vercel pull 파일의 `CLERK_*`, `TURBO_*`, `VERCEL_*` 등은 미사용 — 옮길 필요 없음.)
-`db:migrate`(`node src/db/migrate.mjs`)는 `.env` 를 자동 로드하지 않으므로 항상 `node --env-file=.env.production.local src/db/migrate.mjs` 로 실행 (배포 워크플로가 그렇게 함).
+systemd와 배포는 SSM 값을 `/run/adventure-rpg/production.env`로 동기화한다. `db:migrate`(`node src/db/migrate.mjs`)는 `.env`를 자동 로드하지 않으므로 항상 `node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs`로 실행한다. 상세 구조는 `docs/production-secrets.md` 참고.
 
 ## 배포 (일상)
 
@@ -51,7 +52,7 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 | 인증서 갱신 테스트 | `sudo certbot renew --dry-run` |
 | 크론 목록 | `crontab -l` |
 | 크론 실행 로그 | `sudo journalctl --since '5 min ago' \| grep CROND` |
-| DB 마이그레이션만 | `cd ~/adventure-rpg && node --env-file=.env.production.local src/db/migrate.mjs` |
+| DB 마이그레이션만 | `cd ~/adventure-rpg && node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs` |
 | 헬스체크 | `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/api/health` |
 
 ## 처음부터 다시 세팅해야 한다면 (요약)
@@ -60,7 +61,7 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 2. **Route 53**: 도메인 등록(또는 외부 도메인의 NS 를 Route 53 으로) → 호스팅 영역에 A 레코드 `@`, `www` → EIP.
 3. **인스턴스 셋업**: 스왑 2 GiB → `dnf install -y git nginx cronie` + Node 22(NodeSource) → `useradd` 불필요(ec2-user 사용).
 4. **코드**: GitHub repo Settings → Deploy keys 에 서버의 `~/.ssh/github_deploy.pub` 등록 → `git clone git@github.com:sea9401/adventure.git ~/adventure-rpg`.
-5. **env**: `.env.production.local` 작성 (`chmod 600`). `node --env-file=.env.production.local src/db/migrate.mjs` → `npm ci && npm run build`.
+5. **env**: SSM SecureString과 EC2 읽기 전용 IAM 정책 구성. 동기화 후 `node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs` → 배포 스크립트로 빌드.
 6. **systemd**: `deploy/adventure-rpg.service` → `/etc/systemd/system/` → `daemon-reload; enable --now adventure-rpg`.
 7. **nginx + HTTPS**: `deploy/nginx-adventure-rpg.conf` → `/etc/nginx/conf.d/msmsge.conf` (server_name 교체) → `systemctl enable --now nginx` → `dnf install -y certbot python3-certbot-nginx` → `certbot --nginx -d msmsge.com -d www.msmsge.com` → `systemctl enable --now certbot-renew.timer`.
 8. **크론**: `systemctl enable --now crond` → `deploy/crontab.txt` 상단 주석의 등록 스크립트 실행.
@@ -69,7 +70,7 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 
 ## 미해결 / TODO
 
-- 채팅 로그에 노출됐던 사용 중 비밀값 교체: `AUTH_SECRET`, `AUTH_KAKAO_SECRET`, `DATABASE_URL` 비밀번호, `CRON_SECRET`. 저장소 이력 감사·재유출 방지 CI는 완료했고 실제 교체 절차는 `docs/credential-rotation.md`에 있다. 현재 크론은 각 실행 때 `.env.production.local`을 읽으므로 crontab에 비밀값을 중복 수정하지 않는다. 사용하지 않는 `AUTH_GOOGLE_ID/SECRET`은 운영 env에서 제거한다.
+- 비밀값 감사·재유출 방지·내부 키 회전과 Google 잔존 키 제거는 완료했다. Kakao와 RDS 공급자 키 회전 절차는 `docs/credential-rotation.md`에 있다. 현재 크론은 각 실행 때 `/run/adventure-rpg/production.env`를 읽으므로 crontab에 비밀값을 중복하지 않는다.
 - Vercel 프로젝트 일시중지/삭제 (전환 안정화 확인 후) → 과금 중단.
 - DB(Neon)가 `ap-southeast-1` 이라 서울 EC2 와 리전이 다름 — 지연 신경 쓰이면 Neon 프로젝트를 `ap-northeast-2` 로 이전 고려 (선택).
 - 백업: Neon 은 자체 PITR. EC2 는 AMI 스냅샷 1회 떠두면 복구 빠름.

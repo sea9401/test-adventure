@@ -6,11 +6,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 echo "▶ deploy: $(date -u +%FT%TZ)"
+PRODUCTION_ENV_PATH="${PRODUCTION_ENV_PATH:-/run/adventure-rpg/production.env}"
+export PRODUCTION_ENV_PATH
 
 echo "▶ git pull"
 git fetch --prune origin
 git checkout main
 git reset --hard origin/main   # 로컬 변경 무시하고 origin/main 에 맞춤
+
+echo "▶ sync production env from SSM"
+sudo install -d -o ec2-user -g ec2-user -m 0700 "$(dirname "$PRODUCTION_ENV_PATH")"
+node scripts/sync-production-env-from-ssm.mjs "$PRODUCTION_ENV_PATH"
+node --env-file="$PRODUCTION_ENV_PATH" scripts/check-production-env.mjs
 
 echo "▶ nginx maintenance on"
 bash deploy/maintenance.sh on
@@ -19,27 +26,26 @@ echo "▶ deps"
 bash deploy/install-deps.sh
 
 echo "▶ install AWS RDS CA bundle"
-DATABASE_CA_CERT_PATH=$(grep '^DATABASE_CA_CERT_PATH=' .env.production.local | cut -d= -f2- | tr -d '"' || true)
+DATABASE_CA_CERT_PATH=$(grep '^DATABASE_CA_CERT_PATH=' "$PRODUCTION_ENV_PATH" | cut -d= -f2- | tr -d '"' || true)
 if [ -z "$DATABASE_CA_CERT_PATH" ]; then
-  echo "✗ .env.production.local에 DATABASE_CA_CERT_PATH를 먼저 설정하세요" >&2
+  echo "✗ SSM production env에 DATABASE_CA_CERT_PATH를 먼저 설정하세요" >&2
   exit 1
 fi
 export DATABASE_CA_CERT_PATH
 bash deploy/install-rds-ca.sh
 
 echo "▶ production env preflight"
-node --env-file=.env.production.local scripts/check-production-env.mjs
-
-echo "▶ clean previous Next build"
-rm -rf .next
+node --env-file="$PRODUCTION_ENV_PATH" scripts/check-production-env.mjs
 
 echo "▶ build"
-npm run build
+bash deploy/build-production.sh
 
 echo "▶ db migrate"
-node --env-file=.env.production.local src/db/migrate.mjs
+node --env-file="$PRODUCTION_ENV_PATH" src/db/migrate.mjs
 
 echo "▶ sync systemd unit"
+sudo install -d -m 0755 /usr/local/libexec/adventure-rpg
+sudo install -m 0755 scripts/sync-production-env-from-ssm.mjs /usr/local/libexec/adventure-rpg/sync-production-env-from-ssm.mjs
 sudo install -m 0644 deploy/adventure-rpg.service /etc/systemd/system/adventure-rpg.service
 sudo install -m 0644 deploy/adventure-resource-monitor.service /etc/systemd/system/adventure-resource-monitor.service
 sudo install -m 0644 deploy/adventure-resource-monitor.timer /etc/systemd/system/adventure-resource-monitor.timer

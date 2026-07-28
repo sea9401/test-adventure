@@ -12,6 +12,8 @@
 #        bash deploy/rollback.sh <sha>     # 그 커밋으로 롤백
 set -eo pipefail
 cd "$(dirname "$0")/.."
+PRODUCTION_ENV_PATH="${PRODUCTION_ENV_PATH:-/run/adventure-rpg/production.env}"
+export PRODUCTION_ENV_PATH
 
 TARGET="${1:-}"
 if [ -z "$TARGET" ]; then
@@ -43,7 +45,8 @@ PROJECT_DIR="$PWD" bash "$MAINTENANCE_TOOL" on
 git reset --hard "$TARGET"
 bash deploy/install-deps.sh
 rm -rf .next
-npm run build
+NODE_OPTIONS=--max-old-space-size=2048 \
+  node --env-file="$PRODUCTION_ENV_PATH" "$(command -v npm)" run build
 sudo systemctl restart adventure-rpg
 ok=0
 for i in $(seq 1 20); do

@@ -1,5 +1,5 @@
 # vercel.json 의 "crons" 를 대체하는 EC2 crontab (ec2-user).
-# 등록 방법 — 각 실행이 `.env.production.local`의 CRON_SECRET과 webhook을 직접 읽는다:
+# 등록 방법 — 각 실행이 `/run/adventure-rpg/production.env`의 CRON_SECRET과 webhook을 직접 읽는다:
 #
 #   C='bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh'
 #   { echo "SHELL=/bin/bash"; echo "CRON_TZ=UTC";

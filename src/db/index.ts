@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import * as schema from "./schema";
 import { createDatabaseConnectionOptions } from "./databaseTls.mjs";
 
-// DATABASE_URL 은 EC2 의 .env.production.local 에서 주입.
+// DATABASE_URL 은 운영에서 AWS SSM을 거친 systemd 런타임 환경으로 주입.
 // 로컬 개발은 .env.development.local 에 Aurora endpoint 작성.
 let pool: Pool | null = null;
 function getPool(): Pool {

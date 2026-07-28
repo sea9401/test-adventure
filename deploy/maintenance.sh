@@ -9,7 +9,7 @@
 set -euo pipefail
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$PROJECT_DIR"
-ENV_FILE="${ENV_FILE:-.env.production.local}"
+ENV_FILE="${ENV_FILE:-/run/adventure-rpg/production.env}"
 SERVICE="${SERVICE:-adventure-rpg}"
 FLAG_FILE="${FLAG_FILE:-/etc/nginx/msmsge-maintenance.on}"
 SUDO_CMD="${SUDO_CMD-sudo}"
@@ -40,11 +40,11 @@ case "${1:-}" in
     echo "health: $(health_code)  (정상 운영 중이면 200)"
     ;;
   off)
-    # 예전 앱-레벨 토글이 남아 있으면 nginx 가림막 아래에서 먼저 해제한다.
+    # SSM 원본에 예전 앱-레벨 토글이 남아 있으면 런타임 캐시만 고쳐서는
+    # 다음 재시작에 되살아난다. 점검 화면을 유지하고 원본 수정을 요구한다.
     if [ "$(legacy_cur)" = "true" ]; then
-      sed -i 's/^MAINTENANCE_MODE=.*/MAINTENANCE_MODE=false/' "$ENV_FILE"
-      echo "→ legacy MAINTENANCE_MODE=false · nginx 점검 화면 아래에서 앱 재시작"
-      $SUDO_CMD $SYSTEMCTL_CMD restart "$SERVICE"
+      echo "ERROR: SSM production env의 MAINTENANCE_MODE=true를 제거한 뒤 재시작하세요." >&2
+      exit 1
     elif ! $SUDO_CMD $SYSTEMCTL_CMD is-active --quiet "$SERVICE"; then
       echo "→ 중지된 앱 시작 · nginx 점검 화면은 계속 유지"
       $SUDO_CMD $SYSTEMCTL_CMD start "$SERVICE"

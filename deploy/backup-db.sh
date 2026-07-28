@@ -9,9 +9,10 @@
 set -eo pipefail
 cd "$(dirname "$0")/.."
 
-DBURL=$(grep "^DATABASE_URL=" .env.production.local | cut -d= -f2- | tr -d '"')
+ENV_PATH="${PRODUCTION_ENV_PATH:-/run/adventure-rpg/production.env}"
+DBURL=$(grep "^DATABASE_URL=" "$ENV_PATH" | cut -d= -f2- | tr -d '"')
 if [ -z "$DBURL" ]; then echo "BACKUP FAIL: DATABASE_URL 없음" >&2; exit 1; fi
-CA_PATH="${DATABASE_CA_CERT_PATH:-$(grep '^DATABASE_CA_CERT_PATH=' .env.production.local | cut -d= -f2- | tr -d '"' || true)}"
+CA_PATH="${DATABASE_CA_CERT_PATH:-$(grep '^DATABASE_CA_CERT_PATH=' "$ENV_PATH" | cut -d= -f2- | tr -d '"' || true)}"
 if [ -z "$CA_PATH" ] || [ ! -r "$CA_PATH" ]; then
   echo "BACKUP FAIL: DATABASE_CA_CERT_PATH가 없거나 읽을 수 없음" >&2
   exit 1
@@ -40,7 +41,7 @@ fi
 
 echo "$(date -u +%FT%TZ) BACKUP OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
-S3_URI="${BACKUP_S3_URI:-$(grep '^BACKUP_S3_URI=' .env.production.local | cut -d= -f2- | tr -d '"' || true)}"
+S3_URI="${BACKUP_S3_URI:-$(grep '^BACKUP_S3_URI=' "$ENV_PATH" | cut -d= -f2- | tr -d '"' || true)}"
 if [ -n "$S3_URI" ]; then
   command -v aws >/dev/null 2>&1 || {
     echo "BACKUP FAIL: BACKUP_S3_URI가 있지만 aws CLI가 없음" >&2

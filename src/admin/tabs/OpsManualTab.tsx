@@ -85,7 +85,7 @@ const SECTIONS = [
       "보상 지급은 reward 또는 super, 제재는 sanction 또는 super 권한이 필요합니다.",
       "운영 메모 작성은 reward, sanction, super 권한에서 가능합니다.",
       "권한 설정 인원수가 0이면 환경 변수 ADMIN_EMAILS 또는 OPS_*_EMAILS를 확인합니다.",
-      "권한 변경은 EC2 .env.production.local 수정 후 서비스 재시작으로 반영합니다.",
+      "권한 변경은 AWS SSM 운영 환경 파라미터 수정 후 서비스 재시작으로 반영합니다.",
       "변경 후 /admin 상단 권한 설정 인원수와 현재 계정 역할을 다시 확인합니다.",
       "읽기 전용 토글이 켜져 있으면 권한이 있어도 변경 버튼은 동작하지 않습니다.",
     ],

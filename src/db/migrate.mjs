@@ -4,7 +4,7 @@
 // 사용:
 //   prebuild 훅: npm run db:migrate
 //   로컬: node --env-file=.env.development.local src/db/migrate.mjs
-//   prod 1회: node --env-file=.env.production.local src/db/migrate.mjs
+//   prod 1회: node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs
 //
 // 동작:
 //   - drizzle.__drizzle_migrations 테이블 보고 미적용 항목만 실행 (idempotent).

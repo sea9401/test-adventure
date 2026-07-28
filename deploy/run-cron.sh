@@ -13,7 +13,7 @@ case "$METHOD" in GET|POST) ;; *) echo "CRON FAIL: method must be GET or POST" >
   exit 2
 }
 
-ENV_PATH="${CRON_ENV_PATH:-.env.production.local}"
+ENV_PATH="${CRON_ENV_PATH:-/run/adventure-rpg/production.env}"
 SECRET="${CRON_SECRET:-$(grep '^CRON_SECRET=' "$ENV_PATH" | cut -d= -f2- | tr -d '"' || true)}"
 if [ -z "$SECRET" ]; then
   echo "CRON FAIL: CRON_SECRET 없음" >&2

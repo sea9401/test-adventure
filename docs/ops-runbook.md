@@ -2,7 +2,7 @@
 
 이 게임을 **운영(배포·DB·장애대응)** 할 때 보는 단일 문서. 2026-06-27 베타 준비 중 실제 인프라를 확인해 정리했다.
 
-> 🔒 **비밀값은 여기 두지 않는다** — 위치만 가리킨다. (DB 비밀번호·OAuth 키·`CRON_SECRET` = EC2 `.env.production.local`, SSH 키 = 로컬 `.pem`.)
+> 🔒 **비밀값은 여기 두지 않는다** — 위치만 가리킨다. (DB 비밀번호·OAuth 키·`CRON_SECRET` = AWS SSM SecureString, SSH 키 = 로컬 `.pem`.)
 > 🔁 사실이 바뀌면(서버 이전·리전 변경 등) 이 문서를 먼저 고친다.
 
 ---
@@ -31,11 +31,12 @@ ssh -i ~/.ssh/msmsge-key.pem ec2-user@54.180.28.29
 
 # DB 접속 (EC2 안에서 — prod URL은 거기에만 있음)
 cd ~/adventure-rpg
-DBURL=$(grep "^DATABASE_URL=" .env.production.local | cut -d= -f2- | tr -d '"')
-CA=$(grep "^DATABASE_CA_CERT_PATH=" .env.production.local | cut -d= -f2- | tr -d '"')
+ENV=/run/adventure-rpg/production.env
+DBURL=$(grep "^DATABASE_URL=" "$ENV" | cut -d= -f2- | tr -d '"')
+CA=$(grep "^DATABASE_CA_CERT_PATH=" "$ENV" | cut -d= -f2- | tr -d '"')
 PGSSLMODE=verify-full PGSSLROOTCERT="$CA" psql "$DBURL"
 ```
-EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node` 있음. 단 **aws CLI 자격증명 없음**(IAM 역할/키 미부착) → AWS 리소스 조작은 콘솔 또는 역할 부착 후.
+EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node`가 있다. AWS 장기 키 대신 인스턴스 역할 `MsmsgeProdDbBackupEc2Role`을 사용하며 S3 백업과 특정 SSM 파라미터 읽기만 허용한다.
 
 ---
 
@@ -111,7 +112,7 @@ cd ~/adventure-rpg && bash deploy/backup-db.sh         # 자동백업 스크립�
 ```bash
 cd ~/adventure-rpg
 bash deploy/install-rds-ca.sh
-# .env.production.local
+# AWS SSM /adventure-rpg/production/env
 DATABASE_CA_CERT_PATH=/etc/pki/rds/global-bundle.pem
 ```
 
@@ -148,7 +149,7 @@ psql "$DBURL" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
   WHERE datname=current_database() AND pid<>pg_backend_pid();"   # 2) 앱 DB 커넥션 종료(DROP 락 경합 방지)
 psql "$DBURL" -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
 psql "$DBURL" -c 'DROP SCHEMA drizzle CASCADE;'           # 🔑 3) 필수! (아래 함정 참고)
-node --env-file=.env.production.local src/db/migrate.mjs  # 4) 현재 마이그레이션 전체 재적용
+node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs  # 4) 현재 마이그레이션 전체 재적용
 bash deploy/maintenance.sh off   # 5) 앱 health 200 확인 후 점검 OFF
 # 검증: public 테이블·drizzle migration 수가 모두 0보다 커야 한다.
 # 2026-07-23 운영 기준은 public 67개, migration log 124개(새 마이그 추가 시 증가).
@@ -174,7 +175,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 - 구현 = `deploy/nginx-maintenance-*.conf`. 사용자 라우트는 플래그 ON일 때 nginx가 503을 직접 반환하고, `/api/health`는 앱 준비 확인을 위해 통과한다.
 - `off`는 로컬 `/api/health`가 200이 될 때까지 최대 60초 기다린다. 준비되지 않으면 실패하고 점검 플래그를 그대로 둔다.
 - 앱을 직접 `stop`한 상태에서 `off`를 실행하면 nginx 화면 아래에서 서비스를 먼저 시작한 뒤 health를 확인한다.
-- 예전 `.env.production.local`의 `MAINTENANCE_MODE=true`가 남아 있으면 `off`가 nginx 가림막 아래에서 false로 바꾸고 앱을 재시작한 뒤 해제한다.
+- 예전 앱 레벨 `MAINTENANCE_MODE`는 SSM 운영 환경에 넣지 않는다. 점검은 nginx 플래그만 사용한다.
 
 ## 5. 헬스 / 모니터링
 - `https://msmsge.com/api/health` → `{ok, db:"ok", ms}` (DB 핑 포함, 실패 시 503). 인증 불필요.
@@ -218,12 +219,15 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 ## 7. 시크릿 · 설정 위치
 | 항목 | 위치 |
 |---|---|
-| `DATABASE_URL`, OAuth(Kakao) 키, `CRON_SECRET` 등 | EC2 `~/adventure-rpg/.env.production.local` (레포·개발박스엔 없음) |
-| `BACKUP_S3_URI` | EC2 `~/adventure-rpg/.env.production.local` · 값은 위 S3 `adventure-rpg/` prefix |
-| S3 백업 권한 | EC2 IAM 역할 `MsmsgeProdDbBackupEc2Role` · 장기 액세스 키 없음 |
-| 배포 SSH·사람 확인 | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` · `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` · 선택 항목 `HCAPTCHA_SITE_KEY` · `HCAPTCHA_SECRET_KEY` (배포 시 EC2 env로 동기화) |
+| `DATABASE_URL`, OAuth(Kakao), CAPTCHA, R2, `CRON_SECRET` 등 | SSM SecureString `/adventure-rpg/production/env` |
+| 실행 중 복호화 캐시 | EC2 `/run/adventure-rpg/production.env` · 디렉터리 `700`, 파일 `600`, 재부팅 시 소멸 |
+| `BACKUP_S3_URI` | 위 SSM 파라미터 · 값은 S3 `adventure-rpg/` prefix |
+| SSM 읽기·S3 백업 권한 | EC2 IAM 역할 `MsmsgeProdDbBackupEc2Role` · 장기 액세스 키 없음 · 특정 리소스만 허용 |
+| 배포 SSH | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` |
 | SSH 키 .pem | 로컬 `~/.ssh/msmsge-key.pem` |
 | 빌드타임 플래그 | tracked `.env.production` (예: `NEXT_PUBLIC_*` 운영 플래그) |
+
+구조와 변경 절차는 `docs/production-secrets.md`를 따른다.
 
 관리자 권한:
 - `ADMIN_EMAILS`: 최고 관리자. 모든 관리자 작업 가능.
@@ -234,7 +238,7 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 장시간 생활 콘텐츠 사람 확인:
 - Cloudflare Turnstile 위젯에 `msmsge.com`을 등록하고 `TURNSTILE_SITE_KEY`,
   `TURNSTILE_SECRET_KEY`, `TURNSTILE_EXPECTED_HOSTNAMES=msmsge.com,www.msmsge.com`을
-  EC2 `.env.production.local`에 설정한다. 세 값 중 하나라도 비어 있으면 배포 사전 검사가 실패한다.
+  SSM 운영 환경 파라미터에 설정한다. 세 값 중 하나라도 비어 있으면 배포 사전 검사가 실패한다.
 - 키를 설정하면 낚시·벌목·채광이 적응형 완료 횟수 또는 연속 60분에
   도달했을 때 다음 변경 요청에서 사람 확인을 요구한다. 토큰은 서버 Siteverify에서
   action과 hostname 일치를 검증한 뒤 즉시 소비한다.
@@ -314,7 +318,7 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 - [ ] CDN/WAF — 현재 Route53 A 레코드가 EC2에 직접 연결됨. CloudFront용 원본
   호스트·ACM 인증서·DNS 전환 및 비용 선택 후 적용. 절차는
   `docs/cdn-waf-rollout.md` 참고
-- [ ] 시크릿을 SSM/Secrets Manager로
+- [x] 시크릿을 SSM Parameter Store SecureString으로 이전 — EC2 역할은 단일 파라미터 읽기만 허용하고 `/run`에만 복호화
 - [ ] 노출 자격증명 로테이션(베타 준비 중 채팅 노출분)
   — 저장소 전체 이력 감사와 재유출 방지 CI는 완료. 실제 교체는
   `docs/credential-rotation.md` 순서로 진행한다.

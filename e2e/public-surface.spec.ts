@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+const LOCAL_ORIGIN = "http://127.0.0.1:3212";
+
 const PUBLIC_PAGES = [
   { path: "/sign-in", heading: "무슨무슨게임", title: "무슨무슨게임" },
   { path: "/terms", heading: "이용약관", title: "이용약관" },
@@ -26,7 +28,7 @@ for (const surface of PUBLIC_PAGES) {
   test(`${surface.path} 공개 화면은 오류·가로 넘침·자동 탐지 접근성 위반이 없다`, async ({
     page,
   }) => {
-    await mockAnonymousSession(page);
+    await preparePublicPage(page);
     const browserErrors = observeBrowserErrors(page);
     const badResponses = observeBadSameOriginResponses(page);
     const response = await page.goto(surface.path);
@@ -54,7 +56,7 @@ for (const surface of PUBLIC_PAGES) {
 }
 
 test("비로그인 루트는 로그인 대문으로 HTTP 리다이렉트한다", async ({ page }) => {
-  await mockAnonymousSession(page);
+  await preparePublicPage(page);
   const response = await page.goto("/");
   const redirectedFrom = response?.request().redirectedFrom();
   const redirectResponse = await redirectedFrom?.response();
@@ -68,7 +70,7 @@ test("비로그인 루트는 로그인 대문으로 HTTP 리다이렉트한다",
 });
 
 test("로그인 대문의 정책 링크를 키보드로 이동할 수 있다", async ({ page }) => {
-  await mockAnonymousSession(page);
+  await preparePublicPage(page);
   await page.goto("/sign-in");
   const termsLink = page.getByRole("link", { name: "이용약관" }).last();
 
@@ -122,6 +124,9 @@ test("로그인 대문에 운영 보안 헤더가 적용된다", async ({ reques
   expect(response.headers()["content-security-policy"]).toContain(
     "default-src 'self'",
   );
+  expect(response.headers()["content-security-policy"]).toContain(
+    "upgrade-insecure-requests",
+  );
   expect(response.headers()["strict-transport-security"]).toContain("max-age=");
   expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   expect(response.headers()["x-frame-options"]).toBe("DENY");
@@ -141,7 +146,34 @@ function observeBrowserErrors(page: Page) {
   return errors;
 }
 
-async function mockAnonymousSession(page: Page) {
+async function preparePublicPage(page: Page) {
+  // Production CSP upgrades every HTTP subresource to HTTPS. The E2E server is
+  // intentionally local HTTP, so WebKit would otherwise request a nonexistent
+  // TLS endpoint and render without CSS/JS. Raw response tests below still
+  // assert that production sends the upgrade directive.
+  await page.route(`${LOCAL_ORIGIN}/**`, async (route) => {
+    const request = route.request();
+    if (
+      request.resourceType() !== "document" ||
+      new URL(request.url()).pathname === "/"
+    ) {
+      await route.fallback();
+      return;
+    }
+
+    const response = await route.fetch();
+    const headers = response.headers();
+    const contentSecurityPolicy = headers["content-security-policy"];
+    if (contentSecurityPolicy) {
+      headers["content-security-policy"] = contentSecurityPolicy
+        .split(";")
+        .map((directive) => directive.trim())
+        .filter((directive) => directive !== "upgrade-insecure-requests")
+        .join("; ");
+    }
+    await route.fulfill({ response, headers });
+  });
+
   await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       status: 200,

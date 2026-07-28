@@ -144,4 +144,19 @@ describe("production security surface", () => {
       expect(guard).toContain(marker);
     }
   });
+
+  it("CI가 데스크톱·모바일 실제 브라우저와 접근성 검사를 실행한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
+    const playwrightConfig = source(join(ROOT, "playwright.config.ts"));
+    const browserTests = source(join(ROOT, "e2e/public-surface.spec.ts"));
+
+    expect(workflow).toContain(
+      "npx playwright install --with-deps chromium webkit",
+    );
+    expect(workflow).toContain("npm run test:e2e");
+    expect(playwrightConfig).toContain('name: "desktop-chromium"');
+    expect(playwrightConfig).toContain('name: "mobile-webkit"');
+    expect(browserTests).toContain("new AxeBuilder({ page })");
+    expect(browserTests).toContain('"wcag22aa"');
+  });
 });

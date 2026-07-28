@@ -45,3 +45,15 @@ jobs:
         run: npm audit --omit=dev --audit-level=moderate
       - name: Production build
         run: npm run build
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Browser E2E and accessibility
+        run: npm run test:e2e
+      - name: Upload Playwright failure report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14

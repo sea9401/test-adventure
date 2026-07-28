@@ -159,7 +159,9 @@ async function buildNotice(packages) {
 
   let fontNotice = "";
   try {
-    fontNotice = (await fs.readFile(FONT_NOTICE_PATH, "utf8")).trim();
+    fontNotice = normalizeLineEndings(
+      await fs.readFile(FONT_NOTICE_PATH, "utf8"),
+    ).trim();
   } catch {
     failures.push("Geist OFL notice file is missing");
   }
@@ -226,7 +228,10 @@ async function readNoticeDocuments(directory) {
     const filePath = path.join(directory, fileName);
     const stat = await fs.stat(filePath);
     if (!stat.isFile()) continue;
-    documents.push({ fileName, text: await fs.readFile(filePath, "utf8") });
+    documents.push({
+      fileName,
+      text: normalizeLineEndings(await fs.readFile(filePath, "utf8")),
+    });
   }
   return documents;
 }
@@ -245,7 +250,7 @@ async function readNestedNoticeDocuments(directory, base = directory, documents 
     } else if (entry.isFile() && NOTICE_FILE_RE.test(entry.name)) {
       documents.push({
         fileName: slash(path.relative(base, fullPath)),
-        text: await fs.readFile(fullPath, "utf8"),
+        text: normalizeLineEndings(await fs.readFile(fullPath, "utf8")),
       });
     }
   }
@@ -264,4 +269,8 @@ function specialSource(name) {
 
 function slash(value) {
   return value.split(path.sep).join("/");
+}
+
+function normalizeLineEndings(value) {
+  return value.replace(/\r\n?/g, "\n");
 }

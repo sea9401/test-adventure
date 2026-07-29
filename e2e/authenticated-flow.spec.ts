@@ -14,9 +14,8 @@ test.skip(
   "격리 PostgreSQL과 E2E_TEST_LOGIN_ID/E2E_TEST_PASSWORD가 필요합니다.",
 );
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async () => {
   await resetAuthenticatedE2eAccount();
-  await prepareLocalHttpPage(page);
 });
 
 test("비밀번호 로그인 후 캐릭터를 만들고 저장한 진행을 재로그인하면 복원한다", async ({
@@ -95,27 +94,4 @@ async function loginWithPassword(page: Page, loginId: string, password: string) 
   await page.getByLabel("아이디", { exact: true }).fill(loginId);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "로그인", exact: true }).click();
-}
-
-async function prepareLocalHttpPage(page: Page) {
-  // 운영 CSP는 HTTP 하위 요청을 HTTPS로 올린다. E2E 서버만 로컬 HTTP이므로 문서
-  // 응답에서 이 지시어만 제거하고 나머지 보안 정책과 실제 서버 응답은 그대로 쓴다.
-  await page.route(`${LOCAL_ORIGIN}/**`, async (route) => {
-    if (route.request().resourceType() !== "document") {
-      await route.fallback();
-      return;
-    }
-
-    const response = await route.fetch({ maxRedirects: 0 });
-    const headers = response.headers();
-    const contentSecurityPolicy = headers["content-security-policy"];
-    if (contentSecurityPolicy) {
-      headers["content-security-policy"] = contentSecurityPolicy
-        .split(";")
-        .map((directive) => directive.trim())
-        .filter((directive) => directive !== "upgrade-insecure-requests")
-        .join("; ");
-    }
-    await route.fulfill({ response, headers });
-  });
 }

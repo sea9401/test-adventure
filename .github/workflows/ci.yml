@@ -68,6 +68,7 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Install Playwright browsers
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium webkit
       - name: Browser E2E and accessibility
         run: npm run test:e2e

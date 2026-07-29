@@ -110,9 +110,11 @@ test("회원 탈퇴는 확인 문구를 요구하고 계정·진행·세션을 �
   });
 
   await loginWithPassword(page, account.loginId, account.password);
-  await expect(page.getByRole("alert")).toHaveText(
-    "아이디 또는 비밀번호를 확인해 주세요.",
-  );
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "아이디 또는 비밀번호를 확인해 주세요." }),
+  ).toHaveText("아이디 또는 비밀번호를 확인해 주세요.");
   await expect(page).toHaveURL(/\/sign-in$/);
 });
 

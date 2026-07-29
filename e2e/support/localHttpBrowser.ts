@@ -1,4 +1,9 @@
 import type { Page } from "@playwright/test";
+import {
+  DEVICE_SESSION_COOKIE,
+  DEVICE_SESSION_COOKIE_MAX_AGE,
+  isValidDeviceSessionId,
+} from "../../src/lib/deviceSessionConfig";
 
 const LOCAL_ORIGIN = "http://localhost:3212";
 
@@ -51,6 +56,26 @@ export async function prepareLocalHttpBrowser(
             : cookie,
         )
         .join("\n");
+    }
+    if (preparesDeviceClaim && response.ok()) {
+      const body = request.postDataJSON() as { sessionId?: unknown };
+      if (!isValidDeviceSessionId(body.sessionId)) {
+        throw new Error("The local E2E device claim has an invalid session ID");
+      }
+      // WebKit does not persist Set-Cookie from a fulfilled intercepted HTTP
+      // response reliably. Mirror the server-approved value into this test
+      // context so the next protected API request observes the claimed device.
+      await page.context().addCookies([
+        {
+          name: DEVICE_SESSION_COOKIE,
+          value: body.sessionId,
+          url: LOCAL_ORIGIN,
+          expires: Date.now() / 1_000 + DEVICE_SESSION_COOKIE_MAX_AGE,
+          httpOnly: true,
+          secure: false,
+          sameSite: "Lax",
+        },
+      ]);
     }
     await route.fulfill({ response, headers });
   });

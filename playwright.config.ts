@@ -36,6 +36,8 @@ export default defineConfig({
     {
       name: "authenticated-chromium",
       testMatch: AUTHENTICATED_SPEC,
+      // 인증 시나리오는 격리 DB의 고정 계정 하나를 공유하므로 로컬에서도 직렬 실행한다.
+      workers: 1,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

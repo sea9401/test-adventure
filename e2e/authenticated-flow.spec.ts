@@ -19,7 +19,7 @@ test.skip(
 );
 
 test.beforeEach(async ({ page }) => {
-  await prepareLocalHttpBrowser(page);
+  await prepareLocalHttpBrowser(page, { authenticated: true });
   await resetAuthenticatedE2eAccount();
 });
 

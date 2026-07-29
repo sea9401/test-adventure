@@ -9,15 +9,14 @@ export async function prepareLocalHttpBrowser(page: Page) {
   // that production sends the upgrade directive.
   await page.route(`${LOCAL_ORIGIN}/**`, async (route) => {
     const request = route.request();
-    if (
-      request.resourceType() !== "document" ||
-      new URL(request.url()).pathname === "/"
-    ) {
+    if (request.resourceType() !== "document") {
       await route.fallback();
       return;
     }
 
-    const response = await route.fetch();
+    // Keep the unauthenticated / -> /sign-in redirect observable by the
+    // browser instead of letting route.fetch follow it internally.
+    const response = await route.fetch({ maxRedirects: 0 });
     const headers = response.headers();
     const contentSecurityPolicy = headers["content-security-policy"];
     if (contentSecurityPolicy) {

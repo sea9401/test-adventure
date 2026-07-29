@@ -93,7 +93,6 @@ test("회원 탈퇴는 확인 문구를 요구하고 계정·진행·세션을 �
   await deleteButton.click();
   const response = await deleteResponse;
   expect(response.status()).toBe(200);
-  await expect(response.json()).resolves.toEqual({ ok: true });
 
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(

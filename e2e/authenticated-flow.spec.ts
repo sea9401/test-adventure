@@ -87,7 +87,11 @@ test("비밀번호 로그인 후 캐릭터를 만들고 저장한 진행을 재�
 
 async function loginWithPassword(page: Page, loginId: string, password: string) {
   await page.goto("/sign-in");
-  await page.getByText("아이디·비밀번호로 로그인", { exact: true }).click();
+  const passwordLoginSummary = page
+    .locator("summary")
+    .filter({ hasText: "아이디·비밀번호로 로그인" });
+  await expect(passwordLoginSummary).toBeVisible();
+  await passwordLoginSummary.click();
   await page.getByLabel("아이디", { exact: true }).fill(loginId);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "로그인", exact: true }).click();

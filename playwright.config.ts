@@ -36,9 +36,17 @@ export default defineConfig({
     {
       name: "authenticated-chromium",
       testMatch: AUTHENTICATED_SPEC,
-      // 인증 시나리오는 격리 DB의 고정 계정 하나를 공유하므로 로컬에서도 직렬 실행한다.
+      // 인증 시나리오는 격리 DB의 고정 계정 하나를 공유하므로 프로젝트 안에서 직렬 실행한다.
       workers: 1,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "authenticated-mobile-webkit",
+      testMatch: AUTHENTICATED_SPEC,
+      // 데스크톱 인증 프로젝트가 끝난 뒤 같은 계정을 초기화해 프로젝트 간 경쟁을 막는다.
+      dependencies: ["authenticated-chromium"],
+      workers: 1,
+      use: { ...devices["iPhone 13"] },
     },
   ],
   webServer: {

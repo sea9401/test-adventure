@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3212;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+const AUTHENTICATED_SPEC = /authenticated-flow\.spec\.ts/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -22,11 +23,18 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chromium",
+      testIgnore: AUTHENTICATED_SPEC,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "mobile-webkit",
+      testIgnore: AUTHENTICATED_SPEC,
       use: { ...devices["iPhone 13"] },
+    },
+    {
+      name: "authenticated-chromium",
+      testMatch: AUTHENTICATED_SPEC,
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
   webServer: {

@@ -4,6 +4,7 @@ import {
   authenticatedE2eConfig,
   resetAuthenticatedE2eAccount,
 } from "./support/authenticatedDatabase";
+import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
 
 const LOCAL_ORIGIN = "http://localhost:3212";
 const CHARACTER_NAME = "자동검증모험가";
@@ -17,7 +18,8 @@ test.skip(
   "격리 PostgreSQL과 E2E_TEST_LOGIN_ID/E2E_TEST_PASSWORD가 필요합니다.",
 );
 
-test.beforeEach(async () => {
+test.beforeEach(async ({ page }) => {
+  await prepareLocalHttpBrowser(page, { authenticated: true });
   await resetAuthenticatedE2eAccount();
 });
 

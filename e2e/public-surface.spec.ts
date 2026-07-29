@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-
-const LOCAL_ORIGIN = "http://localhost:3212";
+import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
 
 const PUBLIC_PAGES = [
   { path: "/sign-in", heading: "무슨무슨게임", title: "무슨무슨게임" },
@@ -147,32 +146,7 @@ function observeBrowserErrors(page: Page) {
 }
 
 async function preparePublicPage(page: Page) {
-  // Production CSP upgrades every HTTP subresource to HTTPS. The E2E server is
-  // intentionally local HTTP, so WebKit would otherwise request a nonexistent
-  // TLS endpoint and render without CSS/JS. Raw response tests below still
-  // assert that production sends the upgrade directive.
-  await page.route(`${LOCAL_ORIGIN}/**`, async (route) => {
-    const request = route.request();
-    if (
-      request.resourceType() !== "document" ||
-      new URL(request.url()).pathname === "/"
-    ) {
-      await route.fallback();
-      return;
-    }
-
-    const response = await route.fetch();
-    const headers = response.headers();
-    const contentSecurityPolicy = headers["content-security-policy"];
-    if (contentSecurityPolicy) {
-      headers["content-security-policy"] = contentSecurityPolicy
-        .split(";")
-        .map((directive) => directive.trim())
-        .filter((directive) => directive !== "upgrade-insecure-requests")
-        .join("; ");
-    }
-    await route.fulfill({ response, headers });
-  });
+  await prepareLocalHttpBrowser(page);
 
   await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({

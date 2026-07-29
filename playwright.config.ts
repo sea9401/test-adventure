@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3212;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
+// Auth.js의 callback URL과 브라우저 쿠키 도메인이 반드시 같아야 한다.
+// 하나의 로컬 호스트명만 사용해 127.0.0.1 ↔ localhost 전환을 막는다.
+const BASE_URL = `http://localhost:${PORT}`;
 const AUTHENTICATED_SPEC = /authenticated-flow\.spec\.ts/;
 
 export default defineConfig({
@@ -47,6 +49,7 @@ export default defineConfig({
     env: {
       AUTH_TRUST_HOST: "true",
       AUTH_URL: BASE_URL,
+      NEXTAUTH_URL: BASE_URL,
       AUTH_SECRET: "browser-e2e-only-not-a-production-secret",
       DATABASE_URL:
         process.env.DATABASE_URL ??

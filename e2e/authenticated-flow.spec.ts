@@ -4,7 +4,7 @@ import {
   resetAuthenticatedE2eAccount,
 } from "./support/authenticatedDatabase";
 
-const LOCAL_ORIGIN = "http://127.0.0.1:3212";
+const LOCAL_ORIGIN = "http://localhost:3212";
 const CHARACTER_NAME = "자동검증모험가";
 const PERSISTED_FLAG = "e2e.persisted-after-login";
 const account = authenticatedE2eConfig();

@@ -1,51 +1,15 @@
 #!/usr/bin/env bash
-# 서버 밖에서 공개 health/version 경로를 재시도하고 실패를 webhook으로 알린다.
+# 서버 밖에서 배포와 동일한 공개 출시 표면을 검사하고 실패를 webhook으로 알린다.
 set -euo pipefail
 
-BASE_URL="${UPTIME_BASE_URL:-https://msmsge.com}"
-RETRIES="${UPTIME_RETRIES:-3}"
-RETRY_DELAY="${UPTIME_RETRY_DELAY:-5}"
-FAILED=()
+# 예전 수동 실행 환경변수는 유지하되 단일 Node 검증기가 판정·재시도·알림을 담당한다.
+export PUBLIC_RELEASE_BASE_URL="${PUBLIC_RELEASE_BASE_URL:-${UPTIME_BASE_URL:-https://msmsge.com}}"
+export PUBLIC_RELEASE_RETRIES="${PUBLIC_RELEASE_RETRIES:-${UPTIME_RETRIES:-3}}"
 
-check_path() {
-  local path="$1"
-  local code="000"
-  for attempt in $(seq 1 "$RETRIES"); do
-    code="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 12 "$BASE_URL$path" || true)"
-    if [ "$code" = "200" ]; then
-      echo "UPTIME OK: $path 200 (try $attempt)"
-      return 0
-    fi
-    echo "UPTIME RETRY: $path ${code:-000} ($attempt/$RETRIES)" >&2
-    [ "$attempt" = "$RETRIES" ] || sleep "$RETRY_DELAY"
-  done
-  FAILED+=("${path}:${code:-000}")
-}
-
-check_path /api/health
-check_path /api/version
-
-if [ "${#FAILED[@]}" -eq 0 ]; then
-  exit 0
+retry_delay_seconds="${UPTIME_RETRY_DELAY:-3}"
+if ! [[ "$retry_delay_seconds" =~ ^[0-9]+$ ]] || [ "$retry_delay_seconds" -le 0 ]; then
+  retry_delay_seconds=3
 fi
+export PUBLIC_RELEASE_RETRY_DELAY_MS="${PUBLIC_RELEASE_RETRY_DELAY_MS:-$((retry_delay_seconds * 1000))}"
 
-MESSAGE="[ops] external uptime failed: ${BASE_URL} (${FAILED[*]})"
-echo "$MESSAGE" >&2
-if [ -n "${OPS_ALERT_WEBHOOK_URL:-}" ]; then
-  PAYLOAD="$(node -e '
-    const message = process.argv[1];
-    process.stdout.write(JSON.stringify({
-      text: message,
-      content: message,
-      detail: { source: "github-uptime" },
-      at: new Date().toISOString(),
-    }));
-  ' "$MESSAGE")"
-  if ! curl -fsS --max-time 10 -X POST \
-    -H 'Content-Type: application/json' --data "$PAYLOAD" "$OPS_ALERT_WEBHOOK_URL" >/dev/null; then
-    echo "UPTIME WARN: 운영 webhook 전송 실패" >&2
-  fi
-else
-  echo "UPTIME WARN: OPS_ALERT_WEBHOOK_URL 미설정 — GitHub Actions 실패 알림만 사용합니다" >&2
-fi
-exit 1
+exec node scripts/check-public-release.mjs

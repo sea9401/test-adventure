@@ -126,6 +126,18 @@ describe("production security surface", () => {
     }
   });
 
+  it("5분 정기 감시가 배포와 동일한 공개 출시 표면을 검사한다", () => {
+    const workflow = source(join(ROOT, ".github/workflows/uptime.yml"));
+    const monitor = source(join(ROOT, "deploy/check-external-health.sh"));
+
+    expect(workflow).toContain('cron: "*/5 * * * *"');
+    expect(workflow).toContain("Check full public release surface");
+    expect(workflow).toContain("PUBLIC_RELEASE_RETRIES");
+    expect(workflow).toContain("PUBLIC_RELEASE_RETRY_DELAY_MS");
+    expect(workflow).toContain("bash deploy/check-external-health.sh");
+    expect(monitor).toContain("node scripts/check-public-release.mjs");
+  });
+
   it("추적 파일의 비밀값 누출을 CI에서 차단한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/ci.yml"));
     const packageJson = source(join(ROOT, "package.json"));

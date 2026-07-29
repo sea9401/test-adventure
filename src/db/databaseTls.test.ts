@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   createDatabaseConnectionOptions,
   createDatabaseSslOptions,
+  isLoopbackDatabaseHostname,
   normalizeDatabaseUrl,
 } from "./databaseTls.mjs";
 
@@ -75,5 +76,32 @@ describe("database TLS configuration", () => {
       connectionString: "postgresql://user:pass@db.example.com/game",
       ssl: { rejectUnauthorized: true },
     });
+  });
+
+  it("allows plaintext connections only to loopback test databases", () => {
+    for (const hostname of ["localhost", "127.0.0.1", "::1", "[::1]"]) {
+      expect(isLoopbackDatabaseHostname(hostname)).toBe(true);
+    }
+    expect(isLoopbackDatabaseHostname("db.example.com")).toBe(false);
+
+    expect(
+      createDatabaseConnectionOptions(
+        "postgresql://user:pass@127.0.0.1:5432/adventure_e2e",
+        { DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true" },
+      ),
+    ).toEqual({
+      connectionString:
+        "postgresql://user:pass@127.0.0.1:5432/adventure_e2e",
+      ssl: false,
+    });
+  });
+
+  it("refuses the local TLS exception for remote hosts", () => {
+    expect(() =>
+      createDatabaseConnectionOptions(
+        "postgresql://user:pass@db.example.com/adventure_e2e",
+        { DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true" },
+      ),
+    ).toThrow("only allowed for loopback database hosts");
   });
 });

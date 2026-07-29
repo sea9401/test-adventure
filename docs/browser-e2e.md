@@ -15,9 +15,15 @@ Playwright가 로컬 프로덕션 빌드를 실제 브라우저로 열어 공개
 - 주요 보안 응답 헤더
 
 공개 화면 검사는 운영 계정이나 데이터베이스를 사용하지 않는다. 브라우저 안의
-`/api/auth/session` 요청만 익명 세션(`null`)으로 응답하게 하며, 로그인과 게임
-플레이 흐름은 별도의 인증 E2E 단계에서 다룬다. 서버 설정 검증을 통과시키는
-연결 불가능한 로컬 DB 주소도 함께 주입하므로 운영 DB에는 접근하지 않는다.
+`/api/auth/session` 요청만 익명 세션(`null`)으로 응답하게 한다. CI에서는 잡마다
+빈 `adventure_e2e` PostgreSQL 컨테이너를 만들고 전체 마이그레이션과 고정 테스트
+계정 준비를 먼저 검증한다. 현재 공개 화면 시나리오는 이 계정으로 로그인하지 않으며,
+인증·게임 플레이 시나리오는 다음 E2E 단계에서 추가한다.
+
+테스트 계정 준비 스크립트는 loopback 호스트의 `adventure_e2e` DB에서만 실행된다.
+평문 DB 연결 예외도 별도 테스트 플래그가 설정된 loopback 주소에서만 허용되므로
+운영 DB 주소나 실제 계정에는 사용할 수 없다. CI의 DB와 계정은 잡 종료와 함께
+폐기되며 워크플로에 적힌 자격 증명은 이 컨테이너에서만 쓰는 공개 테스트 값이다.
 
 운영 CSP의 `upgrade-insecure-requests`는 별도의 원본 응답 검사에서 존재를 강제한다.
 실제 브라우저가 로컬 HTTP 서버를 검사할 때만 이 지시어를 응답에서 제거한다. 그렇지
@@ -31,6 +37,18 @@ Playwright가 로컬 프로덕션 빌드를 실제 브라우저로 열어 공개
 npm run build
 npx playwright install chromium webkit
 npm run test:e2e
+```
+
+로컬에서 인증 E2E용 DB 기반만 준비하려면 PostgreSQL에 `adventure_e2e` DB를 만든 뒤
+다음처럼 실행한다. 이 명령은 마이그레이션을 반복 적용하고 같은 계정을 다시 준비해도
+성공한다.
+
+```bash
+DATABASE_URL=postgresql://browser_e2e:browser_e2e@127.0.0.1:5432/adventure_e2e \
+DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS=true \
+E2E_TEST_LOGIN_ID=browser-e2e \
+E2E_TEST_PASSWORD=browser-e2e-only-password \
+npm run test:e2e:db:setup
 ```
 
 실패 보고서는 `playwright-report/`에 생성된다. CI에서는 실패 여부와 관계없이 14일간 보고서를 보관한다.

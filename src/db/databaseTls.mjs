@@ -49,13 +49,30 @@ export function createDatabaseSslOptions(env = process.env) {
   return { rejectUnauthorized: true, ca };
 }
 
+/** @param {string} hostname */
+export function isLoopbackDatabaseHostname(hostname) {
+  const normalized = hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  return ["localhost", "127.0.0.1", "::1"].includes(normalized);
+}
+
 /**
  * @param {string} value
  * @param {Record<string, string | undefined>} env
  */
 export function createDatabaseConnectionOptions(value, env = process.env) {
+  const connectionString = normalizeDatabaseUrl(value);
+  if (env.DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS?.trim().toLowerCase() === "true") {
+    const { hostname } = new URL(connectionString);
+    if (!isLoopbackDatabaseHostname(hostname)) {
+      throw new Error(
+        "DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS is only allowed for loopback database hosts",
+      );
+    }
+    return { connectionString, ssl: false };
+  }
+
   return {
-    connectionString: normalizeDatabaseUrl(value),
+    connectionString,
     ssl: createDatabaseSslOptions(env),
   };
 }

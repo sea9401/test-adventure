@@ -17,6 +17,26 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: browser_e2e
+          POSTGRES_PASSWORD: browser_e2e
+          POSTGRES_DB: adventure_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U browser_e2e -d adventure_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # 아래 값은 이 잡과 함께 폐기되는 로컬 컨테이너 전용이며 운영 비밀이 아니다.
+      DATABASE_URL: postgresql://browser_e2e:browser_e2e@127.0.0.1:5432/adventure_e2e
+      DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true"
+      E2E_TEST_LOGIN_ID: browser-e2e
+      E2E_TEST_PASSWORD: browser-e2e-only-password
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -34,6 +54,8 @@ jobs:
         run: npm run check-licenses
       - name: Migration journal order
         run: npm run check-migrations
+      - name: Migrate and seed browser E2E database
+        run: npm run test:e2e:db:setup
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
       # ESLint — 에러 시 실패(경고는 비차단). 린트 부채 누적 방지 게이트.

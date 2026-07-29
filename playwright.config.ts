@@ -41,7 +41,10 @@ export default defineConfig({
       AUTH_URL: BASE_URL,
       AUTH_SECRET: "browser-e2e-only-not-a-production-secret",
       DATABASE_URL:
+        process.env.DATABASE_URL ??
         "postgresql://browser_e2e:browser_e2e@127.0.0.1:1/browser_e2e",
+      DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS:
+        process.env.DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS ?? "true",
     },
   },
 });

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const LOCAL_ORIGIN = "http://127.0.0.1:3212";
+const LOCAL_ORIGIN = "http://localhost:3212";
 
 const PUBLIC_PAGES = [
   { path: "/sign-in", heading: "무슨무슨게임", title: "무슨무슨게임" },

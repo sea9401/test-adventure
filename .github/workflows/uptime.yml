@@ -15,11 +15,17 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     environment: msmsge.com
     steps:
       - uses: actions/checkout@v7
-      - name: Check public health endpoints
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Check full public release surface
         env:
           OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
+          # 배포 중 nginx 점검 화면이 잠시 503을 내도록 약 4분간 재시도한다.
+          PUBLIC_RELEASE_RETRIES: "8"
+          PUBLIC_RELEASE_RETRY_DELAY_MS: "20000"
         run: bash deploy/check-external-health.sh

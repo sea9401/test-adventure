@@ -184,9 +184,11 @@ bash deploy/maintenance.sh status   # 현재 상태
 - 운영 현황의 매크로 의심 userId/IP는 `이상 행동`·`경제 로그` 필터로 바로 연결된다.
 - `OPS_ALERT_WEBHOOK_URL`을 설정하면 임계치 알림·일일 운영 리포트·크론 실패가 개인정보 없는 사건 코드와 집계값만 담아 webhook으로 발송된다. 미설정 상태에서도 배포와 모니터링은 계속되며, 경고는 GitHub Actions와 서버 journal에 기록된다.
 - 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
-- GitHub Actions `External uptime monitor`가 5분마다 서버 밖에서 `/api/health`와
-  `/api/version`을 최대 3회 확인한다. 계속 실패하면 Action이 실패하고
-  `OPS_ALERT_WEBHOOK_URL`에도 알린다.
+- GitHub Actions `External uptime monitor`가 5분마다 서버 밖에서 헬스·빌드 식별자,
+  로그인·정책·검색 메타 경로, 보안 헤더, 개발 화면·코인 상점 차단까지 배포 후와
+  동일한 공개 표면을 검사한다. 계획된 배포 중 점검 화면으로 인한 오탐을 줄이기 위해
+  정기 실행에서만 최대 8회·20초 간격으로 재시도한다. 계속 실패하면 Action이 실패하고
+  `OPS_ALERT_WEBHOOK_URL`에도 실패 경로를 알린다.
 - EC2의 `adventure-resource-monitor.timer`는 2분마다 5분 load(코어 대비 90%),
   가용 메모리(15% 이하), 루트 디스크(85% 이상)를 확인한다. 상태 변화 시 즉시,
   같은 경보가 계속되면 30분마다 webhook으로 알린다.

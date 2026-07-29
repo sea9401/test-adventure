@@ -4,7 +4,7 @@
 넣지 말고 제공자 콘솔과 AWS SSM SecureString에서만 다룬다. 운영 원본과
 런타임 복호화 구조는 `docs/production-secrets.md`를 따른다.
 
-## 2026-07-28 감사 결과
+## 2026-07-28~29 감사·최초 교체 결과
 
 - 공개 Git 전체 이력 4,839개 커밋의 18,188개 blob(약 464MB)을 값 비노출
   규칙으로 검사했다.
@@ -17,12 +17,14 @@
   파일만 사용한다. `CRON_SECRET`은 crontab에 박혀 있지 않다.
 - 2026-07-28 `AUTH_SECRET`·`CRON_SECRET` 교체와 사용하지 않는
   `AUTH_GOOGLE_ID`·`AUTH_GOOGLE_SECRET` 제거를 완료했다.
+- 2026-07-29 `AUTH_KAKAO_SECRET`과 RDS 비밀번호를 교체하고 SSM 운영 환경에
+  반영했으며 공급자 콘솔의 이전 값을 폐기했다. 값·해시·일부 문자는 기록하지 않았다.
 
 저장소에서 발견되지 않았더라도 과거 채팅에 노출됐다고 기록된
 `AUTH_SECRET`, `AUTH_KAKAO_SECRET`, DB 비밀번호, `CRON_SECRET`은 유출된 것으로
-간주하고 교체한다.
+간주해 모두 교체했다. 아래 절차는 정기 회전이나 사고 대응 때 다시 사용한다.
 
-## 영향과 교체 순서
+## 재교체 시 영향과 순서
 
 | 대상 | 영향 | 교체 방식 |
 | --- | --- | --- |
@@ -31,8 +33,8 @@
 | `AUTH_KAKAO_SECRET` | 교체 중 신규 카카오 로그인 토큰 발급이 일시 실패할 수 있음 | Kakao Developers에서 재발급 후 EC2 반영 |
 | `DATABASE_URL` 비밀번호 | 공급자 변경과 앱 반영 사이에 DB 접속 실패 가능 | 점검 모드에서 RDS와 EC2를 연속 변경 |
 
-내부 두 키와 Google 잔존 키 정리는 완료했다. 남은 공급자 키는 **Kakao → DB**
-순서로 한 번에 하나씩 교체하고 각 단계에서 로그인·헬스를 확인한다.
+여러 키를 다시 회전해야 할 때는 내부 키 → Kakao → DB 순서로 한 번에 하나씩
+교체하고 각 단계에서 로그인·헬스를 확인한다.
 
 ## 1. `AUTH_SECRET` + `CRON_SECRET`
 
@@ -62,6 +64,8 @@ SSM에 새 버전으로 다시 올린 뒤 재시작한다. 검증이 끝나면 �
 
 ## 2. Kakao Client secret
 
+2026-07-29 최초 교체와 이전 값 폐기를 완료했다. 다시 회전할 때는 아래 순서를 따른다.
+
 [Kakao 공식 안내](https://developers.kakao.com/docs/en/app-setting/app)의 운영 중 변경
 순서를 따른다.
 
@@ -81,6 +85,8 @@ SSM에 새 버전으로 다시 올린 뒤 재시작한다. 검증이 끝나면 �
 
 ## 3. RDS 비밀번호
 
+2026-07-29 최초 교체와 SSM 반영을 완료했다. 다시 회전할 때는 아래 순서를 따른다.
+
 먼저 `bash deploy/backup-db.sh`로 백업을 만들고 점검 모드를 켠다. RDS의 비밀번호
 변경 또는 Secrets Manager 즉시 회전을 실행한 직후, SSM 운영 환경의
 `DATABASE_URL`에 새 비밀번호를 반영하고 앱을 재시작한다. AWS가 관리하는 master secret은
@@ -92,7 +98,7 @@ SSM에 새 버전으로 다시 올린 뒤 재시작한다. 검증이 끝나면 �
 해제한다. 현재 앱이 master user를 사용 중이라면 후속으로 앱 전용 최소 권한
 DB user를 분리한다.
 
-## 4. 마무리
+## 4. 회전 작업 마무리
 
 - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` 두 행이 SSM 운영 환경에 없는지 확인한다.
 - `/run/adventure-rpg/production.env` 권한이 `600`인지 다시 확인한다.

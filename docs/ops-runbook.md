@@ -319,6 +319,7 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
   호스트·ACM 인증서·DNS 전환 및 비용 선택 후 적용. 절차는
   `docs/cdn-waf-rollout.md` 참고
 - [x] 시크릿을 SSM Parameter Store SecureString으로 이전 — EC2 역할은 단일 파라미터 읽기만 허용하고 `/run`에만 복호화
-- [ ] 노출 자격증명 로테이션(베타 준비 중 채팅 노출분)
-  — 저장소 전체 이력 감사와 재유출 방지 CI는 완료. 실제 교체는
-  `docs/credential-rotation.md` 순서로 진행한다.
+- [x] 노출 가능성이 기록된 자격증명 로테이션 — `AUTH_SECRET`·`CRON_SECRET`·
+  `AUTH_KAKAO_SECRET`·RDS 비밀번호 교체, 사용하지 않는 Google 자격증명 제거,
+  공급자 콘솔의 이전 값 폐기와 SSM 반영 완료. 값은 기록하지 않고
+  `docs/credential-rotation.md`에 일자와 절차만 유지한다.

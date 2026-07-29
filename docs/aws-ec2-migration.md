@@ -2,8 +2,9 @@
 
 > 상태: 📌 **운영 기록 (살아있는 문서)** — Vercel→AWS EC2 이전·배포 운영 메모. 지속 갱신.
 
-2026-05 에 Vercel 에서 AWS EC2 로 이전. 이 문서는 **현재 운영 구성** 과 **재현/복구 절차** 를 기록한다.
-DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가져왔다 — DB 이전 없음.
+2026-05에 Vercel에서 AWS EC2로 이전했다. 이 문서는 **현재 운영 구성**과
+**재현/복구 절차**를 기록한다. 초기 이전 뒤 운영 DB도 Neon에서 서울 리전의
+AWS RDS PostgreSQL 18.3으로 옮겼으며, 옛 Neon DB는 운영에 사용하지 않는다.
 
 ## 현재 구성
 
@@ -20,6 +21,7 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 | 리버스 프록시 | nginx, `/etc/nginx/conf.d/msmsge.conf` → `127.0.0.1:3000` |
 | HTTPS | Let's Encrypt (`certbot --nginx`), 자동갱신 `certbot-renew.timer` |
 | 크론 | `ec2-user` crontab (vercel.json crons 대체) — `crond`(cronie) |
+| DB | AWS RDS PostgreSQL 18.3 · 서울 리전 · DB명 `test_adventurerpg`(옛 이름이지만 운영 DB) |
 | 코드 위치 | `/home/ec2-user/adventure-rpg` (GitHub `sea9401/adventure` 의 deploy key 로 clone) |
 | 환경변수 원본 | SSM SecureString `/adventure-rpg/production/env` |
 | 환경변수 런타임 캐시 | `/run/adventure-rpg/production.env` (디렉터리 `700`, 파일 `600`) |
@@ -28,7 +30,7 @@ DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가
 `deploy/` 폴더의 파일들: `adventure-rpg.service`, `nginx-adventure-rpg.conf`, `crontab.txt` (참조용), `deploy.sh` (수동 배포용).
 
 ### 환경변수 (AWS SSM Parameter Store)
-앱이 실제로 쓰는 것: `AUTH_SECRET`, `AUTH_KAKAO_ID/SECRET`, `DATABASE_URL`(Neon), `ADMIN_EMAILS`, `CRON_SECRET`. EC2 추가분: `AUTH_URL=https://msmsge.com`, `AUTH_TRUST_HOST=true`, `NODE_ENV=production`. Google 로그인은 정식 출시 설정에서 제외되어 `AUTH_GOOGLE_ID/SECRET`을 읽지 않는다. (Vercel pull 파일의 `CLERK_*`, `TURBO_*`, `VERCEL_*` 등은 미사용 — 옮길 필요 없음.)
+앱이 실제로 쓰는 것: `AUTH_SECRET`, `AUTH_KAKAO_ID/SECRET`, `DATABASE_URL`(RDS), `ADMIN_EMAILS`, `CRON_SECRET`. EC2 추가분: `AUTH_URL=https://msmsge.com`, `AUTH_TRUST_HOST=true`, `NODE_ENV=production`. Google 로그인은 정식 출시 설정에서 제외되어 `AUTH_GOOGLE_ID/SECRET`을 읽지 않는다. (Vercel pull 파일의 `CLERK_*`, `TURBO_*`, `VERCEL_*` 등은 미사용 — 옮길 필요 없음.)
 systemd와 배포는 SSM 값을 `/run/adventure-rpg/production.env`로 동기화한다. `db:migrate`(`node src/db/migrate.mjs`)는 `.env`를 자동 로드하지 않으므로 항상 `node --env-file=/run/adventure-rpg/production.env src/db/migrate.mjs`로 실행한다. 상세 구조는 `docs/production-secrets.md` 참고.
 
 ## 배포 (일상)
@@ -68,9 +70,13 @@ systemd와 배포는 SSM 값을 `/run/adventure-rpg/production.env`로 동기화
 9. **OAuth 콜백**: Kakao Developers 에 `https://msmsge.com/api/auth/callback/kakao` (+ 카카오 사이트 도메인) 추가.
 10. **CI**: GitHub Secrets `EC2_HOST`, `EC2_SSH_KEY` 등록.
 
-## 미해결 / TODO
+## 이전 마무리 상태와 선택 후속
 
-- 비밀값 감사·재유출 방지·내부 키 회전과 Google 잔존 키 제거는 완료했다. Kakao와 RDS 공급자 키 회전 절차는 `docs/credential-rotation.md`에 있다. 현재 크론은 각 실행 때 `/run/adventure-rpg/production.env`를 읽으므로 crontab에 비밀값을 중복하지 않는다.
-- Vercel 프로젝트 일시중지/삭제 (전환 안정화 확인 후) → 과금 중단.
-- DB(Neon)가 `ap-southeast-1` 이라 서울 EC2 와 리전이 다름 — 지연 신경 쓰이면 Neon 프로젝트를 `ap-northeast-2` 로 이전 고려 (선택).
-- 백업: Neon 은 자체 PITR. EC2 는 AMI 스냅샷 1회 떠두면 복구 빠름.
+- 비밀값 감사·재유출 방지, 내부·Kakao·RDS 자격증명 회전과 Google 잔존 키
+  제거를 완료했다. 현재 크론은 각 실행 때 `/run/adventure-rpg/production.env`를
+  읽으므로 crontab에 비밀값을 중복하지 않는다.
+- 전환 안정화 확인 뒤 옛 Vercel 프로젝트를 삭제했다.
+- 운영 DB는 EC2와 같은 서울 리전의 RDS로 이전했다. 일일 로컬 백업·S3 90일
+  보관과 RDS 7일 PITR을 구성하고 실제 복구를 검증했다.
+- EC2 AMI 스냅샷은 인스턴스 전체 복구 시간을 더 줄이고 싶을 때 추가하는 선택
+  작업이다. 애플리케이션과 DB 복구의 선행 조건은 아니다.

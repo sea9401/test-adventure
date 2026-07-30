@@ -66,8 +66,16 @@ if ! $SUDO_CMD "$NGINX_BIN" -t; then
 fi
 $SUDO_CMD "$SYSTEMCTL_CMD" reload nginx
 
-blocked_code="$(curl -ksS --max-time 10 --resolve msmsge.com:443:127.0.0.1 -o /dev/null -w '%{http_code}' https://msmsge.com/api/health || true)"
-allowed_code="$(curl -ksS --max-time 10 --resolve msmsge.com:443:127.0.0.1 -H "X-Msmsge-Origin-Verify: $CLOUDFRONT_ORIGIN_SECRET" -o /dev/null -w '%{http_code}' https://msmsge.com/api/health || true)"
+blocked_code=""
+allowed_code=""
+for _ in {1..20}; do
+  blocked_code="$(curl -ksS --noproxy '*' --max-time 10 --resolve msmsge.com:443:127.0.0.1 -o /dev/null -w '%{http_code}' https://msmsge.com/api/health || true)"
+  allowed_code="$(curl -ksS --noproxy '*' --max-time 10 --resolve msmsge.com:443:127.0.0.1 -H "X-Msmsge-Origin-Verify: $CLOUDFRONT_ORIGIN_SECRET" -o /dev/null -w '%{http_code}' https://msmsge.com/api/health || true)"
+  if [ "$blocked_code" = "404" ] && [ "$allowed_code" = "200" ]; then
+    break
+  fi
+  sleep 0.25
+done
 if [ "$blocked_code" != "404" ] || [ "$allowed_code" != "200" ]; then
   restore
   echo "origin guard verification failed (without=$blocked_code with=$allowed_code); restored previous state" >&2

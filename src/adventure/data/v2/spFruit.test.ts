@@ -24,13 +24,13 @@ describe("SP_FRUIT config 일관성", () => {
     }
   });
 
-  it("모든 등급의 사용 캡 = 5 (최대 +20 SP)", () => {
-    expect(SP_FRUIT_TIERS.map((t) => SP_FRUIT[t].useCap)).toEqual([5, 5, 5, 5]);
+  it("모든 등급의 사용 캡 = 3 (최대 +12 SP)", () => {
+    expect(SP_FRUIT_TIERS.map((t) => SP_FRUIT[t].useCap)).toEqual([3, 3, 3, 3]);
     const sum = SP_FRUIT_TIERS.reduce(
       (s, t) => s + SP_FRUIT[t].useCap * SP_FRUIT[t].spPerUse,
       0,
     );
-    expect(sum).toBe(20);
+    expect(sum).toBe(12);
   });
 
   it("보스 kind 가 등급별로 유일", () => {
@@ -48,20 +48,20 @@ describe("parseSpFruitUsed", () => {
   });
 
   it("정상 입력 보존", () => {
-    expect(parseSpFruitUsed({ 1: 2, 2: 1, 3: 4, 4: 3 })).toEqual({
+    expect(parseSpFruitUsed({ 1: 2, 2: 1, 3: 3, 4: 3 })).toEqual({
       1: 2,
       2: 1,
-      3: 4,
+      3: 3,
       4: 3,
     });
   });
 
   it("캡 초과·음수·소수 클램프", () => {
     expect(parseSpFruitUsed({ 1: 99, 2: -5, 3: 4.9, 4: 99 })).toEqual({
-      1: SP_FRUIT[1].useCap, // 5
+      1: SP_FRUIT[1].useCap, // 3
       2: 0,
-      3: 4,
-      4: SP_FRUIT[4].useCap, // 5
+      3: SP_FRUIT[3].useCap, // 3
+      4: SP_FRUIT[4].useCap, // 3
     });
   });
 });
@@ -77,16 +77,16 @@ describe("spCapBonusFromFruits / spCapBonusFromRaw", () => {
     expect(spCapBonusFromFruits({ 1: 2, 2: 0, 3: 1, 4: 1 })).toBe(4);
   });
 
-  it("전부 캡 = 최대 20", () => {
-    expect(spCapBonusFromFruits({ 1: 5, 2: 5, 3: 5, 4: 5 })).toBe(20);
+  it("전부 캡 = 최대 12", () => {
+    expect(spCapBonusFromFruits({ 1: 3, 2: 3, 3: 3, 4: 3 })).toBe(12);
   });
 
-  it("캡 초과 입력도 20으로 클램프", () => {
-    expect(spCapBonusFromFruits({ 1: 99, 2: 99, 3: 99, 4: 99 })).toBe(20);
+  it("캡 초과 입력도 12로 클램프", () => {
+    expect(spCapBonusFromFruits({ 1: 99, 2: 99, 3: 99, 4: 99 })).toBe(12);
   });
 
   it("spCapBonusFromRaw = parse + 합산", () => {
-    expect(spCapBonusFromRaw({ 1: 2, 3: 5 })).toBe(7);
+    expect(spCapBonusFromRaw({ 1: 2, 3: 5 })).toBe(5);
     expect(spCapBonusFromRaw(undefined)).toBe(0);
   });
 });
@@ -131,7 +131,7 @@ describe("calcSpBudget spCapBonus 배선 (byte-identical 가드)", () => {
 
   it("실제 SP 열매 사용분 → 예산 증가", () => {
     const base = calcSpBudget(groups);
-    const used: Record<SpFruitTier, number> = { 1: 5, 2: 5, 3: 5, 4: 5 };
-    expect(calcSpBudget(groups, spCapBonusFromFruits(used))).toBe(base + 20);
+    const used: Record<SpFruitTier, number> = { 1: 3, 2: 3, 3: 3, 4: 3 };
+    expect(calcSpBudget(groups, spCapBonusFromFruits(used))).toBe(base + 12);
   });
 });

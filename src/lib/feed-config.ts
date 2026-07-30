@@ -1,15 +1,23 @@
 // 전체 소식(서버 피드) 제약 — 클라/서버 공통.
 //
 // 채팅과 분리된 "전광판" — 서버 전체에 흘러가는 자랑거리(유실된 명품 획득, 걸작 제작 성공).
-// 모험탭 하단 패널에서 최근 FEED_FETCH_LIMIT 개만 노출. append-only — insert 시 보관기간
-// 초과분을 잘라낸다(cron 없음, lazy trim).
+// 한 번에 FEED_FETCH_LIMIT 개씩 불러온다. append-only — insert 시 보관기간 초과분을
+// 잘라낸다(cron 없음, lazy trim).
 
 // GET /api/feed 가 돌려주는 최근 항목 수. 패널이 한 번에 보여주는 상한.
-export const FEED_FETCH_LIMIT = 50;
+export const FEED_FETCH_LIMIT = 30;
 
-// DB 보관 기간 — insert 마다 이보다 오래된 행 trim(시간 기준, 사용자 결정 2026-06-13).
-// (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 분류별 열람을 위해 3개월 치 보존.)
-export const FEED_RETENTION_MS = 90 * 24 * 3_600_000;
+// DB 보관 기간 — insert 마다 이보다 오래된 행 trim(시간 기준).
+// (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 분류별 과거 열람을 위해 약 6개월 치 보존.)
+export const FEED_RETENTION_MS = 180 * 24 * 3_600_000;
+
+// 과거 페이지 cursor. server_feed 의 단조 증가 serial(PG integer) PK만 허용해 범위가
+// 불명확하거나 컬럼 범위 밖인 값을 쿼리에 넘기지 않는다.
+export function parseFeedBeforeId(value: unknown): number | null {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id <= 2_147_483_647 ? id : null;
+}
 
 // 같은 유저+type 디바운스 — 이 시간 안에 동일 종류 항목이 이미 있으면 새 항목을 만들지 않는다.
 // 연달아 터뜨려도 도배되지 않게.

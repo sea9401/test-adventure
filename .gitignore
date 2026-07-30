@@ -21,6 +21,7 @@
 
 # production
 /build
+/.edge-state/
 
 # misc
 .DS_Store

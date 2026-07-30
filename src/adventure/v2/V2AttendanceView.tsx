@@ -34,8 +34,14 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 function rewardMark(reward: MonthlyAttendanceReward): string {
   if (reward.kind === "adventure_support") return "🎫";
-  if (reward.kind === "gold") return "🪙";
-  return "🧪";
+  if (reward.kind === "stamina_potion") return "🧪";
+  if (reward.kind === "boss_summon_scroll") return "📜";
+  if (reward.kind === "mastery_certificate") return "🏅";
+  return reward.kind === "enhancement_stone" && reward.color === "blue"
+    ? "🔷"
+    : reward.kind === "enhancement_stone" && reward.color === "red"
+      ? "🔶"
+      : "💎";
 }
 
 function monthLabel(monthKey: string): string {

@@ -39,6 +39,13 @@ import { POST } from "./route";
 const JULY_20 = new Date("2026-07-20T03:00:00Z");
 const DAY_MS = 86_400_000;
 
+function julyDayKeys(count: number): string[] {
+  return Array.from(
+    { length: count },
+    (_, index) => `2026-07-${String(index + 1).padStart(2, "0")}`,
+  );
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(JULY_20);
@@ -94,23 +101,103 @@ describe("월간 출석 보상 수령", () => {
     expect(mocks.saves.get("character.v2")).toEqual(characterAfterFirst);
   });
 
-  it("다음 날에는 다음 칸의 골드를 지급한다", async () => {
+  it("다음 날에는 다음 칸의 푸른 강화석을 지급한다", async () => {
     expect((await POST()).status).toBe(200);
     vi.setSystemTime(new Date(JULY_20.getTime() + DAY_MS));
 
     const response = await POST();
     const json = (await response.json()) as {
-      reward: { kind: string; amount: number };
+      reward: { kind: string; color: string; count: number };
       claimedCount: number;
-      gold: number;
+      grantedMaterials: Record<string, number>;
     };
 
     expect(response.status).toBe(200);
-    expect(json.reward).toEqual({ kind: "gold", amount: 50_000 });
+    expect(json.reward).toEqual({
+      kind: "enhancement_stone",
+      color: "blue",
+      count: 1,
+    });
     expect(json.claimedCount).toBe(2);
-    expect(json.gold).toBe(51_000);
-    expect(
-      (mocks.saves.get("character.v2") as { gold: number }).gold,
-    ).toBe(51_000);
+    expect(json.grantedMaterials).toEqual({ v2_blue_enhance_stone: 1 });
+    expect(mocks.saves.get("character.v2")).toMatchObject({
+      gold: 1_000,
+      materials: { v2_blue_enhance_stone: 1 },
+    });
+  });
+
+  it("14일차에는 보스 소환서를 재료 인벤토리에 지급한다", async () => {
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-07",
+      claimedDayKeys: julyDayKeys(13),
+    });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: { kind: string; count: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({ kind: "boss_summon_scroll", count: 3 });
+    expect(mocks.saves.get("character.v2")).toMatchObject({
+      materials: { v2_boss_summon_scroll: 3 },
+    });
+  });
+
+  it("21일차에는 숙련의 증표를 전용 인벤토리에 누적한다", async () => {
+    vi.setSystemTime(new Date("2026-07-25T03:00:00Z"));
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-07",
+      claimedDayKeys: julyDayKeys(20),
+    });
+    mocks.saves.set("inventory.v2", { masteryCertificates: 50 });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: { kind: string; count: number };
+      masteryCertificates: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({ kind: "mastery_certificate", count: 300 });
+    expect(json.masteryCertificates).toBe(350);
+    expect(mocks.saves.get("inventory.v2")).toEqual({
+      masteryCertificates: 350,
+    });
+  });
+
+  it("28일차에는 붉은·푸른 강화석 묶음을 함께 지급한다", async () => {
+    vi.setSystemTime(new Date("2026-07-28T03:00:00Z"));
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-07",
+      claimedDayKeys: julyDayKeys(27),
+    });
+    mocks.saves.set("character.v2", {
+      class: "warrior",
+      materials: {
+        v2_red_enhance_stone: 5,
+        v2_blue_enhance_stone: 7,
+      },
+    });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: { kind: string; red: number; blue: number };
+      complete: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({
+      kind: "enhancement_stone_bundle",
+      red: 2,
+      blue: 2,
+    });
+    expect(json.complete).toBe(true);
+    expect(mocks.saves.get("character.v2")).toMatchObject({
+      materials: {
+        v2_red_enhance_stone: 7,
+        v2_blue_enhance_stone: 9,
+      },
+    });
   });
 });

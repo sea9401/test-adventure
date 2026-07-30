@@ -14,6 +14,26 @@ describe("월간 출석", () => {
     });
   });
 
+  it("골드 없이 성장 재료와 소모품으로 28일 보상판을 구성한다", () => {
+    expect(MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
+    expect(MONTHLY_ATTENDANCE_REWARDS.map((reward) => reward.kind)).not.toContain(
+      "gold",
+    );
+    expect(MONTHLY_ATTENDANCE_REWARDS[13]).toEqual({
+      kind: "boss_summon_scroll",
+      count: 3,
+    });
+    expect(MONTHLY_ATTENDANCE_REWARDS[20]).toEqual({
+      kind: "mastery_certificate",
+      count: 300,
+    });
+    expect(MONTHLY_ATTENDANCE_REWARDS[27]).toEqual({
+      kind: "enhancement_stone_bundle",
+      red: 2,
+      blue: 2,
+    });
+  });
+
   it("같은 달에는 빠진 날이 있어도 누적 출석을 유지한다", () => {
     const now = new Date("2026-07-20T03:00:00Z");
     const status = monthlyAttendanceStatus(

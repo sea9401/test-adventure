@@ -170,7 +170,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               <Link
                 href="/settings/events"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950"
               >
                 <Gift size={18} weight="duotone" />
                 이벤트

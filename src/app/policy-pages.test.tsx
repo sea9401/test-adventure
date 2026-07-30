@@ -35,15 +35,24 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain("현재 서비스는 현금 결제나 유료 상품 구매를 제공하지 않습니다");
   });
 
-  it("확인된 처리 위치와 Cloudflare R2 국외 처리 내용을 안내한다", () => {
+  it("확인된 처리 위치와 외부 보안 서비스의 국외 처리 내용을 안내한다", () => {
     const html = renderToStaticMarkup(<PrivacyPage />);
 
+    expect(html).toContain("2026년 7월 31일");
     expect(html).toContain("대한민국 서울 리전");
     expect(html).toContain("ap-northeast-2");
+    expect(html).toContain("CloudFront·AWS WAF");
+    expect(html).toContain("aws-korea-privacy@amazon.com");
     expect(html).toContain("Cloudflare, Inc. (R2)");
     expect(html).toContain("아시아·태평양 지역(APAC)");
+    expect(html).toContain("Cloudflare, Inc. (Turnstile)");
+    expect(html).toContain("dpo@cloudflare.com");
+    expect(html).toContain("Intuition Machines, Inc. (hCaptcha)");
+    expect(html).toContain("privacy@imachines.com");
+    expect(html).toContain("확인이 요구된 낚시·벌목·채광 활동");
     expect(html).toContain("이전을 거부하는 방법과 영향");
     expect(html).toContain("privacyquestions@cloudflare.com");
+    expect(html).toContain("생성 후 최대 90일");
     expect(html).not.toContain("정식 출시 전 실제 운영 계약과 저장 위치");
   });
 });

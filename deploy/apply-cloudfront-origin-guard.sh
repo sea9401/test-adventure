@@ -30,7 +30,11 @@ printf 'if ($http_x_msmsge_origin_verify != "%s") {\n    return 404;\n}\n' \
   "$CLOUDFRONT_ORIGIN_SECRET" >"$snippet_candidate"
 
 if ! grep -q 'msmsge-cloudfront-origin-guard\.conf' "$candidate"; then
-  perl -0pi -e 's{(^([ \t]*)listen\s+443[^;\n]*;\n)}{$1 . $2 . "include /etc/nginx/snippets/msmsge-cloudfront-origin-guard.conf;\n"}me' "$candidate"
+  perl -0pi -e 's{(^([ \t]*)listen\s+443[^;\n]*;[^\n]*\n)}{$1 . $2 . "include /etc/nginx/snippets/msmsge-cloudfront-origin-guard.conf;\n"}me' "$candidate"
+fi
+if ! grep -q 'msmsge-cloudfront-origin-guard\.conf' "$candidate"; then
+  echo "failed to insert CloudFront origin guard include into $DEST" >&2
+  exit 1
 fi
 
 config_backup="${DEST}.bak.cloudfront.$(date +%Y%m%d%H%M%S)"

@@ -3,19 +3,22 @@
 이 문서와 `infra/cloudfront-waf/`는 CDN/WAF 생성, 단계적 DNS 전환, 즉시 롤백을
 한 변경 단위로 수행하기 위한 실행 자료다.
 
-## 현재 운영 상태 — 2026-07-30
+## 현재 운영 상태 — 2026-07-31
 
 - CloudFront distribution `E2NWRUQ46FYRC`와 Pro 정액제(월 15 USD)를 사용한다.
 - `msmsge.com`, `www.msmsge.com` Route53 alias는
   `diibeil31l506.cloudfront.net`을 가리킨다.
 - WAF `msmsge-production-cloudfront`의 관리형 3개·rate 2개 규칙은 Count로
   관찰 중이다. 24~48시간 오탐 관찰 전에는 Block으로 올리지 않는다.
+- CloudFront 표준 접근 로그 v2와 WAF 요청 로그를 CloudWatch Logs에 연결했다.
+  쿠키·쿼리·인증 헤더 등 민감 필드는 제외하고 두 로그 그룹 모두 90일 보존을
+  적용·재검증했다.
 - `origin.msmsge.com` 인증서를 적용했고 CloudFront 원본 IP 48개만 실제 IP
   프록시로 신뢰한다. 비밀 원본 헤더 없는 HTTPS 직접 요청은 404로 거부한다.
 - 전환 후 공개 release 검사, 모바일 로그인·게임 행동·새로고침, 동적 비캐시,
   해시 정적 자산의 CloudFront Hit를 확인했다.
 - Route53 롤백 JSON은 CloudShell의 `.edge-state/`에 보관한다. WAF Block 승격과
-  접근 로그 확인까지 끝나기 전에는 운영 TODO를 완료로 표시하지 않는다.
+  실제 로그 유입 확인까지 끝나기 전에는 운영 TODO를 완료로 표시하지 않는다.
 
 ## 확정한 구성
 
@@ -154,28 +157,32 @@ CloudFront 기본 도메인으로 원본 연결, 비캐시 health, 정적 자산
 bash infra/cloudfront-waf/smoke.sh dxxxxxxxxxxxxx.cloudfront.net
 ```
 
-CloudFront 콘솔에서 이 distribution에 Pro 정액제를 연결하고 로그를 활성화한다.
-CloudFront 접근 로그와 WAF 요청 로그를 받는 CloudWatch Logs 로그 그룹은 보존 기간을
-**90일**로 설정한다. CloudShell 또는 만료 시간이 짧은 배포 역할 세션에서 아래
-스크립트를 실행한다. 이 스크립트는 distribution ARN과 Web ACL을 통해 실제 연결된
-CloudWatch Logs 목적지만 찾으며, 이름이 비슷한 다른 로그 그룹은 변경하지 않는다.
+CloudFront 콘솔에서 이 distribution에 Pro 정액제를 연결한다. 접근 로그와 WAF 요청
+로그는 `deploy.sh`가 기반 스택 출력의 distribution과 Web ACL에 자동 연결한다. 구성은
+CloudWatch Logs, JSON 형식, 90일 보존으로 고정한다. CloudFront 필드에서 쿠키·쿼리·
+Referer·전달 IP 체인을 제외하고, WAF에서는 Authorization·Cookie 헤더와 전체 쿼리
+문자열을 가린다. 이름이 비슷한 기존 delivery가 다른 리소스를 가리키면 덮어쓰지 않고
+배포를 중단한다.
 
 ```bash
-# 읽기 전용 확인. 이미 90일이 아니면 실패한다.
-node infra/cloudfront-waf/log-retention.mjs --audit
+# 스택 배포와 함께 생성·갱신 후 개인정보 제외 설정까지 재검증한다.
+bash infra/cloudfront-waf/deploy.sh
 
-# 정확히 연결된 로그 그룹만 90일로 변경하고 재확인한다.
-node infra/cloudfront-waf/log-retention.mjs --apply
+# 스택을 바꾸지 않는 읽기 전용 재감사
+export DISTRIBUTION_ID='실제-distribution-id'
+export WEB_ACL_ARN='실제-Web-ACL-ARN'
+node infra/cloudfront-waf/configure-logging.mjs --audit
+unset DISTRIBUTION_ID WEB_ACL_ARN
 ```
 
-실행 역할에는 `sts:GetCallerIdentity`, `logs:DescribeDeliverySources`,
-`logs:DescribeDeliveries`, `logs:DescribeDeliveryDestinations`,
-`logs:DescribeLogGroups`, `wafv2:ListWebACLs`, `wafv2:GetLoggingConfiguration`가
-필요하다. `--apply`에는 대상 로그 그룹의 `logs:PutRetentionPolicy`도 필요하다.
-운영 EC2의 DB 백업 역할에는 이 권한을 추가하지 않는다. 실행 결과가
-`Applied and verified 90-day retention`인지 확인해 개인정보처리방침의 보유 기간과
-일치시킨다. AWS는 만료된 이벤트를 최대 72시간 뒤 실제 삭제할 수 있으므로, 용량을
-확인할 때는 이 지연을 감안한다.
+읽기 전용 감사에는 `sts:GetCallerIdentity`, CloudWatch Logs의 log group·delivery
+조회, `wafv2:GetLoggingConfiguration` 권한이 필요하다. 적용에는 CloudWatch Logs의
+log group·retention·delivery 생성/갱신과 `wafv2:PutLoggingConfiguration` 권한도
+필요하다. 서비스가 쓰기용 resource policy를 만들 수 있는 권한도 포함한다. 운영 EC2의
+DB 백업 역할에는 이 권한을 추가하지 않는다. 결과가 `EDGE LOGGING AUDIT PASS`인지
+확인한다. AWS는 만료된 이벤트를 최대 72시간 뒤 실제 삭제할 수 있으므로, 용량을
+확인할 때는 이 지연을 감안한다. `log-retention.mjs`는 연결된 그룹의 보존 기간만
+별도로 재검증하는 보조 도구로 유지한다.
 같은 화면에서 `msmsge.com` Route53 hosted zone도 플랜에 연결해야 hosted zone과 표준
 DNS 질의 비용이 정액제에 포함된다.
 WAF 콘솔에서는 다섯 규칙이 Count이고 샘플 요청과 CloudWatch 지표가 들어오는지

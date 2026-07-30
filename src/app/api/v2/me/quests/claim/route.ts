@@ -29,7 +29,6 @@ import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
-import { GRID_DUNGEON_HISTORY_KEY } from "@/adventure/data/v2/gridDungeon";
 import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
 
 // POST /api/v2/me/quests/claim  { questId } — 가이드 퀘스트 보상 수령.
@@ -92,7 +91,6 @@ export async function POST(req: Request) {
     const fishingProgressRaw = await readSave(tx, userId, FISHING_PROGRESS_KEY, {});
     const equipmentCodexRaw = await readSave(tx, userId, EQUIPMENT_CODEX_KEY, {});
     const masteryTowerRaw = await readSave(tx, userId, MASTERY_TOWER_SAVE_KEY, {});
-    const gridDungeonHistoryRaw = await readSave(tx, userId, GRID_DUNGEON_HISTORY_KEY, []);
     const cookingRaw = await readSave(tx, userId, COOKING_SAVE_KEY, {});
     const extras = await assembleQuestExtras(tx, userId);
 
@@ -109,7 +107,6 @@ export async function POST(req: Request) {
       fishingProgressRaw,
       equipmentCodexRaw,
       masteryTowerRaw,
-      gridDungeonHistoryRaw,
       cookingRaw,
       extras,
     });

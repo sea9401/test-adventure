@@ -103,9 +103,6 @@ function seedFisherSession(now: number) {
   store.set(FISHING_WALLET_KEY, { coins: 0 });
   const baseline = {
     battleCount: 0,
-    siegeAttempts: 0,
-    siegeWins: 0,
-    warTreasuryGold: 0,
     fishCaught: 0,
     enhanceAttempts: 0,
   };
@@ -374,9 +371,6 @@ describe("POST /api/v2/fishing/reel", () => {
         key: kstDailyKey(new Date(now - 24 * 3600_000)),
         baseline: {
           battleCount: 0,
-          siegeAttempts: 0,
-          siegeWins: 0,
-          warTreasuryGold: 0,
           fishCaught: 4,
           enhanceAttempts: 0,
         },

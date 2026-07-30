@@ -49,6 +49,7 @@ import {
   type MuseunShopItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import { randomUUID } from "node:crypto";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
@@ -139,6 +140,7 @@ export async function POST(req: Request) {
       let museunCoinsTotal = 0;
       const museunCashItemTotals = new Map<MuseunShopItemId, number>();
       let adventureSupportDaysTotal = 0;
+      const titleIdsToGrant = new Set<string>();
       // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
       // 기존대로 inventory.v2 스택으로. base 등급 가정(등급 사본 보상 없음).
       const pushEquip = (itemId: string, count: number) => {
@@ -248,6 +250,9 @@ export async function POST(req: Request) {
             }
             if (parsed.adventureSupportDays > 0) {
               adventureSupportDaysTotal += parsed.adventureSupportDays;
+            }
+            for (const titleId of parsed.titleIds ?? []) {
+              titleIdsToGrant.add(titleId);
             }
             break;
           }
@@ -505,6 +510,15 @@ export async function POST(req: Request) {
         });
       }
 
+      // 영구 칭호 — 같은 칭호가 여러 우편에 있어도 한 번만 지급한다. 기존 보유분은
+      // grantTitleIfMissingInTx 가 멱등 처리하며 칭호 획득 알림도 같은 트랜잭션에 남긴다.
+      const titleIdsAdded: string[] = [];
+      for (const titleId of titleIdsToGrant) {
+        if (await grantTitleIfMissingInTx(tx, userId, titleId, Date.now())) {
+          titleIdsAdded.push(titleId);
+        }
+      }
+
       // inbox 마킹.
       const now = new Date();
       const failedSet = new Set(parseFailedRowIds);
@@ -546,6 +560,7 @@ export async function POST(req: Request) {
         adventureSupportDaysAdded: adventureSupportDaysApplied,
         adventureSupportActiveUntil,
         adventureSupportFirstActivation,
+        titleIdsAdded,
         staminaAfterSupport,
         staminaMaxAfterSupport,
         newGold,

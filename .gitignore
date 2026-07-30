@@ -26,6 +26,8 @@
 # misc
 .DS_Store
 *.pem
+# 1회용 쿠폰 평문이 들어가는 운영 출력물
+/beta-coupons*.csv
 
 # debug
 npm-debug.log*

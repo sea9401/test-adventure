@@ -1,4 +1,4 @@
-import { V2ReferralView } from "@/adventure/v2/V2ReferralView";
+import { permanentRedirect } from "next/navigation";
 
 export const metadata = {
   title: "게임 홍보 — 무슨무슨게임",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function ReferralsPage() {
-  return <V2ReferralView />;
+  permanentRedirect("/settings/events");
 }

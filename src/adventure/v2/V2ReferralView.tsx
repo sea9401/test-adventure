@@ -39,7 +39,7 @@ async function fetchReferralSummary(): Promise<ReferralSummary> {
   return json;
 }
 
-export function V2ReferralView() {
+export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const [summary, setSummary] = useState<ReferralSummary | null>(null);
   const origin = useSyncExternalStore(
@@ -130,10 +130,8 @@ export function V2ReferralView() {
     await copy();
   };
 
-  return (
-    <PageShell>
-      <SubViewHeader title="게임 홍보" onBack={() => router.back()} />
-
+  const content = (
+    <>
       {error && <LoadErrorBanner onRetry={load} />}
 
       <Card padding="lg" className="space-y-4">
@@ -236,6 +234,15 @@ export function V2ReferralView() {
           </ul>
         </Card>
       )}
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <PageShell>
+      <SubViewHeader title="게임 홍보" onBack={() => router.back()} />
+      {content}
     </PageShell>
   );
 }

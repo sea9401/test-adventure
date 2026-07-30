@@ -43,10 +43,10 @@ export const GUILD_WORKSHOP_MATERIAL_DROP_PCT: Record<
   GuildWorkshopMaterialId,
   number
 > = {
-  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 0.004,
-  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 0.003,
-  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 0.002,
-  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 0.001,
+  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 0.0045,
+  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 0.0035,
+  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 0.0025,
+  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 0.0015,
 };
 
 export const GUILD_WORKSHOP_MATERIAL_SOURCES: Record<

@@ -3,6 +3,7 @@ import {
   GUILD_WORKSHOP_MATERIAL_ID,
   GUILD_WORKSHOP_MATERIAL_IDS,
   GUILD_WORKSHOP_MATERIALS,
+  GUILD_WORKSHOP_MATERIAL_DROP_PCT,
   rollGuildWorkshopMaterialDrops,
 } from "./guildWorkshopMaterials";
 
@@ -13,6 +14,15 @@ describe("guild workshop materials", () => {
       expect(GUILD_WORKSHOP_MATERIALS[id].name.length).toBeGreaterThan(0);
       expect(GUILD_WORKSHOP_MATERIALS[id].description.length).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps the modestly increased material drop rates", () => {
+    expect(GUILD_WORKSHOP_MATERIAL_DROP_PCT).toEqual({
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 0.0045,
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 0.0035,
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 0.0025,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 0.0015,
+    });
   });
 
   it("rolls only the material band for the current depth", () => {

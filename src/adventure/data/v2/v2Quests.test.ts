@@ -37,12 +37,6 @@ const ZERO: QuestCtx = {
   cumLevel: 1,
   reincarnations: 0,
   speciesKilled: 0,
-  claimAttempted: false,
-  hasOutpost: false,
-  siegeWins: 0,
-  warCaptures: 0,
-  warEjectWins: 0,
-  warTreasuryGold: 0,
   fishSpecies: 0,
   maxEnhanceLevel: 0,
   enhanceStones: 0,
@@ -51,7 +45,6 @@ const ZERO: QuestCtx = {
   skillsLearned: 0,
   hasHealed: false,
   hasShopped: false,
-  hasMoved: false,
   workshopCrafts: 0,
   workshopQualityCrafts: 0,
   blacksmithLevel: 1,
@@ -62,8 +55,6 @@ const ZERO: QuestCtx = {
   farmReputationEarned: 0,
   woodcuttingLevel: 1,
   woodcuttingCuts: 0,
-  woodcuttingPerfectCuts: 0,
-  woodcuttingBestCombo: 0,
   woodcuttingSpecies: 0,
   miningLevel: 1,
   miningSuccesses: 0,
@@ -74,7 +65,6 @@ const ZERO: QuestCtx = {
   equipmentCodexRegistered: 0,
   equipmentCodexTotal: 240,
   masteryTowerFloor: 0,
-  gridDungeonClears: 0,
   cookingLevel: 1,
   cookingRecipesDiscovered: 0,
   cookingDishesCooked: 0,
@@ -101,6 +91,33 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
+  it("제거된 지도·전쟁·벌목 미니게임 업적은 카탈로그에 없다", () => {
+    const removedIds = [
+      "b_travel",
+      "wood_perfect1",
+      "wood_perfect100",
+      "wood_combo10",
+      "wood_combo25",
+      "wood_combo50",
+      "grid_clear1",
+      "grid_clear5",
+      "grid_clear10",
+      "w_first_claim",
+      "w_hold",
+      "w_siege5",
+      "war_siege25",
+      "w_captures5",
+      "war_capture20",
+      "w_eject",
+      "war_eject20",
+      "w_treasury",
+      "war_treasury100k",
+    ];
+
+    for (const id of removedIds) expect(questById(id), id).toBeUndefined();
+    expect(QUEST_LINES.some((line) => line.id === "war")).toBe(false);
+  });
+
   it("대표 배지는 일부 핵심 마일스톤에만 부여하고 네 단계가 모두 존재한다", () => {
     const achievements = V2_QUESTS.filter((quest) => quest.points != null);
     const badges = achievements.filter((quest) => quest.badgeTier != null);
@@ -121,10 +138,30 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
-  it("영구 업적 120개 이상 + 모든 업적에 점수", () => {
+  it("영구 업적 300개 이상 + 모든 업적에 점수", () => {
     const achievements = V2_QUESTS.filter((q) => !isTutorialLine(q.line));
-    expect(achievements.length).toBeGreaterThanOrEqual(120);
+    expect(achievements.length).toBeGreaterThanOrEqual(300);
     expect(achievements.every((q) => (q.points ?? 0) > 0)).toBe(true);
+  });
+
+  it("마일스톤 체인은 목표가 오름차순이며 한 계열로 연결된다", () => {
+    const chains = new Map<string, Array<(typeof V2_QUESTS)[number]>>();
+    for (const quest of V2_QUESTS) {
+      if (!quest.chain) continue;
+      const entries = chains.get(quest.chain) ?? [];
+      entries.push(quest);
+      chains.set(quest.chain, entries);
+    }
+
+    expect(chains.size).toBeGreaterThan(30);
+    for (const [chain, entries] of chains) {
+      expect(entries.length, chain).toBeGreaterThan(1);
+      for (let index = 1; index < entries.length; index += 1) {
+        expect(entries[index].goal, `${chain}:${entries[index].id}`).toBeGreaterThan(
+          entries[index - 1].goal ?? 0,
+        );
+      }
+    }
   });
 
   it("모든 영구 업적은 골드를 보상으로 지급하지 않는다", () => {
@@ -225,11 +262,10 @@ describe("성장의 길 (순차 라인)", () => {
     );
   });
 
-  it("기초 튜토리얼 — 은행/스킬/이동 신호로만 충족(신규는 미충족)", () => {
+  it("기초 튜토리얼 — 은행/스킬 신호로만 충족(신규는 미충족)", () => {
     // 신규(ZERO) = 전부 미충족.
     expect(questStatus(questById("b_bank")!, ZERO, none)).toBe("active");
     expect(questStatus(questById("b_skill")!, ZERO, none)).toBe("active");
-    expect(questStatus(questById("b_travel")!, ZERO, none)).toBe("active");
     // 각 신호 충족 시 수령 가능.
     expect(
       isQuestClaimable(questById("b_bank")!, { ...ZERO, bankedGold: 50 }, none),
@@ -241,22 +277,6 @@ describe("성장의 길 (순차 라인)", () => {
         none,
       ),
     ).toBe(true);
-    // 지도에서 한 번이라도 이동했으면(hasMoved) 완료. 거점 수와 무관(자유 타일).
-    expect(
-      isQuestClaimable(
-        questById("b_travel")!,
-        { ...ZERO, hasMoved: true },
-        none,
-      ),
-    ).toBe(true);
-    // 아직 이동 전이면 미충족.
-    expect(
-      isQuestClaimable(
-        questById("b_travel")!,
-        { ...ZERO, hasMoved: false },
-        none,
-      ),
-    ).toBe(false);
   });
 
   it("기초 튜토리얼 — 상점/치료/학습 신호로 충족", () => {
@@ -400,19 +420,25 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     expect(
       isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueOwned: 1 }, none),
     ).toBe(true);
-    // 영구 업적은 이전 단계 보상 수령과 무관하게 달성할 수 있다.
+    // 체인 중간 단계는 앞 목표를 전부 수령하기 전에는 건너뛸 수 없다.
     expect(
       isQuestClaimable(
         questById("a_depth40")!,
         { ...ZERO, frontierDepth: 40 },
         none,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isQuestClaimable(
         questById("a_depth40")!,
         { ...ZERO, frontierDepth: 40 },
-        new Set(["a_depth25"]),
+        new Set([
+          "b_band_canyon",
+          "frontier_13",
+          "a_depth25",
+          "frontier_25",
+          "b_band_swamp",
+        ]),
       ),
     ).toBe(true);
     expect(
@@ -424,7 +450,13 @@ describe("정점을 향해 (확장 마일스톤)", () => {
   });
 
   it("체인 간 독립 — 깊이 체인 진행이 보스 체인과 무관", () => {
-    const claimed = new Set(["a_depth25"]);
+    const claimed = new Set([
+      "b_band_canyon",
+      "frontier_13",
+      "a_depth25",
+      "frontier_25",
+      "b_band_swamp",
+    ]);
     const ctx = { ...ZERO, frontierDepth: 40 };
     expect(isQuestClaimable(questById("a_depth40")!, ctx, claimed)).toBe(true);
     expect(questStatus(questById("a_boss")!, ctx, claimed)).toBe("active");
@@ -435,12 +467,16 @@ describe("정점을 향해 (확장 마일스톤)", () => {
       isQuestClaimable(
         questById("a_boss_master")!,
         { ...ZERO, bossKills: 4 },
-        new Set(["a_boss"]),
+        new Set(["a_boss", "combat_boss2"]),
       ),
     ).toBe(true);
     // 보스 3종만으론 미충족(공허의 대사제 포함 4종 기준).
     expect(
-      questStatus(questById("a_boss_master")!, { ...ZERO, bossKills: 3 }, new Set(["a_boss"])),
+      questStatus(
+        questById("a_boss_master")!,
+        { ...ZERO, bossKills: 3 },
+        new Set(["a_boss", "combat_boss2"]),
+      ),
     ).toBe("active");
     expect(
       isQuestClaimable(
@@ -449,19 +485,29 @@ describe("정점을 향해 (확장 마일스톤)", () => {
         new Set(["a_unique"]),
       ),
     ).toBe(true);
-    // 깊이 체인 마지막 — 앞 두 단계 수령 후 수령 가능.
+    const beforeFrontierEnd = new Set([
+      "b_band_canyon",
+      "frontier_13",
+      "a_depth25",
+      "frontier_25",
+      "b_band_swamp",
+      "a_depth40",
+      "frontier_48",
+      "frontier_60",
+    ]);
+    // 깊이 체인 마지막 — 앞 단계를 모두 수령한 뒤 수령 가능.
     expect(
       isQuestClaimable(
         questById("a_depth48")!,
         { ...ZERO, frontierDepth: 71 },
-        new Set(["a_depth25", "a_depth40"]),
+        beforeFrontierEnd,
       ),
     ).toBe(false);
     expect(
       isQuestClaimable(
         questById("a_depth48")!,
         { ...ZERO, frontierDepth: 72 },
-        new Set(["a_depth25", "a_depth40"]),
+        beforeFrontierEnd,
       ),
     ).toBe(true);
   });
@@ -535,12 +581,6 @@ describe("currentGuideQuest (홈 배너)", () => {
       cumLevel: 2500,
       reincarnations: 9,
       speciesKilled: 41,
-      claimAttempted: true,
-      hasOutpost: true,
-      siegeWins: 9,
-      warCaptures: 9,
-      warEjectWins: 3,
-      warTreasuryGold: 99999,
       fishSpecies: 30,
       maxEnhanceLevel: 10,
       enhanceStones: 99,
@@ -549,7 +589,6 @@ describe("currentGuideQuest (홈 배너)", () => {
       skillsLearned: 5,
       hasHealed: true,
       hasShopped: true,
-      hasMoved: true,
       workshopCrafts: 9,
       workshopQualityCrafts: 1,
       blacksmithLevel: 3,
@@ -560,8 +599,6 @@ describe("currentGuideQuest (홈 배너)", () => {
       farmReputationEarned: 999,
       woodcuttingLevel: 50,
       woodcuttingCuts: 9999,
-      woodcuttingPerfectCuts: 999,
-      woodcuttingBestCombo: 999,
       woodcuttingSpecies: 99,
       miningLevel: 50,
       miningSuccesses: 9999,
@@ -572,7 +609,6 @@ describe("currentGuideQuest (홈 배너)", () => {
       equipmentCodexRegistered: 240,
       equipmentCodexTotal: 240,
       masteryTowerFloor: 50,
-      gridDungeonClears: 10,
       cookingLevel: 50,
       cookingRecipesDiscovered: 18,
       cookingDishesCooked: 9999,
@@ -606,11 +642,10 @@ describe("deriveQuestViews", () => {
     expect(views.every((v) => v.status)).toBe(true);
   });
 
-  it("업적 마일스톤은 모든 단계가 보이며 수령분은 완료로 잔존", () => {
-    // 미수령: l_fish10/25 숨김.
+  it("업적 마일스톤은 현재 단계만 보이며 수령분은 완료로 잔존", () => {
     const fresh = deriveQuestViews(ZERO, none).map((v) => v.id);
     expect(fresh).toContain("l_fish1");
-    expect(fresh).toContain("l_fish10");
+    expect(fresh).not.toContain("l_fish10");
     // l_fish1 수령 → l_fish10 등장(+수령분 완료 표시), l_fish25 는 여전히 숨김.
     const after = deriveQuestViews(
       { ...ZERO, fishSpecies: 12 },
@@ -618,9 +653,23 @@ describe("deriveQuestViews", () => {
     );
     const ids = after.map((v) => v.id);
     expect(ids).toContain("l_fish10");
-    expect(ids).toContain("l_fish25");
+    expect(ids).not.toContain("l_fish25");
     expect(after.find((v) => v.id === "l_fish1")!.status).toBe("claimed");
     expect(after.find((v) => v.id === "l_fish10")!.status).toBe("claimable");
+  });
+
+  it("작물 수확 50회 수령 뒤 다음 단계인 계절을 일구다만 공개", () => {
+    const views = deriveQuestViews(
+      { ...ZERO, farmHarvests: 50 },
+      new Set(["farm_harvest1", "farm_harvest10", "farm_harvest50"]),
+    );
+    const ids = views.map((view) => view.id);
+
+    expect(ids).toContain("farm_harvest200");
+    expect(ids).not.toContain("farm_harvest500");
+    expect(views.find((view) => view.id === "farm_harvest200")!.status).toBe(
+      "active",
+    );
   });
 
   it("과거 독립 수령 세이브 — 상위만 수령돼 있어도 안전(하위가 현재 단계)", () => {
@@ -629,25 +678,13 @@ describe("deriveQuestViews", () => {
       new Set(["b_battles5000"]),
     );
     const ids = views.map((v) => v.id);
-    expect(ids).toContain("b_battles1000"); // 하위 = 현재 단계(claimable)
+    expect(ids).toContain("combat_10"); // 가장 이른 미수령 단계가 현재 목표
     expect(ids).toContain("b_battles5000"); // 수령분은 완료 탭 잔존
-    expect(views.find((v) => v.id === "b_battles1000")!.status).toBe("claimable");
+    expect(views.find((v) => v.id === "combat_10")!.status).toBe("claimable");
   });
 });
 
-describe("확장 라인(전쟁/재전직/생활/도감) 판정", () => {
-  it("거점 전쟁 — 각 기록은 독립 업적", () => {
-    expect(questById("w_first_claim")!.check(ZERO)).toBe(false);
-    expect(questById("w_first_claim")!.check({ ...ZERO, claimAttempted: true })).toBe(true);
-    // 보유 OR 함락 누적 어느 쪽이든 "깃발을 꽂다" 충족.
-    expect(questById("w_hold")!.check({ ...ZERO, hasOutpost: true })).toBe(true);
-    expect(questById("w_hold")!.check({ ...ZERO, warCaptures: 1 })).toBe(true);
-    expect(questById("w_treasury")!.check({ ...ZERO, warTreasuryGold: 2999 })).toBe(false);
-    expect(questById("w_treasury")!.check({ ...ZERO, warTreasuryGold: 3000 })).toBe(true);
-    // 순차 라인 — 앞(첫 출정) 미완료면 뒤는 locked.
-    expect(questStatus(questById("w_hold")!, { ...ZERO, hasOutpost: true }, none)).toBe("claimable");
-  });
-
+describe("확장 라인(재전직/생활/도감) 판정", () => {
   it("재전직 기록 — 첫 업적은 재전직 1회로 판정(숙련도 무관)", () => {
     // 한 직업 숙련도만으로 행동을 추측하지 않고 실제 재전직 카운터로 판정한다.
     expect(

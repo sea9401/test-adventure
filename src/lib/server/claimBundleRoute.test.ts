@@ -10,9 +10,6 @@ const k = (u: string, key: string) => `${u}::${key}`;
 // 일일 4개 완료(아레나 제외) 되는 신호.
 const SIGNALS = {
   battleCount: 1000,
-  siegeAttempts: 10,
-  siegeWins: 5,
-  warTreasuryGold: 20000,
   fishCaught: 50,
   enhanceAttempts: 7,
   farmHarvests: 20,
@@ -57,9 +54,6 @@ import { ensureUser } from "@/lib/server/ensureUser";
 
 const BASE_ZERO = {
   battleCount: 0,
-  siegeAttempts: 0,
-  siegeWins: 0,
-  warTreasuryGold: 0,
   fishCaught: 0,
   enhanceAttempts: 0,
   farmHarvests: 0,

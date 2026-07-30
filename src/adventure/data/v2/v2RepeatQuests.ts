@@ -30,9 +30,6 @@ export function nextWeeklyResetAt(now: Date): number {
 // ── 신호 — 전부 기존 누적치(세이브/DB). arenaTimes 만 타임스탬프 목록 ──────────
 export type RepeatSnapshot = {
   battleCount: number;
-  siegeAttempts: number;
-  siegeWins: number;
-  warTreasuryGold: number;
   fishCaught: number;
   enhanceAttempts: number;
   farmHarvests: number;
@@ -49,9 +46,6 @@ export type RepeatSignals = RepeatSnapshot & {
 export function snapshotOf(s: RepeatSignals): RepeatSnapshot {
   return {
     battleCount: s.battleCount,
-    siegeAttempts: s.siegeAttempts,
-    siegeWins: s.siegeWins,
-    warTreasuryGold: s.warTreasuryGold,
     fishCaught: s.fishCaught,
     enhanceAttempts: s.enhanceAttempts,
     farmHarvests: s.farmHarvests,
@@ -85,7 +79,7 @@ const diff =
     Math.max(0, cur[key] - base[key]);
 
 export const REPEAT_QUESTS: readonly RepeatQuestDef[] = [
-  // 일일 — 10~20분 분량, 콘텐츠 한 바퀴(사냥/전쟁/낚시/강화/아레나).
+  // 일일 — 10~20분 분량, 콘텐츠 한 바퀴(사냥/낚시/강화/아레나/생활).
   {
     id: "d_battles",
     scope: "daily",
@@ -94,15 +88,6 @@ export const REPEAT_QUESTS: readonly RepeatQuestDef[] = [
     goal: 30,
     reward: { gold: 800 },
     progress: diff("battleCount"),
-  },
-  {
-    id: "d_claim",
-    scope: "daily",
-    title: "오늘의 출정",
-    desc: "거점 점령전을 1회 시도하세요.",
-    goal: 1,
-    reward: { gold: 1000 },
-    progress: diff("siegeAttempts"),
   },
   {
     id: "d_fish",
@@ -267,9 +252,6 @@ function parsePeriod(raw: unknown): RepeatPeriodState | undefined {
     key: r.key,
     baseline: {
       battleCount: num(b.battleCount),
-      siegeAttempts: num(b.siegeAttempts),
-      siegeWins: num(b.siegeWins),
-      warTreasuryGold: num(b.warTreasuryGold),
       fishCaught: num(b.fishCaught),
       enhanceAttempts: num(b.enhanceAttempts),
       farmHarvests: num(b.farmHarvests),

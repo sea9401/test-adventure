@@ -27,7 +27,6 @@ import {
 } from "@/lib/server/v2QuestContext";
 import { achievementSummary } from "@/adventure/data/v2/v2Quests";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
-import { GRID_DUNGEON_HISTORY_KEY } from "@/adventure/data/v2/gridDungeon";
 import {
   codexCompletionRankingFromSaves,
   lifeMasteryRankingFromSaves,
@@ -415,13 +414,6 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         COALESCE(SUM(wins), 0)::bigint AS wins,
         COALESCE(SUM(wins + losses + draws), 0)::bigint AS matches
       FROM pvp_ratings GROUP BY user_id
-    ), claims AS (
-      SELECT attacker_user_id AS user_id,
-        COUNT(*)::bigint AS attempts,
-        COUNT(*) FILTER (WHERE won)::bigint AS wins
-      FROM outpost_claim_attempts
-      WHERE attacker_user_id IS NOT NULL
-      GROUP BY attacker_user_id
     ), guild_activity AS (
       SELECT actor_user_id AS user_id,
         COUNT(*) FILTER (WHERE type = 'dining_meal')::bigint AS dining_meals,
@@ -450,14 +442,11 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       fishing.value AS fishing_save,
       equipment_codex.value AS equipment_codex_save,
       tower.value AS tower_save,
-      grid_history.value AS grid_history_save,
       cooking.value AS cooking_save,
       quests.value AS quests_save,
       fishing_codex.value AS fishing_codex_save,
       COALESCE(pvp.wins, 0)::bigint AS arena_wins,
       COALESCE(pvp.matches, 0)::bigint AS arena_matches,
-      COALESCE(claims.attempts, 0)::bigint AS siege_attempts,
-      COALESCE(claims.wins, 0)::bigint AS siege_wins,
       COALESCE(guild_activity.dining_meals, 0)::bigint AS guild_dining_meals,
       COALESCE(guild_activity.training_drills, 0)::bigint AS guild_training_drills,
       COALESCE(guild_activity.expeditions, 0)::bigint AS guild_expeditions,
@@ -469,11 +458,6 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         SELECT 1 FROM marketplace_listings_v2 ml
         WHERE ml.status = 'sold' AND (ml.seller_id = u.id OR ml.buyer_id = u.id)
       ) AS has_traded,
-      EXISTS (
-        SELECT 1 FROM guild_members gm
-        JOIN outpost_occupations oo ON oo.occupied_by_guild_id = gm.guild_id
-        WHERE gm.user_id = u.id
-      ) AS has_outpost,
       COALESCE(quests.updated_at, u.created_at) AS updated_at
     FROM users u
     LEFT JOIN saves_kv profile ON profile.user_id = u.id AND profile.key = 'character-profile.v2'
@@ -489,12 +473,10 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv fishing ON fishing.user_id = u.id AND fishing.key = ${FISHING_PROGRESS_KEY}
     LEFT JOIN saves_kv equipment_codex ON equipment_codex.user_id = u.id AND equipment_codex.key = ${EQUIPMENT_CODEX_KEY}
     LEFT JOIN saves_kv tower ON tower.user_id = u.id AND tower.key = ${MASTERY_TOWER_SAVE_KEY}
-    LEFT JOIN saves_kv grid_history ON grid_history.user_id = u.id AND grid_history.key = ${GRID_DUNGEON_HISTORY_KEY}
     LEFT JOIN saves_kv cooking ON cooking.user_id = u.id AND cooking.key = ${COOKING_SAVE_KEY}
     LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
     LEFT JOIN pvp ON pvp.user_id = u.id
-    LEFT JOIN claims ON claims.user_id = u.id
     LEFT JOIN guild_activity ON guild_activity.user_id = u.id
     WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
@@ -505,16 +487,15 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     equipment_save: unknown; skills_save: unknown; crafting_save: unknown;
     farm_save: unknown; woodcutting_save: unknown; mining_save: unknown;
     fishing_save: unknown; equipment_codex_save: unknown; tower_save: unknown;
-    grid_history_save: unknown; cooking_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
+    cooking_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
     arena_wins: number | string; arena_matches: number | string;
-    siege_attempts: number | string; siege_wins: number | string;
     guild_dining_meals: number | string;
     guild_training_drills: number | string;
     guild_expeditions: number | string;
     guild_workshop_deliveries: number | string;
     guild_alchemy_crafts: number | string;
     guild_trade_contracts: number | string;
-    has_guild: boolean; has_traded: boolean; has_outpost: boolean;
+    has_guild: boolean; has_traded: boolean;
     updated_at: Date | string;
   };
   return (result.rows as unknown as DbRow[])
@@ -537,18 +518,13 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         fishingProgressRaw: r.fishing_save,
         equipmentCodexRaw: r.equipment_codex_save,
         masteryTowerRaw: r.tower_save,
-        gridDungeonHistoryRaw: r.grid_history_save,
         cookingRaw: r.cooking_save,
         extras: {
           hasGuild: r.has_guild,
           hasTraded: r.has_traded,
           arenaPlayed: Number(r.arena_matches) > 0,
           arenaWins: Number(r.arena_wins),
-          claimAttempted: Number(r.siege_attempts) > 0,
-          hasOutpost: r.has_outpost,
-          siegeWins: Number(r.siege_wins),
           fishSpecies: Object.keys(fishCodex.fish).length,
-          siegeAttempts: Number(r.siege_attempts),
           fishCaught,
           arenaTimes: [],
           guildDiningMeals: Number(r.guild_dining_meals ?? 0),

@@ -44,8 +44,6 @@ import {
   guildMembers,
   guildActivityLog,
   marketplaceListingsV2,
-  outpostClaimAttempts,
-  outpostOccupations,
   pvpRatings,
 } from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
@@ -79,9 +77,6 @@ import {
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
 import {
-  parseGridDungeonHistory,
-} from "@/adventure/data/v2/gridDungeon";
-import {
   cookingLevelForXp,
   parseCookingState,
 } from "@/adventure/v2/cooking";
@@ -96,7 +91,6 @@ type CharSave = {
   hasHealed?: unknown;
   hasShopped?: unknown;
   discoveredOutpostIds?: unknown;
-  tilePos?: { at?: unknown } | null; // 타일 지도 현재 위치 — move-tile 라우트가 설정(이동 경험 신호).
   materials?: Record<string, unknown>;
 };
 
@@ -106,10 +100,6 @@ type AdventureLog = {
   titles?: Record<string, unknown>;
   // 격파한 협동 보스 종류(coop/claim 기록) — bossKills 판정용. 옛 세이브엔 없음(레거시 칭호로 환산).
   coopBossKinds?: unknown;
-  // 전쟁 카운터(2026-06-11) — eject/claim/treasury 라우트가 누적. 옛 세이브엔 없음(0 취급).
-  warCaptures?: unknown;
-  warEjectWins?: unknown;
-  warTreasuryGold?: unknown;
 };
 
 export type QuestExtras = {
@@ -123,14 +113,9 @@ export type QuestExtras = {
   guildWorkshopDeliveries: number;
   guildAlchemyCrafts: number;
   guildTradeContracts: number;
-  // 전쟁의 길 — outpost_claim_attempts/occupations 파생.
-  claimAttempted: boolean;
-  hasOutpost: boolean;
-  siegeWins: number;
   // 생활의 달인 — 도감 세이브 파생(fishing-codex.v1).
   fishSpecies: number;
   // 반복 퀘스트(차분 판정) — 누적치/타임스탬프.
-  siegeAttempts: number;
   fishCaught: number;
   arenaTimes: number[];
 };
@@ -148,7 +133,6 @@ export function buildQuestCtx(args: {
   fishingProgressRaw?: unknown;
   equipmentCodexRaw?: unknown;
   masteryTowerRaw?: unknown;
-  gridDungeonHistoryRaw?: unknown;
   cookingRaw?: unknown;
   extras: QuestExtras;
 }): QuestCtx {
@@ -230,8 +214,6 @@ export function buildQuestCtx(args: {
   const bankedGold = num(charSave.bankedGold);
   const hasHealed = Boolean(charSave.hasHealed);
   const hasShopped = Boolean(charSave.hasShopped);
-  // 타일 이동 경험 — move-tile 라우트가 tilePos.at 을 찍는다. 신규 캐릭터는 tilePos 미설정.
-  const hasMoved = charSave.tilePos?.at != null;
   const craftingSave =
     args.craftingRaw != null &&
     typeof args.craftingRaw === "object" &&
@@ -263,23 +245,17 @@ export function buildQuestCtx(args: {
   const fishing = parseFishingProgression(args.fishingProgressRaw);
   const equipmentCodex = equipmentCodexSummary(args.equipmentCodexRaw);
   const masteryTower = parseMasteryTowerState(args.masteryTowerRaw);
-  const gridDungeonClears = parseGridDungeonHistory(
-    args.gridDungeonHistoryRaw,
-  ).filter((entry) => entry.outcome === "cleared").length;
   const cooking = parseCookingState(args.cookingRaw);
   const cookingLevel = cookingLevelForXp(cooking.xp);
   const cookingRecipesDiscovered = cooking.discoveredRecipeIds.length;
 
-  // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수·전쟁 카운터.
+  // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수.
   const cumLevel = totalCumLevel(prof);
   // 재전직 횟수 — 숙련도 임계로 추측하지 않고 실제 행동 카운터를 사용한다.
   const reincarnations = prof.reincarnations ?? 0;
   const speciesKilled = Object.values(advLog.monsters ?? {}).filter(
     (m) => num(m?.kills) > 0,
   ).length;
-  const warCaptures = num(advLog.warCaptures);
-  const warEjectWins = num(advLog.warEjectWins);
-  const warTreasuryGold = num(advLog.warTreasuryGold);
 
   return {
     class: cls,
@@ -301,12 +277,6 @@ export function buildQuestCtx(args: {
     cumLevel,
     reincarnations,
     speciesKilled,
-    claimAttempted: args.extras.claimAttempted,
-    hasOutpost: args.extras.hasOutpost,
-    siegeWins: args.extras.siegeWins,
-    warCaptures,
-    warEjectWins,
-    warTreasuryGold,
     fishSpecies: args.extras.fishSpecies,
     maxEnhanceLevel,
     enhanceStones,
@@ -315,7 +285,6 @@ export function buildQuestCtx(args: {
     skillsLearned,
     hasHealed,
     hasShopped,
-    hasMoved,
     workshopCrafts: workshopStats.totalCrafts,
     workshopQualityCrafts: workshopStats.qualityCrafts,
     blacksmithLevel,
@@ -327,8 +296,6 @@ export function buildQuestCtx(args: {
       farm.stats.reputation + farm.stats.reputationSpent,
     woodcuttingLevel: woodcuttingProgress.level,
     woodcuttingCuts: woodcutting.cuts,
-    woodcuttingPerfectCuts: woodcutting.perfectCuts,
-    woodcuttingBestCombo: woodcutting.bestCombo,
     woodcuttingSpecies: Object.keys(woodcutting.trees).length,
     miningLevel: miningProgress.level,
     miningSuccesses: mining.successes,
@@ -339,7 +306,6 @@ export function buildQuestCtx(args: {
     equipmentCodexRegistered: equipmentCodex.registeredCount,
     equipmentCodexTotal: equipmentCodex.total,
     masteryTowerFloor: masteryTower.lifetimeBestFloor,
-    gridDungeonClears,
     cookingLevel,
     cookingRecipesDiscovered,
     cookingDishesCooked: cooking.stats.dishesCooked,
@@ -389,14 +355,6 @@ export async function assembleQuestExtras(
     })
     .from(pvpRatings)
     .where(eq(pvpRatings.userId, userId));
-  // 점령 시도/승리 — (attackerUserId, createdAt) 인덱스 단일 집계.
-  const claimAgg = await ex
-    .select({
-      total: sql<number>`count(*)::bigint`,
-      wins: sql<number>`count(*) filter (where ${outpostClaimAttempts.won})::bigint`,
-    })
-    .from(outpostClaimAttempts)
-    .where(eq(outpostClaimAttempts.attackerUserId, userId));
   const fishRaw = await readSave(ex, userId, "fishing-codex.v1", {});
   const guildActivityAgg = await ex
     .select({
@@ -410,18 +368,6 @@ export async function assembleQuestExtras(
     .from(guildActivityLog)
     .where(eq(guildActivityLog.actorUserId, userId));
   const arenaHistory = parseArenaHistory(arenaRaw);
-
-  // 내 길드 점령 거점 보유 — 길드 소속일 때만 1쿼리 추가.
-  const guildId = guildRows[0]?.id ?? null;
-  let hasOutpost = false;
-  if (guildId != null) {
-    const occ = await ex
-      .select({ id: outpostOccupations.outpostId })
-      .from(outpostOccupations)
-      .where(eq(outpostOccupations.occupiedByGuildId, guildId))
-      .limit(1);
-    hasOutpost = occ.length > 0;
-  }
 
   const fishCodex = parseFishCodex(fishRaw);
   const lifetimeArenaMatches = Number(arenaAgg[0]?.matches ?? 0);
@@ -442,11 +388,7 @@ export async function assembleQuestExtras(
     ),
     guildAlchemyCrafts: Number(guildActivityAgg[0]?.alchemyCrafts ?? 0),
     guildTradeContracts: Number(guildActivityAgg[0]?.tradeContracts ?? 0),
-    claimAttempted: Number(claimAgg[0]?.total ?? 0) > 0,
-    hasOutpost,
-    siegeWins: Number(claimAgg[0]?.wins ?? 0),
     fishSpecies: Object.keys(fishCodex.fish).length,
-    siegeAttempts: Number(claimAgg[0]?.total ?? 0),
     fishCaught: Object.values(fishCodex.fish).reduce(
       (sum, e) => sum + Math.max(0, e.totalCaught ?? 0),
       0,
@@ -511,9 +453,6 @@ export function buildRepeatSignals(
   const workshop = parseGuildWorkshopStats(craftingSave.workshopStats);
   return {
     battleCount,
-    siegeAttempts: extras.siegeAttempts,
-    siegeWins: extras.siegeWins,
-    warTreasuryGold: n(advLog.warTreasuryGold),
     fishCaught: extras.fishCaught,
     enhanceAttempts: n(advLog.enhanceAttempts),
     farmHarvests: farm.stats.harvests,

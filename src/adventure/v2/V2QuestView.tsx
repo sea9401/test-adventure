@@ -285,13 +285,13 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     return (
       <>
         {!forTutorial && achievement && (
-          <Card padding="md" className="space-y-2 border-amber-300 dark:border-amber-900/70">
+          <Card padding="md" className="space-y-2">
             <div className="flex items-center gap-3">
-              <Trophy size={24} weight="fill" className="shrink-0 text-amber-500" />
+              <Trophy size={24} weight="duotone" className="shrink-0 text-amber-600 dark:text-amber-500" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <h2 className="text-sm font-semibold">업적 점수</h2>
-                  <strong className="text-lg tabular-nums text-amber-600 dark:text-amber-400">
+                  <strong className="text-lg tabular-nums text-zinc-800 dark:text-zinc-100">
                     {achievement.score.toLocaleString()}점
                   </strong>
                 </div>
@@ -302,7 +302,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
               <div
-                className="h-full rounded-full bg-amber-500"
+                className="h-full rounded-full bg-amber-400 dark:bg-amber-600"
                 style={{ width: `${Math.min(100, (achievement.score / Math.max(1, achievement.maxScore)) * 100)}%` }}
               />
             </div>
@@ -333,14 +333,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             .map((line) => {
             const lineQuests = shown.filter((q) => q.line === line.id);
             if (lineQuests.length === 0) return null;
-            const all = scoped.filter((q) => q.line === line.id);
-            const done = all.filter(isDone).length;
             return (
               <Card key={line.id} padding="md" className="space-y-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <h2 className="text-sm font-semibold">{line.name}</h2>
                   <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                    {done}/{all.length}
+                    {tab === "done"
+                      ? `${lineQuests.length}개 완료`
+                      : `현재 목표 ${lineQuests.length}개`}
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -472,14 +472,14 @@ function QuestRow({
       <CheckCircle
         size={18}
         weight="fill"
-        className="shrink-0 text-emerald-500"
+        className="shrink-0 text-emerald-600 dark:text-emerald-500"
       />
     ) : status === "claimable" ? (
       <Gift size={18} weight="fill" className="shrink-0 text-amber-500" />
     ) : status === "locked" ? (
       <Lock size={18} className="shrink-0 text-zinc-400 dark:text-zinc-600" />
     ) : (
-      <Circle size={18} className="shrink-0 text-emerald-500" />
+      <Circle size={18} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
     );
 
   const mutedText = status === "locked" || status === "claimed";
@@ -493,10 +493,8 @@ function QuestRow({
     <li
       className={`flex items-center gap-3 rounded-md border px-3 py-2 ${
         status === "claimable"
-          ? "border-amber-300 bg-amber-50 dark:border-amber-900/70 dark:bg-amber-950"
-        : status === "active"
-            ? "border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950"
-            : SURFACE_INSET
+          ? "border-amber-200 bg-zinc-50 dark:border-amber-900 dark:bg-zinc-900"
+          : SURFACE_INSET
       }`}
     >
       {icon}
@@ -504,12 +502,12 @@ function QuestRow({
         <div className="flex items-baseline gap-2">
           <span className={`truncate text-sm font-semibold ${mutedText ? "text-zinc-500 dark:text-zinc-400" : ""}`}>{quest.title}</span>
           {quest.points > 0 && (
-            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
               +{quest.points}점
             </span>
           )}
           {status === "active" && (
-            <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+            <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
               진행 중
             </span>
           )}
@@ -526,7 +524,7 @@ function QuestRow({
             </div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
               <div
-                className={`h-full rounded-full ${status === "claimable" ? "bg-amber-500" : "bg-emerald-500"}`}
+                className={`h-full rounded-full ${status === "claimable" ? "bg-amber-400 dark:bg-amber-600" : "bg-zinc-500 dark:bg-zinc-400"}`}
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -542,7 +540,7 @@ function QuestRow({
         <Button
           onClick={onClaim}
           disabled={busy}
-          variant="warning"
+          variant="secondary"
           size="xs"
           className="shrink-0"
         >

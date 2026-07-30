@@ -12,11 +12,7 @@ const EXTRAS: QuestExtras = {
   guildWorkshopDeliveries: 7,
   guildAlchemyCrafts: 3,
   guildTradeContracts: 2,
-  claimAttempted: false,
-  hasOutpost: false,
-  siegeWins: 0,
   fishSpecies: 0,
-  siegeAttempts: 0,
   fishCaught: 0,
   arenaTimes: [],
 };

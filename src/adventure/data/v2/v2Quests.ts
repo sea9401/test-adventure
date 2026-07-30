@@ -7,8 +7,8 @@
 // 핵심 설계:
 //   ① 완료 판정은 **세이브 상태에서 자동 감지**(QuestCtx). 별도 "수락/제출" 없음 — 자연스럽게
 //      달성하면 ✅. 보상만 "받기" 버튼으로 수령(중복 방지 = claimed 집합).
-//   ② 라인 = 퀘스트 묶음. sequential 라인은 앞 퀘스트가 끝나야 다음이 열리는 리드(성장의 길·전쟁의 길).
-//      비-sequential 라인은 각 마일스톤 독립(정점을 향해·모험가의 길).
+//   ② 라인 = 퀘스트 묶음. sequential 라인은 앞 퀘스트가 끝나야 다음이 열리는 리드.
+//      비-sequential 라인의 활동 종류는 서로 독립이지만, 같은 누적 기록의 마일스톤은 현재 단계만 노출한다.
 //   ③ **직업 전용 라인**(classOnly) — 현 직군에게만 보이는 라인용 메커니즘. 현재 사용하는 데이터는
 //      없으나(직업 차수 라인 제거), 추후 직군 한정 콘텐츠에 재사용할 수 있어 로직은 보존.
 //   ④ 순수 함수 — ctx + claimed 집합 → 각 퀘스트 status. 서버/클라 공용, 테스트 가능.
@@ -78,18 +78,6 @@ export type QuestCtx = {
   reincarnations: number;
   /** 처치한 몬스터 종 수(kills>0 인 키 수). adventure-log.v2.monsters. */
   speciesKilled: number;
-  /** 거점 점령 시도 경험. outpost_claim_attempts attacker=me ≥1. */
-  claimAttempted: boolean;
-  /** 내 길드가 현재 점령 중인 거점 존재. outpost_occupations. */
-  hasOutpost: boolean;
-  /** 공성/점령 승리 수. outpost_claim_attempts attacker=me won. */
-  siegeWins: number;
-  /** 점령/함락 성공 누적(소유권 획득). adventure-log.v2.warCaptures. */
-  warCaptures: number;
-  /** 침입자 토벌 승리 누적. adventure-log.v2.warEjectWins. */
-  warEjectWins: number;
-  /** 거점 금고 회수 골드 누적(자동+수동). adventure-log.v2.warTreasuryGold. */
-  warTreasuryGold: number;
   /** 낚시 도감 어종 수. fishing-codex.v1. */
   fishSpecies: number;
   /** 보유 장비 중 최고 강화 레벨. equipment.v2 owned[].enhance. */
@@ -106,8 +94,6 @@ export type QuestCtx = {
   hasHealed: boolean;
   /** 상점에서 구매(장비/충전)를 한 적 있는가. character.v2.hasShopped. */
   hasShopped: boolean;
-  /** 지도에서 한 번이라도 이동했는가. character.v2.tilePos.at(이동 시각)이 찍혔으면 true(신규는 미설정). */
-  hasMoved: boolean;
   /** 길드 제작소 제작 완료 횟수. crafting.v2.workshopStats.totalCrafts. */
   workshopCrafts: number;
   /** 길드 제작소 ★ 품질 제작 성공 횟수. crafting.v2.workshopStats.qualityCrafts. */
@@ -123,8 +109,6 @@ export type QuestCtx = {
   /** 벌목 레벨과 누적 기록. woodcutting-log.v1. */
   woodcuttingLevel: number;
   woodcuttingCuts: number;
-  woodcuttingPerfectCuts: number;
-  woodcuttingBestCombo: number;
   woodcuttingSpecies: number;
   /** 채광 레벨과 누적 기록. mining-log.v1. */
   miningLevel: number;
@@ -137,9 +121,8 @@ export type QuestCtx = {
   /** 장비 도감 등록 현황. equipment-codex.v1. */
   equipmentCodexRegistered: number;
   equipmentCodexTotal: number;
-  /** 숙련의 탑 최고 층과 격자 던전 최근 클리어 기록. */
+  /** 숙련의 탑 최고 층. */
   masteryTowerFloor: number;
-  gridDungeonClears: number;
   /** 개인 요리 누적 성장. cooking.v1. */
   cookingLevel: number;
   cookingRecipesDiscovered: number;
@@ -181,7 +164,7 @@ export type QuestLine = {
   id: QuestLineId;
   name: string;
   subtitle: string;
-  /** true = 앞 퀘스트 완료해야 다음이 열림(리드). false = 마일스톤 독립. */
+  /** true = 앞 퀘스트 완료해야 다음이 열림(리드). false = 라인 내 서로 다른 계열은 독립. */
   sequential: boolean;
   /** 지정 시 그 직군에게만 보이는 라인(직업 전용). */
   classOnly?: V2Class;
@@ -309,19 +292,11 @@ const BASICS: QuestDef[] = [
     reward: { staminaPotions: 2 },
     check: (c) => c.skillsEquipped >= 1,
   },
-  {
-    id: "b_travel",
-    line: "basics",
-    title: "새로운 땅으로",
-    desc: "지도에서 다른 곳으로 이동해보세요.",
-    reward: { staminaPotions: 2 },
-    // 자유 타일 지도 — 한 번이라도 이동하면 완료(옛 "거점 2곳" 조건은 고정 거점이 하나뿐이라 불가).
-    check: (c) => c.hasMoved,
-  },
 ];
 
 // ── 영구 업적 ──────────────────────────────────────────────────────────────
-// 모든 단계는 독립적으로 노출·달성된다. 기존 id는 보상 수령 기록과 칭호 호환을 위해 유지한다.
+// 같은 누적 기록의 단계는 chain으로 묶어 현재 미수령 단계만 노출한다.
+// 기존 id는 보상 수령 기록과 칭호 호환을 위해 유지한다.
 type Milestone = {
   id: string;
   title: string;
@@ -330,6 +305,22 @@ type Milestone = {
   titleId?: TitleId;
   badgeTier?: AchievementBadgeTier;
 };
+
+// 반복해서 쌓을 수 있는 기록의 장기 목표. 초반의 고유 업적명은 그대로 두고, 그 이후는
+// 수치가 제목에 바로 보이는 마라톤 단계로 이어 붙인다. 포인트는 뒤로 갈수록 완만하게 증가한다.
+function marathonMilestones(
+  idPrefix: string,
+  titlePrefix: string,
+  goals: readonly number[],
+  startingPoints = 60,
+): Milestone[] {
+  return goals.map((goal, index) => ({
+    id: `${idPrefix}_${goal}`,
+    title: `${titlePrefix} ${goal.toLocaleString()}`,
+    goal,
+    points: Math.min(250, startingPoints + index * 15),
+  }));
+}
 
 function milestones(
   line: QuestLineId,
@@ -363,6 +354,7 @@ function milestones(
     reward: entry.titleId ? { titleId: entry.titleId } : {},
     points: entry.points,
     badgeTier: entry.badgeTier,
+    chain: `${line}:${label}`,
     progress: value,
     goal: entry.goal,
     check: (c) => value(c) >= entry.goal,
@@ -379,6 +371,9 @@ const COMBAT: QuestDef[] = [
     { id: "combat_2500", title: "끝없는 전장", goal: 2_500, points: 25 },
     { id: "b_battles5000", title: "전장의 화신", goal: 5_000, points: 40, titleId: "ach_war_avatar", badgeTier: "gold" },
     { id: "combat_10000", title: "만전의 영웅", goal: 10_000, points: 50, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_battle", "누적 전투", [
+      25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
+    ]),
   ]),
   ...milestones("combat", "서로 다른 몬스터 처치", (c) => c.speciesKilled, [
     { id: "combat_species5", title: "초보 사냥꾼", goal: 5, points: 5 },
@@ -422,16 +417,23 @@ const GROWTH_ACHIEVEMENTS: QuestDef[] = [
     { id: "growth_cum20000", title: "대가의 발자취", goal: 20_000, points: 80 },
     { id: "growth_cum35000", title: "초월의 문턱", goal: 35_000, points: 90 },
     { id: "growth_cum50000", title: "끝없는 숙련", goal: 50_000, points: 100, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_cum", "총 숙련도", [
+      100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000,
+      10_000_000,
+    ], 110),
   ]),
   ...milestones("growth_achievement", "재전직", (c) => c.reincarnations, [
     { id: "r_first", title: "새로운 출발", goal: 1, points: 10, titleId: "ach_reborn", badgeTier: "bronze" },
     { id: "growth_rebirth3", title: "세 번의 재도전", goal: 3, points: 15, badgeTier: "silver" },
     { id: "growth_rebirth10", title: "숙련된 전직자", goal: 10, points: 30, badgeTier: "gold" },
     { id: "growth_rebirth25", title: "끝나지 않는 성장", goal: 25, points: 50, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_rebirth", "재전직", [
+      50, 100, 250, 500, 1_000, 2_500,
+    ]),
   ]),
-  { id: "a_apex", line: "growth_achievement", title: "심화 직업", desc: "4차 직업으로 전직하세요.", reward: {}, points: 25, progress: (c) => c.tier, goal: 4, check: (c) => c.tier >= 4 },
-  { id: "growth_tier5", line: "growth_achievement", title: "상급 직업", desc: "5차 직업으로 전직하세요.", reward: {}, points: 40, progress: (c) => c.tier, goal: 5, check: (c) => c.tier >= 5 },
-  { id: "growth_tier6", line: "growth_achievement", title: "초월 직업", desc: "6차 직업으로 전직하세요.", reward: {}, points: 60, badgeTier: "legendary", progress: (c) => c.tier, goal: 6, check: (c) => c.tier >= 6 },
+  { id: "a_apex", line: "growth_achievement", chain: "growth_achievement:tier", title: "심화 직업", desc: "4차 직업으로 전직하세요.", reward: {}, points: 25, progress: (c) => c.tier, goal: 4, check: (c) => c.tier >= 4 },
+  { id: "growth_tier5", line: "growth_achievement", chain: "growth_achievement:tier", title: "상급 직업", desc: "5차 직업으로 전직하세요.", reward: {}, points: 40, progress: (c) => c.tier, goal: 5, check: (c) => c.tier >= 5 },
+  { id: "growth_tier6", line: "growth_achievement", chain: "growth_achievement:tier", title: "초월 직업", desc: "6차 직업으로 전직하세요.", reward: {}, points: 60, badgeTier: "legendary", progress: (c) => c.tier, goal: 6, check: (c) => c.tier >= 6 },
 ];
 
 const EQUIPMENT: QuestDef[] = [
@@ -441,6 +443,9 @@ const EQUIPMENT: QuestDef[] = [
     { id: "a_unique5", title: "유니크 컬렉터", goal: 5, points: 20, badgeTier: "silver" },
     { id: "equipment_unique10", title: "진귀한 무기고", goal: 10, points: 30, badgeTier: "gold" },
     { id: "equipment_unique20", title: "유일무이한 수집가", goal: 20, points: 50, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_unique", "유니크 장비", [
+      50, 100, 250, 500, 1_000,
+    ]),
   ]),
   ...milestones("equipment", "장비 도감 등록", (c) => c.equipmentCodexRegistered, [
     { id: "codex_10", title: "도감의 첫 장", goal: 10, points: 5 },
@@ -473,6 +478,9 @@ const ARENA: QuestDef[] = [
     { id: "arena_win50", title: "투기장 베테랑", goal: 50, points: 25 },
     { id: "arena_win100", title: "백승의 명예", goal: 100, points: 40, badgeTier: "gold" },
     { id: "arena_win250", title: "투기장의 지배자", goal: 250, points: 60, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_arena", "투기장 승리", [
+      500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+    ]),
   ]),
 ];
 
@@ -484,6 +492,10 @@ const FARMING: QuestDef[] = [
     { id: "farm_harvest200", title: "계절을 일구다", goal: 200, points: 20 },
     { id: "farm_harvest500", title: "대풍년", goal: 500, points: 40, badgeTier: "gold" },
     { id: "farm_harvest2500", title: "사계절의 풍요", goal: 2_500, points: 75, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_harvest", "작물 수확", [
+      5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000,
+      1_000_000,
+    ], 80),
   ]),
   ...milestones("farming", "농사 레벨", (c) => c.farmingLevel, [
     { id: "farm_level10", title: "밭일에 익숙해지다", goal: 10, points: 10 },
@@ -493,15 +505,25 @@ const FARMING: QuestDef[] = [
   ...milestones("farming", "희귀 작물 수확", (c) => c.farmRareHarvests, [
     { id: "farm_rare1", title: "뜻밖의 수확", goal: 1, points: 10 },
     { id: "farm_rare25", title: "희귀 작물 전문가", goal: 25, points: 30 },
+    ...marathonMilestones("marathon_farm_rare", "희귀 작물", [
+      50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000,
+    ]),
   ]),
   ...milestones("farming", "납품 완료", (c) => c.farmDeliveries, [
     { id: "farm_delivery1", title: "첫 납품", goal: 1, points: 5 },
     { id: "farm_delivery30", title: "마을의 공급자", goal: 30, points: 25, badgeTier: "gold" },
+    ...marathonMilestones("marathon_farm_delivery", "농장 납품", [
+      100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000,
+    ]),
   ]),
   ...milestones("farming", "농장 평판 획득", (c) => c.farmReputationEarned, [
     { id: "farm_reputation100", title: "농촌의 새 얼굴", goal: 100, points: 10, badgeTier: "bronze" },
     { id: "farm_reputation1000", title: "신뢰받는 농장주", goal: 1_000, points: 30, badgeTier: "gold" },
     { id: "farm_reputation5000", title: "풍요의 상징", goal: 5_000, points: 60, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_farm_reputation", "농장 평판", [
+      10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
+      2_500_000, 5_000_000, 10_000_000,
+    ], 75),
   ]),
 ];
 
@@ -513,20 +535,14 @@ const WOODCUTTING: QuestDef[] = [
     { id: "wood_cut500", title: "숲의 일꾼", goal: 500, points: 30 },
     { id: "wood_cut1000", title: "천 그루의 기록", goal: 1_000, points: 50, badgeTier: "gold" },
     { id: "wood_cut5000", title: "숲을 새긴 자", goal: 5_000, points: 75, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_wood", "벌목 성공", [
+      10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
+    ], 80),
   ]),
   ...milestones("woodcutting", "벌목 레벨", (c) => c.woodcuttingLevel, [
     { id: "wood_level10", title: "도끼 숙련", goal: 10, points: 10 },
     { id: "wood_level25", title: "노련한 벌목꾼", goal: 25, points: 20 },
     { id: "wood_level50", title: "숲의 대가", goal: 50, points: 50, badgeTier: "legendary" },
-  ]),
-  ...milestones("woodcutting", "완벽한 벌목", (c) => c.woodcuttingPerfectCuts, [
-    { id: "wood_perfect1", title: "정확한 일격", goal: 1, points: 10 },
-    { id: "wood_perfect100", title: "흔들림 없는 도끼", goal: 100, points: 30, badgeTier: "gold" },
-  ]),
-  ...milestones("woodcutting", "최고 벌목 콤보", (c) => c.woodcuttingBestCombo, [
-    { id: "wood_combo10", title: "리듬을 타는 도끼", goal: 10, points: 10, badgeTier: "bronze" },
-    { id: "wood_combo25", title: "끊기지 않는 벌목", goal: 25, points: 25, badgeTier: "silver" },
-    { id: "wood_combo50", title: "숲의 박자", goal: 50, points: 50, badgeTier: "legendary" },
   ]),
 ];
 
@@ -538,6 +554,9 @@ const MINING: QuestDef[] = [
     { id: "mine_500", title: "깊은 곳의 빛", goal: 500, points: 30 },
     { id: "mine_1000", title: "대광부", goal: 1_000, points: 50, badgeTier: "gold" },
     { id: "mine_5000", title: "대지를 깨운 자", goal: 5_000, points: 75, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_mining", "채광 성공", [
+      10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
+    ], 80),
   ]),
   ...milestones("mining", "채광 레벨", (c) => c.miningLevel, [
     { id: "mine_level10", title: "곡괭이 숙련", goal: 10, points: 10 },
@@ -547,6 +566,9 @@ const MINING: QuestDef[] = [
   ...milestones("mining", "부산물 발견", (c) => c.miningByproducts, [
     { id: "mine_byproduct1", title: "광맥의 선물", goal: 1, points: 10 },
     { id: "mine_byproduct100", title: "보석 감별사", goal: 100, points: 30, badgeTier: "gold" },
+    ...marathonMilestones("marathon_byproduct", "부산물 발견", [
+      250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000,
+    ]),
   ]),
 ];
 
@@ -558,6 +580,9 @@ const FISHING: QuestDef[] = [
     { id: "fish_catch500", title: "물가의 터줏대감", goal: 500, points: 30 },
     { id: "fish_catch1000", title: "천 번의 손맛", goal: 1_000, points: 50, badgeTier: "gold" },
     { id: "fish_catch5000", title: "물결의 전설", goal: 5_000, points: 75, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_fishing", "물고기 낚기", [
+      10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
+    ], 80),
   ]),
   ...milestones("fishing", "낚시 레벨", (c) => c.fishingLevel, [
     { id: "fish_level10", title: "찌를 읽는 눈", goal: 10, points: 10 },
@@ -596,22 +621,35 @@ const COOKING: QuestDef[] = [
     { id: "cooking_dish100", title: "백 접시의 정성", goal: 100, points: 15, badgeTier: "silver" },
     { id: "cooking_dish500", title: "분주한 주방", goal: 500, points: 35, badgeTier: "gold" },
     { id: "cooking_dish2500", title: "끝없는 만찬", goal: 2_500, points: 70, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_dishes", "요리 완성", [
+      5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000,
+      1_000_000,
+    ], 75),
   ]),
   ...milestones("cooking", "요리 의뢰 완료", (c) => c.cookingOrdersCompleted, [
     { id: "cooking_order1", title: "첫 주문표", goal: 1, points: 5 },
     { id: "cooking_order25", title: "단골이 생긴 주방", goal: 25, points: 15, badgeTier: "bronze" },
     { id: "cooking_order100", title: "소문난 맛집", goal: 100, points: 35, badgeTier: "gold" },
     { id: "cooking_order500", title: "왕국의 연회 담당", goal: 500, points: 70, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_orders", "요리 의뢰", [
+      1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000,
+    ], 75),
   ]),
   ...milestones("cooking", "걸작 요리 완성", (c) => c.cookingMasterpiecesCooked, [
     { id: "cooking_masterpiece1", title: "우연이 아닌 걸작", goal: 1, points: 10, badgeTier: "bronze" },
     { id: "cooking_masterpiece25", title: "황금빛 접시", goal: 25, points: 30, badgeTier: "gold" },
     { id: "cooking_masterpiece100", title: "전설의 식탁", goal: 100, points: 60, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_masterpiece", "걸작 요리", [
+      250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+    ], 70),
   ]),
   ...milestones("cooking", "희귀 재료 요리 완성", (c) => c.cookingRareIngredientDishes, [
     { id: "cooking_rare1", title: "특별한 한 접시", goal: 1, points: 10, badgeTier: "bronze" },
     { id: "cooking_rare50", title: "비밀 재료의 대가", goal: 50, points: 35, badgeTier: "gold" },
     { id: "cooking_rare250", title: "환상의 미식가", goal: 250, points: 70, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_rare_dish", "희귀 재료 요리", [
+      500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000,
+    ], 75),
   ]),
 ];
 
@@ -621,11 +659,17 @@ const ARTISAN: QuestDef[] = [
     { id: "artisan_craft10", title: "제작 견습생", goal: 10, points: 10 },
     { id: "artisan_craft50", title: "쉼 없는 망치", goal: 50, points: 20 },
     { id: "artisan_craft200", title: "명품 제작자", goal: 200, points: 40 },
+    ...marathonMilestones("marathon_craft", "제작소 제작", [
+      500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000,
+    ], 60),
   ]),
   ...milestones("artisan", "고품질 장비 제작", (c) => c.workshopQualityCrafts, [
     { id: "a_quality_plus1", title: "고품질 단조", goal: 1, points: 10 },
     { id: "artisan_quality25", title: "품질 보증", goal: 25, points: 25 },
     { id: "artisan_quality100", title: "장인의 작품", goal: 100, points: 50 },
+    ...marathonMilestones("marathon_quality", "고품질 제작", [
+      250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+    ], 65),
   ]),
   ...milestones("artisan", "대장장이 레벨", (c) => c.blacksmithLevel, [
     { id: "a_blacksmith_lv2", title: "대장장이의 손", goal: 2, points: 5 },
@@ -639,29 +683,50 @@ const GUILD_FACILITIES: QuestDef[] = [
     { id: "guild_dining1", title: "함께하는 한 끼", goal: 1, points: 5 },
     { id: "guild_dining10", title: "길드 식당 단골", goal: 10, points: 15 },
     { id: "guild_dining50", title: "백년지기 식탁", goal: 50, points: 35 },
+    ...marathonMilestones("marathon_guild_dining", "길드 식사", [
+      100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+      100_000,
+    ]),
   ]),
   ...milestones("guild_facilities", "길드 훈련 완료", (c) => c.guildTrainingDrills, [
     { id: "guild_training1", title: "첫 합동 훈련", goal: 1, points: 5 },
     { id: "guild_training10", title: "훈련장 모범생", goal: 10, points: 15 },
     { id: "guild_training50", title: "전술 훈련의 달인", goal: 50, points: 35 },
+    ...marathonMilestones("marathon_guild_training", "길드 훈련", [
+      100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+      100_000,
+    ]),
   ]),
   ...milestones("guild_facilities", "길드 원정 완료", (c) => c.guildExpeditions, [
     { id: "guild_expedition1", title: "첫 원정 귀환", goal: 1, points: 10 },
     { id: "guild_expedition5", title: "노련한 원정대", goal: 5, points: 20 },
     { id: "guild_expedition20", title: "미지의 개척자", goal: 20, points: 40 },
+    ...marathonMilestones("marathon_guild_expedition", "길드 원정", [
+      50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+    ]),
   ]),
   ...milestones("guild_facilities", "길드 제작 납품", (c) => c.guildWorkshopDeliveries, [
     { id: "guild_delivery1", title: "첫 제작 납품", goal: 1, points: 10 },
     { id: "guild_delivery10", title: "믿음직한 납품가", goal: 10, points: 20 },
     { id: "guild_delivery50", title: "길드의 명품 공급자", goal: 50, points: 40 },
+    ...marathonMilestones("marathon_guild_delivery", "길드 제작 납품", [
+      100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+      100_000,
+    ]),
   ]),
   ...milestones("guild_facilities", "길드 연금 제작", (c) => c.guildAlchemyCrafts, [
     { id: "guild_alchemy1", title: "첫 연금술", goal: 1, points: 10 },
     { id: "guild_alchemy25", title: "연금 공방의 손", goal: 25, points: 30 },
+    ...marathonMilestones("marathon_guild_alchemy", "길드 연금 제작", [
+      50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+    ]),
   ]),
   ...milestones("guild_facilities", "길드 교역 계약 완료", (c) => c.guildTradeContracts, [
     { id: "guild_trade1", title: "첫 길드 교역", goal: 1, points: 10 },
     { id: "guild_trade25", title: "교역로의 큰손", goal: 25, points: 30 },
+    ...marathonMilestones("marathon_guild_trade", "길드 교역", [
+      50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
+    ]),
   ]),
 ];
 
@@ -674,32 +739,6 @@ const CHALLENGE: QuestDef[] = [
     { id: "tower_40", title: "정상이 보인다", goal: 40, points: 35 },
     { id: "tower_50", title: "숙련의 정점", goal: 50, points: 60 },
   ]),
-  ...milestones("challenge", "격자 던전 클리어", (c) => c.gridDungeonClears, [
-    { id: "grid_clear1", title: "미궁 탈출", goal: 1, points: 10 },
-    { id: "grid_clear5", title: "길을 읽는 자", goal: 5, points: 20 },
-    { id: "grid_clear10", title: "미궁 정복자", goal: 10, points: 40 },
-  ]),
-];
-
-const WAR: QuestDef[] = [
-  { id: "w_first_claim", line: "war", title: "첫 출정", desc: "거점 점령을 1회 시도하세요.", reward: {}, points: 5, check: (c) => c.claimAttempted },
-  { id: "w_hold", line: "war", title: "깃발을 꽂다", desc: "길드가 거점을 점령하거나 직접 점령에 성공하세요.", reward: {}, points: 10, check: (c) => c.hasOutpost || c.warCaptures >= 1 },
-  ...milestones("war", "점령전 승리", (c) => c.siegeWins, [
-    { id: "w_siege5", title: "공성 전문가", goal: 5, points: 15 },
-    { id: "war_siege25", title: "성문 파괴자", goal: 25, points: 30 },
-  ]),
-  ...milestones("war", "거점 점령", (c) => c.warCaptures, [
-    { id: "w_captures5", title: "정복자", goal: 5, points: 20 },
-    { id: "war_capture20", title: "전선의 지배자", goal: 20, points: 40 },
-  ]),
-  ...milestones("war", "침입자 토벌", (c) => c.warEjectWins, [
-    { id: "w_eject", title: "침입자 토벌", goal: 1, points: 10 },
-    { id: "war_eject20", title: "철벽의 수호자", goal: 20, points: 35 },
-  ]),
-  ...milestones("war", "거점 금고 골드 회수", (c) => c.warTreasuryGold, [
-    { id: "w_treasury", title: "금고 사냥꾼", goal: 3_000, points: 10 },
-    { id: "war_treasury100k", title: "전쟁의 전리품", goal: 100_000, points: 40 },
-  ]),
 ];
 
 const COLLECTION: QuestDef[] = [
@@ -707,6 +746,11 @@ const COLLECTION: QuestDef[] = [
     { id: "x_rich", title: "재력가", goal: 10_000, points: 10, titleId: "ach_gold_keeper" },
     { id: "gold_100k", title: "두둑한 지갑", goal: 100_000, points: 20 },
     { id: "gold_1m", title: "백만장자", goal: 1_000_000, points: 40 },
+    ...marathonMilestones("marathon_gold", "골드 보유", [
+      5_000_000, 10_000_000, 25_000_000, 50_000_000, 100_000_000,
+      250_000_000, 500_000_000, 1_000_000_000, 2_500_000_000,
+      5_000_000_000, 10_000_000_000,
+    ], 60),
   ]),
   ...milestones("collection", "칭호 획득", (c) => c.titleCount, [
     { id: "x_titles", title: "칭호 수집가", goal: 3, points: 10 },
@@ -720,7 +764,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "basics",
     name: "기초 튜토리얼",
-    subtitle: "상점·치료·은행·스킬·이동 — 기본 조작을 한 번씩 익혀보세요.",
+    subtitle: "상점·치료·은행·스킬 — 기본 조작을 한 번씩 익혀보세요.",
     sequential: false,
     tutorial: true,
   },
@@ -737,14 +781,13 @@ export const QUEST_LINES: readonly QuestLine[] = [
   { id: "equipment", name: "장비와 도감", subtitle: "장비 수집·도감 등록·강화 기록.", sequential: false },
   { id: "arena_social", name: "경쟁과 교류", subtitle: "길드·거래소·투기장 승리 기록.", sequential: false },
   { id: "farming", name: "농사", subtitle: "수확·희귀 작물·납품·농사 레벨.", sequential: false },
-  { id: "woodcutting", name: "벌목", subtitle: "벌목 성공·완벽한 벌목·벌목 레벨.", sequential: false },
+  { id: "woodcutting", name: "벌목", subtitle: "벌목 성공·벌목 레벨.", sequential: false },
   { id: "mining", name: "채광", subtitle: "채광 성공·부산물·채광 레벨.", sequential: false },
   { id: "fishing", name: "낚시", subtitle: "어획·어종 도감·낚시 레벨.", sequential: false },
   { id: "cooking", name: "요리", subtitle: "요리 레벨·조리·의뢰·걸작과 요리법 기록.", sequential: false },
   { id: "artisan", name: "제작과 장인", subtitle: "길드 제작소와 대장장이 숙련 기록.", sequential: false },
   { id: "guild_facilities", name: "길드 시설", subtitle: "식당·훈련장·원정·제작소·연금·교역 활동 기록.", sequential: false },
-  { id: "challenge", name: "도전 콘텐츠", subtitle: "숙련의 탑과 격자 던전 정복 기록.", sequential: false },
-  { id: "war", name: "거점 전쟁", subtitle: "점령·공성·방어·금고 회수 기록.", sequential: false },
+  { id: "challenge", name: "도전 콘텐츠", subtitle: "숙련의 탑 정복 기록.", sequential: false },
   { id: "collection", name: "부와 명예", subtitle: "골드와 칭호 수집 기록.", sequential: false },
 ];
 
@@ -764,7 +807,6 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...ARTISAN,
   ...GUILD_FACILITIES,
   ...CHALLENGE,
-  ...WAR,
   ...COLLECTION,
 ];
 

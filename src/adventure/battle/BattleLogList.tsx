@@ -358,13 +358,8 @@ function AttackBubble({
       <div
         className={`max-w-[85%] ${sizes.bubble} leading-snug text-zinc-800 dark:text-zinc-100`}
       >
-        {(visibleLabels.length > 0 || (isCrit && !isBasicCrit)) && (
+        {visibleLabels.length > 0 && (
           <div className="mb-0.5 flex flex-wrap gap-1">
-            {isCrit && !isBasicCrit && (
-              <span className="text-xs leading-none text-amber-500 dark:text-amber-400">
-                ★
-              </span>
-            )}
             {visibleLabels.map((l, idx) => (
               <span
                 key={idx}
@@ -462,9 +457,9 @@ function EffectLine({
       <div className={`flex max-w-[85%] items-start gap-1.5 ${innerAlign}`}>
         <span
           aria-hidden="true"
-          className="mt-px shrink-0 font-bold leading-none text-amber-500 dark:text-amber-400"
+          className="mt-px shrink-0 font-medium leading-none text-zinc-400 dark:text-zinc-500"
         >
-          ✦
+          ㄴ
         </span>
         <div className={`flex flex-wrap items-center gap-1 ${contentAlign}`}>
           {labels.map((label, index) => (

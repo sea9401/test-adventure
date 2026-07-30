@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   FEED_CATEGORY_TYPES,
   FEED_HIDDEN_TYPES,
+  FEED_RETENTION_MS,
   FEED_TYPES,
   WAR_FEED_TYPES,
+  parseFeedBeforeId,
 } from "@/lib/feed-config";
 
 describe("feed visibility config", () => {
@@ -14,5 +16,18 @@ describe("feed visibility config", () => {
     for (const types of Object.values(FEED_CATEGORY_TYPES)) {
       expect(types).not.toContain("rare_map_drop");
     }
+  });
+
+  it("전체 소식을 약 6개월 보관한다", () => {
+    expect(FEED_RETENTION_MS).toBe(180 * 24 * 60 * 60 * 1_000);
+  });
+
+  it("과거 페이지 cursor는 양의 안전 정수만 허용한다", () => {
+    expect(parseFeedBeforeId("42")).toBe(42);
+    expect(parseFeedBeforeId("0")).toBeNull();
+    expect(parseFeedBeforeId("-1")).toBeNull();
+    expect(parseFeedBeforeId("1.5")).toBeNull();
+    expect(parseFeedBeforeId("2147483648")).toBeNull();
+    expect(parseFeedBeforeId("9007199254740992")).toBeNull();
   });
 });

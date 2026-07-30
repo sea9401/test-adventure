@@ -1,8 +1,8 @@
 "use client";
 
 // 전체 소식 — 모험탭 하단 패널. 서버 전체에 흘러가는 자랑거리(유실된 명품 획득, 걸작 제작 성공).
-// 글로벌 채팅과 분리된 "전광판". 최근 FEED_FETCH_LIMIT 개만 노출, FEED_POLL_MS 주기 폴링.
-// 상시 펼침(접기 폐기 — 사용자 결정 2026-06-13) — 분류 칩 + 전체 목록 항상 노출.
+// 글로벌 채팅과 분리된 "전광판". 한 페이지에 30건씩 과거 페이지를 이어서 조회하고,
+// FEED_POLL_MS 주기로 최신 소식을 갱신한다. 상시 펼침 — 분류 칩 + 전체 목록 항상 노출.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -25,15 +25,21 @@ import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
-import { formatRelative } from "@/lib/notifications";
+import { formatDate, formatRelative } from "@/lib/notifications";
 import {
   FEED_CATEGORIES,
   FEED_CATEGORY_LABEL,
+  FEED_FETCH_LIMIT,
   FEED_POLL_MS,
   type FeedCategory,
   type FeedEntry,
   type FeedType,
 } from "@/lib/feed-config";
+
+type FeedResponse = {
+  entries?: FeedEntry[];
+  hasMore?: boolean;
+};
 
 function itemName(itemId: string): string {
   // v2 장비 카탈로그 우선(소식의 유니크 드랍은 v2 장비 id) → 없으면 v1 ITEMS → raw id.
@@ -332,7 +338,7 @@ function FeedRow({ e }: { e: FeedEntry }) {
           {entryText(e)}
         </div>
         <div className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-          {formatRelative(e.createdAt)}
+          {formatRelative(e.createdAt)} · {formatDate(e.createdAt)}
         </div>
       </span>
     </li>
@@ -342,32 +348,71 @@ function FeedRow({ e }: { e: FeedEntry }) {
 export function ServerFeedView() {
   const [entries, setEntries] = useState<FeedEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   // 분류별 보기 — null = 전체. 펼친 상태에서 칩으로 전환(서버 필터 재조회).
   const [category, setCategory] = useState<FeedCategory | null>(null);
-  const inFlight = useRef(false);
+  const [beforeId, setBeforeId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  // 각 페이지를 열 때 사용한 cursor. 1페이지는 null, N페이지는 직전 페이지의 최솟값 id.
+  const [pageCursors, setPageCursors] = useState<Array<number | null>>([null]);
+  const categoryRef = useRef<FeedCategory | null>(null);
+  const beforeIdRef = useRef<number | null>(null);
+  const latestRequestId = useRef(0);
 
-  const fetchFeed = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
+  const fetchFeed = useCallback(async (signal?: AbortSignal) => {
+    const requestedCategory = category;
+    const requestedBeforeId = beforeId;
+    const requestId = ++latestRequestId.current;
     try {
-      const res = await fetch(
-        category ? `/api/feed?category=${category}` : "/api/feed",
-      );
-      if (!res.ok) return;
-      const data = (await res.json()) as { entries: FeedEntry[] };
+      const params = new URLSearchParams();
+      if (requestedCategory) params.set("category", requestedCategory);
+      if (requestedBeforeId !== null) {
+        params.set("before", String(requestedBeforeId));
+      }
+      const query = params.size > 0 ? `?${params.toString()}` : "";
+      const res = await fetch(`/api/feed${query}`, { signal });
+      if (!res.ok) {
+        if (
+          requestId === latestRequestId.current &&
+          categoryRef.current === requestedCategory &&
+          beforeIdRef.current === requestedBeforeId
+        ) {
+          setLoaded(true);
+          setLoading(false);
+        }
+        return;
+      }
+      const data = (await res.json()) as FeedResponse;
+      if (
+        requestId !== latestRequestId.current ||
+        categoryRef.current !== requestedCategory ||
+        beforeIdRef.current !== requestedBeforeId
+      ) {
+        return;
+      }
       setEntries(Array.isArray(data.entries) ? data.entries : []);
+      setHasMore(data.hasMore === true);
       setLoaded(true);
+      setLoading(false);
     } catch {
-      /* 폴링 — 조용히 무시 */
-    } finally {
-      inFlight.current = false;
+      if (
+        !signal?.aborted &&
+        requestId === latestRequestId.current &&
+        categoryRef.current === requestedCategory &&
+        beforeIdRef.current === requestedBeforeId
+      ) {
+        setLoaded(true);
+        setLoading(false);
+      }
     }
-  }, [category]);
+  }, [beforeId, category]);
 
   useEffect(() => {
-    // 비동기 fetch 후 setState 라 cascading render 가 아니지만 린트는 호출 그래프만 보고 발화.
+    const controller = new AbortController();
+    // 상태 변경은 첫 fetch가 resolve된 뒤 실행되지만 lint는 비동기 호출 그래프를 보수적으로 판정한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchFeed();
+    void fetchFeed(controller.signal);
     const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return;
       void fetchFeed();
@@ -376,10 +421,53 @@ export function ServerFeedView() {
     const onFocus = () => void fetchFeed();
     window.addEventListener("focus", onFocus);
     return () => {
+      controller.abort();
       clearInterval(id);
       window.removeEventListener("focus", onFocus);
     };
   }, [fetchFeed]);
+
+  const selectCategory = (next: FeedCategory | null) => {
+    if (next === categoryRef.current) return;
+    categoryRef.current = next;
+    beforeIdRef.current = null;
+    latestRequestId.current += 1;
+    setEntries([]);
+    setHasMore(false);
+    setLoading(true);
+    setPage(1);
+    setPageCursors([null]);
+    setBeforeId(null);
+    setCategory(next);
+  };
+
+  const goToNextPage = () => {
+    const nextBeforeId = entries[0]?.id;
+    if (loading || !hasMore || nextBeforeId === undefined) return;
+
+    latestRequestId.current += 1;
+    beforeIdRef.current = nextBeforeId;
+    setPageCursors((current) => [
+      ...current.slice(0, page),
+      nextBeforeId,
+    ]);
+    setEntries([]);
+    setLoading(true);
+    setPage((current) => current + 1);
+    setBeforeId(nextBeforeId);
+  };
+
+  const goToPreviousPage = () => {
+    if (loading || page <= 1) return;
+
+    const previousBeforeId = pageCursors[page - 2] ?? null;
+    latestRequestId.current += 1;
+    beforeIdRef.current = previousBeforeId;
+    setEntries([]);
+    setLoading(true);
+    setPage((current) => current - 1);
+    setBeforeId(previousBeforeId);
+  };
 
   if (!loaded) return null;
 
@@ -396,40 +484,40 @@ export function ServerFeedView() {
         <span className="flex-1 text-sm font-medium text-zinc-700 dark:text-zinc-200">
           전체 소식
         </span>
-        {entries.length > 0 && (
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            {entries.length}
-          </span>
-        )}
+        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          최근 6개월 · 페이지당 {FEED_FETCH_LIMIT}건
+        </span>
       </div>
 
-      {/* 분류 칩 — 선택 시 서버 필터 재조회(3개월 보관분에서 그 분류만). */}
+      {/* 분류 칩 — 선택 시 서버 필터 재조회(6개월 보관분에서 그 분류만). */}
       <div className="flex flex-wrap gap-1 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
-          {([null, ...FEED_CATEGORIES] as (FeedCategory | null)[]).map((c) => {
-            const selected = category === c;
-            return (
-              <button
-                key={c ?? "all"}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setCategory(c)}
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
-                  selected
-                    ? "border-teal-500 bg-teal-50 font-medium text-teal-700 dark:border-teal-600 dark:bg-teal-950/40 dark:text-teal-300"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {c ? FEED_CATEGORY_LABEL[c] : "전체"}
-              </button>
-            );
-          })}
+        {([null, ...FEED_CATEGORIES] as (FeedCategory | null)[]).map((c) => {
+          const selected = category === c;
+          return (
+            <button
+              key={c ?? "all"}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => selectCategory(c)}
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
+                selected
+                  ? "border-teal-500 bg-teal-50 font-medium text-teal-700 dark:border-teal-600 dark:bg-teal-950 dark:text-teal-300"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {c ? FEED_CATEGORY_LABEL[c] : "전체"}
+            </button>
+          );
+        })}
       </div>
 
       {entries.length === 0 ? (
         <div className="px-3 pb-3 pt-1 text-xs text-zinc-400 dark:text-zinc-500">
-          {category
-            ? `${FEED_CATEGORY_LABEL[category]} 소식이 없습니다.`
-            : "아직 소식이 없습니다."}
+          {loading
+            ? "소식을 불러오는 중입니다."
+            : category
+              ? `${FEED_CATEGORY_LABEL[category]} 소식이 없습니다.`
+              : "아직 소식이 없습니다."}
         </div>
       ) : (
         <ul className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
@@ -439,6 +527,35 @@ export function ServerFeedView() {
         </ul>
       )}
 
+      {(page > 1 || hasMore) && (
+        <nav
+          aria-label="전체 소식 페이지"
+          className="flex items-center justify-center gap-3 border-t border-zinc-100 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <button
+            type="button"
+            disabled={loading || page <= 1}
+            onClick={goToPreviousPage}
+            className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            이전
+          </button>
+          <span
+            aria-current="page"
+            className="min-w-14 text-center text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300"
+          >
+            {page}페이지
+          </span>
+          <button
+            type="button"
+            disabled={loading || !hasMore}
+            onClick={goToNextPage}
+            className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            다음
+          </button>
+        </nav>
+      )}
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PolicyDocument } from "@/components/PolicyDocument";
 
-const EFFECTIVE_DATE = "2026년 7월 27일";
+const EFFECTIVE_DATE = "2026년 7월 30일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
             <tbody>
               <tr><td>계정, 게임 저장 데이터, 게시글·댓글·문의 등 회원 귀속 정보</td><td>회원 탈퇴 시까지</td></tr>
               <tr><td>채팅 메시지</td><td>작성 후 3일</td></tr>
-              <tr><td>전체 소식 기록</td><td>발생 후 3개월</td></tr>
+              <tr><td>전체 소식 기록</td><td>발생 후 6개월</td></tr>
               <tr><td>이상행동·보안 이벤트</td><td>발생 후 90일</td></tr>
               <tr><td>재화 변동·경제 감사 이벤트</td><td>발생 후 180일</td></tr>
               <tr>

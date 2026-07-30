@@ -10,6 +10,9 @@ import {
   ADVENTURE_SUPPORT_PASS,
   grantAdventureSupport,
 } from "@/adventure/data/v2/adventureSupport";
+import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
+import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import {
   applyRegen,
   parseStaminaFromSave,
@@ -33,10 +36,20 @@ import {
 
 type CharacterSave = Record<string, unknown> & {
   class?: unknown;
-  gold?: unknown;
   adventureSupport?: unknown;
   stamina?: unknown;
+  materials?: unknown;
 };
+
+function materialCounts(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw).flatMap(([id, value]) => {
+      const count = Math.max(0, Math.floor(Number(value) || 0));
+      return count > 0 ? [[id, count]] : [];
+    }),
+  );
+}
 
 function publicStatus(raw: unknown, now: Date) {
   const status = monthlyAttendanceStatus(raw, now);
@@ -66,7 +79,7 @@ export async function POST() {
 
   try {
     const result = await db.transaction(async (tx) => {
-      // 공용 락 순서에 맞춰 character → attendance → stamina-potions 순으로 잠근다.
+      // 공용 락 순서에 맞춰 character → attendance → 보상별 보조 세이브 순으로 잠근다.
       const character = await lockSaveForUpdate<CharacterSave>(
         tx,
         userId,
@@ -103,8 +116,9 @@ export async function POST() {
       let nextCharacter: CharacterSave = { ...character };
       let characterChanged = false;
       let adventureSupportActiveUntil: number | null = null;
-      let gold: number | null = null;
       let staminaPotions: number | null = null;
+      let masteryCertificates: number | null = null;
+      let grantedMaterials: Record<string, number> | null = null;
 
       if (reward.kind === "adventure_support") {
         const grant = grantAdventureSupport(
@@ -141,12 +155,7 @@ export async function POST() {
             },
           };
         }
-      } else if (reward.kind === "gold") {
-        gold =
-          Math.max(0, Math.floor(Number(character.gold) || 0)) + reward.amount;
-        nextCharacter = { ...nextCharacter, gold };
-        characterChanged = true;
-      } else {
+      } else if (reward.kind === "stamina_potion") {
         const potionSave = await lockSaveForUpdate(
           tx,
           userId,
@@ -157,6 +166,40 @@ export async function POST() {
         await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
           count: staminaPotions,
         });
+      } else if (reward.kind === "mastery_certificate") {
+        const inventory = await lockSaveForUpdate<Record<string, unknown>>(
+          tx,
+          userId,
+          "inventory.v2",
+          {},
+        );
+        masteryCertificates =
+          Math.max(
+            0,
+            Math.floor(Number(inventory[MASTERY_CERTIFICATE_KEY]) || 0),
+          ) + reward.count;
+        await upsertSave(tx, userId, "inventory.v2", {
+          ...inventory,
+          [MASTERY_CERTIFICATE_KEY]: masteryCertificates,
+        });
+      } else {
+        const materials = materialCounts(character.materials);
+        grantedMaterials = {};
+        const grantMaterial = (materialId: string, count: number) => {
+          materials[materialId] = (materials[materialId] ?? 0) + count;
+          grantedMaterials![materialId] = count;
+        };
+
+        if (reward.kind === "enhancement_stone") {
+          grantMaterial(ENHANCE_STONE_MATERIAL_ID[reward.color], reward.count);
+        } else if (reward.kind === "boss_summon_scroll") {
+          grantMaterial(SUMMON_SCROLL_MATERIAL_ID, reward.count);
+        } else {
+          grantMaterial(ENHANCE_STONE_MATERIAL_ID.red, reward.red);
+          grantMaterial(ENHANCE_STONE_MATERIAL_ID.blue, reward.blue);
+        }
+        nextCharacter = { ...nextCharacter, materials };
+        characterChanged = true;
       }
 
       if (characterChanged) {
@@ -180,8 +223,9 @@ export async function POST() {
           reward,
           rewardLabel: monthlyAttendanceRewardLabel(reward),
           adventureSupportActiveUntil,
-          gold,
           staminaPotions,
+          masteryCertificates,
+          grantedMaterials,
           ...publicStatus(nextAttendance, now),
         },
       };
@@ -209,26 +253,51 @@ function recordAttendanceReward(
   userId: string,
   reward: MonthlyAttendanceReward,
 ) {
-  if (reward.kind === "gold") {
+  if (reward.kind === "adventure_support") {
     recordEconomyEventSoon({
       userId,
       eventType: "reward.monthly_attendance",
-      goldDelta: reward.amount,
-      itemKind: "gold",
-      itemId: "gold",
-      quantity: reward.amount,
+      itemKind: "entitlement",
+      itemId: "monthly_adventure_support",
+      quantity: reward.days,
     });
     return;
   }
-  recordEconomyEventSoon({
-    userId,
-    eventType: "reward.monthly_attendance",
-    itemKind:
-      reward.kind === "adventure_support" ? "entitlement" : "consumable",
-    itemId:
-      reward.kind === "adventure_support"
-        ? "monthly_adventure_support"
-        : "stamina_potion",
-    quantity: reward.kind === "adventure_support" ? reward.days : reward.count,
-  });
+  if (reward.kind === "stamina_potion") {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.monthly_attendance",
+      itemKind: "consumable",
+      itemId: "stamina_potion",
+      quantity: reward.count,
+    });
+    return;
+  }
+  if (reward.kind === "mastery_certificate") {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.monthly_attendance",
+      itemKind: "mastery_certificate",
+      itemId: MASTERY_CERTIFICATE_KEY,
+      quantity: reward.count,
+    });
+    return;
+  }
+
+  const recordMaterial = (itemId: string, quantity: number) =>
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.monthly_attendance",
+      itemKind: "material",
+      itemId,
+      quantity,
+    });
+  if (reward.kind === "enhancement_stone") {
+    recordMaterial(ENHANCE_STONE_MATERIAL_ID[reward.color], reward.count);
+  } else if (reward.kind === "boss_summon_scroll") {
+    recordMaterial(SUMMON_SCROLL_MATERIAL_ID, reward.count);
+  } else {
+    recordMaterial(ENHANCE_STONE_MATERIAL_ID.red, reward.red);
+    recordMaterial(ENHANCE_STONE_MATERIAL_ID.blue, reward.blue);
+  }
 }

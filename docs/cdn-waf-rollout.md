@@ -156,8 +156,26 @@ bash infra/cloudfront-waf/smoke.sh dxxxxxxxxxxxxx.cloudfront.net
 
 CloudFront 콘솔에서 이 distribution에 Pro 정액제를 연결하고 로그를 활성화한다.
 CloudFront 접근 로그와 WAF 요청 로그를 받는 CloudWatch Logs 로그 그룹은 보존 기간을
-**90일**로 설정한다. `Never expire` 상태로 두지 말고, 콘솔의 로그 그룹별 보존 설정에서
-90일이 적용됐는지 확인해 개인정보처리방침의 보유 기간과 일치시킨다.
+**90일**로 설정한다. CloudShell 또는 만료 시간이 짧은 배포 역할 세션에서 아래
+스크립트를 실행한다. 이 스크립트는 distribution ARN과 Web ACL을 통해 실제 연결된
+CloudWatch Logs 목적지만 찾으며, 이름이 비슷한 다른 로그 그룹은 변경하지 않는다.
+
+```bash
+# 읽기 전용 확인. 이미 90일이 아니면 실패한다.
+node infra/cloudfront-waf/log-retention.mjs --audit
+
+# 정확히 연결된 로그 그룹만 90일로 변경하고 재확인한다.
+node infra/cloudfront-waf/log-retention.mjs --apply
+```
+
+실행 역할에는 `sts:GetCallerIdentity`, `logs:DescribeDeliverySources`,
+`logs:DescribeDeliveries`, `logs:DescribeDeliveryDestinations`,
+`logs:DescribeLogGroups`, `wafv2:ListWebACLs`, `wafv2:GetLoggingConfiguration`가
+필요하다. `--apply`에는 대상 로그 그룹의 `logs:PutRetentionPolicy`도 필요하다.
+운영 EC2의 DB 백업 역할에는 이 권한을 추가하지 않는다. 실행 결과가
+`Applied and verified 90-day retention`인지 확인해 개인정보처리방침의 보유 기간과
+일치시킨다. AWS는 만료된 이벤트를 최대 72시간 뒤 실제 삭제할 수 있으므로, 용량을
+확인할 때는 이 지연을 감안한다.
 같은 화면에서 `msmsge.com` Route53 hosted zone도 플랜에 연결해야 hosted zone과 표준
 DNS 질의 비용이 정액제에 포함된다.
 WAF 콘솔에서는 다섯 규칙이 Count이고 샘플 요청과 CloudWatch 지표가 들어오는지

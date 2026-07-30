@@ -1,0 +1,237 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: msmsge.com CloudFront distribution and WAF foundation
+
+Parameters:
+  HostedZoneId:
+    Type: String
+    Description: Route53 public hosted zone ID for msmsge.com
+    AllowedPattern: "^[A-Z0-9]+$"
+  OriginEip:
+    Type: String
+    Default: 54.180.28.29
+    Description: Existing production EC2 Elastic IP
+    AllowedPattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+  OriginVerifySecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    MaxLength: 128
+    AllowedPattern: "^[A-Za-z0-9_-]+$"
+    Description: Secret value sent only by CloudFront to the origin
+  WafMode:
+    Type: String
+    Default: Count
+    AllowedValues:
+      - Count
+      - Block
+    Description: Keep Count for at least 24-48 hours before changing to Block
+
+Conditions:
+  WafBlockingEnabled: !Equals [!Ref WafMode, Block]
+
+Resources:
+  OriginDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: origin.msmsge.com.
+      Type: A
+      TTL: "60"
+      ResourceRecords:
+        - !Ref OriginEip
+
+  ViewerCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: msmsge.com
+      SubjectAlternativeNames:
+        - www.msmsge.com
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: msmsge.com
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: www.msmsge.com
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: service
+          Value: msmsge-production
+
+  WebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: msmsge-production-cloudfront
+      Description: Production edge protection, deploy in Count before Block.
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: msmsge-production-cloudfront
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: AWSManagedRulesAmazonIpReputationList
+          Priority: 0
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesAmazonIpReputationList
+          OverrideAction: !If
+            - WafBlockingEnabled
+            - None: {}
+            - Count: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: aws-ip-reputation
+            SampledRequestsEnabled: true
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 1
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          OverrideAction: !If
+            - WafBlockingEnabled
+            - None: {}
+            - Count: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: aws-known-bad-inputs
+            SampledRequestsEnabled: true
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 2
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          OverrideAction: !If
+            - WafBlockingEnabled
+            - None: {}
+            - Count: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: aws-common-rules
+            SampledRequestsEnabled: true
+        - Name: GlobalRateLimit
+          Priority: 3
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              EvaluationWindowSec: 60
+              Limit: 1200
+          Action: !If
+            - WafBlockingEnabled
+            - Block: {}
+            - Count: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: global-rate-limit
+            SampledRequestsEnabled: true
+        - Name: HighCostApiRateLimit
+          Priority: 4
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              EvaluationWindowSec: 60
+              Limit: 300
+              ScopeDownStatement:
+                RegexMatchStatement:
+                  FieldToMatch:
+                    UriPath: {}
+                  RegexString: "^/api/v2/(arena/match|grid-dungeon|me/offline-settle|outpost/attack|training/spar)/?$"
+                  TextTransformations:
+                    - Priority: 0
+                      Type: NONE
+          Action: !If
+            - WafBlockingEnabled
+            - Block: {}
+            - Count: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: high-cost-api-rate-limit
+            SampledRequestsEnabled: true
+      Tags:
+        - Key: service
+          Value: msmsge-production
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    DependsOn:
+      - OriginDnsRecord
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - msmsge.com
+          - www.msmsge.com
+        Comment: msmsge.com production edge
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - Id: msmsge-production-nginx
+            DomainName: origin.msmsge.com
+            ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            OriginCustomHeaders:
+              - HeaderName: X-Msmsge-Origin-Verify
+                HeaderValue: !Ref OriginVerifySecret
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginKeepaliveTimeout: 5
+              OriginProtocolPolicy: https-only
+              OriginReadTimeout: 60
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - DELETE
+            - GET
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          Compress: true
+          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+          TargetOriginId: msmsge-production-nginx
+          ViewerProtocolPolicy: redirect-to-https
+        CacheBehaviors:
+          - PathPattern: /_next/static/*
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            Compress: true
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+            TargetOriginId: msmsge-production-nginx
+            ViewerProtocolPolicy: redirect-to-https
+        ViewerCertificate:
+          AcmCertificateArn: !Ref ViewerCertificate
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+        WebACLId: !GetAtt WebAcl.Arn
+      Tags:
+        - Key: service
+          Value: msmsge-production
+
+Outputs:
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+  ViewerCertificateArn:
+    Value: !Ref ViewerCertificate
+  WebAclArn:
+    Value: !GetAtt WebAcl.Arn
+  OriginHost:
+    Value: origin.msmsge.com

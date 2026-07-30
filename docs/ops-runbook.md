@@ -317,8 +317,9 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 - [x] 외부 업타임 + EC2 자원 모니터 — GitHub Actions 5분 외부 확인, systemd 2분 자원 확인, webhook 알림
 - [x] 배포 후 자동 스모크 — health·sign-in·핵심 모듈 로드·운영 cron 인증 확인
 - [x] 점검(maintenance) 모드 — `deploy/maintenance.sh` (§4b)
-- [ ] CDN/WAF — 현재 Route53 A 레코드가 EC2에 직접 연결됨. CloudFront용 원본
-  호스트·ACM 인증서·DNS 전환 및 비용 선택 후 적용. 절차는
+- [ ] CDN/WAF — CloudFormation 기반, Count→Block WAF, DNS 전환·롤백,
+  Nginx 실제 IP 복원·원본 헤더 보호 도구까지 준비됨. 운영 AWS 계정에서 Pro 요금제와
+  별도 단기 배포 권한을 선택한 뒤 실제 생성·전환 필요. 절차는
   `docs/cdn-waf-rollout.md` 참고
 - [x] 시크릿을 SSM Parameter Store SecureString으로 이전 — EC2 역할은 단일 파라미터 읽기만 허용하고 `/run`에만 복호화
 - [x] 노출 가능성이 기록된 자격증명 로테이션 — `AUTH_SECRET`·`CRON_SECRET`·

@@ -643,13 +643,17 @@ export const couponCampaigns = pgTable(
     reward: jsonb("reward").notNull(),
     message: text("message"),
     startsAt: timestamp("starts_at", { mode: "date" }).notNull(),
-    endsAt: timestamp("ends_at", { mode: "date" }).notNull(),
+    // NULL이면 만료 없음. 정식 오픈 감사 쿠폰처럼 시작 시각만 필요한 캠페인을 지원한다.
+    endsAt: timestamp("ends_at", { mode: "date" }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex("coupon_campaigns_slug_idx").on(t.slug),
-    check("coupon_campaigns_period_check", sql`${t.endsAt} > ${t.startsAt}`),
+    check(
+      "coupon_campaigns_period_check",
+      sql`${t.endsAt} IS NULL OR ${t.endsAt} > ${t.startsAt}`,
+    ),
   ],
 );
 

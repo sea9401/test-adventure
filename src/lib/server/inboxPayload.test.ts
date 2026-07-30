@@ -276,6 +276,24 @@ describe("parseInboxPayload — happy path", () => {
       adventureSupportDays: 30,
     });
   });
+
+  it("admin_gift (영구 칭호 — 유효한 칭호만 중복 없이 보존)", () => {
+    expect(
+      parseInboxPayload("admin_gift", {
+        titleIds: ["pre_open_regular", "unknown_title", "pre_open_regular"],
+      }),
+    ).toEqual({
+      kind: "admin_gift",
+      gold: 0,
+      materials: [],
+      items: [],
+      staminaPotions: 0,
+      museunCoins: 0,
+      cashItems: [],
+      adventureSupportDays: 0,
+      titleIds: ["pre_open_regular"],
+    });
+  });
 });
 
 describe("parseInboxPayload — invalid → null", () => {

@@ -87,6 +87,14 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "치료소 50회 이용",
     category: "town",
   },
+  pre_open_regular: {
+    id: "pre_open_regular",
+    name: "오픈 전 단골",
+    description: "문을 열기 전부터 이곳을 들락날락한 모험가.",
+    condition: "베타 테스트 참여",
+    category: "town",
+    hidden: true,
+  },
   early_bird: {
     id: "early_bird",
     name: "새벽반",

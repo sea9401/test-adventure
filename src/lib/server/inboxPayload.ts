@@ -19,6 +19,7 @@ import {
   isMuseunShopItemId,
   type MuseunShopItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import { TITLES } from "@/adventure/data/titles";
 
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
@@ -100,6 +101,8 @@ export type InboxPayload =
       cashItems: AdminGiftCashItem[];
       /** 수령 시점부터 시작되는 월간 모험 지원권 기간. 활성 중이면 남은 기간 뒤에 이어 붙임. */
       adventureSupportDays: number;
+      /** 능력치 없는 영구 칭호. 누락은 기존 운영자 우편 호환을 위해 빈 배열로 취급. */
+      titleIds?: string[];
     };
 
 export type InboxPayloadKind = InboxPayload["kind"];
@@ -218,6 +221,7 @@ export function parseInboxPayload(
       const museunCoins = asNonNegInt(p.museunCoins) ?? 0;
       const cashItems = parseRewardCashItems(p.cashItems);
       const adventureSupportDays = asNonNegInt(p.adventureSupportDays) ?? 0;
+      const titleIds = parseRewardTitleIds(p.titleIds);
       return {
         kind,
         gold,
@@ -227,6 +231,7 @@ export function parseInboxPayload(
         museunCoins,
         cashItems,
         adventureSupportDays,
+        ...(titleIds.length > 0 ? { titleIds } : {}),
       };
     }
   }
@@ -312,4 +317,18 @@ function parseRewardCashItems(v: unknown): AdminGiftCashItem[] {
     }
   }
   return out;
+}
+
+function parseRewardTitleIds(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out = new Set<string>();
+  for (const value of v) {
+    if (
+      typeof value === "string" &&
+      Object.prototype.hasOwnProperty.call(TITLES, value)
+    ) {
+      out.add(value);
+    }
+  }
+  return [...out];
 }

@@ -4,7 +4,7 @@ import pg from "pg";
 import { createDatabaseConnectionOptions } from "../src/db/databaseTls.mjs";
 
 const args = parseArgs(process.argv.slice(2));
-const required = ["slug", "name", "before", "starts-at", "ends-at", "output"];
+const required = ["slug", "name", "before", "starts-at", "output"];
 for (const key of required) {
   if (!args[key]) usage(`--${key} is required`);
 }
@@ -14,12 +14,23 @@ const name = requireText(args.name, "name", 80);
 const cutoffBefore = requireDate(args.before, "before");
 const cutoffAfter = args.after ? requireDate(args.after, "after") : null;
 const startsAt = requireDate(args["starts-at"], "starts-at");
-const endsAt = requireDate(args["ends-at"], "ends-at");
-if (endsAt <= startsAt) usage("--ends-at must be later than --starts-at");
+const endsAt = args["ends-at"] ? requireDate(args["ends-at"], "ends-at") : null;
+if (endsAt && endsAt <= startsAt) usage("--ends-at must be later than --starts-at");
 const outputPath = requireText(args.output, "output", 500);
 const prefix = requireMatch((args.prefix || "BETA").toUpperCase(), /^[A-Z0-9]{2,10}$/, "prefix");
 const transferable = args.transferable === true;
+const deliverInbox = args["deliver-inbox"] === true;
+const audience = args.audience ?? "all";
+if (!new Set(["all", "kakao", "google-only"]).has(audience)) {
+  usage("--audience must be one of: all, kakao, google-only");
+}
+if (deliverInbox && audience !== "kakao") {
+  usage("--deliver-inbox requires --audience kakao");
+}
 const message = args.message ? requireText(args.message, "message", 300) : null;
+const titleId = args.title
+  ? requireMatch(args.title, /^[a-z0-9][a-z0-9_]{1,63}$/, "title")
+  : null;
 
 const reward = {
   gold: amount(args.gold, "gold", 1_000_000),
@@ -29,13 +40,14 @@ const reward = {
   museunCoins: amount(args["museun-coins"], "museun-coins", 1_000_000),
   cashItems: [],
   adventureSupportDays: amount(args["adventure-support-days"], "adventure-support-days", 3650),
+  titleIds: titleId ? [titleId] : [],
 };
 if (
   reward.gold +
     reward.staminaPotions +
     reward.museunCoins +
-    reward.adventureSupportDays ===
-  0
+    reward.adventureSupportDays === 0 &&
+  reward.titleIds.length === 0
 ) {
   usage("at least one reward option must be greater than zero");
 }
@@ -82,11 +94,28 @@ try {
 
   const params = [cutoffBefore];
   const afterSql = cutoffAfter ? `AND u.created_at >= $${params.push(cutoffAfter)}` : "";
+  const audienceSql =
+    audience === "kakao"
+      ? `AND EXISTS (
+           SELECT 1 FROM accounts a
+            WHERE a.user_id = u.id AND a.provider = 'kakao'
+         )`
+      : audience === "google-only"
+        ? `AND EXISTS (
+             SELECT 1 FROM accounts a
+              WHERE a.user_id = u.id AND a.provider = 'google'
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM accounts a
+              WHERE a.user_id = u.id AND a.provider = 'kakao'
+           )`
+        : "";
   const eligible = await client.query(
     `SELECT u.id, u.email, u.game_name
        FROM users u
       WHERE u.created_at < $1
         ${afterSql}
+        ${audienceSql}
         AND EXISTS (
           SELECT 1 FROM saves_kv s
            WHERE s.user_id = u.id AND s.key = 'character.v2'
@@ -116,6 +145,14 @@ try {
            VALUES ($1, $2, $3, $4, $5)`,
           [campaignId, codeHash, normalized.slice(-4), user.id, transferable ? null : user.id],
         );
+        if (deliverInbox) {
+          await client.query(
+            `INSERT INTO marketplace_inbox
+               (user_id, kind, payload, from_name)
+             VALUES ($1, 'user_message', $2::jsonb, '운영자')`,
+            [user.id, JSON.stringify({ text: inboxCodeMessage(name, code, startsAt) })],
+          );
+        }
         rows.push({ userId: user.id, email: user.email, gameName: user.game_name ?? "", code });
         break;
       } catch (error) {
@@ -140,6 +177,7 @@ try {
     `✓ ${name}: eligible ${eligible.rowCount}, newly issued ${rows.length}, ` +
       `already issued ${issuedIds.size}, mode ${transferable ? "transferable" : "account-bound"}`,
   );
+  console.error(`✓ audience ${audience}, delivery ${deliverInbox ? "inbox+csv" : "csv"}`);
   console.error(`✓ CSV saved with owner-only permissions: ${outputPath}`);
 } catch (error) {
   if (client && !committed) {
@@ -166,7 +204,7 @@ function parseArgs(argv) {
     const token = argv[i];
     if (!token.startsWith("--")) usage(`unexpected argument: ${token}`);
     const key = token.slice(2);
-    if (key === "transferable") {
+    if (key === "transferable" || key === "deliver-inbox") {
       parsed[key] = true;
       continue;
     }
@@ -211,7 +249,28 @@ function sameCampaign(existing, expected) {
     stableJson(existing.reward) === stableJson(expected.reward) &&
     (existing.message ?? null) === expected.message &&
     new Date(existing.starts_at).getTime() === expected.startsAt.getTime() &&
-    new Date(existing.ends_at).getTime() === expected.endsAt.getTime()
+    nullableDateMs(existing.ends_at) === nullableDateMs(expected.endsAt)
+  );
+}
+
+function nullableDateMs(value) {
+  return value == null ? null : new Date(value).getTime();
+}
+
+function inboxCodeMessage(campaignName, code, startsAtDate) {
+  const startsAtLabel = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(startsAtDate);
+  return (
+    `${campaignName}\n` +
+    `쿠폰 코드: ${code}\n` +
+    `사용 시작: ${startsAtLabel}\n` +
+    "설정 → 이벤트 → 쿠폰 등록에서 입력해주세요."
   );
 }
 
@@ -236,12 +295,13 @@ function usage(error) {
   console.error(
     "Usage: node scripts/issue-beta-coupons.mjs \\\n" +
       "  --slug beta-2026 --name '베타 테스터 감사 선물' \\\n" +
-      "  --before 2026-08-01T00:00:00+09:00 \\\n" +
-      "  --starts-at 2026-08-15T10:00:00+09:00 \\\n" +
-      "  --ends-at 2026-09-30T23:59:59+09:00 \\\n" +
-      "  --museun-coins 500 --output ./beta-coupons.csv\n\n" +
-      "Rewards: --gold, --museun-coins, --stamina-potions, --adventure-support-days\n" +
-      "Options: --after <ISO>, --prefix <2-10 chars>, --message <text>, --transferable",
+      "  --before 2026-08-01T13:00:00+09:00 \\\n" +
+      "  --starts-at 2026-08-01T13:00:00+09:00 \\\n" +
+      "  --title pre_open_regular --stamina-potions 15 \\\n" +
+      "  --audience kakao --deliver-inbox --output ./beta-coupons-kakao.csv\n\n" +
+      "Rewards: --title, --gold, --museun-coins, --stamina-potions, --adventure-support-days\n" +
+      "Options: --after <ISO>, --ends-at <ISO>, --audience <all|kakao|google-only>,\n" +
+      "         --deliver-inbox, --prefix <2-10 chars>, --message <text>, --transferable",
   );
   process.exit(1);
 }

@@ -7,6 +7,7 @@ import {
   marketplaceInbox,
 } from "@/db/schema";
 import {
+  couponAvailability,
   couponRewardLabels,
   hashCouponCode,
   normalizeCouponCode,
@@ -79,8 +80,9 @@ export async function POST(req: Request) {
       if (!row.active) return fail("not_available", 409);
 
       const now = new Date();
-      if (now < row.startsAt) return fail("not_started", 409);
-      if (now >= row.endsAt) return fail("expired", 409);
+      const availability = couponAvailability(row.startsAt, row.endsAt, now);
+      if (availability === "not_started") return fail(availability, 409);
+      if (availability === "expired") return fail(availability, 409);
       if (row.redeemedAt) {
         return row.redeemedByUserId === userId
           ? fail("already_redeemed", 409)

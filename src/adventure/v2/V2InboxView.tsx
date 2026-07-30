@@ -31,6 +31,7 @@ import {
   useRewardToast,
   useSystemMessageState,
 } from "@/adventure/v2/RewardToastProvider";
+import { TITLES } from "@/adventure/data/titles";
 
 const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
   Record<string, { name: string } | undefined>
@@ -127,6 +128,14 @@ function pushCashItemRewards(lines: string[], raw: unknown) {
   }
 }
 
+function pushTitleRewards(lines: string[], raw: unknown) {
+  if (!Array.isArray(raw)) return;
+  for (const value of raw) {
+    const id = asId(value);
+    if (id && TITLES[id]) lines.push(`칭호 ‘${TITLES[id].name}’`);
+  }
+}
+
 function rewardLinesOf(it: InboxItem): string[] {
   const p = it.payload ?? {};
   const lines: string[] = [];
@@ -182,6 +191,7 @@ function rewardLinesOf(it: InboxItem): string[] {
       pushCashItemRewards(lines, p.cashItems);
       pushReward(lines, "스태미나 회복약", asCount(p.staminaPotions));
       pushReward(lines, "월간 모험 지원권", asCount(p.adventureSupportDays));
+      pushTitleRewards(lines, p.titleIds);
       break;
     case "user_message":
     case "guild_invite":
@@ -317,6 +327,7 @@ export function V2InboxView({
           staminaPotions?: number | null;
           adventureSupportDaysAdded?: number;
           adventureSupportActiveUntil?: number | null;
+          titleIdsAdded?: string[];
           itemsAdded?: { quantity: number }[];
           equipV2Added?: { count: number }[];
           materialsV2Added?: { count: number }[];
@@ -368,6 +379,11 @@ export function V2InboxView({
           // 최대 스태미나·회복 보너스·50회 전투 권한을 즉시 전역 상태에 반영한다.
           await refreshGameState();
         }
+        const titleNames = (j.titleIdsAdded ?? [])
+          .map((id) => TITLES[id]?.name)
+          .filter((name): name is string => Boolean(name));
+        for (const name of titleNames) parts.push(`+칭호 ‘${name}’`);
+        if (titleNames.length > 0) await refreshGameState();
         // 재료/장비(운영자 우편·길드 보상 등) — 총 수량으로 요약.
         const itemQty = (j.itemsAdded ?? []).reduce(
           (s, it) => s + (it.quantity ?? 0),

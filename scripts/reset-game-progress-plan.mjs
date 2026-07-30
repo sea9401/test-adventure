@@ -52,6 +52,7 @@ export const RESET_TABLES = Object.freeze([
   "lottery_purchases",
   "lottery_rounds",
   "lottery_winners",
+  "marketplace_bids_v2",
   "marketplace_listings",
   "marketplace_listings_v2",
   "messages",

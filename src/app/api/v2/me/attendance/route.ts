@@ -7,6 +7,10 @@ import {
   type MonthlyAttendanceReward,
 } from "@/adventure/data/v2/monthlyAttendance";
 import {
+  addMuseunCashItem,
+  type MuseunCosmeticBoxItemId,
+} from "@/adventure/data/v2/museunCashItems";
+import {
   ADVENTURE_SUPPORT_PASS,
   grantAdventureSupport,
 } from "@/adventure/data/v2/adventureSupport";
@@ -37,6 +41,7 @@ import {
 type CharacterSave = Record<string, unknown> & {
   class?: unknown;
   adventureSupport?: unknown;
+  cashItems?: unknown;
   stamina?: unknown;
   materials?: unknown;
 };
@@ -112,13 +117,15 @@ export async function POST() {
         };
       }
 
-      const reward = MONTHLY_ATTENDANCE_REWARDS[status.nextDay - 1];
+      const reward: MonthlyAttendanceReward =
+        MONTHLY_ATTENDANCE_REWARDS[status.nextDay - 1];
       let nextCharacter: CharacterSave = { ...character };
       let characterChanged = false;
       let adventureSupportActiveUntil: number | null = null;
       let staminaPotions: number | null = null;
       let masteryCertificates: number | null = null;
       let grantedMaterials: Record<string, number> | null = null;
+      let grantedCosmeticBox: MuseunCosmeticBoxItemId | null = null;
 
       if (reward.kind === "adventure_support") {
         const grant = grantAdventureSupport(
@@ -202,6 +209,19 @@ export async function POST() {
         characterChanged = true;
       }
 
+      if (reward.cosmeticBox) {
+        nextCharacter = {
+          ...nextCharacter,
+          cashItems: addMuseunCashItem(
+            nextCharacter.cashItems,
+            reward.cosmeticBox,
+            1,
+          ),
+        };
+        grantedCosmeticBox = reward.cosmeticBox;
+        characterChanged = true;
+      }
+
       if (characterChanged) {
         await upsertSave(tx, userId, "character.v2", nextCharacter);
       }
@@ -226,6 +246,7 @@ export async function POST() {
           staminaPotions,
           masteryCertificates,
           grantedMaterials,
+          grantedCosmeticBox,
           ...publicStatus(nextAttendance, now),
         },
       };
@@ -253,6 +274,15 @@ function recordAttendanceReward(
   userId: string,
   reward: MonthlyAttendanceReward,
 ) {
+  if (reward.cosmeticBox) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.monthly_attendance",
+      itemKind: "consumable",
+      itemId: reward.cosmeticBox,
+      quantity: 1,
+    });
+  }
   if (reward.kind === "adventure_support") {
     recordEconomyEventSoon({
       userId,

@@ -1,14 +1,22 @@
 import { kstDayKey } from "@/lib/kst";
+import {
+  MUSEUN_CASH_ITEMS,
+  type MuseunCosmeticBoxItemId,
+} from "./museunCashItems";
 
 export const MONTHLY_ATTENDANCE_SAVE_KEY = "monthly-attendance.v1";
 
-export type MonthlyAttendanceReward =
+type MonthlyAttendanceBaseReward =
   | { kind: "adventure_support"; days: number }
   | { kind: "stamina_potion"; count: number }
   | { kind: "enhancement_stone"; color: "red" | "blue"; count: number }
   | { kind: "boss_summon_scroll"; count: number }
   | { kind: "mastery_certificate"; count: number }
   | { kind: "enhancement_stone_bundle"; red: number; blue: number };
+
+export type MonthlyAttendanceReward = MonthlyAttendanceBaseReward & {
+  cosmeticBox?: MuseunCosmeticBoxItemId;
+};
 
 export const MONTHLY_ATTENDANCE_REWARDS = [
   { kind: "adventure_support", days: 30 },
@@ -17,14 +25,22 @@ export const MONTHLY_ATTENDANCE_REWARDS = [
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },
   { kind: "enhancement_stone", color: "red", count: 1 },
-  { kind: "stamina_potion", count: 2 },
+  {
+    kind: "stamina_potion",
+    count: 2,
+    cosmeticBox: "chroma_name_box",
+  },
   { kind: "enhancement_stone", color: "blue", count: 1 },
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },
   { kind: "enhancement_stone", color: "blue", count: 1 },
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "boss_summon_scroll", count: 3 },
+  {
+    kind: "boss_summon_scroll",
+    count: 3,
+    cosmeticBox: "chat_badge_box",
+  },
   { kind: "enhancement_stone", color: "red", count: 1 },
   { kind: "stamina_potion", count: 2 },
   { kind: "enhancement_stone", color: "blue", count: 1 },
@@ -38,7 +54,12 @@ export const MONTHLY_ATTENDANCE_REWARDS = [
   { kind: "stamina_potion", count: 2 },
   { kind: "enhancement_stone", color: "blue", count: 1 },
   { kind: "stamina_potion", count: 3 },
-  { kind: "enhancement_stone_bundle", red: 2, blue: 2 },
+  {
+    kind: "enhancement_stone_bundle",
+    red: 2,
+    blue: 2,
+    cosmeticBox: "profile_border_box",
+  },
 ] as const satisfies readonly MonthlyAttendanceReward[];
 
 export type MonthlyAttendanceState = {
@@ -107,6 +128,15 @@ export function monthlyAttendanceStatus(
 }
 
 export function monthlyAttendanceRewardLabel(
+  reward: MonthlyAttendanceReward,
+): string {
+  const baseLabel = monthlyAttendanceBaseRewardLabel(reward);
+  return reward.cosmeticBox
+    ? `${baseLabel} · ${MUSEUN_CASH_ITEMS[reward.cosmeticBox].name}`
+    : baseLabel;
+}
+
+function monthlyAttendanceBaseRewardLabel(
   reward: MonthlyAttendanceReward,
 ): string {
   switch (reward.kind) {

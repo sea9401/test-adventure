@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MONTHLY_ATTENDANCE_REWARDS,
+  monthlyAttendanceRewardLabel,
   monthlyAttendanceState,
   monthlyAttendanceStatus,
 } from "./monthlyAttendance";
@@ -22,6 +23,7 @@ describe("월간 출석", () => {
     expect(MONTHLY_ATTENDANCE_REWARDS[13]).toEqual({
       kind: "boss_summon_scroll",
       count: 3,
+      cosmeticBox: "chat_badge_box",
     });
     expect(MONTHLY_ATTENDANCE_REWARDS[20]).toEqual({
       kind: "mastery_certificate",
@@ -31,7 +33,23 @@ describe("월간 출석", () => {
       kind: "enhancement_stone_bundle",
       red: 2,
       blue: 2,
+      cosmeticBox: "profile_border_box",
     });
+  });
+
+  it("7·14·28일차에 닉네임·배지·프로필 꾸미기 상자를 추가한다", () => {
+    expect(MONTHLY_ATTENDANCE_REWARDS[6].cosmeticBox).toBe(
+      "chroma_name_box",
+    );
+    expect(MONTHLY_ATTENDANCE_REWARDS[13].cosmeticBox).toBe(
+      "chat_badge_box",
+    );
+    expect(MONTHLY_ATTENDANCE_REWARDS[27].cosmeticBox).toBe(
+      "profile_border_box",
+    );
+    expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[27])).toBe(
+      "붉은·푸른 강화석 각 2개 · 프로필 꾸미기 상자",
+    );
   });
 
   it("스태미나 회복약은 한 번에 2개 이상, 한 달에 총 29개 지급한다", () => {

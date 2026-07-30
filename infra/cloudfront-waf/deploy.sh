@@ -17,6 +17,11 @@ if ! command -v aws >/dev/null 2>&1; then
   exit 2
 fi
 
+if ! command -v node >/dev/null 2>&1; then
+  echo "node is required" >&2
+  exit 2
+fi
+
 if [ ! -f "$TEMPLATE_FILE" ]; then
   echo "template not found: $TEMPLATE_FILE" >&2
   exit 2
@@ -52,6 +57,25 @@ aws cloudformation describe-stacks \
   --stack-name "$STACK_NAME" \
   --query 'Stacks[0].Outputs' \
   --output table
+
+distribution_id=$(aws cloudformation describe-stacks \
+  --region "$AWS_REGION" \
+  --stack-name "$STACK_NAME" \
+  --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue | [0]" \
+  --output text)
+web_acl_arn=$(aws cloudformation describe-stacks \
+  --region "$AWS_REGION" \
+  --stack-name "$STACK_NAME" \
+  --query "Stacks[0].Outputs[?OutputKey=='WebAclArn'].OutputValue | [0]" \
+  --output text)
+
+if [ "$distribution_id" = "None" ] || [ "$web_acl_arn" = "None" ]; then
+  echo "stack outputs are missing DistributionId or WebAclArn" >&2
+  exit 1
+fi
+
+DISTRIBUTION_ID="$distribution_id" WEB_ACL_ARN="$web_acl_arn" \
+  node infra/cloudfront-waf/configure-logging.mjs --apply
 
 if [ "$WAF_MODE" = "Count" ]; then
   echo "WAF is observing only. Review sampled requests for 24-48 hours before WAF_MODE=Block."

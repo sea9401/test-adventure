@@ -143,6 +143,10 @@ trap - EXIT
 
 ### 전체 초기화 (클린 슬레이트)
 🚨 **비가역. 반드시 백업 먼저.**
+
+> 재오픈 때 인증 계정·쿠폰을 보존하는 작업에는 아래 `DROP SCHEMA`를
+> 사용하지 않는다. 그 경우는 [재오픈 게임 데이터 초기화](./reopen-game-reset.md)를 따른다.
+
 ```bash
 bash deploy/maintenance.sh on    # 1) 점검 ON — nginx 정적 페이지(앱을 멈춰도 유지)
 psql "$DBURL" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \

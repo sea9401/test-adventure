@@ -116,8 +116,7 @@ Resources:
           Statement:
             RateBasedStatement:
               AggregateKeyType: IP
-              EvaluationWindowSec: 60
-              Limit: 1200
+              Limit: 6000
           Action: !If
             - WafBlockingEnabled
             - Block: {}
@@ -131,16 +130,50 @@ Resources:
           Statement:
             RateBasedStatement:
               AggregateKeyType: IP
-              EvaluationWindowSec: 60
-              Limit: 300
+              Limit: 1500
               ScopeDownStatement:
-                RegexMatchStatement:
-                  FieldToMatch:
-                    UriPath: {}
-                  RegexString: "^/api/v2/(arena/match|grid-dungeon|me/offline-settle|outpost/attack|training/spar)/?$"
-                  TextTransformations:
-                    - Priority: 0
-                      Type: NONE
+                OrStatement:
+                  Statements:
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/v2/arena/match
+                        TextTransformations:
+                          - Priority: 0
+                            Type: NONE
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/v2/grid-dungeon
+                        TextTransformations:
+                          - Priority: 0
+                            Type: NONE
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/v2/me/offline-settle
+                        TextTransformations:
+                          - Priority: 0
+                            Type: NONE
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/v2/outpost/attack
+                        TextTransformations:
+                          - Priority: 0
+                            Type: NONE
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/v2/training/spar
+                        TextTransformations:
+                          - Priority: 0
+                            Type: NONE
           Action: !If
             - WafBlockingEnabled
             - Block: {}

@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  completeReferral,
+  attributeReferral,
   createReferralCode,
   normalizeReferralCode,
   referralLandingUrl,
   referralRewardGold,
+  referralRewardMilestones,
+  rewardReferralProgress,
 } from "./referrals";
-import { marketplaceInbox, referralConversions } from "@/db/schema";
+import {
+  marketplaceInbox,
+  referralCodes,
+  referralConversions,
+} from "@/db/schema";
 
 const originalReward = process.env.REFERRAL_REWARD_GOLD;
 const originalAuthUrl = process.env.AUTH_URL;
@@ -53,84 +59,214 @@ describe("referrals", () => {
     expect(referralRewardGold()).toBe(10_000);
   });
 
-  it("완료 실적과 보상 우편을 한 executor에 함께 기록한다", async () => {
+  it("총 보상을 프론티어 12·24·36 단계에 20%·30%·50%로 나눈다", () => {
     process.env.REFERRAL_REWARD_GOLD = "25000";
-    const inserted: Array<{ table: unknown; values: unknown }> = [];
-    const tx = fakeExecutor("referrer", true, inserted);
-
-    const result = await completeReferral(
-      tx as never,
-      "new-user",
-      "새싹",
-      "abcdef0123456789",
-    );
-
-    expect(result).toEqual({ rewarded: true, rewardGold: 25_000 });
-    expect(inserted.map((entry) => entry.table)).toEqual([
-      referralConversions,
-      marketplaceInbox,
+    expect(referralRewardMilestones()).toEqual([
+      { frontierDepth: 12, rewardGold: 5_000 },
+      { frontierDepth: 24, rewardGold: 7_500 },
+      { frontierDepth: 36, rewardGold: 12_500 },
     ]);
-    expect(inserted[1]?.values).toMatchObject({
-      userId: "referrer",
-      kind: "admin_gift",
-      payload: { gold: 25_000 },
-      message: expect.stringContaining("새싹님"),
+    expect(referralRewardMilestones(10_001)).toEqual([
+      { frontierDepth: 12, rewardGold: 2_000 },
+      { frontierDepth: 24, rewardGold: 3_000 },
+      { frontierDepth: 36, rewardGold: 5_001 },
+    ]);
+  });
+
+  it("가입 시에는 귀속만 기록하고 보상 우편을 만들지 않는다", async () => {
+    const trace = makeTrace();
+    const tx = fakeExecutor({
+      ownerUserId: "referrer",
+      conversionInserted: true,
+      trace,
+    });
+
+    await expect(
+      attributeReferral(tx as never, "new-user", "abcdef0123456789"),
+    ).resolves.toEqual({ attributed: true });
+    expect(trace.inserted.map((entry) => entry.table)).toEqual([
+      referralConversions,
+    ]);
+    expect(trace.inserted[0]?.values).toMatchObject({
+      referredUserId: "new-user",
+      referrerUserId: "referrer",
+      rewardGold: 0,
+      rewardedDepth: 0,
     });
   });
 
-  it("자기 추천과 이미 귀속된 계정에는 보상 우편을 만들지 않는다", async () => {
-    const selfInserts: Array<{ table: unknown; values: unknown }> = [];
+  it("자기 추천과 이미 귀속된 계정에는 새 귀속을 만들지 않는다", async () => {
+    const selfTrace = makeTrace();
     expect(
-      await completeReferral(
-        fakeExecutor("same-user", true, selfInserts) as never,
+      await attributeReferral(
+        fakeExecutor({
+          ownerUserId: "same-user",
+          conversionInserted: true,
+          trace: selfTrace,
+        }) as never,
         "same-user",
-        "본인",
         "abcdef0123456789",
       ),
-    ).toEqual({ rewarded: false, rewardGold: 0 });
-    expect(selfInserts).toHaveLength(0);
+    ).toEqual({ attributed: false });
+    expect(selfTrace.inserted).toHaveLength(0);
 
-    const duplicateInserts: Array<{ table: unknown; values: unknown }> = [];
+    const duplicateTrace = makeTrace();
     expect(
-      await completeReferral(
-        fakeExecutor("referrer", false, duplicateInserts) as never,
+      await attributeReferral(
+        fakeExecutor({
+          ownerUserId: "referrer",
+          conversionInserted: false,
+          trace: duplicateTrace,
+        }) as never,
         "already-attributed",
-        "중복",
         "abcdef0123456789",
       ),
-    ).toEqual({ rewarded: false, rewardGold: 0 });
-    expect(duplicateInserts.map((entry) => entry.table)).toEqual([
+    ).toEqual({ attributed: false });
+    expect(duplicateTrace.inserted.map((entry) => entry.table)).toEqual([
       referralConversions,
     ]);
   });
+
+  it("프론티어 단계 도달 시 누적값을 갱신하고 추천인에게 단계 보상을 보낸다", async () => {
+    const trace = makeTrace();
+    const tx = fakeExecutor({
+      ownerUserId: "unused",
+      conversionInserted: false,
+      lockedConversion: {
+        referrerUserId: "referrer",
+        rewardGold: 2_000,
+        rewardedDepth: 12,
+      },
+      trace,
+    });
+
+    await expect(
+      rewardReferralProgress(tx as never, "new-user", "새싹", 24),
+    ).resolves.toEqual({ rewardGold: 3_000, rewardedDepth: 24 });
+    expect(trace.updates).toEqual([
+      {
+        table: referralConversions,
+        values: { rewardGold: 5_000, rewardedDepth: 24 },
+      },
+    ]);
+    expect(trace.inserted).toHaveLength(1);
+    expect(trace.inserted[0]).toMatchObject({
+      table: marketplaceInbox,
+      values: {
+        userId: "referrer",
+        kind: "admin_gift",
+        payload: { gold: 3_000 },
+        message: expect.stringContaining("프론티어 24"),
+      },
+    });
+  });
+
+  it("여러 단계를 건너뛰면 합산하고 재호출에는 지급하지 않는다", async () => {
+    const skipTrace = makeTrace();
+    const skipped = fakeExecutor({
+      ownerUserId: "unused",
+      conversionInserted: false,
+      lockedConversion: {
+        referrerUserId: "referrer",
+        rewardGold: 0,
+        rewardedDepth: 0,
+      },
+      trace: skipTrace,
+    });
+    await expect(
+      rewardReferralProgress(skipped as never, "new-user", "새싹", 36),
+    ).resolves.toEqual({ rewardGold: 10_000, rewardedDepth: 36 });
+
+    const repeatedTrace = makeTrace();
+    const repeated = fakeExecutor({
+      ownerUserId: "unused",
+      conversionInserted: false,
+      lockedConversion: {
+        referrerUserId: "referrer",
+        rewardGold: 10_000,
+        rewardedDepth: 36,
+      },
+      trace: repeatedTrace,
+    });
+    await expect(
+      rewardReferralProgress(repeated as never, "new-user", "새싹", 36),
+    ).resolves.toEqual({ rewardGold: 0, rewardedDepth: 36 });
+    expect(repeatedTrace.inserted).toHaveLength(0);
+    expect(repeatedTrace.updates).toHaveLength(0);
+  });
+
+  it("첫 단계 미만이면 홍보 DB를 조회하지 않는다", async () => {
+    const trace = makeTrace();
+    const tx = fakeExecutor({
+      ownerUserId: "unused",
+      conversionInserted: false,
+      trace,
+    });
+    await expect(
+      rewardReferralProgress(tx as never, "new-user", "새싹", 11),
+    ).resolves.toEqual({ rewardGold: 0, rewardedDepth: 0 });
+    expect(trace.selectedTables).toHaveLength(0);
+  });
 });
 
-function fakeExecutor(
-  ownerUserId: string,
-  conversionInserted: boolean,
-  inserted: Array<{ table: unknown; values: unknown }>,
-) {
+type Trace = {
+  selectedTables: unknown[];
+  inserted: Array<{ table: unknown; values: unknown }>;
+  updates: Array<{ table: unknown; values: unknown }>;
+};
+
+function makeTrace(): Trace {
+  return { selectedTables: [], inserted: [], updates: [] };
+}
+
+function fakeExecutor(args: {
+  ownerUserId: string;
+  conversionInserted: boolean;
+  lockedConversion?: {
+    referrerUserId: string;
+    rewardGold: number;
+    rewardedDepth: number;
+  };
+  trace: Trace;
+}) {
   return {
     select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: async () => [{ userId: ownerUserId }],
-        }),
-      }),
+      from: (table: unknown) => {
+        args.trace.selectedTables.push(table);
+        return {
+          where: () => ({
+            limit: async () =>
+              table === referralCodes ? [{ userId: args.ownerUserId }] : [],
+            for: () => ({
+              limit: async () =>
+                table === referralConversions && args.lockedConversion
+                  ? [args.lockedConversion]
+                  : [],
+            }),
+          }),
+        };
+      },
     }),
     insert: (table: unknown) => ({
       values: (values: unknown) => {
-        inserted.push({ table, values });
+        args.trace.inserted.push({ table, values });
         if (table === referralConversions) {
           return {
             onConflictDoNothing: () => ({
               returning: async () =>
-                conversionInserted ? [{ referredUserId: "new-user" }] : [],
+                args.conversionInserted ? [{ referredUserId: "new-user" }] : [],
             }),
           };
         }
         return Promise.resolve();
       },
+    }),
+    update: (table: unknown) => ({
+      set: (values: unknown) => ({
+        where: async () => {
+          args.trace.updates.push({ table, values });
+        },
+      }),
     }),
   };
 }

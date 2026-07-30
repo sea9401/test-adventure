@@ -16,7 +16,7 @@ import {
   type Avatar,
 } from "@/adventure/profile/avatars";
 import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
-import { completeReferral, REFERRAL_COOKIE } from "@/lib/server/referrals";
+import { attributeReferral, REFERRAL_COOKIE } from "@/lib/server/referrals";
 
 // 트랜잭션 안에서 "이름 중복" 신호용 — Postgres 23505 또는 legacy hit 양쪽을 한곳에서 처리.
 class TakenError extends Error {
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
           });
           await upsertSave(tx, uid, PROFILE_STORAGE_KEY, healedProfile);
         }
-        return { profile: healedProfile, isNew: false, referralRewarded: false };
+        return { profile: healedProfile, isNew: false, referralAttributed: false };
       }
 
       // ── 신규 경로 — 중복 검사 후 둘 다 쓰기. 트랜잭션 안에서 진행돼 한쪽만 박히는 일 없음.
@@ -178,11 +178,11 @@ export async function POST(req: Request) {
         owned: starterOwned,
         equipped: starterEquipped,
       });
-      const referral = await completeReferral(tx, uid, name, referralCode);
+      const referral = await attributeReferral(tx, uid, referralCode);
       return {
         profile,
         isNew: true,
-        referralRewarded: referral.rewarded,
+        referralAttributed: referral.attributed,
       };
     });
 
@@ -200,7 +200,7 @@ export async function POST(req: Request) {
     return Response.json({
       ok: true,
       profile: finalProfile.profile,
-      referralApplied: finalProfile.referralRewarded,
+      referralApplied: finalProfile.referralAttributed,
     });
   } catch (e) {
     if (e instanceof TakenError) {

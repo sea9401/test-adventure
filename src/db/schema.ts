@@ -173,8 +173,9 @@ export const referralCodes = pgTable(
   (t) => [uniqueIndex("referral_codes_user_idx").on(t.userId)],
 );
 
-// 홍보 링크를 통해 신규 캐릭터 생성을 완료한 기록. referredUserId PK가 한 계정의
-// 중복 귀속/중복 지급을 막고, profile/setup 트랜잭션에서 보상 우편과 함께 원자적으로 쓴다.
+// 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. referredUserId PK가 한 계정의 중복
+// 귀속을 막는다. 보상은 프론티어 진행 단계에서 rewardGold/rewardedDepth를 원자적으로
+// 갱신하며 지급한다.
 export const referralConversions = pgTable(
   "referral_conversions",
   {
@@ -187,7 +188,8 @@ export const referralConversions = pgTable(
     referralCode: text("referral_code")
       .notNull()
       .references(() => referralCodes.code, { onDelete: "cascade" }),
-    rewardGold: integer("reward_gold").notNull(),
+    rewardGold: integer("reward_gold").default(0).notNull(),
+    rewardedDepth: integer("rewarded_depth").default(0).notNull(),
     convertedAt: timestamp("converted_at").defaultNow().notNull(),
   },
   (t) => [
@@ -200,6 +202,10 @@ export const referralConversions = pgTable(
       sql`${t.referredUserId} <> ${t.referrerUserId}`,
     ),
     check("referral_conversions_reward_nonnegative_check", sql`${t.rewardGold} >= 0`),
+    check(
+      "referral_conversions_rewarded_depth_check",
+      sql`${t.rewardedDepth} in (0, 12, 24, 36)`,
+    ),
   ],
 );
 

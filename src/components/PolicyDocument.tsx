@@ -58,7 +58,7 @@ export function PolicyDocument({
         </header>
 
         <article
-          className={`${SURFACE_CARD} space-y-9 p-5 text-sm leading-7 sm:p-8 [&_a]:text-amber-700 [&_a]:underline [&_a]:underline-offset-4 dark:[&_a]:text-amber-300 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:font-semibold [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:text-zinc-700 dark:[&_p]:text-zinc-300 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-200 [&_td]:p-3 dark:[&_td]:border-zinc-700 [&_th]:border [&_th]:border-zinc-200 [&_th]:bg-zinc-100 [&_th]:p-3 [&_th]:text-left dark:[&_th]:border-zinc-700 dark:[&_th]:bg-zinc-800`}
+          className={`${SURFACE_CARD} space-y-9 p-5 text-sm leading-7 sm:p-8 [&_a]:text-amber-700 [&_a]:underline [&_a]:underline-offset-4 dark:[&_a]:text-amber-300 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:font-semibold [&_h4]:mb-2 [&_h4]:mt-5 [&_h4]:font-semibold [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:text-zinc-700 dark:[&_p]:text-zinc-300 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-200 [&_td]:p-3 dark:[&_td]:border-zinc-700 [&_th]:border [&_th]:border-zinc-200 [&_th]:bg-zinc-100 [&_th]:p-3 [&_th]:text-left dark:[&_th]:border-zinc-700 dark:[&_th]:bg-zinc-800`}
         >
           {children}
         </article>

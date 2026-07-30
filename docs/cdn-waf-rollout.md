@@ -155,6 +155,9 @@ bash infra/cloudfront-waf/smoke.sh dxxxxxxxxxxxxx.cloudfront.net
 ```
 
 CloudFront 콘솔에서 이 distribution에 Pro 정액제를 연결하고 로그를 활성화한다.
+CloudFront 접근 로그와 WAF 요청 로그를 받는 CloudWatch Logs 로그 그룹은 보존 기간을
+**90일**로 설정한다. `Never expire` 상태로 두지 말고, 콘솔의 로그 그룹별 보존 설정에서
+90일이 적용됐는지 확인해 개인정보처리방침의 보유 기간과 일치시킨다.
 같은 화면에서 `msmsge.com` Route53 hosted zone도 플랜에 연결해야 hosted zone과 표준
 DNS 질의 비용이 정액제에 포함된다.
 WAF 콘솔에서는 다섯 규칙이 Count이고 샘플 요청과 CloudWatch 지표가 들어오는지

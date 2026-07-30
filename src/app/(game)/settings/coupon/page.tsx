@@ -1,4 +1,4 @@
-import { V2CouponView } from "@/adventure/v2/V2CouponView";
+import { permanentRedirect } from "next/navigation";
 
 export const metadata = {
   title: "쿠폰 등록 — 무슨무슨게임",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function CouponPage() {
-  return <V2CouponView />;
+  permanentRedirect("/settings/events?tab=coupon");
 }

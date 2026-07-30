@@ -27,7 +27,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   rate_limited: "입력 횟수가 너무 많습니다. 잠시 뒤 다시 시도해주세요.",
 };
 
-export function V2CouponView() {
+export function V2CouponView({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,10 +63,8 @@ export function V2CouponView() {
     }
   };
 
-  return (
-    <PageShell spacing="normal">
-      <SubViewHeader title="쿠폰 등록" onBack={() => router.back()} />
-
+  const content = (
+    <>
       <Card padding="lg" className="space-y-5">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-amber-100 p-2 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
@@ -130,6 +128,15 @@ export function V2CouponView() {
           </form>
         )}
       </Card>
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <PageShell spacing="normal">
+      <SubViewHeader title="쿠폰 등록" onBack={() => router.back()} />
+      {content}
     </PageShell>
   );
 }

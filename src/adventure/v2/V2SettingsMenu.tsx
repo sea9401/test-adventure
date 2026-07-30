@@ -13,15 +13,14 @@ import {
   Eye,
   EyeSlash,
   FileText,
+  Gift,
   List,
   Megaphone,
   Moon,
   Palette,
-  ShareNetwork,
   SignOut,
   Storefront,
   Sun,
-  Ticket,
   UserMinus,
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
@@ -167,6 +166,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 꾸미기
               </Link>
             </li>
+            <li>
+              <Link
+                href="/settings/events"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950"
+              >
+                <Gift size={18} weight="duotone" />
+                이벤트
+              </Link>
+            </li>
             {process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true" && (
               <li>
                 <Link
@@ -179,26 +188,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 </Link>
               </li>
             )}
-            <li>
-              <Link
-                href="/settings/coupon"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <Ticket size={18} weight="duotone" />
-                쿠폰 등록
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/settings/referrals"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950"
-              >
-                <ShareNetwork size={18} weight="duotone" />
-                게임 홍보
-              </Link>
-            </li>
             <li>
               <Link
                 href="/manual"

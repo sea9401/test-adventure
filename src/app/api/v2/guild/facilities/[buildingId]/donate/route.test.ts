@@ -18,7 +18,7 @@ vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/server/v2Settlement", () => ({
-  lockVillage: vi.fn(),
+  lockGuildSettlementBuilding: vi.fn(),
 }));
 vi.mock("@/lib/server/guildFacilityUpgradeDonations", () => ({
   lockGuildFacilityDonationProgress: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("@/lib/server/guildFacilityUpgradeDonations", () => ({
 }));
 
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { lockVillage } from "@/lib/server/v2Settlement";
+import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
 import {
   lockGuildFacilityDonationProgress,
   setGuildFacilityDonationProgress,
@@ -46,17 +46,20 @@ function request(donations: Record<string, number>): Request {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(lockVillage).mockResolvedValue({
-    outpostId: "guild-facility:7:guild_smithy",
-    guildId: 7,
-    ownerUserId: null,
-    tier: "village",
-    name: null,
-    productionKind: null,
-    unlockedSlots: 1,
-    slotKinds: {},
-    buildings: { 0: { id: "guild_smithy", level: 1 } },
-    jobs: {},
+  vi.mocked(lockGuildSettlementBuilding).mockResolvedValue({
+    village: {
+      outpostId: "legacy-guild-outpost",
+      guildId: 7,
+      ownerUserId: null,
+      tier: "village",
+      name: "기존 영지",
+      productionKind: null,
+      unlockedSlots: 1,
+      slotKinds: {},
+      buildings: { 0: { id: "guild_smithy", level: 1 } },
+      jobs: {},
+    },
+    slot: 0,
   });
   vi.mocked(lockSaveForUpdate).mockResolvedValue({
     materials: { [PINE]: 100, [IRON]: 80 },
@@ -112,17 +115,20 @@ describe("길드 시설 재료 기부", () => {
   });
 
   it("최대 레벨 시설에는 기부할 수 없다", async () => {
-    vi.mocked(lockVillage).mockResolvedValue({
-      outpostId: "guild-facility:7:guild_smithy",
-      guildId: 7,
-      ownerUserId: null,
-      tier: "village",
-      name: null,
-      productionKind: null,
-      unlockedSlots: 1,
-      slotKinds: {},
-      buildings: { 0: { id: "guild_smithy", level: 5 } },
-      jobs: {},
+    vi.mocked(lockGuildSettlementBuilding).mockResolvedValue({
+      village: {
+        outpostId: "legacy-guild-outpost",
+        guildId: 7,
+        ownerUserId: null,
+        tier: "village",
+        name: "기존 영지",
+        productionKind: null,
+        unlockedSlots: 1,
+        slotKinds: {},
+        buildings: { 0: { id: "guild_smithy", level: 5 } },
+        jobs: {},
+      },
+      slot: 0,
     });
 
     const response = await POST(request({ [PINE]: 1 }), ctx);

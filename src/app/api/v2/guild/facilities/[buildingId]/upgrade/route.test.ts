@@ -23,7 +23,7 @@ vi.mock("@/lib/server/v2GuildFame", () => ({
   spendGuildFame: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/server/v2Settlement", () => ({
-  lockVillage: vi.fn(),
+  lockGuildSettlementBuilding: vi.fn(),
   rememberGuildSettlementBuildingLevel: vi.fn(async () => undefined),
   upsertVillage: vi.fn(async () => undefined),
 }));
@@ -35,7 +35,10 @@ vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: vi.fn(async () => undefined),
 }));
 
-import { lockVillage, upsertVillage } from "@/lib/server/v2Settlement";
+import {
+  lockGuildSettlementBuilding,
+  upsertVillage,
+} from "@/lib/server/v2Settlement";
 import {
   clearGuildFacilityDonationProgress,
   lockGuildFacilityDonationProgress,
@@ -47,17 +50,20 @@ const ctx = { params: Promise.resolve({ buildingId: "guild_smithy" }) };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(lockVillage).mockResolvedValue({
-    outpostId: "guild-facility:7:guild_smithy",
-    guildId: 7,
-    ownerUserId: null,
-    tier: "village",
-    name: null,
-    productionKind: null,
-    unlockedSlots: 1,
-    slotKinds: {},
-    buildings: { 0: { id: "guild_smithy", level: 1 } },
-    jobs: {},
+  vi.mocked(lockGuildSettlementBuilding).mockResolvedValue({
+    village: {
+      outpostId: "legacy-guild-outpost",
+      guildId: 7,
+      ownerUserId: null,
+      tier: "village",
+      name: "기존 영지",
+      productionKind: null,
+      unlockedSlots: 1,
+      slotKinds: {},
+      buildings: { 0: { id: "guild_smithy", level: 1 } },
+      jobs: {},
+    },
+    slot: 0,
   });
   vi.mocked(lockGuildFacilityDonationProgress).mockResolvedValue({
     crop: 500,

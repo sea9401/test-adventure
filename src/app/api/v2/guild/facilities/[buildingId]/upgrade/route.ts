@@ -8,7 +8,7 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { lockGuildFame, spendGuildFame } from "@/lib/server/v2GuildFame";
 import {
-  lockVillage,
+  lockGuildSettlementBuilding,
   rememberGuildSettlementBuildingLevel,
   upsertVillage,
 } from "@/lib/server/v2Settlement";
@@ -25,17 +25,9 @@ import {
   settlementBuildingLevelOf,
   settlementBuildingMaterialsComplete,
   settlementBuildingSlot,
-  type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
 
 type Ctx = { params: Promise<{ buildingId: string }> };
-
-function guildFacilityOutpostId(
-  guildId: number,
-  buildingId: SettlementBuildingId,
-): string {
-  return `guild-facility:${guildId}:${buildingId}`;
-}
 
 // POST /api/v2/guild/facilities/[buildingId]/upgrade
 // 모든 기부 재료가 모인 공용 시설을 관리자가 다음 레벨로 완료한다.
@@ -70,17 +62,19 @@ export async function POST(_req: Request, { params }: Ctx) {
         };
       }
 
-      const village = await lockVillage(
+      const location = await lockGuildSettlementBuilding(
         tx,
-        guildFacilityOutpostId(guildId, buildingId),
+        guildId,
+        buildingId,
       );
-      const building = village?.buildings[0];
-      if (!village || building?.id !== buildingId) {
+      if (!location) {
         return {
           status: 409,
           body: { ok: false as const, error: "building_required" },
         };
       }
+      const { village, slot } = location;
+      const building = village.buildings[slot];
 
       const nextUpgrade = nextSettlementBuildingUpgrade(
         buildingId,
@@ -144,7 +138,7 @@ export async function POST(_req: Request, { params }: Ctx) {
       const nextGold = guildGold.gold - goldCost;
       const nextFameAvailable = guildFame.fameAvailable - fameCost;
       const nextBuilding = settlementBuildingSlot(buildingId, nextUpgrade.level);
-      village.buildings = { ...village.buildings, 0: nextBuilding };
+      village.buildings = { ...village.buildings, [slot]: nextBuilding };
 
       await upsertVillage(tx, village);
       await rememberGuildSettlementBuildingLevel(

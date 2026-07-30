@@ -211,6 +211,56 @@ export async function lockVillage(
   };
 }
 
+export type LockedGuildSettlementBuilding = {
+  village: VillageRow;
+  slot: number;
+};
+
+// 길드 시설은 전용 synthetic 마을뿐 아니라 기존 길드 영지에도 배치되어 있을 수 있다.
+// 길드 정보 화면과 같은 범위에서 건물을 찾고, 업그레이드와 기부가 경합하지 않도록
+// 후보 마을을 한 번에 잠근다. 중복된 옛 데이터가 있으면 UI와 동일하게 최고 레벨을 쓴다.
+export async function lockGuildSettlementBuilding(
+  tx: Tx,
+  guildId: number,
+  buildingId: SettlementBuildingId,
+): Promise<LockedGuildSettlementBuilding | null> {
+  const rows = await tx
+    .select()
+    .from(outpostVillages)
+    .where(eq(outpostVillages.guildId, guildId))
+    .orderBy(outpostVillages.outpostId)
+    .for("update");
+
+  let found: LockedGuildSettlementBuilding | null = null;
+  let foundLevel = 0;
+  for (const row of rows) {
+    const tier = parseTier(row.tier);
+    const jobs = parseJobs(row.jobs);
+    const productionKind = parseProductionKind(row.productionKind);
+    const unlockedSlots = parseUnlockedSlots(row.unlockedSlots, tier, jobs);
+    const village: VillageRow = {
+      outpostId: row.outpostId,
+      guildId: row.guildId,
+      ownerUserId: row.ownerUserId ?? null,
+      tier,
+      name: row.name ?? null,
+      productionKind,
+      unlockedSlots,
+      slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
+      buildings: parseBuildings(row.buildings, unlockedSlots),
+      jobs,
+    };
+    for (const [rawSlot, building] of Object.entries(village.buildings)) {
+      if (building.id !== buildingId) continue;
+      const level = settlementBuildingLevelOf(building);
+      if (found && level <= foundLevel) continue;
+      found = { village, slot: Number(rawSlot) };
+      foundLevel = level;
+    }
+  }
+  return found;
+}
+
 // 단건 읽기(lock 없이) — UI/GET 용(특정 거점/타일 마을 1개).
 export async function readVillage(
   tx: Tx,

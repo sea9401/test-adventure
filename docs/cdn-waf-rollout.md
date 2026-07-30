@@ -1,9 +1,21 @@
 # CloudFront + WAF 도입 절차
 
-현재 `msmsge.com`과 `www.msmsge.com`은 Route53 A 레코드로 운영 EC2 EIP를
-직접 가리킨다. 이 문서와 `infra/cloudfront-waf/`는 CDN/WAF 생성, 단계적 DNS
-전환, 즉시 롤백을 한 변경 단위로 수행하기 위한 실행 자료다. 실제 AWS 리소스가
-생기기 전까지 운영 TODO를 완료로 표시하지 않는다.
+이 문서와 `infra/cloudfront-waf/`는 CDN/WAF 생성, 단계적 DNS 전환, 즉시 롤백을
+한 변경 단위로 수행하기 위한 실행 자료다.
+
+## 현재 운영 상태 — 2026-07-30
+
+- CloudFront distribution `E2NWRUQ46FYRC`와 Pro 정액제(월 15 USD)를 사용한다.
+- `msmsge.com`, `www.msmsge.com` Route53 alias는
+  `diibeil31l506.cloudfront.net`을 가리킨다.
+- WAF `msmsge-production-cloudfront`의 관리형 3개·rate 2개 규칙은 Count로
+  관찰 중이다. 24~48시간 오탐 관찰 전에는 Block으로 올리지 않는다.
+- `origin.msmsge.com` 인증서를 적용했고 CloudFront 원본 IP 48개만 실제 IP
+  프록시로 신뢰한다. 비밀 원본 헤더 없는 HTTPS 직접 요청은 404로 거부한다.
+- 전환 후 공개 release 검사, 모바일 로그인·게임 행동·새로고침, 동적 비캐시,
+  해시 정적 자산의 CloudFront Hit를 확인했다.
+- Route53 롤백 JSON은 CloudShell의 `.edge-state/`에 보관한다. WAF Block 승격과
+  접근 로그 확인까지 끝나기 전에는 운영 TODO를 완료로 표시하지 않는다.
 
 ## 확정한 구성
 

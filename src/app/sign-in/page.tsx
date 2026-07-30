@@ -7,7 +7,7 @@ import { LandingContent } from "./LandingContent";
 export const metadata: Metadata = {
   title: "무슨무슨게임 — 웹 어드벤처 RPG",
   description:
-    "전투 패턴을 설계하고 다양한 직업으로 성장하는 웹 RPG. 사냥·전직·생활·협동 보스·길드 영토전을 즐겨보세요.",
+    "전투 패턴을 설계하고 다양한 직업으로 성장하는 웹 RPG. 사냥·전직·생활·협동 보스·길드 성장과 제작을 즐겨보세요.",
   alternates: { canonical: "/sign-in" },
   robots: { index: true, follow: true },
   openGraph: {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     siteName: "무슨무슨게임",
     title: "무슨무슨게임 — 웹 어드벤처 RPG",
     description:
-      "전투 패턴을 설계하고 다양한 직업으로 성장하는 웹 RPG. 사냥·전직·생활·협동 보스·길드 영토전을 즐겨보세요.",
+      "전투 패턴을 설계하고 다양한 직업으로 성장하는 웹 RPG. 사냥·전직·생활·협동 보스·길드 성장과 제작을 즐겨보세요.",
     url: "/sign-in",
     locale: "ko_KR",
     images: [

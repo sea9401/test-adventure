@@ -1,9 +1,21 @@
 # CloudFront + WAF 도입 절차
 
-현재 `msmsge.com`과 `www.msmsge.com`은 Route53 A 레코드로 운영 EC2 EIP를
-직접 가리킨다. 이 문서와 `infra/cloudfront-waf/`는 CDN/WAF 생성, 단계적 DNS
-전환, 즉시 롤백을 한 변경 단위로 수행하기 위한 실행 자료다. 실제 AWS 리소스가
-생기기 전까지 운영 TODO를 완료로 표시하지 않는다.
+이 문서와 `infra/cloudfront-waf/`는 CDN/WAF 생성, 단계적 DNS 전환, 즉시 롤백을
+한 변경 단위로 수행하기 위한 실행 자료다.
+
+## 현재 운영 상태 — 2026-07-30
+
+- CloudFront distribution `E2NWRUQ46FYRC`와 Pro 정액제(월 15 USD)를 사용한다.
+- `msmsge.com`, `www.msmsge.com` Route53 alias는
+  `diibeil31l506.cloudfront.net`을 가리킨다.
+- WAF `msmsge-production-cloudfront`의 관리형 3개·rate 2개 규칙은 Count로
+  관찰 중이다. 24~48시간 오탐 관찰 전에는 Block으로 올리지 않는다.
+- `origin.msmsge.com` 인증서를 적용했고 CloudFront 원본 IP 48개만 실제 IP
+  프록시로 신뢰한다. 비밀 원본 헤더 없는 HTTPS 직접 요청은 404로 거부한다.
+- 전환 후 공개 release 검사, 모바일 로그인·게임 행동·새로고침, 동적 비캐시,
+  해시 정적 자산의 CloudFront Hit를 확인했다.
+- Route53 롤백 JSON은 CloudShell의 `.edge-state/`에 보관한다. WAF Block 승격과
+  접근 로그 확인까지 끝나기 전에는 운영 TODO를 완료로 표시하지 않는다.
 
 ## 확정한 구성
 
@@ -53,13 +65,16 @@ ID로 참조한다. CloudFront용 WAF는 반드시 `us-east-1`에서 생성해�
 1. AWS IP 평판 관리형 규칙
 2. AWS Known Bad Inputs 관리형 규칙
 3. AWS Common Rule Set
-4. 전체 요청 IP당 1분 1,200회
-5. 경기장·그리드 던전·오프라인 정산·전초기지 공격·대련 API IP당 1분 300회
+4. 전체 요청 IP당 기본 5분 평가창 6,000회
+5. 경기장·그리드 던전·오프라인 정산·전초기지 공격·대련 API IP당 기본 5분
+   평가창 1,500회
 
 최초 `WafMode=Count`에서는 모든 규칙이 지표와 샘플 요청만 남기고 차단하지 않는다.
 24~48시간 동안 정상 로그인, OAuth 콜백, 플레이 API에 오탐이 없고 403·429·5xx가
-증가하지 않은 것을 확인한 뒤 `WafMode=Block`으로 스택을 갱신한다. WAF rate 규칙의
-평가 창은 60초로 명시했다.
+증가하지 않은 것을 확인한 뒤 `WafMode=Block`으로 스택을 갱신한다. Pro 정액제에서
+지원하지 않는 정규식 조건과 사용자 지정 평가창은 쓰지 않는다. 고비용 경로는 일반
+문자열 시작 조건으로 묶고 rate 규칙은 AWS 기본 5분 평가창을 사용한다. 기존 1분당
+평균 상한과 같도록 전체 6,000회, 고비용 API 1,500회로 환산했다.
 [AWS rate 규칙 문서](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-rate-based-high-level-settings.html)
 
 ## 0. 권한 원칙

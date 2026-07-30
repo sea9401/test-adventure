@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Gift, ShareNetwork, Ticket } from "@phosphor-icons/react";
+import {
+  CalendarCheck,
+  Gift,
+  ShareNetwork,
+  Ticket,
+} from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
@@ -9,10 +14,16 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2CouponView } from "./V2CouponView";
 import { V2ReferralView } from "./V2ReferralView";
+import { V2AttendanceView } from "./V2AttendanceView";
 
-export type EventTab = "promotion" | "coupon";
+export type EventTab = "attendance" | "promotion" | "coupon";
 
 const EVENT_TABS = [
+  {
+    key: "attendance" as const,
+    label: "출석 체크",
+    icon: <CalendarCheck size={18} weight="duotone" />,
+  },
   {
     key: "promotion" as const,
     label: "게임 홍보",
@@ -26,7 +37,7 @@ const EVENT_TABS = [
 ];
 
 export function V2EventsView({
-  initialTab = "promotion",
+  initialTab = "attendance",
 }: {
   initialTab?: EventTab;
 }) {
@@ -36,7 +47,9 @@ export function V2EventsView({
   const changeTab = (next: EventTab) => {
     setTab(next);
     router.replace(
-      next === "coupon" ? "/settings/events?tab=coupon" : "/settings/events",
+      next === "attendance"
+        ? "/settings/events"
+        : `/settings/events?tab=${next}`,
       { scroll: false },
     );
   };
@@ -66,10 +79,18 @@ export function V2EventsView({
 
       <section
         role="tabpanel"
-        aria-label={tab === "promotion" ? "게임 홍보" : "쿠폰 등록"}
+        aria-label={
+          tab === "attendance"
+            ? "출석 체크"
+            : tab === "promotion"
+              ? "게임 홍보"
+              : "쿠폰 등록"
+        }
         className="space-y-4"
       >
-        {tab === "promotion" ? (
+        {tab === "attendance" ? (
+          <V2AttendanceView />
+        ) : tab === "promotion" ? (
           <V2ReferralView embedded />
         ) : (
           <V2CouponView embedded />

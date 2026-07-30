@@ -13,7 +13,12 @@ export default async function EventsPage({
   }>;
 }) {
   const params = await searchParams;
-  const initialTab = params.tab === "coupon" ? "coupon" : "promotion";
+  const initialTab =
+    params.tab === "coupon"
+      ? "coupon"
+      : params.tab === "promotion"
+        ? "promotion"
+        : "attendance";
 
   return <V2EventsView initialTab={initialTab} />;
 }

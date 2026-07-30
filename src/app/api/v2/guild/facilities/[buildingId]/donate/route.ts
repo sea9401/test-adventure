@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { lockVillage } from "@/lib/server/v2Settlement";
+import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
 import {
   lockGuildFacilityDonationProgress,
   setGuildFacilityDonationProgress,
@@ -14,7 +14,6 @@ import {
   isSettlementBuildingId,
   nextSettlementBuildingUpgrade,
   settlementBuildingLevelOf,
-  type SettlementBuildingId,
   type SettlementDonationMaterialId,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
@@ -24,13 +23,6 @@ type CharacterSave = {
   materials?: Record<string, number>;
   [key: string]: unknown;
 };
-
-function guildFacilityOutpostId(
-  guildId: number,
-  buildingId: SettlementBuildingId,
-): string {
-  return `guild-facility:${guildId}:${buildingId}`;
-}
 
 function isDonationMaterialId(
   value: string,
@@ -94,17 +86,18 @@ export async function POST(req: Request, { params }: Ctx) {
         return { status: 403, body: { ok: false as const, error: "no_guild" } };
       }
 
-      const village = await lockVillage(
+      const location = await lockGuildSettlementBuilding(
         tx,
-        guildFacilityOutpostId(guildId, buildingId),
+        guildId,
+        buildingId,
       );
-      const building = village?.buildings[0];
-      if (!village || building?.id !== buildingId) {
+      if (!location) {
         return {
           status: 409,
           body: { ok: false as const, error: "building_required" },
         };
       }
+      const building = location.village.buildings[location.slot];
       const nextUpgrade = nextSettlementBuildingUpgrade(
         buildingId,
         settlementBuildingLevelOf(building),

@@ -459,7 +459,7 @@ function EffectLine({
           aria-hidden="true"
           className="mt-px shrink-0 font-medium leading-none text-zinc-400 dark:text-zinc-500"
         >
-          ㄴ
+          {side === "right" ? "┘" : "└"}
         </span>
         <div className={`flex flex-wrap items-center gap-1 ${contentAlign}`}>
           {labels.map((label, index) => (

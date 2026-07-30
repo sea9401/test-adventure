@@ -20,8 +20,8 @@ describe("BattleLogList 표시 기호", () => {
     expect(html).not.toContain("★");
   });
 
-  it("효과 행 앞에 다이아 대신 하위 표기 기호를 붙인다", () => {
-    const html = renderToStaticMarkup(
+  it("효과 행에 진영 방향에 맞는 하위 표기 기호를 붙인다", () => {
+    const playerHtml = renderToStaticMarkup(
       <BattleLogList
         entries={[
           {
@@ -32,8 +32,22 @@ describe("BattleLogList 표시 기호", () => {
         ]}
       />,
     );
+    const enemyHtml = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "info",
+            text: "[독무 + 중독] +3스택 (5회)",
+            turn: "enemy",
+          },
+        ]}
+      />,
+    );
 
-    expect(html).toContain("ㄴ");
-    expect(html).not.toContain("✦");
+    expect(playerHtml).toContain("└");
+    expect(playerHtml).not.toContain("┘");
+    expect(enemyHtml).toContain("┘");
+    expect(enemyHtml).not.toContain("└");
+    expect(`${playerHtml}${enemyHtml}`).not.toMatch(/[ㄴ✦]/);
   });
 });

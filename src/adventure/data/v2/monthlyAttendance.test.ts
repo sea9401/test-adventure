@@ -34,6 +34,17 @@ describe("월간 출석", () => {
     });
   });
 
+  it("스태미나 회복약은 한 번에 2개 이상, 한 달에 총 29개 지급한다", () => {
+    const potionRewards = MONTHLY_ATTENDANCE_REWARDS.filter(
+      (reward) => reward.kind === "stamina_potion",
+    );
+
+    expect(potionRewards.every((reward) => reward.count >= 2)).toBe(true);
+    expect(
+      potionRewards.reduce((total, reward) => total + reward.count, 0),
+    ).toBe(29);
+  });
+
   it("같은 달에는 빠진 날이 있어도 누적 출석을 유지한다", () => {
     const now = new Date("2026-07-20T03:00:00Z");
     const status = monthlyAttendanceStatus(

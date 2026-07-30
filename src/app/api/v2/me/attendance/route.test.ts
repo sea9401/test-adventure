@@ -126,6 +126,31 @@ describe("월간 출석 보상 수령", () => {
     });
   });
 
+  it("3일차에는 스태미나 회복약 2개를 기존 보유량에 더한다", async () => {
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-07",
+      claimedDayKeys: julyDayKeys(2),
+    });
+    mocks.saves.set("stamina-potions.v1", { count: 5 });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: { kind: string; count: number };
+      staminaPotions: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({ kind: "stamina_potion", count: 2 });
+    expect(json.staminaPotions).toBe(7);
+    expect(mocks.saves.get("stamina-potions.v1")).toEqual({ count: 7 });
+    expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: "stamina_potion",
+        quantity: 2,
+      }),
+    );
+  });
+
   it("14일차에는 보스 소환서를 재료 인벤토리에 지급한다", async () => {
     mocks.saves.set("monthly-attendance.v1", {
       monthKey: "2026-07",

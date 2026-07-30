@@ -103,6 +103,7 @@ import {
   enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
+import { rewardReferralProgress } from "@/lib/server/referrals";
 import { rollHuntDrops } from "./huntDrops";
 import { computeGoldTax, computeLossTax } from "./huntTax";
 import { creditOutpostTreasury } from "./huntTreasury";
@@ -913,6 +914,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       : {}),
   };
   await upsertSave(tx, userId, "character.v2", next);
+
+  // 홍보 보상은 가입이 아니라 서버 권위 프론티어 진행으로만 지급한다. 프론티어가
+  // 갱신될 때 확인하고, conversion row lock으로 일괄 사냥/중복 요청도 멱등 처리한다.
+  if (won && next.frontierDepth > frontierDepth) {
+    await rewardReferralProgress(tx, userId, playerName, next.frontierDepth);
+  }
 
   // 전투수 랭킹용 몬스터 킬 카운터 — huntKillLog(콜로케이트) 로 추출.
   // lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피)은 이 위치가 보장.

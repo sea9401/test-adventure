@@ -18,6 +18,13 @@ export const REFERRAL_CODE_PATTERN = /^[a-f0-9]{16}$/;
 const DEFAULT_REWARD_GOLD = 10_000;
 const MAX_REWARD_GOLD = 1_000_000_000;
 
+export const REFERRAL_REWARD_DEPTHS = [12, 24, 36] as const;
+
+export type ReferralRewardMilestone = {
+  frontierDepth: (typeof REFERRAL_REWARD_DEPTHS)[number];
+  rewardGold: number;
+};
+
 type DbExecutor =
   | typeof db
   | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -30,6 +37,19 @@ export function referralRewardGold(): number {
     return DEFAULT_REWARD_GOLD;
   }
   return Math.min(configured, MAX_REWARD_GOLD);
+}
+
+export function referralRewardMilestones(
+  totalRewardGold = referralRewardGold(),
+): ReferralRewardMilestone[] {
+  const total = Math.max(0, Math.floor(totalRewardGold));
+  const first = Math.floor(total * 0.2);
+  const second = Math.floor(total * 0.3);
+  return [
+    { frontierDepth: 12, rewardGold: first },
+    { frontierDepth: 24, rewardGold: second },
+    { frontierDepth: 36, rewardGold: total - first - second },
+  ];
 }
 
 export function normalizeReferralCode(value: unknown): string | null {
@@ -53,14 +73,13 @@ export function referralLandingUrl(
   return url;
 }
 
-export async function completeReferral(
+export async function attributeReferral(
   tx: DbExecutor,
   referredUserId: string,
-  referredName: string,
   rawCode: unknown,
-): Promise<{ rewarded: boolean; rewardGold: number }> {
+): Promise<{ attributed: boolean }> {
   const code = normalizeReferralCode(rawCode);
-  if (!code) return { rewarded: false, rewardGold: 0 };
+  if (!code) return { attributed: false };
 
   const [owner] = await tx
     .select({ userId: referralCodes.userId })
@@ -68,29 +87,77 @@ export async function completeReferral(
     .where(and(eq(referralCodes.code, code), isNull(referralCodes.disabledAt)))
     .limit(1);
   if (!owner || owner.userId === referredUserId) {
-    return { rewarded: false, rewardGold: 0 };
+    return { attributed: false };
   }
 
-  const rewardGold = referralRewardGold();
   const [conversion] = await tx
     .insert(referralConversions)
     .values({
       referredUserId,
       referrerUserId: owner.userId,
       referralCode: code,
-      rewardGold,
+      rewardGold: 0,
+      rewardedDepth: 0,
     })
     .onConflictDoNothing({ target: referralConversions.referredUserId })
     .returning({ referredUserId: referralConversions.referredUserId });
-  if (!conversion) return { rewarded: false, rewardGold: 0 };
+  return { attributed: !!conversion };
+}
 
-  if (rewardGold > 0) {
+export async function rewardReferralProgress(
+  tx: DbExecutor,
+  referredUserId: string,
+  referredName: string,
+  frontierDepthRaw: unknown,
+): Promise<{ rewardGold: number; rewardedDepth: number }> {
+  const frontierDepth = Math.max(0, Math.floor(Number(frontierDepthRaw) || 0));
+  const milestones = referralRewardMilestones();
+  const reached = milestones.filter(
+    (milestone) => milestone.frontierDepth <= frontierDepth,
+  );
+  const targetDepth = reached.at(-1)?.frontierDepth ?? 0;
+  if (targetDepth === 0) return { rewardGold: 0, rewardedDepth: 0 };
+
+  const [conversion] = await tx
+    .select({
+      referrerUserId: referralConversions.referrerUserId,
+      rewardGold: referralConversions.rewardGold,
+      rewardedDepth: referralConversions.rewardedDepth,
+    })
+    .from(referralConversions)
+    .where(eq(referralConversions.referredUserId, referredUserId))
+    .for("update")
+    .limit(1);
+  if (!conversion || conversion.rewardedDepth >= targetDepth) {
+    return {
+      rewardGold: 0,
+      rewardedDepth: conversion?.rewardedDepth ?? 0,
+    };
+  }
+
+  const dueGold = milestones
+    .filter(
+      (milestone) =>
+        milestone.frontierDepth > conversion.rewardedDepth &&
+        milestone.frontierDepth <= targetDepth,
+    )
+    .reduce((sum, milestone) => sum + milestone.rewardGold, 0);
+
+  await tx
+    .update(referralConversions)
+    .set({
+      rewardGold: conversion.rewardGold + dueGold,
+      rewardedDepth: targetDepth,
+    })
+    .where(eq(referralConversions.referredUserId, referredUserId));
+
+  if (dueGold > 0) {
     await tx.insert(marketplaceInbox).values(
       inboxValues({
-        userId: owner.userId,
+        userId: conversion.referrerUserId,
         payload: {
           kind: "admin_gift",
-          gold: rewardGold,
+          gold: dueGold,
           materials: [],
           items: [],
           staminaPotions: 0,
@@ -98,12 +165,12 @@ export async function completeReferral(
           cashItems: [],
           adventureSupportDays: 0,
         },
-        message: `${referredName}님이 홍보 링크로 모험을 시작했습니다. 홍보 보상을 받아 주세요.`,
+        message: `${referredName}님이 프론티어 ${targetDepth}에 도달했습니다. 단계 홍보 보상을 받아 주세요.`,
       }),
     );
   }
 
-  return { rewarded: true, rewardGold };
+  return { rewardGold: dueGold, rewardedDepth: targetDepth };
 }
 
 export async function referralCodeIsActive(

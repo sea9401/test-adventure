@@ -21,11 +21,16 @@ type ReferralSummary = {
   ok: true;
   code: string | null;
   rewardGoldPerReferral: number;
-  completedCount: number;
+  rewardMilestones: Array<{
+    frontierDepth: number;
+    rewardGold: number;
+  }>;
+  attributedCount: number;
   totalRewardGold: number;
   recent: Array<{
     name: string;
     rewardGold: number;
+    rewardedDepth: number;
     convertedAt: string;
   }>;
 };
@@ -142,8 +147,8 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
           <div>
             <h2 className="font-bold">친구를 초대하고 보상받기</h2>
             <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-              내 링크를 통해 처음 온 친구가 새 캐릭터를 만들면 홍보 보상이
-              우편함으로 도착합니다.
+              내 링크로 합류한 친구가 프론티어를 실제로 진행하면 단계별 홍보
+              보상이 우편함으로 도착합니다.
             </p>
           </div>
         </div>
@@ -186,16 +191,45 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         )}
 
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          1명당 {summary?.rewardGoldPerReferral.toLocaleString() ?? "10,000"}골드 ·
-          한 계정은 한 번만 인정 · 본인 링크로는 보상을 받을 수 없습니다.
+          가입만으로는 보상이 지급되지 않습니다 · 1명당 최대{" "}
+          {summary?.rewardGoldPerReferral.toLocaleString() ?? "10,000"}골드 · 한
+          계정은 한 번만 인정 · 본인 링크는 제외됩니다.
         </p>
+      </Card>
+
+      <Card padding="md" className="space-y-3">
+        <div>
+          <h2 className="text-sm font-bold">진행도별 보상</h2>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            친구가 각 프론티어에 처음 도달하면 해당 단계 보상이 지급됩니다.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {(summary?.rewardMilestones ?? [
+            { frontierDepth: 12, rewardGold: 2_000 },
+            { frontierDepth: 24, rewardGold: 3_000 },
+            { frontierDepth: 36, rewardGold: 5_000 },
+          ]).map((milestone) => (
+            <div
+              key={milestone.frontierDepth}
+              className={`${SURFACE_INSET} px-2 py-3 text-center`}
+            >
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                프론티어 {milestone.frontierDepth}
+              </p>
+              <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">
+                +{milestone.rewardGold.toLocaleString()}G
+              </p>
+            </div>
+          ))}
+        </div>
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
         <Card padding="md">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">홍보 성공</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">홍보 참여</p>
           <p className="mt-1 text-2xl font-bold">
-            {loading ? "-" : (summary?.completedCount.toLocaleString() ?? "0")}
+            {loading ? "-" : (summary?.attributedCount.toLocaleString() ?? "0")}
             <span className="ml-1 text-sm font-medium text-zinc-500">명</span>
           </p>
         </Card>
@@ -223,12 +257,24 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {item.rewardedDepth >= 36
+                      ? "전체 단계 보상 지급"
+                      : item.rewardedDepth > 0
+                        ? `프론티어 ${item.rewardedDepth} 보상 지급`
+                      : "가입 완료 · 진행 보상 대기"}
+                    {" · "}
                     {new Date(item.convertedAt).toLocaleDateString("ko-KR")}
                   </p>
                 </div>
-                <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                  +{item.rewardGold.toLocaleString()}G
-                </span>
+                {item.rewardGold > 0 ? (
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                    +{item.rewardGold.toLocaleString()}G
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    대기 중
+                  </span>
+                )}
               </li>
             ))}
           </ul>

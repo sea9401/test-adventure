@@ -6,6 +6,7 @@ import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import {
   createReferralCode,
   referralRewardGold,
+  referralRewardMilestones,
 } from "@/lib/server/referrals";
 
 async function requireUser(req: Request): Promise<string | Response> {
@@ -24,7 +25,7 @@ async function referralSummary(userId: string) {
       .limit(1),
     db
       .select({
-        count: sql<number>`count(*)::int`,
+        attributedCount: sql<number>`count(*)::int`,
         rewardGold: sql<number>`coalesce(sum(${referralConversions.rewardGold}), 0)::int`,
       })
       .from(referralConversions)
@@ -33,6 +34,7 @@ async function referralSummary(userId: string) {
       .select({
         name: users.gameName,
         rewardGold: referralConversions.rewardGold,
+        rewardedDepth: referralConversions.rewardedDepth,
         convertedAt: referralConversions.convertedAt,
       })
       .from(referralConversions)
@@ -45,11 +47,13 @@ async function referralSummary(userId: string) {
   return {
     code: codeRow[0]?.disabledAt ? null : (codeRow[0]?.code ?? null),
     rewardGoldPerReferral: referralRewardGold(),
-    completedCount: totals[0]?.count ?? 0,
+    rewardMilestones: referralRewardMilestones(),
+    attributedCount: totals[0]?.attributedCount ?? 0,
     totalRewardGold: totals[0]?.rewardGold ?? 0,
     recent: recent.map((row) => ({
       name: row.name ?? "새 모험가",
       rewardGold: row.rewardGold,
+      rewardedDepth: row.rewardedDepth,
       convertedAt: row.convertedAt.toISOString(),
     })),
   };

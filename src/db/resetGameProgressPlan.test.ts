@@ -16,6 +16,12 @@ describe("reset game progress plan", () => {
     expect(validateTableCoverage(allTables)).toEqual([...allTables].sort());
   });
 
+  it("resets v2 marketplace listings and their bid history", () => {
+    expect(RESET_TABLES).toEqual(
+      expect.arrayContaining(["marketplace_bids_v2", "marketplace_listings_v2"]),
+    );
+  });
+
   it("rejects unclassified and missing tables", () => {
     expect(() => validateTableCoverage([...allTables, "future_table"])).toThrow(
       /unclassified: future_table/,

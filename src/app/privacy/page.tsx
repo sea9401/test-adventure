@@ -18,7 +18,12 @@ export default function PrivacyPage() {
     >
       <section>
         <h2>1. 처리하는 개인정보와 이용 목적</h2>
-        <div className="overflow-x-auto">
+        <div
+          role="region"
+          aria-label="처리하는 개인정보와 이용 목적"
+          tabIndex={0}
+          className="overflow-x-auto"
+        >
           <table>
             <thead>
               <tr>
@@ -69,7 +74,12 @@ export default function PrivacyPage() {
       <section>
         <h2>2. 처리와 보유 기간</h2>
         <p>개인정보는 원칙적으로 목적이 달성되거나 회원이 탈퇴하면 지체 없이 파기합니다. 다만 서비스 안전과 기록의 성격에 따라 다음 기간 동안 보관할 수 있습니다.</p>
-        <div className="mt-4 overflow-x-auto">
+        <div
+          role="region"
+          aria-label="개인정보 처리와 보유 기간"
+          tabIndex={0}
+          className="mt-4 overflow-x-auto"
+        >
           <table>
             <thead>
               <tr>
@@ -117,7 +127,12 @@ export default function PrivacyPage() {
         <p>
           서비스 운영을 위해 다음 외부 사업자의 서비스를 이용합니다. 운영자는 업무 수행에 필요한 정보만 처리하고 접근 권한을 제한합니다.
         </p>
-        <div className="mt-4 overflow-x-auto">
+        <div
+          role="region"
+          aria-label="외부 서비스와 처리 인프라"
+          tabIndex={0}
+          className="mt-4 overflow-x-auto"
+        >
           <table>
             <thead>
               <tr>
@@ -177,7 +192,12 @@ export default function PrivacyPage() {
         <p>
           이용자가 선택형 이미지 기능을 사용할 때에만 이미지 파일을 Cloudflare R2에 보관합니다.
         </p>
-        <div className="mt-4 overflow-x-auto">
+        <div
+          role="region"
+          aria-label="Cloudflare R2 국외 처리 정보"
+          tabIndex={0}
+          className="mt-4 overflow-x-auto"
+        >
           <table>
             <tbody>
               <tr>
@@ -227,7 +247,12 @@ export default function PrivacyPage() {
         </p>
 
         <h4>Amazon CloudFront·AWS WAF</h4>
-        <div className="mt-4 overflow-x-auto">
+        <div
+          role="region"
+          aria-label="Amazon CloudFront와 AWS WAF 국외 처리 정보"
+          tabIndex={0}
+          className="mt-4 overflow-x-auto"
+        >
           <table>
             <tbody>
               <tr>
@@ -273,7 +298,12 @@ export default function PrivacyPage() {
         </p>
 
         <h4>Cloudflare Turnstile·hCaptcha 사람 확인</h4>
-        <div className="mt-4 overflow-x-auto">
+        <div
+          role="region"
+          aria-label="Turnstile과 hCaptcha 국외 처리 정보"
+          tabIndex={0}
+          className="mt-4 overflow-x-auto"
+        >
           <table>
             <thead>
               <tr>

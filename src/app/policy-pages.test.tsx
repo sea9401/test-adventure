@@ -50,6 +50,9 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain("Intuition Machines, Inc. (hCaptcha)");
     expect(html).toContain("privacy@imachines.com");
     expect(html).toContain("확인이 요구된 낚시·벌목·채광 활동");
+    expect(html).toContain('aria-label="외부 서비스와 처리 인프라"');
+    expect(html).toContain('aria-label="Turnstile과 hCaptcha 국외 처리 정보"');
+    expect(html).toContain('tabindex="0"');
     expect(html).toContain("이전을 거부하는 방법과 영향");
     expect(html).toContain("privacyquestions@cloudflare.com");
     expect(html).toContain("생성 후 최대 90일");

@@ -33,6 +33,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 function rewardMark(reward: MonthlyAttendanceReward): string {
+  if (reward.cosmeticBox === "chroma_name_box") return "🎨";
+  if (reward.cosmeticBox === "chat_badge_box") return "🏷️";
+  if (reward.cosmeticBox === "profile_border_box") return "🖼️";
   if (reward.kind === "adventure_support") return "🎫";
   if (reward.kind === "stamina_potion") return "🧪";
   if (reward.kind === "boss_summon_scroll") return "📜";
@@ -147,8 +150,14 @@ export function V2AttendanceView() {
         </div>
 
         <StatusBanner tone="info" className="py-2 text-sm">
-          1일차에는 월간 모험 지원권 30일이 계정에 즉시 적용됩니다. 이미 이용 중이면
-          남은 기간 뒤에 30일이 이어집니다.
+          <span className="block">
+            1일차에는 월간 모험 지원권 30일이 계정에 즉시 적용됩니다. 이미 이용 중이면
+            남은 기간 뒤에 30일이 이어집니다.
+          </span>
+          <span className="mt-1 block">
+            7·14·28일차에는 닉네임·채팅 배지·프로필 꾸미기 상자를 추가로 받고,
+            설정의 꾸미기 화면에서 열 수 있습니다.
+          </span>
         </StatusBanner>
 
         <div

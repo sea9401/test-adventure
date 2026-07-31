@@ -34,7 +34,7 @@ if [ "$CURL_STATUS" -eq 0 ] && [[ "$HTTP_STATUS" =~ ^2[0-9][0-9]$ ]]; then
   exit 0
 fi
 
-MESSAGE="[ops] cron failed: $METHOD $ROUTE (curl=$CURL_STATUS, http=${HTTP_STATUS:-000})"
+MESSAGE="정기 작업 실패: $METHOD $ROUTE (HTTP ${HTTP_STATUS:-000}, 연결 오류 $CURL_STATUS)"
 echo "$MESSAGE" >&2
 
 WEBHOOK_URL="${OPS_ALERT_WEBHOOK_URL:-$(grep '^OPS_ALERT_WEBHOOK_URL=' "$ENV_PATH" | cut -d= -f2- | tr -d '"' || true)}"
@@ -44,14 +44,25 @@ if [ -z "$WEBHOOK_URL" ]; then
 fi
 
 PAYLOAD=$(node -e '
-  const message = process.argv[1];
+  const [method, route, curlStatus, httpStatus] = process.argv.slice(1);
+  const message = [
+    "🚨 **서버 정기 작업을 실행하지 못했습니다**",
+    "게임 서버가 정해진 시간에 실행하는 내부 작업이 실패했습니다.",
+    "",
+    `- 작업: \`${method} ${route}\``,
+    `- HTTP 상태: ${httpStatus || "000"}`,
+    `- 연결 오류 코드: ${curlStatus}`,
+    "",
+    "**확인할 일**",
+    "EC2 서버 로그에서 해당 경로의 오류를 확인하고, 필요하면 작업을 다시 실행하세요.",
+  ].join("\n");
   process.stdout.write(JSON.stringify({
     text: message,
     content: message,
     detail: { source: "ec2-cron" },
     at: new Date().toISOString(),
   }));
-' "$MESSAGE")
+' "$METHOD" "$ROUTE" "$CURL_STATUS" "${HTTP_STATUS:-000}")
 
 if ! curl -fsS --max-time 10 -X POST \
   -H 'Content-Type: application/json' --data "$PAYLOAD" "$WEBHOOK_URL" >/dev/null; then

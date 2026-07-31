@@ -217,7 +217,15 @@ async function notifyFailure(failures) {
     );
     return;
   }
-  const message = `[ops] public release smoke failed: ${failures.join(" | ")}`;
+  const message = [
+    "🚨 **게임 외부 접속 점검에 실패했습니다**",
+    "사용자가 접속하는 공개 주소 중 정상 응답하지 않는 곳이 있습니다.",
+    "",
+    ...failures.map((failure) => `- ${failure}`),
+    "",
+    "**확인할 일**",
+    "GitHub Actions의 External uptime monitor 또는 배포 로그를 확인하세요. 배포 중이라면 점검 화면이 해제됐는지도 확인하세요.",
+  ].join("\n");
   const payload = isDiscordWebhook(url)
     ? { content: message.slice(0, 2_000), allowed_mentions: { parse: [] } }
     : {

@@ -82,8 +82,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     huntStaminaMode,
     refreshGameState,
   } = useGameState();
-  const currentLocationName = "모험가 길드";
-
   // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
   const usePotion = async (count: number) => {
     try {
@@ -143,7 +141,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="game-desktop-compact">
       <V2TopBar
-        locationName={currentLocationName}
         gameName={accountName}
         playerName={viewerName}
         playerLevel={viewerLevel}

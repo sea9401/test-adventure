@@ -16,7 +16,7 @@ import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { TITLES } from "../titles";
 import { COOKING_RECIPES } from "../../v2/cooking";
 
-// 신규 캐릭터 기준(전사, 아무것도 안 함). 부분 ctx 는 이걸 스프레드.
+// 테스트 기본값(1차 전사, 활동 없음). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
   class: "warrior",
   level: 1,
@@ -24,6 +24,8 @@ const ZERO: QuestCtx = {
   battleCount: 0,
   frontierDepth: 2,
   equippedCount: 0,
+  hasManuallyEquippedGear: false,
+  hasBattledAfterEquippingGear: false,
   uniqueOwned: 0,
   cultivations: 0,
   bossKills: 0,
@@ -43,6 +45,7 @@ const ZERO: QuestCtx = {
   bankedGold: 0,
   skillsEquipped: 0,
   skillsLearned: 0,
+  hasEditedSkillLoadout: false,
   hasHealed: false,
   hasShopped: false,
   workshopCrafts: 0,
@@ -78,6 +81,8 @@ const ZERO: QuestCtx = {
   guildAlchemyCrafts: 0,
   guildTradeContracts: 0,
 };
+
+const NEWCOMER: QuestCtx = { ...ZERO, class: "none", tier: 0 };
 
 const none = new Set<string>();
 
@@ -213,6 +218,14 @@ describe("v2Quests 카탈로그 무결성", () => {
     expect(tut.indexOf("basics")).toBeLessThan(tut.indexOf("growth"));
   });
 
+  it("모든 튜토리얼 목표는 실제 기능 화면 바로가기를 제공", () => {
+    const tutorialQuests = V2_QUESTS.filter((q) => isTutorialLine(q.line));
+    expect(tutorialQuests.length).toBeGreaterThan(0);
+    for (const quest of tutorialQuests) {
+      expect(quest.href, quest.id).toMatch(/^\//);
+    }
+  });
+
   it("직업 차수(class_*) 전용 라인은 제거됨 — 전직 업적은 현재 6차까지 안내", () => {
     expect(QUEST_LINES.some((l) => l.id.startsWith("class_"))).toBe(false);
     expect(V2_QUESTS.some((q) => q.line.startsWith("class_"))).toBe(false);
@@ -240,15 +253,63 @@ describe("v2Quests 카탈로그 무결성", () => {
 
 describe("성장의 길 (순차 라인)", () => {
   it("신규 캐릭터 — 첫 퀘만 active, 나머지는 locked", () => {
-    expect(questStatus(questById("g_first_battle")!, ZERO, none)).toBe("active");
-    expect(questStatus(questById("g_equip")!, ZERO, none)).toBe("locked");
+    expect(questStatus(questById("g_first_job")!, NEWCOMER, none)).toBe(
+      "active",
+    );
+    expect(questStatus(questById("g_first_battle")!, NEWCOMER, none)).toBe(
+      "locked",
+    );
+    expect(questStatus(questById("g_equip")!, NEWCOMER, none)).toBe("locked");
   });
 
   it("앞 퀘 조건만 충족하면 뒤 퀘도 동시 수령 가능(수령 순서 강제 안 함)", () => {
-    const ctx = { ...ZERO, battleCount: 3, equippedCount: 2 };
+    const ctx = {
+      ...ZERO,
+      level: 10,
+      battleCount: 3,
+      equippedCount: 6,
+      hasManuallyEquippedGear: true,
+      hasBattledAfterEquippingGear: true,
+    };
     expect(isQuestClaimable(questById("g_first_battle")!, ctx, none)).toBe(true);
     expect(isQuestClaimable(questById("g_equip")!, ctx, none)).toBe(true);
+    expect(isQuestClaimable(questById("g_equipped_battle")!, ctx, none)).toBe(
+      true,
+    );
+    expect(isQuestClaimable(questById("g_level10")!, ctx, none)).toBe(true);
     expect(questStatus(questById("g_depth5")!, ctx, none)).toBe("active");
+  });
+
+  it("자동 장착 스타터 장비만으로는 장착 튜토리얼이 완료되지 않는다", () => {
+    const starterEquipped = { ...ZERO, battleCount: 1, equippedCount: 6 };
+    expect(questStatus(questById("g_equip")!, starterEquipped, none)).toBe(
+      "active",
+    );
+    expect(
+      isQuestClaimable(
+        questById("g_equip")!,
+        { ...starterEquipped, hasManuallyEquippedGear: true },
+        none,
+      ),
+    ).toBe(true);
+  });
+
+  it("장비를 직접 장착한 뒤 전투해야 다음 전투 단계가 완료된다", () => {
+    const equipped = {
+      ...ZERO,
+      battleCount: 1,
+      hasManuallyEquippedGear: true,
+    };
+    expect(questStatus(questById("g_equipped_battle")!, equipped, none)).toBe(
+      "active",
+    );
+    expect(
+      isQuestClaimable(
+        questById("g_equipped_battle")!,
+        { ...equipped, hasBattledAfterEquippingGear: true },
+        none,
+      ),
+    ).toBe(true);
   });
 
   it("수령 처리 — claimed 집합에 들면 claimed", () => {
@@ -273,10 +334,17 @@ describe("성장의 길 (순차 라인)", () => {
     expect(
       isQuestClaimable(
         questById("b_skill")!,
-        { ...ZERO, skillsEquipped: 1 },
+        { ...ZERO, hasEditedSkillLoadout: true },
         none,
       ),
     ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("b_skill")!,
+        { ...ZERO, skillsEquipped: 1 },
+        none,
+      ),
+    ).toBe(false);
   });
 
   it("기초 튜토리얼 — 상점/치료/학습 신호로 충족", () => {
@@ -332,7 +400,9 @@ describe("전직 마일스톤 — 목표 차수 노출, 내부 tier 판정 유�
       tier: 2,
       battleCount: 5,
       equippedCount: 6,
-      frontierDepth: 6,
+      hasManuallyEquippedGear: true,
+      hasBattledAfterEquippingGear: true,
+      frontierDepth: 7,
       cultivations: 1,
     };
     // 정점은 숙련도 기준이라 재전직 후에도 충족(현재 레벨 기준이면 false 였음).
@@ -362,9 +432,13 @@ describe("전직 마일스톤 — 목표 차수 노출, 내부 tier 판정 유�
     const claimed = new Set([
       "g_first_battle",
       "g_equip",
+      "g_equipped_battle",
+      "g_level10",
       "g_depth5",
-      "g_cultivate",
+      "g_frontier",
       "g_cap1",
+      "g_first_job",
+      "g_cultivate",
     ]);
     const ctx: QuestCtx = {
       ...ZERO,
@@ -536,7 +610,7 @@ describe("장비·수집·교류 업적", () => {
 
 describe("currentGuideQuest (홈 배너)", () => {
   it("신규 캐릭터 — 첫 퀘(active) 안내", () => {
-    expect(currentGuideQuest(ZERO, none)?.id).toBe("g_first_battle");
+    expect(currentGuideQuest(NEWCOMER, none)?.id).toBe("g_first_job");
   });
 
   it("수령 가능한 마일스톤이 진행 중 퀘보다 우선(라인 순서 무관)", () => {
@@ -568,6 +642,8 @@ describe("currentGuideQuest (홈 배너)", () => {
       battleCount: 999,
       frontierDepth: 72,
       equippedCount: 6,
+      hasManuallyEquippedGear: true,
+      hasBattledAfterEquippingGear: true,
       uniqueOwned: 5,
       cultivations: 9,
       bossKills: 4,
@@ -587,6 +663,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       bankedGold: 99999,
       skillsEquipped: 5,
       skillsLearned: 5,
+      hasEditedSkillLoadout: true,
       hasHealed: true,
       hasShopped: true,
       workshopCrafts: 9,

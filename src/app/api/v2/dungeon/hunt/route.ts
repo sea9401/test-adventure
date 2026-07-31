@@ -770,6 +770,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     gold: newGold,
     materials: nextMaterials,
     rareMaps,
+    // 튜토리얼 — 인벤토리에서 장비를 직접 바꾼 뒤 온라인 사냥을 한 번 완료했는지 기록한다.
+    // 오프라인 정산은 사용자가 전투 화면에서 조작한 것이 아니므로 첫 완료 신호로 세지 않는다.
+    ...(!ctx.offline && charSave.hasManuallyEquippedGear === true
+      ? { hasBattledAfterEquippingGear: true }
+      : {}),
     // 프론티어 수동 푸시 — 최고도달+1 깊이를 이기면 해금(+1). 패배·기존깊이면 유지. MAX 캡으로
     //   정규화(레거시 무한기 >42 저장값도 현재 콘텐츠 끝 42 로 수렴 → 새 테마 추가 시 그 지점부터 재공략).
     frontierDepth: Math.min(

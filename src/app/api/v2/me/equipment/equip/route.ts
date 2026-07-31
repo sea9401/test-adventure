@@ -59,7 +59,9 @@ export async function POST(req: Request) {
   const result = await db.transaction(async (tx) => {
     // 공용 잠금 순서 character→equipment 유지. 진행도는 전투 승리로만 증가하므로 장착 판정과
     // equipment 저장을 같은 트랜잭션에서 묶으면 우회·경합 없이 서버가 최종 권위를 가진다.
-    const charSave = await lockSaveForUpdate<{ frontierDepth?: unknown }>(
+    const charSave = await lockSaveForUpdate<
+      Record<string, unknown> & { frontierDepth?: unknown }
+    >(
       tx,
       userId,
       "character.v2",
@@ -73,6 +75,7 @@ export async function POST(req: Request) {
     );
     const { owned, equipped } = parseEquipmentSave(save);
     const nextEquipped = { ...equipped };
+    let manuallyEquipped = false;
     if (iid === null) {
       delete nextEquipped[slot];
     } else {
@@ -112,7 +115,14 @@ export async function POST(req: Request) {
           },
         };
       }
+      manuallyEquipped = nextEquipped[slot] !== iid;
       nextEquipped[slot] = iid;
+    }
+    if (manuallyEquipped && charSave.hasManuallyEquippedGear !== true) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        hasManuallyEquippedGear: true,
+      });
     }
     await upsertSave(tx, userId, "equipment.v2", {
       owned,

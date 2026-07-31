@@ -84,10 +84,12 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
-    const charSave = await lockSaveForUpdate<{
-      class?: unknown;
-      specChoice?: unknown;
-    }>(tx, userId, "character.v2", {});
+    const charSave = await lockSaveForUpdate<
+      Record<string, unknown> & {
+        class?: unknown;
+        specChoice?: unknown;
+      }
+    >(tx, userId, "character.v2", {});
     const skills = parseV2SkillsState(
       await lockSaveForUpdate<V2SkillsState>(
         tx,
@@ -130,6 +132,12 @@ export async function POST(req: Request) {
     }
     const next: V2SkillsState = { ...skills, equipped: requested };
     await upsertSave(tx, userId, "skills.v2", next);
+    if (requested.length > 0 && charSave.hasEditedSkillLoadout !== true) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        hasEditedSkillLoadout: true,
+      });
+    }
     return {
       status: 200 as const,
       body: {

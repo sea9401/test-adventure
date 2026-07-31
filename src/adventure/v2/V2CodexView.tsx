@@ -506,7 +506,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 theme.depthStart,
                 theme.depthEnd,
               );
-              // 일반 장비 드랍 목록 — 밴드 흔한 13종(13~48) 또는 스타터 그리드(1~12). + 처치당 확률 라벨.
+              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~72) 또는 들판 스타터 그리드(1~6). + 처치당 확률 라벨.
               const regularIds: V2EquipmentId[] = band
                 ? band.ids
                 : pool

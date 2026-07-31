@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildGrowthPacing,
   buildReport,
   classifyStage,
   huntStageDepths,
@@ -20,6 +21,39 @@ describe("sim-v2-level-design", () => {
     expect(depths[0]).toBe(2);
     expect(depths.at(-1)).toBe(72);
     expect(depths.every((depth) => depth % 2 === 0)).toBe(true);
+  });
+
+  it("성장 페이싱은 운영 에너지·EXP·드랍 설정을 한 소스에서 계산한다", () => {
+    const growth = buildGrowthPacing();
+    const fieldEnd = growth.rows.find((row) => row.depth === 6)!;
+    const frontierEntry = growth.rows.find((row) => row.depth === 8)!;
+    const endgame = growth.rows.find((row) => row.depth === 72)!;
+
+    expect(growth.totalExpToLevelCap).toBe(2_275_428);
+    expect(growth.energy).toMatchObject({
+      baseMax: 1_500,
+      baseFullHours: 5,
+      baseNaturalPerDay: 7_200,
+      supportMax: 2_500,
+      supportNaturalPerDay: 8_640,
+      starterChargeEach: 100_000,
+    });
+    expect(growth.career).toMatchObject({
+      tierRequirements: [1_000, 2_500, 4_500, 18_000, 35_000],
+      totalWinsToTier6Path: 61_000,
+    });
+    expect(frontierEntry.avgVeteranExpPerWin / fieldEnd.avgVeteranExpPerWin).toBeGreaterThan(15);
+    expect(fieldEnd.newbieLevelCapWins).toBeGreaterThan(30_000);
+    expect(fieldEnd.newbieLevelCapWins).toBeLessThan(fieldEnd.veteranLevelCapWins);
+    expect(
+      (endgame.veteranLevelCapWins - 1) * endgame.avgVeteranExpPerWin,
+    ).toBeLessThan(growth.totalExpToLevelCap);
+    expect(
+      endgame.veteranLevelCapWins * endgame.avgVeteranExpPerWin,
+    ).toBeGreaterThanOrEqual(growth.totalExpToLevelCap);
+    expect(endgame.commonAnyExpectedWins).toBeCloseTo(1 / 0.006);
+    expect(endgame.signatureAnyExpectedWins).toBe(2_000);
+    expect(endgame.signatureSpecificExpectedWins).toBe(10_000);
   });
 
   it("실제 승률 절벽·전직 회복 필요·저승률·빌드 격차·장기전을 독립적으로 경고한다", () => {

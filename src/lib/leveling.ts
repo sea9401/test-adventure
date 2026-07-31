@@ -120,14 +120,10 @@ function endgameMultiplier(level: number): number {
   return 1 + (ENDGAME_MAX_MULT - 1) * ((level - ENDGAME_LEVEL) / span);
 }
 
-// 유입(income) 밴드 배율 — EXP 페이싱 개편(game-fun-audit 2순위). monster.exp / 퀘스트 EXP
-// 에 곱해 중후반 페이싱을 완화한다. 곡선(요구치)을 슬래시하는 대신 유입을 올리는 접근 —
-// EXP 는 골드/드랍과 분리돼 있어 독립 상향이 안전하고, 기존 세이브 burst 위험이 없다.
-// L1-29: 사용자 초반 가속 요청 (2026-05-28). 신참 ×2 와 곱해 ×3.0 효과.
-//   sim-v2-exp-pacing 기준 1→25 시나리오 A 2.5일→1.7일, 시나리오 B 6.8일→4.5일.
-//   "접속해서 stamina 만 쓰고 끄면 흥미 없음" 피드백 대응 — 초반 모멘텀 빠르게.
-// battleClaim / offlineSim / questReward 세 EXP 소비 지점이 모두 이 헬퍼를 써야 한다
-// (한 곳 누락 = 라이브/위탁/퀘 페이싱 불일치).
+// 레거시 EXP 페이싱 실험값. 현재 v2 사냥/퀘스트/오프라인 런타임에서는 사용하지 않는다.
+// v2 사냥은 monster.exp → 누적 전투 신참 보너스 → XP_RATE_MULT 순서가 단일 진실 출처이며,
+// 이 값을 추가로 배선하면 운영 목표(베테랑 Lv1→100 약 1,200승)를 크게 초과 가속한다.
+// 옛 시뮬레이션·경계 회귀 기록을 위해 값만 보존한다.
 export function levelBandExpMultiplier(level: number): number {
   if (level < 30) return 1.5; // L1-29 (신참 ×2 와 곱해 ×3.0)
   if (level < 50) return 1.1; // L30-49

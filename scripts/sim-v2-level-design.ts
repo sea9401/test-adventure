@@ -48,6 +48,7 @@ import {
 } from "../src/adventure/data/v2/dungeonLadder";
 import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
+import { monsterGoldReward } from "../src/adventure/v2/combat/monsterGold";
 import type { Monster } from "../src/adventure/data/monsters/types";
 import {
   MAX_STAMINA,
@@ -68,6 +69,9 @@ import {
   bandCommonChanceForDepth,
   bandUniquePoolForDepth,
 } from "../src/adventure/data/v2/dungeonUniqueDrops";
+import {
+  ADVENTURE_SUPPORT_PASS,
+} from "../src/adventure/data/v2/adventureSupport";
 import {
   V2_EQUIPMENT,
   isUnique,
@@ -116,6 +120,7 @@ import { V2_STAT_KEYS, type V2StatKey } from "../src/adventure/data/v2/v2StatKey
 import type { V2Class } from "../src/adventure/data/v2/classes";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
 import { jobPassive } from "../src/adventure/data/v2/v2JobPassives";
+import { STARTER_CHARGE } from "../src/adventure/starterSaveValues";
 
 export const LEVEL_DESIGN_ARCHETYPES = [
   "STR",
@@ -219,6 +224,8 @@ const STAMINA_PER_DAY = Math.floor(
   (24 * 60 * 60) / (REGEN_SECONDS_PER_POINT * HUNT_COST),
 );
 const MAX_CAREER_WINS = 500_000;
+const NEWBIE_BONUS_BATTLES = NEWBIE_BONUS_BATTLE_THRESHOLD + 1;
+const GROWTH_PACING_DEPTHS = [2, 6, 8, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72] as const;
 
 export type CliOptions = {
   trials: number;
@@ -263,6 +270,9 @@ type CombatAudit = {
   avgHpChargePerAttempt: number;
   avgMpChargePerAttempt: number;
   expPerAttempt: number;
+  goldGrossPerAttempt: number;
+  goldAfterHpRecoveryPerAttempt: number;
+  goldAfterAllRecoveryPerAttempt: number;
 };
 
 type BuildAudit = {
@@ -344,6 +354,56 @@ type AuditReport = {
     powerTargetMissStages: number;
     powerTargetMissBuilds: number;
   };
+  growthPacing: GrowthPacingAudit;
+};
+
+export type GrowthPacingRow = {
+  depth: number;
+  name: string;
+  avgVeteranExpPerWin: number;
+  expJumpFromPrevious: number | null;
+  newbieLevelCapWins: number;
+  veteranLevelCapWins: number;
+  veteranIdealDays: number;
+  veteranDailyLoginDays: number;
+  freeBatchRequests: number;
+  supportBatchRequests: number;
+  commonDropChancePct: number;
+  commonPoolSize: number;
+  commonAnyExpectedWins: number | null;
+  commonSpecificExpectedWins: number | null;
+  signatureDropChancePct: number;
+  signaturePoolSize: number;
+  signatureAnyExpectedWins: number | null;
+  signatureSpecificExpectedWins: number | null;
+};
+
+export type GrowthPacingAudit = {
+  totalExpToLevelCap: number;
+  energy: {
+    baseMax: number;
+    baseFullHours: number;
+    baseNaturalPerDay: number;
+    baseDailyLoginCapturePct: number;
+    supportMax: number;
+    supportFullHours: number;
+    supportNaturalPerDay: number;
+    supportDailyLoginCapturePct: number;
+    starterChargeEach: number;
+  };
+  career: {
+    tierRequirements: number[];
+    totalWinsToTier6Path: number;
+    idealDaysToTier6Path: number;
+    dailyLoginDaysToTier6Path: number;
+    supportDailyLoginDaysToTier6Path: number;
+  };
+  largestExpJump: {
+    fromDepth: number;
+    toDepth: number;
+    multiplier: number;
+  } | null;
+  rows: GrowthPacingRow[];
 };
 
 export function huntStageDepths(maxDepth: number = MAX_FRONTIER_DEPTH): number[] {
@@ -430,7 +490,7 @@ function expFromWins(wins: number, depth: number, careerStart: number): number {
   const baseExp = averageFarmExp(depth) * XP_RATE_MULT;
   const newbieWins = Math.max(
     0,
-    Math.min(count, NEWBIE_BONUS_BATTLE_THRESHOLD - Math.max(0, careerStart)),
+    Math.min(count, NEWBIE_BONUS_BATTLES - Math.max(0, careerStart)),
   );
   return baseExp * (count + newbieWins);
 }
@@ -440,10 +500,152 @@ function winsForLevel(level: number, depth: number, careerStart: number): number
   if (target <= 0) return 0;
   const baseExp = averageFarmExp(depth) * XP_RATE_MULT;
   if (baseExp <= 0) return Number.MAX_SAFE_INTEGER;
-  const newbieAvailable = Math.max(0, NEWBIE_BONUS_BATTLE_THRESHOLD - careerStart);
+  const newbieAvailable = Math.max(0, NEWBIE_BONUS_BATTLES - careerStart);
   const newbieCapacityExp = newbieAvailable * baseExp * 2;
   if (target <= newbieCapacityExp) return Math.ceil(target / (baseExp * 2));
   return newbieAvailable + Math.ceil((target - newbieCapacityExp) / baseExp);
+}
+
+function averageRewardExp(depth: number, newbie: boolean): number {
+  const enemies = monstersAtDepth(depth);
+  if (enemies.length === 0) return 0;
+  const battleCount = newbie ? 0 : NEWBIE_BONUS_BATTLES;
+  return (
+    enemies.reduce((sum, enemy) => {
+      const base = applyNewbieExpBonusByBattles(enemy.exp, battleCount).gained;
+      return sum + Math.round(base * XP_RATE_MULT);
+    }, 0) / enemies.length
+  );
+}
+
+function winsForExp(totalExp: number, expPerWin: number): number {
+  if (totalExp <= 0) return 0;
+  if (expPerWin <= 0) return Number.MAX_SAFE_INTEGER;
+  return Math.ceil(totalExp / expPerWin);
+}
+
+function winsForExpWithNewbieBonus(
+  totalExp: number,
+  newbieExpPerWin: number,
+  veteranExpPerWin: number,
+): number {
+  const newbieCapacityExp = NEWBIE_BONUS_BATTLES * newbieExpPerWin;
+  if (totalExp <= newbieCapacityExp) return winsForExp(totalExp, newbieExpPerWin);
+  return (
+    NEWBIE_BONUS_BATTLES +
+    winsForExp(totalExp - newbieCapacityExp, veteranExpPerWin)
+  );
+}
+
+function expectedWins(chance: number, poolSize = 1): number | null {
+  if (chance <= 0 || poolSize <= 0) return null;
+  return poolSize / chance;
+}
+
+export function buildGrowthPacing(): GrowthPacingAudit {
+  const totalExpToLevelCap = EXP_TO_LEVEL[V2_LEVEL_CAP] ?? 0;
+  const supportMax = MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus;
+  const supportNaturalPerDay = Math.floor(
+    STAMINA_PER_DAY * (1 + ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct / 100),
+  );
+  const tierRequirements = [...JOB_SEGMENT_REQUIREMENTS];
+  const totalWinsToTier6Path = tierRequirements.reduce((sum, wins) => sum + wins, 0);
+  const rows: GrowthPacingRow[] = [];
+  let previous: { depth: number; exp: number } | null = null;
+  let largestExpJump: GrowthPacingAudit["largestExpJump"] = null;
+
+  for (const depth of GROWTH_PACING_DEPTHS) {
+    const veteranExp = averageRewardExp(depth, false);
+    const newbieExp = averageRewardExp(depth, true);
+    const veteranLevelCapWins = winsForExp(totalExpToLevelCap, veteranExp);
+    const commonChance =
+      depth <= 6 ? STARTER_DROP_POOL.chance : bandCommonChanceForDepth(depth);
+    const commonPoolSize =
+      depth <= 6
+        ? Object.values(V2_EQUIPMENT).filter(
+            (item) =>
+              item.tier <= 3 &&
+              !isUnique(item) &&
+              !item.craftOnly &&
+              !item.starterOnly &&
+              !item.noDrop,
+          ).length
+        : (BAND_COMMON_POOLS.find(
+            (pool) => depth >= pool.minDepth && depth <= pool.maxDepth,
+          )?.ids.length ?? 0);
+    const signaturePool = bandUniquePoolForDepth(depth);
+    const signatureChance = signaturePool?.chance ?? 0;
+    const expJumpFromPrevious = previous ? veteranExp / previous.exp : null;
+    if (
+      previous &&
+      (!largestExpJump || expJumpFromPrevious! > largestExpJump.multiplier)
+    ) {
+      largestExpJump = {
+        fromDepth: previous.depth,
+        toDepth: depth,
+        multiplier: expJumpFromPrevious!,
+      };
+    }
+    rows.push({
+      depth,
+      name: huntStageName(depth),
+      avgVeteranExpPerWin: veteranExp,
+      expJumpFromPrevious,
+      newbieLevelCapWins: winsForExpWithNewbieBonus(
+        totalExpToLevelCap,
+        newbieExp,
+        veteranExp,
+      ),
+      veteranLevelCapWins,
+      veteranIdealDays: veteranLevelCapWins / STAMINA_PER_DAY,
+      veteranDailyLoginDays: veteranLevelCapWins / MAX_STAMINA,
+      freeBatchRequests: Math.ceil(
+        veteranLevelCapWins / ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch,
+      ),
+      supportBatchRequests: Math.ceil(
+        veteranLevelCapWins / ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch,
+      ),
+      commonDropChancePct: commonChance * 100,
+      commonPoolSize,
+      commonAnyExpectedWins: expectedWins(commonChance),
+      commonSpecificExpectedWins: expectedWins(commonChance, commonPoolSize),
+      signatureDropChancePct: signatureChance * 100,
+      signaturePoolSize: signaturePool?.ids.length ?? 0,
+      signatureAnyExpectedWins: expectedWins(signatureChance),
+      signatureSpecificExpectedWins: expectedWins(
+        signatureChance,
+        signaturePool?.ids.length ?? 0,
+      ),
+    });
+    previous = { depth, exp: veteranExp };
+  }
+
+  return {
+    totalExpToLevelCap,
+    energy: {
+      baseMax: MAX_STAMINA,
+      baseFullHours: (MAX_STAMINA * REGEN_SECONDS_PER_POINT) / 3600,
+      baseNaturalPerDay: STAMINA_PER_DAY,
+      baseDailyLoginCapturePct: (MAX_STAMINA / STAMINA_PER_DAY) * 100,
+      supportMax,
+      supportFullHours:
+        (supportMax * REGEN_SECONDS_PER_POINT) /
+        (1 + ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct / 100) /
+        3600,
+      supportNaturalPerDay,
+      supportDailyLoginCapturePct: (supportMax / supportNaturalPerDay) * 100,
+      starterChargeEach: STARTER_CHARGE,
+    },
+    career: {
+      tierRequirements,
+      totalWinsToTier6Path,
+      idealDaysToTier6Path: totalWinsToTier6Path / STAMINA_PER_DAY,
+      dailyLoginDaysToTier6Path: totalWinsToTier6Path / MAX_STAMINA,
+      supportDailyLoginDaysToTier6Path: totalWinsToTier6Path / supportMax,
+    },
+    largestExpJump,
+    rows,
+  };
 }
 
 function levelForWins(wins: number, depth: number, careerStart: number): number {
@@ -865,6 +1067,7 @@ function combatAudit(
   let hpCharge = 0;
   let mpCharge = 0;
   let exp = 0;
+  let goldGross = 0;
   try {
     for (const enemy of enemies) {
       for (let trial = 0; trial < trials; trial++) {
@@ -885,6 +1088,7 @@ function combatAudit(
         if (result.outcome === "win") {
           wins += 1;
           winTurns += result.turns;
+          goldGross += monsterGoldReward(enemy);
           exp +=
             applyNewbieExpBonusByBattles(enemy.exp, snapshot.careerWins).gained *
             XP_RATE_MULT;
@@ -894,15 +1098,22 @@ function combatAudit(
   } finally {
     Math.random = originalRandom;
   }
+  const avgHpChargePerAttempt = attempts > 0 ? hpCharge / attempts : 0;
+  const avgMpChargePerAttempt = attempts > 0 ? mpCharge / attempts : 0;
+  const goldGrossPerAttempt = attempts > 0 ? goldGross / attempts : 0;
   return {
     wins,
     attempts,
     winRatePct: attempts > 0 ? (wins / attempts) * 100 : 0,
     ciHalfWidthPct: wilsonHalfWidth(wins, attempts),
     avgWinTurns: wins > 0 ? winTurns / wins : 0,
-    avgHpChargePerAttempt: attempts > 0 ? hpCharge / attempts : 0,
-    avgMpChargePerAttempt: attempts > 0 ? mpCharge / attempts : 0,
+    avgHpChargePerAttempt,
+    avgMpChargePerAttempt,
     expPerAttempt: attempts > 0 ? exp / attempts : 0,
+    goldGrossPerAttempt,
+    goldAfterHpRecoveryPerAttempt: goldGrossPerAttempt - avgHpChargePerAttempt,
+    goldAfterAllRecoveryPerAttempt:
+      goldGrossPerAttempt - avgHpChargePerAttempt - avgMpChargePerAttempt,
   };
 }
 
@@ -1096,6 +1307,7 @@ export function buildReport(options: CliOptions): AuditReport {
     stages,
     warningCounts,
     observationCounts,
+    growthPacing: buildGrowthPacing(),
   };
 }
 
@@ -1115,13 +1327,43 @@ function fixed(value: number, digits = 0): string {
   return Number.isFinite(value) ? value.toFixed(digits) : "-";
 }
 
+function expected(value: number | null): string {
+  return value == null ? "-" : Math.round(value).toLocaleString("ko-KR");
+}
+
+function printGrowthPacing(growth: GrowthPacingAudit): void {
+  const { energy, career } = growth;
+  console.log("\n성장·에너지·장비 페이싱");
+  console.log(
+    `Lv1→${V2_LEVEL_CAP} 필요 EXP ${growth.totalExpToLevelCap.toLocaleString("ko-KR")} · 기본 에너지 ${energy.baseFullHours.toFixed(1)}시간 만충(일 자연회복의 ${energy.baseDailyLoginCapturePct.toFixed(1)}%를 1일 1회 접속으로 회수)`,
+  );
+  console.log(
+    `지원권 에너지 ${energy.supportMax.toLocaleString("ko-KR")} · ${energy.supportFullHours.toFixed(1)}시간 만충 · 1일 1회 회수율 ${energy.supportDailyLoginCapturePct.toFixed(1)}% · 신규 HP/MP 충전 각 ${energy.starterChargeEach.toLocaleString("ko-KR")}`,
+  );
+  console.log(
+    `단일 계보 6차까지 숙련 ${career.tierRequirements.map((wins) => wins.toLocaleString("ko-KR")).join("+")}=${career.totalWinsToTier6Path.toLocaleString("ko-KR")}승 · 자연회복 하한 ${career.idealDaysToTier6Path.toFixed(1)}일 · 일 1회 기본 ${career.dailyLoginDaysToTier6Path.toFixed(1)}일 · 지원권 ${career.supportDailyLoginDaysToTier6Path.toFixed(1)}일`,
+  );
+  if (growth.largestExpJump) {
+    console.log(
+      `대표 단계 최대 EXP 상승: 깊이 ${growth.largestExpJump.fromDepth}→${growth.largestExpJump.toDepth} ×${growth.largestExpJump.multiplier.toFixed(1)}`,
+    );
+  }
+  console.log("깊이 단계               EXP/승  상승  만렙승(신참/베테랑)  베테랑 일수(회복/일1회) 요청(무료/지원) 일반 기대(아무/특정) 고유 기대(아무/특정)");
+  for (const row of growth.rows) {
+    const jump = row.expJumpFromPrevious == null ? "-" : `×${row.expJumpFromPrevious.toFixed(1)}`;
+    console.log(
+      `${pad(row.depth, 3)} ${row.name.padEnd(18).slice(0, 18)} ${pad(fixed(row.avgVeteranExpPerWin, 1), 7)} ${pad(jump, 5)} ${pad(`${row.newbieLevelCapWins.toLocaleString("ko-KR")}/${row.veteranLevelCapWins.toLocaleString("ko-KR")}`, 18)} ${pad(`${fixed(row.veteranIdealDays, 2)}/${fixed(row.veteranDailyLoginDays, 2)}`, 13)}일 ${pad(`${row.freeBatchRequests}/${row.supportBatchRequests}`, 11)} ${pad(`${expected(row.commonAnyExpectedWins)}/${expected(row.commonSpecificExpectedWins)}`, 17)} ${pad(`${expected(row.signatureAnyExpectedWins)}/${expected(row.signatureSpecificExpectedWins)}`, 17)}`,
+    );
+  }
+}
+
 function printBuilds(stage: StageAudit): void {
-  console.log("  빌드  Lv   숙련승  일하한 직업             T  power/gate   WR±CI    turn  HP충전 MP충전 SP/스킬  준비도");
+  console.log("  빌드  Lv   숙련승  일하한 직업             T  power/gate   WR±CI    turn  HP충전 MP충전 순G(HP/전체) SP/스킬  준비도");
   for (const build of stage.builds) {
     const combat = build.combat;
     const gateMark = build.gateReached ? "✓" : "!";
     console.log(
-      `  ${build.arch.padEnd(4)} ${pad(build.level, 3)} ${pad(build.careerWins.toLocaleString("ko-KR"), 8)} ${pad(fixed(build.energyFloorDays, 1), 5)}일 ${build.currentJobName.padEnd(8).slice(0, 8)} ${pad(build.jobTier, 2)} ${pad(`${build.power}/${stage.gate}${gateMark}`, 11)}  ${pad(fixed(combat.winRatePct), 3)}±${fixed(combat.ciHalfWidthPct)}  ${pad(fixed(combat.avgWinTurns, 1), 5)}  ${pad(fixed(combat.avgHpChargePerAttempt), 6)} ${pad(fixed(combat.avgMpChargePerAttempt), 6)} ${pad(build.spBudget, 2)}/${build.equippedSkillCount}  ${build.readiness.label}`,
+      `  ${build.arch.padEnd(4)} ${pad(build.level, 3)} ${pad(build.careerWins.toLocaleString("ko-KR"), 8)} ${pad(fixed(build.energyFloorDays, 1), 5)}일 ${build.currentJobName.padEnd(8).slice(0, 8)} ${pad(build.jobTier, 2)} ${pad(`${build.power}/${stage.gate}${gateMark}`, 11)}  ${pad(fixed(combat.winRatePct), 3)}±${fixed(combat.ciHalfWidthPct)}  ${pad(fixed(combat.avgWinTurns, 1), 5)}  ${pad(fixed(combat.avgHpChargePerAttempt), 6)} ${pad(fixed(combat.avgMpChargePerAttempt), 6)} ${pad(`${fixed(combat.goldAfterHpRecoveryPerAttempt)}/${fixed(combat.goldAfterAllRecoveryPerAttempt)}`, 11)} ${pad(build.spBudget, 2)}/${build.equippedSkillCount}  ${build.readiness.label}`,
     );
   }
 }
@@ -1177,6 +1419,7 @@ function printReport(report: AuditReport, options: CliOptions): void {
   console.log(
     `관찰: 난이도 지표 미달 ${report.observationCounts.powerTargetMissStages}단계 · 누적 ${report.observationCounts.powerTargetMissBuilds}빌드`,
   );
+  printGrowthPacing(report.growthPacing);
   console.log("주의: 숙련 일수는 실제 소요시간이 아니라 에너지 자연회복만 본 하한입니다.");
 }
 

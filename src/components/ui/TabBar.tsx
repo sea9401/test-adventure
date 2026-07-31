@@ -10,7 +10,7 @@ import {
 } from "react";
 
 type TabSize = "sm" | "md" | "lg";
-type TabBadgeVariant = "solid" | "subtle";
+type TabBadgeVariant = "solid" | "subtle" | "alert";
 // underline: 기존 밑줄 탭(v1 전반). highlight: nav 바 레일은 유지하고 호버/선택 시 글자 색만 인디고로(v2 게임 탭).
 type TabVariant = "underline" | "highlight";
 
@@ -48,6 +48,7 @@ const BADGE_VARIANT: Record<TabBadgeVariant, string> = {
   solid: "bg-amber-500 text-white shadow-sm",
   subtle:
     "border border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100",
+  alert: "bg-rose-500 text-white shadow-sm",
 };
 
 export type TabBarProps<K extends string> = {
@@ -56,6 +57,7 @@ export type TabBarProps<K extends string> = {
     label: string;
     icon?: ReactNode;
     badge?: string | number;
+    badgeLabel?: string;
   }>;
   active: K;
   onChange: (next: K) => void;
@@ -159,6 +161,7 @@ export function TabBar<K extends string>({
               <span>{t.label}</span>
               {t.badge != null && (
                 <span
+                  aria-label={t.badgeLabel}
                   className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${BADGE_VARIANT[badgeVariant]}`}
                 >
                   {t.badge}

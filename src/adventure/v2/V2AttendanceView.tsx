@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useGameState } from "./GameStateProvider";
+import { setAttendanceReminder } from "./useAttendanceReminder";
 
 type AttendanceResponse = {
   ok: true;
@@ -75,6 +76,7 @@ export function V2AttendanceView() {
         | null;
       if (!response.ok || !data?.ok) throw new Error("load_failed");
       setStatus(data);
+      setAttendanceReminder(data.canClaim);
     } catch {
       setNotice({
         tone: "error",
@@ -108,6 +110,7 @@ export function V2AttendanceView() {
         throw new Error(error || "claim_failed");
       }
       setStatus(data);
+      setAttendanceReminder(data.canClaim);
       setNotice({
         tone: "success",
         text: `${data.rewardLabel ?? "출석 보상"}을 받았습니다.`,

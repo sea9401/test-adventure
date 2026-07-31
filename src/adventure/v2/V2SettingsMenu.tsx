@@ -32,6 +32,7 @@ import {
   storedValueForDisplayMode,
   type DisplayMode,
 } from "./discreetMode";
+import { useAttendanceReminder } from "./useAttendanceReminder";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 게임 안내서 +
 // 다크 토글 + 로그아웃/회원탈퇴. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
@@ -52,6 +53,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
   const [displayMode, setDisplayMode] = useState<DisplayMode>("default");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const attendancePending = useAttendanceReminder();
 
   useEffect(() => {
     const initial = document.documentElement.classList.contains("dark")
@@ -131,11 +133,17 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         // 광장+설정이 함께 들어있어 "설정"으로만 오인되던 톱니 → 햄버거 "메뉴"로(사용자 피드백).
-        aria-label="메뉴"
-        title="메뉴"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        aria-label={attendancePending ? "메뉴, 오늘 출석 체크 필요" : "메뉴"}
+        title={attendancePending ? "메뉴 · 오늘 출석 체크 필요" : "메뉴"}
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         <List size={20} weight="bold" />
+        {attendancePending && (
+          <span
+            aria-hidden
+            className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-900"
+          />
+        )}
       </button>
       {open && (
         <div
@@ -185,7 +193,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950"
               >
                 <Gift size={18} weight="duotone" />
-                이벤트
+                <span className="flex-1">이벤트</span>
+                {attendancePending && (
+                  <>
+                    <span
+                      aria-hidden
+                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500"
+                    />
+                    <span className="sr-only">오늘 출석 체크 필요</span>
+                  </>
+                )}
               </Link>
             </li>
             {process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true" && (

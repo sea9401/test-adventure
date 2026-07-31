@@ -15,6 +15,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import { V2CouponView } from "./V2CouponView";
 import { V2ReferralView } from "./V2ReferralView";
 import { V2AttendanceView } from "./V2AttendanceView";
+import { useAttendanceReminder } from "./useAttendanceReminder";
 
 export type EventTab = "attendance" | "promotion" | "coupon";
 
@@ -43,6 +44,16 @@ export function V2EventsView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<EventTab>(initialTab);
+  const attendancePending = useAttendanceReminder();
+  const tabs = EVENT_TABS.map((item) =>
+    item.key === "attendance" && attendancePending
+      ? {
+          ...item,
+          badge: "!",
+          badgeLabel: "오늘 출석 체크 필요",
+        }
+      : item,
+  );
 
   const changeTab = (next: EventTab) => {
     setTab(next);
@@ -68,12 +79,13 @@ export function V2EventsView({
 
       <Card padding="none" className="overflow-hidden px-2 pt-1">
         <TabBar
-          tabs={EVENT_TABS}
+          tabs={tabs}
           active={tab}
           onChange={changeTab}
           ariaLabel="이벤트 분류"
           size="md"
           variant="highlight"
+          badgeVariant="alert"
         />
       </Card>
 

@@ -8,12 +8,13 @@ import {
   ChartBar,
   ChatCenteredText,
   ChatsCircle,
-  CheckCircle,
-  Circle,
   CoinVertical,
   EnvelopeSimple,
+  Eye,
+  EyeSlash,
   FileText,
   Gift,
+  ImageSquare,
   List,
   Megaphone,
   Moon,
@@ -32,8 +33,9 @@ import {
   storedValueForDisplayMode,
   type DisplayMode,
 } from "./discreetMode";
+import { useAttendanceReminder } from "./useAttendanceReminder";
 
-// v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 게임 안내서 +
+// v2 상단바 우측 설정 메뉴 — 광장(게시판/우편함/거래소/랭킹/전체 소식) + 게임 안내서 +
 // 다크 토글 + 로그아웃/회원탈퇴. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
 // 이 메뉴로 통째 이관(사용자 결정 2026-06-13) — /plaza/* 라우트는 그대로.
 // 테마 토글 패턴: documentElement.classList + localStorage("theme").
@@ -52,6 +54,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
   const [displayMode, setDisplayMode] = useState<DisplayMode>("default");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const attendancePending = useAttendanceReminder();
 
   useEffect(() => {
     const initial = document.documentElement.classList.contains("dark")
@@ -131,11 +134,17 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         // 광장+설정이 함께 들어있어 "설정"으로만 오인되던 톱니 → 햄버거 "메뉴"로(사용자 피드백).
-        aria-label="메뉴"
-        title="메뉴"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        aria-label={attendancePending ? "메뉴, 오늘 출석 체크 필요" : "메뉴"}
+        title={attendancePending ? "메뉴 · 오늘 출석 체크 필요" : "메뉴"}
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         <List size={20} weight="bold" />
+        {attendancePending && (
+          <span
+            aria-hidden
+            className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-900"
+          />
+        )}
       </button>
       {open && (
         <div
@@ -145,10 +154,10 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
             {(
               [
                 { href: "/plaza/bulletin", label: "게시판", Icon: ChatsCircle },
+                { href: "/plaza/inbox", label: "우편함", Icon: EnvelopeSimple },
+                { href: "/plaza/market", label: "거래소", Icon: Storefront },
                 { href: "/plaza/rankings", label: "랭킹", Icon: ChartBar },
                 { href: "/plaza/feed", label: "전체 소식", Icon: Megaphone },
-                { href: "/plaza/market", label: "거래소", Icon: Storefront },
-                { href: "/plaza/inbox", label: "우편함", Icon: EnvelopeSimple },
               ] as const
             ).map(({ href, label, Icon }) => (
               <li key={href}>
@@ -185,7 +194,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950"
               >
                 <Gift size={18} weight="duotone" />
-                이벤트
+                <span className="flex-1">이벤트</span>
+                {attendancePending && (
+                  <>
+                    <span
+                      aria-hidden
+                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500"
+                    />
+                    <span className="sr-only">오늘 출석 체크 필요</span>
+                  </>
+                )}
               </Link>
             </li>
             {process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true" && (
@@ -210,16 +228,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 게임 안내서
               </Link>
             </li>
-            <li>
-              <Link
-                href="/privacy"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <FileText size={18} weight="duotone" />
-                정책·약관
-              </Link>
-            </li>
           </ul>
           <ul className="border-t border-zinc-200 py-1 dark:border-zinc-700">
             <li>
@@ -237,65 +245,69 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </button>
             </li>
             <li>
-              <div role="radiogroup" aria-label="화면 표시 모드">
-                {(
-                  [
-                    {
-                      id: "default",
-                      label: "기본 모드",
-                      detail: "배경·화려한 장식 표시",
-                    },
-                    {
-                      id: "background-hidden",
-                      label: "배경 숨김",
-                      detail: "화려한 장식 유지",
-                    },
-                    {
-                      id: "discreet",
-                      label: "은신 모드",
-                      detail: "배경·화려한 장식 숨김",
-                    },
-                  ] as const satisfies readonly {
-                    id: DisplayMode;
-                    label: string;
-                    detail: string;
-                  }[]
-                ).map((option) => {
-                  const selected = displayMode === option.id;
-                  const ModeIcon = selected ? CheckCircle : Circle;
-                  return (
-                    <label
-                      key={option.id}
-                      className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                        selected
-                          ? "text-violet-700 dark:text-violet-300"
-                          : "text-zinc-800 dark:text-zinc-200"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="display-mode"
-                        value={option.id}
-                        checked={selected}
-                        onChange={() => changeDisplayMode(option.id)}
-                        className="peer sr-only"
-                      />
-                      <span className="rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-violet-500">
-                        <ModeIcon
-                          size={18}
-                          weight={selected ? "fill" : "regular"}
-                        />
+              {(
+                [
+                  {
+                    id: "default",
+                    label: "기본 모드",
+                    detail: "배경·화려한 장식 표시",
+                    Icon: Eye,
+                  },
+                  {
+                    id: "background-hidden",
+                    label: "배경 숨김",
+                    detail: "화려한 장식 유지",
+                    Icon: ImageSquare,
+                  },
+                  {
+                    id: "discreet",
+                    label: "은신 모드",
+                    detail: "배경·화려한 장식 숨김",
+                    Icon: EyeSlash,
+                  },
+                ] as const satisfies readonly {
+                  id: DisplayMode;
+                  label: string;
+                  detail: string;
+                  Icon: typeof Eye;
+                }[]
+              ).map((option) => {
+                const selected = displayMode === option.id;
+                const label =
+                  selected && option.id !== "default"
+                    ? `${option.label} 해제`
+                    : option.label;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() =>
+                      changeDisplayMode(
+                        selected && option.id !== "default"
+                          ? "default"
+                          : option.id,
+                      )
+                    }
+                    aria-pressed={selected}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                      selected
+                        ? "text-violet-700 dark:text-violet-300"
+                        : "text-zinc-800 dark:text-zinc-200"
+                    }`}
+                  >
+                    <option.Icon
+                      size={18}
+                      weight={selected ? "fill" : "duotone"}
+                    />
+                    <span className="min-w-0">
+                      <span className="block">{label}</span>
+                      <span className="block text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
+                        {option.detail}
                       </span>
-                      <span className="min-w-0">
-                        <span className="block">{option.label}</span>
-                        <span className="block text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
-                          {option.detail}
-                        </span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
+                    </span>
+                  </button>
+                );
+              })}
             </li>
             <li>
               <Link
@@ -305,6 +317,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               >
                 <ChatCenteredText size={18} weight="duotone" />
                 건의사항
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/privacy"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <FileText size={18} weight="duotone" />
+                정책·약관
               </Link>
             </li>
             <li>

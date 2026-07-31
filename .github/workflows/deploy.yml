@@ -1,21 +1,20 @@
 name: Deploy to EC2
 
-# main CI가 성공하면 그 검증된 SHA만 EC2에 배포한다. 수동 실행도 runner에서 같은
-# 출시 검증을 먼저 통과해야 한다.
-# v2 운영 승격 후 prod-only. 옛 staging(~/adventure-rpg-test) 단계는 제거했다 — staging 이
-# 운영 DB(test_adventurerpg)와 분리된 자체 DB 를 받기 전까지 자동배포 대상에서 빼둔다.
-# (재도입 시 deploy-test.sh 가 운영 DB 를 건드리지 않도록 별도 DB 가드 먼저.)
+# main CI를 통과한 정확한 SHA를 운영자가 정기 업데이트 시간에 수동 배포한다.
+# main push만으로 운영 서버를 자동 변경하지 않는다. staging 자동 배포는 별도
+# deploy-staging.yml이 담당한다.
 # 필요한 GitHub Secrets (Settings → Secrets and variables → Actions):
 #   EC2_HOST    — EC2 의 고정 IP 또는 도메인 (예: 54.180.28.29)
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
 #   OPS_ALERT_WEBHOOK_URL — 외부 공개 표면 검사 실패 알림 전용(선택)
 # 앱 런타임 비밀값은 EC2에서 SSM /adventure-rpg/production/env를 직접 읽는다.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
-  workflow_dispatch: # 수동 실행 버튼
+  workflow_dispatch:
+    inputs:
+      deploy_sha:
+        description: "CI를 통과한 main의 전체 40자리 commit SHA"
+        required: true
+        type: string
 
 concurrency:
   group: deploy-ec2
@@ -23,12 +22,20 @@ concurrency:
 
 jobs:
   verify-manual:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_SHA: ${{ inputs.deploy_sha }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 0
+      - name: Verify exact main revision
+        run: |
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+          git fetch origin main
+          git merge-base --is-ancestor "$DEPLOY_SHA" origin/main
       - uses: actions/setup-node@v7
         with:
           node-version: 20
@@ -43,14 +50,10 @@ jobs:
 
   deploy:
     needs: [verify-manual]
-    if: >-
-      always() &&
-      ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-       (github.event_name == 'workflow_dispatch' && needs.verify-manual.result == 'success'))
     runs-on: ubuntu-latest
     environment: msmsge.com
     env:
-      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      DEPLOY_SHA: ${{ inputs.deploy_sha }}
     # private repo fetch 용 GITHUB_TOKEN 에 contents:read 보장.
     permissions:
       contents: read

@@ -58,6 +58,8 @@ export type BatchHuntPayload = {
   losses: number;
   totalExp: number;
   totalProficiency: number;
+  // 일괄 사냥 후 사용 가능한 숙달 포인트 잔액.
+  proficiencyPointsAfter: number | null;
   totalMastery?: number;
   // 일괄 사냥 후 현재 직군 누적 숙련도 — 상시 카드 readout 용(가장 최근 사냥 기준, none=null).
   proficiencyAfter?: number | null;

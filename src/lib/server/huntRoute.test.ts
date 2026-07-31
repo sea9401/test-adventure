@@ -2,7 +2,7 @@
 // 위에서 end-to-end 로 돌린다. DB I/O 경계(savesKv 헬퍼·db.transaction·ensureUser·getGuildId·
 // serverFeed)만 모킹하고 라우트 본문(전투 resolve·EXP·드랍·숙련도·세이브 변형)은 REAL 코드를
 // 그대로 실행한다. tx 모킹은 raw 쿼리를 "항상 빈 결과/no-op" 로 받는 최소 체인 — outpostId
-// 경로에서 occupations FOR UPDATE 가 빈 결과 = 미점령(NPC 세금) 거점으로 동작한다.
+// 경로에서 occupations FOR SHARE 가 빈 결과 = 미점령 거점으로 동작한다.
 //
 // PR-perf(사냥 배치 read 폴드)의 안전망: skills/proficiency 를 upfront lock-read 해 derive 에
 // 4개 모두 preload 한다. preload 가 빠지면(회귀) REAL derive 래퍼가 더미 tx({}) 에 .select() 를
@@ -24,8 +24,7 @@ vi.mock("@/lib/server/serverFeed", () => ({
   resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
 // tx/db raw 쿼리 — 모든 select 체인은 빈 결과, insert 는 no-op. 솔로 경로는 안 타고,
-// outpostId 경로에선 occupations FOR UPDATE [] = 미점령(NPC 세금→거점 금고) 으로 동작.
-// 세금 라벨 해석(db.select, tx 밖)도 같은 빈 체인 → "거점 금고".
+// outpostId 경로에선 occupations FOR SHARE [] = 미점령 거점으로 동작.
 vi.mock("@/db", () => {
   const chain: Record<string, unknown> = {};
   chain.from = () => chain;
@@ -121,8 +120,13 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         floor: number;
         won: boolean;
         expGained: number;
+        expAfter: number;
         proficiencyGained: number;
+        proficiencyPointsAfter: number;
         masteryGained: number;
+        masteryAfter: number | null;
+        goldGained: number;
+        goldAfter: number;
         enemyName: string;
       };
     };
@@ -131,8 +135,14 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     // 강한 전사 + 우호 RNG → 확정 승리.
     expect(json.result.won).toBe(true);
     expect(json.result.expGained).toBeGreaterThan(0);
+    expect(json.result.expAfter).toBe(json.result.expGained);
     expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(2));
+    expect(json.result.proficiencyPointsAfter).toBe(
+      json.result.proficiencyGained,
+    );
     expect(json.result.masteryGained).toBe(1);
+    expect(json.result.masteryAfter).toBe(31);
+    expect(json.result.goldAfter).toBe(1000 + json.result.goldGained);
 
     // 세이브 권위 반영 확인.
     const char = store.get("character.v2") as { exp: number; stamina: { current: number } };
@@ -273,7 +283,9 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         losses: number;
         totalExp: number;
         totalProficiency: number;
+        proficiencyPointsAfter: number;
         totalMastery: number;
+        proficiencyAfter: number | null;
         stoppedReason: string | null;
         replays: Array<{
           index: number;
@@ -289,7 +301,11 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.losses).toBe(0);
     expect(json.batch.stoppedReason).toBeNull();
     expect(json.batch.totalProficiency).toBe(5 * proficiencyPerKillAtDepth(2));
+    expect(json.batch.proficiencyPointsAfter).toBe(
+      json.batch.totalProficiency,
+    );
     expect(json.batch.totalMastery).toBe(5);
+    expect(json.batch.proficiencyAfter).toBe(35);
     expect(json.batch.replays).toHaveLength(5);
     expect(json.batch.replays[0]?.index).toBe(1);
     expect(json.batch.replays[0]?.enemyName).toBeTruthy();
@@ -315,7 +331,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(prof.jobCumLevel?.warrior).toBe(5);
   });
 
-  it("거점 id를 body에서 빼도 서버의 현재 거점 기준으로 NPC 세금을 적용한다", async () => {
+  it("현재 거점이 있어도 사냥세 없이 골드 전액을 지급한다", async () => {
     store.set("character.v2", {
       ...(store.get("character.v2") as object),
       lastVisitedOutpost: { outpostId: OUTPOSTS[0].id, at: Date.now() },
@@ -334,16 +350,13 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     };
     expect(json.ok).toBe(true);
     expect(json.result.won).toBe(true);
-    // 미점령 거점 = NPC 세율 — 승리·gross>0 이면 최소 1G 차감 + net 정합.
     expect(json.result.goldGross).toBeGreaterThan(0);
-    expect(json.result.goldTaxed).toBeGreaterThan(0);
-    expect(json.result.goldGained).toBe(
-      json.result.goldGross - json.result.goldTaxed,
-    );
-    expect(json.result.taxOwnerLabel).toBe("거점 금고");
+    expect(json.result.goldTaxed).toBe(0);
+    expect(json.result.goldGained).toBe(json.result.goldGross);
+    expect(json.result.taxOwnerLabel).toBeUndefined();
   });
 
-  it("배치 + 거점 — totalGoldGross/totalGoldTaxed 합산 + 수취 라벨", async () => {
+  it("배치 사냥도 거점과 관계없이 사냥세 없이 골드 전액을 지급한다", async () => {
     store.set("character.v2", {
       ...(store.get("character.v2") as object),
       lastVisitedOutpost: { outpostId: OUTPOSTS[0].id, at: Date.now() },
@@ -364,11 +377,9 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     };
     expect(json.ok).toBe(true);
     expect(json.batch.completed).toBe(3);
-    expect(json.batch.totalGoldTaxed).toBeGreaterThan(0);
-    expect(json.batch.totalGold).toBe(
-      json.batch.totalGoldGross - json.batch.totalGoldTaxed,
-    );
-    expect(json.batch.taxOwnerLabel).toBe("거점 금고");
+    expect(json.batch.totalGoldTaxed).toBe(0);
+    expect(json.batch.totalGold).toBe(json.batch.totalGoldGross);
+    expect(json.batch.taxOwnerLabel).toBeUndefined();
   });
 
   it("body의 거점이 서버에 저장된 현재 거점과 다르면 보상 처리 전에 거절한다", async () => {

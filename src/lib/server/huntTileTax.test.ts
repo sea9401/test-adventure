@@ -1,5 +1,5 @@
-// 타일 전쟁(P2) — 마커가 길드 점령 정착지 위일 때 사냥세가 그 타일 금고로 가는 배선 통합 검증.
-//   huntLossTax.test.ts 패턴 + V2_TILE_WARFARE on + tile 점령 행 반환 mock + treasury insert 캡처.
+// 은퇴한 영지 사냥세 회귀 방지 — 길드 점령 타일 위에서도 세금을 떼거나 금고에 적립하지 않는다.
+//   huntLossTax.test.ts 패턴 + V2_TILE_WARFARE on + tile 점령 행 반환 mock으로 검증한다.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,7 +32,7 @@ vi.mock("@/lib/server/serverFeed", () => ({
   resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
 vi.mock("@/db", () => {
-  // select(cols) — tile 점령 조회는 {occupiedByGuildId, taxRate} 컬럼 모양으로 구분(길드 행 반환).
+  // select(cols) — tile 점령 조회는 {occupiedByGuildId, policy} 컬럼 모양으로 구분(길드 행 반환).
   //   그 외 select 는 [] (huntLossTax mock 과 동일 graceful).
   function chain(cols?: unknown) {
     const c: Record<string, unknown> = {};
@@ -43,8 +43,8 @@ vi.mock("@/db", () => {
       cols &&
       typeof cols === "object" &&
       "occupiedByGuildId" in (cols as object) &&
-      "taxRate" in (cols as object)
-        ? [{ occupiedByGuildId: 7, taxRate: "0.100" }]
+      "policy" in (cols as object)
+        ? [{ occupiedByGuildId: 7, policy: "open" }]
         : [];
     return c;
   }
@@ -111,7 +111,7 @@ function huntReq(body: Record<string, unknown>): Request {
   });
 }
 
-describe("POST /api/v2/dungeon/hunt — 타일 전쟁 사냥세(마커 위치 기준)", () => {
+describe("POST /api/v2/dungeon/hunt — 영지 사냥세 은퇴", () => {
   beforeEach(() => {
     seedOnGuildTile();
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
@@ -120,15 +120,15 @@ describe("POST /api/v2/dungeon/hunt — 타일 전쟁 사냥세(마커 위치 �
     vi.restoreAllMocks();
   });
 
-  it("길드 점령 타일 위에서 승리 → 사냥세가 그 타일 금고(tile:2,3)로 누적", async () => {
-    const res = await POST(huntReq({ floor: 2 })); // base outpostId 없음 — tilePos 가 행선지.
+  it("길드 점령 타일 위에서 승리해도 세금 없이 골드 전액을 지급한다", async () => {
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
-    const tileTreasury = inserts.find((v) => v.outpostId === "tile:2,3");
-    expect(tileTreasury).toBeDefined();
-    expect(Number(tileTreasury!.gold)).toBeGreaterThan(0);
-    // 다른 거점/개인 금고로 새지 않음 — 캡처된 treasury insert 는 타일 것뿐.
-    expect(inserts.filter((v) => typeof v.outpostId === "string")).toHaveLength(
-      1,
-    );
+    const json = (await res.json()) as {
+      result: { goldGained: number; goldGross: number; goldTaxed: number };
+    };
+    expect(json.result.goldGross).toBeGreaterThan(0);
+    expect(json.result.goldTaxed).toBe(0);
+    expect(json.result.goldGained).toBe(json.result.goldGross);
+    expect(inserts.filter((v) => typeof v.outpostId === "string")).toEqual([]);
   });
 });

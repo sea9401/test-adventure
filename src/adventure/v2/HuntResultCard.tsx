@@ -5,6 +5,7 @@
 // 사이즈 축소 — padding sm + 작은 font.
 
 import { Card } from "@/components/ui/Card";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { ChargeReadout } from "@/adventure/battle/BattleScene";
 import {
   V2_MATERIALS,
@@ -34,9 +35,13 @@ export type HuntResult = {
   enemyName: string;
   won: boolean;
   expGained: number;
+  expAfter?: number; // 사냥 후 현재 레벨의 경험치 잔액.
   proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~3).
+  proficiencyPointsAfter?: number; // 사냥 후 사용 가능한 숙달 포인트 잔액.
   masteryGained?: number; // 직업 숙련도 획득(승리당 +1).
+  masteryAfter?: number | null; // 사냥 후 현재 직업 숙련도.
   goldGained: number;
+  goldAfter?: number; // 사냥 후 현재 보유 골드.
   goldGross?: number;
   hotTime?: {
     title: string;
@@ -109,6 +114,52 @@ export function formatHpMpGains(
   return parts.length ? parts.join(" · ") : null;
 }
 
+export type RewardBalanceItem = {
+  label: string;
+  current: number | null | undefined;
+  gained: number;
+  currentClassName: string;
+  gainedClassName: string;
+};
+
+// 전투 결과의 핵심 재화 — 큰 숫자는 전투 후 현재 보유량, 작은 +숫자는 이번 획득량이다.
+export function RewardBalanceGrid({ items }: { items: RewardBalanceItem[] }) {
+  return (
+    <div
+      className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"
+      aria-label="전투 후 보유량과 이번 획득량"
+    >
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className={`${SURFACE_INSET} min-w-0 px-2 py-2 text-center`}
+        >
+          <div className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            {item.label}
+          </div>
+          <div
+            className={`mt-0.5 truncate text-base font-semibold tabular-nums ${item.currentClassName}`}
+            title={
+              item.current == null
+                ? undefined
+                : item.current.toLocaleString("ko-KR")
+            }
+          >
+            {item.current == null
+              ? "—"
+              : item.current.toLocaleString("ko-KR")}
+          </div>
+          <div
+            className={`mt-0.5 text-xs font-semibold tabular-nums ${item.gainedClassName}`}
+          >
+            +{Math.max(0, item.gained).toLocaleString("ko-KR")}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HuntResultCard({
   result,
   hpCharges,
@@ -142,6 +193,36 @@ export function HuntResultCard({
     : null;
   const statGainsText = formatStatGains(result.statGains);
   const hpMpGainsText = formatHpMpGains(result.hpGain, result.mpGain);
+  const rewardBalances: RewardBalanceItem[] = [
+    {
+      label: "골드",
+      current: result.goldAfter,
+      gained: result.goldGained,
+      currentClassName: "text-yellow-700 dark:text-yellow-300",
+      gainedClassName: "text-yellow-600 dark:text-yellow-400",
+    },
+    {
+      label: "직업 숙련도",
+      current: result.masteryAfter,
+      gained: result.masteryGained ?? 0,
+      currentClassName: "text-sky-700 dark:text-sky-300",
+      gainedClassName: "text-sky-600 dark:text-sky-400",
+    },
+    {
+      label: "숙달 포인트",
+      current: result.proficiencyPointsAfter,
+      gained: result.proficiencyGained ?? 0,
+      currentClassName: "text-violet-700 dark:text-violet-300",
+      gainedClassName: "text-violet-600 dark:text-violet-400",
+    },
+    {
+      label: "경험치",
+      current: result.expAfter,
+      gained: result.expGained,
+      currentClassName: "text-emerald-700 dark:text-emerald-300",
+      gainedClassName: "text-emerald-600 dark:text-emerald-400",
+    },
+  ];
 
   return (
     <Card
@@ -189,35 +270,9 @@ export function HuntResultCard({
         </div>
       )}
 
+      <RewardBalanceGrid items={rewardBalances} />
+
       <div className="mt-2 space-y-1 text-center text-sm">
-        <div className="flex items-baseline justify-center gap-1.5">
-          <span className="text-zinc-500 dark:text-zinc-400">EXP</span>
-          <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
-            +{result.expGained}
-          </span>
-        </div>
-        {(result.proficiencyGained ?? 0) > 0 && (
-          <div className="flex items-baseline justify-center gap-1.5">
-            <span className="text-zinc-500 dark:text-zinc-400">숙달 포인트</span>
-            <span className="font-medium tabular-nums text-violet-600 dark:text-violet-400">
-              +{result.proficiencyGained}
-            </span>
-          </div>
-        )}
-        {(result.masteryGained ?? 0) > 0 && (
-          <div className="flex items-baseline justify-center gap-1.5">
-            <span className="text-zinc-500 dark:text-zinc-400">직업 숙련도</span>
-            <span className="font-medium tabular-nums text-sky-600 dark:text-sky-400">
-              +{result.masteryGained}
-            </span>
-          </div>
-        )}
-        <div className="flex items-baseline justify-center gap-1.5">
-          <span className="text-zinc-500 dark:text-zinc-400">골드</span>
-          <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
-            +{result.goldGained}
-          </span>
-        </div>
         {result.hotTime && (result.hotTime.expBonus > 0 || result.hotTime.goldBonus > 0) && (
           <div className="text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-300">
             핫타임 {result.hotTime.title || "이벤트"} · EXP +

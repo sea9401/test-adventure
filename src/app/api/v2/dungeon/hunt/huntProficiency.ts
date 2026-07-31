@@ -30,6 +30,8 @@ export type HuntProficiencyResult = {
   nextProficiency: ReturnType<typeof parseProficiencyForChar> | null;
   /** 전투 결과 표시용 — 이번 승리로 적립된 숙달 포인트. */
   proficiencyGained: number;
+  /** 전투 결과 표시용 — 이 사냥 후 사용 가능한 숙달 포인트 잔액. */
+  proficiencyPointsAfter: number;
   /** 승리 시 현재 직업 숙련도(+1). 전직/스킬포인트 게이트 입력. */
   masteryGained: number;
   /** 상시 카드 readout — 이 사냥 후 현재 직업 숙련도(none=null). */
@@ -138,6 +140,7 @@ export function applyHuntProficiency(params: {
     return {
       nextProficiency: prof,
       proficiencyGained,
+      proficiencyPointsAfter: prof.points,
       masteryGained,
       masteryAfter,
       spMilestonesGained,
@@ -162,6 +165,8 @@ export function applyHuntProficiency(params: {
   return {
     nextProficiency: null,
     proficiencyGained,
+    proficiencyPointsAfter: parseProficiencyForChar(proficiencyRaw, charSave)
+      .points,
     masteryGained,
     masteryAfter,
     spMilestonesGained,

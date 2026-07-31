@@ -3744,21 +3744,25 @@ body {
   }
 }
 
-/* 은신 모드 — 게임 장면 배경과 눈에 띄는 계정 꾸미기 연출을 감춘다.
-   기능성 이미지와 로딩 상태는 유지해 조작 정보가 사라지지 않게 한다. */
+/* 배경 숨김·은신 모드 — 게임 장면 배경만 공통으로 감춘다. */
+html.ui-background-hidden body,
 html.ui-discreet-mode body {
   background-color: #f4f4f5;
   background-image: none;
 }
 
+html.dark.ui-background-hidden body,
 html.dark.ui-discreet-mode body {
   background-color: #09090b;
 }
 
+html.ui-background-hidden .game-scene-background,
 html.ui-discreet-mode .game-scene-background {
   display: none;
 }
 
+/* 은신 모드는 눈에 띄는 계정 꾸미기 연출도 추가로 감춘다.
+   기능성 이미지와 로딩 상태는 유지해 조작 정보가 사라지지 않게 한다. */
 html.ui-discreet-mode .ui-profile-frame-cosmetic {
   border-color: rgb(161 161 170 / 0.55);
   background-image: none;

@@ -1351,6 +1351,7 @@ export function applyPlayerV2SkillCast(
       vit: player.vitStat,
       dex: player.dexStat,
       luk: player.lukStat,
+      spi: player.spiStat,
       allStatTotal: player.allStatTotal,
       currentHp: state.playerHp,
       maxMp: state.playerMaxMp,

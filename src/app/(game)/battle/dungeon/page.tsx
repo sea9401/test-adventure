@@ -13,6 +13,9 @@ export default function DungeonListPage() {
     frontierDepth,
     offlineHunt,
     playerCombat,
+    viewerLevel,
+    viewerLevelCap,
+    viewerJobTier,
   } =
     useGameState();
   // ?openDepth=<테마 첫 깊이> — 사냥터에서 "뒤로"로 들어오면 그 테마의 깊이 선택을 펼친 채 시작.
@@ -37,6 +40,9 @@ export default function DungeonListPage() {
       onBack={() => router.push("/battle")}
       frontierDepth={frontierDepth}
       playerPower={playerCombat?.power ?? null}
+      playerLevel={viewerLevel}
+      playerLevelCap={viewerLevelCap}
+      playerJobTier={viewerJobTier}
       initialOpenDepth={initialOpenDepth}
       onSelectRareMap={(m) => {
         if (m.kind === "secret_shop_map") {

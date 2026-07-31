@@ -939,7 +939,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
     description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "magic" }],
+    effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "spi" }],
   },
   v2c_ritualist_guardingarray: {
     id: "v2c_ritualist_guardingarray", name: "호법진", stat: "int", category: "buff", tier: 3,
@@ -1476,7 +1476,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
     mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100,
     effects: [
-      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "magic" },
+      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "spi" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
@@ -1828,7 +1828,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "기적의 빛으로 상처를 메우고 잠시 몸을 보호한다.",
     mpCost: 54, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
-      { kind: "heal", pctLostHp: 9, statCoef: 0.8, baseFlatByTier: [140, 140, 140], scaling: "magic" },
+      { kind: "heal", pctLostHp: 9, statCoef: 0.8, baseFlatByTier: [140, 140, 140], scaling: "spi" },
       { kind: "shield", pctMaxHp: 10, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
     ],
@@ -2000,10 +2000,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_archmage_theory: {
     id: "v2c_archmage_theory", name: "대마도 이론", stat: "int", category: "passive", tier: 3,
-    description: "마법식의 근본을 꿰뚫는다. 지능과 마법 스킬 피해가 오른다.",
+    description: "마법식의 근본을 꿰뚫는다. 지능과 마법 스킬 피해가 오르고 마력 방벽으로 피해를 흘린다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { int: 22 }, magicSkillDamagePct: 12 },
+    passive: {
+      statPct: { int: 22 },
+      magicSkillDamagePct: 16,
+      maxHpPct: 20,
+      damageTakenReductionPct: 8,
+    },
   },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
@@ -2097,10 +2102,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,
-    description: "구원의 빛을 심판으로 바꾸어 적을 태우고 빈틈을 드러낸다.",
+    description: "정신력을 구원의 빛으로 바꾸어 적을 태우고 빈틈을 드러낸다.",
     mpCost: 80, fixedMpCost: 185, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      { kind: "damage", statCoef: 2.2, baseFlat: 560, scaling: "magic" },
+      { kind: "damage", statCoef: 1.4, baseFlat: 560, scaling: "spi" },
       { kind: "enemyVuln", pct: 16, turns: 3 },
     ],
   },
@@ -2154,8 +2159,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       { kind: "damage", statCoef: 0.46, baseFlat: 185, scaling: "luk", pierceDamagePct: 12 },
       { kind: "damage", statCoef: 0.4, baseFlat: 170, scaling: "dex", pierceDamagePct: 12 },
       { kind: "damage", statCoef: 0.52, baseFlat: 210, scaling: "luk", pierceDamagePct: 18 },
-      { kind: "enemyAccuracyDown", pct: 24, turns: 3 },
-      { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 3 },
+      { kind: "enemyAccuracyDown", pct: 28, turns: 3 },
+      { kind: "selfBuffPct", target: "evasion", pct: 14, turns: 3 },
     ],
   },
   v2c_blackmoon_dominion: {
@@ -2163,7 +2168,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 치명타 한계를 넘긴 감각이 스킬에도 실린다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 18, critDmgPct: 24, skillCritOverflow: true },
+    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 22, critDmgPct: 24, skillCritOverflow: true },
   },
   v2c_myriadvenom_mutation: {
     id: "v2c_myriadvenom_mutation", name: "만독개화", stat: "luk", category: "attack", tier: 3,

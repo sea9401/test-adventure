@@ -21,6 +21,7 @@ import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { grantCoreStarterSkill } from "@/adventure/data/v2/v2SkillsByJob";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import {
@@ -39,7 +40,8 @@ import {
 
 // POST /api/v2/me/class-element — 레거시 경로명을 유지하는 직업 선택/변경 API.
 // 속성 선택·상성은 폐지되어 요청의 element 값은 더 이상 읽거나 저장하지 않는다.
-// 시그니처는 숙련도 학습(learn-skill)이라 여기선 자동 학습 안 함.
+// 시그니처는 숙련도 학습(learn-skill)이다. 단, 마법 공격력을 실제 기본 공격에 연결하는 마력탄은
+// 다른 직군의 공용 물리 스타터와 동등한 코어 기본기라 첫 선택/기존 누락 시 자동 지급한다.
 // 코어루프에서는 수동 SP 로드아웃을 보존하고, 레거시만 새 직업 체인으로 equipped 를 재산출한다.
 
 type CharSaveShape = {
@@ -120,6 +122,9 @@ export async function POST(req: Request) {
       // P4 — 4직군에선 class 자체가 직군이라 별도 class-id 매핑 없이 교체한다.
       effectiveClass = nextClass;
     }
+    const skillsWithCoreStarter = V2_CORE_LOOP_V2
+      ? grantCoreStarterSkill(skills, effectiveClass)
+      : skills;
 
     // design A(§3.2·§6) — 직업군 변경(횡환생)은 5차 정점(만렙) 전용. 자유 respec 폐기로
     // "싼 저차수 farming·snap-back" 익스플로잇 구조 차단. 첫 선택·같은 직업군은 면제.
@@ -142,8 +147,8 @@ export async function POST(req: Request) {
     }
     // 직업군 변경(다른 직업으로 재전직) = 레벨 1·exp 0·grown 리셋(advance 와 동일).
     // 첫 선택은 레벨 유지.
-    // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 코어루프는 learned 불변 + equipped 보존
-    // sanitize 만 수행한다. flag off 레거시는 현 체인 유효분으로 자동 장착.
+    // 스킬은 학습+수동장착이 원칙이다. 코어루프는 마법사 코어 기본기 누락만 백필하고 나머지
+    // learned + equipped 를 보존해 sanitize 한다. flag off 레거시는 현 체인 유효분으로 자동 장착.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
 
@@ -226,8 +231,8 @@ export async function POST(req: Request) {
       : undefined;
     const equipped = V2_CORE_LOOP_V2
       ? sanitizeLoadout(
-          skills.equipped,
-          skills.learned,
+          skillsWithCoreStarter.equipped,
+          skillsWithCoreStarter.learned,
           calcSpBudget(
             prof.groups,
             spCapBonusFromRaw(
@@ -244,11 +249,11 @@ export async function POST(req: Request) {
               groupChanged ? null : specChoice,
             ),
           );
-          return skills.learned.filter((s) => chain.has(s));
+          return skillsWithCoreStarter.learned.filter((s) => chain.has(s));
         })();
     // learned 보존. 코어루프는 수동 로드아웃 보존, 레거시는 새 체인 유효분 자동 장착.
     await upsertSave(tx, userId, "skills.v2", {
-      ...skills,
+      ...skillsWithCoreStarter,
       equipped,
     });
 

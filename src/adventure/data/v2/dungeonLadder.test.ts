@@ -5,6 +5,7 @@ import {
   floorDefMult,
   floorExpMult,
   endgameSoften,
+  endExtensionCombatSoften,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
   LADDER_EXP_SOFTCAP,
@@ -13,6 +14,10 @@ import {
   END_EXTENSION_START_DEPTH,
   END_EXTENSION_START_STAT_MULT,
   END_EXTENSION_STAT_STEP,
+  END_EXTENSION_COMBAT_SOFTEN,
+  RED_PLAINS_COMBAT_SOFTEN,
+  BONE_PLATEAU_COMBAT_SOFTEN,
+  DEEP_FRONTIER_COMBAT_SOFTEN_MIN,
   REWARD_SLOWDOWN_START_DEPTH,
   REWARD_SLOWDOWN_EXP_STEP,
   REWARD_EXP_MULT_CAP,
@@ -80,6 +85,17 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(floorPowerGate(43)).toBeGreaterThanOrEqual(1500);
     expect(floorStatMult(44) - floorStatMult(43)).toBe(END_EXTENSION_STAT_STEP);
     expect(END_EXTENSION_STAT_STEP).toBeGreaterThan(LADDER_STAT_STEP);
+  });
+
+  it("43+ 엔드 확장 전투 완화는 경계부터 적용하고 이전 구간은 보존", () => {
+    expect(endExtensionCombatSoften(42)).toBe(1);
+    expect(endExtensionCombatSoften(43)).toBe(END_EXTENSION_COMBAT_SOFTEN);
+    expect(endExtensionCombatSoften(49)).toBe(RED_PLAINS_COMBAT_SOFTEN);
+    expect(endExtensionCombatSoften(55)).toBe(BONE_PLATEAU_COMBAT_SOFTEN);
+    expect(endExtensionCombatSoften(72)).toBe(DEEP_FRONTIER_COMBAT_SOFTEN_MIN);
+    expect(END_EXTENSION_COMBAT_SOFTEN).toBeLessThan(1);
+    expect(RED_PLAINS_COMBAT_SOFTEN).toBeLessThan(END_EXTENSION_COMBAT_SOFTEN);
+    expect(BONE_PLATEAU_COMBAT_SOFTEN).toBeLessThan(RED_PLAINS_COMBAT_SOFTEN);
   });
 
   it("def 배율은 hp/atk 보다 천천히 (관통 0 절벽 회피) — 2+ 에서 1 < def < stat", () => {

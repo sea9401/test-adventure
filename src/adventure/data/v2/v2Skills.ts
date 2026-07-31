@@ -105,7 +105,7 @@ export type V2PassiveSkillEffect = {
   enemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률 +%p. 미지정이면 기존 호환을 위해 100%로 처리. */
   enemyMagicVulnApplyChancePct?: number;
-  /** 마법 스킬 피해 +% — damage effect 의 scaling="magic" 피해분에만 적용. */
+  /** 마법 스킬 피해 +% — damage effect 의 scaling="magic"/"spi" 피해분에만 적용. */
   magicSkillDamagePct?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
@@ -226,8 +226,9 @@ export type V2MonsterCastSkillId = "mob_arcane_bolt" | "mob_arcane_burst";
 //   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).
 // scaling "def": 방어비례딜(방패 가격) — atk/magicAtk 대신 DEF 스케일.
 // scaling "vit": VIT 비례 딜(나한권) — 금강(VIT 앵커) 정체성, 기사 DEF비례와 다른 축.
-//   def/vit/dex/luk/all/maxHp 은 시전자 그 스탯 값이 필요 → 엔진(combatShared.damageWith) 배선(미배선
-//   스탯은 physical 대체). dex/luk/all = 직접 비례딜(원시 스탯이 크므로 계수는 작게 — str→atk 0.15급).
+//   def/vit/dex/luk/spi/all/maxHp 은 시전자 그 스탯 값이 필요 → 엔진(combatShared.damageWith) 배선
+//   (미배선 스탯은 physical 대체). spi 는 마법 방어를 상대하고, 나머지는 물리 방어를 상대한다.
+//   원시 스탯 직접 비례딜은 파생 공격력보다 값이 크므로 계수를 작게 잡는다.
 export type V2DamageScaling =
   | "physical"
   | "magic"
@@ -235,6 +236,7 @@ export type V2DamageScaling =
   | "vit"
   | "dex"
   | "luk"
+  | "spi"
   | "all"
   | "maxHp";
 export type V2SkillEffect =
@@ -1295,6 +1297,7 @@ function scalingStatLabel(scaling?: V2DamageScaling): string {
   if (scaling === "vit") return "활력";
   if (scaling === "dex") return "민첩";
   if (scaling === "luk") return "행운";
+  if (scaling === "spi") return "정신력";
   if (scaling === "all") return "모든 스탯 합";
   if (scaling === "maxHp") return "최대 HP";
   return "공격력";

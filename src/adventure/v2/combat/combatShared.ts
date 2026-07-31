@@ -532,7 +532,7 @@ export type V2SkillCastResult = {
   castSkillId: V2SkillId | null;
   castSkillName: string | null;
   enemyDamage: number;
-  /** enemyDamage 중 scaling="magic" 피해 효과에서 나온 피해분. */
+  /** enemyDamage 중 scaling="magic"/"spi" 피해 효과에서 나온 피해분. */
   magicEnemyDamage: number;
   /** 적에게 가한 damage 효과별 개별 피해(다단 스킬 = 타당 1개). 합 = enemyDamage.
    *  엔진이 전투 로그를 타마다 한 줄로 쪼개는 데 사용(부스트는 distributeBoostedHits 로 분배). */
@@ -597,6 +597,7 @@ export type V2SkillCastInput = {
     vit?: number;
     dex?: number;
     luk?: number;
+    spi?: number;
     allStatTotal?: number;
     currentHp?: number;
     maxMp?: number;
@@ -806,12 +807,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       | "vit"
       | "dex"
       | "luk"
+      | "spi"
       | "all"
       | "maxHp"
       | undefined,
   ): void => {
     enemyDamage += x;
-    if (scaling === "magic") magicEnemyDamage += x;
+    if (scaling === "magic" || scaling === "spi") magicEnemyDamage += x;
     hitDamages.push(x);
   };
   let selfHeal = 0;
@@ -845,7 +847,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const damageWith = (
     statCoef: number,
     baseFlat: number,
-    scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | "all" | "maxHp" | undefined,
+    scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | "spi" | "all" | "maxHp" | undefined,
     extraFlat = 0,
     targetDefOverride?: number,
   ): number => {
@@ -856,6 +858,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     else if (scaling === "vit") attackerAtk = input.attacker.vit ?? input.attacker.atk;
     else if (scaling === "dex") attackerAtk = input.attacker.dex ?? input.attacker.atk;
     else if (scaling === "luk") attackerAtk = input.attacker.luk ?? input.attacker.atk;
+    else if (scaling === "spi") {
+      attackerAtk = input.attacker.spi ?? input.attacker.magicAtk ?? input.attacker.atk;
+      scale = "magic";
+    }
     else if (scaling === "all") attackerAtk = input.attacker.allStatTotal ?? input.attacker.atk;
     else if (scaling === "maxHp") attackerAtk = input.attacker.maxHp;
     // def/vit/dex/luk/all/maxHp 비례딜은 STR 공격버프가 atk 를 부풀리는 v2DamageAmount 의 버프 곱을 받으면
@@ -865,11 +871,17 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       scaling === "vit" ||
       scaling === "dex" ||
       scaling === "luk" ||
+      scaling === "spi" ||
       scaling === "all" ||
       scaling === "maxHp";
     const raw = v2DamageAmount({
       attackerAtk,
-      attackerMagicAtk: scale === "magic" ? input.attacker.magicAtk : undefined,
+      attackerMagicAtk:
+        scale === "magic"
+          ? scaling === "spi"
+            ? attackerAtk
+            : input.attacker.magicAtk
+          : undefined,
       attackerMinDamage: input.attacker.minDamage,
       scaling: scale,
       targetDef: targetDefOverride ?? input.target.def,
@@ -893,7 +905,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const healScaleBase = (
     statCoef: number,
     baseFlat: number,
-    scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | "all" | "maxHp" | undefined,
+    scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | "spi" | "all" | "maxHp" | undefined,
   ): number => {
     let base = input.attacker.atk;
     if (scaling === "magic") base = input.attacker.magicAtk ?? input.attacker.atk;
@@ -901,6 +913,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     else if (scaling === "vit") base = input.attacker.vit ?? input.attacker.atk;
     else if (scaling === "dex") base = input.attacker.dex ?? input.attacker.atk;
     else if (scaling === "luk") base = input.attacker.luk ?? input.attacker.atk;
+    else if (scaling === "spi") base = input.attacker.spi ?? input.attacker.magicAtk ?? input.attacker.atk;
     else if (scaling === "all") base = input.attacker.allStatTotal ?? input.attacker.atk;
     else if (scaling === "maxHp") base = input.attacker.maxHp;
     return Math.floor((base * statCoef + baseFlat) * (input.attacker.healMult ?? 1));
@@ -1114,20 +1127,31 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // 평타 바닥 — 단타 평타(statCoef 1·baseFlat 0) × 한 턴 평타 횟수. 스킬에 마법 데미지 효과가
     //   하나라도 있으면 마법 공격력 기준, 아니면 물리 공격력 기준으로 바닥을 잡는다.
     //   (물리+마법 혼합 효과 스킬은 전체 바닥을 마법으로 잡게 되나, 현 데이터엔 혼합 스킬 없음.)
-    const magic = castEffects.some(
+    const spirit = castEffects.some(
       (e) =>
         (e.kind === "damage" ||
           e.kind === "hpCostDamage" ||
           e.kind === "executeDamage" ||
           e.kind === "stackPayoffDamage" ||
           e.kind === "healToDamage") &&
-        e.scaling === "magic",
+        e.scaling === "spi",
+    );
+    const magic = spirit || castEffects.some(
+      (e) =>
+        (e.kind === "damage" ||
+          e.kind === "hpCostDamage" ||
+          e.kind === "executeDamage" ||
+          e.kind === "stackPayoffDamage" ||
+          e.kind === "healToDamage") &&
+        (e.scaling === "magic" || e.scaling === "spi"),
     );
     // 평타 1타 = damageBetween(유효 atk, 유효 def) — 엔진 평타와 동일 공식(minDamage 하한이 아닌
     //   atk×0.15 하한). 마법 스킬이면 마법 평타(마공 vs 물방, PvE 평타와 동일). v2 자버프/적 def
     //   버프 곱은 엔진 평타(engine.ts v2EffectiveAtk/Def)와 맞춘다. 상황 보너스(크리·AP·속성)는 제외.
-    const basicPower = magic
-      ? input.attacker.magicAtk ?? input.attacker.atk
+    const basicPower = spirit
+      ? input.attacker.spi ?? input.attacker.magicAtk ?? input.attacker.atk
+      : magic
+        ? input.attacker.magicAtk ?? input.attacker.atk
       : input.attacker.atk;
     const atkMult = v2AtkBuffMult(input.attacker.selfBuffs, input.attacker.selfDebuffs);
     const defMult = v2DefBuffMult(input.target.selfBuffs, input.target.selfDebuffs);

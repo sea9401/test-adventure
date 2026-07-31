@@ -45,6 +45,34 @@ function req(cls: string): Request {
 }
 
 describe("class-element — 코어루프 수동 로드아웃 보존", () => {
+  it("첫 마법사 선택 시 마력탄을 기본기로 지급·장착한다", async () => {
+    store.clear();
+    store.set("character.v2", {
+      class: "none",
+      level: 1,
+      exp: 0,
+      gold: 0,
+      bankedGold: 0,
+    });
+    store.set("skills.v2", { learned: [], equipped: [] });
+    store.set("proficiency.v2", {
+      points: 0,
+      groups: {},
+      caps: {},
+      grown: {},
+    });
+
+    const res = await POST(req("mage"));
+    const json = (await res.json()) as { ok?: boolean; class?: string };
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, class: "mage" });
+    expect(store.get("skills.v2")).toMatchObject({
+      learned: ["v2c_mage_boltcast"],
+      equipped: ["v2c_mage_boltcast"],
+    });
+  });
+
   it("직업군 변경 시 learned 는 보존하고 equipped 를 새 직업 체인으로 재산출하지 않는다", async () => {
     store.clear();
     store.set("character.v2", {

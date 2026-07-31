@@ -52,6 +52,30 @@ const FARMING_UNLOCK_LOADOUT = [
 ] as const;
 
 describe("v2Skills — SP 열매 보너스 예산", () => {
+  it("마법사는 누락된 코어 기본기 마력탄을 전투 직전에 지급·장착한다", () => {
+    const next = sanitizeCombatLoadout(
+      { learned: [], equipped: [] },
+      { class: "mage", level: 1 },
+      { points: 0, groups: {}, caps: {}, grown: {} },
+    );
+
+    expect(next.learned).toEqual(["v2c_mage_boltcast"]);
+    expect(next.equipped).toEqual(["v2c_mage_boltcast"]);
+  });
+
+  it("기존 마법사 세이브에도 누락된 마력탄을 영속 백필한다", async () => {
+    store.clear();
+    store.set("character.v2", { class: "mage", level: 1 });
+    store.set("skills.v2", { learned: [], equipped: [] });
+    store.set("proficiency.v2", { points: 0, groups: {}, caps: {}, grown: {} });
+
+    const next = await reconcileV2EquippedSkills({} as DbExecutor, "u-mage");
+
+    expect(next.learned).toEqual(["v2c_mage_boltcast"]);
+    expect(next.equipped).toEqual(["v2c_mage_boltcast"]);
+    expect(store.get("skills.v2")).toMatchObject(next);
+  });
+
   it("state reconcile 이 spFruitUsed 보너스를 반영해 수동 로드아웃을 보존한다", async () => {
     store.clear();
     store.set("character.v2", {

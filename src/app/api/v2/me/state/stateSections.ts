@@ -164,12 +164,16 @@ export function jobsV2Section(params: {
   const currentJobName =
     V2_JOB_CATALOG[currentJobId]?.name ??
     (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
+  const currentJobTier = V2_JOB_CATALOG[currentJobId]?.tier ?? 0;
+  const currentJobLevelCap = rejobRequiredLevel(currentJobId);
   // 스킬 수집 완료 판정용 — 학습한 스킬 집합(직업 도감과 동일 기준).
   const learnedSet = new Set(parseV2SkillsState(skillsRaw).learned);
   return {
     currentJobId,
     currentJobName,
-    atLevelCap: level >= rejobRequiredLevel(currentJobId),
+    currentJobTier,
+    currentJobLevelCap,
+    atLevelCap: level >= currentJobLevelCap,
     jobs: V2_JOB_LIST.filter(
       // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
       (job) => isRootJobSelectable(job),

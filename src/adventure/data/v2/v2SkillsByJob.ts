@@ -7,7 +7,28 @@
 // 상위 직업 패시브는 모두 서로 다른 축(고유) — 다른 직업을 순회해 다른 패시브를 모으는 메리트.
 // 고차 4직업(tier 3, A 메타 PR-3)은 직군 축을 한 단계 더 깊게(III티어 % 가산) — 같은 축 심화(의도).
 
-import type { V2SkillId } from "./v2Skills";
+import type { V2Class } from "./classes";
+import type { V2SkillId, V2SkillsState } from "./v2Skills";
+
+// 직업 전투력이 사용하는 공격 축을 레벨 1부터 실제 공격에 연결하는 최소 기본기.
+// 다른 직군은 공용 스타터에 물리 공격기가 있지만 마법사만 INT/magicAtk 공격 수단이 없어,
+// 마력탄 학습비(1,500 숙달 포인트)를 모을 때까지 표시 전투력과 실전 성능이 분리되던 문제를 막는다.
+export const V2_CORE_STARTER_SKILL_BY_CLASS: Partial<Record<V2Class, V2SkillId>> = {
+  mage: "v2c_mage_boltcast",
+};
+
+export function grantCoreStarterSkill(
+  skills: V2SkillsState,
+  playerClass: V2Class,
+): V2SkillsState {
+  const starter = V2_CORE_STARTER_SKILL_BY_CLASS[playerClass];
+  if (!starter || skills.learned.includes(starter)) return skills;
+  return {
+    ...skills,
+    learned: [...skills.learned, starter],
+    equipped: [...skills.equipped, starter],
+  };
+}
 
 export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 모험가(none) — 착용형 패시브 2(학습+SP 슬롯). 상위직업과 달리 액티브 없이 패시브 2개. ──

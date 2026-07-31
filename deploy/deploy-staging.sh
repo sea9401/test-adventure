@@ -8,6 +8,7 @@ DEPLOY_SHA="${DEPLOY_SHA:?DEPLOY_SHA is required}"
 PREVIOUS_BUILD="$PWD/.next.staging-previous"
 FAILED_BUILD="$PWD/.next.staging-failed"
 SERVICE="adventure-rpg-test"
+MAINTENANCE_ENABLED=0
 
 if [[ ! "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "✗ DEPLOY_SHA must be a full 40-character commit SHA"
@@ -37,11 +38,16 @@ restore_previous_build() {
       mv "$PREVIOUS_BUILD" "$PWD/.next"
     fi
     sudo systemctl start "$SERVICE" || true
+    if [ "$MAINTENANCE_ENABLED" = "1" ]; then
+      bash deploy/staging-maintenance.sh off || true
+    fi
   fi
   exit "$status"
 }
 trap restore_previous_build EXIT
 
+bash deploy/staging-maintenance.sh on
+MAINTENANCE_ENABLED=1
 sudo systemctl stop "$SERVICE"
 rm -rf -- "$PREVIOUS_BUILD" "$FAILED_BUILD"
 if [ -d "$PWD/.next" ]; then
@@ -106,6 +112,8 @@ if [ "$actual_build_id" != "$DEPLOY_SHA" ]; then
   exit 1
 fi
 
+bash deploy/staging-maintenance.sh off
+MAINTENANCE_ENABLED=0
 rm -rf -- "$PREVIOUS_BUILD" "$FAILED_BUILD"
 trap - EXIT
 echo "✓ [staging] deployed $DEPLOY_SHA"

@@ -124,7 +124,7 @@ try {
       `INSERT INTO economy_events
          (user_id, event_type, item_kind, item_id, quantity, detail)
        SELECT redeemed_by_user_id, 'coupon.reward_addendum', 'coupon_campaign', $2, 1,
-              jsonb_build_object('campaignId', $1, 'codeId', id, 'cashItems', $3::jsonb)
+              jsonb_build_object('campaignId', $1::integer, 'codeId', id, 'cashItems', $3::jsonb)
          FROM coupon_codes
         WHERE campaign_id = $1 AND redeemed_at IS NOT NULL
         ORDER BY id`,

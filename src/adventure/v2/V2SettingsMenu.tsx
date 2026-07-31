@@ -8,10 +8,10 @@ import {
   ChartBar,
   ChatCenteredText,
   ChatsCircle,
+  CheckCircle,
+  Circle,
   CoinVertical,
   EnvelopeSimple,
-  Eye,
-  EyeSlash,
   FileText,
   Gift,
   List,
@@ -26,9 +26,11 @@ import {
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
+  BACKGROUND_HIDDEN_MODE_CLASS,
   DISCREET_MODE_CLASS,
-  DISCREET_MODE_STORAGE_KEY,
-  DISCREET_MODE_STORED_VALUE,
+  DISPLAY_MODE_STORAGE_KEY,
+  storedValueForDisplayMode,
+  type DisplayMode,
 } from "./discreetMode";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 게임 안내서 +
@@ -47,7 +49,7 @@ const DeleteAccountModal = dynamic(
 export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
-  const [discreetMode, setDiscreetMode] = useState(false);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("default");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -57,8 +59,14 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
       : "light";
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(initial);
-    setDiscreetMode(
-      document.documentElement.classList.contains(DISCREET_MODE_CLASS),
+    setDisplayMode(
+      document.documentElement.classList.contains(DISCREET_MODE_CLASS)
+        ? "discreet"
+        : document.documentElement.classList.contains(
+              BACKGROUND_HIDDEN_MODE_CLASS,
+            )
+          ? "background-hidden"
+          : "default",
     );
   }, []);
 
@@ -85,18 +93,22 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
     } catch {}
   };
 
-  const toggleDiscreetMode = () => {
-    const next = !discreetMode;
-    setDiscreetMode(next);
-    document.documentElement.classList.toggle(DISCREET_MODE_CLASS, next);
+  const changeDisplayMode = (next: DisplayMode) => {
+    setDisplayMode(next);
+    document.documentElement.classList.toggle(
+      BACKGROUND_HIDDEN_MODE_CLASS,
+      next === "background-hidden",
+    );
+    document.documentElement.classList.toggle(
+      DISCREET_MODE_CLASS,
+      next === "discreet",
+    );
     try {
-      if (next) {
-        localStorage.setItem(
-          DISCREET_MODE_STORAGE_KEY,
-          DISCREET_MODE_STORED_VALUE,
-        );
+      const storedValue = storedValueForDisplayMode(next);
+      if (storedValue) {
+        localStorage.setItem(DISPLAY_MODE_STORAGE_KEY, storedValue);
       } else {
-        localStorage.removeItem(DISCREET_MODE_STORAGE_KEY);
+        localStorage.removeItem(DISPLAY_MODE_STORAGE_KEY);
       }
     } catch {}
   };
@@ -225,26 +237,65 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </button>
             </li>
             <li>
-              <button
-                type="button"
-                onClick={toggleDiscreetMode}
-                aria-pressed={discreetMode}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                {discreetMode ? (
-                  <Eye size={18} weight="duotone" />
-                ) : (
-                  <EyeSlash size={18} weight="duotone" />
-                )}
-                <span className="min-w-0">
-                  <span className="block">
-                    {discreetMode ? "은신 모드 해제" : "은신 모드"}
-                  </span>
-                  <span className="block text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
-                    배경·화려한 장식 숨김
-                  </span>
-                </span>
-              </button>
+              <div role="radiogroup" aria-label="화면 표시 모드">
+                {(
+                  [
+                    {
+                      id: "default",
+                      label: "기본 모드",
+                      detail: "배경·화려한 장식 표시",
+                    },
+                    {
+                      id: "background-hidden",
+                      label: "배경 숨김",
+                      detail: "화려한 장식 유지",
+                    },
+                    {
+                      id: "discreet",
+                      label: "은신 모드",
+                      detail: "배경·화려한 장식 숨김",
+                    },
+                  ] as const satisfies readonly {
+                    id: DisplayMode;
+                    label: string;
+                    detail: string;
+                  }[]
+                ).map((option) => {
+                  const selected = displayMode === option.id;
+                  const ModeIcon = selected ? CheckCircle : Circle;
+                  return (
+                    <label
+                      key={option.id}
+                      className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                        selected
+                          ? "text-violet-700 dark:text-violet-300"
+                          : "text-zinc-800 dark:text-zinc-200"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="display-mode"
+                        value={option.id}
+                        checked={selected}
+                        onChange={() => changeDisplayMode(option.id)}
+                        className="peer sr-only"
+                      />
+                      <span className="rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-violet-500">
+                        <ModeIcon
+                          size={18}
+                          weight={selected ? "fill" : "regular"}
+                        />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block">{option.label}</span>
+                        <span className="block text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
+                          {option.detail}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
             </li>
             <li>
               <Link

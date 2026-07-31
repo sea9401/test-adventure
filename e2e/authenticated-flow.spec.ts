@@ -8,6 +8,7 @@ import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
 
 const LOCAL_ORIGIN = "http://localhost:3212";
 const CHARACTER_NAME = "자동검증모험가";
+const ATTENDANCE_CHARACTER_NAME = "출석검증모험가";
 const GAMEPLAY_CHARACTER_NAME = "사냥검증모험가";
 const DELETION_CHARACTER_NAME = "삭제검증모험가";
 const PERSISTED_FLAG = "e2e.persisted-after-login";
@@ -63,6 +64,52 @@ test("비밀번호 로그인 후 캐릭터를 만들고 저장한 진행을 재�
   });
   expect(restored.body["storyFlags.v2"]).toEqual({
     flags: [PERSISTED_FLAG],
+  });
+});
+
+test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받고 중복 수령은 차단된다", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  if (!account) throw new Error("Authenticated E2E configuration is missing");
+
+  await loginWithPassword(page, account.loginId, account.password);
+  await createCharacter(page, ATTENDANCE_CHARACTER_NAME);
+
+  const claimedAt = Date.now();
+  const first = await page.evaluate(async () => {
+    const response = await fetch("/api/v2/me/attendance", { method: "POST" });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(first).toMatchObject({
+    status: 200,
+    body: {
+      ok: true,
+      claimedCount: 1,
+      reward: { kind: "adventure_support", days: 15 },
+    },
+  });
+  expect(first.body.adventureSupportActiveUntil).toBeGreaterThanOrEqual(
+    claimedAt + 15 * 86_400_000,
+  );
+
+  const saved = await page.evaluate(async () =>
+    fetch("/api/save").then((response) => response.json()),
+  );
+  expect(saved["character.v2"]).not.toHaveProperty("class");
+  expect(saved["character.v2"]).toMatchObject({
+    adventureSupport: {
+      activeUntil: first.body.adventureSupportActiveUntil,
+    },
+  });
+
+  const duplicate = await page.evaluate(async () => {
+    const response = await fetch("/api/v2/me/attendance", { method: "POST" });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(duplicate).toEqual({
+    status: 409,
+    body: { ok: false, error: "already_claimed" },
   });
 });
 

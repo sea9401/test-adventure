@@ -17,6 +17,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("그대로 유지");
     expect(html).toContain("스프레드시트");
     expect(html).toContain("현재 브라우저에 저장");
+    expect(html).toContain("메뉴(☰) → 환경 설정");
   });
 
   it("독립 주방과 거래 가능한 개인 요리를 안내한다", () => {

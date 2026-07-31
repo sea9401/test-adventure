@@ -69,7 +69,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const {
-    accountName,
     stamina,
     staminaMax,
     staminaRegenBonusPct,
@@ -141,7 +140,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="game-desktop-compact">
       <V2TopBar
-        gameName={accountName}
         playerName={viewerName}
         playerLevel={viewerLevel}
         bankedGold={bankedGold}

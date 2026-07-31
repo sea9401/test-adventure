@@ -56,6 +56,7 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain("이전을 거부하는 방법과 영향");
     expect(html).toContain("privacyquestions@cloudflare.com");
     expect(html).toContain("생성 후 최대 90일");
+    expect(html).toContain("환경 설정 → 회원 탈퇴");
     expect(html).not.toContain("정식 출시 전 실제 운영 계약과 저장 위치");
   });
 });

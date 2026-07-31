@@ -5,9 +5,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   push:
-    branches: [main]
+    branches: [main, staging]
 
 # 같은 ref 의 이전 실행 취소 — 연속 push 비용 절약.
 concurrency:

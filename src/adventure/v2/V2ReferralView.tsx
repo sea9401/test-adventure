@@ -20,17 +20,19 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 type ReferralSummary = {
   ok: true;
   code: string | null;
-  rewardGoldPerReferral: number;
+  newUserStaminaPotions: number;
+  referrerStaminaPotionsPerMilestone: number;
   rewardMilestones: Array<{
     frontierDepth: number;
-    rewardGold: number;
+    referrerStaminaPotions: number;
   }>;
   attributedCount: number;
-  totalRewardGold: number;
-  recent: Array<{
+  totalRewardStaminaPotions: number;
+  referrals: Array<{
     name: string;
-    rewardGold: number;
+    currentFrontierDepth: number;
     rewardedDepth: number;
+    completedMilestones: number;
     convertedAt: string;
   }>;
 };
@@ -90,6 +92,9 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
     () => (summary?.code && origin ? `${origin}/r/${summary.code}` : ""),
     [origin, summary?.code],
   );
+  const milestoneCount = summary?.rewardMilestones.length ?? 5;
+  const maxReferrerReward =
+    milestoneCount * (summary?.referrerStaminaPotionsPerMilestone ?? 1);
 
   const issue = async () => {
     if (issuing) return;
@@ -147,8 +152,8 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
           <div>
             <h2 className="font-bold">친구를 초대하고 보상받기</h2>
             <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-              내 링크로 합류한 친구가 프론티어를 실제로 진행하면 단계별 홍보
-              보상이 우편함으로 도착합니다.
+              링크로 합류한 친구는 회복약 2개를 받고, 친구가 프론티어를
+              진행할 때마다 나에게 단계별 보상이 도착합니다.
             </p>
           </div>
         </div>
@@ -191,9 +196,10 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         )}
 
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          가입만으로는 보상이 지급되지 않습니다 · 1명당 최대{" "}
-          {summary?.rewardGoldPerReferral.toLocaleString() ?? "10,000"}골드 · 한
-          계정은 한 번만 인정 · 본인 링크는 제외됩니다.
+          신규 모험가: 스태미나 회복약{" "}
+          {summary?.newUserStaminaPotions ?? 2}개 · 홍보자: 단계마다 1개, 1명당
+          최대 {maxReferrerReward}개 · 한 계정은 한 번만 인정 · 본인 링크는
+          제외됩니다.
         </p>
       </Card>
 
@@ -201,14 +207,16 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         <div>
           <h2 className="text-sm font-bold">진행도별 보상</h2>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-            친구가 각 프론티어에 처음 도달하면 해당 단계 보상이 지급됩니다.
+            친구가 각 프론티어에 처음 도달하면 홍보자에게 회복약이 지급됩니다.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {(summary?.rewardMilestones ?? [
-            { frontierDepth: 12, rewardGold: 2_000 },
-            { frontierDepth: 24, rewardGold: 3_000 },
-            { frontierDepth: 36, rewardGold: 5_000 },
+            { frontierDepth: 6, referrerStaminaPotions: 1 },
+            { frontierDepth: 12, referrerStaminaPotions: 1 },
+            { frontierDepth: 18, referrerStaminaPotions: 1 },
+            { frontierDepth: 24, referrerStaminaPotions: 1 },
+            { frontierDepth: 36, referrerStaminaPotions: 1 },
           ]).map((milestone) => (
             <div
               key={milestone.frontierDepth}
@@ -218,7 +226,7 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
                 프론티어 {milestone.frontierDepth}
               </p>
               <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">
-                +{milestone.rewardGold.toLocaleString()}G
+                회복약 +{milestone.referrerStaminaPotions}개
               </p>
             </div>
           ))}
@@ -236,48 +244,63 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         <Card padding="md">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">누적 보상</p>
           <p className="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-300">
-            {loading ? "-" : (summary?.totalRewardGold.toLocaleString() ?? "0")}
-            <span className="ml-1 text-sm font-medium">G</span>
+            {loading
+              ? "-"
+              : (summary?.totalRewardStaminaPotions.toLocaleString() ?? "0")}
+            <span className="ml-1 text-sm font-medium">개</span>
           </p>
         </Card>
       </div>
 
-      {!loading && summary && summary.recent.length > 0 && (
+      {!loading && summary && (
         <Card padding="none" className="overflow-hidden">
-          <h2 className="border-b border-zinc-200 px-4 py-3 text-sm font-bold dark:border-zinc-700">
-            최근 홍보 실적
-          </h2>
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
-            {summary.recent.map((item) => (
-              <li
-                key={`${item.convertedAt}-${item.name}`}
-                className="flex items-center gap-3 px-4 py-3"
-              >
-                <UserPlus size={19} className="text-emerald-600 dark:text-emerald-400" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{item.name}</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {item.rewardedDepth >= 36
-                      ? "전체 단계 보상 지급"
-                      : item.rewardedDepth > 0
-                        ? `프론티어 ${item.rewardedDepth} 보상 지급`
-                      : "가입 완료 · 진행 보상 대기"}
-                    {" · "}
-                    {new Date(item.convertedAt).toLocaleDateString("ko-KR")}
-                  </p>
-                </div>
-                {item.rewardGold > 0 ? (
-                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                    +{item.rewardGold.toLocaleString()}G
-                  </span>
-                ) : (
-                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    대기 중
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+            <h2 className="text-sm font-bold">내 링크로 합류한 모험가</h2>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              현재 프론티어와 5단계 보상 진척도를 확인할 수 있습니다.
+            </p>
+          </div>
+          {summary.referrals.length > 0 ? (
+            <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+              {summary.referrals.map((item) => (
+                <li
+                  key={`${item.convertedAt}-${item.name}`}
+                  className="flex items-start gap-3 px-4 py-3"
+                >
+                  <UserPlus
+                    size={19}
+                    className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-medium">{item.name}</p>
+                      <span className="shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        {item.completedMilestones}/{milestoneCount}단계
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                      <div
+                        className="h-full rounded-full bg-emerald-600"
+                        style={{
+                          width: `${Math.min(100, (item.completedMilestones / milestoneCount) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      현재 프론티어 {item.currentFrontierDepth} · 보상 완료{" "}
+                      {item.rewardedDepth > 0 ? `프론티어 ${item.rewardedDepth}` : "없음"}
+                      {" · "}
+                      {new Date(item.convertedAt).toLocaleDateString("ko-KR")}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+              아직 내 링크로 합류한 모험가가 없습니다.
+            </p>
+          )}
         </Card>
       )}
     </>

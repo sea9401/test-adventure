@@ -38,7 +38,11 @@ const reward = {
   items: [],
   staminaPotions: amount(args["stamina-potions"], "stamina-potions", 1_000_000),
   museunCoins: amount(args["museun-coins"], "museun-coins", 1_000_000),
-  cashItems: [],
+  cashItems: [
+    cosmeticBox("chroma_name_box", args["chroma-name-boxes"], "chroma-name-boxes"),
+    cosmeticBox("profile_border_box", args["profile-border-boxes"], "profile-border-boxes"),
+    cosmeticBox("chat_badge_box", args["chat-badge-boxes"], "chat-badge-boxes"),
+  ].filter(Boolean),
   adventureSupportDays: amount(args["adventure-support-days"], "adventure-support-days", 3650),
   titleIds: titleId ? [titleId] : [],
 };
@@ -47,6 +51,7 @@ if (
     reward.staminaPotions +
     reward.museunCoins +
     reward.adventureSupportDays === 0 &&
+    reward.cashItems.length === 0 &&
   reward.titleIds.length === 0
 ) {
   usage("at least one reward option must be greater than zero");
@@ -225,6 +230,11 @@ function amount(value, label, max) {
   return parsed;
 }
 
+function cosmeticBox(itemId, value, label) {
+  const count = amount(value, label, 1_000_000);
+  return count > 0 ? { itemId, count } : null;
+}
+
 function requireDate(value, label) {
   const date = new Date(value);
   if (!value || Number.isNaN(date.getTime())) usage(`--${label} must be an ISO date`);
@@ -298,8 +308,10 @@ function usage(error) {
       "  --before 2026-08-01T13:00:00+09:00 \\\n" +
       "  --starts-at 2026-08-01T13:00:00+09:00 \\\n" +
       "  --title pre_open_regular --stamina-potions 15 \\\n" +
+      "  --chroma-name-boxes 2 --chat-badge-boxes 2 --profile-border-boxes 1 \\\n" +
       "  --audience kakao --deliver-inbox --output ./beta-coupons-kakao.csv\n\n" +
-      "Rewards: --title, --gold, --museun-coins, --stamina-potions, --adventure-support-days\n" +
+      "Rewards: --title, --gold, --museun-coins, --stamina-potions, --adventure-support-days,\n" +
+      "         --chroma-name-boxes, --chat-badge-boxes, --profile-border-boxes\n" +
       "Options: --after <ISO>, --ends-at <ISO>, --audience <all|kakao|google-only>,\n" +
       "         --deliver-inbox, --prefix <2-10 chars>, --message <text>, --transferable",
   );

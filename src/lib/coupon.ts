@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import type { InboxPayload } from "@/lib/server/inboxPayload";
 import { TITLES } from "@/adventure/data/titles";
+import {
+  MUSEUN_CASH_ITEMS,
+  MUSEUN_COSMETIC_BOX_ITEM_IDS,
+  type MuseunCosmeticBoxItemId,
+} from "@/adventure/data/v2/museunCashItems";
 
 const MAX_REWARD_AMOUNT = 1_000_000;
 
@@ -24,28 +29,27 @@ export function parseCouponReward(value: unknown): CouponReward | null {
   const museunCoins = boundedAmount(reward.museunCoins);
   const adventureSupportDays = boundedAmount(reward.adventureSupportDays, 3650);
   const titleIds = couponTitleIds(reward.titleIds);
+  const cashItems = couponCashItems(reward.cashItems);
   if (
     gold === null ||
     staminaPotions === null ||
     museunCoins === null ||
     adventureSupportDays === null ||
-    titleIds === null
+    titleIds === null ||
+    cashItems === null
   ) {
     return null;
   }
 
-  // 쿠폰 발급 CLI 는 수량형 보상과 영구 칭호만 만든다. 아이템 배열은 향후 관리자 UI가
-  // 생겨도 기존 admin_gift 계약을 그대로 쓸 수 있도록 빈 배열만 허용한다.
-  if (
-    !isEmptyArray(reward.materials) ||
-    !isEmptyArray(reward.items) ||
-    !isEmptyArray(reward.cashItems)
-  ) {
+  // 일반 장비·재료는 캠페인 보상에서 계속 막고, 중복 없는 꾸미기 상자 3종만 허용한다.
+  // 특정 외형을 직접 지급하는 entitlement 는 기간 시작 시점이 달라질 수 있어 제외한다.
+  if (!isEmptyArray(reward.materials) || !isEmptyArray(reward.items)) {
     return null;
   }
   if (
     gold + staminaPotions + museunCoins + adventureSupportDays <= 0 &&
-    titleIds.length === 0
+    titleIds.length === 0 &&
+    cashItems.length === 0
   ) {
     return null;
   }
@@ -57,7 +61,7 @@ export function parseCouponReward(value: unknown): CouponReward | null {
     items: [],
     staminaPotions,
     museunCoins,
-    cashItems: [],
+    cashItems,
     adventureSupportDays,
     ...(titleIds.length > 0 ? { titleIds } : {}),
   };
@@ -78,6 +82,11 @@ export function couponRewardLabels(reward: CouponReward): string[] {
   }
   if (reward.adventureSupportDays > 0) {
     labels.push(`모험 지원권 ${reward.adventureSupportDays.toLocaleString("ko-KR")}일`);
+  }
+  for (const item of reward.cashItems) {
+    labels.push(
+      `${MUSEUN_CASH_ITEMS[item.itemId].name} ${item.count.toLocaleString("ko-KR")}개`,
+    );
   }
   return labels;
 }
@@ -117,4 +126,34 @@ function couponTitleIds(value: unknown): string[] | null {
     ids.add(item);
   }
   return [...ids];
+}
+
+function couponCashItems(
+  value: unknown,
+): CouponReward["cashItems"] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+
+  const counts = new Map<MuseunCosmeticBoxItemId, number>();
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) return null;
+    const row = item as Record<string, unknown>;
+    if (
+      typeof row.itemId !== "string" ||
+      !(MUSEUN_COSMETIC_BOX_ITEM_IDS as readonly string[]).includes(row.itemId)
+    ) {
+      return null;
+    }
+    const count = boundedAmount(row.count);
+    if (count === null || count <= 0) return null;
+    const itemId = row.itemId as MuseunCosmeticBoxItemId;
+    const next = (counts.get(itemId) ?? 0) + count;
+    if (next > MAX_REWARD_AMOUNT) return null;
+    counts.set(itemId, next);
+  }
+
+  return MUSEUN_COSMETIC_BOX_ITEM_IDS.flatMap((itemId) => {
+    const count = counts.get(itemId);
+    return count ? [{ itemId, count }] : [];
+  });
 }

@@ -38,7 +38,8 @@ describe("대문 로그인 선택지", () => {
     );
 
     expect(html).toContain("홍보 링크가 적용되었습니다");
-    expect(html).toContain("프론티어 진행도에 따라 홍보자에게 단계별 보상이 지급됩니다");
+    expect(html).toContain("캐릭터를 만들면 회복약 2개를 받고");
+    expect(html).toContain("홍보자에게도 단계별 보상이 지급됩니다");
   });
 
   it("OAuth 계정 연결 실패를 로그인 반복 대신 명시적으로 안내한다", () => {

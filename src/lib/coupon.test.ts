@@ -36,11 +36,42 @@ describe("coupon", () => {
     ]);
   });
 
+  it("꾸미기 상자 보상을 검증하고 표시한다", () => {
+    const reward = parseCouponReward({
+      cashItems: [
+        { itemId: "chroma_name_box", count: 2 },
+        { itemId: "chat_badge_box", count: 2 },
+        { itemId: "profile_border_box", count: 1 },
+      ],
+    });
+    expect(reward).not.toBeNull();
+    expect(reward?.cashItems).toEqual([
+      { itemId: "chroma_name_box", count: 2 },
+      { itemId: "profile_border_box", count: 1 },
+      { itemId: "chat_badge_box", count: 2 },
+    ]);
+    expect(couponRewardLabels(reward!)).toEqual([
+      "닉네임 꾸미기 상자 2개",
+      "프로필 꾸미기 상자 1개",
+      "채팅 배지 상자 2개",
+    ]);
+  });
+
   it("빈 보상과 한도 밖 보상을 거절한다", () => {
     expect(parseCouponReward({})).toBeNull();
     expect(parseCouponReward({ gold: 1_000_001 })).toBeNull();
     expect(
       parseCouponReward({ gold: 1, items: [{ itemId: "x", count: 1 }] }),
+    ).toBeNull();
+    expect(
+      parseCouponReward({
+        cashItems: [{ itemId: "rename_permit", count: 1 }],
+      }),
+    ).toBeNull();
+    expect(
+      parseCouponReward({
+        cashItems: [{ itemId: "chroma_name_box", count: 0 }],
+      }),
     ).toBeNull();
     expect(parseCouponReward({ titleIds: ["unknown_title"] })).toBeNull();
   });

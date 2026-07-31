@@ -3,8 +3,9 @@ import {
   attributeReferral,
   createReferralCode,
   normalizeReferralCode,
+  REFERRAL_NEW_USER_STAMINA_POTIONS,
+  REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
   referralLandingUrl,
-  referralRewardGold,
   referralRewardMilestones,
   rewardReferralProgress,
 } from "./referrals";
@@ -14,12 +15,9 @@ import {
   referralConversions,
 } from "@/db/schema";
 
-const originalReward = process.env.REFERRAL_REWARD_GOLD;
 const originalAuthUrl = process.env.AUTH_URL;
 
 afterEach(() => {
-  if (originalReward === undefined) delete process.env.REFERRAL_REWARD_GOLD;
-  else process.env.REFERRAL_REWARD_GOLD = originalReward;
   if (originalAuthUrl === undefined) delete process.env.AUTH_URL;
   else process.env.AUTH_URL = originalAuthUrl;
 });
@@ -48,32 +46,19 @@ describe("referrals", () => {
     ).toBe("https://msmsge.com/sign-in?referral=accepted");
   });
 
-  it("보상액은 환경변수를 쓰되 잘못된 값에는 안전한 기본값을 쓴다", () => {
-    process.env.REFERRAL_REWARD_GOLD = "25000";
-    expect(referralRewardGold()).toBe(25_000);
-    process.env.REFERRAL_REWARD_GOLD = "-1";
-    expect(referralRewardGold()).toBe(10_000);
-    process.env.REFERRAL_REWARD_GOLD = "not-a-number";
-    expect(referralRewardGold()).toBe(10_000);
-    process.env.REFERRAL_REWARD_GOLD = "";
-    expect(referralRewardGold()).toBe(10_000);
-  });
-
-  it("총 보상을 프론티어 12·24·36 단계에 20%·30%·50%로 나눈다", () => {
-    process.env.REFERRAL_REWARD_GOLD = "25000";
+  it("프론티어 6·12·18·24·36의 5단계마다 홍보자 회복약 1개를 지급한다", () => {
     expect(referralRewardMilestones()).toEqual([
-      { frontierDepth: 12, rewardGold: 5_000 },
-      { frontierDepth: 24, rewardGold: 7_500 },
-      { frontierDepth: 36, rewardGold: 12_500 },
+      { frontierDepth: 6, referrerStaminaPotions: 1 },
+      { frontierDepth: 12, referrerStaminaPotions: 1 },
+      { frontierDepth: 18, referrerStaminaPotions: 1 },
+      { frontierDepth: 24, referrerStaminaPotions: 1 },
+      { frontierDepth: 36, referrerStaminaPotions: 1 },
     ]);
-    expect(referralRewardMilestones(10_001)).toEqual([
-      { frontierDepth: 12, rewardGold: 2_000 },
-      { frontierDepth: 24, rewardGold: 3_000 },
-      { frontierDepth: 36, rewardGold: 5_001 },
-    ]);
+    expect(REFERRAL_NEW_USER_STAMINA_POTIONS).toBe(2);
+    expect(REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE).toBe(1);
   });
 
-  it("가입 시에는 귀속만 기록하고 보상 우편을 만들지 않는다", async () => {
+  it("신규 캐릭터 귀속 시 회복약 2개 우편을 한 번만 만든다", async () => {
     const trace = makeTrace();
     const tx = fakeExecutor({
       ownerUserId: "referrer",
@@ -86,12 +71,22 @@ describe("referrals", () => {
     ).resolves.toEqual({ attributed: true });
     expect(trace.inserted.map((entry) => entry.table)).toEqual([
       referralConversions,
+      marketplaceInbox,
     ]);
     expect(trace.inserted[0]?.values).toMatchObject({
       referredUserId: "new-user",
       referrerUserId: "referrer",
       rewardGold: 0,
       rewardedDepth: 0,
+      rewardedStaminaDepth: 0,
+    });
+    expect(trace.inserted[1]).toMatchObject({
+      table: marketplaceInbox,
+      values: {
+        userId: "new-user",
+        kind: "admin_gift",
+        payload: { staminaPotions: 2 },
+      },
     });
   });
 
@@ -127,26 +122,25 @@ describe("referrals", () => {
     ]);
   });
 
-  it("프론티어 단계 도달 시 누적값을 갱신하고 추천인에게 단계 보상을 보낸다", async () => {
+  it("프론티어 단계 도달 시 진척도를 갱신하고 홍보자에게 회복약을 보낸다", async () => {
     const trace = makeTrace();
     const tx = fakeExecutor({
       ownerUserId: "unused",
       conversionInserted: false,
       lockedConversion: {
         referrerUserId: "referrer",
-        rewardGold: 2_000,
-        rewardedDepth: 12,
+        rewardedStaminaDepth: 12,
       },
       trace,
     });
 
     await expect(
       rewardReferralProgress(tx as never, "new-user", "새싹", 24),
-    ).resolves.toEqual({ rewardGold: 3_000, rewardedDepth: 24 });
+    ).resolves.toEqual({ staminaPotions: 2, rewardedDepth: 24 });
     expect(trace.updates).toEqual([
       {
         table: referralConversions,
-        values: { rewardGold: 5_000, rewardedDepth: 24 },
+        values: { rewardedStaminaDepth: 24 },
       },
     ]);
     expect(trace.inserted).toHaveLength(1);
@@ -155,7 +149,7 @@ describe("referrals", () => {
       values: {
         userId: "referrer",
         kind: "admin_gift",
-        payload: { gold: 3_000 },
+        payload: { gold: 0, staminaPotions: 2 },
         message: expect.stringContaining("프론티어 24"),
       },
     });
@@ -168,14 +162,13 @@ describe("referrals", () => {
       conversionInserted: false,
       lockedConversion: {
         referrerUserId: "referrer",
-        rewardGold: 0,
-        rewardedDepth: 0,
+        rewardedStaminaDepth: 0,
       },
       trace: skipTrace,
     });
     await expect(
       rewardReferralProgress(skipped as never, "new-user", "새싹", 36),
-    ).resolves.toEqual({ rewardGold: 10_000, rewardedDepth: 36 });
+    ).resolves.toEqual({ staminaPotions: 5, rewardedDepth: 36 });
 
     const repeatedTrace = makeTrace();
     const repeated = fakeExecutor({
@@ -183,14 +176,13 @@ describe("referrals", () => {
       conversionInserted: false,
       lockedConversion: {
         referrerUserId: "referrer",
-        rewardGold: 10_000,
-        rewardedDepth: 36,
+        rewardedStaminaDepth: 36,
       },
       trace: repeatedTrace,
     });
     await expect(
       rewardReferralProgress(repeated as never, "new-user", "새싹", 36),
-    ).resolves.toEqual({ rewardGold: 0, rewardedDepth: 36 });
+    ).resolves.toEqual({ staminaPotions: 0, rewardedDepth: 36 });
     expect(repeatedTrace.inserted).toHaveLength(0);
     expect(repeatedTrace.updates).toHaveLength(0);
   });
@@ -203,8 +195,8 @@ describe("referrals", () => {
       trace,
     });
     await expect(
-      rewardReferralProgress(tx as never, "new-user", "새싹", 11),
-    ).resolves.toEqual({ rewardGold: 0, rewardedDepth: 0 });
+      rewardReferralProgress(tx as never, "new-user", "새싹", 5),
+    ).resolves.toEqual({ staminaPotions: 0, rewardedDepth: 0 });
     expect(trace.selectedTables).toHaveLength(0);
   });
 });
@@ -224,8 +216,7 @@ function fakeExecutor(args: {
   conversionInserted: boolean;
   lockedConversion?: {
     referrerUserId: string;
-    rewardGold: number;
-    rewardedDepth: number;
+    rewardedStaminaDepth: number;
   };
   trace: Trace;
 }) {

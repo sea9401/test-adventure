@@ -14,42 +14,25 @@ import { inboxValues } from "@/lib/server/inboxPayload";
 export const REFERRAL_COOKIE = "adventure_referral";
 export const REFERRAL_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 export const REFERRAL_CODE_PATTERN = /^[a-f0-9]{16}$/;
-
-const DEFAULT_REWARD_GOLD = 10_000;
-const MAX_REWARD_GOLD = 1_000_000_000;
-
-export const REFERRAL_REWARD_DEPTHS = [12, 24, 36] as const;
+export const REFERRAL_NEW_USER_STAMINA_POTIONS = 2;
+export const REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE = 1;
+export const REFERRAL_REWARD_DEPTHS = [6, 12, 18, 24, 36] as const;
 
 export type ReferralRewardMilestone = {
   frontierDepth: (typeof REFERRAL_REWARD_DEPTHS)[number];
-  rewardGold: number;
+  referrerStaminaPotions: number;
 };
 
 type DbExecutor =
   | typeof db
   | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-export function referralRewardGold(): number {
-  const raw = process.env.REFERRAL_REWARD_GOLD;
-  if (raw === undefined || raw.trim() === "") return DEFAULT_REWARD_GOLD;
-  const configured = Number(raw);
-  if (!Number.isSafeInteger(configured) || configured < 0) {
-    return DEFAULT_REWARD_GOLD;
-  }
-  return Math.min(configured, MAX_REWARD_GOLD);
-}
-
-export function referralRewardMilestones(
-  totalRewardGold = referralRewardGold(),
-): ReferralRewardMilestone[] {
-  const total = Math.max(0, Math.floor(totalRewardGold));
-  const first = Math.floor(total * 0.2);
-  const second = Math.floor(total * 0.3);
-  return [
-    { frontierDepth: 12, rewardGold: first },
-    { frontierDepth: 24, rewardGold: second },
-    { frontierDepth: 36, rewardGold: total - first - second },
-  ];
+export function referralRewardMilestones(): ReferralRewardMilestone[] {
+  return REFERRAL_REWARD_DEPTHS.map((frontierDepth) => ({
+    frontierDepth,
+    referrerStaminaPotions:
+      REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
+  }));
 }
 
 export function normalizeReferralCode(value: unknown): string | null {
@@ -98,10 +81,29 @@ export async function attributeReferral(
       referralCode: code,
       rewardGold: 0,
       rewardedDepth: 0,
+      rewardedStaminaDepth: 0,
     })
     .onConflictDoNothing({ target: referralConversions.referredUserId })
     .returning({ referredUserId: referralConversions.referredUserId });
-  return { attributed: !!conversion };
+  if (!conversion) return { attributed: false };
+
+  await tx.insert(marketplaceInbox).values(
+    inboxValues({
+      userId: referredUserId,
+      payload: {
+        kind: "admin_gift",
+        gold: 0,
+        materials: [],
+        items: [],
+        staminaPotions: REFERRAL_NEW_USER_STAMINA_POTIONS,
+        museunCoins: 0,
+        cashItems: [],
+        adventureSupportDays: 0,
+      },
+      message: `홍보 링크로 모험을 시작해 주셔서 스태미나 회복약 ${REFERRAL_NEW_USER_STAMINA_POTIONS}개를 드립니다.`,
+    }),
+  );
+  return { attributed: true };
 }
 
 export async function rewardReferralProgress(
@@ -109,68 +111,68 @@ export async function rewardReferralProgress(
   referredUserId: string,
   referredName: string,
   frontierDepthRaw: unknown,
-): Promise<{ rewardGold: number; rewardedDepth: number }> {
+): Promise<{ staminaPotions: number; rewardedDepth: number }> {
   const frontierDepth = Math.max(0, Math.floor(Number(frontierDepthRaw) || 0));
   const milestones = referralRewardMilestones();
   const reached = milestones.filter(
     (milestone) => milestone.frontierDepth <= frontierDepth,
   );
   const targetDepth = reached.at(-1)?.frontierDepth ?? 0;
-  if (targetDepth === 0) return { rewardGold: 0, rewardedDepth: 0 };
+  if (targetDepth === 0) return { staminaPotions: 0, rewardedDepth: 0 };
 
   const [conversion] = await tx
     .select({
       referrerUserId: referralConversions.referrerUserId,
-      rewardGold: referralConversions.rewardGold,
-      rewardedDepth: referralConversions.rewardedDepth,
+      rewardedStaminaDepth: referralConversions.rewardedStaminaDepth,
     })
     .from(referralConversions)
     .where(eq(referralConversions.referredUserId, referredUserId))
     .for("update")
     .limit(1);
-  if (!conversion || conversion.rewardedDepth >= targetDepth) {
+  if (!conversion || conversion.rewardedStaminaDepth >= targetDepth) {
     return {
-      rewardGold: 0,
-      rewardedDepth: conversion?.rewardedDepth ?? 0,
+      staminaPotions: 0,
+      rewardedDepth: conversion?.rewardedStaminaDepth ?? 0,
     };
   }
 
-  const dueGold = milestones
+  const dueMilestoneCount = milestones
     .filter(
       (milestone) =>
-        milestone.frontierDepth > conversion.rewardedDepth &&
+        milestone.frontierDepth > conversion.rewardedStaminaDepth &&
         milestone.frontierDepth <= targetDepth,
     )
-    .reduce((sum, milestone) => sum + milestone.rewardGold, 0);
+    .length;
+  const dueStaminaPotions =
+    dueMilestoneCount * REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE;
 
   await tx
     .update(referralConversions)
     .set({
-      rewardGold: conversion.rewardGold + dueGold,
-      rewardedDepth: targetDepth,
+      rewardedStaminaDepth: targetDepth,
     })
     .where(eq(referralConversions.referredUserId, referredUserId));
 
-  if (dueGold > 0) {
+  if (dueStaminaPotions > 0) {
     await tx.insert(marketplaceInbox).values(
       inboxValues({
         userId: conversion.referrerUserId,
         payload: {
           kind: "admin_gift",
-          gold: dueGold,
+          gold: 0,
           materials: [],
           items: [],
-          staminaPotions: 0,
+          staminaPotions: dueStaminaPotions,
           museunCoins: 0,
           cashItems: [],
           adventureSupportDays: 0,
         },
-        message: `${referredName}님이 프론티어 ${targetDepth}에 도달했습니다. 단계 홍보 보상을 받아 주세요.`,
+        message: `${referredName}님이 프론티어 ${targetDepth}에 도달했습니다. 홍보 보상 스태미나 회복약 ${dueStaminaPotions}개를 받아 주세요.`,
       }),
     );
   }
 
-  return { rewardGold: dueGold, rewardedDepth: targetDepth };
+  return { staminaPotions: dueStaminaPotions, rewardedDepth: targetDepth };
 }
 
 export async function referralCodeIsActive(

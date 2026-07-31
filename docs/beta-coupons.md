@@ -24,13 +24,17 @@ node scripts/issue-beta-coupons.mjs \
   --starts-at 2026-08-01T13:00:00+09:00 \
   --title pre_open_regular \
   --stamina-potions 15 \
+  --chroma-name-boxes 2 \
+  --chat-badge-boxes 2 \
+  --profile-border-boxes 1 \
   --audience kakao \
   --deliver-inbox \
   --message "베타 테스트에 함께해주셔서 감사합니다." \
   --output ./beta-coupons-kakao.csv
 ```
 
-`--title`, `--gold`, `--museun-coins`, `--stamina-potions`, `--adventure-support-days`를 함께 조합할 수 있다.
+`--title`, `--gold`, `--museun-coins`, `--stamina-potions`, `--adventure-support-days`,
+`--chroma-name-boxes`, `--chat-badge-boxes`, `--profile-border-boxes`를 함께 조합할 수 있다.
 출력 CSV는 소유자만 읽을 수 있는 권한으로 새로 생성하며 기존 파일은 덮어쓰지 않는다.
 같은 캠페인을 다시 실행하면 이미 발급된 계정은 건너뛰고 새 참여자만 발급한다.
 
@@ -39,3 +43,20 @@ node scripts/issue-beta-coupons.mjs \
 
 유저는 게임 메뉴의 `설정 → 이벤트 → 쿠폰 등록`에서 코드를 입력한다. 등록 성공 후 보상은 우편함에
 들어가며, 중복 요청은 DB 행 잠금과 사용 시각으로 차단한다.
+
+## 이미 발급한 캠페인에 꾸미기 상자 추가
+
+앱에 쿠폰 `cashItems` 지원 코드가 배포된 뒤 아래 명령을 실행한다. 기본은 읽기 전용 미리보기이며,
+`--apply --operator`를 붙여야 실제 반영된다. 세 수량은 증분이 아니라 캠페인의 최종 수량이다.
+
+```bash
+npm run coupon:set-cosmetic-boxes -- \
+  --slug beta-2026 \
+  --chroma-name-boxes 2 \
+  --chat-badge-boxes 2 \
+  --profile-border-boxes 1
+```
+
+실제 반영은 캠페인 보상을 갱신하고 이미 등록된 코드마다 추가분 운영자 우편을 보내는 작업을 한
+트랜잭션으로 처리한다. 이후 등록되는 코드는 갱신된 전체 보상을 받는다. 같은 최종 수량으로 재실행하면
+추가 지급하지 않으며, 이미 지급된 보상은 회수할 수 없으므로 수량 감소는 거부한다.

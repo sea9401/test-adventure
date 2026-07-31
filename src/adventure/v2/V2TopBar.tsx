@@ -11,14 +11,12 @@ import { V2SettingsMenu } from "./V2SettingsMenu";
 // 우측: 통합 알림(일반 알림+우편) 미리보기·채팅·광장/설정 메뉴.
 
 export function V2TopBar({
-  gameName,
   playerName,
   playerLevel,
   bankedGold,
   coreLoopOn,
   viewerGuildId,
 }: {
-  gameName: string | null;
   playerName: string;
   playerLevel: number;
   bankedGold: number;
@@ -66,7 +64,7 @@ export function V2TopBar({
           title={null}
           viewerGuildId={viewerGuildId}
         />
-        <V2SettingsMenu gameName={gameName} />
+        <V2SettingsMenu />
       </nav>
     </header>
   );

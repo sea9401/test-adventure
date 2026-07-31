@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   BookOpen,
@@ -10,68 +9,26 @@ import {
   ChatsCircle,
   CoinVertical,
   EnvelopeSimple,
-  Eye,
-  EyeSlash,
-  FileText,
+  GearSix,
   Gift,
-  ImageSquare,
   List,
   Megaphone,
-  Moon,
   Palette,
   SignOut,
   Storefront,
-  Sun,
-  UserMinus,
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
-import {
-  BACKGROUND_HIDDEN_MODE_CLASS,
-  DISCREET_MODE_CLASS,
-  DISPLAY_MODE_STORAGE_KEY,
-  storedValueForDisplayMode,
-  type DisplayMode,
-} from "./discreetMode";
 import { useAttendanceReminder } from "./useAttendanceReminder";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/우편함/거래소/랭킹/전체 소식) + 게임 안내서 +
-// 다크 토글 + 로그아웃/회원탈퇴. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
+// 환경 설정 + 로그아웃. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
 // 이 메뉴로 통째 이관(사용자 결정 2026-06-13) — /plaza/* 라우트는 그대로.
-// 테마 토글 패턴: documentElement.classList + localStorage("theme").
-// 회원 탈퇴 모달은 거의 안 눌리는 보조 UI라 클릭 시점에 동적 로드(ssr:false).
-const DeleteAccountModal = dynamic(
-  () =>
-    import("@/components/DeleteAccountModal").then((m) => ({
-      default: m.DeleteAccountModal,
-    })),
-  { ssr: false },
-);
-
-export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
+// 화면 모드·정책·회원 탈퇴는 /settings/preferences 한곳에서 관리한다.
+export function V2SettingsMenu() {
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("default");
-  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const attendancePending = useAttendanceReminder();
-
-  useEffect(() => {
-    const initial = document.documentElement.classList.contains("dark")
-      ? "dark"
-      : "light";
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTheme(initial);
-    setDisplayMode(
-      document.documentElement.classList.contains(DISCREET_MODE_CLASS)
-        ? "discreet"
-        : document.documentElement.classList.contains(
-              BACKGROUND_HIDDEN_MODE_CLASS,
-            )
-          ? "background-hidden"
-          : "default",
-    );
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -87,46 +44,10 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
 
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.classList.toggle("dark", next === "dark");
-    try {
-      localStorage.setItem("theme", next);
-    } catch {}
-  };
-
-  const changeDisplayMode = (next: DisplayMode) => {
-    setDisplayMode(next);
-    document.documentElement.classList.toggle(
-      BACKGROUND_HIDDEN_MODE_CLASS,
-      next === "background-hidden",
-    );
-    document.documentElement.classList.toggle(
-      DISCREET_MODE_CLASS,
-      next === "discreet",
-    );
-    try {
-      const storedValue = storedValueForDisplayMode(next);
-      if (storedValue) {
-        localStorage.setItem(DISPLAY_MODE_STORAGE_KEY, storedValue);
-      } else {
-        localStorage.removeItem(DISPLAY_MODE_STORAGE_KEY);
-      }
-    } catch {}
-  };
-
   const handleSignOut = () => {
     setOpen(false);
     signOut({ redirectTo: "/sign-in" });
   };
-
-  const handleOpenDeleteAccount = () => {
-    setOpen(false);
-    setDeleteAccountOpen(true);
-  };
-
-  const isDark = theme === "dark";
 
   return (
     <div ref={containerRef} className="relative">
@@ -231,83 +152,14 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
           </ul>
           <ul className="border-t border-zinc-200 py-1 dark:border-zinc-700">
             <li>
-              <button
-                type="button"
-                onClick={toggleTheme}
+              <Link
+                href="/settings/preferences"
+                onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
-                {isDark ? (
-                  <Sun size={18} weight="duotone" />
-                ) : (
-                  <Moon size={18} weight="duotone" />
-                )}
-                {isDark ? "라이트 모드" : "다크 모드"}
-              </button>
-            </li>
-            <li>
-              {(
-                [
-                  {
-                    id: "default",
-                    label: "기본 모드",
-                    detail: "배경·화려한 장식 표시",
-                    Icon: Eye,
-                  },
-                  {
-                    id: "background-hidden",
-                    label: "배경 숨김",
-                    detail: "화려한 장식 유지",
-                    Icon: ImageSquare,
-                  },
-                  {
-                    id: "discreet",
-                    label: "은신 모드",
-                    detail: "배경·화려한 장식 숨김",
-                    Icon: EyeSlash,
-                  },
-                ] as const satisfies readonly {
-                  id: DisplayMode;
-                  label: string;
-                  detail: string;
-                  Icon: typeof Eye;
-                }[]
-              ).map((option) => {
-                const selected = displayMode === option.id;
-                const label =
-                  selected && option.id !== "default"
-                    ? `${option.label} 해제`
-                    : option.label;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() =>
-                      changeDisplayMode(
-                        selected && option.id !== "default"
-                          ? "default"
-                          : option.id,
-                      )
-                    }
-                    aria-pressed={selected}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                      selected
-                        ? "text-violet-700 dark:text-violet-300"
-                        : "text-zinc-800 dark:text-zinc-200"
-                    }`}
-                  >
-                    <option.Icon
-                      size={18}
-                      weight={selected ? "fill" : "duotone"}
-                    />
-                    <span className="min-w-0">
-                      <span className="block">{label}</span>
-                      <span className="block text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
-                        {option.detail}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
+                <GearSix size={18} weight="duotone" />
+                환경 설정
+              </Link>
             </li>
             <li>
               <Link
@@ -320,16 +172,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </Link>
             </li>
             <li>
-              <Link
-                href="/privacy"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <FileText size={18} weight="duotone" />
-                정책·약관
-              </Link>
-            </li>
-            <li>
               <button
                 type="button"
                 onClick={handleSignOut}
@@ -339,24 +181,8 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 로그아웃
               </button>
             </li>
-            <li>
-              <button
-                type="button"
-                onClick={handleOpenDeleteAccount}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-900 dark:hover:text-zinc-400"
-              >
-                <UserMinus size={14} weight="duotone" />
-                회원 탈퇴
-              </button>
-            </li>
           </ul>
         </div>
-      )}
-      {deleteAccountOpen && (
-        <DeleteAccountModal
-          gameName={gameName}
-          onClose={() => setDeleteAccountOpen(false)}
-        />
       )}
     </div>
   );

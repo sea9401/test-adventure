@@ -28,6 +28,7 @@
     "load-test": "node scripts/load-test.mjs",
     "account:create": "node scripts/create-password-account.mjs",
     "coupon:issue": "node scripts/issue-beta-coupons.mjs",
+    "coupon:set-cosmetic-boxes": "node scripts/set-coupon-cosmetic-boxes.mjs",
     "db:reset-game-progress": "node scripts/reset-game-progress.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node src/db/migrate.mjs",

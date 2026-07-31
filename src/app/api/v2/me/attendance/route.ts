@@ -28,6 +28,7 @@ import {
   parseStaminaPotions,
 } from "@/adventure/v2/staminaPotions";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { hasCompletedOnboarding } from "@/lib/server/profile";
 import {
   recordEconomyEventSoon,
   recordRewardFailureSoon,
@@ -79,6 +80,11 @@ export async function POST() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  // 현 코어루프에서는 신규 캐릭터가 직업 없이 모험가(none)로 시작한다. 따라서
+  // character.v2.class가 아니라 프로필 기반의 공용 온보딩 판정으로 생성 완료를 확인한다.
+  if (!(await hasCompletedOnboarding(userId))) {
+    return Response.json({ ok: false, error: "no_character" }, { status: 409 });
+  }
   const now = new Date();
   const nowMs = now.getTime();
 
@@ -91,12 +97,6 @@ export async function POST() {
         "character.v2",
         {},
       );
-      if (typeof character.class !== "string") {
-        return {
-          status: 409,
-          body: { ok: false as const, error: "no_character" },
-        };
-      }
       const attendanceRaw = await lockSaveForUpdate(
         tx,
         userId,

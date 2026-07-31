@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   saves: new Map<string, unknown>(),
+  hasCompletedOnboarding: vi.fn(),
   recordEconomyEventSoon: vi.fn(),
   recordRewardFailureSoon: vi.fn(),
 }));
@@ -13,6 +14,9 @@ vi.mock("@/db", () => ({
 }));
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-attendance"),
+}));
+vi.mock("@/lib/server/profile", () => ({
+  hasCompletedOnboarding: mocks.hasCompletedOnboarding,
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(
@@ -50,16 +54,16 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(JULY_20);
   vi.clearAllMocks();
+  mocks.hasCompletedOnboarding.mockResolvedValue(true);
   mocks.saves.clear();
   mocks.saves.set("character.v2", {
-    class: "warrior",
     gold: 1_000,
     stamina: { current: 500, lastUpdatedAt: JULY_20.getTime() },
   });
 });
 
 describe("월간 출석 보상 수령", () => {
-  it("1일차에는 지원권 15일을 계정에 직접 적용한다", async () => {
+  it("직업 없는 신규 모험가도 1일차 지원권 15일을 계정에 직접 적용한다", async () => {
     const response = await POST();
     const json = (await response.json()) as {
       ok: boolean;
@@ -88,6 +92,16 @@ describe("월간 출석 보상 수령", () => {
       json.adventureSupportActiveUntil,
     );
     expect(character.stamina.current).toBe(1_500);
+  });
+
+  it("온보딩을 마치지 않은 계정은 출석 보상을 받을 수 없다", async () => {
+    mocks.hasCompletedOnboarding.mockResolvedValueOnce(false);
+
+    const response = await POST();
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ ok: false, error: "no_character" });
+    expect(mocks.saves.has("monthly-attendance.v1")).toBe(false);
   });
 
   it("같은 KST 날짜의 중복 수령은 재화를 더 지급하지 않는다", async () => {

@@ -315,8 +315,8 @@ const GROWTH: QuestDef[] = [
 ];
 
 // ── 기초 튜토리얼(독립 마일스톤 · 비순차) ────────────────────────────────────
-// 성장의 길이 안 다루는 기본 조작을 한 번씩 익히게 하는 묶음(상점·치료소·은행·스킬).
-// 강화/낚시/보물은 enhance·life 라인이 첫 단계부터 다루므로 여기엔 중복 안 둔다.
+// 성장의 길이 안 다루는 기본 조작과 생활 콘텐츠를 한 번씩 익히게 하는 묶음.
+// 비순차 라인이라 시간이 필요한 농사·요리가 다른 튜토리얼 진행을 막지 않는다.
 const BASICS: QuestDef[] = [
   {
     id: "b_shop",
@@ -372,6 +372,61 @@ const BASICS: QuestDef[] = [
     progress: (c) => (c.hasEditedSkillLoadout ? 1 : 0),
     goal: 1,
     check: (c) => c.hasEditedSkillLoadout,
+  },
+  {
+    id: "b_farm",
+    line: "basics",
+    title: "첫 수확",
+    desc: "마을 > 농장에서 씨앗을 심고 작물을 한 번 수확하세요.",
+    href: "/town/farm",
+    reward: { staminaPotions: 2 },
+    progress: (c) => c.farmHarvests,
+    goal: 1,
+    check: (c) => c.farmHarvests >= 1,
+  },
+  {
+    id: "b_logging",
+    line: "basics",
+    title: "벌목 입문",
+    desc: "지도 > 소나무숲에서 벌목을 한 번 성공하세요.",
+    href: "/town/logging?spot=pine_grove",
+    reward: { staminaPotions: 2 },
+    progress: (c) => c.woodcuttingCuts,
+    goal: 1,
+    check: (c) => c.woodcuttingCuts >= 1,
+  },
+  {
+    id: "b_mining",
+    line: "basics",
+    title: "채광 입문",
+    desc: "지도 > 철 채석장에서 채광을 한 번 성공하세요.",
+    href: "/town/mining?spot=iron_quarry",
+    reward: { staminaPotions: 2 },
+    progress: (c) => c.miningSuccesses,
+    goal: 1,
+    check: (c) => c.miningSuccesses >= 1,
+  },
+  {
+    id: "b_fishing",
+    line: "basics",
+    title: "낚시 입문",
+    desc: "마을 > 낚시터에서 물고기를 한 마리 낚으세요.",
+    href: "/town/fishing",
+    reward: { staminaPotions: 2 },
+    progress: (c) => c.fishCaught,
+    goal: 1,
+    check: (c) => c.fishCaught >= 1,
+  },
+  {
+    id: "b_cooking",
+    line: "basics",
+    title: "첫 요리",
+    desc: "마을 > 주방에서 요리를 한 번 완성하세요.",
+    href: "/town/kitchen",
+    reward: { staminaPotions: 2 },
+    progress: (c) => c.cookingDishesCooked,
+    goal: 1,
+    check: (c) => c.cookingDishesCooked >= 1,
   },
 ];
 
@@ -845,7 +900,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "basics",
     name: "기초 튜토리얼",
-    subtitle: "상점·치료소·은행·스킬 화면의 기본 조작을 하나씩 익혀보세요.",
+    subtitle: "상점·치료소·은행·스킬과 생활 콘텐츠의 기본 조작을 하나씩 익혀보세요.",
     sequential: false,
     tutorial: true,
   },

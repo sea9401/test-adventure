@@ -366,6 +366,44 @@ describe("성장의 길 (순차 라인)", () => {
     ).toBe(true);
   });
 
+  it("기초 튜토리얼 — 생활 5종의 첫 성공을 각각 안내하고 판정", () => {
+    const lifeTutorials = [
+      {
+        id: "b_farm",
+        href: "/town/farm",
+        ctx: { ...ZERO, farmHarvests: 1 },
+      },
+      {
+        id: "b_logging",
+        href: "/town/logging?spot=pine_grove",
+        ctx: { ...ZERO, woodcuttingCuts: 1 },
+      },
+      {
+        id: "b_mining",
+        href: "/town/mining?spot=iron_quarry",
+        ctx: { ...ZERO, miningSuccesses: 1 },
+      },
+      {
+        id: "b_fishing",
+        href: "/town/fishing",
+        ctx: { ...ZERO, fishCaught: 1 },
+      },
+      {
+        id: "b_cooking",
+        href: "/town/kitchen",
+        ctx: { ...ZERO, cookingDishesCooked: 1 },
+      },
+    ] as const;
+
+    for (const { id, href, ctx } of lifeTutorials) {
+      const quest = questById(id)!;
+      expect(quest.line, id).toBe("basics");
+      expect(quest.href, id).toBe(href);
+      expect(questStatus(quest, ZERO, none), id).toBe("active");
+      expect(isQuestClaimable(quest, ctx, none), id).toBe(true);
+    }
+  });
+
   it("튜토리얼 라인 플래그 — growth·basics 만 tutorial", () => {
     expect(isTutorialLine("growth")).toBe(true);
     expect(isTutorialLine("basics")).toBe(true);

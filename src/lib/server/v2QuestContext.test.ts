@@ -73,4 +73,26 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
     expect(ctx.cookingRecipesDiscovered).toBe(0);
     expect(ctx.cookingDishesCooked).toBe(0);
   });
+
+  it("튜토리얼의 수동 장비·장착 후 전투·스킬 로드아웃 행동을 변환한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: {
+        hasManuallyEquippedGear: true,
+        hasBattledAfterEquippingGear: true,
+        hasEditedSkillLoadout: true,
+      },
+      proficiencyRaw: {},
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      extras: EXTRAS,
+    });
+
+    expect(ctx).toMatchObject({
+      hasManuallyEquippedGear: true,
+      hasBattledAfterEquippingGear: true,
+      hasEditedSkillLoadout: true,
+    });
+  });
 });

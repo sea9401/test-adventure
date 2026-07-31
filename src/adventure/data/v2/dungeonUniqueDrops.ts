@@ -7,7 +7,7 @@
 //   ② 심층 밴드 풀(깊이 범위 키): 프론티어 밴드 드랍. BAND_COMMON_POOLS(흔한 밴드 장비, 로컬 깊이
 //      램프) + BAND_UNIQUE_POOLS. 2026-06-26 **유니크 재정의**: 옛 필드 유니크(굴림 사이드그레이드)는
 //      `common` 강등→COMMON 풀로 이동, UNIQUE 풀엔 **이름 있는 고유 아이템(Signature)** 만(잊힌 성소
-//      25+·밴드당 5종·chance 0.00015). 7~24 밴드 UNIQUE 풀은 비었다(게이트 전). 상세 = BAND_UNIQUE_POOLS 위 주석.
+//      25+·밴드당 5종·chance 0.0005). 7~24 밴드 UNIQUE 풀은 비었다(게이트 전). 상세 = BAND_UNIQUE_POOLS 위 주석.
 //
 // 밴드 드랍은 중복 허용(보유분 포함 균등 pick). 레거시 층 유니크만 id당 1개(ownedSet 제외).
 
@@ -73,8 +73,8 @@ export function rollUniqueDrop(
 // 밴드 장비를 흔한(normal·드랍 전용)/유니크(특화·추격) 두 풀로 분리(2026-06-09). 옛 BAND_UNIQUE_POOLS
 //   는 밴드 전 장비를 rarity:"unique" 로 묶어 "전부 유니크 취급"이 됐다. 이제:
 //   - 흔한 9종/밴드(무기 4 + 갑주세트 3 + 장신구 2) = noDrop normal. 빵앤버터 진행 장비.
-//     드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→0.5% / 3·4→0.7% / 5·6→0.9%). droppedEquipment 슬롯.
-//   - 유니크 = 비세트 컨셉 사이드그레이드(세트 통합 후 특화/2피스 세트 제거). chance 0.005
+//     드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→0.3% / 3·4→0.45% / 5·6→0.6%). droppedEquipment 슬롯.
+//   - 유니크 = 이름 있는 고유 아이템(Signature). chance 0.0005
 //     고정(어디서나 귀함·종당으로도 흔한보다 귀하게). droppedUnique 슬롯. 흔한과 별개 굴림(둘 다 가능).
 export type BandPool = {
   /** 밴드 시작 깊이(포함). */
@@ -303,12 +303,12 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
 ];
 
 // 흔한 밴드 장비 드랍률 — 모든 테마에서 로컬 깊이 기준으로 통일한다.
-// 2026-06-28: 좋은 장비일수록 확률을 계속 올리지 않고, 테마별 1~2번 0.03% / 3~4번 0.045% /
-//   5~6번 0.06% 정도로 고정. 구간이 깊어져도 "더 좋은 장비라 더 잘 나옴"이 되지 않게 한다.
+// 2026-08-01: 들판 1.2%→프론티어 진입 0.03%의 과도한 절벽을 완화하기 위해 10배 상향.
+//   모든 테마에서 로컬 깊이별 1~2번 0.3% / 3~4번 0.45% / 5~6번 0.6%로 통일.
 export function bandCommonChance(localDepth: number): number {
-  if (localDepth <= 2) return 0.0003;
-  if (localDepth <= 4) return 0.00045;
-  return 0.0006;
+  if (localDepth <= 2) return 0.003;
+  if (localDepth <= 4) return 0.0045;
+  return 0.006;
 }
 
 export function bandCommonDepthMult(depth: number): number {
@@ -346,9 +346,9 @@ export type BandUniquePool = {
 // 🔑 유니크 재정의(2026-06-26·docs/v2-signature-uniques-plan.md): 옛 필드 유니크(굴림 사이드그레이드)는
 //   특별하지 않아 `common`(일반)으로 강등 → BAND_COMMON_POOLS 로 이동. 유니크 풀엔 **이름 있는
 //   고유 아이템(Signature)** 만 남아 "유니크 = 정말 특별한 것"이 됨. 게이트 = **잊힌 성소(25)부터** —
-//   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~72 = 밴드당 고유 5종, chance 0.00015(밴드유니크보다
+//   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~72 = 밴드당 고유 5종, chance 0.0005(밴드유니크보다
 //   희귀). droppedUnique 슬롯 → 바이올렛 배너 + unique_drop 전광판 방송(기존 인프라 그대로·강등 후 고유템만).
-export const SIGNATURE_UNIQUE_CHANCE = 0.00015; // 고유 아이템 총 드랍률(밴드당)·다이얼. 0.0005→0.0002→0.00015(더 귀하게).
+export const SIGNATURE_UNIQUE_CHANCE = 0.0005; // 고유 아이템 총 드랍률(밴드당)·다이얼. 2026-08-01: 0.00015→0.0005.
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   // 마른 협곡(7~12)·얼음 호수(13~18)·심층 동굴(19~24) = 게이트 전 → 유니크 없음(빈 풀).
   { minDepth: 7, maxDepth: 12, chance: 0, ids: [] },

@@ -9,7 +9,11 @@ import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { useSystemMessageState } from "./RewardToastProvider";
-import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import {
+  V2_STAT_KEYS,
+  V2_STAT_LABELS,
+  type V2StatKey,
+} from "@/adventure/data/v2/v2StatKeys";
 import {
   effectiveCultivateProfile,
   V2_HYBRID_CULTIVATE_PROFILE,
@@ -200,13 +204,6 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     }
   }, [capGains, caps, cultivations, usable, nextCost, setMsg]);
 
-  // 프로필 스탯(앵커 + 관련 2) 을 상승치 큰 순으로.
-  const profileStats: V2StatKey[] = profile
-    ? (Object.keys(profile) as V2StatKey[]).sort(
-        (a, b) => (profile[b] ?? 0) - (profile[a] ?? 0),
-      )
-    : [];
-
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="성장의 신전" onBack={onBack} />
@@ -291,7 +288,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               </p>
             ) : (
               <ul className="mt-3 space-y-1.5">
-                {profileStats.map((k) => {
+                {V2_STAT_KEYS.map((k) => {
                   const cap = caps[k] ?? V2_STAT_CAP_BASE;
                   const cur = stats[k] ?? 0;
                   const gain = profile[k] ?? 0;
@@ -316,9 +313,11 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                             ({cap})
                           </span>
                         </span>
-                        <span className="text-emerald-600 dark:text-emerald-400">
-                          한계 +{gain}
-                        </span>
+                        {gain > 0 && (
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            한계 +{gain}
+                          </span>
+                        )}
                       </div>
                     </li>
                   );

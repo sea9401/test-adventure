@@ -90,6 +90,9 @@ type CharSave = {
   bankedGold?: unknown;
   hasHealed?: unknown;
   hasShopped?: unknown;
+  hasManuallyEquippedGear?: unknown;
+  hasBattledAfterEquippingGear?: unknown;
+  hasEditedSkillLoadout?: unknown;
   discoveredOutpostIds?: unknown;
   materials?: Record<string, unknown>;
 };
@@ -214,6 +217,11 @@ export function buildQuestCtx(args: {
   const bankedGold = num(charSave.bankedGold);
   const hasHealed = Boolean(charSave.hasHealed);
   const hasShopped = Boolean(charSave.hasShopped);
+  const hasManuallyEquippedGear = Boolean(charSave.hasManuallyEquippedGear);
+  const hasBattledAfterEquippingGear = Boolean(
+    charSave.hasBattledAfterEquippingGear,
+  );
+  const hasEditedSkillLoadout = Boolean(charSave.hasEditedSkillLoadout);
   const craftingSave =
     args.craftingRaw != null &&
     typeof args.craftingRaw === "object" &&
@@ -264,6 +272,8 @@ export function buildQuestCtx(args: {
     battleCount,
     frontierDepth,
     equippedCount,
+    hasManuallyEquippedGear,
+    hasBattledAfterEquippingGear,
     uniqueOwned,
     cultivations,
     bossKills,
@@ -283,6 +293,7 @@ export function buildQuestCtx(args: {
     bankedGold,
     skillsEquipped,
     skillsLearned,
+    hasEditedSkillLoadout,
     hasHealed,
     hasShopped,
     workshopCrafts: workshopStats.totalCrafts,

@@ -111,8 +111,8 @@ export function rollHuntDrops(params: {
     // ownedSet 은 rollUniqueDrop 의 유니크 dedup 용(유니크는 종류당 1개). 정규 rollEquipDrop
     // 은 중복 허용이라 ownedSet 무시(보유분도 새 굴림으로 재드랍).
     const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
-    // 정규 장비 드랍: 스타터(1~12)=rollEquipDrop(6%), 프론티어 밴드(13~30)=흔한 밴드 장비
-    //   (rollBandCommonDrop, 로컬 깊이 램프 2~4%). rollEquipDrop 이 13+ 에서 null → ?? 로 밴드
+    // 정규 장비 드랍: 스타터(1~6)=rollEquipDrop(1.2%), 프론티어 밴드(7~72)=흔한 밴드 장비
+    //   (rollBandCommonDrop, 로컬 깊이 램프 0.3~0.6%). rollEquipDrop 이 7+ 에서 null → ?? 로 밴드
     //   흔한 풀이 그 자리(정규 장비 슬롯)를 채운다(깊이 범위 안 겹쳐 rng 한 쪽만 소비).
     droppedEquipment =
       rollEquipDrop(depth, ownedSet, Math.random, mapDropMult) ??
@@ -125,7 +125,7 @@ export function rollHuntDrops(params: {
     // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 정규 장비와 둘 다 떨어질 수도.
     // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
     // 두 갈래: 레거시 층 풀(rollUniqueDrop, 깊이 1~6 들판 — 보유분 제외 dedup, 종류당 1개) +
-    // 심층 밴드 풀(rollBandUniqueDrop, 마른 협곡 13~18 등 — 중복 드랍 허용, 보유분도 재드랍).
+    // 심층 밴드 풀(rollBandUniqueDrop, 잊힌 성소 25~30 등 — 중복 드랍 허용, 보유분도 재드랍).
     // 깊이 범위가 겹치지 않아 둘 중 하나만 rng 소비 — ?? 합성 안전
     // (밴드 밖이면 bandUniquePoolForDepth=null → rng 미소비, dropFloor 8 풀은 chance 0 → 미소비).
     droppedUnique =

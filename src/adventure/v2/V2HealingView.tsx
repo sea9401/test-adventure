@@ -183,11 +183,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
 
   // 충전약 지불 게이트 — flag on 이면 보유+은행(은행 골드로도 충전). 무료치료 기준(아래)은 보유 기준 유지.
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
-  const hpFull = hp != null && maxHp != null && hp >= maxHp;
-  const mpFull = mp != null && maxMp != null && mp >= maxMp;
-  const isFull = hpFull && mpFull;
-  const allFull = isFull;
-
   return (
     <main className="game-content-readable mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="치료소" onBack={onBack} />
@@ -222,14 +217,10 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         <button
           type="button"
           onClick={handleHeal}
-          disabled={allFull || busy !== null || hp == null}
+          disabled={busy !== null || hp == null}
           className="mt-4 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {hp == null
-            ? "..."
-            : allFull
-              ? "이미 가득 차 있다"
-              : "전부 회복 (무료)"}
+          {hp == null ? "..." : "전부 회복 (무료)"}
         </button>
       </Card>
 

@@ -13,7 +13,12 @@ import {
   RARE_MAP_KINDS,
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
-import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard";
+import {
+  formatStatGains,
+  formatHpMpGains,
+  RewardBalanceGrid,
+  type RewardBalanceItem,
+} from "@/adventure/v2/HuntResultCard";
 import { itemNameClass } from "@/adventure/v2/V2ItemCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
@@ -43,8 +48,12 @@ export type BatchSummary = {
   losses: number;
   totalExp: number;
   totalProficiency: number;
+  proficiencyPointsAfter?: number | null;
   totalMastery?: number;
+  proficiencyAfter?: number | null;
   totalGold: number;
+  finalGoldAfter?: number | null;
+  expAfter?: number | null;
   totalGoldGross?: number; // 세전 합산 — 세금 줄 표기용.
   totalGoldTaxed?: number;
   taxOwnerLabel?: string; // 세금 수취자 — 점령 길드명/솔로 점령자/거점 금고.
@@ -99,6 +108,36 @@ export function BatchSummaryCard({
 
   const statGainsText = formatStatGains(summary.statGains);
   const hpMpGainsText = formatHpMpGains(summary.hpGained, summary.mpGained);
+  const rewardBalances: RewardBalanceItem[] = [
+    {
+      label: "골드",
+      current: summary.finalGoldAfter,
+      gained: summary.totalGold,
+      currentClassName: "text-yellow-700 dark:text-yellow-300",
+      gainedClassName: "text-yellow-600 dark:text-yellow-400",
+    },
+    {
+      label: "직업 숙련도",
+      current: summary.proficiencyAfter,
+      gained: summary.totalMastery ?? 0,
+      currentClassName: "text-sky-700 dark:text-sky-300",
+      gainedClassName: "text-sky-600 dark:text-sky-400",
+    },
+    {
+      label: "숙달 포인트",
+      current: summary.proficiencyPointsAfter,
+      gained: summary.totalProficiency,
+      currentClassName: "text-violet-700 dark:text-violet-300",
+      gainedClassName: "text-violet-600 dark:text-violet-400",
+    },
+    {
+      label: "경험치",
+      current: summary.expAfter,
+      gained: summary.totalExp,
+      currentClassName: "text-emerald-700 dark:text-emerald-300",
+      gainedClassName: "text-emerald-600 dark:text-emerald-400",
+    },
+  ];
 
   return (
     <Card padding="sm">
@@ -152,45 +191,14 @@ export function BatchSummaryCard({
           </span>
         )}
       </div>
+      <RewardBalanceGrid items={rewardBalances} />
+
       <div className="mt-2 space-y-1 text-center text-sm">
-        <div className="flex items-baseline justify-center gap-1.5">
-          <span className="text-zinc-500 dark:text-zinc-400">EXP</span>
-          <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
-            +{summary.totalExp.toLocaleString()}
-          </span>
-          {summary.levelsGained > 0 && (
-            <span className="text-xs text-amber-600 dark:text-amber-400">
-              · 레벨 +{summary.levelsGained}
-            </span>
-          )}
-          {(summary.spMilestonesGained ?? 0) > 0 && (
-            <span className="text-xs text-violet-600 dark:text-violet-400">
-              · 스킬포인트 +{summary.spMilestonesGained}
-            </span>
-          )}
-        </div>
-        {summary.totalProficiency > 0 && (
-          <div className="flex items-baseline justify-center gap-1.5">
-            <span className="text-zinc-500 dark:text-zinc-400">숙달 포인트</span>
-            <span className="font-medium tabular-nums text-violet-600 dark:text-violet-400">
-              +{summary.totalProficiency.toLocaleString()}
-            </span>
+        {(summary.spMilestonesGained ?? 0) > 0 && (
+          <div className="text-xs font-medium text-violet-600 dark:text-violet-400">
+            스킬포인트 +{summary.spMilestonesGained}
           </div>
         )}
-        {(summary.totalMastery ?? 0) > 0 && (
-          <div className="flex items-baseline justify-center gap-1.5">
-            <span className="text-zinc-500 dark:text-zinc-400">직업 숙련도</span>
-            <span className="font-medium tabular-nums text-sky-600 dark:text-sky-400">
-              +{(summary.totalMastery ?? 0).toLocaleString()}
-            </span>
-          </div>
-        )}
-        <div className="flex items-baseline justify-center gap-1.5">
-          <span className="text-zinc-500 dark:text-zinc-400">골드</span>
-          <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
-            +{summary.totalGold.toLocaleString()}
-          </span>
-        </div>
         {(summary.totalGoldTaxed ?? 0) > 0 && (
           <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
             세금 −{(summary.totalGoldTaxed ?? 0).toLocaleString()} G →{" "}

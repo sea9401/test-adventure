@@ -1,8 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle, Lock, Circle, Gift, Trophy } from "@phosphor-icons/react";
+import {
+  ArrowRight,
+  CheckCircle,
+  Lock,
+  Circle,
+  Gift,
+  Trophy,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
@@ -513,7 +521,7 @@ function QuestRow({
           )}
         </div>
         {status !== "claimed" && (
-          <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             {status === "locked" ? "앞선 목표를 먼저 완료하세요" : quest.desc}
           </p>
         )}
@@ -546,6 +554,16 @@ function QuestRow({
         >
           {busy ? "처리 중…" : reward ? "받기" : "완료"}
         </Button>
+      )}
+      {status === "active" && quest.href && (
+        <Link
+          href={quest.href}
+          aria-label={`${quest.title} 하러 가기`}
+          className="ui-game-button inline-flex min-h-7 shrink-0 items-center justify-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          이동
+          <ArrowRight size={12} aria-hidden />
+        </Link>
       )}
     </li>
   );

@@ -1,17 +1,16 @@
 "use client";
 
-import { MapPin } from "@phosphor-icons/react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
 import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
-// 좌측: 게임 허브명 — 클릭 시 모험 탭(/)으로 이동.
+// 좌측: 게임 아이콘 — 클릭 시 모험 탭(/)으로 이동.
 // 우측: 통합 알림(일반 알림+우편) 미리보기·채팅·광장/설정 메뉴.
 
 export function V2TopBar({
-  locationName,
   gameName,
   playerName,
   playerLevel,
@@ -19,8 +18,6 @@ export function V2TopBar({
   coreLoopOn,
   viewerGuildId,
 }: {
-  // 현재 표시할 허브명. 없으면 기본 문구.
-  locationName: string | null;
   gameName: string | null;
   playerName: string;
   playerLevel: number;
@@ -36,17 +33,16 @@ export function V2TopBar({
         <button
           type="button"
           onClick={() => router.push("/")}
-          aria-label="모험 탭으로 이동"
+          aria-label="무슨무슨게임 모험 탭으로 이동"
           className="-mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition hover:bg-zinc-100 dark:hover:bg-zinc-800"
         >
-          <MapPin
-            size={16}
-            weight="fill"
-            className="shrink-0 text-emerald-500"
+          <Image
+            src="/icon-192.png"
+            alt=""
+            width={28}
+            height={28}
+            className="size-7 shrink-0 rounded-md"
           />
-          <span className="truncate text-base font-semibold text-zinc-700 dark:text-zinc-200">
-            {locationName ?? "이동 중"}
-          </span>
           {coreLoopOn ? (
             <span className="hidden shrink-0 text-[11px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">
               {playerName} Lv.{playerLevel}

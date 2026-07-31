@@ -4,7 +4,6 @@ import { guildMembers } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   V2_SETTLEMENT_WARFARE,
@@ -18,7 +17,7 @@ import { guildHasHotspringAdjacency } from "@/lib/server/tileHotspring";
 //
 // HP/MP 즉시 만피 + 전쟁 건강도(war vigor)는 같은 방문에서 시간누적 회복분만 적용한다
 // (즉시 100% 아님 = 전쟁 throttle 의미 유지). 옛 별도 "건강도 회복" 버튼을 이 한 버튼으로 통합.
-// HP/MP·건강도가 모두 만충이면 409 already_full (UI 버튼은 disabled 이지만 race 방어).
+// 가이드 퀘스트를 진행할 수 있도록 HP/MP·건강도가 모두 만충이어도 방문할 수 있다.
 // 회복 시 hpRegenSince 도 now 로 리셋.
 
 type CharSave = {
@@ -55,32 +54,11 @@ export async function POST() {
     const now = Date.now();
     const maxHp = player.maxHp;
     const maxMp = Math.max(0, player.player.maxMp ?? 0);
-    const savedHp = Math.max(0, charSave.hp ?? maxHp);
-    const savedMp = Math.max(0, charSave.mp ?? maxMp);
-    const hpRegenSince = parseHpRegenSince(charSave.hpRegenSince, now);
-    const regen = applyHpRegen(savedHp, maxHp, hpRegenSince, now);
 
-    // 전쟁 건강도 — 저장값(회복 미적용) 기준으로 만충 여부 판정. 플래그 off 면 null.
+    // 전쟁 건강도 — 저장값(회복 미적용)을 방문 회복의 입력으로 사용. 플래그 off 면 null.
     const vigorBefore = V2_SETTLEMENT_WARFARE
       ? parseWarVigor(charSave.warVigor)
       : null;
-    const vigorFull = !vigorBefore || (vigorBefore.hp >= 1 && vigorBefore.mp >= 1);
-
-    // HP/MP 둘 다 풀 + 건강도도 만충이어야 already_full. 하나라도 미달이면 회복 가능.
-    if (regen.hp >= maxHp && savedMp >= maxMp && vigorFull) {
-      return {
-        ok: false as const,
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "already_full" as const,
-          hp: maxHp,
-          maxHp,
-          mp: maxMp,
-          maxMp,
-        },
-      };
-    }
 
     const gold = Math.max(0, charSave.gold ?? 0);
     const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));

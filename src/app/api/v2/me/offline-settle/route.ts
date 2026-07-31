@@ -26,7 +26,7 @@ import {
 //    온라인과 100% 동일(같은 코드). 패배 = 보상 0(승률이 자동 반영 → "잘못된 변수" 없음).
 //  - HP/포션 충실 — 판 사이 5초만큼 HP 회복(nowOverride = now − (N−1−i)×쿨다운)·포션 자동소모·
 //    소진 시 중단. 액티브가 5초 cadence 로 사냥한 것과 HP 경제 동일 → 오프라인이 더 못 번다.
-//  - farm 깊이 = 마지막 정상 사냥 깊이(lastHuntDepth), 무거점(세금 sink)·레어맵 미사용.
+//  - farm 깊이 = 마지막 정상 사냥 깊이(lastHuntDepth), 레어맵 미사용.
 //  - 멱등 — 정산 후 lastBattleAt = realNow(조기중단이어도 누적시간 소비) → 재시도 N=0.
 
 const DROP_FLOOR_CAP = 8 as DungeonFloorId;
@@ -116,12 +116,12 @@ export async function POST(req: Request) {
       hpRegenSince: batchEnd - n * HUNT_COOLDOWN_MS,
     });
 
-    // === 정산 루프 — runOneHunt 재사용. 각 판이 character.v2 재read 로 HP/exp/골드/레벨/세금 이월. ===
+    // === 정산 루프 — runOneHunt 재사용. 각 판이 character.v2 재read 로 HP/exp/골드/레벨을 이월. ===
     let completed = 0;
     let wins = 0;
     let losses = 0;
     let totalExp = 0;
-    let totalGold = 0; // net(세금 차감 후) 합산
+    let totalGold = 0;
     let totalLossTax = 0;
     let totalProficiency = 0;
     let totalMastery = 0;

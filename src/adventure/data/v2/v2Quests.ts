@@ -1,5 +1,5 @@
-// v2 가이드 퀘스트 — 튜토리얼 겸 성장 안내. 신규 플레이어를 "첫 전투 → 장비 → 전직 →
-// 수행 → 프론티어" 순서로 리드하고, 콘텐츠/사회 시스템 + 엔드 마일스톤을 안내.
+// v2 가이드 퀘스트 — 튜토리얼 겸 성장 안내. 신규 플레이어를 "첫 직업 → 첫 전투 →
+// 장비 교체 → 장착 후 전투 → 성장 → 수행·전직" 순서로 리드하고, 기본 기능과 장기 목표를 안내.
 //
 // 표시 정책: 전직 퀘스트는 목표 차수를 명시한다. 특히 튜토리얼 배너는 제목만 보일 때가 있어
 //   "2차 전직", "3차 전직" 같은 표현을 title/desc 양쪽에 남긴다.
@@ -51,6 +51,10 @@ export type QuestCtx = {
   frontierDepth: number;
   /** 장착 중인 장비 슬롯 수. equipment.v2.equipped. */
   equippedCount: number;
+  /** 인벤토리에서 장비를 직접 바꿔 장착한 적 있는가. character.v2.hasManuallyEquippedGear. */
+  hasManuallyEquippedGear: boolean;
+  /** 장비를 직접 장착한 뒤 사냥터 전투를 치른 적 있는가. character.v2.hasBattledAfterEquippingGear. */
+  hasBattledAfterEquippingGear: boolean;
   /** 보유 유니크 장비 수. equipment.v2.owned 중 rarity:unique. */
   uniqueOwned: number;
   /** 수행 횟수. proficiency.v2 groups[group].cultivations. */
@@ -90,9 +94,11 @@ export type QuestCtx = {
   skillsEquipped: number;
   /** 학습한 스킬 수. skills.v2.learned. */
   skillsLearned: number;
-  /** 치료소에서 골드로 HP 회복을 한 적 있는가. character.v2.hasHealed. */
+  /** 스킬 화면에서 로드아웃을 직접 저장한 적 있는가. character.v2.hasEditedSkillLoadout. */
+  hasEditedSkillLoadout: boolean;
+  /** 치료소에서 HP·MP 회복을 한 적 있는가. character.v2.hasHealed. */
   hasHealed: boolean;
-  /** 상점에서 구매(장비/충전)를 한 적 있는가. character.v2.hasShopped. */
+  /** 상점에서 장비를 구매한 적 있는가. character.v2.hasShopped. */
   hasShopped: boolean;
   /** 길드 제작소 제작 완료 횟수. crafting.v2.workshopStats.totalCrafts. */
   workshopCrafts: number;
@@ -145,6 +151,8 @@ export type QuestDef = {
   title: string;
   /** 무엇을 하면 되는지(행동 안내). */
   desc: string;
+  /** 진행 중일 때 해당 기능 화면으로 보내는 내부 경로. */
+  href?: string;
   reward: QuestReward;
   /** 완료 판정 — 세이브 파생 ctx 로. */
   check: (c: QuestCtx) => boolean;
@@ -173,60 +181,123 @@ export type QuestLine = {
 };
 
 // ── 성장의 길(튜토리얼 리드, 순차) ──────────────────────────────────────────
-// 첫 전투 보상으로 쇠사슬 갑옷을 주고 → 다음 퀘스트가 "장착하기"라 자연스러운 학습 루프.
+// 첫 전투 보상으로 쇠사슬 갑옷을 주고 → 직접 장착 → 장착 후 재전투까지 실제 조작으로 확인한다.
+// 신규 캐릭터는 6부위를 자동 장착한 채 시작하므로 equippedCount 만으로 장착 행동을 판정하지 않는다.
 const GROWTH: QuestDef[] = [
+  {
+    id: "g_first_job",
+    line: "growth",
+    title: "첫 직업",
+    desc: "캐릭터 > 성장의 신전에서 첫 직업을 선택하세요.",
+    href: "/character/shrine",
+    reward: { staminaPotions: 1 },
+    progress: (c) => (c.class !== "none" && c.tier >= 1 ? 1 : 0),
+    goal: 1,
+    check: (c) => c.class !== "none" && c.tier >= 1,
+  },
   {
     id: "g_first_battle",
     line: "growth",
     title: "첫 발걸음",
-    desc: "사냥터에서 첫 전투를 치러보세요.",
+    desc: "전투 > 사냥터에서 첫 전투를 치르세요.",
+    href: "/battle/dungeon",
     reward: {
       staminaPotions: 1,
       equip: "v2_chain_mail",
       titleId: "first_blood",
     },
+    progress: (c) => c.battleCount,
+    goal: 1,
     check: (c) => c.battleCount >= 1,
   },
   {
     id: "g_equip",
     line: "growth",
     title: "무장하기",
-    desc: "인벤토리에서 장비를 장착하세요.",
+    desc: "첫 전투 보상으로 받은 쇠사슬 갑옷을 캐릭터 > 인벤토리에서 장착하세요.",
+    href: "/character/inventory",
     reward: { staminaPotions: 1 },
-    check: (c) => c.equippedCount >= 1,
+    progress: (c) => (c.hasManuallyEquippedGear ? 1 : 0),
+    goal: 1,
+    check: (c) => c.hasManuallyEquippedGear,
+  },
+  {
+    id: "g_equipped_battle",
+    line: "growth",
+    title: "준비된 전투",
+    desc: "새 장비를 장착한 상태로 전투 > 사냥터에서 한 번 더 전투하세요.",
+    href: "/battle/dungeon",
+    reward: { staminaPotions: 1 },
+    progress: (c) => (c.hasBattledAfterEquippingGear ? 1 : 0),
+    goal: 1,
+    check: (c) => c.hasBattledAfterEquippingGear,
+  },
+  {
+    id: "g_level10",
+    line: "growth",
+    title: "성장의 감각",
+    desc: "사냥터 전투를 이어가 레벨 10에 도달하세요.",
+    href: "/battle/dungeon",
+    reward: { staminaPotions: 1 },
+    progress: (c) => Math.max(c.level, Math.min(c.cumLevel, 10)),
+    goal: 10,
+    check: (c) => c.level >= 10 || c.cumLevel >= 10,
   },
   {
     id: "g_depth5",
     line: "growth",
     title: "더 깊은 곳으로",
-    desc: "사냥터 깊이 5까지 진출하세요.",
+    desc: "사냥터의 새 단계를 공략해 깊이 5까지 진출하세요.",
+    href: "/battle/dungeon",
     reward: { staminaPotions: 1 },
+    progress: (c) => c.frontierDepth,
+    goal: 5,
     check: (c) => c.frontierDepth >= 5,
   },
   {
-    id: "g_cultivate",
+    id: "g_frontier",
     line: "growth",
-    title: "수행 입문",
-    desc: "성장의 신전에서 수행으로 능력치 한계를 올리세요.",
+    title: "프론티어 개척자",
+    desc: "전투 > 사냥터에서 프론티어 첫 테마 밴드(깊이 7)에 진입하세요.",
+    href: "/battle/dungeon",
     reward: { staminaPotions: 1 },
-    check: (c) => c.cultivations >= 1,
+    progress: (c) => c.frontierDepth,
+    goal: 7,
+    check: (c) => c.frontierDepth >= 7,
   },
   {
     id: "g_cap1",
     line: "growth",
     title: "정점",
-    desc: `레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
+    desc: `사냥터에서 성장해 레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
+    href: "/battle/dungeon",
     reward: { staminaPotions: 1 },
+    progress: (c) => Math.max(c.level, Math.min(c.cumLevel, V2_LEVEL_CAP)),
+    goal: V2_LEVEL_CAP,
     // 현재 레벨 또는 보존 숙련도 기준. level 만 보면 재전직 직후 레벨 1 리셋으로 뒤 퀘스트가
     // 재잠금되고, cumLevel 만 보면 EXP 묘약 등 레벨 성장 경로와 설명이 어긋난다.
     check: (c) => c.level >= V2_LEVEL_CAP || c.cumLevel >= V2_LEVEL_CAP,
   },
   {
+    id: "g_cultivate",
+    line: "growth",
+    title: "수행 입문",
+    desc: "캐릭터 > 성장의 신전 > 수행에서 능력치 한계를 한 번 올리세요.",
+    href: "/character/shrine",
+    reward: { staminaPotions: 1 },
+    progress: (c) => c.cultivations,
+    goal: 1,
+    check: (c) => c.cultivations >= 1,
+  },
+  {
     id: "g_advance2",
     line: "growth",
     title: "2차 전직",
-    desc: "성장의 신전에서 더 강한 2차 직업으로 전직하세요.",
+    desc: "캐릭터 > 성장의 신전에서 더 강한 2차 직업으로 전직하세요.",
+    href: "/character/shrine",
     reward: { staminaPotions: 1 },
+    progress: (c) => c.tier,
+    goal: 2,
     check: (c) => c.tier >= 2,
   },
   {
@@ -234,63 +305,73 @@ const GROWTH: QuestDef[] = [
     id: "g_passive",
     line: "growth",
     title: "3차 전직",
-    desc: "성장의 신전에서 한 번 더 전직해 3차 직업에 도달하세요.",
+    desc: "캐릭터 > 성장의 신전에서 한 번 더 전직해 3차 직업에 도달하세요.",
+    href: "/character/shrine",
     reward: { staminaPotions: 1 },
+    progress: (c) => c.tier,
+    goal: 3,
     check: (c) => c.tier >= 3,
-  },
-  {
-    id: "g_frontier",
-    line: "growth",
-    title: "프론티어 개척자",
-    desc: "프론티어 첫 테마 밴드(깊이 7)에 진입하세요.",
-    reward: { staminaPotions: 1 },
-    check: (c) => c.frontierDepth >= 7,
   },
 ];
 
 // ── 기초 튜토리얼(독립 마일스톤 · 비순차) ────────────────────────────────────
-// 성장의 길이 안 다루는 기본 조작을 한 번씩 익히게 하는 묶음(은행·스킬·이동).
+// 성장의 길이 안 다루는 기본 조작을 한 번씩 익히게 하는 묶음(상점·치료소·은행·스킬).
 // 강화/낚시/보물은 enhance·life 라인이 첫 단계부터 다루므로 여기엔 중복 안 둔다.
 const BASICS: QuestDef[] = [
   {
     id: "b_shop",
     line: "basics",
     title: "첫 쇼핑",
-    desc: "상점에서 장비나 충전을 구매하세요.",
+    desc: "마을 > 상점에서 장비를 하나 구매하세요.",
+    href: "/town/shop",
     reward: { staminaPotions: 2 },
+    progress: (c) => (c.hasShopped ? 1 : 0),
+    goal: 1,
     check: (c) => c.hasShopped,
   },
   {
     id: "b_heal",
     line: "basics",
     title: "회복의 손길",
-    desc: "치료소에서 골드로 HP를 회복하세요.",
+    desc: "마을 > 치료소에서 HP와 MP를 회복하세요.",
+    href: "/town/healing",
     reward: { staminaPotions: 2 },
+    progress: (c) => (c.hasHealed ? 1 : 0),
+    goal: 1,
     check: (c) => c.hasHealed,
   },
   {
     id: "b_bank",
     line: "basics",
     title: "안전한 보관",
-    desc: "거점 은행에 골드를 맡겨보세요.",
+    desc: "마을 > 은행에서 골드를 한 번 맡기세요.",
+    href: "/town/bank",
     reward: { staminaPotions: 2 },
+    progress: (c) => (c.bankedGold > 0 ? 1 : 0),
+    goal: 1,
     check: (c) => c.bankedGold > 0,
   },
   {
     id: "b_learn",
     line: "basics",
     title: "배움의 시작",
-    desc: "스킬을 하나 학습하세요.",
+    desc: "캐릭터 > 스킬에서 스킬을 하나 학습하세요.",
+    href: "/character/skills",
     reward: { staminaPotions: 2 },
+    progress: (c) => c.skillsLearned,
+    goal: 1,
     check: (c) => c.skillsLearned >= 1,
   },
   {
     id: "b_skill",
     line: "basics",
     title: "기술 연마",
-    desc: "스킬을 하나 장착해보세요.",
+    desc: "캐릭터 > 스킬 > 로드아웃에서 배운 스킬을 장착하고 저장하세요.",
+    href: "/character/skills",
     reward: { staminaPotions: 2 },
-    check: (c) => c.skillsEquipped >= 1,
+    progress: (c) => (c.hasEditedSkillLoadout ? 1 : 0),
+    goal: 1,
+    check: (c) => c.hasEditedSkillLoadout,
   },
 ];
 
@@ -764,14 +845,14 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "basics",
     name: "기초 튜토리얼",
-    subtitle: "상점·치료·은행·스킬 — 기본 조작을 한 번씩 익혀보세요.",
+    subtitle: "상점·치료소·은행·스킬 화면의 기본 조작을 하나씩 익혀보세요.",
     sequential: false,
     tutorial: true,
   },
   {
     id: "growth",
     name: "성장의 길",
-    subtitle: "첫 전투부터 2차·3차 전직까지 — 차례로 따라오세요.",
+    subtitle: "첫 직업과 전투 준비부터 수행·2차·3차 전직까지 차례로 따라오세요.",
     sequential: true,
     tutorial: true,
   },
@@ -833,6 +914,7 @@ export type QuestView = {
   line: QuestLineId;
   title: string;
   desc: string;
+  href: string | null;
   reward: QuestReward;
   status: QuestStatus;
   points: number;
@@ -919,6 +1001,7 @@ export function deriveQuestViews(
     line: q.line,
     title: q.title,
     desc: q.desc,
+    href: q.href ?? null,
     reward: q.reward,
     status: questStatus(q, ctx, claimed),
     points: q.points ?? 0,

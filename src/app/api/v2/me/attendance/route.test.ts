@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 describe("월간 출석 보상 수령", () => {
-  it("1일차에는 지원권 30일을 계정에 직접 적용한다", async () => {
+  it("1일차에는 지원권 15일을 계정에 직접 적용한다", async () => {
     const response = await POST();
     const json = (await response.json()) as {
       ok: boolean;
@@ -71,9 +71,9 @@ describe("월간 출석 보상 수령", () => {
     expect(response.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.claimedCount).toBe(1);
-    expect(json.reward).toEqual({ kind: "adventure_support", days: 30 });
+    expect(json.reward).toEqual({ kind: "adventure_support", days: 15 });
     expect(json.adventureSupportActiveUntil).toBe(
-      JULY_20.getTime() + 30 * DAY_MS,
+      JULY_20.getTime() + 15 * DAY_MS,
     );
     expect(mocks.saves.get("monthly-attendance.v1")).toEqual({
       monthKey: "2026-07",

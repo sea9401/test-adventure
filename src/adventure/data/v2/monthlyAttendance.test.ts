@@ -7,11 +7,11 @@ import {
 } from "./monthlyAttendance";
 
 describe("월간 출석", () => {
-  it("1일차 보상은 월간 모험 지원권 30일이다", () => {
+  it("1일차 보상은 월간 모험 지원권 15일이다", () => {
     expect(MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
     expect(MONTHLY_ATTENDANCE_REWARDS[0]).toEqual({
       kind: "adventure_support",
-      days: 30,
+      days: 15,
     });
   });
 

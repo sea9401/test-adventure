@@ -129,6 +129,10 @@ export function parseResetArgs(argv) {
     help: false,
     expectDatabase: undefined,
     expectUsers: undefined,
+    expectAuthAccounts: undefined,
+    expectPasswordAccounts: undefined,
+    expectGoogleAccounts: undefined,
+    expectDeletedGoogleUsers: undefined,
     expectCouponCodes: undefined,
     expectCouponNotices: undefined,
     confirmation: undefined,
@@ -148,6 +152,10 @@ export function parseResetArgs(argv) {
     const key = {
       "--expect-database": "expectDatabase",
       "--expect-users": "expectUsers",
+      "--expect-auth-accounts": "expectAuthAccounts",
+      "--expect-password-accounts": "expectPasswordAccounts",
+      "--expect-google-accounts": "expectGoogleAccounts",
+      "--expect-deleted-google-users": "expectDeletedGoogleUsers",
       "--expect-coupon-codes": "expectCouponCodes",
       "--expect-coupon-notices": "expectCouponNotices",
       "--confirm": "confirmation",
@@ -162,7 +170,15 @@ export function parseResetArgs(argv) {
 
   if (parsed.help) return parsed;
   if (!parsed.expectDatabase) throw new Error("--expect-database is required");
-  for (const key of ["expectUsers", "expectCouponCodes", "expectCouponNotices"]) {
+  for (const key of [
+    "expectUsers",
+    "expectAuthAccounts",
+    "expectPasswordAccounts",
+    "expectGoogleAccounts",
+    "expectDeletedGoogleUsers",
+    "expectCouponCodes",
+    "expectCouponNotices",
+  ]) {
     if (parsed[key] === undefined) continue;
     const numeric = Number(parsed[key]);
     if (!Number.isSafeInteger(numeric) || numeric < 0) {
@@ -176,7 +192,15 @@ export function parseResetArgs(argv) {
       throw new Error(`--confirm must equal ${RESET_CONFIRMATION}`);
     }
     if (!parsed.maintenanceFlag) throw new Error("--maintenance-flag is required with --execute");
-    for (const key of ["expectUsers", "expectCouponCodes", "expectCouponNotices"]) {
+    for (const key of [
+      "expectUsers",
+      "expectAuthAccounts",
+      "expectPasswordAccounts",
+      "expectGoogleAccounts",
+      "expectDeletedGoogleUsers",
+      "expectCouponCodes",
+      "expectCouponNotices",
+    ]) {
       if (parsed[key] === undefined) {
         throw new Error(`--${camelToKebab(key)} is required with --execute`);
       }

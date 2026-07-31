@@ -2,7 +2,6 @@ import {
   FISH,
   FISH_TIER_ORDER,
   FISH_TIERS,
-  type FishTier,
 } from "@/adventure/data/v2/fish";
 import {
   MULTTAE_CONDITIONS,
@@ -17,6 +16,14 @@ import {
   FISHING_LURES,
   FISHING_RODS,
 } from "@/adventure/v2/fishingProgression";
+import {
+  FISHING_SEED_POUCH_DAILY_LIMIT,
+  FISHING_STAMINA_POTION_DAILY_LIMIT,
+} from "@/adventure/v2/fishingShop";
+import {
+  FISHING_CATCH_COIN_BY_TIER,
+  FISHING_CATCH_COIN_DAILY_CAP,
+} from "@/lib/server/fishing/coins";
 import {
   FARM_CROP_LIST,
   FARM_DAILY_DELIVERY_LIMIT,
@@ -40,15 +47,6 @@ import {
 } from "@/adventure/v2/cooking";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
-const CATCH_COIN_BY_TIER: Record<FishTier, number> = {
-  common: 3,
-  uncommon: 3,
-  rare: 5,
-  epic: 10,
-  legendary: 20,
-};
-
-const DAILY_CATCH_COIN_CAP = 2000;
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
 const AUTO_GATHERING_MINUTES = AUTO_GATHERING_DURATION_MS / 60_000;
 const fishList = Object.values(FISH);
@@ -196,9 +194,15 @@ export function PastimesContent() {
           생존자 직군 숙련도도 오르지 않습니다.
         </li>
         <li>
-          낚시 코인 상점에서는 칭호 외에도 <Em>낚싯대</Em>와 <Em>미끼</Em>를
-          살 수 있습니다. 도구는 입질 대기시간, 물고기 크기, 희귀 어종 크기,
-          대물권, 물때 특별 손님 쪽에 서로 다른 효과를 줍니다.
+          낚시 코인 상점에서는 칭호·<Em>낚싯대</Em>·<Em>미끼</Em>와 보관형
+          소비품을 살 수 있습니다. 스태미나 회복약은 하루{" "}
+          {FISHING_STAMINA_POTION_DAILY_LIMIT}개, 농장 씨앗 주머니는 하루{" "}
+          {FISHING_SEED_POUCH_DAILY_LIMIT}개까지 구매할 수 있습니다. 씨앗 주머니는
+          같은 날 살 때마다 가격이 오릅니다.
+        </li>
+        <li>
+          낚싯대와 미끼는 입질 대기시간, 물고기 크기, 희귀 어종 크기, 대물권,
+          물때 특별 손님 쪽에 서로 다른 효과를 줍니다.
         </li>
         <li>
           시간대에 따라 <Em>물때</Em>가 바뀌고, 특정 물때에는 한정 특별 손님이
@@ -216,18 +220,18 @@ export function PastimesContent() {
         {normalFishCount}종과 물때 한정 특별 손님 {specialFishCount}종으로 나뉩니다.
       </P>
       <Table
-        head={["티어", "어종 수", "챔질 코인", "주간 최대어 보상"]}
+        head={["티어", "어종 수", "기본 챔질 코인", "주간 최대어 보상"]}
         rows={FISH_TIER_ORDER.map((tier) => {
           const meta = FISH_TIERS[tier];
           const count = fishList.filter((fish) => fish.tier === tier).length;
           return [
             <Em key={`${tier}-label`}>{meta.label}</Em>,
             `${count}종`,
-            `${CATCH_COIN_BY_TIER[tier]}코인`,
+            `${FISHING_CATCH_COIN_BY_TIER[tier]}코인`,
             `1위 ${meta.recordCoins.rank1} / 2위 ${meta.recordCoins.rank2} / 3위 ${meta.recordCoins.rank3}`,
           ];
         })}
-        caption={`챔질 코인은 KST 일자 기준 하루 ${DAILY_CATCH_COIN_CAP.toLocaleString()}코인까지만 직접 적립됩니다. 일일 과제·의뢰·누적 목표·주간 랭킹·낚시 레벨업 보상은 별도 보상입니다.`}
+        caption={`챔질 코인은 KST 일자 기준 하루 ${FISHING_CATCH_COIN_DAILY_CAP.toLocaleString()}코인까지만 직접 적립됩니다. 연속 낚시·물때·핫타임 보너스가 더해질 수 있으며, 일일 과제·의뢰·누적 목표·주간 랭킹·낚시 레벨업 보상은 별도 보상입니다.`}
       />
 
       <H2>낚시 레벨과 보상</H2>

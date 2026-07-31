@@ -1,3 +1,4 @@
+import { LOSS_TAX_RATE } from "@/adventure/data/v2/coreLoopConfig";
 import { H2, P, UL, Em, Note } from "./primitives";
 
 export function CombatContent() {
@@ -14,8 +15,10 @@ export function CombatContent() {
           빠른 쪽이 더 자주 행동합니다(빠른 빌드의 핵심 이점).
         </li>
         <li>
-          <Em>승리</Em>하면 경험치·골드·전리품, <Em>패배</Em>해도 페널티는
-          없습니다. 보상은 없으며 HP는 시간이 지나면 회복됩니다.
+          <Em>승리</Em>하면 경험치·골드·전리품을 받습니다. <Em>패배</Em>하면 이번
+          전투 보상은 없고, 마지막 패배 이후 사냥으로 번 위험 골드의{" "}
+          <Em>{LOSS_TAX_RATE * 100}%</Em>가 사라집니다. 은행 예치금·장비·경험치는
+          잃지 않으며 HP는 시간이 지나면 회복됩니다.
         </li>
       </UL>
 

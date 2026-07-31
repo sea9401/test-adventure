@@ -201,7 +201,16 @@ test("회원 탈퇴는 확인 문구를 요구하고 계정·진행·세션을 �
   await createCharacter(page, DELETION_CHARACTER_NAME);
 
   await page.getByRole("button", { name: "메뉴" }).click();
-  await page.getByRole("button", { name: "회원 탈퇴" }).click();
+  await page.getByRole("link", { name: "환경 설정" }).click();
+  await expect(page).toHaveURL(/\/settings\/preferences$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "환경 설정" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /정책·약관/ })).toHaveAttribute(
+    "href",
+    "/privacy",
+  );
+  await page.getByRole("button", { name: "회원 탈퇴 진행" }).click();
   const dialog = page.getByRole("dialog", { name: "회원 탈퇴" });
   await expect(dialog).toBeVisible();
 

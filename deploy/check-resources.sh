@@ -75,7 +75,10 @@ send_webhook() {
 
 mkdir -p "$(dirname "$STATE_PATH")"
 if [ -n "$CURRENT_KEY" ]; then
-  MESSAGE="[ops] EC2 resource alert: ${CURRENT_KEY} (load5=${LOAD_5}, cpu=${CPU_COUNT}, memory_available=${MEM_AVAILABLE_PCT}%, disk_used=${DISK_USED_PCT}%)"
+  printf -v MESSAGE '🚨 **게임 서버 자원 사용량 경고**\n서버의 CPU·메모리·디스크 중 하나가 경고 기준을 넘었습니다.\n\n- 5분 평균 부하: %s (CPU %s개 기준 %s%%, 경고 %s%% 이상)\n- 사용 가능한 메모리: %s%% (경고 %s%% 이하)\n- 디스크 사용량: %s%% (경고 %s%% 이상)\n\n**확인할 일**\nEC2 서버 상태와 실행 중인 프로세스를 확인하세요. 같은 알림은 문제가 계속되면 30분 뒤 다시 전송됩니다.' \
+    "$LOAD_5" "$CPU_COUNT" "$LOAD_PCT" "$LOAD_MAX_PCT" \
+    "$MEM_AVAILABLE_PCT" "$MEM_AVAILABLE_MIN_PCT" \
+    "$DISK_USED_PCT" "$DISK_USED_MAX_PCT"
   echo "$MESSAGE" >&2
   if [ "$CURRENT_KEY" != "$PREVIOUS_KEY" ] || [ $((NOW - PREVIOUS_AT)) -ge "$ALERT_COOLDOWN_SECONDS" ]; then
     send_webhook "$MESSAGE"
@@ -86,6 +89,8 @@ fi
 
 echo "RESOURCE OK: load5=${LOAD_5} (${LOAD_PCT}% of ${CPU_COUNT} CPU), memory_available=${MEM_AVAILABLE_PCT}%, disk_used=${DISK_USED_PCT}%"
 if [ -n "$PREVIOUS_KEY" ]; then
-  send_webhook "[ops] EC2 resource recovered: load5=${LOAD_5}, memory_available=${MEM_AVAILABLE_PCT}%, disk_used=${DISK_USED_PCT}%"
+  printf -v RECOVERY_MESSAGE '✅ **게임 서버 자원 사용량이 정상으로 돌아왔습니다**\n이전에 경고 기준을 넘었던 서버 상태가 회복됐습니다.\n\n- 5분 평균 부하: %s\n- 사용 가능한 메모리: %s%%\n- 디스크 사용량: %s%%\n\n별도 조치는 필요하지 않습니다.' \
+    "$LOAD_5" "$MEM_AVAILABLE_PCT" "$DISK_USED_PCT"
+  send_webhook "$RECOVERY_MESSAGE"
 fi
 printf '|%s\n' "$NOW" > "$STATE_PATH"

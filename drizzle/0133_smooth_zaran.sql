@@ -1,0 +1,2 @@
+ALTER TABLE "referral_conversions" ADD COLUMN "rewarded_stamina_depth" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "referral_conversions" ADD CONSTRAINT "referral_conversions_rewarded_stamina_depth_check" CHECK ("referral_conversions"."rewarded_stamina_depth" in (0, 6, 12, 18, 24, 36));

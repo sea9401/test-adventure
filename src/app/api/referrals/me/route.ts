@@ -1,11 +1,17 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { referralCodes, referralConversions, users } from "@/db/schema";
+import {
+  referralCodes,
+  referralConversions,
+  savesKv,
+  users,
+} from "@/db/schema";
 import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import {
   createReferralCode,
-  referralRewardGold,
+  REFERRAL_NEW_USER_STAMINA_POTIONS,
+  REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
   referralRewardMilestones,
 } from "@/lib/server/referrals";
 
@@ -17,7 +23,8 @@ async function requireUser(req: Request): Promise<string | Response> {
 }
 
 async function referralSummary(userId: string) {
-  const [codeRow, totals, recent] = await Promise.all([
+  const milestones = referralRewardMilestones();
+  const [codeRow, referrals] = await Promise.all([
     db
       .select({ code: referralCodes.code, disabledAt: referralCodes.disabledAt })
       .from(referralCodes)
@@ -25,37 +32,57 @@ async function referralSummary(userId: string) {
       .limit(1),
     db
       .select({
-        attributedCount: sql<number>`count(*)::int`,
-        rewardGold: sql<number>`coalesce(sum(${referralConversions.rewardGold}), 0)::int`,
-      })
-      .from(referralConversions)
-      .where(eq(referralConversions.referrerUserId, userId)),
-    db
-      .select({
         name: users.gameName,
-        rewardGold: referralConversions.rewardGold,
-        rewardedDepth: referralConversions.rewardedDepth,
+        character: savesKv.value,
+        rewardedDepth: referralConversions.rewardedStaminaDepth,
         convertedAt: referralConversions.convertedAt,
       })
       .from(referralConversions)
       .innerJoin(users, eq(users.id, referralConversions.referredUserId))
+      .leftJoin(
+        savesKv,
+        and(
+          eq(savesKv.userId, referralConversions.referredUserId),
+          eq(savesKv.key, "character.v2"),
+        ),
+      )
       .where(eq(referralConversions.referrerUserId, userId))
-      .orderBy(desc(referralConversions.convertedAt))
-      .limit(10),
+      .orderBy(desc(referralConversions.convertedAt)),
   ]);
+
+  const referralRows = referrals.map((row) => {
+    const character = row.character as { frontierDepth?: unknown } | null;
+    const currentFrontierDepth = Math.max(
+      2,
+      Math.floor(Number(character?.frontierDepth) || 2),
+    );
+    const completedMilestones = milestones.filter(
+      (milestone) => milestone.frontierDepth <= row.rewardedDepth,
+    ).length;
+    return {
+      name: row.name ?? "새 모험가",
+      currentFrontierDepth,
+      rewardedDepth: row.rewardedDepth,
+      completedMilestones,
+      convertedAt: row.convertedAt.toISOString(),
+    };
+  });
 
   return {
     code: codeRow[0]?.disabledAt ? null : (codeRow[0]?.code ?? null),
-    rewardGoldPerReferral: referralRewardGold(),
-    rewardMilestones: referralRewardMilestones(),
-    attributedCount: totals[0]?.attributedCount ?? 0,
-    totalRewardGold: totals[0]?.rewardGold ?? 0,
-    recent: recent.map((row) => ({
-      name: row.name ?? "새 모험가",
-      rewardGold: row.rewardGold,
-      rewardedDepth: row.rewardedDepth,
-      convertedAt: row.convertedAt.toISOString(),
-    })),
+    newUserStaminaPotions: REFERRAL_NEW_USER_STAMINA_POTIONS,
+    referrerStaminaPotionsPerMilestone:
+      REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
+    rewardMilestones: milestones,
+    attributedCount: referralRows.length,
+    totalRewardStaminaPotions: referralRows.reduce(
+      (sum, referral) =>
+        sum +
+        referral.completedMilestones *
+          REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
+      0,
+    ),
+    referrals: referralRows,
   };
 }
 

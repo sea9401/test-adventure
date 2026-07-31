@@ -174,8 +174,8 @@ export const referralCodes = pgTable(
 );
 
 // 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. referredUserId PK가 한 계정의 중복
-// 귀속을 막는다. 보상은 프론티어 진행 단계에서 rewardGold/rewardedDepth를 원자적으로
-// 갱신하며 지급한다.
+// 귀속을 막는다. rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
+// 현재 회복약 보상은 rewardedStaminaDepth를 원자적으로 갱신하며 지급한다.
 export const referralConversions = pgTable(
   "referral_conversions",
   {
@@ -190,6 +190,7 @@ export const referralConversions = pgTable(
       .references(() => referralCodes.code, { onDelete: "cascade" }),
     rewardGold: integer("reward_gold").default(0).notNull(),
     rewardedDepth: integer("rewarded_depth").default(0).notNull(),
+    rewardedStaminaDepth: integer("rewarded_stamina_depth").default(0).notNull(),
     convertedAt: timestamp("converted_at").defaultNow().notNull(),
   },
   (t) => [
@@ -205,6 +206,10 @@ export const referralConversions = pgTable(
     check(
       "referral_conversions_rewarded_depth_check",
       sql`${t.rewardedDepth} in (0, 12, 24, 36)`,
+    ),
+    check(
+      "referral_conversions_rewarded_stamina_depth_check",
+      sql`${t.rewardedStaminaDepth} in (0, 6, 12, 18, 24, 36)`,
     ),
   ],
 );

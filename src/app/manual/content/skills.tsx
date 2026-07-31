@@ -37,6 +37,10 @@ export function SkillsContent() {
         <li>
           협동 보스에서 얻는 <Em>SP 열매</Em>로 SP 최대치를 더 늘릴 수 있습니다.
         </li>
+        <li>
+          모험의 서의 <Em>장비 도감·어보 수집 단계</Em>에서도 SP 최대치 보너스를
+          받을 수 있습니다.
+        </li>
       </UL>
 
       <Note>

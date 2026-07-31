@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { CombatContent } from "./content/combat";
 import { ControlsContent } from "./content/controls";
+import { EconomyContent } from "./content/economy";
 import { GuildContent } from "./content/guild";
+import { HuntingContent } from "./content/hunting";
 import { PastimesContent } from "./content/pastimes";
 import { PlazaContent } from "./content/plaza";
+import { QuestsContent } from "./content/quests";
+import { SkillsContent } from "./content/skills";
 import { TownContent } from "./content/town";
 
 describe("최신 게임 안내서 내용", () => {
@@ -20,6 +25,30 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("메뉴(☰) → 환경 설정");
   });
 
+  it("알림·출석 혜택·계정 관리의 현재 위치를 안내한다", () => {
+    const html = renderToStaticMarkup(<ControlsContent />);
+
+    expect(html).toContain("일반 알림");
+    expect(html).toContain("월간 모험 지원권");
+    expect(html).toContain("빨간");
+    expect(html).toContain("프로필 이미지");
+    expect(html).toContain("회원 탈퇴");
+    expect(html).toContain("영구 삭제");
+  });
+
+  it("사냥 패배 위험 골드와 지역 세금 폐지를 모순 없이 안내한다", () => {
+    const combat = renderToStaticMarkup(<CombatContent />);
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+    const economy = renderToStaticMarkup(<EconomyContent />);
+
+    expect(combat).toContain("위험 골드");
+    expect(combat).toContain("50%");
+    expect(hunting).toContain("은행 예치금");
+    expect(economy).toContain("지역 세금은 붙지 않습니다");
+    expect(combat).not.toContain("패배해도 페널티는 없습니다");
+    expect(hunting).not.toContain("추가 손실은 없습니다");
+  });
+
   it("독립 주방과 거래 가능한 개인 요리를 안내한다", () => {
     const town = renderToStaticMarkup(<TownContent />);
     const pastimes = renderToStaticMarkup(<PastimesContent />);
@@ -28,6 +57,26 @@ describe("최신 게임 안내서 내용", () => {
     expect(pastimes).toContain("즐겨찾기");
     expect(pastimes).toContain("거래소의 소모품");
     expect(pastimes).toContain("최대 <strong");
+  });
+
+  it("최신 낚시 코인과 소비품 구매 한도를 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("기본 챔질 코인");
+    expect(html).toContain("8코인");
+    expect(html).toContain("15코인");
+    expect(html).toContain("농장 씨앗 주머니");
+    expect(html).toContain("같은 날 살 때마다 가격이 오릅니다");
+  });
+
+  it("생활 튜토리얼과 SP 수집 보너스를 안내한다", () => {
+    const quests = renderToStaticMarkup(<QuestsContent />);
+    const skills = renderToStaticMarkup(<SkillsContent />);
+
+    expect(quests).toContain("농장·벌목·채광·");
+    expect(quests).toContain("낚시·요리");
+    expect(quests).toContain("대표 배지 전시대");
+    expect(skills).toContain("장비 도감·어보 수집 단계");
   });
 
   it("길드 훈련과 원정의 전체 성장 단계를 안내한다", () => {
@@ -42,5 +91,15 @@ describe("최신 게임 안내서 내용", () => {
     const html = renderToStaticMarkup(<PlazaContent />);
 
     expect(html).toContain("일반 이용자에게 공개되지 않습니다");
+  });
+
+  it("거래소 공개 입찰 유예와 정산 흐름을 안내한다", () => {
+    const html = renderToStaticMarkup(<PlazaContent />);
+
+    expect(html).toContain("공개 입찰 유예");
+    expect(html).toContain("2~");
+    expect(html).toContain("24시간");
+    expect(html).toContain("최고 입찰자에게 판매");
+    expect(html).toContain("판매자가 취소할 수 없습니다");
   });
 });

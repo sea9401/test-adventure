@@ -10,6 +10,12 @@ import {
   LOTTERY_MIN_PARTICIPANTS_TO_DRAW,
   LOTTERY_TICKET_PRICE,
 } from "@/lib/lottery";
+import {
+  MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
+  MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
+  MARKETPLACE_V2_FIXED_LISTING_HOURS,
+  MARKETPLACE_V2_MIN_BID_RAISE_RATE,
+} from "@/lib/server/marketplaceV2";
 import { H2, P, UL, Em, Table, Note, Code } from "./primitives";
 
 export function PlazaContent() {
@@ -56,6 +62,34 @@ export function PlazaContent() {
         <li>
           <Em>길드 초대</Em>는 수락/거절을 선택하고, 수락하면 그 길드에
           합류합니다.
+        </li>
+      </UL>
+
+      <H2>거래소</H2>
+      <P>
+        장비·재료·레어맵·꾸미기 아이템·요리 음식을 등록하거나 구매합니다. 판매자는
+        즉시구매가와 <Em>공개 입찰 유예 시간</Em>을 정하고, 판매가 끝나면 세금을
+        제외한 대금을 우편함으로 받습니다.
+      </P>
+      <UL>
+        <li>
+          입찰 유예는 <Em>{MARKETPLACE_V2_BID_GRACE_MIN_HOURS}~
+          {MARKETPLACE_V2_BID_GRACE_MAX_HOURS}시간</Em> 중에서 정합니다. 이 시간에는
+          즉시구매 대신 공개 입찰만 할 수 있습니다.
+        </li>
+        <li>
+          첫 입찰은 1골드부터 가능하고, 다음 입찰은 현재 최고가보다 최소{" "}
+          {MARKETPLACE_V2_MIN_BID_RAISE_RATE * 100}% 높아야 합니다. 입찰금은 즉시
+          보관되며 더 높은 입찰이 들어오면 밀려난 금액이 우편함으로 반환됩니다.
+        </li>
+        <li>
+          유예 종료 때 최고 입찰이 즉시구매가를 넘었다면 최고 입찰자에게 판매됩니다.
+          넘지 않았다면 <Em>{MARKETPLACE_V2_FIXED_LISTING_HOURS}시간</Em> 동안
+          즉시구매 매물로 전환된 뒤, 팔리지 않으면 판매자에게 돌아갑니다.
+        </li>
+        <li>
+          입찰이 한 번이라도 시작된 매물은 판매자가 취소할 수 없습니다. 내 입찰과
+          환불·구매 물품·판매 대금은 거래소와 우편함에서 확인합니다.
         </li>
       </UL>
 

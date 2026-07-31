@@ -28,7 +28,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "controls",
     title: "화면과 조작",
-    summary: "메인 탭과 상단 메뉴, 명암·배경·은신 모드의 사용법을 안내합니다.",
+    summary: "메인 탭과 알림·이벤트·꾸미기·환경 설정의 사용법을 안내합니다.",
     group: "intro",
   },
   {

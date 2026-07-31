@@ -14,11 +14,20 @@ import {
 
 const LOCK_NAME = "adventure-rpg:reset-game-progress:v1";
 const CRITICAL_PRESERVED_TABLES = [
-  "accounts",
   "coupon_campaigns",
   "coupon_codes",
   "password_credentials",
 ];
+const GOOGLE_PROVIDER = "google";
+const MUTABLE_PRESERVED_TABLES = new Set([
+  "accounts",
+  "feedback_reports",
+  "storage_deletion_queue",
+  "user_sanctions",
+  "users",
+]);
+const PROFILE_USER_ID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+const FEEDBACK_IMAGE_KEY_PATTERN = "^feedback-images/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.webp$";
 
 let args;
 try {
@@ -70,6 +79,7 @@ try {
 
   const before = await takeSnapshot(client);
   assertExpectedCounts(before, args);
+  assertGoogleDeletionSafety(before);
   assertCouponRestrictionsResolve(before);
   printPreview(databaseName, publicTables, before, args.execute);
 
@@ -81,7 +91,7 @@ try {
     const after = await takeSnapshot(client);
     assertResetResult(before, after);
     await client.query("COMMIT");
-    printSuccess(after);
+    printSuccess(before, after);
   }
 } catch (error) {
   await client.query("ROLLBACK").catch(() => {});
@@ -103,15 +113,53 @@ async function executeReset(db) {
     throw new Error(`coupon notices with unsafe foreign keys: ${invalidNotices}`);
   }
 
+  await db.query(`
+    CREATE TEMP TABLE reset_deleted_google_users ON COMMIT DROP AS
+      SELECT u.id
+        FROM users u
+       WHERE ${googleOnlyUserPredicate("u")}
+  `);
+  await db.query(
+    "ALTER TABLE reset_deleted_google_users ADD PRIMARY KEY (id)",
+  );
+
   await db.query(
     `CREATE TEMP TABLE reset_preserved_coupon_inbox ON COMMIT DROP AS
-       SELECT * FROM marketplace_inbox WHERE ${COUPON_NOTICE_PREDICATE}`,
+       SELECT i.*
+         FROM marketplace_inbox i
+        WHERE ${COUPON_NOTICE_PREDICATE}
+          AND NOT EXISTS (
+                SELECT 1 FROM reset_deleted_google_users g WHERE g.id = i.user_id
+              )`,
+  );
+
+  await db.query(
+    `INSERT INTO storage_deletion_queue (kind, target)
+     SELECT target.kind, target.target
+       FROM (
+         SELECT 'profile_user'::text AS kind, g.id AS target
+           FROM reset_deleted_google_users g
+          WHERE g.id ~ '${PROFILE_USER_ID_PATTERN}'
+         UNION
+         SELECT 'feedback_image'::text AS kind, f.image_key AS target
+           FROM feedback_reports f
+           JOIN reset_deleted_google_users g ON g.id = f.user_id
+          WHERE f.image_key IS NOT NULL
+       ) target
+     ON CONFLICT (kind, target) DO NOTHING`,
   );
 
   const resetTargets = [...RESET_TABLES, ...PARTIAL_RESET_TABLES]
     .map(quoteIdentifier)
     .join(", ");
   await db.query(`TRUNCATE TABLE ${resetTargets} RESTART IDENTITY CASCADE`);
+
+  await db.query("DELETE FROM accounts WHERE provider = $1", [GOOGLE_PROVIDER]);
+  await db.query(`
+    DELETE FROM users u
+     USING reset_deleted_google_users g
+     WHERE u.id = g.id
+  `);
 
   await db.query(`
     UPDATE users
@@ -152,9 +200,77 @@ async function takeSnapshot(db) {
   for (const table of CRITICAL_PRESERVED_TABLES) {
     criticalDigests[table] = await tableDigest(db, table);
   }
+  const googleAccounts = await scalarCount(
+    db,
+    `SELECT count(*) FROM accounts WHERE provider = '${GOOGLE_PROVIDER}'`,
+  );
+  const deletedGoogleUsers = await scalarCount(
+    db,
+    `SELECT count(*) FROM users u WHERE ${googleOnlyUserPredicate("u")}`,
+  );
+  const deletedGoogleFeedbackReports = await scalarCount(
+    db,
+    `SELECT count(*)
+       FROM feedback_reports f
+       JOIN users u ON u.id = f.user_id
+      WHERE ${googleOnlyUserPredicate("u")}`,
+  );
+  const deletedGoogleSanctions = await scalarCount(
+    db,
+    `SELECT count(*)
+       FROM user_sanctions s
+       JOIN users u ON u.id = s.user_id
+      WHERE ${googleOnlyUserPredicate("u")}`,
+  );
+  const retainedCouponNotices = await scalarCount(
+    db,
+    `SELECT count(*)
+       FROM marketplace_inbox i
+      WHERE ${COUPON_NOTICE_PREDICATE}
+        AND NOT EXISTS (
+              SELECT 1 FROM users u
+               WHERE u.id = i.user_id AND ${googleOnlyUserPredicate("u")}
+            )`,
+  );
+  const storageDeletionTargets = await readStorageDeletionTargets(db);
   return {
     users: preservedCounts.users,
     accounts: preservedCounts.accounts,
+    passwordAccounts: preservedCounts.password_credentials,
+    googleAccounts,
+    deletedGoogleUsers,
+    deletedGoogleFeedbackReports,
+    deletedGoogleSanctions,
+    invalidGoogleUserIds: await scalarCount(
+      db,
+      `SELECT count(*) FROM users u
+        WHERE ${googleOnlyUserPredicate("u")} AND u.id !~ '${PROFILE_USER_ID_PATTERN}'`,
+    ),
+    invalidGoogleFeedbackImageKeys: await scalarCount(
+      db,
+      `SELECT count(*)
+         FROM feedback_reports f
+         JOIN users u ON u.id = f.user_id
+        WHERE ${googleOnlyUserPredicate("u")}
+          AND f.image_key IS NOT NULL
+          AND f.image_key !~ '${FEEDBACK_IMAGE_KEY_PATTERN}'`,
+    ),
+    googleRestrictedCoupons: await scalarCount(
+      db,
+      `SELECT count(*)
+         FROM coupon_codes c
+         JOIN users u ON u.id = c.restricted_user_id
+        WHERE ${googleOnlyUserPredicate("u")}`,
+    ),
+    googleIssuedCoupons: await scalarCount(
+      db,
+      `SELECT count(*)
+         FROM coupon_codes c
+         JOIN users u ON u.id = c.issued_for_user_id
+        WHERE ${googleOnlyUserPredicate("u")}`,
+    ),
+    storageDeletionTargets: storageDeletionTargets.total,
+    newStorageDeletionTargets: storageDeletionTargets.new,
     couponCampaigns: preservedCounts.coupon_campaigns,
     couponCodes: preservedCounts.coupon_codes,
     couponNotices: await scalarCount(
@@ -162,6 +278,7 @@ async function takeSnapshot(db) {
       `SELECT count(*) FROM marketplace_inbox WHERE ${COUPON_NOTICE_PREDICATE}`,
     ),
     marketplaceInbox: await scalarCount(db, "SELECT count(*) FROM marketplace_inbox"),
+    retainedCouponNotices,
     unresolvedRestrictedCoupons: await scalarCount(
       db,
       `SELECT count(*)
@@ -182,12 +299,25 @@ async function takeSnapshot(db) {
            OR last_claim_id IS NOT NULL
            OR last_claim_result IS NOT NULL`,
     ),
-    usersIdentityDigest: await usersIdentityDigest(db),
-    couponNoticeDigest: await queryDigest(
+    retainedUsersIdentityDigest: await usersIdentityDigest(
+      db,
+      `WHERE NOT (${googleOnlyUserPredicate("users")})`,
+    ),
+    retainedAccountsDigest: await queryDigest(
+      db,
+      `SELECT row_to_json(a)::text AS row_text
+         FROM accounts a
+        WHERE a.provider <> '${GOOGLE_PROVIDER}'`,
+    ),
+    retainedCouponNoticeDigest: await queryDigest(
       db,
       `SELECT row_to_json(i)::text AS row_text
          FROM marketplace_inbox i
-        WHERE ${COUPON_NOTICE_PREDICATE}`,
+        WHERE ${COUPON_NOTICE_PREDICATE}
+          AND NOT EXISTS (
+                SELECT 1 FROM users u
+                 WHERE u.id = i.user_id AND ${googleOnlyUserPredicate("u")}
+              )`,
     ),
     preservedCounts,
     resetCounts,
@@ -198,6 +328,14 @@ async function takeSnapshot(db) {
 function assertExpectedCounts(snapshot, expected) {
   const checks = [
     ["users", snapshot.users, expected.expectUsers],
+    ["auth accounts", snapshot.accounts, expected.expectAuthAccounts],
+    ["password accounts", snapshot.passwordAccounts, expected.expectPasswordAccounts],
+    ["Google accounts", snapshot.googleAccounts, expected.expectGoogleAccounts],
+    [
+      "Google-only users",
+      snapshot.deletedGoogleUsers,
+      expected.expectDeletedGoogleUsers,
+    ],
     ["coupon codes", snapshot.couponCodes, expected.expectCouponCodes],
     ["coupon notices", snapshot.couponNotices, expected.expectCouponNotices],
   ];
@@ -205,6 +343,19 @@ function assertExpectedCounts(snapshot, expected) {
     if (wanted !== undefined && actual !== wanted) {
       throw new Error(`${label} count changed: found ${actual}, expected ${wanted}`);
     }
+  }
+}
+
+function assertGoogleDeletionSafety(snapshot) {
+  if (snapshot.invalidGoogleFeedbackImageKeys !== 0) {
+    throw new Error(
+      `${snapshot.invalidGoogleFeedbackImageKeys} Google feedback image key(s) are invalid`,
+    );
+  }
+  if (snapshot.googleRestrictedCoupons !== 0) {
+    throw new Error(
+      `${snapshot.googleRestrictedCoupons} account-bound coupon(s) belong to Google-only users`,
+    );
   }
 }
 
@@ -218,10 +369,29 @@ function assertCouponRestrictionsResolve(snapshot) {
 
 function assertResetResult(before, after) {
   for (const table of PRESERVED_TABLES) {
+    if (MUTABLE_PRESERVED_TABLES.has(table)) continue;
     if (after.preservedCounts[table] !== before.preservedCounts[table]) {
       throw new Error(
         `preserved table ${table} changed row count: ` +
           `${before.preservedCounts[table]} -> ${after.preservedCounts[table]}`,
+      );
+    }
+  }
+  const expectedMutableCounts = {
+    accounts: before.preservedCounts.accounts - before.googleAccounts,
+    feedback_reports:
+      before.preservedCounts.feedback_reports - before.deletedGoogleFeedbackReports,
+    storage_deletion_queue:
+      before.preservedCounts.storage_deletion_queue + before.newStorageDeletionTargets,
+    user_sanctions:
+      before.preservedCounts.user_sanctions - before.deletedGoogleSanctions,
+    users: before.preservedCounts.users - before.deletedGoogleUsers,
+  };
+  for (const [table, expectedCount] of Object.entries(expectedMutableCounts)) {
+    if (after.preservedCounts[table] !== expectedCount) {
+      throw new Error(
+        `selectively changed table ${table} has ${after.preservedCounts[table]} rows; ` +
+          `expected ${expectedCount}`,
       );
     }
   }
@@ -230,16 +400,25 @@ function assertResetResult(before, after) {
       throw new Error(`preserved table ${table} changed contents`);
     }
   }
-  if (after.usersIdentityDigest !== before.usersIdentityDigest) {
-    throw new Error("preserved user identity fields changed contents");
+  if (after.googleAccounts !== 0 || after.deletedGoogleUsers !== 0) {
+    throw new Error(
+      `Google identity cleanup incomplete: accounts=${after.googleAccounts}, ` +
+        `users=${after.deletedGoogleUsers}`,
+    );
   }
-  if (after.couponNoticeDigest !== before.couponNoticeDigest) {
+  if (after.retainedAccountsDigest !== before.retainedAccountsDigest) {
+    throw new Error("retained non-Google auth accounts changed contents");
+  }
+  if (after.retainedUsersIdentityDigest !== before.retainedUsersIdentityDigest) {
+    throw new Error("retained user identity fields changed contents");
+  }
+  if (after.retainedCouponNoticeDigest !== before.retainedCouponNoticeDigest) {
     throw new Error("preserved coupon notices changed contents");
   }
-  if (after.marketplaceInbox !== before.couponNotices) {
+  if (after.marketplaceInbox !== before.retainedCouponNotices) {
     throw new Error(
       `marketplace inbox contains ${after.marketplaceInbox} rows after reset; ` +
-        `expected ${before.couponNotices} coupon notices`,
+        `expected ${before.retainedCouponNotices} retained coupon notices`,
     );
   }
   const nonEmpty = Object.entries(after.resetCounts).filter(([, count]) => count !== 0);
@@ -304,13 +483,56 @@ async function tableDigest(db, table) {
   return queryDigest(db, `SELECT row_to_json(t)::text AS row_text FROM ${quoteIdentifier(table)} t`);
 }
 
-async function usersIdentityDigest(db) {
+async function readStorageDeletionTargets(db) {
+  const result = await db.query(`
+    WITH deletion_targets AS (
+      SELECT 'profile_user'::text AS kind, u.id AS target
+        FROM users u
+       WHERE ${googleOnlyUserPredicate("u")} AND u.id ~ '${PROFILE_USER_ID_PATTERN}'
+      UNION
+      SELECT 'feedback_image'::text AS kind, f.image_key AS target
+        FROM feedback_reports f
+        JOIN users u ON u.id = f.user_id
+       WHERE ${googleOnlyUserPredicate("u")} AND f.image_key IS NOT NULL
+    )
+    SELECT count(*)::int AS total,
+           count(*) FILTER (
+             WHERE NOT EXISTS (
+               SELECT 1 FROM storage_deletion_queue q
+                WHERE q.kind = target.kind AND q.target = target.target
+             )
+           )::int AS new
+      FROM deletion_targets target
+  `);
+  return result.rows[0];
+}
+
+async function usersIdentityDigest(db, whereClause = "") {
   return queryDigest(
     db,
     `SELECT jsonb_build_array(
        id, name, email, email_verified, image, banned_until, ban_reason, created_at
-     )::text AS row_text FROM users`,
+     )::text AS row_text FROM users ${whereClause}`,
   );
+}
+
+function googleOnlyUserPredicate(alias) {
+  return `
+    EXISTS (
+      SELECT 1 FROM accounts google_account
+       WHERE google_account.user_id = ${alias}.id
+         AND google_account.provider = '${GOOGLE_PROVIDER}'
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM accounts retained_account
+       WHERE retained_account.user_id = ${alias}.id
+         AND retained_account.provider <> '${GOOGLE_PROVIDER}'
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM password_credentials credential
+       WHERE credential.user_id = ${alias}.id
+    )
+  `;
 }
 
 async function queryDigest(db, rowQuery) {
@@ -325,8 +547,31 @@ function printPreview(databaseName, publicTables, snapshot, executing) {
   console.log(`${executing ? "▶ EXECUTE" : "○ DRY RUN"} selective game reset`);
   console.log(`  database: ${databaseName}`);
   console.log(`  classified public tables: ${publicTables.length}`);
-  console.log(`  users preserved: ${snapshot.users}`);
-  console.log(`  auth accounts preserved: ${snapshot.accounts}`);
+  console.log(`  users before reset: ${snapshot.users}`);
+  console.log(
+    `  Google-only users deleted: ${snapshot.deletedGoogleUsers} ` +
+      `(retained ${snapshot.users - snapshot.deletedGoogleUsers})`,
+  );
+  console.log(`  auth accounts before reset: ${snapshot.accounts}`);
+  console.log(
+    `  Google auth accounts deleted: ${snapshot.googleAccounts} ` +
+      `(retained ${snapshot.accounts - snapshot.googleAccounts})`,
+  );
+  console.log(`  password accounts preserved: ${snapshot.passwordAccounts}`);
+  console.log(
+    `  Google coupon metadata retained/unusable restricted: ` +
+      `${snapshot.googleIssuedCoupons}/${snapshot.googleRestrictedCoupons}`,
+  );
+  console.log(
+    `  Google feedback deleted/storage cleanup targets queued: ` +
+      `${snapshot.deletedGoogleFeedbackReports}/${snapshot.storageDeletionTargets}`,
+  );
+  if (snapshot.invalidGoogleUserIds > 0) {
+    console.log(
+      `  profile cleanup skipped for non-profile-compatible ids: ` +
+        `${snapshot.invalidGoogleUserIds}`,
+    );
+  }
   console.log(
     `  coupon campaigns/codes preserved: ${snapshot.couponCampaigns}/${snapshot.couponCodes}`,
   );
@@ -339,17 +584,30 @@ function printExecuteExample(databaseName, snapshot) {
   console.log("\nNo data changed. After maintenance mode and a verified backup, execute with:");
   console.log(
     `npm run db:reset-game-progress -- --expect-database ${databaseName} ` +
-      `--expect-users ${snapshot.users} --expect-coupon-codes ${snapshot.couponCodes} ` +
+      `--expect-users ${snapshot.users} ` +
+      `--expect-auth-accounts ${snapshot.accounts} ` +
+      `--expect-password-accounts ${snapshot.passwordAccounts} ` +
+      `--expect-google-accounts ${snapshot.googleAccounts} ` +
+      `--expect-deleted-google-users ${snapshot.deletedGoogleUsers} ` +
+      `--expect-coupon-codes ${snapshot.couponCodes} ` +
       `--expect-coupon-notices ${snapshot.couponNotices} ` +
       "--maintenance-flag /etc/nginx/msmsge-maintenance.on " +
       `--confirm ${RESET_CONFIRMATION} --execute`,
   );
 }
 
-function printSuccess(snapshot) {
+function printSuccess(before, after) {
   console.log("✓ selective game reset committed");
-  console.log(`  users preserved: ${snapshot.users}`);
-  console.log(`  coupon codes/notices preserved: ${snapshot.couponCodes}/${snapshot.couponNotices}`);
+  console.log(
+    `  Google auth accounts/users deleted: ` +
+      `${before.googleAccounts}/${before.deletedGoogleUsers}`,
+  );
+  console.log(`  retained users/auth accounts: ${after.users}/${after.accounts}`);
+  console.log(`  password accounts preserved: ${after.passwordAccounts}`);
+  console.log(`  coupon codes/notices preserved: ${after.couponCodes}/${after.couponNotices}`);
+  console.log(
+    `  storage cleanup targets queued: ${before.newStorageDeletionTargets}`,
+  );
   console.log("  game progress tables empty and user game columns cleared");
 }
 
@@ -369,6 +627,10 @@ function usage() {
 
 Dry-run is the default and never changes data. Execution additionally requires:
   --expect-users <n>
+  --expect-auth-accounts <n>
+  --expect-password-accounts <n>
+  --expect-google-accounts <n>
+  --expect-deleted-google-users <n>
   --expect-coupon-codes <n>
   --expect-coupon-notices <n>
   --maintenance-flag <existing-file>

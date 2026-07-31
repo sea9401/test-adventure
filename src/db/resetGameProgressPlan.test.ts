@@ -16,10 +16,15 @@ describe("reset game progress plan", () => {
     expect(validateTableCoverage(allTables)).toEqual([...allTables].sort());
   });
 
-  it("resets v2 marketplace listings and their bid history", () => {
+  it("retains Kakao/password identity tables while resetting game and market data", () => {
+    expect(PRESERVED_TABLES).toEqual(
+      expect.arrayContaining(["users", "accounts", "password_credentials"]),
+    );
+    expect(RESET_TABLES).toContain("saves_kv");
     expect(RESET_TABLES).toEqual(
       expect.arrayContaining(["marketplace_bids_v2", "marketplace_listings_v2"]),
     );
+    expect(RESET_TABLES).not.toContain("password_credentials");
   });
 
   it("rejects unclassified and missing tables", () => {
@@ -53,12 +58,40 @@ describe("reset game progress plan", () => {
       ]),
     ).toThrow(/maintenance-flag/);
 
+    expect(() =>
+      parseResetArgs([
+        "--expect-database",
+        "reset_preview",
+        "--expect-users",
+        "2",
+        "--expect-auth-accounts",
+        "2",
+        "--expect-coupon-codes",
+        "50",
+        "--expect-coupon-notices",
+        "35",
+        "--maintenance-flag",
+        "/tmp/maintenance.on",
+        "--confirm",
+        RESET_CONFIRMATION,
+        "--execute",
+      ]),
+    ).toThrow(/expect-password-accounts/);
+
     expect(
       parseResetArgs([
         "--expect-database",
         "reset_preview",
         "--expect-users",
         "2",
+        "--expect-auth-accounts",
+        "2",
+        "--expect-password-accounts",
+        "1",
+        "--expect-google-accounts",
+        "1",
+        "--expect-deleted-google-users",
+        "1",
         "--expect-coupon-codes",
         "50",
         "--expect-coupon-notices",
@@ -72,6 +105,10 @@ describe("reset game progress plan", () => {
     ).toMatchObject({
       execute: true,
       expectUsers: 2,
+      expectAuthAccounts: 2,
+      expectPasswordAccounts: 1,
+      expectGoogleAccounts: 1,
+      expectDeletedGoogleUsers: 1,
       expectCouponCodes: 50,
       expectCouponNotices: 35,
     });

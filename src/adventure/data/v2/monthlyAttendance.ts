@@ -5,6 +5,7 @@ import {
 } from "./museunCashItems";
 
 export const MONTHLY_ATTENDANCE_SAVE_KEY = "monthly-attendance.v1";
+export const MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS = 15;
 
 type MonthlyAttendanceBaseReward =
   | { kind: "adventure_support"; days: number }
@@ -19,7 +20,10 @@ export type MonthlyAttendanceReward = MonthlyAttendanceBaseReward & {
 };
 
 export const MONTHLY_ATTENDANCE_REWARDS = [
-  { kind: "adventure_support", days: 30 },
+  {
+    kind: "adventure_support",
+    days: MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS,
+  },
   { kind: "enhancement_stone", color: "blue", count: 1 },
   { kind: "stamina_potion", count: 2 },
   { kind: "stamina_potion", count: 2 },

@@ -41,8 +41,9 @@ import {
 // POST /api/v2/me/class-element — 레거시 경로명을 유지하는 직업 선택/변경 API.
 // 속성 선택·상성은 폐지되어 요청의 element 값은 더 이상 읽거나 저장하지 않는다.
 // 시그니처는 숙련도 학습(learn-skill)이다. 단, 마법 공격력을 실제 기본 공격에 연결하는 마력탄은
-// 다른 직군의 공용 물리 스타터와 동등한 코어 기본기라 첫 선택/기존 누락 시 자동 지급한다.
+// 다른 직군의 공용 물리 스타터와 동등한 코어 기본기라 기존 누락 시 자동 지급한다.
 // 코어루프에서는 수동 SP 로드아웃을 보존하고, 레거시만 새 직업 체인으로 equipped 를 재산출한다.
+// 코어루프 신규 캐릭터는 모험가(none)로 시작하고 Lv.100 뒤 advance-class 로 첫 전직한다.
 
 type CharSaveShape = {
   class?: unknown;
@@ -82,6 +83,16 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+    const curClass = parseV2Class(charSave.class);
+    // 코어루프 온보딩은 모두 모험가로 시작한다. 레거시 생성 API를 직접 호출해 none→기본 직업으로
+    // 바꾸면 Lv.100 첫 전직 게이트를 우회하므로, 서버에서도 첫 선택을 거부한다. 실제 첫 전직은
+    // /api/v2/me/advance-class 한 경로에서 레벨·직업 해금 조건을 검증한다.
+    if (V2_CORE_LOOP_V2 && curClass === "none") {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "use_job_ladder" as const },
+      };
+    }
     const skillsRaw = await lockSaveForUpdate(
       tx,
       userId,
@@ -100,7 +111,6 @@ export async function POST(req: Request) {
       charSave,
     );
 
-    const curClass = parseV2Class(charSave.class);
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
     const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
@@ -110,7 +120,7 @@ export async function POST(req: Request) {
     // PR-7 — respec 은 직업군 단위. 같은 직업군의 1차를 골라도(2차 캐릭이 자기 군 1차 선택 등)
     // 현 직업을 유지(다운그레이드 X).
     const groupChanged = isClassChange(curClass, nextClass);
-    // 첫 선택(curClass none = 캐릭터 생성) — isClassChange 는 none 을 false 로 보므로
+    // 레거시 첫 선택(curClass none = 캐릭터 생성) — isClassChange 는 none 을 false 로 보므로
     // groupChanged 만으로는 첫 선택이 effectiveClass 설정 블록을 안 타서 class 가 "none"
     // 으로 남아 저장된다(#395 회귀: 신규 캐릭 직업 선택 불가 → 온보딩 게이트 무한 /create).
     // 첫 선택도 nextClass 로 확정해야 함(none → reachedTier 1 → classOfGroupTier=nextClass).

@@ -3,6 +3,7 @@ import {
   authenticatedE2eAccountDeletionState,
   authenticatedE2eConfig,
   resetAuthenticatedE2eAccount,
+  setAuthenticatedE2eCharacterLevel,
 } from "./support/authenticatedDatabase";
 import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
 
@@ -24,7 +25,7 @@ test.beforeEach(async ({ page }) => {
   await resetAuthenticatedE2eAccount();
 });
 
-test("비밀번호 로그인 후 캐릭터를 만들고 저장한 진행을 재로그인하면 복원한다", async ({
+test("신규 모험가의 초기 지급·첫 전직 경계와 저장 진행을 재로그인하면 복원한다", async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -32,6 +33,115 @@ test("비밀번호 로그인 후 캐릭터를 만들고 저장한 진행을 재�
 
   await loginWithPassword(page, account.loginId, account.password);
   await createCharacter(page, CHARACTER_NAME);
+
+  const bootstrap = await page.evaluate(async () => {
+    const [saveResponse, equipmentResponse, stateResponse] = await Promise.all([
+      fetch("/api/save"),
+      fetch("/api/v2/me/equipment"),
+      fetch("/api/v2/me/state"),
+    ]);
+    return {
+      saves: await saveResponse.json(),
+      equipment: await equipmentResponse.json(),
+      state: await stateResponse.json(),
+    };
+  });
+  expect(bootstrap.saves["character.v2"]).toMatchObject({
+    level: 1,
+    exp: 0,
+    gold: 50,
+    stamina: { current: 1500 },
+  });
+  expect(bootstrap.saves["character.v2"]).not.toHaveProperty("class");
+  expect(bootstrap.saves["inventory.v2"]).toMatchObject({
+    potions: { potion_heal_s: 10 },
+    materials: { branch: 2 },
+    hpCharges: 100_000,
+    mpCharges: 100_000,
+  });
+  expect(bootstrap.state).toMatchObject({
+    ok: true,
+    battleCount: 0,
+    frontierDepth: 2,
+    character: {
+      level: 1,
+      class: "none",
+      classDisplayName: "모험가",
+      gold: 50,
+      hpCharges: 100_000,
+      mpCharges: 100_000,
+    },
+    jobsV2: {
+      currentJobId: "none",
+      currentJobLevelCap: 100,
+    },
+  });
+
+  const owned = bootstrap.equipment.owned as Array<{ iid: string; id: string }>;
+  const equipped = bootstrap.equipment.equipped as Record<string, string>;
+  expect(owned.map((item) => item.id).sort()).toEqual(
+    [
+      "v2_iron_sword",
+      "v2_jade_amulet",
+      "v2_leather_armor",
+      "v2_leather_boots",
+      "v2_leather_gloves",
+      "v2_silver_ring",
+    ].sort(),
+  );
+  expect(Object.keys(equipped).sort()).toEqual(
+    ["armor", "boots", "gloves", "necklace", "ring", "weapon"].sort(),
+  );
+  expect(Object.values(equipped).sort()).toEqual(
+    owned.map((item) => item.iid).sort(),
+  );
+
+  await expect
+    .poll(async () => {
+      const saves = await page.evaluate(async () =>
+        fetch("/api/save").then((response) => response.json()),
+      );
+      return (saves["storyFlags.v2"]?.flags as string[] | undefined) ?? [];
+    })
+    .toContain("tutorial.enabled");
+
+  await page.goto("/create");
+  await expect(page.getByRole("navigation", { name: "메인 메뉴" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "직업 선택", level: 1 }),
+  ).toHaveCount(0);
+
+  const legacyFirstPick = await page.evaluate(async () => {
+    const response = await fetch("/api/v2/me/class-element", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ class: "mage" }),
+    });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(legacyFirstPick).toEqual({
+    status: 400,
+    body: { ok: false, error: "use_job_ladder" },
+  });
+
+  const tooEarly = await advanceToWarrior(page);
+  expect(tooEarly).toEqual({
+    status: 400,
+    body: { ok: false, error: "level_too_low", required: 100, have: 1 },
+  });
+
+  await setAuthenticatedE2eCharacterLevel(100);
+  const firstAdvancement = await advanceToWarrior(page);
+  expect(firstAdvancement).toMatchObject({
+    status: 200,
+    body: { ok: true, class: "warrior", reincarnated: true },
+  });
+  const afterAdvancement = await coreGameplayState(page);
+  expect(afterAdvancement.character).toMatchObject({ level: 1, exp: 0 });
+  expect(afterAdvancement.jobsV2).toMatchObject({
+    currentJobId: "warrior",
+    currentJobLevelCap: 100,
+  });
 
   const saveResult = await page.evaluate(async (flag) => {
     const response = await fetch("/api/save?key=storyFlags.v2", {
@@ -65,6 +175,8 @@ test("비밀번호 로그인 후 캐릭터를 만들고 저장한 진행을 재�
   expect(restored.body["storyFlags.v2"]).toEqual({
     flags: [PERSISTED_FLAG],
   });
+  const restoredState = await coreGameplayState(page);
+  expect(restoredState.jobsV2).toMatchObject({ currentJobId: "warrior" });
 });
 
 test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받고 중복 수령은 차단된다", async ({
@@ -289,6 +401,10 @@ type CoreGameplayState = {
     gold: number;
     stamina: { current: number };
   };
+  jobsV2?: {
+    currentJobId?: string;
+    currentJobLevelCap?: number;
+  } | null;
 };
 
 async function coreGameplayState(page: Page): Promise<CoreGameplayState> {
@@ -309,6 +425,17 @@ function stableGameplayProgress(state: CoreGameplayState) {
     exp: state.character.exp,
     gold: state.character.gold,
   };
+}
+
+async function advanceToWarrior(page: Page) {
+  return page.evaluate(async () => {
+    const response = await fetch("/api/v2/me/advance-class", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ targetJobId: "warrior" }),
+    });
+    return { status: response.status, body: await response.json() };
+  });
 }
 
 async function loginWithPassword(page: Page, loginId: string, password: string) {

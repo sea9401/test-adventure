@@ -139,7 +139,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
       </button>
       {open && (
         <div
-          className={`${SURFACE_CARD} ui-dropdown-reveal absolute right-0 top-full z-[70] mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-lg`}
+          className={`${SURFACE_CARD} ui-dropdown-reveal no-scrollbar absolute right-0 top-full z-[70] mt-2 max-h-[calc(100dvh-4.5rem)] w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-x-hidden overflow-y-auto overscroll-contain shadow-lg`}
         >
           <ul className="py-1">
             {(

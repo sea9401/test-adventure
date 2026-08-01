@@ -41,6 +41,7 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   "season-ops.pvp-rewards": "아레나 보상 지급",
   "season-ops.pvp-rollover": "아레나 시즌 정리",
   "season-ops.war-rollover": "전쟁 시즌 정리",
+  "suspicion-score.reset": "매크로 의심 점수 초기화",
 };
 
 export const ABUSE_ACTION_LABELS: Record<string, string> = {

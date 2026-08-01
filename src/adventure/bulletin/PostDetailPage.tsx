@@ -16,6 +16,7 @@ import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { formatDateTime } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { toggleLike } from "./api";
+import { BulletinMarkdown } from "./BulletinMarkdown";
 import { CommentsPanel } from "./CommentsPanel";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
 
@@ -204,9 +205,7 @@ export function PostDetailPage({
           </div>
         </header>
 
-        <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200">
-          {post.content}
-        </p>
+        <BulletinMarkdown content={post.content} className="mt-4" />
 
         <div className="mt-4 flex items-center gap-3 border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
           <button

@@ -1,14 +1,19 @@
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { Avatar } from "@/adventure/profile/avatars";
+
 export const ARENA_TOURNAMENT_MIN_MATCHES = 10;
 export const ARENA_TOURNAMENT_MAX_SIZE = 32;
 export const ARENA_TOURNAMENT_MIN_SIZE = 8;
 export const ARENA_TOURNAMENT_DAY_MS = 24 * 60 * 60 * 1000;
 export const ARENA_TOURNAMENT_START_BEFORE_END_MS = 5 * 60 * 60 * 1000;
+export const ARENA_TOURNAMENT_SNAPSHOT_BEFORE_END_MS = 6 * 60 * 60 * 1000;
 export const ARENA_TOURNAMENT_ROUND_INTERVAL_MS = 15 * 60 * 1000;
 export const ARENA_TOURNAMENT_BET_CLOSE_MS = 30 * 1000;
 export const ARENA_TOURNAMENT_MAX_GAMES_PER_MATCH = 5;
 export const ARENA_TOURNAMENT_BET_MIN_GOLD = 100;
-export const ARENA_TOURNAMENT_BET_MAX_GOLD = 50_000;
-export const ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD = 200_000;
+export const ARENA_TOURNAMENT_BET_MAX_GOLD = 1_500_000;
+// 경기당 상한의 4배 — 한 경기 몰빵과 여러 라운드 분산 베팅을 모두 허용한다.
+export const ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD = 6_000_000;
 export const ARENA_TOURNAMENT_BET_FEE_BPS = 500;
 
 export type ArenaSeasonPhase = "ranked" | "tournament" | "closed";
@@ -21,6 +26,7 @@ export type ArenaTournamentStatus =
 export type ArenaTournamentParticipant = {
   userId: string;
   name: string;
+  avatar?: Avatar;
   level: number;
   qualifyingRank: number;
   rating: number;
@@ -33,6 +39,9 @@ export type ArenaTournamentGame = {
   turns: number;
   p1HpRatio: number;
   p2HpRatio: number;
+  /** DB bracket 에만 저장하고 목록 API에서는 hasReplay 로 축약한다. */
+  replay?: ReplayPayload;
+  hasReplay?: boolean;
 };
 
 export type ArenaTournamentMatch = {
@@ -70,6 +79,8 @@ export type ArenaTournamentBracket = {
   bracketSize: number;
   minimumMatches: number;
   generatedAt: string;
+  /** 전투 장비·스킬·패턴을 마지막으로 확정한 시각. 구버전 대진은 없을 수 있다. */
+  snapshotsFrozenAt?: string;
   startsAt: string;
   status: ArenaTournamentStatus;
   participants: ArenaTournamentParticipant[];
@@ -83,6 +94,7 @@ export type ArenaTournamentFightResult = {
   turns: number;
   p1HpRatio: number;
   p2HpRatio: number;
+  replay?: ReplayPayload;
 };
 
 export type ArenaTournamentEntrant<T> = {
@@ -109,6 +121,12 @@ export function arenaRankedEndsAt(seasonEndAt: Date): Date {
 export function arenaTournamentStartsAt(seasonEndAt: Date): Date {
   return new Date(
     seasonEndAt.getTime() - ARENA_TOURNAMENT_START_BEFORE_END_MS,
+  );
+}
+
+export function arenaTournamentSnapshotsAt(seasonEndAt: Date): Date {
+  return new Date(
+    seasonEndAt.getTime() - ARENA_TOURNAMENT_SNAPSHOT_BEFORE_END_MS,
   );
 }
 
@@ -351,6 +369,7 @@ function resolveMatch<T>(args: {
       turns: Math.max(0, Math.floor(result.turns)),
       p1HpRatio,
       p2HpRatio,
+      replay: result.replay,
     });
     p1HpTotal += p1HpRatio;
     p2HpTotal += p2HpRatio;
@@ -385,6 +404,46 @@ function resolveMatch<T>(args: {
     decidedBy,
     games,
   };
+}
+
+/** 목록 폴링 응답에서 큰 전투 로그를 떼고 링크 표시용 존재 여부만 남긴다. */
+export function arenaTournamentBracketOverview(
+  bracket: ArenaTournamentBracket,
+): ArenaTournamentBracket {
+  return {
+    ...bracket,
+    matches: bracket.matches.map((match) => ({
+      ...match,
+      games: match.games.map(({ replay, ...game }) => ({
+        ...game,
+        hasReplay: Boolean(replay) || game.hasReplay === true,
+      })),
+    })),
+  };
+}
+
+export function arenaTournamentMatchNoticeText(
+  bracket: ArenaTournamentBracket,
+  match: ArenaTournamentMatch,
+): string {
+  const participantById = new Map(
+    bracket.participants.map((participant) => [participant.userId, participant]),
+  );
+  const p1Name = participantById.get(match.p1UserId ?? "")?.name ?? "참가자";
+  const p2Name = participantById.get(match.p2UserId ?? "")?.name ?? "참가자";
+  const winnerName =
+    participantById.get(match.winnerUserId ?? "")?.name ?? "승리자";
+  const score = `${p1Name} ${match.p1Wins}:${match.p2Wins} ${p2Name}`;
+  if (match.kind === "final") {
+    return `🏆 결승 · ${score} — ${winnerName}님이 챔피언이 되었습니다.`;
+  }
+  const icon =
+    match.kind === "third_place"
+      ? "🥉"
+      : match.roundName === "준결승"
+        ? "🔥"
+        : "🏟️";
+  return `${icon} ${match.roundName} · ${score} — ${winnerName} 승리`;
 }
 
 export function arenaTournamentRewardFor(args: {

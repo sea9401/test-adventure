@@ -127,6 +127,7 @@ export default function DungeonFloorPage() {
       onProficiencyChange={(n) =>
         applyResourcePatch({ viewerProficiency: n })
       }
+      onRecoveryChargesChange={applyResourcePatch}
       offlineHunt={offlineHunt}
       onRefresh={refreshGameState}
     />

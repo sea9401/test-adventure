@@ -1,8 +1,10 @@
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import {
+  arenaTournamentBracketOverview,
   arenaRankedEndsAt,
   arenaSeasonPhase,
+  arenaTournamentSnapshotsAt,
 } from "@/lib/server/pvp/arenaTournament";
 import {
   arenaTournamentBetView,
@@ -32,6 +34,9 @@ export async function GET() {
   const betting = latest
     ? await arenaTournamentBetView(latest.seasonId, userId)
     : null;
+  const overviewBracket = latest
+    ? arenaTournamentBracketOverview(latest.bracket)
+    : null;
 
   return Response.json({
     ok: true,
@@ -39,13 +44,14 @@ export async function GET() {
     season: {
       id: season.id,
       rankedEndsAt: arenaRankedEndsAt(season.endAt).toISOString(),
+      snapshotsAt: arenaTournamentSnapshotsAt(season.endAt).toISOString(),
       endAt: season.endAt.toISOString(),
     },
     tournament: latest
       ? {
           seasonId: latest.seasonId,
           isCurrent: latest.seasonId === season.id,
-          bracket: latest.bracket,
+          bracket: overviewBracket,
           myReward: myReward ?? null,
           betting,
         }

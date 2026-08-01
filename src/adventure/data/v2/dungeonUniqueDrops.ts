@@ -73,7 +73,8 @@ export function rollUniqueDrop(
 // 밴드 장비를 흔한(normal·드랍 전용)/유니크(특화·추격) 두 풀로 분리(2026-06-09). 옛 BAND_UNIQUE_POOLS
 //   는 밴드 전 장비를 rarity:"unique" 로 묶어 "전부 유니크 취급"이 됐다. 이제:
 //   - 흔한 9종/밴드(무기 4 + 갑주세트 3 + 장신구 2) = noDrop normal. 빵앤버터 진행 장비.
-//     드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→0.3% / 3·4→0.45% / 5·6→0.6%). droppedEquipment 슬롯.
+//     기본 드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→0.3% / 3·4→0.45% / 5·6→0.6%).
+//     최상위 3개 테마(55+)는 별도 희소화 곡선(0.05% / 0.0625% / 0.075%). droppedEquipment 슬롯.
 //   - 유니크 = 이름 있는 고유 아이템(Signature). chance 0.0005
 //     고정(어디서나 귀함·종당으로도 흔한보다 귀하게). droppedUnique 슬롯. 흔한과 별개 굴림(둘 다 가능).
 export type BandPool = {
@@ -311,16 +312,21 @@ export function bandCommonChance(localDepth: number): number {
   return 0.006;
 }
 
-export function bandCommonDepthMult(depth: number): number {
-  void depth;
-  return 1;
+// 백골 고원·폭풍 산맥·심해 폐허(55~72) — 고유 장비 0.05%와 독립 합산했을 때
+// 입구 약 1/1,000, 심부 약 1/889, 최심부 약 1/800승으로 수렴하는 엔드게임 희소화 곡선.
+function endgameBandCommonChance(localDepth: number): number {
+  if (localDepth <= 2) return 0.0005;
+  if (localDepth <= 4) return 0.000625;
+  return 0.00075;
 }
 
 export function bandCommonChanceForDepth(depth: number): number {
   const pool = bandCommonPoolForDepth(depth);
   if (!pool) return 0;
   const localDepth = depth - pool.minDepth + 1;
-  return bandCommonChance(localDepth) * bandCommonDepthMult(depth);
+  return depth >= 55
+    ? endgameBandCommonChance(localDepth)
+    : bandCommonChance(localDepth);
 }
 
 export function bandCommonPoolForDepth(depth: number): BandPool | null {

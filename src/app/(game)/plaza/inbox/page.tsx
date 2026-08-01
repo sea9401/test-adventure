@@ -14,6 +14,7 @@ export default function InboxPage() {
       onOpenFeedback={(feedbackId) =>
         router.push(`/feedback#feedback-${feedbackId}`)
       }
+      onOpenFarm={() => router.push("/town/farm")}
     />
   );
 }

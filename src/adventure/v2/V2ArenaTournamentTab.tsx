@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Crown, Timer, Trophy } from "@phosphor-icons/react";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import {
@@ -12,6 +13,7 @@ import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { ArenaTournamentBracket } from "@/lib/server/pvp/arenaTournament";
 import { arenaChampionshipBadgeForPlacement } from "@/adventure/data/v2/arenaChampionshipBadges";
 import { ArenaChampionshipBadge } from "@/components/chat/ChatCosmetics";
+import { arenaTournamentReplayHref } from "@/lib/chat-config";
 
 type TournamentBetting = {
   pools: Array<{
@@ -41,6 +43,7 @@ type TournamentResponse = {
   season?: {
     id: string;
     rankedEndsAt: string;
+    snapshotsAt: string;
     endAt: string;
   };
   tournament?: {
@@ -99,7 +102,7 @@ function betStatus(status: string): string {
 }
 
 export function V2ArenaTournamentTab() {
-  const { viewerUserId, setGold } = useGameState();
+  const { viewerUserId, setGold, setBankedGold } = useGameState();
   const [data, setData] = useState<TournamentResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -218,6 +221,7 @@ export function V2ArenaTournamentTab() {
           ok?: boolean;
           error?: string;
           gold?: number;
+          bankedGold?: number;
         } | null;
         if (!response.ok || !json?.ok) {
           setBetMessage((current) => ({
@@ -227,6 +231,9 @@ export function V2ArenaTournamentTab() {
           return;
         }
         if (typeof json.gold === "number") setGold(json.gold);
+        if (typeof json.bankedGold === "number") {
+          setBankedGold(json.bankedGold);
+        }
         setBetMessage((current) => ({
           ...current,
           [matchId]: `${amount.toLocaleString("ko-KR")} 골드 베팅 완료`,
@@ -241,7 +248,7 @@ export function V2ArenaTournamentTab() {
         setBettingMatchId(null);
       }
     },
-    [amounts, choices, load, setGold],
+    [amounts, choices, load, setBankedGold, setGold],
   );
 
   if (failed) return <LoadErrorBanner onRetry={() => load()} />;
@@ -272,6 +279,7 @@ export function V2ArenaTournamentTab() {
         </p>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
           <span>예선 마감 {formatKst(data.season?.rankedEndsAt)}</span>
+          <span>전투 세팅 마감 {formatKst(data.season?.snapshotsAt)}</span>
           <span>경기 시작 {formatKst(bracket?.startsAt)}</span>
           <span>시즌 정산 {formatKst(data.season?.endAt)}</span>
         </div>
@@ -279,8 +287,9 @@ export function V2ArenaTournamentTab() {
 
       {data.phase === "ranked" && !tournament?.isCurrent && (
         <div className={`${SURFACE_CARD} p-4 text-sm`}>
-          토요일 23:59까지 예선 순위를 올려 주세요. 일요일 00:00에 순위와
-          전투 세팅을 동결하고, 19:00부터 경기를 시작합니다.
+          토요일 23:59까지 예선 순위를 올려 주세요. 순위와 대진은 일요일 00:00에
+          확정되지만, 아레나 전투 세팅은 18:00 전까지 다시 저장할 수 있습니다.
+          경기는 19:00부터 시작합니다.
         </div>
       )}
 
@@ -496,13 +505,26 @@ export function V2ArenaTournamentTab() {
                     </div>
                   )}
                   {match.status === "completed" && (
-                    <div className="border-t border-zinc-200 pt-1 text-[11px] text-zinc-500 dark:border-zinc-700">
-                      {match.games.length}경기 ·
-                      {match.decidedBy === "hp"
-                        ? " 잔여 HP 판정"
-                        : match.decidedBy === "seed"
-                          ? " 예선 순위 판정"
-                          : " 다승 판정"}
+                    <div className="flex items-center justify-between gap-2 border-t border-zinc-200 pt-1 text-[11px] text-zinc-500 dark:border-zinc-700">
+                      <span>
+                        {match.games.length}경기 ·
+                        {match.decidedBy === "hp"
+                          ? " 잔여 HP 판정"
+                          : match.decidedBy === "seed"
+                            ? " 예선 순위 판정"
+                            : " 다승 판정"}
+                      </span>
+                      {match.games.some((game) => game.hasReplay) && bracket && (
+                        <Link
+                          href={arenaTournamentReplayHref(
+                            bracket.seasonId,
+                            match.id,
+                          )}
+                          className="shrink-0 font-semibold text-amber-700 underline underline-offset-2 dark:text-amber-300"
+                        >
+                          전투 로그 보기
+                        </Link>
+                      )}
                     </div>
                   )}
                 </div>

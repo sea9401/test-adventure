@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  auditFixedProgressionCombat,
   buildGrowthPacing,
   buildReport,
   classifyStage,
@@ -51,7 +52,7 @@ describe("sim-v2-level-design", () => {
     expect(
       endgame.veteranLevelCapWins * endgame.avgVeteranExpPerWin,
     ).toBeGreaterThanOrEqual(growth.totalExpToLevelCap);
-    expect(endgame.commonAnyExpectedWins).toBeCloseTo(1 / 0.006);
+    expect(endgame.commonAnyExpectedWins).toBeCloseTo(1 / 0.00075);
     expect(endgame.signatureAnyExpectedWins).toBe(2_000);
     expect(endgame.signatureSpecificExpectedWins).toBe(10_000);
   });
@@ -97,6 +98,39 @@ describe("sim-v2-level-design", () => {
       }),
     ).toEqual([]);
   });
+
+  it("수행 0회·전투력 1,500 이하 캐릭터는 심해 폐허 최심부를 안정적으로 우회하지 못한다", () => {
+    const builds = auditFixedProgressionCombat({
+      depth: 72,
+      careerWins: 500_000,
+      cultivate: false,
+      trials: 50,
+    });
+    const underpowered = builds.filter((build) => build.power <= 1_500);
+
+    expect(underpowered.length).toBeGreaterThan(0);
+    expect(builds.every((build) => build.cultivations === 0)).toBe(true);
+    expect(Math.max(...underpowered.map((build) => build.winRatePct))).toBeLessThan(20);
+  });
+
+  it("무수행 저성장 캐릭터는 중반 지역을 안정적으로 연속 우회하지 못한다", () => {
+    const averageWinRate = (depth: number) => {
+      const builds = auditFixedProgressionCombat({
+        depth,
+        careerWins: 15_000,
+        cultivate: false,
+        trials: 50,
+      });
+      return builds.reduce((sum, build) => sum + build.winRatePct, 0) / builds.length;
+    };
+
+    expect(averageWinRate(8)).toBeGreaterThanOrEqual(90); // 첫 프론티어는 온보딩 보호
+    expect(averageWinRate(20)).toBeLessThan(85);
+    expect(averageWinRate(26)).toBeLessThan(70);
+    expect(averageWinRate(32)).toBeLessThan(75);
+    expect(averageWinRate(38)).toBeLessThan(55);
+    expect(averageWinRate(42)).toBeLessThan(55);
+  }, 15_000);
 
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {
     const full = buildReport(parseOptions(["--trials=1"]));

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   autoGatheringStatusText,
@@ -11,7 +11,7 @@ import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
-// 좌측: 게임 아이콘 + 자동 생활 작업 상태 — 클릭 시 모험 탭(/)으로 이동.
+// 좌측: 게임 아이콘(홈) + 자동 생활 작업 상태(진행 중인 생활 화면) 독립 링크.
 // 우측: 통합 알림(일반 알림+우편) 미리보기·광장/설정 메뉴.
 
 function LifeActivityStatus({
@@ -50,28 +50,46 @@ export function V2TopBar({
 }: {
   autoGathering: AutoGatheringStatus | null;
 }) {
-  const router = useRouter();
+  const activityHref =
+    autoGathering?.activity === "woodcutting"
+      ? "/town/logging"
+      : autoGathering?.activity === "mining"
+        ? "/town/mining"
+        : null;
+
   return (
     <header className="sticky top-0 z-[60] flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90">
       <div className="flex min-w-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={() => router.push("/")}
-          aria-label="무슨무슨게임 모험 탭으로 이동"
-          className="-mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition hover:bg-zinc-100 dark:hover:bg-zinc-800"
+        <Link
+          href="/"
+          aria-label="무슨무슨게임 홈으로 이동"
+          title="홈"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
         >
           <Image
             src="/icon-192.png"
             alt=""
-            width={28}
-            height={28}
-            className="size-7 shrink-0 rounded-md"
+            width={32}
+            height={32}
+            className="size-8 shrink-0 rounded-md"
           />
-          <LifeActivityStatus
-            key={autoGathering?.readyAt ?? "rest"}
-            status={autoGathering}
-          />
-        </button>
+        </Link>
+        {activityHref ? (
+          <Link
+            href={activityHref}
+            aria-label={`${autoGathering?.activity === "woodcutting" ? "벌목" : "채광"} 화면으로 이동`}
+            className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          >
+            <LifeActivityStatus
+              key={autoGathering?.readyAt}
+              status={autoGathering}
+            />
+          </Link>
+        ) : (
+          <div className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <LifeActivityStatus key="rest" status={null} />
+          </div>
+        )}
       </div>
       <nav className="relative z-[61] flex shrink-0 items-center gap-1">
         <NotificationBell />

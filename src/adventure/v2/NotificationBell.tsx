@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CaretRight, Envelope } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { formatRelative } from "@/lib/notifications";
 import {
@@ -64,6 +65,10 @@ function previewText(notification: V2NotificationEntry): string {
     case "feedback_replied": {
       const p = payload as { feedbackId: number };
       return `내 건의 #${p.feedbackId}에 관리자 답변이 등록되었습니다.`;
+    }
+    case "farm_ready": {
+      const p = payload as { readyCount: number };
+      return `수확 가능한 작물이 ${p.readyCount}개 있어요.`;
     }
   }
 }
@@ -207,6 +212,16 @@ export function NotificationBell() {
     router.push("/notifications");
   };
 
+  const openNotification = (notification: V2NotificationEntry) => {
+    if (notification.type !== "farm_ready") {
+      openNotifications();
+      return;
+    }
+    setOpen(false);
+    void acknowledgeFarmReadyNotification();
+    router.push("/town/farm");
+  };
+
   const openMail = () => {
     setOpen(false);
     router.push("/plaza/inbox");
@@ -271,7 +286,7 @@ export function NotificationBell() {
                     <li key={`notification-${entry.item.id}`}>
                       <button
                         type="button"
-                        onClick={openNotifications}
+                        onClick={() => openNotification(entry.item)}
                         className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
                       >
                         <span

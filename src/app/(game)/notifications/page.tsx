@@ -13,6 +13,7 @@ export default function NotificationsPage() {
       onOpenFeedback={(feedbackId) =>
         router.push(`/feedback#feedback-${feedbackId}`)
       }
+      onOpenFarm={() => router.push("/town/farm")}
     />
   );
 }

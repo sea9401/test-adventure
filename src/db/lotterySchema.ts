@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -63,6 +64,7 @@ export const lotteryPurchases = pgTable(
     ticketCount: integer("ticket_count").notNull(),
     firstTicketNumber: integer("first_ticket_number").notNull(),
     amountPaid: bigint("amount_paid", { mode: "number" }).notNull(),
+    isCarried: boolean("is_carried").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
@@ -80,7 +82,7 @@ export const lotteryPurchases = pgTable(
       "lottery_purchases_first_ticket_check",
       sql`${t.firstTicketNumber} > 0`,
     ),
-    check("lottery_purchases_amount_check", sql`${t.amountPaid} > 0`),
+    check("lottery_purchases_amount_check", sql`${t.amountPaid} >= 0`),
   ],
 );
 

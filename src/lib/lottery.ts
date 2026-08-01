@@ -48,11 +48,13 @@ export type LotterySnapshot = {
     commitHash: string;
   };
   myTickets: number;
+  myCarriedTickets: number;
   remainingTickets: number;
   recentPurchases: Array<{
     id: number;
     actorName: string;
     ticketCount: number;
+    isCarried: boolean;
     createdAt: number;
     mine: boolean;
   }>;

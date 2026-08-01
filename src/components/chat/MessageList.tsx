@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { formatRelative } from "@/lib/notifications";
+import { parseChatMessageContent } from "@/lib/chat-config";
 import type { ChatMessage } from "../ChatPanel";
 import { MessageBody } from "./MessageBody";
 import {
-  ArenaChampionshipBadge,
-  ChatCosmeticBadge,
+  EquippedCosmeticBadge,
   chatNameClass,
 } from "./ChatCosmetics";
 
@@ -63,25 +64,26 @@ export function MessageList({
       {messages.length === 0 ? (
         <div className="flex h-full items-center justify-center text-xs text-zinc-500 dark:text-zinc-400">
           {tab === "notice"
-            ? "협동 보스 알림이 없습니다."
+            ? "시스템 알림이 없습니다."
             : "아직 메시지가 없습니다."}
         </div>
       ) : (
         // 일반 채팅은 메타 정보와 본문을 두 줄로, 시스템 알림은 한 줄로 표시한다.
-        messages.map((m) => (
-          <div
-            key={m.id}
-            className="text-sm text-zinc-800 dark:text-zinc-100"
-          >
+        messages.map((m) => {
+          const body = parseChatMessageContent(m);
+          return (
             <div
-              className={
-                tab === "notice"
-                  ? "flex min-w-0 items-baseline overflow-hidden whitespace-nowrap leading-relaxed"
-                  : "flex min-w-0 items-center overflow-hidden whitespace-nowrap leading-5"
-              }
+              key={m.id}
+              className="text-sm text-zinc-800 dark:text-zinc-100"
             >
-              <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
-              <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
+              <div
+                className={
+                  tab === "notice"
+                    ? "flex min-w-0 items-baseline overflow-hidden whitespace-nowrap leading-relaxed"
+                    : "flex min-w-0 items-center overflow-hidden whitespace-nowrap leading-5"
+                }
+              >
+              <EquippedCosmeticBadge cosmetics={m.cosmetics} />
               {m.title && (
                 <span className="mr-1 shrink-0 whitespace-nowrap text-xs font-medium text-amber-600 dark:text-amber-400">
                   [{m.title}]
@@ -119,17 +121,27 @@ export function MessageList({
               </span>
               {tab === "notice" && (
                 <span className="ml-1.5 min-w-0 truncate">
-                  <MessageBody content={m.content} />
+                  <MessageBody content={body.text} />
                 </span>
               )}
-            </div>
-            {tab !== "notice" && (
-                  <div className="whitespace-pre-wrap break-words leading-relaxed">
-                <MessageBody content={m.content} />
+              {tab === "notice" && body.action && (
+                <Link
+                  href={body.action.href}
+                  prefetch={false}
+                  className="ml-2 shrink-0 rounded border border-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-zinc-800"
+                >
+                  {body.action.label}
+                </Link>
+              )}
               </div>
-            )}
-          </div>
-        ))
+              {tab !== "notice" && (
+                <div className="whitespace-pre-wrap break-words leading-relaxed">
+                  <MessageBody content={body.text} />
+                </div>
+              )}
+              </div>
+          );
+        })
       )}
     </div>
   );

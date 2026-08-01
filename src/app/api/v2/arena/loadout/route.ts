@@ -11,6 +11,8 @@ import { ARENA_LOADOUTS_KEY } from "@/lib/storage-keys";
 import {
   ARENA_LOADOUT_NAME_MAX,
   ARENA_LOADOUT_TEMPLATE_ID,
+  arenaLoadoutIssueSummary,
+  arenaPatternActionSummary,
   parseActiveArenaLoadout,
   serializeActiveArenaLoadout,
   type ArenaLoadout,
@@ -56,7 +58,8 @@ type PresentedArenaLoadout = ArenaLoadout & {
       name: string | null;
       inst: V2EquipInstance | null;
     }[];
-    patternBlocks: number;
+    patternActions: { key: string; name: string }[];
+    issues: ReturnType<typeof arenaLoadoutIssueSummary>;
   };
 };
 
@@ -88,7 +91,8 @@ function presentLoadout(
         passive: Boolean(V2_SKILLS[id]?.passive),
       })),
       equipment,
-      patternBlocks: loadout.pattern?.blocks.length ?? 0,
+      patternActions: arenaPatternActionSummary(loadout),
+      issues: arenaLoadoutIssueSummary(loadout, new Set(ownedByIid.keys())),
     },
   };
 }

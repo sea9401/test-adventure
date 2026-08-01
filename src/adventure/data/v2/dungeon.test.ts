@@ -353,6 +353,21 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.name).toBe(base.name);
   });
 
+  it("중반 권장 전투력 미달은 HP·ATK만 보강하고 준비된 캐릭터·엔드는 보존한다", () => {
+    const depth = 26;
+    const gate = floorPowerGate(depth);
+    const ready = scaleMonsterForFloor(base, depth, true, gate);
+    const underprepared = scaleMonsterForFloor(base, depth, true, gate * 0.7);
+
+    expect(underprepared.hp).toBeGreaterThan(ready.hp);
+    expect(underprepared.atk).toBeGreaterThan(ready.atk);
+    expect(underprepared.def).toBe(ready.def);
+    expect(underprepared.exp).toBe(ready.exp);
+    expect(scaleMonsterForFloor(base, 43, true, 0)).toEqual(
+      scaleMonsterForFloor(base, 43),
+    );
+  });
+
   it("베이스 변형 없음 (mutation 가드)", () => {
     const beforeHp = base.hp;
     scaleMonsterForFloor(base, 8);

@@ -35,8 +35,7 @@ import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
-  ArenaChampionshipBadge,
-  ChatCosmeticBadge,
+  EquippedCosmeticBadge,
   chatNameClass,
 } from "./chat/ChatCosmetics";
 import { ChatRoomManager } from "./chat/ChatRoomManager";
@@ -249,10 +248,7 @@ function ChatRoomList({
                     latest.content.replace(/\s+/g, " ")
                   ) : (
                     <>
-                      <ArenaChampionshipBadge
-                        badge={latest.cosmetics?.championshipBadge}
-                      />
-                      <ChatCosmeticBadge badge={latest.cosmetics?.chatBadge} />
+                      <EquippedCosmeticBadge cosmetics={latest.cosmetics} />
                       <span
                         className={chatNameClass(
                           latest.cosmetics?.chatNameEffect,

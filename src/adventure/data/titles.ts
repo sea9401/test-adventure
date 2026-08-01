@@ -9,6 +9,8 @@
 
 export type TitleId = string;
 
+export const ARENA_CHAMPION_TITLE_ID = "pvp_champion";
+
 // 도감의 칭호 섹션 분류. 추가 시 TITLE_CATEGORY_ORDER 에 라벨/순서 등록.
 export type TitleCategory =
   | "battle"
@@ -674,7 +676,16 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "Ch 30 「별을 놓는 자」 완료: 5막 종착 의식",
     category: "endgame",
   },
-  // ── 투기장 상점 칭호 (투기장 코인으로 구매) ──────────────────────────────
+  // ── 투기장 칭호 ───────────────────────────────────────────
+  // 챔피언십 우승 칭호
+  [ARENA_CHAMPION_TITLE_ID]: {
+    id: ARENA_CHAMPION_TITLE_ID,
+    name: "천하제일",
+    description: "아레나 챔피언십을 제패하고 정상에 선 자.",
+    condition: "아레나 챔피언십 우승",
+    category: "pvp",
+  },
+  // 투기장 상점 칭호
   pvp_gladiator: {
     id: "pvp_gladiator",
     name: "검투사",

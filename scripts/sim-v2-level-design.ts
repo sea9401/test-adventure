@@ -695,6 +695,7 @@ function proficiencyForCareer(
   arch: LevelDesignArchetype,
   depth: number,
   careerWins: number,
+  cultivate: boolean = true,
 ): {
   proficiency: V2ProficiencyState;
   currentJobId: string;
@@ -729,19 +730,21 @@ function proficiencyForCareer(
   const learned = affordableSkills(spec, unlockedJobs, prof.points);
   prof.points -= learned.spent;
 
-  let targetIndex = 0;
-  while (true) {
-    const target = spec.growthTargets[targetIndex % spec.growthTargets.length];
-    const cultivated = applyCultivation(
-      prof,
-      spec.baseClass,
-      undefined,
-      target,
-      currentJobId,
-    );
-    if (!cultivated) break;
-    Object.assign(prof, cultivated.next);
-    targetIndex += 1;
+  if (cultivate) {
+    let targetIndex = 0;
+    while (true) {
+      const target = spec.growthTargets[targetIndex % spec.growthTargets.length];
+      const cultivated = applyCultivation(
+        prof,
+        spec.baseClass,
+        undefined,
+        target,
+        currentJobId,
+      );
+      if (!cultivated) break;
+      Object.assign(prof, cultivated.next);
+      targetIndex += 1;
+    }
   }
   return { proficiency: prof, currentJobId, unlockedJobs, level: position.level };
 }
@@ -886,12 +889,14 @@ function snapshotFor(
   careerWins: number,
   seed: number,
   enhanceLevel: number = 0,
+  cultivate: boolean = true,
 ): ProgressionSnapshot {
   const spec = ARCH_SPEC[arch];
   const { proficiency, currentJobId, unlockedJobs, level } = proficiencyForCareer(
     arch,
     depth,
     careerWins,
+    cultivate,
   );
   const affordable = affordableSkills(
     spec,
@@ -1032,11 +1037,11 @@ function minimumProgressionFor(
   return snapshotFor(arch, depth, MAX_CAREER_WINS, seed, enhanceLevel);
 }
 
-function monstersAtDepth(depth: number): Monster[] {
+function monstersAtDepth(depth: number, playerPower?: number): Monster[] {
   return enemiesForDepth(depth)
     .map((entry) => V2_MONSTERS[entry.key])
     .filter((monster): monster is Monster => monster !== undefined)
-    .map((monster) => scaleMonsterForFloor(monster, depth));
+    .map((monster) => scaleMonsterForFloor(monster, depth, true, playerPower));
 }
 
 function wilsonHalfWidth(wins: number, total: number): number {
@@ -1056,7 +1061,7 @@ function combatAudit(
 ): CombatAudit {
   const originalRandom = Math.random;
   Math.random = mulberry32(hashSeed(seed, snapshot.arch, depth, "combat"));
-  const enemies = monstersAtDepth(depth);
+  const enemies = monstersAtDepth(depth, snapshot.power);
   const v2Skills: V2SkillsState = {
     learned: snapshot.equippedSkills,
     equipped: snapshot.equippedSkills,
@@ -1115,6 +1120,53 @@ function combatAudit(
     goldAfterAllRecoveryPerAttempt:
       goldGrossPerAttempt - avgHpChargePerAttempt - avgMpChargePerAttempt,
   };
+}
+
+export type FixedProgressionCombatAudit = {
+  arch: LevelDesignArchetype;
+  power: number;
+  cultivations: number;
+  winRatePct: number;
+  avgWinTurns: number;
+};
+
+/**
+ * 표시 권장 전투력을 먼저 맞추는 기본 점검과 별개로, 고정된 성장 상태가 실제로 어디까지
+ * 우회할 수 있는지 검증한다. 특히 수행 0회 엔드 장비 시나리오가 최종 사냥터를 안정적으로
+ * 파밍하는 회귀를 잡는 용도다.
+ */
+export function auditFixedProgressionCombat(options: {
+  depth: number;
+  careerWins: number;
+  cultivate: boolean;
+  trials?: number;
+  seed?: number;
+  enhanceLevel?: number;
+}): FixedProgressionCombatAudit[] {
+  const trials = Math.max(1, Math.min(100, Math.floor(options.trials ?? 50)));
+  const seed = Math.floor(options.seed ?? 20260801);
+  const enhanceLevel = Math.max(
+    0,
+    Math.min(20, Math.floor(options.enhanceLevel ?? 0)),
+  );
+  return LEVEL_DESIGN_ARCHETYPES.map((arch) => {
+    const snapshot = snapshotFor(
+      arch,
+      options.depth,
+      options.careerWins,
+      seed,
+      enhanceLevel,
+      options.cultivate,
+    );
+    const combat = combatAudit(snapshot, options.depth, trials, seed);
+    return {
+      arch,
+      power: snapshot.power,
+      cultivations: snapshot.cultivations,
+      winRatePct: combat.winRatePct,
+      avgWinTurns: combat.avgWinTurns,
+    };
+  });
 }
 
 export function classifyStage(params: {

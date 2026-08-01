@@ -26,6 +26,7 @@ export const V2_NOTIFICATION_TYPES = [
   "guild_join_declined",
   "coop_defeated",
   "feedback_replied",
+  "farm_ready",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -78,6 +79,10 @@ export type V2NotificationPayload =
   // feedback_replied — 내 건의에 관리자 답변이 새로 등록되거나 변경됨.
   | {
       feedbackId: number;
+    }
+  // farm_ready — 현재 수확할 수 있고 아직 확인하지 않은 밭을 한 건으로 묶은 동적 알림.
+  | {
+      readyCount: number;
     };
 
 // 클라/서버가 주고받는 한 항목.

@@ -42,7 +42,7 @@ EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node`가 있다. A
 
 ## 3. 배포
 
-**배포 = `main` 에 머지** (CI 성공 후 자동). 흐름: GitHub Action `deploy.yml`이 CI가 검증한 정확한 SHA를 EC2에서 체크아웃 → **nginx 점검 ON** → `install-deps.sh` → 운영 환경 사전 검사 → `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl restart adventure-rpg` → **내부 스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → **점검 OFF** → **외부 공개 표면 스모크**(실제 도메인·TLS·nginx 경유, 배포 SHA·정책 문서·숨김 경로 검증). 중간 실패 시 Action이 실패하며, 점검 해제 전 실패는 점검 화면을 유지한다.
+**배포 = `main`의 CI 통과 SHA를 수동 승인**. 흐름: GitHub Action `deploy.yml`이 정확한 SHA를 EC2에서 체크아웃 → 운영 환경 사전 검사 → **nginx 점검 ON** → 운영·스테이징 Next.js 런타임 정지 → `install-deps.sh` → systemd 메모리·스왑·CPU 한도 안에서 `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl start adventure-rpg` → **내부 스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → 스테이징 런타임 복구 → **점검 OFF** → **외부 공개 표면 스모크**(실제 도메인·TLS·nginx 경유, 배포 SHA·정책 문서·숨김 경로 검증). 빌드나 배포가 실패하면 남은 빌드 프로세스를 종료하고 이전 빌드로 운영 서비스를 복구하며, 복구 health가 실패할 때만 점검 화면을 유지한다.
 
 > ✅ **배포 후 스모크**: 재시작 뒤 라이브를 찔러보고 200 이 아니면 **배포 Action 을 빨간불**로 만든다(빌드 성공 ≠ 앱 정상 — 마이그 0-테이블 같은 사고도 잡음). 빨간불 뜨면 → `rollback.sh` 로 되돌린다.
 

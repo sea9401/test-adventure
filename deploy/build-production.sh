@@ -10,6 +10,7 @@ PREVIOUS_BUILD=".next.previous"
 ENV_PATH="${PRODUCTION_ENV_PATH:-/run/adventure-rpg/production.env}"
 BUILD_ID="${DEPLOY_SHA:-$(git rev-parse --short HEAD)}"
 NPM_BIN="$(command -v npm)"
+BUILD_UNIT="${PRODUCTION_BUILD_UNIT:-adventure-production-build}"
 
 restore_previous_build() {
   local build_status=$?
@@ -35,17 +36,23 @@ fi
 # 못할 수 있다. 스테이징 빌드와 같은 검증된 상한을 적용하고, 15분 안에 끝나지
 # 않으면 이 스크립트의 EXIT trap이 직전 정상 .next를 복원하도록 실패시킨다.
 sudo systemd-run \
-  --unit=adventure-production-build \
+  --unit="$BUILD_UNIT" \
   --wait \
+  --pipe \
   --collect \
+  --service-type=exec \
   --uid=ec2-user \
   --gid=ec2-user \
   --working-directory="$PWD" \
+  -p CPUAccounting=yes \
   -p CPUQuota=100% \
+  -p MemoryAccounting=yes \
   -p MemoryHigh=1100M \
   -p MemoryMax=1300M \
+  -p MemorySwapMax=256M \
   -p RuntimeMaxSec=15m \
   -p OOMPolicy=stop \
+  -p TasksMax=192 \
   -p Nice=10 \
   --setenv="BUILD_ID=$BUILD_ID" \
   --setenv="NODE_OPTIONS=--max-old-space-size=1152" \

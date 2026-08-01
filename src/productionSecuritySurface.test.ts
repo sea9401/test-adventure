@@ -81,20 +81,19 @@ describe("production security surface", () => {
   });
 
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {
-    for (const path of [
-      join(ROOT, ".github/workflows/deploy.yml"),
-      join(ROOT, "deploy/deploy.sh"),
+    const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
+    const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+
+    for (const entrypoint of [workflow, manualDeploy]) {
+      expect(entrypoint).toContain("bash deploy/release-production.sh");
+    }
+    for (const marker of [
+      "crontab deploy/crontab.txt",
+      "/api/v2/cron/ops-retention",
+      "/api/v2/cron/ops-daily-report",
     ]) {
-      const contents = source(path);
-      expect(contents, relative(ROOT, path)).toContain(
-        "crontab deploy/crontab.txt",
-      );
-      expect(contents, relative(ROOT, path)).toContain(
-        "/api/v2/cron/ops-retention",
-      );
-      expect(contents, relative(ROOT, path)).toContain(
-        "/api/v2/cron/ops-daily-report",
-      );
+      expect(release).toContain(marker);
     }
   });
 
@@ -131,10 +130,27 @@ describe("production security surface", () => {
 
     expect(build).toContain("systemd-run");
     expect(build).toContain("MemoryMax=1300M");
+    expect(build).toContain("MemorySwapMax=256M");
     expect(build).toContain("RuntimeMaxSec=15m");
     expect(build).toContain("OOMPolicy=stop");
+    expect(build).toContain("--pipe");
     expect(build).toContain('PREVIOUS_BUILD=".next.previous"');
     expect(build).toContain("restore_previous_build");
+  });
+
+  it("운영 빌드 동안 두 Next 런타임을 멈추고 실패 시 복구한다", () => {
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+    const stagingService = source(
+      join(ROOT, "deploy/adventure-rpg-test.service"),
+    );
+
+    expect(release).toContain("recover_on_failure");
+    expect(release).toContain('systemctl stop "$STAGING_SERVICE"');
+    expect(release).toContain('systemctl stop "$PRODUCTION_SERVICE"');
+    expect(release).toContain('systemctl start "$PRODUCTION_SERVICE"');
+    expect(release).toContain('systemctl start "$STAGING_SERVICE"');
+    expect(stagingService).toContain("MemoryMax=768M");
+    expect(stagingService).toContain("MemorySwapMax=256M");
   });
 
   it("5분 정기 감시가 배포와 동일한 공개 출시 표면을 검사한다", () => {

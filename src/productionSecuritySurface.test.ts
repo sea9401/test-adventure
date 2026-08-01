@@ -126,6 +126,17 @@ describe("production security surface", () => {
     }
   });
 
+  it("운영 빌드를 자원·시간 제한 안에서 실행하고 실패하면 이전 빌드를 복원한다", () => {
+    const build = source(join(ROOT, "deploy/build-production.sh"));
+
+    expect(build).toContain("systemd-run");
+    expect(build).toContain("MemoryMax=1300M");
+    expect(build).toContain("RuntimeMaxSec=15m");
+    expect(build).toContain("OOMPolicy=stop");
+    expect(build).toContain('PREVIOUS_BUILD=".next.previous"');
+    expect(build).toContain("restore_previous_build");
+  });
+
   it("5분 정기 감시가 배포와 동일한 공개 출시 표면을 검사한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/uptime.yml"));
     const monitor = source(join(ROOT, "deploy/check-external-health.sh"));

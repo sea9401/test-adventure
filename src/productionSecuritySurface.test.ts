@@ -149,6 +149,7 @@ describe("production security surface", () => {
     expect(release).toContain('systemctl stop "$PRODUCTION_SERVICE"');
     expect(release).toContain('systemctl start "$PRODUCTION_SERVICE"');
     expect(release).toContain('systemctl start "$STAGING_SERVICE"');
+    expect(release.match(/^sync_production_env$/gm)).toHaveLength(2);
     expect(stagingService).toContain("MemoryMax=768M");
     expect(stagingService).toContain("MemorySwapMax=256M");
   });

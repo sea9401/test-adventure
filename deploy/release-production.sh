@@ -19,6 +19,12 @@ SERVICES_PAUSED=0
 STAGING_WAS_ACTIVE=0
 DEPLOY_FINISHED=0
 
+sync_production_env() {
+  sudo install -d -o ec2-user -g ec2-user -m 0700 \
+    "$(dirname "$PRODUCTION_ENV_PATH")"
+  node scripts/sync-production-env-from-ssm.mjs "$PRODUCTION_ENV_PATH"
+}
+
 wait_for_production_health() {
   local label="$1"
   local attempts="${2:-20}"
@@ -76,9 +82,7 @@ sudo systemctl stop "$BUILD_UNIT" >/dev/null 2>&1 || true
 sudo systemctl reset-failed "$BUILD_UNIT" >/dev/null 2>&1 || true
 
 echo "▶ [prod] sync production env from SSM"
-sudo install -d -o ec2-user -g ec2-user -m 0700 \
-  "$(dirname "$PRODUCTION_ENV_PATH")"
-node scripts/sync-production-env-from-ssm.mjs "$PRODUCTION_ENV_PATH"
+sync_production_env
 
 echo "▶ [prod] install AWS RDS CA bundle"
 DATABASE_CA_CERT_PATH="$(
@@ -105,6 +109,13 @@ if [ "$STAGING_WAS_ACTIVE" -eq 1 ]; then
   sudo systemctl stop "$STAGING_SERVICE"
 fi
 sudo systemctl stop "$PRODUCTION_SERVICE"
+
+# adventure-rpg.service owns /run/adventure-rpg through RuntimeDirectory.
+# An explicit stop removes that directory, including the env file synced above
+# for preflight. Recreate it for the detached build; ExecStartPre refreshes it
+# once more when production starts.
+echo "▶ [prod] resync production env after RuntimeDirectory cleanup"
+sync_production_env
 
 echo "▶ [prod] deps"
 bash deploy/install-deps.sh

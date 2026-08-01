@@ -24,7 +24,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>오픈 준비 중입니다</title>
+<title>점검 중입니다</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -41,11 +41,11 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <body>
 <main>
   <div class="box" role="status" aria-live="polite">
-    <div class="status">정식 오픈 준비</div>
-    <h1>오픈 준비 중입니다</h1>
-    <p class="lead">무슨무슨게임이 여러분을 맞이할 준비를 하고 있어요.</p>
+    <div class="status">서비스 점검</div>
+    <h1>잠시 점검 중입니다</h1>
+    <p class="lead">더 나은 모습으로 준비하고 있어요.</p>
     <div class="divider" aria-hidden="true"></div>
-    <p class="note"><strong>2026년 8월 1일 14:00 (KST) 오픈</strong><br />조금만 기다려 주세요.</p>
+    <p class="note">잠시 후 다시 찾아주세요.<br />곧 돌아오겠습니다.</p>
   </div>
 </main>
 </body>

@@ -46,16 +46,16 @@ describe("referrals", () => {
     ).toBe("https://msmsge.com/sign-in?referral=accepted");
   });
 
-  it("프론티어 6·12·18·24·36의 5단계마다 홍보자 회복약 1개를 지급한다", () => {
+  it("프론티어 6·12·18·24·36의 5단계마다 홍보자 회복약 2개를 지급한다", () => {
     expect(referralRewardMilestones()).toEqual([
-      { frontierDepth: 6, referrerStaminaPotions: 1 },
-      { frontierDepth: 12, referrerStaminaPotions: 1 },
-      { frontierDepth: 18, referrerStaminaPotions: 1 },
-      { frontierDepth: 24, referrerStaminaPotions: 1 },
-      { frontierDepth: 36, referrerStaminaPotions: 1 },
+      { frontierDepth: 6, referrerStaminaPotions: 2 },
+      { frontierDepth: 12, referrerStaminaPotions: 2 },
+      { frontierDepth: 18, referrerStaminaPotions: 2 },
+      { frontierDepth: 24, referrerStaminaPotions: 2 },
+      { frontierDepth: 36, referrerStaminaPotions: 2 },
     ]);
     expect(REFERRAL_NEW_USER_STAMINA_POTIONS).toBe(2);
-    expect(REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE).toBe(1);
+    expect(REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE).toBe(2);
   });
 
   it("신규 캐릭터 귀속 시 회복약 2개 우편을 한 번만 만든다", async () => {
@@ -136,7 +136,7 @@ describe("referrals", () => {
 
     await expect(
       rewardReferralProgress(tx as never, "new-user", "새싹", 24),
-    ).resolves.toEqual({ staminaPotions: 2, rewardedDepth: 24 });
+    ).resolves.toEqual({ staminaPotions: 4, rewardedDepth: 24 });
     expect(trace.updates).toEqual([
       {
         table: referralConversions,
@@ -149,7 +149,7 @@ describe("referrals", () => {
       values: {
         userId: "referrer",
         kind: "admin_gift",
-        payload: { gold: 0, staminaPotions: 2 },
+        payload: { gold: 0, staminaPotions: 4 },
         message: expect.stringContaining("프론티어 24"),
       },
     });
@@ -168,7 +168,7 @@ describe("referrals", () => {
     });
     await expect(
       rewardReferralProgress(skipped as never, "new-user", "새싹", 36),
-    ).resolves.toEqual({ staminaPotions: 5, rewardedDepth: 36 });
+    ).resolves.toEqual({ staminaPotions: 10, rewardedDepth: 36 });
 
     const repeatedTrace = makeTrace();
     const repeated = fakeExecutor({

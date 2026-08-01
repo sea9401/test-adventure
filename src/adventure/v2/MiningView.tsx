@@ -91,6 +91,7 @@ export type MiningHandlers = {
 };
 
 type Phase = "idle" | "loading" | "mining" | "finishing" | "result";
+type ViewMode = "choice" | "manual";
 
 const QUARRY_BACKGROUND_SRC = "/images/ui/quarry.webp";
 const MINING_ORES_SRC = "/images/ui/mining-ores.webp";
@@ -468,6 +469,7 @@ export function MiningView({
   onBack,
   spotId,
 }: MiningHandlers & { onBack: () => void; spotId: MiningSpotId }) {
+  const [viewMode, setViewMode] = useState<ViewMode>("choice");
   const [phase, setPhase] = useState<Phase>("idle");
   const [run, setRun] = useState<MiningStart | null>(null);
   const [startedAt, setStartedAt] = useState(0);
@@ -482,6 +484,7 @@ export function MiningView({
 
   const startMining = useCallback(async () => {
     if (cooldownRemainingSec > 0 || activeAutoActivity) return;
+    setViewMode("manual");
     setPhase("loading");
     setError(null);
     setResult(null);
@@ -511,6 +514,7 @@ export function MiningView({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isMiningShortcutTargetIgnored(event.target)) return;
       if (event.key !== " " && event.key !== "Enter") return;
+      if (viewMode !== "manual") return;
       if (phase !== "idle" && phase !== "result") return;
       if (cooldownRemainingSec > 0) return;
       if (activeAutoActivity) return;
@@ -519,7 +523,7 @@ export function MiningView({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeAutoActivity, cooldownRemainingSec, phase, startMining]);
+  }, [activeAutoActivity, cooldownRemainingSec, phase, startMining, viewMode]);
 
   useEffect(() => {
     if (!run) return;
@@ -586,12 +590,17 @@ export function MiningView({
 
   return (
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-3 rounded-2xl p-3 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-5`}>
-      <SubViewHeader title="채광장" onBack={onBack} />
+      <SubViewHeader
+        title={viewMode === "choice" ? "채광장" : `${selectedSpot.shortName} 채광`}
+        onBack={onBack}
+      />
 
       {verification && verifyHuman ? (
         <ActivityVerificationGate challenge={verification} onVerify={verifyHuman} />
       ) : null}
 
+      {viewMode === "choice" ? (
+        <>
       <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-900/70 dark:bg-amber-950/30">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -634,7 +643,7 @@ export function MiningView({
         </div>
       </Card>
 
-      {(phase === "idle" || phase === "result") && !verification ? (
+      {!verification ? (
         <AutoGatheringCard
           activityName="채광"
           spotId={spotId}
@@ -652,6 +661,60 @@ export function MiningView({
           onCancel={cancelAuto}
         />
       ) : null}
+
+      {!verification ? (
+        <Card padding="md" className="space-y-3">
+          <div>
+            <div className="text-sm font-extrabold">직접 채광</div>
+            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              짧은 작업을 직접 진행하고 완료 즉시 광석과 경험치를 획득합니다.
+            </div>
+          </div>
+          <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+            {selectedNode.grade}등급 · 성공률 {formatRate(1 - expectedFailureRate)} · 예상{" "}
+            {formatDuration(expectedDurationMs)}
+          </div>
+          <Button
+            disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
+            onClick={() => void startMining()}
+            variant="warning"
+            size="md"
+            fullWidth
+          >
+            {activeAutoActivity
+              ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
+              : cooldownRemainingSec > 0
+                ? `다음 채광까지 ${cooldownRemainingSec}초`
+                : `${selectedSpot.shortName}에서 채광 시작`}
+          </Button>
+        </Card>
+      ) : null}
+        </>
+      ) : (
+        <>
+
+      {(phase === "idle" || phase === "result") && !verification && (
+        <Button
+          disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
+          onClick={() => void startMining()}
+          variant="warning"
+          size="md"
+          fullWidth
+        >
+          {activeAutoActivity
+            ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
+            : cooldownRemainingSec > 0
+              ? `다음 채광까지 ${cooldownRemainingSec}초`
+              : phase === "result"
+                ? `${selectedSpot.shortName}에서 다시 채광`
+                : "채광 시작"}
+        </Button>
+      )}
+      {(phase === "loading" || phase === "mining" || phase === "finishing") && (
+        <Button disabled variant="warning" size="md" fullWidth>
+          {phase === "loading" ? "광맥을 고르는 중…" : "채광 중…"}
+        </Button>
+      )}
 
       {run ? (
         <div className="space-y-2">
@@ -717,27 +780,7 @@ export function MiningView({
         </Card>
       )}
 
-      {(phase === "idle" || phase === "result") && !verification && (
-        <Button
-          disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
-          onClick={() => void startMining()}
-          variant="warning"
-          size="md"
-          fullWidth
-        >
-          {activeAutoActivity
-            ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
-            : cooldownRemainingSec > 0
-            ? `다음 채광까지 ${cooldownRemainingSec}초`
-            : phase === "result"
-              ? `${selectedSpot.shortName}에서 다시 채광`
-              : "채광 시작"}
-        </Button>
-      )}
-      {(phase === "loading" || phase === "mining" || phase === "finishing") && (
-        <Button disabled variant="warning" size="md" fullWidth>
-          {phase === "loading" ? "광맥을 고르는 중…" : "채광 중…"}
-        </Button>
+        </>
       )}
     </main>
   );

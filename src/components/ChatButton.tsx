@@ -36,12 +36,14 @@ export function ChatButton({
   className,
   title,
   viewerGuildId,
+  variant = "inline",
   onSent,
 }: {
   name: string;
   className: string;
   title: string | null;
   viewerGuildId: number | null;
+  variant?: "inline" | "floating";
   /** 메시지 전송 성공 시 1회 호출 — '수다쟁이' 칭호 카운터 등에 사용. */
   onSent?: () => void;
 }) {
@@ -227,6 +229,7 @@ export function ChatButton({
     (m) => isNoticeMessage(m) && m.id > lastSeenNoticeId && !m.mine,
   );
   const hasUnread = hasUnreadChat || hasUnreadGuild || hasUnreadNotice;
+  const floating = variant === "floating";
 
   return (
     <>
@@ -243,20 +246,31 @@ export function ChatButton({
               : "채팅 열기"
         }
         title="채팅"
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        className={
+          floating
+            ? "fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-4 z-[44] inline-flex h-14 w-14 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-6 sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none"
+            : "relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        }
       >
-        <ChatCircle size={20} weight="duotone" />
+        <ChatCircle
+          size={floating ? 27 : 20}
+          weight={floating ? "fill" : "duotone"}
+        />
         {hasUnreadChat || hasUnreadGuild ? (
           <span
             aria-hidden
-            className="absolute right-0.5 top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950"
+            className={`absolute h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950 ${
+              floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
+            }`}
           />
         ) : (
           hasUnreadNotice && (
             // 보스 알림만 새로 있을 땐 덜 시끄러운 호박색 점으로.
             <span
               aria-hidden
-              className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950"
+              className={`absolute h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950 ${
+                floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
+              }`}
             />
           )
         )}

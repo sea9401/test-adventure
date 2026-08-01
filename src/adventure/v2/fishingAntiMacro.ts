@@ -165,11 +165,20 @@ function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
 // 성공률과 반응 편차는 정상 숙련자도 만들 수 있으므로 관찰 로그에는 남기되 점수에는 넣지 않는다.
 function enforcementSignalScore(signals: string[]): number {
   return signals.reduce((score, signal) => {
-    if (signal === "impossibly_fast_server_reel") return score + 6;
     if (signal === "impossibly_fast_post_bite_reel") return score + 6;
     if (signal === "repeated_prefire") return score + 4;
     return score;
   }, 0);
+}
+
+// 성공한 60~120ms 반응은 매우 빠르지만, 입질 예고를 보고 준비한 숙련자의
+// 손입력에서도 관측될 수 있다. 운영 관찰 신호로는 남기되 제재성 위험도에는
+// 올리지 않고, 서버 기준 60ms 미만 입력과 반복 선입력만 강신호로 취급한다.
+export function isFishingAntiMacroStrongSignal(signal: string): boolean {
+  return (
+    signal === "impossibly_fast_post_bite_reel" ||
+    signal === "repeated_prefire"
+  );
 }
 
 export function recordFishingAntiMacroSample(

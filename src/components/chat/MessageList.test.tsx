@@ -48,6 +48,21 @@ describe("MessageList", () => {
     expect(name).toBeGreaterThan(title);
   });
 
+  it("긴 칭호를 말줄임 없이 전부 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[{ ...message, title: "오픈 전 단골" }]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("[오픈 전 단골]");
+    expect(html).toContain("mr-1 shrink-0 whitespace-nowrap");
+    expect(html).not.toContain("max-w-16");
+  });
+
   it("일반 채팅 본문을 들여쓰기 없이 두 줄로 표시한다", () => {
     const html = renderToStaticMarkup(
       <MessageList

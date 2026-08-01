@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  FISHING_ANTI_MACRO_FRICTION_MS,
   emptyFishingAntiMacroState,
   fishingAntiMacroFriction,
+  isFishingAntiMacroStrongSignal,
   parseFishingAntiMacroState,
   recordFishingAntiMacroSample,
   type FishingAntiMacroState,
@@ -70,9 +70,10 @@ describe("fishing anti macro", () => {
     expect(signals).toContain("uniform_client_reaction");
   });
 
-  it("uniform impossible-fast patterns trigger temporary friction", () => {
+  it("successful 60~120ms patterns remain observation-only", () => {
     let state = emptyFishingAntiMacroState();
     let flagged = false;
+    let signals: string[] = [];
     for (let i = 0; i < 14; i += 1) {
       const result = recordFishingAntiMacroSample(
         state,
@@ -88,15 +89,16 @@ describe("fishing anti macro", () => {
       );
       state = result.state;
       flagged ||= result.flagged;
+      signals = result.signals;
     }
 
-    expect(flagged).toBe(true);
-    expect(state.frictionUntil).toBeGreaterThanOrEqual(
-      20_013 + FISHING_ANTI_MACRO_FRICTION_MS,
-    );
-    expect(fishingAntiMacroFriction(state, 20_100)).toMatchObject({
-      active: true,
-    });
+    expect(signals).toContain("impossibly_fast_server_reel");
+    expect(
+      isFishingAntiMacroStrongSignal("impossibly_fast_server_reel"),
+    ).toBe(false);
+    expect(flagged).toBe(false);
+    expect(state.suspicion).toBe(0);
+    expect(fishingAntiMacroFriction(state, 20_100).active).toBe(false);
   });
 
   it("near-bite mistakes do not count as prefire signals", () => {
@@ -163,7 +165,35 @@ describe("fishing anti macro", () => {
     );
 
     expect(result.signals).toContain("impossibly_fast_post_bite_reel");
+    expect(
+      isFishingAntiMacroStrongSignal("impossibly_fast_post_bite_reel"),
+    ).toBe(true);
     expect(result.state.suspicion).toBe(6);
+  });
+
+  it("repeated substantial prefire still triggers temporary friction", () => {
+    let state = emptyFishingAntiMacroState();
+    let flagged = false;
+    for (let i = 0; i < 12; i += 1) {
+      const result = recordFishingAntiMacroSample(
+        state,
+        {
+          at: 60_000 + i,
+          caught: false,
+          reason: "too_early",
+          clientReactionMs: 0,
+          serverReactionMs: 0,
+          earlyByMs: 300,
+        },
+        60_000 + i,
+      );
+      state = result.state;
+      flagged ||= result.flagged;
+    }
+
+    expect(isFishingAntiMacroStrongSignal("repeated_prefire")).toBe(true);
+    expect(flagged).toBe(true);
+    expect(fishingAntiMacroFriction(state, 60_100).active).toBe(true);
   });
 
   it("parses unknown or damaged saves defensively", () => {

@@ -6,6 +6,30 @@ export const MINING_AUTO_KEY = "mining-auto.v1";
 
 export type AutoGatheringActivity = "woodcutting" | "mining";
 
+export type AutoGatheringStatus = {
+  activity: AutoGatheringActivity;
+  sourceName: string;
+  readyAt: number;
+};
+
+export function autoGatheringStatusText(
+  status: AutoGatheringStatus | null,
+  now: number,
+): string {
+  if (!status) return "휴식 중";
+  const activityName = status.activity === "woodcutting" ? "벌목" : "채광";
+  if (now >= status.readyAt) {
+    return `${activityName} 정산 대기 · ${status.sourceName}`;
+  }
+  const remainingSeconds = Math.max(
+    0,
+    Math.ceil((status.readyAt - now) / 1_000),
+  );
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  return `${activityName} 자동 중 · ${status.sourceName} · ${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export type AutoGatheringSession = {
   sessionId: string;
   sourceId: string;

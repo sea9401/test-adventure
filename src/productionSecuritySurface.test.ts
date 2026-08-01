@@ -129,7 +129,8 @@ describe("production security surface", () => {
     const build = source(join(ROOT, "deploy/build-production.sh"));
 
     expect(build).toContain("systemd-run");
-    expect(build).toContain("MemoryMax=1300M");
+    expect(build).toContain("MemoryHigh=1800M");
+    expect(build).toContain("MemoryMax=2100M");
     expect(build).toContain("MemorySwapMax=256M");
     expect(build).toContain("RuntimeMaxSec=15m");
     expect(build).toContain("OOMPolicy=stop");

@@ -33,8 +33,9 @@ fi
 
 # 운영 EC2는 앱·스테이징과 빌드가 같은 호스트의 메모리를 공유한다. next build를
 # 호스트에서 직접 실행하면 프리렌더 단계가 swap에 갇혀 SSH와 nginx까지 응답하지
-# 못할 수 있다. 스테이징 빌드와 같은 검증된 상한을 적용하고, 15분 안에 끝나지
-# 않으면 이 스크립트의 EXIT trap이 직전 정상 .next를 복원하도록 실패시킨다.
+# 못할 수 있다. t4g.medium에서는 두 Next 런타임을 먼저 멈춘 뒤 빌드에 1.8 GiB부터
+# 메모리 회수를 적용하고 2.1 GiB에서 강제 제한한다. 15분 안에 끝나지 않으면 이
+# 스크립트의 EXIT trap이 직전 정상 .next를 복원하도록 실패시킨다.
 sudo systemd-run \
   --unit="$BUILD_UNIT" \
   --wait \
@@ -47,8 +48,8 @@ sudo systemd-run \
   -p CPUAccounting=yes \
   -p CPUQuota=100% \
   -p MemoryAccounting=yes \
-  -p MemoryHigh=1100M \
-  -p MemoryMax=1300M \
+  -p MemoryHigh=1800M \
+  -p MemoryMax=2100M \
   -p MemorySwapMax=256M \
   -p RuntimeMaxSec=15m \
   -p OOMPolicy=stop \

@@ -13,6 +13,11 @@ import {
   readOpsAlertHistory,
   readRewardFailureStatuses,
 } from "@/lib/server/opsSettings";
+import {
+  rowsAfterSuspicionScoreReset,
+  SUSPICION_SCORE_RESET_ACTION,
+  suspicionScoreResetCutoffs,
+} from "@/lib/server/suspicionScoreReset";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FIVE_MIN_MS = 5 * 60 * 1000;
@@ -32,6 +37,7 @@ export async function GET(req: Request) {
     abuseRows,
     economyRows,
     auditRows,
+    suspicionScoreResetRows,
     currentDayAbuseRows,
     currentDayEconomyRows,
     currentDayAuditRows,
@@ -86,6 +92,20 @@ export async function GET(req: Request) {
       .where(gte(adminAuditLog.createdAt, since))
       .orderBy(desc(adminAuditLog.id))
       .limit(300),
+    db
+      .select({
+        targetUserId: adminAuditLog.targetUserId,
+        createdAt: adminAuditLog.createdAt,
+      })
+      .from(adminAuditLog)
+      .where(
+        and(
+          eq(adminAuditLog.action, SUSPICION_SCORE_RESET_ACTION),
+          gte(adminAuditLog.createdAt, since),
+        ),
+      )
+      .orderBy(desc(adminAuditLog.id))
+      .limit(1_000),
     db
       .select({
         action: abuseEvents.action,
@@ -198,7 +218,16 @@ export async function GET(req: Request) {
 
   const abuse = summarizeAbuse(abuseRows, now);
   const economy = summarizeEconomy(economyRows, now);
-  const suspiciousUsers = scoreSuspiciousUsers(abuseRows, currentDayEconomyRows);
+  const suspicionResetCutoffs = suspicionScoreResetCutoffs(
+    suspicionScoreResetRows,
+  );
+  const suspiciousUsers = scoreSuspiciousUsers(
+    rowsAfterSuspicionScoreReset(abuseRows, suspicionResetCutoffs),
+    rowsAfterSuspicionScoreReset(
+      currentDayEconomyRows,
+      suspicionResetCutoffs,
+    ),
+  );
   const connectedIps = scoreConnectedIps(abuseRows);
   const previousAbuse = summarizeAbuse(previousAbuseRows, daySince.getTime());
   const previousEconomy = summarizeEconomy(previousEconomyRows, daySince.getTime());

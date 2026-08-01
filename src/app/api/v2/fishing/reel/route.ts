@@ -45,6 +45,7 @@ import {
 } from "@/adventure/v2/fishingSession";
 import {
   FISHING_ANTI_MACRO_KEY,
+  isFishingAntiMacroStrongSignal,
   parseFishingAntiMacroState,
   recordFishingAntiMacroSample,
 } from "@/adventure/v2/fishingAntiMacro";
@@ -193,12 +194,7 @@ export async function POST(req: Request) {
         patternSignals: antiMacro.signals,
       },
     );
-    const strongSignal = antiMacro.signals.find(
-      (signal) =>
-        signal === "impossibly_fast_server_reel" ||
-        signal === "impossibly_fast_post_bite_reel" ||
-        signal === "repeated_prefire",
-    );
+    const strongSignal = antiMacro.signals.find(isFishingAntiMacroStrongSignal);
     let guardStrongSignal: string | null = null;
     if (strongSignal) {
       const strongUpdate = recordActivityStrongSignal(

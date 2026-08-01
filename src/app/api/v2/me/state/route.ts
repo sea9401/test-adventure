@@ -46,6 +46,12 @@ import {
 } from "@/adventure/v2/miningSession";
 import { miningProgressionView } from "@/adventure/v2/miningProgression";
 import {
+  MINING_AUTO_KEY,
+  WOODCUTTING_AUTO_KEY,
+  parseAutoGatheringState,
+} from "@/adventure/v2/autoGathering";
+import { activeAutoGatheringActivity } from "@/lib/server/lifeActivityLock";
+import {
   COOKING_SAVE_KEY,
   activeCookingBuff,
   cookingLevelForXp,
@@ -125,6 +131,8 @@ const STATE_SAVE_KEYS = [
   COOKING_SAVE_KEY,
   WOODCUTTING_LOG_KEY,
   MINING_LOG_KEY,
+  WOODCUTTING_AUTO_KEY,
+  MINING_AUTO_KEY,
   PROFILE_SHOWCASE_SAVE_KEY,
 ] as const;
 
@@ -270,6 +278,16 @@ export async function GET(req: Request) {
   const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
+  const autoGatheringStates = {
+    woodcutting: parseAutoGatheringState(
+      stateSaves.get(WOODCUTTING_AUTO_KEY),
+    ),
+    mining: parseAutoGatheringState(stateSaves.get(MINING_AUTO_KEY)),
+  };
+  const activeAutoActivity = activeAutoGatheringActivity(autoGatheringStates);
+  const activeAutoSession = activeAutoActivity
+    ? autoGatheringStates[activeAutoActivity].session
+    : null;
   // 기본 + 한계의 비약 + 월간 모험 지원권(+1000, 회복 +20%)을 한 번에 산출.
   const staminaConfig = staminaConfigForCharacter(charSave, now);
   const staminaMax = staminaConfig.max;
@@ -409,6 +427,15 @@ export async function GET(req: Request) {
     // 코어루프 활성(은행/골드 모델·직업 시스템 등) — 사냥 throttle 과 독립. 클라는 이 값으로
     //   coreLoopOn 을 판정(combatCooldown 유무로 추론 금지 — 스태미나 모드면 쿨다운이 null 이라).
     coreLoopOn: V2_CORE_LOOP_V2,
+    autoGathering:
+      activeAutoActivity && activeAutoSession
+        ? {
+            activity: activeAutoActivity,
+            sourceName: activeAutoSession.sourceName,
+            readyAt: activeAutoSession.readyAt,
+            serverNow: now,
+          }
+        : null,
     adventureSupport: {
       active: staminaConfig.adventureSupportActive,
       activeUntil: adventureSupportState?.activeUntil ?? null,

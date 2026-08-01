@@ -83,7 +83,7 @@ export function MessageList({
               <ArenaChampionshipBadge badge={m.cosmetics?.championshipBadge} />
               <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
               {m.title && (
-                <span className="mr-1 max-w-16 shrink-0 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
+                <span className="mr-1 shrink-0 whitespace-nowrap text-xs font-medium text-amber-600 dark:text-amber-400">
                   [{m.title}]
                 </span>
               )}

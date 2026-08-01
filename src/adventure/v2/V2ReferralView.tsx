@@ -93,8 +93,10 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
     [origin, summary?.code],
   );
   const milestoneCount = summary?.rewardMilestones.length ?? 5;
+  const referrerRewardPerMilestone =
+    summary?.referrerStaminaPotionsPerMilestone ?? 2;
   const maxReferrerReward =
-    milestoneCount * (summary?.referrerStaminaPotionsPerMilestone ?? 1);
+    milestoneCount * referrerRewardPerMilestone;
 
   const issue = async () => {
     if (issuing) return;
@@ -197,9 +199,9 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
 
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
           신규 모험가: 스태미나 회복약{" "}
-          {summary?.newUserStaminaPotions ?? 2}개 · 홍보자: 단계마다 1개, 1명당
-          최대 {maxReferrerReward}개 · 한 계정은 한 번만 인정 · 본인 링크는
-          제외됩니다.
+          {summary?.newUserStaminaPotions ?? 2}개 · 홍보자: 단계마다{" "}
+          {referrerRewardPerMilestone}개, 1명당 최대 {maxReferrerReward}개 · 한
+          계정은 한 번만 인정 · 본인 링크는 제외됩니다.
         </p>
       </Card>
 
@@ -212,11 +214,11 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {(summary?.rewardMilestones ?? [
-            { frontierDepth: 6, referrerStaminaPotions: 1 },
-            { frontierDepth: 12, referrerStaminaPotions: 1 },
-            { frontierDepth: 18, referrerStaminaPotions: 1 },
-            { frontierDepth: 24, referrerStaminaPotions: 1 },
-            { frontierDepth: 36, referrerStaminaPotions: 1 },
+            { frontierDepth: 6, referrerStaminaPotions: 2 },
+            { frontierDepth: 12, referrerStaminaPotions: 2 },
+            { frontierDepth: 18, referrerStaminaPotions: 2 },
+            { frontierDepth: 24, referrerStaminaPotions: 2 },
+            { frontierDepth: 36, referrerStaminaPotions: 2 },
           ]).map((milestone) => (
             <div
               key={milestone.frontierDepth}

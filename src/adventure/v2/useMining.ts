@@ -15,6 +15,7 @@ import type {
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
 import type { AutoGatheringActivity } from "./autoGathering";
+import { useGameState } from "./GameStateProvider";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -97,6 +98,7 @@ function wait(ms: number): Promise<void> {
 }
 
 export function useMining(): MiningHandlers {
+  const { setAutoGathering } = useGameState();
   const { verification, verifyHuman, readJson } = useActivityVerification("mining");
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<MiningLogView>({
@@ -232,13 +234,23 @@ export function useMining(): MiningHandlers {
         if (active) setActiveAutoActivity(active);
         throw new Error("mining_auto_start_failed");
       }
-      setAutoSession(parseAutoSession(json.autoSession));
+      const session = parseAutoSession(json.autoSession);
+      setAutoSession(session);
       setActiveAutoActivity("mining");
       setAutoResult(null);
+      setAutoGathering(
+        session
+          ? {
+              activity: "mining",
+              sourceName: session.sourceName,
+              readyAt: session.readyAt,
+            }
+          : null,
+      );
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson]);
+  }, [readJson, setAutoGathering]);
 
   const claimAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
@@ -255,10 +267,11 @@ export function useMining(): MiningHandlers {
       setAutoSession(null);
       setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       setAutoResult(parseAutoResult(json));
+      setAutoGathering(null);
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson]);
+  }, [readJson, setAutoGathering]);
 
   const cancelAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
@@ -275,10 +288,11 @@ export function useMining(): MiningHandlers {
       setAutoSession(null);
       setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       setAutoResult(parseAutoResult(json));
+      setAutoGathering(null);
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson]);
+  }, [readJson, setAutoGathering]);
 
   return {
     start,

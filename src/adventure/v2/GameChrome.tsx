@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { ChatButton } from "@/components/ChatButton";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
@@ -75,8 +76,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     staminaPotions,
     viewerName,
     viewerGuildId,
-    viewerLevel,
-    bankedGold,
+    autoGathering,
     coreLoopOn,
     huntStaminaMode,
     refreshGameState,
@@ -139,12 +139,15 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="game-desktop-compact">
-      <V2TopBar
-        playerName={viewerName}
-        playerLevel={viewerLevel}
-        bankedGold={bankedGold}
-        coreLoopOn={coreLoopOn}
+      <V2TopBar autoGathering={autoGathering} />
+      {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.
+          모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}
+      <ChatButton
+        name={viewerName}
+        className=""
+        title={null}
         viewerGuildId={viewerGuildId}
+        variant="floating"
       />
       {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
       <OfflineSettleCard />

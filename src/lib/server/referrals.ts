@@ -15,7 +15,7 @@ export const REFERRAL_COOKIE = "adventure_referral";
 export const REFERRAL_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 export const REFERRAL_CODE_PATTERN = /^[a-f0-9]{16}$/;
 export const REFERRAL_NEW_USER_STAMINA_POTIONS = 2;
-export const REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE = 1;
+export const REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE = 2;
 export const REFERRAL_REWARD_DEPTHS = [6, 12, 18, 24, 36] as const;
 
 export type ReferralRewardMilestone = {

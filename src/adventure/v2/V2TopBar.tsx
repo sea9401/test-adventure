@@ -2,27 +2,53 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ChatButton } from "@/components/ChatButton";
+import { useEffect, useState } from "react";
+import {
+  autoGatheringStatusText,
+  type AutoGatheringStatus,
+} from "./autoGathering";
 import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
-// 좌측: 게임 아이콘 — 클릭 시 모험 탭(/)으로 이동.
-// 우측: 통합 알림(일반 알림+우편) 미리보기·채팅·광장/설정 메뉴.
+// 좌측: 게임 아이콘 + 자동 생활 작업 상태 — 클릭 시 모험 탭(/)으로 이동.
+// 우측: 통합 알림(일반 알림+우편) 미리보기·광장/설정 메뉴.
+
+function LifeActivityStatus({
+  status,
+}: {
+  status: AutoGatheringStatus | null;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!status) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [status]);
+
+  const text = autoGatheringStatusText(status, now);
+  const ready = status != null && now >= status.readyAt;
+  return (
+    <span
+      title={text}
+      className={`min-w-0 max-w-[142px] truncate text-left text-[10px] tabular-nums sm:max-w-[320px] sm:text-[11px] ${
+        status == null
+          ? "text-zinc-500 dark:text-zinc-400"
+          : ready
+            ? "font-medium text-amber-700 dark:text-amber-300"
+            : "font-medium text-emerald-700 dark:text-emerald-300"
+      }`}
+    >
+      {text}
+    </span>
+  );
+}
 
 export function V2TopBar({
-  playerName,
-  playerLevel,
-  bankedGold,
-  coreLoopOn,
-  viewerGuildId,
+  autoGathering,
 }: {
-  playerName: string;
-  playerLevel: number;
-  bankedGold: number;
-  viewerGuildId: number | null;
-  // 코어루프 on 이면 좌상단 은행 금액 대신 캐릭터 이름·레벨을 표기.
-  coreLoopOn: boolean;
+  autoGathering: AutoGatheringStatus | null;
 }) {
   const router = useRouter();
   return (
@@ -41,29 +67,14 @@ export function V2TopBar({
             height={28}
             className="size-7 shrink-0 rounded-md"
           />
-          {coreLoopOn ? (
-            <span className="hidden shrink-0 text-[11px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">
-              {playerName} Lv.{playerLevel}
-            </span>
-          ) : (
-            bankedGold > 0 && (
-              <span className="hidden shrink-0 text-[11px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">
-                은행 {bankedGold.toLocaleString()}G
-              </span>
-            )
-          )}
+          <LifeActivityStatus
+            key={autoGathering?.readyAt ?? "rest"}
+            status={autoGathering}
+          />
         </button>
       </div>
       <nav className="relative z-[61] flex shrink-0 items-center gap-1">
         <NotificationBell />
-        {/* 전역 채팅 — 서버가 이름/칭호를 권위 해석(클라 name 은 본인 화면용).
-            v2 는 인벤토리 미연결이라 아이템 링크 없이 텍스트 채팅만. */}
-        <ChatButton
-          name={playerName}
-          className=""
-          title={null}
-          viewerGuildId={viewerGuildId}
-        />
         <V2SettingsMenu />
       </nav>
     </header>

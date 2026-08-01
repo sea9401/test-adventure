@@ -13,8 +13,8 @@ import {
   isHuntStageDepth,
   nextHuntStageDepth,
   MAX_FRONTIER_DEPTH,
-  themeFirstDepth,
 } from "@/adventure/data/v2/dungeon";
+import { dungeonFloorBackHref } from "@/adventure/v2/dungeonNavigation";
 
 // /battle/dungeon/[floorId] — 무한 프론티어 던전 층 전투.
 // floorId 는 내부 depth 숫자. 일반 사냥은 테마당 대표 깊이 2·4·6만 사용하며,
@@ -113,11 +113,9 @@ export default function DungeonFloorPage() {
       playerCombat={playerCombat}
       playerPrimaryAttack={viewerClass === "mage" ? "magic" : "physical"}
       onSeekHealing={() => router.push("/town/healing")}
-      // 뒤로 = 테마 선택이 아니라 그 테마의 깊이 선택으로(들판1→들판2 빠른 이동). 현재 깊이가
-      //   속한 테마 블록의 첫 깊이를 openDepth 로 넘겨 해당 테마를 펼친 채 목록을 연다.
-      onBack={() =>
-        router.push(`/battle/dungeon?openDepth=${themeFirstDepth(n)}`)
-      }
+      // 일반 사냥은 현재 테마의 깊이 선택으로, 레어맵은 다른 열린 지도를 바로 고를 수 있게
+      // 사냥터 메인으로 돌아간다. 비밀 상점·개명 신전의 레어맵 복귀 위치와도 통일한다.
+      onBack={() => router.push(dungeonFloorBackHref(n, rareMapIid))}
       frontierDepth={frontierDepth}
       onFrontierUnlocked={(newMax) => setFrontierDepth(Math.max(frontierDepth, newMax))}
       onLevelUp={refreshGameState}

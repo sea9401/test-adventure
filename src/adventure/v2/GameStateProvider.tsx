@@ -55,6 +55,10 @@ import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
+import type {
+  AutoGatheringActivity,
+  AutoGatheringStatus,
+} from "@/adventure/v2/autoGathering";
 
 // 신규/미방문 플레이어의 기본 현재 거점 — 인접 게이트의 부트스트랩 기준점.
 const START_OUTPOST = OUTPOSTS.find((o) => o.id === START_OUTPOST_ID)!;
@@ -161,6 +165,12 @@ type GameStateSnapshot = {
     serverNow?: number;
     depth?: number;
   } | null;
+  autoGathering?: {
+    activity?: AutoGatheringActivity;
+    sourceName?: string;
+    readyAt?: number;
+    serverNow?: number;
+  } | null;
 } | null;
 
 type GameStateValue = {
@@ -229,6 +239,11 @@ type GameStateValue = {
       endsAt: number;
       depth: number;
     } | null>
+  >;
+  // 자동 벌목·채광 전역 상태 — 헤더 표시와 생활 화면 mutation 직후 동기화에 사용.
+  autoGathering: AutoGatheringStatus | null;
+  setAutoGathering: React.Dispatch<
+    React.SetStateAction<AutoGatheringStatus | null>
   >;
   // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
   atRiskGold: number | null;
@@ -421,6 +436,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     endsAt: number;
     depth: number;
   } | null>(null);
+  const [autoGathering, setAutoGathering] =
+    useState<AutoGatheringStatus | null>(null);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
   // 최초 me/state 로드 완료 여부 — 성공/실패 무관하게 끝나면 true(아래 finally).
   const [gameStateLoaded, setGameStateLoaded] = useState(false);
@@ -642,6 +659,23 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       setOfflinePending(
         typeof j.offlinePending === "number" ? j.offlinePending : null,
       );
+
+      const auto = j.autoGathering;
+      if (
+        auto &&
+        (auto.activity === "woodcutting" || auto.activity === "mining") &&
+        typeof auto.sourceName === "string" &&
+        typeof auto.readyAt === "number" &&
+        typeof auto.serverNow === "number"
+      ) {
+        setAutoGathering({
+          activity: auto.activity,
+          sourceName: auto.sourceName,
+          readyAt: Date.now() + (auto.readyAt - auto.serverNow),
+        });
+      } else {
+        setAutoGathering(null);
+      }
 
       const oh = j.offlineHunt;
       if (oh == null) {
@@ -1015,6 +1049,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       setOfflinePending,
       offlineHunt,
       setOfflineHunt,
+      autoGathering,
+      setAutoGathering,
       atRiskGold,
       setAtRiskGold,
       mp,
@@ -1083,6 +1119,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setOfflinePending,
     offlineHunt,
     setOfflineHunt,
+    autoGathering,
+    setAutoGathering,
     atRiskGold,
     setAtRiskGold,
     mp,

@@ -117,7 +117,31 @@ describe("activityGuard", () => {
     ).toBe(25);
   });
 
-  it("완벽 성공과 균일 반응 조합은 약한 행동 위험도로만 누적한다", () => {
+  it("완벽 성공과 균일 반응만으로는 행동 위험도를 올리지 않는다", () => {
+    let state = emptyActivityGuardState();
+    let now = 10_000;
+    let signal: string | null = null;
+    const intervals = [3_500, 7_100, 4_300, 6_400, 5_200];
+    for (let i = 0; i < 30; i += 1) {
+      now += intervals[i % intervals.length]!;
+      const update = recordActivityCompletion(state, "fishing", now, {
+        patternSignals: [
+          "near_perfect_success_rate",
+          "uniform_client_reaction",
+        ],
+      });
+      state = update.state;
+      signal = update.behaviorSignal ?? signal;
+    }
+    expect(signal).toBeNull();
+    expect(activityGuardView(state, "fishing")).toMatchObject({
+      behaviorSignals: 0,
+      riskScore: 0,
+      riskLevel: "normal",
+    });
+  });
+
+  it("완벽 성공·균일 반응과 기계적 완료 간격이 겹치면 약한 위험도로 누적한다", () => {
     let state = emptyActivityGuardState();
     let signal: string | null = null;
     for (let i = 0; i < 30; i += 1) {

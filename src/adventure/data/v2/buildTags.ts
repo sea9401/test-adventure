@@ -277,7 +277,7 @@ function addEffectTags(
 ): void {
   switch (effect.kind) {
     case "damage":
-      tags.add(effect.scaling === "magic" ? "magic" : "physical");
+      tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
       if ((effect.pierceDamagePct ?? 0) > 0) tags.add("pierce");
       break;
     case "heal":
@@ -320,12 +320,12 @@ function addEffectTags(
       break;
     case "hpCostDamage":
       tags.add("low_hp");
-      tags.add(effect.scaling === "magic" ? "magic" : "physical");
+      tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
       break;
     case "executeDamage":
     case "ambushDamage":
       tags.add("execute");
-      tags.add(effect.scaling === "magic" ? "magic" : "physical");
+      tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
       break;
     case "stackPayoffDamage":
       tags.add(effect.tag === "magicVuln" ? "vulnerability" : effect.tag);

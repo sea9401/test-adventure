@@ -1,245 +1,46 @@
-// v2 EXP 페이싱 — 만렙 30~40일 목표로 다이얼 후보 비교.
+// v2 성장 페이싱 요약 — 운영 환경의 실제 EXP·에너지·직업 숙련·장비 드랍 값을 사용한다.
 //
-// 현재 새 stamina (max 5000, regen 1분/2) 기준:
-//   시나리오 A (상시 접속) 43일 / 시나리오 B (일 1회) 89일
-// 목표: B 시나리오 30~40일.
+// 과거 버전은 최대 에너지 5,000, 시간당 120 회복, 레벨 기반 옛 던전 층을 하드코딩해 현재
+// 라이브와 다른 결과를 냈다. 계산은 통합 점검기와 한 소스를 공유해 설정 변경 시 함께 갱신한다.
+//
+// 실행: npm run sim:exp-pacing
 
-import {
-  requiredExpToNext,
-  levelBandExpMultiplier,
-  applyNewbieBonus,
-} from "../src/lib/leveling";
-import { MONSTERS } from "../src/adventure/data/monsters";
-import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
-import { floorExpMult, LADDER_EXP_SOFTCAP } from "../src/adventure/data/v2/dungeonLadder";
-import type { DungeonFloorId } from "../src/adventure/data/v2/types";
+import { buildGrowthPacing } from "./sim-v2-level-design";
 
-const SECONDS_PER_TURN = 2;
-const NEW_MAX_STAMINA = 5000;
-const STAMINA_REGEN_PER_HOUR = 120;
-
-type FloorInfo = { id: number; avgExp: number; lvMin?: number; lvMax?: number; tier?: string };
-// PR-7 에서 던전 층 requirement 가 레벨밴드 → 권장 파워로 바뀜. 이 exp-pacing sim 은
-// "레벨 → 어느 층 사냥" 휴리스틱이 필요해 옛 레벨밴드를 로컬로 보존한다(sim 고유 관심사).
-// 리셋 루프(전직 Lv1)·파워 게이트를 반영한 재모델은 PR-9(sim 캘리브)에서.
-const SIM_FLOOR_LEVEL_BANDS: Record<number, { min: number; max: number }> = {
-  1: { min: 1, max: 5 },
-  2: { min: 6, max: 13 },
-  3: { min: 18, max: 28 },
-  4: { min: 34, max: 55 },
-  5: { min: 70, max: 100 },
-};
-const floorInfos: FloorInfo[] = [];
-for (const f of MAIN_DUNGEON.floors) {
-  const exps: number[] = [];
-  for (const e of f.enemies) {
-    const m = MONSTERS[e.key];
-    if (m) exps.push(m.exp);
-  }
-  const band = SIM_FLOOR_LEVEL_BANDS[f.id];
-  floorInfos.push({
-    id: f.id,
-    avgExp: exps.reduce((a, b) => a + b, 0) / exps.length,
-    lvMin: band?.min,
-    lvMax: band?.max,
-    tier: f.requirement.kind === "endgame" ? f.requirement.tier : undefined,
-  });
-}
-function pickFloorForLevel(lv: number): FloorInfo {
-  let pick = floorInfos[0];
-  for (const f of floorInfos) {
-    if (f.lvMin === undefined) continue;
-    if (lv >= f.lvMin && (f.lvMax === undefined || lv <= f.lvMax)) pick = f;
-  }
-  if (lv >= 100) pick = floorInfos.find((f) => f.tier === "entry") ?? pick;
-  return pick;
-}
-// winT = STR 빌드 sim-v2-progression --skills 측정값 (2026-05-30 갱신 — 무기재배치·floor5
-// 정규화 반영). Lv75/100 은 floor5 ×0.4 로 몹이 약해져 옛 31.3/30.3 → 19.3/16.1 로 빨라짐.
-const _simWinT: Record<number, number> = { 3: 8.9, 10: 19.3, 25: 19.1, 50: 19.2, 75: 19.3, 100: 16.1 };
-const segments = [
-  { from: 1, to: 10, lv: 3, winT: 8.9 },
-  { from: 10, to: 25, lv: 10, winT: 19.3 },
-  { from: 25, to: 50, lv: 25, winT: 19.1 },
-  { from: 50, to: 75, lv: 50, winT: 19.2 },
-  { from: 75, to: 100, lv: 75, winT: 19.3 },
-];
-
-// 다이얼 조합으로 한 hunt 의 최종 exp 계산.
-type Dial = {
-  name: string;
-  xpRate?: number; // 옛 XP_RATE_MULT 자리 (모든 hunt 에 곱)
-  bandOverride?: (lv: number) => number; // levelBandExpMultiplier 대체
-};
-
-function expPerHuntForDial(lv: number, floor: FloorInfo, dial: Dial): number {
-  const expMult = floorExpMult(floor.id as DungeonFloorId);
-  const mobExp = floor.avgExp * expMult;
-  const band = dial.bandOverride ? dial.bandOverride(lv) : levelBandExpMultiplier(lv);
-  const newbie = applyNewbieBonus(1, lv).gained;
-  const rate = dial.xpRate ?? 1;
-  return mobExp * band * newbie * rate;
+function expected(value: number | null): string {
+  return value == null ? "-" : Math.round(value).toLocaleString("ko-KR");
 }
 
-function scenarioA(dial: Dial): number {
-  let hours = 0;
-  for (const seg of segments) {
-    let segExp = 0;
-    for (let lv = seg.from; lv < seg.to; lv++) segExp += requiredExpToNext(lv)!;
-    const winTHph = 3600 / (seg.winT * SECONDS_PER_TURN);
-    const hph = Math.min(winTHph, STAMINA_REGEN_PER_HOUR);
-    const eph = expPerHuntForDial(seg.lv, pickFloorForLevel(seg.lv), dial);
-    hours += segExp / (hph * eph);
-  }
-  return hours;
-}
+const growth = buildGrowthPacing();
+const { energy, career } = growth;
 
-function scenarioB(dial: Dial): number {
-  let days = 0;
-  for (const seg of segments) {
-    let segExp = 0;
-    for (let lv = seg.from; lv < seg.to; lv++) segExp += requiredExpToNext(lv)!;
-    const eph = expPerHuntForDial(seg.lv, pickFloorForLevel(seg.lv), dial);
-    days += segExp / (NEW_MAX_STAMINA * eph);
-  }
-  return days;
-}
-
-// 다이얼 후보들
-const dials: Dial[] = [
-  { name: "현재 (변경 없음)" },
-  { name: "XP_RATE ×2.0" , xpRate: 2.0 },
-  { name: "XP_RATE ×2.2" , xpRate: 2.2 },
-  { name: "XP_RATE ×2.5" , xpRate: 2.5 },
-  { name: "XP_RATE ×3.0" , xpRate: 3.0 },
-  // band 강화 — L70+ 만 손대서 신캐/중반 보존
-  {
-    name: "band L70-100 ×2.0 (현 1.45/1.55 → 2.9/3.1)",
-    bandOverride: (lv) => {
-      if (lv < 30) return 1;
-      if (lv < 50) return 1.1;
-      if (lv < 70) return 1.25;
-      if (lv < 90) return 1.45 * 2.0;
-      return 1.55 * 2.0;
-    },
-  },
-  {
-    name: "band L50-100 ×1.5 (중반부터 강화)",
-    bandOverride: (lv) => {
-      if (lv < 30) return 1;
-      if (lv < 50) return 1.1;
-      if (lv < 70) return 1.25 * 1.5;
-      if (lv < 90) return 1.45 * 1.5;
-      return 1.55 * 1.5;
-    },
-  },
-];
-
-console.log("━━━ 만렙 1→100 페이싱 (다이얼별 비교) ━━━");
-console.log("기준: stamina max 5000, 1분/2 회복, 1턴 2초, STR 빌드 sim winT");
-console.log("");
-console.log("다이얼                                              | A 상시   | B 일1회 | A→B 비");
-console.log("---------------------------------------------------+----------+---------+--------");
-for (const d of dials) {
-  const a = scenarioA(d);
-  const b = scenarioB(d);
-  const aH = a < 24 ? `${a.toFixed(1)}h` : `${(a / 24).toFixed(1)}일`;
-  const bD = `${b.toFixed(1)}일`;
-  const ratio = (b / (a / 24)).toFixed(2);
-  const target = b >= 30 && b <= 40 ? "  ⭐ 목표 적중" : "";
+console.log("v2 운영 성장 페이싱");
+console.log(
+  `Lv1→100 필요 EXP ${growth.totalExpToLevelCap.toLocaleString("ko-KR")} · 기본 에너지 ${energy.baseMax.toLocaleString("ko-KR")} / ${energy.baseFullHours.toFixed(1)}시간 만충 / 자연회복 ${energy.baseNaturalPerDay.toLocaleString("ko-KR")}회·일`,
+);
+console.log(
+  `일 1회 접속 회수율: 기본 ${energy.baseDailyLoginCapturePct.toFixed(1)}% · 지원권 ${energy.supportDailyLoginCapturePct.toFixed(1)}% · 신규 HP/MP 충전 각 ${energy.starterChargeEach.toLocaleString("ko-KR")}`,
+);
+console.log(
+  `단일 계보 6차: ${career.totalWinsToTier6Path.toLocaleString("ko-KR")}승 · 자연회복 하한 ${career.idealDaysToTier6Path.toFixed(1)}일 · 일 1회 기본 ${career.dailyLoginDaysToTier6Path.toFixed(1)}일 · 지원권 ${career.supportDailyLoginDaysToTier6Path.toFixed(1)}일`,
+);
+if (growth.largestExpJump) {
   console.log(
-    `${d.name.padEnd(50)} | ${aH.padStart(8)} | ${bD.padStart(7)} | ×${ratio}${target}`,
+    `대표 단계 최대 EXP 상승: 깊이 ${growth.largestExpJump.fromDepth}→${growth.largestExpJump.toDepth} ×${growth.largestExpJump.multiplier.toFixed(1)}`,
   );
 }
 
-// 구간별 분포 — 목표 적중 다이얼 한두 개 자세히
-console.log("\n\n━━━ 구간별 분포 (XP_RATE ×2.5 vs band 강화 비교) ━━━");
-const detailDials = [
-  dials[3], // XP_RATE ×2.5
-  dials[5], // band L70+
-  dials[6], // band L50+
-];
-
-for (const d of detailDials) {
-  console.log(`\n## ${d.name}`);
-  console.log("구간     | seg EXP    | A 구간(h) | A 누적   | B 구간(일) | B 누적");
-  let cumH = 0, cumD = 0;
-  for (const seg of segments) {
-    let segExp = 0;
-    for (let lv = seg.from; lv < seg.to; lv++) segExp += requiredExpToNext(lv)!;
-    const winTHph = 3600 / (seg.winT * SECONDS_PER_TURN);
-    const hph = Math.min(winTHph, STAMINA_REGEN_PER_HOUR);
-    const eph = expPerHuntForDial(seg.lv, pickFloorForLevel(seg.lv), d);
-    const segHours = segExp / (hph * eph);
-    const segDays = segExp / (NEW_MAX_STAMINA * eph);
-    cumH += segHours;
-    cumD += segDays;
-    console.log(
-      `Lv${seg.from.toString().padStart(2)}→${seg.to.toString().padEnd(3)} | ${segExp.toLocaleString().padStart(10)} | ${segHours.toFixed(1).padStart(8)}h | ${(cumH < 24 ? cumH.toFixed(1) + "h" : (cumH / 24).toFixed(1) + "일").padStart(7)} | ${segDays.toFixed(1).padStart(8)}일 | ${cumD.toFixed(1).padStart(5)}일`,
-    );
-  }
+console.log("\n깊이 | 단계 | EXP/승 | Lv100 승리(신참/베테랑) | 베테랑 일수(회복/일1회) | 일반 기대(아무/특정) | 고유 기대(아무/특정)");
+for (const row of growth.rows) {
+  console.log(
+    [
+      row.depth.toString().padStart(2),
+      row.name,
+      row.avgVeteranExpPerWin.toFixed(1),
+      `${row.newbieLevelCapWins.toLocaleString("ko-KR")}/${row.veteranLevelCapWins.toLocaleString("ko-KR")}`,
+      `${row.veteranIdealDays.toFixed(2)}/${row.veteranDailyLoginDays.toFixed(2)}일`,
+      `${expected(row.commonAnyExpectedWins)}/${expected(row.commonSpecificExpectedWins)}`,
+      `${expected(row.signatureAnyExpectedWins)}/${expected(row.signatureSpecificExpectedWins)}`,
+    ].join(" | "),
+  );
 }
-
-console.log("\n노트:");
-console.log("- XP_RATE 옵션 = staging .env 한 줄 설정 (NEXT_PUBLIC_XP_RATE_MULT=N)");
-console.log("- band 옵션 = leveling.ts 코드 변경 (PR). v2/라이브 공유 코드라 라이브 영향 주의");
-console.log("- 라이브 영향 회피하려면 band 변경 시 v2 전용 헬퍼 분리 필요");
-console.log("- ⚠️ 위 '만렙 1→100'은 옛 단일등반 모델(레벨→층 휴리스틱) — 프론티어/환생 미반영 = 참고용.");
-
-// ============================================================
-// 프론티어 루프 페이싱 (환생 모델, docs §5.1) — 단일 무한 프론티어.
-// 한 루프 = 1→4차 풀 등반(레벨캡 50/65/80/100, 매 차수 Lv1 리셋). 루프 내내 프론티어 깊이 D
-// 에서 farming(스태미나 바운드). loop일수 = loop EXP ÷ 처치량.
-// 목표: 프론티어(고깊이=floorExpMult 플래토)에서 ~5일. 저깊이는 느려도 OK(온보딩).
-// ============================================================
-const TIER_CAPS = [50, 65, 80, 100]; // §3.1 차수별 레벨캡
-const FRONTIER_BASE_EXP = floorInfos.find((f) => f.id === 2)?.avgExp ?? 24; // 프론티어 풀 = 깊은산 재사용
-
-function frontierLoopKills(depth: number, dial: Dial): number {
-  const expMult = floorExpMult(depth);
-  let kills = 0;
-  for (const cap of TIER_CAPS) {
-    for (let lv = 1; lv < cap; lv++) {
-      const band = dial.bandOverride ? dial.bandOverride(lv) : levelBandExpMultiplier(lv);
-      const newbie = applyNewbieBonus(1, lv).gained;
-      const rate = dial.xpRate ?? 1;
-      const expPerKill = FRONTIER_BASE_EXP * expMult * band * newbie * rate;
-      kills += requiredExpToNext(lv)! / expPerKill;
-    }
-  }
-  return kills;
-}
-const FRONTIER_WIN_T = 20; // 프론티어 매칭 처치턴(progression ~19~20)
-const DAILY_KILLS_A =
-  Math.min(3600 / (FRONTIER_WIN_T * SECONDS_PER_TURN), STAMINA_REGEN_PER_HOUR) * 24; // 상시(승속 vs 재생)
-const DAILY_KILLS_B = STAMINA_REGEN_PER_HOUR * 24; // 재생 지속(2880/일)
-const loopDaysA = (depth: number, dial: Dial) =>
-  frontierLoopKills(depth, dial) / DAILY_KILLS_A;
-const _loopDaysB = (depth: number, dial: Dial) =>
-  frontierLoopKills(depth, dial) / DAILY_KILLS_B;
-
-const FRONTIER_DEPTHS = [3, 5, 8, 10, 20, 50];
-const XP_DIALS: Dial[] = [
-  { name: "XP×1" },
-  { name: "XP×4(현 라이브)", xpRate: 4 },
-  { name: "XP×5", xpRate: 5 },
-  { name: "XP×6", xpRate: 6 },
-  { name: "XP×8", xpRate: 8 },
-];
-
-console.log("\n\n━━━ 프론티어 루프 페이싱 (환생, loop=1→4차 풀등반 ≈ 18.5M EXP) ━━━");
-console.log(`프론티어 풀 평균 몹 exp=${FRONTIER_BASE_EXP.toFixed(1)} · 처치량 A(상시)=${DAILY_KILLS_A}/일 · B(일1회 재생)=${DAILY_KILLS_B}/일`);
-console.log(`표: 한 루프 소요 일수 (A 상시 기준). floorExpMult 깊이별 램프→소프트캡(${LADDER_EXP_SOFTCAP}) 후 우상향 반영.\n`);
-const header = "깊이 | exp×    | " + XP_DIALS.map((d) => d.name.padStart(13)).join(" | ");
-console.log(header);
-console.log("-".repeat(header.length));
-for (const depth of FRONTIER_DEPTHS) {
-  const expM = floorExpMult(depth);
-  const cells = XP_DIALS.map((d) => {
-    const days = loopDaysA(depth, d);
-    return `${days.toFixed(1)}일`.padStart(13);
-  });
-  console.log(`${depth.toString().padStart(4)} | ×${expM.toFixed(1).padStart(5)} | ${cells.join(" | ")}`);
-}
-console.log("\n프론티어(깊이≥8=플래토) 기준 ~5일 되는 XP_RATE 를 굽는다. 저깊이(3·5)는 느려도 OK(온보딩).");
-console.log("B(일1회 재생 2880/일) 환산은 A 대비 약 ×" + (DAILY_KILLS_A / DAILY_KILLS_B).toFixed(2) + " (상시가 더 빠름).");

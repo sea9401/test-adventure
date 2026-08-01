@@ -297,6 +297,8 @@ export type PlayerCombat = {
   // v2 스킬 — scaling:"dex"/"luk" 비례 딜(도적 직군) 스케일용 DEX/LUK total. 0/undefined=no-op.
   dexStat?: number;
   lukStat?: number;
+  // v2 스킬 — scaling:"spi" 신술 공격/회복 스케일용 SPI total.
+  spiStat?: number;
   // v2 스킬 — scaling:"all" 비례 딜용 최종 스탯 합계(STR/VIT/DEX/SPD/INT/SPI/LUK).
   allStatTotal?: number;
   classTier?: number;

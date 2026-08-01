@@ -30,6 +30,8 @@ export default function DungeonFloorPage() {
     viewerName,
     viewerGender,
     viewerLevel,
+    viewerLevelCap,
+    viewerJobTier,
     viewerClass,
     viewerExp,
     viewerExpToNext,
@@ -92,6 +94,8 @@ export default function DungeonFloorPage() {
       playerName={viewerName}
       playerGender={viewerGender}
       currentLevel={viewerLevel}
+      currentLevelCap={viewerLevelCap}
+      currentJobTier={viewerJobTier}
       initialExp={viewerExp}
       initialMaxExp={viewerExpToNext}
       initialHpCharges={hpCharges}

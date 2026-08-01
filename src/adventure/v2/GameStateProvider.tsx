@@ -134,6 +134,12 @@ type GameStateSnapshot = {
     groups?: Record<string, { tier?: number }>;
     current?: { group?: string; cumLevel?: number };
   };
+  jobsV2?: {
+    currentJobId?: string;
+    currentJobName?: string;
+    currentJobTier?: number;
+    currentJobLevelCap?: number;
+  } | null;
   coreLoopOn?: boolean;
   adventureSupport?: {
     active?: boolean;
@@ -166,6 +172,7 @@ type GameStateValue = {
   viewerGender: Gender;
   viewerLevel: number;
   viewerLevelCap: number | null;
+  viewerJobTier: number | null;
   viewerClass: string;
   viewerExp: number;
   viewerExpToNext: number;
@@ -342,6 +349,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // 전투 장면 부제(레벨·직업) 표기용 — me/state 에서 초기화.
   const [viewerLevel, setViewerLevel] = useState<number>(1);
   const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
+  const [viewerJobTier, setViewerJobTier] = useState<number | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
   const [viewerExp, setViewerExp] = useState(0);
   const [viewerExpToNext, setViewerExpToNext] = useState(1);
@@ -529,8 +537,18 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         currentGroup === "none"
           ? null
           : (j.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+      const currentJobTier =
+        typeof j.jobsV2?.currentJobTier === "number"
+          ? j.jobsV2.currentJobTier
+          : null;
+      const currentJobLevelCap =
+        typeof j.jobsV2?.currentJobLevelCap === "number"
+          ? j.jobsV2.currentJobLevelCap
+          : null;
+      setViewerJobTier(currentJobTier);
       setViewerLevelCap(
-        currentTier == null ? null : effectiveLevelCap(currentTier),
+        currentJobLevelCap ??
+          (currentTier == null ? null : effectiveLevelCap(currentTier)),
       );
 
       applyResourcePatch({
@@ -964,6 +982,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       viewerGender,
       viewerLevel,
       viewerLevelCap,
+      viewerJobTier,
       viewerClass,
       viewerExp,
       viewerExpToNext,
@@ -1032,6 +1051,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     viewerGender,
     viewerLevel,
     viewerLevelCap,
+    viewerJobTier,
     viewerClass,
     viewerExp,
     viewerExpToNext,

@@ -29,6 +29,10 @@ import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import { settleOfflineHuntBatches } from "@/adventure/v2/offlineSettleApi";
 import { MAIN_DUNGEON, huntStageName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
+import {
+  dungeonGrowthLabel,
+  dungeonReadiness,
+} from "@/adventure/v2/dungeonReadiness";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
   TUTORIAL_ENABLED_FLAG,
@@ -135,6 +139,8 @@ export function V2DungeonFloorView({
   playerName,
   playerGender,
   currentLevel = 1,
+  currentLevelCap = null,
+  currentJobTier = null,
   initialExp = 0,
   initialMaxExp = 1,
   adventureSupportActive = false,
@@ -172,6 +178,8 @@ export function V2DungeonFloorView({
   playerName: string;
   playerGender: Gender;
   currentLevel?: number;
+  currentLevelCap?: number | null;
+  currentJobTier?: number | null;
   // 첫 사냥 전 카드 높이 고정용 현재 상태. 이후에는 사냥 응답의 최신값이 우선한다.
   initialExp?: number;
   initialMaxExp?: number;
@@ -235,9 +243,22 @@ export function V2DungeonFloorView({
       : floorPowerGate(depth)
     : floorPowerGate(depth);
   // 내 전투력 — me/state 가 보낸 power(권장 파워와 동일 derivePowerScore 단위)라 직접 비교 가능.
-  //   없으면(미로딩) 표시 생략. 권장 미만이면 amber 로 "버거울 수 있음" 신호(권장이라 하드 차단 아님).
+  //   없으면(미로딩) 표시 생략. 난이도 지표는 빌드 간 환산 편차가 커 입장·경고 기준으로 쓰지 않는다.
   const myPower = playerCombat?.power ?? null;
-  const powerBelowGate = myPower != null && myPower < powerGate;
+  const readiness = dungeonReadiness({
+    depth,
+    frontierDepth,
+    playerPower: myPower,
+    recommendedPower: powerGate,
+    jobTier: currentJobTier,
+    level: currentLevel,
+    levelCap: currentLevelCap,
+  });
+  const growthLabel = dungeonGrowthLabel({
+    jobTier: currentJobTier,
+    level: currentLevel,
+    levelCap: currentLevelCap,
+  });
   // 도전(미정복) 여부 — 최고 도달보다 다음 대표 단계가 깊다.
   const isChallenge = depth > frontierDepth;
   const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
@@ -880,20 +901,28 @@ export function V2DungeonFloorView({
         {myPower != null && (
           <>
             내 전투력{" "}
-            <span
-              className={`font-semibold tabular-nums ${
-                powerBelowGate
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-emerald-600 dark:text-emerald-400"
-              }`}
-            >
+            <span className="font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
               {myPower.toLocaleString()}
             </span>
             {" · "}
           </>
         )}
-        권장 전투력{" "}
+        난이도 지표{" "}
         <span className="tabular-nums">{powerGate.toLocaleString()}</span>
+      </p>
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        {growthLabel && <>{growthLabel} · </>}
+        <span
+          className={
+            readiness.tone === "positive"
+              ? "font-medium text-emerald-600 dark:text-emerald-400"
+              : readiness.tone === "warning"
+                ? "font-medium text-amber-600 dark:text-amber-400"
+                : "font-medium text-zinc-600 dark:text-zinc-300"
+          }
+        >
+          {readiness.label}
+        </span>
       </p>
       {rareMapIid && (
         <DiscoveryNotice kind="hunt" align="start">

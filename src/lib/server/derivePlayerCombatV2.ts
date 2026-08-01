@@ -289,7 +289,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEnemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률. */
   passiveEnemyMagicVulnApplyChancePct?: number;
-  /** 마법 스킬 피해 +% — scaling="magic" 피해분에만 적용. */
+  /** 마법 스킬 피해 +% — scaling="magic"/"spi" 피해분에만 적용. */
   passiveMagicSkillDamagePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
   passiveSpdOverflowToAtkPct?: number;
@@ -584,6 +584,7 @@ export function derivePlayerCombatV2Pure(
     // scaling:"dex"/"luk" 비례 딜(도적 직군 스킬)용 total. % 패시브/내장보너스 반영된 최종값.
     dexStat: totalStats.dex,
     lukStat: totalStats.luk,
+    spiStat: totalStats.spi,
     allStatTotal: V2_STAT_KEYS.reduce((sum, stat) => sum + totalStats[stat], 0),
     classTier: input.classTier,
     // 발동형 시그니처(Phase 2) — 활성분 있을 때만 키 추가(빈 배열이면 키 자체 생략 →

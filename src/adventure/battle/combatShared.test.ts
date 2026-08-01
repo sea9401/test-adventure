@@ -868,6 +868,59 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     expect(result.magicEnemyDamage).toBe(233);
   });
 
+  it("resolveV2SkillCast — 구원의 심판은 SPI로 스케일하고 마법 피해로 분류", () => {
+    const cast = (spi: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2c_savior_judgment"],
+          equipped: ["v2c_savior_judgment"],
+        },
+        cooldowns: {},
+        attacker: {
+          mp: 999,
+          atk: 5,
+          magicAtk: 80,
+          spi,
+          maxHp: 1000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: {
+          def: 999,
+          magicDef: 200,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      });
+    const low = cast(100);
+    const high = cast(1000);
+    expect(high.enemyDamage).toBeGreaterThan(low.enemyDamage);
+    expect(high.magicEnemyDamage).toBe(high.enemyDamage);
+  });
+
+  it("resolveV2SkillCast — 성직 계보 회복기는 SPI가 높을수록 더 회복", () => {
+    const cast = (spi: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2c_saint_miracle"],
+          equipped: ["v2c_saint_miracle"],
+        },
+        cooldowns: {},
+        attacker: {
+          mp: 999,
+          atk: 5,
+          magicAtk: 80,
+          spi,
+          currentHp: 500,
+          maxHp: 1000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+    expect(cast(1000).selfHeal).toBeGreaterThan(cast(100).selfHeal);
+  });
+
   it("resolveV2SkillCast — 생명 강타(scaling maxHp)는 최대 HP 로 스케일", () => {
     const result = resolveV2SkillCast({
       skills: { learned: ["v2c_immortal_lifestrike"], equipped: ["v2c_immortal_lifestrike"] },

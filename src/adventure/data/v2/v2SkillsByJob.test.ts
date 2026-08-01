@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { V2_SKILLS_BY_JOB, skillsForJob } from "./v2SkillsByJob";
+import {
+  V2_SKILLS_BY_JOB,
+  grantCoreStarterSkill,
+  skillsForJob,
+} from "./v2SkillsByJob";
 import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
 import {
   V2_SKILLS,
@@ -12,6 +16,26 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
+  it("마법사 코어 기본기는 누락된 경우에만 지급해 수동 해제를 보존한다", () => {
+    const granted = grantCoreStarterSkill({ learned: [], equipped: [] }, "mage");
+    expect(granted).toEqual({
+      learned: ["v2c_mage_boltcast"],
+      equipped: ["v2c_mage_boltcast"],
+    });
+
+    const manuallyUnequipped = {
+      learned: ["v2c_mage_boltcast" as const],
+      equipped: [],
+    };
+    expect(grantCoreStarterSkill(manuallyUnequipped, "mage")).toBe(
+      manuallyUnequipped,
+    );
+    expect(grantCoreStarterSkill({ learned: [], equipped: [] }, "warrior")).toEqual({
+      learned: [],
+      equipped: [],
+    });
+  });
+
   it("기본 직업 = 핵심 액티브 1 + 패시브 스킬 1, 마법사는 비상 회복기·생존자는 생활 패시브 추가", () => {
     expect(skillsForJob("warrior")).toEqual([
       "v2c_warrior_strike",
@@ -511,7 +535,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnApplyChancePct).toBe(85);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
-      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "magic" },
+      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "spi" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_archbishop_grace.passive).toMatchObject({
@@ -877,7 +901,9 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_archmage_theory.category).toBe("passive");
     expect(V2_SKILLS.v2c_archmage_theory.passive).toMatchObject({
       statPct: { int: 22 },
-      magicSkillDamagePct: 12,
+      magicSkillDamagePct: 16,
+      maxHpPct: 20,
+      damageTakenReductionPct: 8,
     });
     expect(skillsForJob("primordialmage")).toEqual([
       "v2c_primordialmage_return",
@@ -911,7 +937,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_savior_judgment.category).toBe("attack");
     expect(V2_SKILLS.v2c_savior_judgment.mpCost).toBe(80);
     expect(V2_SKILLS.v2c_savior_judgment.effects).toEqual([
-      { kind: "damage", statCoef: 2.09, baseFlat: 532, scaling: "magic" },
+      { kind: "damage", statCoef: 1.33, baseFlat: 532, scaling: "spi" },
       { kind: "enemyVuln", pct: 16, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_savior_grace.category).toBe("passive");
@@ -983,14 +1009,14 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_blackmoon_flurry.effects[3]).toMatchObject({
       kind: "enemyAccuracyDown",
-      pct: 24,
+      pct: 28,
       turns: 3,
     });
     expect(V2_SKILLS.v2c_blackmoon_dominion.name).toBe("흑월지배");
     expect(V2_SKILLS.v2c_blackmoon_dominion.category).toBe("passive");
     expect(V2_SKILLS.v2c_blackmoon_dominion.passive).toMatchObject({
       statPct: { luk: 22, dex: 8 },
-      evasionPct: 18,
+      evasionPct: 22,
       critDmgPct: 24,
       skillCritOverflow: true,
     });
@@ -1355,7 +1381,9 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
   it("aggregateEquippedPassives — 대마도 이론은 INT%와 마법 스킬 피해를 합산한다", () => {
     const agg = aggregateEquippedPassives(["v2c_archmage_theory"]);
     expect(agg.statPct).toEqual({ int: 22 });
-    expect(agg.magicSkillDamagePct).toBe(12);
+    expect(agg.magicSkillDamagePct).toBe(16);
+    expect(agg.maxHpPct).toBe(20);
+    expect(agg.damageTakenReductionPct).toBe(8);
   });
 
   it("aggregateEquippedPassives — 천룡의 호흡이 절초 보너스를 합산", () => {

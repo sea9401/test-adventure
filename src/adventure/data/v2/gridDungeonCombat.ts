@@ -41,6 +41,7 @@ export type GridDungeonPartyActor = {
   maxMp: number;
   atk: number;
   magicAtk: number;
+  spi: number;
   def: number;
   spd: number;
   healMult: number;
@@ -176,6 +177,8 @@ function partySkillDamage(
     const base =
       effect.scaling === "magic"
         ? actor.magicAtk
+        : effect.scaling === "spi"
+          ? actor.spi
         : effect.scaling === "def"
           ? actor.def
           : actor.atk;
@@ -202,7 +205,11 @@ function partySkillHeal(
       Math.floor(target.maxHp * ((effect.pctMaxHp ?? 0) / 100)) +
       Math.floor(missing * ((effect.pctLostHp ?? 0) / 100)) +
       Math.floor(
-        (effect.scaling === "magic" ? actor.magicAtk : actor.atk) *
+        (effect.scaling === "magic"
+          ? actor.magicAtk
+          : effect.scaling === "spi"
+            ? actor.spi
+            : actor.atk) *
           (effect.statCoef ?? 0) +
           (effect.baseFlatByTier?.[0] ?? 0),
       ) +
@@ -264,6 +271,7 @@ export function makeGridDungeonPartyActor({
   maxMp = 0,
   atk,
   magicAtk = 0,
+  spi = 0,
   def,
   spd,
   healMult = 1,
@@ -281,6 +289,7 @@ export function makeGridDungeonPartyActor({
   maxMp?: number;
   atk: number;
   magicAtk?: number;
+  spi?: number;
   def: number;
   spd: number;
   healMult?: number;
@@ -301,6 +310,7 @@ export function makeGridDungeonPartyActor({
     maxMp,
     atk,
     magicAtk,
+    spi,
     def,
     spd,
     healMult,
@@ -345,6 +355,7 @@ export function resolveGridDungeonPartyCombat({
         maxMp: supporter.maxMp,
         atk: supporter.atk,
         magicAtk: supporter.magicAtk,
+        spi: supporter.spi,
         def: supporter.def,
         spd: supporter.spd,
         healMult: supporter.healMult,

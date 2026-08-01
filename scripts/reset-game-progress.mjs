@@ -2,8 +2,6 @@ import { statSync } from "node:fs";
 import pg from "pg";
 import { createDatabaseConnectionOptions } from "../src/db/databaseTls.mjs";
 import {
-  COUPON_NOTICE_PREDICATE,
-  PARTIAL_RESET_TABLES,
   PRESERVED_TABLES,
   RESET_CONFIRMATION,
   RESET_TABLES,
@@ -103,16 +101,6 @@ try {
 }
 
 async function executeReset(db) {
-  const invalidNotices = await scalarCount(
-    db,
-    `SELECT count(*) FROM marketplace_inbox
-      WHERE (${COUPON_NOTICE_PREDICATE})
-        AND (listing_id IS NOT NULL OR from_user_id IS NOT NULL)`,
-  );
-  if (invalidNotices !== 0) {
-    throw new Error(`coupon notices with unsafe foreign keys: ${invalidNotices}`);
-  }
-
   await db.query(`
     CREATE TEMP TABLE reset_deleted_google_users ON COMMIT DROP AS
       SELECT u.id
@@ -121,16 +109,6 @@ async function executeReset(db) {
   `);
   await db.query(
     "ALTER TABLE reset_deleted_google_users ADD PRIMARY KEY (id)",
-  );
-
-  await db.query(
-    `CREATE TEMP TABLE reset_preserved_coupon_inbox ON COMMIT DROP AS
-       SELECT i.*
-         FROM marketplace_inbox i
-        WHERE ${COUPON_NOTICE_PREDICATE}
-          AND NOT EXISTS (
-                SELECT 1 FROM reset_deleted_google_users g WHERE g.id = i.user_id
-              )`,
   );
 
   await db.query(
@@ -149,9 +127,7 @@ async function executeReset(db) {
      ON CONFLICT (kind, target) DO NOTHING`,
   );
 
-  const resetTargets = [...RESET_TABLES, ...PARTIAL_RESET_TABLES]
-    .map(quoteIdentifier)
-    .join(", ");
+  const resetTargets = RESET_TABLES.map(quoteIdentifier).join(", ");
   await db.query(`TRUNCATE TABLE ${resetTargets} RESTART IDENTITY CASCADE`);
 
   await db.query("DELETE FROM accounts WHERE provider = $1", [GOOGLE_PROVIDER]);
@@ -173,23 +149,6 @@ async function executeReset(db) {
            last_claim_id = NULL,
            last_claim_result = NULL,
            updated_at = now()
-  `);
-
-  await db.query(`
-    INSERT INTO marketplace_inbox
-      (id, user_id, kind, payload, message, listing_id, from_user_id, from_name,
-       created_at, claimed_at)
-    SELECT id, user_id, kind, payload, message, listing_id, from_user_id, from_name,
-           created_at, claimed_at
-      FROM reset_preserved_coupon_inbox
-     ORDER BY id
-  `);
-  await db.query(`
-    SELECT setval(
-      pg_get_serial_sequence('marketplace_inbox', 'id'),
-      COALESCE((SELECT max(id) FROM marketplace_inbox), 1),
-      EXISTS (SELECT 1 FROM marketplace_inbox)
-    )
   `);
 }
 
@@ -221,16 +180,6 @@ async function takeSnapshot(db) {
        FROM user_sanctions s
        JOIN users u ON u.id = s.user_id
       WHERE ${googleOnlyUserPredicate("u")}`,
-  );
-  const retainedCouponNotices = await scalarCount(
-    db,
-    `SELECT count(*)
-       FROM marketplace_inbox i
-      WHERE ${COUPON_NOTICE_PREDICATE}
-        AND NOT EXISTS (
-              SELECT 1 FROM users u
-               WHERE u.id = i.user_id AND ${googleOnlyUserPredicate("u")}
-            )`,
   );
   const storageDeletionTargets = await readStorageDeletionTargets(db);
   return {
@@ -273,12 +222,7 @@ async function takeSnapshot(db) {
     newStorageDeletionTargets: storageDeletionTargets.new,
     couponCampaigns: preservedCounts.coupon_campaigns,
     couponCodes: preservedCounts.coupon_codes,
-    couponNotices: await scalarCount(
-      db,
-      `SELECT count(*) FROM marketplace_inbox WHERE ${COUPON_NOTICE_PREDICATE}`,
-    ),
-    marketplaceInbox: await scalarCount(db, "SELECT count(*) FROM marketplace_inbox"),
-    retainedCouponNotices,
+    inboxRows: resetCounts.marketplace_inbox,
     unresolvedRestrictedCoupons: await scalarCount(
       db,
       `SELECT count(*)
@@ -309,16 +253,6 @@ async function takeSnapshot(db) {
          FROM accounts a
         WHERE a.provider <> '${GOOGLE_PROVIDER}'`,
     ),
-    retainedCouponNoticeDigest: await queryDigest(
-      db,
-      `SELECT row_to_json(i)::text AS row_text
-         FROM marketplace_inbox i
-        WHERE ${COUPON_NOTICE_PREDICATE}
-          AND NOT EXISTS (
-                SELECT 1 FROM users u
-                 WHERE u.id = i.user_id AND ${googleOnlyUserPredicate("u")}
-              )`,
-    ),
     preservedCounts,
     resetCounts,
     criticalDigests,
@@ -337,7 +271,7 @@ function assertExpectedCounts(snapshot, expected) {
       expected.expectDeletedGoogleUsers,
     ],
     ["coupon codes", snapshot.couponCodes, expected.expectCouponCodes],
-    ["coupon notices", snapshot.couponNotices, expected.expectCouponNotices],
+    ["inbox rows", snapshot.inboxRows, expected.expectInboxRows],
   ];
   for (const [label, actual, wanted] of checks) {
     if (wanted !== undefined && actual !== wanted) {
@@ -411,15 +345,6 @@ function assertResetResult(before, after) {
   }
   if (after.retainedUsersIdentityDigest !== before.retainedUsersIdentityDigest) {
     throw new Error("retained user identity fields changed contents");
-  }
-  if (after.retainedCouponNoticeDigest !== before.retainedCouponNoticeDigest) {
-    throw new Error("preserved coupon notices changed contents");
-  }
-  if (after.marketplaceInbox !== before.retainedCouponNotices) {
-    throw new Error(
-      `marketplace inbox contains ${after.marketplaceInbox} rows after reset; ` +
-        `expected ${before.retainedCouponNotices} retained coupon notices`,
-    );
   }
   const nonEmpty = Object.entries(after.resetCounts).filter(([, count]) => count !== 0);
   if (nonEmpty.length > 0) {
@@ -575,8 +500,7 @@ function printPreview(databaseName, publicTables, snapshot, executing) {
   console.log(
     `  coupon campaigns/codes preserved: ${snapshot.couponCampaigns}/${snapshot.couponCodes}`,
   );
-  console.log(`  coupon notices preserved: ${snapshot.couponNotices}`);
-  console.log(`  other inbox rows removed: ${snapshot.marketplaceInbox - snapshot.couponNotices}`);
+  console.log(`  inbox rows removed: ${snapshot.inboxRows}`);
   console.log(`  users with beta game state: ${snapshot.userGameStateRows}`);
 }
 
@@ -590,7 +514,7 @@ function printExecuteExample(databaseName, snapshot) {
       `--expect-google-accounts ${snapshot.googleAccounts} ` +
       `--expect-deleted-google-users ${snapshot.deletedGoogleUsers} ` +
       `--expect-coupon-codes ${snapshot.couponCodes} ` +
-      `--expect-coupon-notices ${snapshot.couponNotices} ` +
+      `--expect-inbox-rows ${snapshot.inboxRows} ` +
       "--maintenance-flag /etc/nginx/msmsge-maintenance.on " +
       `--confirm ${RESET_CONFIRMATION} --execute`,
   );
@@ -604,7 +528,7 @@ function printSuccess(before, after) {
   );
   console.log(`  retained users/auth accounts: ${after.users}/${after.accounts}`);
   console.log(`  password accounts preserved: ${after.passwordAccounts}`);
-  console.log(`  coupon codes/notices preserved: ${after.couponCodes}/${after.couponNotices}`);
+  console.log(`  coupon codes preserved: ${after.couponCodes}`);
   console.log(
     `  storage cleanup targets queued: ${before.newStorageDeletionTargets}`,
   );
@@ -632,7 +556,7 @@ Dry-run is the default and never changes data. Execution additionally requires:
   --expect-google-accounts <n>
   --expect-deleted-google-users <n>
   --expect-coupon-codes <n>
-  --expect-coupon-notices <n>
+  --expect-inbox-rows <n>
   --maintenance-flag <existing-file>
   --confirm ${RESET_CONFIRMATION}
   --execute`);

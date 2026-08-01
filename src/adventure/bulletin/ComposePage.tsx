@@ -10,6 +10,8 @@ import {
   bulletinMaxLength,
   type BulletinCategory,
 } from "@/lib/bulletin-config";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { BulletinMarkdown } from "./BulletinMarkdown";
 
 // 글쓰기 페이지 — 모달이 아니라 인라인 화면. PlazaScreen 의 "게시판" 헤더 아래 영역을
 // 통째로 차지한다. 모바일에서 textarea 가 화면 가로폭 전부를 쓸 수 있어 긴 글 작성에 유리.
@@ -42,6 +44,7 @@ export function ComposePage({
   );
   const [titleDraft, setTitleDraft] = useState(editing?.title ?? "");
   const [draft, setDraft] = useState(editing?.content ?? "");
+  const [editorMode, setEditorMode] = useState<"write" | "preview">("write");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const trimmed = draft.trim();
@@ -177,16 +180,61 @@ export function ComposePage({
         </span>
       </div>
 
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        rows={14}
-        autoFocus
-        maxLength={contentMaxLength + 100}
-        placeholder="게시판에 남길 글을 입력하세요"
-        disabled={submitting}
-        className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
-      />
+      <div className="flex items-center justify-between gap-3">
+        <div
+          role="tablist"
+          aria-label="게시글 본문 편집 방식"
+          className="inline-flex rounded-md border border-zinc-300 bg-white p-0.5 dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          {(["write", "preview"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={editorMode === mode}
+              onClick={() => setEditorMode(mode)}
+              disabled={submitting}
+              className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                editorMode === mode
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
+                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {mode === "write" ? "작성" : "미리보기"}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          마크다운 지원
+        </span>
+      </div>
+
+      {editorMode === "write" ? (
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={14}
+          autoFocus
+          maxLength={contentMaxLength + 100}
+          placeholder="게시판에 남길 글을 입력하세요"
+          disabled={submitting}
+          className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+        />
+      ) : (
+        <div className={`${SURFACE_INSET} min-h-[22rem] p-4`} role="tabpanel">
+          {trimmed ? (
+            <BulletinMarkdown content={draft} />
+          ) : (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              미리 볼 본문을 작성해 주세요.
+            </p>
+          )}
+        </div>
+      )}
+      <p className="-mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+        <code>## 소제목</code> · <code>**굵게**</code> · <code>- 목록</code> ·{" "}
+        <code>&gt; 인용</code> · <code>[링크](https://주소)</code>
+      </p>
       <div className="flex items-center justify-between text-xs">
         <span
           className={

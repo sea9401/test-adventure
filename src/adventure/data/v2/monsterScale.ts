@@ -24,14 +24,15 @@ export function scaleMonsterForFloor(
   // 엔드게임 완화 적용 여부. 솔로 던전 사냥=true(기본). 협동 보스는 sharedMaxHp+anchorDepth 로
   //   난이도를 따로 튜닝하므로 false(앵커 깊이 24·42 가 완화 임계 위라 atk 가 의도치 않게 약화되는 것 방지).
   softenEndgame: boolean = true,
-  // 솔로 일반 사냥에서만 전달하는 표시 전투력. 권장치 미달 중반 우회 페널티에 사용한다.
+  // 솔로 일반 사냥에서만 전달하는 표시 전투력. 권장치 미달 사냥터 우회 페널티에 사용한다.
   playerPower?: number,
 ): Monster {
   // 엔드게임·프론티어 진입·43+ 확장 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관).
   // floor 빌드 생존성 + 들판→프론티어(d7~11)·엔드 확장(d43+) 경계 절벽을 각각 완화한다.
+  const underpreparedMult = underpreparedCombatMult(depth, playerPower);
   const sMult =
     floorStatMult(depth) *
-    underpreparedCombatMult(depth, playerPower) *
+    underpreparedMult *
     (softenEndgame
       ? endgameSoften(depth) *
         frontierOnsetSoften(depth) *
@@ -52,7 +53,10 @@ export function scaleMonsterForFloor(
   // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
   //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
   //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
-  const accuracy = (monster.accuracy ?? 0) + floorAccuracy(depth);
+  // 권장 전투력 미달 상태에서는 HP·ATK만 올리면 고회피 빌드가 공격을 계속 무효화해 우회한다.
+  // 깊이 기반 명중도 같은 준비도 배율을 적용하되 몬스터 고유 accuracy 는 중복 증폭하지 않는다.
+  const accuracy =
+    (monster.accuracy ?? 0) + floorAccuracy(depth) * underpreparedMult;
   if (
     hp === monster.hp &&
     atk === monster.atk &&

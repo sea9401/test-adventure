@@ -353,7 +353,7 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.name).toBe(base.name);
   });
 
-  it("중반 권장 전투력 미달은 HP·ATK만 보강하고 준비된 캐릭터·엔드는 보존한다", () => {
+  it("권장 전투력 미달은 중반·최상위 사냥터의 HP·ATK·명중만 보강한다", () => {
     const depth = 26;
     const gate = floorPowerGate(depth);
     const ready = scaleMonsterForFloor(base, depth, true, gate);
@@ -361,11 +361,33 @@ describe("scaleMonsterForFloor", () => {
 
     expect(underprepared.hp).toBeGreaterThan(ready.hp);
     expect(underprepared.atk).toBeGreaterThan(ready.atk);
+    expect(underprepared.accuracy).toBeGreaterThan(ready.accuracy ?? 0);
     expect(underprepared.def).toBe(ready.def);
     expect(underprepared.exp).toBe(ready.exp);
     expect(scaleMonsterForFloor(base, 43, true, 0)).toEqual(
       scaleMonsterForFloor(base, 43),
     );
+    const endgameDepth = 60;
+    const endgameGate = floorPowerGate(endgameDepth);
+    const endgameReady = scaleMonsterForFloor(
+      base,
+      endgameDepth,
+      true,
+      endgameGate,
+    );
+    const endgameUnderprepared = scaleMonsterForFloor(
+      base,
+      endgameDepth,
+      true,
+      endgameGate * 0.5,
+    );
+    expect(endgameUnderprepared.hp).toBeGreaterThan(endgameReady.hp);
+    expect(endgameUnderprepared.atk).toBeGreaterThan(endgameReady.atk);
+    expect(endgameUnderprepared.accuracy).toBeGreaterThan(
+      endgameReady.accuracy ?? 0,
+    );
+    expect(endgameUnderprepared.def).toBe(endgameReady.def);
+    expect(endgameUnderprepared.exp).toBe(endgameReady.exp);
   });
 
   it("베이스 변형 없음 (mutation 가드)", () => {

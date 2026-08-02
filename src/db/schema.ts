@@ -1272,7 +1272,7 @@ export const pvpTournamentBets = pgTable(
     index("pvp_tournament_bets_user_idx").on(t.userId, t.createdAt),
     check(
       "pvp_tournament_bets_amount_valid",
-      sql`${t.amount} BETWEEN 100 AND 50000`,
+      sql`${t.amount} BETWEEN 100 AND 1500000`,
     ),
     check(
       "pvp_tournament_bets_status_valid",

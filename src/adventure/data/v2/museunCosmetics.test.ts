@@ -14,6 +14,7 @@ import {
   drawChromaNameByRoll,
   drawChatBadgeByRoll,
   drawProfileBorderByRoll,
+  equipArenaChampionshipBadge,
   equipChatBadge,
   equipChromaName,
   equipProfileBorder,
@@ -52,6 +53,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
       equippedChromaName: "spectrum",
       equippedProfileBorder: null,
       equippedChatBadge: "starlight_chat_badge",
+      equippedChampionshipBadge: null,
     });
     expect(isMuseunCosmeticItemId("prismatic_profile_border")).toBe(true);
     expect(isMuseunCosmeticItemId("rename_permit")).toBe(false);
@@ -144,6 +146,52 @@ describe("무슨 코인 기간제 꾸미기", () => {
 
     expectRarityOrder(PROFILE_BORDER_VARIANTS);
     expectRarityOrder(CHAT_BADGE_VARIANTS);
+  });
+
+  it("아레나 명예 배지와 채팅 배지는 하나의 슬롯만 사용한다", () => {
+    const chatBadge = unlockMuseunCosmetic({}, "star_chat_badge", NOW).state;
+    const championship = equipArenaChampionshipBadge(
+      chatBadge,
+      "silver",
+      { silver: 2 },
+    );
+    expect(championship).toMatchObject({
+      equippedChatBadge: null,
+      equippedChampionshipBadge: "silver",
+    });
+    expect(
+      parseMuseunCosmetics({
+        ...chatBadge,
+        equippedChampionshipBadge: "silver",
+      }),
+    ).toMatchObject({
+      equippedChatBadge: null,
+      equippedChampionshipBadge: "silver",
+    });
+    expect(
+      museunCosmeticAppearance(championship, NOW, { silver: 2 }),
+    ).toMatchObject({
+      chatBadge: null,
+      championshipBadge: "silver",
+    });
+    expect(
+      equipChatBadge(championship, "star_chat_badge", NOW),
+    ).toMatchObject({
+      equippedChatBadge: "star_chat_badge",
+      equippedChampionshipBadge: null,
+    });
+    expect(
+      equipArenaChampionshipBadge(chatBadge, "gold", { silver: 2 }),
+    ).toBeNull();
+  });
+
+  it("획득한 아레나 명예 배지도 직접 착용하기 전에는 표시하지 않는다", () => {
+    expect(
+      museunCosmeticAppearance({}, NOW, { gold: 1, silver: 1 }),
+    ).toMatchObject({
+      chatBadge: null,
+      championshipBadge: null,
+    });
   });
 
   it("프로필 꾸미기 상자는 일반 60%·희귀 27%·영웅 10%·전설 3%로 추첨한다", () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BAND_UNIQUE_POOLS,
   BAND_COMMON_POOLS,
+  SIGNATURE_UNIQUE_CHANCE,
   UNIQUE_FLOOR_POOLS,
   V2_UNIQUE_IDS,
   bandUniquePoolForDepth,
@@ -55,7 +56,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     }
   });
 
-  it("드랍률 램프 — 모든 테마 로컬 깊이 1·2=0.3% / 3·4=0.45% / 5·6=0.6%", () => {
+  it("기본 드랍률 램프 — 로컬 깊이 1·2=0.3% / 3·4=0.45% / 5·6=0.6%", () => {
     expect(bandCommonChance(1)).toBe(0.003);
     expect(bandCommonChance(2)).toBe(0.003);
     expect(bandCommonChance(3)).toBe(0.0045);
@@ -64,7 +65,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(bandCommonChance(6)).toBe(0.006);
   });
 
-  it("테마가 깊어져도 로컬 깊이별 일반 장비 드랍률은 동일", () => {
+  it("붉은 벌판까지는 로컬 깊이별 일반 장비 드랍률이 동일", () => {
     expect(bandCommonChanceForDepth(25)).toBe(0.003); // 성소 로컬1
     expect(bandCommonChanceForDepth(30)).toBe(0.006); // 성소 로컬6
     expect(bandCommonChanceForDepth(31)).toBe(0.003); // 늪지 로컬1
@@ -75,12 +76,23 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(bandCommonChanceForDepth(48)).toBe(0.006); // 검은 왕도 로컬6
     expect(bandCommonChanceForDepth(49)).toBe(0.003); // 붉은 벌판 로컬1
     expect(bandCommonChanceForDepth(54)).toBe(0.006); // 붉은 벌판 로컬6
-    expect(bandCommonChanceForDepth(55)).toBe(0.003); // 백골 고원 로컬1
-    expect(bandCommonChanceForDepth(60)).toBe(0.006); // 백골 고원 로컬6
-    expect(bandCommonChanceForDepth(61)).toBe(0.003); // 폭풍 산맥 로컬1
-    expect(bandCommonChanceForDepth(66)).toBe(0.006); // 폭풍 산맥 로컬6
-    expect(bandCommonChanceForDepth(67)).toBe(0.003); // 심해 폐허 로컬1
-    expect(bandCommonChanceForDepth(72)).toBe(0.006); // 심해 폐허 로컬6
+  });
+
+  it("최상위 3개 테마는 최심부 장비 합산 약 800승 곡선을 쓴다", () => {
+    for (const start of [55, 61, 67]) {
+      expect(bandCommonChanceForDepth(start)).toBe(0.0005);
+      expect(bandCommonChanceForDepth(start + 1)).toBe(0.0005);
+      expect(bandCommonChanceForDepth(start + 2)).toBe(0.000625);
+      expect(bandCommonChanceForDepth(start + 3)).toBe(0.000625);
+      expect(bandCommonChanceForDepth(start + 4)).toBe(0.00075);
+      expect(bandCommonChanceForDepth(start + 5)).toBe(0.00075);
+    }
+
+    const combined =
+      1 -
+      (1 - bandCommonChanceForDepth(72)) *
+        (1 - SIGNATURE_UNIQUE_CHANCE);
+    expect(1 / combined).toBeCloseTo(800, 0);
   });
 
   it("rollBandCommonDrop — 깊이별 chance 로 통과/실패, 통과 시 흔한 후보 반환", () => {
@@ -126,6 +138,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(rollBandCommonDrop(46, seqRng([0.005, 0]))).toBeNull(); // 로컬4 0.0045 이상이라 실패
     expect(rollBandCommonDrop(49, seqRng([0.0002, 0]))).toBe(redField.ids[0]);
     expect(rollBandCommonDrop(55, seqRng([0.0002, 0]))).toBe(plateau.ids[0]);
+    expect(rollBandCommonDrop(55, () => 0.0005)).toBeNull();
     expect(rollBandCommonDrop(61, seqRng([0.0002, 0]))).toBe(storm.ids[0]);
     expect(rollBandCommonDrop(67, seqRng([0.0002, 0]))).toBe(abyss.ids[0]);
   });

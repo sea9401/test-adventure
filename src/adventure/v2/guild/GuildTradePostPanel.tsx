@@ -268,7 +268,8 @@ export function GuildTradePostPanel() {
                   />
                 </div>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  완료 시 길드 자금 {contract.reward.gold.toLocaleString()}G · 명성 {contract.reward.fame.toLocaleString()}
+                  완료 보상 · 길드 자금 +{contract.reward.gold.toLocaleString()}G · 명성 +
+                  {contract.reward.fame.toLocaleString()}
                 </p>
                 <div className="flex gap-2">
                   <button

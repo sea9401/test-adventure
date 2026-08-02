@@ -11,12 +11,14 @@ import {
   Envelope,
   Flag,
   Handshake,
+  Plant,
   ShieldWarning,
   Skull,
   Sword,
   UsersThree,
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { V2InboxView } from "@/adventure/v2/V2InboxView";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -90,6 +92,13 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-sky-500 dark:text-sky-400"
+    />
+  ),
+  farm_ready: (
+    <Plant
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-emerald-600 dark:text-emerald-400"
     />
   ),
 };
@@ -204,6 +213,15 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       </>
     );
   }
+  if (n.type === "farm_ready") {
+    const p = n.payload as { readyCount: number };
+    return (
+      <>
+        농장에 수확 가능한 작물이 {p.readyCount}개 있습니다. 눌러서 확인해
+        주세요
+      </>
+    );
+  }
   const p = n.payload as { byName?: string; gold?: number };
   return (
     <>
@@ -222,17 +240,20 @@ function NotificationRow({
   item,
   onOpenOutpost,
   onOpenFeedback,
+  onOpenFarm,
 }: {
   item: V2NotificationEntry;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
+  onOpenFarm: () => void;
 }) {
   const outpostId = (item.payload as { outpostId?: string }).outpostId;
   const feedbackId =
     item.type === "feedback_replied"
       ? (item.payload as { feedbackId: number }).feedbackId
       : null;
-  const actionable = Boolean(outpostId || feedbackId);
+  const farmReady = item.type === "farm_ready";
+  const actionable = Boolean(outpostId || feedbackId || farmReady);
 
   return (
     <button
@@ -240,6 +261,10 @@ function NotificationRow({
       onClick={() => {
         if (outpostId) onOpenOutpost(outpostId);
         else if (feedbackId) onOpenFeedback(feedbackId);
+        else if (farmReady) {
+          void acknowledgeFarmReadyNotification();
+          onOpenFarm();
+        }
       }}
       disabled={!actionable}
       className="flex w-full items-start gap-2 px-3 py-2.5 text-left disabled:cursor-default"
@@ -294,11 +319,13 @@ export function V2NotificationsView({
   onBack,
   onOpenOutpost,
   onOpenFeedback,
+  onOpenFarm,
   initialTab = "all",
 }: {
   onBack: () => void;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
+  onOpenFarm: () => void;
   initialTab?: NotificationCenterTab;
 }) {
   const [tab, setTab] = useState<NotificationCenterTab>(initialTab);
@@ -358,7 +385,9 @@ export function V2NotificationsView({
         const readAt = Date.now();
         setNotifications((current) =>
           current?.map((item) =>
-            item.readAt === null ? { ...item, readAt } : item,
+            item.readAt === null && item.type !== "farm_ready"
+              ? { ...item, readAt }
+              : item,
           ) ?? [],
         );
         window.dispatchEvent(new Event("v2notif:read"));
@@ -442,6 +471,7 @@ export function V2NotificationsView({
                     item={item}
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
+                    onOpenFarm={onOpenFarm}
                   />
                 </li>
               ))}
@@ -464,6 +494,7 @@ export function V2NotificationsView({
                     item={entry.item}
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
+                    onOpenFarm={onOpenFarm}
                   />
                 </li>
               ) : (

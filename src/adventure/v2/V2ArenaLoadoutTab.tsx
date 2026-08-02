@@ -9,6 +9,7 @@ import {
   Sneaker,
   Sword,
   Trash,
+  WarningCircle,
   type Icon,
 } from "@phosphor-icons/react";
 import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
@@ -24,6 +25,11 @@ import {
   type ItemCardAnchor,
 } from "@/adventure/v2/V2ItemCard";
 import { useSystemMessageState } from "./RewardToastProvider";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 
 type Loadout = {
   id: string;
@@ -41,7 +47,12 @@ type Loadout = {
       name: string | null;
       inst: V2EquipInstance | null;
     }[];
-    patternBlocks: number;
+    patternActions: { key: string; name: string }[];
+    issues: {
+      emptyEquipmentSlots: V2EquipSlot[];
+      unavailableEquipmentSlots: V2EquipSlot[];
+      uncoveredActiveSkills: { id: string; name: string }[];
+    };
   };
 };
 
@@ -86,7 +97,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <section className={`${SURFACE_CARD} p-4`}>
       <h3 className="mb-3 text-sm font-bold text-amber-600 dark:text-amber-300">
         {title}
       </h3>
@@ -172,9 +183,16 @@ export function V2ArenaLoadoutTab() {
   if (err) return <LoadErrorBanner onRetry={load} />;
 
   const skills = loadout?.summary?.skills.filter((s) => s.passive) ?? [];
-  const patternSkills = loadout?.summary?.skills.filter((s) => !s.passive) ?? [];
+  const patternActions = loadout?.summary?.patternActions ?? [];
   const equipmentBySlot = new Map(
     (loadout?.summary?.equipment ?? []).map((item) => [item.slot, item]),
+  );
+  const issues = loadout?.summary?.issues;
+  const hasIssues = Boolean(
+    issues &&
+      (issues.emptyEquipmentSlots.length > 0 ||
+        issues.unavailableEquipmentSlots.length > 0 ||
+        issues.uncoveredActiveSkills.length > 0),
   );
 
   return (
@@ -182,8 +200,8 @@ export function V2ArenaLoadoutTab() {
       <div className="space-y-3">
         <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
           현재 장착된 스킬, 전투패턴, 장비를 아레나 전투용 템플릿으로 저장합니다. 아레나에서는
-          공격할 때도, 다른 모험가가 나를 상대할 때도 이 템플릿이 사용됩니다. 직업과 현재
-          스탯은 저장하지 않습니다.
+          공격할 때도, 다른 모험가가 나를 상대할 때도 이 템플릿이 사용됩니다. 본선 전투 세팅은
+          일요일 18:00에 최종 확정되므로 그 전까지 다시 저장할 수 있습니다.
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -193,7 +211,7 @@ export function V2ArenaLoadoutTab() {
             onClick={saveCurrent}
             className="flex items-center gap-1 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
           >
-            <FloppyDisk size={16} /> 현재 세팅 저장
+            <FloppyDisk size={16} /> {loadout ? "현재 세팅으로 다시 저장" : "현재 세팅 저장"}
           </button>
           {loadout && (
             <button
@@ -209,7 +227,7 @@ export function V2ArenaLoadoutTab() {
       </div>
 
       {notice && (
-        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-2 text-sm dark:border-zinc-700 dark:bg-zinc-800/60">
+        <div className={`${SURFACE_INSET} p-2 text-sm`}>
           {notice}
         </div>
       )}
@@ -217,14 +235,54 @@ export function V2ArenaLoadoutTab() {
       {loading ? (
         <div className="py-6 text-center text-sm text-zinc-500">불러오는 중...</div>
       ) : !loadout ? (
-        <div className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          저장된 아레나 전투 템플릿이 없어요. 현재 세팅을 저장하면 다음 아레나 전투부터 사용됩니다.
+        <div className={`${SURFACE_CARD} p-6 text-center text-sm text-zinc-500`}>
+          저장된 아레나 전투 템플릿이 없어요. 현재 장비가 일반 아레나에는 사용되지만, 본선 세팅을
+          확실히 고정하려면 현재 세팅을 저장해 주세요.
         </div>
       ) : (
         <>
           <div className="text-sm font-semibold text-amber-600 dark:text-amber-300">
             현재 저장된 템플릿 ({formatKst(loadout.savedAt)})
           </div>
+
+          {hasIssues && issues ? (
+            <div className={`${SURFACE_ACCENT} space-y-3 p-4`} role="alert">
+              <div className="flex items-start gap-2">
+                <WarningCircle
+                  size={22}
+                  weight="fill"
+                  className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300"
+                />
+                <div className="space-y-1 text-sm">
+                  <div className="font-bold">이 템플릿은 일부 세팅이 전투에 적용되지 않습니다.</div>
+                  {issues.unavailableEquipmentSlots.length > 0 ? (
+                    <p>
+                      저장 후 판매·분해된 장비가 {issues.unavailableEquipmentSlots.length}부위 있어
+                      해당 슬롯은 빈 상태로 적용됩니다.
+                    </p>
+                  ) : null}
+                  {issues.emptyEquipmentSlots.length > 0 ? (
+                    <p>비어 있는 장비 슬롯이 {issues.emptyEquipmentSlots.length}개 있습니다.</p>
+                  ) : null}
+                  {issues.uncoveredActiveSkills.length > 0 ? (
+                    <p>
+                      전투패턴에 없는 장착 액티브 스킬: {issues.uncoveredActiveSkills
+                        .map((skill) => skill.name)
+                        .join(", ")}. 패턴에 추가하지 않으면 사용하지 않습니다.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={saveCurrent}
+                className="flex items-center gap-1 rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
+              >
+                <FloppyDisk size={16} /> 현재 세팅으로 다시 저장
+              </button>
+            </div>
+          ) : null}
 
           <Section title="스킬">
             {skills.length === 0 ? (
@@ -242,15 +300,15 @@ export function V2ArenaLoadoutTab() {
           </Section>
 
           <Section title="전투패턴">
-            {patternSkills.length === 0 ? (
+            {patternActions.length === 0 ? (
               <div className="text-sm text-zinc-500">저장된 전투패턴이 없어요.</div>
             ) : (
               <ul className="space-y-2 text-sm">
-                {patternSkills.map((skill) => (
-                  <li key={skill.id} className="flex items-center justify-between gap-3">
-                    <span className="font-semibold">{skill.name}</span>
+                {patternActions.map((action, index) => (
+                  <li key={action.key} className="flex items-center justify-between gap-3">
+                    <span className="font-semibold">{action.name}</span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {loadout.summary?.patternBlocks ? "패턴" : "장착"}
+                      {index + 1}순위
                     </span>
                   </li>
                 ))}
@@ -291,7 +349,7 @@ export function V2ArenaLoadoutTab() {
                 return (
                   <div
                     key={slot}
-                    className="flex min-h-[6.25rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center sm:min-h-[6.75rem] dark:border-zinc-700 dark:bg-zinc-900"
+                    className={`${SURFACE_INSET} flex min-h-[6.25rem] flex-col items-center gap-1 px-2 py-2 text-center sm:min-h-[6.75rem]`}
                   >
                     {inst && item ? (
                       <button

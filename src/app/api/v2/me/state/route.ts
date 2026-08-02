@@ -8,6 +8,8 @@ import {
   INSOMNIA_TITLE_ID,
   isInsomniaTitleWindow,
 } from "@/lib/server/insomniaTitle";
+import { ARENA_CHAMPION_TITLE_ID } from "@/adventure/data/titles";
+import { hasArenaChampionshipWin } from "@/adventure/data/v2/arenaChampionshipBadges";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
@@ -253,6 +255,17 @@ export async function GET(req: Request) {
       Date.now(),
     );
     if (granted) ownedTitleIds = [...ownedTitleIds, INSOMNIA_TITLE_ID];
+  }
+  if (
+    !ownedTitleIds.includes(ARENA_CHAMPION_TITLE_ID) &&
+    hasArenaChampionshipWin(charSave.arenaChampionshipBadges)
+  ) {
+    await grantTitleIfMissing(
+      userId,
+      ARENA_CHAMPION_TITLE_ID,
+      Date.now(),
+    );
+    ownedTitleIds = [...ownedTitleIds, ARENA_CHAMPION_TITLE_ID];
   }
   const equippedTitleId =
     typeof charSave.equippedTitleId === "string" &&

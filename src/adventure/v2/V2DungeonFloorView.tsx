@@ -56,6 +56,10 @@ import {
   normalizeHuntCount,
   type HuntCount,
 } from "@/adventure/data/v2/adventureSupport";
+import {
+  recoveryChargesUpdate,
+  type RecoveryChargesUpdate,
+} from "@/adventure/v2/recoveryChargesSync";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
@@ -168,6 +172,7 @@ export function V2DungeonFloorView({
   setAtRiskGold,
   onGoldChange,
   onProficiencyChange,
+  onRecoveryChargesChange,
   offlineHunt,
   onRefresh,
 }: {
@@ -227,6 +232,9 @@ export function V2DungeonFloorView({
   // 사냥으로 변한 공용 자원 readout 동기화 — 같은 layout 내 은행/상단 상태가 stale 해지지 않게 한다.
   onGoldChange?: (n: number) => void;
   onProficiencyChange?: (n: number | null) => void;
+  // 사냥 응답의 최신 충전약 잔량을 공유 레이아웃 상태에도 반영한다. 페이지를 떠났다가
+  // 브라우저 뒤로가기·앞으로가기로 재진입해도 화면 진입 당시의 오래된 값이 복원되지 않는다.
+  onRecoveryChargesChange?: (update: RecoveryChargesUpdate) => void;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
@@ -540,6 +548,8 @@ export function V2DungeonFloorView({
             mpCharges: b.mpCharges,
           }),
         );
+        const update = recoveryChargesUpdate(b.hpCharges, b.mpCharges);
+        if (update) onRecoveryChargesChange?.(update);
       }
       // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
       setBatchStatus({
@@ -741,6 +751,8 @@ export function V2DungeonFloorView({
                 mpCharges: r.mpCharges,
               }),
             );
+            const update = recoveryChargesUpdate(r.hpCharges, r.mpCharges);
+            if (update) onRecoveryChargesChange?.(update);
           }
           if (r.levelsGained > 0) onLevelUp?.();
           if (

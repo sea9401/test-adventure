@@ -4,7 +4,8 @@ import {
   type MuseunCashItemId,
 } from "./museunCashItems";
 import {
-  bestArenaChampionshipBadge,
+  isArenaChampionshipBadge,
+  parseArenaChampionshipBadges,
   type ArenaChampionshipBadge,
 } from "./arenaChampionshipBadges";
 
@@ -30,6 +31,7 @@ export type MuseunCosmeticsState = {
   equippedChromaName: ChromaNameId | null;
   equippedProfileBorder: ProfileBorderItemId | null;
   equippedChatBadge: ChatBadgeItemId | null;
+  equippedChampionshipBadge: ArenaChampionshipBadge | null;
 };
 
 export const CHROMA_NAME_RARITIES = {
@@ -346,6 +348,7 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
       equippedChromaName: null,
       equippedProfileBorder: null,
       equippedChatBadge: null,
+      equippedChampionshipBadge: null,
     };
   }
   const raw = value as {
@@ -356,6 +359,7 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
     equippedChromaName?: unknown;
     equippedProfileBorder?: unknown;
     equippedChatBadge?: unknown;
+    equippedChampionshipBadge?: unknown;
   };
   const rawOwned = raw.owned;
   const owned: MuseunCosmeticItemId[] = [];
@@ -404,11 +408,19 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
     "equippedProfileBorder",
     ownedProfileBorders,
   );
-  const equippedChatBadge = parseEquippedOwnedItem(
+  let equippedChatBadge = parseEquippedOwnedItem(
     raw,
     "equippedChatBadge",
     ownedChatBadges,
   );
+  const equippedChampionshipBadge = isArenaChampionshipBadge(
+    raw.equippedChampionshipBadge,
+  )
+    ? raw.equippedChampionshipBadge
+    : null;
+  // 아레나 명예 배지와 일반 채팅 배지는 같은 단일 슬롯을 사용한다.
+  // 이전 저장값에 둘 다 남아 있어도 명시적으로 고른 아레나 배지만 표시한다.
+  if (equippedChampionshipBadge) equippedChatBadge = null;
   const accessUntil: Partial<Record<MuseunCosmeticAccessId, number>> = {};
   const rawAccessUntil =
     raw.accessUntil &&
@@ -430,6 +442,7 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
     equippedChromaName,
     equippedProfileBorder,
     equippedChatBadge,
+    equippedChampionshipBadge,
   };
 }
 
@@ -468,6 +481,7 @@ export function unlockMuseunCosmetic(
   }
   if (isChatBadgeItemId(itemId)) {
     nextState.equippedChatBadge = itemId;
+    nextState.equippedChampionshipBadge = null;
   }
   return {
     state: nextState,
@@ -759,7 +773,26 @@ export function equipChatBadge(
   ) {
     return null;
   }
-  return { ...state, equippedChatBadge: itemId };
+  return {
+    ...state,
+    equippedChatBadge: itemId,
+    equippedChampionshipBadge: null,
+  };
+}
+
+export function equipArenaChampionshipBadge(
+  value: unknown,
+  badge: ArenaChampionshipBadge | null,
+  ownedBadges: unknown,
+): MuseunCosmeticsState | null {
+  const state = parseMuseunCosmetics(value);
+  const owned = parseArenaChampionshipBadges(ownedBadges);
+  if (badge !== null && owned[badge] <= 0) return null;
+  return {
+    ...state,
+    equippedChatBadge: null,
+    equippedChampionshipBadge: badge,
+  };
 }
 
 export function isChromaNameId(value: unknown): value is ChromaNameId {
@@ -866,6 +899,10 @@ export function museunCosmeticAppearance(
   const chatBadge = CHAT_BADGE_VARIANTS.find(
     (variant) => variant.itemId === cosmetics.equippedChatBadge,
   );
+  const championshipBadges = parseArenaChampionshipBadges(
+    arenaChampionshipBadges,
+  );
+  const championshipBadge = cosmetics.equippedChampionshipBadge;
   return {
     profileBorder:
       profileBorder &&
@@ -885,6 +922,9 @@ export function museunCosmeticAppearance(
       )
         ? cosmetics.equippedChromaName
         : null,
-    championshipBadge: bestArenaChampionshipBadge(arenaChampionshipBadges),
+    championshipBadge:
+      championshipBadge && championshipBadges[championshipBadge] > 0
+        ? championshipBadge
+        : null,
   };
 }

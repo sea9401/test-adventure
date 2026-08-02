@@ -272,13 +272,89 @@ async function applyCarryToRound(
     .for("update")
     .limit(1);
   if (!round) throw new Error("lottery carry target not found");
-  if (round.status !== "open" || round.carryIn > 0 || carryIn <= 0) return round;
+  if (round.status !== "open") return round;
+
+  const [existingCarriedPurchase] = await tx
+    .select({ id: lotteryPurchases.id })
+    .from(lotteryPurchases)
+    .where(
+      and(
+        eq(lotteryPurchases.roundId, round.id),
+        eq(lotteryPurchases.isCarried, true),
+      ),
+    )
+    .limit(1);
+
+  let carriedTicketCount = 0;
+  if (!existingCarriedPurchase && (round.carryIn > 0 || carryIn > 0)) {
+    // 마지막 정상 추첨 뒤 이월된 모든 유료 구매를 원본으로 삼는다. 이 방식은
+    // 기능 배포 전 여러 빈 회차를 거친 티켓도 현재 회차로 한 번에 복구한다.
+    const priorRounds = await tx
+      .select({ id: lotteryRounds.id, status: lotteryRounds.status })
+      .from(lotteryRounds)
+      .where(lte(lotteryRounds.endsAt, round.startsAt))
+      .orderBy(desc(lotteryRounds.endsAt));
+    const rolledOverRoundIds: number[] = [];
+    for (const priorRound of priorRounds) {
+      if (priorRound.status !== "rolled_over") break;
+      rolledOverRoundIds.push(priorRound.id);
+    }
+    const sourcePurchases = rolledOverRoundIds.length
+      ? await tx
+          .select()
+          .from(lotteryPurchases)
+          .where(
+            and(
+              inArray(lotteryPurchases.roundId, rolledOverRoundIds),
+              eq(lotteryPurchases.isCarried, false),
+            ),
+          )
+          .orderBy(
+            asc(lotteryPurchases.roundId),
+            asc(lotteryPurchases.firstTicketNumber),
+          )
+      : [];
+    let nextTicketNumber = round.totalTickets + 1;
+    if (sourcePurchases.length) {
+      await tx.insert(lotteryPurchases).values(
+        sourcePurchases.map((purchase) => {
+          const firstTicketNumber = nextTicketNumber;
+          nextTicketNumber += purchase.ticketCount;
+          carriedTicketCount += purchase.ticketCount;
+          return {
+            roundId: round.id,
+            userId: purchase.userId,
+            requestId: `rollover:${purchase.id}:${round.id}`,
+            actorName: purchase.actorName,
+            ticketCount: purchase.ticketCount,
+            firstTicketNumber,
+            amountPaid: 0,
+            isCarried: true,
+            createdAt: round.startsAt,
+          };
+        }),
+      );
+    }
+  }
+
+  const shouldSetCarry = round.carryIn <= 0 && carryIn > 0;
+  if (!shouldSetCarry && carriedTicketCount === 0) return round;
+  const nextCarryIn = shouldSetCarry ? carryIn : Number(round.carryIn);
   const [updated] = await tx
     .update(lotteryRounds)
-    .set({ carryIn })
+    .set({
+      carryIn: nextCarryIn,
+      totalTickets: round.totalTickets + carriedTicketCount,
+    })
     .where(eq(lotteryRounds.id, round.id))
     .returning();
-  return updated ?? { ...round, carryIn };
+  return (
+    updated ?? {
+      ...round,
+      carryIn: nextCarryIn,
+      totalTickets: round.totalTickets + carriedTicketCount,
+    }
+  );
 }
 
 async function advanceRounds(tx: Tx, now: Date) {
@@ -289,15 +365,12 @@ async function advanceRounds(tx: Tx, now: Date) {
     .orderBy(asc(lotteryRounds.endsAt));
   let pendingCarry: number | null = null;
   for (const round of due) {
-    if (pendingCarry !== null) {
-      await applyCarryToRound(tx, round.id, pendingCarry);
-    }
+    // 이미 돈만 이월된 배포 전 회차도 승계 티켓이 없으면 함께 복구한다.
+    await applyCarryToRound(tx, round.id, pendingCarry ?? 0);
     pendingCarry = await settleRound(tx, round.id, now);
   }
   let current = await ensureCurrentRound(tx, now);
-  if (pendingCarry !== null) {
-    current = await applyCarryToRound(tx, current.id, pendingCarry);
-  }
+  current = await applyCarryToRound(tx, current.id, pendingCarry ?? 0);
   return current;
 }
 
@@ -314,6 +387,10 @@ async function snapshotInTx(
   const myTickets = currentPurchases
     .filter((purchase) => purchase.userId === userId)
     .reduce((sum, purchase) => sum + purchase.ticketCount, 0);
+  const myCarriedTickets = currentPurchases
+    .filter((purchase) => purchase.userId === userId && purchase.isCarried)
+    .reduce((sum, purchase) => sum + purchase.ticketCount, 0);
+  const myPurchasedTickets = myTickets - myCarriedTickets;
   const recentRounds = await tx
     .select()
     .from(lotteryRounds)
@@ -406,11 +483,16 @@ async function snapshotInTx(
       commitHash: currentRound.commitHash,
     },
     myTickets,
-    remainingTickets: Math.max(0, LOTTERY_MAX_TICKETS_PER_ROUND - myTickets),
+    myCarriedTickets,
+    remainingTickets: Math.max(
+      0,
+      LOTTERY_MAX_TICKETS_PER_ROUND - myPurchasedTickets,
+    ),
     recentPurchases: currentPurchases.slice(0, 30).map((purchase) => ({
       id: purchase.id,
       actorName: purchase.actorName,
       ticketCount: purchase.ticketCount,
+      isCarried: purchase.isCarried,
       createdAt: purchase.createdAt.getTime(),
       mine: purchase.userId === userId,
     })),
@@ -512,6 +594,7 @@ export async function purchaseLotteryTickets(input: {
         and(
           eq(lotteryPurchases.roundId, round.id),
           eq(lotteryPurchases.userId, input.userId),
+          eq(lotteryPurchases.isCarried, false),
         ),
       );
     const alreadyBought = userPurchases.reduce(

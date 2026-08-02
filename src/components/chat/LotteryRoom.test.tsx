@@ -38,7 +38,7 @@ describe("LotteryRoundResultCard", () => {
     );
 
     expect(html).toContain("제 42회 추첨 결과");
-    expect(html).toContain("참여 6명 · 판매 18장");
+    expect(html).toContain("참여 6명 · 응모 18장");
     expect(html).toContain("1등 우승자 · #7 · 1,701,000G (나)");
   });
 
@@ -57,6 +57,6 @@ describe("LotteryRoundResultCard", () => {
     );
 
     expect(html).toContain("추첨 없이 상금 900,000G");
-    expect(html).toContain("다음 회차로 이월되었습니다.");
+    expect(html).toContain("복권 18장이 다음 회차로 이월되었습니다.");
   });
 });

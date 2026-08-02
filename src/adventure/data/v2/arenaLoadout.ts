@@ -5,10 +5,14 @@
 // 저장 위치 = save key `arena-loadouts.v2`. 과거에는 목록이었으므로 파서는 배열의 첫 항목을
 // 활성 템플릿으로 읽는다. 신규 저장은 단일 원소 배열로 덮어쓴다.
 
-import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
+import {
+  V2_SKILLS,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
 import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import {
   parseCombatPattern,
+  type V2CombatRole,
   type V2CombatPattern,
 } from "@/adventure/v2/combat/combatPattern";
 
@@ -38,6 +42,86 @@ export type ArenaLoadout = {
   /** 장착 장비 스냅샷(슬롯 → 개체 iid). 적용 시 현재 보유(iid)인 것만 복원. */
   equipment: Partial<Record<V2EquipSlot, string>>;
 };
+
+export type ArenaPatternActionSummary = {
+  key: string;
+  name: string;
+};
+
+export type ArenaLoadoutIssueSummary = {
+  emptyEquipmentSlots: V2EquipSlot[];
+  unavailableEquipmentSlots: V2EquipSlot[];
+  uncoveredActiveSkills: { id: V2SkillId; name: string }[];
+};
+
+const ROLE_LABEL: Record<V2CombatRole, string> = {
+  main_attack: "주 공격",
+  heal: "회복",
+  buff: "버프",
+  debuff: "디버프",
+};
+
+/** 아레나 요약 화면용 실제 패턴 행동 목록. 장착 액티브 목록과 섞지 않는다. */
+export function arenaPatternActionSummary(
+  loadout: Pick<ArenaLoadout, "pattern">,
+): ArenaPatternActionSummary[] {
+  const { pattern } = loadout;
+  if (!pattern) return [];
+  return pattern.blocks.map((block, index) => {
+    const action = block.action;
+    const value = action.kind === "skill" ? action.skillId : action.role;
+    return {
+      key: `${index}:${action.kind}:${value}`,
+      name:
+        action.kind === "skill"
+          ? (V2_SKILLS[action.skillId as V2SkillId]?.name ?? action.skillId)
+          : ROLE_LABEL[action.role],
+    };
+  });
+}
+
+/** 저장 템플릿이 실제 전투에서 조용히 비게 되는 부분을 UI에서 미리 경고한다. */
+export function arenaLoadoutIssueSummary(
+  loadout: ArenaLoadout,
+  ownedIids: ReadonlySet<string>,
+): ArenaLoadoutIssueSummary {
+  const emptyEquipmentSlots: V2EquipSlot[] = [];
+  const unavailableEquipmentSlots: V2EquipSlot[] = [];
+  for (const slot of SLOTS) {
+    const iid = loadout.equipment[slot];
+    if (!iid) emptyEquipmentSlots.push(slot);
+    else if (!ownedIids.has(iid)) unavailableEquipmentSlots.push(slot);
+  }
+
+  const directSkills = new Set<string>();
+  const coveredRoles = new Set<V2CombatRole>();
+  for (const block of loadout.pattern?.blocks ?? []) {
+    if (block.action.kind === "skill") directSkills.add(block.action.skillId);
+    else coveredRoles.add(block.action.role);
+  }
+  const categoryRole = {
+    attack: "main_attack",
+    heal: "heal",
+    buff: "buff",
+    debuff: "debuff",
+  } as const;
+  const uncoveredActiveSkills = loadout.pattern
+    ? loadout.skills.flatMap((id) => {
+        const skill = V2_SKILLS[id];
+        if (!skill || skill.passive || skill.category === "passive") return [];
+        const role = categoryRole[skill.category];
+        return directSkills.has(id) || coveredRoles.has(role)
+          ? []
+          : [{ id, name: skill.name }];
+      })
+    : [];
+
+  return {
+    emptyEquipmentSlots,
+    unavailableEquipmentSlots,
+    uncoveredActiveSkills,
+  };
+}
 
 // 방어적 파싱 — 배열 + 필수 필드(id·name) 있는 엔트리만, 저장순 ≤ MAX. pattern 은 parseCombatPattern
 // 으로 재검증(손상 블록 drop). 슬롯/스킬 값은 타입만 거르고 보유 검증은 적용 시점(라우트)에서.

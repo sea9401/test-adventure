@@ -32,7 +32,10 @@ import type {
   RepeatBundleView as BaseRepeatBundleView,
   RepeatQuestView,
 } from "@/adventure/data/v2/v2RepeatQuests";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import {
+  V2_EQUIPMENT,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 import {
   FARM_CROPS,
   type FarmCropId,
@@ -70,6 +73,14 @@ type QuestsResponse = {
 };
 
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
+type ClaimAllScope = Extract<TopTab, "tutorial" | "achievement">;
+
+type ClaimAllReward = {
+  gold: number;
+  equipment: V2EquipmentId[];
+  staminaPotions: number;
+  titleIds: string[];
+};
 
 // 리셋 카운트다운 — "11시간 후" / "32분 후" (마운트 시점 고정 — 분 단위 정밀도면 충분).
 function resetLabel(at: number, nowMs: number): string {
@@ -105,6 +116,29 @@ function seedPouchText(pouch: SeedPouchReward): string {
   return seeds ? `${pouch.name}(${seeds})` : pouch.name;
 }
 
+function claimAllRewardText(reward: ClaimAllReward): string {
+  const parts: string[] = [];
+  if (reward.gold > 0) {
+    parts.push(`${reward.gold.toLocaleString()} 골드(은행 입금)`);
+  }
+  if (reward.equipment.length === 1) {
+    const id = reward.equipment[0];
+    parts.push(V2_EQUIPMENT[id]?.name ?? id);
+  } else if (reward.equipment.length > 1) {
+    parts.push(`장비 ${reward.equipment.length}개`);
+  }
+  if (reward.staminaPotions > 0) {
+    parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
+  }
+  if (reward.titleIds.length === 1) {
+    const id = reward.titleIds[0];
+    parts.push(`칭호: ${TITLES[id]?.name ?? id}`);
+  } else if (reward.titleIds.length > 1) {
+    parts.push(`칭호 ${reward.titleIds.length}개`);
+  }
+  return parts.join(" · ");
+}
+
 export function V2QuestView({ onBack }: { onBack: () => void }) {
   const { refreshGameState } = useGameState();
   const { notifyReward, notifySystem } = useRewardToast();
@@ -114,6 +148,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [achievement, setAchievement] = useState<AchievementSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [claimAllBusy, setClaimAllBusy] = useState<ClaimAllScope | null>(null);
   const [bundleBusy, setBundleBusy] = useState<"daily" | "weekly" | null>(null);
   // 초기 탭 — 홈 튜토리얼 배너가 ?tab=tutorial 로 딥링크. 그 외 기본 일일.
   const tabParam = useSearchParams().get("tab");
@@ -215,6 +250,40 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     [notifyReward, notifySystem, refresh, refreshGameState],
   );
 
+  const claimAll = useCallback(
+    async (scope: ClaimAllScope) => {
+      setClaimAllBusy(scope);
+      try {
+        const res = await fetch("/api/v2/me/quests/claim-all", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          count?: number;
+          reward?: ClaimAllReward;
+        } | null;
+        if (!j?.ok || !j.reward || !j.count) {
+          notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
+          return;
+        }
+        const groupLabel = scope === "tutorial" ? "튜토리얼" : "업적";
+        notifyReward(
+          `${groupLabel} 보상 ${j.count}개 수령`,
+          claimAllRewardText(j.reward) || "완료로 기록했어요.",
+        );
+        await Promise.all([refresh(), refreshGameState()]);
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setClaimAllBusy(null);
+      }
+    },
+    [notifyReward, notifySystem, refresh, refreshGameState],
+  );
+
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="퀘스트" onBack={onBack} />
@@ -286,6 +355,12 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     // 가이드 퀘를 라인 tutorial 플래그로 분리 — 튜토리얼 탭 vs 업적 탭.
     const scoped = quests.filter((q) => isTutorialLine(q.line) === forTutorial);
     const groupLabel = forTutorial ? "튜토리얼" : "업적";
+    const claimAllScope: ClaimAllScope = forTutorial
+      ? "tutorial"
+      : "achievement";
+    const claimableCount = scoped.filter(
+      (q) => q.status === "claimable",
+    ).length;
     const activeCount = scoped.filter((q) => !isDone(q)).length;
     const doneCount = scoped.filter(isDone).length;
     const shown = scoped.filter((q) => (tab === "done" ? isDone(q) : !isDone(q)));
@@ -327,6 +402,30 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           size="sm"
         />
 
+        {tab === "active" && (
+          <Card padding="sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                받을 수 있는 {groupLabel} 보상 {claimableCount}개
+              </p>
+              <Button
+                onClick={() => claimAll(claimAllScope)}
+                disabled={
+                  claimableCount === 0 || busy !== null || claimAllBusy !== null
+                }
+                variant="warning"
+                size="sm"
+                className="shrink-0"
+              >
+                <Gift size={16} weight="fill" aria-hidden />
+                {claimAllBusy === claimAllScope
+                  ? "모두 받는 중…"
+                  : `모두 받기 (${claimableCount})`}
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {shown.length === 0 ? (
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -359,7 +458,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
                     <QuestRow
                       key={q.id}
                       quest={q}
-                      busy={busy === q.id}
+                      busy={busy === q.id || claimAllBusy !== null}
                       onClaim={() => claim(q)}
                     />
                   ))}
@@ -376,6 +475,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 function claimErr(error: string | undefined, status: number): string {
   if (error === "not_complete") return "아직 완료 조건을 채우지 못했어요";
   if (error === "already_claimed") return "이미 수령했어요";
+  if (error === "nothing_to_claim") return "지금 받을 수 있는 보상이 없어요";
   return error ?? `http ${status}`;
 }
 

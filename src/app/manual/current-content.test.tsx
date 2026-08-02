@@ -76,6 +76,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(quests).toContain("농장·벌목·채광·");
     expect(quests).toContain("낚시·요리");
     expect(quests).toContain("대표 배지 전시대");
+    expect(quests).toContain("모두 받기");
+    expect(quests).toContain("수령 후 공개되는");
     expect(skills).toContain("장비 도감·어보 수집 단계");
   });
 

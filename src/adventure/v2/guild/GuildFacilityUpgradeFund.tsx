@@ -192,8 +192,10 @@ export function GuildFacilityUpgradeFund({
       </div>
 
       <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-        완료 시 길드 금고 {goldCost.toLocaleString()}G
-        {fameCost > 0 ? ` · 길드 명성 ${fameCost.toLocaleString()}` : ""}
+        업그레이드 비용 · 길드 금고에서 {goldCost.toLocaleString()}G 차감
+        {fameCost > 0
+          ? ` · 사용 가능 명성 ${fameCost.toLocaleString()} 차감`
+          : ""}
       </div>
 
       {notice && (
@@ -351,13 +353,19 @@ export function GuildFacilityUpgradeFund({
             disabled={completing || !treasuryReady || !fameReady}
             className="mx-auto block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {completing ? "완료 처리 중" : "업그레이드 완료"}
+            {completing ? "업그레이드 중…" : "업그레이드하기"}
           </button>
           {!treasuryReady && (
-            <p className="text-[11px] text-red-500">길드 금고 골드가 부족합니다.</p>
+            <p className="text-[11px] text-red-500">
+              길드 금고 잔액이 부족합니다. 필요 {goldCost.toLocaleString()}G · 보유{" "}
+              {guildGold.toLocaleString()}G
+            </p>
           )}
           {treasuryReady && !fameReady && (
-            <p className="text-[11px] text-red-500">사용 가능한 길드 명성이 부족합니다.</p>
+            <p className="text-[11px] text-red-500">
+              사용 가능한 길드 명성이 부족합니다. 필요 {fameCost.toLocaleString()} · 보유{" "}
+              {guildFame.toLocaleString()}
+            </p>
           )}
         </div>
       )}

@@ -2,6 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../ChatPanel";
 import { MessageList } from "./MessageList";
+import {
+  ARENA_TOURNAMENT_NOTICE_CLASS_NAME,
+  arenaTournamentNoticeContent,
+} from "@/lib/chat-config";
 
 const message: ChatMessage = {
   id: 1,
@@ -15,7 +19,7 @@ const message: ChatMessage = {
 };
 
 describe("MessageList", () => {
-  it("배지를 맨 앞에 두고 칭호를 대괄호로 구분한다", () => {
+  it("단일 배지만 맨 앞에 두고 칭호를 대괄호로 구분한다", () => {
     const html = renderToStaticMarkup(
       <MessageList
         open
@@ -37,14 +41,14 @@ describe("MessageList", () => {
       />,
     );
 
-    const championshipBadge = html.indexOf("아레나 챔피언십 1위 메달");
+    const championshipBadge = html.indexOf("아레나 챔피언십 우승 메달");
     const chatBadge = html.indexOf("별 채팅 배지");
     const title = html.indexOf("[수다쟁이]");
     const name = html.indexOf("모험가");
 
     expect(championshipBadge).toBeGreaterThanOrEqual(0);
-    expect(chatBadge).toBeGreaterThan(championshipBadge);
-    expect(title).toBeGreaterThan(chatBadge);
+    expect(chatBadge).toBe(-1);
+    expect(title).toBeGreaterThan(championshipBadge);
     expect(name).toBeGreaterThan(title);
   });
 
@@ -92,5 +96,33 @@ describe("MessageList", () => {
     );
     expect(html).toContain("ml-1.5 min-w-0 truncate");
     expect(html).not.toContain("whitespace-pre-wrap");
+  });
+
+  it("아레나 본선 알림은 결과와 전투 로그 링크를 분리해 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="notice"
+        messages={[
+          {
+            ...message,
+            className: ARENA_TOURNAMENT_NOTICE_CLASS_NAME,
+            content: arenaTournamentNoticeContent(
+              "🏆 결승 · 모험가A 2:0 모험가B — 모험가A님이 챔피언이 되었습니다.",
+              "2026-W31",
+              "2026-W31-r4-m1",
+            ),
+          },
+        ]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("모험가A님이 챔피언이 되었습니다.");
+    expect(html).toContain("전투 로그 보기");
+    expect(html).toContain(
+      'href="/battle/arena/tournament/2026-W31/2026-W31-r4-m1"',
+    );
+    expect(html).not.toContain("arena-tournament-replay");
   });
 });

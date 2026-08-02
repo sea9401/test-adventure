@@ -83,22 +83,26 @@ export function endgameSoften(depth: number): number {
   );
 }
 
-// 권장 전투력 미달 페널티 — 들판(온보딩)과 별도 엔드 확장(43+)은 건드리지 않고, 마른 협곡~
-// 리자드 늪지는 부족분만큼 몬스터 HP·ATK를 최대 30%, 짐승의 소굴은 최대 20% 보강한다.
-// 권장치 이상 캐릭터의 기존 승률은 그대로 유지하면서, 직전 단계 1승만으로 저성장 상태가 중반
-// 사다리를 연속 우회하는 현상을 막는다. 전투력은 하드 입장 제한으로 쓰지 않고 실제 난도에만 반영한다.
+// 권장 전투력 미달 페널티 — 들판(온보딩)은 건드리지 않고, 중반은 부족분만큼 몬스터 HP·ATK를
+// 최대 20~30% 보강한다. 최상위 4개 사냥터(붉은 벌판 49+)는 권장 전투력보다 한참 낮은
+// 캐릭터가 엔드 완화 계수와 특정 빌드 효율로 우회하지 못하도록 부족분을 더 강하게 반영한다.
+// 권장치의 90%까지는 유예해 근소한 표시 오차는 허용하고, 그보다 부족한 구간만 가파르게 보강한다.
+// 권장치 이상 캐릭터의 기존 난도는 그대로이며 전투력을 하드 입장 제한으로 쓰지는 않는다.
 export const UNDERPREPARED_COMBAT_FULL_DEPTH = 36;
 export const UNDERPREPARED_COMBAT_END_DEPTH = 42;
 export const UNDERPREPARED_COMBAT_MAX = 1.3;
 export const UNDERPREPARED_COMBAT_LATE_MAX = 1.2;
 export const UNDERPREPARED_COMBAT_SHORTFALL_SCALE = 2;
+export const UNDERPREPARED_ENDGAME_START_DEPTH = 49;
+export const UNDERPREPARED_ENDGAME_GRACE_RATIO = 0.9;
+export const UNDERPREPARED_ENDGAME_MAX = 6;
+export const UNDERPREPARED_ENDGAME_SHORTFALL_SCALE = 12;
 export function underpreparedCombatMult(
   depth: number,
   playerPower?: number,
 ): number {
   if (
     depth <= ONBOARDING_END_DEPTH ||
-    depth > UNDERPREPARED_COMBAT_END_DEPTH ||
     playerPower == null ||
     !Number.isFinite(playerPower)
   ) {
@@ -106,16 +110,26 @@ export function underpreparedCombatMult(
   }
   const gate = floorPowerGate(depth);
   if (gate <= 0 || playerPower >= gate) return 1;
-  const maxMult =
-    depth <= UNDERPREPARED_COMBAT_FULL_DEPTH
+  const endgame = depth >= UNDERPREPARED_ENDGAME_START_DEPTH;
+  const maxMult = endgame
+    ? UNDERPREPARED_ENDGAME_MAX
+    : depth <= UNDERPREPARED_COMBAT_FULL_DEPTH
       ? UNDERPREPARED_COMBAT_MAX
-      : UNDERPREPARED_COMBAT_LATE_MAX;
+      : depth <= UNDERPREPARED_COMBAT_END_DEPTH
+        ? UNDERPREPARED_COMBAT_LATE_MAX
+        : 1;
+  const shortfallScale = endgame
+    ? UNDERPREPARED_ENDGAME_SHORTFALL_SCALE
+    : UNDERPREPARED_COMBAT_SHORTFALL_SCALE;
+  const powerRatio = Math.max(0, playerPower) / gate;
+  const shortfall = endgame
+    ? Math.max(0, UNDERPREPARED_ENDGAME_GRACE_RATIO - powerRatio)
+    : 1 - powerRatio;
   return (
     1 +
     Math.min(
       maxMult - 1,
-      (1 - Math.max(0, playerPower) / gate) *
-        UNDERPREPARED_COMBAT_SHORTFALL_SCALE,
+      shortfall * shortfallScale,
     )
   );
 }

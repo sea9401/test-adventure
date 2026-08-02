@@ -14,6 +14,7 @@ import {
   ENDGAME_SOFTEN_MIN,
   UNDERPREPARED_COMBAT_MAX,
   UNDERPREPARED_COMBAT_LATE_MAX,
+  UNDERPREPARED_ENDGAME_MAX,
   END_EXTENSION_START_DEPTH,
   END_EXTENSION_START_STAT_MULT,
   END_EXTENSION_STAT_STEP,
@@ -52,14 +53,21 @@ describe("endgameSoften — 엔드게임 난이도 완화(floor 빌드 부양·�
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램프)", () => {
-  it("권장 전투력 미달 페널티는 중반에만 부족분 비례로 적용한다", () => {
+  it("권장 전투력 미달 페널티는 중반과 최상위 4개 사냥터에 부족분 비례로 적용한다", () => {
     const gate = floorPowerGate(20);
+    const endgameGate = floorPowerGate(60);
     expect(underpreparedCombatMult(6, 0)).toBe(1);
     expect(underpreparedCombatMult(20, gate)).toBe(1);
     expect(underpreparedCombatMult(20, gate * 0.95)).toBeCloseTo(1.1, 5);
     expect(underpreparedCombatMult(20, 0)).toBe(UNDERPREPARED_COMBAT_MAX);
     expect(underpreparedCombatMult(38, 0)).toBe(UNDERPREPARED_COMBAT_LATE_MAX);
     expect(underpreparedCombatMult(43, 0)).toBe(1);
+    expect(underpreparedCombatMult(48, 0)).toBe(1);
+    expect(underpreparedCombatMult(49, 0)).toBe(UNDERPREPARED_ENDGAME_MAX);
+    expect(underpreparedCombatMult(60, endgameGate)).toBe(1);
+    expect(underpreparedCombatMult(60, endgameGate * 0.9)).toBe(1);
+    expect(underpreparedCombatMult(60, endgameGate * 0.8)).toBeCloseTo(2.2, 5);
+    expect(underpreparedCombatMult(60, 0)).toBe(UNDERPREPARED_ENDGAME_MAX);
   });
 
   it("권장 파워 게이트 — 들판(1~6) 50→95, 7+ statMult 비례 단일 램프, 단조 증가", () => {

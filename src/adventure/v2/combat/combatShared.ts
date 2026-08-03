@@ -743,6 +743,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         }),
       ].filter(Boolean) as V2SkillId[]);
   let id: V2SkillId | null = null;
+  let selectedPatternUsesProcGate = false;
   for (const candidateId of candidateIds) {
     const candidateDef = V2_SKILLS[candidateId];
     if (!candidateDef) continue;
@@ -752,6 +753,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // 패턴 후보가 procChance 에 실패하면 다음 우선순위 후보를 시도한다. 모든 후보가 실패해야 평타 폴백.
     // 비패턴 경로는 후보가 하나라 기존처럼 실패 시 평타 폴백한다. MP·쿨다운은 소모하지 않는다.
     const rollProc = !viaPattern || (input.applyProcInPattern ?? false);
+    let candidatePatternUsesProcGate = false;
     if (rollProc) {
       const ritualFocusBonus = skillRitualFocusBonusFor(
         input.skills.enhancements,
@@ -766,6 +768,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
             ritualFocusBonus,
         ),
       );
+      candidatePatternUsesProcGate = viaPattern && procChance < 100;
       if (
         procChance < 100 &&
         input.procRoll !== undefined &&
@@ -775,6 +778,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       }
     }
     id = candidateId;
+    selectedPatternUsesProcGate = candidatePatternUsesProcGate;
     break;
   }
   if (!id) {
@@ -953,7 +957,18 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     synergyEffects.length > 0
       ? [...baseCastEffects, ...synergyEffects]
       : baseCastEffects;
+  // 같은 시전에서 먼저 부여하는 중독 스택도 뒤의 독 회수 효과가 읽는다. 독무처럼
+  // "중독을 쌓고 터뜨리는" 복합기는 첫 시전부터 표기된 스택 추가 피해가 나와야 한다.
+  const sameCastDotStacks = (tag: V2DotTag): number =>
+    castEffects.reduce(
+      (sum, effect) =>
+        sum + (effect.kind === "dot" && effect.tag === tag ? effect.stacks : 0),
+      0,
+    );
   let healFromDamagePct = 0;
+  // 중독 스택당 +고정 피해는 방어에 다시 먹히거나 패턴 빈도 보정에 사라지지 않는 회수 보상이다.
+  // 최종 패턴 피해를 계산할 때 평타 바닥/초과분과 분리해 그대로 더한다.
+  let stackPayoffBonusDamage = 0;
   for (const effect of castEffects) {
     if (effect.kind === "damage") {
       const flat = flatOf(effect.baseFlat, effect.baseFlatByTier);
@@ -1071,22 +1086,36 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       );
     } else if (effect.kind === "stackPayoffDamage") {
       // 참절/중독폭발/비전작렬 — 적 DoT/취약 스택당 추가딜.
-      const stacks =
+      const existingStacks =
         effect.tag === "bleed" ? input.target.bleedStacks ?? 0
         : effect.tag === "poison" ? input.target.poisonStacks ?? 0
         : input.target.magicVulnStacks ?? 0;
+      const addedStacks =
+        effect.tag === "poison" ? sameCastDotStacks(effect.tag) : 0;
+      const stackCap =
+        effect.tag === "bleed" ? BLEED_MAX_STACKS
+        : effect.tag === "poison" ? POISON_MAX_STACKS
+        : Number.POSITIVE_INFINITY;
+      const stacks = Math.min(stackCap, existingStacks + addedStacks);
+      const payoffBonus = Math.max(0, stacks * effect.perStackFlat);
+      const poisonPayoffBonus = effect.tag === "poison" ? payoffBonus : 0;
+      stackPayoffBonusDamage += poisonPayoffBonus;
       dealDamage(
         damageWith(
           effect.statCoef,
-          flatOf(undefined, effect.baseFlatByTier) + stacks * effect.perStackFlat,
+          flatOf(undefined, effect.baseFlatByTier) +
+            (effect.tag === "poison" ? 0 : payoffBonus),
           effect.scaling,
-        ),
+        ) + poisonPayoffBonus,
         effect.scaling,
       );
     } else if (effect.kind === "dot") {
       // 패턴 경로 DoT throttle — 확정 발동으로 자주 적용되는 DoT 틱 위력을 깎는다(평타 바닥 보호로
       //   직타는 안 깎이므로 DoT 만 줄여도 빌드가 평타 이하로 안 떨어짐). off/몹 cast 는 미적용.
-      const dm = viaPattern ? V2_PATTERN_DOT_POWER_MULT : 1;
+      // 발동 확률을 실제로 굴리는 운영 모드에서는 "확정 발동" 전제 감쇠를 중복 적용하지 않는다.
+      const dm = viaPattern && !selectedPatternUsesProcGate
+        ? V2_PATTERN_DOT_POWER_MULT
+        : 1;
       const dotSourceAtk =
         effect.tag === "poison"
           ? Math.max(input.attacker.atk, input.attacker.luk ?? 0)
@@ -1117,7 +1146,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   //   selfHeal 도 동일 ×skillMult throttle. 단 oncePerBattle 회복은 패턴이 발동 빈도를
   //   늘리지 않으므로 풀 위력을 유지한다. 버프/디버프/마나회복은 미적용.
   // 차수별 위력 통과율 — 고차 스킬일수록 평타 초과분을 더 많이 반영(쓸 가치). t1=중립 기본값.
-  const skillMult = viaPattern ? V2_PATTERN_SKILL_POWER_MULT_BY_TIER[def.tier] : 1;
+  const skillMult =
+    viaPattern && !selectedPatternUsesProcGate
+      ? V2_PATTERN_SKILL_POWER_MULT_BY_TIER[def.tier]
+      : 1;
   // 기습(ambushDamage) = 빈도 제한 오프너 — 첫 턴 풀피에서만 큰 값이고(그 외엔 낮은 기본딜·평타 이하)
   //   매 턴 스팸이 아니다. 패턴 빈도 throttle(0.14·~5배 발동 가정)을 면제하지 않으면 "큰 오프너"가
   //   평타바닥+14% 로 뭉개진다(설계 무력화). raw 그대로 통과(off 경로/일반 스킬은 무영향).
@@ -1159,9 +1191,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     const effDef = defMult !== 1 ? Math.floor(input.target.def * defMult) : input.target.def;
     const basicFloor =
       damageBetween(effAtk, effDef) * Math.max(1, input.attacker.attackCount ?? 1);
-    const surplus = Math.max(0, enemyDamage - basicFloor);
+    const preservedPayoff = Math.min(enemyDamage, stackPayoffBonusDamage);
+    const throttleBaseDamage = Math.max(0, enemyDamage - preservedPayoff);
+    const surplus = Math.max(0, throttleBaseDamage - basicFloor);
     // viaPattern 가드 통과 = skillMult 가 차수별 통과율(1 아님).
-    return Math.round(basicFloor + surplus * skillMult);
+    return Math.round(
+      basicFloor + surplus * skillMult + preservedPayoff,
+    );
   })();
   const scaledMagicEnemyDamage =
     magicEnemyDamage <= 0

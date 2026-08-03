@@ -8,10 +8,13 @@ import {
   TORN_MAP_FRAGMENT_COMBINE_COST,
   TORN_MAP_FRAGMENT_DROP_PCT,
   TORN_MAP_FRAGMENT_MATERIAL_ID,
+  craftedRareMapDepthOptions,
+  defaultCraftedRareMapDepth,
   rollCraftedRareMapKind,
   rollEnhanceEmberDrop,
   rollTornMapFragmentDrop,
 } from "./scavengedCrafting";
+import { floorPowerGate } from "./dungeonLadder";
 
 describe("scavenged crafting materials", () => {
   it("registers both tradable materials and recipe costs", () => {
@@ -43,5 +46,13 @@ describe("scavenged crafting materials", () => {
     expect(rollCraftedRareMapKind(() => 0)).toBe("worn_map");
     expect(rollCraftedRareMapKind(() => 0.999999)).toBe("rename_map");
     expect(rollCraftedRareMapKind(() => 1)).not.toBe("exp_tome");
+  });
+
+  it("offers only conquered hunt stages and defaults to current power", () => {
+    expect(craftedRareMapDepthOptions(7)).toEqual([2, 4, 6]);
+    expect(craftedRareMapDepthOptions(8).at(-1)).toBe(8);
+    expect(defaultCraftedRareMapDepth(20, floorPowerGate(12))).toBe(12);
+    expect(defaultCraftedRareMapDepth(20, floorPowerGate(2) - 1)).toBe(2);
+    expect(defaultCraftedRareMapDepth(20, null)).toBe(20);
   });
 });

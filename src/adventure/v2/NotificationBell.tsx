@@ -12,6 +12,7 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { formatRelative } from "@/lib/notifications";
 import {
   NOTIF_POLL_MS,
+  unreadV2Notifications,
   type V2NotificationEntry,
 } from "@/lib/v2-notification-config";
 
@@ -144,11 +145,13 @@ export function NotificationBell() {
       if (!notificationJson.ok) throw new Error("notification preview failed");
 
       const combined: PreviewEntry[] = [
-        ...(notificationJson.notifications ?? []).map((item) => ({
-          kind: "notification" as const,
-          timestamp: item.createdAt,
-          item,
-        })),
+        ...unreadV2Notifications(notificationJson.notifications ?? []).map(
+          (item) => ({
+            kind: "notification" as const,
+            timestamp: item.createdAt,
+            item,
+          }),
+        ),
         ...inbox.items.map((item) => ({
           kind: "mail" as const,
           timestamp: Date.parse(item.createdAt),

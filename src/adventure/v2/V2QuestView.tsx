@@ -10,6 +10,7 @@ import {
   Circle,
   Gift,
   Trophy,
+  X,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -41,6 +42,7 @@ import {
   type FarmCropId,
   type FarmSeedInventory,
 } from "./farm";
+import type { MonsterHuntCodexView } from "@/adventure/data/v2/monsterHuntCodex";
 
 // 퀘스트 — 일일/주간/업적 3탭.
 //   업적(가이드 퀘스트): 튜토리얼 겸 성장 안내. 완료 자동 감지, 개별 보상 "받기".
@@ -70,6 +72,7 @@ type QuestsResponse = {
   quests?: QuestView[];
   repeat?: RepeatSection;
   achievementSummary?: AchievementSummary;
+  monsterCodex?: MonsterHuntCodexView;
 };
 
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
@@ -146,6 +149,9 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [quests, setQuests] = useState<QuestView[]>([]);
   const [repeat, setRepeat] = useState<RepeatSection | null>(null);
   const [achievement, setAchievement] = useState<AchievementSummary | null>(null);
+  const [monsterCodex, setMonsterCodex] =
+    useState<MonsterHuntCodexView | null>(null);
+  const [monsterCodexOpen, setMonsterCodexOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [claimAllBusy, setClaimAllBusy] = useState<ClaimAllScope | null>(null);
@@ -171,6 +177,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setQuests(j.quests ?? []);
         setRepeat(j.repeat ?? null);
         setAchievement(j.achievementSummary ?? null);
+        setMonsterCodex(j.monsterCodex ?? null);
       }
     } catch {}
     setLoading(false);
@@ -402,6 +409,13 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           size="sm"
         />
 
+        {!forTutorial && monsterCodexOpen && monsterCodex && (
+          <MonsterHuntCodexCard
+            codex={monsterCodex}
+            onClose={() => setMonsterCodexOpen(false)}
+          />
+        )}
+
         {tab === "active" && (
           <Card padding="sm">
             <div className="flex items-center justify-between gap-3">
@@ -460,6 +474,11 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
                       quest={q}
                       busy={busy === q.id || claimAllBusy !== null}
                       onClaim={() => claim(q)}
+                      onOpenMonsterCodex={
+                        q.detailKind === "monster_codex" && monsterCodex
+                          ? () => setMonsterCodexOpen(true)
+                          : undefined
+                      }
                     />
                   ))}
                 </ul>
@@ -567,10 +586,12 @@ function QuestRow({
   quest,
   busy,
   onClaim,
+  onOpenMonsterCodex,
 }: {
   quest: QuestView;
   busy: boolean;
   onClaim: () => void;
+  onOpenMonsterCodex?: () => void;
 }) {
   const { status } = quest;
   const reward = rewardText(quest.reward);
@@ -644,28 +665,154 @@ function QuestRow({
           </p>
         )}
       </div>
-      {status === "claimable" && (
-        <Button
-          onClick={onClaim}
-          disabled={busy}
-          variant="secondary"
-          size="xs"
-          className="shrink-0"
-        >
-          {busy ? "처리 중…" : reward ? "받기" : "완료"}
-        </Button>
-      )}
-      {status === "active" && quest.href && (
-        <Link
-          href={quest.href}
-          aria-label={`${quest.title} 하러 가기`}
-          className="ui-game-button inline-flex min-h-7 shrink-0 items-center justify-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          이동
-          <ArrowRight size={12} aria-hidden />
-        </Link>
+      {(onOpenMonsterCodex || status === "claimable" || (status === "active" && quest.href)) && (
+        <div className="flex shrink-0 flex-col gap-1">
+          {onOpenMonsterCodex && (
+            <Button
+              onClick={onOpenMonsterCodex}
+              variant="secondary"
+              size="xs"
+            >
+              처치 현황
+            </Button>
+          )}
+          {status === "claimable" && (
+            <Button
+              onClick={onClaim}
+              disabled={busy}
+              variant="secondary"
+              size="xs"
+            >
+              {busy ? "처리 중…" : reward ? "받기" : "완료"}
+            </Button>
+          )}
+          {status === "active" && quest.href && (
+            <Link
+              href={quest.href}
+              aria-label={`${quest.title} 하러 가기`}
+              className="ui-game-button inline-flex min-h-7 items-center justify-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              이동
+              <ArrowRight size={12} aria-hidden />
+            </Link>
+          )}
+        </div>
       )}
     </li>
+  );
+}
+
+export function MonsterHuntCodexCard({
+  codex,
+  onClose,
+}: {
+  codex: MonsterHuntCodexView;
+  onClose: () => void;
+}) {
+  const [filter, setFilter] = useState<"missing" | "all">("missing");
+  const filtered =
+    filter === "missing"
+      ? codex.entries.filter((entry) => !entry.defeated)
+      : codex.entries;
+  const groups = new Map<string, typeof filtered>();
+  for (const entry of filtered) {
+    const area = entry.areas.join(" · ") || "기타";
+    const entries = groups.get(area) ?? [];
+    entries.push(entry);
+    groups.set(area, entries);
+  }
+
+  return (
+    <Card padding="md" className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">몬스터 처치 현황</h2>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            현재 사냥 가능 {codex.currentKilled}/{codex.huntableSpecies}종 처치
+            {codex.legacyKilled > 0
+              ? ` · 과거 처치 기록 ${codex.legacyKilled}종 포함 업적 진행 ${codex.recordedSpecies}종`
+              : ""}
+          </p>
+        </div>
+        <Button
+          onClick={onClose}
+          variant="ghost"
+          size="xs"
+          aria-label="몬스터 처치 현황 닫기"
+        >
+          <X size={16} aria-hidden />
+        </Button>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          onClick={() => setFilter("missing")}
+          variant={filter === "missing" ? "primary" : "secondary"}
+          size="xs"
+        >
+          미처치 {codex.huntableSpecies - codex.currentKilled}종
+        </Button>
+        <Button
+          onClick={() => setFilter("all")}
+          variant={filter === "all" ? "primary" : "secondary"}
+          size="xs"
+        >
+          전체 {codex.huntableSpecies}종
+        </Button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className={`${SURFACE_INSET} p-3 text-sm text-emerald-700 dark:text-emerald-300`}>
+          현재 사냥 가능한 몬스터를 모두 처치했습니다.
+        </div>
+      ) : (
+        <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+          {[...groups.entries()].map(([area, entries]) => (
+            <section key={area} className={`${SURFACE_INSET} p-3`}>
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                  {area}
+                </h3>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {filter === "missing"
+                    ? `${entries.length}종 미처치`
+                    : `${entries.filter((entry) => entry.defeated).length}/${entries.length}종`}
+                </span>
+              </div>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                {entries.map((entry) => (
+                  <li
+                    key={entry.name}
+                    className="flex min-h-8 items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200"
+                  >
+                    {entry.defeated ? (
+                      <CheckCircle
+                        size={15}
+                        weight="fill"
+                        className="shrink-0 text-emerald-500"
+                        aria-label="처치 완료"
+                      />
+                    ) : (
+                      <Circle
+                        size={15}
+                        className="shrink-0 text-zinc-400"
+                        aria-label="미처치"
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                    {entry.kills > 0 && (
+                      <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {entry.kills.toLocaleString()}회
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

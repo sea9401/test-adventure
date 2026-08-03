@@ -5,6 +5,7 @@ import { ControlsContent } from "./content/controls";
 import { EconomyContent } from "./content/economy";
 import { GuildContent } from "./content/guild";
 import { HuntingContent } from "./content/hunting";
+import { JobsContent } from "./content/jobs";
 import { PastimesContent } from "./content/pastimes";
 import { PlazaContent } from "./content/plaza";
 import { QuestsContent } from "./content/quests";
@@ -79,6 +80,15 @@ describe("최신 게임 안내서 내용", () => {
     expect(quests).toContain("모두 받기");
     expect(quests).toContain("수령 후 공개되는");
     expect(skills).toContain("장비 도감·어보 수집 단계");
+  });
+
+  it("전직 로드맵에서 생산직과 생존자 전투 직업을 구분한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("manual-job-production");
+    expect(html).toContain("생산직 · 전투 Lv 제한 없음");
+    expect(html).toContain("초록색으로 강조된 생산직");
+    expect(html).toContain("헬스 트레이너처럼");
   });
 
   it("길드 훈련과 원정의 전체 성장 단계를 안내한다", () => {

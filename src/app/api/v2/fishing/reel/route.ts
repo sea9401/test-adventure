@@ -656,7 +656,11 @@ export async function POST(req: Request) {
     });
   }
   if (result.coopBoss) {
-    await insertFeedEntry(userId, "coop_summon", { kind: result.coopBoss.kind });
+    await insertFeedEntry(userId, "coop_summon", {
+      kind: result.coopBoss.kind,
+      sessionId: result.coopBoss.sessionId,
+      expiresAt: result.coopBoss.expiresAt,
+    });
     await broadcastCoopNotice(
       `${result.coopBoss.name}이(가) 낚싯줄을 타고 올라왔다`,
     );

@@ -234,6 +234,24 @@ export function guildTradeCompletionReward(rewardBonusPct: number): {
   };
 }
 
+/**
+ * 시설 보너스의 소수 토큰을 개인 주간 누적 납품점수 기준으로 이월해, 1점짜리
+ * 묶음을 여러 번 납품해도 보너스가 유실되지 않게 한다.
+ */
+export function guildTradeTokenReward(
+  contributionPointsBefore: number,
+  deliveredPoints: number,
+  bonusPct: number,
+): number {
+  const before = Math.max(0, Math.floor(contributionPointsBefore));
+  const delivered = Math.max(0, Math.floor(deliveredPoints));
+  const multiplierPct = 100 + Math.max(0, Math.floor(bonusPct));
+  return (
+    Math.floor(((before + delivered) * multiplierPct) / 100) -
+    Math.floor((before * multiplierPct) / 100)
+  );
+}
+
 export type GuildTradeShopItemId =
   | "refined_iron"
   | "stamina_potion"
@@ -339,6 +357,7 @@ export type GuildTradeUserState = {
   version: 1;
   guildId: number;
   weekKey: string;
+  /** 공동 잔고 도입 전 개인 토큰. 서버가 길드 공동 잔고로 이관한 뒤 0으로 저장한다. */
   tokens: number;
   contributionPoints: number;
   purchases: Partial<Record<GuildTradeShopItemId, number>>;

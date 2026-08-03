@@ -8,6 +8,7 @@ import {
   V2_SKILLS,
   describeV2Skill,
   smartDefaultPatternFromEquipped,
+  v2SkillSelectLabel,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
@@ -110,7 +111,7 @@ type StateShape = {
 };
 
 const sel =
-  "rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "min-w-0 max-w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
 
@@ -181,6 +182,10 @@ export function V2CombatPatternView({
   }, []);
 
   const skillName = (id: string) => V2_SKILLS[id as V2SkillId]?.name ?? id;
+  const skillSelectLabel = (id: string) => {
+    const skill = V2_SKILLS[id as V2SkillId];
+    return skill ? v2SkillSelectLabel(skill) : id;
+  };
   // 패시브 스킬은 캐스트 대상 아님(상시 효과) — 전투패턴 슬롯 후보에서 제외.
   const castableEquipped = equipped.filter(
     (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
@@ -518,7 +523,7 @@ export function V2CombatPatternView({
                     </select>
                   ) : (
                   <select
-                    className={sel}
+                    className={`${sel} w-full sm:w-auto`}
                     value={b.action.skillId}
                     onChange={(e) =>
                       update(i, { action: { kind: "skill", skillId: e.target.value } })
@@ -527,11 +532,11 @@ export function V2CombatPatternView({
                     {castableEquipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
                     {b.action.skillId && !castableEquipped.includes(b.action.skillId) && (
                       <option value={b.action.skillId}>
-                        {skillName(b.action.skillId)} (미장착)
+                        {skillSelectLabel(b.action.skillId)} · 미장착
                       </option>
                     )}
                     {castableEquipped.map((id) => (
-                      <option key={id} value={id}>{skillName(id)}</option>
+                      <option key={id} value={id}>{skillSelectLabel(id)}</option>
                     ))}
                   </select>
                   )}

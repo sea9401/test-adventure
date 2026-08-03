@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -14,6 +16,8 @@ import {
   CaretRight,
   CheckCircle,
   LockKey,
+  MagnifyingGlassMinus,
+  MagnifyingGlassPlus,
   Star,
   X,
 } from "@phosphor-icons/react";
@@ -107,7 +111,7 @@ export function JobRoadmapDialog({
               <StatusLegend tone="locked" label="조건 부족" />
             </div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              카드를 눌러 상세 정보 확인
+              드래그하여 이동 · 두 손가락 또는 Ctrl/⌘+휠로 확대
             </div>
           </div>
 
@@ -208,10 +212,59 @@ export function JobRoadmapDialog({
   );
 }
 
-function RoadmapScroller({ children }: { children: React.ReactNode }) {
+const ROADMAP_ZOOM_MIN = 0.5;
+const ROADMAP_ZOOM_MAX = 1.5;
+const ROADMAP_ZOOM_STEP = 0.1;
+
+function clampRoadmapZoom(value: number) {
+  return Math.min(ROADMAP_ZOOM_MAX, Math.max(ROADMAP_ZOOM_MIN, value));
+}
+
+function touchDistance(touches: TouchList) {
+  const first = touches[0];
+  const second = touches[1];
+  return first && second
+    ? Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY)
+    : 0;
+}
+
+export function RoadmapScroller({ children }: { children: React.ReactNode }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ id: number; x: number; left: number } | null>(null);
+  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
+  const zoomRef = useRef(1);
   const [dragging, setDragging] = useState(false);
+  const [zoom, setZoom] = useState(1);
+
+  const zoomAt = useCallback(
+    (nextValue: number, clientX?: number, snap = true) => {
+      const scroller = scrollerRef.current;
+      const currentZoom = zoomRef.current;
+      const nextZoom = clampRoadmapZoom(
+        snap
+          ? Math.round(nextValue / ROADMAP_ZOOM_STEP) * ROADMAP_ZOOM_STEP
+          : nextValue,
+      );
+      if (Math.abs(nextZoom - currentZoom) < 0.001) return;
+
+      let contentX: number | null = null;
+      let localX = 0;
+      if (scroller) {
+        const rect = scroller.getBoundingClientRect();
+        localX = (clientX ?? rect.left + rect.width / 2) - rect.left;
+        contentX = (scroller.scrollLeft + localX) / currentZoom;
+      }
+
+      zoomRef.current = nextZoom;
+      setZoom(nextZoom);
+      if (scroller && contentX != null) {
+        requestAnimationFrame(() => {
+          scroller.scrollLeft = Math.max(0, contentX * nextZoom - localX);
+        });
+      }
+    },
+    [],
+  );
 
   const move = (direction: -1 | 1) => {
     const scroller = scrollerRef.current;
@@ -256,9 +309,87 @@ function RoadmapScroller({ children }: { children: React.ReactNode }) {
     setDragging(false);
   };
 
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const handleWheel = (event: globalThis.WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      zoomAt(
+        zoomRef.current +
+          (event.deltaY < 0 ? ROADMAP_ZOOM_STEP : -ROADMAP_ZOOM_STEP),
+        event.clientX,
+      );
+    };
+    const handleTouchStart = (event: globalThis.TouchEvent) => {
+      if (event.touches.length !== 2) return;
+      const distance = touchDistance(event.touches);
+      if (distance > 0) {
+        pinchRef.current = { distance, zoom: zoomRef.current };
+      }
+    };
+    const handleTouchMove = (event: globalThis.TouchEvent) => {
+      const pinch = pinchRef.current;
+      if (!pinch || event.touches.length !== 2) return;
+      const distance = touchDistance(event.touches);
+      if (distance <= 0) return;
+      event.preventDefault();
+      const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+      zoomAt(pinch.zoom * (distance / pinch.distance), centerX, false);
+    };
+    const endPinch = (event: globalThis.TouchEvent) => {
+      if (event.touches.length < 2) pinchRef.current = null;
+    };
+
+    scroller.addEventListener("wheel", handleWheel, { passive: false });
+    scroller.addEventListener("touchstart", handleTouchStart, { passive: true });
+    scroller.addEventListener("touchmove", handleTouchMove, { passive: false });
+    scroller.addEventListener("touchend", endPinch, { passive: true });
+    scroller.addEventListener("touchcancel", endPinch, { passive: true });
+    return () => {
+      scroller.removeEventListener("wheel", handleWheel);
+      scroller.removeEventListener("touchstart", handleTouchStart);
+      scroller.removeEventListener("touchmove", handleTouchMove);
+      scroller.removeEventListener("touchend", endPinch);
+      scroller.removeEventListener("touchcancel", endPinch);
+    };
+  }, [zoomAt]);
+
+  const zoomPct = Math.round(zoom * 100);
+
   return (
     <div className="shrine-job-roadmap-wrap">
       <div className="shrine-job-roadmap-controls">
+        <button
+          type="button"
+          className="shrine-job-roadmap-button"
+          aria-label={`로드맵 축소, 현재 ${zoomPct}%`}
+          title="축소"
+          disabled={zoom <= ROADMAP_ZOOM_MIN}
+          onClick={() => zoomAt(zoomRef.current - ROADMAP_ZOOM_STEP)}
+        >
+          <MagnifyingGlassMinus size={15} weight="bold" />
+        </button>
+        <button
+          type="button"
+          className="shrine-job-roadmap-button is-zoom-level"
+          aria-label={`확대/축소 초기화, 현재 ${zoomPct}%`}
+          title="100%로 초기화"
+          onClick={() => zoomAt(1)}
+        >
+          <span aria-live="polite">{zoomPct}%</span>
+        </button>
+        <button
+          type="button"
+          className="shrine-job-roadmap-button"
+          aria-label={`로드맵 확대, 현재 ${zoomPct}%`}
+          title="확대"
+          disabled={zoom >= ROADMAP_ZOOM_MAX}
+          onClick={() => zoomAt(zoomRef.current + ROADMAP_ZOOM_STEP)}
+        >
+          <MagnifyingGlassPlus size={15} weight="bold" />
+        </button>
         <button
           type="button"
           className="shrine-job-roadmap-button"
@@ -285,7 +416,9 @@ function RoadmapScroller({ children }: { children: React.ReactNode }) {
         onPointerCancel={endDrag}
         onPointerLeave={endDrag}
       >
-        {children}
+        <div className="shrine-job-roadmap-canvas" style={{ zoom }}>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -445,10 +578,13 @@ const ROADMAP_CSS = `
 .shrine-job-roadmap-wrap{position:relative;max-width:100%}
 .shrine-job-roadmap-controls{position:absolute;right:10px;top:10px;z-index:2;display:flex;gap:6px}
 .shrine-job-roadmap-button{display:inline-flex;height:30px;width:30px;align-items:center;justify-content:center;border:1px solid rgba(248,250,252,.18);border-radius:7px;background:#211b2a;color:#f8fafc;box-shadow:0 8px 18px rgba(0,0,0,.28);transition:background-color .15s ease,border-color .15s ease,transform .12s ease}
+.shrine-job-roadmap-button.is-zoom-level{width:46px;font-size:10px;font-variant-numeric:tabular-nums}
 .shrine-job-roadmap-button:hover{border-color:rgba(248,250,252,.34);background:#342b40}
 .shrine-job-roadmap-button:active{transform:translateY(1px)}
+.shrine-job-roadmap-button:disabled{cursor:not-allowed;color:#71717a;border-color:rgba(248,250,252,.1);background:#211b2a;box-shadow:none}
 .shrine-job-roadmap{max-width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #3f3549;border-radius:8px;color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;cursor:grab}
 .shrine-job-roadmap.is-dragging{cursor:grabbing}
+.shrine-job-roadmap-canvas{display:flow-root;width:max-content;min-width:100%;transform-origin:top left}
 .shrine-job-tree{display:flex;width:max-content;min-width:max(100%,1560px);justify-content:flex-start;margin:0;padding:38px 24px 20px}
 .shrine-job-tree ul{position:relative;display:flex;justify-content:center;margin:0;padding:38px 0 0}
 .shrine-job-tree li{position:relative;display:flex;flex-direction:column;align-items:center;list-style:none;margin:0;padding:38px 8px 0}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  LOTTERY_BASE_PRIZE_POOL,
   LOTTERY_CYCLE_MS,
   hasEnoughLotteryParticipants,
   lotteryPrizeAmounts,
@@ -19,12 +20,20 @@ describe("lottery rules", () => {
     expect(lotteryRoundWindow(next).endsAt - next).toBe(LOTTERY_CYCLE_MS);
   });
 
-  it("수수료 10% 뒤 70/20/10을 정수 골드로 전액 배분한다", () => {
+  it("이월금이 없으면 기본 상금 50만 골드로 새 회차를 시작한다", () => {
+    expect(lotteryPrizeAmounts(0)).toEqual({
+      feeAmount: 0,
+      prizePool: LOTTERY_BASE_PRIZE_POOL,
+      prizes: [350_000, 100_000, 50_000],
+    });
+  });
+
+  it("기본 상금에 새 구매액의 수수료 10%를 뺀 뒤 70/20/10으로 전액 배분한다", () => {
     const result = lotteryPrizeAmounts(450_000);
     expect(result).toEqual({
       feeAmount: 45_000,
-      prizePool: 405_000,
-      prizes: [283_500, 81_000, 40_500],
+      prizePool: 905_000,
+      prizes: [633_500, 181_000, 90_500],
     });
     expect(result.prizes.reduce((sum, prize) => sum + prize, 0)).toBe(result.prizePool);
   });

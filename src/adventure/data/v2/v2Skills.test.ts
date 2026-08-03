@@ -6,6 +6,7 @@ import {
   emptyV2SkillsState,
   orderedLearnedSkills,
   describeV2Skill,
+  v2SkillSelectLabel,
   v2SkillSearchText,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
@@ -305,6 +306,15 @@ describe("광부 생활 패시브", () => {
 });
 
 describe("v2Skills 카탈로그", () => {
+  it("모바일 선택창용 라벨에 스킬 이름과 모든 효과 정보를 포함한다", () => {
+    const skill = V2_SKILLS.v2_skill_strike;
+    const label = v2SkillSelectLabel(skill);
+    expect(label).toContain(skill.name);
+    for (const effect of describeV2Skill(skill)) {
+      expect(label).toContain(effect);
+    }
+  });
+
   it("스킬 검색 색인은 이름뿐 아니라 설명과 효과 칩도 포함한다", () => {
     const corrosion = v2SkillSearchText(V2_SKILLS.v2c_venomist_corrosion);
     expect(corrosion).toContain("부식");

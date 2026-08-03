@@ -354,8 +354,9 @@ export function GuildContent() {
       <H2>길드 교역소</H2>
       <P>
         길드 교역소는 벌목·채광·농장·낚시에서 모은 생활 재료를 주간 계약에
-        함께 납품하는 시설입니다. 개인은 납품 점수만큼 <Em>교역 토큰</Em>을
-        받고, 공동 목표를 채우면 길드 금고 골드와 명성을 획득합니다.
+        함께 납품하는 시설입니다. 누가 납품하든 납품 점수만큼 <Em>길드 공동
+        교역 토큰</Em>이 쌓이고, 공동 목표를 채우면 길드 금고 골드와 명성을
+        획득합니다.
       </P>
       <UL>
         <li>
@@ -364,14 +365,29 @@ export function GuildContent() {
           늘어납니다. 참여 대상도 이 시점에 함께 확정됩니다.
         </li>
         <li>
-          시설 레벨이 오르면 주간 계약 수가 3건에서 5건으로 늘고, 개인 납품
-          한도와 계약 완료 보너스도 증가합니다.
+          시설 레벨이 오를 때마다 납품 토큰 획득량, 개인 납품 한도와 계약 완료
+          보상이 증가합니다. 주간 계약 수도 3건에서 5건까지 늘어납니다.
         </li>
         <li>
           계약·개인 납품·상점 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
-          남은 교역 토큰은 같은 길드에 있는 동안 다음 주에도 유지됩니다.
+          공동 교역 토큰은 모든 길드원이 함께 사용하며 다음 주에도 유지됩니다.
         </li>
       </UL>
+      <Table
+        head={["레벨", "계약", "개인 납품 한도", "토큰 획득", "완료 보상"]}
+        rows={TRADE_POST_UPGRADES.map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          `${upgrade.weeklyContractCount}건`,
+          `${upgrade.personalContributionCap}점`,
+          upgrade.tokenYieldBonusPct > 0
+            ? `+${upgrade.tokenYieldBonusPct}%`
+            : "기본",
+          upgrade.completionRewardBonusPct > 0
+            ? `+${upgrade.completionRewardBonusPct}%`
+            : "기본",
+        ])}
+        caption="토큰 보너스는 작은 묶음을 여러 번 납품해도 개인의 주간 누적 납품 점수를 기준으로 소수점 손실 없이 계산됩니다."
+      />
       <Table
         head={["교환 품목", "필요 시설", "비용", "주간 한도"]}
         rows={GUILD_TRADE_SHOP_ITEMS.map((item) => [

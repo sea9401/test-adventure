@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ClockCountdown, Coins, Ticket } from "@phosphor-icons/react";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import {
+  LOTTERY_BASE_PRIZE_POOL,
   LOTTERY_FEE_PERCENT,
   LOTTERY_MAX_TICKETS_PER_ROUND,
   LOTTERY_TICKET_PRICE,
@@ -48,6 +49,10 @@ function LotteryRules() {
       <p>
         매시 정각(한국시간) 마감 · 수수료 {LOTTERY_FEE_PERCENT}% 공제 후 1등
         70% / 2등 20% / 3등 10%
+      </p>
+      <p>
+        이월금이 없는 새 회차는 기본 상금 {LOTTERY_BASE_PRIZE_POOL.toLocaleString()}G로
+        시작합니다.
       </p>
       <p>
         서로 다른 티켓 번호를 추첨하며, 여러 장 구매자는 복수 등수에 당첨될 수

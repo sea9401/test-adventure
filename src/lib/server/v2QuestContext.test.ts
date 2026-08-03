@@ -95,4 +95,21 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
       hasEditedSkillLoadout: true,
     });
   });
+
+  it("행동 플래그가 없어도 현재 장착한 스킬을 튜토리얼 신호로 변환한다", () => {
+    const skillId = "v2_skill_strike";
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: { learned: [skillId], equipped: [skillId] },
+      craftingRaw: {},
+      extras: EXTRAS,
+    });
+
+    expect(ctx.skillsLearned).toBe(1);
+    expect(ctx.skillsEquipped).toBe(1);
+    expect(ctx.hasEditedSkillLoadout).toBe(false);
+  });
 });

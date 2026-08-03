@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
   Compass,
@@ -95,6 +95,10 @@ export function GuildExplorationPanel({
   const [claimingId, setClaimingId] =
     useState<GuildExplorationWeeklyMissionId | null>(null);
   const [acting, setActing] = useState<string | null>(null);
+  const claimingIdRef = useRef<GuildExplorationWeeklyMissionId | null>(null);
+  const actingRef = useRef<string | null>(null);
+  const [confirmingExpeditionId, setConfirmingExpeditionId] =
+    useState<GuildExplorationExpeditionId | null>(null);
   const [nowMs, setNowMs] = useState(0);
   const [missionTab, setMissionTab] = useState<"combat" | "life">("combat");
   const [message, setMessage] = useSystemMessageState();
@@ -130,7 +134,8 @@ export function GuildExplorationPanel({
   }, []);
 
   async function claimMission(missionId: GuildExplorationWeeklyMissionId) {
-    if (claimingId) return;
+    if (claimingIdRef.current) return;
+    claimingIdRef.current = missionId;
     setClaimingId(missionId);
     try {
       const res = await fetch("/api/v2/guild/exploration/weekly", {
@@ -156,6 +161,7 @@ export function GuildExplorationPanel({
     } catch {
       setMessage("탐사 의뢰 보상 수령에 실패했습니다.");
     } finally {
+      claimingIdRef.current = null;
       setClaimingId(null);
     }
   }
@@ -165,7 +171,8 @@ export function GuildExplorationPanel({
     busyKey: string,
     fallbackError: string,
   ) {
-    if (acting) return;
+    if (actingRef.current) return;
+    actingRef.current = busyKey;
     setActing(busyKey);
     try {
       const res = await fetch("/api/v2/guild/exploration/weekly", {
@@ -182,6 +189,9 @@ export function GuildExplorationPanel({
         return;
       }
       setState(json);
+      if (body.action === "dispatch") {
+        setConfirmingExpeditionId(null);
+      }
       const rewardText = [
         json.rewardGold ? `길드 금고 +${json.rewardGold.toLocaleString()}G` : null,
         json.rewardFame ? `명성 +${json.rewardFame.toLocaleString()}` : null,
@@ -196,6 +206,7 @@ export function GuildExplorationPanel({
     } catch {
       setMessage(fallbackError);
     } finally {
+      actingRef.current = null;
       setActing(null);
     }
   }
@@ -391,18 +402,39 @@ export function GuildExplorationPanel({
                           조각 +{expedition.mapFragments.toLocaleString()}
                         </span>
                       </span>
-                      <button
-                        type="button"
-                        disabled={!canManage || locked || acting != null}
-                        onClick={() => void dispatchExpedition(id)}
-                        className="shrink-0 rounded-md border border-cyan-700 bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {locked
-                          ? `Lv.${expedition.minLevel} 해금`
-                          : acting === `dispatch:${id}`
-                            ? "파견 중"
+                      {confirmingExpeditionId === id ? (
+                        <div className="flex shrink-0 flex-col gap-1">
+                          <button
+                            type="button"
+                            disabled={acting != null}
+                            onClick={() => void dispatchExpedition(id)}
+                            className="rounded-md border border-amber-700 bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {acting === `dispatch:${id}`
+                              ? "파견 중"
+                              : `${expedition.costGold.toLocaleString()}G 사용`}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={acting != null}
+                            onClick={() => setConfirmingExpeditionId(null)}
+                            className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={!canManage || locked || acting != null}
+                          onClick={() => setConfirmingExpeditionId(id)}
+                          className="shrink-0 rounded-md border border-cyan-700 bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {locked
+                            ? `Lv.${expedition.minLevel} 해금`
                             : "파견"}
-                      </button>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

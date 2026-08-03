@@ -39,6 +39,7 @@ type TradeState = {
   weekKey: string;
   eligible: boolean;
   rewardBonusPct: number;
+  tokenYieldBonusPct: number;
   contribution: { points: number; cap: number; remaining: number };
   tokens: number;
   contracts: TradeContract[];
@@ -52,6 +53,7 @@ type TradeResponse = TradeState & {
     itemName: string;
     quantity: number;
     points: number;
+    tokensGained: number;
     completed: boolean;
     contributionPoints?: number;
   };
@@ -60,6 +62,7 @@ type TradeResponse = TradeState & {
 };
 
 const PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
+const SHARED_TOKENS_POLL_MS = 10_000;
 
 export function GuildTradePostPanel() {
   const [state, setState] = useState<TradeState | null>(null);
@@ -72,7 +75,9 @@ export function GuildTradePostPanel() {
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch("/api/v2/guild/trade-post");
+      const response = await fetch("/api/v2/guild/trade-post", {
+        cache: "no-store",
+      });
       const json = (await response.json().catch(() => null)) as TradeResponse | null;
       if (!response.ok || !json?.ok) {
         setNotice({ kind: "err", text: tradeErrorText(json?.error) });
@@ -88,7 +93,13 @@ export function GuildTradePostPanel() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, SHARED_TOKENS_POLL_MS);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(poll);
+    };
   }, [load]);
 
   async function submit(
@@ -108,6 +119,8 @@ export function GuildTradePostPanel() {
       const json = (await response.json().catch(() => null)) as TradeResponse | null;
       if (!response.ok || !json?.ok) {
         setNotice({ kind: "err", text: tradeErrorText(json?.error) });
+        // 다른 길드원이 먼저 공동 잔고를 사용했을 수 있으므로 실패 뒤 최신 잔고를 받는다.
+        void load();
         return;
       }
       setState(json);
@@ -157,11 +170,12 @@ export function GuildTradePostPanel() {
               <h3 className="text-base font-bold">길드 교역소 Lv.{state.level}</h3>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              {state.stageLabel} · 길드원이 함께 주간 계약을 채우고 교역 토큰을 받습니다.
+              {state.stageLabel} · 납품 토큰 +{state.tokenYieldBonusPct}% · 완료 보상 +
+              {state.rewardBonusPct}%
             </p>
           </div>
           <div className="rounded-md bg-white px-3 py-2 text-right shadow-sm dark:bg-zinc-900">
-            <div className="text-[11px] text-zinc-500">내 교역 토큰</div>
+            <div className="text-[11px] text-zinc-500">길드 공동 교역 토큰</div>
             <div className="text-base font-bold tabular-nums text-cyan-700 dark:text-cyan-300">
               {state.tokens.toLocaleString()}개
             </div>
@@ -203,7 +217,8 @@ export function GuildTradePostPanel() {
           />
         </div>
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          납품 점수만큼 교역 토큰을 획득합니다. 토큰은 다음 주에도 유지됩니다.
+          누가 납품하든 납품 점수에 교역소 Lv 보너스를 적용한 공동 토큰이 쌓입니다.
+          모든 길드원이 함께 사용하며 다음 주에도 유지됩니다.
         </p>
       </section>
 
@@ -212,7 +227,7 @@ export function GuildTradePostPanel() {
           <div>
             <h4 className="font-bold">주간 교역 계약</h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              계약 완료 보상 +{state.rewardBonusPct}% · 길드 자금과 명성으로 지급
+              계약 {state.contracts.length}건 · 개인 납품 한도 {state.contribution.cap}점
             </p>
           </div>
           <span className="text-xs text-zinc-400">{state.weekKey}</span>
@@ -316,7 +331,8 @@ export function GuildTradePostPanel() {
         <div>
           <h4 className="font-bold">교역 토큰 상점</h4>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            구매 횟수는 매주 초기화되며, 시설 레벨에 따라 품목이 늘어납니다.
+            공동 토큰으로 구매합니다. 개인 구매 횟수는 매주 초기화되며, 시설 레벨에
+            따라 품목이 늘어납니다.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -375,7 +391,7 @@ function deliveryNotice(json: TradeResponse): string {
   const delivery = json.delivered;
   if (!delivery) return "납품 완료";
   const reward = json.guildReward;
-  return `${delivery.itemName} ${delivery.quantity.toLocaleString()}개 납품 · 토큰 +${delivery.points.toLocaleString()} · 길드 기여 +${(delivery.contributionPoints ?? 0).toLocaleString()}점${
+  return `${delivery.itemName} ${delivery.quantity.toLocaleString()}개 납품 · 공동 토큰 +${delivery.tokensGained.toLocaleString()} · 길드 기여 +${(delivery.contributionPoints ?? 0).toLocaleString()}점${
     reward
       ? ` · 계약 완료! 길드 자금 +${reward.gold.toLocaleString()}G, 명성 +${reward.fame.toLocaleString()}`
       : ""
@@ -405,7 +421,7 @@ function tradeErrorText(error?: string): string {
     case "purchase_limit":
       return "이번 주 구매 한도에 도달했습니다.";
     case "insufficient_tokens":
-      return "교역 토큰이 부족합니다.";
+      return "길드 공동 교역 토큰이 부족합니다.";
     case "invalid_shop_item":
       return "구매할 수 없는 품목입니다.";
     default:

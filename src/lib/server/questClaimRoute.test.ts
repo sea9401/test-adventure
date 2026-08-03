@@ -35,7 +35,7 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
     arenaTimes: [],
     fishSpecies: 0,
   })),
-  buildQuestCtx: vi.fn(({ charRaw }) => ({
+  buildQuestCtx: vi.fn(({ charRaw, skillsRaw }) => ({
     class: "none",
     level: 1,
     tier: 1,
@@ -59,8 +59,19 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
     maxEnhanceLevel: 0,
     enhanceStones: 0,
     bankedGold: Number((charRaw as { bankedGold?: number }).bankedGold ?? 0),
-    skillsEquipped: 0,
-    skillsLearned: 0,
+    skillsEquipped: Array.isArray(
+      (skillsRaw as { equipped?: unknown } | undefined)?.equipped,
+    )
+      ? ((skillsRaw as { equipped: unknown[] }).equipped.length)
+      : 0,
+    skillsLearned: Array.isArray(
+      (skillsRaw as { learned?: unknown } | undefined)?.learned,
+    )
+      ? ((skillsRaw as { learned: unknown[] }).learned.length)
+      : 0,
+    hasEditedSkillLoadout: Boolean(
+      (charRaw as { hasEditedSkillLoadout?: unknown }).hasEditedSkillLoadout,
+    ),
     hasHealed: false,
     hasShopped: false,
     workshopCrafts: 0,
@@ -151,5 +162,19 @@ describe("POST /api/v2/me/quests/claim", () => {
       "ach_frontier_end",
       expect.any(Number),
     );
+  });
+
+  it("로드아웃 행동 플래그가 없어도 현재 스킬 장착 상태로 기술 연마를 수령한다", async () => {
+    store.set("skills.v2", {
+      learned: ["v2_skill_strike"],
+      equipped: ["v2_skill_strike"],
+    });
+
+    const res = await POST(claimReq("b_skill"));
+    const json = (await res.json()) as { ok: boolean; questId: string };
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, questId: "b_skill" });
+    expect(store.get("guide-quests.v2")).toEqual({ claimed: ["b_skill"] });
   });
 });

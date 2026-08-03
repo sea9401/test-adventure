@@ -7,11 +7,14 @@ import {
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { settleMasteryTowerRollover } from "@/lib/server/masteryTowerRollover";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
+  MASTERY_CERTIFICATE_KEY,
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_SAVE_KEY,
   clearMasteryTowerFloor,
@@ -24,7 +27,6 @@ import {
   masteryTowerGuardianForFloor,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
-  parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
 import {
   applyRegen,
@@ -75,14 +77,13 @@ export async function POST(req: Request) {
       maxHp: player.maxHp,
       maxMp: player.player.maxMp ?? 0,
     });
-    const raw = await lockSaveForUpdate<unknown>(
+    const rollover = await settleMasteryTowerRollover(
       tx,
       userId,
-      MASTERY_TOWER_SAVE_KEY,
-      {},
+      kstDateKey(),
     );
     const now = Date.now();
-    let tower = parseMasteryTowerState(raw, kstDateKey());
+    let tower = rollover.tower;
     if (tower.cooldownUntil && tower.cooldownUntil > now) {
       const retryAfterSeconds = Math.ceil((tower.cooldownUntil - now) / 1000);
       return {
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
           requiredPower: null,
           guardian: null,
           retryAfterSeconds,
+          autoClaimedReward: rollover.autoClaimedReward,
           claimPreview: masteryTowerClaimPreview(tower),
           log: [
             {
@@ -123,6 +125,7 @@ export async function POST(req: Request) {
           requiredPower: null,
           guardian: null,
           retryAfterSeconds: 0,
+          autoClaimedReward: rollover.autoClaimedReward,
           claimPreview,
           log: masteryTowerAttemptLog({
             floor: null,
@@ -160,6 +163,7 @@ export async function POST(req: Request) {
           ok: false as const,
           error: "out_of_stamina" as const,
           requiredStamina: entryStaminaCost,
+          autoClaimedReward: rollover.autoClaimedReward,
           stamina: applyRegen(
             stamina,
             now,
@@ -227,6 +231,7 @@ export async function POST(req: Request) {
         requiredPower,
         guardian: masteryTowerGuardianPreview(floor),
         retryAfterSeconds,
+        autoClaimedReward: rollover.autoClaimedReward,
         turns: battle.turns,
         startPlayerHp: player.maxHp,
         playerName,
@@ -247,6 +252,27 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  const autoClaimedReward =
+    "autoClaimedReward" in result.body
+      ? result.body.autoClaimedReward
+      : null;
+  if (autoClaimedReward) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.mastery_tower.certificate",
+      itemKind: "mastery_certificate",
+      itemId: MASTERY_CERTIFICATE_KEY,
+      quantity: autoClaimedReward.total,
+      detail: {
+        automatic: true,
+        previousDate: autoClaimedReward.previousDate,
+        previousBestFloor: autoClaimedReward.previousBestFloor,
+        base: autoClaimedReward.base,
+        firstClearBonus: autoClaimedReward.firstClearBonus,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

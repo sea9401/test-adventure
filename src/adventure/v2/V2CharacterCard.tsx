@@ -23,6 +23,8 @@ import {
   type ProfileImageMotion,
 } from "@/adventure/profile/avatars";
 import {
+  V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
   V2_EQUIPMENT,
   type V2Equipment,
   type V2EquipInstance,
@@ -410,58 +412,105 @@ export function V2CharacterCard({
           )}
         </div>
         {equipped && (
-          <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-zinc-200 pt-3 sm:grid-cols-6 dark:border-zinc-800">
-          {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
-            const iid = equipped?.[slot];
-            const inst = iid ? byIid.get(iid) : undefined;
-            const item = inst ? V2_EQUIPMENT[inst.id] : null;
-            const slotClass = `${SURFACE_INSET} ui-character-slot flex min-w-0 flex-col items-center gap-0.5 px-1.5 py-1.5 text-center`;
-            const inner = (
-              <>
-                <Icon size={14} weight="duotone" className={color} />
-                <span
-                  className={`w-full truncate text-[11px] font-medium leading-tight ${
-                    item
-                      ? powerNameClass(
-                          item,
-                          inst?.roll,
-                          inst?.enhance,
-                          inst?.craftQuality,
-                        )
-                      : "text-zinc-400 dark:text-zinc-600"
-                  }`}
-                >
-                  {item?.name ?? label}
-                </span>
-              </>
-            );
-            // 아이템이 있으면 클릭 가능한 버튼 → 옵션 카드 팝업. 빈 슬롯은 정적 표시.
-            return item ? (
-              <button
-                key={slot}
-                type="button"
-                aria-label={`${label}: ${item.name}`}
-                title={`${label}: ${item.name}`}
-                onClick={(e) =>
-                  setSelected({
-                    item,
-                    roll: inst?.roll,
-                    enhance: inst?.enhance,
-                    craftQuality: inst?.craftQuality,
-                    craftedBy: inst?.craftedBy,
-                    anchor: anchorOf(e.currentTarget),
-                  })
-                }
-                className={`${slotClass} transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800`}
-              >
-                {inner}
-              </button>
-            ) : (
-              <div key={slot} className={slotClass} title={`${label}: 비어 있음`}>
-                {inner}
-              </div>
-            );
-          })}
+          <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                장착 장비
+              </h3>
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                부위 · 장비 · 세트
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+              {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
+                const iid = equipped?.[slot];
+                const inst = iid ? byIid.get(iid) : undefined;
+                const item = inst ? V2_EQUIPMENT[inst.id] : null;
+                const setNames = item
+                  ? [
+                      item.setId
+                        ? V2_EQUIP_SETS.find((set) => set.id === item.setId)?.name
+                        : undefined,
+                      ...(item.setTags ?? []).map(
+                        (tag) =>
+                          V2_EQUIP_TAG_SETS.find((set) => set.id === tag)?.name,
+                      ),
+                    ].filter((name): name is string => Boolean(name))
+                  : [];
+                const setLabel = setNames.length
+                  ? `세트 · ${setNames.join(", ")}`
+                  : "세트 없음";
+                const slotClass = `${SURFACE_INSET} ui-character-slot flex min-w-0 flex-col items-center gap-0.5 px-1.5 py-2 text-center`;
+                const inner = (
+                  <>
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                      <Icon size={13} weight="duotone" className={color} />
+                      {label}
+                    </span>
+                    <span
+                      className={`w-full truncate text-[11px] font-medium leading-tight ${
+                        item
+                          ? powerNameClass(
+                              item,
+                              inst?.roll,
+                              inst?.enhance,
+                              inst?.craftQuality,
+                            )
+                          : "text-zinc-400 dark:text-zinc-600"
+                      }`}
+                    >
+                      {item?.name ?? "비어 있음"}
+                    </span>
+                    {item ? (
+                      <span
+                        className={`line-clamp-2 w-full break-keep text-[10px] leading-tight ${
+                          setNames.length
+                            ? "font-medium text-violet-600 dark:text-violet-400"
+                            : "text-zinc-400 dark:text-zinc-500"
+                        }`}
+                        title={setLabel}
+                      >
+                        {setLabel}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-zinc-300 dark:text-zinc-700">
+                        —
+                      </span>
+                    )}
+                  </>
+                );
+                // 아이템이 있으면 클릭 가능한 버튼 → 옵션 카드 팝업. 빈 슬롯은 정적 표시.
+                return item ? (
+                  <button
+                    key={slot}
+                    type="button"
+                    aria-label={`${label}: ${item.name}, ${setLabel}`}
+                    title={`${label}: ${item.name} · ${setLabel}`}
+                    onClick={(e) =>
+                      setSelected({
+                        item,
+                        roll: inst?.roll,
+                        enhance: inst?.enhance,
+                        craftQuality: inst?.craftQuality,
+                        craftedBy: inst?.craftedBy,
+                        anchor: anchorOf(e.currentTarget),
+                      })
+                    }
+                    className={`${slotClass} transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800`}
+                  >
+                    {inner}
+                  </button>
+                ) : (
+                  <div
+                    key={slot}
+                    className={slotClass}
+                    title={`${label}: 비어 있음`}
+                  >
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </Card>

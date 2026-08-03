@@ -5,9 +5,16 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { battleCountOf } from "@/lib/server/battleCount";
 import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
-import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
+import {
+  prepareV2BattleActor,
+  type V2BattlePrepCache,
+} from "@/lib/server/v2BattlePrep";
 import { readGuildCombatSupplyLevels } from "@/lib/server/guildCombatSupply";
-import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
+import {
+  consumeGuildDiningEffect,
+  flushGuildDiningEffectCache,
+  type GuildDiningEffectCache,
+} from "@/lib/server/guildDining";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
@@ -15,6 +22,7 @@ import {
   applyPctBonus,
   bonusDelta,
   readActiveHotTime,
+  type ActiveHotTime,
 } from "@/lib/server/opsSettings";
 
 // BattleScene replay UI 의 EXP 바 max — 이미 만렙이면 분모로 쓸 값 없음.
@@ -100,7 +108,11 @@ import { rollHuntDrops } from "./huntDrops";
 import { computeLossTax } from "./huntTax";
 import { computeBattleRewards, applyChargeRestore } from "./huntRewards";
 import { updateRareMaps } from "./huntRareMaps";
-import { recordMonsterKill } from "./huntKillLog";
+import {
+  applyMonsterKill,
+  recordMonsterKill,
+  type AdventureLogSave,
+} from "./huntKillLog";
 import { applyHuntProficiency } from "./huntProficiency";
 import {
   getAutoHuntStopReason,
@@ -128,6 +140,9 @@ import {
 // 단일 무한 프론티어 — 깊이(depth) 1→∞. 조기 검증은 정수·≥1 만, 실제 게이트(최고도달+1)는
 // character.v2 lock 후. 드랍 풀은 깊이를 DungeonFloorId(1~8)로 클램프해 조회(8 이상=8 풀).
 const DROP_FLOOR_CAP = 8 as DungeonFloorId;
+// 배치에서도 각 전투를 다시 볼 수 있게 로그는 보존한다. 다만 50개 응답에서 긴 전투 로그가
+// 한꺼번에 커지지 않도록 단판(200)보다 낮은 tail cap을 둔다.
+const BATCH_REPLAY_LOG_CAP = 80;
 
 function pickRandomEnemy(
   enemies: readonly DungeonEnemy[],
@@ -171,6 +186,34 @@ function authoritativeTileOutpostId(charSave: CharSave): string | null {
 }
 
 type HuntTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type OccupationRow = {
+  occupiedByGuildId: number | null;
+  policy: string;
+};
+type InventorySave = {
+  hpCharges?: number;
+  mpCharges?: number;
+  [k: string]: unknown;
+};
+type HuntBatchState = {
+  occupationById?: Map<string, OccupationRow>;
+  viewerGuildId?: number | null;
+  guildCombatSupply?: ReturnType<typeof guildCombatSupplyBonuses>;
+  charSave?: CharSave;
+  charSaveDirty?: boolean;
+  equipmentSave?: EquipmentSave;
+  equipmentSaveDirty?: boolean;
+  inventorySave?: InventorySave;
+  inventorySaveDirty?: boolean;
+  playerName?: string;
+  hotTime?: ActiveHotTime;
+  dining: GuildDiningEffectCache;
+  adventureLog?: AdventureLogSave;
+  adventureLogDirty?: boolean;
+  actor: V2BattlePrepCache;
+  proficiencyDirty?: boolean;
+};
+
 export type RunOneHuntCtx = {
   tx: HuntTx;
   userId: string;
@@ -190,11 +233,14 @@ export type RunOneHuntCtx = {
   // 시각 주입(오프라인) — 판별 HP 회복 시각을 lastBattleAt+i×쿨다운 으로 시뮬(5초 간격 회복).
   //   미지정 = Date.now()(온라인).
   nowOverride?: number;
+  // 온라인 일괄 사냥 전용. 첫 판이 잡은 row lock과 최신 save 상태를 같은 tx의 다음 판에서 재사용한다.
+  batchState?: HuntBatchState;
+  // 단판 기본 200. 배치는 클릭 리플레이를 유지하되 긴 전투의 전송량만 제한한다.
+  replayLogCap?: number;
 };
 
 // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
-//   루프로 N회 호출한다. 매 호출이 character.v2/equipment 등을 재-락·재-read 하므로 직전
-//   사냥의 레벨/HP/스태미나/드랍이 DB 재read 로 자동 이월된다(수동 스레딩 불필요).
+//   루프로 N회 호출하며 첫 판이 잠근 save의 최신 상태를 batchState로 다음 판에 이월한다.
 //   fullReplay=true 면 BattleScene 용 log 를 보존한다. 온라인 단판/5·10·50회 사냥은 기록 확인이
 //   필요하므로 full, 오프라인 정산은 결과 집계만 쓰므로 lite 로 둔다.
 export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
@@ -212,11 +258,8 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // FOR SHARE 로 정책 게이트를 일관된 스냅샷에서 평가한다. 점령자가 hunt 도중 정책을
   // 바꿔도 이 hunt 는 진입 시점 정책으로 일관. 공유 잠금은 사냥끼리는
   // 서로 막지 않아 같은 거점의 모든 이용자가 하나씩 직렬 처리되던 병목을 제거한다.
-  type OccupationRow = {
-    occupiedByGuildId: number | null;
-    policy: string;
-  };
-  const occupationById = new Map<string, OccupationRow>();
+  const occupationById =
+    ctx.batchState?.occupationById ?? new Map<string, OccupationRow>();
   const locationIds = [
     ...new Set(
       [outpostId, lockedTileOutpostId].filter(
@@ -225,20 +268,23 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     ),
   ].sort();
   // 후보가 둘(카탈로그 거점+자유 타일)이어도 id 정렬 순으로 잠가 동시 사냥 간 교착을 막는다.
-  for (const locationId of locationIds) {
-    const row =
-      (
-        await tx
-          .select({
-            occupiedByGuildId: outpostOccupations.occupiedByGuildId,
-            policy: outpostOccupations.policy,
-          })
-          .from(outpostOccupations)
-          .where(eq(outpostOccupations.outpostId, locationId))
-          .for("share")
-          .limit(1)
-      )[0] ?? null;
-    if (row) occupationById.set(locationId, row);
+  if (!ctx.batchState?.occupationById) {
+    for (const locationId of locationIds) {
+      const row =
+        (
+          await tx
+            .select({
+              occupiedByGuildId: outpostOccupations.occupiedByGuildId,
+              policy: outpostOccupations.policy,
+            })
+            .from(outpostOccupations)
+            .where(eq(outpostOccupations.outpostId, locationId))
+            .for("share")
+            .limit(1)
+        )[0] ?? null;
+      if (row) occupationById.set(locationId, row);
+    }
+    if (ctx.batchState) ctx.batchState.occupationById = occupationById;
   }
   // 자유 타일은 길드 점령행이 실제로 있을 때만 카탈로그 거점보다 우선한다.
   // 빈 칸/개인 개척지는 현재 카탈로그 거점의 입장 정책을 따른다.
@@ -254,10 +300,19 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       : null;
 
   // === 2. 사냥자 길드 확인 (정책 게이트 판정용) ===
-  const viewerGuildId = await getGuildId(tx, userId);
-  const guildCombatSupply = guildCombatSupplyBonuses(
-    await readGuildCombatSupplyLevels(tx, viewerGuildId),
-  );
+  const viewerGuildId =
+    ctx.batchState?.viewerGuildId !== undefined
+      ? ctx.batchState.viewerGuildId
+      : await getGuildId(tx, userId);
+  const guildCombatSupply =
+    ctx.batchState?.guildCombatSupply ??
+    guildCombatSupplyBonuses(
+      await readGuildCombatSupplyLevels(tx, viewerGuildId),
+    );
+  if (ctx.batchState) {
+    ctx.batchState.viewerGuildId = viewerGuildId;
+    ctx.batchState.guildCombatSupply = guildCombatSupply;
+  }
 
   // === 3. 정책 게이트 — 거부 시 즉시 403, stamina 차감/character.v2 lock 전. ===
   if (occRow) {
@@ -280,12 +335,10 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   }
 
   // === 4. character.v2 lock ===
-  const charSave = await lockSaveForUpdate<CharSave>(
-    tx,
-    userId,
-    "character.v2",
-    {},
-  );
+  const charSave =
+    ctx.batchState?.charSave ??
+    (await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {}));
+  if (ctx.batchState) ctx.batchState.charSave = charSave;
 
   // 위치를 미리 읽은 뒤 outpost 행을 먼저 잠그는 동안 이동 요청이 끼어들 수 있다.
   // character 행 잠금까지 얻은 시점에 같은 위치인지 재검증해, 다른 거점의 입장 정책으로
@@ -309,12 +362,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   }
 
   // equipment.v2 조기 잠금 (드랍/굴림 한 번에 기록). lock 순서 char→equipment.
-  const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
-    tx,
-    userId,
-    "equipment.v2",
-    {},
-  );
+  const equipmentSave =
+    ctx.batchState?.equipmentSave ??
+    (await lockSaveForUpdate<EquipmentSave>(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    ));
+  if (ctx.batchState) ctx.batchState.equipmentSave = equipmentSave;
   const { owned: ownedEquip, equipped: equippedEquip } =
     parseEquipmentSave(equipmentSave);
 
@@ -464,6 +520,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     userId,
     charSave,
     equipmentSave,
+    cache: ctx.batchState?.actor,
   });
   if (!preparedActor) {
     return {
@@ -535,13 +592,17 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       : {}),
   };
   // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
-  const profile = await readSave<{ name?: string } | null>(
-    tx,
-    userId,
-    "character-profile.v2",
-    null,
-  );
-  const playerName = profile?.name?.trim() || "모험가";
+  let playerName = ctx.batchState?.playerName;
+  if (playerName === undefined) {
+    const profile = await readSave<{ name?: string } | null>(
+      tx,
+      userId,
+      "character-profile.v2",
+      null,
+    );
+    playerName = profile?.name?.trim() || "모험가";
+    if (ctx.batchState) ctx.batchState.playerName = playerName;
+  }
 
   // 사냥 전 hp 회복 — 마지막 사냥 이후 흐른 시간만큼 충전.
   const hpBefore = parseHpRegenSince(charSave.hpRegenSince, now);
@@ -552,11 +613,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     now,
   );
 
-  const invSave = await lockSaveForUpdate<{
-    hpCharges?: number;
-    mpCharges?: number;
-    [k: string]: unknown;
-  }>(tx, userId, "inventory.v2", {});
+  const invSave =
+    ctx.batchState?.inventorySave ??
+    (await lockSaveForUpdate<InventorySave>(
+      tx,
+      userId,
+      "inventory.v2",
+      {},
+    ));
+  if (ctx.batchState) ctx.batchState.inventorySave = invSave;
   let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
   let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
 
@@ -584,16 +649,22 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 시간 경과(또는 치료소)로 회복되면 다시 사냥 가능. 일괄사냥의 death-stop 가드와 같은 의도.
   if (!canHuntWithHp(startPlayerHp, player.maxHp)) {
     if (usedPreBattleHpCharge) {
-      await upsertSave(tx, userId, "character.v2", {
+      const nextRecoveryCharacter: CharSave = {
         ...charSave,
         hp: startPlayerHp,
         hpRegenSince: now,
-      });
-      await upsertSave(tx, userId, "inventory.v2", {
+      };
+      await upsertSave(tx, userId, "character.v2", nextRecoveryCharacter);
+      const nextInventory = {
         ...invSave,
         hpCharges,
         mpCharges,
-      });
+      };
+      await upsertSave(tx, userId, "inventory.v2", nextInventory);
+      if (ctx.batchState) {
+        ctx.batchState.charSave = nextRecoveryCharacter;
+        ctx.batchState.inventorySave = nextInventory;
+      }
     }
     return {
       ok: false as const,
@@ -631,7 +702,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // v2 는 재전직이 레벨을 1 로 리셋하므로 레벨이 아닌 전적으로 신참을 가린다(베테랑이
   // 재전직할 때마다 보너스가 잘못 되살아나는 것 방지). read-only 스냅샷(게이트용)이라
   // 비잠금 — 권위적 kill 증가는 아래 lock 구간(adventure-log.v2)에서 한다.
-  const logVal = await readSave<unknown>(tx, userId, "adventure-log.v2", null);
+  const logVal = ctx.batchState
+    ? (ctx.batchState.adventureLog ??=
+        await lockSaveForUpdate<AdventureLogSave>(
+          tx,
+          userId,
+          "adventure-log.v2",
+          {},
+        ))
+    : await readSave<unknown>(tx, userId, "adventure-log.v2", null);
   const battleCount = battleCountOf(logVal);
   // EXP = monster.exp → 신참 보너스(전적 ≤ 3만 ×2, EXP 전용) → 전역 배율(staging 기본
   // 2.2/IS_STAGING, 라이브 1.0). 라이브 battleClaim 과 같은 순서(newbie 먼저, 그 다음 배율).
@@ -642,7 +721,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     mapExpMult,
     mapGoldMult,
   });
-  const hotTime = await readActiveHotTime(now, tx);
+  const hotTime =
+    ctx.batchState?.hotTime ?? (await readActiveHotTime(now, tx));
+  if (ctx.batchState) ctx.batchState.hotTime = hotTime;
   const expAfterGuild = applyGuildCombatRewardBonus(
     baseRewards.expGained,
     guildCombatSupply.expPct,
@@ -660,6 +741,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     "hunt_exp",
     expBeforeDining,
     new Date(now),
+    ctx.batchState?.dining,
   );
   const expGained = expBeforeDining + diningExp.bonus;
   const goldGross = hotTime.active
@@ -681,10 +763,16 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   });
   const nextMaterials = mergeDrops(charSave.materials, drops);
   // equipment.v2 한 번에 기록 — owned(+드랍 개체). 굴림은 개체에 포함. 조기 lock 한 걸 한 번에 기록.
-  await upsertSave(tx, userId, "equipment.v2", {
+  const nextEquipment: EquipmentSave = {
     owned: nextOwned,
     equipped: equippedEquip,
-  });
+  };
+  if (ctx.batchState) {
+    ctx.batchState.equipmentSave = nextEquipment;
+    ctx.batchState.equipmentSaveDirty = true;
+  } else {
+    await upsertSave(tx, userId, "equipment.v2", nextEquipment);
+  }
 
   // 영지 시스템 은퇴에 맞춰 거점·타일 점령 여부와 관계없이 사냥세를 부과하지 않는다.
   // 응답 필드는 구버전 클라이언트 호환을 위해 0으로 유지한다.
@@ -738,11 +826,17 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     hpCharges,
     mpCharges,
   }));
-  await upsertSave(tx, userId, "inventory.v2", {
+  const nextInventory: InventorySave = {
     ...invSave,
     hpCharges,
     mpCharges,
-  });
+  };
+  if (ctx.batchState) {
+    ctx.batchState.inventorySave = nextInventory;
+    ctx.batchState.inventorySaveDirty = true;
+  } else {
+    await upsertSave(tx, userId, "inventory.v2", nextInventory);
+  }
 
   // 침입자 트래킹 — 사냥 성공 시 lastHuntedOutpost 갱신 (outpost 사냥에 한해).
   // 패배해도 거점에서 사냥 시도는 한 셈이라 트래킹. 미점령 거점도 트래킹 X 의미 없으므로
@@ -808,7 +902,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       ? { lastHuntDepth: depth }
       : {}),
   };
-  await upsertSave(tx, userId, "character.v2", next);
+  if (ctx.batchState) {
+    ctx.batchState.charSave = next;
+    ctx.batchState.charSaveDirty = true;
+  } else {
+    await upsertSave(tx, userId, "character.v2", next);
+  }
 
   // 홍보 보상은 가입이 아니라 서버 권위 프론티어 진행으로만 지급한다. 프론티어가
   // 갱신될 때 확인하고, conversion row lock으로 일괄 사냥/중복 요청도 멱등 처리한다.
@@ -819,7 +918,16 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 전투수 랭킹용 몬스터 킬 카운터 — huntKillLog(콜로케이트) 로 추출.
   // lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피)은 이 위치가 보장.
   if (won) {
-    await recordMonsterKill(tx, userId, enemyName, now);
+    if (ctx.batchState) {
+      ctx.batchState.adventureLog = applyMonsterKill(
+        ctx.batchState.adventureLog ?? {},
+        enemyName,
+        now,
+      );
+      ctx.batchState.adventureLogDirty = true;
+    } else {
+      await recordMonsterKill(tx, userId, enemyName, now);
+    }
   }
 
   // PR-prof — 승리 시 직업군 숙련도 적립 + 레벨업 시 랜덤 스탯 성장(앵커 가중, cap 까지).
@@ -843,7 +951,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     levelsGained: expResult.levelsGained,
   });
   if (nextProficiency) {
-    await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
+    if (ctx.batchState) {
+      ctx.batchState.actor.proficiencyRaw = nextProficiency;
+      ctx.batchState.proficiencyDirty = true;
+    } else {
+      await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
+    }
   }
   // 레벨업 HP/MP 성장량 — 결과 카드 표시용(레벨당 고정분 + 오른 VIT·INT). 파생식과 동일 계수.
   const { hp: hpGain, mp: mpGain } =
@@ -856,7 +969,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       : { hp: 0, mp: 0 };
 
   // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
-  if (won && !ctx.offline) {
+  if (won && !ctx.offline && !ctx.batchState) {
     await incrementGuildExplorationProgressForUser(
       tx,
       userId,
@@ -937,7 +1050,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
         // 로 BattleState 형태로 재구성. log 는 마지막 200 cap.
         replay: fullReplay
-          ? toReplayPayload(battleResult.finalState, 200, { depth })
+          ? toReplayPayload(battleResult.finalState, ctx.replayLogCap ?? 200, {
+              depth,
+            })
           : toReplayPayloadLite(battleResult.finalState, { depth }),
         // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
         startPlayerHp,
@@ -1079,6 +1194,12 @@ export async function POST(req: Request) {
     if (count === 1) {
       return await runOneHunt(true, ctx);
     }
+    const batchState: HuntBatchState = { actor: {}, dining: {} };
+    const batchCtx: RunOneHuntCtx = {
+      ...ctx,
+      batchState,
+      replayLogCap: BATCH_REPLAY_LOG_CAP,
+    };
     // count>1 — 한 트랜잭션에서 N회. 스태미나 부족·HP 부족·사망이면 중단(완료분은 커밋).
     let completed = 0;
     let wins = 0;
@@ -1138,7 +1259,7 @@ export async function POST(req: Request) {
     }> = [];
 
     for (let i = 0; i < count; i++) {
-      const r = await runOneHunt(true, ctx);
+      const r = await runOneHunt(true, batchCtx);
       if (!r.ok) {
         // 첫 사냥부터 실패면 단판과 동일하게 에러 응답 그대로(409 스태미나/HP·403 정책 등).
         //   버튼이 스태미나/회복 상태에선 비활성이라 실사용상 드물다. 중간(완료>0) 실패는
@@ -1237,6 +1358,71 @@ export async function POST(req: Request) {
       if (!canHuntWithHp(res.hpAfter, res.maxHp)) {
         stoppedReason = "recovery";
         break;
+      }
+    }
+
+    await flushGuildDiningEffectCache(tx, userId, batchState.dining);
+
+    // 첫 판이 잡은 row lock을 유지한 채 판간 상태는 메모리로 이월하고, 최종 save만 한 번 쓴다.
+    // 중간 실패로 루프가 멈춰도 완료된 판의 최신 상태가 여기서 함께 커밋된다.
+    if (batchState.equipmentSaveDirty && batchState.equipmentSave) {
+      await upsertSave(
+        tx,
+        userId,
+        "equipment.v2",
+        batchState.equipmentSave,
+      );
+    }
+    if (batchState.inventorySaveDirty && batchState.inventorySave) {
+      await upsertSave(
+        tx,
+        userId,
+        "inventory.v2",
+        batchState.inventorySave,
+      );
+    }
+    if (batchState.charSaveDirty && batchState.charSave) {
+      await upsertSave(tx, userId, "character.v2", batchState.charSave);
+    }
+    if (batchState.proficiencyDirty && batchState.actor.proficiencyRaw) {
+      await upsertSave(
+        tx,
+        userId,
+        "proficiency.v2",
+        batchState.actor.proficiencyRaw,
+      );
+    }
+
+    // 배치 중에는 신참 보너스 판정을 위해 메모리의 누적 킬로그를 즉시 갱신하고,
+    // 영속화만 마지막 한 번으로 합친다.
+    if (batchState.adventureLogDirty && batchState.adventureLog) {
+      await upsertSave(
+        tx,
+        userId,
+        "adventure-log.v2",
+        batchState.adventureLog,
+      );
+    }
+
+    // 매 승리마다 같은 길드 멤버십·본부·주간 row를 다시 조회/잠그지 않고 합산 반영한다.
+    // addGuildExplorationProgress의 계산은 count에 선형이므로 판별 결과는 기존과 같다.
+    if (wins > 0) {
+      const progressAt = new Date();
+      await incrementGuildExplorationProgressForUser(
+        tx,
+        userId,
+        "huntWins",
+        wins,
+        progressAt,
+      );
+      if (depth >= GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH) {
+        await incrementGuildExplorationProgressForUser(
+          tx,
+          userId,
+          "deepHuntWins",
+          wins,
+          progressAt,
+        );
       }
     }
 

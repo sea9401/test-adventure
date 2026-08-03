@@ -134,7 +134,7 @@ export function WorkshopCraftPanel({
   onMessage: (text: string | null) => void;
   /** 제작 응답의 워크숍 상태 반영(자원/재료/숙련도/레시피 재계산) — 부모 setState 위임. */
   onServerSync: (sync: CraftServerSync) => void;
-  /** 제작 성공 후속 재조회(주간 의뢰 진행·기여도) — 부모 로더 위임. */
+  /** 제작 성공 후속 재조회(주간 의뢰·일일 납품·기여도) — 부모 로더 위임. */
   onAfterCraft: () => void;
   /** 추천 카드(메인 모드) 원클릭 제작 요청 — 마운트 시 1회 실행 후 소비 통지. */
   autoCraft: {

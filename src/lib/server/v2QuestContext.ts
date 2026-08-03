@@ -80,6 +80,7 @@ import {
   cookingLevelForXp,
   parseCookingState,
 } from "@/adventure/v2/cooking";
+import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 
 type CharSave = {
   class?: unknown;
@@ -231,16 +232,11 @@ export function buildQuestCtx(args: {
   const workshopStats = parseGuildWorkshopStats(craftingSave.workshopStats);
   const artisan = parseArtisanState(craftingSave.artisan);
   const blacksmithLevel = artisanLevel(artisan.blacksmith);
-  const skillsSave = (args.skillsRaw ?? {}) as {
-    equipped?: unknown;
-    learned?: unknown;
-  };
-  const skillsEquipped = Array.isArray(skillsSave.equipped)
-    ? skillsSave.equipped.filter((s) => typeof s === "string").length
-    : 0;
-  const skillsLearned = Array.isArray(skillsSave.learned)
-    ? skillsSave.learned.filter((s) => typeof s === "string").length
-    : 0;
+  // 튜토리얼 판정도 전투와 같은 정규화된 스킬 상태를 사용한다. 현재 장착 수가 1 이상이면
+  // 퀘스트 활성화 전에 장착했더라도 「기술 연마」가 즉시 완료된다.
+  const skillsSave = parseV2SkillsState(args.skillsRaw);
+  const skillsEquipped = skillsSave.equipped.length;
+  const skillsLearned = skillsSave.learned.length;
 
   const farm = parseFarmState(args.farmRaw);
   const woodcutting = parseWoodcuttingLog(args.woodcuttingRaw);

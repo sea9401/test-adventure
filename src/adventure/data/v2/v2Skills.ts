@@ -888,8 +888,9 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
         ...effect,
         flatPerStack: scaledFlat(effect.flatPerStack, scale),
         atkCoefPerStack: scaledCoef(effect.atkCoefPerStack, scale),
-        // 최대 HP 비례분은 계수·고정 추가 피해가 아니며, 소수점 반올림 시 0이 되기 쉬워 유지한다.
-        pctMaxHpPerStack: effect.pctMaxHpPerStack,
+        // 작은 소수라 scaledCoef(소수 둘째 자리 반올림)를 쓰면 0이 된다. 원시 곱으로 위력만
+        // 같은 비율로 낮춰, 발동률 상향 뒤 최대 HP 비례 독만 리밸런싱을 우회하지 않게 한다.
+        pctMaxHpPerStack: effect.pctMaxHpPerStack * scale,
       };
     default:
       return effect;
@@ -1367,9 +1368,9 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "ambushDamage":
       return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
     case "stackPayoffDamage":
-      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 +${e.perStackFlat}`;
+      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
     case "dot":
-      return `${e.label} 지속피해 +${e.stacks}스택 (${actionsChip(e.turns)})`;
+      return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택)`;
   }
   // 모든 효과 종류 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
   const _exhaustive: never = e;
@@ -1517,6 +1518,18 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   const chips = skill.passive
     ? describePassive(skill.passive)
     : skill.effects.map(describeV2Effect);
+  if (
+    skill.effects.some(
+      (payoff) =>
+        payoff.kind === "stackPayoffDamage" &&
+        payoff.tag === "poison" &&
+        skill.effects.some(
+          (dot) => dot.kind === "dot" && dot.tag === payoff.tag,
+        ),
+    )
+  ) {
+    chips.push("중첩 폭발에 이번 시전 스택 포함");
+  }
   // 발동 확률 — 액티브는 100%(미지정)도 명시해 스킬별 발동 정보가 빠져 보이지 않게 한다.
   //   실패 시 평타로 폴백(MP·쿨다운 미소모). 패시브는 발동 개념이 없어 제외.
   const proc = skill.procChance ?? 100;
@@ -1533,6 +1546,11 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
     chips.push(`속성 ${V2_ELEMENT_LABEL[skill.element]}`);
   }
   return chips;
+}
+
+// 네이티브 select처럼 별도 효과 UI를 넣을 수 없는 곳에서 이름과 전투 정보를 함께 보여준다.
+export function v2SkillSelectLabel(skill: V2SkillDefinition): string {
+  return [skill.name, ...describeV2Skill(skill)].join(" · ");
 }
 
 export function v2SkillSearchText(skill: V2SkillDefinition): string {

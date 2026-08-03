@@ -5,6 +5,7 @@ import {
   guildTradeCompletionReward,
   guildTradeContractTarget,
   guildTradeItemsForWeek,
+  guildTradeTokenReward,
   parseGuildTradeUserState,
 } from "./guildTrade";
 
@@ -50,6 +51,12 @@ describe("guildTrade", () => {
       gold: 2_100_000,
       fame: 140,
     });
+  });
+
+  it("교역소 토큰 보너스의 소수점은 개인 주간 누적 점수로 이월한다", () => {
+    expect(guildTradeTokenReward(0, 1, 50)).toBe(1);
+    expect(guildTradeTokenReward(1, 1, 50)).toBe(2);
+    expect(guildTradeTokenReward(0, 8, 200)).toBe(24);
   });
 
   it("교역 상점은 시설 1~5레벨에 걸쳐 순차 해금된다", () => {

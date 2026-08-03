@@ -3,12 +3,14 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { logAdminAction } from "@/lib/server/adminAudit";
 import { currentAdminEmail, requireAdmin } from "@/lib/server/isAdmin";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { settleMasteryTowerRollover } from "@/lib/server/masteryTowerRollover";
+import { upsertSave } from "@/lib/server/savesKv";
 import {
+  MASTERY_CERTIFICATE_KEY,
   MASTERY_TOWER_SAVE_KEY,
   kstDateKey,
   masteryTowerClaimPreview,
-  parseMasteryTowerState,
   resetMasteryTowerDailyProgress,
 } from "@/adventure/data/v2/masteryTower";
 
@@ -44,16 +46,14 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
-    const rawTower = await lockSaveForUpdate<unknown>(
+    const rollover = await settleMasteryTowerRollover(
       tx,
       userId,
-      MASTERY_TOWER_SAVE_KEY,
-      {},
+      kstDateKey(),
     );
-    const date = kstDateKey();
-    const previous = parseMasteryTowerState(rawTower, date);
+    const previous = rollover.tower;
     const previousClaimPreview = masteryTowerClaimPreview(previous);
-    const tower = resetMasteryTowerDailyProgress(previous, date);
+    const tower = resetMasteryTowerDailyProgress(previous, previous.date);
 
     await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
 
@@ -61,8 +61,26 @@ export async function POST(req: Request) {
       previous,
       tower,
       lostPendingReward: previous.claimed ? 0 : previousClaimPreview.total,
+      autoClaimedReward: rollover.autoClaimedReward,
     };
   });
+
+  if (result.autoClaimedReward) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.mastery_tower.certificate",
+      itemKind: "mastery_certificate",
+      itemId: MASTERY_CERTIFICATE_KEY,
+      quantity: result.autoClaimedReward.total,
+      detail: {
+        automatic: true,
+        previousDate: result.autoClaimedReward.previousDate,
+        previousBestFloor: result.autoClaimedReward.previousBestFloor,
+        base: result.autoClaimedReward.base,
+        firstClearBonus: result.autoClaimedReward.firstClearBonus,
+      },
+    });
+  }
 
   await logAdminAction({
     adminEmail: await currentAdminEmail(),
@@ -73,6 +91,7 @@ export async function POST(req: Request) {
       previousTodayBestFloor: result.previous.todayBestFloor,
       previousClaimed: result.previous.claimed,
       lostPendingReward: result.lostPendingReward,
+      autoClaimedReward: result.autoClaimedReward?.total ?? 0,
     },
   });
 

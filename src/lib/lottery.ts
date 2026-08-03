@@ -1,6 +1,7 @@
 export const LOTTERY_TICKET_PRICE = 150_000;
 export const LOTTERY_MAX_TICKETS_PER_ROUND = 10;
 export const LOTTERY_FEE_PERCENT = 10;
+export const LOTTERY_BASE_PRIZE_POOL = 500_000;
 export const LOTTERY_MIN_PARTICIPANTS_TO_DRAW = 3;
 export const LOTTERY_PURCHASE_COOLDOWN_MS = 2_000;
 export const LOTTERY_CYCLE_MS = 60 * 60 * 1_000;
@@ -85,7 +86,8 @@ export function lotteryPrizeAmounts(grossPool: number, carryIn = 0): {
   const gross = Math.max(0, Math.floor(Number(grossPool) || 0));
   const carried = Math.max(0, Math.floor(Number(carryIn) || 0));
   const feeAmount = Math.floor((gross * LOTTERY_FEE_PERCENT) / 100);
-  const prizePool = carried + gross - feeAmount;
+  const startingPool = carried > 0 ? carried : LOTTERY_BASE_PRIZE_POOL;
+  const prizePool = startingPool + gross - feeAmount;
   const first = Math.floor((prizePool * 70) / 100);
   const second = Math.floor((prizePool * 20) / 100);
   const third = prizePool - first - second;

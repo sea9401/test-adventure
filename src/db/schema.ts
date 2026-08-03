@@ -1552,8 +1552,9 @@ export const guildDiningWeekly = pgTable("guild_dining_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// 길드 교역소 주간 공동 계약 상태. 주차가 바뀌면 첫 조회에서 계약 품목·진척·완료 목록과
-// 참여 가능 길드원 스냅샷을 함께 교체한다. 품목 추가에 마이그레이션이 필요 없도록 JSONB로 보관한다.
+// 길드 교역소 공동 상태. tokens 는 주차가 바뀌어도 유지되는 길드 공동 잔고이며,
+// 계약 품목·진척·완료 목록과 참여 가능 길드원 스냅샷만 첫 조회에서 교체한다.
+// 품목 추가에 마이그레이션이 필요 없도록 계약 데이터는 JSONB로 보관한다.
 export const guildTradeWeekly = pgTable("guild_trade_weekly", {
   guildId: integer("guild_id")
     .primaryKey()
@@ -1575,6 +1576,7 @@ export const guildTradeWeekly = pgTable("guild_trade_weekly", {
     .$type<string[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
+  tokens: integer("tokens").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

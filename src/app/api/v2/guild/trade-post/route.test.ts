@@ -61,7 +61,7 @@ import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { upsertGuildResources } from "@/lib/server/v2GuildResources";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const CONTRACT_ID = "material:v2_timber";
 const consume = vi.fn(async () => undefined);
@@ -74,7 +74,7 @@ function request(body: Record<string, unknown>) {
   });
 }
 
-function weekly(progress = 0) {
+function weekly(progress = 0, tokens = 0) {
   return {
     guildId: 7,
     weekKey: kstWeekMondayKey(),
@@ -83,6 +83,7 @@ function weekly(progress = 0) {
     completedIds: [],
     eligibleUserIds: ["u-trader"],
     target: 40,
+    tokens,
   };
 }
 
@@ -110,7 +111,18 @@ beforeEach(() => {
 });
 
 describe("길드 교역소", () => {
-  it("보유 채집품을 묶음 단위로 납품하고 같은 점수의 교역 토큰을 지급한다", async () => {
+  it("조회한 길드원에게 개인 잔고가 아닌 길드 공동 토큰을 보여준다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 37));
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.tokens).toBe(37);
+    expect(json.shop[0]).toMatchObject({ tokenCost: 20, affordable: true });
+  });
+
+  it("보유 채집품을 납품하면 같은 점수를 길드 공동 토큰에 더한다", async () => {
     const response = await POST(
       request({ action: "deliver", contractId: CONTRACT_ID, batches: 2 }),
     );
@@ -121,15 +133,25 @@ describe("길드 교역소", () => {
       itemName: "소나무 원목",
       quantity: 20,
       points: 2,
+      tokensGained: 4,
       completed: false,
       contributionPoints: 20,
     });
-    expect(json.tokens).toBe(2);
+    expect(json.tokens).toBe(4);
     expect(json.contribution.points).toBe(2);
     expect(consume).toHaveBeenCalledWith(20);
     expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ progress: { [CONTRACT_ID]: 2 } }),
+      expect.objectContaining({
+        progress: { [CONTRACT_ID]: 2 },
+        tokens: 4,
+      }),
+    );
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-trader",
+      GUILD_TRADE_USER_SAVE_KEY,
+      expect.objectContaining({ tokens: 0, contributionPoints: 2 }),
     );
   });
 
@@ -141,11 +163,11 @@ describe("길드 교역소", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.guildReward).toEqual({ gold: 1_800_000, fame: 120 });
+    expect(json.guildReward).toEqual({ gold: 2_250_000, fame: 150 });
     expect(upsertGuildResources).toHaveBeenCalledWith(expect.anything(), 7, {
-      gold: 6_800_000,
+      gold: 7_250_000,
     });
-    expect(addGuildFame).toHaveBeenCalledWith(expect.anything(), 7, 120);
+    expect(addGuildFame).toHaveBeenCalledWith(expect.anything(), 7, 150);
     expect(logGuildActivity).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -172,13 +194,17 @@ describe("길드 교역소", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.delivered).toMatchObject({ points: 8, completed: true });
+    expect(json.delivered).toMatchObject({
+      points: 8,
+      tokensGained: 16,
+      completed: true,
+    });
     expect(json.contracts[0]).toMatchObject({ progress: 50, completed: true });
-    expect(json.tokens).toBe(8);
+    expect(json.tokens).toBe(16);
   });
 
   it("개인 주간 납품 한도를 넘는 요청은 아이템을 소비하지 않는다", async () => {
-    vi.mocked(lockSaveForUpdate).mockResolvedValue(userState({ contributionPoints: 160 }));
+    vi.mocked(lockSaveForUpdate).mockResolvedValue(userState({ contributionPoints: 300 }));
     const response = await POST(
       request({ action: "deliver", contractId: CONTRACT_ID, batches: 1 }),
     );
@@ -188,9 +214,10 @@ describe("길드 교역소", () => {
     expect(consume).not.toHaveBeenCalled();
   });
 
-  it("교역 토큰으로 해금된 제작 재료를 구매한다", async () => {
+  it("다른 길드원이 쌓은 공동 토큰으로 해금된 제작 재료를 구매한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
     vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
-      if (key === GUILD_TRADE_USER_SAVE_KEY) return userState({ tokens: 100 });
+      if (key === GUILD_TRADE_USER_SAVE_KEY) return userState({ tokens: 0 });
       if (key === "character.v2") return { materials: {} };
       return {};
     });
@@ -212,7 +239,43 @@ describe("길드 교역소", () => {
       expect.anything(),
       "u-trader",
       GUILD_TRADE_USER_SAVE_KEY,
-      expect.objectContaining({ tokens: 80, purchases: { refined_iron: 1 } }),
+      expect.objectContaining({ tokens: 0, purchases: { refined_iron: 1 } }),
+    );
+    expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tokens: 80 }),
+    );
+  });
+
+  it("기존 개인 토큰은 공동 잔고에 한 번 합친 뒤 개인 잔고를 비운다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 10));
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === GUILD_TRADE_USER_SAVE_KEY) return userState({ tokens: 15 });
+      if (key === "character.v2") return { materials: {} };
+      return {};
+    });
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "refined_iron" }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.tokens).toBe(5);
+    expect(saveGuildTradeWeekly).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({ tokens: 25 }),
+    );
+    expect(saveGuildTradeWeekly).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tokens: 5 }),
+    );
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-trader",
+      GUILD_TRADE_USER_SAVE_KEY,
+      expect.objectContaining({ tokens: 0 }),
     );
   });
 });

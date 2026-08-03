@@ -7,6 +7,7 @@ import {
   guildTradeCompletionReward,
   guildTradeItem,
   guildTradeShopItem,
+  guildTradeTokenReward,
   parseGuildTradeUserState,
   type GuildTradeShopItem,
   type GuildTradeUserState,
@@ -26,7 +27,7 @@ import {
   readGuildTradeItemBalances,
 } from "@/lib/server/guildTradeInventory";
 import { buildingLevelFromSlots } from "@/lib/server/settlementBuildingAccess";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import {
@@ -57,34 +58,56 @@ async function tradePostLevel(tx: Tx, guildId: number): Promise<number> {
   );
 }
 
-async function tradeView(args: {
+/**
+ * 구 개인 잔고를 길드 공동 잔고에 한 번만 합친다. 개인 세이브의 tokens 를 0으로
+ * 저장하므로 같은 사용자가 다시 들어와도 중복 이관되지 않는다.
+ */
+async function lockTradeUserStateAndMigrateTokens(args: {
   tx: Tx;
   userId: string;
   guildId: number;
+  weekly: GuildTradeWeeklyState;
+}): Promise<{ weekly: GuildTradeWeeklyState; userState: GuildTradeUserState }> {
+  const { tx, userId, guildId } = args;
+  const userRaw = await lockSaveForUpdate<Record<string, unknown>>(
+    tx,
+    userId,
+    GUILD_TRADE_USER_SAVE_KEY,
+    {},
+  );
+  const userState = parseGuildTradeUserState(userRaw, {
+    guildId,
+    weekKey: args.weekly.weekKey,
+  });
+  if (userState.tokens <= 0) {
+    return { weekly: args.weekly, userState };
+  }
+
+  const weekly = {
+    ...args.weekly,
+    tokens: args.weekly.tokens + userState.tokens,
+  };
+  const migratedUserState = { ...userState, tokens: 0 };
+  await upsertSave(tx, userId, GUILD_TRADE_USER_SAVE_KEY, migratedUserState);
+  await saveGuildTradeWeekly(tx, weekly);
+  return { weekly, userState: migratedUserState };
+}
+
+async function tradeView(args: {
+  tx: Tx;
+  userId: string;
   level: number;
   weekly: GuildTradeWeeklyState;
   now: Date;
-  userState?: GuildTradeUserState;
+  userState: GuildTradeUserState;
 }) {
-  const { tx, userId, guildId, level, weekly, now } = args;
+  const { tx, userId, level, weekly, now } = args;
   const upgrade = tradePostUpgradeForLevel(level);
   const items = weekly.contractIds
     .map(guildTradeItem)
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
-  const [balances, userRaw] = await Promise.all([
-    readGuildTradeItemBalances(tx, userId, items, now),
-    args.userState
-      ? Promise.resolve(args.userState)
-      : readSave<Record<string, unknown>>(
-          tx,
-          userId,
-          GUILD_TRADE_USER_SAVE_KEY,
-          {},
-        ),
-  ]);
-  const userState =
-    args.userState ??
-    parseGuildTradeUserState(userRaw, { guildId, weekKey: weekly.weekKey });
+  const balances = await readGuildTradeItemBalances(tx, userId, items, now);
+  const userState = args.userState;
   const reward = guildTradeCompletionReward(
     upgrade.completionRewardBonusPct,
   );
@@ -99,12 +122,13 @@ async function tradeView(args: {
     weekKey: weekly.weekKey,
     eligible: weekly.eligibleUserIds.includes(userId),
     rewardBonusPct: upgrade.completionRewardBonusPct,
+    tokenYieldBonusPct: upgrade.tokenYieldBonusPct,
     contribution: {
       points: userState.contributionPoints,
       cap: upgrade.personalContributionCap,
       remaining: personalRemaining,
     },
-    tokens: userState.tokens,
+    tokens: weekly.tokens,
     contracts: items.map((item) => {
       const progress = Math.min(weekly.target, weekly.progress[item.id] ?? 0);
       const remainingPoints = Math.max(0, weekly.target - progress);
@@ -134,7 +158,7 @@ async function tradeView(args: {
         unlocked: level >= item.minFacilityLevel,
         purchased,
         remaining: Math.max(0, item.weeklyLimit - purchased),
-        affordable: userState.tokens >= item.tokenCost,
+        affordable: weekly.tokens >= item.tokenCost,
       };
     }),
   };
@@ -160,17 +184,30 @@ export async function GET() {
       };
     }
     const upgrade = tradePostUpgradeForLevel(level);
-    const weekly = await lockGuildTradeWeekly(
+    const lockedWeekly = await lockGuildTradeWeekly(
       tx,
       guildId,
       weekKey,
       upgrade.weeklyContractCount,
     );
+    const { weekly, userState } = await lockTradeUserStateAndMigrateTokens({
+      tx,
+      userId,
+      guildId,
+      weekly: lockedWeekly,
+    });
     return {
       status: 200,
       body: {
         ok: true as const,
-        ...(await tradeView({ tx, userId, guildId, level, weekly, now })),
+        ...(await tradeView({
+          tx,
+          userId,
+          level,
+          weekly,
+          now,
+          userState,
+        })),
       },
     };
   });
@@ -216,12 +253,19 @@ export async function POST(req: Request) {
       };
     }
     const upgrade = tradePostUpgradeForLevel(level);
-    const weekly = await lockGuildTradeWeekly(
+    const lockedWeekly = await lockGuildTradeWeekly(
       tx,
       guildId,
       weekKey,
       upgrade.weeklyContractCount,
     );
+    const tradeState = await lockTradeUserStateAndMigrateTokens({
+      tx,
+      userId,
+      guildId,
+      weekly: lockedWeekly,
+    });
+    const { weekly, userState } = tradeState;
 
     if (body.action === "deliver") {
       if (!weekly.eligibleUserIds.includes(userId)) {
@@ -246,15 +290,13 @@ export async function POST(req: Request) {
       if (!source) {
         return { status: 409, body: { ok: false as const, error: "source_unavailable" } };
       }
-      const userRaw = await lockSaveForUpdate<Record<string, unknown>>(
-        tx,
-        userId,
-        GUILD_TRADE_USER_SAVE_KEY,
-        {},
-      );
-      const userState = parseGuildTradeUserState(userRaw, { guildId, weekKey });
       const quantity = item.batchSize * batches;
       const points = item.pointValue * batches;
+      const tokensGained = guildTradeTokenReward(
+        userState.contributionPoints,
+        points,
+        upgrade.tokenYieldBonusPct,
+      );
       const contributionPoints = guildExistingActivityContributionPoints(points);
       const currentProgress = weekly.progress[item.id] ?? 0;
       if (
@@ -269,6 +311,7 @@ export async function POST(req: Request) {
       const completed = currentProgress + points >= weekly.target;
       const nextWeekly: GuildTradeWeeklyState = {
         ...weekly,
+        tokens: weekly.tokens + tokensGained,
         progress: {
           ...weekly.progress,
           [item.id]: Math.min(weekly.target, currentProgress + points),
@@ -279,7 +322,7 @@ export async function POST(req: Request) {
       };
       const nextUserState: GuildTradeUserState = {
         ...userState,
-        tokens: userState.tokens + points,
+        tokens: 0,
         contributionPoints: userState.contributionPoints + points,
       };
       await source.consume(quantity);
@@ -327,6 +370,7 @@ export async function POST(req: Request) {
             itemName: item.name,
             quantity,
             points,
+            tokensGained,
             completed,
             contributionPoints,
           },
@@ -334,7 +378,6 @@ export async function POST(req: Request) {
           ...(await tradeView({
             tx,
             userId,
-            guildId,
             level,
             weekly: nextWeekly,
             now,
@@ -351,23 +394,20 @@ export async function POST(req: Request) {
     if (level < shopItem.minFacilityLevel) {
       return { status: 403, body: { ok: false as const, error: "shop_item_locked" } };
     }
-    const grant = await lockShopGrant(tx, userId, shopItem);
-    const userRaw = await lockSaveForUpdate<Record<string, unknown>>(
-      tx,
-      userId,
-      GUILD_TRADE_USER_SAVE_KEY,
-      {},
-    );
-    const userState = parseGuildTradeUserState(userRaw, { guildId, weekKey });
     if ((userState.purchases[shopItem.id] ?? 0) >= shopItem.weeklyLimit) {
       return { status: 409, body: { ok: false as const, error: "purchase_limit" } };
     }
-    if (userState.tokens < shopItem.tokenCost) {
+    if (weekly.tokens < shopItem.tokenCost) {
       return { status: 409, body: { ok: false as const, error: "insufficient_tokens" } };
     }
+    const grant = await lockShopGrant(tx, userId, shopItem);
+    const nextWeekly: GuildTradeWeeklyState = {
+      ...weekly,
+      tokens: weekly.tokens - shopItem.tokenCost,
+    };
     const nextUserState: GuildTradeUserState = {
       ...userState,
-      tokens: userState.tokens - shopItem.tokenCost,
+      tokens: 0,
       purchases: {
         ...userState.purchases,
         [shopItem.id]: (userState.purchases[shopItem.id] ?? 0) + 1,
@@ -375,6 +415,7 @@ export async function POST(req: Request) {
     };
     await grant();
     await upsertSave(tx, userId, GUILD_TRADE_USER_SAVE_KEY, nextUserState);
+    await saveGuildTradeWeekly(tx, nextWeekly);
     return {
       status: 200,
       body: {
@@ -383,9 +424,8 @@ export async function POST(req: Request) {
         ...(await tradeView({
           tx,
           userId,
-          guildId,
           level,
-          weekly,
+          weekly: nextWeekly,
           now,
           userState: nextUserState,
         })),

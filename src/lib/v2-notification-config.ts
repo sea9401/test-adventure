@@ -93,3 +93,10 @@ export type V2NotificationEntry = {
   readAt: number | null; // epoch ms, null = 미읽음
   createdAt: number; // epoch ms
 };
+
+/** 알림 종·알림 센터의 기본 목록은 아직 확인하지 않은 항목만 보여준다. */
+export function unreadV2Notifications(
+  entries: readonly V2NotificationEntry[],
+): V2NotificationEntry[] {
+  return entries.filter((entry) => entry.readAt === null);
+}

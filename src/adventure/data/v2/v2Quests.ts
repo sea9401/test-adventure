@@ -21,11 +21,13 @@
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2Class } from "./classes";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
+import { HUNT_MONSTER_SPECIES_COUNT } from "./dungeon";
 import type { TitleId } from "../titles";
 import { COOKING_RECIPES } from "../../v2/cooking";
 
 export type QuestLineId = string;
 export type AchievementBadgeTier = "bronze" | "silver" | "gold" | "legendary";
+export type QuestDetailKind = "monster_codex";
 
 export type QuestReward = {
   /** 골드(HP 회복 통화 겸용). */
@@ -94,7 +96,7 @@ export type QuestCtx = {
   skillsEquipped: number;
   /** 학습한 스킬 수. skills.v2.learned. */
   skillsLearned: number;
-  /** 스킬 화면에서 로드아웃을 직접 저장한 적 있는가. character.v2.hasEditedSkillLoadout. */
+  /** 스킬 화면에서 로드아웃을 직접 저장한 적 있는가. 옛 튜토리얼 완료 호환용. */
   hasEditedSkillLoadout: boolean;
   /** 치료소에서 HP·MP 회복을 한 적 있는가. character.v2.hasHealed. */
   hasHealed: boolean;
@@ -163,6 +165,10 @@ export type QuestDef = {
   /** 수치형 업적의 현재 진행도와 목표. */
   progress?: (c: QuestCtx) => number;
   goal?: number;
+  /** 업적 행에서 열 수 있는 추가 진행 상세. */
+  detailKind?: QuestDetailKind;
+  /** 현재 사냥 가능 종 수가 이 값보다 적으면 미달성 업적을 숨긴다. */
+  requiredHuntableSpecies?: number;
   /** 체인 — 같은 내용·증가 목표 마일스톤 묶음. 정의 순서대로 "현재 단계"만 노출
    *  (앞 단계 수령 시 다음 등장 — 잠금 표시도 없이 숨김, 패널 난잡함 방지). */
   chain?: string;
@@ -369,9 +375,12 @@ const BASICS: QuestDef[] = [
     desc: "캐릭터 > 스킬 > 로드아웃에서 배운 스킬을 장착하고 저장하세요.",
     href: "/character/skills",
     reward: { staminaPotions: 2 },
-    progress: (c) => (c.hasEditedSkillLoadout ? 1 : 0),
+    // 이미 스킬을 장착한 채 퀘스트가 활성화된 사용자도 즉시 완료 처리한다.
+    // 옛 행동 플래그는 장착 후 해제한 사용자의 기존 진행을 되돌리지 않도록 함께 인정한다.
+    progress: (c) =>
+      c.skillsEquipped > 0 || c.hasEditedSkillLoadout ? 1 : 0,
     goal: 1,
-    check: (c) => c.hasEditedSkillLoadout,
+    check: (c) => c.skillsEquipped > 0 || c.hasEditedSkillLoadout,
   },
   {
     id: "b_farm",
@@ -464,11 +473,8 @@ function milestones(
   value: (c: QuestCtx) => number,
   entries: readonly Milestone[],
 ): QuestDef[] {
-  return entries.map((entry) => ({
-    id: entry.id,
-    line,
-    title: entry.title,
-    desc: `${label} ${entry.goal.toLocaleString()}${
+  return entries.map((entry) => {
+    const unit =
       label.includes("레벨") ||
       label.includes("깊이") ||
       label.includes("숙련도") ||
@@ -485,17 +491,43 @@ function milestones(
                 ? "개"
               : label.includes("층")
                 ? "층"
-                : "회"
-    }를 달성하세요.`,
-    reward: entry.titleId ? { titleId: entry.titleId } : {},
-    points: entry.points,
-    badgeTier: entry.badgeTier,
-    chain: `${line}:${label}`,
-    progress: value,
-    goal: entry.goal,
-    check: (c) => value(c) >= entry.goal,
-  }));
+                : "회";
+    const particle = unit === "" || unit === "종" || unit === "층" ? "을" : "를";
+    return {
+      id: entry.id,
+      line,
+      title: entry.title,
+      desc: `${label} ${entry.goal.toLocaleString()}${unit}${particle} 달성하세요.`,
+      reward: entry.titleId ? { titleId: entry.titleId } : {},
+      points: entry.points,
+      badgeTier: entry.badgeTier,
+      chain: `${line}:${label}`,
+      progress: value,
+      goal: entry.goal,
+      check: (c) => value(c) >= entry.goal,
+    };
+  });
 }
+
+const MONSTER_SPECIES_ACHIEVEMENTS: QuestDef[] = milestones(
+  "combat",
+  "서로 다른 몬스터 처치",
+  (c) => c.speciesKilled,
+  [
+    { id: "combat_species5", title: "초보 사냥꾼", goal: 5, points: 5 },
+    { id: "b_species15", title: "사냥꾼의 기록", goal: 15, points: 10, badgeTier: "bronze" },
+    { id: "combat_species25", title: "생태 조사원", goal: 25, points: 15 },
+    { id: "b_species35", title: "토벌 도감의 주인", goal: 35, points: 30, titleId: "ach_bestiary_master", badgeTier: "silver" },
+    { id: "combat_species40", title: "모든 흔적을 좇아", goal: 40, points: 40 },
+    { id: "combat_species60", title: "대륙의 생태 기록", goal: 60, points: 50, badgeTier: "gold" },
+    { id: "combat_species80", title: "끝없는 추적", goal: 80, points: 60 },
+    { id: "combat_species95", title: "몬스터 도감 완주", goal: 95, points: 80, badgeTier: "legendary" },
+  ],
+).map((quest) => ({
+  ...quest,
+  detailKind: "monster_codex",
+  requiredHuntableSpecies: quest.goal,
+}));
 
 const COMBAT: QuestDef[] = [
   ...milestones("combat", "누적 전투", (c) => c.battleCount, [
@@ -511,16 +543,7 @@ const COMBAT: QuestDef[] = [
       25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
     ]),
   ]),
-  ...milestones("combat", "서로 다른 몬스터 처치", (c) => c.speciesKilled, [
-    { id: "combat_species5", title: "초보 사냥꾼", goal: 5, points: 5 },
-    { id: "b_species15", title: "사냥꾼의 기록", goal: 15, points: 10, badgeTier: "bronze" },
-    { id: "combat_species25", title: "생태 조사원", goal: 25, points: 15 },
-    { id: "b_species35", title: "토벌 도감의 주인", goal: 35, points: 30, titleId: "ach_bestiary_master", badgeTier: "silver" },
-    { id: "combat_species40", title: "모든 흔적을 좇아", goal: 40, points: 40 },
-    { id: "combat_species60", title: "대륙의 생태 기록", goal: 60, points: 50, badgeTier: "gold" },
-    { id: "combat_species80", title: "끝없는 추적", goal: 80, points: 60 },
-    { id: "combat_species95", title: "몬스터 도감 완주", goal: 95, points: 80, badgeTier: "legendary" },
-  ]),
+  ...MONSTER_SPECIES_ACHIEVEMENTS,
   ...milestones("combat", "협동 보스 종류 토벌", (c) => c.bossKills, [
     { id: "a_boss", title: "협동 보스 토벌", goal: 1, points: 10, badgeTier: "bronze" },
     { id: "combat_boss2", title: "보스 추적자", goal: 2, points: 15, badgeTier: "silver" },
@@ -611,7 +634,7 @@ const ARENA: QuestDef[] = [
     { id: "s_arena_win", title: "투기장의 승자", goal: 1, points: 5, badgeTier: "bronze" },
     { id: "arena_win5", title: "연승의 시작", goal: 5, points: 10 },
     { id: "arena_win20", title: "검투사", goal: 20, points: 15, badgeTier: "silver" },
-    { id: "arena_win50", title: "투기장 베테랑", goal: 50, points: 25 },
+    { id: "arena_win50", title: "아레나 베테랑", goal: 50, points: 25 },
     { id: "arena_win100", title: "백승의 명예", goal: 100, points: 40, badgeTier: "gold" },
     { id: "arena_win250", title: "투기장의 지배자", goal: 250, points: 60, badgeTier: "legendary" },
     ...marathonMilestones("marathon_arena", "투기장 승리", [
@@ -977,6 +1000,7 @@ export type QuestView = {
   points: number;
   progress: number | null;
   goal: number | null;
+  detailKind: QuestDetailKind | null;
 };
 
 // 직업 전용 라인은 현 직군에게만 보임(classOnly 없으면 전원).
@@ -987,6 +1011,21 @@ function lineVisible(line: QuestLine | undefined, ctx: QuestCtx): boolean {
 }
 function isVisible(def: QuestDef, ctx: QuestCtx): boolean {
   return lineVisible(LINE_BY_ID.get(def.line), ctx);
+}
+
+// 현재 콘텐츠로 달성할 수 없는 미래 마일스톤은 진행 중 목록·총점에서 제외한다.
+// 과거 몬스터 기록으로 이미 조건을 채웠거나 수령한 이용자의 권리는 그대로 보존한다.
+function isContentAvailable(
+  def: QuestDef,
+  ctx: QuestCtx,
+  claimed: ReadonlySet<string>,
+): boolean {
+  if (def.requiredHuntableSpecies == null) return true;
+  return (
+    HUNT_MONSTER_SPECIES_COUNT >= def.requiredHuntableSpecies ||
+    claimed.has(def.id) ||
+    def.check(ctx)
+  );
 }
 
 // 순차 라인에서 "열림" = 앞 퀘스트들이 전부 충족(수령됨 || 현재 check true). 비순차는 항상 열림.
@@ -1037,6 +1076,7 @@ export function isQuestClaimable(
   claimed: ReadonlySet<string>,
 ): boolean {
   if (!isVisible(def, ctx)) return false;
+  if (!isContentAvailable(def, ctx, claimed)) return false;
   // 체인 순서 가드 — 앞 단계 미수령이면 조건 충족이라도 수령 불가(단계 건너뛰기 차단).
   if (hiddenByChain(def, claimed)) return false;
   return questStatus(def, ctx, claimed) === "claimable";
@@ -1052,7 +1092,10 @@ export function deriveQuestViews(
   claimed: ReadonlySet<string>,
 ): QuestView[] {
   return V2_QUESTS.filter(
-    (q) => isVisible(q, ctx) && !hiddenByChain(q, claimed),
+    (q) =>
+      isVisible(q, ctx) &&
+      isContentAvailable(q, ctx, claimed) &&
+      !hiddenByChain(q, claimed),
   ).map((q) => ({
     id: q.id,
     line: q.line,
@@ -1064,6 +1107,7 @@ export function deriveQuestViews(
     points: q.points ?? 0,
     progress: q.progress ? Math.max(0, Math.floor(q.progress(ctx))) : null,
     goal: q.goal ?? null,
+    detailKind: q.detailKind ?? null,
   }));
 }
 
@@ -1079,7 +1123,10 @@ export function achievementSummary(
   ctx: QuestCtx,
   claimed: ReadonlySet<string>,
 ): AchievementSummary {
-  const achievements = V2_QUESTS.filter((q) => !isTutorialLine(q.line));
+  const achievements = V2_QUESTS.filter(
+    (q) =>
+      !isTutorialLine(q.line) && isContentAvailable(q, ctx, claimed),
+  );
   const completed = achievements.filter(
     (q) => claimed.has(q.id) || q.check(ctx),
   );

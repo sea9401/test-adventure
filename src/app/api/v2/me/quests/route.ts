@@ -38,6 +38,7 @@ import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
 import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { deriveMonsterHuntCodex } from "@/adventure/data/v2/monsterHuntCodex";
 
 // GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
@@ -139,6 +140,7 @@ export async function GET() {
     quests,
     current,
     achievementSummary: achievementSummary(ctx, claimed),
+    monsterCodex: deriveMonsterHuntCodex(effectiveAdvLogRaw),
     repeat: {
       daily: repeatViews.filter((q) => q.scope === "daily"),
       weekly: repeatViews.filter((q) => q.scope === "weekly"),

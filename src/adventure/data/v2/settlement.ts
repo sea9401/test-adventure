@@ -456,6 +456,7 @@ export type TradePostUpgradeDef = {
   cost: SettlementBuildingUpgradeCost;
   weeklyContractCount: number;
   personalContributionCap: number;
+  tokenYieldBonusPct: number;
   completionRewardBonusPct: number;
   label: string;
 };
@@ -608,6 +609,7 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
     cost: {},
     weeklyContractCount: 3,
     personalContributionCap: 120,
+    tokenYieldBonusPct: 0,
     completionRewardBonusPct: 0,
     label: "임시 교역 천막",
   },
@@ -615,32 +617,36 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
     level: 2,
     cost: facilityUpgradeCost(2, 25_000_000, 0),
     weeklyContractCount: 3,
-    personalContributionCap: 140,
-    completionRewardBonusPct: 10,
+    personalContributionCap: 200,
+    tokenYieldBonusPct: 50,
+    completionRewardBonusPct: 25,
     label: "상단 접수대",
   },
   {
     level: 3,
     cost: facilityUpgradeCost(3, 55_000_000, 750),
     weeklyContractCount: 4,
-    personalContributionCap: 160,
-    completionRewardBonusPct: 20,
+    personalContributionCap: 300,
+    tokenYieldBonusPct: 100,
+    completionRewardBonusPct: 50,
     label: "광역 물류창고",
   },
   {
     level: 4,
     cost: facilityUpgradeCost(4, 110_000_000, 1600),
     weeklyContractCount: 4,
-    personalContributionCap: 180,
-    completionRewardBonusPct: 30,
+    personalContributionCap: 420,
+    tokenYieldBonusPct: 150,
+    completionRewardBonusPct: 75,
     label: "대륙 상단 지부",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 190_000_000, 3000),
     weeklyContractCount: 5,
-    personalContributionCap: 220,
-    completionRewardBonusPct: 40,
+    personalContributionCap: 600,
+    tokenYieldBonusPct: 200,
+    completionRewardBonusPct: 100,
     label: "왕립 교역 연합소",
   },
 ];
@@ -865,7 +871,7 @@ export function settlementBuildingUpgradeSummary(
   }
   if (buildingId === "trade_post") {
     const trade = upgrade as TradePostUpgradeDef;
-    return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 완료 보상 +${trade.completionRewardBonusPct}%`;
+    return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 토큰 +${trade.tokenYieldBonusPct}% · 완료 보상 +${trade.completionRewardBonusPct}%`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p · 주간 의뢰 진척 +${smithy.weeklyProgressBonusPct}%`;

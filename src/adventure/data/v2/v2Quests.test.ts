@@ -169,6 +169,12 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
+  it("몬스터 종수와 숫자형 목표 설명은 올바른 목적격 조사를 사용한다", () => {
+    expect(questById("combat_species80")?.desc).toContain("80종을 달성하세요");
+    expect(questById("cooking_level10")?.desc).toContain("10을 달성하세요");
+    expect(questById("combat_10")?.desc).toContain("10회를 달성하세요");
+  });
+
   it("모든 영구 업적은 골드를 보상으로 지급하지 않는다", () => {
     const achievements = V2_QUESTS.filter((q) => !isTutorialLine(q.line));
     expect(achievements.every((q) => q.reward.gold == null)).toBe(true);
@@ -323,7 +329,7 @@ describe("성장의 길 (순차 라인)", () => {
     );
   });
 
-  it("기초 튜토리얼 — 은행/스킬 신호로만 충족(신규는 미충족)", () => {
+  it("기초 튜토리얼 — 은행/현재 스킬 장착/옛 저장 신호로 충족", () => {
     // 신규(ZERO) = 전부 미충족.
     expect(questStatus(questById("b_bank")!, ZERO, none)).toBe("active");
     expect(questStatus(questById("b_skill")!, ZERO, none)).toBe("active");
@@ -344,7 +350,7 @@ describe("성장의 길 (순차 라인)", () => {
         { ...ZERO, skillsEquipped: 1 },
         none,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("기초 튜토리얼 — 상점/치료/학습 신호로 충족", () => {
@@ -764,6 +770,55 @@ describe("currentGuideQuest (홈 배너)", () => {
 });
 
 describe("deriveQuestViews", () => {
+  const speciesThrough60 = new Set([
+    "combat_species5",
+    "b_species15",
+    "combat_species25",
+    "b_species35",
+    "combat_species40",
+    "combat_species60",
+  ]);
+
+  it("현재 60종을 넘는 몬스터 업적은 미달성 이용자에게 숨긴다", () => {
+    const views = deriveQuestViews(
+      { ...ZERO, speciesKilled: 60 },
+      speciesThrough60,
+    );
+    const ids = views.map((view) => view.id);
+
+    expect(ids).not.toContain("combat_species80");
+    expect(ids).not.toContain("combat_species95");
+  });
+
+  it("과거 기록으로 80종을 채운 이용자는 끝없는 추적 수령 권리를 유지한다", () => {
+    const views = deriveQuestViews(
+      { ...ZERO, speciesKilled: 80 },
+      speciesThrough60,
+    );
+    const endlessTracking = views.find(
+      (view) => view.id === "combat_species80",
+    );
+
+    expect(endlessTracking).toMatchObject({
+      status: "claimable",
+      progress: 80,
+      goal: 80,
+      detailKind: "monster_codex",
+    });
+    expect(views.map((view) => view.id)).not.toContain("combat_species95");
+  });
+
+  it("과거에 수령한 80종 업적은 진행 수치와 무관하게 완료 목록과 점수에 남는다", () => {
+    const claimed = new Set([...speciesThrough60, "combat_species80"]);
+    const views = deriveQuestViews(ZERO, claimed);
+    const summary = achievementSummary(ZERO, claimed);
+
+    expect(views.find((view) => view.id === "combat_species80")?.status).toBe(
+      "claimed",
+    );
+    expect(summary.score).toBeGreaterThanOrEqual(60);
+  });
+
   it("현 직군 가시 + 체인 현재 단계만 (숨김 단계 제외)", () => {
     const views = deriveQuestViews(ZERO, none);
     // 직군 가시 퀘 중, 체인은 첫 단계만 보임(미수령 상태 기준).

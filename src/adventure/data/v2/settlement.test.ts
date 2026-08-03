@@ -148,18 +148,21 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 식권 5장 · 메뉴 3종");
   });
 
-  it("길드 교역소는 Lv5에서 주간 계약 5건과 개인 납품 220점을 연다", () => {
+  it("길드 교역소는 매 레벨 토큰·납품 한도·완료 보상을 크게 높인다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("trade_post");
     expect(nextSettlementBuildingUpgrade("trade_post", 1)).toMatchObject({
       level: 2,
       cost: { crop: 500, ore: 500, gold: 25_000_000, fame: 0 },
       weeklyContractCount: 3,
-      completionRewardBonusPct: 10,
+      personalContributionCap: 200,
+      tokenYieldBonusPct: 50,
+      completionRewardBonusPct: 25,
     });
     expect(tradePostUpgradeForLevel(5)).toMatchObject({
       weeklyContractCount: 5,
-      personalContributionCap: 220,
-      completionRewardBonusPct: 40,
+      personalContributionCap: 600,
+      tokenYieldBonusPct: 200,
+      completionRewardBonusPct: 100,
       label: "왕립 교역 연합소",
     });
     expect(
@@ -167,7 +170,9 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "trade_post",
         tradePostUpgradeForLevel(5),
       ),
-    ).toBe("주간 계약 5건 · 개인 납품 220점 · 완료 보상 +40%");
+    ).toBe(
+      "주간 계약 5건 · 개인 납품 600점 · 토큰 +200% · 완료 보상 +100%",
+    );
   });
 
   it("시설 재료 비용은 Lv2~5에서 기존 대비 2~5배이며 Lv2 명성은 무료다", () => {

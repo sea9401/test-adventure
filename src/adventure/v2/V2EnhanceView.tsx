@@ -50,8 +50,11 @@ import {
   ENHANCE_EMBER_RED_COST,
   TORN_MAP_FRAGMENT_COMBINE_COST,
   TORN_MAP_FRAGMENT_MATERIAL_ID,
+  craftedRareMapDepthOptions,
+  defaultCraftedRareMapDepth,
   type ScavengedCraftRecipeId,
 } from "@/adventure/data/v2/scavengedCrafting";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 import {
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
@@ -120,6 +123,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   //   결제 가능액(서버 enhance/reforge 가 spendGold 로 둘 다 차감)이라 그 합을 보여준다.
   const {
     coreLoopOn,
+    frontierDepth,
+    playerCombat,
     setBankedGold: syncCtxBanked,
     refreshGameState,
   } = useGameState();
@@ -136,6 +141,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     enhanceEmbers: 0,
     tornMapFragments: 0,
   });
+  const [chosenRareMapDepth, setChosenRareMapDepth] = useState<number | null>(
+    null,
+  );
   const [tab, setTab] = useState<V2EquipSlot>("weapon");
   const [selectedIid, setSelectedIid] = useState<string | null>(null);
   const [stone, setStone] = useState<EnhanceChoice>("none");
@@ -148,6 +156,19 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   } | null>(null);
   const [mode, setMode] = useState<ForgeMode>("enhance");
   const { notifySystem } = useSystemToast();
+  const rareMapDepthOptions = useMemo(
+    () => craftedRareMapDepthOptions(frontierDepth),
+    [frontierDepth],
+  );
+  const recommendedRareMapDepth = useMemo(
+    () => defaultCraftedRareMapDepth(frontierDepth, playerCombat?.power),
+    [frontierDepth, playerCombat?.power],
+  );
+  const rareMapDepth =
+    chosenRareMapDepth != null &&
+    rareMapDepthOptions.includes(chosenRareMapDepth)
+      ? chosenRareMapDepth
+      : recommendedRareMapDepth;
 
   useEffect(() => {
     if (!msg) return;
@@ -454,6 +475,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       materialLabel: string,
       need: number,
       outputLabel: string,
+      mapDepth?: number,
     ) => {
       if (busy) return;
       setBusy(true);
@@ -462,7 +484,10 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         const res = await fetch("/api/v2/me/scavenged-crafting", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ recipe }),
+          body: JSON.stringify({
+            recipe,
+            ...(recipe === "rare_map" ? { depth: mapDepth } : {}),
+          }),
         });
         const json = (await res.json()) as {
           ok?: boolean;
@@ -478,6 +503,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 ? `${materialLabel}이 부족합니다 (${need}개 필요)`
                 : json.error === "rare_map_full"
                   ? "희귀 지도 보유 한도(5장)가 가득 찼습니다"
+                  : json.error === "invalid_map_depth"
+                    ? "지도 단계를 다시 선택해주세요"
                   : `실패: ${json.error ?? "unknown"}`,
           });
           return;
@@ -1034,7 +1061,35 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   "찢어진 지도 조각",
                   TORN_MAP_FRAGMENT_COMBINE_COST,
                   "랜덤 희귀 지도 1장",
+                  rareMapDepth,
                 ),
+              extra: (
+                <label className="mt-2 block border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
+                  <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-200">
+                    지도 단계
+                  </span>
+                  <select
+                    value={rareMapDepth}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setChosenRareMapDepth(Number(event.target.value))
+                    }
+                    className="min-h-9 w-full rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  >
+                    {[...rareMapDepthOptions].reverse().map((depth) => (
+                      <option key={depth} value={depth}>
+                        {huntStageName(depth)}
+                        {depth === recommendedRareMapDepth
+                          ? " · 전투력 기준 권장"
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-zinc-500 dark:text-zinc-400">
+                    정복한 단계만 선택할 수 있으며, 지도는 선택한 단계로 복원됩니다.
+                  </span>
+                </label>
+              ),
             },
           ].map((r) => {
             const short = r.mats.some((m) => m.have < m.need);
@@ -1083,6 +1138,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     {busy ? "…" : "조합 →"}
                   </Button>
                 </div>
+                {"extra" in r ? r.extra : null}
               </Card>
             );
           })}

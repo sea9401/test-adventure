@@ -9,6 +9,8 @@ import {
   huntStageDepthForLegacyDepth,
   huntStageLabel,
   huntStageName,
+  HUNT_MONSTER_CODEX,
+  HUNT_MONSTER_SPECIES_COUNT,
   isHuntStageDepth,
   latestUnlockedHuntStageDepth,
   nextHuntStageDepth,
@@ -30,6 +32,23 @@ import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
 
 describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
+  it("몬스터 처치 도감은 현재 사냥 가능한 표시 이름 60종을 중복 없이 제공한다", () => {
+    expect(HUNT_MONSTER_SPECIES_COUNT).toBe(60);
+    expect(new Set(HUNT_MONSTER_CODEX.map((entry) => entry.name)).size).toBe(
+      HUNT_MONSTER_CODEX.length,
+    );
+    expect(HUNT_MONSTER_CODEX[0]).toEqual({
+      name: "들개",
+      areas: ["들판"],
+      firstDepth: 1,
+    });
+    expect(HUNT_MONSTER_CODEX.at(-1)).toEqual({
+      name: "암류 파수병",
+      areas: ["심해 폐허"],
+      firstDepth: 67,
+    });
+  });
+
   it("깊이 1..maxDepth 를 ≤6깊이 블록으로 묶고, 전부 빠짐없이 단조 커버", () => {
     for (const max of [3, 8, 14, 25, 50]) {
       const groups = dungeonThemeGroups(max);

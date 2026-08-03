@@ -146,8 +146,9 @@ export function JobsContent() {
           있습니다.
         </li>
         <li>
-          10·20·30층은 처음 도달했을 때 추가 보너스가 붙습니다. 일일 보상은 KST
-          기준 하루 한 번만 수령합니다.
+          10·20·30·40·50층은 처음 도달했을 때 추가 보너스가 붙습니다. 일일 보상은 KST
+          기준 하루 한 번만 수령합니다. 날짜가 바뀔 때까지 받지 않은 보상은 다음
+          숙련의 탑 접속 시 숙련 증서로 자동 지급됩니다.
         </li>
       </UL>
       <Table
@@ -196,6 +197,7 @@ function JobRoadmap() {
             ["rogue", "도적"],
             ["survivor", "생존자"],
             ["hybrid", "하이브리드"],
+            ["production", "생산직 · 전투 Lv 제한 없음"],
           ].map(([key, label]) => (
             <span
               key={key}
@@ -212,8 +214,10 @@ function JobRoadmap() {
         </ul>
       </JobRoadmapScroller>
       <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-        카드에는 이름과 순서만 표시합니다. 복합 표시는 여러 선행 직업 숙련도가 필요한
-        하이브리드 전직입니다.
+        초록색으로 강조된 생산직은 전투 레벨 제한 없이 생활 숙련 조건으로 전직할 수
+        있습니다. 같은 생존자 계보라도 헬스 트레이너처럼 초록색 표시가 없는 직업은
+        생산직이 아닙니다. 복합 표시는 여러 선행 직업 숙련도가 필요한 하이브리드
+        전직입니다.
       </p>
       <style>{ROADMAP_CSS}</style>
     </section>
@@ -228,7 +232,7 @@ function RoadmapBranch({ node }: { node: RoadmapNode }) {
       <div
         className={`manual-job-node manual-job-${node.group} ${
           node.hybrid ? "manual-job-hybrid" : ""
-        }`}
+        } ${node.production ? "manual-job-production" : ""}`}
         title={node.prereqText || undefined}
       >
         {tierLabel && <span className="manual-job-tier">{tierLabel}</span>}
@@ -276,6 +280,9 @@ const ROADMAP_CSS = `
 .manual-job-node.manual-job-hybrid{background:#fff2f6;border-color:#ff6b8b;color:#32111d}
 .manual-job-node.manual-job-hybrid::after{content:"";position:absolute;inset:-5px;border:1px dashed #ff89a3;border-radius:8px;pointer-events:none}
 .manual-job-badge{position:absolute;right:7px;top:-18px;display:inline-flex;align-items:center;justify-content:center;height:16px;padding:0 5px;border:1px solid #ff89a3;border-radius:5px;background:#3a1e2a;color:#ffd5df;font-size:9px;font-weight:900;box-shadow:0 7px 14px rgba(0,0,0,.25)}
+.manual-job-node.manual-job-production{border-color:#10b981;border-left-color:#059669;background:#ecfdf5;color:#064e3b;box-shadow:0 0 0 3px rgba(16,185,129,.42),0 9px 20px rgba(0,0,0,.28),inset 0 -2px 0 rgba(0,0,0,.08)}
+.manual-job-node.manual-job-production::before{content:"생산직";position:absolute;left:7px;top:-18px;display:inline-flex;height:16px;align-items:center;padding:0 5px;border:1px solid #34d399;border-radius:5px;background:#064e3b;color:#a7f3d0;font-size:9px;font-weight:900;box-shadow:0 7px 14px rgba(0,0,0,.25)}
 .manual-job-legend{display:inline-flex;align-items:center;height:22px;border:1px solid color-mix(in srgb,var(--accent,#d9b45a) 70%,#ffffff 10%);border-left-width:4px;border-radius:6px;background:#211b2a;color:#f7f1ff;padding:0 7px}
 .manual-job-legend.manual-job-hybrid{border-color:#ff6b8b;border-left-color:#ff6b8b;background:#3a1e2a;color:#ffd5df}
+.manual-job-legend.manual-job-production{border-color:#34d399;border-left-color:#10b981;background:#064e3b;color:#a7f3d0}
 `;

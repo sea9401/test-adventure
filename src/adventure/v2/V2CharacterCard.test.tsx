@@ -16,6 +16,30 @@ const CHARACTER = {
 };
 
 describe("V2CharacterCard profile theme", () => {
+  it("shows slot, equipment, and set names together for equipped items", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={CHARACTER}
+        equipped={{
+          weapon: "weapon-iid",
+          armor: "armor-iid",
+          ring: "ring-iid",
+        }}
+        owned={[
+          { iid: "weapon-iid", id: "v2_iron_sword" },
+          { iid: "armor-iid", id: "v2_canyon_set_armor" },
+          { iid: "ring-iid", id: "v2_crafted_combo_ring" },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("장착 장비");
+    expect(html).toContain("부위 · 장비 · 세트");
+    expect(html).toContain("무기: 철검, 세트 없음");
+    expect(html).toContain("갑옷: 황토 흉갑, 세트 · 마른땅 갑주");
+    expect(html).toContain("반지: 연환 반지, 세트 · 연격각인 장비");
+  });
+
   it("labels character growth as combat level and separates production-job advancement", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard

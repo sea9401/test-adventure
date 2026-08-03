@@ -23,9 +23,10 @@ import { V2InboxView } from "@/adventure/v2/V2InboxView";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatRelative } from "@/lib/notifications";
-import type {
-  V2NotificationEntry,
-  V2NotificationType,
+import {
+  unreadV2Notifications,
+  type V2NotificationEntry,
+  type V2NotificationType,
 } from "@/lib/v2-notification-config";
 
 export type NotificationCenterTab = "all" | "notifications" | "mail";
@@ -353,7 +354,11 @@ export function V2NotificationsView({
           ok?: boolean;
           notifications?: V2NotificationEntry[];
         };
-        if (alive) setNotifications(json.ok ? (json.notifications ?? []) : []);
+        if (alive) {
+          setNotifications(
+            json.ok ? unreadV2Notifications(json.notifications ?? []) : [],
+          );
+        }
       } catch {
         if (alive) setNotifications([]);
       }
@@ -387,14 +392,21 @@ export function V2NotificationsView({
     readMarkedRef.current = true;
     void (async () => {
       try {
+        const hasFarmReady = notifications.some(
+          (item) => item.type === "farm_ready",
+        );
         const res = await fetch("/api/v2/notifications/read", {
           method: "POST",
         });
         if (!res.ok) throw new Error("notification read failed");
+        const farmReadyRead = hasFarmReady
+          ? await acknowledgeFarmReadyNotification()
+          : false;
         const readAt = Date.now();
         setNotifications((current) =>
           current?.map((item) =>
-            item.readAt === null && item.type !== "farm_ready"
+            item.readAt === null &&
+            (item.type !== "farm_ready" || farmReadyRead)
               ? { ...item, readAt }
               : item,
           ) ?? [],

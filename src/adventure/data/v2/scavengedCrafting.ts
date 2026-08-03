@@ -3,6 +3,8 @@ import {
   RARE_MAP_KIND_IDS,
   type RareMapKindId,
 } from "./rareMaps";
+import { latestUnlockedHuntStageDepth } from "./dungeon";
+import { floorPowerGate } from "./dungeonLadder";
 
 export const ENHANCE_EMBER_MATERIAL_ID = "v2_enhance_ember";
 export const TORN_MAP_FRAGMENT_MATERIAL_ID = "v2_torn_map_fragment";
@@ -26,7 +28,7 @@ export const SCAVENGED_CRAFT_MATERIALS = {
     id: TORN_MAP_FRAGMENT_MATERIAL_ID,
     name: "찢어진 지도 조각",
     description:
-      "희미한 길과 표식이 남은 지도 조각. 10개를 모으면 현재 프론티어 깊이의 무작위 희귀 지도로 복원한다.",
+      "희미한 길과 표식이 남은 지도 조각. 10개를 모으면 정복한 사냥 단계 중 선택한 깊이의 무작위 희귀 지도로 복원한다.",
   },
 } as const;
 
@@ -51,6 +53,30 @@ export function rollEnhanceEmberDrop(rng: () => number): number {
 
 export function rollTornMapFragmentDrop(rng: () => number): number {
   return rng() * 100 < TORN_MAP_FRAGMENT_DROP_PCT ? 1 : 0;
+}
+
+/** 희귀 지도 복원에서 고를 수 있는 정복 완료 대표 단계(2·4·6…). */
+export function craftedRareMapDepthOptions(frontierDepth: number): number[] {
+  const maxDepth = latestUnlockedHuntStageDepth(frontierDepth);
+  return Array.from({ length: Math.floor(maxDepth / 2) }, (_, index) =>
+    Math.max(2, (index + 1) * 2),
+  );
+}
+
+/** 현재 전투력이 권장 전투력을 넘는 가장 깊은 정복 단계를 조합 기본값으로 쓴다. */
+export function defaultCraftedRareMapDepth(
+  frontierDepth: number,
+  playerPower: number | null | undefined,
+): number {
+  const options = craftedRareMapDepthOptions(frontierDepth);
+  if (playerPower == null || !Number.isFinite(playerPower)) {
+    return options.at(-1) ?? 2;
+  }
+  return (
+    options.findLast((depth) => playerPower >= floorPowerGate(depth)) ??
+    options[0] ??
+    2
+  );
 }
 
 // 조합 지도는 기존 자연 드롭의 종류별 희귀도 비율을 유지한다. dropPct=0인 테스트

@@ -407,11 +407,12 @@ export function GuildWorkshopPanel({
     },
     [state],
   );
-  // 제작 성공 후속 재조회 — 주간 의뢰 진행 + 기여도.
+  // 제작 성공 후속 재조회 — 새 제작품이 즉시 납품 후보에 나타나도록 일일 납품도 갱신한다.
   const afterCraftRefresh = useCallback(() => {
     void loadWeekly();
+    void loadDelivery();
     void loadContributionInfo();
-  }, [loadWeekly, loadContributionInfo]);
+  }, [loadWeekly, loadDelivery, loadContributionInfo]);
 
   async function claimWeekly(questId: string) {
     setWeeklyClaimingId(questId);

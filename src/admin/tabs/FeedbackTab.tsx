@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 import { useAdmin } from "../AdminContext";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
+import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
-type FeedbackEntry = {
+export type FeedbackEntry = {
   id: number;
   userId: string;
   actorName: string;
@@ -23,6 +24,17 @@ type FeedbackEntry = {
   repliedAt: string | null;
   createdAt: string;
 };
+
+export type FeedbackReviewTab = "unreviewed" | "reviewed";
+
+export function feedbackEntriesForTab(
+  entries: readonly FeedbackEntry[],
+  tab: FeedbackReviewTab,
+): FeedbackEntry[] {
+  return entries.filter((entry) =>
+    tab === "reviewed" ? Boolean(entry.reviewedAt) : !entry.reviewedAt,
+  );
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   suggestion: "건의",
@@ -40,6 +52,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function FeedbackTab() {
   const { adminMe, readOnly, showToast } = useAdmin();
+  const [activeReviewTab, setActiveReviewTab] =
+    useState<FeedbackReviewTab>("unreviewed");
   const {
     data,
     loading,
@@ -56,6 +70,9 @@ export function FeedbackTab() {
   }, [error, showToast]);
 
   const entries = data?.entries ?? [];
+  const unreviewedCount = feedbackEntriesForTab(entries, "unreviewed").length;
+  const reviewedCount = entries.length - unreviewedCount;
+  const visibleEntries = feedbackEntriesForTab(entries, activeReviewTab);
   const canRespond = Boolean(
     !readOnly &&
       (adminMe?.capabilities.reward || adminMe?.capabilities.sanction),
@@ -75,14 +92,39 @@ export function FeedbackTab() {
         </Button>
       </div>
 
-      {entries.length === 0 ? (
+      <TabBar
+        tabs={[
+          {
+            key: "unreviewed",
+            label: "미확인",
+            badge: unreviewedCount,
+            badgeLabel: `미확인 건의사항 ${unreviewedCount}건`,
+          },
+          {
+            key: "reviewed",
+            label: "확인함",
+            badge: reviewedCount,
+            badgeLabel: `확인한 건의사항 ${reviewedCount}건`,
+          },
+        ]}
+        active={activeReviewTab}
+        onChange={setActiveReviewTab}
+        ariaLabel="건의사항 확인 상태"
+        badgeVariant="subtle"
+      />
+
+      {visibleEntries.length === 0 ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {loading ? "불러오는 중…" : "접수된 건의사항 없음"}
+          {loading
+            ? "불러오는 중…"
+            : activeReviewTab === "unreviewed"
+              ? "미확인 건의사항 없음"
+              : "확인한 건의사항 없음"}
         </p>
       ) : (
         <div className="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800">
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {entries.map((entry) => (
+            {visibleEntries.map((entry) => (
               <FeedbackEntryItem
                 key={`${entry.id}:${entry.reviewedAt ?? ""}:${entry.repliedAt ?? ""}`}
                 entry={entry}

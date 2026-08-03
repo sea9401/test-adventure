@@ -28,6 +28,14 @@ export type GuildDiningWeeklyRow = {
   eligibleUserIds: string[];
 };
 
+/** 같은 트랜잭션의 연속 전투에서 개인 식사 효과 상태를 이어 쓰기 위한 캐시. */
+export type GuildDiningEffectCache = {
+  initialized?: boolean;
+  locked?: boolean;
+  dirty?: boolean;
+  raw?: Record<string, unknown>;
+};
+
 function stringList(raw: unknown): string[] {
   return Array.isArray(raw)
     ? [...new Set(raw.filter((value): value is string => typeof value === "string"))]
@@ -120,14 +128,21 @@ export async function consumeGuildDiningEffect(
   kind: GuildDiningBonusKind,
   baseAmount: number,
   now: Date = new Date(),
+  cache?: GuildDiningEffectCache,
 ): Promise<{ bonus: number; expiresAt: number; menuId: GuildDiningMenuId | null }> {
   const weekKey = kstWeekMondayKey(now);
-  const snapshot = await readSave<Record<string, unknown>>(
-    tx,
-    userId,
-    GUILD_DINING_USER_SAVE_KEY,
-    {},
-  );
+  const snapshot = cache?.initialized
+    ? (cache.raw ?? {})
+    : await readSave<Record<string, unknown>>(
+        tx,
+        userId,
+        GUILD_DINING_USER_SAVE_KEY,
+        {},
+      );
+  if (cache && !cache.initialized) {
+    cache.initialized = true;
+    cache.raw = snapshot;
+  }
   const snapshotGuildId = Math.max(0, Math.floor(Number(snapshot.guildId) || 0));
   const snapshotState = parseGuildDiningUserState(snapshot, {
     weekKey,
@@ -141,12 +156,18 @@ export async function consumeGuildDiningEffect(
     return { bonus: 0, expiresAt: 0, menuId: null };
   }
 
-  const raw = await lockSaveForUpdate<Record<string, unknown>>(
-    tx,
-    userId,
-    GUILD_DINING_USER_SAVE_KEY,
-    {},
-  );
+  const raw = cache?.locked
+    ? (cache.raw ?? {})
+    : await lockSaveForUpdate<Record<string, unknown>>(
+        tx,
+        userId,
+        GUILD_DINING_USER_SAVE_KEY,
+        {},
+      );
+  if (cache && !cache.locked) {
+    cache.locked = true;
+    cache.raw = raw;
+  }
   const storedGuildId = Math.max(0, Math.floor(Number(raw.guildId) || 0));
   const state = parseGuildDiningUserState(raw, {
     weekKey,
@@ -155,11 +176,26 @@ export async function consumeGuildDiningEffect(
   });
   const result = consumeGuildDiningEffectState(state, kind, baseAmount, now);
   if (result.consumed) {
-    await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, result.state);
+    if (cache) {
+      cache.raw = result.state;
+      cache.dirty = true;
+    } else {
+      await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, result.state);
+    }
   }
   return {
     bonus: result.bonus,
     expiresAt: result.state.activeEffect?.expiresAt ?? 0,
     menuId: result.state.activeEffect?.menuId ?? null,
   };
+}
+
+export async function flushGuildDiningEffectCache(
+  tx: DbExecutor,
+  userId: string,
+  cache: GuildDiningEffectCache,
+): Promise<void> {
+  if (!cache.dirty || !cache.raw) return;
+  await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, cache.raw);
+  cache.dirty = false;
 }

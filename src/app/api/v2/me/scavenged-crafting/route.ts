@@ -2,7 +2,10 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
+import {
+  isHuntStageDepth,
+  latestUnlockedHuntStageDepth,
+} from "@/adventure/data/v2/dungeon";
 import {
   RARE_MAP_CAP,
   RARE_MAP_KINDS,
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as {
     recipe?: unknown;
+    depth?: unknown;
   } | null;
   if (!isScavengedCraftRecipeId(body?.recipe)) {
     return Response.json({ ok: false, error: "invalid_recipe" }, { status: 400 });
@@ -108,16 +112,33 @@ export async function POST(req: Request) {
       };
     }
 
+    const requestedMapDepth = body?.depth;
+    const maxMapDepth = latestUnlockedHuntStageDepth(
+      Math.floor(Number(charSave.frontierDepth) || 2),
+    );
+    if (
+      recipe === "rare_map" &&
+      (typeof requestedMapDepth !== "number" ||
+        !isHuntStageDepth(requestedMapDepth) ||
+        requestedMapDepth > maxMapDepth)
+    ) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "invalid_map_depth" as const,
+          maxDepth: maxMapDepth,
+        },
+      };
+    }
+
     const materialLeft = held - input.need;
     if (materialLeft > 0) materials[input.materialId] = materialLeft;
     else delete materials[input.materialId];
 
     if (recipe === "rare_map") {
       const kind = rollCraftedRareMapKind(Math.random);
-      const depth = Math.min(
-        MAX_FRONTIER_DEPTH,
-        Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
-      );
+      const depth = requestedMapDepth as number;
       const rareMap = newRareMapInstance(kind, depth, now);
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,

@@ -59,6 +59,13 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+} from "@/lib/server/savesKv";
+import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
+import { kstWeekMondayKey } from "@/lib/kst";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
@@ -102,6 +109,7 @@ function huntReq(body: Record<string, unknown>): Request {
 
 describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     seedStrongWarrior();
     // 결정적 RNG — 0.5 는 명중 임계(missPct ~6) 위라 평타 적중, 크리/추가타 임계 아래라 단타.
     // 강한 무기(atk ~175) + 우호 명중 → depth1 몹 확정 1타 처치.
@@ -331,6 +339,92 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(prof.points).toBe(5 * proficiencyPerKillAtDepth(2)); // 전역 잔액 5판 누적
     expect(prof.groups.warrior?.cumLevel).toBe(35); // 기존 30 + 5승
     expect(prof.jobCumLevel?.warrior).toBe(5);
+
+    const log = store.get("adventure-log.v2") as {
+      monsters: Record<string, { kills?: number }>;
+    };
+    expect(
+      Object.values(log.monsters).reduce(
+        (sum, monster) => sum + (monster.kills ?? 0),
+        0,
+      ),
+    ).toBe(5);
+
+    // 첫 판이 잡은 사용자 save lock을 같은 tx의 다음 판들이 재사용한다.
+    // 캐시가 빠지면 이 값들이 completed(5)만큼 늘어나므로 성능 회귀를 바로 잡는다.
+    const lockKeys = vi
+      .mocked(lockSaveForUpdate)
+      .mock.calls.map((call) => call[2]);
+    for (const key of [
+      "character.v2",
+      "equipment.v2",
+      "skills.v2",
+      "proficiency.v2",
+      "inventory.v2",
+      "adventure-log.v2",
+    ]) {
+      expect(lockKeys.filter((lockedKey) => lockedKey === key)).toHaveLength(1);
+    }
+    const killLogWrites = vi
+      .mocked(upsertSave)
+      .mock.calls.filter((call) => call[2] === "adventure-log.v2");
+    expect(killLogWrites).toHaveLength(1);
+    for (const key of [
+      "character.v2",
+      "equipment.v2",
+      "inventory.v2",
+      "proficiency.v2",
+    ]) {
+      expect(
+        vi.mocked(upsertSave).mock.calls.filter((call) => call[2] === key),
+      ).toHaveLength(1);
+    }
+    expect(
+      vi
+        .mocked(readSave)
+        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
+    ).toHaveLength(1);
+  });
+
+  it("배치의 활성 길드 식사 효과를 판간 이월하고 마지막에 한 번 저장한다", async () => {
+    const now = new Date();
+    store.set(GUILD_DINING_USER_SAVE_KEY, {
+      version: 1,
+      weekKey: kstWeekMondayKey(now),
+      guildId: 0,
+      contributionPoints: 0,
+      mealsUsed: 1,
+      activeEffect: {
+        menuId: "adventurer_meal",
+        kind: "hunt_exp",
+        expiresAt: now.getTime() + 60 * 60 * 1000,
+        roundingRemainder: 0,
+      },
+    });
+
+    const res = await POST(huntReq({ floor: 2, count: 5 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      batch: { completed: number; totalExp: number };
+    };
+    expect(json.batch.completed).toBe(5);
+    expect(json.batch.totalExp).toBeGreaterThan(0);
+
+    expect(
+      vi
+        .mocked(readSave)
+        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
+    ).toHaveLength(1);
+    expect(
+      vi
+        .mocked(lockSaveForUpdate)
+        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
+    ).toHaveLength(1);
+    expect(
+      vi
+        .mocked(upsertSave)
+        .mock.calls.filter((call) => call[2] === GUILD_DINING_USER_SAVE_KEY),
+    ).toHaveLength(1);
   });
 
   it("현재 거점이 있어도 사냥세 없이 골드 전액을 지급한다", async () => {

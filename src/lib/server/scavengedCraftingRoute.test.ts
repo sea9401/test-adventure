@@ -34,11 +34,11 @@ import {
 } from "@/adventure/data/v2/scavengedCrafting";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 
-function request(recipe: ScavengedCraftRecipeId | string) {
+function request(recipe: ScavengedCraftRecipeId | string, depth?: number) {
   return new Request("http://localhost/api/v2/me/scavenged-crafting", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ recipe }),
+    body: JSON.stringify({ recipe, ...(depth == null ? {} : { depth }) }),
   });
 }
 
@@ -80,7 +80,7 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
     expect(character().materials[ENHANCE_STONE_MATERIAL_ID.red]).toBe(1);
   });
 
-  it("restores a weighted random rare map at the current frontier depth", async () => {
+  it("restores a weighted random rare map at the selected conquered stage", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     store.set("character.v2", {
       frontierDepth: 37,
@@ -89,11 +89,11 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
       },
     });
 
-    const response = await POST(request("rare_map"));
+    const response = await POST(request("rare_map", 24));
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.rareMap).toMatchObject({ kind: "worn_map", depth: 37 });
+    expect(json.rareMap).toMatchObject({ kind: "worn_map", depth: 24 });
     expect(character().materials[TORN_MAP_FRAGMENT_MATERIAL_ID]).toBeUndefined();
     expect(character().rareMaps).toHaveLength(1);
   });
@@ -111,11 +111,33 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
     });
     const before = JSON.stringify(character());
 
-    const response = await POST(request("rare_map"));
+    const response = await POST(request("rare_map", 20));
     const json = await response.json();
 
     expect(response.status).toBe(400);
     expect(json).toMatchObject({ error: "rare_map_full", cap: RARE_MAP_CAP });
+    expect(JSON.stringify(character())).toBe(before);
+  });
+
+  it("rejects an unselected, unrepresentative, or unconquered map depth without consuming fragments", async () => {
+    store.set("character.v2", {
+      frontierDepth: 20,
+      materials: {
+        [TORN_MAP_FRAGMENT_MATERIAL_ID]: TORN_MAP_FRAGMENT_COMBINE_COST,
+      },
+    });
+    const before = JSON.stringify(character());
+
+    const missing = await POST(request("rare_map"));
+    const legacyOdd = await POST(request("rare_map", 19));
+    const unconquered = await POST(request("rare_map", 22));
+
+    expect(missing.status).toBe(400);
+    expect((await missing.json()).error).toBe("invalid_map_depth");
+    expect(legacyOdd.status).toBe(400);
+    expect((await legacyOdd.json()).error).toBe("invalid_map_depth");
+    expect(unconquered.status).toBe(400);
+    expect((await unconquered.json()).error).toBe("invalid_map_depth");
     expect(JSON.stringify(character())).toBe(before);
   });
 

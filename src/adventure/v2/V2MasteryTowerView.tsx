@@ -71,6 +71,11 @@ type TowerStatus = {
   entryStaminaCost: number;
   stamina: StaminaState;
   certificates: number;
+  autoClaimedReward?: {
+    total: number;
+    previousDate: string;
+    previousBestFloor: number;
+  } | null;
   claimPreview: {
     base: number;
     firstClearBonus: number;
@@ -138,6 +143,11 @@ export function V2MasteryTowerView({
       }
       setStatus(j);
       setStamina(j.stamina);
+      if (j.autoClaimedReward) {
+        setMsg(
+          `✓ 전날 미수령 숙련 증서 ${j.autoClaimedReward.total.toLocaleString("ko-KR")}개가 자동 지급되었습니다.`,
+        );
+      }
       setSelectedJobId((prev) =>
         j.jobs.some((job) => job.id === prev) ? prev : (j.jobs[0]?.id ?? ""),
       );

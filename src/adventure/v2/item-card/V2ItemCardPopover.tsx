@@ -42,6 +42,72 @@ import {
 } from "./shared";
 
 const STAT_PANEL = "rounded-md bg-zinc-50 dark:bg-zinc-800";
+const SLOT_ORDER = [
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
+] as const;
+
+function tagSetPieceIds(tagSetId: string): V2EquipmentId[] {
+  return Object.values(V2_EQUIPMENT)
+    .filter((piece) => piece.setTags?.includes(tagSetId))
+    .sort(
+      (a, b) =>
+        SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot) ||
+        a.tier - b.tier ||
+        a.name.localeCompare(b.name, "ko"),
+    )
+    .map((piece) => piece.id);
+}
+
+function SetEquipmentList({
+  pieceIds,
+  equippedIds,
+}: {
+  pieceIds: readonly V2EquipmentId[];
+  equippedIds?: ReadonlySet<V2EquipmentId>;
+}) {
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+        세트 장비
+      </p>
+      <ul className="mt-1 space-y-px">
+        {pieceIds.map((pid) => {
+          const piece = V2_EQUIPMENT[pid];
+          const isWorn = equippedIds?.has(pid) ?? false;
+          return (
+            <li
+              key={pid}
+              className={`flex items-baseline gap-1 text-[11px] ${
+                isWorn
+                  ? "font-medium text-zinc-800 dark:text-zinc-100"
+                  : "text-zinc-400 dark:text-zinc-500"
+              }`}
+            >
+              <span
+                className={`shrink-0 ${
+                  isWorn
+                    ? "text-emerald-500"
+                    : "text-zinc-300 dark:text-zinc-600"
+                }`}
+              >
+                {isWorn ? "✓" : "·"}
+              </span>
+              <span className="truncate">{piece.name}</span>
+              <span className="ml-auto shrink-0 text-zinc-400 dark:text-zinc-500">
+                {V2_SLOT_LABEL[piece.slot]}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 export function V2ItemCard({
   item,
@@ -231,6 +297,9 @@ export function V2ItemCard({
 
         {set && (
           <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+            <p className="mb-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+              세트 정보
+            </p>
             <div className="flex items-baseline justify-between gap-2 text-xs">
               {/* 세트명·보너스 — 발동(전 부위 착용) 시 amber, 미발동 시 회색으로 상태 인지. */}
               <span
@@ -264,39 +333,11 @@ export function V2ItemCard({
                 ★ {signatureLabel(set.signature)}
               </p>
             )}
-            {/* 세트 구성 — 착용 중인 부위는 밝게(흰색) 하이라이트로 몇 부위 모았는지 한눈에. */}
-            <ul className="mt-1 space-y-px">
-              {set.pieces.map((pid) => {
-                const piece = V2_EQUIPMENT[pid];
-                const isWorn = equippedIds?.has(pid) ?? false;
-                return (
-                  <li
-                    key={pid}
-                    className={`flex items-baseline gap-1 text-[11px] ${
-                      isWorn
-                        ? "font-medium text-zinc-800 dark:text-zinc-100"
-                        : "text-zinc-400 dark:text-zinc-500"
-                    }`}
-                  >
-                    <span
-                      className={`shrink-0 ${
-                        isWorn
-                          ? "text-emerald-500"
-                          : "text-zinc-300 dark:text-zinc-600"
-                      }`}
-                    >
-                      {isWorn ? "✓" : "·"}
-                    </span>
-                    <span className="truncate">{piece?.name ?? pid}</span>
-                    {piece && (
-                      <span className="ml-auto shrink-0 text-zinc-400 dark:text-zinc-500">
-                        {V2_SLOT_LABEL[piece.slot]}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            {/* 일반/태그 세트 모두 같은 형식으로 전체 구성 장비를 표시한다. */}
+            <SetEquipmentList
+              pieceIds={set.pieces}
+              equippedIds={equippedIds}
+            />
             {/* 발동 상태 + 진행도(N/M 착용) 텍스트 보강. */}
             {setActive ? (
               <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
@@ -317,6 +358,9 @@ export function V2ItemCard({
               key={tagSet.id}
               className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700"
             >
+              <p className="mb-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+                세트 정보
+              </p>
               <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
                 {tagSet.name} 세트
               </div>
@@ -347,6 +391,10 @@ export function V2ItemCard({
                   );
                 })}
               </div>
+              <SetEquipmentList
+                pieceIds={tagSetPieceIds(tagSet.id)}
+                equippedIds={equippedIds}
+              />
             </div>
           );
         })}

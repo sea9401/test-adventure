@@ -1,4 +1,5 @@
 import {
+  isLifestyleMasteryJobId,
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
   V2_JOB_LIST,
@@ -11,6 +12,8 @@ export type JobRoadmapNode = {
   tier: V2JobDefinition["tier"] | "start";
   group: string;
   hybrid: boolean;
+  /** 전투 레벨 제한 없이 생활 숙련 조건으로 전직하는 생산직 계열. */
+  production: boolean;
   prereqText: string;
   children: JobRoadmapNode[];
 };
@@ -32,6 +35,7 @@ export function buildJobRoadmap(): JobRoadmapNode {
     tier: job.tier,
     group: groupForJob(job),
     hybrid: prerequisiteJobIds(job).length > 1,
+    production: isLifestyleMasteryJobId(job.id),
     prereqText: prereqText(job),
     children: sortedChildren(childrenByParent.get(job.id) ?? []).map(toNode),
   });
@@ -42,6 +46,7 @@ export function buildJobRoadmap(): JobRoadmapNode {
     tier: "start",
     group: "root",
     hybrid: false,
+    production: false,
     prereqText: "",
     children: sortedChildren(childrenByParent.get("start") ?? []).map(toNode),
   };

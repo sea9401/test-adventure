@@ -165,6 +165,36 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "심해 폐허", enemies: BAND_K_ABYSS_RUINS_ENEMIES }, // 67~72 (마지막 테마 = 프론티어 끝)
 ];
 
+export type HuntMonsterCodexDefinition = {
+  name: string;
+  areas: string[];
+  firstDepth: number;
+};
+
+// 업적의 "서로 다른 몬스터 처치"와 처치 현황 UI가 공유하는 현재 사냥 가능 종 목록.
+// 같은 표시 이름이 여러 테마에 재등장하면 한 종으로 세고 출현 지역만 합친다.
+export const HUNT_MONSTER_CODEX: readonly HuntMonsterCodexDefinition[] = (() => {
+  const byName = new Map<string, HuntMonsterCodexDefinition>();
+  for (let themeIndex = 0; themeIndex < DUNGEON_THEMES.length; themeIndex += 1) {
+    const theme = DUNGEON_THEMES[themeIndex];
+    for (const enemy of theme.enemies) {
+      const existing = byName.get(enemy.name);
+      if (existing) {
+        if (!existing.areas.includes(theme.name)) existing.areas.push(theme.name);
+        continue;
+      }
+      byName.set(enemy.name, {
+        name: enemy.name,
+        areas: [theme.name],
+        firstDepth: themeIndex * THEME_DEPTH_SPAN + 1,
+      });
+    }
+  }
+  return [...byName.values()];
+})();
+
+export const HUNT_MONSTER_SPECIES_COUNT = HUNT_MONSTER_CODEX.length;
+
 // 프론티어 최대 깊이 = 마지막 테마의 끝(테마수 × 6). 2026-06-19 오너 결정 = 마지막 테마를
 // 무한 반복하지 않고 여기서 끝낸다. 더 깊은 사냥터가 필요하면 새 테마를
 // DUNGEON_THEMES 에 추가 → 이 캡이 자동으로 늘어난다. 깊이 게이트(hunt route)·UI 가 이 값으로 캡.

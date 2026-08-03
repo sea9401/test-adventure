@@ -137,8 +137,9 @@ export type FeedPayload =
   //   파괴(개체 소멸). level = 성공=달성 레벨·파괴=잃은 개체 레벨. 장비 이름은 클라가 카탈로그 해석.
   | { itemId: string; level: number }
   // rare_map_drop — 레거시: 과거 레어맵 발견 소식. 현재는 전체 소식에 발행하지 않음.
-  // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
-  | { kind: string }
+  // coop_summon · coop_kill — 협동 보스 소환/처치. 새 이벤트는 세션을 연결하고,
+  // 소환에는 실제 만료 시각을 넣어 전광판에서 끝난 모집을 정확히 숨긴다.
+  | { kind: string; sessionId?: string; expiresAt?: number }
   // fishing_big_catch — 낚시 대물(종 크기 상위 구간 + 개인 신기록). 어종명은 클라가 FISH 해석.
   | { fishId: string; size: number }
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.

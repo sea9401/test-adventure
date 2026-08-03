@@ -136,7 +136,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_venomist_toxiccloud.effects.some((e) => e.kind === "stackPayoffDamage" && e.tag === "poison"),
     ).toBe(true);
-    expect(V2_SKILLS.v2c_venomist_corrosion.passive?.poisonedEnemyDefReductionPct).toBe(12);
+    expect(V2_SKILLS.v2c_venomist_corrosion.passive?.poisonedEnemyDefReductionPct).toBe(10);
     expect(V2_SKILLS.v2c_survivor_firstaid.effects[0]).toMatchObject({
       kind: "heal",
       pctLostHp: 20,
@@ -477,7 +477,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_venomancer_corrosion3.passive
         ?.poisonedEnemyDefReductionPct,
-    ).toBe(20);
+    ).toBe(15);
     // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
     expect(V2_SKILLS.v2c_bishop_heal.category).toBe("heal");
     expect(V2_SKILLS.v2c_shadow_assassinate.effects[0].kind).toBe("executeDamage");
@@ -556,7 +556,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_venomlord_sovereign.passive
         ?.poisonedEnemyDefReductionPct,
-    ).toBe(28); // 부식 III — 중독 적 방어 감소 정점
+    ).toBe(20); // 부식 III — 곱연산 누적을 고려한 단계 수치
     expect(V2_SKILLS.v2c_rescueexpert_rescue.effects[0]).toMatchObject({
       kind: "heal",
       pctLostHp: 45,
@@ -761,7 +761,7 @@ describe("직업 킷 — 스킬셋", () => {
       "shield",
       "selfBuffPct",
     ]);
-    expect(V2_SKILLS.v2c_plaguebringer_decay.passive?.poisonedEnemyDefReductionPct).toBe(35);
+    expect(V2_SKILLS.v2c_plaguebringer_decay.passive?.poisonedEnemyDefReductionPct).toBe(25);
     expect(V2_SKILLS.v2c_dragonfist_rupture.effects.map((e) => e.kind)).toEqual([
       "damage",
       "damage",
@@ -1039,7 +1039,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_myriadvenom_body.name).toBe("만독지배");
     expect(V2_SKILLS.v2c_myriadvenom_body.category).toBe("passive");
     expect(V2_SKILLS.v2c_myriadvenom_body.passive).toMatchObject({
-      poisonedEnemyDefReductionPct: 45,
+      poisonedEnemyDefReductionPct: 30,
       maxHpPct: 12,
       evasionPct: 12,
       critDmgPct: 15,
@@ -1174,9 +1174,9 @@ describe("직업 킷 — 스킬셋", () => {
 
     expect(costs("venomist")).toEqual([4, 3]);
     expect(costs("venomancer")).toEqual([5, 4]);
-    expect(costs("venomlord")).toEqual([7, 6]);
-    expect(costs("plaguebringer")).toEqual([9, 7]);
-    expect(costs("myriadvenom")).toEqual([13, 13]);
+    expect(costs("venomlord")).toEqual([7, 4]);
+    expect(costs("plaguebringer")).toEqual([9, 6]);
+    expect(costs("myriadvenom")).toEqual([13, 11]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {
@@ -1358,7 +1358,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차)
       "v2c_boxer_fortitude", // evasionPct 8 (보법)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
-      "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 12 (중독 적 방어 약화)
+      "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 10 (중독 적 방어 약화)
       "v2c_berserker_madness3", // berserkAtkPctPerLostHpPct 0.45
       "v2c_shaman_omen3", // enemyMagicVulnPctPerStack 5
       "v2c_warder_ward", // magicDefPct 15 + 초반 마법 피해 감소
@@ -1367,7 +1367,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.critDmgPct).toBe(25);
     expect(agg.evasionPct).toBe(8);
     expect(agg.defPct).toBe(20);
-    expect(agg.poisonedEnemyDefReductionPct).toBe(12);
+    expect(agg.poisonedEnemyDefReductionPct).toBeCloseTo(10);
     expect(agg.berserkAtkPctPerLostHpPct).toBe(0.45);
     expect(agg.enemyMagicVulnPctPerStack).toBe(5);
     expect(agg.enemyMagicVulnApplyChancePct).toBe(70);

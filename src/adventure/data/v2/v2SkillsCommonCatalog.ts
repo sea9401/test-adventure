@@ -645,7 +645,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "독이 스며든 적의 방어를 무르게 하고 중독 피해를 깊게 침투시킨다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 12 },
+    passive: { poisonedEnemyDefReductionPct: 10 },
   },
   v2c_camper_ration: {
     id: "v2c_camper_ration", name: "비상식량", stat: "vit", category: "passive", tier: 2,
@@ -1042,7 +1042,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어와 중독 피해를 더 크게 흔든다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 20 },
+    passive: { poisonedEnemyDefReductionPct: 15 },
   },
   v2c_fieldmedic_training: {
     id: "v2c_fieldmedic_training", name: "구급 숙련", stat: "vit", category: "passive", tier: 3,
@@ -1318,7 +1318,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "독을 다스리는 정점. 중독된 적의 방어와 독 피해 저항을 크게 무너뜨린다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 28 },
+    passive: { poisonedEnemyDefReductionPct: 20 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──
@@ -1854,7 +1854,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "독이 갑옷과 살을 함께 무너뜨려 중독 피해를 더 깊게 남긴다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 35, critDmgPct: 10 },
+    passive: { poisonedEnemyDefReductionPct: 25, critDmgPct: 10 },
   },
   v2c_dragonfist_rupture: {
     id: "v2c_dragonfist_rupture", name: "용린파쇄", stat: "str", category: "attack", tier: 3,
@@ -2185,7 +2185,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "모든 독의 흐름을 장악한다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 45, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
+    passive: { poisonedEnemyDefReductionPct: 30, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,

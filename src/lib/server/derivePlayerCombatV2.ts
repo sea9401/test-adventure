@@ -29,6 +29,7 @@ import {
   BLEED_ATK_COEF_PER_STACK,
   CRIT_MULT_BASE,
   POISON_PCT_PER_POINT,
+  combineDefReductionPcts,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
@@ -281,7 +282,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveOpeningMagicDamageReductionPct?: number;
   /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
   passiveOpeningMagicDamageReductionPhases?: number;
-  /** 중독된 적 방어 -%(부식 패시브) — poisonedEnemyDefReductionPct 에 가산. */
+  /** 중독된 적 방어 -%(부식 패시브) — 다른 부식과 남은 방어력 기준 곱연산. */
   passivePoisonedEnemyDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 엔진 computeBerserkBonus 로 소비. */
   passiveBerserkAtkPctPerLostHpPct?: number;
@@ -566,9 +567,10 @@ export function derivePlayerCombatV2Pure(
   const totalLifestealPct =
     (specEff.lifestealPct ?? 0) +
     (input.passiveLifestealPct ?? 0); // 장착 패시브(포식) — 저수치.
-  const totalPoisonedEnemyDefReductionPct =
-    (specEff.poisonedEnemyDefReductionPct ?? 0) +
-    (input.passivePoisonedEnemyDefReductionPct ?? 0);
+  const totalPoisonedEnemyDefReductionPct = combineDefReductionPcts(
+    specEff.poisonedEnemyDefReductionPct ?? 0,
+    input.passivePoisonedEnemyDefReductionPct ?? 0,
+  );
   const totalMagicSkillDamagePct =
     (specEff.magicSkillDamagePct ?? 0) +
     (input.passiveMagicSkillDamagePct ?? 0);

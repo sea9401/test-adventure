@@ -38,6 +38,7 @@ import {
   type V2SkillEnhancements,
 } from "./skillRitual";
 import type { V2BuildTagId } from "./buildTags";
+import { combineDefReductionPcts } from "./v2CombatConstants";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
 export type V2SkillTempo = "rapid" | "balanced" | "control" | "burst" | "payoff";
@@ -1067,7 +1068,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       openingMagicDamageReductionPhases,
       p.openingMagicDamageReductionPhases ?? 0,
     );
-    poisonedEnemyDefReductionPct += p.poisonedEnemyDefReductionPct ?? 0;
+    poisonedEnemyDefReductionPct = combineDefReductionPcts(
+      poisonedEnemyDefReductionPct,
+      p.poisonedEnemyDefReductionPct ?? 0,
+    );
     berserkAtkPctPerLostHpPct += p.berserkAtkPctPerLostHpPct ?? 0;
     enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
     if ((p.enemyMagicVulnPctPerStack ?? 0) > 0) {

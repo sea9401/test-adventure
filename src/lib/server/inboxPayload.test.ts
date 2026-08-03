@@ -6,9 +6,13 @@ import {
 } from "./inboxPayload";
 
 describe("isInboxPayloadKind", () => {
-  it("승인된 10종 모두 true", () => {
+  it("승인된 우편 종류 모두 true", () => {
     for (const k of [
       "sale_proceeds",
+      "bid_refund",
+      "buy_order_refund",
+      "buy_order_item",
+      "price_alert",
       "purchase_item",
       "cancel_return",
       "listing_expired",
@@ -35,6 +39,46 @@ describe("parseInboxPayload — happy path", () => {
       kind: "sale_proceeds",
       gold: 1500,
     });
+  });
+
+  it("구매 주문 환불·체결 물품·가격 알림", () => {
+    expect(parseInboxPayload("buy_order_refund", { gold: 780 })).toEqual({
+      kind: "buy_order_refund",
+      gold: 780,
+    });
+    expect(
+      parseInboxPayload("buy_order_item", {
+        item_kind: "material",
+        item_id: "iron_ore",
+        quantity: 12,
+      }),
+    ).toEqual({
+      kind: "buy_order_item",
+      item_kind: "material",
+      item_id: "iron_ore",
+      quantity: 12,
+    });
+    expect(parseInboxPayload("price_alert", { text: "철광석이 목표가에 도달" })).toEqual({
+      kind: "price_alert",
+      text: "철광석이 목표가에 도달",
+    });
+  });
+
+  it("구매 주문 체결 물품의 종류와 수량을 검증한다", () => {
+    expect(
+      parseInboxPayload("buy_order_item", {
+        item_kind: "equip",
+        item_id: "iron_sword",
+        quantity: 1,
+      }),
+    ).toBeNull();
+    expect(
+      parseInboxPayload("buy_order_item", {
+        item_kind: "cash",
+        item_id: "rename_permit",
+        quantity: 0,
+      }),
+    ).toBeNull();
   });
 
   it("purchase_item (equip + grade)", () => {

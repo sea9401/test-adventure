@@ -73,7 +73,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     });
   });
 
-  it("탐사 본부는 배치 가능 건물이며 Lv5에서 주간 탐사 6건과 진척 +35%를 연다", () => {
+  it("탐사 본부는 배치 가능 건물이며 Lv5에서 의뢰 6종과 진척 +35%를 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("exploration_hq");
     expect(nextSettlementBuildingUpgrade("exploration_hq", 1)).toMatchObject({
       level: 2,
@@ -102,7 +102,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "exploration_hq",
         explorationHqUpgradeForLevel(5),
       ),
-    ).toBe("주간 탐사 6건 · 진척 +35%");
+    ).toBe("해금 의뢰 6종 · 진척 +35%");
   });
 
   it("연금 공방은 배치 가능 건물이며 레벨별 주간 연성력을 12~30 제공한다", () => {

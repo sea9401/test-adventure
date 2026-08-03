@@ -167,6 +167,7 @@ type GameStateSnapshot = {
   } | null;
   autoGathering?: {
     activity?: AutoGatheringActivity;
+    sourceId?: string;
     sourceName?: string;
     readyAt?: number;
     serverNow?: number;
@@ -558,14 +559,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         typeof j.jobsV2?.currentJobTier === "number"
           ? j.jobsV2.currentJobTier
           : null;
-      const currentJobLevelCap =
-        typeof j.jobsV2?.currentJobLevelCap === "number"
-          ? j.jobsV2.currentJobLevelCap
-          : null;
       setViewerJobTier(currentJobTier);
+      // jobsV2.currentJobLevelCap 은 실제 전투 레벨 상한이 아니라 전직 요구 레벨이다.
+      // 생산직에서는 1(레벨 제한 없음)이므로 전투 UI의 상한으로 사용하면 Lv N/1이 된다.
       setViewerLevelCap(
-        currentJobLevelCap ??
-          (currentTier == null ? null : effectiveLevelCap(currentTier)),
+        currentTier == null ? null : effectiveLevelCap(currentTier),
       );
 
       applyResourcePatch({
@@ -664,12 +662,14 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       if (
         auto &&
         (auto.activity === "woodcutting" || auto.activity === "mining") &&
+        typeof auto.sourceId === "string" &&
         typeof auto.sourceName === "string" &&
         typeof auto.readyAt === "number" &&
         typeof auto.serverNow === "number"
       ) {
         setAutoGathering({
           activity: auto.activity,
+          sourceId: auto.sourceId,
           sourceName: auto.sourceName,
           readyAt: Date.now() + (auto.readyAt - auto.serverNow),
         });
@@ -1003,8 +1003,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const value: GameStateValue = useMemo(() => {
     // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사". 레벨·직업 간단 표기.
     const playerLevelText = viewerLevelCap
-      ? `Lv ${viewerLevel} / ${viewerLevelCap}`
-      : `Lv.${viewerLevel}`;
+      ? `전투 Lv ${viewerLevel} / ${viewerLevelCap}`
+      : `전투 Lv.${viewerLevel}`;
     const playerSubtitle = `${playerLevelText} · ${
       viewerJobName ?? V2_CLASS_DEFS[parseV2Class(viewerClass)].name
     }`;

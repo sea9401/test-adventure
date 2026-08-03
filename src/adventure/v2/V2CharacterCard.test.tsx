@@ -16,6 +16,20 @@ const CHARACTER = {
 };
 
 describe("V2CharacterCard profile theme", () => {
+  it("labels character growth as combat level and separates production-job advancement", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterCard
+        character={{ ...CHARACTER, classDisplayName: "원예가" }}
+        levelCap={100}
+        rejobRequiredLevel={1}
+      />,
+    );
+
+    expect(html).toContain("전투 Lv 42 / 100");
+    expect(html).toContain("전직 레벨 제한 없음");
+    expect(html).not.toContain(">전투 Lv 42 / 1<");
+  });
+
   it("keeps the header shadow off chroma nicknames", () => {
     const html = renderToStaticMarkup(
       <V2CharacterCard

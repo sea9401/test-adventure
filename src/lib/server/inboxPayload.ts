@@ -39,6 +39,14 @@ export function isSeasonRewardSeason(s: string): s is SeasonRewardSeason {
 export type InboxPayload =
   | { kind: "sale_proceeds"; gold: number }
   | { kind: "bid_refund"; gold: number }
+  | { kind: "buy_order_refund"; gold: number }
+  | { kind: "price_alert"; text: string }
+  | {
+      kind: "buy_order_item";
+      item_kind: "material" | "cash" | "cooking";
+      item_id: string;
+      quantity: number;
+    }
   | {
       kind: "purchase_item";
       item_kind: ItemKind;
@@ -110,6 +118,9 @@ export type InboxPayloadKind = InboxPayload["kind"];
 const KINDS = new Set<string>([
   "sale_proceeds",
   "bid_refund",
+  "buy_order_refund",
+  "buy_order_item",
+  "price_alert",
   "purchase_item",
   "cancel_return",
   "listing_expired",
@@ -137,10 +148,27 @@ export function parseInboxPayload(
 
   switch (kind) {
     case "sale_proceeds":
-    case "bid_refund": {
+    case "bid_refund":
+    case "buy_order_refund": {
       const gold = asNonNegInt(p.gold);
       if (gold == null) return null;
       return { kind, gold };
+    }
+    case "buy_order_item": {
+      const item_kind = asString(p.item_kind);
+      const item_id = asString(p.item_id);
+      const quantity = asNonNegInt(p.quantity);
+      if (
+        (item_kind !== "material" &&
+          item_kind !== "cash" &&
+          item_kind !== "cooking") ||
+        !item_id ||
+        quantity == null ||
+        quantity < 1
+      ) {
+        return null;
+      }
+      return { kind, item_kind, item_id, quantity };
     }
     case "purchase_item":
     case "cancel_return":
@@ -169,6 +197,11 @@ export function parseInboxPayload(
       return { kind, item_kind: item_kind_str, item_id, grade, quantity };
     }
     case "user_message": {
+      const text = asString(p.text);
+      if (text == null) return null;
+      return { kind, text };
+    }
+    case "price_alert": {
       const text = asString(p.text);
       if (text == null) return null;
       return { kind, text };

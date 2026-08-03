@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  autoGatheringActivityHref,
   autoGatheringStatusText,
   type AutoGatheringStatus,
 } from "./autoGathering";
@@ -50,12 +51,7 @@ export function V2TopBar({
 }: {
   autoGathering: AutoGatheringStatus | null;
 }) {
-  const activityHref =
-    autoGathering?.activity === "woodcutting"
-      ? "/town/logging"
-      : autoGathering?.activity === "mining"
-        ? "/town/mining"
-        : null;
+  const activityHref = autoGatheringActivityHref(autoGathering);
 
   return (
     <header className="sticky top-0 z-[60] flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90">

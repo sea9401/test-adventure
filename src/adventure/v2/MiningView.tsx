@@ -31,6 +31,7 @@ import {
   type ActivityVerificationSubmission,
   useActivityCooldown,
 } from "./useActivityVerification";
+import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 
 export type MiningLogView = {
   successes: number;
@@ -594,6 +595,8 @@ export function MiningView({
         title={viewMode === "choice" ? "채광장" : `${selectedSpot.shortName} 채광`}
         onBack={onBack}
       />
+
+      <ProductionJobAdvanceNotice refreshKey={progression.level} />
 
       {verification && verifyHuman ? (
         <ActivityVerificationGate challenge={verification} onVerify={verifyHuman} />

@@ -7,6 +7,7 @@ import {
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { fruitTierForMaterial } from "@/adventure/data/v2/spFruit";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 
 // 슬롯 6종 + 재료 + 소모품(레어맵 등). 인벤토리·거래소 판매 탭 공용.
@@ -23,6 +24,23 @@ export const V2_ITEM_TABS: ReadonlyArray<{ key: V2ItemTabKey; label: string }> =
     { key: "material", label: "재료" },
     { key: "consumable", label: "소모품" },
   ];
+
+// 저장소에서는 재료 스택을 재사용하더라도 실제 사용 방식이 소모품인 아이템은
+// 인벤토리와 거래소에서 같은 탭에 노출한다.
+export function itemTabForMaterial(
+  materialId: string,
+): "material" | "consumable" {
+  return fruitTierForMaterial(materialId) == null ? "material" : "consumable";
+}
+
+export function itemTabForMarketplaceListing(
+  kind: "equip" | "material" | "consumable",
+  itemId: string,
+): V2ItemTabKey | null {
+  if (kind === "material") return itemTabForMaterial(itemId);
+  if (kind === "consumable") return "consumable";
+  return V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT]?.slot ?? null;
+}
 
 export type SortMode = "default" | "roll" | "power";
 

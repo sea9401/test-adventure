@@ -103,7 +103,12 @@ describe("길드 식당", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.donated).toEqual({ ingredientName: "밀", quantity: 10, points: 10 });
+    expect(json.donated).toEqual({
+      ingredientName: "밀",
+      quantity: 10,
+      points: 10,
+      contributionPoints: 100,
+    });
     expect(json.pantry.points).toBe(10);
     expect(json.contributionPoints).toBe(25);
     expect(upsertSave).toHaveBeenCalledWith(
@@ -129,6 +134,7 @@ describe("길드 식당", () => {
       ingredientName: "일반 어획물",
       quantity: 10,
       points: 2,
+      contributionPoints: 20,
     });
     expect(upsertSave).toHaveBeenCalledWith(
       expect.anything(),

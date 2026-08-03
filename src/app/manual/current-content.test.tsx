@@ -95,9 +95,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("일반 이용자에게 공개되지 않습니다");
   });
 
-  it("거래소 공개 입찰 유예와 정산 흐름을 안내한다", () => {
+  it("거래소 즉시구매 기본값과 선택형 공개 입찰 정산 흐름을 안내한다", () => {
     const html = renderToStaticMarkup(<PlazaContent />);
 
+    expect(html).toContain("기본 판매 방식은");
+    expect(html).toContain("등록 즉시 살 수 있고");
+    expect(html).toContain("같은 품목의 매물이 한 줄로 합쳐지며");
+    expect(html).toContain("최저가 매물부터");
+    expect(html).toContain("별표 즐겨찾기");
+    expect(html).toContain("최근 30일 체결가 추이");
+    expect(html).toContain("구매 주문 골드는 등록 시");
+    expect(html).toContain("가격 알림에 목표 개당 가격");
+    expect(html).toContain("판매 관리에서 가격을 변경");
     expect(html).toContain("공개 입찰 유예");
     expect(html).toContain("2~");
     expect(html).toContain("24시간");

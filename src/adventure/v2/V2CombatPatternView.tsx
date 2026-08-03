@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
@@ -124,48 +125,13 @@ function PatternNumberInput({
   max?: number;
   onValueChange: (value: number) => void;
 }) {
-  // 패턴 데이터는 항상 유효한 number 로 유지하되, 입력 중에만 빈 문자열을 허용한다.
-  // 기존 값을 모두 지운 뒤 새 수를 입력할 때 0/1이 즉시 끼어드는 문제를 피한다.
-  const [draft, setDraft] = useState<string | null>(null);
-  const displayedValue = draft ?? String(value);
-
-  const normalize = (raw: string) => {
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return null;
-    return Math.max(
-      min,
-      Math.min(max ?? Number.POSITIVE_INFINITY, Math.floor(parsed)),
-    );
-  };
-
   return (
-    <input
-      type="number"
-      inputMode="numeric"
+    <DraftNumberInput
       min={min}
       max={max}
       className={num}
-      value={displayedValue}
-      onChange={(event) => {
-        const raw = event.target.value;
-        if (raw === "") {
-          setDraft("");
-          return;
-        }
-        const next = normalize(raw);
-        if (next == null) {
-          setDraft(raw);
-          return;
-        }
-        setDraft(String(next));
-        onValueChange(next);
-      }}
-      onBlur={() => {
-        const next = normalize(displayedValue);
-        setDraft(null);
-        if (next == null || displayedValue === "") return;
-        if (next !== value) onValueChange(next);
-      }}
+      value={value}
+      onValueChange={onValueChange}
     />
   );
 }

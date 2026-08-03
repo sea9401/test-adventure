@@ -57,6 +57,7 @@ type StateShape = {
   jobsV2?: {
     currentJobId: string;
     currentJobName: string;
+    currentJobLevelCap: number;
     atLevelCap: boolean;
     jobs: JobLadderEntry[];
   } | null;
@@ -98,6 +99,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [jobLadder, setJobLadder] = useState<{
     currentJobId: string;
     currentJobName: string;
+    rejobRequiredLevel: number;
     atLevelCap: boolean;
     jobs: JobLadderEntry[];
     level: number;
@@ -135,6 +137,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             ? {
                 currentJobId: j.jobsV2.currentJobId,
                 currentJobName: j.jobsV2.currentJobName,
+                rejobRequiredLevel: j.jobsV2.currentJobLevelCap,
                 atLevelCap: j.jobsV2.atLevelCap,
                 jobs: j.jobsV2.jobs,
                 level: j.character?.level ?? 1,
@@ -233,6 +236,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               currentJobName={jobLadder.currentJobName}
               currentJobId={jobLadder.currentJobId}
               atLevelCap={jobLadder.atLevelCap}
+              rejobRequiredLevel={jobLadder.rejobRequiredLevel}
               jobs={jobLadder.jobs}
               onChanged={async () => {
                 await Promise.all([refresh(), refreshGameState()]);

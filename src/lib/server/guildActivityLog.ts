@@ -1,6 +1,7 @@
 import type { db as dbType } from "@/db";
-import { guildActivityLog } from "@/db/schema";
+import { guildActivityLog, guildContributionEvents } from "@/db/schema";
 import type { GuildAlchemyChargeTarget } from "@/adventure/data/v2/guildAlchemy";
+import { guildContributionForActivity } from "@/adventure/data/v2/guildContribution";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
@@ -15,6 +16,9 @@ export type GuildActivityType =
   | "leadership_transfer"
   | "role_change"
   | "gold_deposit"
+  | "facility_material_donation"
+  | "dining_ingredient_donation"
+  | "trade_delivery"
   | "workshop_weekly_claim"
   | "exploration_weekly_claim"
   | "exploration_expedition_dispatch"
@@ -37,6 +41,8 @@ export type GuildActivityType =
 
 export type GuildActivityMeta = {
   amount?: number; // gold_deposit | emblem_change
+  quantity?: number; // 시설·식당·교역 재료 기부량
+  contributionPoints?: number; // 해당 활동에서 확정한 길드 기여 점수
   role?: string; // role_change ("manager" | "member")
   nationName?: string; // nation_declare
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
@@ -72,11 +78,30 @@ export async function logGuildActivity(
     meta?: GuildActivityMeta | null;
   },
 ): Promise<void> {
-  await tx.insert(guildActivityLog).values({
+  const activity = (
+    await tx
+      .insert(guildActivityLog)
+      .values({
+        guildId: entry.guildId,
+        type: entry.type,
+        actorUserId: entry.actorUserId ?? null,
+        targetUserId: entry.targetUserId ?? null,
+        meta: entry.meta ?? null,
+      })
+      .returning({ id: guildActivityLog.id, createdAt: guildActivityLog.createdAt })
+  )[0];
+  const contribution = guildContributionForActivity(
+    entry.type,
+    entry.meta ?? null,
+  );
+  if (!activity || !entry.actorUserId || !contribution) return;
+  await tx.insert(guildContributionEvents).values({
     guildId: entry.guildId,
-    type: entry.type,
-    actorUserId: entry.actorUserId ?? null,
-    targetUserId: entry.targetUserId ?? null,
-    meta: entry.meta ?? null,
+    userId: entry.actorUserId,
+    activityLogId: activity.id,
+    source: entry.type,
+    category: contribution.category,
+    points: contribution.points,
+    createdAt: activity.createdAt,
   });
 }

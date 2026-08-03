@@ -53,6 +53,7 @@ type TradeResponse = TradeState & {
     quantity: number;
     points: number;
     completed: boolean;
+    contributionPoints?: number;
   };
   guildReward?: { gold: number; fame: number } | null;
   purchased?: { itemId: string; itemName: string };
@@ -374,7 +375,7 @@ function deliveryNotice(json: TradeResponse): string {
   const delivery = json.delivered;
   if (!delivery) return "납품 완료";
   const reward = json.guildReward;
-  return `${delivery.itemName} ${delivery.quantity.toLocaleString()}개 납품 · 토큰 +${delivery.points.toLocaleString()}${
+  return `${delivery.itemName} ${delivery.quantity.toLocaleString()}개 납품 · 토큰 +${delivery.points.toLocaleString()} · 길드 기여 +${(delivery.contributionPoints ?? 0).toLocaleString()}점${
     reward
       ? ` · 계약 완료! 길드 자금 +${reward.gold.toLocaleString()}G, 명성 +${reward.fame.toLocaleString()}`
       : ""

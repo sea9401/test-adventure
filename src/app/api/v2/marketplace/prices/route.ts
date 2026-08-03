@@ -11,7 +11,18 @@ const PRICE_CACHE_MS = 30_000;
 type PricesPayload = {
   ok: true;
   days: number;
-  prices: Record<string, { n: number; avg: number; min: number; max: number }>;
+  prices: Record<
+    string,
+    {
+      n: number;
+      avg: number;
+      min: number;
+      max: number;
+      unitAvg: number;
+      unitMin: number;
+      unitMax: number;
+    }
+  >;
 };
 
 let pricesCache:
@@ -49,6 +60,7 @@ async function loadPricesPayloadFresh(): Promise<PricesPayload> {
       itemId: marketplaceListingsV2.itemId,
       kind: marketplaceListingsV2.kind,
       price: marketplaceListingsV2.price,
+      quantity: marketplaceListingsV2.quantity,
       instancePayload: marketplaceListingsV2.instancePayload,
     })
     .from(marketplaceListingsV2)
@@ -60,7 +72,10 @@ async function loadPricesPayloadFresh(): Promise<PricesPayload> {
     );
 
   const prices: PricesPayload["prices"] = {};
-  const buckets = new Map<string, number[]>();
+  const buckets = new Map<
+    string,
+    Array<{ price: number; quantity: number }>
+  >();
   for (const r of rows) {
     const keys = new Set([r.itemId]);
     if (r.kind === "equip") {
@@ -68,16 +83,27 @@ async function loadPricesPayloadFresh(): Promise<PricesPayload> {
     }
     for (const key of keys) {
       const bucket = buckets.get(key) ?? [];
-      bucket.push(r.price);
+      bucket.push({ price: r.price, quantity: Math.max(1, r.quantity) });
       buckets.set(key, bucket);
     }
   }
-  for (const [key, values] of buckets) {
+  for (const [key, entries] of buckets) {
+    const values = entries.map((entry) => entry.price);
+    const unitValues = entries.map((entry) => entry.price / entry.quantity);
     prices[key] = {
       n: values.length,
       avg: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
       min: Math.min(...values),
       max: Math.max(...values),
+      unitAvg: Math.max(
+        1,
+        Math.round(
+          unitValues.reduce((sum, value) => sum + value, 0) /
+            unitValues.length,
+        ),
+      ),
+      unitMin: Math.max(1, Math.round(Math.min(...unitValues))),
+      unitMax: Math.max(1, Math.round(Math.max(...unitValues))),
     };
   }
 

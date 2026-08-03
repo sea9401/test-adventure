@@ -20,20 +20,18 @@ import {
 } from "./proficiency";
 
 // 레벨업당 성장 포인트. 5/lv 는 100레벨 전에 전 스탯 cap 을 채워 수행이 사실상 현재 스탯이 되는
-// 문제가 있어 3/lv 로 낮춘다. cap 추격은 만렙 이후 전투 게이지가 별도로 맡는다.
+// 문제가 있어 3/lv 로 낮춘다. 스탯 자동 성장은 레벨업 때만 적용한다.
 export const V2_GROWTH_POINTS_PER_LEVEL = 3;
 export const V2_CURRENT_PROFILE_GROWTH_BONUS = 2;
 export const V2_TARGET_STAT_GROWTH_BONUS = 2;
 export const V2_MASTERY_GROWTH_BONUS_MAX = 3;
 export const V2_MASTERY_GROWTH_SOFTCAP = 1500;
-export const V2_POST_CAP_GROWTH_BATTLES_PER_POINT = 100;
-
 export type RollLevelGrowthOptions = {
   /** 현재 장착/선택한 구체 직업 id. 없으면 class 직군 프로필을 쓴다. */
   currentJobId?: string | null;
   /** 자유 수행/집중 성장 선택. 지정 시 현재 직업 프로필 대신 이 스탯들을 우선한다. */
   targetStats?: readonly V2StatKey[];
-  /** 테스트·만렙 추격 성장용. 기본은 레벨업 1회 성장량. */
+  /** 밸런스 시뮬레이션에서 여러 레벨의 성장량을 한 번에 계산할 때 사용한다. */
   points?: number;
 };
 
@@ -102,16 +100,6 @@ function growthRoom(
 ): number {
   const current = (floors[stat] ?? V2_BASE_STATS[stat]) + (grown[stat] ?? 0);
   return effectiveStatCap(capGain(prof, stat)) - current;
-}
-
-export function hasGrowthRoom(
-  grown: Partial<Record<V2StatKey, number>>,
-  prof: V2ProficiencyState,
-): boolean {
-  const floors = computeStatFloors(prof);
-  return V2_STAT_KEYS.some(
-    (stat) => growthRoom(grown, prof, stat, floors) > 0,
-  );
 }
 
 function growthWeight(
@@ -222,63 +210,4 @@ export function rollLevelGrowth(
     }
   }
   return next;
-}
-
-export function applyPostCapGrowth(
-  prof: V2ProficiencyState,
-  playerClass: V2Class,
-  rng: () => number,
-  optionsOrTargetStats?: readonly V2StatKey[] | RollLevelGrowthOptions,
-): {
-  proficiency: V2ProficiencyState;
-  statGains: Partial<Record<V2StatKey, number>>;
-  pointsGained: number;
-} {
-  if (!hasGrowthRoom(prof.grown, prof)) {
-    return {
-      proficiency: { ...prof, postCapGrowthProgress: 0 },
-      statGains: {},
-      pointsGained: 0,
-    };
-  }
-  const progress = Math.max(0, Math.floor(prof.postCapGrowthProgress ?? 0)) + 1;
-  const points = Math.floor(progress / V2_POST_CAP_GROWTH_BATTLES_PER_POINT);
-  const remainder = progress % V2_POST_CAP_GROWTH_BATTLES_PER_POINT;
-  if (points <= 0) {
-    return {
-      proficiency: { ...prof, postCapGrowthProgress: progress },
-      statGains: {},
-      pointsGained: 0,
-    };
-  }
-
-  const before = prof.grown;
-  let grown = before;
-  let pointsGained = 0;
-  const options = normalizeGrowthOptions(optionsOrTargetStats);
-  for (let i = 0; i < points; i++) {
-    const prevTotal = V2_STAT_KEYS.reduce((sum, stat) => sum + (grown[stat] ?? 0), 0);
-    grown = rollLevelGrowth(grown, playerClass, prof, rng, {
-      ...options,
-      points: 1,
-    });
-    const nextTotal = V2_STAT_KEYS.reduce((sum, stat) => sum + (grown[stat] ?? 0), 0);
-    if (nextTotal <= prevTotal) break;
-    pointsGained += nextTotal - prevTotal;
-  }
-
-  const statGains: Partial<Record<V2StatKey, number>> = {};
-  for (const stat of V2_STAT_KEYS) {
-    const d = (grown[stat] ?? 0) - (before[stat] ?? 0);
-    if (d > 0) statGains[stat] = d;
-  }
-  return {
-    proficiency: {
-      ...prof,
-      grown,
-      postCapGrowthProgress: pointsGained > 0 ? remainder : 0,
-    },
-    statGains,
-    pointsGained,
-  };
 }

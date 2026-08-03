@@ -47,7 +47,7 @@ type Loadout = {
       name: string | null;
       inst: V2EquipInstance | null;
     }[];
-    patternActions: { key: string; name: string }[];
+    patternActions: { key: string; name: string; condition: string }[];
     issues: {
       emptyEquipmentSlots: V2EquipSlot[];
       unavailableEquipmentSlots: V2EquipSlot[];
@@ -305,9 +305,14 @@ export function V2ArenaLoadoutTab() {
             ) : (
               <ul className="space-y-2 text-sm">
                 {patternActions.map((action, index) => (
-                  <li key={action.key} className="flex items-center justify-between gap-3">
-                    <span className="font-semibold">{action.name}</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <li key={action.key} className="flex items-start justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{action.name}</span>
+                      <span className="mt-0.5 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                        조건: {action.condition}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                       {index + 1}순위
                     </span>
                   </li>

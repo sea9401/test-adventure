@@ -130,6 +130,7 @@ export function GuildFacilityUpgradeFund({
         ok?: boolean;
         error?: string;
         materials?: Record<string, number>;
+        contributionPoints?: number;
       } | null;
       if (!res.ok || !json?.ok) {
         setNotice({ kind: "err", text: donationErrorText(json?.error) });
@@ -138,7 +139,14 @@ export function GuildFacilityUpgradeFund({
       setInventory(json.materials ?? inventory);
       setDraft({});
       setDonateOpen(false);
-      setNotice({ kind: "ok", text: "시설 업그레이드 재료를 기부했습니다." });
+      setNotice({
+        kind: "ok",
+        text: `시설 업그레이드 재료를 기부했습니다.${
+          (json.contributionPoints ?? 0) > 0
+            ? ` · 기여 +${json.contributionPoints?.toLocaleString()}점`
+            : ""
+        }`,
+      });
       onChanged?.();
     } catch {
       setNotice({ kind: "err", text: "재료 기부에 실패했습니다." });

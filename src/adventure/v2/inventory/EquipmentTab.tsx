@@ -3,6 +3,7 @@
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { usePagination } from "@/lib/usePagination";
 import {
   type V2EquipInstance,
@@ -76,19 +77,11 @@ export function EquipmentTab({
             {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
             <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               품질
-              <input
-                type="number"
+              <DraftNumberInput
                 min={0}
                 max={100}
                 value={sellQualityPct}
-                onChange={(e) =>
-                  setSellQualityPct(
-                    Math.max(
-                      0,
-                      Math.min(100, Math.floor(Number(e.target.value) || 0)),
-                    ),
-                  )
-                }
+                onValueChange={setSellQualityPct}
                 aria-label="일괄 판매 품질 임계값(%)"
                 className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
               />

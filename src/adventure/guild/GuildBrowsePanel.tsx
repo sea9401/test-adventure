@@ -15,19 +15,25 @@ import {
   type GuildBrowseResponse,
 } from "./api";
 
-// 길드 둘러보기 — 미소속 유저용. 활성 길드 목록(명성순) + 이름 검색 + 가입 신청/취소.
-// 신청은 마스터 수락 전까지 pending. 유저당 동시 1건 — 다른 길드에 신청하려면 먼저 취소.
+// 길드 둘러보기 — 활성 길드 목록(명성순) + 이름 검색.
+// join 모드는 미소속 유저의 가입 신청/취소를 함께 제공하고, browse 모드는 소속 유저에게
+// 같은 정보를 조회 전용으로 보여준다.
 export function GuildBrowsePanel({
   busy,
   leaveCooldownUntil,
   onToast,
   onError,
+  mode = "join",
+  currentGuildId = null,
 }: {
   busy: boolean;
   /** 탈퇴/추방 쿨다운 — 만료 전까지 가입 신청 불가. */
   leaveCooldownUntil: string | null;
   onToast: (msg: string) => void;
   onError: (msg: string) => void;
+  mode?: "join" | "browse";
+  /** 조회 전용 모드에서 현재 소속 길드를 표시한다. */
+  currentGuildId?: number | null;
 }) {
   const [query, setQuery] = useState("");
   const [data, setData] = useState<GuildBrowseResponse | null>(null);
@@ -101,15 +107,19 @@ export function GuildBrowsePanel({
   const pendingRequestId = data?.myPendingRequest?.requestId ?? null;
   const maxMembers = data?.maxMembers ?? 0;
   const lock = busy || acting;
+  const canJoin = mode === "join";
 
   return (
     <Card padding="md">
       <div className="space-y-3">
         <div>
-          <h4 className="text-sm font-semibold">길드 둘러보기</h4>
+          <h4 className="text-sm font-semibold">
+            {canJoin ? "길드 둘러보기" : "다른 길드 목록"}
+          </h4>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            마음에 드는 길드에 가입 신청하면 마스터가 수락/거절합니다. 한 번에 한
-            길드에만 신청할 수 있어요.
+            {canJoin
+              ? "마음에 드는 길드에 가입 신청하면 마스터가 수락/거절합니다. 한 번에 한 길드에만 신청할 수 있어요."
+              : "활성 길드의 이름, 레벨, 인원, 명성, 길드장과 소개를 확인할 수 있습니다."}
           </p>
         </div>
 
@@ -124,7 +134,7 @@ export function GuildBrowsePanel({
           />
         </div>
 
-        {cooldownActive ? (
+        {canJoin && cooldownActive ? (
           <div className={`${SURFACE_ACCENT} px-3 py-2 text-xs text-amber-800 dark:text-amber-300`}>
             탈퇴/추방 쿨다운 중에는 가입 신청을 보낼 수 없습니다.
           </div>
@@ -146,6 +156,7 @@ export function GuildBrowsePanel({
               const isFull = g.memberCount >= cap;
               const requested = pendingGuildId === g.id;
               const hasOtherPending = pendingGuildId !== null && !requested;
+              const isCurrentGuild = currentGuildId === g.id;
               return (
                 <li
                   key={g.id}
@@ -165,6 +176,11 @@ export function GuildBrowsePanel({
                             {g.nationName}
                           </span>
                         ) : null}
+                        {isCurrentGuild ? (
+                          <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                            내 길드
+                          </span>
+                        ) : null}
                       </div>
                       <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                         명성 {g.fameTotal.toLocaleString()} · 인원 {g.memberCount}/
@@ -176,49 +192,51 @@ export function GuildBrowsePanel({
                         </p>
                       ) : null}
                     </div>
-                    <div className="shrink-0">
-                      {requested ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            pendingRequestId != null &&
-                            void handleCancel(pendingRequestId, g.name)
-                          }
-                          disabled={lock}
-                          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                        >
-                          신청 취소
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => void handleRequest(g)}
-                          disabled={
-                            lock ||
-                            cooldownActive ||
-                            isFull ||
-                            !g.acceptingRequests ||
-                            hasOtherPending
-                          }
-                          title={
-                            isFull
-                              ? "정원이 가득 찼습니다"
+                    {canJoin ? (
+                      <div className="shrink-0">
+                        {requested ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              pendingRequestId != null &&
+                              void handleCancel(pendingRequestId, g.name)
+                            }
+                            disabled={lock}
+                            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            신청 취소
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void handleRequest(g)}
+                            disabled={
+                              lock ||
+                              cooldownActive ||
+                              isFull ||
+                              !g.acceptingRequests ||
+                              hasOtherPending
+                            }
+                            title={
+                              isFull
+                                ? "정원이 가득 찼습니다"
+                                : !g.acceptingRequests
+                                  ? "가입 신청을 받지 않습니다"
+                                  : hasOtherPending
+                                    ? "다른 길드에 신청 중 — 먼저 취소하세요"
+                                    : undefined
+                            }
+                            className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            {isFull
+                              ? "정원 마감"
                               : !g.acceptingRequests
-                                ? "가입 신청을 받지 않습니다"
-                                : hasOtherPending
-                                  ? "다른 길드에 신청 중 — 먼저 취소하세요"
-                                  : undefined
-                          }
-                          className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                        >
-                          {isFull
-                            ? "정원 마감"
-                            : !g.acceptingRequests
-                              ? "모집 안 함"
-                              : "가입 신청"}
-                        </button>
-                      )}
-                    </div>
+                                ? "모집 안 함"
+                                : "가입 신청"}
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               );

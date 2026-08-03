@@ -4,6 +4,7 @@ import {
   createReferralCode,
   normalizeReferralCode,
   REFERRAL_NEW_USER_STAMINA_POTIONS,
+  REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
   REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
   referralLandingUrl,
   referralRewardMilestones,
@@ -55,10 +56,11 @@ describe("referrals", () => {
       { frontierDepth: 36, referrerStaminaPotions: 2 },
     ]);
     expect(REFERRAL_NEW_USER_STAMINA_POTIONS).toBe(2);
+    expect(REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS).toBe(2);
     expect(REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE).toBe(2);
   });
 
-  it("신규 캐릭터 귀속 시 회복약 2개 우편을 한 번만 만든다", async () => {
+  it("신규 캐릭터 귀속 시 신규와 홍보자에게 회복약 2개 우편을 한 번만 만든다", async () => {
     const trace = makeTrace();
     const tx = fakeExecutor({
       ownerUserId: "referrer",
@@ -67,10 +69,11 @@ describe("referrals", () => {
     });
 
     await expect(
-      attributeReferral(tx as never, "new-user", "abcdef0123456789"),
+      attributeReferral(tx as never, "new-user", "abcdef0123456789", "새싹"),
     ).resolves.toEqual({ attributed: true });
     expect(trace.inserted.map((entry) => entry.table)).toEqual([
       referralConversions,
+      marketplaceInbox,
       marketplaceInbox,
     ]);
     expect(trace.inserted[0]?.values).toMatchObject({
@@ -78,6 +81,7 @@ describe("referrals", () => {
       referrerUserId: "referrer",
       rewardGold: 0,
       rewardedDepth: 0,
+      referrerSignupRewardedAt: expect.any(Date),
       rewardedStaminaDepth: 0,
     });
     expect(trace.inserted[1]).toMatchObject({
@@ -86,6 +90,15 @@ describe("referrals", () => {
         userId: "new-user",
         kind: "admin_gift",
         payload: { staminaPotions: 2 },
+      },
+    });
+    expect(trace.inserted[2]).toMatchObject({
+      table: marketplaceInbox,
+      values: {
+        userId: "referrer",
+        kind: "admin_gift",
+        payload: { staminaPotions: 2 },
+        message: expect.stringContaining("새싹님"),
       },
     });
   });

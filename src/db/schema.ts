@@ -175,7 +175,8 @@ export const referralCodes = pgTable(
 
 // 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. referredUserId PK가 한 계정의 중복
 // 귀속을 막는다. rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
-// 현재 회복약 보상은 rewardedStaminaDepth를 원자적으로 갱신하며 지급한다.
+// 현재 회복약 보상은 referrerSignupRewardedAt과 rewardedStaminaDepth로 지급 여부를
+// 기록한다. 가입 보상은 귀속 트랜잭션에서 함께 지급하며, 과거 귀속은 NULL로 남긴다.
 export const referralConversions = pgTable(
   "referral_conversions",
   {
@@ -190,6 +191,7 @@ export const referralConversions = pgTable(
       .references(() => referralCodes.code, { onDelete: "cascade" }),
     rewardGold: integer("reward_gold").default(0).notNull(),
     rewardedDepth: integer("rewarded_depth").default(0).notNull(),
+    referrerSignupRewardedAt: timestamp("referrer_signup_rewarded_at"),
     rewardedStaminaDepth: integer("rewarded_stamina_depth").default(0).notNull(),
     convertedAt: timestamp("converted_at").defaultNow().notNull(),
   },
@@ -794,6 +796,92 @@ export const marketplaceBidsV2 = pgTable(
   ],
 );
 
+// v2 스택 품목 구매 주문 — 구매 골드를 미리 에스크로하고 판매 매물과 자동 체결한다.
+// 잔여 수량·골드는 부분 체결마다 감소하며, 완료/취소/만료 시 감사 기록으로 보존한다.
+export const marketplaceBuyOrdersV2 = pgTable(
+  "marketplace_buy_orders_v2",
+  {
+    id: serial("id").primaryKey(),
+    buyerId: text("buyer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // material | consumable(음식·거래 가능 캐시 아이템)
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    unitPrice: integer("unit_price").notNull(),
+    quantityInitial: integer("quantity_initial").notNull(),
+    quantityRemaining: integer("quantity_remaining").notNull(),
+    goldEscrow: integer("gold_escrow").notNull(),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    closedAt: timestamp("closed_at"),
+  },
+  (t) => [
+    index("marketplace_buy_orders_v2_match_idx")
+      .on(t.kind, t.itemId, t.unitPrice, t.createdAt)
+      .where(sql`${t.status} = 'active'`),
+    index("marketplace_buy_orders_v2_buyer_idx").on(
+      t.buyerId,
+      t.status,
+      t.createdAt,
+    ),
+    check(
+      "marketplace_buy_orders_v2_kind_valid",
+      sql`${t.kind} IN ('material','consumable')`,
+    ),
+    check(
+      "marketplace_buy_orders_v2_status_valid",
+      sql`${t.status} IN ('active','filled','cancelled','expired')`,
+    ),
+    check("marketplace_buy_orders_v2_unit_price_pos", sql`${t.unitPrice} > 0`),
+    check("marketplace_buy_orders_v2_qty_initial_pos", sql`${t.quantityInitial} > 0`),
+    check("marketplace_buy_orders_v2_qty_remaining_nonneg", sql`${t.quantityRemaining} >= 0`),
+    check("marketplace_buy_orders_v2_escrow_nonneg", sql`${t.goldEscrow} >= 0`),
+    check("marketplace_buy_orders_v2_expires_after_create", sql`${t.expiresAt} > ${t.createdAt}`),
+  ],
+);
+
+// 지정 개당 가격 이하 매물이 생겼을 때 한 번 울리는 가격 알림.
+export const marketplacePriceAlertsV2 = pgTable(
+  "marketplace_price_alerts_v2",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    targetUnitPrice: integer("target_unit_price").notNull(),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    triggeredAt: timestamp("triggered_at"),
+  },
+  (t) => [
+    index("marketplace_price_alerts_v2_match_idx")
+      .on(t.kind, t.itemId, t.targetUnitPrice)
+      .where(sql`${t.status} = 'active'`),
+    index("marketplace_price_alerts_v2_user_idx").on(
+      t.userId,
+      t.status,
+      t.createdAt,
+    ),
+    uniqueIndex("marketplace_price_alerts_v2_user_item_active_idx")
+      .on(t.userId, t.kind, t.itemId)
+      .where(sql`${t.status} = 'active'`),
+    check(
+      "marketplace_price_alerts_v2_kind_valid",
+      sql`${t.kind} IN ('material','consumable')`,
+    ),
+    check(
+      "marketplace_price_alerts_v2_status_valid",
+      sql`${t.status} IN ('active','triggered','cancelled')`,
+    ),
+    check("marketplace_price_alerts_v2_target_pos", sql`${t.targetUnitPrice} > 0`),
+  ],
+);
+
 // 랭킹 — opt-in. 사용자가 명시적으로 등록한 경우에만 row 가 존재한다.
 // 갱신은 수동 (RankingsView 의 '갱신' 버튼). DELETE 로 빠질 수 있음.
 // name 은 등록/갱신 시점 스냅샷 — 이후 닉네임 변경되면 다음 갱신에서 반영.
@@ -918,6 +1006,41 @@ export const guildActivityLog = pgTable(
       t.actorUserId,
       t.createdAt,
     ),
+  ],
+);
+
+// 길드 기여도 불변 원장. 활동 로그와 1:0..1로 연결해 동일 활동의 중복 적립을 막고,
+// 점수 규칙이 바뀌어도 이미 획득한 주간·누적 점수는 다시 계산하지 않는다.
+export const guildContributionEvents = pgTable(
+  "guild_contribution_events",
+  {
+    id: serial("id").primaryKey(),
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    activityLogId: integer("activity_log_id")
+      .notNull()
+      .references(() => guildActivityLog.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    category: text("category").notNull(),
+    points: integer("points").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("guild_contribution_events_activity_unique_idx").on(
+      t.activityLogId,
+    ),
+    index("guild_contribution_events_guild_created_idx").on(
+      t.guildId,
+      t.createdAt,
+    ),
+    index("guild_contribution_events_guild_user_created_idx").on(
+      t.guildId,
+      t.userId,
+      t.createdAt,
+    ),
+    check("guild_contribution_events_points_positive", sql`${t.points} > 0`),
   ],
 );
 

@@ -24,6 +24,9 @@ vi.mock("@/lib/server/guildFacilityUpgradeDonations", () => ({
   lockGuildFacilityDonationProgress: vi.fn(),
   setGuildFacilityDonationProgress: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/guildActivityLog", () => ({
+  logGuildActivity: vi.fn(async () => undefined),
+}));
 
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";

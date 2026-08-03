@@ -41,6 +41,7 @@ import {
   useActivityCooldown,
 } from "./useActivityVerification";
 import type { AutoGatheringActivity } from "./autoGathering";
+import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -1684,6 +1685,8 @@ export function FishingView({
     <>
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-2.5 rounded-2xl p-3 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:space-y-3 sm:p-5`}>
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
+
+        <ProductionJobAdvanceNotice refreshKey={progression?.catches ?? 0} />
 
         {verification && verifyHuman ? (
           <ActivityVerificationGate

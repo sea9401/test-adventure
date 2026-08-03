@@ -56,6 +56,9 @@ describe("coopShop", () => {
       materialId: COOP_TIER5_EQUIPMENT_BOX.id,
       count: 1,
     });
+    expect(entries.at(-1)?.description).toBe(
+      "사용하면 흉포한 산군·심연어룡 전용 5T 장비 9종 중 1개를 무작위로 획득한다.",
+    );
     expect(
       entries.at(-1)?.cost.materials[COOP_BOSS_MATERIAL.mountain_chief_hard.id],
     ).toBe(15);

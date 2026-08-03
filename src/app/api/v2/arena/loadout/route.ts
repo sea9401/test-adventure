@@ -58,7 +58,7 @@ type PresentedArenaLoadout = ArenaLoadout & {
       name: string | null;
       inst: V2EquipInstance | null;
     }[];
-    patternActions: { key: string; name: string }[];
+    patternActions: { key: string; name: string; condition: string }[];
     issues: ReturnType<typeof arenaLoadoutIssueSummary>;
   };
 };

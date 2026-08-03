@@ -149,6 +149,7 @@ export function V2CharacterCard({
   character,
   guild,
   levelCap = null,
+  rejobRequiredLevel = null,
   // 칭호 — v2 시스템 없음. 있을 때만 노출.
   titleName = null,
   // 카드 하단에 골드 한 줄 노출 여부.
@@ -173,7 +174,10 @@ export function V2CharacterCard({
 }: {
   character: V2CharacterCardData;
   guild?: { name: string } | null;
+  /** 전투 레벨 상한. 생산직의 전직 요구 레벨과는 별개다. */
   levelCap?: number | null;
+  /** 현재 직업의 전직 요구 레벨. 1이면 사용자에게는 "레벨 제한 없음"으로 안내한다. */
+  rejobRequiredLevel?: number | null;
   titleName?: string | null;
   showGold?: boolean;
   activePresetName?: string | null;
@@ -207,6 +211,8 @@ export function V2CharacterCard({
       ? Math.max(1, Math.floor(levelCap))
       : null;
   const isAtCap = cappedLevel != null && character.level >= cappedLevel;
+  const hasNoRejobLevelRequirement =
+    typeof rejobRequiredLevel === "number" && rejobRequiredLevel <= 1;
   const supportActiveUntil =
     adventureSupport?.active &&
     typeof adventureSupport.activeUntil === "number" &&
@@ -304,8 +310,8 @@ export function V2CharacterCard({
                   }
                 >
                   {cappedLevel
-                    ? `Lv ${character.level} / ${cappedLevel}`
-                    : `Lv.${character.level}`}
+                    ? `전투 Lv ${character.level} / ${cappedLevel}`
+                    : `전투 Lv.${character.level}`}
                 </span>
               </div>
               <div
@@ -316,6 +322,14 @@ export function V2CharacterCard({
                 }
               >
                 <span>{jobName}</span>
+                {hasNoRejobLevelRequirement ? (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="font-medium text-sky-700 dark:text-sky-300">
+                      전직 레벨 제한 없음
+                    </span>
+                  </>
+                ) : null}
                 <span aria-hidden>·</span>
                 <span>{guild ? guild.name : "무소속"}</span>
               </div>
@@ -363,7 +377,9 @@ export function V2CharacterCard({
             ) : null}
             {isAtCap && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요.
+                {hasNoRejobLevelRequirement
+                  ? "전투 레벨이 한계에 도달했어요. 생산직 전직은 생활 숙련 조건만 충족하면 바로 할 수 있어요."
+                  : "전투 레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요."}
               </p>
             )}
             <div className="space-y-1.5">

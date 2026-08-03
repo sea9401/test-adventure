@@ -1,0 +1,1 @@
+ALTER TABLE "referral_conversions" ADD COLUMN "referrer_signup_rewarded_at" timestamp;

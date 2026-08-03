@@ -242,6 +242,7 @@ export function useMining(): MiningHandlers {
         session
           ? {
               activity: "mining",
+              sourceId: session.sourceId,
               sourceName: session.sourceName,
               readyAt: session.readyAt,
             }

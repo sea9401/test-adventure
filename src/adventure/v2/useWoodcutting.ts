@@ -251,6 +251,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
         session
           ? {
               activity: "woodcutting",
+              sourceId: session.sourceId,
               sourceName: session.sourceName,
               readyAt: session.readyAt,
             }

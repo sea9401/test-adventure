@@ -16,6 +16,7 @@ import {
 import {
   formatStatGains,
   formatHpMpGains,
+  GoldLossNotice,
   RewardBalanceGrid,
   type RewardBalanceItem,
 } from "@/adventure/v2/HuntResultCard";
@@ -52,6 +53,7 @@ export type BatchSummary = {
   totalMastery?: number;
   proficiencyAfter?: number | null;
   totalGold: number;
+  totalLossTax?: number;
   finalGoldAfter?: number | null;
   expAfter?: number | null;
   totalGoldGross?: number; // 세전 합산 — 세금 줄 표기용.
@@ -66,7 +68,16 @@ export type BatchSummary = {
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
-  stoppedReason?: "stamina" | "death" | "defeat" | "recovery" | "error" | null;
+  stoppedReason?:
+    | "stamina"
+    | "death"
+    | "defeat"
+    | "recovery"
+    | "error"
+    | "potion"
+    | "rare_map"
+    | "level_100"
+    | null;
   replays?: BatchReplayEntry[];
 };
 
@@ -113,6 +124,7 @@ export function BatchSummaryCard({
       label: "골드",
       current: summary.finalGoldAfter,
       gained: summary.totalGold,
+      lost: summary.totalLossTax,
       currentClassName: "text-yellow-700 dark:text-yellow-300",
       gainedClassName: "text-yellow-600 dark:text-yellow-400",
     },
@@ -191,6 +203,12 @@ export function BatchSummaryCard({
           </span>
         )}
       </div>
+      {summary.losses > 0 && (
+        <GoldLossNotice
+          loss={summary.totalLossTax ?? 0}
+          goldAfter={summary.finalGoldAfter}
+        />
+      )}
       <RewardBalanceGrid items={rewardBalances} />
 
       <div className="mt-2 space-y-1 text-center text-sm">
@@ -233,6 +251,12 @@ export function BatchSummaryCard({
               ? "패배로 중단"
               : summary.stoppedReason === "recovery"
                 ? "체력 부족으로 중단"
+                : summary.stoppedReason === "potion"
+                  ? "충전약 정지 조건으로 중단"
+                  : summary.stoppedReason === "rare_map"
+                    ? "희귀 탐사맵 발견으로 중단"
+                    : summary.stoppedReason === "level_100"
+                      ? "레벨 100 도달로 중단"
                 : "오류로 중단"}{" "}
           ({summary.completed}/{summary.attempted})
         </p>

@@ -28,13 +28,14 @@ describe("V2TopBar", () => {
       <V2TopBar
         autoGathering={{
           activity: "woodcutting",
-          sourceName: "초보자의 숲",
+          sourceId: "birch",
+          sourceName: "자작나무",
           readyAt: Date.now() + 60_000,
         }}
       />,
     );
 
-    expect(html).toContain('href="/town/logging"');
+    expect(html).toContain('href="/town/logging?spot=birch_grove"');
     expect(html).toContain('aria-label="벌목 화면으로 이동"');
   });
 
@@ -43,13 +44,14 @@ describe("V2TopBar", () => {
       <V2TopBar
         autoGathering={{
           activity: "mining",
-          sourceName: "바위산 채석장",
+          sourceId: "silver",
+          sourceName: "은 광맥",
           readyAt: Date.now() + 60_000,
         }}
       />,
     );
 
-    expect(html).toContain('href="/town/mining"');
+    expect(html).toContain('href="/town/mining?spot=silver_cavern"');
     expect(html).toContain('aria-label="채광 화면으로 이동"');
   });
 });

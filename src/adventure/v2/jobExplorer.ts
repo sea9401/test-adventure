@@ -66,8 +66,17 @@ export function compareJobExplorerLineOrder(
 export type JobTagFilter = {
   key: string;
   label: string;
+  showOnCard?: boolean;
   matches: (job: JobExplorerJob, context?: JobExplorerContext) => boolean;
 };
+
+export function hasCollectedJobSkills(job: JobExplorerJob): boolean {
+  return (
+    job.skillsCollected === true ||
+    ((job.skillsTotal ?? 0) > 0 &&
+      (job.skillsLearned ?? 0) >= (job.skillsTotal ?? 0))
+  );
+}
 
 export const JOB_TAG_FILTERS: JobTagFilter[] = [
   { key: "tier-1", label: "기본", matches: (job) => job.tier === 1 },
@@ -91,12 +100,37 @@ export const JOB_TAG_FILTERS: JobTagFilter[] = [
   {
     key: "collected",
     label: "수집완료",
-    matches: (job) =>
-      job.skillsCollected === true ||
-      ((job.skillsTotal ?? 0) > 0 &&
-        (job.skillsLearned ?? 0) >= (job.skillsTotal ?? 0)),
+    showOnCard: false,
+    matches: hasCollectedJobSkills,
+  },
+  {
+    key: "incomplete",
+    label: "수집미완료",
+    showOnCard: false,
+    matches: (job) => !hasCollectedJobSkills(job),
   },
 ];
+
+const JOB_CARD_HIDDEN_TAG_LABELS = new Set(
+  JOB_TAG_FILTERS.filter((filter) => filter.showOnCard === false).map(
+    (filter) => filter.label,
+  ),
+);
+
+export function toggleJobTagFilter(
+  activeTags: ReadonlySet<string>,
+  key: string,
+): Set<string> {
+  const next = new Set(activeTags);
+  if (next.has(key)) {
+    next.delete(key);
+    return next;
+  }
+  if (key === "collected") next.delete("incomplete");
+  if (key === "incomplete") next.delete("collected");
+  next.add(key);
+  return next;
+}
 
 export function normalizeJobQuery(value: string): string {
   return value.trim().toLocaleLowerCase("ko-KR");
@@ -119,6 +153,15 @@ export function jobTags(
     if (filter.matches(job, context)) tags.push(filter.label);
   }
   return [...new Set(tags)];
+}
+
+export function jobCardTags(
+  job: JobExplorerJob,
+  context?: JobExplorerContext,
+): string[] {
+  return jobTags(job, context).filter(
+    (tag) => !JOB_CARD_HIDDEN_TAG_LABELS.has(tag),
+  );
 }
 
 export function matchesJobExplorerFilters(

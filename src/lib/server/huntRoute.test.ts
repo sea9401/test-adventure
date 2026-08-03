@@ -281,6 +281,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         completed: number;
         wins: number;
         losses: number;
+        totalLossTax: number;
         totalExp: number;
         totalProficiency: number;
         proficiencyPointsAfter: number;
@@ -299,6 +300,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.completed).toBe(5);
     expect(json.batch.wins).toBe(5);
     expect(json.batch.losses).toBe(0);
+    expect(json.batch.totalLossTax).toBe(0);
     expect(json.batch.stoppedReason).toBeNull();
     expect(json.batch.totalProficiency).toBe(5 * proficiencyPerKillAtDepth(2));
     expect(json.batch.proficiencyPointsAfter).toBe(

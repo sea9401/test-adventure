@@ -33,6 +33,7 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -310,11 +311,27 @@ export async function POST(req: Request) {
       await sourceInventory.consume(quantity);
       await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, nextUserState);
       await updateGuildDiningWeekly(tx, nextWeekly);
+      const contributionPoints = guildExistingActivityContributionPoints(points);
+      await logGuildActivity(tx, {
+        guildId,
+        type: "dining_ingredient_donation",
+        actorUserId: userId,
+        meta: {
+          itemName: ingredient.name,
+          quantity,
+          contributionPoints,
+        },
+      });
       return {
         status: 200,
         body: {
           ok: true as const,
-          donated: { ingredientName: ingredient.name, quantity, points },
+          donated: {
+            ingredientName: ingredient.name,
+            quantity,
+            points,
+            contributionPoints,
+          },
           ...(await diningView({
             tx,
             userId,

@@ -693,6 +693,17 @@ body {
   }
 }
 
+@keyframes ui-toast-drop-in {
+  0% {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 @keyframes ui-result-highlight {
   0% {
     opacity: 0;
@@ -777,6 +788,13 @@ body {
 
 .ui-reward-toast {
   animation: ui-toast-slide-in 180ms ease-out both;
+}
+
+/* 모바일 토스트는 상단 위치와 움직임을 맞춰 위에서 아래로 나타난다. */
+@media (max-width: 39.999rem) {
+  .ui-reward-toast {
+    animation-name: ui-toast-drop-in;
+  }
 }
 
 .ui-action-result {

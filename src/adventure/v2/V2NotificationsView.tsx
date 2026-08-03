@@ -107,6 +107,9 @@ const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
   user_message: "쪽지",
   sale_proceeds: "판매 대금",
   bid_refund: "입찰금 반환",
+  buy_order_refund: "구매 주문 환불",
+  buy_order_item: "구매 주문 체결",
+  price_alert: "시세 알림",
   purchase_item: "구매 물품",
   cancel_return: "취소 반환",
   recipe_gift: "제작서 선물",
@@ -121,6 +124,12 @@ function mailBody(item: InboxItem): string {
   if (item.kind === "user_message") {
     const text = item.payload.text;
     return typeof text === "string" && text.length > 0 ? text : "(내용 없음)";
+  }
+  if (item.kind === "price_alert") {
+    const text = item.payload.text;
+    return typeof text === "string" && text.length > 0
+      ? text
+      : (item.message ?? MAIL_KIND_LABEL[item.kind]);
   }
   if (item.kind === "guild_invite") {
     const guildName = item.payload.guild_name;

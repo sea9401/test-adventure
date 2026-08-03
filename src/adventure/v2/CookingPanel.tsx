@@ -2,13 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Star } from "@phosphor-icons/react";
+import { MagnifyingGlass, Star } from "@phosphor-icons/react";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { TabBar } from "@/components/ui/TabBar";
 import { FARM_CROP_LIST, FARM_ITEMS, type FarmItemInventory } from "./farm";
 import {
   COOKING_SURPLUS_BATCH_SIZE,
   COOKING_SURPLUS_DAILY_LIMIT,
+  cookingOrderReward,
   cookingIngredientRequirement,
+  cookingRecipeMatchesQuery,
+  deliverableCookingFoods,
+  type CookingFoodId,
+  type CookingFoodInventory,
   type CookingOrder,
   type CookingRecipe,
   type CookingState,
@@ -18,11 +24,13 @@ import {
   FISHING_CATCH_ITEMS,
   type FishingCatchItemId,
 } from "./fishingStock";
+import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 
 type CookingResponse = {
   ok: boolean;
   now: number;
   cooking: CookingState;
+  cookingFoods: CookingFoodInventory;
   level: number;
   currentLevelXp: number;
   nextLevelXp: number | null;
@@ -42,15 +50,20 @@ type CookingResponse = {
     quality: string;
     earnedXp: number;
     savedRareIngredients: number;
+    orderRewardGold: number;
+    orderRewardReputation: number;
+    orderQualityBonusPct: number;
   };
 };
 
 type RecipeFilter = "all" | "available" | "favorite";
+type CookingSection = "orders" | "recipes" | "surplus";
 
 const ERROR_TEXT: Record<string, string> = {
   recipe_locked: "아직 요리 레벨이 부족합니다.",
   not_enough_farm_items: "농장 재료가 부족합니다.",
   not_enough_fishing_items: "낚시 보관함의 어획물이 부족합니다.",
+  cooked_food_unavailable: "납품할 완성 요리를 보유하고 있지 않습니다.",
   order_unavailable: "오늘 받을 수 없는 주문입니다.",
   daily_limit: "오늘의 떨이 교환 횟수를 모두 사용했습니다.",
   not_enough_items: "교환할 작물이 부족합니다.",
@@ -68,7 +81,9 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [section, setSection] = useState<CookingSection>("orders");
   const [filter, setFilter] = useState<RecipeFilter>("all");
+  const [recipeQuery, setRecipeQuery] = useState("");
   const [useRareByRecipe, setUseRareByRecipe] = useState<Record<string, boolean>>({});
 
   const refresh = useCallback(async () => {
@@ -92,6 +107,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
     recipe: CookingRecipe,
     action: "cook" | "order",
     quantity = 1,
+    foodId?: CookingFoodId,
   ) => {
     setBusy(`${action}:${recipe.id}`);
     setNotice(null);
@@ -103,6 +119,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           recipeId: recipe.id,
           action,
           quantity,
+          ...(foodId ? { foodId } : {}),
           useRare: action === "cook" && useRareByRecipe[recipe.id] === true,
         }),
       });
@@ -113,7 +130,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
       setNotice(
         result
           ? result.action === "order"
-            ? `${result.recipeName} 주문 납품 완료 · 요리 XP +${result.earnedXp}`
+            ? `${result.recipeName} ${qualityName(result.quality)} 납품 완료 · 골드 +${result.orderRewardGold.toLocaleString()} · 증표 +${result.orderRewardReputation} · 주문 XP +${result.earnedXp}`
             : `${result.recipeName} ${result.quantity}개 완성 · ${qualityName(result.quality)} · 인벤토리에 보관 · 요리 XP +${result.earnedXp}${result.savedRareIngredients > 0 ? ` · 희귀 재료 ${result.savedRareIngredients}개 보존` : ""}`
           : "요리를 완성했습니다.",
       );
@@ -167,6 +184,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
     if (!data) return [];
     return data.recipes
       .filter((recipe) => {
+        if (!cookingRecipeMatchesQuery(recipe, recipeQuery)) return false;
         if (filter === "favorite") return data.cooking.favoriteRecipeIds.includes(recipe.id);
         if (filter === "available") return maxCookable(recipe, data, useRareByRecipe[recipe.id] === true) > 0;
         return true;
@@ -176,7 +194,16 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
         const bf = data.cooking.favoriteRecipeIds.includes(b.id) ? 1 : 0;
         return bf - af || a.requiredLevel - b.requiredLevel;
       });
-  }, [data, filter, useRareByRecipe]);
+  }, [data, filter, recipeQuery, useRareByRecipe]);
+
+  const deliverableOrderCount = useMemo(() => {
+    if (!data) return 0;
+    return data.orders.filter(
+      (order) =>
+        !data.cooking.daily.completedOrderIds.includes(order.id) &&
+        deliverableCookingFoods(data.cookingFoods, order.recipeId).length > 0,
+    ).length;
+  }, [data]);
 
   if (loading && !data) {
     return <div className={`${SURFACE_CARD} p-6 text-center text-sm text-zinc-500`}>주방을 정리하는 중...</div>;
@@ -196,6 +223,8 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           {notice}
         </div>
       ) : null}
+
+      <ProductionJobAdvanceNotice refreshKey={data.level} />
 
       <section className={`${SURFACE_CARD} p-4`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -224,8 +253,42 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
         </div>
       </section>
 
-      <OrderBoard data={data} busy={busy} onCook={cook} />
+      <div className={`${SURFACE_CARD} px-1`}>
+        <TabBar
+          tabs={[
+            {
+              key: "orders",
+              label: "주문 납품",
+              badge:
+                deliverableOrderCount > 0 ? deliverableOrderCount : undefined,
+              badgeLabel: `납품 가능 ${deliverableOrderCount}건`,
+            },
+            { key: "recipes", label: "요리책" },
+            { key: "surplus", label: "떨이 교환" },
+          ] satisfies ReadonlyArray<{
+            key: CookingSection;
+            label: string;
+            badge?: number;
+            badgeLabel?: string;
+          }>}
+          active={section}
+          onChange={setSection}
+          ariaLabel="개인 주방 메뉴"
+          className="justify-around"
+        />
+      </div>
 
+      {section === "orders" && (
+        <OrderBoard
+          data={data}
+          busy={busy}
+          onDeliver={(recipe, foodId) =>
+            cook(recipe, "order", 1, foodId)
+          }
+        />
+      )}
+
+      {section === "recipes" && (
       <section className={`${SURFACE_CARD} p-4`}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -245,7 +308,23 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
             ))}
           </div>
         </div>
-        <div className="grid gap-3 lg:grid-cols-2">
+        <label className={`${SURFACE_INSET} mb-3 flex items-center gap-2 px-3 py-2`}>
+          <MagnifyingGlass
+            size={17}
+            className="shrink-0 text-zinc-500"
+            aria-hidden
+          />
+          <span className="sr-only">요리 또는 재료 검색</span>
+          <input
+            type="search"
+            value={recipeQuery}
+            onChange={(event) => setRecipeQuery(event.target.value)}
+            placeholder="요리명 또는 재료명 검색"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-400"
+          />
+        </label>
+        {recipes.length > 0 ? (
+          <div className="grid gap-3 lg:grid-cols-2">
           {recipes.map((recipe) => {
             const unlocked = data.level >= recipe.requiredLevel;
             const useRare = useRareByRecipe[recipe.id] === true;
@@ -313,10 +392,18 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
               </article>
             );
           })}
-        </div>
+          </div>
+        ) : (
+          <div className={`${SURFACE_INSET} px-3 py-8 text-center text-sm text-zinc-500`}>
+            검색 조건에 맞는 요리가 없습니다.
+          </div>
+        )}
       </section>
+      )}
 
-      <SurplusExchange data={data} busy={busy} onExchange={exchange} />
+      {section === "surplus" && (
+        <SurplusExchange data={data} busy={busy} onExchange={exchange} />
+      )}
     </div>
   );
 }
@@ -324,22 +411,52 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
 function OrderBoard({
   data,
   busy,
-  onCook,
+  onDeliver,
 }: {
   data: CookingResponse;
   busy: string | null;
-  onCook: (recipe: CookingRecipe, action: "order", quantity?: number) => void;
+  onDeliver: (recipe: CookingRecipe, foodId: CookingFoodId) => void;
 }) {
+  const [selectedFoodByOrder, setSelectedFoodByOrder] = useState<
+    Record<string, CookingFoodId>
+  >({});
+
   return (
     <section className={`${SURFACE_CARD} p-4`}>
       <h3 className="font-bold text-zinc-900 dark:text-zinc-100">오늘의 선술집 주문</h3>
-      <p className="mt-1 text-xs text-zinc-500">매일 3건이 바뀌며 골드, 농장 증표, 추가 요리 XP를 줍니다.</p>
+      <p className="mt-1 text-xs text-zinc-500">
+        보유한 완성 요리를 납품합니다. 정성작은 보상 +20%·증표 +1,
+        걸작은 보상 +50%·증표 +2를 받습니다.
+      </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {data.orders.map((order) => {
           const recipe = data.recipes.find((entry) => entry.id === order.recipeId);
           if (!recipe) return null;
           const done = data.cooking.daily.completedOrderIds.includes(order.id);
-          const possible = maxCookable(recipe, data, false) > 0;
+          const deliverables = deliverableCookingFoods(
+            data.cookingFoods,
+            recipe.id,
+          );
+          const selectedFoodId = deliverables.some(
+            ({ food }) => food.id === selectedFoodByOrder[order.id],
+          )
+            ? selectedFoodByOrder[order.id]
+            : deliverables[0]?.food.id;
+          const selectedFood = deliverables.find(
+            ({ food }) => food.id === selectedFoodId,
+          )?.food;
+          const reward = selectedFood
+            ? cookingOrderReward(order, selectedFood.quality)
+            : cookingOrderReward(order, "normal");
+          const earnedXp = Math.max(
+            1,
+            Math.floor(
+              reward.bonusXp *
+                (1 +
+                  (data.cookingJobTier >= 2 ? 0.1 : 0) +
+                  data.cookingSkillBonuses.xpBonusPct / 100),
+            ),
+          );
           return (
             <div key={order.id} className={`${SURFACE_INSET} p-3 text-sm`}>
               <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
@@ -353,14 +470,49 @@ function OrderBoard({
                 />
                 <span>{recipe.name}</span>
               </div>
-              <div className="mt-1 text-xs text-zinc-500">{order.rewardGold.toLocaleString()} 골드 · 증표 {order.rewardReputation} · XP +{order.bonusXp}</div>
+              <div className="mt-1 text-xs text-zinc-500">
+                {reward.gold.toLocaleString()} 골드 · 증표 {reward.reputation} ·
+                주문 XP +{earnedXp}
+              </div>
+              {deliverables.length > 0 && selectedFoodId ? (
+                <select
+                  value={selectedFoodId}
+                  onChange={(event) =>
+                    setSelectedFoodByOrder((current) => ({
+                      ...current,
+                      [order.id]: event.target.value as CookingFoodId,
+                    }))
+                  }
+                  disabled={done || busy != null}
+                  aria-label={`${recipe.name} 납품 품질`}
+                  className="mt-2 h-9 w-full rounded-md border border-zinc-300 bg-white px-2 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                >
+                  {deliverables.map(({ food, count }) => (
+                    <option key={food.id} value={food.id}>
+                      {food.name} · 보유 {count}개
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="mt-2 px-2 py-2 text-center text-xs text-zinc-500">
+                  보유 요리 없음
+                </div>
+              )}
               <button
                 type="button"
-                disabled={done || !possible || busy != null}
-                onClick={() => onCook(recipe, "order")}
+                disabled={done || !selectedFoodId || busy != null}
+                onClick={() =>
+                  selectedFoodId && onDeliver(recipe, selectedFoodId)
+                }
                 className="mt-2 w-full rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white disabled:bg-zinc-400"
               >
-                {done ? "납품 완료" : busy === `order:${recipe.id}` ? "조리 중..." : possible ? "조리해 납품" : "재료 부족"}
+                {done
+                  ? "납품 완료"
+                  : busy === `order:${recipe.id}`
+                    ? "납품 중..."
+                    : selectedFoodId
+                      ? `${qualityName(selectedFood?.quality ?? "normal")} 납품`
+                      : "보유 요리 없음"}
               </button>
             </div>
           );

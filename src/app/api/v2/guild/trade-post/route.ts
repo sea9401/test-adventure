@@ -15,6 +15,7 @@ import { tradePostUpgradeForLevel } from "@/adventure/data/v2/settlement";
 import { STAMINA_POTIONS_KEY, parseStaminaPotions } from "@/adventure/v2/staminaPotions";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
 import {
   lockGuildTradeWeekly,
   saveGuildTradeWeekly,
@@ -254,6 +255,7 @@ export async function POST(req: Request) {
       const userState = parseGuildTradeUserState(userRaw, { guildId, weekKey });
       const quantity = item.batchSize * batches;
       const points = item.pointValue * batches;
+      const contributionPoints = guildExistingActivityContributionPoints(points);
       const currentProgress = weekly.progress[item.id] ?? 0;
       if (
         userState.contributionPoints + points > upgrade.personalContributionCap
@@ -284,6 +286,17 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, GUILD_TRADE_USER_SAVE_KEY, nextUserState);
       await saveGuildTradeWeekly(tx, nextWeekly);
 
+      await logGuildActivity(tx, {
+        guildId,
+        type: "trade_delivery",
+        actorUserId: userId,
+        meta: {
+          itemName: item.name,
+          quantity,
+          contributionPoints,
+        },
+      });
+
       let guildReward: { gold: number; fame: number } | null = null;
       if (completed) {
         guildReward = guildTradeCompletionReward(
@@ -310,7 +323,13 @@ export async function POST(req: Request) {
         status: 200,
         body: {
           ok: true as const,
-          delivered: { itemName: item.name, quantity, points, completed },
+          delivered: {
+            itemName: item.name,
+            quantity,
+            points,
+            completed,
+            contributionPoints,
+          },
           guildReward,
           ...(await tradeView({
             tx,

@@ -45,9 +45,15 @@ import {
 import {
   MUSEUN_COIN_WALLET_KEY,
   addMuseunCashItem,
+  isMuseunShopItemId,
   parseMuseunCoinBalance,
   type MuseunShopItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  addCookingFood,
+  isCookingFoodId,
+  type CookingFoodId,
+} from "@/adventure/v2/cooking";
 import { randomUUID } from "node:crypto";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
@@ -139,6 +145,7 @@ export async function POST(req: Request) {
       let staminaPotionsTotal = 0;
       let museunCoinsTotal = 0;
       const museunCashItemTotals = new Map<MuseunShopItemId, number>();
+      const cookingFoodTotals = new Map<CookingFoodId, number>();
       let adventureSupportDaysTotal = 0;
       const titleIdsToGrant = new Set<string>();
       // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
@@ -181,11 +188,37 @@ export async function POST(req: Request) {
         switch (parsed.kind) {
           // user_message / guild_invite: 부수효과 없음 — claimedAt 만 마킹.
           case "user_message":
+          case "price_alert":
           case "guild_invite":
             break;
           case "sale_proceeds":
           case "bid_refund":
+          case "buy_order_refund":
             if (parsed.gold > 0) goldTotal += parsed.gold;
+            break;
+          case "buy_order_item":
+            if (parsed.item_kind === "material") {
+              pushMaterial(parsed.item_id, parsed.quantity);
+            } else if (
+              parsed.item_kind === "cash" &&
+              isMuseunShopItemId(parsed.item_id)
+            ) {
+              museunCashItemTotals.set(
+                parsed.item_id,
+                (museunCashItemTotals.get(parsed.item_id) ?? 0) +
+                  parsed.quantity,
+              );
+            } else if (
+              parsed.item_kind === "cooking" &&
+              isCookingFoodId(parsed.item_id)
+            ) {
+              cookingFoodTotals.set(
+                parsed.item_id,
+                (cookingFoodTotals.get(parsed.item_id) ?? 0) + parsed.quantity,
+              );
+            } else {
+              parseFailedRowIds.push(row.id);
+            }
             break;
           case "purchase_item":
           case "cancel_return":
@@ -352,7 +385,11 @@ export async function POST(req: Request) {
       // V2 장비 갱신 (equipment.v2). 운영자 우편/길드 보상 장비가 여기로 합류.
       let newEquipmentOwned: V2EquipInstance[] | null = null;
       const equipV2Added: { id: string; count: number }[] = [];
-      if (itemsToAdd.length > 0 || instancesToAdd.length > 0) {
+      if (
+        itemsToAdd.length > 0 ||
+        instancesToAdd.length > 0 ||
+        cookingFoodTotals.size > 0
+      ) {
         const invRows = await tx
           .select()
           .from(savesKv)
@@ -360,8 +397,10 @@ export async function POST(req: Request) {
             and(eq(savesKv.userId, userId), eq(savesKv.key, SAVES_INVENTORY)),
           )
           .for("update");
-        const inv = (invRows[0]?.value ?? {}) as InventoryShape;
-        let next: InventoryShape = { ...inv };
+        const inv = (invRows[0]?.value ?? {}) as InventoryShape & {
+          cookingFoods?: unknown;
+        };
+        let next: InventoryShape & { cookingFoods?: unknown } = { ...inv };
         for (const it of itemsToAdd) {
           if (it.kind === "equip") {
             next = addGradedEquip(next, it.id, it.grade, it.quantity);
@@ -385,6 +424,12 @@ export async function POST(req: Request) {
             next = addInstance(next, fresh);
             instancesApplied.push(fresh);
           }
+        }
+        for (const [itemId, count] of cookingFoodTotals) {
+          next = {
+            ...next,
+            cookingFoods: addCookingFood(next.cookingFoods, itemId, count),
+          };
         }
         await upsertSave(tx, userId, SAVES_INVENTORY, next);
         newInventory = next;
@@ -552,6 +597,10 @@ export async function POST(req: Request) {
         museunCoinsAdded: museunCoinsTotal,
         museunCoins,
         cashItemsAdded: Array.from(museunCashItemTotals, ([itemId, count]) => ({
+          itemId,
+          count,
+        })),
+        cookingFoodsAdded: Array.from(cookingFoodTotals, ([itemId, count]) => ({
           itemId,
           count,
         })),

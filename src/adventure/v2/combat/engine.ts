@@ -49,6 +49,7 @@ import {
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
   attackMissPct,
+  combineDefReductionPcts,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
@@ -165,9 +166,11 @@ export function playerFacingEnemyDef(
       ? Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100))
       : afterEnchantPierce;
   // 부식 (독사 시그니처) — 중독된 적의 DEF -pct%. 곱연산으로 마지막에.
-  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    player.poisonedEnemyDefReductionPct ?? 0,
+  );
   return corrodePct > 0 && isEnemyPoisoned(state)
-    ? Math.round(afterDebuff * (1 - corrodePct / 100))
+    ? Math.max(0, Math.round(afterDebuff * (1 - corrodePct / 100)))
     : afterDebuff;
 }
 
@@ -180,7 +183,9 @@ function isEnemyPoisoned(state: BattleState): boolean {
 }
 
 function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number {
-  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    player.poisonedEnemyDefReductionPct ?? 0,
+  );
   if (corrodePct <= 0 || !isEnemyPoisoned(state)) return state.enemy.def;
   return Math.max(0, Math.round(state.enemy.def * (1 - corrodePct / 100)));
 }
@@ -188,7 +193,9 @@ function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number 
 const CORROSION_POISON_DAMAGE_SCALE = 3;
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
-  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    player.poisonedEnemyDefReductionPct ?? 0,
+  );
   return corrodePct > 0 ? 1 + (corrodePct * CORROSION_POISON_DAMAGE_SCALE) / 100 : 1;
 }
 

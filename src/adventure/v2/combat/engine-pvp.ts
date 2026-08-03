@@ -83,6 +83,7 @@ import {
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
   attackMissPct,
+  combineDefReductionPcts,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
@@ -269,7 +270,9 @@ export function attackerFacingDef(
       afterPierce * (1 - attackerBuffs.enemyDefDebuffPct / 100),
     );
   }
-  const corrodePct = attacker.player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    attacker.player.poisonedEnemyDefReductionPct ?? 0,
+  );
   if (corrodePct > 0 && sideHasDot(defender, "poison")) {
     afterPierce = Math.round(afterPierce * (1 - corrodePct / 100));
   }
@@ -306,7 +309,9 @@ function sideHasDot(side: PvPSide, tag: import("./combatShared").V2DotTag): bool
 }
 
 function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
-  const corrodePct = attacker.player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    attacker.player.poisonedEnemyDefReductionPct ?? 0,
+  );
   if (corrodePct <= 0 || !sideHasDot(defender, "poison")) return defender.player.def;
   return Math.max(0, Math.round(defender.player.def * (1 - corrodePct / 100)));
 }
@@ -314,7 +319,9 @@ function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
 const CORROSION_POISON_DAMAGE_SCALE = 3;
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
-  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    player.poisonedEnemyDefReductionPct ?? 0,
+  );
   return corrodePct > 0 ? 1 + (corrodePct * CORROSION_POISON_DAMAGE_SCALE) / 100 : 1;
 }
 

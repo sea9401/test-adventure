@@ -60,6 +60,19 @@ export const POISON_PCT_PER_POINT = 0.0005;
 // engine.ts 에서 이관(2026-06-12).
 export const COMBO_FINISHER_PERIOD = 4;
 export const POISON_CAP_ATK_COEF = 0.9;
+
+// 여러 방어 감소 효과는 남은 방어력에 차례로 적용한다.
+// 예: 20%와 30%를 함께 쓰면 50%가 아니라 44%(남은 방어 0.8×0.7=0.56).
+// 각 입력은 0~100%로 방어적으로 제한하며 결과는 절대 100%를 넘지 않는다.
+export function combineDefReductionPcts(...values: number[]): number {
+  let remaining = 1;
+  for (const raw of values) {
+    if (!Number.isFinite(raw) || raw <= 0) continue;
+    const pct = Math.min(100, raw);
+    remaining *= 1 - pct / 100;
+  }
+  return Math.round((1 - remaining) * 100 * 1_000_000) / 1_000_000;
+}
 export const HEAVEN_DECREE_HP_PCT = 5;
 export const RAMPAGE_START_TURN = 3;
 export const ANALYSIS_PENALTY_CAP_PCT = 0.3;

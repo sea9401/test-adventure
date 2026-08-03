@@ -34,6 +34,7 @@ import {
   type ActivityVerificationSubmission,
   useActivityCooldown,
 } from "./useActivityVerification";
+import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -1154,6 +1155,8 @@ export function WoodcuttingView({
         title={viewMode === "choice" ? "벌목장" : `${selectedSpot.shortName} 벌목`}
         onBack={onBack}
       />
+
+      <ProductionJobAdvanceNotice refreshKey={progression.level} />
 
       {verification && verifyHuman ? (
         <ActivityVerificationGate

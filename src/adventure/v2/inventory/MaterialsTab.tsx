@@ -10,7 +10,7 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
-import { fruitTierForMaterial } from "@/adventure/data/v2/spFruit";
+import { itemTabForMaterial } from "../v2ItemListShared";
 import {
   V2SimpleItemInfoCard,
   anchorOf,
@@ -34,7 +34,7 @@ export function MaterialsTab({
           material: V2_MATERIALS[id],
           count: materials[id] ?? 0,
         }))
-        .filter((e) => e.count > 0 && fruitTierForMaterial(e.id) == null)
+        .filter((e) => e.count > 0 && itemTabForMaterial(e.id) === "material")
         .sort((a, b) => a.material.name.localeCompare(b.material.name)),
     [materials],
   );

@@ -69,7 +69,7 @@ export type QuestCtx = {
   arenaPlayed: boolean;
   /** 투기장 승리 수. arena-history.v2 outcome==='win'. */
   arenaWins: number;
-  /** 보유 골드. character.v2.gold. */
+  /** 지갑 보유 골드. character.v2.gold. */
   gold: number;
   /** 발견한 거점 수. character.v2.discoveredOutpostIds. */
   outpostsDiscovered: number;
@@ -878,11 +878,13 @@ const CHALLENGE: QuestDef[] = [
 ];
 
 const COLLECTION: QuestDef[] = [
-  ...milestones("collection", "골드 보유", (c) => c.gold, [
+  // 코어 루프의 은행은 입금 전용이고 모든 골드 소비가 은행 잔액을 먼저 쓴다.
+  // 따라서 재산 업적도 지갑만이 아닌 지갑+은행의 실제 총 보유액을 기준으로 한다.
+  ...milestones("collection", "총 보유 골드", (c) => c.gold + c.bankedGold, [
     { id: "x_rich", title: "재력가", goal: 10_000, points: 10, titleId: "ach_gold_keeper" },
     { id: "gold_100k", title: "두둑한 지갑", goal: 100_000, points: 20 },
     { id: "gold_1m", title: "백만장자", goal: 1_000_000, points: 40 },
-    ...marathonMilestones("marathon_gold", "골드 보유", [
+    ...marathonMilestones("marathon_gold", "총 보유 골드", [
       5_000_000, 10_000_000, 25_000_000, 50_000_000, 100_000_000,
       250_000_000, 500_000_000, 1_000_000_000, 2_500_000_000,
       5_000_000_000, 10_000_000_000,
@@ -924,7 +926,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   { id: "artisan", name: "제작과 장인", subtitle: "길드 제작소와 대장장이 숙련 기록.", sequential: false },
   { id: "guild_facilities", name: "길드 시설", subtitle: "식당·훈련장·원정·제작소·연금·교역 활동 기록.", sequential: false },
   { id: "challenge", name: "도전 콘텐츠", subtitle: "숙련의 탑 정복 기록.", sequential: false },
-  { id: "collection", name: "부와 명예", subtitle: "골드와 칭호 수집 기록.", sequential: false },
+  { id: "collection", name: "부와 명예", subtitle: "지갑·은행 합산 골드와 칭호 수집 기록.", sequential: false },
 ];
 
 export const V2_QUESTS: readonly QuestDef[] = [

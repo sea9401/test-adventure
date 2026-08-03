@@ -14,6 +14,7 @@ import {
   GOLD_PER_HONOR_ON_DEPOSIT,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
+import { guildGoldContributionPoints } from "@/adventure/data/v2/guildContribution";
 
 // POST /api/v2/guild/resources/deposit — 길드원이 개인 골드를 길드 공용 골드 풀에 입금.
 //
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
       ? Math.floor(amount / GOLD_PER_HONOR_ON_DEPOSIT)
       : 0;
     const honorBefore = parseHonor(charSave.honor);
+    const contributionPoints = guildGoldContributionPoints(amount);
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: spend.gold,
@@ -100,7 +102,7 @@ export async function POST(req: Request) {
       guildId,
       type: "gold_deposit",
       actorUserId: userId,
-      meta: { amount },
+      meta: { amount, contributionPoints },
     });
 
     return {
@@ -112,6 +114,7 @@ export async function POST(req: Request) {
         bankedGold: spend.bankedGold,
         guildGold: nextGuildGold,
         ...(V2_SETTLEMENT_WARFARE ? { honorGained: honorDelta } : {}),
+        contributionPoints,
       },
     };
   });

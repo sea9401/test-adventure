@@ -32,6 +32,8 @@ import { MONSTER_CRAFT_MATERIALS } from "./monsterCraftMaterials";
 import { COOP_REWARD_MATERIALS } from "./coopRewards";
 import { WOODCUTTING_MATERIALS } from "./woodcuttingSpots";
 import { MINING_MATERIALS } from "./miningSpots";
+import { STAMINA_SHARD_MATERIAL } from "./staminaPotionCrafting";
+import { SCAVENGED_CRAFT_MATERIALS } from "./scavengedCrafting";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -115,11 +117,24 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 협동 보스 보상 확장(coopRewards) — 협동 주화/보스별 재료/보스별 장비 상자.
   //   모두 character.v2.materials 에 보관되는 거래 가능 재료형 소모품이다.
   ...COOP_REWARD_MATERIALS,
+  // 모든 일반 사냥에서 드물게 얻는 활력의 파편. 6개를 대장간에서 스태미나 회복약으로 조합한다.
+  ...STAMINA_SHARD_MATERIAL,
+  // 모든 일반 사냥에서 얻어 강화석·희귀 지도로 복원하는 수집형 조합 재료.
+  ...SCAVENGED_CRAFT_MATERIALS,
 };
 
 // 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,
 // 유저 거래(거래소) 전용(사용자 결정 2026-06-11). 미등재 재료는 판매 라우트가 거부.
-export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {};
+export const V2_MATERIAL_SELL_PRICE: Partial<Record<V2MaterialId, number>> = {};
+
+// NPC 판매가는 카탈로그 등재 여부와 별도다. V2MaterialId가 string 이라
+// Record 직접 인덱싱은 미등재 id도 number로 추론해 UI에서 undefined × 수량 =
+// NaN을 만들 수 있다. 상점 UI와 판매 라우트는 반드시 이 헬퍼로 같은 판정을 쓴다.
+export function materialSellPriceOf(id: V2MaterialId): number | undefined {
+  const price = V2_MATERIAL_SELL_PRICE[id];
+  if (!Number.isFinite(price) || price == null || price <= 0) return undefined;
+  return Math.floor(price);
+}
 
 // === floor 별 드랍 풀 ===============================================
 // chance = 0~1, 굴림 통과 시 [amountMin, amountMax] 사이 정수 개수 획득.

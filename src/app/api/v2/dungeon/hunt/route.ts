@@ -102,6 +102,11 @@ import { computeBattleRewards, applyChargeRestore } from "./huntRewards";
 import { updateRareMaps } from "./huntRareMaps";
 import { recordMonsterKill } from "./huntKillLog";
 import { applyHuntProficiency } from "./huntProficiency";
+import {
+  getAutoHuntStopReason,
+  normalizeAutoHuntStopConfig,
+  type AutoHuntStopReason,
+} from "@/adventure/v2/autoHuntStopPolicy";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -836,8 +841,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     equippedSkills: v2Skills.equipped,
     proficiencyChancePct: guildCombatSupply.proficiencyChancePct,
     levelsGained: expResult.levelsGained,
-    levelAfter: expResult.level,
-    levelCap,
   });
   if (nextProficiency) {
     await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
@@ -946,6 +949,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         // 현재 진행도(다음 레벨까지)를 정확히 보일 때 사용. 레벨업이 섞여도 맞도록
         // 서버의 applyExpGain 결과(expResult)를 그대로 노출.
         expAfter: expResult.exp,
+        levelAfter: expResult.level,
         maxExpAfter:
           requiredExpToNextNullable(expResult.level) ?? expResult.exp,
       },
@@ -973,6 +977,7 @@ export async function POST(req: Request) {
     floor?: unknown; // = 프론티어 깊이(depth). 클라 호환 위해 키 이름 유지.
     outpostId?: unknown;
     count?: unknown; // 일괄 사냥 횟수(없으면 1=단판).
+    autoStopConfig?: unknown; // 자동 일괄 사냥 정지 조건. 각 판 종료 후 서버 권위 상태로 판정.
     rareMap?: unknown; // 레어맵 입장 — 보유 지도 iid (소유/깊이/판수 검증은 save lock 후).
   };
   try {
@@ -1043,6 +1048,7 @@ export async function POST(req: Request) {
   const count = HUNT_COOLDOWN_MODE
     ? 1
     : Math.min(maxHuntBatch, requestedCount);
+  const autoStopConfig = normalizeAutoHuntStopConfig(body.autoStopConfig);
 
   const rareMapIid =
     typeof body.rareMap === "string" && body.rareMap.length > 0
@@ -1080,6 +1086,7 @@ export async function POST(req: Request) {
     let totalExp = 0;
     let totalProficiency = 0;
     let totalGold = 0;
+    let totalLossTax = 0;
     let totalGoldGross = 0; // 구버전 응답 호환용 총 골드 합산.
     let totalGoldTaxed = 0;
     let totalMastery = 0;
@@ -1101,6 +1108,7 @@ export async function POST(req: Request) {
       | "defeat"
       | "recovery"
       | "error"
+      | AutoHuntStopReason
       | null = null;
     let lastStamina: unknown = null;
     let finalHpAfter: number | null = null;
@@ -1108,6 +1116,7 @@ export async function POST(req: Request) {
     let finalMaxDepth: number | null = null;
     let expAfter: number | null = null;
     let maxExpAfter: number | null = null;
+    let finalLevelAfter: number | null = null;
     // 일괄 결과 아래 캐릭터 정보 카드용 — 마지막 사냥 후 회복약 충전량 + MP 보유 여부.
     let hpCharges: number | null = null;
     let mpCharges: number | null = null;
@@ -1152,6 +1161,7 @@ export async function POST(req: Request) {
       proficiencyPointsAfter = res.proficiencyPointsAfter;
       if (res.masteryAfter != null) proficiencyAfter = res.masteryAfter;
       totalGold += res.goldGained;
+      totalLossTax += res.lossTax ?? 0;
       totalGoldGross += res.goldGross ?? res.goldGained;
       totalGoldTaxed += res.goldTaxed ?? 0;
       levelsGained += res.levelsGained;
@@ -1192,9 +1202,23 @@ export async function POST(req: Request) {
       finalMaxDepth = res.maxDepth;
       expAfter = res.expAfter;
       maxExpAfter = res.maxExpAfter;
+      finalLevelAfter = res.levelAfter;
       hpCharges = res.hpCharges ?? hpCharges;
       mpCharges = res.mpCharges ?? mpCharges;
       playerMaxMp = res.replay?.playerMaxMp ?? playerMaxMp;
+      const autoStopReason = getAutoHuntStopReason(autoStopConfig, {
+        hpCharges: res.hpCharges,
+        mpCharges: res.mpCharges,
+        hasMp: (res.maxMp ?? 0) > 0,
+        rareMapFound:
+          !!res.rareMapDrop &&
+          RARE_MAP_KINDS[res.rareMapDrop]?.category === "hunt",
+        level: res.levelAfter,
+      });
+      if (autoStopReason) {
+        stoppedReason = autoStopReason;
+        break;
+      }
       // 레어맵 판수 소진 — 다음 사냥이 rare_map_invalid 로 막히므로 여기서 깔끔히 중단.
       if (rareMapIid && (res.rareMapRunsLeft ?? 0) <= 0) {
         break;
@@ -1233,6 +1257,7 @@ export async function POST(req: Request) {
           proficiencyAfter,
           proficiencyPointsAfter,
           totalGold,
+          totalLossTax,
           totalGoldGross,
           totalGoldTaxed,
           levelsGained,
@@ -1253,6 +1278,7 @@ export async function POST(req: Request) {
           finalMaxDepth,
           expAfter,
           maxExpAfter,
+          finalLevelAfter,
           hpCharges,
           mpCharges,
           playerMaxMp,

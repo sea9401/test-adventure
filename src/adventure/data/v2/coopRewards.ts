@@ -118,7 +118,8 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
 export const COOP_TIER5_EQUIPMENT_BOX: CoopEquipmentBoxDef = {
   id: COOP_TIER5_EQUIPMENT_BOX_ID,
   name: "5T 장비 상자",
-  description: "사용하면 5T 장비 중 1개를 무작위로 획득한다.",
+  description:
+    "사용하면 흉포한 산군·심연어룡 전용 5T 장비 9종 중 1개를 무작위로 획득한다.",
   displayTier: 5,
   source: "5T 협동 장비",
   catalogTiers: [13],

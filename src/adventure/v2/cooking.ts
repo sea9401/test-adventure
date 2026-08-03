@@ -1,6 +1,9 @@
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
-import type { FarmItemId, FarmItemInventory } from "./farm";
-import type { FishingCatchItemId } from "./fishingStock";
+import { FARM_ITEMS, type FarmItemId, type FarmItemInventory } from "./farm";
+import {
+  FISHING_CATCH_ITEMS,
+  type FishingCatchItemId,
+} from "./fishingStock";
 
 export const COOKING_SAVE_KEY = "cooking.v1";
 export const COOKING_LEVEL_CAP = 50;
@@ -62,6 +65,14 @@ export type CookingOrder = {
   bonusXp: number;
 };
 
+export type CookingOrderReward = {
+  gold: number;
+  reputation: number;
+  bonusXp: number;
+  qualityBonusPct: number;
+  reputationBonus: number;
+};
+
 type CookingFoodRareKind = "base" | "rare";
 type CookingFoodDurationKind = "standard" | "extended";
 
@@ -83,6 +94,11 @@ export type CookingFoodDefinition = CookingFoodVariant & {
   name: string;
   durationMs: number;
   statPct: Partial<Record<V2StatKey, number>>;
+};
+
+export type DeliverableCookingFood = {
+  food: CookingFoodDefinition;
+  count: number;
 };
 
 const recipe = (
@@ -239,6 +255,84 @@ export function removeCookingFood(
   return next;
 }
 
+const COOKING_QUALITY_RANK: Record<CookingQuality, number> = {
+  normal: 0,
+  careful: 1,
+  masterpiece: 2,
+};
+
+export function deliverableCookingFoods(
+  raw: unknown,
+  recipeId: string,
+): DeliverableCookingFood[] {
+  return Object.entries(parseCookingFoodInventory(raw))
+    .flatMap(([itemId, count]) => {
+      const food = cookingFoodDefinition(itemId);
+      return food && food.recipeId === recipeId && (count ?? 0) > 0
+        ? [{ food, count: count ?? 0 }]
+        : [];
+    })
+    .sort(
+      (a, b) =>
+        COOKING_QUALITY_RANK[b.food.quality] -
+          COOKING_QUALITY_RANK[a.food.quality] ||
+        Number(b.food.usedRare) - Number(a.food.usedRare) ||
+        Number(b.food.extended) - Number(a.food.extended),
+    );
+}
+
+export function cookingOrderReward(
+  order: CookingOrder,
+  quality: CookingQuality,
+): CookingOrderReward {
+  const qualityBonusPct =
+    quality === "masterpiece" ? 50 : quality === "careful" ? 20 : 0;
+  const reputationBonus =
+    quality === "masterpiece" ? 2 : quality === "careful" ? 1 : 0;
+  const multiplier = 1 + qualityBonusPct / 100;
+  return {
+    gold: Math.floor(order.rewardGold * multiplier),
+    reputation: order.rewardReputation + reputationBonus,
+    bonusXp: Math.floor(order.bonusXp * multiplier),
+    qualityBonusPct,
+    reputationBonus,
+  };
+}
+
+export function cookingRecipeMatchesQuery(
+  recipe: CookingRecipe,
+  rawQuery: string,
+): boolean {
+  const terms = rawQuery
+    .trim()
+    .toLocaleLowerCase("ko-KR")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (terms.length === 0) return true;
+  const farmIngredientNames = Object.keys(recipe.farmIngredients).map(
+    (itemId) => FARM_ITEMS[itemId as FarmItemId]?.name ?? itemId,
+  );
+  const fishingIngredientNames = Object.keys(
+    recipe.fishingIngredients ?? {},
+  ).map(
+    (itemId) =>
+      FISHING_CATCH_ITEMS[itemId as FishingCatchItemId]?.name ?? itemId,
+  );
+  const rareIngredientName = recipe.optionalRareItemId
+    ? FARM_ITEMS[recipe.optionalRareItemId]?.name
+    : null;
+  const haystack = [
+    recipe.name,
+    ...farmIngredientNames,
+    ...fishingIngredientNames,
+    rareIngredientName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("ko-KR");
+  return terms.every((term) => haystack.includes(term));
+}
+
 export function cookingDayKey(now = Date.now()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
@@ -371,7 +465,8 @@ export function recordCookingActionStats(
     usedRare: boolean;
   },
 ): CookingState["stats"] {
-  const cooked = Math.max(1, safeInt(args.quantity));
+  const cooked =
+    args.action === "cook" ? Math.max(1, safeInt(args.quantity)) : 0;
   return {
     dishesCooked: state.stats.dishesCooked + cooked,
     ordersCompleted:

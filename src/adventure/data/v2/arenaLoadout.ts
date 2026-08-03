@@ -9,9 +9,11 @@ import {
   V2_SKILLS,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { STAT_LABELS } from "@/adventure/data/stats";
 import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import {
   parseCombatPattern,
+  type V2CombatCondition,
   type V2CombatRole,
   type V2CombatPattern,
 } from "@/adventure/v2/combat/combatPattern";
@@ -46,6 +48,7 @@ export type ArenaLoadout = {
 export type ArenaPatternActionSummary = {
   key: string;
   name: string;
+  condition: string;
 };
 
 export type ArenaLoadoutIssueSummary = {
@@ -60,6 +63,64 @@ const ROLE_LABEL: Record<V2CombatRole, string> = {
   buff: "버프",
   debuff: "디버프",
 };
+
+const DERIVED_BUFF_LABEL = {
+  evasion: "회피",
+  crit: "치명타",
+  damageReduction: "받는 피해 감소",
+  reflectDamage: "반사 피해",
+} as const;
+
+const ENEMY_STATUS_LABEL = {
+  bleed: "출혈",
+  poison: "중독",
+  vuln: "마법취약",
+} as const;
+
+const ENEMY_DEBUFF_LABEL = {
+  vulnerability: "받는 피해 증가(취약)",
+  damageDown: "주는 피해 감소",
+  skillProcDown: "스킬 발동률 감소",
+} as const;
+
+/** 아레나 템플릿에서 저장된 전투패턴 조건을 사람이 읽는 문구로 표시한다. */
+export function arenaPatternConditionSummary(
+  condition: V2CombatCondition,
+): string {
+  switch (condition.kind) {
+    case "always":
+      return "항상";
+    case "all":
+    case "any": {
+      const mode = condition.kind === "all" ? "모두 만족" : "하나 만족";
+      return `${mode} (${condition.conditions
+        .map(arenaPatternConditionSummary)
+        .join(" / ")})`;
+    }
+    case "self_hp":
+      return `내 HP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
+    case "self_mp":
+      return `내 MP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
+    case "self_shield":
+      return `내 보호막 ${condition.active ? "있음" : "없음"}`;
+    case "self_buff":
+      return `내 ${STAT_LABELS[condition.stat]} 버프 ${condition.active ? "있음" : "없음"}`;
+    case "self_buff_pct":
+      return `내 ${DERIVED_BUFF_LABEL[condition.target]} 버프 ${condition.active ? "있음" : "없음"}`;
+    case "enemy_hp":
+      return `적 HP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
+    case "enemy_status":
+      return condition.op === "none"
+        ? `적 ${ENEMY_STATUS_LABEL[condition.tag]} 없음`
+        : `적 ${ENEMY_STATUS_LABEL[condition.tag]} ${condition.stacks}스택 이상`;
+    case "enemy_debuff":
+      return `적 ${ENEMY_DEBUFF_LABEL[condition.target]} ${condition.active ? "있음" : "없음"}`;
+    case "turn":
+      return condition.op === "every"
+        ? `내 공격 매 ${condition.value}회`
+        : `내 공격 ${condition.value}회 ${condition.op === "atMost" ? "이하" : "이상"}`;
+  }
+}
 
 /** 아레나 요약 화면용 실제 패턴 행동 목록. 장착 액티브 목록과 섞지 않는다. */
 export function arenaPatternActionSummary(
@@ -76,6 +137,7 @@ export function arenaPatternActionSummary(
         action.kind === "skill"
           ? (V2_SKILLS[action.skillId as V2SkillId]?.name ?? action.skillId)
           : ROLE_LABEL[action.role],
+      condition: arenaPatternConditionSummary(block.condition),
     };
   });
 }

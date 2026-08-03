@@ -113,10 +113,11 @@ export function GuildContent() {
 
       <H2>길드 운영</H2>
       <P>
-        길드 탭은 <Em>길드 정보·길드원·시설</Em>로 나뉩니다. 길드 정보에서는
-        소개와 명성, 길드 자금과 활동 내역을 확인합니다. 마스터·관리자에게는{" "}
-        <Em>관리</Em> 탭이 추가되며, 초대·가입 신청·직책·길드 연구와 설정을
-        관리할 수 있습니다.
+        길드 탭은 <Em>길드 정보·길드원·길드 목록·시설</Em>로 나뉩니다. 길드
+        정보에서는 소개와 명성, 길드 자금과 활동 내역을 확인합니다. 길드 목록에서는
+        가입 후에도 다른 길드의 이름·레벨·인원·명성·길드장과 소개를 검색해서 볼 수
+        있습니다. 마스터·관리자에게는 <Em>관리</Em> 탭이 추가되며, 초대·가입
+        신청·직책·길드 연구와 설정을 관리할 수 있습니다.
       </P>
 
       <H2>길드 금고</H2>
@@ -223,7 +224,7 @@ export function GuildContent() {
       <H2>탐사 본부</H2>
       <P>
         탐사 본부는 길드 단위 주간 탐사 의뢰를 관리하는 시설입니다. 시설 레벨이
-        오르면 한 주에 진행할 수 있는 탐사 수와 의뢰 진척 보너스가 늘어납니다.
+        오르면 이용할 수 있는 의뢰 종류가 추가되고 의뢰 진척 보너스가 늘어납니다.
         원정은 시설 Lv.1부터 Lv.5까지 단계마다 한 종류씩, 총{" "}
         <Em>{GUILD_EXPLORATION_EXPEDITION_IDS.length}종</Em>이 열리며 상위 원정일수록
         시간이 오래 걸리는 대신 골드·명성·지도 조각 보상이 커집니다.
@@ -235,13 +236,13 @@ export function GuildContent() {
         열립니다. 완료 시 길드 금고 골드와 탐사 지도 조각을 보상으로 받습니다.
       </P>
       <Table
-        head={["레벨", "단계", "주간 탐사", "진척 보너스"]}
+        head={["레벨", "단계", "해금 의뢰 종류", "진척 보너스"]}
         rows={[1, 2, 3, 4, 5].map((level) => {
           const upgrade = explorationHqUpgradeForLevel(level);
           return [
             `Lv.${upgrade.level}`,
             <Em key={upgrade.level}>{upgrade.label}</Em>,
-            `${upgrade.weeklyMissionCount}건`,
+            `${upgrade.weeklyMissionCount}종`,
             `+${upgrade.missionProgressBonusPct}%`,
           ];
         })}

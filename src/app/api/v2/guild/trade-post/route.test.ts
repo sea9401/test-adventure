@@ -122,6 +122,7 @@ describe("길드 교역소", () => {
       quantity: 20,
       points: 2,
       completed: false,
+      contributionPoints: 20,
     });
     expect(json.tokens).toBe(2);
     expect(json.contribution.points).toBe(2);

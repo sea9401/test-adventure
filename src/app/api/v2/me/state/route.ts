@@ -444,6 +444,7 @@ export async function GET(req: Request) {
       activeAutoActivity && activeAutoSession
         ? {
             activity: activeAutoActivity,
+            sourceId: activeAutoSession.sourceId,
             sourceName: activeAutoSession.sourceName,
             readyAt: activeAutoSession.readyAt,
             serverNow: now,

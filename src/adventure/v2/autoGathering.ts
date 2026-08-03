@@ -1,3 +1,12 @@
+import {
+  WOODCUTTING_SPOTS,
+  type WoodcuttingSpotId,
+} from "@/adventure/data/v2/woodcuttingSpots";
+import {
+  MINING_SPOTS,
+  type MiningSpotId,
+} from "@/adventure/data/v2/miningSpots";
+
 export const AUTO_GATHERING_DURATION_MS = 30 * 60 * 1_000;
 export const AUTO_GATHERING_MATERIAL_EFFICIENCY = 0.8;
 export const AUTO_GATHERING_XP_EFFICIENCY = 0.7;
@@ -8,9 +17,38 @@ export type AutoGatheringActivity = "woodcutting" | "mining";
 
 export type AutoGatheringStatus = {
   activity: AutoGatheringActivity;
+  sourceId: string;
   sourceName: string;
   readyAt: number;
 };
+
+function woodcuttingSpotIdForSource(sourceId: string): WoodcuttingSpotId | null {
+  return (
+    (Object.values(WOODCUTTING_SPOTS).find(
+      (spot) => spot.treeId === sourceId,
+    )?.id as WoodcuttingSpotId | undefined) ?? null
+  );
+}
+
+function miningSpotIdForSource(sourceId: string): MiningSpotId | null {
+  return (
+    (Object.values(MINING_SPOTS).find(
+      (spot) => spot.nodeId === sourceId,
+    )?.id as MiningSpotId | undefined) ?? null
+  );
+}
+
+export function autoGatheringActivityHref(
+  status: AutoGatheringStatus | null,
+): string | null {
+  if (!status) return null;
+  if (status.activity === "woodcutting") {
+    const spotId = woodcuttingSpotIdForSource(status.sourceId);
+    return spotId ? `/town/logging?spot=${spotId}` : "/town/logging";
+  }
+  const spotId = miningSpotIdForSource(status.sourceId);
+  return spotId ? `/town/mining?spot=${spotId}` : "/town/mining";
+}
 
 export function autoGatheringStatusText(
   status: AutoGatheringStatus | null,

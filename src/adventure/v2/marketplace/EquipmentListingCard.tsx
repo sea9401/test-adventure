@@ -24,6 +24,7 @@ import {
   equipDetail,
   netPreview,
   PriceInput,
+  PriceQuickFill,
   PriceRefLine,
   type PriceStat,
 } from "./marketplaceShared";
@@ -125,6 +126,10 @@ export function EquipmentListingCard({
           ) : null}
           <div className="mt-0.5">
             <PriceRefLine stat={priceStat} scoped={priceScoped} />
+            <PriceQuickFill
+              stat={priceStat}
+              onSelect={(value) => onPriceChange(String(value))}
+            />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

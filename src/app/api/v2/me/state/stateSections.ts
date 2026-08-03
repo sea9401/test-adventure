@@ -131,6 +131,7 @@ export function combatStatsSection(
         accRating: combat.player.accRating,
         critChancePct: combat.player.critChancePct,
         critMult: combat.player.critMult,
+        skillCritOverflow: combat.player.skillCritOverflow === true,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
         power: derivePowerScore({
           atk: combat.player.atk,
@@ -166,6 +167,7 @@ export function jobsV2Section(params: {
     (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
   const currentJobTier = V2_JOB_CATALOG[currentJobId]?.tier ?? 0;
   const currentJobLevelCap = rejobRequiredLevel(currentJobId);
+  const jobHistory = new Set(prof.jobHistory ?? []);
   // 스킬 수집 완료 판정용 — 학습한 스킬 집합(직업 도감과 동일 기준).
   const learnedSet = new Set(parseV2SkillsState(skillsRaw).learned);
   return {
@@ -179,6 +181,7 @@ export function jobsV2Section(params: {
       (job) => isRootJobSelectable(job),
     ).map((job) => {
       const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
+      const cumLevel = cumLevelForJob(prof, job);
       const conditionRevealed =
         unlocked || job.id === currentJobId || isDirectNextJob(currentJobId, job);
       const condition = conditionRevealed
@@ -199,12 +202,32 @@ export function jobsV2Section(params: {
         unlocked,
         condition,
         conditionRevealed,
-        cumLevel: cumLevelForJob(prof, job),
+        cumLevel,
+        visited: isRecordedJobVisit({
+          jobId: job.id,
+          currentJobId,
+          jobHistory,
+          cumLevel,
+        }),
         bonus,
         skillsCollected,
       };
     }),
   };
+}
+
+export function isRecordedJobVisit({
+  jobId,
+  currentJobId,
+  jobHistory,
+  cumLevel,
+}: {
+  jobId: string;
+  currentJobId: string;
+  jobHistory: ReadonlySet<string>;
+  cumLevel: number;
+}): boolean {
+  return jobId === currentJobId || jobHistory.has(jobId) || cumLevel > 0;
 }
 
 // 사냥 게이트 — 쿨다운/오프라인 사냥 세션(코어루프 쿨다운 모드 전용, 스태미나 모드면 null).

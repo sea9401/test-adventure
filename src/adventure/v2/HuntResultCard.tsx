@@ -5,6 +5,7 @@
 // 사이즈 축소 — padding sm + 작은 font.
 
 import { Card } from "@/components/ui/Card";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { ChargeReadout } from "@/adventure/battle/BattleScene";
 import {
@@ -118,45 +119,98 @@ export type RewardBalanceItem = {
   label: string;
   current: number | null | undefined;
   gained: number;
+  lost?: number;
   currentClassName: string;
   gainedClassName: string;
 };
 
-// 전투 결과의 핵심 재화 — 큰 숫자는 전투 후 현재 보유량, 작은 +숫자는 이번 획득량이다.
+// 전투 결과의 핵심 재화 — 큰 숫자는 전투 후 현재 보유량, 작은 숫자는 이번 획득/손실이다.
 export function RewardBalanceGrid({ items }: { items: RewardBalanceItem[] }) {
   return (
     <div
       className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"
-      aria-label="전투 후 보유량과 이번 획득량"
+      aria-label="전투 후 보유량과 이번 변동"
     >
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className={`${SURFACE_INSET} min-w-0 px-2 py-2 text-center`}
-        >
-          <div className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-            {item.label}
-          </div>
+      {items.map((item) => {
+        const gained = Math.max(0, item.gained);
+        const lost = Math.max(0, item.lost ?? 0);
+        return (
           <div
-            className={`mt-0.5 truncate text-base font-semibold tabular-nums ${item.currentClassName}`}
-            title={
-              item.current == null
-                ? undefined
-                : item.current.toLocaleString("ko-KR")
-            }
+            key={item.label}
+            className={`${SURFACE_INSET} min-w-0 px-2 py-2 text-center`}
           >
-            {item.current == null
-              ? "—"
-              : item.current.toLocaleString("ko-KR")}
+            <div className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              {item.label}
+            </div>
+            <div
+              className={`mt-0.5 truncate text-base font-semibold tabular-nums ${item.currentClassName}`}
+              title={
+                item.current == null
+                  ? undefined
+                  : item.current.toLocaleString("ko-KR")
+              }
+            >
+              {item.current == null
+                ? "—"
+                : item.current.toLocaleString("ko-KR")}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-1 text-xs font-semibold tabular-nums">
+              {(gained > 0 || lost === 0) && (
+                <span className={item.gainedClassName}>
+                  +{gained.toLocaleString("ko-KR")}
+                </span>
+              )}
+              {lost > 0 && (
+                <span className="text-rose-700 dark:text-rose-300">
+                  −{lost.toLocaleString("ko-KR")}
+                </span>
+              )}
+            </div>
           </div>
-          <div
-            className={`mt-0.5 text-xs font-semibold tabular-nums ${item.gainedClassName}`}
-          >
-            +{Math.max(0, item.gained).toLocaleString("ko-KR")}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
+  );
+}
+
+export function GoldLossNotice({
+  loss,
+  goldAfter,
+}: {
+  loss: number;
+  goldAfter?: number | null;
+}) {
+  const normalizedLoss = Number.isFinite(loss)
+    ? Math.max(0, Math.floor(loss))
+    : 0;
+  const normalizedAfter =
+    goldAfter == null || !Number.isFinite(goldAfter)
+      ? null
+      : Math.max(0, Math.floor(goldAfter));
+
+  return (
+    <StatusBanner
+      tone="error"
+      role="alert"
+      className="mt-2 py-3 text-center"
+    >
+      {normalizedLoss > 0 ? (
+        <>
+          <div className="text-sm font-bold tabular-nums">
+            패배 페널티 · 골드 −{normalizedLoss.toLocaleString("ko-KR")} G
+          </div>
+          {normalizedAfter != null && (
+            <div className="mt-1 tabular-nums">
+              보유 골드 {(normalizedAfter + normalizedLoss).toLocaleString("ko-KR")} G
+              {" → "}
+              {normalizedAfter.toLocaleString("ko-KR")} G
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-sm font-semibold">이번 패배로 잃은 골드는 없습니다.</div>
+      )}
+    </StatusBanner>
   );
 }
 
@@ -198,6 +252,7 @@ export function HuntResultCard({
       label: "골드",
       current: result.goldAfter,
       gained: result.goldGained,
+      lost: result.lossTax,
       currentClassName: "text-yellow-700 dark:text-yellow-300",
       gainedClassName: "text-yellow-600 dark:text-yellow-400",
     },
@@ -265,9 +320,16 @@ export function HuntResultCard({
         </div>
       ) : (
         // 패배는 작은 글씨 대신 눈에 띄는 배지로 — 승리 카드와 한눈에 구분되게.
-        <div className="rounded-md bg-rose-100 py-1.5 text-center dark:bg-rose-900/50">
+        <StatusBanner tone="error" className="py-1.5 text-center">
           <BattleOutcomeBadge outcome="lose" />
-        </div>
+        </StatusBanner>
+      )}
+
+      {!won && (
+        <GoldLossNotice
+          loss={result.lossTax ?? 0}
+          goldAfter={result.goldAfter}
+        />
       )}
 
       <RewardBalanceGrid items={rewardBalances} />
@@ -282,11 +344,6 @@ export function HuntResultCard({
         {(result.goldTaxed ?? 0) > 0 && (
           <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
             세금 −{result.goldTaxed} G → {result.taxOwnerLabel ?? "점령자"}
-          </div>
-        )}
-        {(result.lossTax ?? 0) > 0 && (
-          <div className="text-xs font-semibold tabular-nums text-rose-600 dark:text-rose-400">
-            골드 −{result.lossTax} G 압류 (패배 페널티)
           </div>
         )}
       </div>

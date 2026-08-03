@@ -11,6 +11,7 @@ import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import {
   createReferralCode,
   REFERRAL_NEW_USER_STAMINA_POTIONS,
+  REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
   REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
   referralRewardMilestones,
 } from "@/lib/server/referrals";
@@ -35,6 +36,8 @@ async function referralSummary(userId: string) {
         name: users.gameName,
         character: savesKv.value,
         rewardedDepth: referralConversions.rewardedStaminaDepth,
+        referrerSignupRewardedAt:
+          referralConversions.referrerSignupRewardedAt,
         convertedAt: referralConversions.convertedAt,
       })
       .from(referralConversions)
@@ -59,11 +62,14 @@ async function referralSummary(userId: string) {
     const completedMilestones = milestones.filter(
       (milestone) => milestone.frontierDepth <= row.rewardedDepth,
     ).length;
+    const signupRewarded = row.referrerSignupRewardedAt !== null;
     return {
       name: row.name ?? "새 모험가",
       currentFrontierDepth,
       rewardedDepth: row.rewardedDepth,
+      signupRewarded,
       completedMilestones,
+      completedRewardStages: completedMilestones + (signupRewarded ? 1 : 0),
       convertedAt: row.convertedAt.toISOString(),
     };
   });
@@ -71,6 +77,8 @@ async function referralSummary(userId: string) {
   return {
     code: codeRow[0]?.disabledAt ? null : (codeRow[0]?.code ?? null),
     newUserStaminaPotions: REFERRAL_NEW_USER_STAMINA_POTIONS,
+    referrerSignupStaminaPotions:
+      REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
     referrerStaminaPotionsPerMilestone:
       REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
     rewardMilestones: milestones,
@@ -78,6 +86,9 @@ async function referralSummary(userId: string) {
     totalRewardStaminaPotions: referralRows.reduce(
       (sum, referral) =>
         sum +
+        (referral.signupRewarded
+          ? REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS
+          : 0) +
         referral.completedMilestones *
           REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
       0,

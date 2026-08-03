@@ -626,12 +626,33 @@ describe("정점을 향해 (확장 마일스톤)", () => {
 });
 
 describe("장비·수집·교류 업적", () => {
-  it("완전 무장 / 장비 도감 / 골드 / 칭호", () => {
+  it("완전 무장 / 장비 도감 / 지갑+은행 골드 / 칭호", () => {
     expect(isQuestClaimable(questById("x_full_gear")!, { ...ZERO, equippedCount: 6 }, none)).toBe(true);
     expect(questStatus(questById("x_full_gear")!, { ...ZERO, equippedCount: 5 }, none)).toBe("active");
     expect(isQuestClaimable(questById("codex_10")!, { ...ZERO, equipmentCodexRegistered: 10 }, none)).toBe(true);
-    expect(isQuestClaimable(questById("x_rich")!, { ...ZERO, gold: 10000 }, none)).toBe(true);
+    expect(isQuestClaimable(questById("x_rich")!, { ...ZERO, gold: 4_000, bankedGold: 6_000 }, none)).toBe(true);
     expect(isQuestClaimable(questById("x_titles")!, { ...ZERO, titleCount: 3 }, none)).toBe(true);
+  });
+
+  it("부와 명예 2,500만 골드는 지갑과 은행 잔액을 합산한다", () => {
+    const quest = questById("marathon_gold_25000000")!;
+    const exact = { ...ZERO, gold: 5_000_000, bankedGold: 20_000_000 };
+    const priorGoldMilestones = new Set([
+      "x_rich",
+      "gold_100k",
+      "gold_1m",
+      "marathon_gold_5000000",
+      "marathon_gold_10000000",
+    ]);
+    expect(quest.progress?.(exact)).toBe(25_000_000);
+    expect(isQuestClaimable(quest, exact, priorGoldMilestones)).toBe(true);
+    expect(
+      questStatus(
+        quest,
+        { ...ZERO, gold: 4_999_999, bankedGold: 20_000_000 },
+        none,
+      ),
+    ).toBe("active");
   });
 
   it("투기장 승리 — arenaWins 기반(플레이만으론 미충족)", () => {

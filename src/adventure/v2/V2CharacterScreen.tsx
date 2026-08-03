@@ -64,6 +64,7 @@ type StateResponse = {
     accRating?: number; // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. "명중" 표시에 사용(StatsPanel 폴백).
     critChancePct?: number;
     critMult?: number;
+    skillCritOverflow?: boolean;
     // 콘텐츠 파워(합성 전투력) — 기본 정보 카드 헤드라인.
     power?: number;
   } | null;
@@ -84,6 +85,9 @@ type StateResponse = {
     };
     groups?: Record<string, { tier?: number }>;
   };
+  jobsV2?: {
+    currentJobLevelCap?: number;
+  } | null;
   artisan?: {
     blacksmith?: {
       level: number;
@@ -188,6 +192,7 @@ export function V2CharacterScreen({
           character={character}
           guild={guild}
           levelCap={levelCap}
+          rejobRequiredLevel={state?.jobsV2?.currentJobLevelCap ?? null}
           equipped={equipped}
           owned={equipment?.owned ?? []}
           // 공개 보기엔 골드 숨김(사적 정보).

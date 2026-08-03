@@ -8,6 +8,7 @@ import {
   MARKETPLACE_V2_BROWSE_LIMIT,
   MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
   MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
+  MARKETPLACE_V2_DIRECT_LISTING_HOURS,
   MARKETPLACE_V2_FIXED_LISTING_HOURS,
   currentMarketplaceItemName,
   isMarketKind,
@@ -83,6 +84,7 @@ export async function GET(req: Request) {
     bidGraceMinHours: MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
     bidGraceMaxHours: MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
     fixedListingHours: MARKETPLACE_V2_FIXED_LISTING_HOURS,
+    directListingHours: MARKETPLACE_V2_DIRECT_LISTING_HOURS,
     listings: rows
       .filter(
         (row) =>

@@ -150,7 +150,7 @@ describe("fishing anti macro", () => {
     expect(state.suspicion).toBe(4);
   });
 
-  it("keeps a sub-60ms post-bite response as an impossible signal", () => {
+  it("keeps a single sub-60ms post-bite response observation-only", () => {
     const result = recordFishingAntiMacroSample(
       emptyFishingAntiMacroState(),
       {
@@ -164,11 +164,81 @@ describe("fishing anti macro", () => {
       50_000,
     );
 
-    expect(result.signals).toContain("impossibly_fast_post_bite_reel");
+    expect(result.signals).toContain("very_fast_post_bite_reel");
+    expect(result.signals).not.toContain("impossibly_fast_post_bite_reel");
     expect(
       isFishingAntiMacroStrongSignal("impossibly_fast_post_bite_reel"),
     ).toBe(true);
-    expect(result.state.suspicion).toBe(6);
+    expect(result.state.suspicion).toBe(0);
+    expect(result.flagged).toBe(false);
+  });
+
+  it("promotes the third sub-60ms response in the latest twenty samples", () => {
+    let state = emptyFishingAntiMacroState();
+    let signals: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const result = recordFishingAntiMacroSample(
+        state,
+        {
+          at: 51_000 + i,
+          caught: false,
+          reason: "too_early",
+          clientReactionMs: 20,
+          serverReactionMs: 20,
+          earlyByMs: 0,
+        },
+        51_000 + i,
+      );
+      state = result.state;
+      signals = result.signals;
+      if (i < 2) {
+        expect(signals).not.toContain("impossibly_fast_post_bite_reel");
+      }
+    }
+
+    expect(signals).toContain("impossibly_fast_post_bite_reel");
+    expect(state.suspicion).toBe(6);
+  });
+
+  it("does not renew friction or emit a flag while a normal sample decays risk", () => {
+    let state = emptyFishingAntiMacroState();
+    let flagged = false;
+    for (let i = 0; i < 5; i += 1) {
+      const result = recordFishingAntiMacroSample(
+        state,
+        {
+          at: 52_000 + i,
+          caught: false,
+          reason: "too_early",
+          clientReactionMs: 20,
+          serverReactionMs: 20,
+          earlyByMs: 0,
+        },
+        52_000 + i,
+      );
+      state = result.state;
+      flagged ||= result.flagged;
+    }
+    expect(flagged).toBe(true);
+    expect(state.suspicion).toBeGreaterThanOrEqual(12);
+
+    const decayed = recordFishingAntiMacroSample(
+      state,
+      {
+        at: 100_000,
+        caught: true,
+        reason: "ok",
+        clientReactionMs: 300,
+        serverReactionMs: 350,
+        earlyByMs: 0,
+      },
+      100_000,
+    );
+
+    expect(decayed.state.suspicion).toBeGreaterThanOrEqual(12);
+    expect(decayed.frictionMs).toBe(0);
+    expect(decayed.flagged).toBe(false);
+    expect(fishingAntiMacroFriction(decayed.state, 100_000).active).toBe(false);
   });
 
   it("repeated substantial prefire still triggers temporary friction", () => {

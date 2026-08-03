@@ -14,7 +14,8 @@ import {
 } from "./guild";
 
 describe("guildMemberCap", () => {
-  it("Lv.1 국가 미선포 = 기본 정원", () => {
+  it("Lv.1 국가 미선포 = 기본 정원 6명", () => {
+    expect(GUILD_BASE_MEMBER_CAP).toBe(6);
     expect(guildMemberCap(1, false)).toBe(GUILD_BASE_MEMBER_CAP);
   });
 

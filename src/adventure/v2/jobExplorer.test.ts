@@ -12,10 +12,12 @@ import {
   JOB_TAG_FILTERS,
   compareJobExplorerLineOrder,
   isJobVisibleInShrine,
+  jobCardTags,
   jobCultivationProfile,
   jobCultivationSummary,
   jobTags,
   matchesJobExplorerFilters,
+  toggleJobTagFilter,
   type JobExplorerJob,
 } from "./jobExplorer";
 
@@ -40,6 +42,7 @@ describe("jobExplorer tags", () => {
       "행운",
       "생활",
       "수집완료",
+      "수집미완료",
     ]);
   });
 
@@ -146,6 +149,41 @@ describe("jobExplorer tags", () => {
     expect(jobTags(job("templar", { tier: 3 }))).not.toEqual(
       expect.arrayContaining(["고차", "심화", "최종", "초월", "복합"]),
     );
+  });
+
+  it("keeps completed and incomplete collection filters mutually exclusive", () => {
+    const collectedJob = job("warrior", {
+      tier: 1,
+      skillsCollected: true,
+    });
+    const incompleteJob = job("mage", {
+      tier: 1,
+      skillsCollected: false,
+    });
+
+    expect(jobTags(collectedJob)).toContain("수집완료");
+    expect(jobTags(incompleteJob)).toContain("수집미완료");
+    expect(jobCardTags(collectedJob)).not.toContain("수집완료");
+    expect(jobCardTags(incompleteJob)).not.toContain("수집미완료");
+    expect(
+      matchesJobExplorerFilters(collectedJob, "", new Set(["collected"])),
+    ).toBe(true);
+    expect(
+      matchesJobExplorerFilters(collectedJob, "", new Set(["incomplete"])),
+    ).toBe(false);
+    expect(
+      matchesJobExplorerFilters(incompleteJob, "", new Set(["incomplete"])),
+    ).toBe(true);
+    expect(
+      matchesJobExplorerFilters(incompleteJob, "", new Set(["collected"])),
+    ).toBe(false);
+
+    expect(
+      toggleJobTagFilter(new Set(["str", "collected"]), "incomplete"),
+    ).toEqual(new Set(["str", "incomplete"]));
+    expect(
+      toggleJobTagFilter(new Set(["str", "incomplete"]), "collected"),
+    ).toEqual(new Set(["str", "collected"]));
   });
 
   it("growth shrine hides locked jobs until their unlock condition is revealed", () => {

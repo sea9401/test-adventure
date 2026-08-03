@@ -21,6 +21,7 @@ type ReferralSummary = {
   ok: true;
   code: string | null;
   newUserStaminaPotions: number;
+  referrerSignupStaminaPotions: number;
   referrerStaminaPotionsPerMilestone: number;
   rewardMilestones: Array<{
     frontierDepth: number;
@@ -33,6 +34,8 @@ type ReferralSummary = {
     currentFrontierDepth: number;
     rewardedDepth: number;
     completedMilestones: number;
+    signupRewarded?: boolean;
+    completedRewardStages?: number;
     convertedAt: string;
   }>;
 };
@@ -92,11 +95,13 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
     () => (summary?.code && origin ? `${origin}/r/${summary.code}` : ""),
     [origin, summary?.code],
   );
-  const milestoneCount = summary?.rewardMilestones.length ?? 5;
+  const rewardStageCount = (summary?.rewardMilestones.length ?? 5) + 1;
+  const referrerSignupReward = summary?.referrerSignupStaminaPotions ?? 2;
   const referrerRewardPerMilestone =
     summary?.referrerStaminaPotionsPerMilestone ?? 2;
   const maxReferrerReward =
-    milestoneCount * referrerRewardPerMilestone;
+    referrerSignupReward +
+    (summary?.rewardMilestones.length ?? 5) * referrerRewardPerMilestone;
 
   const issue = async () => {
     if (issuing) return;
@@ -154,8 +159,8 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
           <div>
             <h2 className="font-bold">친구를 초대하고 보상받기</h2>
             <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-              링크로 합류한 친구는 회복약 2개를 받고, 친구가 프론티어를
-              진행할 때마다 나에게 단계별 보상이 도착합니다.
+              링크로 합류한 친구와 나는 가입 완료 시 회복약 2개씩 받고,
+              친구가 프론티어를 진행할 때마다 추가 보상이 도착합니다.
             </p>
           </div>
         </div>
@@ -199,8 +204,9 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
 
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
           신규 모험가: 스태미나 회복약{" "}
-          {summary?.newUserStaminaPotions ?? 2}개 · 홍보자: 단계마다{" "}
-          {referrerRewardPerMilestone}개, 1명당 최대 {maxReferrerReward}개 · 한
+          {summary?.newUserStaminaPotions ?? 2}개 · 홍보자: 가입 시{" "}
+          {referrerSignupReward}개 + 진행 단계마다 {referrerRewardPerMilestone}개,
+          1명당 최대 {maxReferrerReward}개 · 한
           계정은 한 번만 인정 · 본인 링크는 제외됩니다.
         </p>
       </Card>
@@ -209,10 +215,19 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         <div>
           <h2 className="text-sm font-bold">진행도별 보상</h2>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-            친구가 각 프론티어에 처음 도달하면 홍보자에게 회복약이 지급됩니다.
+            친구가 가입을 완료할 때 첫 보상이, 각 프론티어에 처음 도달할 때 추가
+            보상이 지급됩니다.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <div className={`${SURFACE_INSET} px-2 py-3 text-center`}>
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              가입 완료
+            </p>
+            <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">
+              회복약 +{referrerSignupReward}개
+            </p>
+          </div>
           {(summary?.rewardMilestones ?? [
             { frontierDepth: 6, referrerStaminaPotions: 2 },
             { frontierDepth: 12, referrerStaminaPotions: 2 },
@@ -259,44 +274,49 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
           <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <h2 className="text-sm font-bold">내 링크로 합류한 모험가</h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              현재 프론티어와 5단계 보상 진척도를 확인할 수 있습니다.
+              현재 프론티어와 {rewardStageCount}단계 보상 진척도를 확인할 수 있습니다.
             </p>
           </div>
           {summary.referrals.length > 0 ? (
             <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
-              {summary.referrals.map((item) => (
-                <li
-                  key={`${item.convertedAt}-${item.name}`}
-                  className="flex items-start gap-3 px-4 py-3"
-                >
-                  <UserPlus
-                    size={19}
-                    className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="truncate text-sm font-medium">{item.name}</p>
-                      <span className="shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                        {item.completedMilestones}/{milestoneCount}단계
-                      </span>
+              {summary.referrals.map((item) => {
+                const completedRewardStages =
+                  item.completedRewardStages ??
+                  item.completedMilestones + (item.signupRewarded ? 1 : 0);
+                return (
+                  <li
+                    key={`${item.convertedAt}-${item.name}`}
+                    className="flex items-start gap-3 px-4 py-3"
+                  >
+                    <UserPlus
+                      size={19}
+                      className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-medium">{item.name}</p>
+                        <span className="shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                          {completedRewardStages}/{rewardStageCount}단계
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                        <div
+                          className="h-full rounded-full bg-emerald-600"
+                          style={{
+                            width: `${Math.min(100, (completedRewardStages / rewardStageCount) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        현재 프론티어 {item.currentFrontierDepth} · 보상 완료{" "}
+                        {completedRewardStages}단계
+                        {" · "}
+                        {new Date(item.convertedAt).toLocaleDateString("ko-KR")}
+                      </p>
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                      <div
-                        className="h-full rounded-full bg-emerald-600"
-                        style={{
-                          width: `${Math.min(100, (item.completedMilestones / milestoneCount) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      현재 프론티어 {item.currentFrontierDepth} · 보상 완료{" "}
-                      {item.rewardedDepth > 0 ? `프론티어 ${item.rewardedDepth}` : "없음"}
-                      {" · "}
-                      {new Date(item.convertedAt).toLocaleDateString("ko-KR")}
-                    </p>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">

@@ -80,6 +80,8 @@ export async function GET() {
       targetName: nameOf(r.targetUserId),
       meta: (r.meta ?? null) as {
         amount?: number;
+        quantity?: number;
+        contributionPoints?: number;
         role?: string;
         nationName?: string;
         questTitle?: string;

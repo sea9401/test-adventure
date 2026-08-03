@@ -849,7 +849,7 @@ export function settlementBuildingUpgradeSummary(
   }
   if (buildingId === "exploration_hq") {
     const exploration = upgrade as ExplorationHqUpgradeDef;
-    return `주간 탐사 ${exploration.weeklyMissionCount}건 · 진척 +${exploration.missionProgressBonusPct}%`;
+    return `해금 의뢰 ${exploration.weeklyMissionCount}종 · 진척 +${exploration.missionProgressBonusPct}%`;
   }
   if (buildingId === "map_workshop") {
     const map = upgrade as MapWorkshopUpgradeDef;

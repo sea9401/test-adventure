@@ -12,6 +12,7 @@ import {
 } from "@/adventure/v2/RewardToastProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   GUILD_EXPLORATION_EVENTS,
   GUILD_EXPLORATION_EXPEDITIONS,
@@ -25,6 +26,10 @@ import {
   GuildExplorationWeeklyMissionId,
   GuildExplorationWeeklyState,
 } from "@/adventure/data/v2/guildExploration";
+import {
+  guildExplorationMissionUnlockLevel,
+  nextGuildExplorationUnlock,
+} from "./guildExplorationUnlocks";
 
 type ExplorationMissionView = {
   id: GuildExplorationWeeklyMissionId;
@@ -48,7 +53,6 @@ type ExplorationState = {
   weekKey?: string;
   endsAt?: string;
   explorationHqLevel?: number;
-  weeklyMissionCount?: number;
   progressBonusPct?: number;
   state?: GuildExplorationWeeklyState;
   content?: GuildExplorationContentState;
@@ -251,6 +255,11 @@ export function GuildExplorationPanel({
     100,
     ((content?.mapFragments ?? 0) / Math.max(1, mapFragmentTarget)) * 100,
   );
+  const explorationHqLevel = state?.explorationHqLevel;
+  const nextUnlock =
+    explorationHqLevel == null
+      ? null
+      : nextGuildExplorationUnlock(explorationHqLevel);
 
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -266,7 +275,7 @@ export function GuildExplorationPanel({
             </h3>
           </div>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-            길드 단위 주간 탐사 의뢰의 슬롯과 진척 보너스를 관리합니다.
+            길드 단위 주간 탐사 의뢰와 진척 보너스를 관리합니다.
           </p>
         </div>
         <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
@@ -274,19 +283,8 @@ export function GuildExplorationPanel({
         </span>
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded bg-zinc-50 px-3 py-2 dark:bg-zinc-900">
-          <dt className="text-xs text-zinc-500 dark:text-zinc-400">
-            주간 탐사
-          </dt>
-          <dd className="mt-1 font-semibold text-zinc-900 dark:text-zinc-100">
-            {state?.ok
-              ? `${state.weeklyMissionCount ?? 1}/${missions.length}`
-              : "1"}
-            건 활성
-          </dd>
-        </div>
-        <div className="rounded bg-zinc-50 px-3 py-2 dark:bg-zinc-900">
+      <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className={`${SURFACE_INSET} px-3 py-2`}>
           <dt className="text-xs text-zinc-500 dark:text-zinc-400">
             진척 보너스
           </dt>
@@ -294,6 +292,35 @@ export function GuildExplorationPanel({
             +{state?.progressBonusPct ?? 0}%
           </dd>
         </div>
+        {explorationHqLevel != null ? (
+          <div className={`${SURFACE_INSET} px-3 py-2`}>
+            <dt className="text-xs text-zinc-500 dark:text-zinc-400">
+              다음 콘텐츠 해금
+            </dt>
+            {nextUnlock ? (
+              <dd className="mt-1">
+                <div className="font-semibold text-cyan-700 dark:text-cyan-300">
+                  탐사 본부 Lv.{nextUnlock.level}
+                </div>
+                <ul className="mt-1 space-y-0.5 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">
+                  {nextUnlock.expeditionNames.map((name) => (
+                    <li key={name}>새 원정 · {name}</li>
+                  ))}
+                  <li>
+                    해금 의뢰 종류 · {nextUnlock.currentWeeklyMissionCount} → {nextUnlock.weeklyMissionCount}종
+                  </li>
+                  <li>
+                    진척 보너스 · +{nextUnlock.currentProgressBonusPct}% → +{nextUnlock.progressBonusPct}%
+                  </li>
+                </ul>
+              </dd>
+            ) : (
+              <dd className="mt-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                모든 탐사 콘텐츠 해금 완료
+              </dd>
+            )}
+          </div>
+        ) : null}
       </dl>
 
       <div className="mt-3 grid gap-2 lg:grid-cols-2">
@@ -371,7 +398,7 @@ export function GuildExplorationPanel({
                         className="shrink-0 rounded-md border border-cyan-700 bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {locked
-                          ? `Lv.${expedition.minLevel}`
+                          ? `Lv.${expedition.minLevel} 해금`
                           : acting === `dispatch:${id}`
                             ? "파견 중"
                             : "파견"}
@@ -512,12 +539,11 @@ export function GuildExplorationPanel({
                 ? Math.min(100, (mission.progress / mission.goalProgress) * 100)
                 : 0;
             const busy = claimingId === mission.id;
+            const unlockLevel = guildExplorationMissionUnlockLevel(mission.id);
             return (
               <div
                 key={mission.id}
-                className={`rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900 ${
-                  mission.unlocked ? "" : "opacity-60"
-                }`}
+                className={`${SURFACE_INSET} p-3`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -530,7 +556,9 @@ export function GuildExplorationPanel({
                       <span>{mission.title}</span>
                       {!mission.unlocked ? (
                         <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                          잠김
+                          {unlockLevel != null
+                            ? `Lv.${unlockLevel} 해금`
+                            : "잠김"}
                         </span>
                       ) : null}
                     </div>
@@ -558,7 +586,9 @@ export function GuildExplorationPanel({
                   {mission.claimed
                     ? "수령 완료"
                     : !mission.unlocked
-                      ? "시설 업그레이드 필요"
+                      ? unlockLevel != null
+                        ? `탐사 본부 Lv.${unlockLevel} 필요`
+                        : "시설 업그레이드 필요"
                     : busy
                       ? "수령 중"
                       : mission.canClaim

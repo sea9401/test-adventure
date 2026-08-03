@@ -15,8 +15,9 @@ import {
 
 const BROWSE_LIMIT = 30;
 
-// GET /api/guilds/browse?q= — 가입할 길드 둘러보기.
-// 활성 길드 목록(명성순) + 내 pending 신청 길드 id. q 가 있으면 이름 substring 검색.
+// GET /api/guilds/browse?q= — 활성 길드 둘러보기.
+// 소속 여부와 관계없이 목록(명성순)을 제공한다. 미소속 유저에게는 가입 신청 상태도 함께
+// 내려주며, q 가 있으면 이름 substring 검색.
 export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });

@@ -5,9 +5,11 @@ import {
   Camera,
   Coins,
   Diamond,
+  Fire,
   Flask,
   IdentificationCard,
   Mountains,
+  MapTrifold,
   Orange,
   Package,
   PawPrint,
@@ -22,6 +24,11 @@ import {
   type Icon,
   type IconProps,
 } from "@phosphor-icons/react";
+import { STAMINA_SHARD_MATERIAL_ID } from "@/adventure/data/v2/staminaPotionCrafting";
+import {
+  ENHANCE_EMBER_MATERIAL_ID,
+  TORN_MAP_FRAGMENT_MATERIAL_ID,
+} from "@/adventure/data/v2/scavengedCrafting";
 
 export type InventoryIconKind =
   | "bone"
@@ -32,8 +39,10 @@ export type InventoryIconKind =
   | "crystal"
   | "enhance-blue"
   | "enhance-red"
+  | "ember"
   | "flask"
   | "identity"
+  | "map"
   | "ore"
   | "package"
   | "paw"
@@ -60,12 +69,14 @@ const ICONS: Record<InventoryIconKind, { Icon: Icon; tone: string }> = {
     tone: "text-blue-600 dark:text-blue-400",
   },
   "enhance-red": { Icon: Diamond, tone: "text-red-600 dark:text-red-400" },
+  ember: { Icon: Fire, tone: "text-orange-600 dark:text-orange-400" },
   flask: { Icon: Flask, tone: "text-emerald-600 dark:text-emerald-400" },
   fruit: { Icon: Orange, tone: "text-lime-600 dark:text-lime-400" },
   identity: {
     Icon: IdentificationCard,
     tone: "text-sky-600 dark:text-sky-400",
   },
+  map: { Icon: MapTrifold, tone: "text-teal-600 dark:text-teal-400" },
   ore: { Icon: Mountains, tone: "text-slate-600 dark:text-slate-400" },
   package: { Icon: Package, tone: "text-amber-600 dark:text-amber-400" },
   paw: { Icon: PawPrint, tone: "text-orange-600 dark:text-orange-400" },
@@ -89,6 +100,9 @@ export function inventoryIconKind(itemId: string): InventoryIconKind {
   if (itemId === "rename_permit") return "identity";
   if (itemId === "adventure_support_30d") return "shield";
   if (itemId === "exp_tome") return "flask";
+  if (itemId === STAMINA_SHARD_MATERIAL_ID) return "flask";
+  if (itemId === ENHANCE_EMBER_MATERIAL_ID) return "ember";
+  if (itemId === TORN_MAP_FRAGMENT_MATERIAL_ID) return "map";
   if (itemId === "v2_red_enhance_stone") return "enhance-red";
   if (itemId === "v2_blue_enhance_stone") return "enhance-blue";
   if (itemId.includes("reforge_stone")) return "reforge";

@@ -1,15 +1,15 @@
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  LEGACY_CLASS_SPEC_BY_JOB,
   TIER2_UNLOCK_CUMLEVEL,
   TIER3_UNLOCK_CUMLEVEL,
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
-  V2_JOB_CATALOG,
-  V2_JOB_LIST,
-  type V2JobDefinition,
 } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  buildJobRoadmap,
+  type JobRoadmapNode as RoadmapNode,
+} from "@/adventure/v2/jobRoadmapModel";
 import {
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_MILESTONES,
@@ -68,9 +68,10 @@ export function JobsContent() {
       <H2>전직</H2>
       <P>
         <Em>수행 화면</Em>(캐릭터 → 성장의 신전)의 직업 사다리에서 전직합니다.
-        전투 직업은 레벨 {V2_LEVEL_CAP}, <Em>낚시·농사·요리·벌목·채광 계열</Em>은
-        레벨 1부터 조건을 갖춘 상위 직업으로 전직할 수 있습니다. 전직에
-        골드는 들지 않습니다.
+        전투 직업은 전투 레벨 {V2_LEVEL_CAP}이 필요하지만,
+        <Em>낚시·농사·요리·벌목·채광 계열</Em>은 캐릭터 레벨 제한 없이 생활 숙련
+        조건을 갖추면 상위 직업으로 전직할 수 있습니다. 전직에 골드는 들지
+        않습니다.
       </P>
       <P>
         상위 직업은 <Em>바로 아래 직업의 숙련도</Em>가 게이트를 넘으면 열립니다.
@@ -96,9 +97,9 @@ export function JobsContent() {
         </li>
       </UL>
       <Note>
-        전투 직업은 레벨 {V2_LEVEL_CAP}에 도달한 뒤 전직을 거듭하고, 생산 직업은
-        각 생활 콘텐츠의 숙련 조건을 채워 계보를 넓힙니다. 직업 숙련도는
-        재전직 후에도 유지됩니다.
+        전투 직업은 전투 레벨 {V2_LEVEL_CAP}에 도달한 뒤 전직을 거듭하고, 생산
+        직업은 캐릭터 레벨과 관계없이 각 생활 콘텐츠의 숙련 조건을 채워 계보를
+        넓힙니다. 직업 숙련도는 재전직 후에도 유지됩니다.
       </Note>
 
       <H2>숙련도와 숙달 포인트</H2>
@@ -179,20 +180,8 @@ export function JobsContent() {
   );
 }
 
-type RoadmapNode = {
-  id: string;
-  name: string;
-  tier: V2JobDefinition["tier"] | "start";
-  group: string;
-  hybrid: boolean;
-  prereqText: string;
-  children: RoadmapNode[];
-};
-
-const JOB_ORDER = new Map(V2_JOB_LIST.map((job, index) => [job.id, index]));
-
 function JobRoadmap() {
-  const root = buildRoadmap();
+  const root = buildJobRoadmap();
   return (
     <section className="mt-5">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -255,101 +244,6 @@ function RoadmapBranch({ node }: { node: RoadmapNode }) {
       )}
     </li>
   );
-}
-
-function buildRoadmap(): RoadmapNode {
-  const childrenByParent = new Map<string, V2JobDefinition[]>();
-  for (const job of V2_JOB_LIST) {
-    const parent = primaryParentId(job);
-    const children = childrenByParent.get(parent) ?? [];
-    children.push(job);
-    childrenByParent.set(parent, children);
-  }
-
-  const toNode = (job: V2JobDefinition): RoadmapNode => ({
-    id: job.id,
-    name: job.name,
-    tier: job.tier,
-    group: groupForJob(job),
-    hybrid: prerequisiteJobIds(job).length > 1,
-    prereqText: prereqText(job),
-    children: sortedChildren(childrenByParent.get(job.id) ?? []).map(toNode),
-  });
-
-  return {
-    id: "start",
-    name: "시작",
-    tier: "start",
-    group: "root",
-    hybrid: false,
-    prereqText: "",
-    children: sortedChildren(childrenByParent.get("start") ?? []).map(toNode),
-  };
-}
-
-function primaryParentId(job: V2JobDefinition): string {
-  if (job.id === "none" || job.id === "survivor") return "start";
-  const [firstPrereq] = prerequisiteJobIds(job);
-  if (firstPrereq) return firstPrereq;
-  return "none";
-}
-
-function prerequisiteJobIds(job: V2JobDefinition): string[] {
-  const ids = Object.keys(job.unlock.prereqs);
-  for (const condition of job.unlock.extraConditions ?? []) {
-    if (condition.type === "jobUnlocked" && !ids.includes(condition.jobId)) {
-      ids.push(condition.jobId);
-    }
-  }
-  return ids;
-}
-
-function sortedChildren(children: V2JobDefinition[]): V2JobDefinition[] {
-  return [...children].sort((a, b) => {
-    if (a.tier !== b.tier) return a.tier - b.tier;
-    return (JOB_ORDER.get(a.id) ?? 0) - (JOB_ORDER.get(b.id) ?? 0);
-  });
-}
-
-function groupForJob(job: V2JobDefinition): string {
-  if (job.id === "none") return "root";
-  return LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id;
-}
-
-function prereqText(job: V2JobDefinition): string {
-  const entries = Object.entries(job.unlock.prereqs);
-  const parts = entries.map(
-    ([id, level]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${level}`,
-  );
-  for (const condition of job.unlock.extraConditions ?? []) {
-    switch (condition.type) {
-      case "jobUnlocked":
-        parts.push(`${V2_JOB_CATALOG[condition.jobId]?.name ?? condition.jobId} 해금`);
-        break;
-      case "farmingLevel":
-        parts.push(`농사 Lv.${condition.min}`);
-        break;
-      case "cookingLevel":
-        parts.push(`요리 Lv.${condition.min}`);
-        break;
-      case "woodcuttingLevel":
-        parts.push(`벌목 Lv.${condition.min}`);
-        break;
-      case "miningLevel":
-        parts.push(`채광 Lv.${condition.min}`);
-        break;
-      case "statThreshold":
-        parts.push(`${condition.stat.toUpperCase()} 한계 ${condition.min}`);
-        break;
-      case "questCompleted":
-        parts.push(`퀘스트 ${condition.questId} 완료`);
-        break;
-      case "monsterKilled":
-        parts.push(`${condition.monsterId} ${condition.minCount}회 처치`);
-        break;
-    }
-  }
-  return parts.join(", ");
 }
 
 const ROADMAP_CSS = `

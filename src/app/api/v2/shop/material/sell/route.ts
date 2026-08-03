@@ -5,7 +5,7 @@ import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_MATERIALS,
-  V2_MATERIAL_SELL_PRICE,
+  materialSellPriceOf,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
 
@@ -58,10 +58,10 @@ export async function POST(req: Request) {
   if (!id || !(id in V2_MATERIALS)) {
     return Response.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
-  const unitPrice = V2_MATERIAL_SELL_PRICE[id];
+  const unitPrice = materialSellPriceOf(id);
   // 판매가 미등재 재료(강화석 등 유저 거래 전용) — 거부. 가드 없으면 undefined×수량=NaN 이
   // 골드에 전파되는 세이브 오염.
-  if (typeof unitPrice !== "number" || !Number.isFinite(unitPrice)) {
+  if (unitPrice == null) {
     return Response.json(
       { ok: false, error: "not_sellable" },
       { status: 400 },

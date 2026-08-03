@@ -45,8 +45,6 @@ export type V2ProficiencyState = {
   // 성장 규칙 마이그레이션 버전.
   // 1 = 레벨업 성장량 5→3 및 기존 grown 75% 압축 적용.
   growthScaleVersion?: number;
-  // 만렙 이후 cap 미달 스탯을 천천히 따라잡는 전투 누적 게이지.
-  postCapGrowthProgress?: number;
   // 환생(재전직) 횟수 — advance-class 환생(같은/다른 직업 무관)마다 +1. cumLevel 과 별개의 "행동" 신호:
   //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
   //   판정해, 같은 직업 재전직만으로도 깨지게 한다(한 생애 cumLevel ~99 < 101 사각지대 해소).
@@ -180,7 +178,6 @@ export function emptyProficiency(): V2ProficiencyState {
     jobHistory: [],
     masteryScaleVersion: 2,
     growthScaleVersion: 1,
-    postCapGrowthProgress: 0,
     reincarnations: 0,
   };
 }
@@ -224,7 +221,6 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     jobHistory?: unknown;
     masteryScaleVersion?: unknown;
     growthScaleVersion?: unknown;
-    postCapGrowthProgress?: unknown;
     reincarnations?: unknown;
   };
   const hasLegacyScaledFields =
@@ -335,8 +331,6 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     jobHistory,
     masteryScaleVersion,
     growthScaleVersion: 1,
-    postCapGrowthProgress:
-      growthScaleVersion >= 1 ? posInt(obj.postCapGrowthProgress) : 0,
     reincarnations: posInt(obj.reincarnations),
   };
 }

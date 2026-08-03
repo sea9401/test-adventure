@@ -3,6 +3,7 @@ import {
   FLOOR_DROP_POOLS,
   V2_MATERIALS,
   V2_MATERIAL_SELL_PRICE,
+  materialSellPriceOf,
   mergeDrops,
   rollDrops,
   type V2MaterialId,
@@ -14,7 +15,7 @@ import {
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
   it("채광 광석과 부산물까지 등재하며 NPC 판매가는 비등재한다", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(54);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(57);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -75,7 +76,14 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(V2_MATERIALS[id].name.length).toBeGreaterThan(0);
       expect(V2_MATERIAL_SELL_PRICE[id]).toBeUndefined();
+      expect(materialSellPriceOf(id)).toBeUndefined();
     }
+  });
+
+  it("NPC 판매가 미등재 재료는 NaN 계산 대상이 아니다", () => {
+    expect(materialSellPriceOf("v2_red_enhance_stone")).toBeUndefined();
+    expect(materialSellPriceOf("v2_reforge_stone")).toBeUndefined();
+    expect(materialSellPriceOf("v2_iron_ore")).toBeUndefined();
   });
 
   it("전 층(1~8) 드랍 풀이 빈 상태", () => {

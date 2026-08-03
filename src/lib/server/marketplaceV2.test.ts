@@ -6,6 +6,10 @@ import { cookingFoodId } from "@/adventure/v2/cooking";
 import {
   MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
   MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
+  MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX,
+  MARKETPLACE_V2_BUY_ORDER_LIMIT,
+  MARKETPLACE_V2_BUY_ORDER_MAX_DAYS,
+  MARKETPLACE_V2_DIRECT_LISTING_HOURS,
   MARKETPLACE_V2_FIXED_LISTING_HOURS,
   MARKETPLACE_V2_MATERIAL_QTY_MAX,
   MARKETPLACE_V2_PRICE_MAX,
@@ -22,14 +26,25 @@ import {
   marketplaceListingPhase,
   marketplaceListingTimes,
   marketplaceNextBidMinimum,
+  marketplacePartialPrice,
   marketplacePublicListing,
   marketplaceSlotLimitForAdventureSupport,
   marketplaceTaxRateForAdventureSupport,
+  marketplaceUnitPrice,
   saleProceeds,
   saleTax,
 } from "./marketplaceV2";
 
-describe("공개 입찰 유예와 고정가 등록", () => {
+describe("즉시구매와 공개 입찰 등록", () => {
+  it("유예 0은 즉시구매로 등록하고 24시간 유지한다", () => {
+    expect(MARKETPLACE_V2_DIRECT_LISTING_HOURS).toBe(24);
+    const createdAt = new Date("2026-07-28T00:00:00Z");
+    expect(marketplaceListingTimes(createdAt, 0)).toEqual({
+      bidEndsAt: createdAt,
+      expiresAt: new Date("2026-07-29T00:00:00Z"),
+    });
+  });
+
   it("판매자가 2~24시간 유예를 고르고 이후 고정가 등록은 2시간 유지한다", () => {
     expect(MARKETPLACE_V2_BID_GRACE_MIN_HOURS).toBe(2);
     expect(MARKETPLACE_V2_BID_GRACE_MAX_HOURS).toBe(24);
@@ -41,7 +56,8 @@ describe("공개 입찰 유예와 고정가 등록", () => {
     });
   });
 
-  it("유예 시간은 정수 2~24시간만 허용한다", () => {
+  it("즉시구매 0 또는 경매 유예 정수 2~24시간만 허용한다", () => {
+    expect(isValidBidGraceHours(0)).toBe(true);
     expect(isValidBidGraceHours(2)).toBe(true);
     expect(isValidBidGraceHours(24)).toBe(true);
     expect(isValidBidGraceHours(1)).toBe(false);
@@ -172,6 +188,28 @@ describe("isMarketKind", () => {
   });
 });
 
+describe("스택 매물 부분 체결 가격", () => {
+  it("총액을 올림한 개당 가격으로 표시한다", () => {
+    expect(marketplaceUnitPrice(1_000, 10)).toBe(100);
+    expect(marketplaceUnitPrice(1_001, 10)).toBe(101);
+  });
+
+  it("일부 수량 가격을 배분하고 잔여 매물 가격 1골드를 보존한다", () => {
+    expect(marketplacePartialPrice(1_000, 10, 3)).toBe(300);
+    expect(marketplacePartialPrice(10, 3, 1)).toBe(4);
+    expect(marketplacePartialPrice(10, 3, 3)).toBe(10);
+    expect(marketplacePartialPrice(1, 3, 1)).toBeNull();
+  });
+});
+
+describe("구매 주문 안전 한도", () => {
+  it("활성 주문 수·유효 기간·주문 보관금에 상한을 둔다", () => {
+    expect(MARKETPLACE_V2_BUY_ORDER_LIMIT).toBe(10);
+    expect(MARKETPLACE_V2_BUY_ORDER_MAX_DAYS).toBe(7);
+    expect(MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX).toBe(999_999_999);
+  });
+});
+
 describe("tradable 판정 + 이름 스냅샷", () => {
   it("실재 장비 id 만 isTradableEquip", () => {
     const someId = Object.keys(V2_EQUIPMENT)[0];
@@ -198,7 +236,7 @@ describe("tradable 판정 + 이름 스냅샷", () => {
   });
 
   it("채광 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(54);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(57);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",

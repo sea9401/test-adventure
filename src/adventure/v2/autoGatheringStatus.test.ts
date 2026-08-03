@@ -11,6 +11,7 @@ describe("autoGatheringStatusText", () => {
       autoGatheringStatusText(
         {
           activity: "woodcutting",
+          sourceId: "pine",
           sourceName: "초보자의 숲",
           readyAt: 91_000,
         },
@@ -24,6 +25,7 @@ describe("autoGatheringStatusText", () => {
       autoGatheringStatusText(
         {
           activity: "mining",
+          sourceId: "iron",
           sourceName: "바위산 채석장",
           readyAt: 50_000,
         },

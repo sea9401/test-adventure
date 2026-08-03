@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -499,7 +500,11 @@ export function V2DungeonFloorView({
     setBatchStatus(null);
     setBatchRunning(true);
     try {
-      const b = await huntBatch(depth, count);
+      const b = await huntBatch(
+        depth,
+        count,
+        autoRun ? autoStopConfigRef.current : undefined,
+      );
       if (!b) {
         // 자동 사냥 중 실패하면 같은 요청을 무한 반복하지 않는다(단판과 동일 동작).
         if (autoRun) setAutoHunt(false);
@@ -516,6 +521,7 @@ export function V2DungeonFloorView({
         totalMastery: b.totalMastery,
         proficiencyAfter: b.proficiencyAfter,
         totalGold: b.totalGold,
+        totalLossTax: b.totalLossTax,
         finalGoldAfter: b.finalGoldAfter,
         expAfter: b.expAfter,
         levelsGained: b.levelsGained,
@@ -584,18 +590,23 @@ export function V2DungeonFloorView({
       }
       if (b.levelsGained > 0) onLevelUp?.();
       if (autoRun) {
-        const stopReason = getAutoHuntStopReason(
-          autoStopConfigRef.current,
-          {
+        const serverStopReason =
+          b.stoppedReason === "potion" ||
+          b.stoppedReason === "rare_map" ||
+          b.stoppedReason === "level_100"
+            ? b.stoppedReason
+            : null;
+        const stopReason =
+          serverStopReason ??
+          getAutoHuntStopReason(autoStopConfigRef.current, {
             hpCharges: b.hpCharges ?? statusHpCharges,
             mpCharges: b.mpCharges ?? statusMpCharges,
             hasMp: (b.playerMaxMp ?? mp?.maxMp ?? 0) > 0,
             rareMapFound: (b.rareMapDrops ?? []).some(
               (kind) => RARE_MAP_KINDS[kind]?.category === "hunt",
             ),
-            level: currentLevel + b.levelsGained,
-          },
-        );
+            level: b.finalLevelAfter ?? currentLevel + b.levelsGained,
+          });
         if (stopReason) {
           setAutoHunt(false);
           setAutoStopReason(stopReason);
@@ -781,7 +792,7 @@ export function V2DungeonFloorView({
                 rareMapFound:
                   !!r.rareMapDrop &&
                   RARE_MAP_KINDS[r.rareMapDrop]?.category === "hunt",
-                level: currentLevel + r.levelsGained,
+                level: r.levelAfter ?? currentLevel + r.levelsGained,
               },
             );
             if (stopReason) {
@@ -1109,16 +1120,15 @@ export function V2DungeonFloorView({
                     <span>충전약 잔량</span>
                   </label>
                   <span className="flex items-center gap-1 text-sm">
-                    <input
-                      type="number"
+                    <DraftNumberInput
                       min={0}
                       max={9_999_999}
                       step={1}
                       value={autoStopConfig.potionThreshold}
                       disabled={!autoStopConfig.potionEnabled}
-                      onChange={(e) =>
+                      onValueChange={(potionThreshold) =>
                         updateAutoStopConfig({
-                          potionThreshold: Number(e.target.value),
+                          potionThreshold,
                         })
                       }
                       aria-label="자동 사냥 정지 충전약 잔량"

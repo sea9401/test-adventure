@@ -8,6 +8,7 @@ import {
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import {
   SURFACE_ACCENT,
   SURFACE_CARD,
@@ -260,19 +261,13 @@ export function GuildAlchemyWorkshopPanel() {
                 <p className="mt-3 text-center text-xs font-semibold text-zinc-500">공방 Lv.{recipe.minFacilityLevel} 필요</p>
               ) : (
                 <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="number"
-                    inputMode="numeric"
+                  <DraftNumberInput
                     min={1}
                     max={Math.max(1, maxQuantity)}
                     value={quantity}
-                    onChange={(event) => {
-                      const next = Math.max(
-                        1,
-                        Math.min(maxQuantity || 1, Math.floor(Number(event.target.value) || 1)),
-                      );
-                      setQuantities((prev) => ({ ...prev, [recipe.id]: next }));
-                    }}
+                    onValueChange={(next) =>
+                      setQuantities((prev) => ({ ...prev, [recipe.id]: next }))
+                    }
                     disabled={busyRecipeId != null || maxQuantity <= 0}
                     className="h-9 w-16 rounded-md border border-zinc-300 bg-white px-2 text-center text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-950"
                     aria-label={`${recipe.name} 조제 수량`}

@@ -24,7 +24,15 @@ export const netPreview = (price: number) =>
   Math.floor(price * (1 - TAX_RATE_DISPLAY));
 
 // 시세 집계(/api/v2/marketplace/prices) — itemId 별 최근 판매 통계.
-export type PriceStat = { n: number; avg: number; min: number; max: number };
+export type PriceStat = {
+  n: number;
+  avg: number;
+  min: number;
+  max: number;
+  unitAvg?: number;
+  unitMin?: number;
+  unitMax?: number;
+};
 
 export type MarketplacePricePosition = {
   tone: "deal" | "fair";
@@ -68,6 +76,97 @@ export type Listing = {
   nextBid: number;
 };
 
+export type MarketplaceStackGroup = {
+  key: string;
+  kind: "material" | "consumable";
+  itemId: string;
+  itemName: string;
+  totalQuantity: number;
+  minUnitPrice: number;
+  listings: Listing[];
+};
+
+export function isStackableMarketplaceListing(listing: Listing): boolean {
+  if (listing.kind === "material") return true;
+  if (listing.kind !== "consumable") return false;
+  const payloadKind = (
+    listing.instancePayload as { kind?: unknown } | null
+  )?.kind;
+  return payloadKind === "museun_cash_item" || payloadKind === "cooking_food";
+}
+
+export function listingUnitPrice(listing: Pick<Listing, "price" | "quantity">) {
+  return Math.max(1, Math.ceil(listing.price / Math.max(1, listing.quantity)));
+}
+
+export function groupMarketplaceStackListings(
+  listings: Listing[],
+): MarketplaceStackGroup[] {
+  const groups = new Map<string, MarketplaceStackGroup>();
+  for (const listing of listings) {
+    if (
+      !isStackableMarketplaceListing(listing) ||
+      listing.isMine ||
+      listing.kind === "equip"
+    ) {
+      continue;
+    }
+    const key = `${listing.kind}:${listing.itemId}`;
+    const current = groups.get(key);
+    if (current) {
+      current.totalQuantity += listing.quantity;
+      current.minUnitPrice = Math.min(
+        current.minUnitPrice,
+        listingUnitPrice(listing),
+      );
+      current.listings.push(listing);
+      continue;
+    }
+    groups.set(key, {
+      key,
+      kind: listing.kind,
+      itemId: listing.itemId,
+      itemName: listing.itemName,
+      totalQuantity: listing.quantity,
+      minUnitPrice: listingUnitPrice(listing),
+      listings: [listing],
+    });
+  }
+  return [...groups.values()];
+}
+
+export function marketplaceStackQuote(
+  listings: Listing[],
+  requestedQuantity: number,
+): number | null {
+  let remaining = Math.max(1, Math.floor(requestedQuantity));
+  let total = 0;
+  const ordered = listings.slice().sort((a, b) => {
+    const priceDifference = listingUnitPrice(a) - listingUnitPrice(b);
+    return priceDifference || a.createdAt.localeCompare(b.createdAt);
+  });
+  for (const listing of ordered) {
+    if (remaining <= 0) break;
+    let take = Math.min(remaining, listing.quantity);
+    let fillPrice: number;
+    if (take >= listing.quantity) {
+      fillPrice = listing.price;
+    } else if (listing.price <= 1) {
+      if (remaining < listing.quantity) continue;
+      take = listing.quantity;
+      fillPrice = listing.price;
+    } else {
+      fillPrice = Math.min(
+        listing.price - 1,
+        listingUnitPrice(listing) * take,
+      );
+    }
+    total += fillPrice;
+    remaining -= take;
+  }
+  return remaining === 0 ? total : null;
+}
+
 // 페이지네이션 결과 중 탭 컴포넌트가 쓰는 부분집합(usePagination 반환과 구조 호환).
 export type MarketplacePager<T> = {
   page: number;
@@ -88,6 +187,27 @@ export function priceStatForKey(
   preferredKey: string,
 ): PriceStat | undefined {
   return priceRef[preferredKey] ?? priceRef[itemId];
+}
+
+export function priceStatForQuantity(
+  stat: PriceStat | undefined,
+  quantity: number,
+): PriceStat | undefined {
+  if (
+    !stat ||
+    stat.unitAvg == null ||
+    stat.unitMin == null ||
+    stat.unitMax == null
+  ) {
+    return stat;
+  }
+  const safeQuantity = Math.max(1, Math.floor(quantity));
+  return {
+    ...stat,
+    avg: stat.unitAvg * safeQuantity,
+    min: stat.unitMin * safeQuantity,
+    max: stat.unitMax * safeQuantity,
+  };
 }
 
 // 장비 스탯 한 줄(개체 굴림 반영) — 기본 전투 스탯 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
@@ -124,19 +244,67 @@ export function equipDetail(
 export function PriceRefLine({
   stat,
   scoped,
+  unit,
 }: {
   stat?: PriceStat;
   scoped?: boolean;
+  unit?: boolean;
 }) {
   if (!stat || stat.n <= 0) return null;
+  const average = unit && stat.unitAvg != null ? stat.unitAvg : stat.avg;
+  const minimum = unit && stat.unitMin != null ? stat.unitMin : stat.min;
+  const maximum = unit && stat.unitMax != null ? stat.unitMax : stat.max;
   const range =
-    stat.min === stat.max
+    minimum === maximum
       ? ""
-      : ` · ${stat.min.toLocaleString()}~${stat.max.toLocaleString()}`;
+      : ` · ${minimum.toLocaleString()}~${maximum.toLocaleString()}`;
   return (
     <span className="text-[11px] text-sky-600 dark:text-sky-400">
-      {scoped ? "동급 시세" : "시세"} 평균 {stat.avg.toLocaleString()}골드 (
+      {scoped ? "동급 시세" : unit ? "개당 시세" : "시세"} 평균 {average.toLocaleString()}골드 (
       {stat.n}건{range})
+    </span>
+  );
+}
+
+// 최근 체결가를 가격 입력에 바로 넣는 보조 버튼. 활성 매물 호가가 아니므로
+// "최근 최저"로 명시해 구매 목록의 최저가와 혼동하지 않게 한다.
+export function PriceQuickFill({
+  stat,
+  onSelect,
+  unit,
+}: {
+  stat?: PriceStat;
+  onSelect: (price: number) => void;
+  unit?: boolean;
+}) {
+  if (!stat || stat.n <= 0) return null;
+  const useUnitPrice = unit === true;
+  if (useUnitPrice && (stat.unitMin == null || stat.unitAvg == null)) {
+    return null;
+  }
+  const suggestions = [
+    [
+      useUnitPrice ? "최근 최저 단가" : "최근 최저",
+      useUnitPrice ? stat.unitMin! : stat.min,
+    ],
+    [
+      useUnitPrice ? "평균 단가" : "평균가",
+      useUnitPrice ? stat.unitAvg! : stat.avg,
+    ],
+  ] as const;
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1">
+      {suggestions.map(([label, value]) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => onSelect(value)}
+          className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[10px] font-medium tabular-nums text-sky-700 transition hover:bg-sky-50 dark:border-sky-800 dark:bg-zinc-900 dark:text-sky-300 dark:hover:bg-sky-950"
+          aria-label={`${label} ${value.toLocaleString()}골드로 가격 입력`}
+        >
+          {label} {value.toLocaleString()}G
+        </button>
+      ))}
     </span>
   );
 }
@@ -164,13 +332,15 @@ export function PricePositionBadge({
 export function PriceInput({
   value,
   onChange,
+  placeholder = "가격",
 }: {
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <NumberInput
-      placeholder="가격"
+      placeholder={placeholder}
       value={value}
       onValueChange={onChange}
       className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs tabular-nums dark:border-zinc-700 dark:bg-zinc-900"

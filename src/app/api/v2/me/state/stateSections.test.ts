@@ -3,6 +3,7 @@ import {
   battleCountOf,
   frontierDepthOf,
   huntGateSections,
+  isRecordedJobVisit,
   materialCodexSection,
   proficiencySection,
   spFruitSection,
@@ -95,5 +96,43 @@ describe("proficiencySection", () => {
 
     expect(s.caps.str).toBe(70);
     expect(s.caps.dex).toBe(60);
+  });
+});
+
+describe("isRecordedJobVisit", () => {
+  it("현재 직업·전직 이력·숙련도 기록을 실제 전직 이력으로 보완한다", () => {
+    const history = new Set(["squire"]);
+    expect(
+      isRecordedJobVisit({
+        jobId: "warrior",
+        currentJobId: "warrior",
+        jobHistory: history,
+        cumLevel: 0,
+      }),
+    ).toBe(true);
+    expect(
+      isRecordedJobVisit({
+        jobId: "squire",
+        currentJobId: "warrior",
+        jobHistory: history,
+        cumLevel: 0,
+      }),
+    ).toBe(true);
+    expect(
+      isRecordedJobVisit({
+        jobId: "paladin",
+        currentJobId: "warrior",
+        jobHistory: new Set(),
+        cumLevel: 120,
+      }),
+    ).toBe(true);
+    expect(
+      isRecordedJobVisit({
+        jobId: "mage",
+        currentJobId: "warrior",
+        jobHistory: history,
+        cumLevel: 0,
+      }),
+    ).toBe(false);
   });
 });

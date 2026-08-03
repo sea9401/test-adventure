@@ -6,6 +6,9 @@ export type InboxItem = {
   kind:
     | "sale_proceeds"
     | "bid_refund"
+    | "buy_order_refund"
+    | "buy_order_item"
+    | "price_alert"
     | "purchase_item"
     | "cancel_return"
     | "user_message"
@@ -44,7 +47,8 @@ export async function fetchInboxHistory(): Promise<InboxResponse> {
   return (await r.json()) as InboxResponse;
 }
 
-// 보낸 우편 기록 — 내가 발송한 쪽지/선물 최근분. claimedAt 으로 상대 확인 여부를 표시한다.
+// 보낸 우편 기록 — 내가 직접 발송한 쪽지/선물 최근분. 익명 거래 우편은 서버에서 제외한다.
+// claimedAt 으로 상대 확인 여부를 표시한다.
 export async function fetchInboxSent(): Promise<InboxResponse> {
   const r = await fetch("/api/marketplace/inbox?sent=1");
   if (!r.ok) throw new Error(`보낸 우편 기록 로드 실패 (${r.status})`);

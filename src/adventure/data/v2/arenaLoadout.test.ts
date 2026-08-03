@@ -97,9 +97,44 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
       {
         key: "0:skill:v2c_extremesurvivor_struggle",
         name: "사투",
+        condition: "내 HP 50% 이하",
       },
-      { key: "1:role:main_attack", name: "주 공격" },
+      {
+        key: "1:role:main_attack",
+        name: "주 공격",
+        condition: "항상",
+      },
     ]);
+  });
+
+  it("복합 조건과 내 버프 조건을 사용자 문구로 함께 표시한다", () => {
+    const loadout = mk("condition-summary", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "all",
+              conditions: [
+                { kind: "self_hp", op: "below", pct: 35 },
+                { kind: "self_buff", stat: "str", active: false },
+                {
+                  kind: "self_buff_pct",
+                  target: "damageReduction",
+                  active: true,
+                },
+              ],
+            },
+            action: { kind: "role", role: "buff" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]).toMatchObject({
+      name: "버프",
+      condition:
+        "모두 만족 (내 HP 35% 이하 / 내 힘 버프 없음 / 내 받는 피해 감소 버프 있음)",
+    });
   });
 
   it("패턴 미설정은 빈 목록으로 표시한다", () => {

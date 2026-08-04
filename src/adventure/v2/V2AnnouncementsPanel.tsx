@@ -21,8 +21,8 @@ export function V2AnnouncementsPanel() {
   useEffect(() => {
     let alive = true;
     fetchPosts("notice", "")
-      .then((list) => {
-        if (alive) setPosts(list.slice(0, PREVIEW_COUNT));
+      .then((feed) => {
+        if (alive) setPosts(feed.posts.slice(0, PREVIEW_COUNT));
       })
       .catch(() => {
         // 공지는 부가 표시 — 실패해도 모험 탭 본체에 영향 주지 않게 흡수.

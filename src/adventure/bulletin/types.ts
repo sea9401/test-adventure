@@ -1,6 +1,7 @@
 import type { BulletinCategory } from "@/lib/bulletin-config";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import type { BulletinActivitySummary } from "@/lib/bulletinActivity";
 
 // 게시판 글 — 서버 응답 + 클라 표시용 공용 모델.
 // likeCount/commentCount/likedByMe 는 GET /api/bulletin 의 서브쿼리로 함께 옴.
@@ -23,6 +24,12 @@ export type BulletinPost = {
   commentCount: number;
   viewCount: number;
   likedByMe: boolean;
+  authorActivity: BulletinActivitySummary | null;
+};
+
+export type BulletinFeed = {
+  posts: BulletinPost[];
+  myActivity: BulletinActivitySummary;
 };
 
 // 댓글 — 서버 응답 그대로. mine 은 본인 작성 여부 (삭제 버튼 노출 조건).
@@ -33,6 +40,7 @@ export type BulletinComment = {
   content: string;
   createdAt: number;
   mine: boolean;
+  authorActivity: BulletinActivitySummary;
 };
 
 // 카테고리 배지 톤 — Tailwind 클래스 모음. PostListRow / PostDetailPage 공용.

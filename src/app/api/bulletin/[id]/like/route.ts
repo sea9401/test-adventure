@@ -1,8 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { bulletinLikes } from "@/db/schema";
+import { bulletinLikes, bulletinPosts } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { canAccessBulletinPost } from "@/lib/server/bulletinAccess";
+import {
+  bulletinActivityFromMap,
+  readBulletinActivityMap,
+} from "@/lib/server/bulletinActivity";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -22,6 +26,11 @@ export async function POST(_req: Request, ctx: Ctx) {
   if (!(await canAccessBulletinPost(db, postId, userId))) {
     return new Response("not found", { status: 404 });
   }
+  const [post] = await db
+    .select({ userId: bulletinPosts.userId, category: bulletinPosts.category })
+    .from(bulletinPosts)
+    .where(eq(bulletinPosts.id, postId))
+    .limit(1);
 
   // toggle — 삭제 시도 → 행 0개면 INSERT.
   const deleted = await db
@@ -43,6 +52,18 @@ export async function POST(_req: Request, ctx: Ctx) {
     .select({ count: sql<number>`COUNT(*)::int` })
     .from(bulletinLikes)
     .where(eq(bulletinLikes.postId, postId));
+  const activityByUser = post
+    ? await readBulletinActivityMap([post.userId])
+    : new Map();
 
-  return Response.json({ liked: deleted.length === 0, count });
+  return Response.json({
+    liked: deleted.length === 0,
+    count,
+    authorActivity:
+      post?.category === "notice"
+        ? null
+        : post
+          ? bulletinActivityFromMap(activityByUser, post.userId)
+          : null,
+  });
 }

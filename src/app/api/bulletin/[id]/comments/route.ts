@@ -8,6 +8,10 @@ import {
   BULLETIN_COMMENT_MAX_LENGTH,
   BULLETIN_COMMENT_RATE_LIMIT_MS,
 } from "@/lib/bulletin-config";
+import {
+  bulletinActivityFromMap,
+  readBulletinActivityMap,
+} from "@/lib/server/bulletinActivity";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -37,6 +41,9 @@ export async function GET(_req: Request, ctx: Ctx) {
     .from(bulletinComments)
     .where(eq(bulletinComments.postId, postId))
     .orderBy(asc(bulletinComments.createdAt));
+  const activityByUser = await readBulletinActivityMap(
+    rows.map((row) => row.userId),
+  );
 
   const result = rows.map((r) => ({
     id: r.id,
@@ -45,6 +52,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     content: r.content,
     createdAt: r.createdAt.getTime(),
     mine: r.userId === userId,
+    authorActivity: bulletinActivityFromMap(activityByUser, r.userId),
   }));
 
   return Response.json(result);
@@ -101,6 +109,7 @@ export async function POST(req: Request, ctx: Ctx) {
       id: bulletinComments.id,
       createdAt: bulletinComments.createdAt,
     });
+  const activityByUser = await readBulletinActivityMap([userId]);
 
   return Response.json({
     id: inserted.id,
@@ -109,5 +118,6 @@ export async function POST(req: Request, ctx: Ctx) {
     content,
     createdAt: inserted.createdAt.getTime(),
     mine: true,
+    authorActivity: bulletinActivityFromMap(activityByUser, userId),
   });
 }

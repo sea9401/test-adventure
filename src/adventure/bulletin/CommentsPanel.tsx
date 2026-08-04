@@ -11,6 +11,8 @@ import {
   postComment,
 } from "./api";
 import type { BulletinComment } from "./types";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { BulletinActivityBadge } from "./BulletinActivityBadge";
 
 // 댓글 패널 — 상세 페이지 하단에 항상 펼쳐진 상태로 노출. 마운트 시 목록 fetch,
 // 작성/삭제 시 부모로 카운트 변화 통보. (옛 PostCard 인라인 펼침에서 분리)
@@ -103,7 +105,7 @@ export function CommentsPanel({
           {comments.map((c) => (
             <li
               key={c.id}
-              className="flex items-start justify-between gap-2 rounded-md bg-zinc-50/70 px-2.5 py-1.5 dark:bg-zinc-900/40"
+              className={`${SURFACE_INSET} flex items-start justify-between gap-2 px-2.5 py-1.5`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
@@ -121,6 +123,7 @@ export function CommentsPanel({
                       {c.name}
                     </button>
                   )}
+                  <BulletinActivityBadge activity={c.authorActivity} />
                   <span>{formatRelative(c.createdAt)}</span>
                 </div>
                 <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-200">

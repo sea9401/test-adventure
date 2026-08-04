@@ -38,6 +38,10 @@ import {
   type BulletinScope,
 } from "@/lib/server/bulletinAccess";
 import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import {
+  bulletinActivityFromMap,
+  readBulletinActivityMap,
+} from "@/lib/server/bulletinActivity";
 
 // GET /api/bulletin?category=<cat>&q=<search>
 //   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
@@ -115,7 +119,13 @@ export async function GET(req: Request) {
     .orderBy(desc(bulletinPosts.createdAt))
     .limit(BULLETIN_FETCH_LIMIT);
 
-  if (posts.length === 0) return Response.json([]);
+  if (posts.length === 0) {
+    const activityByUser = await readBulletinActivityMap([userId]);
+    return Response.json({
+      posts: [],
+      myActivity: bulletinActivityFromMap(activityByUser, userId),
+    });
+  }
 
   const postIds = posts.map((p) => p.id);
   // 인덱스: bulletin_likes 는 PK(postId,userId), bulletin_comments 는
@@ -126,6 +136,7 @@ export async function GET(req: Request) {
     viewCountRows,
     likedByMeRows,
     cosmeticByUser,
+    activityByUser,
   ] =
     await Promise.all([
       db
@@ -162,6 +173,10 @@ export async function GET(req: Request) {
           ),
         ),
       readMuseunCosmeticAppearanceMap(posts.map((post) => post.mine)),
+      readBulletinActivityMap([
+        userId,
+        ...posts.map((post) => post.mine),
+      ]),
     ]);
 
   const likeCountMap = new Map(likeCountRows.map((r) => [r.postId, r.count]));
@@ -196,9 +211,16 @@ export async function GET(req: Request) {
     commentCount: commentCountMap.get(r.id) ?? 0,
     viewCount: viewCountMap.get(r.id) ?? 0,
     likedByMe: likedSet.has(r.id),
+    authorActivity:
+      r.category === "notice"
+        ? null
+        : bulletinActivityFromMap(activityByUser, r.mine),
   }));
 
-  return Response.json(result);
+  return Response.json({
+    posts: result,
+    myActivity: bulletinActivityFromMap(activityByUser, userId),
+  });
 }
 
 // POST /api/bulletin — 글 작성. body: { category, title?, content }
@@ -289,6 +311,7 @@ export async function POST(req: Request) {
       id: bulletinPosts.id,
       createdAt: bulletinPosts.createdAt,
     });
+  const activityByUser = await readBulletinActivityMap([userId]);
 
   return Response.json({
     id: inserted.id,
@@ -309,6 +332,10 @@ export async function POST(req: Request) {
     commentCount: 0,
     viewCount: 0,
     likedByMe: false,
+    authorActivity:
+      category === "notice"
+        ? null
+        : bulletinActivityFromMap(activityByUser, userId),
   });
 }
 

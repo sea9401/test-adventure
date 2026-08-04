@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* 설치 앱/TWA 첫 웹 프레임 — Android 네이티브 스플래시와 검은 배경·파비콘을
+   이어 붙여 Chrome이 웹 화면을 준비하는 동안 빈 검은 화면만 보이지 않게 한다. */
+.app-launch-splash {
+  display: none;
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .app-launch-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    opacity: 1;
+    transition: opacity 220ms ease-out;
+  }
+
+  .app-launch-splash--leaving {
+    pointer-events: none;
+    opacity: 0;
+  }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* 스크롤은 그대로, 스크롤바 막대만 숨김 — UI 와 어울리지 않는 네이티브 스크롤바 제거용 */

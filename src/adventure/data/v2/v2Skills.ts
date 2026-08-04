@@ -1355,6 +1355,12 @@ function scalingStatLabel(scaling?: V2DamageScaling): string {
   if (scaling === "maxHp") return "최대 HP";
   return "공격력";
 }
+// 다단 스킬의 차수별 기본 계수를 타수로 나누면 0.39999999999999997처럼
+// 부동소수점 꼬리가 생길 수 있다. 전투 계산값은 유지하고 설명에서만 소수 둘째
+// 자리까지 반올림해 읽기 좋은 계수로 표시한다.
+function formatSkillCoefficient(value: number): string {
+  return Number(value.toFixed(2)).toString();
+}
 function damageFormulaChip(
   e: V2DirectDamageEffect,
   tier: 1 | 2 | 3,
@@ -1372,9 +1378,9 @@ function damageFormulaChip(
     directDamageEffectCount,
     attackCoef: e.attackCoef,
   });
-  const attackTerm = `${attackLabel}×${attackCoef}`;
+  const attackTerm = `${attackLabel}×${formatSkillCoefficient(attackCoef)}`;
   return specialized
-    ? `${attackTerm} + ${scalingStatLabel(e.scaling)}×${e.statCoef}`
+    ? `${attackTerm} + ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(e.statCoef)}`
     : attackTerm;
 }
 function actionsChip(actions: number): string {

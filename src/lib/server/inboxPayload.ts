@@ -48,6 +48,12 @@ export type InboxPayload =
       quantity: number;
     }
   | {
+      kind: "buy_order_equipment";
+      order_id?: number;
+      item_id: string;
+      instance_payload: Record<string, unknown> | null;
+    }
+  | {
       kind: "purchase_item";
       item_kind: ItemKind;
       item_id: string;
@@ -120,6 +126,7 @@ const KINDS = new Set<string>([
   "bid_refund",
   "buy_order_refund",
   "buy_order_item",
+  "buy_order_equipment",
   "price_alert",
   "purchase_item",
   "cancel_return",
@@ -169,6 +176,25 @@ export function parseInboxPayload(
         return null;
       }
       return { kind, item_kind, item_id, quantity };
+    }
+    case "buy_order_equipment": {
+      const item_id = asString(p.item_id);
+      const order_id = asNonNegInt(p.order_id);
+      const instance_payload = p.instance_payload;
+      if (
+        !item_id ||
+        (instance_payload !== null &&
+          (typeof instance_payload !== "object" ||
+            Array.isArray(instance_payload)))
+      ) {
+        return null;
+      }
+      return {
+        kind,
+        ...(order_id == null ? {} : { order_id }),
+        item_id,
+        instance_payload: instance_payload as Record<string, unknown> | null,
+      };
     }
     case "purchase_item":
     case "cancel_return":

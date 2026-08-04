@@ -2,6 +2,7 @@ import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
   V2_JOB_LIST,
+  isLifestyleMasteryJobId,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
 import {
@@ -95,7 +96,8 @@ export const JOB_TAG_FILTERS: JobTagFilter[] = [
   {
     key: "life",
     label: "생활",
-    matches: (job) => LIFE_JOB_IDS.has(job.id),
+    matches: (job) =>
+      isLifestyleMasteryJobId(job.id) || ADDITIONAL_LIFE_JOB_IDS.has(job.id),
   },
   {
     key: "collected",
@@ -191,26 +193,18 @@ export function matchesJobExplorerFilters(
   return true;
 }
 
-const LIFE_JOB_IDS = new Set([
+// 생산직은 카탈로그 공용 판별을 사용해 새 계보가 추가돼도 자동으로 생활 탭에 포함한다.
+// 아래 목록은 생활 숙련 조건으로 전직하는 생산직은 아니지만 기존 UI에서 생활 계열로 묶던 직업만 유지한다.
+const ADDITIONAL_LIFE_JOB_IDS = new Set([
   "survivor",
   "camper",
   "fieldmedic",
   "rescueexpert",
-  "fisher",
-  "angler",
-  "masterangler",
-  "fullcatchking",
-  "seagod",
   "healthtrainer",
   "physicalcoach",
   "mastertrainer",
   "championmaker",
   "legendarytrainer",
-  "farmer",
-  "horticulturist",
-  "masterfarmer",
-  "harvestking",
-  "earthartisan",
 ]);
 
 function jobUsesStat(jobId: string, stat: V2StatKey): boolean {

@@ -37,7 +37,10 @@ import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIAL_ID } from "./settlementMaterials";
 import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
 import { MINING_MATERIAL_ID } from "./miningSpots";
-import { V2_EQUIPMENT } from "./v2Equipment";
+import {
+  V2_EQUIPMENT,
+  v2EquipCatalogTierToDisplayTier,
+} from "./v2Equipment";
 import { MONSTER_CRAFT_MATERIAL_ID } from "./monsterCraftMaterials";
 import { COOP_BOSS_MATERIAL_ID } from "./coopRewards";
 
@@ -986,7 +989,7 @@ describe("guild workshop recipes", () => {
     });
   });
 
-  it("does not mint dismantle materials without same-tier source material cost", () => {
+  it("recovers only materials that the source recipe actually consumed", () => {
     const item = V2_EQUIPMENT.v2_crafted_gale_bow;
     expect(
       guildWorkshopDismantlePlan(
@@ -1002,9 +1005,8 @@ describe("guild workshop recipes", () => {
         6,
       ),
     ).toMatchObject({
-      materials: {},
-      artisanXp: 0,
-      blockedReason: "no_material",
+      materials: { [MINING_MATERIAL_ID.iron]: 2 },
+      artisanXp: 1,
     });
     expect(
       guildWorkshopDismantlePlan(
@@ -1022,10 +1024,35 @@ describe("guild workshop recipes", () => {
         9,
       ),
     ).toMatchObject({
-      materials: {},
-      artisanXp: 0,
-      blockedReason: "no_material",
+      materials: { [MINING_MATERIAL_ID.iron]: 3 },
+      artisanXp: 1,
     });
+  });
+
+  it("keeps every 2T craft-only workshop recipe available for dismantling", () => {
+    const recipes = Object.values(GUILD_WORKSHOP_RECIPES).filter((recipe) => {
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      return item.craftOnly && v2EquipCatalogTierToDisplayTier(item.tier) === 2;
+    });
+    expect(recipes.length).toBeGreaterThan(0);
+
+    for (const recipe of recipes) {
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      const plan = guildWorkshopDismantlePlan(
+        item,
+        {
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 20,
+            craftedAt: new Date(0).toISOString(),
+          },
+        },
+        20,
+      );
+      expect(plan.blockedReason, recipe.id).toBeUndefined();
+      expect(Object.keys(plan.materials).length, recipe.id).toBeGreaterThan(0);
+    }
   });
 
   it("recovers half of same-tier material costs on craft-only dismantle", () => {

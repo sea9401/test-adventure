@@ -3,6 +3,7 @@ import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_LIST,
+  isLifestyleMasteryJobId,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
   V2_STAT_KEYS,
@@ -137,11 +138,27 @@ describe("jobExplorer tags", () => {
     }
   });
 
-  it("생활 matches explicit non-combat job lines", () => {
+  it("생활 필터에 모든 생산직 계열과 기존 비전투 생활 계열을 포함한다", () => {
     const lifeTag = new Set(["life"]);
-    expect(matchesJobExplorerFilters(job("healthtrainer"), "", lifeTag)).toBe(true);
-    expect(matchesJobExplorerFilters(job("championmaker"), "", lifeTag)).toBe(true);
-    expect(matchesJobExplorerFilters(job("legendarytrainer"), "", lifeTag)).toBe(true);
+
+    for (const definition of V2_JOB_LIST.filter((entry) =>
+      isLifestyleMasteryJobId(entry.id),
+    )) {
+      expect(
+        matchesJobExplorerFilters(job(definition.id), "", lifeTag),
+        definition.id,
+      ).toBe(true);
+    }
+
+    expect(matchesJobExplorerFilters(job("healthtrainer"), "", lifeTag)).toBe(
+      true,
+    );
+    expect(matchesJobExplorerFilters(job("championmaker"), "", lifeTag)).toBe(
+      true,
+    );
+    expect(
+      matchesJobExplorerFilters(job("legendarytrainer"), "", lifeTag),
+    ).toBe(true);
     expect(matchesJobExplorerFilters(job("warrior"), "", lifeTag)).toBe(false);
   });
 

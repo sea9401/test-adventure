@@ -9,11 +9,11 @@ import {
 } from "./lottery";
 
 describe("lottery rules", () => {
-  it("한국시간 매시 정각부터 다음 정각까지를 한 회차로 계산한다", () => {
+  it("한국시간 0·4·8·12·16·20시부터 4시간을 한 회차로 계산한다", () => {
     const during = Date.parse("2026-07-22T14:59:59.000Z");
     const next = Date.parse("2026-07-22T15:00:00.000Z");
     expect(lotteryRoundWindow(during)).toEqual({
-      startsAt: Date.parse("2026-07-22T14:00:00.000Z"),
+      startsAt: Date.parse("2026-07-22T11:00:00.000Z"),
       endsAt: Date.parse("2026-07-22T15:00:00.000Z"),
     });
     expect(lotteryRoundWindow(next).startsAt).toBe(next);

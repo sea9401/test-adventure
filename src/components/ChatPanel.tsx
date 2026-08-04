@@ -392,7 +392,8 @@ export function ChatPanel({
         setCustomMessages((previous) => mergeChatMessages(previous, next));
       } else {
         initialized = true;
-        setCustomMessages(next);
+        // 방 진입 직후 전송한 메시지가 느린 최초 조회보다 먼저 도착해도 보존한다.
+        setCustomMessages((previous) => mergeChatMessages(previous, next));
       }
       markCustomRoomSeen(roomId, afterId);
     };
@@ -589,7 +590,7 @@ export function ChatPanel({
         custom: null,
         label: CHAT_ROOM_LABELS.lottery,
         latest: null,
-        description: "매시 정각 추첨 · /복권 1~10",
+        description: "4시간마다 추첨 · /복권 1~10",
         unread: false,
         available: true,
       },
@@ -775,8 +776,8 @@ export function ChatPanel({
   };
 
   // 모바일 키보드 대응 — 오버레이를 시각 뷰포트(키보드로 줄어든 영역)에 맞춰
-  // 하단 입력창이 키보드 뒤로 가려지지 않게 한다. 패널엔 max-h-full 이 걸려 있어
-  // 줄어든 오버레이를 넘지 않으므로 헤더~입력창이 모두 보인다.
+  // 하단 입력창이 키보드 뒤로 가려지지 않게 한다. 일부 모바일 브라우저는 키보드
+  // 애니메이션이 끝난 뒤 viewport 값을 늦게 확정하므로 focus 전환 후 한 번 더 보정한다.
   // visualViewport 미지원 브라우저는 인라인 스타일 미적용 → CSS(inset-0) 기본 동작 폴백.
   const overlayRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -784,21 +785,56 @@ export function ChatPanel({
     const vv = window.visualViewport;
     const el = overlayRef.current;
     if (!vv || !el) return;
+    let animationFrameId: number | null = null;
+    let settleTimerId: number | null = null;
     const apply = () => {
       el.style.top = `${vv.offsetTop}px`;
+      el.style.left = `${vv.offsetLeft}px`;
+      el.style.width = `${vv.width}px`;
       el.style.height = `${vv.height}px`;
+      el.style.right = "auto";
       el.style.bottom = "auto";
     };
+    const scheduleApply = () => {
+      if (animationFrameId != null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = null;
+        apply();
+      });
+    };
+    const applyAfterKeyboardTransition = () => {
+      scheduleApply();
+      if (settleTimerId != null) window.clearTimeout(settleTimerId);
+      settleTimerId = window.setTimeout(scheduleApply, 400);
+    };
     apply();
-    vv.addEventListener("resize", apply);
-    vv.addEventListener("scroll", apply);
+    vv.addEventListener("resize", scheduleApply);
+    vv.addEventListener("scroll", scheduleApply);
+    el.addEventListener("focusin", applyAfterKeyboardTransition);
+    el.addEventListener("focusout", applyAfterKeyboardTransition);
+    window.addEventListener("orientationchange", applyAfterKeyboardTransition);
     return () => {
-      vv.removeEventListener("resize", apply);
-      vv.removeEventListener("scroll", apply);
+      vv.removeEventListener("resize", scheduleApply);
+      vv.removeEventListener("scroll", scheduleApply);
+      el.removeEventListener("focusin", applyAfterKeyboardTransition);
+      el.removeEventListener("focusout", applyAfterKeyboardTransition);
+      window.removeEventListener(
+        "orientationchange",
+        applyAfterKeyboardTransition,
+      );
+      if (animationFrameId != null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      if (settleTimerId != null) window.clearTimeout(settleTimerId);
       // 닫힐 때 인라인 스타일 제거 → CSS(inset-0) 로 복귀.
       // (effect 진입 때 캡처한 el — 이 effect 인스턴스가 다룬 바로 그 노드.)
       el.style.top = "";
+      el.style.left = "";
+      el.style.width = "";
       el.style.height = "";
+      el.style.right = "";
       el.style.bottom = "";
     };
   }, [open]);

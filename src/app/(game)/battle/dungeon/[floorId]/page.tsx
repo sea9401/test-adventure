@@ -14,7 +14,10 @@ import {
   nextHuntStageDepth,
   MAX_FRONTIER_DEPTH,
 } from "@/adventure/data/v2/dungeon";
-import { dungeonFloorBackHref } from "@/adventure/v2/dungeonNavigation";
+import {
+  dungeonFloorBackHref,
+  rareMapEntryHref,
+} from "@/adventure/v2/dungeonNavigation";
 
 // /battle/dungeon/[floorId] — 무한 프론티어 던전 층 전투.
 // floorId 는 내부 depth 숫자. 일반 사냥은 테마당 대표 깊이 2·4·6만 사용하며,
@@ -128,6 +131,7 @@ export default function DungeonFloorPage() {
         applyResourcePatch({ viewerProficiency: n })
       }
       onRecoveryChargesChange={applyResourcePatch}
+      onEnterRareMap={(map) => router.push(rareMapEntryHref(map))}
       offlineHunt={offlineHunt}
       onRefresh={refreshGameState}
     />

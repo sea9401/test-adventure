@@ -6,6 +6,7 @@ import {
   buildRepeatSignals,
   assembleQuestExtras,
   parseClaimed,
+  parseTrackedQuestId,
   GUIDE_QUESTS_KEY,
   REPEAT_QUESTS_KEY,
 } from "@/lib/server/v2QuestContext";
@@ -85,6 +86,7 @@ export async function GET() {
   ]);
 
   const claimed = parseClaimed(guideRaw);
+  const savedTrackedQuestId = parseTrackedQuestId(guideRaw);
   const retroactiveObtainedAt = Date.now();
   const retroactiveTitleIds = await backfillClaimedQuestTitleRewards(
     userId,
@@ -118,7 +120,9 @@ export async function GET() {
     extras,
   });
   const quests = deriveQuestViews(ctx, claimed);
-  const current = currentGuideQuest(ctx, claimed);
+  const current = currentGuideQuest(ctx, claimed, savedTrackedQuestId);
+  const trackedQuestId =
+    current?.id === savedTrackedQuestId ? savedTrackedQuestId : null;
 
   // 반복 퀘스트 — lazy 롤오버(주기 키 변경 시 무락 upsert — 동시 호출도 같은 스냅샷이라 무해).
   const now = new Date();
@@ -139,6 +143,7 @@ export async function GET() {
     lines: questLinesFor(ctx),
     quests,
     current,
+    trackedQuestId,
     achievementSummary: achievementSummary(ctx, claimed),
     monsterCodex: deriveMonsterHuntCodex(effectiveAdvLogRaw),
     repeat: {

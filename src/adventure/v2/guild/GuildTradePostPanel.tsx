@@ -58,7 +58,13 @@ type TradeResponse = TradeState & {
     contributionPoints?: number;
   };
   guildReward?: { gold: number; fame: number } | null;
-  purchased?: { itemId: string; itemName: string };
+  purchased?: {
+    itemId: string;
+    itemName: string;
+    quantity: number;
+    tokenCost: number;
+    remainingTokens: number;
+  };
 };
 
 const PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
@@ -218,7 +224,7 @@ export function GuildTradePostPanel() {
         </div>
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           누가 납품하든 납품 점수에 교역소 Lv 보너스를 적용한 공동 토큰이 쌓입니다.
-          모든 길드원이 함께 사용하며 다음 주에도 유지됩니다.
+          모든 길드원이 개인 구매에 사용하며 다음 주에도 유지됩니다.
         </p>
       </section>
 
@@ -331,8 +337,8 @@ export function GuildTradePostPanel() {
         <div>
           <h4 className="font-bold">교역 토큰 상점</h4>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            공동 토큰으로 구매합니다. 개인 구매 횟수는 매주 초기화되며, 시설 레벨에
-            따라 품목이 늘어납니다.
+            공동 토큰으로 나에게 지급되는 품목을 구매합니다. 구매 횟수는 개인별
+            주간 한도이며, 구매자·품목·수량·사용 토큰은 길드 활동 내역에 남습니다.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -350,7 +356,7 @@ export function GuildTradePostPanel() {
                     <div className="flex items-start justify-between gap-2">
                       <h5 className="font-semibold">{item.name}</h5>
                       <span className="shrink-0 text-xs font-bold text-cyan-700 dark:text-cyan-300">
-                        {item.tokenCost} 토큰
+                        {item.tokenCost.toLocaleString()} 토큰
                       </span>
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
@@ -362,20 +368,26 @@ export function GuildTradePostPanel() {
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() =>
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          `${item.name}을(를) 구매할까요?\n보상은 내 계정에 즉시 지급되며 공동 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다. 구매 기록은 길드 활동 내역에 남습니다.`,
+                        )
+                      ) {
+                        return;
+                      }
                       void submit(
                         `buy:${item.id}`,
                         { action: "buy", shopItemId: item.id },
-                        (json) => `${json.purchased?.itemName ?? item.name} 구매 완료`,
-                      )
-                    }
+                        (json) => {
+                          const purchase = json.purchased;
+                          return `${purchase?.itemName ?? item.name} ${(purchase?.quantity ?? item.output.count).toLocaleString()}개 구매 완료 · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`;
+                        },
+                      );
+                    }}
                     className="w-full rounded-md border border-cyan-700 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-cyan-300 dark:hover:bg-zinc-900"
                   >
-                    {!item.unlocked
-                      ? `교역소 Lv.${item.minFacilityLevel} 필요`
-                      : item.remaining <= 0
-                        ? "이번 주 구매 완료"
-                        : `구매 · 주 ${item.remaining}/${item.weeklyLimit}회 남음`}
+                    {shopButtonText(item)}
                   </button>
                 </div>
               </article>
@@ -396,6 +408,12 @@ function deliveryNotice(json: TradeResponse): string {
       ? ` · 계약 완료! 길드 자금 +${reward.gold.toLocaleString()}G, 명성 +${reward.fame.toLocaleString()}`
       : ""
   }`;
+}
+
+function shopButtonText(item: TradeShopItem): string {
+  if (!item.unlocked) return `교역소 Lv.${item.minFacilityLevel} 필요`;
+  if (item.remaining <= 0) return "이번 주 구매 완료";
+  return `구매 · 주 ${item.remaining}/${item.weeklyLimit}회 남음`;
 }
 
 function tradeErrorText(error?: string): string {
@@ -419,7 +437,7 @@ function tradeErrorText(error?: string): string {
     case "shop_item_locked":
       return "교역소 레벨이 부족한 품목입니다.";
     case "purchase_limit":
-      return "이번 주 구매 한도에 도달했습니다.";
+      return "이번 주 개인 구매 한도에 도달했습니다.";
     case "insufficient_tokens":
       return "길드 공동 교역 토큰이 부족합니다.";
     case "invalid_shop_item":

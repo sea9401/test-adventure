@@ -9,6 +9,7 @@ import {
   Lock,
   Circle,
   Gift,
+  Star,
   Trophy,
   X,
 } from "@phosphor-icons/react";
@@ -73,12 +74,13 @@ type QuestsResponse = {
   repeat?: RepeatSection;
   achievementSummary?: AchievementSummary;
   monsterCodex?: MonsterHuntCodexView;
+  trackedQuestId?: string | null;
 };
 
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
 type ClaimAllScope = Extract<TopTab, "tutorial" | "achievement">;
 
-type ClaimAllReward = {
+export type ClaimAllReward = {
   gold: number;
   equipment: V2EquipmentId[];
   staminaPotions: number;
@@ -119,25 +121,43 @@ function seedPouchText(pouch: SeedPouchReward): string {
   return seeds ? `${pouch.name}(${seeds})` : pouch.name;
 }
 
-function claimAllRewardText(reward: ClaimAllReward): string {
+function namedRewardText(
+  ids: readonly string[],
+  resolveName: (id: string) => string,
+): string {
+  const counts = new Map<string, number>();
+  for (const id of ids) {
+    const name = resolveName(id);
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
+    .join(", ");
+}
+
+export function claimAllRewardText(reward: ClaimAllReward): string {
   const parts: string[] = [];
   if (reward.gold > 0) {
     parts.push(`${reward.gold.toLocaleString()} 골드(은행 입금)`);
   }
-  if (reward.equipment.length === 1) {
-    const id = reward.equipment[0];
-    parts.push(V2_EQUIPMENT[id]?.name ?? id);
-  } else if (reward.equipment.length > 1) {
-    parts.push(`장비 ${reward.equipment.length}개`);
+  if (reward.equipment.length > 0) {
+    parts.push(
+      `장비: ${namedRewardText(
+        reward.equipment,
+        (id) => V2_EQUIPMENT[id as V2EquipmentId]?.name ?? id,
+      )}`,
+    );
   }
   if (reward.staminaPotions > 0) {
     parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
   }
-  if (reward.titleIds.length === 1) {
-    const id = reward.titleIds[0];
-    parts.push(`칭호: ${TITLES[id]?.name ?? id}`);
-  } else if (reward.titleIds.length > 1) {
-    parts.push(`칭호 ${reward.titleIds.length}개`);
+  if (reward.titleIds.length > 0) {
+    parts.push(
+      `칭호: ${namedRewardText(
+        reward.titleIds,
+        (id) => TITLES[id]?.name ?? id,
+      )}`,
+    );
   }
   return parts.join(" · ");
 }
@@ -152,6 +172,8 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [monsterCodex, setMonsterCodex] =
     useState<MonsterHuntCodexView | null>(null);
   const [monsterCodexOpen, setMonsterCodexOpen] = useState(false);
+  const [trackedQuestId, setTrackedQuestId] = useState<string | null>(null);
+  const [trackingBusy, setTrackingBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [claimAllBusy, setClaimAllBusy] = useState<ClaimAllScope | null>(null);
@@ -178,6 +200,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setRepeat(j.repeat ?? null);
         setAchievement(j.achievementSummary ?? null);
         setMonsterCodex(j.monsterCodex ?? null);
+        setTrackedQuestId(j.trackedQuestId ?? null);
       }
     } catch {}
     setLoading(false);
@@ -289,6 +312,41 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
       }
     },
     [notifyReward, notifySystem, refresh, refreshGameState],
+  );
+
+  const toggleQuestTracking = useCallback(
+    async (questId: string) => {
+      const nextQuestId = trackedQuestId === questId ? null : questId;
+      setTrackingBusy(questId);
+      try {
+        const response = await fetch("/api/v2/me/quests/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questId: nextQuestId }),
+        });
+        const body = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          trackedQuestId?: string | null;
+        } | null;
+        if (!response.ok || body?.ok !== true) {
+          notifySystem(`✗ ${body?.error ?? `http ${response.status}`}`);
+          return;
+        }
+        setTrackedQuestId(body.trackedQuestId ?? null);
+        notifySystem(
+          body.trackedQuestId
+            ? "메인 화면에서 이 업적을 추적합니다."
+            : "업적 추적을 해제했습니다.",
+        );
+        await refresh();
+      } catch (error) {
+        notifySystem(`✗ ${(error as Error).message}`);
+      } finally {
+        setTrackingBusy(null);
+      }
+    },
+    [notifySystem, refresh, trackedQuestId],
   );
 
   return (
@@ -474,6 +532,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
                       quest={q}
                       busy={busy === q.id || claimAllBusy !== null}
                       onClaim={() => claim(q)}
+                      tracked={q.id === trackedQuestId}
+                      trackingBusy={trackingBusy !== null}
+                      onToggleTracking={
+                        !forTutorial &&
+                        (q.status === "active" || q.status === "claimable")
+                          ? () => toggleQuestTracking(q.id)
+                          : undefined
+                      }
                       onOpenMonsterCodex={
                         q.detailKind === "monster_codex" && monsterCodex
                           ? () => setMonsterCodexOpen(true)
@@ -582,15 +648,21 @@ function BundleCard({
   );
 }
 
-function QuestRow({
+export function QuestRow({
   quest,
   busy,
   onClaim,
+  tracked = false,
+  trackingBusy = false,
+  onToggleTracking,
   onOpenMonsterCodex,
 }: {
   quest: QuestView;
   busy: boolean;
   onClaim: () => void;
+  tracked?: boolean;
+  trackingBusy?: boolean;
+  onToggleTracking?: () => void;
   onOpenMonsterCodex?: () => void;
 }) {
   const { status } = quest;
@@ -640,6 +712,11 @@ function QuestRow({
               진행 중
             </span>
           )}
+          {tracked && (
+            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              메인 추적 중
+            </span>
+          )}
         </div>
         {status !== "claimed" && (
           <p className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
@@ -665,8 +742,19 @@ function QuestRow({
           </p>
         )}
       </div>
-      {(onOpenMonsterCodex || status === "claimable" || (status === "active" && quest.href)) && (
+      {(onToggleTracking || onOpenMonsterCodex || status === "claimable" || (status === "active" && quest.href)) && (
         <div className="flex shrink-0 flex-col gap-1">
+          {onToggleTracking && (
+            <Button
+              onClick={onToggleTracking}
+              disabled={trackingBusy || busy}
+              variant={tracked ? "warning" : "secondary"}
+              size="xs"
+            >
+              <Star size={12} weight={tracked ? "fill" : "regular"} aria-hidden />
+              {trackingBusy ? "처리 중…" : tracked ? "추적 해제" : "메인 표시"}
+            </Button>
+          )}
           {onOpenMonsterCodex && (
             <Button
               onClick={onOpenMonsterCodex}

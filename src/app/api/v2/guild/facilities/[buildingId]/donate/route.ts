@@ -189,6 +189,7 @@ export async function POST(req: Request, { params }: Ctx) {
             (sum, amount) => sum + (amount ?? 0),
             0,
           ),
+          donations,
           contributionPoints,
         },
       });

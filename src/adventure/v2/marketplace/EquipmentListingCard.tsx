@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { parseAmount } from "@/components/ui/NumberInput";
 import {
@@ -28,6 +30,8 @@ import {
   PriceRefLine,
   type PriceStat,
 } from "./marketplaceShared";
+import type { EquipmentBuyOrderView } from "./equipmentBuyOrders";
+import { equipmentPriceWarning } from "./equipmentPriceIntelligence";
 
 // 판매 탭의 장비 개체 한 장(굴림% + 스탯줄 + 가격입력 + 등록 + 수령 미리보기).
 export function EquipmentListingCard({
@@ -37,7 +41,9 @@ export function EquipmentListingCard({
   priceStat,
   priceScoped,
   busy,
+  buyOrder,
   onList,
+  onSellToBuyOrder,
   onOpenCard,
 }: {
   inst: V2EquipInstance;
@@ -46,7 +52,9 @@ export function EquipmentListingCard({
   priceStat?: PriceStat;
   priceScoped?: boolean;
   busy: boolean;
+  buyOrder?: EquipmentBuyOrderView | null;
   onList: () => void;
+  onSellToBuyOrder: () => void;
   onOpenCard: (
     itemId: string,
     roll: V2EquipRoll | undefined,
@@ -56,9 +64,11 @@ export function EquipmentListingCard({
     el: HTMLElement,
   ) => void;
 }) {
+  const [confirmOrderSale, setConfirmOrderSale] = useState(false);
   const item = V2_EQUIPMENT[inst.id];
   const detail = equipDetail(inst.id, inst.roll, inst.enhance, inst.craftQuality);
   const price = parseAmount(priceValue);
+  const priceWarning = equipmentPriceWarning(price, priceStat);
   return (
     <Card padding="sm">
       <div className="flex items-start justify-between gap-2">
@@ -145,10 +155,68 @@ export function EquipmentListingCard({
         </div>
       </div>
       {Number.isInteger(price) && price >= 1 && (
-        <div className="mt-1 text-right text-[11px] text-zinc-400">
-          판매 시 수령 {netPreview(price).toLocaleString()}골드
+        <div className="mt-1 text-right text-[11px]">
+          {priceWarning ? (
+            <span className="mr-2 font-medium text-amber-700 dark:text-amber-300">
+              {priceWarning === "low"
+                ? "비슷한 장비보다 많이 낮아요"
+                : "비슷한 장비보다 많이 높아요"}
+            </span>
+          ) : null}
+          <span className="text-zinc-400">
+            판매 시 수령 {netPreview(price).toLocaleString()}골드
+          </span>
         </div>
       )}
+      {buyOrder ? (
+        <div className={`${SURFACE_INSET} mt-2 p-2.5`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                최고 구매 주문 {buyOrder.unitPrice.toLocaleString()}G
+              </div>
+              <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+                최소 위력 {buyOrder.minPower.toLocaleString()} · 품질 {buyOrder.minQualityPct}% 이상
+              </div>
+            </div>
+            {confirmOrderSale ? (
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOrderSale(false)}
+                  disabled={busy}
+                  className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmOrderSale(false);
+                    onSellToBuyOrder();
+                  }}
+                  disabled={busy}
+                  className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  판매 확정
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmOrderSale(true)}
+                disabled={busy}
+                className="rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                즉시 판매
+              </button>
+            )}
+          </div>
+          <div className="mt-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+            구매자는 공개되지 않으며 서버가 조건에 맞는 최고가·오래된 주문을 자동 선택합니다.
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }

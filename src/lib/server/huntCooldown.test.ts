@@ -63,8 +63,12 @@ vi.mock("@/lib/server/savesKv", () => ({
   }),
 }));
 
-import { POST } from "@/app/api/v2/dungeon/hunt/route";
+import {
+  POST,
+  resetHuntInFlightForTests,
+} from "@/app/api/v2/dungeon/hunt/route";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
+import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 
 function seedStrongWarrior() {
   store.clear();
@@ -107,6 +111,8 @@ function char() {
 
 describe("POST /api/v2/dungeon/hunt — 전투 쿨다운(코어루프 on)", () => {
   beforeEach(() => {
+    resetHuntInFlightForTests();
+    resetUserRateLimitForTests();
     seedStrongWarrior();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
   });
@@ -166,5 +172,40 @@ describe("POST /api/v2/dungeon/hunt — 전투 쿨다운(코어루프 on)", () =
     // 단판 1회만 실행 → 즉시 재요청은 쿨다운.
     const again = await POST(huntReq({ floor: 2, count: 5 }));
     expect(again.status).toBe(429);
+  });
+
+  it("같은 사용자의 병렬 요청 20개 중 1개만 DB 처리하고 나머지는 in-flight 거절", async () => {
+    const responses = await Promise.all(
+      Array.from({ length: 20 }, () => POST(huntReq({ floor: 2 }))),
+    );
+    const success = responses.filter((res) => res.status === 200);
+    const rejected = responses.filter((res) => res.status === 429);
+
+    expect(success).toHaveLength(1);
+    expect(rejected).toHaveLength(19);
+    for (const res of rejected) {
+      expect(res.headers.get("Retry-After")).toBe("1");
+      await expect(res.json()).resolves.toMatchObject({
+        ok: false,
+        error: "request_in_flight",
+      });
+    }
+    expect(char().lastBattleAt).toBeTypeOf("number");
+  });
+
+  it("분당 사냥 요청은 사용자당 30회까지만 허용", async () => {
+    const responses: Response[] = [];
+    for (let i = 0; i < 31; i++) {
+      responses.push(await POST(huntReq({ floor: 2 })));
+    }
+
+    expect(responses[0]?.status).toBe(200);
+    expect(responses.slice(1, 30).every((res) => res.status === 429)).toBe(
+      true,
+    );
+    await expect(responses[30]?.json()).resolves.toMatchObject({
+      ok: false,
+      error: "rate_limited",
+    });
   });
 });

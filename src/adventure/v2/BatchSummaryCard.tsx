@@ -11,6 +11,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   RARE_MAP_KINDS,
+  type RareMapInstance,
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
 import {
@@ -68,6 +69,7 @@ export type BatchSummary = {
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
+  rareMapDropInstances?: RareMapInstance[];
   stoppedReason?:
     | "stamina"
     | "death"
@@ -84,20 +86,32 @@ export type BatchSummary = {
 export function BatchSummaryCard({
   summary,
   onSelectReplay,
+  onEnterRareMap,
 }: {
   summary: BatchSummary;
   onSelectReplay?: (entry: BatchReplayEntry) => void;
+  onEnterRareMap?: (map: RareMapInstance) => void;
 }) {
   const dropEntries = Object.entries(summary.drops).filter(
     ([, n]) => (n ?? 0) > 0,
   ) as Array<[V2MaterialId, number]>;
-  const eqNames = summary.droppedEquipments
-    .map((id) => V2_EQUIPMENT[id]?.name ?? id)
-    .filter(Boolean);
+  const equipmentItems = summary.droppedEquipments.map((id) => ({
+    id,
+    item: V2_EQUIPMENT[id],
+  }));
+  const eqNames = equipmentItems
+    .filter(({ item }) => !item?.setId)
+    .map(({ id, item }) => item?.name ?? id);
+  const setItems = equipmentItems
+    .map(({ item }) => item)
+    .filter(
+      (item): item is NonNullable<typeof item> => Boolean(item?.setId),
+    );
   const uniqueItems = summary.droppedUniques
     .map((id) => V2_EQUIPMENT[id])
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
   const rareMapDrops = summary.rareMapDrops ?? [];
+  const rareMapDropInstances = summary.rareMapDropInstances ?? [];
   const huntRareMapNames = rareMapDrops
     .filter((k) => RARE_MAP_KINDS[k]?.category === "hunt")
     .map((k) => RARE_MAP_KINDS[k]?.name ?? k);
@@ -153,19 +167,46 @@ export function BatchSummaryCard({
 
   return (
     <Card padding="sm">
-      {huntRareMapNames.length > 0 && (
+      {rareMapDropInstances.map((map) => {
+        const def = RARE_MAP_KINDS[map.kind];
+        return (
+          <DiscoveryNotice
+            key={map.iid}
+            kind={def.category}
+            className="mb-2"
+            action={
+              def.category !== "utility" && onEnterRareMap ? (
+                <button
+                  type="button"
+                  onClick={() => onEnterRareMap(map)}
+                  className="ui-game-button shrink-0 rounded-md border border-sky-500 bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-700"
+                >
+                  바로가기
+                </button>
+              ) : undefined
+            }
+          >
+            {def.category === "hunt"
+              ? `희귀 탐사 「${def.name}」 개방!`
+              : def.category === "location"
+                ? `희귀 장소 「${def.name}」 개방!`
+                : `「${def.name}」 획득! — 가방 소모품에서 사용`}
+          </DiscoveryNotice>
+        );
+      })}
+      {rareMapDropInstances.length === 0 && huntRareMapNames.length > 0 && (
         <DiscoveryNotice kind="hunt" className="mb-2">
           희귀 탐사 {huntRareMapNames.join(", ")} 개방! — 전투 탭 &gt;
           사냥터에서 입장
         </DiscoveryNotice>
       )}
-      {locationMapNames.length > 0 && (
+      {rareMapDropInstances.length === 0 && locationMapNames.length > 0 && (
         <DiscoveryNotice kind="location" className="mb-2">
           희귀 장소 {locationMapNames.join(", ")} 개방! — 전투 탭 &gt;
           사냥터에서 입장
         </DiscoveryNotice>
       )}
-      {utilityMapNames.length > 0 && (
+      {rareMapDropInstances.length === 0 && utilityMapNames.length > 0 && (
         <DiscoveryNotice kind="utility" className="mb-2">
           {utilityMapNames.join(", ")} 획득! — 가방 소모품에서 사용
         </DiscoveryNotice>
@@ -178,7 +219,23 @@ export function BatchSummaryCard({
             {uniqueItems.map((item, idx) => (
               <span key={`${item.id}-${idx}`}>
                 {idx > 0 ? ", " : ""}
+                {item.setId ? "세트 " : ""}「
                 <span className={itemNameClass(item)}>{item.name}</span>
+                」
+              </span>
+            ))}{" "}
+            획득!
+          </span>
+        </div>
+      )}
+      {setItems.length > 0 && (
+        <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-emerald-400 bg-emerald-50 px-2 py-1.5 text-center text-xs font-semibold text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-200">
+          <GameIcon name="Sparkle" size={15} className="shrink-0" />
+          <span>
+            세트{" "}
+            {setItems.map((item, idx) => (
+              <span key={`${item.id}-${idx}`}>
+                {idx > 0 ? ", " : ""}「{item.name}」
               </span>
             ))}{" "}
             획득!

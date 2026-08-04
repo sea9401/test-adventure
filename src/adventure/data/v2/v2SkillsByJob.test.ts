@@ -365,6 +365,26 @@ describe("직업 킷 — 스킬셋", () => {
     expect(ranger).toMatchObject({ kind: "damage", scaling: "dex" });
   });
 
+  it("LUK 비례 도적 계보는 2차 시작과 6차 최종 패시브에서만 행운을 올린다", () => {
+    expect(V2_SKILLS.v2c_assassin_fortune.passive?.statPct?.luk).toBe(10);
+    expect(V2_SKILLS.v2c_venomist_corrosion.passive?.statPct?.luk).toBe(10);
+    expect(V2_SKILLS.v2c_blackmoon_dominion.passive?.statPct?.luk).toBe(22);
+    expect(V2_SKILLS.v2c_myriadvenom_body.passive?.statPct?.luk).toBe(22);
+
+    const intermediatePassives = [
+      "v2c_shadow_lethality3",
+      "v2c_venomancer_corrosion3",
+      "v2c_darkpriest_blessing",
+      "v2c_phantom_stealth",
+      "v2c_venomlord_sovereign",
+      "v2c_nightshade_cloak",
+      "v2c_plaguebringer_decay",
+    ] as const;
+    for (const passiveId of intermediatePassives) {
+      expect(V2_SKILLS[passiveId].passive?.statPct?.luk, passiveId).toBeUndefined();
+    }
+  });
+
   it("상위 직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
     const passiveIds = [
       "v2c_shieldman_vitality", "v2c_squire_might", "v2c_boxer_fortitude",
@@ -1172,11 +1192,11 @@ describe("직업 킷 — 스킬셋", () => {
     const costs = (jobId: string) =>
       skillsForJob(jobId).map((id) => spCostOf(V2_SKILLS[id]));
 
-    expect(costs("venomist")).toEqual([4, 3]);
+    expect(costs("venomist")).toEqual([4, 5]);
     expect(costs("venomancer")).toEqual([5, 4]);
     expect(costs("venomlord")).toEqual([7, 4]);
     expect(costs("plaguebringer")).toEqual([9, 6]);
-    expect(costs("myriadvenom")).toEqual([13, 11]);
+    expect(costs("myriadvenom")).toEqual([13, 14]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {
@@ -1374,8 +1394,8 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.magicDefPct).toBe(15);
     expect(agg.openingMagicDamageReductionPct).toBe(10);
     expect(agg.openingMagicDamageReductionPhases).toBe(3);
-    // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
-    expect(agg.statPct).toEqual({});
+    // 2차 계보 시작 패시브 두 개만 행운을 제공한다.
+    expect(agg.statPct).toEqual({ luk: 20 });
   });
 
   it("aggregateEquippedPassives — 대마도 이론은 INT%와 마법 스킬 피해를 합산한다", () => {

@@ -168,6 +168,11 @@ function rewardLinesOf(it: InboxItem): string[] {
       }
       break;
     }
+    case "buy_order_equipment": {
+      const id = asId(p.item_id);
+      if (id) pushReward(lines, equipName(id), 1);
+      break;
+    }
     case "purchase_item":
     case "cancel_return":
     case "listing_expired": {
@@ -231,6 +236,7 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
   bid_refund: "입찰금 반환",
   buy_order_refund: "구매 주문 환불",
   buy_order_item: "구매 주문 체결",
+  buy_order_equipment: "장비 구매 주문 체결",
   price_alert: "시세 알림",
   purchase_item: "구매 물품",
   cancel_return: "취소 반환",
@@ -346,6 +352,9 @@ export function V2InboxView({
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           goldAdded?: number;
+          bankedGoldAdded?: number;
+          newGold?: number | null;
+          newBankedGold?: number | null;
           coinsAdded?: { season: string; coins: number }[];
           museunCoinsAdded?: number;
           museunCoins?: number | null;
@@ -366,6 +375,7 @@ export function V2InboxView({
           return;
         }
         const gold = j.goldAdded ?? 0;
+        const bankedGold = j.bankedGoldAdded ?? 0;
         // 코인은 시즌별로 다른 지갑이라 합산하지 않고 종류별로 표시.
         const coinLabel: Record<string, string> = {
           pvp: "투기장 코인",
@@ -373,6 +383,14 @@ export function V2InboxView({
         };
         const parts: string[] = [];
         if (gold > 0) parts.push(`+${gold.toLocaleString()} 골드`);
+        if (bankedGold > 0) {
+          parts.push(`+${bankedGold.toLocaleString()} 은행 골드`);
+        }
+        applyResourcePatch({
+          gold: typeof j.newGold === "number" ? j.newGold : undefined,
+          bankedGold:
+            typeof j.newBankedGold === "number" ? j.newBankedGold : undefined,
+        });
         for (const c of j.coinsAdded ?? []) {
           if (c.coins > 0) {
             parts.push(

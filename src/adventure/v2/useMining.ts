@@ -14,7 +14,11 @@ import type {
   AutoGatheringResultView,
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
-import type { AutoGatheringActivity } from "./autoGathering";
+import {
+  autoGatheringPlan,
+  type AutoGatheringActivity,
+  type AutoGatheringPlanId,
+} from "./autoGathering";
 import { useGameState } from "./GameStateProvider";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
@@ -73,6 +77,7 @@ function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
   if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
   return {
     sessionId: item.sessionId,
+    planId: autoGatheringPlan(item.planId).id,
     sourceId: item.sourceId,
     sourceName: String(item.sourceName ?? "광맥"),
     materialId: String(item.materialId ?? ""),
@@ -220,13 +225,16 @@ export function useMining(): MiningHandlers {
     [readJson],
   );
 
-  const startAuto = useCallback(async (spotId: MiningSpotId): Promise<void> => {
+  const startAuto = useCallback(async (
+    spotId: MiningSpotId,
+    planId: AutoGatheringPlanId,
+  ): Promise<void> => {
     setAutoLoading(true);
     try {
       const response = await fetch("/api/v2/mining/auto", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start", spotId }),
+        body: JSON.stringify({ action: "start", spotId, planId }),
       });
       const json = await readJson(response);
       if (!response.ok || !json?.ok) {

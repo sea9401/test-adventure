@@ -61,16 +61,32 @@ describe("guild dining", () => {
     expect(state.activeEffect?.expiresAt).toBe(now.getTime() + 60_000);
   });
 
-  it("기여 15점마다 식권을 주되 시설 한도를 넘지 않는다", () => {
+  it("모든 길드원에게 기본 식권을 주고 기여 15점마다 추가 지급한다", () => {
     const state = parseGuildDiningUserState(
       { weekKey: "2026-07-13", guildId: 1, contributionPoints: 100, mealsUsed: 1 },
       { weekKey: "2026-07-13", guildId: 1 },
     );
     expect(guildDiningTicketProgress(state, 3)).toEqual({
-      earned: 3,
+      base: 1,
+      contributionEarned: 3,
+      earned: 4,
       used: 1,
-      available: 2,
+      available: 3,
       contributionCap: 45,
+    });
+    expect(
+      guildDiningTicketProgress(
+        parseGuildDiningUserState(
+          { weekKey: "2026-07-13", guildId: 1 },
+          { weekKey: "2026-07-13", guildId: 1 },
+        ),
+        3,
+      ),
+    ).toMatchObject({
+      base: 1,
+      contributionEarned: 0,
+      earned: 1,
+      available: 1,
     });
   });
 
@@ -84,6 +100,19 @@ describe("guild dining", () => {
       ["hunters_barbecue", 3],
       ["artisan_seafood_rice", 4],
       ["guild_grand_feast", 5],
+    ]);
+  });
+
+  it("메뉴별 회복량과 경험치 보너스를 적용한다", () => {
+    expect(
+      GUILD_DINING_MENUS.map((menu) => [menu.id, menu.effect]),
+    ).toEqual([
+      ["hearty_stew", { kind: "recovery", hp: 250_000, mp: 250_000 }],
+      ["adventurer_meal", { kind: "hunt_exp", bonusPct: 8, durationHours: 12 }],
+      ["worker_lunch", { kind: "life_xp", bonusPct: 8, durationHours: 12 }],
+      ["hunters_barbecue", { kind: "hunt_exp", bonusPct: 12, durationHours: 12 }],
+      ["artisan_seafood_rice", { kind: "life_xp", bonusPct: 12, durationHours: 12 }],
+      ["guild_grand_feast", { kind: "all_xp", bonusPct: 20, durationHours: 12 }],
     ]);
   });
 
@@ -161,8 +190,8 @@ describe("guild dining", () => {
     state = hunt.state;
     const life = consumeGuildDiningEffectState(state, "life_xp", 500, now);
 
-    expect(hunt.bonus).toBe(100);
-    expect(life.bonus).toBe(50);
+    expect(hunt.bonus).toBe(200);
+    expect(life.bonus).toBe(100);
     expect(life.state.activeEffect?.kind).toBe("all_xp");
   });
 

@@ -4,12 +4,14 @@ import {
   frontierDepthOf,
   huntGateSections,
   isRecordedJobVisit,
+  elementalSkillsSection,
   materialCodexSection,
   proficiencySection,
   spFruitSection,
   tilePosOf,
 } from "./stateSections";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
+import { V2_SKILLS, spCostOf } from "@/adventure/data/v2/v2Skills";
 
 describe("battleCountOf", () => {
   it("monster kills 합 + 패배수 (랭킹 battleCount 와 동일 정의)", () => {
@@ -96,6 +98,22 @@ describe("proficiencySection", () => {
 
     expect(s.caps.str).toBe(70);
     expect(s.caps.dex).toBe(60);
+  });
+});
+
+describe("elementalSkillsSection", () => {
+  it("학습 전에도 학습 숙달 비용과 장착 SP 비용을 함께 제공한다", () => {
+    const rows = elementalSkillsSection(
+      { class: "warrior", specChoice: null },
+      { learned: [], equipped: [] },
+    );
+
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.learned).toBe(false);
+      expect(row.cost).toBeGreaterThan(0);
+      expect(row.spCost).toBe(spCostOf(V2_SKILLS[row.skillId]));
+    }
   });
 });
 

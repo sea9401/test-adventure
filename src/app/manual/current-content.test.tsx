@@ -13,12 +13,14 @@ import { SkillsContent } from "./content/skills";
 import { TownContent } from "./content/town";
 
 describe("최신 게임 안내서 내용", () => {
-  it("세 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
+  it("네 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
     const html = renderToStaticMarkup(<ControlsContent />);
 
     expect(html).toContain("기본 모드");
     expect(html).toContain("배경 숨김");
     expect(html).toContain("은신 모드");
+    expect(html).toContain("터미널 모드");
+    expect(html).toContain("검은 배경");
     expect(html).toContain("장면 배경만 끄고");
     expect(html).toContain("그대로 유지");
     expect(html).toContain("스프레드시트");

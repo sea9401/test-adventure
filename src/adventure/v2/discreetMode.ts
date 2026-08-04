@@ -2,12 +2,19 @@
 export const DISPLAY_MODE_STORAGE_KEY = "discreet-mode.v1";
 export const DISCREET_MODE_CLASS = "ui-discreet-mode";
 export const BACKGROUND_HIDDEN_MODE_CLASS = "ui-background-hidden";
+export const TERMINAL_MODE_CLASS = "ui-terminal-mode";
 export const DISCREET_MODE_STORED_VALUE = "on";
 export const BACKGROUND_HIDDEN_MODE_STORED_VALUE = "background-hidden";
+export const TERMINAL_MODE_STORED_VALUE = "terminal";
 
-export type DisplayMode = "default" | "background-hidden" | "discreet";
+export type DisplayMode =
+  | "default"
+  | "background-hidden"
+  | "discreet"
+  | "terminal";
 
 export function parseStoredDisplayMode(value: string | null): DisplayMode {
+  if (value === TERMINAL_MODE_STORED_VALUE) return "terminal";
   if (value === DISCREET_MODE_STORED_VALUE) return "discreet";
   if (value === BACKGROUND_HIDDEN_MODE_STORED_VALUE) {
     return "background-hidden";
@@ -16,6 +23,7 @@ export function parseStoredDisplayMode(value: string | null): DisplayMode {
 }
 
 export function storedValueForDisplayMode(mode: DisplayMode): string | null {
+  if (mode === "terminal") return TERMINAL_MODE_STORED_VALUE;
   if (mode === "discreet") return DISCREET_MODE_STORED_VALUE;
   if (mode === "background-hidden") {
     return BACKGROUND_HIDDEN_MODE_STORED_VALUE;

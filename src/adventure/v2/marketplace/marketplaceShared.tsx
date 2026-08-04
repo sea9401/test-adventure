@@ -3,14 +3,21 @@
 
 import {
   V2_EQUIPMENT,
+  effectiveStats,
+  parseCraftedBy,
   parseEquipRoll,
+  parseInstanceCraftQuality,
+  powerWithBonuses,
   v2EquipStatRows,
   type V2Equipment,
   type V2CraftQualityState,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
-import { type V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import {
+  parseEnhance,
+  type V2EnhanceState,
+} from "@/adventure/data/v2/v2Enhance";
 export {
   marketplaceCraftPriceKey,
   marketplacePriceKeyForEquipInstance,
@@ -75,6 +82,98 @@ export type Listing = {
   bidResolvedAt: string | null;
   nextBid: number;
 };
+
+export type MarketplaceBrowseSort =
+  | "price_asc"
+  | "price_desc"
+  | "power_asc"
+  | "power_desc"
+  | "roll_asc"
+  | "roll_desc"
+  | "crafter_asc"
+  | "crafter_desc"
+  | "newest"
+  | "oldest";
+
+function listingCraftMetadata(payload: unknown) {
+  const raw = payload as {
+    craftQuality?: unknown;
+    craftedBy?: unknown;
+    enhance?: unknown;
+  } | null;
+  const craftedBy = parseCraftedBy(raw?.craftedBy);
+  const craftQuality = parseInstanceCraftQuality(
+    raw?.craftQuality,
+    raw?.enhance,
+    craftedBy,
+  );
+  return {
+    craftedBy,
+    craftQuality,
+    enhance: craftQuality ? undefined : parseEnhance(raw?.enhance),
+  };
+}
+
+/** 장비 매물 카드에 표시되는 보너스 반영 위력. 비장비/손상된 매물은 null. */
+export function marketplaceListingPower(listing: Listing): number | null {
+  if (listing.kind !== "equip") return null;
+  const item = V2_EQUIPMENT[listing.itemId as keyof typeof V2_EQUIPMENT];
+  if (!item) return null;
+  const metadata = listingCraftMetadata(listing.instancePayload);
+  return powerWithBonuses(
+    effectiveStats(item, listingEquipRoll(listing.instancePayload)).power,
+    metadata.enhance,
+    metadata.craftQuality,
+  );
+}
+
+/** 거래소 검색 결과 공용 정렬. 같은 값은 등록 시각과 id로 안정적으로 정렬한다. */
+export function compareMarketplaceListings(
+  a: Listing,
+  b: Listing,
+  sort: MarketplaceBrowseSort,
+): number {
+  const aMetadata = listingCraftMetadata(a.instancePayload);
+  const bMetadata = listingCraftMetadata(b.instancePayload);
+  const aItem =
+    a.kind === "equip"
+      ? V2_EQUIPMENT[a.itemId as keyof typeof V2_EQUIPMENT]
+      : undefined;
+  const bItem =
+    b.kind === "equip"
+      ? V2_EQUIPMENT[b.itemId as keyof typeof V2_EQUIPMENT]
+      : undefined;
+  const aRoll = aItem ? listingEquipRoll(a.instancePayload) : undefined;
+  const bRoll = bItem ? listingEquipRoll(b.instancePayload) : undefined;
+  const aPrice = listingUnitPrice(a);
+  const bPrice = listingUnitPrice(b);
+  let compared = 0;
+
+  if (sort === "price_asc" || sort === "price_desc") {
+    compared = aPrice - bPrice;
+    if (sort === "price_desc") compared *= -1;
+  } else if (sort === "power_asc" || sort === "power_desc") {
+    compared =
+      (marketplaceListingPower(a) ?? Number.NEGATIVE_INFINITY) -
+      (marketplaceListingPower(b) ?? Number.NEGATIVE_INFINITY);
+    if (sort === "power_desc") compared *= -1;
+  } else if (sort === "roll_asc" || sort === "roll_desc") {
+    const aQuality = aItem ? (rollQualityPct(aItem, aRoll) ?? -1) : -1;
+    const bQuality = bItem ? (rollQualityPct(bItem, bRoll) ?? -1) : -1;
+    compared = aQuality - bQuality;
+    if (sort === "roll_desc") compared *= -1;
+  } else if (sort === "crafter_asc" || sort === "crafter_desc") {
+    compared =
+      (aMetadata.craftedBy?.level ?? 0) -
+      (bMetadata.craftedBy?.level ?? 0);
+    if (sort === "crafter_desc") compared *= -1;
+  } else {
+    compared = a.createdAt.localeCompare(b.createdAt);
+    if (sort === "newest") compared *= -1;
+  }
+
+  return compared || a.createdAt.localeCompare(b.createdAt) || a.id - b.id;
+}
 
 export type MarketplaceStackGroup = {
   key: string;

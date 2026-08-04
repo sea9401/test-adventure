@@ -257,6 +257,14 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
             fishingLevelUp: Boolean(j.fishingLevelUp),
             fishingCatches:
               typeof j.fishingCatches === "number" ? j.fishingCatches : undefined,
+            masteryGained: Math.max(
+              0,
+              Math.floor(Number(j.masteryGained) || 0),
+            ),
+            masteryAfter:
+              typeof j.masteryAfter === "number"
+                ? Math.max(0, Math.floor(j.masteryAfter))
+                : null,
             challengeProgress: parseFishingProgressNotices(j.challengeProgress),
             nextActionAt: parseNextActionAt(j.nextActionAt),
           };

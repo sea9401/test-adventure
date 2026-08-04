@@ -20,6 +20,20 @@ describe("autoGatheringStatusText", () => {
     ).toBe("벌목 자동 중 · 초보자의 숲 · 1:30");
   });
 
+  it("한 시간 이상 남은 장시간 작업은 시:분:초로 표시한다", () => {
+    expect(
+      autoGatheringStatusText(
+        {
+          activity: "mining",
+          sourceId: "iron",
+          sourceName: "철 광맥",
+          readyAt: 7_200_000,
+        },
+        0,
+      ),
+    ).toBe("채광 자동 중 · 철 광맥 · 2:00:00");
+  });
+
   it("shows settlement pending after mining finishes", () => {
     expect(
       autoGatheringStatusText(

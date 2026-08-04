@@ -1,8 +1,9 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { guildContributionEvents, guildMembers } from "@/db/schema";
 import {
   GUILD_CONTRIBUTION_CATEGORIES,
+  GUILD_NON_PERSONAL_CONTRIBUTION_SOURCES,
   type GuildContributionCategory,
 } from "@/adventure/data/v2/guildContribution";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -51,6 +52,15 @@ export async function GET() {
     .from(guildMembers)
     .where(eq(guildMembers.guildId, member.guildId));
 
+  // 과거에 이미 적립된 공동 의뢰 수령 이벤트도 개인 순위에서 소급 제외한다.
+  // 이벤트와 활동 로그 자체는 감사 가능하도록 삭제하지 않는다.
+  const personalContributionWhere = and(
+    eq(guildContributionEvents.guildId, member.guildId),
+    notInArray(guildContributionEvents.source, [
+      ...GUILD_NON_PERSONAL_CONTRIBUTION_SOURCES,
+    ]),
+  );
+
   const totals = await db
     .select({
       userId: guildContributionEvents.userId,
@@ -58,7 +68,7 @@ export async function GET() {
       weeklyPoints: sql<number>`coalesce(sum(${guildContributionEvents.points}) filter (where ${guildContributionEvents.createdAt} >= ${weekStartsAt}), 0)::int`,
     })
     .from(guildContributionEvents)
-    .where(eq(guildContributionEvents.guildId, member.guildId))
+    .where(personalContributionWhere)
     .groupBy(guildContributionEvents.userId);
 
   const categories = await db
@@ -69,7 +79,7 @@ export async function GET() {
       weeklyPoints: sql<number>`coalesce(sum(${guildContributionEvents.points}) filter (where ${guildContributionEvents.createdAt} >= ${weekStartsAt}), 0)::int`,
     })
     .from(guildContributionEvents)
-    .where(eq(guildContributionEvents.guildId, member.guildId))
+    .where(personalContributionWhere)
     .groupBy(
       guildContributionEvents.userId,
       guildContributionEvents.category,

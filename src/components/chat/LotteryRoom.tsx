@@ -47,7 +47,7 @@ function LotteryRules() {
         {LOTTERY_MAX_TICKETS_PER_ROUND}장 추가 구매 가능
       </p>
       <p>
-        매시 정각(한국시간) 마감 · 수수료 {LOTTERY_FEE_PERCENT}% 공제 후 1등
+        4시간마다(한국시간 0·4·8·12·16·20시) 마감 · 수수료 {LOTTERY_FEE_PERCENT}% 공제 후 1등
         70% / 2등 20% / 3등 10%
       </p>
       <p>
@@ -236,7 +236,7 @@ export function LotteryRoom() {
                   ? countdownLabel(snapshot.round.endsAt, now)
                   : "--:--:--"}
               </span>
-              <p className="mt-1">매시 정각 추첨</p>
+              <p className="mt-1">4시간마다 추첨</p>
             </div>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">

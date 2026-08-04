@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  compareMarketplaceListings,
   marketplacePricePosition,
+  marketplaceListingPower,
   marketplaceStackQuote,
   groupMarketplaceStackListings,
   priceStatForQuantity,
@@ -103,5 +105,41 @@ describe("priceStatForQuantity", () => {
 
   it("개당 통계가 없는 옛 응답은 기존 총액 통계를 유지한다", () => {
     expect(priceStatForQuantity(stat, 5)).toBe(stat);
+  });
+});
+
+describe("거래소 매물 정렬", () => {
+  const equipListing = (
+    id: number,
+    itemId: string,
+    power: number,
+    price: number,
+  ): Listing => ({
+    ...stackListing(id, 1, price),
+    kind: "equip",
+    itemId,
+    itemName: itemId,
+    instancePayload: { power, weight: 0 },
+  });
+
+  it("개체 굴림 위력을 기준으로 높은 위력부터 정렬한다", () => {
+    const low = equipListing(1, "v2_wooden_bow", 8, 500);
+    const high = equipListing(2, "v2_wooden_bow", 20, 1_000);
+    expect(marketplaceListingPower(high)).toBe(20);
+    expect(
+      [low, high]
+        .sort((a, b) => compareMarketplaceListings(a, b, "power_desc"))
+        .map((listing) => listing.id),
+    ).toEqual([2, 1]);
+  });
+
+  it("스택 매물 가격 정렬은 총액이 아니라 개당 가격을 사용한다", () => {
+    const bulk = stackListing(1, 10, 1_000);
+    const single = stackListing(2, 1, 150);
+    expect(
+      [single, bulk]
+        .sort((a, b) => compareMarketplaceListings(a, b, "price_asc"))
+        .map((listing) => listing.id),
+    ).toEqual([1, 2]);
   });
 });

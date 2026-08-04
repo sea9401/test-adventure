@@ -32,13 +32,10 @@ import {
 } from "@/adventure/v2/coop/CoopRewardTable";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { GameIcon } from "@/adventure/v2/GameIcon";
+import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
-}
-
-function fmtPreviewPct(value: number): string {
-  return `${Math.max(0, Math.min(100, value)).toFixed(1)}%`;
 }
 
 export function V2CoopBossDetailView({
@@ -324,31 +321,19 @@ export function V2CoopBossDetailView({
               현재 HP 기준
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                내 명중률
-              </div>
-              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {fmtPreviewPct(detail.combatPreview.player.hitPct)}
-              </div>
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                명중 {fmtPreviewNumber(detail.combatPreview.player.accRating)} ·
-                보스 회피 {fmtPreviewNumber(detail.combatPreview.boss.evasion)}
-              </div>
-            </div>
-            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                내 회피율
-              </div>
-              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {fmtPreviewPct(detail.combatPreview.player.evadePct)}
-              </div>
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                회피 {fmtPreviewNumber(detail.combatPreview.player.evaRating)} ·
-                보스 명중 {fmtPreviewNumber(detail.combatPreview.boss.accuracy)}
-              </div>
-            </div>
+          <CombatMatchupSummary
+            heading={false}
+            enemyLabel="보스"
+            player={{
+              accuracyRating: detail.combatPreview.player.accRating,
+              evasionRating: detail.combatPreview.player.evaRating,
+            }}
+            enemy={{
+              accuracyRating: detail.combatPreview.boss.accuracy,
+              evasionRating: detail.combatPreview.boss.evasion,
+            }}
+          />
+          <div className="grid grid-cols-2 gap-2">
             <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
               <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                 보스 공격

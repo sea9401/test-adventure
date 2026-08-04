@@ -303,14 +303,21 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(shopPriceForSell(starter)).toBe(450);
     expect(sellPriceOf(starter)).toBe(22);
 
+    const anchorWeapon = Object.values(V2_EQUIPMENT).find(
+      (item) => item.tier === 3 && item.slot === "weapon",
+    );
+    expect(anchorWeapon).toBeDefined();
+    expect(shopPriceForSell(anchorWeapon!)).toBe(583_200);
+    expect(sellPriceOf(anchorWeapon!)).toBe(29_160);
+
     const endgameWeapon = V2_EQUIPMENT.v2_plateau_greatsword;
     const endgameArmor = V2_EQUIPMENT.v2_plateau_bone_armor;
     const endgameRing = V2_EQUIPMENT.v2_plateau_cairn_ring;
     expect(shopPriceOf(endgameWeapon)).toBeUndefined();
-    expect(shopPriceForSell(endgameWeapon)).toBe(22_420_167);
-    expect(sellPriceOf(endgameWeapon)).toBe(1_121_008);
-    expect(sellPriceOf(endgameArmor)).toBe(747_338);
-    expect(sellPriceOf(endgameRing)).toBe(373_669);
+    expect(shopPriceForSell(endgameWeapon)).toBe(12_049_523);
+    expect(sellPriceOf(endgameWeapon)).toBe(602_476);
+    expect(sellPriceOf(endgameArmor)).toBe(401_650);
+    expect(sellPriceOf(endgameRing)).toBe(200_825);
   });
 
   it("수련용 무기 3종은 T1 무기 가격으로 상점에서 구매할 수 있다", () => {

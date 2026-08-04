@@ -81,6 +81,16 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
   parseClaimed: vi.fn((raw: { claimed?: unknown } | undefined) =>
     new Set(Array.isArray(raw?.claimed) ? raw.claimed : []),
   ),
+  parseTrackedQuestId: vi.fn(
+    (raw: { trackedQuestId?: unknown } | undefined) =>
+      typeof raw?.trackedQuestId === "string" ? raw.trackedQuestId : null,
+  ),
+  guideQuestSavePayload: vi.fn(
+    (claimed: ReadonlySet<string>, trackedQuestId: string | null) =>
+      trackedQuestId
+        ? { claimed: [...claimed], trackedQuestId }
+        : { claimed: [...claimed] },
+  ),
 }));
 
 vi.mock("@/lib/server/grantTitle", () => ({
@@ -176,5 +186,29 @@ describe("POST /api/v2/me/quests/claim", () => {
     expect(res.status).toBe(200);
     expect(json).toMatchObject({ ok: true, questId: "b_skill" });
     expect(store.get("guide-quests.v2")).toEqual({ claimed: ["b_skill"] });
+  });
+
+  it("추적 중인 업적을 수령하면 추적을 해제하고 다른 업적 추적은 보존한다", async () => {
+    store.set("skills.v2", {
+      learned: ["v2_skill_strike"],
+      equipped: ["v2_skill_strike"],
+    });
+    store.set("guide-quests.v2", {
+      claimed: [],
+      trackedQuestId: "b_skill",
+    });
+
+    expect((await POST(claimReq("b_skill"))).status).toBe(200);
+    expect(store.get("guide-quests.v2")).toEqual({ claimed: ["b_skill"] });
+
+    store.set("guide-quests.v2", {
+      claimed: [],
+      trackedQuestId: "x_rich",
+    });
+    expect((await POST(claimReq("b_skill"))).status).toBe(200);
+    expect(store.get("guide-quests.v2")).toEqual({
+      claimed: ["b_skill"],
+      trackedQuestId: "x_rich",
+    });
   });
 });

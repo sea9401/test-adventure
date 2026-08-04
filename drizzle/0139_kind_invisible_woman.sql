@@ -1,0 +1,5 @@
+ALTER TABLE "marketplace_buy_orders_v2" DROP CONSTRAINT "marketplace_buy_orders_v2_kind_valid";--> statement-breakpoint
+ALTER TABLE "marketplace_buy_orders_v2" ADD COLUMN "min_power" integer;--> statement-breakpoint
+ALTER TABLE "marketplace_buy_orders_v2" ADD COLUMN "min_quality_pct" integer;--> statement-breakpoint
+ALTER TABLE "marketplace_buy_orders_v2" ADD CONSTRAINT "marketplace_buy_orders_v2_equip_criteria_valid" CHECK (("marketplace_buy_orders_v2"."kind" = 'equip' AND "marketplace_buy_orders_v2"."quantity_initial" = 1 AND "marketplace_buy_orders_v2"."min_power" IS NOT NULL AND "marketplace_buy_orders_v2"."min_power" >= 1 AND "marketplace_buy_orders_v2"."min_quality_pct" IS NOT NULL AND "marketplace_buy_orders_v2"."min_quality_pct" BETWEEN 0 AND 100) OR ("marketplace_buy_orders_v2"."kind" <> 'equip' AND "marketplace_buy_orders_v2"."min_power" IS NULL AND "marketplace_buy_orders_v2"."min_quality_pct" IS NULL));--> statement-breakpoint
+ALTER TABLE "marketplace_buy_orders_v2" ADD CONSTRAINT "marketplace_buy_orders_v2_kind_valid" CHECK ("marketplace_buy_orders_v2"."kind" IN ('equip','material','consumable'));

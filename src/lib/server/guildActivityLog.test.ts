@@ -62,4 +62,39 @@ describe("길드 활동·기여 원장 동시 기록", () => {
     expect(fixture.activityRows).toHaveLength(1);
     expect(fixture.contributionRows).toHaveLength(0);
   });
+
+  it("공동 제작소 주간 의뢰는 수령 기록만 남기고 개인 기여도는 만들지 않는다", async () => {
+    const fixture = transactionDouble();
+    await logGuildActivity(fixture.tx as never, {
+      guildId: 7,
+      type: "workshop_weekly_claim",
+      actorUserId: "u1",
+      meta: {
+        questTitle: "전용 장비 제작 3회",
+        rewardGold: 900_000,
+        rewardFame: 320,
+      },
+    });
+
+    expect(fixture.activityRows).toHaveLength(1);
+    expect(fixture.contributionRows).toHaveLength(0);
+  });
+
+  it("교역소 개인 구매는 구매 기록만 남기고 개인 기여도는 만들지 않는다", async () => {
+    const fixture = transactionDouble();
+    await logGuildActivity(fixture.tx as never, {
+      guildId: 7,
+      type: "trade_shop_purchase",
+      actorUserId: "u1",
+      meta: {
+        itemName: "정제 철괴",
+        quantity: 1,
+        tokenCost: 20,
+        remainingTokens: 80,
+      },
+    });
+
+    expect(fixture.activityRows).toHaveLength(1);
+    expect(fixture.contributionRows).toHaveLength(0);
+  });
 });

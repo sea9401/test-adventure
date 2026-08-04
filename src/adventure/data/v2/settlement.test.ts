@@ -124,20 +124,24 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 연성력 30 · 조제법 Lv.5");
   });
 
-  it("길드 식당은 배치 가능 건물이며 Lv5에서 주간 식권 5장과 메뉴 3종을 연다", () => {
+  it("길드 식당은 레벨마다 운영 메뉴가 늘고 Lv5에서 기여 식권 5장을 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("dining_hall");
+    expect(DINING_HALL_UPGRADES.map((upgrade) => upgrade.weeklyMenuSlots)).toEqual([
+      1, 2, 3, 4, 5,
+    ]);
     expect(nextSettlementBuildingUpgrade("dining_hall", 1)).toMatchObject({
       level: 2,
       cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
       weeklyMealTickets: 2,
+      weeklyMenuSlots: 2,
     });
     expect(diningHallUpgradeForLevel(4)).toMatchObject({
       weeklyMealTickets: 4,
-      weeklyMenuSlots: 2,
+      weeklyMenuSlots: 4,
     });
     expect(diningHallUpgradeForLevel(5)).toMatchObject({
       weeklyMealTickets: 5,
-      weeklyMenuSlots: 3,
+      weeklyMenuSlots: 5,
       label: "길드 대연회장",
     });
     expect(
@@ -145,7 +149,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "dining_hall",
         diningHallUpgradeForLevel(5),
       ),
-    ).toBe("주간 식권 5장 · 메뉴 3종");
+    ).toBe("기본 식권 1장 + 기여 식권 5장 · 메뉴 5종");
   });
 
   it("길드 교역소는 매 레벨 토큰·납품 한도·완료 보상을 크게 높인다", () => {
@@ -155,13 +159,13 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       cost: { crop: 500, ore: 500, gold: 25_000_000, fame: 0 },
       weeklyContractCount: 3,
       personalContributionCap: 200,
-      tokenYieldBonusPct: 50,
+      tokenYieldBonusPct: 70,
       completionRewardBonusPct: 25,
     });
     expect(tradePostUpgradeForLevel(5)).toMatchObject({
       weeklyContractCount: 5,
       personalContributionCap: 600,
-      tokenYieldBonusPct: 200,
+      tokenYieldBonusPct: 220,
       completionRewardBonusPct: 100,
       label: "왕립 교역 연합소",
     });
@@ -171,7 +175,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         tradePostUpgradeForLevel(5),
       ),
     ).toBe(
-      "주간 계약 5건 · 개인 납품 600점 · 토큰 +200% · 완료 보상 +100%",
+      "주간 계약 5건 · 개인 납품 600점 · 토큰 +220% · 완료 보상 +100%",
     );
   });
 

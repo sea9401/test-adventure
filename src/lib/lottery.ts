@@ -4,7 +4,7 @@ export const LOTTERY_FEE_PERCENT = 10;
 export const LOTTERY_BASE_PRIZE_POOL = 500_000;
 export const LOTTERY_MIN_PARTICIPANTS_TO_DRAW = 3;
 export const LOTTERY_PURCHASE_COOLDOWN_MS = 2_000;
-export const LOTTERY_CYCLE_MS = 60 * 60 * 1_000;
+export const LOTTERY_CYCLE_MS = 4 * 60 * 60 * 1_000;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1_000;
 
 export type LotteryCommand =

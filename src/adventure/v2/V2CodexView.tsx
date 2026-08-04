@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   Mountains,
@@ -19,11 +20,16 @@ import {
 } from "@/adventure/data/v2/dungeonDrops";
 import {
   MAIN_DUNGEON,
+  MAX_FRONTIER_DEPTH,
   dungeonThemeCatalog,
 } from "@/adventure/data/v2/dungeon";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
+import {
+  floorPowerGate,
+  underpreparedCombatMult,
+} from "@/adventure/data/v2/dungeonLadder";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import {
   dropPoolForDepth,
@@ -125,7 +131,7 @@ const defaultFishingCodexMeta = (discoveredCount = 0): FishingCodexMeta => ({
   nextMilestone: nextFishCodexMilestone(discoveredCount),
 });
 
-type CodexTab =
+export type CodexTab =
   | "huntground"
   | "materials"
   | "equipment"
@@ -133,6 +139,22 @@ type CodexTab =
   | "fish"
   | "title"
   | "job";
+
+const CODEX_TABS: readonly CodexTab[] = [
+  "huntground",
+  "materials",
+  "equipment",
+  "spFruit",
+  "fish",
+  "title",
+  "job",
+];
+
+export function codexTabFromParam(value: string | null): CodexTab {
+  return CODEX_TABS.some((tab) => tab === value)
+    ? (value as CodexTab)
+    : "spFruit";
+}
 
 function equipPoolChance(pool: FloorEquipDropPool): number {
   return pool.chance;
@@ -142,25 +164,31 @@ function equipPoolChance(pool: FloorEquipDropPool): number {
 //   카탈로그 id 가 V2_EQUIPMENT 에 없으면(방어) 클릭 불가 라벨로만.
 function DropChip({
   id,
-  unique,
+  kind,
   onOpen,
 }: {
   id: V2EquipmentId;
-  unique?: boolean;
+  kind: "common" | "set" | "unique";
   onOpen: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
-  const tone = unique
-    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
-    : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+  const tone =
+    kind === "unique"
+      ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+      : kind === "set"
+        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+        : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
   if (!item) {
     return (
       <span className={`rounded px-1.5 py-0.5 text-[11px] ${tone}`}>{id}</span>
     );
   }
-  const hover = unique
-    ? "hover:bg-amber-200 dark:hover:bg-amber-900/60"
-    : "hover:bg-zinc-200 dark:hover:bg-zinc-700";
+  const hover =
+    kind === "unique"
+      ? "hover:bg-violet-200 dark:hover:bg-violet-900"
+      : kind === "set"
+        ? "hover:bg-emerald-200 dark:hover:bg-emerald-900"
+        : "hover:bg-zinc-200 dark:hover:bg-zinc-700";
   return (
     <button
       type="button"
@@ -168,6 +196,11 @@ function DropChip({
       className={`rounded px-1.5 py-0.5 text-[11px] transition-colors ${tone} ${hover}`}
     >
       {item.name}
+      {kind === "unique" && item.setId && (
+        <span className="ml-1 rounded border border-current px-1 text-[9px]">
+          세트
+        </span>
+      )}
     </button>
   );
 }
@@ -193,8 +226,32 @@ function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
   });
 }
 
+export function codexThemeDeepDepth(depthStart: number): number {
+  return Math.min(MAX_FRONTIER_DEPTH, Math.max(1, depthStart + 5));
+}
+
+export function classifyCodexEquipmentIds(ids: V2EquipmentId[]): {
+  common: V2EquipmentId[];
+  set: V2EquipmentId[];
+} {
+  const common: V2EquipmentId[] = [];
+  const set: V2EquipmentId[] = [];
+  for (const id of ids) {
+    if (V2_EQUIPMENT[id]?.setId) set.push(id);
+    else common.push(id);
+  }
+  return { common, set };
+}
+
 export function V2CodexView({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<CodexTab>("spFruit");
+  const tabParam = useSearchParams().get("tab");
+  const [tab, setTab] = useState<CodexTab>(() =>
+    codexTabFromParam(tabParam),
+  );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 제작 결과 등 외부 링크의 URL 탭 변경을 로컬 탭에 반영
+    setTab(codexTabFromParam(tabParam));
+  }, [tabParam]);
   // 드랍 칩 클릭 시 뜨는 옵션 팝오버(읽기전용 카탈로그 미리보기 — 굴림 없음).
   const [card, setCard] = useState<{
     item: V2Equipment;
@@ -210,6 +267,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   );
   // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
   const [frontierDepth, setFrontierDepth] = useState(0);
+  const [combatPower, setCombatPower] = useState<number | null>(null);
   const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>(
     () => parseSpFruitUsed(undefined),
   );
@@ -271,6 +329,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
+        }
+        if (typeof j?.combat?.power === "number") {
+          setCombatPower(j.combat.power);
         }
         if (j?.spFruit?.used && typeof j.spFruit.used === "object") {
           setSpFruitUsed(parseSpFruitUsed(j.spFruit.used));
@@ -500,11 +561,17 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         ) : (
           <div className="space-y-3">
             {themes.map((theme) => {
+              const deepDepth = codexThemeDeepDepth(theme.depthStart);
+              const recommendedPower = floorPowerGate(deepDepth);
+              const preparationMult = underpreparedCombatMult(
+                deepDepth,
+                combatPower ?? undefined,
+              );
               const pool = dropPoolForDepth(theme.depthStart);
               const band = bandCommonPoolForDepth(theme.depthStart);
               const uniqueIds = uniqueIdsForDepthRange(
                 theme.depthStart,
-                theme.depthEnd,
+                deepDepth,
               );
               // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~72) 또는 들판 스타터 그리드(1~6). + 처치당 확률 라벨.
               const regularIds: V2EquipmentId[] = band
@@ -512,14 +579,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 : pool
                   ? starterGridIds(pool)
                   : [];
+              const classified = classifyCodexEquipmentIds(regularIds);
               const regularChance = band
-                ? (() => {
-                    const lo = bandCommonChanceForDepth(theme.depthStart);
-                    const hi = bandCommonChanceForDepth(theme.depthEnd);
-                    return lo === hi
-                      ? `처치당 ${(lo * 100).toFixed(2)}%`
-                      : `처치당 ${(lo * 100).toFixed(2)}~${(hi * 100).toFixed(2)}%`;
-                  })()
+                ? `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`
                 : pool
                   ? `처치당 ${(equipPoolChance(pool) * 100).toFixed(0)}% · 무작위 1종`
                   : "";
@@ -528,19 +590,34 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-1.5 dark:border-zinc-800">
                     <h2 className="text-sm font-bold">{theme.name}</h2>
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      깊이 {theme.depthStart}~{theme.depthEnd}
+                      깊이 {theme.depthStart}~{deepDepth}
                     </span>
                   </div>
 
-                  {/* 몬스터 — 처리한(최고 도달) 깊이 기준 스탯. */}
-                  <p className="mb-1 text-[10px] text-zinc-400 dark:text-zinc-500">
-                    몬스터 스탯 = 도달한 깊이 {theme.depthEnd} 기준
-                  </p>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                      심부 · 깊이 {deepDepth}
+                    </span>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {combatPower == null
+                        ? `권장 전투력 ${recommendedPower.toLocaleString()} 기준`
+                        : `내 전투력 ${combatPower.toLocaleString()} · 권장 ${recommendedPower.toLocaleString()}${
+                            preparationMult > 1
+                              ? ` · 미달 보정 ×${preparationMult.toFixed(2)}`
+                              : ""
+                          }`}
+                    </p>
+                  </div>
                   <div className="space-y-1.5">
                     {theme.enemies.map((e) => {
                       const base = V2_MONSTERS[e.key];
                       if (!base) return null;
-                      const m = scaleMonsterForFloor(base, theme.depthEnd);
+                      const m = scaleMonsterForFloor(
+                        base,
+                        deepDepth,
+                        true,
+                        combatPower ?? undefined,
+                      );
                       const status = e.statusSkill
                         ? (V2_SKILLS[e.statusSkill as V2SkillId]?.name ?? null)
                         : null;
@@ -549,7 +626,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       return (
                         <div
                           key={e.key}
-                          className="flex items-center gap-2 rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-900/60"
+                          className={`${SURFACE_INSET} flex items-center gap-2 px-2 py-1.5`}
                         >
                           {img ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -583,25 +660,24 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     })}
                   </div>
 
-                  {/* 드랍 — 일반 장비 목록 + 유니크 목록(아이템명 칩). */}
+                  {/* 드랍 — 일반·세트·유니크를 표시 속성으로 분리. 유니크 세트는 유니크 우선. */}
                   <div className="mt-2.5 space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                    {regularIds.length > 0 && (
+                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                        일반·세트 장비 {regularChance}
+                      </p>
+                    )}
                     <div>
-                      <div className="mb-1 flex items-baseline gap-1.5">
-                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                          장비
-                        </span>
-                        {regularIds.length > 0 && (
-                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                            {regularChance}
-                          </span>
-                        )}
+                      <div className="mb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        일반
                       </div>
-                      {regularIds.length > 0 ? (
+                      {classified.common.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {regularIds.map((id) => (
+                          {classified.common.map((id) => (
                             <DropChip
                               key={id}
                               id={id}
+                              kind="common"
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -610,7 +686,30 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         </div>
                       ) : (
                         <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                          일반 장비 드랍 없음
+                          없음
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                        세트
+                      </div>
+                      {classified.set.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {classified.set.map((id) => (
+                            <DropChip
+                              key={id}
+                              id={id}
+                              kind="set"
+                              onOpen={(item, anchor) =>
+                                setCard({ item, anchor })
+                              }
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                          없음
                         </span>
                       )}
                     </div>
@@ -631,7 +730,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                             <DropChip
                               key={id}
                               id={id}
-                              unique
+                              kind="unique"
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }

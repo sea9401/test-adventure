@@ -2,6 +2,7 @@ import {
   OFFLINE_MAX_BATTLES,
   OFFLINE_SETTLE_BATCH_SIZE,
 } from "@/adventure/data/v2/coreLoopConfig";
+import type { AutoHuntStopReason } from "@/adventure/v2/autoHuntStopPolicy";
 
 export type OfflineSettleResult = {
   battles: number;
@@ -16,7 +17,19 @@ export type OfflineSettleResult = {
   spMilestonesGained: number;
   depth: number;
   remainingBattles: number;
+  stoppedReason: AutoHuntStopReason | "hp" | "error" | null;
 };
+
+export function offlineSettleStopReasonLabel(
+  reason: OfflineSettleResult["stoppedReason"],
+): string | null {
+  if (reason === "potion") return "충전약 정지 조건 도달";
+  if (reason === "rare_map") return "희귀 탐사맵 발견으로 정지";
+  if (reason === "level_100") return "레벨 100 도달로 정지";
+  if (reason === "hp") return "체력 부족으로 정지";
+  if (reason === "error") return "처리 오류로 정지";
+  return null;
+}
 
 type OfflineSettleBatch = Partial<OfflineSettleResult> & {
   ok?: boolean;
@@ -41,6 +54,7 @@ function emptyResult(): OfflineSettleResult {
     spMilestonesGained: 0,
     depth: 0,
     remainingBattles: 0,
+    stoppedReason: null,
   };
 }
 
@@ -72,6 +86,7 @@ export async function settleOfflineHuntBatches(
     total.spMilestonesGained += batch.spMilestonesGained ?? 0;
     total.depth = batch.depth ?? total.depth;
     total.remainingBattles = batch.remainingBattles ?? 0;
+    total.stoppedReason = batch.stoppedReason ?? total.stoppedReason;
     if (batch.disabled || total.remainingBattles <= 0) return total;
     await wait(BETWEEN_BATCH_DELAY_MS);
   }

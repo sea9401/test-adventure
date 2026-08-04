@@ -1,8 +1,4 @@
 import {
-  GUILD_WORKSHOP_MATERIALS,
-  type GuildWorkshopMaterialId,
-} from "@/adventure/data/v2/guildWorkshopMaterials";
-import {
   type ProductionKind,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
@@ -15,6 +11,7 @@ import { GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT } from "@/adventure/data/v
 import {
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_QUALITY_BONUS_PCT,
+  guildWorkshopMaterialName,
 } from "@/adventure/data/v2/guildWorkshop";
 import type {
   V2CraftQualityState,
@@ -234,7 +231,7 @@ export type DismantleCandidateView = {
   masterwork: boolean;
   locked: boolean;
   equipped: boolean;
-  rewards: Partial<Record<GuildWorkshopMaterialId, number>>;
+  rewards: Record<string, number>;
   artisanXp: number;
   canDismantle: boolean;
   blockedReason?: string;
@@ -695,13 +692,12 @@ export function craftResultTone(result: CraftResultView): {
 }
 
 export function workshopMaterialRewardText(
-  rewards: Partial<Record<GuildWorkshopMaterialId, number>>,
+  rewards: Record<string, number>,
 ): string {
   const parts = Object.entries(rewards)
     .filter(([, amount]) => Math.max(0, Math.floor(Number(amount) || 0)) > 0)
     .map(([id, amount]) => {
-      const mat = GUILD_WORKSHOP_MATERIALS[id as GuildWorkshopMaterialId];
-      return `${mat?.name ?? id} ${Math.max(0, Math.floor(Number(amount) || 0)).toLocaleString()}`;
+      return `${guildWorkshopMaterialName(id)} ${Math.max(0, Math.floor(Number(amount) || 0)).toLocaleString()}`;
     });
   return parts.length > 0 ? parts.join(" · ") : "회수 재료 없음";
 }
@@ -807,13 +803,12 @@ export function matchesDismantleScopeFilter(
   if (filter === "can") return item.canDismantle;
   if (filter === "plain") {
     return (
-      item.canDismantle &&
       item.craftQualityLevel <= 0 &&
       !item.craftOnly &&
       !item.masterwork
     );
   }
-  if (filter === "quality") return item.canDismantle && item.craftQualityLevel > 0;
-  if (filter === "craftOnly") return item.canDismantle && item.craftOnly;
-  return item.canDismantle && item.masterwork;
+  if (filter === "quality") return item.craftQualityLevel > 0;
+  if (filter === "craftOnly") return item.craftOnly;
+  return item.masterwork;
 }

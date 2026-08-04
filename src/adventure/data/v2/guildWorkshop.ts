@@ -22,6 +22,7 @@ import {
 import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_ID,
+  GUILD_WORKSHOP_MATERIAL_IDS,
   type GuildWorkshopMaterialId,
 } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIALS } from "./settlementMaterials";
@@ -1363,7 +1364,7 @@ export function guildWorkshopRecipeResourceMaterialCost(
   return out;
 }
 
-function guildWorkshopMaterialName(id: string): string {
+export function guildWorkshopMaterialName(id: string): string {
   return (
     (SETTLEMENT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (WOODCUTTING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
@@ -1467,7 +1468,7 @@ export type GuildWorkshopDismantleBlockedReason =
   | "no_material";
 
 export type GuildWorkshopDismantlePlan = {
-  materials: Partial<Record<GuildWorkshopMaterialId, number>>;
+  materials: Record<string, number>;
   artisanXp: number;
   blockedReason?: GuildWorkshopDismantleBlockedReason;
 };
@@ -1504,9 +1505,32 @@ export function guildWorkshopDismantlePlan(
   if (inst.craftedBy?.profession !== "blacksmith" && !item.craftOnly) {
     return { materials: {}, artisanXp: 0, blockedReason: "not_crafted" };
   }
-  const materialId = guildWorkshopDismantleMaterialForTier(item.tier);
+  const sourceRecipe = Object.values(GUILD_WORKSHOP_RECIPES).find(
+    (recipe) => recipe.equipmentId === item.id,
+  );
+  const sourceMaterialCost = sourceRecipe
+    ? guildWorkshopRecipeMaterialCost(
+        sourceRecipe,
+        inst.craftedBy?.masterwork === true ? "masterwork" : "normal",
+      )
+    : null;
+  // 실제로 사용한 제작소 촉매를 우선 회수한다. 입문 제작품처럼 촉매를 쓰지
+  // 않는 장비는 실제 원가에 포함된 광석으로 폴백해 없는 재료를 새로 만들지 않는다.
+  const materialId = sourceMaterialCost
+    ? ([...GUILD_WORKSHOP_MATERIAL_IDS]
+        .reverse()
+        .find((id) => Math.max(0, sourceMaterialCost[id] ?? 0) > 0) ??
+      [
+        guildWorkshopMiningMaterialForTier(item.tier),
+        ...Object.keys(sourceMaterialCost),
+      ].find((id) => Math.max(0, sourceMaterialCost[id] ?? 0) > 0))
+    : guildWorkshopDismantleMaterialForTier(item.tier);
   if (!materialId) {
-    return { materials: {}, artisanXp: 0, blockedReason: "low_tier" };
+    return {
+      materials: {},
+      artisanXp: 0,
+      blockedReason: item.tier < 4 ? "low_tier" : "no_material",
+    };
   }
 
   let amount = 1;
@@ -1514,14 +1538,7 @@ export function guildWorkshopDismantlePlan(
   if ((inst.craftQuality?.level ?? 0) >= 2) amount += 1;
   if (inst.craftedBy?.masterwork === true) amount += 1;
   amount = Math.min(GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS, amount);
-  const sourceRecipe = Object.values(GUILD_WORKSHOP_RECIPES).find(
-    (recipe) => recipe.equipmentId === item.id,
-  );
-  if (sourceRecipe) {
-    const sourceMaterialCost = guildWorkshopRecipeMaterialCost(
-      sourceRecipe,
-      inst.craftedBy?.masterwork === true ? "masterwork" : "normal",
-    );
+  if (sourceMaterialCost) {
     const recoverableMaterialCost = Math.floor(
       ((sourceMaterialCost[materialId] ?? 0) *
         GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT) /

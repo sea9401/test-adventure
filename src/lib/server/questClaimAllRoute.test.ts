@@ -33,6 +33,16 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
   parseClaimed: vi.fn((raw: { claimed?: unknown } | undefined) =>
     new Set(Array.isArray(raw?.claimed) ? raw.claimed : []),
   ),
+  parseTrackedQuestId: vi.fn(
+    (raw: { trackedQuestId?: unknown } | undefined) =>
+      typeof raw?.trackedQuestId === "string" ? raw.trackedQuestId : null,
+  ),
+  guideQuestSavePayload: vi.fn(
+    (claimed: ReadonlySet<string>, trackedQuestId: string | null) =>
+      trackedQuestId
+        ? { claimed: [...claimed], trackedQuestId }
+        : { claimed: [...claimed] },
+  ),
 }));
 
 vi.mock("@/adventure/data/v2/v2Quests", () => ({
@@ -63,7 +73,13 @@ vi.mock("@/adventure/data/v2/v2Quests", () => ({
     {
       id: "achievement_reward",
       line: "achievement",
-      reward: { titleId: "ach_full_gear" },
+      reward: { equip: "v2_chain_mail", titleId: "ach_full_gear" },
+      check: () => true,
+    },
+    {
+      id: "achievement_followup",
+      line: "achievement",
+      reward: { equip: "v2_chain_mail", titleId: "first_blood" },
       check: () => true,
     },
   ],
@@ -77,6 +93,9 @@ vi.mock("@/adventure/data/v2/v2Quests", () => ({
       if (claimed.has(quest.id) || !quest.check(ctx)) return false;
       if (quest.id === "tutorial_followup") {
         return claimed.has("tutorial_reward");
+      }
+      if (quest.id === "achievement_followup") {
+        return claimed.has("achievement_reward");
       }
       return true;
     },
@@ -164,21 +183,30 @@ describe("POST /api/v2/me/quests/claim-all", () => {
     });
   });
 
-  it("선택한 탭 밖의 보상은 수령하지 않는다", async () => {
+  it("업적은 수령으로 공개된 후속 단계까지 모두 받고 선택한 탭 밖은 건드리지 않는다", async () => {
+    store.set("guide-quests.v2", {
+      claimed: [],
+      trackedQuestId: "achievement_followup",
+    });
     const res = await POST(claimAllReq("achievement"));
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
       ok: true,
-      count: 1,
-      reward: { titleIds: ["ach_full_gear"] },
+      count: 2,
+      reward: {
+        equipment: ["v2_chain_mail", "v2_chain_mail"],
+        titleIds: ["ach_full_gear", "first_blood"],
+      },
     });
     expect(store.get("guide-quests.v2")).toEqual({
-      claimed: ["achievement_reward"],
+      claimed: ["achievement_reward", "achievement_followup"],
     });
   });
 
   it("받을 항목이 없으면 중복 지급하지 않는다", async () => {
-    store.set("guide-quests.v2", { claimed: ["achievement_reward"] });
+    store.set("guide-quests.v2", {
+      claimed: ["achievement_reward", "achievement_followup"],
+    });
 
     const res = await POST(claimAllReq("achievement"));
     expect(res.status).toBe(409);

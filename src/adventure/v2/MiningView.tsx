@@ -24,7 +24,10 @@ import {
   type AutoGatheringResultView,
   type AutoGatheringSessionView,
 } from "./AutoGatheringCard";
-import type { AutoGatheringActivity } from "./autoGathering";
+import type {
+  AutoGatheringActivity,
+  AutoGatheringPlanId,
+} from "./autoGathering";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
@@ -84,7 +87,10 @@ export type MiningHandlers = {
   autoResult: AutoGatheringResultView | null;
   autoLoading: boolean;
   activeAutoActivity: AutoGatheringActivity | null;
-  startAuto: (spotId: MiningSpotId) => Promise<void>;
+  startAuto: (
+    spotId: MiningSpotId,
+    planId: AutoGatheringPlanId,
+  ) => Promise<void>;
   claimAuto: () => Promise<void>;
   cancelAuto: () => Promise<void>;
   verification?: ActivityVerificationChallenge | null;
@@ -659,7 +665,9 @@ export function MiningView({
               : null
           }
           buttonVariant="warning"
-          onStart={(selectedSpotId) => startAuto(selectedSpotId as MiningSpotId)}
+          onStart={(selectedSpotId, planId) =>
+            startAuto(selectedSpotId as MiningSpotId, planId)
+          }
           onClaim={claimAuto}
           onCancel={cancelAuto}
         />

@@ -1519,9 +1519,32 @@ export function v2SkillMpCostValue(def: V2SkillDefinition): number {
 }
 
 export function describeV2Skill(skill: V2SkillDefinition): string[] {
+  // 독 계열 복합기는 전투 처리상 중독 부여를 먼저 선언하지만, 설명은 독침과 같은
+  // "계수 피해 → 중독 스택" 순서로 보여준다. 실행용 effects 배열은 건드리지 않는다.
+  const displayEffects = (() => {
+    const poisonDotIndex = skill.effects.findIndex(
+      (effect) => effect.kind === "dot" && effect.tag === "poison",
+    );
+    const poisonPayoffIndex = skill.effects.findIndex(
+      (effect) =>
+        effect.kind === "stackPayoffDamage" && effect.tag === "poison",
+    );
+    if (
+      poisonDotIndex < 0 ||
+      poisonPayoffIndex < 0 ||
+      poisonPayoffIndex < poisonDotIndex
+    ) {
+      return skill.effects;
+    }
+
+    const reordered = [...skill.effects];
+    const [payoff] = reordered.splice(poisonPayoffIndex, 1);
+    reordered.splice(poisonDotIndex, 0, payoff);
+    return reordered;
+  })();
   const chips = skill.passive
     ? describePassive(skill.passive)
-    : skill.effects.map(describeV2Effect);
+    : displayEffects.map(describeV2Effect);
   if (
     skill.effects.some(
       (payoff) =>

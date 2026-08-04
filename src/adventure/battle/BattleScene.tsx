@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BattleState } from "../v2/combat/engine";
-import { actionInterval } from "../v2/combat/combatTimeline";
 import { BattleLogList } from "./BattleLogList";
 import { MONSTERS } from "../data/monsters";
 import {
@@ -13,14 +12,13 @@ import {
 import { Card } from "@/components/ui/Card";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
-import {
-  attackMissPct,
-  dodgeChance,
-} from "@/adventure/data/v2/v2CombatConstants";
 import type { GameIconName } from "@/adventure/data/v2/gameIcon";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import { CombatMatchupSummary } from "./CombatMatchupSummary";
+
+export { actionFrequencyLabel } from "./CombatMatchupSummary";
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -195,7 +193,7 @@ export type BattleStats = {
   spd: number;
   actionSpd?: number; // 몬스터 ATB 행동속도 — raw spd 를 플레이어 속도 스케일로 환산한 값
   accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
-  evasionPct?: number; // 회피 %
+  evasionPct?: number; // 레거시 표시값·몬스터 회피 능력. 플레이어 raw 는 evaRating 우선.
   evaRating?: number; // 플레이어 회피 레이팅(raw). 없으면 evasionPct 폴백.
   critChancePct?: number; // 치명 % (플레이어)
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
@@ -205,28 +203,15 @@ export type BattleStats = {
 
 // 상세 스탯 칩 — 항목별 은은한 색 강조(명중/회피/치명/마공).
 const DETAIL_COLOR: Record<string, string> = {
-  명중: "text-sky-600 dark:text-sky-400",
-  회피: "text-cyan-600 dark:text-cyan-400",
+  "명중 능력": "text-sky-600 dark:text-sky-400",
+  "회피 능력": "text-cyan-600 dark:text-cyan-400",
   치명타: "text-amber-600 dark:text-amber-400",
   마공: "text-violet-600 dark:text-violet-400",
-  "내 명중": "text-sky-600 dark:text-sky-400",
-  "적 명중": "text-rose-600 dark:text-rose-400",
   "연타 보정": "text-orange-600 dark:text-orange-400",
-  "행동 비율": "text-emerald-600 dark:text-emerald-400",
 };
 
 function pct(n: number): string {
   return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
-}
-
-export function actionFrequencyLabel(
-  playerSpd: number,
-  enemySpd: number,
-): string {
-  const playerInterval = actionInterval(playerSpd);
-  const enemyInterval = actionInterval(enemySpd);
-  const ratio = enemyInterval / Math.max(1, playerInterval);
-  return `적 1회당 내 ${ratio.toFixed(1)}회`;
 }
 
 // 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
@@ -234,12 +219,10 @@ export function BattleStatStrip({
   stats,
   center = false,
   variant = "player",
-  opponentStats,
 }: {
   stats: BattleStats;
   center?: boolean;
   variant?: "player" | "enemy";
-  opponentStats?: BattleStats;
 }) {
   const [open, setOpen] = useState(false);
   const usesMagicAttack = stats.primaryAttack === "magic";
@@ -247,63 +230,29 @@ export function BattleStatStrip({
   const primaryAttackValue = usesMagicAttack
     ? (stats.magicAtk ?? stats.atk ?? 0)
     : (stats.atk ?? 0);
-  const details: { label: string; value: string }[] =
-    variant === "enemy" && opponentStats
+  const details: { label: string; value: string }[] = [
+    { label: "명중 능력", value: String(Math.round(stats.accuracy ?? 0)) },
+    {
+      label: "회피 능력",
+      value: String(Math.round(stats.evaRating ?? stats.evasionPct ?? 0)),
+    },
+    ...(stats.critChancePct && stats.critChancePct > 0
+      ? [{ label: "치명타", value: pct(stats.critChancePct) }]
+      : []),
+    ...(stats.bonusAttackChancePct && stats.bonusAttackChancePct > 0
       ? [
           {
-            label: "내 명중",
-            value: pct(
-              100 -
-                attackMissPct(
-                  stats.evasionPct ?? 0,
-                  opponentStats.accuracy ?? 0,
-                ),
-            ),
-          },
-          {
-            label: "적 명중",
-            value: pct(
-              100 -
-                dodgeChance(
-                  opponentStats.evaRating ?? opponentStats.evasionPct ?? 0,
-                  stats.accuracy ?? 0,
-                ),
-            ),
-          },
-          ...(stats.critChancePct && stats.critChancePct > 0
-            ? [{ label: "치명타", value: pct(stats.critChancePct) }]
-            : []),
-          ...(stats.magicAtk && stats.magicAtk > 0
-            ? [{ label: "마공", value: String(Math.round(stats.magicAtk)) }]
-            : []),
-          ...(stats.bonusAttackChancePct && stats.bonusAttackChancePct > 0
-            ? [
-                {
-                  label: "연타 보정",
-                  value: `+${Math.round(stats.bonusAttackChancePct)}%`,
-                },
-              ]
-            : []),
-          {
-            label: "행동 비율",
-            value: actionFrequencyLabel(
-              opponentStats.spd,
-              stats.actionSpd ?? stats.spd,
-            ),
+            label: "연타 보정",
+            value: `+${Math.round(stats.bonusAttackChancePct)}%`,
           },
         ]
-      : [
-          { label: "명중", value: String(Math.round(stats.accuracy ?? 0)) },
-          { label: "회피", value: pct(stats.evasionPct ?? 0) },
-          ...(stats.critChancePct && stats.critChancePct > 0
-            ? [{ label: "치명타", value: pct(stats.critChancePct) }]
-            : []),
-          ...(usesMagicAttack
-            ? [{ label: "공", value: String(Math.round(stats.atk ?? 0)) }]
-            : stats.magicAtk && stats.magicAtk > 0
-            ? [{ label: "마공", value: String(Math.round(stats.magicAtk)) }]
-            : []),
-        ];
+      : []),
+    ...(usesMagicAttack
+      ? [{ label: "공", value: String(Math.round(stats.atk ?? 0)) }]
+      : stats.magicAtk && stats.magicAtk > 0
+        ? [{ label: "마공", value: String(Math.round(stats.magicAtk)) }]
+        : []),
+  ];
   const hasDetails = details.length > 0;
   const align = center ? " justify-center" : "";
   const dim = "text-zinc-400 dark:text-zinc-500";
@@ -506,6 +455,24 @@ export function BattleScene({
     0,
     RECENT_NOTIFICATIONS_VISIBLE,
   );
+  const enemyDisplay = state.enemy as typeof state.enemy & {
+    actionSpd?: number;
+  };
+  const enemyCombat: BattleStats | null =
+    typeof state.enemy.atk === "number"
+      ? {
+          atk: state.enemy.atk,
+          def: state.enemy.def,
+          spd: state.enemy.spd,
+          actionSpd: enemyDisplay.actionSpd,
+          accuracy: state.enemy.accuracy,
+          evasionPct: state.enemy.evasionPct,
+          critChancePct: state.enemy.critPct,
+          magicAtk:
+            state.enemy.atkType === "magic" ? state.enemy.atk : undefined,
+          bonusAttackChancePct: state.enemy.bonusAttackChancePct,
+        }
+      : null;
 
   return (
     <div className="space-y-4">
@@ -551,9 +518,10 @@ export function BattleScene({
       <Card padding="lg">
         {layout === "split" ? (
           // v2 — 좌(플레이어)/우(적) 각 반폭. 위아래 스택 대신 좌우 분리.
-          <div className="grid grid-cols-2 gap-3 sm:gap-6">
-            {/* 왼쪽 — 플레이어 */}
-            <div className="flex flex-col items-center gap-2">
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:gap-6">
+              {/* 왼쪽 — 플레이어 */}
+              <div className="flex flex-col items-center gap-2">
               <PlayerAvatar
                 gender={playerStatus.gender}
                 name={playerName}
@@ -590,9 +558,9 @@ export function BattleScene({
                     (전투 결과/캐릭터 카드에 노출). */}
                 {playerCombat && <BattleStatStrip center stats={playerCombat} />}
               </div>
-            </div>
-            {/* 오른쪽 — 적 */}
-            <div className="flex flex-col items-center gap-2">
+              </div>
+              {/* 오른쪽 — 적 */}
+              <div className="flex flex-col items-center gap-2">
               <EnemyAvatar
                 name={state.enemy.name}
                 hp={state.enemyHp}
@@ -623,38 +591,34 @@ export function BattleScene({
                 )}
                 {/* 공/방/속 — 누르면 명중/회피 펼침. 리플레이/PvP enemy 는 스탯이 없을 수
                     있어(payload 부분 객체) atk 숫자일 때만 렌더 — 없으면 표시 생략(크래시 방지). */}
-                {typeof state.enemy.atk === "number" &&
-                  (() => {
-                    const enemyDisplay = state.enemy as typeof state.enemy & {
-                      actionSpd?: number;
-                    };
-                    return (
-                      <BattleStatStrip
-                        center
-                        variant="enemy"
-                        opponentStats={playerCombat}
-                        stats={{
-                          atk: state.enemy.atk,
-                          def: state.enemy.def,
-                          spd: state.enemy.spd,
-                          actionSpd: enemyDisplay.actionSpd,
-                          accuracy: state.enemy.accuracy,
-                          evasionPct: state.enemy.evasionPct,
-                          // 치명형 몹 critPct·마법형 몹 atk(=마공).
-                          critChancePct: state.enemy.critPct,
-                          magicAtk:
-                            state.enemy.atkType === "magic"
-                              ? state.enemy.atk
-                              : undefined,
-                          bonusAttackChancePct:
-                            state.enemy.bonusAttackChancePct,
-                        }}
-                      />
-                    );
-                  })()}
+                {enemyCombat && (
+                  <BattleStatStrip
+                    center
+                    variant="enemy"
+                    stats={enemyCombat}
+                  />
+                )}
               </div>
             </div>
-          </div>
+            </div>
+            {playerCombat && enemyCombat && (
+              <div className="mt-3">
+                <CombatMatchupSummary
+                  player={{
+                    accuracyRating: playerCombat.accuracy ?? 0,
+                    evasionRating:
+                      playerCombat.evaRating ?? playerCombat.evasionPct ?? 0,
+                    speed: playerCombat.spd,
+                  }}
+                  enemy={{
+                    accuracyRating: enemyCombat.accuracy ?? 0,
+                    evasionRating: enemyCombat.evasionPct ?? 0,
+                    speed: enemyCombat.actionSpd ?? enemyCombat.spd,
+                  }}
+                />
+              </div>
+            )}
+          </>
         ) : (
           // v1 (라이브) — 적 위 / 플레이어 아래 가로형. 기존 그대로.
           <>

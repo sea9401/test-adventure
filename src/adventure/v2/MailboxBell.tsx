@@ -22,6 +22,7 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
   bid_refund: "입찰금 반환",
   buy_order_refund: "구매 주문 환불",
   buy_order_item: "구매 주문 체결",
+  buy_order_equipment: "장비 구매 주문 체결",
   price_alert: "시세 알림",
   purchase_item: "구매 물품",
   cancel_return: "취소 반환",

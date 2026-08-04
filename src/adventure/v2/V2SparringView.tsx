@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
+import type { BattleStats } from "@/adventure/battle/BattleScene";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { useSparring } from "@/adventure/v2/useSparring";
 import type { Gender } from "@/adventure/profile/avatars";
 import {
@@ -42,12 +44,14 @@ export function V2SparringView({
   gender,
   onBack,
   playerSubtitle,
+  playerCombat,
 }: {
   playerName: string;
   gender: Gender;
   onBack: () => void;
   // 전투 장면 플레이어 부제(레벨·직업·속성).
   playerSubtitle?: string;
+  playerCombat?: BattleStats;
 }) {
   const { busy, lastResult, error, spar } = useSparring();
   const [round, setRound] = useState(0);
@@ -106,7 +110,7 @@ export function V2SparringView({
             return (
               <label
                 key={field}
-                className="block rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-900/60"
+                className={`${SURFACE_INSET} block px-2 py-1.5 text-xs`}
               >
                 <span className="mb-1 block text-zinc-500 dark:text-zinc-400">
                   {limit.label}
@@ -168,6 +172,7 @@ export function V2SparringView({
           exp={0}
           maxExp={1}
           playerSubtitle={playerSubtitle}
+          playerCombat={playerCombat}
         />
       )}
     </main>

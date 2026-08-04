@@ -44,6 +44,7 @@ export async function GET(req: Request) {
     .where(
       and(
         isNull(guilds.disbandedAt),
+        eq(guilds.isTest, false),
         q.length > 0 ? ilike(guilds.name, `%${q}%`) : undefined,
       ),
     )

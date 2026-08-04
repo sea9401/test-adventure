@@ -751,6 +751,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             return (
               <V2ItemCompareCard
                 candidate={{
+                  iid: card.inst.iid,
                   item: candItem,
                   roll: card.inst.roll,
                   enhance: card.inst.enhance,

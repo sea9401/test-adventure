@@ -27,7 +27,10 @@ import {
   type StaminaState,
 } from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
-import { settleOfflineHuntBatches } from "@/adventure/v2/offlineSettleApi";
+import {
+  offlineSettleStopReasonLabel,
+  settleOfflineHuntBatches,
+} from "@/adventure/v2/offlineSettleApi";
 import { MAIN_DUNGEON, huntStageName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import {
@@ -42,6 +45,7 @@ import {
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import type { Gender } from "@/adventure/profile/avatars";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
@@ -174,6 +178,7 @@ export function V2DungeonFloorView({
   onGoldChange,
   onProficiencyChange,
   onRecoveryChargesChange,
+  onEnterRareMap,
   offlineHunt,
   onRefresh,
 }: {
@@ -236,6 +241,8 @@ export function V2DungeonFloorView({
   // 사냥 응답의 최신 충전약 잔량을 공유 레이아웃 상태에도 반영한다. 페이지를 떠났다가
   // 브라우저 뒤로가기·앞으로가기로 재진입해도 화면 진입 당시의 오래된 값이 복원되지 않는다.
   onRecoveryChargesChange?: (update: RecoveryChargesUpdate) => void;
+  // 사냥 결과에서 새로 발견한 희귀 탐사/장소로 즉시 이동.
+  onEnterRareMap?: (map: RareMapInstance) => void;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
@@ -423,6 +430,17 @@ export function V2DungeonFloorView({
   const [offlineBusy, setOfflineBusy] = useState(false);
   const [offlineMsg, setOfflineMsg] = useState<string | null>(null);
   const startOffline = async () => {
+    const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
+      hpCharges: statusHpCharges,
+      mpCharges: statusMpCharges,
+      hasMp: (mp?.maxMp ?? 0) > 0,
+      rareMapFound: false,
+      level: currentLevel,
+    });
+    if (stopReason) {
+      setAutoStopReason(stopReason);
+      return;
+    }
     setOfflineBusy(true);
     setOfflineMsg(null);
     setAutoHunt(false); // 온라인 루프와 상호 배타 — 자동 사냥 시작 시 즉시 정지.
@@ -430,7 +448,10 @@ export function V2DungeonFloorView({
       const res = await fetch("/api/v2/me/offline-hunt", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start" }),
+        body: JSON.stringify({
+          action: "start",
+          autoStopConfig: autoStopConfigRef.current,
+        }),
       });
       if (!res.ok) {
         setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
@@ -462,7 +483,7 @@ export function V2DungeonFloorView({
       }
       setOfflineMsg(
         j.battles > 0
-          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}`
+          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}${offlineSettleStopReasonLabel(j.stoppedReason) ? ` · ${offlineSettleStopReasonLabel(j.stoppedReason)}` : ""}`
           : "오프라인 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();
@@ -503,7 +524,10 @@ export function V2DungeonFloorView({
       const b = await huntBatch(
         depth,
         count,
-        autoRun ? autoStopConfigRef.current : undefined,
+        // 짧게 눌러 실행하는 5/10/50회 일괄 사냥도 여러 전투를 한 요청에서 처리하므로
+        // 정지 조건을 반드시 서버에 보낸다. autoRun은 일괄 완료 후 다음 묶음 반복 여부일 뿐,
+        // 현재 묶음 안의 레벨/포션/희귀맵 정지 조건 적용 여부가 아니다.
+        autoStopConfigRef.current,
       );
       if (!b) {
         // 자동 사냥 중 실패하면 같은 요청을 무한 반복하지 않는다(단판과 동일 동작).
@@ -532,6 +556,7 @@ export function V2DungeonFloorView({
         droppedEquipments: b.droppedEquipments,
         droppedUniques: b.droppedUniques,
         rareMapDrops: b.rareMapDrops,
+        rareMapDropInstances: b.rareMapDropInstances,
         stoppedReason: b.stoppedReason,
         replays: b.replays,
       });
@@ -1100,9 +1125,12 @@ export function V2DungeonFloorView({
 
             <div className={`${SURFACE_INSET} space-y-3 p-3`}>
               <div>
-                <p className="text-sm font-medium">자동 사냥 정지 조건</p>
+                <p className="text-sm font-medium">
+                  일괄·자동·오프라인 사냥 정지 조건
+                </p>
                 <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  선택한 조건을 만족한 전투가 끝나면 자동 사냥을 멈춥니다.
+                  선택한 조건을 만족한 전투가 끝나면 일괄·자동·오프라인
+                  사냥을 멈춥니다.
                 </p>
               </div>
 
@@ -1232,6 +1260,7 @@ export function V2DungeonFloorView({
         <BatchSummaryCard
           summary={batchSummary}
           onSelectReplay={setSelectedBatchReplay}
+          onEnterRareMap={onEnterRareMap}
         />
       ) : (
         lastResult && (
@@ -1240,6 +1269,7 @@ export function V2DungeonFloorView({
             hpCharges={lastResult.hpCharges}
             mpCharges={lastResult.mpCharges}
             hasMp={(mp?.maxMp ?? 0) > 0}
+            onEnterRareMap={onEnterRareMap}
           />
         )
       )}

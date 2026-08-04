@@ -27,7 +27,10 @@ import {
   type AutoGatheringResultView,
   type AutoGatheringSessionView,
 } from "./AutoGatheringCard";
-import type { AutoGatheringActivity } from "./autoGathering";
+import type {
+  AutoGatheringActivity,
+  AutoGatheringPlanId,
+} from "./autoGathering";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
@@ -94,7 +97,10 @@ export type WoodcuttingHandlers = {
   autoResult: AutoGatheringResultView | null;
   autoLoading: boolean;
   activeAutoActivity: AutoGatheringActivity | null;
-  startAuto: (spotId: WoodcuttingSpotId) => Promise<void>;
+  startAuto: (
+    spotId: WoodcuttingSpotId,
+    planId: AutoGatheringPlanId,
+  ) => Promise<void>;
   claimAuto: () => Promise<void>;
   cancelAuto: () => Promise<void>;
   verification?: ActivityVerificationChallenge | null;
@@ -1222,7 +1228,9 @@ export function WoodcuttingView({
               : null
           }
           buttonVariant="success"
-          onStart={(selectedSpotId) => startAuto(selectedSpotId as WoodcuttingSpotId)}
+          onStart={(selectedSpotId, planId) =>
+            startAuto(selectedSpotId as WoodcuttingSpotId, planId)
+          }
           onClaim={claimAuto}
           onCancel={cancelAuto}
         />

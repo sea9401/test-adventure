@@ -2,6 +2,7 @@ import { FARM_ITEMS, type FarmItemId } from "@/adventure/v2/farm";
 import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 
 export const GUILD_DINING_USER_SAVE_KEY = "guild-dining-user.v1";
+export const GUILD_DINING_BASE_WEEKLY_TICKETS = 1;
 export const GUILD_DINING_POINTS_PER_TICKET = 15;
 export const GUILD_DINING_POINTS_PER_MEMBER_TARGET = 20;
 export const GUILD_DINING_EFFECT_DURATION_HOURS = 12;
@@ -135,20 +136,20 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "든든한 길드 스튜",
     icon: "🍲",
     imageSrc: "/images/items/dining/hearty_stew.webp",
-    description: "HP·MP 충전량을 각각 100,000 즉시 채웁니다.",
+    description: "HP·MP 충전량을 각각 250,000 즉시 채웁니다.",
     minFacilityLevel: 1,
-    effect: { kind: "recovery", hp: 100_000, mp: 100_000 },
+    effect: { kind: "recovery", hp: 250_000, mp: 250_000 },
   },
   {
     id: "adventurer_meal",
     name: "모험가 정식",
     icon: "🍛",
     imageSrc: "/images/items/dining/adventurer_meal.webp",
-    description: "12시간 동안 사냥 경험치가 5% 증가합니다.",
+    description: "12시간 동안 사냥 경험치가 8% 증가합니다.",
     minFacilityLevel: 1,
     effect: {
       kind: "hunt_exp",
-      bonusPct: 5,
+      bonusPct: 8,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -157,11 +158,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "일꾼 도시락",
     icon: "🍱",
     imageSrc: "/images/items/dining/worker_lunch.webp",
-    description: "12시간 동안 생활 경험치가 5% 증가합니다.",
+    description: "12시간 동안 생활 경험치가 8% 증가합니다.",
     minFacilityLevel: 2,
     effect: {
       kind: "life_xp",
-      bonusPct: 5,
+      bonusPct: 8,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -170,11 +171,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "사냥꾼 바비큐",
     icon: "🍖",
     imageSrc: "/images/items/dining/hunters_barbecue.webp",
-    description: "12시간 동안 사냥 경험치가 7% 증가합니다.",
+    description: "12시간 동안 사냥 경험치가 12% 증가합니다.",
     minFacilityLevel: 3,
     effect: {
       kind: "hunt_exp",
-      bonusPct: 7,
+      bonusPct: 12,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -183,11 +184,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "장인의 해산물 덮밥",
     icon: "🍤",
     imageSrc: "/images/items/dining/artisan_seafood_rice.webp",
-    description: "12시간 동안 생활 경험치가 7% 증가합니다.",
+    description: "12시간 동안 생활 경험치가 12% 증가합니다.",
     minFacilityLevel: 4,
     effect: {
       kind: "life_xp",
-      bonusPct: 7,
+      bonusPct: 12,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -196,11 +197,11 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "길드 대연회",
     icon: "🍽️",
     imageSrc: "/images/items/dining/guild_grand_feast.webp",
-    description: "12시간 동안 사냥과 생활 경험치가 10% 증가합니다.",
+    description: "12시간 동안 사냥과 생활 경험치가 20% 증가합니다.",
     minFacilityLevel: 5,
     effect: {
       kind: "all_xp",
-      bonusPct: 10,
+      bonusPct: 20,
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
@@ -302,19 +303,34 @@ export function parseGuildDiningUserState(
 
 export function guildDiningTicketProgress(
   state: GuildDiningUserState,
-  weeklyTicketLimit: number,
-): { earned: number; used: number; available: number; contributionCap: number } {
-  const limit = Math.max(0, Math.floor(weeklyTicketLimit));
-  const earned = Math.min(
-    limit,
+  weeklyContributionTicketLimit: number,
+): {
+  base: number;
+  contributionEarned: number;
+  earned: number;
+  used: number;
+  available: number;
+  contributionCap: number;
+} {
+  const contributionLimit = Math.max(
+    0,
+    Math.floor(weeklyContributionTicketLimit),
+  );
+  const base = GUILD_DINING_BASE_WEEKLY_TICKETS;
+  const contributionEarned = Math.min(
+    contributionLimit,
     Math.floor(state.contributionPoints / GUILD_DINING_POINTS_PER_TICKET),
   );
-  const used = Math.min(limit, state.mealsUsed);
+  const earned = base + contributionEarned;
+  const used = Math.min(base + contributionLimit, state.mealsUsed);
   return {
+    base,
+    contributionEarned,
     earned,
     used,
     available: Math.max(0, earned - used),
-    contributionCap: limit * GUILD_DINING_POINTS_PER_TICKET,
+    contributionCap:
+      contributionLimit * GUILD_DINING_POINTS_PER_TICKET,
   };
 }
 

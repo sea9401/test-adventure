@@ -299,8 +299,9 @@ export function buildQuestCtx(args: {
     farmHarvests: farm.stats.harvests,
     farmRareHarvests: farm.stats.rareHarvests,
     farmDeliveries: farm.stats.deliveries,
-    farmReputationEarned:
-      farm.stats.reputation + farm.stats.reputationSpent,
+    // reputation은 누적 획득량이고 reputationSpent는 그중 사용한 양이다.
+    // 사용량을 다시 더하면 증표를 쓸 때마다 업적 진행도가 이중으로 오르므로 획득량만 사용한다.
+    farmReputationEarned: farm.stats.reputation,
     woodcuttingLevel: woodcuttingProgress.level,
     woodcuttingCuts: woodcutting.cuts,
     woodcuttingSpecies: Object.keys(woodcutting.trees).length,

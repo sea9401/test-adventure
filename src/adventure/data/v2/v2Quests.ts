@@ -487,6 +487,7 @@ function milestones(
               : label.includes("도감") ||
                   label.includes("장비") ||
                   label.includes("칭호") ||
+                  label.includes("증표") ||
                   label.includes("요리법")
                 ? "개"
               : label.includes("층")
@@ -689,11 +690,11 @@ const FARMING: QuestDef[] = [
       100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000,
     ]),
   ]),
-  ...milestones("farming", "농장 평판 획득", (c) => c.farmReputationEarned, [
+  ...milestones("farming", "농장 증표 획득", (c) => c.farmReputationEarned, [
     { id: "farm_reputation100", title: "농촌의 새 얼굴", goal: 100, points: 10, badgeTier: "bronze" },
     { id: "farm_reputation1000", title: "신뢰받는 농장주", goal: 1_000, points: 30, badgeTier: "gold" },
     { id: "farm_reputation5000", title: "풍요의 상징", goal: 5_000, points: 60, badgeTier: "legendary" },
-    ...marathonMilestones("marathon_farm_reputation", "농장 평판", [
+    ...marathonMilestones("marathon_farm_reputation", "농장 증표", [
       10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
       2_500_000, 5_000_000, 10_000_000,
     ], 75),

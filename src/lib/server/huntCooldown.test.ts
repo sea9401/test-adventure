@@ -193,17 +193,21 @@ describe("POST /api/v2/dungeon/hunt — 전투 쿨다운(코어루프 on)", () =
     expect(char().lastBattleAt).toBeTypeOf("number");
   });
 
-  it("분당 사냥 요청은 사용자당 30회까지만 허용", async () => {
+  it("정상 자동 사냥과 재시도에 여유를 두고 분당 사용자 요청을 180회로 제한", async () => {
     const responses: Response[] = [];
-    for (let i = 0; i < 31; i++) {
+    for (let i = 0; i < 181; i++) {
       responses.push(await POST(huntReq({ floor: 2 })));
     }
 
     expect(responses[0]?.status).toBe(200);
-    expect(responses.slice(1, 30).every((res) => res.status === 429)).toBe(
+    expect(responses.slice(1, 180).every((res) => res.status === 429)).toBe(
       true,
     );
-    await expect(responses[30]?.json()).resolves.toMatchObject({
+    await expect(responses[179]?.json()).resolves.toMatchObject({
+      ok: false,
+      error: "on_cooldown",
+    });
+    await expect(responses[180]?.json()).resolves.toMatchObject({
       ok: false,
       error: "rate_limited",
     });

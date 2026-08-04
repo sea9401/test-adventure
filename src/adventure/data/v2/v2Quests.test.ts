@@ -96,6 +96,15 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
+  it("농장 평판이라는 옛 명칭 대신 농장 증표와 개수 단위를 사용한다", () => {
+    expect(questById("farm_reputation100")?.desc).toBe(
+      "농장 증표 획득 100개를 달성하세요.",
+    );
+    expect(questById("marathon_farm_reputation_10000")?.title).toBe(
+      "농장 증표 10,000",
+    );
+  });
+
   it("제거된 지도·전쟁·벌목 미니게임 업적은 카탈로그에 없다", () => {
     const removedIds = [
       "b_travel",

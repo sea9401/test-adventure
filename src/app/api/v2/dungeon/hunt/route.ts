@@ -144,6 +144,14 @@ const DROP_FLOOR_CAP = 8 as DungeonFloorId;
 // 한꺼번에 커지지 않도록 단판(200)보다 낮은 tail cap을 둔다.
 const BATCH_REPLAY_LOG_CAP = 80;
 
+// 온라인 자동 사냥은 1.5초 간격(분당 약 40회)으로 요청한다. 네트워크 지연 뒤 재시도나
+// 수동 입력이 섞여도 정상 루프가 끊기지 않도록 전투 API 운영 권장 범위의 상한을 사용한다.
+// IP 제한은 이동통신사 CGNAT·PC방처럼 다수가 한 공인 IP를 공유하는 환경을 고려해
+// 사용자 제한의 30배로 두되, 계정별 제한과 아래 in-flight 게이트는 그대로 적용한다.
+const HUNT_USER_RATE_LIMIT_PER_MINUTE = 180;
+const HUNT_IP_RATE_LIMIT_PER_MINUTE =
+  HUNT_USER_RATE_LIMIT_PER_MINUTE * 30;
+
 // 같은 사용자의 사냥 요청이 이미 처리 중이면 DB 트랜잭션에 진입시키지 않는다. character.v2
 // FOR UPDATE도 보상 중복은 막지만, 순간적인 병렬 요청은 커넥션/트랜잭션 대기열을 만들 수 있어
 // 단일 프로세스인 현재 운영 환경에서는 이 가벼운 선행 게이트로 먼저 잘라낸다. 다중 인스턴스로
@@ -1102,8 +1110,8 @@ export async function POST(req: Request) {
   const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:dungeon:hunt",
-    userLimit: 30,
-    ipLimit: 900,
+    userLimit: HUNT_USER_RATE_LIMIT_PER_MINUTE,
+    ipLimit: HUNT_IP_RATE_LIMIT_PER_MINUTE,
     windowMs: 60_000,
   });
   if (limited) return limited;

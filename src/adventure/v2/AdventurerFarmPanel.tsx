@@ -836,7 +836,7 @@ function FarmShopPanel({
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <Sparkle size={17} weight="duotone" className="text-emerald-500" />
-          농장 평판 상점
+          농장 증표 상점
         </div>
         <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           사용 가능 {availableReputation.toLocaleString("ko-KR")}

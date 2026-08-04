@@ -274,9 +274,14 @@ export function JobRoadmapDetails({
 const ROADMAP_ZOOM_MIN = 0.5;
 const ROADMAP_ZOOM_MAX = 1.5;
 const ROADMAP_ZOOM_STEP = 0.1;
+export const ROADMAP_DRAG_THRESHOLD_PX = 6;
 
 function clampRoadmapZoom(value: number) {
   return Math.min(ROADMAP_ZOOM_MAX, Math.max(ROADMAP_ZOOM_MIN, value));
+}
+
+export function isRoadmapDragGesture(startX: number, currentX: number) {
+  return Math.abs(currentX - startX) >= ROADMAP_DRAG_THRESHOLD_PX;
 }
 
 function touchDistance(touches: TouchList) {
@@ -289,7 +294,13 @@ function touchDistance(touches: TouchList) {
 
 export function RoadmapScroller({ children }: { children: React.ReactNode }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ id: number; x: number; left: number } | null>(null);
+  const dragRef = useRef<{
+    id: number;
+    x: number;
+    left: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const zoomRef = useRef(1);
   const [dragging, setDragging] = useState(false);
@@ -342,21 +353,27 @@ export function RoadmapScroller({ children }: { children: React.ReactNode }) {
       id: event.pointerId,
       x: event.clientX,
       left: scroller.scrollLeft,
+      moved: false,
     };
-    scroller.setPointerCapture(event.pointerId);
-    setDragging(true);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     const scroller = scrollerRef.current;
     if (!drag || !scroller || drag.id !== event.pointerId) return;
+    if (!drag.moved) {
+      if (!isRoadmapDragGesture(drag.x, event.clientX)) return;
+      drag.moved = true;
+      scroller.setPointerCapture(event.pointerId);
+      setDragging(true);
+    }
     scroller.scrollLeft = drag.left - (event.clientX - drag.x);
     event.preventDefault();
   };
 
   const endDrag = (event: PointerEvent<HTMLDivElement>) => {
     const scroller = scrollerRef.current;
+    const moved = dragRef.current?.id === event.pointerId && dragRef.current.moved;
     if (
       scroller &&
       dragRef.current?.id === event.pointerId &&
@@ -364,8 +381,27 @@ export function RoadmapScroller({ children }: { children: React.ReactNode }) {
     ) {
       scroller.releasePointerCapture(event.pointerId);
     }
+    if (moved) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
     dragRef.current = null;
     setDragging(false);
+  };
+
+  const handlePointerLeave = (event: PointerEvent<HTMLDivElement>) => {
+    const scroller = scrollerRef.current;
+    if (scroller?.hasPointerCapture(event.pointerId)) return;
+    if (dragRef.current?.id === event.pointerId) dragRef.current = null;
+  };
+
+  const handleClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) return;
+    suppressClickRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   useEffect(() => {
@@ -473,7 +509,8 @@ export function RoadmapScroller({ children }: { children: React.ReactNode }) {
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onPointerLeave={endDrag}
+        onPointerLeave={handlePointerLeave}
+        onClickCapture={handleClickCapture}
       >
         <div className="shrine-job-roadmap-canvas" style={{ zoom }}>
           {children}

@@ -1,4 +1,5 @@
 import {
+  isGitHubActionsTestDatabaseHostname,
   isLoopbackDatabaseHostname,
   normalizeDatabaseUrl,
 } from "./databaseTls.mjs";
@@ -14,16 +15,22 @@ export const E2E_ACCOUNT_EMAIL = "browser-e2e@accounts.msmsge.invalid";
 /**
  * Seed 작업이 운영·공유 DB에 닿지 않도록 주소와 DB 이름을 모두 제한한다.
  * @param {unknown} value
+ * @param {Record<string, string | undefined>} env
  */
-export function assertIsolatedE2eDatabaseUrl(value) {
+export function assertIsolatedE2eDatabaseUrl(value, env = process.env) {
   if (typeof value !== "string" || !value.trim()) {
     throw new Error("DATABASE_URL is required for E2E database setup");
   }
 
   const connectionString = normalizeDatabaseUrl(value);
   const url = new URL(connectionString);
-  if (!isLoopbackDatabaseHostname(url.hostname)) {
-    throw new Error("E2E database setup is only allowed on a loopback host");
+  if (
+    !isLoopbackDatabaseHostname(url.hostname) &&
+    !isGitHubActionsTestDatabaseHostname(url.hostname, env)
+  ) {
+    throw new Error(
+      "E2E database setup is only allowed on a loopback or GitHub Actions test host",
+    );
   }
   if (decodeURIComponent(url.pathname) !== `/${E2E_DATABASE_NAME}`) {
     throw new Error(

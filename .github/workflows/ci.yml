@@ -1,6 +1,6 @@
-# PR·main push 에서 타입·린트·테스트·운영 의존성 감사·프로덕션 빌드를 검증한다.
-# 머지 게이트: ruleset 'main-ci-gate'(repo → Settings → Rules) 가 이 'check' 잡 통과를
-# main 머지 필수로 강제한다(public 전환 후 활성). 게이트를 잠깐 풀려면 그 ruleset 을 Disabled 로.
+# PR·main push에서 정적 검사·단위 테스트·운영 빌드·브라우저 E2E를 병렬 검증한다.
+# 머지 게이트: ruleset 'main-ci-gate'(repo → Settings → Rules)는 마지막 'check' 잡을
+# 필수 상태 검사로 사용한다. 개별 잡을 분리해 실패한 영역만 다시 실행할 수 있게 한다.
 name: CI
 
 on:
@@ -9,43 +9,25 @@ on:
   push:
     branches: [main, staging]
 
-# 같은 ref 의 이전 실행 취소 — 연속 push 비용 절약.
+# 같은 ref의 이전 실행 취소 — 연속 push 비용 절약.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check:
+  static-checks:
+    name: Static checks
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: browser_e2e
-          POSTGRES_PASSWORD: browser_e2e
-          POSTGRES_DB: adventure_e2e
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U browser_e2e -d adventure_e2e"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      # 아래 값은 이 잡과 함께 폐기되는 로컬 컨테이너 전용이며 운영 비밀이 아니다.
-      DATABASE_URL: postgresql://browser_e2e:browser_e2e@127.0.0.1:5432/adventure_e2e
-      DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true"
-      E2E_TEST_LOGIN_ID: browser-e2e
-      E2E_TEST_PASSWORD: browser-e2e-only-password
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
+      - name: Install dependencies
+        run: npm ci
       - name: Secret leak guard
         run: npm run check-secrets
-      - run: npm ci
       - name: Image refs (check-images)
         run: npm run check-images
       - name: Static asset rights ledger
@@ -54,17 +36,39 @@ jobs:
         run: npm run check-licenses
       - name: Migration journal order
         run: npm run check-migrations
-      - name: Migrate and seed browser E2E database
-        run: npm run test:e2e:db:setup
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
       # ESLint — 에러 시 실패(경고는 비차단). 린트 부채 누적 방지 게이트.
       - name: Lint (eslint)
         run: npm run lint
-      - name: Tests (vitest)
-        run: npx vitest run
       - name: Production dependency audit
         run: npm audit --omit=dev --audit-level=moderate
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Tests (vitest)
+        run: npx vitest run
+
+  production-build:
+    name: Production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
       - name: Production build
         env:
           # 운영 배포가 요청한 전체 SHA와 클라이언트 번들의 버전 식별자를 일치시킨다.
@@ -87,24 +91,8 @@ jobs:
             cd production-release
             sha256sum production-next.tar.gz > production-next.tar.gz.sha256
           )
-      # GitHub hosted runner는 매 실행마다 초기화된다. 브라우저 바이너리를 캐시해
-      # PR CI에서 받은 동일 Playwright 버전을 main CI가 다시 내려받지 않게 한다.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
-      # 시스템 패키지와 브라우저 다운로드를 분리해 지연 원인을 로그에서 구분한다.
-      - name: Install Playwright system dependencies
-        timeout-minutes: 10
-        run: npx playwright install-deps chromium webkit
-      - name: Install Playwright browsers
-        timeout-minutes: 20
-        run: npx playwright install chromium webkit
-      - name: Browser E2E and accessibility
-        run: npm run test:e2e
-      # E2E까지 성공한 main SHA만 운영 배포 후보가 된다. tar 내부는 Next 파일 권한과
-      # node_modules 상대 심볼릭 링크를 보존하고, GitHub 아티팩트는 불변으로 저장된다.
+      # 이 산출물이 먼저 올라가더라도 deploy.yml은 전체 CI가 성공한 실행만 선택한다.
+      # 따라서 정확한 main SHA와 모든 검증을 통과한 빌드만 운영 배포 후보가 된다.
       - name: Upload production build artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
@@ -114,6 +102,54 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+
+  browser-e2e:
+    name: Browser E2E
+    runs-on: ubuntu-latest
+    # 브라우저와 Ubuntu 시스템 의존성이 포함된 공식 이미지를 프로젝트 버전과 고정한다.
+    # 운영체제 패키지 181개를 매 실행마다 apt로 설치하던 병목과 미러 장애를 제거한다.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
+      options: --user 1001
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: browser_e2e
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: adventure_e2e
+        options: >-
+          --health-cmd "pg_isready -U browser_e2e -d adventure_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # 잡과 함께 폐기되는 격리 컨테이너 전용 값이며 운영 비밀이 아니다.
+      # 컨테이너 잡에서는 서비스 컨테이너 이름으로 직접 접속한다.
+      DATABASE_URL: postgresql://browser_e2e:password@postgres:5432/adventure_e2e
+      DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true"
+      E2E_TEST_LOGIN_ID: browser-e2e
+      E2E_TEST_PASSWORD: browser-e2e-only-password
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Playwright image and package versions match
+        run: test "$(node -p "require('@playwright/test/package.json').version")" = "1.62.0"
+      - name: Migrate and seed browser E2E database
+        run: npm run test:e2e:db:setup
+      # E2E 잡을 독립적으로 재실행할 수 있도록 자체 빌드를 사용한다. 별도 production-build
+      # 잡과 병렬로 실행되므로 전체 대기시간에는 두 빌드 시간이 중첩된다.
+      - name: Build E2E application
+        env:
+          BUILD_ID: ${{ github.sha }}
+        run: npm run build
+      - name: Browser E2E and accessibility
+        run: npm run test:e2e
       - name: Upload Playwright failure report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -122,3 +158,22 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 14
+
+  # 기존 ruleset이 요구하는 상태 검사 이름을 유지하는 집계 잡이다.
+  check:
+    name: check
+    if: ${{ always() }}
+    needs: [static-checks, unit-tests, production-build, browser-e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI lane to pass
+        env:
+          STATIC_CHECKS_RESULT: ${{ needs.static-checks.result }}
+          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
+          PRODUCTION_BUILD_RESULT: ${{ needs.production-build.result }}
+          BROWSER_E2E_RESULT: ${{ needs.browser-e2e.result }}
+        run: |
+          test "$STATIC_CHECKS_RESULT" = "success"
+          test "$UNIT_TESTS_RESULT" = "success"
+          test "$PRODUCTION_BUILD_RESULT" = "success"
+          test "$BROWSER_E2E_RESULT" = "success"

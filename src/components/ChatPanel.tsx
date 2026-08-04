@@ -96,6 +96,8 @@ export const CHAT_HEADER_CLASS =
   "relative z-20 flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 pb-3.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-4 sm:py-3.5 dark:border-zinc-700";
 export const CHAT_CLOSE_BUTTON_CLASS =
   "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
+export const CHAT_MOBILE_BACK_BUTTON_CLASS =
+  "fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] left-4 z-30 inline-flex h-14 items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 shadow-lg transition-colors hover:bg-zinc-100 sm:hidden dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700";
 
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
@@ -1118,6 +1120,19 @@ export function ChatPanel({
           </>
         ) : (
           <ChatRoomList rooms={roomEntries} onEnter={enterRoom} />
+        )}
+        {(activeRoom || activeCustomRoom || roomManagerOpen) && (
+          <button
+            type="button"
+            onClick={returnToRooms}
+            aria-label="채팅방 목록으로 돌아가기"
+            title="채팅방 목록으로 돌아가기"
+            data-testid="mobile-chat-room-back"
+            className={CHAT_MOBILE_BACK_BUTTON_CLASS}
+          >
+            <ArrowLeft size={20} weight="bold" />
+            <span>방 목록</span>
+          </button>
         )}
         <ChatEquipmentPicker
           open={equipmentPickerOpen}

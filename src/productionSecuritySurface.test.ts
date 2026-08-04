@@ -132,7 +132,10 @@ describe("production security surface", () => {
     expect(build).toContain("MemoryHigh=1800M");
     expect(build).toContain("MemoryMax=2100M");
     expect(build).toContain("MemorySwapMax=256M");
-    expect(build).toContain("RuntimeMaxSec=15m");
+    expect(build).toContain(
+      'BUILD_TIMEOUT="${PRODUCTION_BUILD_TIMEOUT:-20m}"',
+    );
+    expect(build).toContain('RuntimeMaxSec="$BUILD_TIMEOUT"');
     expect(build).toContain("OOMPolicy=stop");
     expect(build).toContain("--pipe");
     expect(build).toContain('PREVIOUS_BUILD=".next.previous"');

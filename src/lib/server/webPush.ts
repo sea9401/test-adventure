@@ -165,6 +165,20 @@ export function pushMessageForNotification(
         url: "/feedback",
         tag: "feedback-replied",
       };
+    case "lottery_won": {
+      const value = payload as {
+        roundId: number;
+        ranks: number[];
+        prizeAmount: number;
+      };
+      const bestRank = Math.min(...value.ranks);
+      return {
+        title: `🎫 복권 ${bestRank}등 당첨!`,
+        body: `제 ${value.roundId}회 복권에서 ${value.prizeAmount.toLocaleString()}G에 당첨되었습니다.`,
+        url: "/notifications",
+        tag: `lottery-won-${value.roundId}`,
+      };
+    }
     default:
       return null;
   }

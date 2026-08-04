@@ -81,6 +81,31 @@ describe("MessageList", () => {
     expect(html).not.toContain("pl-2");
   });
 
+  it("장비 링크를 클릭 가능한 옵션 보기 버튼으로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[
+          {
+            ...message,
+            content: "이 장비 어때요?",
+            itemLink: {
+              kind: "equipment",
+              itemId: "v2_iron_sword",
+              enhance: { level: 3, bonusPct: 10 },
+            },
+          },
+        ]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("이 장비 어때요?");
+    expect(html).toContain("[철검 +3]");
+    expect(html).toContain("철검 +3 아이템 옵션 보기");
+  });
+
   it("시스템 알림의 이름·시간·내용을 한 줄에 표시한다", () => {
     const html = renderToStaticMarkup(
       <MessageList

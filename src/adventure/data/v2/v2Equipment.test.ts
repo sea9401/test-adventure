@@ -256,15 +256,15 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 48 + 제작전용 50 + 전문화 스타터 3", () => {
+  it("기존 카탈로그에 폭풍 원정 전용 6T 19종을 더한다", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 189:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 138(밴드 흔한 풀 129 + 하드 산군 5T 6종 + 심연어룡 5T 3종,
+    //   전문화 스타터 3 · noDrop 157(기존 138 + 폭풍 원정 6T 19종,
     //     강등된 옛 필드 유니크 포함) · 유니크 48
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 268 = 정규 29 + 유니크 48 + 제작전용 50 + 전문화 스타터 3 + noDrop 138.
+    //     총 304 = 정규 29 + 유니크 48 + 제작전용 67 + 전문화 스타터 3 + noDrop 157.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -273,12 +273,12 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "정규 그리드",
     ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(50);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(67);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
-      "noDrop(밴드흔한+하드 보스+강등 필드유니크)",
-    ).toHaveLength(138);
+      "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
+    ).toHaveLength(157);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -334,9 +334,12 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
   it("제작 전용 장비는 상점 구매 불가지만 판매가는 가진다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
     expect(crafted.map((i) => i.id).sort()).toEqual([
+      "v2_crafted_abyss_mana_core",
       "v2_crafted_aether_necklace",
       "v2_crafted_astral_grimoire",
       "v2_crafted_aurora_crown",
+      "v2_crafted_berserker_husk",
+      "v2_crafted_blood_debt_greatsword",
       "v2_crafted_bulwark_shield",
       "v2_crafted_combo_boots",
       "v2_crafted_combo_bow",
@@ -350,6 +353,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_corrosion_gloves",
       "v2_crafted_corrosion_necklace",
       "v2_crafted_corrosion_ring",
+      "v2_crafted_first_dawn_shield",
       "v2_crafted_focus_boots",
       "v2_crafted_focus_gloves",
       "v2_crafted_focus_ring",
@@ -362,10 +366,17 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_guard_gauntlets",
       "v2_crafted_guard_greaves",
       "v2_crafted_guard_ring",
+      "v2_crafted_guillotine_greatsword",
+      "v2_crafted_immovable_bulwark",
       "v2_crafted_kingbreaker_axe",
       "v2_crafted_luminous_aegis_necklace",
       "v2_crafted_master_ring",
+      "v2_crafted_monopoly_gloves",
       "v2_crafted_oathblade",
+      "v2_crafted_oblivion_ring",
+      "v2_crafted_one_eye_oath",
+      "v2_crafted_overdrive_bow",
+      "v2_crafted_painless_relic",
       "v2_crafted_pulsestone_guard",
       "v2_crafted_pursuit_coat",
       "v2_crafted_pursuit_grips",
@@ -373,16 +384,22 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_pursuit_ring",
       "v2_crafted_runic_staff",
       "v2_crafted_spark_gloves",
+      "v2_crafted_stilled_chalice",
       "v2_crafted_stormlance",
       "v2_crafted_sunforge_blade",
+      "v2_crafted_thousand_league_boots",
+      "v2_crafted_thunder_lock_bow",
       "v2_crafted_thunder_oracle_grimoire",
       "v2_crafted_thundercoil_gloves",
       "v2_crafted_toxic_mist_gloves",
       "v2_crafted_trench_hymn_necklace",
       "v2_crafted_veinbreaker_bow",
       "v2_crafted_venom_gland_dagger",
+      "v2_crafted_venom_injector",
       "v2_crafted_voidstep_boots",
+      "v2_crafted_voidveil_robe",
       "v2_crafted_ward_plate",
+      "v2_crafted_white_night_grimoire",
       "v2_crafted_windstep_boots",
     ]);
     for (const item of crafted) {
@@ -448,13 +465,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("제작 전용 장비는 전용 태그 세트 여러 종류로 구성한다", () => {
+  it("기존 제작 세트와 세트 없는 5T 키카드를 함께 구성한다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
     const craftedSetIds = new Set<string>(CRAFTED_EQUIP_TAG_SET_IDS);
     const craftedSetPieces = crafted.filter((item) =>
       item.setTags?.some((tag) => craftedSetIds.has(tag)),
     );
-    expect(crafted).toHaveLength(50);
+    expect(crafted).toHaveLength(67);
     expect(craftedSetPieces).toHaveLength(40);
     expect(
       craftedSetPieces.every((item) =>
@@ -766,26 +783,27 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("tier 값이 1~13 범위 안에 있고 정수", () => {
+  it("tier 값이 현행 카탈로그 순서 안에 있고 정수", () => {
+    const validTiers = new Set(V2_EQUIP_CATALOG_TIER_ORDER);
     for (const item of Object.values(V2_EQUIPMENT)) {
       expect(Number.isInteger(item.tier)).toBe(true);
-      expect(item.tier).toBeGreaterThanOrEqual(1);
-      expect(item.tier).toBeLessThanOrEqual(13);
+      expect(validTiers.has(item.tier)).toBe(true);
     }
   });
 
-  it("표시 티어는 사냥터 장비 1~4T 압축 + 하드 보스 5T로 노출", () => {
+  it("표시 티어는 사냥터 1~4T, 하드 보스 5T, 폭풍 원정 6T로 노출", () => {
     expect(
       V2_EQUIP_CATALOG_TIER_ORDER.map((tier) =>
         v2EquipCatalogTierToDisplayTier(tier),
       ),
-    ).toEqual([1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5]);
+    ).toEqual([1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 6]);
     expect(v2EquipCatalogTierDisplayLabel(1)).toBe("1T");
     expect(v2EquipCatalogTierDisplayLabel(4)).toBe("2T");
     expect(v2EquipCatalogTierDisplayLabel(7)).toBe("3T");
     expect(v2EquipCatalogTierDisplayLabel(12)).toBe("4T");
     expect(v2EquipCatalogTierDisplayLabel(13)).toBe("5T");
-    expect(Object.keys(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL)).toHaveLength(5);
+    expect(v2EquipCatalogTierDisplayLabel(16)).toBe("6T");
+    expect(Object.keys(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL)).toHaveLength(6);
   });
 });
 

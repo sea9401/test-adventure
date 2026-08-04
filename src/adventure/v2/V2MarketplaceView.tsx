@@ -117,6 +117,7 @@ import {
   equippedInstanceForMarketplaceItem,
   equippedItemIdsForMarketplace,
 } from "./marketplace/equipmentComparison";
+import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 
 // v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시·음식 소모품 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -3682,7 +3683,7 @@ function ListingList({
         const clickable = l.kind === "equip" && !!onOpenCard;
         const info = (
           <>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span
                 className={`text-sm font-medium ${
                   item
@@ -3702,6 +3703,7 @@ function ListingList({
                 {l.itemName}
               </span>
               {item ? <EquipmentTierBadge tier={item.tier} compact /> : null}
+              {item ? <EquipmentCodexBadge itemId={item.id} /> : null}
               <EnhanceLevelBadge enhance={detail?.enhance} />
               <CraftQualityBadge craftQuality={detail?.craftQuality} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}

@@ -125,6 +125,7 @@ export type V2CommonSkillId =
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
   | "v2c_ritualist_guardingarray" // 호법진 (받는 피해 감소)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
+  | "v2c_shadow_shadowstep" // 그림자 도약 (전투당 1회·다음 공격 확정 회피)
   | "v2c_venomancer_miasma" // 맹독 확산 (중독 심화 + 중독 스택 비례딜)
   | "v2c_fieldmedic_treatment" // 현장 처치 (큰 자힐)
   | "v2c_extremesurvivor_struggle" // 사투 (회복 + 보호막)
@@ -955,6 +956,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [210, 210, 210], hpThresholdPct: 15, bonusMult: 2.2, scaling: "luk" },
     ],
+  },
+  v2c_shadow_shadowstep: {
+    id: "v2c_shadow_shadowstep", name: "그림자 도약", stat: "luk", category: "buff", tier: 3,
+    description: "그림자 속으로 몸을 감춘다. 전투당 한 번, 다음에 받는 공격을 반드시 회피한다.",
+    mpCost: 0, cooldown: 0, procChance: 100, oncePerBattle: true,
+    effects: [{ kind: "guaranteedEvade", count: 1 }],
   },
   v2c_venomancer_miasma: {
     // 맹독술사 = 독술사 위 계보. 중독 스택을 더 깊게 쌓고, 이미 걸린 중독을 LUK 비례 피해로 회수한다.
@@ -2165,10 +2172,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_blackmoon_dominion: {
     id: "v2c_blackmoon_dominion", name: "흑월지배", stat: "luk", category: "passive", tier: 3,
-    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 치명타 한계를 넘긴 감각이 스킬에도 실린다.",
+    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 공격을 피하면 다음 공격 스킬이 반드시 치명타가 된다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 22, critDmgPct: 24, skillCritOverflow: true },
+    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 22, critDmgPct: 24, skillCritAfterEvade: true },
   },
   v2c_myriadvenom_mutation: {
     id: "v2c_myriadvenom_mutation", name: "만독개화", stat: "luk", category: "attack", tier: 3,

@@ -720,3 +720,12 @@ export function isBigCatch(fishId: FishId, size: number): boolean {
   if (!f) return false;
   return size >= f.minSize + BIG_CATCH_FRACTION * (f.maxSize - f.minSize);
 }
+
+// "잔챙이" 판정 — 성장 보너스가 큰 낚시꾼도 획득 가능하도록 정확한 최솟값이 아니라
+// 종별 크기 범위의 하위 25%를 사용한다. 절대 길이가 아닌 종 안의 상대 크기 기준이다.
+export const TINY_CATCH_FRACTION = 0.25;
+export function isTinyCatch(fishId: FishId, size: number): boolean {
+  const f = FISH[fishId];
+  if (!f) return false;
+  return size <= f.minSize + TINY_CATCH_FRACTION * (f.maxSize - f.minSize);
+}

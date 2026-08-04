@@ -6,6 +6,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   Mountains,
   Package,
+  Question,
   Sword,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -77,6 +78,9 @@ import {
 import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { CodexEquipmentPanel } from "./CodexEquipmentPanel";
 import { CodexTitlePanel } from "./CodexTitlePanel";
+import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
+import { TUTORIAL_CODEX_INTRO } from "@/adventure/tutorial/flags";
+import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 
 // v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
@@ -154,6 +158,13 @@ export function codexTabFromParam(value: string | null): CodexTab {
   return CODEX_TABS.some((tab) => tab === value)
     ? (value as CodexTab)
     : "spFruit";
+}
+
+export function shouldShowCodexTutorial(
+  hasSeen: boolean,
+  replayRequested: boolean,
+): boolean {
+  return !hasSeen || replayRequested;
 }
 
 function equipPoolChance(pool: FloorEquipDropPool): number {
@@ -245,6 +256,16 @@ export function classifyCodexEquipmentIds(ids: V2EquipmentId[]): {
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
   const tabParam = useSearchParams().get("tab");
+  const { has: hasStoryFlag, set: setStoryFlag } = useStoryFlags();
+  const [tutorialReplayRequested, setTutorialReplayRequested] = useState(false);
+  const showTutorial = shouldShowCodexTutorial(
+    hasStoryFlag(TUTORIAL_CODEX_INTRO),
+    tutorialReplayRequested,
+  );
+  const dismissTutorial = () => {
+    setStoryFlag(TUTORIAL_CODEX_INTRO);
+    setTutorialReplayRequested(false);
+  };
   const [tab, setTab] = useState<CodexTab>(() =>
     codexTabFromParam(tabParam),
   );
@@ -524,7 +545,21 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
-      <SubViewHeader title="모험의 서" onBack={onBack} />
+      <SubViewHeader
+        title="모험의 서"
+        onBack={onBack}
+        right={
+          <button
+            type="button"
+            onClick={() => setTutorialReplayRequested(true)}
+            aria-label="모험의 서 이용 안내 다시 보기"
+            className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Question size={16} weight="bold" aria-hidden />
+            <span className="hidden sm:inline">안내</span>
+          </button>
+        }
+      />
       <div className="flex flex-wrap gap-1.5">
         {(
           [
@@ -1136,6 +1171,57 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           item={card.item}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+        />
+      )}
+
+      {showTutorial && (
+        <TutorialOverlayInner
+          title="모험의 서 이용 안내"
+          body={
+            <>
+              <p>
+                모험의 서는 플레이하며 발견한 정보와 영구 성장 기록을 한곳에
+                모아보는 도감입니다.
+              </p>
+              <ol className="space-y-3">
+                <li className="flex gap-2.5">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    1
+                  </span>
+                  <span>
+                    <strong>플레이하면 기록이 열립니다.</strong> 사냥터를 개척하고,
+                    직업을 해금하고, 물고기를 낚으면 해당 정보가 자동으로
+                    추가됩니다.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    2
+                  </span>
+                  <span>
+                    <strong>장비는 직접 등록해야 합니다.</strong> 장비 탭에서 보유
+                    장비를 등록할 수 있으며, 등록한 장비 개체는 영구적으로
+                    소모됩니다.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    3
+                  </span>
+                  <span>
+                    <strong>수집은 성장으로 이어집니다.</strong> 장비 도감과 어보의
+                    수집 단계는 SP 최대치에 반영되며, SP 수집 탭에서 전체 내역과
+                    다음 목표를 확인할 수 있습니다.
+                  </span>
+                </li>
+              </ol>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                이 안내는 오른쪽 위 물음표 버튼에서 언제든 다시 볼 수 있습니다.
+              </p>
+            </>
+          }
+          dismissLabel="모험의 서 살펴보기"
+          onDismiss={dismissTutorial}
         />
       )}
     </main>

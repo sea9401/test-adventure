@@ -69,7 +69,7 @@ import {
   IMPACT_WAVE_INTERVAL,
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
-  attackMissPct,
+  pvpAttackMissPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
@@ -443,7 +443,7 @@ export function advanceTurnPvP(
         skillEvadeBonus,
     );
     const attackerAccR = attacker.player.accRating ?? attacker.player.accuracyPct ?? 0;
-    const missPct = attackMissPct(defenderEvaR, attackerAccR);
+    const missPct = pvpAttackMissPct(defenderEvaR, attackerAccR);
     if (Math.random() * 100 < missPct) {
       return applyPerAttackDodge(
         state,
@@ -460,6 +460,7 @@ export function advanceTurnPvP(
         atkKey,
         defKey,
         `[행운의 방패] ${defender.name}이(가) 공격을 흘려보냈다.`,
+        false,
         false,
       );
     }

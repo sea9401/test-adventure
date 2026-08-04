@@ -62,13 +62,14 @@ export type V2EquipCatalogTier =
   | 10
   | 11
   | 12
-  | 13;
+  | 13
+  | 16;
 
 export const V2_EQUIP_CATALOG_TIER_ORDER: readonly V2EquipCatalogTier[] = [
-  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16,
 ];
 
-export type V2EquipDisplayTier = 1 | 2 | 3 | 4 | 5;
+export type V2EquipDisplayTier = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   V2EquipDisplayTier,
@@ -79,6 +80,7 @@ export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   3: "잊힌 성소~짐승의 소굴",
   4: "검은 왕도~심해 폐허",
   5: "하드 보스",
+  6: "폭풍 원정",
 };
 
 export function v2EquipCatalogTierToDisplayTier(
@@ -154,6 +156,8 @@ export type V2EquipOptions = {
   healPowerPct?: number;
   /** 치명저항 +%p — 몬스터/PvP 치명 확률을 직접 차감. 세트 보너스 위주로 사용. */
   critResist?: number;
+  /** 중독·출혈 등 상태이상 피해 감소율. 직접 피해와 둔화에는 적용하지 않는다. */
+  statusDamageReductionPct?: number;
 };
 
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
@@ -167,6 +171,7 @@ export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "magicDef",
   "healPowerPct",
   "critResist",
+  "statusDamageReductionPct",
 ];
 
 export type V2Equipment = {
@@ -269,6 +274,8 @@ const SHOP_CATALOG_TIER_BASE: Record<V2EquipCatalogTier, number> = {
   11: 99532800,
   12: 199065600,
   13: 398131200,
+  // 14~15는 아직 콘텐츠가 없고 첫 6T 원정 장비가 내부 16단계를 사용한다.
+  16: 3185049600,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -1031,12 +1038,19 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   magicDef: "마법방어",
   healPowerPct: "회복",
   critResist: "치명타 저항",
+  statusDamageReductionPct: "상태이상 피해 감소",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.
 const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   keyof V2EquipOptions
->(["crit", "eva", "healPowerPct", "critResist"]);
+>([
+  "crit",
+  "eva",
+  "healPowerPct",
+  "critResist",
+  "statusDamageReductionPct",
+]);
 
 // 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
@@ -1201,7 +1215,9 @@ function formatCompareDelta(label: string, delta: number): string {
   if (
     label === OPTION_LABELS.crit ||
     label === OPTION_LABELS.eva ||
-    label === OPTION_LABELS.healPowerPct
+    label === OPTION_LABELS.healPowerPct ||
+    label === OPTION_LABELS.critResist ||
+    label === OPTION_LABELS.statusDamageReductionPct
   ) {
     return `${sign}${a}%`;
   }

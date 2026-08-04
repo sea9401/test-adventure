@@ -21,7 +21,7 @@
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2Class } from "./classes";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
-import { HUNT_MONSTER_SPECIES_COUNT } from "./dungeon";
+import { HUNT_MONSTER_SPECIES_COUNT, huntStageName } from "./dungeon";
 import type { TitleId } from "../titles";
 import { COOKING_RECIPES } from "../../v2/cooking";
 
@@ -253,22 +253,22 @@ const GROWTH: QuestDef[] = [
     id: "g_depth5",
     line: "growth",
     title: "더 깊은 곳으로",
-    desc: "사냥터의 새 단계를 공략해 깊이 5까지 진출하세요.",
+    desc: "들판의 최심부를 공략하세요.",
     href: "/battle/dungeon",
     reward: { staminaPotions: 1 },
-    progress: (c) => c.frontierDepth,
-    goal: 5,
+    progress: (c) => Math.ceil(c.frontierDepth / 2),
+    goal: 3,
     check: (c) => c.frontierDepth >= 5,
   },
   {
     id: "g_frontier",
     line: "growth",
-    title: "프론티어 개척자",
-    desc: "전투 > 사냥터에서 프론티어 첫 테마 밴드(깊이 7)에 진입하세요.",
+    title: "새 사냥터 개척",
+    desc: "전투 > 사냥터에서 마른 협곡의 입구를 공략하세요.",
     href: "/battle/dungeon",
     reward: { staminaPotions: 1 },
-    progress: (c) => c.frontierDepth,
-    goal: 7,
+    progress: (c) => Math.ceil(c.frontierDepth / 2),
+    goal: 4,
     check: (c) => c.frontierDepth >= 7,
   },
   {
@@ -552,17 +552,31 @@ const COMBAT: QuestDef[] = [
   ]),
 ];
 
-const FRONTIER: QuestDef[] = milestones("frontier", "사냥터 깊이", (c) => c.frontierDepth, [
+const FRONTIER_MILESTONES: readonly Milestone[] = [
   { id: "b_band_canyon", title: "협곡 입성", goal: 7, points: 5 },
   { id: "frontier_13", title: "황야를 지나", goal: 13, points: 10 },
   { id: "a_depth25", title: "심층 개척", goal: 19, points: 10, badgeTier: "bronze" },
   { id: "frontier_25", title: "잊힌 길", goal: 25, points: 15 },
   { id: "b_band_swamp", title: "늪지 입성", goal: 31, points: 15 },
   { id: "a_depth40", title: "심연 개척", goal: 34, points: 20, badgeTier: "silver" },
-  { id: "frontier_48", title: "프론티어 원정대", goal: 48, points: 25 },
+  { id: "frontier_48", title: "사냥터 원정대", goal: 48, points: 25 },
   { id: "frontier_60", title: "심해의 문턱", goal: 60, points: 30, badgeTier: "gold" },
-  { id: "a_depth48", title: "프론티어의 끝", goal: 72, points: 50, titleId: "ach_frontier_end", badgeTier: "legendary" },
-]);
+  { id: "a_depth48", title: "사냥터의 끝", goal: 72, points: 50, titleId: "ach_frontier_end", badgeTier: "legendary" },
+];
+
+const FRONTIER: QuestDef[] = FRONTIER_MILESTONES.map((entry) => ({
+  id: entry.id,
+  line: "frontier",
+  title: entry.title,
+  desc: `${huntStageName(entry.goal)}를 돌파하세요.`,
+  reward: entry.titleId ? { titleId: entry.titleId } : {},
+  points: entry.points,
+  badgeTier: entry.badgeTier,
+  chain: "frontier:hunting-stage",
+  progress: (c) => Math.ceil(c.frontierDepth / 2),
+  goal: Math.ceil(entry.goal / 2),
+  check: (c) => c.frontierDepth >= entry.goal,
+}));
 
 const GROWTH_ACHIEVEMENTS: QuestDef[] = [
   ...milestones("growth_achievement", "총 직업 숙련도", (c) => c.cumLevel, [
@@ -937,7 +951,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
     tutorial: true,
   },
   { id: "combat", name: "전투와 토벌", subtitle: "전투 횟수·몬스터 도감·협동 보스 기록.", sequential: false },
-  { id: "frontier", name: "프론티어", subtitle: "현재 사냥터의 끝까지 이어지는 개척 기록.", sequential: false },
+  { id: "frontier", name: "사냥터 개척", subtitle: "현재 사냥터의 끝까지 이어지는 개척 기록.", sequential: false },
   { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·전투직 재전직 기록.", sequential: false },
   { id: "equipment", name: "장비와 도감", subtitle: "장비 수집·도감 등록·강화 기록.", sequential: false },
   { id: "arena_social", name: "경쟁과 교류", subtitle: "길드·거래소·투기장 승리 기록.", sequential: false },

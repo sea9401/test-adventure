@@ -718,6 +718,26 @@ body {
   }
 }
 
+@keyframes lottery-confetti-fall {
+  0% { transform: translate3d(0, -8vh, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate3d(30px, 110vh, 0) rotate(720deg); opacity: 0.9; }
+}
+
+@keyframes lottery-ticket-shine {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.16); }
+}
+
+@keyframes lottery-golden-halo {
+  0%, 100% { transform: scale(0.9); opacity: 0.45; }
+  50% { transform: scale(1.08); opacity: 0.75; }
+}
+
+.lottery-confetti { animation: lottery-confetti-fall 2.8s linear infinite; }
+.lottery-ticket-shine { animation: lottery-ticket-shine 1.8s ease-in-out infinite; }
+.lottery-golden-halo { animation: lottery-golden-halo 2.2s ease-in-out infinite; }
+
 @keyframes ui-toast-slide-in {
   0% {
     transform: translateY(8px);

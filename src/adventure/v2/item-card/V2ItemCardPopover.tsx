@@ -21,6 +21,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
@@ -121,6 +122,7 @@ export function V2ItemCard({
   compare,
   lock,
   equippedIds,
+  codexRegistered,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
@@ -142,6 +144,8 @@ export function V2ItemCard({
   // 현재 착용 중인 장비 id 집합 — 세트 발동(전 부위 착용) 판정 + 부위별 착용 하이라이트.
   //   미지정이면 착용 정보 없음으로 간주(전부 미착용·세트 미발동 표시).
   equippedIds?: ReadonlySet<V2EquipmentId>;
+  /** 독립 렌더링용 override. 일반 화면은 전역 장비 도감 상태를 자동 사용한다. */
+  codexRegistered?: boolean;
 }) {
   useEscapeKey(onClose);
 
@@ -212,6 +216,10 @@ export function V2ItemCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <EquipmentTierBadge tier={item.tier} />
               <ItemTypeChip item={item} />
+              <EquipmentCodexBadge
+                itemId={item.id}
+                registered={codexRegistered}
+              />
               <EnhanceLevelBadge enhance={enhance} />
               <CraftQualityBadge craftQuality={craftQuality} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}

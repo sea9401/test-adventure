@@ -14,6 +14,7 @@ import {
 import {
   MAX_FRONTIER_DEPTH,
   dungeonThemeCatalog,
+  huntStageName,
 } from "@/adventure/data/v2/dungeon";
 import { H2, P, UL, Em, Code, Table, Note } from "./primitives";
 
@@ -57,19 +58,19 @@ function rareMapRewardText(def: RareMapKind) {
 export function HuntingContent() {
   return (
     <>
-      <H2>사냥터와 프론티어</H2>
+      <H2>사냥터 진행</H2>
       <P>
         사냥은 <Em>사냥터</Em>를 고르는 것으로 시작합니다(전투 탭 → 사냥터).
-        사냥터는 <Em>깊이 1에서 이어지는 단일 프론티어</Em>로, 깊을수록 몬스터가
-        강해지고 보상도 커집니다.
+        각 사냥터에는 <Em>입구·심부·최심부</Em>의 3단계가 있으며, 뒤쪽 단계일수록
+        몬스터가 강해지고 보상도 커집니다.
       </P>
       <Table
-        head={["테마", "깊이"]}
+        head={["사냥터", "단계"]}
         rows={HUNTING_THEMES.map((theme) => [
           <Em key={theme.name}>{theme.name}</Em>,
-          `${theme.depthStart}~${theme.depthEnd}`,
+          "입구 · 심부 · 최심부",
         ])}
-        caption={`6깊이마다 테마와 몬스터·속성 구성이 바뀝니다. 현재 최고 도달 깊이보다 한 단계 높은 곳까지 도전할 수 있으며, 승리하면 다음 깊이가 열립니다. ${LAST_HUNTING_THEME?.name ?? "마지막 사냥터"}가 현재 프론티어의 끝입니다.`}
+        caption={`현재 단계에서 승리하면 다음 단계가 열리고, 최심부를 돌파하면 다음 사냥터로 이어집니다. ${LAST_HUNTING_THEME?.name ?? "마지막 사냥터"}가 현재 마지막 사냥터입니다.`}
       />
 
       <H2>사냥과 스태미나</H2>
@@ -102,20 +103,22 @@ export function HuntingContent() {
 
       <H2>원정</H2>
       <P>
-        프론티어 깊이 <Em>{STORM_EXPEDITION_UNLOCK_DEPTH}</Em>를 돌파하면 전투 탭의
+        <Em>{huntStageName(STORM_EXPEDITION_UNLOCK_DEPTH)}</Em>를 돌파하면 전투 탭의
         원정이 열립니다. 원정은 하루{" "}
         <Em>{STORM_EXPEDITION_DAILY_ATTEMPTS}회</Em> 입장할 수 있으며, 한 번의
-        원정은 연속된 <Em>{STORM_EXPEDITION_STAGE_COUNT}개 구간</Em>으로
-        구성됩니다.
+        원정은 <Em>{STORM_EXPEDITION_STAGE_COUNT}개 체크포인트</Em>와 그 안의
+        7개 전투로 구성됩니다.
       </P>
       <UL>
-        <li>항로를 고르면 HP와 MP를 유지한 채 다음 구간으로 이어서 싸웁니다.</li>
+        <li>세 항로 중 하나를 고르면 HP와 MP를 유지한 채 다음 구간으로 이어서 싸웁니다.</li>
+        <li>보급품, 야영지, 폭풍 제단, 최종 정비에서 회복이나 원정 전용 강화 효과를 선택할 수 있습니다.</li>
+        <li>원정마다 위험 이벤트 하나가 고정됩니다. 정확한 이익과 대가를 확인한 뒤 수락하거나 지나칠 수 있습니다.</li>
         <li>
-          구간을 돌파할 때마다 미확정 골드가 쌓입니다. 중간에 귀환하면 지금까지
-          모은 골드를 확보합니다.
+          적을 처치할 때마다 골드·재료·장비가 임시 가방에 쌓입니다. 중간에 귀환하면
+          지금까지 모은 전리품을 모두 확보합니다.
         </li>
         <li>
-          다음 구간에서 패배하면 해당 원정의 미확정 골드를 모두 잃습니다. 남은
+          다음 전투에서 패배하면 해당 원정의 임시 전리품을 모두 잃습니다. 남은
           상태와 보상을 보고 계속 진행할지 결정해야 합니다.
         </li>
       </UL>

@@ -11,11 +11,11 @@ export function StatsKpiCards({ rows }: { rows: EnrichedRow[] }) {
       <Card label="유저 수" value={`${summary.count}명`} />
       <Card label="평균 레벨" value={summary.avgLevel.toFixed(1)} />
       <Card
-        label="평균 프론티어"
+        label="평균 사냥터 진행"
         value={summary.avgFrontier.toFixed(1)}
       />
       <Card
-        label="최고 프론티어"
+        label="최고 사냥터 진행"
         value={summary.maxFrontier.toLocaleString()}
       />
       <Card label="평균 총 숙련도" value={summary.avgMastery.toLocaleString()} />
@@ -28,7 +28,7 @@ export function StatsKpiCards({ rows }: { rows: EnrichedRow[] }) {
   );
 }
 
-// 현재 코어루프 진척 분포 — 프론티어·직업·SP·생활.
+// 현재 코어루프 진척 분포 — 사냥터·직업·SP·생활.
 export function StatsDistributions({ rows }: { rows: EnrichedRow[] }) {
   const summary = useMemo(() => buildSummary(rows), [rows]);
   const frontierHistogram = useMemo(() => buildFrontierHistogram(rows), [rows]);
@@ -38,7 +38,7 @@ export function StatsDistributions({ rows }: { rows: EnrichedRow[] }) {
   return (
     <>
       <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-sm font-semibold">프론티어 분포</h2>
+        <h2 className="text-sm font-semibold">사냥터 진행 분포</h2>
         <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
           현재 사냥터 해금 깊이 기준입니다. 막대는 인원, 오른쪽은 해당 구간 평균 총 숙련도입니다.
         </p>

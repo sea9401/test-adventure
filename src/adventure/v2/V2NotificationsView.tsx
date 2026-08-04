@@ -15,6 +15,7 @@ import {
   ShieldWarning,
   Skull,
   Sword,
+  Ticket,
   UsersThree,
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
@@ -100,6 +101,13 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-emerald-600 dark:text-emerald-400"
+    />
+  ),
+  lottery_won: (
+    <Ticket
+      size={16}
+      weight="fill"
+      className="shrink-0 text-amber-600 dark:text-amber-300"
     />
   ),
 };
@@ -233,6 +241,22 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       </>
     );
   }
+  if (n.type === "lottery_won") {
+    const p = n.payload as {
+      roundId: number;
+      ranks: number[];
+      prizeAmount: number;
+    };
+    return (
+      <>
+        제 {p.roundId}회 복권에서{" "}
+        <span className="font-bold text-amber-700 dark:text-amber-300">
+          {Math.min(...p.ranks)}등 · {p.prizeAmount.toLocaleString()}G
+        </span>
+        에 당첨되었습니다
+      </>
+    );
+  }
   const p = n.payload as { byName?: string; gold?: number };
   return (
     <>
@@ -264,7 +288,8 @@ function NotificationRow({
       ? (item.payload as { feedbackId: number }).feedbackId
       : null;
   const farmReady = item.type === "farm_ready";
-  const actionable = Boolean(outpostId || feedbackId || farmReady);
+  const lotteryWon = item.type === "lottery_won";
+  const actionable = Boolean(outpostId || feedbackId || farmReady || lotteryWon);
 
   return (
     <button
@@ -275,6 +300,10 @@ function NotificationRow({
         else if (farmReady) {
           void acknowledgeFarmReadyNotification();
           onOpenFarm();
+        } else if (lotteryWon) {
+          window.dispatchEvent(
+            new CustomEvent("lottery:celebrate", { detail: item }),
+          );
         }
       }}
       disabled={!actionable}
@@ -407,6 +436,7 @@ export function V2NotificationsView({
         setNotifications((current) =>
           current?.map((item) =>
             item.readAt === null &&
+            item.type !== "lottery_won" &&
             (item.type !== "farm_ready" || farmReadyRead)
               ? { ...item, readAt }
               : item,

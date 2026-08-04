@@ -20,8 +20,26 @@ import {
   fishingLevelForXp,
   fishingLevelRewardCoins,
   fishingProgressionView,
+  fishingSizeBonusLabels,
   parseFishingProgression,
 } from "./fishingProgression";
+
+describe("낚시 크기 보정 표시", () => {
+  it("모든 어종·희귀 이상·상위 20% 보정의 적용 범위를 구분한다", () => {
+    expect(fishingSizeBonusLabels(FISHING_RODS.master_rod.bonuses)).toEqual([
+      "모든 어종 크기 +3%",
+      "희귀 이상 추가 크기 +5%",
+      "상위 20% 굴림 추가 크기 +1%",
+    ]);
+  });
+
+  it("폭풍 낚싯대에는 모든 어종 기본 크기 보정이 없음을 그대로 표시한다", () => {
+    expect(fishingSizeBonusLabels(FISHING_RODS.storm_rod.bonuses)).toEqual([
+      "희귀 이상 추가 크기 +3%",
+      "상위 20% 굴림 추가 크기 +4%",
+    ]);
+  });
+});
 
 describe("낚시 진행도", () => {
   it("깨진 저장값은 기본 낚싯대/미끼로 복구한다", () => {

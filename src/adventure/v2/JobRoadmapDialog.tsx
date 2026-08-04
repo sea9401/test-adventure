@@ -24,6 +24,7 @@ import {
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { jobCultivationSummary } from "./jobExplorer";
 import {
   buildJobRoadmap,
   type JobRoadmapNode,
@@ -39,6 +40,11 @@ export type JobRoadmapPlayerJob = {
   conditionRevealed?: boolean;
   cumLevel?: number;
   bonus?: string;
+  signatureSkills?: Array<{
+    id: string;
+    name: string;
+    kind: "active" | "passive";
+  }>;
   skillsCollected?: boolean;
 };
 
@@ -89,7 +95,8 @@ export function JobRoadmapDialog({
               전직 로드맵
             </h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              직업을 선택하면 전직 이력, 숙련도와 해금 조건을 확인할 수 있습니다.
+              다른 직업을 선택하면 아래에서 성장 방향과 대표 스킬을 미리 볼 수
+              있습니다.
             </p>
           </div>
           <button
@@ -128,67 +135,12 @@ export function JobRoadmapDialog({
           </RoadmapScroller>
 
           {selectedJob ? (
-            <div className={`${SURFACE_INSET} mt-3 p-3`}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {selectedJob.name}
-                    </h3>
-                    {selectedJob.id === currentJobId ? (
-                      <DetailBadge tone="current">현재 직업</DetailBadge>
-                    ) : selectedJob.visited ? (
-                      <DetailBadge tone="visited">전직 이력</DetailBadge>
-                    ) : selectedJob.unlocked !== false ? (
-                      <DetailBadge tone="available">해금됨</DetailBadge>
-                    ) : (
-                      <DetailBadge tone="locked">조건 부족</DetailBadge>
-                    )}
-                    {selectedJob.skillsCollected ? (
-                      <DetailBadge tone="collected">스킬 수집 완료</DetailBadge>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
-                    현재 숙련도 {Math.max(0, selectedJob.cumLevel ?? 0).toLocaleString("ko-KR")}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onSetGoal(
-                      selectedJob.id === goalJobId ? null : selectedJob.id,
-                    )
-                  }
-                  className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
-                    selectedJob.id === goalJobId
-                      ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <Star
-                    size={14}
-                    weight={selectedJob.id === goalJobId ? "fill" : "regular"}
-                  />
-                  {selectedJob.id === goalJobId ? "목표 해제" : "목표로 설정"}
-                </button>
-              </div>
-              <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                <div>
-                  <dt className="text-zinc-500 dark:text-zinc-400">해금 조건</dt>
-                  <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">
-                    {selectedJob.conditionRevealed === false
-                      ? "선행 직업을 해금하면 조건이 공개됩니다."
-                      : selectedJob.condition}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-zinc-500 dark:text-zinc-400">직업 보너스</dt>
-                  <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">
-                    {selectedJob.bonus || "별도 고정 보너스 없음"}
-                  </dd>
-                </div>
-              </dl>
-            </div>
+            <JobRoadmapDetails
+              job={selectedJob}
+              currentJobId={currentJobId}
+              goalJobId={goalJobId}
+              onSetGoal={onSetGoal}
+            />
           ) : null}
         </div>
 
@@ -209,6 +161,113 @@ export function JobRoadmapDialog({
       </div>
     </div>,
     document.body,
+  );
+}
+
+export function JobRoadmapDetails({
+  job,
+  currentJobId,
+  goalJobId,
+  onSetGoal,
+}: {
+  job: JobRoadmapPlayerJob;
+  currentJobId: string;
+  goalJobId: string | null;
+  onSetGoal: (jobId: string | null) => void;
+}) {
+  const cultivation = jobCultivationSummary(job.id);
+  const tierLabel = job.tier <= 0 ? "루트 직업" : `${job.tier}차 직업`;
+
+  return (
+    <section
+      aria-live="polite"
+      aria-label={`${job.name} 직업 정보`}
+      className={`${SURFACE_INSET} mt-3 p-3`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+              {job.name}
+            </h3>
+            <DetailBadge tone="tier">{tierLabel}</DetailBadge>
+            {job.id === currentJobId ? (
+              <DetailBadge tone="current">현재 직업</DetailBadge>
+            ) : job.visited ? (
+              <DetailBadge tone="visited">전직 이력</DetailBadge>
+            ) : job.unlocked !== false ? (
+              <DetailBadge tone="available">해금됨</DetailBadge>
+            ) : (
+              <DetailBadge tone="locked">조건 부족</DetailBadge>
+            )}
+            {job.skillsCollected ? (
+              <DetailBadge tone="collected">스킬 수집 완료</DetailBadge>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+            내 숙련도{" "}
+            {Math.max(0, job.cumLevel ?? 0).toLocaleString("ko-KR")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+          className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
+            job.id === goalJobId
+              ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+              : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          }`}
+        >
+          <Star
+            size={14}
+            weight={job.id === goalJobId ? "fill" : "regular"}
+          />
+          {job.id === goalJobId ? "목표 해제" : "목표로 설정"}
+        </button>
+      </div>
+      <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">해금 조건</dt>
+          <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">
+            {job.conditionRevealed === false
+              ? "선행 직업을 해금하면 조건이 공개됩니다."
+              : job.condition}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">직업 보너스</dt>
+          <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">
+            {job.bonus || "별도 고정 보너스 없음"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">수행 성장</dt>
+          <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">
+            {cultivation || "수행 성장 정보 없음"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">대표 스킬</dt>
+          <dd className="mt-1 flex flex-wrap gap-1.5 text-zinc-800 dark:text-zinc-200">
+            {job.signatureSkills?.length ? (
+              job.signatureSkills.map((skill) => (
+                <span
+                  key={skill.id}
+                  className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <span>{skill.name}</span>
+                  <span className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
+                    {skill.kind === "passive" ? "패시브" : "액티브"}
+                  </span>
+                </span>
+              ))
+            ) : (
+              <span>전용 스킬 정보 없음</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
@@ -557,7 +616,13 @@ function DetailBadge({
   tone,
   children,
 }: {
-  tone: "current" | "visited" | "available" | "locked" | "collected";
+  tone:
+    | "current"
+    | "visited"
+    | "available"
+    | "locked"
+    | "collected"
+    | "tier";
   children: React.ReactNode;
 }) {
   const toneClass = {
@@ -566,6 +631,7 @@ function DetailBadge({
     available: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
     locked: "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
     collected: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+    tier: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
   }[tone];
   return (
     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${toneClass}`}>

@@ -5,6 +5,7 @@ import {
   hasEnoughLotteryParticipants,
   lotteryPrizeAmounts,
   lotteryRoundWindow,
+  lotteryWinNotices,
   parseLotteryCommand,
 } from "./lottery";
 
@@ -51,6 +52,35 @@ describe("lottery rules", () => {
     expect(hasEnoughLotteryParticipants(0)).toBe(false);
     expect(hasEnoughLotteryParticipants(2)).toBe(false);
     expect(hasEnoughLotteryParticipants(3)).toBe(true);
+  });
+
+  it("한 유저의 복수 당첨을 회차별 알림 한 건으로 묶는다", () => {
+    expect(
+      lotteryWinNotices(22, [
+        { userId: "me", rank: 1, ticketNumber: 7, prizeAmount: 700_000 },
+        { userId: "other", rank: 2, ticketNumber: 14, prizeAmount: 200_000 },
+        { userId: "me", rank: 3, ticketNumber: 22, prizeAmount: 100_000 },
+      ]),
+    ).toEqual([
+      {
+        userId: "me",
+        payload: {
+          roundId: 22,
+          ranks: [1, 3],
+          ticketNumbers: [7, 22],
+          prizeAmount: 800_000,
+        },
+      },
+      {
+        userId: "other",
+        payload: {
+          roundId: 22,
+          ranks: [2],
+          ticketNumbers: [14],
+          prizeAmount: 200_000,
+        },
+      },
+    ]);
   });
 
   it("/복권은 1장, 숫자는 1~10장만 허용한다", () => {

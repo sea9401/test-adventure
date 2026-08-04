@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle,
   HandFist,
@@ -42,6 +42,7 @@ import {
   EquipmentCodexBulkDialog,
   type EquipmentCodexBulkCandidate,
 } from "./EquipmentCodexBulkDialog";
+import { useEquipmentCodexContext } from "./GameStateProvider";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -225,6 +226,9 @@ export function CodexEquipmentPanel({
   onShowCard: (card: { item: V2Equipment; anchor: ItemCardAnchor }) => void;
 }) {
   const { notifyReward } = useRewardToast();
+  const equipmentCodexContext = useEquipmentCodexContext();
+  const replaceRegisteredEquipmentIds =
+    equipmentCodexContext?.replaceRegisteredIds;
   const [equipmentRegisteredIds, setEquipmentRegisteredIds] = useState<
     Set<string>
   >(new Set());
@@ -252,25 +256,31 @@ export function CodexEquipmentPanel({
     new Set(),
   );
 
-  function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
-    if (!j) return;
-    const ids = Array.isArray(j.registeredIds)
-      ? j.registeredIds.filter((id): id is string => typeof id === "string")
-      : [];
-    setEquipmentRegisteredIds(new Set(ids));
-    setEquipmentCodexMeta({
-      registeredCount:
-        typeof j.registeredCount === "number" ? j.registeredCount : ids.length,
-      total: typeof j.total === "number" ? j.total : EQUIPMENT_IDS.length,
-      spBonus: typeof j.spBonus === "number" ? j.spBonus : 0,
-      milestones: Array.isArray(j.milestones)
-        ? j.milestones.filter((n): n is number => typeof n === "number")
-        : [],
-      nextMilestone:
-        typeof j.nextMilestone === "number" ? j.nextMilestone : null,
-    });
-    setEquipmentCraftRecords(parseEquipmentCraftRecords(j.craftRecords));
-  }
+  const applyEquipmentCodexPayload = useCallback(
+    (j: EquipmentCodexResponse | null) => {
+      if (!j) return;
+      const ids = Array.isArray(j.registeredIds)
+        ? j.registeredIds.filter((id): id is string => typeof id === "string")
+        : [];
+      setEquipmentRegisteredIds(new Set(ids));
+      replaceRegisteredEquipmentIds?.(ids);
+      setEquipmentCodexMeta({
+        registeredCount:
+          typeof j.registeredCount === "number"
+            ? j.registeredCount
+            : ids.length,
+        total: typeof j.total === "number" ? j.total : EQUIPMENT_IDS.length,
+        spBonus: typeof j.spBonus === "number" ? j.spBonus : 0,
+        milestones: Array.isArray(j.milestones)
+          ? j.milestones.filter((n): n is number => typeof n === "number")
+          : [],
+        nextMilestone:
+          typeof j.nextMilestone === "number" ? j.nextMilestone : null,
+      });
+      setEquipmentCraftRecords(parseEquipmentCraftRecords(j.craftRecords));
+    },
+    [replaceRegisteredEquipmentIds],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -302,7 +312,7 @@ export function CodexEquipmentPanel({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [applyEquipmentCodexPayload]);
 
   async function submitEquipmentCodexRegistration(inst: V2EquipInstance) {
     const res = await fetch("/api/v2/me/equipment-codex", {

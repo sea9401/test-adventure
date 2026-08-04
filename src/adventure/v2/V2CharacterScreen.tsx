@@ -6,8 +6,11 @@ import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
-import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
-import { floorAccuracy } from "@/adventure/data/v2/dungeonLadder";
+import { pveDodgeChance } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  floorAccuracy,
+  underpreparedAccuracyMult,
+} from "@/adventure/data/v2/dungeonLadder";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -301,10 +304,14 @@ export function V2CharacterScreen({
               combat.evaRating != null
                 ? {
                     ...combat,
-                    evasionPct: dodgeChance(
-                      combat.evaRating,
-                      floorAccuracy(state?.frontierDepth ?? 2),
-                    ),
+                    evasionPct: (() => {
+                      const depth = state?.frontierDepth ?? 2;
+                      return pveDodgeChance(
+                        combat.evaRating,
+                        floorAccuracy(depth) *
+                          underpreparedAccuracyMult(depth, combat.power),
+                      );
+                    })(),
                   }
                 : combat
             }

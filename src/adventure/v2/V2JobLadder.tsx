@@ -48,6 +48,12 @@ export type JobLadderEntry = {
   visited?: boolean;
   // 직업 내장 스탯 보너스(현재 직업일 때 적용) 표기. 예: "활력 +12 · 힘 +6". 없으면 빈 문자열.
   bonus?: string;
+  // 로드맵에서 다른 직업을 선택했을 때 보여주는 대표 스킬의 가벼운 미리보기.
+  signatureSkills?: Array<{
+    id: string;
+    name: string;
+    kind: "active" | "passive";
+  }>;
   // 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일 기준) — "수집 완료" 배지용.
   skillsCollected?: boolean;
 };

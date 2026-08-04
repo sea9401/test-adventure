@@ -59,6 +59,8 @@ import type {
   AutoGatheringActivity,
   AutoGatheringStatus,
 } from "@/adventure/v2/autoGathering";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import { parseEquipmentCodex } from "@/adventure/data/v2/equipmentCodex";
 
 // 신규/미방문 플레이어의 기본 현재 거점 — 인접 게이트의 부트스트랩 기준점.
 const START_OUTPOST = OUTPOSTS.find((o) => o.id === START_OUTPOST_ID)!;
@@ -172,7 +174,16 @@ type GameStateSnapshot = {
     readyAt?: number;
     serverNow?: number;
   } | null;
+  equipmentCodex?: {
+    registeredIds?: string[];
+  };
 } | null;
+
+type EquipmentCodexContextValue = {
+  registeredIds: ReadonlySet<V2EquipmentId>;
+  loaded: boolean;
+  replaceRegisteredIds: (ids: readonly string[]) => void;
+};
 
 type GameStateValue = {
   // 신원/캐릭터
@@ -335,6 +346,9 @@ function tileSettlementErrorMessage(
 }
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
+const EquipmentCodexCtx = createContext<EquipmentCodexContextValue | null>(
+  null,
+);
 
 export function useGameState(): GameStateValue {
   const ctx = useContext(GameStateCtx);
@@ -342,6 +356,12 @@ export function useGameState(): GameStateValue {
     throw new Error("useGameState must be used inside <GameStateProvider>");
   }
   return ctx;
+}
+
+// 장비가 노출되는 여러 화면에서 도감 상태만 구독한다. 별도 컨텍스트로 분리해 골드·HP처럼
+// 자주 바뀌는 GameState 값 때문에 모든 장비 배지가 다시 렌더링되지 않게 한다.
+export function useEquipmentCodexContext(): EquipmentCodexContextValue | null {
+  return useContext(EquipmentCodexCtx);
 }
 
 export function GameStateProvider({ children }: { children: React.ReactNode }) {
@@ -440,8 +460,19 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [autoGathering, setAutoGathering] =
     useState<AutoGatheringStatus | null>(null);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
+  const [registeredEquipmentIds, setRegisteredEquipmentIds] = useState<
+    Set<V2EquipmentId>
+  >(() => new Set());
+  const [equipmentCodexLoaded, setEquipmentCodexLoaded] = useState(false);
   // 최초 me/state 로드 완료 여부 — 성공/실패 무관하게 끝나면 true(아래 finally).
   const [gameStateLoaded, setGameStateLoaded] = useState(false);
+
+  const replaceRegisteredIds = useCallback((ids: readonly string[]) => {
+    setRegisteredEquipmentIds(
+      new Set(parseEquipmentCodex({ registeredIds: ids }).registeredIds),
+    );
+    setEquipmentCodexLoaded(true);
+  }, []);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
   // ChatPanel 의 "접속 N명" 목록이 이걸로 채워진다. + 응답 buildVersion 불일치 시 옛 탭 자동 새로고침.
@@ -641,6 +672,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           Math.min(MAX_FRONTIER_DEPTH, Math.max(2, j.frontierDepth)),
         );
       }
+      if (Array.isArray(j.equipmentCodex?.registeredIds)) {
+        replaceRegisteredIds(j.equipmentCodex.registeredIds);
+      }
 
       const cc = j.combatCooldown;
       applyResourcePatch({
@@ -694,7 +728,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         setOfflineHunt({ active: false, endsAt: 0, depth: 0 });
       }
     },
-    [applyResourcePatch],
+    [applyResourcePatch, replaceRegisteredIds],
   );
 
   const refreshGameState = useCallback(async () => {
@@ -1150,7 +1184,20 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     clearTileActionError,
   ]);
 
+  const equipmentCodexValue = useMemo<EquipmentCodexContextValue>(
+    () => ({
+      registeredIds: registeredEquipmentIds,
+      loaded: equipmentCodexLoaded,
+      replaceRegisteredIds,
+    }),
+    [equipmentCodexLoaded, registeredEquipmentIds, replaceRegisteredIds],
+  );
+
   return (
-    <GameStateCtx.Provider value={value}>{children}</GameStateCtx.Provider>
+    <GameStateCtx.Provider value={value}>
+      <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
+        {children}
+      </EquipmentCodexCtx.Provider>
+    </GameStateCtx.Provider>
   );
 }

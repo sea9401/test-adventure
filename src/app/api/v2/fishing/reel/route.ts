@@ -25,7 +25,8 @@ import {
   clientIpFromRequest,
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
-import { FISH, isBigCatch } from "@/adventure/data/v2/fish";
+import { FISH, isBigCatch, isTinyCatch } from "@/adventure/data/v2/fish";
+import { TINY_CATCH_TITLE_ID } from "@/adventure/data/titles";
 import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
   addJobHistory,
@@ -107,6 +108,7 @@ import {
 } from "@/lib/server/v2Coop";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -346,6 +348,15 @@ export async function POST(req: Request) {
       session.size,
       new Date(now),
     );
+
+    if (isTinyCatch(session.fishId, session.size)) {
+      await grantTitleIfMissingInTx(
+        tx,
+        userId,
+        TINY_CATCH_TITLE_ID,
+        now,
+      );
+    }
 
     // 일일 낚시 도전과제 — 그날 카운터를 올린다(일 경계 롤오버는 applyDailyCatch 내부). 같은 tx.
     //   락 순서: 세션 → 코덱스 → 일일트래커 → (조각). claim 라우트는 일일트래커 → 지갑이라 순환 없음.

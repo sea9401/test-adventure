@@ -50,6 +50,8 @@ export type WorkshopRecipeView = {
   resourceOk: boolean;
   materialOk?: boolean;
   costText: string;
+  goldCost: number;
+  goldOk: boolean;
   canCraft: boolean;
   requiredSmithyLevel: number;
   masterwork?: {
@@ -62,6 +64,8 @@ export type WorkshopRecipeView = {
     cost?: Partial<Record<ProductionKind, number>>;
     materialCost?: Partial<Record<string, number>>;
     costText: string;
+    goldCost: number;
+    goldOk: boolean;
     plus2Unlocked: boolean;
   };
 };
@@ -109,6 +113,7 @@ export type GuildWorkshopBonusView = {
 
 export type WorkshopState = {
   hasGuildSmithy: boolean;
+  spendableGold: number;
   resources: SettlementResources;
   materials: Record<string, number>;
   artisan: { blacksmith: ArtisanProfessionView };
@@ -287,7 +292,7 @@ export const ERROR_TEXT: Record<string, string> = {
   insufficient_materials: "제작 재료가 부족합니다.",
   insufficient_base_equipment:
     "장착·잠금되지 않은 하위 장비가 필요합니다.",
-  insufficient_gold: "외부 이용료를 낼 골드가 부족합니다.",
+  insufficient_gold: "제작 수수료 또는 외부 이용료를 낼 골드가 부족합니다.",
   policy_blocked: "점령 길드가 길드원 전용으로 설정한 제작소입니다.",
 };
 
@@ -360,7 +365,7 @@ export function weeklyMetricLabel(metric: WeeklyQuestView["metric"]): string {
 
 function normalizeWorkshopEquipmentTier(tierRaw: number): V2EquipCatalogTier {
   return Math.min(
-    13,
+    16,
     Math.max(1, Math.floor(Number(tierRaw) || 1)),
   ) as V2EquipCatalogTier;
 }
@@ -713,6 +718,7 @@ export function recipeInfoPillClass(ok: boolean | null = null): string {
 }
 
 export function recipeCanPayText(recipe: WorkshopRecipeView): string {
+  if (!recipe.goldOk) return "골드 부족";
   if (!recipe.resourceOk && recipe.materialOk === false) return "재료 부족";
   if (!recipe.resourceOk) return "등급 원목/광석 부족";
   if (recipe.materialOk === false) return "재료 부족";
@@ -722,6 +728,7 @@ export function recipeCanPayText(recipe: WorkshopRecipeView): string {
 export function masterworkCanPayText(recipe: WorkshopRecipeView): string {
   const masterwork = recipe.masterwork;
   if (!masterwork) return "명장 정보 없음";
+  if (!masterwork.goldOk) return "골드 부족";
   if (!masterwork.resourceOk && !masterwork.materialOk) return "재료 부족";
   if (!masterwork.resourceOk) return "등급 원목/광석 부족";
   if (!masterwork.materialOk) return "재료 부족";
@@ -736,7 +743,7 @@ export function masterworkBlockedText(recipe: WorkshopRecipeView): string | null
     return `대장장이 Lv ${masterwork.requiredArtisanLevel}에 명장 제작 해금`;
   }
   if (!recipe.smithyLevelOk) return `제작소 Lv ${recipe.requiredSmithyLevel} 필요`;
-  if (!masterwork.resourceOk || !masterwork.materialOk) {
+  if (!masterwork.goldOk || !masterwork.resourceOk || !masterwork.materialOk) {
     return masterworkCanPayText(recipe);
   }
   return null;

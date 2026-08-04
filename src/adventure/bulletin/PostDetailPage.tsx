@@ -119,8 +119,8 @@ export function PostDetailPage({
 
       <Card padding="none" className="-mx-2 px-5 py-4 sm:-mx-4 sm:px-6">
         <header className="border-b border-zinc-200 pb-4 dark:border-zinc-700">
-          <div className="flex items-start gap-4">
-            <div className="min-w-0 flex-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-start gap-x-4 gap-y-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+            <div className="min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span
@@ -164,56 +164,48 @@ export function PostDetailPage({
                   ? post.title
                   : "(제목 없음)"}
               </h2>
-
-              <div className="mt-4 flex min-w-0 items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
-                {post.mine || post.category === "notice" ? (
-                  // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
-                  <span className="min-w-0 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                    {post.name}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onRequestSendMessage(post.name)}
-                    title="쪽지 보내기"
-                    className="min-w-0 truncate rounded text-sm font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
-                  >
-                    {post.name}
-                  </button>
-                )}
-                {post.authorActivity && (
-                  <BulletinActivityBadge
-                    activity={post.authorActivity}
-                    showTitle
-                  />
-                )}
-                <span
-                  className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400"
-                  aria-hidden="true"
-                >
-                  ·
-                </span>
-                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {post.className}
-                </span>
-                <span
-                  className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400"
-                  aria-hidden="true"
-                >
-                  ·
-                </span>
-                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {formatDateTime(post.createdAt)}
-                </span>
-                {post.updatedAt != null && (
-                  <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    (수정됨)
-                  </span>
-                )}
-              </div>
             </div>
 
-            <AuthorPortrait post={post} />
+            <div className="col-start-2 row-start-1 sm:row-span-2">
+              <AuthorPortrait post={post} />
+            </div>
+
+            <div className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 sm:col-span-1 sm:col-start-1">
+              {post.mine || post.category === "notice" ? (
+                // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
+                <span className="max-w-full shrink-0 break-all text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  {post.name}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onRequestSendMessage(post.name)}
+                  title="쪽지 보내기"
+                  className="max-w-full shrink-0 break-all rounded text-sm font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
+                >
+                  {post.name}
+                </button>
+              )}
+              {post.authorActivity && (
+                <BulletinActivityBadge
+                  activity={post.authorActivity}
+                  showTitle
+                />
+              )}
+              <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span aria-hidden="true">· </span>
+                {post.className}
+              </span>
+              <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span aria-hidden="true">· </span>
+                {formatDateTime(post.createdAt)}
+              </span>
+              {post.updatedAt != null && (
+                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  (수정됨)
+                </span>
+              )}
+            </div>
           </div>
         </header>
 

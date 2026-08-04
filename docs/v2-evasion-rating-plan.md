@@ -1,5 +1,9 @@
 # v2 회피 재설계 — 절대 %캡 → 명중 대결형 레이팅 (설계 + sim 검증)
 
+> 2026-08-05 후속 조정: 플레이어 생존용 PvE 대결은 `PVE_DODGE_K=6`, PvP는
+> `PVP_DODGE_K=7`, 플레이어→PvE 적 명중 대결은 기존 `DODGE_K=8`을 사용한다. 권장 전투력 미달 시 몬스터
+> HP·ATK 배율은 유지하되 명중 배율은 최대 `2`로 제한한다.
+
 2026-06-21 오너 세션. 선행 = [project-v2-dex-dominance-diagnosis] 메모리 + DEX 재밸런스 PR-1/2(머지).
 프로토타입 sim: `scripts/sim-v2-evasion-rating.ts` (`node --import tsx ...`).
 
@@ -69,7 +73,7 @@ PvP·플레이어명중·UI는 evasionPct(캡) 그대로 = Slice 2.
 - **derive**: `evaRating`(캡 없는 raw) 신설 + 노출. `evasionPct = min(evaRating, 75)` 유지(PvP/UI/표시).
 - **engine.enemyPhase**: `min(eva,75) − 몹명중` → `dodgeChance(evaRatingTotal, 몹명중)`. 버프/한기슬로우는 레이팅 가산(점감).
 - **dungeonLadder**: `floorAccuracy(depth) = MOB_ACC_BASE × floorStatMult(depth)`. **monsterScale** 가 몹 accuracy 에 합산.
-- **v2CombatConstants**: `DODGE_MAX 75`·`DODGE_K 8`·`dodgeChance` 헬퍼.
+- **v2CombatConstants**: `DODGE_MAX 75`·`DODGE_K 8`·`PVP_DODGE_K 7`·`PVE_DODGE_K 6` 회피 헬퍼.
 
 ### 🔑 win-rate 캘리브 발견 (회피%-only 캘리브의 함정)
 회피%-only 캘리브의 `ACC_BASE 1.05`(DEX 34%)는 **실제 승률에서 필드 회귀**(STR 94→73·LUK 76→63) — 몹 명중으로
@@ -85,8 +89,9 @@ tsc0·vitest1960·골든 재생성(derive=evaRating 필드 추가·PvE 지문=do
 - **Slice 2 ✅ (2026-06-22 구현 — §3-C)**: 플레이어→몹 + PvP 양방향 대결형 + 명중캡 35 제거.
 
 ## 3-C. Slice 2 구현 (이번 PR — 플레이어→몹 + PvP 양방향) ✅
-양방향 대칭 완성. **공통 헬퍼** `attackMissPct(defEvaR, atkAccR)` = `max(0, V2_BASE_MISS_PCT − atkAccR) + dodgeChance(defEvaR, atkAccR)` 를 4 호출처에 배선:
-PvE 평타(engine.playerPhase) · PvE 스킬(engine.ts) · PvP 평타(engine.pvpPhase) · PvP 스킬(engine-pvp). PvP 는
+양방향 대칭 완성. `attackMissPct(defEvaR, atkAccR)`를 PvE 평타(engine.playerPhase)·PvE 스킬(engine.ts)에,
+`pvpAttackMissPct(defEvaR, atkAccR)`를 PvP 평타(engine.pvpPhase)·PvP 스킬(engine-pvp)에 배선한다. 둘 다
+`max(0, V2_BASE_MISS_PCT − atkAccR) + 회피 대결` 구조이며, PvP는 별도 `PVP_DODGE_K=7`을 쓴다.
 attacker/defender flip 으로 자동 대칭. **derive**: `accRating`(캡 없는 raw + 기본명중) 노출. `accuracyPct`(캡 35)·
 `evasionPct`(캡 75)는 표시 전용으로 강등. **UI**: me/state `accRating` 노출 · StatsPanel "명중"=`90 + accRating`(캡 35 대신).
 

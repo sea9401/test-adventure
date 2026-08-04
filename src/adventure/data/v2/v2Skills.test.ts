@@ -115,6 +115,17 @@ describe("결계사 마법 방어 패시브", () => {
   });
 });
 
+describe("흑월지배 회피 연계 패시브", () => {
+  it("장착 집계와 상세 설명이 회피 후 다음 스킬 확정 치명타를 노출한다", () => {
+    const passive = aggregateEquippedPassives(["v2c_blackmoon_dominion"]);
+    expect(passive.skillCritAfterEvade).toBe(true);
+    expect(passive.skillCritOverflow).toBe(false);
+    expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
+      "회피 후 다음 직접 피해 스킬 확정 치명타",
+    );
+  });
+});
+
 describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 시너지)", () => {
   it("v2c_guardian_bulwark3 = 방어 20%(받피감→방어% 전환)", () => {
     expect(V2_SKILLS.v2c_guardian_bulwark3?.passive?.defPct).toBe(20);
@@ -506,6 +517,16 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_steelguard)).toEqual({
       kind: "always",
     });
+    // 전투당 1회 보장 회피는 첫 턴에 사용하는 생존 오프너.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_shadow_shadowstep)).toEqual({
+      kind: "turn", op: "atMost", value: 1,
+    });
+    expect(describeV2Skill(V2_SKILLS.v2c_shadow_shadowstep)).toContain(
+      "다음 공격 1회 확정 회피",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_shadow_shadowstep)).toContain(
+      "전투당 1회",
+    );
   });
 
   it("명상은 기본 패턴에서 '항상' 이 아니다 (매 턴 발동 → 공격 안 함 버그 방지)", () => {
@@ -601,12 +622,12 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips).toContain("속성 대지");
   });
 
-  it("피해 계수는 실제 기반 스탯을 앞에 명시한다", () => {
+  it("피해 계수는 공격 기반선과 특화 스탯을 구분해 명시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
-      "피해 마법 공격력×0.75 +98",
+      "피해 마법 공격력×1.3",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
-      "피해 방어력×1.3 +101",
+      "피해 공격력×1.05 + 방어력×1.3",
     );
   });
 
@@ -625,12 +646,12 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
-        chip.includes("공격력×0.65 +91"),
+        chip.includes("공격력×1.3"),
       ),
     ).toBe(true);
     expect(
       describeV2Skill(V2_SKILLS.v2c_fortressknight_ram).some((chip) =>
-        chip.includes("방어력×1.71 +399"),
+        chip.includes("공격력×1.2 + 방어력×1.71"),
       ),
     ).toBe(true);
 

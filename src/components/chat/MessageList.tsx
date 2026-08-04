@@ -121,7 +121,7 @@ export function MessageList({
               </span>
               {tab === "notice" && (
                 <span className="ml-1.5 min-w-0 truncate">
-                  <MessageBody content={body.text} />
+                  <MessageBody content={body.text} itemLink={m.itemLink} />
                 </span>
               )}
               {tab === "notice" && body.action && (
@@ -136,7 +136,7 @@ export function MessageList({
               </div>
               {tab !== "notice" && (
                 <div className="whitespace-pre-wrap break-words leading-relaxed">
-                  <MessageBody content={body.text} />
+                  <MessageBody content={body.text} itemLink={m.itemLink} />
                 </div>
               )}
               </div>

@@ -1,6 +1,8 @@
 import {
   attackMissPct,
-  dodgeChance,
+  pveDodgeChance,
+  pvpAttackMissPct,
+  pvpDodgeChance,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { actionInterval } from "@/adventure/v2/combat/combatTimeline";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -24,13 +26,18 @@ function clampPct(value: number): number {
 export function combatMatchupResult(
   player: CombatMatchupRatings,
   enemy: CombatMatchupRatings,
+  ruleset: "pve" | "pvp" = "pve",
 ): CombatMatchupResult {
   const playerDodgePct = clampPct(
-    dodgeChance(player.evasionRating, enemy.accuracyRating),
+    ruleset === "pve"
+      ? pveDodgeChance(player.evasionRating, enemy.accuracyRating)
+      : pvpDodgeChance(player.evasionRating, enemy.accuracyRating),
   );
   return {
     playerHitPct: clampPct(
-      100 - attackMissPct(enemy.evasionRating, player.accuracyRating),
+      100 - (ruleset === "pvp"
+        ? pvpAttackMissPct(enemy.evasionRating, player.accuracyRating)
+        : attackMissPct(enemy.evasionRating, player.accuracyRating)),
     ),
     playerDodgePct,
     enemyHitPct: clampPct(100 - playerDodgePct),
@@ -66,13 +73,15 @@ export function CombatMatchupSummary({
   enemy,
   enemyLabel = "적",
   heading = "명중·회피 예상",
+  ruleset = "pve",
 }: {
   player: CombatMatchupRatings;
   enemy: CombatMatchupRatings;
   enemyLabel?: string;
   heading?: string | false;
+  ruleset?: "pve" | "pvp";
 }) {
-  const result = combatMatchupResult(player, enemy);
+  const result = combatMatchupResult(player, enemy, ruleset);
   const actionRatio =
     player.speed != null && enemy.speed != null
       ? actionFrequencyLabel(player.speed, enemy.speed)

@@ -296,6 +296,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveSpdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
   passiveSkillCritOverflow?: boolean;
+  /** 흑월지배 — 회피 후 다음 직접 피해 스킬 확정 치명타. 장착 패시브에서 주입. */
+  passiveSkillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 장착 패시브에서 주입. */
   passiveComboFinisherBonusPct?: number;
 };
@@ -594,6 +596,8 @@ export function derivePlayerCombatV2Pure(
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
     // 밤그림자 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
     ...(input.passiveSkillCritOverflow ? { skillCritOverflow: true as const } : {}),
+    // 흑월지배 — 회피 뒤 다음 직접 피해 스킬 확정 치명타 플래그.
+    ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
     def: specDef,
@@ -611,6 +615,14 @@ export function derivePlayerCombatV2Pure(
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
     magicDef,
     critResistPct,
+    ...(equipAcc.statusDamageReductionPct > 0
+      ? {
+          statusDamageReductionPct: Math.min(
+            100,
+            equipAcc.statusDamageReductionPct,
+          ),
+        }
+      : {}),
     minDamage,
     healMult,
     // 직업 효과 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 합산(sumOrUndef).
@@ -872,6 +884,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveMagicSkillDamagePct: passiveAgg.magicSkillDamagePct,
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
+    passiveSkillCritAfterEvade: passiveAgg.skillCritAfterEvade,
     passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,
   });
 }

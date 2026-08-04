@@ -44,7 +44,21 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       spd: 0,
       healPowerPct: 0,
       critResist: 0,
+      statusDamageReductionPct: 0,
     });
+  });
+
+  it("무통의 성물 상태이상 피해 감소를 전투 스탯으로 전달한다", () => {
+    const aggregate = aggregateV2Equipment({
+      necklace: "v2_crafted_painless_relic",
+    });
+    expect(aggregate.statusDamageReductionPct).toBe(65);
+
+    const { player } = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { necklace: "v2_crafted_painless_relic" },
+    });
+    expect(player.statusDamageReductionPct).toBe(65);
   });
 
   it("SPI gear 옵션(PR-2) — magicDef 옵션 → acc.magicDef, healPowerPct 옵션 → acc.healPowerPct", () => {
@@ -978,6 +992,16 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(archmage.magicSkillDamagePct).toBe(12);
   });
 
+  it("흑월지배 패시브는 회피 후 스킬 치명타 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const blackmoon = derivePlayerCombatV2Pure({
+      ...base,
+      passiveSkillCritAfterEvade: true,
+    }).player;
+    expect(plain.skillCritAfterEvade).toBeUndefined();
+    expect(blackmoon.skillCritAfterEvade).toBe(true);
+  });
+
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
     const a = derivePlayerCombatV2Pure({ ...base }).player;
     const b = derivePlayerCombatV2Pure({
@@ -992,6 +1016,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveEnemyMagicVulnPctPerStack: 0,
       passiveEnemyMagicVulnApplyChancePct: 0,
       passiveMagicSkillDamagePct: 0,
+      passiveSkillCritAfterEvade: false,
     }).player;
     expect(b.critChancePct ?? 0).toBe(a.critChancePct ?? 0);
     expect(b.critMult ?? 0).toBe(a.critMult ?? 0);

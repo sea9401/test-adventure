@@ -19,7 +19,7 @@ import {
 
 describe("v2 코덱스(재료 도감) 진척 — 등재 재료·요건은 플래그 잠금", () => {
   it("V2_CODEX_TOTAL은 채광 광석과 부산물을 포함한다", () => {
-    expect(V2_CODEX_TOTAL).toBe(57);
+    expect(V2_CODEX_TOTAL).toBe(63);
   });
 
   it("discoveredMaterialIds — 미등재 보유분은 진척에 안 잡힘", () => {

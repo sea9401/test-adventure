@@ -74,6 +74,7 @@ import {
   CraftQualityStars,
   powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
+import { sortEnhanceCandidates } from "@/adventure/v2/v2EnhanceList";
 import { useSystemToast } from "./RewardToastProvider";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
@@ -235,15 +236,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
   const tabInstances = useMemo(
     () =>
-      owned
-        .filter((o) => V2_EQUIPMENT[o.id]?.slot === tab)
-        .sort(
-          (a, b) =>
-            (b.enhance?.level ?? 0) - (a.enhance?.level ?? 0) ||
-            (b.roll?.power ?? V2_EQUIPMENT[b.id].power) -
-              (a.roll?.power ?? V2_EQUIPMENT[a.id].power),
-        ),
-    [owned, tab],
+      sortEnhanceCandidates(
+        owned.filter((o) => V2_EQUIPMENT[o.id]?.slot === tab),
+        equipped[tab] ?? null,
+      ),
+    [equipped, owned, tab],
   );
   const pager = usePagination(tabInstances, 8, tab);
 
@@ -1159,7 +1156,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         </section>
       )}
 
-      {/* 장비 선택 — 슬롯 탭 + 그리드(강화 높은 순). 조합 모드는 장비 선택이 불필요해 숨긴다. */}
+      {/* 장비 선택 — 슬롯 탭 + 그리드(착용 우선, 이후 강화 높은 순). 조합 모드는 장비 선택이 불필요해 숨긴다. */}
       {mode !== "combine" && (
         <Card as="section" padding="sm">
           <TabBar

@@ -311,7 +311,7 @@ export function V2ClassGrid({
               {isReincarnationReady && (
                 <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
                   환생 시 권능(성장치·트레이트·초과 키트픽)이 리셋되고 1차 Lv1로 돌아갑니다.
-                  직업 숙련도, 성장 한계치, 프론티어 층은 보존됩니다.
+                  직업 숙련도, 성장 한계치, 사냥터 진행도는 보존됩니다.
                 </p>
               )}
               <button

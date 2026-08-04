@@ -6,7 +6,7 @@
 //   - 디바운스 — opts.debounceMs 가 있으면 같은 유저+type+거점(payload.outpostId)의
 //     항목이 그 시간 안에 있으면 건너뜀 (피격 알림 도배 방지).
 //
-// 호출은 항상 tx 커밋 후 — 알림은 표시 전용이라 본 트랜잭션과 원자성 불요.
+// 일반 알림은 tx 커밋 후 insertNotification, 정산과 원자성이 필요한 알림은 insertNotificationWith 사용.
 
 import { and, desc, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/db";
@@ -20,6 +20,35 @@ import {
   pushMessageForNotification,
   sendWebPushToUser,
 } from "@/lib/server/webPush";
+import type { DbExecutor } from "@/lib/server/savesKv";
+
+/** 본 작업과 같은 트랜잭션에 알림을 원자적으로 기록할 때 사용한다. 푸시는 커밋 후 별도 전송한다. */
+export async function insertNotificationWith(
+  executor: DbExecutor,
+  userId: string,
+  type: V2NotificationType,
+  payload: V2NotificationPayload,
+): Promise<void> {
+  await executor.insert(v2Notifications).values({ userId, type, payload });
+
+  const [cut] = await executor
+    .select({ id: v2Notifications.id })
+    .from(v2Notifications)
+    .where(eq(v2Notifications.userId, userId))
+    .orderBy(desc(v2Notifications.id))
+    .offset(NOTIF_MAX_PER_USER - 1)
+    .limit(1);
+  if (cut) {
+    await executor
+      .delete(v2Notifications)
+      .where(
+        and(
+          eq(v2Notifications.userId, userId),
+          lt(v2Notifications.id, cut.id),
+        ),
+      );
+  }
+}
 
 export async function insertNotification(
   userId: string,
@@ -50,30 +79,11 @@ export async function insertNotification(
       if (dup) return;
     }
 
-    await db.insert(v2Notifications).values({ userId, type, payload });
+    await insertNotificationWith(db, userId, type, payload);
 
     const pushMessage = pushMessageForNotification(type, payload);
     if (pushMessage) {
       await sendWebPushToUser(userId, pushMessage);
-    }
-
-    // trim — 그 유저의 최신 NOTIF_MAX_PER_USER 개만 남기고 이전 행 삭제.
-    const [cut] = await db
-      .select({ id: v2Notifications.id })
-      .from(v2Notifications)
-      .where(eq(v2Notifications.userId, userId))
-      .orderBy(desc(v2Notifications.id))
-      .offset(NOTIF_MAX_PER_USER - 1)
-      .limit(1);
-    if (cut) {
-      await db
-        .delete(v2Notifications)
-        .where(
-          and(
-            eq(v2Notifications.userId, userId),
-            lt(v2Notifications.id, cut.id),
-          ),
-        );
     }
   } catch (err) {
     console.warn("[v2Notifications] insert failed", err);

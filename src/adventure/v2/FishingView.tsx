@@ -26,6 +26,7 @@ import {
 import {
   FISHING_LURES,
   FISHING_RODS,
+  fishingSizeBonusLabels,
   type FishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
 import type { FishingProgressNotice } from "@/adventure/v2/fishingChallengeProgress";
@@ -1352,16 +1353,8 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
 
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   const bonuses = progression.levelBonuses;
-  const labels = [
-    `크기 +${bonuses.sizeBonusPct}%`,
-    `특별 손님 +${bonuses.specialWeightPct}%`,
-  ];
-  if (bonuses.rareSizeBonusPct > 0) {
-    labels.push(`희귀 이상 +${bonuses.rareSizeBonusPct}%`);
-  }
-  if (bonuses.bigCatchSizeBonusPct > 0) {
-    labels.push(`대물급 +${bonuses.bigCatchSizeBonusPct}%`);
-  }
+  const labels = fishingSizeBonusLabels(bonuses);
+  labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
   return labels;
 }
 

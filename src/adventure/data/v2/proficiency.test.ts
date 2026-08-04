@@ -367,7 +367,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(guardian!.next.caps.int).toBeUndefined();
   });
 
-  it("applyCultivation — 초월자는 총 +6 cap 이득만큼 다음 비용이 더 오른다", () => {
+  it("applyCultivation — 5차 초월자는 행운을 제외한 총 +5 cap을 얻는다", () => {
     const p = parseProficiency({ groups: { warrior: { points: 1000 } } });
     const r = applyCultivation(
       p,
@@ -379,11 +379,12 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
 
     expect(r).not.toBeNull();
     expect(r!.cost).toBe(8);
-    for (const stat of ["str", "vit", "dex", "int", "spi", "luk"] as const) {
+    for (const stat of ["str", "vit", "dex", "int", "spi"] as const) {
       expect(r!.next.caps[stat]).toBe(1);
     }
-    expect(totalCapGains(r!.next)).toBe(6);
-    expect(cultivationCost(totalCapGains(r!.next))).toBe(44);
+    expect(r!.next.caps.luk).toBeUndefined();
+    expect(totalCapGains(r!.next)).toBe(5);
+    expect(cultivationCost(totalCapGains(r!.next))).toBe(38);
   });
 
   it("applyCultivation — 절대자도 초월자의 올스탯 수행을 계승한다", () => {

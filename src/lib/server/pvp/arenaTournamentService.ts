@@ -30,6 +30,7 @@ import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
+import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
 import {
   derivePlayerCombatV2,
   type DerivedPlayerCombatV2,
@@ -591,15 +592,17 @@ export async function ensureArenaTournament(
       .then((rows) => rows[0]);
     let created = false;
     if (!row) {
-      const ranked = await tx
+      const rankedRows = await tx
         .select({
           userId: pvpRatings.userId,
+          email: users.email,
           rating: pvpRatings.rating,
           wins: pvpRatings.wins,
           losses: pvpRatings.losses,
           draws: pvpRatings.draws,
         })
         .from(pvpRatings)
+        .innerJoin(users, eq(users.id, pvpRatings.userId))
         .where(
           and(
             eq(pvpRatings.seasonId, season.id),
@@ -615,6 +618,7 @@ export async function ensureArenaTournament(
           asc(pvpRatings.updatedAt),
           asc(pvpRatings.userId),
         );
+      const ranked = excludeArenaOperatorAccounts(rankedRows);
       const entrants = await buildCombatEntrants(tx, ranked);
       const bracket = createArenaTournamentSchedule({
         seasonId: season.id,

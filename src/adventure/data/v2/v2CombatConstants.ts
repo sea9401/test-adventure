@@ -10,21 +10,44 @@ export const V2_BASE_MISS_PCT = 10;
 
 // 회피 대결형(2026-06-21) — 절대%+하드캡(75) 폐기. 방어자 evaRating(캡 없는 raw)을 공격자
 //   명중레이팅과 비율로 겨뤄 회피확률 산출. 점근선(절대 도달X)이라 포화·DEX 더블딥(공짜 4× EHP) 해소.
-//   회피확률 = DODGE_MAX × evaR / (evaR + accR × DODGE_K). 파리티(균등) = DODGE_MAX/(1+K) ≈ 8%.
+//   회피확률 = DODGE_MAX × evaR / (evaR + accR × K).
 //   Slice 1 = PvE 몹→플레이어(enemyPhase·몹명중=floorAccuracy+몹 accuracy). Slice 2(2026-06-22) =
-//   플레이어→몹·PvP 양방향 대칭(attackMissPct). docs/v2-evasion-rating-plan.md.
+//   플레이어→몹(attackMissPct)·PvP 양방향(pvpAttackMissPct). docs/v2-evasion-rating-plan.md.
 export const DODGE_MAX = 75; // 소프트 점근 천장(제거 금지 = 무적 꼬리)
-export const DODGE_K = 8; // 명중이 회피 누르는 강도(클수록 회피↓)
-export function dodgeChance(evaRating: number, accRating: number): number {
+export const DODGE_K = 8; // 플레이어→PvE 적: 명중이 회피 누르는 강도(클수록 회피↓)
+export const PVP_DODGE_K = 7; // PvP 전용 — 동레이팅 회피 75/(1+7)=9.375%
+// PvE 생존 전용 — 낮은 HP·방어를 감수하는 DEX/LUK 빌드가 사냥터 명중 증가에도 생존축을
+// 유지하도록 PvP보다 완만하게 둔다. PvP는 별도 PVP_DODGE_K=7을 사용한다.
+export const PVE_DODGE_K = 6;
+
+function dodgeChanceWithK(
+  evaRating: number,
+  accRating: number,
+  contestK: number,
+): number {
   const e = Math.max(0, evaRating);
   if (e <= 0) return 0;
-  return (DODGE_MAX * e) / (e + Math.max(0, accRating) * DODGE_K);
+  return (DODGE_MAX * e) / (e + Math.max(0, accRating) * contestK);
 }
 
-// 공격 미스 확률(Slice 2) — 플레이어→몹·PvP 평타/스킬 4 호출처 공용. 두 항의 합:
+export function dodgeChance(evaRating: number, accRating: number): number {
+  return dodgeChanceWithK(evaRating, accRating, DODGE_K);
+}
+
+/** PvP 양방향 회피 확률. PvE 공격·생존 다이얼과 분리한다. */
+export function pvpDodgeChance(evaRating: number, accRating: number): number {
+  return dodgeChanceWithK(evaRating, accRating, PVP_DODGE_K);
+}
+
+/** 몬스터 공격을 플레이어가 피할 확률. PvP·플레이어 명중 판정과 분리된 생존 다이얼. */
+export function pveDodgeChance(evaRating: number, accRating: number): number {
+  return dodgeChanceWithK(evaRating, accRating, PVE_DODGE_K);
+}
+
+// PvE 플레이어 공격 미스 확률(Slice 2) — 평타·스킬 공용. 두 항의 합:
 //   ① 베이스미스 = max(0, V2_BASE_MISS_PCT − 명중레이팅) — 옛 모델(10+−명중)의 베이스 부분 보존.
 //      명중 투자가 베이스를 깎아 0 까지(투자/엔드 빌드는 일반몹 미스 0% — 옛 느낌 유지·필드 무회귀).
-//   ② 회피 대결 = dodgeChance(회피레이팅, 명중레이팅) — 회피몹/PvP 무적탱을 점근선 DODGE_MAX 로 완화.
+//   ② 회피 대결 = dodgeChance(회피레이팅, 명중레이팅) — 회피몹을 점근선 DODGE_MAX 로 완화.
 //   방어자 evaRating 0(일반몹)이면 ②=0 → 미스=①(투자 0 이면 10%·투자하면 ↓). 명중레이팅은 derive 가
 //   ACC_BASE_RATING 을 포함해 ② 의 퇴화(acc0→75%)를 막는다. apIgnoresEvasion 은 호출처에서 굴림 스킵.
 //   🔑 2026-06-22 정정: 순수 플랫(명중 불가감) B안은 엔드 빌드(옛 명중→미스 0%)를 ~10% 너프해 필드
@@ -33,6 +56,17 @@ export function attackMissPct(defenderEvaRating: number, attackerAccRating: numb
   return (
     Math.max(0, V2_BASE_MISS_PCT - Math.max(0, attackerAccRating)) +
     dodgeChance(defenderEvaRating, attackerAccRating)
+  );
+}
+
+/** PvP 공격 미스 확률 — 베이스 미스는 같고 회피 대결만 PvP 전용 K를 사용한다. */
+export function pvpAttackMissPct(
+  defenderEvaRating: number,
+  attackerAccRating: number,
+): number {
+  return (
+    Math.max(0, V2_BASE_MISS_PCT - Math.max(0, attackerAccRating)) +
+    pvpDodgeChance(defenderEvaRating, attackerAccRating)
   );
 }
 

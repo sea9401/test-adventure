@@ -7,7 +7,9 @@ name: Deploy to EC2
 #   EC2_HOST    — EC2 의 고정 IP 또는 도메인 (예: 54.180.28.29)
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
 #   OPS_ALERT_WEBHOOK_URL — 외부 공개 표면 검사 실패 알림 전용(선택)
-# 앱 런타임 비밀값은 EC2에서 SSM /adventure-rpg/production/env를 직접 읽는다.
+#   WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY, WEB_PUSH_SUBJECT
+# 앱 런타임 비밀값은 EC2에서 SSM을 읽고, 푸시 전용 키는 배포 환경 비밀값에서
+# 서버의 접근 제한 파일로 설치한다.
 on:
   workflow_dispatch:
     inputs:
@@ -69,11 +71,14 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEB_PUSH_VAPID_PUBLIC_KEY: ${{ secrets.WEB_PUSH_VAPID_PUBLIC_KEY }}
+          WEB_PUSH_VAPID_PRIVATE_KEY: ${{ secrets.WEB_PUSH_VAPID_PRIVATE_KEY }}
+          WEB_PUSH_SUBJECT: ${{ secrets.WEB_PUSH_SUBJECT }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GH_TOKEN,DEPLOY_SHA
+          envs: GH_TOKEN,DEPLOY_SHA,WEB_PUSH_VAPID_PUBLIC_KEY,WEB_PUSH_VAPID_PRIVATE_KEY,WEB_PUSH_SUBJECT
           script_stop: true
           command_timeout: 30m
           script: |
@@ -84,6 +89,21 @@ jobs:
             # runner 의 GITHUB_TOKEN(ephemeral, contents:read)으로 HTTPS fetch 해 우회.
             git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
             git checkout --detach --force "$DEPLOY_SHA"
+            test -n "$WEB_PUSH_VAPID_PUBLIC_KEY"
+            test -n "$WEB_PUSH_VAPID_PRIVATE_KEY"
+            test -n "$WEB_PUSH_SUBJECT"
+            sudo install -d -o root -g ec2-user -m 0750 /etc/adventure-rpg
+            push_env_file="$(mktemp)"
+            trap 'rm -f "$push_env_file"' EXIT
+            chmod 0600 "$push_env_file"
+            printf 'WEB_PUSH_VAPID_PUBLIC_KEY=%s\nWEB_PUSH_VAPID_PRIVATE_KEY=%s\nWEB_PUSH_SUBJECT=%s\n' \
+              "$WEB_PUSH_VAPID_PUBLIC_KEY" \
+              "$WEB_PUSH_VAPID_PRIVATE_KEY" \
+              "$WEB_PUSH_SUBJECT" > "$push_env_file"
+            sudo install -o root -g ec2-user -m 0640 "$push_env_file" \
+              /etc/adventure-rpg/web-push.env
+            rm -f "$push_env_file"
+            trap - EXIT
             PRODUCTION_ENV_PATH=/run/adventure-rpg/production.env
             export PRODUCTION_ENV_PATH
             bash deploy/release-production.sh

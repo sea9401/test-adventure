@@ -631,6 +631,21 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
   });
 
+  it("다단 스킬의 공격 계수는 소수 둘째 자리까지 반올림해 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_flurry)).toContain(
+      "피해 공격력×0.43",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
+      "피해 공격력×0.4 + 민첩×0.08",
+    );
+
+    for (const skill of Object.values(V2_SKILLS)) {
+      for (const chip of describeV2Skill(skill)) {
+        expect(chip, `${skill.id}: ${chip}`).not.toMatch(/\d\.\d{3,}/);
+      }
+    }
+  });
+
   it("차수 흐름 위에 직업별 발동 템포 차이를 둔다", () => {
     const representatives = [
       ["v2c_warrior_strike", 75],

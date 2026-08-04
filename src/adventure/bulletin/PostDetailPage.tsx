@@ -19,6 +19,7 @@ import { toggleLike } from "./api";
 import { BulletinMarkdown } from "./BulletinMarkdown";
 import { CommentsPanel } from "./CommentsPanel";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
+import { BulletinActivityBadge } from "./BulletinActivityBadge";
 
 // 게시판 글 상세 — 목록에서 한 글 클릭 시 같은 view 영역 안에서 전환되는 페이지.
 // 본문 전체 + 좋아요 토글 + 항상 펼쳐진 댓글 패널 + 뒤로 가기.
@@ -27,7 +28,12 @@ type Props = {
   onBack: () => void;
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
-  onLikeUpdate: (postId: number, liked: boolean, count: number) => void;
+  onLikeUpdate: (
+    postId: number,
+    liked: boolean,
+    count: number,
+    authorActivity?: BulletinPost["authorActivity"],
+  ) => void;
   onCommentCountChange: (postId: number, count: number) => void;
   onRequestSendMessage: (name: string) => void;
 };
@@ -88,7 +94,7 @@ export function PostDetailPage({
     );
     try {
       const next = await toggleLike(post.id);
-      onLikeUpdate(post.id, next.liked, next.count);
+      onLikeUpdate(post.id, next.liked, next.count, next.authorActivity);
     } catch {
       onLikeUpdate(post.id, beforeLiked, beforeCount);
     } finally {
@@ -174,6 +180,12 @@ export function PostDetailPage({
                   >
                     {post.name}
                   </button>
+                )}
+                {post.authorActivity && (
+                  <BulletinActivityBadge
+                    activity={post.authorActivity}
+                    showTitle
+                  />
                 )}
                 <span
                   className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400"

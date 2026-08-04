@@ -33,7 +33,9 @@ import {
 import { ComposePage } from "./bulletin/ComposePage";
 import { PostListRow } from "./bulletin/PostListRow";
 import { PostDetailPage } from "./bulletin/PostDetailPage";
+import { BulletinActivityCard } from "./bulletin/BulletinActivityCard";
 import type { BulletinPost } from "./bulletin/types";
+import type { BulletinActivitySummary } from "@/lib/bulletinActivity";
 
 // 게시판 본체 — 탭(카테고리) + 검색 + 제목 목록 + 페이지네이션, 그리고 글쓰기/상세 화면 전환 라우터.
 // 목록은 제목·작성자·시간·카운트만 한 줄로 (PostListRow). 클릭 시 상세 페이지로 본문+댓글 풀로 노출.
@@ -50,6 +52,8 @@ export function BulletinBoardView() {
   const [search, setSearch] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [posts, setPosts] = useState<BulletinPost[] | null>(null);
+  const [myActivity, setMyActivity] =
+    useState<BulletinActivitySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   const [pmTarget, setPmTarget] = useState<string | null>(null);
@@ -65,7 +69,8 @@ export function BulletinBoardView() {
   const refresh = useCallback(async () => {
     try {
       const next = await fetchPosts(category, debouncedQ);
-      setPosts(next);
+      setPosts(next.posts);
+      setMyActivity(next.myActivity);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "불러오기 실패");
@@ -100,6 +105,7 @@ export function BulletinBoardView() {
   }) => {
     try {
       const created = await postPost(input);
+      if (created.authorActivity) setMyActivity(created.authorActivity);
       if (created.scope === "guild") {
         if (category === "guild") {
           setPosts((prev) => (prev ? [created, ...prev] : [created]));
@@ -174,17 +180,33 @@ export function BulletinBoardView() {
       setMode((m) =>
         m.kind === "detail" && m.postId === id ? { kind: "list" } : m,
       );
+      void refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "삭제 실패");
     }
-  }, []);
+  }, [refresh]);
 
   const handleLikeUpdate = useCallback(
-    (postId: number, liked: boolean, count: number) => {
+    (
+      postId: number,
+      liked: boolean,
+      count: number,
+      authorActivity?: BulletinActivitySummary | null,
+    ) => {
       setPosts(
         (prev) =>
           prev?.map((p) =>
-            p.id === postId ? { ...p, likedByMe: liked, likeCount: count } : p,
+            p.id === postId
+              ? {
+                  ...p,
+                  likedByMe: liked,
+                  likeCount: count,
+                  authorActivity:
+                    authorActivity === undefined
+                      ? p.authorActivity
+                      : authorActivity,
+                }
+              : p,
           ) ?? null,
       );
     },
@@ -229,7 +251,8 @@ export function BulletinBoardView() {
 
   const handleBackToList = useCallback(() => {
     setMode({ kind: "list" });
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   const handleOpenEdit = useCallback((postId: number) => {
     setMode({ kind: "edit", postId });
@@ -348,6 +371,8 @@ export function BulletinBoardView() {
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         {boardDescription}
       </p>
+
+      {myActivity && <BulletinActivityCard activity={myActivity} />}
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1">

@@ -1,5 +1,6 @@
 import type { BulletinCategory } from "@/lib/bulletin-config";
-import type { BulletinComment, BulletinPost } from "./types";
+import type { BulletinComment, BulletinFeed, BulletinPost } from "./types";
+import type { BulletinActivitySummary } from "@/lib/bulletinActivity";
 
 export type BulletinBoardTab = BulletinCategory | "all" | "guild";
 
@@ -10,7 +11,7 @@ export type BulletinBoardTab = BulletinCategory | "all" | "guild";
 export async function fetchPosts(
   category: BulletinBoardTab,
   q: string,
-): Promise<BulletinPost[]> {
+): Promise<BulletinFeed> {
   const params = new URLSearchParams();
   if (category === "guild") {
     params.set("scope", "guild");
@@ -81,7 +82,11 @@ export async function deletePost(id: number): Promise<void> {
 
 export async function toggleLike(
   postId: number,
-): Promise<{ liked: boolean; count: number }> {
+): Promise<{
+  liked: boolean;
+  count: number;
+  authorActivity: BulletinActivitySummary | null;
+}> {
   const res = await fetch(`/api/bulletin/${postId}/like`, { method: "POST" });
   if (!res.ok) throw new Error(`like failed: ${res.status}`);
   return res.json();

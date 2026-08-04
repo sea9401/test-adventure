@@ -42,6 +42,7 @@ import {
   bulletinActivityFromMap,
   readBulletinActivityMap,
 } from "@/lib/server/bulletinActivity";
+import { syncBulletinActivityTitlesBestEffort } from "@/lib/server/bulletinActivityTitles";
 import { sendWebPushToAll } from "@/lib/server/webPush";
 
 // GET /api/bulletin?category=<cat>&q=<search>
@@ -122,9 +123,11 @@ export async function GET(req: Request) {
 
   if (posts.length === 0) {
     const activityByUser = await readBulletinActivityMap([userId]);
+    const myActivity = bulletinActivityFromMap(activityByUser, userId);
+    await syncBulletinActivityTitlesBestEffort(userId, myActivity);
     return Response.json({
       posts: [],
-      myActivity: bulletinActivityFromMap(activityByUser, userId),
+      myActivity,
     });
   }
 
@@ -186,6 +189,8 @@ export async function GET(req: Request) {
   );
   const viewCountMap = new Map(viewCountRows.map((r) => [r.postId, r.count]));
   const likedSet = new Set(likedByMeRows.map((r) => r.postId));
+  const myActivity = bulletinActivityFromMap(activityByUser, userId);
+  await syncBulletinActivityTitlesBestEffort(userId, myActivity);
 
   const result = posts.map((r) => ({
     id: r.id,
@@ -220,7 +225,7 @@ export async function GET(req: Request) {
 
   return Response.json({
     posts: result,
-    myActivity: bulletinActivityFromMap(activityByUser, userId),
+    myActivity,
   });
 }
 
@@ -313,6 +318,8 @@ export async function POST(req: Request) {
       createdAt: bulletinPosts.createdAt,
     });
   const activityByUser = await readBulletinActivityMap([userId]);
+  const authorActivity = bulletinActivityFromMap(activityByUser, userId);
+  await syncBulletinActivityTitlesBestEffort(userId, authorActivity);
 
   if (category === "notice" && scope === "public") {
     await sendWebPushToAll({
@@ -345,7 +352,7 @@ export async function POST(req: Request) {
     authorActivity:
       category === "notice"
         ? null
-        : bulletinActivityFromMap(activityByUser, userId),
+        : authorActivity,
   });
 }
 

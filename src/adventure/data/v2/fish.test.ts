@@ -7,11 +7,22 @@ import {
   FISH_TOTAL,
   BIG_CATCH_BONUS_ROLL_FRACTION,
   isFishId,
+  isTinyCatch,
   pickFishId,
   recordCoinForRank,
   rollFishSize,
   type FishTier,
 } from "./fish";
+
+describe("잔챙이 판정", () => {
+  it("종별 크기 범위의 하위 25% 경계를 포함한다", () => {
+    const fish = FISH.carp;
+    const boundary = fish.minSize + (fish.maxSize - fish.minSize) * 0.25;
+
+    expect(isTinyCatch("carp", boundary)).toBe(true);
+    expect(isTinyCatch("carp", boundary + 0.1)).toBe(false);
+  });
+});
 
 // 결정적 시드 RNG (mulberry32) — 분포·경계 테스트용.
 function mulberry32(seed: number): () => number {

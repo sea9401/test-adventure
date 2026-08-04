@@ -32,6 +32,7 @@ import {
 } from "./marketplaceShared";
 import type { EquipmentBuyOrderView } from "./equipmentBuyOrders";
 import { equipmentPriceWarning } from "./equipmentPriceIntelligence";
+import { EquipmentCodexBadge } from "@/adventure/v2/EquipmentCodexBadge";
 
 // 판매 탭의 장비 개체 한 장(굴림% + 스탯줄 + 가격입력 + 등록 + 수령 미리보기).
 export function EquipmentListingCard({
@@ -104,6 +105,9 @@ export function EquipmentListingCard({
               </span>
               {item ? (
                 <EquipmentTierBadge tier={item.tier} compact className="ml-1.5" />
+              ) : null}
+              {item ? (
+                <EquipmentCodexBadge itemId={item.id} className="ml-1" />
               ) : null}
               <EnhanceLevelBadge enhance={inst.enhance} className="ml-1.5" />
               <CraftQualityBadge craftQuality={inst.craftQuality} className="ml-1" />

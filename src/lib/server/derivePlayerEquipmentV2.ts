@@ -29,6 +29,7 @@ export type V2EquipAggregate = {
   spd: number; // flat 속도 합.
   healPowerPct: number; // 회복 +% 옵션 합(SPI PR-2). derive healMult 에 패시브와 합산.
   critResist: number; // 치명저항 +%p 옵션 합.
+  statusDamageReductionPct: number; // 중독·출혈 등 상태이상 피해 감소율 합.
 };
 
 const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
@@ -45,6 +46,7 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
   spd: 0,
   healPowerPct: 0,
   critResist: 0,
+  statusDamageReductionPct: 0,
 });
 
 function addEquipBonus(
@@ -60,6 +62,7 @@ function addEquipBonus(
     magicDef?: number;
     healPowerPct?: number;
     critResist?: number;
+    statusDamageReductionPct?: number;
   }>,
 ) {
   acc.crit += b.crit ?? 0;
@@ -72,6 +75,7 @@ function addEquipBonus(
   acc.magicDef += b.magicDef ?? 0;
   acc.healPowerPct += b.healPowerPct ?? 0;
   acc.critResist += b.critResist ?? 0;
+  acc.statusDamageReductionPct += b.statusDamageReductionPct ?? 0;
 }
 
 export function aggregateV2Equipment(
@@ -119,6 +123,7 @@ export function aggregateV2Equipment(
     acc.magicDef += o.magicDef ?? 0; // 마방 옵션(SPI PR-2) — 장신구 위력 magicDef 와 같은 축.
     acc.healPowerPct += o.healPowerPct ?? 0; // 회복% 옵션(SPI PR-2) — derive healMult 에 합산.
     acc.critResist += o.critResist ?? 0; // 치명저항 옵션 — SPI 파생 저항과 합산 후 cap.
+    acc.statusDamageReductionPct += o.statusDamageReductionPct ?? 0;
   }
   // 세트 보너스 — 한 세트의 모든 조각을 장착했으면 옵션 보너스 후-가산(crit/eva/mp/hp).
   const equippedIds = new Set<V2EquipmentId>();

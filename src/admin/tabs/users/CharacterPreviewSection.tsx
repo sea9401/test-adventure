@@ -117,7 +117,7 @@ export function CharacterPreviewSection({
 
       <div className="mt-3 grid gap-2 sm:grid-cols-[130px_1fr_auto] sm:items-end">
         <label className="text-xs text-zinc-600 dark:text-zinc-300">
-          <span className="mb-1 block">사냥터 깊이</span>
+          <span className="mb-1 block">사냥터 진행값</span>
           <input
             type="number"
             min={1}

@@ -72,7 +72,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"], // 연환각(다단) + 강건 III(활력+30%)
   bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"], // 대치유(자힐) + 회복 II(회복+30%)
   ritualist: ["v2c_ritualist_guardingarray", "v2c_ritualist_wardcraft"], // 호법진(받피감) + 진법술(마법 방어)
-  shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"], // 암살(처형·LUK) + 필살(치명피해)
+  shadow: ["v2c_shadow_assassinate", "v2c_shadow_shadowstep", "v2c_shadow_lethality3"], // 암살 + 그림자 도약(1회 확정 회피) + 필살
   venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"], // 맹독 확산(중독 심화) + 부식 II(중독 적 방어↓)
   fieldmedic: ["v2c_fieldmedic_treatment", "v2c_fieldmedic_training"], // 현장 처치 + 구급 숙련
   extremesurvivor: ["v2c_extremesurvivor_struggle", "v2c_extremesurvivor_adaptation"], // 사투 + 극한 적응

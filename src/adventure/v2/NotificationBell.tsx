@@ -75,6 +75,16 @@ function previewText(notification: V2NotificationEntry): string {
       const p = payload as { readyCount: number };
       return `수확 가능한 작물이 ${p.readyCount}개 있어요.`;
     }
+    case "lottery_won": {
+      const p = payload as { ranks: number[]; prizeAmount: number };
+      return [
+        "복권 ",
+        Math.min(...p.ranks),
+        "등 당첨 · ",
+        p.prizeAmount.toLocaleString(),
+        "G",
+      ].join("");
+    }
   }
 }
 
@@ -220,6 +230,13 @@ export function NotificationBell() {
   };
 
   const openNotification = (notification: V2NotificationEntry) => {
+    if (notification.type === "lottery_won") {
+      setOpen(false);
+      window.dispatchEvent(
+        new CustomEvent("lottery:celebrate", { detail: notification }),
+      );
+      return;
+    }
     if (notification.type !== "farm_ready") {
       openNotifications();
       return;

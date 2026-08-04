@@ -59,6 +59,7 @@ import {
   type V2SkillDotApply,
   distributeBoostedHits,
   rollAttackCount,
+  statusDamageAfterReduction,
   tickV2BuffMap,
   tickV2Dots,
   v2AtkBuffMult,
@@ -82,7 +83,7 @@ import {
   RAMPAGE_START_TURN,
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
-  attackMissPct,
+  pvpAttackMissPct,
   combineDefReductionPcts,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { advanceTurnPvP } from "./engine.pvpPhase";
@@ -102,6 +103,7 @@ export type PvPSideFlags = {
   assassinateUsed: boolean;
   luckyBuffActive: boolean;
   fatedChainCritPending: boolean;
+  skillCritAfterEvadePending: boolean;
   statusBlockUsed: boolean;
 };
 
@@ -456,6 +458,7 @@ function buildSide(
       assassinateUsed: false,
       luckyBuffActive: false,
       fatedChainCritPending: false,
+      skillCritAfterEvadePending: false,
       statusBlockUsed: false,
     },
     buffs: {
@@ -729,12 +732,35 @@ function applyDodgeEffects(
   defKey: "p1" | "p2",
   dodgeLogText: string,
   consumeEvade: boolean,
+  triggersSkillCritAfterEvade: boolean,
 ): PvPBattleState {
   let st: PvPBattleState = {
     ...state,
     log: appendLog(state.log, { kind: "info", text: dodgeLogText }),
   };
   if (st.phase === "ended") return st;
+  const defenderAfterDodge = st[defKey];
+  if (
+    triggersSkillCritAfterEvade &&
+    defenderAfterDodge.player.skillCritAfterEvade &&
+    !defenderAfterDodge.flags.skillCritAfterEvadePending
+  ) {
+    st = setSide(st, defKey, {
+      ...defenderAfterDodge,
+      flags: {
+        ...defenderAfterDodge.flags,
+        skillCritAfterEvadePending: true,
+      },
+    });
+    st = {
+      ...st,
+      log: appendLog(st.log, {
+        kind: "info",
+        text: `[흑월지배] ${defenderAfterDodge.name}의 다음 직접 피해 스킬 치명타 준비.`,
+        side: defKey,
+      }),
+    };
+  }
   // 곡예 — 회피 성공 시 HP +amount. + 봉인 on-dodge 회복(Phase 2·미장착=0 → byte-identical).
   const defForHeal = st[defKey];
   const evadeHeal =
@@ -934,6 +960,7 @@ export function applyShadowStepDodge(
     defKey,
     `[그림자 보법] ${defender.name}이(가) 모든 공격을 그림자처럼 흘려보냈다!`,
     false,
+    true,
   );
   if (dodged.phase === "ended") return dodged;
   return endAttackerPhase(dodged, atkKey, defKey);
@@ -946,6 +973,7 @@ export function applyPerAttackDodge(
   defKey: "p1" | "p2",
   logText: string,
   consumeEvade: boolean,
+  triggersSkillCritAfterEvade = true,
 ): PvPBattleState {
   const dodged = applyDodgeEffects(
     state,
@@ -953,6 +981,7 @@ export function applyPerAttackDodge(
     defKey,
     logText,
     consumeEvade,
+    triggersSkillCritAfterEvade,
   );
   if (dodged.phase === "ended") return dodged;
   const attacker = dodged[atkKey];
@@ -1336,7 +1365,13 @@ export function endAttackerPhase(
     dotTick.totalDmg > 0 && defenderBeforeDot.stacks.dotVulnTurns > 0
       ? Math.floor(dotTick.totalDmg * (1 + defenderBeforeDot.stacks.dotVulnPct / 100))
       : dotTick.totalDmg;
-  const dotDamage = scalePvPDamage(next, rawDotDamage);
+  const dotDamage = scalePvPDamage(
+    next,
+    statusDamageAfterReduction(
+      rawDotDamage,
+      defenderBeforeDot.player.statusDamageReductionPct,
+    ),
+  );
   if (dotDamage > 0) {
     const newHp = Math.max(0, defenderBeforeDot.hp - dotDamage);
     next = setSide(next, defKey, {
@@ -1594,7 +1629,7 @@ export function castV2SkillOnAttackerTurnPvP(
         opp.buffs.cyclingChiBonus +
         sSkillEvadeBonus,
     );
-    const sMissPct = attackMissPct(
+    const sMissPct = pvpAttackMissPct(
       sDefenderEvaR,
       side.player.accRating ?? side.player.accuracyPct ?? 0,
     );
@@ -1648,10 +1683,14 @@ export function castV2SkillOnAttackerTurnPvP(
   const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
   //   로 분리. 데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
+  const skillCritAfterEvadeFired =
+    result.enemyDamage > 0 && side.flags.skillCritAfterEvadePending;
   const skillCritFired =
     result.enemyDamage > 0 &&
-    (side.player.critChancePct ?? 0) > 0 &&
-    Math.random() * 100 < Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0);
+    (skillCritAfterEvadeFired ||
+      ((side.player.critChancePct ?? 0) > 0 &&
+        Math.random() * 100 <
+          Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0)));
   // 스킬 다단히트(PvE 미러) — 시전자가 이 턴 굴려둔 공격 횟수(attacksLeft)만큼 데미지 스킬 반복 타격.
   //   데미지 스킬에만(버프/힐/마나/DoT 부여는 1회). 추가 공격 0 빌드는 skillHitCount=1 → 기존 byte-동일.
   const skillHitCount =
@@ -1676,6 +1715,13 @@ export function castV2SkillOnAttackerTurnPvP(
         : 1),
   );
   let nextComboHitCount = side.stacks.comboHitCount;
+  if (skillCritAfterEvadeFired && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[흑월지배] ${side.name}의 ${result.castSkillName}이(가) 치명타가 된다.`,
+      side: who,
+    });
+  }
   // damage: 일반 공격 player_attack kind 미러.
   if (result.enemyDamage > 0 && result.castSkillName) {
     // 다단 스킬은 타마다 한 줄(PvE 미러). 부스트는 타당 raw 비율 분배(합 = 1회분 singleSkillDamage).
@@ -1746,6 +1792,13 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
+  if (result.guaranteedEvadesToAdd > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName}] ${side.name}이(가) 다음 공격 ${result.guaranteedEvadesToAdd}회를 반드시 회피한다.`,
+      side: who,
+    });
+  }
   const sigMpRefund = onSkillCastMpRefund(side.player.equipSignatures);
   const costPaid = side.mp - result.nextMp;
   const sigMpRefundAmount =
@@ -1777,6 +1830,8 @@ export function castV2SkillOnAttackerTurnPvP(
   // 시전 턴 직후 1턴 손실 없이 N 턴 유지(PvE 는 자기 턴에 소비/감소라 turn-end, PvP 는 turn-start).
   const nextStacks: PvPSideStacks = {
     ...side.stacks,
+    evadesRemaining:
+      side.stacks.evadesRemaining + result.guaranteedEvadesToAdd,
     playerShield: side.stacks.playerShield + shieldGain,
     skillRegenPct:
       result.selfRegenToApply?.pctMaxHpPerTurn ?? side.stacks.skillRegenPct,
@@ -1924,6 +1979,9 @@ export function castV2SkillOnAttackerTurnPvP(
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
     v2SelfDebuffs: tickedSelfDebuffs,
+    flags: skillCritAfterEvadeFired
+      ? { ...side.flags, skillCritAfterEvadePending: false }
+      : side.flags,
     stacks:
       healShieldAmount > 0
         ? {

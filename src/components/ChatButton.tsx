@@ -61,6 +61,12 @@ export function ChatButton({
   );
   const guildAvailable = viewerGuildId != null;
 
+  useEffect(() => {
+    const openLottery = () => setOpen(true);
+    window.addEventListener("chat:open-lottery", openLottery);
+    return () => window.removeEventListener("chat:open-lottery", openLottery);
+  }, []);
+
   // 패널이 닫혀 있어도 새 메시지 배지를 위해 느리게 폴링한다. 첫 응답만 최신
   // 50개 전체를 받고 이후에는 마지막 id 뒤의 메시지만 받아 합친다. 탭이 숨겨진
   // 동안에는 멈추고, 다시 보이면 즉시 한 번 동기화한다.

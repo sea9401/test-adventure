@@ -6,6 +6,7 @@ import {
   floorExpMult,
   endgameSoften,
   underpreparedCombatMult,
+  underpreparedAccuracyMult,
   endExtensionCombatSoften,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
@@ -15,6 +16,7 @@ import {
   UNDERPREPARED_COMBAT_MAX,
   UNDERPREPARED_COMBAT_LATE_MAX,
   UNDERPREPARED_ENDGAME_MAX,
+  UNDERPREPARED_ACCURACY_MAX,
   END_EXTENSION_START_DEPTH,
   END_EXTENSION_START_STAT_MULT,
   END_EXTENSION_STAT_STEP,
@@ -68,6 +70,17 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(underpreparedCombatMult(60, endgameGate * 0.9)).toBe(1);
     expect(underpreparedCombatMult(60, endgameGate * 0.8)).toBeCloseTo(2.2, 5);
     expect(underpreparedCombatMult(60, 0)).toBe(UNDERPREPARED_ENDGAME_MAX);
+  });
+
+  it("권장 전투력 미달 명중 보정은 회피 생존축을 위해 최대 2배로 제한한다", () => {
+    const gate = floorPowerGate(60);
+    expect(underpreparedAccuracyMult(60, gate)).toBe(1);
+    expect(underpreparedAccuracyMult(60, gate * 0.8)).toBe(
+      UNDERPREPARED_ACCURACY_MAX,
+    );
+    expect(underpreparedAccuracyMult(60, 0)).toBe(
+      UNDERPREPARED_ACCURACY_MAX,
+    );
   });
 
   it("권장 파워 게이트 — 들판(1~6) 50→95, 7+ statMult 비례 단일 램프, 단조 증가", () => {

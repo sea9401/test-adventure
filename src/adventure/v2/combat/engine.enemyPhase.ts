@@ -21,7 +21,7 @@ import {
   onHitTakenDefGain,
   statusBlockOnce,
 } from "./signatureEffects";
-import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
+import { pveDodgeChance } from "@/adventure/data/v2/v2CombatConstants";
 
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
@@ -236,6 +236,9 @@ export function resolveEnemyPhase(
         ),
       }
     : state.buffs;
+  const dodgeFlags = player.skillCritAfterEvade
+    ? { ...state.flags, skillCritAfterEvadePending: true }
+    : state.flags;
 
   // 무한 가시 (2티어 특기) — 매 적 공격에 적 ATK 의 N% 반사 (회피/피격 무관).
   // 회피/피격 모든 분기에서 동일 적용 — helper 로 컴팩트하게.
@@ -311,6 +314,12 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[그림자 보법] ${playerName}이(가) 모든 공격을 그림자처럼 흘려보냈다!`,
     });
+    if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
+      log = appendLog(log, {
+        kind: "info",
+        text: `[흑월지배] 다음 직접 피해 스킬 치명타 준비.`,
+      });
+    }
     if (healedHp > state.playerHp) {
       log = appendLog(log, {
         kind: "info",
@@ -323,6 +332,7 @@ export function resolveEnemyPhase(
         ...state,
         playerHp: healedHp,
         enemyHp: 0,
+        flags: dodgeFlags,
         turn: {
           ...state.turn,
           enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -340,6 +350,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
+      flags: dodgeFlags,
       buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
@@ -361,6 +372,12 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[회피 강화] ${state.enemy.name}의 공격을 회피했다!`,
     });
+    if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
+      log = appendLog(log, {
+        kind: "info",
+        text: `[흑월지배] 다음 직접 피해 스킬 치명타 준비.`,
+      });
+    }
     if (healedHp > state.playerHp) {
       log = appendLog(log, {
         kind: "info",
@@ -373,6 +390,7 @@ export function resolveEnemyPhase(
         ...state,
         playerHp: healedHp,
         enemyHp: 0,
+        flags: dodgeFlags,
         stacks: {
           ...state.stacks,
           evadesRemaining: state.stacks.evadesRemaining - 1,
@@ -393,6 +411,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
+      flags: dodgeFlags,
       buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       stacks: {
         ...state.stacks,
@@ -446,14 +465,21 @@ export function resolveEnemyPhase(
       (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0) -
       chillSlowPct,
   );
-  // 대결 → 회피확률(점근 천장 DODGE_MAX·절대 도달X). 보장회피(소모형 100%)는 위 분기에서 별도.
-  const effectiveEvadePct = dodgeChance(evaRatingTotal, enemyAccuracy);
+  // PvE 대결 → 완화된 생존 계수·점근 천장 DODGE_MAX(절대 도달X).
+  // 보장회피(소모형 100%)는 위 분기에서 별도.
+  const effectiveEvadePct = pveDodgeChance(evaRatingTotal, enemyAccuracy);
   if (Math.random() * 100 < effectiveEvadePct) {
     const healedHp = healOnDodge(state.playerHp);
     let log = appendLog(state.log, {
       kind: "info",
       text: `${playerName}이(가) ${state.enemy.name}의 공격을 회피했다!`,
     });
+    if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
+      log = appendLog(log, {
+        kind: "info",
+        text: `[흑월지배] 다음 직접 피해 스킬 치명타 준비.`,
+      });
+    }
     if (healedHp > state.playerHp) {
       log = appendLog(log, {
         kind: "info",
@@ -466,6 +492,7 @@ export function resolveEnemyPhase(
         ...state,
         playerHp: healedHp,
         enemyHp: 0,
+        flags: dodgeFlags,
         turn: {
           ...state.turn,
           enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -482,6 +509,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
+      flags: dodgeFlags,
       buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,

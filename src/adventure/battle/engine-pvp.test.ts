@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCombat } from "../v2/combat/engine";
 import {
   advanceTurnPvP,
+  castV2SkillOnAttackerTurnPvP,
   initialBattleStatePvP,
   resolveBattlePvP,
   type PvPResolveContext,
@@ -995,6 +996,87 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     );
     expect(s.p1.v2Skills.equipped).toEqual(["v2_skill_strike"]);
     expect(s.p2.v2Skills.equipped).toEqual([]);
+  });
+
+  it("그림자 도약 시전은 PvP에서도 보장 회피 1회를 충전한다", () => {
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, guaranteedEvades: 1 }),
+      makePlayer({ spd: 5 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_shadow_shadowstep"],
+        equipped: ["v2c_shadow_shadowstep"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(s0, "p1");
+
+    expect(cast.state.p1.stacks.evadesRemaining).toBe(2);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text.includes("그림자 도약") && entry.text.includes("반드시 회피"),
+      ),
+    ).toBe(true);
+  });
+
+  it("흑월지배는 PvP 회피 후 다음 직접 피해 스킬을 확정 치명타로 만든다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 500,
+        maxMp: 500,
+        atk: 100,
+        spd: 5,
+        critChancePct: 0,
+        guaranteedEvades: 1,
+        skillCritAfterEvade: true,
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, atk: 100, spd: 99 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+
+    const dodged = advanceTurnPvP(s0);
+    expect(dodged.p1.flags.skillCritAfterEvadePending).toBe(true);
+
+    const cast = castV2SkillOnAttackerTurnPvP(dodged, "p1");
+    expect(cast.state.p1.flags.skillCritAfterEvadePending).toBe(false);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text.includes("강타") && entry.text.includes("[치명타]"),
+      ),
+    ).toBe(true);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text.includes("흑월지배") && entry.text.includes("치명타"),
+      ),
+    ).toBe(true);
+  });
+
+  it("흑월지배는 행운의 방패로 막은 공격에는 준비되지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 500,
+        spd: 5,
+        luckyShieldBlockPct: 100,
+        skillCritAfterEvade: true,
+      }),
+      makePlayer({ hp: 500, maxHp: 500, atk: 100, spd: 99, accuracyPct: 100 }),
+      "P1",
+      "P2",
+    );
+
+    const blocked = advanceTurnPvP(s0);
+    expect(blocked.log.some((entry) => entry.text.includes("행운의 방패"))).toBe(true);
+    expect(blocked.p1.flags.skillCritAfterEvadePending).toBe(false);
   });
 
   it("ctx.v2Skills 로 양 side 전달 → 첫 턴 cast 시 mp 차감 + cd 세팅 + 시전 로그", () => {

@@ -2,6 +2,7 @@ import type { Monster } from "@/adventure/data/monsters/types";
 import type { StatKey } from "@/adventure/data/stats";
 import {
   evaluateCombatPattern,
+  v2SkillAttackCoef,
   type V2CombatPattern,
   type V2CombatRole,
 } from "@/adventure/v2/combat/combatPattern";
@@ -171,21 +172,37 @@ function partySkillDamage(
 ): number {
   const def = V2_SKILLS[skillId];
   if (!def) return 0;
+  const damageEffects = def.effects.filter((effect) => effect.kind === "damage");
+  const directDamageEffectCount = Math.max(1, damageEffects.length);
   let total = 0;
-  for (const effect of def.effects) {
-    if (effect.kind !== "damage") continue;
-    const base =
-      effect.scaling === "magic"
+  for (const effect of damageEffects) {
+    const specialized =
+      effect.scaling != null &&
+      effect.scaling !== "physical" &&
+      effect.scaling !== "magic";
+    const attackPower =
+      effect.scaling === "magic" || effect.scaling === "spi"
         ? actor.magicAtk
-        : effect.scaling === "spi"
-          ? actor.spi
-        : effect.scaling === "def"
-          ? actor.def
-          : actor.atk;
-    const flat =
-      effect.baseFlat ??
-      (effect.baseFlatByTier ? effect.baseFlatByTier[0] : 0);
-    total += partyDamage(Math.round(base * effect.statCoef + flat), enemyDef);
+        : actor.atk;
+    const specializedPower =
+      effect.scaling === "spi"
+        ? actor.spi
+        : effect.scaling === "maxHp"
+          ? actor.maxHp
+          : effect.scaling === "def"
+            ? actor.def
+            : actor.atk;
+    const attackCoef = v2SkillAttackCoef({
+      tier: def.tier,
+      statCoef: effect.statCoef,
+      specialized,
+      directDamageEffectCount,
+      attackCoef: effect.attackCoef,
+    });
+    const raw =
+      attackPower * attackCoef +
+      (specialized ? specializedPower * effect.statCoef : 0);
+    total += partyDamage(Math.round(raw), enemyDef);
   }
   return total;
 }

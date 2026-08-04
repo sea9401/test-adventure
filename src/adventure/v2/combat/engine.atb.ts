@@ -27,6 +27,7 @@ import { resolvePlayerPhase } from "./engine.playerPhase";
 import {
   decrementTimedBuffs,
   distributeV2DotTicks,
+  statusDamageAfterReduction,
   tickV2BuffMap,
   tickV2Dots,
   v2DotLogCause,
@@ -159,10 +160,15 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
 function tickPlayerDotsOnAction(
   state: BattleState,
   playerName: string,
+  statusDamageReductionPct?: number,
 ): BattleState {
   const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-  if (pTick.totalDmg <= 0) return { ...state, playerV2Dots: pTick.nextDots };
-  const dotLog = distributeV2DotTicks(pTick.ticks, pTick.totalDmg).reduce(
+  const damage = statusDamageAfterReduction(
+    pTick.totalDmg,
+    statusDamageReductionPct,
+  );
+  if (damage <= 0) return { ...state, playerV2Dots: pTick.nextDots };
+  const dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -175,7 +181,7 @@ function tickPlayerDotsOnAction(
   const next: BattleState = {
     ...state,
     playerV2Dots: pTick.nextDots,
-    playerHp: Math.max(0, state.playerHp - pTick.totalDmg),
+    playerHp: Math.max(0, state.playerHp - damage),
     log: dotLog,
   };
   if (next.playerHp > 0) return next;
@@ -315,7 +321,11 @@ export function resolveBattleAtb(
             : state.playerAttacksLeft,
       };
       const playerBundleStart = state.log.length;
-      state = tickPlayerDotsOnAction(state, playerName);
+      state = tickPlayerDotsOnAction(
+        state,
+        playerName,
+        atbPlayer.statusDamageReductionPct,
+      );
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
       if (state.phase === "ended") {
         turns += 1;

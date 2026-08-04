@@ -17,6 +17,15 @@ export const BULLETIN_ACTIVITY_LEVELS = [
   { level: 10, minPoints: 460, title: "광장지기" },
 ] as const;
 
+// 실제 장착 칭호 보상은 모든 레벨이 아니라 의미 있는 활동 이정표에서 지급한다.
+// 한번 획득한 칭호는 이후 원글·댓글·좋아요가 삭제돼 점수가 내려가도 회수하지 않는다.
+export const BULLETIN_ACTIVITY_TITLE_REWARDS = [
+  { level: 3, titleId: "bulletin_storyteller", name: "이야기꾼" },
+  { level: 5, titleId: "bulletin_regular", name: "광장 단골" },
+  { level: 7, titleId: "bulletin_adviser", name: "광장의 조언자" },
+  { level: 10, titleId: "bulletin_keeper", name: "광장지기" },
+] as const;
+
 export type BulletinActivityBreakdown = {
   creditedPosts: number;
   creditedComments: number;
@@ -61,6 +70,13 @@ export function bulletinActivityPoints(
     nonNegativeInteger(breakdown.creditedComments) * BULLETIN_COMMENT_POINTS +
     nonNegativeInteger(breakdown.receivedLikes) * BULLETIN_RECEIVED_LIKE_POINTS
   );
+}
+
+export function bulletinActivityTitleIdsForLevel(level: number): string[] {
+  const safeLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
+  return BULLETIN_ACTIVITY_TITLE_REWARDS.filter(
+    (reward) => reward.level <= safeLevel,
+  ).map((reward) => reward.titleId);
 }
 
 export function deriveBulletinActivity(

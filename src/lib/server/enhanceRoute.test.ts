@@ -3,13 +3,19 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, grantTitleIfMissingInTx } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  grantTitleIfMissingInTx: vi.fn(async () => true),
+}));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
 vi.mock("@/lib/server/serverFeed", () => ({
   insertFeedEntry: vi.fn(async () => {}),
+}));
+vi.mock("@/lib/server/grantTitle", () => ({
+  grantTitleIfMissingInTx,
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -202,6 +208,31 @@ describe("POST /api/v2/me/enhance", () => {
     };
     expect(json.outcome).toBe("keep");
     expect(json.enhance.level).toBe(10);
+  });
+
+  it("+10 이상 장비가 파괴되면 일장춘몽 히든 칭호를 지급한다", async () => {
+    store.set("character.v2", {
+      gold: 10_000_000,
+      materials: { [RED]: 50, [BLUE]: 50 },
+    });
+    store.set("equipment.v2", {
+      owned: [{ iid: "w1", id: WEAPON, enhance: { level: 10, bonusPct: 24 } }],
+      equipped: {},
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+
+    const res = await POST(req({ iid: "w1", stone: "red" }));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { outcome: string }).toMatchObject({
+      outcome: "destroy",
+    });
+    expect(grantTitleIfMissingInTx).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "shattered_dream",
+      expect.any(Number),
+    );
   });
 
   it("푸른 돌은 +12 도전까지 파괴를 완전히 막는다", async () => {

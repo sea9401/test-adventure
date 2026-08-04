@@ -10,6 +10,9 @@
 export type TitleId = string;
 
 export const ARENA_CHAMPION_TITLE_ID = "pvp_champion";
+export const BEGGAR_TITLE_ID = "beggar";
+export const TINY_CATCH_TITLE_ID = "tiny_catch";
+export const SHATTERED_DREAM_TITLE_ID = "shattered_dream";
 
 // 도감의 칭호 섹션 분류. 추가 시 TITLE_CATEGORY_ORDER 에 라벨/순서 등록.
 export type TitleCategory =
@@ -81,6 +84,34 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "글로벌 채팅 100회 발화",
     category: "town",
     hidden: true,
+  },
+  bulletin_storyteller: {
+    id: "bulletin_storyteller",
+    name: "이야기꾼",
+    description: "광장에 이야기를 보태 사람들의 발길을 붙잡은 자.",
+    condition: "게시판 활동 Lv.3 달성",
+    category: "town",
+  },
+  bulletin_regular: {
+    id: "bulletin_regular",
+    name: "광장 단골",
+    description: "광장의 소식과 사람들 사이에 익숙한 자리를 만든 자.",
+    condition: "게시판 활동 Lv.5 달성",
+    category: "town",
+  },
+  bulletin_adviser: {
+    id: "bulletin_adviser",
+    name: "광장의 조언자",
+    description: "여러 모험가가 귀 기울이는 경험과 조언을 나눈 자.",
+    condition: "게시판 활동 Lv.7 달성",
+    category: "town",
+  },
+  bulletin_keeper: {
+    id: "bulletin_keeper",
+    name: "광장지기",
+    description: "오랜 시간 광장의 이야기와 온기를 지켜 온 자.",
+    condition: "게시판 활동 Lv.10 달성",
+    category: "town",
   },
   patient: {
     id: "patient",
@@ -265,6 +296,7 @@ export const TITLES: Record<TitleId, Title> = {
     description: "한 푼 없는 신세를 한 번이라도 겪은 자.",
     condition: "보유 골드 0 도달",
     category: "economy",
+    hidden: true,
   },
   phisher: {
     id: "phisher",
@@ -621,6 +653,22 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "레벨 10 미만 + 보유 골드 100,000 도달",
     category: "economy",
   },
+  tiny_catch: {
+    id: "tiny_catch",
+    name: "잔챙이 전문",
+    description: "기록은 작아도 추억은 크다. 아주 작은 입질까지 놓치지 않은 자.",
+    condition: "어종별 크기 범위 하위 25%의 물고기 낚기",
+    category: "fishing",
+    hidden: true,
+  },
+  shattered_dream: {
+    id: "shattered_dream",
+    name: "일장춘몽",
+    description: "높이 쌓아 올린 무구가 한순간에 부서지는 광경을 견딘 자.",
+    condition: "+10 이상 장비 강화 중 파괴",
+    category: "economy",
+    hidden: true,
+  },
   // 고탑 주간 백분위 — 매주 마감 시 cron 이 batch 부여. F30 이상 자격.
   tower_weekly_top_1: {
     id: "tower_weekly_top_1",
@@ -789,7 +837,7 @@ export const TITLES: Record<TitleId, Title> = {
     id: "ach_frontier_end",
     name: "완주자",
     description: "한번 시작한 여정을 끝까지 이어 간 사람.",
-    condition: "업적 '프론티어의 끝' 보상 수령",
+    condition: "업적 '사냥터의 끝' 보상 수령",
     category: "exploration",
   },
   ach_reborn: {

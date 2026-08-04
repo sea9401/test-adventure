@@ -8,8 +8,8 @@ import {
 } from "./guildWorkshopMaterials";
 
 describe("guild workshop materials", () => {
-  it("defines four tier bottleneck materials", () => {
-    expect(GUILD_WORKSHOP_MATERIAL_IDS).toHaveLength(4);
+  it("defines five tier bottleneck materials", () => {
+    expect(GUILD_WORKSHOP_MATERIAL_IDS).toHaveLength(5);
     for (const id of GUILD_WORKSHOP_MATERIAL_IDS) {
       expect(GUILD_WORKSHOP_MATERIALS[id].name.length).toBeGreaterThan(0);
       expect(GUILD_WORKSHOP_MATERIALS[id].description.length).toBeGreaterThan(0);
@@ -21,7 +21,8 @@ describe("guild workshop materials", () => {
       [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 0.0045,
       [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 0.0035,
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 0.0025,
-      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 0.0015,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 0.002,
+      [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 0.0017,
     });
   });
 
@@ -37,6 +38,10 @@ describe("guild workshop materials", () => {
     });
     expect(rollGuildWorkshopMaterialDrops(43, () => 0)).toEqual({
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 1,
+    });
+    expect(rollGuildWorkshopMaterialDrops(65, () => 0)).toEqual({
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 1,
+      [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 1,
     });
   });
 

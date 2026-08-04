@@ -1,3 +1,5 @@
+import type { LotteryWonNotificationPayload } from "@/lib/v2-notification-config";
+
 export const LOTTERY_TICKET_PRICE = 150_000;
 export const LOTTERY_MAX_TICKETS_PER_ROUND = 10;
 export const LOTTERY_FEE_PERCENT = 10;
@@ -64,6 +66,42 @@ export type LotterySnapshot = {
   viewerGold: number;
   viewerBankedGold: number;
 };
+
+export type LotteryWinnerForNotification = {
+  userId: string;
+  rank: number;
+  ticketNumber: number;
+  prizeAmount: number;
+};
+
+export type LotteryWinNotice = {
+  userId: string;
+  payload: LotteryWonNotificationPayload;
+};
+
+/** 같은 회차의 복수 당첨을 유저별 알림 한 건으로 묶는다. */
+export function lotteryWinNotices(
+  roundId: number,
+  winners: readonly LotteryWinnerForNotification[],
+): LotteryWinNotice[] {
+  const byUser = new Map<string, LotteryWonNotificationPayload>();
+  for (const winner of winners) {
+    const current = byUser.get(winner.userId) ?? {
+      roundId,
+      ranks: [],
+      ticketNumbers: [],
+      prizeAmount: 0,
+    };
+    current.ranks.push(winner.rank);
+    current.ticketNumbers.push(winner.ticketNumber);
+    current.prizeAmount += winner.prizeAmount;
+    byUser.set(winner.userId, current);
+  }
+  return [...byUser.entries()].map(([userId, payload]) => ({
+    userId,
+    payload,
+  }));
+}
 
 export function lotteryRoundWindow(nowMs: number): {
   startsAt: number;

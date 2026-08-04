@@ -42,6 +42,7 @@ import { sortEquipInstances } from "./v2ItemListShared";
 import { useGameState } from "./GameStateProvider";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import { useSystemToast } from "./RewardToastProvider";
+import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -600,6 +601,7 @@ function EquipmentName({
         >
           {item.name}
         </span>
+        <EquipmentCodexBadge itemId={item.id} />
         {showTypeChip && <ItemTypeChip item={item} />}
       </div>
     </button>
@@ -755,6 +757,7 @@ function SellEquipmentRow({
             {item.name}
           </span>
           <ItemTypeChip item={item} />
+          <EquipmentCodexBadge itemId={item.id} />
           {qualityPct != null ? (
             <span className="text-[10px] font-semibold tabular-nums" title="품질">
               품질 <QualityPctText pct={qualityPct} />

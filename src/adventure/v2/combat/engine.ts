@@ -23,6 +23,7 @@ import {
   type V2SkillDotApply,
   distributeBoostedHits,
   rollAttackCount,
+  statusDamageAfterReduction,
   tickV2BuffMap,
   tickV2Dots,
   v2AtkBuffMult,
@@ -888,6 +889,7 @@ export function initialBattleState(
       assassinateUsed: false,
       luckyBuffActive: false,
       fatedChainCritPending: false,
+      skillCritAfterEvadePending: false,
       statusBlockUsed: false,
     },
     buffs: {
@@ -1444,10 +1446,13 @@ export function applyPlayerV2SkillCast(
   // 스킬 치명타 — 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT 로
   //   분리(평타 critMult 비연동 → 비폭주). 오버플로(캡 초과분 크리뎀)는 평타 전용, 스킬은 flat.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
+  const skillCritAfterEvadeFired =
+    result.enemyDamage > 0 && state.flags.skillCritAfterEvadePending;
   const skillCritFired =
     result.enemyDamage > 0 &&
-    (player.critChancePct ?? 0) > 0 &&
-    Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0);
+    (skillCritAfterEvadeFired ||
+      ((player.critChancePct ?? 0) > 0 &&
+        Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0)));
   // 스킬 다단히트 — 이 턴 추가 공격 확률로 굴려둔 공격 횟수(playerAttacksLeft)만큼 데미지
   //   스킬을 반복 타격한다. 평타 빌드가 누리는 SPD(추가 공격) 가치를 스킬 빌드에도 부여.
   //   데미지 스킬에만 적용(버프/힐/마나/DoT 부여는 1회 — 다중 적용 X). 새 RNG 미소비(이미
@@ -1512,6 +1517,13 @@ export function applyPlayerV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextLog = state.log;
   let healShieldAmount = 0;
+  if (skillCritAfterEvadeFired && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[흑월지배] 회피의 여세로 ${result.castSkillName}이(가) 치명타가 된다.`,
+      turn: "player",
+    });
+  }
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
   //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
@@ -1573,6 +1585,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! 마나 ${result.manaRestored} 회복했다.`,
+    });
+  }
+  if (result.guaranteedEvadesToAdd > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName}] 다음 공격 ${result.guaranteedEvadesToAdd}회를 반드시 회피한다.`,
+      turn: "player",
     });
   }
   if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
@@ -1717,9 +1736,14 @@ export function applyPlayerV2SkillCast(
     v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
     enemyV2Debuffs: nextEnemyDebuffs,
     enemyV2Dots: nextEnemyDots,
+    flags: skillCritAfterEvadeFired
+      ? { ...state.flags, skillCritAfterEvadePending: false }
+      : state.flags,
     stacks: {
       // PR2-B-2c — 운기/연환집중/선풍각/속박 temp 버프 갱신.
       ...applySkillTempBuffs(state.stacks, result),
+      evadesRemaining:
+        state.stacks.evadesRemaining + result.guaranteedEvadesToAdd,
       comboHitCount: nextComboHitCount,
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
@@ -1822,12 +1846,16 @@ function resolveBattleLegacy(
         // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF 무시. lethal 처리.
         // 일반 공격 레인과 섞이지 않도록 status_damage 효과 행으로 기록한다.
         const playerDotTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-        if (playerDotTick.totalDmg > 0) {
+        const playerDotDamage = statusDamageAfterReduction(
+          playerDotTick.totalDmg,
+          player.statusDamageReductionPct,
+        );
+        if (playerDotDamage > 0) {
           const before = state.playerHp;
-          const newHp = Math.max(0, before - playerDotTick.totalDmg);
+          const newHp = Math.max(0, before - playerDotDamage);
           const dotLog = distributeV2DotTicks(
             playerDotTick.ticks,
-            playerDotTick.totalDmg,
+            playerDotDamage,
           ).reduce(
             (log, tick) =>
               appendLog(log, {

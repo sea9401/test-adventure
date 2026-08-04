@@ -24,6 +24,7 @@ import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
   parseCombatPattern,
   parseCombatPresets,
+  v2SkillAttackCoef,
   type V2CombatCondition,
   type V2CombatPattern,
   type V2CombatPreset,
@@ -160,6 +161,8 @@ export type V2PassiveSkillEffect = {
   spdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
   skillCritOverflow?: boolean;
+  /** 흑월지배 — 회피 성공 후 다음에 적중하는 직접 피해 액티브 스킬을 확정 치명타로 만든다. */
+  skillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 다단 액티브 스킬과 평타가 같은 카운터를 공유. */
   comboFinisherBonusPct?: number;
 };
@@ -223,8 +226,8 @@ export type V2MonsterStatusSkillId =
 //   magicDef(정신)로 경감. attackerMagicAtk 미지정(몹) → atk 폴백(combatShared). statusSkill 과 병합 가능.
 export type V2MonsterCastSkillId = "mob_arcane_bolt" | "mob_arcane_burst";
 
-// baseFlatByTier: 전문화 스킬 차수 flat 성장(2/3/4차). 지정 시 시전자 차수로 baseFlat 대체(엔진 PR2).
-//   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).
+// baseFlatByTier: 회복 계열의 전문화 차수 flat 성장(2/3/4차). 직접 피해에 남아 있는
+//   baseFlat/baseFlatByTier 값은 구 카탈로그·SP 가격 호환용이며 전투·표시에서는 무시한다.
 // scaling "def": 방어비례딜(방패 가격) — atk/magicAtk 대신 DEF 스케일.
 // scaling "vit": VIT 비례 딜(나한권) — 금강(VIT 앵커) 정체성, 기사 DEF비례와 다른 축.
 //   def/vit/dex/luk/spi/all/maxHp 은 시전자 그 스탯 값이 필요 → 엔진(combatShared.damageWith) 배선
@@ -243,6 +246,8 @@ export type V2DamageScaling =
 export type V2SkillEffect =
   | {
       kind: "damage";
+      /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수와 타격 수로 기본값을 정한다. */
+      attackCoef?: number;
       statCoef: number;
       baseFlat?: number;
       baseFlatByTier?: readonly [number, number, number];
@@ -273,6 +278,8 @@ export type V2SkillEffect =
   | { kind: "shield"; pctMaxHp?: number; pctMaxMp?: number; turns: number }
   // 마나 회복(명상).
   | { kind: "manaRestore"; pctMaxMp: number }
+  // 다음에 받는 공격을 count회 반드시 회피. 기존 보장 회피 스택과 합산해 피격 직전에 소비한다.
+  | { kind: "guaranteedEvade"; count: number }
   | { kind: "enemyDebuff"; stat: StatKey; pct: number; turns: number }
   // 취약 — 적 받는 피해 +%(속박 사격). 스턴 금지 룰 대체.
   | { kind: "enemyVuln"; pct: number; turns: number }
@@ -295,6 +302,8 @@ export type V2SkillEffect =
   | {
       kind: "hpCostDamage";
       pctCurrentHp: number;
+      /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수 기본값. */
+      attackCoef?: number;
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       soakRatio: number;
@@ -311,6 +320,8 @@ export type V2SkillEffect =
   // 처형 — 적 HP hpThresholdPct% 이하 시 데미지×bonusMult(처단).
   | {
       kind: "executeDamage";
+      /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수 기본값. */
+      attackCoef?: number;
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       hpThresholdPct: number;
@@ -321,6 +332,8 @@ export type V2SkillEffect =
   //   기본딜은 낮게 잡고 배수는 크게 — 첫 턴 알파 1회용. 그 외(적 HP 깎인 뒤)엔 약한 평타 이하.
   | {
       kind: "ambushDamage";
+      /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수 기본값. */
+      attackCoef?: number;
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       hpThresholdPct: number;
@@ -331,6 +344,8 @@ export type V2SkillEffect =
   | {
       kind: "stackPayoffDamage";
       tag: "bleed" | "poison" | "magicVuln";
+      /** 공격력/마법공격력 기반 계수. 미지정이면 스킬 차수 기본값. */
+      attackCoef?: number;
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       perStackFlat: number;
@@ -442,6 +457,32 @@ const SP_FLAT_NORM = 140; // baseFlat ~140 ≈ statCoef 1.0 (정규화 기준).
 //   액티브는 발동 조건/빈도 제약이 있으나 패시브는 항상 켜짐). 코스트만 할인(power 점수는 불변).
 const SP_PASSIVE_DISCOUNT = 0.75;
 
+type V2DirectDamageEffect = Extract<
+  V2SkillEffect,
+  {
+    kind:
+      | "damage"
+      | "hpCostDamage"
+      | "executeDamage"
+      | "ambushDamage"
+      | "stackPayoffDamage";
+  }
+>;
+
+function isDirectDamageEffect(e: V2SkillEffect): e is V2DirectDamageEffect {
+  return (
+    e.kind === "damage" ||
+    e.kind === "hpCostDamage" ||
+    e.kind === "executeDamage" ||
+    e.kind === "ambushDamage" ||
+    e.kind === "stackPayoffDamage"
+  );
+}
+
+function isSpecializedDamageScaling(scaling?: V2DamageScaling): boolean {
+  return scaling != null && scaling !== "physical" && scaling !== "magic";
+}
+
 function spAvgTier(byTier?: readonly [number, number, number]): number {
   return byTier ? (byTier[0] + byTier[1] + byTier[2]) / 3 : 0;
 }
@@ -459,7 +500,8 @@ function spMpEfficiencyMultiplier(def: V2SkillDefinition): number {
   return Math.min(1.2, Math.max(0.8, Math.sqrt(baseline / actual)));
 }
 
-// 액티브 effect 1개의 가치(statCoef-등가 단위).
+// 액티브 effect 1개의 가치(statCoef-등가 단위). 이 점수는 기존 SP 가격을 유지하기 위한 카탈로그
+// 밸런스 값이라, 전투에서 제거된 직접 피해 flat 도 마이그레이션 기간에는 종전처럼 평가한다.
 function spEffectValue(e: V2SkillEffect): number {
   switch (e.kind) {
     case "damage":
@@ -511,6 +553,8 @@ function spEffectValue(e: V2SkillEffect): number {
       return (e.pctMaxHpPerTurn * e.turns) / 16;
     case "manaRestore":
       return e.pctMaxMp / 30;
+    case "guaranteedEvade":
+      return Math.max(0, e.count) * 1.5;
     case "selfBuff":
     case "enemyDebuff":
     case "enemyEvasionDown":
@@ -1007,6 +1051,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   magicSkillDamagePct: number;
   spdOverflowToAtkPct: number;
   skillCritOverflow: boolean;
+  skillCritAfterEvade: boolean;
   comboFinisherBonusPct: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
@@ -1035,6 +1080,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let magicSkillDamagePct = 0;
   let spdOverflowToAtkPct = 0;
   let skillCritOverflow = false;
+  let skillCritAfterEvade = false;
   let comboFinisherBonusPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
@@ -1083,6 +1129,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     magicSkillDamagePct += p.magicSkillDamagePct ?? 0;
     spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
+    if (p.skillCritAfterEvade) skillCritAfterEvade = true;
     comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
   }
   return {
@@ -1112,6 +1159,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     magicSkillDamagePct,
     spdOverflowToAtkPct,
     skillCritOverflow,
+    skillCritAfterEvade,
     comboFinisherBonusPct,
   };
 }
@@ -1291,7 +1339,7 @@ const STACK_TAG_LABEL: Record<"bleed" | "poison" | "magicVuln", string> = {
   poison: "중독",
   magicVuln: "마법취약",
 };
-// 차수 flat(baseFlatByTier) 이면 범위로, 아니면 단일 baseFlat 으로 표기.
+// 회복 계열의 차수 flat(baseFlatByTier) 이면 범위로, 아니면 단일 baseFlat 으로 표기.
 function flatChip(baseFlat?: number, byTier?: readonly [number, number, number]): string {
   if (byTier) return ` +${byTier[0]}~${byTier[2]}`;
   return baseFlat ? ` +${baseFlat}` : "";
@@ -1307,6 +1355,28 @@ function scalingStatLabel(scaling?: V2DamageScaling): string {
   if (scaling === "maxHp") return "최대 HP";
   return "공격력";
 }
+function damageFormulaChip(
+  e: V2DirectDamageEffect,
+  tier: 1 | 2 | 3,
+  directDamageEffectCount: number,
+): string {
+  const specialized = isSpecializedDamageScaling(e.scaling);
+  const attackLabel =
+    e.scaling === "magic" || e.scaling === "spi"
+      ? "마법 공격력"
+      : "공격력";
+  const attackCoef = v2SkillAttackCoef({
+    tier,
+    statCoef: e.statCoef,
+    specialized,
+    directDamageEffectCount,
+    attackCoef: e.attackCoef,
+  });
+  const attackTerm = `${attackLabel}×${attackCoef}`;
+  return specialized
+    ? `${attackTerm} + ${scalingStatLabel(e.scaling)}×${e.statCoef}`
+    : attackTerm;
+}
 function actionsChip(actions: number): string {
   return `${actions}행동`;
 }
@@ -1314,10 +1384,14 @@ function targetActionsChip(actions: number): string {
   return `대상 행동 ${actions}회`;
 }
 
-function describeV2Effect(e: V2SkillEffect): string {
+function describeV2Effect(
+  e: V2SkillEffect,
+  tier: 1 | 2 | 3,
+  directDamageEffectCount: number,
+): string {
   switch (e.kind) {
     case "damage":
-      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(e.baseFlat, e.baseFlatByTier)}`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)}`;
     case "heal":
       return [
         e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
@@ -1343,6 +1417,8 @@ function describeV2Effect(e: V2SkillEffect): string {
     }
     case "manaRestore":
       return `마나 ${e.pctMaxMp}% 회복`;
+    case "guaranteedEvade":
+      return `다음 공격 ${e.count}회 확정 회피`;
     case "enemyDebuff":
       return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${targetActionsChip(e.turns)})`;
     case "enemyVuln":
@@ -1364,15 +1440,15 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "enemyDotVuln":
       return `적 지속/저주 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "hpCostDamage":
-      return `HP ${e.pctCurrentHp}% 소모 → 피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
+      return `HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} + 소모량×${e.soakRatio}`;
     case "healToDamage":
       return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
-      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
     case "ambushDamage":
-      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
     case "stackPayoffDamage":
-      return `피해 ${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
     case "dot":
       return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택)`;
   }
@@ -1471,6 +1547,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
   if (p.skillCritOverflow)
     chips.push(`치명타 한계(75%) 초과 보너스를 스킬에도 적용`);
+  if (p.skillCritAfterEvade)
+    chips.push(`회피 후 다음 직접 피해 스킬 확정 치명타`);
   if (p.comboFinisherBonusPct)
     chips.push(`4타마다 피해 +${p.comboFinisherBonusPct}%`);
   return chips;
@@ -1542,9 +1620,15 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
     reordered.splice(poisonDotIndex, 0, payoff);
     return reordered;
   })();
+  const directDamageEffectCount = Math.max(
+    1,
+    displayEffects.filter(isDirectDamageEffect).length,
+  );
   const chips = skill.passive
     ? describePassive(skill.passive)
-    : displayEffects.map(describeV2Effect);
+    : displayEffects.map((effect) =>
+        describeV2Effect(effect, skill.tier, directDamageEffectCount),
+      );
   if (
     skill.effects.some(
       (payoff) =>
@@ -1848,6 +1932,9 @@ export function smartDefaultConditionForSkill(
   }
   if (effs.some((e) => e.kind === "manaRestore")) {
     return { kind: "self_mp", op: "below", pct: 20 }; // 마나 회복(명상) = MP가 바닥날 때만.
+  }
+  if (effs.some((e) => e.kind === "guaranteedEvade")) {
+    return { kind: "turn", op: "atMost", value: 1 }; // 전투당 1회 생존기 = 첫 턴 오프너.
   }
   const statBuff = effs.find((e) => e.kind === "selfBuff");
   if (statBuff && statBuff.kind === "selfBuff") {

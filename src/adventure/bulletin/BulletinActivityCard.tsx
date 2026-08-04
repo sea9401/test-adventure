@@ -1,6 +1,9 @@
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import type { BulletinActivitySummary } from "@/lib/bulletinActivity";
+import {
+  BULLETIN_ACTIVITY_TITLE_REWARDS,
+  type BulletinActivitySummary,
+} from "@/lib/bulletinActivity";
 import { BulletinActivityBadge } from "./BulletinActivityBadge";
 
 export function BulletinActivityCard({
@@ -12,6 +15,9 @@ export function BulletinActivityCard({
     activity.nextLevelPoints == null
       ? "최고 레벨"
       : `${activity.points} / ${activity.nextLevelPoints}점`;
+  const nextTitle = BULLETIN_ACTIVITY_TITLE_REWARDS.find(
+    (reward) => reward.level > activity.level,
+  );
 
   return (
     <Card padding="sm" className="space-y-2 shadow-none">
@@ -38,10 +44,15 @@ export function BulletinActivityCard({
         />
       </div>
       <details className="text-[11px] text-zinc-500 dark:text-zinc-400">
-        <summary className="cursor-pointer select-none">점수 기준</summary>
+        <summary className="cursor-pointer select-none">점수·칭호 기준</summary>
         <p className="mt-1 leading-relaxed">
           글 3점(하루 2개) · 각 글에 남긴 첫 댓글 1점(하루 5개) · 다른
           이용자에게 받은 좋아요 4점
+        </p>
+        <p className="mt-1 leading-relaxed">
+          {nextTitle
+            ? `다음 칭호 · Lv.${nextTitle.level} ‘${nextTitle.name}’`
+            : "게시판 칭호 보상을 모두 해금했습니다."}
         </p>
       </details>
     </Card>

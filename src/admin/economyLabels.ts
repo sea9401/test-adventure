@@ -48,6 +48,7 @@ export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "shop.material.sell": "재료 판매",
   "shop.buy": "상점 구매",
   "shop.sell": "상점 판매",
+  "sink.guild_workshop.craft_fee": "길드 제작 수수료",
 };
 
 export const ECONOMY_ITEM_KIND_LABELS: Record<string, string> = {

@@ -15,6 +15,7 @@ const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
 function workshopState(): WorkshopState {
   return {
     hasGuildSmithy: true,
+    spendableGold: Number.MAX_SAFE_INTEGER,
     resources: {},
     materials: {},
     artisan: {
@@ -60,6 +61,12 @@ function renderWorkshop(
 }
 
 describe("guild workshop recipe equipment codex badge", () => {
+  it("shows normal and masterwork crafting fees", () => {
+    const html = renderWorkshop(new Set());
+    expect(html).toContain("제작 수수료: 10,000 G");
+    expect(html).toContain("제작 수수료: 20,000 G");
+  });
+
   it("shows registered and unregistered status on the crafted item row", () => {
     const registeredHtml = renderWorkshop(new Set([recipe.equipmentId]));
     expect(registeredHtml).toContain("도감 등록");

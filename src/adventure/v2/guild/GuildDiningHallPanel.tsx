@@ -19,7 +19,10 @@ import {
   SURFACE_CARD,
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
-import { toggleGuildDiningMenuSelection } from "./guildDiningMenuSelection";
+import {
+  guildDiningMenuLockNotice,
+  toggleGuildDiningMenuSelection,
+} from "./guildDiningMenuSelection";
 
 const DINING_PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
 
@@ -201,6 +204,13 @@ export function GuildDiningHallPanel() {
   }
 
   const menuEditable = state.canManage && state.pantry.points === 0;
+  const selectedMenuCount = state.menus.filter((menu) => menu.selected).length;
+  const menuLockNotice = guildDiningMenuLockNotice({
+    pantryPoints: state.pantry.points,
+    level: state.level,
+    menuSlots: state.menuSlots,
+    selectedCount: selectedMenuCount,
+  });
   const activeEffect =
     state.activeEffect && state.activeEffect.expiresAt > clockNow
       ? state.activeEffect
@@ -373,6 +383,11 @@ export function GuildDiningHallPanel() {
             </button>
           )}
         </div>
+        {menuLockNotice && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            {menuLockNotice}
+          </p>
+        )}
         <div className="grid gap-2 md:grid-cols-2">
           {state.menus.map((menu) => {
             const checked = selectedMenuIds.includes(menu.id);

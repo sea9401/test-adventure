@@ -56,6 +56,22 @@ export function isLoopbackDatabaseHostname(hostname) {
 }
 
 /**
+ * GitHub Actions의 컨테이너 잡에서는 PostgreSQL 서비스가 Docker 네트워크의
+ * `postgres` 호스트명으로 노출된다. 두 CI 표식이 모두 있는 격리 실행에서만
+ * 이 정확한 서비스 이름을 로컬 테스트 DB로 인정한다.
+ * @param {string} hostname
+ * @param {Record<string, string | undefined>} env
+ */
+export function isGitHubActionsTestDatabaseHostname(hostname, env) {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized === "postgres" &&
+    env.CI?.trim().toLowerCase() === "true" &&
+    env.GITHUB_ACTIONS?.trim().toLowerCase() === "true"
+  );
+}
+
+/**
  * @param {string} value
  * @param {Record<string, string | undefined>} env
  */
@@ -63,9 +79,12 @@ export function createDatabaseConnectionOptions(value, env = process.env) {
   const connectionString = normalizeDatabaseUrl(value);
   if (env.DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS?.trim().toLowerCase() === "true") {
     const { hostname } = new URL(connectionString);
-    if (!isLoopbackDatabaseHostname(hostname)) {
+    if (
+      !isLoopbackDatabaseHostname(hostname) &&
+      !isGitHubActionsTestDatabaseHostname(hostname, env)
+    ) {
       throw new Error(
-        "DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS is only allowed for loopback database hosts",
+        "DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS is only allowed for loopback or GitHub Actions test database hosts",
       );
     }
     return { connectionString, ssl: false };

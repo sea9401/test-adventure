@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   createDatabaseConnectionOptions,
   createDatabaseSslOptions,
+  isGitHubActionsTestDatabaseHostname,
   isLoopbackDatabaseHostname,
   normalizeDatabaseUrl,
 } from "./databaseTls.mjs";
@@ -102,6 +103,36 @@ describe("database TLS configuration", () => {
         "postgresql://user:pass@db.example.com/adventure_e2e",
         { DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true" },
       ),
-    ).toThrow("only allowed for loopback database hosts");
+    ).toThrow("only allowed for loopback or GitHub Actions test database hosts");
+  });
+
+  it("allows only the exact GitHub Actions postgres service as a CI test database", () => {
+    const githubActionsEnv = {
+      CI: "true",
+      GITHUB_ACTIONS: "true",
+      DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true",
+    };
+
+    expect(
+      isGitHubActionsTestDatabaseHostname("postgres", githubActionsEnv),
+    ).toBe(true);
+    expect(
+      isGitHubActionsTestDatabaseHostname("db.example.com", githubActionsEnv),
+    ).toBe(false);
+    expect(
+      isGitHubActionsTestDatabaseHostname("postgres", {
+        DATABASE_TLS_DISABLED_FOR_LOCAL_TESTS: "true",
+      }),
+    ).toBe(false);
+
+    expect(
+      createDatabaseConnectionOptions(
+        "postgresql://user:pass@postgres:5432/adventure_e2e",
+        githubActionsEnv,
+      ),
+    ).toEqual({
+      connectionString: "postgresql://user:pass@postgres:5432/adventure_e2e",
+      ssl: false,
+    });
   });
 });

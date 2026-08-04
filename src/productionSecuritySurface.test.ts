@@ -125,7 +125,7 @@ describe("production security surface", () => {
     }
   });
 
-  it("운영 빌드를 자원·시간 제한 안에서 실행하고 실패하면 이전 빌드를 복원한다", () => {
+  it("EC2 수동 fallback 빌드를 자원·시간 제한 안에서 실행한다", () => {
     const build = source(join(ROOT, "deploy/build-production.sh"));
 
     expect(build).toContain("systemd-run");
@@ -142,6 +142,37 @@ describe("production security surface", () => {
     expect(build).toContain("restore_previous_build");
   });
 
+  it("성공한 main CI 빌드만 SHA·체크섬으로 운영에 전달한다", () => {
+    const ci = source(join(ROOT, ".github/workflows/ci.yml"));
+    const deploy = source(join(ROOT, ".github/workflows/deploy.yml"));
+    const prepare = source(
+      join(ROOT, "scripts/prepare-production-artifact.mjs"),
+    );
+    const install = source(
+      join(ROOT, "deploy/install-production-build.sh"),
+    );
+
+    expect(ci).toContain("BUILD_ID: ${{ github.sha }}");
+    expect(ci).toContain("scripts/prepare-production-artifact.mjs");
+    expect(ci).toContain("production-next-${{ github.sha }}");
+    expect(ci).toContain("sha256sum production-next.tar.gz");
+    expect(ci).toContain("actions/upload-artifact@v7");
+
+    expect(deploy).toContain("actions/workflows/ci.yml/runs");
+    expect(deploy).toContain("head_sha=$DEPLOY_SHA");
+    expect(deploy).toContain("actions/download-artifact@v8");
+    expect(deploy).toContain("appleboy/scp-action@v1.0.0");
+    expect(deploy).toContain("PRODUCTION_BUILD_ARCHIVE");
+    expect(deploy).not.toContain("- run: npm run build");
+
+    expect(prepare).toContain("native binary cannot cross x64 CI to ARM64");
+    expect(prepare).toContain("runtimeDependencies: \"external-node_modules\"");
+    expect(install).toContain("sha256sum --check");
+    expect(install).toContain("artifact SHA");
+    expect(install).toContain('PREVIOUS_BUILD=".next.previous"');
+    expect(install).toContain("previous Next build restored");
+  });
+
   it("운영 빌드 동안 두 Next 런타임을 멈추고 실패 시 복구한다", () => {
     const release = source(join(ROOT, "deploy/release-production.sh"));
     const stagingService = source(
@@ -153,6 +184,9 @@ describe("production security surface", () => {
     expect(release).toContain('systemctl stop "$PRODUCTION_SERVICE"');
     expect(release).toContain('systemctl start "$PRODUCTION_SERVICE"');
     expect(release).toContain('systemctl start "$STAGING_SERVICE"');
+    expect(release).toContain("bash deploy/install-production-build.sh");
+    expect(release).toContain('BUILD_SWAPPED=0');
+    expect(release).toContain("previous Next build restored");
     expect(release.match(/^sync_production_env$/gm)).toHaveLength(2);
     expect(stagingService).toContain("MemoryMax=768M");
     expect(stagingService).toContain("MemorySwapMax=256M");

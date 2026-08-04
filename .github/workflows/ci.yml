@@ -66,7 +66,27 @@ jobs:
       - name: Production dependency audit
         run: npm audit --omit=dev --audit-level=moderate
       - name: Production build
+        env:
+          # 운영 배포가 요청한 전체 SHA와 클라이언트 번들의 버전 식별자를 일치시킨다.
+          BUILD_ID: ${{ github.sha }}
         run: npm run build
+      - name: Prepare immutable production build artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          node scripts/prepare-production-artifact.mjs .next "$DEPLOY_SHA"
+          mkdir -p production-release
+          tar \
+            --exclude='./cache' \
+            --exclude='./dev' \
+            -C .next \
+            -czf production-release/production-next.tar.gz \
+            .
+          (
+            cd production-release
+            sha256sum production-next.tar.gz > production-next.tar.gz.sha256
+          )
       # GitHub hosted runner는 매 실행마다 초기화된다. 브라우저 바이너리를 캐시해
       # PR CI에서 받은 동일 Playwright 버전을 main CI가 다시 내려받지 않게 한다.
       - name: Cache Playwright browsers
@@ -83,6 +103,17 @@ jobs:
         run: npx playwright install chromium webkit
       - name: Browser E2E and accessibility
         run: npm run test:e2e
+      # E2E까지 성공한 main SHA만 운영 배포 후보가 된다. tar 내부는 Next 파일 권한과
+      # node_modules 상대 심볼릭 링크를 보존하고, GitHub 아티팩트는 불변으로 저장된다.
+      - name: Upload production build artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: production-next-${{ github.sha }}
+          path: production-release/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
       - name: Upload Playwright failure report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

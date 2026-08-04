@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Canonical production release after the requested revision is checked out.
-# nginx serves the static maintenance page while both Next.js runtimes are
-# stopped, so dependency installation and the bounded build get the host's
-# memory without competing with production or staging.
+# GitHub Actions에서 검증된 .next를 받아 짧게 교체한다. 아티팩트가 없는 EC2 수동
+# 실행에서는 기존 자원 제한 빌드를 비상 fallback으로 유지한다.
 set -Eeuo pipefail
 
 cd "$(dirname "$0")/.."
@@ -12,12 +11,16 @@ WEB_PUSH_ENV_PATH="${WEB_PUSH_ENV_PATH:-/etc/adventure-rpg/web-push.env}"
 PRODUCTION_SERVICE="${PRODUCTION_SERVICE:-adventure-rpg}"
 STAGING_SERVICE="${STAGING_SERVICE:-adventure-rpg-test}"
 BUILD_UNIT="${PRODUCTION_BUILD_UNIT:-adventure-production-build.service}"
+PRODUCTION_BUILD_ARCHIVE="${PRODUCTION_BUILD_ARCHIVE:-}"
+PRODUCTION_BUILD_CHECKSUM="${PRODUCTION_BUILD_CHECKSUM:-}"
 
 export PRODUCTION_ENV_PATH
 
 MAINTENANCE_ENABLED=0
 SERVICES_PAUSED=0
 STAGING_WAS_ACTIVE=0
+STAGING_PAUSED=0
+BUILD_SWAPPED=0
 DEPLOY_FINISHED=0
 
 sync_production_env() {
@@ -58,8 +61,18 @@ recover_on_failure() {
   sudo systemctl stop "$BUILD_UNIT" >/dev/null 2>&1 || true
 
   if [ "$SERVICES_PAUSED" -eq 1 ]; then
+    sudo systemctl stop "$PRODUCTION_SERVICE" >/dev/null 2>&1 || true
+    if [ "$BUILD_SWAPPED" -eq 1 ] && [ -d .next.previous ]; then
+      rm -rf .next.failed
+      if [ -d .next ]; then
+        mv .next .next.failed
+      fi
+      mv .next.previous .next
+      rm -rf .next.failed
+      echo "✓ [prod] previous Next build restored"
+    fi
     sudo systemctl start "$PRODUCTION_SERVICE" || true
-    if [ "$STAGING_WAS_ACTIVE" -eq 1 ]; then
+    if [ "$STAGING_PAUSED" -eq 1 ]; then
       sudo systemctl start "$STAGING_SERVICE" || true
     fi
   fi
@@ -113,9 +126,14 @@ bash deploy/maintenance.sh on
 MAINTENANCE_ENABLED=1
 SERVICES_PAUSED=1
 
-echo "▶ [prod] stop Next.js runtimes for build memory"
-if [ "$STAGING_WAS_ACTIVE" -eq 1 ]; then
+if [ -n "$PRODUCTION_BUILD_ARCHIVE" ]; then
+  echo "▶ [prod] stop production runtime for CI artifact swap"
+else
+  echo "▶ [prod] stop Next.js runtimes for fallback build memory"
+fi
+if [ -z "$PRODUCTION_BUILD_ARCHIVE" ] && [ "$STAGING_WAS_ACTIVE" -eq 1 ]; then
   sudo systemctl stop "$STAGING_SERVICE"
+  STAGING_PAUSED=1
 fi
 sudo systemctl stop "$PRODUCTION_SERVICE"
 
@@ -129,8 +147,14 @@ sync_production_env
 echo "▶ [prod] deps"
 bash deploy/install-deps.sh
 
-echo "▶ [prod] resource-bounded build"
-bash deploy/build-production.sh
+if [ -n "$PRODUCTION_BUILD_ARCHIVE" ]; then
+  echo "▶ [prod] install verified CI build"
+  bash deploy/install-production-build.sh
+  BUILD_SWAPPED=1
+else
+  echo "▶ [prod] resource-bounded fallback build"
+  bash deploy/build-production.sh
+fi
 
 echo "▶ [prod] db migrate"
 node --env-file="$PRODUCTION_ENV_PATH" src/db/migrate.mjs
@@ -199,9 +223,13 @@ done
 echo "  application crontab synced"
 sudo systemctl start adventure-resource-monitor.service
 
-if [ "$STAGING_WAS_ACTIVE" -eq 1 ]; then
+if [ "$STAGING_PAUSED" -eq 1 ]; then
   echo "▶ [prod] restore staging runtime"
   sudo systemctl start "$STAGING_SERVICE"
+fi
+
+if [ "$BUILD_SWAPPED" -eq 1 ]; then
+  rm -rf .next.previous
 fi
 
 echo "▶ [prod] nginx maintenance off"

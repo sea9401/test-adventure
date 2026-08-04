@@ -23,10 +23,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify-manual:
+  verify-main-ci:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     env:
       DEPLOY_SHA: ${{ inputs.deploy_sha }}
+    outputs:
+      ci_run_id: ${{ steps.ci-run.outputs.ci_run_id }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,26 +43,39 @@ jobs:
           test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
           git fetch origin main
           git merge-base --is-ancestor "$DEPLOY_SHA" origin/main
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run check-images
-      - run: npx tsc --noEmit
-      - run: npm run lint
-      - run: npx vitest run
-      - run: npm audit --omit=dev --audit-level=moderate
-      - run: npm run build
+      # 검증과 빌드를 다시 하지 않고, 정확히 이 SHA로 성공한 main push CI만 신뢰한다.
+      - name: Locate successful main CI artifact
+        id: ci-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ci_run_id="$(
+            gh api \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&head_sha=$DEPLOY_SHA&per_page=10" \
+              --jq '.workflow_runs[0].id // empty'
+          )"
+          test -n "$ci_run_id"
+
+          artifact_name="production-next-$DEPLOY_SHA"
+          artifact_id="$(
+            gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$ci_run_id/artifacts" \
+              --jq ".artifacts[] | select(.name == \"$artifact_name\" and .expired == false) | .id" \
+              | head -n 1
+          )"
+          test -n "$artifact_id"
+          echo "ci_run_id=$ci_run_id" >> "$GITHUB_OUTPUT"
+          echo "✓ successful main CI run $ci_run_id has artifact $artifact_id"
 
   deploy:
-    needs: [verify-manual]
+    needs: [verify-main-ci]
     runs-on: ubuntu-latest
     environment: msmsge.com
     env:
       DEPLOY_SHA: ${{ inputs.deploy_sha }}
     # private repo fetch 용 GITHUB_TOKEN 에 contents:read 보장.
     permissions:
+      actions: read
       contents: read
     steps:
       - name: Checkout deployed revision
@@ -67,6 +85,28 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 20
+      - name: Download exact CI production build
+        uses: actions/download-artifact@v8
+        with:
+          name: production-next-${{ env.DEPLOY_SHA }}
+          path: production-release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.verify-main-ci.outputs.ci_run_id }}
+      - name: Verify downloaded production build
+        run: |
+          cd production-release
+          sha256sum --check production-next.tar.gz.sha256
+      # 전송과 체크섬 검증은 운영 점검 모드를 켜기 전에 끝낸다.
+      - name: Transfer production build to EC2
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "production-release/*"
+          target: "/home/ec2-user/adventure-release-artifacts/${{ env.DEPLOY_SHA }}"
+          strip_components: 1
       - name: SSH & deploy [prod]
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -89,12 +129,24 @@ jobs:
             # runner 의 GITHUB_TOKEN(ephemeral, contents:read)으로 HTTPS fetch 해 우회.
             git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
             git checkout --detach --force "$DEPLOY_SHA"
+            release_dir="/home/ec2-user/adventure-release-artifacts/$DEPLOY_SHA"
+            PRODUCTION_BUILD_ARCHIVE="$release_dir/production-next.tar.gz"
+            PRODUCTION_BUILD_CHECKSUM="$release_dir/production-next.tar.gz.sha256"
+            export PRODUCTION_BUILD_ARCHIVE PRODUCTION_BUILD_CHECKSUM
+            push_env_file=""
+            cleanup_release_artifact() {
+              if [ -n "$push_env_file" ]; then
+                rm -f "$push_env_file"
+              fi
+              rm -f "$PRODUCTION_BUILD_ARCHIVE" "$PRODUCTION_BUILD_CHECKSUM"
+              rmdir "$release_dir" 2>/dev/null || true
+            }
+            trap cleanup_release_artifact EXIT
             test -n "$WEB_PUSH_VAPID_PUBLIC_KEY"
             test -n "$WEB_PUSH_VAPID_PRIVATE_KEY"
             test -n "$WEB_PUSH_SUBJECT"
             sudo install -d -o root -g ec2-user -m 0750 /etc/adventure-rpg
             push_env_file="$(mktemp)"
-            trap 'rm -f "$push_env_file"' EXIT
             chmod 0600 "$push_env_file"
             printf 'WEB_PUSH_VAPID_PUBLIC_KEY=%s\nWEB_PUSH_VAPID_PRIVATE_KEY=%s\nWEB_PUSH_SUBJECT=%s\n' \
               "$WEB_PUSH_VAPID_PUBLIC_KEY" \
@@ -103,7 +155,6 @@ jobs:
             sudo install -o root -g ec2-user -m 0640 "$push_env_file" \
               /etc/adventure-rpg/web-push.env
             rm -f "$push_env_file"
-            trap - EXIT
             PRODUCTION_ENV_PATH=/run/adventure-rpg/production.env
             export PRODUCTION_ENV_PATH
             bash deploy/release-production.sh

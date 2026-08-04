@@ -27,6 +27,7 @@ import {
   guildWorkshopCraftRecordTitleIds,
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopBaseEquipmentCandidates,
+  guildWorkshopRecipeGoldCost,
   guildWorkshopRecipeView,
   hasGuildWorkshopRecipeMaterials,
   isGuildWorkshopCraftMode,
@@ -41,6 +42,10 @@ import {
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopBonus,
 } from "@/adventure/data/v2/guildWorkshop";
+import {
+  spendGold,
+  spendableGold,
+} from "@/adventure/data/v2/coreLoopConfig";
 import {
   ARTISAN_PROFESSION_NAME,
   BLACKSMITH_MASTERWORK_LEVEL,
@@ -60,9 +65,12 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
+  gold?: unknown;
+  bankedGold?: unknown;
   [key: string]: unknown;
 };
 
@@ -229,6 +237,7 @@ export async function GET(req: Request) {
     artisanState,
     workshopStats,
     workshopRecords,
+    playerSpendableGold,
   } = await db.transaction(async (tx) => {
     const resources = await readGuildSettlement(tx, guildId);
     const charRaw = await readSave<CharacterSaveWithMaterials>(
@@ -257,8 +266,16 @@ export async function GET(req: Request) {
       artisanState: parseArtisanState(craftingRaw.artisan),
       workshopStats: workshopStatsView(craftingRaw),
       workshopRecords: workshopRecordsView(craftingRaw),
+      playerSpendableGold: spendableGold(
+        Math.max(0, Math.floor(Number(charRaw.gold) || 0)),
+        Math.max(0, Math.floor(Number(charRaw.bankedGold) || 0)),
+      ),
     };
   });
+  const craftSpendableGold = Math.max(
+    0,
+    playerSpendableGold - Math.max(0, Math.floor(access.useFeeGold)),
+  );
   return Response.json({
     ok: true,
     hasGuildSmithy: smithyLevel > 0,
@@ -267,6 +284,7 @@ export async function GET(req: Request) {
     guildBonus,
     resources,
     materials,
+    spendableGold: playerSpendableGold,
     artisan,
     workshopStats,
     workshopRecords,
@@ -284,6 +302,7 @@ export async function GET(req: Request) {
           equipment.equipped,
           GUILD_WORKSHOP_RECIPES[id],
         ).length,
+        craftSpendableGold,
       ),
     ),
   });
@@ -343,6 +362,17 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+    const currentGold = Math.max(0, Math.floor(Number(charRaw.gold) || 0));
+    const currentBankedGold = Math.max(
+      0,
+      Math.floor(Number(charRaw.bankedGold) || 0),
+    );
+    const craftGoldCost = guildWorkshopRecipeGoldCost(recipe, craftMode);
+    const externalUseFeeGold = Math.max(
+      0,
+      Math.floor(Number(access.useFeeGold) || 0),
+    );
+    const totalGoldCost = craftGoldCost + externalUseFeeGold;
     const materials = parseGuildWorkshopMaterialInventory(charRaw.materials);
     const resources = await readGuildSettlement(tx, guildId);
     const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
@@ -461,6 +491,54 @@ export async function POST(req: Request) {
         },
       };
     }
+    const goldPreflight = spendGold(
+      currentGold,
+      currentBankedGold,
+      totalGoldCost,
+    );
+    if (!goldPreflight.ok) {
+      const playerSpendableGold = spendableGold(
+        currentGold,
+        currentBankedGold,
+      );
+      const craftSpendableGold = Math.max(
+        0,
+        playerSpendableGold - externalUseFeeGold,
+      );
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "insufficient_gold" as const,
+          requiredGold: totalGoldCost,
+          goldCost: craftGoldCost,
+          externalUseFeeGold,
+          gold: currentGold,
+          bankedGold: currentBankedGold,
+          spendableGold: playerSpendableGold,
+          resources,
+          materials,
+          artisan: artisanView(craftingRaw),
+          externalAccess: externalAccessView(access),
+          recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
+            guildWorkshopRecipeView(
+              GUILD_WORKSHOP_RECIPES[id],
+              resources,
+              currentArtisan,
+              guildBonus,
+              smithyLevel,
+              materials,
+              guildWorkshopBaseEquipmentCandidates(
+                parsed.owned,
+                parsed.equipped,
+                GUILD_WORKSHOP_RECIPES[id],
+              ).length,
+              craftSpendableGold,
+            ),
+          ),
+        },
+      };
+    }
     const fee = await applyExternalBuildingUseFeeToCharacter(tx, access, charRaw);
     if (!fee.ok) {
       return {
@@ -473,7 +551,15 @@ export async function POST(req: Request) {
         },
       };
     }
-    const paidCharRaw = fee.charSave as CharacterSaveWithMaterials;
+    const craftPayment = spendGold(fee.gold, fee.bankedGold, craftGoldCost);
+    if (!craftPayment.ok) {
+      throw new Error("guild workshop gold preflight drifted");
+    }
+    const paidCharRaw = {
+      ...(fee.charSave as CharacterSaveWithMaterials),
+      gold: craftPayment.gold,
+      bankedGold: craftPayment.bankedGold,
+    };
     const nextArtisan = addArtisanXp(
       currentArtisan,
       recipe.profession,
@@ -633,6 +719,13 @@ export async function POST(req: Request) {
         weeklyState: nextWeekly,
         externalAccess: externalAccessView(access),
         externalUseFeeGold: fee.feeGold,
+        goldCost: craftGoldCost,
+        gold: craftPayment.gold,
+        bankedGold: craftPayment.bankedGold,
+        spendableGold: spendableGold(
+          craftPayment.gold,
+          craftPayment.bankedGold,
+        ),
         smithyLevel,
         smithyBonus,
         guildBonus: nextGuildBonus,
@@ -649,6 +742,11 @@ export async function POST(req: Request) {
               parsed.equipped,
               GUILD_WORKSHOP_RECIPES[id],
             ).length,
+            Math.max(
+              0,
+              spendableGold(craftPayment.gold, craftPayment.bankedGold) -
+                externalUseFeeGold,
+            ),
           ),
         ),
         grantedTitles,
@@ -658,6 +756,22 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  if (result.body.ok) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "sink.guild_workshop.craft_fee",
+      goldDelta: -result.body.goldCost,
+      itemKind: "equipment",
+      itemId: result.body.equipmentId,
+      quantity: 1,
+      detail: {
+        recipeId: result.body.recipeId,
+        craftMode: result.body.craftMode,
+        externalUseFeeGold: result.body.externalUseFeeGold,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

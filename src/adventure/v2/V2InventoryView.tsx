@@ -188,8 +188,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const { frontierDepth, refreshGameState, setGold } = useGameState();
   const { notifySystem } = useSystemToast();
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     setLoadError(false);
     try {
       const [invRes, equipRes] = await Promise.all([
@@ -227,7 +227,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 setLoading)
-    refresh();
+    refresh(true);
   }, [refresh]);
 
   // 성공 시 true 반환 — 비교 카드가 실패 시엔 닫히지 않고 에러 메시지를 보여주도록.
@@ -383,6 +383,57 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       setBusy(null);
     }
   }, [notifySystem, refresh, refreshGameState]);
+
+  // 경험치의 비약 — 사용 결과를 현재 화면과 전역 캐릭터 상태에 반영한다.
+  // 페이지 전체 새로고침은 하지 않아 탭·스크롤·열린 UI 상태를 유지한다.
+  const useExpTome = useCallback(
+    async (map: RareMapInstance) => {
+      if (map.kind !== "exp_tome") return;
+      setBusy(`exp_tome_${map.iid}`);
+      try {
+        const res = await fetch("/api/v2/me/use-exp-tome", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ map: map.iid }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          level?: number;
+          levelsGained?: number;
+          grantedExp?: number;
+          runsLeft?: number;
+        } | null;
+        if (!res.ok || !data?.ok) {
+          notifySystem(
+            `✗ ${
+              data?.error === "no_map"
+                ? "보유한 경험치의 비약이 없습니다"
+                : (data?.error ?? `http ${res.status}`)
+            }`,
+          );
+          return;
+        }
+        const runsLeft = Math.max(0, data.runsLeft ?? map.runsLeft - 1);
+        setRareMaps((current) =>
+          current?.flatMap((item) => {
+            if (item.iid !== map.iid) return [item];
+            return runsLeft > 0 ? [{ ...item, runsLeft }] : [];
+          }) ?? current,
+        );
+        await refreshGameState();
+        notifySystem(
+          `✓ 경험치 ${(data.grantedExp ?? 0).toLocaleString()} 획득` +
+            (typeof data.level === "number" ? ` (Lv.${data.level})` : ""),
+        );
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem, refreshGameState],
+  );
 
   const useCashItem = useCallback(
     async (itemId: MuseunCashItemId) => {
@@ -680,7 +731,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           scrollable
         />
 
-        {loadError && <LoadErrorBanner onRetry={refresh} />}
+        {loadError && <LoadErrorBanner onRetry={() => void refresh(true)} />}
 
         {loading ? (
           <div className="space-y-2">
@@ -701,6 +752,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUseCashItem={useCashItem}
             cookingFoods={cookingFoods}
             onUseCookingFood={useCookingFood}
+            onUseExpTome={useExpTome}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />

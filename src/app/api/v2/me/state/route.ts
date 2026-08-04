@@ -4,6 +4,7 @@ import { guilds, guildMembers, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { grantTitleIfMissing, ownedTitleIdsOf } from "@/lib/server/grantTitle";
+import { stateHiddenTitleIds } from "@/lib/server/stateHiddenTitles";
 import {
   INSOMNIA_TITLE_ID,
   isInsomniaTitleWindow,
@@ -255,6 +256,11 @@ export async function GET(req: Request) {
       Date.now(),
     );
     if (granted) ownedTitleIds = [...ownedTitleIds, INSOMNIA_TITLE_ID];
+  }
+  for (const titleId of stateHiddenTitleIds({ gold: charSave.gold })) {
+    if (ownedTitleIds.includes(titleId)) continue;
+    const granted = await grantTitleIfMissing(userId, titleId, Date.now());
+    if (granted) ownedTitleIds = [...ownedTitleIds, titleId];
   }
   if (
     !ownedTitleIds.includes(ARENA_CHAMPION_TITLE_ID) &&

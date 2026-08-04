@@ -1,0 +1,3 @@
+ALTER TABLE "bulletin_comments" ADD COLUMN "parent_id" integer;--> statement-breakpoint
+ALTER TABLE "bulletin_comments" ADD CONSTRAINT "bulletin_comments_parent_id_bulletin_comments_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."bulletin_comments"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "bulletin_comments_parent_id_idx" ON "bulletin_comments" USING btree ("parent_id");

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   STORM_EXPEDITION_DAILY_ATTEMPTS,
+  STORM_EXPEDITION_NODES,
   STORM_EXPEDITION_ROUTES,
+  createStormAltarOffers,
+  createStormRiskEvent,
   parseStormExpeditionState,
+  stormExpeditionBattleReward,
   stormExpeditionEnemy,
-  stormExpeditionStageReward,
 } from "./stormExpedition";
 
 describe("stormExpedition", () => {
@@ -24,12 +27,17 @@ describe("stormExpedition", () => {
 
     expect(state.attemptsUsed).toBe(0);
     expect(state.clears).toBe(2);
-    expect(state.active).toEqual({
+    expect(state.active).toMatchObject({
+      version: 2,
       routeId: "gale",
-      stage: 2,
+      nodeIndex: 4,
+      encounterIndex: 0,
+      defeatedCount: 2,
       hp: 123,
       mp: 45,
       pendingGold: 46_000,
+      pendingMaterials: {},
+      pendingEquipment: [],
     });
   });
 
@@ -53,9 +61,9 @@ describe("stormExpedition", () => {
       "wreckage",
     ]);
 
-    const gale = stormExpeditionEnemy("gale", 3);
-    const thunder = stormExpeditionEnemy("thunder", 3);
-    const wreckage = stormExpeditionEnemy("wreckage", 3);
+    const gale = stormExpeditionEnemy("gale", "guardian");
+    const thunder = stormExpeditionEnemy("thunder", "guardian");
+    const wreckage = stormExpeditionEnemy("wreckage", "guardian");
     expect(gale.evasionPct).toBeGreaterThan(wreckage.evasionPct ?? 0);
     expect(thunder.atkType).toBe("magic");
     expect(thunder.v2Skills?.equipped.length).toBeGreaterThan(1);
@@ -63,9 +71,57 @@ describe("stormExpedition", () => {
     expect(new Set([gale.name, thunder.name, wreckage.name]).size).toBe(3);
   });
 
-  it("깊은 구간일수록 확보 가능한 골드가 증가한다", () => {
-    const rewards = [0, 1, 2, 3].map(stormExpeditionStageReward);
-    expect(rewards).toEqual([18_000, 28_000, 42_000, 72_000]);
-    expect(rewards.reduce((sum, reward) => sum + reward, 0)).toBe(160_000);
+  it("9개 노드 사이에 7개 전투와 공통 최종 보스를 배치한다", () => {
+    expect(STORM_EXPEDITION_NODES).toHaveLength(9);
+    expect(STORM_EXPEDITION_NODES.filter((node) => node.kind === "battle"))
+      .toHaveLength(5);
+    expect(STORM_EXPEDITION_NODES.reduce(
+      (sum, node) => sum + (node.encounterCount ?? 0),
+      0,
+    )).toBe(7);
+    expect(STORM_EXPEDITION_NODES.at(-1)?.id).toBe("storm_heart");
+  });
+
+  it("후반 전투일수록 골드가 증가하고 완주 기본 골드는 262,000G다", () => {
+    const rewards = [
+      stormExpeditionBattleReward("early_trash", 0),
+      stormExpeditionBattleReward("early_trash", 1),
+      stormExpeditionBattleReward("late_trash", 0),
+      stormExpeditionBattleReward("late_trash", 1),
+      stormExpeditionBattleReward("elite"),
+      stormExpeditionBattleReward("guardian"),
+      stormExpeditionBattleReward("final_boss"),
+    ];
+    expect(rewards).toEqual([12_000, 14_000, 18_000, 20_000, 38_000, 65_000, 95_000]);
+    expect(rewards.reduce((sum, reward) => sum + reward, 0)).toBe(262_000);
+  });
+
+  it("제단은 중복 없이 다섯 축복 중 세 개를 제시한다", () => {
+    const offers = createStormAltarOffers(() => 0);
+    expect(offers).toHaveLength(3);
+    expect(new Set(offers).size).toBe(3);
+  });
+
+  it("위험 이벤트는 출발 시 종류와 불안정한 축복 결과까지 고정한다", () => {
+    expect(createStormRiskEvent(() => 0)).toMatchObject({
+      id: "rift_cache",
+      nodeIndex: 1,
+      status: "offered",
+    });
+    expect(createStormRiskEvent(() => 0.26)).toMatchObject({
+      id: "storm_contract",
+      nodeIndex: 1,
+    });
+    const unstable = createStormRiskEvent(() => 0.51);
+    expect(unstable).toMatchObject({
+      id: "unstable_blessing",
+      nodeIndex: 5,
+      boonId: "swift_fate",
+      curseId: "mana_fracture",
+    });
+    expect(createStormRiskEvent(() => 0.99)).toMatchObject({
+      id: "golden_compass",
+      nodeIndex: 3,
+    });
   });
 });

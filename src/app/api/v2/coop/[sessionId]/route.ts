@@ -22,7 +22,7 @@ import {
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   attackMissPct,
-  dodgeChance,
+  pveDodgeChance,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { effectiveMonsterSpd } from "@/adventure/v2/combat/combatTimeline";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
@@ -178,7 +178,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         accRating: playerAccRating,
         evaRating: playerEvaRating,
         hitPct: Math.max(0, Math.min(100, 100 - playerMissPct)),
-        evadePct: dodgeChance(playerEvaRating, bossAccRating),
+        evadePct: pveDodgeChance(playerEvaRating, bossAccRating),
       },
     };
   })();

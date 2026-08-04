@@ -35,7 +35,9 @@ import type { PlayerCombat } from "./engine";
 import {
   evaluateCombatPatternCandidates,
   V2_PATTERN_DOT_POWER_MULT,
+  V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER,
   V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
+  v2SkillAttackCoef,
   type V2CombatPattern,
   type V2CombatRole,
   type V2PatternCtx,
@@ -46,6 +48,19 @@ import {
 export { V2_BASE_MISS_PCT } from "@/adventure/data/v2/v2CombatConstants";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;
+
+/** 중독·출혈 등 상태이상 피해에만 적용하는 방어 옵션. 직접 피해와 제어 효과는 건드리지 않는다. */
+export function statusDamageAfterReduction(
+  damageRaw: number,
+  reductionPctRaw: number | undefined,
+): number {
+  const damage = Math.max(0, Math.floor(Number(damageRaw) || 0));
+  const reductionPct = Math.min(
+    100,
+    Math.max(0, Number(reductionPctRaw) || 0),
+  );
+  return Math.max(0, Math.floor(damage * (1 - reductionPct / 100)));
+}
 
 // 시한부 버프/디버프 턴 카운터 — 매 플레이어 턴 진입 시 8개 TurnsLeft 필드 일괄 -1(0 하한).
 // PvE BattleBuffs / PvP PvPSideBuffs 공용(두 타입의 해당 필드 동형) — 단일 소스.
@@ -544,6 +559,7 @@ export type V2SkillCastResult = {
   // PR2-B 신규 메커닉 — caller(엔진 PvE/PvP)가 적용.
   selfHpCost: number; // 사혈격 — 시전자 HP 소모량(절대값)
   selfBuffPctToApply: V2SkillPctBuffApply[]; // 파생 스탯 버프
+  guaranteedEvadesToAdd: number; // 다음 피격 확정 회피 횟수 — 기존 evadesRemaining에 합산
   shieldToApply?: { hp: number; mp: number; turns: number }; // 마나 보호막(흡수량)
   selfRegenToApply?: { pctMaxHpPerTurn: number; turns: number }; // 운기 리젠
   enemyVulnToApply?: { pct: number; turns: number }; // 속박 취약(받는 피해 +%)
@@ -649,6 +665,7 @@ const EMPTY_CAST_RESULT_BASE = {
   dotsToApplyToTarget: [] as V2SkillDotApply[],
   selfHpCost: 0,
   selfBuffPctToApply: [] as V2SkillPctBuffApply[],
+  guaranteedEvadesToAdd: 0,
   manaRestored: 0,
 };
 
@@ -827,6 +844,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const enemyDebuffsToApply: V2SkillBuffApply[] = [];
   const dotsToApplyToTarget: V2SkillDotApply[] = [];
   const selfBuffPctToApply: V2SkillPctBuffApply[] = [];
+  let guaranteedEvadesToAdd = 0;
   let shieldToApply: V2SkillCastResult["shieldToApply"];
   let selfRegenToApply: V2SkillCastResult["selfRegenToApply"];
   let enemyVulnToApply: V2SkillCastResult["enemyVulnToApply"];
@@ -839,61 +857,89 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let enemySkillProcDownToApply: V2SkillCastResult["enemySkillProcDownToApply"];
   let enemyDotVulnToApply: V2SkillCastResult["enemyDotVulnToApply"];
 
-  // 전문화 스킬 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택, 없으면 baseFlat.
+  // 회복 계열 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택한다.
   const tierIdx = Math.min(2, Math.max(0, (input.attacker.classTier ?? 2) - 2));
   const flatOf = (
     baseFlat: number | undefined,
     byTier: readonly [number, number, number] | undefined,
   ): number => (byTier ? byTier[tierIdx] : baseFlat ?? 0);
 
-  // 데미지 — scaling physical/magic + def/vit(그 값을 attackerAtk 로 써서 물리 경로). extraFlat=추가 flat.
+  const directDamageKinds = new Set([
+    "damage",
+    "hpCostDamage",
+    "executeDamage",
+    "ambushDamage",
+    "stackPayoffDamage",
+  ]);
+  // 실제 변형·시너지를 합친 castEffects 가 아래에서 정해진 뒤 갱신한다. damageWith 는 이후에만 호출된다.
+  let directDamageEffectCount = 1;
+
+  // 데미지 — 고정 기본 피해는 쓰지 않고 공격력/마법공격력 기반선에 특화 스탯 계수를 합산한다.
+  // 다단 스킬은 차수별 공격 기반선 총합을 타격 수로 나눠 타수만으로 배율이 폭증하지 않게 한다.
+  // physical/magic 의 기존 statCoef 는 이미 공격 계수이므로 차수 기반선과 큰 쪽을 사용한다.
+  // def/vit/dex/luk/spi/all/maxHp 는 공격 기반선 + 해당 스탯×statCoef 의 혼합식이다.
+  // extraFlat 은 HP 소모·스택 회수처럼 전투 중 생기는 동적 추가 피해에만 사용한다.
   //   targetDefOverride 지정 시 적 방어를 그 값으로 대체(관통 추가타의 "0방어 피해" 계산용).
   const damageWith = (
     statCoef: number,
-    baseFlat: number,
     scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | "spi" | "all" | "maxHp" | undefined,
+    attackCoef: number | undefined,
+    legacyBaseFlat: number,
     extraFlat = 0,
     targetDefOverride?: number,
   ): number => {
-    let attackerAtk = input.attacker.atk;
-    let scale: "physical" | "magic" = "physical";
-    if (scaling === "magic") scale = "magic";
-    else if (scaling === "def") attackerAtk = input.attacker.def ?? input.attacker.atk;
-    else if (scaling === "vit") attackerAtk = input.attacker.vit ?? input.attacker.atk;
-    else if (scaling === "dex") attackerAtk = input.attacker.dex ?? input.attacker.atk;
-    else if (scaling === "luk") attackerAtk = input.attacker.luk ?? input.attacker.atk;
-    else if (scaling === "spi") {
-      attackerAtk = input.attacker.spi ?? input.attacker.magicAtk ?? input.attacker.atk;
-      scale = "magic";
-    }
-    else if (scaling === "all") attackerAtk = input.attacker.allStatTotal ?? input.attacker.atk;
-    else if (scaling === "maxHp") attackerAtk = input.attacker.maxHp;
-    // def/vit/dex/luk/all/maxHp 비례딜은 STR 공격버프가 atk 를 부풀리는 v2DamageAmount 의 버프 곱을 받으면
-    //   안 됨(Codex 검토). attackerAtk 이 이미 그 스탯 값이라 빈 버프 전달.
-    const statScaled =
-      scaling === "def" ||
-      scaling === "vit" ||
-      scaling === "dex" ||
-      scaling === "luk" ||
-      scaling === "spi" ||
-      scaling === "all" ||
-      scaling === "maxHp";
+    const scale: "physical" | "magic" =
+      scaling === "magic" || scaling === "spi" ? "magic" : "physical";
+    const attackPower =
+      scale === "magic"
+        ? input.attacker.magicAtk ?? input.attacker.atk
+        : input.attacker.atk;
+    const specialized =
+      scaling === "def"
+        ? input.attacker.def ?? input.attacker.atk
+        : scaling === "vit"
+          ? input.attacker.vit ?? input.attacker.atk
+          : scaling === "dex"
+            ? input.attacker.dex ?? input.attacker.atk
+            : scaling === "luk"
+              ? input.attacker.luk ?? input.attacker.atk
+              : scaling === "spi"
+                ? input.attacker.spi ?? input.attacker.magicAtk ?? input.attacker.atk
+                : scaling === "all"
+                  ? input.attacker.allStatTotal ?? input.attacker.atk
+                  : scaling === "maxHp"
+                    ? input.attacker.maxHp
+                    : null;
+    const resolvedAttackCoef = def.monsterOnly
+      ? statCoef
+      : v2SkillAttackCoef({
+          tier: def.tier,
+          statCoef,
+          specialized: specialized != null,
+          directDamageEffectCount,
+          attackCoef,
+        });
+    // 특화 스탯 보너스는 공격력 버프와 별개지만 스킬 속성 배율은 함께 받는다. 고정 baseFlat 은 제거한다.
+    const specializedBonus =
+      specialized == null
+        ? 0
+        : Math.floor(
+            specialized * statCoef * (skillElementMult ?? 1),
+          );
     const raw = v2DamageAmount({
-      attackerAtk,
-      attackerMagicAtk:
-        scale === "magic"
-          ? scaling === "spi"
-            ? attackerAtk
-            : input.attacker.magicAtk
-          : undefined,
+      attackerAtk: attackPower,
+      attackerMagicAtk: scale === "magic" ? attackPower : undefined,
       attackerMinDamage: input.attacker.minDamage,
       scaling: scale,
       targetDef: targetDefOverride ?? input.target.def,
       targetMagicDef: targetDefOverride ?? input.target.magicDef,
-      statCoef,
-      baseFlat: baseFlat + extraFlat,
-      attackerSelfBuffs: statScaled ? {} : input.attacker.selfBuffs,
-      attackerSelfDebuffs: statScaled ? {} : input.attacker.selfDebuffs,
+      statCoef: resolvedAttackCoef,
+      baseFlat:
+        (def.monsterOnly ? legacyBaseFlat : 0) +
+        specializedBonus +
+        extraFlat,
+      attackerSelfBuffs: input.attacker.selfBuffs,
+      attackerSelfDebuffs: input.attacker.selfDebuffs,
       targetSelfBuffs: input.target.selfBuffs,
       targetSelfDebuffs: input.target.selfDebuffs,
       elementMult: skillElementMult,
@@ -957,6 +1003,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     synergyEffects.length > 0
       ? [...baseCastEffects, ...synergyEffects]
       : baseCastEffects;
+  directDamageEffectCount = Math.max(
+    1,
+    castEffects.filter((effect) => directDamageKinds.has(effect.kind)).length,
+  );
   // 같은 시전에서 먼저 부여하는 중독 스택도 뒤의 독 회수 효과가 읽는다. 독무처럼
   // "중독을 쌓고 터뜨리는" 복합기는 첫 시전부터 표기된 스택 추가 피해가 나와야 한다.
   const sameCastDotStacks = (tag: V2DotTag): number =>
@@ -971,11 +1021,26 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let stackPayoffBonusDamage = 0;
   for (const effect of castEffects) {
     if (effect.kind === "damage") {
-      const flat = flatOf(effect.baseFlat, effect.baseFlatByTier);
-      const base = damageWith(effect.statCoef, flat, effect.scaling);
+      const base = damageWith(
+        effect.statCoef,
+        effect.scaling,
+        effect.attackCoef,
+        flatOf(effect.baseFlat, effect.baseFlatByTier),
+      );
       // 관통(방어 무시) 추가타 — 0방어 피해의 pierceDamagePct% 를 방어로 깎이지 않는 추가분으로 합산.
       const pierceBonus = effect.pierceDamagePct
-        ? Math.round((damageWith(effect.statCoef, flat, effect.scaling, 0, 0) * effect.pierceDamagePct) / 100)
+        ? Math.round(
+            (damageWith(
+              effect.statCoef,
+              effect.scaling,
+              effect.attackCoef,
+              flatOf(effect.baseFlat, effect.baseFlatByTier),
+              0,
+              0,
+            ) *
+              effect.pierceDamagePct) /
+              100,
+          )
         : 0;
       dealDamage(base + pierceBonus, effect.scaling);
     } else if (effect.kind === "heal") {
@@ -1019,6 +1084,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       };
     } else if (effect.kind === "manaRestore") {
       manaRestore += Math.floor(((input.attacker.maxMp ?? 0) * effect.pctMaxMp) / 100);
+    } else if (effect.kind === "guaranteedEvade") {
+      guaranteedEvadesToAdd += Math.max(0, Math.floor(effect.count));
     } else if (effect.kind === "enemyDebuff") {
       enemyDebuffsToApply.push({ stat: effect.stat, pct: effect.pct, turns: effect.turns });
     } else if (effect.kind === "enemyVuln") {
@@ -1049,8 +1116,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       dealDamage(
         damageWith(
           effect.statCoef,
-          flatOf(undefined, effect.baseFlatByTier),
           effect.scaling,
+          effect.attackCoef,
+          flatOf(undefined, effect.baseFlatByTier),
           Math.floor(cost * effect.soakRatio),
         ),
         effect.scaling,
@@ -1066,7 +1134,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       );
     } else if (effect.kind === "executeDamage") {
       // 처단 — 적 HP 임계 이하면 ×bonusMult.
-      const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
+      const base = damageWith(
+        effect.statCoef,
+        effect.scaling,
+        effect.attackCoef,
+        flatOf(undefined, effect.baseFlatByTier),
+      );
       const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
       const thresholdPct = Math.max(
         effect.hpThresholdPct,
@@ -1078,7 +1151,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       );
     } else if (effect.kind === "ambushDamage") {
       // 기습 — 처형의 역. 적 HP 임계 "이상"(풀피)이면 ×bonusMult (오프너 알파), 아니면 낮은 기본딜.
-      const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
+      const base = damageWith(
+        effect.statCoef,
+        effect.scaling,
+        effect.attackCoef,
+        flatOf(undefined, effect.baseFlatByTier),
+      );
       const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
       dealDamage(
         frac >= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base,
@@ -1103,9 +1181,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       dealDamage(
         damageWith(
           effect.statCoef,
-          flatOf(undefined, effect.baseFlatByTier) +
-            (effect.tag === "poison" ? 0 : payoffBonus),
           effect.scaling,
+          effect.attackCoef,
+          flatOf(undefined, effect.baseFlatByTier),
+          effect.tag === "poison" ? 0 : payoffBonus,
         ) + poisonPayoffBonus,
         effect.scaling,
       );
@@ -1159,16 +1238,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // 평타 바닥 — 단타 평타(statCoef 1·baseFlat 0) × 한 턴 평타 횟수. 스킬에 마법 데미지 효과가
     //   하나라도 있으면 마법 공격력 기준, 아니면 물리 공격력 기준으로 바닥을 잡는다.
     //   (물리+마법 혼합 효과 스킬은 전체 바닥을 마법으로 잡게 되나, 현 데이터엔 혼합 스킬 없음.)
-    const spirit = castEffects.some(
-      (e) =>
-        (e.kind === "damage" ||
-          e.kind === "hpCostDamage" ||
-          e.kind === "executeDamage" ||
-          e.kind === "stackPayoffDamage" ||
-          e.kind === "healToDamage") &&
-        e.scaling === "spi",
-    );
-    const magic = spirit || castEffects.some(
+    const magic = castEffects.some(
       (e) =>
         (e.kind === "damage" ||
           e.kind === "hpCostDamage" ||
@@ -1178,26 +1248,34 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         (e.scaling === "magic" || e.scaling === "spi"),
     );
     // 평타 1타 = damageBetween(유효 atk, 유효 def) — 엔진 평타와 동일 공식(minDamage 하한이 아닌
-    //   atk×0.15 하한). 마법 스킬이면 마법 평타(마공 vs 물방, PvE 평타와 동일). v2 자버프/적 def
+    //   atk×0.15 하한). 마법 스킬이면 마법공격력과 마법방어력 기준. v2 자버프/적 def
     //   버프 곱은 엔진 평타(engine.ts v2EffectiveAtk/Def)와 맞춘다. 상황 보너스(크리·AP·속성)는 제외.
-    const basicPower = spirit
-      ? input.attacker.spi ?? input.attacker.magicAtk ?? input.attacker.atk
-      : magic
-        ? input.attacker.magicAtk ?? input.attacker.atk
+    const basicPower = magic
+      ? input.attacker.magicAtk ?? input.attacker.atk
       : input.attacker.atk;
-    const atkMult = v2AtkBuffMult(input.attacker.selfBuffs, input.attacker.selfDebuffs);
+    const atkMult = magic
+      ? v2MagicBuffMult(input.attacker.selfBuffs, input.attacker.selfDebuffs)
+      : v2AtkBuffMult(input.attacker.selfBuffs, input.attacker.selfDebuffs);
     const defMult = v2DefBuffMult(input.target.selfBuffs, input.target.selfDebuffs);
     const effAtk = atkMult !== 1 ? Math.floor(basicPower * atkMult) : basicPower;
-    const effDef = defMult !== 1 ? Math.floor(input.target.def * defMult) : input.target.def;
+    const basicDef = magic
+      ? input.target.magicDef ?? input.target.def
+      : input.target.def;
+    const effDef = defMult !== 1 ? Math.floor(basicDef * defMult) : basicDef;
     const basicFloor =
       damageBetween(effAtk, effDef) * Math.max(1, input.attacker.attackCount ?? 1);
     const preservedPayoff = Math.min(enemyDamage, stackPayoffBonusDamage);
     const throttleBaseDamage = Math.max(0, enemyDamage - preservedPayoff);
     const surplus = Math.max(0, throttleBaseDamage - basicFloor);
     // viaPattern 가드 통과 = skillMult 가 차수별 통과율(1 아님).
-    return Math.round(
+    const throttled = Math.round(
       basicFloor + surplus * skillMult + preservedPayoff,
     );
+    const minimum =
+      Math.round(
+        basicFloor * V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER[def.tier],
+      ) + preservedPayoff;
+    return Math.max(throttled, minimum);
   })();
   const scaledMagicEnemyDamage =
     magicEnemyDamage <= 0
@@ -1242,6 +1320,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     dotsToApplyToTarget,
     selfHpCost,
     selfBuffPctToApply,
+    guaranteedEvadesToAdd,
     shieldToApply: boostedShield,
     selfRegenToApply,
     enemyVulnToApply,

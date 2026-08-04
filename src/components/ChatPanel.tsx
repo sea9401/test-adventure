@@ -53,6 +53,13 @@ import {
   mergeChatMessages,
 } from "./chat/chatMessagesApi";
 import { LotteryRoom } from "./chat/LotteryRoom";
+import { ChatEquipmentPicker } from "./chat/ChatEquipmentPicker";
+import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
+import {
+  chatEquipmentLinkFromInstance,
+  chatEquipmentLinkLabel,
+  type ChatEquipmentLink,
+} from "@/lib/chat-item-link";
 
 export type ChatChannel = "global" | "guild" | "room";
 type ChatRoomKey = "chat" | "guild" | "notice" | "lottery";
@@ -65,6 +72,7 @@ export type ChatMessage = {
   className: string;
   title: string | null;
   content: string;
+  itemLink?: ChatEquipmentLink | null;
   createdAt: number;
   mine: boolean;
   cosmetics?: MuseunCosmeticAppearance | null;
@@ -76,6 +84,17 @@ const CHAT_MIN_W = 400;
 const CHAT_MIN_H = 420;
 const CUSTOM_ROOM_LIST_POLL_MS = 5000;
 const CUSTOM_ROOM_MESSAGE_POLL_MS = 1500;
+
+// 모바일 채팅은 독립된 전체 화면으로 동작한다. 메인 메뉴 드롭다운(z-50)보다 위에서
+// 배경 터치를 막아, 반쯤 가려진 탭이 눌리고 드롭다운이 채팅 위로 솟는 일을 방지한다.
+// 데스크톱(sm+)에서는 기존 비모달 도킹을 유지해 게임 화면과 채팅을 함께 조작할 수 있다.
+export const CHAT_OVERLAY_CLASS =
+  "pointer-events-auto fixed inset-0 z-[55] flex items-end justify-end sm:pointer-events-none sm:z-[45] sm:p-4";
+export const CHAT_PANEL_CLASS =
+  "ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-full max-h-full w-full max-w-none flex-col rounded-none bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:max-w-xl sm:rounded-xl";
+export const CHAT_HEADER_CLASS =
+  "flex items-center justify-between border-b border-zinc-200 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:py-3.5 dark:border-zinc-700";
+
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
 const customRoomSeenKey = (roomId: number) => `chat:lastSeenRoom:${roomId}`;
@@ -163,6 +182,14 @@ function formatRoomTime(createdAt: number) {
   }).format(date);
 }
 
+function chatMessagePreview(message: ChatMessage): string {
+  const text = message.content.replace(/\s+/g, " ").trim();
+  const item = message.itemLink
+    ? `[아이템] ${chatEquipmentLinkLabel(message.itemLink)}`
+    : "";
+  return [text, item].filter(Boolean).join(" · ");
+}
+
 function ChatRoomList({
   rooms,
   onEnter,
@@ -245,7 +272,7 @@ function ChatRoomList({
                   "길드에 가입하면 이용할 수 있습니다."
                 ) : latest ? (
                   room.builtin === "notice" ? (
-                    latest.content.replace(/\s+/g, " ")
+                    chatMessagePreview(latest)
                   ) : (
                     <>
                       <EquippedCosmeticBadge cosmetics={latest.cosmetics} />
@@ -257,7 +284,7 @@ function ChatRoomList({
                       >
                         {latest.name}
                       </span>
-                      {`: ${latest.content.replace(/\s+/g, " ")}`}
+                      {`: ${chatMessagePreview(latest)}`}
                     </>
                   )
                 ) : (
@@ -317,6 +344,11 @@ export function ChatPanel({
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
+  const [itemAttachment, setItemAttachment] = useState<{
+    iid: string;
+    link: ChatEquipmentLink;
+  } | null>(null);
+  const [equipmentPickerOpen, setEquipmentPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 채팅방 목록에서 방을 선택한 뒤 메시지 화면으로 진입한다.
   const [activeRoom, setActiveRoom] = useState<ChatRoomKey | null>(null);
@@ -335,6 +367,16 @@ export function ChatPanel({
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
+
+  useEffect(() => {
+    const openLottery = () => {
+      setActiveRoom("lottery");
+      setActiveCustomRoom(null);
+      setRoomManagerOpen(false);
+    };
+    window.addEventListener("chat:open-lottery", openLottery);
+    return () => window.removeEventListener("chat:open-lottery", openLottery);
+  }, []);
 
   const refreshCustomRooms = useCallback(async () => {
     const result = await fetchJoinedChatRooms();
@@ -503,7 +545,11 @@ export function ChatPanel({
       const remainingPending = [...channelPending];
       for (const m of baseMessages) {
         if (!m.mine) continue;
-        const i = remainingPending.findIndex((p) => p.content === m.content);
+        const i = remainingPending.findIndex(
+          (p) =>
+            p.content === m.content &&
+            (p.itemLink?.itemId ?? null) === (m.itemLink?.itemId ?? null),
+        );
         if (i >= 0) remainingPending.splice(i, 1);
       }
       return [...baseMessages, ...remainingPending];
@@ -640,6 +686,8 @@ export function ChatPanel({
     setInviteOpen(false);
     setInviteFeedback(null);
     setDraft("");
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
     setError(null);
   };
 
@@ -652,6 +700,8 @@ export function ChatPanel({
     setRoomManagerOpen(false);
     setInviteOpen(false);
     setInviteFeedback(null);
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
     setError(null);
   };
 
@@ -662,6 +712,8 @@ export function ChatPanel({
     setInviteOpen(false);
     setInviteName("");
     setInviteFeedback(null);
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
     setError(null);
     onClose();
   };
@@ -717,8 +769,9 @@ export function ChatPanel({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = draft.trim();
-    if (!trimmed) return;
-    if (!isChatContentAllowed(trimmed)) {
+    const outgoingAttachment = itemAttachment;
+    if (!trimmed && !outgoingAttachment) return;
+    if (trimmed && !isChatContentAllowed(trimmed)) {
       setError(CHAT_INAPPROPRIATE_CONTENT_MESSAGE);
       return;
     }
@@ -737,11 +790,13 @@ export function ChatPanel({
       className,
       title,
       content: trimmed,
+      itemLink: outgoingAttachment?.link ?? null,
       createdAt: Date.now(),
       mine: true,
     };
     setPending((prev) => [...prev, temp]);
     setDraft("");
+    setItemAttachment(null);
     setError(null);
     try {
       const sent = await postMessage({
@@ -751,6 +806,7 @@ export function ChatPanel({
         channel: targetChannel,
         roomId: activeCustomRoom?.id ?? null,
         content: trimmed,
+        itemIid: outgoingAttachment?.iid,
       });
       // 서버 응답 도착 — 부모 messages 에 합류. visibleMessages 가 content 매칭으로
       // pending 의 임시 항목을 자동 숨겨주므로 setPending 정리는 다음 폴링 후에 해도 OK.
@@ -770,6 +826,7 @@ export function ChatPanel({
       // 실패 — 임시 메시지 회수 + 본문 복원해 재시도 유도.
       setPending((prev) => prev.filter((m) => m.id !== tempId));
       setDraft(trimmed);
+      setItemAttachment((current) => current ?? outgoingAttachment);
       const msg = err instanceof Error ? err.message : "";
       setError(translateChatError(msg));
     }
@@ -845,17 +902,18 @@ export function ChatPanel({
   // containing block 이 돼 패널이 헤더 기준으로 떠 화면 위로 튀어나가던 버그 회피. open 일
   // 때만 렌더(=클릭 후 클라 only)라 SSR 에선 위 null 로 빠져 document.body 접근 안전.
   //
-  // 비모달 도킹 — 바깥을 덮는 래퍼는 pointer-events-none(+dim 없음)이라 아래 게임 UI 를
-  // 그대로 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto.
-  // 바깥 탭으로 닫히지 않으며 닫기는 헤더 X 버튼뿐 — 화면을 옮겨도 떠 있다.
-  // z-[45] — 게임 내 z-40 오버레이/모바일 액션보다 위, 모달 z-50 계층보다 아래.
+  // 모바일은 전체 화면 모달형 — 배경 입력을 차단하고 z-50 메인 메뉴보다 위에 둔다.
+  // 데스크톱은 비모달 도킹 — 래퍼가 pointer-events-none 이라 아래 게임 UI 를 그대로
+  // 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto 이다.
   return createPortal(
     <div
       ref={overlayRef}
-      className="pointer-events-none fixed inset-0 z-[45] flex items-end justify-end sm:p-4"
+      className={CHAT_OVERLAY_CLASS}
     >
       <div
-        className="ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-[88dvh] max-h-full w-full max-w-xl flex-col rounded-t-xl bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:rounded-xl"
+        role="dialog"
+        aria-label="채팅"
+        className={CHAT_PANEL_CLASS}
         // 데스크톱만 크기 조절(인라인이 기본 크기보다 우선). 모바일은 전체폭 유지.
         style={
           isDesktop
@@ -888,7 +946,7 @@ export function ChatPanel({
             </svg>
           </div>
         )}
-        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3.5 dark:border-zinc-700">
+        <header className={CHAT_HEADER_CLASS}>
           {activeRoom || activeCustomRoom || roomManagerOpen ? (
             <div className="flex min-w-0 items-center gap-1.5">
               <button
@@ -1047,7 +1105,10 @@ export function ChatPanel({
             ) : (
               <ChatComposer
                 draft={draft}
+                itemLink={itemAttachment?.link}
                 onDraftChange={setDraft}
+                onOpenItemPicker={() => setEquipmentPickerOpen(true)}
+                onRemoveItemLink={() => setItemAttachment(null)}
                 onSubmit={submit}
               />
             )}
@@ -1055,6 +1116,17 @@ export function ChatPanel({
         ) : (
           <ChatRoomList rooms={roomEntries} onEnter={enterRoom} />
         )}
+        <ChatEquipmentPicker
+          open={equipmentPickerOpen}
+          onClose={() => setEquipmentPickerOpen(false)}
+          onSelect={(instance: V2EquipInstance) => {
+            setItemAttachment({
+              iid: instance.iid,
+              link: chatEquipmentLinkFromInstance(instance),
+            });
+            setEquipmentPickerOpen(false);
+          }}
+        />
       </div>
     </div>,
     document.body,

@@ -483,7 +483,10 @@ describe("직업 킷 — 스킬셋", () => {
       venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
-      expect(skillsForJob(job), job).toEqual([active, passive]);
+      const expected = job === "shadow"
+        ? [active, "v2c_shadow_shadowstep", passive]
+        : [active, passive];
+      expect(skillsForJob(job), job).toEqual(expected);
       expect(V2_SKILLS[active], active).toBeDefined();
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
       expect(V2_SKILLS[passive].tier, passive).toBe(3);
@@ -501,6 +504,11 @@ describe("직업 킷 — 스킬셋", () => {
     // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
     expect(V2_SKILLS.v2c_bishop_heal.category).toBe("heal");
     expect(V2_SKILLS.v2c_shadow_assassinate.effects[0].kind).toBe("executeDamage");
+    expect(V2_SKILLS.v2c_shadow_shadowstep).toMatchObject({
+      category: "buff",
+      oncePerBattle: true,
+      effects: [{ kind: "guaranteedEvade", count: 1 }],
+    });
     expect(V2_SKILLS.v2c_berserker_bloodslash.effects[0].kind).toBe("hpCostDamage");
     expect(
       V2_SKILLS.v2c_venomancer_miasma.effects.some(
@@ -1038,8 +1046,9 @@ describe("직업 킷 — 스킬셋", () => {
       statPct: { luk: 22, dex: 8 },
       evasionPct: 22,
       critDmgPct: 24,
-      skillCritOverflow: true,
+      skillCritAfterEvade: true,
     });
+    expect(V2_SKILLS.v2c_blackmoon_dominion.passive?.skillCritOverflow).not.toBe(true);
     expect(skillsForJob("myriadvenom")).toEqual([
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",

@@ -53,6 +53,24 @@ export type FishingLure = {
   bonuses: Partial<FishingGearBonuses>;
 };
 
+// 크기 보정의 적용 범위를 장비·숙련도 UI에서 같은 표현으로 안내한다.
+// 실제 계산은 fish.ts rollFishSize 에서 모든 어종 → 희귀 이상 → 상위 20% 순으로 중첩된다.
+export function fishingSizeBonusLabels(
+  bonuses: Partial<FishingGearBonuses>,
+): string[] {
+  const labels: string[] = [];
+  if (bonuses.sizeBonusPct) {
+    labels.push(`모든 어종 크기 +${bonuses.sizeBonusPct}%`);
+  }
+  if (bonuses.rareSizeBonusPct) {
+    labels.push(`희귀 이상 추가 크기 +${bonuses.rareSizeBonusPct}%`);
+  }
+  if (bonuses.bigCatchSizeBonusPct) {
+    labels.push(`상위 20% 굴림 추가 크기 +${bonuses.bigCatchSizeBonusPct}%`);
+  }
+  return labels;
+}
+
 export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   reed_rod: {
     id: "reed_rod",
@@ -66,7 +84,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
     id: "lacquered_rod",
     name: "옻칠 낚싯대",
     imageSrc: "/images/items/fishing/lacquered_rod.webp",
-    description: "입질 대기시간을 조금 줄이고 물고기가 조금 더 크게 잡히게 한다.",
+    description: "입질 대기시간을 조금 줄이고 모든 어종에 기본 크기 보정을 준다.",
     price: 1200,
     bonuses: { waitReductionPct: 8, sizeBonusPct: 2 },
   },
@@ -74,7 +92,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
     id: "deepcurrent_rod",
     name: "깊은물 낚싯대",
     imageSrc: "/images/items/fishing/deepcurrent_rod.webp",
-    description: "희귀 이상 어종이 조금 더 크게 잡히게 한다.",
+    description: "입질을 줄이고 희귀·영웅·전설 어종에 추가 크기 보정을 준다.",
     price: 3000,
     bonuses: { waitReductionPct: 12, rareSizeBonusPct: 4 },
   },
@@ -82,7 +100,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
     id: "master_rod",
     name: "장인의 낚싯대",
     imageSrc: "/images/items/fishing/master_rod.webp",
-    description: "대기시간을 줄이고 물고기와 희귀 어종이 조금 더 크게 잡히게 한다.",
+    description: "모든 어종을 크게 잡는 데 유리하며, 희귀 이상과 상위 20% 크기 굴림에는 보정이 더해진다.",
     price: 6500,
     bonuses: {
       waitReductionPct: 15,
@@ -95,7 +113,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
     id: "storm_rod",
     name: "폭풍 낚싯대",
     imageSrc: "/images/items/fishing/storm_rod.webp",
-    description: "긴 대기시간을 크게 줄이고 대물권 어획을 노린다.",
+    description: "입질이 가장 빠르다. 모든 어종 기본 보정은 없고, 희귀 이상과 상위 20% 크기 굴림에 집중한다.",
     price: 9000,
     bonuses: {
       waitReductionPct: 20,
@@ -134,7 +152,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
     id: "tide_lure",
     name: "물때 미끼",
     imageSrc: "/images/items/fishing/tide_lure.webp",
-    description: "물때 한정 특별 손님이 더 잘 나오게 하고 물고기가 조금 더 크게 잡히게 한다.",
+    description: "물때 한정 특별 손님이 더 잘 나오게 하고 모든 어종에 기본 크기 보정을 준다.",
     price: 1200,
     bonuses: { specialWeightPct: 20, sizeBonusPct: 1 },
   },
@@ -157,7 +175,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
     id: "trophy_lure",
     name: "대물 미끼",
     imageSrc: "/images/items/fishing/trophy_lure.webp",
-    description: "희귀 이상과 대물급 어획이 조금 더 크게 잡히게 한다.",
+    description: "희귀·영웅·전설 어종과 상위 20% 크기 굴림에 추가 보정을 준다.",
     price: 1800,
     bonuses: { rareSizeBonusPct: 2, bigCatchSizeBonusPct: 3 },
   },
@@ -165,7 +183,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
     id: "prism_lure",
     name: "프리즘 미끼",
     imageSrc: "/images/items/fishing/prism_lure.webp",
-    description: "물때 손님이 더 자주 나오고 희귀 어종이 조금 더 크게 잡히게 한다.",
+    description: "물때 손님이 더 자주 나오며, 희귀 이상과 상위 20% 크기 굴림에 추가 보정을 준다.",
     price: 5000,
     bonuses: { specialWeightPct: 30, rareSizeBonusPct: 4, bigCatchSizeBonusPct: 2 },
   },

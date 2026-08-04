@@ -10,6 +10,7 @@ import {
   users,
 } from "@/db/schema";
 import { inboxValues } from "@/lib/server/inboxPayload";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 
 export const REFERRAL_COOKIE = "adventure_referral";
 export const REFERRAL_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
@@ -186,7 +187,7 @@ export async function rewardReferralProgress(
           cashItems: [],
           adventureSupportDays: 0,
         },
-        message: `${referredName}님이 프론티어 ${targetDepth}에 도달했습니다. 홍보 보상 스태미나 회복약 ${dueStaminaPotions}개를 받아 주세요.`,
+        message: `${referredName}님이 ${huntStageName(targetDepth)}를 돌파했습니다. 홍보 보상 스태미나 회복약 ${dueStaminaPotions}개를 받아 주세요.`,
       }),
     );
   }

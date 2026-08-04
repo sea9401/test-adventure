@@ -18,6 +18,7 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { parseV2Class } from "./classes";
 import { themeIndexForDepth } from "./dungeon";
+import { V2_JOB_CATALOG } from "./v2JobCatalog";
 
 export type V2ProficiencyGroup = {
   cultivations: number;
@@ -90,9 +91,8 @@ export const V2_CULTIVATE_PROFILE: Record<
 //   첫 prereq 의 직군(예: 마검사·성기사 둘 다 전사)이라, 직군 프로필(V2_CULTIVATE_PROFILE)만 쓰면
 //   정체성 축을 수행으로 못 키운다(마검사는 검+마법인데 전사 프로필이라 INT 가 안 오르고, 성기사는
 //   기사+사제인데 SPI 대신 DEX 가 오름). 직업 id 별 오버라이드로 정체성 축의 cap 을 올린다.
-//   합 4 고정(= 비용 곡선·economy 불변). 값은 V2_JOB_CATALOG[id].cultivateProfile 와 동일해야 하며
-//   v2JobCatalog.test 가 동기화를 보증한다. 합 4 고정이 기본이며, 초월자 계보는 올스탯 정체성 때문에
-//   예외적으로 합 6을 허용한다.
+//   값은 V2_JOB_CATALOG[id].cultivateProfile 와 동일해야 하며 v2JobCatalog.test 가 동기화를 보증한다.
+//   1~4차는 합 4, 5차는 합 5, 6차는 합 6으로 차수별 수행 성장량을 통일한다.
 export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>
@@ -101,25 +101,25 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   templar: { str: 2, vit: 1, spi: 1 }, // 성기사 — 기사 힘·활력 + 사제 정신
   bloodtemplar: { str: 2, vit: 1, spi: 1 }, // 혈성기사 — 광전사의 힘·활력 + 사제 정신
   crimsontemplar: { str: 2, vit: 1, spi: 1 }, // 진홍성기사 — 혈성기사 심화
-  bloodlord: { str: 2, vit: 1, spi: 1 }, // 혈성군주 — 혈성기사 최종형
-  blooddemon: { str: 2, vit: 1, spi: 1 }, // 혈마 — 혈성군주 최종형, 피의 순환 탱딜
+  bloodlord: { str: 3, vit: 1, spi: 1 }, // 혈성군주 — 혈성기사 최종형
+  blooddemon: { str: 3, vit: 2, spi: 1 }, // 혈마 — 혈성군주 최종형, 피의 순환 탱딜
   darkpriest: { luk: 2, spi: 1, int: 1 }, // 암흑사제 — 그림자의 행운 + 사제 정신·지능
-  elementallord: { int: 2, spi: 2 }, // 원소군주 — 원소술사 심화, 순수 속성 마법 중심
-  inscriber: { int: 2, spi: 2 }, // 각인술사 — 문장술사 심화, 문장 조합형 마법 중심
+  elementallord: { int: 3, spi: 2 }, // 원소군주 — 원소술사 심화, 순수 속성 마법 중심
+  inscriber: { int: 3, spi: 2 }, // 각인술사 — 문장술사 심화, 문장 조합형 마법 중심
   crusader: { str: 2, vit: 1, spi: 1 }, // 성전사 — 성기사 심화, 방어·회복 축 유지
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)
-  transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 초월자 — 모든 능력 균형
+  transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1 }, // 초월자 — 행운을 제외한 5능력 균형
   absolute: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 절대자 — 초월자의 올스탯 균형 완성
-  fortressknight: { vit: 2, str: 1, dex: 1 }, // 성채기사 — 철벽기사 최종형, 방어 중심
-  swordsaint: { str: 2, dex: 1, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
-  hegemon: { str: 2, vit: 1, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
-  archmage: { int: 2, spi: 2 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
-  savior: { spi: 2, int: 1, vit: 1 }, // 구원자 — 성자 최종형, 치유와 생존 보조 중심
-  calamitycaller: { int: 2, spi: 1, luk: 1 }, // 재앙술사 — 대주술사 심화, 저주·재앙 디버프 중심
-  doomprophet: { int: 2, spi: 1, luk: 1 }, // 종말예언자 — 재앙술사 최종형, 종말 선고와 침식 중심
-  dragonfist: { str: 2, dex: 1, vit: 1 }, // 권황 — 권룡 계보의 연격·보법 중심
-  celestialdragon: { str: 2, dex: 1, vit: 1 }, // 천룡권성 — 권황 최종형, 힘과 민첩 중심
-  vajraarhat: { vit: 2, spi: 1, str: 1 }, // 금강나한 — 금강승 최종형, 내구와 기백 중심
+  fortressknight: { vit: 3, str: 2, dex: 1 }, // 성채기사 — 철벽기사 최종형, 방어 중심
+  swordsaint: { str: 3, dex: 2, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
+  hegemon: { str: 3, vit: 2, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
+  archmage: { int: 3, spi: 3 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
+  savior: { spi: 3, int: 2, vit: 1 }, // 구원자 — 성자 최종형, 치유와 생존 보조 중심
+  calamitycaller: { int: 3, spi: 1, luk: 1 }, // 재앙술사 — 대주술사 심화, 저주·재앙 디버프 중심
+  doomprophet: { int: 3, spi: 2, luk: 1 }, // 종말예언자 — 재앙술사 최종형, 종말 선고와 침식 중심
+  dragonfist: { str: 3, dex: 1, vit: 1 }, // 권황 — 권룡 계보의 연격·보법 중심
+  celestialdragon: { str: 3, dex: 2, vit: 1 }, // 천룡권성 — 권황 최종형, 힘과 민첩 중심
+  vajraarhat: { vit: 3, spi: 2, str: 1 }, // 금강나한 — 금강승 최종형, 내구와 기백 중심
 };
 
 // 캐릭터의 실효 수행 프로필 — 하이브리드 직업이면 직업 전용(정체성 축), 아니면 직군 프로필.
@@ -129,6 +129,10 @@ export function effectiveCultivateProfile(
   group: string,
   jobId?: string | null,
 ): Partial<Record<V2StatKey, number>> | undefined {
+  const job = jobId ? V2_JOB_CATALOG[jobId] : undefined;
+  if (job?.tier === 5 || job?.tier === 6) {
+    return job.cultivateProfile;
+  }
   if (jobId && V2_HYBRID_CULTIVATE_PROFILE[jobId]) {
     return V2_HYBRID_CULTIVATE_PROFILE[jobId];
   }

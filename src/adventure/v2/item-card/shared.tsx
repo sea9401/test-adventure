@@ -53,22 +53,21 @@ const ITEM_NAME_POWER_THRESHOLDS: Record<
   necklace: [20, 40, 60, 80, 100, 120],
 };
 
-// 장비명 색 → 유니크는 전용 보라색, 정규 세트는 전용 청록색으로 통일한다.
-// 유니크 세트는 유니크가 우선하며, 둘 다 아닌 일반 장비만 현재 표시 위력 기준으로 나눈다.
-// 일반 장비 중 시그니처 효과 장비는 무지개로 고정한다.
+// 장비명 색 → 세트는 전용 청록색, 비세트 시그니처는 무지개로 통일한다.
+// 둘에 해당하지 않는 유니크만 전용 보라색을 쓰고, 나머지는 현재 표시 위력 기준으로 나눈다.
 export function itemNameClass(
   item: V2Equipment,
   roll?: V2EquipRoll,
   enhance?: V2EnhanceState,
   craftQuality?: V2CraftQualityState,
 ): string {
-  if (item.rarity === "unique") {
-    return "text-purple-600 dark:text-purple-400";
-  }
   if (item.setId) {
     return "text-emerald-600 dark:text-emerald-400";
   }
   if (item.signature) return "ui-item-name-signature";
+  if (item.rarity === "unique") {
+    return "text-purple-600 dark:text-purple-400";
+  }
   const displayPower = powerWithBonuses(
     roll?.power ?? item.power,
     enhance,
@@ -231,6 +230,7 @@ const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   magicDef: "마법방어",
   healPowerPct: "회복",
   critResist: "치명타 저항",
+  statusDamageReductionPct: "상태이상 피해 감소",
 };
 export function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
@@ -240,7 +240,11 @@ export function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
       if (k === "critMult")
         return `${SET_BONUS_LABEL[k]} +${((bonus[k] ?? 0) / 100).toFixed(2)}×`;
       const unit =
-        k === "crit" || k === "eva" || k === "healPowerPct" || k === "critResist"
+        k === "crit" ||
+        k === "eva" ||
+        k === "healPowerPct" ||
+        k === "critResist" ||
+        k === "statusDamageReductionPct"
           ? "%"
           : "";
       return `${SET_BONUS_LABEL[k]} +${bonus[k]}${unit}`;
@@ -274,6 +278,7 @@ const RANGE_OPTION_LABEL_TO_KEY: Partial<Record<string, keyof V2EquipOptions>> =
     마법방어: "magicDef",
     회복: "healPowerPct",
     "치명타 저항": "critResist",
+    "상태이상 피해 감소": "statusDamageReductionPct",
   };
 
 function rollRange(

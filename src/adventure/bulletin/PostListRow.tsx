@@ -62,8 +62,8 @@ function PostListRowImpl({ post, onOpen }: Props) {
             </span>
           )}
         </div>
-        <div className="flex min-w-0 items-baseline gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span className="truncate font-medium text-zinc-700 dark:text-zinc-300">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="max-w-full shrink-0 break-all font-medium text-zinc-700 dark:text-zinc-300">
             {post.name}
           </span>
           {post.authorActivity && (

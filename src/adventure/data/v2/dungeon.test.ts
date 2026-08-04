@@ -25,6 +25,7 @@ import {
   frontierOnsetSoften,
   floorAccuracy,
   floorPowerGate,
+  UNDERPREPARED_ACCURACY_MAX,
 } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
@@ -404,6 +405,10 @@ describe("scaleMonsterForFloor", () => {
     expect(endgameUnderprepared.atk).toBeGreaterThan(endgameReady.atk);
     expect(endgameUnderprepared.accuracy).toBeGreaterThan(
       endgameReady.accuracy ?? 0,
+    );
+    expect(endgameUnderprepared.accuracy).toBeCloseTo(
+      (base.accuracy ?? 0) +
+        floorAccuracy(endgameDepth) * UNDERPREPARED_ACCURACY_MAX,
     );
     expect(endgameUnderprepared.def).toBe(endgameReady.def);
     expect(endgameUnderprepared.exp).toBe(endgameReady.exp);

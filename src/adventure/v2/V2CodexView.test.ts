@@ -3,7 +3,19 @@ import {
   classifyCodexEquipmentIds,
   codexTabFromParam,
   codexThemeDeepDepth,
+  shouldShowCodexTutorial,
 } from "./V2CodexView";
+
+describe("모험의 서 이용 안내", () => {
+  it("처음 방문한 이용자에게 표시하고 확인 후에는 자동으로 숨긴다", () => {
+    expect(shouldShowCodexTutorial(false, false)).toBe(true);
+    expect(shouldShowCodexTutorial(true, false)).toBe(false);
+  });
+
+  it("이미 확인했어도 안내 버튼으로 다시 볼 수 있다", () => {
+    expect(shouldShowCodexTutorial(true, true)).toBe(true);
+  });
+});
 
 describe("모험의 서 URL 탭", () => {
   it("제작 완료 화면의 장비 도감 링크를 장비 탭으로 연다", () => {

@@ -16,6 +16,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 
 type ReferralSummary = {
   ok: true;
@@ -160,7 +161,7 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
             <h2 className="font-bold">친구를 초대하고 보상받기</h2>
             <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               링크로 합류한 친구와 나는 가입 완료 시 회복약 2개씩 받고,
-              친구가 프론티어를 진행할 때마다 추가 보상이 도착합니다.
+              친구가 새로운 사냥터를 개척할 때마다 추가 보상이 도착합니다.
             </p>
           </div>
         </div>
@@ -215,8 +216,8 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         <div>
           <h2 className="text-sm font-bold">진행도별 보상</h2>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-            친구가 가입을 완료할 때 첫 보상이, 각 프론티어에 처음 도달할 때 추가
-            보상이 지급됩니다.
+            친구가 가입을 완료할 때 첫 보상이, 지정된 사냥터 단계를 처음 돌파할
+            때 추가 보상이 지급됩니다.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
@@ -240,7 +241,7 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
               className={`${SURFACE_INSET} px-2 py-3 text-center`}
             >
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                프론티어 {milestone.frontierDepth}
+                {huntStageName(milestone.frontierDepth)} 돌파
               </p>
               <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">
                 회복약 +{milestone.referrerStaminaPotions}개
@@ -274,7 +275,7 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
           <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <h2 className="text-sm font-bold">내 링크로 합류한 모험가</h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              현재 프론티어와 {rewardStageCount}단계 보상 진척도를 확인할 수 있습니다.
+              현재 사냥터와 {rewardStageCount}단계 보상 진척도를 확인할 수 있습니다.
             </p>
           </div>
           {summary.referrals.length > 0 ? (
@@ -308,7 +309,7 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
                         />
                       </div>
                       <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        현재 프론티어 {item.currentFrontierDepth} · 보상 완료{" "}
+                        현재 {huntStageName(item.currentFrontierDepth)} · 보상 완료{" "}
                         {completedRewardStages}단계
                         {" · "}
                         {new Date(item.convertedAt).toLocaleDateString("ko-KR")}

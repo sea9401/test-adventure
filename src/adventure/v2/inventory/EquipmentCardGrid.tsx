@@ -40,6 +40,7 @@ import {
   QualityPctText,
   type ItemCardAnchor,
 } from "../V2ItemCard";
+import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
 
 // 슬롯별 아이콘/색 — 카드 좌상단 표식.
 const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
@@ -173,6 +174,7 @@ export function EquipmentCardGrid({
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-1">
               <EquipmentTierBadge tier={item.tier} compact />
+              <EquipmentCodexBadge itemId={item.id} />
               <EnhanceLevelBadge enhance={inst.enhance} />
               <CraftQualityBadge craftQuality={inst.craftQuality} />
               {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}

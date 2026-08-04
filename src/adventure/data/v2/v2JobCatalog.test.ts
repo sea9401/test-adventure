@@ -49,6 +49,7 @@ import {
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { jobDisplayName } from "./classes";
 import {
+  effectiveCultivateProfile,
   V2_CULTIVATE_PROFILE,
   V2_HYBRID_CULTIVATE_PROFILE,
 } from "./proficiency";
@@ -256,15 +257,41 @@ describe("스탯 맵 무결성", () => {
       expect(V2_JOB_CATALOG[id]?.cultivateProfile, id).toEqual(
         V2_HYBRID_CULTIVATE_PROFILE[id],
       );
-      // 합 4 고정(비용 곡선·economy 불변) — 초월자는 올스탯 정체성 때문에 예외적으로 6.
+      // 1~4차 합 4, 5차 합 5, 6차 합 6으로 실제 수행 성장량과 맞춘다.
       const sum = Object.values(V2_HYBRID_CULTIVATE_PROFILE[id]).reduce(
         (s, v) => s + (v ?? 0),
         0,
       );
-      expect(sum, `${id} 프로필 합`).toBe(
-        id === "transcendent" || id === "absolute" ? 6 : 4,
-      );
+      const tier = V2_JOB_CATALOG[id].tier;
+      expect(sum, `${id} 프로필 합`).toBe(tier === 5 ? 5 : tier === 6 ? 6 : 4);
     }
+  });
+
+  it("5차·6차 직업은 수행 상승 총합이 각각 5·6으로 동일하다", () => {
+    for (const job of V2_JOB_LIST.filter((entry) => entry.tier >= 5)) {
+      const expectedTotal = job.tier;
+      const catalogTotal = Object.values(job.cultivateProfile).reduce(
+        (sum, value) => sum + (value ?? 0),
+        0,
+      );
+      const group = LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id;
+      const effective = effectiveCultivateProfile(group, job.id);
+      const effectiveTotal = Object.values(effective ?? {}).reduce(
+        (sum, value) => sum + (value ?? 0),
+        0,
+      );
+
+      expect(catalogTotal, `${job.id} 카탈로그 수행 총합`).toBe(expectedTotal);
+      expect(effectiveTotal, `${job.id} 실제 수행 총합`).toBe(expectedTotal);
+    }
+
+    expect(V2_JOB_CATALOG.transcendent.cultivateProfile).toEqual({
+      str: 1,
+      vit: 1,
+      dex: 1,
+      int: 1,
+      spi: 1,
+    });
   });
 
   it("모험가 jobBonus 는 비어 있다(HP% 는 별도 적용)", () => {

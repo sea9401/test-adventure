@@ -113,6 +113,7 @@ export const V2_EQUIPMENT_OPTION_BUILD_TAGS: Readonly<
   magicDef: ["magic", "tank"],
   healPowerPct: ["magic", "heal"],
   critResist: ["tank"],
+  statusDamageReductionPct: ["tank"],
 };
 
 const V2_EQUIP_SET_BUILD_TAGS = new Map(
@@ -269,6 +270,10 @@ function addPassiveTags(
   if ((passive.guildTrainingRewardBonusPct ?? 0) > 0) tags.add("guild");
   if ((passive.guildTrainingWeeklyBonusMastery ?? 0) > 0) tags.add("guild");
   if (passive.skillCritOverflow) tags.add("crit");
+  if (passive.skillCritAfterEvade) {
+    tags.add("crit");
+    tags.add("evasion");
+  }
 }
 
 function addEffectTags(
@@ -301,6 +306,10 @@ function addEffectTags(
       break;
     case "manaRestore":
       tags.add("resource");
+      break;
+    case "guaranteedEvade":
+      tags.add("evasion");
+      tags.add("tank");
       break;
     case "enemyDebuff":
     case "enemyVuln":

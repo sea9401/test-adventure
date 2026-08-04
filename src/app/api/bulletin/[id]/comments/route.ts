@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bulletinComments } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -12,6 +12,7 @@ import {
   bulletinActivityFromMap,
   readBulletinActivityMap,
 } from "@/lib/server/bulletinActivity";
+import { syncBulletinActivityTitlesBestEffort } from "@/lib/server/bulletinActivityTitles";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   const rows = await db
     .select({
       id: bulletinComments.id,
+      parentId: bulletinComments.parentId,
       userId: bulletinComments.userId,
       name: bulletinComments.name,
       className: bulletinComments.className,
@@ -40,13 +42,14 @@ export async function GET(_req: Request, ctx: Ctx) {
     })
     .from(bulletinComments)
     .where(eq(bulletinComments.postId, postId))
-    .orderBy(asc(bulletinComments.createdAt));
+    .orderBy(asc(bulletinComments.createdAt), asc(bulletinComments.id));
   const activityByUser = await readBulletinActivityMap(
     rows.map((row) => row.userId),
   );
 
   const result = rows.map((r) => ({
     id: r.id,
+    parentId: r.parentId,
     name: r.name,
     className: r.className,
     content: r.content,
@@ -58,7 +61,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   return Response.json(result);
 }
 
-// POST /api/bulletin/[id]/comments — 댓글 작성. body: { content }.
+// POST /api/bulletin/[id]/comments — 댓글/한 단계 답글 작성. body: { content, parentId? }.
 export async function POST(req: Request, ctx: Ctx) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
@@ -69,7 +72,7 @@ export async function POST(req: Request, ctx: Ctx) {
     return new Response("invalid id", { status: 400 });
   }
 
-  let body: { content?: unknown };
+  let body: { content?: unknown; parentId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -83,10 +86,42 @@ export async function POST(req: Request, ctx: Ctx) {
       status: 400,
     });
   }
+  const parentId =
+    body.parentId === undefined || body.parentId === null
+      ? null
+      : body.parentId;
+  if (
+    parentId !== null &&
+    (typeof parentId !== "number" ||
+      !Number.isInteger(parentId) ||
+      parentId <= 0)
+  ) {
+    return new Response("invalid parent id", { status: 400 });
+  }
 
   // 글 존재 + 접근권 확인 — 길드 전용 글은 같은 길드원만 댓글 가능.
   if (!(await canAccessBulletinPost(db, postId, userId))) {
     return new Response("not found", { status: 404 });
+  }
+
+  // 답글은 같은 게시글의 최상위 댓글만 대상으로 허용한다. 깊이는 한 단계로 고정.
+  if (parentId !== null) {
+    const [parent] = await db
+      .select({ parentId: bulletinComments.parentId })
+      .from(bulletinComments)
+      .where(
+        and(
+          eq(bulletinComments.id, parentId),
+          eq(bulletinComments.postId, postId),
+        ),
+      )
+      .limit(1);
+    if (!parent) {
+      return new Response("parent comment not found", { status: 404 });
+    }
+    if (parent.parentId !== null) {
+      return new Response("nested replies not allowed", { status: 400 });
+    }
   }
 
   // rate limit — 본인 마지막 댓글 시각 기준. 글 작성보다 짧은 10초.
@@ -104,20 +139,23 @@ export async function POST(req: Request, ctx: Ctx) {
   const { name, className } = await resolveActor(userId);
   const [inserted] = await db
     .insert(bulletinComments)
-    .values({ postId, userId, name, className, content })
+    .values({ postId, userId, parentId, name, className, content })
     .returning({
       id: bulletinComments.id,
       createdAt: bulletinComments.createdAt,
     });
   const activityByUser = await readBulletinActivityMap([userId]);
+  const authorActivity = bulletinActivityFromMap(activityByUser, userId);
+  await syncBulletinActivityTitlesBestEffort(userId, authorActivity);
 
   return Response.json({
     id: inserted.id,
+    parentId,
     name,
     className,
     content,
     createdAt: inserted.createdAt.getTime(),
     mine: true,
-    authorActivity: bulletinActivityFromMap(activityByUser, userId),
+    authorActivity,
   });
 }

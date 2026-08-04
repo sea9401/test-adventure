@@ -21,6 +21,7 @@ import {
   FISHING_LURES,
   FISHING_ROD_IDS,
   FISHING_RODS,
+  fishingSizeBonusLabels,
   type FishingGearBonuses,
   type FishingProgressionView,
 } from "./fishingProgression";
@@ -41,11 +42,7 @@ const ENTRIES = fishingShopEntries();
 function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
   const labels: string[] = [];
   if (bonuses.waitReductionPct) labels.push(`대기 -${bonuses.waitReductionPct}%`);
-  if (bonuses.sizeBonusPct) labels.push(`크기 +${bonuses.sizeBonusPct}%`);
-  if (bonuses.rareSizeBonusPct)
-    labels.push(`희귀 이상 크기 +${bonuses.rareSizeBonusPct}%`);
-  if (bonuses.bigCatchSizeBonusPct)
-    labels.push(`대물급 크기 +${bonuses.bigCatchSizeBonusPct}%`);
+  labels.push(...fishingSizeBonusLabels(bonuses));
   if (bonuses.specialWeightPct)
     labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
   if (bonuses.tierWeightPct) {
@@ -60,16 +57,8 @@ function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
 
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   const bonuses = progression.levelBonuses;
-  const labels = [
-    `크기 +${bonuses.sizeBonusPct}%`,
-    `특별 손님 +${bonuses.specialWeightPct}%`,
-  ];
-  if (bonuses.rareSizeBonusPct > 0) {
-    labels.push(`희귀 이상 +${bonuses.rareSizeBonusPct}%`);
-  }
-  if (bonuses.bigCatchSizeBonusPct > 0) {
-    labels.push(`대물급 +${bonuses.bigCatchSizeBonusPct}%`);
-  }
+  const labels = fishingSizeBonusLabels(bonuses);
+  labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
   return labels;
 }
 
@@ -256,6 +245,29 @@ export function FishingShopView({
                 </div>
               </Card>
             </div>
+          )}
+
+          {progression && onBuyGear && (
+            <Card padding="sm">
+              <h3 className="text-sm font-bold">크기 효과 적용 범위</h3>
+              <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                <li>
+                  <strong className="text-zinc-800 dark:text-zinc-100">모든 어종 크기</strong>
+                  {" "}— 흔함부터 전설까지 잡히는 모든 물고기에 적용됩니다.
+                </li>
+                <li>
+                  <strong className="text-zinc-800 dark:text-zinc-100">희귀 이상 추가 크기</strong>
+                  {" "}— 희귀·영웅·전설 어종에만 추가로 중첩됩니다.
+                </li>
+                <li>
+                  <strong className="text-zinc-800 dark:text-zinc-100">상위 20% 굴림 추가 크기</strong>
+                  {" "}— 앞선 보정 후 해당 어종의 크기 범위 상위 20%에 들었을 때 추가로 중첩됩니다.
+                </li>
+              </ul>
+              <p className="mt-2 border-t border-zinc-200 pt-2 text-[11px] leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                +N%는 최종 길이를 N% 곱하는 효과가 아니라, 해당 어종의 최대 크기까지 남은 폭을 N%만큼 줄이는 보정입니다. 상위 20% 보정 구간은 전광판의 ‘대물’ 판정 구간인 상위 10%보다 넓습니다.
+              </p>
+            </Card>
           )}
 
           {progression && onBuyGear && (

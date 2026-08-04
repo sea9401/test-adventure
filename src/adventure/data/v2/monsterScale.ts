@@ -9,6 +9,7 @@ import {
   floorCritHpComp,
   floorAccuracy,
   underpreparedCombatMult,
+  underpreparedAccuracyMult,
 } from "./dungeonLadder";
 
 // 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/exp 만 곱한다.
@@ -54,9 +55,15 @@ export function scaleMonsterForFloor(
   //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
   //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
   // 권장 전투력 미달 상태에서는 HP·ATK만 올리면 고회피 빌드가 공격을 계속 무효화해 우회한다.
-  // 깊이 기반 명중도 같은 준비도 배율을 적용하되 몬스터 고유 accuracy 는 중복 증폭하지 않는다.
+  // 깊이 기반 명중에도 준비도 배율을 적용하되 회피 생존축이 사라지지 않게 별도 상한을 두고,
+  // 몬스터 고유 accuracy 는 중복 증폭하지 않는다.
+  const accuracyUnderpreparedMult = underpreparedAccuracyMult(
+    depth,
+    playerPower,
+  );
   const accuracy =
-    (monster.accuracy ?? 0) + floorAccuracy(depth) * underpreparedMult;
+    (monster.accuracy ?? 0) +
+    floorAccuracy(depth) * accuracyUnderpreparedMult;
   if (
     hp === monster.hp &&
     atk === monster.atk &&

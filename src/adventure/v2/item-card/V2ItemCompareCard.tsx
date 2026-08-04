@@ -19,6 +19,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
@@ -157,6 +158,7 @@ function CompareHeader({
       <div className="mt-1 flex flex-wrap items-center gap-1">
         <EquipmentTierBadge tier={side.item.tier} compact />
         <ItemTypeChip item={side.item} />
+        <EquipmentCodexBadge itemId={side.item.id} />
         <EnhanceLevelBadge enhance={side.enhance} />
         <CraftQualityBadge craftQuality={side.craftQuality} />
         {side.item.craftOnly ? <CraftOnlyBadge /> : null}

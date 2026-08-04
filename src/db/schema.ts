@@ -13,6 +13,7 @@ import {
   check,
   numeric,
   doublePrecision,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // Auth.js(NextAuth) 와 게임 사용자 1:1 매핑.
@@ -319,6 +320,11 @@ export const bulletinComments = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // 한 단계 답글. 원댓글 삭제 시 그 아래 답글도 함께 정리한다.
+    parentId: integer("parent_id").references(
+      (): AnyPgColumn => bulletinComments.id,
+      { onDelete: "cascade" },
+    ),
     name: text("name").notNull(),
     className: text("class_name").notNull(),
     content: text("content").notNull(),
@@ -329,6 +335,8 @@ export const bulletinComments = pgTable(
     index("bulletin_comments_post_created_at_idx").on(t.postId, t.createdAt),
     // rate-limit 조회 — userId 마지막 댓글.
     index("bulletin_comments_user_created_at_idx").on(t.userId, t.createdAt),
+    // 원댓글별 답글 조회·cascade 삭제 보조.
+    index("bulletin_comments_parent_id_idx").on(t.parentId),
   ],
 );
 
@@ -436,6 +444,8 @@ export const messages = pgTable(
     className: text("class_name").notNull(),
     title: text("title"),
     content: text("content").notNull(),
+    // 채팅에 첨부한 장비의 전송 시점 공개 스냅샷. 서버가 보유 iid를 검증해 만든다.
+    itemLink: jsonb("item_link"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [

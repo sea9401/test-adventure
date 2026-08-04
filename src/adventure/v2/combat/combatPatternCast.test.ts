@@ -5,6 +5,7 @@ import {
   type V2SkillCastInput,
 } from "./combatShared";
 import {
+  V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER,
   V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
   type V2CombatPattern,
 } from "./combatPattern";
@@ -162,7 +163,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     );
   });
 
-  it("패턴 피해 = 평타 바닥 + 초과분 × 차수 통과율(난격=t1)", () => {
+  it("패턴 피해 = 평타 초과분 통과값과 차수별 최저 배율 중 큰 값(난격=t1)", () => {
     // 옛 경로(procRoll 미지정 = 항상 발동): 풀 위력.
     const full = resolveV2SkillCast(castInput([SKILL]));
     // 패턴 경로: 같은 입력, "평타 바닥 + 초과분 × 통과율" 로 깎임(난격=t1).
@@ -172,14 +173,17 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(full.enemyDamage).toBeGreaterThan(0);
     // 평타 바닥 = damageBetween(atk, def) × attackCount(미지정=1). 초과분만 t1 통과율로 깎인다.
     const basicFloor = damageBetween(100, 10);
-    const expected = Math.round(
+    const throttled = Math.round(
       basicFloor +
         Math.max(0, full.enemyDamage - basicFloor) *
           V2_PATTERN_SKILL_POWER_MULT_BY_TIER[1],
     );
+    const minimum = Math.round(
+      basicFloor * V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER[1],
+    );
+    const expected = Math.max(throttled, minimum);
     expect(scaled.enemyDamage).toBe(expected);
-    // 바닥 보장 — 패턴 스킬 피해는 평타 한 번보다 작지 않다.
-    expect(scaled.enemyDamage).toBeGreaterThanOrEqual(basicFloor);
+    expect(scaled.enemyDamage).toBeGreaterThan(basicFloor);
   });
 
   it("전투당 1회 회복은 패턴 빈도 보정 없이 설명대로 적용된다", () => {
@@ -223,9 +227,15 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     );
     const basicFloor = damageBetween(100, 10);
     const surplus = Math.max(0, full.enemyDamage - basicFloor);
-    // 패턴 피해 = 평타바닥 + 초과분 × t3 통과율(0.28).
+    // 패턴 피해 = 초과분 통과값과 t3 평타 최저 배율 중 큰 값.
+    const throttled = Math.round(
+      basicFloor + surplus * V2_PATTERN_SKILL_POWER_MULT_BY_TIER[3],
+    );
+    const minimum = Math.round(
+      basicFloor * V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER[3],
+    );
     expect(scaled.enemyDamage).toBe(
-      Math.round(basicFloor + surplus * V2_PATTERN_SKILL_POWER_MULT_BY_TIER[3]),
+      Math.max(throttled, minimum),
     );
     // t1 통과율(0.14)로 깎였을 값보다 크다 — 고차일수록 더 센 게 핵심.
     const asT1 = Math.round(
@@ -405,9 +415,7 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
       }),
     );
 
-  // 🔑 패턴 경로는 "평타(atk) 바닥" 모델 — 스킬딜 = max(atk 기반 평타 바닥, 스케일 데미지). 저-atk
-  //   도적(dex/luk 빌드)에선 스케일이 바닥을 넘어 dex/luk 가 딜을 좌우(의도된 audience). 고-atk면
-  //   바닥이 이김(스킬이 평타보다 약해지지 않게 — 안전). 그래서 저-atk 로 스케일 효과를 검증한다.
+  // 특화 스킬은 공격력 기반선 + DEX/LUK 계수를 합산한다. 저-atk 에서도 특화 스탯 성장 효과를 유지한다.
   it("궁사 기습 = DEX 비례 (저-atk 도적 빌드에서 DEX 가 딜 좌우)", () => {
     const loDex = castWith("v2c_ranger_ambush", { atk: 10, dex: 100 }).enemyDamage;
     const hiDex = castWith("v2c_ranger_ambush", { atk: 10, dex: 400 }).enemyDamage;
@@ -418,6 +426,47 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
     const loLuk = castWith("v2c_assassin_ambush", { atk: 10, luk: 100 }).enemyDamage;
     const hiLuk = castWith("v2c_assassin_ambush", { atk: 10, luk: 400 }).enemyDamage;
     expect(hiLuk).toBeGreaterThan(loLuk); // LUK 올리면 딜↑(luk 스케일 작동).
+  });
+
+  it("DEX 특화 스킬도 공격력이 오르면 함께 강해진다", () => {
+    const lowAtk = castWith("v2c_ranger_ambush", {
+      atk: 100,
+      dex: 300,
+    }).enemyDamage;
+    const highAtk = castWith("v2c_ranger_ambush", {
+      atk: 500,
+      dex: 300,
+    }).enemyDamage;
+    expect(highAtk).toBeGreaterThan(lowAtk);
+  });
+
+  it("SPI 특화 스킬의 평타 기준선은 SPI가 아니라 마법공격력을 사용한다", () => {
+    const skillId = "v2c_savior_judgment";
+    const magicAtk = 800;
+    const targetDef = 200;
+    const result = resolveV2SkillCast(
+      castInput([skillId], {
+        combatPattern: alwaysFor(skillId),
+        attacker: {
+          ...castInput([skillId]).attacker,
+          atk: 300,
+          magicAtk,
+          spi: 250,
+          classTier: 4,
+        },
+        target: {
+          ...castInput([skillId]).target,
+          def: 100,
+          magicDef: targetDef,
+        },
+      }),
+    );
+    const magicBasic = damageBetween(magicAtk, targetDef);
+    expect(result.enemyDamage).toBeGreaterThanOrEqual(
+      Math.round(
+        magicBasic * V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER[3],
+      ),
+    );
   });
 });
 

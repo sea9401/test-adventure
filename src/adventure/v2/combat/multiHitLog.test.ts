@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER } from "./combatPattern";
 import {
   applyComboFinisherToHits,
   resolveV2SkillCast,
@@ -105,20 +106,21 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
         equipped: ["v2c_chief_strike"],
       } as V2SkillCastInput["skills"],
       cooldowns: {},
-      // dex scaling — attacker.dex 가 공격 스탯(없으면 atk 폴백). statScaled 라 버프 무시(빈 맵).
+      // dex scaling — 공격력 기반선과 DEX 특화 계수를 함께 사용한다.
       attacker: { mp: 999, atk: 100, dex: 100, maxHp: 1000, selfBuffs: {}, selfDebuffs: {} },
       target: { def: TARGET_DEF, selfBuffs: {}, selfDebuffs: {} },
     });
     // 관통사 수치는 전역 차수 리밸런싱까지 적용된 최종 카탈로그 값을 기준으로 한다.
-    // damageWith(dex) → v2DamageAmount(physical, attackerAtk=dex=100, statScaled→빈 버프맵).
+    // damageWith(dex) → 공격력×t3 혼합 기반선 + DEX×statCoef, 고정 기본 피해 없음.
     const effect = V2_SKILLS.v2c_chief_strike.effects[0];
     expect(effect.kind).toBe("damage");
     if (effect.kind !== "damage") throw new Error("관통사 피해 효과 누락");
     const common = {
       attackerAtk: 100,
       scaling: "physical" as const,
-      statCoef: effect.statCoef,
-      baseFlat: effect.baseFlat ?? 0,
+      statCoef:
+        effect.attackCoef ?? V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER[3],
+      baseFlat: Math.floor(100 * effect.statCoef),
       attackerSelfBuffs: {},
       attackerSelfDebuffs: {},
       targetSelfBuffs: {},

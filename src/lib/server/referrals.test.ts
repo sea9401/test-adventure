@@ -163,7 +163,7 @@ describe("referrals", () => {
         userId: "referrer",
         kind: "admin_gift",
         payload: { gold: 0, staminaPotions: 4 },
-        message: expect.stringContaining("프론티어 24"),
+        message: expect.stringContaining("심층 동굴 · 최심부"),
       },
     });
   });

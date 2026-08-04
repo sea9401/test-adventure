@@ -10,7 +10,10 @@ import {
   resolveV2SkillCast,
   type V2SkillCastInput,
 } from "./combatShared";
-import { V2_PATTERN_DOT_POWER_MULT } from "./combatPattern";
+import {
+  V2_PATTERN_DOT_POWER_MULT,
+  V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER,
+} from "./combatPattern";
 
 const SKILL_ID = "v2c_venomist_toxiccloud" satisfies V2SkillId;
 
@@ -82,7 +85,10 @@ describe("중독 스택 회수", () => {
     const basicFloor = damageBetween(500, 300);
 
     expect(result.enemyDamage).toBe(
-      basicFloor + dot.stacks * payoff.perStackFlat,
+      Math.round(
+        basicFloor * V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER[2],
+      ) +
+        dot.stacks * payoff.perStackFlat,
     );
   });
 

@@ -35,6 +35,8 @@ export type BulletinFeed = {
 // 댓글 — 서버 응답 그대로. mine 은 본인 작성 여부 (삭제 버튼 노출 조건).
 export type BulletinComment = {
   id: number;
+  /** null이면 일반 댓글, 숫자면 해당 최상위 댓글에 달린 한 단계 답글. */
+  parentId: number | null;
   name: string;
   className: string;
   content: string;

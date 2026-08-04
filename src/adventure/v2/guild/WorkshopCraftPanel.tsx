@@ -98,6 +98,9 @@ const EQUIPMENT_CODEX_STATUS_VIEW: Record<
 /** 제작 응답 중 부모 워크숍 상태에 반영할 조각 — 부모 콜백(applyCraftServerState)의 입력. */
 export type CraftServerSync = {
   ok: boolean;
+  gold?: number;
+  bankedGold?: number;
+  spendableGold?: number;
   resources?: WorkshopState["resources"];
   materials?: WorkshopState["materials"];
   artisan?: WorkshopState["artisan"];
@@ -351,6 +354,8 @@ export function WorkshopCraftPanel({
                   `Lv ${recipe.requiredArtisanLevel}`
                 ) : !recipe.smithyLevelOk ? (
                   `제작소 Lv ${recipe.requiredSmithyLevel}`
+                ) : !recipe.goldOk ? (
+                  "골드 부족"
                 ) : recipe.canCraft ? (
                   "제작"
                 ) : (
@@ -360,6 +365,15 @@ export function WorkshopCraftPanel({
             </div>
             <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               개인 재료: {recipe.costText}
+            </div>
+            <div
+              className={`mt-0.5 ${
+                recipe.goldOk
+                  ? "text-zinc-500 dark:text-zinc-500"
+                  : "font-semibold text-rose-600 dark:text-rose-400"
+              }`}
+            >
+              제작 수수료: {recipe.goldCost.toLocaleString()} G
             </div>
             <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
               ★ {recipe.qualityChancePct}% · 상한{" "}
@@ -390,6 +404,17 @@ export function WorkshopCraftPanel({
                 ? `개인 재료: ${masterwork.costText}`
                 : "대장장이 Lv 8 필요"}
             </div>
+            {masterwork ? (
+              <div
+                className={`mt-0.5 ${
+                  masterwork.goldOk
+                    ? "text-zinc-500 dark:text-zinc-500"
+                    : "font-semibold text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                제작 수수료: {masterwork.goldCost.toLocaleString()} G
+              </div>
+            ) : null}
             <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
               {masterwork
                 ? masterwork.plus2Unlocked

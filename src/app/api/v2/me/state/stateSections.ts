@@ -197,6 +197,14 @@ export function jobsV2Section(params: {
         .join(" · ");
       // 스킬 수집 완료 — 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일).
       const signature = skillsForJob(job.id);
+      const signatureSkills = signature.map((skillId) => {
+        const skill = V2_SKILLS[skillId];
+        return {
+          id: skillId,
+          name: skill?.name ?? skillId,
+          kind: skill?.category === "passive" ? "passive" : "active",
+        } as const;
+      });
       const skillsCollected =
         signature.length > 0 && signature.every((id) => learnedSet.has(id));
       return {
@@ -214,6 +222,7 @@ export function jobsV2Section(params: {
           cumLevel,
         }),
         bonus,
+        signatureSkills,
         skillsCollected,
       };
     }),

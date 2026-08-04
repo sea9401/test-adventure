@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { TITLES } from "@/adventure/data/titles";
 import {
+  BULLETIN_ACTIVITY_TITLE_REWARDS,
   BULLETIN_DAILY_COMMENT_CREDIT_LIMIT,
   BULLETIN_DAILY_POST_CREDIT_LIMIT,
   bulletinActivityPoints,
+  bulletinActivityTitleIdsForLevel,
   bulletinDailyCredits,
   deriveBulletinActivity,
   isCreditedBulletinReceivedLike,
@@ -49,6 +52,24 @@ describe("bulletin activity", () => {
       nextLevelPoints: null,
       progressPct: 100,
     });
+  });
+
+  it("awards permanent title milestones at levels 3, 5, 7, and 10", () => {
+    expect(bulletinActivityTitleIdsForLevel(2)).toEqual([]);
+    expect(bulletinActivityTitleIdsForLevel(7)).toEqual([
+      "bulletin_storyteller",
+      "bulletin_regular",
+      "bulletin_adviser",
+    ]);
+    expect(bulletinActivityTitleIdsForLevel(10)).toEqual([
+      "bulletin_storyteller",
+      "bulletin_regular",
+      "bulletin_adviser",
+      "bulletin_keeper",
+    ]);
+    for (const reward of BULLETIN_ACTIVITY_TITLE_REWARDS) {
+      expect(TITLES[reward.titleId]?.name).toBe(reward.name);
+    }
   });
 
   it("normalizes malformed counters", () => {

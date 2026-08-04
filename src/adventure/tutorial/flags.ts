@@ -12,4 +12,9 @@ export const TUTORIAL_ENABLED_FLAG = "tutorial.enabled";
 // 표시 (1회성 아님 — 사용자 피드백 2026-05-28).
 export const TUTORIAL_V2_FIRST_LEVELUP = "tutorial.v2-first-levelup";
 
+// 모험의 서는 기존 유저에게도 새 안내를 최초 1회 노출한다. 신규 캐릭터 전용
+// TUTORIAL_ENABLED_FLAG 와 별개로 V2CodexView 가 직접 판정하며, 헤더의 안내 버튼으로
+// 언제든 다시 볼 수 있다.
+export const TUTORIAL_CODEX_INTRO = "tutorial.codex-intro";
+
 export type TutorialStepId = `tutorial.${string}`;

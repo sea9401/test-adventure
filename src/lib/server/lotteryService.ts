@@ -15,6 +15,8 @@ import {
   hasEnoughLotteryParticipants,
   lotteryPrizeAmounts,
   lotteryRoundWindow,
+  lotteryWinNotices,
+  type LotteryWinNotice,
   type LotterySnapshot,
 } from "@/lib/lottery";
 import {
@@ -24,10 +26,19 @@ import {
   type DbExecutor,
 } from "@/lib/server/savesKv";
 import { drawLotteryTickets } from "./lotteryDraw";
+import { insertNotificationWith } from "./v2Notifications";
+import {
+  pushMessageForNotification,
+  sendWebPushToUser,
+} from "./webPush";
 
 type LotteryRoundRow = typeof lotteryRounds.$inferSelect;
 type LotteryPurchaseRow = typeof lotteryPurchases.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type SettleRoundResult = {
+  carryIn: number | null;
+  winnerNotices: LotteryWinNotice[];
+};
 const LOTTERY_RESULT_HISTORY_LIMIT = 10;
 
 export type LotteryPurchaseError =
@@ -192,14 +203,16 @@ async function settleRound(
   tx: Tx,
   roundId: number,
   now: Date,
-): Promise<number | null> {
+): Promise<SettleRoundResult> {
   const [round] = await tx
     .select()
     .from(lotteryRounds)
     .where(eq(lotteryRounds.id, roundId))
     .for("update")
     .limit(1);
-  if (!round || round.status !== "open" || round.endsAt > now) return null;
+  if (!round || round.status !== "open" || round.endsAt > now) {
+    return { carryIn: null, winnerNotices: [] };
+  }
 
   const purchases = await tx
     .select()
@@ -242,7 +255,7 @@ async function settleRound(
         settledAt: now,
       })
       .where(eq(lotteryRounds.id, round.id));
-    return prizePool;
+    return { carryIn: prizePool, winnerNotices: [] };
   }
 
   const ordinals = drawLotteryTickets(
@@ -276,6 +289,23 @@ async function settleRound(
       prizeAmount: winner.prizeAmount,
     })),
   );
+  const winnerNotices = lotteryWinNotices(
+    round.id,
+    winners.map((winner) => ({
+      userId: winner.purchase.userId,
+      rank: winner.rank,
+      ticketNumber: winner.ticketNumber,
+      prizeAmount: winner.prizeAmount,
+    })),
+  );
+  for (const notice of winnerNotices) {
+    await insertNotificationWith(
+      tx,
+      notice.userId,
+      "lottery_won",
+      notice.payload,
+    );
+  }
   for (const [userId, amount] of credits) {
     await tx.insert(economyEvents).values({
       userId,
@@ -302,7 +332,7 @@ async function settleRound(
       settledAt: now,
     })
     .where(eq(lotteryRounds.id, round.id));
-  return null;
+  return { carryIn: null, winnerNotices };
 }
 
 async function applyCarryToRound(
@@ -409,14 +439,17 @@ async function advanceRounds(tx: Tx, now: Date) {
     .where(and(eq(lotteryRounds.status, "open"), lte(lotteryRounds.endsAt, now)))
     .orderBy(asc(lotteryRounds.endsAt));
   let pendingCarry: number | null = null;
+  const winnerNotices: LotteryWinNotice[] = [];
   for (const round of due) {
     // 이미 돈만 이월된 배포 전 회차도 승계 티켓이 없으면 함께 복구한다.
     await applyCarryToRound(tx, round.id, pendingCarry ?? 0);
-    pendingCarry = await settleRound(tx, round.id, now);
+    const settled = await settleRound(tx, round.id, now);
+    pendingCarry = settled.carryIn;
+    winnerNotices.push(...settled.winnerNotices);
   }
   let current = await ensureCurrentRound(tx, now);
   current = await applyCarryToRound(tx, current.id, pendingCarry ?? 0);
-  return current;
+  return { current, winnerNotices };
 }
 
 async function snapshotInTx(
@@ -552,21 +585,47 @@ export async function getLotterySnapshot(
   userId: string,
   now = new Date(),
 ): Promise<LotterySnapshot> {
-  return db.transaction(async (tx) => {
-    const current = await advanceRounds(tx, now);
-    return snapshotInTx(tx, userId, current);
+  const result = await db.transaction(async (tx) => {
+    const advanced = await advanceRounds(tx, now);
+    return {
+      snapshot: await snapshotInTx(tx, userId, advanced.current),
+      winnerNotices: advanced.winnerNotices,
+    };
   });
+  await pushLotteryWinnerNotices(result.winnerNotices);
+  return result.snapshot;
 }
 
 export async function settleLotteryRounds(now = new Date()) {
-  return db.transaction(async (tx) => {
-    const current = await advanceRounds(tx, now);
+  const result = await db.transaction(async (tx) => {
+    const advanced = await advanceRounds(tx, now);
     return {
-      currentRoundId: current.id,
-      startsAt: current.startsAt.getTime(),
-      endsAt: current.endsAt.getTime(),
+      currentRoundId: advanced.current.id,
+      startsAt: advanced.current.startsAt.getTime(),
+      endsAt: advanced.current.endsAt.getTime(),
+      winnerNotices: advanced.winnerNotices,
     };
   });
+  await pushLotteryWinnerNotices(result.winnerNotices);
+  return {
+    currentRoundId: result.currentRoundId,
+    startsAt: result.startsAt,
+    endsAt: result.endsAt,
+  };
+}
+
+async function pushLotteryWinnerNotices(
+  notices: readonly LotteryWinNotice[],
+): Promise<void> {
+  await Promise.allSettled(
+    notices.map(async (notice) => {
+      const message = pushMessageForNotification(
+        "lottery_won",
+        notice.payload,
+      );
+      if (message) await sendWebPushToUser(notice.userId, message);
+    }),
+  );
 }
 
 export async function purchaseLotteryTickets(input: {
@@ -588,8 +647,16 @@ export async function purchaseLotteryTickets(input: {
   }
   const now = input.now ?? new Date();
 
-  return db.transaction(async (tx) => {
-    const current = await advanceRounds(tx, now);
+  const settled = await db.transaction(async (tx): Promise<{
+    result: LotteryPurchaseResult;
+    winnerNotices: LotteryWinNotice[];
+  }> => {
+    const advanced = await advanceRounds(tx, now);
+    const current = advanced.current;
+    const finish = (result: LotteryPurchaseResult) => ({
+      result,
+      winnerNotices: advanced.winnerNotices,
+    });
     const [round] = await tx
       .select()
       .from(lotteryRounds)
@@ -610,13 +677,13 @@ export async function purchaseLotteryTickets(input: {
       )
       .limit(1);
     if (existingRequest) {
-      return {
+      return finish({
         ok: true,
         replayed: true,
         purchasedTickets: existingRequest.ticketCount,
         amountPaid: Number(existingRequest.amountPaid),
         snapshot: await snapshotInTx(tx, input.userId, round),
-      };
+      });
     }
 
     const [latestPurchase] = await tx
@@ -629,7 +696,7 @@ export async function purchaseLotteryTickets(input: {
       latestPurchase &&
       now.getTime() - latestPurchase.createdAt.getTime() < LOTTERY_PURCHASE_COOLDOWN_MS
     ) {
-      return { ok: false, error: "purchase_rate_limited" };
+      return finish({ ok: false, error: "purchase_rate_limited" });
     }
 
     const userPurchases = await tx
@@ -648,7 +715,11 @@ export async function purchaseLotteryTickets(input: {
     );
     const remainingTickets = LOTTERY_MAX_TICKETS_PER_ROUND - alreadyBought;
     if (input.ticketCount > remainingTickets) {
-      return { ok: false, error: "round_ticket_limit", remainingTickets };
+      return finish({
+        ok: false,
+        error: "round_ticket_limit",
+        remainingTickets,
+      });
     }
 
     const amountPaid = input.ticketCount * round.ticketPrice;
@@ -665,7 +736,11 @@ export async function purchaseLotteryTickets(input: {
       true,
     );
     if (!spent.ok) {
-      return { ok: false, error: "insufficient_gold", requiredGold: amountPaid };
+      return finish({
+        ok: false,
+        error: "insufficient_gold",
+        requiredGold: amountPaid,
+      });
     }
     await upsertSave(tx, input.userId, "character.v2", {
       ...character,
@@ -712,12 +787,14 @@ export async function purchaseLotteryTickets(input: {
       },
     });
 
-    return {
+    return finish({
       ok: true,
       replayed: false,
       purchasedTickets: input.ticketCount,
       amountPaid,
       snapshot: await snapshotInTx(tx, input.userId, updatedRound),
-    };
+    });
   });
+  await pushLotteryWinnerNotices(settled.winnerNotices);
+  return settled.result;
 }

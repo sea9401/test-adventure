@@ -114,11 +114,12 @@ export async function fetchComments(
 export async function postComment(
   postId: number,
   content: string,
+  parentId: number | null = null,
 ): Promise<BulletinComment> {
   const res = await fetch(`/api/bulletin/${postId}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, parentId }),
   });
   if (!res.ok) {
     const text = await res.text();

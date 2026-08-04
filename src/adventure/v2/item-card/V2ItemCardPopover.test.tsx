@@ -5,6 +5,25 @@ import { V2ItemCard } from "./V2ItemCardPopover";
 import { V2ItemCompareCard } from "./V2ItemCompareCard";
 
 describe("V2ItemCard set information", () => {
+  it.each([
+    [true, "도감 등록"],
+    [false, "도감 미등록"],
+  ])("shows the equipment codex state (%s)", (registered, label) => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_iron_sword}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+        codexRegistered={registered}
+      />,
+    );
+
+    expect(html).toContain(label);
+    expect(html).toContain(
+      registered ? "장비 도감에 등록됨" : "장비 도감에 등록되지 않음",
+    );
+  });
+
   it("lists every compatible item for a threshold-based tag set", () => {
     const item = V2_EQUIPMENT.v2_crafted_combo_bow;
     const html = renderToStaticMarkup(

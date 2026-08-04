@@ -92,6 +92,23 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
     expect(ctx.cookingDishesCooked).toBe(0);
   });
 
+  it("농장 증표 업적은 사용량을 중복 가산하지 않고 누적 획득량만 사용한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      farmRaw: {
+        stats: { reputation: 100, reputationSpent: 40 },
+      },
+      extras: EXTRAS,
+    });
+
+    expect(ctx.farmReputationEarned).toBe(100);
+  });
+
   it("튜토리얼의 수동 장비·장착 후 전투·스킬 로드아웃 행동을 변환한다", () => {
     const ctx = buildQuestCtx({
       charRaw: {

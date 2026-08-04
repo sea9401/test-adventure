@@ -24,7 +24,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>점검 중입니다</title>
+<title>잠시만 기다려 주세요</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -45,22 +45,18 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <body>
 <main>
   <div class="box" role="status" aria-live="polite">
-    <div class="status">서버 점검</div>
-    <h1>서버 점검 중입니다</h1>
-    <p class="lead">업데이트 적용 및 서비스 안정화를 위해<br />점검을 진행하고 있습니다.</p>
-    <div class="schedule" aria-label="점검 일정">
-      <p class="schedule-label">점검 일정</p>
-      <span class="schedule-time">
-        <time datetime="2026-08-04T19:00:00+09:00">8월 4일(화) 오후 7시</time>
-        ~
-        <time datetime="2026-08-04T19:45:00+09:00">오후 7시 45분</time>
-      </span>
-      <span class="duration">예상 소요 시간 · 약 45분</span>
+    <div class="status">잠시 점검 중</div>
+    <h1>잠시만 기다려 주세요</h1>
+    <p class="lead">더 안정적인 이용을 위해<br />서버를 살펴보고 있습니다.</p>
+    <div class="schedule" aria-label="점검 안내">
+      <p class="schedule-label">점검 안내</p>
+      <span class="schedule-time">잠시 후 다시 이용할 수 있습니다</span>
+      <span class="duration">조금만 기다려 주세요</span>
     </div>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
-      점검 진행 상황에 따라 종료 시각이<br />앞당겨지거나 연장될 수 있습니다.<br />
-      안정적인 서비스 제공을 위해 최선을 다하겠습니다.
+      작업이 끝나는 대로 서비스를 다시 열겠습니다.<br />
+      기다려 주셔서 감사합니다.
     </p>
   </div>
 </main>

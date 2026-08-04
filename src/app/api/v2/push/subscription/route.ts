@@ -9,20 +9,30 @@ import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { webPushPublicKey } from "@/lib/server/webPush";
 
-async function authenticatedUser(req: Request) {
+type AuthenticationResult =
+  | { ok: true; userId: string }
+  | { ok: false; response: Response };
+
+async function authenticatedUser(req: Request): Promise<AuthenticationResult> {
   const userId = await ensureUser();
   if (!userId) {
-    return { userId: null, error: Response.json({ ok: false, error: "unauthorized" }, { status: 401 }) };
+    return {
+      ok: false,
+      response: Response.json(
+        { ok: false, error: "unauthorized" },
+        { status: 401 },
+      ),
+    };
   }
   const invalidSession = await requireActiveDeviceSession(userId, req);
   return invalidSession
-    ? { userId: null, error: invalidSession }
-    : { userId, error: null };
+    ? { ok: false, response: invalidSession }
+    : { ok: true, userId };
 }
 
 export async function POST(req: Request) {
   const auth = await authenticatedUser(req);
-  if (!auth.userId) return auth.error;
+  if (!auth.ok) return auth.response;
   if (!webPushPublicKey()) {
     return Response.json({ ok: false, error: "push_not_configured" }, { status: 503 });
   }
@@ -54,7 +64,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const auth = await authenticatedUser(req);
-  if (!auth.userId) return auth.error;
+  if (!auth.ok) return auth.response;
   const body = (await req.json().catch(() => null)) as { endpoint?: unknown } | null;
   if (
     typeof body?.endpoint !== "string" ||

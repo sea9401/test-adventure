@@ -1,8 +1,26 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { JobRoadmapDetails, RoadmapScroller } from "./JobRoadmapDialog";
+import {
+  isRoadmapDragGesture,
+  JobRoadmapDetails,
+  ROADMAP_DRAG_THRESHOLD_PX,
+  RoadmapScroller,
+} from "./JobRoadmapDialog";
 
 describe("RoadmapScroller", () => {
+  it("distinguishes a job-card click from an intentional drag", () => {
+    expect(isRoadmapDragGesture(100, 100)).toBe(false);
+    expect(
+      isRoadmapDragGesture(100, 100 + ROADMAP_DRAG_THRESHOLD_PX - 1),
+    ).toBe(false);
+    expect(
+      isRoadmapDragGesture(100, 100 + ROADMAP_DRAG_THRESHOLD_PX),
+    ).toBe(true);
+    expect(
+      isRoadmapDragGesture(100, 100 - ROADMAP_DRAG_THRESHOLD_PX),
+    ).toBe(true);
+  });
+
   it("provides visible zoom controls alongside horizontal navigation", () => {
     const html = renderToStaticMarkup(
       <RoadmapScroller>

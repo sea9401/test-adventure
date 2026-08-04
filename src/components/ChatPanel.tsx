@@ -93,7 +93,9 @@ export const CHAT_OVERLAY_CLASS =
 export const CHAT_PANEL_CLASS =
   "ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-full max-h-full w-full max-w-none flex-col rounded-none bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:max-w-xl sm:rounded-xl";
 export const CHAT_HEADER_CLASS =
-  "flex items-center justify-between border-b border-zinc-200 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:py-3.5 dark:border-zinc-700";
+  "flex items-center justify-between gap-2 border-b border-zinc-200 pb-3.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-4 sm:py-3.5 dark:border-zinc-700";
+export const CHAT_CLOSE_BUTTON_CLASS =
+  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
 
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
@@ -948,7 +950,7 @@ export function ChatPanel({
         )}
         <header className={CHAT_HEADER_CLASS}>
           {activeRoom || activeCustomRoom || roomManagerOpen ? (
-            <div className="flex min-w-0 items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <button
                 type="button"
                 onClick={returnToRooms}
@@ -986,12 +988,12 @@ export function ChatPanel({
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            <div className="flex min-w-0 flex-1 items-center gap-2 px-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
               <ChatCircle size={22} weight="duotone" />
               채팅
             </div>
           )}
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {!activeRoom && !activeCustomRoom && !roomManagerOpen && (
               <button
                 type="button"
@@ -1037,9 +1039,10 @@ export function ChatPanel({
               type="button"
               onClick={closePanel}
               aria-label="채팅 닫기"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              title="채팅 닫기"
+              className={CHAT_CLOSE_BUTTON_CLASS}
             >
-              <X size={18} />
+              <X size={20} weight="bold" />
             </button>
           </div>
         </header>

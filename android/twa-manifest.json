@@ -11,7 +11,7 @@
   "navigationDividerColor": "#000000",
   "navigationDividerColorDark": "#000000",
   "backgroundColor": "#0A0A0A",
-  "enableNotifications": false,
+  "enableNotifications": true,
   "startUrl": "/",
   "iconUrl": "https://msmsge.com/icon-512.png",
   "maskableIconUrl": "https://msmsge.com/icon-maskable-512.png",
@@ -20,8 +20,8 @@
     "path": "msmsge-upload.keystore",
     "alias": "msmsge-upload"
   },
-  "appVersionName": "2",
-  "appVersionCode": 2,
+  "appVersionName": "3",
+  "appVersionCode": 3,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://msmsge.com/manifest.webmanifest",
@@ -43,5 +43,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "2"
+  "appVersion": "3"
 }

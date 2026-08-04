@@ -57,3 +57,50 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+self.addEventListener("push", (event) => {
+  let message = {};
+  try {
+    message = event.data?.json() ?? {};
+  } catch {
+    message = { body: event.data?.text() ?? "새 알림이 도착했습니다." };
+  }
+  const title =
+    typeof message.title === "string" ? message.title : "무슨무슨게임";
+  const body =
+    typeof message.body === "string"
+      ? message.body
+      : "새 알림이 도착했습니다.";
+  const url = typeof message.url === "string" ? message.url : "/notifications";
+  const tag = typeof message.tag === "string" ? message.tag : "msmsge";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const rawUrl = event.notification.data?.url;
+  const targetUrl = new URL(
+    typeof rawUrl === "string" ? rawUrl : "/notifications",
+    self.location.origin,
+  ).href;
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then(async (clients) => {
+        const client = clients.find((item) => item.url.startsWith(self.location.origin));
+        if (client) {
+          if ("navigate" in client) await client.navigate(targetUrl);
+          return client.focus();
+        }
+        return self.clients.openWindow(targetUrl);
+      }),
+  );
+});

@@ -1796,6 +1796,42 @@ export const v2Notifications = pgTable(
   ],
 );
 
+// Web Push 구독 — 브라우저/TWA 설치 단위로 한 행. endpoint 는 Push Service 가 발급하는
+// 고유 주소이며 계정 삭제 시 함께 제거한다. 같은 브라우저에서 계정을 바꾸면 endpoint
+// unique 충돌을 upsert 하며 새 userId 로 소유권을 옮긴다.
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint),
+    index("push_subscriptions_user_idx").on(t.userId),
+  ],
+);
+
+// 타이머형 알림 멱등 마커. 자동 벌목·채광 세션과 농장 planting 단위 eventKey 를 남겨
+// 매분 cron 이 같은 완료 알림을 반복 발송하지 않게 한다.
+export const pushDeliveries = pgTable(
+  "push_deliveries",
+  {
+    eventKey: text("event_key").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("push_deliveries_user_created_idx").on(t.userId, t.createdAt)],
+);
+
 // 유저 제재 이력 — 밴/정지/경고의 append-only 로그. 현재 차단 여부는 users.bannedUntil
 // (비정규화)로 빠르게 검사하고, 이 테이블은 누가·언제·왜·얼마나 + 해제 이력을 보존한다.
 //   type:       'ban'(영구) | 'suspend'(기간) | 'warn'(경고, enforcement 없음)

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHAT_CLOSE_BUTTON_CLASS,
   CHAT_HEADER_CLASS,
+  CHAT_MOBILE_BACK_BUTTON_CLASS,
   CHAT_OVERLAY_CLASS,
   CHAT_PANEL_CLASS,
 } from "./ChatPanel";
@@ -19,6 +20,11 @@ describe("ChatPanel responsive layout", () => {
     expect(CHAT_HEADER_CLASS).toContain("z-20");
     expect(CHAT_CLOSE_BUTTON_CLASS).toContain("shrink-0");
     expect(CHAT_CLOSE_BUTTON_CLASS).toContain("bg-zinc-100");
+    expect(CHAT_MOBILE_BACK_BUTTON_CLASS).toContain("fixed");
+    expect(CHAT_MOBILE_BACK_BUTTON_CLASS).toContain("safe-area-inset-bottom");
+    expect(CHAT_MOBILE_BACK_BUTTON_CLASS).toContain("left-4");
+    expect(CHAT_MOBILE_BACK_BUTTON_CLASS).toContain("bg-white");
+    expect(CHAT_MOBILE_BACK_BUTTON_CLASS).toContain("sm:hidden");
   });
 
   it("데스크톱에서는 기존 비모달 도킹과 크기를 유지한다", () => {

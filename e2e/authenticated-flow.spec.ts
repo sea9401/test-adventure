@@ -12,6 +12,7 @@ const CHARACTER_NAME = "자동검증모험가";
 const ATTENDANCE_CHARACTER_NAME = "출석검증모험가";
 const GAMEPLAY_CHARACTER_NAME = "사냥검증모험가";
 const DELETION_CHARACTER_NAME = "삭제검증모험가";
+const CHAT_CHARACTER_NAME = "채팅검증모험가";
 const PERSISTED_FLAG = "e2e.persisted-after-login";
 const account = authenticatedE2eConfig();
 
@@ -223,6 +224,28 @@ test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받�
     status: 409,
     body: { ok: false, error: "already_claimed" },
   });
+});
+
+test("모바일 전체화면 채팅은 헤더와 플로팅 토글 양쪽에서 닫을 수 있다", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"));
+  if (!account) throw new Error("Authenticated E2E configuration is missing");
+
+  await loginWithPassword(page, account.loginId, account.password);
+  await createCharacter(page, CHAT_CHARACTER_NAME);
+
+  const floatingToggle = page.getByTestId("floating-chat-toggle");
+  await expect(floatingToggle).toBeVisible();
+  await floatingToggle.click();
+
+  await expect(page.getByRole("dialog", { name: "채팅" })).toBeVisible();
+  await expect(floatingToggle).toHaveAttribute("aria-label", "채팅 닫기");
+  await expect(floatingToggle).toBeVisible();
+  await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(2);
+
+  await floatingToggle.click();
+  await expect(page.getByRole("dialog", { name: "채팅" })).toHaveCount(0);
 });
 
 test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 재로그인 뒤에도 복원된다", async ({

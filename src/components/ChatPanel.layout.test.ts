@@ -15,6 +15,8 @@ describe("ChatPanel responsive layout", () => {
     expect(CHAT_PANEL_CLASS).toContain("rounded-none");
     expect(CHAT_HEADER_CLASS).toContain("safe-area-inset-top");
     expect(CHAT_HEADER_CLASS).toContain("safe-area-inset-right");
+    expect(CHAT_HEADER_CLASS).toContain("shrink-0");
+    expect(CHAT_HEADER_CLASS).toContain("z-20");
     expect(CHAT_CLOSE_BUTTON_CLASS).toContain("shrink-0");
     expect(CHAT_CLOSE_BUTTON_CLASS).toContain("bg-zinc-100");
   });

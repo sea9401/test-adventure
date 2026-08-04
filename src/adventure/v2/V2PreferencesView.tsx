@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 import { useGameState } from "./GameStateProvider";
 import {
   BACKGROUND_HIDDEN_MODE_CLASS,
@@ -166,6 +167,16 @@ export function V2PreferencesView() {
             );
           })}
         </div>
+      </Card>
+
+      <Card as="section" padding="md" className="space-y-3">
+        <div>
+          <h2 className="text-sm font-bold">알림</h2>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            기기별로 푸시 알림 수신 여부를 선택합니다.
+          </p>
+        </div>
+        <PushNotificationSettings />
       </Card>
 
       <Card as="section" padding="md" className="space-y-3">

@@ -1,17 +1,20 @@
 # 운영 비밀값 — AWS SSM Parameter Store
 
-운영 앱의 환경변수 원본은 서울 리전의 단일 표준 `SecureString` 파라미터다.
-비밀값 자체를 이 문서·PR·채팅·쉘 명령 인자에 적지 않는다.
+운영 앱의 일반 환경변수 원본은 서울 리전의 단일 표준 `SecureString`
+파라미터다. Web Push VAPID 키는 GitHub의 `msmsge.com` 배포 환경 비밀값에
+분리 보관하고, 배포 중 서버의 접근 제한 파일로 설치한다. 비밀값 자체를 이
+문서·PR·채팅·쉘 명령 인자에 적지 않는다.
 
-| 항목 | 값 |
-| --- | --- |
-| 파라미터 | `/adventure-rpg/production/env` |
-| 리전 | `ap-northeast-2` |
-| 유형·티어 | `SecureString` · Standard |
-| 암호화 키 | AWS 관리형 `alias/aws/ssm` |
-| EC2 역할 | `MsmsgeProdDbBackupEc2Role` |
-| EC2 권한 | 위 파라미터에 대한 `ssm:GetParameter`만 |
-| 런타임 캐시 | `/run/adventure-rpg/production.env` · 디렉터리 `700`, 파일 `600` |
+| 항목        | 값                                                                              |
+| ----------- | ------------------------------------------------------------------------------- |
+| 파라미터    | `/adventure-rpg/production/env`                                                 |
+| 리전        | `ap-northeast-2`                                                                |
+| 유형·티어   | `SecureString` · Standard                                                       |
+| 암호화 키   | AWS 관리형 `alias/aws/ssm`                                                      |
+| EC2 역할    | `MsmsgeProdDbBackupEc2Role`                                                     |
+| EC2 권한    | 위 파라미터에 대한 `ssm:GetParameter`만                                         |
+| 런타임 캐시 | `/run/adventure-rpg/production.env` · 디렉터리 `700`, 파일 `600`                |
+| Web Push 키 | GitHub 환경 비밀값 → `/etc/adventure-rpg/web-push.env` · `root:ec2-user`, `640` |
 
 표준 파라미터 한도는 4KB다. 현재 운영 env는 이보다 작으며, 동기화 도구도
 1~4096바이트·env 문법·중복 키를 검사한 뒤에만 원자적으로 런타임 캐시를
@@ -26,6 +29,11 @@
    실행한다. EC2에는 AWS 장기 액세스 키를 두지 않고 인스턴스 역할을 쓴다.
 4. 크론·DB 백업·자원 모니터도 같은 `/run` 파일을 읽는다.
 5. 프로젝트 디렉터리에는 `.env.production.local`을 남기지 않는다.
+
+Web Push 키 3개(`WEB_PUSH_VAPID_PUBLIC_KEY`,
+`WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_SUBJECT`)는 배포 워크플로가 값을
+출력하지 않은 채 `/etc/adventure-rpg/web-push.env`에 설치한다.
+systemd는 SSM 런타임 파일과 이 파일을 함께 읽는다.
 
 ## 최초 구성
 

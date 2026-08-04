@@ -16,6 +16,10 @@ import {
   type V2NotificationPayload,
   type V2NotificationType,
 } from "@/lib/v2-notification-config";
+import {
+  pushMessageForNotification,
+  sendWebPushToUser,
+} from "@/lib/server/webPush";
 
 export async function insertNotification(
   userId: string,
@@ -47,6 +51,11 @@ export async function insertNotification(
     }
 
     await db.insert(v2Notifications).values({ userId, type, payload });
+
+    const pushMessage = pushMessageForNotification(type, payload);
+    if (pushMessage) {
+      await sendWebPushToUser(userId, pushMessage);
+    }
 
     // trim — 그 유저의 최신 NOTIF_MAX_PER_USER 개만 남기고 이전 행 삭제.
     const [cut] = await db

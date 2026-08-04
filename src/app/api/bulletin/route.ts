@@ -42,6 +42,7 @@ import {
   bulletinActivityFromMap,
   readBulletinActivityMap,
 } from "@/lib/server/bulletinActivity";
+import { sendWebPushToAll } from "@/lib/server/webPush";
 
 // GET /api/bulletin?category=<cat>&q=<search>
 //   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
@@ -312,6 +313,15 @@ export async function POST(req: Request) {
       createdAt: bulletinPosts.createdAt,
     });
   const activityByUser = await readBulletinActivityMap([userId]);
+
+  if (category === "notice" && scope === "public") {
+    await sendWebPushToAll({
+      title: "새 공지사항",
+      body: title,
+      url: "/plaza/bulletin",
+      tag: `notice-${inserted.id}`,
+    });
+  }
 
   return Response.json({
     id: inserted.id,

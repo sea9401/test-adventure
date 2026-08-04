@@ -32,6 +32,9 @@ const required = [
   "DATABASE_CA_CERT_PATH",
   "ADMIN_EMAILS",
   "CRON_SECRET",
+  "WEB_PUSH_VAPID_PUBLIC_KEY",
+  "WEB_PUSH_VAPID_PRIVATE_KEY",
+  "WEB_PUSH_SUBJECT",
   "TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
   "TURNSTILE_EXPECTED_HOSTNAMES",
@@ -52,6 +55,18 @@ for (const key of ["AUTH_SECRET", "CRON_SECRET"]) {
     console.error(`✗ production ${key} must be at least 32 characters`);
     process.exit(1);
   }
+}
+
+if (
+  process.env.WEB_PUSH_VAPID_PUBLIC_KEY.trim().length < 80 ||
+  process.env.WEB_PUSH_VAPID_PRIVATE_KEY.trim().length < 40
+) {
+  console.error("✗ production Web Push VAPID keys are invalid");
+  process.exit(1);
+}
+if (!/^(mailto:|https:\/\/)/.test(process.env.WEB_PUSH_SUBJECT.trim())) {
+  console.error("✗ production WEB_PUSH_SUBJECT must use mailto: or https://");
+  process.exit(1);
 }
 
 let authUrlObject;

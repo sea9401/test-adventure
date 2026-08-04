@@ -14,6 +14,7 @@ import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StaleBuildAutoReload } from "@/components/StaleBuildAutoReload";
 import { VersionCheck } from "@/components/VersionCheck";
 import { AdminImpersonationBanner } from "@/components/AdminImpersonationBanner";
+import { AppLaunchSplash } from "@/components/AppLaunchSplash";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -77,7 +78,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -103,6 +104,7 @@ export default function RootLayout({
           <script dangerouslySetInnerHTML={{ __html: displayModeInit }} />
         </head>
         <body className="min-h-full flex flex-col font-sans">
+          <AppLaunchSplash />
           <AdminImpersonationBanner />
           <StaleBuildAutoReload />
           <ServiceWorkerRegistrar />

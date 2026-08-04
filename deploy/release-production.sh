@@ -8,6 +8,7 @@ set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 
 PRODUCTION_ENV_PATH="${PRODUCTION_ENV_PATH:-/run/adventure-rpg/production.env}"
+WEB_PUSH_ENV_PATH="${WEB_PUSH_ENV_PATH:-/etc/adventure-rpg/web-push.env}"
 PRODUCTION_SERVICE="${PRODUCTION_SERVICE:-adventure-rpg}"
 STAGING_SERVICE="${STAGING_SERVICE:-adventure-rpg-test}"
 BUILD_UNIT="${PRODUCTION_BUILD_UNIT:-adventure-production-build.service}"
@@ -93,7 +94,15 @@ export DATABASE_CA_CERT_PATH
 bash deploy/install-rds-ca.sh
 
 echo "▶ [prod] production env preflight"
-node --env-file="$PRODUCTION_ENV_PATH" scripts/check-production-env.mjs
+(
+  set -a
+  # shellcheck disable=SC1090
+  source "$PRODUCTION_ENV_PATH"
+  # shellcheck disable=SC1090
+  source "$WEB_PUSH_ENV_PATH"
+  set +a
+  node scripts/check-production-env.mjs
+)
 
 if sudo systemctl is-active --quiet "$STAGING_SERVICE"; then
   STAGING_WAS_ACTIVE=1

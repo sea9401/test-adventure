@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChatCircle } from "@phosphor-icons/react";
+import { ChatCircle, X } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
 import { ChatPanel, type ChatMessage } from "./ChatPanel";
 import {
@@ -15,6 +15,10 @@ import {
 // 배경 폴링은 모든 로그인 유저에게서 영구히 도는 비용이라 보수적으로 길게.
 const POLL_INTERVAL_BG_MS = 10000;
 const POLL_INTERVAL_OPEN_MS = 1500;
+// 모바일 전체화면 채팅(z-55)이 열려도 원래 플로팅 토글을 그 위에 남겨,
+// 헤더가 기기 UI나 작은 뷰포트에 가려져도 항상 닫을 수 있게 한다.
+export const CHAT_FLOATING_CLOSED_LAYER_CLASS = "z-[44]";
+export const CHAT_FLOATING_OPEN_LAYER_CLASS = "z-[65] sm:z-[44]";
 // 채팅 / 알림(협동 보스 등) 의 "마지막으로 본 메시지 id" 를 따로 저장 — 둘이 섞이지 않게.
 const LAST_SEEN_KEY = "chat:lastSeenId";
 const LAST_SEEN_NOTICE_KEY = "chat:lastSeenNoticeId";
@@ -233,6 +237,9 @@ export function ChatButton({
   );
   const hasUnread = hasUnreadChat || hasUnreadGuild || hasUnreadNotice;
   const floating = variant === "floating";
+  const floatingLayerClass = open
+    ? CHAT_FLOATING_OPEN_LAYER_CLASS
+    : CHAT_FLOATING_CLOSED_LAYER_CLASS;
 
   return (
     <>
@@ -249,34 +256,40 @@ export function ChatButton({
               : "채팅 열기"
         }
         title="채팅"
+        data-testid={floating ? "floating-chat-toggle" : undefined}
         className={
           floating
-            ? "fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-4 z-[44] inline-flex h-14 w-14 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-6 sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none"
+            ? `fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-4 ${floatingLayerClass} inline-flex h-14 w-14 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-6 sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none`
             : "relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
         }
       >
-        <ChatCircle
-          size={floating ? 27 : 20}
-          weight={floating ? "fill" : "duotone"}
-        />
-        {hasUnreadChat || hasUnreadGuild ? (
-          <span
-            aria-hidden
-            className={`absolute h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950 ${
-              floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
-            }`}
-          />
+        {open ? (
+          <X size={floating ? 27 : 20} weight="bold" />
         ) : (
-          hasUnreadNotice && (
-            // 보스 알림만 새로 있을 땐 덜 시끄러운 호박색 점으로.
+          <ChatCircle
+            size={floating ? 27 : 20}
+            weight={floating ? "fill" : "duotone"}
+          />
+        )}
+        {!open &&
+          (hasUnreadChat || hasUnreadGuild ? (
             <span
               aria-hidden
-              className={`absolute h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950 ${
+              className={`absolute h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950 ${
                 floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
               }`}
             />
-          )
-        )}
+          ) : (
+            hasUnreadNotice && (
+              // 보스 알림만 새로 있을 땐 덜 시끄러운 호박색 점으로.
+              <span
+                aria-hidden
+                className={`absolute h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950 ${
+                  floating ? "right-1.5 top-1.5" : "right-0.5 top-0.5"
+                }`}
+              />
+            )
+          ))}
       </button>
       <ChatPanel
         open={open}

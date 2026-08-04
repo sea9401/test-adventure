@@ -194,9 +194,11 @@ describe("production security surface", () => {
     const playwrightConfig = source(join(ROOT, "playwright.config.ts"));
     const browserTests = source(join(ROOT, "e2e/public-surface.spec.ts"));
 
-    expect(workflow).toContain(
-      "npx playwright install --with-deps chromium webkit",
-    );
+    expect(workflow).toContain("actions/cache@v5");
+    expect(workflow).toContain("~/.cache/ms-playwright");
+    expect(workflow).toContain("npx playwright install-deps chromium webkit");
+    expect(workflow).toContain("npx playwright install chromium webkit");
+    expect(workflow).toContain("timeout-minutes: 20");
     expect(workflow).toContain("npm run test:e2e");
     expect(playwrightConfig).toContain('name: "desktop-chromium"');
     expect(playwrightConfig).toContain('name: "mobile-webkit"');

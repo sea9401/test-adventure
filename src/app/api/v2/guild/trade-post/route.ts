@@ -416,11 +416,28 @@ export async function POST(req: Request) {
     await grant();
     await upsertSave(tx, userId, GUILD_TRADE_USER_SAVE_KEY, nextUserState);
     await saveGuildTradeWeekly(tx, nextWeekly);
+    await logGuildActivity(tx, {
+      guildId,
+      type: "trade_shop_purchase",
+      actorUserId: userId,
+      meta: {
+        itemName: shopItem.name,
+        quantity: shopItem.output.count,
+        tokenCost: shopItem.tokenCost,
+        remainingTokens: nextWeekly.tokens,
+      },
+    });
     return {
       status: 200,
       body: {
         ok: true as const,
-        purchased: { itemId: shopItem.id, itemName: shopItem.name },
+        purchased: {
+          itemId: shopItem.id,
+          itemName: shopItem.name,
+          quantity: shopItem.output.count,
+          tokenCost: shopItem.tokenCost,
+          remainingTokens: nextWeekly.tokens,
+        },
         ...(await tradeView({
           tx,
           userId,
@@ -462,12 +479,7 @@ async function lockShopGrant(
       upsertSave(tx, userId, "character.v2", { ...char, materials });
   }
   if (output.kind === "stamina_potion") {
-    const raw = await lockSaveForUpdate(
-      tx,
-      userId,
-      STAMINA_POTIONS_KEY,
-      {},
-    );
+    const raw = await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, {});
     const current = parseStaminaPotions(raw).count;
     return () =>
       upsertSave(tx, userId, STAMINA_POTIONS_KEY, {

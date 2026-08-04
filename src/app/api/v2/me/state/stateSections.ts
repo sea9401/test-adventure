@@ -59,7 +59,7 @@ import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_JOB_LIST,
   V2_JOB_CATALOG,
-  isDirectNextJob,
+  isJobUnlockConditionRevealed,
   isJobUnlocked,
   isRootJobSelectable,
   jobUnlockSpBonus,
@@ -182,8 +182,12 @@ export function jobsV2Section(params: {
     ).map((job) => {
       const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
       const cumLevel = cumLevelForJob(prof, job);
-      const conditionRevealed =
-        unlocked || job.id === currentJobId || isDirectNextJob(currentJobId, job);
+      const conditionRevealed = isJobUnlockConditionRevealed(
+        job,
+        prof,
+        currentJobId,
+        unlocked,
+      );
       const condition = conditionRevealed
         ? jobUnlockConditionText(job)
         : "선행 직업 해금 후 공개";
@@ -294,6 +298,7 @@ export function elementalSkillsSection(
       skillId,
       name: def.name,
       cost: v2SkillLearnCost(skillId),
+      spCost: spCostOf(def),
       learned: learnedSet.has(skillId),
       equipped: equippedSet.has(skillId),
       ritualMode,

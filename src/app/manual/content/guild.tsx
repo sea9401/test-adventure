@@ -303,13 +303,13 @@ export function GuildContent() {
       </P>
       <UL>
         <li>
-          식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
-          식권 1장을 받습니다. 개인 기여와 공동 준비는 시설 레벨별 주간 한도를
-          넘길 수 없습니다.
+          이번 주 참여 대상 길드원은 식재료 기부 여부와 관계없이 기본 식권 1장을
+          받습니다. 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
+          시설 레벨별 한도까지 식권을 추가로 받습니다.
         </li>
         <li>
-          관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. Lv.3부터
-          메뉴 두 종류, Lv.5부터 세 종류를 함께 운영할 수 있습니다.
+          관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. 식당
+          레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다.
         </li>
         <li>
           식권·기여도·메뉴는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
@@ -317,13 +317,13 @@ export function GuildContent() {
         </li>
       </UL>
       <Table
-        head={["시설 레벨", "주간 식권", "동시 운영 메뉴"]}
+        head={["시설 레벨", "기여 식권", "동시 운영 메뉴"]}
         rows={DINING_HALL_UPGRADES.map((upgrade) => [
           `Lv.${upgrade.level}`,
-          `${upgrade.weeklyMealTickets}장`,
+          `최대 ${upgrade.weeklyMealTickets}장`,
           `${upgrade.weeklyMenuSlots}종`,
         ])}
-        caption="시설 레벨마다 신규 메뉴가 하나씩 열립니다. Lv.5에서는 메뉴 세 종류를 골라 한 주 동안 운영할 수 있습니다."
+        caption="모든 주간 참여 길드원은 기본 식권 1장을 받습니다. 시설 레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다."
       />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
@@ -369,8 +369,13 @@ export function GuildContent() {
           보상이 증가합니다. 주간 계약 수도 3건에서 5건까지 늘어납니다.
         </li>
         <li>
-          계약·개인 납품·상점 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
+          계약·개인 납품·개인 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
           공동 교역 토큰은 모든 길드원이 함께 사용하며 다음 주에도 유지됩니다.
+        </li>
+        <li>
+          상점 품목은 공동 토큰으로 개인 구매하며 보상은 구매자에게 즉시 지급됩니다.
+          구매 한도는 길드원이 각자 적용받고, 구매자·품목·수량·사용 토큰과 남은
+          공동 토큰은 길드 활동 내역에 기록됩니다.
         </li>
       </UL>
       <Table
@@ -389,7 +394,7 @@ export function GuildContent() {
         caption="토큰 보너스는 작은 묶음을 여러 번 납품해도 개인의 주간 누적 납품 점수를 기준으로 소수점 손실 없이 계산됩니다."
       />
       <Table
-        head={["교환 품목", "필요 시설", "비용", "주간 한도"]}
+        head={["교환 품목", "필요 시설", "비용", "개인 주간 한도"]}
         rows={GUILD_TRADE_SHOP_ITEMS.map((item) => [
           <Em key={item.id}>{item.name}</Em>,
           `Lv.${item.minFacilityLevel}`,

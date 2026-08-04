@@ -607,6 +607,7 @@ export const marketplaceListings = pgTable(
 //   purchase_item:      { item_kind, item_id, grade, quantity }                     — 구매한 아이템 수령
 //   cancel_return:      { item_kind, item_id, grade, quantity }                     — 본인/admin 취소 환불
 //   listing_expired:    { item_kind, item_id, grade, quantity }                     — TTL 유찰 환불
+//   buy_order_equipment:{ order_id, item_id, instance_payload }                     — 장비 구매 주문 체결
 //   user_message:       { text: string }                                            — 유저 간 쪽지
 //   recipe_gift:        { recipe_id, recipe_name }                                  — 제작서 선물
 //   guild_invite:       { invite_id, guild_id, guild_name, expires_at }             — 길드 초대
@@ -805,13 +806,16 @@ export const marketplaceBuyOrdersV2 = pgTable(
     buyerId: text("buyer_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    kind: text("kind").notNull(), // material | consumable(음식·거래 가능 캐시 아이템)
+    kind: text("kind").notNull(), // equip | material | consumable(음식·거래 가능 캐시 아이템)
     itemId: text("item_id").notNull(),
     itemName: text("item_name").notNull(),
     unitPrice: integer("unit_price").notNull(),
     quantityInitial: integer("quantity_initial").notNull(),
     quantityRemaining: integer("quantity_remaining").notNull(),
     goldEscrow: integer("gold_escrow").notNull(),
+    // 장비 구매 주문 조건. 비장비 주문에서는 null이며 장비 주문은 quantity=1이다.
+    minPower: integer("min_power"),
+    minQualityPct: integer("min_quality_pct"),
     status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     expiresAt: timestamp("expires_at").notNull(),
@@ -828,7 +832,7 @@ export const marketplaceBuyOrdersV2 = pgTable(
     ),
     check(
       "marketplace_buy_orders_v2_kind_valid",
-      sql`${t.kind} IN ('material','consumable')`,
+      sql`${t.kind} IN ('equip','material','consumable')`,
     ),
     check(
       "marketplace_buy_orders_v2_status_valid",
@@ -838,6 +842,10 @@ export const marketplaceBuyOrdersV2 = pgTable(
     check("marketplace_buy_orders_v2_qty_initial_pos", sql`${t.quantityInitial} > 0`),
     check("marketplace_buy_orders_v2_qty_remaining_nonneg", sql`${t.quantityRemaining} >= 0`),
     check("marketplace_buy_orders_v2_escrow_nonneg", sql`${t.goldEscrow} >= 0`),
+    check(
+      "marketplace_buy_orders_v2_equip_criteria_valid",
+      sql`(${t.kind} = 'equip' AND ${t.quantityInitial} = 1 AND ${t.minPower} IS NOT NULL AND ${t.minPower} >= 1 AND ${t.minQualityPct} IS NOT NULL AND ${t.minQualityPct} BETWEEN 0 AND 100) OR (${t.kind} <> 'equip' AND ${t.minPower} IS NULL AND ${t.minQualityPct} IS NULL)`,
+    ),
     check("marketplace_buy_orders_v2_expires_after_create", sql`${t.expiresAt} > ${t.createdAt}`),
   ],
 );
@@ -939,6 +947,9 @@ export const guilds = pgTable(
     color: text("color"),
     // 가입 신청을 받는지 — 마스터 토글. false 면 둘러보기에서 "신청" 비활성.
     acceptingRequests: boolean("accepting_requests").notNull().default(true),
+    // 운영 검증용 길드. 실제 콘텐츠는 정상 이용하되 공개 길드 목록·길드 랭킹 집계에서 제외한다.
+    // 이름(test 등)으로 판별하지 않고 명시적 플래그를 사용해 일반 길드 오탐을 막는다.
+    isTest: boolean("is_test").notNull().default(false),
     // 길드 버프 슬롯 — { buffId, tier, installedAt }[]. 슬롯 수 한도는 등급 산식.
     buffs: jsonb("buffs")
       .$type<GuildBuffSlotRow[]>()

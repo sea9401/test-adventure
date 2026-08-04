@@ -74,6 +74,31 @@ afterEach(() => {
 });
 
 describe("mining routes", () => {
+  it("2시간 느긋한 자동 채광을 선택해 낮은 성공률과 재료 효율을 고정한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+
+    const response = await AUTO(
+      request("auto", {
+        action: "start",
+        spotId: "iron_quarry",
+        planId: "extended",
+      }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.autoSession).toMatchObject({
+      planId: "extended",
+      readyAt: NOW + 2 * 60 * 60_000,
+      successRate: 0.72,
+      materialEfficiency: 0.6,
+      xpEfficiency: 0.7,
+    });
+    expect(store.get(MINING_AUTO_KEY)).toMatchObject({
+      session: { planId: "extended" },
+    });
+  });
+
   it("자동 벌목 중에는 수동 채광을 시작할 수 없다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set(WOODCUTTING_AUTO_KEY, {

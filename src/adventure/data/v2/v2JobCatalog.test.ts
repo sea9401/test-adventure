@@ -28,6 +28,7 @@ import {
   jobIdFromLegacy,
   isJobUnlocked,
   isDirectNextJob,
+  isJobUnlockConditionRevealed,
   jobById,
   unlockedJobs,
   jobUnlockSpBonus,
@@ -1032,6 +1033,47 @@ describe("isDirectNextJob", () => {
       false,
     );
     expect(isDirectNextJob(null, V2_JOB_CATALOG.celestialdragon)).toBe(false);
+  });
+});
+
+describe("isJobUnlockConditionRevealed", () => {
+  it("마검사의 두 선행 직업 중 하나를 과거에 경험했으면 현재 직업이 달라도 조건을 공개한다", () => {
+    const prof = emptyProficiency();
+    prof.jobHistory = ["paladin"];
+
+    expect(
+      isJobUnlockConditionRevealed(
+        V2_JOB_CATALOG.spellblade,
+        prof,
+        "rogue",
+        false,
+      ),
+    ).toBe(true);
+  });
+
+  it("레거시 계정은 전직 이력이 없어도 선행 직업 숙련도로 경험을 복원한다", () => {
+    const prof = emptyProficiency();
+    prof.jobCumLevel = { magus: 1 };
+
+    expect(
+      isJobUnlockConditionRevealed(
+        V2_JOB_CATALOG.spellblade,
+        prof,
+        "rogue",
+        false,
+      ),
+    ).toBe(true);
+  });
+
+  it("선행 직업을 한 번도 경험하지 않은 먼 직업 조건은 계속 숨긴다", () => {
+    expect(
+      isJobUnlockConditionRevealed(
+        V2_JOB_CATALOG.spellblade,
+        emptyProficiency(),
+        "rogue",
+        false,
+      ),
+    ).toBe(false);
   });
 });
 

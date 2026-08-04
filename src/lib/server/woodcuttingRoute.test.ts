@@ -103,6 +103,34 @@ afterEach(() => {
 });
 
 describe("woodcutting routes", () => {
+  it("2시간 느긋한 자동 벌목을 선택해 낮은 성공률과 재료 효율을 고정한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "start",
+          spotId: "pine_grove",
+          planId: "extended",
+        }),
+      }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.autoSession).toMatchObject({
+      planId: "extended",
+      readyAt: NOW + 2 * 60 * 60_000,
+      successRate: 0.72,
+      materialEfficiency: 0.6,
+      xpEfficiency: 0.7,
+    });
+    expect(store.get(WOODCUTTING_AUTO_KEY)).toMatchObject({
+      session: { planId: "extended" },
+    });
+  });
+
   it("다른 자동 생활 작업 중에는 벌목과 자동 벌목을 시작할 수 없다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set(MINING_AUTO_KEY, {

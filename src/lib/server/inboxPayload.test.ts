@@ -12,6 +12,7 @@ describe("isInboxPayloadKind", () => {
       "bid_refund",
       "buy_order_refund",
       "buy_order_item",
+      "buy_order_equipment",
       "price_alert",
       "purchase_item",
       "cancel_return",
@@ -77,6 +78,27 @@ describe("parseInboxPayload — happy path", () => {
         item_kind: "cash",
         item_id: "rename_permit",
         quantity: 0,
+      }),
+    ).toBeNull();
+  });
+
+  it("장비 구매 주문 체결 payload를 원형 보존하고 잘못된 형태는 거부한다", () => {
+    expect(
+      parseInboxPayload("buy_order_equipment", {
+        order_id: 42,
+        item_id: "v2_wooden_bow",
+        instance_payload: { power: 20, weight: 0 },
+      }),
+    ).toEqual({
+      kind: "buy_order_equipment",
+      order_id: 42,
+      item_id: "v2_wooden_bow",
+      instance_payload: { power: 20, weight: 0 },
+    });
+    expect(
+      parseInboxPayload("buy_order_equipment", {
+        item_id: "v2_wooden_bow",
+        instance_payload: [],
       }),
     ).toBeNull();
   });

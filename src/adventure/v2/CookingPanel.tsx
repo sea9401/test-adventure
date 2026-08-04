@@ -12,6 +12,7 @@ import {
   cookingOrderReward,
   cookingIngredientRequirement,
   cookingRecipeMatchesQuery,
+  cookingStatText,
   deliverableCookingFoods,
   type CookingFoodId,
   type CookingFoodInventory,
@@ -363,7 +364,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
                   {ingredientText(recipe, data)}
                 </div>
                 <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                  효과: {statText(recipe.baseStatPct)}
+                  효과: {cookingStatText(recipe.baseStatPct)}
                 </div>
                 {recipe.optionalRareItemId ? (
                   <label className="mt-2 flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
@@ -616,10 +617,6 @@ function ingredientText(recipe: CookingRecipe, data: CookingResponse): string {
     parts.push(`${FISHING_CATCH_ITEMS[fishId].name} ${count} (${data.fishingItems[fishId] ?? 0})`);
   }
   return `재료: ${parts.join(" · ")}`;
-}
-
-function statText(stats: Partial<Record<string, number>>): string {
-  return Object.entries(stats).map(([key, value]) => `${key.toUpperCase()} +${value}%`).join(" · ");
 }
 
 function qualityName(quality: string): string {

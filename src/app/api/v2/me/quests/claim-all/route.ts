@@ -8,7 +8,9 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   buildQuestCtx,
   assembleQuestExtras,
+  guideQuestSavePayload,
   parseClaimed,
+  parseTrackedQuestId,
   GUIDE_QUESTS_KEY,
 } from "@/lib/server/v2QuestContext";
 import {
@@ -41,8 +43,7 @@ function isClaimAllScope(value: unknown): value is ClaimAllScope {
 }
 
 // POST /api/v2/me/quests/claim-all { scope: "tutorial"|"achievement" }
-// 버튼을 누른 시점에 해당 탭에서 보이는 수령 가능 항목만 서버가 다시 계산해 한 트랜잭션으로 지급한다.
-// 체인의 숨겨진 다음 단계는 최초 claimed 스냅샷에서 claimable 이 아니므로 이번 묶음에 포함되지 않는다.
+// 튜토리얼은 현재 보이는 단계만, 업적은 수령으로 새로 공개되는 연속 단계까지 한 트랜잭션으로 지급한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -79,7 +80,10 @@ export async function POST(req: Request) {
       "equipment.v2",
       {},
     );
-    const guideSave = await lockSaveForUpdate<{ claimed?: unknown }>(
+    const guideSave = await lockSaveForUpdate<{
+      claimed?: unknown;
+      trackedQuestId?: unknown;
+    }>(
       tx,
       userId,
       GUIDE_QUESTS_KEY,
@@ -130,12 +134,24 @@ export async function POST(req: Request) {
       extras,
     });
     const claimed = parseClaimed(guideSave);
+    const trackedQuestId = parseTrackedQuestId(guideSave);
     const tutorial = scope === "tutorial";
-    const claimable = V2_QUESTS.filter(
-      (quest) =>
-        isTutorialLine(quest.line) === tutorial &&
-        isQuestClaimable(quest, ctx, claimed),
-    );
+    const claimable: (typeof V2_QUESTS)[number][] = [];
+    const workingClaimed = new Set(claimed);
+    while (true) {
+      const newlyClaimable = V2_QUESTS.filter(
+        (quest) =>
+          isTutorialLine(quest.line) === tutorial &&
+          !workingClaimed.has(quest.id) &&
+          isQuestClaimable(quest, ctx, workingClaimed),
+      );
+      if (newlyClaimable.length === 0) break;
+
+      claimable.push(...newlyClaimable);
+      for (const quest of newlyClaimable) workingClaimed.add(quest.id);
+      // 튜토리얼은 다음 목표를 차례대로 안내하고, 업적만 연쇄해서 모두 받는다.
+      if (tutorial) break;
+    }
 
     if (claimable.length === 0) {
       return {
@@ -197,9 +213,17 @@ export async function POST(req: Request) {
     }
 
     for (const quest of claimable) claimed.add(quest.id);
-    await upsertSave(tx, userId, GUIDE_QUESTS_KEY, {
-      claimed: [...claimed],
-    });
+    await upsertSave(
+      tx,
+      userId,
+      GUIDE_QUESTS_KEY,
+      guideQuestSavePayload(
+        claimed,
+        claimable.some((quest) => quest.id === trackedQuestId)
+          ? null
+          : trackedQuestId,
+      ),
+    );
 
     return {
       status: 200,

@@ -11,6 +11,9 @@
 }
 
 :root {
+  /* Samsung Internet/Chrome의 강제 다크 변환이 사용자가 고른 라이트 테마를
+     다시 어둡게 만들지 않도록 현재 문서가 라이트 스킴임을 명시한다. */
+  color-scheme: only light;
   /* 라이트 모드의 페이지 바탕은 카드(bg-white)보다 한 단계 낮춰
      화면의 눈부심을 줄이고 콘텐츠 surface 경계를 또렷하게 만든다. */
   --background: #f4f4f5;
@@ -18,6 +21,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #0a0a0a;
   --foreground: #ededed;
 }
@@ -178,6 +182,13 @@ body {
   transform-origin: bottom right;
   animation: ui-popover-reveal 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
   will-change: transform, opacity;
+}
+
+/* 입력기를 품은 채팅 패널에는 등장 애니메이션의 transform 레이어를 남기지 않는다.
+   일부 모바일 WebKit에서 변형된 조상 아래 input의 커서·글자가 사라지는 현상 방지. */
+.ui-chat-panel.ui-popover-reveal {
+  animation-fill-mode: none;
+  will-change: auto;
 }
 
 .ui-modal-reveal {
@@ -3823,4 +3834,173 @@ html.ui-discreet-mode .ui-chat-name-chroma {
   filter: none;
   color: inherit;
   -webkit-text-fill-color: currentColor;
+}
+
+/* 터미널 모드 — 검은 업무용 콘솔처럼 보이는 저시인성 게임 화면.
+   정보와 조작은 유지하되 장면·꾸미기·입체 효과·동작을 최대한 걷어낸다. */
+html.ui-terminal-mode {
+  color-scheme: dark;
+  --background: #000;
+  --foreground: #aebbb8;
+}
+
+html.ui-terminal-mode body {
+  background-color: #000;
+  background-image: none;
+  color: #aebbb8;
+}
+
+html.ui-terminal-mode .game-scene-background,
+html.ui-terminal-mode .ui-profile-frame-cosmetic::before,
+html.ui-terminal-mode .ui-profile-frame-cosmetic::after,
+html.ui-terminal-mode .ui-profile-theme-header::before,
+html.ui-terminal-mode .ui-profile-theme-header::after,
+html.ui-terminal-mode .ui-profile-avatar-frame-cosmetic::after,
+html.ui-terminal-mode .ui-profile-decoration-motion,
+html.ui-terminal-mode .ui-chat-name-chroma::before,
+html.ui-terminal-mode .ui-chat-name-chroma::after,
+html.ui-terminal-mode .game-brand-image {
+  display: none;
+}
+
+html.ui-terminal-mode .game-desktop-compact {
+  min-height: 100dvh;
+  background: #000;
+  color: #aebbb8;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0.01em;
+}
+
+html.ui-terminal-mode .game-desktop-compact *,
+html.ui-terminal-mode .game-desktop-compact *::before,
+html.ui-terminal-mode .game-desktop-compact *::after {
+  border-color: #263330 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  animation: none !important;
+  transition-duration: 0s !important;
+  backdrop-filter: none !important;
+}
+
+html.ui-terminal-mode .game-desktop-compact :is(
+    header,
+    main,
+    section,
+    article,
+    aside,
+    dialog,
+    form,
+    .ui-game-card,
+    [role="dialog"],
+    [role="menu"]
+  ),
+html.ui-terminal-mode .game-desktop-compact [class*="bg-white"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-zinc-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-slate-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-neutral-"] {
+  background-color: #030504 !important;
+  background-image: none !important;
+}
+
+html.ui-terminal-mode .game-desktop-compact [class*="bg-red-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-rose-"] {
+  background-color: #100606 !important;
+  background-image: none !important;
+}
+
+html.ui-terminal-mode .game-desktop-compact [class*="bg-amber-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-yellow-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-orange-"] {
+  background-color: #0e0b03 !important;
+  background-image: none !important;
+}
+
+html.ui-terminal-mode .game-desktop-compact [class*="bg-green-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-emerald-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-teal-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-cyan-"] {
+  background-color: #03100d !important;
+  background-image: none !important;
+}
+
+html.ui-terminal-mode .game-desktop-compact [class*="bg-sky-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-blue-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-indigo-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-violet-"],
+html.ui-terminal-mode .game-desktop-compact [class*="bg-purple-"] {
+  background-color: #050810 !important;
+  background-image: none !important;
+}
+
+html.ui-terminal-mode .game-desktop-compact :is(input, select, textarea) {
+  border: 1px solid #31413d !important;
+  background: #010202 !important;
+  color: #c5d0cd !important;
+  caret-color: #8cb2ab;
+}
+
+html.ui-terminal-mode .game-desktop-compact :is(button, a) {
+  text-decoration: none;
+}
+
+html.ui-terminal-mode .game-desktop-compact :is(button, a):focus-visible {
+  outline: 1px solid #91aaa5 !important;
+  outline-offset: 2px;
+}
+
+html.ui-terminal-mode .game-desktop-compact :is(h1, h2, h3, h4, h5, h6) {
+  color: #d5dfdc !important;
+  font-family: inherit;
+  letter-spacing: 0.045em;
+}
+
+html.ui-terminal-mode .game-desktop-compact :is(table, th, td) {
+  border-color: #263330 !important;
+  background-color: #030504 !important;
+}
+
+html.ui-terminal-mode .game-desktop-compact :is(img, video, canvas) {
+  filter: grayscale(1) contrast(0.82) brightness(0.68);
+  opacity: 0.58;
+}
+
+html.ui-terminal-mode .game-desktop-compact svg {
+  filter: grayscale(1) saturate(0.2);
+}
+
+html.ui-terminal-mode .game-brand-mark::after {
+  content: ">_";
+  color: #8fb0aa;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.08em;
+}
+
+html.ui-terminal-mode .ui-profile-frame-cosmetic,
+html.ui-terminal-mode .ui-profile-theme-header,
+html.ui-terminal-mode .ui-profile-avatar-frame-cosmetic,
+html.ui-terminal-mode .ui-chat-name-chroma {
+  border-color: #263330 !important;
+  background: #030504 !important;
+  color: inherit !important;
+  filter: grayscale(1);
+  -webkit-text-fill-color: currentColor;
+}
+
+/* 원본 참고 화면처럼 아주 옅은 주사선을 얹되 조작과 가독성에는 관여하지 않는다. */
+html.ui-terminal-mode body::after {
+  position: fixed;
+  z-index: 2147483646;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(154 190 182 / 0.025) 0,
+    rgb(154 190 182 / 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }

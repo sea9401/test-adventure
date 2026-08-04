@@ -628,11 +628,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     },
   },
   v2c_assassin_fortune: {
-    // 크리 폭발(자객) — 옛 행운%에서 치명 확률로 리스킨.
-    id: "v2c_assassin_fortune", name: "치명타", stat: "luk", category: "passive", tier: 2,
-    description: "급소를 노린다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
+    // LUK 비례 액티브의 성장축. 치명 확률 정체성은 유지하되 행운 자체도 함께 올린다.
+    id: "v2c_assassin_fortune", name: "행운", stat: "luk", category: "passive", tier: 2,
+    description: "행운을 끌어당겨 급소를 노린다. 행운과 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { critPct: 8 },
+    passive: { statPct: { luk: 10 }, critPct: 8 },
   },
   v2c_archer_agility: {
     id: "v2c_archer_agility", name: "민첩", stat: "dex", category: "passive", tier: 2,
@@ -642,10 +642,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_venomist_corrosion: {
     id: "v2c_venomist_corrosion", name: "부식", stat: "luk", category: "passive", tier: 2,
-    description: "독이 스며든 적의 방어를 무르게 하고 중독 피해를 깊게 침투시킨다.",
+    description: "행운을 높이고, 독이 스며든 적의 방어를 무르게 해 중독 피해를 깊게 침투시킨다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 10 },
+    passive: { statPct: { luk: 10 }, poisonedEnemyDefReductionPct: 10 },
   },
   v2c_camper_ration: {
     id: "v2c_camper_ration", name: "비상식량", stat: "vit", category: "passive", tier: 2,
@@ -2182,10 +2182,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_myriadvenom_body: {
     id: "v2c_myriadvenom_body", name: "만독지배", stat: "luk", category: "passive", tier: 3,
-    description: "모든 독의 흐름을 장악한다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
+    description: "행운과 모든 독의 흐름을 장악한다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 30, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
+    passive: { statPct: { luk: 22 }, poisonedEnemyDefReductionPct: 30, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,

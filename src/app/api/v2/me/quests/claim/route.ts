@@ -8,7 +8,9 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   buildQuestCtx,
   assembleQuestExtras,
+  guideQuestSavePayload,
   parseClaimed,
+  parseTrackedQuestId,
   GUIDE_QUESTS_KEY,
 } from "@/lib/server/v2QuestContext";
 import { questById, isQuestClaimable } from "@/adventure/data/v2/v2Quests";
@@ -75,7 +77,10 @@ export async function POST(req: Request) {
       "equipment.v2",
       {},
     );
-    const guideSave = await lockSaveForUpdate<{ claimed?: unknown }>(
+    const guideSave = await lockSaveForUpdate<{
+      claimed?: unknown;
+      trackedQuestId?: unknown;
+    }>(
       tx,
       userId,
       GUIDE_QUESTS_KEY,
@@ -111,6 +116,7 @@ export async function POST(req: Request) {
       extras,
     });
     const claimed = parseClaimed(guideSave);
+    const trackedQuestId = parseTrackedQuestId(guideSave);
 
     if (claimed.has(def.id)) {
       const retroactiveTitleIds = def.reward.titleId
@@ -190,9 +196,15 @@ export async function POST(req: Request) {
     }
 
     claimed.add(def.id);
-    await upsertSave(tx, userId, GUIDE_QUESTS_KEY, {
-      claimed: [...claimed],
-    });
+    await upsertSave(
+      tx,
+      userId,
+      GUIDE_QUESTS_KEY,
+      guideQuestSavePayload(
+        claimed,
+        trackedQuestId === def.id ? null : trackedQuestId,
+      ),
+    );
 
     return {
       status: 200,

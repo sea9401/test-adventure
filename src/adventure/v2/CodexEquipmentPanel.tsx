@@ -32,11 +32,16 @@ import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import {
   EquipmentTierBadge,
   anchorOf,
+  itemNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import {
   TITLES,
 } from "@/adventure/data/titles";
+import {
+  EquipmentCodexBulkDialog,
+  type EquipmentCodexBulkCandidate,
+} from "./EquipmentCodexBulkDialog";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -239,6 +244,13 @@ export function CodexEquipmentPanel({
   const [equipmentCodexMsg, setEquipmentCodexMsg] = useState<string | null>(null);
   const [equipmentCodexSlot, setEquipmentCodexSlot] =
     useState<V2EquipSlot>("weapon");
+  const [bulkDialogSlot, setBulkDialogSlot] = useState<V2EquipSlot | null>(null);
+  const [bulkCandidates, setBulkCandidates] = useState<
+    EquipmentCodexBulkCandidate[]
+  >([]);
+  const [bulkSelectedIids, setBulkSelectedIids] = useState<Set<string>>(
+    new Set(),
+  );
 
   function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
     if (!j) return;
@@ -347,24 +359,38 @@ export function CodexEquipmentPanel({
     }
   }
 
-  async function registerEquipmentBulk(slot: V2EquipSlot) {
+  function openEquipmentBulkDialog(slot: V2EquipSlot) {
     if (equipmentCodexBusy) return;
     const candidates = equipmentEntries
       .filter((id) => V2_EQUIPMENT[id].slot === slot)
       .filter((id) => !equipmentRegisteredIds.has(id))
-      .map((id) => equipmentCounts.eligible.get(id)?.[0] ?? null)
-      .filter((inst): inst is V2EquipInstance => Boolean(inst));
+      .map((id) => {
+        const inst = equipmentCounts.eligible.get(id)?.[0];
+        return inst
+          ? { inst, ownedCount: equipmentCounts.owned.get(id) ?? 0 }
+          : null;
+      })
+      .filter(
+        (candidate): candidate is EquipmentCodexBulkCandidate =>
+          candidate !== null,
+      );
     if (candidates.length === 0) {
       setEquipmentCodexMsg("이 부위에 등록 가능한 장비가 없어요");
       return;
     }
-    if (
-      !window.confirm(
-        `${V2_SLOT_LABEL[slot]} ${candidates.length}종을 장비 도감에 일괄 등록할까요? 등록한 장비는 소모됩니다.`,
-      )
-    ) {
-      return;
-    }
+    setBulkDialogSlot(slot);
+    setBulkCandidates(candidates);
+    setBulkSelectedIids(new Set(candidates.map(({ inst }) => inst.iid)));
+    setEquipmentCodexMsg(null);
+  }
+
+  async function confirmEquipmentBulkRegistration() {
+    const slot = bulkDialogSlot;
+    if (!slot || equipmentCodexBusy) return;
+    const candidates = bulkCandidates
+      .filter(({ inst }) => bulkSelectedIids.has(inst.iid))
+      .map(({ inst }) => inst);
+    if (candidates.length === 0) return;
     setEquipmentCodexBusy(`bulk:${slot}`);
     setEquipmentCodexMsg(null);
     let registered = 0;
@@ -393,6 +419,9 @@ export function CodexEquipmentPanel({
       }
     } finally {
       setEquipmentCodexBusy(null);
+      setBulkDialogSlot(null);
+      setBulkCandidates([]);
+      setBulkSelectedIids(new Set());
     }
   }
 
@@ -648,7 +677,7 @@ export function CodexEquipmentPanel({
                     equipmentCodexBusy !== null ||
                     equipmentSlotRegisterableCount === 0
                   }
-                  onClick={() => void registerEquipmentBulk(equipmentCodexSlot)}
+                  onClick={() => openEquipmentBulkDialog(equipmentCodexSlot)}
                   className="rounded bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
                 >
                   {equipmentCodexBusy === `bulk:${equipmentCodexSlot}`
@@ -713,7 +742,9 @@ export function CodexEquipmentPanel({
                             </span>
                           )}
                         </div>
-                        <div className="min-w-0 truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-100">
+                        <div
+                          className={`min-w-0 truncate text-sm font-semibold leading-tight ${itemNameClass(item)}`}
+                        >
                           {item.name}
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
@@ -771,6 +802,34 @@ export function CodexEquipmentPanel({
                 setPage={equipmentSlotPager.setPage}
               />
             </div>
+          )}
+          {bulkDialogSlot && (
+            <EquipmentCodexBulkDialog
+              slot={bulkDialogSlot}
+              candidates={bulkCandidates}
+              selectedIids={bulkSelectedIids}
+              busy={equipmentCodexBusy === `bulk:${bulkDialogSlot}`}
+              onToggle={(iid) =>
+                setBulkSelectedIids((current) => {
+                  const next = new Set(current);
+                  if (next.has(iid)) next.delete(iid);
+                  else next.add(iid);
+                  return next;
+                })
+              }
+              onSelectAll={() =>
+                setBulkSelectedIids(
+                  new Set(bulkCandidates.map(({ inst }) => inst.iid)),
+                )
+              }
+              onClearAll={() => setBulkSelectedIids(new Set())}
+              onCancel={() => {
+                setBulkDialogSlot(null);
+                setBulkCandidates([]);
+                setBulkSelectedIids(new Set());
+              }}
+              onConfirm={() => void confirmEquipmentBulkRegistration()}
+            />
           )}
         </div>
   );

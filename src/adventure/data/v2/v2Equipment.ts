@@ -288,9 +288,9 @@ export function shopPriceFor(
 }
 
 // NPC 판매 기준가 — 상점 구매가와 분리한다. 후반 장비(T4+)는 사냥 골드보다 장비 환금이
-// 커지지 않도록 T3 이후 램프를 ×2 대신 ×1.5 로 압축한다. T1~T3 은 기존 환금 유지.
+// 커지지 않도록 T3 이후 램프를 ×2 대신 ×1.4 로 압축한다. T1~T3 은 기존 환금 유지.
 const SELL_CATALOG_TIER_ANCHOR = 3 satisfies V2EquipCatalogTier;
-const SELL_CATALOG_TIER_POST_ANCHOR_MULT = 1.5;
+const SELL_CATALOG_TIER_POST_ANCHOR_MULT = 1.4;
 
 function sellCatalogTierBase(
   catalogTier: V2EquipCatalogTier,

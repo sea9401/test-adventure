@@ -149,7 +149,8 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
     expect(json.batch).toBeDefined();
   });
 
-  it("자동 일괄 사냥은 100레벨에 도달한 판에서 즉시 중단한다", async () => {
+  it("50회 일괄 사냥은 100레벨에 도달한 판에서 즉시 중단한다", async () => {
+    seedStrongWarrior(5000, true);
     const before = store.get("character.v2") as Record<string, unknown>;
     store.set("character.v2", {
       ...before,
@@ -160,7 +161,7 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
     const res = await POST(
       huntReq({
         floor: 2,
-        count: 5,
+        count: 50,
         autoStopConfig: { level100Enabled: true },
       }),
     );
@@ -176,7 +177,7 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
       };
     };
     expect(json.batch).toMatchObject({
-      attempted: 5,
+      attempted: 50,
       completed: 1,
       levelsGained: 1,
       stoppedReason: "level_100",

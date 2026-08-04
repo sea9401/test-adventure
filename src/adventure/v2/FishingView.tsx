@@ -42,6 +42,7 @@ import {
 } from "./useActivityVerification";
 import type { AutoGatheringActivity } from "./autoGathering";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
+import { fishingRewardSummaryLabels } from "./fishingRewardSummary";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -94,11 +95,14 @@ export type ReelOutcome =
       dailyCatchCoins?: FishingDailyCatchCoins;
       /** 낚시 레벨 상승으로 받은 별도 낚시 코인 보상. */
       levelRewardCoins?: number;
-      /** 성공한 챔질로 얻은 낚시 숙련도 경험치. */
+      /** 성공한 챔질로 얻은 낚시 콘텐츠 진행 경험치. */
       fishingXpGained?: number;
       fishingLevel?: number;
       fishingLevelUp?: boolean;
       fishingCatches?: number;
+      /** 이번 챔질로 오른 실제 낚시 직업 숙련도와 증가 후 누적값. */
+      masteryGained?: number;
+      masteryAfter?: number | null;
       /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
       special?: { id: string; label: string; emoji: string } | null;
       /** 서버 권위 연속 성공 기록과 현재 버프. */
@@ -1361,47 +1365,6 @@ function levelBonusLabels(progression: FishingProgressionView): string[] {
   return labels;
 }
 
-function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
-  const labels: string[] = [];
-  if (
-    !result.catchItem &&
-    result.catchItemStatus === "daily_cap" &&
-    result.catchItemDaily
-  ) {
-    labels.push(
-      `${result.catchItemDaily.name} 오늘 획득 한도 ${result.catchItemDaily.awarded}/${result.catchItemDaily.cap}`,
-    );
-  }
-  if (result.coinsGained != null && result.coinsGained > 0) {
-    labels.push(`코인 +${result.coinsGained}`);
-  } else if (
-    result.coinsGained === 0 &&
-    result.dailyCatchCoins &&
-    result.dailyCatchCoins.cap > 0 &&
-    result.dailyCatchCoins.earned >= result.dailyCatchCoins.cap
-  ) {
-    labels.push("일일 낚시 코인 제한 도달 · 추가 코인 +0");
-  }
-  if (result.levelRewardCoins != null && result.levelRewardCoins > 0) {
-    labels.push(`레벨업 보상 +${result.levelRewardCoins}`);
-  }
-  if (result.hotTime && (result.hotTime.catchBonus > 0 || result.hotTime.levelBonus > 0)) {
-    labels.push(
-      `핫타임 +${result.hotTime.fishingCoinPct}% · 코인 +${
-        result.hotTime.catchBonus + result.hotTime.levelBonus
-      }`,
-    );
-  }
-  if (result.fishingXpGained != null && result.fishingXpGained > 0) {
-    labels.push(
-      `숙련도 +${result.fishingXpGained}${
-        result.fishingLevel ? ` · Lv ${result.fishingLevel}` : ""
-      }${result.fishingLevelUp ? " 상승" : ""}`,
-    );
-  }
-  return labels;
-}
-
 function challengeProgressSummary(
   items: readonly FishingProgressNotice[] | undefined,
 ): string | null {
@@ -1418,7 +1381,7 @@ function challengeProgressSummary(
 }
 
 function CatchRewardSummary({ result }: { result: CaughtReelOutcome }) {
-  const labels = rewardSummaryLabels(result);
+  const labels = fishingRewardSummaryLabels(result);
   const catchItem =
     result.catchItem &&
     result.catchItem.quantity > 0 &&

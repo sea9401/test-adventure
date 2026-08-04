@@ -53,14 +53,21 @@ const ITEM_NAME_POWER_THRESHOLDS: Record<
   necklace: [20, 40, 60, 80, 100, 120],
 };
 
-// 장비명 색 → 현재 표시 위력 기준. 품질% 색은 QualityPctText 쪽에만 남긴다.
-// 시그니처 효과 장비는 위력대와 무관하게 무지개로 고정한다.
+// 장비명 색 → 유니크는 전용 보라색, 정규 세트는 전용 청록색으로 통일한다.
+// 유니크 세트는 유니크가 우선하며, 둘 다 아닌 일반 장비만 현재 표시 위력 기준으로 나눈다.
+// 일반 장비 중 시그니처 효과 장비는 무지개로 고정한다.
 export function itemNameClass(
   item: V2Equipment,
   roll?: V2EquipRoll,
   enhance?: V2EnhanceState,
   craftQuality?: V2CraftQualityState,
 ): string {
+  if (item.rarity === "unique") {
+    return "text-purple-600 dark:text-purple-400";
+  }
+  if (item.setId) {
+    return "text-emerald-600 dark:text-emerald-400";
+  }
   if (item.signature) return "ui-item-name-signature";
   const displayPower = powerWithBonuses(
     roll?.power ?? item.power,

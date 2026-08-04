@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2ItemCard } from "./V2ItemCardPopover";
+import { V2ItemCompareCard } from "./V2ItemCompareCard";
 
 describe("V2ItemCard set information", () => {
   it("lists every compatible item for a threshold-based tag set", () => {
@@ -46,5 +47,25 @@ describe("V2ItemCard set information", () => {
     expect(html).toContain("마른땅 갑주");
     expect(html).toContain("분열의 장갑");
     expect(html).toContain("협곡 보행화");
+  });
+});
+
+describe("V2ItemCompareCard 읽기 전용", () => {
+  it("거래소에서는 장착 액션 없이 현재 장착 장비와 후보를 비교한다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCompareCard
+        candidate={{ item: V2_EQUIPMENT.v2_greatsword }}
+        equipped={{ item: V2_EQUIPMENT.v2_iron_sword }}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("아이템 비교");
+    expect(html).toContain("현재 장착 중");
+    expect(html).toContain("비교 대상");
+    expect(html).toContain("철검");
+    expect(html).toContain("한타검");
+    expect(html).not.toContain("장착하기");
+    expect(html).not.toContain(">해제<");
   });
 });

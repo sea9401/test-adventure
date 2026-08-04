@@ -5,15 +5,9 @@ import {
   STAT_KEYS,
   STAT_LABELS,
 } from "@/adventure/data/stats";
-import {
-  SKILL_CRIT_MULT,
-  V2_BASE_MISS_PCT,
-} from "@/adventure/data/v2/v2CombatConstants";
+import { SKILL_CRIT_MULT } from "@/adventure/data/v2/v2CombatConstants";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-
-// 기본 명중률 — 평타는 기본 90% 적중(100 − 기본 빗나감). 명중 스탯은 이 위에 더해진다.
-const V2_BASE_HIT_PCT = 100 - V2_BASE_MISS_PCT;
 
 // 상세(전투 세부) 스탯 한 줄 설명 — 어떤 1차 스탯이 올려주는지 위주.
 // derivePlayerCombatV2 의 계수 매핑을 사람말로 요약.
@@ -23,8 +17,12 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   "마법 공격력": "마력탄 같은 마법 스킬의 기본값입니다. 지능이 높을수록 커집니다.",
   "마법 방어력":
     "마법형 몬스터의 공격과 마법 스킬 피해를 줄입니다. 정신이 주축이고 지능·반지·목걸이·마법 방어 옵션이 보조합니다.",
-  회피: "현재 사냥터(최대 깊이) 몹 기준 회피 확률. 적의 명중과 겨뤄 정해져, 더 깊은 곳일수록 몹 명중이 높아 회피가 낮아집니다. 회피에 투자하면(민첩·행운) 계속 올라가며 75%에 가까워집니다.",
-  명중: "기본 적중 90%에 명중 레이팅을 더한 값. 명중은 빗나감(기본 10%)을 줄여 — 투자하면 일반몹 적중 100% — 100%를 넘는 만큼은 회피몹·PvP 회피와의 대결에서 상대 회피를 깎는 여유입니다. 민첩·힘·지능·정신이 보조합니다.",
+  "명중 능력":
+    "확률이 아닌 원본 능력 수치입니다. 상대의 회피 능력과 함께 계산해 실제 적중률이 정해집니다. 민첩·힘·지능·정신이 보조합니다.",
+  "회피 능력":
+    "확률이 아닌 원본 능력 수치입니다. 상대의 명중 능력과 함께 계산해 실제 회피율이 정해집니다. 민첩·행운이 높을수록 커집니다.",
+  "현재 사냥터 회피율":
+    "현재 사냥터(최대 깊이) 적의 명중 능력을 반영한 실제 회피 확률입니다. 더 깊은 곳에서는 적의 명중 능력이 높아져 달라질 수 있습니다.",
   "치명타 확률":
     "평타와 직접 피해를 주는 액티브 스킬이 함께 사용하는 치명타 확률. 전투에서는 최대 75%까지 적용되고, 초과분은 기본적으로 평타 치명타 피해로 전환됩니다.",
   "평타 치명타 배율":
@@ -46,6 +44,8 @@ type CombatStats = {
   accuracyPct?: number;
   // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. 표시는 이 raw 를 우선(없으면 accuracyPct 폴백).
   accRating?: number;
+  // 회피 대결형 — 캡 없는 회피레이팅. 확률(evasionPct)과 구분해 표시한다.
+  evaRating?: number;
   critChancePct?: number;
   critMult?: number;
   skillCritOverflow?: boolean;
@@ -100,16 +100,19 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
   if (combat.evasionPct !== undefined) {
     items.push(
       {
-        label: "회피",
-        value: `${Math.round(combat.evasionPct)}%`,
-        accent: "text-teal-600 dark:text-teal-400",
+        label: "명중 능력",
+        value: Math.round(combat.accRating ?? combat.accuracyPct ?? 0),
+        accent: "text-amber-600 dark:text-amber-400",
       },
       {
-        // 기본 적중 90% + 명중레이팅(회피 대결형 Slice 2 — 캡 없는 accRating 우선). 100% 초과분은
-        // 회피몹·PvP 회피 대결을 깎는 여유(일반몹은 100%에서 잘림 = 항상 적중).
-        label: "명중",
-        value: `${Math.round(V2_BASE_HIT_PCT + (combat.accRating ?? combat.accuracyPct ?? 0))}%`,
-        accent: "text-amber-600 dark:text-amber-400",
+        label: "회피 능력",
+        value: Math.round(combat.evaRating ?? combat.evasionPct),
+        accent: "text-cyan-600 dark:text-cyan-400",
+      },
+      {
+        label: "현재 사냥터 회피율",
+        value: `${Math.round(combat.evasionPct)}%`,
+        accent: "text-teal-600 dark:text-teal-400",
       },
       {
         label: "치명타 확률",

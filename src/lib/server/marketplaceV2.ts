@@ -7,6 +7,7 @@ import { savesKv, users } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
+  sellPriceOf,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -273,6 +274,12 @@ export function marketplacePartialPrice(
 // 거래 가능 종류 판정 — 카탈로그에 실재하는 id 인지(타입 가드 겸).
 export function isTradableEquip(id: string): id is V2EquipmentId {
   return Object.prototype.hasOwnProperty.call(V2_EQUIPMENT, id);
+}
+
+/** 장비 구매 주문 하한. NPC에 바로 팔아도 받는 금액보다 싼 계정 간 몰아주기를 차단한다. */
+export function equipmentBuyOrderMinimumPrice(id: string): number | null {
+  if (!isTradableEquip(id)) return null;
+  return sellPriceOf(V2_EQUIPMENT[id]);
 }
 
 export type MarketplaceEquipListError =

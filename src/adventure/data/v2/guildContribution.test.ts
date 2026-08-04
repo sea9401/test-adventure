@@ -6,6 +6,7 @@ import {
   guildExistingActivityContributionPoints,
   guildFacilityMaterialContributionPoints,
   guildGoldContributionPoints,
+  isPersonalGuildContributionSource,
 } from "./guildContribution";
 
 describe("길드 기여 점수", () => {
@@ -29,13 +30,30 @@ describe("길드 기여 점수", () => {
     expect(guildExistingActivityContributionPoints(3)).toBe(30);
   });
 
-  it("길드 보상 활동은 골드와 명성을 모두 반영한다", () => {
+  it("개인 귀속 길드 보상은 골드와 명성을 모두 반영한다", () => {
     expect(
-      guildContributionForActivity("workshop_weekly_claim", {
+      guildContributionForActivity("artisan_rank_reward", {
         rewardGold: 300_000,
         rewardFame: 100,
       }),
     ).toEqual({ category: "workshop", points: 1_030 });
+  });
+
+  it("길드 공동 보상은 수령자 개인 기여도로 귀속하지 않는다", () => {
+    for (const source of [
+      "workshop_weekly_claim",
+      "exploration_weekly_claim",
+      "exploration_expedition_claim",
+      "exploration_event_resolve",
+    ]) {
+      expect(isPersonalGuildContributionSource(source)).toBe(false);
+      expect(
+        guildContributionForActivity(source, {
+          rewardGold: 900_000,
+          rewardFame: 320,
+        }),
+      ).toBeNull();
+    }
   });
 
   it("공동자산을 소비하기만 하는 활동은 기여로 기록하지 않는다", () => {

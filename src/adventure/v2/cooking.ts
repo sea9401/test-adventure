@@ -1,4 +1,8 @@
-import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import {
+  V2_STAT_LABELS,
+  parseV2StatKey,
+  type V2StatKey,
+} from "@/adventure/data/v2/v2StatKeys";
 import { FARM_ITEMS, type FarmItemId, type FarmItemInventory } from "./farm";
 import {
   FISHING_CATCH_ITEMS,
@@ -147,6 +151,18 @@ export function cookingQualityName(quality: CookingQuality): string {
   if (quality === "masterpiece") return "걸작";
   if (quality === "careful") return "정성작";
   return "일반";
+}
+
+/** 요리 효과 스탯을 다른 캐릭터 화면과 같은 한글 라벨로 표시한다. */
+export function cookingStatText(
+  stats: Partial<Record<string, number>>,
+): string {
+  return Object.entries(stats)
+    .map(([key, value]) => {
+      const stat = parseV2StatKey(key);
+      return `${stat ? V2_STAT_LABELS[stat] : key.toUpperCase()} +${value}%`;
+    })
+    .join(" · ");
 }
 
 export function cookingFoodId(args: {

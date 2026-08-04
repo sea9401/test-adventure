@@ -831,7 +831,7 @@ export function V2LoadoutPanel({
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 {!compact && <SkillEffectChips skillId={s.skillId} />}
               </div>
-              <div className="flex shrink-0 items-start gap-1.5">
+              <div className="grid w-[6.25rem] shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
                 <button
                   type="button"
                   onClick={() => toggleFavorite(s.skillId)}
@@ -854,7 +854,7 @@ export function V2LoadoutPanel({
                     onClick={() => toggle(s.skillId)}
                     disabled={busy}
                     aria-label={`${s.name} 해제`}
-                    className="rounded-md border border-violet-500 bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-300"
+                    className="w-full whitespace-nowrap rounded-md border border-violet-500 bg-violet-500/15 px-2 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-300"
                   >
                     해제
                   </button>
@@ -864,7 +864,7 @@ export function V2LoadoutPanel({
                     onClick={() => toggle(s.skillId)}
                     disabled={busy || !wouldFit}
                     aria-label={`${s.name} 장착`}
-                    className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {!wouldFit ? "SP 부족" : "장착"}
                   </button>

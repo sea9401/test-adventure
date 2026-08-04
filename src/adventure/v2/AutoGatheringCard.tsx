@@ -4,10 +4,16 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import type { AutoGatheringActivity } from "./autoGathering";
+import {
+  AUTO_GATHERING_PLAN_LIST,
+  autoGatheringPlan,
+  type AutoGatheringActivity,
+  type AutoGatheringPlanId,
+} from "./autoGathering";
 
 export type AutoGatheringSessionView = {
   sessionId: string;
+  planId: AutoGatheringPlanId;
   sourceId: string;
   sourceName: string;
   materialId: string;
@@ -26,8 +32,12 @@ export type AutoGatheringResultView = {
 
 function remainingLabel(readyAt: number, now: number): string {
   const remainingSeconds = Math.max(0, Math.ceil((readyAt - now) / 1_000));
+  const hours = Math.floor(remainingSeconds / 3_600);
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
@@ -50,13 +60,15 @@ export function AutoGatheringCard({
   loading: boolean;
   blockedByActivity: AutoGatheringActivity | null;
   buttonVariant: "success" | "warning";
-  onStart: (spotId: string) => Promise<void>;
+  onStart: (spotId: string, planId: AutoGatheringPlanId) => Promise<void>;
   onClaim: () => Promise<void>;
   onCancel: () => Promise<void>;
 }) {
   const [now, setNow] = useState(() => Date.now());
+  const [planId, setPlanId] = useState<AutoGatheringPlanId>("standard");
   const [error, setError] = useState<string | null>(null);
   const ready = Boolean(session && now >= session.readyAt);
+  const activePlan = autoGatheringPlan(session?.planId ?? planId);
   const blockedActivityName =
     blockedByActivity === "woodcutting"
       ? "벌목"
@@ -74,15 +86,49 @@ export function AutoGatheringCard({
     <Card padding="md" className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-extrabold">30분 자동 {activityName}</div>
+          <div className="text-sm font-extrabold">
+            {activePlan.durationLabel} 자동 {activityName}
+          </div>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            재료 효율 80% · 경험치 효율 70% · 화면을 닫아도 진행
+            재료 효율 {activePlan.materialEfficiency * 100}% · 성공률{" "}
+            {activePlan.successRateMultiplier === 1
+              ? "그대로"
+              : `기존의 ${activePlan.successRateMultiplier * 100}%`} · 경험치 효율{" "}
+            {activePlan.xpEfficiency * 100}%
           </div>
         </div>
         <span className="shrink-0 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-[10px] font-bold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
-          30분
+          {activePlan.durationLabel}
         </span>
       </div>
+
+      {!session ? (
+        <div className="grid grid-cols-2 gap-2" aria-label="자동 작업 시간 선택">
+          {AUTO_GATHERING_PLAN_LIST.map((plan) => {
+            const selected = plan.id === planId;
+            return (
+              <button
+                key={plan.id}
+                type="button"
+                aria-pressed={selected}
+                disabled={loading || Boolean(blockedActivityName)}
+                onClick={() => setPlanId(plan.id)}
+                className={`${SURFACE_INSET} rounded-md border p-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  selected
+                    ? "border-emerald-500 ring-1 ring-emerald-500"
+                    : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+                }`}
+              >
+                <span className="block font-bold">{plan.durationLabel}</span>
+                <span className="mt-0.5 block text-[10px] text-zinc-500 dark:text-zinc-400">
+                  {plan.label} · 재료 {plan.materialEfficiency * 100}% · 성공률{" "}
+                  {plan.successRateMultiplier * 100}%
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       {session ? (
         <div className={`${SURFACE_INSET} p-3 text-xs`}>
@@ -170,7 +216,7 @@ export function AutoGatheringCard({
           disabled={loading || Boolean(blockedActivityName)}
           onClick={() => {
             setError(null);
-            void onStart(spotId).catch(() => {
+            void onStart(spotId, planId).catch(() => {
               setError(`자동 ${activityName}을 시작하지 못했습니다.`);
             });
           }}
@@ -178,7 +224,9 @@ export function AutoGatheringCard({
           size="md"
           fullWidth
         >
-          {loading ? "처리 중…" : `30분 자동 ${activityName} 시작`}
+          {loading
+            ? "처리 중…"
+            : `${activePlan.durationLabel} 자동 ${activityName} 시작`}
         </Button>
       )}
     </Card>

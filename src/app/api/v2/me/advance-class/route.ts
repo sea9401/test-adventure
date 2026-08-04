@@ -30,6 +30,7 @@ import {
 } from "@/adventure/data/v2/codex";
 import {
   V2_CORE_LOOP_V2,
+  V2_LEVEL_CAP,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
@@ -228,11 +229,17 @@ export async function POST(req: Request) {
       });
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
       //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. 숙련도/points/caps 보존.
-      //   환생 1회 기록(addReincarnation) — 같은 직업 재전직도 "다시 태어나다" 퀘스트가 깨지도록.
+      //   환생 1회 기록(addReincarnation) — 만렙을 요구하는 전투직에서 출발한 재전직만 기록한다.
+      //   생활직은 Lv.1에서 같은 직업을 반복 선택할 수 있으므로 업적 카운터에서 제외한다.
       // 직업 숙련도는 사냥 승리에서만 오르므로, 재전직/환생 진입 자체는 숙련도를 더하지 않는다.
       const targetGroup = tier1ClassOf(targetClass);
+      const resetProf = flattenGroupTiers(setGrown(prof, {}), targetGroup);
+      const rejobProf =
+        requiredLevel === V2_LEVEL_CAP
+          ? addReincarnation(resetProf)
+          : resetProf;
       const nextProf = addJobHistory(
-        addReincarnation(flattenGroupTiers(setGrown(prof, {}), targetGroup)),
+        rejobProf,
         currentJobId,
         targetJobId,
       );

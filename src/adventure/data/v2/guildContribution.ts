@@ -21,6 +21,21 @@ export const GUILD_CONTRIBUTION_CATEGORIES = [
 export type GuildContributionCategory =
   (typeof GUILD_CONTRIBUTION_CATEGORIES)[number];
 
+// 길드 전체가 함께 채우고 한 사람만 수령하는 공동 보상은 수령자를 개인 기여자로
+// 볼 수 없다. 활동·보상 원장은 유지하되 개인 기여 원장/순위에서는 제외한다.
+export const GUILD_NON_PERSONAL_CONTRIBUTION_SOURCES = [
+  "workshop_weekly_claim",
+  "exploration_weekly_claim",
+  "exploration_expedition_claim",
+  "exploration_event_resolve",
+] as const;
+
+export function isPersonalGuildContributionSource(type: string): boolean {
+  return !(GUILD_NON_PERSONAL_CONTRIBUTION_SOURCES as readonly string[]).includes(
+    type,
+  );
+}
+
 export const GUILD_CONTRIBUTION_CATEGORY_LABEL: Record<
   GuildContributionCategory,
   string
@@ -110,6 +125,8 @@ export function guildContributionForActivity(
   type: string,
   meta: ContributionActivityMeta | null,
 ): Contribution | null {
+  if (!isPersonalGuildContributionSource(type)) return null;
+
   const explicit = nonNegativeInt(meta?.contributionPoints);
   if (explicit > 0) {
     const category = contributionCategory(type);
@@ -129,10 +146,6 @@ export function guildContributionForActivity(
     case "alchemy_craft":
       points = GUILD_CONTRIBUTION_POINT_SCALE;
       break;
-    case "workshop_weekly_claim":
-    case "exploration_weekly_claim":
-    case "exploration_expedition_claim":
-    case "exploration_event_resolve":
     case "trade_contract_complete":
     case "artisan_rank_reward":
       points = guildRewardContributionPoints(meta);

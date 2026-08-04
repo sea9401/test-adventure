@@ -18,6 +18,7 @@ import {
 } from "@/adventure/data/v2/museunCashItems";
 import {
   cookingFoodDefinition,
+  cookingStatText,
   type CookingFoodId,
   type CookingFoodInventory,
 } from "@/adventure/v2/cooking";
@@ -89,9 +90,7 @@ export function MarketplaceRareMapTab({
     <div className="space-y-2">
       {heldCookingFoods.map(({ itemId, count, definition }) => {
         if (!definition) return null;
-        const statLine = Object.entries(definition.statPct)
-          .map(([key, value]) => `${key.toUpperCase()} +${value}%`)
-          .join(" · ");
+        const statLine = cookingStatText(definition.statPct);
         return (
           <Card key={itemId} padding="sm">
             <div className="flex flex-wrap items-center justify-between gap-2">

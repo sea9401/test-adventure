@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   GUILD_CONTRIBUTION_CATEGORIES,
   GUILD_CONTRIBUTION_CATEGORY_LABEL,
@@ -7,6 +10,7 @@ import type {
   GuildContributionResponse,
   GuildInfoResponse,
 } from "./guildShared";
+import { GuildContributionDetailDialog } from "./GuildContributionDetailDialog";
 
 export function GuildContributionPanel({
   data,
@@ -17,9 +21,15 @@ export function GuildContributionPanel({
   info: GuildInfoResponse | null;
   loading: boolean;
 }) {
-  const nameByUser = new Map(
-    (info?.members ?? []).map((member) => [member.userId, member.name]),
+  const [selectedMember, setSelectedMember] = useState<{
+    userId: string;
+    name: string;
+    role: string;
+  } | null>(null);
+  const memberByUser = new Map(
+    (info?.members ?? []).map((member) => [member.userId, member]),
   );
+  const canViewDetails = Boolean(info?.isMaster || info?.isManager);
   const viewer = data?.rows.find((row) => row.userId === data.viewerUserId);
 
   return (
@@ -31,6 +41,11 @@ export function GuildContributionPanel({
             <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
               이번 주 점수는 매주 월요일 00:00(KST)에 새로 시작하며 누적 점수는 유지됩니다.
             </p>
+            {canViewDetails && (
+              <p className="mt-1 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+                길드원을 선택하면 기부액과 상세 기여 내역을 볼 수 있습니다.
+              </p>
+            )}
           </div>
           <div className="shrink-0 text-right text-xs tabular-nums">
             <div className="font-semibold text-sky-700 dark:text-sky-300">
@@ -79,20 +94,19 @@ export function GuildContributionPanel({
         <ol className="divide-y divide-zinc-200 dark:divide-zinc-700">
           {data?.rows.map((row, index) => {
             const mine = row.userId === data.viewerUserId;
-            return (
-              <li
-                key={row.userId}
-                className={`grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2 text-xs ${
-                  mine
-                    ? "bg-sky-50 text-sky-900 dark:bg-sky-950 dark:text-sky-100"
-                    : "bg-white dark:bg-zinc-900"
-                }`}
-              >
+            const member = memberByUser.get(row.userId);
+            const rowClassName = `grid w-full grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2 text-left text-xs ${
+              mine
+                ? "bg-sky-50 text-sky-900 dark:bg-sky-950 dark:text-sky-100"
+                : "bg-white dark:bg-zinc-900"
+            }`;
+            const cells = (
+              <>
                 <span className="font-medium tabular-nums text-zinc-400 dark:text-zinc-500">
                   {index + 1}
                 </span>
                 <span className="truncate font-medium">
-                  {nameByUser.get(row.userId) ?? "모험가"}
+                  {member?.name ?? "모험가"}
                   {mine && (
                     <span className="ml-1 text-[10px] font-normal text-sky-600 dark:text-sky-300">
                       나
@@ -105,6 +119,28 @@ export function GuildContributionPanel({
                 <span className="w-16 text-right tabular-nums text-zinc-500 dark:text-zinc-400">
                   {row.lifetimePoints.toLocaleString()}
                 </span>
+              </>
+            );
+            return (
+              <li key={row.userId}>
+                {canViewDetails && member ? (
+                  <button
+                    type="button"
+                    className={`${rowClassName} transition-colors hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-500 dark:hover:bg-sky-950`}
+                    aria-label={`${member.name} 기여 상세 보기`}
+                    onClick={() =>
+                      setSelectedMember({
+                        userId: member.userId,
+                        name: member.name,
+                        role: member.role,
+                      })
+                    }
+                  >
+                    {cells}
+                  </button>
+                ) : (
+                  <div className={rowClassName}>{cells}</div>
+                )}
               </li>
             );
           })}
@@ -113,8 +149,15 @@ export function GuildContributionPanel({
       <div className="border-t border-zinc-200 px-3 py-2 text-[10px] leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
         세부 점수는 이번 주 / 누적 순서입니다. 골드·길드 보상 10,000G당 1점,
         길드 명성 1당 10점, 식당·교역 기존 기여 1점당 10점으로 환산하며 시설
-        재료는 희소도를 반영합니다. 기본 시설 활동 1회는 10점입니다.
+        재료는 희소도를 반영합니다. 기본 시설 활동 1회는 10점이며, 길드원이
+        함께 달성하는 제작소·탐사 공동 보상은 개인 기여도에 포함되지 않습니다.
       </div>
+      {canViewDetails && selectedMember && (
+        <GuildContributionDetailDialog
+          member={selectedMember}
+          onClose={() => setSelectedMember(null)}
+        />
+      )}
     </section>
   );
 }

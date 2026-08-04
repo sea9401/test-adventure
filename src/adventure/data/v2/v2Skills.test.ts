@@ -693,6 +693,27 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips).toContain("쿨 3행동");
   });
 
+  it("독 계열 복합기의 계수 피해를 중독 스택보다 먼저 표시한다", () => {
+    const poisonComboIds = [
+      "v2c_venomist_toxiccloud",
+      "v2c_venomancer_miasma",
+      "v2c_venomlord_plague",
+      "v2c_plaguebringer_outbreak",
+      "v2c_myriadvenom_mutation",
+    ] as const;
+
+    for (const id of poisonComboIds) {
+      const chips = describeV2Skill(V2_SKILLS[id]);
+      const damageIndex = chips.findIndex((chip) => chip.startsWith("피해 "));
+      const poisonIndex = chips.findIndex((chip) =>
+        chip.startsWith("중독 지속피해"),
+      );
+
+      expect(damageIndex, `${id}: 계수 피해`).toBeGreaterThanOrEqual(0);
+      expect(poisonIndex, `${id}: 중독 스택`).toBeGreaterThan(damageIndex);
+    }
+  });
+
   it("MP 0·무속성이면 MP·속성 칩 없음", () => {
     // 몹 독니(카탈로그 mpCost 0, element 없음, 인자 미전달) → MP·속성 칩 모두 없음.
     const chips = describeV2Skill(V2_SKILLS.mob_venom_bite);

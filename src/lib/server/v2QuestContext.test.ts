@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { buildQuestCtx, type QuestExtras } from "./v2QuestContext";
+import {
+  buildQuestCtx,
+  guideQuestSavePayload,
+  parseTrackedQuestId,
+  type QuestExtras,
+} from "./v2QuestContext";
+
+describe("가이드 퀘스트 추적 저장", () => {
+  it("추적 id를 안전하게 읽고 해제 시 저장 필드에서 제거한다", () => {
+    expect(parseTrackedQuestId({ trackedQuestId: "x_rich" })).toBe("x_rich");
+    expect(parseTrackedQuestId({ trackedQuestId: 7 })).toBeNull();
+    expect(
+      guideQuestSavePayload(new Set(["combat_10"]), "x_rich"),
+    ).toEqual({ claimed: ["combat_10"], trackedQuestId: "x_rich" });
+    expect(guideQuestSavePayload(new Set(["combat_10"]), null)).toEqual({
+      claimed: ["combat_10"],
+    });
+  });
+});
 
 const EXTRAS: QuestExtras = {
   hasGuild: true,

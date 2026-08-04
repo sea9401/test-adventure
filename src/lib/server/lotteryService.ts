@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from "node:crypto";
-import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { economyEvents } from "@/db/schema";
 import {
@@ -70,19 +70,64 @@ function economyGoldDelta(value: number) {
 
 async function ensureCurrentRound(tx: Tx, now: Date): Promise<LotteryRoundRow> {
   const window = lotteryRoundWindow(now.getTime());
+  // 1시간 회차에서 4시간 회차로 전환할 때 이미 진행 중인 회차가 있으면 다음 4시간
+  // 경계까지만 연장한다. 새 주기의 startsAt 이 과거에 정산된 1시간 회차와 겹쳐
+  // 닫힌 회차를 현재 회차로 잘못 선택하는 것도 방지한다.
+  const [active] = await tx
+    .select()
+    .from(lotteryRounds)
+    .where(
+      and(
+        eq(lotteryRounds.status, "open"),
+        lte(lotteryRounds.startsAt, now),
+        gt(lotteryRounds.endsAt, now),
+      ),
+    )
+    .orderBy(desc(lotteryRounds.startsAt))
+    .for("update")
+    .limit(1);
+  if (active) {
+    const targetEndsAt = new Date(window.endsAt);
+    if (active.endsAt < targetEndsAt) {
+      const [extended] = await tx
+        .update(lotteryRounds)
+        .set({ endsAt: targetEndsAt })
+        .where(eq(lotteryRounds.id, active.id))
+        .returning();
+      return extended ?? { ...active, endsAt: targetEndsAt };
+    }
+    return active;
+  }
+
   const [existing] = await tx
     .select()
     .from(lotteryRounds)
     .where(eq(lotteryRounds.startsAt, new Date(window.startsAt)))
     .limit(1);
-  if (existing) return existing;
+  if (existing?.status === "open") return existing;
+
+  // 전환 시점에 진행 중 회차가 없더라도, 새 4시간 경계와 같은 시각에 시작했던
+  // 정산 완료 1시간 회차가 남아 있을 수 있다. 이 한 회차만 1ms 뒤의 결정적 키를
+  // 사용하면 동시 요청도 같은 행에 모이고 다음 정상 경계부터는 정각 키로 돌아온다.
+  const startsAt = new Date(window.startsAt + (existing ? 1 : 0));
+  if (existing) {
+    const [transitionRound] = await tx
+      .select()
+      .from(lotteryRounds)
+      .where(eq(lotteryRounds.startsAt, startsAt))
+      .limit(1);
+    if (transitionRound?.status === "open") return transitionRound;
+    if (transitionRound) {
+      throw new Error("lottery transition round conflicts with a closed round");
+    }
+  }
 
   const secret = newRoundSecret();
   await tx
     .insert(lotteryRounds)
     .values({
       status: "open",
-      startsAt: new Date(window.startsAt),
+      startsAt,
       endsAt: new Date(window.endsAt),
       ticketPrice: LOTTERY_TICKET_PRICE,
       commitHash: hashSecret(secret),
@@ -93,7 +138,7 @@ async function ensureCurrentRound(tx: Tx, now: Date): Promise<LotteryRoundRow> {
   const [round] = await tx
     .select()
     .from(lotteryRounds)
-    .where(eq(lotteryRounds.startsAt, new Date(window.startsAt)))
+    .where(eq(lotteryRounds.startsAt, startsAt))
     .limit(1);
   if (!round) throw new Error("lottery round creation failed");
   return round;

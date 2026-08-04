@@ -14,6 +14,8 @@
 /coverage
 /playwright-report
 /test-results
+# 로컬 미리보기·보고서·일회성 운영 출력물
+/artifacts/
 
 # next.js
 /.next/

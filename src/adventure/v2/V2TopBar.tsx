@@ -60,14 +60,14 @@ export function V2TopBar({
           href="/"
           aria-label="무슨무슨게임 홈으로 이동"
           title="홈"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          className="game-brand-mark inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
         >
           <Image
             src="/icon-192.png"
             alt=""
             width={32}
             height={32}
-            className="size-8 shrink-0 rounded-md"
+            className="game-brand-image size-8 shrink-0 rounded-md"
           />
         </Link>
         {activityHref ? (

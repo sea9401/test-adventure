@@ -6,6 +6,7 @@ import "server-only";
 export const ANONYMOUS_MARKETPLACE_MAIL_KINDS = [
   "sale_proceeds",
   "purchase_item",
+  "buy_order_equipment",
 ] as const;
 
 export function isAnonymousMarketplaceMail(kind: string): boolean {

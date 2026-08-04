@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { V2_EQUIPMENT, sellPriceOf } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
 import { cookingFoodId } from "@/adventure/v2/cooking";
@@ -21,6 +21,7 @@ import {
   isValidMaterialQty,
   isValidPrice,
   currentMarketplaceItemName,
+  equipmentBuyOrderMinimumPrice,
   itemDisplayName,
   marketplaceEquipListError,
   marketplaceListingPhase,
@@ -207,6 +208,12 @@ describe("구매 주문 안전 한도", () => {
     expect(MARKETPLACE_V2_BUY_ORDER_LIMIT).toBe(10);
     expect(MARKETPLACE_V2_BUY_ORDER_MAX_DAYS).toBe(7);
     expect(MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX).toBe(999_999_999);
+  });
+
+  it("장비 주문의 최저가는 NPC 매입가와 같고 임의 ID는 거부한다", () => {
+    const item = V2_EQUIPMENT.v2_wooden_bow;
+    expect(equipmentBuyOrderMinimumPrice(item.id)).toBe(sellPriceOf(item));
+    expect(equipmentBuyOrderMinimumPrice("v2_missing_equipment")).toBeNull();
   });
 });
 

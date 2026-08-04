@@ -108,6 +108,18 @@ describe("buildJobCodex", () => {
     expect(fortressknight?.conditionRevealed).toBe(false);
     expect(fortressknight?.condition).toBe("선행 직업 해금 후 공개");
   });
+
+  it("마검사 선행 직업을 거친 뒤 다른 직업으로 옮겨도 조건을 계속 공개한다", () => {
+    const prof = profJobs({ paladin: 1 });
+    prof.jobHistory = ["paladin"];
+    const codex = buildJobCodex(prof, [], "rogue", null);
+
+    const spellblade = codex.jobs.find((job) => job.id === "spellblade");
+    expect(spellblade?.unlocked).toBe(false);
+    expect(spellblade?.conditionRevealed).toBe(true);
+    expect(spellblade?.condition).toContain("기사 숙련도");
+    expect(spellblade?.condition).toContain("마도사 숙련도");
+  });
 });
 
 function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {

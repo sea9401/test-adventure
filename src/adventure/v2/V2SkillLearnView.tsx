@@ -32,6 +32,7 @@ type ElementalRow = {
   skillId: string;
   name: string;
   cost: number;
+  spCost: number;
   learned: boolean;
   ritualMode?: SkillRitualMode | null;
   ritualLevel?: number;
@@ -73,6 +74,25 @@ function ritualBonusFor(mode: SkillRitualMode, level: number): number {
   return mode === "focus"
     ? skillRitualFocusBonusPct(level)
     : skillRitualPowerBonusPct(level);
+}
+
+export function SkillLearningCostSummary({
+  learnCost,
+  spCost,
+}: {
+  learnCost: number;
+  spCost: number;
+}) {
+  return (
+    <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium">
+      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+        학습 숙달 {learnCost.toLocaleString("ko-KR")}
+      </span>
+      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+        장착 SP {spCost.toLocaleString("ko-KR")}
+      </span>
+    </div>
+  );
 }
 
 export function V2SkillLearnView({
@@ -414,6 +434,12 @@ export function V2SkillLearnView({
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                       {skillDesc(s.skillId)}
                     </p>
+                    {!s.learned && (
+                      <SkillLearningCostSummary
+                        learnCost={s.cost}
+                        spCost={s.spCost}
+                      />
+                    )}
                     <SkillEffectChips skillId={s.skillId} />
                   </div>
                   {!s.learned ? (
@@ -424,7 +450,7 @@ export function V2SkillLearnView({
                       size="xs"
                       className="shrink-0"
                     >
-                      {busy === s.skillId ? "학습 중…" : `학습 (${s.cost})`}
+                      {busy === s.skillId ? "학습 중…" : "학습"}
                     </Button>
                   ) : (
                     <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">

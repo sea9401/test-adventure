@@ -34,6 +34,7 @@ import {
 } from "@/adventure/data/v2/coopRewards";
 import {
   cookingFoodDefinition,
+  cookingStatText,
   type CookingFoodId,
   type CookingFoodInventory,
 } from "@/adventure/v2/cooking";
@@ -231,12 +232,6 @@ function CookingFoodSection({
       </ul>
     </div>
   );
-}
-
-function cookingStatText(stats: Partial<Record<string, number>>): string {
-  return Object.entries(stats)
-    .map(([key, value]) => `${key.toUpperCase()} +${value}%`)
-    .join(" · ");
 }
 
 function formatFoodDuration(ms: number): string {

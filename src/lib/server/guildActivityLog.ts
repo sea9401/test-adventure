@@ -19,6 +19,7 @@ export type GuildActivityType =
   | "facility_material_donation"
   | "dining_ingredient_donation"
   | "trade_delivery"
+  | "trade_shop_purchase"
   | "workshop_weekly_claim"
   | "exploration_weekly_claim"
   | "exploration_expedition_dispatch"
@@ -42,12 +43,15 @@ export type GuildActivityType =
 export type GuildActivityMeta = {
   amount?: number; // gold_deposit | emblem_change
   quantity?: number; // 시설·식당·교역 재료 기부량
+  donations?: Record<string, number>; // facility_material_donation 재료별 기부량
   contributionPoints?: number; // 해당 활동에서 확정한 길드 기여 점수
   role?: string; // role_change ("manager" | "member")
   nationName?: string; // nation_declare
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
   deliveryTitle?: string; // workshop_delivery
   itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft | dining_meal | trade_contract_complete
+  tokenCost?: number; // trade_shop_purchase
+  remainingTokens?: number; // trade_shop_purchase
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade

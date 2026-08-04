@@ -12,6 +12,7 @@ import {
   cookingOrders,
   cookingQuality,
   cookingRecipeMatchesQuery,
+  cookingStatText,
   deliverableCookingFoods,
   recordCookingActionStats,
   cookingStatPct,
@@ -23,6 +24,12 @@ import {
 } from "./cooking";
 
 describe("personal cooking", () => {
+  it("요리 스탯 효과를 공용 한글 라벨로 표시하고 알 수 없는 키는 안전하게 유지한다", () => {
+    expect(cookingStatText({ str: 8, vit: 5, custom: 2 })).toBe(
+      "힘 +8% · 활력 +5% · CUSTOM +2%",
+    );
+  });
+
   it("maps every recipe to its own cooking image asset", () => {
     const paths = COOKING_RECIPES.map((recipe) => recipe.imageSrc);
     expect(paths).toEqual(

@@ -144,6 +144,24 @@ const DROP_FLOOR_CAP = 8 as DungeonFloorId;
 // 한꺼번에 커지지 않도록 단판(200)보다 낮은 tail cap을 둔다.
 const BATCH_REPLAY_LOG_CAP = 80;
 
+// 같은 사용자의 사냥 요청이 이미 처리 중이면 DB 트랜잭션에 진입시키지 않는다. character.v2
+// FOR UPDATE도 보상 중복은 막지만, 순간적인 병렬 요청은 커넥션/트랜잭션 대기열을 만들 수 있어
+// 단일 프로세스인 현재 운영 환경에서는 이 가벼운 선행 게이트로 먼저 잘라낸다. 다중 인스턴스로
+// 확장할 때는 같은 인터페이스를 Redis 기반 분산 잠금으로 교체해야 한다.
+const huntInFlightUsers = new Set<string>();
+
+function huntInFlightResponse() {
+  return Response.json(
+    { ok: false, error: "request_in_flight", retryAfterSec: 1 },
+    { status: 429, headers: { "Retry-After": "1" } },
+  );
+}
+
+// 통합 테스트 격리용. 실제 요청에서는 POST의 finally가 항상 해제한다.
+export function resetHuntInFlightForTests() {
+  huntInFlightUsers.clear();
+}
+
 function pickRandomEnemy(
   enemies: readonly DungeonEnemy[],
 ): DungeonEnemy | null {
@@ -865,6 +883,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   });
   rareMaps = rareMapUpdate.rareMaps;
   const rareMapDrop = rareMapUpdate.rareMapDrop;
+  const rareMapDropInstance = rareMapUpdate.rareMapDropInstance;
   const rareMapRunsLeft = rareMapUpdate.rareMapRunsLeft;
 
   const next = {
@@ -1036,8 +1055,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         maxHp: player.maxHp,
         mpAfter: afterMp,
         maxMp,
-        // 레어맵 — 이번 사냥에서 새 지도 발견(kind id) / 입장 중이면 남은 판수.
+        // 레어맵 — 이번 사냥에서 새 지도 발견(kind id + 바로가기용 인스턴스) / 입장 중이면 남은 판수.
         rareMapDrop,
+        rareMapDropInstance,
         rareMapRunsLeft,
         // 충전식 회복약 잔량 — HP/MP 모두 전투 후 부족분 자동 소모 반영.
         hpCharges,
@@ -1082,12 +1102,22 @@ export async function POST(req: Request) {
   const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:dungeon:hunt",
-    userLimit: 180,
+    userLimit: 30,
     ipLimit: 900,
     windowMs: 60_000,
   });
   if (limited) return limited;
 
+  if (huntInFlightUsers.has(userId)) return huntInFlightResponse();
+  huntInFlightUsers.add(userId);
+  try {
+    return await handleHunt(req, userId);
+  } finally {
+    huntInFlightUsers.delete(userId);
+  }
+}
+
+async function handleHunt(req: Request, userId: string) {
   let body: {
     floor?: unknown; // = 프론티어 깊이(depth). 클라 호환 위해 키 이름 유지.
     outpostId?: unknown;
@@ -1222,6 +1252,7 @@ export async function POST(req: Request) {
     const droppedEquipments: V2EquipmentId[] = [];
     const droppedUniques: V2EquipmentId[] = [];
     const rareMapDrops: RareMapKindId[] = [];
+    const rareMapDropInstances: RareMapInstance[] = [];
     let rareMapRunsLeft: number | null = null;
     let stoppedReason:
       | "stamina"
@@ -1300,6 +1331,9 @@ export async function POST(req: Request) {
       if (res.droppedEquipment) droppedEquipments.push(res.droppedEquipment);
       if (res.droppedUnique) droppedUniques.push(res.droppedUnique);
       if (res.rareMapDrop) rareMapDrops.push(res.rareMapDrop);
+      if (res.rareMapDropInstance) {
+        rareMapDropInstances.push(res.rareMapDropInstance);
+      }
       rareMapRunsLeft = res.rareMapRunsLeft ?? rareMapRunsLeft;
       if (res.ejected && !ejected) ejected = res.ejected;
       replays.push({
@@ -1455,6 +1489,7 @@ export async function POST(req: Request) {
           droppedEquipments,
           droppedUniques,
           rareMapDrops,
+          rareMapDropInstances,
           rareMapRunsLeft,
           stoppedReason,
           finalHpAfter,

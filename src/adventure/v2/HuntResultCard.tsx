@@ -18,6 +18,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   RARE_MAP_KINDS,
+  type RareMapInstance,
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
 import {
@@ -72,6 +73,8 @@ export type HuntResult = {
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
   // 희귀 탐사 — 새 탐사 개방(kind id) / 입장 중 남은 판수.
   rareMapDrop?: RareMapKindId | null;
+  // 새로 생성된 지도 개체 — 결과 화면에서 해당 지도 바로가기용.
+  rareMapDropInstance?: RareMapInstance | null;
   rareMapRunsLeft?: number | null;
   // 도전(미정복) 구역 클리어 시 갱신된 최고 도달 깊이.
   maxDepth?: number;
@@ -219,12 +222,14 @@ export function HuntResultCard({
   hpCharges,
   mpCharges,
   hasMp,
+  onEnterRareMap,
 }: {
   result: HuntResult;
   // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
   hpCharges?: number;
   mpCharges?: number;
   hasMp?: boolean;
+  onEnterRareMap?: (map: RareMapInstance) => void;
 }) {
   const won = result.won;
   const drops = result.drops
@@ -236,11 +241,12 @@ export function HuntResultCard({
   const droppedUniq = result.droppedUnique
     ? V2_EQUIPMENT[result.droppedUnique]
     : null;
+  const droppedSet = droppedEquip?.setId ? droppedEquip : null;
   // 드랍 알림 배너 — 매 사냥마다 (드랍 있을 때만). 1회성 storyFlags 폐기 (사용자
   // 요청 2026-05-28): 매번 어떤 아이템 받았는지 명시적 알림이 후크에 더 효과적.
   const dropBannerText = formatDropBanner(
     drops as Array<[string, number]>,
-    droppedEquip?.name ?? null,
+    droppedSet ? null : (droppedEquip?.name ?? null),
   );
   const rareMapDropDef = result.rareMapDrop
     ? RARE_MAP_KINDS[result.rareMapDrop]
@@ -286,11 +292,27 @@ export function HuntResultCard({
       className={won ? undefined : "ring-2 ring-rose-400 dark:ring-rose-600"}
     >
       {rareMapDropDef && (
-        <DiscoveryNotice kind={rareMapDropDef.category} className="mb-2">
+        <DiscoveryNotice
+          kind={rareMapDropDef.category}
+          className="mb-2"
+          action={
+            result.rareMapDropInstance &&
+            rareMapDropDef.category !== "utility" &&
+            onEnterRareMap ? (
+              <button
+                type="button"
+                onClick={() => onEnterRareMap(result.rareMapDropInstance!)}
+                className="ui-game-button shrink-0 rounded-md border border-sky-500 bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-700"
+              >
+                바로가기
+              </button>
+            ) : undefined
+          }
+        >
           {rareMapDropDef.category === "hunt"
-            ? `희귀 탐사 「${rareMapDropDef.name}」 개방! — 전투 탭 > 사냥터에서 입장`
+            ? `희귀 탐사 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
             : rareMapDropDef.category === "location"
-              ? `희귀 장소 「${rareMapDropDef.name}」 개방! — 전투 탭 > 사냥터에서 입장`
+              ? `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
               : `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`}
         </DiscoveryNotice>
       )}
@@ -298,10 +320,16 @@ export function HuntResultCard({
         <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           <GameIcon name="Sparkle" size={15} className="shrink-0" />
           <span>
-            유니크 「
+            {droppedUniq.setId ? "유니크 세트 「" : "유니크 「"}
             <span className={itemNameClass(droppedUniq)}>{droppedUniq.name}</span>
             」 획득!
           </span>
+        </div>
+      )}
+      {droppedSet && (
+        <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-emerald-400 bg-emerald-50 px-2 py-1.5 text-center text-xs font-semibold text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-200">
+          <GameIcon name="Sparkle" size={15} className="shrink-0" />
+          <span>세트 「{droppedSet.name}」 획득!</span>
         </div>
       )}
       {dropBannerText && (

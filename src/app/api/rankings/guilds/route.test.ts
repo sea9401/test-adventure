@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 const { execute } = vi.hoisted(() => ({ execute: vi.fn() }));
 
@@ -37,8 +39,11 @@ describe("길드 랭킹", () => {
 
     const response = await GET();
     const json = await response.json();
+    const rankingQuery = execute.mock.calls[0]?.[0] as SQL;
+    const compiledRankingQuery = new PgDialect().sqlToQuery(rankingQuery);
 
     expect(response.status).toBe(200);
+    expect(compiledRankingQuery.sql).toContain("g.is_test = false");
     expect(json.list).toEqual([
       expect.objectContaining({
         name: "테스트길드",

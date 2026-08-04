@@ -121,3 +121,37 @@ export type GuildContributionResponse = {
     lifetimeByCategory: Record<GuildContributionCategory, number>;
   }[];
 };
+
+export type GuildContributionDetailMeta = {
+  amount?: number;
+  quantity?: number;
+  donations?: Record<string, number>;
+  contributionPoints?: number;
+  questTitle?: string;
+  deliveryTitle?: string;
+  itemName?: string;
+  drillTitle?: string;
+  buildingName?: string;
+  rewardGold?: number;
+  rewardFame?: number;
+};
+
+export type GuildContributionDetailResponse = {
+  ok?: boolean;
+  userId: string;
+  weekStartsAt: string;
+  weeklyPoints: number;
+  lifetimePoints: number;
+  weeklyGoldDeposited: number;
+  lifetimeGoldDeposited: number;
+  weeklyByCategory: Record<GuildContributionCategory, number>;
+  lifetimeByCategory: Record<GuildContributionCategory, number>;
+  events: {
+    id: number;
+    source: string;
+    category: GuildContributionCategory;
+    points: number;
+    createdAt: string;
+    meta: GuildContributionDetailMeta | null;
+  }[];
+};

@@ -10,7 +10,10 @@ import {
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import type { RareMapKindId } from "@/adventure/data/v2/rareMaps";
+import type {
+  RareMapInstance,
+  RareMapKindId,
+} from "@/adventure/data/v2/rareMaps";
 import type { BatchReplayEntry } from "@/adventure/v2/BatchSummaryCard";
 import type { AutoHuntStopConfig } from "@/adventure/v2/autoHuntStopPolicy";
 
@@ -81,6 +84,8 @@ export type BatchHuntPayload = {
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
+  // 이번 일괄에서 발견한 지도 개체 — 결과 화면 바로가기용 iid/depth 포함.
+  rareMapDropInstances?: RareMapInstance[];
   rareMapRunsLeft?: number | null;
   stoppedReason:
     | "stamina"

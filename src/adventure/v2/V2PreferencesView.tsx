@@ -13,6 +13,7 @@ import {
   ImageSquare,
   Moon,
   Sun,
+  TerminalWindow,
   UserMinus,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -24,6 +25,7 @@ import {
   BACKGROUND_HIDDEN_MODE_CLASS,
   DISCREET_MODE_CLASS,
   DISPLAY_MODE_STORAGE_KEY,
+  TERMINAL_MODE_CLASS,
   storedValueForDisplayMode,
   type DisplayMode,
 } from "./discreetMode";
@@ -57,6 +59,12 @@ const DISPLAY_OPTIONS = [
     detail: "장면 배경과 화려한 장식을 모두 숨깁니다.",
     Icon: EyeSlash,
   },
+  {
+    id: "terminal",
+    label: "터미널 모드",
+    detail: "검은 화면과 모노스페이스 글꼴로 게임 화면을 업무 도구처럼 단순화합니다.",
+    Icon: TerminalWindow,
+  },
 ] as const satisfies readonly {
   id: DisplayMode;
   label: string;
@@ -76,11 +84,13 @@ export function V2PreferencesView() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(root.classList.contains("dark") ? "dark" : "light");
     setDisplayMode(
-      root.classList.contains(DISCREET_MODE_CLASS)
-        ? "discreet"
-        : root.classList.contains(BACKGROUND_HIDDEN_MODE_CLASS)
-          ? "background-hidden"
-          : "default",
+      root.classList.contains(TERMINAL_MODE_CLASS)
+        ? "terminal"
+        : root.classList.contains(DISCREET_MODE_CLASS)
+          ? "discreet"
+          : root.classList.contains(BACKGROUND_HIDDEN_MODE_CLASS)
+            ? "background-hidden"
+            : "default",
     );
   }, []);
 
@@ -101,6 +111,10 @@ export function V2PreferencesView() {
     document.documentElement.classList.toggle(
       DISCREET_MODE_CLASS,
       next === "discreet",
+    );
+    document.documentElement.classList.toggle(
+      TERMINAL_MODE_CLASS,
+      next === "terminal",
     );
     try {
       const storedValue = storedValueForDisplayMode(next);

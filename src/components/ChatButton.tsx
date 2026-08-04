@@ -106,15 +106,12 @@ export function ChatButton({
         if (cancelled) return;
         globalAfterId = Math.max(globalAfterId, latestChatMessageId(next));
         guildAfterId = Math.max(guildAfterId, latestChatMessageId(nextGuild));
-        if (initialized) {
-          setMessages((previous) => mergeChatMessages(previous, next));
-          setGuildMessages((previous) =>
-            mergeChatMessages(previous, nextGuild),
-          );
-        } else {
-          setMessages(next);
-          setGuildMessages(nextGuild);
-        }
+        // 최초 조회도 기존 상태와 병합한다. 패널을 연 직후 보낸 메시지가 먼저
+        // 상태에 들어온 뒤 느린 최초 조회가 끝나더라도 과거 스냅샷으로 덮어쓰지 않는다.
+        setMessages((previous) => mergeChatMessages(previous, next));
+        setGuildMessages((previous) =>
+          mergeChatMessages(previous, nextGuild),
+        );
         if (!initialized) {
           initialized = true;
           // 한 번도 채팅을 본 적 없는 유저라면 (lastSeen === 0), 첫 폴링 결과의

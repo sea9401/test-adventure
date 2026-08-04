@@ -32,6 +32,7 @@ import {
   beginAutoGathering,
   cancelAutoGathering,
   createAutoGatheringSession,
+  isAutoGatheringPlanId,
   settleAutoGathering,
 } from "@/adventure/v2/autoGathering";
 import {
@@ -80,11 +81,14 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as
-    | { action?: unknown; spotId?: unknown }
+    | { action?: unknown; spotId?: unknown; planId?: unknown }
     | null;
   if (body?.action === "start") {
     if (typeof body.spotId !== "string" || !isMiningSpotId(body.spotId)) {
       return Response.json({ ok: false, error: "bad_spot" }, { status: 400 });
+    }
+    if (body.planId !== undefined && !isAutoGatheringPlanId(body.planId)) {
+      return Response.json({ ok: false, error: "bad_plan" }, { status: 400 });
     }
     const [logRaw, skillsRaw, guardRaw] = await Promise.all([
       readSave(db, userId, MINING_LOG_KEY, {}),
@@ -117,6 +121,7 @@ export async function POST(req: Request) {
       sourceId: nodeId,
       sourceName: node.name,
       materialId: node.materialId,
+      planId: body.planId,
       now,
       cycleDurationMs: cycleDurationMs + MINING_SETTLE_MS,
       successRate,

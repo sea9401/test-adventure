@@ -1453,6 +1453,39 @@ export function isDirectNextJob(
   );
 }
 
+/**
+ * 잠긴 직업의 해금 조건을 공개해도 되는지 판정한다.
+ *
+ * 현재 선행 직업뿐 아니라 과거에 전직했거나 숙련도를 쌓은 바로 아래 직업도 인정한다.
+ * 따라서 다른 직업으로 옮긴 뒤에도 이미 도달한 계보의 다음 조건이 다시 숨지 않는다.
+ */
+export function isJobUnlockConditionRevealed(
+  job: V2JobDefinition,
+  proficiency: V2ProficiencyState,
+  currentJobId: string | null | undefined,
+  unlocked: boolean,
+): boolean {
+  if (unlocked || job.id === currentJobId) return true;
+
+  const prerequisiteIds = new Set(Object.keys(job.unlock.prereqs));
+  for (const condition of job.unlock.extraConditions ?? []) {
+    if (condition.type === "jobUnlocked") {
+      prerequisiteIds.add(condition.jobId);
+    }
+  }
+
+  const history = new Set(proficiency.jobHistory ?? []);
+  return [...prerequisiteIds].some((prerequisiteId) => {
+    if (prerequisiteId === currentJobId || history.has(prerequisiteId)) {
+      return true;
+    }
+    const prerequisite = V2_JOB_CATALOG[prerequisiteId];
+    return prerequisite
+      ? cumLevelForJob(proficiency, prerequisite) > 0
+      : false;
+  });
+}
+
 // 그 직업에 쌓은 숙련도(표시용) — tier1 직업=직군 숙련도(groups), tier2+=직업별 숙련도(jobCumLevel).
 //   isJobUnlocked 의 prereq 분기와 같은 기준. 미적립=0.
 export function cumLevelForJob(

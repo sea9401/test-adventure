@@ -10,7 +10,7 @@ import {
   settleAutoGathering,
 } from "./autoGathering";
 
-describe("30분 자동 생활 작업", () => {
+describe("자동 생활 작업", () => {
   it("작업 속도와 성공률을 기준으로 재료 80%, XP 70%를 정산한다", () => {
     const session = createAutoGatheringSession({
       sessionId: "auto-1",
@@ -34,6 +34,62 @@ describe("30분 자동 생활 작업", () => {
       materialsGained: 144,
       xpGained: 1_260,
       masteryGained: 126,
+    });
+  });
+
+  it("2시간 느긋한 작업은 성공률 80%와 재료 효율 60%를 적용한다", () => {
+    const session = createAutoGatheringSession({
+      sessionId: "extended-auto",
+      planId: "extended",
+      sourceId: "pine",
+      sourceName: "소나무",
+      materialId: "timber",
+      now: 1_000,
+      cycleDurationMs: 9_000,
+      successRate: 0.9,
+      baseXp: 10,
+    });
+
+    expect(session).toMatchObject({
+      planId: "extended",
+      readyAt: 1_000 + 2 * 60 * 60_000,
+      attempts: 800,
+      successRate: 0.72,
+      materialEfficiency: 0.6,
+      xpEfficiency: 0.7,
+    });
+    expect(
+      settleAutoGathering(beginAutoGathering(emptyAutoGatheringState(), session)),
+    ).toMatchObject({
+      attempts: 800,
+      successes: 576,
+      materialsGained: 345,
+      xpGained: 4_032,
+      masteryGained: 403,
+    });
+  });
+
+  it("기존 저장 세션은 30분 기본 작업 효율로 호환한다", () => {
+    const state = parseAutoGatheringState({
+      session: {
+        sessionId: "legacy-auto",
+        sourceId: "pine",
+        sourceName: "소나무",
+        materialId: "timber",
+        startedAt: 1_000,
+        readyAt: 1_000 + AUTO_GATHERING_DURATION_MS,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+
+    expect(state.session).toMatchObject({
+      planId: "standard",
+      materialEfficiency: 0.8,
+      xpEfficiency: 0.7,
     });
   });
 

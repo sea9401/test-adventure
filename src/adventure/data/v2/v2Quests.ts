@@ -581,12 +581,12 @@ const GROWTH_ACHIEVEMENTS: QuestDef[] = [
       10_000_000,
     ], 110),
   ]),
-  ...milestones("growth_achievement", "재전직", (c) => c.reincarnations, [
+  ...milestones("growth_achievement", "전투직 재전직", (c) => c.reincarnations, [
     { id: "r_first", title: "새로운 출발", goal: 1, points: 10, titleId: "ach_reborn", badgeTier: "bronze" },
     { id: "growth_rebirth3", title: "세 번의 재도전", goal: 3, points: 15, badgeTier: "silver" },
     { id: "growth_rebirth10", title: "숙련된 전직자", goal: 10, points: 30, badgeTier: "gold" },
     { id: "growth_rebirth25", title: "끝나지 않는 성장", goal: 25, points: 50, badgeTier: "legendary" },
-    ...marathonMilestones("marathon_rebirth", "재전직", [
+    ...marathonMilestones("marathon_rebirth", "전투직 재전직", [
       50, 100, 250, 500, 1_000, 2_500,
     ]),
   ]),
@@ -938,7 +938,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   },
   { id: "combat", name: "전투와 토벌", subtitle: "전투 횟수·몬스터 도감·협동 보스 기록.", sequential: false },
   { id: "frontier", name: "프론티어", subtitle: "현재 사냥터의 끝까지 이어지는 개척 기록.", sequential: false },
-  { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·재전직 기록.", sequential: false },
+  { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·전투직 재전직 기록.", sequential: false },
   { id: "equipment", name: "장비와 도감", subtitle: "장비 수집·도감 등록·강화 기록.", sequential: false },
   { id: "arena_social", name: "경쟁과 교류", subtitle: "길드·거래소·투기장 승리 기록.", sequential: false },
   { id: "farming", name: "농사", subtitle: "수확·희귀 작물·납품·농사 레벨.", sequential: false },
@@ -1145,14 +1145,24 @@ export function achievementScore(
   return achievementSummary(ctx, claimed).score;
 }
 
-// 홈 배너용 — 지금 안내할 "현재 목표" 하나. 우선순위 = V2_QUESTS 정의 순서(성장 먼저, 라인
-// 섹션 표시 순서인 QUEST_LINES 와 무관) 내에서 수령 가능 > 진행 중. 전부 끝났으면 null.
+// 홈 배너용 — 사용자가 추적한 진행 중 업적을 우선하고, 없으면 V2_QUESTS 정의 순서 내에서
+// 수령 가능 > 진행 중 순으로 자동 추천한다. 추적 업적을 수령했거나 숨겨졌으면 자동 추천으로 복귀.
 export function currentGuideQuest(
   ctx: QuestCtx,
   claimed: ReadonlySet<string>,
+  trackedQuestId?: string | null,
 ): QuestView | null {
   const views = deriveQuestViews(ctx, claimed);
+  const tracked = trackedQuestId
+    ? views.find(
+        (view) =>
+          view.id === trackedQuestId &&
+          !isTutorialLine(view.line) &&
+          (view.status === "active" || view.status === "claimable"),
+      )
+    : null;
   return (
+    tracked ??
     views.find((v) => v.status === "claimable") ??
     views.find((v) => v.status === "active") ??
     null

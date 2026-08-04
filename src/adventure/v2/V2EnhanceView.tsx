@@ -72,6 +72,7 @@ import {
 import {
   QualityPctText,
   CraftQualityStars,
+  powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
 import { useSystemToast } from "./RewardToastProvider";
 
@@ -662,7 +663,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       craftQuality={selected.craftQuality}
                       className="shrink-0"
                     />
-                    <span className="truncate">{item.name}</span>
+                    <span
+                      className={`truncate ${powerNameClass(item, selected.roll, selected.enhance, selected.craftQuality)}`}
+                    >
+                      {item.name}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -852,7 +857,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       craftQuality={selected.craftQuality}
                       className="shrink-0"
                     />
-                    <span className="truncate">{item.name}</span>
+                    <span
+                      className={`truncate ${powerNameClass(item, selected.roll, selected.enhance, selected.craftQuality)}`}
+                    >
+                      {item.name}
+                    </span>
                   </div>
                 </div>
                 <button

@@ -30,7 +30,14 @@ type DiningState = {
   canManage: boolean;
   eligible: boolean;
   pantry: { points: number; target: number; remaining: number; ready: boolean };
-  tickets: { earned: number; used: number; available: number; contributionCap: number };
+  tickets: {
+    base: number;
+    contributionEarned: number;
+    earned: number;
+    used: number;
+    available: number;
+    contributionCap: number;
+  };
   contributionPoints: number;
   menuSlots: number;
   ingredients: Array<GuildDiningIngredient & { owned: number }>;
@@ -241,7 +248,8 @@ export function GuildDiningHallPanel() {
           />
         </div>
         <p className="mt-2 text-xs text-zinc-500">
-          내 기여 {state.contributionPoints}/{state.tickets.contributionCap}점 · 15점마다 식권 1장
+          모든 주간 참여 길드원 기본 {state.tickets.base}장 · 내 기여 {state.contributionPoints}/
+          {state.tickets.contributionCap}점 · 15점마다 추가 식권 1장
         </p>
       </section>
 
@@ -343,7 +351,12 @@ export function GuildDiningHallPanel() {
 
       <section className={`${SURFACE_INSET} space-y-2 p-3`}>
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-bold">이번 주 메뉴</h4>
+          <div>
+            <h4 className="text-sm font-bold">이번 주 메뉴</h4>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              식당 Lv.{state.level} · 동시에 {state.menuSlots}종 운영
+            </p>
+          </div>
           {menuEditable && (
             <button
               type="button"

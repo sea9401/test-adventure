@@ -45,7 +45,8 @@ export type V2ProficiencyState = {
   // 성장 규칙 마이그레이션 버전.
   // 1 = 레벨업 성장량 5→3 및 기존 grown 75% 압축 적용.
   growthScaleVersion?: number;
-  // 환생(재전직) 횟수 — advance-class 환생(같은/다른 직업 무관)마다 +1. cumLevel 과 별개의 "행동" 신호:
+  // 환생(재전직) 횟수 — 만렙을 요구하는 전투직에서 출발한 advance-class 환생마다 +1.
+  // Lv.1에서 반복 가능한 생활직 전환은 업적 악용을 막기 위해 기록하지 않는다. cumLevel 과 별개의 "행동" 신호:
   //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
   //   판정해, 같은 직업 재전직만으로도 깨지게 한다(한 생애 cumLevel ~99 < 101 사각지대 해소).
   reincarnations?: number;
@@ -547,7 +548,7 @@ export function addCumLevel(
   };
 }
 
-// 환생(재전직) 1회 기록 — reincarnations += 1. advance-class 환생 경로(같은/다른 직업 무관)에서 호출.
+// 환생(재전직) 1회 기록 — reincarnations += 1. 호출부가 만렙을 요구하는 전투직 재전직인지 판정한다.
 // 비파괴. cumLevel 과 독립(환생은 cumLevel 을 보존만 하고 더하지 않으므로, "환생했다"는 별도 신호 필요).
 export function addReincarnation(p: V2ProficiencyState): V2ProficiencyState {
   return { ...p, reincarnations: (p.reincarnations ?? 0) + 1 };

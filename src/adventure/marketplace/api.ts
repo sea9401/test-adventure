@@ -8,6 +8,7 @@ export type InboxItem = {
     | "bid_refund"
     | "buy_order_refund"
     | "buy_order_item"
+    | "buy_order_equipment"
     | "price_alert"
     | "purchase_item"
     | "cancel_return"

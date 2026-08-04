@@ -255,7 +255,7 @@ export function buildQuestCtx(args: {
 
   // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수.
   const cumLevel = totalCumLevel(prof);
-  // 재전직 횟수 — 숙련도 임계로 추측하지 않고 실제 행동 카운터를 사용한다.
+  // 전투직 재전직 횟수 — 생활직 반복 전환은 제외한 실제 행동 카운터를 사용한다.
   const reincarnations = prof.reincarnations ?? 0;
   const speciesKilled = Object.values(advLog.monsters ?? {}).filter(
     (m) => num(m?.kills) > 0,
@@ -411,6 +411,23 @@ export function parseClaimed(raw: unknown): Set<string> {
   const obj = (raw ?? {}) as { claimed?: unknown };
   if (!Array.isArray(obj.claimed)) return new Set();
   return new Set(obj.claimed.filter((x): x is string => typeof x === "string"));
+}
+
+export function parseTrackedQuestId(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const trackedQuestId = (raw as { trackedQuestId?: unknown }).trackedQuestId;
+  return typeof trackedQuestId === "string" && trackedQuestId.length > 0
+    ? trackedQuestId
+    : null;
+}
+
+export function guideQuestSavePayload(
+  claimed: ReadonlySet<string>,
+  trackedQuestId: string | null,
+): { claimed: string[]; trackedQuestId?: string } {
+  return trackedQuestId
+    ? { claimed: [...claimed], trackedQuestId }
+    : { claimed: [...claimed] };
 }
 
 export const GUIDE_QUESTS_KEY = "guide-quests.v2";

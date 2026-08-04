@@ -448,8 +448,8 @@ export function V2MasteryTowerView({
                       />
                     </div>
                     <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      명중 {status.nextGuardian.accuracy}% · 회피{" "}
-                      {status.nextGuardian.evasionPct}% · 치명타{" "}
+                      명중 능력 {status.nextGuardian.accuracy} · 회피 능력{" "}
+                      {status.nextGuardian.evasionPct} · 치명타{" "}
                       {status.nextGuardian.critPct}% · 추가타{" "}
                       {status.nextGuardian.bonusAttackChancePct}%{" "}
                       {status.nextGuardian.skills.length > 0

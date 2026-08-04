@@ -699,6 +699,13 @@ describe("currentGuideQuest (홈 배너)", () => {
     expect(cur?.line).toBe("combat");
   });
 
+  it("사용자가 추적한 진행 중 업적을 자동 추천보다 우선하고 완료되면 자동 추천으로 돌아간다", () => {
+    expect(currentGuideQuest(ZERO, none, "x_rich")?.id).toBe("x_rich");
+
+    const claimed = new Set(["x_rich"]);
+    expect(currentGuideQuest(ZERO, claimed, "x_rich")?.id).not.toBe("x_rich");
+  });
+
   it("전부 수령 → null", () => {
     const ctx: QuestCtx = {
       class: "warrior",

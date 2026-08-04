@@ -4,9 +4,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { savesStore, inboxRows } = vi.hoisted(() => ({
+const { savesStore, inboxRows, saveSelectRows } = vi.hoisted(() => ({
   savesStore: new Map<string, unknown>(),
   inboxRows: [] as Record<string, unknown>[],
+  saveSelectRows: [] as Record<string, unknown>[],
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -27,7 +28,7 @@ vi.mock("@/lib/server/savesKv", () => ({
   ),
 }));
 vi.mock("@/db", async () => {
-  const { marketplaceInbox } = await import("@/db/schema");
+  const { marketplaceInbox, savesKv } = await import("@/db/schema");
   const chain = (rows: unknown[]) => {
     const c: Record<string, unknown> = {
       where: () => c,
@@ -39,7 +40,14 @@ vi.mock("@/db", async () => {
   };
   const tx = {
     select: () => ({
-      from: (tbl: unknown) => chain(tbl === marketplaceInbox ? inboxRows : []),
+      from: (tbl: unknown) =>
+        chain(
+          tbl === marketplaceInbox
+            ? inboxRows
+            : tbl === savesKv
+              ? saveSelectRows
+              : [],
+        ),
     }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),
   };
@@ -60,9 +68,50 @@ function req(ids: number[]): Request {
 beforeEach(() => {
   savesStore.clear();
   inboxRows.length = 0;
+  saveSelectRows.length = 0;
 });
 
 describe("inbox claim — season_reward → 코인 지갑", () => {
+  it("판매 대금만 은행에 넣고 입찰금 반환은 보유 현금으로 돌려준다", async () => {
+    inboxRows.push(
+      {
+        id: 1,
+        kind: "sale_proceeds",
+        payload: { gold: 1_000 },
+        claimedAt: null,
+      },
+      {
+        id: 2,
+        kind: "bid_refund",
+        payload: { gold: 50 },
+        claimedAt: null,
+      },
+    );
+    saveSelectRows.push({ value: { gold: 100, bankedGold: 200 } });
+
+    const res = await POST(req([1, 2]));
+    const j = (await res.json()) as {
+      ok: boolean;
+      goldAdded: number;
+      bankedGoldAdded: number;
+      newGold: number;
+      newBankedGold: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(j).toMatchObject({
+      ok: true,
+      goldAdded: 50,
+      bankedGoldAdded: 1_000,
+      newGold: 150,
+      newBankedGold: 1_200,
+    });
+    expect(savesStore.get("u1::character.v2")).toMatchObject({
+      gold: 150,
+      bankedGold: 1_200,
+    });
+  });
+
   it("pvp/낚시/보물 보상이 각 지갑에 적립되고 claimed 마킹", async () => {
     inboxRows.push(
       {
@@ -290,4 +339,5 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(ch.materials).toEqual({ v2_red_enhance_stone: 5 });
     expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
   });
+
 });

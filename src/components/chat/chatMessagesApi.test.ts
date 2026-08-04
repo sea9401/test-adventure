@@ -48,4 +48,12 @@ describe("chatMessagesApi", () => {
     const previous = [message(1)];
     expect(mergeChatMessages(previous, [])).toBe(previous);
   });
+
+  it("늦게 도착한 최초 조회가 이미 전송한 내 메시지를 덮어쓰지 않는다", () => {
+    const sent = { ...message(51, "내 메시지"), mine: true };
+    const merged = mergeChatMessages([sent], [message(49), message(50)]);
+
+    expect(merged.map((entry) => entry.id)).toEqual([49, 50, 51]);
+    expect(merged.at(-1)).toEqual(sent);
+  });
 });

@@ -72,6 +72,7 @@ import {
   battleStartShield,
   healToShield,
   lowHpDamageReductionPct,
+  onCritSpeedBuff,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
   onSkillCastMpRefund,
@@ -1724,6 +1725,26 @@ export function castV2SkillOnAttackerTurnPvP(
       ((side.player.critChancePct ?? 0) > 0 &&
         Math.random() * 100 <
           Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0)));
+  // PvE와 동일하게 직접 피해 액티브 스킬 치명타도 on_crit 속도 고유 효과를 발동한다.
+  const sigSkillCritSpeed = onCritSpeedBuff(
+    side.player.equipSignatures,
+    skillCritFired,
+    result.enemyDamage > 0,
+  );
+  const activeSkillCritSpdMult =
+    side.buffs.playerSpdTurnsLeft > 0 ? side.buffs.playerSpdMult : 1;
+  const sigSkillCritSpdBuff = sigSkillCritSpeed
+    ? {
+        playerSpdMult: Math.max(
+          activeSkillCritSpdMult,
+          sigSkillCritSpeed.mult,
+        ),
+        playerSpdTurnsLeft: Math.max(
+          side.buffs.playerSpdTurnsLeft,
+          sigSkillCritSpeed.turns,
+        ),
+      }
+    : null;
   // 스킬 다단히트(PvE 미러) — 시전자가 이 턴 굴려둔 공격 횟수(attacksLeft)만큼 데미지 스킬 반복 타격.
   //   데미지 스킬에만(버프/힐/마나/DoT 부여는 1회). 추가 공격 0 빌드는 skillHitCount=1 → 기존 byte-동일.
   const skillHitCount =
@@ -1810,6 +1831,13 @@ export function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! 빗나갔다.`,
+      side: who,
+    });
+  }
+  if (sigSkillCritSpdBuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkillCritSpeed?.label ?? "군림"}] ${side.name} 결정타 — 속도가 솟구친다!`,
       side: who,
     });
   }
@@ -2046,6 +2074,9 @@ export function castV2SkillOnAttackerTurnPvP(
     ...side,
     hp: nextSideHp,
     mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
+    buffs: sigSkillCritSpdBuff
+      ? { ...side.buffs, ...sigSkillCritSpdBuff }
+      : side.buffs,
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
     v2SelfDebuffs: tickedSelfDebuffs,

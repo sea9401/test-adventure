@@ -1123,6 +1123,43 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     ).toBe(true);
   });
 
+  it("PvP 스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 500,
+        maxMp: 500,
+        atk: 100,
+        spd: 15,
+        critChancePct: 100,
+        equipSignatures: [
+          {
+            trigger: "on_crit",
+            label: "낙뢰",
+            spdBuffPct: 20,
+            buffActions: 2,
+          },
+        ],
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, spd: 5 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(s0, "p1");
+
+    expect(cast.state.p1.buffs.playerSpdMult).toBe(1.2);
+    expect(cast.state.p1.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[낙뢰]")),
+    ).toBe(true);
+  });
+
   it("흑월지배는 행운의 방패로 막은 공격에는 준비되지 않는다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(

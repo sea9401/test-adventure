@@ -128,7 +128,9 @@ describe("sim-v2-level-design", () => {
     expect(averageWinRate(20)).toBeLessThan(85);
     expect(averageWinRate(26)).toBeLessThan(70);
     expect(averageWinRate(32)).toBeLessThan(75);
-    expect(averageWinRate(38)).toBeLessThan(55);
+    // 스킬 치명타 1.5→1.7 상향 뒤에도 평균 60% 미만이어야 한다. 빌드별 편차가 커
+    // 특정 빌드의 돌파 가능성과 전체 저성장 캐릭터의 안정적 우회를 구분한다.
+    expect(averageWinRate(38)).toBeLessThan(60);
     expect(averageWinRate(42)).toBeLessThan(55);
   }, 15_000);
 

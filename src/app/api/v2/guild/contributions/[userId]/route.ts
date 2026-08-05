@@ -6,6 +6,7 @@ import {
 } from "@/adventure/data/v2/guildContribution";
 import { db } from "@/db";
 import {
+  guildActivityRollups,
   guildActivityLog,
   guildContributionEvents,
   guildMembers,
@@ -81,7 +82,15 @@ export async function GET(_req: Request, { params }: Ctx) {
     ]),
   );
 
-  const [categoryRows, goldRows, eventRows] = await Promise.all([
+  const archivedWhere = and(
+    eq(guildActivityRollups.guildId, viewer.guildId),
+    eq(guildActivityRollups.userId, targetUserId),
+    eq(guildActivityRollups.periodKey, "lifetime"),
+    notInArray(guildActivityRollups.source, [
+      ...GUILD_NON_PERSONAL_CONTRIBUTION_SOURCES,
+    ]),
+  );
+  const [categoryRows, archivedCategoryRows, goldRows, archivedGoldRows, eventRows] = await Promise.all([
     db
       .select({
         category: guildContributionEvents.category,
@@ -93,6 +102,14 @@ export async function GET(_req: Request, { params }: Ctx) {
       .groupBy(guildContributionEvents.category),
     db
       .select({
+        category: guildActivityRollups.category,
+        lifetimePoints: sql<number>`coalesce(sum(${guildActivityRollups.contributionPoints}), 0)::bigint`,
+      })
+      .from(guildActivityRollups)
+      .where(archivedWhere)
+      .groupBy(guildActivityRollups.category),
+    db
+      .select({
         lifetimeGoldDeposited: sql<number>`coalesce(sum(case when ${guildContributionEvents.source} = 'gold_deposit' and jsonb_typeof(${guildActivityLog.meta}->'amount') = 'number' then (${guildActivityLog.meta}->>'amount')::bigint else 0 end), 0)::bigint`,
         weeklyGoldDeposited: sql<number>`coalesce(sum(case when ${guildContributionEvents.source} = 'gold_deposit' and ${guildContributionEvents.createdAt} >= ${weekStartsAt} and jsonb_typeof(${guildActivityLog.meta}->'amount') = 'number' then (${guildActivityLog.meta}->>'amount')::bigint else 0 end), 0)::bigint`,
       })
@@ -102,6 +119,12 @@ export async function GET(_req: Request, { params }: Ctx) {
         eq(guildActivityLog.id, guildContributionEvents.activityLogId),
       )
       .where(personalContributionWhere),
+    db
+      .select({
+        lifetimeGoldDeposited: sql<number>`coalesce(sum(${guildActivityRollups.goldAmount}) filter (where ${guildActivityRollups.source} = 'gold_deposit'), 0)::bigint`,
+      })
+      .from(guildActivityRollups)
+      .where(archivedWhere),
     db
       .select({
         id: guildContributionEvents.id,
@@ -128,6 +151,10 @@ export async function GET(_req: Request, { params }: Ctx) {
     weeklyByCategory[row.category] = Number(row.weeklyPoints) || 0;
     lifetimeByCategory[row.category] = Number(row.lifetimePoints) || 0;
   }
+  for (const row of archivedCategoryRows) {
+    if (!isContributionCategory(row.category)) continue;
+    lifetimeByCategory[row.category] += Number(row.lifetimePoints) || 0;
+  }
   const weeklyPoints = Object.values(weeklyByCategory).reduce(
     (sum, points) => sum + points,
     0,
@@ -137,6 +164,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     0,
   );
   const gold = goldRows[0];
+  const archivedGold = archivedGoldRows[0];
 
   return Response.json({
     ok: true,
@@ -145,7 +173,9 @@ export async function GET(_req: Request, { params }: Ctx) {
     weeklyPoints,
     lifetimePoints,
     weeklyGoldDeposited: Number(gold?.weeklyGoldDeposited) || 0,
-    lifetimeGoldDeposited: Number(gold?.lifetimeGoldDeposited) || 0,
+    lifetimeGoldDeposited:
+      (Number(gold?.lifetimeGoldDeposited) || 0) +
+      (Number(archivedGold?.lifetimeGoldDeposited) || 0),
     weeklyByCategory,
     lifetimeByCategory,
     events: eventRows.flatMap((row) =>

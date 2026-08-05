@@ -27,7 +27,7 @@ const TIMER_SAVE_KEYS = [
   FARM_SAVE_KEY,
   FARM_READY_NOTIFICATION_SAVE_KEY,
 ] as const;
-const DELIVERY_RETENTION_MS = 180 * 24 * 60 * 60 * 1_000;
+const DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 
 type SaveMap = Map<string, unknown>;
 

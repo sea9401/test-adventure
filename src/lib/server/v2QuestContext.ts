@@ -41,9 +41,11 @@ import {
   type DbExecutor,
 } from "@/lib/server/savesKv";
 import {
+  guildActivityRollups,
   guildMembers,
   guildActivityLog,
   marketplaceListingsV2,
+  marketplaceUserTradeTotals,
   pvpRatings,
 } from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
@@ -355,6 +357,16 @@ export async function assembleQuestExtras(
       ),
     )
     .limit(1);
+  const archivedTradeRows = await ex
+    .select({ userId: marketplaceUserTradeTotals.userId })
+    .from(marketplaceUserTradeTotals)
+    .where(
+      and(
+        eq(marketplaceUserTradeTotals.userId, userId),
+        sql`${marketplaceUserTradeTotals.purchases} + ${marketplaceUserTradeTotals.sales} > 0`,
+      ),
+    )
+    .limit(1);
   const arenaRaw = await readSave(ex, userId, ARENA_HISTORY_KEY, {});
   const arenaAgg = await ex
     .select({
@@ -375,6 +387,22 @@ export async function assembleQuestExtras(
     })
     .from(guildActivityLog)
     .where(eq(guildActivityLog.actorUserId, userId));
+  const archivedGuildActivityAgg = await ex
+    .select({
+      diningMeals: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'dining_meal'), 0)::bigint`,
+      trainingDrills: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'training_drill_claim'), 0)::bigint`,
+      expeditions: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'exploration_expedition_claim'), 0)::bigint`,
+      workshopDeliveries: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'workshop_delivery'), 0)::bigint`,
+      alchemyCrafts: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'alchemy_craft'), 0)::bigint`,
+      tradeContracts: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'trade_contract_complete'), 0)::bigint`,
+    })
+    .from(guildActivityRollups)
+    .where(
+      and(
+        eq(guildActivityRollups.userId, userId),
+        eq(guildActivityRollups.periodKey, "lifetime"),
+      ),
+    );
   const arenaHistory = parseArenaHistory(arenaRaw);
 
   const fishCodex = parseFishCodex(fishRaw);
@@ -382,20 +410,30 @@ export async function assembleQuestExtras(
   const lifetimeArenaWins = Number(arenaAgg[0]?.wins ?? 0);
   return {
     hasGuild: guildRows.length > 0,
-    hasTraded: tradeRows.length > 0,
+    hasTraded: tradeRows.length > 0 || archivedTradeRows.length > 0,
     arenaPlayed: lifetimeArenaMatches > 0 || arenaHistory.length > 0,
     arenaWins: Math.max(
       lifetimeArenaWins,
       arenaHistory.filter((e) => e.outcome === "win").length,
     ),
-    guildDiningMeals: Number(guildActivityAgg[0]?.diningMeals ?? 0),
-    guildTrainingDrills: Number(guildActivityAgg[0]?.trainingDrills ?? 0),
-    guildExpeditions: Number(guildActivityAgg[0]?.expeditions ?? 0),
+    guildDiningMeals:
+      Number(guildActivityAgg[0]?.diningMeals ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.diningMeals ?? 0),
+    guildTrainingDrills:
+      Number(guildActivityAgg[0]?.trainingDrills ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.trainingDrills ?? 0),
+    guildExpeditions:
+      Number(guildActivityAgg[0]?.expeditions ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.expeditions ?? 0),
     guildWorkshopDeliveries: Number(
       guildActivityAgg[0]?.workshopDeliveries ?? 0,
-    ),
-    guildAlchemyCrafts: Number(guildActivityAgg[0]?.alchemyCrafts ?? 0),
-    guildTradeContracts: Number(guildActivityAgg[0]?.tradeContracts ?? 0),
+    ) + Number(archivedGuildActivityAgg[0]?.workshopDeliveries ?? 0),
+    guildAlchemyCrafts:
+      Number(guildActivityAgg[0]?.alchemyCrafts ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.alchemyCrafts ?? 0),
+    guildTradeContracts:
+      Number(guildActivityAgg[0]?.tradeContracts ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.tradeContracts ?? 0),
     fishSpecies: Object.keys(fishCodex.fish).length,
     fishCaught: Object.values(fishCodex.fish).reduce(
       (sum, e) => sum + Math.max(0, e.totalCaught ?? 0),

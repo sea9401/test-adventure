@@ -197,3 +197,35 @@ describe("/api/v2/cooking", () => {
     });
   });
 });
+
+describe("GET /api/v2/cooking — 농장 증표 잔액", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    seed();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("누적 획득량에서 사용량을 뺀 현재 보유 증표를 반환한다", async () => {
+    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
+    store.set("farm.v2", {
+      ...farm,
+      stats: {
+        ...farm.stats,
+        reputation: 120,
+        reputationSpent: 45,
+      },
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/v2/cooking"),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.farmReputation).toBe(75);
+  });
+});

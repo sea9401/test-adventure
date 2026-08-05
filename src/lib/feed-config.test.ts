@@ -18,8 +18,14 @@ describe("feed visibility config", () => {
     }
   });
 
-  it("전체 소식을 약 6개월 보관한다", () => {
-    expect(FEED_RETENTION_MS).toBe(180 * 24 * 60 * 60 * 1_000);
+  it("전체 소식을 30일 보관한다", () => {
+    expect(FEED_RETENTION_MS).toBe(30 * 24 * 60 * 60 * 1_000);
+  });
+
+  it("수행 각성은 전체 소식과 전광판에 노출한다", () => {
+    expect(FEED_TYPES).toContain("cultivation_awakening");
+    expect(WAR_FEED_TYPES).toContain("cultivation_awakening");
+    expect(FEED_HIDDEN_TYPES).not.toContain("cultivation_awakening");
   });
 
   it("수행 각성은 전체 소식과 전광판에 노출한다", () => {

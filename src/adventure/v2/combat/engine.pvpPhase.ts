@@ -10,6 +10,7 @@ import {
   endAttackerPhase,
   maybeApplyRuneCounter,
   maybeApplyMartialCounter,
+  pvpSideDamageTakenReductionPct,
   rollPvPAttackCount,
   scalePvPDamage,
   setSide,
@@ -34,7 +35,6 @@ import {
   healToShield,
   onCritEnemyDefDebuff,
   onCritEnemyChill,
-  lowHpDamageReductionPct,
   onCritSpeedBuff,
   onHitTakenDefGain,
   rollOnHitBleed,
@@ -514,16 +514,8 @@ export function advanceTurnPvP(
       ? Math.max(1, Math.floor(dmgAfterResolve * (1 - endurePct / 100)))
       : dmgAfterResolve;
   const endureApplied = enduredDmg < dmgAfterResolve;
-  // 받피감(패시브 passiveDamageTakenReductionPct·철벽검류 등) — 인내 다음·가드 전 곱연산, 최소 1.
-  //   PvE 전용이던 걸 미러(2026-06-19). 철포 버프(skillDmgReduce)는 별개로 미포함(여기선 패시브만).
-  // 고유 시그니처(성물·Phase 2) — 저체력 시 받피감 추가(PvP 미러). 미장착/조건미충족=0 → byte-identical.
-  const sigReducePct = lowHpDamageReductionPct(
-    defender.player.equipSignatures,
-    defender.hp,
-    defender.maxHp,
-  );
-  const passiveReducePct =
-    (defender.player.passiveDamageTakenReductionPct ?? 0) + sigReducePct;
+  // 받피감 — 패시브 + 액티브 임시 버프 + 저체력 성물을 합산해 인내 다음·가드 전에 적용한다.
+  const passiveReducePct = pvpSideDamageTakenReductionPct(defender);
   const passiveReduced =
     passiveReducePct > 0
       ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))

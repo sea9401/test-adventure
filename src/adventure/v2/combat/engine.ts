@@ -1677,6 +1677,16 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  const dmgReduceBuffForLog = result.selfBuffPctToApply.find(
+    (b) => b.target === "damageReduction",
+  );
+  if (dmgReduceBuffForLog) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "방어"}] 받는 피해 -${dmgReduceBuffForLog.pct}% (${dmgReduceBuffForLog.turns}행동)`,
+      turn: "player",
+    });
+  }
   if (result.enemyVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",

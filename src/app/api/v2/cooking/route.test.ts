@@ -32,7 +32,7 @@ vi.mock("@/lib/server/savesKv", () => ({
   ),
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 import {
   cookingFoodId,
   cookingOrderReward,
@@ -66,7 +66,7 @@ function seed() {
   return { cooking, farm };
 }
 
-describe("POST /api/v2/cooking — 완성 요리 납품", () => {
+describe("/api/v2/cooking", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -75,6 +75,26 @@ describe("POST /api/v2/cooking — 완성 요리 납품", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it("요리 화면에는 누적 획득량이 아닌 현재 보유 농장 증표를 표시한다", async () => {
+    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
+    store.set("farm.v2", {
+      ...farm,
+      stats: {
+        ...farm.stats,
+        reputation: 120,
+        reputationSpent: 45,
+      },
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/v2/cooking"),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.farmReputation).toBe(75);
   });
 
   it("일반 조리는 계속 완성품을 인벤토리에 저장한다", async () => {

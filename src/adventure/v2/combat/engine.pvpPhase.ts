@@ -867,7 +867,7 @@ export function advanceTurnPvP(
   // 고유 시그니처 on-crit(Phase 2·PvP 미러) — 군림=공격자 속도 버프, 독니=방어자 중독.
   //   미장착=null/false → byte-identical. critRoll + 피해 발생 게이트.
   const sigDealtDamage = totalDmg > 0;
-  // every-N(PvP 미러) — N타마다 추가타. 미장착(N=0)=카운터 불변·추가타 0 → byte-identical.
+  // every-N(PvP 미러) — 평타·스킬 공용 실제 적중 N회마다 추가 행동.
   const sigEvery = everyNHitsEffect(attacker.player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
@@ -883,7 +883,7 @@ export function advanceTurnPvP(
   if (sigExtraAttack > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} 연격 — 한 번 더!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} ${sigEveryN}회 적중 — 추가 행동!`,
     });
   }
   const sigCritSpeedBuff = onCritSpeedBuff(
@@ -1049,7 +1049,7 @@ export function advanceTurnPvP(
       playerShield: attacker.stacks.playerShield + attackerHealShieldAmount,
       evadesRemaining: attacker.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointLeft,
-      signatureHitCount: nextSigHitCount, // 포식자 every-N 카운터(미장착=불변)
+      signatureHitCount: nextSigHitCount, // 평타·스킬 공용 every-N 카운터(미장착=불변)
     },
     turn: {
       ...attacker.turn,

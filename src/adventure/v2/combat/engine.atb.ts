@@ -392,6 +392,17 @@ export function resolveBattleAtb(
               },
             };
             state = finishPlayerTurn(ended, atbPlayer, playerName);
+            if (cast.signatureExtraActions > 0) {
+              // 스킬 적중으로 발생한 보너스 행동은 같은 ATB 시점에서 즉시 평타 행동으로
+              // 처리한다. 아래 공용 평타 루프를 열기 위해 castFired 를 해제한다.
+              state = {
+                ...state,
+                phase: "player",
+                playerAttacksLeft: cast.signatureExtraActions,
+                turn: { ...state.turn, firstAttackPending: true },
+              };
+              castFired = false;
+            }
           }
           // 틱 스탬프는 cast + 처치 승리 로그 + finishPlayerTurn(재생/격노 등) 로그를 모두 포함하도록
           //   이 시점에서 한 번에 — 위 분기들이 prevLogLen 이후로 append 한 엔트리가 t 누락(외톨이 박스)

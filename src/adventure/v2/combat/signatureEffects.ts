@@ -266,7 +266,7 @@ export function onDodgeHealAmount(
   return amt;
 }
 
-// every_n_hits — 추가타 주기 N(가장 작은 N = 가장 자주)과 발동 라벨.
+// every_n_hits — 평타·스킬 공용 실제 적중 주기 N(가장 작은 N = 가장 자주)과 발동 라벨.
 export function everyNHitsEffect(
   signatures: SignatureEffect[] | undefined,
 ): { hits: number; label: string } | null {

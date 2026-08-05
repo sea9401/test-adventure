@@ -430,7 +430,7 @@ export type SignatureEffect = {
   healToShieldPct?: number;
   /** status_block_once: 전투당 1회 DoT/한기 등 상태이상 부여를 막는다. */
   statusBlockOnce?: boolean;
-  /** every_n_hits: 이 횟수마다 1회 추가타. */
+  /** every_n_hits: 평타·스킬의 실제 적중 횟수가 이 값에 도달할 때마다 추가 행동 1회. */
   everyNHits?: number;
 };
 
@@ -472,7 +472,7 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "status_block_once":
       return "전투당 1회 상태이상 무효";
     case "every_n_hits":
-      return `${sig.everyNHits ?? 0}타마다 추가타 1회`;
+      return `${sig.everyNHits ?? 0}회 공격 적중마다 추가 행동 1회`;
   }
 }
 
@@ -755,7 +755,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
         signature: {
           trigger: "every_n_hits",
           label: "연격각인",
-          everyNHits: 4,
+          everyNHits: 3,
         },
       },
     ],

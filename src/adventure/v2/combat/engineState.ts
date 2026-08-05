@@ -187,7 +187,7 @@ export type BattleStacks = {
   comboAtkBonus: number;
   // 절초(연환) — 전투 내 누적 적중 횟수(마무리 강타 주기 판정용).
   comboHitCount: number;
-  // 고유 시그니처(포식자) — 전투 내 누적 적중 횟수(N타마다 추가타 주기·Phase 2). every_n_hits
+  // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 행동). every_n_hits
   //   시그니처 미장착이면 0 고정(증가 안 함) → byte-identical.
   signatureHitCount: number;
   // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).

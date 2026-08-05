@@ -35,6 +35,7 @@ import {
 import {
   battleStartShield,
   healToShield,
+  onCritSpeedBuff,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
   onSkillCastMpRefund,
@@ -1574,6 +1575,26 @@ export function applyPlayerV2SkillCast(
     (skillCritAfterEvadeFired ||
       ((player.critChancePct ?? 0) > 0 &&
         Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0)));
+  // 치명타 발동형 고유 효과는 평타뿐 아니라 직접 피해 액티브 스킬 치명타에도 적용한다.
+  const sigSkillCritSpeed = onCritSpeedBuff(
+    player.equipSignatures,
+    skillCritFired,
+    result.enemyDamage > 0,
+  );
+  const activeSkillCritSpdMult =
+    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
+  const sigSkillCritSpdBuff = sigSkillCritSpeed
+    ? {
+        playerSpdMult: Math.max(
+          activeSkillCritSpdMult,
+          sigSkillCritSpeed.mult,
+        ),
+        playerSpdTurnsLeft: Math.max(
+          state.buffs.playerSpdTurnsLeft,
+          sigSkillCritSpeed.turns,
+        ),
+      }
+    : null;
   // 스킬 다단히트 — 이 턴 추가 공격 확률로 굴려둔 공격 횟수(playerAttacksLeft)만큼 데미지
   //   스킬을 반복 타격한다. 평타 빌드가 누리는 SPD(추가 공격) 가치를 스킬 빌드에도 부여.
   //   데미지 스킬에만 적용(버프/힐/마나/DoT 부여는 1회 — 다중 적용 X). 새 RNG 미소비(이미
@@ -1677,6 +1698,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! 빗나갔다.`,
+    });
+  }
+  if (sigSkillCritSpdBuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkillCritSpeed?.label ?? "군림"}] 결정타 — 속도가 솟구친다!`,
+      turn: "player",
     });
   }
   // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
@@ -1867,6 +1895,9 @@ export function applyPlayerV2SkillCast(
     v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
     enemyV2Debuffs: nextEnemyDebuffs,
     enemyV2Dots: nextEnemyDots,
+    buffs: sigSkillCritSpdBuff
+      ? { ...state.buffs, ...sigSkillCritSpdBuff }
+      : state.buffs,
     flags: skillCritAfterEvadeFired
       ? { ...state.flags, skillCritAfterEvadePending: false }
       : state.flags,

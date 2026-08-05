@@ -341,8 +341,12 @@ describe("onCritSpeedBuff (군림 크리 속도)", () => {
     expect(onCritSpeedBuff(undefined, true, true)).toBeNull(); // 미장착
   });
 
-  it("크리 + 피해 → {배수, 지속} (spdBuffPct 20 → 1.2 / 2행동)", () => {
-    expect(onCritSpeedBuff([CROWN], true, true)).toEqual({ mult: 1.2, turns: 2 });
+  it("크리 + 피해 → {배수, 지속, 라벨} (spdBuffPct 20 → 1.2 / 2행동)", () => {
+    expect(onCritSpeedBuff([CROWN], true, true)).toEqual({
+      mult: 1.2,
+      turns: 2,
+      label: "군림",
+    });
   });
 
   it("on_crit 아닌 트리거/spdBuffPct 없는 건 무시", () => {
@@ -361,6 +365,7 @@ describe("onCritSpeedBuff (군림 크리 속도)", () => {
     expect(onCritSpeedBuff([weaker, CROWN], true, true)).toEqual({
       mult: 1.2,
       turns: 2,
+      label: "군림",
     });
   });
 });

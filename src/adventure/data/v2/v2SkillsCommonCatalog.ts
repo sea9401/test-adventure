@@ -1819,7 +1819,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "어둠이 덮이는 순간 파고든다. 첫 일격과 마무리에 모두 강하다.",
     mpCost: 52, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
-      { kind: "ambushDamage", statCoef: 0.22, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 3.0, scaling: "luk" },
+      { kind: "ambushDamage", statCoef: 0.22, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 4.0, scaling: "luk" },
       { kind: "executeDamage", statCoef: 0.26, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 2.0, scaling: "luk" },
     ],
   },

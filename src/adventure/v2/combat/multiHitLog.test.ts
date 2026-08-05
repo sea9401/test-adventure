@@ -267,4 +267,37 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
       expectedDamage.v2c_blooddemon_reign,
     );
   });
+
+  it("월식의 4배 오프너는 같은 조건에서 하위 기습보다 강하다", () => {
+    const castOpener = (
+      skillId: "v2c_phantom_ambush" | "v2c_nightshade_eclipse",
+    ) =>
+      resolveV2SkillCast({
+        skills: { learned: [skillId], equipped: [skillId] },
+        cooldowns: {},
+        attacker: {
+          mp: 9999,
+          atk: 1000,
+          luk: 1000,
+          maxHp: 10000,
+          currentHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: {
+          def: 0,
+          currentHp: 10000,
+          maxHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      }).enemyDamage;
+
+    expect(V2_SKILLS.v2c_nightshade_eclipse.effects[0]).toMatchObject({
+      kind: "ambushDamage",
+      bonusMult: 4,
+    });
+    expect(castOpener("v2c_phantom_ambush")).toBe(4020);
+    expect(castOpener("v2c_nightshade_eclipse")).toBe(4140);
+  });
 });

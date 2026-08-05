@@ -730,6 +730,52 @@ describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용
   });
 });
 
+describe("엔진 통합 — 장비 발동형 속도 버프의 패턴 조건 연동 (PvE)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("군림과 같은 임시 속도 버프가 '내 속도 버프 있음' 조건을 충족한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const player = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+    }).player;
+    const base = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 999, atk: 0, def: 0 },
+      "용사",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+        pattern: {
+          blocks: [
+            {
+              condition: { kind: "self_buff", stat: "spd", active: true },
+              action: { kind: "skill", skillId: "v2_skill_strike" },
+            },
+          ],
+        },
+      },
+    );
+    const ticked = { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} };
+
+    expect(applyPlayerV2SkillCast(base, player, ticked).castFired).toBe(false);
+    expect(
+      applyPlayerV2SkillCast(
+        {
+          ...base,
+          buffs: {
+            ...base.buffs,
+            playerSpdMult: 1.2,
+            playerSpdTurnsLeft: 2,
+          },
+        },
+        player,
+        ticked,
+      ).castFired,
+    ).toBe(true);
+  });
+});
+
 describe("엔진 통합 — status_block_once 가 첫 한기 부여를 막는다 (PvE)", () => {
   afterEach(() => vi.restoreAllMocks());
 

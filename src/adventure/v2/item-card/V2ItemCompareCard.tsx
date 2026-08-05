@@ -110,23 +110,32 @@ export function EquipmentPowerPreviewBlock({
 function CompareStatRow({
   label,
   value,
+  detail,
   deltaText,
   better,
 }: {
   label: string;
   value: string;
+  detail?: string;
   deltaText?: string;
   better?: number;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 text-xs">
+    <div className="flex items-start justify-between gap-2 text-xs">
       <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
-      <span className="flex items-baseline gap-1 tabular-nums">
-        <span className="text-zinc-700 dark:text-zinc-200">{value}</span>
-        {deltaText ? (
-          <span className={`text-[11px] ${compareDeltaClass(better ?? 0)}`}>
-            {deltaText.startsWith("-") ? "▼" : "▲"}
-            {deltaText}
+      <span className="min-w-0 text-right tabular-nums">
+        <span className="flex items-baseline justify-end gap-1">
+          <span className="text-zinc-700 dark:text-zinc-200">{value}</span>
+          {deltaText ? (
+            <span className={`text-[11px] ${compareDeltaClass(better ?? 0)}`}>
+              {deltaText.startsWith("-") ? "▼" : "▲"}
+              {deltaText}
+            </span>
+          ) : null}
+        </span>
+        {detail ? (
+          <span className="mt-0.5 block text-[9px] leading-tight text-zinc-500 dark:text-zinc-400">
+            {detail}
           </span>
         ) : null}
       </span>
@@ -368,7 +377,12 @@ export function V2ItemCompareCard({
                 </span>
               ) : (
                 equippedRows.map((r) => (
-                  <CompareStatRow key={r.label} label={r.label} value={r.value} />
+                  <CompareStatRow
+                    key={r.label}
+                    label={r.label}
+                    value={r.value}
+                    detail={r.detail}
+                  />
                 ))
               )}
             </div>
@@ -402,6 +416,7 @@ export function V2ItemCompareCard({
                     key={r.label}
                     label={r.label}
                     value={r.value}
+                    detail={r.detail}
                     deltaText={r.deltaText}
                     better={r.better}
                   />

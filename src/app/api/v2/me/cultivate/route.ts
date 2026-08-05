@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -12,6 +13,7 @@ import {
   totalCapGains,
   capGain,
   effectiveStatCap,
+  refundableCultivationPoints,
   V2_CULTIVATE_PROFILE,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
@@ -80,10 +82,19 @@ export async function POST() {
         cultivations: nextCult,
         capGains: totalCapGains(applied.next),
         points: usablePoints(applied.next),
+        cultivationPointsSpent: refundableCultivationPoints(applied.next),
         nextCost: cultivationCost(totalCapGains(applied.next)),
       },
     };
   });
+
+  // 수행 각성(×5)은 트랜잭션이 성공적으로 커밋된 뒤 서버 전체 소식에 기록한다.
+  // 피드 기록 실패는 수행 결과를 되돌리지 않으며, insertFeedEntry 내부에서 안전하게 처리한다.
+  if (result.body.ok && result.body.mult === 5) {
+    await insertFeedEntry(userId, "cultivation_awakening", {
+      cultivationMult: 5,
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

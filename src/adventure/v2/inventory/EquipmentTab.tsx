@@ -38,6 +38,7 @@ export function EquipmentTab({
   frontierDepth,
   onBulkSell,
   onOpenCard,
+  onRegisterCodex,
 }: {
   slot: V2EquipSlot;
   instances: V2EquipInstance[];
@@ -51,6 +52,7 @@ export function EquipmentTab({
   frontierDepth: number;
   onBulkSell: (opts: BulkSellOpts, label: string) => void;
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
+  onRegisterCodex: (inst: V2EquipInstance) => void;
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
 
@@ -150,6 +152,8 @@ export function EquipmentTab({
           isEquipped: equippedIid === inst.iid,
         }))}
         onOpenCard={onOpenCard}
+        onRegisterCodex={onRegisterCodex}
+        codexBusyIid={busy}
         frontierDepth={frontierDepth}
       />
       <Pagination

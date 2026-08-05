@@ -83,3 +83,18 @@ describe("WarTicker 협동 보스 시각", () => {
     expect(visibleIds).not.toContain(3);
   });
 });
+
+describe("WarTicker 수행 각성", () => {
+  it("각성한 캐릭터 이름과 5배 결과를 표시한다", () => {
+    const awakened = entry(
+      5,
+      "cultivation_awakening",
+      { cultivationMult: 5 },
+      NOW,
+    );
+
+    expect(warTickerText(awakened, NOW)).toBe(
+      "모험가5 님이 수행에서 각성! 스탯 한계치 증가량 ×5",
+    );
+  });
+});

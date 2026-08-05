@@ -18,6 +18,7 @@ import {
   makePoisonDot,
   potionHealAmount,
   applyComboFinisherToHits,
+  removeMissedV2SkillTargetEffects,
   resolveV2SkillCast,
   type V2SkillCastResult,
   type V2SkillDotApply,
@@ -29,6 +30,7 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
+  v2SkillHasTargetEffects,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -1484,13 +1486,19 @@ export function applyPlayerV2SkillCast(
       currentHp: state.playerHp,
       maxMp: state.playerMaxMp,
       classTier: player.classTier,
-      // 활성 파생버프(회피/치명/받피감) — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포).
+      // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
       selfShieldActive: state.stacks.playerShield > 0,
+      // 군림·질주·적랑 등 장비 발동형 속도 버프는 v2SelfBuffs 가 아니라 BattleBuffs 에 저장된다.
+      selfStatBuffActive: {
+        spd: state.buffs.playerSpdTurnsLeft > 0,
+      },
       selfBuffPctActive: {
         evasion: state.stacks.skillEvasionTurns > 0,
         crit: state.stacks.skillCritTurns > 0,
         damageReduction: state.stacks.skillDmgReduceTurns > 0,
         reflectDamage: state.stacks.skillReflectBoostTurns > 0,
+        regen: state.stacks.skillRegenTurns > 0,
+        guaranteedEvade: state.stacks.evadesRemaining > 0,
       },
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
@@ -1515,24 +1523,18 @@ export function applyPlayerV2SkillCast(
       enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
     },
   });
-  // 스킬도 명중 영향(2026-06-06) — 데미지 스킬은 발동 후 미스 판정(평타와 같은 공식). 미스면 적
-  //   효과(데미지·DoT·디버프)만 무효, MP·쿨다운은 발동 시점에 소모됨·자버프/자힐은 유지. 데미지>0
-  //   일 때만 롤(스킬 안 터졌거나 자버프 스킬엔 롤 안 함 → RNG 드리프트 방지).
+  // 스킬도 명중 영향(2026-06-06) — 상대 대상 효과가 있으면 발동 후 미스 판정(평타와 같은 공식).
+  // 미스면 피해·DoT·디버프·제어를 모두 무효화하고, MP·쿨다운·자버프·자힐은 유지한다.
+  // 자기 대상 효과만 있는 스킬에는 롤하지 않아 RNG 드리프트를 막는다.
   let skillMissed = false;
-  if (result.castSkillId && result.enemyDamage > 0) {
+  if (result.castSkillId && v2SkillHasTargetEffects(result)) {
     // 회피 대결형 Slice 2(B안) — 평타와 같은 공식. 몹 회피레이팅(정밀 반영) vs 플레이어 명중레이팅.
     const sEnemyEvaR =
       Math.max(0, state.enemy.evasionPct ?? 0) * (player.precisionEvasionMult ?? 1);
     const sMissPct = attackMissPct(sEnemyEvaR, player.accRating ?? player.accuracyPct ?? 0);
     if (Math.random() * 100 < sMissPct) {
       skillMissed = true;
-      result = {
-        ...result,
-        enemyDamage: 0,
-        magicEnemyDamage: 0,
-        dotsToApplyToTarget: [],
-        enemyDebuffsToApply: [],
-      };
+      result = removeMissedV2SkillTargetEffects(result);
     }
   }
   // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).

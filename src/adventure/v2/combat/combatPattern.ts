@@ -19,6 +19,13 @@ export type V2PatternEnemyDebuff =
   | "vulnerability"
   | "damageDown"
   | "skillProcDown";
+export type V2PatternSelfStatus =
+  | "evasion"
+  | "crit"
+  | "damageReduction"
+  | "reflectDamage"
+  | "regen"
+  | "guaranteedEvade";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -36,7 +43,7 @@ export type V2CombatCondition =
   // 내 파생 버프(회피/치명/받피감/반사피해 = selfBuffPct) 활성/미활성 — 만료 시 재시전.
   | {
       kind: "self_buff_pct";
-      target: "evasion" | "crit" | "damageReduction" | "reflectDamage";
+      target: V2PatternSelfStatus;
       active: boolean;
     }
   // 적 HP 비율.
@@ -69,7 +76,8 @@ export type V2PatternCtx = {
   selfMpPct: number; // 0~100
   selfShieldActive: boolean;
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
-  selfBuffPctTargets: ReadonlySet<"evasion" | "crit" | "damageReduction" | "reflectDamage">; // 활성 파생버프
+  // 내부 필드명은 기존 저장/호출부 호환을 위해 유지. 능력치 밖의 활성 상태 효과 전체를 담는다.
+  selfBuffPctTargets: ReadonlySet<V2PatternSelfStatus>;
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
   enemyPoison: number;
@@ -315,7 +323,9 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.target === "evasion" ||
         c.target === "crit" ||
         c.target === "damageReduction" ||
-        c.target === "reflectDamage"
+        c.target === "reflectDamage" ||
+        c.target === "regen" ||
+        c.target === "guaranteedEvade"
           ? c.target
           : null;
       if (!target || typeof c.active !== "boolean") return null;

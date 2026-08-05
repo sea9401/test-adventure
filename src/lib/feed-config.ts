@@ -41,6 +41,7 @@ export const FEED_TYPES = [
   "coop_summon",
   "coop_kill",
   "fishing_big_catch",
+  "cultivation_awakening",
   "newcomer",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
@@ -63,6 +64,8 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "coop_summon",
   "coop_kill",
   "fishing_big_catch",
+  // 수행 각성(×5)은 1.5% 희귀 사건이라 서버 전체 전광판에 알린다.
+  "cultivation_awakening",
   // newcomer = 전쟁 사건은 아니지만 "서버 전체에 알리는 한 줄"이라 같은 상단 전광판에 태운다
   // (enhance_high 가 전쟁 아님에도 여기 묶인 것과 같은 취지 — 전광판 = 서버 공지 묶음).
   "newcomer",
@@ -142,6 +145,8 @@ export type FeedPayload =
   | { kind: string; sessionId?: string; expiresAt?: number }
   // fishing_big_catch — 낚시 대물(종 크기 상위 구간 + 개인 신기록). 어종명은 클라가 FISH 해석.
   | { fishId: string; size: number }
+  // cultivation_awakening — 수행 ×5 각성. 배수는 과거 표시 호환과 검증을 위해 함께 저장.
+  | { cultivationMult: number }
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
   | { newcomer: true };
 

@@ -259,8 +259,15 @@ export function StatRow({ row }: { row: V2EquipStatRow }) {
       <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
         {row.label}
       </span>
-      <span className="min-w-0 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-        {row.value}
+      <span className="min-w-0 text-right tabular-nums">
+        <span className="block text-emerald-600 dark:text-emerald-400">
+          {row.value}
+        </span>
+        {row.detail ? (
+          <span className="mt-0.5 block text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
+            {row.detail}
+          </span>
+        ) : null}
       </span>
     </div>
   );

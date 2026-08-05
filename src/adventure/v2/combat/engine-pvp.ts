@@ -55,6 +55,7 @@ import {
   makePoisonDot,
   potionHealAmount,
   applyComboFinisherToHits,
+  removeMissedV2SkillTargetEffects,
   resolveV2SkillCast,
   type V2SkillDotApply,
   distributeBoostedHits,
@@ -65,6 +66,7 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
+  v2SkillHasTargetEffects,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -1603,11 +1605,16 @@ export function castV2SkillOnAttackerTurnPvP(
       allStatTotal: side.player.allStatTotal,
       // 활성 파생버프 — 조건식이 만료된 버프만 다시 시전하도록 실제 PvP 스택을 전달한다.
       selfShieldActive: side.stacks.playerShield > 0,
+      selfStatBuffActive: {
+        spd: side.buffs.playerSpdTurnsLeft > 0,
+      },
       selfBuffPctActive: {
         evasion: side.stacks.skillEvasionTurns > 0,
         crit: side.stacks.skillCritTurns > 0,
         damageReduction: side.stacks.skillDmgReduceTurns > 0,
         reflectDamage: side.stacks.skillReflectBoostTurns > 0,
+        regen: side.stacks.skillRegenTurns > 0,
+        guaranteedEvade: side.stacks.evadesRemaining > 0,
       },
       currentHp: side.hp,
       maxMp: side.maxMp,
@@ -1631,61 +1638,43 @@ export function castV2SkillOnAttackerTurnPvP(
       magicVulnStacks: opp.stacks.magicVulnStacks,
     },
   });
-  // 스킬도 명중 영향 — 데미지 스킬 발동 후 미스 판정(평타와 같은 공식). 미스면 적 효과만 무효
-  //   (MP·쿨다운 소모됨·자버프/자힐 유지). 데미지>0 일 때만 롤(RNG 드리프트 방지).
+  // 스킬도 명중 영향 — 상대 대상 효과가 있으면 발동 후 미스 판정(평타와 같은 공식). 미스면
+  //   피해·DoT·디버프·제어를 모두 무효화하고 MP·쿨다운·자버프·자힐은 유지한다.
   let skillMissed = false;
   let skillGuaranteedEvaded = false;
-  if (result.castSkillId && result.enemyDamage > 0) {
+  if (
+    result.castSkillId &&
+    result.enemyDamage > 0 &&
+    opp.stacks.evadesRemaining > 0
+  ) {
     // 그림자 도약 등 보장 회피는 평타뿐 아니라 다음 직접 피해 스킬에도 우선 적용한다.
     // 스킬 다단히트는 일반 명중 판정과 마찬가지로 한 번의 공격 행동으로 취급해 전체를 회피한다.
-    if (opp.stacks.evadesRemaining > 0) {
-      skillGuaranteedEvaded = true;
-      result = {
-        ...result,
-        enemyDamage: 0,
-        magicEnemyDamage: 0,
-        dotsToApplyToTarget: [],
-        enemyDebuffsToApply: [],
-        enemyVulnToApply: undefined,
-        enemyEvasionDownToApply: undefined,
-        enemyAccuracyDownToApply: undefined,
-        enemyDelayToApply: undefined,
-        enemyHealReduceToApply: undefined,
-        enemyDamageDownToApply: undefined,
-        enemySkillProcDownToApply: undefined,
-        enemyDotVulnToApply: undefined,
-      };
-    } else {
-      // 평타 미스 공식과 동일(회피 대결형 Slice 2 B안) — 방어자 회피레이팅(정밀·이중행운·만물행운·회전
-      //   운기·선풍각 합) vs 공격자 명중레이팅. ⚠️ 평타 missPct(engine.pvpPhase.ts)와 동기화 유지.
-      const sPrecisionMult = side.player.precisionEvasionMult ?? 1;
-      const sLuckEvadeBonus = opp.flags.luckyBuffActive
-        ? opp.player.doubleLuck?.evade ?? 0
-        : 0;
-      const sSkillEvadeBonus =
-        opp.stacks.skillEvasionTurns > 0 ? opp.stacks.skillEvasionPct : 0;
-      const sDefenderEvaR = Math.max(
-        0,
-        (opp.player.evaRating ?? opp.player.evasionPct ?? 0) * sPrecisionMult +
-          sLuckEvadeBonus +
-          (opp.player.universalLuckBonusPct ?? 0) +
-          opp.buffs.cyclingChiBonus +
-          sSkillEvadeBonus,
-      );
-      const sMissPct = pvpAttackMissPct(
-        sDefenderEvaR,
-        side.player.accRating ?? side.player.accuracyPct ?? 0,
-      );
-      if (Math.random() * 100 < sMissPct) {
-        skillMissed = true;
-        result = {
-          ...result,
-          enemyDamage: 0,
-          magicEnemyDamage: 0,
-          dotsToApplyToTarget: [],
-          enemyDebuffsToApply: [],
-        };
-      }
+    skillGuaranteedEvaded = true;
+    result = removeMissedV2SkillTargetEffects(result);
+  } else if (result.castSkillId && v2SkillHasTargetEffects(result)) {
+    // 평타 미스 공식과 동일(회피 대결형 Slice 2 B안) — 방어자 회피레이팅(정밀·이중행운·만물행운·회전
+    //   운기·선풍각 합) vs 공격자 명중레이팅. ⚠️ 평타 missPct(engine.pvpPhase.ts)와 동기화 유지.
+    const sPrecisionMult = side.player.precisionEvasionMult ?? 1;
+    const sLuckEvadeBonus = opp.flags.luckyBuffActive
+      ? opp.player.doubleLuck?.evade ?? 0
+      : 0;
+    const sSkillEvadeBonus =
+      opp.stacks.skillEvasionTurns > 0 ? opp.stacks.skillEvasionPct : 0;
+    const sDefenderEvaR = Math.max(
+      0,
+      (opp.player.evaRating ?? opp.player.evasionPct ?? 0) * sPrecisionMult +
+        sLuckEvadeBonus +
+        (opp.player.universalLuckBonusPct ?? 0) +
+        opp.buffs.cyclingChiBonus +
+        sSkillEvadeBonus,
+    );
+    const sMissPct = pvpAttackMissPct(
+      sDefenderEvaR,
+      side.player.accRating ?? side.player.accuracyPct ?? 0,
+    );
+    if (Math.random() * 100 < sMissPct) {
+      skillMissed = true;
+      result = removeMissedV2SkillTargetEffects(result);
     }
   }
   // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.

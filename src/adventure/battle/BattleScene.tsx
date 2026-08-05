@@ -572,6 +572,16 @@ export function BattleScene({
                 <div className="truncate text-center text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
                   {state.enemy.name}
                 </div>
+                {/* 플레이어 부제가 표시되는 전투에서는 적 쪽에도 같은 높이의 빈 줄을 예약한다.
+                    두 HP 바가 모바일·PC 모두 같은 수평선에 놓이도록 하는 정렬용 공간이다. */}
+                {playerSubtitle && (
+                  <div
+                    aria-hidden="true"
+                    className="-mt-1 select-none truncate text-center text-[11px] text-transparent"
+                  >
+                    &nbsp;
+                  </div>
+                )}
                 <HpBar
                   compact
                   label="HP"

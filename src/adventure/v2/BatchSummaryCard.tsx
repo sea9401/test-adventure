@@ -27,6 +27,10 @@ import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { RewardNotice } from "@/adventure/v2/RewardNotice";
+import {
+  huntEndReasonText,
+  type HuntEndReason,
+} from "@/adventure/v2/huntEndNotice";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
 
@@ -71,24 +75,21 @@ export type BatchSummary = {
   rareMapDrops?: RareMapKindId[];
   rareMapDropInstances?: RareMapInstance[];
   stoppedReason?:
-    | "stamina"
-    | "death"
-    | "defeat"
-    | "recovery"
-    | "error"
-    | "potion"
-    | "rare_map"
-    | "level_100"
+    | Exclude<HuntEndReason, "rare_map_exhausted" | "request_failed">
     | null;
   replays?: BatchReplayEntry[];
 };
 
 export function BatchSummaryCard({
   summary,
+  remainingStamina,
+  potionThreshold = 0,
   onSelectReplay,
   onEnterRareMap,
 }: {
   summary: BatchSummary;
+  remainingStamina?: number;
+  potionThreshold?: number;
   onSelectReplay?: (entry: BatchReplayEntry) => void;
   onEnterRareMap?: (map: RareMapInstance) => void;
 }) {
@@ -260,6 +261,11 @@ export function BatchSummaryCard({
           </span>
         )}
       </div>
+      {remainingStamina != null && (
+        <p className="mt-1 text-center text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+          전투 종료 · 남은 스태미너 {remainingStamina.toLocaleString()}
+        </p>
+      )}
       {summary.losses > 0 && (
         <GoldLossNotice
           loss={summary.totalLossTax ?? 0}
@@ -301,21 +307,9 @@ export function BatchSummaryCard({
       )}
       {summary.stoppedReason && summary.stoppedReason !== null && (
         <p className="mt-2 text-center text-xs text-amber-600 dark:text-amber-400">
-          {summary.stoppedReason === "stamina"
-            ? "스태미너 부족으로 중단"
-            : summary.stoppedReason === "death" ||
-                summary.stoppedReason === "defeat"
-              ? "패배로 중단"
-              : summary.stoppedReason === "recovery"
-                ? "체력 부족으로 중단"
-                : summary.stoppedReason === "potion"
-                  ? "충전약 정지 조건으로 중단"
-                  : summary.stoppedReason === "rare_map"
-                    ? "희귀 탐사맵 발견으로 중단"
-                    : summary.stoppedReason === "level_100"
-                      ? "레벨 100 도달로 중단"
-                : "오류로 중단"}{" "}
-          ({summary.completed}/{summary.attempted})
+          예정보다 일찍 중단 ·{" "}
+          {huntEndReasonText(summary.stoppedReason, potionThreshold)} (
+          {summary.completed}/{summary.attempted}회)
         </p>
       )}
       {(summary.replays?.length ?? 0) > 0 && onSelectReplay && (

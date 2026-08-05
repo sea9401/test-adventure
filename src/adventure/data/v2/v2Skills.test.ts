@@ -76,6 +76,12 @@ describe("결계사 마법 방어 패시브", () => {
     expect(V2_SKILLS.v2c_ritualist_guardingarray?.effects).toEqual([
       { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
     ]);
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_ritualist_guardingarray),
+    ).toContain("받는 피해 -14% (3행동)");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_ritualist_guardingarray),
+    ).not.toContain("받는 피해 감소 +14% (3행동)");
     expect(V2_SKILLS.v2c_ritualist_wardcraft?.passive).toMatchObject({
       magicDefPct: 25,
       openingMagicDamageReductionPct: 15,
@@ -516,6 +522,14 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     });
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_steelguard)).toEqual({
       kind: "always",
+    });
+    // 지속 회복은 HP가 낮고 같은 상태 효과가 없을 때만 갱신한다.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_eternal_cycle)).toEqual({
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 60 },
+        { kind: "self_buff_pct", target: "regen", active: false },
+      ],
     });
     // 전투당 1회 보장 회피는 첫 턴에 사용하는 생존 오프너.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_shadow_shadowstep)).toEqual({

@@ -22,6 +22,12 @@ describe("feed visibility config", () => {
     expect(FEED_RETENTION_MS).toBe(180 * 24 * 60 * 60 * 1_000);
   });
 
+  it("수행 각성은 전체 소식과 전광판에 노출한다", () => {
+    expect(FEED_TYPES).toContain("cultivation_awakening");
+    expect(WAR_FEED_TYPES).toContain("cultivation_awakening");
+    expect(FEED_HIDDEN_TYPES).not.toContain("cultivation_awakening");
+  });
+
   it("과거 페이지 cursor는 양의 안전 정수만 허용한다", () => {
     expect(parseFeedBeforeId("42")).toBe(42);
     expect(parseFeedBeforeId("0")).toBeNull();

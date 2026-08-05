@@ -53,6 +53,8 @@ import {
   capGain,
   effectiveStatCap,
   effectiveLevelCap,
+  refundableCultivationPoints,
+  cultivationResetGoldCost,
 } from "@/adventure/data/v2/proficiency";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
@@ -517,6 +519,11 @@ export function proficiencySection(
       cultivations: cultivationCount(prof, group),
       capGains: totalCapGains(prof),
       nextCost: cultivationCost(totalCapGains(prof)),
+      cultivationPointsSpent: refundableCultivationPoints(prof),
+      cultivationResetCount: prof.cultivationResetCount ?? 0,
+      cultivationResetGoldCost: cultivationResetGoldCost(
+        prof.cultivationResetCount ?? 0,
+      ),
       // 현 직업군 다음 차수 전직 가능 여부 — 코어루프 on 에서는 jobsV2/advance-class 가 권위라 숨긴다.
       advance: (() => {
         if (V2_CORE_LOOP_V2) return null;

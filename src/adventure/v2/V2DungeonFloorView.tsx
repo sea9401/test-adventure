@@ -52,7 +52,6 @@ import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import {
   AUTO_HUNT_LEVEL_TARGET,
   getAutoHuntStopReason,
-  type AutoHuntStopReason,
   useAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
 import {
@@ -65,6 +64,10 @@ import {
   recoveryChargesUpdate,
   type RecoveryChargesUpdate,
 } from "@/adventure/v2/recoveryChargesSync";
+import {
+  huntEndReasonText,
+  type HuntEndReason,
+} from "@/adventure/v2/huntEndNotice";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
@@ -409,7 +412,7 @@ export function V2DungeonFloorView({
   //   소진이면 triggerHunt 가 자동 정지. 서버 거부·언마운트도 정지.
   const [autoHunt, setAutoHunt] = useState(false);
   const [autoStopReason, setAutoStopReason] =
-    useState<AutoHuntStopReason | null>(null);
+    useState<HuntEndReason | null>(null);
   const {
     config: autoStopConfig,
     configRef: autoStopConfigRef,
@@ -531,7 +534,10 @@ export function V2DungeonFloorView({
       );
       if (!b) {
         // 자동 사냥 중 실패하면 같은 요청을 무한 반복하지 않는다(단판과 동일 동작).
-        if (autoRun) setAutoHunt(false);
+        if (autoRun) {
+          setAutoHunt(false);
+          setAutoStopReason("request_failed");
+        }
         return; // 네트워크/서버 오류 — hook 이 로그 남김. 요약 없이 종료.
       }
       setBatchSummary({
@@ -615,12 +621,18 @@ export function V2DungeonFloorView({
       }
       if (b.levelsGained > 0) onLevelUp?.();
       if (autoRun) {
-        const serverStopReason =
+        const serverStopReason: HuntEndReason | null =
+          b.stoppedReason === "stamina" ||
+          b.stoppedReason === "death" ||
+          b.stoppedReason === "recovery" ||
+          b.stoppedReason === "error" ||
           b.stoppedReason === "potion" ||
           b.stoppedReason === "rare_map" ||
           b.stoppedReason === "level_100"
             ? b.stoppedReason
-            : null;
+            : rareMapIid && (b.rareMapRunsLeft ?? 0) <= 0
+              ? "rare_map_exhausted"
+              : null;
         const stopReason =
           serverStopReason ??
           getAutoHuntStopReason(autoStopConfigRef.current, {
@@ -739,6 +751,9 @@ export function V2DungeonFloorView({
     // 스태미나·체력 소진은 더 못 싸우는 상태 → 자동 사냥 정지(빈 인터벌 무한 반복 방지).
     if (lowStamina || needsRecovery) {
       setAutoHunt(false);
+      if (autoRun) {
+        setAutoStopReason(lowStamina ? "stamina" : "recovery");
+      }
       return;
     }
     setBatchSummary(null);
@@ -808,7 +823,7 @@ export function V2DungeonFloorView({
             if (r.atRiskGold != null) setAtRiskGold?.(r.atRiskGold);
           }
           if (autoRun) {
-            const stopReason = getAutoHuntStopReason(
+            const configuredStopReason = getAutoHuntStopReason(
               autoStopConfigRef.current,
               {
                 hpCharges: r.hpCharges ?? statusHpCharges,
@@ -820,6 +835,15 @@ export function V2DungeonFloorView({
                 level: r.levelAfter ?? currentLevel + r.levelsGained,
               },
             );
+            const stopReason: HuntEndReason | null =
+              configuredStopReason ??
+              (rareMapIid && (r.rareMapRunsLeft ?? 0) <= 0
+                ? "rare_map_exhausted"
+                : r.hpAfter <= 0
+                  ? "death"
+                  : !canHuntWithHp(r.hpAfter, r.maxHp)
+                    ? "recovery"
+                    : null);
             if (stopReason) {
               setAutoHunt(false);
               setAutoStopReason(stopReason);
@@ -830,6 +854,7 @@ export function V2DungeonFloorView({
           // 쿨다운이 안 잡혀 자동 사냥이 1.5초마다 무한 재시도할 수 있으니 즉시 정지.
           // (성공 흐름은 낙관적 쿨다운으로 자연히 간격을 둔다.)
           setAutoHunt(false);
+          if (autoRun) setAutoStopReason("request_failed");
         }
       });
     } else {
@@ -881,6 +906,7 @@ export function V2DungeonFloorView({
       setAutoHunt(false);
       return;
     }
+    setAutoStopReason(null);
     triggerHunt();
   };
   // 버튼 click — 길게 눌러 자동이 막 시작됐으면 뒤따르는 click 무시(중복 단판 방지), 아니면 탭.
@@ -982,12 +1008,11 @@ export function V2DungeonFloorView({
 
       {autoStopReason && (
         <StatusBanner tone="warning" role="status" className="py-2.5">
-          <span className="font-semibold">자동 사냥이 정지되었습니다.</span>{" "}
-          {autoStopReason === "potion"
-            ? `HP/MP 충전약 중 하나가 ${autoStopConfig.potionThreshold.toLocaleString()} 이하입니다.`
-            : autoStopReason === "rare_map"
-              ? "희귀 탐사맵을 발견했습니다."
-              : `레벨 ${AUTO_HUNT_LEVEL_TARGET}에 도달했습니다.`}
+          <span className="font-semibold">자동 사냥 종료.</span>{" "}
+          {huntEndReasonText(autoStopReason, autoStopConfig.potionThreshold)}
+          {!coreLoopOn && (
+            <> · 남은 스태미너 {staminaCurrent.toLocaleString()}</>
+          )}
         </StatusBanner>
       )}
 
@@ -1259,6 +1284,10 @@ export function V2DungeonFloorView({
       {batchSummary ? (
         <BatchSummaryCard
           summary={batchSummary}
+          remainingStamina={
+            !coreLoopOn && !autoHunt ? staminaCurrent : undefined
+          }
+          potionThreshold={autoStopConfig.potionThreshold}
           onSelectReplay={setSelectedBatchReplay}
           onEnterRareMap={onEnterRareMap}
         />

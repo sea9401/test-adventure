@@ -1456,6 +1456,9 @@ function describeV2Effect(
     case "selfBuff":
       return `${STAT_LABELS[e.stat]} +${e.pct}% (${actionsChip(e.turns)})`;
     case "selfBuffPct":
+      if (e.target === "damageReduction") {
+        return `받는 피해 -${e.pct}% (${actionsChip(e.turns)})`;
+      }
       return `${DERIVED_BUFF_LABEL[e.target]} +${e.pct}% (${actionsChip(e.turns)})`;
     case "selfRegen":
       return `행동마다 최대HP ${e.pctMaxHpPerTurn}% 회복 (${actionsChip(e.turns)})`;
@@ -1978,7 +1981,13 @@ export function smartDefaultConditionForSkill(
     }; // 보호막 = 피해 입었고 기존 보호막이 없을 때.
   }
   if (effs.some((e) => e.kind === "selfRegen")) {
-    return { kind: "self_hp", op: "below", pct: 60 }; // 리젠 = 피해 입을 때.
+    return {
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 60 },
+        { kind: "self_buff_pct", target: "regen", active: false },
+      ],
+    }; // 리젠 = 피해를 입었고 기존 지속 회복이 없을 때.
   }
   if (effs.some((e) => e.kind === "manaRestore")) {
     return { kind: "self_mp", op: "below", pct: 20 }; // 마나 회복(명상) = MP가 바닥날 때만.

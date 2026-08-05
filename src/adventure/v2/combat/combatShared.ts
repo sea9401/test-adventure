@@ -41,6 +41,7 @@ import {
   type V2CombatPattern,
   type V2CombatRole,
   type V2PatternCtx,
+  type V2PatternSelfStatus,
 } from "./combatPattern";
 
 // 기본 명중 상수는 v2CombatConstants 로 이관(UI StatsPanel 이 무거운 combatShared 를 끌어오지
@@ -574,6 +575,45 @@ export type V2SkillCastResult = {
   manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
 };
 
+/** 직접 피해뿐 아니라 DoT·약화·제어처럼 상대에게 적중해야 하는 효과가 있는지 판정한다. */
+export function v2SkillHasTargetEffects(result: V2SkillCastResult): boolean {
+  return (
+    result.enemyDamage > 0 ||
+    result.enemyDebuffsToApply.length > 0 ||
+    result.dotsToApplyToTarget.length > 0 ||
+    result.enemyVulnToApply != null ||
+    result.enemyEvasionDownToApply != null ||
+    result.enemyAccuracyDownToApply != null ||
+    result.enemyDelayToApply != null ||
+    result.enemyHealReduceToApply != null ||
+    result.enemyDamageDownToApply != null ||
+    result.enemySkillProcDownToApply != null ||
+    result.enemyDotVulnToApply != null
+  );
+}
+
+/** 스킬이 빗나갔을 때 상대 대상 효과만 제거한다. 자가 회복·강화·소모는 유지한다. */
+export function removeMissedV2SkillTargetEffects(
+  result: V2SkillCastResult,
+): V2SkillCastResult {
+  return {
+    ...result,
+    enemyDamage: 0,
+    magicEnemyDamage: 0,
+    hitDamages: [],
+    enemyDebuffsToApply: [],
+    dotsToApplyToTarget: [],
+    enemyVulnToApply: undefined,
+    enemyEvasionDownToApply: undefined,
+    enemyAccuracyDownToApply: undefined,
+    enemyDelayToApply: undefined,
+    enemyHealReduceToApply: undefined,
+    enemyDamageDownToApply: undefined,
+    enemySkillProcDownToApply: undefined,
+    enemyDotVulnToApply: undefined,
+  };
+}
+
 // PR-4b — attacker/target ctx 로 묶음. PR-4a 의 단순 mp/cd 입력에서 확장.
 export type V2SkillCastInput = {
   skills: V2SkillsState;
@@ -618,15 +658,13 @@ export type V2SkillCastInput = {
     currentHp?: number;
     maxMp?: number;
     classTier?: number;
-    // 활성 파생버프(회피/치명/받피감 = selfBuffPct) — 패턴 조건 self_buff_pct 평가용. 엔진이
-    //   state.stacks 의 turns>0 여부로 채운다. 미지정=전부 비활성(구 호출 안전).
+    // 능력치 밖의 활성 상태 효과 — 패턴 조건 self_buff_pct 평가용. 엔진이 turns/잔여 횟수로 채운다.
+    // 미지정=전부 비활성(구 호출 안전).
     selfShieldActive?: boolean;
-    selfBuffPctActive?: {
-      evasion?: boolean;
-      crit?: boolean;
-      damageReduction?: boolean;
-      reflectDamage?: boolean;
-    };
+    // 장비·AP 발동처럼 V2 selfBuffs 맵 밖에서 관리되는 능력치 버프 활성 여부.
+    // 군림/질주/적랑의 playerSpdTurnsLeft 등을 "내 속도 버프" 패턴 조건에 합친다.
+    selfStatBuffActive?: Partial<Record<StatKey, boolean>>;
+    selfBuffPctActive?: Partial<Record<V2PatternSelfStatus, boolean>>;
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
     // 기존 원소술사 스킬의 연출 분기용. 전투 상성에는 사용하지 않는다.
@@ -676,21 +714,35 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
   const maxHp = Math.max(1, a.maxHp);
   const maxMp = Math.max(1, a.maxMp ?? 1);
   const enemyMaxHp = Math.max(1, t.maxHp ?? 1);
+  const selfBuffStats = new Set(
+    (Object.entries(a.selfBuffs) as [StatKey, V2BuffEntry | undefined][])
+      .filter(([, e]) => e != null && e.turns > 0)
+      .map(([k]) => k),
+  );
+  for (const [stat, active] of Object.entries(a.selfStatBuffActive ?? {}) as [
+    StatKey,
+    boolean | undefined,
+  ][]) {
+    if (active) selfBuffStats.add(stat);
+  }
   return {
     selfHpPct: ((a.currentHp ?? a.maxHp) / maxHp) * 100,
     selfMpPct: (a.mp / maxMp) * 100,
     selfShieldActive: a.selfShieldActive ?? false,
     // 활성 자버프 스탯만(turns>0). 엔진은 tick 으로 만료 키를 제거하지만, 비-엔진 호출의 stale
     //   0턴 키가 false-positive(버프 활성) 내지 않게 방어적 필터.
-    selfBuffStats: new Set(
-      (Object.entries(a.selfBuffs) as [StatKey, V2BuffEntry | undefined][])
-        .filter(([, e]) => e != null && e.turns > 0)
-        .map(([k]) => k),
-    ),
-    // 활성 파생버프(회피/치명/받피감/반사피해) — 엔진이 넘긴 turns>0 플래그. self_buff_pct 조건 평가용.
+    selfBuffStats,
+    // 활성 상태 효과 — 엔진이 넘긴 turns>0 또는 잔여 횟수 플래그. self_buff_pct 조건 평가용.
     selfBuffPctTargets: new Set(
       (
-        ["evasion", "crit", "damageReduction", "reflectDamage"] as const
+        [
+          "evasion",
+          "crit",
+          "damageReduction",
+          "reflectDamage",
+          "regen",
+          "guaranteedEvade",
+        ] as const
       ).filter((tg) => a.selfBuffPctActive?.[tg]),
     ),
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,

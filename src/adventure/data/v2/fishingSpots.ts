@@ -1,5 +1,6 @@
 import {
   FISH,
+  FISH_TIER_ORDER,
   type FishId,
   type FishTier,
 } from "@/adventure/data/v2/fish";
@@ -228,4 +229,13 @@ export function tierCountsForSpot(spot: FishingSpot): Partial<Record<FishTier, n
     counts[tier] = (counts[tier] ?? 0) + 1;
   }
   return counts;
+}
+
+export function fishIdsByTierForSpot(
+  spot: FishingSpot,
+): Array<{ tier: FishTier; fishIds: FishId[] }> {
+  return FISH_TIER_ORDER.map((tier) => ({
+    tier,
+    fishIds: spot.fishIds.filter((fishId) => FISH[fishId].tier === tier),
+  })).filter((group) => group.fishIds.length > 0);
 }

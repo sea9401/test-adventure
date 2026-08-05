@@ -68,11 +68,15 @@ describe("BatchSummaryCard 패배 골드 안내", () => {
       stoppedReason: "defeat",
     };
 
-    const html = renderToStaticMarkup(<BatchSummaryCard summary={summary} />);
+    const html = renderToStaticMarkup(
+      <BatchSummaryCard summary={summary} remainingStamina={37} />,
+    );
 
     expect(html).toContain("패배 페널티 · 골드 −120 G");
     expect(html).toContain("+300");
     expect(html).toContain("−120");
+    expect(html).toContain("전투 종료 · 남은 스태미너 37");
+    expect(html).toContain("예정보다 일찍 중단 · 전투에서 패배했습니다.");
   });
 });
 

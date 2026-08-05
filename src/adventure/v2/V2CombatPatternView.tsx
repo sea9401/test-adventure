@@ -21,6 +21,7 @@ import {
   type V2CombatCondition,
   type V2CombatPreset,
   type V2CombatRole,
+  type V2PatternSelfStatus,
 } from "@/adventure/v2/combat/combatPattern";
 import { useSystemMessageState } from "./RewardToastProvider";
 
@@ -40,8 +41,8 @@ const COND_KINDS: { value: CondKind; label: string }[] = [
   { value: "self_hp", label: "내 HP" },
   { value: "self_mp", label: "내 MP" },
   { value: "self_shield", label: "내 보호막" },
-  { value: "self_buff", label: "내 버프" },
-  { value: "self_buff_pct", label: "내 파생버프" },
+  { value: "self_buff", label: "내 능력치 버프" },
+  { value: "self_buff_pct", label: "내 상태 효과" },
   { value: "enemy_hp", label: "적 HP" },
   { value: "enemy_status", label: "적 상태" },
   { value: "enemy_debuff", label: "적 디버프" },
@@ -683,11 +684,13 @@ function ConditionParams({
       return (
         <>
           <select className={sel} value={c.target}
-            onChange={(e) => onChange({ ...c, target: e.target.value as "evasion" | "crit" | "damageReduction" | "reflectDamage" })}>
-            <option value="evasion">회피</option>
-            <option value="crit">치명타</option>
-            <option value="damageReduction">받피감</option>
-            <option value="reflectDamage">반사</option>
+            onChange={(e) => onChange({ ...c, target: e.target.value as V2PatternSelfStatus })}>
+            <option value="evasion">회피 증가</option>
+            <option value="crit">치명타 확률 증가</option>
+            <option value="damageReduction">받는 피해 감소</option>
+            <option value="reflectDamage">반사 피해</option>
+            <option value="regen">지속 회복</option>
+            <option value="guaranteedEvade">확정 회피</option>
           </select>
           <select className={sel} value={c.active ? "y" : "n"}
             onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>

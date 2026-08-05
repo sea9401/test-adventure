@@ -20,6 +20,7 @@ import {
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
+import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
 import { V2InboxView } from "@/adventure/v2/V2InboxView";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -276,11 +277,13 @@ function NotificationRow({
   onOpenOutpost,
   onOpenFeedback,
   onOpenFarm,
+  onOpenCoopSession,
 }: {
   item: V2NotificationEntry;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
   onOpenFarm: () => void;
+  onOpenCoopSession: (sessionId: string) => void;
 }) {
   const outpostId = (item.payload as { outpostId?: string }).outpostId;
   const feedbackId =
@@ -288,8 +291,14 @@ function NotificationRow({
       ? (item.payload as { feedbackId: number }).feedbackId
       : null;
   const farmReady = item.type === "farm_ready";
+  const coopSessionId =
+    item.type === "coop_defeated"
+      ? (item.payload as { sessionId: string }).sessionId
+      : null;
   const lotteryWon = item.type === "lottery_won";
-  const actionable = Boolean(outpostId || feedbackId || farmReady || lotteryWon);
+  const actionable = Boolean(
+    outpostId || feedbackId || farmReady || coopSessionId || lotteryWon,
+  );
 
   return (
     <button
@@ -300,6 +309,9 @@ function NotificationRow({
         else if (farmReady) {
           void acknowledgeFarmReadyNotification();
           onOpenFarm();
+        } else if (coopSessionId) {
+          void acknowledgeV2Notification(item.id);
+          onOpenCoopSession(coopSessionId);
         } else if (lotteryWon) {
           window.dispatchEvent(
             new CustomEvent("lottery:celebrate", { detail: item }),
@@ -360,12 +372,14 @@ export function V2NotificationsView({
   onOpenOutpost,
   onOpenFeedback,
   onOpenFarm,
+  onOpenCoopSession,
   initialTab = "all",
 }: {
   onBack: () => void;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
   onOpenFarm: () => void;
+  onOpenCoopSession: (sessionId: string) => void;
   initialTab?: NotificationCenterTab;
 }) {
   const [tab, setTab] = useState<NotificationCenterTab>(initialTab);
@@ -524,6 +538,7 @@ export function V2NotificationsView({
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
                     onOpenFarm={onOpenFarm}
+                    onOpenCoopSession={onOpenCoopSession}
                   />
                 </li>
               ))}
@@ -547,6 +562,7 @@ export function V2NotificationsView({
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
                     onOpenFarm={onOpenFarm}
+                    onOpenCoopSession={onOpenCoopSession}
                   />
                 </li>
               ) : (

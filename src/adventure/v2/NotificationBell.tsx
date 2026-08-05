@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { Bell, CaretRight, Envelope } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
+import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
+import { coopBossSessionHref } from "@/adventure/v2/coop/coopRoutes";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { formatRelative } from "@/lib/notifications";
 import {
@@ -235,6 +237,20 @@ export function NotificationBell() {
       window.dispatchEvent(
         new CustomEvent("lottery:celebrate", { detail: notification }),
       );
+      return;
+    }
+    if (notification.type === "coop_defeated") {
+      const { sessionId } = notification.payload as { sessionId: string };
+      setOpen(false);
+      setNotificationUnread((current) => Math.max(0, current - 1));
+      setItems((current) =>
+        current?.filter(
+          (entry) =>
+            entry.kind !== "notification" || entry.item.id !== notification.id,
+        ) ?? null,
+      );
+      void acknowledgeV2Notification(notification.id);
+      router.push(coopBossSessionHref(sessionId));
       return;
     }
     if (notification.type !== "farm_ready") {

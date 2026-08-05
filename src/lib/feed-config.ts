@@ -8,8 +8,8 @@
 export const FEED_FETCH_LIMIT = 30;
 
 // DB 보관 기간 — insert 마다 이보다 오래된 행 trim(시간 기준).
-// (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 분류별 과거 열람을 위해 약 6개월 치 보존.)
-export const FEED_RETENTION_MS = 180 * 24 * 3_600_000;
+// (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 운영 보관 정책에 따라 최근 30일 보존.)
+export const FEED_RETENTION_MS = 30 * 24 * 3_600_000;
 
 // 과거 페이지 cursor. server_feed 의 단조 증가 serial(PG integer) PK만 허용해 범위가
 // 불명확하거나 컬럼 범위 밖인 값을 쿼리에 넘기지 않는다.

@@ -860,6 +860,48 @@ export const marketplaceBuyOrdersV2 = pgTable(
   ],
 );
 
+// 종료된 거래소 원본 행을 60일 뒤 정리하기 전에 남기는 일별 시세 집계.
+// 원본 매물/입찰 JSON은 지워도 장기 시세 추이는 작은 고정 폭 행으로 유지한다.
+export const marketplacePriceDaily = pgTable(
+  "marketplace_price_daily",
+  {
+    dateKey: text("date_key").notNull(), // UTC YYYY-MM-DD
+    kind: text("kind").notNull(),
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    trades: integer("trades").notNull().default(0),
+    quantity: integer("quantity").notNull().default(0),
+    grossGold: numeric("gross_gold", { precision: 30, scale: 0 })
+      .notNull()
+      .default("0"),
+    minUnitPrice: integer("min_unit_price").notNull(),
+    maxUnitPrice: integer("max_unit_price").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.dateKey, t.kind, t.itemId] }),
+    index("marketplace_price_daily_item_date_idx").on(
+      t.kind,
+      t.itemId,
+      t.dateKey,
+    ),
+  ],
+);
+
+// 60일이 지난 체결 원본을 지운 뒤에도 '거래 경험' 같은 평생 신호가 사라지지 않도록
+// 유저별 매수/매도 횟수만 압축 보존한다. 최근 60일은 원본 매물과 합쳐서 조회한다.
+export const marketplaceUserTradeTotals = pgTable(
+  "marketplace_user_trade_totals",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purchases: integer("purchases").notNull().default(0),
+    sales: integer("sales").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
+
 // 지정 개당 가격 이하 매물이 생겼을 때 한 번 울리는 가격 알림.
 export const marketplacePriceAlertsV2 = pgTable(
   "marketplace_price_alerts_v2",
@@ -1062,6 +1104,46 @@ export const guildContributionEvents = pgTable(
       t.createdAt,
     ),
     check("guild_contribution_events_points_positive", sql`${t.points} > 0`),
+  ],
+);
+
+// 길드 활동 원본은 길드당 최근 500건만 보관한다. 잘려 나간 활동의 업적 횟수·기여 점수·
+// 입금액은 source/category 단위로 압축해 누적 및 월별 통계가 계속 유지되게 한다.
+// periodKey: 'lifetime' | UTC 'YYYY-MM'. 원본에 actor가 없는 시스템 활동은 집계하지 않는다.
+export const guildActivityRollups = pgTable(
+  "guild_activity_rollups",
+  {
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    source: text("source").notNull(),
+    category: text("category").notNull().default(""),
+    periodKey: text("period_key").notNull(),
+    eventCount: integer("event_count").notNull().default(0),
+    contributionPoints: numeric("contribution_points", {
+      precision: 30,
+      scale: 0,
+    })
+      .notNull()
+      .default("0"),
+    goldAmount: numeric("gold_amount", { precision: 30, scale: 0 })
+      .notNull()
+      .default("0"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.guildId, t.userId, t.source, t.category, t.periodKey],
+    }),
+    index("guild_activity_rollups_guild_period_idx").on(
+      t.guildId,
+      t.periodKey,
+    ),
+    index("guild_activity_rollups_user_period_idx").on(
+      t.userId,
+      t.periodKey,
+    ),
   ],
 );
 
@@ -1381,6 +1463,8 @@ export const pvpTournaments = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
     rewardsGrantedAt: timestamp("rewards_granted_at"),
+    // 30일 뒤 bracket.games[*].replay와 snapshots만 제거하고 대진/우승 요약은 유지한다.
+    replaysTrimmedAt: timestamp("replays_trimmed_at"),
   },
   (t) => [
     index("pvp_tournaments_created_at_idx").on(t.createdAt),
@@ -1927,6 +2011,17 @@ export const opsSettings = pgTable("ops_settings", {
   value: jsonb("value").notNull(),
   updatedByEmail: text("updated_by_email"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 일별 DB/테이블 실사용량 스냅샷. 최근 30일만 유지하며 급증·할당량 임계치 경고에 사용한다.
+export const dbStorageMetrics = pgTable("db_storage_metrics", {
+  dateKey: text("date_key").primaryKey(), // UTC YYYY-MM-DD
+  databaseBytes: numeric("database_bytes", { precision: 30, scale: 0 }).notNull(),
+  tableBytes: jsonb("table_bytes")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // 관리자 감사 로그 — admin API 의 모든 변경 행동을 append-only 로 기록(누가·무엇을·대상).

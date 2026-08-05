@@ -114,6 +114,8 @@ cd ~/adventure-rpg
 bash deploy/install-rds-ca.sh
 # AWS SSM /adventure-rpg/production/env
 DATABASE_CA_CERT_PATH=/etc/pki/rds/global-bundle.pem
+# ops-retention의 DB 70%/85% 저장 공간 경고 기준. RDS 할당 용량과 같은 GiB 값.
+DB_STORAGE_LIMIT_GB=<RDS 할당 용량>
 ```
 
 `DATABASE_URL`에는 `sslmode`나 `sslrootcert`를 붙이지 않는다. 앱·마이그레이션은 위 CA로 인증서와 호스트명을 검증하고, `backup-db.sh`는 `verify-full`로 동일하게 검증한다.
@@ -211,7 +213,7 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 - **매시 00분**: 복권 정산 · NPC 공격
 - **매시 05분**: 거래소 만료 매물 정리
 - **일일 04:00 UTC**: 채팅 · 길드 정리
-- **일일 04:20 UTC**: ops-retention(이상 행동/경제 로그 보관 기간 초과분 및 실패한 외부 파일 삭제 재처리)
+- **일일 04:20 UTC**: ops-retention(로그 보관 정책 적용·길드/거래소 압축 집계·DB 용량 측정·실패한 외부 파일 삭제 재처리)
 - **일일 04:25 UTC**: ops-daily-report(최근 24시간 운영 지표 webhook 리포트)
 - **일일 17:00 UTC**: DB 백업(선택적으로 `BACKUP_S3_URI`에도 암호화 업로드)
 - **토요일 15:00 UTC**: PvP 토너먼트

@@ -50,6 +50,7 @@ import {
   ARENA_INITIAL_RATING,
   ARENA_DAMAGE_MULTIPLIER,
   ARENA_MATCH_COOLDOWN_MS,
+  arenaHistorySince,
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
   arenaNextStaminaCost,
@@ -563,8 +564,11 @@ export async function POST(req: Request) {
       for (const id of lockIds) {
         out.set(
           id,
-          parseArenaHistory(
-            await lockSaveForUpdate<unknown>(tx, id, ARENA_HISTORY_KEY, []),
+          arenaHistorySince(
+            parseArenaHistory(
+              await lockSaveForUpdate<unknown>(tx, id, ARENA_HISTORY_KEY, []),
+            ),
+            season.startAt,
           ),
         );
       }

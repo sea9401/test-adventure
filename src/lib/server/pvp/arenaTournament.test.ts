@@ -17,6 +17,7 @@ import {
   createArenaTournamentSchedule,
   nextDueArenaTournamentMatch,
   resolveArenaTournamentScheduledMatch,
+  stripArenaTournamentReplays,
   type ArenaTournamentEntrant,
 } from "./arenaTournament";
 
@@ -57,6 +58,52 @@ describe("arena tournament phase", () => {
       "tournament",
     );
     expect(arenaSeasonPhase(endAt, endAt)).toBe("closed");
+  });
+});
+
+describe("arena tournament replay retention", () => {
+  it("30일 뒤 전투 요약은 남기고 리플레이만 제거한다", () => {
+    const scheduled = createArenaTournamentSchedule({
+      seasonId: "2026-W30",
+      generatedAt: new Date("2026-07-25T15:00:00.000Z"),
+      startsAt: new Date("2026-07-26T10:00:00.000Z"),
+      entrants: entrants(8),
+    });
+    const first = scheduled.matches[0]!;
+    const bracket = {
+      ...scheduled,
+      matches: [
+        {
+          ...first,
+          games: [
+            {
+              game: 1,
+              outcome: "p1_win" as const,
+              turns: 12,
+              p1HpRatio: 0.5,
+              p2HpRatio: 0,
+              replay: {
+                enemy: { name: "상대", hp: 100 },
+                playerMaxHp: 100,
+                playerMaxMp: 0,
+                log: [],
+              },
+            },
+          ],
+        },
+        ...scheduled.matches.slice(1),
+      ],
+    };
+
+    const trimmed = stripArenaTournamentReplays(bracket);
+    expect(trimmed.removed).toBe(1);
+    expect(trimmed.bracket.matches[0]!.games[0]!.replay).toBeUndefined();
+    expect(trimmed.bracket.matches[0]!.games[0]).toMatchObject({
+      outcome: "p1_win",
+      turns: 12,
+      p1HpRatio: 0.5,
+    });
+    expect(bracket.matches[0]!.games[0]!.replay).toBeDefined();
   });
 });
 

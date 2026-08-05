@@ -89,6 +89,25 @@ export type ArenaTournamentBracket = {
   rewards: ArenaTournamentReward[];
 };
 
+export function stripArenaTournamentReplays(
+  bracket: ArenaTournamentBracket,
+): { bracket: ArenaTournamentBracket; removed: number } {
+  let removed = 0;
+  const matches = bracket.matches.map((match) => ({
+    ...match,
+    games: match.games.map((game) => {
+      if (game.replay == null) return game;
+      removed += 1;
+      const { replay: _replay, ...summary } = game;
+      return summary;
+    }),
+  }));
+  return {
+    bracket: removed > 0 ? { ...bracket, matches } : bracket,
+    removed,
+  };
+}
+
 export type ArenaTournamentFightResult = {
   outcome: "p1_win" | "p2_win" | "draw";
   turns: number;

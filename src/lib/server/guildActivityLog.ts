@@ -7,8 +7,8 @@ type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
 // 길드원 활동 내역 기록. 이벤트가 일어나는 라우트의 같은 tx 안에서 호출 — 행위가 롤백되면
 // 로그도 함께 롤백(원자성). 이름은 저장 안 함(userId 만; 읽을 때 현재 닉네임으로 batch 해석).
-// ⚠️ 트림 없음 — 읽기는 limit 30 이지만 행은 무한 누적. 현재 규모(테스터 소수)는 무방.
-//   대량화 전 길드당 최근 N행 유지 트림을 cron(guilds-cleanup)에 추가할 것(핫패스 밖).
+// 원본은 ops-retention에서 길드당 최근 500행만 유지한다. 잘리는 행은 같은 트랜잭션에서
+// guild_activity_rollups의 월별·누적 횟수/기여/입금 합계로 먼저 압축한다.
 export type GuildActivityType =
   | "member_join"
   | "member_leave"

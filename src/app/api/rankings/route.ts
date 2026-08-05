@@ -425,6 +425,17 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       FROM guild_activity_log
       WHERE actor_user_id IS NOT NULL
       GROUP BY actor_user_id
+    ), guild_activity_archived AS (
+      SELECT user_id,
+        COALESCE(SUM(event_count) FILTER (WHERE source = 'dining_meal'), 0)::bigint AS dining_meals,
+        COALESCE(SUM(event_count) FILTER (WHERE source = 'training_drill_claim'), 0)::bigint AS training_drills,
+        COALESCE(SUM(event_count) FILTER (WHERE source = 'exploration_expedition_claim'), 0)::bigint AS expeditions,
+        COALESCE(SUM(event_count) FILTER (WHERE source = 'workshop_delivery'), 0)::bigint AS workshop_deliveries,
+        COALESCE(SUM(event_count) FILTER (WHERE source = 'alchemy_craft'), 0)::bigint AS alchemy_crafts,
+        COALESCE(SUM(event_count) FILTER (WHERE source = 'trade_contract_complete'), 0)::bigint AS trade_contracts
+      FROM guild_activity_rollups
+      WHERE period_key = 'lifetime'
+      GROUP BY user_id
     )
     SELECT
       u.id AS user_id,
@@ -447,16 +458,19 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       fishing_codex.value AS fishing_codex_save,
       COALESCE(pvp.wins, 0)::bigint AS arena_wins,
       COALESCE(pvp.matches, 0)::bigint AS arena_matches,
-      COALESCE(guild_activity.dining_meals, 0)::bigint AS guild_dining_meals,
-      COALESCE(guild_activity.training_drills, 0)::bigint AS guild_training_drills,
-      COALESCE(guild_activity.expeditions, 0)::bigint AS guild_expeditions,
-      COALESCE(guild_activity.workshop_deliveries, 0)::bigint AS guild_workshop_deliveries,
-      COALESCE(guild_activity.alchemy_crafts, 0)::bigint AS guild_alchemy_crafts,
-      COALESCE(guild_activity.trade_contracts, 0)::bigint AS guild_trade_contracts,
+      (COALESCE(guild_activity.dining_meals, 0) + COALESCE(guild_activity_archived.dining_meals, 0))::bigint AS guild_dining_meals,
+      (COALESCE(guild_activity.training_drills, 0) + COALESCE(guild_activity_archived.training_drills, 0))::bigint AS guild_training_drills,
+      (COALESCE(guild_activity.expeditions, 0) + COALESCE(guild_activity_archived.expeditions, 0))::bigint AS guild_expeditions,
+      (COALESCE(guild_activity.workshop_deliveries, 0) + COALESCE(guild_activity_archived.workshop_deliveries, 0))::bigint AS guild_workshop_deliveries,
+      (COALESCE(guild_activity.alchemy_crafts, 0) + COALESCE(guild_activity_archived.alchemy_crafts, 0))::bigint AS guild_alchemy_crafts,
+      (COALESCE(guild_activity.trade_contracts, 0) + COALESCE(guild_activity_archived.trade_contracts, 0))::bigint AS guild_trade_contracts,
       EXISTS (SELECT 1 FROM guild_members gm WHERE gm.user_id = u.id) AS has_guild,
       EXISTS (
         SELECT 1 FROM marketplace_listings_v2 ml
         WHERE ml.status = 'sold' AND (ml.seller_id = u.id OR ml.buyer_id = u.id)
+      ) OR EXISTS (
+        SELECT 1 FROM marketplace_user_trade_totals mt
+        WHERE mt.user_id = u.id AND mt.purchases + mt.sales > 0
       ) AS has_traded,
       COALESCE(quests.updated_at, u.created_at) AS updated_at
     FROM users u
@@ -478,6 +492,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
     LEFT JOIN pvp ON pvp.user_id = u.id
     LEFT JOIN guild_activity ON guild_activity.user_id = u.id
+    LEFT JOIN guild_activity_archived ON guild_activity_archived.user_id = u.id
     WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
   `);

@@ -502,15 +502,30 @@ function spMpEfficiencyMultiplier(def: V2SkillDefinition): number {
 
 // 액티브 effect 1개의 가치(statCoef-등가 단위). 이 점수는 기존 SP 가격을 유지하기 위한 카탈로그
 // 밸런스 값이라, 전투에서 제거된 직접 피해 flat 도 마이그레이션 기간에는 종전처럼 평가한다.
-function spEffectValue(e: V2SkillEffect): number {
+function spEffectValue(
+  e: V2SkillEffect,
+  directDamageEffectCount: number,
+): number {
+  // 플레이어 직접 피해의 legacy flat은 전투에서 이미 제거됐지만 기존 SP 가격의 급변을 막기 위해
+  // 호환 가치로는 남겨 둔다. 다단기는 이 값을 매타 그대로 반복 청구하지 않되, 가격이 한 번에
+  // 과도하게 내려가지 않도록 타수의 제곱근으로 완만하게 나눠 반영한다.
+  const legacyFlatShare = (value: number): number =>
+    value / Math.sqrt(Math.max(1, directDamageEffectCount));
+  const legacyTierFlatShare = (
+    byTier?: readonly [number, number, number],
+  ): number => legacyFlatShare(spAvgTier(byTier));
+
   switch (e.kind) {
     case "damage":
       return (
         e.statCoef +
-        ((e.baseFlat ?? 0) + spAvgTier(e.baseFlatByTier)) / SP_FLAT_NORM
+        (legacyFlatShare(e.baseFlat ?? 0) +
+          legacyTierFlatShare(e.baseFlatByTier)) /
+          SP_FLAT_NORM
       );
     case "hpCostDamage": {
-      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      const base =
+        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
       return (base + 0.3 * e.soakRatio) * 0.85; // 자체 HP 소모 할인.
     }
     case "healToDamage": {
@@ -518,15 +533,18 @@ function spEffectValue(e: V2SkillEffect): number {
       return base * (1 + 0.5 * e.damageRatio); // 자힐 + 미러 데미지.
     }
     case "executeDamage": {
-      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      const base =
+        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
       return base * (1 + 0.25 * (e.bonusMult - 1)); // 조건부 처형 배수 = 약하게.
     }
     case "ambushDamage": {
-      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      const base =
+        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
       return base * (1 + 0.2 * (e.bonusMult - 1)); // 풀피 한정(첫 턴 1회) — 처형보다 더 약하게.
     }
     case "stackPayoffDamage": {
-      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      const base =
+        e.statCoef + legacyTierFlatShare(e.baseFlatByTier) / SP_FLAT_NORM;
       return base + (e.perStackFlat / SP_FLAT_NORM) * 2 * 0.6; // ~2 스택·조건부.
     }
     case "dot": {
@@ -613,7 +631,18 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   }
   const sumEffects = (effects: readonly V2SkillEffect[]): number => {
     let r = 0;
-    for (const e of effects) r += spEffectValue(e);
+    const directDamageEffectCount = Math.max(
+      1,
+      effects.filter(
+        (effect) =>
+          effect.kind === "damage" ||
+          effect.kind === "hpCostDamage" ||
+          effect.kind === "executeDamage" ||
+          effect.kind === "ambushDamage" ||
+          effect.kind === "stackPayoffDamage",
+      ).length,
+    );
+    for (const e of effects) r += spEffectValue(e, directDamageEffectCount);
     return r;
   };
   let raw = sumEffects(def.effects);
@@ -888,12 +917,27 @@ function scaledFlatByTier(
     | undefined;
 }
 
+function scaledDirectStatCoef(
+  statCoef: number,
+  scaling: V2DamageScaling | undefined,
+  scale: number,
+): number {
+  // 일반 공격력 계수는 전투 산식의 차수별 기반선으로 하한이 보장되지만, DEX·LUK
+  // 직접 비례분은 그대로 사용된다. 발동률 상향 보정을 여기에 다시 적용하면 특화 빌드만
+  // 이중으로 약해지므로, 카탈로그에서 의도한 원시 스탯 계수는 보존한다.
+  if (scaling === "dex" || scaling === "luk") {
+    return statCoef;
+  }
+
+  return scaledCoef(statCoef, scale);
+}
+
 function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEffect {
   switch (effect.kind) {
     case "damage":
       return {
         ...effect,
-        statCoef: scaledCoef(effect.statCoef, scale),
+        statCoef: scaledDirectStatCoef(effect.statCoef, effect.scaling, scale),
         ...(effect.baseFlat != null
           ? { baseFlat: scaledFlat(effect.baseFlat, scale) }
           : {}),
@@ -906,7 +950,7 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
     case "ambushDamage":
       return {
         ...effect,
-        statCoef: scaledCoef(effect.statCoef, scale),
+        statCoef: scaledDirectStatCoef(effect.statCoef, effect.scaling, scale),
         ...(effect.baseFlatByTier
           ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
           : {}),
@@ -922,7 +966,7 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
     case "stackPayoffDamage":
       return {
         ...effect,
-        statCoef: scaledCoef(effect.statCoef, scale),
+        statCoef: scaledDirectStatCoef(effect.statCoef, effect.scaling, scale),
         perStackFlat: scaledFlat(effect.perStackFlat, scale),
         ...(effect.baseFlatByTier
           ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }

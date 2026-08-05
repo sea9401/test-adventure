@@ -136,4 +136,135 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
     // 관통분(noDef·방어 무시)은 적 방어와 무관 — 본타(base)가 방어로 깎여도 그대로 박힌다.
     expect(r.enemyDamage).toBeGreaterThan(base);
   });
+
+  it("모든 플레이어 다단기는 적 방어력 한 번분만 타수에 나눠 부담한다", () => {
+    const directKinds = new Set([
+      "damage",
+      "hpCostDamage",
+      "executeDamage",
+      "ambushDamage",
+      "stackPayoffDamage",
+    ]);
+    const multiHitSkills = Object.values(V2_SKILLS).filter(
+      (skill) =>
+        !skill.monsterOnly &&
+        skill.effects.filter((effect) => directKinds.has(effect.kind)).length > 1,
+    );
+    const TARGET_DEF = 600;
+    const cast = (skillId: string, targetDef: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: [skillId],
+          equipped: [skillId],
+        } as V2SkillCastInput["skills"],
+        cooldowns: {},
+        attacker: {
+          mp: 9999,
+          atk: 1000,
+          magicAtk: 1000,
+          def: 1000,
+          vit: 1000,
+          dex: 1000,
+          luk: 1000,
+          spi: 1000,
+          allStatTotal: 6000,
+          maxHp: 10000,
+          currentHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        // 50% HP에서는 기습·처형 조건이 모두 꺼져 방어력 차이만 비교할 수 있다.
+        target: {
+          def: targetDef,
+          magicDef: targetDef,
+          currentHp: 5000,
+          maxHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      });
+
+    expect(multiHitSkills).toHaveLength(23);
+    for (const skill of multiHitSkills) {
+      const noDef = cast(skill.id, 0);
+      const guarded = cast(skill.id, TARGET_DEF);
+      const directHitCount = skill.effects.filter((effect) =>
+        directKinds.has(effect.kind),
+      ).length;
+
+      expect(guarded.hitDamages, skill.id).toHaveLength(directHitCount);
+      expect(
+        noDef.enemyDamage - guarded.enemyDamage,
+        `${skill.id}: 다단 방어력 중복 차감`,
+      ).toBeLessThanOrEqual(TARGET_DEF + directHitCount);
+    }
+  });
+
+  it("궁술·암살 5·6차의 발동률 반영 피해가 같은 조건의 만상검보다 낮지 않다", () => {
+    const skillIds = [
+      "v2c_marksman_shot",
+      "v2c_nightshade_eclipse",
+      "v2c_transcendent_mandala",
+      "v2c_heavenlybow_orbit",
+      "v2c_blackmoon_flurry",
+      "v2c_bloodlord_brand",
+      "v2c_blooddemon_reign",
+    ] as const;
+    const expectedDamage = Object.fromEntries(
+      skillIds.map((skillId) => {
+        const skill = V2_SKILLS[skillId];
+        const result = resolveV2SkillCast({
+          skills: { learned: [skillId], equipped: [skillId] },
+          cooldowns: {},
+          attacker: {
+            mp: 9999,
+            atk: 1000,
+            magicAtk: 1000,
+            dex: 1000,
+            luk: 1000,
+            allStatTotal: 6000,
+            maxHp: 10000,
+            currentHp: 10000,
+            selfBuffs: {},
+            selfDebuffs: {},
+          },
+          target: {
+            def: 1000,
+            magicDef: 1000,
+            currentHp: 5000,
+            maxHp: 10000,
+            selfBuffs: {},
+            selfDebuffs: {},
+          },
+        });
+        return [
+          skillId,
+          result.enemyDamage * ((skill.procChance ?? 100) / 100),
+        ];
+      }),
+    );
+    const mandala = expectedDamage.v2c_transcendent_mandala;
+
+    expect(expectedDamage.v2c_marksman_shot).toBeGreaterThanOrEqual(mandala);
+    expect(expectedDamage.v2c_nightshade_eclipse).toBeGreaterThanOrEqual(mandala);
+    expect(expectedDamage.v2c_heavenlybow_orbit).toBeGreaterThanOrEqual(
+      mandala * 2,
+    );
+    expect(expectedDamage.v2c_blackmoon_flurry).toBeGreaterThanOrEqual(
+      mandala * 2,
+    );
+    // 유틸을 가진 궁술·암살기가 같은 차수의 고위험 순수 공격기를 넘어 최상위 누커가 되지는 않는다.
+    expect(expectedDamage.v2c_marksman_shot).toBeLessThanOrEqual(
+      expectedDamage.v2c_bloodlord_brand,
+    );
+    expect(expectedDamage.v2c_nightshade_eclipse).toBeLessThanOrEqual(
+      expectedDamage.v2c_bloodlord_brand,
+    );
+    expect(expectedDamage.v2c_heavenlybow_orbit).toBeLessThanOrEqual(
+      expectedDamage.v2c_blooddemon_reign,
+    );
+    expect(expectedDamage.v2c_blackmoon_flurry).toBeLessThanOrEqual(
+      expectedDamage.v2c_blooddemon_reign,
+    );
+  });
 });

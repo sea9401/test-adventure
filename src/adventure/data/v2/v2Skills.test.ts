@@ -636,7 +636,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       "피해 공격력×0.43",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
-      "피해 공격력×0.4 + 민첩×0.08",
+      "피해 공격력×0.4 + 민첩×0.1",
     );
 
     for (const skill of Object.values(V2_SKILLS)) {
@@ -644,6 +644,32 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
         expect(chip, `${skill.id}: ${chip}`).not.toMatch(/\d\.\d{3,}/);
       }
     }
+  });
+
+  it("발동률 상향 보정이 DEX·LUK 특화 계수를 이중으로 낮추지 않는다", () => {
+    const directStatCoefs = (id: keyof typeof V2_SKILLS) =>
+      V2_SKILLS[id].effects.flatMap((effect) =>
+        "statCoef" in effect &&
+        (effect.scaling === "dex" || effect.scaling === "luk")
+          ? [effect.statCoef]
+          : [],
+      );
+
+    expect(directStatCoefs("v2c_assassin_ambush")).toEqual([0.2]);
+    expect(directStatCoefs("v2c_ranger_ambush")).toEqual([0.1, 0.1, 0.1]);
+    expect(directStatCoefs("v2c_shadow_assassinate")).toEqual([0.22]);
+    expect(directStatCoefs("v2c_chief_strike")).toEqual([0.35]);
+    expect(directStatCoefs("v2c_phantom_ambush")).toEqual([0.14]);
+    expect(directStatCoefs("v2c_marksman_shot")).toEqual([0.42, 0.42]);
+    expect(directStatCoefs("v2c_nightshade_eclipse")).toEqual([0.22, 0.26]);
+    expect(directStatCoefs("v2c_heavenlybow_orbit")).toEqual([0.5, 0.5, 0.62]);
+    expect(directStatCoefs("v2c_blackmoon_flurry")).toEqual([0.55, 0.46, 0.62]);
+
+    // 일반 마법 계수는 기존 차수별 발동률 보정을 계속 받는다.
+    expect(V2_SKILLS.v2c_sage_bolt.effects[0]).toMatchObject({
+      statCoef: 1.55,
+      scaling: "magic",
+    });
   });
 
   it("차수 흐름 위에 직업별 발동 템포 차이를 둔다", () => {
@@ -815,10 +841,19 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
   it("5 SP 이하는 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
     expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
-    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(17);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(13);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBe(17);
+    ).toBe(16);
+  });
+
+  it("다단기는 전투에서 제거된 legacy 고정 피해를 타수만큼 SP로 중복 청구하지 않는다", () => {
+    expect([
+      spCostOf(V2_SKILLS.v2c_marksman_shot),
+      spCostOf(V2_SKILLS.v2c_nightshade_eclipse),
+      spCostOf(V2_SKILLS.v2c_heavenlybow_orbit),
+      spCostOf(V2_SKILLS.v2c_blackmoon_flurry),
+    ]).toEqual([7, 8, 10, 12]);
   });
 
   it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {

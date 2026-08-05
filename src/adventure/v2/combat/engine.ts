@@ -33,6 +33,8 @@ import {
 import {
   battleStartShield,
   healToShield,
+  onDodgeHealAmount,
+  onDodgeSpeedBuff,
   onSkillCastMpRefund,
   statusBlockOnce,
 } from "./signatureEffects";
@@ -1122,6 +1124,110 @@ export type BattleResolution = {
   turns: number;
 };
 
+function evadeIncomingEnemySkill(
+  state: BattleState,
+  player: PlayerCombat,
+  result: V2SkillCastResult,
+): { state: BattleState; result: V2SkillCastResult } {
+  if (
+    !result.castSkillId ||
+    result.enemyDamage <= 0 ||
+    state.stacks.evadesRemaining <= 0
+  ) {
+    return { state, result };
+  }
+
+  let nextLog = appendLog(state.log, {
+    kind: "info",
+    text: `[회피 강화] ${state.enemy.name}의 ${result.castSkillName ?? "스킬 공격"}을(를) 회피했다!`,
+  });
+  const critAfterEvadePrepared =
+    !!player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending;
+  if (critAfterEvadePrepared) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[흑월지배] 다음 직접 피해 스킬 치명타 준비.`,
+    });
+  }
+
+  const evadeHeal =
+    (player.evadeHealAmount ?? 0) +
+    onDodgeHealAmount(player.equipSignatures, state.playerMaxHp);
+  const nextPlayerHp =
+    evadeHeal > 0
+      ? Math.min(state.playerMaxHp, state.playerHp + evadeHeal)
+      : state.playerHp;
+  const actualHeal = nextPlayerHp - state.playerHp;
+  const sigShield =
+    actualHeal > 0
+      ? healToShield(player.equipSignatures, actualHeal)
+      : null;
+  if (actualHeal > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[곡예] 플레이어의 HP +${actualHeal}`,
+    });
+  }
+  if (sigShield) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigShield.label}] 플레이어 보호막 +${sigShield.amount}`,
+    });
+  }
+
+  const speedBuff = onDodgeSpeedBuff(player.equipSignatures);
+  const activeSpeedMult =
+    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
+  let nextState: BattleState = {
+    ...state,
+    playerHp: nextPlayerHp,
+    playerAttacksLeft:
+      state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
+    buffs: speedBuff
+      ? {
+          ...state.buffs,
+          playerSpdMult: Math.max(activeSpeedMult, speedBuff.mult),
+          playerSpdTurnsLeft: Math.max(
+            state.buffs.playerSpdTurnsLeft,
+            speedBuff.turns,
+          ),
+        }
+      : state.buffs,
+    flags: critAfterEvadePrepared
+      ? { ...state.flags, skillCritAfterEvadePending: true }
+      : state.flags,
+    stacks: {
+      ...state.stacks,
+      evadesRemaining: state.stacks.evadesRemaining - 1,
+      playerShield:
+        state.stacks.playerShield + (sigShield?.amount ?? 0),
+    },
+    log: nextLog,
+  };
+
+  const counter = applyCounterIfAny(nextState, player);
+  nextState = counter.state;
+
+  return {
+    state: nextState,
+    result: {
+      ...result,
+      enemyDamage: 0,
+      magicEnemyDamage: 0,
+      dotsToApplyToTarget: [],
+      enemyDebuffsToApply: [],
+      enemyVulnToApply: undefined,
+      enemyEvasionDownToApply: undefined,
+      enemyAccuracyDownToApply: undefined,
+      enemyDelayToApply: undefined,
+      enemyHealReduceToApply: undefined,
+      enemyDamageDownToApply: undefined,
+      enemySkillProcDownToApply: undefined,
+      enemyDotVulnToApply: undefined,
+    },
+  };
+}
+
 // v2 적(몬스터) 스킬 시전 — applyPlayerV2SkillCast 의 적 대칭판(ATB 라이브 경로용).
 //   ⚠️ ATB 전용: 버프/디버프 tick 은 tickEnemyBundleEntry/tickPlayerBundleEntry(번들)가 이미 했으므로
 //   여기선 tick 없이 cast 결정 + 효과 적용만 한다(player cast 헬퍼와 동일 소유권 모델 — 이중 tick 방지).
@@ -1135,7 +1241,7 @@ export function applyEnemyV2SkillCast(
   if (state.enemyV2Skills.equipped.length === 0) {
     return { state, castFired: false };
   }
-  const result = resolveV2SkillCast({
+  let result = resolveV2SkillCast({
     skills: state.enemyV2Skills,
     cooldowns: state.enemyV2SkillCooldowns,
     procRoll: Math.random() * 100,
@@ -1178,6 +1284,19 @@ export function applyEnemyV2SkillCast(
         enemyV2SkillCooldowns: result.nextCooldowns,
       },
       castFired: false,
+    };
+  }
+  const guaranteedEvade = evadeIncomingEnemySkill(state, player, result);
+  state = guaranteedEvade.state;
+  result = guaranteedEvade.result;
+  if (state.phase === "ended") {
+    return {
+      state: {
+        ...state,
+        enemyMp: result.nextMp,
+        enemyV2SkillCooldowns: result.nextCooldowns,
+      },
+      castFired: true,
     };
   }
   let nextPlayerHp = state.playerHp;
@@ -1967,7 +2086,7 @@ function resolveBattleLegacy(
         const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
         const tickedEnemyDebuffsLocal = tickV2BuffMap(state.enemyV2Debuffs);
         const tickedPlayerDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
-        const result = resolveV2SkillCast({
+        let result = resolveV2SkillCast({
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
           procRoll: Math.random() * 100,
@@ -2015,6 +2134,17 @@ function resolveBattleLegacy(
         // 스킬이 실제 발동(castSkillId)했으면 이 enemy 페이즈 평타 생략 — 스킬이 평타를 대체(플레이어
         //   대칭). resolveEnemyPhase 가 skipEnemyBasicAttack 으로 받아 데미지/회피/반사 스킵. 더블어택 fix.
         enemySkillFiredThisTurn = result.castSkillId != null;
+        const guaranteedEvade = evadeIncomingEnemySkill(state, player, result);
+        state = guaranteedEvade.state;
+        result = guaranteedEvade.result;
+        if (state.phase === "ended") {
+          state = {
+            ...state,
+            enemyMp: result.nextMp,
+            enemyV2SkillCooldowns: result.nextCooldowns,
+          };
+          continue;
+        }
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
         const enemySkillDamage =

@@ -1634,36 +1634,58 @@ export function castV2SkillOnAttackerTurnPvP(
   // 스킬도 명중 영향 — 데미지 스킬 발동 후 미스 판정(평타와 같은 공식). 미스면 적 효과만 무효
   //   (MP·쿨다운 소모됨·자버프/자힐 유지). 데미지>0 일 때만 롤(RNG 드리프트 방지).
   let skillMissed = false;
+  let skillGuaranteedEvaded = false;
   if (result.castSkillId && result.enemyDamage > 0) {
-    // 평타 미스 공식과 동일(회피 대결형 Slice 2 B안) — 방어자 회피레이팅(정밀·이중행운·만물행운·회전
-    //   운기·선풍각 합) vs 공격자 명중레이팅. ⚠️ 평타 missPct(engine.pvpPhase.ts)와 동기화 유지.
-    const sPrecisionMult = side.player.precisionEvasionMult ?? 1;
-    const sLuckEvadeBonus = opp.flags.luckyBuffActive
-      ? opp.player.doubleLuck?.evade ?? 0
-      : 0;
-    const sSkillEvadeBonus =
-      opp.stacks.skillEvasionTurns > 0 ? opp.stacks.skillEvasionPct : 0;
-    const sDefenderEvaR = Math.max(
-      0,
-      (opp.player.evaRating ?? opp.player.evasionPct ?? 0) * sPrecisionMult +
-        sLuckEvadeBonus +
-        (opp.player.universalLuckBonusPct ?? 0) +
-        opp.buffs.cyclingChiBonus +
-        sSkillEvadeBonus,
-    );
-    const sMissPct = pvpAttackMissPct(
-      sDefenderEvaR,
-      side.player.accRating ?? side.player.accuracyPct ?? 0,
-    );
-    if (Math.random() * 100 < sMissPct) {
-      skillMissed = true;
+    // 그림자 도약 등 보장 회피는 평타뿐 아니라 다음 직접 피해 스킬에도 우선 적용한다.
+    // 스킬 다단히트는 일반 명중 판정과 마찬가지로 한 번의 공격 행동으로 취급해 전체를 회피한다.
+    if (opp.stacks.evadesRemaining > 0) {
+      skillGuaranteedEvaded = true;
       result = {
         ...result,
         enemyDamage: 0,
         magicEnemyDamage: 0,
         dotsToApplyToTarget: [],
         enemyDebuffsToApply: [],
+        enemyVulnToApply: undefined,
+        enemyEvasionDownToApply: undefined,
+        enemyAccuracyDownToApply: undefined,
+        enemyDelayToApply: undefined,
+        enemyHealReduceToApply: undefined,
+        enemyDamageDownToApply: undefined,
+        enemySkillProcDownToApply: undefined,
+        enemyDotVulnToApply: undefined,
       };
+    } else {
+      // 평타 미스 공식과 동일(회피 대결형 Slice 2 B안) — 방어자 회피레이팅(정밀·이중행운·만물행운·회전
+      //   운기·선풍각 합) vs 공격자 명중레이팅. ⚠️ 평타 missPct(engine.pvpPhase.ts)와 동기화 유지.
+      const sPrecisionMult = side.player.precisionEvasionMult ?? 1;
+      const sLuckEvadeBonus = opp.flags.luckyBuffActive
+        ? opp.player.doubleLuck?.evade ?? 0
+        : 0;
+      const sSkillEvadeBonus =
+        opp.stacks.skillEvasionTurns > 0 ? opp.stacks.skillEvasionPct : 0;
+      const sDefenderEvaR = Math.max(
+        0,
+        (opp.player.evaRating ?? opp.player.evasionPct ?? 0) * sPrecisionMult +
+          sLuckEvadeBonus +
+          (opp.player.universalLuckBonusPct ?? 0) +
+          opp.buffs.cyclingChiBonus +
+          sSkillEvadeBonus,
+      );
+      const sMissPct = pvpAttackMissPct(
+        sDefenderEvaR,
+        side.player.accRating ?? side.player.accuracyPct ?? 0,
+      );
+      if (Math.random() * 100 < sMissPct) {
+        skillMissed = true;
+        result = {
+          ...result,
+          enemyDamage: 0,
+          magicEnemyDamage: 0,
+          dotsToApplyToTarget: [],
+          enemyDebuffsToApply: [],
+        };
+      }
     }
   }
   // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.
@@ -2099,6 +2121,16 @@ export function castV2SkillOnAttackerTurnPvP(
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);
   next = setSide(next, otherKey, nextOpp);
+  if (skillGuaranteedEvaded && result.castSkillName) {
+    next = applyDodgeEffects(
+      next,
+      who,
+      otherKey,
+      `[회피 강화] ${opp.name}이(가) ${side.name}의 ${result.castSkillName}을(를) 회피했다.`,
+      true,
+      true,
+    );
+  }
   // 스킬 데미지로 상대가 쓰러지면 즉시 전투 종료 (PvE resolveBattle 의 enemyHp<=0 가드 미러).
   //   이 가드가 없으면 상대 HP 0 인 채로 시전자의 후속 액션이 한 스텝 더 진행된다 — 평타면 시체를
   //   한 번 더 때려(cosmetic) 결국 종료되지만, 포션 등 비공격 액션이면 죽은 쪽으로 페이즈가 넘어가는

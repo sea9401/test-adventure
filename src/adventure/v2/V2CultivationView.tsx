@@ -15,6 +15,7 @@ import {
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
 import {
+  cultivationOutcomeLabel,
   effectiveCultivateProfile,
   V2_HYBRID_CULTIVATE_PROFILE,
   V2_STAT_CAP_BASE,
@@ -71,13 +72,16 @@ type StateShape = {
       cultivations: number;
       capGains: number;
       nextCost: number;
+      cultivationPointsSpent: number;
+      cultivationResetCount: number;
+      cultivationResetGoldCost: number;
       advance?: V2AdvanceInfo | null;
     };
   };
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
-  const { refreshGameState } = useGameState();
+  const { refreshGameState, spendableGold, applyResourcePatch } = useGameState();
   // 기본 탭 = 직업(사용자 요청 순서). 수행을 기본으로 원하면 "cultivate" 로 바꾸면 됨.
   const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");
@@ -85,6 +89,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [cultivations, setCultivations] = useState(0);
   const [capGains, setCapGains] = useState(0);
   const [nextCost, setNextCost] = useState(0);
+  const [cultivationPointsSpent, setCultivationPointsSpent] = useState(0);
+  const [cultivationResetGoldCost, setCultivationResetGoldCost] = useState(0);
+  const [resetConfirming, setResetConfirming] = useState(false);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
   const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
   // 레거시 직업 그리드용 — 캐릭터 + 직군 요약(도달차수·숙련도) + 현 직업군 전직 가능 여부.
@@ -120,6 +127,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setCultivations(cur.cultivations);
         setCapGains(cur.capGains ?? 0);
         setNextCost(cur.nextCost);
+        setCultivationPointsSpent(cur.cultivationPointsSpent ?? 0);
+        setCultivationResetGoldCost(cur.cultivationResetGoldCost ?? 0);
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
         if (j.character) {
@@ -180,6 +189,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         capGains?: number;
         points?: number;
         nextCost?: number;
+        cultivationPointsSpent?: number;
         required?: number;
         have?: number;
       } | null;
@@ -193,19 +203,80 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setMsg(`✗ ${label}`);
         return;
       }
-      const crit = (j.mult ?? 1) > 1 ? ` ⭐치명타 ×${j.mult}!` : "";
-      setMsg(`✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${crit}`);
+      const outcome = cultivationOutcomeLabel(j.mult ?? 1);
+      const special = outcome ? ` · ${outcome} ×${j.mult}!` : "";
+      setMsg(`✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${special}`);
       setCaps(j.caps ?? caps);
       setCultivations(j.cultivations ?? cultivations + 1);
       setCapGains(j.capGains ?? capGains);
       setUsable(j.points ?? Math.max(0, usable - nextCost));
+      setCultivationPointsSpent(
+        j.cultivationPointsSpent ?? cultivationPointsSpent + (j.spent ?? nextCost),
+      );
       setNextCost(j.nextCost ?? nextCost);
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
-  }, [capGains, caps, cultivations, usable, nextCost, setMsg]);
+  }, [
+    capGains,
+    caps,
+    cultivationPointsSpent,
+    cultivations,
+    usable,
+    nextCost,
+    setMsg,
+  ]);
+
+  const resetCultivationState = useCallback(async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/cultivate/reset", { method: "POST" });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        requiredGold?: number;
+        spentGold?: number;
+        refundedPoints?: number;
+        gold?: number;
+        bankedGold?: number;
+      } | null;
+      if (!j?.ok) {
+        const label =
+          j?.error === "nothing_to_reset"
+            ? "초기화할 수행 한계치가 없습니다."
+            : j?.error === "insufficient_gold"
+              ? `골드 부족 (필요 ${(j.requiredGold ?? cultivationResetGoldCost).toLocaleString()} G)`
+              : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
+        return;
+      }
+      applyResourcePatch({
+        gold: j.gold,
+        bankedGold: j.bankedGold,
+      });
+      setResetConfirming(false);
+      await Promise.all([refresh(), refreshGameState()]);
+      const costLabel = (j.spentGold ?? 0) > 0
+        ? ` · 골드 -${(j.spentGold ?? 0).toLocaleString()} G`
+        : " · 첫 초기화 무료";
+      setMsg(
+        `✓ 수행 초기화 완료 · 숙달 포인트 +${(j.refundedPoints ?? 0).toLocaleString()}${costLabel}`,
+      );
+    } catch (err) {
+      setMsg(`✗ ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    applyResourcePatch,
+    cultivationResetGoldCost,
+    refresh,
+    refreshGameState,
+    setMsg,
+  ]);
 
   return (
     <PageShell spacing="tight">
@@ -220,6 +291,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           active={tab}
           onChange={(next) => {
             setTab(next);
+            setResetConfirming(false);
             setMsg(null);
           }}
           ariaLabel="성장의 신전 탭"
@@ -330,28 +402,104 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             )}
 
             {profile && (
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  한계 증가 합 {capGains.toLocaleString()} · 수행{" "}
-                  {cultivations.toLocaleString()}회 · 다음 비용{" "}
-                  <strong
-                    className={`tabular-nums ${
-                      usable >= nextCost
-                        ? "text-emerald-700 dark:text-emerald-400"
-                        : "text-rose-600 dark:text-rose-400"
-                    }`}
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    한계 증가 합 {capGains.toLocaleString()} · 수행{" "}
+                    {cultivations.toLocaleString()}회 · 다음 비용{" "}
+                    <strong
+                      className={`tabular-nums ${
+                        usable >= nextCost
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-rose-600 dark:text-rose-400"
+                      }`}
+                    >
+                      {nextCost}
+                    </strong>
+                  </span>
+                  <Button
+                    onClick={cultivate}
+                    disabled={!canCultivate}
+                    variant="success"
+                    size="md"
                   >
-                    {nextCost}
-                  </strong>
-                </span>
-                <Button
-                  onClick={cultivate}
-                  disabled={!canCultivate}
-                  variant="success"
-                  size="md"
-                >
-                  {busy ? "수행 중…" : "수행"}
-                </Button>
+                    {busy ? "처리 중…" : "수행"}
+                  </Button>
+                </div>
+
+                <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
+                      <p>
+                        수행 초기화 · 환급 숙달 포인트{" "}
+                        <strong className="tabular-nums text-zinc-800 dark:text-zinc-200">
+                          {cultivationPointsSpent.toLocaleString()}
+                        </strong>
+                      </p>
+                      <p className="mt-0.5">
+                        비용{" "}
+                        <strong
+                          className={`tabular-nums ${
+                            spendableGold >= cultivationResetGoldCost
+                              ? "text-zinc-800 dark:text-zinc-200"
+                              : "text-rose-600 dark:text-rose-400"
+                          }`}
+                        >
+                          {cultivationResetGoldCost === 0
+                            ? "첫 1회 무료"
+                            : `${cultivationResetGoldCost.toLocaleString()} G`}
+                        </strong>
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => setResetConfirming(true)}
+                      disabled={busy || capGains <= 0}
+                      variant="warning"
+                      size="sm"
+                    >
+                      수행 초기화
+                    </Button>
+                  </div>
+
+                  {resetConfirming && (
+                    <div className={`${SURFACE_INSET} mt-3 p-3`}>
+                      <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+                        모든 수행 한계치를 초기화할까요?
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+                        대성공·각성 결과를 포함한 한계 증가치가 모두 사라집니다.
+                        사용한 숙달 포인트 {cultivationPointsSpent.toLocaleString()}은
+                        전액 돌려받으며, 수행 횟수와 직업 숙련도는 유지됩니다.
+                      </p>
+                      <div className="mt-3 flex justify-end gap-2">
+                        <Button
+                          onClick={() => setResetConfirming(false)}
+                          disabled={busy}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          취소
+                        </Button>
+                        <Button
+                          onClick={resetCultivationState}
+                          disabled={
+                            busy ||
+                            capGains <= 0 ||
+                            spendableGold < cultivationResetGoldCost
+                          }
+                          variant="danger"
+                          size="sm"
+                        >
+                          {busy
+                            ? "초기화 중…"
+                            : cultivationResetGoldCost === 0
+                              ? "무료로 초기화"
+                              : `${cultivationResetGoldCost.toLocaleString()} G 지불`}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </Card>

@@ -61,6 +61,20 @@ const ITEM_LABELS = Object.fromEntries(
   Object.entries(FARM_ITEMS).map(([id, item]) => [id, item.name]),
 ) as Record<FarmItemId, string>;
 
+export function prioritizeDeliverable<T>(
+  items: readonly T[],
+  isDeliverable: (item: T) => boolean,
+): T[] {
+  const deliverable: T[] = [];
+  const unavailable: T[] = [];
+
+  for (const item of items) {
+    (isDeliverable(item) ? deliverable : unavailable).push(item);
+  }
+
+  return [...deliverable, ...unavailable];
+}
+
 export function AdventurerFarmPanel({
   onBack,
   onOpenKitchen,
@@ -658,6 +672,10 @@ function RareDeliveryBoard({
   busyDeliveryId: string | null;
   onDeliver: (requestId: string) => void;
 }) {
+  const orderedDeliveries = prioritizeDeliverable(deliveries, (delivery) =>
+    hasRequiredItems(inventory, delivery.requiredItems),
+  );
+
   return (
     <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -665,7 +683,7 @@ function RareDeliveryBoard({
         희귀 수확 납품
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
-        {deliveries.map((delivery) => {
+        {orderedDeliveries.map((delivery) => {
           const enough = hasRequiredItems(inventory, delivery.requiredItems);
           const busy = busyDeliveryId === delivery.id;
           const previewItemId = firstItemId(delivery.requiredItems);
@@ -709,6 +727,13 @@ function WeeklyDeliveryBoard({
   busyDeliveryId: string | null;
   onDeliver: (requestId: string) => void;
 }) {
+  const orderedDeliveries = prioritizeDeliverable(
+    deliveries,
+    (delivery) =>
+      !claimedIds.includes(delivery.id) &&
+      hasRequiredItems(inventory, delivery.requiredItems),
+  );
+
   return (
     <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -716,7 +741,7 @@ function WeeklyDeliveryBoard({
         주간 농장 납품
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
-        {deliveries.map((delivery) => {
+        {orderedDeliveries.map((delivery) => {
           const claimed = claimedIds.includes(delivery.id);
           const enough = hasRequiredItems(inventory, delivery.requiredItems);
           const busy = busyDeliveryId === delivery.id;
@@ -1105,6 +1130,14 @@ function DeliveryBoard({
   onDeliver: (requestId: string) => void;
 }) {
   const dailyLimitReached = dailyDeliveryCount >= dailyDeliveryLimit;
+  const orderedDeliveries = prioritizeDeliverable(
+    deliveries,
+    (delivery) =>
+      !dailyLimitReached &&
+      !claimedIds.includes(delivery.id) &&
+      (inventory[delivery.requiredItemId] ?? 0) >= delivery.requiredQuantity,
+  );
+
   return (
     <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -1117,7 +1150,7 @@ function DeliveryBoard({
         </span>
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
-        {deliveries.map((delivery) => {
+        {orderedDeliveries.map((delivery) => {
           const have = inventory[delivery.requiredItemId] ?? 0;
           const claimed = claimedIds.includes(delivery.id);
           const enough = have >= delivery.requiredQuantity;

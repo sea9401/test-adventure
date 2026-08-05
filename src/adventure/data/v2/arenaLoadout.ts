@@ -69,6 +69,8 @@ const DERIVED_BUFF_LABEL = {
   crit: "치명타",
   damageReduction: "받는 피해 감소",
   reflectDamage: "반사 피해",
+  regen: "지속 회복",
+  guaranteedEvade: "확정 회피",
 } as const;
 
 const ENEMY_STATUS_LABEL = {
@@ -106,7 +108,7 @@ export function arenaPatternConditionSummary(
     case "self_buff":
       return `내 ${STAT_LABELS[condition.stat]} 버프 ${condition.active ? "있음" : "없음"}`;
     case "self_buff_pct":
-      return `내 ${DERIVED_BUFF_LABEL[condition.target]} 버프 ${condition.active ? "있음" : "없음"}`;
+      return `내 ${DERIVED_BUFF_LABEL[condition.target]} 상태 효과 ${condition.active ? "있음" : "없음"}`;
     case "enemy_hp":
       return `적 HP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
     case "enemy_status":

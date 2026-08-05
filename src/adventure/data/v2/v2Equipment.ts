@@ -1054,7 +1054,12 @@ const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
 
 // 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
-export type V2EquipStatRow = { label: string; value: string };
+export type V2EquipStatRow = {
+  label: string;
+  value: string;
+  /** 최종 수치 아래에 붙는 보조 설명. 강화 장비의 기본 수치·강화 증가분 등에 사용. */
+  detail?: string;
+};
 
 export function v2EquipPowerLabel(item: V2Equipment): string {
   if (item.slot === "weapon") {
@@ -1143,7 +1148,18 @@ export function v2EquipStatRows(
   const out: V2EquipStatRow[] = [];
   const power = powerWithBonuses(eff.power, enhance, craftQuality);
   if (power) {
-    out.push({ label: v2EquipPowerLabel(item), value: `+${power}` });
+    const enhanceBonus = enhance
+      ? powerWithBonuses(eff.power, enhance) - eff.power
+      : 0;
+    out.push({
+      label: v2EquipPowerLabel(item),
+      value: `+${power}`,
+      ...(enhance && enhance.level > 0
+        ? {
+            detail: `기본 +${eff.power} · 강화 +${Math.max(0, enhanceBonus)}`,
+          }
+        : {}),
+    });
   }
   const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) {
@@ -1173,6 +1189,8 @@ export type V2EquipCompareRow = {
   label: string;
   /** 후보 표시값(없으면 "—") — v2EquipStatRows 와 동일 포맷. */
   value: string;
+  /** 후보의 기본 수치·강화 증가분 보조 설명. */
+  detail?: string;
   /** 증감 표시("" = 동일). */
   deltaText: string;
   /** 1 = 이득(초록) · -1 = 손해(빨강) · 0 = 동일. */
@@ -1246,7 +1264,7 @@ export function v2EquipCompareRows(
       candidate.roll,
       candidate.enhance,
       candidate.craftQuality,
-    ).map((r) => [r.label, r.value] as const),
+    ).map((r) => [r.label, r] as const),
   );
   const candN = compareNumeric(
     candidate.item,
@@ -1268,9 +1286,11 @@ export function v2EquipCompareRows(
     const delta = cv - ev;
     const better: 0 | 1 | -1 =
       delta === 0 ? 0 : lowerBetter ? (delta < 0 ? 1 : -1) : delta > 0 ? 1 : -1;
+    const display = candDisplay.get(label);
     out.push({
       label,
-      value: candDisplay.get(label) ?? "—",
+      value: display?.value ?? "—",
+      ...(display?.detail ? { detail: display.detail } : {}),
       deltaText: delta === 0 ? "" : formatCompareDelta(label, delta),
       better,
     });

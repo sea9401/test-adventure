@@ -998,6 +998,27 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(s.p2.v2Skills.equipped).toEqual([]);
   });
 
+  it("직접 피해 없는 상태이상 스킬도 회피되면 상대에게 남지 않는다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({ spd: 15, accuracyPct: 0, accRating: 0 }),
+      makePlayer({ spd: 5, evasionPct: 100, evaRating: 100 }),
+      "P1",
+      "P2",
+      {
+        learned: ["mob_venom_bite"],
+        equipped: ["mob_venom_bite"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1");
+
+    expect(cast.state.p2.v2Dots).toEqual([]);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(
+      true,
+    );
+  });
+
   it("그림자 도약 시전은 PvP에서도 보장 회피 1회를 충전한다", () => {
     const s0 = initialBattleStatePvP(
       makePlayer({ spd: 15, guaranteedEvades: 1 }),

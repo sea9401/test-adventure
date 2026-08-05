@@ -16,6 +16,7 @@ import type {
 } from "./FishingView";
 import { useActivityVerification } from "./useActivityVerification";
 import type { AutoGatheringActivity } from "./autoGathering";
+import { useFishingCodexContext } from "./GameStateProvider";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -43,6 +44,7 @@ function parseNextActionAt(value: unknown): number | null {
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
 export function useFishing(spotId?: FishingSpotId): FishingHandlers {
   const { verification, verifyHuman, readJson } = useActivityVerification("fishing");
+  const fishingCodex = useFishingCodexContext();
   const [dailyCatchCoins, setDailyCatchCoins] =
     useState<FishingDailyCatchCoins | null>(null);
   const [progression, setProgression] =
@@ -156,6 +158,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
         if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
         if (j.caught) {
+          fishingCodex?.markDiscovered(String(j.fishId));
           if (j.progression && typeof j.progression === "object") {
             setProgression(j.progression as FishingProgressionView);
           }
@@ -278,7 +281,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         release();
       }
     },
-    [beginReel, readJson],
+    [beginReel, fishingCodex, readJson],
   );
 
   return {

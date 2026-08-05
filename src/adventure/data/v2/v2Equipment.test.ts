@@ -870,6 +870,20 @@ describe("v2EquipStatRows (표시 행)", () => {
       { label: "속도", value: "-4" },
     ]);
   });
+
+  it("강화 장비는 최종 위력과 함께 강화 전 기본 수치·증가분을 제공한다", () => {
+    const rows = v2EquipStatRows(
+      V2_EQUIPMENT.v2_iron_sword,
+      { power: 100, weight: 0, options: {} },
+      { level: 5, bonusPct: 8 },
+    );
+
+    expect(rows[0]).toEqual({
+      label: "공격력",
+      value: "+108",
+      detail: "기본 +100 · 강화 +8",
+    });
+  });
 });
 
 describe("parseEquipmentSave (개체 instance 모델)", () => {

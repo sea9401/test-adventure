@@ -1092,6 +1092,38 @@ describe("회피 강화 (guaranteedEvades)", () => {
   });
 });
 
+describe("상태이상 스킬 명중 판정", () => {
+  it("직접 피해 없는 중독 스킬도 빗나가면 DoT를 남기지 않는다", () => {
+    const player: PlayerCombat = {
+      ...PLAYER,
+      accuracyPct: 0,
+      accRating: 0,
+    };
+    const state = initialBattleState(
+      player,
+      makeEnemy({ hp: 500, evasionPct: 100 }),
+      "P",
+      {
+        learned: ["mob_venom_bite"],
+        equipped: ["mob_venom_bite"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.enemyV2Dots).toEqual([]);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(
+      true,
+    );
+  });
+});
+
 describe("연타 (extraAttackEveryNTurns)", () => {
   it("매 5턴마다 마지막 공격 후 추가 1회 공격", () => {
     const dbl: PlayerCombat = {

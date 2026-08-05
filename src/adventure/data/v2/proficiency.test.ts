@@ -6,6 +6,7 @@ import {
   usablePoints,
   addPoints,
   cultivationCost,
+  cultivationOutcomeLabel,
   cultivationCount,
   capGain,
   effectiveStatCap,
@@ -31,6 +32,11 @@ import {
   V2_SIGNATURE_LEARN_COST,
   proficiencyPerKillAtDepth,
   V2_GROWN_LEGACY_KEEP_PCT,
+  cultivationResetGoldCost,
+  estimateLegacyCultivationSpend,
+  refundableCultivationPoints,
+  resetCultivation,
+  V2_CULTIVATION_RESET_GOLD_COST,
 } from "./proficiency";
 
 describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
@@ -257,6 +263,23 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(cultivationCost(-5)).toBe(8);
   });
 
+  it("수행 초기화 비용 — 첫 1회 무료, 이후에는 매회 1,500만 골드", () => {
+    expect(cultivationResetGoldCost(0)).toBe(0);
+    expect(cultivationResetGoldCost(1)).toBe(V2_CULTIVATION_RESET_GOLD_COST);
+    expect(cultivationResetGoldCost(20)).toBe(V2_CULTIVATION_RESET_GOLD_COST);
+  });
+
+  it("parse — 기존 수행 저장값은 한 번 추정한 환급 원장으로 이관한다", () => {
+    const p = parseProficiency({
+      groups: { warrior: { cultivations: 2 } },
+      caps: { str: 4, vit: 2, dex: 2 },
+    });
+    expect(refundableCultivationPoints(p)).toBe(
+      estimateLegacyCultivationSpend(8, 2),
+    );
+    expect(p.cultivationLedgerVersion).toBe(1);
+  });
+
   it("effectiveStatCap — 저점과 무관한 기본 60 + 수행이득, capGain", () => {
     const p = parseProficiency({ groups: {}, caps: { str: 30 } });
     expect(capGain(p, "str")).toBe(30);
@@ -284,18 +307,46 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r!.next.caps.dex).toBe(1);
     expect(r!.next.caps.luk).toBeUndefined(); // 프로필 외 미변
     expect(cultivationCount(r!.next, "warrior")).toBe(1);
+    expect(refundableCultivationPoints(r!.next)).toBe(8);
     // 2회차 비용 = 8 + (올린 cap합 4)×6 = 32
     const r2 = applyCultivation(r!.next, "warrior");
     expect(r2!.cost).toBe(32);
+    expect(refundableCultivationPoints(r2!.next)).toBe(40);
     expect(usablePoints(p)).toBe(100); // 원본 비파괴
   });
 
-  it("applyCultivation — 크리티컬(rng) 으로 multX 이득", () => {
+  it("resetCultivation — 한계치만 비우고 사용 숙달 포인트를 전액 환급한다", () => {
+    const p = parseProficiency({
+      points: 60,
+      groups: {
+        warrior: { cultivations: 2, tier: 1, cumLevel: 77 },
+      },
+      caps: { str: 4, vit: 2, dex: 2 },
+      cultivationPointsSpent: 40,
+      cultivationResetCount: 0,
+      cultivationLedgerVersion: 1,
+    });
+    const reset = resetCultivation(p);
+    expect(reset).not.toBeNull();
+    expect(reset!.refundedPoints).toBe(40);
+    expect(usablePoints(reset!.next)).toBe(100);
+    expect(totalCapGains(reset!.next)).toBe(0);
+    expect(refundableCultivationPoints(reset!.next)).toBe(0);
+    expect(reset!.next.cultivationResetCount).toBe(1);
+    expect(reset!.next.groups.warrior).toEqual(p.groups.warrior);
+  });
+
+  it("applyCultivation — 대성공·각성 이름과 특별 수행 배수를 구분한다", () => {
     const p = parseProficiency({ groups: { warrior: { points: 1000 } } });
-    const r = applyCultivation(p, "warrior", () => 0); // r=0 < 0.015 → ×5
-    expect(r!.mult).toBe(5);
-    expect(r!.next.caps.str).toBe(2 * 5); // 앵커 2 ×5
-    expect(r!.next.caps.dex).toBe(1 * 5);
+    const awakened = applyCultivation(p, "warrior", () => 0); // r=0 < 0.015 → ×5
+    const greatSuccess = applyCultivation(p, "warrior", () => 0.02); // 0.015≤r<0.095 → ×3
+    expect(awakened!.mult).toBe(5);
+    expect(awakened!.next.caps.str).toBe(2 * 5); // 앵커 2 ×5
+    expect(awakened!.next.caps.dex).toBe(1 * 5);
+    expect(greatSuccess!.mult).toBe(3);
+    expect(cultivationOutcomeLabel(5)).toBe("각성");
+    expect(cultivationOutcomeLabel(3)).toBe("대성공");
+    expect(cultivationOutcomeLabel(1)).toBeNull();
   });
 
   it("applyCultivation — 잔액 부족/모험가(none) 직업군은 null", () => {

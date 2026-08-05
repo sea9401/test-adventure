@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { AdventurerFarmPanel } from "./AdventurerFarmPanel";
+import {
+  AdventurerFarmPanel,
+  prioritizeDeliverable,
+} from "./AdventurerFarmPanel";
 
 vi.mock("./useFarm", async () => {
   const farmModule = await import("./farm");
@@ -52,5 +55,33 @@ describe("모험가 농장 모바일 섹션", () => {
     expect(html).toContain("농사 레벨");
     expect(html).toContain("농장 성장");
     expect(html).toContain("sticky top-16");
+  });
+});
+
+describe("농장 납품 정렬", () => {
+  it("납품 가능한 품목을 위로 올리고 각 그룹의 기존 순서는 유지한다", () => {
+    const items = [
+      { id: "unavailable-a", deliverable: false },
+      { id: "available-a", deliverable: true },
+      { id: "unavailable-b", deliverable: false },
+      { id: "available-b", deliverable: true },
+    ];
+
+    expect(
+      prioritizeDeliverable(items, (item) => item.deliverable).map(
+        (item) => item.id,
+      ),
+    ).toEqual([
+      "available-a",
+      "available-b",
+      "unavailable-a",
+      "unavailable-b",
+    ]);
+    expect(items.map((item) => item.id)).toEqual([
+      "unavailable-a",
+      "available-a",
+      "unavailable-b",
+      "available-b",
+    ]);
   });
 });

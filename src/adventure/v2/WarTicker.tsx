@@ -140,6 +140,9 @@ export function warTickerText(
     const name = FISH[p.fishId as keyof typeof FISH]?.name ?? p.fishId;
     return `${e.actorName} 님이 ${name} ${formatFishSize(Math.round(p.size))} 대물 낚시!`;
   }
+  if (e.type === "cultivation_awakening") {
+    return `${e.actorName} 님이 수행에서 각성! 스탯 한계치 증가량 ×5`;
+  }
   if (e.type === "newcomer") {
     return `새 모험가 ${e.actorName} 님이 모험을 시작했습니다!`;
   }

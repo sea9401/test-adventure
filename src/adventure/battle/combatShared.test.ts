@@ -16,6 +16,8 @@ import {
   v2DamageAmount,
   tickV2Dots,
   applyV2DotsToTarget,
+  removeMissedV2SkillTargetEffects,
+  v2SkillHasTargetEffects,
 } from "../v2/combat/combatShared";
 import type { PlayerCombat } from "../v2/combat/engine";
 import type { Potion } from "../data/potions";
@@ -226,6 +228,57 @@ describe("몬스터 상태이상 스킬 cast (PR-9 — 적→플레이어 적용
     });
     expect(r.castSkillId).toBe("mob_chilling_touch");
     expect(r.enemyDebuffsToApply).toContainEqual(V2_DEBUFF_PRESETS.둔화);
+  });
+
+  it("직접 피해가 없는 DoT·약화 스킬도 상대 대상 명중 판정을 받는다", () => {
+    const poison = castFrameworkOnly({
+      skills: { learned: ["mob_venom_bite"], equipped: ["mob_venom_bite"] },
+      cooldowns: {},
+      mp: 0,
+    });
+    const slow = castFrameworkOnly({
+      skills: {
+        learned: ["mob_chilling_touch"],
+        equipped: ["mob_chilling_touch"],
+      },
+      cooldowns: {},
+      mp: 0,
+    });
+
+    expect(poison.enemyDamage).toBe(0);
+    expect(slow.enemyDamage).toBe(0);
+    expect(v2SkillHasTargetEffects(poison)).toBe(true);
+    expect(v2SkillHasTargetEffects(slow)).toBe(true);
+    expect(removeMissedV2SkillTargetEffects(poison).dotsToApplyToTarget).toEqual(
+      [],
+    );
+    expect(
+      removeMissedV2SkillTargetEffects(slow).enemyDebuffsToApply,
+    ).toEqual([]);
+  });
+
+  it("피해 스킬이 빗나가면 특수 약화는 제거하고 자기 강화는 유지한다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_absolute_unity"],
+        equipped: ["v2c_absolute_unity"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 999,
+        atk: 5,
+        maxHp: 1000,
+        allStatTotal: 700,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+
+    const missed = removeMissedV2SkillTargetEffects(result);
+    expect(missed.enemyDamage).toBe(0);
+    expect(missed.enemyVulnToApply).toBeUndefined();
+    expect(missed.selfHasteToApply).toEqual({ pct: 25 });
   });
 });
 

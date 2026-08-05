@@ -123,6 +123,7 @@ export function V2ItemCard({
   lock,
   equippedIds,
   codexRegistered,
+  codexRegister,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
@@ -146,6 +147,8 @@ export function V2ItemCard({
   equippedIds?: ReadonlySet<V2EquipmentId>;
   /** 독립 렌더링용 override. 일반 화면은 전역 장비 도감 상태를 자동 사용한다. */
   codexRegistered?: boolean;
+  /** 인벤토리 보유 장비의 미등록 배지에서 즉시 등록 절차를 시작한다. */
+  codexRegister?: { busy: boolean; onRegister: () => void };
 }) {
   useEscapeKey(onClose);
 
@@ -219,6 +222,8 @@ export function V2ItemCard({
               <EquipmentCodexBadge
                 itemId={item.id}
                 registered={codexRegistered}
+                onRegister={codexRegister?.onRegister}
+                busy={codexRegister?.busy}
               />
               <EnhanceLevelBadge enhance={enhance} />
               <CraftQualityBadge craftQuality={craftQuality} />

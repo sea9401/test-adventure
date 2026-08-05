@@ -79,10 +79,30 @@ describe("proficiencySection", () => {
     expect(s.current.group).toBe("warrior");
     expect(typeof s.current.points).toBe("number");
     expect(typeof s.current.cumLevel).toBe("number");
+    expect(s.current.cultivationPointsSpent).toBe(0);
+    expect(s.current.cultivationResetGoldCost).toBe(0);
     // 코어루프 off(테스트 env)면 레거시 advance 객체가 노출된다(정점 전 직군).
     for (const k of ["str", "dex", "int"]) {
       expect(typeof s.caps[k]).toBe("number");
     }
+  });
+
+  it("수행 초기화 환급액과 다음 초기화 비용을 함께 제공한다", () => {
+    const s = proficiencySection(
+      {
+        points: 10,
+        groups: { warrior: { cultivations: 1, tier: 1, cumLevel: 0 } },
+        caps: { str: 2, vit: 1, dex: 1 },
+        cultivationPointsSpent: 8,
+        cultivationResetCount: 1,
+        cultivationLedgerVersion: 1,
+      },
+      { class: "warrior" },
+    );
+
+    expect(s.current.cultivationPointsSpent).toBe(8);
+    expect(s.current.cultivationResetCount).toBe(1);
+    expect(s.current.cultivationResetGoldCost).toBe(15_000_000);
   });
 
   it("사냥 숙련도가 높아도 표시 한계치는 기본 60 + 수행 이득만 반영한다", () => {

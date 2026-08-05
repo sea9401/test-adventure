@@ -24,6 +24,21 @@ describe("V2ItemCard set information", () => {
     );
   });
 
+  it("인벤토리 상세 카드의 미등록 배지도 즉시 등록 버튼으로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_iron_sword}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+        codexRegistered={false}
+        codexRegister={{ busy: false, onRegister: () => undefined }}
+      />,
+    );
+
+    expect(html).toContain("도감 미등록");
+    expect(html).toContain("눌러서 바로 등록");
+  });
+
   it("lists every compatible item for a threshold-based tag set", () => {
     const item = V2_EQUIPMENT.v2_crafted_combo_bow;
     const html = renderToStaticMarkup(
@@ -67,6 +82,21 @@ describe("V2ItemCard set information", () => {
     expect(html).toContain("분열의 장갑");
     expect(html).toContain("협곡 보행화");
   });
+
+  it("강화 장비의 최종 공격력 아래에 기본 수치와 강화 증가분을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_iron_sword}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+        roll={{ power: 100, weight: 0, options: {} }}
+        enhance={{ level: 5, bonusPct: 8 }}
+      />,
+    );
+
+    expect(html).toContain("+108");
+    expect(html).toContain("기본 +100 · 강화 +8");
+  });
 });
 
 describe("V2ItemCompareCard 읽기 전용", () => {
@@ -86,5 +116,25 @@ describe("V2ItemCompareCard 읽기 전용", () => {
     expect(html).toContain("한타검");
     expect(html).not.toContain("장착하기");
     expect(html).not.toContain(">해제<");
+  });
+
+  it("비교 화면에서도 강화 장비의 기본 수치를 함께 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCompareCard
+        candidate={{
+          item: V2_EQUIPMENT.v2_greatsword,
+          roll: { power: 110, weight: 0, options: {} },
+        }}
+        equipped={{
+          item: V2_EQUIPMENT.v2_iron_sword,
+          roll: { power: 100, weight: 0, options: {} },
+          enhance: { level: 5, bonusPct: 8 },
+        }}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("기본 +100 · 강화 +8");
+    expect(html).toContain("+110");
   });
 });

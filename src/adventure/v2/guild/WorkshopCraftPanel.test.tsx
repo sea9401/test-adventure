@@ -4,7 +4,10 @@ import {
   GUILD_WORKSHOP_RECIPES,
   guildWorkshopRecipeView,
 } from "@/adventure/data/v2/guildWorkshop";
-import { WorkshopCraftPanel } from "./WorkshopCraftPanel";
+import {
+  WorkshopCraftPanel,
+  matchesWorkshopCodexFilter,
+} from "./WorkshopCraftPanel";
 import type {
   WorkshopEquipmentCodexLoadStatus,
   WorkshopState,
@@ -69,16 +72,56 @@ describe("guild workshop recipe equipment codex badge", () => {
 
   it("shows registered and unregistered status on the crafted item row", () => {
     const registeredHtml = renderWorkshop(new Set([recipe.equipmentId]));
-    expect(registeredHtml).toContain("도감 등록");
-    expect(registeredHtml).not.toContain("도감 미등록");
+    expect(registeredHtml).toContain(">도감 등록</span>");
+    expect(registeredHtml).not.toContain(">도감 미등록</span>");
 
     const unregisteredHtml = renderWorkshop(new Set());
-    expect(unregisteredHtml).toContain("도감 미등록");
+    expect(unregisteredHtml).toContain(">도감 미등록</span>");
   });
 
   it("shows a read failure instead of incorrectly marking the item unregistered", () => {
     const html = renderWorkshop(new Set(), "error");
     expect(html).toContain("도감 확인 실패");
     expect(html).not.toContain("도감 미등록");
+  });
+
+  it("shows an unregistered-only filter after the codex is ready", () => {
+    const html = renderWorkshop(new Set(), "ready");
+    expect(html).toContain("도감 미등록만");
+    expect(html).toContain('aria-pressed="false"');
+  });
+
+  it("disables the codex filter while loading or after a read failure", () => {
+    const loadingHtml = renderWorkshop(new Set(), "loading");
+    const errorHtml = renderWorkshop(new Set(), "error");
+    expect(loadingHtml).toContain("도감 확인 중");
+    expect(errorHtml).toContain("도감 필터 사용 불가");
+    expect(loadingHtml).toContain("disabled");
+    expect(errorHtml).toContain("disabled");
+  });
+});
+
+describe("matchesWorkshopCodexFilter", () => {
+  const registered = new Set(["registered"]);
+
+  it("필터를 켜면 도감 미등록 제작품만 통과시킨다", () => {
+    expect(
+      matchesWorkshopCodexFilter("registered", registered, "ready", true),
+    ).toBe(false);
+    expect(
+      matchesWorkshopCodexFilter("unregistered", registered, "ready", true),
+    ).toBe(true);
+  });
+
+  it("필터가 꺼졌거나 도감 조회가 완료되지 않았으면 목록을 숨기지 않는다", () => {
+    expect(
+      matchesWorkshopCodexFilter("registered", registered, "ready", false),
+    ).toBe(true);
+    expect(
+      matchesWorkshopCodexFilter("registered", registered, "loading", true),
+    ).toBe(true);
+    expect(
+      matchesWorkshopCodexFilter("registered", registered, "error", true),
+    ).toBe(true);
   });
 });

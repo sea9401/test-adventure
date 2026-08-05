@@ -42,7 +42,10 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import {
+  useEquipmentCodexContext,
+  useGameState,
+} from "@/adventure/v2/GameStateProvider";
 import {
   V2_ITEM_TABS,
   type V2ItemTabKey,
@@ -186,6 +189,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
   const { frontierDepth, refreshGameState, setGold } = useGameState();
+  const equipmentCodex = useEquipmentCodexContext();
   const { notifySystem } = useSystemToast();
 
   const refresh = useCallback(async (showLoading = false) => {
@@ -540,6 +544,102 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [notifySystem],
   );
 
+  // 인벤토리의 "도감 미등록" 배지에서 바로 등록한다. 서버 규칙과 동일하게 장착·잠금
+  // 개체는 차단하고, 영구 소모 작업이라 최종 확인은 유지한다.
+  const registerEquipmentCodex = useCallback(
+    async (inst: V2EquipInstance) => {
+      if (busy !== null) return;
+      const liveInst = owned.find((entry) => entry.iid === inst.iid);
+      const item = liveInst ? V2_EQUIPMENT[liveInst.id] : undefined;
+      if (!liveInst || !item) {
+        notifySystem("✗ 보유 장비를 찾을 수 없습니다");
+        return;
+      }
+      if (equipmentCodex?.registeredIds.has(liveInst.id)) {
+        notifySystem("✗ 이미 도감에 등록된 장비입니다");
+        return;
+      }
+      if (liveInst.locked) {
+        notifySystem("✗ 잠긴 장비는 등록할 수 없습니다. 먼저 잠금을 해제해 주세요");
+        return;
+      }
+      if (Object.values(equipped).includes(liveInst.iid)) {
+        notifySystem("✗ 장착 중인 장비는 등록할 수 없습니다. 먼저 해제해 주세요");
+        return;
+      }
+      if (
+        !window.confirm(
+          `${item.name} 1개를 장비 도감에 등록할까요?\n등록한 장비는 영구적으로 소모됩니다.`,
+        )
+      ) {
+        return;
+      }
+
+      setBusy(liveInst.iid);
+      try {
+        const res = await fetch("/api/v2/me/equipment-codex", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ iid: liveInst.iid }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          registeredIds?: string[];
+          owned?: V2EquipInstance[];
+          equipped?: Partial<Record<V2EquipSlot, string>>;
+          materials?: Partial<Record<V2MaterialId, number>>;
+        } | null;
+        if (!res.ok || !j?.ok) {
+          const reason =
+            j?.error === "locked"
+              ? "잠긴 장비는 등록할 수 없습니다"
+              : j?.error === "equipped"
+                ? "장착 중인 장비는 등록할 수 없습니다"
+                : j?.error === "already_registered"
+                  ? "이미 도감에 등록된 장비입니다"
+                  : j?.error === "not_owned"
+                    ? "보유 장비를 찾을 수 없습니다"
+                    : "장비를 도감에 등록할 수 없습니다";
+          notifySystem(`✗ ${reason}`);
+          return;
+        }
+
+        setOwned(
+          Array.isArray(j.owned)
+            ? j.owned
+            : owned.filter((entry) => entry.iid !== liveInst.iid),
+        );
+        if (j.equipped && typeof j.equipped === "object") {
+          setEquipped(j.equipped);
+        }
+        if (j.materials && typeof j.materials === "object") {
+          setMaterials(j.materials);
+        }
+        if (Array.isArray(j.registeredIds)) {
+          equipmentCodex?.replaceRegisteredIds(j.registeredIds);
+        }
+        setCard((current) =>
+          current?.inst.iid === liveInst.iid ? null : current,
+        );
+        void refreshGameState();
+        notifySystem(`✓ ${item.name} 도감 등록 완료`);
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [
+      busy,
+      equipmentCodex,
+      equipped,
+      notifySystem,
+      owned,
+      refreshGameState,
+    ],
+  );
+
   // 일괄 판매 — 클라에서 selectBulkSell 로 미리보기(개수·골드) 후 확인, 서버가 권위 판매.
   // 장착·잠금 개체만 자동 제외(전 장비 판매 가능 — 유니크 등도 포함). 응답의 owned 로 갱신.
   const applyBulkSell = useCallback(
@@ -770,6 +870,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             frontierDepth={frontierDepth}
             onBulkSell={applyBulkSell}
             onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
+            onRegisterCodex={registerEquipmentCodex}
           />
         )}
       </Card>
@@ -873,6 +974,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   : undefined
               }
               lock={lockAction}
+              codexRegister={{
+                busy: busy === card.inst.iid,
+                onRegister: () => registerEquipmentCodex(card.inst),
+              }}
             />
           );
         })()}

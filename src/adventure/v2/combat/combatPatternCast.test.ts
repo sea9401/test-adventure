@@ -109,6 +109,65 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     ).toBeNull();
   });
 
+  it("내 상태 효과 조건 — 지속 회복이 남아 있으면 같은 블록을 실행하지 않는다", () => {
+    const skillId = "v2c_warrior_strike";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: {
+            kind: "self_buff_pct",
+            target: "regen",
+            active: false,
+          },
+          action: { kind: "skill", skillId },
+        },
+      ],
+    };
+    const base = castInput([skillId], { combatPattern: pattern });
+    expect(resolveV2SkillCast(base).castSkillId).toBe(skillId);
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        attacker: {
+          ...base.attacker,
+          selfBuffPctActive: { regen: true },
+        },
+      }).castSkillId,
+    ).toBeNull();
+  });
+
+  it("내 속도 버프 조건 — V2 버프와 장비 발동형 임시 속도 버프를 모두 인식한다", () => {
+    const skillId = "v2c_warrior_strike";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "self_buff", stat: "spd", active: true },
+          action: { kind: "skill", skillId },
+        },
+      ],
+    };
+    const base = castInput([skillId], { combatPattern: pattern });
+    expect(resolveV2SkillCast(base).castSkillId).toBeNull();
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        attacker: {
+          ...base.attacker,
+          selfStatBuffActive: { spd: true },
+        },
+      }).castSkillId,
+    ).toBe(skillId);
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        attacker: {
+          ...base.attacker,
+          selfBuffs: { spd: { pct: 10, turns: 2 } },
+        },
+      }).castSkillId,
+    ).toBe(skillId);
+  });
+
   it("스킬 강화 의식은 직접 피해 최종값을 증폭한다", () => {
     const plain = resolveV2SkillCast(castInput(["v2_skill_strike"]));
     const enhanced = resolveV2SkillCast(

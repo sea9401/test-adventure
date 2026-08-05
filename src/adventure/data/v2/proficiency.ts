@@ -51,6 +51,11 @@ export type V2ProficiencyState = {
   //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
   //   판정해, 같은 직업 재전직만으로도 깨지게 한다(한 생애 cumLevel ~99 < 101 사각지대 해소).
   reincarnations?: number;
+  // 현재 수행 한계치에 실제로 사용한 숙달 포인트. 수행 초기화 시 이 금액을 전액 환급한다.
+  // 도입 전 저장값은 parse 시 현재 한계치·수행 횟수로 1회 추정한 뒤 ledgerVersion=1로 정규화한다.
+  cultivationPointsSpent?: number;
+  cultivationResetCount?: number;
+  cultivationLedgerVersion?: number;
 };
 
 // §10 다이얼.
@@ -148,17 +153,48 @@ export function effectiveCultivateProfile(
 // PER_CAP 15→6(2026-07): 반복 수행의 비용 부담을 완화.
 export const V2_CULT_COST_BASE = 8;
 export const V2_CULT_COST_PER_CAP = 6;
+export const V2_CULTIVATION_RESET_GOLD_COST = 15_000_000;
 export function cultivationCost(totalCapGains: number): number {
   return Math.round(
     V2_CULT_COST_BASE + Math.max(0, totalCapGains) * V2_CULT_COST_PER_CAP,
   );
 }
 
-// 크리티컬 수행 — 낮은 확률로 1회 비용에 여러 배 cap 상승. 누적 임계(rng < p) 순.
+export function cultivationResetGoldCost(resetCount: number): number {
+  return Math.max(0, Math.floor(Number(resetCount) || 0)) === 0
+    ? 0
+    : V2_CULTIVATION_RESET_GOLD_COST;
+}
+
+// 원장 도입 전 수행분의 1회성 호환 추정. 당시에는 수행별 비용·배수 순서를 저장하지 않아
+// 정확한 역산이 불가능하므로, 최종 한계치가 전체 수행에 고르게 누적됐다고 보고 비용 곡선의
+// 누적 면적을 계산한다. 이후 수행은 cultivationPointsSpent 에 실제 차감액을 그대로 기록한다.
+export function estimateLegacyCultivationSpend(
+  totalGains: number,
+  cultivationCount: number,
+): number {
+  const gains = Math.max(0, Math.floor(Number(totalGains) || 0));
+  if (gains <= 0) return 0;
+  const count = Math.max(1, Math.floor(Number(cultivationCount) || 0));
+  const estimate =
+    count * V2_CULT_COST_BASE +
+    (V2_CULT_COST_PER_CAP * gains * (count - 1)) / 2;
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.round(estimate)));
+}
+
+// 특별 수행 — 낮은 확률로 1회 비용에 여러 배 cap 상승. 누적 임계(rng < p) 순.
+// ×3 = 대성공, ×5 = 각성. 확률과 배수는 이름과 별개로 이 표가 단일 진실 출처다.
 export const V2_CULT_CRIT_TABLE: { p: number; mult: number }[] = [
-  { p: 0.015, mult: 5 }, // 1.5% — ×5
-  { p: 0.095, mult: 3 }, // +8% (누적 9.5%) — ×3
+  { p: 0.015, mult: 5 }, // 1.5% — 각성
+  { p: 0.095, mult: 3 }, // +8% (누적 9.5%) — 대성공
 ];
+
+export function cultivationOutcomeLabel(mult: number): string | null {
+  if (mult === 5) return "각성";
+  if (mult === 3) return "대성공";
+  return null;
+}
+
 export function rollCultivationMult(rng: () => number): number {
   const r = rng();
   for (const { p, mult } of V2_CULT_CRIT_TABLE) {
@@ -184,6 +220,9 @@ export function emptyProficiency(): V2ProficiencyState {
     masteryScaleVersion: 2,
     growthScaleVersion: 1,
     reincarnations: 0,
+    cultivationPointsSpent: 0,
+    cultivationResetCount: 0,
+    cultivationLedgerVersion: 1,
   };
 }
 
@@ -227,6 +266,9 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     masteryScaleVersion?: unknown;
     growthScaleVersion?: unknown;
     reincarnations?: unknown;
+    cultivationPointsSpent?: unknown;
+    cultivationResetCount?: unknown;
+    cultivationLedgerVersion?: unknown;
   };
   const hasLegacyScaledFields =
     (!!obj.groups && typeof obj.groups === "object") ||
@@ -327,6 +369,19 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     growthScaleVersion >= 1
       ? parsedGrown
       : compressLegacyGrownStats(parsedGrown);
+  const cultivationLedgerVersion = posInt(obj.cultivationLedgerVersion);
+  const capTotal = V2_STAT_KEYS.reduce(
+    (sum, stat) => sum + (caps[stat] ?? 0),
+    0,
+  );
+  const cultivationTotal = Object.values(groups).reduce(
+    (sum, value) => sum + value.cultivations,
+    0,
+  );
+  const cultivationPointsSpent =
+    cultivationLedgerVersion >= 1
+      ? posInt(obj.cultivationPointsSpent)
+      : estimateLegacyCultivationSpend(capTotal, cultivationTotal);
   return {
     points: pointsTotal,
     groups,
@@ -337,6 +392,9 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     masteryScaleVersion,
     growthScaleVersion: 1,
     reincarnations: posInt(obj.reincarnations),
+    cultivationPointsSpent,
+    cultivationResetCount: posInt(obj.cultivationResetCount),
+    cultivationLedgerVersion: 1,
   };
 }
 
@@ -519,6 +577,29 @@ export function totalCapGains(p: V2ProficiencyState): number {
   return t;
 }
 
+export function refundableCultivationPoints(p: V2ProficiencyState): number {
+  return Math.max(0, Math.floor(Number(p.cultivationPointsSpent) || 0));
+}
+
+export function resetCultivation(
+  p: V2ProficiencyState,
+): { next: V2ProficiencyState; refundedPoints: number } | null {
+  if (totalCapGains(p) <= 0) return null;
+  const refundedPoints = refundableCultivationPoints(p);
+  return {
+    refundedPoints,
+    next: {
+      ...p,
+      points: usablePoints(p) + refundedPoints,
+      caps: {},
+      cultivationPointsSpent: 0,
+      cultivationResetCount:
+        Math.max(0, Math.floor(Number(p.cultivationResetCount) || 0)) + 1,
+      cultivationLedgerVersion: 1,
+    },
+  };
+}
+
 // 숙달 포인트 적립 — 캐릭터 전역 points += amount(승리당). 비파괴. 0 이하·빈 group·수행 프로필 없는
 //   group 은 무변경. 🔑 group 은 적립 "자격" 게이트일 뿐(잔액은 전역) — V2_CULTIVATE_PROFILE 가
 //   있는 직업(4직군 + none 모험가 등)에서 사냥할 때만 적립(일반화, 2026-06-22).
@@ -601,7 +682,7 @@ export function jobCumLevelOf(p: V2ProficiencyState, jobId: string): number {
 // 수행 1회 — 숙달 포인트 cost 소모 + 현 직업 프로필 stat cap 상승 + cultivations++.
 // 잔액 부족/유효하지 않은 직업군이면 null. 비파괴.
 // 수행 1회 — 숙달 포인트로 프로필 스탯 cap 헤드룸 상승. 비용 = 올린 cap 총합 비례.
-// rng 주면 낮은 확률로 다중 수행(크리티컬, mult×) — 1회 비용에 여러 배 cap. rng 없으면 ×1.
+// rng 주면 낮은 확률로 특별 수행(대성공 ×3/각성 ×5) — 1회 비용에 여러 배 cap. rng 없으면 ×1.
 export function applyCultivation(
   p: V2ProficiencyState,
   group: string,
@@ -641,6 +722,8 @@ export function applyCultivation(
     next: {
       ...p,
       points: p.points - cost, // 전역 잔액에서 차감
+      cultivationPointsSpent: refundableCultivationPoints(p) + cost,
+      cultivationLedgerVersion: 1,
       groups: {
         ...p.groups,
         [group]: { ...cur, cultivations: cur.cultivations + 1 },

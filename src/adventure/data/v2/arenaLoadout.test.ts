@@ -133,8 +133,38 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     expect(arenaPatternActionSummary(loadout)[0]).toMatchObject({
       name: "버프",
       condition:
-        "모두 만족 (내 HP 35% 이하 / 내 힘 버프 없음 / 내 받는 피해 감소 버프 있음)",
+        "모두 만족 (내 HP 35% 이하 / 내 힘 버프 없음 / 내 받는 피해 감소 상태 효과 있음)",
     });
+  });
+
+  it("지속 회복과 확정 회피를 내 상태 효과 조건으로 표시한다", () => {
+    const loadout = mk("status-effect-summary", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "self_buff_pct",
+              target: "regen",
+              active: false,
+            },
+            action: { kind: "role", role: "buff" },
+          },
+          {
+            condition: {
+              kind: "self_buff_pct",
+              target: "guaranteedEvade",
+              active: true,
+            },
+            action: { kind: "role", role: "main_attack" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout).map((row) => row.condition)).toEqual([
+      "내 지속 회복 상태 효과 없음",
+      "내 확정 회피 상태 효과 있음",
+    ]);
   });
 
   it("패턴 미설정은 빈 목록으로 표시한다", () => {

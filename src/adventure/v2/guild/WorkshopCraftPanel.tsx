@@ -110,6 +110,16 @@ export type CraftServerSync = {
   recipes?: WorkshopState["recipes"];
 };
 
+export function matchesWorkshopCodexFilter(
+  equipmentId: string,
+  registeredEquipmentIds: ReadonlySet<string>,
+  equipmentCodexStatus: WorkshopEquipmentCodexLoadStatus,
+  unregisteredOnly: boolean,
+): boolean {
+  if (!unregisteredOnly || equipmentCodexStatus !== "ready") return true;
+  return !registeredEquipmentIds.has(equipmentId);
+}
+
 export function WorkshopCraftPanel({
   state,
   weekly,
@@ -161,6 +171,7 @@ export function WorkshopCraftPanel({
   const [recipeScopeFilter, setRecipeScopeFilter] = useState<
     "all" | "craftable"
   >("all");
+  const [unregisteredCodexOnly, setUnregisteredCodexOnly] = useState(false);
   const [recipeSort, setRecipeSort] = useState<"level" | "tier" | "chance">(
     "level",
   );
@@ -178,6 +189,16 @@ export function WorkshopCraftPanel({
         return false;
       }
       if (recipeScopeFilter === "craftable" && !recipe.canCraft) return false;
+      if (
+        !matchesWorkshopCodexFilter(
+          recipe.equipmentId,
+          registeredEquipmentIds,
+          equipmentCodexStatus,
+          unregisteredCodexOnly,
+        )
+      ) {
+        return false;
+      }
       return true;
     };
     const sortRecipes = (recipes: WorkshopRecipeView[]) =>
@@ -222,6 +243,9 @@ export function WorkshopCraftPanel({
     recipeScopeFilter,
     recipeSlotFilter,
     recipeSort,
+    unregisteredCodexOnly,
+    equipmentCodexStatus,
+    registeredEquipmentIds,
     state?.recipes,
     recommendedRecipeId,
   ]);
@@ -730,7 +754,7 @@ export function WorkshopCraftPanel({
             </button>
           ))}
         </div>
-        <div className="grid gap-1.5 sm:grid-cols-2">
+        <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_auto]">
           <select
             value={recipeScopeFilter}
             onChange={(e) =>
@@ -752,6 +776,30 @@ export function WorkshopCraftPanel({
             <option value="tier">티어 높은순</option>
             <option value="chance">품질 확률순</option>
           </select>
+          <button
+            type="button"
+            aria-pressed={unregisteredCodexOnly}
+            disabled={equipmentCodexStatus !== "ready"}
+            onClick={() => setUnregisteredCodexOnly((current) => !current)}
+            className={`rounded border px-2.5 py-1 font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              unregisteredCodexOnly
+                ? "border-emerald-700 bg-emerald-700 text-white dark:border-emerald-500 dark:bg-emerald-500 dark:text-emerald-950"
+                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            }`}
+            title={
+              equipmentCodexStatus === "loading"
+                ? "장비 도감 정보를 불러오는 중입니다."
+                : equipmentCodexStatus === "error"
+                  ? "장비 도감 정보를 불러오지 못해 필터를 사용할 수 없습니다."
+                  : "장비 도감에 아직 등록하지 않은 제작품만 표시합니다."
+            }
+          >
+            {equipmentCodexStatus === "loading"
+              ? "도감 확인 중"
+              : equipmentCodexStatus === "error"
+                ? "도감 필터 사용 불가"
+                : "도감 미등록만"}
+          </button>
         </div>
       </div>
 

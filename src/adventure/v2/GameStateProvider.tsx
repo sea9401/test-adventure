@@ -61,6 +61,7 @@ import type {
 } from "@/adventure/v2/autoGathering";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { parseEquipmentCodex } from "@/adventure/data/v2/equipmentCodex";
+import { isFishId, type FishId } from "@/adventure/data/v2/fish";
 
 // 신규/미방문 플레이어의 기본 현재 거점 — 인접 게이트의 부트스트랩 기준점.
 const START_OUTPOST = OUTPOSTS.find((o) => o.id === START_OUTPOST_ID)!;
@@ -177,12 +178,22 @@ type GameStateSnapshot = {
   equipmentCodex?: {
     registeredIds?: string[];
   };
+  fishingCodex?: {
+    discoveredIds?: string[];
+  };
 } | null;
 
 type EquipmentCodexContextValue = {
   registeredIds: ReadonlySet<V2EquipmentId>;
   loaded: boolean;
   replaceRegisteredIds: (ids: readonly string[]) => void;
+};
+
+type FishingCodexContextValue = {
+  discoveredIds: ReadonlySet<FishId>;
+  loaded: boolean;
+  replaceDiscoveredIds: (ids: readonly string[]) => void;
+  markDiscovered: (id: string) => void;
 };
 
 type GameStateValue = {
@@ -349,6 +360,7 @@ const GameStateCtx = createContext<GameStateValue | null>(null);
 const EquipmentCodexCtx = createContext<EquipmentCodexContextValue | null>(
   null,
 );
+const FishingCodexCtx = createContext<FishingCodexContextValue | null>(null);
 
 export function useGameState(): GameStateValue {
   const ctx = useContext(GameStateCtx);
@@ -362,6 +374,12 @@ export function useGameState(): GameStateValue {
 // 자주 바뀌는 GameState 값 때문에 모든 장비 배지가 다시 렌더링되지 않게 한다.
 export function useEquipmentCodexContext(): EquipmentCodexContextValue | null {
   return useContext(EquipmentCodexCtx);
+}
+
+// 생활 지도와 낚시 화면이 어보 발견 상태만 구독한다. 새 어종을 낚으면 지도 배지가
+// me/state 재요청 없이 즉시 갱신된다.
+export function useFishingCodexContext(): FishingCodexContextValue | null {
+  return useContext(FishingCodexCtx);
 }
 
 export function GameStateProvider({ children }: { children: React.ReactNode }) {
@@ -464,6 +482,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     Set<V2EquipmentId>
   >(() => new Set());
   const [equipmentCodexLoaded, setEquipmentCodexLoaded] = useState(false);
+  const [discoveredFishIds, setDiscoveredFishIds] = useState<Set<FishId>>(
+    () => new Set(),
+  );
+  const [fishingCodexLoaded, setFishingCodexLoaded] = useState(false);
   // 최초 me/state 로드 완료 여부 — 성공/실패 무관하게 끝나면 true(아래 finally).
   const [gameStateLoaded, setGameStateLoaded] = useState(false);
 
@@ -472,6 +494,21 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       new Set(parseEquipmentCodex({ registeredIds: ids }).registeredIds),
     );
     setEquipmentCodexLoaded(true);
+  }, []);
+
+  const replaceDiscoveredFishIds = useCallback((ids: readonly string[]) => {
+    setDiscoveredFishIds(new Set(ids.filter(isFishId)));
+    setFishingCodexLoaded(true);
+  }, []);
+
+  const markFishDiscovered = useCallback((id: string) => {
+    if (!isFishId(id)) return;
+    setDiscoveredFishIds((current) => {
+      if (current.has(id)) return current;
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
   }, []);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
@@ -675,6 +712,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       if (Array.isArray(j.equipmentCodex?.registeredIds)) {
         replaceRegisteredIds(j.equipmentCodex.registeredIds);
       }
+      if (Array.isArray(j.fishingCodex?.discoveredIds)) {
+        replaceDiscoveredFishIds(j.fishingCodex.discoveredIds);
+      }
 
       const cc = j.combatCooldown;
       applyResourcePatch({
@@ -728,7 +768,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         setOfflineHunt({ active: false, endsAt: 0, depth: 0 });
       }
     },
-    [applyResourcePatch, replaceRegisteredIds],
+    [applyResourcePatch, replaceDiscoveredFishIds, replaceRegisteredIds],
   );
 
   const refreshGameState = useCallback(async () => {
@@ -1193,10 +1233,27 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [equipmentCodexLoaded, registeredEquipmentIds, replaceRegisteredIds],
   );
 
+  const fishingCodexValue = useMemo<FishingCodexContextValue>(
+    () => ({
+      discoveredIds: discoveredFishIds,
+      loaded: fishingCodexLoaded,
+      replaceDiscoveredIds: replaceDiscoveredFishIds,
+      markDiscovered: markFishDiscovered,
+    }),
+    [
+      discoveredFishIds,
+      fishingCodexLoaded,
+      markFishDiscovered,
+      replaceDiscoveredFishIds,
+    ],
+  );
+
   return (
     <GameStateCtx.Provider value={value}>
       <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
-        {children}
+        <FishingCodexCtx.Provider value={fishingCodexValue}>
+          {children}
+        </FishingCodexCtx.Provider>
       </EquipmentCodexCtx.Provider>
     </GameStateCtx.Provider>
   );

@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../ChatPanel";
-import { MessageList } from "./MessageList";
+import {
+  isChatMessageListNearBottom,
+  MessageList,
+} from "./MessageList";
 import {
   ARENA_TOURNAMENT_NOTICE_CLASS_NAME,
   arenaTournamentNoticeContent,
@@ -19,6 +22,36 @@ const message: ChatMessage = {
 };
 
 describe("MessageList", () => {
+  it("모바일 키보드가 열릴 때 줄어든 높이 안에서 스크롤될 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[message]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("min-h-0");
+  });
+
+  it("최신 메시지 근처에서만 하단 고정 상태로 판단한다", () => {
+    expect(
+      isChatMessageListNearBottom({
+        scrollHeight: 1000,
+        scrollTop: 451,
+        clientHeight: 450,
+      }),
+    ).toBe(true);
+    expect(
+      isChatMessageListNearBottom({
+        scrollHeight: 1000,
+        scrollTop: 300,
+        clientHeight: 450,
+      }),
+    ).toBe(false);
+  });
+
   it("단일 배지만 맨 앞에 두고 칭호를 대괄호로 구분한다", () => {
     const html = renderToStaticMarkup(
       <MessageList

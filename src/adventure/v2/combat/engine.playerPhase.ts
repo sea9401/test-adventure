@@ -887,7 +887,7 @@ export function resolvePlayerPhase(
   if (sigSpdBuff) {
     log = appendLog(log, {
       kind: "info",
-      text: `[군림] 결정타 — 속도가 솟구친다!`,
+      text: `[${sigCritSpeedBuff?.label ?? "군림"}] 결정타 — 속도가 솟구친다!`,
     });
   }
   if (sigCritChill) {

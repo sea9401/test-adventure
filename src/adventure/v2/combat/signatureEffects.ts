@@ -116,14 +116,14 @@ export function onCritSpeedBuff(
   signatures: SignatureEffect[] | undefined,
   critRoll: boolean,
   dealtDamage: boolean,
-): { mult: number; turns: number } | null {
+): { mult: number; turns: number; label: string } | null {
   if (!critRoll || !dealtDamage || !signatures) return null;
-  let best: { mult: number; turns: number } | null = null;
+  let best: { mult: number; turns: number; label: string } | null = null;
   for (const s of signatures) {
     if (s.trigger !== "on_crit" || !s.spdBuffPct) continue;
     const mult = 1 + s.spdBuffPct / 100;
     const turns = Math.max(1, s.buffActions ?? 1);
-    if (!best || mult > best.mult) best = { mult, turns };
+    if (!best || mult > best.mult) best = { mult, turns, label: s.label };
   }
   return best;
 }

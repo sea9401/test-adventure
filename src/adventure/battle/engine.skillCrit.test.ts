@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveBattle, type PlayerCombat } from "../v2/combat/engine";
+import {
+  applyPlayerV2SkillCast,
+  initialBattleState,
+  resolveBattle,
+  type PlayerCombat,
+} from "../v2/combat/engine";
 import { pickAutoAction } from "../v2/combat/pickAutoAction";
 import { emptyV2SkillsState } from "../data/v2/v2Skills";
 import { SKILL_CRIT_MULT } from "../data/v2/v2CombatConstants";
@@ -97,5 +102,39 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
 
   it("치명타 빌드가 더 빨리 처치 (같은 RNG, 치명타 확률만 차이)", () => {
     expect(battle(100).turns).toBeLessThan(battle(0).turns);
+  });
+
+  it("스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = {
+      ...MAGE,
+      critChancePct: 100,
+      equipSignatures: [
+        {
+          trigger: "on_crit",
+          label: "유성우",
+          spdBuffPct: 20,
+          buffActions: 2,
+        },
+      ],
+    };
+    const state = initialBattleState(
+      player,
+      dummy(3000),
+      "마법사",
+      skills,
+    );
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(cast.state.buffs.playerSpdMult).toBe(1.2);
+    expect(cast.state.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[유성우]")),
+    ).toBe(true);
   });
 });

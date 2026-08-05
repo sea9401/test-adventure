@@ -24,8 +24,8 @@ export const EVA_OVERFLOW_PIERCE_CAP = 0.2; // 오버플로 기여 최대 20% (�
 // 크리티컬 확률 캡 — 회피와 대칭. 캡 초과분은 engine 시점에 크리 데미지로 자동 변환.
 // 빌드가 캡 도달 후에도 LUK 투자 의미를 유지(빌드 수렴 방지).
 export const CRIT_PCT_CAP = 75;
-export const CRIT_OVERFLOW_DMG_PER_PCT = 0.02; // 캡 초과 1%p → 크리뎀 +0.02×
-export const CRIT_OVERFLOW_DMG_CAP = 1.0; // 오버플로 크리뎀 기여 최대 +1.0×
+export const CRIT_OVERFLOW_DMG_PER_PCT = 0.01; // 캡 초과 1%p → 크리뎀 +0.01×
+export const CRIT_OVERFLOW_DMG_CAP = 0.5; // 오버플로 크리뎀 기여 최대 +0.5×
 
 // 스탯 1pt 당 전투 수치 환산 — UI 도감 노출용 설명.
 export const STAT_CONVERSIONS: Record<StatKey, string> = {

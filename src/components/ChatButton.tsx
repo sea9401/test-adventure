@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChatCircle, X } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
 import { ChatPanel, type ChatMessage } from "./ChatPanel";
+import { CHAT_CLOSE_REQUEST_EVENT } from "./chat/useMobileChatHistory";
 import {
   fetchChatMessages,
   latestChatMessageId,
@@ -246,7 +247,13 @@ export function ChatButton({
       <button
         type="button"
         // 아이콘 토글 — 열려 있으면 다시 눌러 닫는다(X 버튼 외 추가 닫기 경로).
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (open) {
+            window.dispatchEvent(new Event(CHAT_CLOSE_REQUEST_EVENT));
+          } else {
+            setOpen(true);
+          }
+        }}
         aria-expanded={open}
         aria-label={
           open

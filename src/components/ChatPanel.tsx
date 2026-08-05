@@ -54,6 +54,7 @@ import {
 } from "./chat/chatMessagesApi";
 import { LotteryRoom } from "./chat/LotteryRoom";
 import { ChatEquipmentPicker } from "./chat/ChatEquipmentPicker";
+import { useMobileChatHistory } from "./chat/useMobileChatHistory";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import {
   chatEquipmentLinkFromInstance,
@@ -676,11 +677,47 @@ export function ChatPanel({
     if (activeRoom === "notice" && lastNoticeId > 0) onSeen("notice", lastNoticeId);
   }, [open, activeRoom, lastChatId, lastGuildId, lastNoticeId, onSeen]);
 
+  const clearRoomView = useCallback(() => {
+    setActiveRoom(null);
+    setActiveCustomRoom(null);
+    setRoomManagerOpen(false);
+    setInviteOpen(false);
+    setInviteFeedback(null);
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
+    setError(null);
+  }, []);
+
+  const clearAndClosePanel = useCallback(() => {
+    setActiveRoom(null);
+    setActiveCustomRoom(null);
+    setRoomManagerOpen(false);
+    setInviteOpen(false);
+    setInviteName("");
+    setInviteFeedback(null);
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
+    setError(null);
+    onClose();
+  }, [onClose]);
+
+  const {
+    enterDetail: addMobileRoomHistory,
+    backToRooms: returnToRooms,
+    closeChat: closePanel,
+  } = useMobileChatHistory({
+    open,
+    detailOpen: Boolean(activeRoom || activeCustomRoom || roomManagerOpen),
+    onReturnToRooms: clearRoomView,
+    onClose: clearAndClosePanel,
+  });
+
   const enterRoom = (room: {
     builtin: ChatRoomKey | null;
     custom: CustomChatRoom | null;
   }) => {
     if (room.builtin === "guild" && !guildAvailable) return;
+    addMobileRoomHistory();
     setActiveRoom(room.builtin);
     setActiveCustomRoom(room.custom);
     setCustomMessages([]);
@@ -696,31 +733,8 @@ export function ChatPanel({
   const enterCustomRoom = (room: CustomChatRoom) =>
     enterRoom({ builtin: null, custom: room });
 
-  const returnToRooms = () => {
-    setActiveRoom(null);
-    setActiveCustomRoom(null);
-    setRoomManagerOpen(false);
-    setInviteOpen(false);
-    setInviteFeedback(null);
-    setItemAttachment(null);
-    setEquipmentPickerOpen(false);
-    setError(null);
-  };
-
-  const closePanel = () => {
-    setActiveRoom(null);
-    setActiveCustomRoom(null);
-    setRoomManagerOpen(false);
-    setInviteOpen(false);
-    setInviteName("");
-    setInviteFeedback(null);
-    setItemAttachment(null);
-    setEquipmentPickerOpen(false);
-    setError(null);
-    onClose();
-  };
-
   const openRoomManager = () => {
+    addMobileRoomHistory();
     setRoomManagerOpen(true);
     setActiveRoom(null);
     setActiveCustomRoom(null);

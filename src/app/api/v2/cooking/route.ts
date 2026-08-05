@@ -21,6 +21,7 @@ import {
 import {
   FARM_SAVE_KEY,
   emptyFarmState,
+  farmAvailableReputation,
   hasFarmItems,
   normalizeFarmForDay,
   parseFarmState,
@@ -113,7 +114,7 @@ function cookingView(userId: string, now: number, values: {
     recipes: COOKING_RECIPES,
     orders: cookingOrders(userId, cooking),
     farmItems: farm.inventory,
-    farmReputation: farm.stats.reputation,
+    farmReputation: farmAvailableReputation(farm),
     fishingItems: fishing.items,
     fishingItemDefinitions: FISHING_CATCH_ITEMS,
     cookingJobId: job.jobId,

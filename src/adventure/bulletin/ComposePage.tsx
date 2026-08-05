@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowLeft, Globe, UsersThree } from "@phosphor-icons/react";
 import {
   BULLETIN_CATEGORIES,
@@ -12,6 +12,11 @@ import {
 } from "@/lib/bulletin-config";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { BulletinMarkdown } from "./BulletinMarkdown";
+import {
+  BULLETIN_TEXT_COLORS,
+  type BulletinTextColorId,
+  wrapBulletinTextColor,
+} from "./bulletinTextColors";
 
 // 글쓰기 페이지 — 모달이 아니라 인라인 화면. PlazaScreen 의 "게시판" 헤더 아래 영역을
 // 통째로 차지한다. 모바일에서 textarea 가 화면 가로폭 전부를 쓸 수 있어 긴 글 작성에 유리.
@@ -47,6 +52,7 @@ export function ComposePage({
   const [editorMode, setEditorMode] = useState<"write" | "preview">("write");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const trimmed = draft.trim();
   const trimmedTitle = titleDraft.trim();
   const contentMaxLength = bulletinMaxLength(category);
@@ -77,6 +83,23 @@ export function ComposePage({
       setErr(e instanceof Error ? e.message : "작성 실패");
       setSubmitting(false);
     }
+  };
+
+  const applyTextColor = (colorId: BulletinTextColorId) => {
+    const textarea = textareaRef.current;
+    const result = wrapBulletinTextColor(
+      draft,
+      textarea?.selectionStart ?? draft.length,
+      textarea?.selectionEnd ?? draft.length,
+      colorId,
+    );
+    setDraft(result.content);
+    requestAnimationFrame(() => {
+      const current = textareaRef.current;
+      if (!current) return;
+      current.focus();
+      current.setSelectionRange(result.selectionStart, result.selectionEnd);
+    });
   };
 
   return (
@@ -209,8 +232,38 @@ export function ComposePage({
         </span>
       </div>
 
+      {editorMode === "write" && (
+        <div
+          role="toolbar"
+          aria-label="글자색"
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          <span className="mr-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+            글자색
+          </span>
+          {BULLETIN_TEXT_COLORS.map((color) => (
+            <button
+              key={color.id}
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => applyTextColor(color.id)}
+              disabled={submitting}
+              title={`${color.label} 글자색 적용`}
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 rounded-full ${color.swatchClassName}`}
+              />
+              {color.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {editorMode === "write" ? (
         <textarea
+          ref={textareaRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={14}
@@ -233,7 +286,8 @@ export function ComposePage({
       )}
       <p className="-mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
         <code>## 소제목</code> · <code>**굵게**</code> · <code>- 목록</code> ·{" "}
-        <code>&gt; 인용</code> · <code>[링크](https://주소)</code>
+        <code>&gt; 인용</code> · <code>[링크](https://주소)</code> ·{" "}
+        <code>[빨강]강조[/빨강]</code>
       </p>
       <div className="flex items-center justify-between text-xs">
         <span

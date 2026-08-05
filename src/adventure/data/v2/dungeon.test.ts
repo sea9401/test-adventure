@@ -25,7 +25,6 @@ import {
   frontierOnsetSoften,
   floorAccuracy,
   floorPowerGate,
-  UNDERPREPARED_ACCURACY_MAX,
 } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
@@ -373,7 +372,7 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.name).toBe(base.name);
   });
 
-  it("권장 전투력 미달은 중반·최상위 사냥터의 HP·ATK·명중만 보강한다", () => {
+  it("권장 전투력 미달은 HP·ATK만 보강하고 명중은 회피 생존축을 위해 분리한다", () => {
     const depth = 26;
     const gate = floorPowerGate(depth);
     const ready = scaleMonsterForFloor(base, depth, true, gate);
@@ -381,7 +380,7 @@ describe("scaleMonsterForFloor", () => {
 
     expect(underprepared.hp).toBeGreaterThan(ready.hp);
     expect(underprepared.atk).toBeGreaterThan(ready.atk);
-    expect(underprepared.accuracy).toBeGreaterThan(ready.accuracy ?? 0);
+    expect(underprepared.accuracy).toBe(ready.accuracy);
     expect(underprepared.def).toBe(ready.def);
     expect(underprepared.exp).toBe(ready.exp);
     expect(scaleMonsterForFloor(base, 43, true, 0)).toEqual(
@@ -403,12 +402,9 @@ describe("scaleMonsterForFloor", () => {
     );
     expect(endgameUnderprepared.hp).toBeGreaterThan(endgameReady.hp);
     expect(endgameUnderprepared.atk).toBeGreaterThan(endgameReady.atk);
-    expect(endgameUnderprepared.accuracy).toBeGreaterThan(
-      endgameReady.accuracy ?? 0,
-    );
+    expect(endgameUnderprepared.accuracy).toBe(endgameReady.accuracy);
     expect(endgameUnderprepared.accuracy).toBeCloseTo(
-      (base.accuracy ?? 0) +
-        floorAccuracy(endgameDepth) * UNDERPREPARED_ACCURACY_MAX,
+      (base.accuracy ?? 0) + floorAccuracy(endgameDepth),
     );
     expect(endgameUnderprepared.def).toBe(endgameReady.def);
     expect(endgameUnderprepared.exp).toBe(endgameReady.exp);

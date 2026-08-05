@@ -97,9 +97,6 @@ export const UNDERPREPARED_ENDGAME_START_DEPTH = 49;
 export const UNDERPREPARED_ENDGAME_GRACE_RATIO = 0.9;
 export const UNDERPREPARED_ENDGAME_MAX = 6;
 export const UNDERPREPARED_ENDGAME_SHORTFALL_SCALE = 12;
-// 권장 전투력 미달 HP·ATK 페널티는 최대 6배까지 유지하되, 명중까지 같은 폭으로 오르면
-// 회피 빌드의 유일한 생존축이 사라진다. 명중 보정만 별도 상한을 둔다.
-export const UNDERPREPARED_ACCURACY_MAX = 2;
 export function underpreparedCombatMult(
   depth: number,
   playerPower?: number,
@@ -134,17 +131,6 @@ export function underpreparedCombatMult(
       maxMult - 1,
       shortfall * shortfallScale,
     )
-  );
-}
-
-/** 권장 전투력 미달 시 몬스터 명중에만 적용하는 제한된 배율. */
-export function underpreparedAccuracyMult(
-  depth: number,
-  playerPower?: number,
-): number {
-  return Math.min(
-    UNDERPREPARED_ACCURACY_MAX,
-    underpreparedCombatMult(depth, playerPower),
   );
 }
 

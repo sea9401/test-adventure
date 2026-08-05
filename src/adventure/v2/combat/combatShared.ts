@@ -875,7 +875,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let directDamageEffectCount = 1;
 
   // 데미지 — 고정 기본 피해는 쓰지 않고 공격력/마법공격력 기반선에 특화 스탯 계수를 합산한다.
-  // 다단 스킬은 차수별 공격 기반선 총합을 타격 수로 나눠 타수만으로 배율이 폭증하지 않게 한다.
+  // 다단 스킬은 차수별 공격 기반선과 적 방어력 한 번분을 타격 수로 나눈다. 공격 기반선만
+  // 나누고 방어력을 매타 전액 차감하면 동일 총계수의 단일타보다 방어력을 타수만큼 더 부담해,
+  // 고방어 구간에서 다단기가 1 피해로 붕괴한다.
   // physical/magic 의 기존 statCoef 는 이미 공격 계수이므로 차수 기반선과 큰 쪽을 사용한다.
   // def/vit/dex/luk/spi/all/maxHp 는 공격 기반선 + 해당 스탯×statCoef 의 혼합식이다.
   // extraFlat 은 HP 소모·스택 회수처럼 전투 중 생기는 동적 추가 피해에만 사용한다.
@@ -919,6 +921,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
           directDamageEffectCount,
           attackCoef,
         });
+    const defenseShareCount = def.monsterOnly ? 1 : directDamageEffectCount;
+    const targetPhysicalDef =
+      targetDefOverride ?? input.target.def / defenseShareCount;
+    const targetMagicDef =
+      targetDefOverride ??
+      (input.target.magicDef == null
+        ? undefined
+        : input.target.magicDef / defenseShareCount);
     // 특화 스탯 보너스는 공격력 버프와 별개지만 스킬 속성 배율은 함께 받는다. 고정 baseFlat 은 제거한다.
     const specializedBonus =
       specialized == null
@@ -931,8 +941,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       attackerMagicAtk: scale === "magic" ? attackPower : undefined,
       attackerMinDamage: input.attacker.minDamage,
       scaling: scale,
-      targetDef: targetDefOverride ?? input.target.def,
-      targetMagicDef: targetDefOverride ?? input.target.magicDef,
+      targetDef: targetPhysicalDef,
+      targetMagicDef,
       statCoef: resolvedAttackCoef,
       baseFlat:
         (def.monsterOnly ? legacyBaseFlat : 0) +

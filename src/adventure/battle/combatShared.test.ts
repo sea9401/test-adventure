@@ -565,9 +565,9 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfDebuffs: {},
       },
     });
-    // atk 0 이어도 LUK 계수는 유지되며, 옛 고정 기본 피해는 더하지 않는다.
-    expect(result.enemyDamage).toBe(33);
-    expect(result.selfHeal).toBe(Math.floor(33 * 0.14));
+    // atk 0 이어도 원본 LUK 계수(0.42)는 유지되며, 옛 고정 기본 피해는 더하지 않는다.
+    expect(result.enemyDamage).toBe(42);
+    expect(result.selfHeal).toBe(Math.floor(42 * 0.14));
   });
 
   it("selfBuff effect — buff 목록 반환 (stat/pct/turns)", () => {

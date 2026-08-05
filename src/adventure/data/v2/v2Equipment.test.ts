@@ -1140,7 +1140,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
     ).toBe("회복 시 회복량의 25% 보호막");
     expect(
       signatureLabel({ trigger: "every_n_hits", label: "포식자", everyNHits: 3 }),
-    ).toBe("3타마다 추가타 1회");
+    ).toBe("3회 공격 적중마다 추가 행동 1회");
     expect(
       signatureLabel({
         trigger: "on_dodge",

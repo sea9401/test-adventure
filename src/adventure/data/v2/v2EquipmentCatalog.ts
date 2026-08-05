@@ -1161,14 +1161,14 @@ const V2_EQUIPMENT_BASE = {
     tier: 3,
     name: "산군의 분쇄도끼",
     description:
-      "산을 호령하던 산군의 쌍도끼. 내려칠수록 가속이 붙어, 네 번째 일격은 산도 가른다.",
+      "산을 호령하던 산군의 쌍도끼. 거듭 몰아칠수록 가속이 붙어, 빈틈 없는 연격으로 산도 가른다.",
     power: 92,
     weight: 5,
     options: { hp: 70, spd: 8 }, // 개성: 무거운 대검에 spd(관습 깨기)
     weaponType: "greatsword",
     rarity: "unique",
-    // 분쇄 — 4타마다 추가타 1회(포식자 아키타입 재사용).
-    signature: { trigger: "every_n_hits", label: "분쇄", everyNHits: 4 },
+    // 분쇄 — 평타·스킬을 합쳐 3회 적중할 때마다 추가 행동 1회.
+    signature: { trigger: "every_n_hits", label: "분쇄", everyNHits: 3 },
   },
   v2_boss_canyon_fang: {
     id: "v2_boss_canyon_fang",
@@ -4008,7 +4008,7 @@ const V2_EQUIPMENT_BASE = {
     options: { hp: 150, def: 24, critResist: 5 },
     weaponType: "greatsword",
     rarity: "unique",
-    signature: { trigger: "every_n_hits", label: "붉은 쐐기", everyNHits: 4 },
+    signature: { trigger: "every_n_hits", label: "붉은 쐐기", everyNHits: 3 },
   },
   v2_redfield_sig_powder_staff: {
     id: "v2_redfield_sig_powder_staff",
@@ -4080,13 +4080,13 @@ const V2_EQUIPMENT_BASE = {
     concept: "str",
     tier: 12,
     name: "망자행렬",
-    description: "고원 위를 지나간 군세의 마지막 보폭. 매 네 번째 타격마다 죽은 행렬이 뒤따른다.",
+    description: "고원 위를 지나간 군세의 마지막 보폭. 연속된 공격 뒤에는 죽은 행렬이 뒤따른다.",
     power: 745,
     weight: 9,
     options: { hp: 180, def: 30, critMult: 95 },
     weaponType: "greatsword",
     rarity: "unique",
-    signature: { trigger: "every_n_hits", label: "행렬", everyNHits: 4 },
+    signature: { trigger: "every_n_hits", label: "행렬", everyNHits: 3 },
   },
   v2_plateau_sig_crow_staff: {
     id: "v2_plateau_sig_crow_staff",

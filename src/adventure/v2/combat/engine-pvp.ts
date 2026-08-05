@@ -70,6 +70,7 @@ import {
 } from "./combatShared";
 import {
   battleStartShield,
+  everyNHitsEffect,
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
@@ -189,7 +190,7 @@ export type PvPSideStacks = {
   spellCastCount: number;
   // 절초 — 누적 적중 4타째마다 피해 증폭. PvE BattleStacks.comboHitCount 미러.
   comboHitCount: number;
-  // 고유 시그니처(포식자) — 이 side 의 누적 적중 횟수(N타마다 추가타·Phase 2). 미장착=0 고정 → byte-identical.
+  // 고유 시그니처 — 이 side 의 평타·스킬 누적 적중 횟수(N회마다 추가 행동). 미장착=0 고정.
   signatureHitCount: number;
 };
 
@@ -1769,6 +1770,7 @@ export function castV2SkillOnAttackerTurnPvP(
         : 1),
   );
   let nextComboHitCount = side.stacks.comboHitCount;
+  let landedSkillHits = 0;
   if (skillCritAfterEvadeFired && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1805,6 +1807,7 @@ export function castV2SkillOnAttackerTurnPvP(
           : hit;
       return scalePvPDamage(st, reduced);
     });
+    landedSkillHits = perHit.filter((hit) => hit > 0).length;
     nextComboHitCount = comboResult.nextComboHitCount;
     const skillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
     const skillDamageBeforeReduction = perHitBeforeReduction.reduce(
@@ -1911,6 +1914,26 @@ export function castV2SkillOnAttackerTurnPvP(
     (b) => b.target === "damageReduction",
   );
   const reflectBuff = result.selfBuffPctToApply.find((b) => b.target === "reflectDamage");
+  // PvE와 동일하게 직접 피해 스킬의 실제 타격 수를 every-N 카운터에 합산한다.
+  // 다단 스킬이 한 번에 여러 주기를 넘기면 넘긴 횟수만큼 후속 행동을 추가한다.
+  const sigEvery = everyNHitsEffect(side.player.equipSignatures);
+  const sigEveryN = sigEvery?.hits ?? 0;
+  const nextSigHitCount =
+    sigEveryN > 0
+      ? side.stacks.signatureHitCount + landedSkillHits
+      : side.stacks.signatureHitCount;
+  const signatureExtraActions =
+    sigEveryN > 0
+      ? Math.floor(nextSigHitCount / sigEveryN) -
+        Math.floor(side.stacks.signatureHitCount / sigEveryN)
+      : 0;
+  if (signatureExtraActions > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigEvery?.label ?? "연격"}] ${side.name} ${landedSkillHits}회 적중 — 추가 행동 ${signatureExtraActions}회!`,
+      side: who,
+    });
+  }
   // 차수… 아니라 temp 버프 turns 감소는 **자기 턴 시작(여기, cast hook = phase 당 1회)**에서.
   // 새 버프 시전이면 그 turns 로 리셋, 아니면 -1. 턴 시작 감소라 방어용 선풍각(상대 턴에 소비)도
   // 시전 턴 직후 1턴 손실 없이 N 턴 유지(PvE 는 자기 턴에 소비/감소라 turn-end, PvP 는 turn-start).
@@ -1959,6 +1982,7 @@ export function castV2SkillOnAttackerTurnPvP(
         ? Math.min(SPELL_STACK_CAP, side.stacks.spellCastCount + 1)
         : side.stacks.spellCastCount,
     comboHitCount: nextComboHitCount,
+    signatureHitCount: nextSigHitCount,
   };
   if (shieldGain > 0) {
     nextLog = appendLog(nextLog, {
@@ -2072,6 +2096,7 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   const nextSide: PvPSide = {
     ...side,
+    attacksLeft: side.attacksLeft + signatureExtraActions,
     hp: nextSideHp,
     mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
     buffs: sigSkillCritSpdBuff

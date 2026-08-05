@@ -998,6 +998,36 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(s.p2.v2Skills.equipped).toEqual([]);
   });
 
+  it("3타 스킬은 PvP에서도 3회 모두 세어 추가 행동 1회를 만든다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        magicAtk: 300,
+        maxMp: 10_000,
+        equipSignatures: [
+          { trigger: "every_n_hits", label: "분쇄", everyNHits: 3 },
+        ],
+      }),
+      makePlayer({ spd: 5, hp: 10_000, maxHp: 10_000, def: 0 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_mage_barrage"],
+        equipped: ["v2c_mage_barrage"],
+      },
+    );
+    const attacksBefore = state.p1.attacksLeft;
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.p1.stacks.signatureHitCount).toBe(3);
+    expect(cast.p1.attacksLeft).toBe(attacksBefore + 1);
+    expect(cast.log.some((entry) => entry.text.includes("추가 행동 1회"))).toBe(
+      true,
+    );
+  });
+
   it("직접 피해 없는 상태이상 스킬도 회피되면 상대에게 남지 않는다", () => {
     const state = initialBattleStatePvP(
       makePlayer({ spd: 15, accuracyPct: 0, accRating: 0 }),

@@ -69,6 +69,7 @@ import {
 import {
   battleStartShield,
   healToShield,
+  lowHpDamageReductionPct,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
   onSkillCastMpRefund,
@@ -161,6 +162,8 @@ export type PvPSideStacks = {
   skillCritTurns: number;
   skillEvasionPct: number; // 선풍각 — 회피 +%p (PvP 는 회피 유효축)
   skillEvasionTurns: number;
+  skillDmgReducePct: number; // 진홍 심판·철포 — 받는 피해 -%
+  skillDmgReduceTurns: number;
   skillReflectBoostPct: number; // 반사 태세 — 모든 반사 피해 +%
   skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
@@ -407,6 +410,24 @@ export function setSide(
   return which === "p1" ? { ...state, p1: next } : { ...state, p2: next };
 }
 
+export function pvpSideDamageTakenReductionPct(side: PvPSide): number {
+  const activePct =
+    side.stacks.skillDmgReduceTurns > 0
+      ? side.stacks.skillDmgReducePct
+      : 0;
+  const signaturePct = lowHpDamageReductionPct(
+    side.player.equipSignatures,
+    side.hp,
+    side.maxHp,
+  );
+  return Math.max(
+    0,
+    (side.player.passiveDamageTakenReductionPct ?? 0) +
+      activePct +
+      signaturePct,
+  );
+}
+
 // 현 phase 에서 (attacker, defender) 키 결정.
 export function actorKeys(phase: PvPPhase): { atkKey: "p1" | "p2"; defKey: "p1" | "p2" } {
   if (phase === "p1") return { atkKey: "p1", defKey: "p2" };
@@ -496,6 +517,8 @@ function buildSide(
       skillCritTurns: 0,
       skillEvasionPct: 0,
       skillEvasionTurns: 0,
+      skillDmgReducePct: 0,
+      skillDmgReduceTurns: 0,
       skillReflectBoostPct: 0,
       skillReflectBoostTurns: 0,
       enemyVulnPct: 0,
@@ -1578,13 +1601,12 @@ export function castV2SkillOnAttackerTurnPvP(
       luk: side.player.lukStat,
       spi: side.player.spiStat,
       allStatTotal: side.player.allStatTotal,
-      // 활성 파생버프 — PvP 는 회피/치명/반사 증폭을 추적(받피감은 PvP-inert). 받피감=true 로 둬서 self_buff_pct
-      //   (damageReduction, active:false) 조건이 PvP 에서 철포를 매턴 스팸(평타 차단)하지 않게 가드.
+      // 활성 파생버프 — 조건식이 만료된 버프만 다시 시전하도록 실제 PvP 스택을 전달한다.
       selfShieldActive: side.stacks.playerShield > 0,
       selfBuffPctActive: {
         evasion: side.stacks.skillEvasionTurns > 0,
         crit: side.stacks.skillCritTurns > 0,
-        damageReduction: true,
+        damageReduction: side.stacks.skillDmgReduceTurns > 0,
         reflectDamage: side.stacks.skillReflectBoostTurns > 0,
       },
       currentHp: side.hp,
@@ -1737,12 +1759,34 @@ export function castV2SkillOnAttackerTurnPvP(
       side.stacks.comboHitCount,
       side.player.comboFinisherBonusPct,
     );
-    const perHit = comboResult.hitDamages.map((hit) =>
+    const damageReductionPct = pvpSideDamageTakenReductionPct(opp);
+    const perHitBeforeReduction = comboResult.hitDamages.map((hit) =>
       scalePvPDamage(st, hit),
     );
+    const perHit = comboResult.hitDamages.map((hit) => {
+      const reduced =
+        damageReductionPct > 0
+          ? Math.max(
+              1,
+              Math.floor(hit * (1 - damageReductionPct / 100)),
+            )
+          : hit;
+      return scalePvPDamage(st, reduced);
+    });
     nextComboHitCount = comboResult.nextComboHitCount;
     const skillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
+    const skillDamageBeforeReduction = perHitBeforeReduction.reduce(
+      (sum, hit) => sum + hit,
+      0,
+    );
     nextOppHp = Math.max(0, nextOppHp - skillDamage);
+    if (skillDamage < skillDamageBeforeReduction) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[받피감] ${opp.name} 피해 -${skillDamageBeforeReduction - skillDamage}`,
+        side: otherKey,
+      });
+    }
     for (const hit of perHit) {
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
@@ -1824,6 +1868,9 @@ export function castV2SkillOnAttackerTurnPvP(
     : 0;
   const critBuff = result.selfBuffPctToApply.find((b) => b.target === "crit");
   const evaBuff = result.selfBuffPctToApply.find((b) => b.target === "evasion");
+  const dmgReduceBuff = result.selfBuffPctToApply.find(
+    (b) => b.target === "damageReduction",
+  );
   const reflectBuff = result.selfBuffPctToApply.find((b) => b.target === "reflectDamage");
   // 차수… 아니라 temp 버프 turns 감소는 **자기 턴 시작(여기, cast hook = phase 당 1회)**에서.
   // 새 버프 시전이면 그 turns 로 리셋, 아니면 -1. 턴 시작 감소라 방어용 선풍각(상대 턴에 소비)도
@@ -1846,6 +1893,11 @@ export function castV2SkillOnAttackerTurnPvP(
     skillEvasionTurns: evaBuff
       ? evaBuff.turns
       : Math.max(0, side.stacks.skillEvasionTurns - 1),
+    skillDmgReducePct:
+      dmgReduceBuff?.pct ?? side.stacks.skillDmgReducePct,
+    skillDmgReduceTurns: dmgReduceBuff
+      ? dmgReduceBuff.turns
+      : Math.max(0, side.stacks.skillDmgReduceTurns - 1),
     skillReflectBoostPct: reflectBuff?.pct ?? side.stacks.skillReflectBoostPct,
     skillReflectBoostTurns: reflectBuff
       ? reflectBuff.turns
@@ -1894,6 +1946,13 @@ export function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuff.pct}%p (${evaBuff.turns}행동)`,
+      side: who,
+    });
+  }
+  if (dmgReduceBuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "방어"}] 받는 피해 -${dmgReduceBuff.pct}% (${dmgReduceBuff.turns}행동)`,
       side: who,
     });
   }

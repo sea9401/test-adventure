@@ -9,7 +9,7 @@ import {
 describe("ChatPanel responsive layout", () => {
   it("모바일에서는 전체 화면 최상위 레이어로 메뉴 입력을 차단한다", () => {
     expect(CHAT_OVERLAY_CLASS).toContain("pointer-events-auto");
-    expect(CHAT_OVERLAY_CLASS).toContain("z-[55]");
+    expect(CHAT_OVERLAY_CLASS).toContain("z-[65]");
     expect(CHAT_PANEL_CLASS).toContain("h-full");
     expect(CHAT_PANEL_CLASS).toContain("max-w-none");
     expect(CHAT_PANEL_CLASS).toContain("rounded-none");

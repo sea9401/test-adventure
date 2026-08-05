@@ -85,11 +85,11 @@ const CHAT_MIN_H = 420;
 const CUSTOM_ROOM_LIST_POLL_MS = 5000;
 const CUSTOM_ROOM_MESSAGE_POLL_MS = 1500;
 
-// 모바일 채팅은 독립된 전체 화면으로 동작한다. 메인 메뉴 드롭다운(z-50)보다 위에서
-// 배경 터치를 막아, 반쯤 가려진 탭이 눌리고 드롭다운이 채팅 위로 솟는 일을 방지한다.
+// 모바일 채팅은 독립된 전체 화면으로 동작한다. 전역 상단바(z-60)보다 위에서
+// 배경 터치를 막아, 상단바가 채팅 헤더의 방 목록 버튼을 가로채지 않게 한다.
 // 데스크톱(sm+)에서는 기존 비모달 도킹을 유지해 게임 화면과 채팅을 함께 조작할 수 있다.
 export const CHAT_OVERLAY_CLASS =
-  "pointer-events-auto fixed inset-0 z-[55] flex items-end justify-end sm:pointer-events-none sm:z-[45] sm:p-4";
+  "pointer-events-auto fixed inset-0 z-[65] flex items-end justify-end sm:pointer-events-none sm:z-[45] sm:p-4";
 export const CHAT_PANEL_CLASS =
   "ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-full max-h-full w-full max-w-none flex-col rounded-none bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:max-w-xl sm:rounded-xl";
 export const CHAT_HEADER_CLASS =
@@ -904,7 +904,7 @@ export function ChatPanel({
   // containing block 이 돼 패널이 헤더 기준으로 떠 화면 위로 튀어나가던 버그 회피. open 일
   // 때만 렌더(=클릭 후 클라 only)라 SSR 에선 위 null 로 빠져 document.body 접근 안전.
   //
-  // 모바일은 전체 화면 모달형 — 배경 입력을 차단하고 z-50 메인 메뉴보다 위에 둔다.
+  // 모바일은 전체 화면 모달형 — 배경 입력을 차단하고 z-60 전역 상단바보다 위에 둔다.
   // 데스크톱은 비모달 도킹 — 래퍼가 pointer-events-none 이라 아래 게임 UI 를 그대로
   // 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto 이다.
   return createPortal(

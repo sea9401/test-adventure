@@ -226,7 +226,7 @@ test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받�
   });
 });
 
-test("모바일 전체화면 채팅은 방 목록으로 돌아가고 플로팅 토글로 닫을 수 있다", async ({
+test("모바일 전체화면 채팅은 헤더에서 방 목록으로 돌아가고 플로팅 토글로 닫을 수 있다", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"));
@@ -245,12 +245,11 @@ test("모바일 전체화면 채팅은 방 목록으로 돌아가고 플로팅 �
   await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(2);
 
   await page.getByRole("button", { name: /전체 채팅방/ }).click();
-  const mobileRoomBack = page.getByTestId("mobile-chat-room-back");
-  await expect(mobileRoomBack).toBeVisible();
-  await expect(mobileRoomBack).toContainText("방 목록");
+  const headerRoomBack = page.getByTestId("chat-room-header-back");
+  await expect(headerRoomBack).toBeVisible();
 
-  await mobileRoomBack.click();
-  await expect(mobileRoomBack).toHaveCount(0);
+  await headerRoomBack.click();
+  await expect(headerRoomBack).toHaveCount(0);
   await expect(page.getByRole("button", { name: /전체 채팅방/ })).toBeVisible();
 
   await floatingToggle.click();

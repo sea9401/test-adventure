@@ -1020,6 +1020,49 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     ).toBe(true);
   });
 
+  it("그림자 도약은 상대의 다음 직접 피해 스킬도 확정 회피한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ hp: 1_000, maxHp: 1_000, def: 0, spd: 15 }),
+      makePlayer({
+        hp: 1_000,
+        maxHp: 1_000,
+        atk: 100,
+        maxMp: 500,
+        mp: 500,
+        spd: 5,
+      }),
+      "그림자",
+      "공격자",
+      {
+        learned: ["v2c_shadow_shadowstep"],
+        equipped: ["v2c_shadow_shadowstep"],
+      },
+      {
+        learned: ["v2c_warrior_flurry"],
+        equipped: ["v2c_warrior_flurry"],
+      },
+    );
+
+    const shadowStep = castV2SkillOnAttackerTurnPvP(s0, "p1").state;
+    const attacked = castV2SkillOnAttackerTurnPvP(shadowStep, "p2").state;
+
+    expect(shadowStep.p1.stacks.evadesRemaining).toBe(1);
+    expect(attacked.p1.hp).toBe(shadowStep.p1.hp);
+    expect(attacked.p1.stacks.evadesRemaining).toBe(0);
+    expect(
+      attacked.log.some(
+        (entry) =>
+          entry.text.includes("[회피 강화]") && entry.text.includes("난격"),
+      ),
+    ).toBe(true);
+    expect(
+      attacked.log.some(
+        (entry) => entry.text.includes("난격!") && entry.text.includes("피해를 입혔다"),
+      ),
+    ).toBe(false);
+  });
+
   it("흑월지배는 PvP 회피 후 다음 직접 피해 스킬을 확정 치명타로 만든다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(

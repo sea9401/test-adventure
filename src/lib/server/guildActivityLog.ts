@@ -20,6 +20,8 @@ export type GuildActivityType =
   | "dining_ingredient_donation"
   | "trade_delivery"
   | "trade_shop_purchase"
+  | "warehouse_deposit"
+  | "warehouse_withdraw"
   | "workshop_weekly_claim"
   | "exploration_weekly_claim"
   | "exploration_expedition_dispatch"
@@ -50,6 +52,7 @@ export type GuildActivityMeta = {
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
   deliveryTitle?: string; // workshop_delivery
   itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft | dining_meal | trade_contract_complete
+  materialId?: string; // warehouse_deposit | warehouse_withdraw
   tokenCost?: number; // trade_shop_purchase
   remainingTokens?: number; // trade_shop_purchase
   smithyLevel?: number; // smithy_upgrade

@@ -17,6 +17,7 @@ import { GuildFacilityUpgradeFund } from "./GuildFacilityUpgradeFund";
 import { GuildAlchemyWorkshopPanel } from "./GuildAlchemyWorkshopPanel";
 import { GuildDiningHallPanel } from "./GuildDiningHallPanel";
 import { GuildTradePostPanel } from "./GuildTradePostPanel";
+import { GuildWarehousePanel } from "./GuildWarehousePanel";
 import {
   GUILD_FACILITY_IDS,
   GUILD_FACILITY_ICON_COLORS,
@@ -30,6 +31,7 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   alchemy_workshop: "허브와 은빛잎으로 HP·MP 충전액을 조제하는 시설입니다.",
   dining_hall: "농장과 낚시 식재료를 함께 준비해 주간 식사를 제공하는 시설입니다.",
   trade_post: "채집품 주간 계약을 함께 완수하고 교역 토큰을 교환하는 시설입니다.",
+  guild_warehouse: "길드 재료를 함께 보관하고 운영진이 필요한 곳에 배분하는 시설입니다.",
 };
 
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
@@ -194,6 +196,15 @@ export function GuildFacilitiesPanel({
       <div className="space-y-3">
         <FacilityBackButton onClick={() => onFacilityChange(null)} />
         <GuildTradePostPanel />
+      </div>
+    );
+  }
+
+  if (activeFacility === "guild_warehouse") {
+    return (
+      <div className="space-y-3">
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
+        <GuildWarehousePanel />
       </div>
     );
   }

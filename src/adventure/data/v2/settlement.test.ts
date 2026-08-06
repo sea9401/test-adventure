@@ -24,12 +24,14 @@ import {
   ALCHEMY_WORKSHOP_UPGRADES,
   DINING_HALL_UPGRADES,
   TRADE_POST_UPGRADES,
+  GUILD_WAREHOUSE_UPGRADES,
   SETTLEMENT_RESOURCE_KEYS,
   canAffordSettlementBuildingUpgrade,
   explorationHqUpgradeForLevel,
   alchemyWorkshopUpgradeForLevel,
   diningHallUpgradeForLevel,
   tradePostUpgradeForLevel,
+  guildWarehouseUpgradeForLevel,
   mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeSummary,
@@ -179,6 +181,28 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     );
   });
 
+  it("길드 창고는 배치 가능하며 Lv1 5천 개에서 Lv5 5만 개까지 확장된다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("guild_warehouse");
+    expect(GUILD_WAREHOUSE_UPGRADES.map((upgrade) => upgrade.capacity)).toEqual([
+      5_000, 10_000, 20_000, 35_000, 50_000,
+    ]);
+    expect(nextSettlementBuildingUpgrade("guild_warehouse", 1)).toMatchObject({
+      level: 2,
+      cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
+      capacity: 10_000,
+    });
+    expect(guildWarehouseUpgradeForLevel(5)).toMatchObject({
+      capacity: 50_000,
+      label: "왕립 공동 창고",
+    });
+    expect(
+      settlementBuildingUpgradeSummary(
+        "guild_warehouse",
+        guildWarehouseUpgradeForLevel(5),
+      ),
+    ).toBe("재료 보관 한도 50,000개");
+  });
+
   it("시설 재료 비용은 Lv2~5에서 기존 대비 2~5배이며 Lv2 명성은 무료다", () => {
     for (const upgrades of [
       GUILD_SMITHY_UPGRADES,
@@ -187,6 +211,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       ALCHEMY_WORKSHOP_UPGRADES,
       DINING_HALL_UPGRADES,
       TRADE_POST_UPGRADES,
+      GUILD_WAREHOUSE_UPGRADES,
     ]) {
       expect(upgrades[1].cost.fame).toBe(0);
       expect(upgrades[1].cost).toMatchObject({ crop: 500, ore: 500 });
@@ -225,6 +250,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       ALCHEMY_WORKSHOP_UPGRADES,
       DINING_HALL_UPGRADES,
       TRADE_POST_UPGRADES,
+      GUILD_WAREHOUSE_UPGRADES,
     ].map((upgrades) => ({
       materials: upgrades
         .slice(1)
@@ -251,6 +277,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       { materials: 20_000, gold: 315_000_000, fame: 4_350 },
       { materials: 20_000, gold: 315_000_000, fame: 4_350 },
       { materials: 20_000, gold: 380_000_000, fame: 5_350 },
+      { materials: 20_000, gold: 315_000_000, fame: 4_350 },
     ]);
   });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "v2_guild_resources" ADD COLUMN "warehouse" jsonb DEFAULT '{}'::jsonb NOT NULL;

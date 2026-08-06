@@ -50,3 +50,15 @@ export async function readGuildSmithyLevel(
     .where(eq(outpostVillages.guildId, guildId));
   return settlementBuildingSummaryFromRows(rows).levels.guild_smithy;
 }
+
+export async function readGuildFacilityLevel(
+  tx: QueryDb,
+  guildId: number,
+  buildingId: SettlementBuildingId,
+): Promise<number> {
+  const rows = await tx
+    .select({ buildings: outpostVillages.buildings })
+    .from(outpostVillages)
+    .where(eq(outpostVillages.guildId, guildId));
+  return settlementBuildingSummaryFromRows(rows).levels[buildingId];
+}

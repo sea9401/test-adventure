@@ -7,6 +7,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # 배포
 
 - 사용자가 명시적으로 배포를 요청하기 전에는 어떤 환경에도 절대 배포하지 않는다.
+- 운영 배포와 롤백이 끝나도 점검 모드를 자동으로 해제하지 않는다. 사용자가 별도로
+  점검 해제를 지시한 뒤에만 `bash deploy/maintenance.sh off`를 실행한다.
 
 # Image assets
 

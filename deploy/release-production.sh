@@ -79,8 +79,7 @@ recover_on_failure() {
 
   if [ "$MAINTENANCE_ENABLED" -eq 1 ]; then
     if wait_for_production_health "recovery" 20; then
-      bash deploy/maintenance.sh off || true
-      echo "✓ [prod] previous service restored; maintenance disabled"
+      echo "✓ [prod] previous service restored; maintenance remains enabled"
     else
       echo "✗ [prod] recovery health failed; maintenance remains enabled" >&2
     fi
@@ -195,6 +194,24 @@ SIGN_IN_CODE="$(
 }
 echo "  /sign-in 200"
 
+EXPECTED_BUILD_ID="${DEPLOY_SHA:-$(git rev-parse HEAD)}"
+VERSION_BODY="$(curl -fsS --max-time 8 http://127.0.0.1:3000/api/version)"
+ACTUAL_BUILD_ID="$(
+  printf '%s' "$VERSION_BODY" | node -e '
+    const value = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+    if (typeof value.buildId !== "string" || value.buildId.length === 0) process.exit(1);
+    process.stdout.write(value.buildId);
+  '
+)"
+case "$EXPECTED_BUILD_ID" in
+  "$ACTUAL_BUILD_ID"*) ;;
+  *)
+    echo "✗ SMOKE FAIL: buildId $ACTUAL_BUILD_ID does not match ${EXPECTED_BUILD_ID:0:12}" >&2
+    exit 1
+    ;;
+esac
+echo "  /api/version $ACTUAL_BUILD_ID"
+
 CRON_SECRET="$(
   grep '^CRON_SECRET=' "$PRODUCTION_ENV_PATH" | cut -d= -f2- | tr -d '"'
 )"
@@ -232,10 +249,10 @@ if [ "$BUILD_SWAPPED" -eq 1 ]; then
   rm -rf .next.previous
 fi
 
-echo "▶ [prod] nginx maintenance off"
-bash deploy/maintenance.sh off
-MAINTENANCE_ENABLED=0
+echo "▶ [prod] keep nginx maintenance on until explicit operator approval"
+bash deploy/maintenance.sh status
 SERVICES_PAUSED=0
 DEPLOY_FINISHED=1
 trap - EXIT
-echo "✓ [prod] smoke pass · done"
+echo "✓ [prod] smoke pass · maintenance remains enabled"
+echo "  explicit release command: bash deploy/maintenance.sh off"

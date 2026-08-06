@@ -34,6 +34,7 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
+import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -300,6 +301,23 @@ export async function POST(req: Request) {
       if (sourceInventory.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_ingredients" } };
       }
+      const weeklySource = await claimWeeklyFacilitySource(
+        tx,
+        userId,
+        "dining_hall",
+        "guild",
+        weekKey,
+      );
+      if (!weeklySource.ok) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "weekly_source_conflict",
+            selectedSource: weeklySource.selected,
+          },
+        };
+      }
       const nextUserState = {
         ...userState,
         contributionPoints: userState.contributionPoints + points,
@@ -373,6 +391,23 @@ export async function POST(req: Request) {
     const tickets = guildDiningTicketProgress(userState, upgrade.weeklyMealTickets);
     if (tickets.available <= 0) {
       return { status: 409, body: { ok: false as const, error: "no_meal_ticket" } };
+    }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "dining_hall",
+      "guild",
+      weekKey,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict",
+          selectedSource: weeklySource.selected,
+        },
+      };
     }
 
     const nextInventory = { ...inventory };

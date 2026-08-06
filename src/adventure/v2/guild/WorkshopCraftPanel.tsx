@@ -216,6 +216,7 @@ export function WorkshopCraftPanel({
   autoCraft,
   onAutoCraftConsumed,
   outpostId,
+  endpoint = "/api/v2/guild/workshop",
 }: {
   state: WorkshopState | null;
   /** 주간 제작 의뢰 — 레시피 행의 의뢰 힌트 배지용. */
@@ -239,6 +240,7 @@ export function WorkshopCraftPanel({
   } | null;
   onAutoCraftConsumed: () => void;
   outpostId?: string;
+  endpoint?: string;
 }) {
   const [craftingId, setCraftingId] = useState<GuildWorkshopRecipeId | null>(
     null,
@@ -658,7 +660,7 @@ export function WorkshopCraftPanel({
     onMessage(null);
     setCraftResult(null);
     try {
-      const res = await fetch("/api/v2/guild/workshop", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  CaretDown,
+  CheckCircle,
   Lock,
   MagnifyingGlass,
   Package,
   UsersThree,
   Warehouse,
+  X,
 } from "@phosphor-icons/react";
 import {
   SURFACE_ACCENT,
@@ -32,6 +35,7 @@ import {
   QualityPctText,
 } from "@/adventure/v2/V2ItemCard";
 import { InventoryItemIcon } from "@/adventure/v2/inventory/InventoryItemIcon";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 
 type WarehouseAction = "deposit" | "withdraw";
 type WarehouseKind = "material" | "equipment";
@@ -689,7 +693,7 @@ function MaterialTransferForm({
   );
 }
 
-function EquipmentTransferForm({
+export function EquipmentTransferForm({
   action,
   candidates,
   activeEquipmentIid,
@@ -704,6 +708,8 @@ function EquipmentTransferForm({
   onEquipmentChange: (value: string) => void;
   onSubmit: () => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   if (candidates.length === 0) {
     return (
       <div
@@ -715,26 +721,324 @@ function EquipmentTransferForm({
       </div>
     );
   }
+  const selectedEquipment =
+    candidates.find((equipment) => equipment.iid === activeEquipmentIid) ??
+    candidates[0];
+  const selectedItem = V2_EQUIPMENT[selectedEquipment.id];
+  const selectedQuality = rollQualityPct(
+    selectedItem,
+    selectedEquipment.roll,
+  );
+  const selectedStats = v2EquipStatRows(
+    selectedItem,
+    selectedEquipment.roll,
+    selectedEquipment.enhance,
+    selectedEquipment.craftQuality,
+  )
+    .map((row) => `${row.label} ${row.value}`)
+    .join(" · ");
+
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-        장비
-        <select
-          value={activeEquipmentIid}
-          onChange={(event) => onEquipmentChange(event.target.value)}
-          className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-        >
-          {candidates.map((equipment) => {
-            return (
-              <option key={equipment.iid} value={equipment.iid}>
-                {formatWarehouseEquipmentOptionLabel(equipment)}
-              </option>
-            );
-          })}
-        </select>
-      </label>
-      <TransferButton action={action} busy={busy} onClick={onSubmit} />
+    <>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="space-y-1">
+          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+            장비
+          </span>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            aria-haspopup="dialog"
+            className={`${SURFACE_INSET} flex min-h-16 w-full items-center gap-3 px-3 py-2 text-left transition hover:border-blue-400 dark:hover:border-blue-700`}
+          >
+            <InventoryItemIcon
+              itemId={selectedEquipment.id}
+              size={24}
+              className="shrink-0"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-1.5">
+                <strong
+                  className={`truncate text-sm ${powerNameClass(
+                    selectedItem,
+                    selectedEquipment.roll,
+                    selectedEquipment.enhance,
+                    selectedEquipment.craftQuality,
+                  )}`}
+                >
+                  {selectedItem.name}
+                </strong>
+                <EquipmentTierBadge tier={selectedItem.tier} compact />
+                <EnhanceLevelBadge enhance={selectedEquipment.enhance} />
+                <CraftQualityBadge
+                  craftQuality={selectedEquipment.craftQuality}
+                />
+                {selectedEquipment.craftedBy?.masterwork ? (
+                  <MasterworkBadge />
+                ) : null}
+              </span>
+              <span className="mt-1 block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                {SLOT_NAME[selectedItem.slot]}
+                {selectedQuality != null ? ` · 품질 ${selectedQuality}%` : ""}
+                {selectedStats ? ` · ${selectedStats}` : ""}
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-300">
+              변경 <CaretDown size={14} weight="bold" />
+            </span>
+          </button>
+        </div>
+        <TransferButton action={action} busy={busy} onClick={onSubmit} />
+      </div>
+      {pickerOpen ? (
+        <WarehouseEquipmentPickerDialog
+          action={action}
+          candidates={candidates}
+          selectedIid={activeEquipmentIid}
+          onClose={() => setPickerOpen(false)}
+          onSelect={(iid) => {
+            onEquipmentChange(iid);
+            setPickerOpen(false);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+type WarehouseEquipmentSlotFilter = "all" | V2EquipSlot;
+
+const WAREHOUSE_EQUIPMENT_SLOT_FILTERS: ReadonlyArray<{
+  key: WarehouseEquipmentSlotFilter;
+  label: string;
+}> = [
+  { key: "all", label: "전체" },
+  { key: "weapon", label: "무기" },
+  { key: "armor", label: "갑옷" },
+  { key: "gloves", label: "장갑" },
+  { key: "boots", label: "신발" },
+  { key: "ring", label: "반지" },
+  { key: "necklace", label: "목걸이" },
+];
+
+export function WarehouseEquipmentPickerDialog({
+  action,
+  candidates,
+  selectedIid,
+  onClose,
+  onSelect,
+}: {
+  action: WarehouseAction;
+  candidates: V2EquipInstance[];
+  selectedIid: string;
+  onClose: () => void;
+  onSelect: (iid: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [slot, setSlot] = useState<WarehouseEquipmentSlotFilter>("all");
+  useEscapeKey(onClose);
+
+  const normalizedQuery = query.trim().toLocaleLowerCase("ko");
+  const filtered = candidates.filter((equipment) => {
+    const item = V2_EQUIPMENT[equipment.id];
+    return (
+      (slot === "all" || item.slot === slot) &&
+      (normalizedQuery.length === 0 ||
+        formatWarehouseEquipmentOptionLabel(equipment)
+          .toLocaleLowerCase("ko")
+          .includes(normalizedQuery))
+    );
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 sm:items-center sm:p-4"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="warehouse-equipment-picker-title"
+        className="flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-zinc-200 bg-white shadow-2xl sm:rounded-2xl dark:border-zinc-700 dark:bg-zinc-950"
+      >
+        <header className="flex items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <div>
+            <h2
+              id="warehouse-equipment-picker-title"
+              className="text-base font-bold"
+            >
+              {action === "deposit" ? "입고할" : "출고할"} 장비 선택
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              장비별 품질과 옵션을 비교한 뒤 선택해 주세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="장비 선택 닫기"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <X size={18} weight="bold" />
+          </button>
+        </header>
+
+        <div className="space-y-2 border-b border-zinc-200 p-3 dark:border-zinc-800">
+          <label className="relative block">
+            <span className="sr-only">장비 검색</span>
+            <MagnifyingGlass
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="장비명·옵션·제작자 검색"
+              className="h-10 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </label>
+          <div className="no-scrollbar flex gap-1 overflow-x-auto" role="group" aria-label="장비 부위 필터">
+            {WAREHOUSE_EQUIPMENT_SLOT_FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                aria-pressed={slot === filter.key}
+                onClick={() => setSlot(filter.key)}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+                  slot === filter.key
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+          {filtered.length === 0 ? (
+            <div className={`${SURFACE_INSET} px-3 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
+              검색 조건에 맞는 장비가 없습니다.
+            </div>
+          ) : (
+            <div role="listbox" aria-label="길드 창고 장비" className="grid gap-2 sm:grid-cols-2">
+              {filtered.map((equipment) => (
+                <WarehouseEquipmentChoiceCard
+                  key={equipment.iid}
+                  equipment={equipment}
+                  selected={equipment.iid === selectedIid}
+                  onSelect={() => onSelect(equipment.iid)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <footer className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          {filtered.length.toLocaleString()}개 표시 · 장비를 누르면 선택됩니다.
+        </footer>
+      </section>
     </div>
+  );
+}
+
+function WarehouseEquipmentChoiceCard({
+  equipment,
+  selected,
+  onSelect,
+}: {
+  equipment: V2EquipInstance;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const item = V2_EQUIPMENT[equipment.id];
+  const qualityPct = rollQualityPct(item, equipment.roll);
+  const stats = v2EquipStatRows(
+    item,
+    equipment.roll,
+    equipment.enhance,
+    equipment.craftQuality,
+  );
+  const crafterName = equipment.craftedBy?.name?.trim();
+
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      onClick={onSelect}
+      className={`${SURFACE_INSET} min-w-0 p-3 text-left transition ${
+        selected
+          ? "border-blue-500 ring-1 ring-blue-500 dark:border-blue-400 dark:ring-blue-400"
+          : "hover:border-blue-300 dark:hover:border-blue-700"
+      }`}
+    >
+      <span className="flex items-start gap-2.5">
+        <InventoryItemIcon
+          itemId={equipment.id}
+          size={24}
+          className="mt-0.5 shrink-0"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <strong
+              className={`min-w-0 text-sm ${powerNameClass(
+                item,
+                equipment.roll,
+                equipment.enhance,
+                equipment.craftQuality,
+              )}`}
+            >
+              {item.name}
+            </strong>
+            {selected ? (
+              <CheckCircle
+                size={18}
+                weight="fill"
+                className="shrink-0 text-blue-600 dark:text-blue-300"
+              />
+            ) : null}
+          </span>
+          <span className="mt-1 flex flex-wrap items-center gap-1">
+            <EquipmentTierBadge tier={item.tier} compact />
+            <EnhanceLevelBadge enhance={equipment.enhance} />
+            <CraftQualityBadge craftQuality={equipment.craftQuality} />
+            {equipment.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+            {qualityPct != null ? (
+              <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                품질 <QualityPctText pct={qualityPct} className="font-semibold" />
+              </span>
+            ) : null}
+            {equipment.locked ? (
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-300">
+                <Lock size={11} weight="fill" /> 잠금
+              </span>
+            ) : null}
+          </span>
+        </span>
+      </span>
+      <span className="mt-2 block border-t border-zinc-200 pt-2 dark:border-zinc-700">
+        <span className="block text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+          {SLOT_NAME[item.slot]} · {v2EquipCatalogTierToDisplayTier(item.tier)}T
+          {crafterName ? ` · 제작 ${crafterName}` : ""}
+        </span>
+        <span className="mt-1 flex flex-wrap gap-1">
+          {stats.map((stat) => (
+            <span
+              key={`${stat.label}:${stat.value}`}
+              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {stat.label} <strong>{stat.value}</strong>
+            </span>
+          ))}
+        </span>
+      </span>
+    </button>
   );
 }
 

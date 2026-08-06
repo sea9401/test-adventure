@@ -210,7 +210,8 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 ## 6. 크론 (EC2 `crontab -l`, UTC)
 정기 작업이 EC2 crontab으로 돈다(각 라우트가 `CRON_SECRET` Bearer 검사). 배포 성공 시 `deploy/crontab.txt`를 자동 설치하고 ops-retention·ops-daily-report 등록 여부와 `crond` 상태를 확인한다. 종류:
 - **매분**: 협동 보스 리스폰
-- **매시 00분**: 복권 정산 · NPC 공격
+- **4시간마다**: 종료된 복권·아레나 베팅 잔액 환불 확인(잔액이 없으면 no-op)
+- **매시 00분**: NPC 공격
 - **매시 05분**: 거래소 만료 매물 정리
 - **일일 04:00 UTC**: 채팅 · 길드 정리
 - **일일 04:20 UTC**: ops-retention(로그 보관 정책 적용·길드/거래소 압축 집계·DB 용량 측정·실패한 외부 파일 삭제 재처리)

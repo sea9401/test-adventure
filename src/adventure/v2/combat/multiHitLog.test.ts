@@ -268,36 +268,80 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
     );
   });
 
-  it("월식의 4배 오프너는 같은 조건에서 하위 기습보다 강하다", () => {
-    const castOpener = (
-      skillId: "v2c_phantom_ambush" | "v2c_nightshade_eclipse",
+  it("월식은 대표 능력치·방어력 구간에서 하위 기습과 암살보다 강하다", () => {
+    const castAtHp = (
+      skillId:
+        | "v2c_phantom_ambush"
+        | "v2c_shadow_assassinate"
+        | "v2c_nightshade_eclipse",
+      stats: { atk: number; luk: number; def: number },
+      hpPct: number,
+      combatMode: "pve" | "pvp" = "pve",
     ) =>
       resolveV2SkillCast({
         skills: { learned: [skillId], equipped: [skillId] },
         cooldowns: {},
+        combatMode,
         attacker: {
           mp: 9999,
-          atk: 1000,
-          luk: 1000,
+          atk: stats.atk,
+          luk: stats.luk,
           maxHp: 10000,
           currentHp: 10000,
           selfBuffs: {},
           selfDebuffs: {},
         },
         target: {
-          def: 0,
-          currentHp: 10000,
+          def: stats.def,
+          currentHp: hpPct * 100,
           maxHp: 10000,
           selfBuffs: {},
           selfDebuffs: {},
+          // 일반 PvE는 15% 암살도 35%부터 처형 보정을 받는다.
+          executeHpThresholdFloorPct: 35,
         },
       }).enemyDamage;
 
     expect(V2_SKILLS.v2c_nightshade_eclipse.effects[0]).toMatchObject({
       kind: "ambushDamage",
-      bonusMult: 4,
+      bonusMult: 5,
+      pvpBonusMult: 4,
     });
-    expect(castOpener("v2c_phantom_ambush")).toBe(4020);
-    expect(castOpener("v2c_nightshade_eclipse")).toBe(4140);
+    expect(V2_SKILLS.v2c_nightshade_eclipse.effects[1]).toMatchObject({
+      kind: "executeDamage",
+      bonusMult: 3,
+    });
+
+    const representativeBuilds = [
+      { atk: 1000, luk: 700, def: 300 },
+      { atk: 1000, luk: 1000, def: 1000 },
+      { atk: 1500, luk: 1000, def: 500 },
+      { atk: 1000, luk: 1500, def: 500 },
+    ];
+    for (const stats of representativeBuilds) {
+      expect(
+        castAtHp("v2c_nightshade_eclipse", stats, 100),
+        `월식 오프너가 기습보다 약함: ${JSON.stringify(stats)}`,
+      ).toBeGreaterThan(castAtHp("v2c_phantom_ambush", stats, 100));
+      expect(
+        castAtHp("v2c_nightshade_eclipse", stats, 35),
+        `월식 처형이 암살보다 약함: ${JSON.stringify(stats)}`,
+      ).toBeGreaterThan(castAtHp("v2c_shadow_assassinate", stats, 35));
+    }
+
+    const pveOpener = castAtHp(
+      "v2c_nightshade_eclipse",
+      representativeBuilds[0],
+      100,
+      "pve",
+    );
+    const pvpOpener = castAtHp(
+      "v2c_nightshade_eclipse",
+      representativeBuilds[0],
+      100,
+      "pvp",
+    );
+    expect(pveOpener).toBe(3652);
+    expect(pvpOpener).toBe(3048);
   });
 });

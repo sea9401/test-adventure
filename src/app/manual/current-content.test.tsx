@@ -64,6 +64,13 @@ describe("최신 게임 안내서 내용", () => {
     expect(pastimes).toContain("최대 <strong");
   });
 
+  it("마을에서 생활 의뢰·조합 작업장으로 바로 이동할 수 있다고 안내한다", () => {
+    const html = renderToStaticMarkup(<TownContent />);
+
+    expect(html).toContain("생활 의뢰·조합 작업장");
+    expect(html).toContain("마을 탭의 독립된 시설 카드에서 바로 이동");
+  });
+
   it("최신 낚시 코인과 소비품 구매 한도를 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 

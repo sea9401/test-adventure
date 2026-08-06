@@ -3,10 +3,15 @@ import { GUILD_TRADE_USER_SAVE_KEY } from "@/adventure/data/v2/guildTrade";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { kstWeekMondayKey } from "@/lib/kst";
 
+let mockMasterId = "u-trader";
 const tx = {
-  select: vi.fn(() => ({
+  select: vi.fn((fields?: Record<string, unknown>) => ({
     from: vi.fn(() => ({
-      where: vi.fn(async () => [{ buildings: {} }]),
+      where: vi.fn(async () =>
+        fields && "masterId" in fields
+          ? [{ masterId: mockMasterId }]
+          : [{ buildings: {} }],
+      ),
     })),
   })),
 };
@@ -51,6 +56,9 @@ vi.mock("@/lib/server/v2GuildFame", () => ({
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/adventurerAssociation", () => ({
+  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
+}));
 
 import { lockGuildTradeWeekly, saveGuildTradeWeekly } from "@/lib/server/guildTrade";
 import {
@@ -84,6 +92,7 @@ function weekly(progress = 0, tokens = 0) {
     eligibleUserIds: ["u-trader"],
     target: 40,
     tokens,
+    memberPurchasesEnabled: true,
   };
 }
 
@@ -101,6 +110,7 @@ function userState(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockMasterId = "u-trader";
   vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly());
   vi.mocked(lockGuildTradeItem).mockResolvedValue({ owned: 100, consume });
   vi.mocked(readGuildTradeItemBalances).mockResolvedValue({ [CONTRACT_ID]: 100 });
@@ -119,7 +129,77 @@ describe("길드 교역소", () => {
 
     expect(response.status).toBe(200);
     expect(json.tokens).toBe(37);
+    expect(json).toMatchObject({
+      isMaster: true,
+      memberPurchasesEnabled: true,
+      canPurchase: true,
+    });
     expect(json.shop[0]).toMatchObject({ tokenCost: 20, affordable: true });
+  });
+
+  it("길드장은 일반 길드원의 공동 토큰 구매를 잠글 수 있다", async () => {
+    const response = await POST(
+      request({ action: "set_member_purchases", enabled: false }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      isMaster: true,
+      memberPurchasesEnabled: false,
+      canPurchase: true,
+    });
+    expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ memberPurchasesEnabled: false }),
+    );
+  });
+
+  it("일반 길드원은 공동 토큰 구매 설정을 바꿀 수 없다", async () => {
+    mockMasterId = "u-master";
+
+    const response = await POST(
+      request({ action: "set_member_purchases", enabled: false }),
+    );
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toBe("not_master");
+    expect(saveGuildTradeWeekly).not.toHaveBeenCalled();
+  });
+
+  it("길드장이 구매를 잠그면 일반 길드원의 구매를 서버에서 차단한다", async () => {
+    mockMasterId = "u-master";
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue({
+      ...weekly(0, 100),
+      memberPurchasesEnabled: false,
+    });
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "refined_iron" }),
+    );
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toBe("trade_tokens_locked");
+    expect(saveGuildTradeWeekly).not.toHaveBeenCalled();
+  });
+
+  it("구매가 잠겨 있어도 길드장은 공동 토큰을 사용할 수 있다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue({
+      ...weekly(0, 100),
+      memberPurchasesEnabled: false,
+    });
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === GUILD_TRADE_USER_SAVE_KEY) return userState();
+      if (key === "character.v2") return { materials: {} };
+      return {};
+    });
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "refined_iron" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).tokens).toBe(80);
   });
 
   it("보유 채집품을 납품하면 같은 점수를 길드 공동 토큰에 더한다", async () => {

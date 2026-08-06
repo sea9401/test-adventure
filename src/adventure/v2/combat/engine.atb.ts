@@ -7,6 +7,7 @@ import {
   nextActor1v1,
 } from "./combatTimeline";
 import {
+  BOSS_MAX_HP_DAMAGE_MULT,
   appendLog,
   applyEnemyV2SkillCast,
   applyPhaseTriggerIfAny,
@@ -199,7 +200,11 @@ function tickPlayerDotsOnAction(
 
 // 적 행동 시작 — 적에게 걸린 DoT 가 먼저 틱한다. 로그는 적 행동 묶음(tick)에 붙인다.
 function tickEnemyDotsOnAction(state: BattleState): BattleState {
-  const eTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
+  const eTick = tickV2Dots(
+    state.enemyV2Dots,
+    state.enemy.hp,
+    state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1,
+  );
   const damage = statusDamageAfterReduction(
     eTick.totalDmg,
     state.enemy.statusDamageReductionPct,

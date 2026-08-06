@@ -4,7 +4,7 @@ import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { BulletinActivitySummary } from "@/lib/bulletinActivity";
 
 // 게시판 글 — 서버 응답 + 클라 표시용 공용 모델.
-// likeCount/commentCount/likedByMe 는 GET /api/bulletin 의 서브쿼리로 함께 옴.
+// likeCount/commentCount/likedByMe/viewedByMe 는 GET /api/bulletin 의 묶음 쿼리로 함께 옴.
 export type BulletinPost = {
   id: number;
   name: string;
@@ -24,6 +24,7 @@ export type BulletinPost = {
   commentCount: number;
   viewCount: number;
   likedByMe: boolean;
+  viewedByMe: boolean;
   authorActivity: BulletinActivitySummary | null;
 };
 

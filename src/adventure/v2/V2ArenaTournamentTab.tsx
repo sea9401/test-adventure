@@ -9,33 +9,10 @@ import {
   SURFACE_CARD,
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { ArenaTournamentBracket } from "@/lib/server/pvp/arenaTournament";
 import { arenaChampionshipBadgeForPlacement } from "@/adventure/data/v2/arenaChampionshipBadges";
 import { ArenaChampionshipBadge } from "@/components/chat/ChatCosmetics";
 import { arenaTournamentReplayHref } from "@/lib/chat-config";
-
-type TournamentBetting = {
-  pools: Array<{
-    matchId: string;
-    total: number;
-    choices: Record<string, number>;
-  }>;
-  myBets: Array<{
-    matchId: string;
-    chosenUserId: string;
-    amount: number;
-    status: string;
-    payout: number;
-  }>;
-  limits: {
-    minimum: number;
-    maximum: number;
-    seasonMaximum: number;
-    closeBeforeSeconds: number;
-    feePercent: number;
-  };
-};
 
 type TournamentResponse = {
   ok?: boolean;
@@ -51,22 +28,7 @@ type TournamentResponse = {
     isCurrent: boolean;
     bracket: ArenaTournamentBracket;
     myReward: { placement: string; coins: number } | null;
-    betting: TournamentBetting;
   } | null;
-};
-
-const BET_ERROR: Record<string, string> = {
-  not_open: "챔피언십 기간이 아닙니다.",
-  tournament_missing: "대진표가 아직 준비되지 않았습니다.",
-  match_missing: "경기를 찾을 수 없습니다.",
-  match_not_ready: "진출자가 아직 확정되지 않았습니다.",
-  betting_closed: "이 경기의 베팅이 마감됐습니다.",
-  invalid_choice: "베팅할 선수를 다시 선택해 주세요.",
-  own_match: "본인 경기에는 베팅할 수 없습니다.",
-  invalid_amount: "허용된 베팅 금액을 확인해 주세요.",
-  already_bet: "이 경기에는 이미 베팅했습니다.",
-  season_limit: "이번 챔피언십 베팅 한도에 도달했습니다.",
-  insufficient_gold: "보유 골드가 부족합니다.",
 };
 
 function formatKst(iso: string | undefined): string {
@@ -94,23 +56,11 @@ function countdown(iso: string, nowMs: number): string {
     : `${minutes}:${String(remain).padStart(2, "0")}`;
 }
 
-function betStatus(status: string): string {
-  if (status === "won") return "적중";
-  if (status === "lost") return "미적중";
-  if (status === "refunded") return "환불";
-  return "결과 대기";
-}
-
 export function V2ArenaTournamentTab() {
-  const { viewerUserId, setGold, setBankedGold } = useGameState();
   const [data, setData] = useState<TournamentResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [choices, setChoices] = useState<Record<string, string>>({});
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [bettingMatchId, setBettingMatchId] = useState<string | null>(null);
-  const [betMessage, setBetMessage] = useState<Record<string, string>>({});
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -171,20 +121,6 @@ export function V2ArenaTournamentTab() {
     }
     return [...grouped.entries()].sort(([a], [b]) => a - b);
   }, [bracket]);
-  const poolByMatch = useMemo(
-    () =>
-      new Map(
-        (tournament?.betting.pools ?? []).map((pool) => [pool.matchId, pool]),
-      ),
-    [tournament?.betting.pools],
-  );
-  const myBetByMatch = useMemo(
-    () =>
-      new Map(
-        (tournament?.betting.myBets ?? []).map((bet) => [bet.matchId, bet]),
-      ),
-    [tournament?.betting.myBets],
-  );
   const badgeByUser = useMemo(
     () =>
       new Map(
@@ -196,59 +132,6 @@ export function V2ArenaTournamentTab() {
           .filter((entry) => entry[1] != null),
       ),
     [bracket?.rewards],
-  );
-
-  const placeBet = useCallback(
-    async (matchId: string) => {
-      const chosenUserId = choices[matchId];
-      const amount = Number(amounts[matchId] ?? 1_000);
-      if (!chosenUserId) {
-        setBetMessage((current) => ({
-          ...current,
-          [matchId]: "선수를 먼저 선택해 주세요.",
-        }));
-        return;
-      }
-      setBettingMatchId(matchId);
-      setBetMessage((current) => ({ ...current, [matchId]: "" }));
-      try {
-        const response = await fetch("/api/v2/arena/tournament/bet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ matchId, chosenUserId, amount }),
-        });
-        const json = (await response.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          gold?: number;
-          bankedGold?: number;
-        } | null;
-        if (!response.ok || !json?.ok) {
-          setBetMessage((current) => ({
-            ...current,
-            [matchId]: BET_ERROR[json?.error ?? ""] ?? "베팅하지 못했습니다.",
-          }));
-          return;
-        }
-        if (typeof json.gold === "number") setGold(json.gold);
-        if (typeof json.bankedGold === "number") {
-          setBankedGold(json.bankedGold);
-        }
-        setBetMessage((current) => ({
-          ...current,
-          [matchId]: `${amount.toLocaleString("ko-KR")} 골드 베팅 완료`,
-        }));
-        await load(false);
-      } catch {
-        setBetMessage((current) => ({
-          ...current,
-          [matchId]: "네트워크 오류로 베팅하지 못했습니다.",
-        }));
-      } finally {
-        setBettingMatchId(null);
-      }
-    },
-    [amounts, choices, load, setBankedGold, setGold],
   );
 
   if (failed) return <LoadErrorBanner onRetry={() => load()} />;
@@ -274,8 +157,7 @@ export function V2ArenaTournamentTab() {
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
           월~토 예선 상위 참가자가 포트 추첨 후 3판 2선승으로 맞붙습니다.
           일요일 19:00에 같은 라운드 경기를 일괄 진행하고 15분마다 다음
-          라운드로 넘어갑니다. 20:00에 3·4위전, 20:15에 결승을 진행하며
-          다른 모험가는 골드 풀 베팅에 참여할 수 있습니다.
+          라운드로 넘어갑니다. 20:00에 3·4위전, 20:15에 결승을 진행합니다.
         </p>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
           <span>예선 마감 {formatKst(data.season?.rankedEndsAt)}</span>
@@ -357,16 +239,6 @@ export function V2ArenaTournamentTab() {
         </div>
       )}
 
-      {tournament?.betting && (
-        <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-600 dark:text-zinc-300`}>
-          경기당 {tournament.betting.limits.minimum.toLocaleString("ko-KR")}~
-          {tournament.betting.limits.maximum.toLocaleString("ko-KR")} 골드 · 일요일
-          합계 {tournament.betting.limits.seasonMaximum.toLocaleString("ko-KR")} 골드 ·
-          경기 {tournament.betting.limits.closeBeforeSeconds}초 전 마감 · 패배 풀 수수료{" "}
-          {tournament.betting.limits.feePercent}%
-        </div>
-      )}
-
       {rounds.map(([round, matches]) => (
         <section key={round} className={`${SURFACE_CARD} space-y-2 p-4`}>
           <div className="flex items-center justify-between gap-2">
@@ -383,23 +255,6 @@ export function V2ArenaTournamentTab() {
               const p2 = match.p2UserId
                 ? participantById.get(match.p2UserId)
                 : null;
-              const pool = poolByMatch.get(match.id);
-              const myBet = myBetByMatch.get(match.id);
-              const ownMatch = [match.p1UserId, match.p2UserId].includes(
-                viewerUserId,
-              );
-              const bettingClosed =
-                match.status === "completed" ||
-                nowMs >=
-                  new Date(match.scheduledAt).getTime() -
-                    (tournament?.betting.limits.closeBeforeSeconds ?? 30) * 1_000;
-              const canBet =
-                tournament?.isCurrent &&
-                p1 &&
-                p2 &&
-                !ownMatch &&
-                !myBet &&
-                !bettingClosed;
               return (
                 <div key={match.id} className={`${SURFACE_INSET} space-y-2 p-3 text-sm`}>
                   <div className="flex items-center justify-between text-[11px] text-zinc-500">
@@ -415,22 +270,10 @@ export function V2ArenaTournamentTab() {
                     { participant: p2, wins: match.p2Wins },
                   ].map(({ participant, wins }, index) => {
                     const won = participant?.userId === match.winnerUserId;
-                    const selected = participant?.userId === choices[match.id];
                     return (
-                      <button
-                        type="button"
+                      <div
                         key={participant?.userId ?? `${match.id}-waiting-${index}`}
-                        disabled={!canBet || !participant}
-                        onClick={() =>
-                          participant &&
-                          setChoices((current) => ({
-                            ...current,
-                            [match.id]: participant.userId,
-                          }))
-                        }
-                        className={`flex w-full items-center gap-2 rounded px-1 py-1 text-left ${
-                          selected ? "bg-amber-100 dark:bg-amber-950" : ""
-                        }`}
+                        className="flex w-full items-center gap-2 rounded px-1 py-1 text-left"
                       >
                         <span className="w-5 text-xs tabular-nums text-zinc-400">
                           {participant?.qualifyingRank ?? "-"}
@@ -447,63 +290,10 @@ export function V2ArenaTournamentTab() {
                           )}
                           {participant?.name ?? "진출자 확정 대기"}
                         </span>
-                        {participant && (
-                          <span className="text-[10px] text-zinc-500">
-                            {(pool?.choices[participant.userId] ?? 0).toLocaleString("ko-KR")}
-                          </span>
-                        )}
                         <span className="font-bold tabular-nums">{wins}</span>
-                      </button>
+                      </div>
                     );
                   })}
-
-                  {canBet && (
-                    <div className="flex gap-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                      <input
-                        type="number"
-                        min={tournament.betting.limits.minimum}
-                        max={tournament.betting.limits.maximum}
-                        step={100}
-                        value={amounts[match.id] ?? "1000"}
-                        onChange={(event) =>
-                          setAmounts((current) => ({
-                            ...current,
-                            [match.id]: event.target.value,
-                          }))
-                        }
-                        className="min-w-0 flex-1 rounded border border-zinc-300 bg-white px-2 py-1.5 text-xs dark:border-zinc-600 dark:bg-zinc-900"
-                        aria-label={`${match.roundName} ${match.slot}경기 베팅 골드`}
-                      />
-                      <button
-                        type="button"
-                        disabled={!choices[match.id] || bettingMatchId === match.id}
-                        onClick={() => placeBet(match.id)}
-                        className="rounded bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white disabled:bg-zinc-400"
-                      >
-                        {bettingMatchId === match.id ? "처리 중" : "베팅"}
-                      </button>
-                    </div>
-                  )}
-
-                  {myBet && (
-                    <div className="border-t border-zinc-200 pt-1 text-[11px] text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
-                      내 베팅 · {participantById.get(myBet.chosenUserId)?.name ?? "참가자"}
-                      {" "}{myBet.amount.toLocaleString("ko-KR")} 골드 · {betStatus(myBet.status)}
-                      {myBet.payout > 0
-                        ? ` · ${myBet.payout.toLocaleString("ko-KR")} 골드 지급`
-                        : ""}
-                    </div>
-                  )}
-                  {ownMatch && match.status === "scheduled" && (
-                    <div className="text-[11px] text-zinc-500">
-                      본인 경기에는 베팅할 수 없습니다.
-                    </div>
-                  )}
-                  {betMessage[match.id] && (
-                    <div className="text-[11px] text-amber-700 dark:text-amber-300">
-                      {betMessage[match.id]}
-                    </div>
-                  )}
                   {match.status === "completed" && (
                     <div className="flex items-center justify-between gap-2 border-t border-zinc-200 pt-1 text-[11px] text-zinc-500 dark:border-zinc-700">
                       <span>

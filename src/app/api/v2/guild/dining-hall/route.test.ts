@@ -45,6 +45,9 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/adventurerAssociation", () => ({
+  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
+}));
 
 import { lockGuildDiningWeekly } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";

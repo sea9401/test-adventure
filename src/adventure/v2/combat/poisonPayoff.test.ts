@@ -107,7 +107,9 @@ describe("중독 스택 회수", () => {
   it("스킬 상세에 대상 행동 기준 지속시간·최대 스택·이번 시전 회수를 알린다", () => {
     const chips = describeV2Skill(V2_SKILLS[SKILL_ID]);
 
-    expect(chips).toContain("중독 지속피해 +3스택 (대상 행동 5회, 최대 10스택)");
+    expect(chips).toContain(
+      "중독 지속피해 +3스택 (대상 행동 5회, 최대 10스택, 보스 최대 HP 비례분 50%)",
+    );
     expect(chips.some((chip) => chip.includes("스택당 방어 무시"))).toBe(true);
     expect(chips).toContain("중첩 폭발에 이번 시전 스택 포함");
   });

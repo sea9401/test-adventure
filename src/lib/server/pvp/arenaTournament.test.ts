@@ -1,14 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARENA_TOURNAMENT_BET_FEE_BPS,
-  ARENA_TOURNAMENT_BET_MAX_GOLD,
-  ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD,
   ARENA_TOURNAMENT_ROUND_INTERVAL_MS,
   ARENA_TOURNAMENT_MIN_MATCHES,
   arenaTournamentBracketOverview,
   arenaRankedEndsAt,
   arenaSeasonPhase,
-  arenaTournamentBetPayouts,
   arenaTournamentBracketSize,
   arenaTournamentFirstRoundPairs,
   arenaTournamentSnapshotsAt,
@@ -314,47 +310,5 @@ describe("arena tournament schedule", () => {
       matches: [],
       rewards: [],
     });
-  });
-});
-
-describe("arena tournament pool betting", () => {
-  it("경기당 150만, 주간 600만 골드까지 베팅할 수 있다", () => {
-    expect(ARENA_TOURNAMENT_BET_MAX_GOLD).toBe(1_500_000);
-    expect(ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD).toBe(6_000_000);
-    expect(ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD).toBe(
-      ARENA_TOURNAMENT_BET_MAX_GOLD * 4,
-    );
-  });
-
-  it("패배 풀에서 5%를 회수하고 승리 선택자에게 베팅 비율대로 분배한다", () => {
-    const result = arenaTournamentBetPayouts({
-      winnerUserId: "p1",
-      feeBps: ARENA_TOURNAMENT_BET_FEE_BPS,
-      bets: [
-        { userId: "a", chosenUserId: "p1", amount: 1_000 },
-        { userId: "b", chosenUserId: "p1", amount: 3_000 },
-        { userId: "c", chosenUserId: "p2", amount: 2_000 },
-      ],
-    });
-    expect(result.totalPool).toBe(6_000);
-    expect(result.fee).toBe(100);
-    expect(result.payouts).toEqual([
-      { userId: "a", amount: 1_475, status: "won" },
-      { userId: "b", amount: 4_425, status: "won" },
-      { userId: "c", amount: 0, status: "lost" },
-    ]);
-  });
-
-  it("승리자를 고른 사람이 없으면 전액 환불한다", () => {
-    const result = arenaTournamentBetPayouts({
-      winnerUserId: "p1",
-      bets: [
-        { userId: "a", chosenUserId: "p2", amount: 1_000 },
-        { userId: "b", chosenUserId: "p2", amount: 2_000 },
-      ],
-    });
-    expect(result.refunded).toBe(true);
-    expect(result.fee).toBe(0);
-    expect(result.payouts.map((payout) => payout.amount)).toEqual([1_000, 2_000]);
   });
 });

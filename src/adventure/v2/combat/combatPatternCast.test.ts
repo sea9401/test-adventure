@@ -12,6 +12,7 @@ import {
 import {
   V2_SKILLS,
   smartDefaultConditionForSkill,
+  smartDefaultPatternFromEquipped,
 } from "@/adventure/data/v2/v2Skills";
 
 // 전투 패턴이 resolveV2SkillCast 에 주입됐을 때: (1) procChance 은퇴(확정 발동), (2) 조건 게이팅.
@@ -48,6 +49,31 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  it("그림자 도약은 첫 턴에 단독 시전되고 다음 공격 스킬에 효과가 섞이지 않는다", () => {
+    const assassinate = "v2c_shadow_assassinate";
+    const shadowStep = "v2c_shadow_shadowstep";
+    const equipped = [assassinate, shadowStep];
+    const combatPattern = smartDefaultPatternFromEquipped(equipped);
+
+    const first = resolveV2SkillCast(
+      castInput(equipped, { combatPattern, turn: 1 }),
+    );
+    expect(first.castSkillId).toBe(shadowStep);
+    expect(first.enemyDamage).toBe(0);
+    expect(first.guaranteedEvadesToAdd).toBe(1);
+
+    const second = resolveV2SkillCast(
+      castInput(equipped, {
+        combatPattern,
+        turn: 2,
+        cooldowns: first.nextCooldowns,
+      }),
+    );
+    expect(second.castSkillId).toBe(assassinate);
+    expect(second.enemyDamage).toBeGreaterThan(0);
+    expect(second.guaranteedEvadesToAdd).toBe(0);
+  });
+
   it("봉마진 효과가 유지 중이면 중복 시전하지 않고 다음 공격으로 넘어간다", () => {
     const sealingField = "v2c_spellsealer_sealingfield";
     const strike = "v2c_warrior_strike";

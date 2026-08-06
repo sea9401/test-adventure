@@ -1816,11 +1816,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_nightshade_eclipse: {
     id: "v2c_nightshade_eclipse", name: "월식", stat: "luk", category: "attack", tier: 3,
-    description: "어둠이 덮이는 순간 파고든다. 첫 일격과 마무리에 모두 강하다.",
-    mpCost: 52, cooldown: 0, procChance: 100, learnCost: 8000,
+    description: "두 번 연속 공격한다. 1타는 적 HP 90% 이상일 때 PvE 5배·PvP 4배, 2타는 35% 이하일 때 3배 피해를 준다.",
+    // 기습·암살을 한 슬롯에 묶은 5차 상위기. 절충형 저가 스킬이 아니라 각 조건에서 하위기를
+    // 확실히 넘도록 SP를 10으로 올리고 오프너·처형 배수를 강화한다. 오프너는 PvP에서 공격 횟수·
+    // 스킬 치명타와 중첩되므로 PvE 5배와 달리 기존 4배를 유지한다.
+    mpCost: 52, cooldown: 0, procChance: 100, learnCost: 8000, spCost: 10,
     effects: [
-      { kind: "ambushDamage", statCoef: 0.22, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 4.0, scaling: "luk" },
-      { kind: "executeDamage", statCoef: 0.26, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 2.0, scaling: "luk" },
+      { kind: "ambushDamage", statCoef: 0.22, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 5.0, pvpBonusMult: 4.0, scaling: "luk" },
+      { kind: "executeDamage", statCoef: 0.26, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 3.0, scaling: "luk" },
     ],
   },
   v2c_nightshade_cloak: {

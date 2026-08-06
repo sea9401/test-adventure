@@ -1,10 +1,29 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
-import { V2ItemCard } from "./V2ItemCardPopover";
+import { itemCardPosition, V2ItemCard } from "./V2ItemCardPopover";
 import { V2ItemCompareCard } from "./V2ItemCompareCard";
 
 describe("V2ItemCard set information", () => {
+  it("긴 장비 카드의 상단을 고정 상단 바 아래에 유지한다", () => {
+    const { pos } = itemCardPosition(
+      { top: 520, bottom: 570, left: 30 },
+      { width: 360, height: 640, top: 72 },
+    );
+
+    expect(pos).toEqual({ bottom: 126, maxHeight: 442 });
+    expect(640 - Number(pos.bottom) - Number(pos.maxHeight)).toBe(72);
+  });
+
+  it("상단 바 안의 앵커는 카드를 상단 바 아래에 배치한다", () => {
+    const { pos } = itemCardPosition(
+      { top: 20, bottom: 40, left: 30 },
+      { width: 360, height: 640, top: 72 },
+    );
+
+    expect(pos).toEqual({ top: 72, maxHeight: 560 });
+  });
+
   it.each([
     [true, "도감 등록"],
     [false, "도감 미등록"],

@@ -37,7 +37,7 @@ export const V2_DOT_PRESETS = {
     turns: 5,
     flatPerStack: 0,
     atkCoefPerStack: 0,
-    // 잡몹 체감 버프(2026): 스택당 8 POINT (HP 0.4%). 보스는 ATK 상한으로 과녹임 차단.
+    // 잡몹 체감 버프(2026): 스택당 8 POINT (HP 0.4%). 보스는 ATK 상한 후 HP 비례분 50% 적용.
     pctMaxHpPerStack: 8 * POISON_PCT_PER_POINT,
   },
   연소: {

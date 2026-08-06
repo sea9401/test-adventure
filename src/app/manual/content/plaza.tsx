@@ -5,12 +5,6 @@ import {
   CHAT_ROOM_OWNED_MAX,
 } from "@/lib/chat-rooms";
 import {
-  LOTTERY_FEE_PERCENT,
-  LOTTERY_MAX_TICKETS_PER_ROUND,
-  LOTTERY_MIN_PARTICIPANTS_TO_DRAW,
-  LOTTERY_TICKET_PRICE,
-} from "@/lib/lottery";
-import {
   MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
   MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
   MARKETPLACE_V2_BUY_ORDER_LIMIT,
@@ -161,7 +155,7 @@ export function PlazaContent() {
       <H2>공지·채팅</H2>
       <P>
         모험 탭에는 최근 공지가 표시됩니다. 화면 우하단의 채팅 버튼에서는{" "}
-        <Em>전체·길드·사용자 채팅방·복권방</Em>과 협동 보스 알림을 확인합니다.
+        <Em>전체·길드·사용자 채팅방</Em>과 협동 보스 알림을 확인합니다.
         길드 채팅은 길드에 가입한 모험가만 사용할 수 있습니다.
       </P>
       <UL>
@@ -188,34 +182,6 @@ export function PlazaContent() {
         현재 접속자 수와 접속자 명단은 대문이나 채팅창에 표시하지 않으며,
         일반 이용자에게 공개되지 않습니다.
       </P>
-
-      <H2>복권방</H2>
-      <P>
-        복권방에서 <Code>/복권</Code> 또는 <Code>/복권 1~10</Code>을 입력해
-        한국시간 0·4·8·12·16·20시에 추첨하는 복권을 구매합니다.
-      </P>
-      <UL>
-        <li>
-          한 장에 <Em>{LOTTERY_TICKET_PRICE.toLocaleString("ko-KR")}골드</Em>이며, 한 회차에
-          최대 {LOTTERY_MAX_TICKETS_PER_ROUND}장까지 구매할 수 있습니다.
-        </li>
-        <li>
-          총 구매액에서 수수료 {LOTTERY_FEE_PERCENT}%를 제외한 상금을 1등 70%,
-          2등 20%, 3등 10%로 나누어 지급합니다.
-        </li>
-        <li>
-          고유 참여자가 <Em>{LOTTERY_MIN_PARTICIPANTS_TO_DRAW}명 이상</Em>일 때만 추첨합니다.
-          참여자가 부족하면 수수료를 제외한 상금 전액을 다음 회차로 이월합니다.
-        </li>
-        <li>
-          서로 다른 티켓 번호를 추첨하므로 여러 장을 산 이용자는 복수 등수에
-          당첨될 수 있습니다. 현재 상금·참여 인원·내 티켓과 최근 최대 10회의
-          추첨·이월·환불 결과는 복권방에서 확인합니다.
-        </li>
-        <li>
-          각 추첨 결과의 commit과 secret 값을 펼쳐 추첨 검증값도 확인할 수 있습니다.
-        </li>
-      </UL>
 
       <Note>
         랭킹의 <Em>명성</Em>은 길드 정보에도 표시되는 누적 지표이고, 전투 횟수

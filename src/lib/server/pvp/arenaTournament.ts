@@ -8,13 +8,7 @@ export const ARENA_TOURNAMENT_DAY_MS = 24 * 60 * 60 * 1000;
 export const ARENA_TOURNAMENT_START_BEFORE_END_MS = 5 * 60 * 60 * 1000;
 export const ARENA_TOURNAMENT_SNAPSHOT_BEFORE_END_MS = 6 * 60 * 60 * 1000;
 export const ARENA_TOURNAMENT_ROUND_INTERVAL_MS = 15 * 60 * 1000;
-export const ARENA_TOURNAMENT_BET_CLOSE_MS = 30 * 1000;
 export const ARENA_TOURNAMENT_MAX_GAMES_PER_MATCH = 5;
-export const ARENA_TOURNAMENT_BET_MIN_GOLD = 100;
-export const ARENA_TOURNAMENT_BET_MAX_GOLD = 1_500_000;
-// 경기당 상한의 4배 — 한 경기 몰빵과 여러 라운드 분산 베팅을 모두 허용한다.
-export const ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD = 6_000_000;
-export const ARENA_TOURNAMENT_BET_FEE_BPS = 500;
 
 export type ArenaSeasonPhase = "ranked" | "tournament" | "closed";
 export type ArenaTournamentStatus =
@@ -119,18 +113,6 @@ export type ArenaTournamentFightResult = {
 export type ArenaTournamentEntrant<T> = {
   participant: ArenaTournamentParticipant;
   payload: T;
-};
-
-export type ArenaTournamentBetForPayout = {
-  userId: string;
-  chosenUserId: string;
-  amount: number;
-};
-
-export type ArenaTournamentBetPayout = {
-  userId: string;
-  amount: number;
-  status: "won" | "lost" | "refunded";
 };
 
 export function arenaRankedEndsAt(seasonEndAt: Date): Date {
@@ -576,59 +558,4 @@ export function nextDueArenaTournamentMatch(
         new Date(match.scheduledAt).getTime() <= now.getTime(),
     ) ?? null
   );
-}
-
-export function arenaTournamentBetPayouts(args: {
-  bets: readonly ArenaTournamentBetForPayout[];
-  winnerUserId: string;
-  feeBps?: number;
-}): {
-  payouts: ArenaTournamentBetPayout[];
-  totalPool: number;
-  fee: number;
-  refunded: boolean;
-} {
-  const bets = args.bets.map((bet) => ({
-    ...bet,
-    amount: Math.max(0, Math.floor(bet.amount)),
-  }));
-  const totalPool = bets.reduce((sum, bet) => sum + bet.amount, 0);
-  const winners = bets.filter((bet) => bet.chosenUserId === args.winnerUserId);
-  const winnerPool = winners.reduce((sum, bet) => sum + bet.amount, 0);
-  if (totalPool === 0) {
-    return { payouts: [], totalPool: 0, fee: 0, refunded: false };
-  }
-  if (winnerPool === 0) {
-    return {
-      payouts: bets.map((bet) => ({
-        userId: bet.userId,
-        amount: bet.amount,
-        status: "refunded" as const,
-      })),
-      totalPool,
-      fee: 0,
-      refunded: true,
-    };
-  }
-
-  const loserPool = totalPool - winnerPool;
-  const feeBps = Math.max(0, Math.min(10_000, args.feeBps ?? ARENA_TOURNAMENT_BET_FEE_BPS));
-  const distributable = Math.floor((loserPool * (10_000 - feeBps)) / 10_000);
-  const payouts = bets.map((bet) => {
-    if (bet.chosenUserId !== args.winnerUserId) {
-      return { userId: bet.userId, amount: 0, status: "lost" as const };
-    }
-    return {
-      userId: bet.userId,
-      amount: bet.amount + Math.floor((distributable * bet.amount) / winnerPool),
-      status: "won" as const,
-    };
-  });
-  const paid = payouts.reduce((sum, payout) => sum + payout.amount, 0);
-  return {
-    payouts,
-    totalPool,
-    fee: totalPool - paid,
-    refunded: false,
-  };
 }

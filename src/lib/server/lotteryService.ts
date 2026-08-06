@@ -1,800 +1,134 @@
-import { randomBytes, createHash } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { economyEvents } from "@/db/schema";
-import {
-  lotteryPurchases,
-  lotteryRounds,
-  lotteryWinners,
-} from "@/db/lotterySchema";
-import { spendGoldWith } from "@/adventure/data/v2/coreLoopConfig";
-import {
-  LOTTERY_MAX_TICKETS_PER_ROUND,
-  LOTTERY_PURCHASE_COOLDOWN_MS,
-  LOTTERY_TICKET_PRICE,
-  hasEnoughLotteryParticipants,
-  lotteryPrizeAmounts,
-  lotteryRoundWindow,
-  lotteryWinNotices,
-  type LotteryWinNotice,
-  type LotterySnapshot,
-} from "@/lib/lottery";
-import {
-  lockSaveForUpdate,
-  readSave,
-  upsertSave,
-  type DbExecutor,
-} from "@/lib/server/savesKv";
-import { drawLotteryTickets } from "./lotteryDraw";
-import { insertNotificationWith } from "./v2Notifications";
-import {
-  pushMessageForNotification,
-  sendWebPushToUser,
-} from "./webPush";
+import { lotteryPurchases, lotteryRounds } from "@/db/lotterySchema";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
-type LotteryRoundRow = typeof lotteryRounds.$inferSelect;
-type LotteryPurchaseRow = typeof lotteryPurchases.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type SettleRoundResult = {
-  carryIn: number | null;
-  winnerNotices: LotteryWinNotice[];
-};
-const LOTTERY_RESULT_HISTORY_LIMIT = 10;
 
-export type LotteryPurchaseError =
-  | "invalid_ticket_count"
-  | "invalid_request_id"
-  | "round_ticket_limit"
-  | "purchase_rate_limited"
-  | "insufficient_gold";
-
-export type LotteryPurchaseResult =
-  | {
-      ok: true;
-      replayed: boolean;
-      purchasedTickets: number;
-      amountPaid: number;
-      snapshot: LotterySnapshot;
-    }
-  | {
-      ok: false;
-      error: LotteryPurchaseError;
-      remainingTickets?: number;
-      requiredGold?: number;
-    };
-
-function newRoundSecret() {
-  return randomBytes(32).toString("hex");
-}
-
-function hashSecret(secret: string) {
-  return createHash("sha256").update(secret).digest("hex");
-}
-
-function int(value: unknown) {
+function int(value: unknown): number {
   return Math.max(0, Math.floor(Number(value) || 0));
 }
 
-function economyGoldDelta(value: number) {
-  return Math.max(-2_147_483_648, Math.min(2_147_483_647, Math.trunc(value)));
+function economyGoldDelta(value: number): number {
+  return Math.max(0, Math.min(2_147_483_647, Math.trunc(value)));
 }
 
-async function ensureCurrentRound(tx: Tx, now: Date): Promise<LotteryRoundRow> {
-  const window = lotteryRoundWindow(now.getTime());
-  // 1시간 회차에서 4시간 회차로 전환할 때 이미 진행 중인 회차가 있으면 다음 4시간
-  // 경계까지만 연장한다. 새 주기의 startsAt 이 과거에 정산된 1시간 회차와 겹쳐
-  // 닫힌 회차를 현재 회차로 잘못 선택하는 것도 방지한다.
-  const [active] = await tx
-    .select()
-    .from(lotteryRounds)
-    .where(
-      and(
-        eq(lotteryRounds.status, "open"),
-        lte(lotteryRounds.startsAt, now),
-        gt(lotteryRounds.endsAt, now),
-      ),
-    )
-    .orderBy(desc(lotteryRounds.startsAt))
-    .for("update")
-    .limit(1);
-  if (active) {
-    const targetEndsAt = new Date(window.endsAt);
-    if (active.endsAt < targetEndsAt) {
-      const [extended] = await tx
-        .update(lotteryRounds)
-        .set({ endsAt: targetEndsAt })
-        .where(eq(lotteryRounds.id, active.id))
-        .returning();
-      return extended ?? { ...active, endsAt: targetEndsAt };
-    }
-    return active;
-  }
-
-  const [existing] = await tx
-    .select()
-    .from(lotteryRounds)
-    .where(eq(lotteryRounds.startsAt, new Date(window.startsAt)))
-    .limit(1);
-  if (existing?.status === "open") return existing;
-
-  // 전환 시점에 진행 중 회차가 없더라도, 새 4시간 경계와 같은 시각에 시작했던
-  // 정산 완료 1시간 회차가 남아 있을 수 있다. 이 한 회차만 1ms 뒤의 결정적 키를
-  // 사용하면 동시 요청도 같은 행에 모이고 다음 정상 경계부터는 정각 키로 돌아온다.
-  const startsAt = new Date(window.startsAt + (existing ? 1 : 0));
-  if (existing) {
-    const [transitionRound] = await tx
-      .select()
-      .from(lotteryRounds)
-      .where(eq(lotteryRounds.startsAt, startsAt))
-      .limit(1);
-    if (transitionRound?.status === "open") return transitionRound;
-    if (transitionRound) {
-      throw new Error("lottery transition round conflicts with a closed round");
-    }
-  }
-
-  const secret = newRoundSecret();
-  await tx
-    .insert(lotteryRounds)
-    .values({
-      status: "open",
-      startsAt,
-      endsAt: new Date(window.endsAt),
-      ticketPrice: LOTTERY_TICKET_PRICE,
-      commitHash: hashSecret(secret),
-      drawSecret: secret,
-    })
-    .onConflictDoNothing({ target: lotteryRounds.startsAt });
-
-  const [round] = await tx
-    .select()
-    .from(lotteryRounds)
-    .where(eq(lotteryRounds.startsAt, startsAt))
-    .limit(1);
-  if (!round) throw new Error("lottery round creation failed");
-  return round;
-}
-
-function purchaseForOrdinal(
-  purchases: LotteryPurchaseRow[],
-  ordinal: number,
-): { purchase: LotteryPurchaseRow; ticketNumber: number } {
-  let cursor = 0;
-  for (const purchase of purchases) {
-    const next = cursor + purchase.ticketCount;
-    if (ordinal <= next) {
-      return {
-        purchase,
-        ticketNumber: purchase.firstTicketNumber + (ordinal - cursor - 1),
-      };
-    }
-    cursor = next;
-  }
-  throw new Error("lottery ticket owner not found");
-}
-
-async function creditBankedGold(
+async function refundLotteryGold(
   tx: Tx,
-  credits: Map<string, number>,
-): Promise<Map<string, { gold: number; bankedGold: number }>> {
-  const balances = new Map<string, { gold: number; bankedGold: number }>();
-  // 모든 정산 경로가 같은 userId 순서로 character.v2 를 잠가 교착을 피한다.
+  credits: ReadonlyMap<string, number>,
+  roundIds: readonly number[],
+): Promise<void> {
   for (const userId of [...credits.keys()].sort()) {
     const amount = int(credits.get(userId));
+    if (amount <= 0) continue;
     const character = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
       userId,
       "character.v2",
       {},
     );
-    const gold = int(character.gold);
-    const bankedGold = int(character.bankedGold) + amount;
     await upsertSave(tx, userId, "character.v2", {
       ...character,
-      gold,
-      bankedGold,
+      gold: int(character.gold),
+      bankedGold: int(character.bankedGold) + amount,
     });
-    balances.set(userId, { gold, bankedGold });
-  }
-  return balances;
-}
-
-async function settleRound(
-  tx: Tx,
-  roundId: number,
-  now: Date,
-): Promise<SettleRoundResult> {
-  const [round] = await tx
-    .select()
-    .from(lotteryRounds)
-    .where(eq(lotteryRounds.id, roundId))
-    .for("update")
-    .limit(1);
-  if (!round || round.status !== "open" || round.endsAt > now) {
-    return { carryIn: null, winnerNotices: [] };
-  }
-
-  const purchases = await tx
-    .select()
-    .from(lotteryPurchases)
-    .where(eq(lotteryPurchases.roundId, round.id))
-    .orderBy(asc(lotteryPurchases.firstTicketNumber));
-  const eligibleTickets = purchases.reduce(
-    (sum, purchase) => sum + purchase.ticketCount,
-    0,
-  );
-  const participantCount = new Set(purchases.map((purchase) => purchase.userId)).size;
-  const { feeAmount, prizePool, prizes } = lotteryPrizeAmounts(
-    Number(round.grossPool),
-    Number(round.carryIn),
-  );
-
-  if (!hasEnoughLotteryParticipants(participantCount)) {
-    await tx.insert(economyEvents).values({
-      eventType: "lottery.rollover",
-      goldDelta: 0,
-      itemKind: "lottery_prize_pool",
-      itemId: String(round.id),
-      quantity: participantCount,
-      detail: {
-        roundId: round.id,
-        participantCount,
-        totalTickets: eligibleTickets,
-        carryIn: Number(round.carryIn),
-        grossPool: Number(round.grossPool),
-        feeAmount,
-        rolloverAmount: prizePool,
-      },
-    });
-    await tx
-      .update(lotteryRounds)
-      .set({
-        status: "rolled_over",
-        feeAmount,
-        prizePool,
-        settledAt: now,
-      })
-      .where(eq(lotteryRounds.id, round.id));
-    return { carryIn: prizePool, winnerNotices: [] };
-  }
-
-  const ordinals = drawLotteryTickets(
-    eligibleTickets,
-    round.drawSecret,
-    round.id,
-    3,
-  );
-  const winners = ordinals.map((ordinal, index) => ({
-    ...purchaseForOrdinal(purchases, ordinal),
-    rank: index + 1,
-    prizeAmount: prizes[index],
-  }));
-  const credits = new Map<string, number>();
-  for (const winner of winners) {
-    credits.set(
-      winner.purchase.userId,
-      (credits.get(winner.purchase.userId) ?? 0) + winner.prizeAmount,
-    );
-  }
-  await creditBankedGold(tx, credits);
-
-  await tx.insert(lotteryWinners).values(
-    winners.map((winner) => ({
-      roundId: round.id,
-      rank: winner.rank,
-      purchaseId: winner.purchase.id,
-      userId: winner.purchase.userId,
-      actorName: winner.purchase.actorName,
-      ticketNumber: winner.ticketNumber,
-      prizeAmount: winner.prizeAmount,
-    })),
-  );
-  const winnerNotices = lotteryWinNotices(
-    round.id,
-    winners.map((winner) => ({
-      userId: winner.purchase.userId,
-      rank: winner.rank,
-      ticketNumber: winner.ticketNumber,
-      prizeAmount: winner.prizeAmount,
-    })),
-  );
-  for (const notice of winnerNotices) {
-    await insertNotificationWith(
-      tx,
-      notice.userId,
-      "lottery_won",
-      notice.payload,
-    );
-  }
-  for (const [userId, amount] of credits) {
     await tx.insert(economyEvents).values({
       userId,
-      eventType: "reward.lottery.prize",
+      eventType: "refund.lottery.retired",
       goldDelta: economyGoldDelta(amount),
-      itemKind: "lottery_prize",
-      itemId: String(round.id),
-      quantity: winners.filter((winner) => winner.purchase.userId === userId).length,
+      itemKind: "lottery_ticket",
+      itemId: "feature_retired",
+      quantity: 1,
       detail: {
-        roundId: round.id,
-        ranks: winners
-          .filter((winner) => winner.purchase.userId === userId)
-          .map((winner) => winner.rank),
+        reason: "feature_retired",
+        roundIds,
         actualGoldDelta: amount,
       },
     });
   }
-  await tx
-    .update(lotteryRounds)
-    .set({
-      status: "settled",
-      feeAmount,
-      prizePool,
-      settledAt: now,
-    })
-    .where(eq(lotteryRounds.id, round.id));
-  return { carryIn: null, winnerNotices };
 }
 
-async function applyCarryToRound(
-  tx: Tx,
-  roundId: number,
-  carryIn: number,
-): Promise<LotteryRoundRow> {
-  const [round] = await tx
-    .select()
-    .from(lotteryRounds)
-    .where(eq(lotteryRounds.id, roundId))
-    .for("update")
-    .limit(1);
-  if (!round) throw new Error("lottery carry target not found");
-  if (round.status !== "open") return round;
-
-  const [existingCarriedPurchase] = await tx
-    .select({ id: lotteryPurchases.id })
-    .from(lotteryPurchases)
-    .where(
-      and(
-        eq(lotteryPurchases.roundId, round.id),
-        eq(lotteryPurchases.isCarried, true),
-      ),
-    )
-    .limit(1);
-
-  let carriedTicketCount = 0;
-  if (!existingCarriedPurchase && (round.carryIn > 0 || carryIn > 0)) {
-    // 마지막 정상 추첨 뒤 이월된 모든 유료 구매를 원본으로 삼는다. 이 방식은
-    // 기능 배포 전 여러 빈 회차를 거친 티켓도 현재 회차로 한 번에 복구한다.
-    const priorRounds = await tx
-      .select({ id: lotteryRounds.id, status: lotteryRounds.status })
+/**
+ * 복권 기능 종료 처리.
+ *
+ * 신규 회차를 만들지 않고, 아직 추첨되지 않은 open/rolled_over 회차의 실제
+ * 결제액(amountPaid > 0)만 은행 골드로 돌려준다. 이월용 복제 티켓은 결제액이
+ * 0이므로 중복 환불되지 않는다. 회차 잠금과 refunded 상태 전환 덕분에 크론이
+ * 여러 번 호출되어도 한 번만 환불된다.
+ */
+export async function retireLottery(now = new Date()) {
+  return db.transaction(async (tx) => {
+    const rounds = await tx
+      .select({ id: lotteryRounds.id })
       .from(lotteryRounds)
-      .where(lte(lotteryRounds.endsAt, round.startsAt))
-      .orderBy(desc(lotteryRounds.endsAt));
-    const rolledOverRoundIds: number[] = [];
-    for (const priorRound of priorRounds) {
-      if (priorRound.status !== "rolled_over") break;
-      rolledOverRoundIds.push(priorRound.id);
+      .where(inArray(lotteryRounds.status, ["open", "rolled_over"]))
+      .orderBy(asc(lotteryRounds.id))
+      .for("update");
+    const roundIds = rounds.map((round) => round.id);
+    if (roundIds.length === 0) {
+      return { refundedRounds: 0, refundedUsers: 0, refundedGold: 0 };
     }
-    const sourcePurchases = rolledOverRoundIds.length
+
+    const finalizedRounds = await tx
+      .select({ id: lotteryRounds.id })
+      .from(lotteryRounds)
+      .where(inArray(lotteryRounds.status, ["settled", "refunded"]));
+    const finalizedRoundIds = finalizedRounds.map((round) => round.id);
+    const finalizedCarryRows = finalizedRoundIds.length
       ? await tx
-          .select()
+          .select({ requestId: lotteryPurchases.requestId })
           .from(lotteryPurchases)
           .where(
             and(
-              inArray(lotteryPurchases.roundId, rolledOverRoundIds),
-              eq(lotteryPurchases.isCarried, false),
+              inArray(lotteryPurchases.roundId, finalizedRoundIds),
+              eq(lotteryPurchases.isCarried, true),
             ),
           )
-          .orderBy(
-            asc(lotteryPurchases.roundId),
-            asc(lotteryPurchases.firstTicketNumber),
-          )
       : [];
-    let nextTicketNumber = round.totalTickets + 1;
-    if (sourcePurchases.length) {
-      await tx.insert(lotteryPurchases).values(
-        sourcePurchases.map((purchase) => {
-          const firstTicketNumber = nextTicketNumber;
-          nextTicketNumber += purchase.ticketCount;
-          carriedTicketCount += purchase.ticketCount;
-          return {
-            roundId: round.id,
-            userId: purchase.userId,
-            requestId: `rollover:${purchase.id}:${round.id}`,
-            actorName: purchase.actorName,
-            ticketCount: purchase.ticketCount,
-            firstTicketNumber,
-            amountPaid: 0,
-            isCarried: true,
-            createdAt: round.startsAt,
-          };
-        }),
-      );
-    }
-  }
-
-  const shouldSetCarry = round.carryIn <= 0 && carryIn > 0;
-  if (!shouldSetCarry && carriedTicketCount === 0) return round;
-  const nextCarryIn = shouldSetCarry ? carryIn : Number(round.carryIn);
-  const [updated] = await tx
-    .update(lotteryRounds)
-    .set({
-      carryIn: nextCarryIn,
-      totalTickets: round.totalTickets + carriedTicketCount,
-    })
-    .where(eq(lotteryRounds.id, round.id))
-    .returning();
-  return (
-    updated ?? {
-      ...round,
-      carryIn: nextCarryIn,
-      totalTickets: round.totalTickets + carriedTicketCount,
-    }
-  );
-}
-
-async function advanceRounds(tx: Tx, now: Date) {
-  const due = await tx
-    .select({ id: lotteryRounds.id })
-    .from(lotteryRounds)
-    .where(and(eq(lotteryRounds.status, "open"), lte(lotteryRounds.endsAt, now)))
-    .orderBy(asc(lotteryRounds.endsAt));
-  let pendingCarry: number | null = null;
-  const winnerNotices: LotteryWinNotice[] = [];
-  for (const round of due) {
-    // 이미 돈만 이월된 배포 전 회차도 승계 티켓이 없으면 함께 복구한다.
-    await applyCarryToRound(tx, round.id, pendingCarry ?? 0);
-    const settled = await settleRound(tx, round.id, now);
-    pendingCarry = settled.carryIn;
-    winnerNotices.push(...settled.winnerNotices);
-  }
-  let current = await ensureCurrentRound(tx, now);
-  current = await applyCarryToRound(tx, current.id, pendingCarry ?? 0);
-  return { current, winnerNotices };
-}
-
-async function snapshotInTx(
-  tx: Tx,
-  userId: string,
-  currentRound: LotteryRoundRow,
-): Promise<LotterySnapshot> {
-  const currentPurchases = await tx
-    .select()
-    .from(lotteryPurchases)
-    .where(eq(lotteryPurchases.roundId, currentRound.id))
-    .orderBy(desc(lotteryPurchases.createdAt));
-  const myTickets = currentPurchases
-    .filter((purchase) => purchase.userId === userId)
-    .reduce((sum, purchase) => sum + purchase.ticketCount, 0);
-  const myCarriedTickets = currentPurchases
-    .filter((purchase) => purchase.userId === userId && purchase.isCarried)
-    .reduce((sum, purchase) => sum + purchase.ticketCount, 0);
-  const myPurchasedTickets = myTickets - myCarriedTickets;
-  const recentRounds = await tx
-    .select()
-    .from(lotteryRounds)
-    .where(
-      inArray(lotteryRounds.status, ["settled", "refunded", "rolled_over"]),
-    )
-    .orderBy(desc(lotteryRounds.endsAt))
-    .limit(LOTTERY_RESULT_HISTORY_LIMIT);
-  const recentRoundIds = recentRounds.map((round) => round.id);
-  const historicalWinners = recentRoundIds.length
-    ? await tx
-        .select()
-        .from(lotteryWinners)
-        .where(inArray(lotteryWinners.roundId, recentRoundIds))
-        .orderBy(desc(lotteryWinners.roundId), asc(lotteryWinners.rank))
-    : [];
-  const historicalParticipants = recentRoundIds.length
-    ? await tx
-        .select({
-          roundId: lotteryPurchases.roundId,
-          participantCount: sql<number>`count(distinct ${lotteryPurchases.userId})::int`,
-        })
-        .from(lotteryPurchases)
-        .where(inArray(lotteryPurchases.roundId, recentRoundIds))
-        .groupBy(lotteryPurchases.roundId)
-    : [];
-  const participantCountByRound = new Map(
-    historicalParticipants.map((row) => [row.roundId, row.participantCount]),
-  );
-  const winnersByRound = new Map<
-    number,
-    LotterySnapshot["recentRounds"][number]["winners"]
-  >();
-  for (const winner of historicalWinners) {
-    const roundWinners = winnersByRound.get(winner.roundId) ?? [];
-    roundWinners.push({
-      rank: winner.rank,
-      actorName: winner.actorName,
-      ticketNumber: winner.ticketNumber,
-      prizeAmount: Number(winner.prizeAmount),
-      mine: winner.userId === userId,
-    });
-    winnersByRound.set(winner.roundId, roundWinners);
-  }
-  const recentRoundResults: LotterySnapshot["recentRounds"] = recentRounds.map(
-    (round) => ({
-      id: round.id,
-      status:
-        round.status === "refunded"
-          ? "refunded"
-          : round.status === "rolled_over"
-            ? "rolled_over"
-            : "settled",
-      totalTickets: round.totalTickets,
-      participantCount: participantCountByRound.get(round.id) ?? 0,
-      grossPool: Number(round.grossPool),
-      carryIn: Number(round.carryIn),
-      feeAmount: Number(round.feeAmount),
-      prizePool: Number(round.prizePool),
-      settledAt: round.settledAt?.getTime() ?? round.endsAt.getTime(),
-      commitHash: round.commitHash,
-      revealSecret: round.drawSecret,
-      winners: winnersByRound.get(round.id) ?? [],
-    }),
-  );
-  const character = await readSave<Record<string, unknown>>(
-    tx as DbExecutor,
-    userId,
-    "character.v2",
-    {},
-  );
-  const currentPrizes = lotteryPrizeAmounts(
-    Number(currentRound.grossPool),
-    Number(currentRound.carryIn),
-  );
-
-  return {
-    round: {
-      id: currentRound.id,
-      startsAt: currentRound.startsAt.getTime(),
-      endsAt: currentRound.endsAt.getTime(),
-      ticketPrice: currentRound.ticketPrice,
-      totalTickets: currentRound.totalTickets,
-      participantCount: new Set(
-        currentPurchases.map((purchase) => purchase.userId),
-      ).size,
-      grossPool: Number(currentRound.grossPool),
-      carryIn: Number(currentRound.carryIn),
-      prizePool: currentPrizes.prizePool,
-      commitHash: currentRound.commitHash,
-    },
-    myTickets,
-    myCarriedTickets,
-    remainingTickets: Math.max(
-      0,
-      LOTTERY_MAX_TICKETS_PER_ROUND - myPurchasedTickets,
-    ),
-    recentPurchases: currentPurchases.slice(0, 30).map((purchase) => ({
-      id: purchase.id,
-      actorName: purchase.actorName,
-      ticketCount: purchase.ticketCount,
-      isCarried: purchase.isCarried,
-      createdAt: purchase.createdAt.getTime(),
-      mine: purchase.userId === userId,
-    })),
-    recentRounds: recentRoundResults,
-    previousRound: recentRoundResults[0] ?? null,
-    viewerGold: int(character.gold),
-    viewerBankedGold: int(character.bankedGold),
-  };
-}
-
-export async function getLotterySnapshot(
-  userId: string,
-  now = new Date(),
-): Promise<LotterySnapshot> {
-  const result = await db.transaction(async (tx) => {
-    const advanced = await advanceRounds(tx, now);
-    return {
-      snapshot: await snapshotInTx(tx, userId, advanced.current),
-      winnerNotices: advanced.winnerNotices,
-    };
-  });
-  await pushLotteryWinnerNotices(result.winnerNotices);
-  return result.snapshot;
-}
-
-export async function settleLotteryRounds(now = new Date()) {
-  const result = await db.transaction(async (tx) => {
-    const advanced = await advanceRounds(tx, now);
-    return {
-      currentRoundId: advanced.current.id,
-      startsAt: advanced.current.startsAt.getTime(),
-      endsAt: advanced.current.endsAt.getTime(),
-      winnerNotices: advanced.winnerNotices,
-    };
-  });
-  await pushLotteryWinnerNotices(result.winnerNotices);
-  return {
-    currentRoundId: result.currentRoundId,
-    startsAt: result.startsAt,
-    endsAt: result.endsAt,
-  };
-}
-
-async function pushLotteryWinnerNotices(
-  notices: readonly LotteryWinNotice[],
-): Promise<void> {
-  await Promise.allSettled(
-    notices.map(async (notice) => {
-      const message = pushMessageForNotification(
-        "lottery_won",
-        notice.payload,
-      );
-      if (message) await sendWebPushToUser(notice.userId, message);
-    }),
-  );
-}
-
-export async function purchaseLotteryTickets(input: {
-  userId: string;
-  actorName: string;
-  ticketCount: number;
-  requestId: string;
-  now?: Date;
-}): Promise<LotteryPurchaseResult> {
-  if (
-    !Number.isInteger(input.ticketCount) ||
-    input.ticketCount < 1 ||
-    input.ticketCount > LOTTERY_MAX_TICKETS_PER_ROUND
-  ) {
-    return { ok: false, error: "invalid_ticket_count" };
-  }
-  if (input.requestId.length < 8 || input.requestId.length > 100) {
-    return { ok: false, error: "invalid_request_id" };
-  }
-  const now = input.now ?? new Date();
-
-  const settled = await db.transaction(async (tx): Promise<{
-    result: LotteryPurchaseResult;
-    winnerNotices: LotteryWinNotice[];
-  }> => {
-    const advanced = await advanceRounds(tx, now);
-    const current = advanced.current;
-    const finish = (result: LotteryPurchaseResult) => ({
-      result,
-      winnerNotices: advanced.winnerNotices,
-    });
-    const [round] = await tx
-      .select()
-      .from(lotteryRounds)
-      .where(eq(lotteryRounds.id, current.id))
-      .for("update")
-      .limit(1);
-    if (!round) throw new Error("lottery round not found");
-
-    // 회차 락을 잡은 뒤 재확인해야 같은 requestId 동시 요청도 하나만 결제된다.
-    const [existingRequest] = await tx
-      .select()
-      .from(lotteryPurchases)
-      .where(
-        and(
-          eq(lotteryPurchases.userId, input.userId),
-          eq(lotteryPurchases.requestId, input.requestId),
-        ),
-      )
-      .limit(1);
-    if (existingRequest) {
-      return finish({
-        ok: true,
-        replayed: true,
-        purchasedTickets: existingRequest.ticketCount,
-        amountPaid: Number(existingRequest.amountPaid),
-        snapshot: await snapshotInTx(tx, input.userId, round),
-      });
-    }
-
-    const [latestPurchase] = await tx
-      .select({ createdAt: lotteryPurchases.createdAt })
-      .from(lotteryPurchases)
-      .where(eq(lotteryPurchases.userId, input.userId))
-      .orderBy(desc(lotteryPurchases.createdAt))
-      .limit(1);
-    if (
-      latestPurchase &&
-      now.getTime() - latestPurchase.createdAt.getTime() < LOTTERY_PURCHASE_COOLDOWN_MS
-    ) {
-      return finish({ ok: false, error: "purchase_rate_limited" });
-    }
-
-    const userPurchases = await tx
-      .select({ ticketCount: lotteryPurchases.ticketCount })
-      .from(lotteryPurchases)
-      .where(
-        and(
-          eq(lotteryPurchases.roundId, round.id),
-          eq(lotteryPurchases.userId, input.userId),
-          eq(lotteryPurchases.isCarried, false),
-        ),
-      );
-    const alreadyBought = userPurchases.reduce(
-      (sum, purchase) => sum + purchase.ticketCount,
-      0,
+    const consumedPurchaseIds = new Set(
+      finalizedCarryRows.flatMap(({ requestId }) => {
+        const match = /^rollover:(\d+):\d+$/.exec(requestId);
+        return match ? [Number(match[1])] : [];
+      }),
     );
-    const remainingTickets = LOTTERY_MAX_TICKETS_PER_ROUND - alreadyBought;
-    if (input.ticketCount > remainingTickets) {
-      return finish({
-        ok: false,
-        error: "round_ticket_limit",
-        remainingTickets,
-      });
-    }
-
-    const amountPaid = input.ticketCount * round.ticketPrice;
-    const character = await lockSaveForUpdate<Record<string, unknown>>(
-      tx,
-      input.userId,
-      "character.v2",
-      {},
-    );
-    const spent = spendGoldWith(
-      int(character.gold),
-      int(character.bankedGold),
-      amountPaid,
-      true,
-    );
-    if (!spent.ok) {
-      return finish({
-        ok: false,
-        error: "insufficient_gold",
-        requiredGold: amountPaid,
-      });
-    }
-    await upsertSave(tx, input.userId, "character.v2", {
-      ...character,
-      gold: spent.gold,
-      bankedGold: spent.bankedGold,
-    });
-    const [purchase] = await tx
-      .insert(lotteryPurchases)
-      .values({
-        roundId: round.id,
-        userId: input.userId,
-        requestId: input.requestId,
-        actorName: input.actorName.slice(0, 80),
-        ticketCount: input.ticketCount,
-        firstTicketNumber: round.totalTickets + 1,
-        amountPaid,
-        createdAt: now,
+    const purchases = await tx
+      .select({
+        id: lotteryPurchases.id,
+        userId: lotteryPurchases.userId,
+        amountPaid: lotteryPurchases.amountPaid,
       })
-      .returning();
-    const updatedRound = {
-      ...round,
-      totalTickets: round.totalTickets + input.ticketCount,
-      grossPool: Number(round.grossPool) + amountPaid,
-    };
+      .from(lotteryPurchases)
+      .where(
+        and(
+          inArray(lotteryPurchases.roundId, roundIds),
+          gt(lotteryPurchases.amountPaid, 0),
+        ),
+      );
+    const credits = new Map<string, number>();
+    for (const purchase of purchases) {
+      if (consumedPurchaseIds.has(purchase.id)) continue;
+      credits.set(
+        purchase.userId,
+        (credits.get(purchase.userId) ?? 0) + Number(purchase.amountPaid),
+      );
+    }
+
+    await refundLotteryGold(tx, credits, roundIds);
     await tx
       .update(lotteryRounds)
       .set({
-        totalTickets: updatedRound.totalTickets,
-        grossPool: updatedRound.grossPool,
+        status: "refunded",
+        feeAmount: 0,
+        prizePool: 0,
+        settledAt: now,
       })
-      .where(eq(lotteryRounds.id, round.id));
-    await tx.insert(economyEvents).values({
-      userId: input.userId,
-      eventType: "sink.lottery.ticket",
-      goldDelta: -amountPaid,
-      itemKind: "lottery_ticket",
-      itemId: String(round.id),
-      quantity: input.ticketCount,
-      detail: {
-        roundId: round.id,
-        purchaseId: purchase.id,
-        requestId: input.requestId,
-        firstTicketNumber: purchase.firstTicketNumber,
-      },
-    });
+      .where(inArray(lotteryRounds.id, roundIds));
 
-    return finish({
-      ok: true,
-      replayed: false,
-      purchasedTickets: input.ticketCount,
-      amountPaid,
-      snapshot: await snapshotInTx(tx, input.userId, updatedRound),
-    });
+    return {
+      refundedRounds: roundIds.length,
+      refundedUsers: credits.size,
+      refundedGold: [...credits.values()].reduce((sum, amount) => sum + amount, 0),
+    };
   });
-  await pushLotteryWinnerNotices(settled.winnerNotices);
-  return settled.result;
 }

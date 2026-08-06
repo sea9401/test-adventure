@@ -220,6 +220,8 @@ describe("v2Quests 카탈로그 무결성", () => {
   it("기초 튜토리얼(basics) 보상 = 스태미나 회복약 2개", () => {
     const basics = V2_QUESTS.filter((q) => q.line === "basics");
     expect(basics.length).toBeGreaterThan(0);
+    expect(basics.some((q) => q.id === "b_shop")).toBe(false);
+    expect(basics.some((q) => q.href === "/town/shop")).toBe(false);
     for (const q of basics) {
       expect(q.reward.staminaPotions, q.id).toBe(2);
       expect(q.reward.gold, q.id).toBeUndefined();
@@ -372,13 +374,9 @@ describe("성장의 길 (순차 라인)", () => {
     ).toBe(true);
   });
 
-  it("기초 튜토리얼 — 상점/치료/학습 신호로 충족", () => {
-    expect(questStatus(questById("b_shop")!, ZERO, none)).toBe("active");
+  it("기초 튜토리얼 — 치료/학습 신호로 충족", () => {
     expect(questStatus(questById("b_heal")!, ZERO, none)).toBe("active");
     expect(questStatus(questById("b_learn")!, ZERO, none)).toBe("active");
-    expect(
-      isQuestClaimable(questById("b_shop")!, { ...ZERO, hasShopped: true }, none),
-    ).toBe(true);
     expect(
       isQuestClaimable(questById("b_heal")!, { ...ZERO, hasHealed: true }, none),
     ).toBe(true);

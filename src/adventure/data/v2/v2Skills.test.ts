@@ -555,6 +555,24 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(p.blocks[1].condition).toEqual({ kind: "always" });
   });
 
+  it("그림자 도약은 장착 순서와 무관하게 기본 패턴의 첫 독립 행동이다", () => {
+    const p = smartDefaultPatternFromEquipped([
+      "v2c_shadow_assassinate",
+      "v2c_shadow_shadowstep",
+      "v2c_shadow_lethality3",
+    ]);
+
+    expect(p.blocks).toHaveLength(2);
+    expect(p.blocks[0]).toEqual({
+      condition: { kind: "turn", op: "atMost", value: 1 },
+      action: { kind: "skill", skillId: "v2c_shadow_shadowstep" },
+    });
+    expect(p.blocks[1]).toEqual({
+      condition: { kind: "always" },
+      action: { kind: "skill", skillId: "v2c_shadow_assassinate" },
+    });
+  });
+
   it("순수 DoT 공격 스킬(출혈·중독)도 '항상' — 첫 턴만 발동하는 회귀 방지", () => {
     // dot 효과만 있고 직접 데미지 없는 공격기. damage 버킷에서 빠지면 opener(turn atMost 1)로
     //   잘못 분류돼 첫 턴 후 안 나간다(Codex BLOCK). dot 도 "적 피해"라 항상 발동.
@@ -674,6 +692,30 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
         expect(chip, `${skill.id}: ${chip}`).not.toMatch(/\d\.\d{3,}/);
       }
     }
+  });
+
+  it("다단 스킬은 툴팁 첫 칩에 기본 공격 횟수를 명시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_nightshade_eclipse)[0]).toBe(
+      "2회 공격",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)[0]).toBe(
+      "3회 공격",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).not.toContain(
+      "1회 공격",
+    );
+  });
+
+  it("월식 설명은 두 타격과 각 HP 조건을 구분한다", () => {
+    expect(V2_SKILLS.v2c_nightshade_eclipse.description).toBe(
+      "두 번 연속 공격한다. 1타는 적 HP 90% 이상일 때 PvE 5배·PvP 4배, 2타는 35% 이하일 때 3배 피해를 준다.",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_nightshade_eclipse)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("적 HP 90%↑ 시 PvE ×5 · PvP ×4"),
+        expect.stringContaining("적 HP 35%↓ 시 ×3"),
+      ]),
+    );
   });
 
   it("발동률 상향 보정이 DEX·LUK 특화 계수를 이중으로 낮추지 않는다", () => {
@@ -907,7 +949,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       spCostOf(V2_SKILLS.v2c_nightshade_eclipse),
       spCostOf(V2_SKILLS.v2c_heavenlybow_orbit),
       spCostOf(V2_SKILLS.v2c_blackmoon_flurry),
-    ]).toEqual([7, 8, 10, 12]);
+    ]).toEqual([7, 10, 10, 12]);
   });
 
   it("🔑 트립와이어 — 전투 스킬은 루브릭 미만으로 underprice 금지", () => {

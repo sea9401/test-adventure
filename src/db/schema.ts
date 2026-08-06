@@ -1683,7 +1683,8 @@ export const guildDiningWeekly = pgTable("guild_dining_weekly", {
 });
 
 // 길드 교역소 공동 상태. tokens 는 주차가 바뀌어도 유지되는 길드 공동 잔고이며,
-// 계약 품목·진척·완료 목록과 참여 가능 길드원 스냅샷만 첫 조회에서 교체한다.
+// memberPurchasesEnabled 도 길드장이 바꾸기 전까지 유지된다. 계약 품목·진척·완료
+// 목록과 참여 가능 길드원 스냅샷만 첫 조회에서 교체한다.
 // 품목 추가에 마이그레이션이 필요 없도록 계약 데이터는 JSONB로 보관한다.
 export const guildTradeWeekly = pgTable("guild_trade_weekly", {
   guildId: integer("guild_id")
@@ -1707,6 +1708,10 @@ export const guildTradeWeekly = pgTable("guild_trade_weekly", {
     .notNull()
     .default(sql`'[]'::jsonb`),
   tokens: integer("tokens").notNull().default(0),
+  // false 면 일반 길드원의 공동 토큰 구매를 막고 길드장만 구매할 수 있다.
+  memberPurchasesEnabled: boolean("member_purchases_enabled")
+    .notNull()
+    .default(true),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -1740,6 +1745,77 @@ export const guildFacilityUpgradeDonations = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.guildId, t.buildingId] })],
+);
+
+// 마을 공공기관인 모험가 협회의 시설 진행도. 협회 시설은 처음부터 Lv.1로
+// 열려 있고 모든 이용자가 개인 생활 재료와 골드를 기부한다. 목표를 모두
+// 채우면 별도 관리자 승인 없이 기부 트랜잭션 안에서 즉시 다음 레벨이 된다.
+// 길드 창고는 공공시설 대상이 아니므로 이 테이블에 저장하지 않는다.
+export const adventurerAssociationFacilities = pgTable(
+  "adventurer_association_facilities",
+  {
+    buildingId: text("building_id").primaryKey(),
+    level: integer("level").notNull().default(1),
+    targetLevel: integer("target_level").notNull().default(2),
+    materials: jsonb("materials").notNull().default({}),
+    gold: integer("gold").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    check(
+      "adventurer_association_facilities_level_check",
+      sql`${t.level} BETWEEN 1 AND 5`,
+    ),
+    check(
+      "adventurer_association_facilities_target_level_check",
+      sql`${t.targetLevel} BETWEEN 2 AND 5`,
+    ),
+    check("adventurer_association_facilities_gold_check", sql`${t.gold} >= 0`),
+  ],
+);
+
+// 협회 식당의 서버 공용 주간 식재료 준비 상태. 식권·기여도·식사 효과는
+// 개인 세이브에 두고, 여기에는 메뉴와 공용 준비도만 둔다.
+export const adventurerAssociationDiningWeekly = pgTable(
+  "adventurer_association_dining_weekly",
+  {
+    id: text("id").primaryKey().default("global"),
+    weekKey: text("week_key").notNull(),
+    selectedMenuIds: jsonb("selected_menu_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'["hearty_stew"]'::jsonb`),
+    pantryPoints: integer("pantry_points").notNull().default(0),
+    targetPoints: integer("target_points").notNull().default(400),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    check(
+      "adventurer_association_dining_weekly_points_check",
+      sql`${t.pantryPoints} >= 0 AND ${t.targetPoints} > 0`,
+    ),
+  ],
+);
+
+// 협회 교역소의 서버 공용 주간 계약 진행도. 토큰과 상품 구매 횟수는
+// 이용자 개인 세이브에 두어 선착순 공동 잔고 소진을 원천 차단한다.
+export const adventurerAssociationTradeWeekly = pgTable(
+  "adventurer_association_trade_weekly",
+  {
+    id: text("id").primaryKey().default("global"),
+    weekKey: text("week_key").notNull(),
+    contractIds: jsonb("contract_ids").$type<string[]>().notNull().default([]),
+    progress: jsonb("progress").notNull().default({}),
+    completedIds: jsonb("completed_ids").$type<string[]>().notNull().default([]),
+    target: integer("target").notNull().default(400),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    check(
+      "adventurer_association_trade_weekly_target_check",
+      sql`${t.target} > 0`,
+    ),
+  ],
 );
 
 export const artisanLeaderboardSnapshots = pgTable(

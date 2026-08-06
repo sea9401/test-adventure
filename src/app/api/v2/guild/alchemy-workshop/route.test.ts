@@ -40,6 +40,10 @@ vi.mock("@/lib/server/economyLog", () => ({
   recordEconomyEventSoon: vi.fn(),
   recordRewardFailureSoon: vi.fn(),
 }));
+vi.mock("@/lib/server/adventurerAssociation", () => ({
+  associationFacilityLevel: vi.fn(async () => 1),
+  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
+}));
 
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { buildingLevelFromSlots } from "@/lib/server/settlementBuildingAccess";

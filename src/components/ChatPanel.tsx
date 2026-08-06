@@ -21,7 +21,6 @@ import {
   Plus,
   ShieldChevron,
   SignOut,
-  Ticket,
   UserPlus,
   X,
 } from "@phosphor-icons/react";
@@ -52,7 +51,6 @@ import {
   latestChatMessageId,
   mergeChatMessages,
 } from "./chat/chatMessagesApi";
-import { LotteryRoom } from "./chat/LotteryRoom";
 import { ChatEquipmentPicker } from "./chat/ChatEquipmentPicker";
 import { useMobileChatHistory } from "./chat/useMobileChatHistory";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
@@ -63,7 +61,7 @@ import {
 } from "@/lib/chat-item-link";
 
 export type ChatChannel = "global" | "guild" | "room";
-type ChatRoomKey = "chat" | "guild" | "notice" | "lottery";
+type ChatRoomKey = "chat" | "guild" | "notice";
 
 export type ChatMessage = {
   id: number;
@@ -149,7 +147,6 @@ const CHAT_ROOM_LABELS: Record<ChatRoomKey, string> = {
   chat: "전체 채팅방",
   guild: "길드 채팅방",
   notice: "시스템 알림",
-  lottery: "복권방",
 };
 
 function ChatRoomIcon({ room, size = 22 }: { room: ChatRoomKey; size?: number }) {
@@ -158,9 +155,6 @@ function ChatRoomIcon({ room, size = 22 }: { room: ChatRoomKey; size?: number })
   }
   if (room === "notice") {
     return <BellRinging size={size} weight="duotone" />;
-  }
-  if (room === "lottery") {
-    return <Ticket size={size} weight="duotone" />;
   }
   return <GlobeHemisphereWest size={size} weight="duotone" />;
 }
@@ -224,9 +218,7 @@ function ChatRoomList({
             ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
             : room.builtin === "guild"
               ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
-              : room.builtin === "lottery"
-                ? "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
-              : "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300";
+            : "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300";
 
         return (
           <button
@@ -370,16 +362,6 @@ export function ChatPanel({
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
-
-  useEffect(() => {
-    const openLottery = () => {
-      setActiveRoom("lottery");
-      setActiveCustomRoom(null);
-      setRoomManagerOpen(false);
-    };
-    window.addEventListener("chat:open-lottery", openLottery);
-    return () => window.removeEventListener("chat:open-lottery", openLottery);
-  }, []);
 
   const refreshCustomRooms = useCallback(async () => {
     const result = await fetchJoinedChatRooms();
@@ -631,16 +613,6 @@ export function ChatPanel({
         label: CHAT_ROOM_LABELS.notice,
         latest: noticeMessages.at(-1) ?? null,
         unread: unreadNotice,
-        available: true,
-      },
-      {
-        id: "lottery",
-        builtin: "lottery" as const,
-        custom: null,
-        label: CHAT_ROOM_LABELS.lottery,
-        latest: null,
-        description: "4시간마다 추첨 · /복권 1~10",
-        unread: false,
         available: true,
       },
       ...customRooms.map((room) => ({
@@ -983,9 +955,7 @@ export function ChatPanel({
                         ? "text-blue-600 dark:text-blue-300"
                         : activeRoom === "guild"
                           ? "text-emerald-600 dark:text-emerald-300"
-                          : activeRoom === "lottery"
-                            ? "text-amber-600 dark:text-amber-300"
-                          : "text-violet-600 dark:text-violet-300"
+                        : "text-violet-600 dark:text-violet-300"
                   }`}
                 >
                   {activeCustomRoom ? (
@@ -1097,8 +1067,6 @@ export function ChatPanel({
             refreshRooms={refreshCustomRooms}
             onOpenRoom={enterCustomRoom}
           />
-        ) : activeRoom === "lottery" ? (
-          <LotteryRoom />
         ) : activeRoom || activeCustomRoom ? (
           <>
             <MessageList

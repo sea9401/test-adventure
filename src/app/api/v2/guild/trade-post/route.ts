@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { outpostVillages } from "@/db/schema";
+import { guilds, outpostVillages } from "@/db/schema";
 import {
   GUILD_TRADE_SHOP_ITEMS,
   GUILD_TRADE_USER_SAVE_KEY,
@@ -36,12 +36,14 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
+import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
 
 type TradeBody = {
   action?: unknown;
   contractId?: unknown;
   batches?: unknown;
   shopItemId?: unknown;
+  enabled?: unknown;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -56,6 +58,18 @@ async function tradePostLevel(tx: Tx, guildId: number): Promise<number> {
       Math.max(level, buildingLevelFromSlots(row.buildings, "trade_post")),
     0,
   );
+}
+
+async function isGuildMaster(
+  tx: Tx,
+  guildId: number,
+  userId: string,
+): Promise<boolean> {
+  const rows = await tx
+    .select({ masterId: guilds.masterId })
+    .from(guilds)
+    .where(eq(guilds.id, guildId));
+  return rows[0]?.masterId === userId;
 }
 
 /**
@@ -100,6 +114,7 @@ async function tradeView(args: {
   weekly: GuildTradeWeeklyState;
   now: Date;
   userState: GuildTradeUserState;
+  isMaster: boolean;
 }) {
   const { tx, userId, level, weekly, now } = args;
   const upgrade = tradePostUpgradeForLevel(level);
@@ -121,6 +136,9 @@ async function tradeView(args: {
     stageLabel: upgrade.label,
     weekKey: weekly.weekKey,
     eligible: weekly.eligibleUserIds.includes(userId),
+    isMaster: args.isMaster,
+    memberPurchasesEnabled: weekly.memberPurchasesEnabled,
+    canPurchase: args.isMaster || weekly.memberPurchasesEnabled,
     rewardBonusPct: upgrade.completionRewardBonusPct,
     tokenYieldBonusPct: upgrade.tokenYieldBonusPct,
     contribution: {
@@ -196,6 +214,7 @@ export async function GET() {
       guildId,
       weekly: lockedWeekly,
     });
+    const isMaster = await isGuildMaster(tx, guildId, userId);
     return {
       status: 200,
       body: {
@@ -207,6 +226,7 @@ export async function GET() {
           weekly,
           now,
           userState,
+          isMaster,
         })),
       },
     };
@@ -234,7 +254,11 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  if (body.action !== "deliver" && body.action !== "buy") {
+  if (
+    body.action !== "deliver" &&
+    body.action !== "buy" &&
+    body.action !== "set_member_purchases"
+  ) {
     return Response.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
 
@@ -266,6 +290,36 @@ export async function POST(req: Request) {
       weekly: lockedWeekly,
     });
     const { weekly, userState } = tradeState;
+    const isMaster = await isGuildMaster(tx, guildId, userId);
+
+    if (body.action === "set_member_purchases") {
+      if (!isMaster) {
+        return { status: 403, body: { ok: false as const, error: "not_master" } };
+      }
+      if (typeof body.enabled !== "boolean") {
+        return { status: 400, body: { ok: false as const, error: "invalid_setting" } };
+      }
+      const nextWeekly: GuildTradeWeeklyState = {
+        ...weekly,
+        memberPurchasesEnabled: body.enabled,
+      };
+      await saveGuildTradeWeekly(tx, nextWeekly);
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          ...(await tradeView({
+            tx,
+            userId,
+            level,
+            weekly: nextWeekly,
+            now,
+            userState,
+            isMaster,
+          })),
+        },
+      };
+    }
 
     if (body.action === "deliver") {
       if (!weekly.eligibleUserIds.includes(userId)) {
@@ -306,6 +360,23 @@ export async function POST(req: Request) {
       }
       if (source.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_items" } };
+      }
+      const weeklySource = await claimWeeklyFacilitySource(
+        tx,
+        userId,
+        "trade_post",
+        "guild",
+        weekKey,
+      );
+      if (!weeklySource.ok) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "weekly_source_conflict",
+            selectedSource: weeklySource.selected,
+          },
+        };
       }
 
       const completed = currentProgress + points >= weekly.target;
@@ -382,11 +453,18 @@ export async function POST(req: Request) {
             weekly: nextWeekly,
             now,
             userState: nextUserState,
+            isMaster,
           })),
         },
       };
     }
 
+    if (!weekly.memberPurchasesEnabled && !isMaster) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "trade_tokens_locked" },
+      };
+    }
     const shopItem = guildTradeShopItem(body.shopItemId);
     if (!shopItem) {
       return { status: 400, body: { ok: false as const, error: "invalid_shop_item" } };
@@ -401,6 +479,23 @@ export async function POST(req: Request) {
       return { status: 409, body: { ok: false as const, error: "insufficient_tokens" } };
     }
     const grant = await lockShopGrant(tx, userId, shopItem);
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "trade_post",
+      "guild",
+      weekKey,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict",
+          selectedSource: weeklySource.selected,
+        },
+      };
+    }
     const nextWeekly: GuildTradeWeeklyState = {
       ...weekly,
       tokens: weekly.tokens - shopItem.tokenCost,
@@ -445,6 +540,7 @@ export async function POST(req: Request) {
           weekly: nextWeekly,
           now,
           userState: nextUserState,
+          isMaster,
         })),
       },
     };

@@ -22,6 +22,7 @@ import { readGuildSettlement } from "@/lib/server/v2Settlement";
 import {
   GUILD_WORKSHOP_RECIPE_IDS,
   GUILD_WORKSHOP_RECIPES,
+  GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
   guildWorkshopCraftRecordTitleIds,
@@ -68,6 +69,10 @@ import {
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  associationFacilityLevel,
+  claimWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -107,10 +112,26 @@ async function readGuildWorkshopBonus(
 async function resolveWorkshopAccess(
   userId: string,
   outpostId: string | null,
+  association: boolean,
 ): Promise<
   | { ok: true; access: SettlementBuildingAccess }
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
+  if (association) {
+    const level = await associationFacilityLevel(db, "guild_smithy");
+    return {
+      ok: true,
+      access: {
+        outpostId: "association",
+        guildId: 0,
+        buildingId: "guild_smithy",
+        level,
+        kind: "member",
+        taxRate: 0,
+        useFeeGold: 0,
+      },
+    };
+  }
   if (outpostId) {
     const result = await db.transaction((tx) =>
       resolveOutpostBuildingAccess(tx, userId, outpostId, "guild_smithy"),
@@ -216,15 +237,19 @@ export async function GET(req: Request) {
   const resolved = await resolveWorkshopAccess(
     userId,
     outpostIdFromRequest(req),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
   }
   const { access } = resolved;
   const guildId = access.guildId;
+  const association = access.outpostId === "association";
   const smithyLevel = access.level;
 
-  const baseGuildBonus = await readGuildWorkshopBonus(guildId);
+  const baseGuildBonus = association
+    ? guildWorkshopBonusFromTotalCrafts(0)
+    : await readGuildWorkshopBonus(guildId);
   const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
   const guildBonus = {
     ...baseGuildBonus,
@@ -241,7 +266,7 @@ export async function GET(req: Request) {
     workshopRecords,
     playerSpendableGold,
   } = await db.transaction(async (tx) => {
-    const resources = await readGuildSettlement(tx, guildId);
+    const resources = association ? {} : await readGuildSettlement(tx, guildId);
     const charRaw = await readSave<CharacterSaveWithMaterials>(
       tx,
       userId,
@@ -340,12 +365,14 @@ export async function POST(req: Request) {
   const resolved = await resolveWorkshopAccess(
     userId,
     outpostIdFromRequest(req, body.outpostId),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
   }
   const { access } = resolved;
   const guildId = access.guildId;
+  const association = access.outpostId === "association";
   const smithyLevel = access.level;
   if (smithyLevel <= 0) {
     return Response.json(
@@ -353,7 +380,9 @@ export async function POST(req: Request) {
       { status: 403 },
     );
   }
-  const baseGuildBonus = await readGuildWorkshopBonus(guildId);
+  const baseGuildBonus = association
+    ? guildWorkshopBonusFromTotalCrafts(0)
+    : await readGuildWorkshopBonus(guildId);
   const smithyBonus = guildSmithyUpgradeForLevel(smithyLevel);
   const guildBonus = {
     ...baseGuildBonus,
@@ -391,7 +420,7 @@ export async function POST(req: Request) {
       : 0;
     const craftGoldCost = baseCraftGoldCost + substitutionGoldCost;
     const totalGoldCost = craftGoldCost + externalUseFeeGold;
-    const resources = await readGuildSettlement(tx, guildId);
+    const resources = association ? {} : await readGuildSettlement(tx, guildId);
     const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
       userId,
@@ -580,6 +609,23 @@ export async function POST(req: Request) {
     if (!craftPayment.ok) {
       throw new Error("guild workshop gold preflight drifted");
     }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "guild_smithy",
+      association ? "association" : "guild",
+      week.key,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict" as const,
+          selectedSource: weeklySource.selected,
+        },
+      };
+    }
     const paidCharRaw = {
       ...(fee.charSave as CharacterSaveWithMaterials),
       gold: craftPayment.gold,
@@ -610,17 +656,23 @@ export async function POST(req: Request) {
       {
         qualityCrafted: Boolean(craftQuality),
         xp: recipe.artisanXp,
+        scoreMultiplier:
+          craftMode === "masterwork"
+            ? GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT
+            : 1,
       },
     );
     const item = V2_EQUIPMENT[recipe.equipmentId];
     const craftedAt = new Date().toISOString();
-    const nextWeekly = await incrementGuildWorkshopWeeklyProgress(tx, guildId, {
-      qualityCrafted: Boolean(craftQuality),
-      slot: item.slot,
-      craftOnly: item.craftOnly === true,
-      masterwork: craftMode === "masterwork",
-      tier: item.tier,
-    });
+    const nextWeekly = association
+      ? null
+      : await incrementGuildWorkshopWeeklyProgress(tx, guildId, {
+          qualityCrafted: Boolean(craftQuality),
+          slot: item.slot,
+          craftOnly: item.craftOnly === true,
+          masterwork: craftMode === "masterwork",
+          tier: item.tier,
+        });
     const crafterName = profile?.name?.trim() || undefined;
     const craftedItem = {
       ...mintRolledEquipInstance(recipe.equipmentId),
@@ -662,7 +714,7 @@ export async function POST(req: Request) {
       workshopRecords: nextWorkshopRecords,
       weeklyWorkshopStats: nextWeeklyWorkshopStats,
     });
-    if (shouldLogGuildWorkshopCraftActivity(item)) {
+    if (!association && shouldLogGuildWorkshopCraftActivity(item)) {
       await logGuildActivity(tx, {
         guildId,
         type: "workshop_craft_only",

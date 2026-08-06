@@ -25,6 +25,10 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import {
+  associationFacilityLevel,
+  claimWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -96,18 +100,21 @@ function workshopView(params: {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const association = new URL(req.url).searchParams.get("scope") === "association";
   const result = await db.transaction(async (tx) => {
-    const guildId = await getGuildId(tx, userId);
-    if (guildId == null) {
+    const guildId = association ? 0 : await getGuildId(tx, userId);
+    if (!association && guildId == null) {
       return { status: 403, body: { ok: false as const, error: "no_guild" } };
     }
-    const level = await alchemyWorkshopLevel(tx, guildId);
+    const level = association
+      ? await associationFacilityLevel(tx, "alchemy_workshop")
+      : await alchemyWorkshopLevel(tx, guildId!);
     if (level <= 0) {
       return {
         status: 403,
@@ -164,12 +171,15 @@ export async function POST(req: Request) {
 
   const now = new Date();
   const weekKey = kstWeekMondayKey(now);
+  const association = new URL(req.url).searchParams.get("scope") === "association";
   const result = await db.transaction(async (tx) => {
-    const guildId = await getGuildId(tx, userId);
-    if (guildId == null) {
+    const guildId = association ? 0 : await getGuildId(tx, userId);
+    if (!association && guildId == null) {
       return { status: 403, body: { ok: false as const, error: "no_guild" } };
     }
-    const level = await alchemyWorkshopLevel(tx, guildId);
+    const level = association
+      ? await associationFacilityLevel(tx, "alchemy_workshop")
+      : await alchemyWorkshopLevel(tx, guildId!);
     if (level <= 0) {
       return {
         status: 403,
@@ -240,6 +250,23 @@ export async function POST(req: Request) {
         },
       };
     }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "alchemy_workshop",
+      association ? "association" : "guild",
+      weekKey,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict",
+          selectedSource: weeklySource.selected,
+        },
+      };
+    }
 
     const nextFarm: FarmState = {
       ...farm,
@@ -264,17 +291,19 @@ export async function POST(req: Request) {
     };
     await upsertSave(tx, userId, FARM_SAVE_KEY, nextFarm);
     await upsertSave(tx, userId, "inventory.v2", nextInventory);
-    await logGuildActivity(tx, {
-      guildId,
-      type: "alchemy_craft",
-      actorUserId: userId,
-      meta: {
-        itemName: recipe.name,
-        chargeTarget: target,
-        chargeAmount: gain.total,
-        contributionPoints: energyCost * 10,
-      },
-    });
+    if (!association) {
+      await logGuildActivity(tx, {
+        guildId: guildId!,
+        type: "alchemy_craft",
+        actorUserId: userId,
+        meta: {
+          itemName: recipe.name,
+          chargeTarget: target,
+          chargeAmount: gain.total,
+          contributionPoints: energyCost * 10,
+        },
+      });
+    }
 
     return {
       status: 200,
@@ -291,7 +320,7 @@ export async function POST(req: Request) {
         },
         ...workshopView({ level, farm: nextFarm, inventory: nextInventory, weekKey }),
       },
-      guildId,
+      guildId: guildId ?? 0,
     };
   });
 

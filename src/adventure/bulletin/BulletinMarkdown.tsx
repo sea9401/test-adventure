@@ -212,9 +212,9 @@ export function BulletinMarkdown({
       className={`bulletin-markdown min-w-0 break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200 ${className}
         [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
         [&_h1]:mt-6 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:text-zinc-950 dark:[&_h1]:text-zinc-50
-        [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:leading-snug [&_h2]:text-zinc-950 dark:[&_h2]:text-zinc-50
-        [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-zinc-900 dark:[&_h3]:text-zinc-100
-        [&_h4]:mt-4 [&_h4]:font-bold [&_h4]:text-zinc-900 dark:[&_h4]:text-zinc-100
+        [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:leading-snug [&_h2]:text-sky-800 dark:[&_h2]:text-sky-300
+        [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-violet-800 dark:[&_h3]:text-violet-300
+        [&_h4]:mt-4 [&_h4]:font-bold [&_h4]:text-amber-800 dark:[&_h4]:text-amber-300
         [&_p]:mt-3 [&_strong]:font-bold [&_strong]:text-zinc-950 dark:[&_strong]:text-zinc-50
         [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6
         [&_ol]:mt-3 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6
@@ -234,7 +234,13 @@ export function BulletinMarkdown({
             className={`${SURFACE_INSET} group mt-4 px-3 py-2`}
           >
             <summary className="cursor-pointer select-none font-semibold text-zinc-900 marker:text-zinc-400 dark:text-zinc-100">
-              {segment.summary}
+              <span className="inline-flex w-[calc(100%-1rem)] items-center justify-between gap-3 align-middle">
+                <span>{segment.summary}</span>
+                <span className="shrink-0 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+                  <span className="group-open:hidden">펼치기</span>
+                  <span className="hidden group-open:inline">접기</span>
+                </span>
+              </span>
             </summary>
             <div className="mt-2 border-t border-zinc-200 pt-1 dark:border-zinc-700">
               <SafeMarkdown content={segment.content} />

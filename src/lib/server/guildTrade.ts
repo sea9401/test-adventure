@@ -19,6 +19,8 @@ export type GuildTradeWeeklyState = {
   target: number;
   /** 주차가 바뀌어도 유지되는 길드 공동 교역 토큰. */
   tokens: number;
+  /** 일반 길드원이 공동 토큰 상점에서 구매할 수 있는지 여부. */
+  memberPurchasesEnabled: boolean;
 };
 
 function stringList(raw: unknown): string[] {
@@ -66,6 +68,7 @@ function freshState(args: {
     eligibleUserIds: args.eligibleUserIds,
     target: guildTradeContractTarget(args.eligibleUserIds.length),
     tokens: 0,
+    memberPurchasesEnabled: true,
   };
 }
 
@@ -77,6 +80,7 @@ function rowState(
     completedIds: unknown;
     eligibleUserIds: unknown;
     tokens: unknown;
+    memberPurchasesEnabled: unknown;
   },
   guildId: number,
 ): GuildTradeWeeklyState | null {
@@ -92,6 +96,7 @@ function rowState(
     eligibleUserIds,
     target: guildTradeContractTarget(eligibleUserIds.length),
     tokens: nonNegativeInt(row.tokens),
+    memberPurchasesEnabled: row.memberPurchasesEnabled !== false,
   };
 }
 
@@ -125,7 +130,11 @@ export async function lockGuildTradeWeekly(
   )[0];
   const parsed = row ? rowState(row, guildId) : null;
   if (!parsed || row.weekKey !== weekKey) {
-    const reset = { ...fresh, tokens: nonNegativeInt(row?.tokens) };
+    const reset = {
+      ...fresh,
+      tokens: nonNegativeInt(row?.tokens),
+      memberPurchasesEnabled: row?.memberPurchasesEnabled !== false,
+    };
     await saveGuildTradeWeekly(tx, reset);
     return reset;
   }
@@ -146,6 +155,7 @@ export async function saveGuildTradeWeekly(
       completedIds: state.completedIds,
       eligibleUserIds: state.eligibleUserIds,
       tokens: state.tokens,
+      memberPurchasesEnabled: state.memberPurchasesEnabled,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -157,6 +167,7 @@ export async function saveGuildTradeWeekly(
         completedIds: state.completedIds,
         eligibleUserIds: state.eligibleUserIds,
         tokens: state.tokens,
+        memberPurchasesEnabled: state.memberPurchasesEnabled,
         updatedAt: new Date(),
       },
     });

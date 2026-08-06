@@ -51,10 +51,12 @@ export function GuildWorkshopPanel({
   info,
   localSmithy = false,
   outpostId,
+  association = false,
 }: {
   info: GuildInfoResponse | null;
   localSmithy?: boolean;
   outpostId?: string;
+  association?: boolean;
 }) {
   const { notifyReward } = useRewardToast();
   const { setGold, setBankedGold } = useGameState();
@@ -116,7 +118,9 @@ export function GuildWorkshopPanel({
   const [equipmentCodexStatus, setEquipmentCodexStatus] =
     useState<WorkshopEquipmentCodexLoadStatus>("loading");
   const equipmentCodexReady = equipmentCodexStatus === "ready";
-  const workshopEndpoint = outpostId
+  const workshopEndpoint = association
+    ? "/api/v2/guild/workshop?scope=association"
+    : outpostId
     ? `/api/v2/guild/workshop?outpostId=${encodeURIComponent(outpostId)}`
     : "/api/v2/guild/workshop";
 
@@ -143,6 +147,7 @@ export function GuildWorkshopPanel({
   }, []);
 
   const loadContributionInfo = useCallback(async () => {
+    if (association) return;
     try {
       const res = await fetch("/api/v2/me/guild/info");
       const json = (await res.json().catch(() => null)) as GuildInfoResponse | null;
@@ -150,10 +155,10 @@ export function GuildWorkshopPanel({
         setContributionInfo(json);
       }
     } catch {}
-  }, []);
+  }, [association]);
 
   useEffect(() => {
-    if (info) return;
+    if (info || association) return;
     let alive = true;
     fetch("/api/v2/me/guild/info")
       .then((res) => (res.ok ? res.json() : null))
@@ -164,9 +169,10 @@ export function GuildWorkshopPanel({
     return () => {
       alive = false;
     };
-  }, [info]);
+  }, [association, info]);
 
   const loadWeekly = useCallback(async () => {
+    if (association) return;
     setWeeklyLoading(true);
     try {
       const res = await fetch("/api/v2/guild/workshop/weekly");
@@ -192,7 +198,7 @@ export function GuildWorkshopPanel({
     } finally {
       setWeeklyLoading(false);
     }
-  }, [setWeeklyMessage]);
+  }, [association, setWeeklyMessage]);
 
   useEffect(() => {
     if (!hasSmithy) return;
@@ -200,6 +206,7 @@ export function GuildWorkshopPanel({
   }, [hasSmithy, loadWeekly]);
 
   const loadDelivery = useCallback(async () => {
+    if (association) return;
     setDeliveryLoading(true);
     try {
       const res = await fetch("/api/v2/guild/workshop/delivery");
@@ -217,7 +224,7 @@ export function GuildWorkshopPanel({
     } finally {
       setDeliveryLoading(false);
     }
-  }, [setDeliveryMessage]);
+  }, [association, setDeliveryMessage]);
 
   useEffect(() => {
     if (!hasSmithy) return;
@@ -1023,12 +1030,16 @@ export function GuildWorkshopPanel({
 
       {workshopMode === "main" ? (
         <div className="space-y-3">
-          <GuildArtisanContributionPanel info={contributionInfo ?? info} />
+          {!association && (
+            <GuildArtisanContributionPanel info={contributionInfo ?? info} />
+          )}
           {recommendationCard}
-          <div className="grid gap-3 lg:grid-cols-2">
-            {weeklyCard}
-            {deliveryCard}
-          </div>
+          {!association && (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {weeklyCard}
+              {deliveryCard}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -1056,6 +1067,7 @@ export function GuildWorkshopPanel({
           autoCraft={pendingCraft}
           onAutoCraftConsumed={() => setPendingCraft(null)}
           outpostId={outpostId}
+          endpoint={workshopEndpoint}
         />
       ) : null}
 
@@ -1069,6 +1081,11 @@ export function GuildWorkshopPanel({
         <WorkshopDismantlePanel
           materials={materials}
           onWorkshopSync={applyWorkshopSync}
+          endpoint={
+            association
+              ? "/api/v2/guild/workshop/dismantle?scope=association"
+              : "/api/v2/guild/workshop/dismantle"
+          }
         />
       ) : null}
 

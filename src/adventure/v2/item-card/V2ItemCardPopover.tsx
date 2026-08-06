@@ -52,6 +52,56 @@ const SLOT_ORDER = [
   "necklace",
 ] as const;
 
+type ItemCardViewport = {
+  width: number;
+  height: number;
+  top: number;
+};
+
+export function itemCardPosition(
+  anchor: ItemCardAnchor,
+  viewport: ItemCardViewport,
+): { width: number; left: number; pos: CSSProperties } {
+  const { width: vw, height: vh } = viewport;
+  const viewportTop = Math.min(
+    Math.max(MARGIN, viewport.top),
+    Math.max(MARGIN, vh - MARGIN),
+  );
+  // 초협소 뷰포트(vw < WIDTH + 여백)에서도 화면 안에 들어오도록 폭을 줄인다.
+  const width = Math.min(WIDTH, Math.max(0, vw - MARGIN * 2));
+  const left = Math.min(
+    Math.max(MARGIN, anchor.left),
+    Math.max(MARGIN, vw - width - MARGIN),
+  );
+  const belowTop = Math.max(viewportTop, anchor.bottom + GAP);
+  const availableAbove = Math.max(0, anchor.top - GAP - viewportTop);
+  const availableBelow = Math.max(0, vh - MARGIN - belowTop);
+  const usableHeight = Math.max(0, vh - viewportTop - MARGIN);
+  const placeAbove =
+    anchor.bottom > viewportTop + usableHeight * 0.6
+      ? availableAbove > 0
+      : availableBelow <= 0 && availableAbove > 0;
+  const pos: CSSProperties = placeAbove
+    ? { bottom: vh - anchor.top + GAP, maxHeight: availableAbove }
+    : { top: belowTop, maxHeight: availableBelow };
+
+  return { width, left, pos };
+}
+
+function visibleViewport(): ItemCardViewport {
+  if (typeof window === "undefined") {
+    return { width: 360, height: 640, top: MARGIN };
+  }
+
+  const topBar = document.querySelector<HTMLElement>("[data-game-top-bar]");
+  const topBarRect = topBar?.getBoundingClientRect();
+  const top =
+    topBarRect && topBarRect.bottom > 0 && topBarRect.top < window.innerHeight
+      ? topBarRect.bottom + MARGIN
+      : MARGIN;
+  return { width: window.innerWidth, height: window.innerHeight, top };
+}
+
 function tagSetPieceIds(tagSetId: string): V2EquipmentId[] {
   return Object.values(V2_EQUIPMENT)
     .filter((piece) => piece.setTags?.includes(tagSetId))
@@ -188,16 +238,9 @@ export function V2ItemCard({
     : 0;
   const setActive = set != null && equippedSetCount === set.pieces.length;
 
-  // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
-  const vw = typeof window !== "undefined" ? window.innerWidth : 360;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 640;
-  // 초협소 뷰포트(vw < WIDTH + 여백)에서도 화면 안에 들어오도록 폭을 줄인다.
-  const width = Math.min(WIDTH, vw - MARGIN * 2);
-  const left = Math.min(Math.max(MARGIN, anchor.left), vw - width - MARGIN);
-  const placeAbove = anchor.bottom > vh * 0.6;
-  const pos: CSSProperties = placeAbove
-    ? { bottom: vh - anchor.top + GAP, maxHeight: anchor.top - GAP - MARGIN }
-    : { top: anchor.bottom + GAP, maxHeight: vh - anchor.bottom - GAP - MARGIN };
+  // 앵커 기준 위치 계산. 긴 카드는 상단 고정 바 아래에서만 스크롤되게 해
+  // 제목·강화 배지가 고정 바 뒤로 숨지 않도록 한다.
+  const { width, left, pos } = itemCardPosition(anchor, visibleViewport());
 
   return (
     <>

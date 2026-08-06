@@ -12,11 +12,11 @@ describe("마을 생활 콘텐츠 메뉴", () => {
     expect(html).not.toContain("농작물과 어획물로 음식을 만듭니다.");
   });
 
-  it("기존 상점과 별도로 콘텐츠 상점을 모은 통합 교환소를 안내한다", () => {
+  it("통합 교환소와 일반 상점을 부연 설명 없이 구분한다", () => {
     const html = renderToStaticMarkup(<V2TownHome onAction={vi.fn()} />);
 
     expect(html).toContain("통합 교환소");
-    expect(html).toContain("콘텐츠별 상점을 한곳에서 이용합니다.");
+    expect(html).not.toContain("콘텐츠별 상점을 한곳에서 이용합니다.");
     expect(html).toContain("일반 상점");
   });
 });

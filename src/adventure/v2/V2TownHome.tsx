@@ -58,7 +58,6 @@ export function V2TownHome({
             <Storefront size={28} weight="duotone" className="text-orange-600" />
           }
           title="통합 교환소"
-          description="콘텐츠별 상점을 한곳에서 이용합니다."
           onClick={() => onAction({ kind: "open-exchange" })}
         />
         <EntryCard

@@ -115,7 +115,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)
   transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1 }, // 초월자 — 행운을 제외한 5능력 균형
   absolute: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 절대자 — 초월자의 올스탯 균형 완성
-  fortressknight: { vit: 3, str: 2, dex: 1 }, // 성채기사 — 철벽기사 최종형, 방어 중심
+  fortressknight: { vit: 4, str: 2 }, // 성채기사 — 철벽기사 최종형, 방어 중심
   swordsaint: { str: 3, dex: 2, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
   hegemon: { str: 3, vit: 2, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
   archmage: { int: 3, spi: 3 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
@@ -127,14 +127,31 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   vajraarhat: { vit: 3, spi: 2, str: 1 }, // 금강나한 — 금강승 최종형, 내구와 기백 중심
 };
 
-// 캐릭터의 실효 수행 프로필 — 하이브리드 직업이면 직업 전용(정체성 축), 아니면 직군 프로필.
-//   jobId 미상/비하이브리드면 직군(group) 폴백. 포인트·횟수 회계는 여전히 직군(group)으로 한다
-//   (cap 만 직업 정체성대로 올린다 — 회계 그룹과 cap 프로필 분리).
+// 단일 직군 안에서도 공용 프로필과 역할 축이 크게 다른 전문 계보의 수행 오버라이드.
+// 방패 계보는 방어력 기반 공격·방벽·보호막·반사가 핵심이라 전사 공용 DEX 대신 VIT에 집중한다.
+// 값은 V2_JOB_CATALOG[id].cultivateProfile 과 동일해야 하며 차수별 총 성장량은 유지한다.
+export const V2_SPECIALIZED_CULTIVATE_PROFILE: Record<
+  string,
+  Partial<Record<V2StatKey, number>>
+> = {
+  shieldman: { vit: 3, str: 1 },
+  guardian: { vit: 3, str: 1 },
+  warden: { vit: 3, str: 1 },
+  ironknight: { vit: 4, str: 1 },
+  fortressknight: { vit: 4, str: 2 },
+};
+
+// 캐릭터의 실효 수행 프로필 — 전문 계보, 고차 직업, 하이브리드 순으로 직업 전용값을 사용한다.
+//   해당하지 않거나 jobId가 없으면 직군(group) 프로필로 폴백한다. 포인트·횟수 회계는 여전히
+//   직군(group)으로 하며 cap만 직업 정체성대로 올린다(회계 그룹과 cap 프로필 분리).
 export function effectiveCultivateProfile(
   group: string,
   jobId?: string | null,
 ): Partial<Record<V2StatKey, number>> | undefined {
   const job = jobId ? V2_JOB_CATALOG[jobId] : undefined;
+  if (jobId && V2_SPECIALIZED_CULTIVATE_PROFILE[jobId]) {
+    return V2_SPECIALIZED_CULTIVATE_PROFILE[jobId];
+  }
   if (job?.tier === 5 || job?.tier === 6) {
     return job.cultivateProfile;
   }

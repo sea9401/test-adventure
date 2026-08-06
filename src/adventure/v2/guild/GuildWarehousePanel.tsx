@@ -15,16 +15,21 @@ import {
 } from "@/components/ui/surfaces";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import {
+  craftQualityStars,
   V2_EQUIPMENT,
   v2EquipCatalogTierToDisplayTier,
+  v2EquipStatRows,
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import {
   CraftQualityBadge,
   EnhanceLevelBadge,
   EquipmentTierBadge,
+  MasterworkBadge,
   powerNameClass,
+  QualityPctText,
 } from "@/adventure/v2/V2ItemCard";
 import { InventoryItemIcon } from "@/adventure/v2/inventory/InventoryItemIcon";
 
@@ -77,6 +82,33 @@ const SLOT_NAME: Record<V2EquipSlot, string> = {
   ring: "반지",
   necklace: "목걸이",
 };
+
+export function formatWarehouseEquipmentOptionLabel(
+  equipment: V2EquipInstance,
+): string {
+  const item = V2_EQUIPMENT[equipment.id];
+  const qualityPct = rollQualityPct(item, equipment.roll);
+  const statLine = v2EquipStatRows(
+    item,
+    equipment.roll,
+    equipment.enhance,
+    equipment.craftQuality,
+  )
+    .map((row) => `${row.label} ${row.value}`)
+    .join(" / ");
+  const parts = [item.name, SLOT_NAME[item.slot]];
+  const enhanceLevel = Math.max(0, equipment.enhance?.level ?? 0);
+  if (enhanceLevel > 0) parts.push(`강화 +${enhanceLevel}`);
+  if (equipment.craftedBy?.masterwork) parts.push("명장");
+  const qualityStars = craftQualityStars(equipment.craftQuality);
+  if (qualityStars) parts.push(`${qualityStars} 품질`);
+  if (qualityPct != null) parts.push(`품질 ${qualityPct}%`);
+  if (statLine) parts.push(statLine);
+  const crafterName = equipment.craftedBy?.name?.trim();
+  if (crafterName) parts.push(`제작 ${crafterName}`);
+  if (equipment.locked) parts.push("잠금");
+  return parts.join(" · ");
+}
 
 export function GuildWarehousePanel() {
   const [data, setData] = useState<WarehouseResponse | null>(null);
@@ -693,12 +725,9 @@ function EquipmentTransferForm({
           className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           {candidates.map((equipment) => {
-            const item = V2_EQUIPMENT[equipment.id];
             return (
               <option key={equipment.iid} value={equipment.iid}>
-                {item.name} · {SLOT_NAME[item.slot]}
-                {equipment.enhance ? ` · +${equipment.enhance.level}` : ""}
-                {equipment.locked ? " · 잠금" : ""}
+                {formatWarehouseEquipmentOptionLabel(equipment)}
               </option>
             );
           })}
@@ -732,6 +761,15 @@ function TransferButton({
 
 function StoredEquipmentCard({ equipment }: { equipment: V2EquipInstance }) {
   const item = V2_EQUIPMENT[equipment.id];
+  const qualityPct = rollQualityPct(item, equipment.roll);
+  const statLine = v2EquipStatRows(
+    item,
+    equipment.roll,
+    equipment.enhance,
+    equipment.craftQuality,
+  )
+    .map((row) => `${row.label} ${row.value}`)
+    .join(" · ");
   return (
     <div className={`${SURFACE_INSET} space-y-1.5 px-3 py-2`}>
       <div className="flex items-start justify-between gap-2">
@@ -758,9 +796,21 @@ function StoredEquipmentCard({ equipment }: { equipment: V2EquipInstance }) {
         <EquipmentTierBadge tier={item.tier} compact />
         <EnhanceLevelBadge enhance={equipment.enhance} />
         <CraftQualityBadge craftQuality={equipment.craftQuality} />
+        {equipment.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+        {qualityPct != null ? (
+          <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            품질 <QualityPctText pct={qualityPct} className="font-semibold" />
+          </span>
+        ) : null}
         <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
           {SLOT_NAME[item.slot]} · {v2EquipCatalogTierToDisplayTier(item.tier)}T
         </span>
+      </div>
+      <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        {statLine}
+        {equipment.craftedBy?.name?.trim()
+          ? ` · 제작 ${equipment.craftedBy.name.trim()}`
+          : ""}
       </div>
     </div>
   );

@@ -80,6 +80,7 @@ import { CodexEquipmentPanel } from "./CodexEquipmentPanel";
 import { CodexTitlePanel } from "./CodexTitlePanel";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import { TUTORIAL_CODEX_INTRO } from "@/adventure/tutorial/flags";
+import { LifeFieldCodexPanel } from "@/adventure/v2/LifeFieldPanels";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 
 // v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
@@ -141,6 +142,7 @@ export type CodexTab =
   | "equipment"
   | "spFruit"
   | "fish"
+  | "life"
   | "title"
   | "job";
 
@@ -150,6 +152,7 @@ const CODEX_TABS: readonly CodexTab[] = [
   "equipment",
   "spFruit",
   "fish",
+  "life",
   "title",
   "job",
 ];
@@ -568,6 +571,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             ["equipment", "장비"],
             ["huntground", "사냥터"],
             ["fish", "어보"],
+            ["life", "현장 기록"],
             ["title", "칭호"],
           ] as const
         ).map(([key, label]) => (
@@ -1145,6 +1149,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           })}
         </div>
       )}
+      {tab === "life" && <LifeFieldCodexPanel />}
       {tab === "title" && (
         <CodexTitlePanel
           ownedTitleIds={ownedTitleIds}

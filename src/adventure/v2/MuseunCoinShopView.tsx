@@ -190,7 +190,7 @@ function MuseunCoinMark({ size = "md" }: { size?: "sm" | "md" }) {
   );
 }
 
-export function MuseunCoinShopView() {
+export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean }) {
   const [chargeOpen, setChargeOpen] = useState(false);
   const [detailItemId, setDetailItemId] =
     useState<MuseunCashItemId | null>(null);
@@ -280,7 +280,11 @@ export function MuseunCoinShopView() {
   }
 
   return (
-    <PageShell spacing="loose">
+    <PageShell
+      as={embedded ? "section" : "main"}
+      spacing="loose"
+      className={embedded ? "!max-w-none !px-0 !py-0" : undefined}
+    >
       <Card padding="lg">
         <div className="flex items-center gap-3">
           <MuseunCoinMark />
@@ -355,14 +359,16 @@ export function MuseunCoinShopView() {
         </div>
       </Card>
 
-      <div className="text-center">
-        <Link
-          href="/"
-          className="text-sm text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
-        >
-          모험으로 돌아가기
-        </Link>
-      </div>
+      {!embedded && (
+        <div className="text-center">
+          <Link
+            href="/"
+            className="text-sm text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            모험으로 돌아가기
+          </Link>
+        </div>
+      )}
 
       {chargeOpen && (
         <MuseunCoinChargeDialog onClose={() => setChargeOpen(false)} />

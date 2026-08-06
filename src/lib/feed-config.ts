@@ -22,6 +22,7 @@ export function parseFeedBeforeId(value: unknown): number | null {
 // 같은 유저+type 디바운스 — 이 시간 안에 동일 종류 항목이 이미 있으면 새 항목을 만들지 않는다.
 // 연달아 터뜨려도 도배되지 않게.
 export const FEED_DEBOUNCE_MS = 5_000;
+export const LIFE_DISCOVERY_FEED_DEBOUNCE_MS = 10 * 60_000;
 
 // 클라이언트 패널 폴링 주기.
 export const FEED_POLL_MS = 30_000;
@@ -43,6 +44,8 @@ export const FEED_TYPES = [
   "fishing_big_catch",
   "cultivation_awakening",
   "newcomer",
+  "life_blueprint",
+  "life_discovery",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
@@ -69,6 +72,8 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   // newcomer = 전쟁 사건은 아니지만 "서버 전체에 알리는 한 줄"이라 같은 상단 전광판에 태운다
   // (enhance_high 가 전쟁 아님에도 여기 묶인 것과 같은 취지 — 전광판 = 서버 공지 묶음).
   "newcomer",
+  "life_blueprint",
+  "life_discovery",
 ];
 
 // 전광판(티커) 표시 범위 — 이 시간(분) 안의 사건만 순환. 0건이면 띠 자체를 숨긴다
@@ -91,7 +96,7 @@ export type FeedCategory = (typeof FEED_CATEGORIES)[number];
 
 export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
   // 획득 — 걸작 제작(유니크 드랍/레어맵 발견 제외).
-  acquisition: ["masterpiece"],
+  acquisition: ["masterpiece", "life_blueprint", "life_discovery"],
   // 강화 — 고강(+9 이상) 성공/파괴.
   enhance: ["enhance_high", "enhance_destroy"],
   // 전쟁 — 거점 점령/공성/침입자 토벌.
@@ -148,7 +153,9 @@ export type FeedPayload =
   // cultivation_awakening — 수행 ×5 각성. 배수는 과거 표시 호환과 검증을 위해 함께 저장.
   | { cultivationMult: number }
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
-  | { newcomer: true };
+  | { newcomer: true }
+  | { recipeId: string }
+  | { discoveryId: string };
 
 // 클라/서버가 주고받는 한 항목.
 export type FeedEntry = {

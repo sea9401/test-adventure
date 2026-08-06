@@ -7,6 +7,7 @@ import {
   FirstAid,
   Hammer,
   PottedPlant,
+  ShoppingCart,
   Storefront,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
@@ -20,6 +21,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 export type TownAction =
   | { kind: "open-healing" }
+  | { kind: "open-exchange" }
   | { kind: "open-shop" }
   | { kind: "open-smithy" }
   | { kind: "open-farm" }
@@ -55,7 +57,19 @@ export function V2TownHome({
           icon={
             <Storefront size={28} weight="duotone" className="text-orange-600" />
           }
-          title="상점"
+          title="통합 교환소"
+          description="콘텐츠별 상점을 한곳에서 이용합니다."
+          onClick={() => onAction({ kind: "open-exchange" })}
+        />
+        <EntryCard
+          icon={
+            <ShoppingCart
+              size={28}
+              weight="duotone"
+              className="text-zinc-600"
+            />
+          }
+          title="일반 상점"
           onClick={() => onAction({ kind: "open-shop" })}
         />
         <EntryCard

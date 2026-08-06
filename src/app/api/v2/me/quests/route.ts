@@ -39,6 +39,10 @@ import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
 import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
+import { LIFE_REQUESTS_SAVE_KEY } from "@/adventure/v2/lifeRequests";
+import { LIFE_FIELD_RECORDS_KEY } from "@/adventure/v2/lifeFieldRecords";
+import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 import { deriveMonsterHuntCodex } from "@/adventure/data/v2/monsterHuntCodex";
 
 // GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
@@ -65,6 +69,10 @@ export async function GET() {
     equipmentCodexRaw,
     masteryTowerRaw,
     cookingRaw,
+    lifeWorkshopRaw,
+    lifeRequestsRaw,
+    lifeFieldRecordsRaw,
+    lifeFieldFeatures,
     extras,
   ] = await Promise.all([
     readSave(db, userId, "character.v2", {}),
@@ -82,6 +90,10 @@ export async function GET() {
     readSave(db, userId, EQUIPMENT_CODEX_KEY, {}),
     readSave(db, userId, MASTERY_TOWER_SAVE_KEY, {}),
     readSave(db, userId, COOKING_SAVE_KEY, {}),
+    readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
+    readSave(db, userId, LIFE_REQUESTS_SAVE_KEY, {}),
+    readSave(db, userId, LIFE_FIELD_RECORDS_KEY, {}),
+    readLifeFieldFeatureSettings(),
     assembleQuestExtras(db, userId),
   ]);
 
@@ -117,6 +129,10 @@ export async function GET() {
     equipmentCodexRaw,
     masteryTowerRaw,
     cookingRaw,
+    lifeWorkshopRaw,
+    lifeRequestsRaw,
+    lifeFieldRecordsRaw,
+    lifeFieldMilestonesEnabled: lifeFieldFeatures.milestonesEnabled,
     extras,
   });
   const quests = deriveQuestViews(ctx, claimed);

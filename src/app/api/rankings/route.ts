@@ -20,6 +20,7 @@ import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 import { GUIDE_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 import {
   buildQuestCtx,
@@ -78,7 +79,7 @@ type RankRow = {
   fame: number;
   /** 캐릭터 화면과 같은 derivePowerScore 합성 전투력. */
   combatPower: number;
-  /** 농사·벌목·채광·낚시 레벨 합계(각 50 상한). */
+  /** 농사·벌목·채광·낚시·요리 레벨 합계(각 50 상한). */
   lifeMastery: number;
   /** 직업 해금 + 장비 등록 + 어보 발견 수 / 전체 수집 가능 수. */
   codexCollected: number;
@@ -454,6 +455,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       equipment_codex.value AS equipment_codex_save,
       tower.value AS tower_save,
       cooking.value AS cooking_save,
+      life_workshop.value AS life_workshop_save,
       quests.value AS quests_save,
       fishing_codex.value AS fishing_codex_save,
       COALESCE(pvp.wins, 0)::bigint AS arena_wins,
@@ -488,6 +490,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv equipment_codex ON equipment_codex.user_id = u.id AND equipment_codex.key = ${EQUIPMENT_CODEX_KEY}
     LEFT JOIN saves_kv tower ON tower.user_id = u.id AND tower.key = ${MASTERY_TOWER_SAVE_KEY}
     LEFT JOIN saves_kv cooking ON cooking.user_id = u.id AND cooking.key = ${COOKING_SAVE_KEY}
+    LEFT JOIN saves_kv life_workshop ON life_workshop.user_id = u.id AND life_workshop.key = ${LIFE_WORKSHOP_SAVE_KEY}
     LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
     LEFT JOIN pvp ON pvp.user_id = u.id
@@ -502,7 +505,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     equipment_save: unknown; skills_save: unknown; crafting_save: unknown;
     farm_save: unknown; woodcutting_save: unknown; mining_save: unknown;
     fishing_save: unknown; equipment_codex_save: unknown; tower_save: unknown;
-    cooking_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
+    cooking_save: unknown; life_workshop_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
     arena_wins: number | string; arena_matches: number | string;
     guild_dining_meals: number | string;
     guild_training_drills: number | string;
@@ -534,6 +537,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         equipmentCodexRaw: r.equipment_codex_save,
         masteryTowerRaw: r.tower_save,
         cookingRaw: r.cooking_save,
+        lifeWorkshopRaw: r.life_workshop_save,
         extras: {
           hasGuild: r.has_guild,
           hasTraded: r.has_traded,

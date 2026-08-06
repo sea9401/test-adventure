@@ -325,7 +325,8 @@ describe("woodcutting routes", () => {
     expect(response.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(typeof json.sessionId).toBe("string");
-    expect(json.durationMs).toBeGreaterThanOrEqual(7_000);
+    expect(json.durationMs).toBeGreaterThanOrEqual(6_500);
+    expect(json.lifeEnvironment?.environment?.id).toBeTruthy();
     expect(json.chops).toBeGreaterThanOrEqual(5);
     expect(json.failureRate).toBeCloseTo(0.1);
     expect(json.successRate).toBeCloseTo(0.9);

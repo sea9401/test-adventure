@@ -10,6 +10,23 @@ export const OPS_ALERT_HISTORY_KEY = "ops-alert-history.v1";
 export const REWARD_FAILURE_STATUS_KEY = "reward-failure-status.v1";
 export const REWARD_COMPENSATION_PRESETS_KEY = "reward-compensation-presets.v1";
 export const OPS_NOTE_TEMPLATES_KEY = "ops-note-templates.v1";
+export const LIFE_FIELD_FEATURES_KEY = "life-field-features.v1";
+
+export type LifeFieldFeatureSettings = {
+  environmentEnabled: boolean;
+  discoveriesEnabled: boolean;
+  discoveryRewardsEnabled: boolean;
+  feedEnabled: boolean;
+  milestonesEnabled: boolean;
+};
+
+export const DEFAULT_LIFE_FIELD_FEATURES: LifeFieldFeatureSettings = {
+  environmentEnabled: true,
+  discoveriesEnabled: true,
+  discoveryRewardsEnabled: true,
+  feedEnabled: true,
+  milestonesEnabled: true,
+};
 
 export type HotTimeSettings = {
   enabled: boolean;
@@ -280,6 +297,53 @@ export async function readOpsNoteTemplates(): Promise<{
     updatedByEmail: row?.updatedByEmail ?? null,
     updatedAt: row?.updatedAt ?? null,
   };
+}
+
+export function parseLifeFieldFeatureSettings(
+  raw: unknown,
+): LifeFieldFeatureSettings {
+  const value =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  return {
+    environmentEnabled:
+      typeof value.environmentEnabled === "boolean"
+        ? value.environmentEnabled
+        : DEFAULT_LIFE_FIELD_FEATURES.environmentEnabled,
+    discoveriesEnabled:
+      typeof value.discoveriesEnabled === "boolean"
+        ? value.discoveriesEnabled
+        : DEFAULT_LIFE_FIELD_FEATURES.discoveriesEnabled,
+    discoveryRewardsEnabled:
+      typeof value.discoveryRewardsEnabled === "boolean"
+        ? value.discoveryRewardsEnabled
+        : DEFAULT_LIFE_FIELD_FEATURES.discoveryRewardsEnabled,
+    feedEnabled:
+      typeof value.feedEnabled === "boolean"
+        ? value.feedEnabled
+        : DEFAULT_LIFE_FIELD_FEATURES.feedEnabled,
+    milestonesEnabled:
+      typeof value.milestonesEnabled === "boolean"
+        ? value.milestonesEnabled
+        : DEFAULT_LIFE_FIELD_FEATURES.milestonesEnabled,
+  };
+}
+
+export async function readLifeFieldFeatureSettings(
+  executor: DbExecutor = db,
+): Promise<LifeFieldFeatureSettings> {
+  if (typeof (executor as { select?: unknown }).select !== "function") {
+    return DEFAULT_LIFE_FIELD_FEATURES;
+  }
+  const row = (
+    await executor
+      .select({ value: opsSettings.value })
+      .from(opsSettings)
+      .where(eq(opsSettings.key, LIFE_FIELD_FEATURES_KEY))
+      .limit(1)
+  )[0];
+  return parseLifeFieldFeatureSettings(row?.value);
 }
 
 export async function upsertOpsSetting(

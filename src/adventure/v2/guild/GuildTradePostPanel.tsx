@@ -70,7 +70,7 @@ type TradeResponse = TradeState & {
 const PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
 const SHARED_TOKENS_POLL_MS = 10_000;
 
-export function GuildTradePostPanel() {
+export function GuildTradePostPanel({ shopOnly = false }: { shopOnly?: boolean }) {
   const [state, setState] = useState<TradeState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -189,7 +189,7 @@ export function GuildTradePostPanel() {
         </div>
       </section>
 
-      {!state.eligible && (
+      {!shopOnly && !state.eligible && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
           이번 주 계약이 열린 뒤 가입했습니다. 다음 주 계약부터 납품할 수 있습니다.
         </p>
@@ -207,39 +207,42 @@ export function GuildTradePostPanel() {
         </p>
       )}
 
-      <section className={`${SURFACE_INSET} p-3`}>
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="font-semibold">이번 주 내 납품</span>
-          <span className="tabular-nums text-zinc-500">
-            {state.contribution.points} / {state.contribution.cap}점
-          </span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-          <div
-            className="h-full rounded-full bg-cyan-500"
-            style={{
-              width: `${Math.min(100, (state.contribution.points / state.contribution.cap) * 100)}%`,
-            }}
-          />
-        </div>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          누가 납품하든 납품 점수에 교역소 Lv 보너스를 적용한 공동 토큰이 쌓입니다.
-          모든 길드원이 개인 구매에 사용하며 다음 주에도 유지됩니다.
-        </p>
-      </section>
-
-      <section className="space-y-2">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h4 className="font-bold">주간 교역 계약</h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              계약 {state.contracts.length}건 · 개인 납품 한도 {state.contribution.cap}점
+      {!shopOnly && (
+        <>
+          <section className={`${SURFACE_INSET} p-3`}>
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-semibold">이번 주 내 납품</span>
+              <span className="tabular-nums text-zinc-500">
+                {state.contribution.points} / {state.contribution.cap}점
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+              <div
+                className="h-full rounded-full bg-cyan-500"
+                style={{
+                  width: `${Math.min(100, (state.contribution.points / state.contribution.cap) * 100)}%`,
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              누가 납품하든 납품 점수에 교역소 Lv 보너스를 적용한 공동 토큰이
+              쌓입니다. 모든 길드원이 개인 구매에 사용하며 다음 주에도 유지됩니다.
             </p>
-          </div>
-          <span className="text-xs text-zinc-400">{state.weekKey}</span>
-        </div>
-        <div className="grid gap-2 lg:grid-cols-2">
-          {state.contracts.map((contract) => {
+          </section>
+
+          <section className="space-y-2">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h4 className="font-bold">주간 교역 계약</h4>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  계약 {state.contracts.length}건 · 개인 납품 한도{" "}
+                  {state.contribution.cap}점
+                </p>
+              </div>
+              <span className="text-xs text-zinc-400">{state.weekKey}</span>
+            </div>
+            <div className="grid gap-2 lg:grid-cols-2">
+              {state.contracts.map((contract) => {
             const percent = Math.min(100, (contract.progress / contract.target) * 100);
             const disabled =
               Boolean(busyKey) ||
@@ -329,9 +332,11 @@ export function GuildTradePostPanel() {
                 </div>
               </article>
             );
-          })}
-        </div>
-      </section>
+              })}
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="space-y-2">
         <div>

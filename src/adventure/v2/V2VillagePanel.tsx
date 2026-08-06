@@ -21,7 +21,8 @@ import {
   SETTLEMENT_RESOURCE_NAME,
   PRODUCTION_KIND_ICON,
   PRODUCTION_KINDS,
-  SETTLEMENT_DONATION_MATERIAL_IDS,
+  SETTLEMENT_VILLAGE_DONATION_MATERIAL_IDS,
+  SETTLEMENT_VILLAGE_DONATION_VALUE,
   SETTLEMENT_MATERIAL_TO_RESOURCE,
   SETTLEMENT_RESOURCE_KEYS,
   UPGRADE_COST,
@@ -208,7 +209,7 @@ export function V2VillagePanel({
   // 재료 기부 제출 — 0 초과 입력만 추려 donate 호출 후 보유/풀 갱신.
   const submitDonate = useCallback(async () => {
     const donations: Record<string, number> = {};
-    for (const id of SETTLEMENT_DONATION_MATERIAL_IDS) {
+    for (const id of SETTLEMENT_VILLAGE_DONATION_MATERIAL_IDS) {
       const amount = Math.floor(Number(donationDraft[id]) || 0);
       if (amount > 0) donations[id] = amount;
     }
@@ -352,13 +353,15 @@ export function V2VillagePanel({
   );
 
   // ── 재료 전환 ── 모든 등급 원목·광석을 재료 종류를 보존해 길드 풀에 적립. ──────
-  const donateRows = SETTLEMENT_DONATION_MATERIAL_IDS.map((id) => {
+  const donateRows = SETTLEMENT_VILLAGE_DONATION_MATERIAL_IDS.map((id) => {
     const resourceKey = SETTLEMENT_MATERIAL_TO_RESOURCE[id];
+    const value = SETTLEMENT_VILLAGE_DONATION_VALUE[id];
     return {
       id,
       label: settlementDonationMaterialName(id),
       target: settlementResourceName(resourceKey),
       icon: settlementResourceIcon(resourceKey),
+      value,
       own: inv[id] ?? 0,
       val: donationDraft[id] ?? "",
     };
@@ -383,8 +386,8 @@ export function V2VillagePanel({
       ) : (
         <div className="space-y-1.5 rounded border border-zinc-200 p-2 dark:border-zinc-700">
           <p className="text-zinc-500 dark:text-zinc-400">
-            개인 인벤의 등급별 원목·광석을 길드 자원으로 전환합니다. 재료
-            종류는 그대로 보존되며 개인 제작 재료로 되돌릴 수 없습니다.
+            개인 인벤의 원목·광석·생활 가공품을 길드 자원으로 전환합니다.
+            가공품 1개는 해당 자원 8개로 환산되며 되돌릴 수 없습니다.
           </p>
           {donateRows.map((row) => (
             <label key={row.id} className="flex flex-wrap items-center gap-2">
@@ -392,6 +395,7 @@ export function V2VillagePanel({
               <span className="shrink-0 text-zinc-400">→</span>
               <span className="w-20 shrink-0 text-zinc-600 dark:text-zinc-300">
                 {row.icon} {row.target}
+                {row.value > 1 ? ` +${row.value}` : ""}
               </span>
               <input
                 type="number"

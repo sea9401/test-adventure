@@ -60,6 +60,9 @@ import {
   type CookingFoodId,
   type CookingQuality,
 } from "@/adventure/v2/cooking";
+import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { consumeFinishedItem, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 
 type CharacterSave = Record<string, unknown> & {
   gold?: number;
@@ -92,6 +95,7 @@ function cookingView(userId: string, now: number, values: {
   skillsRaw: unknown;
   inventoryRaw: unknown;
   character: CharacterSave;
+  workshopRaw: unknown;
 }) {
   const cooking = parseCookingState(values.cookingRaw, now);
   const farm = normalizeFarmForDay(parseFarmState(values.farmRaw), now);
@@ -101,6 +105,7 @@ function cookingView(userId: string, now: number, values: {
   const cookingSkillBonuses = equippedCookingBonuses(
     parseV2SkillsState(values.skillsRaw).equipped,
   );
+  const workshop = parseLifeWorkshopState(values.workshopRaw);
   return {
     ok: true,
     now,
@@ -121,6 +126,7 @@ function cookingView(userId: string, now: number, values: {
     cookingJobName: job.jobId ? V2_JOB_CATALOG[job.jobId]?.name ?? job.jobId : null,
     cookingJobTier: job.tier,
     cookingSkillBonuses,
+    cookingPrepBalance: workshop.crafting.balances.cooking_prep_set ?? 0,
   };
 }
 
@@ -138,13 +144,14 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
   const now = Date.now();
-  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, character] = await Promise.all([
+  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, character, workshopRaw] = await Promise.all([
     readSave(db, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
     readSave(db, userId, FISHING_STOCK_KEY, emptyFishingStock()),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave<InventorySave>(db, userId, "inventory.v2", {}),
     readSave<CharacterSave>(db, userId, "character.v2", {}),
+    readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
   ]);
   return Response.json(cookingView(userId, now, {
     cookingRaw,
@@ -153,6 +160,7 @@ export async function GET(req: Request) {
     skillsRaw,
     inventoryRaw,
     character,
+    workshopRaw,
   }));
 }
 
@@ -175,11 +183,13 @@ export async function POST(req: Request) {
     useRare?: unknown;
     quantity?: unknown;
     foodId?: unknown;
+    usePrep?: unknown;
   } | null;
   const recipeId = typeof body?.recipeId === "string" ? body.recipeId : "";
   const action: CookingAction | null =
     body?.action === "cook" || body?.action === "order" ? body.action : null;
   const useRare = body?.useRare === true;
+  const usePrep = body?.usePrep === true && action === "cook";
   const requestedFoodId =
     typeof body?.foodId === "string" ? body.foodId : null;
   const requestedQuantity = Math.max(1, Math.min(20, Math.floor(Number(body?.quantity) || 1)));
@@ -213,6 +223,7 @@ export async function POST(req: Request) {
         await lockSaveForUpdate(tx, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
         now,
       );
+      let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
       const inventory = await lockSaveForUpdate<InventorySave>(
         tx,
         userId,
@@ -284,11 +295,16 @@ export async function POST(req: Request) {
           if (!next) throw new Error("not_enough_fishing_items");
           fishing = next;
         }
+        if (usePrep) {
+          const consumed = consumeFinishedItem(workshop.crafting, "cooking_prep_set", quantity);
+          if (!consumed) throw new Error("not_enough_prep_sets");
+          workshop = { ...workshop, crafting: { ...consumed, aidsUsed: consumed.aidsUsed + quantity } };
+        }
         quality = cookingQuality({
           cookingJobTier: job.tier,
           usedRare,
           carefulBonusPct: cookingSkillBonuses.carefulChancePct,
-          masterpieceBonusPct: cookingSkillBonuses.masterpieceChancePct,
+          masterpieceBonusPct: cookingSkillBonuses.masterpieceChancePct + (usePrep ? 8 : 0),
         });
       } else {
         const requestedFood = requestedFoodId
@@ -386,6 +402,13 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, FISHING_STOCK_KEY, fishing);
       await upsertSave(tx, userId, COOKING_SAVE_KEY, cooking);
       await upsertSave(tx, userId, "character.v2", nextCharacter);
+      let blueprintRecipeId: string | null = null;
+      if (action === "cook") {
+        const blueprint = rollHiddenBlueprint(workshop.crafting, "cooking", quantity);
+        workshop = { ...workshop, crafting: blueprint.state };
+        blueprintRecipeId = blueprint.recipe?.id ?? null;
+        await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
+      }
       if (foodId || deliveredFoodId) {
         await upsertSave(tx, userId, "inventory.v2", nextInventory);
       }
@@ -412,6 +435,7 @@ export async function POST(req: Request) {
           skillsRaw: skills,
           inventoryRaw: nextInventory,
           character: nextCharacter,
+          workshopRaw: workshop,
         }),
         result: {
           action,
@@ -429,9 +453,12 @@ export async function POST(req: Request) {
           deliveredFoodId,
           masteryGained,
           masteryAfter,
+          usedPrep: usePrep,
+          blueprintRecipeId,
         },
       };
     });
+    if (result.result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.result.blueprintRecipeId });
     return Response.json({ ...result.view, result: result.result });
   } catch (error) {
     const code = error instanceof Error ? error.message : "cooking_failed";
@@ -441,6 +468,7 @@ export async function POST(req: Request) {
       "not_enough_fishing_items",
       "cooked_food_unavailable",
       "order_unavailable",
+      "not_enough_prep_sets",
     ]);
     if (known.has(code)) return Response.json({ ok: false, error: code }, { status: 409 });
     throw error;

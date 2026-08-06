@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
+  CaretRight,
   Crown,
   Eye,
   EyeSlash,
@@ -93,12 +94,14 @@ export function ProfileBadgeRack({
   initialVisible,
   owned,
   editable,
+  onOpenCabinet,
 }: {
   initialSlots: ProfileShowcaseSlots;
   standOwned: boolean;
   initialVisible: boolean;
   owned: V2EquipInstance[];
   editable: boolean;
+  onOpenCabinet?: () => void;
 }) {
   const [slots, setSlots] = useState<ProfileShowcaseSlots>(initialSlots);
   const [visible, setVisible] = useState(initialVisible);
@@ -139,15 +142,15 @@ export function ProfileBadgeRack({
   if (editable && !visible) {
     return (
       <section
-        aria-label="대표 배지 전시대 비공개 설정"
-        className={`${SURFACE_INSET} flex min-h-20 items-center gap-3 p-3`}
+        aria-label="대표 트로피 비공개 설정"
+        className={`${SURFACE_INSET} flex min-h-12 items-center gap-2 px-3 py-2`}
       >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-          <EyeSlash size={21} weight="duotone" aria-hidden="true" />
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+          <EyeSlash size={17} weight="duotone" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-            대표 배지 전시대 비공개
+            대표 트로피 비공개
           </p>
           <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
             다른 모험가에게는 전시대가 보이지 않습니다.
@@ -201,11 +204,14 @@ export function ProfileBadgeRack({
   return (
     <>
       <section
-        aria-label="대표 배지 전시대"
-        className={`${SURFACE_INSET} relative min-h-28 overflow-hidden p-2`}
+        aria-label="대표 트로피"
+        className={`${SURFACE_INSET} relative flex min-h-12 items-center gap-2 overflow-hidden px-2.5 py-1.5`}
       >
+        <span className="shrink-0 text-[10px] font-bold text-zinc-600 dark:text-zinc-300">
+          대표 트로피
+        </span>
         {editable ? (
-          <div className="absolute right-1.5 top-1.5 z-20 flex gap-0.5">
+          <div className="order-3 ml-auto flex shrink-0 gap-0.5">
             <button
               type="button"
               disabled={visibilitySaving}
@@ -222,35 +228,53 @@ export function ProfileBadgeRack({
             </button>
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                if (onOpenCabinet) {
+                  onOpenCabinet();
+                  return;
+                }
                 void openEditor(
                   slots.findIndex((selection) => selection === null) >= 0
                     ? slots.findIndex((selection) => selection === null)
                     : 0,
-                )
-              }
-              aria-label="대표 배지 편집"
+                );
+              }}
+              aria-label="트로피 전시대 열기"
               className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-amber-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-amber-300"
             >
-              <PencilSimple size={14} weight="bold" aria-hidden="true" />
+              {onOpenCabinet ? (
+                <CaretRight size={15} weight="bold" aria-hidden="true" />
+              ) : (
+                <PencilSimple size={14} weight="bold" aria-hidden="true" />
+              )}
             </button>
           </div>
         ) : null}
 
-        <div className="flex min-h-24 items-center justify-center gap-2">
+        <div className={`order-2 flex min-w-0 items-center gap-1 ${editable ? "" : "ml-auto"}`}>
           {contents.map((content, index) =>
             content ? (
               <BadgeMedallion
                 key={index}
                 content={content}
-                compact
-                onClick={editable ? () => void openEditor(index) : undefined}
+                iconOnly
+                onClick={
+                  editable
+                    ? () =>
+                        onOpenCabinet
+                          ? onOpenCabinet()
+                          : void openEditor(index)
+                    : undefined
+                }
               />
             ) : editable ? (
               <EmptyBadgeSlot
                 key={index}
                 slotIndex={index}
-                onClick={() => void openEditor(index)}
+                compact
+                onClick={() =>
+                  onOpenCabinet ? onOpenCabinet() : void openEditor(index)
+                }
               />
             ) : null,
           )}
@@ -284,21 +308,23 @@ function BadgeMedallion({
   content,
   onClick,
   compact = false,
+  iconOnly = false,
 }: {
   content: BadgeContent;
   onClick?: () => void;
   compact?: boolean;
+  iconOnly?: boolean;
 }) {
   const tone = BADGE_TONE[content.tone];
   const medal = (
     <span
-      className={`flex items-center justify-center rounded-full border-4 shadow-md ${
-        compact ? "size-11" : "size-14"
+      className={`flex items-center justify-center rounded-full ${
+        iconOnly ? "size-8 border-[3px] shadow-sm" : `border-4 shadow-md ${compact ? "size-11" : "size-14"}`
       } ${tone.outer}`}
     >
       <span
-        className={`flex items-center justify-center rounded-full border-2 ${
-          compact ? "size-7" : "size-10"
+        className={`flex items-center justify-center rounded-full ${
+          iconOnly ? "size-5 border" : `border-2 ${compact ? "size-7" : "size-10"}`
         } ${tone.inner} ${tone.icon}`}
       >
         {content.icon}
@@ -307,7 +333,7 @@ function BadgeMedallion({
   );
 
   return (
-    <div className={`flex min-w-0 flex-col items-center ${compact ? "w-[4.5rem]" : "w-20"}`}>
+    <div className={`flex min-w-0 flex-col items-center ${iconOnly ? "w-8" : compact ? "w-[4.5rem]" : "w-20"}`}>
       {onClick ? (
         <button
           type="button"
@@ -326,12 +352,16 @@ function BadgeMedallion({
           {medal}
         </div>
       )}
-      <span className="mt-1 line-clamp-2 min-h-6 w-full text-center text-[10px] font-bold leading-3 text-zinc-800 dark:text-zinc-100">
-        {content.title}
-      </span>
-      <span className="w-full truncate text-center text-[9px] text-zinc-500 dark:text-zinc-400">
-        {content.detail}
-      </span>
+      {!iconOnly ? (
+        <>
+          <span className="mt-1 line-clamp-2 min-h-6 w-full text-center text-[10px] font-bold leading-3 text-zinc-800 dark:text-zinc-100">
+            {content.title}
+          </span>
+          <span className="w-full truncate text-center text-[9px] text-zinc-500 dark:text-zinc-400">
+            {content.detail}
+          </span>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -339,22 +369,28 @@ function BadgeMedallion({
 function EmptyBadgeSlot({
   slotIndex,
   onClick,
+  compact = false,
 }: {
   slotIndex: number;
   onClick: () => void;
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`${slotIndex + 1}번 배지 선택`}
-      className="flex w-[4.5rem] flex-col items-center rounded-md text-zinc-500 transition-colors hover:text-amber-700 dark:text-zinc-400 dark:hover:text-amber-300"
+      className={`flex flex-col items-center rounded-md text-zinc-500 transition-colors hover:text-amber-700 dark:text-zinc-400 dark:hover:text-amber-300 ${compact ? "w-8" : "w-[4.5rem]"}`}
     >
-      <span className="flex size-11 items-center justify-center rounded-full border-2 border-dashed border-zinc-300 bg-white shadow-inner dark:border-zinc-600 dark:bg-zinc-900">
-        <Plus size={20} weight="bold" aria-hidden="true" />
+      <span className={`flex items-center justify-center rounded-full border-2 border-dashed border-zinc-300 bg-white shadow-inner dark:border-zinc-600 dark:bg-zinc-900 ${compact ? "size-8" : "size-11"}`}>
+        <Plus size={compact ? 15 : 20} weight="bold" aria-hidden="true" />
       </span>
-      <span className="mt-1 text-[10px] font-semibold">{slotIndex + 1}번 칸</span>
-      <span className="text-[9px]">배지 선택</span>
+      {!compact ? (
+        <>
+          <span className="mt-1 text-[10px] font-semibold">{slotIndex + 1}번 칸</span>
+          <span className="text-[9px]">배지 선택</span>
+        </>
+      ) : null}
     </button>
   );
 }

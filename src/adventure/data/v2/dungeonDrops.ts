@@ -23,10 +23,7 @@ import {
   REFORGE_STONE_MATERIAL_ID,
   REFORGE_STONES,
 } from "./v2EquipVariance";
-import {
-  SETTLEMENT_MATERIALS,
-  WALL_REPAIR_KIT_MATERIAL,
-} from "./settlementMaterials";
+import { SETTLEMENT_MATERIALS } from "./settlementMaterials";
 import { GUILD_WORKSHOP_MATERIALS } from "./guildWorkshopMaterials";
 import { MONSTER_CRAFT_MATERIALS } from "./monsterCraftMaterials";
 import { COOP_REWARD_MATERIALS } from "./coopRewards";
@@ -35,6 +32,7 @@ import { MINING_MATERIALS } from "./miningSpots";
 import { STAMINA_SHARD_MATERIAL } from "./staminaPotionCrafting";
 import { SCAVENGED_CRAFT_MATERIALS } from "./scavengedCrafting";
 import { STORM_EXPEDITION_MATERIALS } from "./stormExpeditionRewards";
+import { LIFE_PROCESSED_MATERIALS } from "@/adventure/v2/lifeWorkshop";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -104,9 +102,8 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 채광 광석·부산물 — 생활 지도 채광지에서 획득하며 인벤토리와 거래소에 노출한다.
   // 등급별 주 광석 6종은 같은 등급대 길드 제작소 제작식의 금속 재료로 사용한다.
   ...MINING_MATERIALS,
-  // 성벽 수리 키트(settlementMaterials) — 통나무3+철광석3 조합 소모품. 카탈로그 등재로 인벤/거래소
-  //   노출 + 키트 보유수가 거점 수리 UI 로 surface 된다. 드랍 아님(조합 전용).
-  ...WALL_REPAIR_KIT_MATERIAL,
+  // 생활 조합 가공품 — 벌목·채광 원재료를 가공해 생활 도구 승급에 사용한다.
+  ...LIFE_PROCESSED_MATERIALS,
   // 길드 제작소 제작 재료(guildWorkshopMaterials) — 사냥 독립 드랍. 제작 전용 장비의 개인 병목
   //   재료로 쓰이며, 카탈로그 등재로 인벤 재료 탭·거래소 재료 거래가 동작한다.
   ...GUILD_WORKSHOP_MATERIALS,

@@ -24,6 +24,7 @@ import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
   parseCombatPattern,
   parseCombatPresets,
+  v2PureSkillFormulaCoefficients,
   v2SkillAttackCoef,
   type V2CombatCondition,
   type V2CombatPattern,
@@ -405,8 +406,8 @@ export type V2SkillDefinition = {
   monsterOnly?: boolean;
   /** 스타터 (자동 보유) 는 learn 미사용. tier>=2 부터 교관 구매. */
   learn?: V2SkillLearnRequirement;
-  /** SP 로드아웃 코스트(코어루프) — 미지정이면 (category, tier) 루브릭 표(spCostOf)에서 도출.
-   *  PR-5 sim 튜닝 때 아웃라이어만 명시 override. flag-off 미사용. */
+  /** SP 로드아웃 코스트(코어루프) — 생활 스킬은 항상 0, 나머지는 미지정 시
+   *  (category, tier) 루브릭 표(spCostOf)에서 도출. PR-5 sim 튜닝 때 아웃라이어만 명시 override. */
   spCost?: number;
   /** 학습 비용 오버라이드(숙달 포인트) — 미지정이면 tier 스케일(V2_SKILL_LEARN_COST_BY_TIER). */
   learnCost?: number;
@@ -696,10 +697,41 @@ export function rubricSpCost(skill: V2SkillDefinition): number {
   return skill.castVariants?.length ? Math.min(16, compressed) : compressed;
 }
 
-// 스킬 1종의 SP 코스트 — 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).
+const LIFESTYLE_PASSIVE_KEYS = [
+  "fishingSizeBonusPct",
+  "fishingSpecialWeightPct",
+  "fishingRareSizeBonusPct",
+  "fishingBigCatchSizeBonusPct",
+  "guildTrainingRewardBonusPct",
+  "guildTrainingWeeklyBonusMastery",
+  "farmYieldBonusPct",
+  "farmRareChancePct",
+  "cookingXpBonusPct",
+  "cookingCarefulChancePct",
+  "cookingMaterialReductionPct",
+  "cookingMasterpieceChancePct",
+  "cookingRareIngredientSaveChancePct",
+  "woodcuttingFailureReductionPct",
+  "woodcuttingDurationReductionPct",
+  "woodcuttingFailureRecoveryPct",
+  "woodcuttingBonusLogChancePct",
+  "miningFailureReductionPct",
+  "miningDurationReductionPct",
+  "miningFailureRecoveryPct",
+  "miningBonusOreChancePct",
+] as const satisfies readonly (keyof V2PassiveSkillEffect)[];
+
+/** 농사·낚시·요리·벌목·채광·길드 훈련처럼 전투 밖에서 적용되는 생활 스킬인지 판별한다. */
+export function isLifestyleSkill(skill: V2SkillDefinition): boolean {
+  const passive = skill.passive;
+  return !!passive && LIFESTYLE_PASSIVE_KEYS.some((key) => key in passive);
+}
+
+// 스킬 1종의 SP 코스트 — 생활 스킬은 장착 혼동을 줄이기 위해 항상 0.
+//   전투 스킬의 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).
 //   아래로 깎으면 값싼+강한 공용 스택(정체성 붕괴) 길이 열린다 → max(루브릭, override).
-//   v2Skills.test 트립와이어가 spCostOf ≥ rubricSpCost 를 강제.
 export function spCostOf(skill: V2SkillDefinition): number {
+  if (isLifestyleSkill(skill)) return 0;
   if (typeof skill.spCost === "number" && skill.spCost > 0) {
     return Math.max(rubricSpCost(skill), Math.floor(skill.spCost));
   }
@@ -1409,23 +1441,37 @@ function damageFormulaChip(
   e: V2DirectDamageEffect,
   tier: 1 | 2 | 3,
   directDamageEffectCount: number,
+  monsterOnly: boolean,
 ): string {
   const specialized = isSpecializedDamageScaling(e.scaling);
   const attackLabel =
     e.scaling === "magic" || e.scaling === "spi"
       ? "마법 공격력"
       : "공격력";
-  const attackCoef = v2SkillAttackCoef({
+  const baseAttackCoef = v2SkillAttackCoef({
     tier,
     statCoef: e.statCoef,
     specialized,
     directDamageEffectCount,
     attackCoef: e.attackCoef,
   });
+  const pureFormula =
+    !monsterOnly && !specialized
+      ? v2PureSkillFormulaCoefficients({
+          tier,
+          scaling: e.scaling === "magic" ? "magic" : "physical",
+          directDamageEffectCount,
+          resolvedAttackCoef: baseAttackCoef,
+        })
+      : null;
+  const attackCoef = pureFormula?.attackCoef ?? baseAttackCoef;
   const attackTerm = `${attackLabel}×${formatSkillCoefficient(attackCoef)}`;
-  return specialized
-    ? `${attackTerm} + ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(e.statCoef)}`
-    : attackTerm;
+  if (specialized) {
+    return `${attackTerm} + ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(e.statCoef)}`;
+  }
+  if (!pureFormula) return attackTerm;
+  const primaryStatLabel = e.scaling === "magic" ? "지능" : "힘";
+  return `${attackTerm} + ${primaryStatLabel}×${formatSkillCoefficient(pureFormula.primaryStatCoef)}`;
 }
 function actionsChip(actions: number): string {
   return `${actions}행동`;
@@ -1438,10 +1484,11 @@ function describeV2Effect(
   e: V2SkillEffect,
   tier: 1 | 2 | 3,
   directDamageEffectCount: number,
+  monsterOnly: boolean,
 ): string {
   switch (e.kind) {
     case "damage":
-      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)}`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)}`;
     case "heal":
       return [
         e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
@@ -1493,15 +1540,15 @@ function describeV2Effect(
     case "enemyDotVuln":
       return `적 지속/저주 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "hpCostDamage":
-      return `HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} + 소모량×${e.soakRatio}`;
+      return `HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 소모량×${e.soakRatio}`;
     case "healToDamage":
       return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
-      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
     case "ambushDamage":
-      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
     case "stackPayoffDamage":
-      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
     case "dot":
       return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택)`;
   }
@@ -1680,7 +1727,12 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   const chips = skill.passive
     ? describePassive(skill.passive)
     : displayEffects.map((effect) =>
-        describeV2Effect(effect, skill.tier, directDamageEffectCount),
+        describeV2Effect(
+          effect,
+          skill.tier,
+          directDamageEffectCount,
+          skill.monsterOnly === true,
+        ),
       );
   if (
     skill.effects.some(

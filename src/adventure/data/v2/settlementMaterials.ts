@@ -13,31 +13,13 @@ export const SETTLEMENT_MATERIALS = {
     id: SETTLEMENT_MATERIAL_ID.timber,
     name: "소나무 원목",
     description:
-      "솔바람 소나무숲에서 얻는 기초 목재. 정착지(길드·개인) 발전에 기부하거나 수리 키트 제작에 쓴다.",
+      "솔바람 소나무숲에서 얻는 기초 목재. 정착지(길드·개인) 발전에 기부하거나 거래소에 내다 팔 수 있다.",
   },
   [SETTLEMENT_MATERIAL_ID.ironOre]: {
     id: SETTLEMENT_MATERIAL_ID.ironOre,
     name: "철광석",
     description:
       "채석장에서 캐낸 철광석. 정착지(길드·개인) 발전에 기부하거나 거래소에 내다 팔 수 있다.",
-  },
-} as const;
-
-// ── 성벽 수리 키트 ── 통나무·철광석으로 짜는 수리 소모품(드랍 재료 sink). 점령 거점 성벽 수리에
-//   골드 대신 소비한다(키트 1개 = 성벽 HP 회복량은 outpostSiege FORT_HP_PER_REPAIR_KIT 다이얼).
-//   조합: 통나무 N + 철광석 N → 키트 1개(/api/v2/me/repair-kit-combine). V2_MATERIALS 등재로
-//   인벤/거래소 노출. NPC 환금은 비등재(유저 거래 전용).
-export const WALL_REPAIR_KIT_ID = "v2_wall_repair_kit";
-export const WALL_REPAIR_KIT_COST: Record<string, number> = {
-  [SETTLEMENT_MATERIAL_ID.timber]: 3,
-  [SETTLEMENT_MATERIAL_ID.ironOre]: 3,
-};
-export const WALL_REPAIR_KIT_MATERIAL = {
-  [WALL_REPAIR_KIT_ID]: {
-    id: WALL_REPAIR_KIT_ID,
-    name: "성벽 수리 키트",
-    description:
-      "소나무 원목 3 + 철광석 3으로 짜 맞춘 수리 키트. 점령 거점 성벽을 1개당 100 보강한다. 사냥 드랍 재료로 만들어 능동 방어에 쓴다.",
   },
 } as const;
 

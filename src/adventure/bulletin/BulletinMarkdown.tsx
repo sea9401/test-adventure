@@ -2,6 +2,10 @@ import ReactMarkdown, { type Components, type UrlTransform } from "react-markdow
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  bulletinTextColorFromUrl,
+  expandBulletinTextColors,
+} from "./bulletinTextColors";
 
 // 사용자 게시글은 신뢰할 수 없는 입력이다. HTML·이미지는 렌더 트리에서 제외하고,
 // 링크도 앱 내부 경로와 http(s)만 허용한다. react-markdown 기본 escaping 위에
@@ -34,6 +38,7 @@ const BULLETIN_MARKDOWN_ELEMENTS = [
 ] as const;
 
 export const safeBulletinMarkdownUrl: UrlTransform = (url) => {
+  if (bulletinTextColorFromUrl(url)) return url;
   if (url.startsWith("/") || url.startsWith("#")) return url;
   try {
     const parsed = new URL(url);
@@ -48,6 +53,16 @@ export const safeBulletinMarkdownUrl: UrlTransform = (url) => {
 const COMPONENTS: Components = {
   a({ node, href, children, ...props }) {
     void node;
+    const textColor = bulletinTextColorFromUrl(href);
+    if (textColor) {
+      return (
+        <span
+          className={`${textColor.textClassName} [&_strong]:!text-current`}
+        >
+          {children}
+        </span>
+      );
+    }
     if (!href) return <span>{children}</span>;
     const external = /^https?:\/\//i.test(href);
     return (
@@ -120,7 +135,7 @@ export function BulletinMarkdown({
         skipHtml
         urlTransform={safeBulletinMarkdownUrl}
       >
-        {content}
+        {expandBulletinTextColors(content)}
       </ReactMarkdown>
     </div>
   );

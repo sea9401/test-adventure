@@ -38,6 +38,21 @@ describe("BulletinMarkdown", () => {
     expect(html).toContain("첫째 줄<br/>\n둘째 줄");
   });
 
+  it("허용된 기본 색상 문법을 안전한 글자색으로 렌더링한다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content="[빨강]긴급[/빨강] [주황]주의[/주황] [초록]완료[/초록] [파랑]안내[/파랑] [보라]특별[/보라]"
+      />,
+    );
+
+    expect(html).toContain("text-rose-700");
+    expect(html).toContain("text-amber-700");
+    expect(html).toContain("text-emerald-700");
+    expect(html).toContain("text-sky-700");
+    expect(html).toContain("text-violet-700");
+    expect(html).not.toContain("bulletin-color:");
+  });
+
   it("원시 HTML·이미지·위험한 링크를 렌더링하지 않는다", () => {
     const html = renderToStaticMarkup(
       <BulletinMarkdown
@@ -79,6 +94,12 @@ describe("safeBulletinMarkdownUrl", () => {
     expect(safeBulletinMarkdownUrl("/manual", "href", {} as never)).toBe(
       "/manual",
     );
+    expect(
+      safeBulletinMarkdownUrl("bulletin-color:red", "href", {} as never),
+    ).toBe("bulletin-color:red");
+    expect(
+      safeBulletinMarkdownUrl("bulletin-color:unknown", "href", {} as never),
+    ).toBe("");
     expect(safeBulletinMarkdownUrl("javascript:alert(1)", "href", {} as never)).toBe(
       "",
     );

@@ -276,7 +276,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "shieldman",
     name: "방패병",
     tier: 2,
-    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    cultivateProfile: { vit: 3, str: 1 },
     jobBonus: { vit: 12, str: 6 }, // 방어 탱 (← 옛 knight)
     unlock: { prereqs: { warrior: TIER2_UNLOCK_CUMLEVEL } },
   },
@@ -405,7 +405,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "guardian",
     name: "가디언",
     tier: 3,
-    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    cultivateProfile: { vit: 3, str: 1 },
     jobBonus: { vit: 15, str: 5 }, // 전사 고차(방패병 계승) — 활력 탱
     unlock: { prereqs: { shieldman: TIER3_UNLOCK_CUMLEVEL } }, // 방패병 계보
   },
@@ -728,7 +728,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "warden",
     name: "수호자",
     tier: 4,
-    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    cultivateProfile: { vit: 3, str: 1 },
     jobBonus: { vit: 15, str: 7 }, // 전사 심화(가디언 계승) — 방어 탱 라인 정점
     unlock: { prereqs: { guardian: TIER4_UNLOCK_CUMLEVEL } }, // 가디언 계보
   },
@@ -899,7 +899,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "ironknight",
     name: "철벽기사",
     tier: 5,
-    cultivateProfile: { vit: 3, str: 1, dex: 1 },
+    cultivateProfile: { vit: 4, str: 1 },
     jobBonus: { vit: 18, str: 8 },
     unlock: { prereqs: { warden: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1109,7 +1109,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "fortressknight",
     name: "성채기사",
     tier: 6,
-    cultivateProfile: { vit: 3, str: 2, dex: 1 },
+    cultivateProfile: { vit: 4, str: 2 },
     jobBonus: { vit: 28, str: 8 },
     unlock: { prereqs: { ironknight: TIER6_UNLOCK_CUMLEVEL } },
   },

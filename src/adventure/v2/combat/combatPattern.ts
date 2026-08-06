@@ -223,6 +223,42 @@ export const V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER: Record<1 | 2 | 3, number>
   3: 1.2,
 };
 
+// 순수 물리/마법 공격기는 공격력 계수만 받으면 레벨업으로 쌓은 STR/INT보다 무기 위력에 성장이
+// 치우친다. 기존 공격력 예산 일부를 주스탯 계수로 옮겨 현재 피해는 크게 흔들지 않으면서, 순수형도
+// 주스탯 집중 투자에 보상을 받게 한다. 혼합형(def/dex/luk/spi/all/maxHp)은 기존 산식을 그대로 쓴다.
+const V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER = {
+  physical: {
+    1: { attackTransfer: 0.1, primaryStatCoef: 0.1 },
+    2: { attackTransfer: 0.15, primaryStatCoef: 0.15 },
+    3: { attackTransfer: 0.2, primaryStatCoef: 0.2 },
+  },
+  magic: {
+    1: { attackTransfer: 0.18, primaryStatCoef: 0.07 },
+    2: { attackTransfer: 0.26, primaryStatCoef: 0.1 },
+    3: { attackTransfer: 0.35, primaryStatCoef: 0.14 },
+  },
+} as const;
+
+/** 순수 직접 피해 효과 1개의 공격력 계수와 STR/INT 계수. 다단기는 총계수를 타수로 나눈다. */
+export function v2PureSkillFormulaCoefficients({
+  tier,
+  scaling,
+  directDamageEffectCount,
+  resolvedAttackCoef,
+}: {
+  tier: 1 | 2 | 3;
+  scaling: "physical" | "magic";
+  directDamageEffectCount: number;
+  resolvedAttackCoef: number;
+}): { attackCoef: number; primaryStatCoef: number } {
+  const hitCount = Math.max(1, directDamageEffectCount);
+  const formula = V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER[scaling][tier];
+  return {
+    attackCoef: Math.max(0, resolvedAttackCoef - formula.attackTransfer / hitCount),
+    primaryStatCoef: formula.primaryStatCoef / hitCount,
+  };
+}
+
 /** 직접 피해 효과 1개의 실제 공격력 계수. 기본 계수는 스킬 전체 타수에 나눠 적용한다. */
 export function v2SkillAttackCoef({
   tier,

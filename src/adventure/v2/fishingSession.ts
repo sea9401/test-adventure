@@ -14,6 +14,10 @@ import {
   isFishingSpotId,
   type FishingSpotId,
 } from "@/adventure/data/v2/fishingSpots";
+import {
+  isLifeFieldEnvironmentId,
+  type LifeFieldEnvironmentId,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
 
 export const FISHING_SESSION_KEY = "fishing-session.v1";
 
@@ -44,6 +48,9 @@ export type FishingSession = {
   fishId: FishId;
   size: number;
   fishingSpotId?: FishingSpotId;
+  aidItemId?: string;
+  lifeEnvironmentId?: LifeFieldEnvironmentId;
+  lifeEnvironmentDayKey?: string;
 };
 
 export function expiresAtFor(biteAt: number): number {
@@ -71,7 +78,23 @@ export function parseFishingSession(raw: unknown): FishingSession | null {
     typeof r.fishingSpotId === "string" && isFishingSpotId(r.fishingSpotId)
       ? r.fishingSpotId
       : undefined;
-  return { castId: r.castId, biteAt, expiresAt, fishId: r.fishId, size, fishingSpotId };
+  return {
+    castId: r.castId,
+    biteAt,
+    expiresAt,
+    fishId: r.fishId,
+    size,
+    fishingSpotId,
+    aidItemId: typeof r.aidItemId === "string" ? r.aidItemId : undefined,
+    lifeEnvironmentId:
+      isLifeFieldEnvironmentId(r.lifeEnvironmentId)
+        ? r.lifeEnvironmentId
+        : undefined,
+    lifeEnvironmentDayKey:
+      typeof r.lifeEnvironmentDayKey === "string"
+        ? r.lifeEnvironmentDayKey
+        : undefined,
+  };
 }
 
 export type CatchJudgment = {

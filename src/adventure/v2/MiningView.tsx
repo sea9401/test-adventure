@@ -35,6 +35,7 @@ import {
   useActivityCooldown,
 } from "./useActivityVerification";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
+import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 
 export type MiningLogView = {
   successes: number;
@@ -550,8 +551,9 @@ export function MiningView({
           setResult(outcome);
           if (!outcome.success) {
             setError(FAILURE_MESSAGE[outcome.reason] ?? "채광 처리 중 문제가 생겼습니다.");
-          } else if (navigator.vibrate) {
-            navigator.vibrate([35, 30, 65]);
+          } else {
+            window.dispatchEvent(new Event("life-field:refresh"));
+            if (navigator.vibrate) navigator.vibrate([35, 30, 65]);
           }
           setPhase("result");
         })
@@ -603,6 +605,8 @@ export function MiningView({
       />
 
       <ProductionJobAdvanceNotice refreshKey={progression.level} />
+
+      <LifeFieldEnvironmentCard activity="mining" spotId={spotId} />
 
       {verification && verifyHuman ? (
         <ActivityVerificationGate challenge={verification} onVerify={verifyHuman} />

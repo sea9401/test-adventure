@@ -90,6 +90,7 @@ export function AdventurerFarmPanel({
     busyWeeklyDeliveryId,
     busyShopItemId,
     busyPlotUpgrade,
+    fertilizerBalance,
     notice,
     now,
     farm,
@@ -103,6 +104,7 @@ export function AdventurerFarmPanel({
     refresh,
     plant,
     harvest,
+    fertilize,
     deliver,
     deliverSpecial,
     deliverWeekly,
@@ -228,6 +230,9 @@ export function AdventurerFarmPanel({
         text: `${result.title} 구매 완료. 농장 증표 ${result.costReputation}개를 사용해 밭 ${result.plotCount}칸을 열었습니다.`,
       };
     }
+    if (notice.kind === "fertilizer") {
+      return { id: notice.id, tone: "ok", text: `유기질 거름을 사용해 수확 시간을 ${Math.max(1, Math.round(notice.reducedMs / 60_000))}분 줄였습니다.` };
+    }
     const { result } = notice;
     return {
       id: notice.id,
@@ -325,10 +330,12 @@ export function AdventurerFarmPanel({
                         selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
                       }
                       busy={busyPlotId === plot.id}
+                      fertilizerBalance={fertilizerBalance}
                       onPlant={() =>
                         selectedCrop && plant(plot.id, selectedCrop.id)
                       }
                       onHarvest={() => harvest(plot.id)}
+                      onFertilize={() => fertilize(plot.id)}
                     />
                   ))}
                 </div>
@@ -388,6 +395,92 @@ export function AdventurerFarmPanel({
       </section>
       {toast ? <FarmToastMessage toast={toast} /> : null}
     </PageShell>
+  );
+}
+
+/** 통합 교환소에서 농장 전체 화면을 불러오지 않고 상점만 노출한다. */
+export function FarmExchangeShopPanel() {
+  const {
+    loading,
+    error,
+    notice,
+    farm,
+    learnedSkillIds,
+    shopItems,
+    busyShopItemId,
+    clearNotice,
+    refresh,
+    buyShopItem,
+  } = useFarm();
+  const availableReputation = farm ? farmAvailableReputation(farm) : 0;
+  const shopNotice =
+    notice?.kind === "shop"
+      ? `${notice.result.title} 구매 완료. 농장 증표 ${notice.result.costReputation}개를 사용했습니다.`
+      : notice?.kind === "error"
+        ? notice.text
+        : null;
+
+  useEffect(() => {
+    if (!shopNotice) return;
+    const timeoutId = window.setTimeout(clearNotice, FARM_TOAST_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [clearNotice, shopNotice]);
+
+  return (
+    <section className="space-y-3 text-zinc-900 dark:text-zinc-100">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          납품으로 모은 농장 증표를 씨앗과 농장 물품으로 교환합니다.
+        </p>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          disabled={loading}
+          className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          새로고침
+        </button>
+      </div>
+
+      {shopNotice ? (
+        <p
+          className={`rounded-md border px-3 py-2 text-sm ${
+            notice?.kind === "error"
+              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+          }`}
+        >
+          {shopNotice}
+        </p>
+      ) : null}
+
+      {loading && !farm ? (
+        <div className={`${SURFACE_CARD} px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
+          농장 상점을 불러오는 중...
+        </div>
+      ) : farm ? (
+        <FarmShopPanel
+          items={shopItems}
+          availableReputation={availableReputation}
+          learnedSkillIds={learnedSkillIds}
+          busyShopItemId={busyShopItemId}
+          onBuy={(itemId) => void buyShopItem(itemId)}
+        />
+      ) : (
+        <div className={`${SURFACE_CARD} space-y-3 px-4 py-6 text-center text-sm`}>
+          <p className="text-rose-600 dark:text-rose-300">
+            {error ?? "농장 상점을 불러오지 못했습니다."}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="rounded-md border border-zinc-300 px-3 py-1.5 font-semibold dark:border-zinc-700"
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -1002,8 +1095,10 @@ function PlotCard({
   selectedCropLocked,
   selectedSeedCount,
   busy,
+  fertilizerBalance,
   onPlant,
   onHarvest,
+  onFertilize,
 }: {
   plot: FarmPlot;
   now: number;
@@ -1012,8 +1107,10 @@ function PlotCard({
   selectedCropLocked: boolean;
   selectedSeedCount: number;
   busy: boolean;
+  fertilizerBalance: number;
   onPlant: () => void;
   onHarvest: () => void;
+  onFertilize: () => void;
 }) {
   const ready = !!crop && !!plot.readyAt && plot.readyAt <= now;
   const progress =
@@ -1070,6 +1167,16 @@ function PlotCard({
           >
             {busy ? "처리 중..." : ready ? "수확하기" : "재배 중"}
           </button>
+          {!ready ? (
+            <button
+              type="button"
+              onClick={onFertilize}
+              disabled={busy || plot.fertilized || fertilizerBalance < 1}
+              className="mt-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
+            >
+              {plot.fertilized ? "거름 사용 완료" : `유기질 거름 사용 · 보유 ${fertilizerBalance}`}
+            </button>
+          ) : null}
         </>
       ) : (
         <>

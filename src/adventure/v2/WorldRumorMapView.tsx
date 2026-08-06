@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, Compass, MapPin, Sparkle } from "@phosphor-icons/react";
+import { ArrowRight, Compass, Hammer, MapPin, Sparkle } from "@phosphor-icons/react";
 import {
   FISH,
   FISH_TIERS,
@@ -40,6 +40,15 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useFishingCodexContext } from "@/adventure/v2/GameStateProvider";
+import {
+  LifeFieldEnvironmentCard,
+  useLifeFieldStatus,
+} from "@/adventure/v2/LifeFieldPanels";
+import { lifeFieldRegionRecordId } from "@/adventure/v2/lifeFieldRecords";
+import {
+  LIFE_FIELD_ENVIRONMENTS,
+  LIFE_FIELD_ENVIRONMENT_IDS,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
 
 const KIND_STYLE: Record<
   WorldActivityKind,
@@ -338,14 +347,20 @@ export function WorldRumorMapView({
   fishCodexDiscoveredIds?: ReadonlySet<FishId>;
 }) {
   const fishingCodex = useFishingCodexContext();
+  const { data: lifeFieldStatus } = useLifeFieldStatus();
   const discoveredFishIds =
     fishCodexDiscoveredIds ??
     (fishingCodex?.loaded ? fishingCodex.discoveredIds : null);
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("fishing");
+  const [environmentFilter, setEnvironmentFilter] = useState<string | null>(null);
   const [selectedId, setSelectedId] =
     useState<WorldActivityRegion["id"]>("village_pier");
-  const filteredRegions = WORLD_ACTIVITY_REGIONS.filter((region) =>
-    regionMatchesFilter(region, regionFilter),
+  const filteredRegions = WORLD_ACTIVITY_REGIONS.filter(
+    (region) =>
+      regionMatchesFilter(region, regionFilter) &&
+      (!environmentFilter ||
+        lifeFieldStatus?.environments?.[region.kind]?.[region.id]?.current
+          .environment.id === environmentFilter),
   );
   const selected =
     filteredRegions.find((region) => region.id === selectedId) ??
@@ -375,6 +390,13 @@ export function WorldRumorMapView({
               <p className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">
                 활동을 고른 뒤 지역별 자원과 난이도를 비교해 목적지를 정해보세요.
               </p>
+              <Link
+                href="/town/life-workshop"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+              >
+                <Hammer size={14} weight="duotone" aria-hidden />
+                생활 의뢰·조합 작업장
+              </Link>
             </div>
           </div>
         </div>
@@ -393,6 +415,7 @@ export function WorldRumorMapView({
                 aria-pressed={active}
                 onClick={() => {
                   setRegionFilter(filter.id);
+                  setEnvironmentFilter(null);
                   const first = WORLD_ACTIVITY_REGIONS.find((region) =>
                     regionMatchesFilter(region, filter.id),
                   );
@@ -424,6 +447,27 @@ export function WorldRumorMapView({
             );
           })}
         </div>
+        {lifeFieldStatus?.features.environmentEnabled ? (
+          <div className="flex flex-wrap gap-1.5 border-t border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setEnvironmentFilter(null)}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${environmentFilter == null ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"}`}
+            >
+              모든 환경
+            </button>
+            {LIFE_FIELD_ENVIRONMENT_IDS[regionFilter].map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setEnvironmentFilter(id)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${environmentFilter === id ? "bg-emerald-600 text-white" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"}`}
+              >
+                {LIFE_FIELD_ENVIRONMENTS[id].label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className={`${SURFACE_CARD} overflow-hidden`}>
@@ -459,6 +503,13 @@ export function WorldRumorMapView({
                   region.id,
                   discoveredFishIds,
                 );
+                const environment =
+                  lifeFieldStatus?.environments?.[region.kind]?.[region.id]
+                    ?.current.environment;
+                const regionRecord = lifeFieldStatus?.summary.entries.find(
+                  (entry) =>
+                    entry.id === lifeFieldRegionRecordId(region.kind, region.id),
+                );
                 return (
                   <button
                     key={region.id}
@@ -482,6 +533,16 @@ export function WorldRumorMapView({
                           {region.name}
                         </span>
                         <FishingMissingBadge count={missingFishCount} />
+                        {environment ? (
+                          <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+                            {environment.label}
+                          </span>
+                        ) : null}
+                        {regionRecord && !regionRecord.discovered ? (
+                          <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
+                            미등록 기록
+                          </span>
+                        ) : null}
                         <span className="shrink-0 text-[10px] font-bold tabular-nums text-zinc-400 dark:text-zinc-500">
                           {String(index + 1).padStart(2, "0")}
                         </span>
@@ -572,6 +633,25 @@ export function WorldRumorMapView({
                 />
                 <WoodcuttingSpotMeta id={selected.id} />
                 <MiningSpotMeta id={selected.id} />
+                <LifeFieldEnvironmentCard
+                  activity={selected.kind}
+                  spotId={selected.id}
+                />
+
+                {lifeFieldStatus?.summary.entries.some(
+                  (entry) =>
+                    entry.id ===
+                      lifeFieldRegionRecordId(selected.kind, selected.id) &&
+                    !entry.discovered,
+                ) ? (
+                  <Link
+                    href="/character/codex?tab=life"
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200"
+                  >
+                    이 지역의 미등록 기록과 힌트 보기
+                    <ArrowRight size={14} weight="bold" aria-hidden />
+                  </Link>
+                ) : null}
 
                 <Link
                   href={selected.action.href}

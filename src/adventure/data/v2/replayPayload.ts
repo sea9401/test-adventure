@@ -116,6 +116,16 @@ export function toReplayPayload(
   };
 }
 
+// 허수아비처럼 전투 횟수가 서버에서 짧게 제한된 연습전용 전체 로그 payload.
+// 일반 사냥/PvP의 저장·응답 크기 cap은 그대로 두고, 호출한 모의전 한 판의 첫 기록부터
+// 마지막 기록까지 보존한다.
+export function toFullReplayPayload(
+  finalState: BattleState,
+  options?: ReplayPayloadOptions,
+): ReplayPayload {
+  return toReplayPayload(finalState, finalState.log.length, options);
+}
+
 // PvP(아레나) 배틀 → ReplayPayload 변환. resolveBattlePvP 의 finalState 는 p1/p2 두 사이드 +
 // actor-relative 로그(모든 공격이 kind:"player_attack" + side 태그)를 들고 있다. 기본 호출은
 // "나=p1" 관점이지만, 방어자 전적 저장에는 p2 관점도 필요하므로 로그 레인과 hp_bar 를 선택한

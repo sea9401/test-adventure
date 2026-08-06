@@ -14,8 +14,8 @@ import {
 // 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
-  it("채광 광석과 부산물까지 등재하며 NPC 판매가는 비등재한다", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(63);
+  it("채광 광석·부산물과 생활 가공품까지 등재하며 NPC 판매가는 비등재한다", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(68);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -33,7 +33,7 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.v2_mining_stone).toBeDefined();
     expect(V2_MATERIALS.v2_coal).toBeDefined();
     expect(V2_MATERIALS.v2_rough_gem).toBeDefined();
-    expect(V2_MATERIALS.v2_wall_repair_kit).toBeDefined();
+    expect(V2_MATERIALS.v2_wall_repair_kit).toBeUndefined();
     expect(V2_MATERIALS.v2_craft_refined_iron).toBeDefined();
     expect(V2_MATERIALS.v2_craft_mithril_shard).toBeDefined();
     expect(V2_MATERIALS.v2_craft_sunstone).toBeDefined();

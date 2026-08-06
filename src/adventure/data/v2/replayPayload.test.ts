@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildBattleStateFromReplay,
+  toFullReplayPayload,
   toReplayPayload,
   toReplayPayloadLite,
   toPvpReplayPayload,
@@ -25,6 +26,15 @@ const fixture = (logLen: number): BattleState =>
   }) as unknown as BattleState;
 
 describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
+  it("허수아비 전체 로그 payload는 cap 없이 첫 기록부터 끝까지 보존한다", () => {
+    const p = toFullReplayPayload(fixture(500));
+
+    expect(p.log).toHaveLength(500);
+    expect(p.log[0]).toMatchObject({ text: "줄 0" });
+    expect(p.log.at(-1)).toMatchObject({ text: "줄 499" });
+    expect(p.log.some((entry) => entry.text.includes("생략"))).toBe(false);
+  });
+
   it("배치가 읽는 메타(playerMaxMp 등)는 담고 log 는 빈 배열(무거운 복사 회피)", () => {
     const p = toReplayPayloadLite(fixture(500));
     expect(p.playerMaxMp).toBe(120); // 배치 집계가 읽는 유일 필드

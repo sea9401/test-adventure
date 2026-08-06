@@ -36,10 +36,11 @@ import {
   INITIAL_UNLOCKED_SLOTS,
   MAX_SLOTS_BY_TIER,
   SETTLEMENT_MATERIAL_TO_RESOURCE,
+  SETTLEMENT_VILLAGE_DONATION_VALUE,
   VILLAGE_BUILD_GOLD_COST,
   canUpgrade,
   applyUpgradeCost,
-  type SettlementDonationMaterialId,
+  type SettlementVillageDonationMaterialId,
 } from "@/adventure/data/v2/settlement";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
@@ -329,9 +330,10 @@ export async function tileDonate(
         const resources = await lockSettlementResources(tx, ctx.owner);
         for (const [id, n] of entries) {
           materials[id] = Math.max(0, Math.floor(Number(materials[id]) || 0) - n);
-          const resourceKey =
-            SETTLEMENT_MATERIAL_TO_RESOURCE[id as SettlementDonationMaterialId];
-          resources[resourceKey] = (resources[resourceKey] ?? 0) + n;
+          const materialId = id as SettlementVillageDonationMaterialId;
+          const resourceKey = SETTLEMENT_MATERIAL_TO_RESOURCE[materialId];
+          const value = SETTLEMENT_VILLAGE_DONATION_VALUE[materialId];
+          resources[resourceKey] = (resources[resourceKey] ?? 0) + n * value;
         }
         await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
         await upsertSettlementResources(tx, ctx.owner, resources);

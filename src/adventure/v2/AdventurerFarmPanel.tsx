@@ -90,6 +90,7 @@ export function AdventurerFarmPanel({
     busyWeeklyDeliveryId,
     busyShopItemId,
     busyPlotUpgrade,
+    fertilizerBalance,
     notice,
     now,
     farm,
@@ -103,6 +104,7 @@ export function AdventurerFarmPanel({
     refresh,
     plant,
     harvest,
+    fertilize,
     deliver,
     deliverSpecial,
     deliverWeekly,
@@ -228,6 +230,9 @@ export function AdventurerFarmPanel({
         text: `${result.title} 구매 완료. 농장 증표 ${result.costReputation}개를 사용해 밭 ${result.plotCount}칸을 열었습니다.`,
       };
     }
+    if (notice.kind === "fertilizer") {
+      return { id: notice.id, tone: "ok", text: `유기질 거름을 사용해 수확 시간을 ${Math.max(1, Math.round(notice.reducedMs / 60_000))}분 줄였습니다.` };
+    }
     const { result } = notice;
     return {
       id: notice.id,
@@ -325,10 +330,12 @@ export function AdventurerFarmPanel({
                         selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
                       }
                       busy={busyPlotId === plot.id}
+                      fertilizerBalance={fertilizerBalance}
                       onPlant={() =>
                         selectedCrop && plant(plot.id, selectedCrop.id)
                       }
                       onHarvest={() => harvest(plot.id)}
+                      onFertilize={() => fertilize(plot.id)}
                     />
                   ))}
                 </div>
@@ -1088,8 +1095,10 @@ function PlotCard({
   selectedCropLocked,
   selectedSeedCount,
   busy,
+  fertilizerBalance,
   onPlant,
   onHarvest,
+  onFertilize,
 }: {
   plot: FarmPlot;
   now: number;
@@ -1098,8 +1107,10 @@ function PlotCard({
   selectedCropLocked: boolean;
   selectedSeedCount: number;
   busy: boolean;
+  fertilizerBalance: number;
   onPlant: () => void;
   onHarvest: () => void;
+  onFertilize: () => void;
 }) {
   const ready = !!crop && !!plot.readyAt && plot.readyAt <= now;
   const progress =
@@ -1156,6 +1167,16 @@ function PlotCard({
           >
             {busy ? "처리 중..." : ready ? "수확하기" : "재배 중"}
           </button>
+          {!ready ? (
+            <button
+              type="button"
+              onClick={onFertilize}
+              disabled={busy || plot.fertilized || fertilizerBalance < 1}
+              className="mt-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
+            >
+              {plot.fertilized ? "거름 사용 완료" : `유기질 거름 사용 · 보유 ${fertilizerBalance}`}
+            </button>
+          ) : null}
         </>
       ) : (
         <>

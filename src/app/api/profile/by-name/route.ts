@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { normalizeGuildLevel } from "@/adventure/data/guild";
+import { accountOwnedTitleIds } from "@/lib/server/titleAccess";
+import { isAdminEmail } from "@/lib/server/adminEmailAccess";
 
 // GET /api/profile/by-name?name=Hero
 // 인증된 유저가 다른 모험가의 공개 프로필을 조회. 단일 EC2 / DB 라
@@ -22,6 +24,7 @@ export async function GET(req: Request) {
     WITH target AS (
       SELECT
         u.id AS user_id,
+        u.email,
         COALESCE(u.game_name, p.value->>'name') AS name
       FROM users u
       LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
@@ -30,6 +33,7 @@ export async function GET(req: Request) {
     )
     SELECT
       t.user_id,
+      t.email,
       t.name,
       c.value AS character,
       l.value AS adventure_log,
@@ -50,6 +54,7 @@ export async function GET(req: Request) {
 
   type Row = {
     user_id: string;
+    email: string;
     name: string;
     character: unknown;
     adventure_log: unknown;
@@ -79,8 +84,7 @@ export async function GET(req: Request) {
       )
     : [];
 
-  const titlesObj = (log.titles ?? {}) as Record<string, unknown>;
-  const obtainedTitles = Object.keys(titlesObj);
+  const obtainedTitles = accountOwnedTitleIds(log, isAdminEmail(row.email));
 
   const guild =
     row.guild_id !== null && row.guild_name && row.guild_level !== null

@@ -26,6 +26,8 @@ import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
 import { formatDateTime, formatRelative } from "@/lib/notifications";
+import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+import { LIFE_FIELD_DISCOVERIES } from "@/adventure/v2/lifeFieldRecords";
 import {
   FEED_CATEGORIES,
   FEED_CATEGORY_LABEL,
@@ -139,6 +141,12 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       weight="fill"
       className="shrink-0 text-teal-500 dark:text-teal-400"
     />
+  ),
+  life_blueprint: (
+    <Sparkle size={14} weight="fill" className="shrink-0 text-amber-500 dark:text-amber-400" />
+  ),
+  life_discovery: (
+    <Sparkle size={14} weight="fill" className="shrink-0 text-violet-500 dark:text-violet-400" />
   ),
 };
 
@@ -331,6 +339,26 @@ function entryText(e: FeedEntry): React.ReactNode {
           모험을 시작
         </span>
         했습니다!
+      </>
+    );
+  }
+  if (e.type === "life_blueprint") {
+    const p = e.payload as { recipeId: string };
+    return <>{name} 님이 숨겨진 도안 <span className="font-medium text-amber-600 dark:text-amber-400">{LIFE_CRAFTING_RECIPE_BY_ID.get(p.recipeId)?.name ?? p.recipeId}</span> 발견!</>;
+  }
+  if (e.type === "life_discovery") {
+    const p = e.payload as { discoveryId: string };
+    const discovery =
+      LIFE_FIELD_DISCOVERIES[
+        p.discoveryId as keyof typeof LIFE_FIELD_DISCOVERIES
+      ];
+    return (
+      <>
+        {name} 님이 희귀 현장 기록{" "}
+        <span className="font-medium text-violet-600 dark:text-violet-400">
+          {discovery?.label ?? p.discoveryId}
+        </span>{" "}
+        완성!
       </>
     );
   }

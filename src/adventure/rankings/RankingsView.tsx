@@ -93,7 +93,7 @@ function LifeMasteryMetricPill() {
           생활 숙련도
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
-          농사·벌목·채광·낚시 레벨을 합산하며 각 생활은 Lv.50까지 반영합니다.
+          농사·벌목·채광·낚시·요리 레벨을 합산하며 각 생활은 Lv.50까지 반영합니다.
         </span>
       </div>
     </Card>

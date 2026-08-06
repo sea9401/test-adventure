@@ -169,6 +169,7 @@ export function V2CharacterCard({
   profileBadgeStandOwned = false,
   profileBadgeStandVisible = true,
   showcaseEditable = false,
+  onOpenTrophies,
   profileImageMotion = "static",
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
@@ -198,6 +199,7 @@ export function V2CharacterCard({
   profileBadgeStandOwned?: boolean;
   profileBadgeStandVisible?: boolean;
   showcaseEditable?: boolean;
+  onOpenTrophies?: () => void;
   profileImageMotion?: ProfileImageMotion;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
@@ -280,7 +282,7 @@ export function V2CharacterCard({
           }
         >
           <ProfileDecorationMotion profileBorder={profileBorder} />
-          <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(15rem,1fr)] sm:gap-4">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 sm:gap-4">
             <CharacterPortrait
               gender={(character.gender ?? "male1") as Gender}
               motion={profileImageMotion}
@@ -338,13 +340,14 @@ export function V2CharacterCard({
               </div>
             </div>
             {showBadgeRack && (
-              <div className="col-span-2 min-w-0 sm:col-span-1">
+              <div className="col-span-2 min-w-0">
                 <ProfileBadgeRack
                   initialSlots={badgeSlots}
                   standOwned={profileBadgeStandOwned}
                   initialVisible={profileBadgeStandVisible}
                   owned={owned ?? []}
                   editable={showcaseEditable}
+                  onOpenCabinet={onOpenTrophies}
                 />
               </div>
             )}

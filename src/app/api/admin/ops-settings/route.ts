@@ -7,16 +7,19 @@ import {
   ALERT_THRESHOLDS_KEY,
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
+  LIFE_FIELD_FEATURES_KEY,
   OPS_NOTE_TEMPLATES_KEY,
   REWARD_COMPENSATION_PRESETS_KEY,
   parseAlertThresholds,
   parseHotTime,
   parseHotTimeSchedules,
+  parseLifeFieldFeatureSettings,
   parseOpsNoteTemplates,
   parseRewardCompensationPresets,
   readAlertThresholdSettings,
   readHotTimeSettings,
   readHotTimeSchedules,
+  readLifeFieldFeatureSettings,
   readOpsNoteTemplates,
   readRewardCompensationPresets,
   upsertOpsSetting,
@@ -44,12 +47,14 @@ export async function GET() {
       updatedByEmail: opsNoteTemplatesUpdatedByEmail,
       updatedAt: opsNoteTemplatesUpdatedAt,
     },
+    lifeFieldFeatures,
   ] = await Promise.all([
     readHotTimeSettings(),
     readHotTimeSchedules(),
     readAlertThresholdSettings(),
     readRewardCompensationPresets(),
     readOpsNoteTemplates(),
+    readLifeFieldFeatureSettings(),
   ]);
 
   return Response.json({
@@ -70,6 +75,7 @@ export async function GET() {
     opsNoteTemplates,
     opsNoteTemplatesUpdatedByEmail,
     opsNoteTemplatesUpdatedAt: opsNoteTemplatesUpdatedAt?.toISOString() ?? null,
+    lifeFieldFeatures,
   });
 }
 
@@ -84,6 +90,7 @@ export async function POST(req: Request) {
         alertThresholds?: unknown;
         rewardCompensationPresets?: unknown;
         opsNoteTemplates?: unknown;
+        lifeFieldFeatures?: unknown;
       }
     | null;
   if (!body || typeof body !== "object") {
@@ -153,6 +160,24 @@ export async function POST(req: Request) {
       detail: { count: opsNoteTemplates.length },
     });
     updated.opsNoteTemplates = opsNoteTemplates;
+  }
+
+  if ("lifeFieldFeatures" in body) {
+    const lifeFieldFeatures = parseLifeFieldFeatureSettings(
+      body.lifeFieldFeatures,
+    );
+    await upsertOpsSetting(
+      LIFE_FIELD_FEATURES_KEY,
+      lifeFieldFeatures,
+      adminEmail,
+      now,
+    );
+    await logAdminAction({
+      adminEmail,
+      action: "ops-settings.life-field-features.update",
+      detail: lifeFieldFeatures,
+    });
+    updated.lifeFieldFeatures = lifeFieldFeatures;
   }
 
   if (Object.keys(updated).length === 0) {

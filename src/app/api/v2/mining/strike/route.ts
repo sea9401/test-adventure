@@ -53,6 +53,23 @@ import {
   isMiningJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
+import {
+  LIFE_FIELD_DISCOVERIES,
+  lifeFieldDiscoveryReward,
+} from "@/adventure/v2/lifeFieldRecords";
+import {
+  LIFE_FIELD_ENVIRONMENTS,
+  lifeFieldEnvironmentSnapshot,
+  lifeFieldXpBonus,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
+import {
+  lifeFieldSessionRoll,
+  recordLifeFieldSuccessInTx,
+} from "@/lib/server/lifeFieldProgress";
+import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 
 type CharSave = {
   class?: unknown;
@@ -171,6 +188,20 @@ export async function POST(req: Request) {
       };
     }
 
+    const lifeFeatures = await readLifeFieldFeatureSettings(tx);
+    const lifeEnvironmentId =
+      session.lifeEnvironmentId ??
+      lifeFieldEnvironmentSnapshot("mining", session.spotId, now).environment.id;
+    const lifeEnvironment = LIFE_FIELD_ENVIRONMENTS[lifeEnvironmentId];
+    const lifeField = await recordLifeFieldSuccessInTx(tx, userId, {
+      activity: "mining",
+      sourceId: session.spotId,
+      environmentId: lifeEnvironmentId,
+      sessionId: session.sessionId,
+      now,
+      features: lifeFeatures,
+    });
+
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -182,8 +213,36 @@ export async function POST(req: Request) {
       Math.random() < (session.bonusOreRate ?? 0)
         ? 1
         : 0;
-    const byproductDrops = rollMiningByproducts(node);
-    const materialGained = MINING_ORE_REWARD + bonusMaterialGained;
+    const environmentMaterialGained =
+      lifeFeatures.environmentEnabled &&
+      (lifeEnvironment.effect.primaryBonusChance ?? 0) > 0 &&
+      lifeFieldSessionRoll(session.sessionId, "primary-bonus") <
+        (lifeEnvironment.effect.primaryBonusChance ?? 0)
+        ? 1
+        : 0;
+    const completedDiscovery = lifeField.completedTrace
+      ? LIFE_FIELD_DISCOVERIES[lifeField.completedTrace.discoveryId]
+      : null;
+    const discoveryReward =
+      completedDiscovery && lifeFeatures.discoveryRewardsEnabled
+        ? lifeFieldDiscoveryReward(completedDiscovery.rare)
+        : null;
+    const discoveryRewardGained = discoveryReward?.resource ?? 0;
+    const discoveryRewardXp = discoveryReward?.xp ?? 0;
+    const aidSpec = session.aidItemId ? lifeAidSpec(session.aidItemId as never) : null;
+    const environmentByproductMultiplier = lifeFeatures.environmentEnabled
+      ? lifeEnvironment.effect.byproductMultiplier ?? 1
+      : 1;
+    const byproductDrops = rollMiningByproducts(
+      node,
+      Math.random,
+      (aidSpec?.byproductMultiplier ?? 1) * environmentByproductMultiplier,
+    );
+    const materialGained =
+      MINING_ORE_REWARD +
+      bonusMaterialGained +
+      environmentMaterialGained +
+      discoveryRewardGained;
     const byproductTotal = Object.values(byproductDrops).reduce(
       (sum, count) => sum + (count ?? 0),
       0,
@@ -193,6 +252,18 @@ export async function POST(req: Request) {
       ...byproductDrops,
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+    let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
+    let crafting = workshop.crafting;
+    const activeAid = crafting.activeAids.mining;
+    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
+      const activeAids = { ...crafting.activeAids };
+      if (activeAid.remainingUses <= 1) delete activeAids.mining;
+      else activeAids.mining = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
+      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
+    }
+    const blueprint = rollHiddenBlueprint(crafting, "mining");
+    workshop = { ...workshop, crafting: blueprint.state };
+    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
 
     const diningXp = await consumeGuildDiningEffect(
       tx,
@@ -201,7 +272,15 @@ export async function POST(req: Request) {
       node.xp,
       new Date(now),
     );
-    const xpGained = node.xp + diningXp.bonus;
+    const environmentXpGained = lifeFeatures.environmentEnabled
+      ? lifeFieldXpBonus(
+          node.xp,
+          lifeEnvironment.effect.xpBonusPct ?? 0,
+          lifeFieldSessionRoll(session.sessionId, "xp-bonus"),
+        )
+      : 0;
+    const xpGained =
+      node.xp + diningXp.bonus + environmentXpGained + discoveryRewardXp;
     const log = recordMiningSuccess(currentLog, {
       nodeId: session.nodeId,
       ore: materialGained,
@@ -237,6 +316,9 @@ export async function POST(req: Request) {
       materialName: MINING_MATERIALS[node.materialId].name,
       materialGained,
       bonusMaterialGained,
+      environmentMaterialGained,
+      discoveryRewardGained,
+      discoveryRewardXp,
       nextActionAt,
       recovered,
       failureRate,
@@ -248,6 +330,7 @@ export async function POST(req: Request) {
         amount,
       })),
       xpGained,
+      environmentXpGained,
       jobId: isMiningJobId(jobId) ? jobId : null,
       jobName: isMiningJobId(jobId)
         ? V2_JOB_CATALOG[jobId]?.name ?? jobId
@@ -256,12 +339,32 @@ export async function POST(req: Request) {
       masteryAfter,
       materials: miningMaterialBalances(materials),
       log,
+      blueprintRecipeId: blueprint.recipe?.id ?? null,
+      lifeEnvironment: lifeFeatures.environmentEnabled ? lifeEnvironment : null,
+      lifeField: {
+        newRecordIds: lifeField.newRecordIds,
+        foundTrace: lifeField.foundTrace,
+        completedTrace: lifeField.completedTrace,
+      },
+      lifeFieldFeedEnabled: lifeFeatures.feedEnabled,
       guardState: guardUpdate.state,
       guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
       guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
       guardBehaviorSignal: guardUpdate.behaviorSignal,
     };
   });
+
+  if (result.success && result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.blueprintRecipeId });
+  if (
+    result.success &&
+    result.lifeFieldFeedEnabled &&
+    result.lifeField.completedTrace &&
+    LIFE_FIELD_DISCOVERIES[result.lifeField.completedTrace.discoveryId].rare
+  ) {
+    await insertFeedEntry(userId, "life_discovery", {
+      discoveryId: result.lifeField.completedTrace.discoveryId,
+    });
+  }
 
   if (!result.success && result.reason === "auto_active") {
     return Response.json(

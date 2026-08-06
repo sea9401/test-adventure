@@ -13,6 +13,11 @@ import {
   WOODCUTTING_MATERIALS,
 } from "./woodcuttingSpots";
 import { MINING_MATERIAL_ID, MINING_MATERIALS } from "./miningSpots";
+import {
+  LIFE_PROCESSED_MATERIAL_ID,
+  LIFE_PROCESSED_MATERIALS,
+  type LifeProcessedMaterialId,
+} from "../../v2/lifeWorkshopMaterials";
 
 // ── 정착지 단계 ──────────────────────────────────────────────────────────
 export type VillageTier = "village" | "city" | "metropolis";
@@ -95,8 +100,25 @@ export const SETTLEMENT_DONATION_MATERIAL_IDS = [
   ...SETTLEMENT_ORE_MATERIAL_IDS,
 ] as const;
 
+// 가공품은 타일 정착지 자원 전환에만 추가한다. 길드 시설 직접 기부는 기존 원재료
+// 단위 비용을 유지해 이미 진행 중인 시설 기부량과 UI를 바꾸지 않는다.
+export const SETTLEMENT_PROCESSED_DONATION_MATERIAL_IDS = [
+  LIFE_PROCESSED_MATERIAL_ID.softwood,
+  LIFE_PROCESSED_MATERIAL_ID.hardwood,
+  LIFE_PROCESSED_MATERIAL_ID.masterwood,
+  LIFE_PROCESSED_MATERIAL_ID.basicIngot,
+  LIFE_PROCESSED_MATERIAL_ID.preciousIngot,
+  LIFE_PROCESSED_MATERIAL_ID.arcaneAlloy,
+] as const;
+export const SETTLEMENT_VILLAGE_DONATION_MATERIAL_IDS = [
+  ...SETTLEMENT_DONATION_MATERIAL_IDS,
+  ...SETTLEMENT_PROCESSED_DONATION_MATERIAL_IDS,
+] as const;
+
 export type SettlementDonationMaterialId =
   (typeof SETTLEMENT_DONATION_MATERIAL_IDS)[number];
+export type SettlementVillageDonationMaterialId =
+  (typeof SETTLEMENT_VILLAGE_DONATION_MATERIAL_IDS)[number];
 export type SettlementResourceKey =
   | ProductionKind
   | Exclude<
@@ -105,7 +127,7 @@ export type SettlementResourceKey =
     >;
 
 export const SETTLEMENT_MATERIAL_TO_RESOURCE: Record<
-  SettlementDonationMaterialId,
+  SettlementVillageDonationMaterialId,
   SettlementResourceKey
 > = {
   [WOODCUTTING_MATERIAL_ID.pine]: "crop",
@@ -120,11 +142,25 @@ export const SETTLEMENT_MATERIAL_TO_RESOURCE: Record<
   [MINING_MATERIAL_ID.gold]: MINING_MATERIAL_ID.gold,
   [MINING_MATERIAL_ID.mythril]: MINING_MATERIAL_ID.mythril,
   [MINING_MATERIAL_ID.adamantite]: MINING_MATERIAL_ID.adamantite,
+  [LIFE_PROCESSED_MATERIAL_ID.softwood]: "crop",
+  [LIFE_PROCESSED_MATERIAL_ID.hardwood]: WOODCUTTING_MATERIAL_ID.willow,
+  [LIFE_PROCESSED_MATERIAL_ID.masterwood]: WOODCUTTING_MATERIAL_ID.cedar,
+  [LIFE_PROCESSED_MATERIAL_ID.basicIngot]: "ore",
+  [LIFE_PROCESSED_MATERIAL_ID.preciousIngot]: MINING_MATERIAL_ID.silver,
+  [LIFE_PROCESSED_MATERIAL_ID.arcaneAlloy]: MINING_MATERIAL_ID.mythril,
 };
 
+export const SETTLEMENT_VILLAGE_DONATION_VALUE: Record<
+  SettlementVillageDonationMaterialId,
+  number
+> = Object.fromEntries([
+  ...SETTLEMENT_DONATION_MATERIAL_IDS.map((id) => [id, 1] as const),
+  ...SETTLEMENT_PROCESSED_DONATION_MATERIAL_IDS.map((id) => [id, 8] as const),
+]) as Record<SettlementVillageDonationMaterialId, number>;
+
 export const SETTLEMENT_RESOURCE_TO_MATERIAL = Object.fromEntries(
-  Object.entries(SETTLEMENT_MATERIAL_TO_RESOURCE).map(([materialId, resourceKey]) => [
-    resourceKey,
+  SETTLEMENT_DONATION_MATERIAL_IDS.map((materialId) => [
+    SETTLEMENT_MATERIAL_TO_RESOURCE[materialId],
     materialId,
   ]),
 ) as Record<SettlementResourceKey, SettlementDonationMaterialId>;
@@ -145,11 +181,15 @@ export const SETTLEMENT_RESOURCE_KEYS = [
 ] satisfies SettlementResourceKey[];
 
 export function settlementDonationMaterialName(
-  id: SettlementDonationMaterialId,
+  id: SettlementVillageDonationMaterialId,
 ): string {
   return (
     (WOODCUTTING_MATERIALS as Record<string, { name: string }>)[id]?.name ??
     (MINING_MATERIALS as Record<string, { name: string }>)[id]?.name ??
+    (LIFE_PROCESSED_MATERIALS as Record<
+      LifeProcessedMaterialId,
+      { name: string }
+    >)[id as LifeProcessedMaterialId]?.name ??
     id
   );
 }

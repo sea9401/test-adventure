@@ -65,6 +65,8 @@ export type GridDungeonSupporterSnapshot = {
   mp: number;
   atk: number;
   magicAtk: number;
+  str?: number;
+  int?: number;
   spi?: number;
   def: number;
   spd: number;
@@ -538,6 +540,8 @@ function parseSupporterSnapshot(raw: unknown): GridDungeonSupporterSnapshot | nu
     mp: parsePositiveInt(r.mp, parsePositiveInt(r.maxMp, 0)),
     atk: Math.max(1, parsePositiveInt(r.atk, 1)),
     magicAtk: parsePositiveInt(r.magicAtk, 0),
+    str: parsePositiveInt(r.str, 0),
+    int: parsePositiveInt(r.int, 0),
     spi: parsePositiveInt(r.spi, 0),
     def: parsePositiveInt(r.def, 0),
     spd: Math.max(1, parsePositiveInt(r.spd, 1)),

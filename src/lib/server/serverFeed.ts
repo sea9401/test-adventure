@@ -16,6 +16,7 @@ import { db } from "@/db";
 import { savesKv, serverFeed, users } from "@/db/schema";
 import {
   FEED_DEBOUNCE_MS,
+  LIFE_DISCOVERY_FEED_DEBOUNCE_MS,
   FEED_RETENTION_MS,
   type FeedPayload,
   type FeedType,
@@ -63,6 +64,32 @@ export async function insertFeedEntry(
       .where(eq(users.id, userId))
       .limit(1);
     if (!u) return;
+
+    if (type === "life_discovery") {
+      const discoveryId = (payload as { discoveryId?: unknown }).discoveryId;
+      const recentDiscoveries = await db
+        .select({ payload: serverFeed.payload })
+        .from(serverFeed)
+        .where(
+          and(
+            eq(serverFeed.type, type),
+            gt(
+              serverFeed.createdAt,
+              new Date(Date.now() - LIFE_DISCOVERY_FEED_DEBOUNCE_MS),
+            ),
+          ),
+        )
+        .limit(100);
+      if (
+        recentDiscoveries.some(
+          (row) =>
+            (row.payload as { discoveryId?: unknown } | null)?.discoveryId ===
+            discoveryId,
+        )
+      ) {
+        return;
+      }
+    }
 
     const since = new Date(Date.now() - FEED_DEBOUNCE_MS);
     const [recent] = await db

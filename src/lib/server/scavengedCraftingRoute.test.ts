@@ -33,6 +33,7 @@ import {
   type ScavengedCraftRecipeId,
 } from "@/adventure/data/v2/scavengedCrafting";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
 
 function request(recipe: ScavengedCraftRecipeId | string, depth?: number) {
   return new Request("http://localhost/api/v2/me/scavenged-crafting", {
@@ -47,6 +48,8 @@ function character() {
     materials: Record<string, number>;
     frontierDepth?: number;
     rareMaps?: ReturnType<typeof newRareMapInstance>[];
+    gold?: number;
+    bankedGold?: number;
   };
 }
 
@@ -58,6 +61,7 @@ beforeEach(() => {
 describe("POST /api/v2/me/scavenged-crafting", () => {
   it("turns eight embers into one blue enhancement stone", async () => {
     store.set("character.v2", {
+      gold: COMBINE_GOLD_COST * 2,
       materials: { [ENHANCE_EMBER_MATERIAL_ID]: ENHANCE_EMBER_BLUE_COST + 2 },
     });
 
@@ -66,10 +70,12 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
     expect(response.status).toBe(200);
     expect(character().materials[ENHANCE_EMBER_MATERIAL_ID]).toBe(2);
     expect(character().materials[ENHANCE_STONE_MATERIAL_ID.blue]).toBe(1);
+    expect(character().gold).toBe(COMBINE_GOLD_COST);
   });
 
   it("turns twenty-four embers into one red stone and removes an empty key", async () => {
     store.set("character.v2", {
+      gold: COMBINE_GOLD_COST,
       materials: { [ENHANCE_EMBER_MATERIAL_ID]: ENHANCE_EMBER_RED_COST },
     });
 
@@ -78,11 +84,13 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
     expect(response.status).toBe(200);
     expect(character().materials[ENHANCE_EMBER_MATERIAL_ID]).toBeUndefined();
     expect(character().materials[ENHANCE_STONE_MATERIAL_ID.red]).toBe(1);
+    expect(character().gold).toBe(0);
   });
 
   it("restores a weighted random rare map at the selected conquered stage", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     store.set("character.v2", {
+      gold: COMBINE_GOLD_COST,
       frontierDepth: 37,
       materials: {
         [TORN_MAP_FRAGMENT_MATERIAL_ID]: TORN_MAP_FRAGMENT_COMBINE_COST,
@@ -96,6 +104,7 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
     expect(json.rareMap).toMatchObject({ kind: "worn_map", depth: 24 });
     expect(character().materials[TORN_MAP_FRAGMENT_MATERIAL_ID]).toBeUndefined();
     expect(character().rareMaps).toHaveLength(1);
+    expect(character().gold).toBe(0);
   });
 
   it("keeps fragments when the active rare-map inventory is full", async () => {
@@ -154,6 +163,24 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
     expect((await insufficient.json()).error).toBe("insufficient_material");
     expect(invalid.status).toBe(400);
     expect((await invalid.json()).error).toBe("invalid_recipe");
+    expect(JSON.stringify(character())).toBe(before);
+  });
+
+  it("rejects insufficient gold without consuming materials", async () => {
+    store.set("character.v2", {
+      gold: COMBINE_GOLD_COST - 1,
+      materials: { [ENHANCE_EMBER_MATERIAL_ID]: ENHANCE_EMBER_BLUE_COST },
+    });
+    const before = JSON.stringify(character());
+
+    const response = await POST(request("blue_enhance_stone"));
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json).toMatchObject({
+      error: "insufficient_gold",
+      goldCost: COMBINE_GOLD_COST,
+    });
     expect(JSON.stringify(character())).toBe(before);
   });
 });

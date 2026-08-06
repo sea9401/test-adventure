@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, account } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  account: { email: "player@example.com" },
+}));
 const keyOf = (userId: string, key: string) => `${userId}::${key}`;
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -11,6 +14,13 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 }));
 vi.mock("@/db", () => ({
   db: {
+    select: vi.fn(() => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => [{ email: account.email }],
+        }),
+      }),
+    })),
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({})),
   },
 }));
@@ -31,7 +41,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { GET, POST } from "@/app/api/v2/me/profile-showcase/route";
-import { TITLES } from "@/adventure/data/titles";
+import { GM_TITLE_ID, TITLES } from "@/adventure/data/titles";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   V2_QUESTS,
@@ -60,6 +70,7 @@ function post(selection: unknown) {
 describe("profile showcase route", () => {
   beforeEach(() => {
     store.clear();
+    account.email = "player@example.com";
     vi.mocked(ensureUser).mockResolvedValue("u1");
     store.set(keyOf("u1", "character.v2"), {
       profileBadgeStandOwned: true,
@@ -99,6 +110,33 @@ describe("profile showcase route", () => {
       (await post({ kind: "achievement", achievementId: "combat_10" })).status,
     ).toBe(400);
     expect((await post({ kind: "invalid", id: "x" })).status).toBe(400);
+    const gm = await post({ kind: "title", titleId: GM_TITLE_ID });
+    expect(gm.status).toBe(400);
+    expect((await gm.json()).error).toBe("unknown_title");
+  });
+
+  it("offers and saves GM only for an admin account without a stored grant", async () => {
+    const previous = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = "admin@example.com";
+    account.email = "admin@example.com";
+    store.set(keyOf("u1", "adventure-log.v2"), { titles: {} });
+    try {
+      const getResponse = await GET(
+        new Request("http://t/api/v2/me/profile-showcase"),
+      );
+      const getBody = (await getResponse.json()) as {
+        titleOptions: { id: string }[];
+      };
+      expect(getBody.titleOptions.map((option) => option.id)).toContain(
+        GM_TITLE_ID,
+      );
+
+      const postResponse = await post({ kind: "title", titleId: GM_TITLE_ID });
+      expect(postResponse.status).toBe(200);
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_EMAILS;
+      else process.env.ADMIN_EMAILS = previous;
+    }
   });
 
   it("saves owned equipment, title, achievement and clears the slot", async () => {

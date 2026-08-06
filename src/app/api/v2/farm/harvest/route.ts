@@ -35,6 +35,9 @@ import {
   equippedFarmBonuses,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 
 // POST /api/v2/farm/harvest — 다 자란 밭을 수확한다.
 export async function POST(req: Request) {
@@ -53,7 +56,7 @@ export async function POST(req: Request) {
 
   try {
     const now = Date.now();
-    const { farm, result, farmJobId, masteryGained, masteryAfter } =
+    const { farm, result, farmJobId, masteryGained, masteryAfter, blueprintRecipeId, fertilizerBalance } =
       await db.transaction(async (tx) => {
         const charSave = await lockSaveForUpdate<Record<string, unknown>>(
           tx,
@@ -135,6 +138,10 @@ export async function POST(req: Request) {
           1,
           new Date(now),
         );
+        let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
+        const blueprint = rollHiddenBlueprint(workshop.crafting, "farming");
+        workshop = { ...workshop, crafting: blueprint.state };
+        await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
 
         return {
           farm: harvestedState,
@@ -142,8 +149,11 @@ export async function POST(req: Request) {
           farmJobId,
           masteryGained,
           masteryAfter,
+          blueprintRecipeId: blueprint.recipe?.id ?? null,
+          fertilizerBalance: workshop.crafting.balances.organic_fertilizer ?? 0,
         };
       });
+    if (blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: blueprintRecipeId });
     recordLifeGatheringTelemetrySoon({
       userId,
       activity: "farming",
@@ -186,6 +196,7 @@ export async function POST(req: Request) {
       weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
       shopItems: getFarmShopItems(),
       result,
+      fertilizerBalance,
     });
   } catch (e) {
     if (e instanceof FarmError) {

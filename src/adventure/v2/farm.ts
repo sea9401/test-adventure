@@ -243,6 +243,7 @@ export type FarmPlot = {
   cropId: FarmCropId | null;
   plantedAt: number | null;
   readyAt: number | null;
+  fertilized?: boolean;
 };
 
 export type FarmState = {
@@ -601,6 +602,7 @@ export function parseFarmState(raw: unknown): FarmState {
       cropId,
       plantedAt,
       readyAt,
+      ...(cropId && p.fertilized === true ? { fertilized: true } : {}),
     };
   });
   return {
@@ -1108,7 +1110,7 @@ export function plantCrop(
     plots: state.plots.map((p) =>
       p.id === plotId
         ? {
-            ...p,
+            id: p.id,
             cropId,
             plantedAt: now,
             readyAt: now + crop.growMs,
@@ -1251,7 +1253,7 @@ export function harvestPlot(
       ...state,
       plots: state.plots.map((p) =>
         p.id === plotId
-          ? { ...p, cropId: null, plantedAt: null, readyAt: null }
+          ? { id: p.id, cropId: null, plantedAt: null, readyAt: null }
           : p,
       ),
       inventory,

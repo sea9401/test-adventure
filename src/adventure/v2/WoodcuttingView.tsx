@@ -38,6 +38,7 @@ import {
   useActivityCooldown,
 } from "./useActivityVerification";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
+import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -1108,8 +1109,9 @@ export function WoodcuttingView({
           setResult(outcome);
           if (!outcome.success) {
             setError(FAILURE_MESSAGE[outcome.reason] ?? "벌목 처리 중 문제가 생겼습니다.");
-          } else if (navigator.vibrate) {
-            navigator.vibrate([45, 40, 90]);
+          } else {
+            window.dispatchEvent(new Event("life-field:refresh"));
+            if (navigator.vibrate) navigator.vibrate([45, 40, 90]);
           }
           setPhase("result");
         })
@@ -1163,6 +1165,8 @@ export function WoodcuttingView({
       />
 
       <ProductionJobAdvanceNotice refreshKey={progression.level} />
+
+      <LifeFieldEnvironmentCard activity="woodcutting" spotId={spotId} />
 
       {verification && verifyHuman ? (
         <ActivityVerificationGate

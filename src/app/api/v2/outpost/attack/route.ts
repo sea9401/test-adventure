@@ -726,9 +726,7 @@ export async function POST(req: Request) {
     );
 
     if (clearedQueue) {
-      // 성벽 자동 수리 폐지 — 공성 데미지가 그대로 박힌다(수비는 별도 수동 수리
-      //   /api/v2/outpost/repair 로 직접 골드를 써서 보강). 옛 금고 자동수리는 무방비
-      //   거점도 돈으로 무한 방어돼 공격이 안 먹히는 역설을 만들어 제거.
+      // 성벽 데미지는 시간당 자연 회복 외에는 즉시 복구되지 않는다.
       // 성벽 데미지 — 공격자 합성전투력 기반.
       const attackerPower = derivePowerScore({
         atk: attacker.player.atk,

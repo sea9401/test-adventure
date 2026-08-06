@@ -17,6 +17,7 @@ import {
   equippedWoodcuttingFailureReductionPct,
   equippedFishingBonuses,
   learnedGuildTrainingBonuses,
+  isLifestyleSkill,
   spCostOf,
   rubricSpCost,
   type V2SkillId,
@@ -638,16 +639,31 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("피해 계수는 공격 기반선과 특화 스탯을 구분해 명시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
-      "피해 마법 공격력×1.3",
+      "피해 마법 공격력×1.12 + 지능×0.07",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
       "피해 공격력×1.05 + 방어력×1.3",
     );
   });
 
+  it("6차 순수형만 주스탯 계수를 받고 혼합형 계수는 유지한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
+      "피해 공격력×1.65 + 힘×0.2",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
+      "피해 마법 공격력×1.98 + 지능×0.14",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)).toEqual(
+      expect.arrayContaining([
+        "피해 공격력×0.4 + 민첩×0.5",
+        "피해 공격력×0.4 + 민첩×0.62",
+      ]),
+    );
+  });
+
   it("다단 스킬의 공격 계수는 소수 둘째 자리까지 반올림해 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_flurry)).toContain(
-      "피해 공격력×0.43",
+      "피해 공격력×0.4 + 힘×0.03",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
       "피해 공격력×0.4 + 민첩×0.1",
@@ -701,7 +717,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
-        chip.includes("공격력×1.3"),
+        chip.includes("공격력×1.2 + 힘×0.1"),
       ),
     ).toBe(true);
     expect(
@@ -844,12 +860,33 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 5.9 })).toBe(5);
   });
 
-  it("카탈로그 모든 스킬 코스트 ≥ 1 (NaN/0 누출 방지)", () => {
+  it("생활 스킬은 SP 0, 나머지 스킬은 SP 1 이상이다", () => {
     for (const def of Object.values(V2_SKILLS)) {
       const c = spCostOf(def);
       expect(Number.isFinite(c), def.id).toBe(true);
-      expect(c, def.id).toBeGreaterThanOrEqual(1);
+      if (isLifestyleSkill(def)) {
+        expect(c, def.id).toBe(0);
+      } else {
+        expect(c, def.id).toBeGreaterThanOrEqual(1);
+      }
     }
+  });
+
+  it("농사·낚시·요리·벌목·채광·훈련 효과를 생활 스킬로 자동 분류한다", () => {
+    const lifestyleIds: V2SkillId[] = [
+      "v2c_survivor_baitcraft",
+      "v2c_healthtrainer_routine",
+      "v2c_farmer_seedselection",
+      "v2c_cook_prepwork",
+      "v2c_lumberjack_woodreading",
+      "v2c_miner_veinreading",
+    ];
+    for (const id of lifestyleIds) {
+      expect(isLifestyleSkill(V2_SKILLS[id]), id).toBe(true);
+      expect(spCostOf(V2_SKILLS[id]), id).toBe(0);
+    }
+    expect(isLifestyleSkill(V2_SKILLS.v2_skill_strike)).toBe(false);
+    expect(isLifestyleSkill(V2_SKILLS.v2c_none_diligence)).toBe(false);
   });
 
   it("5 SP 이하는 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
@@ -870,10 +907,11 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     ]).toEqual([7, 8, 10, 12]);
   });
 
-  it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {
+  it("🔑 트립와이어 — 전투 스킬은 루브릭 미만으로 underprice 금지", () => {
     // override 는 루브릭 "위로만"(아웃라이어 너프) 허용. 아래로 깎으면 값싼+강한 공용으로
     // 직업 무관 유틸 스택 길이 열린다(PR-5 잔여 리스크). 새 스킬/override 가 바닥을 뚫으면 실패.
     for (const def of Object.values(V2_SKILLS)) {
+      if (isLifestyleSkill(def)) continue;
       expect(
         spCostOf(def),
         `${def.id} 가 루브릭(${rubricSpCost(def)}) 미만으로 underprice 됨`,

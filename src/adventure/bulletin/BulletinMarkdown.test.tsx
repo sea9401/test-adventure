@@ -80,6 +80,38 @@ describe("BulletinMarkdown", () => {
     expect(html).toContain("감사합니다.");
   });
 
+  it("복사 과정에서 최대 세 칸 들여쓴 details 블록도 접기 영역으로 만든다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content={[
+          "  ## 업데이트 안내",
+          "",
+          "  :::details 생활 현장 업데이트 내용 보기",
+          "  **중요 변경**",
+          "",
+          "  - 변경 사항",
+          "  :::",
+        ].join("\n")}
+      />,
+    );
+
+    expect(html).toContain("<details");
+    expect(html).toContain("생활 현장 업데이트 내용 보기</summary>");
+    expect(html).toContain("<strong>중요 변경</strong>");
+    expect(html).toContain("<li>변경 사항</li>");
+  });
+
+  it("네 칸 들여쓴 details 예시는 코드로 유지한다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content={["    :::details 예시", "    본문", "    :::"].join("\n")}
+      />,
+    );
+
+    expect(html).not.toContain("<details");
+    expect(html).toContain(":::details 예시");
+  });
+
   it("코드 펜스 안의 details 예시는 접기 영역으로 변환하지 않는다", () => {
     const html = renderToStaticMarkup(
       <BulletinMarkdown

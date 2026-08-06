@@ -140,8 +140,13 @@ export function parseBulletinMarkdownSegments(
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
+    // CommonMark가 블록 문법에 허용하는 최대 세 칸 들여쓰기를 접기 문법에도
+    // 허용한다. 복사·붙여넣기 과정에서 본문 전체에 공백이 붙어도 정상 인식하되,
+    // 네 칸 이상 들여쓴 코드 블록은 접기 영역으로 바꾸지 않는다.
     const opening =
-      fence == null ? /^:::details(?:[ \t]+(.*?))?[ \t]*$/.exec(line) : null;
+      fence == null
+        ? /^[ \t]{0,3}:::details(?:[ \t]+(.*?))?[ \t]*$/.exec(line)
+        : null;
 
     if (opening) {
       const detailLines: string[] = [];
@@ -149,7 +154,10 @@ export function parseBulletinMarkdownSegments(
       let closingIndex = -1;
       for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
         const detailLine = lines[cursor];
-        if (detailFence == null && /^:::[ \t]*$/.test(detailLine)) {
+        if (
+          detailFence == null &&
+          /^[ \t]{0,3}:::[ \t]*$/.test(detailLine)
+        ) {
           closingIndex = cursor;
           break;
         }

@@ -411,11 +411,27 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(dp!.next.caps.spi).toBe(1);
     expect(dp!.next.caps.int).toBe(1);
     expect(dp!.next.caps.dex).toBeUndefined();
-    // 비하이브리드 jobId 는 직군 프로필 폴백(전사 = str/vit/dex).
+    // 방패 계보는 전사 공용 DEX 대신 방어력 기반 스킬과 맞는 VIT에 집중한다.
     const guardian = applyCultivation(p, "warrior", undefined, undefined, "guardian");
-    expect(guardian!.next.caps.str).toBe(2);
-    expect(guardian!.next.caps.dex).toBe(1);
+    expect(guardian!.next.caps.vit).toBe(3);
+    expect(guardian!.next.caps.str).toBe(1);
+    expect(guardian!.next.caps.dex).toBeUndefined();
     expect(guardian!.next.caps.int).toBeUndefined();
+  });
+
+  it.each([
+    ["shieldman", 3, 1],
+    ["guardian", 3, 1],
+    ["warden", 3, 1],
+    ["ironknight", 4, 1],
+    ["fortressknight", 4, 2],
+  ] as const)("applyCultivation — 방패 계보 %s는 VIT/STR만 올린다", (jobId, vit, str) => {
+    const p = parseProficiency({ groups: { warrior: { points: 100 } } });
+    const result = applyCultivation(p, "warrior", undefined, undefined, jobId);
+
+    expect(result!.next.caps.vit).toBe(vit);
+    expect(result!.next.caps.str).toBe(str);
+    expect(result!.next.caps.dex).toBeUndefined();
   });
 
   it("applyCultivation — 5차 초월자는 행운을 제외한 총 +5 cap을 얻는다", () => {

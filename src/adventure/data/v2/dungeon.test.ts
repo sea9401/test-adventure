@@ -437,8 +437,8 @@ describe("scaleMonsterForFloor", () => {
       frontierOnsetSoften(depth) *
       endExtensionCombatSoften(depth);
 
-    expect(lateDurabilityMult(depth)).toBe(0.7);
-    expect(lateAttackMult(depth)).toBe(0.55);
+    expect(lateDurabilityMult(depth)).toBe(0.85);
+    expect(lateAttackMult(depth)).toBe(0.7);
     expect(lateDefenseMult(depth)).toBe(3);
     expect(lateAccuracyMult(depth)).toBe(1.35);
     expect(lateEvasionBonus(depth)).toBe(10);

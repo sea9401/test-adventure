@@ -165,8 +165,10 @@ export function endExtensionCombatSoften(depth: number): number {
 // 협동 보스(scaleMonsterForFloor softenEndgame=false)는 별도 난도표를 쓰므로 적용하지 않는다.
 export const LATE_DIFFICULTY_START_DEPTH = 43;
 export const LATE_DIFFICULTY_FULL_DEPTH = 72;
-export const LATE_DURABILITY_MULT_MAX = 0.7;
-export const LATE_ATTACK_MULT_MIN = 0.55;
+// 상위 10명 실데이터 ATB 시뮬에서 0.70/0.55는 심해 폐허 승률을 지나치게 올렸다.
+// 유틸 스펙 분산은 유지하되 HP·ATK 예산을 일부 복원해 깊이에 맞는 절대 난도를 보존한다.
+export const LATE_DURABILITY_MULT_MAX = 0.85;
+export const LATE_ATTACK_MULT_MIN = 0.7;
 export const LATE_DEFENSE_MULT_MAX = 3;
 export const LATE_ACCURACY_MULT_MAX = 1.35;
 export const LATE_EVASION_BONUS_MAX = 10;

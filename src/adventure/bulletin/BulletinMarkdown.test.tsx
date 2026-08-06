@@ -73,7 +73,12 @@ describe("BulletinMarkdown", () => {
 
     expect(html).toContain("<details");
     expect(html).toContain("<summary");
-    expect(html).toContain("상세 업데이트 내역</summary>");
+    expect(html).toContain("상세 업데이트 내역");
+    expect(html).toContain("펼치기");
+    expect(html).toContain("접기");
+    expect(html).toContain("text-sky-800");
+    expect(html).toContain("text-violet-800");
+    expect(html).toContain("text-amber-800");
     expect(html).toContain("<strong>중요 변경</strong>");
     expect(html).toContain("<ul>");
     expect(html).toContain("점검 요약");
@@ -96,7 +101,9 @@ describe("BulletinMarkdown", () => {
     );
 
     expect(html).toContain("<details");
-    expect(html).toContain("생활 현장 업데이트 내용 보기</summary>");
+    expect(html).toContain("생활 현장 업데이트 내용 보기</span>");
+    expect(html).toContain(">펼치기</span>");
+    expect(html).toContain(">접기</span>");
     expect(html).toContain("<strong>중요 변경</strong>");
     expect(html).toContain("<li>변경 사항</li>");
   });

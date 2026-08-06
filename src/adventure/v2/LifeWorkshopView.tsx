@@ -7,6 +7,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -175,6 +176,77 @@ function LifeAidArtwork({
   );
 }
 
+export function LifeWorkshopQuantityControls({
+  maxQuantity,
+  unit,
+  actionLabel,
+  inputLabel,
+  busy,
+  onSubmit,
+}: {
+  maxQuantity: number;
+  unit: "개" | "회";
+  actionLabel: "제작" | "가공";
+  inputLabel: string;
+  busy: boolean;
+  onSubmit: (quantity: number) => void;
+}) {
+  const [quantity, setQuantity] = useState(1);
+  const max = Math.max(0, Math.floor(maxQuantity));
+  const selectedQuantity = max > 0 ? Math.min(max, quantity) : 1;
+  const disabled = busy || max < 1;
+
+  return (
+    <div className="shrink-0 space-y-1.5">
+      <div className="flex flex-wrap gap-1" aria-label={`${actionLabel} 빠른 수량`}>
+        <Button
+          size="xs"
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => onSubmit(1)}
+        >
+          1{unit}
+        </Button>
+        <Button
+          size="xs"
+          variant="secondary"
+          disabled={busy || max < 10}
+          onClick={() => onSubmit(10)}
+        >
+          10{unit}
+        </Button>
+        <Button
+          size="xs"
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => onSubmit(max)}
+        >
+          최대 {max.toLocaleString()}{unit}
+        </Button>
+      </div>
+      <div className="flex items-center gap-1">
+        <DraftNumberInput
+          min={1}
+          max={Math.max(1, max)}
+          value={selectedQuantity}
+          onValueChange={setQuantity}
+          disabled={disabled}
+          aria-label={inputLabel}
+          className="h-8 w-20 rounded-md border border-zinc-300 bg-white px-2 text-center text-xs tabular-nums disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
+        />
+        <Button
+          size="xs"
+          variant="warning"
+          disabled={disabled}
+          onClick={() => onSubmit(selectedQuantity)}
+        >
+          {selectedQuantity.toLocaleString()}{unit} {actionLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
   const [data, setData] = useState<WorkshopPayload | null>(null);
   const [tab, setTab] = useState<WorkshopTab>("requests");
@@ -338,23 +410,20 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
                           필요 Lv.{recipe.requiredLevel} · 보유 {data.materials[recipe.inputId] ?? 0}개
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          disabled={!unlocked || recipe.maxBatches < 1 || busy !== null}
-                          onClick={() => void mutate(`process:${recipe.id}:1`, { action: "process", recipeId: recipe.id, batches: 1 })}
-                        >
-                          1회
-                        </Button>
-                        <Button
-                          size="xs"
-                          disabled={!unlocked || recipe.maxBatches < 1 || busy !== null}
-                          onClick={() => void mutate(`process:${recipe.id}:max`, { action: "process", recipeId: recipe.id, batches: recipe.maxBatches })}
-                        >
-                          최대 {recipe.maxBatches}회
-                        </Button>
-                      </div>
+                      <LifeWorkshopQuantityControls
+                        maxQuantity={unlocked ? recipe.maxBatches : 0}
+                        unit="회"
+                        actionLabel="가공"
+                        inputLabel={`${materialName(recipe.outputId)} 가공 수량`}
+                        busy={busy !== null}
+                        onSubmit={(batches) =>
+                          void mutate(`process:${recipe.id}:${batches}`, {
+                            action: "process",
+                            recipeId: recipe.id,
+                            batches,
+                          })
+                        }
+                      />
                     </div>
                   );
                 })}
@@ -394,12 +463,21 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
                         <>
                           <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{requirementText(recipe.costs, data.materials)}</div>
                           <div className="mt-1 text-[10px] text-zinc-500">제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}</div>
-                          <div className="mt-2 flex gap-1">
-                            {[1, recipe.maxCraftable].filter((value, index, list) => value > 0 && list.indexOf(value) === index).map((quantity) => (
-                              <Button key={quantity} size="xs" disabled={busy !== null || recipe.maxCraftable < quantity} onClick={() => void mutate(`craft:${recipe.id}:${quantity}`, { action: "craft", recipeId: recipe.id, quantity })}>
-                                {quantity === 1 ? "1개 제작" : `${quantity}개 일괄 제작`}
-                              </Button>
-                            ))}
+                          <div className="mt-2">
+                            <LifeWorkshopQuantityControls
+                              maxQuantity={recipe.maxCraftable}
+                              unit="개"
+                              actionLabel="제작"
+                              inputLabel={`${recipe.name} 제작 수량`}
+                              busy={busy !== null}
+                              onSubmit={(quantity) =>
+                                void mutate(`craft:${recipe.id}:${quantity}`, {
+                                  action: "craft",
+                                  recipeId: recipe.id,
+                                  quantity,
+                                })
+                              }
+                            />
                             {recipe.maxCraftable === 0 ? <span className="self-center text-[11px] text-rose-600">재료 또는 레벨 부족</span> : null}
                           </div>
                         </>

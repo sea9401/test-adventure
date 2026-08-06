@@ -1,10 +1,9 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { v2Notifications } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 
 // POST /api/v2/notifications/read — 기본은 일반 미읽음 전체, notificationId를 보내면 해당 건만 처리.
-// 복권 당첨은 축하 안내를 열어 보기 전에 유실되지 않도록 일괄 처리에서 제외한다.
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -28,9 +27,9 @@ export async function POST(req: Request) {
       and(
         eq(v2Notifications.userId, userId),
         isNull(v2Notifications.readAt),
-        notificationId != null
-          ? eq(v2Notifications.id, notificationId)
-          : ne(v2Notifications.type, "lottery_won"),
+        ...(notificationId != null
+          ? [eq(v2Notifications.id, notificationId)]
+          : []),
       ),
     );
 

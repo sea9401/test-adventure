@@ -69,6 +69,7 @@ import {
 import { resolveBattleAtb } from "./engine.atb";
 
 import {
+  BOSS_MAX_HP_DAMAGE_MULT,
   BOSS_PCT_HP_DAMAGE_MULT,
   type BattleBuffs,
   type BattleLogEntry,
@@ -79,6 +80,7 @@ import {
   type PlayerCombat,
 } from "./engineState";
 export {
+  BOSS_MAX_HP_DAMAGE_MULT,
   BOSS_PCT_HP_DAMAGE_MULT,
   COMBO_FINISHER_PERIOD,
 } from "./engineState";
@@ -1016,7 +1018,11 @@ export function advanceTurn(
         enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
       },
     };
-    const enemyDotTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
+    const enemyDotTick = tickV2Dots(
+      state.enemyV2Dots,
+      state.enemy.hp,
+      state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1,
+    );
     const enemyDotDamageBeforeReduction =
       enemyDotTick.totalDmg > 0 && state.stacks.enemyDotVulnTurns > 0
         ? Math.floor(enemyDotTick.totalDmg * (1 + state.stacks.enemyDotVulnPct / 100))
@@ -1980,7 +1986,7 @@ function resolveBattleLegacy(
     ctx.v2Skills,
     ctx.initialEnemyHp,
   );
-  // 보스 전투 여부 — 충돌파/천명 같은 %HP 효과 감산 (BOSS_PCT_HP_DAMAGE_MULT) 에 사용.
+  // 보스 전투 여부 — 현재/최대 HP 비례 피해에 각 보스 감산 계수를 적용할 때 사용.
   if (ctx.isBoss) state = { ...state, isBoss: true };
   // v2 마법 (PR-7b) — 매 player turn 시작 시 cast. 전투 시작 시 sweep 폐기.
   // INT 0(라이브) 캐릭은 자동 미발동. cast hook 은 main loop 안.

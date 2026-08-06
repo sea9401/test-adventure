@@ -46,7 +46,13 @@ const TARGETS: Array<{ id: GuildAlchemyChargeTarget; label: string }> = [
 
 const ALCHEMY_PANEL_CLASS = `${SURFACE_CARD} space-y-3 border-violet-200 p-3 text-sm text-zinc-900 dark:border-violet-900 dark:text-zinc-100`;
 
-export function GuildAlchemyWorkshopPanel() {
+export function GuildAlchemyWorkshopPanel({
+  endpoint = "/api/v2/guild/alchemy-workshop",
+  title = "연금 공방",
+}: {
+  endpoint?: string;
+  title?: string;
+} = {}) {
   const { applyResourcePatch } = useGameState();
   const [state, setState] = useState<WorkshopState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +65,7 @@ export function GuildAlchemyWorkshopPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/guild/alchemy-workshop");
+      const res = await fetch(endpoint);
       const json = (await res.json().catch(() => null)) as WorkshopResponse | null;
       if (!res.ok || !json?.ok) {
         setNotice({ kind: "err", text: alchemyErrorText(json?.error) });
@@ -72,7 +78,7 @@ export function GuildAlchemyWorkshopPanel() {
     } finally {
       setLoading(false);
     }
-  }, [applyResourcePatch]);
+  }, [applyResourcePatch, endpoint]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -87,7 +93,7 @@ export function GuildAlchemyWorkshopPanel() {
     setBusyRecipeId(recipe.id);
     setNotice(null);
     try {
-      const res = await fetch("/api/v2/guild/alchemy-workshop", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipeId: recipe.id, target, quantity }),
@@ -156,7 +162,7 @@ export function GuildAlchemyWorkshopPanel() {
             <div className="flex items-center gap-2">
               <GameIcon name="Flask" size={22} />
               <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                연금 공방 Lv.{state.level}
+                {title} Lv.{state.level}
               </h3>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -357,6 +363,8 @@ function alchemyErrorText(error?: string): string {
       return "허브 또는 은빛잎이 부족합니다.";
     case "charge_capacity":
       return "충전약 보유 한도를 넘습니다. 일부를 사용한 뒤 다시 조제해 주세요.";
+    case "weekly_source_conflict":
+      return "이번 주 연금 공방 보상처를 이미 다른 곳으로 선택했습니다.";
     case "rate_limited":
       return "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.";
     default:

@@ -46,9 +46,16 @@ type Mode =
   | { kind: "detail"; postId: number }
   | { kind: "edit"; postId: number };
 
-export function BulletinBoardView() {
-  // 입장 시 기본 탭 = 전체(모든 게시판 글 최신순).
-  const [category, setCategory] = useState<BulletinBoardTab>("all");
+export function BulletinBoardView({
+  initialCategory = "all",
+  noticeOnly = false,
+}: {
+  initialCategory?: BulletinBoardTab;
+  noticeOnly?: boolean;
+}) {
+  // 게시판은 전체, 독립 공지사항 화면은 notice 탭에서 시작한다.
+  const [category, setCategory] =
+    useState<BulletinBoardTab>(initialCategory);
   const [search, setSearch] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [posts, setPosts] = useState<BulletinPost[] | null>(null);
@@ -233,7 +240,7 @@ export function BulletinBoardView() {
     setPosts(
       (prev) =>
         prev?.map((p) =>
-          p.id === postId ? { ...p, viewCount: count } : p,
+          p.id === postId ? { ...p, viewCount: count, viewedByMe: true } : p,
         ) ?? null,
     );
   }, []);
@@ -243,7 +250,10 @@ export function BulletinBoardView() {
       setMode({ kind: "detail", postId });
       // 조회 기록(유저당 1회, 서버 dedupe) — 성공 시 고유 조회수 반영. 실패는 무시(비핵심).
       recordView(postId)
-        .then((r) => handleViewCount(postId, r.count))
+        .then((r) => {
+          handleViewCount(postId, r.count);
+          window.dispatchEvent(new Event("bulletin:read"));
+        })
         .catch(() => {});
     },
     [handleViewCount],
@@ -359,20 +369,24 @@ export function BulletinBoardView() {
 
   return (
     <div className="space-y-3">
-      <TabBar
-        tabs={tabs}
-        active={category}
-        onChange={setCategory}
-        ariaLabel="게시판 카테고리"
-        size="sm"
-        scrollable
-      />
+      {!noticeOnly && (
+        <TabBar
+          tabs={tabs}
+          active={category}
+          onChange={setCategory}
+          ariaLabel="게시판 카테고리"
+          size="sm"
+          scrollable
+        />
+      )}
 
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         {boardDescription}
       </p>
 
-      {myActivity && <BulletinActivityCard activity={myActivity} />}
+      {!noticeOnly && myActivity && (
+        <BulletinActivityCard activity={myActivity} />
+      )}
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -389,14 +403,16 @@ export function BulletinBoardView() {
             className="w-full rounded-md border border-zinc-300 bg-white py-1.5 pl-7 pr-3 text-sm outline-none transition-colors focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setMode({ kind: "compose" })}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-        >
-          <PaperPlaneTilt size={14} weight="fill" />
-          글쓰기
-        </button>
+        {(!noticeOnly || isAdmin) && (
+          <button
+            type="button"
+            onClick={() => setMode({ kind: "compose" })}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          >
+            <PaperPlaneTilt size={14} weight="fill" />
+            글쓰기
+          </button>
+        )}
       </div>
 
       {error ? (

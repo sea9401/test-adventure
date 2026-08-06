@@ -1,15 +1,20 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { CheckCircle, X } from "@phosphor-icons/react";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import {
   V2_SKILLS,
   describeV2Skill,
   smartDefaultPatternFromEquipped,
-  v2SkillSelectLabel,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
@@ -24,6 +29,8 @@ import {
   type V2CombatRole,
   type V2PatternSelfStatus,
 } from "@/adventure/v2/combat/combatPattern";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import { useSystemMessageState } from "./RewardToastProvider";
 
 // "전투 패턴"(갬빗) 에디터 — 우선순위 {조건→행동} 블록을 배열하면 전투에서 위에서부터 조건 맞는
@@ -345,6 +352,221 @@ export function PatternChoiceButtons<T extends string>({
   );
 }
 
+type SkillPatternChoice = {
+  value: string;
+  unavailable?: boolean;
+};
+
+const SKILL_CATEGORY_LABEL = {
+  attack: "공격",
+  heal: "회복",
+  buff: "버프",
+  debuff: "디버프",
+  passive: "패시브",
+} as const;
+
+export function SkillPatternChoiceList({
+  choices,
+  value,
+  onSelect,
+}: {
+  choices: readonly SkillPatternChoice[];
+  value: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div role="listbox" aria-label="사용 가능한 스킬" className="space-y-2">
+      {choices.map((choice) => {
+        const skill = V2_SKILLS[choice.value as V2SkillId];
+        if (!skill) return null;
+        const active = choice.value === value;
+        return (
+          <button
+            key={choice.value}
+            type="button"
+            role="option"
+            aria-selected={active}
+            onClick={() => onSelect(choice.value)}
+            className={`${active ? SURFACE_ACCENT : SURFACE_INSET} w-full p-3 text-left transition hover:border-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`}
+          >
+            <span className="flex items-start justify-between gap-3">
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <strong className="text-sm text-zinc-900 dark:text-zinc-100">
+                    {skill.name}
+                  </strong>
+                  <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                    {SKILL_CATEGORY_LABEL[skill.category]}
+                  </span>
+                  {choice.unavailable ? (
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                      미장착
+                    </span>
+                  ) : null}
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                  {skill.description}
+                </span>
+              </span>
+              {active ? (
+                <CheckCircle
+                  size={20}
+                  weight="fill"
+                  aria-label="현재 선택"
+                  className="shrink-0 text-indigo-600 dark:text-indigo-300"
+                />
+              ) : null}
+            </span>
+            <span className="mt-2 flex flex-wrap gap-1">
+              {describeV2Skill(skill).map((detail) => (
+                <span
+                  key={detail}
+                  className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+                >
+                  {detail}
+                </span>
+              ))}
+            </span>
+            {choice.unavailable ? (
+              <span className="mt-2 block text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                현재 장착되지 않아 전투에서는 발동하지 않습니다.
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SkillPatternDialog({
+  choices,
+  value,
+  onSelect,
+  onClose,
+}: {
+  choices: readonly SkillPatternChoice[];
+  value: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEscapeKey(onClose);
+  useModalA11y(contentRef);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[140] flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={contentRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="skill-pattern-dialog-title"
+        className={`${SURFACE_CARD} flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-b-none sm:rounded-lg`}
+      >
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-200 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] dark:border-zinc-700 sm:pt-4">
+          <div>
+            <h2
+              id="skill-pattern-dialog-title"
+              className="font-semibold text-zinc-900 dark:text-zinc-100"
+            >
+              사용할 스킬 선택
+            </h2>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              장착한 액티브 스킬의 효과와 발동 정보를 비교한 뒤 선택하세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="사용할 스킬 선택 닫기"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+          <SkillPatternChoiceList
+            choices={choices}
+            value={value}
+            onSelect={onSelect}
+          />
+        </div>
+        <footer className="shrink-0 border-t border-zinc-200 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-[11px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400 sm:pb-3">
+          선택하면 이 패턴 블록에 즉시 반영되고 자동 저장됩니다.
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function SkillPatternPicker({
+  value,
+  choices,
+  onChange,
+  placeholder = "장착한 스킬 없음",
+  disabled = false,
+  className = "",
+}: {
+  value: string;
+  choices: readonly SkillPatternChoice[];
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = V2_SKILLS[value as V2SkillId];
+  const close = useCallback(() => setOpen(false), []);
+  const choose = useCallback(
+    (next: string) => {
+      onChange(next);
+      setOpen(false);
+    },
+    [onChange],
+  );
+
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        className="flex min-h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-indigo-500 dark:disabled:text-zinc-500"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold">
+            {selected?.name ?? placeholder}
+          </span>
+          {selected ? (
+            <span className="mt-0.5 block truncate text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+              {describeV2Skill(selected).slice(0, 3).join(" · ")}
+            </span>
+          ) : null}
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+          {selected ? "변경" : "선택"}
+        </span>
+      </button>
+      {open ? (
+        <SkillPatternDialog
+          choices={choices}
+          value={value}
+          onSelect={choose}
+          onClose={close}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 // kind 변경 시 기본 파라미터.
 function defaultCondition(kind: CondKind): V2CombatCondition {
   switch (kind) {
@@ -466,10 +688,6 @@ export function V2CombatPatternView({
   }, []);
 
   const skillName = (id: string) => V2_SKILLS[id as V2SkillId]?.name ?? id;
-  const skillSelectLabel = (id: string) => {
-    const skill = V2_SKILLS[id as V2SkillId];
-    return skill ? v2SkillSelectLabel(skill) : id;
-  };
   // 패시브 스킬은 캐스트 대상 아님(상시 효과) — 전투패턴 슬롯 후보에서 제외.
   const castableEquipped = equipped.filter(
     (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
@@ -798,27 +1016,22 @@ export function V2CombatPatternView({
                       }
                     />
                   ) : (
-                    <PatternChoicePicker
+                    <SkillPatternPicker
                       value={b.action.skillId}
-                      options={[
+                      choices={[
                         ...(b.action.skillId &&
                         !castableEquipped.includes(b.action.skillId)
                           ? [
                               {
                                 value: b.action.skillId,
-                                label: skillSelectLabel(b.action.skillId),
-                                group: "현재 선택",
-                                detail: "현재 장착되지 않은 스킬",
+                                unavailable: true,
                               },
                             ]
                           : []),
                         ...castableEquipped.map((id) => ({
                           value: id,
-                          label: skillSelectLabel(id),
-                          group: "장착 스킬",
                         })),
                       ]}
-                      label="사용할 스킬 선택"
                       placeholder="장착한 스킬 없음"
                       disabled={
                         castableEquipped.length === 0 && !b.action.skillId

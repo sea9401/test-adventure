@@ -17,6 +17,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { Pagination } from "@/components/ui/Pagination";
+import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
   effectiveStats,
@@ -75,6 +76,7 @@ import {
   powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
 import { sortEnhanceCandidates } from "@/adventure/v2/v2EnhanceList";
+import { EnhancePowerPreview } from "@/adventure/v2/EnhancePowerPreview";
 import { useSystemToast } from "./RewardToastProvider";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
@@ -646,7 +648,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       {mode === "enhance" && selected && item && (
         <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
-            <div className="rounded-md border border-amber-200 bg-amber-50/70 px-3 py-2 dark:border-amber-900/70 dark:bg-amber-950/20">
+            <div className={`${SURFACE_ACCENT} px-3 py-2`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
@@ -682,17 +684,17 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
                   <div className="font-semibold">{curPower}</div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">다음 위력</div>
                   <div className="font-semibold text-emerald-600 dark:text-emerald-400">
                     {nextPower}
                   </div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">성공률</div>
                   <div className="font-semibold">{successPct}%</div>
                 </div>
@@ -708,6 +710,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     (성공 시 +{level + 1})
                   </span>
                 </div>
+                <EnhancePowerPreview
+                  key={selected.iid}
+                  basePower={basePower}
+                  craftQuality={selected.craftQuality}
+                  currentLevel={level}
+                />
                 {/* 강화 방식 — 골드(+7까지) / 강화석. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 완화 */}
                 <div className="flex gap-2">
                   {(["none", "blue", "red"] as const).map((s) => {
@@ -840,7 +848,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       {mode === "reforge" && selected && item && (
         <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
-            <div className="rounded-md border border-indigo-200 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900/70 dark:bg-indigo-950/20">
+            <div className={`${SURFACE_INSET} px-3 py-2`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
@@ -875,11 +883,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
                   <div className="font-semibold">{curRollPower}</div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">품질</div>
                   <div className="font-semibold">
                     {curQuality != null ? (
@@ -889,7 +897,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     )}
                   </div>
                 </div>
-                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
                   <div className="text-zinc-500 dark:text-zinc-400">강화 단계</div>
                   <div className="font-semibold">+{level}</div>
                 </div>

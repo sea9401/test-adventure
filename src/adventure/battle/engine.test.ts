@@ -1720,6 +1720,35 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(after.enemyHp).toBe(50000 - 3 * poisonPer);
   });
 
+  it("보스는 중독의 최대 HP 비례 피해를 절반만 받는다", () => {
+    const venomer: PlayerCombat = {
+      ...tank,
+      accuracyPct: 100,
+      hp: 10000,
+      maxHp: 10000,
+    };
+    const enemy = makeEnemy({ hp: 50000, atk: 5 });
+    const s0 = initialBattleState(venomer, enemy, "P");
+    const pct = 20 * POISON_PCT_PER_POINT;
+    const primed: BattleState = {
+      ...s0,
+      isBoss: true,
+      phase: "enemy",
+      enemyHp: 50000,
+      enemyV2Dots: [
+        makePoisonDot({
+          stacks: 3,
+          pctMaxHpPerStack: pct,
+          sourceAtk: 1000,
+        }),
+      ],
+    };
+    const after = advanceTurn(primed, venomer, "P");
+    const poisonPer =
+      Math.min(50000 * pct, 1000 * POISON_CAP_ATK_COEF) * 0.5;
+    expect(after.enemyHp).toBe(50000 - 3 * poisonPer);
+  });
+
   it("출혈 스택은 BLEED_MAX_STACKS 로 캡된다", () => {
     const bleeder: PlayerCombat = {
   accuracyPct: 100,

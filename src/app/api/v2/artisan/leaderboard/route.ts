@@ -45,6 +45,7 @@ type BlacksmithRankingEntry = ArtisanLeaderboardRankInput & {
   xpIntoLevel: number;
   xpForNext: number;
   cumulativeCrafts: number;
+  weeklyXp: number;
 };
 
 type RankingCache = {
@@ -83,6 +84,7 @@ async function loadBlacksmithRankingsFresh(weekKey: string) {
         xpForNext: artisanXpForNextLevel(blacksmith),
         totalCrafts: weeklyStats.totalCrafts,
         qualityCrafts: weeklyStats.qualityCrafts,
+        score: weeklyStats.score,
         weeklyXp: weeklyStats.xp,
         cumulativeCrafts: cumulativeStats.totalCrafts,
       };
@@ -122,7 +124,7 @@ function currentLeaderboardSeason() {
     key: week.key,
     label: `${week.key} 장인 시즌`,
     endsAt: week.endsAt.toISOString(),
-    basis: "이번 시즌 제작 횟수 기준",
+    basis: "장인 점수 기준 · 명장 제작 2배",
   };
 }
 
@@ -288,7 +290,7 @@ export async function POST() {
         rank: artisanLeaderboardSnapshots.rank,
         totalCrafts: artisanLeaderboardSnapshots.totalCrafts,
         qualityCrafts: artisanLeaderboardSnapshots.qualityCrafts,
-        weeklyXp: artisanLeaderboardSnapshots.weeklyXp,
+        score: artisanLeaderboardSnapshots.weeklyXp,
         rewardClaimedAt: artisanLeaderboardSnapshots.rewardClaimedAt,
       })
       .from(artisanLeaderboardSnapshots)

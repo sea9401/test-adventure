@@ -2,32 +2,34 @@
 
 import {
   Bank,
+  Buildings,
   Compass,
   CookingPot,
   FirstAid,
   Hammer,
   PottedPlant,
-  ShoppingCart,
   Storefront,
+  Toolbox,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 생활 지도·치료소·은행·상점·대장간·농장·주방.
+// 생활 지도·생활 조합 작업장·치료소·은행·대장간·농장·주방.
 // 성장의 신전은 캐릭터 탭으로 이관(2026-06-08).
 // 길드 창단은 길드 탭으로 이관(시설 분리가 어색해 통합).
 
 export type TownAction =
+  | { kind: "open-association" }
   | { kind: "open-healing" }
   | { kind: "open-exchange" }
-  | { kind: "open-shop" }
   | { kind: "open-smithy" }
   | { kind: "open-farm" }
   | { kind: "open-kitchen" }
   | { kind: "open-bank" }
-  | { kind: "open-map" };
+  | { kind: "open-map" }
+  | { kind: "open-life-workshop" };
 
 export function V2TownHome({
   onAction,
@@ -39,9 +41,21 @@ export function V2TownHome({
       <SubViewHeader title="마을" />
       <div className="space-y-2">
         <EntryCard
+          icon={<Buildings size={28} weight="duotone" className="text-indigo-600" />}
+          title="모험가 협회"
+          onClick={() => onAction({ kind: "open-association" })}
+        />
+        <EntryCard
           icon={<Compass size={28} weight="duotone" className="text-sky-600" />}
           title="생활 지도"
           onClick={() => onAction({ kind: "open-map" })}
+        />
+        <EntryCard
+          icon={
+            <Toolbox size={28} weight="duotone" className="text-amber-600" />
+          }
+          title="생활 의뢰·조합 작업장"
+          onClick={() => onAction({ kind: "open-life-workshop" })}
         />
         <EntryCard
           icon={<FirstAid size={28} weight="duotone" className="text-rose-500" />}
@@ -59,17 +73,6 @@ export function V2TownHome({
           }
           title="통합 교환소"
           onClick={() => onAction({ kind: "open-exchange" })}
-        />
-        <EntryCard
-          icon={
-            <ShoppingCart
-              size={28}
-              weight="duotone"
-              className="text-zinc-600"
-            />
-          }
-          title="일반 상점"
-          onClick={() => onAction({ kind: "open-shop" })}
         />
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}

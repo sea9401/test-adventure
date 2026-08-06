@@ -311,6 +311,7 @@ export const ERROR_TEXT: Record<string, string> = {
     "장착·잠금되지 않은 하위 장비가 필요합니다.",
   insufficient_gold: "제작 수수료 또는 외부 이용료를 낼 골드가 부족합니다.",
   policy_blocked: "점령 길드가 길드원 전용으로 설정한 제작소입니다.",
+  weekly_source_conflict: "이번 주 제작소 보상처를 이미 다른 곳으로 선택했습니다.",
 };
 
 export const WEEKLY_ERROR_TEXT: Record<string, string> = {
@@ -339,7 +340,7 @@ export const DISMANTLE_ERROR_TEXT: Record<string, string> = {
   equipped: "장착 중인 장비는 해체할 수 없습니다.",
   locked: "잠금 장비는 해체할 수 없습니다.",
   not_crafted:
-    "필드/상점 장비는 해체 재료 회수 대상이 아닙니다. 대장장이 제작품이나 제작 전용 장비만 해체할 수 있습니다.",
+    "필드/기본 장비는 해체 재료 회수 대상이 아닙니다. 대장장이 제작품이나 제작 전용 장비만 해체할 수 있습니다.",
   low_tier: "2T 미만 장비는 제작 재료를 회수할 수 없습니다.",
   no_material: "회수할 제작 재료가 없습니다.",
 };

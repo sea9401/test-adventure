@@ -35,7 +35,7 @@ export default function FishingPage() {
   return (
     <FishingPanel
       spotId={spotId}
-      onBack={() => router.push("/town")}
+      onBack={() => router.push("/map")}
       onOpenLeaderboard={() => router.push("/town/fishing/leaderboard")}
       onOpenShop={() => router.push("/town/fishing/shop")}
       onOpenChallenges={() => router.push("/town/fishing/challenges")}

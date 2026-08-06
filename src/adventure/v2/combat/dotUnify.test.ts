@@ -61,6 +61,22 @@ describe("PR-2 DoT 피해 공식", () => {
     expect(50000 * 0.005).toBeGreaterThan(cap);
   });
 
+  it("보스 감산은 최대 HP 비례 성분에만 적용한다", () => {
+    const mixed: V2Dot = {
+      tag: "poison",
+      label: "중독",
+      stacks: 1,
+      maxStacks: 10,
+      turns: 2,
+      flatPerStack: 10,
+      atkCoefPerStack: 0.2,
+      pctMaxHpPerStack: 0.05,
+      sourceAtk: 100,
+    };
+    // 정액 10 + ATK 계수 20은 유지, 최대 HP 비례분 min(50, 90)=50만 절반.
+    expect(v2DotPerStackDamage(mixed, 1000, 0.5)).toBe(10 + 20 + 25);
+  });
+
   it("연소 = flatPerStack (HP·ATK 무관)", () => {
     const burn: V2Dot = {
       tag: "burn",

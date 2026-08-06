@@ -13,8 +13,14 @@ import {
 } from "../v2/combat/engine-pvp";
 import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
-import { V2_SKILLS } from "../data/v2/v2Skills";
-import { v2SkillMpCost } from "../v2/combat/combatShared";
+import {
+  V2_SKILLS,
+  type V2SkillsState,
+} from "../data/v2/v2Skills";
+import {
+  resolveV2SkillCast,
+  v2SkillMpCost,
+} from "../v2/combat/combatShared";
 
 function makePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
   return {
@@ -1026,6 +1032,71 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(cast.log.some((entry) => entry.text.includes("추가 행동 1회"))).toBe(
       true,
     );
+  });
+
+  it("월식 오프너는 PvE 5배 대신 PvP 전용 4배를 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const skills: V2SkillsState = {
+      learned: ["v2c_nightshade_eclipse"],
+      equipped: ["v2c_nightshade_eclipse"],
+    };
+    const attacker = makePlayer({
+      hp: 10_000,
+      maxHp: 10_000,
+      mp: 1_000,
+      maxMp: 1_000,
+      atk: 1_000,
+      def: 500,
+      spd: 100,
+      attackCount: 1,
+      classTier: 3,
+      lukStat: 700,
+      critChancePct: 0,
+    });
+    const defender = makePlayer({
+      hp: 10_000,
+      maxHp: 10_000,
+      def: 500,
+      spd: 50,
+    });
+    const state = initialBattleStatePvP(
+      attacker,
+      defender,
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+    const actualPvPDamage = defender.maxHp - cast.p2.hp;
+    const resolve = (combatMode?: "pve" | "pvp") =>
+      resolveV2SkillCast({
+        skills,
+        cooldowns: {},
+        combatMode,
+        attacker: {
+          mp: 1_000,
+          atk: 1_000,
+          luk: 700,
+          maxHp: 10_000,
+          currentHp: 10_000,
+          classTier: 3,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: {
+          def: 500,
+          currentHp: 10_000,
+          maxHp: 10_000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      }).enemyDamage;
+
+    expect(actualPvPDamage).toBe(resolve("pvp"));
+    expect(actualPvPDamage).toBe(2_548);
+    expect(resolve("pve")).toBe(3_052);
   });
 
   it("직접 피해 없는 상태이상 스킬도 회피되면 상대에게 남지 않는다", () => {

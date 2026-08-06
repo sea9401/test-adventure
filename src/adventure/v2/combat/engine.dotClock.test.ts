@@ -54,6 +54,15 @@ function firstBleedDamage(
   return Number(match?.[1] ?? 0);
 }
 
+function firstPoisonDamage(
+  log: { text: string; t?: number; turn?: "player" | "enemy" }[],
+): number {
+  const match = log
+    .find((entry) => entry.text.includes("중독으로"))
+    ?.text.match(/중독으로 (\d+) 피해/);
+  return Number(match?.[1] ?? 0);
+}
+
 describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
   it("적에게 걸린 출혈은 적 행동 tick 에 붙는다", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
@@ -114,5 +123,35 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     const reducedDamage = firstBleedDamage(run(50).finalState.log);
     expect(normalDamage).toBeGreaterThan(0);
     expect(reducedDamage).toBe(Math.floor(normalDamage * 0.5));
+  });
+
+  it("ATB 보스는 중독의 최대 HP 비례 피해를 절반만 받는다", () => {
+    const venomer = derive({
+      atk: 100,
+      spd: 10,
+      poisonOnHit: { pctMaxHpPerStack: 0.0005 },
+    });
+    const enemy: Monster = {
+      ...m("부서진 골렘"),
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 10,
+    };
+    const run = (isBoss: boolean) => {
+      vi.spyOn(Math, "random").mockImplementation(mulberry32(11));
+      return resolveBattle(venomer, enemy, "용사", {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills: emptyV2SkillsState(),
+        isBoss,
+        maxTurns: 3,
+      });
+    };
+
+    const normalDamage = firstPoisonDamage(run(false).finalState.log);
+    const bossDamage = firstPoisonDamage(run(true).finalState.log);
+    expect(normalDamage).toBe(50);
+    expect(bossDamage).toBe(25);
   });
 });

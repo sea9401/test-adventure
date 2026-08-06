@@ -9,7 +9,7 @@ import type { BulletinPost } from "@/adventure/bulletin/types";
 
 // 모험 탭 — 캐릭 카드 아래 읽기 전용 공지 패널. 게시판 notice 카테고리 최근 3개를
 // 그대로 끌어와 보여준다 (별도 데이터 소스 없이 /api/bulletin 재사용). 행/헤더 클릭 시
-// 전체 게시판(/plaza/bulletin, 기본 탭이 공지)으로 이동해 본문을 본다.
+// 독립 공지사항 화면(/plaza/notices)으로 이동해 본문을 본다.
 
 const PREVIEW_COUNT = 3;
 
@@ -36,7 +36,7 @@ export function V2AnnouncementsPanel() {
   // 로딩 실패는 조용히 숨김 (카드 자체를 안 그림).
   if (failed) return null;
 
-  const goToBoard = () => router.push("/plaza/bulletin");
+  const goToBoard = () => router.push("/plaza/notices");
 
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

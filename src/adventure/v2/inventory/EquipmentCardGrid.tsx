@@ -106,7 +106,7 @@ export function EquipmentCardGrid({
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
         title="보유한 장비가 없습니다"
-        message="상점에서 구매하거나 사냥터 드랍으로 모입니다."
+        message="사냥터 드랍이나 거래소, 제작으로 모을 수 있습니다."
       />
     );
   }

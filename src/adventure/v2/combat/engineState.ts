@@ -268,7 +268,7 @@ export type BattleState = {
   flags: BattleFlags;
   buffs: BattleBuffs;
   stacks: BattleStacks;
-  /** 보스 전투 여부 — 충돌파/천명 같은 %HP 효과가 BOSS_PCT_HP_DAMAGE_MULT 로 감산. */
+  /** 보스 전투 여부 — 현재/최대 HP 비례 피해에 각각의 보스 감산 계수를 적용한다. */
   isBoss?: boolean;
   /** ATB에서는 적 대상 디버프 지속시간을 플레이어 차례가 아닌 적 행동 횟수로 소모한다. */
   usesAtb?: boolean;
@@ -276,6 +276,9 @@ export type BattleState = {
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
+
+/** 보스에게 가하는 최대 HP 비례 피해 성분 감산 계수. 정액·ATK 계수 성분에는 적용하지 않는다. */
+export const BOSS_MAX_HP_DAMAGE_MULT = 0.5;
 
 // 절초 주기(COMBO_FINISHER_PERIOD)·SPELL_STACK_CAP·MAGIC_VULN_STACK_CAP 은 v2CombatConstants 로
 // 이관 — PvE/PvP 공용. 기존 import 경로 호환 재노출.

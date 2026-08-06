@@ -3,6 +3,10 @@ import { db } from "@/db";
 import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { recordEconomyEventSoon, recordRewardFailureSoon } from "@/lib/server/economyLog";
+import {
+  associationFacilityLevel,
+  claimWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
@@ -68,10 +72,26 @@ type CharacterSave = Record<string, unknown> & {
 async function resolveTrainingAccess(
   userId: string,
   outpostId: string | null,
+  association: boolean,
 ): Promise<
   | { ok: true; access: SettlementBuildingAccess }
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
+  if (association) {
+    const level = await associationFacilityLevel(db, "training_ground");
+    return {
+      ok: true,
+      access: {
+        outpostId: "association",
+        guildId: 0,
+        buildingId: "training_ground",
+        level,
+        kind: "member",
+        taxRate: 0,
+        useFeeGold: 0,
+      },
+    };
+  }
   if (outpostId) {
     const result = await db.transaction((tx) =>
       resolveOutpostBuildingAccess(tx, userId, outpostId, "training_ground"),
@@ -202,6 +222,7 @@ export async function GET(req: Request) {
   const resolved = await resolveTrainingAccess(
     userId,
     outpostIdFromRequest(req),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
@@ -319,11 +340,13 @@ export async function POST(req: Request) {
   const resolved = await resolveTrainingAccess(
     userId,
     outpostIdFromRequest(req, body.outpostId),
+    new URL(req.url).searchParams.get("scope") === "association",
   );
   if (!resolved.ok) {
     return Response.json(resolved.body, { status: resolved.status });
   }
   const { access } = resolved;
+  const association = access.outpostId === "association";
   const guildId = access.guildId;
   const trainingGroundLevel = access.level;
   if (trainingGroundLevel <= 0) {
@@ -405,6 +428,23 @@ export async function POST(req: Request) {
         },
       };
     }
+    const weeklySource = await claimWeeklyFacilitySource(
+      tx,
+      userId,
+      "training_ground",
+      association ? "association" : "guild",
+      weekKey,
+    );
+    if (!weeklySource.ok) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "weekly_source_conflict",
+          selectedSource: weeklySource.selected,
+        },
+      };
+    }
 
     const claim = claimGuildTrainingDrill(state, drillId);
     const weeklyBonusMastery =
@@ -428,15 +468,17 @@ export async function POST(req: Request) {
 
     await upsertSave(tx, userId, "proficiency.v2", prof);
     await upsertSave(tx, userId, TRAINING_SAVE_KEY, nextState);
-    await logGuildActivity(tx, {
-      guildId,
-      type: "training_drill_claim",
-      actorUserId: userId,
-      meta: {
-        drillTitle: drill.title,
-        rewardMastery: totalRewardMastery,
-      },
-    });
+    if (!association) {
+      await logGuildActivity(tx, {
+        guildId,
+        type: "training_drill_claim",
+        actorUserId: userId,
+        meta: {
+          drillTitle: drill.title,
+          rewardMastery: totalRewardMastery,
+        },
+      });
+    }
 
     return {
       status: 200,

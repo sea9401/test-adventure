@@ -100,7 +100,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "town",
     title: "마을 시설",
-    summary: "치료소·상점·대장간·은행·농장·주방 등 마을 시설을 소개합니다.",
+    summary: "치료소·대장간·은행·생활 작업장·농장·주방 등 마을 시설을 소개합니다.",
     group: "world",
   },
   {
@@ -112,7 +112,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "plaza",
     title: "광장과 소통",
-    summary: "게시판·거래소·우편함·채팅방·복권의 이용 방법을 안내합니다.",
+    summary: "게시판·거래소·우편함·채팅방의 이용 방법을 안내합니다.",
     group: "world",
   },
   {
@@ -124,7 +124,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "arena",
     title: "투기장과 대련",
-    summary: "투기장 대전·일요일 챔피언십·베팅과 대련장을 안내합니다.",
+    summary: "투기장 대전·일요일 챔피언십과 대련장을 안내합니다.",
     group: "versus",
   },
   {

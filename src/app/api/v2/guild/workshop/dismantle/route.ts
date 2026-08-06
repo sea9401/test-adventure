@@ -24,6 +24,7 @@ import {
   removeInstance,
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
+import { associationFacilityLevel } from "@/lib/server/adventurerAssociation";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -88,13 +89,16 @@ function bad(error: string, status = 400) {
   return Response.json({ ok: false, error }, { status });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
 
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) return bad("no_guild", 403);
-  const smithyLevel = await readGuildSmithyLevel(db, guildId);
+  const association = new URL(req.url).searchParams.get("scope") === "association";
+  const guildId = association ? 0 : await getGuildIdByUser(userId);
+  if (!association && guildId == null) return bad("no_guild", 403);
+  const smithyLevel = association
+    ? await associationFacilityLevel(db, "guild_smithy")
+    : await readGuildSmithyLevel(db, guildId!);
   if (smithyLevel <= 0) return bad("smithy_required", 403);
   const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
 
@@ -141,9 +145,12 @@ export async function POST(req: Request) {
     typeof body.iid === "string" && body.iid.length > 0 ? body.iid : null;
   if (!iid) return bad("invalid_iid");
 
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) return bad("no_guild", 403);
-  const smithyLevel = await readGuildSmithyLevel(db, guildId);
+  const association = new URL(req.url).searchParams.get("scope") === "association";
+  const guildId = association ? 0 : await getGuildIdByUser(userId);
+  if (!association && guildId == null) return bad("no_guild", 403);
+  const smithyLevel = association
+    ? await associationFacilityLevel(db, "guild_smithy")
+    : await readGuildSmithyLevel(db, guildId!);
   if (smithyLevel <= 0) return bad("smithy_required", 403);
 
   const result = await db.transaction(async (tx) => {

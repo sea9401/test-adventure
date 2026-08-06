@@ -1037,6 +1037,20 @@
       "when": 1786003532514,
       "tag": "0147_silky_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1786015620459,
+      "tag": "0148_slim_synch",
+      "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1786050082394,
+      "tag": "0149_mighty_grandmaster",
+      "breakpoints": true
     }
   ]
 }

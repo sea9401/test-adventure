@@ -19,7 +19,7 @@ export function EconomyContent() {
       </UL>
       <H3>쓰는 법</H3>
       <UL>
-        <li>장비 강화(대장간), 상점 장비 구매.</li>
+        <li>장비 강화(대장간), 거래소 장비 구매와 제작.</li>
         <li>HP·MP 충전약 구매, 스킬 습득과 각종 성장 비용.</li>
       </UL>
       <P>

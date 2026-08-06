@@ -339,6 +339,8 @@ export type V2SkillEffect =
       baseFlatByTier?: readonly [number, number, number];
       hpThresholdPct: number;
       bonusMult: number;
+      /** PvP에서만 사용할 조건부 배율. 미지정이면 bonusMult를 그대로 사용한다. */
+      pvpBonusMult?: number;
       scaling?: V2DamageScaling;
     }
   // 스택 비례 딜 — 적 DoT/취약 스택당 추가딜(참절·중독 폭발·비전 작렬).
@@ -1546,11 +1548,11 @@ function describeV2Effect(
     case "executeDamage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
     case "ambushDamage":
-      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↑ 시 ${e.pvpBonusMult != null && e.pvpBonusMult !== e.bonusMult ? `PvE ×${e.bonusMult} · PvP ×${e.pvpBonusMult}` : `×${e.bonusMult}`})`;
     case "stackPayoffDamage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 ${e.tag === "poison" ? "방어 무시 " : ""}+${e.perStackFlat}`;
     case "dot":
-      return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택)`;
+      return `${e.label} 지속피해 +${e.stacks}스택 (${targetActionsChip(e.turns)}, 최대 ${e.maxStacks}스택${e.tag === "poison" ? ", 보스 최대 HP 비례분 50%" : ""})`;
   }
   // 모든 효과 종류 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
   const _exhaustive: never = e;
@@ -1734,6 +1736,11 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
           skill.monsterOnly === true,
         ),
       );
+  // 각 직접 피해 effect 는 전투 로그에서 별도 타격으로 처리된다. 피해 칩이 여러 개 나열되는 것만으로는
+  // 다단 여부가 잘 드러나지 않으므로 학습·장착·전투 패턴 툴팁 맨 앞에 기본 타수를 명시한다.
+  if (!skill.passive && directDamageEffectCount > 1) {
+    chips.unshift(`${directDamageEffectCount}회 공격`);
+  }
   if (
     skill.effects.some(
       (payoff) =>
@@ -2070,23 +2077,37 @@ export function smartDefaultConditionForSkill(
   return { kind: "turn", op: "atMost", value: 1 };
 }
 
-// 장착 스킬을 스마트 기본 조건으로 묶은 패턴(슬롯 순서 = 우선순위 유지). 미설정 캐릭의 폴백.
-//   카탈로그에 없는 id 는 안전하게 "항상". 엔진·에디터·PvP 가 공유(단일 소스).
+// 장착 스킬을 스마트 기본 조건으로 묶은 패턴. 미설정 캐릭의 폴백.
+//   전투당 1회 생존 오프너(그림자 도약)는 "항상" 공격보다 먼저 독립 시전되어야 하므로 최우선에
+//   두고, 나머지는 슬롯 순서를 유지한다. 카탈로그에 없는 id 는 안전하게 "항상".
+//   엔진·에디터·PvP 가 공유(단일 소스).
 export function smartDefaultPatternFromEquipped(
   equipped: readonly string[],
 ): V2CombatPattern {
+  const activeSkillIds = equipped.filter(
+    (skillId) => V2_SKILLS[skillId as V2SkillId]?.category !== "passive",
+  );
+  const isOncePerBattleEvadeOpener = (skillId: string): boolean => {
+    const def = V2_SKILLS[skillId as V2SkillId];
+    return (
+      def?.oncePerBattle === true &&
+      def.effects.some((effect) => effect.kind === "guaranteedEvade")
+    );
+  };
+  const orderedSkillIds = [
+    ...activeSkillIds.filter(isOncePerBattleEvadeOpener),
+    ...activeSkillIds.filter((skillId) => !isOncePerBattleEvadeOpener(skillId)),
+  ];
+
   return {
-    blocks: equipped
-      // 패시브 스킬(category "passive")은 캐스트 대상 아님(상시 효과) — 자동 패턴에서 제외.
-      .filter((skillId) => V2_SKILLS[skillId as V2SkillId]?.category !== "passive")
-      .map((skillId) => {
-        const def = V2_SKILLS[skillId as V2SkillId];
-        return {
-          condition: def
-            ? smartDefaultConditionForSkill(def)
-            : ({ kind: "always" } as V2CombatCondition),
-          action: { kind: "skill" as const, skillId },
-        };
-      }),
+    blocks: orderedSkillIds.map((skillId) => {
+      const def = V2_SKILLS[skillId as V2SkillId];
+      return {
+        condition: def
+          ? smartDefaultConditionForSkill(def)
+          : ({ kind: "always" } as V2CombatCondition),
+        action: { kind: "skill" as const, skillId },
+      };
+    }),
   };
 }

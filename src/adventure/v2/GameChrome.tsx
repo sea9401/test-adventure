@@ -10,7 +10,6 @@ import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { shouldShowStaminaBar } from "@/adventure/v2/staminaBarVisibility";
-import { LotteryWinCelebration } from "@/adventure/v2/LotteryWinCelebration";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -166,7 +165,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       />
       {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
       <OfflineSettleCard />
-      <LotteryWinCelebration />
       {background && (
         <TabBackground
           key={background.src}

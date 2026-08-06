@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       ...charSave,
       gold: spend.gold,
       bankedGold: spend.bankedGold,
-      hasShopped: true, // 가이드 퀘스트(첫 쇼핑) 지표
+      hasShopped: true, // 폐지된 일반 상점의 옛 완료 기록과 저장 호환
     });
     return {
       status: 200,

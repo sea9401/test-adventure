@@ -205,7 +205,11 @@ export function dotTickDamage(stacks: number, perStack: number): number {
   return Math.max(0, Math.floor(stacks * perStack));
 }
 
-export function v2DotPerStackDamage(dot: V2Dot, targetMaxHp: number): number {
+export function v2DotPerStackDamage(
+  dot: V2Dot,
+  targetMaxHp: number,
+  maxHpDamageMult = 1,
+): number {
   const hpComponent =
     dot.pctMaxHpPerStack > 0
       ? Math.min(
@@ -213,7 +217,11 @@ export function v2DotPerStackDamage(dot: V2Dot, targetMaxHp: number): number {
           dot.sourceAtk * POISON_CAP_ATK_COEF,
         )
       : 0;
-  return dot.flatPerStack + dot.sourceAtk * dot.atkCoefPerStack + hpComponent;
+  return (
+    dot.flatPerStack +
+    dot.sourceAtk * dot.atkCoefPerStack +
+    hpComponent * Math.max(0, maxHpDamageMult)
+  );
 }
 
 // tick: dot 들 turns -1 + 총 dmg 합산. turns 0 도달 dot drop.
@@ -222,6 +230,7 @@ export function v2DotPerStackDamage(dot: V2Dot, targetMaxHp: number): number {
 export function tickV2Dots(
   dots: V2DotList,
   targetMaxHp = 0,
+  maxHpDamageMult = 1,
 ): { nextDots: V2Dot[]; totalDmg: number; ticks: V2DotTick[] } {
   const nextDots: V2Dot[] = [];
   const ticks: V2DotTick[] = [];
@@ -230,7 +239,7 @@ export function tickV2Dots(
     if (d.turns <= 0) continue;
     const damage = dotTickDamage(
       d.stacks,
-      v2DotPerStackDamage(d, targetMaxHp),
+      v2DotPerStackDamage(d, targetMaxHp, maxHpDamageMult),
     );
     totalDmg += damage;
     if (damage > 0) {
@@ -635,6 +644,8 @@ export type V2SkillCastInput = {
   applyProcInPattern?: boolean;
   /** 현재 턴(1-based) — combatPattern 의 turn 조건용. 미지정=1. */
   turn?: number;
+  /** 전투 환경별 스킬 수치 분기. 미지정은 PvE로 취급한다. */
+  combatMode?: "pve" | "pvp";
   attacker: {
     mp: number;
     atk: number;
@@ -1243,8 +1254,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         flatOf(undefined, effect.baseFlatByTier),
       );
       const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
+      const bonusMult =
+        input.combatMode === "pvp"
+          ? effect.pvpBonusMult ?? effect.bonusMult
+          : effect.bonusMult;
       dealDamage(
-        frac >= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base,
+        frac >= effect.hpThresholdPct / 100 ? Math.floor(base * bonusMult) : base,
         effect.scaling,
       );
     } else if (effect.kind === "stackPayoffDamage") {

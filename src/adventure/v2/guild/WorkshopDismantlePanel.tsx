@@ -38,6 +38,7 @@ import {
 export function WorkshopDismantlePanel({
   materials,
   onWorkshopSync,
+  endpoint = "/api/v2/guild/workshop/dismantle",
 }: {
   /** 부모 워크숍 상태의 보유 재료 — 해체 응답 도착 전 표시 폴백. */
   materials: Record<string, number>;
@@ -46,6 +47,7 @@ export function WorkshopDismantlePanel({
     materials?: Record<string, number>;
     artisan?: unknown;
   }) => void;
+  endpoint?: string;
 }) {
   const { notifyReward } = useRewardToast();
   const [dismantle, setDismantle] = useState<DismantleState | null>(null);
@@ -63,7 +65,7 @@ export function WorkshopDismantlePanel({
   const loadDismantle = useCallback(async () => {
     setDismantleLoading(true);
     try {
-      const res = await fetch("/api/v2/guild/workshop/dismantle");
+      const res = await fetch(endpoint);
       const json = await res.json();
       if (json.ok && Array.isArray(json.candidates)) {
         setDismantle({
@@ -85,7 +87,7 @@ export function WorkshopDismantlePanel({
     } finally {
       setDismantleLoading(false);
     }
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     queueMicrotask(() => void loadDismantle());
@@ -132,7 +134,7 @@ export function WorkshopDismantlePanel({
     setDismantleMessage(null);
     setDismantleResult(null);
     try {
-      const res = await fetch("/api/v2/guild/workshop/dismantle", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ iid }),
@@ -197,7 +199,7 @@ export function WorkshopDismantlePanel({
           각인이 있는 장비, 제작 전용 장비
         </div>
         <div>
-          <span className="font-semibold">해체 불가</span> · 필드/상점 장비,
+          <span className="font-semibold">해체 불가</span> · 필드/기본 장비,
           장착 중인 장비, 잠금 장비, 2T 미만 장비
         </div>
       </div>

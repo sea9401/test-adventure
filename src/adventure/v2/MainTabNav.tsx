@@ -6,6 +6,7 @@ import {
   Bank,
   Binoculars,
   BookOpen,
+  Buildings,
   BoxingGlove,
   BowlFood,
   CaretDown,
@@ -18,7 +19,6 @@ import {
   Lightning,
   PottedPlant,
   ShieldStar,
-  ShoppingCart,
   Skull,
   Sparkle,
   Storefront,
@@ -100,12 +100,13 @@ function guildFacilityMenuItem(id: GuildFacilityId): SubItem {
 }
 
 export const TOWN_MENU_ITEMS = [
+  { label: "모험가 협회", href: "/town/association", Icon: Buildings, color: "text-indigo-600" },
   { label: "치료소", href: "/town/healing", Icon: FirstAid, color: "text-rose-500" },
   { label: "은행", href: "/town/bank", Icon: Bank, color: "text-yellow-600" },
   { label: "통합 교환소", href: "/town/exchange", Icon: Storefront, color: "text-orange-600" },
-  { label: "일반 상점", href: "/town/shop", Icon: ShoppingCart, color: "text-zinc-600" },
   { label: "대장간", href: "/town/smithy", Icon: Hammer, color: "text-amber-600" },
   { label: "생활 지도", href: "/map", Icon: Compass, color: "text-sky-600" },
+  { label: "생활 의뢰·조합 작업장", href: "/town/life-workshop", Icon: Toolbox, color: "text-amber-600" },
   { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
   { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
 ] satisfies SubItem[];

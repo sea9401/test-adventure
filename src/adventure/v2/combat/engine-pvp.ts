@@ -1574,6 +1574,7 @@ export function castV2SkillOnAttackerTurnPvP(
   let result = resolveV2SkillCast({
     skills: side.v2Skills,
     cooldowns: side.v2SkillCooldowns,
+    combatMode: "pvp",
     // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
     //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
     procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,

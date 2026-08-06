@@ -105,7 +105,7 @@ export type QuestCtx = {
   hasEditedSkillLoadout: boolean;
   /** 치료소에서 HP·MP 회복을 한 적 있는가. character.v2.hasHealed. */
   hasHealed: boolean;
-  /** 상점에서 장비를 구매한 적 있는가. character.v2.hasShopped. */
+  /** 폐지된 일반 상점의 옛 완료 기록. 저장·서버 응답 호환을 위해 유지한다. */
   hasShopped: boolean;
   /** 길드 제작소 제작 완료 횟수. crafting.v2.workshopStats.totalCrafts. */
   workshopCrafts: number;
@@ -346,17 +346,6 @@ const GROWTH: QuestDef[] = [
 // 성장의 길이 안 다루는 기본 조작과 생활 콘텐츠를 한 번씩 익히게 하는 묶음.
 // 비순차 라인이라 시간이 필요한 농사·요리가 다른 튜토리얼 진행을 막지 않는다.
 const BASICS: QuestDef[] = [
-  {
-    id: "b_shop",
-    line: "basics",
-    title: "첫 쇼핑",
-    desc: "마을 > 상점에서 장비를 하나 구매하세요.",
-    href: "/town/shop",
-    reward: { staminaPotions: 2 },
-    progress: (c) => (c.hasShopped ? 1 : 0),
-    goal: 1,
-    check: (c) => c.hasShopped,
-  },
   {
     id: "b_heal",
     line: "basics",
@@ -1072,7 +1061,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "basics",
     name: "기초 튜토리얼",
-    subtitle: "상점·치료소·은행·스킬과 생활 콘텐츠의 기본 조작을 하나씩 익혀보세요.",
+    subtitle: "치료소·은행·스킬과 생활 콘텐츠의 기본 조작을 하나씩 익혀보세요.",
     sequential: false,
     tutorial: true,
   },

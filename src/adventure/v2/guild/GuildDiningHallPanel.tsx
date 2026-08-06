@@ -69,7 +69,13 @@ type DiningResponse = DiningState & {
   };
 };
 
-export function GuildDiningHallPanel() {
+export function GuildDiningHallPanel({
+  endpoint = "/api/v2/guild/dining-hall",
+  title = "길드 식당",
+}: {
+  endpoint?: string;
+  title?: string;
+} = {}) {
   const { applyResourcePatch } = useGameState();
   const [state, setState] = useState<DiningState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,7 +104,7 @@ export function GuildDiningHallPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/guild/dining-hall");
+      const res = await fetch(endpoint);
       const json = (await res.json().catch(() => null)) as DiningResponse | null;
       if (!res.ok || !json?.ok) {
         setNotice({ kind: "err", text: diningErrorText(json?.error) });
@@ -106,11 +112,11 @@ export function GuildDiningHallPanel() {
       }
       applyState(json);
     } catch {
-      setNotice({ kind: "err", text: "길드 식당 정보를 불러오지 못했습니다." });
+      setNotice({ kind: "err", text: `${title} 정보를 불러오지 못했습니다.` });
     } finally {
       setLoading(false);
     }
-  }, [applyState]);
+  }, [applyState, endpoint, title]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -127,7 +133,7 @@ export function GuildDiningHallPanel() {
     setBusy(true);
     setNotice(null);
     try {
-      const res = await fetch("/api/v2/guild/dining-hall", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -140,7 +146,7 @@ export function GuildDiningHallPanel() {
       applyState(json);
       setNotice({ kind: "ok", text: successText(json) });
     } catch {
-      setNotice({ kind: "err", text: "길드 식당 요청에 실패했습니다." });
+      setNotice({ kind: "err", text: `${title} 요청에 실패했습니다.` });
     } finally {
       setBusy(false);
     }
@@ -179,7 +185,7 @@ export function GuildDiningHallPanel() {
   if (loading && !state) {
     return (
       <section className={DINING_PANEL_CLASS}>
-        <p className="text-zinc-500 dark:text-zinc-400">길드 식당 확인 중…</p>
+        <p className="text-zinc-500 dark:text-zinc-400">{title} 확인 중…</p>
       </section>
     );
   }
@@ -187,7 +193,7 @@ export function GuildDiningHallPanel() {
     return (
       <section className={DINING_PANEL_CLASS}>
         <p className="text-red-600 dark:text-red-300">
-          {notice?.text ?? "길드 식당을 이용할 수 없습니다."}
+          {notice?.text ?? `${title}을 이용할 수 없습니다.`}
         </p>
         <button
           type="button"
@@ -223,7 +229,7 @@ export function GuildDiningHallPanel() {
           <div>
             <div className="flex items-center gap-2">
               <GameIcon name="CookingPot" size={22} />
-              <h3 className="text-base font-bold">길드 식당 Lv.{state.level}</h3>
+              <h3 className="text-base font-bold">{title} Lv.{state.level}</h3>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {state.stageLabel} · 식재료를 함께 준비하고 주간 식권으로 식사합니다.
@@ -500,6 +506,8 @@ function diningErrorText(error?: string): string {
       return "메뉴를 선택할 권한이 없습니다.";
     case "not_eligible":
       return "다음 주부터 식당을 이용할 수 있습니다.";
+    case "weekly_source_conflict":
+      return "이번 주 식당 보상처를 길드·협회 중 다른 쪽으로 선택했습니다.";
     case "menu_locked":
       return "식재료 기부가 시작되어 이번 주 메뉴를 바꿀 수 없습니다.";
     case "invalid_menus":

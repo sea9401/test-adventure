@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FISH, type FishTier } from "./fish";
+import { FISH, type FishId, type FishTier } from "./fish";
 import {
   DEFAULT_FISHING_SPOT_ID,
   FISHING_SPOTS,
@@ -29,6 +29,23 @@ describe("낚시터 카탈로그", () => {
         expect(spot.fishIds).toContain(fishId);
       }
     }
+  });
+
+  it("도감의 모든 어종은 적어도 한 낚시터에서 출현한다", () => {
+    const assignedFishIds = new Set(
+      Object.values(FISHING_SPOTS).flatMap((spot) => spot.fishIds),
+    );
+
+    for (const fishId of Object.keys(FISH) as FishId[]) {
+      expect(assignedFishIds.has(fishId), `${fishId} 출현 낚시터`).toBe(true);
+    }
+  });
+
+  it("용비늘잉어를 급류 계곡의 전설 대표 어종으로 안내한다", () => {
+    const spot = FISHING_SPOTS.rapid_gorge;
+
+    expect(spot.fishIds).toContain("dragonscale_fish");
+    expect(spot.featuredFishIds).toContain("dragonscale_fish");
   });
 
   it("난이도별 역할이 나뉘고 어려운 낚시터에는 희귀 이상 어종이 있다", () => {

@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed on 2026-07-29 that every current game raster was created directly, generated through an account they control, or licensed for public distribution in this game, with no source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06 were generated for this repository in the operator-controlled Codex/OpenAI image-generation session. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -22,7 +22,8 @@
         "https://github.com/sea9401/test-adventure/pull/642",
         "https://github.com/sea9401/test-adventure/pull/643",
         "https://github.com/sea9401/test-adventure/pull/1423",
-        "https://github.com/sea9401/test-adventure/pull/1715"
+        "https://github.com/sea9401/test-adventure/pull/1715",
+        "https://github.com/sea9401/test-adventure/pull/2271"
       ]
     },
     {
@@ -328,6 +329,51 @@
     {
       "path": "public/images/fish/yellowtail.webp",
       "sha256": "685269bf762466458e4b10621061f07a3c14679d1fc0ddcfe18a685a64f11123",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/boss_trophy.webp",
+      "sha256": "e99a268c145a2fcd9974772b14b4830ca8107d86ad891a18443b3630c2c4bbcb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/equipment_mannequin.webp",
+      "sha256": "f5fb28ddc5da94e4f2bd85f814c1019b516332bdc342bc651b2722f1f030b738",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/herb_planter.webp",
+      "sha256": "7788d32e2c2016ad994940cfd322af85e4dca0e45b4ecdd17ca9b819de4c679b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/oak_desk.webp",
+      "sha256": "b7fdc219936a85e92d0b05c275d85cff2618760801fc0203eb4f6798d318cc59",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/record_shelf.webp",
+      "sha256": "58b685c16ee6b73fd382de444aa0a8191c003975c0660c9d8d1e3d32f8a794cb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/room_background.webp",
+      "sha256": "5ba962c8ecd19f6b8f83579a3799602cdcc45b1e8ca4ad71d4a7a450ae0ab507",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/traveler_bed.webp",
+      "sha256": "2ddc0206e7a5da9fa265272938ba6d15996a6080577c64542766f9c84d59f973",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/trophy_aquarium.webp",
+      "sha256": "d0a655246d9e4700898f80b237c0deafaa3f34183b02fbd9d8d2678af30231c5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/housing/weapon_rack.webp",
+      "sha256": "a0bc95f62a66ab7ddaf1a78ea9052434411e0bb5acced31d4fd1c20143b99b55",
       "source": "operator-cleared-game-art"
     },
     {

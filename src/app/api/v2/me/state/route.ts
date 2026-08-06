@@ -3,13 +3,15 @@ import { db } from "@/db";
 import { guilds, guildMembers, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { grantTitleIfMissing, ownedTitleIdsOf } from "@/lib/server/grantTitle";
+import { grantTitleIfMissing } from "@/lib/server/grantTitle";
+import { accountOwnedTitleIds } from "@/lib/server/titleAccess";
+import { isAdminEmail } from "@/lib/server/adminEmailAccess";
 import { stateHiddenTitleIds } from "@/lib/server/stateHiddenTitles";
 import {
   INSOMNIA_TITLE_ID,
   isInsomniaTitleWindow,
 } from "@/lib/server/insomniaTitle";
-import { ARENA_CHAMPION_TITLE_ID } from "@/adventure/data/titles";
+import { ARENA_CHAMPION_TITLE_ID, TITLES } from "@/adventure/data/titles";
 import { hasArenaChampionshipWin } from "@/adventure/data/v2/arenaChampionshipBadges";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
@@ -83,9 +85,9 @@ import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
   parseProfileBadgeStandVisible,
-  parseProfileShowcase,
   parseProfileShowcaseSlots,
   ownsProfileBadgeStand,
+  type ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
 import {
   STAMINA_POTIONS_KEY,
@@ -175,7 +177,7 @@ export async function GET(req: Request) {
     return gid;
   });
 
-  const [stateSaves, guildRow, resources] = await Promise.all([
+  const [stateSaves, guildRow, resources, userRow] = await Promise.all([
     readStateSaveRows(userId),
     guildId == null
       ? Promise.resolve(undefined)
@@ -200,6 +202,12 @@ export async function GET(req: Request) {
     guildId == null
       ? Promise.resolve(null)
       : db.transaction(async (tx) => readGuildResources(tx, guildId)),
+    db
+      .select({ gameName: users.gameName, email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .then((rows) => rows[0]),
   ]);
 
   const saveRow = (key: StateSaveKey): { value: unknown } | undefined =>
@@ -245,7 +253,10 @@ export async function GET(req: Request) {
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
   // "칭호" 탭이 소비. 보유 목록만 노출하므로 옛 V1 칭호(v2 에선 미획득)는 포함되지 않는다.
-  let ownedTitleIds = ownedTitleIdsOf(adventureLogRow?.value);
+  let ownedTitleIds = accountOwnedTitleIds(
+    adventureLogRow?.value,
+    isAdminEmail(userRow?.email),
+  );
   if (
     !ownedTitleIds.includes(INSOMNIA_TITLE_ID) &&
     isInsomniaTitleWindow(new Date())
@@ -278,6 +289,15 @@ export async function GET(req: Request) {
     ownedTitleIds.includes(charSave.equippedTitleId)
       ? charSave.equippedTitleId
       : null;
+  const ownedTitleIdSet = new Set(ownedTitleIds);
+  const profileShowcaseSlots = parseProfileShowcaseSlots(
+    stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
+  ).map((slot) =>
+    slot?.kind === "title" &&
+    (!TITLES[slot.titleId] || !ownedTitleIdSet.has(slot.titleId))
+      ? null
+      : slot,
+  ) as ProfileShowcaseSlots;
 
   // 현 거점 카드 — character.v2.lastVisitedOutpost → 점령/영주/금고 동봉(stateOutpost).
   const currentOutpost = await loadCurrentOutpost(
@@ -348,14 +368,6 @@ export async function GET(req: Request) {
       }
     : null;
   const combatStats = combatStatsSection(combat, maxHp, maxMp);
-
-  // 회원 탈퇴 확인용 권위 닉네임(users.gameName). v2 는 이 컬럼을 안 채워 보통 null →
-  // DeleteAccountModal 이 "탈퇴" 폴백을 쓰고 /api/account/delete 도 같은 폴백을 기대 → 일치.
-  const [userRow] = await db
-    .select({ gameName: users.gameName })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
 
   // 침입 상태 — 다른 길드 점령 거점에서 사냥한 TTL 내 기록(intruderTracking 과 동일 판정).
   // OutpostView 가 "이 거점에 침입 중 (토벌 가능)" 배너에 사용. 없으면 null.
@@ -466,12 +478,8 @@ export async function GET(req: Request) {
       now,
       charSave.arenaChampionshipBadges,
     ),
-    profileShowcase: parseProfileShowcase(
-      stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
-    ),
-    profileShowcaseSlots: parseProfileShowcaseSlots(
-      stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
-    ),
+    profileShowcase: profileShowcaseSlots[0],
+    profileShowcaseSlots,
     profileBadgeStandOwned: ownsProfileBadgeStand(charSave),
     profileBadgeStandVisible: parseProfileBadgeStandVisible(
       stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),

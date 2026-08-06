@@ -36,6 +36,19 @@ import {
   equippedMiningBonuses,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  LIFE_TOOL_BONUS_MATERIAL_PCT,
+  LIFE_TOOL_DURATION_REDUCTION_PCT,
+  LIFE_WORKSHOP_SAVE_KEY,
+  lifeGatheringBonusPct,
+  parseLifeWorkshopState,
+} from "@/adventure/v2/lifeWorkshop";
+import { lifeAidSpec } from "@/adventure/v2/lifeCrafting";
+import {
+  applyLifeFieldDurationReduction,
+  lifeFieldEnvironmentSnapshot,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
+import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -59,7 +72,8 @@ export async function POST(req: Request) {
   const spotId = body.spotId;
   const nodeId = pickMiningNodeId(spotId);
   const node = MINING_NODES[nodeId];
-  const [charSave, logRaw, skillsRaw, guardRaw] = await Promise.all([
+  const now = Date.now();
+  const [charSave, logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures] = await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(
       db,
       userId,
@@ -69,6 +83,8 @@ export async function POST(req: Request) {
     readSave(db, userId, MINING_LOG_KEY, {}),
     readSave(db, userId, "skills.v2", {}),
     readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
+    readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
+    readLifeFieldFeatureSettings(),
   ]);
   const verificationRequired = activityVerificationGateResponse(
     parseActivityGuardState(guardRaw),
@@ -79,10 +95,32 @@ export async function POST(req: Request) {
   const log = parseMiningLog(logRaw);
   const progression = miningProgressionView(log.successes, log.xp);
   const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
-  const durationMs = miningDurationWithPassive(
+  const workshop = parseLifeWorkshopState(workshopRaw);
+  const toolTier = workshop.tools.mining;
+  const activeAid = workshop.crafting.activeAids.mining;
+  const aidSpec = activeAid?.enabled ? lifeAidSpec(activeAid.itemId) : null;
+  const aidApplies = Boolean(aidSpec && node.grade >= aidSpec.gradeMin && node.grade <= aidSpec.gradeMax);
+  const durationReductionPct =
+    bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier];
+  const bonusOreChancePct = Math.min(
+    100,
+    bonuses.bonusOreChancePct +
+      LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
+      lifeGatheringBonusPct("mining", workshop, progression.level) +
+      (aidApplies ? aidSpec?.bonusPct ?? 0 : 0),
+  );
+  const baseAdjustedDurationMs = miningDurationWithPassive(
     node.durationMs,
     progression.level,
-    bonuses.durationReductionPct,
+    durationReductionPct,
+  );
+  const lifeEnvironment = lifeFeatures.environmentEnabled
+    ? lifeFieldEnvironmentSnapshot("mining", spotId, now)
+    : null;
+  const durationMs = applyLifeFieldDurationReduction(
+    node.durationMs,
+    baseAdjustedDurationMs,
+    lifeEnvironment?.environment.effect.durationReductionPct ?? 0,
   );
   const failureRate =
     miningFailureRate(node.baseFailureRate, progression.level) *
@@ -91,11 +129,14 @@ export async function POST(req: Request) {
     sessionId: randomUUID(),
     spotId,
     nodeId,
-    now: Date.now(),
+    now,
     durationMs,
     failureRate,
     failureRecoveryRate: bonuses.failureRecoveryPct / 100,
-    bonusOreRate: bonuses.bonusOreChancePct / 100,
+    bonusOreRate: bonusOreChancePct / 100,
+    aidItemId: aidApplies ? activeAid?.itemId : undefined,
+    lifeEnvironmentId: lifeEnvironment?.environment.id,
+    lifeEnvironmentDayKey: lifeEnvironment?.dayKey,
   });
 
   const started = await db.transaction(async (tx) => {
@@ -128,11 +169,12 @@ export async function POST(req: Request) {
     failureRate,
     successRate: 1 - failureRate,
     failureReductionPct: bonuses.failureReductionPct,
-    durationReductionPct: bonuses.durationReductionPct,
+    durationReductionPct,
     failureRecoveryPct: bonuses.failureRecoveryPct,
-    bonusOreChancePct: bonuses.bonusOreChancePct,
+    bonusOreChancePct,
     strikes: node.strikes,
     materials: miningMaterialBalances(charSave.materials),
     log,
+    lifeEnvironment,
   });
 }

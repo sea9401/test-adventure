@@ -1,19 +1,12 @@
 import { auth } from "@/auth";
+import {
+  isAdminEmail,
+  isSuperAdminEmail,
+  roleAdminEmails,
+  superAdminEmails,
+} from "@/lib/server/adminEmailAccess";
 
-function getAdminEmails(): Set<string> {
-  const raw = process.env.ADMIN_EMAILS ?? "";
-  return new Set(
-    raw
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
-
-/** 가장·계정 작업처럼 최고 권한이 필요한 경로의 동기 검사용. */
-export function isSuperAdminEmail(email: string | null | undefined): boolean {
-  return typeof email === "string" && getAdminEmails().has(email.toLowerCase());
-}
+export { isAdminEmail, isSuperAdminEmail } from "@/lib/server/adminEmailAccess";
 
 export type AdminRole = "readonly" | "reward" | "sanction" | "super";
 
@@ -25,13 +18,10 @@ export type AdminCapabilities = {
 };
 
 function getRoleEmails(envKey: string): Set<string> {
-  const raw = process.env[envKey] ?? "";
-  return new Set(
-    raw
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean),
-  );
+  if (envKey === "OPS_REWARD_EMAILS") return roleAdminEmails("reward");
+  if (envKey === "OPS_SANCTION_EMAILS") return roleAdminEmails("sanction");
+  if (envKey === "OPS_READONLY_EMAILS") return roleAdminEmails("readonly");
+  return new Set();
 }
 
 export async function currentAdminRole(): Promise<AdminRole | null> {
@@ -47,7 +37,7 @@ export async function currentAdminRole(): Promise<AdminRole | null> {
 
 export function getAdminRoleConfigSummary(): Record<AdminRole, number> {
   return {
-    super: getAdminEmails().size,
+    super: superAdminEmails().size,
     reward: getRoleEmails("OPS_REWARD_EMAILS").size,
     sanction: getRoleEmails("OPS_SANCTION_EMAILS").size,
     readonly: getRoleEmails("OPS_READONLY_EMAILS").size,
@@ -82,11 +72,12 @@ export async function currentAdminCapabilities(): Promise<AdminCapabilities> {
 
 /** 관리자 이메일 리스트 (소문자). 랭킹 등 admin 제외 SQL 필터 합성에 사용. */
 export function getAdminEmailsList(): string[] {
-  return Array.from(getAdminEmails());
+  return Array.from(superAdminEmails());
 }
 
 export async function isCurrentUserAdmin(): Promise<boolean> {
-  return (await currentAdminRole()) != null;
+  const session = await auth();
+  return isAdminEmail(session?.user?.email);
 }
 
 export async function requireAdmin(): Promise<Response | null> {

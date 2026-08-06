@@ -13,6 +13,10 @@ import {
   WOODCUTTING_XP_PER_CUT,
   woodcuttingFailureRate,
 } from "./woodcuttingProgression";
+import {
+  isLifeFieldEnvironmentId,
+  type LifeFieldEnvironmentId,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
 
 export {
   WOODCUTTING_MATERIALS,
@@ -36,6 +40,9 @@ export type WoodcuttingSession = {
   failureRate?: number;
   failureRecoveryRate?: number;
   bonusLogRate?: number;
+  aidItemId?: string;
+  lifeEnvironmentId?: LifeFieldEnvironmentId;
+  lifeEnvironmentDayKey?: string;
 };
 
 export function isWoodcuttingTreeId(id: string): id is WoodcuttingTreeId {
@@ -69,6 +76,9 @@ export function createWoodcuttingSession(args: {
   failureRate?: number;
   failureRecoveryRate?: number;
   bonusLogRate?: number;
+  aidItemId?: string;
+  lifeEnvironmentId?: LifeFieldEnvironmentId;
+  lifeEnvironmentDayKey?: string;
 }): WoodcuttingSession {
   const durationMs = Math.max(
     1_000,
@@ -89,6 +99,13 @@ export function createWoodcuttingSession(args: {
       Math.max(0, Number(args.failureRecoveryRate) || 0),
     ),
     bonusLogRate: Math.min(1, Math.max(0, Number(args.bonusLogRate) || 0)),
+    ...(args.aidItemId ? { aidItemId: args.aidItemId } : {}),
+    ...(args.lifeEnvironmentId
+      ? {
+          lifeEnvironmentId: args.lifeEnvironmentId,
+          lifeEnvironmentDayKey: args.lifeEnvironmentDayKey,
+        }
+      : {}),
   };
 }
 
@@ -118,6 +135,15 @@ export function parseWoodcuttingSession(raw: unknown): WoodcuttingSession | null
     bonusLogRate: Number.isFinite(storedBonusLogRate)
       ? Math.min(1, Math.max(0, storedBonusLogRate))
       : undefined,
+    aidItemId: typeof value.aidItemId === "string" ? value.aidItemId : undefined,
+    lifeEnvironmentId:
+      isLifeFieldEnvironmentId(value.lifeEnvironmentId)
+        ? value.lifeEnvironmentId
+        : undefined,
+    lifeEnvironmentDayKey:
+      typeof value.lifeEnvironmentDayKey === "string"
+        ? value.lifeEnvironmentDayKey
+        : undefined,
   };
 }
 

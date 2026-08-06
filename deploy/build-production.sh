@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build into the usual .next path while keeping the last successful build
 # recoverable. If the new build fails, restore the previous output before the
-# deploy workflow removes the maintenance page.
+# deploy workflow verifies the new runtime while leaving maintenance enabled.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

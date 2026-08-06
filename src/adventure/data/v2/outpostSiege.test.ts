@@ -7,10 +7,8 @@ import {
   siegeDamage,
   undefendedSiegeDamage,
   FORT_REGEN_PER_HOUR,
-  FORT_HP_PER_REPAIR_KIT,
   currentFortHp,
   isOutpostProtected,
-  repairFromKits,
   siegeWinsToFall,
   tileFortMaxHp,
 } from "./outpostSiege";
@@ -47,29 +45,6 @@ describe("isOutpostProtected (보호막)", () => {
   it("과거/현재면 해제", () => {
     expect(isOutpostProtected(new Date(now.getTime() - 1), now)).toBe(false);
     expect(isOutpostProtected(now, now)).toBe(false);
-  });
-});
-
-describe("repairFromKits (성벽 수리 키트 소비)", () => {
-  it("결손/키트 0 이면 {0,0}", () => {
-    expect(repairFromKits(0, 10)).toEqual({ hp: 0, kitsUsed: 0 });
-    expect(repairFromKits(40, 0)).toEqual({ hp: 0, kitsUsed: 0 });
-  });
-  it("키트가 충분하면 결손분 전부 — 마지막 키트 초과분은 버림(이산)", () => {
-    // 결손 100 = 키트 1개 정확.
-    expect(repairFromKits(FORT_HP_PER_REPAIR_KIT, 5)).toEqual({
-      hp: FORT_HP_PER_REPAIR_KIT,
-      kitsUsed: 1,
-    });
-    // 결손 250 → 키트 3개 사용, hp 는 결손으로 캡(250, 50 버림).
-    expect(repairFromKits(250, 5)).toEqual({ hp: 250, kitsUsed: 3 });
-  });
-  it("키트가 한도면 가진 만큼만(키트당 100)", () => {
-    // 결손 500, 키트 2개 → 200 회복.
-    expect(repairFromKits(500, 2)).toEqual({
-      hp: 2 * FORT_HP_PER_REPAIR_KIT,
-      kitsUsed: 2,
-    });
   });
 });
 

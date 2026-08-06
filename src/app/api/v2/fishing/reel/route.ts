@@ -109,6 +109,23 @@ import {
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { getFishingSpot } from "@/adventure/data/v2/fishingSpots";
+import {
+  LIFE_FIELD_DISCOVERIES,
+  lifeFieldDiscoveryReward,
+} from "@/adventure/v2/lifeFieldRecords";
+import {
+  LIFE_FIELD_ENVIRONMENTS,
+  lifeFieldEnvironmentSnapshot,
+  lifeFieldXpBonus,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
+import {
+  lifeFieldSessionRoll,
+  recordLifeFieldSuccessInTx,
+} from "@/lib/server/lifeFieldProgress";
+import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -240,6 +257,30 @@ export async function POST(req: Request) {
       };
     }
 
+    const fishingSpotId = getFishingSpot(session.fishingSpotId).id;
+    const lifeFeatures = await readLifeFieldFeatureSettings(tx);
+    const lifeEnvironmentId =
+      session.lifeEnvironmentId ??
+      lifeFieldEnvironmentSnapshot("fishing", fishingSpotId, now).environment.id;
+    const lifeEnvironment = LIFE_FIELD_ENVIRONMENTS[lifeEnvironmentId];
+    const lifeField = await recordLifeFieldSuccessInTx(tx, userId, {
+      activity: "fishing",
+      sourceId: fishingSpotId,
+      environmentId: lifeEnvironmentId,
+      sessionId: session.castId,
+      now,
+      features: lifeFeatures,
+    });
+    const completedDiscovery = lifeField.completedTrace
+      ? LIFE_FIELD_DISCOVERIES[lifeField.completedTrace.discoveryId]
+      : null;
+    const discoveryReward =
+      completedDiscovery && lifeFeatures.discoveryRewardsEnabled
+        ? lifeFieldDiscoveryReward(completedDiscovery.rare)
+        : null;
+    const discoveryRewardCoins = discoveryReward?.resource ?? 0;
+    const discoveryRewardXp = discoveryReward?.xp ?? 0;
+
     const streak = nextFishingStreak(
       await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
     );
@@ -285,10 +326,17 @@ export async function POST(req: Request) {
       fishingXpForCatch(session.fishId),
       new Date(now),
     );
+    const environmentXpGained = lifeFeatures.environmentEnabled
+      ? lifeFieldXpBonus(
+          fishingXpForCatch(session.fishId),
+          lifeEnvironment.effect.xpBonusPct ?? 0,
+          lifeFieldSessionRoll(session.castId, "xp-bonus"),
+        )
+      : 0;
     const progressResult = addFishingCatchXp(
       progressBefore,
       session.fishId,
-      diningXp.bonus,
+      diningXp.bonus + environmentXpGained + discoveryRewardXp,
     );
     await upsertSave(
       tx,
@@ -428,13 +476,20 @@ export async function POST(req: Request) {
         ? applyPctBonus(baseLevelRewardCoins, hotTime.bonuses.fishingCoinPct)
         : baseLevelRewardCoins;
     const hotTimeLevelBonus = bonusDelta(baseLevelRewardCoins, levelRewardCoins);
-    const walletAfterCoins =
+    const walletAfterBaseRewards =
       levelRewardCoins > 0
         ? fishingWalletWithCoins(
             coinResult.next,
             coinResult.next.coins + levelRewardCoins,
           )
         : coinResult.next;
+    const walletAfterCoins =
+      discoveryRewardCoins > 0
+        ? fishingWalletWithCoins(
+            walletAfterBaseRewards,
+            walletAfterBaseRewards.coins + discoveryRewardCoins,
+          )
+        : walletAfterBaseRewards;
     await upsertSave(tx, userId, FISHING_WALLET_KEY, walletAfterCoins);
 
     const coopBoss = await trySpawnFishingCoopBoss(tx, {
@@ -449,9 +504,22 @@ export async function POST(req: Request) {
       1,
       new Date(now),
     );
+    let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
+    let crafting = workshop.crafting;
+    const activeAid = crafting.activeAids.fishing;
+    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
+      const activeAids = { ...crafting.activeAids };
+      if (activeAid.remainingUses <= 1) delete activeAids.fishing;
+      else activeAids.fishing = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
+      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
+    }
+    const blueprint = rollHiddenBlueprint(crafting, "fishing");
+    workshop = { ...workshop, crafting: blueprint.state };
+    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
 
     return {
       caught: true as const,
+      blueprintRecipeId: blueprint.recipe?.id ?? null,
       fishId: session.fishId,
       size: session.size,
       isNewSpecies,
@@ -481,6 +549,9 @@ export async function POST(req: Request) {
       },
       dailyCatchCoins: fishingCatchCoinProgress(walletAfterCoins, dayKey),
       fishingXpGained: progressResult.xpGained,
+      environmentXpGained,
+      discoveryRewardCoins,
+      discoveryRewardXp,
       fishingLevel: progressView.level,
       fishingLevelUp: progressResult.leveledUp,
       fishingCatches: progressView.catches,
@@ -513,8 +584,27 @@ export async function POST(req: Request) {
       guardBehaviorSignal: guardUpdate.behaviorSignal,
       guardStrongSignal,
       nextActionAt,
+      lifeEnvironment: lifeFeatures.environmentEnabled ? lifeEnvironment : null,
+      lifeField: {
+        newRecordIds: lifeField.newRecordIds,
+        foundTrace: lifeField.foundTrace,
+        completedTrace: lifeField.completedTrace,
+      },
+      lifeFieldFeedEnabled: lifeFeatures.feedEnabled,
     };
   });
+
+  if (result.caught && result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.blueprintRecipeId });
+  if (
+    result.caught &&
+    result.lifeFieldFeedEnabled &&
+    result.lifeField.completedTrace &&
+    LIFE_FIELD_DISCOVERIES[result.lifeField.completedTrace.discoveryId].rare
+  ) {
+    await insertFeedEntry(userId, "life_discovery", {
+      discoveryId: result.lifeField.completedTrace.discoveryId,
+    });
+  }
 
   if (!result.caught && result.reason === "auto_active") {
     return Response.json(
@@ -698,6 +788,9 @@ export async function POST(req: Request) {
     catchItemDaily: result.catchItemDaily,
     dailyCatchCoins: result.dailyCatchCoins,
     fishingXpGained: result.fishingXpGained,
+    environmentXpGained: result.environmentXpGained,
+    discoveryRewardCoins: result.discoveryRewardCoins,
+    discoveryRewardXp: result.discoveryRewardXp,
     fishingLevel: result.fishingLevel,
     fishingLevelUp: result.fishingLevelUp,
     fishingCatches: result.fishingCatches,
@@ -716,5 +809,7 @@ export async function POST(req: Request) {
     },
     hotTime: result.hotTime,
     nextActionAt: result.nextActionAt,
+    lifeEnvironment: result.lifeEnvironment,
+    lifeField: result.lifeField,
   });
 }

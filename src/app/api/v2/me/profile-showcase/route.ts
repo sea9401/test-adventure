@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { users } from "@/db/schema";
 import { TITLES } from "@/adventure/data/titles";
 import {
   V2_QUESTS,
@@ -9,7 +11,6 @@ import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
   parseProfileBadgeStandVisible,
-  parseProfileShowcase,
   parseProfileShowcaseSelection,
   parseProfileShowcaseSlots,
   ownsProfileBadgeStand,
@@ -17,7 +18,11 @@ import {
   type ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
+import {
+  accountOwnedTitleIds,
+  titleIsAvailableToAccount,
+} from "@/lib/server/titleAccess";
+import { isAdminEmail } from "@/lib/server/adminEmailAccess";
 import {
   GUIDE_QUESTS_KEY,
   parseClaimed,
@@ -28,6 +33,18 @@ import {
   upsertSave,
 } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+
+function usableTitleSlots(
+  slots: ProfileShowcaseSlots,
+  ownedTitleIds: ReadonlySet<string>,
+): ProfileShowcaseSlots {
+  return slots.map((slot) =>
+    slot?.kind === "title" &&
+    (!TITLES[slot.titleId] || !ownedTitleIds.has(slot.titleId))
+      ? null
+      : slot,
+  ) as ProfileShowcaseSlots;
+}
 
 export async function GET(req: Request) {
   const userId = await ensureUser();
@@ -43,21 +60,33 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
 
-  const [showcaseRaw, adventureLogRaw, claimedRaw, characterRaw] = await Promise.all([
+  const [showcaseRaw, adventureLogRaw, claimedRaw, characterRaw, userRow] = await Promise.all([
     readSave(db, userId, PROFILE_SHOWCASE_SAVE_KEY, {}),
     readSave(db, userId, "adventure-log.v2", {}),
     readSave(db, userId, GUIDE_QUESTS_KEY, {}),
     readSave(db, userId, "character.v2", {}),
+    db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .then((rows) => rows[0]),
   ]);
-  const ownedTitleIds = new Set(ownedTitleIdsOf(adventureLogRaw));
+  const ownedTitleIds = new Set(
+    accountOwnedTitleIds(adventureLogRaw, isAdminEmail(userRow?.email)),
+  );
   const claimed = parseClaimed(claimedRaw);
+  const slots = usableTitleSlots(
+    parseProfileShowcaseSlots(showcaseRaw),
+    ownedTitleIds,
+  );
 
   return Response.json({
     ok: true,
     standOwned: ownsProfileBadgeStand(characterRaw),
     visible: parseProfileBadgeStandVisible(showcaseRaw),
-    selection: parseProfileShowcase(showcaseRaw),
-    slots: parseProfileShowcaseSlots(showcaseRaw),
+    selection: slots[0],
+    slots,
     titleOptions: Object.values(TITLES)
       .filter((title) => ownedTitleIds.has(title.id))
       .map(({ id, name, description }) => ({ id, name, description })),
@@ -72,6 +101,16 @@ export async function GET(req: Request) {
       desc,
       points: points ?? 0,
       badgeTier,
+    })),
+    trophyOptions: V2_QUESTS.filter(
+      (quest) => !isTutorialLine(quest.line) && quest.badgeTier != null,
+    ).map(({ id, title, desc, points, badgeTier }) => ({
+      id,
+      title,
+      desc,
+      points: points ?? 0,
+      badgeTier,
+      unlocked: claimed.has(id),
     })),
   });
 }
@@ -142,19 +181,28 @@ export async function POST(req: Request) {
     }
   }
 
-  const [characterRaw, equipmentRaw, adventureLogRaw, claimedRaw] =
+  const [characterRaw, equipmentRaw, adventureLogRaw, claimedRaw, userRow] =
     await Promise.all([
       readSave(db, userId, "character.v2", {}),
       readSave(db, userId, "equipment.v2", {}),
       readSave(db, userId, "adventure-log.v2", {}),
       readSave(db, userId, GUIDE_QUESTS_KEY, {}),
+      db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+        .then((rows) => rows[0]),
     ]);
   if (!ownsProfileBadgeStand(characterRaw)) {
     return Response.json({ ok: false, error: "stand_required" }, { status: 403 });
   }
 
   const { owned } = parseEquipmentSave(equipmentRaw);
-  const ownedTitleIds = new Set(ownedTitleIdsOf(adventureLogRaw));
+  const isAdminAccount = isAdminEmail(userRow?.email);
+  const ownedTitleIds = new Set(
+    accountOwnedTitleIds(adventureLogRaw, isAdminAccount),
+  );
   const claimed = parseClaimed(claimedRaw);
 
   for (const slot of requestedSlots ?? []) {
@@ -163,7 +211,10 @@ export async function POST(req: Request) {
         return Response.json({ ok: false, error: "not_owned" }, { status: 400 });
       }
     } else if (slot?.kind === "title") {
-      if (!TITLES[slot.titleId]) {
+      if (
+        !TITLES[slot.titleId] ||
+        !titleIsAvailableToAccount(slot.titleId, isAdminAccount)
+      ) {
         return Response.json(
           { ok: false, error: "unknown_title" },
           { status: 400 },
@@ -197,7 +248,10 @@ export async function POST(req: Request) {
       PROFILE_SHOWCASE_SAVE_KEY,
       {},
     );
-    const slots = requestedSlots ?? parseProfileShowcaseSlots(currentRaw);
+    const slots = usableTitleSlots(
+      requestedSlots ?? parseProfileShowcaseSlots(currentRaw),
+      ownedTitleIds,
+    );
     const visible =
       typeof body.visible === "boolean"
         ? body.visible

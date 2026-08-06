@@ -69,6 +69,33 @@ describe("자동 생활 작업", () => {
     });
   });
 
+  it("시작 시 고정한 현장 환경 보너스를 자동 정산에 적용한다", () => {
+    const session = createAutoGatheringSession({
+      sessionId: "field-auto",
+      sourceId: "pine",
+      sourceName: "소나무",
+      materialId: "timber",
+      now: 0,
+      cycleDurationMs: 90_000,
+      successRate: 1,
+      baseXp: 10,
+      spotId: "greenwood_edge",
+      lifeEnvironmentId: "woodcutting_dense_growth",
+      lifeEnvironmentDayKey: "2026-08-06",
+      environmentPrimaryBonusChance: 0.05,
+      environmentXpBonusPct: 8,
+    });
+    const result = settleAutoGathering(
+      beginAutoGathering(emptyAutoGatheringState(), session),
+    );
+    expect(result).toMatchObject({
+      attempts: 20,
+      successes: 20,
+      materialsGained: 16,
+      xpGained: 151,
+    });
+  });
+
   it("기존 저장 세션은 30분 기본 작업 효율로 호환한다", () => {
     const state = parseAutoGatheringState({
       session: {

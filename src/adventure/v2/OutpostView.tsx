@@ -14,8 +14,6 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
-import { FORT_HP_PER_REPAIR_KIT } from "@/adventure/data/v2/outpostSiege";
-import { WALL_REPAIR_KIT_ID } from "@/adventure/data/v2/settlementMaterials";
 import { type ClaimResult } from "./ClaimResultCard";
 import { useGameState } from "./GameStateProvider";
 import {
@@ -108,26 +106,7 @@ export function OutpostView({
   } | null>(null);
   // 약탈/정복 직후 "최근 공격 기록" 패널 재조회 트리거 — bump 하면 OutpostAttackLog 가 refetch.
   const [attackLogReload, setAttackLogReload] = useState(0);
-  // 성벽 수동 수리 — 진행 상태 + 결과 메시지(성공/실패). 점령 길드 멤버 전용.
-  const [repairing, setRepairing] = useState(false);
-  const [repairResult, setRepairResult] = useState<string | null>(null);
-  // 성벽 수리 키트 보유수 — /me/inventory 로 초기화, 수리 응답으로 갱신. 키트 조합은 제작소.
-  const [repairKits, setRepairKits] = useState(0);
   const [warVigor, setWarVigor] = useState<WarVigor | null>(null);
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/v2/me/inventory")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!alive) return;
-        const m = (j?.materials ?? {}) as Record<string, number>;
-        setRepairKits(Number(m[WALL_REPAIR_KIT_ID]) || 0);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
   useEffect(() => {
     if (!V2_SETTLEMENT_WARFARE) return;
     let alive = true;
@@ -489,58 +468,6 @@ export function OutpostView({
     }
   }
 
-  // 성벽 수동 수리 — 점령 길드원이 본인 인벤의 성벽 수리 키트로 결손분 보강(키트 1개=+100 HP).
-  //   옛 골드 수리 폐지 대체(능동 방어). 키트가 곧 방어 비용.
-  async function attemptRepair() {
-    setRepairing(true);
-    setRepairResult(null);
-    try {
-      const res = await fetch("/api/v2/outpost/repair", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ outpostId: outpost.id }),
-      });
-      const json = (await res.json().catch(() => null)) as
-        | {
-            ok: true;
-            fortHp: number;
-            fortMaxHp: number;
-            repairedHp: number;
-            kitsSpent: number;
-            kitsLeft: number;
-          }
-        | { ok: false; error: string }
-        | null;
-      if (!json) {
-        setRepairResult(`응답 오류 (http ${res.status})`);
-        return;
-      }
-      if (!json.ok) {
-        setRepairResult(raidErrorMsg(json.error));
-        return;
-      }
-      setRepairKits(json.kitsLeft);
-      if (json.repairedHp > 0) {
-        setRepairResult(
-          `성벽 +${json.repairedHp.toLocaleString()} 수리 (수리 키트 ${json.kitsSpent}개 소비 · 남은 키트 ${json.kitsLeft}개)`,
-        );
-      } else {
-        setRepairResult(
-          json.fortHp >= json.fortMaxHp
-            ? "이미 성벽이 가득 찼습니다."
-            : "성벽 수리 키트가 없습니다 — 소나무 원목·철광석으로 조합하세요.",
-        );
-      }
-      // 성벽 HP 갱신을 헤더 바에 즉시 반영.
-      onAction({ kind: "claimed" });
-    } catch (err) {
-      setRepairResult(`network: ${(err as Error).message}`);
-    } finally {
-      setRepairing(false);
-    }
-  }
-
-
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
@@ -610,33 +537,6 @@ export function OutpostView({
         {V2_SETTLEMENT_WARFARE && warVigor && (
           <WarVigorBar warVigor={warVigor} />
         )}
-        {/* 성벽 수동 수리 — 점령 길드 멤버만. 성벽 수리 키트(통나무3+철광석3 조합) 소비. 능동 방어. */}
-        {V2_SETTLEMENT_WARFARE &&
-          ownByMyGuild &&
-          occupation?.fortHp != null &&
-          occupation.fortMaxHp != null && (
-            <div className="mt-2 space-y-1">
-              {occupation.fortHp < occupation.fortMaxHp && (
-                <button
-                  type="button"
-                  onClick={attemptRepair}
-                  disabled={repairing || repairKits <= 0}
-                  className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-950"
-                >
-                  {repairing
-                    ? "수리 중…"
-                    : repairKits <= 0
-                      ? "성벽 수리 — 수리 키트 없음 (제작소에서 제작)"
-                      : `성벽 수리 — 수리 키트 사용 (1개당 +${FORT_HP_PER_REPAIR_KIT} HP · 보유 ${repairKits}개)`}
-                </button>
-              )}
-              {repairResult && (
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {repairResult}
-                </p>
-              )}
-            </div>
-          )}
       </HeaderPanel>
 
       <section className="space-y-2">

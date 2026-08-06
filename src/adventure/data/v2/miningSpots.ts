@@ -26,9 +26,9 @@ export const MINING_MATERIAL_ID = {
 export type MiningMaterialId =
   (typeof MINING_MATERIAL_ID)[keyof typeof MINING_MATERIAL_ID];
 
-// 채광 부산물은 소비처가 마련될 때까지 비활성화한다. 기존 보유분/거래소 호환을 위해
-// 재료 카탈로그와 광맥별 확률 데이터는 유지하고, 실제 드롭과 UI 노출만 이 플래그로 막는다.
-export const MINING_BYPRODUCTS_ENABLED = false;
+// 채광 부산물은 생활 도구 강화의 소모 재료로 사용한다. 기존 보유분·거래소 호환을
+// 유지하면서 직접/자동 채광 모두 같은 확률 데이터로 드롭한다.
+export const MINING_BYPRODUCTS_ENABLED = true;
 
 export const MINING_MATERIALS: Record<
   MiningMaterialId,
@@ -37,7 +37,7 @@ export const MINING_MATERIALS: Record<
   [MINING_MATERIAL_ID.iron]: {
     ...SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.ironOre],
     description:
-      "거친 철광맥에서 캐낸 기초 금속 광석. 정착지 발전과 수리 키트 제작에 쓴다.",
+      "거친 철광맥에서 캐낸 기초 금속 광석. 정착지 발전과 거래에 쓴다.",
   },
   [MINING_MATERIAL_ID.copper]: {
     id: MINING_MATERIAL_ID.copper,
@@ -270,11 +270,12 @@ export function miningNodeForSpot(spot: MiningSpot): MiningNode {
 export function rollMiningByproducts(
   node: MiningNode,
   rng: () => number = Math.random,
+  chanceMultiplier = 1,
 ): Partial<Record<MiningMaterialId, number>> {
   if (!MINING_BYPRODUCTS_ENABLED) return {};
   const drops: Partial<Record<MiningMaterialId, number>> = {};
   for (const rule of node.byproducts) {
-    if (rng() < rule.chance) drops[rule.materialId] = 1;
+    if (rng() < Math.min(1, rule.chance * Math.max(0, chanceMultiplier))) drops[rule.materialId] = 1;
   }
   return drops;
 }

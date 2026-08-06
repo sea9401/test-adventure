@@ -20,5 +20,10 @@ export default function PlayerCharacterPage() {
   } catch {
     // malformed 시퀀스/이미 디코드됨 → 원본 그대로 사용.
   }
-  return <V2CharacterScreen playerName={name} onBack={() => router.back()} />;
+  return (
+    <V2CharacterScreen
+      playerName={name}
+      onBack={() => router.back()}
+    />
+  );
 }

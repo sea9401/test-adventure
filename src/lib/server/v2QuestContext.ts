@@ -83,6 +83,10 @@ import {
   parseCookingState,
 } from "@/adventure/v2/cooking";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+import { parseLifeRequestsState } from "@/adventure/v2/lifeRequests";
+import { lifeFieldRecordSummary } from "@/adventure/v2/lifeFieldRecords";
 
 type CharSave = {
   class?: unknown;
@@ -140,6 +144,10 @@ export function buildQuestCtx(args: {
   equipmentCodexRaw?: unknown;
   masteryTowerRaw?: unknown;
   cookingRaw?: unknown;
+  lifeWorkshopRaw?: unknown;
+  lifeRequestsRaw?: unknown;
+  lifeFieldRecordsRaw?: unknown;
+  lifeFieldMilestonesEnabled?: boolean;
   extras: QuestExtras;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
@@ -252,6 +260,9 @@ export function buildQuestCtx(args: {
   const equipmentCodex = equipmentCodexSummary(args.equipmentCodexRaw);
   const masteryTower = parseMasteryTowerState(args.masteryTowerRaw);
   const cooking = parseCookingState(args.cookingRaw);
+  const lifeWorkshop = parseLifeWorkshopState(args.lifeWorkshopRaw);
+  const lifeRequests = parseLifeRequestsState(args.lifeRequestsRaw, "", "");
+  const lifeFieldRecords = lifeFieldRecordSummary(args.lifeFieldRecordsRaw);
   const cookingLevel = cookingLevelForXp(cooking.xp);
   const cookingRecipesDiscovered = cooking.discoveredRecipeIds.length;
 
@@ -311,6 +322,24 @@ export function buildQuestCtx(args: {
     miningSuccesses: mining.successes,
     miningByproducts: mining.byproductsEarned,
     miningSpecies: Object.keys(mining.nodes).length,
+    lifeProcessingBatches: lifeWorkshop.processing.batches,
+    lifeProcessingGreatSuccesses: lifeWorkshop.processing.greatSuccesses,
+    lifeProcessedTypes: lifeWorkshop.processing.discoveredMaterialIds.length,
+    maxLifeToolTier: Math.max(
+      lifeWorkshop.tools.woodcutting,
+      lifeWorkshop.tools.mining,
+    ),
+    lifeCraftingTotal: lifeWorkshop.crafting.totalCrafts,
+    lifeCraftedTypes: lifeWorkshop.crafting.discoveredRecipeIds.length,
+    lifeFurnitureTypes: lifeWorkshop.crafting.discoveredRecipeIds.filter((id) => LIFE_CRAFTING_RECIPE_BY_ID.get(id)?.kind === "furniture").length,
+    lifeHiddenBlueprints: lifeWorkshop.crafting.learnedHiddenRecipeIds.length,
+    lifeMasteredRecipes: Object.values(lifeWorkshop.crafting.craftCounts).filter((count) => count >= 100).length,
+    lifeAidUses: lifeWorkshop.crafting.aidsUsed,
+    lifeRequestDeliveries: lifeRequests.stats.totalDeliveries,
+    lifeFieldBasicRecords: lifeFieldRecords.basic.discovered,
+    lifeFieldAllRecords:
+      lifeFieldRecords.basic.discovered + lifeFieldRecords.rare.discovered,
+    lifeFieldMilestonesEnabled: args.lifeFieldMilestonesEnabled !== false,
     fishingLevel: fishingLevelForXp(fishing.xp),
     fishCaught: fishing.catches,
     equipmentCodexRegistered: equipmentCodex.registeredCount,

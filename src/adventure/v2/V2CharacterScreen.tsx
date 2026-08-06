@@ -24,6 +24,8 @@ import type {
   ProfileShowcaseSelection,
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
+import type { LifeSummary } from "./lifeSummary";
+import { LifeMasterySummaryCard } from "./LifeMasterySummaryCard";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -121,12 +123,15 @@ export function V2CharacterScreen({
   // 다른 모험가 공개 보기 — 닉네임. 있으면 /api/v2/player/[name] 에서 공개 정보만 받고
   // 골드/EXP 등 사적 값은 숨긴다. 없으면 본인 /me 정보(기존 동작).
   playerName,
+  onOpenTrophies,
 }: {
   onBack?: () => void;
   playerName?: string;
+  onOpenTrophies?: () => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
+  const [lifeSummary, setLifeSummary] = useState<LifeSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -148,16 +153,24 @@ export function V2CharacterScreen({
           setState({ ok: false });
           setEquipment(null);
         }
+        setLifeSummary(null);
         return;
       }
-      const [stateRes, equipRes] = await Promise.all([
+      const [stateRes, equipRes, lifeRes] = await Promise.all([
         fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
+        fetch("/api/v2/me/life-summary")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
       setState(stateRes as StateResponse | null);
       setEquipment(equipRes as EquipmentResponse | null);
+      setLifeSummary(
+        (lifeRes as { summary?: LifeSummary } | null)?.summary ?? null,
+      );
     } catch {
       setState({ ok: false });
+      setLifeSummary(null);
     } finally {
       setLoading(false);
     }
@@ -205,6 +218,7 @@ export function V2CharacterScreen({
           profileBadgeStandOwned={state?.profileBadgeStandOwned === true}
           profileBadgeStandVisible={state?.profileBadgeStandVisible !== false}
           showcaseEditable={!playerName}
+          onOpenTrophies={playerName ? undefined : onOpenTrophies}
           profileImageMotion="animated"
         />
       ) : loading ? (
@@ -229,6 +243,13 @@ export function V2CharacterScreen({
           power={combat?.power ?? 0}
         />
       )}
+
+      {character && lifeSummary && !playerName ? (
+        <LifeMasterySummaryCard
+          level={lifeSummary.lifeMastery.level}
+          maxLevel={lifeSummary.lifeMastery.maxLevel}
+        />
+      ) : null}
 
       {character && state?.artisan?.blacksmith && (
         <Card padding="md">

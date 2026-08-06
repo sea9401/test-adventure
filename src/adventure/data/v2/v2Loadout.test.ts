@@ -13,6 +13,7 @@ const STRIKE: V2SkillId = "v2_skill_strike"; // 기본기(공격 t1)
 const RECOVER: V2SkillId = "v2_skill_recover"; // 기본기(힐 t1)
 const WARCRY: V2SkillId = "v2c_warrior_warcry"; // 공용(버프)
 const SUNDER: V2SkillId = "v2c_warrior_sunder"; // 공용(공격·디버프)
+const FARMING: V2SkillId = "v2c_farmer_seedselection"; // 생활(농사·SP 0)
 
 describe("validateLoadout — SP 예산 + 학습", () => {
   const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, SUNDER];
@@ -66,9 +67,18 @@ describe("clampLoadoutToBudget — 예산까지 순서 보존 greedy", () => {
     expect(out).toEqual([RECOVER]);
   });
 
-  it("예산 0/음수 = 빈 로드아웃", () => {
+  it("예산 0/음수에서는 유료 전투 스킬을 제외한다", () => {
     expect(clampLoadoutToBudget([STRIKE, RECOVER], 0)).toEqual([]);
     expect(clampLoadoutToBudget([STRIKE], -5)).toEqual([]);
+  });
+
+  it("예산이 0이어도 SP 0 생활 스킬은 장착 상태를 보존한다", () => {
+    expect(clampLoadoutToBudget([STRIKE, FARMING, RECOVER], 0)).toEqual([
+      FARMING,
+    ]);
+    const checked = validateLoadout([FARMING], [FARMING], 0);
+    expect(checked.ok).toBe(true);
+    expect(checked.spUsed).toBe(0);
   });
 
   it("카탈로그에 없는 id 는 건너뜀", () => {

@@ -3,9 +3,11 @@
 import {
   Backpack,
   BookOpen,
+  ChartBar,
   Compass,
   Lightning,
   Sparkle,
+  Trophy,
   UserCircle,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
@@ -17,10 +19,12 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 export type CharacterAction =
   | { kind: "open-info" }
+  | { kind: "open-life" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
   | { kind: "open-shrine" }
   | { kind: "open-quests" }
+  | { kind: "open-trophies" }
   | { kind: "open-codex" };
 
 export function V2CharacterMenu({
@@ -38,6 +42,14 @@ export function V2CharacterMenu({
           }
           title="내 정보"
           onClick={() => onAction({ kind: "open-info" })}
+        />
+        <EntryCard
+          icon={
+            <ChartBar size={28} weight="duotone" className="text-emerald-600" />
+          }
+          title="생활 기록"
+          description="생활 숙련도와 누적 활동 기록을 한눈에 확인합니다."
+          onClick={() => onAction({ kind: "open-life" })}
         />
         <EntryCard
           icon={
@@ -66,6 +78,14 @@ export function V2CharacterMenu({
           }
           title="성장의 신전"
           onClick={() => onAction({ kind: "open-shrine" })}
+        />
+        <EntryCard
+          icon={
+            <Trophy size={28} weight="duotone" className="text-amber-600" />
+          }
+          title="트로피 전시대"
+          description="획득한 트로피를 모아 보고 대표 3종을 선택합니다."
+          onClick={() => onAction({ kind: "open-trophies" })}
         />
         <EntryCard
           icon={

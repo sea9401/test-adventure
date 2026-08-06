@@ -580,8 +580,7 @@ export async function POST(req: Request) {
     if (won!) {
       const newOccupiedAt = new Date();
       if (stillHasOccRow) {
-        // 성벽 자동 수리 폐지 — 공성 데미지가 그대로 박힌다(수비는 /api/v2/outpost/repair
-        //   로 직접 골드를 써서 수동 보강). 옛 금고 자동수리는 돈으로 무한 방어돼 제거.
+        // 성벽 데미지는 시간당 자연 회복 외에는 즉시 복구되지 않는다.
         // 공성 — 승리 1회당 성벽 siegeDamage(전투력 비율) 감소.
         const damaged = Math.max(0, fortHpAfter - siegeDamage(myPower, outpostDefense));
         if (damaged <= 0) {

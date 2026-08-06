@@ -136,12 +136,23 @@ export function inventoryIconKind(itemId: string): InventoryIconKind {
     return "sparkle";
   }
 
-  if (itemId.includes("timber") || itemId.endsWith("_log")) return "tree";
+  if (
+    itemId.includes("timber") ||
+    itemId.includes("processed_softwood") ||
+    itemId.includes("processed_hardwood") ||
+    itemId.includes("processed_masterwood") ||
+    itemId.endsWith("_log")
+  ) {
+    return "tree";
+  }
   if (
     itemId.includes("_ore") ||
     itemId.includes("mining_stone") ||
     itemId.includes("coal") ||
     itemId.includes("refined_iron") ||
+    itemId.includes("basic_ingot") ||
+    itemId.includes("precious_ingot") ||
+    itemId.includes("arcane_alloy") ||
     itemId.includes("mithril_shard")
   ) {
     return "ore";

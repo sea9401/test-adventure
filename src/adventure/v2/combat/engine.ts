@@ -48,6 +48,7 @@ import {
 } from "@/adventure/data/stats";
 import {
   ANALYSIS_PENALTY_CAP_PCT,
+  CORROSION_POISON_DAMAGE_SCALE,
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
   MAGIC_VULN_STACK_CAP,
@@ -195,8 +196,6 @@ function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number 
   if (corrodePct <= 0 || !isEnemyPoisoned(state)) return state.enemy.def;
   return Math.max(0, Math.round(state.enemy.def * (1 - corrodePct / 100)));
 }
-
-const CORROSION_POISON_DAMAGE_SCALE = 3;
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
   const corrodePct = combineDefReductionPcts(
@@ -1479,6 +1478,8 @@ export function applyPlayerV2SkillCast(
       maxHp: state.playerMaxHp,
       // PR2-B — def/vit 비례 딜·현재HP(사혈격/기공순환)·maxMp(보호막/명상)·차수 flat.
       def: player.def,
+      str: player.strStat,
+      int: player.intStat,
       vit: player.vitStat,
       dex: player.dexStat,
       luk: player.lukStat,

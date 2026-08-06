@@ -14,7 +14,7 @@ import {
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
-import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { toFullReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { sanitizeSparringDummyConfig } from "@/adventure/data/v2/sparringDummy";
 
@@ -143,8 +143,9 @@ export async function POST(req: Request) {
       damageDealt,
       enemyName: baseDummy.name,
       dummy: dummyConfig,
-      // 사냥과 동일 — BattleScene 이 보는 필드만 추출, 로그 마지막 200 cap.
-      replay: toReplayPayload(battleResult.finalState, 200),
+      // 허수아비는 스킬 딜 비교가 목적이라 첫 MP 스킬부터 마지막 행동까지 전부 보존한다.
+      // maxTurns가 최대 100으로 제한된 모의전이라 일반 사냥/PvP의 cap은 건드리지 않는다.
+      replay: toFullReplayPayload(battleResult.finalState),
       startPlayerHp: derived.maxHp,
     },
   });

@@ -34,6 +34,28 @@ import {
   type V2WeaponType,
 } from "./v2Equipment";
 
+describe("장비 이름 식별성", () => {
+  it("서로 다른 장비가 완전히 같은 이름을 사용하지 않는다", () => {
+    const byName = new Map<string, V2EquipmentId[]>();
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      const ids = byName.get(item.name) ?? [];
+      ids.push(item.id);
+      byName.set(item.name, ids);
+    }
+
+    const duplicates = [...byName].filter(([, ids]) => ids.length > 1);
+    expect(duplicates).toEqual([]);
+  });
+
+  it("무관한 장비 이름에 반복되던 '성벽'은 대표 고유 장비 하나에만 남긴다", () => {
+    const names = Object.values(V2_EQUIPMENT)
+      .map((item) => item.name)
+      .filter((name) => name.includes("성벽"));
+
+    expect(names).toEqual(["백골성벽"]);
+  });
+});
+
 describe("무기 속성 폐지 (속성 = 캐릭터 선택/스킬, 무기는 위력 전담)", () => {
   it("모든 장비(무기 포함)에 element 없음 — 평타 속성은 캐릭터 선택으로", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {

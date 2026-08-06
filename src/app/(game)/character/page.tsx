@@ -16,6 +16,9 @@ export default function CharacterPage() {
           case "open-info":
             router.push("/character/info");
             break;
+          case "open-life":
+            router.push("/character/life");
+            break;
           case "open-inventory":
             router.push("/character/inventory");
             break;
@@ -27,6 +30,9 @@ export default function CharacterPage() {
             break;
           case "open-quests":
             router.push("/quests");
+            break;
+          case "open-trophies":
+            router.push("/character/trophies");
             break;
           case "open-codex":
             router.push("/character/codex");

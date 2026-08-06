@@ -376,7 +376,8 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
       poisonedEnemyDefReductionPct: 12,
     });
     expect(corrodeDmg).toBeGreaterThan(baseDmg);
-    expect(corrodeDmg).toBeGreaterThanOrEqual(Math.floor(baseDmg * 1.25));
+    // 부식 12% × 중독 환산 1.5 = 약 18% 증폭(틱 정수 반올림 여유 포함).
+    expect(corrodeDmg).toBeGreaterThanOrEqual(Math.floor(baseDmg * 1.15));
   });
 });
 

@@ -63,6 +63,10 @@ const ZERO: QuestCtx = {
   miningSuccesses: 0,
   miningByproducts: 0,
   miningSpecies: 0,
+  lifeProcessingBatches: 0,
+  lifeProcessingGreatSuccesses: 0,
+  lifeProcessedTypes: 0,
+  maxLifeToolTier: 0,
   fishingLevel: 1,
   fishCaught: 0,
   equipmentCodexRegistered: 0,
@@ -155,7 +159,13 @@ describe("v2Quests 카탈로그 무결성", () => {
   it("영구 업적 300개 이상 + 모든 업적에 점수", () => {
     const achievements = V2_QUESTS.filter((q) => !isTutorialLine(q.line));
     expect(achievements.length).toBeGreaterThanOrEqual(300);
-    expect(achievements.every((q) => (q.points ?? 0) > 0)).toBe(true);
+    expect(
+      achievements.every(
+        (q) =>
+          (q.points ?? 0) > 0 ||
+          (q.hiddenUntilComplete === true && Boolean(q.reward.titleId)),
+      ),
+    ).toBe(true);
   });
 
   it("마일스톤 체인은 목표가 오름차순이며 한 계열로 연결된다", () => {
@@ -762,6 +772,10 @@ describe("currentGuideQuest (홈 배너)", () => {
       miningSuccesses: 9999,
       miningByproducts: 999,
       miningSpecies: 99,
+      lifeProcessingBatches: 100_000,
+      lifeProcessingGreatSuccesses: 999,
+      lifeProcessedTypes: 6,
+      maxLifeToolTier: 3,
       fishingLevel: 50,
       fishCaught: 9999,
       equipmentCodexRegistered: 240,
@@ -840,6 +854,7 @@ describe("deriveQuestViews", () => {
     // 직군 가시 퀘 중, 체인은 첫 단계만 보임(미수령 상태 기준).
     const seenChains = new Set<string>();
     const visibleCount = V2_QUESTS.filter((q) => {
+      if (q.hiddenUntilComplete && !q.check(ZERO)) return false;
       if (!q.chain) return true;
       if (seenChains.has(q.chain)) return false;
       seenChains.add(q.chain);

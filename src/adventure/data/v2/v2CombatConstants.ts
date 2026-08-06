@@ -95,6 +95,11 @@ export const POISON_PCT_PER_POINT = 0.0005;
 export const COMBO_FINISHER_PERIOD = 4;
 export const POISON_CAP_ATK_COEF = 0.9;
 
+// 부식의 방어 감소율을 중독 피해 증폭으로 환산하는 배율.
+// 완성 계보(부식 약 67.87%) 기준 중독 피해 약 2.02배로, 10스택의 최대 체력 피해는
+// 공격력/LUK 상한 적용 전 약 8.07%가 된다. PvE/PvP 엔진이 같은 값을 공유한다.
+export const CORROSION_POISON_DAMAGE_SCALE = 1.5;
+
 // 여러 방어 감소 효과는 남은 방어력에 차례로 적용한다.
 // 예: 20%와 30%를 함께 쓰면 50%가 아니라 44%(남은 방어 0.8×0.7=0.56).
 // 각 입력은 0~100%로 방어적으로 제한하며 결과는 절대 100%를 넘지 않는다.

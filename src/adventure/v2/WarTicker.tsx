@@ -18,6 +18,8 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
 import { formatRelative } from "@/lib/notifications";
+import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+import { LIFE_FIELD_DISCOVERIES } from "@/adventure/v2/lifeFieldRecords";
 import {
   FEED_POLL_MS,
   WAR_TICKER_MAX_ITEMS,
@@ -145,6 +147,18 @@ export function warTickerText(
   }
   if (e.type === "newcomer") {
     return `새 모험가 ${e.actorName} 님이 모험을 시작했습니다!`;
+  }
+  if (e.type === "life_blueprint") {
+    const p = e.payload as { recipeId: string };
+    return `${e.actorName} 님이 숨겨진 도안 ${LIFE_CRAFTING_RECIPE_BY_ID.get(p.recipeId)?.name ?? p.recipeId} 발견!`;
+  }
+  if (e.type === "life_discovery") {
+    const p = e.payload as { discoveryId: string };
+    const discovery =
+      LIFE_FIELD_DISCOVERIES[
+        p.discoveryId as keyof typeof LIFE_FIELD_DISCOVERIES
+      ];
+    return `${e.actorName} 님이 희귀 현장 기록 ${discovery?.label ?? p.discoveryId} 완성!`;
   }
   return null;
 }

@@ -35,6 +35,10 @@ import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
 import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
+import { LIFE_REQUESTS_SAVE_KEY } from "@/adventure/v2/lifeRequests";
+import { LIFE_FIELD_RECORDS_KEY } from "@/adventure/v2/lifeFieldRecords";
+import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 
 type ClaimAllScope = "tutorial" | "achievement";
 
@@ -115,6 +119,10 @@ export async function POST(req: Request) {
       {},
     );
     const cookingRaw = await readSave(tx, userId, COOKING_SAVE_KEY, {});
+    const lifeWorkshopRaw = await readSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {});
+    const lifeRequestsRaw = await readSave(tx, userId, LIFE_REQUESTS_SAVE_KEY, {});
+    const lifeFieldRecordsRaw = await readSave(tx, userId, LIFE_FIELD_RECORDS_KEY, {});
+    const lifeFieldFeatures = await readLifeFieldFeatureSettings(tx);
     const extras = await assembleQuestExtras(tx, userId);
 
     const ctx = buildQuestCtx({
@@ -131,6 +139,10 @@ export async function POST(req: Request) {
       equipmentCodexRaw,
       masteryTowerRaw,
       cookingRaw,
+      lifeWorkshopRaw,
+      lifeRequestsRaw,
+      lifeFieldRecordsRaw,
+      lifeFieldMilestonesEnabled: lifeFieldFeatures.milestonesEnabled,
       extras,
     });
     const claimed = parseClaimed(guideSave);

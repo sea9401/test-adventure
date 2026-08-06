@@ -23,11 +23,15 @@ import {
   type ScavengedCraftRecipeId,
 } from "@/adventure/data/v2/scavengedCrafting";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
 
 type CharSave = {
   materials?: Record<string, number>;
   rareMaps?: unknown;
   frontierDepth?: unknown;
+  gold?: number;
+  bankedGold?: number;
   [k: string]: unknown;
 };
 
@@ -51,7 +55,7 @@ function recipeInput(recipe: ScavengedCraftRecipeId) {
 }
 
 // POST /api/v2/me/scavenged-crafting — 수집형 글로벌 드롭을 강화석 또는 희귀 지도로 조합한다.
-// 조합비는 없으며 character.v2 단일 락에서 재료 차감과 산출물 지급을 원자적으로 처리한다.
+// 공통 조합비를 은행 우선으로 차감하며 재료 차감·산출물 지급과 함께 원자적으로 처리한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -132,6 +136,23 @@ export async function POST(req: Request) {
       };
     }
 
+    const gold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
+    const bankedGold = Math.max(
+      0,
+      Math.floor(Number(charSave.bankedGold) || 0),
+    );
+    const spend = spendGold(gold, bankedGold, COMBINE_GOLD_COST);
+    if (!spend.ok) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "insufficient_gold" as const,
+          goldCost: COMBINE_GOLD_COST,
+        },
+      };
+    }
+
     const materialLeft = held - input.need;
     if (materialLeft > 0) materials[input.materialId] = materialLeft;
     else delete materials[input.materialId];
@@ -142,6 +163,8 @@ export async function POST(req: Request) {
       const rareMap = newRareMapInstance(kind, depth, now);
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
+        gold: spend.gold,
+        bankedGold: spend.bankedGold,
         materials,
         rareMaps: [...rareMaps, rareMap],
       });
@@ -153,6 +176,9 @@ export async function POST(req: Request) {
           materialLeft,
           rareMap,
           outputName: RARE_MAP_KINDS[kind].name,
+          goldCost: COMBINE_GOLD_COST,
+          gold: spend.gold,
+          ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         },
       };
     }
@@ -165,6 +191,8 @@ export async function POST(req: Request) {
       Math.max(0, Math.floor(Number(materials[stoneId]) || 0)) + 1;
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
+      gold: spend.gold,
+      bankedGold: spend.bankedGold,
       materials,
       rareMaps,
     });
@@ -176,6 +204,9 @@ export async function POST(req: Request) {
         materialLeft,
         outputMaterialId: stoneId,
         outputCount: materials[stoneId],
+        goldCost: COMBINE_GOLD_COST,
+        gold: spend.gold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },
     };
   });

@@ -23,6 +23,11 @@ import type { V2Class } from "./classes";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { HUNT_MONSTER_SPECIES_COUNT, huntStageName } from "./dungeon";
 import type { TitleId } from "../titles";
+import {
+  EARTH_WITNESS_TITLE_ID,
+  ECOLOGICAL_RESEARCHER_TITLE_ID,
+  FIELD_RECORDER_TITLE_ID,
+} from "../titles";
 import { COOKING_RECIPES } from "../../v2/cooking";
 
 export type QuestLineId = string;
@@ -123,6 +128,21 @@ export type QuestCtx = {
   miningSuccesses: number;
   miningByproducts: number;
   miningSpecies: number;
+  /** 생활 작업장 가공·도감·도구 누적. life-workshop.v1. */
+  lifeProcessingBatches: number;
+  lifeProcessingGreatSuccesses: number;
+  lifeProcessedTypes: number;
+  maxLifeToolTier: number;
+  lifeCraftingTotal?: number;
+  lifeCraftedTypes?: number;
+  lifeFurnitureTypes?: number;
+  lifeHiddenBlueprints?: number;
+  lifeMasteredRecipes?: number;
+  lifeAidUses?: number;
+  lifeRequestDeliveries?: number;
+  lifeFieldBasicRecords?: number;
+  lifeFieldAllRecords?: number;
+  lifeFieldMilestonesEnabled?: boolean;
   /** 낚시 레벨과 누적 어획. fishing-progression.v1. */
   fishingLevel: number;
   fishCaught: number;
@@ -169,6 +189,8 @@ export type QuestDef = {
   detailKind?: QuestDetailKind;
   /** 현재 사냥 가능 종 수가 이 값보다 적으면 미달성 업적을 숨긴다. */
   requiredHuntableSpecies?: number;
+  /** 조건 달성 전 업적 목록에서도 감추는 히든 보상. */
+  hiddenUntilComplete?: boolean;
   /** 체인 — 같은 내용·증가 목표 마일스톤 묶음. 정의 순서대로 "현재 단계"만 노출
    *  (앞 단계 수령 시 다음 등장 — 잠금 표시도 없이 숨김, 패널 난잡함 방지). */
   chain?: string;
@@ -746,6 +768,116 @@ const MINING: QuestDef[] = [
   ]),
 ];
 
+const LIFE_PROCESSING: QuestDef[] = [
+  ...milestones("life_processing", "가공 재료 발견", (c) => c.lifeProcessedTypes, [
+    { id: "life_process_type1", title: "손질의 시작", goal: 1, points: 5, badgeTier: "bronze" },
+    { id: "life_process_type3", title: "재료를 읽는 자", goal: 3, points: 20, badgeTier: "silver" },
+    { id: "life_process_type6", title: "두 손의 장인", goal: 6, points: 50, badgeTier: "legendary" },
+  ]),
+  ...milestones("life_processing", "재료 가공", (c) => c.lifeProcessingBatches, [
+    { id: "life_process_batch1", title: "첫 가공", goal: 1, points: 5 },
+    { id: "life_process_batch25", title: "반복이 만드는 솜씨", goal: 25, points: 10 },
+    { id: "life_process_batch100", title: "작업장의 단골", goal: 100, points: 25, badgeTier: "gold" },
+    ...marathonMilestones("marathon_life_process", "재료 가공", [
+      500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000,
+    ]),
+  ]),
+  ...milestones("life_processing", "가공 대성공", (c) => c.lifeProcessingGreatSuccesses, [
+    { id: "life_process_great1", title: "뜻밖의 완성품", goal: 1, points: 10 },
+    { id: "life_process_great25", title: "정밀한 손끝", goal: 25, points: 25, badgeTier: "silver" },
+    { id: "life_process_great100", title: "오차 없는 장인", goal: 100, points: 50, badgeTier: "gold" },
+  ]),
+  ...milestones("life_processing", "생활 도구 단계", (c) => c.maxLifeToolTier, [
+    { id: "life_tool_tier1", title: "손에 맞는 도구", goal: 1, points: 10 },
+    { id: "life_tool_tier2", title: "숙련자의 장비", goal: 2, points: 25, badgeTier: "silver" },
+    { id: "life_tool_tier3", title: "명인의 연장", goal: 3, points: 50, badgeTier: "legendary" },
+  ]),
+  ...milestones("life_processing", "생활 제작", (c) => c.lifeCraftingTotal ?? 0, [
+    { id: "life_craft_first", title: "손때 묻은 공구", goal: 1, points: 5 },
+    { id: "life_craft_100", title: "생활 제작자", goal: 100, points: 25, badgeTier: "silver" },
+  ]),
+  ...milestones("life_processing", "생활 제작품 발견", (c) => c.lifeCraftedTypes ?? 0, [
+    { id: "life_craft_type1", title: "필요에서 태어난 물건", goal: 1, points: 5 },
+    { id: "life_craft_type7", title: "맥가이버", goal: 7, points: 30, badgeTier: "gold" },
+  ]),
+  ...milestones("life_processing", "제작 가구 발견", (c) => c.lifeFurnitureTypes ?? 0, [
+    { id: "life_furniture_type1", title: "내 손으로 한 점", goal: 1, points: 5 },
+    { id: "life_furniture_type3", title: "DIY 입문자", goal: 3, points: 20, badgeTier: "silver" },
+    { id: "life_furniture_type8", title: "방 하나를 만든 손", goal: 8, points: 50, badgeTier: "legendary" },
+  ]),
+  ...milestones("life_processing", "숨겨진 도안 발견", (c) => c.lifeHiddenBlueprints ?? 0, [
+    { id: "life_blueprint1", title: "도면 수집가", goal: 1, points: 30, badgeTier: "gold" },
+    { id: "life_blueprint_all", title: "비전의 설계자", goal: 6, points: 75, badgeTier: "legendary" },
+  ]),
+  ...milestones("life_processing", "도안 숙련", (c) => c.lifeMasteredRecipes ?? 0, [
+    { id: "life_master_recipe1", title: "백 번의 손길", goal: 1, points: 40, badgeTier: "gold" },
+    { id: "life_master_recipe5", title: "반복의 명인", goal: 5, points: 75, badgeTier: "legendary" },
+  ]),
+  ...milestones("life_processing", "생활 의뢰 납품", (c) => c.lifeRequestDeliveries ?? 0, [
+    { id: "life_request1", title: "첫 심부름", goal: 1, points: 5 },
+    { id: "life_request10", title: "마을의 일손", goal: 10, points: 15, badgeTier: "bronze" },
+    { id: "life_request50", title: "믿고 맡기는 사람", goal: 50, points: 35, badgeTier: "gold" },
+    { id: "life_request100", title: "생활 해결사", goal: 100, points: 60, badgeTier: "legendary" },
+  ]),
+];
+
+const LIFE_FIELD_RECORDS: QuestDef[] = milestones(
+  "life_field_records",
+  "현장 기록",
+  (c) => c.lifeFieldBasicRecords ?? 0,
+  [
+    {
+      id: "life_field_record5",
+      title: "관찰의 시작",
+      goal: 5,
+      points: 5,
+      badgeTier: "bronze",
+    },
+    {
+      id: "life_field_record15",
+      title: "현장 기록가",
+      goal: 15,
+      points: 10,
+      titleId: FIELD_RECORDER_TITLE_ID,
+      badgeTier: "silver",
+    },
+    {
+      id: "life_field_record30",
+      title: "대륙 생활지",
+      goal: 30,
+      points: 20,
+      badgeTier: "gold",
+    },
+    {
+      id: "life_field_record33",
+      title: "생태 조사관",
+      goal: 33,
+      points: 30,
+      titleId: ECOLOGICAL_RESEARCHER_TITLE_ID,
+      badgeTier: "legendary",
+    },
+  ],
+).map((quest) => ({
+  ...quest,
+  check: (c: QuestCtx) =>
+    c.lifeFieldMilestonesEnabled !== false && quest.check(c),
+}));
+
+LIFE_FIELD_RECORDS.push({
+  id: "life_field_record36_hidden",
+  line: "life_field_records",
+  title: "대지의 목격자",
+  desc: "일반·희귀 현장 기록 36개를 모두 완성하세요.",
+  reward: { titleId: EARTH_WITNESS_TITLE_ID },
+  points: 0,
+  progress: (c) => c.lifeFieldAllRecords ?? 0,
+  goal: 36,
+  check: (c) =>
+    c.lifeFieldMilestonesEnabled !== false &&
+    (c.lifeFieldAllRecords ?? 0) >= 36,
+  hiddenUntilComplete: true,
+});
+
 const FISHING: QuestDef[] = [
   ...milestones("fishing", "물고기 낚기", (c) => c.fishCaught, [
     { id: "fish_catch1", title: "첫 손맛", goal: 1, points: 5 },
@@ -959,6 +1091,8 @@ export const QUEST_LINES: readonly QuestLine[] = [
   { id: "farming", name: "농사", subtitle: "수확·희귀 작물·납품·농사 레벨.", sequential: false },
   { id: "woodcutting", name: "벌목", subtitle: "벌목 성공·벌목 레벨.", sequential: false },
   { id: "mining", name: "채광", subtitle: "채광 성공·부산물·채광 레벨.", sequential: false },
+  { id: "life_processing", name: "생활 가공", subtitle: "재료 가공·대성공·가공 도감·생활 도구 기록.", sequential: false },
+  { id: "life_field_records", name: "현장 기록", subtitle: "지역·환경·희귀한 발견을 기록한 생활 탐사 기록.", sequential: false },
   { id: "fishing", name: "낚시", subtitle: "어획·어종 도감·낚시 레벨.", sequential: false },
   { id: "cooking", name: "요리", subtitle: "요리 레벨·조리·의뢰·걸작과 요리법 기록.", sequential: false },
   { id: "artisan", name: "제작과 장인", subtitle: "길드 제작소와 대장장이 숙련 기록.", sequential: false },
@@ -978,6 +1112,8 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...FARMING,
   ...WOODCUTTING,
   ...MINING,
+  ...LIFE_PROCESSING,
+  ...LIFE_FIELD_RECORDS,
   ...FISHING,
   ...COOKING,
   ...ARTISAN,
@@ -1110,6 +1246,7 @@ export function deriveQuestViews(
     (q) =>
       isVisible(q, ctx) &&
       isContentAvailable(q, ctx, claimed) &&
+      (!q.hiddenUntilComplete || claimed.has(q.id) || q.check(ctx)) &&
       !hiddenByChain(q, claimed),
   ).map((q) => ({
     id: q.id,

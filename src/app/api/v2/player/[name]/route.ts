@@ -32,6 +32,9 @@ import {
 } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import { TITLES } from "@/adventure/data/titles";
+import { accountOwnedTitleIds } from "@/lib/server/titleAccess";
+import { isAdminEmail } from "@/lib/server/adminEmailAccess";
 import {
   PROFILE_SHOWCASE_SAVE_KEY,
   parseProfileBadgeStandVisible,
@@ -64,7 +67,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   //   포함) character-profile.v2.name (resolveActor·/api/profile/by-name 과 일치). 채팅·랭킹 등에서
   //   보이는 이름이 game_name 이어도 해석되게 한다(이름은 check-name 가 유니크 보장 · 대소문자 무시).
   const resolved = await db.execute(sql`
-    SELECT u.id AS user_id
+    SELECT u.id AS user_id, u.email
     FROM users u
     LEFT JOIN saves_kv p
       ON p.user_id = u.id AND p.key = ${PROFILE_STORAGE_KEY}
@@ -72,8 +75,10 @@ export async function GET(_req: Request, ctx: Ctx) {
         = lower(${lookupName})
     LIMIT 1
   `);
-  const targetId = (resolved.rows[0] as { user_id?: string } | undefined)
-    ?.user_id;
+  const resolvedUser = resolved.rows[0] as
+    | { user_id?: string; email?: string }
+    | undefined;
+  const targetId = resolvedUser?.user_id;
   if (!targetId) {
     return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }
@@ -171,13 +176,23 @@ export async function GET(_req: Request, ctx: Ctx) {
   const parsedShowcaseSlots = parseProfileShowcaseSlots(
     byKey.get(PROFILE_SHOWCASE_SAVE_KEY),
   );
+  const usableTitleIds = new Set(
+    accountOwnedTitleIds(
+      byKey.get("adventure-log.v2"),
+      isAdminEmail(resolvedUser?.email),
+    ),
+  );
   const profileShowcaseSlots =
     profileBadgeStandOwned && profileBadgeStandVisible
     ? parsedShowcaseSlots.map((slot) =>
-        slot?.kind !== "equipment" ||
-        owned.some((item) => item.iid === slot.iid)
-          ? slot
-          : null,
+        slot?.kind === "equipment"
+          ? owned.some((item) => item.iid === slot.iid)
+            ? slot
+            : null
+          : slot?.kind === "title" &&
+              (!TITLES[slot.titleId] || !usableTitleIds.has(slot.titleId))
+            ? null
+            : slot,
       )
     : [null, null, null];
   const profileShowcase = profileShowcaseSlots[0] ?? null;

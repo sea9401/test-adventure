@@ -2,6 +2,7 @@ import type { Monster } from "@/adventure/data/monsters/types";
 import type { StatKey } from "@/adventure/data/stats";
 import {
   evaluateCombatPattern,
+  v2PureSkillFormulaCoefficients,
   v2SkillAttackCoef,
   type V2CombatPattern,
   type V2CombatRole,
@@ -42,6 +43,8 @@ export type GridDungeonPartyActor = {
   maxMp: number;
   atk: number;
   magicAtk: number;
+  str: number;
+  int: number;
   spi: number;
   def: number;
   spd: number;
@@ -192,16 +195,29 @@ function partySkillDamage(
           : effect.scaling === "def"
             ? actor.def
             : actor.atk;
-    const attackCoef = v2SkillAttackCoef({
+    const baseAttackCoef = v2SkillAttackCoef({
       tier: def.tier,
       statCoef: effect.statCoef,
       specialized,
       directDamageEffectCount,
       attackCoef: effect.attackCoef,
     });
+    const purePrimaryStat =
+      effect.scaling === "magic" ? actor.int : actor.str;
+    const pureFormula =
+      !def.monsterOnly && !specialized && purePrimaryStat > 0
+        ? v2PureSkillFormulaCoefficients({
+            tier: def.tier,
+            scaling: effect.scaling === "magic" ? "magic" : "physical",
+            directDamageEffectCount,
+            resolvedAttackCoef: baseAttackCoef,
+          })
+        : null;
+    const attackCoef = pureFormula?.attackCoef ?? baseAttackCoef;
     const raw =
       attackPower * attackCoef +
-      (specialized ? specializedPower * effect.statCoef : 0);
+      (specialized ? specializedPower * effect.statCoef : 0) +
+      (pureFormula ? purePrimaryStat * pureFormula.primaryStatCoef : 0);
     total += partyDamage(Math.round(raw), enemyDef);
   }
   return total;
@@ -288,6 +304,8 @@ export function makeGridDungeonPartyActor({
   maxMp = 0,
   atk,
   magicAtk = 0,
+  str = 0,
+  int = 0,
   spi = 0,
   def,
   spd,
@@ -306,6 +324,8 @@ export function makeGridDungeonPartyActor({
   maxMp?: number;
   atk: number;
   magicAtk?: number;
+  str?: number;
+  int?: number;
   spi?: number;
   def: number;
   spd: number;
@@ -327,6 +347,8 @@ export function makeGridDungeonPartyActor({
     maxMp,
     atk,
     magicAtk,
+    str,
+    int,
     spi,
     def,
     spd,
@@ -372,6 +394,8 @@ export function resolveGridDungeonPartyCombat({
         maxMp: supporter.maxMp,
         atk: supporter.atk,
         magicAtk: supporter.magicAtk,
+        str: supporter.str ?? 0,
+        int: supporter.int ?? 0,
         spi: supporter.spi,
         def: supporter.def,
         spd: supporter.spd,

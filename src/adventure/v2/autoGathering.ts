@@ -6,6 +6,10 @@ import {
   MINING_SPOTS,
   type MiningSpotId,
 } from "@/adventure/data/v2/miningSpots";
+import {
+  isLifeFieldEnvironmentId,
+  type LifeFieldEnvironmentId,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
 
 export const AUTO_GATHERING_DURATION_MS = 30 * 60 * 1_000;
 export const AUTO_GATHERING_MATERIAL_EFFICIENCY = 0.8;
@@ -122,6 +126,15 @@ export type AutoGatheringSession = {
   xpEfficiency: number;
   bonusMaterialRate: number;
   baseXp: number;
+  aidItemId?: string;
+  aidBonusMaterialRate?: number;
+  aidByproductMultiplier?: number;
+  spotId?: string;
+  lifeEnvironmentId?: LifeFieldEnvironmentId;
+  lifeEnvironmentDayKey?: string;
+  environmentPrimaryBonusChance?: number;
+  environmentXpBonusPct?: number;
+  environmentByproductMultiplier?: number;
 };
 
 export type AutoGatheringRemainders = {
@@ -199,6 +212,15 @@ export function createAutoGatheringSession(args: {
   successRate: number;
   bonusMaterialRate?: number;
   baseXp: number;
+  aidItemId?: string;
+  aidBonusMaterialRate?: number;
+  aidByproductMultiplier?: number;
+  spotId?: string;
+  lifeEnvironmentId?: LifeFieldEnvironmentId;
+  lifeEnvironmentDayKey?: string;
+  environmentPrimaryBonusChance?: number;
+  environmentXpBonusPct?: number;
+  environmentByproductMultiplier?: number;
 }): AutoGatheringSession {
   const plan = autoGatheringPlan(args.planId);
   const cycleDurationMs = Math.max(
@@ -227,6 +249,26 @@ export function createAutoGatheringSession(args: {
       Math.max(0, finiteNumber(args.bonusMaterialRate)),
     ),
     baseXp: Math.max(0, Math.floor(finiteNumber(args.baseXp))),
+    ...(args.aidItemId ? { aidItemId: args.aidItemId, aidBonusMaterialRate: Math.min(1, Math.max(0, finiteNumber(args.aidBonusMaterialRate))), aidByproductMultiplier: Math.max(1, finiteNumber(args.aidByproductMultiplier, 1)) } : {}),
+    ...(args.spotId ? { spotId: args.spotId } : {}),
+    ...(args.lifeEnvironmentId
+      ? {
+          lifeEnvironmentId: args.lifeEnvironmentId,
+          lifeEnvironmentDayKey: args.lifeEnvironmentDayKey,
+          environmentPrimaryBonusChance: Math.min(
+            1,
+            Math.max(0, finiteNumber(args.environmentPrimaryBonusChance)),
+          ),
+          environmentXpBonusPct: Math.min(
+            100,
+            Math.max(0, finiteNumber(args.environmentXpBonusPct)),
+          ),
+          environmentByproductMultiplier: Math.max(
+            1,
+            finiteNumber(args.environmentByproductMultiplier, 1),
+          ),
+        }
+      : {}),
   };
 }
 
@@ -305,6 +347,30 @@ export function parseAutoGatheringState(raw: unknown): AutoGatheringState {
         Math.max(0, finiteNumber(session.bonusMaterialRate)),
       ),
       baseXp: Math.max(0, Math.floor(finiteNumber(session.baseXp))),
+      aidItemId: typeof session.aidItemId === "string" ? session.aidItemId : undefined,
+      aidBonusMaterialRate: Math.min(1, Math.max(0, finiteNumber(session.aidBonusMaterialRate))),
+      aidByproductMultiplier: Math.max(1, finiteNumber(session.aidByproductMultiplier, 1)),
+      spotId: typeof session.spotId === "string" ? session.spotId : undefined,
+      lifeEnvironmentId:
+        isLifeFieldEnvironmentId(session.lifeEnvironmentId)
+          ? session.lifeEnvironmentId
+          : undefined,
+      lifeEnvironmentDayKey:
+        typeof session.lifeEnvironmentDayKey === "string"
+          ? session.lifeEnvironmentDayKey
+          : undefined,
+      environmentPrimaryBonusChance: Math.min(
+        1,
+        Math.max(0, finiteNumber(session.environmentPrimaryBonusChance)),
+      ),
+      environmentXpBonusPct: Math.min(
+        100,
+        Math.max(0, finiteNumber(session.environmentXpBonusPct)),
+      ),
+      environmentByproductMultiplier: Math.max(
+        1,
+        finiteNumber(session.environmentByproductMultiplier, 1),
+      ),
     },
     remainders,
   };
@@ -368,13 +434,16 @@ export function settleAutoGathering(
   const expectedMaterials =
     (state.remainders.materials[session.materialId] ?? 0) +
     successes *
-      (1 + session.bonusMaterialRate) *
+      (1 + session.bonusMaterialRate + (session.environmentPrimaryBonusChance ?? 0)) *
       session.materialEfficiency;
   const materialReward = splitWholeReward(expectedMaterials);
   const materialsGained = materialReward.whole;
   const expectedXp =
     state.remainders.xp +
-    successes * session.baseXp * session.xpEfficiency;
+    successes *
+      session.baseXp *
+      session.xpEfficiency *
+      (1 + (session.environmentXpBonusPct ?? 0) / 100);
   const xpReward = splitWholeReward(expectedXp);
   const xpGained = xpReward.whole;
   const expectedMastery =

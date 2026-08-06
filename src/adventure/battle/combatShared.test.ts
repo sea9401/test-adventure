@@ -466,6 +466,27 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(result.selfHeal).toBe(0);
   });
 
+  it("순수 물리 공격기는 공격력 예산 일부를 힘 계수로 옮겨 적용한다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        str: 200,
+        maxHp: 200,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
+    });
+    // t1 순수 물리: 공격력×1.2 + 힘×0.1 - 방어력 20.
+    expect(result.enemyDamage).toBe(120);
+  });
+
   it("heal effect — pctMaxHp 비례", () => {
     // recover: heal pctMaxHp=10. maxHp=200 → 20.
     const result = resolveV2SkillCast({

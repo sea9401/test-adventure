@@ -44,6 +44,7 @@ import {
 import type { AutoGatheringActivity } from "./autoGathering";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { fishingRewardSummaryLabels } from "./fishingRewardSummary";
+import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -1519,6 +1520,7 @@ export function FishingView({
           setSessionCount((c) => c + 1);
           setSessionBest((b) => Math.max(b, outcome.size));
           setStreak((s) => outcome.streak?.current ?? s + 1);
+          window.dispatchEvent(new Event("life-field:refresh"));
         } else {
           setStreak(0);
         }
@@ -1643,6 +1645,13 @@ export function FishingView({
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
 
         <ProductionJobAdvanceNotice refreshKey={progression?.catches ?? 0} />
+
+        {fishingSpot ? (
+          <LifeFieldEnvironmentCard
+            activity="fishing"
+            spotId={fishingSpot.id}
+          />
+        ) : null}
 
         {verification && verifyHuman ? (
           <ActivityVerificationGate

@@ -38,6 +38,7 @@ vi.mock("@/lib/server/grantTitle", () => ({
 import { GET, POST } from "@/app/api/v2/life-workshop/route";
 import {
   LIFE_PROCESSED_MATERIAL_ID,
+  LIFE_RESPECIALIZATION_BASE_COST,
   LIFE_WORKSHOP_SAVE_KEY,
 } from "@/adventure/v2/lifeWorkshop";
 import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
@@ -119,7 +120,11 @@ describe("life workshop route", () => {
   });
 
   it("첫 전문화는 무료이고 변경부터 골드를 사용한다", async () => {
-    store.set("character.v2", { gold: 30_000, bankedGold: 0, materials: {} });
+    store.set("character.v2", {
+      gold: 10_005_000,
+      bankedGold: 0,
+      materials: {},
+    });
     store.set(WOODCUTTING_LOG_KEY, { cuts: 1_000, xp: 1_000_000 });
 
     const first = await POST(request({
@@ -128,7 +133,7 @@ describe("life workshop route", () => {
       specializationId: "logger",
     }));
     expect(first.status).toBe(200);
-    expect((await first.json()).gold).toBe(30_000);
+    expect((await first.json()).gold).toBe(10_005_000);
 
     const changed = await POST(request({
       action: "specialize",
@@ -141,6 +146,39 @@ describe("life workshop route", () => {
     expect(changedJson.state).toMatchObject({
       specializations: { woodcutting: "woodworker" },
       respecializations: { woodcutting: 1 },
+    });
+  });
+
+  it("전문화 변경 비용이 1천만 골드보다 부족하면 상태와 골드를 보존한다", async () => {
+    store.set("character.v2", {
+      gold: LIFE_RESPECIALIZATION_BASE_COST - 1,
+      bankedGold: 0,
+      materials: {},
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      specializations: { woodcutting: "logger" },
+    });
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 1_000, xp: 1_000_000 });
+
+    const response = await POST(
+      request({
+        action: "specialize",
+        activity: "woodcutting",
+        specializationId: "woodworker",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "not_enough_gold",
+      cost: LIFE_RESPECIALIZATION_BASE_COST,
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      gold: LIFE_RESPECIALIZATION_BASE_COST - 1,
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toEqual({
+      specializations: { woodcutting: "logger" },
     });
   });
 

@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   LIFE_PROCESSED_MATERIAL_ID,
   LIFE_PROCESSING_RECIPES,
+  LIFE_RESPECIALIZATION_BASE_COST,
   LIFE_TOOL_UPGRADES,
   emptyLifeWorkshopState,
   lifeGatheringBonusPct,
   lifeProcessingGreatSuccessPct,
+  lifeRespecializationCost,
   lifeSpecializationRank,
   maxProcessBatches,
   parseLifeWorkshopState,
@@ -53,6 +55,31 @@ describe("생활 조합 가공·전문화", () => {
     expect(lifeGatheringBonusPct("woodcutting", state, 45)).toBe(10);
     expect(lifeProcessingGreatSuccessPct("mining", state, 45)).toBe(15);
     expect(lifeProcessingGreatSuccessPct("woodcutting", state, 45)).toBe(5);
+  });
+
+  it("첫 전문화는 무료이고 변경 비용은 1천만 골드씩 누적 증가한다", () => {
+    const initial = emptyLifeWorkshopState();
+    expect(lifeRespecializationCost(initial, "woodcutting")).toBe(0);
+
+    const specialized = {
+      ...initial,
+      specializations: {
+        ...initial.specializations,
+        woodcutting: "logger" as const,
+      },
+    };
+    expect(lifeRespecializationCost(specialized, "woodcutting")).toBe(
+      LIFE_RESPECIALIZATION_BASE_COST,
+    );
+    expect(
+      lifeRespecializationCost(
+        {
+          ...specialized,
+          respecializations: { woodcutting: 2 },
+        },
+        "woodcutting",
+      ),
+    ).toBe(30_000_000);
   });
 
   it("가공 가능 횟수를 보유량과 호출 상한으로 제한한다", () => {

@@ -13,6 +13,33 @@ export const GUILD_WORKSHOP_MATERIAL_IDS = Object.values(
   GUILD_WORKSHOP_MATERIAL_ID,
 ) as GuildWorkshopMaterialId[];
 
+/**
+ * 하위 지역 제작 재료가 부족할 때 한 단계 위 재료로만 대체한다.
+ * 재료를 인벤토리에서 교환하는 기능이 아니라, 해당 제작 1회에 한해 1:1로 소모한다.
+ */
+export const GUILD_WORKSHOP_MATERIAL_SUBSTITUTE: Partial<
+  Record<GuildWorkshopMaterialId, GuildWorkshopMaterialId>
+> = {
+  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]:
+    GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
+  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]:
+    GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]:
+    GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
+  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]:
+    GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel,
+};
+
+/** 상위 재료 1개를 대체 소모할 때 붙는 추가 제작 수수료. */
+export const GUILD_WORKSHOP_MATERIAL_SUBSTITUTE_GOLD: Partial<
+  Record<GuildWorkshopMaterialId, number>
+> = {
+  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2_000,
+  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 5_000,
+  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 10_000,
+  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 20_000,
+};
+
 export const GUILD_WORKSHOP_MATERIALS = {
   [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,

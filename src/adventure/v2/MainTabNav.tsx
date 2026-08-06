@@ -6,7 +6,6 @@ import {
   Bank,
   Binoculars,
   BookOpen,
-  ChartBar,
   BoxingGlove,
   BowlFood,
   CaretDown,
@@ -135,7 +134,6 @@ const TABS: TabDef[] = [
     href: "/character",
     sub: [
       { label: "내 정보", href: "/character/info", Icon: UserCircle, color: "text-amber-500" },
-      { label: "생활 기록", href: "/character/life", Icon: ChartBar, color: "text-emerald-600" },
       { label: "인벤토리", href: "/character/inventory", Icon: Backpack, color: "text-emerald-600" },
       { label: "스킬", href: "/character/skills", Icon: Lightning, color: "text-violet-500" },
       { label: "퀘스트", href: "/quests", Icon: Compass, color: "text-rose-400" },

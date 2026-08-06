@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Lock, PencilSimple } from "@phosphor-icons/react";
+import { Lock, PencilSimple, X } from "@phosphor-icons/react";
 import { AdminProvider, useAdmin } from "./AdminContext";
 
 const adminTabLoading = () => (
@@ -107,7 +107,14 @@ function ShellInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = tabFromParam(searchParams.get("tab"));
-  const { readOnly, setReadOnly, toast, adminMe, loadingAdminMe } = useAdmin();
+  const {
+    readOnly,
+    setReadOnly,
+    toast,
+    dismissToast,
+    adminMe,
+    loadingAdminMe,
+  } = useAdmin();
   const [navQuery, setNavQuery] = useState("");
   const filteredTabs = useMemo(() => {
     const query = navQuery.trim().toLocaleLowerCase("ko-KR");
@@ -256,8 +263,16 @@ function ShellInner() {
       </div>
 
       {toast ? (
-        <div className="fixed bottom-4 right-4 z-40 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
-          {toast}
+        <div className="fixed bottom-4 right-4 z-40 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+          <span className="min-w-0 flex-1">{toast}</span>
+          <button
+            type="button"
+            aria-label="알림 닫기"
+            onClick={dismissToast}
+            className="-mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <X size={16} weight="bold" aria-hidden />
+          </button>
         </div>
       ) : null}
     </div>

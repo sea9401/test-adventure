@@ -129,6 +129,11 @@ export type Monster = {
   critPct?: number;
   /** 치명형 몹 치명 배수. 미지정 시 MONSTER_CRIT_MULT_DEFAULT(1.5). critPct 0 이면 무의미. */
   critMult?: number;
+  /**
+   * 중독·출혈 등 status_damage 피해 감소율. 직접 피해·디버프 자체에는 적용하지 않는다.
+   * 방어력을 무시하는 지속 피해가 고방어 몬스터의 유일한 정답이 되지 않게 하는 별도 대응축이다.
+   */
+  statusDamageReductionPct?: number;
   exp: number;
   drops?: MonsterDrop[];
   phaseTrigger?: MonsterPhaseTrigger;

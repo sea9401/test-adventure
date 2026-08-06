@@ -3,7 +3,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
-import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  isLifestyleMasteryJobId,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 import {
   parseProficiencyForChar,
   applyCultivation,
@@ -39,6 +42,14 @@ export async function POST() {
     const spec =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
     const jobId = jobIdFromLegacy(cls, spec);
+    // 생활직은 Lv.1 재전직이 가능하므로 수행까지 허용하면 전투직 만렙 성장 과정을 건너뛸 수 있다.
+    // UI 비활성화와 별개로 직접 API 호출도 여기서 차단한다.
+    if (isLifestyleMasteryJobId(jobId)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "lifestyle_job" as const },
+      };
+    }
     // 수행 프로필이 있는 직군만 수행 가능 — none(모험가)도 프로필 추가로 허용. 프로필 없는 그룹만 거부
     //   (일반화: 향후 직군 밖 직업도 V2_CULTIVATE_PROFILE 에 프로필 있으면 자동 허용).
     if (!V2_CULTIVATE_PROFILE[group]) {

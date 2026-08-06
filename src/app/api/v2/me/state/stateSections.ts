@@ -86,6 +86,10 @@ import {
   nextFishCodexMilestone,
   parseFishCodex,
 } from "@/adventure/v2/fishingCodex";
+import {
+  COOKING_RECIPES,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import type { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
 
@@ -463,6 +467,15 @@ export function fishingCodexSection(fishingCodexRaw: unknown) {
     milestones: [...FISHING_CODEX_SP_MILESTONES],
     nextMilestone: nextFishCodexMilestone(ids.length),
     tierCompletions: codexSpBonusFromRaw(fishingCodexRaw).fishTiers,
+  };
+}
+
+// 요리 완성 도감 — 첫 완성으로 등록된 요리법만 모험의 서에 전달한다.
+export function cookingCodexSection(cookingRaw: unknown) {
+  const cooking = parseCookingState(cookingRaw);
+  return {
+    discoveredIds: cooking.discoveredRecipeIds,
+    total: COOKING_RECIPES.length,
   };
 }
 

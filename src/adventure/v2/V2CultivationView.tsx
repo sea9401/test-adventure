@@ -30,6 +30,11 @@ import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
+import {
+  isLifestyleMasteryJobId,
+  jobIdFromLegacy,
+  V2_JOB_CATALOG,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 // 성장의 신전 내부 탭 — 직업(전직), 수행(스탯 한계↑).
 type ShrineTab = "job" | "cultivate";
@@ -112,6 +117,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     jobs: JobLadderEntry[];
     level: number;
   } | null>(null);
+  const [resolvedJobId, setResolvedJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
@@ -123,6 +129,13 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       const j = (await res.json().catch(() => null)) as StateShape | null;
       const cur = j?.proficiency?.current;
       if (j?.ok && cur) {
+        setResolvedJobId(
+          j.jobsV2?.currentJobId ??
+            jobIdFromLegacy(
+              j.character?.class ?? "none",
+              j.character?.spec ?? null,
+            ),
+        );
         setGroup(cur.group);
         setUsable(cur.points);
         setCultivations(cur.cultivations);
@@ -165,20 +178,23 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   }, [refresh]);
 
   // 하이브리드와 방패 전문 계보는 직군 공용값 대신 직업 정체성 프로필로 한계를 올린다.
-  const jobId = jobLadder?.currentJobId ?? null;
+  const jobId = jobLadder?.currentJobId ?? resolvedJobId;
   const usesJobCultivationProfile = !!(
     jobId &&
     (V2_HYBRID_CULTIVATE_PROFILE[jobId] ||
       V2_SPECIALIZED_CULTIVATE_PROFILE[jobId])
   );
+  const isLifestyleJob = !!(jobId && isLifestyleMasteryJobId(jobId));
   const profile = effectiveCultivateProfile(group, jobId) ?? null;
-  const disciplineName = usesJobCultivationProfile
-    ? (jobLadder?.currentJobName ?? "")
+  const disciplineName = usesJobCultivationProfile || isLifestyleJob
+    ? (jobLadder?.currentJobName ??
+      (jobId ? V2_JOB_CATALOG[jobId]?.name : "") ??
+      "")
     : group !== "none"
       ? V2_CLASS_DEFS[group as V2Class]?.group ?? ""
       : "";
   const canCultivate =
-    !!profile && !busy && usable >= nextCost && nextCost > 0;
+    !!profile && !isLifestyleJob && !busy && usable >= nextCost && nextCost > 0;
   const cultivate = useCallback(async () => {
     setBusy(true);
     setMsg(null);
@@ -202,6 +218,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         const label =
           j?.error === "no_class"
             ? "직업이 없어요 (먼저 직업을 선택하세요)"
+            : j?.error === "lifestyle_job"
+              ? "생활직은 수행할 수 없습니다"
             : j?.error === "insufficient_proficiency"
               ? `숙달 포인트 부족 (필요 ${j.required ?? nextCost}, 보유 ${j.have ?? usable})`
               : (j?.error ?? `http ${res.status}`);
@@ -359,6 +377,12 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               숙달 포인트로 스탯 한계치를 올리면, 레벨업 랜덤 성장이 그 한계까지 채운다.
             </p>
 
+            {isLifestyleJob ? (
+              <p className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-300">
+                생활직은 수행할 수 없습니다. 전투직으로 전직한 뒤 이용해 주세요.
+              </p>
+            ) : null}
+
             {loading ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
                 불러오는 중…
@@ -372,7 +396,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                 {V2_STAT_KEYS.map((k) => {
                   const cap = caps[k] ?? V2_STAT_CAP_BASE;
                   const cur = stats[k] ?? 0;
-                  const gain = profile[k] ?? 0;
+                  const gain = isLifestyleJob ? 0 : (profile[k] ?? 0);
                   return (
                     <li
                       key={k}
@@ -425,10 +449,15 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                   <Button
                     onClick={cultivate}
                     disabled={!canCultivate}
+                    title={
+                      isLifestyleJob
+                        ? "생활직은 수행할 수 없습니다."
+                        : undefined
+                    }
                     variant="success"
                     size="md"
                   >
-                    {busy ? "처리 중…" : "수행"}
+                    {busy ? "처리 중…" : isLifestyleJob ? "수행 불가" : "수행"}
                   </Button>
                 </div>
 

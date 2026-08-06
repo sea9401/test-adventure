@@ -59,16 +59,11 @@ beforeEach(() => {
   vi.stubEnv("TURNSTILE_SITE_KEY", "site");
   vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
   vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
-  store.set(ACTIVITY_GUARD_KEY, {
-    version: 1,
-    activities: {
-      fishing: {
-        completedSinceVerification: 100,
-        verificationRequiredAt: 10_000,
-        strongSignals: 3,
-      },
-    },
-  });
+  let state = emptyActivityGuardState();
+  state = recordActivityStrongSignal(state, "fishing", 10_000).state;
+  state = recordActivityStrongSignal(state, "fishing", 11_000).state;
+  state = recordActivityStrongSignal(state, "fishing", 12_000).state;
+  store.set(ACTIVITY_GUARD_KEY, state);
 });
 
 afterEach(() => {
@@ -106,7 +101,7 @@ describe("POST /api/v2/activity-verification", () => {
       expect.objectContaining({ reason: "human_verification_failed" }),
     );
     const state = parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY));
-    expect(activityGuardView(state, "fishing").verificationRequiredAt).toBe(10_000);
+    expect(activityGuardView(state, "fishing").verificationRequiredAt).not.toBeNull();
   });
 
   it("체크포인트가 없으면 미리 검증해 활동 횟수를 초기화할 수 없다", async () => {

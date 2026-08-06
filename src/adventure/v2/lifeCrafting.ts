@@ -33,6 +33,7 @@ export type LifeCraftingRecipe = {
   id: string;
   name: string;
   description: string;
+  image?: string;
   kind: "aid" | "furniture";
   outputId: LifeFinishedItemId;
   outputAmount: number;
@@ -46,16 +47,29 @@ export type LifeCraftingRecipe = {
 const P = LIFE_PROCESSED_MATERIAL_ID;
 const M = MINING_MATERIAL_ID;
 
+const LIFE_BLUEPRINT_SOURCE_LABELS: Record<LifeBlueprintSource, string> = {
+  woodcutting: "벌목",
+  mining: "채광",
+  fishing: "낚시",
+  farming: "농사",
+  cooking: "요리",
+  processing: "가공",
+};
+
+export function lifeBlueprintSourceLabel(source?: LifeBlueprintSource): string {
+  return source ? LIFE_BLUEPRINT_SOURCE_LABELS[source] : "생활";
+}
+
 export const LIFE_CRAFTING_RECIPES: readonly LifeCraftingRecipe[] = [
-  { id: "logging_wedge_basic", name: "초급 벌목 쐐기", description: "1~2등급 벌목 300회 동안 추가 원목 획득률을 10%p 높입니다.", kind: "aid", outputId: "logging_wedge_basic", outputAmount: 1, costs: { [P.softwood]: 3, [P.basicIngot]: 1 }, requiredLevel: 1 },
-  { id: "logging_wedge_advanced", name: "중급 벌목 쐐기", description: "3~4등급 벌목 400회 동안 추가 원목 획득률을 8%p 높입니다.", kind: "aid", outputId: "logging_wedge_advanced", outputAmount: 1, costs: { [P.hardwood]: 3, [P.preciousIngot]: 1 }, requiredLevel: 20 },
-  { id: "logging_wedge_master", name: "명인의 벌목 쐐기", description: "5~6등급 벌목 500회 동안 추가 원목 획득률을 6%p 높입니다.", kind: "aid", outputId: "logging_wedge_master", outputAmount: 1, costs: { [P.masterwood]: 3, [P.arcaneAlloy]: 1, [M.roughGem]: 1 }, requiredLevel: 40, hidden: true, blueprintSource: "woodcutting", blueprintRarity: "top" },
-  { id: "mining_probe_basic", name: "초급 광맥 탐침", description: "1~2등급 채광 300회 동안 추가 광물 +10%p, 부산물 확률 +25%를 적용합니다.", kind: "aid", outputId: "mining_probe_basic", outputAmount: 1, costs: { [P.basicIngot]: 3, [P.softwood]: 1 }, requiredLevel: 1 },
-  { id: "mining_probe_advanced", name: "중급 광맥 탐침", description: "3~4등급 채광 400회 동안 추가 광물 +8%p, 부산물 확률 +25%를 적용합니다.", kind: "aid", outputId: "mining_probe_advanced", outputAmount: 1, costs: { [P.preciousIngot]: 3, [P.hardwood]: 1 }, requiredLevel: 20 },
-  { id: "mining_probe_master", name: "명인의 광맥 탐침", description: "5~6등급 채광 500회 동안 추가 광물 +6%p, 부산물 확률 +25%를 적용합니다.", kind: "aid", outputId: "mining_probe_master", outputAmount: 1, costs: { [P.arcaneAlloy]: 3, [P.masterwood]: 1, [M.roughGem]: 1 }, requiredLevel: 40, hidden: true, blueprintSource: "mining", blueprintRarity: "top" },
-  { id: "organic_fertilizer", name: "유기질 거름", description: "자라는 중인 밭에 사용해 남은 재배 시간을 20%(최대 2시간) 줄입니다. 파종당 1회만 사용합니다.", kind: "aid", outputId: "organic_fertilizer", outputAmount: 3, costs: { [P.softwood]: 1, [M.coal]: 1 }, requiredLevel: 1 },
-  { id: "cooking_prep_set", name: "요리 준비 세트", description: "선택한 조리 수량만큼 사용해 걸작 확률을 8%p 높입니다. 기본값은 사용 안 함입니다.", kind: "aid", outputId: "cooking_prep_set", outputAmount: 5, costs: { [P.softwood]: 1, [P.basicIngot]: 1 }, requiredLevel: 1 },
-  { id: "tidy_bait_box", name: "정갈한 미끼 상자", description: "켜 둔 동안 성공한 낚시에만 1회가 소모되며 희귀 어종 가중치를 조금 높입니다. 400회분입니다.", kind: "aid", outputId: "tidy_bait_box", outputAmount: 1, costs: { [P.hardwood]: 2, [P.preciousIngot]: 1 }, requiredLevel: 20 },
+  { id: "logging_wedge_basic", name: "초급 벌목 쐐기", description: "1~2등급 벌목 600회 동안 추가 원목 획득률을 10%p 높입니다.", image: "/images/items/life-aids/logging_wedge_basic.webp", kind: "aid", outputId: "logging_wedge_basic", outputAmount: 1, costs: { [P.softwood]: 8, [P.basicIngot]: 4 }, requiredLevel: 1 },
+  { id: "logging_wedge_advanced", name: "중급 벌목 쐐기", description: "3~4등급 벌목 800회 동안 추가 원목 획득률을 8%p 높입니다.", image: "/images/items/life-aids/logging_wedge_advanced.webp", kind: "aid", outputId: "logging_wedge_advanced", outputAmount: 1, costs: { [P.hardwood]: 10, [P.preciousIngot]: 4 }, requiredLevel: 20 },
+  { id: "logging_wedge_master", name: "명인의 벌목 쐐기", description: "5~6등급 벌목 1,000회 동안 추가 원목 획득률을 6%p 높입니다.", image: "/images/items/life-aids/logging_wedge_master.webp", kind: "aid", outputId: "logging_wedge_master", outputAmount: 1, costs: { [P.masterwood]: 10, [P.arcaneAlloy]: 4, [M.roughGem]: 4 }, requiredLevel: 40, hidden: true, blueprintSource: "woodcutting", blueprintRarity: "top" },
+  { id: "mining_probe_basic", name: "초급 광맥 탐침", description: "1~2등급 채광 600회 동안 추가 광물 +10%p, 부산물 확률 +25%를 적용합니다.", image: "/images/items/life-aids/mining_probe_basic.webp", kind: "aid", outputId: "mining_probe_basic", outputAmount: 1, costs: { [P.basicIngot]: 8, [P.softwood]: 4 }, requiredLevel: 1 },
+  { id: "mining_probe_advanced", name: "중급 광맥 탐침", description: "3~4등급 채광 800회 동안 추가 광물 +8%p, 부산물 확률 +25%를 적용합니다.", image: "/images/items/life-aids/mining_probe_advanced.webp", kind: "aid", outputId: "mining_probe_advanced", outputAmount: 1, costs: { [P.preciousIngot]: 10, [P.hardwood]: 4 }, requiredLevel: 20 },
+  { id: "mining_probe_master", name: "명인의 광맥 탐침", description: "5~6등급 채광 1,000회 동안 추가 광물 +6%p, 부산물 확률 +25%를 적용합니다.", image: "/images/items/life-aids/mining_probe_master.webp", kind: "aid", outputId: "mining_probe_master", outputAmount: 1, costs: { [P.arcaneAlloy]: 10, [P.masterwood]: 4, [M.roughGem]: 4 }, requiredLevel: 40, hidden: true, blueprintSource: "mining", blueprintRarity: "top" },
+  { id: "organic_fertilizer", name: "유기질 거름", description: "자라는 중인 밭에 사용해 남은 재배 시간을 20%(최대 2시간) 줄입니다. 파종당 1회만 사용합니다.", image: "/images/items/life-aids/organic_fertilizer.webp", kind: "aid", outputId: "organic_fertilizer", outputAmount: 3, costs: { [P.softwood]: 3, [M.coal]: 3 }, requiredLevel: 1 },
+  { id: "cooking_prep_set", name: "요리 준비 세트", description: "선택한 조리 수량만큼 사용해 걸작 확률을 8%p 높입니다. 기본값은 사용 안 함입니다.", image: "/images/items/life-aids/cooking_prep_set.webp", kind: "aid", outputId: "cooking_prep_set", outputAmount: 5, costs: { [P.softwood]: 3, [P.basicIngot]: 3 }, requiredLevel: 1 },
+  { id: "tidy_bait_box", name: "정갈한 미끼 상자", description: "켜 둔 동안 성공한 낚시에만 1회가 소모되며 희귀 어종 가중치를 조금 높입니다. 800회분입니다.", image: "/images/items/life-aids/tidy_bait_box.webp", kind: "aid", outputId: "tidy_bait_box", outputAmount: 1, costs: { [P.hardwood]: 8, [P.preciousIngot]: 4 }, requiredLevel: 20 },
   { id: "pine_work_shelf", name: "소나무 작업 선반", description: "다듬은 목재로 만든 실용적인 생활 가구입니다.", kind: "furniture", outputId: "pine_work_shelf", outputAmount: 1, costs: { [P.softwood]: 4, [P.basicIngot]: 1 }, requiredLevel: 1 },
   { id: "iron_work_lamp", name: "철제 작업등", description: "작업대 주변을 밝히는 단단한 조명입니다.", kind: "furniture", outputId: "iron_work_lamp", outputAmount: 1, costs: { [P.basicIngot]: 4, [P.softwood]: 1 }, requiredLevel: 1 },
   { id: "life_work_desk", name: "생활 장인의 작업대", description: "목공과 제련의 흔적이 함께 남은 넓은 작업대입니다.", kind: "furniture", outputId: "life_work_desk", outputAmount: 1, costs: { [P.hardwood]: 4, [P.preciousIngot]: 2 }, requiredLevel: 20 },
@@ -126,12 +140,12 @@ export function parseLifeCraftingState(raw: unknown): LifeCraftingState {
 }
 
 export function lifeAidSpec(itemId: LifeFinishedItemId): { activity: LifeAidActivity; gradeMin: number; gradeMax: number; uses: number; bonusPct: number; byproductMultiplier?: number } | null {
-  if (itemId === "tidy_bait_box") return { activity: "fishing", gradeMin: 1, gradeMax: 6, uses: 400, bonusPct: 5 };
+  if (itemId === "tidy_bait_box") return { activity: "fishing", gradeMin: 1, gradeMax: 6, uses: 800, bonusPct: 5 };
   const logging = itemId.startsWith("logging_wedge_");
   const mining = itemId.startsWith("mining_probe_");
   if (!logging && !mining) return null;
   const tier = itemId.endsWith("basic") ? 0 : itemId.endsWith("advanced") ? 1 : 2;
-  return { activity: logging ? "woodcutting" : "mining", gradeMin: tier * 2 + 1, gradeMax: tier * 2 + 2, uses: [300, 400, 500][tier], bonusPct: [10, 8, 6][tier], ...(mining ? { byproductMultiplier: 1.25 } : {}) };
+  return { activity: logging ? "woodcutting" : "mining", gradeMin: tier * 2 + 1, gradeMax: tier * 2 + 2, uses: [600, 800, 1_000][tier], bonusPct: [10, 8, 6][tier], ...(mining ? { byproductMultiplier: 1.25 } : {}) };
 }
 
 export function consumeFinishedItem(state: LifeCraftingState, itemId: LifeFinishedItemId, amount: number): LifeCraftingState | null {

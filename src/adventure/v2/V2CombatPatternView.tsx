@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   V2_SKILLS,
   describeV2Skill,
@@ -34,22 +35,29 @@ const STAT_KEYS: StatKey[] = ["str", "dex", "vit", "spd", "luk", "int"];
 
 type CondKind = V2CombatCondition["kind"];
 type SimpleCondKind = Exclude<CondKind, "all" | "any">;
-const COND_KINDS: { value: CondKind; label: string }[] = [
-  { value: "always", label: "항상" },
-  { value: "all", label: "모두 만족" },
-  { value: "any", label: "하나 만족" },
-  { value: "self_hp", label: "내 HP" },
-  { value: "self_mp", label: "내 MP" },
-  { value: "self_shield", label: "내 보호막" },
-  { value: "self_buff", label: "내 능력치 버프" },
-  { value: "self_buff_pct", label: "내 상태 효과" },
-  { value: "enemy_hp", label: "적 HP" },
-  { value: "enemy_status", label: "적 상태" },
-  { value: "enemy_debuff", label: "적 디버프" },
-  { value: "turn", label: "내 공격 차례" },
+type PatternChoiceOption<T extends string> = {
+  value: T;
+  label: string;
+  group?: string;
+  detail?: string;
+};
+
+const COND_KINDS: PatternChoiceOption<CondKind>[] = [
+  { value: "always", label: "항상", group: "기본" },
+  { value: "self_hp", label: "내 HP", group: "내 상태" },
+  { value: "self_mp", label: "내 MP", group: "내 상태" },
+  { value: "self_shield", label: "내 보호막", group: "내 상태" },
+  { value: "self_buff", label: "내 능력치 버프", group: "내 상태" },
+  { value: "self_buff_pct", label: "내 상태 효과", group: "내 상태" },
+  { value: "enemy_hp", label: "적 HP", group: "적 상태" },
+  { value: "enemy_status", label: "적 상태", group: "적 상태" },
+  { value: "enemy_debuff", label: "적 디버프", group: "적 상태" },
+  { value: "turn", label: "내 공격 차례", group: "타이밍" },
+  { value: "all", label: "모두 만족", group: "복합 조건" },
+  { value: "any", label: "하나 만족", group: "복합 조건" },
 ];
-const SIMPLE_COND_KINDS: { value: SimpleCondKind; label: string }[] =
-  COND_KINDS.filter((c): c is { value: SimpleCondKind; label: string } =>
+const SIMPLE_COND_KINDS: PatternChoiceOption<SimpleCondKind>[] =
+  COND_KINDS.filter((c): c is PatternChoiceOption<SimpleCondKind> =>
     c.value !== "all" && c.value !== "any",
   );
 
@@ -59,6 +67,283 @@ const ROLE_OPTIONS: { value: V2CombatRole; label: string }[] = [
   { value: "buff", label: "버프" },
   { value: "debuff", label: "디버프" },
 ];
+
+const ABOVE_BELOW_OPTIONS = [
+  { value: "below", label: "이하" },
+  { value: "above", label: "이상" },
+] as const;
+const ACTIVE_OPTIONS = [
+  { value: "n", label: "없을 때" },
+  { value: "y", label: "있을 때" },
+] as const;
+const ACTION_KIND_OPTIONS = [
+  { value: "role", label: "역할 사용" },
+  { value: "skill", label: "특정 스킬" },
+] as const;
+const STAT_OPTIONS: PatternChoiceOption<StatKey>[] = STAT_KEYS.map((value) => ({
+  value,
+  label: STAT_LABELS[value],
+}));
+const SELF_STATUS_OPTIONS: PatternChoiceOption<V2PatternSelfStatus>[] = [
+  { value: "evasion", label: "회피 증가" },
+  { value: "crit", label: "치명타 확률 증가" },
+  { value: "damageReduction", label: "받는 피해 감소" },
+  { value: "reflectDamage", label: "반사 피해" },
+  { value: "regen", label: "지속 회복" },
+  { value: "guaranteedEvade", label: "확정 회피" },
+];
+const ENEMY_STATUS_OPTIONS = [
+  { value: "bleed", label: "출혈" },
+  { value: "poison", label: "중독" },
+  { value: "vuln", label: "마법취약" },
+] as const;
+const ENEMY_STATUS_OP_OPTIONS = [
+  { value: "atLeast", label: "스택 이상" },
+  { value: "none", label: "없을 때" },
+] as const;
+const ENEMY_DEBUFF_OPTIONS = [
+  { value: "vulnerability", label: "받는 피해 증가(취약)" },
+  { value: "damageDown", label: "주는 피해 감소" },
+  { value: "skillProcDown", label: "스킬 발동률 감소" },
+] as const;
+const TURN_OP_OPTIONS = [
+  { value: "atMost", label: "이하" },
+  { value: "atLeast", label: "이상" },
+  { value: "every", label: "매 배수" },
+] as const;
+
+export function filterPatternChoiceOptions<T extends string>(
+  options: readonly PatternChoiceOption<T>[],
+  queryRaw: string,
+): PatternChoiceOption<T>[] {
+  const query = queryRaw.trim().toLocaleLowerCase();
+  if (!query) return [...options];
+  return options.filter((option) =>
+    `${option.label} ${option.group ?? ""} ${option.detail ?? ""}`
+      .toLocaleLowerCase()
+      .includes(query),
+  );
+}
+
+export function PatternChoicePicker<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  placeholder = "선택하세요",
+  searchable = options.length >= 6,
+  disabled = false,
+  className = "",
+}: {
+  value: T;
+  options: readonly PatternChoiceOption<T>[];
+  onChange: (value: T) => void;
+  label: string;
+  placeholder?: string;
+  searchable?: boolean;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const selected = options.find((option) => option.value === value);
+  const visibleOptions = filterPatternChoiceOptions(options, query);
+  const groupedOptions = visibleOptions.reduce<
+    Array<{ group: string; options: PatternChoiceOption<T>[] }>
+  >((groups, option) => {
+    const group = option.group ?? "선택지";
+    const previous = groups.at(-1);
+    if (previous?.group === group) previous.options.push(option);
+    else groups.push({ group, options: [option] });
+    return groups;
+  }, []);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [close, open]);
+
+  const choose = (next: T) => {
+    onChange(next);
+    close();
+  };
+
+  const choiceList = (surface: "mobile" | "desktop") => (
+    <>
+      {searchable ? (
+        <div className="sticky top-0 z-10 bg-white p-3 dark:bg-zinc-900">
+          <label className="sr-only" htmlFor={`${titleId}-${surface}-search`}>
+            {label} 검색
+          </label>
+          <input
+            id={`${titleId}-${surface}-search`}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={`${label} 검색`}
+            className="h-11 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-indigo-400 dark:focus:ring-indigo-950"
+          />
+        </div>
+      ) : null}
+      <div className="space-y-3 px-3 pb-4" role="listbox" aria-label={label}>
+        {groupedOptions.map((group) => (
+          <div key={group.group} role="group" aria-label={group.group}>
+            {(groupedOptions.length > 1 || group.group !== "선택지") && (
+              <div className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                {group.group}
+              </div>
+            )}
+            <div className="grid gap-1 sm:grid-cols-2">
+              {group.options.map((option) => {
+                const active = option.value === value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => choose(option.value)}
+                    className={`min-h-11 rounded-lg border px-3 py-2 text-left transition ${
+                      active
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-400 dark:bg-indigo-950 dark:text-indigo-200"
+                        : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                      {option.label}
+                      {active ? <span aria-hidden>✓</span> : null}
+                    </span>
+                    {option.detail ? (
+                      <span className="mt-0.5 block text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {option.detail}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {visibleOptions.length === 0 ? (
+          <div className="py-8 text-center text-sm text-zinc-500">
+            일치하는 선택지가 없습니다.
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+
+  return (
+    <div ref={rootRef} className={`relative min-w-0 ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        className="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-left text-sm font-medium text-zinc-800 shadow-sm transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-indigo-500 dark:disabled:text-zinc-500"
+      >
+        <span className="truncate">{selected?.label ?? placeholder}</span>
+        <span aria-hidden className="shrink-0 text-zinc-400">
+          {open ? "▴" : "▾"}
+        </span>
+      </button>
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-50 flex items-end bg-black/45 sm:hidden">
+            <button
+              type="button"
+              aria-label={`${label} 선택 닫기`}
+              onClick={close}
+              className="absolute inset-0"
+            />
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={`${titleId}-mobile`}
+              className={`${SURFACE_CARD} relative z-10 max-h-[78dvh] w-full overflow-y-auto rounded-b-none p-0`}
+            >
+              <div className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+                <h3 id={`${titleId}-mobile`} className="font-semibold">
+                  {label}
+                </h3>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="min-h-9 rounded-md px-2 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  닫기
+                </button>
+              </div>
+              {choiceList("mobile")}
+            </section>
+          </div>
+          <section
+            role="dialog"
+            aria-label={label}
+            className={`${SURFACE_CARD} absolute left-0 top-full z-40 mt-1 hidden max-h-96 min-w-80 overflow-y-auto p-0 sm:block`}
+          >
+            {choiceList("desktop")}
+          </section>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+export function PatternChoiceButtons<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: readonly PatternChoiceOption<T>[];
+  onChange: (value: T) => void;
+  label: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.value)}
+            className={`min-h-8 rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+              active
+                ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400 dark:bg-indigo-500 dark:text-zinc-950"
+                : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // kind 변경 시 기본 파라미터.
 function defaultCondition(kind: CondKind): V2CombatCondition {
@@ -111,8 +396,6 @@ type StateShape = {
   };
 };
 
-const sel =
-  "min-w-0 max-w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
 
@@ -473,17 +756,15 @@ export function V2CombatPatternView({
 
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="w-8 text-zinc-500 dark:text-zinc-400">조건</span>
-                  <select
-                    className={sel}
+                  <PatternChoicePicker
                     value={b.condition.kind}
-                    onChange={(e) =>
-                      update(i, { condition: defaultCondition(e.target.value as CondKind) })
+                    options={COND_KINDS}
+                    label="행동 조건 선택"
+                    className="w-40"
+                    onChange={(kind) =>
+                      update(i, { condition: defaultCondition(kind) })
                     }
-                  >
-                    {COND_KINDS.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
+                  />
                   <ConditionParams
                     condition={b.condition}
                     onChange={(condition) => update(i, { condition })}
@@ -492,11 +773,11 @@ export function V2CombatPatternView({
 
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                   <span className="w-8 text-zinc-500 dark:text-zinc-400">행동</span>
-                  <select
-                    className={sel}
+                  <PatternChoiceButtons
                     value={b.action.kind}
-                    onChange={(e) => {
-                      const kind = e.target.value as V2CombatAction["kind"];
+                    options={ACTION_KIND_OPTIONS}
+                    label="행동 방식"
+                    onChange={(kind) => {
                       update(i, {
                         action:
                           kind === "role"
@@ -504,42 +785,49 @@ export function V2CombatPatternView({
                             : { kind: "skill", skillId: castableEquipped[0] ?? "" },
                       });
                     }}
-                  >
-                    <option value="role">역할 사용</option>
-                    <option value="skill">특정 스킬</option>
-                  </select>
+                  />
                   {b.action.kind === "role" ? (
-                    <select
-                      className={sel}
+                    <PatternChoiceButtons
                       value={b.action.role}
-                      onChange={(e) =>
+                      options={ROLE_OPTIONS}
+                      label="사용할 역할"
+                      onChange={(role) =>
                         update(i, {
-                          action: { kind: "role", role: e.target.value as V2CombatRole },
+                          action: { kind: "role", role },
                         })
                       }
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
+                    />
                   ) : (
-                  <select
-                    className={`${sel} w-full sm:w-auto`}
-                    value={b.action.skillId}
-                    onChange={(e) =>
-                      update(i, { action: { kind: "skill", skillId: e.target.value } })
-                    }
-                  >
-                    {castableEquipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
-                    {b.action.skillId && !castableEquipped.includes(b.action.skillId) && (
-                      <option value={b.action.skillId}>
-                        {skillSelectLabel(b.action.skillId)} · 미장착
-                      </option>
-                    )}
-                    {castableEquipped.map((id) => (
-                      <option key={id} value={id}>{skillSelectLabel(id)}</option>
-                    ))}
-                  </select>
+                    <PatternChoicePicker
+                      value={b.action.skillId}
+                      options={[
+                        ...(b.action.skillId &&
+                        !castableEquipped.includes(b.action.skillId)
+                          ? [
+                              {
+                                value: b.action.skillId,
+                                label: skillSelectLabel(b.action.skillId),
+                                group: "현재 선택",
+                                detail: "현재 장착되지 않은 스킬",
+                              },
+                            ]
+                          : []),
+                        ...castableEquipped.map((id) => ({
+                          value: id,
+                          label: skillSelectLabel(id),
+                          group: "장착 스킬",
+                        })),
+                      ]}
+                      label="사용할 스킬 선택"
+                      placeholder="장착한 스킬 없음"
+                      disabled={
+                        castableEquipped.length === 0 && !b.action.skillId
+                      }
+                      className="w-full sm:w-64"
+                      onChange={(skillId) =>
+                        update(i, { action: { kind: "skill", skillId } })
+                      }
+                    />
                   )}
                 </div>
 
@@ -641,11 +929,12 @@ function ConditionParams({
     case "enemy_hp":
       return (
         <>
-          <select className={sel} value={c.op}
-            onChange={(e) => onChange({ ...c, op: e.target.value as "below" | "above" })}>
-            <option value="below">이하</option>
-            <option value="above">이상</option>
-          </select>
+          <PatternChoiceButtons
+            value={c.op}
+            options={ABOVE_BELOW_OPTIONS}
+            label="수치 비교 방식"
+            onChange={(op) => onChange({ ...c, op })}
+          />
           <PatternNumberInput
             key={`${c.kind}-pct`}
             min={0}
@@ -658,61 +947,64 @@ function ConditionParams({
       );
     case "self_shield":
       return (
-        <select className={sel} value={c.active ? "y" : "n"}
-          onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-          <option value="n">없을 때</option>
-          <option value="y">있을 때</option>
-        </select>
+        <PatternChoiceButtons
+          value={c.active ? "y" : "n"}
+          options={ACTIVE_OPTIONS}
+          label="보호막 상태"
+          onChange={(active) => onChange({ ...c, active: active === "y" })}
+        />
       );
     case "self_buff":
       return (
         <>
-          <select className={sel} value={c.stat}
-            onChange={(e) => onChange({ ...c, stat: e.target.value as StatKey })}>
-            {STAT_KEYS.map((s) => (
-              <option key={s} value={s}>{STAT_LABELS[s]}</option>
-            ))}
-          </select>
-          <select className={sel} value={c.active ? "y" : "n"}
-            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-            <option value="n">없을 때</option>
-            <option value="y">있을 때</option>
-          </select>
+          <PatternChoicePicker
+            value={c.stat}
+            options={STAT_OPTIONS}
+            label="능력치 선택"
+            className="w-28"
+            onChange={(stat) => onChange({ ...c, stat })}
+          />
+          <PatternChoiceButtons
+            value={c.active ? "y" : "n"}
+            options={ACTIVE_OPTIONS}
+            label="능력치 버프 상태"
+            onChange={(active) => onChange({ ...c, active: active === "y" })}
+          />
         </>
       );
     case "self_buff_pct":
       return (
         <>
-          <select className={sel} value={c.target}
-            onChange={(e) => onChange({ ...c, target: e.target.value as V2PatternSelfStatus })}>
-            <option value="evasion">회피 증가</option>
-            <option value="crit">치명타 확률 증가</option>
-            <option value="damageReduction">받는 피해 감소</option>
-            <option value="reflectDamage">반사 피해</option>
-            <option value="regen">지속 회복</option>
-            <option value="guaranteedEvade">확정 회피</option>
-          </select>
-          <select className={sel} value={c.active ? "y" : "n"}
-            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-            <option value="n">없을 때</option>
-            <option value="y">있을 때</option>
-          </select>
+          <PatternChoicePicker
+            value={c.target}
+            options={SELF_STATUS_OPTIONS}
+            label="내 상태 효과 선택"
+            className="w-48"
+            onChange={(target) => onChange({ ...c, target })}
+          />
+          <PatternChoiceButtons
+            value={c.active ? "y" : "n"}
+            options={ACTIVE_OPTIONS}
+            label="내 상태 효과 유무"
+            onChange={(active) => onChange({ ...c, active: active === "y" })}
+          />
         </>
       );
     case "enemy_status":
       return (
         <>
-          <select className={sel} value={c.tag}
-            onChange={(e) => onChange({ ...c, tag: e.target.value as "bleed" | "poison" | "vuln" })}>
-            <option value="bleed">출혈</option>
-            <option value="poison">중독</option>
-            <option value="vuln">마법취약</option>
-          </select>
-          <select className={sel} value={c.op}
-            onChange={(e) => onChange({ ...c, op: e.target.value as "atLeast" | "none" })}>
-            <option value="atLeast">스택 이상</option>
-            <option value="none">없을 때</option>
-          </select>
+          <PatternChoiceButtons
+            value={c.tag}
+            options={ENEMY_STATUS_OPTIONS}
+            label="적 상태 종류"
+            onChange={(tag) => onChange({ ...c, tag })}
+          />
+          <PatternChoiceButtons
+            value={c.op}
+            options={ENEMY_STATUS_OP_OPTIONS}
+            label="적 상태 비교 방식"
+            onChange={(op) => onChange({ ...c, op })}
+          />
           {c.op === "atLeast" && (
             <PatternNumberInput
               key="enemy-status-stacks"
@@ -726,28 +1018,30 @@ function ConditionParams({
     case "enemy_debuff":
       return (
         <>
-          <select className={sel} value={c.target}
-            onChange={(e) => onChange({ ...c, target: e.target.value as "vulnerability" | "damageDown" | "skillProcDown" })}>
-            <option value="vulnerability">받는 피해 증가(취약)</option>
-            <option value="damageDown">주는 피해 감소</option>
-            <option value="skillProcDown">스킬 발동률 감소</option>
-          </select>
-          <select className={sel} value={c.active ? "y" : "n"}
-            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
-            <option value="n">없을 때</option>
-            <option value="y">있을 때</option>
-          </select>
+          <PatternChoicePicker
+            value={c.target}
+            options={ENEMY_DEBUFF_OPTIONS}
+            label="적 디버프 선택"
+            className="w-52"
+            onChange={(target) => onChange({ ...c, target })}
+          />
+          <PatternChoiceButtons
+            value={c.active ? "y" : "n"}
+            options={ACTIVE_OPTIONS}
+            label="적 디버프 유무"
+            onChange={(active) => onChange({ ...c, active: active === "y" })}
+          />
         </>
       );
     case "turn":
       return (
         <>
-          <select className={sel} value={c.op}
-            onChange={(e) => onChange({ ...c, op: e.target.value as "atMost" | "atLeast" | "every" })}>
-            <option value="atMost">이하</option>
-            <option value="atLeast">이상</option>
-            <option value="every">매 (배수)</option>
-          </select>
+          <PatternChoiceButtons
+            value={c.op}
+            options={TURN_OP_OPTIONS}
+            label="공격 차례 비교 방식"
+            onChange={(op) => onChange({ ...c, op })}
+          />
           <PatternNumberInput
             key="turn-value"
             min={1}
@@ -795,15 +1089,13 @@ function CompoundConditionParams({
           <span className="w-10 text-[11px] text-zinc-400">
             {c.kind === "all" ? "AND" : "OR"} {idx + 1}
           </span>
-          <select
-            className={sel}
+          <PatternChoicePicker
             value={child.kind === "all" || child.kind === "any" ? "always" : child.kind}
-            onChange={(e) => updateChild(idx, defaultCondition(e.target.value as SimpleCondKind))}
-          >
-            {SIMPLE_COND_KINDS.map((kind) => (
-              <option key={kind.value} value={kind.value}>{kind.label}</option>
-            ))}
-          </select>
+            options={SIMPLE_COND_KINDS}
+            label={`하위 조건 ${idx + 1} 선택`}
+            className="w-36"
+            onChange={(kind) => updateChild(idx, defaultCondition(kind))}
+          />
           <ConditionParams condition={child} onChange={(next) => updateChild(idx, next)} />
           {c.conditions.length > 1 && (
             <button

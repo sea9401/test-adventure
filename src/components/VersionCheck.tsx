@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { X } from "@phosphor-icons/react";
 import { isForegroundHunting } from "@/lib/huntingSignal";
 
 // 새 배포 감지 → 보고 있으면 "새 버전 — 새로고침" 토스트, 안 보고 있으면(탭 숨김) 조용히 자동 reload.
@@ -24,6 +25,8 @@ const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 export function VersionCheck() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const detectedBuildIdRef = useRef<string | null>(null);
+  const dismissedBuildIdRef = useRef<string | null>(null);
   // onHide 핸들러는 deps [check] 인 effect 안에 있어 최신 state 를 못 본다 — ref 로 미러링.
   const updateAvailableRef = useRef(false);
   useEffect(() => {
@@ -41,6 +44,8 @@ export function VersionCheck() {
         data.buildId !== "dev" &&
         data.buildId !== LOADED_BUILD_ID
       ) {
+        detectedBuildIdRef.current = data.buildId;
+        if (dismissedBuildIdRef.current === data.buildId) return;
         // 탭이 숨겨져 있으면(유저가 안 보는 동안) 토스트 띄울 것 없이 바로 갈아끼운다.
         // 단 실시간 사냥 중이면 미룬다 — reload 가 huntingActive 를 리셋해 사냥이 끊긴다.
         if (document.visibilityState === "hidden" && !isForegroundHunting()) {
@@ -96,6 +101,17 @@ export function VersionCheck() {
         className="rounded-full border border-white/40 bg-white/15 px-3 py-0.5 text-xs font-semibold transition-colors hover:bg-white/25"
       >
         새로고침
+      </button>
+      <button
+        type="button"
+        aria-label="알림 닫기"
+        onClick={() => {
+          dismissedBuildIdRef.current = detectedBuildIdRef.current;
+          setUpdateAvailable(false);
+        }}
+        className="-mr-2 flex size-7 shrink-0 items-center justify-center rounded-full text-white/80 transition hover:bg-white/15 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1"
+      >
+        <X size={16} weight="bold" aria-hidden />
       </button>
     </div>
   );

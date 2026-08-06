@@ -17,6 +17,7 @@ import {
   COOP_BOSSES,
   coopBossCurrentMp,
   coopBossMaxMp,
+  parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 
@@ -27,7 +28,7 @@ import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 // 응답: {
 //   scrolls,                       — 내 소환서 보유 장수
 //   sessions: [{ id, kind, hp, maxHp, expiresAt, summonedByName,
-//                participantCount, myDamage, myTier }],
+//                visibility, isOwner, participantCount, myDamage, myTier }],
 //   claimables: [{ sessionId, kind, myDamage, tier, defeatedAt }],
 // }
 // 만료 정리는 lazy — 진입 시 sweep(cron 불요·멱등).
@@ -128,6 +129,8 @@ export async function GET() {
         bossMaxMp: coopBossMaxMp(def),
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
+        visibility: parseCoopVisibility(s.visibility),
+        isOwner: s.summonerId === userId,
         participantCount: countBySession.get(s.id) ?? 0,
         myDamage,
         myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kind),

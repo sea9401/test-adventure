@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Hammer, Mountains, Sparkle, Tree } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
@@ -24,7 +25,12 @@ import {
   type LifeWorkshopActivity,
   type LifeWorkshopState,
 } from "./lifeWorkshop";
-import { LIFE_CRAFTING_RECIPES, type LifeCraftingRecipe, type LifeFinishedItemId } from "./lifeCrafting";
+import {
+  LIFE_CRAFTING_RECIPES,
+  lifeBlueprintSourceLabel,
+  type LifeCraftingRecipe,
+  type LifeFinishedItemId,
+} from "./lifeCrafting";
 import { LifeRequestBoard } from "./LifeRequestBoard";
 
 type WorkshopRecipeView = {
@@ -78,12 +84,20 @@ type WorkshopPayload = {
   };
 };
 
-type WorkshopTab = "requests" | "process" | "craft" | "tools" | "specialization" | "codex";
+type WorkshopTab =
+  | "requests"
+  | "process"
+  | "craft"
+  | "aids"
+  | "tools"
+  | "specialization"
+  | "codex";
 
 const TAB_LABELS: Array<{ id: WorkshopTab; label: string }> = [
   { id: "requests", label: "생활 의뢰" },
   { id: "process", label: "재료 가공" },
   { id: "craft", label: "생활 제작" },
+  { id: "aids", label: "생활 보조품" },
   { id: "tools", label: "생활 도구" },
   { id: "specialization", label: "전문화" },
   { id: "codex", label: "가공 도감" },
@@ -93,6 +107,9 @@ const ACTIVITY_LABEL: Record<LifeWorkshopActivity, string> = {
   woodcutting: "벌목",
   mining: "채광",
 };
+
+// 숙소 가구 제작 데이터와 기존 보유 내역은 유지하되, 생활 제작 화면에서는 노출하지 않는다.
+const VISIBLE_LIFE_CRAFTING_KINDS: LifeCraftingRecipe["kind"][] = ["aid"];
 
 const ERROR_TEXT: Record<string, string> = {
   bad_recipe: "가공법을 확인할 수 없습니다.",
@@ -120,6 +137,42 @@ function requirementText(
   return Object.entries(costs)
     .map(([id, amount]) => `${materialName(id)} ${materials[id] ?? 0}/${amount}`)
     .join(" · ");
+}
+
+function LifeAidArtwork({
+  recipe,
+  hidden = false,
+  size = "md",
+}: {
+  recipe?: LifeCraftingRecipe | null;
+  hidden?: boolean;
+  size?: "sm" | "md";
+}) {
+  const sizeClass = size === "sm" ? "size-14" : "size-20";
+
+  return (
+    <div
+      className={`${sizeClass} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-200 bg-white dark:border-amber-900 dark:bg-zinc-950`}
+    >
+      {hidden || !recipe?.image ? (
+        <BookOpen
+          size={size === "sm" ? 27 : 36}
+          weight="duotone"
+          className="text-amber-600 dark:text-amber-300"
+          aria-hidden
+        />
+      ) : (
+        <Image
+          src={recipe.image}
+          width={256}
+          height={256}
+          sizes={size === "sm" ? "56px" : "80px"}
+          alt=""
+          className="size-full object-contain p-1.5"
+        />
+      )}
+    </div>
+  );
 }
 
 export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
@@ -227,7 +280,7 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100 p-1 sm:grid-cols-6 dark:bg-zinc-900">
+      <div className="grid grid-cols-4 gap-1 rounded-xl bg-zinc-100 p-1 sm:grid-cols-7 dark:bg-zinc-900">
         {TAB_LABELS.map((entry) => (
           <button
             key={entry.id}
@@ -311,7 +364,7 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
         </div>
       ) : tab === "craft" ? (
         <div className="space-y-3">
-          {(["aid", "furniture"] as const).map((kind) => (
+          {VISIBLE_LIFE_CRAFTING_KINDS.map((kind) => (
             <Card key={kind} padding="md">
               <h2 className="text-sm font-bold">{kind === "aid" ? "생활 보조품" : "숙소 가구"}</h2>
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -323,11 +376,20 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
                   const owned = data.state.crafting.balances[recipe.outputId] ?? 0;
                   return (
                     <div key={recipe.id} className={`${SURFACE_INSET} p-3`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-bold">{hiddenUnknown ? "숨겨진 도안" : recipe.name}</div>
-                        <span className="shrink-0 text-[11px] font-semibold text-amber-700 dark:text-amber-300">보유 {owned}</span>
+                      <div className="flex items-start gap-3">
+                        <LifeAidArtwork recipe={recipe} hidden={hiddenUnknown} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-bold">{hiddenUnknown ? "숨겨진 도안" : recipe.name}</div>
+                            <span className="shrink-0 text-[11px] font-semibold text-amber-700 dark:text-amber-300">보유 {owned}</span>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                            {hiddenUnknown
+                              ? `${lifeBlueprintSourceLabel(recipe.blueprintSource)} 활동 중 아주 낮은 확률로 발견됩니다.`
+                              : recipe.description}
+                          </p>
+                        </div>
                       </div>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{hiddenUnknown ? `${recipe.blueprintSource ?? "생활"} 활동 중 아주 낮은 확률로 발견됩니다.` : recipe.description}</p>
                       {!hiddenUnknown ? (
                         <>
                           <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{requirementText(recipe.costs, data.materials)}</div>
@@ -349,36 +411,78 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
             </Card>
           ))}
         </div>
-      ) : tab === "tools" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Card padding="md" className="sm:col-span-2">
-            <h2 className="text-sm font-bold">활성 보조품</h2>
+      ) : tab === "aids" ? (
+        <Card padding="md">
+          <h2 className="text-sm font-bold">사용 중인 생활 보조품</h2>
+          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            제작한 보조품을 활동별로 하나씩 활성화합니다. 효과가 적용되는 등급에서
+            성공한 행동에만 남은 횟수가 줄며, 사용을 끄면 소모되지 않습니다.
+          </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {(["woodcutting", "mining", "fishing"] as const).map((activity) => {
                 const active = data.state.crafting.activeAids[activity];
+                const activeRecipe = active
+                  ? LIFE_CRAFTING_RECIPES.find(
+                      (recipe) => recipe.outputId === active.itemId,
+                    )
+                  : null;
                 const candidates = LIFE_CRAFTING_RECIPES.filter((recipe) => recipe.kind === "aid" && ((activity === "woodcutting" && recipe.outputId.startsWith("logging_wedge_")) || (activity === "mining" && recipe.outputId.startsWith("mining_probe_")) || (activity === "fishing" && recipe.outputId === "tidy_bait_box")));
+                const ownedCandidates = candidates.filter(
+                  (recipe) => (data.state.crafting.balances[recipe.outputId] ?? 0) > 0,
+                );
+                const previewRecipe = candidates.find((recipe) => !recipe.hidden) ?? candidates[0];
                 return (
                   <div key={activity} className={`${SURFACE_INSET} p-3`}>
-                    <div className="font-bold">{activity === "woodcutting" ? "벌목" : activity === "mining" ? "채광" : "낚시"}</div>
+                    <div className="font-bold">{lifeBlueprintSourceLabel(activity)}</div>
                     {active ? (
                       <>
-                        <div className="mt-1 text-xs">{LIFE_CRAFTING_RECIPES.find((recipe) => recipe.outputId === active.itemId)?.name ?? active.itemId}</div>
-                        <div className="text-[11px] text-zinc-500">남은 성공 {active.remainingUses.toLocaleString()}회 · {active.enabled ? "사용 중" : "일시 정지"}</div>
+                        <div className="mt-2 flex items-start gap-2.5">
+                          <LifeAidArtwork recipe={activeRecipe} size="sm" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-semibold">
+                              {activeRecipe?.name ?? active.itemId}
+                            </div>
+                            <div className="mt-0.5 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
+                              {activeRecipe?.description}
+                            </div>
+                            <div className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                              남은 성공 {active.remainingUses.toLocaleString()}회 ·{" "}
+                              {active.enabled ? "사용 중" : "일시 정지"}
+                            </div>
+                          </div>
+                        </div>
                         <Button className="mt-2 w-full" size="xs" variant="secondary" disabled={busy !== null} onClick={() => void mutate(`toggle:${activity}`, { action: "toggle_aid", activity })}>{active.enabled ? "사용 끄기" : "사용 켜기"}</Button>
                       </>
                     ) : (
-                      <div className="mt-2 space-y-1">
-                        {candidates.filter((recipe) => (data.state.crafting.balances[recipe.outputId] ?? 0) > 0).map((recipe) => (
-                          <Button key={recipe.id} className="w-full" size="xs" disabled={busy !== null} onClick={() => void mutate(`aid:${recipe.outputId}`, { action: "activate_aid", itemId: recipe.outputId })}>{recipe.name} 활성화</Button>
+                      <div className="mt-2 space-y-2">
+                        {ownedCandidates.map((recipe) => (
+                          <div key={recipe.id} className="space-y-1.5 border-t border-zinc-200 pt-2 first:border-t-0 first:pt-0 dark:border-zinc-800">
+                            <div className="flex items-start gap-2.5">
+                              <LifeAidArtwork recipe={recipe} size="sm" />
+                              <div className="min-w-0 flex-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
+                                {recipe.description}
+                              </div>
+                            </div>
+                            <Button className="w-full" size="xs" disabled={busy !== null} onClick={() => void mutate(`aid:${recipe.outputId}`, { action: "activate_aid", itemId: recipe.outputId })}>{recipe.name} 활성화</Button>
+                          </div>
                         ))}
-                        {candidates.every((recipe) => (data.state.crafting.balances[recipe.outputId] ?? 0) < 1) ? <div className="text-xs text-zinc-500">활성화 가능한 보조품이 없습니다.</div> : null}
+                        {ownedCandidates.length === 0 ? (
+                          <div className="flex items-center gap-2.5">
+                            <LifeAidArtwork recipe={previewRecipe} size="sm" />
+                            <div className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                              활성화 가능한 보조품이 없습니다.
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>
                 );
               })}
             </div>
-          </Card>
+        </Card>
+      ) : tab === "tools" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
           {data.tools.map((tool) => {
             const upgrade = tool.nextUpgrade;
             const enough = upgrade

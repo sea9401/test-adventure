@@ -39,6 +39,7 @@ import {
 } from "./useActivityVerification";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
+import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -1201,23 +1202,11 @@ export function WoodcuttingView({
         </div>
       </div>
 
-      <Card padding="sm">
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span
-              aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-emerald-500"
-            />
-            보유 재료
-          </span>
-          <span className="min-w-0 truncate text-right text-sm font-bold text-zinc-800 dark:text-zinc-100">
-            {selectedMaterial.name}
-            <span className="ml-2 tabular-nums text-emerald-700 dark:text-emerald-300">
-              {selectedMaterialCount.toLocaleString()}개
-            </span>
-          </span>
-        </div>
-      </Card>
+      <GatheringResourceStockCard
+        resourceName={selectedMaterial.name}
+        count={selectedMaterialCount}
+        tone="woodcutting"
+      />
 
       {!verification ? (
         <AutoGatheringCard
@@ -1270,6 +1259,12 @@ export function WoodcuttingView({
         </>
       ) : (
         <>
+
+      <GatheringResourceStockCard
+        resourceName={selectedMaterial.name}
+        count={selectedMaterialCount}
+        tone="woodcutting"
+      />
 
       {(phase === "idle" || phase === "result") && !verification && (
         <Button

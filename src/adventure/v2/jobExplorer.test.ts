@@ -104,15 +104,14 @@ describe("jobExplorer tags", () => {
     );
   });
 
-  it("일반 상위 직업과 생활 직업은 저장 직군의 실제 수행 프로필을 표시한다", () => {
+  it("일반 상위 직업은 실제 수행 프로필을 표시하고 생활직은 수행 불가로 안내한다", () => {
     expect(jobCultivationSummary("shieldman")).toBe("활력 +3 · 힘 +1");
     expect(jobCultivationSummary("guardian")).toBe("활력 +3 · 힘 +1");
     expect(jobCultivationSummary("warden")).toBe("활력 +3 · 힘 +1");
     expect(jobCultivationSummary("ironknight")).toBe("활력 +4 · 힘 +1");
     expect(jobCultivationSummary("fortressknight")).toBe("활력 +4 · 힘 +2");
-    expect(jobCultivationSummary("fisher")).toBe(
-      "활력 +2 · 힘 +1 · 정신 +1",
-    );
+    expect(jobCultivationProfile("fisher")).toBeUndefined();
+    expect(jobCultivationSummary("fisher")).toBe("생활직은 수행할 수 없음");
     expect(jobCultivationSummary("templar")).toBe(
       "힘 +2 · 활력 +1 · 정신 +1",
     );
@@ -123,19 +122,24 @@ describe("jobExplorer tags", () => {
       const group =
         LEGACY_CLASS_SPEC_BY_JOB[definition.id]?.class ?? definition.id;
       const actual = effectiveCultivateProfile(group, definition.id);
-      const expectedSummary = [...V2_STAT_KEYS]
-        .filter((stat) => (actual?.[stat] ?? 0) > 0)
-        .sort((a, b) => (actual?.[b] ?? 0) - (actual?.[a] ?? 0))
-        .map((stat) => `${V2_STAT_LABELS[stat]} +${actual?.[stat]}`)
-        .join(" · ");
+      const lifestyle = isLifestyleMasteryJobId(definition.id);
+      const expectedSummary = lifestyle
+        ? "생활직은 수행할 수 없음"
+        : [...V2_STAT_KEYS]
+            .filter((stat) => (actual?.[stat] ?? 0) > 0)
+            .sort((a, b) => (actual?.[b] ?? 0) - (actual?.[a] ?? 0))
+            .map((stat) => `${V2_STAT_LABELS[stat]} +${actual?.[stat]}`)
+            .join(" · ");
 
-      expect(jobCultivationProfile(definition.id)).toEqual(actual);
+      expect(jobCultivationProfile(definition.id)).toEqual(
+        lifestyle ? undefined : actual,
+      );
       expect(jobCultivationSummary(definition.id)).toBe(expectedSummary);
 
       for (const stat of V2_STAT_KEYS) {
         expect(
           matchesJobExplorerFilters(job(definition.id), "", new Set([stat])),
-        ).toBe((actual?.[stat] ?? 0) > 0);
+        ).toBe(!lifestyle && (actual?.[stat] ?? 0) > 0);
       }
     }
   });

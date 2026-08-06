@@ -181,6 +181,10 @@ type GameStateSnapshot = {
   fishingCodex?: {
     discoveredIds?: string[];
   };
+  cookingCodex?: {
+    discoveredIds?: string[];
+    total?: number;
+  };
 } | null;
 
 type EquipmentCodexContextValue = {

@@ -143,6 +143,20 @@ export const COOKING_RECIPES: readonly CookingRecipe[] = [
   recipe({ id: "crystal_cacao_drink", name: "수정 카카오 음료", icon: "☕", requiredLevel: 50, farmIngredients: { cacao: 14, sugarcane: 12, herb: 6 }, optionalRareItemId: "crystal_sugarcane", xp: 138, baseStatPct: { int: 15, spi: 8 }, specialStatPct: { int: 20, spi: 10 }, description: "진한 카카오와 맑은 단맛으로 주문 집중력을 높입니다." }),
 ];
 
+/** 첫 완성 요리법 수로 진행되는 영구 업적. 퀘스트와 모험의 서가 같은 기준을 쓴다. */
+export const COOKING_CODEX_MILESTONES = [
+  { title: "차려지는 식탁", goal: 5, points: 10, badgeTier: "bronze" },
+  { title: "풍성한 차림", goal: 10, points: 25 },
+  { title: "맛의 탐험가", goal: 15, points: 30, badgeTier: "silver" },
+  { title: "대륙의 조리법", goal: 25, points: 40, badgeTier: "gold" },
+  {
+    title: "모든 맛의 기록",
+    goal: COOKING_RECIPES.length,
+    points: 50,
+    badgeTier: "legendary",
+  },
+] as const;
+
 export const COOKING_RECIPE_BY_ID = new Map(
   COOKING_RECIPES.map((entry) => [entry.id, entry]),
 );

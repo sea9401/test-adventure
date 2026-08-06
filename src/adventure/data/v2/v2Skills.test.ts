@@ -767,10 +767,13 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_acolyte_smite)).toContain(
-      "회복 잃은 체력 6% + 마법 공격력×0.45 +50~50",
+      "회복 잃은 체력 6% + 마법 공격력×0.45 +50~50 (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
-      "피해량 14% 회복",
+      "피해량 14% 회복 (회복량 보정 적용)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
+      "회복 잃은 체력 20% (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
       "전투당 1회",

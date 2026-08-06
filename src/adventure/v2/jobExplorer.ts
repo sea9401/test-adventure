@@ -220,12 +220,14 @@ export function jobCultivationProfile(
   jobId: string,
 ): Partial<Record<V2StatKey, number>> | undefined {
   if (!V2_JOB_CATALOG[jobId]) return undefined;
+  if (isLifestyleMasteryJobId(jobId)) return undefined;
   const group = LEGACY_CLASS_SPEC_BY_JOB[jobId]?.class ?? jobId;
   return effectiveCultivateProfile(group, jobId);
 }
 
 /** 기본 수행 1회에 오르는 스탯 한계치를 카드 표기용으로 정렬해 반환한다. */
 export function jobCultivationSummary(jobId: string): string {
+  if (isLifestyleMasteryJobId(jobId)) return "생활직은 수행할 수 없음";
   const profile = jobCultivationProfile(jobId);
   if (!profile) return "";
   return [...V2_STAT_KEYS]

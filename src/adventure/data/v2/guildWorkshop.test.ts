@@ -27,6 +27,7 @@ import {
   guildWorkshopMiningMaterialForTier,
   guildWorkshopWoodMaterialForTier,
   guildWorkshopRecipeMaterialCost,
+  guildWorkshopRecipeMaterialSpendPlan,
   guildWorkshopRecipeGoldCost,
   hasGuildWorkshopRecipeMaterials,
   meetsGuildWorkshopRecipeLevel,
@@ -36,6 +37,7 @@ import {
   shouldLogGuildWorkshopCraftActivity,
   spendGuildWorkshopRecipeCost,
   spendGuildWorkshopBaseEquipment,
+  spendGuildWorkshopMaterialsFromPlan,
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopResourceTier,
 } from "./guildWorkshop";
@@ -159,6 +161,108 @@ describe("guild workshop recipes", () => {
       goldOk: true,
       canCraft: true,
       masterwork: { goldOk: false, canCraft: false },
+    });
+  });
+
+  it("uses only the immediately higher catalyst at 1:1 and charges its extra fee", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_master_ring;
+    const materials = {
+      ...ENOUGH_WORKSHOP_MATERIALS,
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 0,
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
+    };
+    const plan = guildWorkshopRecipeMaterialSpendPlan(materials, recipe);
+
+    expect(plan).toMatchObject({
+      ok: true,
+      extraGoldCost: 4_000,
+      substitutions: [
+        {
+          requiredMaterialId: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
+          substituteMaterialId: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
+          count: 2,
+          goldCost: 4_000,
+        },
+      ],
+    });
+    expect(
+      spendGuildWorkshopMaterialsFromPlan(materials, plan),
+    ).not.toHaveProperty(GUILD_WORKSHOP_MATERIAL_ID.mithrilShard);
+  });
+
+  it("does not reverse, skip tiers, or substitute ordinary recipe materials", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_master_ring;
+    const withoutImmediateSubstitute = {
+      ...ENOUGH_WORKSHOP_MATERIALS,
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 0,
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 0,
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
+    };
+    expect(
+      guildWorkshopRecipeMaterialSpendPlan(withoutImmediateSubstitute, recipe)
+        .ok,
+    ).toBe(false);
+
+    const materialCost = guildWorkshopRecipeMaterialCost(recipe);
+    const rawMaterialId = Object.keys(materialCost).find(
+      (id) => id !== GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
+    );
+    expect(rawMaterialId).toBeDefined();
+    const withoutRawMaterial = {
+      ...ENOUGH_WORKSHOP_MATERIALS,
+      [rawMaterialId!]: 0,
+    };
+    expect(
+      guildWorkshopRecipeMaterialSpendPlan(withoutRawMaterial, recipe).ok,
+    ).toBe(false);
+  });
+
+  it("reserves a higher catalyst for its own recipe cost before substitution", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_toxic_mist_gloves;
+    const materials = {
+      ...ENOUGH_WORKSHOP_MATERIALS,
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 0,
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+    };
+    const plan = guildWorkshopRecipeMaterialSpendPlan(materials, recipe);
+
+    expect(plan.ok).toBe(true);
+    expect(plan.spend[GUILD_WORKSHOP_MATERIAL_ID.sunstone]).toBe(3);
+    expect(plan.substitutions).toMatchObject([
+      {
+        requiredMaterialId: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
+        substituteMaterialId: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+        count: 2,
+      },
+    ]);
+  });
+
+  it("exposes an explicit substitution craft state with the total fee", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_master_ring;
+    const materials = {
+      ...ENOUGH_WORKSHOP_MATERIALS,
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 0,
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
+    };
+    const baseGoldCost = guildWorkshopRecipeGoldCost(recipe);
+    const view = guildWorkshopRecipeView(
+      recipe,
+      { crop: 9999, ore: 9999 },
+      { blacksmith: { xp: 999_999, crafts: 999 } },
+      0,
+      2,
+      materials,
+      0,
+      baseGoldCost + 4_000,
+    );
+
+    expect(view.materialOk).toBe(false);
+    expect(view.canCraft).toBe(false);
+    expect(view.materialSubstitution).toMatchObject({
+      extraGoldCost: 4_000,
+      totalGoldCost: baseGoldCost + 4_000,
+      goldOk: true,
+      canCraft: true,
     });
   });
 

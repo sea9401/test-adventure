@@ -159,6 +159,71 @@ export function endExtensionCombatSoften(depth: number): number {
   return depth >= END_EXTENSION_START_DEPTH ? END_EXTENSION_COMBAT_SOFTEN : 1;
 }
 
+// 상위 사냥터 스펙 예산 재분배(43~72) — HP·ATK만 함께 부풀리면 "맞기 전에 처치 / 한 방에 사망"의
+// 이진 전투가 된다. 기존 HP·ATK 예산을 낮추고 방어·명중·회피·상태이상 저항으로 옮긴다.
+// 42 이하는 기존 곡선과 byte-identical, 72 이후는 plateau.
+// 협동 보스(scaleMonsterForFloor softenEndgame=false)는 별도 난도표를 쓰므로 적용하지 않는다.
+export const LATE_DIFFICULTY_START_DEPTH = 43;
+export const LATE_DIFFICULTY_FULL_DEPTH = 72;
+export const LATE_DURABILITY_MULT_MAX = 0.7;
+export const LATE_ATTACK_MULT_MIN = 0.55;
+export const LATE_DEFENSE_MULT_MAX = 3;
+export const LATE_ACCURACY_MULT_MAX = 1.35;
+export const LATE_EVASION_BONUS_MAX = 10;
+export const LATE_STATUS_DAMAGE_REDUCTION_MAX = 30;
+
+function lateDifficultyT(depth: number): number {
+  if (depth < LATE_DIFFICULTY_START_DEPTH) return 0;
+  return Math.min(
+    1,
+    (Math.floor(depth) - LATE_DIFFICULTY_START_DEPTH) /
+      (LATE_DIFFICULTY_FULL_DEPTH - LATE_DIFFICULTY_START_DEPTH),
+  );
+}
+
+export function lateDurabilityMult(depth: number): number {
+  return 1 + (LATE_DURABILITY_MULT_MAX - 1) * lateDifficultyT(depth);
+}
+
+export function lateAttackMult(depth: number): number {
+  return 1 - (1 - LATE_ATTACK_MULT_MIN) * lateDifficultyT(depth);
+}
+
+export function lateDefenseMult(depth: number): number {
+  return 1 + (LATE_DEFENSE_MULT_MAX - 1) * lateDifficultyT(depth);
+}
+
+export function lateAccuracyMult(depth: number): number {
+  return 1 + (LATE_ACCURACY_MULT_MAX - 1) * lateDifficultyT(depth);
+}
+
+export function lateEvasionBonus(depth: number): number {
+  return LATE_EVASION_BONUS_MAX * lateDifficultyT(depth);
+}
+
+export function lateStatusDamageReductionBonus(depth: number): number {
+  return LATE_STATUS_DAMAGE_REDUCTION_MAX * lateDifficultyT(depth);
+}
+
+// 권장 전투력 미달 보정도 HP·ATK 동일 배율에서 분리한다. HP는 기존 우회 방지 강도를 유지하되
+// 공격력은 차이의 15%만, 방어력은 20%만 따라가고 명중·회피를 소폭 보강한다. 최대 미달 배율 6일 때
+// HP×6 / ATK×1.75 / DEF×2 / 명중×1.4 / 회피+12가 되어 즉사 대신 대응축이 많은 강적이 된다.
+export function underpreparedAttackMult(combatMult: number): number {
+  return 1 + Math.max(0, combatMult - 1) * 0.15;
+}
+
+export function underpreparedDefenseMult(combatMult: number): number {
+  return 1 + Math.max(0, combatMult - 1) * 0.2;
+}
+
+export function underpreparedAccuracyMult(combatMult: number): number {
+  return 1 + Math.min(0.4, Math.max(0, combatMult - 1) * 0.08);
+}
+
+export function underpreparedEvasionBonus(combatMult: number): number {
+  return Math.min(12, Math.max(0, combatMult - 1) * 2.4);
+}
+
 // 프론티어 진입 완화(2026-06-22, 밸런스) — 들판(d1~6, statMult step 0.06)→마른협곡(d7~, step 0.52)
 //   경계의 난이도 절벽 완화. sim(권장레벨 기준 풀승률): 들판 d5~6=100% → 마른협곡 d7~9=80%(전 직군
 //   동반 하락) → d10 회복. 첫 프론티어 step 이 온보딩 step 의 ~8배라 경계 한 칸이 갑자기 단단함.

@@ -22,6 +22,10 @@ describe("모험의 서 URL 탭", () => {
     expect(codexTabFromParam("equipment")).toBe("equipment");
   });
 
+  it("요리 도감 링크를 요리 탭으로 연다", () => {
+    expect(codexTabFromParam("cooking")).toBe("cooking");
+  });
+
   it("탭이 없거나 잘못됐으면 기존 기본 탭을 사용한다", () => {
     expect(codexTabFromParam(null)).toBe("spFruit");
     expect(codexTabFromParam("unknown")).toBe("spFruit");

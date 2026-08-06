@@ -47,6 +47,13 @@ function bleedTicks(log: { text: string; t?: number; turn?: "player" | "enemy" }
   );
 }
 
+function firstBleedDamage(
+  log: { text: string; t?: number; turn?: "player" | "enemy" }[],
+): number {
+  const match = bleedTicks(log)[0]?.text.match(/출혈로 (\d+) 피해/);
+  return Number(match?.[1] ?? 0);
+}
+
 describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
   it("적에게 걸린 출혈은 적 행동 tick 에 붙는다", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
@@ -82,5 +89,30 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
       v2Skills: emptyV2SkillsState(),
     });
     expect(bleedTicks(res.finalState.log).length).toBe(0);
+  });
+
+  it("몬스터의 상태 피해 감소가 실제 적 DoT 틱에 적용된다", () => {
+    const bleeder = derive({
+      bleedOnHit: { flatPerStack: 100, atkCoefPerStack: 0 },
+    });
+    const baseEnemy = { ...m("부서진 골렘"), hp: 10_000, atk: 1 };
+    const run = (statusDamageReductionPct?: number) => {
+      vi.spyOn(Math, "random").mockImplementation(mulberry32(7));
+      return resolveBattle(
+        bleeder,
+        { ...baseEnemy, statusDamageReductionPct },
+        "용사",
+        {
+          pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+          potions: {},
+          v2Skills: emptyV2SkillsState(),
+        },
+      );
+    };
+
+    const normalDamage = firstBleedDamage(run().finalState.log);
+    const reducedDamage = firstBleedDamage(run(50).finalState.log);
+    expect(normalDamage).toBeGreaterThan(0);
+    expect(reducedDamage).toBe(Math.floor(normalDamage * 0.5));
   });
 });

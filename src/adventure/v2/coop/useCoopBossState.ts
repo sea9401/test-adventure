@@ -32,6 +32,8 @@ export type CoopSessionSummary = {
   bossMaxMp: number;
   expiresAt: number;
   summonedByName: string | null;
+  visibility: CoopVisibility;
+  isOwner: boolean;
   participantCount: number;
   myDamage: number;
   myTier: CoopRewardTier | null;

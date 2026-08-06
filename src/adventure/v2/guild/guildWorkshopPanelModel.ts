@@ -5,6 +5,7 @@ import {
 import { TITLES } from "@/adventure/data/titles";
 import type {
   GuildWorkshopCraftMode,
+  GuildWorkshopMaterialSubstitution,
   GuildWorkshopRecipeId,
 } from "@/adventure/data/v2/guildWorkshop";
 import { GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
@@ -53,6 +54,13 @@ export type WorkshopRecipeView = {
   goldCost: number;
   goldOk: boolean;
   canCraft: boolean;
+  materialSubstitution?: {
+    replacements: GuildWorkshopMaterialSubstitution[];
+    extraGoldCost: number;
+    totalGoldCost: number;
+    goldOk: boolean;
+    canCraft: boolean;
+  } | null;
   requiredSmithyLevel: number;
   masterwork?: {
     requiredArtisanLevel: number;
@@ -67,6 +75,13 @@ export type WorkshopRecipeView = {
     goldCost: number;
     goldOk: boolean;
     plus2Unlocked: boolean;
+    materialSubstitution?: {
+      replacements: GuildWorkshopMaterialSubstitution[];
+      extraGoldCost: number;
+      totalGoldCost: number;
+      goldOk: boolean;
+      canCraft: boolean;
+    } | null;
   };
 };
 
@@ -276,6 +291,8 @@ export type CraftResultView = {
   masterwork: boolean;
   artisanXpGained: number;
   grantedTitleNames: string[];
+  materialSubstitutionText: string | null;
+  substitutionGoldCost: number;
 };
 
 export const WORKSHOP_MODE_STORAGE_KEY = "v2-guild-workshop-mode";

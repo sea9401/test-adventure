@@ -1017,10 +1017,14 @@ export function advanceTurn(
       },
     };
     const enemyDotTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
-    const enemyDotDamage =
+    const enemyDotDamageBeforeReduction =
       enemyDotTick.totalDmg > 0 && state.stacks.enemyDotVulnTurns > 0
         ? Math.floor(enemyDotTick.totalDmg * (1 + state.stacks.enemyDotVulnPct / 100))
         : enemyDotTick.totalDmg;
+    const enemyDotDamage = statusDamageAfterReduction(
+      enemyDotDamageBeforeReduction,
+      state.enemy.statusDamageReductionPct,
+    );
     if (enemyDotDamage > 0) {
       const newHp = Math.max(0, state.enemyHp - enemyDotDamage);
       const dotLog = distributeV2DotTicks(
@@ -1103,6 +1107,9 @@ export type ResolveContext = {
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped. 미지정/빈 배열이면
   // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
   v2Skills?: import("@/adventure/data/v2/v2Skills").V2SkillsState;
+  // 밸런스 시뮬레이터·엔진 테스트 전용. 빌드 환경 플래그와 무관하게 양쪽 ATB 스킬을 켠다.
+  // 일반 게임 호출부는 넘기지 않으며, 라이브 동작은 V2_ATB_SKILLS 설정을 그대로 따른다.
+  forceAtbSkills?: boolean;
   // 무한 루프 가드 턴 상한(플레이어 턴 기준). 미지정이면 500(기본 안전캡). 스파링처럼
   // "안 죽는 샌드백을 N턴만 두들기는" 용도면 낮춰 넘긴다(예: 50) — 도달 시 lose 로 종료.
   maxTurns?: number;

@@ -11,6 +11,7 @@ import {
   Package,
   PottedPlant,
   Sparkle,
+  X,
 } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
@@ -393,7 +394,7 @@ export function AdventurerFarmPanel({
           </div>
         )}
       </section>
-      {toast ? <FarmToastMessage toast={toast} /> : null}
+      {toast ? <FarmToastMessage toast={toast} onDismiss={clearNotice} /> : null}
     </PageShell>
   );
 }
@@ -590,20 +591,34 @@ function FarmHomeShortcut({
   );
 }
 
-function FarmToastMessage({ toast }: { toast: FarmToast }) {
+function FarmToastMessage({
+  toast,
+  onDismiss,
+}: {
+  toast: FarmToast;
+  onDismiss: () => void;
+}) {
   const ok = toast.tone === "ok";
   return (
     <div
       key={toast.id}
       role="status"
       aria-live="polite"
-      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 max-w-[min(24rem,calc(100vw-2rem))] rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
+      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
         ok
           ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
           : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100"
       }`}
     >
-      {toast.text}
+      <span className="min-w-0 flex-1">{toast.text}</span>
+      <button
+        type="button"
+        aria-label="알림 닫기"
+        onClick={onDismiss}
+        className="-mr-2 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-md opacity-60 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-white/10"
+      >
+        <X size={17} weight="bold" aria-hidden />
+      </button>
     </div>
   );
 }

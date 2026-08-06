@@ -28,7 +28,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { AdminUserRow } from "./users/types";
 
 // 공지/방송 + 대량 우편.
-//   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 9000자.
+//   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 20000자.
 //   우편: POST /api/admin/mail — 골드 + 재료/장비/소비템/무슨 코인 + 메시지를 발송.
 export function BroadcastTab() {
   const { readOnly, showToast } = useAdmin();
@@ -262,6 +262,10 @@ export function BroadcastTab() {
               className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </Field>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            접기: <code>:::details 제목</code>으로 시작하고 접을 내용 아래에{" "}
+            <code>:::</code>만 입력해 닫습니다. 내부 마크다운도 적용됩니다.
+          </p>
           <div className="flex items-center justify-between">
             <Button
               variant="primary"

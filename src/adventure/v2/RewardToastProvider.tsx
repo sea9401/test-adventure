@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { X } from "@phosphor-icons/react";
 
 type RewardToastTone = "reward" | "success" | "error" | "info";
 
@@ -140,11 +141,11 @@ export function RewardToastProvider({ children }: { children: ReactNode }) {
               </div>
               <button
                 type="button"
-                aria-label="닫기"
+                aria-label="알림 닫기"
                 onClick={() => dismiss(toast.id)}
-                className="-mr-1 rounded px-1 text-sm leading-5 opacity-60 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+                className="-mr-1 -mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md opacity-60 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-white/10"
               >
-                ×
+                <X size={16} weight="bold" aria-hidden />
               </button>
             </div>
           </div>

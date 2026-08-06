@@ -579,8 +579,16 @@ function JobRow({
           </span>
         )}
         {cultivation && (
-          <span className="text-[11px] font-medium text-violet-700 dark:text-violet-300">
-            수행 스탯 · {cultivation}
+          <span
+            className={`text-[11px] font-medium ${
+              cultivation === "생활직은 수행할 수 없음"
+                ? "text-amber-700 dark:text-amber-300"
+                : "text-violet-700 dark:text-violet-300"
+            }`}
+          >
+            {cultivation === "생활직은 수행할 수 없음"
+              ? cultivation
+              : `수행 스탯 · ${cultivation}`}
           </span>
         )}
         {job.conditionRevealed !== false && (

@@ -38,6 +38,7 @@ import {
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
 
 // POST /api/v2/farm/harvest — 다 자란 밭을 수확한다.
 export async function POST(req: Request) {
@@ -58,6 +59,10 @@ export async function POST(req: Request) {
     const now = Date.now();
     const { farm, result, farmJobId, masteryGained, masteryAfter, blueprintRecipeId, fertilizerBalance } =
       await db.transaction(async (tx) => {
+        // 자정/주간 경계 뒤 첫 수확도 반복 퀘스트에 포함되도록, 농장 누적치를
+        // 변경하기 전에 새 주기의 baseline 을 확정한다.
+        await rolloverRepeatQuestsBeforeProgress(tx, userId, new Date(now));
+
         const charSave = await lockSaveForUpdate<Record<string, unknown>>(
           tx,
           userId,

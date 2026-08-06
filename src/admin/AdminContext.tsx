@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -37,6 +38,7 @@ type AdminContextValue = {
   bump: () => void;
   toast: string | null;
   showToast: (text: string) => void;
+  dismissToast: () => void;
 };
 
 const Ctx = createContext<AdminContextValue | null>(null);
@@ -47,6 +49,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [loadingAdminMe, setLoadingAdminMe] = useState(true);
   const [bumpVersion, setBumpVersion] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -70,10 +73,29 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setBumpVersion((v) => v + 1);
   }, []);
 
-  const showToast = useCallback((text: string) => {
-    setToast(text);
-    setTimeout(() => setToast(null), 2500);
+  const dismissToast = useCallback(() => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+    setToast(null);
   }, []);
+
+  const showToast = useCallback((text: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast(text);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 2500);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    },
+    [],
+  );
 
   const value = useMemo(
     () => ({
@@ -85,8 +107,18 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       bump,
       toast,
       showToast,
+      dismissToast,
     }),
-    [readOnly, adminMe, loadingAdminMe, bumpVersion, bump, toast, showToast],
+    [
+      readOnly,
+      adminMe,
+      loadingAdminMe,
+      bumpVersion,
+      bump,
+      toast,
+      showToast,
+      dismissToast,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

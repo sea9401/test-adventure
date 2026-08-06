@@ -101,6 +101,96 @@ const COMPONENTS: Components = {
   },
 };
 
+export type BulletinMarkdownSegment =
+  | { kind: "markdown"; content: string }
+  | { kind: "details"; summary: string; content: string };
+
+type MarkdownFence = { marker: "`" | "~"; length: number } | null;
+
+function nextMarkdownFence(line: string, current: MarkdownFence): MarkdownFence {
+  const match = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+  if (!match) return current;
+  const marker = match[1][0] as "`" | "~";
+  if (!current) return { marker, length: match[1].length };
+  if (
+    marker === current.marker &&
+    match[1].length >= current.length &&
+    match[2].trim() === ""
+  ) {
+    return null;
+  }
+  return current;
+}
+
+// 원시 HTML을 열지 않고 게시판 전용 :::details 제목 … ::: 블록만 안전하게 분리한다.
+// 코드 펜스 안의 예시 문법과 닫히지 않은 블록은 일반 마크다운으로 그대로 둔다.
+export function parseBulletinMarkdownSegments(
+  content: string,
+): BulletinMarkdownSegment[] {
+  const lines = content.split("\n");
+  const segments: BulletinMarkdownSegment[] = [];
+  let markdownLines: string[] = [];
+  let fence: MarkdownFence = null;
+
+  const flushMarkdown = () => {
+    if (markdownLines.length === 0) return;
+    segments.push({ kind: "markdown", content: markdownLines.join("\n") });
+    markdownLines = [];
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const opening =
+      fence == null ? /^:::details(?:[ \t]+(.*?))?[ \t]*$/.exec(line) : null;
+
+    if (opening) {
+      const detailLines: string[] = [];
+      let detailFence: MarkdownFence = null;
+      let closingIndex = -1;
+      for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+        const detailLine = lines[cursor];
+        if (detailFence == null && /^:::[ \t]*$/.test(detailLine)) {
+          closingIndex = cursor;
+          break;
+        }
+        detailLines.push(detailLine);
+        detailFence = nextMarkdownFence(detailLine, detailFence);
+      }
+
+      if (closingIndex >= 0) {
+        flushMarkdown();
+        segments.push({
+          kind: "details",
+          summary: opening[1]?.trim() || "자세히 보기",
+          content: detailLines.join("\n"),
+        });
+        index = closingIndex;
+        continue;
+      }
+    }
+
+    markdownLines.push(line);
+    fence = nextMarkdownFence(line, fence);
+  }
+
+  flushMarkdown();
+  return segments;
+}
+
+function SafeMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      allowedElements={[...BULLETIN_MARKDOWN_ELEMENTS]}
+      components={COMPONENTS}
+      remarkPlugins={[remarkGfm, remarkBreaks]}
+      skipHtml
+      urlTransform={safeBulletinMarkdownUrl}
+    >
+      {expandBulletinTextColors(content)}
+    </ReactMarkdown>
+  );
+}
+
 export function BulletinMarkdown({
   content,
   className = "",
@@ -108,6 +198,7 @@ export function BulletinMarkdown({
   content: string;
   className?: string;
 }) {
+  const segments = parseBulletinMarkdownSegments(content);
   return (
     <div
       className={`bulletin-markdown min-w-0 break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200 ${className}
@@ -128,15 +219,23 @@ export function BulletinMarkdown({
         [&_td]:border-b [&_td]:border-zinc-200 [&_td]:px-3 [&_td]:py-2 dark:[&_td]:border-zinc-700
         [&_tr:last-child_td]:border-b-0 [&_input]:mr-2`}
     >
-      <ReactMarkdown
-        allowedElements={[...BULLETIN_MARKDOWN_ELEMENTS]}
-        components={COMPONENTS}
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        skipHtml
-        urlTransform={safeBulletinMarkdownUrl}
-      >
-        {expandBulletinTextColors(content)}
-      </ReactMarkdown>
+      {segments.map((segment, index) =>
+        segment.kind === "details" ? (
+          <details
+            key={`details:${index}`}
+            className={`${SURFACE_INSET} group mt-4 px-3 py-2`}
+          >
+            <summary className="cursor-pointer select-none font-semibold text-zinc-900 marker:text-zinc-400 dark:text-zinc-100">
+              {segment.summary}
+            </summary>
+            <div className="mt-2 border-t border-zinc-200 pt-1 dark:border-zinc-700">
+              <SafeMarkdown content={segment.content} />
+            </div>
+          </details>
+        ) : (
+          <SafeMarkdown key={`markdown:${index}`} content={segment.content} />
+        ),
+      )}
     </div>
   );
 }

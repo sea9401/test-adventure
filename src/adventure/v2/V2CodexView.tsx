@@ -81,6 +81,7 @@ import { CodexTitlePanel } from "./CodexTitlePanel";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import { TUTORIAL_CODEX_INTRO } from "@/adventure/tutorial/flags";
 import { LifeFieldCodexPanel } from "@/adventure/v2/LifeFieldPanels";
+import { CookingCodexPanel } from "@/adventure/v2/CookingCodexPanel";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 
 // v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
@@ -142,6 +143,7 @@ export type CodexTab =
   | "equipment"
   | "spFruit"
   | "fish"
+  | "cooking"
   | "life"
   | "title"
   | "job";
@@ -152,6 +154,7 @@ const CODEX_TABS: readonly CodexTab[] = [
   "equipment",
   "spFruit",
   "fish",
+  "cooking",
   "life",
   "title",
   "job",
@@ -286,6 +289,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [discovered, setDiscovered] = useState<Set<string>>(new Set());
   const [fishDiscovered, setFishDiscovered] = useState<Set<string>>(new Set());
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
+  const [cookingDiscoveredIds, setCookingDiscoveredIds] = useState<string[]>([]);
   const [fishingCodexMeta, setFishingCodexMeta] = useState<FishingCodexMeta>(
     () => defaultFishingCodexMeta(),
   );
@@ -350,6 +354,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         });
         if (j?.fishingCodex?.best && typeof j.fishingCodex.best === "object") {
           setFishBest(j.fishingCodex.best as Record<string, number>);
+        }
+        if (Array.isArray(j?.cookingCodex?.discoveredIds)) {
+          setCookingDiscoveredIds(j.cookingCodex.discoveredIds as string[]);
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
@@ -571,6 +578,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             ["equipment", "장비"],
             ["huntground", "사냥터"],
             ["fish", "어보"],
+            ["cooking", "요리"],
             ["life", "현장 기록"],
             ["title", "칭호"],
           ] as const
@@ -1149,6 +1157,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           })}
         </div>
       )}
+      {tab === "cooking" && (
+        <CookingCodexPanel discoveredIds={cookingDiscoveredIds} />
+      )}
       {tab === "life" && <LifeFieldCodexPanel />}
       {tab === "title" && (
         <CodexTitlePanel
@@ -1195,8 +1206,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   </span>
                   <span>
                     <strong>플레이하면 기록이 열립니다.</strong> 사냥터를 개척하고,
-                    직업을 해금하고, 물고기를 낚으면 해당 정보가 자동으로
-                    추가됩니다.
+                    직업을 해금하고, 물고기를 낚거나 요리를 처음 완성하면 해당
+                    정보가 자동으로 추가됩니다.
                   </span>
                 </li>
                 <li className="flex gap-2.5">

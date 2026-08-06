@@ -25,4 +25,37 @@ describe("AutoGatheringCard", () => {
     expect(html).toContain("느긋한 작업 · 재료 60% · 성공률 80%");
     expect(html).toContain("30분 자동 벌목 시작");
   });
+
+  it("자동 채광 정산에서 획득한 부산물 이름과 수량을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        activityName="채광"
+        spotId="iron_mine"
+        session={null}
+        result={{
+          attempts: 30,
+          successes: 27,
+          materialName: "철광석",
+          materialsGained: 27,
+          xpGained: 270,
+          byproducts: [
+            {
+              materialId: "v2_mining_hard_stone",
+              name: "단단한 돌",
+              amount: 2,
+            },
+          ],
+        }}
+        loading={false}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        onStart={vi.fn(async () => {})}
+        onClaim={vi.fn(async () => {})}
+        onCancel={vi.fn(async () => {})}
+      />,
+    );
+
+    expect(html).toContain("부산물");
+    expect(html).toContain("단단한 돌 +2");
+  });
 });

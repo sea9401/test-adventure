@@ -28,7 +28,7 @@ import {
   ECOLOGICAL_RESEARCHER_TITLE_ID,
   FIELD_RECORDER_TITLE_ID,
 } from "../titles";
-import { COOKING_RECIPES } from "../../v2/cooking";
+import { COOKING_CODEX_MILESTONES } from "../../v2/cooking";
 
 export type QuestLineId = string;
 export type AchievementBadgeTier = "bronze" | "silver" | "gold" | "legendary";
@@ -909,19 +909,19 @@ const COOKING: QuestDef[] = [
     { id: "cooking_level25", title: "능숙한 요리사", goal: 25, points: 20, badgeTier: "gold" },
     { id: "cooking_level50", title: "전설의 요리사", goal: 50, points: 50, badgeTier: "legendary" },
   ]),
-  ...milestones("cooking", "요리법 발견", (c) => c.cookingRecipesDiscovered, [
-    { id: "cooking_recipe5", title: "차려지는 식탁", goal: 5, points: 10, badgeTier: "bronze" },
-    { id: "cooking_recipe10", title: "풍성한 차림", goal: 10, points: 25 },
-    { id: "cooking_recipe15", title: "맛의 탐험가", goal: 15, points: 30, badgeTier: "silver" },
-    { id: "cooking_recipe25", title: "대륙의 조리법", goal: 25, points: 40, badgeTier: "gold" },
-    {
-      id: "cooking_recipe18",
-      title: "모든 맛의 기록",
-      goal: COOKING_RECIPES.length,
-      points: 50,
-      badgeTier: "legendary",
-    },
-  ]),
+  ...milestones(
+    "cooking",
+    "요리법 발견",
+    (c) => c.cookingRecipesDiscovered,
+    COOKING_CODEX_MILESTONES.map((milestone, index) => ({
+      ...milestone,
+      // 기존 수령 기록 호환을 위해 마지막 업적 id도 유지한다.
+      id:
+        index === COOKING_CODEX_MILESTONES.length - 1
+          ? "cooking_recipe18"
+          : `cooking_recipe${milestone.goal}`,
+    })),
+  ),
   ...milestones("cooking", "요리 완성", (c) => c.cookingDishesCooked, [
     { id: "cooking_dish10", title: "첫 상차림", goal: 10, points: 5, badgeTier: "bronze" },
     { id: "cooking_dish100", title: "백 접시의 정성", goal: 100, points: 15, badgeTier: "silver" },

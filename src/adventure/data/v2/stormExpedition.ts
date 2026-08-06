@@ -334,6 +334,7 @@ function stormExpeditionEnemyBase(
       accuracy: 68,
       evasionPct: 22,
       critPct: 34,
+      statusDamageReductionPct: 20,
       element: "lightning",
       exp: 0,
       drops: [],
@@ -363,6 +364,7 @@ function stormExpeditionEnemyBase(
       def: [11, 12, 14, 15, 18, 18][rank], spd: [11, 12, 14, 15, 17, 18][rank],
       accuracy: [32, 38, 44, 50, 59, 68][rank], evasionPct: [22, 24, 27, 30, 33, 34][rank],
       critPct: [22, 25, 28, 31, 36, 43][rank], element: "wind",
+      statusDamageReductionPct: guardian ? 15 : elite ? 10 : 0,
       skill: { kind: "pierce", name: "진공 발톱", armorPierce: guardian ? 10 : elite ? 9 : 7 },
       bonusAttackChancePct: guardian ? 55 : Math.max(0, rank - 1) * 12,
     };
@@ -376,6 +378,7 @@ function stormExpeditionEnemyBase(
       spd: [9, 9, 10, 11, 12, 13][rank], accuracy: [30, 36, 43, 49, 58, 64][rank],
       evasionPct: [13, 15, 17, 19, 21, 25][rank], atkType: "magic", critPct: [17, 20, 23, 27, 30, 36][rank],
       element: "lightning",
+      statusDamageReductionPct: guardian ? 20 : elite ? 15 : 5,
       v2Skills: { learned: guardian || elite ? ["mob_arcane_burst", "mob_arcane_nova"] : ["mob_arcane_burst"], equipped: guardian || elite ? ["mob_arcane_nova", "mob_arcane_burst"] : ["mob_arcane_burst"] },
       v2MaxMp: guardian ? 230 : elite ? 180 : 110 + rank * 15,
       bonusAttackChancePct: guardian ? 25 : 0,
@@ -388,6 +391,7 @@ function stormExpeditionEnemyBase(
     def: [19, 21, 24, 26, 30, 19][rank], spd: [5, 5, 6, 7, 7, 8][rank],
     accuracy: [28, 34, 40, 47, 55, 62][rank], evasionPct: [5, 6, 7, 9, 10, 12][rank],
     critPct: [11, 13, 16, 19, 23, 29][rank], element: "earth",
+    statusDamageReductionPct: guardian ? 30 : elite ? 25 : 15,
     skill: guardian
       ? { kind: "heavy_blow", name: "섬 붕괴", everyPhases: 3, multiplier: 1.9 }
       : { kind: "pierce", name: "잔해 관통", armorPierce: elite ? 10 : 7 + Math.floor(rank / 2) },

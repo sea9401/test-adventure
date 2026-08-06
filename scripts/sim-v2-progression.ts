@@ -15,6 +15,10 @@
 //   - 다층 연속 sim (캐릭이 던전 1층부터 진행하며 누적 보상)
 //
 // 실행: node --import tsx scripts/sim-v2-progression.ts
+// 6차 수집/패시브 조합 비교:
+//   node --import tsx scripts/sim-v2-progression.ts --skills --storm --tier6-counts=0,1,2,3
+//   - 각 수집 직업의 선행 계보 시그니처를 전부 학습했다고 가정한다.
+//   - 라이브와 같은 SP 예산 안에서 주력 액티브 1개를 먼저 확보하고 패시브 효율순으로 조합한다.
 //
 // 해석 가이드:
 //   - wr%   = 풀 평균 승률 (층 모든 잡몹 가중 동일)
@@ -23,11 +27,13 @@
 //   - hpL%  = 패배 시 적 HP 평균 잔량 % (0% 완전 처치 직전, 100% 못 깎음)
 //   - 빌드 간 격차 = 메타 빌드 지배 신호.
 
-import { resolveBattle, type PlayerCombat } from "../src/adventure/v2/combat/engine";
+import type { PlayerCombat } from "../src/adventure/v2/combat/engine";
+import { resolveBattleAtb as resolveBattle } from "../src/adventure/v2/combat/engine.atb";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import {
+  aggregateEquippedPassives,
   V2_SKILLS,
   type V2SkillId,
   type V2SkillsState,
@@ -56,8 +62,15 @@ import {
   type StormExpeditionEncounterKind,
   type StormExpeditionRouteId,
 } from "../src/adventure/data/v2/stormExpedition";
+import { V2_JOB_CATALOG } from "../src/adventure/data/v2/v2JobCatalog";
+import {
+  buildCareerSnapshot,
+  selectCareerLoadout,
+  type CareerSnapshot,
+  type SimArch,
+} from "./sim-v2-career-loadout";
 
-type Arch = "STR" | "DEX" | "VIT" | "INT" | "SPI" | "LUK" | "BAL";
+type Arch = SimArch;
 const ARCHES: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"];
 
 // 깊이 sweep — 각 깊이의 권장 파워(floorPowerGate)에 매칭되는 레벨로 전 아키타입 sim.
@@ -188,18 +201,59 @@ function classForArchLevel(
   return { cls, tier: 1 };
 }
 
-function makePlayer(arch: Arch, level: number) {
+function makePlayer(
+  arch: Arch,
+  level: number,
+  career?: { currentJob: string; equipped: readonly V2SkillId[] },
+) {
   const allocated = allocate(arch, level);
   // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
   // 스킬 장착은 SKILLS_MODE(--skills) 일 때만 — 기본은 일반 공격 기반 progression baseline.
   // playerClass + classTier=1. 구 차수별 앵커 보정/직업 패시브는 은퇴.
   const { cls, tier } = classForArchLevel(arch, level);
+  const passive = aggregateEquippedPassives(career?.equipped ?? []);
+  const innateJobBonus = career
+    ? (V2_JOB_CATALOG[career.currentJob]?.jobBonus ?? {})
+    : {};
+  const jobBonus: Partial<Record<V2StatKey, number>> = { ...passive.stat };
+  for (const [stat, value] of Object.entries(innateJobBonus)) {
+    const key = stat as V2StatKey;
+    jobBonus[key] = (jobBonus[key] ?? 0) + (value ?? 0);
+  }
   return derivePlayerCombatV2Pure({
     level,
     allocatedStats: allocated,
     v2Equipped: equipFor(arch, level),
     playerClass: cls,
     classTier: tier,
+    jobBonus,
+    atkPerDexCoef: passive.atkPerDexCoef,
+    statPct: passive.statPct,
+    maxHpPct: passive.maxHpPct,
+    maxMpPct: passive.maxMpPct,
+    passiveCritPct: passive.critPct,
+    passiveCritDmgPct: passive.critDmgPct,
+    passiveEvasionPct: passive.evasionPct,
+    passiveLifestealPct: passive.lifestealPct,
+    passiveCounterChancePct: passive.counterChancePct,
+    passiveCounterDamageUsesReflectBoost: passive.counterDamageUsesReflectBoost,
+    passiveDefPct: passive.defPct,
+    passiveThornsDefPct: passive.thornsDefPct,
+    passiveAccuracyPct: passive.accuracyPct,
+    passiveHealPowerPct: passive.healPowerPct,
+    passiveDamageTakenReductionPct: passive.damageTakenReductionPct,
+    passiveMagicDefPct: passive.magicDefPct,
+    passiveOpeningMagicDamageReductionPct: passive.openingMagicDamageReductionPct,
+    passiveOpeningMagicDamageReductionPhases: passive.openingMagicDamageReductionPhases,
+    passivePoisonedEnemyDefReductionPct: passive.poisonedEnemyDefReductionPct,
+    passiveBerserkAtkPctPerLostHpPct: passive.berserkAtkPctPerLostHpPct,
+    passiveEnemyMagicVulnPctPerStack: passive.enemyMagicVulnPctPerStack,
+    passiveEnemyMagicVulnApplyChancePct: passive.enemyMagicVulnApplyChancePct,
+    passiveMagicSkillDamagePct: passive.magicSkillDamagePct,
+    passiveSpdOverflowToAtkPct: passive.spdOverflowToAtkPct,
+    passiveSkillCritOverflow: passive.skillCritOverflow,
+    passiveSkillCritAfterEvade: passive.skillCritAfterEvade,
+    passiveComboFinisherBonusPct: passive.comboFinisherBonusPct,
     hp: undefined,
   });
 }
@@ -207,6 +261,15 @@ function makePlayer(arch: Arch, level: number) {
 // --skills: 각 빌드가 주력 스탯 스킬을 장착하고 싸우는 모드. INT 마법 경로(magicAtk) 캘리브용.
 // 기본(off)은 일반 공격 baseline 유지 — 기존 ATK_PER_* 다이얼은 이 baseline 으로 튜닝됨.
 const SKILLS_MODE = process.argv.includes("--skills");
+const tier6CountsArg = process.argv.find((arg) => arg.startsWith("--tier6-counts="));
+const parsedTier6Counts = tier6CountsArg
+  ?.slice("--tier6-counts=".length)
+  .split(",")
+  .map((value) => Math.floor(Number(value)))
+  .filter((value) => Number.isFinite(value) && value >= 0 && value <= 3);
+const TIER6_COUNTS = tier6CountsArg
+  ? Array.from(new Set(parsedTier6Counts?.length ? parsedTier6Counts : [0, 1, 2, 3]))
+  : null;
 
 // 빌드의 주력 스탯 스킬 로드아웃. 학습 조건(level + stat min)을 충족하는 것만, 슬롯 수 cap.
 // 우선순위: 공격 스킬(고티어=고배율 먼저) → 버프/디버프. 자동발동은 슬롯 순서 우선.
@@ -241,6 +304,55 @@ function skillsFor(
   return { learned: ids, equipped: ordered };
 }
 
+type CareerCombatSetup = {
+  snapshot: CareerSnapshot;
+  derived: ReturnType<typeof makePlayer>;
+  skills: V2SkillsState;
+  spUsed: number;
+};
+
+function commonSkillsFor(
+  arch: Arch,
+  level: number,
+  totalStats: Record<V2StatKey, number>,
+): V2SkillId[] {
+  if (!SKILLS_MODE) return [];
+  const mainStat: V2StatKey = arch === "BAL" ? "str" : (arch.toLowerCase() as V2StatKey);
+  return (Object.keys(V2_SKILLS) as V2SkillId[]).filter((id) => {
+    if (!id.startsWith("v2_skill_")) return false;
+    const def = V2_SKILLS[id];
+    if (def.monsterOnly || def.stat !== mainStat) return false;
+    if (!def.learn) return true;
+    if (level < (def.learn.level ?? 0)) return false;
+    const req = def.learn.stat;
+    return !req || ((totalStats as Record<string, number>)[req.key] ?? 0) >= req.min;
+  });
+}
+
+function careerCombatSetup(
+  arch: Arch,
+  level: number,
+  tier6Count: number,
+): CareerCombatSetup {
+  const snapshot = buildCareerSnapshot(arch, tier6Count);
+  const baseline = makePlayer(arch, level);
+  const learned = [
+    ...commonSkillsFor(arch, level, baseline.totalStats),
+    ...snapshot.learnedJobSkills,
+  ];
+  const selected = selectCareerLoadout(arch, learned, snapshot.spBudget);
+  const derived = makePlayer(arch, level, {
+    currentJob: snapshot.currentJob,
+    equipped: selected.equipped,
+  });
+  return {
+    snapshot,
+    derived,
+    skills: { learned: selected.learned, equipped: selected.equipped },
+    spUsed: selected.spUsed,
+  };
+}
+
 // 깊이 풀 — enemiesForDepth(깊이) → scaled Monster(깊이 배율). 미정의 이름 스킵.
 function depthMonsters(depth: number): Monster[] {
   const out: Monster[] = [];
@@ -254,7 +366,10 @@ function depthMonsters(depth: number): Monster[] {
 // 깊이 권장 파워에 맞는 레벨 — 참조 빌드(BAL) power ≥ floorPowerGate(depth) 인 최소 레벨.
 // (sim 은 레벨 분배 프록시 — 라이브는 cumLevel→floor 로 같은 power 도달. 전투 밸런스엔 동치.)
 function levelForDepth(depth: number): number {
-  const target = floorPowerGate(depth);
+  return levelForPower(floorPowerGate(depth));
+}
+
+function levelForPower(target: number): number {
   for (let lv = 1; lv <= 2000; lv++) {
     const p = makePlayer("BAL", lv).player;
     const pw = derivePowerScore({
@@ -268,6 +383,12 @@ function levelForDepth(depth: number): number {
     if (pw >= target) return lv;
   }
   return 2000;
+}
+
+// 원정 성장 기준: 5차 정점(6차 0개) 3,000에서 시작해 6차 한 계보를 완성할 때마다
+// 기준 전투력 +500. 6차 3개에서 현재 원정 앵커 4,500에 도달한다.
+function stormCareerPower(tier6Count: number): number {
+  return 3000 + Math.max(0, Math.min(3, Math.floor(tier6Count))) * 500;
 }
 
 // 잡몹 1종당 trial 수. 풀 크기 ~10~20 → 총 ~300~600 sim/cell. 옛 100 단일 잡몹 대비 ~3~6x.
@@ -313,6 +434,7 @@ function combatStats(
         pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
         potions: {},
         v2Skills,
+        forceAtbSkills: SKILLS_MODE,
         depth,
       });
       if (r.outcome === "win") {
@@ -362,6 +484,7 @@ function expPerBattleAtDepth(
         pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
         potions: {},
         v2Skills,
+        forceAtbSkills: SKILLS_MODE,
         depth,
       });
       total++;
@@ -489,93 +612,135 @@ function runStormExpedition() {
     { kind: "guardian", encounterIndex: 0, depth: 75 },
     { kind: "final_boss", encounterIndex: 0, depth: 76 },
   ];
-  console.log(`폭풍 원정 연속전투 | 권장파워 4500≈Lv${level} | ${runs}회/빌드/항로`);
+  console.log(`폭풍 원정 연속전투 | 기준파워 4500≈Lv${level} | ${runs}회/빌드/항로`);
   console.log(`선택: 현재 HP/MP 비율 기반 정비 → 제단 받피감10% | 위험=${STORM_RISK_MODE}`);
-  for (const route of ["gale", "thunder", "wreckage"] as StormExpeditionRouteId[]) {
+  const careerCounts: Array<number | null> = TIER6_COUNTS ?? [null];
+  for (const tier6Count of careerCounts) {
+    const setupPower = tier6Count == null ? 4500 : stormCareerPower(tier6Count);
+    const setupLevel = levelForPower(setupPower);
+    const setups = new Map<Arch, {
+      derived: ReturnType<typeof makePlayer>;
+      skills: V2SkillsState;
+      career: CareerCombatSetup | null;
+    }>();
     for (const arch of ARCHES) {
-      const derived = makePlayer(arch, level);
-      const skills = skillsFor(arch, level, derived.totalStats);
-      const cleared = Array.from({ length: encounters.length }, () => 0);
-      let finalHpSum = 0;
-      for (let run = 0; run < runs; run += 1) {
-        let hp = derived.player.maxHp;
-        let mp = derived.player.maxMp ?? 0;
-        let guarded = false;
-        for (let index = 0; index < encounters.length; index += 1) {
-          const encounter = encounters[index];
-          const unstable = STORM_RISK_MODE === "unstable" && index >= 5;
-          const player = {
-            ...derived.player,
-            hp,
-            mp,
-            atk: unstable ? Math.floor(derived.player.atk * 1.12) : derived.player.atk,
-            magicAtk: unstable
-              ? Math.floor((derived.player.magicAtk ?? derived.player.atk) * 1.12)
-              : derived.player.magicAtk,
-            ...(guarded
-              ? {
-                  passiveDamageTakenReductionPct:
-                    (derived.player.passiveDamageTakenReductionPct ?? 0) + 10,
-                }
-              : {}),
-          };
-          const baseEnemy = stormExpeditionEnemy(route, encounter.kind, encounter.encounterIndex);
-          let enemyAttackMultiplier = 1;
-          if (STORM_RISK_MODE === "contract" && index >= 2) enemyAttackMultiplier *= 1.1;
-          if (STORM_RISK_MODE === "rift" && index === 2) enemyAttackMultiplier *= 1.2;
-          if (unstable) enemyAttackMultiplier *= 1.12;
-          const enemy = enemyAttackMultiplier === 1
-            ? baseEnemy
-            : { ...baseEnemy, atk: Math.floor(baseEnemy.atk * enemyAttackMultiplier) };
-          const result = resolveBattle(
-            player,
-            enemy,
-            "Sim",
-            {
-              pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
-              potions: {},
-              v2Skills: skills,
-              depth: encounter.depth,
-              isBoss: encounter.kind === "guardian" || encounter.kind === "final_boss",
-              maxTurns: 100,
-            },
-          );
-          if (result.outcome !== "win") break;
-          cleared[index] += 1;
-          hp = result.finalState.playerHp;
-          mp = result.finalState.playerMp;
-          if (index === 1) {
-            const hpRatio = hp / derived.player.maxHp;
-            const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
-            if (hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.15));
-            else mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.2));
-          }
-          if (index === 3 && STORM_RISK_MODE !== "golden") {
-            const hpRatio = hp / derived.player.maxHp;
-            const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
-            if (hpRatio + 0.15 < mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.35));
-            else if (mpRatio + 0.15 < hpRatio) mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.45));
-            else {
-              hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.2));
-              mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.25));
-            }
-          }
-          if (index === 4) guarded = true;
-          if (index === 5) {
-            const hpRatio = hp / derived.player.maxHp;
-            const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
-            if (hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.25));
-            else mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.35));
-          }
-          if (index === encounters.length - 1) finalHpSum += hp;
-        }
+      if (tier6Count == null) {
+        const derived = makePlayer(arch, setupLevel);
+        setups.set(arch, {
+          derived,
+          skills: skillsFor(arch, setupLevel, derived.totalStats),
+          career: null,
+        });
+      } else {
+        const career = careerCombatSetup(arch, setupLevel, tier6Count);
+        setups.set(arch, { derived: career.derived, skills: career.skills, career });
       }
-      const pctAt = (index: number) => ((cleared[index] / runs) * 100).toFixed(1);
-      const fullClears = cleared.at(-1) ?? 0;
-      const remainingHp = fullClears > 0
-        ? ((finalHpSum / fullClears / derived.player.maxHp) * 100).toFixed(1)
-        : "-";
-      console.log(`${route.padEnd(8)} ${arch.padEnd(3)} | elite ${pctAt(4)}% | guardian ${pctAt(5)}% | clear ${pctAt(6)}% | clearHP ${remainingHp}%`);
+    }
+    if (tier6Count != null) {
+      console.log(`\n━━ 6차 ${tier6Count}개 수집 스냅샷 (기준파워 ${setupPower}≈Lv${setupLevel}, 계보당 +500) ━━`);
+      for (const arch of ARCHES) {
+        const career = setups.get(arch)?.career;
+        if (!career) continue;
+        const currentName = V2_JOB_CATALOG[career.snapshot.currentJob]?.name ?? career.snapshot.currentJob;
+        const routeNames = career.snapshot.tier6Jobs.map(
+          (jobId) => V2_JOB_CATALOG[jobId]?.name ?? jobId,
+        );
+        const passiveNames = career.skills.equipped
+          .filter((id) => V2_SKILLS[id].passive != null)
+          .map((id) => V2_SKILLS[id].name);
+        console.log(
+          `${arch}: 현재 ${currentName} | 6차 [${routeNames.join(", ") || "없음"}] | SP ${career.spUsed}/${career.snapshot.spBudget} | 패시브 [${passiveNames.join(", ") || "없음"}]`,
+        );
+      }
+    }
+    for (const route of ["gale", "thunder", "wreckage"] as StormExpeditionRouteId[]) {
+      for (const arch of ARCHES) {
+        const setup = setups.get(arch);
+        if (!setup) continue;
+        const { derived, skills } = setup;
+        const cleared = Array.from({ length: encounters.length }, () => 0);
+        let finalHpSum = 0;
+        for (let run = 0; run < runs; run += 1) {
+          let hp = derived.player.maxHp;
+          let mp = derived.player.maxMp ?? 0;
+          let guarded = false;
+          for (let index = 0; index < encounters.length; index += 1) {
+            const encounter = encounters[index];
+            const unstable = STORM_RISK_MODE === "unstable" && index >= 5;
+            const player = {
+              ...derived.player,
+              hp,
+              mp,
+              atk: unstable ? Math.floor(derived.player.atk * 1.12) : derived.player.atk,
+              magicAtk: unstable
+                ? Math.floor((derived.player.magicAtk ?? derived.player.atk) * 1.12)
+                : derived.player.magicAtk,
+              ...(guarded
+                ? {
+                    passiveDamageTakenReductionPct:
+                      (derived.player.passiveDamageTakenReductionPct ?? 0) + 10,
+                  }
+                : {}),
+            };
+            const baseEnemy = stormExpeditionEnemy(route, encounter.kind, encounter.encounterIndex);
+            let enemyAttackMultiplier = 1;
+            if (STORM_RISK_MODE === "contract" && index >= 2) enemyAttackMultiplier *= 1.1;
+            if (STORM_RISK_MODE === "rift" && index === 2) enemyAttackMultiplier *= 1.2;
+            if (unstable) enemyAttackMultiplier *= 1.12;
+            const enemy = enemyAttackMultiplier === 1
+              ? baseEnemy
+              : { ...baseEnemy, atk: Math.floor(baseEnemy.atk * enemyAttackMultiplier) };
+            const result = resolveBattle(
+              player,
+              enemy,
+              "Sim",
+              {
+                pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
+                potions: {},
+                v2Skills: skills,
+                forceAtbSkills: SKILLS_MODE,
+                depth: encounter.depth,
+                isBoss: encounter.kind === "guardian" || encounter.kind === "final_boss",
+                maxTurns: 100,
+              },
+            );
+            if (result.outcome !== "win") break;
+            cleared[index] += 1;
+            hp = result.finalState.playerHp;
+            mp = result.finalState.playerMp;
+            if (index === 1) {
+              const hpRatio = hp / derived.player.maxHp;
+              const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
+              if (hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.15));
+              else mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.2));
+            }
+            if (index === 3 && STORM_RISK_MODE !== "golden") {
+              const hpRatio = hp / derived.player.maxHp;
+              const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
+              if (hpRatio + 0.15 < mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.35));
+              else if (mpRatio + 0.15 < hpRatio) mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.45));
+              else {
+                hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.2));
+                mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.25));
+              }
+            }
+            if (index === 4) guarded = true;
+            if (index === 5) {
+              const hpRatio = hp / derived.player.maxHp;
+              const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
+              if (hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.25));
+              else mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.35));
+            }
+            if (index === encounters.length - 1) finalHpSum += hp;
+          }
+        }
+        const pctAt = (index: number) => ((cleared[index] / runs) * 100).toFixed(1);
+        const fullClears = cleared.at(-1) ?? 0;
+        const remainingHp = fullClears > 0
+          ? ((finalHpSum / fullClears / derived.player.maxHp) * 100).toFixed(1)
+          : "-";
+        console.log(`${route.padEnd(8)} ${arch.padEnd(3)} | elite ${pctAt(4)}% | guardian ${pctAt(5)}% | clear ${pctAt(6)}% | clearHP ${remainingHp}%`);
+      }
     }
   }
 }
@@ -595,7 +760,9 @@ console.log(
     : "스킬 모드 OFF: 일반 공격 baseline. INT 마법 측정하려면 --skills.",
 );
 console.log(
-  "코어루프 — 직업 차수 보정은 평탄화(classTier=1), 직업 패시브는 로드아웃/킷 기준.",
+  TIER6_COUNTS
+    ? `코어루프 — 6차 수집 스냅샷 [${TIER6_COUNTS.join(", ")}]개, 수집 계보 패시브를 SP 예산 안에서 조합.`
+    : "코어루프 — 직업 차수 보정은 평탄화(classTier=1), 직업 패시브는 로드아웃/킷 기준.",
 );
 
 const pad = (s: string | number, w: number) => String(s).padStart(w);
@@ -615,26 +782,34 @@ for (const depth of SIM_DEPTHS) {
   console.log(
     `\n━━━ 깊이 ${depth} · ${depthName(depth)} (권장파워 ${gate} ≈ Lv${lvl}, pool: ${enemies.length}종) ━━━`,
   );
-  console.log(
-    "Arch  STR DEX VIT INT SPI LUK │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
-  );
-  for (const arch of ARCHES) {
-    const d = makePlayer(arch, lvl);
-    const s = d.totalStats;
-    const p = d.player;
-    let combatCol = "│   -    -    -    -    -";
-    if (enemies.length > 0) {
-      const r = combatStats(p, enemies, skillsFor(arch, lvl, s), depth);
-      const wrStr = `${r.wrPct}%`;
-      const ciStr = `±${r.wrCiPct.toFixed(1)}`;
-      const winT = turnCell(r.winTurns, r.wrPct > 0);
-      const lossT = turnCell(r.lossTurns, r.wrPct < 100);
-      const hpL = r.wrPct < 100 ? r.lossEnemyHpPct.toFixed(0) + "%" : " -";
-      combatCol = `│ ${pad(wrStr, 4)} ${pad(ciStr, 5)} ${pad(winT, 5)} ${pad(lossT, 5)} ${pad(hpL, 4)}`;
+  const careerCounts: Array<number | null> = TIER6_COUNTS ?? [null];
+  for (const tier6Count of careerCounts) {
+    if (tier6Count != null) {
+      console.log(`-- 6차 ${tier6Count}개 수집 · 같은 원시 스탯/장비에서 패시브 조합 효과 비교 --`);
     }
     console.log(
-      `${arch.padEnd(5)} ${pad(s.str, 3)} ${pad(s.dex, 3)} ${pad(s.vit, 3)} ${pad(s.int, 3)} ${pad(s.spi, 3)} ${pad(s.luk, 3)} │ ${pad(p.atk, 3)} ${pad(p.def, 3)} ${pad(p.maxHp, 5)} ${pad(p.maxMp ?? 0, 5)} ${pct(p.critChancePct ?? 0)} ${pct(p.evasionPct ?? 0)} ${pct(p.accuracyPct ?? 0)} ${pct(p.extraAttackChancePct ?? 0)} ${combatCol}`,
+      "Arch  STR DEX VIT INT SPI LUK │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
     );
+    for (const arch of ARCHES) {
+      const career = tier6Count == null ? null : careerCombatSetup(arch, lvl, tier6Count);
+      const d = career?.derived ?? makePlayer(arch, lvl);
+      const s = d.totalStats;
+      const p = d.player;
+      const skills = career?.skills ?? skillsFor(arch, lvl, s);
+      let combatCol = "│   -    -    -    -    -";
+      if (enemies.length > 0) {
+        const r = combatStats(p, enemies, skills, depth);
+        const wrStr = `${r.wrPct}%`;
+        const ciStr = `±${r.wrCiPct.toFixed(1)}`;
+        const winT = turnCell(r.winTurns, r.wrPct > 0);
+        const lossT = turnCell(r.lossTurns, r.wrPct < 100);
+        const hpL = r.wrPct < 100 ? r.lossEnemyHpPct.toFixed(0) + "%" : " -";
+        combatCol = `│ ${pad(wrStr, 4)} ${pad(ciStr, 5)} ${pad(winT, 5)} ${pad(lossT, 5)} ${pad(hpL, 4)}`;
+      }
+      console.log(
+        `${arch.padEnd(5)} ${pad(s.str, 3)} ${pad(s.dex, 3)} ${pad(s.vit, 3)} ${pad(s.int, 3)} ${pad(s.spi, 3)} ${pad(s.luk, 3)} │ ${pad(p.atk, 3)} ${pad(p.def, 3)} ${pad(p.maxHp, 5)} ${pad(p.maxMp ?? 0, 5)} ${pct(p.critChancePct ?? 0)} ${pct(p.evasionPct ?? 0)} ${pct(p.accuracyPct ?? 0)} ${pct(p.extraAttackChancePct ?? 0)} ${combatCol}`,
+      );
+    }
   }
 }
 

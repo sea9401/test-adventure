@@ -27,6 +27,7 @@ import {
   guildWorkshopCraftRecordTitleIds,
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopBaseEquipmentCandidates,
+  guildWorkshopRecipeMaterialSpendPlan,
   guildWorkshopRecipeGoldCost,
   guildWorkshopRecipeView,
   hasGuildWorkshopRecipeMaterials,
@@ -39,6 +40,7 @@ import {
   rollGuildWorkshopEnhance,
   shouldLogGuildWorkshopCraftActivity,
   spendGuildWorkshopBaseEquipment,
+  spendGuildWorkshopMaterialsFromPlan,
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopBonus,
 } from "@/adventure/data/v2/guildWorkshop";
@@ -314,7 +316,12 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { recipeId?: unknown; mode?: unknown; outpostId?: unknown };
+  let body: {
+    recipeId?: unknown;
+    mode?: unknown;
+    outpostId?: unknown;
+    useMaterialSubstitution?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -328,6 +335,7 @@ export async function POST(req: Request) {
   }
   const recipe = GUILD_WORKSHOP_RECIPES[body.recipeId];
   const craftMode = isGuildWorkshopCraftMode(body.mode) ? body.mode : "normal";
+  const useMaterialSubstitution = body.useMaterialSubstitution === true;
 
   const resolved = await resolveWorkshopAccess(
     userId,
@@ -367,13 +375,22 @@ export async function POST(req: Request) {
       0,
       Math.floor(Number(charRaw.bankedGold) || 0),
     );
-    const craftGoldCost = guildWorkshopRecipeGoldCost(recipe, craftMode);
     const externalUseFeeGold = Math.max(
       0,
       Math.floor(Number(access.useFeeGold) || 0),
     );
-    const totalGoldCost = craftGoldCost + externalUseFeeGold;
     const materials = parseGuildWorkshopMaterialInventory(charRaw.materials);
+    const materialSpendPlan = guildWorkshopRecipeMaterialSpendPlan(
+      materials,
+      recipe,
+      craftMode,
+    );
+    const baseCraftGoldCost = guildWorkshopRecipeGoldCost(recipe, craftMode);
+    const substitutionGoldCost = useMaterialSubstitution
+      ? materialSpendPlan.extraGoldCost
+      : 0;
+    const craftGoldCost = baseCraftGoldCost + substitutionGoldCost;
+    const totalGoldCost = craftGoldCost + externalUseFeeGold;
     const resources = await readGuildSettlement(tx, guildId);
     const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
@@ -464,7 +481,15 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (!hasGuildWorkshopRecipeMaterials(materials, recipe, craftMode)) {
+    const exactMaterialsOk = hasGuildWorkshopRecipeMaterials(
+      materials,
+      recipe,
+      craftMode,
+    );
+    const selectedMaterialsOk = useMaterialSubstitution
+      ? materialSpendPlan.ok
+      : exactMaterialsOk;
+    if (!selectedMaterialsOk) {
       return {
         status: 409,
         body: {
@@ -565,11 +590,9 @@ export async function POST(req: Request) {
       recipe.profession,
       recipe.artisanXp,
     );
-    const nextMaterials = spendGuildWorkshopRecipeMaterials(
-      materials,
-      recipe,
-      craftMode,
-    );
+    const nextMaterials = useMaterialSubstitution
+      ? spendGuildWorkshopMaterialsFromPlan(materials, materialSpendPlan)
+      : spendGuildWorkshopRecipeMaterials(materials, recipe, craftMode);
     const craftQuality = rollGuildWorkshopEnhance(
       currentArtisan,
       recipe,
@@ -719,6 +742,13 @@ export async function POST(req: Request) {
         weeklyState: nextWeekly,
         externalAccess: externalAccessView(access),
         externalUseFeeGold: fee.feeGold,
+        usedMaterialSubstitution:
+          useMaterialSubstitution && materialSpendPlan.substitutions.length > 0,
+        materialSubstitutions: useMaterialSubstitution
+          ? materialSpendPlan.substitutions
+          : [],
+        baseGoldCost: baseCraftGoldCost,
+        substitutionGoldCost,
         goldCost: craftGoldCost,
         gold: craftPayment.gold,
         bankedGold: craftPayment.bankedGold,
@@ -769,6 +799,8 @@ export async function POST(req: Request) {
         recipeId: result.body.recipeId,
         craftMode: result.body.craftMode,
         externalUseFeeGold: result.body.externalUseFeeGold,
+        substitutionGoldCost: result.body.substitutionGoldCost,
+        usedMaterialSubstitution: result.body.usedMaterialSubstitution,
       },
     });
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   battleCountOf,
+  cookingCodexSection,
   frontierDepthOf,
   huntGateSections,
   isRecordedJobVisit,
@@ -60,6 +61,17 @@ describe("spFruitSection / materialCodexSection", () => {
     expect(codex.discovered).toBe(0);
     expect(codex.discoveredIds).toEqual([]);
     expect(codex.total).toBeGreaterThan(0);
+  });
+});
+
+describe("cookingCodexSection", () => {
+  it("알려진 첫 완성 요리법만 중복 없이 반환한다", () => {
+    const section = cookingCodexSection({
+      discoveredRecipeIds: ["rustic_bread", "rustic_bread", "unknown"],
+    });
+
+    expect(section.discoveredIds).toEqual(["rustic_bread"]);
+    expect(section.total).toBeGreaterThan(section.discoveredIds.length);
   });
 });
 

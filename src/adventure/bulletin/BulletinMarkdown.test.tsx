@@ -53,11 +53,52 @@ describe("BulletinMarkdown", () => {
     expect(html).not.toContain("bulletin-color:");
   });
 
+  it("전용 details 블록을 접기 영역으로 만들고 내부 마크다운을 렌더링한다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content={[
+          "점검 요약",
+          "",
+          ":::details 상세 업데이트 내역",
+          "**중요 변경**",
+          "",
+          "- 변경 사항 1",
+          "- 변경 사항 2",
+          ":::",
+          "",
+          "감사합니다.",
+        ].join("\n")}
+      />,
+    );
+
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
+    expect(html).toContain("상세 업데이트 내역</summary>");
+    expect(html).toContain("<strong>중요 변경</strong>");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("점검 요약");
+    expect(html).toContain("감사합니다.");
+  });
+
+  it("코드 펜스 안의 details 예시는 접기 영역으로 변환하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content={["```md", ":::details 예시", "본문", ":::", "```"].join(
+          "\n",
+        )}
+      />,
+    );
+
+    expect(html).not.toContain("<details");
+    expect(html).toContain(":::details 예시");
+  });
+
   it("원시 HTML·이미지·위험한 링크를 렌더링하지 않는다", () => {
     const html = renderToStaticMarkup(
       <BulletinMarkdown
         content={[
           "<script>alert('xss')</script>",
+          "<details><summary>원시 접기</summary>본문</details>",
           "![추적 이미지](https://example.com/pixel.png)",
           "[위험 링크](javascript:alert('xss'))",
         ].join("\n\n")}
@@ -65,6 +106,7 @@ describe("BulletinMarkdown", () => {
     );
 
     expect(html).not.toContain("<script");
+    expect(html).not.toContain("<details");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("javascript:");
     expect(html).not.toContain("pixel.png");

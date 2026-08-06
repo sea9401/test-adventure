@@ -19,6 +19,7 @@ import {
   GUILD_EXPLORATION_EXPEDITION_IDS,
   GUILD_EXPLORATION_MAP_FRAGMENT_TARGET,
   type GuildExplorationContentState,
+  type GuildExplorationEventChoice,
   type GuildExplorationEventChoiceId,
   type GuildExplorationEventDef,
   type GuildExplorationExpeditionDef,
@@ -30,6 +31,21 @@ import {
   guildExplorationMissionUnlockLevel,
   nextGuildExplorationUnlock,
 } from "./guildExplorationUnlocks";
+
+export function guildExplorationEventRewardText(
+  choice: Pick<GuildExplorationEventChoice, "rewardGold" | "rewardFame">,
+): string {
+  return [
+    choice.rewardGold
+      ? `길드 금고 +${choice.rewardGold.toLocaleString("ko-KR")}G`
+      : null,
+    choice.rewardFame
+      ? `길드 명성 +${choice.rewardFame.toLocaleString("ko-KR")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 type ExplorationMissionView = {
   id: GuildExplorationWeeklyMissionId;
@@ -476,7 +492,12 @@ export function GuildExplorationPanel({
                     onClick={() => void resolveEvent(choice.id)}
                     className="rounded-md border border-violet-700 bg-violet-700 px-3 py-1.5 text-left text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <span className="block">{choice.label}</span>
+                    <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                      <span>{choice.label}</span>
+                      <span className="font-bold text-violet-100">
+                        {guildExplorationEventRewardText(choice)}
+                      </span>
+                    </span>
                     <span className="mt-0.5 block font-normal opacity-80">
                       {choice.desc}
                     </span>
@@ -487,7 +508,7 @@ export function GuildExplorationPanel({
           ) : (
             <div className="mt-3 flex items-center justify-between gap-2">
               <p className="min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
-                원정과 주간 탐사 의뢰 보상으로 지도 조각을 모아 사건 카드를 엽니다.
+                {`원정과 주간 탐사 의뢰로 지도 조각을 모아 ${mapFragmentTarget.toLocaleString()}개를 사용하면 보상을 고르는 사건 카드가 열립니다.`}
               </p>
               <button
                 type="button"

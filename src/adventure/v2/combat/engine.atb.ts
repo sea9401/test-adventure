@@ -200,8 +200,12 @@ function tickPlayerDotsOnAction(
 // 적 행동 시작 — 적에게 걸린 DoT 가 먼저 틱한다. 로그는 적 행동 묶음(tick)에 붙인다.
 function tickEnemyDotsOnAction(state: BattleState): BattleState {
   const eTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
-  if (eTick.totalDmg <= 0) return { ...state, enemyV2Dots: eTick.nextDots };
-  const dotLog = distributeV2DotTicks(eTick.ticks, eTick.totalDmg).reduce(
+  const damage = statusDamageAfterReduction(
+    eTick.totalDmg,
+    state.enemy.statusDamageReductionPct,
+  );
+  if (damage <= 0) return { ...state, enemyV2Dots: eTick.nextDots };
+  const dotLog = distributeV2DotTicks(eTick.ticks, damage).reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -214,7 +218,7 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
   const next = applyPhaseTriggerIfAny({
     ...state,
     enemyV2Dots: eTick.nextDots,
-    enemyHp: Math.max(0, state.enemyHp - eTick.totalDmg),
+    enemyHp: Math.max(0, state.enemyHp - damage),
     log: dotLog,
   });
   if (next.enemyHp > 0) return next;
@@ -343,7 +347,7 @@ export function resolveBattleAtb(
         //   tickPlayerBundleEntry 가 self 측을 이미 했으므로(enemyV2Debuffs 는 적 번들 소유)
         //   헬퍼엔 현재 맵을 그대로 넘긴다 — 헬퍼는 tick 없이 cast+적용만 한다(이중 tick 방지).
         let castFired = false;
-        if (V2_ATB_SKILLS) {
+        if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
           const cast = applyPlayerV2SkillCast(state, atbPlayer, {
             selfBuffs: state.v2SelfBuffs,
@@ -460,7 +464,7 @@ export function resolveBattleAtb(
         //   cast 미러·더블어택 방지). v2Skills 미장착 몹은 헬퍼가 즉시 no-op → 기존 전투 byte-identical.
         //   버프/디버프 tick 은 위 tickEnemyBundleEntry 가 이미 했으므로 헬퍼는 tick 없이 cast+적용만.
         let enemyCastFired = false;
-        if (V2_ATB_SKILLS) {
+        if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
           const cast = applyEnemyV2SkillCast(state, atbPlayer);
           state = cast.state;

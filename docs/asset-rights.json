@@ -747,6 +747,51 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/life-aids/cooking_prep_set.webp",
+      "sha256": "7d1916e2d0e3018a251e75317d77b021c85c8139f9bb3eb53f302ee65172a45f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/logging_wedge_advanced.webp",
+      "sha256": "d9ffdf1a042374cf79a4b07079955cca79c5d3dff462ea0289b2d67ec2e9e806",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/logging_wedge_basic.webp",
+      "sha256": "4e019e0eb03555425f01ff28aad4e16655913b8d84988c6e19137bd01445a18f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/logging_wedge_master.webp",
+      "sha256": "75c13e443ce1b98430c220cf500798c8a5c60682015c623bf13ca092f5f05170",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/mining_probe_advanced.webp",
+      "sha256": "18ed2b73f0b53c53e431e16fc3642bde1cf39079701bb8fd369f7f9858e1ea47",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/mining_probe_basic.webp",
+      "sha256": "af7ff9d25ab8138ed9d952b354f17e27957108c961998f7c70eca6f87f4e2e38",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/mining_probe_master.webp",
+      "sha256": "1c1b01a3bb74545198500bd39c86c5333723e8db1cb6ec1264e89f48b84787bd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/organic_fertilizer.webp",
+      "sha256": "15d3beae150e5ce4164e4ecabe0b4b5f86ceb5aeec022cb2c48fe6f3f094a530",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/life-aids/tidy_bait_box.webp",
+      "sha256": "c6bce0ac590cd8a85e26a2d0915c3b7374c5719f11462da5c676521ff91b7584",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/monster/acientgolem.webp",
       "sha256": "05f597456f9da79616bb9162952acc923df0890e99c42b19a7981859a4ccfacd",
       "source": "operator-cleared-game-art"

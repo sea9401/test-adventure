@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { SpinnerGap } from "@phosphor-icons/react";
+import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_IDS,
   GUILD_WORKSHOP_MATERIAL_DROP_PCT,
   GUILD_WORKSHOP_MATERIAL_SOURCES,
+  GUILD_WORKSHOP_MATERIAL_SUBSTITUTE,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
 import {
   MONSTER_CRAFT_MATERIAL_DROP_RULES,
@@ -68,6 +70,65 @@ import {
 const CRAFTED_TAG_SET_ID_SET: ReadonlySet<string> = new Set(
   CRAFTED_EQUIP_TAG_SET_IDS,
 );
+
+type MaterialSubstitutionView = NonNullable<
+  WorkshopRecipeView["materialSubstitution"]
+>;
+
+function MaterialSubstitutionOption({
+  substitution,
+  busy,
+  crafting,
+  onCraft,
+}: {
+  substitution: MaterialSubstitutionView;
+  busy: boolean;
+  crafting: boolean;
+  onCraft: () => void;
+}) {
+  return (
+    <div
+      className={`${SURFACE_ACCENT} mt-2 px-2 py-1.5 text-amber-950 dark:text-amber-100`}
+    >
+      <div className="space-y-0.5">
+        {substitution.replacements.map((replacement) => (
+          <div key={replacement.requiredMaterialId}>
+            {replacement.requiredMaterialName} 부족분 {replacement.count}개 →{" "}
+            <strong>{replacement.substituteMaterialName} {replacement.count}개</strong>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 text-[10px] text-amber-800 dark:text-amber-300">
+        1:1 대체 · 추가 {substitution.extraGoldCost.toLocaleString()} G · 총{" "}
+        {substitution.totalGoldCost.toLocaleString()} G
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          disabled={!substitution.canCraft || busy || crafting}
+          onClick={onCraft}
+          className="inline-flex h-7 items-center justify-center rounded border border-amber-700 bg-amber-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-amber-500 dark:bg-amber-600 dark:text-zinc-950 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+        >
+          {busy ? (
+            <SpinnerGap size={14} className="animate-spin" aria-hidden />
+          ) : !substitution.goldOk ? (
+            "골드 부족"
+          ) : substitution.canCraft ? (
+            "상위 재료로 대체 제작"
+          ) : (
+            "제작 조건 부족"
+          )}
+        </button>
+        <Link
+          href="/plaza/market"
+          className="font-medium text-amber-800 underline underline-offset-2 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100"
+        >
+          거래소에서 재료 찾기
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 const EQUIPMENT_CODEX_STATUS_VIEW: Record<
   WorkshopEquipmentCodexStatus,
@@ -188,7 +249,15 @@ export function WorkshopCraftPanel({
       if (recipeSlotFilter !== "all" && recipe.slot !== recipeSlotFilter) {
         return false;
       }
-      if (recipeScopeFilter === "craftable" && !recipe.canCraft) return false;
+      if (
+        recipeScopeFilter === "craftable" &&
+        !recipe.canCraft &&
+        !recipe.materialSubstitution?.canCraft &&
+        !recipe.masterwork?.canCraft &&
+        !recipe.masterwork?.materialSubstitution?.canCraft
+      ) {
+        return false;
+      }
       if (
         !matchesWorkshopCodexFilter(
           recipe.equipmentId,
@@ -403,6 +472,14 @@ export function WorkshopCraftPanel({
               ★ {recipe.qualityChancePct}% · 상한{" "}
               {GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%
             </div>
+            {recipe.materialSubstitution ? (
+              <MaterialSubstitutionOption
+                substitution={recipe.materialSubstitution}
+                busy={busy}
+                crafting={craftingId != null}
+                onCraft={() => void craft(recipe.id, "normal", true)}
+              />
+            ) : null}
           </div>
 
           <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900">
@@ -446,6 +523,14 @@ export function WorkshopCraftPanel({
                   : "★ 확정 · ★★ Lv9 해금"
                 : "명장 각인/★ 확정"}
             </div>
+            {masterwork?.materialSubstitution ? (
+              <MaterialSubstitutionOption
+                substitution={masterwork.materialSubstitution}
+                busy={busy}
+                crafting={craftingId != null}
+                onCraft={() => void craft(recipe.id, "masterwork", true)}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -455,6 +540,7 @@ export function WorkshopCraftPanel({
   async function craft(
     recipeId: GuildWorkshopRecipeId,
     craftMode: GuildWorkshopCraftMode = "normal",
+    useMaterialSubstitution = false,
   ) {
     setCraftingId(recipeId);
     onMessage(null);
@@ -463,7 +549,12 @@ export function WorkshopCraftPanel({
       const res = await fetch("/api/v2/guild/workshop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipeId, mode: craftMode, outpostId }),
+        body: JSON.stringify({
+          recipeId,
+          mode: craftMode,
+          outpostId,
+          useMaterialSubstitution,
+        }),
       });
       const json = await res.json();
       if (!json.ok) {
@@ -473,6 +564,10 @@ export function WorkshopCraftPanel({
         return;
       }
       const crafted = state?.recipes.find((recipe) => recipe.id === recipeId);
+      const selectedSubstitution =
+        craftMode === "masterwork"
+          ? crafted?.masterwork?.materialSubstitution
+          : crafted?.materialSubstitution;
       onServerSync({ ok: true, ...json });
       const grantedTitleNames = Array.isArray(json.grantedTitles)
         ? json.grantedTitles
@@ -501,6 +596,19 @@ export function WorkshopCraftPanel({
           Math.floor(Number(json.artisanXpGained ?? crafted?.artisanXp ?? 0)),
         ),
         grantedTitleNames,
+        materialSubstitutionText:
+          useMaterialSubstitution && selectedSubstitution
+            ? selectedSubstitution.replacements
+                .map(
+                  (replacement) =>
+                    `${replacement.requiredMaterialName} → ${replacement.substituteMaterialName} ${replacement.count}개`,
+                )
+                .join(" · ")
+            : null,
+        substitutionGoldCost: Math.max(
+          0,
+          Math.floor(Number(json.substitutionGoldCost) || 0),
+        ),
       });
       onAfterCraft();
     } catch {
@@ -540,6 +648,14 @@ export function WorkshopCraftPanel({
             <div className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
               {craftResultMessage(craftResult)}
             </div>
+            {craftResult.materialSubstitutionText ? (
+              <div
+                className={`${SURFACE_ACCENT} mt-1 px-2 py-1 text-[11px] font-medium text-amber-900 dark:text-amber-200`}
+              >
+                상위 재료 대체: {craftResult.materialSubstitutionText} · 추가{" "}
+                {craftResult.substitutionGoldCost.toLocaleString()} G
+              </div>
+            ) : null}
             {craftResultMasterworkLine ? (
               <div className="mt-1 rounded border border-rose-200 bg-white/70 px-2 py-1 text-[11px] font-medium text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-100">
                 {craftResultMasterworkLine}
@@ -613,6 +729,18 @@ export function WorkshopCraftPanel({
                 <div className="font-semibold text-zinc-900 dark:text-zinc-100">
                   재료 수급처
                 </div>
+                <div
+                  className={`${SURFACE_ACCENT} mt-1 px-2 py-1 text-[11px] text-amber-900 dark:text-amber-200`}
+                >
+                  부족한 제작소 전용 재료는 바로 윗단계 재료로만 1:1 대체할 수
+                  있습니다. 대체 재료는 별도 버튼을 눌렀을 때만 소모됩니다. ·{" "}
+                  <Link
+                    href="/plaza/market"
+                    className="font-semibold underline underline-offset-2"
+                  >
+                    거래소 보기
+                  </Link>
+                </div>
                 <div className="mt-1 grid gap-1 sm:grid-cols-2">
                   {GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
                     const mat = GUILD_WORKSHOP_MATERIALS[id];
@@ -621,6 +749,7 @@ export function WorkshopCraftPanel({
                       0,
                       Math.floor(Number(materials[id]) || 0),
                     );
+                    const substituteId = GUILD_WORKSHOP_MATERIAL_SUBSTITUTE[id];
                     return (
                       <div
                         key={id}
@@ -640,6 +769,23 @@ export function WorkshopCraftPanel({
                             1,
                           )}
                           %
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                          {substituteId ? (
+                            <span>
+                              부족 시 {GUILD_WORKSHOP_MATERIALS[substituteId].name}
+                              으로 1:1 대체
+                            </span>
+                          ) : (
+                            <span>상위 대체 재료 없음</span>
+                          )}
+                          <span aria-hidden>·</span>
+                          <Link
+                            href="/plaza/market"
+                            className="font-medium text-sky-700 underline underline-offset-2 dark:text-sky-300"
+                          >
+                            거래소
+                          </Link>
                         </div>
                       </div>
                     );

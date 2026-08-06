@@ -69,4 +69,20 @@ describe("POST /api/v2/me/cultivate — 특별 수행", () => {
     expect(json.mult).toBe(3);
     expect(mocks.insertFeedEntry).not.toHaveBeenCalled();
   });
+
+  it("생활직은 수행할 수 없고 숙달 포인트도 소모하지 않는다", async () => {
+    mocks.store.set("character.v2", {
+      class: "survivor",
+      specChoice: "fisher",
+      level: 1,
+    });
+
+    const response = await POST();
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json).toEqual({ ok: false, error: "lifestyle_job" });
+    expect(mocks.store.get("proficiency.v2")).toMatchObject({ points: 1_000 });
+    expect(mocks.insertFeedEntry).not.toHaveBeenCalled();
+  });
 });

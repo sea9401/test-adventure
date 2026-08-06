@@ -24,6 +24,8 @@ import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_ID,
   GUILD_WORKSHOP_MATERIAL_IDS,
+  GUILD_WORKSHOP_MATERIAL_SUBSTITUTE,
+  GUILD_WORKSHOP_MATERIAL_SUBSTITUTE_GOLD,
   type GuildWorkshopMaterialId,
 } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIALS } from "./settlementMaterials";
@@ -1828,6 +1830,106 @@ export function hasGuildWorkshopRecipeMaterials(
   });
 }
 
+export type GuildWorkshopMaterialSubstitution = {
+  requiredMaterialId: GuildWorkshopMaterialId;
+  requiredMaterialName: string;
+  substituteMaterialId: GuildWorkshopMaterialId;
+  substituteMaterialName: string;
+  count: number;
+  goldCost: number;
+};
+
+export type GuildWorkshopMaterialSpendPlan = {
+  ok: boolean;
+  spend: Record<string, number>;
+  substitutions: GuildWorkshopMaterialSubstitution[];
+  extraGoldCost: number;
+};
+
+/**
+ * 레시피의 각 재료를 먼저 제 용도에 예약한 뒤, 부족한 제작소 전용 재료만
+ * 인벤토리에 실제로 있는 바로 윗단계 재료로 1:1 대체한다.
+ */
+export function guildWorkshopRecipeMaterialSpendPlan(
+  materials: Record<string, number>,
+  recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
+): GuildWorkshopMaterialSpendPlan {
+  const materialCost = guildWorkshopRecipeMaterialCost(recipe, mode);
+  const spend: Record<string, number> = {};
+  const remaining: Record<string, number> = {};
+  const shortages: Array<{ id: string; count: number }> = [];
+
+  for (const [id, amountRaw] of Object.entries(materialCost)) {
+    const required = Math.max(0, Math.floor(amountRaw ?? 0));
+    const owned = Math.max(0, Math.floor(materials[id] ?? 0));
+    const exact = Math.min(required, owned);
+    if (exact > 0) spend[id] = exact;
+    remaining[id] = Math.max(0, owned - exact);
+    if (exact < required) shortages.push({ id, count: required - exact });
+  }
+  for (const [id, amountRaw] of Object.entries(materials)) {
+    if (id in remaining) continue;
+    remaining[id] = Math.max(0, Math.floor(amountRaw ?? 0));
+  }
+
+  const substitutions: GuildWorkshopMaterialSubstitution[] = [];
+  for (const shortage of shortages) {
+    if (!GUILD_WORKSHOP_MATERIAL_IDS.includes(shortage.id as GuildWorkshopMaterialId)) {
+      return { ok: false, spend: {}, substitutions: [], extraGoldCost: 0 };
+    }
+    const requiredMaterialId = shortage.id as GuildWorkshopMaterialId;
+    const substituteMaterialId =
+      GUILD_WORKSHOP_MATERIAL_SUBSTITUTE[requiredMaterialId];
+    if (!substituteMaterialId) {
+      return { ok: false, spend: {}, substitutions: [], extraGoldCost: 0 };
+    }
+    const available = Math.max(0, remaining[substituteMaterialId] ?? 0);
+    if (available < shortage.count) {
+      return { ok: false, spend: {}, substitutions: [], extraGoldCost: 0 };
+    }
+    remaining[substituteMaterialId] = available - shortage.count;
+    spend[substituteMaterialId] =
+      (spend[substituteMaterialId] ?? 0) + shortage.count;
+    const unitGoldCost = Math.max(
+      0,
+      GUILD_WORKSHOP_MATERIAL_SUBSTITUTE_GOLD[requiredMaterialId] ?? 0,
+    );
+    substitutions.push({
+      requiredMaterialId,
+      requiredMaterialName: guildWorkshopMaterialName(requiredMaterialId),
+      substituteMaterialId,
+      substituteMaterialName: guildWorkshopMaterialName(substituteMaterialId),
+      count: shortage.count,
+      goldCost: unitGoldCost * shortage.count,
+    });
+  }
+
+  return {
+    ok: true,
+    spend,
+    substitutions,
+    extraGoldCost: substitutions.reduce(
+      (sum, substitution) => sum + substitution.goldCost,
+      0,
+    ),
+  };
+}
+
+export function spendGuildWorkshopMaterialsFromPlan(
+  materials: Record<string, number>,
+  plan: GuildWorkshopMaterialSpendPlan,
+): Record<string, number> {
+  if (!plan.ok) return { ...materials };
+  const next: Record<string, number> = { ...materials };
+  for (const [id, amount] of Object.entries(plan.spend)) {
+    const left = Math.max(0, Math.floor((next[id] ?? 0) - amount));
+    if (left > 0) next[id] = left;
+    else delete next[id];
+  }
+  return next;
+}
+
 export function hasGuildWorkshopRecipeResourceMaterials(
   materials: Record<string, number>,
   recipe: GuildWorkshopRecipe,
@@ -2071,12 +2173,21 @@ export function guildWorkshopRecipeView(
     !recipe.baseEquipmentId || baseEquipmentEligibleCount >= 1;
   const resourceOk = hasGuildWorkshopRecipeResourceMaterials(materials, recipe);
   const materialOk = hasGuildWorkshopRecipeMaterials(materials, recipe);
+  const materialSpendPlan = guildWorkshopRecipeMaterialSpendPlan(
+    materials,
+    recipe,
+  );
   const masterworkResourceOk = hasGuildWorkshopRecipeResourceMaterials(
     materials,
     recipe,
     "masterwork",
   );
   const masterworkMaterialOk = hasGuildWorkshopRecipeMaterials(
+    materials,
+    recipe,
+    "masterwork",
+  );
+  const masterworkMaterialSpendPlan = guildWorkshopRecipeMaterialSpendPlan(
     materials,
     recipe,
     "masterwork",
@@ -2103,8 +2214,14 @@ export function guildWorkshopRecipeView(
   const spendableGold = Math.max(0, Math.floor(Number(spendableGoldRaw) || 0));
   const goldCost = guildWorkshopRecipeGoldCost(recipe);
   const goldOk = spendableGold >= goldCost;
+  const substitutionGoldCost = materialSpendPlan.extraGoldCost;
+  const substitutionGoldOk = spendableGold >= goldCost + substitutionGoldCost;
   const masterworkGoldCost = guildWorkshopRecipeGoldCost(recipe, "masterwork");
   const masterworkGoldOk = spendableGold >= masterworkGoldCost;
+  const masterworkSubstitutionGoldCost =
+    masterworkMaterialSpendPlan.extraGoldCost;
+  const masterworkSubstitutionGoldOk =
+    spendableGold >= masterworkGoldCost + masterworkSubstitutionGoldCost;
   return {
     id: recipe.id,
     equipmentId: recipe.equipmentId,
@@ -2138,6 +2255,22 @@ export function guildWorkshopRecipeView(
     resourceOk,
     canCraft:
       levelOk && smithyLevelOk && materialOk && baseEquipmentOk && goldOk,
+    materialSubstitution:
+      !materialOk &&
+      materialSpendPlan.ok &&
+      materialSpendPlan.substitutions.length > 0
+        ? {
+            replacements: materialSpendPlan.substitutions,
+            extraGoldCost: substitutionGoldCost,
+            totalGoldCost: goldCost + substitutionGoldCost,
+            goldOk: substitutionGoldOk,
+            canCraft:
+              levelOk &&
+              smithyLevelOk &&
+              baseEquipmentOk &&
+              substitutionGoldOk,
+          }
+        : null,
     masterwork: {
       requiredArtisanLevel: BLACKSMITH_MASTERWORK_LEVEL,
       levelOk: masterworkLevelOk,
@@ -2158,6 +2291,24 @@ export function guildWorkshopRecipeView(
       goldCost: masterworkGoldCost,
       goldOk: masterworkGoldOk,
       plus2Unlocked: artisanProfessionLevel >= BLACKSMITH_PLUS2_QUALITY_LEVEL,
+      materialSubstitution:
+        !masterworkMaterialOk &&
+        masterworkMaterialSpendPlan.ok &&
+        masterworkMaterialSpendPlan.substitutions.length > 0
+          ? {
+              replacements: masterworkMaterialSpendPlan.substitutions,
+              extraGoldCost: masterworkSubstitutionGoldCost,
+              totalGoldCost:
+                masterworkGoldCost + masterworkSubstitutionGoldCost,
+              goldOk: masterworkSubstitutionGoldOk,
+              canCraft:
+                levelOk &&
+                masterworkLevelOk &&
+                smithyLevelOk &&
+                baseEquipmentOk &&
+                masterworkSubstitutionGoldOk,
+            }
+          : null,
     },
   };
 }

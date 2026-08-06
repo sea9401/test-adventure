@@ -28,6 +28,11 @@ export type AutoGatheringResultView = {
   materialName: string;
   materialsGained: number;
   xpGained: number;
+  byproducts?: Array<{
+    materialId: string;
+    name: string;
+    amount: number;
+  }>;
 };
 
 function remainingLabel(readyAt: number, now: number): string {
@@ -149,6 +154,17 @@ export function AutoGatheringCard({
             {result.materialName} +{result.materialsGained.toLocaleString()} · XP +
             {result.xpGained.toLocaleString()}
           </div>
+          {result.byproducts && result.byproducts.length > 0 ? (
+            <div className="mt-1 font-semibold text-amber-700 dark:text-amber-300">
+              부산물 ·{" "}
+              {result.byproducts
+                .map(
+                  (drop) =>
+                    `${drop.name} +${drop.amount.toLocaleString()}`,
+                )
+                .join(" · ")}
+            </div>
+          ) : null}
           <div className="mt-1 text-zinc-500 dark:text-zinc-400">
             {result.attempts.toLocaleString()}회 중 {result.successes.toLocaleString()}회 성공
           </div>

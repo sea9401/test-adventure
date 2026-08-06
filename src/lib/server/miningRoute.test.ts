@@ -263,7 +263,7 @@ describe("mining routes", () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
     vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
     store.set(ACTIVITY_GUARD_KEY, {
-      version: 1,
+      version: 5,
       activities: { mining: { verificationRequiredAt: NOW } },
     });
     const response = await START(request("start", { spotId: "iron_quarry" }));

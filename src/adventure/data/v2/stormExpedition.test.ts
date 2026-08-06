@@ -68,7 +68,23 @@ describe("stormExpedition", () => {
     expect(thunder.atkType).toBe("magic");
     expect(thunder.v2Skills?.equipped.length).toBeGreaterThan(1);
     expect(wreckage.def).toBeGreaterThan(gale.def);
+    expect(wreckage.statusDamageReductionPct).toBeGreaterThan(
+      gale.statusDamageReductionPct ?? 0,
+    );
     expect(new Set([gale.name, thunder.name, wreckage.name]).size).toBe(3);
+  });
+
+  it("원정 적도 HP·공격력보다 역할별 방어 유틸 비중이 높다", () => {
+    const gale = stormExpeditionEnemy("gale", "guardian");
+    const thunder = stormExpeditionEnemy("thunder", "guardian");
+    const wreckage = stormExpeditionEnemy("wreckage", "guardian");
+    const heart = stormExpeditionEnemy("gale", "final_boss");
+
+    expect(gale.evasionPct).toBeGreaterThan(thunder.evasionPct ?? 0);
+    expect(thunder.magicDef).toBeGreaterThan(gale.magicDef ?? 0);
+    expect(wreckage.def).toBeGreaterThan(thunder.def);
+    expect(wreckage.statusDamageReductionPct).toBe(60);
+    expect(heart.statusDamageReductionPct).toBe(50);
   });
 
   it("9개 노드 사이에 7개 전투와 공통 최종 보스를 배치한다", () => {

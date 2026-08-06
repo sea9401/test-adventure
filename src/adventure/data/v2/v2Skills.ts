@@ -1490,16 +1490,16 @@ function describeV2Effect(
     case "damage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)}`;
     case "heal":
-      return [
+      return `${[
         e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
         e.pctMaxHp != null ? `최대HP ${e.pctMaxHp}%` : "",
         e.statCoef != null
           ? `${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)}`
           : "",
         e.flat ? `+${e.flat}` : "",
-      ].filter(Boolean).join(" + ").replace(/^/, "회복 ");
+      ].filter(Boolean).join(" + ").replace(/^/, "회복 ")} (회복량 보정 적용)`;
     case "healFromDamage":
-      return `피해량 ${e.pct}% 회복`;
+      return `피해량 ${e.pct}% 회복 (회복량 보정 적용)`;
     case "selfBuff":
       return `${STAT_LABELS[e.stat]} +${e.pct}% (${actionsChip(e.turns)})`;
     case "selfBuffPct":
@@ -1542,7 +1542,7 @@ function describeV2Effect(
     case "hpCostDamage":
       return `HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 소모량×${e.soakRatio}`;
     case "healToDamage":
-      return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
+      return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} (회복량 보정 적용) → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
     case "ambushDamage":

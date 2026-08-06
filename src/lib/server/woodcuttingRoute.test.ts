@@ -290,11 +290,11 @@ describe("woodcutting routes", () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
     vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
     store.set(ACTIVITY_GUARD_KEY, {
-      version: 1,
+      version: 5,
       activities: {
         woodcutting: {
           verificationRequiredAt: NOW,
-          completedSinceVerification: 100,
+          completedSinceVerification: 500,
         },
       },
     });

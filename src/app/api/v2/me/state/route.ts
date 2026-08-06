@@ -98,6 +98,7 @@ import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
 import {
   battleCountOf,
   combatStatsSection,
+  cookingCodexSection,
   elementalSkillsSection,
   fishingCodexSection,
   frontierDepthOf,
@@ -585,6 +586,8 @@ export async function GET(req: Request) {
     codex: materialCodexSection(charSave.materials),
     // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
     fishingCodex: fishingCodexSection(fishingCodexRow?.value),
+    // 요리 완성 도감 — 주방에서 처음 완성한 요리법 목록.
+    cookingCodex: cookingCodexSection(stateSaves.get(COOKING_SAVE_KEY)),
     // 칭호 — 모험의 서 "칭호" 탭이 보유 목록 표시 + 장착 토글에 사용.
     titles: { ownedTitleIds, equippedTitleId },
     // 프론티어 최고 도달 깊이 — MAX 캡으로 정규화(stateSections.frontierDepthOf).

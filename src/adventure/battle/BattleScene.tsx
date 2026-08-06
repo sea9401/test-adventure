@@ -190,6 +190,7 @@ export function RecoveryReadout({
 export type BattleStats = {
   atk: number;
   def: number;
+  magicDef?: number;
   spd: number;
   actionSpd?: number; // 몬스터 ATB 행동속도 — raw spd 를 플레이어 속도 스케일로 환산한 값
   accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
@@ -198,6 +199,7 @@ export type BattleStats = {
   critChancePct?: number; // 치명 % (플레이어)
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
   bonusAttackChancePct?: number; // 몬스터 행동 1회당 추가타 성향
+  statusDamageReductionPct?: number; // 중독·출혈 등 상태 피해 감소율
   primaryAttack?: "physical" | "magic";
 };
 
@@ -207,6 +209,8 @@ const DETAIL_COLOR: Record<string, string> = {
   "회피 능력": "text-cyan-600 dark:text-cyan-400",
   치명타: "text-amber-600 dark:text-amber-400",
   마공: "text-violet-600 dark:text-violet-400",
+  마방: "text-fuchsia-600 dark:text-fuchsia-400",
+  "상태 피해 감소": "text-emerald-600 dark:text-emerald-400",
   "연타 보정": "text-orange-600 dark:text-orange-400",
 };
 
@@ -244,6 +248,17 @@ export function BattleStatStrip({
           {
             label: "연타 보정",
             value: `+${Math.round(stats.bonusAttackChancePct)}%`,
+          },
+        ]
+      : []),
+    ...(stats.magicDef != null
+      ? [{ label: "마방", value: String(Math.round(stats.magicDef)) }]
+      : []),
+    ...(stats.statusDamageReductionPct && stats.statusDamageReductionPct > 0
+      ? [
+          {
+            label: "상태 피해 감소",
+            value: pct(stats.statusDamageReductionPct),
           },
         ]
       : []),
@@ -463,6 +478,7 @@ export function BattleScene({
       ? {
           atk: state.enemy.atk,
           def: state.enemy.def,
+          magicDef: state.enemy.magicDef,
           spd: state.enemy.spd,
           actionSpd: enemyDisplay.actionSpd,
           accuracy: state.enemy.accuracy,
@@ -471,6 +487,9 @@ export function BattleScene({
           magicAtk:
             state.enemy.atkType === "magic" ? state.enemy.atk : undefined,
           bonusAttackChancePct: state.enemy.bonusAttackChancePct,
+          statusDamageReductionPct: state.enemy.statusDamageReductionPct,
+          primaryAttack:
+            state.enemy.atkType === "magic" ? "magic" : "physical",
         }
       : null;
 
@@ -684,7 +703,7 @@ export function BattleScene({
 
       <div
         ref={logRef}
-        className="no-scrollbar h-[50svh] min-h-[18rem] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-3 dark:border-zinc-800 dark:bg-zinc-950/90 sm:h-[34rem] sm:min-h-0"
+        className="no-scrollbar mb-6 h-[58svh] min-h-[22rem] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-3 dark:border-zinc-800 dark:bg-zinc-950/90 sm:mb-8 sm:h-[40rem] sm:min-h-0"
       >
         <BattleLogList entries={state.log} />
       </div>

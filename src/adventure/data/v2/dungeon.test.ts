@@ -22,9 +22,17 @@ import {
   floorDefMult,
   floorExpMult,
   floorCritHpComp,
+  endgameSoften,
+  endExtensionCombatSoften,
   frontierOnsetSoften,
   floorAccuracy,
   floorPowerGate,
+  lateAccuracyMult,
+  lateAttackMult,
+  lateDefenseMult,
+  lateDurabilityMult,
+  lateEvasionBonus,
+  lateStatusDamageReductionBonus,
 } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
@@ -372,7 +380,7 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.name).toBe(base.name);
   });
 
-  it("권장 전투력 미달은 HP·ATK만 보강하고 명중은 회피 생존축을 위해 분리한다", () => {
+  it("중반 미달 보정은 보존하고 상위 구간만 HP 중심의 다축 난도로 분산한다", () => {
     const depth = 26;
     const gate = floorPowerGate(depth);
     const ready = scaleMonsterForFloor(base, depth, true, gate);
@@ -380,7 +388,12 @@ describe("scaleMonsterForFloor", () => {
 
     expect(underprepared.hp).toBeGreaterThan(ready.hp);
     expect(underprepared.atk).toBeGreaterThan(ready.atk);
+    expect(underprepared.hp / ready.hp).toBeCloseTo(
+      underprepared.atk / ready.atk,
+      1,
+    );
     expect(underprepared.accuracy).toBe(ready.accuracy);
+    expect(underprepared.evasionPct).toBe(ready.evasionPct);
     expect(underprepared.def).toBe(ready.def);
     expect(underprepared.exp).toBe(ready.exp);
     expect(scaleMonsterForFloor(base, 43, true, 0)).toEqual(
@@ -402,12 +415,52 @@ describe("scaleMonsterForFloor", () => {
     );
     expect(endgameUnderprepared.hp).toBeGreaterThan(endgameReady.hp);
     expect(endgameUnderprepared.atk).toBeGreaterThan(endgameReady.atk);
-    expect(endgameUnderprepared.accuracy).toBe(endgameReady.accuracy);
-    expect(endgameUnderprepared.accuracy).toBeCloseTo(
-      (base.accuracy ?? 0) + floorAccuracy(endgameDepth),
+    expect(endgameUnderprepared.hp / endgameReady.hp).toBeGreaterThan(
+      endgameUnderprepared.atk / endgameReady.atk,
     );
-    expect(endgameUnderprepared.def).toBe(endgameReady.def);
+    expect(endgameUnderprepared.accuracy).toBeGreaterThan(
+      endgameReady.accuracy ?? 0,
+    );
+    expect(endgameUnderprepared.evasionPct).toBeGreaterThan(
+      endgameReady.evasionPct ?? 0,
+    );
+    expect(endgameUnderprepared.def).toBeGreaterThan(endgameReady.def);
     expect(endgameUnderprepared.exp).toBe(endgameReady.exp);
+  });
+
+  it("상위 사냥터는 HP·공격력 예산을 방어·명중·회피·상태 피해 대응으로 옮긴다", () => {
+    const depth = 72;
+    const scaled = scaleMonsterForFloor(base, depth);
+    const combatMult =
+      floorStatMult(depth) *
+      endgameSoften(depth) *
+      frontierOnsetSoften(depth) *
+      endExtensionCombatSoften(depth);
+
+    expect(lateDurabilityMult(depth)).toBe(0.85);
+    expect(lateAttackMult(depth)).toBe(0.7);
+    expect(lateDefenseMult(depth)).toBe(3);
+    expect(lateAccuracyMult(depth)).toBe(1.35);
+    expect(lateEvasionBonus(depth)).toBe(10);
+    expect(lateStatusDamageReductionBonus(depth)).toBe(30);
+    expect(scaled.hp).toBe(
+      Math.round(
+        base.hp * combatMult * floorCritHpComp(depth) * lateDurabilityMult(depth),
+      ),
+    );
+    expect(scaled.atk).toBe(
+      Math.round(base.atk * combatMult * lateAttackMult(depth)),
+    );
+    expect(scaled.def).toBe(
+      Math.round(base.def * floorDefMult(depth) * lateDefenseMult(depth)),
+    );
+    expect(scaled.evasionPct).toBeCloseTo(
+      (base.evasionPct ?? 0) + lateEvasionBonus(depth),
+    );
+    expect(scaled.accuracy).toBeCloseTo(
+      ((base.accuracy ?? 0) + floorAccuracy(depth)) * lateAccuracyMult(depth),
+    );
+    expect(scaled.statusDamageReductionPct).toBe(30);
   });
 
   it("베이스 변형 없음 (mutation 가드)", () => {

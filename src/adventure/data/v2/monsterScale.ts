@@ -8,10 +8,22 @@ import {
   frontierOnsetSoften,
   floorCritHpComp,
   floorAccuracy,
+  lateAccuracyMult,
+  lateAttackMult,
+  lateDefenseMult,
+  lateDurabilityMult,
+  lateEvasionBonus,
+  lateStatusDamageReductionBonus,
+  LATE_DIFFICULTY_START_DEPTH,
+  underpreparedAccuracyMult,
+  underpreparedAttackMult,
   underpreparedCombatMult,
+  underpreparedDefenseMult,
+  underpreparedEvasionBonus,
 } from "./dungeonLadder";
 
-// 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/exp 만 곱한다.
+// 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/magicDef/exp/accuracy/evasion/
+// statusDamageReductionPct 를 조정한다.
 // skill/phaseTrigger/drops/태그 등은 그대로 — 동작 단순화 + 베이스 곡선 의존.
 // 결과는 새 객체 — 호출자가 mutate 해도 베이스 MONSTERS 안 깨짐.
 //
@@ -27,23 +39,39 @@ export function scaleMonsterForFloor(
   // 솔로 일반 사냥에서만 전달하는 표시 전투력. 권장치 미달 사냥터 우회 페널티에 사용한다.
   playerPower?: number,
 ): Monster {
-  // 엔드게임·프론티어 진입·43+ 확장 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관).
-  // floor 빌드 생존성 + 들판→프론티어(d7~11)·엔드 확장(d43+) 경계 절벽을 각각 완화한다.
+  // 엔드게임·프론티어 진입·43+ 확장 완화는 기본 HP/ATK 성장에 적용하고, 그 뒤 상위 난도를
+  // 내구·공격·방어·명중·회피 축으로 분산한다. exp/권장파워는 전투 분산과 무관하다.
   const underpreparedMult = underpreparedCombatMult(depth, playerPower);
-  const sMult =
+  const spreadUnderpreparedDifficulty =
+    softenEndgame && depth >= LATE_DIFFICULTY_START_DEPTH;
+  const baseCombatMult =
     floorStatMult(depth) *
-    underpreparedMult *
     (softenEndgame
       ? endgameSoften(depth) *
         frontierOnsetSoften(depth) *
         endExtensionCombatSoften(depth)
       : 1);
-  const dMult = floorDefMult(depth);
+  const hpMult =
+    baseCombatMult *
+    underpreparedMult *
+    (softenEndgame ? lateDurabilityMult(depth) : 1);
+  const atkMult =
+    baseCombatMult *
+    (spreadUnderpreparedDifficulty
+      ? underpreparedAttackMult(underpreparedMult)
+      : underpreparedMult) *
+    (softenEndgame ? lateAttackMult(depth) : 1);
+  const dMult =
+    floorDefMult(depth) *
+    (spreadUnderpreparedDifficulty
+      ? underpreparedDefenseMult(underpreparedMult)
+      : 1) *
+    (softenEndgame ? lateDefenseMult(depth) : 1);
   const eMult = floorExpMult(depth);
   // 크리 HP 상쇄 — HP 에만(atk/def/exp 무관). 크리 점감 곡선의 엔드 딜 손실 보전. coop(softenEndgame=false) 제외.
   const hpComp = softenEndgame ? floorCritHpComp(depth) : 1;
-  const hp = Math.max(1, Math.round(monster.hp * sMult * hpComp));
-  const atk = Math.max(1, Math.round(monster.atk * sMult));
+  const hp = Math.max(1, Math.round(monster.hp * hpMult * hpComp));
+  const atk = Math.max(1, Math.round(monster.atk * atkMult));
   const def = Math.max(0, Math.round(monster.def * dMult));
   const magicDef =
     monster.magicDef == null
@@ -53,18 +81,37 @@ export function scaleMonsterForFloor(
   // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
   //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
   //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
-  // 회피·치명 축은 표시 전투력에 직접 반영되지 않는다. 전투력 미달을 이유로 명중까지 올리면
-  // 회피 빌드가 낮은 전투력 판정과 회피 상실을 동시에 받으므로, 몬스터 명중은 깊이만 따른다.
+  // 회피·치명 축은 표시 전투력에 직접 반영되지 않는다. 권장치 미달 시에도 명중·회피 보강은
+  // 제한된 보조축으로만 두고, 우회 방지의 주력은 HP가 담당한다.
   const accuracy =
-    (monster.accuracy ?? 0) +
-    floorAccuracy(depth);
+    ((monster.accuracy ?? 0) + floorAccuracy(depth)) *
+    (softenEndgame ? lateAccuracyMult(depth) : 1) *
+    (spreadUnderpreparedDifficulty
+      ? underpreparedAccuracyMult(underpreparedMult)
+      : 1);
+  const evasionPct =
+    (monster.evasionPct ?? 0) +
+    (softenEndgame ? lateEvasionBonus(depth) : 0) +
+    (spreadUnderpreparedDifficulty
+      ? underpreparedEvasionBonus(underpreparedMult)
+      : 0);
+  const statusDamageReductionPct = Math.min(
+    80,
+    Math.max(
+      0,
+      (monster.statusDamageReductionPct ?? 0) +
+        (softenEndgame ? lateStatusDamageReductionBonus(depth) : 0),
+    ),
+  );
   if (
     hp === monster.hp &&
     atk === monster.atk &&
     def === monster.def &&
     magicDef === monster.magicDef &&
     exp === monster.exp &&
-    accuracy === (monster.accuracy ?? 0)
+    accuracy === (monster.accuracy ?? 0) &&
+    evasionPct === (monster.evasionPct ?? 0) &&
+    statusDamageReductionPct === (monster.statusDamageReductionPct ?? 0)
   ) {
     return monster;
   }
@@ -76,5 +123,7 @@ export function scaleMonsterForFloor(
     ...(magicDef != null ? { magicDef } : {}),
     exp,
     accuracy,
+    ...(evasionPct > 0 ? { evasionPct } : {}),
+    ...(statusDamageReductionPct > 0 ? { statusDamageReductionPct } : {}),
   };
 }

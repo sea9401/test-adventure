@@ -89,12 +89,25 @@ function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
 
 function parseAutoResult(value: unknown): AutoGatheringResultView {
   const item = (value ?? {}) as Record<string, unknown>;
+  const byproducts = Array.isArray(item.byproducts)
+    ? item.byproducts
+        .map((value) => {
+          const drop = (value ?? {}) as Record<string, unknown>;
+          return {
+            materialId: String(drop.materialId ?? ""),
+            name: String(drop.name ?? "부산물"),
+            amount: Math.max(0, Math.floor(Number(drop.amount) || 0)),
+          };
+        })
+        .filter((drop) => drop.amount > 0)
+    : [];
   return {
     attempts: Math.max(0, Math.floor(Number(item.attempts) || 0)),
     successes: Math.max(0, Math.floor(Number(item.successes) || 0)),
     materialName: String(item.materialName ?? "광석"),
     materialsGained: Math.max(0, Math.floor(Number(item.materialsGained) || 0)),
     xpGained: Math.max(0, Math.floor(Number(item.xpGained) || 0)),
+    byproducts,
   };
 }
 

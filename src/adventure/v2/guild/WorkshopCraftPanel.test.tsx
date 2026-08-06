@@ -2,8 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   GUILD_WORKSHOP_RECIPES,
+  guildWorkshopRecipeMaterialCost,
   guildWorkshopRecipeView,
 } from "@/adventure/data/v2/guildWorkshop";
+import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMaterials";
 import {
   WorkshopCraftPanel,
   matchesWorkshopCodexFilter,
@@ -45,10 +47,11 @@ function workshopState(): WorkshopState {
 function renderWorkshop(
   registeredEquipmentIds: ReadonlySet<string>,
   equipmentCodexStatus: WorkshopEquipmentCodexLoadStatus = "ready",
+  state: WorkshopState = workshopState(),
 ) {
   return renderToStaticMarkup(
     <WorkshopCraftPanel
-      state={workshopState()}
+      state={state}
       weekly={null}
       recommendedRecipeId={null}
       registeredEquipmentIds={registeredEquipmentIds}
@@ -68,6 +71,38 @@ describe("guild workshop recipe equipment codex badge", () => {
     const html = renderWorkshop(new Set());
     expect(html).toContain("제작 수수료: 10,000 G");
     expect(html).toContain("제작 수수료: 20,000 G");
+  });
+
+  it("shows an explicit higher-material substitution action and marketplace link", () => {
+    const substituteRecipe = GUILD_WORKSHOP_RECIPES.crafted_master_ring;
+    const cost = guildWorkshopRecipeMaterialCost(substituteRecipe);
+    const materials = Object.fromEntries(
+      Object.entries(cost).map(([id, amount]) => [id, amount ?? 0]),
+    );
+    materials[GUILD_WORKSHOP_MATERIAL_ID.refinedIron] = 0;
+    materials[GUILD_WORKSHOP_MATERIAL_ID.mithrilShard] = 2;
+    const state: WorkshopState = {
+      ...workshopState(),
+      materials,
+      smithyLevel: 2,
+      recipes: [
+        guildWorkshopRecipeView(
+          substituteRecipe,
+          {},
+          { blacksmith: { xp: 999_999, crafts: 999 } },
+          0,
+          2,
+          materials,
+        ),
+      ],
+    };
+
+    const html = renderWorkshop(new Set(), "ready", state);
+    expect(html).toContain("정제 철괴 부족분 2개");
+    expect(html).toContain("미스릴 조각 2개");
+    expect(html).toContain("추가 4,000 G");
+    expect(html).toContain("상위 재료로 대체 제작");
+    expect(html).toContain('href="/plaza/market"');
   });
 
   it("shows registered and unregistered status on the crafted item row", () => {

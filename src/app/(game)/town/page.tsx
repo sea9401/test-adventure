@@ -16,6 +16,9 @@ export default function TownPage() {
           case "open-shop":
             router.push("/town/shop");
             break;
+          case "open-exchange":
+            router.push("/town/exchange");
+            break;
           case "open-smithy":
             router.push("/town/smithy");
             break;

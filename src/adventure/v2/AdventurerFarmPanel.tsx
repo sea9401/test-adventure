@@ -391,6 +391,92 @@ export function AdventurerFarmPanel({
   );
 }
 
+/** 통합 교환소에서 농장 전체 화면을 불러오지 않고 상점만 노출한다. */
+export function FarmExchangeShopPanel() {
+  const {
+    loading,
+    error,
+    notice,
+    farm,
+    learnedSkillIds,
+    shopItems,
+    busyShopItemId,
+    clearNotice,
+    refresh,
+    buyShopItem,
+  } = useFarm();
+  const availableReputation = farm ? farmAvailableReputation(farm) : 0;
+  const shopNotice =
+    notice?.kind === "shop"
+      ? `${notice.result.title} 구매 완료. 농장 증표 ${notice.result.costReputation}개를 사용했습니다.`
+      : notice?.kind === "error"
+        ? notice.text
+        : null;
+
+  useEffect(() => {
+    if (!shopNotice) return;
+    const timeoutId = window.setTimeout(clearNotice, FARM_TOAST_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [clearNotice, shopNotice]);
+
+  return (
+    <section className="space-y-3 text-zinc-900 dark:text-zinc-100">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          납품으로 모은 농장 증표를 씨앗과 농장 물품으로 교환합니다.
+        </p>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          disabled={loading}
+          className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          새로고침
+        </button>
+      </div>
+
+      {shopNotice ? (
+        <p
+          className={`rounded-md border px-3 py-2 text-sm ${
+            notice?.kind === "error"
+              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+          }`}
+        >
+          {shopNotice}
+        </p>
+      ) : null}
+
+      {loading && !farm ? (
+        <div className={`${SURFACE_CARD} px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
+          농장 상점을 불러오는 중...
+        </div>
+      ) : farm ? (
+        <FarmShopPanel
+          items={shopItems}
+          availableReputation={availableReputation}
+          learnedSkillIds={learnedSkillIds}
+          busyShopItemId={busyShopItemId}
+          onBuy={(itemId) => void buyShopItem(itemId)}
+        />
+      ) : (
+        <div className={`${SURFACE_CARD} space-y-3 px-4 py-6 text-center text-sm`}>
+          <p className="text-rose-600 dark:text-rose-300">
+            {error ?? "농장 상점을 불러오지 못했습니다."}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="rounded-md border border-zinc-300 px-3 py-1.5 font-semibold dark:border-zinc-700"
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function FarmHome({
   farm,
   busyPlotUpgrade,

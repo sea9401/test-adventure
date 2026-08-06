@@ -10,12 +10,14 @@ export function FishingShopPanel({
   onOpenChallenges,
   onOpenLeaderboard,
   onOpenHallOfFame,
+  embedded = false,
 }: {
-  onBack: () => void;
+  onBack?: () => void;
   onOpenFishing?: () => void;
   onOpenChallenges?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
+  embedded?: boolean;
 }) {
   const { state, loading, error, buying, buy, buyConsumable, buyGear } =
     useFishingShop();
@@ -33,6 +35,7 @@ export function FishingShopPanel({
       onOpenChallenges={onOpenChallenges}
       onOpenLeaderboard={onOpenLeaderboard}
       onOpenHallOfFame={onOpenHallOfFame}
+      embedded={embedded}
     />
   );
 }

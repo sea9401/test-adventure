@@ -16,8 +16,9 @@ git reset --hard origin/main   # 로컬 변경 무시하고 origin/main 에 맞�
 
 bash deploy/release-production.sh
 
-echo "▶ public release smoke"
+echo "▶ maintenance hold smoke"
 PUBLIC_RELEASE_EXPECTED_BUILD_ID="${DEPLOY_SHA:-$(git rev-parse --short HEAD)}" \
+  PUBLIC_RELEASE_MAINTENANCE_POLICY=require \
   npm run check-public-release
 
-echo "▶ done"
+echo "▶ done (maintenance remains enabled until explicit approval)"

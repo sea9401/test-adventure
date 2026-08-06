@@ -6,7 +6,8 @@
 #       git revert <나쁜커밋> && git push     (안 하면 다음 배포가 나쁜 코드를 다시 당겨온다)
 # ⚠️ 나쁜 배포가 DB 마이그레이션을 포함했다면 코드 롤백만으론 부족 —
 #       백업 복원(deploy/backup-db.sh 산출물) 또는 교정 마이그가 필요. 스키마-코드 정합 확인.
-# 롤백을 시작하면 nginx 점검 페이지를 자동으로 켜고, 앱 health 확인 뒤 해제한다.
+# 롤백을 시작하면 nginx 점검 페이지를 자동으로 켜고, 앱 health 확인 뒤에도 유지한다.
+# 사용자가 복구 확인 후 별도로 지시했을 때만 deploy/maintenance.sh off를 실행한다.
 #
 # 사용:  bash deploy/rollback.sh           # 최근 커밋 목록(어디로 되돌릴지 고르기)
 #        bash deploy/rollback.sh <sha>     # 그 커밋으로 롤백
@@ -56,11 +57,11 @@ for i in $(seq 1 20); do
   sleep 3
 done
 [ "$ok" = "1" ] || { echo "✗ rollback health failed; maintenance remains on" >&2; exit 1; }
-PROJECT_DIR="$PWD" bash "$MAINTENANCE_TOOL" off
 
 echo
 echo "service : $(systemctl is-active adventure-rpg)"
 echo "health  : $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://msmsge.com/api/health)  (200 기대)"
+echo "점검모드: 유지 중 — 명시적 승인 후 bash deploy/maintenance.sh off 실행"
 echo "현재커밋: $(git rev-parse --short HEAD)  $(git log -1 --pretty=%s)"
 echo
 echo "⚠️ 다음 단계 필수 — origin/main 을 고쳐라:  git revert <나쁜커밋> && git push"

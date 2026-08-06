@@ -97,14 +97,16 @@ describe("production security surface", () => {
     }
   });
 
-  it("배포 뒤 실제 공개·비공개 경로와 빌드 식별자를 외부에서 검사한다", () => {
+  it("배포 뒤 점검 화면을 유지하고 해제 뒤에는 전체 공개 표면을 검사한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
     const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));
     const smoke = source(join(ROOT, "scripts/check-public-release.mjs"));
 
     expect(workflow).toContain("npm run check-public-release");
     expect(workflow).toContain("PUBLIC_RELEASE_EXPECTED_BUILD_ID");
+    expect(workflow).toContain("PUBLIC_RELEASE_MAINTENANCE_POLICY: require");
     expect(manualDeploy).toContain("npm run check-public-release");
+    expect(manualDeploy).toContain("PUBLIC_RELEASE_MAINTENANCE_POLICY=require");
     for (const path of [
       "/api/health",
       "/api/version",
@@ -192,6 +194,20 @@ describe("production security surface", () => {
     expect(stagingService).toContain("MemorySwapMax=256M");
   });
 
+  it("배포와 롤백은 명시적 승인 전까지 점검 모드를 해제하지 않는다", () => {
+    const instructions = source(join(ROOT, "AGENTS.md"));
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+    const rollback = source(join(ROOT, "deploy/rollback.sh"));
+
+    expect(instructions).toContain("점검 모드를 자동으로 해제하지 않는다");
+    expect(release).not.toMatch(/^\s*bash deploy\/maintenance\.sh off\s*$/m);
+    expect(rollback).not.toMatch(
+      /^\s*PROJECT_DIR=.*bash "\$MAINTENANCE_TOOL" off\s*$/m,
+    );
+    expect(release).toContain("maintenance remains enabled");
+    expect(rollback).toContain("점검모드: 유지 중");
+  });
+
   it("5분 정기 감시가 배포와 동일한 공개 출시 표면을 검사한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/uptime.yml"));
     const monitor = source(join(ROOT, "deploy/check-external-health.sh"));
@@ -200,6 +216,7 @@ describe("production security surface", () => {
     expect(workflow).toContain("Check full public release surface");
     expect(workflow).toContain("PUBLIC_RELEASE_RETRIES");
     expect(workflow).toContain("PUBLIC_RELEASE_RETRY_DELAY_MS");
+    expect(workflow).toContain("PUBLIC_RELEASE_MAINTENANCE_POLICY: allow");
     expect(workflow).toContain("bash deploy/check-external-health.sh");
     expect(monitor).toContain("node scripts/check-public-release.mjs");
   });

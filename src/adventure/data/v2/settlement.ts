@@ -221,7 +221,8 @@ export type SettlementBuildingId =
   | "map_workshop"
   | "alchemy_workshop"
   | "dining_hall"
-  | "trade_post";
+  | "trade_post"
+  | "guild_warehouse";
 
 export type SettlementBuildingDef = {
   id: SettlementBuildingId;
@@ -291,6 +292,13 @@ export const SETTLEMENT_BUILDINGS: Record<
     iconName: "Scales",
     desc: "생활 재료를 주간 계약에 공동 납품하고 교역 토큰을 얻는 길드 공용 시설입니다.",
   },
+  guild_warehouse: {
+    id: "guild_warehouse",
+    name: "길드 창고",
+    icon: "📦",
+    iconName: "Cube",
+    desc: "길드원이 재료를 함께 보관하고 운영진이 필요한 곳에 배분하는 공용 시설입니다.",
+  },
 };
 export const SETTLEMENT_BUILDING_IDS = Object.keys(
   SETTLEMENT_BUILDINGS,
@@ -302,6 +310,7 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "alchemy_workshop",
   "dining_hall",
   "trade_post",
+  "guild_warehouse",
 ];
 
 export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
@@ -314,6 +323,7 @@ export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
   alchemy_workshop: 60_000_000,
   dining_hall: 50_000_000,
   trade_post: 70_000_000,
+  guild_warehouse: 60_000_000,
 };
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
@@ -499,6 +509,13 @@ export type TradePostUpgradeDef = {
   personalContributionCap: number;
   tokenYieldBonusPct: number;
   completionRewardBonusPct: number;
+  label: string;
+};
+
+export type GuildWarehouseUpgradeDef = {
+  level: number;
+  cost: SettlementBuildingUpgradeCost;
+  capacity: number;
   label: string;
 };
 
@@ -692,6 +709,34 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
   },
 ];
 
+export const GUILD_WAREHOUSE_UPGRADES: readonly GuildWarehouseUpgradeDef[] = [
+  { level: 1, cost: {}, capacity: 5_000, label: "공동 보관실" },
+  {
+    level: 2,
+    cost: facilityUpgradeCost(2, 20_000_000, 0),
+    capacity: 10_000,
+    label: "분류 선반",
+  },
+  {
+    level: 3,
+    cost: facilityUpgradeCost(3, 45_000_000, 600),
+    capacity: 20_000,
+    label: "물류 관리실",
+  },
+  {
+    level: 4,
+    cost: facilityUpgradeCost(4, 90_000_000, 1250),
+    capacity: 35_000,
+    label: "대형 적재고",
+  },
+  {
+    level: 5,
+    cost: facilityUpgradeCost(5, 160_000_000, 2500),
+    capacity: 50_000,
+    label: "왕립 공동 창고",
+  },
+];
+
 export type AnySettlementBuildingUpgradeDef =
   | SettlementBuildingUpgradeDef
   | TrainingGroundUpgradeDef
@@ -699,7 +744,8 @@ export type AnySettlementBuildingUpgradeDef =
   | ExplorationHqUpgradeDef
   | AlchemyWorkshopUpgradeDef
   | DiningHallUpgradeDef
-  | TradePostUpgradeDef;
+  | TradePostUpgradeDef
+  | GuildWarehouseUpgradeDef;
 
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
@@ -841,6 +887,26 @@ export function nextTradePostUpgrade(
   );
 }
 
+export function guildWarehouseUpgradeForLevel(
+  level: number,
+): GuildWarehouseUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    GUILD_WAREHOUSE_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    GUILD_WAREHOUSE_UPGRADES[0]
+  );
+}
+
+export function nextGuildWarehouseUpgrade(
+  level: number,
+): GuildWarehouseUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    GUILD_WAREHOUSE_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ??
+    null
+  );
+}
+
 export function mapWorkshopUpgradeForLevel(level: number): MapWorkshopUpgradeDef {
   const safe = clampSettlementBuildingLevel(level);
   return (
@@ -880,6 +946,9 @@ export function nextSettlementBuildingUpgrade(
   if (buildingId === "trade_post") {
     return nextTradePostUpgrade(level);
   }
+  if (buildingId === "guild_warehouse") {
+    return nextGuildWarehouseUpgrade(level);
+  }
   if (buildingId === "guild_smithy") {
     return nextGuildSmithyUpgrade(level);
   }
@@ -913,6 +982,10 @@ export function settlementBuildingUpgradeSummary(
   if (buildingId === "trade_post") {
     const trade = upgrade as TradePostUpgradeDef;
     return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 토큰 +${trade.tokenYieldBonusPct}% · 완료 보상 +${trade.completionRewardBonusPct}%`;
+  }
+  if (buildingId === "guild_warehouse") {
+    const warehouse = upgrade as GuildWarehouseUpgradeDef;
+    return `재료 보관 한도 ${warehouse.capacity.toLocaleString()}개`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p · 주간 의뢰 진척 +${smithy.weeklyProgressBonusPct}%`;

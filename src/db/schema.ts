@@ -1602,6 +1602,8 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
   // 길드 정착지 재화 풀 — 기초 목재/광석은 crop/ore, 상위 생활 재료는 재료 ID 키로 저장한다.
   // 길드원이 전환한 재료가 누적되고 마을·영지 건축물 업그레이드에 소비된다. 종류 추가 시 마이그 불요(jsonb).
   settlement: jsonb("settlement").notNull().default({}),
+  // 길드 창고 재료 스택. 정착지 업그레이드 재화와 분리해 입출고만으로 시설 비용이 바뀌지 않는다.
+  warehouse: jsonb("warehouse").notNull().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

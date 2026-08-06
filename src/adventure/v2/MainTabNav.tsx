@@ -83,6 +83,9 @@ const GUILD_FACILITY_VISUALS: Record<
     Icon: BowlFood,
   },
   trade_post: {
+    Icon: Storefront,
+  },
+  guild_warehouse: {
     Icon: Warehouse,
   },
 };

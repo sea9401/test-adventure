@@ -87,6 +87,7 @@ export async function GET() {
         questTitle?: string;
         deliveryTitle?: string;
         itemName?: string;
+        materialId?: string;
         tokenCost?: number;
         remainingTokens?: number;
         smithyLevel?: number;

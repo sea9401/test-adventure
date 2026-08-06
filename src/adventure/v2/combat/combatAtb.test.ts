@@ -162,6 +162,7 @@ describe("resolveBattle ATB invariants", () => {
     };
     const result = run(player, enemy, 11);
     expect(result.outcome).toBe("lose");
+    expect(result.endReason).toBe("timeout");
     expect(result.finalState.outcome).toBe("lose");
     expect(ATB_TICK_CAP).toBe(3_000);
     expect(

@@ -1129,6 +1129,8 @@ export const NORMAL_MONSTER_EXECUTION_HP_PCT = 35;
 
 export type BattleResolution = {
   outcome: BattleOutcome;
+  /** 전투 상한에 도달해 강제 종료된 경우. 사냥에서는 무승부성 패배로 판정한다. */
+  endReason?: "timeout";
   finalState: BattleState;
   potionsConsumed: Partial<Record<PotionId, number>>;
   turns: number;
@@ -2438,6 +2440,7 @@ function resolveBattleLegacy(
       );
       return {
         outcome: "lose",
+        endReason: "timeout",
         finalState: {
           ...state,
           log: timeoutLog,
@@ -2456,6 +2459,7 @@ function resolveBattleLegacy(
     if (turns >= (ctx.maxTurns ?? 500)) {
       return {
         outcome: "lose",
+        endReason: "timeout",
         finalState: {
           ...state,
           log: appendLog(state.log, hpBarEntry(state)),

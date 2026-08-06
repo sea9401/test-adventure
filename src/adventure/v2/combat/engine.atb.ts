@@ -241,6 +241,7 @@ function forceAtbLoss(
 ): BattleResolution {
   return {
     outcome: "lose",
+    endReason: "timeout",
     finalState: {
       ...state,
       log: appendLog(

@@ -710,29 +710,29 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
 ];
 
 export const GUILD_WAREHOUSE_UPGRADES: readonly GuildWarehouseUpgradeDef[] = [
-  { level: 1, cost: {}, capacity: 5_000, label: "공동 보관실" },
+  { level: 1, cost: {}, capacity: 1, label: "공동 보관실" },
   {
     level: 2,
     cost: facilityUpgradeCost(2, 20_000_000, 0),
-    capacity: 10_000,
+    capacity: 3,
     label: "분류 선반",
   },
   {
     level: 3,
     cost: facilityUpgradeCost(3, 45_000_000, 600),
-    capacity: 20_000,
+    capacity: 5,
     label: "물류 관리실",
   },
   {
     level: 4,
     cost: facilityUpgradeCost(4, 90_000_000, 1250),
-    capacity: 35_000,
+    capacity: 7,
     label: "대형 적재고",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 160_000_000, 2500),
-    capacity: 50_000,
+    capacity: 9,
     label: "왕립 공동 창고",
   },
 ];
@@ -985,7 +985,7 @@ export function settlementBuildingUpgradeSummary(
   }
   if (buildingId === "guild_warehouse") {
     const warehouse = upgrade as GuildWarehouseUpgradeDef;
-    return `재료 보관 한도 ${warehouse.capacity.toLocaleString()}개`;
+    return `아이템 보관 슬롯 ${warehouse.capacity.toLocaleString()}칸`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p · 주간 의뢰 진척 +${smithy.weeklyProgressBonusPct}%`;

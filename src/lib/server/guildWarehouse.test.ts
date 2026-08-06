@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import {
-  guildWarehouseUsed,
+  guildWarehouseUsedSlots,
   isGuildWarehouseMaterialId,
   parseGuildWarehouseInventory,
+  parseGuildWarehouseState,
 } from "./guildWarehouse";
 
 describe("guildWarehouse", () => {
@@ -26,7 +27,42 @@ describe("guildWarehouse", () => {
     ).toEqual({ [materialId]: 12 });
   });
 
-  it("보관 중인 전체 재료 수량을 합산한다", () => {
-    expect(guildWarehouseUsed({ a: 3, b: 7 })).toBe(10);
+  it("재료 스택과 장비 개체가 각각 한 슬롯을 사용한다", () => {
+    expect(
+      guildWarehouseUsedSlots({
+        materials: { [materialId]: 999 },
+        equipment: [{ iid: "eq-1", id: "v2_iron_sword" }],
+      }),
+    ).toBe(2);
+  });
+
+  it("최초 버전 flat 재료 맵을 읽고 장비 개체 옵션을 보존한다", () => {
+    expect(parseGuildWarehouseState({ [materialId]: 4 })).toEqual({
+      materials: { [materialId]: 4 },
+      equipment: [],
+    });
+    expect(
+      parseGuildWarehouseState({
+        materials: { [materialId]: 2 },
+        equipment: [
+          {
+            iid: "eq-1",
+            id: "v2_iron_sword",
+            locked: true,
+            enhance: { level: 3, bonusPct: 4 },
+          },
+        ],
+      }),
+    ).toMatchObject({
+      materials: { [materialId]: 2 },
+      equipment: [
+        {
+          iid: "eq-1",
+          id: "v2_iron_sword",
+          locked: true,
+          enhance: { level: 3, bonusPct: 4 },
+        },
+      ],
+    });
   });
 });

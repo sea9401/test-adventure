@@ -13,6 +13,7 @@ import {
   check,
   numeric,
   doublePrecision,
+  foreignKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -1047,6 +1048,27 @@ export const guildMembers = pgTable(
   ],
 );
 
+// 길드 창고 입출고 권한. 마스터·관리자는 이 표와 무관하게 항상 허용하고,
+// 일반 길드원만 관리자가 명시적으로 권한을 부여한다. 길드 탈퇴 시 멤버 FK cascade로 자동 회수.
+export const guildWarehousePermissions = pgTable(
+  "guild_warehouse_permissions",
+  {
+    guildId: integer("guild_id").notNull(),
+    userId: text("user_id").notNull(),
+    grantedBy: text("granted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    grantedAt: timestamp("granted_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.guildId, t.userId] }),
+    foreignKey({
+      columns: [t.guildId, t.userId],
+      foreignColumns: [guildMembers.guildId, guildMembers.userId],
+    }).onDelete("cascade"),
+  ],
+);
+
 // 길드원 활동 내역 — 가입·역할 임명·금고 입금·국가 선포·창단 등. 길드 정보 탭에 최근 N건 표시.
 //   이름은 저장 안 하고 userId 만(읽을 때 batch 해석 — 현재 닉네임 기준). meta=금액/역할/국가명.
 export const guildActivityLog = pgTable(
@@ -1602,7 +1624,8 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
   // 길드 정착지 재화 풀 — 기초 목재/광석은 crop/ore, 상위 생활 재료는 재료 ID 키로 저장한다.
   // 길드원이 전환한 재료가 누적되고 마을·영지 건축물 업그레이드에 소비된다. 종류 추가 시 마이그 불요(jsonb).
   settlement: jsonb("settlement").notNull().default({}),
-  // 길드 창고 재료 스택. 정착지 업그레이드 재화와 분리해 입출고만으로 시설 비용이 바뀌지 않는다.
+  // 길드 창고 상태({ materials, equipment }). 정착지 업그레이드 재화와 분리해
+  // 입출고만으로 시설 비용이 바뀌지 않는다. 구버전 flat 재료 맵은 서버에서 호환 파싱한다.
   warehouse: jsonb("warehouse").notNull().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

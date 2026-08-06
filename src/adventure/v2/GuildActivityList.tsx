@@ -21,6 +21,9 @@ export type GuildActivity = {
     deliveryTitle?: string;
     itemName?: string;
     materialId?: string;
+    equipmentIid?: string;
+    itemKind?: "material" | "equipment";
+    permissionEnabled?: boolean;
     tokenCost?: number;
     remainingTokens?: number;
     smithyLevel?: number;
@@ -89,9 +92,15 @@ function describe(a: GuildActivity): string {
     case "trade_shop_purchase":
       return `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 구매했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
     case "warehouse_deposit":
-      return `${actor} 님이 길드 창고에 ${a.meta?.itemName ?? "재료"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 입고했어요`;
+      return a.meta?.itemKind === "equipment"
+        ? `${actor} 님이 길드 창고에 ${a.meta?.itemName ?? "장비"} 입고를 완료했어요`
+        : `${actor} 님이 길드 창고에 ${a.meta?.itemName ?? "재료"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 입고했어요`;
     case "warehouse_withdraw":
-      return `${actor} 님이 길드 창고에서 ${a.meta?.itemName ?? "재료"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 출고했어요`;
+      return a.meta?.itemKind === "equipment"
+        ? `${actor} 님이 길드 창고에서 ${a.meta?.itemName ?? "장비"} 출고를 완료했어요`
+        : `${actor} 님이 길드 창고에서 ${a.meta?.itemName ?? "재료"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 출고했어요`;
+    case "warehouse_permission_change":
+      return `${actor} 님이 ${target} 님의 창고 입출고 권한을 ${a.meta?.permissionEnabled ? "부여" : "회수"}했어요`;
     case "workshop_weekly_claim":
       return `${actor} 님이 ${a.meta?.questTitle ?? "제작 의뢰"} 보상을 수령했어요`;
     case "exploration_weekly_claim":
@@ -186,6 +195,7 @@ const DOT_CLASS: Record<string, string> = {
   trade_shop_purchase: "bg-cyan-500",
   warehouse_deposit: "bg-blue-500",
   warehouse_withdraw: "bg-indigo-500",
+  warehouse_permission_change: "bg-sky-500",
   workshop_weekly_claim: "bg-emerald-500",
   exploration_weekly_claim: "bg-cyan-500",
   exploration_expedition_dispatch: "bg-cyan-500",

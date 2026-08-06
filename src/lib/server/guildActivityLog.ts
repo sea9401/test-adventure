@@ -22,6 +22,7 @@ export type GuildActivityType =
   | "trade_shop_purchase"
   | "warehouse_deposit"
   | "warehouse_withdraw"
+  | "warehouse_permission_change"
   | "workshop_weekly_claim"
   | "exploration_weekly_claim"
   | "exploration_expedition_dispatch"
@@ -53,6 +54,9 @@ export type GuildActivityMeta = {
   deliveryTitle?: string; // workshop_delivery
   itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft | dining_meal | trade_contract_complete
   materialId?: string; // warehouse_deposit | warehouse_withdraw
+  equipmentIid?: string; // warehouse_deposit | warehouse_withdraw
+  itemKind?: "material" | "equipment"; // warehouse_deposit | warehouse_withdraw
+  permissionEnabled?: boolean; // warehouse_permission_change
   tokenCost?: number; // trade_shop_purchase
   remainingTokens?: number; // trade_shop_purchase
   smithyLevel?: number; // smithy_upgrade

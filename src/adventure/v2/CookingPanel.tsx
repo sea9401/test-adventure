@@ -5,7 +5,12 @@ import Image from "next/image";
 import { MagnifyingGlass, Star } from "@phosphor-icons/react";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
-import { FARM_CROP_LIST, FARM_ITEMS, type FarmItemInventory } from "./farm";
+import {
+  FARM_CROP_LIST,
+  FARM_ITEMS,
+  type FarmItemId,
+  type FarmItemInventory,
+} from "./farm";
 import {
   COOKING_SURPLUS_BATCH_SIZE,
   COOKING_SURPLUS_DAILY_LIMIT,
@@ -21,6 +26,7 @@ import {
   type CookingState,
 } from "./cooking";
 import type { EquippedCookingBonuses } from "@/adventure/data/v2/v2Skills";
+import { FarmItemIcon } from "./FarmItemIcon";
 import {
   FISHING_CATCH_ITEMS,
   type FishingCatchItemId,
@@ -523,6 +529,25 @@ function OrderBoard({
   );
 }
 
+export function SurplusCropLabel({
+  itemId,
+  itemName,
+  owned,
+}: {
+  itemId: FarmItemId;
+  itemName: string;
+  owned: number;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <FarmItemIcon itemId={itemId} className="h-8 w-8" />
+      <span>
+        {itemName} <strong>{owned}</strong>개
+      </span>
+    </span>
+  );
+}
+
 function SurplusExchange({
   data,
   busy,
@@ -543,7 +568,11 @@ function SurplusExchange({
           const possible = Math.min(remaining, Math.floor(owned / COOKING_SURPLUS_BATCH_SIZE));
           return (
             <div key={crop.itemId} className={`${SURFACE_INSET} flex items-center justify-between gap-2 p-2.5 text-sm`}>
-              <span>{FARM_ITEMS[crop.itemId].icon} {crop.itemName} <strong>{owned}</strong>개</span>
+              <SurplusCropLabel
+                itemId={crop.itemId}
+                itemName={crop.itemName}
+                owned={owned}
+              />
               <button
                 type="button"
                 disabled={possible < 1 || busy != null}

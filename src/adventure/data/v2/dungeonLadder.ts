@@ -166,10 +166,10 @@ export function endExtensionCombatSoften(depth: number): number {
 export const LATE_DIFFICULTY_START_DEPTH = 43;
 export const LATE_DIFFICULTY_FULL_DEPTH = 72;
 // 상위 10명 실데이터 ATB 시뮬에서 0.70/0.55는 심해 폐허 승률을 지나치게 올렸다.
-// 유틸 스펙 분산은 유지하되 HP·ATK 예산을 일부 복원해 깊이에 맞는 절대 난도를 보존한다.
-export const LATE_DURABILITY_MULT_MAX = 0.85;
-export const LATE_ATTACK_MULT_MIN = 0.7;
-export const LATE_DEFENSE_MULT_MAX = 3;
+// 유틸 스펙 분산은 유지하되 HP·ATK·DEF 예산을 일부 복원해 현행보다 조금 높은 절대 난도를 만든다.
+export const LATE_DURABILITY_MULT_MAX = 0.92;
+export const LATE_ATTACK_MULT_MIN = 0.75;
+export const LATE_DEFENSE_MULT_MAX = 3.2;
 export const LATE_ACCURACY_MULT_MAX = 1.35;
 export const LATE_EVASION_BONUS_MAX = 10;
 export const LATE_STATUS_DAMAGE_REDUCTION_MAX = 30;
@@ -208,10 +208,11 @@ export function lateStatusDamageReductionBonus(depth: number): number {
 }
 
 // 권장 전투력 미달 보정도 HP·ATK 동일 배율에서 분리한다. HP는 기존 우회 방지 강도를 유지하되
-// 공격력은 차이의 15%만, 방어력은 20%만 따라가고 명중·회피를 소폭 보강한다. 최대 미달 배율 6일 때
-// HP×6 / ATK×1.75 / DEF×2 / 명중×1.4 / 회피+12가 되어 즉사 대신 대응축이 많은 강적이 된다.
+// 공격력은 차이의 45%, 방어력은 20%를 따라가고 명중·회피를 소폭 보강한다. 최대 미달 배율 6일 때
+// HP×6 / ATK×3.25 / DEF×2 / 명중×1.4 / 회피+12가 되어 즉사를 완화하면서도
+// 권장 전투력이 크게 부족한 캐릭터의 상위 사냥터 우회를 막는다.
 export function underpreparedAttackMult(combatMult: number): number {
-  return 1 + Math.max(0, combatMult - 1) * 0.15;
+  return 1 + Math.max(0, combatMult - 1) * 0.45;
 }
 
 export function underpreparedDefenseMult(combatMult: number): number {

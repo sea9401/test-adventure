@@ -14,15 +14,15 @@ describe("equipment progression requirements", () => {
   it("unlocks each regular band after clearing the previous hunting area", () => {
     expect(equipmentProgressionRequirement("v2_canyon_greatsword")).toEqual({
       minFrontierDepth: 6,
-      label: "들판 6 돌파",
+      label: "들판 · 최심부 돌파",
     });
     expect(equipmentProgressionRequirement("v2_lake_greatsword")).toEqual({
       minFrontierDepth: 12,
-      label: "마른 협곡 6 돌파",
+      label: "마른 협곡 · 최심부 돌파",
     });
     expect(equipmentProgressionRequirement("v2_throne_greatsword")).toEqual({
       minFrontierDepth: 42,
-      label: "짐승의 소굴 6 돌파",
+      label: "짐승의 소굴 · 최심부 돌파",
     });
   });
 
@@ -42,19 +42,28 @@ describe("equipment progression requirements", () => {
   it("uses the associated hard-boss anchor for boss equipment", () => {
     expect(equipmentProgressionRequirement("v2_boss_void_bastion")?.minFrontierDepth)
       .toBe(60);
-    expect(
-      equipmentProgressionRequirement("v2_hard_sangoon_cleaver")
-        ?.minFrontierDepth,
-    ).toBe(68);
+    expect(equipmentProgressionRequirement("v2_hard_sangoon_cleaver")).toEqual({
+      minFrontierDepth: 68,
+      label: "심해 폐허 · 입구 돌파",
+    });
     expect(
       equipmentProgressionRequirement("v2_boss_abyssal_armor")
         ?.minFrontierDepth,
     ).toBe(60);
   });
 
+  it("gates crafted 5T keycards at the final hunting-area milestone", () => {
+    expect(
+      equipmentProgressionRequirement("v2_crafted_painless_relic"),
+    ).toEqual({
+      minFrontierDepth: 72,
+      label: "심해 폐허 · 최심부 돌파",
+    });
+  });
+
   it("unlocks exactly at the required frontier depth", () => {
     expect(equipmentProgressionLock("v2_lake_greatsword", 11)?.label).toBe(
-      "마른 협곡 6 돌파",
+      "마른 협곡 · 최심부 돌파",
     );
     expect(equipmentProgressionLock("v2_lake_greatsword", 12)).toBeNull();
   });

@@ -10,6 +10,7 @@ import {
   endAttackerPhase,
   maybeApplyRuneCounter,
   maybeApplyMartialCounter,
+  pvpSideDamageTakenReductionPct,
   rollPvPAttackCount,
   scalePvPDamage,
   setSide,
@@ -34,7 +35,6 @@ import {
   healToShield,
   onCritEnemyDefDebuff,
   onCritEnemyChill,
-  lowHpDamageReductionPct,
   onCritSpeedBuff,
   onHitTakenDefGain,
   rollOnHitBleed,
@@ -69,7 +69,7 @@ import {
   IMPACT_WAVE_INTERVAL,
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
-  attackMissPct,
+  pvpAttackMissPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
@@ -443,7 +443,7 @@ export function advanceTurnPvP(
         skillEvadeBonus,
     );
     const attackerAccR = attacker.player.accRating ?? attacker.player.accuracyPct ?? 0;
-    const missPct = attackMissPct(defenderEvaR, attackerAccR);
+    const missPct = pvpAttackMissPct(defenderEvaR, attackerAccR);
     if (Math.random() * 100 < missPct) {
       return applyPerAttackDodge(
         state,
@@ -460,6 +460,7 @@ export function advanceTurnPvP(
         atkKey,
         defKey,
         `[행운의 방패] ${defender.name}이(가) 공격을 흘려보냈다.`,
+        false,
         false,
       );
     }
@@ -513,16 +514,8 @@ export function advanceTurnPvP(
       ? Math.max(1, Math.floor(dmgAfterResolve * (1 - endurePct / 100)))
       : dmgAfterResolve;
   const endureApplied = enduredDmg < dmgAfterResolve;
-  // 받피감(패시브 passiveDamageTakenReductionPct·철벽검류 등) — 인내 다음·가드 전 곱연산, 최소 1.
-  //   PvE 전용이던 걸 미러(2026-06-19). 철포 버프(skillDmgReduce)는 별개로 미포함(여기선 패시브만).
-  // 고유 시그니처(성물·Phase 2) — 저체력 시 받피감 추가(PvP 미러). 미장착/조건미충족=0 → byte-identical.
-  const sigReducePct = lowHpDamageReductionPct(
-    defender.player.equipSignatures,
-    defender.hp,
-    defender.maxHp,
-  );
-  const passiveReducePct =
-    (defender.player.passiveDamageTakenReductionPct ?? 0) + sigReducePct;
+  // 받피감 — 패시브 + 액티브 임시 버프 + 저체력 성물을 합산해 인내 다음·가드 전에 적용한다.
+  const passiveReducePct = pvpSideDamageTakenReductionPct(defender);
   const passiveReduced =
     passiveReducePct > 0
       ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))
@@ -874,7 +867,7 @@ export function advanceTurnPvP(
   // 고유 시그니처 on-crit(Phase 2·PvP 미러) — 군림=공격자 속도 버프, 독니=방어자 중독.
   //   미장착=null/false → byte-identical. critRoll + 피해 발생 게이트.
   const sigDealtDamage = totalDmg > 0;
-  // every-N(PvP 미러) — N타마다 추가타. 미장착(N=0)=카운터 불변·추가타 0 → byte-identical.
+  // every-N(PvP 미러) — 평타·스킬 공용 실제 적중 N회마다 추가 행동.
   const sigEvery = everyNHitsEffect(attacker.player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
@@ -890,7 +883,7 @@ export function advanceTurnPvP(
   if (sigExtraAttack > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} 연격 — 한 번 더!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} ${sigEveryN}회 적중 — 추가 행동!`,
     });
   }
   const sigCritSpeedBuff = onCritSpeedBuff(
@@ -962,7 +955,7 @@ export function advanceTurnPvP(
   if (sigCritSpeedBuff) {
     log = appendLog(log, {
       kind: "info",
-      text: `[군림] 결정타 — 속도가 솟구친다!`,
+      text: `[${sigCritSpeedBuff.label}] 결정타 — 속도가 솟구친다!`,
     });
   }
   if (!statusBlockSigStatus && sigCritChill) {
@@ -1056,7 +1049,7 @@ export function advanceTurnPvP(
       playerShield: attacker.stacks.playerShield + attackerHealShieldAmount,
       evadesRemaining: attacker.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointLeft,
-      signatureHitCount: nextSigHitCount, // 포식자 every-N 카운터(미장착=불변)
+      signatureHitCount: nextSigHitCount, // 평타·스킬 공용 every-N 카운터(미장착=불변)
     },
     turn: {
       ...attacker.turn,

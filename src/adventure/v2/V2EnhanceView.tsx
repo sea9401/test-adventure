@@ -41,6 +41,21 @@ import {
   type ReforgeStoneId,
 } from "@/adventure/data/v2/v2EquipVariance";
 import {
+  STAMINA_SHARD_COMBINE_COST,
+  STAMINA_SHARD_MATERIAL_ID,
+} from "@/adventure/data/v2/staminaPotionCrafting";
+import {
+  ENHANCE_EMBER_BLUE_COST,
+  ENHANCE_EMBER_MATERIAL_ID,
+  ENHANCE_EMBER_RED_COST,
+  TORN_MAP_FRAGMENT_COMBINE_COST,
+  TORN_MAP_FRAGMENT_MATERIAL_ID,
+  craftedRareMapDepthOptions,
+  defaultCraftedRareMapDepth,
+  type ScavengedCraftRecipeId,
+} from "@/adventure/data/v2/scavengedCrafting";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
+import {
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
@@ -57,14 +72,10 @@ import {
 import {
   QualityPctText,
   CraftQualityStars,
+  powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
+import { sortEnhanceCandidates } from "@/adventure/v2/v2EnhanceList";
 import { useSystemToast } from "./RewardToastProvider";
-import {
-  SETTLEMENT_MATERIAL_ID,
-  WALL_REPAIR_KIT_ID,
-  WALL_REPAIR_KIT_COST,
-} from "@/adventure/data/v2/settlementMaterials";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
   { key: "weapon", label: "무기" },
@@ -114,6 +125,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   //   결제 가능액(서버 enhance/reforge 가 spendGold 로 둘 다 차감)이라 그 합을 보여준다.
   const {
     coreLoopOn,
+    frontierDepth,
+    playerCombat,
     setBankedGold: syncCtxBanked,
     refreshGameState,
   } = useGameState();
@@ -125,8 +138,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const [bankedGold, setBankedGold] = useState(0);
   const [stones, setStones] = useState({ red: 0, blue: 0 });
   const [reforgeStones, setReforgeStones] = useState({ basic: 0, high: 0 });
-  // 성벽 수리 키트 조합 재료 — 통나무/철광석 보유 + 키트 보유수(/me/inventory).
-  const [kitMats, setKitMats] = useState({ timber: 0, ore: 0, kits: 0 });
+  const [staminaShards, setStaminaShards] = useState(0);
+  const [scavengedMats, setScavengedMats] = useState({
+    enhanceEmbers: 0,
+    tornMapFragments: 0,
+  });
+  const [chosenRareMapDepth, setChosenRareMapDepth] = useState<number | null>(
+    null,
+  );
   const [tab, setTab] = useState<V2EquipSlot>("weapon");
   const [selectedIid, setSelectedIid] = useState<string | null>(null);
   const [stone, setStone] = useState<EnhanceChoice>("none");
@@ -139,6 +158,19 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   } | null>(null);
   const [mode, setMode] = useState<ForgeMode>("enhance");
   const { notifySystem } = useSystemToast();
+  const rareMapDepthOptions = useMemo(
+    () => craftedRareMapDepthOptions(frontierDepth),
+    [frontierDepth],
+  );
+  const recommendedRareMapDepth = useMemo(
+    () => defaultCraftedRareMapDepth(frontierDepth, playerCombat?.power),
+    [frontierDepth, playerCombat?.power],
+  );
+  const rareMapDepth =
+    chosenRareMapDepth != null &&
+    rareMapDepthOptions.includes(chosenRareMapDepth)
+      ? chosenRareMapDepth
+      : recommendedRareMapDepth;
 
   useEffect(() => {
     if (!msg) return;
@@ -184,10 +216,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           basic: j.materials?.[REFORGE_STONE_MATERIAL_ID.basic] ?? 0,
           high: j.materials?.[REFORGE_STONE_MATERIAL_ID.high] ?? 0,
         });
-        setKitMats({
-          timber: j.materials?.[SETTLEMENT_MATERIAL_ID.timber] ?? 0,
-          ore: j.materials?.[SETTLEMENT_MATERIAL_ID.ironOre] ?? 0,
-          kits: j.materials?.[WALL_REPAIR_KIT_ID] ?? 0,
+        setStaminaShards(j.materials?.[STAMINA_SHARD_MATERIAL_ID] ?? 0);
+        setScavengedMats({
+          enhanceEmbers: j.materials?.[ENHANCE_EMBER_MATERIAL_ID] ?? 0,
+          tornMapFragments:
+            j.materials?.[TORN_MAP_FRAGMENT_MATERIAL_ID] ?? 0,
         });
       }
     } catch {
@@ -203,15 +236,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
   const tabInstances = useMemo(
     () =>
-      owned
-        .filter((o) => V2_EQUIPMENT[o.id]?.slot === tab)
-        .sort(
-          (a, b) =>
-            (b.enhance?.level ?? 0) - (a.enhance?.level ?? 0) ||
-            (b.roll?.power ?? V2_EQUIPMENT[b.id].power) -
-              (a.roll?.power ?? V2_EQUIPMENT[a.id].power),
-        ),
-    [owned, tab],
+      sortEnhanceCandidates(
+        owned.filter((o) => V2_EQUIPMENT[o.id]?.slot === tab),
+        equipped[tab] ?? null,
+      ),
+    [equipped, owned, tab],
   );
   const pager = usePagination(tabInstances, 8, tab);
 
@@ -404,13 +433,13 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     }
   }, [busy, refresh]);
 
-  // ── 조합(combine) — 통나무 3 + 철광석 3 → 성벽 수리 키트 1개(결정론·무료) ──
-  const doCombineKit = useCallback(async () => {
+  // ── 조합(combine) — 활력의 파편 6개 → 스태미나 회복약 1개 ──
+  const doCombineStaminaPotion = useCallback(async () => {
     if (busy) return;
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/v2/me/repair-kit-combine", {
+      const res = await fetch("/api/v2/me/stamina-potion-combine", {
         method: "POST",
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
@@ -419,7 +448,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           kind: "error",
           text:
             json.error === "insufficient_material"
-              ? `재료가 부족합니다 (소나무 원목 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} 필요)`
+              ? `활력의 파편이 부족합니다 (${STAMINA_SHARD_COMBINE_COST}개 필요)`
               : json.error === "insufficient_gold"
                 ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
                 : `실패: ${json.error ?? "unknown"}`,
@@ -428,15 +457,73 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       }
       setMsg({
         kind: "success",
-        text: `소나무 원목 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `활력의 파편 ${STAMINA_SHARD_COMBINE_COST}개 → 스태미나 회복약 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
       });
-      await refresh();
+      await Promise.all([refresh(), refreshGameState()]);
     } catch {
       setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
     } finally {
       setBusy(false);
     }
-  }, [busy, refresh]);
+  }, [busy, refresh, refreshGameState]);
+
+  const doCombineScavenged = useCallback(
+    async (
+      recipe: ScavengedCraftRecipeId,
+      materialLabel: string,
+      need: number,
+      outputLabel: string,
+      mapDepth?: number,
+    ) => {
+      if (busy) return;
+      setBusy(true);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/scavenged-crafting", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            recipe,
+            ...(recipe === "rare_map" ? { depth: mapDepth } : {}),
+          }),
+        });
+        const json = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          outputName?: string;
+          rareMap?: { depth?: number };
+        };
+        if (!json.ok) {
+          setMsg({
+            kind: "error",
+            text:
+              json.error === "insufficient_material"
+                ? `${materialLabel}이 부족합니다 (${need}개 필요)`
+                : json.error === "rare_map_full"
+                  ? "희귀 지도 보유 한도(5장)가 가득 찼습니다"
+                  : json.error === "invalid_map_depth"
+                    ? "지도 단계를 다시 선택해주세요"
+                  : `실패: ${json.error ?? "unknown"}`,
+          });
+          return;
+        }
+        const craftedLabel =
+          recipe === "rare_map" && json.outputName
+            ? `${json.outputName} (깊이 ${json.rareMap?.depth ?? "?"})`
+            : outputLabel;
+        setMsg({
+          kind: "success",
+          text: `${materialLabel} ${need}개 → ${craftedLabel}`,
+        });
+        await Promise.all([refresh(), refreshGameState()]);
+      } catch {
+        setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, refresh, refreshGameState],
+  );
 
   const selectedSlotLabel = item
     ? (SLOT_TABS.find((slot) => slot.key === item.slot)?.label ?? item.slot)
@@ -541,9 +628,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           ...(V2_REFORGE_ENABLED
             ? [{ key: "reforge" as ForgeMode, label: "재련" }]
             : []),
-          ...(V2_REFORGE_ENABLED || V2_SETTLEMENT_WARFARE
-            ? [{ key: "combine" as ForgeMode, label: "조합" }]
-            : []),
+          { key: "combine" as ForgeMode, label: "조합" },
         ]}
         active={mode}
         onChange={(m) => {
@@ -575,7 +660,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       craftQuality={selected.craftQuality}
                       className="shrink-0"
                     />
-                    <span className="truncate">{item.name}</span>
+                    <span
+                      className={`truncate ${powerNameClass(item, selected.roll, selected.enhance, selected.craftQuality)}`}
+                    >
+                      {item.name}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -765,7 +854,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       craftQuality={selected.craftQuality}
                       className="shrink-0"
                     />
-                    <span className="truncate">{item.name}</span>
+                    <span
+                      className={`truncate ${powerNameClass(item, selected.roll, selected.enhance, selected.craftQuality)}`}
+                    >
+                      {item.name}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -875,8 +968,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         </Card>
       )}
 
-      {/* 조합 — 레시피 목록(장비 선택 불필요). 카드마다 산출물·조합비·재료 충족(✓/✗) + 조합 버튼.
-          재련석 조합 + (전쟁 on) 성벽 수리 키트 조합. 골드 비용 COMBINE_GOLD_COST(조합 공통). */}
+      {/* 조합 — 수집형 재료를 포함한 레시피 목록. 카드마다 산출물·조합비·재료 충족(✓/✗) + 조합 버튼. */}
       {mode === "combine" && (
         <section className="space-y-2">
           {[
@@ -899,31 +991,112 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   },
                 ]
               : []),
-            ...(V2_SETTLEMENT_WARFARE
-              ? [
-                  {
-                    key: "repair-kit",
-                    icon: <GameIcon name="Shield" size={24} />,
-                    output: "성벽 수리 키트",
-                    cost: COMBINE_GOLD_COST,
-                    mats: [
-                      {
-                        label: "소나무 원목",
-                        iconName: "Tree" as const,
-                        have: kitMats.timber,
-                        need: WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber],
-                      },
-                      {
-                        label: "철광석",
-                        iconName: "Cube" as const,
-                        have: kitMats.ore,
-                        need: WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre],
-                      },
-                    ],
-                    onCombine: doCombineKit,
-                  },
-                ]
-              : []),
+            {
+              key: "stamina-potion",
+              icon: <GameIcon name="Flask" size={24} />,
+              output: "스태미나 회복약",
+              cost: COMBINE_GOLD_COST,
+              mats: [
+                {
+                  label: "활력의 파편",
+                  iconName: "Flask" as const,
+                  have: staminaShards,
+                  need: STAMINA_SHARD_COMBINE_COST,
+                },
+              ],
+              onCombine: doCombineStaminaPotion,
+            },
+            {
+              key: "blue-enhance-stone",
+              icon: <GameIcon name="Diamond" size={24} className="text-blue-500" />,
+              output: "푸른 강화석",
+              cost: 0,
+              mats: [
+                {
+                  label: "강화의 불씨",
+                  iconName: "Sparkle" as const,
+                  have: scavengedMats.enhanceEmbers,
+                  need: ENHANCE_EMBER_BLUE_COST,
+                },
+              ],
+              onCombine: () =>
+                doCombineScavenged(
+                  "blue_enhance_stone",
+                  "강화의 불씨",
+                  ENHANCE_EMBER_BLUE_COST,
+                  "푸른 강화석 1개",
+                ),
+            },
+            {
+              key: "red-enhance-stone",
+              icon: <GameIcon name="Diamond" size={24} className="text-red-500" />,
+              output: "붉은 강화석",
+              cost: 0,
+              mats: [
+                {
+                  label: "강화의 불씨",
+                  iconName: "Sparkle" as const,
+                  have: scavengedMats.enhanceEmbers,
+                  need: ENHANCE_EMBER_RED_COST,
+                },
+              ],
+              onCombine: () =>
+                doCombineScavenged(
+                  "red_enhance_stone",
+                  "강화의 불씨",
+                  ENHANCE_EMBER_RED_COST,
+                  "붉은 강화석 1개",
+                ),
+            },
+            {
+              key: "rare-map",
+              icon: <GameIcon name="MapTrifold" size={24} />,
+              output: "랜덤 희귀 지도",
+              cost: 0,
+              mats: [
+                {
+                  label: "찢어진 지도 조각",
+                  iconName: "MapTrifold" as const,
+                  have: scavengedMats.tornMapFragments,
+                  need: TORN_MAP_FRAGMENT_COMBINE_COST,
+                },
+              ],
+              onCombine: () =>
+                doCombineScavenged(
+                  "rare_map",
+                  "찢어진 지도 조각",
+                  TORN_MAP_FRAGMENT_COMBINE_COST,
+                  "랜덤 희귀 지도 1장",
+                  rareMapDepth,
+                ),
+              extra: (
+                <label className="mt-2 block border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
+                  <span className="mb-1 block font-medium text-zinc-700 dark:text-zinc-200">
+                    지도 단계
+                  </span>
+                  <select
+                    value={rareMapDepth}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setChosenRareMapDepth(Number(event.target.value))
+                    }
+                    className="min-h-9 w-full rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  >
+                    {[...rareMapDepthOptions].reverse().map((depth) => (
+                      <option key={depth} value={depth}>
+                        {huntStageName(depth)}
+                        {depth === recommendedRareMapDepth
+                          ? " · 전투력 기준 권장"
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-zinc-500 dark:text-zinc-400">
+                    정복한 단계만 선택할 수 있으며, 지도는 선택한 단계로 복원됩니다.
+                  </span>
+                </label>
+              ),
+            },
           ].map((r) => {
             const short = r.mats.some((m) => m.have < m.need);
             return (
@@ -935,7 +1108,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   <div className="min-w-0 shrink-0">
                     <div className="text-sm font-semibold">{r.output}</div>
                     <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      조합비 {r.cost.toLocaleString()} G
+                      {r.cost > 0
+                        ? `조합비 ${r.cost.toLocaleString()} G`
+                        : "조합비 없음"}
                     </div>
                   </div>
                   <div className="ml-auto space-y-0.5 text-xs tabular-nums">
@@ -969,6 +1144,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     {busy ? "…" : "조합 →"}
                   </Button>
                 </div>
+                {"extra" in r ? r.extra : null}
               </Card>
             );
           })}
@@ -980,7 +1156,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         </section>
       )}
 
-      {/* 장비 선택 — 슬롯 탭 + 그리드(강화 높은 순). 조합 모드는 장비 선택이 불필요해 숨긴다. */}
+      {/* 장비 선택 — 슬롯 탭 + 그리드(착용 우선, 이후 강화 높은 순). 조합 모드는 장비 선택이 불필요해 숨긴다. */}
       {mode !== "combine" && (
         <Card as="section" padding="sm">
           <TabBar

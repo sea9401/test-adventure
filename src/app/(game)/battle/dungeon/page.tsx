@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
+import { rareMapEntryHref } from "@/adventure/v2/dungeonNavigation";
 
 // /battle/dungeon — 무한 프론티어 사냥터 목록.
 // 자동 사냥(오프라인 세션) 중이면 목록 대신 사냥 중인 층으로 바로 입장한다 — 거기서 정지 가능.
@@ -13,6 +14,9 @@ export default function DungeonListPage() {
     frontierDepth,
     offlineHunt,
     playerCombat,
+    viewerLevel,
+    viewerLevelCap,
+    viewerJobTier,
   } =
     useGameState();
   // ?openDepth=<테마 첫 깊이> — 사냥터에서 "뒤로"로 들어오면 그 테마의 깊이 선택을 펼친 채 시작.
@@ -37,18 +41,11 @@ export default function DungeonListPage() {
       onBack={() => router.push("/battle")}
       frontierDepth={frontierDepth}
       playerPower={playerCombat?.power ?? null}
+      playerLevel={viewerLevel}
+      playerLevelCap={viewerLevelCap}
+      playerJobTier={viewerJobTier}
       initialOpenDepth={initialOpenDepth}
-      onSelectRareMap={(m) => {
-        if (m.kind === "secret_shop_map") {
-          router.push(`/hidden/shop?map=${encodeURIComponent(m.iid)}`);
-          return;
-        }
-        if (m.kind === "rename_map") {
-          router.push(`/hidden/rename?map=${encodeURIComponent(m.iid)}`);
-          return;
-        }
-        router.push(`/battle/dungeon/${m.depth}?rareMap=${m.iid}`);
-      }}
+      onSelectRareMap={(m) => router.push(rareMapEntryHref(m))}
     />
   );
 }

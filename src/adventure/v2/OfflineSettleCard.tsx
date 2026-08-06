@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import {
+  offlineSettleStopReasonLabel,
   settleOfflineHuntBatches,
   type OfflineSettleResult as SettleResult,
 } from "./offlineSettleApi";
@@ -54,6 +55,11 @@ export function OfflineSettleCard() {
           자리를 비운 동안 {result.battles.toLocaleString()}판을 자동으로
           사냥했어요.
         </p>
+        {offlineSettleStopReasonLabel(result.stoppedReason) ? (
+          <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+            {offlineSettleStopReasonLabel(result.stoppedReason)}
+          </p>
+        ) : null}
         <dl className="mt-4 space-y-2 text-sm">
           <Row label="경험치" value={`+${result.totalExp.toLocaleString()}`} />
           <Row

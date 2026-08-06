@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SpinnerGap } from "@phosphor-icons/react";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePagination } from "@/lib/usePagination";
 import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_IDS,
@@ -119,6 +121,11 @@ export function WorkshopDismantlePanel({
     dismantleSort,
     dismantleTierFilter,
   ]);
+  const dismantlePager = usePagination(
+    filteredDismantleCandidates,
+    40,
+    `${dismantleScopeFilter}:${dismantleTierFilter}:${dismantleSort}`,
+  );
 
   async function dismantleEquipment(iid: string) {
     setDismantleBusyIid(iid);
@@ -295,7 +302,7 @@ export function WorkshopDismantlePanel({
         </div>
       ) : null}
       <div className="space-y-2">
-        {filteredDismantleCandidates.slice(0, 40).map((item) => {
+        {dismantlePager.pageItems.map((item) => {
           const busy = dismantleBusyIid === item.iid;
           return (
             <div
@@ -357,6 +364,11 @@ export function WorkshopDismantlePanel({
             현재 필터에 맞는 장비가 없습니다.
           </div>
         ) : null}
+        <Pagination
+          page={dismantlePager.page}
+          pageCount={dismantlePager.pageCount}
+          setPage={dismantlePager.setPage}
+        />
       </div>
     </div>
   );

@@ -10,7 +10,15 @@
 
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
-import { floorPowerGate, floorStatMult } from "../src/adventure/data/v2/dungeonLadder";
+import {
+  floorPowerGate,
+  floorStatMult,
+  MOB_ACC_BASE,
+} from "../src/adventure/data/v2/dungeonLadder";
+import {
+  DODGE_MAX as LIVE_DODGE_MAX,
+  PVE_DODGE_K,
+} from "../src/adventure/data/v2/v2CombatConstants";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import type { V2StatKey } from "../src/adventure/data/v2/v2StatKeys";
 
@@ -24,9 +32,9 @@ const ACC_PER_SPI = 0.015;
 const EVASION_PCT_CAP = 75; // 현 모델 캡(비교용)
 
 // ── 대결형 다이얼(캘리브 대상) — env 로 스윕 가능 ───────────────────────────
-const MAX_DODGE = Number(process.env.MAX_DODGE ?? 75); // 점근 천장(소프트·절대 도달X). 캡 제거 금지=무적꼬리.
-const K = Number(process.env.K ?? 8); // 기본 회피 높낮이 — 클수록 명중이 회피를 더 누름(파리티 회피↓). 확정 8.
-const ACC_BASE = Number(process.env.ACC_BASE ?? 1.05); // 몹 명중레이팅 = ACC_BASE × floorStatMult(depth)
+const MAX_DODGE = Number(process.env.MAX_DODGE ?? LIVE_DODGE_MAX); // 점근 천장(소프트·절대 도달X). 캡 제거 금지=무적꼬리.
+const K = Number(process.env.K ?? PVE_DODGE_K); // PvE 생존 계수. PvP PVP_DODGE_K=7과 분리.
+const ACC_BASE = Number(process.env.ACC_BASE ?? MOB_ACC_BASE); // 몹 명중레이팅 = ACC_BASE × floorStatMult(depth)
 
 type Arch = "DEX" | "LUK" | "STR" | "VIT" | "BAL";
 const ARCHES: Arch[] = ["DEX", "LUK", "STR", "VIT", "BAL"];

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   parseHiddenThemeStarts,
+  rareMapUnavailable,
   stageRangeLabel,
   toggleHiddenTheme,
 } from "./V2DungeonList";
+import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
 
 describe("toggleHiddenTheme", () => {
   it("adds a visible theme start to the hidden set without mutating input", () => {
@@ -35,5 +37,20 @@ describe("stageRangeLabel", () => {
   it("내부 대표 깊이를 플레이어용 단계명으로 표시", () => {
     expect(stageRangeLabel([2, 4, 6])).toBe("입구 · 심부 · 최심부");
     expect(stageRangeLabel([8])).toBe("입구");
+  });
+});
+
+describe("rareMapUnavailable", () => {
+  it("현재 진행도보다 깊은 사냥 지도만 사용 불가로 표시한다", () => {
+    const now = Date.now();
+    expect(
+      rareMapUnavailable(newRareMapInstance("worn_map", 12, now), 10),
+    ).toContain("현재 사용 불가");
+    expect(
+      rareMapUnavailable(newRareMapInstance("worn_map", 11, now), 10),
+    ).toBeNull();
+    expect(
+      rareMapUnavailable(newRareMapInstance("rename_map", 99, now), 10),
+    ).toBeNull();
   });
 });

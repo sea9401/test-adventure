@@ -32,6 +32,7 @@ import {
   useSystemMessageState,
 } from "@/adventure/v2/RewardToastProvider";
 import { TITLES } from "@/adventure/data/titles";
+import { cookingFoodDefinition } from "@/adventure/v2/cooking";
 
 const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
   Record<string, { name: string } | undefined>
@@ -59,6 +60,12 @@ function bodyOf(it: InboxItem): string {
   if (it.kind === "user_message") {
     const t = (it.payload as { text?: unknown })?.text;
     return typeof t === "string" && t.length > 0 ? t : "(내용 없음)";
+  }
+  if (it.kind === "price_alert") {
+    const text = (it.payload as { text?: unknown })?.text;
+    return typeof text === "string" && text.length > 0
+      ? text
+      : (it.message ?? KIND_LABEL[it.kind]);
   }
   if (it.kind === "guild_invite") {
     const g = (it.payload as { guild_name?: unknown })?.guild_name;
@@ -143,8 +150,29 @@ function rewardLinesOf(it: InboxItem): string[] {
   switch (it.kind) {
     case "sale_proceeds":
     case "bid_refund":
+    case "buy_order_refund":
       pushReward(lines, "골드", asCount(p.gold));
       break;
+    case "buy_order_item": {
+      const kind = asId(p.item_kind);
+      const id = asId(p.item_id);
+      const qty = asCount(p.quantity);
+      if (id && qty > 0) {
+        const label =
+          kind === "material"
+            ? materialName(id)
+            : kind === "cash"
+              ? cashItemName(id)
+              : cookingFoodDefinition(id)?.name ?? id;
+        pushReward(lines, label, qty);
+      }
+      break;
+    }
+    case "buy_order_equipment": {
+      const id = asId(p.item_id);
+      if (id) pushReward(lines, equipName(id), 1);
+      break;
+    }
     case "purchase_item":
     case "cancel_return":
     case "listing_expired": {
@@ -194,6 +222,7 @@ function rewardLinesOf(it: InboxItem): string[] {
       pushTitleRewards(lines, p.titleIds);
       break;
     case "user_message":
+    case "price_alert":
     case "guild_invite":
       break;
   }
@@ -205,6 +234,10 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
   user_message: "쪽지",
   sale_proceeds: "판매 대금",
   bid_refund: "입찰금 반환",
+  buy_order_refund: "구매 주문 환불",
+  buy_order_item: "구매 주문 체결",
+  buy_order_equipment: "장비 구매 주문 체결",
+  price_alert: "시세 알림",
   purchase_item: "구매 물품",
   cancel_return: "취소 반환",
   recipe_gift: "제작서 선물",
@@ -319,6 +352,9 @@ export function V2InboxView({
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           goldAdded?: number;
+          bankedGoldAdded?: number;
+          newGold?: number | null;
+          newBankedGold?: number | null;
           coinsAdded?: { season: string; coins: number }[];
           museunCoinsAdded?: number;
           museunCoins?: number | null;
@@ -339,6 +375,7 @@ export function V2InboxView({
           return;
         }
         const gold = j.goldAdded ?? 0;
+        const bankedGold = j.bankedGoldAdded ?? 0;
         // 코인은 시즌별로 다른 지갑이라 합산하지 않고 종류별로 표시.
         const coinLabel: Record<string, string> = {
           pvp: "투기장 코인",
@@ -346,6 +383,14 @@ export function V2InboxView({
         };
         const parts: string[] = [];
         if (gold > 0) parts.push(`+${gold.toLocaleString()} 골드`);
+        if (bankedGold > 0) {
+          parts.push(`+${bankedGold.toLocaleString()} 은행 골드`);
+        }
+        applyResourcePatch({
+          gold: typeof j.newGold === "number" ? j.newGold : undefined,
+          bankedGold:
+            typeof j.newBankedGold === "number" ? j.newBankedGold : undefined,
+        });
         for (const c of j.coinsAdded ?? []) {
           if (c.coins > 0) {
             parts.push(

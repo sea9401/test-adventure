@@ -4,10 +4,12 @@ import { pvpRatings, pvpSeasons, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import {
+  arenaHistorySince,
   parseArenaHistory,
   type ArenaHistoryEntry,
   type ArenaMatchOutcome,
 } from "@/lib/server/arena";
+import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import {
   readMuseunCosmeticAppearanceMap,
   readProfileAvatarMap,
@@ -89,7 +91,11 @@ export async function GET() {
     .where(and(eq(savesKv.userId, userId), eq(savesKv.key, ARENA_HISTORY_KEY)))
     .limit(1)
     .then((rows) => rows[0]);
-  const history = parseArenaHistory(row?.value ?? null);
+  const currentSeason = await getOrCreateCurrentSeason();
+  const history = arenaHistorySince(
+    parseArenaHistory(row?.value ?? null),
+    currentSeason.startAt,
+  );
   const opponentUserIds = history
     .map((entry) => entry.opponent.userId)
     .filter((id): id is string => typeof id === "string");

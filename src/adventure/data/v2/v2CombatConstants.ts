@@ -10,21 +10,44 @@ export const V2_BASE_MISS_PCT = 10;
 
 // 회피 대결형(2026-06-21) — 절대%+하드캡(75) 폐기. 방어자 evaRating(캡 없는 raw)을 공격자
 //   명중레이팅과 비율로 겨뤄 회피확률 산출. 점근선(절대 도달X)이라 포화·DEX 더블딥(공짜 4× EHP) 해소.
-//   회피확률 = DODGE_MAX × evaR / (evaR + accR × DODGE_K). 파리티(균등) = DODGE_MAX/(1+K) ≈ 8%.
+//   회피확률 = DODGE_MAX × evaR / (evaR + accR × K).
 //   Slice 1 = PvE 몹→플레이어(enemyPhase·몹명중=floorAccuracy+몹 accuracy). Slice 2(2026-06-22) =
-//   플레이어→몹·PvP 양방향 대칭(attackMissPct). docs/v2-evasion-rating-plan.md.
+//   플레이어→몹(attackMissPct)·PvP 양방향(pvpAttackMissPct). docs/v2-evasion-rating-plan.md.
 export const DODGE_MAX = 75; // 소프트 점근 천장(제거 금지 = 무적 꼬리)
-export const DODGE_K = 8; // 명중이 회피 누르는 강도(클수록 회피↓)
-export function dodgeChance(evaRating: number, accRating: number): number {
+export const DODGE_K = 8; // 플레이어→PvE 적: 명중이 회피 누르는 강도(클수록 회피↓)
+export const PVP_DODGE_K = 7; // PvP 전용 — 동레이팅 회피 75/(1+7)=9.375%
+// PvE 생존 전용 — 낮은 HP·방어를 감수하는 DEX/LUK 빌드가 사냥터 명중 증가에도 생존축을
+// 유지하도록 PvP보다 완만하게 둔다. PvP는 별도 PVP_DODGE_K=7을 사용한다.
+export const PVE_DODGE_K = 6;
+
+function dodgeChanceWithK(
+  evaRating: number,
+  accRating: number,
+  contestK: number,
+): number {
   const e = Math.max(0, evaRating);
   if (e <= 0) return 0;
-  return (DODGE_MAX * e) / (e + Math.max(0, accRating) * DODGE_K);
+  return (DODGE_MAX * e) / (e + Math.max(0, accRating) * contestK);
 }
 
-// 공격 미스 확률(Slice 2) — 플레이어→몹·PvP 평타/스킬 4 호출처 공용. 두 항의 합:
+export function dodgeChance(evaRating: number, accRating: number): number {
+  return dodgeChanceWithK(evaRating, accRating, DODGE_K);
+}
+
+/** PvP 양방향 회피 확률. PvE 공격·생존 다이얼과 분리한다. */
+export function pvpDodgeChance(evaRating: number, accRating: number): number {
+  return dodgeChanceWithK(evaRating, accRating, PVP_DODGE_K);
+}
+
+/** 몬스터 공격을 플레이어가 피할 확률. PvP·플레이어 명중 판정과 분리된 생존 다이얼. */
+export function pveDodgeChance(evaRating: number, accRating: number): number {
+  return dodgeChanceWithK(evaRating, accRating, PVE_DODGE_K);
+}
+
+// PvE 플레이어 공격 미스 확률(Slice 2) — 평타·스킬 공용. 두 항의 합:
 //   ① 베이스미스 = max(0, V2_BASE_MISS_PCT − 명중레이팅) — 옛 모델(10+−명중)의 베이스 부분 보존.
 //      명중 투자가 베이스를 깎아 0 까지(투자/엔드 빌드는 일반몹 미스 0% — 옛 느낌 유지·필드 무회귀).
-//   ② 회피 대결 = dodgeChance(회피레이팅, 명중레이팅) — 회피몹/PvP 무적탱을 점근선 DODGE_MAX 로 완화.
+//   ② 회피 대결 = dodgeChance(회피레이팅, 명중레이팅) — 회피몹을 점근선 DODGE_MAX 로 완화.
 //   방어자 evaRating 0(일반몹)이면 ②=0 → 미스=①(투자 0 이면 10%·투자하면 ↓). 명중레이팅은 derive 가
 //   ACC_BASE_RATING 을 포함해 ② 의 퇴화(acc0→75%)를 막는다. apIgnoresEvasion 은 호출처에서 굴림 스킵.
 //   🔑 2026-06-22 정정: 순수 플랫(명중 불가감) B안은 엔드 빌드(옛 명중→미스 0%)를 ~10% 너프해 필드
@@ -36,6 +59,17 @@ export function attackMissPct(defenderEvaRating: number, attackerAccRating: numb
   );
 }
 
+/** PvP 공격 미스 확률 — 베이스 미스는 같고 회피 대결만 PvP 전용 K를 사용한다. */
+export function pvpAttackMissPct(
+  defenderEvaRating: number,
+  attackerAccRating: number,
+): number {
+  return (
+    Math.max(0, V2_BASE_MISS_PCT - Math.max(0, attackerAccRating)) +
+    pvpDodgeChance(defenderEvaRating, attackerAccRating)
+  );
+}
+
 export const POWER_ATTACK_TURN_INTERVAL = 3;
 // 치명타 기본 배수 — 모든 크리가 받는 바닥값. 2.0→1.4 하향(2026-06-08): ×2 base 는 무투자
 //   크리도 이미 큰 한방이라 크리가 지배적·스윙적(자동전투 원샷 압박)이었다. 1.4 로 낮춰 "무투자
@@ -44,11 +78,10 @@ export const POWER_ATTACK_TURN_INTERVAL = 3;
 export const CRIT_MULT_BASE = 1.4;
 // 스킬(액티브) 치명타 배수 — 평타와 같은 크리 확률(min(critChancePct, CRIT_PCT_CAP))을 공유하되,
 // 곱해지는 배수는 평타 critMult(점감 곡선 1.4~2.6×)와 분리한 별도 고정 다이얼. 스킬은 계수·발동이 평타보다
-// 커서 평타 배수를 그대로 곱하면 폭주 → flat 으로 캡. 오버플로(캡
-// 초과분 크리뎀)도 스킬엔 미적용(평타 전용) → 크리캡 75% 에 묶여 최대 스킬딜 +37.5% 로 상한.
-// sim-v2-progression --skills 실측(2026-06-08, s=1.5): 현실 레벨대 스킬 의존 빌드 처치턴 −5~14%,
-// 평타·다중공격 척추(LUK) 빌드 −1%(무영향)로 격차 압축. 약하면 1.75 까지 상향 여지(라이브 재캘리브).
-export const SKILL_CRIT_MULT = 1.5;
+// 커서 평타 배수를 그대로 곱하면 폭주 → flat 으로 제한한다. 2026-08-05: 후반 평타 치명타 대비
+// 액티브 스킬이 약해지는 격차를 줄이기 위해 1.5→1.7 상향. 크리캡 75% 기준 평균 스킬 피해 기여는
+// 최대 +52.5%(관련 패시브의 오버플로 적용 전)다.
+export const SKILL_CRIT_MULT = 1.7;
 export const BLEED_MAX_STACKS = 10;
 export const POISON_MAX_STACKS = 10;
 // 약점 노출(마도사) 마법취약 / 주문 중첩(워메이지) 누적 상한 — 무한 인플레 방지. PvE/PvP 공용.
@@ -60,6 +93,19 @@ export const POISON_PCT_PER_POINT = 0.0005;
 // engine.ts 에서 이관(2026-06-12).
 export const COMBO_FINISHER_PERIOD = 4;
 export const POISON_CAP_ATK_COEF = 0.9;
+
+// 여러 방어 감소 효과는 남은 방어력에 차례로 적용한다.
+// 예: 20%와 30%를 함께 쓰면 50%가 아니라 44%(남은 방어 0.8×0.7=0.56).
+// 각 입력은 0~100%로 방어적으로 제한하며 결과는 절대 100%를 넘지 않는다.
+export function combineDefReductionPcts(...values: number[]): number {
+  let remaining = 1;
+  for (const raw of values) {
+    if (!Number.isFinite(raw) || raw <= 0) continue;
+    const pct = Math.min(100, raw);
+    remaining *= 1 - pct / 100;
+  }
+  return Math.round((1 - remaining) * 100 * 1_000_000) / 1_000_000;
+}
 export const HEAVEN_DECREE_HP_PCT = 5;
 export const RAMPAGE_START_TURN = 3;
 export const ANALYSIS_PENALTY_CAP_PCT = 0.3;

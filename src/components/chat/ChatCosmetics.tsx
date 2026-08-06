@@ -16,6 +16,7 @@ import {
   Leaf,
   Lightning,
   Mountains,
+  Medal,
   Moon,
   MusicNotes,
   PawPrint,
@@ -42,19 +43,16 @@ export function ArenaChampionshipBadge({
   if (!badge) return null;
   const config = {
     gold: {
-      rank: "1",
-      label: "아레나 챔피언십 1위 메달",
+      label: "아레나 챔피언십 우승 메달",
       className:
         "border-amber-500 bg-gradient-to-br from-yellow-200 via-amber-300 to-orange-400 text-amber-950 dark:from-yellow-300 dark:via-amber-400 dark:to-orange-500",
     },
     silver: {
-      rank: "2",
-      label: "아레나 챔피언십 2위 메달",
+      label: "아레나 챔피언십 준우승 메달",
       className:
         "border-slate-400 bg-gradient-to-br from-white via-slate-200 to-slate-400 text-slate-800 dark:from-slate-200 dark:via-slate-300 dark:to-slate-500",
     },
     bronze: {
-      rank: "3",
       label: "아레나 챔피언십 3위 메달",
       className:
         "border-orange-700 bg-gradient-to-br from-orange-200 via-orange-400 to-amber-700 text-orange-950 dark:from-orange-300 dark:via-orange-500 dark:to-amber-800",
@@ -64,11 +62,22 @@ export function ArenaChampionshipBadge({
     <span
       aria-label={config.label}
       title={config.label}
-      className={`mr-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-black leading-none shadow-sm align-[-0.18em] ${config.className}`}
+      className={`mr-1 inline-flex size-5 shrink-0 items-center justify-center rounded-md border shadow-sm align-[-0.18em] ${config.className}`}
     >
-      {config.rank}
+      <Medal size={13} weight="fill" aria-hidden="true" />
     </span>
   );
+}
+
+export function EquippedCosmeticBadge({
+  cosmetics,
+}: {
+  cosmetics?: MuseunCosmeticAppearance | null;
+}) {
+  if (cosmetics?.championshipBadge) {
+    return <ArenaChampionshipBadge badge={cosmetics.championshipBadge} />;
+  }
+  return <ChatCosmeticBadge badge={cosmetics?.chatBadge} />;
 }
 
 export function ChatCosmeticBadge({

@@ -13,11 +13,16 @@ import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import type { FarmItemId } from "@/adventure/v2/farm";
 import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
 import type { FishingCatchItemId } from "@/adventure/v2/fishingStock";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import {
   SURFACE_ACCENT,
   SURFACE_CARD,
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
+import {
+  guildDiningMenuLockNotice,
+  toggleGuildDiningMenuSelection,
+} from "./guildDiningMenuSelection";
 
 const DINING_PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
 
@@ -28,7 +33,14 @@ type DiningState = {
   canManage: boolean;
   eligible: boolean;
   pantry: { points: number; target: number; remaining: number; ready: boolean };
-  tickets: { earned: number; used: number; available: number; contributionCap: number };
+  tickets: {
+    base: number;
+    contributionEarned: number;
+    earned: number;
+    used: number;
+    available: number;
+    contributionCap: number;
+  };
   contributionPoints: number;
   menuSlots: number;
   ingredients: Array<GuildDiningIngredient & { owned: number }>;
@@ -45,7 +57,12 @@ type DiningState = {
 type DiningResponse = DiningState & {
   ok?: boolean;
   error?: string;
-  donated?: { ingredientName: string; quantity: number; points: number };
+  donated?: {
+    ingredientName: string;
+    quantity: number;
+    points: number;
+    contributionPoints?: number;
+  };
   ordered?: {
     menuName: string;
     recovery: { hp: number; mp: number };
@@ -187,6 +204,13 @@ export function GuildDiningHallPanel() {
   }
 
   const menuEditable = state.canManage && state.pantry.points === 0;
+  const selectedMenuCount = state.menus.filter((menu) => menu.selected).length;
+  const menuLockNotice = guildDiningMenuLockNotice({
+    pantryPoints: state.pantry.points,
+    level: state.level,
+    menuSlots: state.menuSlots,
+    selectedCount: selectedMenuCount,
+  });
   const activeEffect =
     state.activeEffect && state.activeEffect.expiresAt > clockNow
       ? state.activeEffect
@@ -234,7 +258,8 @@ export function GuildDiningHallPanel() {
           />
         </div>
         <p className="mt-2 text-xs text-zinc-500">
-          내 기여 {state.contributionPoints}/{state.tickets.contributionCap}점 · 15점마다 식권 1장
+          모든 주간 참여 길드원 기본 {state.tickets.base}장 · 내 기여 {state.contributionPoints}/
+          {state.tickets.contributionCap}점 · 15점마다 추가 식권 1장
         </p>
       </section>
 
@@ -294,27 +319,21 @@ export function GuildDiningHallPanel() {
               </optgroup>
             ))}
           </select>
-          <input
-            type="number"
-            inputMode="numeric"
+          <DraftNumberInput
             min={selectedBatchSize}
             step={selectedBatchSize}
             max={Math.max(selectedBatchSize, maxDonation)}
             value={donationQuantity}
-            onChange={(event) =>
-              setQuantity(
-                Math.max(
-                  selectedBatchSize,
-                  Math.min(
-                    maxDonation || selectedBatchSize,
-                    Math.floor(
-                      (Number(event.target.value) || selectedBatchSize) /
-                        selectedBatchSize,
-                    ) * selectedBatchSize,
-                  ),
+            normalizeValue={(value) =>
+              Math.max(
+                selectedBatchSize,
+                Math.min(
+                  maxDonation || selectedBatchSize,
+                  Math.floor(value / selectedBatchSize) * selectedBatchSize,
                 ),
               )
             }
+            onValueChange={setQuantity}
             disabled={busy || maxDonation <= 0}
             aria-label="식재료 기부 수량"
             className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-center text-sm dark:border-zinc-700 dark:bg-zinc-950"
@@ -330,7 +349,7 @@ export function GuildDiningHallPanel() {
                   quantity: donationQuantity,
                 },
                 (json) =>
-                  `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · +${json.donated?.points ?? 0}점`,
+                  `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · 식당 +${json.donated?.points ?? 0}점 · 길드 기여 +${json.donated?.contributionPoints ?? 0}점`,
               )
             }
             className="h-9 rounded-md bg-amber-600 px-4 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
@@ -342,7 +361,12 @@ export function GuildDiningHallPanel() {
 
       <section className={`${SURFACE_INSET} space-y-2 p-3`}>
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-bold">이번 주 메뉴</h4>
+          <div>
+            <h4 className="text-sm font-bold">이번 주 메뉴</h4>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              식당 Lv.{state.level} · 동시에 {state.menuSlots}종 운영
+            </p>
+          </div>
           {menuEditable && (
             <button
               type="button"
@@ -359,6 +383,11 @@ export function GuildDiningHallPanel() {
             </button>
           )}
         </div>
+        {menuLockNotice && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            {menuLockNotice}
+          </p>
+        )}
         <div className="grid gap-2 md:grid-cols-2">
           {state.menus.map((menu) => {
             const checked = selectedMenuIds.includes(menu.id);
@@ -377,18 +406,17 @@ export function GuildDiningHallPanel() {
                 <div className="flex items-start gap-2">
                   {menuEditable && menu.unlocked && (
                     <input
-                      type="checkbox"
+                      type={state.menuSlots === 1 ? "radio" : "checkbox"}
+                      name={state.menuSlots === 1 ? "guild-dining-weekly-menu" : undefined}
                       checked={checked}
                       onChange={() => {
-                        setSelectedMenuIds((current) => {
-                          if (current.includes(menu.id)) {
-                            return current.length > 1
-                              ? current.filter((id) => id !== menu.id)
-                              : current;
-                          }
-                          if (current.length >= state.menuSlots) return current;
-                          return [...current, menu.id];
-                        });
+                        setSelectedMenuIds((current) =>
+                          toggleGuildDiningMenuSelection(
+                            current,
+                            menu.id,
+                            state.menuSlots,
+                          ),
+                        );
                       }}
                       aria-label={`${menu.name} 선택`}
                     />

@@ -51,13 +51,24 @@ import type {
 } from "../src/adventure/data/v2/v2Equipment";
 import type { V2StatKey } from "../src/adventure/data/v2/v2StatKeys";
 import type { Monster } from "../src/adventure/data/monsters/types";
+import {
+  stormExpeditionEnemy,
+  type StormExpeditionEncounterKind,
+  type StormExpeditionRouteId,
+} from "../src/adventure/data/v2/stormExpedition";
 
 type Arch = "STR" | "DEX" | "VIT" | "INT" | "SPI" | "LUK" | "BAL";
 const ARCHES: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"];
 
 // 깊이 sweep — 각 깊이의 권장 파워(floorPowerGate)에 매칭되는 레벨로 전 아키타입 sim.
 // 깊이 1·2=authored(들판/깊은산), 3+=프론티어 풀 스케일. 무한 깊이서 난이도/def 절벽/spi-luk 검증.
-const SIM_DEPTHS = [1, 2, 3, 5, 8, 10, 20, 50];
+const requestedDepths = process.argv
+  .find((arg) => arg.startsWith("--depths="))
+  ?.slice("--depths=".length)
+  .split(",")
+  .map((value) => Math.floor(Number(value)))
+  .filter((value) => Number.isFinite(value) && value >= 1);
+const SIM_DEPTHS = requestedDepths?.length ? requestedDepths : [1, 2, 3, 5, 8, 10, 20, 50];
 
 function tierForLevel(level: number): 1 | 2 | 3 | 4 | 5 {
   if (level < 10) return 1;
@@ -449,6 +460,127 @@ function runMspd() {
 import { actionInterval, effectiveMonsterSpd, depthSpdCorrection } from "../src/adventure/v2/combat/combatTimeline";
 if (MSPD_MODE) {
   runMspd();
+  process.exit(0);
+}
+
+// ── 폭풍 원정 연속 전투 모드(--storm) ───────────────────────────────
+// 권장 파워 4,500 참조 빌드로 HP/MP를 7전투 동안 실제 이어서 측정한다.
+// 기본 선택: 현재 HP/MP 비율이 더 낮은 자원을 정비 → 제단 받피감10%.
+const STORM_MODE = process.argv.includes("--storm");
+const STORM_RISK_MODE = process.argv
+  .find((arg) => arg.startsWith("--storm-risk="))
+  ?.split("=")[1] ?? "none";
+function runStormExpedition() {
+  const runs = Math.max(
+    1,
+    Math.floor(Number(process.argv.find((arg) => arg.startsWith("--storm-runs="))?.split("=")[1]) || 500),
+  );
+  const level = levelForDepth(72);
+  const encounters: Array<{
+    kind: StormExpeditionEncounterKind;
+    encounterIndex: number;
+    depth: number;
+  }> = [
+    { kind: "early_trash", encounterIndex: 0, depth: 70 },
+    { kind: "early_trash", encounterIndex: 1, depth: 71 },
+    { kind: "late_trash", encounterIndex: 0, depth: 72 },
+    { kind: "late_trash", encounterIndex: 1, depth: 73 },
+    { kind: "elite", encounterIndex: 0, depth: 74 },
+    { kind: "guardian", encounterIndex: 0, depth: 75 },
+    { kind: "final_boss", encounterIndex: 0, depth: 76 },
+  ];
+  console.log(`폭풍 원정 연속전투 | 권장파워 4500≈Lv${level} | ${runs}회/빌드/항로`);
+  console.log(`선택: 현재 HP/MP 비율 기반 정비 → 제단 받피감10% | 위험=${STORM_RISK_MODE}`);
+  for (const route of ["gale", "thunder", "wreckage"] as StormExpeditionRouteId[]) {
+    for (const arch of ARCHES) {
+      const derived = makePlayer(arch, level);
+      const skills = skillsFor(arch, level, derived.totalStats);
+      const cleared = Array.from({ length: encounters.length }, () => 0);
+      let finalHpSum = 0;
+      for (let run = 0; run < runs; run += 1) {
+        let hp = derived.player.maxHp;
+        let mp = derived.player.maxMp ?? 0;
+        let guarded = false;
+        for (let index = 0; index < encounters.length; index += 1) {
+          const encounter = encounters[index];
+          const unstable = STORM_RISK_MODE === "unstable" && index >= 5;
+          const player = {
+            ...derived.player,
+            hp,
+            mp,
+            atk: unstable ? Math.floor(derived.player.atk * 1.12) : derived.player.atk,
+            magicAtk: unstable
+              ? Math.floor((derived.player.magicAtk ?? derived.player.atk) * 1.12)
+              : derived.player.magicAtk,
+            ...(guarded
+              ? {
+                  passiveDamageTakenReductionPct:
+                    (derived.player.passiveDamageTakenReductionPct ?? 0) + 10,
+                }
+              : {}),
+          };
+          const baseEnemy = stormExpeditionEnemy(route, encounter.kind, encounter.encounterIndex);
+          let enemyAttackMultiplier = 1;
+          if (STORM_RISK_MODE === "contract" && index >= 2) enemyAttackMultiplier *= 1.1;
+          if (STORM_RISK_MODE === "rift" && index === 2) enemyAttackMultiplier *= 1.2;
+          if (unstable) enemyAttackMultiplier *= 1.12;
+          const enemy = enemyAttackMultiplier === 1
+            ? baseEnemy
+            : { ...baseEnemy, atk: Math.floor(baseEnemy.atk * enemyAttackMultiplier) };
+          const result = resolveBattle(
+            player,
+            enemy,
+            "Sim",
+            {
+              pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
+              potions: {},
+              v2Skills: skills,
+              depth: encounter.depth,
+              isBoss: encounter.kind === "guardian" || encounter.kind === "final_boss",
+              maxTurns: 100,
+            },
+          );
+          if (result.outcome !== "win") break;
+          cleared[index] += 1;
+          hp = result.finalState.playerHp;
+          mp = result.finalState.playerMp;
+          if (index === 1) {
+            const hpRatio = hp / derived.player.maxHp;
+            const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
+            if (hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.15));
+            else mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.2));
+          }
+          if (index === 3 && STORM_RISK_MODE !== "golden") {
+            const hpRatio = hp / derived.player.maxHp;
+            const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
+            if (hpRatio + 0.15 < mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.35));
+            else if (mpRatio + 0.15 < hpRatio) mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.45));
+            else {
+              hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.2));
+              mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.25));
+            }
+          }
+          if (index === 4) guarded = true;
+          if (index === 5) {
+            const hpRatio = hp / derived.player.maxHp;
+            const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
+            if (hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.25));
+            else mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.35));
+          }
+          if (index === encounters.length - 1) finalHpSum += hp;
+        }
+      }
+      const pctAt = (index: number) => ((cleared[index] / runs) * 100).toFixed(1);
+      const fullClears = cleared.at(-1) ?? 0;
+      const remainingHp = fullClears > 0
+        ? ((finalHpSum / fullClears / derived.player.maxHp) * 100).toFixed(1)
+        : "-";
+      console.log(`${route.padEnd(8)} ${arch.padEnd(3)} | elite ${pctAt(4)}% | guardian ${pctAt(5)}% | clear ${pctAt(6)}% | clearHP ${remainingHp}%`);
+    }
+  }
+}
+if (STORM_MODE) {
+  runStormExpedition();
   process.exit(0);
 }
 

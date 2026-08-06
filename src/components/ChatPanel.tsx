@@ -35,8 +35,7 @@ import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
-  ArenaChampionshipBadge,
-  ChatCosmeticBadge,
+  EquippedCosmeticBadge,
   chatNameClass,
 } from "./chat/ChatCosmetics";
 import { ChatRoomManager } from "./chat/ChatRoomManager";
@@ -54,6 +53,14 @@ import {
   mergeChatMessages,
 } from "./chat/chatMessagesApi";
 import { LotteryRoom } from "./chat/LotteryRoom";
+import { ChatEquipmentPicker } from "./chat/ChatEquipmentPicker";
+import { useMobileChatHistory } from "./chat/useMobileChatHistory";
+import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
+import {
+  chatEquipmentLinkFromInstance,
+  chatEquipmentLinkLabel,
+  type ChatEquipmentLink,
+} from "@/lib/chat-item-link";
 
 export type ChatChannel = "global" | "guild" | "room";
 type ChatRoomKey = "chat" | "guild" | "notice" | "lottery";
@@ -66,6 +73,7 @@ export type ChatMessage = {
   className: string;
   title: string | null;
   content: string;
+  itemLink?: ChatEquipmentLink | null;
   createdAt: number;
   mine: boolean;
   cosmetics?: MuseunCosmeticAppearance | null;
@@ -77,6 +85,19 @@ const CHAT_MIN_W = 400;
 const CHAT_MIN_H = 420;
 const CUSTOM_ROOM_LIST_POLL_MS = 5000;
 const CUSTOM_ROOM_MESSAGE_POLL_MS = 1500;
+
+// 모바일 채팅은 독립된 전체 화면으로 동작한다. 전역 상단바(z-60)보다 위에서
+// 배경 터치를 막아, 상단바가 채팅 헤더의 방 목록 버튼을 가로채지 않게 한다.
+// 데스크톱(sm+)에서는 기존 비모달 도킹을 유지해 게임 화면과 채팅을 함께 조작할 수 있다.
+export const CHAT_OVERLAY_CLASS =
+  "pointer-events-auto fixed inset-0 z-[65] flex items-end justify-end sm:pointer-events-none sm:z-[45] sm:p-4";
+export const CHAT_PANEL_CLASS =
+  "ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-full max-h-full w-full max-w-none flex-col rounded-none bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:max-w-xl sm:rounded-xl";
+export const CHAT_HEADER_CLASS =
+  "relative z-20 flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 pb-3.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-4 sm:py-3.5 dark:border-zinc-700";
+export const CHAT_CLOSE_BUTTON_CLASS =
+  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
+
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
 const customRoomSeenKey = (roomId: number) => `chat:lastSeenRoom:${roomId}`;
@@ -164,6 +185,14 @@ function formatRoomTime(createdAt: number) {
   }).format(date);
 }
 
+function chatMessagePreview(message: ChatMessage): string {
+  const text = message.content.replace(/\s+/g, " ").trim();
+  const item = message.itemLink
+    ? `[아이템] ${chatEquipmentLinkLabel(message.itemLink)}`
+    : "";
+  return [text, item].filter(Boolean).join(" · ");
+}
+
 function ChatRoomList({
   rooms,
   onEnter,
@@ -246,13 +275,10 @@ function ChatRoomList({
                   "길드에 가입하면 이용할 수 있습니다."
                 ) : latest ? (
                   room.builtin === "notice" ? (
-                    latest.content.replace(/\s+/g, " ")
+                    chatMessagePreview(latest)
                   ) : (
                     <>
-                      <ArenaChampionshipBadge
-                        badge={latest.cosmetics?.championshipBadge}
-                      />
-                      <ChatCosmeticBadge badge={latest.cosmetics?.chatBadge} />
+                      <EquippedCosmeticBadge cosmetics={latest.cosmetics} />
                       <span
                         className={chatNameClass(
                           latest.cosmetics?.chatNameEffect,
@@ -261,7 +287,7 @@ function ChatRoomList({
                       >
                         {latest.name}
                       </span>
-                      {`: ${latest.content.replace(/\s+/g, " ")}`}
+                      {`: ${chatMessagePreview(latest)}`}
                     </>
                   )
                 ) : (
@@ -321,6 +347,11 @@ export function ChatPanel({
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
+  const [itemAttachment, setItemAttachment] = useState<{
+    iid: string;
+    link: ChatEquipmentLink;
+  } | null>(null);
+  const [equipmentPickerOpen, setEquipmentPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 채팅방 목록에서 방을 선택한 뒤 메시지 화면으로 진입한다.
   const [activeRoom, setActiveRoom] = useState<ChatRoomKey | null>(null);
@@ -339,6 +370,16 @@ export function ChatPanel({
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
+
+  useEffect(() => {
+    const openLottery = () => {
+      setActiveRoom("lottery");
+      setActiveCustomRoom(null);
+      setRoomManagerOpen(false);
+    };
+    window.addEventListener("chat:open-lottery", openLottery);
+    return () => window.removeEventListener("chat:open-lottery", openLottery);
+  }, []);
 
   const refreshCustomRooms = useCallback(async () => {
     const result = await fetchJoinedChatRooms();
@@ -396,7 +437,8 @@ export function ChatPanel({
         setCustomMessages((previous) => mergeChatMessages(previous, next));
       } else {
         initialized = true;
-        setCustomMessages(next);
+        // 방 진입 직후 전송한 메시지가 느린 최초 조회보다 먼저 도착해도 보존한다.
+        setCustomMessages((previous) => mergeChatMessages(previous, next));
       }
       markCustomRoomSeen(roomId, afterId);
     };
@@ -506,7 +548,11 @@ export function ChatPanel({
       const remainingPending = [...channelPending];
       for (const m of baseMessages) {
         if (!m.mine) continue;
-        const i = remainingPending.findIndex((p) => p.content === m.content);
+        const i = remainingPending.findIndex(
+          (p) =>
+            p.content === m.content &&
+            (p.itemLink?.itemId ?? null) === (m.itemLink?.itemId ?? null),
+        );
         if (i >= 0) remainingPending.splice(i, 1);
       }
       return [...baseMessages, ...remainingPending];
@@ -593,7 +639,7 @@ export function ChatPanel({
         custom: null,
         label: CHAT_ROOM_LABELS.lottery,
         latest: null,
-        description: "매시 정각 추첨 · /복권 1~10",
+        description: "4시간마다 추첨 · /복권 1~10",
         unread: false,
         available: true,
       },
@@ -631,11 +677,47 @@ export function ChatPanel({
     if (activeRoom === "notice" && lastNoticeId > 0) onSeen("notice", lastNoticeId);
   }, [open, activeRoom, lastChatId, lastGuildId, lastNoticeId, onSeen]);
 
+  const clearRoomView = useCallback(() => {
+    setActiveRoom(null);
+    setActiveCustomRoom(null);
+    setRoomManagerOpen(false);
+    setInviteOpen(false);
+    setInviteFeedback(null);
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
+    setError(null);
+  }, []);
+
+  const clearAndClosePanel = useCallback(() => {
+    setActiveRoom(null);
+    setActiveCustomRoom(null);
+    setRoomManagerOpen(false);
+    setInviteOpen(false);
+    setInviteName("");
+    setInviteFeedback(null);
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
+    setError(null);
+    onClose();
+  }, [onClose]);
+
+  const {
+    enterDetail: addMobileRoomHistory,
+    backToRooms: returnToRooms,
+    closeChat: closePanel,
+  } = useMobileChatHistory({
+    open,
+    detailOpen: Boolean(activeRoom || activeCustomRoom || roomManagerOpen),
+    onReturnToRooms: clearRoomView,
+    onClose: clearAndClosePanel,
+  });
+
   const enterRoom = (room: {
     builtin: ChatRoomKey | null;
     custom: CustomChatRoom | null;
   }) => {
     if (room.builtin === "guild" && !guildAvailable) return;
+    addMobileRoomHistory();
     setActiveRoom(room.builtin);
     setActiveCustomRoom(room.custom);
     setCustomMessages([]);
@@ -643,33 +725,16 @@ export function ChatPanel({
     setInviteOpen(false);
     setInviteFeedback(null);
     setDraft("");
+    setItemAttachment(null);
+    setEquipmentPickerOpen(false);
     setError(null);
   };
 
   const enterCustomRoom = (room: CustomChatRoom) =>
     enterRoom({ builtin: null, custom: room });
 
-  const returnToRooms = () => {
-    setActiveRoom(null);
-    setActiveCustomRoom(null);
-    setRoomManagerOpen(false);
-    setInviteOpen(false);
-    setInviteFeedback(null);
-    setError(null);
-  };
-
-  const closePanel = () => {
-    setActiveRoom(null);
-    setActiveCustomRoom(null);
-    setRoomManagerOpen(false);
-    setInviteOpen(false);
-    setInviteName("");
-    setInviteFeedback(null);
-    setError(null);
-    onClose();
-  };
-
   const openRoomManager = () => {
+    addMobileRoomHistory();
     setRoomManagerOpen(true);
     setActiveRoom(null);
     setActiveCustomRoom(null);
@@ -720,8 +785,9 @@ export function ChatPanel({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = draft.trim();
-    if (!trimmed) return;
-    if (!isChatContentAllowed(trimmed)) {
+    const outgoingAttachment = itemAttachment;
+    if (!trimmed && !outgoingAttachment) return;
+    if (trimmed && !isChatContentAllowed(trimmed)) {
       setError(CHAT_INAPPROPRIATE_CONTENT_MESSAGE);
       return;
     }
@@ -740,11 +806,13 @@ export function ChatPanel({
       className,
       title,
       content: trimmed,
+      itemLink: outgoingAttachment?.link ?? null,
       createdAt: Date.now(),
       mine: true,
     };
     setPending((prev) => [...prev, temp]);
     setDraft("");
+    setItemAttachment(null);
     setError(null);
     try {
       const sent = await postMessage({
@@ -754,6 +822,7 @@ export function ChatPanel({
         channel: targetChannel,
         roomId: activeCustomRoom?.id ?? null,
         content: trimmed,
+        itemIid: outgoingAttachment?.iid,
       });
       // 서버 응답 도착 — 부모 messages 에 합류. visibleMessages 가 content 매칭으로
       // pending 의 임시 항목을 자동 숨겨주므로 setPending 정리는 다음 폴링 후에 해도 OK.
@@ -773,14 +842,15 @@ export function ChatPanel({
       // 실패 — 임시 메시지 회수 + 본문 복원해 재시도 유도.
       setPending((prev) => prev.filter((m) => m.id !== tempId));
       setDraft(trimmed);
+      setItemAttachment((current) => current ?? outgoingAttachment);
       const msg = err instanceof Error ? err.message : "";
       setError(translateChatError(msg));
     }
   };
 
   // 모바일 키보드 대응 — 오버레이를 시각 뷰포트(키보드로 줄어든 영역)에 맞춰
-  // 하단 입력창이 키보드 뒤로 가려지지 않게 한다. 패널엔 max-h-full 이 걸려 있어
-  // 줄어든 오버레이를 넘지 않으므로 헤더~입력창이 모두 보인다.
+  // 하단 입력창이 키보드 뒤로 가려지지 않게 한다. 일부 모바일 브라우저는 키보드
+  // 애니메이션이 끝난 뒤 viewport 값을 늦게 확정하므로 focus 전환 후 한 번 더 보정한다.
   // visualViewport 미지원 브라우저는 인라인 스타일 미적용 → CSS(inset-0) 기본 동작 폴백.
   const overlayRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -788,21 +858,56 @@ export function ChatPanel({
     const vv = window.visualViewport;
     const el = overlayRef.current;
     if (!vv || !el) return;
+    let animationFrameId: number | null = null;
+    let settleTimerId: number | null = null;
     const apply = () => {
       el.style.top = `${vv.offsetTop}px`;
+      el.style.left = `${vv.offsetLeft}px`;
+      el.style.width = `${vv.width}px`;
       el.style.height = `${vv.height}px`;
+      el.style.right = "auto";
       el.style.bottom = "auto";
     };
+    const scheduleApply = () => {
+      if (animationFrameId != null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = null;
+        apply();
+      });
+    };
+    const applyAfterKeyboardTransition = () => {
+      scheduleApply();
+      if (settleTimerId != null) window.clearTimeout(settleTimerId);
+      settleTimerId = window.setTimeout(scheduleApply, 400);
+    };
     apply();
-    vv.addEventListener("resize", apply);
-    vv.addEventListener("scroll", apply);
+    vv.addEventListener("resize", scheduleApply);
+    vv.addEventListener("scroll", scheduleApply);
+    el.addEventListener("focusin", applyAfterKeyboardTransition);
+    el.addEventListener("focusout", applyAfterKeyboardTransition);
+    window.addEventListener("orientationchange", applyAfterKeyboardTransition);
     return () => {
-      vv.removeEventListener("resize", apply);
-      vv.removeEventListener("scroll", apply);
+      vv.removeEventListener("resize", scheduleApply);
+      vv.removeEventListener("scroll", scheduleApply);
+      el.removeEventListener("focusin", applyAfterKeyboardTransition);
+      el.removeEventListener("focusout", applyAfterKeyboardTransition);
+      window.removeEventListener(
+        "orientationchange",
+        applyAfterKeyboardTransition,
+      );
+      if (animationFrameId != null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      if (settleTimerId != null) window.clearTimeout(settleTimerId);
       // 닫힐 때 인라인 스타일 제거 → CSS(inset-0) 로 복귀.
       // (effect 진입 때 캡처한 el — 이 effect 인스턴스가 다룬 바로 그 노드.)
       el.style.top = "";
+      el.style.left = "";
+      el.style.width = "";
       el.style.height = "";
+      el.style.right = "";
       el.style.bottom = "";
     };
   }, [open]);
@@ -813,17 +918,18 @@ export function ChatPanel({
   // containing block 이 돼 패널이 헤더 기준으로 떠 화면 위로 튀어나가던 버그 회피. open 일
   // 때만 렌더(=클릭 후 클라 only)라 SSR 에선 위 null 로 빠져 document.body 접근 안전.
   //
-  // 비모달 도킹 — 바깥을 덮는 래퍼는 pointer-events-none(+dim 없음)이라 아래 게임 UI 를
-  // 그대로 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto.
-  // 바깥 탭으로 닫히지 않으며 닫기는 헤더 X 버튼뿐 — 화면을 옮겨도 떠 있다.
-  // z-[45] — 게임 내 z-40 오버레이/모바일 액션보다 위, 모달 z-50 계층보다 아래.
+  // 모바일은 전체 화면 모달형 — 배경 입력을 차단하고 z-60 전역 상단바보다 위에 둔다.
+  // 데스크톱은 비모달 도킹 — 래퍼가 pointer-events-none 이라 아래 게임 UI 를 그대로
+  // 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto 이다.
   return createPortal(
     <div
       ref={overlayRef}
-      className="pointer-events-none fixed inset-0 z-[45] flex items-end justify-end sm:p-4"
+      className={CHAT_OVERLAY_CLASS}
     >
       <div
-        className="ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-[88dvh] max-h-full w-full max-w-xl flex-col rounded-t-xl bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:rounded-xl"
+        role="dialog"
+        aria-label="채팅"
+        className={CHAT_PANEL_CLASS}
         // 데스크톱만 크기 조절(인라인이 기본 크기보다 우선). 모바일은 전체폭 유지.
         style={
           isDesktop
@@ -856,13 +962,14 @@ export function ChatPanel({
             </svg>
           </div>
         )}
-        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3.5 dark:border-zinc-700">
+        <header className={CHAT_HEADER_CLASS}>
           {activeRoom || activeCustomRoom || roomManagerOpen ? (
-            <div className="flex min-w-0 items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <button
                 type="button"
                 onClick={returnToRooms}
                 aria-label="채팅방 목록으로 돌아가기"
+                data-testid="chat-room-header-back"
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 <ArrowLeft size={20} weight="bold" />
@@ -896,12 +1003,12 @@ export function ChatPanel({
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            <div className="flex min-w-0 flex-1 items-center gap-2 px-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
               <ChatCircle size={22} weight="duotone" />
               채팅
             </div>
           )}
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {!activeRoom && !activeCustomRoom && !roomManagerOpen && (
               <button
                 type="button"
@@ -947,9 +1054,10 @@ export function ChatPanel({
               type="button"
               onClick={closePanel}
               aria-label="채팅 닫기"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              title="채팅 닫기"
+              className={CHAT_CLOSE_BUTTON_CLASS}
             >
-              <X size={18} />
+              <X size={20} weight="bold" />
             </button>
           </div>
         </header>
@@ -1015,7 +1123,10 @@ export function ChatPanel({
             ) : (
               <ChatComposer
                 draft={draft}
+                itemLink={itemAttachment?.link}
                 onDraftChange={setDraft}
+                onOpenItemPicker={() => setEquipmentPickerOpen(true)}
+                onRemoveItemLink={() => setItemAttachment(null)}
                 onSubmit={submit}
               />
             )}
@@ -1023,6 +1134,17 @@ export function ChatPanel({
         ) : (
           <ChatRoomList rooms={roomEntries} onEnter={enterRoom} />
         )}
+        <ChatEquipmentPicker
+          open={equipmentPickerOpen}
+          onClose={() => setEquipmentPickerOpen(false)}
+          onSelect={(instance: V2EquipInstance) => {
+            setItemAttachment({
+              iid: instance.iid,
+              link: chatEquipmentLinkFromInstance(instance),
+            });
+            setEquipmentPickerOpen(false);
+          }}
+        />
       </div>
     </div>,
     document.body,

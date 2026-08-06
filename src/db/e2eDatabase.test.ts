@@ -20,10 +20,27 @@ describe("isolated E2E database setup", () => {
       assertIsolatedE2eDatabaseUrl(
         "postgresql://browser_e2e:password@db.example.com/adventure_e2e",
       ),
-    ).toThrow("loopback host");
+    ).toThrow("loopback or GitHub Actions test host");
     expect(() =>
       assertIsolatedE2eDatabaseUrl(
         "postgresql://browser_e2e:password@127.0.0.1/production",
+      ),
+    ).toThrow("dedicated adventure_e2e database");
+  });
+
+  it("accepts the dedicated GitHub Actions service database only in Actions", () => {
+    const value =
+      "postgresql://browser_e2e:password@postgres:5432/adventure_e2e";
+    const githubActionsEnv = { CI: "true", GITHUB_ACTIONS: "true" };
+
+    expect(assertIsolatedE2eDatabaseUrl(value, githubActionsEnv)).toBe(value);
+    expect(() => assertIsolatedE2eDatabaseUrl(value, {})).toThrow(
+      "loopback or GitHub Actions test host",
+    );
+    expect(() =>
+      assertIsolatedE2eDatabaseUrl(
+        "postgresql://browser_e2e:password@postgres:5432/production",
+        githubActionsEnv,
       ),
     ).toThrow("dedicated adventure_e2e database");
   });

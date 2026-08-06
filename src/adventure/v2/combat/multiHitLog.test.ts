@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER } from "./combatPattern";
 import {
   applyComboFinisherToHits,
   resolveV2SkillCast,
@@ -105,20 +106,21 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
         equipped: ["v2c_chief_strike"],
       } as V2SkillCastInput["skills"],
       cooldowns: {},
-      // dex scaling — attacker.dex 가 공격 스탯(없으면 atk 폴백). statScaled 라 버프 무시(빈 맵).
+      // dex scaling — 공격력 기반선과 DEX 특화 계수를 함께 사용한다.
       attacker: { mp: 999, atk: 100, dex: 100, maxHp: 1000, selfBuffs: {}, selfDebuffs: {} },
       target: { def: TARGET_DEF, selfBuffs: {}, selfDebuffs: {} },
     });
     // 관통사 수치는 전역 차수 리밸런싱까지 적용된 최종 카탈로그 값을 기준으로 한다.
-    // damageWith(dex) → v2DamageAmount(physical, attackerAtk=dex=100, statScaled→빈 버프맵).
+    // damageWith(dex) → 공격력×t3 혼합 기반선 + DEX×statCoef, 고정 기본 피해 없음.
     const effect = V2_SKILLS.v2c_chief_strike.effects[0];
     expect(effect.kind).toBe("damage");
     if (effect.kind !== "damage") throw new Error("관통사 피해 효과 누락");
     const common = {
       attackerAtk: 100,
       scaling: "physical" as const,
-      statCoef: effect.statCoef,
-      baseFlat: effect.baseFlat ?? 0,
+      statCoef:
+        effect.attackCoef ?? V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER[3],
+      baseFlat: Math.floor(100 * effect.statCoef),
       attackerSelfBuffs: {},
       attackerSelfDebuffs: {},
       targetSelfBuffs: {},
@@ -133,5 +135,169 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
     );
     // 관통분(noDef·방어 무시)은 적 방어와 무관 — 본타(base)가 방어로 깎여도 그대로 박힌다.
     expect(r.enemyDamage).toBeGreaterThan(base);
+  });
+
+  it("모든 플레이어 다단기는 적 방어력 한 번분만 타수에 나눠 부담한다", () => {
+    const directKinds = new Set([
+      "damage",
+      "hpCostDamage",
+      "executeDamage",
+      "ambushDamage",
+      "stackPayoffDamage",
+    ]);
+    const multiHitSkills = Object.values(V2_SKILLS).filter(
+      (skill) =>
+        !skill.monsterOnly &&
+        skill.effects.filter((effect) => directKinds.has(effect.kind)).length > 1,
+    );
+    const TARGET_DEF = 600;
+    const cast = (skillId: string, targetDef: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: [skillId],
+          equipped: [skillId],
+        } as V2SkillCastInput["skills"],
+        cooldowns: {},
+        attacker: {
+          mp: 9999,
+          atk: 1000,
+          magicAtk: 1000,
+          def: 1000,
+          vit: 1000,
+          dex: 1000,
+          luk: 1000,
+          spi: 1000,
+          allStatTotal: 6000,
+          maxHp: 10000,
+          currentHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        // 50% HP에서는 기습·처형 조건이 모두 꺼져 방어력 차이만 비교할 수 있다.
+        target: {
+          def: targetDef,
+          magicDef: targetDef,
+          currentHp: 5000,
+          maxHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      });
+
+    expect(multiHitSkills).toHaveLength(23);
+    for (const skill of multiHitSkills) {
+      const noDef = cast(skill.id, 0);
+      const guarded = cast(skill.id, TARGET_DEF);
+      const directHitCount = skill.effects.filter((effect) =>
+        directKinds.has(effect.kind),
+      ).length;
+
+      expect(guarded.hitDamages, skill.id).toHaveLength(directHitCount);
+      expect(
+        noDef.enemyDamage - guarded.enemyDamage,
+        `${skill.id}: 다단 방어력 중복 차감`,
+      ).toBeLessThanOrEqual(TARGET_DEF + directHitCount);
+    }
+  });
+
+  it("궁술·암살 5·6차의 발동률 반영 피해가 같은 조건의 만상검보다 낮지 않다", () => {
+    const skillIds = [
+      "v2c_marksman_shot",
+      "v2c_nightshade_eclipse",
+      "v2c_transcendent_mandala",
+      "v2c_heavenlybow_orbit",
+      "v2c_blackmoon_flurry",
+      "v2c_bloodlord_brand",
+      "v2c_blooddemon_reign",
+    ] as const;
+    const expectedDamage = Object.fromEntries(
+      skillIds.map((skillId) => {
+        const skill = V2_SKILLS[skillId];
+        const result = resolveV2SkillCast({
+          skills: { learned: [skillId], equipped: [skillId] },
+          cooldowns: {},
+          attacker: {
+            mp: 9999,
+            atk: 1000,
+            magicAtk: 1000,
+            dex: 1000,
+            luk: 1000,
+            allStatTotal: 6000,
+            maxHp: 10000,
+            currentHp: 10000,
+            selfBuffs: {},
+            selfDebuffs: {},
+          },
+          target: {
+            def: 1000,
+            magicDef: 1000,
+            currentHp: 5000,
+            maxHp: 10000,
+            selfBuffs: {},
+            selfDebuffs: {},
+          },
+        });
+        return [
+          skillId,
+          result.enemyDamage * ((skill.procChance ?? 100) / 100),
+        ];
+      }),
+    );
+    const mandala = expectedDamage.v2c_transcendent_mandala;
+
+    expect(expectedDamage.v2c_marksman_shot).toBeGreaterThanOrEqual(mandala);
+    expect(expectedDamage.v2c_nightshade_eclipse).toBeGreaterThanOrEqual(mandala);
+    expect(expectedDamage.v2c_heavenlybow_orbit).toBeGreaterThanOrEqual(
+      mandala * 2,
+    );
+    expect(expectedDamage.v2c_blackmoon_flurry).toBeGreaterThanOrEqual(
+      mandala * 2,
+    );
+    // 유틸을 가진 궁술·암살기가 같은 차수의 고위험 순수 공격기를 넘어 최상위 누커가 되지는 않는다.
+    expect(expectedDamage.v2c_marksman_shot).toBeLessThanOrEqual(
+      expectedDamage.v2c_bloodlord_brand,
+    );
+    expect(expectedDamage.v2c_nightshade_eclipse).toBeLessThanOrEqual(
+      expectedDamage.v2c_bloodlord_brand,
+    );
+    expect(expectedDamage.v2c_heavenlybow_orbit).toBeLessThanOrEqual(
+      expectedDamage.v2c_blooddemon_reign,
+    );
+    expect(expectedDamage.v2c_blackmoon_flurry).toBeLessThanOrEqual(
+      expectedDamage.v2c_blooddemon_reign,
+    );
+  });
+
+  it("월식의 4배 오프너는 같은 조건에서 하위 기습보다 강하다", () => {
+    const castOpener = (
+      skillId: "v2c_phantom_ambush" | "v2c_nightshade_eclipse",
+    ) =>
+      resolveV2SkillCast({
+        skills: { learned: [skillId], equipped: [skillId] },
+        cooldowns: {},
+        attacker: {
+          mp: 9999,
+          atk: 1000,
+          luk: 1000,
+          maxHp: 10000,
+          currentHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: {
+          def: 0,
+          currentHp: 10000,
+          maxHp: 10000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      }).enemyDamage;
+
+    expect(V2_SKILLS.v2c_nightshade_eclipse.effects[0]).toMatchObject({
+      kind: "ambushDamage",
+      bonusMult: 4,
+    });
+    expect(castOpener("v2c_phantom_ambush")).toBe(4020);
+    expect(castOpener("v2c_nightshade_eclipse")).toBe(4140);
   });
 });

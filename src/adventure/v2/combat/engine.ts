@@ -18,20 +18,27 @@ import {
   makePoisonDot,
   potionHealAmount,
   applyComboFinisherToHits,
+  removeMissedV2SkillTargetEffects,
   resolveV2SkillCast,
   type V2SkillCastResult,
   type V2SkillDotApply,
   distributeBoostedHits,
   rollAttackCount,
+  statusDamageAfterReduction,
   tickV2BuffMap,
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
+  v2SkillHasTargetEffects,
 } from "./combatShared";
 import {
   battleStartShield,
+  everyNHitsEffect,
   healToShield,
+  onCritSpeedBuff,
+  onDodgeHealAmount,
+  onDodgeSpeedBuff,
   onSkillCastMpRefund,
   statusBlockOnce,
 } from "./signatureEffects";
@@ -49,6 +56,7 @@ import {
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
   attackMissPct,
+  combineDefReductionPcts,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
@@ -165,9 +173,11 @@ export function playerFacingEnemyDef(
       ? Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100))
       : afterEnchantPierce;
   // 부식 (독사 시그니처) — 중독된 적의 DEF -pct%. 곱연산으로 마지막에.
-  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    player.poisonedEnemyDefReductionPct ?? 0,
+  );
   return corrodePct > 0 && isEnemyPoisoned(state)
-    ? Math.round(afterDebuff * (1 - corrodePct / 100))
+    ? Math.max(0, Math.round(afterDebuff * (1 - corrodePct / 100)))
     : afterDebuff;
 }
 
@@ -180,7 +190,9 @@ function isEnemyPoisoned(state: BattleState): boolean {
 }
 
 function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number {
-  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    player.poisonedEnemyDefReductionPct ?? 0,
+  );
   if (corrodePct <= 0 || !isEnemyPoisoned(state)) return state.enemy.def;
   return Math.max(0, Math.round(state.enemy.def * (1 - corrodePct / 100)));
 }
@@ -188,7 +200,9 @@ function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number 
 const CORROSION_POISON_DAMAGE_SCALE = 3;
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
-  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  const corrodePct = combineDefReductionPcts(
+    player.poisonedEnemyDefReductionPct ?? 0,
+  );
   return corrodePct > 0 ? 1 + (corrodePct * CORROSION_POISON_DAMAGE_SCALE) / 100 : 1;
 }
 
@@ -881,6 +895,7 @@ export function initialBattleState(
       assassinateUsed: false,
       luckyBuffActive: false,
       fatedChainCritPending: false,
+      skillCritAfterEvadePending: false,
       statusBlockUsed: false,
     },
     buffs: {
@@ -1113,6 +1128,110 @@ export type BattleResolution = {
   turns: number;
 };
 
+function evadeIncomingEnemySkill(
+  state: BattleState,
+  player: PlayerCombat,
+  result: V2SkillCastResult,
+): { state: BattleState; result: V2SkillCastResult } {
+  if (
+    !result.castSkillId ||
+    result.enemyDamage <= 0 ||
+    state.stacks.evadesRemaining <= 0
+  ) {
+    return { state, result };
+  }
+
+  let nextLog = appendLog(state.log, {
+    kind: "info",
+    text: `[회피 강화] ${state.enemy.name}의 ${result.castSkillName ?? "스킬 공격"}을(를) 회피했다!`,
+  });
+  const critAfterEvadePrepared =
+    !!player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending;
+  if (critAfterEvadePrepared) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[흑월지배] 다음 직접 피해 스킬 치명타 준비.`,
+    });
+  }
+
+  const evadeHeal =
+    (player.evadeHealAmount ?? 0) +
+    onDodgeHealAmount(player.equipSignatures, state.playerMaxHp);
+  const nextPlayerHp =
+    evadeHeal > 0
+      ? Math.min(state.playerMaxHp, state.playerHp + evadeHeal)
+      : state.playerHp;
+  const actualHeal = nextPlayerHp - state.playerHp;
+  const sigShield =
+    actualHeal > 0
+      ? healToShield(player.equipSignatures, actualHeal)
+      : null;
+  if (actualHeal > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[곡예] 플레이어의 HP +${actualHeal}`,
+    });
+  }
+  if (sigShield) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigShield.label}] 플레이어 보호막 +${sigShield.amount}`,
+    });
+  }
+
+  const speedBuff = onDodgeSpeedBuff(player.equipSignatures);
+  const activeSpeedMult =
+    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
+  let nextState: BattleState = {
+    ...state,
+    playerHp: nextPlayerHp,
+    playerAttacksLeft:
+      state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
+    buffs: speedBuff
+      ? {
+          ...state.buffs,
+          playerSpdMult: Math.max(activeSpeedMult, speedBuff.mult),
+          playerSpdTurnsLeft: Math.max(
+            state.buffs.playerSpdTurnsLeft,
+            speedBuff.turns,
+          ),
+        }
+      : state.buffs,
+    flags: critAfterEvadePrepared
+      ? { ...state.flags, skillCritAfterEvadePending: true }
+      : state.flags,
+    stacks: {
+      ...state.stacks,
+      evadesRemaining: state.stacks.evadesRemaining - 1,
+      playerShield:
+        state.stacks.playerShield + (sigShield?.amount ?? 0),
+    },
+    log: nextLog,
+  };
+
+  const counter = applyCounterIfAny(nextState, player);
+  nextState = counter.state;
+
+  return {
+    state: nextState,
+    result: {
+      ...result,
+      enemyDamage: 0,
+      magicEnemyDamage: 0,
+      dotsToApplyToTarget: [],
+      enemyDebuffsToApply: [],
+      enemyVulnToApply: undefined,
+      enemyEvasionDownToApply: undefined,
+      enemyAccuracyDownToApply: undefined,
+      enemyDelayToApply: undefined,
+      enemyHealReduceToApply: undefined,
+      enemyDamageDownToApply: undefined,
+      enemySkillProcDownToApply: undefined,
+      enemyDotVulnToApply: undefined,
+    },
+  };
+}
+
 // v2 적(몬스터) 스킬 시전 — applyPlayerV2SkillCast 의 적 대칭판(ATB 라이브 경로용).
 //   ⚠️ ATB 전용: 버프/디버프 tick 은 tickEnemyBundleEntry/tickPlayerBundleEntry(번들)가 이미 했으므로
 //   여기선 tick 없이 cast 결정 + 효과 적용만 한다(player cast 헬퍼와 동일 소유권 모델 — 이중 tick 방지).
@@ -1126,7 +1245,7 @@ export function applyEnemyV2SkillCast(
   if (state.enemyV2Skills.equipped.length === 0) {
     return { state, castFired: false };
   }
-  const result = resolveV2SkillCast({
+  let result = resolveV2SkillCast({
     skills: state.enemyV2Skills,
     cooldowns: state.enemyV2SkillCooldowns,
     procRoll: Math.random() * 100,
@@ -1169,6 +1288,19 @@ export function applyEnemyV2SkillCast(
         enemyV2SkillCooldowns: result.nextCooldowns,
       },
       castFired: false,
+    };
+  }
+  const guaranteedEvade = evadeIncomingEnemySkill(state, player, result);
+  state = guaranteedEvade.state;
+  result = guaranteedEvade.result;
+  if (state.phase === "ended") {
+    return {
+      state: {
+        ...state,
+        enemyMp: result.nextMp,
+        enemyV2SkillCooldowns: result.nextCooldowns,
+      },
+      castFired: true,
     };
   }
   let nextPlayerHp = state.playerHp;
@@ -1317,6 +1449,8 @@ export function applyPlayerV2SkillCast(
 ): {
   state: BattleState;
   castFired: boolean;
+  /** 이번 스킬의 실제 적중 횟수로 발생한 추가 행동 수. */
+  signatureExtraActions: number;
   // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 무시. ATB 루프가 틱 계산에 반영.
   selfHastePct: number;
   enemyDelayPct: number;
@@ -1351,17 +1485,24 @@ export function applyPlayerV2SkillCast(
       vit: player.vitStat,
       dex: player.dexStat,
       luk: player.lukStat,
+      spi: player.spiStat,
       allStatTotal: player.allStatTotal,
       currentHp: state.playerHp,
       maxMp: state.playerMaxMp,
       classTier: player.classTier,
-      // 활성 파생버프(회피/치명/받피감) — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포).
+      // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
       selfShieldActive: state.stacks.playerShield > 0,
+      // 군림·질주·적랑 등 장비 발동형 속도 버프는 v2SelfBuffs 가 아니라 BattleBuffs 에 저장된다.
+      selfStatBuffActive: {
+        spd: state.buffs.playerSpdTurnsLeft > 0,
+      },
       selfBuffPctActive: {
         evasion: state.stacks.skillEvasionTurns > 0,
         crit: state.stacks.skillCritTurns > 0,
         damageReduction: state.stacks.skillDmgReduceTurns > 0,
         reflectDamage: state.stacks.skillReflectBoostTurns > 0,
+        regen: state.stacks.skillRegenTurns > 0,
+        guaranteedEvade: state.stacks.evadesRemaining > 0,
       },
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
@@ -1386,24 +1527,18 @@ export function applyPlayerV2SkillCast(
       enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
     },
   });
-  // 스킬도 명중 영향(2026-06-06) — 데미지 스킬은 발동 후 미스 판정(평타와 같은 공식). 미스면 적
-  //   효과(데미지·DoT·디버프)만 무효, MP·쿨다운은 발동 시점에 소모됨·자버프/자힐은 유지. 데미지>0
-  //   일 때만 롤(스킬 안 터졌거나 자버프 스킬엔 롤 안 함 → RNG 드리프트 방지).
+  // 스킬도 명중 영향(2026-06-06) — 상대 대상 효과가 있으면 발동 후 미스 판정(평타와 같은 공식).
+  // 미스면 피해·DoT·디버프·제어를 모두 무효화하고, MP·쿨다운·자버프·자힐은 유지한다.
+  // 자기 대상 효과만 있는 스킬에는 롤하지 않아 RNG 드리프트를 막는다.
   let skillMissed = false;
-  if (result.castSkillId && result.enemyDamage > 0) {
+  if (result.castSkillId && v2SkillHasTargetEffects(result)) {
     // 회피 대결형 Slice 2(B안) — 평타와 같은 공식. 몹 회피레이팅(정밀 반영) vs 플레이어 명중레이팅.
     const sEnemyEvaR =
       Math.max(0, state.enemy.evasionPct ?? 0) * (player.precisionEvasionMult ?? 1);
     const sMissPct = attackMissPct(sEnemyEvaR, player.accRating ?? player.accuracyPct ?? 0);
     if (Math.random() * 100 < sMissPct) {
       skillMissed = true;
-      result = {
-        ...result,
-        enemyDamage: 0,
-        magicEnemyDamage: 0,
-        dotsToApplyToTarget: [],
-        enemyDebuffsToApply: [],
-      };
+      result = removeMissedV2SkillTargetEffects(result);
     }
   }
   // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).
@@ -1434,12 +1569,35 @@ export function applyPlayerV2SkillCast(
       : 0;
   const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
   // 스킬 치명타 — 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT 로
-  //   분리(평타 critMult 비연동 → 비폭주). 오버플로(캡 초과분 크리뎀)는 평타 전용, 스킬은 flat.
+  //   분리(평타 critMult 비연동 → 비폭주). 오버플로는 관련 패시브 보유 시에만 스킬에도 적용.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
+  const skillCritAfterEvadeFired =
+    result.enemyDamage > 0 && state.flags.skillCritAfterEvadePending;
   const skillCritFired =
     result.enemyDamage > 0 &&
-    (player.critChancePct ?? 0) > 0 &&
-    Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0);
+    (skillCritAfterEvadeFired ||
+      ((player.critChancePct ?? 0) > 0 &&
+        Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0)));
+  // 치명타 발동형 고유 효과는 평타뿐 아니라 직접 피해 액티브 스킬 치명타에도 적용한다.
+  const sigSkillCritSpeed = onCritSpeedBuff(
+    player.equipSignatures,
+    skillCritFired,
+    result.enemyDamage > 0,
+  );
+  const activeSkillCritSpdMult =
+    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
+  const sigSkillCritSpdBuff = sigSkillCritSpeed
+    ? {
+        playerSpdMult: Math.max(
+          activeSkillCritSpdMult,
+          sigSkillCritSpeed.mult,
+        ),
+        playerSpdTurnsLeft: Math.max(
+          state.buffs.playerSpdTurnsLeft,
+          sigSkillCritSpeed.turns,
+        ),
+      }
+    : null;
   // 스킬 다단히트 — 이 턴 추가 공격 확률로 굴려둔 공격 횟수(playerAttacksLeft)만큼 데미지
   //   스킬을 반복 타격한다. 평타 빌드가 누리는 SPD(추가 공격) 가치를 스킬 빌드에도 부여.
   //   데미지 스킬에만 적용(버프/힐/마나/DoT 부여는 1회 — 다중 적용 X). 새 RNG 미소비(이미
@@ -1462,6 +1620,7 @@ export function applyPlayerV2SkillCast(
         : 1),
   );
   let nextComboHitCount = state.stacks.comboHitCount;
+  let landedSkillHits = 0;
   // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
   const nextSpellCastCount =
     (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
@@ -1504,6 +1663,13 @@ export function applyPlayerV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextLog = state.log;
   let healShieldAmount = 0;
+  if (skillCritAfterEvadeFired && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[흑월지배] 회피의 여세로 ${result.castSkillName}이(가) 치명타가 된다.`,
+      turn: "player",
+    });
+  }
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
   //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
@@ -1522,6 +1688,7 @@ export function applyPlayerV2SkillCast(
       player.comboFinisherBonusPct,
     );
     const perHit = comboResult.hitDamages;
+    landedSkillHits = perHit.filter((hit) => hit > 0).length;
     nextComboHitCount = comboResult.nextComboHitCount;
     const boostedSkillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
     nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
@@ -1536,6 +1703,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! 빗나갔다.`,
+    });
+  }
+  if (sigSkillCritSpdBuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkillCritSpeed?.label ?? "군림"}] 결정타 — 속도가 솟구친다!`,
+      turn: "player",
     });
   }
   // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
@@ -1565,6 +1739,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! 마나 ${result.manaRestored} 회복했다.`,
+    });
+  }
+  if (result.guaranteedEvadesToAdd > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName}] 다음 공격 ${result.guaranteedEvadesToAdd}회를 반드시 회피한다.`,
+      turn: "player",
     });
   }
   if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
@@ -1650,6 +1831,16 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  const dmgReduceBuffForLog = result.selfBuffPctToApply.find(
+    (b) => b.target === "damageReduction",
+  );
+  if (dmgReduceBuffForLog) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "방어"}] 받는 피해 -${dmgReduceBuffForLog.pct}% (${dmgReduceBuffForLog.turns}행동)`,
+      turn: "player",
+    });
+  }
   if (result.enemyVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1699,6 +1890,27 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  // 평타 전용이던 every-N 시그니처를 직접 피해 스킬의 실제 적중에도 연결한다.
+  // 다단 스킬은 양수 피해가 표시된 각 타격을 모두 세며, 한 시전에서 주기를 여러 번
+  // 넘으면 그 횟수만큼 추가 행동을 지급한다. 빗나감·버프·회복 스킬은 0회다.
+  const sigEvery = everyNHitsEffect(player.equipSignatures);
+  const sigEveryN = sigEvery?.hits ?? 0;
+  const nextSigHitCount =
+    sigEveryN > 0
+      ? state.stacks.signatureHitCount + landedSkillHits
+      : state.stacks.signatureHitCount;
+  const signatureExtraActions =
+    sigEveryN > 0
+      ? Math.floor(nextSigHitCount / sigEveryN) -
+        Math.floor(state.stacks.signatureHitCount / sigEveryN)
+      : 0;
+  if (signatureExtraActions > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigEvery?.label ?? "연격"}] ${landedSkillHits}회 적중 — 추가 행동 ${signatureExtraActions}회!`,
+      turn: "player",
+    });
+  }
   state = {
     ...state,
     playerHp: nextPlayerHp,
@@ -1709,10 +1921,19 @@ export function applyPlayerV2SkillCast(
     v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
     enemyV2Debuffs: nextEnemyDebuffs,
     enemyV2Dots: nextEnemyDots,
+    buffs: sigSkillCritSpdBuff
+      ? { ...state.buffs, ...sigSkillCritSpdBuff }
+      : state.buffs,
+    flags: skillCritAfterEvadeFired
+      ? { ...state.flags, skillCritAfterEvadePending: false }
+      : state.flags,
     stacks: {
       // PR2-B-2c — 운기/연환집중/선풍각/속박 temp 버프 갱신.
       ...applySkillTempBuffs(state.stacks, result),
+      evadesRemaining:
+        state.stacks.evadesRemaining + result.guaranteedEvadesToAdd,
       comboHitCount: nextComboHitCount,
+      signatureHitCount: nextSigHitCount,
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
@@ -1728,6 +1949,7 @@ export function applyPlayerV2SkillCast(
   return {
     state,
     castFired: result.castSkillId != null,
+    signatureExtraActions,
     selfHastePct: result.selfHasteToApply?.pct ?? 0,
     enemyDelayPct: result.enemyDelayToApply?.pct ?? 0,
   };
@@ -1814,12 +2036,16 @@ function resolveBattleLegacy(
         // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF 무시. lethal 처리.
         // 일반 공격 레인과 섞이지 않도록 status_damage 효과 행으로 기록한다.
         const playerDotTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-        if (playerDotTick.totalDmg > 0) {
+        const playerDotDamage = statusDamageAfterReduction(
+          playerDotTick.totalDmg,
+          player.statusDamageReductionPct,
+        );
+        if (playerDotDamage > 0) {
           const before = state.playerHp;
-          const newHp = Math.max(0, before - playerDotTick.totalDmg);
+          const newHp = Math.max(0, before - playerDotDamage);
           const dotLog = distributeV2DotTicks(
             playerDotTick.ticks,
-            playerDotTick.totalDmg,
+            playerDotDamage,
           ).reduce(
             (log, tick) =>
               appendLog(log, {
@@ -1910,7 +2136,18 @@ function resolveBattleLegacy(
             },
           };
           state = finishPlayerTurn(ended, player, playerName);
-          continue;
+          if (cast.signatureExtraActions > 0) {
+            // 스킬 다단 적중으로 얻은 추가 행동은 같은 플레이어 페이즈에서 평타 행동으로
+            // 이어진다. 스킬 시전 훅은 이미 소비했으므로 보너스 행동에서 중복 시전하지 않는다.
+            state = {
+              ...state,
+              phase: "player",
+              playerAttacksLeft: cast.signatureExtraActions,
+              turn: { ...state.turn, firstAttackPending: true },
+            };
+          } else {
+            continue;
+          }
         }
       }
     } else if (state.phase === "enemy") {
@@ -1921,7 +2158,7 @@ function resolveBattleLegacy(
         const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
         const tickedEnemyDebuffsLocal = tickV2BuffMap(state.enemyV2Debuffs);
         const tickedPlayerDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
-        const result = resolveV2SkillCast({
+        let result = resolveV2SkillCast({
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
           procRoll: Math.random() * 100,
@@ -1969,6 +2206,17 @@ function resolveBattleLegacy(
         // 스킬이 실제 발동(castSkillId)했으면 이 enemy 페이즈 평타 생략 — 스킬이 평타를 대체(플레이어
         //   대칭). resolveEnemyPhase 가 skipEnemyBasicAttack 으로 받아 데미지/회피/반사 스킵. 더블어택 fix.
         enemySkillFiredThisTurn = result.castSkillId != null;
+        const guaranteedEvade = evadeIncomingEnemySkill(state, player, result);
+        state = guaranteedEvade.state;
+        result = guaranteedEvade.result;
+        if (state.phase === "ended") {
+          state = {
+            ...state,
+            enemyMp: result.nextMp,
+            enemyV2SkillCooldowns: result.nextCooldowns,
+          };
+          continue;
+        }
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
         const enemySkillDamage =

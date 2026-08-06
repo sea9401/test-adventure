@@ -1,6 +1,10 @@
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
-import { marketplaceInbox, marketplaceListingsV2 } from "@/db/schema";
+import {
+  marketplaceBuyOrdersV2,
+  marketplaceInbox,
+  marketplaceListingsV2,
+} from "@/db/schema";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
@@ -24,6 +28,11 @@ import {
   addCookingFood,
   isCookingFoodId,
 } from "@/adventure/v2/cooking";
+import {
+  matchMarketplaceBuyOrder,
+  recordMarketplaceAutoMatchFills,
+  triggerMarketplacePriceAlertsForListing,
+} from "@/lib/server/marketplaceBuyOrdersV2";
 
 type CharSave = {
   materials?: Record<string, number>;
@@ -142,6 +151,7 @@ export async function POST(req: Request) {
           .set({ bidResolvedAt: now })
           .where(eq(marketplaceListingsV2.id, id));
         if (listing.expiresAt > now) {
+          await triggerMarketplacePriceAlertsForListing(tx, id, now);
           return {
             action: listing.highestBidderId
               ? ("bid_refunded" as const)
@@ -178,12 +188,79 @@ export async function POST(req: Request) {
     }
   }
 
+  const dueOrders = await db
+    .select({ id: marketplaceBuyOrdersV2.id })
+    .from(marketplaceBuyOrdersV2)
+    .where(
+      and(
+        eq(marketplaceBuyOrdersV2.status, "active"),
+        lte(marketplaceBuyOrdersV2.expiresAt, now),
+      ),
+    )
+    .limit(BATCH);
+  let ordersExpired = 0;
+  for (const { id } of dueOrders) {
+    const result = await db.transaction(async (tx) => {
+      const [order] = await tx
+        .select()
+        .from(marketplaceBuyOrdersV2)
+        .where(eq(marketplaceBuyOrdersV2.id, id))
+        .for("update");
+      if (!order || order.status !== "active" || order.expiresAt > now) {
+        return null;
+      }
+      if (order.goldEscrow > 0) {
+        await tx.insert(marketplaceInbox).values(
+          inboxValues({
+            userId: order.buyerId,
+            payload: { kind: "buy_order_refund", gold: order.goldEscrow },
+            message: `${order.itemName} 구매 주문 만료 · ${order.goldEscrow.toLocaleString()}골드 반환`,
+          }),
+        );
+      }
+      await tx
+        .update(marketplaceBuyOrdersV2)
+        .set({ status: "expired", goldEscrow: 0, closedAt: now })
+        .where(eq(marketplaceBuyOrdersV2.id, order.id));
+      return { buyerId: order.buyerId, refund: order.goldEscrow };
+    });
+    if (result) {
+      ordersExpired++;
+      if (result.refund > 0) {
+        recordEconomyEventSoon({
+          userId: result.buyerId,
+          eventType: "marketplace.buy_order.refund",
+          goldDelta: result.refund,
+          detail: { orderId: id, reason: "expired" },
+        });
+      }
+    }
+  }
+
+  const activeOrders = await db
+    .select({ id: marketplaceBuyOrdersV2.id })
+    .from(marketplaceBuyOrdersV2)
+    .where(eq(marketplaceBuyOrdersV2.status, "active"))
+    .limit(BATCH);
+  let ordersMatched = 0;
+  for (const { id } of activeOrders) {
+    const fills = await db.transaction((tx) =>
+      matchMarketplaceBuyOrder(tx, id, now),
+    );
+    if (fills.length > 0) {
+      ordersMatched += fills.length;
+      recordMarketplaceAutoMatchFills(fills);
+    }
+  }
+
   return Response.json({
     ok: true,
     scanned: due.length,
     auctionsSold,
     bidsRefunded,
     expired,
+    ordersExpired,
+    ordersMatched,
   });
 }
 

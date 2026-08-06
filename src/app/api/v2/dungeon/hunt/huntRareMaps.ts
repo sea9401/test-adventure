@@ -18,11 +18,13 @@ export function updateRareMaps(params: {
 }): {
   rareMaps: RareMapInstance[];
   rareMapDrop: RareMapKindId | null;
+  rareMapDropInstance: RareMapInstance | null;
   rareMapRunsLeft: number | null;
 } {
   const { activeRareMap, won, depth, now } = params;
   let rareMaps = params.rareMaps;
   let rareMapDrop: RareMapKindId | null = null;
+  let rareMapDropInstance: RareMapInstance | null = null;
   // 희귀 탐사 안에서 또 희귀 탐사가 열리는 재귀 farming 은 막는다(입장 중 롤 없음).
   // 캡 가득이면 롤 자체를 건너뜀.
   if (activeRareMap) {
@@ -34,11 +36,17 @@ export function updateRareMaps(params: {
   } else if (won && rareMaps.length < RARE_MAP_CAP) {
     rareMapDrop = rollRareMapDrop(Math.random);
     if (rareMapDrop) {
-      rareMaps = [...rareMaps, newRareMapInstance(rareMapDrop, depth, now)];
+      rareMapDropInstance = newRareMapInstance(rareMapDrop, depth, now);
+      rareMaps = [...rareMaps, rareMapDropInstance];
     }
   }
   const rareMapRunsLeft = activeRareMap
     ? (rareMaps.find((m) => m.iid === activeRareMap.iid)?.runsLeft ?? 0)
     : null;
-  return { rareMaps, rareMapDrop, rareMapRunsLeft };
+  return {
+    rareMaps,
+    rareMapDrop,
+    rareMapDropInstance,
+    rareMapRunsLeft,
+  };
 }

@@ -83,6 +83,82 @@ export function endgameSoften(depth: number): number {
   );
 }
 
+// 권장 전투력 미달 페널티 — 들판(온보딩)은 건드리지 않고, 중반은 부족분만큼 몬스터 HP·ATK를
+// 최대 20~30% 보강한다. 최상위 4개 사냥터(붉은 벌판 49+)는 권장 전투력보다 한참 낮은
+// 캐릭터가 엔드 완화 계수와 특정 빌드 효율로 우회하지 못하도록 부족분을 더 강하게 반영한다.
+// 권장치의 90%까지는 유예해 근소한 표시 오차는 허용하고, 그보다 부족한 구간만 가파르게 보강한다.
+// 권장치 이상 캐릭터의 기존 난도는 그대로이며 전투력을 하드 입장 제한으로 쓰지는 않는다.
+export const UNDERPREPARED_COMBAT_FULL_DEPTH = 36;
+export const UNDERPREPARED_COMBAT_END_DEPTH = 42;
+export const UNDERPREPARED_COMBAT_MAX = 1.3;
+export const UNDERPREPARED_COMBAT_LATE_MAX = 1.2;
+export const UNDERPREPARED_COMBAT_SHORTFALL_SCALE = 2;
+export const UNDERPREPARED_ENDGAME_START_DEPTH = 49;
+export const UNDERPREPARED_ENDGAME_GRACE_RATIO = 0.9;
+export const UNDERPREPARED_ENDGAME_MAX = 6;
+export const UNDERPREPARED_ENDGAME_SHORTFALL_SCALE = 12;
+export function underpreparedCombatMult(
+  depth: number,
+  playerPower?: number,
+): number {
+  if (
+    depth <= ONBOARDING_END_DEPTH ||
+    playerPower == null ||
+    !Number.isFinite(playerPower)
+  ) {
+    return 1;
+  }
+  const gate = floorPowerGate(depth);
+  if (gate <= 0 || playerPower >= gate) return 1;
+  const endgame = depth >= UNDERPREPARED_ENDGAME_START_DEPTH;
+  const maxMult = endgame
+    ? UNDERPREPARED_ENDGAME_MAX
+    : depth <= UNDERPREPARED_COMBAT_FULL_DEPTH
+      ? UNDERPREPARED_COMBAT_MAX
+      : depth <= UNDERPREPARED_COMBAT_END_DEPTH
+        ? UNDERPREPARED_COMBAT_LATE_MAX
+        : 1;
+  const shortfallScale = endgame
+    ? UNDERPREPARED_ENDGAME_SHORTFALL_SCALE
+    : UNDERPREPARED_COMBAT_SHORTFALL_SCALE;
+  const powerRatio = Math.max(0, playerPower) / gate;
+  const shortfall = endgame
+    ? Math.max(0, UNDERPREPARED_ENDGAME_GRACE_RATIO - powerRatio)
+    : 1 - powerRatio;
+  return (
+    1 +
+    Math.min(
+      maxMult - 1,
+      shortfall * shortfallScale,
+    )
+  );
+}
+
+// 엔드 확장(43+) 전용 전투 완화. 42→43에서 statMult가 약 20→30으로 50% 뛰는 의도적
+// 콘텐츠 단차는 권장 전투력/보상에는 남기되, 같은 순간 몬스터 HP·ATK까지 모두 1.5배가 되어
+// 다수 빌드가 90%+→20%대로 붕괴하는 현상은 분리한다. def·exp·권장 전투력에는 적용하지 않는다.
+export const END_EXTENSION_COMBAT_SOFTEN = 0.7;
+// 신규 지역 입구(49·55)에서 권장 전투력이 각각 +21%·+26% 뛰지만, 직전 지역 장비 상승폭은
+// 그보다 작다. 43~48의 검증된 난이도는 유지하고 지역 경계 이후 HP·ATK를 단계적으로 완화한다.
+// 단, 0.30에서 완화를 멈춘다. 종전 0.18까지 누적하면 원래 statMult 상승을 상쇄해 심해 폐허
+// 몬스터가 오히려 약해지고 전투력 1,500 안팎으로 최심부를 정복하는 역전이 생겼다.
+// 방어·EXP·권장 전투력은 그대로라 진행 보상/표시 곡선은 바뀌지 않는다.
+export const RED_PLAINS_COMBAT_SOFTEN = 0.56;
+export const BONE_PLATEAU_COMBAT_SOFTEN = 0.38;
+export const DEEP_FRONTIER_COMBAT_SOFTEN_SLOPE = 0.012;
+export const DEEP_FRONTIER_COMBAT_SOFTEN_MIN = 0.3;
+export function endExtensionCombatSoften(depth: number): number {
+  if (depth >= 55) {
+    return Math.max(
+      DEEP_FRONTIER_COMBAT_SOFTEN_MIN,
+      BONE_PLATEAU_COMBAT_SOFTEN -
+        (Math.floor(depth) - 55) * DEEP_FRONTIER_COMBAT_SOFTEN_SLOPE,
+    );
+  }
+  if (depth >= 49) return RED_PLAINS_COMBAT_SOFTEN;
+  return depth >= END_EXTENSION_START_DEPTH ? END_EXTENSION_COMBAT_SOFTEN : 1;
+}
+
 // 프론티어 진입 완화(2026-06-22, 밸런스) — 들판(d1~6, statMult step 0.06)→마른협곡(d7~, step 0.52)
 //   경계의 난이도 절벽 완화. sim(권장레벨 기준 풀승률): 들판 d5~6=100% → 마른협곡 d7~9=80%(전 직군
 //   동반 하락) → d10 회복. 첫 프론티어 step 이 온보딩 step 의 ~8배라 경계 한 칸이 갑자기 단단함.
@@ -162,8 +238,9 @@ export function floorStatMult(depth: number): number {
   );
 }
 
-// 권장 파워 게이트(표시 전용 — 실제 진입 게이트는 frontierDepth). 들판(1~6)=50→95 완만,
-// 7+ = statMult 비례(난이도=레벨 균형). 무한 깊이.
+// 사냥터 난이도 지표(표시 전용 — 실제 진입 게이트는 frontierDepth). 전투력 환산은 회피·치명·회복
+// 효율을 모두 담지 못하므로 빌드 간 합격선이 아니다. 깊이별 상대 난이도 비교에만 사용한다.
+// 들판(1~6)=50→95 완만, 7+ = statMult 비례(난이도=레벨 균형). 무한 깊이.
 export function floorPowerGate(depth: number): number {
   if (depth <= 1) return FLOOR1_POWER;
   if (depth <= ONBOARDING_END_DEPTH) {

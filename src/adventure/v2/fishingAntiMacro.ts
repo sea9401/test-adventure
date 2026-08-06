@@ -9,6 +9,8 @@ export const FISHING_ANTI_MACRO_UNIFORM_CLIENT_STDDEV_MS = 25;
 export const FISHING_ANTI_MACRO_PREFIRE_MIN_EARLY_MS = 300;
 export const FISHING_ANTI_MACRO_PREFIRE_COUNT = 5;
 export const FISHING_ANTI_MACRO_IMPOSSIBLE_REACTION_MS = 60;
+export const FISHING_ANTI_MACRO_FAST_REACTION_WINDOW = 20;
+export const FISHING_ANTI_MACRO_FAST_REACTION_COUNT = 3;
 
 export type FishingAntiMacroReason =
   | "ok"
@@ -153,11 +155,26 @@ function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
   ) {
     signals.push("repeated_prefire");
   }
-  const impossiblePostBite =
+  const veryFastPostBite =
     latest?.reason === "too_early" &&
     latest.earlyByMs === 0 &&
     latest.serverReactionMs < FISHING_ANTI_MACRO_IMPOSSIBLE_REACTION_MS;
-  if (impossiblePostBite) signals.push("impossibly_fast_post_bite_reel");
+  if (veryFastPostBite) {
+    // 입질 예고를 보고 준비한 손입력도 한 번쯤 60ms 미만으로 도착할 수 있다.
+    // 단발은 관찰만 하고, 최근 20회에서 세 번째부터 강신호로 승격한다.
+    signals.push("very_fast_post_bite_reel");
+    const recentVeryFastPostBite = recent
+      .slice(-FISHING_ANTI_MACRO_FAST_REACTION_WINDOW)
+      .filter(
+        (sample) =>
+          sample.reason === "too_early" &&
+          sample.earlyByMs === 0 &&
+          sample.serverReactionMs < FISHING_ANTI_MACRO_IMPOSSIBLE_REACTION_MS,
+      ).length;
+    if (recentVeryFastPostBite >= FISHING_ANTI_MACRO_FAST_REACTION_COUNT) {
+      signals.push("impossibly_fast_post_bite_reel");
+    }
+  }
   return signals;
 }
 
@@ -165,11 +182,19 @@ function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
 // 성공률과 반응 편차는 정상 숙련자도 만들 수 있으므로 관찰 로그에는 남기되 점수에는 넣지 않는다.
 function enforcementSignalScore(signals: string[]): number {
   return signals.reduce((score, signal) => {
-    if (signal === "impossibly_fast_server_reel") return score + 6;
     if (signal === "impossibly_fast_post_bite_reel") return score + 6;
     if (signal === "repeated_prefire") return score + 4;
     return score;
   }, 0);
+}
+
+// 성공한 60~120ms 반응과 단발성 60ms 미만 반응은 입질 예고를 보고 준비한
+// 손입력에서도 관측될 수 있다. 반복된 60ms 미만 입력과 반복 선입력만 강신호다.
+export function isFishingAntiMacroStrongSignal(signal: string): boolean {
+  return (
+    signal === "impossibly_fast_post_bite_reel" ||
+    signal === "repeated_prefire"
+  );
 }
 
 export function recordFishingAntiMacroSample(
@@ -181,18 +206,22 @@ export function recordFishingAntiMacroSample(
   const signals = suspiciousSignals(recent);
   const score = enforcementSignalScore(signals);
   const suspicion = Math.max(0, Math.min(30, state.suspicion * 0.85 + score));
+  // 새 강신호가 없는 정상 표본은 의심 점수만 감쇠시킨다. 감쇠 중 점수가 아직
+  // 임계값 위라는 이유로 대기 시간을 갱신하거나 운영 이벤트를 재발시키지 않는다.
   const frictionMs =
-    suspicion >= FISHING_ANTI_MACRO_HIGH_THRESHOLD
-      ? FISHING_ANTI_MACRO_HIGH_FRICTION_MS
-      : suspicion >= FISHING_ANTI_MACRO_FLAG_THRESHOLD
-        ? FISHING_ANTI_MACRO_FRICTION_MS
-        : 0;
+    score <= 0
+      ? 0
+      : suspicion >= FISHING_ANTI_MACRO_HIGH_THRESHOLD
+        ? FISHING_ANTI_MACRO_HIGH_FRICTION_MS
+        : suspicion >= FISHING_ANTI_MACRO_FLAG_THRESHOLD
+          ? FISHING_ANTI_MACRO_FRICTION_MS
+          : 0;
   const previousFrictionActive =
     state.frictionUntil !== null && state.frictionUntil > now;
   const frictionUntil = frictionMs > 0 ? now + frictionMs : state.frictionUntil;
   return {
     state: { version: 1, suspicion, frictionUntil, recent },
-    flagged: frictionMs > 0 && !previousFrictionActive,
+    flagged: score > 0 && frictionMs > 0 && !previousFrictionActive,
     signals,
     frictionMs,
   };

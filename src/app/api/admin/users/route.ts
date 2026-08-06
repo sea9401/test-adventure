@@ -37,7 +37,9 @@ export async function GET(req: Request) {
       )
     : base
   )
-    .orderBy(desc(presence.lastSeenAt), desc(users.createdAt))
+    // PostgreSQL의 DESC 기본값은 NULLS FIRST다. 접속 기록이 없는 기존 베타
+    // 계정은 생성일과 관계없이 활동 기록이 있는 계정 뒤에 배치한다.
+    .orderBy(sql`${presence.lastSeenAt} desc nulls last`, desc(users.createdAt))
     .limit(50);
 
   // 타임스탬프는 명시적으로 ISO 문자열화 — AdminUserRow(string) 계약과 일치시키고,

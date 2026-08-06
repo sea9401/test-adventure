@@ -231,7 +231,14 @@ export async function POST(req: Request) {
       if (!claimed) {
         return {
           status: 409,
-          body: { ok: false as const, error: "expedition_not_ready" as const },
+          body: {
+            ok: false as const,
+            error: "expedition_not_ready" as const,
+            ...baseBody,
+            state,
+            content: state.content,
+            missions: views,
+          },
         };
       }
       const resources = await lockGuildResources(tx, guildId);

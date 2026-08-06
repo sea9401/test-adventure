@@ -53,13 +53,15 @@ import {
   capGain,
   effectiveStatCap,
   effectiveLevelCap,
+  refundableCultivationPoints,
+  cultivationResetGoldCost,
 } from "@/adventure/data/v2/proficiency";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_JOB_LIST,
   V2_JOB_CATALOG,
-  isDirectNextJob,
+  isJobUnlockConditionRevealed,
   isJobUnlocked,
   isRootJobSelectable,
   jobUnlockSpBonus,
@@ -131,6 +133,7 @@ export function combatStatsSection(
         accRating: combat.player.accRating,
         critChancePct: combat.player.critChancePct,
         critMult: combat.player.critMult,
+        skillCritOverflow: combat.player.skillCritOverflow === true,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
         power: derivePowerScore({
           atk: combat.player.atk,
@@ -164,19 +167,29 @@ export function jobsV2Section(params: {
   const currentJobName =
     V2_JOB_CATALOG[currentJobId]?.name ??
     (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
+  const currentJobTier = V2_JOB_CATALOG[currentJobId]?.tier ?? 0;
+  const currentJobLevelCap = rejobRequiredLevel(currentJobId);
+  const jobHistory = new Set(prof.jobHistory ?? []);
   // 스킬 수집 완료 판정용 — 학습한 스킬 집합(직업 도감과 동일 기준).
   const learnedSet = new Set(parseV2SkillsState(skillsRaw).learned);
   return {
     currentJobId,
     currentJobName,
-    atLevelCap: level >= rejobRequiredLevel(currentJobId),
+    currentJobTier,
+    currentJobLevelCap,
+    atLevelCap: level >= currentJobLevelCap,
     jobs: V2_JOB_LIST.filter(
       // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
       (job) => isRootJobSelectable(job),
     ).map((job) => {
       const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
-      const conditionRevealed =
-        unlocked || job.id === currentJobId || isDirectNextJob(currentJobId, job);
+      const cumLevel = cumLevelForJob(prof, job);
+      const conditionRevealed = isJobUnlockConditionRevealed(
+        job,
+        prof,
+        currentJobId,
+        unlocked,
+      );
       const condition = conditionRevealed
         ? jobUnlockConditionText(job)
         : "선행 직업 해금 후 공개";
@@ -186,6 +199,14 @@ export function jobsV2Section(params: {
         .join(" · ");
       // 스킬 수집 완료 — 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일).
       const signature = skillsForJob(job.id);
+      const signatureSkills = signature.map((skillId) => {
+        const skill = V2_SKILLS[skillId];
+        return {
+          id: skillId,
+          name: skill?.name ?? skillId,
+          kind: skill?.category === "passive" ? "passive" : "active",
+        } as const;
+      });
       const skillsCollected =
         signature.length > 0 && signature.every((id) => learnedSet.has(id));
       return {
@@ -195,12 +216,33 @@ export function jobsV2Section(params: {
         unlocked,
         condition,
         conditionRevealed,
-        cumLevel: cumLevelForJob(prof, job),
+        cumLevel,
+        visited: isRecordedJobVisit({
+          jobId: job.id,
+          currentJobId,
+          jobHistory,
+          cumLevel,
+        }),
         bonus,
+        signatureSkills,
         skillsCollected,
       };
     }),
   };
+}
+
+export function isRecordedJobVisit({
+  jobId,
+  currentJobId,
+  jobHistory,
+  cumLevel,
+}: {
+  jobId: string;
+  currentJobId: string;
+  jobHistory: ReadonlySet<string>;
+  cumLevel: number;
+}): boolean {
+  return jobId === currentJobId || jobHistory.has(jobId) || cumLevel > 0;
 }
 
 // 사냥 게이트 — 쿨다운/오프라인 사냥 세션(코어루프 쿨다운 모드 전용, 스태미나 모드면 null).
@@ -267,6 +309,7 @@ export function elementalSkillsSection(
       skillId,
       name: def.name,
       cost: v2SkillLearnCost(skillId),
+      spCost: spCostOf(def),
       learned: learnedSet.has(skillId),
       equipped: equippedSet.has(skillId),
       ritualMode,
@@ -476,6 +519,11 @@ export function proficiencySection(
       cultivations: cultivationCount(prof, group),
       capGains: totalCapGains(prof),
       nextCost: cultivationCost(totalCapGains(prof)),
+      cultivationPointsSpent: refundableCultivationPoints(prof),
+      cultivationResetCount: prof.cultivationResetCount ?? 0,
+      cultivationResetGoldCost: cultivationResetGoldCost(
+        prof.cultivationResetCount ?? 0,
+      ),
       // 현 직업군 다음 차수 전직 가능 여부 — 코어루프 on 에서는 jobsV2/advance-class 가 권위라 숨긴다.
       advance: (() => {
         if (V2_CORE_LOOP_V2) return null;

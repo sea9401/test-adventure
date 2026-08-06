@@ -11,7 +11,11 @@ import {
 } from "../src/adventure/data/v2/v2JobCatalog.ts";
 import { V2_SKILLS_BY_JOB } from "../src/adventure/data/v2/v2SkillsByJob.ts";
 import { V2_COMMON_SKILLS } from "../src/adventure/data/v2/v2SkillsCommonCatalog.ts";
-import { describeV2Skill, spCostOf } from "../src/adventure/data/v2/v2Skills.ts";
+import {
+  describeV2Skill,
+  spCostOf,
+  V2_SKILLS,
+} from "../src/adventure/data/v2/v2Skills.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUT = "/mnt/c/Users/sea94/OneDrive/바탕 화면/job-org-chart.html";
@@ -191,7 +195,10 @@ function skillTip(def) {
 }
 
 const tips = {};
-for (const [id, def] of Object.entries(V2_COMMON_SKILLS)) tips[id] = skillTip(def);
+for (const [id, rawDef] of Object.entries(V2_COMMON_SKILLS)) {
+  // 발동률·피해 계수·SP 리밸런싱까지 적용된 실제 런타임 정의를 표시한다.
+  tips[id] = skillTip(V2_SKILLS[id] ?? rawDef);
+}
 
 const { virtualRoot, children } = buildTree();
 const chart = renderNode(virtualRoot, children);

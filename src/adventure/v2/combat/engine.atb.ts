@@ -27,6 +27,7 @@ import { resolvePlayerPhase } from "./engine.playerPhase";
 import {
   decrementTimedBuffs,
   distributeV2DotTicks,
+  statusDamageAfterReduction,
   tickV2BuffMap,
   tickV2Dots,
   v2DotLogCause,
@@ -159,10 +160,15 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
 function tickPlayerDotsOnAction(
   state: BattleState,
   playerName: string,
+  statusDamageReductionPct?: number,
 ): BattleState {
   const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-  if (pTick.totalDmg <= 0) return { ...state, playerV2Dots: pTick.nextDots };
-  const dotLog = distributeV2DotTicks(pTick.ticks, pTick.totalDmg).reduce(
+  const damage = statusDamageAfterReduction(
+    pTick.totalDmg,
+    statusDamageReductionPct,
+  );
+  if (damage <= 0) return { ...state, playerV2Dots: pTick.nextDots };
+  const dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -175,7 +181,7 @@ function tickPlayerDotsOnAction(
   const next: BattleState = {
     ...state,
     playerV2Dots: pTick.nextDots,
-    playerHp: Math.max(0, state.playerHp - pTick.totalDmg),
+    playerHp: Math.max(0, state.playerHp - damage),
     log: dotLog,
   };
   if (next.playerHp > 0) return next;
@@ -315,7 +321,11 @@ export function resolveBattleAtb(
             : state.playerAttacksLeft,
       };
       const playerBundleStart = state.log.length;
-      state = tickPlayerDotsOnAction(state, playerName);
+      state = tickPlayerDotsOnAction(
+        state,
+        playerName,
+        atbPlayer.statusDamageReductionPct,
+      );
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
       if (state.phase === "ended") {
         turns += 1;
@@ -382,6 +392,17 @@ export function resolveBattleAtb(
               },
             };
             state = finishPlayerTurn(ended, atbPlayer, playerName);
+            if (cast.signatureExtraActions > 0) {
+              // 스킬 적중으로 발생한 보너스 행동은 같은 ATB 시점에서 즉시 평타 행동으로
+              // 처리한다. 아래 공용 평타 루프를 열기 위해 castFired 를 해제한다.
+              state = {
+                ...state,
+                phase: "player",
+                playerAttacksLeft: cast.signatureExtraActions,
+                turn: { ...state.turn, firstAttackPending: true },
+              };
+              castFired = false;
+            }
           }
           // 틱 스탬프는 cast + 처치 승리 로그 + finishPlayerTurn(재생/격노 등) 로그를 모두 포함하도록
           //   이 시점에서 한 번에 — 위 분기들이 prevLogLen 이후로 append 한 엔트리가 t 누락(외톨이 박스)

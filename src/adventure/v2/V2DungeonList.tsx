@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
@@ -16,6 +17,11 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { GameIcon } from "@/adventure/v2/GameIcon";
+import {
+  dungeonGrowthLabel,
+  dungeonReadiness,
+} from "@/adventure/v2/dungeonReadiness";
+import { useSystemToast } from "@/adventure/v2/RewardToastProvider";
 
 // 프론티어 사냥터 목록 — 2단. 테마 카드 → 입구·심부·최심부의 3단계.
 // 내부 깊이와 밸런스는 유지하고 각 두 깊이의 뒤쪽 값(2·4·6)을 대표 전투 깊이로 사용한다.
@@ -28,6 +34,9 @@ export function V2DungeonList({
   onBack,
   frontierDepth = 2,
   playerPower = null,
+  playerLevel = null,
+  playerLevelCap = null,
+  playerJobTier = null,
   onSelectRareMap,
   initialOpenDepth = null,
 }: {
@@ -36,11 +45,15 @@ export function V2DungeonList({
   onBack: () => void;
   frontierDepth?: number;
   playerPower?: number | null;
+  playerLevel?: number | null;
+  playerLevelCap?: number | null;
+  playerJobTier?: number | null;
   // 레어맵 입장 — 농축 사냥 또는 희귀 장소로 이동. 미전달이면 섹션 숨김.
   onSelectRareMap?: (map: RareMapInstance) => void;
   // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
   initialOpenDepth?: number | null;
 }) {
+  const { notifySystem } = useSystemToast();
   const maxDepth = Math.min(
     MAX_FRONTIER_DEPTH,
     Math.max(2, frontierDepth),
@@ -92,6 +105,7 @@ export function V2DungeonList({
 
   // 열린 레어맵 — 마운트 1회 조회(판수/장소 완료와 30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
+  const [discardingMapIid, setDiscardingMapIid] = useState<string | null>(null);
   useEffect(() => {
     if (!onSelectRareMap) return;
     let alive = true;
@@ -113,6 +127,49 @@ export function V2DungeonList({
     };
   }, [onSelectRareMap]);
 
+  async function discardRareMap(map: RareMapInstance) {
+    const name = RARE_MAP_KINDS[map.kind]?.name ?? map.kind;
+    if (
+      !window.confirm(
+        `${name}을 삭제할까요?\n삭제한 지도는 복구할 수 없습니다.`,
+      )
+    ) {
+      return;
+    }
+
+    setDiscardingMapIid(map.iid);
+    try {
+      const response = await fetch("/api/v2/me/rare-maps", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ iid: map.iid }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        rareMaps?: RareMapInstance[];
+      } | null;
+      if (!response.ok || !data?.ok) {
+        const error =
+          data?.error === "not_owned"
+            ? "이미 사용했거나 보유하지 않은 지도입니다"
+            : (data?.error ?? `http ${response.status}`);
+        notifySystem(`✗ 지도 삭제 실패: ${error}`);
+        return;
+      }
+      setRareMaps(
+        (data.rareMaps ?? []).filter(
+          (held) => RARE_MAP_KINDS[held.kind]?.category !== "utility",
+        ),
+      );
+      notifySystem(`✓ ${name} 삭제 완료`);
+    } catch (error) {
+      notifySystem(`✗ 지도 삭제 실패: ${(error as Error).message}`);
+    } finally {
+      setDiscardingMapIid(null);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
@@ -123,14 +180,23 @@ export function V2DungeonList({
       {openGroup ? (
         // 이너 — 선택한 테마의 입구·심부·최심부 카드.
         <div className="space-y-3">
-          <PowerSummary playerPower={playerPower} />
+          <PowerSummary
+            playerPower={playerPower}
+            playerLevel={playerLevel}
+            playerLevelCap={playerLevelCap}
+            playerJobTier={playerJobTier}
+          />
           <div className="grid grid-cols-2 gap-2">
             {openGroup.depths.map((depth) => (
               <DepthCard
                 key={depth}
                 depth={depth}
                 isChallenge={depth === challengeDepth}
+                frontierDepth={frontierDepth}
                 playerPower={playerPower}
+                playerLevel={playerLevel}
+                playerLevelCap={playerLevelCap}
+                playerJobTier={playerJobTier}
                 onSelect={onSelectFloor}
               />
             ))}
@@ -139,7 +205,12 @@ export function V2DungeonList({
       ) : (
         // 테마(사냥터) 카드 (+위에 열린 희귀 탐사 섹션).
         <div className="space-y-3">
-          <PowerSummary playerPower={playerPower} />
+          <PowerSummary
+            playerPower={playerPower}
+            playerLevel={playerLevel}
+            playerLevelCap={playerLevelCap}
+            playerJobTier={playerJobTier}
+          />
           <div className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <span className="font-medium text-zinc-600 dark:text-zinc-300">
               표시 사냥터 {visibleGroups.length}/{groups.length}
@@ -198,7 +269,14 @@ export function V2DungeonList({
                 열린 레어맵
               </div>
               {rareMaps.map((m) => (
-                <RareMapButton key={m.iid} map={m} onSelect={onSelectRareMap} />
+                <RareMapButton
+                  key={m.iid}
+                  map={m}
+                  frontierDepth={frontierDepth}
+                  onSelect={onSelectRareMap}
+                  onDiscard={discardRareMap}
+                  discarding={discardingMapIid === m.iid}
+                />
               ))}
             </div>
           )}
@@ -278,20 +356,25 @@ export function V2DungeonList({
 
 function RareMapButton({
   map,
+  frontierDepth,
   onSelect,
+  onDiscard,
+  discarding,
 }: {
   map: RareMapInstance;
+  frontierDepth: number;
   onSelect: (map: RareMapInstance) => void;
+  onDiscard: (map: RareMapInstance) => void;
+  discarding: boolean;
 }) {
   const def = RARE_MAP_KINDS[map.kind];
   const isLocation = def?.category === "location";
+  const unavailable = rareMapUnavailable(map, frontierDepth);
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(map)}
-      className="flex w-full items-center justify-between gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-left hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950 dark:hover:bg-sky-900"
+    <div
+      className="flex w-full items-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 dark:border-sky-700 dark:bg-sky-950"
     >
-      <span className="min-w-0">
+      <div className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 truncate text-sm font-medium text-sky-800 dark:text-sky-200">
           <GameIcon
             name={isLocation ? "MapTrifold" : "Sparkle"}
@@ -304,16 +387,46 @@ function RareMapButton({
           </span>
         </span>
         <span className="mt-0.5 block text-[11px] text-sky-700 dark:text-sky-400">
-          {isLocation
-            ? "희귀 장소 · 발견 후 30분 동안 개방"
-            : `남은 ${map.runsLeft}판`}
+          {unavailable ??
+            (isLocation
+              ? "희귀 장소 · 발견 후 30분 동안 개방"
+              : `남은 ${map.runsLeft}판`)}
         </span>
-      </span>
-      <span className="shrink-0 rounded bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
-        입장
-      </span>
-    </button>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Button
+          onClick={() => onSelect(map)}
+          disabled={Boolean(unavailable) || discarding}
+          variant="info"
+          size="xs"
+        >
+          {unavailable ? "사용 불가" : "입장"}
+        </Button>
+        <Button
+          onClick={() => onDiscard(map)}
+          disabled={discarding}
+          variant="danger"
+          size="xs"
+        >
+          {discarding ? "삭제 중…" : "삭제"}
+        </Button>
+      </div>
+    </div>
   );
+}
+
+export function rareMapUnavailable(
+  map: RareMapInstance,
+  frontierDepth: number,
+): string | null {
+  if (RARE_MAP_KINDS[map.kind]?.category !== "hunt") return null;
+  const maxRareMapDepth = Math.min(
+    MAX_FRONTIER_DEPTH,
+    Math.max(2, Math.floor(frontierDepth)) + 1,
+  );
+  return map.depth > maxRareMapDepth
+    ? `현재 사용 불가 · 사냥터 진행도 ${maxRareMapDepth}까지`
+    : null;
 }
 
 export function toggleHiddenTheme(
@@ -349,17 +462,38 @@ export function stageRangeLabel(depths: readonly number[]): string {
 function DepthCard({
   depth,
   isChallenge,
+  frontierDepth,
   playerPower,
+  playerLevel,
+  playerLevelCap,
+  playerJobTier,
   onSelect,
 }: {
   depth: number;
   isChallenge: boolean;
+  frontierDepth: number;
   playerPower?: number | null;
+  playerLevel?: number | null;
+  playerLevelCap?: number | null;
+  playerJobTier?: number | null;
   onSelect: (depth: number) => void;
 }) {
   const requiredPower = floorPowerGate(depth);
-  const powerGap =
-    playerPower != null ? Math.round(playerPower - requiredPower) : null;
+  const readiness = dungeonReadiness({
+    depth,
+    frontierDepth,
+    playerPower,
+    recommendedPower: requiredPower,
+    jobTier: playerJobTier,
+    level: playerLevel,
+    levelCap: playerLevelCap,
+  });
+  const readinessClass =
+    readiness.tone === "positive"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : readiness.tone === "warning"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-zinc-500 dark:text-zinc-400";
   return (
     <button
       type="button"
@@ -385,19 +519,12 @@ function DepthCard({
         </div>
         <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
           {playerPower != null
-            ? `내 ${Math.round(playerPower).toLocaleString()} · 권장 ${requiredPower.toLocaleString()}`
-            : `권장 전투력 ${requiredPower.toLocaleString()}`}
+            ? `내 ${Math.round(playerPower).toLocaleString()} · 난이도 지표 ${requiredPower.toLocaleString()}`
+            : `난이도 지표 ${requiredPower.toLocaleString()}`}
         </div>
-        {powerGap != null && powerGap < 0 && (
-          <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-            전투력 {Math.abs(powerGap).toLocaleString()} 부족
-          </div>
-        )}
-        {isChallenge && (
-          <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-            도전 (미정복)
-          </div>
-        )}
+        <div className={`mt-1 text-xs font-medium ${readinessClass}`}>
+          {readiness.label}
+        </div>
         <span
           className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
             isChallenge
@@ -412,16 +539,41 @@ function DepthCard({
   );
 }
 
-function PowerSummary({ playerPower }: { playerPower?: number | null }) {
-  if (playerPower == null) return null;
+function PowerSummary({
+  playerPower,
+  playerLevel,
+  playerLevelCap,
+  playerJobTier,
+}: {
+  playerPower?: number | null;
+  playerLevel?: number | null;
+  playerLevelCap?: number | null;
+  playerJobTier?: number | null;
+}) {
+  const growthLabel = dungeonGrowthLabel({
+    jobTier: playerJobTier,
+    level: playerLevel,
+    levelCap: playerLevelCap,
+  });
+  if (playerPower == null && growthLabel == null) return null;
   return (
     <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-zinc-500 dark:text-zinc-400">내 전투력</span>
-        <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-          {Math.round(playerPower).toLocaleString()}
-        </span>
-      </div>
+      {playerPower != null && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-zinc-500 dark:text-zinc-400">내 전투력</span>
+          <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+            {Math.round(playerPower).toLocaleString()}
+          </span>
+        </div>
+      )}
+      {growthLabel && (
+        <div className="mt-1 flex items-center justify-between gap-3 border-t border-zinc-100 pt-1 dark:border-zinc-800">
+          <span className="text-zinc-500 dark:text-zinc-400">현재 성장</span>
+          <span className="font-medium text-zinc-700 dark:text-zinc-200">
+            {growthLabel}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

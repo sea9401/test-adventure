@@ -1,17 +1,34 @@
 import { and, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
-import { marketplaceListingsV2 } from "@/db/schema";
+import { economyEvents, marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { MARKETPLACE_V2_PRICE_HISTORY_DAYS } from "@/lib/server/marketplaceV2";
+import {
+  MARKETPLACE_V2_PRICE_HISTORY_DAYS,
+  isTradableEquip,
+} from "@/lib/server/marketplaceV2";
 import { marketplacePriceKeyForPayload } from "@/adventure/data/v2/marketplacePriceKeys";
+import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { equipmentOrderSnapshot } from "@/adventure/v2/marketplace/equipmentBuyOrders";
+import { equipmentComparablePriceKeys } from "@/adventure/v2/marketplace/equipmentPriceIntelligence";
 
 const PRICE_CACHE_MS = 30_000;
 
 type PricesPayload = {
   ok: true;
   days: number;
-  prices: Record<string, { n: number; avg: number; min: number; max: number }>;
+  prices: Record<
+    string,
+    {
+      n: number;
+      avg: number;
+      min: number;
+      max: number;
+      unitAvg: number;
+      unitMin: number;
+      unitMax: number;
+    }
+  >;
 };
 
 let pricesCache:
@@ -44,40 +61,114 @@ async function loadPricesPayload(): Promise<PricesPayload> {
 
 async function loadPricesPayloadFresh(): Promise<PricesPayload> {
   const since = new Date(Date.now() - MARKETPLACE_V2_PRICE_HISTORY_DAYS * 24 * 60 * 60 * 1000);
-  const rows = await db
-    .select({
-      itemId: marketplaceListingsV2.itemId,
-      kind: marketplaceListingsV2.kind,
-      price: marketplaceListingsV2.price,
-      instancePayload: marketplaceListingsV2.instancePayload,
-    })
-    .from(marketplaceListingsV2)
-    .where(
-      and(
-        eq(marketplaceListingsV2.status, "sold"),
-        gte(marketplaceListingsV2.closedAt, since),
+  const [rows, equipmentOrderRows] = await Promise.all([
+    db
+      .select({
+        itemId: marketplaceListingsV2.itemId,
+        kind: marketplaceListingsV2.kind,
+        price: marketplaceListingsV2.price,
+        quantity: marketplaceListingsV2.quantity,
+        instancePayload: marketplaceListingsV2.instancePayload,
+      })
+      .from(marketplaceListingsV2)
+      .where(
+        and(
+          eq(marketplaceListingsV2.status, "sold"),
+          gte(marketplaceListingsV2.closedAt, since),
+        ),
       ),
-    );
+    db
+      .select({
+        itemId: economyEvents.itemId,
+        detail: economyEvents.detail,
+      })
+      .from(economyEvents)
+      .where(
+        and(
+          eq(economyEvents.eventType, "marketplace.equipment_buy_order.sell"),
+          gte(economyEvents.createdAt, since),
+        ),
+      ),
+  ]);
 
   const prices: PricesPayload["prices"] = {};
-  const buckets = new Map<string, number[]>();
+  const buckets = new Map<
+    string,
+    Array<{ price: number; quantity: number }>
+  >();
   for (const r of rows) {
     const keys = new Set([r.itemId]);
     if (r.kind === "equip") {
       keys.add(marketplacePriceKeyForPayload(r.itemId, r.instancePayload));
+      if (isTradableEquip(r.itemId)) {
+        const snapshot = equipmentOrderSnapshot(
+          mintListedEquipInstance(r.itemId, r.instancePayload),
+        );
+        if (snapshot) {
+          for (const key of equipmentComparablePriceKeys(
+            r.itemId,
+            snapshot.power,
+            snapshot.qualityPct,
+          ) ?? []) {
+            keys.add(key);
+          }
+        }
+      }
     }
     for (const key of keys) {
       const bucket = buckets.get(key) ?? [];
-      bucket.push(r.price);
+      bucket.push({ price: r.price, quantity: Math.max(1, r.quantity) });
       buckets.set(key, bucket);
     }
   }
-  for (const [key, values] of buckets) {
+  for (const row of equipmentOrderRows) {
+    if (!row.itemId) continue;
+    const detail =
+      row.detail && typeof row.detail === "object" && !Array.isArray(row.detail)
+        ? (row.detail as Record<string, unknown>)
+        : {};
+    const price = Number(detail.grossGold);
+    const power = Number(detail.power);
+    const qualityPct = Number(detail.qualityPct);
+    if (
+      !Number.isSafeInteger(price) ||
+      price < 1 ||
+      !Number.isSafeInteger(power) ||
+      !Number.isSafeInteger(qualityPct)
+    ) {
+      continue;
+    }
+    const keys = new Set([row.itemId]);
+    for (const key of equipmentComparablePriceKeys(
+      row.itemId,
+      power,
+      qualityPct,
+    ) ?? []) {
+      keys.add(key);
+    }
+    for (const key of keys) {
+      const bucket = buckets.get(key) ?? [];
+      bucket.push({ price, quantity: 1 });
+      buckets.set(key, bucket);
+    }
+  }
+  for (const [key, entries] of buckets) {
+    const values = entries.map((entry) => entry.price);
+    const unitValues = entries.map((entry) => entry.price / entry.quantity);
     prices[key] = {
       n: values.length,
       avg: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
       min: Math.min(...values),
       max: Math.max(...values),
+      unitAvg: Math.max(
+        1,
+        Math.round(
+          unitValues.reduce((sum, value) => sum + value, 0) /
+            unitValues.length,
+        ),
+      ),
+      unitMin: Math.max(1, Math.round(Math.min(...unitValues))),
+      unitMax: Math.max(1, Math.round(Math.max(...unitValues))),
     };
   }
 

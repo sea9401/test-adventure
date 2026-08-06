@@ -17,6 +17,8 @@ export type GuildTradeWeeklyState = {
   completedIds: string[];
   eligibleUserIds: string[];
   target: number;
+  /** 주차가 바뀌어도 유지되는 길드 공동 교역 토큰. */
+  tokens: number;
 };
 
 function stringList(raw: unknown): string[] {
@@ -30,6 +32,10 @@ function progressRecord(raw: unknown, contractIds: readonly string[]) {
   return Object.fromEntries(
     contractIds.map((id) => [id, Math.max(0, Math.floor(Number(value[id]) || 0))]),
   );
+}
+
+function nonNegativeInt(raw: unknown): number {
+  return Math.max(0, Math.floor(Number(raw) || 0));
 }
 
 async function memberIds(tx: Tx, guildId: number): Promise<string[]> {
@@ -59,6 +65,7 @@ function freshState(args: {
     completedIds: [],
     eligibleUserIds: args.eligibleUserIds,
     target: guildTradeContractTarget(args.eligibleUserIds.length),
+    tokens: 0,
   };
 }
 
@@ -69,6 +76,7 @@ function rowState(
     progress: unknown;
     completedIds: unknown;
     eligibleUserIds: unknown;
+    tokens: unknown;
   },
   guildId: number,
 ): GuildTradeWeeklyState | null {
@@ -83,6 +91,7 @@ function rowState(
     completedIds: stringList(row.completedIds).filter((id) => contractIds.includes(id)),
     eligibleUserIds,
     target: guildTradeContractTarget(eligibleUserIds.length),
+    tokens: nonNegativeInt(row.tokens),
   };
 }
 
@@ -116,8 +125,9 @@ export async function lockGuildTradeWeekly(
   )[0];
   const parsed = row ? rowState(row, guildId) : null;
   if (!parsed || row.weekKey !== weekKey) {
-    await saveGuildTradeWeekly(tx, fresh);
-    return fresh;
+    const reset = { ...fresh, tokens: nonNegativeInt(row?.tokens) };
+    await saveGuildTradeWeekly(tx, reset);
+    return reset;
   }
   return parsed;
 }
@@ -135,6 +145,7 @@ export async function saveGuildTradeWeekly(
       progress: state.progress,
       completedIds: state.completedIds,
       eligibleUserIds: state.eligibleUserIds,
+      tokens: state.tokens,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -145,6 +156,7 @@ export async function saveGuildTradeWeekly(
         progress: state.progress,
         completedIds: state.completedIds,
         eligibleUserIds: state.eligibleUserIds,
+        tokens: state.tokens,
         updatedAt: new Date(),
       },
     });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  ChartLine,
   Cube,
   Flask,
   HandPalm,
@@ -13,6 +14,7 @@ import {
   ShoppingCart,
   SlidersHorizontal,
   SneakerMove,
+  Star,
   Storefront,
   Sword,
   X,
@@ -29,7 +31,9 @@ import {
   V2_EQUIPMENT,
   parseCraftedBy,
   parseInstanceCraftQuality,
+  sellPriceOf,
   type V2Equipment,
+  type V2EquipmentId,
   type V2EquipInstance,
   type V2EquipRoll,
   type V2EquipSlot,
@@ -56,6 +60,7 @@ import {
   MasterworkBadge,
   QualityPctText,
   V2ItemCard,
+  V2ItemCompareCard,
   anchorOf,
   powerNameClass,
   type ItemCardAnchor,
@@ -66,20 +71,30 @@ import { usePagination } from "@/lib/usePagination";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import {
   V2_ITEM_TABS,
+  itemTabForMaterial,
+  itemTabForMarketplaceListing,
   sortEquipInstances,
   type V2ItemTabKey,
   type SortMode,
 } from "./v2ItemListShared";
 import {
+  compareMarketplaceListings,
   equipDetail,
+  groupMarketplaceStackListings,
+  isStackableMarketplaceListing,
   listingEquipRoll,
+  marketplaceStackQuote,
   marketplacePriceKeyForPayload,
   PricePositionBadge,
   PriceRefLine,
   priceStatForKey,
+  priceStatForQuantity,
   type Listing,
+  type MarketplaceBrowseSort,
+  type MarketplaceStackGroup,
   type PriceStat,
 } from "./marketplace/marketplaceShared";
+import type { EquipmentBuyOrderView } from "./marketplace/equipmentBuyOrders";
 import { MarketplaceEquipmentTab } from "./marketplace/MarketplaceEquipmentTab";
 import { MarketplaceMaterialTab } from "./marketplace/MarketplaceMaterialTab";
 import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
@@ -87,15 +102,22 @@ import { useSystemMessageState } from "./RewardToastProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   MUSEUN_CASH_ITEMS,
+  MUSEUN_TRADEABLE_ITEM_IDS,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
   cookingFoodDefinition,
+  isCookingFoodId,
   type CookingFoodId,
   type CookingFoodInventory,
 } from "./cooking";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  equippedInstanceForMarketplaceItem,
+  equippedItemIdsForMarketplace,
+} from "./marketplace/equipmentComparison";
+import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 
 // v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시·음식 소모품 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -116,7 +138,10 @@ function listingCraftQuality(payload: unknown): V2CraftQualityState | undefined 
   return parseInstanceCraftQuality(raw?.craftQuality, raw?.enhance, listingCraftedBy(payload));
 }
 
-type Tab = "browse" | "history" | "mine" | "sell";
+type Tab = "browse" | "mine" | "sell";
+type MineTab = "active" | "orders" | "history";
+type ListingMode = "fixed" | "auction";
+type BrowseMode = "fixed" | "auction";
 type SellCraftFilter =
   | "all"
   | "crafted"
@@ -131,9 +156,8 @@ const MARKETPLACE_TABS: ReadonlyArray<{
   Icon: Icon;
 }> = [
   { key: "browse", label: "구매", description: "매물 찾기", Icon: ShoppingCart },
-  { key: "sell", label: "판매 등록", description: "아이템 올리기", Icon: ListPlus },
-  { key: "mine", label: "판매 중", description: "내 매물 관리", Icon: Package },
-  { key: "history", label: "거래 내역", description: "최근 체결", Icon: Receipt },
+  { key: "sell", label: "판매", description: "아이템 올리기", Icon: ListPlus },
+  { key: "mine", label: "내 거래", description: "판매·체결 관리", Icon: Package },
 ];
 
 const LISTING_ICON: Record<V2ItemTabKey, Icon> = {
@@ -152,6 +176,7 @@ export type MarketplacePreviewData = {
   bidGraceMinHours: number;
   bidGraceMaxHours: number;
   fixedListingHours: number;
+  directListingHours?: number;
   listings: Listing[];
   prices: Record<string, PriceStat>;
 };
@@ -166,10 +191,76 @@ type Trade = {
   price: number;
   instancePayload: unknown;
   closedAt: string | null;
+  side?: "buy" | "sell";
+};
+
+type BuyOrder = {
+  id: number;
+  kind: "equip" | "material" | "consumable";
+  itemId: string;
+  itemName: string;
+  unitPrice: number;
+  quantityInitial: number;
+  quantityRemaining: number;
+  goldEscrow: number;
+  minPower: number | null;
+  minQualityPct: number | null;
+  status: "active" | "filled" | "cancelled" | "expired";
+  createdAt: string;
+  expiresAt: string;
+  closedAt: string | null;
+};
+
+type BuyOrderBookRow = {
+  kind: string;
+  itemId: string;
+  itemName: string;
+  bestUnitPrice: number;
+  totalQuantity: number;
+  orderCount: number;
+  levels: Array<{
+    unitPrice: number;
+    totalQuantity: number;
+    orderCount: number;
+  }>;
+};
+
+type PriceAlert = {
+  id: number;
+  kind: "material" | "consumable";
+  itemId: string;
+  itemName: string;
+  targetUnitPrice: number;
+  status: "active" | "triggered" | "cancelled";
+  createdAt: string;
+  triggeredAt: string | null;
 };
 
 // 거래소 목록 한 페이지에 보여줄 아이템 수.
 const MARKETPLACE_PAGE_SIZE = 10;
+const MARKETPLACE_FAVORITES_KEY = "adventure.marketplace.favorites.v1";
+const MARKETPLACE_RECENT_SEARCHES_KEY = "adventure.marketplace.searches.v1";
+
+type BrowseSortButton = {
+  key: string;
+  label: string;
+  ascending: MarketplaceBrowseSort;
+  descending: MarketplaceBrowseSort;
+  initial: MarketplaceBrowseSort;
+};
+
+const EQUIPMENT_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
+  { key: "price", label: "가격", ascending: "price_asc", descending: "price_desc", initial: "price_asc" },
+  { key: "power", label: "위력", ascending: "power_asc", descending: "power_desc", initial: "power_desc" },
+  { key: "roll", label: "품질", ascending: "roll_asc", descending: "roll_desc", initial: "roll_desc" },
+  { key: "crafter", label: "제작 숙련", ascending: "crafter_asc", descending: "crafter_desc", initial: "crafter_desc" },
+  { key: "created", label: "등록일", ascending: "oldest", descending: "newest", initial: "newest" },
+];
+
+const STACK_BROWSE_SORT_BUTTONS: readonly BrowseSortButton[] = [
+  EQUIPMENT_BROWSE_SORT_BUTTONS[0],
+  EQUIPMENT_BROWSE_SORT_BUTTONS[4],
+];
 
 // 서버 에러 코드 → 사용자 안내.
 const ERR_LABEL: Record<string, string> = {
@@ -186,13 +277,25 @@ const ERR_LABEL: Record<string, string> = {
   not_found: "매물을 찾을 수 없어요.",
   not_active: "이미 종료된 매물이에요.",
   not_owner: "내 매물이 아니에요.",
-  bad_grace_hours: "입찰 유예 시간은 2~24시간이어야 해요.",
+  bad_grace_hours: "판매 방식 또는 입찰 유예 시간을 확인해 주세요.",
+  bad_price: "가격은 1~999,999,999골드 사이여야 해요.",
+  insufficient_stock: "구매 가능한 수량이 부족해요.",
+  price_changed: "가격이나 재고가 바뀌었어요. 새 견적을 확인해 주세요.",
   bad_bid: "입찰 금액을 확인해 주세요.",
   bid_too_low: "현재 최고가보다 최소 5% 높은 금액을 입력하세요.",
   bidding_closed: "입찰 유예가 종료됐어요.",
   buy_pending: "입찰 유예 중에는 즉시구매할 수 없어요.",
   auction_locked: "즉시구매가를 초과해 입찰 판매가 확정된 매물이에요.",
   has_bids: "입찰이 시작된 매물은 취소할 수 없어요.",
+  cannot_reprice: "입찰이 시작됐거나 경매 중인 매물은 가격을 바꿀 수 없어요.",
+  order_limit: "활성 구매 주문은 최대 10개까지 등록할 수 있어요.",
+  alert_limit: "활성 가격 알림은 최대 20개까지 등록할 수 있어요.",
+  bad_days: "주문 기간은 1~7일로 설정해 주세요.",
+  bad_quantity: "주문 수량을 확인해 주세요.",
+  bad_min_power: "최소 위력은 1 이상의 정수로 입력해 주세요.",
+  bad_min_quality: "최소 품질은 0~100 사이의 정수로 입력해 주세요.",
+  no_matching_order: "이 장비 조건에 맞는 구매 주문이 없거나 이미 체결됐어요.",
+  bad_iids: "일괄 판매할 장비는 한 번에 1~10개까지 선택해 주세요.",
 };
 
 function actionErrorLabel(
@@ -200,12 +303,16 @@ function actionErrorLabel(
   status: number,
   retryAfterSec?: number,
   slotLimit?: number,
+  minimumPrice?: number,
 ) {
   if (error === "rate_limited") {
     return `요청이 많아요. ${Math.max(1, Math.floor(retryAfterSec ?? 1))}초 후 다시 시도하세요.`;
   }
   if (error === "slot_full" && typeof slotLimit === "number") {
     return `활성 매물이 가득 찼어요 (최대 ${slotLimit}개).`;
+  }
+  if (error === "price_below_floor" && typeof minimumPrice === "number") {
+    return `장비 구매 주문은 NPC 매입가 ${minimumPrice.toLocaleString()}골드 이상이어야 해요.`;
   }
   return ERR_LABEL[error ?? ""] ?? error ?? `실패 (${status})`;
 }
@@ -221,6 +328,7 @@ export function V2MarketplaceView({
   const { coreLoopOn, bankedGold, frontierDepth, refreshGameState } =
     useGameState();
   const [tab, setTab] = useState<Tab>("browse");
+  const [mineTab, setMineTab] = useState<MineTab>("active");
   // 둘러보기 — 인벤토리/판매 탭과 같은 6부위 + 재료 + 소모품 하위 탭.
   const [browseTab, setBrowseTab] = useState<V2ItemTabKey>("weapon");
   // 판매 탭 — 인벤토리와 동일하게 슬롯 서브탭 + 정렬 + 페이지네이션.
@@ -234,6 +342,12 @@ export function V2MarketplaceView({
   const [mine, setMine] = useState<Listing[] | null>(null);
   // 최근 거래 — Trade 를 Listing 형태로 매핑(ListingList 재사용). createdAt 자리 = 체결 시각.
   const [history, setHistory] = useState<Listing[] | null>(null);
+  const [buyOrders, setBuyOrders] = useState<BuyOrder[] | null>(null);
+  const [buyOrderBook, setBuyOrderBook] = useState<Record<string, BuyOrderBookRow>>({});
+  const [equipmentBuyOrders, setEquipmentBuyOrders] = useState<
+    EquipmentBuyOrderView[]
+  >([]);
+  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[] | null>(null);
   // 팔기 — 내 인벤(미강화·미장착·미잠금 장비 + 재료).
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
@@ -246,6 +360,7 @@ export function V2MarketplaceView({
   const [graceHours, setGraceHours] = useState(
     preview?.bidGraceMinHours ?? 2,
   );
+  const [listingMode, setListingMode] = useState<ListingMode>("fixed");
   const [busy, setBusy] = useState(false);
   const beginAction = useSingleFlightGuard();
   const [msg, setMsg] = useSystemMessageState();
@@ -253,12 +368,29 @@ export function V2MarketplaceView({
   const [gold, setGold] = useState<number | null>(preview?.viewerGold ?? null);
   // 둘러보기 — 구매 확인 모달 + 정렬/필터/검색(클라이언트측, 반환된 매물 위).
   const [confirmBuy, setConfirmBuy] = useState<Listing | null>(null);
+  const [confirmStackBuy, setConfirmStackBuy] = useState<{
+    group: MarketplaceStackGroup;
+    quantity: number;
+    totalPrice: number;
+  } | null>(null);
+  const [marketToolGroup, setMarketToolGroup] =
+    useState<MarketplaceStackGroup | null>(null);
+  const [orderCatalogOpen, setOrderCatalogOpen] = useState(false);
+  const [equipmentOrderOpen, setEquipmentOrderOpen] = useState(false);
+  const [repriceValues, setRepriceValues] = useState<Record<number, string>>({});
   const [confirmBid, setConfirmBid] = useState<Listing | null>(null);
   const [bidAmount, setBidAmount] = useState("");
   const [publicBids, setPublicBids] = useState<
     Array<{ amount: number; createdAt: string; isMine: boolean }>
   >([]);
   const [search, setSearch] = useState("");
+  const [browseMode, setBrowseMode] = useState<BrowseMode>("fixed");
+  const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [stackBuyQtys, setStackBuyQtys] = useState<Record<string, string>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [craftedOnly, setCraftedOnly] = useState(false);
   const [craftedQualityFilter, setCraftedQualityFilter] = useState<
@@ -267,9 +399,7 @@ export function V2MarketplaceView({
   const [craftedLevelFilter, setCraftedLevelFilter] = useState<
     "all" | "2" | "3" | "4" | "5"
   >("all");
-  const [sort, setSort] = useState<
-    "price_asc" | "price_desc" | "roll_desc" | "crafter_desc"
-  >("price_asc");
+  const [sort, setSort] = useState<MarketplaceBrowseSort>("price_asc");
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
   const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>(
     preview?.prices ?? {},
@@ -283,6 +413,9 @@ export function V2MarketplaceView({
   const [fixedListingHours, setFixedListingHours] = useState(
     preview?.fixedListingHours ?? 2,
   );
+  const [directListingHours, setDirectListingHours] = useState(
+    preview?.directListingHours ?? 24,
+  );
   const [clockMs, setClockMs] = useState(() => Date.now());
   // 아이템 옵션 카드(클릭 시 뜨는 팝오버) — 장비만(재료는 옵션 없음). V2ItemCard 재사용(읽기전용).
   const [card, setCard] = useState<{
@@ -292,6 +425,7 @@ export function V2MarketplaceView({
     craftQuality?: V2CraftQualityState;
     craftedBy?: V2CraftedBy;
     anchor: ItemCardAnchor;
+    compare?: boolean;
   } | null>(null);
 
   const loadBrowse = useCallback(async (mineOnly: boolean) => {
@@ -302,6 +436,7 @@ export function V2MarketplaceView({
       bidGraceMinHours?: number;
       bidGraceMaxHours?: number;
       fixedListingHours?: number;
+      directListingHours?: number;
       listings?: Listing[];
     } | null;
     if (!res.ok || !j?.ok) throw new Error(`목록 로드 실패 (${res.status})`);
@@ -316,24 +451,30 @@ export function V2MarketplaceView({
     if (typeof j.fixedListingHours === "number") {
       setFixedListingHours(j.fixedListingHours);
     }
+    if (typeof j.directListingHours === "number") {
+      setDirectListingHours(j.directListingHours);
+    }
     if (mineOnly) setMine(j.listings ?? []);
     else setListings(j.listings ?? []);
   }, []);
 
+  const loadEquipment = useCallback(async () => {
+    const response = await fetch("/api/v2/me/equipment");
+    if (!response.ok) return;
+    const payload = (await response.json()) as {
+      owned?: V2EquipInstance[];
+      equipped?: Partial<Record<V2EquipSlot, string>>;
+    };
+    setOwned(payload.owned ?? []);
+    setEquipped(payload.equipped ?? {});
+  }, []);
+
   const loadInventory = useCallback(async () => {
-    const [eq, inv, rm] = await Promise.all([
-      fetch("/api/v2/me/equipment"),
+    const [, inv, rm] = await Promise.all([
+      loadEquipment(),
       fetch("/api/v2/me/inventory"),
       fetch("/api/v2/me/rare-maps"),
     ]);
-    if (eq.ok) {
-      const j = (await eq.json()) as {
-        owned?: V2EquipInstance[];
-        equipped?: Partial<Record<V2EquipSlot, string>>;
-      };
-      setOwned(j.owned ?? []);
-      setEquipped(j.equipped ?? {});
-    }
     if (inv.ok) {
       const j = (await inv.json()) as {
         materials?: Partial<Record<V2MaterialId, number>>;
@@ -350,7 +491,7 @@ export function V2MarketplaceView({
       setRareMaps(j.rareMaps ?? []);
       setCashItems(j.cashItems ?? {});
     }
-  }, []);
+  }, [loadEquipment]);
 
   const loadPrices = useCallback(async () => {
     const res = await fetch("/api/v2/marketplace/prices");
@@ -363,7 +504,7 @@ export function V2MarketplaceView({
   }, []);
 
   const loadHistory = useCallback(async () => {
-    const res = await fetch("/api/v2/marketplace/history");
+    const res = await fetch("/api/v2/marketplace/history?mine=1");
     const j = (await res.json().catch(() => null)) as {
       ok?: boolean;
       trades?: Trade[];
@@ -373,8 +514,8 @@ export function V2MarketplaceView({
     setHistory(
       (j.trades ?? []).map((t) => ({
         id: t.id,
-        isMine: false,
-        isHighestBidder: false,
+        isMine: t.side === "sell",
+        isHighestBidder: t.side === "buy",
         kind: t.kind as Listing["kind"],
         itemId: t.itemId,
         itemName: t.itemName,
@@ -392,6 +533,40 @@ export function V2MarketplaceView({
     );
   }, []);
 
+  const loadMarketAutomation = useCallback(async () => {
+    const [ordersResponse, alertsResponse] = await Promise.all([
+      fetch("/api/v2/marketplace/buy-orders"),
+      fetch("/api/v2/marketplace/price-alerts"),
+    ]);
+    if (ordersResponse.ok) {
+      const payload = (await ordersResponse.json()) as {
+        ok?: boolean;
+        mine?: BuyOrder[];
+        book?: BuyOrderBookRow[];
+        equipmentOrders?: EquipmentBuyOrderView[];
+      };
+      if (payload.ok) {
+        setBuyOrders(payload.mine ?? []);
+        setBuyOrderBook(
+          Object.fromEntries(
+            (payload.book ?? []).map((row) => [
+              `${row.kind}:${row.itemId}`,
+              row,
+            ]),
+          ),
+        );
+        setEquipmentBuyOrders(payload.equipmentOrders ?? []);
+      }
+    }
+    if (alertsResponse.ok) {
+      const payload = (await alertsResponse.json()) as {
+        ok?: boolean;
+        alerts?: PriceAlert[];
+      };
+      if (payload.ok) setPriceAlerts(payload.alerts ?? []);
+    }
+  }, []);
+
   // 탭 전환 시 해당 데이터 로드. 둘러보기·팔기는 시세도 함께(가격 판단 참고).
   useEffect(() => {
     if (preview) return;
@@ -399,27 +574,114 @@ export function V2MarketplaceView({
     setError(null);
     if (tab === "browse") {
       void loadBrowse(false).catch((e) => setError(String(e.message ?? e)));
+      void loadEquipment();
       void loadPrices();
+      void loadMarketAutomation();
     } else if (tab === "mine") {
       void loadBrowse(true).catch((e) => setError(String(e.message ?? e)));
-    } else if (tab === "history") {
       void loadHistory().catch((e) => setError(String(e.message ?? e)));
+      void loadEquipment();
+      void loadPrices();
+      void loadMarketAutomation();
     } else {
       void loadInventory().catch(() => setError("인벤토리 로드 실패"));
       void loadPrices();
+      void loadMarketAutomation();
     }
-  }, [tab, loadBrowse, loadInventory, loadPrices, loadHistory, preview]);
+  }, [
+    tab,
+    loadBrowse,
+    loadEquipment,
+    loadInventory,
+    loadPrices,
+    loadHistory,
+    loadMarketAutomation,
+    preview,
+  ]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClockMs(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (preview || (tab !== "browse" && tab !== "mine")) return;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void Promise.all([
+        loadBrowse(tab === "mine"),
+        loadMarketAutomation(),
+      ]).catch(() => {
+        // 주기 갱신 실패는 현재 목록을 유지하고 다음 주기에 재시도한다.
+      });
+    };
+    const timer = window.setInterval(refresh, 10_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [loadBrowse, loadMarketAutomation, preview, tab]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(
+        window.localStorage.getItem(MARKETPLACE_FAVORITES_KEY) ?? "[]",
+      ) as unknown;
+      if (Array.isArray(saved)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저별 즐겨찾기 복원
+        setFavoriteKeys(
+          new Set(saved.filter((value): value is string => typeof value === "string")),
+        );
+      }
+      const savedSearches = JSON.parse(
+        window.localStorage.getItem(MARKETPLACE_RECENT_SEARCHES_KEY) ?? "[]",
+      ) as unknown;
+      if (Array.isArray(savedSearches)) {
+        setRecentSearches(
+          savedSearches
+            .filter((value): value is string => typeof value === "string")
+            .slice(0, 5),
+        );
+      }
+    } catch {
+      // 손상된 로컬 값은 빈 즐겨찾기로 무시한다.
+    }
+  }, []);
+
+  const toggleFavorite = (key: string) => {
+    setFavoriteKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      window.localStorage.setItem(
+        MARKETPLACE_FAVORITES_KEY,
+        JSON.stringify([...next]),
+      );
+      return next;
+    });
+  };
+
+  const rememberSearch = (value: string) => {
+    const query = value.trim();
+    if (!query) return;
+    setRecentSearches((current) => {
+      const next = [query, ...current.filter((item) => item !== query)].slice(0, 5);
+      window.localStorage.setItem(
+        MARKETPLACE_RECENT_SEARCHES_KEY,
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  };
+
   const handleBrowseTabChange = useCallback((nextTab: V2ItemTabKey) => {
     setBrowseTab(nextTab);
     if (nextTab === "material" || nextTab === "consumable") {
       setSort((current) =>
-        current === "roll_desc" || current === "crafter_desc"
+        current.startsWith("power_") ||
+        current.startsWith("roll_") ||
+        current.startsWith("crafter_")
           ? "price_asc"
           : current,
       );
@@ -427,15 +689,21 @@ export function V2MarketplaceView({
   }, []);
 
   const act = useCallback(
-    async (url: string, body: Record<string, unknown>, okMsg: string, after: () => Promise<void>) => {
+    async (
+      url: string,
+      body: Record<string, unknown>,
+      okMsg: string,
+      after: () => Promise<void>,
+      method: "POST" | "PATCH" = "POST",
+    ) => {
       const release = beginAction();
-      if (!release) return;
+      if (!release) return false;
       setBusy(true);
       setError(null);
       setMsg(null);
       try {
         const res = await fetch(url, {
-          method: "POST",
+          method,
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body),
         });
@@ -445,6 +713,7 @@ export function V2MarketplaceView({
               error?: string;
               retryAfterSec?: number;
               slotLimit?: number;
+              minimumPrice?: number;
             }
           | null;
         if (!res.ok || !j?.ok) {
@@ -454,14 +723,17 @@ export function V2MarketplaceView({
               res.status,
               j?.retryAfterSec,
               j?.slotLimit,
+              j?.minimumPrice,
             ),
           );
-          return;
+          return false;
         }
         setMsg(okMsg);
         await after();
+        return true;
       } catch (e) {
         setError(e instanceof Error ? e.message : "처리 실패");
+        return false;
       } finally {
         release();
         setBusy(false);
@@ -476,8 +748,165 @@ export function V2MarketplaceView({
       await loadBrowse(false);
       await refreshGameState();
     });
+  const buyStack = (
+    group: MarketplaceStackGroup,
+    quantity: number,
+    maxTotalPrice: number,
+  ) =>
+    act(
+      "/api/v2/marketplace/buy-stack",
+      {
+        kind: group.kind,
+        itemId: group.itemId,
+        quantity,
+        maxTotalPrice,
+      },
+      `✓ ${group.itemName} ${quantity.toLocaleString()}개 구매 완료`,
+      async () => {
+        await loadBrowse(false);
+        await refreshGameState();
+      },
+    );
   const cancel = (l: Listing) =>
     act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물 취소 — 아이템 반환", () => loadBrowse(true));
+  const createBuyOrder = async (
+    group: MarketplaceStackGroup,
+    quantity: number,
+    unitPrice: number,
+    days: number,
+  ) => {
+    const ok = await act(
+      "/api/v2/marketplace/buy-orders",
+      {
+        kind: group.kind,
+        itemId: group.itemId,
+        quantity,
+        unitPrice,
+        days,
+      },
+      `✓ ${group.itemName} 구매 주문 등록`,
+      async () => {
+        await Promise.all([loadMarketAutomation(), loadBrowse(false)]);
+        await refreshGameState();
+      },
+    );
+    if (ok) setMarketToolGroup(null);
+    return ok;
+  };
+  const createEquipmentBuyOrder = async (
+    itemId: V2EquipmentId,
+    minPower: number,
+    minQualityPct: number,
+    unitPrice: number,
+    days: number,
+  ) =>
+    act(
+      "/api/v2/marketplace/buy-orders",
+      {
+        kind: "equip",
+        itemId,
+        quantity: 1,
+        minPower,
+        minQualityPct,
+        unitPrice,
+        days,
+      },
+      `✓ ${V2_EQUIPMENT[itemId].name} 장비 구매 주문 등록`,
+      async () => {
+        await loadMarketAutomation();
+        await refreshGameState();
+      },
+    );
+  const createPriceAlert = (
+    group: MarketplaceStackGroup,
+    targetUnitPrice: number,
+  ) =>
+    act(
+      "/api/v2/marketplace/price-alerts",
+      {
+        kind: group.kind,
+        itemId: group.itemId,
+        targetUnitPrice,
+      },
+      `✓ ${group.itemName} 가격 알림 저장`,
+      loadMarketAutomation,
+    );
+  const cancelBuyOrder = (order: BuyOrder) =>
+    act(
+      "/api/v2/marketplace/buy-orders/cancel",
+      { orderId: order.id },
+      `✓ ${order.itemName} 구매 주문 취소`,
+      loadMarketAutomation,
+    );
+  const sellEquipmentToBuyOrder = (inst: V2EquipInstance) =>
+    act(
+      "/api/v2/marketplace/buy-orders/sell-equipment",
+      { iid: inst.iid },
+      `✓ ${V2_EQUIPMENT[inst.id]?.name ?? inst.id} 구매 주문에 판매`,
+      async () => {
+        await Promise.all([loadInventory(), loadMarketAutomation()]);
+      },
+    );
+  const sellEquipmentBatchToBuyOrders = (instances: V2EquipInstance[]) =>
+    act(
+      "/api/v2/marketplace/buy-orders/sell-equipment-batch",
+      { iids: instances.map((instance) => instance.iid) },
+      "✓ 일괄 판매 완료 — 변동된 주문은 자동 제외",
+      async () => {
+        await Promise.all([loadInventory(), loadMarketAutomation()]);
+      },
+    );
+  const updateBuyOrder = (
+    order: BuyOrder,
+    quantity: number,
+    unitPrice: number,
+    days: number,
+    minPower?: number,
+    minQualityPct?: number,
+  ) =>
+    act(
+      "/api/v2/marketplace/buy-orders",
+      {
+        orderId: order.id,
+        quantity,
+        unitPrice,
+        days,
+        ...(minPower == null ? {} : { minPower }),
+        ...(minQualityPct == null ? {} : { minQualityPct }),
+      },
+      `✓ ${order.itemName} 구매 주문 수정`,
+      async () => {
+        await Promise.all([loadMarketAutomation(), loadBrowse(true)]);
+        await refreshGameState();
+      },
+      "PATCH",
+    );
+  const cancelPriceAlert = (alert: PriceAlert) =>
+    act(
+      "/api/v2/marketplace/price-alerts",
+      { action: "cancel", alertId: alert.id },
+      `✓ ${alert.itemName} 가격 알림 취소`,
+      loadMarketAutomation,
+    );
+  const repriceListing = (listing: Listing) => {
+    const price = parseAmount(repriceValues[listing.id] ?? "");
+    if (!Number.isInteger(price) || price < 1) {
+      setError(
+        isStackableMarketplaceListing(listing)
+          ? "새 개당 가격을 입력하세요."
+          : "새 가격을 입력하세요.",
+      );
+      return;
+    }
+    return act(
+      "/api/v2/marketplace/reprice",
+      { listingId: listing.id, price },
+      `✓ ${listing.itemName} 가격 변경`,
+      async () => {
+        await Promise.all([loadBrowse(true), loadMarketAutomation()]);
+      },
+    );
+  };
 
   const openBid = async (listing: Listing) => {
     setConfirmBid(listing);
@@ -522,26 +951,42 @@ export function V2MarketplaceView({
     }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "equip", iid: inst.iid, price, graceHours },
+      {
+        kind: "equip",
+        iid: inst.iid,
+        price,
+        graceHours: listingMode === "fixed" ? 0 : graceHours,
+      },
       `✓ ${V2_EQUIPMENT[inst.id]?.name ?? inst.id} 등록`,
       loadInventory,
     );
   };
   const listMaterial = (matId: V2MaterialId) => {
-    const price = parseAmount(prices[matId]);
+    const unitPrice = parseAmount(prices[matId]);
     const qty = Number(qtys[matId] ?? "1");
-    if (!Number.isInteger(price) || price < 1) {
-      setError("가격은 1 이상 정수로 입력하세요.");
+    if (!Number.isInteger(unitPrice) || unitPrice < 1) {
+      setError("개당 가격은 1 이상 정수로 입력하세요.");
       return;
     }
     if (!Number.isInteger(qty) || qty < 1) {
       setError("수량은 1 이상 정수로 입력하세요.");
       return;
     }
+    const price = unitPrice * qty;
+    if (!Number.isSafeInteger(price) || price > 999_999_999) {
+      setError("판매 총액은 999,999,999골드를 넘을 수 없어요.");
+      return;
+    }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "material", itemId: matId, quantity: qty, price, graceHours },
-      `✓ ${V2_MATERIALS[matId]?.name ?? matId} ${qty}개 등록`,
+      {
+        kind: "material",
+        itemId: matId,
+        quantity: qty,
+        price,
+        graceHours: listingMode === "fixed" ? 0 : graceHours,
+      },
+      `✓ ${V2_MATERIALS[matId]?.name ?? matId} ${qty}개 · 개당 ${unitPrice.toLocaleString()}골드 등록`,
       loadInventory,
     );
   };
@@ -555,46 +1000,73 @@ export function V2MarketplaceView({
     }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "consumable", iid, price, graceHours },
+      {
+        kind: "consumable",
+        iid,
+        price,
+        graceHours: listingMode === "fixed" ? 0 : graceHours,
+      },
       "✓ 레어맵 등록",
       loadInventory,
     );
   };
 
   const listCashItem = (itemId: MuseunCashItemId) => {
-    const price = parseAmount(prices[itemId]);
+    const unitPrice = parseAmount(prices[itemId]);
     const quantity = parseAmount(qtys[itemId] ?? "1");
-    if (!Number.isInteger(price) || price < 1) {
-      setError("가격은 1 이상 정수로 입력하세요.");
+    if (!Number.isInteger(unitPrice) || unitPrice < 1) {
+      setError("개당 가격은 1 이상 정수로 입력하세요.");
       return;
     }
     if (!Number.isInteger(quantity) || quantity < 1) {
       setError("수량은 1 이상 정수로 입력하세요.");
       return;
     }
+    const price = unitPrice * quantity;
+    if (!Number.isSafeInteger(price) || price > 999_999_999) {
+      setError("판매 총액은 999,999,999골드를 넘을 수 없어요.");
+      return;
+    }
     return act(
       "/api/v2/marketplace/list",
-      { kind: "consumable", itemId, quantity, price, graceHours },
+      {
+        kind: "consumable",
+        itemId,
+        quantity,
+        price,
+        graceHours: listingMode === "fixed" ? 0 : graceHours,
+      },
       `✓ ${MUSEUN_CASH_ITEMS[itemId].name} ${quantity}개 등록`,
       loadInventory,
     );
   };
 
   const listCookingFood = (itemId: CookingFoodId) => {
-    const price = parseAmount(prices[itemId]);
+    const unitPrice = parseAmount(prices[itemId]);
     const quantity = parseAmount(qtys[itemId] ?? "1");
-    if (!Number.isInteger(price) || price < 1) {
-      setError("가격은 1 이상 정수로 입력하세요.");
+    if (!Number.isInteger(unitPrice) || unitPrice < 1) {
+      setError("개당 가격은 1 이상 정수로 입력하세요.");
       return;
     }
     if (!Number.isInteger(quantity) || quantity < 1) {
       setError("수량은 1 이상 정수로 입력하세요.");
       return;
     }
+    const price = unitPrice * quantity;
+    if (!Number.isSafeInteger(price) || price > 999_999_999) {
+      setError("판매 총액은 999,999,999골드를 넘을 수 없어요.");
+      return;
+    }
     const name = cookingFoodDefinition(itemId)?.name ?? "음식";
     return act(
       "/api/v2/marketplace/list",
-      { kind: "consumable", itemId, quantity, price, graceHours },
+      {
+        kind: "consumable",
+        itemId,
+        quantity,
+        price,
+        graceHours: listingMode === "fixed" ? 0 : graceHours,
+      },
       `✓ ${name} ${quantity}개 등록`,
       loadInventory,
     );
@@ -606,6 +1078,12 @@ export function V2MarketplaceView({
   );
   const sellableMats = (Object.keys(materials) as V2MaterialId[]).filter(
     (id) => (materials[id] ?? 0) > 0,
+  );
+  const sellableMaterialItems = sellableMats.filter(
+    (id) => itemTabForMaterial(id) === "material",
+  );
+  const sellableConsumableMaterials = sellableMats.filter(
+    (id) => itemTabForMaterial(id) === "consumable",
   );
   const matchesSellCraftFilter = (
     inst: V2EquipInstance,
@@ -634,7 +1112,12 @@ export function V2MarketplaceView({
     `${sellTab}:${sellSort}:${sellCraftFilter}`,
   );
   const sellMatPager = usePagination(
-    sellableMats,
+    sellableMaterialItems,
+    MARKETPLACE_PAGE_SIZE,
+    sellTab,
+  );
+  const sellConsumableMaterialPager = usePagination(
+    sellableConsumableMaterials,
     MARKETPLACE_PAGE_SIZE,
     sellTab,
   );
@@ -645,18 +1128,8 @@ export function V2MarketplaceView({
   );
 
   // 둘러보기 표시 매물 — 하위 탭(6부위/재료/소모품) + 검색/정렬. 반환된 활성 매물 위에서만.
-  const matchesBrowseTab = (l: Listing, activeTab: V2ItemTabKey): boolean => {
-    if (activeTab === "material") return l.kind === "material";
-    if (activeTab === "consumable") return l.kind === "consumable";
-    return (
-      l.kind === "equip" &&
-      V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]?.slot === activeTab
-    );
-  };
-  const rollPctOfListing = (l: Listing): number =>
-    l.kind === "equip"
-      ? (equipDetail(l.itemId, listingEquipRoll(l.instancePayload))?.pct ?? -1)
-      : -1;
+  const matchesBrowseTab = (l: Listing, activeTab: V2ItemTabKey): boolean =>
+    itemTabForMarketplaceListing(l.kind, l.itemId) === activeTab;
   const isCraftedListing = (l: Listing): boolean =>
     l.kind === "equip" && listingCraftedBy(l.instancePayload) != null;
   const isPlusOneCraftedListing = (l: Listing): boolean =>
@@ -666,30 +1139,49 @@ export function V2MarketplaceView({
     const craftedBy = listingCraftedBy(l.instancePayload);
     return (craftedBy?.level ?? 0) >= Number(minLevel);
   };
-  const crafterLevelOfListing = (l: Listing): number =>
-    l.kind === "equip" ? (listingCraftedBy(l.instancePayload)?.level ?? 0) : 0;
   const matchesSearch = (l: Listing, query: string): boolean => {
     if (!query) return true;
     if (l.itemName.toLowerCase().includes(query)) return true;
     const craftedBy = listingCraftedBy(l.instancePayload);
     return (craftedBy?.name ?? "").toLowerCase().includes(query);
   };
+  const favoriteKeyForListing = (l: Listing) => `${l.kind}:${l.itemId}`;
+  const isAuctionListing = (l: Listing): boolean =>
+    new Date(l.bidEndsAt).getTime() > clockMs ||
+    (l.highestBid ?? 0) > l.price;
   const q = search.trim().toLowerCase();
   const browseEquipmentTab =
     browseTab !== "material" && browseTab !== "consumable";
-  const browseSortOptions: [string, string][] = browseEquipmentTab
+  const browseSortOptions: [MarketplaceBrowseSort, string][] = browseEquipmentTab
     ? [
         ["price_asc", "가격 낮은순"],
         ["price_desc", "가격 높은순"],
+        ["power_desc", "위력 높은순"],
+        ["power_asc", "위력 낮은순"],
         ["roll_desc", "품질 높은순"],
+        ["roll_asc", "품질 낮은순"],
         ["crafter_desc", "제작자 Lv 높은순"],
+        ["crafter_asc", "제작자 Lv 낮은순"],
+        ["newest", "최근 등록순"],
+        ["oldest", "오래된 등록순"],
       ]
     : [
         ["price_asc", "가격 낮은순"],
         ["price_desc", "가격 높은순"],
+        ["newest", "최근 등록순"],
+        ["oldest", "오래된 등록순"],
       ];
+  const browseSortButtons = browseEquipmentTab
+    ? EQUIPMENT_BROWSE_SORT_BUTTONS
+    : STACK_BROWSE_SORT_BUTTONS;
   const displayedListings = (listings ?? [])
     .filter((l) => matchesBrowseTab(l, browseTab))
+    .filter((l) =>
+      browseMode === "auction"
+        ? isAuctionListing(l)
+        : !isAuctionListing(l) && new Date(l.expiresAt).getTime() > clockMs,
+    )
+    .filter((l) => !favoriteOnly || favoriteKeys.has(favoriteKeyForListing(l)))
     .filter((l) => !browseEquipmentTab || !craftedOnly || isCraftedListing(l))
     .filter(
       (l) =>
@@ -703,31 +1195,102 @@ export function V2MarketplaceView({
     )
     .filter((l) => matchesSearch(l, q))
     .slice()
-    .sort((a, b) => {
-      if (sort === "price_asc") return a.price - b.price;
-      if (sort === "price_desc") return b.price - a.price;
-      if (sort === "roll_desc") return rollPctOfListing(b) - rollPctOfListing(a);
-      if (sort === "crafter_desc") {
-        return crafterLevelOfListing(b) - crafterLevelOfListing(a);
+    .sort((a, b) => compareMarketplaceListings(a, b, sort));
+  const stackGroups =
+    browseMode === "fixed"
+      ? groupMarketplaceStackListings(displayedListings).sort((a, b) =>
+          sort === "price_desc"
+            ? b.minUnitPrice - a.minUnitPrice
+            : sort === "newest" || sort === "oldest"
+              ? compareMarketplaceListings(
+                  a.listings[0],
+                  b.listings[0],
+                  sort,
+                )
+              : a.minUnitPrice - b.minUnitPrice,
+        )
+      : [];
+  const orderCatalogGroups = (() => {
+    if (browseTab !== "material" && browseTab !== "consumable") return [];
+    const groups = new Map<string, MarketplaceStackGroup>();
+    for (const [itemId, material] of Object.entries(V2_MATERIALS)) {
+      if (
+        itemId === "v2_reforge_stone" ||
+        itemId === "v2_reforge_stone_high" ||
+        itemTabForMaterial(itemId as V2MaterialId) !== browseTab
+      ) {
+        continue;
       }
-      return 0;
-    });
-  const activeFilterCount = browseEquipmentTab
-    ? Number(craftedOnly) +
+      groups.set(`material:${itemId}`, {
+        key: `material:${itemId}`,
+        kind: "material",
+        itemId,
+        itemName: material.name,
+        totalQuantity: 0,
+        minUnitPrice: priceRef[itemId]?.unitAvg ?? 1,
+        listings: [],
+      });
+    }
+    if (browseTab === "consumable") {
+      for (const itemId of MUSEUN_TRADEABLE_ITEM_IDS) {
+        groups.set(`consumable:${itemId}`, {
+          key: `consumable:${itemId}`,
+          kind: "consumable",
+          itemId,
+          itemName: MUSEUN_CASH_ITEMS[itemId].name,
+          totalQuantity: 0,
+          minUnitPrice: priceRef[itemId]?.unitAvg ?? 1,
+          listings: [],
+        });
+      }
+      for (const itemId of Object.keys(priceRef)) {
+        if (!isCookingFoodId(itemId)) continue;
+        const definition = cookingFoodDefinition(itemId);
+        if (!definition) continue;
+        groups.set(`consumable:${itemId}`, {
+          key: `consumable:${itemId}`,
+          kind: "consumable",
+          itemId,
+          itemName: definition.name,
+          totalQuantity: 0,
+          minUnitPrice: priceRef[itemId]?.unitAvg ?? 1,
+          listings: [],
+        });
+      }
+    }
+    return [...groups.values()].sort((a, b) =>
+      a.itemName.localeCompare(b.itemName, "ko"),
+    );
+  })();
+  const individualListings = displayedListings.filter(
+    (listing) =>
+      browseMode === "auction" || !isStackableMarketplaceListing(listing),
+  );
+  const displayedItemCount = stackGroups.length + individualListings.length;
+  const activeFilterCount =
+    Number(favoriteOnly) +
+    (browseEquipmentTab
+      ? Number(craftedOnly) +
       Number(craftedQualityFilter !== "all") +
       Number(craftedLevelFilter !== "all")
-    : 0;
+      : 0);
   const activeSortLabel =
     browseSortOptions.find(([value]) => value === sort)?.[1] ?? "가격 낮은순";
   const resetBrowseFilters = () => {
     setCraftedOnly(false);
     setCraftedQualityFilter("all");
     setCraftedLevelFilter("all");
+    setFavoriteOnly(false);
   };
   const browsePager = usePagination(
-    displayedListings,
+    individualListings,
     MARKETPLACE_PAGE_SIZE,
-    `browse:${browseTab}:${q}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
+    `browse:${browseMode}:${browseTab}:${q}:${favoriteOnly}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
+  );
+  const stackGroupPager = usePagination(
+    stackGroups,
+    MARKETPLACE_PAGE_SIZE,
+    `stack:${browseTab}:${q}:${favoriteOnly}:${sort}`,
   );
   const historyPager = usePagination(
     history ?? [],
@@ -744,6 +1307,35 @@ export function V2MarketplaceView({
     void buy(l);
   };
 
+  const openStackBuy = (group: MarketplaceStackGroup) => {
+    const quantity = parseAmount(stackBuyQtys[group.key] ?? "1");
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > group.totalQuantity
+    ) {
+      setError(`구매 수량은 1~${group.totalQuantity.toLocaleString()}개로 입력하세요.`);
+      return;
+    }
+    const totalPrice = marketplaceStackQuote(group.listings, quantity);
+    if (totalPrice == null) {
+      setError("선택한 수량의 구매 견적을 만들 수 없어요. 목록을 새로고침해 주세요.");
+      return;
+    }
+    setConfirmStackBuy({ group, quantity, totalPrice });
+  };
+
+  const confirmedStackBuy = () => {
+    const confirmation = confirmStackBuy;
+    if (!confirmation) return;
+    setConfirmStackBuy(null);
+    void buyStack(
+      confirmation.group,
+      confirmation.quantity,
+      confirmation.totalPrice,
+    );
+  };
+
   // 아이템 클릭 → 옵션 카드(장비만). itemId 카탈로그 조회 후 클릭 위치에 앵커.
   const openCardFor = (
     itemId: string,
@@ -755,12 +1347,24 @@ export function V2MarketplaceView({
   ) => {
     const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
     if (item) {
-      setCard({ item, roll, enhance, craftQuality, craftedBy, anchor: anchorOf(el) });
+      setCard({
+        item,
+        roll,
+        enhance,
+        craftQuality,
+        craftedBy,
+        anchor: anchorOf(el),
+        compare: false,
+      });
     }
   };
 
   const availableGold =
     gold === null ? null : coreLoopOn ? gold + bankedGold : gold;
+  const activeMarketToolGroup = marketToolGroup
+    ? stackGroups.find((group) => group.key === marketToolGroup.key) ??
+      marketToolGroup
+    : null;
 
   return (
     <main className="mx-auto max-w-[760px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
@@ -792,7 +1396,7 @@ export function V2MarketplaceView({
         </div>
         <nav
           aria-label="거래소 메뉴"
-          className="grid grid-cols-4 gap-1 border-t border-zinc-200 p-1.5 dark:border-zinc-700"
+          className="grid grid-cols-3 gap-1 border-t border-zinc-200 p-1.5 dark:border-zinc-700"
         >
           {MARKETPLACE_TABS.map(({ key, label, description, Icon }) => {
             const active = tab === key;
@@ -864,6 +1468,42 @@ export function V2MarketplaceView({
               />
             </div>
             <div className="space-y-3 p-3">
+              <div className="grid grid-cols-2 rounded-lg border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-700 dark:bg-zinc-800">
+                {([
+                  ["fixed", "즉시구매"],
+                  ["auction", "경매"],
+                ] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={browseMode === mode}
+                    onClick={() => setBrowseMode(mode)}
+                    className={`rounded-md px-3 py-2 text-xs font-semibold transition ${
+                      browseMode === mode
+                        ? "bg-white text-sky-700 shadow-sm dark:bg-zinc-950 dark:text-sky-300"
+                        : "text-zinc-500 dark:text-zinc-400"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {browseMode === "fixed" ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    browseEquipmentTab
+                      ? setEquipmentOrderOpen(true)
+                      : setOrderCatalogOpen(true)
+                  }
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                >
+                  <ShoppingCart size={15} weight="duotone" />
+                  {browseEquipmentTab
+                    ? "조건을 정해 장비 구매 주문 만들기"
+                    : "판매 매물이 없어도 구매 주문 만들기"}
+                </button>
+              ) : null}
               <div className="flex gap-2">
                 <label className="relative min-w-0 flex-1">
                   <span className="sr-only">아이템 또는 제작자 검색</span>
@@ -877,6 +1517,12 @@ export function V2MarketplaceView({
                     placeholder="아이템 또는 제작자 검색"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
+                    onBlur={(event) => rememberSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        rememberSearch(event.currentTarget.value);
+                      }
+                    }}
                     className="w-full rounded-md border border-zinc-300 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 dark:border-zinc-700 dark:bg-zinc-900"
                   />
                   {search ? (
@@ -910,6 +1556,57 @@ export function V2MarketplaceView({
                 </button>
               </div>
 
+              <div
+                className="flex gap-1.5 overflow-x-auto pb-0.5"
+                role="group"
+                aria-label="매물 정렬"
+              >
+                {browseSortButtons.map((button) => {
+                  const active =
+                    sort === button.ascending || sort === button.descending;
+                  const ascending = sort === button.ascending;
+                  const next =
+                    sort === button.ascending
+                      ? button.descending
+                      : sort === button.descending
+                        ? button.ascending
+                        : button.initial;
+                  return (
+                    <button
+                      key={button.key}
+                      type="button"
+                      aria-pressed={active}
+                      aria-label={`${button.label} ${active ? (ascending ? "오름차순" : "내림차순") : "정렬"}`}
+                      onClick={() => setSort(next)}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                        active
+                          ? "border-sky-600 bg-sky-600 text-white"
+                          : "border-zinc-300 bg-white text-zinc-600 hover:border-sky-300 hover:text-sky-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                      }`}
+                    >
+                      {button.label}
+                      {active ? (ascending ? " ↑" : " ↓") : ""}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {recentSearches.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span className="text-zinc-400">최근 검색</span>
+                  {recentSearches.map((query) => (
+                    <button
+                      key={query}
+                      type="button"
+                      onClick={() => setSearch(query)}
+                      className="rounded-full border border-zinc-200 bg-white px-2 py-1 text-zinc-600 hover:border-sky-300 hover:text-sky-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                    >
+                      {query}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               {filtersOpen && (
                 <div className={`${SURFACE_INSET} grid gap-3 p-3 sm:grid-cols-2`}>
                   <label className="space-y-1">
@@ -918,7 +1615,7 @@ export function V2MarketplaceView({
                     </span>
                     <SelectControl
                       value={sort}
-                      onChange={(v) => setSort(v as typeof sort)}
+                      onChange={(v) => setSort(v as MarketplaceBrowseSort)}
                       options={browseSortOptions}
                       className="w-full"
                     />
@@ -979,13 +1676,32 @@ export function V2MarketplaceView({
                       </div>
                     </>
                   )}
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                      즐겨찾기
+                    </span>
+                    <button
+                      type="button"
+                      aria-pressed={favoriteOnly}
+                      onClick={() => setFavoriteOnly((value) => !value)}
+                      className={`flex w-full items-center gap-1.5 rounded-md border px-3 py-2 text-left text-xs font-medium transition ${
+                        favoriteOnly
+                          ? "border-amber-500 bg-amber-500 text-white"
+                          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <Star size={14} weight={favoriteOnly ? "fill" : "regular"} />
+                      {favoriteOnly ? "즐겨찾기만 보는 중" : "즐겨찾기만 보기"}
+                    </button>
+                  </div>
                 </div>
               )}
 
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                    매물 {displayedListings.length.toLocaleString()}개
+                    {browseMode === "fixed" && stackGroups.length > 0 ? "품목" : "매물"}{" "}
+                    {displayedItemCount.toLocaleString()}개
                   </span>
                   <span className="text-zinc-400">·</span>
                   <span className="text-zinc-500 dark:text-zinc-400">
@@ -1024,10 +1740,33 @@ export function V2MarketplaceView({
               </div>
             </div>
           </Card>
-          <ListingList
-            rows={listings === null ? null : browsePager.pageItems}
-            emptyText={listings && listings.length > 0 ? "조건에 맞는 매물이 없어요." : "등록된 매물이 없어요."}
-            action={(l) => {
+          {browseMode === "fixed" && stackGroups.length > 0 ? (
+            <MarketplaceStackBrowse
+              groups={stackGroupPager.pageItems}
+              quantities={stackBuyQtys}
+              onQuantityChange={(key, value) =>
+                setStackBuyQtys((current) => ({ ...current, [key]: value }))
+              }
+              onBuy={openStackBuy}
+              busy={busy}
+              favoriteKeys={favoriteKeys}
+              onToggleFavorite={toggleFavorite}
+              orderBook={buyOrderBook}
+              onOpenTools={setMarketToolGroup}
+            />
+          ) : null}
+          {browseMode === "fixed" && stackGroups.length > MARKETPLACE_PAGE_SIZE ? (
+            <Pagination
+              page={stackGroupPager.page}
+              pageCount={stackGroupPager.pageCount}
+              setPage={stackGroupPager.setPage}
+            />
+          ) : null}
+          {individualListings.length > 0 || stackGroups.length === 0 ? (
+            <ListingList
+              rows={listings === null ? null : browsePager.pageItems}
+              emptyText={listings && listings.length > 0 ? "조건에 맞는 매물이 없어요." : "등록된 매물이 없어요."}
+              action={(l) => {
               const bidding = new Date(l.bidEndsAt).getTime() > clockMs;
               const expired = new Date(l.expiresAt).getTime() <= clockMs;
               const auctionLocked =
@@ -1075,13 +1814,16 @@ export function V2MarketplaceView({
                   구매
                 </button>
               );
-            }}
-            priceRef={priceRef}
-            frontierDepth={frontierDepth}
-            clockMs={clockMs}
-            onOpenCard={openCardFor}
-          />
-          {listings !== null && displayedListings.length > 0 && (
+              }}
+              priceRef={priceRef}
+              frontierDepth={frontierDepth}
+              clockMs={clockMs}
+              onOpenCard={openCardFor}
+              favoriteKeys={favoriteKeys}
+              onToggleFavorite={toggleFavorite}
+            />
+          ) : null}
+          {listings !== null && individualListings.length > MARKETPLACE_PAGE_SIZE && (
             <Pagination
               page={browsePager.page}
               pageCount={browsePager.pageCount}
@@ -1091,68 +1833,139 @@ export function V2MarketplaceView({
         </>
       )}
 
-      {tab === "history" && (
-        <>
-          <ListingList
-            rows={history === null ? null : historyPager.pageItems}
-            emptyText="아직 체결된 거래가 없어요."
-            historical
-            priceRef={{}}
-            frontierDepth={frontierDepth}
-            clockMs={clockMs}
-            onOpenCard={openCardFor}
-            action={(l) => (
-              <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
-                {timeAgo(l.createdAt)}
-              </span>
-            )}
-          />
-          {history !== null && history.length > 0 && (
-            <Pagination
-              page={historyPager.page}
-              pageCount={historyPager.pageCount}
-              setPage={historyPager.setPage}
-            />
-          )}
-        </>
-      )}
-
       {tab === "mine" && (
         <>
-          <ListingList
-            rows={mine === null ? null : minePager.pageItems}
-            emptyText="등록한 매물이 없어요."
-            priceRef={priceRef}
-            frontierDepth={frontierDepth}
-            clockMs={clockMs}
-            onOpenCard={openCardFor}
-            action={(l) => (
-              l.bidCount > 0 ? (
+          <Card padding="none" className="overflow-hidden">
+            <div className="grid grid-cols-3 p-1.5">
+              {([
+                ["active", "판매 중", Package],
+                ["orders", "구매 주문", ShoppingCart],
+                ["history", "거래 내역", Receipt],
+              ] as const).map(([key, label, Icon]) => (
                 <button
+                  key={key}
                   type="button"
-                  onClick={() => void openBid(l)}
-                  className="h-9 shrink-0 rounded-md border border-sky-300 px-3 text-xs font-medium text-sky-800 dark:border-sky-800 dark:text-sky-300"
+                  aria-pressed={mineTab === key}
+                  onClick={() => setMineTab(key)}
+                  className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition ${
+                    mineTab === key
+                      ? "bg-sky-600 text-white"
+                      : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }`}
                 >
-                  입찰 {l.bidCount}건
+                  <Icon size={15} weight={mineTab === key ? "fill" : "duotone"} />
+                  {label}
+                  {key === "active" && mine !== null && mine.length > 0 ? (
+                    <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] leading-none text-sky-700">
+                      {mine.length}
+                    </span>
+                  ) : key === "orders" && buyOrders !== null ? (
+                    <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] leading-none text-sky-700">
+                      {buyOrders.filter((order) => order.status === "active").length}
+                    </span>
+                  ) : null}
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => cancel(l)}
-                  disabled={busy}
-                  className="h-9 shrink-0 rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                >
-                  취소
-                </button>
-              )
-            )}
-          />
-          {mine !== null && mine.length > 0 && (
-            <Pagination
-              page={minePager.page}
-              pageCount={minePager.pageCount}
-              setPage={minePager.setPage}
+              ))}
+            </div>
+          </Card>
+          {mineTab === "active" ? (
+            <>
+              <ListingList
+                rows={mine === null ? null : minePager.pageItems}
+                emptyText="등록한 매물이 없어요."
+                priceRef={priceRef}
+                frontierDepth={frontierDepth}
+                clockMs={clockMs}
+                onOpenCard={openCardFor}
+                action={(l) =>
+                  l.bidCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => void openBid(l)}
+                      className="h-9 shrink-0 rounded-md border border-sky-300 px-3 text-xs font-medium text-sky-800 dark:border-sky-800 dark:text-sky-300"
+                    >
+                      입찰 {l.bidCount}건
+                    </button>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <NumberInput
+                        aria-label={`${l.itemName} 새 ${isStackableMarketplaceListing(l) ? "개당 " : ""}가격`}
+                        placeholder={isStackableMarketplaceListing(l) ? "새 개당 가격" : "새 가격"}
+                        value={repriceValues[l.id] ?? ""}
+                        onValueChange={(value) =>
+                          setRepriceValues((current) => ({
+                            ...current,
+                            [l.id]: value,
+                          }))
+                        }
+                        className="h-9 w-24 rounded-md border border-zinc-300 bg-white px-2 text-xs tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => repriceListing(l)}
+                        disabled={busy}
+                        className="h-9 rounded-md border border-sky-300 px-2.5 text-xs font-medium text-sky-700 disabled:opacity-50 dark:border-sky-800 dark:text-sky-300"
+                      >
+                        가격 변경
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cancel(l)}
+                        disabled={busy}
+                        className="h-9 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  )
+                }
+              />
+              {mine !== null && mine.length > 0 && (
+                <Pagination
+                  page={minePager.page}
+                  pageCount={minePager.pageCount}
+                  setPage={minePager.setPage}
+                />
+              )}
+            </>
+          ) : mineTab === "orders" ? (
+            <BuyOrderManagement
+              orders={buyOrders}
+              alerts={priceAlerts}
+              busy={busy}
+              clockMs={clockMs}
+              onCancelOrder={cancelBuyOrder}
+              onUpdateOrder={updateBuyOrder}
+              onCancelAlert={cancelPriceAlert}
             />
+          ) : (
+            <>
+              <ListingList
+                rows={history === null ? null : historyPager.pageItems}
+                emptyText="아직 체결된 거래가 없어요."
+                historical
+                priceRef={{}}
+                frontierDepth={frontierDepth}
+                clockMs={clockMs}
+                onOpenCard={openCardFor}
+                action={(l) => (
+                  <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+                    <span className={l.isMine ? "text-emerald-600 dark:text-emerald-400" : "text-sky-600 dark:text-sky-400"}>
+                      {l.isMine ? "판매" : "구매"}
+                    </span>
+                    <br />
+                    {timeAgo(l.createdAt)}
+                  </span>
+                )}
+              />
+              {history !== null && history.length > 0 && (
+                <Pagination
+                  page={historyPager.page}
+                  pageCount={historyPager.pageCount}
+                  setPage={historyPager.setPage}
+                />
+              )}
+            </>
           )}
         </>
       )}
@@ -1160,29 +1973,61 @@ export function V2MarketplaceView({
       {tab === "sell" && (
         <div className="space-y-3">
           <Card padding="sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold">공개 입찰 유예</div>
-                <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  유예 중에는 입찰만 받고, 초과 입찰이 없으면 이후 {fixedListingHours}시간 동안 즉시구매로 판매합니다.
-                </div>
-              </div>
-              <select
-                value={graceHours}
-                onChange={(event) => setGraceHours(Number(event.target.value))}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900"
-                aria-label="입찰 유예 시간"
+            <div className="text-sm font-semibold">판매 방식</div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                aria-pressed={listingMode === "fixed"}
+                onClick={() => setListingMode("fixed")}
+                className={`rounded-lg border p-3 text-left transition ${
+                  listingMode === "fixed"
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
+                    : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                }`}
               >
-                {Array.from(
-                  { length: bidGraceMaxHours - bidGraceMinHours + 1 },
-                  (_, index) => bidGraceMinHours + index,
-                ).map((hours) => (
-                  <option key={hours} value={hours}>
-                    {hours}시간
-                  </option>
-                ))}
-              </select>
+                <span className="block text-xs font-semibold">즉시구매 · 기본</span>
+                <span className="mt-1 block text-[11px] opacity-80">
+                  등록 즉시 구매 가능 · {directListingHours}시간 노출
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={listingMode === "auction"}
+                onClick={() => setListingMode("auction")}
+                className={`rounded-lg border p-3 text-left transition ${
+                  listingMode === "auction"
+                    ? "border-sky-600 bg-sky-50 text-sky-900 dark:bg-sky-950 dark:text-sky-100"
+                    : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                }`}
+              >
+                <span className="block text-xs font-semibold">공개 입찰 · 선택</span>
+                <span className="mt-1 block text-[11px] opacity-80">
+                  먼저 입찰을 받은 뒤 조건에 따라 낙찰
+                </span>
+              </button>
             </div>
+            {listingMode === "auction" ? (
+              <div className={`${SURFACE_INSET} mt-2 flex flex-wrap items-center justify-between gap-2 p-2.5`}>
+                <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                  초과 입찰이 없으면 유예 뒤 {fixedListingHours}시간 동안 즉시구매로 전환됩니다.
+                </span>
+                <select
+                  value={graceHours}
+                  onChange={(event) => setGraceHours(Number(event.target.value))}
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900"
+                  aria-label="입찰 유예 시간"
+                >
+                  {Array.from(
+                    { length: bidGraceMaxHours - bidGraceMinHours + 1 },
+                    (_, index) => bidGraceMinHours + index,
+                  ).map((hours) => (
+                    <option key={hours} value={hours}>
+                      입찰 {hours}시간
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </Card>
           {/* 슬롯 서브탭 — 인벤토리와 동일 구성. 배경 위라 surface 패널로 감쌈(라이트모드 가독성). */}
           <Card padding="none" className="overflow-hidden">
@@ -1199,24 +2044,40 @@ export function V2MarketplaceView({
           </Card>
 
           {sellTab === "consumable" ? (
-            <MarketplaceRareMapTab
-              rareMaps={rareMaps}
-              cashItems={cashItems}
-              cookingFoods={cookingFoods}
-              pager={sellRareMapPager}
-              prices={prices}
-              setPrices={setPrices}
-              qtys={qtys}
-              setQtys={setQtys}
-              priceRef={priceRef}
-              busy={busy}
-              onListConsumable={listConsumable}
-              onListCashItem={listCashItem}
-              onListCookingFood={listCookingFood}
-            />
+            <div className="space-y-2">
+              <MarketplaceMaterialTab
+                items={sellableConsumableMaterials}
+                pager={sellConsumableMaterialPager}
+                materials={materials}
+                prices={prices}
+                setPrices={setPrices}
+                qtys={qtys}
+                setQtys={setQtys}
+                priceRef={priceRef}
+                busy={busy}
+                onListMaterial={listMaterial}
+                hideEmpty
+              />
+              <MarketplaceRareMapTab
+                rareMaps={rareMaps}
+                cashItems={cashItems}
+                cookingFoods={cookingFoods}
+                pager={sellRareMapPager}
+                prices={prices}
+                setPrices={setPrices}
+                qtys={qtys}
+                setQtys={setQtys}
+                priceRef={priceRef}
+                busy={busy}
+                onListConsumable={listConsumable}
+                onListCashItem={listCashItem}
+                onListCookingFood={listCookingFood}
+                hideEmpty={sellableConsumableMaterials.length > 0}
+              />
+            </div>
           ) : sellTab === "material" ? (
             <MarketplaceMaterialTab
-              items={sellableMats}
+              items={sellableMaterialItems}
               pager={sellMatPager}
               materials={materials}
               prices={prices}
@@ -1239,7 +2100,10 @@ export function V2MarketplaceView({
               setPrices={setPrices}
               priceRef={priceRef}
               busy={busy}
+              equipmentBuyOrders={equipmentBuyOrders}
               onListEquip={listEquip}
+              onSellToBuyOrder={sellEquipmentToBuyOrder}
+              onSellBatchToBuyOrders={sellEquipmentBatchToBuyOrders}
               onOpenCard={openCardFor}
             />
           )}
@@ -1260,6 +2124,53 @@ export function V2MarketplaceView({
         />
       )}
 
+      {confirmStackBuy && (
+        <StackBuyConfirm
+          confirmation={confirmStackBuy}
+          availableGold={availableGold}
+          busy={busy}
+          onConfirm={confirmedStackBuy}
+          onCancel={() => setConfirmStackBuy(null)}
+        />
+      )}
+
+      {activeMarketToolGroup && (
+        <MarketToolsDialog
+          group={activeMarketToolGroup}
+          bestBuyOrder={buyOrderBook[activeMarketToolGroup.key]}
+          existingAlert={priceAlerts?.find(
+            (alert) =>
+              alert.status === "active" &&
+              `${alert.kind}:${alert.itemId}` === activeMarketToolGroup.key,
+          )}
+          busy={busy}
+          onCreateOrder={createBuyOrder}
+          onCreateAlert={createPriceAlert}
+          onClose={() => setMarketToolGroup(null)}
+        />
+      )}
+
+      {orderCatalogOpen ? (
+        <BuyOrderCatalogDialog
+          groups={orderCatalogGroups}
+          onSelect={(group) => {
+            setOrderCatalogOpen(false);
+            setMarketToolGroup(group);
+          }}
+          onClose={() => setOrderCatalogOpen(false)}
+        />
+      ) : null}
+
+      {equipmentOrderOpen ? (
+        <EquipmentBuyOrderDialog
+          slot={browseTab as V2EquipSlot}
+          priceRef={priceRef}
+          busy={busy}
+          onCreate={createEquipmentBuyOrder}
+          onClose={() => setEquipmentOrderOpen(false)}
+        />
+      ) : null}
+
       {confirmBid && (
         <BidDialog
           listing={confirmBid}
@@ -1273,17 +2184,63 @@ export function V2MarketplaceView({
         />
       )}
 
-      {card && (
-        <V2ItemCard
-          item={card.item}
-          roll={card.roll}
-          enhance={card.enhance}
-          craftQuality={card.craftQuality}
-          craftedBy={card.craftedBy}
-          anchor={card.anchor}
-          onClose={() => setCard(null)}
-        />
-      )}
+      {card &&
+        (() => {
+          const equippedInst = equippedInstanceForMarketplaceItem(
+            card.item,
+            owned,
+            equipped,
+          );
+          const equippedItemIds = equippedItemIdsForMarketplace(
+            owned,
+            equipped,
+          );
+          if (card.compare && equippedInst) {
+            const equippedItem = V2_EQUIPMENT[equippedInst.id];
+            return (
+              <V2ItemCompareCard
+                candidate={{
+                  item: card.item,
+                  roll: card.roll,
+                  enhance: card.enhance,
+                  craftQuality: card.craftQuality,
+                  craftedBy: card.craftedBy,
+                }}
+                equipped={{
+                  item: equippedItem,
+                  roll: equippedInst.roll,
+                  enhance: equippedInst.enhance,
+                  craftQuality: equippedInst.craftQuality,
+                  craftedBy: equippedInst.craftedBy,
+                }}
+                equippedIds={equippedItemIds}
+                onClose={() => setCard(null)}
+              />
+            );
+          }
+          return (
+            <V2ItemCard
+              item={card.item}
+              roll={card.roll}
+              enhance={card.enhance}
+              craftQuality={card.craftQuality}
+              craftedBy={card.craftedBy}
+              anchor={card.anchor}
+              equippedIds={equippedItemIds}
+              compare={
+                equippedInst
+                  ? {
+                      onCompare: () =>
+                        setCard((current) =>
+                          current ? { ...current, compare: true } : current,
+                        ),
+                    }
+                  : undefined
+              }
+              onClose={() => setCard(null)}
+            />
+          );
+        })()}
     </main>
   );
 }
@@ -1388,6 +2345,1002 @@ function BidDialog({
         >
           닫기
         </button>
+      </div>
+    </div>
+  );
+}
+
+function BuyOrderManagement({
+  orders,
+  alerts,
+  busy,
+  clockMs,
+  onCancelOrder,
+  onUpdateOrder,
+  onCancelAlert,
+}: {
+  orders: BuyOrder[] | null;
+  alerts: PriceAlert[] | null;
+  busy: boolean;
+  clockMs: number;
+  onCancelOrder: (order: BuyOrder) => void;
+  onUpdateOrder: (
+    order: BuyOrder,
+    quantity: number,
+    unitPrice: number,
+    days: number,
+    minPower?: number,
+    minQualityPct?: number,
+  ) => Promise<unknown>;
+  onCancelAlert: (alert: PriceAlert) => void;
+}) {
+  const [edits, setEdits] = useState<
+    Record<
+      number,
+      {
+        quantity: string;
+        unitPrice: string;
+        days: string;
+        minPower: string;
+        minQualityPct: string;
+      } | undefined
+    >
+  >({});
+  if (orders === null || alerts === null) {
+    return (
+      <Card padding="md">
+        <div className="animate-pulse text-sm text-zinc-400">구매 주문을 불러오는 중…</div>
+      </Card>
+    );
+  }
+  const activeOrders = orders.filter((order) => order.status === "active");
+  const recentOrders = orders.filter((order) => order.status !== "active").slice(0, 10);
+  const activeAlerts = alerts.filter((alert) => alert.status === "active");
+  return (
+    <div className="space-y-3">
+      <Card padding="sm">
+        <div className="text-sm font-semibold">활성 구매 주문</div>
+        <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          골드는 주문 등록 때 보관되며, 체결 물품과 잔여금은 우편함으로 도착합니다.
+        </div>
+      </Card>
+      {activeOrders.length === 0 ? (
+        <Card padding="sm">
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">활성 구매 주문이 없어요.</div>
+        </Card>
+      ) : (
+        activeOrders.map((order) => {
+          const filled = order.quantityInitial - order.quantityRemaining;
+          const progress = Math.round((filled / order.quantityInitial) * 100);
+          const edit = edits[order.id];
+          const editQuantity = parseAmount(edit?.quantity ?? "");
+          const editUnitPrice = parseAmount(edit?.unitPrice ?? "");
+          const editDays = parseAmount(edit?.days ?? "");
+          const editMinPower = parseAmount(edit?.minPower ?? "");
+          const editMinQualityPct = parseAmount(edit?.minQualityPct ?? "");
+          const editValid =
+            (order.kind === "equip" ||
+              (Number.isInteger(editQuantity) && editQuantity >= 1)) &&
+            Number.isInteger(editUnitPrice) &&
+            editUnitPrice >= 1 &&
+            Number.isInteger(editDays) &&
+            editDays >= 1 &&
+            editDays <= 7 &&
+            (order.kind !== "equip" ||
+              (Number.isInteger(editMinPower) &&
+                editMinPower >= 1 &&
+                Number.isInteger(editMinQualityPct) &&
+                editMinQualityPct >= 0 &&
+                editMinQualityPct <= 100));
+          return (
+            <Card key={order.id} padding="sm">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold">{order.itemName}</div>
+                  <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {order.kind === "equip" ? (
+                      <>
+                        최대 {order.unitPrice.toLocaleString()}G · 최소 위력 {order.minPower?.toLocaleString() ?? "-"} · 품질 {order.minQualityPct ?? 0}% 이상
+                      </>
+                    ) : (
+                      <>
+                        개당 최대 {order.unitPrice.toLocaleString()}G · 남은 수량 {order.quantityRemaining.toLocaleString()}/{order.quantityInitial.toLocaleString()}
+                      </>
+                    )}
+                  </div>
+                  {order.kind !== "equip" ? (
+                    <div className="mt-1 h-1.5 w-44 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                    </div>
+                  ) : null}
+                  <div className="mt-1 text-[10px] text-zinc-400">
+                    보관 골드 {order.goldEscrow.toLocaleString()}G · {remainingLabel(order.expiresAt, clockMs)}
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    aria-expanded={edit != null}
+                    onClick={() =>
+                      setEdits((current) => ({
+                        ...current,
+                        [order.id]: edit
+                          ? undefined
+                          : {
+                              quantity: String(order.quantityRemaining),
+                              unitPrice: String(order.unitPrice),
+                              days: "3",
+                              minPower: String(order.minPower ?? 1),
+                              minQualityPct: String(order.minQualityPct ?? 0),
+                            },
+                      }))
+                    }
+                    disabled={busy}
+                    className="rounded-md border border-sky-300 bg-white px-3 py-2 text-xs font-medium text-sky-700 disabled:opacity-50 dark:border-sky-800 dark:bg-zinc-900 dark:text-sky-300"
+                  >
+                    {edit ? "닫기" : "주문 수정"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onCancelOrder(order)}
+                    disabled={busy}
+                    className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    주문 취소
+                  </button>
+                </div>
+              </div>
+              {edit ? (
+                <div className={`${SURFACE_INSET} mt-3 p-3`}>
+                  <div className={`grid gap-2 ${order.kind === "equip" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                    {order.kind !== "equip" ? (
+                      <label className="space-y-1">
+                        <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
+                          남은 수량
+                        </span>
+                        <NumberInput
+                          aria-label={`${order.itemName} 수정 수량`}
+                          value={edit.quantity}
+                          onValueChange={(value) =>
+                            setEdits((current) => ({
+                              ...current,
+                              [order.id]: { ...edit, quantity: value },
+                            }))
+                          }
+                          min={1}
+                          className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                      </label>
+                    ) : (
+                      <>
+                        <label className="space-y-1">
+                          <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최소 위력</span>
+                          <NumberInput
+                            aria-label={`${order.itemName} 수정 최소 위력`}
+                            value={edit.minPower}
+                            onValueChange={(value) => setEdits((current) => ({ ...current, [order.id]: { ...edit, minPower: value } }))}
+                            min={1}
+                            className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최소 품질 %</span>
+                          <NumberInput
+                            aria-label={`${order.itemName} 수정 최소 품질`}
+                            value={edit.minQualityPct}
+                            onValueChange={(value) => setEdits((current) => ({ ...current, [order.id]: { ...edit, minQualityPct: value } }))}
+                            min={0}
+                            max={100}
+                            className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                        </label>
+                      </>
+                    )}
+                    <label className="space-y-1">
+                      <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
+                        개당 가격
+                      </span>
+                      <NumberInput
+                        aria-label={`${order.itemName} 수정 개당 가격`}
+                        value={edit.unitPrice}
+                        onValueChange={(value) =>
+                          setEdits((current) => ({
+                            ...current,
+                            [order.id]: { ...edit, unitPrice: value },
+                          }))
+                        }
+                        min={1}
+                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
+                        새 기간
+                      </span>
+                      <select
+                        value={edit.days}
+                        onChange={(event) =>
+                          setEdits((current) => ({
+                            ...current,
+                            [order.id]: { ...edit, days: event.target.value },
+                          }))
+                        }
+                        aria-label={`${order.itemName} 수정 기간`}
+                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      >
+                        {[1, 3, 7].map((days) => (
+                          <option key={days} value={days}>
+                            {days}일
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      가격 변경·수량 증가는 같은 가격대의 시간 우선순위가 갱신됩니다.
+                    </span>
+                    <button
+                      type="button"
+                      disabled={busy || !editValid}
+                      onClick={() => {
+                        if (!editValid) return;
+                        void onUpdateOrder(
+                          order,
+                          editQuantity,
+                          editUnitPrice,
+                          editDays,
+                          order.kind === "equip" ? editMinPower : undefined,
+                          order.kind === "equip" ? editMinQualityPct : undefined,
+                        ).then((ok) => {
+                          if (ok) {
+                            setEdits((current) => ({
+                              ...current,
+                              [order.id]: undefined,
+                            }));
+                          }
+                        });
+                      }}
+                      className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      변경 저장
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </Card>
+          );
+        })
+      )}
+
+      <Card padding="sm">
+        <div className="text-sm font-semibold">가격 알림</div>
+        {activeAlerts.length === 0 ? (
+          <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">활성 가격 알림이 없어요.</div>
+        ) : (
+          <div className="mt-2 space-y-2">
+            {activeAlerts.map((alert) => (
+              <div key={alert.id} className={`${SURFACE_INSET} flex items-center justify-between gap-2 p-2.5`}>
+                <div className="text-xs">
+                  <span className="font-semibold">{alert.itemName}</span>
+                  <span className="ml-1.5 text-zinc-500 dark:text-zinc-400">
+                    개당 {alert.targetUnitPrice.toLocaleString()}G 이하
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onCancelAlert(alert)}
+                  disabled={busy}
+                  className="text-[11px] font-medium text-rose-600 disabled:opacity-50 dark:text-rose-400"
+                >
+                  취소
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {recentOrders.length > 0 ? (
+        <Card padding="sm">
+          <div className="text-sm font-semibold">최근 종료 주문</div>
+          <div className="mt-2 space-y-1.5">
+            {recentOrders.map((order) => (
+              <div key={order.id} className="flex items-center justify-between text-[11px]">
+                <span>{order.itemName}{order.kind === "equip" ? " · 장비" : ` · ${order.quantityInitial.toLocaleString()}개`}</span>
+                <span className="text-zinc-400">
+                  {order.status === "filled" ? "체결 완료" : order.status === "cancelled" ? "취소" : "만료"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+type PriceHistoryPoint = {
+  date: string;
+  volume: number;
+  trades: number;
+  averageUnitPrice: number;
+  minUnitPrice: number;
+  maxUnitPrice: number;
+};
+
+function BuyOrderCatalogDialog({
+  groups,
+  onSelect,
+  onClose,
+}: {
+  groups: MarketplaceStackGroup[];
+  onSelect: (group: MarketplaceStackGroup) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const normalized = query.trim().toLowerCase();
+  const filtered = groups.filter(
+    (group) => !normalized || group.itemName.toLowerCase().includes(normalized),
+  );
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6" onClick={onClose}>
+      <div className="max-h-[85vh] w-full max-w-md overflow-hidden rounded-t-2xl border border-zinc-200 bg-white shadow-xl sm:rounded-2xl dark:border-zinc-700 dark:bg-zinc-900" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-700">
+          <div>
+            <h2 className="text-base font-bold">구매 주문 품목 선택</h2>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">현재 판매 매물이 없어도 주문할 수 있어요.</div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="닫기" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"><X size={18} /></button>
+        </div>
+        <div className="p-3">
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="품목 검색" className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950" />
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto border-t border-zinc-200 p-2 dark:border-zinc-700">
+          {filtered.length === 0 ? (
+            <div className="p-6 text-center text-xs text-zinc-400">조건에 맞는 품목이 없어요.</div>
+          ) : (
+            filtered.map((group) => (
+              <button key={group.key} type="button" onClick={() => onSelect(group)} className="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <span className="font-medium">{group.itemName}</span>
+                <span className="text-[11px] tabular-nums text-zinc-400">
+                  {group.minUnitPrice > 1 ? `최근 평균 ${group.minUnitPrice.toLocaleString()}G` : "시세 없음"}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EquipmentBuyOrderDialog({
+  slot,
+  priceRef,
+  busy,
+  onCreate,
+  onClose,
+}: {
+  slot: V2EquipSlot;
+  priceRef: Record<string, PriceStat>;
+  busy: boolean;
+  onCreate: (
+    itemId: V2EquipmentId,
+    minPower: number,
+    minQualityPct: number,
+    unitPrice: number,
+    days: number,
+  ) => Promise<unknown>;
+  onClose: () => void;
+}) {
+  const items = Object.values(V2_EQUIPMENT).filter(
+    (item) => item.slot === slot && sellPriceOf(item) != null,
+  );
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<V2EquipmentId | null>(
+    items[0]?.id ?? null,
+  );
+  const selected = selectedId ? V2_EQUIPMENT[selectedId] : undefined;
+  const floor = selected ? (sellPriceOf(selected) ?? 1) : 1;
+  const suggestedPrice = selected
+    ? Math.max(floor, Math.round(priceRef[selected.id]?.avg ?? floor))
+    : floor;
+  const [minPower, setMinPower] = useState(
+    selected ? String(selected.power) : "1",
+  );
+  const [minQualityPct, setMinQualityPct] = useState("0");
+  const [unitPrice, setUnitPrice] = useState(String(suggestedPrice));
+  const [days, setDays] = useState("3");
+  const normalized = query.trim().toLowerCase();
+  const filtered = items.filter(
+    (item) => !normalized || item.name.toLowerCase().includes(normalized),
+  );
+  const parsedPower = parseAmount(minPower);
+  const parsedQuality = parseAmount(minQualityPct);
+  const parsedPrice = parseAmount(unitPrice);
+  const parsedDays = parseAmount(days);
+  const valid =
+    selected != null &&
+    Number.isInteger(parsedPower) &&
+    parsedPower >= 1 &&
+    Number.isInteger(parsedQuality) &&
+    parsedQuality >= 0 &&
+    parsedQuality <= 100 &&
+    Number.isInteger(parsedPrice) &&
+    parsedPrice >= floor &&
+    Number.isInteger(parsedDays) &&
+    parsedDays >= 1 &&
+    parsedDays <= 7;
+
+  const selectItem = (item: V2Equipment) => {
+    const nextFloor = sellPriceOf(item) ?? 1;
+    const nextSuggested = Math.max(
+      nextFloor,
+      Math.round(priceRef[item.id]?.avg ?? nextFloor),
+    );
+    setSelectedId(item.id);
+    setMinPower(String(item.power));
+    setMinQualityPct("0");
+    setUnitPrice(String(nextSuggested));
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-4 shadow-xl sm:rounded-2xl dark:border-zinc-700 dark:bg-zinc-900"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold">장비 구매 주문</h2>
+            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              정확한 장비와 최소 위력·품질, 지불할 최대 가격을 정합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="장비 이름 검색"
+          className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        />
+        <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-zinc-200 p-1 dark:border-zinc-700">
+          {filtered.length === 0 ? (
+            <div className="p-4 text-center text-xs text-zinc-400">
+              조건에 맞는 장비가 없어요.
+            </div>
+          ) : (
+            filtered.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => selectItem(item)}
+                className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs ${
+                  selectedId === item.id
+                    ? "bg-sky-100 font-semibold text-sky-900 dark:bg-sky-950 dark:text-sky-100"
+                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <span>{item.name}</span>
+                <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                  기본 위력 {item.power.toLocaleString()}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+
+        {selected ? (
+          <div className={`${SURFACE_INSET} mt-3 p-3`}>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <label className="space-y-1">
+                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최소 위력</span>
+                <NumberInput value={minPower} onValueChange={setMinPower} min={1} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950" />
+              </label>
+              <label className="space-y-1">
+                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최소 품질 %</span>
+                <NumberInput value={minQualityPct} onValueChange={setMinQualityPct} min={0} max={100} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950" />
+              </label>
+              <label className="space-y-1">
+                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">최대 가격</span>
+                <NumberInput value={unitPrice} onValueChange={setUnitPrice} min={floor} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950" />
+              </label>
+              <label className="space-y-1">
+                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">기간</span>
+                <select value={days} onChange={(event) => setDays(event.target.value)} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-950">
+                  {[1, 3, 7].map((value) => <option key={value} value={value}>{value}일</option>)}
+                </select>
+              </label>
+            </div>
+            <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+              최저 등록가는 NPC 매입가인 {floor.toLocaleString()}G입니다. 주문 골드는 등록 즉시 보관됩니다.
+            </p>
+          </div>
+        ) : null}
+
+        <div className={`${SURFACE_ACCENT} mt-3 p-3 text-[11px] text-amber-900 dark:text-amber-100`}>
+          판매자는 구매자나 주문을 직접 고를 수 없습니다. 서버가 조건을 만족하는 주문 중 최고가, 동가에서는 먼저 등록된 주문을 자동 체결하며 모든 체결은 감사 기록에 남습니다.
+        </div>
+        <button
+          type="button"
+          disabled={busy || !valid || !selected}
+          onClick={() => {
+            if (!selected || !valid) return;
+            void onCreate(
+              selected.id,
+              parsedPower,
+              parsedQuality,
+              parsedPrice,
+              parsedDays,
+            ).then((ok) => {
+              if (ok) onClose();
+            });
+          }}
+          className="mt-3 w-full rounded-md border border-sky-700 bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {busy ? "등록 중…" : "장비 구매 주문 등록"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MarketToolsDialog({
+  group,
+  bestBuyOrder,
+  existingAlert,
+  busy,
+  onCreateOrder,
+  onCreateAlert,
+  onClose,
+}: {
+  group: MarketplaceStackGroup;
+  bestBuyOrder?: BuyOrderBookRow;
+  existingAlert?: PriceAlert;
+  busy: boolean;
+  onCreateOrder: (
+    group: MarketplaceStackGroup,
+    quantity: number,
+    unitPrice: number,
+    days: number,
+  ) => Promise<unknown>;
+  onCreateAlert: (
+    group: MarketplaceStackGroup,
+    targetUnitPrice: number,
+  ) => Promise<unknown>;
+  onClose: () => void;
+}) {
+  const [history, setHistory] = useState<PriceHistoryPoint[] | null>(null);
+  const [orderQuantity, setOrderQuantity] = useState("1");
+  const [orderUnitPrice, setOrderUnitPrice] = useState(
+    String(bestBuyOrder?.bestUnitPrice ?? group.minUnitPrice),
+  );
+  const [orderDays, setOrderDays] = useState("3");
+  const [alertPrice, setAlertPrice] = useState(
+    String(existingAlert?.targetUnitPrice ?? group.minUnitPrice),
+  );
+  const [localError, setLocalError] = useState<string | null>(null);
+  const sellLevels = (() => {
+    const levels = new Map<
+      number,
+      { unitPrice: number; totalQuantity: number; orderCount: number }
+    >();
+    for (const listing of group.listings) {
+      const unitPrice = Math.max(
+        1,
+        Math.ceil(listing.price / Math.max(1, listing.quantity)),
+      );
+      const level = levels.get(unitPrice);
+      if (level) {
+        level.totalQuantity += listing.quantity;
+        level.orderCount++;
+      } else {
+        levels.set(unitPrice, {
+          unitPrice,
+          totalQuantity: listing.quantity,
+          orderCount: 1,
+        });
+      }
+    }
+    return [...levels.values()]
+      .sort((a, b) => a.unitPrice - b.unitPrice)
+      .slice(0, 5);
+  })();
+  const buyLevels = bestBuyOrder?.levels?.slice(0, 5) ?? [];
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(
+      `/api/v2/marketplace/price-history?kind=${encodeURIComponent(group.kind)}&itemId=${encodeURIComponent(group.itemId)}`,
+      { signal: controller.signal },
+    )
+      .then(async (response) => {
+        if (!response.ok) return { points: [] };
+        return (await response.json()) as { points?: PriceHistoryPoint[] };
+      })
+      .then((payload) => setHistory(payload.points ?? []))
+      .catch((error: unknown) => {
+        if ((error as { name?: string }).name !== "AbortError") setHistory([]);
+      });
+    return () => controller.abort();
+  }, [group.itemId, group.kind]);
+
+  const averages = history?.map((point) => point.averageUnitPrice) ?? [];
+  const chartMax = Math.max(...averages, 1);
+  const chartMin = Math.min(...averages, chartMax);
+  const chartRange = Math.max(1, chartMax - chartMin);
+  const chartPoints = (history ?? [])
+    .map((point, index, rows) => {
+      const x = rows.length <= 1 ? 150 : (index / (rows.length - 1)) * 300;
+      const y = 90 - ((point.averageUnitPrice - chartMin) / chartRange) * 75;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  const submitOrder = () => {
+    const quantity = parseAmount(orderQuantity);
+    const unitPrice = parseAmount(orderUnitPrice);
+    const days = parseAmount(orderDays);
+    const escrow = quantity * unitPrice;
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      !Number.isInteger(unitPrice) ||
+      unitPrice < 1 ||
+      !Number.isInteger(days) ||
+      days < 1 ||
+      days > 7 ||
+      !Number.isSafeInteger(escrow) ||
+      escrow > 999_999_999
+    ) {
+      setLocalError("수량·개당 가격·기간(1~7일)을 확인해 주세요.");
+      return;
+    }
+    setLocalError(null);
+    void onCreateOrder(group, quantity, unitPrice, days);
+  };
+  const submitAlert = () => {
+    const target = parseAmount(alertPrice);
+    if (!Number.isInteger(target) || target < 1) {
+      setLocalError("알림 가격을 확인해 주세요.");
+      return;
+    }
+    setLocalError(null);
+    void onCreateAlert(group, target);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6" onClick={onClose}>
+      <div
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white p-5 shadow-xl sm:rounded-2xl dark:border-zinc-700 dark:bg-zinc-900"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold">{group.itemName}</h2>
+            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">시세·구매 주문·가격 알림</div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="닫기" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className={`${SURFACE_INSET} mt-4 p-3`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-semibold">실시간 호가</div>
+            <div className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              10초마다 갱신
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <OrderBookSide title="구매 주문" tone="buy" levels={buyLevels} />
+            <OrderBookSide title="판매 매물" tone="sell" levels={sellLevels} />
+          </div>
+          <div className="mt-2 text-center text-[10px] text-zinc-400">
+            가격 우선 · 같은 가격은 먼저 등록한 주문 우선
+          </div>
+        </div>
+
+        <div className={`${SURFACE_INSET} mt-3 p-3`}>
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold">최근 30일 개당 평균가</span>
+            {history && history.length > 0 ? (
+              <span className="tabular-nums text-sky-700 dark:text-sky-300">
+                {history[history.length - 1].averageUnitPrice.toLocaleString()}G
+              </span>
+            ) : null}
+          </div>
+          {history === null ? (
+            <div className="mt-3 h-24 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
+          ) : history.length === 0 ? (
+            <div className="py-8 text-center text-xs text-zinc-400">최근 체결 기록이 없어요.</div>
+          ) : (
+            <>
+              <svg viewBox="0 0 300 100" role="img" aria-label="최근 30일 평균가 추이" className="mt-2 h-28 w-full overflow-visible">
+                <polyline points={chartPoints} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" className="text-sky-500" />
+              </svg>
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span>{history[0].date.slice(5)}</span>
+                <span>거래량 {history.reduce((sum, point) => sum + point.volume, 0).toLocaleString()}개</span>
+                <span>{history[history.length - 1].date.slice(5)}</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className={`${SURFACE_INSET} mt-3 p-3`}>
+          <div className="text-sm font-semibold">구매 주문</div>
+          <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            지정 가격 이하 판매가 나오면 자동 체결합니다. 물품과 차액은 우편함으로 전달됩니다.
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <NumberInput aria-label="구매 주문 수량" placeholder="수량" value={orderQuantity} onValueChange={setOrderQuantity} className="min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900" />
+            <NumberInput aria-label="구매 주문 개당 가격" placeholder="개당 가격" value={orderUnitPrice} onValueChange={setOrderUnitPrice} className="min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900" />
+            <select value={orderDays} onChange={(event) => setOrderDays(event.target.value)} className="min-w-0 rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900" aria-label="구매 주문 기간">
+              {[1, 3, 7].map((days) => <option key={days} value={days}>{days}일</option>)}
+            </select>
+          </div>
+          <button type="button" onClick={submitOrder} disabled={busy} className="mt-2 w-full rounded-md border border-emerald-700 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+            구매 주문 등록
+          </button>
+        </div>
+
+        <div className={`${SURFACE_INSET} mt-3 p-3`}>
+          <div className="text-sm font-semibold">가격 알림</div>
+          <div className="mt-2 flex gap-2">
+            <NumberInput aria-label="가격 알림 기준" placeholder="개당 가격" value={alertPrice} onValueChange={setAlertPrice} className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900" />
+            <button type="button" onClick={submitAlert} disabled={busy} className="rounded-md border border-sky-700 bg-sky-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+              {existingAlert ? "알림 수정" : "알림 설정"}
+            </button>
+          </div>
+        </div>
+        {localError ? <div className="mt-2 text-xs text-rose-600 dark:text-rose-400">{localError}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function OrderBookSide({
+  title,
+  tone,
+  levels,
+}: {
+  title: string;
+  tone: "buy" | "sell";
+  levels: Array<{
+    unitPrice: number;
+    totalQuantity: number;
+    orderCount: number;
+  }>;
+}) {
+  return (
+    <div className="overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="grid grid-cols-[1fr_auto] border-b border-zinc-200 px-2 py-1.5 text-[10px] font-semibold text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        <span>{title}</span>
+        <span>잔량</span>
+      </div>
+      {levels.length === 0 ? (
+        <div className="px-2 py-5 text-center text-[10px] text-zinc-400">
+          호가 없음
+        </div>
+      ) : (
+        levels.map((level) => (
+          <div
+            key={level.unitPrice}
+            className="grid grid-cols-[1fr_auto] gap-1 border-b border-zinc-100 px-2 py-1.5 text-[10px] last:border-b-0 dark:border-zinc-800"
+          >
+            <span
+              className={`font-semibold tabular-nums ${
+                tone === "buy"
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-rose-700 dark:text-rose-300"
+              }`}
+            >
+              {level.unitPrice.toLocaleString()}G
+            </span>
+            <span className="text-right tabular-nums text-zinc-600 dark:text-zinc-300">
+              {level.totalQuantity.toLocaleString()}
+              <span className="ml-1 text-zinc-400">({level.orderCount}건)</span>
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function MarketplaceStackBrowse({
+  groups,
+  quantities,
+  onQuantityChange,
+  onBuy,
+  busy,
+  favoriteKeys,
+  onToggleFavorite,
+  orderBook,
+  onOpenTools,
+}: {
+  groups: MarketplaceStackGroup[];
+  quantities: Record<string, string>;
+  onQuantityChange: (key: string, value: string) => void;
+  onBuy: (group: MarketplaceStackGroup) => void;
+  busy: boolean;
+  favoriteKeys: Set<string>;
+  onToggleFavorite: (key: string) => void;
+  orderBook: Record<string, BuyOrderBookRow>;
+  onOpenTools: (group: MarketplaceStackGroup) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {groups.map((group) => {
+        const quantityText = quantities[group.key] ?? "1";
+        const quantity = parseAmount(quantityText);
+        const validQuantity =
+          Number.isInteger(quantity) &&
+          quantity >= 1 &&
+          quantity <= group.totalQuantity;
+        const quote = validQuantity
+          ? marketplaceStackQuote(group.listings, quantity)
+          : null;
+        const GroupIcon = group.kind === "material" ? Cube : Flask;
+        const favorite = favoriteKeys.has(group.key);
+        const buyDemand = orderBook[group.key];
+        return (
+          <Card key={group.key} padding="none" className="overflow-hidden">
+            <div className="flex items-start gap-3 p-3 sm:p-4">
+              <div className={`${SURFACE_INSET} flex h-11 w-11 shrink-0 items-center justify-center text-sky-700 dark:text-sky-300`}>
+                <GroupIcon size={23} weight="duotone" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold">{group.itemName}</div>
+                    <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      총 {group.totalQuantity.toLocaleString()}개 · 매물 {group.listings.length.toLocaleString()}건
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTools(group)}
+                      className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-zinc-900 dark:text-sky-300"
+                    >
+                      <ChartLine size={14} />
+                      시세·주문
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onToggleFavorite(group.key)}
+                      aria-label={`${group.itemName} 즐겨찾기 ${favorite ? "해제" : "추가"}`}
+                      className="rounded-md p-1.5 text-amber-500 transition hover:bg-amber-50 dark:hover:bg-amber-950"
+                    >
+                      <Star size={17} weight={favorite ? "fill" : "regular"} />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-end justify-between gap-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                  <div>
+                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400">최저 개당 가격</div>
+                    <div className="font-bold tabular-nums text-amber-700 dark:text-amber-400">
+                      {group.minUnitPrice.toLocaleString()}G
+                    </div>
+                    {buyDemand ? (
+                      <div className="mt-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
+                        최고 구매 주문 {buyDemand.bestUnitPrice.toLocaleString()}G · {buyDemand.totalQuantity.toLocaleString()}개
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <NumberInput
+                      aria-label={`${group.itemName} 구매 수량`}
+                      value={quantityText}
+                      onValueChange={(value) => onQuantityChange(group.key, value)}
+                      min={1}
+                      max={group.totalQuantity}
+                      className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onBuy(group)}
+                      disabled={busy || quote == null}
+                      className="rounded-md border border-emerald-700 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      {quote == null ? "수량 확인" : `${quote.toLocaleString()}G 구매`}
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-1 text-right text-[10px] text-zinc-400">
+                  최저가 매물부터 자동 구매
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+function StackBuyConfirm({
+  confirmation,
+  availableGold,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  confirmation: {
+    group: MarketplaceStackGroup;
+    quantity: number;
+    totalPrice: number;
+  };
+  availableGold: number | null;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const enough =
+    availableGold === null || availableGold >= confirmation.totalPrice;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-base font-bold">묶음 구매 확인</h2>
+        <div className="mt-3 text-sm font-semibold">
+          {confirmation.group.itemName} ×{confirmation.quantity.toLocaleString()}
+        </div>
+        <div className={`${SURFACE_INSET} mt-3 space-y-1 p-3 text-xs`}>
+          <div className="flex justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">예상 결제액</span>
+            <span className="font-bold tabular-nums text-amber-700 dark:text-amber-400">
+              {confirmation.totalPrice.toLocaleString()}G
+            </span>
+          </div>
+          <div className="text-[10px] text-zinc-400">
+            확인한 금액보다 가격이 오르면 구매하지 않습니다.
+          </div>
+        </div>
+        {!enough ? (
+          <div className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
+            골드가 부족해요.
+          </div>
+        ) : null}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy || !enough}
+            className="rounded-md border border-emerald-700 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            구매
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1628,6 +3581,8 @@ function ListingList({
   frontierDepth,
   clockMs,
   onOpenCard,
+  favoriteKeys,
+  onToggleFavorite,
 }: {
   rows: Listing[] | null;
   emptyText: string;
@@ -1636,6 +3591,8 @@ function ListingList({
   priceRef: Record<string, PriceStat>;
   frontierDepth?: number;
   clockMs: number;
+  favoriteKeys?: Set<string>;
+  onToggleFavorite?: (key: string) => void;
   // 장비 클릭 → 옵션 카드. (재료는 옵션 없어 미클릭.)
   onOpenCard?: (
     itemId: string,
@@ -1712,6 +3669,10 @@ function ListingList({
             ? marketplacePriceKeyForPayload(l.itemId, l.instancePayload)
             : l.itemId;
         const priceStat = priceStatForKey(priceRef, l.itemId, priceKey);
+        const comparablePriceStat =
+          l.kind === "equip"
+            ? priceStat
+            : priceStatForQuantity(priceStat, l.quantity);
         const listingTabKey: V2ItemTabKey =
           l.kind === "equip"
             ? (item?.slot ?? "weapon")
@@ -1722,7 +3683,7 @@ function ListingList({
         const clickable = l.kind === "equip" && !!onOpenCard;
         const info = (
           <>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span
                 className={`text-sm font-medium ${
                   item
@@ -1742,10 +3703,11 @@ function ListingList({
                 {l.itemName}
               </span>
               {item ? <EquipmentTierBadge tier={item.tier} compact /> : null}
+              {item ? <EquipmentCodexBadge itemId={item.id} /> : null}
               <EnhanceLevelBadge enhance={detail?.enhance} />
               <CraftQualityBadge craftQuality={detail?.craftQuality} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}
-              {l.kind === "material" && l.quantity > 1 && (
+              {l.kind !== "equip" && l.quantity > 1 && (
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
               )}
               {detail?.pct != null && (
@@ -1794,26 +3756,41 @@ function ListingList({
                 <ListingKindIcon size={25} weight="duotone" />
               </div>
               <div className="min-w-0 flex-1">
-                {clickable ? (
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      onOpenCard!(
-                        l.itemId,
-                        roll,
-                        enhance,
-                        craftQuality,
-                        craftedBy,
-                        e.currentTarget,
-                      )
-                    }
-                    className="group min-w-0 text-left"
-                  >
-                    {info}
-                  </button>
-                ) : (
-                  <div className="min-w-0">{info}</div>
-                )}
+                <div className="flex items-start justify-between gap-2">
+                  {clickable ? (
+                    <button
+                      type="button"
+                      onClick={(e) =>
+                        onOpenCard!(
+                          l.itemId,
+                          roll,
+                          enhance,
+                          craftQuality,
+                          craftedBy,
+                          e.currentTarget,
+                        )
+                      }
+                      className="group min-w-0 text-left"
+                    >
+                      {info}
+                    </button>
+                  ) : (
+                    <div className="min-w-0">{info}</div>
+                  )}
+                  {onToggleFavorite ? (
+                    <button
+                      type="button"
+                      onClick={() => onToggleFavorite(`${l.kind}:${l.itemId}`)}
+                      aria-label={`${l.itemName} 즐겨찾기 ${favoriteKeys?.has(`${l.kind}:${l.itemId}`) ? "해제" : "추가"}`}
+                      className="shrink-0 rounded-md p-1.5 text-amber-500 transition hover:bg-amber-50 dark:hover:bg-amber-950"
+                    >
+                      <Star
+                        size={17}
+                        weight={favoriteKeys?.has(`${l.kind}:${l.itemId}`) ? "fill" : "regular"}
+                      />
+                    </button>
+                  ) : null}
+                </div>
                 {craftedBy ? (
                   <div className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
                     제작:{" "}
@@ -1844,7 +3821,7 @@ function ListingList({
                       현재 입찰 {l.highestBid.toLocaleString()}G · {l.bidCount}건
                     </span>
                   ) : null}
-                  <PricePositionBadge price={l.price} stat={priceStat} />
+                  <PricePositionBadge price={l.price} stat={comparablePriceStat} />
                   {!historical ? (
                     <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
                       {new Date(l.bidEndsAt).getTime() > clockMs
@@ -1858,7 +3835,7 @@ function ListingList({
                   ) : null}
                 </div>
                 <PriceRefLine
-                  stat={priceStat}
+                  stat={comparablePriceStat}
                   scoped={priceKey !== l.itemId && !!priceRef[priceKey]}
                 />
               </div>

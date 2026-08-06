@@ -1,15 +1,15 @@
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  LEGACY_CLASS_SPEC_BY_JOB,
   TIER2_UNLOCK_CUMLEVEL,
   TIER3_UNLOCK_CUMLEVEL,
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
-  V2_JOB_CATALOG,
-  V2_JOB_LIST,
-  type V2JobDefinition,
 } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  buildJobRoadmap,
+  type JobRoadmapNode as RoadmapNode,
+} from "@/adventure/v2/jobRoadmapModel";
 import {
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_MILESTONES,
@@ -68,9 +68,10 @@ export function JobsContent() {
       <H2>전직</H2>
       <P>
         <Em>수행 화면</Em>(캐릭터 → 성장의 신전)의 직업 사다리에서 전직합니다.
-        전투 직업은 레벨 {V2_LEVEL_CAP}, <Em>낚시·농사·요리·벌목·채광 계열</Em>은
-        레벨 1부터 조건을 갖춘 상위 직업으로 전직할 수 있습니다. 전직에
-        골드는 들지 않습니다.
+        전투 직업은 전투 레벨 {V2_LEVEL_CAP}이 필요하지만,
+        <Em>낚시·농사·요리·벌목·채광 계열</Em>은 캐릭터 레벨 제한 없이 생활 숙련
+        조건을 갖추면 상위 직업으로 전직할 수 있습니다. 전직에 골드는 들지
+        않습니다.
       </P>
       <P>
         상위 직업은 <Em>바로 아래 직업의 숙련도</Em>가 게이트를 넘으면 열립니다.
@@ -96,9 +97,9 @@ export function JobsContent() {
         </li>
       </UL>
       <Note>
-        전투 직업은 레벨 {V2_LEVEL_CAP}에 도달한 뒤 전직을 거듭하고, 생산 직업은
-        각 생활 콘텐츠의 숙련 조건을 채워 계보를 넓힙니다. 직업 숙련도는
-        재전직 후에도 유지됩니다.
+        전투 직업은 전투 레벨 {V2_LEVEL_CAP}에 도달한 뒤 전직을 거듭하고, 생산
+        직업은 캐릭터 레벨과 관계없이 각 생활 콘텐츠의 숙련 조건을 채워 계보를
+        넓힙니다. 직업 숙련도는 재전직 후에도 유지됩니다.
       </Note>
 
       <H2>숙련도와 숙달 포인트</H2>
@@ -145,8 +146,9 @@ export function JobsContent() {
           있습니다.
         </li>
         <li>
-          10·20·30층은 처음 도달했을 때 추가 보너스가 붙습니다. 일일 보상은 KST
-          기준 하루 한 번만 수령합니다.
+          10·20·30·40·50층은 처음 도달했을 때 추가 보너스가 붙습니다. 일일 보상은 KST
+          기준 하루 한 번만 수령합니다. 날짜가 바뀔 때까지 받지 않은 보상은 다음
+          숙련의 탑 접속 시 숙련 증서로 자동 지급됩니다.
         </li>
       </UL>
       <Table
@@ -179,20 +181,8 @@ export function JobsContent() {
   );
 }
 
-type RoadmapNode = {
-  id: string;
-  name: string;
-  tier: V2JobDefinition["tier"] | "start";
-  group: string;
-  hybrid: boolean;
-  prereqText: string;
-  children: RoadmapNode[];
-};
-
-const JOB_ORDER = new Map(V2_JOB_LIST.map((job, index) => [job.id, index]));
-
 function JobRoadmap() {
-  const root = buildRoadmap();
+  const root = buildJobRoadmap();
   return (
     <section className="mt-5">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -207,6 +197,7 @@ function JobRoadmap() {
             ["rogue", "도적"],
             ["survivor", "생존자"],
             ["hybrid", "하이브리드"],
+            ["production", "생산직 · 전투 Lv 제한 없음"],
           ].map(([key, label]) => (
             <span
               key={key}
@@ -223,8 +214,10 @@ function JobRoadmap() {
         </ul>
       </JobRoadmapScroller>
       <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-        카드에는 이름과 순서만 표시합니다. 복합 표시는 여러 선행 직업 숙련도가 필요한
-        하이브리드 전직입니다.
+        초록색으로 강조된 생산직은 전투 레벨 제한 없이 생활 숙련 조건으로 전직할 수
+        있습니다. 같은 생존자 계보라도 헬스 트레이너처럼 초록색 표시가 없는 직업은
+        생산직이 아닙니다. 복합 표시는 여러 선행 직업 숙련도가 필요한 하이브리드
+        전직입니다.
       </p>
       <style>{ROADMAP_CSS}</style>
     </section>
@@ -239,7 +232,7 @@ function RoadmapBranch({ node }: { node: RoadmapNode }) {
       <div
         className={`manual-job-node manual-job-${node.group} ${
           node.hybrid ? "manual-job-hybrid" : ""
-        }`}
+        } ${node.production ? "manual-job-production" : ""}`}
         title={node.prereqText || undefined}
       >
         {tierLabel && <span className="manual-job-tier">{tierLabel}</span>}
@@ -255,101 +248,6 @@ function RoadmapBranch({ node }: { node: RoadmapNode }) {
       )}
     </li>
   );
-}
-
-function buildRoadmap(): RoadmapNode {
-  const childrenByParent = new Map<string, V2JobDefinition[]>();
-  for (const job of V2_JOB_LIST) {
-    const parent = primaryParentId(job);
-    const children = childrenByParent.get(parent) ?? [];
-    children.push(job);
-    childrenByParent.set(parent, children);
-  }
-
-  const toNode = (job: V2JobDefinition): RoadmapNode => ({
-    id: job.id,
-    name: job.name,
-    tier: job.tier,
-    group: groupForJob(job),
-    hybrid: prerequisiteJobIds(job).length > 1,
-    prereqText: prereqText(job),
-    children: sortedChildren(childrenByParent.get(job.id) ?? []).map(toNode),
-  });
-
-  return {
-    id: "start",
-    name: "시작",
-    tier: "start",
-    group: "root",
-    hybrid: false,
-    prereqText: "",
-    children: sortedChildren(childrenByParent.get("start") ?? []).map(toNode),
-  };
-}
-
-function primaryParentId(job: V2JobDefinition): string {
-  if (job.id === "none" || job.id === "survivor") return "start";
-  const [firstPrereq] = prerequisiteJobIds(job);
-  if (firstPrereq) return firstPrereq;
-  return "none";
-}
-
-function prerequisiteJobIds(job: V2JobDefinition): string[] {
-  const ids = Object.keys(job.unlock.prereqs);
-  for (const condition of job.unlock.extraConditions ?? []) {
-    if (condition.type === "jobUnlocked" && !ids.includes(condition.jobId)) {
-      ids.push(condition.jobId);
-    }
-  }
-  return ids;
-}
-
-function sortedChildren(children: V2JobDefinition[]): V2JobDefinition[] {
-  return [...children].sort((a, b) => {
-    if (a.tier !== b.tier) return a.tier - b.tier;
-    return (JOB_ORDER.get(a.id) ?? 0) - (JOB_ORDER.get(b.id) ?? 0);
-  });
-}
-
-function groupForJob(job: V2JobDefinition): string {
-  if (job.id === "none") return "root";
-  return LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id;
-}
-
-function prereqText(job: V2JobDefinition): string {
-  const entries = Object.entries(job.unlock.prereqs);
-  const parts = entries.map(
-    ([id, level]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${level}`,
-  );
-  for (const condition of job.unlock.extraConditions ?? []) {
-    switch (condition.type) {
-      case "jobUnlocked":
-        parts.push(`${V2_JOB_CATALOG[condition.jobId]?.name ?? condition.jobId} 해금`);
-        break;
-      case "farmingLevel":
-        parts.push(`농사 Lv.${condition.min}`);
-        break;
-      case "cookingLevel":
-        parts.push(`요리 Lv.${condition.min}`);
-        break;
-      case "woodcuttingLevel":
-        parts.push(`벌목 Lv.${condition.min}`);
-        break;
-      case "miningLevel":
-        parts.push(`채광 Lv.${condition.min}`);
-        break;
-      case "statThreshold":
-        parts.push(`${condition.stat.toUpperCase()} 한계 ${condition.min}`);
-        break;
-      case "questCompleted":
-        parts.push(`퀘스트 ${condition.questId} 완료`);
-        break;
-      case "monsterKilled":
-        parts.push(`${condition.monsterId} ${condition.minCount}회 처치`);
-        break;
-    }
-  }
-  return parts.join(", ");
 }
 
 const ROADMAP_CSS = `
@@ -382,6 +280,9 @@ const ROADMAP_CSS = `
 .manual-job-node.manual-job-hybrid{background:#fff2f6;border-color:#ff6b8b;color:#32111d}
 .manual-job-node.manual-job-hybrid::after{content:"";position:absolute;inset:-5px;border:1px dashed #ff89a3;border-radius:8px;pointer-events:none}
 .manual-job-badge{position:absolute;right:7px;top:-18px;display:inline-flex;align-items:center;justify-content:center;height:16px;padding:0 5px;border:1px solid #ff89a3;border-radius:5px;background:#3a1e2a;color:#ffd5df;font-size:9px;font-weight:900;box-shadow:0 7px 14px rgba(0,0,0,.25)}
+.manual-job-node.manual-job-production{border-color:#10b981;border-left-color:#059669;background:#ecfdf5;color:#064e3b;box-shadow:0 0 0 3px rgba(16,185,129,.42),0 9px 20px rgba(0,0,0,.28),inset 0 -2px 0 rgba(0,0,0,.08)}
+.manual-job-node.manual-job-production::before{content:"생산직";position:absolute;left:7px;top:-18px;display:inline-flex;height:16px;align-items:center;padding:0 5px;border:1px solid #34d399;border-radius:5px;background:#064e3b;color:#a7f3d0;font-size:9px;font-weight:900;box-shadow:0 7px 14px rgba(0,0,0,.25)}
 .manual-job-legend{display:inline-flex;align-items:center;height:22px;border:1px solid color-mix(in srgb,var(--accent,#d9b45a) 70%,#ffffff 10%);border-left-width:4px;border-radius:6px;background:#211b2a;color:#f7f1ff;padding:0 7px}
 .manual-job-legend.manual-job-hybrid{border-color:#ff6b8b;border-left-color:#ff6b8b;background:#3a1e2a;color:#ffd5df}
+.manual-job-legend.manual-job-production{border-color:#34d399;border-left-color:#10b981;background:#064e3b;color:#a7f3d0}
 `;

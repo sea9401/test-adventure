@@ -5,23 +5,60 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
+import type { PlayerCombat } from "@/adventure/v2/combat/engineState";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { Monster } from "@/adventure/data/monsters/types";
+import { parseEquipmentSave, type V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import {
+  STORM_EXPEDITION_ALTAR_CHOICES,
+  STORM_EXPEDITION_CAMP_CHOICES,
   STORM_EXPEDITION_DAILY_ATTEMPTS,
+  STORM_EXPEDITION_FINAL_PREP_CHOICES,
+  STORM_EXPEDITION_NODES,
+  STORM_EXPEDITION_NODE_COUNT,
   STORM_EXPEDITION_ROUTES,
+  STORM_EXPEDITION_RISK_CURSES,
+  STORM_EXPEDITION_RISK_EVENTS,
   STORM_EXPEDITION_SAVE_KEY,
-  STORM_EXPEDITION_STAGE_COUNT,
+  STORM_EXPEDITION_SUPPLY_CHOICES,
   STORM_EXPEDITION_UNLOCK_DEPTH,
+  createStormAltarOffers,
+  createStormRiskEvent,
   parseStormExpeditionState,
+  stormExpeditionBattleReward,
   stormExpeditionDateKey,
   stormExpeditionEnemy,
+  stormExpeditionNode,
   stormExpeditionRoute,
-  stormExpeditionStageReward,
+  type StormExpeditionActive,
+  type StormExpeditionBattleEffectId,
+  type StormExpeditionBoonId,
+  type StormExpeditionChoiceKind,
+  type StormExpeditionEncounterKind,
+  type StormExpeditionRiskEventOffer,
 } from "@/adventure/data/v2/stormExpedition";
+import {
+  STORM_EXPEDITION_LOOT,
+  STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+  mergeStormExpeditionMaterials,
+  rollStormExpeditionLoot,
+} from "@/adventure/data/v2/stormExpeditionRewards";
+import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 
 type CharacterSave = Record<string, unknown> & {
   frontierDepth?: number;
   gold?: number;
+  materials?: Record<string, number>;
+};
+
+type PostInput = {
+  action?: unknown;
+  routeId?: unknown;
+  choiceId?: unknown;
+  expectedNodeIndex?: unknown;
+  expectedEncounterIndex?: unknown;
+  decision?: unknown;
 };
 
 export async function GET() {
@@ -47,15 +84,14 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  const input = (await req.json().catch(() => null)) as {
-    action?: unknown;
-    routeId?: unknown;
-  } | null;
-
+  const input = (await req.json().catch(() => null)) as PostInput | null;
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharacterSave>(tx, userId, "character.v2", {});
+    // 공용 잠금 순서(character → equipment → expedition)를 유지한다.
+    const equipmentSave = await lockSaveForUpdate<Record<string, unknown>>(tx, userId, "equipment.v2", {});
     const raw = await lockSaveForUpdate<unknown>(tx, userId, STORM_EXPEDITION_SAVE_KEY, {});
     let state = parseStormExpeditionState(raw, stormExpeditionDateKey());
+    let responseCharSave = charSave;
     const frontierDepth = Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2));
     if (frontierDepth < STORM_EXPEDITION_UNLOCK_DEPTH) {
       return response(403, { ...statusBody(charSave, state), error: "locked" });
@@ -68,17 +104,31 @@ export async function POST(req: Request) {
       if (state.attemptsUsed >= STORM_EXPEDITION_DAILY_ATTEMPTS) {
         return response(409, { ...statusBody(charSave, state), error: "no_attempts" });
       }
-      const prepared = await prepareV2BattleActor({ tx, userId, charSave, deriveSkills: "sanitized" });
+      const prepared = await prepareV2BattleActor({ tx, userId, charSave, equipmentSave, deriveSkills: "sanitized" });
       if (!prepared) return response(400, { ok: false, error: "no_character" });
+      const maxHp = prepared.player.player.maxHp;
+      const maxMp = prepared.player.player.maxMp ?? 0;
       state = {
         ...state,
         attemptsUsed: state.attemptsUsed + 1,
         active: {
+          version: 2,
           routeId: route.id,
-          stage: 0,
-          hp: prepared.player.maxHp,
-          mp: prepared.player.player.maxMp ?? 0,
+          nodeIndex: 0,
+          encounterIndex: 0,
+          hp: maxHp,
+          mp: maxMp,
+          maxHp,
+          maxMp,
+          defeatedCount: 0,
           pendingGold: 0,
+          pendingMaterials: {},
+          pendingEquipment: [],
+          boons: [],
+          nextBattleEffects: [],
+          altarOffers: createStormAltarOffers(),
+          chosenChoices: {},
+          riskEvent: createStormRiskEvent(),
         },
       };
       await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
@@ -86,84 +136,193 @@ export async function POST(req: Request) {
     }
 
     if (input?.action === "withdraw") {
-      if (!state.active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
-      if (state.active.stage === 0) {
+      const active = state.active;
+      if (!active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
+      if (hasStalePosition(input, active)) {
+        return response(409, { ...statusBody(charSave, state), error: "stale_state" });
+      }
+      if (active.nextBattleEffects.includes("risk_enemy_fury")) {
+        return response(409, { ...statusBody(charSave, state), error: "risk_debt_pending" });
+      }
+      if (active.defeatedCount <= 0) {
         return response(409, { ...statusBody(charSave, state), error: "nothing_to_claim" });
       }
-      const gainedGold = state.active.pendingGold;
-      const nextCharacter = {
-        ...charSave,
-        gold: Math.max(0, Math.floor(Number(charSave.gold) || 0)) + gainedGold,
-      };
+      const claimed = await claimPendingRewards({ tx, userId, charSave, equipmentSave, active });
       state = { ...state, active: null };
-      await upsertSave(tx, userId, "character.v2", nextCharacter);
       await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
-      return response(200, { ...statusBody(nextCharacter, state), gainedGold, withdrew: true });
+      return response(200, {
+        ...statusBody(claimed.character, state),
+        ...claimed.result,
+        claimedRewards: true,
+        withdrew: true,
+      });
     }
 
-    if (input?.action !== "advance") {
+    if (input?.action === "risk_event") {
+      const active = state.active;
+      if (!active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
+      if (hasStalePosition(input, active)) {
+        return response(409, { ...statusBody(charSave, state), error: "stale_state" });
+      }
+      const decision = input.decision === "accept" ? "accept" : input.decision === "decline" ? "decline" : null;
+      if (!decision) return response(400, { ...statusBody(charSave, state), error: "invalid_decision" });
+      if (!active.riskEvent || active.riskEvent.status !== "offered" || active.riskEvent.nodeIndex !== active.nodeIndex) {
+        return response(409, { ...statusBody(charSave, state), error: "risk_event_unavailable" });
+      }
+      const resolved = applyRiskDecision(active, decision);
+      state = { ...state, active: resolved };
+      await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
+      return response(200, {
+        ...statusBody(charSave, state),
+        riskEventResolved: true,
+        riskEventAccepted: decision === "accept",
+        riskEventId: active.riskEvent.id,
+      });
+    }
+
+    if (input?.action === "choose") {
+      const active = state.active;
+      if (!active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
+      if (hasStalePosition(input, active)) {
+        return response(409, { ...statusBody(charSave, state), error: "stale_state" });
+      }
+      const node = stormExpeditionNode(active);
+      if (node.kind === "battle") {
+        return response(409, { ...statusBody(charSave, state), error: "battle_required" });
+      }
+      if (active.riskEvent?.status === "offered" && active.riskEvent.nodeIndex === active.nodeIndex) {
+        return response(409, { ...statusBody(charSave, state), error: "risk_event_required" });
+      }
+      const choiceId = typeof input.choiceId === "string" ? input.choiceId : "";
+      const prepared = await prepareV2BattleActor({ tx, userId, charSave, equipmentSave, deriveSkills: "sanitized" });
+      if (!prepared) return response(400, { ok: false, error: "no_character" });
+      const applied = applyChoice(active, node.kind, choiceId, prepared.player.player.maxHp, prepared.player.player.maxMp ?? 0);
+      if (!applied) return response(400, { ...statusBody(charSave, state), error: "invalid_choice" });
+      state = { ...state, active: applied };
+      await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
+      return response(200, {
+        ...statusBody(charSave, state),
+        choiceApplied: true,
+        choiceId,
+        choiceKind: node.kind,
+      });
+    }
+
+    // advance는 구형 클라이언트 호환 별칭이다.
+    if (input?.action !== "fight" && input?.action !== "advance") {
       return response(400, { ...statusBody(charSave, state), error: "invalid_action" });
     }
-    if (!state.active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
-
-    const prepared = await prepareV2BattleActor({ tx, userId, charSave, deriveSkills: "sanitized" });
-    if (!prepared) return response(400, { ok: false, error: "no_character" });
-    const profile = await readSave<{ name?: string; gender?: string } | null>(
-      tx,
-      userId,
-      "character-profile.v2",
-      null,
-    );
     const active = state.active;
-    const enemy = stormExpeditionEnemy(active.routeId, active.stage);
+    if (!active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
+    if (hasStalePosition(input, active)) {
+      return response(409, { ...statusBody(charSave, state), error: "stale_state" });
+    }
+    const node = stormExpeditionNode(active);
+    if (node.kind !== "battle" || !node.encounterKind) {
+      return response(409, { ...statusBody(charSave, state), error: "choice_required" });
+    }
+
+    const prepared = await prepareV2BattleActor({ tx, userId, charSave, equipmentSave, deriveSkills: "sanitized" });
+    if (!prepared) return response(400, { ok: false, error: "no_character" });
+    const profile = await readSave<{ name?: string; gender?: string } | null>(tx, userId, "character-profile.v2", null);
+    const baseMaxHp = prepared.player.player.maxHp;
+    const baseMaxMp = prepared.player.player.maxMp ?? 0;
+    const effectiveMaxMp = stormEffectiveMaxMp(baseMaxMp, active.boons, active.riskEvent);
     const playerName = profile?.name?.trim() || "모험가";
-    const startPlayerHp = Math.min(prepared.player.maxHp, active.hp);
-    const playerForBattle = {
+    const startPlayerHp = Math.min(baseMaxHp, active.hp);
+    const playerForBattle = applyBattleBonuses({
       ...prepared.player.player,
       hp: startPlayerHp,
-      mp: Math.min(prepared.player.player.maxMp ?? 0, active.mp),
-    };
+      maxHp: baseMaxHp,
+      maxMp: effectiveMaxMp,
+      mp: Math.min(effectiveMaxMp, active.mp),
+    }, active, node.encounterKind);
+    const enemy = applyRiskToEnemy(
+      stormExpeditionEnemy(active.routeId, node.encounterKind, active.encounterIndex),
+      active,
+    );
+    const isBoss = node.encounterKind === "guardian" || node.encounterKind === "final_boss";
     const battle = resolveBattle(playerForBattle, enemy, playerName, {
       pickAction: (battleState) => pickAutoAction(battleState, { rules: [], potions: {} }),
       potions: {},
       v2Skills: prepared.skills,
       maxTurns: 100,
-      isBoss: active.stage === STORM_EXPEDITION_STAGE_COUNT - 1,
-      openingNote: `${stormExpeditionRoute(active.routeId)?.name ?? "원정"} ${active.stage + 1}구간`,
+      isBoss,
+      openingNote: `${stormExpeditionRoute(active.routeId)?.name ?? "원정"} · ${node.name}${(node.encounterCount ?? 1) > 1 ? ` ${active.encounterIndex + 1}전` : ""}`,
     });
     const success = battle.outcome === "win";
-    const reward = success ? stormExpeditionStageReward(active.stage) : 0;
-    const bossClear = success && active.stage === STORM_EXPEDITION_STAGE_COUNT - 1;
+    const finalClear = success && node.encounterKind === "final_boss";
     let gainedGold = 0;
+    let gainedMaterials: Record<string, number> = {};
+    let gainedEquipment: V2EquipInstance[] = [];
+    let droppedMaterials: Record<string, number> = {};
+    let droppedEquipment: V2EquipInstance | null = null;
 
     if (!success) {
       state = { ...state, active: null };
-    } else if (bossClear) {
-      gainedGold = active.pendingGold + reward;
-      charSave.gold = Math.max(0, Math.floor(Number(charSave.gold) || 0)) + gainedGold;
-      state = { ...state, active: null, clears: state.clears + 1 };
-      await upsertSave(tx, userId, "character.v2", charSave);
     } else {
-      state = {
-        ...state,
-        active: {
-          ...active,
-          stage: active.stage + 1,
-          hp: Math.max(0, battle.finalState.playerHp),
-          mp: Math.max(0, battle.finalState.playerMp),
-          pendingGold: active.pendingGold + reward,
-        },
-      };
+      const rewardMultiplier = isAcceptedRisk(active, "golden_compass") ? 1.35 : 1;
+      const reward = Math.floor(
+        stormExpeditionBattleReward(node.encounterKind, active.encounterIndex) * rewardMultiplier,
+      );
+      const equipmentChanceMultiplier = isAcceptedRisk(active, "storm_contract") ? 2 : 1;
+      const loot = rollStormExpeditionLoot(
+        active.routeId,
+        node.encounterKind,
+        Math.random,
+        { equipmentChanceMultiplier },
+      );
+      droppedMaterials = loot.materials;
+      droppedEquipment = loot.equipmentId ? mintRolledEquipInstance(loot.equipmentId) : null;
+      const pendingMaterials = mergeStormExpeditionMaterials(active.pendingMaterials, droppedMaterials);
+      const pendingEquipment = droppedEquipment ? [...active.pendingEquipment, droppedEquipment] : active.pendingEquipment;
+      const nextEffects = consumeBattleEffects(active.nextBattleEffects, node.encounterKind);
+      const nextHpBeforeHeal = Math.max(0, battle.finalState.playerHp);
+      const nextHp = active.boons.includes("victory_vigor")
+        ? Math.min(baseMaxHp, nextHpBeforeHeal + Math.floor(baseMaxHp * 0.08))
+        : nextHpBeforeHeal;
+      const advanced = advanceAfterBattle({
+        ...active,
+        hp: nextHp,
+        mp: Math.max(0, battle.finalState.playerMp),
+        maxHp: baseMaxHp,
+        maxMp: effectiveMaxMp,
+        defeatedCount: active.defeatedCount + 1,
+        pendingGold: active.pendingGold + reward,
+        pendingMaterials,
+        pendingEquipment,
+        nextBattleEffects: nextEffects,
+      }, node.encounterCount ?? 1);
+
+      if (finalClear) {
+        const claimed = await claimPendingRewards({ tx, userId, charSave, equipmentSave, active: advanced });
+        gainedGold = claimed.result.gainedGold;
+        gainedMaterials = claimed.result.gainedMaterials;
+        gainedEquipment = claimed.result.gainedEquipment;
+        responseCharSave = claimed.character;
+        state = { ...state, active: null, clears: state.clears + 1 };
+      } else {
+        state = { ...state, active: advanced };
+      }
     }
     await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
 
     return response(200, {
-      ...statusBody(charSave, state),
+      ...statusBody(responseCharSave, state),
       success,
-      bossClear,
+      bossClear: finalClear,
+      finalClear,
       failed: !success,
       gainedGold,
-      stage: active.stage,
+      gainedMaterials,
+      gainedEquipment,
+      droppedMaterials,
+      droppedEquipment,
+      claimedRewards: finalClear,
+      nodeIndex: active.nodeIndex,
+      encounterIndex: active.encounterIndex,
+      encounterKind: node.encounterKind,
+      routeId: active.routeId,
       enemyName: enemy.name,
       turns: battle.turns,
       replay: toReplayPayload(battle.finalState, 220),
@@ -176,6 +335,251 @@ export async function POST(req: Request) {
   return Response.json(result.body, { status: result.status });
 }
 
+function applyBattleBonuses(
+  player: PlayerCombat,
+  active: StormExpeditionActive,
+  encounterKind: StormExpeditionEncounterKind,
+): PlayerCombat {
+  let attackMultiplier = 1;
+  if (active.boons.includes("tempest_might")) attackMultiplier *= 1.12;
+  if (active.nextBattleEffects.includes("next_assault")) attackMultiplier *= 1.12;
+  if (encounterKind === "final_boss" && active.nextBattleEffects.includes("heart_assault")) attackMultiplier *= 1.15;
+  let damageReduction = player.passiveDamageTakenReductionPct ?? 0;
+  if (active.boons.includes("storm_guard")) damageReduction += 10;
+  if (active.nextBattleEffects.includes("next_guard")) damageReduction += 15;
+  const speedMultiplier = active.riskEvent?.status === "accepted"
+    && active.riskEvent.curseId === "dulled_senses" ? 0.88 : 1;
+  return {
+    ...player,
+    atk: Math.floor(player.atk * attackMultiplier),
+    magicAtk: Math.floor((player.magicAtk ?? player.atk) * attackMultiplier),
+    spd: Math.floor(player.spd * (active.boons.includes("swift_fate") ? 1.12 : 1) * speedMultiplier),
+    critChancePct: (player.critChancePct ?? 0) + (active.boons.includes("swift_fate") ? 5 : 0),
+    passiveDamageTakenReductionPct: damageReduction,
+  };
+}
+
+function consumeBattleEffects(
+  effects: readonly StormExpeditionBattleEffectId[],
+  encounterKind: StormExpeditionEncounterKind,
+): StormExpeditionBattleEffectId[] {
+  return effects.filter((effect) => {
+    if (effect === "next_guard" || effect === "next_assault") return false;
+    if (effect === "risk_enemy_fury") return false;
+    if (effect === "heart_assault" && encounterKind === "final_boss") return false;
+    return true;
+  });
+}
+
+function advanceAfterBattle(active: StormExpeditionActive, encounterCount: number): StormExpeditionActive {
+  if (active.encounterIndex + 1 < encounterCount) {
+    return { ...active, encounterIndex: active.encounterIndex + 1 };
+  }
+  return {
+    ...active,
+    nodeIndex: Math.min(STORM_EXPEDITION_NODE_COUNT - 1, active.nodeIndex + 1),
+    encounterIndex: 0,
+  };
+}
+
+function applyChoice(
+  active: StormExpeditionActive,
+  kind: StormExpeditionChoiceKind,
+  choiceId: string,
+  baseMaxHp: number,
+  baseMaxMp: number,
+): StormExpeditionActive | null {
+  const choiceCatalog = kind === "supply"
+    ? STORM_EXPEDITION_SUPPLY_CHOICES
+    : kind === "camp"
+      ? STORM_EXPEDITION_CAMP_CHOICES
+      : kind === "altar"
+        ? STORM_EXPEDITION_ALTAR_CHOICES
+        : STORM_EXPEDITION_FINAL_PREP_CHOICES;
+  if (!choiceCatalog.some((choice) => choice.id === choiceId)) return null;
+  if (kind === "altar" && !active.altarOffers.includes(choiceId as StormExpeditionBoonId)) return null;
+  if (kind === "altar" && active.boons.includes(choiceId as StormExpeditionBoonId)) return null;
+
+  let hp = Math.min(baseMaxHp, active.hp);
+  const hadDeepMana = active.boons.includes("deep_mana");
+  let effectiveMaxMp = stormEffectiveMaxMp(baseMaxMp, active.boons, active.riskEvent);
+  let mp = Math.min(effectiveMaxMp, active.mp);
+  let pendingGold = active.pendingGold;
+  let boons = [...active.boons];
+  let nextBattleEffects = [...active.nextBattleEffects];
+
+  if (choiceId === "field_rations") hp = heal(hp, baseMaxHp, 0.15);
+  if (choiceId === "mana_ampoule") mp = heal(mp, effectiveMaxMp, 0.2);
+  if (choiceId === "wind_barrier") nextBattleEffects = appendUnique(nextBattleEffects, "next_guard");
+  if (choiceId === "storm_oil") nextBattleEffects = appendUnique(nextBattleEffects, "next_assault");
+  if (choiceId === "scavenged_coffer") pendingGold += 25_000;
+  if (choiceId === "deep_rest") hp = heal(hp, baseMaxHp, 0.35);
+  if (choiceId === "meditation") mp = heal(mp, effectiveMaxMp, 0.45);
+  if (choiceId === "balanced_rest") {
+    hp = heal(hp, baseMaxHp, 0.2);
+    mp = heal(mp, effectiveMaxMp, 0.25);
+  }
+  if (kind === "altar") {
+    boons = appendUnique(boons, choiceId as StormExpeditionBoonId);
+    if (choiceId === "deep_mana" && !hadDeepMana) {
+      const oldMaxMp = effectiveMaxMp;
+      effectiveMaxMp = stormEffectiveMaxMp(baseMaxMp, boons, active.riskEvent);
+      mp = Math.min(effectiveMaxMp, mp + (effectiveMaxMp - oldMaxMp));
+    }
+  }
+  if (choiceId === "repair_armor") hp = heal(hp, baseMaxHp, 0.25);
+  if (choiceId === "focus_mana") mp = heal(mp, effectiveMaxMp, 0.35);
+  if (choiceId === "boss_slayer") nextBattleEffects = appendUnique(nextBattleEffects, "heart_assault");
+
+  return {
+    ...active,
+    nodeIndex: Math.min(STORM_EXPEDITION_NODE_COUNT - 1, active.nodeIndex + 1),
+    encounterIndex: 0,
+    hp,
+    mp,
+    maxHp: baseMaxHp,
+    maxMp: effectiveMaxMp,
+    pendingGold,
+    boons,
+    nextBattleEffects,
+    chosenChoices: { ...active.chosenChoices, [kind]: choiceId },
+  };
+}
+
+function applyRiskDecision(
+  active: StormExpeditionActive,
+  decision: "accept" | "decline",
+): StormExpeditionActive {
+  const riskEvent = active.riskEvent;
+  if (!riskEvent) return active;
+  if (decision === "decline") {
+    return { ...active, riskEvent: { ...riskEvent, status: "declined" } };
+  }
+
+  let next: StormExpeditionActive = {
+    ...active,
+    riskEvent: { ...riskEvent, status: "accepted" },
+  };
+  if (riskEvent.id === "rift_cache") {
+    next = {
+      ...next,
+      pendingMaterials: mergeStormExpeditionMaterials(next.pendingMaterials, {
+        [STORM_EXPEDITION_ROUTE_MATERIAL_ID[next.routeId]]: 2,
+      }),
+      nextBattleEffects: appendUnique(next.nextBattleEffects, "risk_enemy_fury"),
+    };
+  }
+  if (riskEvent.id === "unstable_blessing" && riskEvent.boonId) {
+    const oldMaxMp = next.maxMp;
+    const boons = appendUnique(next.boons, riskEvent.boonId);
+    const baseMaxMp = active.boons.includes("deep_mana")
+      ? Math.round(active.maxMp / 1.2)
+      : active.maxMp;
+    const effectiveMaxMp = stormEffectiveMaxMp(
+      baseMaxMp,
+      boons,
+      next.riskEvent,
+    );
+    next = {
+      ...next,
+      boons,
+      maxMp: effectiveMaxMp,
+      mp: riskEvent.boonId === "deep_mana"
+        ? Math.min(effectiveMaxMp, next.mp + Math.max(0, effectiveMaxMp - oldMaxMp))
+        : Math.min(effectiveMaxMp, next.mp),
+    };
+  }
+  if (riskEvent.id === "golden_compass") {
+    next = {
+      ...next,
+      nodeIndex: Math.min(STORM_EXPEDITION_NODE_COUNT - 1, next.nodeIndex + 1),
+      encounterIndex: 0,
+      chosenChoices: { ...next.chosenChoices, camp: "golden_compass" },
+    };
+  }
+  return next;
+}
+
+function stormEffectiveMaxMp(
+  baseMaxMp: number,
+  boons: readonly StormExpeditionBoonId[],
+  riskEvent: StormExpeditionRiskEventOffer | null,
+): number {
+  let multiplier = boons.includes("deep_mana") ? 1.2 : 1;
+  if (riskEvent?.status === "accepted" && riskEvent.curseId === "mana_fracture") {
+    multiplier *= 0.85;
+  }
+  return Math.max(0, Math.floor(baseMaxMp * multiplier));
+}
+
+function isAcceptedRisk(
+  active: StormExpeditionActive,
+  id: StormExpeditionRiskEventOffer["id"],
+): boolean {
+  return active.riskEvent?.id === id && active.riskEvent.status === "accepted";
+}
+
+function applyRiskToEnemy(enemy: Monster, active: StormExpeditionActive): Monster {
+  let attackMultiplier = 1;
+  if (active.nextBattleEffects.includes("risk_enemy_fury")) attackMultiplier *= 1.2;
+  if (isAcceptedRisk(active, "storm_contract")) attackMultiplier *= 1.1;
+  if (active.riskEvent?.status === "accepted" && active.riskEvent.curseId === "raging_current") {
+    attackMultiplier *= 1.12;
+  }
+  return attackMultiplier === 1
+    ? enemy
+    : { ...enemy, atk: Math.max(1, Math.floor(enemy.atk * attackMultiplier)) };
+}
+
+function heal(current: number, maximum: number, fraction: number): number {
+  return Math.min(maximum, current + Math.floor(maximum * fraction));
+}
+
+function appendUnique<T>(values: T[], value: T): T[] {
+  return values.includes(value) ? values : [...values, value];
+}
+
+function hasStalePosition(input: PostInput, active: StormExpeditionActive): boolean {
+  const expectedNode = Number(input.expectedNodeIndex);
+  const expectedEncounter = Number(input.expectedEncounterIndex);
+  return (Number.isFinite(expectedNode) && Math.floor(expectedNode) !== active.nodeIndex)
+    || (Number.isFinite(expectedEncounter) && Math.floor(expectedEncounter) !== active.encounterIndex);
+}
+
+async function claimPendingRewards({
+  tx,
+  userId,
+  charSave,
+  equipmentSave,
+  active,
+}: {
+  tx: Parameters<typeof upsertSave>[0];
+  userId: string;
+  charSave: CharacterSave;
+  equipmentSave: Record<string, unknown>;
+  active: StormExpeditionActive;
+}) {
+  const parsedEquipment = parseEquipmentSave(equipmentSave);
+  const character = {
+    ...charSave,
+    gold: Math.max(0, Math.floor(Number(charSave.gold) || 0)) + active.pendingGold,
+    materials: mergeDrops(charSave.materials, active.pendingMaterials),
+  };
+  await upsertSave(tx, userId, "character.v2", character);
+  await upsertSave(tx, userId, "equipment.v2", {
+    owned: [...parsedEquipment.owned, ...active.pendingEquipment],
+    equipped: parsedEquipment.equipped,
+  });
+  return {
+    character,
+    result: {
+      gainedGold: active.pendingGold,
+      gainedMaterials: active.pendingMaterials,
+      gainedEquipment: active.pendingEquipment,
+    },
+  };
+}
+
 function statusBody(charSave: CharacterSave, raw: unknown) {
   const state = parseStormExpeditionState(raw, stormExpeditionDateKey());
   const frontierDepth = Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2));
@@ -185,12 +589,20 @@ function statusBody(charSave: CharacterSave, raw: unknown) {
     unlockDepth: STORM_EXPEDITION_UNLOCK_DEPTH,
     frontierDepth,
     attemptsLeft: Math.max(0, STORM_EXPEDITION_DAILY_ATTEMPTS - state.attemptsUsed),
-    stageCount: STORM_EXPEDITION_STAGE_COUNT,
+    nodeCount: STORM_EXPEDITION_NODE_COUNT,
+    stageCount: STORM_EXPEDITION_NODE_COUNT,
     state,
     routes: STORM_EXPEDITION_ROUTES,
-    rewards: Array.from({ length: STORM_EXPEDITION_STAGE_COUNT }, (_, stage) =>
-      stormExpeditionStageReward(stage),
-    ),
+    nodes: STORM_EXPEDITION_NODES,
+    choices: {
+      supply: STORM_EXPEDITION_SUPPLY_CHOICES,
+      camp: STORM_EXPEDITION_CAMP_CHOICES,
+      altar: STORM_EXPEDITION_ALTAR_CHOICES,
+      final_prep: STORM_EXPEDITION_FINAL_PREP_CHOICES,
+    },
+    riskEvents: STORM_EXPEDITION_RISK_EVENTS,
+    riskCurses: STORM_EXPEDITION_RISK_CURSES,
+    lootRules: STORM_EXPEDITION_LOOT,
     gold: Math.max(0, Math.floor(Number(charSave.gold) || 0)),
   };
 }

@@ -5,6 +5,10 @@ import {
   HUNT_COOLDOWN_MODE,
   OFFLINE_MAX_MS,
 } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  normalizeAutoHuntStopConfig,
+  type AutoHuntStopConfig,
+} from "@/adventure/v2/autoHuntStopPolicy";
 
 // POST /api/v2/me/offline-hunt — 오프라인 사냥 세션 시작/정지 (코어루프 전용).
 //
@@ -18,6 +22,7 @@ import {
 
 type CharSave = {
   offlineHuntStartedAt?: number | null;
+  offlineHuntStopConfig?: AutoHuntStopConfig | null;
   lastBattleAt?: number;
   [k: string]: unknown;
 };
@@ -32,7 +37,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, disabled: true, active: false });
   }
 
-  let body: { action?: unknown };
+  let body: { action?: unknown; autoStopConfig?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -43,6 +48,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_action" }, { status: 400 });
   }
   const action = body.action;
+  const autoStopConfig = normalizeAutoHuntStopConfig(body.autoStopConfig);
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
@@ -56,12 +62,17 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         offlineHuntStartedAt: null,
+        offlineHuntStopConfig: null,
       });
       return { active: false as const };
     }
     // start — 이미 활성이면 창 리셋 안 함(누적 시간 보존·중복 start 멱등).
     const cur = Number(charSave.offlineHuntStartedAt) || 0;
     if (cur > 0) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        offlineHuntStopConfig: autoStopConfig,
+      });
       return {
         active: true as const,
         startedAt: cur,
@@ -72,6 +83,7 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       offlineHuntStartedAt: now,
+      offlineHuntStopConfig: autoStopConfig,
       lastBattleAt: now,
     });
     return {

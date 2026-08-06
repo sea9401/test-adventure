@@ -34,6 +34,7 @@ import {
 } from "@/adventure/data/v2/coopRewards";
 import {
   cookingFoodDefinition,
+  cookingStatText,
   type CookingFoodId,
   type CookingFoodInventory,
 } from "@/adventure/v2/cooking";
@@ -69,6 +70,7 @@ export function RareMapsTab({
   onUseCashItem,
   cookingFoods,
   onUseCookingFood,
+  onUseExpTome,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
@@ -81,6 +83,7 @@ export function RareMapsTab({
   onUseCashItem: (itemId: MuseunCashItemId) => void;
   cookingFoods: CookingFoodInventory;
   onUseCookingFood: (itemId: CookingFoodId) => void;
+  onUseExpTome: (map: RareMapInstance) => void;
 }) {
   const router = useRouter();
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -136,6 +139,7 @@ export function RareMapsTab({
       />
       <ConsumableList
         maps={rareMaps}
+        busy={busy}
         suppressEmpty={
           hasCookingFood ||
           hasCashItem ||
@@ -143,22 +147,7 @@ export function RareMapsTab({
           hasEquipmentBox ||
           hasMasteryTome
         }
-        onUse={(m) => {
-          // 경험치의 비약(테스트) — 화면 이동 없이 즉시 EXP 지급 후 새로고침
-          //   (레벨·스탯이 전역에 반영되도록).
-          if (m.kind === "exp_tome") {
-            fetch("/api/v2/me/use-exp-tome", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ map: m.iid }),
-            })
-              .then((res) => {
-                if (res.ok) window.location.reload();
-              })
-              .catch(() => {});
-            return;
-          }
-        }}
+        onUse={onUseExpTome}
       />
     </div>
   );
@@ -231,12 +220,6 @@ function CookingFoodSection({
       </ul>
     </div>
   );
-}
-
-function cookingStatText(stats: Partial<Record<string, number>>): string {
-  return Object.entries(stats)
-    .map(([key, value]) => `${key.toUpperCase()} +${value}%`)
-    .join(" · ");
 }
 
 function formatFoodDuration(ms: number): string {
@@ -650,11 +633,13 @@ function CoopEquipmentBoxSection({
 // 소모품 탭 — 테스트용 utility 항목만 표시. hunt/location 레어맵은 사냥터 목록에서 입장.
 function ConsumableList({
   maps,
+  busy,
   onUse,
   // 위에 다른 소모품 섹션이 이미 보유분을 그리면(true) 빈 안내문을 숨긴다.
   suppressEmpty = false,
 }: {
   maps: RareMapInstance[] | null;
+  busy: string | null;
   onUse?: (m: RareMapInstance) => void;
   suppressEmpty?: boolean;
 }) {
@@ -692,6 +677,7 @@ function ConsumableList({
       <ul className="space-y-1.5">
         {utilityMaps.map((m) => {
           const def = RARE_MAP_KINDS[m.kind];
+          const isBusy = busy === `exp_tome_${m.iid}`;
           const lines = [
             { label: "남은 횟수", value: `${m.runsLeft}` },
           ];
@@ -724,12 +710,16 @@ function ConsumableList({
                   </span>
                 </button>
                 <Button
-                  onClick={() => onUse?.(m)}
+                  disabled={isBusy}
+                  onClick={() => {
+                    setInfoCard(null);
+                    onUse?.(m);
+                  }}
                   variant="info"
                   size="xs"
                   className="shrink-0"
                 >
-                  사용
+                  {isBusy ? "사용 중…" : "사용"}
                 </Button>
               </div>
               <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">

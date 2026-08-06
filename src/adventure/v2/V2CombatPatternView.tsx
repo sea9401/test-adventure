@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   V2_SKILLS,
   describeV2Skill,
   smartDefaultPatternFromEquipped,
+  v2SkillSelectLabel,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
@@ -19,6 +21,7 @@ import {
   type V2CombatCondition,
   type V2CombatPreset,
   type V2CombatRole,
+  type V2PatternSelfStatus,
 } from "@/adventure/v2/combat/combatPattern";
 import { useSystemMessageState } from "./RewardToastProvider";
 
@@ -38,8 +41,8 @@ const COND_KINDS: { value: CondKind; label: string }[] = [
   { value: "self_hp", label: "내 HP" },
   { value: "self_mp", label: "내 MP" },
   { value: "self_shield", label: "내 보호막" },
-  { value: "self_buff", label: "내 버프" },
-  { value: "self_buff_pct", label: "내 파생버프" },
+  { value: "self_buff", label: "내 능력치 버프" },
+  { value: "self_buff_pct", label: "내 상태 효과" },
   { value: "enemy_hp", label: "적 HP" },
   { value: "enemy_status", label: "적 상태" },
   { value: "enemy_debuff", label: "적 디버프" },
@@ -109,7 +112,7 @@ type StateShape = {
 };
 
 const sel =
-  "rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "min-w-0 max-w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
 
@@ -124,48 +127,13 @@ function PatternNumberInput({
   max?: number;
   onValueChange: (value: number) => void;
 }) {
-  // 패턴 데이터는 항상 유효한 number 로 유지하되, 입력 중에만 빈 문자열을 허용한다.
-  // 기존 값을 모두 지운 뒤 새 수를 입력할 때 0/1이 즉시 끼어드는 문제를 피한다.
-  const [draft, setDraft] = useState<string | null>(null);
-  const displayedValue = draft ?? String(value);
-
-  const normalize = (raw: string) => {
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return null;
-    return Math.max(
-      min,
-      Math.min(max ?? Number.POSITIVE_INFINITY, Math.floor(parsed)),
-    );
-  };
-
   return (
-    <input
-      type="number"
-      inputMode="numeric"
+    <DraftNumberInput
       min={min}
       max={max}
       className={num}
-      value={displayedValue}
-      onChange={(event) => {
-        const raw = event.target.value;
-        if (raw === "") {
-          setDraft("");
-          return;
-        }
-        const next = normalize(raw);
-        if (next == null) {
-          setDraft(raw);
-          return;
-        }
-        setDraft(String(next));
-        onValueChange(next);
-      }}
-      onBlur={() => {
-        const next = normalize(displayedValue);
-        setDraft(null);
-        if (next == null || displayedValue === "") return;
-        if (next !== value) onValueChange(next);
-      }}
+      value={value}
+      onValueChange={onValueChange}
     />
   );
 }
@@ -215,6 +183,10 @@ export function V2CombatPatternView({
   }, []);
 
   const skillName = (id: string) => V2_SKILLS[id as V2SkillId]?.name ?? id;
+  const skillSelectLabel = (id: string) => {
+    const skill = V2_SKILLS[id as V2SkillId];
+    return skill ? v2SkillSelectLabel(skill) : id;
+  };
   // 패시브 스킬은 캐스트 대상 아님(상시 효과) — 전투패턴 슬롯 후보에서 제외.
   const castableEquipped = equipped.filter(
     (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
@@ -552,7 +524,7 @@ export function V2CombatPatternView({
                     </select>
                   ) : (
                   <select
-                    className={sel}
+                    className={`${sel} w-full sm:w-auto`}
                     value={b.action.skillId}
                     onChange={(e) =>
                       update(i, { action: { kind: "skill", skillId: e.target.value } })
@@ -561,11 +533,11 @@ export function V2CombatPatternView({
                     {castableEquipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
                     {b.action.skillId && !castableEquipped.includes(b.action.skillId) && (
                       <option value={b.action.skillId}>
-                        {skillName(b.action.skillId)} (미장착)
+                        {skillSelectLabel(b.action.skillId)} · 미장착
                       </option>
                     )}
                     {castableEquipped.map((id) => (
-                      <option key={id} value={id}>{skillName(id)}</option>
+                      <option key={id} value={id}>{skillSelectLabel(id)}</option>
                     ))}
                   </select>
                   )}
@@ -712,11 +684,13 @@ function ConditionParams({
       return (
         <>
           <select className={sel} value={c.target}
-            onChange={(e) => onChange({ ...c, target: e.target.value as "evasion" | "crit" | "damageReduction" | "reflectDamage" })}>
-            <option value="evasion">회피</option>
-            <option value="crit">치명타</option>
-            <option value="damageReduction">받피감</option>
-            <option value="reflectDamage">반사</option>
+            onChange={(e) => onChange({ ...c, target: e.target.value as V2PatternSelfStatus })}>
+            <option value="evasion">회피 증가</option>
+            <option value="crit">치명타 확률 증가</option>
+            <option value="damageReduction">받는 피해 감소</option>
+            <option value="reflectDamage">반사 피해</option>
+            <option value="regen">지속 회복</option>
+            <option value="guaranteedEvade">확정 회피</option>
           </select>
           <select className={sel} value={c.active ? "y" : "n"}
             onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>

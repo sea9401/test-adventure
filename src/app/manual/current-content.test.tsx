@@ -5,6 +5,7 @@ import { ControlsContent } from "./content/controls";
 import { EconomyContent } from "./content/economy";
 import { GuildContent } from "./content/guild";
 import { HuntingContent } from "./content/hunting";
+import { JobsContent } from "./content/jobs";
 import { PastimesContent } from "./content/pastimes";
 import { PlazaContent } from "./content/plaza";
 import { QuestsContent } from "./content/quests";
@@ -12,12 +13,14 @@ import { SkillsContent } from "./content/skills";
 import { TownContent } from "./content/town";
 
 describe("최신 게임 안내서 내용", () => {
-  it("세 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
+  it("네 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
     const html = renderToStaticMarkup(<ControlsContent />);
 
     expect(html).toContain("기본 모드");
     expect(html).toContain("배경 숨김");
     expect(html).toContain("은신 모드");
+    expect(html).toContain("터미널 모드");
+    expect(html).toContain("검은 배경");
     expect(html).toContain("장면 배경만 끄고");
     expect(html).toContain("그대로 유지");
     expect(html).toContain("스프레드시트");
@@ -76,7 +79,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(quests).toContain("농장·벌목·채광·");
     expect(quests).toContain("낚시·요리");
     expect(quests).toContain("대표 배지 전시대");
+    expect(quests).toContain("모두 받기");
+    expect(quests).toContain("수령 후 공개되는");
     expect(skills).toContain("장비 도감·어보 수집 단계");
+  });
+
+  it("전직 로드맵에서 생산직과 생존자 전투 직업을 구분한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("manual-job-production");
+    expect(html).toContain("생산직 · 전투 Lv 제한 없음");
+    expect(html).toContain("초록색으로 강조된 생산직");
+    expect(html).toContain("헬스 트레이너처럼");
   });
 
   it("길드 훈련과 원정의 전체 성장 단계를 안내한다", () => {
@@ -93,9 +107,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("일반 이용자에게 공개되지 않습니다");
   });
 
-  it("거래소 공개 입찰 유예와 정산 흐름을 안내한다", () => {
+  it("거래소 즉시구매 기본값과 선택형 공개 입찰 정산 흐름을 안내한다", () => {
     const html = renderToStaticMarkup(<PlazaContent />);
 
+    expect(html).toContain("기본 판매 방식은");
+    expect(html).toContain("등록 즉시 살 수 있고");
+    expect(html).toContain("같은 품목의 매물이 한 줄로 합쳐지며");
+    expect(html).toContain("최저가 매물부터");
+    expect(html).toContain("별표 즐겨찾기");
+    expect(html).toContain("최근 30일 체결가 추이");
+    expect(html).toContain("구매 주문 골드는 등록 시");
+    expect(html).toContain("가격 알림에 목표 개당 가격");
+    expect(html).toContain("판매 관리에서 가격을 변경");
     expect(html).toContain("공개 입찰 유예");
     expect(html).toContain("2~");
     expect(html).toContain("24시간");

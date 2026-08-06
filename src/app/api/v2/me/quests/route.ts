@@ -6,6 +6,7 @@ import {
   buildRepeatSignals,
   assembleQuestExtras,
   parseClaimed,
+  parseTrackedQuestId,
   GUIDE_QUESTS_KEY,
   REPEAT_QUESTS_KEY,
 } from "@/lib/server/v2QuestContext";
@@ -38,6 +39,7 @@ import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
 import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking";
+import { deriveMonsterHuntCodex } from "@/adventure/data/v2/monsterHuntCodex";
 
 // GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
@@ -84,6 +86,7 @@ export async function GET() {
   ]);
 
   const claimed = parseClaimed(guideRaw);
+  const savedTrackedQuestId = parseTrackedQuestId(guideRaw);
   const retroactiveObtainedAt = Date.now();
   const retroactiveTitleIds = await backfillClaimedQuestTitleRewards(
     userId,
@@ -117,7 +120,9 @@ export async function GET() {
     extras,
   });
   const quests = deriveQuestViews(ctx, claimed);
-  const current = currentGuideQuest(ctx, claimed);
+  const current = currentGuideQuest(ctx, claimed, savedTrackedQuestId);
+  const trackedQuestId =
+    current?.id === savedTrackedQuestId ? savedTrackedQuestId : null;
 
   // 반복 퀘스트 — lazy 롤오버(주기 키 변경 시 무락 upsert — 동시 호출도 같은 스냅샷이라 무해).
   const now = new Date();
@@ -138,7 +143,9 @@ export async function GET() {
     lines: questLinesFor(ctx),
     quests,
     current,
+    trackedQuestId,
     achievementSummary: achievementSummary(ctx, claimed),
+    monsterCodex: deriveMonsterHuntCodex(effectiveAdvLogRaw),
     repeat: {
       daily: repeatViews.filter((q) => q.scope === "daily"),
       weekly: repeatViews.filter((q) => q.scope === "weekly"),

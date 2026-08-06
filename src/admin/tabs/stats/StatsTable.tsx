@@ -49,7 +49,7 @@ export function StatsTable({
                 onClick={onSort}
                 align="right"
               >
-                프론티어
+                사냥터 진행
               </SortHeader>
               <th className="py-1 text-left font-medium">직업</th>
               <SortHeader

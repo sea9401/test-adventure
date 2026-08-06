@@ -13,11 +13,15 @@ export type GuildActivity = {
   targetName: string | null;
   meta: {
     amount?: number;
+    quantity?: number;
+    contributionPoints?: number;
     role?: string;
     nationName?: string;
     questTitle?: string;
     deliveryTitle?: string;
     itemName?: string;
+    tokenCost?: number;
+    remainingTokens?: number;
     smithyLevel?: number;
     buildingName?: string;
     buildingLevel?: number;
@@ -74,7 +78,15 @@ function describe(a: GuildActivity): string {
       return `${actor} 님이 ${target} 님을 ${ROLE_NAME[role] ?? role}로 임명했어요`;
     }
     case "gold_deposit":
-      return `${actor} 님이 금고에 ${(a.meta?.amount ?? 0).toLocaleString()} G 입금했어요`;
+      return `${actor} 님이 금고에 ${(a.meta?.amount ?? 0).toLocaleString()} G 입금했어요${contributionText(a)}`;
+    case "facility_material_donation":
+      return `${actor} 님이 ${a.meta?.buildingName ?? "길드 시설"}에 재료 ${(a.meta?.quantity ?? 0).toLocaleString()}개를 기부했어요${contributionText(a)}`;
+    case "dining_ingredient_donation":
+      return `${actor} 님이 식당에 ${a.meta?.itemName ?? "식재료"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 기부했어요${contributionText(a)}`;
+    case "trade_delivery":
+      return `${actor} 님이 교역소에 ${a.meta?.itemName ?? "물품"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 납품했어요${contributionText(a)}`;
+    case "trade_shop_purchase":
+      return `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 구매했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
     case "workshop_weekly_claim":
       return `${actor} 님이 ${a.meta?.questTitle ?? "제작 의뢰"} 보상을 수령했어요`;
     case "exploration_weekly_claim":
@@ -142,6 +154,12 @@ function describe(a: GuildActivity): string {
   }
 }
 
+function contributionText(a: GuildActivity): string {
+  return a.meta?.contributionPoints
+    ? ` · 기여 +${a.meta.contributionPoints.toLocaleString()}점`
+    : "";
+}
+
 function alchemyTargetLabel(target?: "hp" | "mp" | "balanced"): string {
   if (target === "hp") return "HP 충전";
   if (target === "mp") return "MP 충전";
@@ -157,6 +175,10 @@ const DOT_CLASS: Record<string, string> = {
   member_join: "bg-emerald-500",
   role_change: "bg-sky-500",
   gold_deposit: "bg-yellow-500",
+  facility_material_donation: "bg-orange-500",
+  dining_ingredient_donation: "bg-amber-500",
+  trade_delivery: "bg-cyan-500",
+  trade_shop_purchase: "bg-cyan-500",
   workshop_weekly_claim: "bg-emerald-500",
   exploration_weekly_claim: "bg-cyan-500",
   exploration_expedition_dispatch: "bg-cyan-500",

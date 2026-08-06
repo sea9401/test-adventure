@@ -178,7 +178,7 @@ export async function POST(req: Request) {
         owned: starterOwned,
         equipped: starterEquipped,
       });
-      const referral = await attributeReferral(tx, uid, referralCode);
+      const referral = await attributeReferral(tx, uid, referralCode, name);
       return {
         profile,
         isNew: true,

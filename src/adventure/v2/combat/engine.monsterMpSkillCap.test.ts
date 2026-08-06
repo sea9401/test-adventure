@@ -11,6 +11,8 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 
 import type { Monster } from "@/adventure/data/monsters";
 import {
+  applyEnemyV2SkillCast,
+  initialBattleState,
   resolveBattle,
   type BattleResolution,
   type PlayerCombat,
@@ -136,5 +138,51 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
 
     expect(countText(res, "분쇄 일격")).toBe(1);
     expect(countText(res, "[반격] 정예 반격 시험체에게")).toBeGreaterThan(0);
+  });
+
+  it("그림자 도약의 보장 회피는 몬스터의 다음 직접 피해 스킬도 막는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const guardedPlayer: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      guaranteedEvades: 1,
+    };
+    const enemy: Monster = {
+      name: "정예 회피 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+    const state = initialBattleState(guardedPlayer, enemy, "그림자");
+
+    const cast = applyEnemyV2SkillCast(state, guardedPlayer);
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.playerHp).toBe(state.playerHp);
+    expect(cast.state.stacks.evadesRemaining).toBe(0);
+    expect(
+      cast.state.log.some(
+        (entry) =>
+          entry.text.includes("[회피 강화]") &&
+          entry.text.includes("분쇄 일격"),
+      ),
+    ).toBe(true);
+    expect(
+      cast.state.log.some(
+        (entry) =>
+          entry.text.includes("분쇄 일격!") &&
+          entry.text.includes("피해를 입혔다"),
+      ),
+    ).toBe(false);
   });
 });

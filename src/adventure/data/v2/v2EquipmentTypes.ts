@@ -32,7 +32,8 @@ export type V2EquipCatalogTier =
   | 10
   | 11
   | 12
-  | 13;
+  | 13
+  | 16;
 
 export type V2WeaponType =
   | "greatsword"
@@ -53,6 +54,8 @@ export type V2EquipOptions = {
   magicDef?: number;
   healPowerPct?: number;
   critResist?: number;
+  /** 중독·출혈 등 status_damage 로 분류되는 피해 감소율. */
+  statusDamageReductionPct?: number;
 };
 
 export type SignatureTrigger =

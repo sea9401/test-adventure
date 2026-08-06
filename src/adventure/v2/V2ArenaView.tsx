@@ -525,6 +525,8 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           );
         } else if (j.error === "no_character") {
           setError("캐릭터가 없어 매치를 진행할 수 없습니다.");
+        } else if (j.error === "admin_arena_disabled") {
+          setError("운영자 계정은 아레나 매칭에 참여하지 않습니다.");
         } else if (j.error === "out_of_stamina") {
           if (j.stamina) setStamina(j.stamina);
           setError(`스태미나가 부족합니다. ${j.requiredStamina ?? 1}이 필요합니다.`);

@@ -18,11 +18,13 @@ import {
 } from "@/adventure/data/v2/museunCashItems";
 import {
   cookingFoodDefinition,
+  cookingStatText,
   type CookingFoodId,
   type CookingFoodInventory,
 } from "@/adventure/v2/cooking";
 import {
   PriceInput,
+  PriceQuickFill,
   PriceRefLine,
   type MarketplacePager,
   type PriceStat,
@@ -43,6 +45,7 @@ export function MarketplaceRareMapTab({
   onListConsumable,
   onListCashItem,
   onListCookingFood,
+  hideEmpty = false,
 }: {
   rareMaps: RareMapInstance[];
   cashItems: MuseunCashItemCounts;
@@ -57,6 +60,7 @@ export function MarketplaceRareMapTab({
   onListConsumable: (iid: string) => void;
   onListCashItem: (itemId: MuseunCashItemId) => void;
   onListCookingFood: (itemId: CookingFoodId) => void;
+  hideEmpty?: boolean;
 }) {
   const heldCashItems = MUSEUN_TRADEABLE_ITEM_IDS.filter(
     (itemId) => (cashItems[itemId] ?? 0) > 0,
@@ -73,6 +77,7 @@ export function MarketplaceRareMapTab({
     heldCashItems.length === 0 &&
     heldCookingFoods.length === 0
   ) {
+    if (hideEmpty) return null;
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -85,9 +90,7 @@ export function MarketplaceRareMapTab({
     <div className="space-y-2">
       {heldCookingFoods.map(({ itemId, count, definition }) => {
         if (!definition) return null;
-        const statLine = Object.entries(definition.statPct)
-          .map(([key, value]) => `${key.toUpperCase()} +${value}%`)
-          .join(" · ");
+        const statLine = cookingStatText(definition.statPct);
         return (
           <Card key={itemId} padding="sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -106,8 +109,18 @@ export function MarketplaceRareMapTab({
                     보유 {count}개 · {statLine}
                   </span>
                   <span className="ml-1.5">
-                    <PriceRefLine stat={priceRef[itemId]} />
+                    <PriceRefLine stat={priceRef[itemId]} unit />
                   </span>
+                  <PriceQuickFill
+                    stat={priceRef[itemId]}
+                    unit
+                    onSelect={(value) =>
+                      setPrices((current) => ({
+                        ...current,
+                        [itemId]: String(value),
+                      }))
+                    }
+                  />
                 </span>
               </span>
               <div className="flex shrink-0 items-center gap-1.5">
@@ -126,6 +139,7 @@ export function MarketplaceRareMapTab({
                   onChange={(value) =>
                     setPrices((current) => ({ ...current, [itemId]: value }))
                   }
+                  placeholder="개당 가격"
                 />
                 <button
                   type="button"
@@ -158,8 +172,18 @@ export function MarketplaceRareMapTab({
                     보유 {held}개
                   </span>
                   <span className="ml-1.5">
-                    <PriceRefLine stat={priceRef[itemId]} />
+                    <PriceRefLine stat={priceRef[itemId]} unit />
                   </span>
+                  <PriceQuickFill
+                    stat={priceRef[itemId]}
+                    unit
+                    onSelect={(value) =>
+                      setPrices((current) => ({
+                        ...current,
+                        [itemId]: String(value),
+                      }))
+                    }
+                  />
                 </span>
               </span>
               <div className="flex shrink-0 items-center gap-1.5">
@@ -181,6 +205,7 @@ export function MarketplaceRareMapTab({
                       [itemId]: value,
                     }))
                   }
+                  placeholder="개당 가격"
                 />
                 <button
                   type="button"
@@ -220,6 +245,15 @@ export function MarketplaceRareMapTab({
                   <span className="ml-1.5">
                     <PriceRefLine stat={priceRef[m.kind]} />
                   </span>
+                  <PriceQuickFill
+                    stat={priceRef[m.kind]}
+                    onSelect={(value) =>
+                      setPrices((current) => ({
+                        ...current,
+                        [m.iid]: String(value),
+                      }))
+                    }
+                  />
                 </span>
               </span>
               <div className="flex shrink-0 items-center gap-1.5">

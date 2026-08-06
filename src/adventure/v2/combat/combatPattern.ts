@@ -19,6 +19,13 @@ export type V2PatternEnemyDebuff =
   | "vulnerability"
   | "damageDown"
   | "skillProcDown";
+export type V2PatternSelfStatus =
+  | "evasion"
+  | "crit"
+  | "damageReduction"
+  | "reflectDamage"
+  | "regen"
+  | "guaranteedEvade";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -36,7 +43,7 @@ export type V2CombatCondition =
   // 내 파생 버프(회피/치명/받피감/반사피해 = selfBuffPct) 활성/미활성 — 만료 시 재시전.
   | {
       kind: "self_buff_pct";
-      target: "evasion" | "crit" | "damageReduction" | "reflectDamage";
+      target: V2PatternSelfStatus;
       active: boolean;
     }
   // 적 HP 비율.
@@ -69,7 +76,8 @@ export type V2PatternCtx = {
   selfMpPct: number; // 0~100
   selfShieldActive: boolean;
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
-  selfBuffPctTargets: ReadonlySet<"evasion" | "crit" | "damageReduction" | "reflectDamage">; // 활성 파생버프
+  // 내부 필드명은 기존 저장/호출부 호환을 위해 유지. 능력치 밖의 활성 상태 효과 전체를 담는다.
+  selfBuffPctTargets: ReadonlySet<V2PatternSelfStatus>;
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
   enemyPoison: number;
@@ -199,6 +207,55 @@ export const V2_PATTERN_SKILL_POWER_MULT_BY_TIER: Record<1 | 2 | 3, number> = {
   3: 0.32,
 };
 
+// 직접 피해 스킬의 공격력 기반선. 고정 기본 피해 대신 장비 성장(공격력/마법공격력)이 스킬에도
+// 그대로 이어지게 한다. 다단 스킬은 combatShared 에서 이 총계수를 타격 수로 나눈다.
+export const V2_SKILL_ATTACK_BASE_COEF_BY_TIER: Record<1 | 2 | 3, number> = {
+  1: 1.3,
+  2: 1.5,
+  3: 1.75,
+};
+
+// DEX/LUK/SPI/DEF 등 특화 스탯 스킬은 공격 기반선과 특화 계수를 합산한다. 특화 계수 자체가
+// 추가 피해이므로 순수 공격기보다 낮은 공격 기반선을 쓰고, 아래 평타 최저 배율로 가치 하한을 보장한다.
+export const V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER: Record<1 | 2 | 3, number> = {
+  1: 0.9,
+  2: 1.05,
+  3: 1.2,
+};
+
+/** 직접 피해 효과 1개의 실제 공격력 계수. 기본 계수는 스킬 전체 타수에 나눠 적용한다. */
+export function v2SkillAttackCoef({
+  tier,
+  statCoef,
+  specialized,
+  directDamageEffectCount,
+  attackCoef,
+}: {
+  tier: 1 | 2 | 3;
+  statCoef: number;
+  specialized: boolean;
+  directDamageEffectCount: number;
+  attackCoef?: number;
+}): number {
+  if (attackCoef != null) return attackCoef;
+  const hitCount = Math.max(1, directDamageEffectCount);
+  if (specialized) {
+    return V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER[tier] / hitCount;
+  }
+  return Math.max(
+    statCoef,
+    V2_SKILL_ATTACK_BASE_COEF_BY_TIER[tier] / hitCount,
+  );
+}
+
+// 패턴 스킬은 초과 피해 통과율로 빈도를 제어하되, SP·MP를 쓰는 직접 공격이 평타보다 약해지지 않도록
+// 차수별 최소 가치를 보장한다. 조건부 추가 피해와 DoT는 기존 별도 보정을 유지한다.
+export const V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER: Record<1 | 2 | 3, number> = {
+  1: 1.3,
+  2: 1.5,
+  3: 1.75,
+};
+
 // 패턴 경로 DoT(출혈·중독·연소) 틱 위력 배율. DoT 도 확정 발동으로 ~5배 자주 적용돼(특히 saturate
 // 하는 독·연소) 빈도 이득이 큼. 평타 등가가 없어 보너스 모델 대신 단순 배율로 throttle — 직타가 이미
 // 평타 바닥으로 보호되므로 이 값으로 DoT 만 깎아도 DoT 빌드가 평타 이하로 안 떨어진다. sim 캘리브:
@@ -266,7 +323,9 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.target === "evasion" ||
         c.target === "crit" ||
         c.target === "damageReduction" ||
-        c.target === "reflectDamage"
+        c.target === "reflectDamage" ||
+        c.target === "regen" ||
+        c.target === "guaranteedEvade"
           ? c.target
           : null;
       if (!target || typeof c.active !== "boolean") return null;

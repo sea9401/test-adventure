@@ -1,8 +1,9 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   type V2EquipInstance,
   type V2EquipRoll,
@@ -16,6 +17,12 @@ import {
   type SortMode,
 } from "../v2ItemListShared";
 import { EquipmentListingCard } from "./EquipmentListingCard";
+import {
+  bestEquipmentBuyOrder,
+  equipmentBatchSaleCandidates,
+  type EquipmentBuyOrderView,
+} from "./equipmentBuyOrders";
+import { comparableEquipmentPriceStat } from "./equipmentPriceIntelligence";
 import {
   marketplacePriceKeyForEquipInstance,
   priceStatForKey,
@@ -45,7 +52,10 @@ export function MarketplaceEquipmentTab({
   setPrices,
   priceRef,
   busy,
+  equipmentBuyOrders,
   onListEquip,
+  onSellToBuyOrder,
+  onSellBatchToBuyOrders,
   onOpenCard,
 }: {
   items: V2EquipInstance[];
@@ -58,7 +68,10 @@ export function MarketplaceEquipmentTab({
   setPrices: Dispatch<SetStateAction<Record<string, string>>>;
   priceRef: Record<string, PriceStat>;
   busy: boolean;
+  equipmentBuyOrders: EquipmentBuyOrderView[];
   onListEquip: (inst: V2EquipInstance) => void;
+  onSellToBuyOrder: (inst: V2EquipInstance) => void;
+  onSellBatchToBuyOrders: (instances: V2EquipInstance[]) => void;
   onOpenCard: (
     itemId: string,
     roll: V2EquipRoll | undefined,
@@ -68,6 +81,16 @@ export function MarketplaceEquipmentTab({
     el: HTMLElement,
   ) => void;
 }) {
+  const [confirmBatch, setConfirmBatch] = useState(false);
+  const batchCandidates = equipmentBatchSaleCandidates(
+    equipmentBuyOrders,
+    pager.pageItems,
+    10,
+  );
+  const batchGross = batchCandidates.reduce(
+    (sum, row) => sum + row.order.unitPrice,
+    0,
+  );
   if (items.length === 0 && craftFilter === "all") {
     return (
       <Card padding="sm">
@@ -80,6 +103,16 @@ export function MarketplaceEquipmentTab({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap justify-end gap-1.5">
+        {batchCandidates.length >= 2 ? (
+          <button
+            type="button"
+            onClick={() => setConfirmBatch(true)}
+            disabled={busy}
+            className="rounded border border-emerald-600 bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-50"
+          >
+            일괄 판매 {batchCandidates.length}개
+          </button>
+        ) : null}
         <select
           value={craftFilter}
           onChange={(e) => setCraftFilter(e.target.value as SellCraftFilter)}
@@ -100,7 +133,40 @@ export function MarketplaceEquipmentTab({
           정렬 ⇅ {sortModeLabel(sellSort)}
         </button>
       </div>
-      <div className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+      {confirmBatch ? (
+        <div className={`${SURFACE_INSET} p-3`}>
+          <div className="text-sm font-semibold">
+            구매 주문에 장비 {batchCandidates.length}개를 판매할까요?
+          </div>
+          <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            현재 체결가 합계 {batchGross.toLocaleString()}G · 체결 직전에 서버가 최고가 주문을 다시 확인합니다.
+          </div>
+          <div className="mt-2 flex justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setConfirmBatch(false)}
+              disabled={busy}
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmBatch(false);
+                onSellBatchToBuyOrders(
+                  batchCandidates.map((row) => row.instance),
+                );
+              }}
+              disabled={busy || batchCandidates.length < 2}
+              className="rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              판매 확정
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <div className={`${SURFACE_INSET} px-2.5 py-1.5 text-[11px] text-emerald-800 dark:text-emerald-200`}>
         제작품은 ★ 품질, 명장 표식, 제작 전용 여부에 따라 실거래가가 크게
         갈릴 수 있어요. 필터로 같은 계열만 묶어서 가격을 잡는 편이 안전합니다.
       </div>
@@ -114,6 +180,11 @@ export function MarketplaceEquipmentTab({
         <>
           {pager.pageItems.map((inst) => {
             const priceKey = marketplacePriceKeyForEquipInstance(inst);
+            const buyOrder = bestEquipmentBuyOrder(equipmentBuyOrders, inst);
+            const comparablePriceStat = comparableEquipmentPriceStat(
+              priceRef,
+              inst,
+            );
             return (
               <EquipmentListingCard
                 key={inst.iid}
@@ -122,10 +193,18 @@ export function MarketplaceEquipmentTab({
                 onPriceChange={(v) =>
                   setPrices((p) => ({ ...p, [inst.iid]: v }))
                 }
-                priceStat={priceStatForKey(priceRef, inst.id, priceKey)}
-                priceScoped={priceKey !== inst.id && !!priceRef[priceKey]}
+                priceStat={
+                  comparablePriceStat ??
+                  priceStatForKey(priceRef, inst.id, priceKey)
+                }
+                priceScoped={
+                  comparablePriceStat != null ||
+                  (priceKey !== inst.id && !!priceRef[priceKey])
+                }
                 busy={busy}
+                buyOrder={buyOrder}
                 onList={() => onListEquip(inst)}
+                onSellToBuyOrder={() => onSellToBuyOrder(inst)}
                 onOpenCard={onOpenCard}
               />
             );

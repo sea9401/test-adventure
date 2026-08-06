@@ -14,6 +14,7 @@ export function GuideQuestBanner() {
   const router = useRouter();
   const [quests, setQuests] = useState<QuestView[]>([]);
   const [current, setCurrent] = useState<QuestView | null>(null);
+  const [trackedQuestId, setTrackedQuestId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -23,12 +24,18 @@ export function GuideQuestBanner() {
       .then(
         (
           j:
-            | { ok?: boolean; quests?: QuestView[]; current?: QuestView | null }
+            | {
+                ok?: boolean;
+                quests?: QuestView[];
+                current?: QuestView | null;
+                trackedQuestId?: string | null;
+              }
             | null,
         ) => {
           if (alive && j?.ok) {
             setQuests(Array.isArray(j.quests) ? j.quests : []);
             setCurrent(j.current ?? null);
+            setTrackedQuestId(j.trackedQuestId ?? null);
           }
         },
       )
@@ -67,7 +74,11 @@ export function GuideQuestBanner() {
   // 튜토리얼 완료 — 기존 단일 "현재 목표" 배너.
   if (!current) return null;
   return (
-    <CurrentGoalBanner current={current} onOpen={() => router.push("/quests")} />
+    <CurrentGoalBanner
+      current={current}
+      tracked={current.id === trackedQuestId}
+      onOpen={() => router.push("/quests?tab=achievement")}
+    />
   );
 }
 
@@ -149,14 +160,23 @@ function TutorialChecklist({
   );
 }
 
-function CurrentGoalBanner({
+export function CurrentGoalBanner({
   current,
+  tracked = false,
   onOpen,
 }: {
   current: QuestView;
+  tracked?: boolean;
   onOpen: () => void;
 }) {
   const claimable = current.status === "claimable";
+  const hasProgress = current.progress != null && current.goal != null;
+  const progress = hasProgress
+    ? Math.min(current.progress ?? 0, current.goal ?? 0)
+    : 0;
+  const progressPct = hasProgress
+    ? Math.min(100, (progress / Math.max(1, current.goal ?? 1)) * 100)
+    : 0;
   return (
     <button
       type="button"
@@ -177,6 +197,11 @@ function CurrentGoalBanner({
           <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             퀘스트
           </span>
+          {tracked && (
+            <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              추적 중
+            </span>
+          )}
           {claimable && (
             <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
               보상 받기
@@ -187,8 +212,20 @@ function CurrentGoalBanner({
           {current.title}
         </p>
         <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-          {claimable ? "완료 — 보상을 받으세요" : current.desc}
+          {claimable
+            ? "완료 — 보상을 받으세요"
+            : hasProgress
+              ? `${progress.toLocaleString("ko-KR")} / ${(current.goal ?? 0).toLocaleString("ko-KR")} · ${current.desc}`
+              : current.desc}
         </p>
+        {!claimable && hasProgress && (
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+            <div
+              className="h-full rounded-full bg-emerald-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        )}
       </div>
       <CaretRight
         size={16}

@@ -1,9 +1,12 @@
+import type { LotteryWonNotificationPayload } from "@/lib/v2-notification-config";
+
 export const LOTTERY_TICKET_PRICE = 150_000;
 export const LOTTERY_MAX_TICKETS_PER_ROUND = 10;
 export const LOTTERY_FEE_PERCENT = 10;
+export const LOTTERY_BASE_PRIZE_POOL = 500_000;
 export const LOTTERY_MIN_PARTICIPANTS_TO_DRAW = 3;
 export const LOTTERY_PURCHASE_COOLDOWN_MS = 2_000;
-export const LOTTERY_CYCLE_MS = 60 * 60 * 1_000;
+export const LOTTERY_CYCLE_MS = 4 * 60 * 60 * 1_000;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1_000;
 
 export type LotteryCommand =
@@ -48,11 +51,13 @@ export type LotterySnapshot = {
     commitHash: string;
   };
   myTickets: number;
+  myCarriedTickets: number;
   remainingTickets: number;
   recentPurchases: Array<{
     id: number;
     actorName: string;
     ticketCount: number;
+    isCarried: boolean;
     createdAt: number;
     mine: boolean;
   }>;
@@ -61,6 +66,42 @@ export type LotterySnapshot = {
   viewerGold: number;
   viewerBankedGold: number;
 };
+
+export type LotteryWinnerForNotification = {
+  userId: string;
+  rank: number;
+  ticketNumber: number;
+  prizeAmount: number;
+};
+
+export type LotteryWinNotice = {
+  userId: string;
+  payload: LotteryWonNotificationPayload;
+};
+
+/** 같은 회차의 복수 당첨을 유저별 알림 한 건으로 묶는다. */
+export function lotteryWinNotices(
+  roundId: number,
+  winners: readonly LotteryWinnerForNotification[],
+): LotteryWinNotice[] {
+  const byUser = new Map<string, LotteryWonNotificationPayload>();
+  for (const winner of winners) {
+    const current = byUser.get(winner.userId) ?? {
+      roundId,
+      ranks: [],
+      ticketNumbers: [],
+      prizeAmount: 0,
+    };
+    current.ranks.push(winner.rank);
+    current.ticketNumbers.push(winner.ticketNumber);
+    current.prizeAmount += winner.prizeAmount;
+    byUser.set(winner.userId, current);
+  }
+  return [...byUser.entries()].map(([userId, payload]) => ({
+    userId,
+    payload,
+  }));
+}
 
 export function lotteryRoundWindow(nowMs: number): {
   startsAt: number;
@@ -83,7 +124,8 @@ export function lotteryPrizeAmounts(grossPool: number, carryIn = 0): {
   const gross = Math.max(0, Math.floor(Number(grossPool) || 0));
   const carried = Math.max(0, Math.floor(Number(carryIn) || 0));
   const feeAmount = Math.floor((gross * LOTTERY_FEE_PERCENT) / 100);
-  const prizePool = carried + gross - feeAmount;
+  const startingPool = carried > 0 ? carried : LOTTERY_BASE_PRIZE_POOL;
+  const prizePool = startingPool + gross - feeAmount;
   const first = Math.floor((prizePool * 70) / 100);
   const second = Math.floor((prizePool * 20) / 100);
   const third = prizePool - first - second;

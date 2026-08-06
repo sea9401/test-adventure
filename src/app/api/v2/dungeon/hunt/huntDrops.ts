@@ -19,6 +19,16 @@ import { rollSettlementMaterialDrops } from "@/adventure/data/v2/settlementMater
 import { rollGuildWorkshopMaterialDrops } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { rollMonsterCraftMaterialDrops } from "@/adventure/data/v2/monsterCraftMaterials";
 import {
+  STAMINA_SHARD_MATERIAL_ID,
+  rollStaminaShardDrop,
+} from "@/adventure/data/v2/staminaPotionCrafting";
+import {
+  ENHANCE_EMBER_MATERIAL_ID,
+  TORN_MAP_FRAGMENT_MATERIAL_ID,
+  rollEnhanceEmberDrop,
+  rollTornMapFragmentDrop,
+} from "@/adventure/data/v2/scavengedCrafting";
+import {
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -112,7 +122,8 @@ export function rollHuntDrops(params: {
     // 은 중복 허용이라 ownedSet 무시(보유분도 새 굴림으로 재드랍).
     const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
     // 정규 장비 드랍: 스타터(1~6)=rollEquipDrop(1.2%), 프론티어 밴드(7~72)=흔한 밴드 장비
-    //   (rollBandCommonDrop, 로컬 깊이 램프 0.3~0.6%). rollEquipDrop 이 7+ 에서 null → ?? 로 밴드
+    //   (rollBandCommonDrop, 기본 로컬 깊이 램프 0.3~0.6%·최상위 3개 테마 0.05~0.075%).
+    //   rollEquipDrop 이 7+ 에서 null → ?? 로 밴드
     //   흔한 풀이 그 자리(정규 장비 슬롯)를 채운다(깊이 범위 안 겹쳐 rng 한 쪽만 소비).
     droppedEquipment =
       rollEquipDrop(depth, ownedSet, Math.random, mapDropMult) ??
@@ -133,6 +144,27 @@ export function rollHuntDrops(params: {
       rollUniqueDrop(dropFloor, ownedSet, Math.random, mapUniqueMult);
     if (droppedUnique !== null) {
       nextOwned = [...nextOwned, mintRolledEquipInstance(droppedUnique)];
+    }
+
+    // 활력의 파편 — 모든 일반 사냥 승리의 독립 글로벌 드롭. 기존 드롭·장비 굴림 뒤에서
+    // RNG를 소비해 이미 배치된 굴림 순서를 보존하며, 희귀 지도 배율은 적용하지 않는다.
+    const staminaShard = rollStaminaShardDrop(Math.random);
+    if (staminaShard > 0) {
+      drops[STAMINA_SHARD_MATERIAL_ID] =
+        (drops[STAMINA_SHARD_MATERIAL_ID] ?? 0) + staminaShard;
+    }
+
+    // 추가 수집형 재료도 기존 모든 굴림 뒤에서 독립적으로 판정한다. 두 재료 모두
+    // 희귀 지도 보상 배율과 무관하며, 앞서 배치된 드롭의 RNG 순서는 바꾸지 않는다.
+    const enhanceEmber = rollEnhanceEmberDrop(Math.random);
+    if (enhanceEmber > 0) {
+      drops[ENHANCE_EMBER_MATERIAL_ID] =
+        (drops[ENHANCE_EMBER_MATERIAL_ID] ?? 0) + enhanceEmber;
+    }
+    const tornMapFragment = rollTornMapFragmentDrop(Math.random);
+    if (tornMapFragment > 0) {
+      drops[TORN_MAP_FRAGMENT_MATERIAL_ID] =
+        (drops[TORN_MAP_FRAGMENT_MATERIAL_ID] ?? 0) + tornMapFragment;
     }
   }
 

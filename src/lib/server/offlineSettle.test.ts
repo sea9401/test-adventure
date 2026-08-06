@@ -4,7 +4,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, forceRareMap } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  forceRareMap: { value: false },
+}));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
   const actual =
@@ -13,6 +16,15 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
     >();
   // HUNT_COOLDOWN_MODE 도 덮는다(오프라인 정산은 쿨다운 모드 전용 — actual 은 false 계산).
   return { ...actual, V2_CORE_LOOP_V2: true, HUNT_COOLDOWN_MODE: true };
+});
+vi.mock("@/adventure/data/v2/rareMaps", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/adventure/data/v2/rareMaps")>();
+  return {
+    ...actual,
+    rollRareMapDrop: (...args: Parameters<typeof actual.rollRareMapDrop>) =>
+      forceRareMap.value ? "worn_map" : actual.rollRareMapDrop(...args),
+  };
 });
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -67,6 +79,7 @@ function settleRequest() {
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
+import { requiredExpToNext } from "@/lib/leveling";
 
 function seedStrongWarrior(lastBattleAt: number, offlineSession = true) {
   store.clear();
@@ -104,9 +117,17 @@ function char() {
   };
 }
 
+function setOfflineStopConfig(config: Record<string, unknown>) {
+  store.set("character.v2", {
+    ...(store.get("character.v2") as Record<string, unknown>),
+    offlineHuntStopConfig: config,
+  });
+}
+
 describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on)", () => {
   beforeEach(() => {
     resetUserRateLimitForTests();
+    forceRareMap.value = false;
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
   });
   afterEach(() => {
@@ -164,6 +185,76 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     const second = await POST(settleRequest());
     const j2 = (await second.json()) as { battles: number };
     expect(j2.battles).toBe(0); // lastBattleAt 이 now 로 전진 → 누적 0
+  });
+
+  it("충전약 잔량 조건에 도달한 첫 판에서 세션을 종료한다", async () => {
+    seedStrongWarrior(Date.now() - 60_000);
+    setOfflineStopConfig({ potionEnabled: true, potionThreshold: 0 });
+
+    const res = await POST(settleRequest());
+    const json = (await res.json()) as {
+      battles: number;
+      stopped: string | null;
+      active: boolean;
+      remainingBattles: number;
+    };
+    expect(json).toMatchObject({
+      battles: 1,
+      stopped: "potion",
+      active: false,
+      remainingBattles: 0,
+    });
+    expect(
+      (store.get("character.v2") as Record<string, unknown>)
+        .offlineHuntStopConfig,
+    ).toBeNull();
+    expect(
+      (store.get("character.v2") as Record<string, unknown>)
+        .offlineHuntStartedAt,
+    ).toBeNull();
+    expect(((await (await POST(settleRequest())).json()) as { battles: number }).battles).toBe(0);
+  });
+
+  it("희귀 탐사맵을 발견한 첫 판에서 세션을 종료한다", async () => {
+    seedStrongWarrior(Date.now() - 60_000);
+    setOfflineStopConfig({ rareMapEnabled: true });
+    forceRareMap.value = true;
+
+    const res = await POST(settleRequest());
+    const json = (await res.json()) as {
+      battles: number;
+      stopped: string | null;
+      active: boolean;
+    };
+    expect(json).toMatchObject({
+      battles: 1,
+      stopped: "rare_map",
+      active: false,
+    });
+  });
+
+  it("레벨 100에 도달한 첫 판에서 세션을 종료한다", async () => {
+    seedStrongWarrior(Date.now() - 60_000);
+    store.set("character.v2", {
+      ...(store.get("character.v2") as Record<string, unknown>),
+      level: 99,
+      exp: requiredExpToNext(99)! - 1,
+    });
+    setOfflineStopConfig({ level100Enabled: true });
+
+    const res = await POST(settleRequest());
+    const json = (await res.json()) as {
+      battles: number;
+      stopped: string | null;
+      active: boolean;
+      finalLevel: number;
+    };
+    expect(json).toMatchObject({
+      battles: 1,
+      stopped: "level_100",
+      active: false,
+      finalLevel: 100,
+    });
   });
 
   it("긴 정산은 50판 배치로 커넥션을 반납하고 다음 요청에서 이어간다", async () => {

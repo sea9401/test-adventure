@@ -13,6 +13,12 @@ import {
   readOpsAlertHistory,
   readRewardFailureStatuses,
 } from "@/lib/server/opsSettings";
+import {
+  rowsAfterSuspicionScoreReset,
+  SUSPICION_SCORE_RESET_ACTION,
+  suspicionScoreResetCutoffs,
+} from "@/lib/server/suspicionScoreReset";
+import { scoreSuspiciousUsers } from "@/lib/server/suspiciousUserScore";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FIVE_MIN_MS = 5 * 60 * 1000;
@@ -32,6 +38,7 @@ export async function GET(req: Request) {
     abuseRows,
     economyRows,
     auditRows,
+    suspicionScoreResetRows,
     currentDayAbuseRows,
     currentDayEconomyRows,
     currentDayAuditRows,
@@ -51,6 +58,7 @@ export async function GET(req: Request) {
         ip: abuseEvents.ip,
         action: abuseEvents.action,
         reason: abuseEvents.reason,
+        detail: abuseEvents.detail,
         createdAt: abuseEvents.createdAt,
       })
       .from(abuseEvents)
@@ -86,6 +94,20 @@ export async function GET(req: Request) {
       .where(gte(adminAuditLog.createdAt, since))
       .orderBy(desc(adminAuditLog.id))
       .limit(300),
+    db
+      .select({
+        targetUserId: adminAuditLog.targetUserId,
+        createdAt: adminAuditLog.createdAt,
+      })
+      .from(adminAuditLog)
+      .where(
+        and(
+          eq(adminAuditLog.action, SUSPICION_SCORE_RESET_ACTION),
+          gte(adminAuditLog.createdAt, since),
+        ),
+      )
+      .orderBy(desc(adminAuditLog.id))
+      .limit(1_000),
     db
       .select({
         action: abuseEvents.action,
@@ -198,7 +220,16 @@ export async function GET(req: Request) {
 
   const abuse = summarizeAbuse(abuseRows, now);
   const economy = summarizeEconomy(economyRows, now);
-  const suspiciousUsers = scoreSuspiciousUsers(abuseRows, currentDayEconomyRows);
+  const suspicionResetCutoffs = suspicionScoreResetCutoffs(
+    suspicionScoreResetRows,
+  );
+  const suspiciousUsers = scoreSuspiciousUsers(
+    rowsAfterSuspicionScoreReset(abuseRows, suspicionResetCutoffs),
+    rowsAfterSuspicionScoreReset(
+      currentDayEconomyRows,
+      suspicionResetCutoffs,
+    ),
+  );
   const connectedIps = scoreConnectedIps(abuseRows);
   const previousAbuse = summarizeAbuse(previousAbuseRows, daySince.getTime());
   const previousEconomy = summarizeEconomy(previousEconomyRows, daySince.getTime());
@@ -938,136 +969,6 @@ function buildAlerts({
 
 function periodLabel(hours: number) {
   return hours === 168 ? "7일" : `${hours}시간`;
-}
-
-function scoreSuspiciousUsers(
-  rows: Array<{
-    action: string;
-    reason: string;
-    userId: string | null;
-    ip: string | null;
-    createdAt: Date;
-  }>,
-  economyRows: Array<{
-    userId?: string | null;
-    eventType: string;
-  }> = [],
-) {
-  const rewardFailuresByUser = new Map<string, number>();
-  for (const row of economyRows) {
-    if (!row.userId || !row.eventType.startsWith("reward.failure.")) continue;
-    rewardFailuresByUser.set(row.userId, (rewardFailuresByUser.get(row.userId) ?? 0) + 1);
-  }
-  const users = new Map<
-    string,
-    {
-      events: number;
-      rateLimited: number;
-      reasonScore: number;
-      actions: Set<string>;
-      ips: Set<string>;
-      recentEvents: Array<{ action: string; reason: string; ip: string | null; createdAt: number }>;
-      lastAt: number;
-    }
-  >();
-  for (const row of rows) {
-    if (!row.userId) continue;
-    const value =
-      users.get(row.userId) ?? {
-        events: 0,
-        rateLimited: 0,
-        reasonScore: 0,
-        actions: new Set<string>(),
-        ips: new Set<string>(),
-        recentEvents: [],
-        lastAt: 0,
-      };
-    value.events += 1;
-    if (row.reason === "rate_limited") value.rateLimited += 1;
-    value.reasonScore += abuseReasonWeight(row.reason);
-    value.actions.add(row.action);
-    if (row.ip) value.ips.add(row.ip);
-    value.recentEvents.push({
-      action: row.action,
-      reason: row.reason,
-      ip: row.ip,
-      createdAt: row.createdAt.getTime(),
-    });
-    value.lastAt = Math.max(value.lastAt, row.createdAt.getTime());
-    users.set(row.userId, value);
-  }
-  return [...users.entries()]
-    .map(([userId, value]) => {
-      const sortedEvents = [...value.recentEvents].sort((a, b) => a.createdAt - b.createdAt);
-      const avgIntervalSec = averageIntervalSec(sortedEvents.map((event) => event.createdAt));
-      const fastRepeatBonus =
-        value.events >= 8 && avgIntervalSec > 0 && avgIntervalSec <= 10
-          ? 30
-          : value.events >= 8 && avgIntervalSec > 0 && avgIntervalSec <= 30
-            ? 15
-            : 0;
-      const rewardFailures = rewardFailuresByUser.get(userId) ?? 0;
-      const score =
-        value.rateLimited * 5 +
-        value.reasonScore +
-        value.events * 2 +
-        Math.max(0, value.actions.size - 1) * 3 +
-        Math.max(0, value.ips.size - 1) * 4 +
-        rewardFailures * 4 +
-        fastRepeatBonus;
-      const severity =
-        score >= 120 || value.rateLimited >= 20 || fastRepeatBonus >= 30
-          ? ("strong" as const)
-          : score >= 60 || value.rateLimited >= 10 || rewardFailures >= 5
-            ? ("review" as const)
-            : ("watch" as const);
-      return {
-        userId,
-        score,
-        severity,
-        events: value.events,
-        rateLimited: value.rateLimited,
-        rewardFailures,
-        avgIntervalSec,
-        actionCount: value.actions.size,
-        ipCount: value.ips.size,
-        ips: [...value.ips].sort().slice(0, 5),
-        topActions: topCounts(value.recentEvents.map((event) => event.action), 5),
-        recentEvents: value.recentEvents
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .slice(0, 5)
-          .map((event) => ({
-            action: event.action,
-            reason: event.reason,
-            ip: event.ip,
-            createdAt: new Date(event.createdAt).toISOString(),
-          })),
-        lastAt: new Date(value.lastAt).toISOString(),
-      };
-    })
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || b.rateLimited - a.rateLimited)
-    .slice(0, 12);
-}
-
-function abuseReasonWeight(reason: string): number {
-  if (reason === "multi_account_ip_fanout") return 30;
-  if (reason === "persistent_same_ip_accounts") return 20;
-  if (reason === "fishing_macro_pattern") return 24;
-  if (reason === "strong_activity_signal") return 18;
-  if (reason === "extreme_daily_activity") return 15;
-  if (reason === "human_verification_failed") return 12;
-  if (reason === "activity_behavior_pattern") return 8;
-  return 0;
-}
-
-function averageIntervalSec(timestamps: number[]) {
-  if (timestamps.length < 2) return 0;
-  let total = 0;
-  for (let i = 1; i < timestamps.length; i += 1) {
-    total += Math.max(0, timestamps[i] - timestamps[i - 1]);
-  }
-  return Math.round(total / (timestamps.length - 1) / 1000);
 }
 
 function scoreConnectedIps(

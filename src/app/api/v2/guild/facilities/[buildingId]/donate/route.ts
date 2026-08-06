@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/guildFacilityUpgradeDonations";
 import {
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  SETTLEMENT_BUILDINGS,
   SETTLEMENT_DONATION_MATERIAL_IDS,
   SETTLEMENT_MATERIAL_TO_RESOURCE,
   isSettlementBuildingId,
@@ -17,6 +18,8 @@ import {
   type SettlementDonationMaterialId,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
+import { guildFacilityMaterialContributionPoints } from "@/adventure/data/v2/guildContribution";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 
 type Ctx = { params: Promise<{ buildingId: string }> };
 type CharacterSave = {
@@ -171,6 +174,25 @@ export async function POST(req: Request, { params }: Ctx) {
         nextUpgrade.level,
         nextProgress,
       );
+      const donations = Object.fromEntries(
+        entries.map(([materialId, amount]) => [materialId, Number(amount)]),
+      ) as Partial<Record<SettlementDonationMaterialId, number>>;
+      const contributionPoints =
+        guildFacilityMaterialContributionPoints(donations);
+      await logGuildActivity(tx, {
+        guildId,
+        type: "facility_material_donation",
+        actorUserId: userId,
+        meta: {
+          buildingName: SETTLEMENT_BUILDINGS[buildingId].name,
+          quantity: Object.values(donations).reduce(
+            (sum, amount) => sum + (amount ?? 0),
+            0,
+          ),
+          donations,
+          contributionPoints,
+        },
+      });
 
       return {
         status: 200,
@@ -180,6 +202,7 @@ export async function POST(req: Request, { params }: Ctx) {
           targetLevel: nextUpgrade.level,
           progress: nextProgress,
           materials: inventory,
+          contributionPoints,
         },
       };
     });

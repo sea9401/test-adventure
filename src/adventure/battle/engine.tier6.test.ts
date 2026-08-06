@@ -289,13 +289,13 @@ describe("몬스터 다대시 — bonusAttackChancePct", () => {
 // ── 크리 캡 + 오버플로 → 크리뎀 변환 (Phase 1 밸런스) ─────────────────
 describe("크리 cap 75% + 오버플로 → 크리뎀 변환", () => {
   it("raw critPct > 75 일 때 초과분이 크리뎀에 가산되어 데미지 증가", () => {
-    // critChancePct 100 = raw 100. 캡 후 effective 75, 초과 25%p × 0.02 = +0.5× critMult.
-    // critMult: base 1.4 + 0.5 = 1.9. 강제 발동 → damageBetween(10,3)=7 × 1.9 = 13.3 → 13.
+    // critChancePct 100 = raw 100. 캡 후 effective 75, 초과 25%p × 0.01 = +0.25× critMult.
+    // critMult: base 1.4 + 0.25 = 1.65. 강제 발동 → damageBetween(10,3)=7 × 1.65 = 11.55 → 11.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = { ...PLAYER, critChancePct: 100 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사");
-    expect(s.enemyHp).toBe(87); // 100 - 13 (오버플로 적용된 크리뎀)
+    expect(s.enemyHp).toBe(89); // 100 - 11 (오버플로 적용된 크리뎀)
     vi.restoreAllMocks();
   });
 
@@ -309,14 +309,14 @@ describe("크리 cap 75% + 오버플로 → 크리뎀 변환", () => {
     vi.restoreAllMocks();
   });
 
-  it("오버플로 크리뎀 보너스에도 캡(CRIT_OVERFLOW_DMG_CAP=1.0) 적용 — 극단 초과도 +1× 까지만", () => {
-    // critChancePct 500 = raw 500. 초과 425%p × 0.02 = 8.5 이지만 캡 1.0 에서 멈춤.
-    // critMult: 1.4 + 1.0 = 2.4. damageBetween(10,3)=7 × 2.4 = 16.8 → 16.
+  it("오버플로 크리뎀 보너스에도 캡(CRIT_OVERFLOW_DMG_CAP=0.5) 적용 — 극단 초과도 +0.5× 까지만", () => {
+    // critChancePct 500 = raw 500. 초과 425%p × 0.01 = 4.25 이지만 캡 0.5 에서 멈춤.
+    // critMult: 1.4 + 0.5 = 1.9. damageBetween(10,3)=7 × 1.9 = 13.3 → 13.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = { ...PLAYER, critChancePct: 500 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사");
-    expect(s.enemyHp).toBe(84); // 100 - 16 (CRIT_OVERFLOW_DMG_CAP 도달)
+    expect(s.enemyHp).toBe(87); // 100 - 13 (CRIT_OVERFLOW_DMG_CAP 도달)
     vi.restoreAllMocks();
   });
 });

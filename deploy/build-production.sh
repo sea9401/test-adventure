@@ -8,6 +8,10 @@ cd "$(dirname "$0")/.."
 
 PREVIOUS_BUILD=".next.previous"
 ENV_PATH="${PRODUCTION_ENV_PATH:-/run/adventure-rpg/production.env}"
+BUILD_ID="${DEPLOY_SHA:-$(git rev-parse --short HEAD)}"
+NPM_BIN="$(command -v npm)"
+BUILD_UNIT="${PRODUCTION_BUILD_UNIT:-adventure-production-build}"
+BUILD_TIMEOUT="${PRODUCTION_BUILD_TIMEOUT:-20m}"
 
 restore_previous_build() {
   local build_status=$?
@@ -28,8 +32,33 @@ if [ -d .next ]; then
   mv .next "$PREVIOUS_BUILD"
 fi
 
-NODE_OPTIONS=--max-old-space-size=2048 \
-  node --env-file="$ENV_PATH" "$(command -v npm)" run build
+# 운영 EC2는 앱·스테이징과 빌드가 같은 호스트의 메모리를 공유한다. next build를
+# 호스트에서 직접 실행하면 프리렌더 단계가 swap에 갇혀 SSH와 nginx까지 응답하지
+# 못할 수 있다. t4g.medium에서는 두 Next 런타임을 먼저 멈춘 뒤 빌드에 1.8 GiB부터
+# 메모리 회수를 적용하고 2.1 GiB에서 강제 제한한다. 기본 20분 안에 끝나지 않으면 이
+# 스크립트의 EXIT trap이 직전 정상 .next를 복원하도록 실패시킨다.
+sudo systemd-run \
+  --unit="$BUILD_UNIT" \
+  --wait \
+  --pipe \
+  --collect \
+  --service-type=exec \
+  --uid=ec2-user \
+  --gid=ec2-user \
+  --working-directory="$PWD" \
+  -p CPUAccounting=yes \
+  -p CPUQuota=100% \
+  -p MemoryAccounting=yes \
+  -p MemoryHigh=1800M \
+  -p MemoryMax=2100M \
+  -p MemorySwapMax=256M \
+  -p RuntimeMaxSec="$BUILD_TIMEOUT" \
+  -p OOMPolicy=stop \
+  -p TasksMax=192 \
+  -p Nice=10 \
+  --setenv="BUILD_ID=$BUILD_ID" \
+  --setenv="NODE_OPTIONS=--max-old-space-size=1152" \
+  /usr/bin/node --env-file="$ENV_PATH" "$NPM_BIN" run build
 
 rm -rf "$PREVIOUS_BUILD"
 trap - EXIT

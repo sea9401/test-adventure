@@ -356,8 +356,8 @@ export function BalanceTelemetryTab() {
           </Card>
 
           <Card
-            title="깊이 분포 (프론티어 도달)"
-            hint="난이도 곡선·프론티어 캡 검증 — 정체 구간·진척. 막대=인원, 우측=평균 전투력."
+            title="사냥터 진행 분포"
+            hint="난이도 곡선·최종 사냥터 도달 검증 — 정체 구간·진척. 막대=인원, 우측=평균 전투력."
           >
             {data.depthBands.map((b) => (
               <BarRow

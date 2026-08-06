@@ -1,0 +1,1 @@
+ALTER TABLE "pvp_tournaments" ADD COLUMN "replays_trimmed_at" timestamp;

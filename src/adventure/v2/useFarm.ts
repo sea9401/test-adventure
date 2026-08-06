@@ -149,6 +149,7 @@ export function useFarm(): FarmClientState {
     if (data.result) {
       setLastResult(data.result);
       setNotice({ id: Date.now(), kind: "harvest", result: data.result });
+      window.dispatchEvent(new Event("v2notif:read"));
     }
     if (data.deliveryResult) {
       setLastDeliveryResult(data.deliveryResult);

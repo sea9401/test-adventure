@@ -98,6 +98,9 @@ const EQUIPMENT_CODEX_STATUS_VIEW: Record<
 /** 제작 응답 중 부모 워크숍 상태에 반영할 조각 — 부모 콜백(applyCraftServerState)의 입력. */
 export type CraftServerSync = {
   ok: boolean;
+  gold?: number;
+  bankedGold?: number;
+  spendableGold?: number;
   resources?: WorkshopState["resources"];
   materials?: WorkshopState["materials"];
   artisan?: WorkshopState["artisan"];
@@ -106,6 +109,16 @@ export type CraftServerSync = {
   guildBonus?: WorkshopState["guildBonus"];
   recipes?: WorkshopState["recipes"];
 };
+
+export function matchesWorkshopCodexFilter(
+  equipmentId: string,
+  registeredEquipmentIds: ReadonlySet<string>,
+  equipmentCodexStatus: WorkshopEquipmentCodexLoadStatus,
+  unregisteredOnly: boolean,
+): boolean {
+  if (!unregisteredOnly || equipmentCodexStatus !== "ready") return true;
+  return !registeredEquipmentIds.has(equipmentId);
+}
 
 export function WorkshopCraftPanel({
   state,
@@ -134,7 +147,7 @@ export function WorkshopCraftPanel({
   onMessage: (text: string | null) => void;
   /** 제작 응답의 워크숍 상태 반영(자원/재료/숙련도/레시피 재계산) — 부모 setState 위임. */
   onServerSync: (sync: CraftServerSync) => void;
-  /** 제작 성공 후속 재조회(주간 의뢰 진행·기여도) — 부모 로더 위임. */
+  /** 제작 성공 후속 재조회(주간 의뢰·일일 납품·기여도) — 부모 로더 위임. */
   onAfterCraft: () => void;
   /** 추천 카드(메인 모드) 원클릭 제작 요청 — 마운트 시 1회 실행 후 소비 통지. */
   autoCraft: {
@@ -158,6 +171,7 @@ export function WorkshopCraftPanel({
   const [recipeScopeFilter, setRecipeScopeFilter] = useState<
     "all" | "craftable"
   >("all");
+  const [unregisteredCodexOnly, setUnregisteredCodexOnly] = useState(false);
   const [recipeSort, setRecipeSort] = useState<"level" | "tier" | "chance">(
     "level",
   );
@@ -175,6 +189,16 @@ export function WorkshopCraftPanel({
         return false;
       }
       if (recipeScopeFilter === "craftable" && !recipe.canCraft) return false;
+      if (
+        !matchesWorkshopCodexFilter(
+          recipe.equipmentId,
+          registeredEquipmentIds,
+          equipmentCodexStatus,
+          unregisteredCodexOnly,
+        )
+      ) {
+        return false;
+      }
       return true;
     };
     const sortRecipes = (recipes: WorkshopRecipeView[]) =>
@@ -219,6 +243,9 @@ export function WorkshopCraftPanel({
     recipeScopeFilter,
     recipeSlotFilter,
     recipeSort,
+    unregisteredCodexOnly,
+    equipmentCodexStatus,
+    registeredEquipmentIds,
     state?.recipes,
     recommendedRecipeId,
   ]);
@@ -351,6 +378,8 @@ export function WorkshopCraftPanel({
                   `Lv ${recipe.requiredArtisanLevel}`
                 ) : !recipe.smithyLevelOk ? (
                   `제작소 Lv ${recipe.requiredSmithyLevel}`
+                ) : !recipe.goldOk ? (
+                  "골드 부족"
                 ) : recipe.canCraft ? (
                   "제작"
                 ) : (
@@ -360,6 +389,15 @@ export function WorkshopCraftPanel({
             </div>
             <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               개인 재료: {recipe.costText}
+            </div>
+            <div
+              className={`mt-0.5 ${
+                recipe.goldOk
+                  ? "text-zinc-500 dark:text-zinc-500"
+                  : "font-semibold text-rose-600 dark:text-rose-400"
+              }`}
+            >
+              제작 수수료: {recipe.goldCost.toLocaleString()} G
             </div>
             <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
               ★ {recipe.qualityChancePct}% · 상한{" "}
@@ -390,6 +428,17 @@ export function WorkshopCraftPanel({
                 ? `개인 재료: ${masterwork.costText}`
                 : "대장장이 Lv 8 필요"}
             </div>
+            {masterwork ? (
+              <div
+                className={`mt-0.5 ${
+                  masterwork.goldOk
+                    ? "text-zinc-500 dark:text-zinc-500"
+                    : "font-semibold text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                제작 수수료: {masterwork.goldCost.toLocaleString()} G
+              </div>
+            ) : null}
             <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
               {masterwork
                 ? masterwork.plus2Unlocked
@@ -705,7 +754,7 @@ export function WorkshopCraftPanel({
             </button>
           ))}
         </div>
-        <div className="grid gap-1.5 sm:grid-cols-2">
+        <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_auto]">
           <select
             value={recipeScopeFilter}
             onChange={(e) =>
@@ -727,6 +776,30 @@ export function WorkshopCraftPanel({
             <option value="tier">티어 높은순</option>
             <option value="chance">품질 확률순</option>
           </select>
+          <button
+            type="button"
+            aria-pressed={unregisteredCodexOnly}
+            disabled={equipmentCodexStatus !== "ready"}
+            onClick={() => setUnregisteredCodexOnly((current) => !current)}
+            className={`rounded border px-2.5 py-1 font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              unregisteredCodexOnly
+                ? "border-emerald-700 bg-emerald-700 text-white dark:border-emerald-500 dark:bg-emerald-500 dark:text-emerald-950"
+                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            }`}
+            title={
+              equipmentCodexStatus === "loading"
+                ? "장비 도감 정보를 불러오는 중입니다."
+                : equipmentCodexStatus === "error"
+                  ? "장비 도감 정보를 불러오지 못해 필터를 사용할 수 없습니다."
+                  : "장비 도감에 아직 등록하지 않은 제작품만 표시합니다."
+            }
+          >
+            {equipmentCodexStatus === "loading"
+              ? "도감 확인 중"
+              : equipmentCodexStatus === "error"
+                ? "도감 필터 사용 불가"
+                : "도감 미등록만"}
+          </button>
         </div>
       </div>
 

@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+  GUILD_WORKSHOP_MASTERWORK_GOLD_COST_MULT,
   GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER,
+  GUILD_WORKSHOP_GOLD_COST_BY_DISPLAY_TIER,
   GUILD_WORKSHOP_RECIPES,
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
+  STORM_EQUIPMENT_DISMANTLE_ROUTE_RECOVERY_PCT,
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
   guildWorkshopCraftRecordTitleIds,
+  guildWorkshopCraftGoldCostForTier,
   guildWorkshopEquipmentRecordViews,
   addGuildWorkshopMaterials,
   guildWorkshopBonusFromTotalCrafts,
@@ -14,6 +18,7 @@ import {
   guildWorkshopDismantleArtisanXpForTier,
   guildWorkshopDismantleMaterialForTier,
   guildWorkshopDismantlePlan,
+  guildWorkshopMaterialName,
   guildWorkshopQualityChancePct,
   guildWorkshopRecipeView,
   guildWorkshopRecipeResourceMaterialCost,
@@ -22,6 +27,7 @@ import {
   guildWorkshopMiningMaterialForTier,
   guildWorkshopWoodMaterialForTier,
   guildWorkshopRecipeMaterialCost,
+  guildWorkshopRecipeGoldCost,
   hasGuildWorkshopRecipeMaterials,
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopStats,
@@ -37,9 +43,13 @@ import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIAL_ID } from "./settlementMaterials";
 import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
 import { MINING_MATERIAL_ID } from "./miningSpots";
-import { V2_EQUIPMENT } from "./v2Equipment";
+import {
+  V2_EQUIPMENT,
+  v2EquipCatalogTierToDisplayTier,
+} from "./v2Equipment";
 import { MONSTER_CRAFT_MATERIAL_ID } from "./monsterCraftMaterials";
 import { COOP_BOSS_MATERIAL_ID } from "./coopRewards";
+import { STORM_EXPEDITION_ROUTE_MATERIAL_ID } from "./stormExpeditionRewards";
 
 const ENOUGH_WORKSHOP_MATERIALS = {
   ...Object.fromEntries(
@@ -52,10 +62,14 @@ const ENOUGH_WORKSHOP_MATERIALS = {
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 99,
+  [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 99,
   ...Object.fromEntries(
     Object.values(MONSTER_CRAFT_MATERIAL_ID).map((id) => [id, 99]),
   ),
   [COOP_BOSS_MATERIAL_ID.canyon_predator]: 99,
+  ...Object.fromEntries(
+    Object.values(STORM_EXPEDITION_ROUTE_MATERIAL_ID).map((id) => [id, 99]),
+  ),
 };
 
 describe("guild workshop activity log", () => {
@@ -68,6 +82,9 @@ describe("guild workshop activity log", () => {
     ).toBe(false);
     expect(
       shouldLogGuildWorkshopCraftActivity(V2_EQUIPMENT.v2_crafted_aurora_crown),
+    ).toBe(true);
+    expect(
+      shouldLogGuildWorkshopCraftActivity(V2_EQUIPMENT.v2_storm_gale_bow),
     ).toBe(true);
     expect(
       shouldLogGuildWorkshopCraftActivity(
@@ -84,6 +101,67 @@ describe("guild workshop activity log", () => {
 });
 
 describe("guild workshop recipes", () => {
+  it("charges a modest display-tier craft fee and doubles it for masterwork", () => {
+    expect(GUILD_WORKSHOP_GOLD_COST_BY_DISPLAY_TIER).toEqual({
+      1: 5_000,
+      2: 10_000,
+      3: 25_000,
+      4: 60_000,
+      5: 150_000,
+      6: 300_000,
+    });
+    expect(GUILD_WORKSHOP_MASTERWORK_GOLD_COST_MULT).toBe(2);
+    expect(guildWorkshopCraftGoldCostForTier(4)).toBe(10_000);
+    expect(guildWorkshopCraftGoldCostForTier(8)).toBe(25_000);
+    expect(guildWorkshopCraftGoldCostForTier(12)).toBe(60_000);
+    expect(guildWorkshopCraftGoldCostForTier(13)).toBe(150_000);
+    expect(guildWorkshopCraftGoldCostForTier(16)).toBe(300_000);
+    expect(guildWorkshopCraftGoldCostForTier(13, "masterwork")).toBe(300_000);
+  });
+
+  it("includes personal gold affordability in normal and masterwork recipe views", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_painless_relic;
+    expect(guildWorkshopRecipeGoldCost(recipe)).toBe(150_000);
+    expect(guildWorkshopRecipeGoldCost(recipe, "masterwork")).toBe(300_000);
+
+    const short = guildWorkshopRecipeView(
+      recipe,
+      { crop: 9999, ore: 9999 },
+      { blacksmith: { xp: 999999, crafts: 999 } },
+      0,
+      5,
+      ENOUGH_WORKSHOP_MATERIALS,
+      0,
+      149_999,
+    );
+    expect(short).toMatchObject({
+      goldCost: 150_000,
+      goldOk: false,
+      canCraft: false,
+      masterwork: {
+        goldCost: 300_000,
+        goldOk: false,
+        canCraft: false,
+      },
+    });
+
+    const normalOnly = guildWorkshopRecipeView(
+      recipe,
+      { crop: 9999, ore: 9999 },
+      { blacksmith: { xp: 999999, crafts: 999 } },
+      0,
+      5,
+      ENOUGH_WORKSHOP_MATERIALS,
+      0,
+      150_000,
+    );
+    expect(normalOnly).toMatchObject({
+      goldOk: true,
+      canCraft: true,
+      masterwork: { goldOk: false, canCraft: false },
+    });
+  });
+
   it("uses one distinct wood material for each crafted equipment tier", () => {
     expect([
       guildWorkshopWoodMaterialForTier(4),
@@ -189,14 +267,19 @@ describe("guild workshop recipes", () => {
     ).toBe(true);
   });
 
-  it("exposes craft-only equipment, monster upgrades, and one boss upgrade recipe", () => {
+  it("exposes craft-only equipment, monster upgrades, boss upgrade, and storm equipment", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(51);
-    expect(recipes.every((recipe) => recipe.id.startsWith("crafted_"))).toBe(
-      true,
-    );
+    expect(recipes).toHaveLength(87);
+    const stormRecipes = recipes.filter((recipe) => recipe.id.startsWith("storm_"));
+    expect(stormRecipes).toHaveLength(19);
+    expect(stormRecipes.every((recipe) => recipe.equipmentId.startsWith("v2_storm_")))
+      .toBe(true);
     expect(
-      recipes.filter((recipe) => !V2_EQUIPMENT[recipe.equipmentId].craftOnly),
+      recipes.filter(
+        (recipe) =>
+          !V2_EQUIPMENT[recipe.equipmentId].craftOnly &&
+          !recipe.id.startsWith("storm_"),
+      ),
     ).toEqual([GUILD_WORKSHOP_RECIPES.crafted_scorpion_king_stinger]);
   });
 
@@ -267,6 +350,102 @@ describe("guild workshop recipes", () => {
         ENOUGH_WORKSHOP_MATERIALS,
       ).craftOnly,
     ).toBe(true);
+  });
+
+  it("crafts storm 6T equipment with route materials at the final workshop gate", () => {
+    const wreckage = GUILD_WORKSHOP_RECIPES.storm_wreckage_greatsword;
+    const gale = GUILD_WORKSHOP_RECIPES.storm_gale_bow;
+    const thunder = GUILD_WORKSHOP_RECIPES.storm_thunder_staff;
+    expect(wreckage).toMatchObject({
+      equipmentId: "v2_storm_wreckage_greatsword",
+      requiredArtisanLevel: 12,
+      requiredSmithyLevel: 5,
+      specialMaterialCost: {
+        [STORM_EXPEDITION_ROUTE_MATERIAL_ID.wreckage]: 28,
+      },
+    });
+    expect(gale.specialMaterialCost).toEqual({
+      [STORM_EXPEDITION_ROUTE_MATERIAL_ID.gale]: 28,
+    });
+    expect(thunder.specialMaterialCost).toEqual({
+      [STORM_EXPEDITION_ROUTE_MATERIAL_ID.thunder]: 28,
+    });
+    expect(
+      guildWorkshopMaterialName(STORM_EXPEDITION_ROUTE_MATERIAL_ID.gale),
+    ).toBe("칼바람 정수");
+    expect(STORM_EQUIPMENT_DISMANTLE_ROUTE_RECOVERY_PCT).toBe(25);
+    expect(
+      guildWorkshopDismantlePlan(
+        V2_EQUIPMENT.v2_storm_gale_bow,
+        {
+          craftedBy: {
+            userId: "smith",
+            profession: "blacksmith",
+            level: 12,
+            craftedAt: "2026-08-05T00:00:00.000Z",
+          },
+        },
+        12,
+      ).materials,
+    ).toEqual({
+      [STORM_EXPEDITION_ROUTE_MATERIAL_ID.gale]: 7,
+    });
+  });
+
+  it("crafts seventeen set-free 5T keycards with endgame materials", () => {
+    const keycardIds = [
+      "crafted_immovable_bulwark",
+      "crafted_guillotine_greatsword",
+      "crafted_overdrive_bow",
+      "crafted_abyss_mana_core",
+      "crafted_voidveil_robe",
+      "crafted_monopoly_gloves",
+      "crafted_thousand_league_boots",
+      "crafted_one_eye_oath",
+      "crafted_stilled_chalice",
+      "crafted_venom_injector",
+      "crafted_blood_debt_greatsword",
+      "crafted_thunder_lock_bow",
+      "crafted_white_night_grimoire",
+      "crafted_first_dawn_shield",
+      "crafted_berserker_husk",
+      "crafted_oblivion_ring",
+      "crafted_painless_relic",
+    ] as const;
+
+    expect(keycardIds).toHaveLength(17);
+    for (const recipeId of keycardIds) {
+      const recipe = GUILD_WORKSHOP_RECIPES[recipeId];
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      expect(item, recipeId).toMatchObject({
+        tier: 13,
+        craftOnly: true,
+      });
+      expect(item.setId, recipeId).toBeUndefined();
+      expect(item.setTags, recipeId).toBeUndefined();
+      expect(recipe, recipeId).toMatchObject({
+        requiredArtisanLevel: 12,
+        requiredSmithyLevel: 5,
+        materialCost: {
+          [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 6,
+          [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 4,
+        },
+      });
+      expect(
+        Object.values(recipe.specialMaterialCost ?? {}).reduce<number>(
+          (sum, amount) => sum + (amount ?? 0),
+          0,
+        ),
+        recipeId,
+      ).toBe(12);
+      expect(v2EquipCatalogTierToDisplayTier(item.tier), recipeId).toBe(5);
+    }
+
+    expect(
+      GUILD_WORKSHOP_RECIPES.crafted_venom_injector.specialMaterialCost,
+    ).toEqual({
+      [MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore]: 12,
+    });
   });
 
   it("locks premium recipes behind smithy level", () => {
@@ -588,7 +767,9 @@ describe("guild workshop recipes", () => {
                   ? 4
                   : equipmentTier === 11
                     ? 6
-                    : 8;
+                    : equipmentTier === 13
+                      ? 10
+                      : 8;
       expect(catalystTotal, recipe.id).toBe(expectedTotal);
     }
   });
@@ -599,7 +780,7 @@ describe("guild workshop recipes", () => {
       [2, [6, 6]],
       [3, [8, 8]],
       [4, [8, 8]],
-      [5, [10, 12]],
+      [5, [10, 13]],
     ]);
     for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES).filter((r) =>
       r.id.startsWith("crafted_"),
@@ -939,6 +1120,9 @@ describe("guild workshop recipes", () => {
     expect(guildWorkshopDismantleMaterialForTier(10)).toBe(
       GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
     );
+    expect(guildWorkshopDismantleMaterialForTier(13)).toBe(
+      GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel,
+    );
   });
 
   it("keeps dismantle artisan xp as a low auxiliary reward", () => {
@@ -986,7 +1170,7 @@ describe("guild workshop recipes", () => {
     });
   });
 
-  it("does not mint dismantle materials without same-tier source material cost", () => {
+  it("recovers only materials that the source recipe actually consumed", () => {
     const item = V2_EQUIPMENT.v2_crafted_gale_bow;
     expect(
       guildWorkshopDismantlePlan(
@@ -1002,9 +1186,8 @@ describe("guild workshop recipes", () => {
         6,
       ),
     ).toMatchObject({
-      materials: {},
-      artisanXp: 0,
-      blockedReason: "no_material",
+      materials: { [MINING_MATERIAL_ID.iron]: 2 },
+      artisanXp: 1,
     });
     expect(
       guildWorkshopDismantlePlan(
@@ -1022,10 +1205,55 @@ describe("guild workshop recipes", () => {
         9,
       ),
     ).toMatchObject({
-      materials: {},
-      artisanXp: 0,
-      blockedReason: "no_material",
+      materials: { [MINING_MATERIAL_ID.iron]: 3 },
+      artisanXp: 1,
     });
+  });
+
+  it("recovers half of the 5T keycard's abyssal starsteel cost", () => {
+    expect(
+      guildWorkshopDismantlePlan(
+        V2_EQUIPMENT.v2_crafted_painless_relic,
+        {
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 12,
+            craftedAt: new Date(0).toISOString(),
+          },
+        },
+        12,
+      ),
+    ).toMatchObject({
+      materials: { [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 2 },
+      artisanXp: 3,
+    });
+  });
+
+  it("keeps every 2T craft-only workshop recipe available for dismantling", () => {
+    const recipes = Object.values(GUILD_WORKSHOP_RECIPES).filter((recipe) => {
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      return item.craftOnly && v2EquipCatalogTierToDisplayTier(item.tier) === 2;
+    });
+    expect(recipes.length).toBeGreaterThan(0);
+
+    for (const recipe of recipes) {
+      const item = V2_EQUIPMENT[recipe.equipmentId];
+      const plan = guildWorkshopDismantlePlan(
+        item,
+        {
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 20,
+            craftedAt: new Date(0).toISOString(),
+          },
+        },
+        20,
+      );
+      expect(plan.blockedReason, recipe.id).toBeUndefined();
+      expect(Object.keys(plan.materials).length, recipe.id).toBeGreaterThan(0);
+    }
   });
 
   it("recovers half of same-tier material costs on craft-only dismantle", () => {

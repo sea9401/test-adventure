@@ -6,6 +6,21 @@ export type ArenaChampionshipBadges = {
   bronze: number;
 };
 
+export const ARENA_CHAMPIONSHIP_BADGE_IDS = [
+  "gold",
+  "silver",
+  "bronze",
+] as const satisfies readonly ArenaChampionshipBadge[];
+
+export function isArenaChampionshipBadge(
+  value: unknown,
+): value is ArenaChampionshipBadge {
+  return (
+    typeof value === "string" &&
+    (ARENA_CHAMPIONSHIP_BADGE_IDS as readonly string[]).includes(value)
+  );
+}
+
 function count(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, Math.floor(value))
@@ -35,20 +50,18 @@ export function arenaChampionshipBadgeForPlacement(
   return null;
 }
 
+export function isArenaChampionshipWinner(placement: string): boolean {
+  return placement === "1위";
+}
+
+export function hasArenaChampionshipWin(value: unknown): boolean {
+  return parseArenaChampionshipBadges(value).gold > 0;
+}
+
 export function grantArenaChampionshipBadge(
   value: unknown,
   badge: ArenaChampionshipBadge,
 ): ArenaChampionshipBadges {
   const current = parseArenaChampionshipBadges(value);
   return { ...current, [badge]: current[badge] + 1 };
-}
-
-export function bestArenaChampionshipBadge(
-  value: unknown,
-): ArenaChampionshipBadge | null {
-  const badges = parseArenaChampionshipBadges(value);
-  if (badges.gold > 0) return "gold";
-  if (badges.silver > 0) return "silver";
-  if (badges.bronze > 0) return "bronze";
-  return null;
 }

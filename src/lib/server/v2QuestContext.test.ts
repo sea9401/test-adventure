@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { buildQuestCtx, type QuestExtras } from "./v2QuestContext";
+import {
+  buildQuestCtx,
+  guideQuestSavePayload,
+  parseTrackedQuestId,
+  type QuestExtras,
+} from "./v2QuestContext";
+
+describe("가이드 퀘스트 추적 저장", () => {
+  it("추적 id를 안전하게 읽고 해제 시 저장 필드에서 제거한다", () => {
+    expect(parseTrackedQuestId({ trackedQuestId: "x_rich" })).toBe("x_rich");
+    expect(parseTrackedQuestId({ trackedQuestId: 7 })).toBeNull();
+    expect(
+      guideQuestSavePayload(new Set(["combat_10"]), "x_rich"),
+    ).toEqual({ claimed: ["combat_10"], trackedQuestId: "x_rich" });
+    expect(guideQuestSavePayload(new Set(["combat_10"]), null)).toEqual({
+      claimed: ["combat_10"],
+    });
+  });
+});
 
 const EXTRAS: QuestExtras = {
   hasGuild: true,
@@ -74,6 +92,23 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
     expect(ctx.cookingDishesCooked).toBe(0);
   });
 
+  it("농장 증표 업적은 사용량을 중복 가산하지 않고 누적 획득량만 사용한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      farmRaw: {
+        stats: { reputation: 100, reputationSpent: 40 },
+      },
+      extras: EXTRAS,
+    });
+
+    expect(ctx.farmReputationEarned).toBe(100);
+  });
+
   it("튜토리얼의 수동 장비·장착 후 전투·스킬 로드아웃 행동을 변환한다", () => {
     const ctx = buildQuestCtx({
       charRaw: {
@@ -94,5 +129,22 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
       hasBattledAfterEquippingGear: true,
       hasEditedSkillLoadout: true,
     });
+  });
+
+  it("행동 플래그가 없어도 현재 장착한 스킬을 튜토리얼 신호로 변환한다", () => {
+    const skillId = "v2_skill_strike";
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: { learned: [skillId], equipped: [skillId] },
+      craftingRaw: {},
+      extras: EXTRAS,
+    });
+
+    expect(ctx.skillsLearned).toBe(1);
+    expect(ctx.skillsEquipped).toBe(1);
+    expect(ctx.hasEditedSkillLoadout).toBe(false);
   });
 });

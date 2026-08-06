@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  matchesDismantleScopeFilter,
   matchesDismantleTierFilter,
   workshopEquipmentCodexStatus,
   workshopEquipmentDisplayTier,
@@ -7,7 +8,10 @@ import {
   type DismantleCandidateView,
 } from "./guildWorkshopPanelModel";
 
-function candidate(tier: number): DismantleCandidateView {
+function candidate(
+  tier: number,
+  overrides: Partial<DismantleCandidateView> = {},
+): DismantleCandidateView {
   return {
     iid: `item-${tier}`,
     itemId: `equipment-${tier}`,
@@ -23,6 +27,7 @@ function candidate(tier: number): DismantleCandidateView {
     rewards: {},
     artisanXp: 0,
     canDismantle: true,
+    ...overrides,
   };
 }
 
@@ -45,6 +50,18 @@ describe("guild workshop equipment tier display", () => {
     expect(matchesDismantleTierFilter(candidate(12), "display4")).toBe(true);
     expect(matchesDismantleTierFilter(candidate(13), "display5")).toBe(true);
     expect(matchesDismantleTierFilter(candidate(12), "display3")).toBe(false);
+  });
+
+  it("shows blocked crafted equipment in the craft-only filter", () => {
+    const blockedCraftOnly = candidate(4, {
+      canDismantle: false,
+      blockedReason: "no_material",
+      craftOnly: true,
+    });
+    expect(matchesDismantleScopeFilter(blockedCraftOnly, "craftOnly")).toBe(
+      true,
+    );
+    expect(matchesDismantleScopeFilter(blockedCraftOnly, "can")).toBe(false);
   });
 });
 

@@ -109,6 +109,24 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "self_buff_pct", target: "crit", active: false }, eva)).toBe(true);
   });
 
+  it("self_buff_pct — 지속 회복·확정 회피 상태 효과도 판정한다", () => {
+    const active = ctx({
+      selfBuffPctTargets: new Set(["regen", "guaranteedEvade"]),
+    });
+    expect(
+      conditionPasses(
+        { kind: "self_buff_pct", target: "regen", active: true },
+        active,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_buff_pct", target: "guaranteedEvade", active: false },
+        active,
+      ),
+    ).toBe(false);
+  });
+
   it("enemy_hp — 처형 패턴", () => {
     expect(conditionPasses({ kind: "enemy_hp", op: "below", pct: 30 }, ctx({ enemyHpPct: 25 }))).toBe(true);
     expect(conditionPasses({ kind: "enemy_hp", op: "below", pct: 30 }, ctx({ enemyHpPct: 80 }))).toBe(false);
@@ -282,6 +300,19 @@ describe("parseCombatPattern (저장 검증)", () => {
       target: "skillProcDown",
       active: false,
     });
+  });
+
+  it("지속 회복·확정 회피 상태 효과 조건을 안전하게 파싱한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: ["regen", "guaranteedEvade"].map((target) => ({
+        condition: { kind: "self_buff_pct", target, active: false },
+        action: { kind: "skill", skillId: target },
+      })),
+    });
+    expect(parsed.blocks.map((block) => block.condition)).toEqual([
+      { kind: "self_buff_pct", target: "regen", active: false },
+      { kind: "self_buff_pct", target: "guaranteedEvade", active: false },
+    ]);
   });
 });
 

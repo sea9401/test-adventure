@@ -32,9 +32,7 @@ import {
   FARM_RARE_PITY_HARVESTS,
 } from "@/adventure/v2/farm";
 import {
-  AUTO_GATHERING_DURATION_MS,
-  AUTO_GATHERING_MATERIAL_EFFICIENCY,
-  AUTO_GATHERING_XP_EFFICIENCY,
+  AUTO_GATHERING_PLANS,
 } from "@/adventure/v2/autoGathering";
 import { WOODCUTTING_SPOT_IDS } from "@/adventure/data/v2/woodcuttingSpots";
 import { MINING_SPOT_IDS } from "@/adventure/data/v2/miningSpots";
@@ -48,7 +46,6 @@ import {
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
-const AUTO_GATHERING_MINUTES = AUTO_GATHERING_DURATION_MS / 60_000;
 const fishList = Object.values(FISH);
 const normalFishCount = fishList.filter((fish) => !fish.condition).length;
 const specialFishCount = fishList.length - normalFishCount;
@@ -151,13 +148,14 @@ export function PastimesContent() {
           영향을 줍니다.
         </li>
         <li>
-          자동 작업은 <Em>{AUTO_GATHERING_MINUTES}분</Em> 동안 진행됩니다. 재료
-          효율은 <Em>{AUTO_GATHERING_MATERIAL_EFFICIENCY * 100}%</Em>, 경험치와
-          숙련도 효율은 <Em>{AUTO_GATHERING_XP_EFFICIENCY * 100}%</Em>입니다.
+          자동 작업은 <Em>30분 기본 작업</Em>과 <Em>2시간 느긋한 작업</Em> 중에서
+          고릅니다. 기본 작업은 재료 효율 80%·성공률 100%, 느긋한 작업은 재료
+          효율 60%·기존 성공률의 80%를 적용합니다.
         </li>
         <li>
           자동 작업은 다른 화면으로 이동하거나 창을 닫아도 계속됩니다. 생활 레벨과
-          작업 속도로 30분 동안의 예상 시도 횟수를 계산합니다.
+          작업 속도로 선택한 시간 동안의 예상 시도 횟수를 계산합니다. 경험치와
+          숙련도 효율은 두 방식 모두 <Em>{AUTO_GATHERING_PLANS.standard.xpEfficiency * 100}%</Em>입니다.
         </li>
         <li>
           시작할 때 장착한 생활 패시브의 작업 시간·실패율·실패 구제·추가 재료
@@ -169,9 +167,9 @@ export function PastimesContent() {
           중이면 낚시와 수동 벌목·채광도 잠깁니다.
         </li>
         <li>
-          30분 전에 중단하면 <Em>진행분 정산</Em>을 통해 중단 시점까지
+          완료 전에 중단하면 <Em>진행분 정산</Em>을 통해 중단 시점까지
           완료된 작업만큼의 재료·경험치·직업 숙련도를 받습니다. 아직 완료된
-          작업이 없으면 보상도 없으며, 30분이 끝나면 취소 대신 전체 보상만
+          작업이 없으면 보상도 없으며, 선택한 시간이 끝나면 취소 대신 전체 보상만
           수령할 수 있습니다.
         </li>
       </UL>

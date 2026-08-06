@@ -1,13 +1,14 @@
 import type { db as dbType } from "@/db";
-import { guildActivityLog } from "@/db/schema";
+import { guildActivityLog, guildContributionEvents } from "@/db/schema";
 import type { GuildAlchemyChargeTarget } from "@/adventure/data/v2/guildAlchemy";
+import { guildContributionForActivity } from "@/adventure/data/v2/guildContribution";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
 // 길드원 활동 내역 기록. 이벤트가 일어나는 라우트의 같은 tx 안에서 호출 — 행위가 롤백되면
 // 로그도 함께 롤백(원자성). 이름은 저장 안 함(userId 만; 읽을 때 현재 닉네임으로 batch 해석).
-// ⚠️ 트림 없음 — 읽기는 limit 30 이지만 행은 무한 누적. 현재 규모(테스터 소수)는 무방.
-//   대량화 전 길드당 최근 N행 유지 트림을 cron(guilds-cleanup)에 추가할 것(핫패스 밖).
+// 원본은 ops-retention에서 길드당 최근 500행만 유지한다. 잘리는 행은 같은 트랜잭션에서
+// guild_activity_rollups의 월별·누적 횟수/기여/입금 합계로 먼저 압축한다.
 export type GuildActivityType =
   | "member_join"
   | "member_leave"
@@ -15,6 +16,10 @@ export type GuildActivityType =
   | "leadership_transfer"
   | "role_change"
   | "gold_deposit"
+  | "facility_material_donation"
+  | "dining_ingredient_donation"
+  | "trade_delivery"
+  | "trade_shop_purchase"
   | "workshop_weekly_claim"
   | "exploration_weekly_claim"
   | "exploration_expedition_dispatch"
@@ -37,11 +42,16 @@ export type GuildActivityType =
 
 export type GuildActivityMeta = {
   amount?: number; // gold_deposit | emblem_change
+  quantity?: number; // 시설·식당·교역 재료 기부량
+  donations?: Record<string, number>; // facility_material_donation 재료별 기부량
+  contributionPoints?: number; // 해당 활동에서 확정한 길드 기여 점수
   role?: string; // role_change ("manager" | "member")
   nationName?: string; // nation_declare
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
   deliveryTitle?: string; // workshop_delivery
   itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft | dining_meal | trade_contract_complete
+  tokenCost?: number; // trade_shop_purchase
+  remainingTokens?: number; // trade_shop_purchase
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade
@@ -72,11 +82,30 @@ export async function logGuildActivity(
     meta?: GuildActivityMeta | null;
   },
 ): Promise<void> {
-  await tx.insert(guildActivityLog).values({
+  const activity = (
+    await tx
+      .insert(guildActivityLog)
+      .values({
+        guildId: entry.guildId,
+        type: entry.type,
+        actorUserId: entry.actorUserId ?? null,
+        targetUserId: entry.targetUserId ?? null,
+        meta: entry.meta ?? null,
+      })
+      .returning({ id: guildActivityLog.id, createdAt: guildActivityLog.createdAt })
+  )[0];
+  const contribution = guildContributionForActivity(
+    entry.type,
+    entry.meta ?? null,
+  );
+  if (!activity || !entry.actorUserId || !contribution) return;
+  await tx.insert(guildContributionEvents).values({
     guildId: entry.guildId,
-    type: entry.type,
-    actorUserId: entry.actorUserId ?? null,
-    targetUserId: entry.targetUserId ?? null,
-    meta: entry.meta ?? null,
+    userId: entry.actorUserId,
+    activityLogId: activity.id,
+    source: entry.type,
+    category: contribution.category,
+    points: contribution.points,
+    createdAt: activity.createdAt,
   });
 }

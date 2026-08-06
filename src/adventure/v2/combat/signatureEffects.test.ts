@@ -341,8 +341,12 @@ describe("onCritSpeedBuff (군림 크리 속도)", () => {
     expect(onCritSpeedBuff(undefined, true, true)).toBeNull(); // 미장착
   });
 
-  it("크리 + 피해 → {배수, 지속} (spdBuffPct 20 → 1.2 / 2행동)", () => {
-    expect(onCritSpeedBuff([CROWN], true, true)).toEqual({ mult: 1.2, turns: 2 });
+  it("크리 + 피해 → {배수, 지속, 라벨} (spdBuffPct 20 → 1.2 / 2행동)", () => {
+    expect(onCritSpeedBuff([CROWN], true, true)).toEqual({
+      mult: 1.2,
+      turns: 2,
+      label: "군림",
+    });
   });
 
   it("on_crit 아닌 트리거/spdBuffPct 없는 건 무시", () => {
@@ -361,6 +365,7 @@ describe("onCritSpeedBuff (군림 크리 속도)", () => {
     expect(onCritSpeedBuff([weaker, CROWN], true, true)).toEqual({
       mult: 1.2,
       turns: 2,
+      label: "군림",
     });
   });
 });
@@ -726,6 +731,52 @@ describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용
       result.log.some(
         (e) => typeof e.text === "string" && e.text.includes("[묵주]"),
       ),
+    ).toBe(true);
+  });
+});
+
+describe("엔진 통합 — 장비 발동형 속도 버프의 패턴 조건 연동 (PvE)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("군림과 같은 임시 속도 버프가 '내 속도 버프 있음' 조건을 충족한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const player = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+    }).player;
+    const base = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 999, atk: 0, def: 0 },
+      "용사",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+        pattern: {
+          blocks: [
+            {
+              condition: { kind: "self_buff", stat: "spd", active: true },
+              action: { kind: "skill", skillId: "v2_skill_strike" },
+            },
+          ],
+        },
+      },
+    );
+    const ticked = { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} };
+
+    expect(applyPlayerV2SkillCast(base, player, ticked).castFired).toBe(false);
+    expect(
+      applyPlayerV2SkillCast(
+        {
+          ...base,
+          buffs: {
+            ...base.buffs,
+            playerSpdMult: 1.2,
+            playerSpdTurnsLeft: 2,
+          },
+        },
+        player,
+        ticked,
+      ).castFired,
     ).toBe(true);
   });
 });

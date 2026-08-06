@@ -8,8 +8,8 @@
 export const FEED_FETCH_LIMIT = 30;
 
 // DB 보관 기간 — insert 마다 이보다 오래된 행 trim(시간 기준).
-// (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 분류별 과거 열람을 위해 약 6개월 치 보존.)
-export const FEED_RETENTION_MS = 180 * 24 * 3_600_000;
+// (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 운영 보관 정책에 따라 최근 30일 보존.)
+export const FEED_RETENTION_MS = 30 * 24 * 3_600_000;
 
 // 과거 페이지 cursor. server_feed 의 단조 증가 serial(PG integer) PK만 허용해 범위가
 // 불명확하거나 컬럼 범위 밖인 값을 쿼리에 넘기지 않는다.
@@ -41,6 +41,7 @@ export const FEED_TYPES = [
   "coop_summon",
   "coop_kill",
   "fishing_big_catch",
+  "cultivation_awakening",
   "newcomer",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
@@ -63,6 +64,8 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "coop_summon",
   "coop_kill",
   "fishing_big_catch",
+  // 수행 각성(×5)은 1.5% 희귀 사건이라 서버 전체 전광판에 알린다.
+  "cultivation_awakening",
   // newcomer = 전쟁 사건은 아니지만 "서버 전체에 알리는 한 줄"이라 같은 상단 전광판에 태운다
   // (enhance_high 가 전쟁 아님에도 여기 묶인 것과 같은 취지 — 전광판 = 서버 공지 묶음).
   "newcomer",
@@ -137,10 +140,13 @@ export type FeedPayload =
   //   파괴(개체 소멸). level = 성공=달성 레벨·파괴=잃은 개체 레벨. 장비 이름은 클라가 카탈로그 해석.
   | { itemId: string; level: number }
   // rare_map_drop — 레거시: 과거 레어맵 발견 소식. 현재는 전체 소식에 발행하지 않음.
-  // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
-  | { kind: string }
+  // coop_summon · coop_kill — 협동 보스 소환/처치. 새 이벤트는 세션을 연결하고,
+  // 소환에는 실제 만료 시각을 넣어 전광판에서 끝난 모집을 정확히 숨긴다.
+  | { kind: string; sessionId?: string; expiresAt?: number }
   // fishing_big_catch — 낚시 대물(종 크기 상위 구간 + 개인 신기록). 어종명은 클라가 FISH 해석.
   | { fishId: string; size: number }
+  // cultivation_awakening — 수행 ×5 각성. 배수는 과거 표시 호환과 검증을 위해 함께 저장.
+  | { cultivationMult: number }
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
   | { newcomer: true };
 

@@ -46,6 +46,7 @@ const preview: MarketplacePreviewData = {
   bidGraceMinHours: 2,
   bidGraceMaxHours: 24,
   fixedListingHours: 2,
+  directListingHours: 24,
   listings,
   prices,
 };

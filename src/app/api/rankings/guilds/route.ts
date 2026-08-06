@@ -43,6 +43,7 @@ async function fetchRows(): Promise<GuildRow[]> {
         ) AS member_count
       FROM guilds g
       WHERE g.disbanded_at IS NULL
+        AND g.is_test = false
     ),
     ranked AS (
       SELECT *,
@@ -111,7 +112,9 @@ export async function GET() {
     SELECT gm.guild_id
     FROM guild_members gm
     JOIN guilds g ON g.id = gm.guild_id
-    WHERE gm.user_id = ${userId} AND g.disbanded_at IS NULL
+    WHERE gm.user_id = ${userId}
+      AND g.disbanded_at IS NULL
+      AND g.is_test = false
     LIMIT 1
   `);
   const myGuildId =

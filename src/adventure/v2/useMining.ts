@@ -14,7 +14,12 @@ import type {
   AutoGatheringResultView,
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
-import type { AutoGatheringActivity } from "./autoGathering";
+import {
+  autoGatheringPlan,
+  type AutoGatheringActivity,
+  type AutoGatheringPlanId,
+} from "./autoGathering";
+import { useGameState } from "./GameStateProvider";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -72,6 +77,7 @@ function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
   if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
   return {
     sessionId: item.sessionId,
+    planId: autoGatheringPlan(item.planId).id,
     sourceId: item.sourceId,
     sourceName: String(item.sourceName ?? "광맥"),
     materialId: String(item.materialId ?? ""),
@@ -97,6 +103,7 @@ function wait(ms: number): Promise<void> {
 }
 
 export function useMining(): MiningHandlers {
+  const { setAutoGathering } = useGameState();
   const { verification, verifyHuman, readJson } = useActivityVerification("mining");
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<MiningLogView>({
@@ -218,13 +225,16 @@ export function useMining(): MiningHandlers {
     [readJson],
   );
 
-  const startAuto = useCallback(async (spotId: MiningSpotId): Promise<void> => {
+  const startAuto = useCallback(async (
+    spotId: MiningSpotId,
+    planId: AutoGatheringPlanId,
+  ): Promise<void> => {
     setAutoLoading(true);
     try {
       const response = await fetch("/api/v2/mining/auto", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start", spotId }),
+        body: JSON.stringify({ action: "start", spotId, planId }),
       });
       const json = await readJson(response);
       if (!response.ok || !json?.ok) {
@@ -232,13 +242,24 @@ export function useMining(): MiningHandlers {
         if (active) setActiveAutoActivity(active);
         throw new Error("mining_auto_start_failed");
       }
-      setAutoSession(parseAutoSession(json.autoSession));
+      const session = parseAutoSession(json.autoSession);
+      setAutoSession(session);
       setActiveAutoActivity("mining");
       setAutoResult(null);
+      setAutoGathering(
+        session
+          ? {
+              activity: "mining",
+              sourceId: session.sourceId,
+              sourceName: session.sourceName,
+              readyAt: session.readyAt,
+            }
+          : null,
+      );
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson]);
+  }, [readJson, setAutoGathering]);
 
   const claimAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
@@ -255,10 +276,11 @@ export function useMining(): MiningHandlers {
       setAutoSession(null);
       setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       setAutoResult(parseAutoResult(json));
+      setAutoGathering(null);
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson]);
+  }, [readJson, setAutoGathering]);
 
   const cancelAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
@@ -275,10 +297,11 @@ export function useMining(): MiningHandlers {
       setAutoSession(null);
       setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       setAutoResult(parseAutoResult(json));
+      setAutoGathering(null);
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson]);
+  }, [readJson, setAutoGathering]);
 
   return {
     start,

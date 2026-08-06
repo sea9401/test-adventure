@@ -66,6 +66,8 @@ export async function POST(req: Request) {
     : "public";
 
   let summoned = false;
+  let summonedSessionId: string | null = null;
+  let summonedExpiresAt: number | null = null;
   let summonerName = "모험가";
   let result: { status: number; body: Record<string, unknown> };
   try {
@@ -136,6 +138,7 @@ export async function POST(req: Request) {
           ? "summoner_only"
           : visibility;
       const sessionId = randomUUID();
+      const expiresAt = now.getTime() + coopBossDurationMs(kind);
       await tx.insert(coopBossSessions).values({
         id: sessionId,
         regionId: kindId,
@@ -143,7 +146,7 @@ export async function POST(req: Request) {
         hp: kind.sharedMaxHp,
         maxHp: kind.sharedMaxHp,
         spawnedAt: now,
-        expiresAt: new Date(now.getTime() + coopBossDurationMs(kind)),
+        expiresAt: new Date(expiresAt),
         regenPerMin: 0,
         lastRegenAt: null,
         summonedByName: summonerName,
@@ -153,6 +156,8 @@ export async function POST(req: Request) {
         mechanicState: { bossMp: coopBossMaxMp(kind) },
       });
       summoned = true;
+      summonedSessionId = sessionId;
+      summonedExpiresAt = expiresAt;
       return {
         status: 200,
         body: {
@@ -160,7 +165,7 @@ export async function POST(req: Request) {
           sessionId,
           kind: kindId,
           scrollsLeft: remaining,
-          expiresAt: now.getTime() + coopBossDurationMs(kind),
+          expiresAt,
         },
       };
     });
@@ -174,8 +179,17 @@ export async function POST(req: Request) {
 
   // 소환 알림 — 전체 소식 피드 + 채팅 알림 탭(둘 다 부수 효과·실패 삼킴).
   // 코어루프 — 공개(public) 소환만 전체 브로드캐스트. 길드원만/소환자만은 목록에서만 노출.
-  if (summoned && visibility === "public") {
-    await insertFeedEntry(userId, "coop_summon", { kind: kindId });
+  if (
+    summoned &&
+    visibility === "public" &&
+    summonedSessionId &&
+    summonedExpiresAt
+  ) {
+    await insertFeedEntry(userId, "coop_summon", {
+      kind: kindId,
+      sessionId: summonedSessionId,
+      expiresAt: summonedExpiresAt,
+    });
     await broadcastCoopNotice(
       `${summonerName} 님이 「${kind.name}」을(를) 소환했다`,
     );

@@ -9,6 +9,8 @@ import {
   V2_EQUIPMENT,
 } from "@/adventure/data/v2/v2Equipment";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { SHATTERED_DREAM_TITLE_ID } from "@/adventure/data/titles";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   ENHANCE_FEED_MIN_LEVEL,
@@ -250,6 +252,15 @@ export async function POST(req: Request) {
       bankedGold: nextBankedGold,
       materials: mats,
     });
+
+    if (outcome === "destroy" && level >= 10) {
+      await grantTitleIfMissingInTx(
+        tx,
+        userId,
+        SHATTERED_DREAM_TITLE_ID,
+        Date.now(),
+      );
+    }
 
     return {
       status: 200,

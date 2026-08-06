@@ -24,6 +24,9 @@ vi.mock("@/lib/server/guildFacilityUpgradeDonations", () => ({
   lockGuildFacilityDonationProgress: vi.fn(),
   setGuildFacilityDonationProgress: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/guildActivityLog", () => ({
+  logGuildActivity: vi.fn(async () => undefined),
+}));
 
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
@@ -31,6 +34,7 @@ import {
   lockGuildFacilityDonationProgress,
   setGuildFacilityDonationProgress,
 } from "@/lib/server/guildFacilityUpgradeDonations";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { POST } from "./route";
 
 const PINE = WOODCUTTING_MATERIAL_ID.pine;
@@ -87,6 +91,18 @@ describe("길드 시설 재료 기부", () => {
       "guild_smithy",
       2,
       { crop: 230, ore: 140 },
+    );
+    expect(logGuildActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        guildId: 7,
+        type: "facility_material_donation",
+        actorUserId: "u-member",
+        meta: expect.objectContaining({
+          donations: { [PINE]: 30, [IRON]: 40 },
+          quantity: 70,
+        }),
+      }),
     );
   });
 

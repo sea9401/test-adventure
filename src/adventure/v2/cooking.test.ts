@@ -8,8 +8,12 @@ import {
   cookingIngredientRequirement,
   cookingLevelForXp,
   cookingLevelXpThreshold,
+  cookingOrderReward,
   cookingOrders,
   cookingQuality,
+  cookingRecipeMatchesQuery,
+  cookingStatText,
+  deliverableCookingFoods,
   recordCookingActionStats,
   cookingStatPct,
   emptyCookingState,
@@ -20,6 +24,12 @@ import {
 } from "./cooking";
 
 describe("personal cooking", () => {
+  it("요리 스탯 효과를 공용 한글 라벨로 표시하고 알 수 없는 키는 안전하게 유지한다", () => {
+    expect(cookingStatText({ str: 8, vit: 5, custom: 2 })).toBe(
+      "힘 +8% · 활력 +5% · CUSTOM +2%",
+    );
+  });
+
   it("maps every recipe to its own cooking image asset", () => {
     const paths = COOKING_RECIPES.map((recipe) => recipe.imageSrc);
     expect(paths).toEqual(
@@ -159,7 +169,7 @@ describe("personal cooking", () => {
     );
 
     expect(ordered).toEqual({
-      dishesCooked: 6,
+      dishesCooked: 5,
       ordersCompleted: 1,
       masterpiecesCooked: 5,
       rareIngredientDishes: 5,
@@ -257,5 +267,76 @@ describe("personal cooking", () => {
     });
     expect(removeCookingFood({ [itemId]: 1 }, itemId, 1)).toEqual({});
     expect(removeCookingFood({}, itemId, 1)).toBeNull();
+  });
+
+  it("finds held foods for an order and prioritizes higher quality", () => {
+    const normal = cookingFoodId({
+      recipeId: "rustic_bread",
+      quality: "normal",
+      usedRare: false,
+      extended: false,
+    });
+    const masterpiece = cookingFoodId({
+      recipeId: "rustic_bread",
+      quality: "masterpiece",
+      usedRare: true,
+      extended: true,
+    });
+    const otherRecipe = cookingFoodId({
+      recipeId: "herb_tea",
+      quality: "masterpiece",
+      usedRare: true,
+      extended: true,
+    });
+
+    expect(
+      deliverableCookingFoods(
+        { [normal]: 2, [masterpiece]: 1, [otherRecipe]: 5 },
+        "rustic_bread",
+      ).map(({ food, count }) => ({ id: food.id, count })),
+    ).toEqual([
+      { id: masterpiece, count: 1 },
+      { id: normal, count: 2 },
+    ]);
+  });
+
+  it("scales order rewards by delivered food quality", () => {
+    const order = {
+      id: "order-1",
+      recipeId: "rustic_bread",
+      rewardGold: 50_000,
+      rewardReputation: 1,
+      bonusXp: 12,
+    };
+
+    expect(cookingOrderReward(order, "normal")).toMatchObject({
+      gold: 50_000,
+      reputation: 1,
+      bonusXp: 12,
+      qualityBonusPct: 0,
+    });
+    expect(cookingOrderReward(order, "careful")).toMatchObject({
+      gold: 60_000,
+      reputation: 2,
+      bonusXp: 14,
+      qualityBonusPct: 20,
+    });
+    expect(cookingOrderReward(order, "masterpiece")).toMatchObject({
+      gold: 75_000,
+      reputation: 3,
+      bonusXp: 18,
+      qualityBonusPct: 50,
+    });
+  });
+
+  it("matches recipe searches against dish and ingredient names", () => {
+    const recipe = COOKING_RECIPES.find(
+      (entry) => entry.id === "fish_croquettes",
+    )!;
+
+    expect(cookingRecipeMatchesQuery(recipe, "크로켓")).toBe(true);
+    expect(cookingRecipeMatchesQuery(recipe, "감자 양파")).toBe(true);
+    expect(cookingRecipeMatchesQuery(recipe, "고급 어획물")).toBe(true);
+    expect(cookingRecipeMatchesQuery(recipe, "토마토")).toBe(false);
   });
 });

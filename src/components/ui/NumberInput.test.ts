@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
+import {
+  normalizeIntegerInput,
+  parseNumberDraft,
+} from "./DraftNumberInput";
 import { formatThousands, parseAmount } from "./NumberInput";
+
+describe("normalizeIntegerInput", () => {
+  it("정수로 내리고 min/max 범위 안으로 보정한다", () => {
+    expect(normalizeIntegerInput(7.9, 1, 10)).toBe(7);
+    expect(normalizeIntegerInput(0, 1, 10)).toBe(1);
+    expect(normalizeIntegerInput(11, 1, 10)).toBe(10);
+  });
+
+  it("입력 중 빈 값은 숫자로 강제 변환하지 않는다", () => {
+    expect(parseNumberDraft("")).toBeNull();
+    expect(parseNumberDraft("12")).toBe(12);
+  });
+});
 
 describe("formatThousands", () => {
   it("천단위 콤마", () => {

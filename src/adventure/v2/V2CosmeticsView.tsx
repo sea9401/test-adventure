@@ -11,7 +11,10 @@ import {
   Sparkle,
   X,
 } from "@phosphor-icons/react";
-import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
+import {
+  ArenaChampionshipBadge,
+  ChatCosmeticBadge,
+} from "@/components/chat/ChatCosmetics";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -52,12 +55,22 @@ import {
   type ProfileBorderId,
   type ProfileBorderItemId,
 } from "@/adventure/data/v2/museunCosmetics";
+import {
+  ARENA_CHAMPIONSHIP_BADGE_IDS,
+  parseArenaChampionshipBadges,
+  type ArenaChampionshipBadge as ArenaChampionshipBadgeId,
+  type ArenaChampionshipBadges,
+} from "@/adventure/data/v2/arenaChampionshipBadges";
 import { useGameState } from "./GameStateProvider";
 import { ProfileImagePanel } from "./V2ProfileImageView";
 import { useSystemToast } from "./RewardToastProvider";
 
 export type CosmeticTab = "chroma" | "border" | "badge" | "profile_image";
-type CosmeticSlot = "chroma_name" | "profile_border" | "chat_badge";
+type CosmeticSlot =
+  | "chroma_name"
+  | "profile_border"
+  | "chat_badge"
+  | "championship_badge";
 type CosmeticExtensionTarget = {
   id: MuseunCosmeticAccessId;
   label: string;
@@ -70,6 +83,31 @@ const SORTED_PROFILE_BORDER_VARIANTS = sortCosmeticVariantsByRarity(
 const SORTED_CHAT_BADGE_VARIANTS = sortCosmeticVariantsByRarity(
   CHAT_BADGE_VARIANTS,
 );
+const ARENA_CHAMPIONSHIP_BADGE_VARIANTS = [
+  {
+    id: "gold",
+    name: "챔피언",
+    rarity: "legendary",
+    detail: "아레나 본선 1위 달성 보상",
+  },
+  {
+    id: "silver",
+    name: "준우승",
+    rarity: "epic",
+    detail: "아레나 본선 2위 달성 보상",
+  },
+  {
+    id: "bronze",
+    name: "3위",
+    rarity: "rare",
+    detail: "아레나 본선 3위 달성 보상",
+  },
+] as const satisfies readonly {
+  id: ArenaChampionshipBadgeId;
+  name: string;
+  rarity: ChromaNameRarity;
+  detail: string;
+}[];
 
 const RARITY_TEXT_CLASS: Record<ChromaNameRarity, string> = {
   common: "text-zinc-600 dark:text-zinc-300",
@@ -157,6 +195,10 @@ export function V2CosmeticsView({
   const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>
     parseMuseunCosmetics(null),
   );
+  const [championshipBadges, setChampionshipBadges] =
+    useState<ArenaChampionshipBadges>(() =>
+      parseArenaChampionshipBadges(null),
+    );
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -176,10 +218,14 @@ export function V2CosmeticsView({
       const data = (await res.json().catch(() => null)) as {
         ok?: boolean;
         cosmetics?: MuseunCosmeticsState;
+        championshipBadges?: ArenaChampionshipBadges;
         cashItems?: MuseunCashItemCounts;
       } | null;
       if (!res.ok || !data?.ok) throw new Error("load_failed");
       setCosmetics(parseMuseunCosmetics(data.cosmetics));
+      setChampionshipBadges(
+        parseArenaChampionshipBadges(data.championshipBadges),
+      );
       setCashItems(data.cashItems ?? {});
       setCurrentTime(Date.now());
     } catch (error) {
@@ -204,7 +250,12 @@ export function V2CosmeticsView({
   const equip = useCallback(
     async (
       slot: CosmeticSlot,
-      itemId: ChromaNameId | ProfileBorderItemId | ChatBadgeItemId | null,
+      itemId:
+        | ChromaNameId
+        | ProfileBorderItemId
+        | ChatBadgeItemId
+        | ArenaChampionshipBadgeId
+        | null,
       label: string,
     ) => {
       setBusy(`${slot}_${itemId ?? "off"}`);
@@ -218,6 +269,7 @@ export function V2CosmeticsView({
           ok?: boolean;
           error?: string;
           cosmetics?: MuseunCosmeticsState;
+          championshipBadges?: ArenaChampionshipBadges;
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
@@ -232,6 +284,11 @@ export function V2CosmeticsView({
           return;
         }
         setCosmetics(parseMuseunCosmetics(data.cosmetics));
+        if (data.championshipBadges) {
+          setChampionshipBadges(
+            parseArenaChampionshipBadges(data.championshipBadges),
+          );
+        }
         setCurrentTime(Date.now());
         await refreshGameState();
         notifySystem(`✓ ${label}`);
@@ -358,7 +415,7 @@ export function V2CosmeticsView({
         key: "badge" as const,
         label: "배지",
         icon: <Sparkle size={16} weight="duotone" />,
-        badge: `${CHAT_BADGE_VARIANTS.filter((item) => cosmetics.owned.includes(item.itemId)).length}/${CHAT_BADGE_VARIANTS.length}`,
+        badge: `${CHAT_BADGE_VARIANTS.filter((item) => cosmetics.owned.includes(item.itemId)).length + ARENA_CHAMPIONSHIP_BADGE_IDS.filter((badge) => championshipBadges[badge] > 0).length}/${CHAT_BADGE_VARIANTS.length + ARENA_CHAMPIONSHIP_BADGE_IDS.length}`,
       },
       {
         key: "profile_image" as const,
@@ -366,7 +423,7 @@ export function V2CosmeticsView({
         icon: <ImageSquare size={16} weight="duotone" />,
       },
     ],
-    [cosmetics],
+    [championshipBadges, cosmetics],
   );
 
   return (
@@ -384,8 +441,8 @@ export function V2CosmeticsView({
           </span>
         </div>
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          프로필 이미지 변경과 닉네임 꾸미기, 프로필 꾸미기, 채팅 배지를 한곳에서 관리합니다.
-          상자에서 획득하면 도감에 영구 기록되고 {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
+          프로필 이미지 변경과 닉네임 꾸미기, 프로필 꾸미기, 배지를 한곳에서 관리합니다.
+          아레나 입상 메달은 영구 사용하며, 상자에서 획득한 꾸미기는 도감에 기록된 뒤 {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
         </p>
       </Card>
 
@@ -435,6 +492,7 @@ export function V2CosmeticsView({
             ) : tab === "badge" ? (
               <BadgeCodex
                 cosmetics={cosmetics}
+                championshipBadges={championshipBadges}
                 busy={busy}
                 now={currentTime}
                 onEquip={equip}
@@ -686,26 +744,63 @@ function BorderCodex({
 
 function BadgeCodex({
   cosmetics,
+  championshipBadges,
   busy,
   now,
   onEquip,
   onRequestExtension,
 }: {
   cosmetics: MuseunCosmeticsState;
+  championshipBadges: ArenaChampionshipBadges;
   busy: string | null;
   now: number;
   onEquip: (
     slot: CosmeticSlot,
-    itemId: ChatBadgeItemId | null,
+    itemId: ChatBadgeItemId | ArenaChampionshipBadgeId | null,
     label: string,
   ) => void;
   onRequestExtension: (target: CosmeticExtensionTarget) => void;
 }) {
   return (
     <CollectionLayout
-      title="채팅 배지 도감"
-      description="채팅에서 닉네임 앞에 표시할 배지입니다."
+      title="배지 도감"
+      description="아레나 명예 배지와 채팅 배지 중 하나만 골라 닉네임 앞에 표시합니다."
     >
+      {ARENA_CHAMPIONSHIP_BADGE_VARIANTS.map((variant) => {
+        const count = championshipBadges[variant.id];
+        const owned = count > 0;
+        const active =
+          owned && cosmetics.equippedChampionshipBadge === variant.id;
+        return (
+          <CosmeticCard
+            key={`championship-${variant.id}`}
+            owned={owned}
+            accessActive={owned}
+            accessUntil={null}
+            now={now}
+            active={active}
+            busy={busy !== null}
+            onToggle={() =>
+              onEquip(
+                "championship_badge",
+                active ? null : variant.id,
+                active
+                  ? "아레나 명예 배지를 해제했습니다"
+                  : "아레나 명예 배지를 착용했습니다",
+              )
+            }
+            title={
+              <span className="inline-flex items-center gap-1">
+                <ArenaChampionshipBadge badge={variant.id} />
+                아레나 {variant.name} 메달
+              </span>
+            }
+            rarity={variant.rarity}
+            detail={`${variant.detail}${owned ? ` · ${count}회 달성` : ""}`}
+            permanent
+          />
+        );
+      })}
       {SORTED_CHAT_BADGE_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
         const accessActive = museunCosmeticAccessActive(
@@ -792,6 +887,7 @@ function CosmeticCard({
   decoration = null,
   className = "",
   themedHeader = false,
+  permanent = false,
 }: {
   owned: boolean;
   accessActive: boolean;
@@ -800,13 +896,14 @@ function CosmeticCard({
   active: boolean;
   busy: boolean;
   onToggle: () => void;
-  onExtend: () => void;
+  onExtend?: () => void;
   title: React.ReactNode;
   rarity: ChromaNameRarity;
   detail: string;
   decoration?: ProfileBorderId | null;
   className?: string;
   themedHeader?: boolean;
+  permanent?: boolean;
 }) {
   return (
     <div
@@ -854,12 +951,12 @@ function CosmeticCard({
                 : "text-rose-700 dark:text-rose-300"
             }`}
           >
-            {accessPeriodLabel(accessUntil, now)}
+            {permanent ? "영구 보유" : accessPeriodLabel(accessUntil, now)}
           </div>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        {owned && (
+        {owned && !permanent && onExtend && (
           <Button
             size="xs"
             variant="warning"

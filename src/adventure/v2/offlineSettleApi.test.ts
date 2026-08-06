@@ -57,4 +57,26 @@ describe("settleOfflineHuntBatches", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(result.battles).toBe(0);
   });
+
+  it("정지 조건 사유를 유지하고 남은 판수가 0이면 추가 요청하지 않는다", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        ok: true,
+        battles: 1,
+        wins: 1,
+        remainingBattles: 0,
+        stoppedReason: "rare_map",
+      }),
+    );
+    const result = await settleOfflineHuntBatches(
+      fetcher as unknown as typeof fetch,
+      vi.fn(async () => undefined),
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      battles: 1,
+      stoppedReason: "rare_map",
+      remainingBattles: 0,
+    });
+  });
 });

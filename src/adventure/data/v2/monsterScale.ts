@@ -4,9 +4,11 @@ import {
   floorDefMult,
   floorExpMult,
   endgameSoften,
+  endExtensionCombatSoften,
   frontierOnsetSoften,
   floorCritHpComp,
   floorAccuracy,
+  underpreparedCombatMult,
 } from "./dungeonLadder";
 
 // 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/exp 만 곱한다.
@@ -22,12 +24,20 @@ export function scaleMonsterForFloor(
   // 엔드게임 완화 적용 여부. 솔로 던전 사냥=true(기본). 협동 보스는 sharedMaxHp+anchorDepth 로
   //   난이도를 따로 튜닝하므로 false(앵커 깊이 24·42 가 완화 임계 위라 atk 가 의도치 않게 약화되는 것 방지).
   softenEndgame: boolean = true,
+  // 솔로 일반 사냥에서만 전달하는 표시 전투력. 권장치 미달 사냥터 우회 페널티에 사용한다.
+  playerPower?: number,
 ): Monster {
-  // 엔드게임 완화 + 프론티어 진입 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관). floor 빌드
-  //   생존성 회복(엔드) + 들판→프론티어 경계 절벽 완화(d7~11). 둘 다 게이트 미접촉(sim 자기정규화 회피).
+  // 엔드게임·프론티어 진입·43+ 확장 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관).
+  // floor 빌드 생존성 + 들판→프론티어(d7~11)·엔드 확장(d43+) 경계 절벽을 각각 완화한다.
+  const underpreparedMult = underpreparedCombatMult(depth, playerPower);
   const sMult =
     floorStatMult(depth) *
-    (softenEndgame ? endgameSoften(depth) * frontierOnsetSoften(depth) : 1);
+    underpreparedMult *
+    (softenEndgame
+      ? endgameSoften(depth) *
+        frontierOnsetSoften(depth) *
+        endExtensionCombatSoften(depth)
+      : 1);
   const dMult = floorDefMult(depth);
   const eMult = floorExpMult(depth);
   // 크리 HP 상쇄 — HP 에만(atk/def/exp 무관). 크리 점감 곡선의 엔드 딜 손실 보전. coop(softenEndgame=false) 제외.
@@ -43,7 +53,11 @@ export function scaleMonsterForFloor(
   // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
   //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
   //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
-  const accuracy = (monster.accuracy ?? 0) + floorAccuracy(depth);
+  // 회피·치명 축은 표시 전투력에 직접 반영되지 않는다. 전투력 미달을 이유로 명중까지 올리면
+  // 회피 빌드가 낮은 전투력 판정과 회피 상실을 동시에 받으므로, 몬스터 명중은 깊이만 따른다.
+  const accuracy =
+    (monster.accuracy ?? 0) +
+    floorAccuracy(depth);
   if (
     hp === monster.hp &&
     atk === monster.atk &&

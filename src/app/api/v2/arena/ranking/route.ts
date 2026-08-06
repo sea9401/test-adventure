@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { pvpRatings, savesKv } from "@/db/schema";
+import { pvpRatings, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import { ARENA_INITIAL_RATING } from "@/lib/server/arena";
@@ -13,6 +13,7 @@ import {
   readMuseunCosmeticAppearanceMap,
   readProfileAvatarMap,
 } from "@/lib/server/museunCosmetics";
+import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
 
 // GET /api/v2/arena/ranking — 현재 주간 Elo 순위표.
 //   실유저 랭크전으로 적립된 pvp_ratings 만 정렬해 상위 N + 본인 순위를 돌려준다.
@@ -26,9 +27,10 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const season = await getOrCreateCurrentSeason(new Date());
-  const rows = await db
+  const ratingRows = await db
     .select({
       userId: pvpRatings.userId,
+      email: users.email,
       score: pvpRatings.rating,
       wins: pvpRatings.wins,
       losses: pvpRatings.losses,
@@ -36,8 +38,10 @@ export async function GET() {
       updatedAt: pvpRatings.updatedAt,
     })
     .from(pvpRatings)
+    .innerJoin(users, eq(users.id, pvpRatings.userId))
     .where(eq(pvpRatings.seasonId, season.id))
     .orderBy(desc(pvpRatings.rating), desc(pvpRatings.wins), pvpRatings.updatedAt);
+  const rows = excludeArenaOperatorAccounts(ratingRows);
 
   const scored = rows
     .map((r) => ({

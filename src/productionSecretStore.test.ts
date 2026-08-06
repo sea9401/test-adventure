@@ -120,6 +120,10 @@ describe("production env SSM sync", () => {
       join(ROOT, ".github/workflows/deploy.yml"),
       "utf8",
     );
+    const release = readFileSync(
+      join(ROOT, "deploy/release-production.sh"),
+      "utf8",
+    );
     const service = readFileSync(
       join(ROOT, "deploy/adventure-rpg.service"),
       "utf8",
@@ -131,7 +135,8 @@ describe("production env SSM sync", () => {
       ),
     );
 
-    for (const contents of [workflow, service]) {
+    expect(workflow).toContain("bash deploy/release-production.sh");
+    for (const contents of [release, service]) {
       expect(contents).toContain("sync-production-env-from-ssm.mjs");
       expect(contents).toContain("/run/adventure-rpg/production.env");
       expect(contents).not.toContain(".env.production.local");

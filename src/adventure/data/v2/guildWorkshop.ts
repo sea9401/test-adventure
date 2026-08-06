@@ -9,6 +9,7 @@ import {
   type V2EquipSlot,
   type V2Equipment,
   type V2EquipmentId,
+  type V2EquipDisplayTier,
   v2EquipCatalogTierToDisplayTier,
 } from "./v2Equipment";
 import {
@@ -22,6 +23,7 @@ import {
 import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_ID,
+  GUILD_WORKSHOP_MATERIAL_IDS,
   type GuildWorkshopMaterialId,
 } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIALS } from "./settlementMaterials";
@@ -43,6 +45,11 @@ import {
   COOP_BOSS_MATERIAL_ID,
   COOP_REWARD_MATERIALS,
 } from "./coopRewards";
+import {
+  STORM_EXPEDITION_MATERIALS,
+  STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+} from "./stormExpeditionRewards";
+import type { StormExpeditionRouteId } from "./stormExpedition";
 
 // 활동 내역은 화면에 보이는 티어 기준으로 제한한다(표시 4T = 내부 카탈로그 10~12단계).
 export const GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER = 4;
@@ -51,7 +58,7 @@ export function shouldLogGuildWorkshopCraftActivity(
   item: Pick<V2Equipment, "craftOnly" | "tier">,
 ): boolean {
   return (
-    item.craftOnly === true &&
+    (item.craftOnly === true || item.tier >= 16) &&
     v2EquipCatalogTierToDisplayTier(item.tier) >=
       GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER
   );
@@ -108,7 +115,43 @@ export type GuildWorkshopRecipeId =
   | "crafted_astral_grimoire"
   | "crafted_fracture_blade"
   | "crafted_thunder_oracle_grimoire"
-  | "crafted_trench_hymn_necklace";
+  | "crafted_trench_hymn_necklace"
+  | "crafted_immovable_bulwark"
+  | "crafted_guillotine_greatsword"
+  | "crafted_overdrive_bow"
+  | "crafted_abyss_mana_core"
+  | "crafted_voidveil_robe"
+  | "crafted_monopoly_gloves"
+  | "crafted_thousand_league_boots"
+  | "crafted_one_eye_oath"
+  | "crafted_stilled_chalice"
+  | "crafted_venom_injector"
+  | "crafted_blood_debt_greatsword"
+  | "crafted_thunder_lock_bow"
+  | "crafted_white_night_grimoire"
+  | "crafted_first_dawn_shield"
+  | "crafted_berserker_husk"
+  | "crafted_oblivion_ring"
+  | "crafted_painless_relic"
+  | "storm_wreckage_greatsword"
+  | "storm_wreckage_armor"
+  | "storm_wreckage_gloves"
+  | "storm_wreckage_boots"
+  | "storm_wreckage_ring"
+  | "storm_wreckage_necklace"
+  | "storm_gale_bow"
+  | "storm_gale_dagger"
+  | "storm_gale_armor"
+  | "storm_gale_gloves"
+  | "storm_gale_boots"
+  | "storm_gale_ring"
+  | "storm_gale_necklace"
+  | "storm_thunder_staff"
+  | "storm_thunder_armor"
+  | "storm_thunder_gloves"
+  | "storm_thunder_boots"
+  | "storm_thunder_ring"
+  | "storm_thunder_necklace";
 
 export type GuildWorkshopRecipe = {
   id: GuildWorkshopRecipeId;
@@ -142,6 +185,8 @@ export const GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER = {
   10: 270,
   11: 330,
   12: 360,
+  13: 450,
+  16: 480,
 } as const;
 
 export type GuildWorkshopResourceTier =
@@ -257,9 +302,46 @@ export const GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT = 25;
 export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 25;
 export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 2;
 export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
+export const GUILD_WORKSHOP_MASTERWORK_GOLD_COST_MULT = 2;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
 export const GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT = 50;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_ARTISAN_XP = 3;
+export const STORM_EQUIPMENT_DISMANTLE_ROUTE_RECOVERY_PCT = 25;
+
+/** 화면 표시 티어 기준 개인 제작 수수료. 재료 병목보다 가볍게, 반복 제작에서만 누적되도록 둔다. */
+export const GUILD_WORKSHOP_GOLD_COST_BY_DISPLAY_TIER: Record<
+  V2EquipDisplayTier,
+  number
+> = {
+  1: 5_000,
+  2: 10_000,
+  3: 25_000,
+  4: 60_000,
+  5: 150_000,
+  6: 300_000,
+};
+
+export function guildWorkshopCraftGoldCostForTier(
+  tier: V2Equipment["tier"],
+  mode: GuildWorkshopCraftMode = "normal",
+): number {
+  const displayTier = v2EquipCatalogTierToDisplayTier(tier);
+  const base = GUILD_WORKSHOP_GOLD_COST_BY_DISPLAY_TIER[displayTier];
+  return (
+    base *
+    (mode === "masterwork" ? GUILD_WORKSHOP_MASTERWORK_GOLD_COST_MULT : 1)
+  );
+}
+
+export function guildWorkshopRecipeGoldCost(
+  recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
+): number {
+  return guildWorkshopCraftGoldCostForTier(
+    V2_EQUIPMENT[recipe.equipmentId].tier,
+    mode,
+  );
+}
 
 export const GUILD_WORKSHOP_BONUS_TIERS: {
   tier: number;
@@ -272,6 +354,59 @@ export const GUILD_WORKSHOP_BONUS_TIERS: {
   { tier: 3, totalCrafts: 300, qualityChanceBonusPct: 3 },
   { tier: 4, totalCrafts: 600, qualityChanceBonusPct: 5 },
 ];
+
+function stormExpeditionRecipe(
+  id: GuildWorkshopRecipeId,
+  equipmentId: V2EquipmentId,
+  routeId: StormExpeditionRouteId,
+  resourceProfile: GuildWorkshopResourceProfile,
+  routeMaterialCount: number,
+  note: string,
+): GuildWorkshopRecipe {
+  return {
+    id,
+    equipmentId,
+    resourceProfile,
+    cost: guildWorkshopResourceCostForTier(16, resourceProfile),
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
+    },
+    specialMaterialCost: {
+      [STORM_EXPEDITION_ROUTE_MATERIAL_ID[routeId]]: routeMaterialCount,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 12,
+    requiredSmithyLevel: 5,
+    artisanXp: 280,
+    note,
+  };
+}
+
+function keycard5tRecipe(
+  id: GuildWorkshopRecipeId,
+  equipmentId: V2EquipmentId,
+  resourceProfile: GuildWorkshopResourceProfile,
+  specialMaterialId: string,
+  note: string,
+): GuildWorkshopRecipe {
+  return {
+    id,
+    equipmentId,
+    resourceProfile,
+    cost: guildWorkshopResourceCostForTier(13, resourceProfile),
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 6,
+      [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 4,
+    },
+    specialMaterialCost: { [specialMaterialId]: 12 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 12,
+    requiredSmithyLevel: 5,
+    artisanXp: 280,
+    note: `5T 키카드 · ${note}`,
+  };
+}
 
 export const GUILD_WORKSHOP_RECIPES: Record<
   GuildWorkshopRecipeId,
@@ -936,6 +1071,277 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     artisanXp: 235,
     note: "몬스터 소재 특수 장비 · 회복량 일부를 보호막으로 전환",
   },
+  crafted_immovable_bulwark: keycard5tRecipe(
+    "crafted_immovable_bulwark",
+    "v2_crafted_immovable_bulwark",
+    "guard",
+    MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
+    "극방어 방패",
+  ),
+  crafted_guillotine_greatsword: keycard5tRecipe(
+    "crafted_guillotine_greatsword",
+    "v2_crafted_guillotine_greatsword",
+    "fury",
+    MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
+    "초고화력·저속 대검",
+  ),
+  crafted_overdrive_bow: keycard5tRecipe(
+    "crafted_overdrive_bow",
+    "v2_crafted_overdrive_bow",
+    "combo",
+    MONSTER_CRAFT_MATERIAL_ID.lightningOracleThunderRunestone,
+    "초고속·저치명 연궁",
+  ),
+  crafted_abyss_mana_core: keycard5tRecipe(
+    "crafted_abyss_mana_core",
+    "v2_crafted_abyss_mana_core",
+    "focus",
+    MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
+    "마나 순환 지팡이",
+  ),
+  crafted_voidveil_robe: keycard5tRecipe(
+    "crafted_voidveil_robe",
+    "v2_crafted_voidveil_robe",
+    "focus",
+    MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
+    "극마법방어 예복",
+  ),
+  crafted_monopoly_gloves: keycard5tRecipe(
+    "crafted_monopoly_gloves",
+    "v2_crafted_monopoly_gloves",
+    "pursuit",
+    MONSTER_CRAFT_MATERIAL_ID.lightningOracleThunderRunestone,
+    "치명·속도 장갑",
+  ),
+  crafted_thousand_league_boots: keycard5tRecipe(
+    "crafted_thousand_league_boots",
+    "v2_crafted_thousand_league_boots",
+    "pursuit",
+    MONSTER_CRAFT_MATERIAL_ID.lightningOracleThunderRunestone,
+    "극속도 장화",
+  ),
+  crafted_one_eye_oath: keycard5tRecipe(
+    "crafted_one_eye_oath",
+    "v2_crafted_one_eye_oath",
+    "fury",
+    MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
+    "치명 확률을 대가로 한 치명 피해 반지",
+  ),
+  crafted_stilled_chalice: keycard5tRecipe(
+    "crafted_stilled_chalice",
+    "v2_crafted_stilled_chalice",
+    "focus",
+    MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
+    "회복 보호막 목걸이",
+  ),
+  crafted_venom_injector: keycard5tRecipe(
+    "crafted_venom_injector",
+    "v2_crafted_venom_injector",
+    "corrosion",
+    MONSTER_CRAFT_MATERIAL_ID.poisonMistSpiritToxicCore,
+    "중첩 맹독 단검",
+  ),
+  crafted_blood_debt_greatsword: keycard5tRecipe(
+    "crafted_blood_debt_greatsword",
+    "v2_crafted_blood_debt_greatsword",
+    "fury",
+    MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
+    "중첩 출혈 대검",
+  ),
+  crafted_thunder_lock_bow: keycard5tRecipe(
+    "crafted_thunder_lock_bow",
+    "v2_crafted_thunder_lock_bow",
+    "pursuit",
+    MONSTER_CRAFT_MATERIAL_ID.lightningOracleThunderRunestone,
+    "감전·둔화 대궁",
+  ),
+  crafted_white_night_grimoire: keycard5tRecipe(
+    "crafted_white_night_grimoire",
+    "v2_crafted_white_night_grimoire",
+    "focus",
+    MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
+    "초고화력·저속 마도서",
+  ),
+  crafted_first_dawn_shield: keycard5tRecipe(
+    "crafted_first_dawn_shield",
+    "v2_crafted_first_dawn_shield",
+    "guard",
+    MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
+    "전투 개시 보호막 방패",
+  ),
+  crafted_berserker_husk: keycard5tRecipe(
+    "crafted_berserker_husk",
+    "v2_crafted_berserker_husk",
+    "fury",
+    MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
+    "극공격 갑옷",
+  ),
+  crafted_oblivion_ring: keycard5tRecipe(
+    "crafted_oblivion_ring",
+    "v2_crafted_oblivion_ring",
+    "focus",
+    MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
+    "상태이상 1회 무효 반지",
+  ),
+  crafted_painless_relic: keycard5tRecipe(
+    "crafted_painless_relic",
+    "v2_crafted_painless_relic",
+    "guard",
+    MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
+    "상태이상 피해 감소 목걸이",
+  ),
+  storm_wreckage_greatsword: stormExpeditionRecipe(
+    "storm_wreckage_greatsword",
+    "v2_storm_wreckage_greatsword",
+    "wreckage",
+    "fury",
+    28,
+    "폭풍 원정 6T · 힘/활력 대검",
+  ),
+  storm_wreckage_armor: stormExpeditionRecipe(
+    "storm_wreckage_armor",
+    "v2_storm_wreckage_armor",
+    "wreckage",
+    "guard",
+    24,
+    "폭풍 원정 6T · 힘/활력 갑옷",
+  ),
+  storm_wreckage_gloves: stormExpeditionRecipe(
+    "storm_wreckage_gloves",
+    "v2_storm_wreckage_gloves",
+    "wreckage",
+    "guard",
+    18,
+    "폭풍 원정 6T · 힘/활력 장갑",
+  ),
+  storm_wreckage_boots: stormExpeditionRecipe(
+    "storm_wreckage_boots",
+    "v2_storm_wreckage_boots",
+    "wreckage",
+    "guard",
+    18,
+    "폭풍 원정 6T · 힘/활력 장화",
+  ),
+  storm_wreckage_ring: stormExpeditionRecipe(
+    "storm_wreckage_ring",
+    "v2_storm_wreckage_ring",
+    "wreckage",
+    "guard",
+    18,
+    "폭풍 원정 6T · 힘/활력 반지",
+  ),
+  storm_wreckage_necklace: stormExpeditionRecipe(
+    "storm_wreckage_necklace",
+    "v2_storm_wreckage_necklace",
+    "wreckage",
+    "guard",
+    18,
+    "폭풍 원정 6T · 힘/활력 목걸이",
+  ),
+  storm_gale_bow: stormExpeditionRecipe(
+    "storm_gale_bow",
+    "v2_storm_gale_bow",
+    "gale",
+    "pursuit",
+    28,
+    "폭풍 원정 6T · 민첩/행운 활",
+  ),
+  storm_gale_dagger: stormExpeditionRecipe(
+    "storm_gale_dagger",
+    "v2_storm_gale_dagger",
+    "gale",
+    "corrosion",
+    28,
+    "폭풍 원정 6T · 민첩/행운 단검",
+  ),
+  storm_gale_armor: stormExpeditionRecipe(
+    "storm_gale_armor",
+    "v2_storm_gale_armor",
+    "gale",
+    "pursuit",
+    24,
+    "폭풍 원정 6T · 민첩/행운 갑옷",
+  ),
+  storm_gale_gloves: stormExpeditionRecipe(
+    "storm_gale_gloves",
+    "v2_storm_gale_gloves",
+    "gale",
+    "pursuit",
+    18,
+    "폭풍 원정 6T · 민첩/행운 장갑",
+  ),
+  storm_gale_boots: stormExpeditionRecipe(
+    "storm_gale_boots",
+    "v2_storm_gale_boots",
+    "gale",
+    "pursuit",
+    18,
+    "폭풍 원정 6T · 민첩/행운 장화",
+  ),
+  storm_gale_ring: stormExpeditionRecipe(
+    "storm_gale_ring",
+    "v2_storm_gale_ring",
+    "gale",
+    "combo",
+    18,
+    "폭풍 원정 6T · 민첩/행운 반지",
+  ),
+  storm_gale_necklace: stormExpeditionRecipe(
+    "storm_gale_necklace",
+    "v2_storm_gale_necklace",
+    "gale",
+    "pursuit",
+    18,
+    "폭풍 원정 6T · 민첩/행운 목걸이",
+  ),
+  storm_thunder_staff: stormExpeditionRecipe(
+    "storm_thunder_staff",
+    "v2_storm_thunder_staff",
+    "thunder",
+    "focus",
+    28,
+    "폭풍 원정 6T · 지능/정신 지팡이",
+  ),
+  storm_thunder_armor: stormExpeditionRecipe(
+    "storm_thunder_armor",
+    "v2_storm_thunder_armor",
+    "thunder",
+    "focus",
+    24,
+    "폭풍 원정 6T · 지능/정신 갑옷",
+  ),
+  storm_thunder_gloves: stormExpeditionRecipe(
+    "storm_thunder_gloves",
+    "v2_storm_thunder_gloves",
+    "thunder",
+    "focus",
+    18,
+    "폭풍 원정 6T · 지능/정신 장갑",
+  ),
+  storm_thunder_boots: stormExpeditionRecipe(
+    "storm_thunder_boots",
+    "v2_storm_thunder_boots",
+    "thunder",
+    "focus",
+    18,
+    "폭풍 원정 6T · 지능/정신 장화",
+  ),
+  storm_thunder_ring: stormExpeditionRecipe(
+    "storm_thunder_ring",
+    "v2_storm_thunder_ring",
+    "thunder",
+    "focus",
+    18,
+    "폭풍 원정 6T · 지능/정신 반지",
+  ),
+  storm_thunder_necklace: stormExpeditionRecipe(
+    "storm_thunder_necklace",
+    "v2_storm_thunder_necklace",
+    "thunder",
+    "focus",
+    18,
+    "폭풍 원정 6T · 지능/정신 목걸이",
+  ),
 };
 
 export const GUILD_WORKSHOP_RECIPE_IDS = Object.keys(
@@ -1363,7 +1769,7 @@ export function guildWorkshopRecipeResourceMaterialCost(
   return out;
 }
 
-function guildWorkshopMaterialName(id: string): string {
+export function guildWorkshopMaterialName(id: string): string {
   return (
     (SETTLEMENT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (WOODCUTTING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
@@ -1371,6 +1777,7 @@ function guildWorkshopMaterialName(id: string): string {
     (GUILD_WORKSHOP_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (MONSTER_CRAFT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (COOP_REWARD_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
+    (STORM_EXPEDITION_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     id
   );
 }
@@ -1467,7 +1874,7 @@ export type GuildWorkshopDismantleBlockedReason =
   | "no_material";
 
 export type GuildWorkshopDismantlePlan = {
-  materials: Partial<Record<GuildWorkshopMaterialId, number>>;
+  materials: Record<string, number>;
   artisanXp: number;
   blockedReason?: GuildWorkshopDismantleBlockedReason;
 };
@@ -1476,6 +1883,7 @@ export function guildWorkshopDismantleMaterialForTier(
   tierRaw: number,
 ): GuildWorkshopMaterialId | undefined {
   const tier = Math.max(1, Math.floor(tierRaw));
+  if (tier >= 13) return GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel;
   if (tier >= 10) return GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal;
   if (tier >= 8) return GUILD_WORKSHOP_MATERIAL_ID.sunstone;
   if (tier >= 6) return GUILD_WORKSHOP_MATERIAL_ID.mithrilShard;
@@ -1504,9 +1912,54 @@ export function guildWorkshopDismantlePlan(
   if (inst.craftedBy?.profession !== "blacksmith" && !item.craftOnly) {
     return { materials: {}, artisanXp: 0, blockedReason: "not_crafted" };
   }
-  const materialId = guildWorkshopDismantleMaterialForTier(item.tier);
+  const sourceRecipe = Object.values(GUILD_WORKSHOP_RECIPES).find(
+    (recipe) => recipe.equipmentId === item.id,
+  );
+  const sourceMaterialCost = sourceRecipe
+    ? guildWorkshopRecipeMaterialCost(
+        sourceRecipe,
+        inst.craftedBy?.masterwork === true ? "masterwork" : "normal",
+      )
+    : null;
+  const stormRouteMaterialId = sourceMaterialCost
+    ? Object.values(STORM_EXPEDITION_ROUTE_MATERIAL_ID).find(
+        (id) => Math.max(0, sourceMaterialCost[id] ?? 0) > 0,
+      )
+    : undefined;
+  if (stormRouteMaterialId) {
+    const routeMaterialCost = Math.max(
+      0,
+      sourceMaterialCost?.[stormRouteMaterialId] ?? 0,
+    );
+    const amount = Math.max(
+      1,
+      Math.floor(
+        (routeMaterialCost * STORM_EQUIPMENT_DISMANTLE_ROUTE_RECOVERY_PCT) /
+          100,
+      ),
+    );
+    return {
+      materials: { [stormRouteMaterialId]: amount },
+      artisanXp: guildWorkshopDismantleArtisanXpForTier(item.tier),
+    };
+  }
+  // 실제로 사용한 제작소 촉매를 우선 회수한다. 입문 제작품처럼 촉매를 쓰지
+  // 않는 장비는 실제 원가에 포함된 광석으로 폴백해 없는 재료를 새로 만들지 않는다.
+  const materialId = sourceMaterialCost
+    ? ([...GUILD_WORKSHOP_MATERIAL_IDS]
+        .reverse()
+        .find((id) => Math.max(0, sourceMaterialCost[id] ?? 0) > 0) ??
+      [
+        guildWorkshopMiningMaterialForTier(item.tier),
+        ...Object.keys(sourceMaterialCost),
+      ].find((id) => Math.max(0, sourceMaterialCost[id] ?? 0) > 0))
+    : guildWorkshopDismantleMaterialForTier(item.tier);
   if (!materialId) {
-    return { materials: {}, artisanXp: 0, blockedReason: "low_tier" };
+    return {
+      materials: {},
+      artisanXp: 0,
+      blockedReason: item.tier < 4 ? "low_tier" : "no_material",
+    };
   }
 
   let amount = 1;
@@ -1514,14 +1967,7 @@ export function guildWorkshopDismantlePlan(
   if ((inst.craftQuality?.level ?? 0) >= 2) amount += 1;
   if (inst.craftedBy?.masterwork === true) amount += 1;
   amount = Math.min(GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS, amount);
-  const sourceRecipe = Object.values(GUILD_WORKSHOP_RECIPES).find(
-    (recipe) => recipe.equipmentId === item.id,
-  );
-  if (sourceRecipe) {
-    const sourceMaterialCost = guildWorkshopRecipeMaterialCost(
-      sourceRecipe,
-      inst.craftedBy?.masterwork === true ? "masterwork" : "normal",
-    );
+  if (sourceMaterialCost) {
     const recoverableMaterialCost = Math.floor(
       ((sourceMaterialCost[materialId] ?? 0) *
         GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT) /
@@ -1614,6 +2060,7 @@ export function guildWorkshopRecipeView(
   smithyLevel = 1,
   materials: Record<string, number> = {},
   baseEquipmentEligibleCount = 0,
+  spendableGoldRaw = Number.MAX_SAFE_INTEGER,
 ) {
   const item = V2_EQUIPMENT[recipe.equipmentId];
   const levelOk = meetsGuildWorkshopRecipeLevel(artisan, recipe);
@@ -1653,6 +2100,11 @@ export function guildWorkshopRecipeView(
     recipe,
     "masterwork",
   );
+  const spendableGold = Math.max(0, Math.floor(Number(spendableGoldRaw) || 0));
+  const goldCost = guildWorkshopRecipeGoldCost(recipe);
+  const goldOk = spendableGold >= goldCost;
+  const masterworkGoldCost = guildWorkshopRecipeGoldCost(recipe, "masterwork");
+  const masterworkGoldOk = spendableGold >= masterworkGoldCost;
   return {
     id: recipe.id,
     equipmentId: recipe.equipmentId,
@@ -1678,11 +2130,14 @@ export function guildWorkshopRecipeView(
     artisanXp: recipe.artisanXp,
     qualityChancePct,
     costText: guildWorkshopCostText(normalCost, normalMaterialCost),
+    goldCost,
+    goldOk,
     levelOk,
     smithyLevelOk,
     materialOk,
     resourceOk,
-    canCraft: levelOk && smithyLevelOk && materialOk && baseEquipmentOk,
+    canCraft:
+      levelOk && smithyLevelOk && materialOk && baseEquipmentOk && goldOk,
     masterwork: {
       requiredArtisanLevel: BLACKSMITH_MASTERWORK_LEVEL,
       levelOk: masterworkLevelOk,
@@ -1694,11 +2149,14 @@ export function guildWorkshopRecipeView(
         smithyLevelOk &&
         masterworkResourceOk &&
         masterworkMaterialOk &&
-        baseEquipmentOk,
+        baseEquipmentOk &&
+        masterworkGoldOk,
       qualityChancePct: masterworkQualityChancePct,
       cost: masterworkCost,
       materialCost: masterworkMaterialCost,
       costText: guildWorkshopCostText(masterworkCost, masterworkMaterialCost),
+      goldCost: masterworkGoldCost,
+      goldOk: masterworkGoldOk,
       plus2Unlocked: artisanProfessionLevel >= BLACKSMITH_PLUS2_QUALITY_LEVEL,
     },
   };

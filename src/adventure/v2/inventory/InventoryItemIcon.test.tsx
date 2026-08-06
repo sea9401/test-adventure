@@ -23,5 +23,8 @@ describe("inventoryIconKind", () => {
     expect(inventoryIconKind("profile_image_permit")).toBe("camera");
     expect(inventoryIconKind("rename_permit")).toBe("identity");
     expect(inventoryIconKind("exp_tome")).toBe("flask");
+    expect(inventoryIconKind("v2_stamina_shard")).toBe("flask");
+    expect(inventoryIconKind("v2_enhance_ember")).toBe("ember");
+    expect(inventoryIconKind("v2_torn_map_fragment")).toBe("map");
   });
 });

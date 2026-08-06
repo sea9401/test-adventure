@@ -3,14 +3,20 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, Compass, MapPin, Sparkle } from "@phosphor-icons/react";
-import { FISH } from "@/adventure/data/v2/fish";
+import {
+  FISH,
+  FISH_TIERS,
+  type FishId,
+} from "@/adventure/data/v2/fish";
 import {
   FISHING_SPOTS,
   FISHING_SPOT_DIFFICULTY_LABEL,
+  fishIdsByTierForSpot,
   fishNames,
   isFishingSpotId,
   tierCountsForSpot,
 } from "@/adventure/data/v2/fishingSpots";
+import { MULTTAE_BY_ID } from "@/adventure/data/v2/multtae";
 import {
   WOODCUTTING_SPOTS,
   isWoodcuttingSpotId,
@@ -33,6 +39,7 @@ import {
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { useFishingCodexContext } from "@/adventure/v2/GameStateProvider";
 
 const KIND_STYLE: Record<
   WorldActivityKind,
@@ -119,7 +126,7 @@ function regionMatchesFilter(
 function activityDescription(region: WorldActivityRegion): string {
   if (isFishingSpotId(region.id)) {
     const spot = FISHING_SPOTS[region.id];
-    return `주요 어종: ${fishNames(spot.featuredFishIds).join(", ")}`;
+    return `대표 어종: ${fishNames(spot.featuredFishIds).join(", ")}`;
   }
   if (isWoodcuttingSpotId(region.id)) {
     const spot = WOODCUTTING_SPOTS[region.id];
@@ -149,11 +156,41 @@ function regionSecondaryLabel(region: WorldActivityRegion): string {
   return WORLD_ACTIVITY_KIND_LABEL[region.kind];
 }
 
-function FishingSpotMeta({ id }: { id: string }) {
+function fishingSpotMissingCount(
+  id: string,
+  discoveredIds: ReadonlySet<FishId> | null,
+): number | null {
+  if (!isFishingSpotId(id) || !discoveredIds) return null;
+  return FISHING_SPOTS[id].fishIds.filter(
+    (fishId) => !discoveredIds.has(fishId),
+  ).length;
+}
+
+function FishingMissingBadge({ count }: { count: number | null }) {
+  if (count == null || count <= 0) return null;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+      title={`이 낚시터에 아직 등록하지 않은 어종이 ${count}종 있습니다`}
+    >
+      미등록 어종 {count}종
+    </span>
+  );
+}
+
+function FishingSpotMeta({
+  id,
+  discoveredIds,
+}: {
+  id: string;
+  discoveredIds: ReadonlySet<FishId> | null;
+}) {
   if (!isFishingSpotId(id)) return null;
   const spot = FISHING_SPOTS[id];
   const counts = tierCountsForSpot(spot);
+  const speciesGroups = fishIdsByTierForSpot(spot);
   const specialFish = spot.fishIds.filter((fishId) => FISH[fishId].condition);
+  const missingCount = fishingSpotMissingCount(id, discoveredIds);
   return (
     <div className={`${SURFACE_INSET} space-y-2 p-2`}>
       <div>
@@ -168,6 +205,7 @@ function FishingSpotMeta({ id }: { id: string }) {
           >
             난이도 {FISHING_SPOT_DIFFICULTY_LABEL[spot.difficulty]}
           </span>
+          <FishingMissingBadge count={missingCount} />
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
           {Object.entries(counts).map(([tier, count]) => (
@@ -197,6 +235,51 @@ function FishingSpotMeta({ id }: { id: string }) {
           </div>
         </div>
       )}
+      <details className="rounded border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-900">
+        <summary className="cursor-pointer text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+          전체 어종 {spot.fishIds.length}종 보기
+        </summary>
+        <div className="mt-2 space-y-2">
+          {speciesGroups.map(({ tier, fishIds }) => (
+            <div key={tier}>
+              <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                {FISH_TIERS[tier].label} · {fishIds.length}종
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {fishIds.map((fishId) => {
+                  const fish = FISH[fishId];
+                  const missing = discoveredIds
+                    ? !discoveredIds.has(fishId)
+                    : false;
+                  const condition = fish.condition
+                    ? MULTTAE_BY_ID.get(fish.condition)
+                    : null;
+                  return (
+                    <span
+                      key={fishId}
+                      className={`rounded px-2 py-1 text-xs font-medium ${
+                        missing
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                          : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                      }`}
+                    >
+                      {fish.name}
+                      {condition ? (
+                        <span className="ml-1 text-sky-700 dark:text-sky-300">
+                          · {condition.label} 한정
+                        </span>
+                      ) : null}
+                      {missing ? (
+                        <span className="ml-1 font-bold">· 미등록</span>
+                      ) : null}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }
@@ -246,7 +329,18 @@ function MiningSpotMeta({ id }: { id: string }) {
   );
 }
 
-export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
+export function WorldRumorMapView({
+  onBack,
+  fishCodexDiscoveredIds,
+}: {
+  onBack?: () => void;
+  /** 독립 렌더링·테스트용 override. 일반 화면은 전역 어보 상태를 자동 사용한다. */
+  fishCodexDiscoveredIds?: ReadonlySet<FishId>;
+}) {
+  const fishingCodex = useFishingCodexContext();
+  const discoveredFishIds =
+    fishCodexDiscoveredIds ??
+    (fishingCodex?.loaded ? fishingCodex.discoveredIds : null);
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("fishing");
   const [selectedId, setSelectedId] =
     useState<WorldActivityRegion["id"]>("village_pier");
@@ -361,6 +455,10 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
               {filteredRegions.map((region, index) => {
                 const style = KIND_STYLE[region.kind];
                 const active = region.id === selected?.id;
+                const missingFishCount = fishingSpotMissingCount(
+                  region.id,
+                  discoveredFishIds,
+                );
                 return (
                   <button
                     key={region.id}
@@ -383,6 +481,7 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
                         <span className="truncate text-sm font-bold">
                           {region.name}
                         </span>
+                        <FishingMissingBadge count={missingFishCount} />
                         <span className="shrink-0 text-[10px] font-bold tabular-nums text-zinc-400 dark:text-zinc-500">
                           {String(index + 1).padStart(2, "0")}
                         </span>
@@ -467,7 +566,10 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
                   </div>
                 </div>
 
-                <FishingSpotMeta id={selected.id} />
+                <FishingSpotMeta
+                  id={selected.id}
+                  discoveredIds={discoveredFishIds}
+                />
                 <WoodcuttingSpotMeta id={selected.id} />
                 <MiningSpotMeta id={selected.id} />
 

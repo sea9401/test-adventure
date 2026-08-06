@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -26,9 +27,16 @@ import {
   type StaminaState,
 } from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
-import { settleOfflineHuntBatches } from "@/adventure/v2/offlineSettleApi";
+import {
+  offlineSettleStopReasonLabel,
+  settleOfflineHuntBatches,
+} from "@/adventure/v2/offlineSettleApi";
 import { MAIN_DUNGEON, huntStageName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
+import {
+  dungeonGrowthLabel,
+  dungeonReadiness,
+} from "@/adventure/v2/dungeonReadiness";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
   TUTORIAL_ENABLED_FLAG,
@@ -37,13 +45,13 @@ import {
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import type { Gender } from "@/adventure/profile/avatars";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import {
   AUTO_HUNT_LEVEL_TARGET,
   getAutoHuntStopReason,
-  type AutoHuntStopReason,
   useAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
 import {
@@ -52,6 +60,14 @@ import {
   normalizeHuntCount,
   type HuntCount,
 } from "@/adventure/data/v2/adventureSupport";
+import {
+  recoveryChargesUpdate,
+  type RecoveryChargesUpdate,
+} from "@/adventure/v2/recoveryChargesSync";
+import {
+  huntEndReasonText,
+  type HuntEndReason,
+} from "@/adventure/v2/huntEndNotice";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
@@ -135,6 +151,8 @@ export function V2DungeonFloorView({
   playerName,
   playerGender,
   currentLevel = 1,
+  currentLevelCap = null,
+  currentJobTier = null,
   initialExp = 0,
   initialMaxExp = 1,
   adventureSupportActive = false,
@@ -162,6 +180,8 @@ export function V2DungeonFloorView({
   setAtRiskGold,
   onGoldChange,
   onProficiencyChange,
+  onRecoveryChargesChange,
+  onEnterRareMap,
   offlineHunt,
   onRefresh,
 }: {
@@ -172,6 +192,8 @@ export function V2DungeonFloorView({
   playerName: string;
   playerGender: Gender;
   currentLevel?: number;
+  currentLevelCap?: number | null;
+  currentJobTier?: number | null;
   // 첫 사냥 전 카드 높이 고정용 현재 상태. 이후에는 사냥 응답의 최신값이 우선한다.
   initialExp?: number;
   initialMaxExp?: number;
@@ -219,6 +241,11 @@ export function V2DungeonFloorView({
   // 사냥으로 변한 공용 자원 readout 동기화 — 같은 layout 내 은행/상단 상태가 stale 해지지 않게 한다.
   onGoldChange?: (n: number) => void;
   onProficiencyChange?: (n: number | null) => void;
+  // 사냥 응답의 최신 충전약 잔량을 공유 레이아웃 상태에도 반영한다. 페이지를 떠났다가
+  // 브라우저 뒤로가기·앞으로가기로 재진입해도 화면 진입 당시의 오래된 값이 복원되지 않는다.
+  onRecoveryChargesChange?: (update: RecoveryChargesUpdate) => void;
+  // 사냥 결과에서 새로 발견한 희귀 탐사/장소로 즉시 이동.
+  onEnterRareMap?: (map: RareMapInstance) => void;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
@@ -235,9 +262,22 @@ export function V2DungeonFloorView({
       : floorPowerGate(depth)
     : floorPowerGate(depth);
   // 내 전투력 — me/state 가 보낸 power(권장 파워와 동일 derivePowerScore 단위)라 직접 비교 가능.
-  //   없으면(미로딩) 표시 생략. 권장 미만이면 amber 로 "버거울 수 있음" 신호(권장이라 하드 차단 아님).
+  //   없으면(미로딩) 표시 생략. 난이도 지표는 빌드 간 환산 편차가 커 입장·경고 기준으로 쓰지 않는다.
   const myPower = playerCombat?.power ?? null;
-  const powerBelowGate = myPower != null && myPower < powerGate;
+  const readiness = dungeonReadiness({
+    depth,
+    frontierDepth,
+    playerPower: myPower,
+    recommendedPower: powerGate,
+    jobTier: currentJobTier,
+    level: currentLevel,
+    levelCap: currentLevelCap,
+  });
+  const growthLabel = dungeonGrowthLabel({
+    jobTier: currentJobTier,
+    level: currentLevel,
+    levelCap: currentLevelCap,
+  });
   // 도전(미정복) 여부 — 최고 도달보다 다음 대표 단계가 깊다.
   const isChallenge = depth > frontierDepth;
   const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
@@ -372,7 +412,7 @@ export function V2DungeonFloorView({
   //   소진이면 triggerHunt 가 자동 정지. 서버 거부·언마운트도 정지.
   const [autoHunt, setAutoHunt] = useState(false);
   const [autoStopReason, setAutoStopReason] =
-    useState<AutoHuntStopReason | null>(null);
+    useState<HuntEndReason | null>(null);
   const {
     config: autoStopConfig,
     configRef: autoStopConfigRef,
@@ -393,6 +433,17 @@ export function V2DungeonFloorView({
   const [offlineBusy, setOfflineBusy] = useState(false);
   const [offlineMsg, setOfflineMsg] = useState<string | null>(null);
   const startOffline = async () => {
+    const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
+      hpCharges: statusHpCharges,
+      mpCharges: statusMpCharges,
+      hasMp: (mp?.maxMp ?? 0) > 0,
+      rareMapFound: false,
+      level: currentLevel,
+    });
+    if (stopReason) {
+      setAutoStopReason(stopReason);
+      return;
+    }
     setOfflineBusy(true);
     setOfflineMsg(null);
     setAutoHunt(false); // 온라인 루프와 상호 배타 — 자동 사냥 시작 시 즉시 정지.
@@ -400,7 +451,10 @@ export function V2DungeonFloorView({
       const res = await fetch("/api/v2/me/offline-hunt", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start" }),
+        body: JSON.stringify({
+          action: "start",
+          autoStopConfig: autoStopConfigRef.current,
+        }),
       });
       if (!res.ok) {
         setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
@@ -432,7 +486,7 @@ export function V2DungeonFloorView({
       }
       setOfflineMsg(
         j.battles > 0
-          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}`
+          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}${offlineSettleStopReasonLabel(j.stoppedReason) ? ` · ${offlineSettleStopReasonLabel(j.stoppedReason)}` : ""}`
           : "오프라인 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();
@@ -470,10 +524,20 @@ export function V2DungeonFloorView({
     setBatchStatus(null);
     setBatchRunning(true);
     try {
-      const b = await huntBatch(depth, count);
+      const b = await huntBatch(
+        depth,
+        count,
+        // 짧게 눌러 실행하는 5/10/50회 일괄 사냥도 여러 전투를 한 요청에서 처리하므로
+        // 정지 조건을 반드시 서버에 보낸다. autoRun은 일괄 완료 후 다음 묶음 반복 여부일 뿐,
+        // 현재 묶음 안의 레벨/포션/희귀맵 정지 조건 적용 여부가 아니다.
+        autoStopConfigRef.current,
+      );
       if (!b) {
         // 자동 사냥 중 실패하면 같은 요청을 무한 반복하지 않는다(단판과 동일 동작).
-        if (autoRun) setAutoHunt(false);
+        if (autoRun) {
+          setAutoHunt(false);
+          setAutoStopReason("request_failed");
+        }
         return; // 네트워크/서버 오류 — hook 이 로그 남김. 요약 없이 종료.
       }
       setBatchSummary({
@@ -487,6 +551,7 @@ export function V2DungeonFloorView({
         totalMastery: b.totalMastery,
         proficiencyAfter: b.proficiencyAfter,
         totalGold: b.totalGold,
+        totalLossTax: b.totalLossTax,
         finalGoldAfter: b.finalGoldAfter,
         expAfter: b.expAfter,
         levelsGained: b.levelsGained,
@@ -497,6 +562,7 @@ export function V2DungeonFloorView({
         droppedEquipments: b.droppedEquipments,
         droppedUniques: b.droppedUniques,
         rareMapDrops: b.rareMapDrops,
+        rareMapDropInstances: b.rareMapDropInstances,
         stoppedReason: b.stoppedReason,
         replays: b.replays,
       });
@@ -519,6 +585,8 @@ export function V2DungeonFloorView({
             mpCharges: b.mpCharges,
           }),
         );
+        const update = recoveryChargesUpdate(b.hpCharges, b.mpCharges);
+        if (update) onRecoveryChargesChange?.(update);
       }
       // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
       setBatchStatus({
@@ -553,18 +621,29 @@ export function V2DungeonFloorView({
       }
       if (b.levelsGained > 0) onLevelUp?.();
       if (autoRun) {
-        const stopReason = getAutoHuntStopReason(
-          autoStopConfigRef.current,
-          {
+        const serverStopReason: HuntEndReason | null =
+          b.stoppedReason === "stamina" ||
+          b.stoppedReason === "death" ||
+          b.stoppedReason === "recovery" ||
+          b.stoppedReason === "error" ||
+          b.stoppedReason === "potion" ||
+          b.stoppedReason === "rare_map" ||
+          b.stoppedReason === "level_100"
+            ? b.stoppedReason
+            : rareMapIid && (b.rareMapRunsLeft ?? 0) <= 0
+              ? "rare_map_exhausted"
+              : null;
+        const stopReason =
+          serverStopReason ??
+          getAutoHuntStopReason(autoStopConfigRef.current, {
             hpCharges: b.hpCharges ?? statusHpCharges,
             mpCharges: b.mpCharges ?? statusMpCharges,
             hasMp: (b.playerMaxMp ?? mp?.maxMp ?? 0) > 0,
             rareMapFound: (b.rareMapDrops ?? []).some(
               (kind) => RARE_MAP_KINDS[kind]?.category === "hunt",
             ),
-            level: currentLevel + b.levelsGained,
-          },
-        );
+            level: b.finalLevelAfter ?? currentLevel + b.levelsGained,
+          });
         if (stopReason) {
           setAutoHunt(false);
           setAutoStopReason(stopReason);
@@ -672,6 +751,9 @@ export function V2DungeonFloorView({
     // 스태미나·체력 소진은 더 못 싸우는 상태 → 자동 사냥 정지(빈 인터벌 무한 반복 방지).
     if (lowStamina || needsRecovery) {
       setAutoHunt(false);
+      if (autoRun) {
+        setAutoStopReason(lowStamina ? "stamina" : "recovery");
+      }
       return;
     }
     setBatchSummary(null);
@@ -720,6 +802,8 @@ export function V2DungeonFloorView({
                 mpCharges: r.mpCharges,
               }),
             );
+            const update = recoveryChargesUpdate(r.hpCharges, r.mpCharges);
+            if (update) onRecoveryChargesChange?.(update);
           }
           if (r.levelsGained > 0) onLevelUp?.();
           if (
@@ -739,7 +823,7 @@ export function V2DungeonFloorView({
             if (r.atRiskGold != null) setAtRiskGold?.(r.atRiskGold);
           }
           if (autoRun) {
-            const stopReason = getAutoHuntStopReason(
+            const configuredStopReason = getAutoHuntStopReason(
               autoStopConfigRef.current,
               {
                 hpCharges: r.hpCharges ?? statusHpCharges,
@@ -748,9 +832,18 @@ export function V2DungeonFloorView({
                 rareMapFound:
                   !!r.rareMapDrop &&
                   RARE_MAP_KINDS[r.rareMapDrop]?.category === "hunt",
-                level: currentLevel + r.levelsGained,
+                level: r.levelAfter ?? currentLevel + r.levelsGained,
               },
             );
+            const stopReason: HuntEndReason | null =
+              configuredStopReason ??
+              (rareMapIid && (r.rareMapRunsLeft ?? 0) <= 0
+                ? "rare_map_exhausted"
+                : r.hpAfter <= 0
+                  ? "death"
+                  : !canHuntWithHp(r.hpAfter, r.maxHp)
+                    ? "recovery"
+                    : null);
             if (stopReason) {
               setAutoHunt(false);
               setAutoStopReason(stopReason);
@@ -761,6 +854,7 @@ export function V2DungeonFloorView({
           // 쿨다운이 안 잡혀 자동 사냥이 1.5초마다 무한 재시도할 수 있으니 즉시 정지.
           // (성공 흐름은 낙관적 쿨다운으로 자연히 간격을 둔다.)
           setAutoHunt(false);
+          if (autoRun) setAutoStopReason("request_failed");
         }
       });
     } else {
@@ -812,6 +906,7 @@ export function V2DungeonFloorView({
       setAutoHunt(false);
       return;
     }
+    setAutoStopReason(null);
     triggerHunt();
   };
   // 버튼 click — 길게 눌러 자동이 막 시작됐으면 뒤따르는 click 무시(중복 단판 방지), 아니면 탭.
@@ -880,20 +975,28 @@ export function V2DungeonFloorView({
         {myPower != null && (
           <>
             내 전투력{" "}
-            <span
-              className={`font-semibold tabular-nums ${
-                powerBelowGate
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-emerald-600 dark:text-emerald-400"
-              }`}
-            >
+            <span className="font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
               {myPower.toLocaleString()}
             </span>
             {" · "}
           </>
         )}
-        권장 전투력{" "}
+        난이도 지표{" "}
         <span className="tabular-nums">{powerGate.toLocaleString()}</span>
+      </p>
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        {growthLabel && <>{growthLabel} · </>}
+        <span
+          className={
+            readiness.tone === "positive"
+              ? "font-medium text-emerald-600 dark:text-emerald-400"
+              : readiness.tone === "warning"
+                ? "font-medium text-amber-600 dark:text-amber-400"
+                : "font-medium text-zinc-600 dark:text-zinc-300"
+          }
+        >
+          {readiness.label}
+        </span>
       </p>
       {rareMapIid && (
         <DiscoveryNotice kind="hunt" align="start">
@@ -905,12 +1008,11 @@ export function V2DungeonFloorView({
 
       {autoStopReason && (
         <StatusBanner tone="warning" role="status" className="py-2.5">
-          <span className="font-semibold">자동 사냥이 정지되었습니다.</span>{" "}
-          {autoStopReason === "potion"
-            ? `HP/MP 충전약 중 하나가 ${autoStopConfig.potionThreshold.toLocaleString()} 이하입니다.`
-            : autoStopReason === "rare_map"
-              ? "희귀 탐사맵을 발견했습니다."
-              : `레벨 ${AUTO_HUNT_LEVEL_TARGET}에 도달했습니다.`}
+          <span className="font-semibold">자동 사냥 종료.</span>{" "}
+          {huntEndReasonText(autoStopReason, autoStopConfig.potionThreshold)}
+          {!coreLoopOn && (
+            <> · 남은 스태미너 {staminaCurrent.toLocaleString()}</>
+          )}
         </StatusBanner>
       )}
 
@@ -1048,9 +1150,12 @@ export function V2DungeonFloorView({
 
             <div className={`${SURFACE_INSET} space-y-3 p-3`}>
               <div>
-                <p className="text-sm font-medium">자동 사냥 정지 조건</p>
+                <p className="text-sm font-medium">
+                  일괄·자동·오프라인 사냥 정지 조건
+                </p>
                 <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  선택한 조건을 만족한 전투가 끝나면 자동 사냥을 멈춥니다.
+                  선택한 조건을 만족한 전투가 끝나면 일괄·자동·오프라인
+                  사냥을 멈춥니다.
                 </p>
               </div>
 
@@ -1068,16 +1173,15 @@ export function V2DungeonFloorView({
                     <span>충전약 잔량</span>
                   </label>
                   <span className="flex items-center gap-1 text-sm">
-                    <input
-                      type="number"
+                    <DraftNumberInput
                       min={0}
                       max={9_999_999}
                       step={1}
                       value={autoStopConfig.potionThreshold}
                       disabled={!autoStopConfig.potionEnabled}
-                      onChange={(e) =>
+                      onValueChange={(potionThreshold) =>
                         updateAutoStopConfig({
-                          potionThreshold: Number(e.target.value),
+                          potionThreshold,
                         })
                       }
                       aria-label="자동 사냥 정지 충전약 잔량"
@@ -1180,7 +1284,12 @@ export function V2DungeonFloorView({
       {batchSummary ? (
         <BatchSummaryCard
           summary={batchSummary}
+          remainingStamina={
+            !coreLoopOn && !autoHunt ? staminaCurrent : undefined
+          }
+          potionThreshold={autoStopConfig.potionThreshold}
           onSelectReplay={setSelectedBatchReplay}
+          onEnterRareMap={onEnterRareMap}
         />
       ) : (
         lastResult && (
@@ -1189,6 +1298,7 @@ export function V2DungeonFloorView({
             hpCharges={lastResult.hpCharges}
             mpCharges={lastResult.mpCharges}
             hasMp={(mp?.maxMp ?? 0) > 0}
+            onEnterRareMap={onEnterRareMap}
           />
         )
       )}

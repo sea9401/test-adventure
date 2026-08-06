@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { V2_SKILLS_BY_JOB, skillsForJob } from "./v2SkillsByJob";
+import {
+  V2_SKILLS_BY_JOB,
+  grantCoreStarterSkill,
+  skillsForJob,
+} from "./v2SkillsByJob";
 import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
 import {
   V2_SKILLS,
@@ -12,6 +16,26 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
+  it("마법사 코어 기본기는 누락된 경우에만 지급해 수동 해제를 보존한다", () => {
+    const granted = grantCoreStarterSkill({ learned: [], equipped: [] }, "mage");
+    expect(granted).toEqual({
+      learned: ["v2c_mage_boltcast"],
+      equipped: ["v2c_mage_boltcast"],
+    });
+
+    const manuallyUnequipped = {
+      learned: ["v2c_mage_boltcast" as const],
+      equipped: [],
+    };
+    expect(grantCoreStarterSkill(manuallyUnequipped, "mage")).toBe(
+      manuallyUnequipped,
+    );
+    expect(grantCoreStarterSkill({ learned: [], equipped: [] }, "warrior")).toEqual({
+      learned: [],
+      equipped: [],
+    });
+  });
+
   it("기본 직업 = 핵심 액티브 1 + 패시브 스킬 1, 마법사는 비상 회복기·생존자는 생활 패시브 추가", () => {
     expect(skillsForJob("warrior")).toEqual([
       "v2c_warrior_strike",
@@ -112,7 +136,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_venomist_toxiccloud.effects.some((e) => e.kind === "stackPayoffDamage" && e.tag === "poison"),
     ).toBe(true);
-    expect(V2_SKILLS.v2c_venomist_corrosion.passive?.poisonedEnemyDefReductionPct).toBe(12);
+    expect(V2_SKILLS.v2c_venomist_corrosion.passive?.poisonedEnemyDefReductionPct).toBe(10);
     expect(V2_SKILLS.v2c_survivor_firstaid.effects[0]).toMatchObject({
       kind: "heal",
       pctLostHp: 20,
@@ -341,6 +365,26 @@ describe("직업 킷 — 스킬셋", () => {
     expect(ranger).toMatchObject({ kind: "damage", scaling: "dex" });
   });
 
+  it("LUK 비례 도적 계보는 2차 시작과 6차 최종 패시브에서만 행운을 올린다", () => {
+    expect(V2_SKILLS.v2c_assassin_fortune.passive?.statPct?.luk).toBe(10);
+    expect(V2_SKILLS.v2c_venomist_corrosion.passive?.statPct?.luk).toBe(10);
+    expect(V2_SKILLS.v2c_blackmoon_dominion.passive?.statPct?.luk).toBe(22);
+    expect(V2_SKILLS.v2c_myriadvenom_body.passive?.statPct?.luk).toBe(22);
+
+    const intermediatePassives = [
+      "v2c_shadow_lethality3",
+      "v2c_venomancer_corrosion3",
+      "v2c_darkpriest_blessing",
+      "v2c_phantom_stealth",
+      "v2c_venomlord_sovereign",
+      "v2c_nightshade_cloak",
+      "v2c_plaguebringer_decay",
+    ] as const;
+    for (const passiveId of intermediatePassives) {
+      expect(V2_SKILLS[passiveId].passive?.statPct?.luk, passiveId).toBeUndefined();
+    }
+  });
+
   it("상위 직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
     const passiveIds = [
       "v2c_shieldman_vitality", "v2c_squire_might", "v2c_boxer_fortitude",
@@ -439,7 +483,10 @@ describe("직업 킷 — 스킬셋", () => {
       venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
-      expect(skillsForJob(job), job).toEqual([active, passive]);
+      const expected = job === "shadow"
+        ? [active, "v2c_shadow_shadowstep", passive]
+        : [active, passive];
+      expect(skillsForJob(job), job).toEqual(expected);
       expect(V2_SKILLS[active], active).toBeDefined();
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
       expect(V2_SKILLS[passive].tier, passive).toBe(3);
@@ -453,10 +500,15 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_venomancer_corrosion3.passive
         ?.poisonedEnemyDefReductionPct,
-    ).toBe(20);
+    ).toBe(15);
     // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
     expect(V2_SKILLS.v2c_bishop_heal.category).toBe("heal");
     expect(V2_SKILLS.v2c_shadow_assassinate.effects[0].kind).toBe("executeDamage");
+    expect(V2_SKILLS.v2c_shadow_shadowstep).toMatchObject({
+      category: "buff",
+      oncePerBattle: true,
+      effects: [{ kind: "guaranteedEvade", count: 1 }],
+    });
     expect(V2_SKILLS.v2c_berserker_bloodslash.effects[0].kind).toBe("hpCostDamage");
     expect(
       V2_SKILLS.v2c_venomancer_miasma.effects.some(
@@ -511,7 +563,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnApplyChancePct).toBe(85);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
-      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "magic" },
+      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "spi" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_archbishop_grace.passive).toMatchObject({
@@ -532,7 +584,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_venomlord_sovereign.passive
         ?.poisonedEnemyDefReductionPct,
-    ).toBe(28); // 부식 III — 중독 적 방어 감소 정점
+    ).toBe(20); // 부식 III — 곱연산 누적을 고려한 단계 수치
     expect(V2_SKILLS.v2c_rescueexpert_rescue.effects[0]).toMatchObject({
       kind: "heal",
       pctLostHp: 45,
@@ -737,7 +789,7 @@ describe("직업 킷 — 스킬셋", () => {
       "shield",
       "selfBuffPct",
     ]);
-    expect(V2_SKILLS.v2c_plaguebringer_decay.passive?.poisonedEnemyDefReductionPct).toBe(35);
+    expect(V2_SKILLS.v2c_plaguebringer_decay.passive?.poisonedEnemyDefReductionPct).toBe(25);
     expect(V2_SKILLS.v2c_dragonfist_rupture.effects.map((e) => e.kind)).toEqual([
       "damage",
       "damage",
@@ -877,7 +929,9 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_archmage_theory.category).toBe("passive");
     expect(V2_SKILLS.v2c_archmage_theory.passive).toMatchObject({
       statPct: { int: 22 },
-      magicSkillDamagePct: 12,
+      magicSkillDamagePct: 16,
+      maxHpPct: 20,
+      damageTakenReductionPct: 8,
     });
     expect(skillsForJob("primordialmage")).toEqual([
       "v2c_primordialmage_return",
@@ -911,7 +965,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_savior_judgment.category).toBe("attack");
     expect(V2_SKILLS.v2c_savior_judgment.mpCost).toBe(80);
     expect(V2_SKILLS.v2c_savior_judgment.effects).toEqual([
-      { kind: "damage", statCoef: 2.09, baseFlat: 532, scaling: "magic" },
+      { kind: "damage", statCoef: 1.33, baseFlat: 532, scaling: "spi" },
       { kind: "enemyVuln", pct: 16, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_savior_grace.category).toBe("passive");
@@ -983,17 +1037,18 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_blackmoon_flurry.effects[3]).toMatchObject({
       kind: "enemyAccuracyDown",
-      pct: 24,
+      pct: 28,
       turns: 3,
     });
     expect(V2_SKILLS.v2c_blackmoon_dominion.name).toBe("흑월지배");
     expect(V2_SKILLS.v2c_blackmoon_dominion.category).toBe("passive");
     expect(V2_SKILLS.v2c_blackmoon_dominion.passive).toMatchObject({
       statPct: { luk: 22, dex: 8 },
-      evasionPct: 18,
+      evasionPct: 22,
       critDmgPct: 24,
-      skillCritOverflow: true,
+      skillCritAfterEvade: true,
     });
+    expect(V2_SKILLS.v2c_blackmoon_dominion.passive?.skillCritOverflow).not.toBe(true);
     expect(skillsForJob("myriadvenom")).toEqual([
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",
@@ -1013,7 +1068,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_myriadvenom_body.name).toBe("만독지배");
     expect(V2_SKILLS.v2c_myriadvenom_body.category).toBe("passive");
     expect(V2_SKILLS.v2c_myriadvenom_body.passive).toMatchObject({
-      poisonedEnemyDefReductionPct: 45,
+      poisonedEnemyDefReductionPct: 30,
       maxHpPct: 12,
       evasionPct: 12,
       critDmgPct: 15,
@@ -1146,11 +1201,11 @@ describe("직업 킷 — 스킬셋", () => {
     const costs = (jobId: string) =>
       skillsForJob(jobId).map((id) => spCostOf(V2_SKILLS[id]));
 
-    expect(costs("venomist")).toEqual([4, 3]);
+    expect(costs("venomist")).toEqual([4, 5]);
     expect(costs("venomancer")).toEqual([5, 4]);
-    expect(costs("venomlord")).toEqual([7, 6]);
-    expect(costs("plaguebringer")).toEqual([9, 7]);
-    expect(costs("myriadvenom")).toEqual([13, 13]);
+    expect(costs("venomlord")).toEqual([7, 4]);
+    expect(costs("plaguebringer")).toEqual([9, 6]);
+    expect(costs("myriadvenom")).toEqual([13, 14]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {
@@ -1332,7 +1387,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차)
       "v2c_boxer_fortitude", // evasionPct 8 (보법)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
-      "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 12 (중독 적 방어 약화)
+      "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 10 (중독 적 방어 약화)
       "v2c_berserker_madness3", // berserkAtkPctPerLostHpPct 0.45
       "v2c_shaman_omen3", // enemyMagicVulnPctPerStack 5
       "v2c_warder_ward", // magicDefPct 15 + 초반 마법 피해 감소
@@ -1341,21 +1396,23 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.critDmgPct).toBe(25);
     expect(agg.evasionPct).toBe(8);
     expect(agg.defPct).toBe(20);
-    expect(agg.poisonedEnemyDefReductionPct).toBe(12);
+    expect(agg.poisonedEnemyDefReductionPct).toBeCloseTo(10);
     expect(agg.berserkAtkPctPerLostHpPct).toBe(0.45);
     expect(agg.enemyMagicVulnPctPerStack).toBe(5);
     expect(agg.enemyMagicVulnApplyChancePct).toBe(70);
     expect(agg.magicDefPct).toBe(15);
     expect(agg.openingMagicDamageReductionPct).toBe(10);
     expect(agg.openingMagicDamageReductionPhases).toBe(3);
-    // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
-    expect(agg.statPct).toEqual({});
+    // 2차 계보 시작 패시브 두 개만 행운을 제공한다.
+    expect(agg.statPct).toEqual({ luk: 20 });
   });
 
   it("aggregateEquippedPassives — 대마도 이론은 INT%와 마법 스킬 피해를 합산한다", () => {
     const agg = aggregateEquippedPassives(["v2c_archmage_theory"]);
     expect(agg.statPct).toEqual({ int: 22 });
-    expect(agg.magicSkillDamagePct).toBe(12);
+    expect(agg.magicSkillDamagePct).toBe(16);
+    expect(agg.maxHpPct).toBe(20);
+    expect(agg.damageTakenReductionPct).toBe(8);
   });
 
   it("aggregateEquippedPassives — 천룡의 호흡이 절초 보너스를 합산", () => {

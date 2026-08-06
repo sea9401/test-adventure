@@ -5,6 +5,7 @@ import type {
 } from "@/adventure/data/v2/settlement";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import type { GuildContributionCategory } from "@/adventure/data/v2/guildContribution";
 
 // V2GuildHome 탭 분리 — 탭 패널들이 공유하는 타입·순수 헬퍼.
 
@@ -100,9 +101,57 @@ export function fmtDate(iso: string): string {
 export type GuildSubTab =
   | "info"
   | "members"
+  | "browse"
   | "manage"
   | "facilities";
 // 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·길드 연구·길드 설정.
 export type GuildManageTab = "members" | "research" | "settings";
 
 export type Notice = { kind: "ok" | "err"; text: string };
+
+export type GuildContributionResponse = {
+  ok?: boolean;
+  viewerUserId: string;
+  weekStartsAt: string | null;
+  rows: {
+    userId: string;
+    weeklyPoints: number;
+    lifetimePoints: number;
+    weeklyByCategory: Record<GuildContributionCategory, number>;
+    lifetimeByCategory: Record<GuildContributionCategory, number>;
+  }[];
+};
+
+export type GuildContributionDetailMeta = {
+  amount?: number;
+  quantity?: number;
+  donations?: Record<string, number>;
+  contributionPoints?: number;
+  questTitle?: string;
+  deliveryTitle?: string;
+  itemName?: string;
+  drillTitle?: string;
+  buildingName?: string;
+  rewardGold?: number;
+  rewardFame?: number;
+};
+
+export type GuildContributionDetailResponse = {
+  ok?: boolean;
+  userId: string;
+  weekStartsAt: string;
+  weeklyPoints: number;
+  lifetimePoints: number;
+  weeklyGoldDeposited: number;
+  lifetimeGoldDeposited: number;
+  weeklyByCategory: Record<GuildContributionCategory, number>;
+  lifetimeByCategory: Record<GuildContributionCategory, number>;
+  events: {
+    id: number;
+    source: string;
+    category: GuildContributionCategory;
+    points: number;
+    createdAt: string;
+    meta: GuildContributionDetailMeta | null;
+  }[];
+};

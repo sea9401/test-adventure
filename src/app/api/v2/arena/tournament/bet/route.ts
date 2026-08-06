@@ -55,5 +55,10 @@ export async function POST(req: Request) {
       { status: STATUS_BY_ERROR[result.kind] ?? 400 },
     );
   }
-  return Response.json({ ok: true, amount: result.amount, gold: result.gold });
+  return Response.json({
+    ok: true,
+    amount: result.amount,
+    gold: result.gold,
+    bankedGold: result.bankedGold,
+  });
 }

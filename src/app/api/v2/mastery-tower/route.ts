@@ -4,6 +4,8 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { settleMasteryTowerRollover } from "@/lib/server/masteryTowerRollover";
 import {
   MASTERY_CERTIFICATE_KEY,
   MASTERY_TOWER_MAX_FLOOR,
@@ -46,6 +48,27 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const date = kstDateKey();
+  const rollover = await db.transaction((tx) =>
+    settleMasteryTowerRollover(tx, userId, date),
+  );
+  if (rollover.autoClaimedReward) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.mastery_tower.certificate",
+      itemKind: "mastery_certificate",
+      itemId: MASTERY_CERTIFICATE_KEY,
+      quantity: rollover.autoClaimedReward.total,
+      detail: {
+        automatic: true,
+        previousDate: rollover.autoClaimedReward.previousDate,
+        previousBestFloor: rollover.autoClaimedReward.previousBestFloor,
+        base: rollover.autoClaimedReward.base,
+        firstClearBonus: rollover.autoClaimedReward.firstClearBonus,
+      },
+    });
+  }
+
   const [derived, rows] = await Promise.all([
     derivePlayerCombatV2(userId),
     db
@@ -63,7 +86,6 @@ export async function GET() {
   }
 
   const map = new Map(rows.map((r) => [r.key as StatusKey, r.value]));
-  const date = kstDateKey();
   const tower = parseMasteryTowerState(map.get(MASTERY_TOWER_SAVE_KEY), date);
   const now = Date.now();
   const retryAfterSeconds =
@@ -117,6 +139,7 @@ export async function GET() {
     entryStaminaCost: masteryTowerEntryStaminaCost(tower),
     stamina,
     certificates,
+    autoClaimedReward: rollover.autoClaimedReward,
     claimPreview: preview,
     power,
     retryAfterSeconds,

@@ -16,6 +16,7 @@ import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
 import { isGuildFacilityId } from "./guild/guildFacilities";
 import {
   type GuildInfoResponse,
+  type GuildContributionResponse,
   type GuildSubTab,
   type Notice,
   type PendingRequest,
@@ -31,6 +32,7 @@ import { useSystemToast } from "./RewardToastProvider";
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
   { key: "members", label: "길드원" },
+  { key: "browse", label: "길드 목록" },
   { key: "facilities", label: "시설" },
 ];
 
@@ -48,10 +50,20 @@ export function V2GuildHome({
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
   const [activity, setActivity] = useState<GuildActivity[]>([]);
+  const [contribution, setContribution] =
+    useState<GuildContributionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [acting, setActing] = useState(false);
   const { notifySystem } = useSystemToast();
+  const handleBrowseToast = useCallback(
+    (text: string) => setNotice({ kind: "ok", text }),
+    [],
+  );
+  const handleBrowseError = useCallback(
+    (text: string) => setNotice({ kind: "err", text }),
+    [],
+  );
   const requestedTab = guildSubTabFromParam(searchParams.get("tab"));
   const facilityParam = searchParams.get("facility");
   const requestedFacility = isGuildFacilityId(facilityParam)
@@ -83,16 +95,20 @@ export function V2GuildHome({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [stateRes, infoRes, actRes] = await Promise.all([
+      const [stateRes, infoRes, actRes, contributionRes] = await Promise.all([
         fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/guild/info").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/guild/activity").then((r) => (r.ok ? r.json() : null)),
+        fetch("/api/v2/guild/contributions").then((r) =>
+          r.ok ? r.json() : null,
+        ),
       ]);
       setState(stateRes as StateResponse | null);
       setInfo(infoRes as GuildInfoResponse | null);
       setActivity(
         (actRes as { activity?: GuildActivity[] } | null)?.activity ?? [],
       );
+      setContribution(contributionRes as GuildContributionResponse | null);
     } catch {}
     setLoading(false);
   }, []);
@@ -148,8 +164,8 @@ export function V2GuildHome({
         <GuildBrowsePanel
           busy={false}
           leaveCooldownUntil={info?.leaveCooldownUntil ?? null}
-          onToast={(text) => setNotice({ kind: "ok", text })}
-          onError={(text) => setNotice({ kind: "err", text })}
+          onToast={handleBrowseToast}
+          onError={handleBrowseError}
         />
       </main>
     );
@@ -185,7 +201,10 @@ export function V2GuildHome({
         <TabBar
           tabs={subTabs}
           active={activeTab}
-          onChange={(tab) => navigateGuild(tab)}
+          onChange={(tab) => {
+            navigateGuild(tab);
+            if (tab === "info") void refresh();
+          }}
           ariaLabel="길드 하위 탭"
           size="sm"
           variant="highlight"
@@ -198,6 +217,7 @@ export function V2GuildHome({
           info={info}
           loading={loading}
           activity={activity}
+          contribution={contribution}
           onRefresh={refresh}
         />
       )}
@@ -213,6 +233,17 @@ export function V2GuildHome({
           setNotice={setNotice}
           onRefresh={refresh}
           onGuildChanged={onGuildChanged}
+        />
+      )}
+
+      {activeTab === "browse" && (
+        <GuildBrowsePanel
+          busy={false}
+          leaveCooldownUntil={null}
+          mode="browse"
+          currentGuildId={guildId}
+          onToast={handleBrowseToast}
+          onError={handleBrowseError}
         />
       )}
 
@@ -253,6 +284,7 @@ export function V2GuildHome({
 function guildSubTabFromParam(value: string | null): GuildSubTab {
   if (
     value === "members" ||
+    value === "browse" ||
     value === "facilities" ||
     value === "manage"
   ) {

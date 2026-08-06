@@ -6,6 +6,7 @@ import {
   emptyV2SkillsState,
   orderedLearnedSkills,
   describeV2Skill,
+  v2SkillSelectLabel,
   v2SkillSearchText,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
@@ -75,6 +76,12 @@ describe("결계사 마법 방어 패시브", () => {
     expect(V2_SKILLS.v2c_ritualist_guardingarray?.effects).toEqual([
       { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
     ]);
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_ritualist_guardingarray),
+    ).toContain("받는 피해 -14% (3행동)");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_ritualist_guardingarray),
+    ).not.toContain("받는 피해 감소 +14% (3행동)");
     expect(V2_SKILLS.v2c_ritualist_wardcraft?.passive).toMatchObject({
       magicDefPct: 25,
       openingMagicDamageReductionPct: 15,
@@ -111,6 +118,17 @@ describe("결계사 마법 방어 패시브", () => {
       openingMagicDamageReductionPct: 45,
       openingMagicDamageReductionPhases: 5,
     });
+  });
+});
+
+describe("흑월지배 회피 연계 패시브", () => {
+  it("장착 집계와 상세 설명이 회피 후 다음 스킬 확정 치명타를 노출한다", () => {
+    const passive = aggregateEquippedPassives(["v2c_blackmoon_dominion"]);
+    expect(passive.skillCritAfterEvade).toBe(true);
+    expect(passive.skillCritOverflow).toBe(false);
+    expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
+      "회피 후 다음 직접 피해 스킬 확정 치명타",
+    );
   });
 });
 
@@ -305,6 +323,15 @@ describe("광부 생활 패시브", () => {
 });
 
 describe("v2Skills 카탈로그", () => {
+  it("모바일 선택창용 라벨에 스킬 이름과 모든 효과 정보를 포함한다", () => {
+    const skill = V2_SKILLS.v2_skill_strike;
+    const label = v2SkillSelectLabel(skill);
+    expect(label).toContain(skill.name);
+    for (const effect of describeV2Skill(skill)) {
+      expect(label).toContain(effect);
+    }
+  });
+
   it("스킬 검색 색인은 이름뿐 아니라 설명과 효과 칩도 포함한다", () => {
     const corrosion = v2SkillSearchText(V2_SKILLS.v2c_venomist_corrosion);
     expect(corrosion).toContain("부식");
@@ -496,6 +523,24 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_steelguard)).toEqual({
       kind: "always",
     });
+    // 지속 회복은 HP가 낮고 같은 상태 효과가 없을 때만 갱신한다.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_eternal_cycle)).toEqual({
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 60 },
+        { kind: "self_buff_pct", target: "regen", active: false },
+      ],
+    });
+    // 전투당 1회 보장 회피는 첫 턴에 사용하는 생존 오프너.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_shadow_shadowstep)).toEqual({
+      kind: "turn", op: "atMost", value: 1,
+    });
+    expect(describeV2Skill(V2_SKILLS.v2c_shadow_shadowstep)).toContain(
+      "다음 공격 1회 확정 회피",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_shadow_shadowstep)).toContain(
+      "전투당 1회",
+    );
   });
 
   it("명상은 기본 패턴에서 '항상' 이 아니다 (매 턴 발동 → 공격 안 함 버그 방지)", () => {
@@ -591,13 +636,54 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips).toContain("속성 대지");
   });
 
-  it("피해 계수는 실제 기반 스탯을 앞에 명시한다", () => {
+  it("피해 계수는 공격 기반선과 특화 스탯을 구분해 명시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
-      "피해 마법 공격력×0.75 +98",
+      "피해 마법 공격력×1.3",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
-      "피해 방어력×1.3 +101",
+      "피해 공격력×1.05 + 방어력×1.3",
     );
+  });
+
+  it("다단 스킬의 공격 계수는 소수 둘째 자리까지 반올림해 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_flurry)).toContain(
+      "피해 공격력×0.43",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
+      "피해 공격력×0.4 + 민첩×0.1",
+    );
+
+    for (const skill of Object.values(V2_SKILLS)) {
+      for (const chip of describeV2Skill(skill)) {
+        expect(chip, `${skill.id}: ${chip}`).not.toMatch(/\d\.\d{3,}/);
+      }
+    }
+  });
+
+  it("발동률 상향 보정이 DEX·LUK 특화 계수를 이중으로 낮추지 않는다", () => {
+    const directStatCoefs = (id: keyof typeof V2_SKILLS) =>
+      V2_SKILLS[id].effects.flatMap((effect) =>
+        "statCoef" in effect &&
+        (effect.scaling === "dex" || effect.scaling === "luk")
+          ? [effect.statCoef]
+          : [],
+      );
+
+    expect(directStatCoefs("v2c_assassin_ambush")).toEqual([0.2]);
+    expect(directStatCoefs("v2c_ranger_ambush")).toEqual([0.1, 0.1, 0.1]);
+    expect(directStatCoefs("v2c_shadow_assassinate")).toEqual([0.22]);
+    expect(directStatCoefs("v2c_chief_strike")).toEqual([0.35]);
+    expect(directStatCoefs("v2c_phantom_ambush")).toEqual([0.14]);
+    expect(directStatCoefs("v2c_marksman_shot")).toEqual([0.42, 0.42]);
+    expect(directStatCoefs("v2c_nightshade_eclipse")).toEqual([0.22, 0.26]);
+    expect(directStatCoefs("v2c_heavenlybow_orbit")).toEqual([0.5, 0.5, 0.62]);
+    expect(directStatCoefs("v2c_blackmoon_flurry")).toEqual([0.55, 0.46, 0.62]);
+
+    // 일반 마법 계수는 기존 차수별 발동률 보정을 계속 받는다.
+    expect(V2_SKILLS.v2c_sage_bolt.effects[0]).toMatchObject({
+      statCoef: 1.55,
+      scaling: "magic",
+    });
   });
 
   it("차수 흐름 위에 직업별 발동 템포 차이를 둔다", () => {
@@ -615,12 +701,12 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
-        chip.includes("공격력×0.65 +91"),
+        chip.includes("공격력×1.3"),
       ),
     ).toBe(true);
     expect(
       describeV2Skill(V2_SKILLS.v2c_fortressknight_ram).some((chip) =>
-        chip.includes("방어력×1.71 +399"),
+        chip.includes("공격력×1.2 + 방어력×1.71"),
       ),
     ).toBe(true);
 
@@ -681,6 +767,27 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       true,
     );
     expect(chips).toContain("쿨 3행동");
+  });
+
+  it("독 계열 복합기의 계수 피해를 중독 스택보다 먼저 표시한다", () => {
+    const poisonComboIds = [
+      "v2c_venomist_toxiccloud",
+      "v2c_venomancer_miasma",
+      "v2c_venomlord_plague",
+      "v2c_plaguebringer_outbreak",
+      "v2c_myriadvenom_mutation",
+    ] as const;
+
+    for (const id of poisonComboIds) {
+      const chips = describeV2Skill(V2_SKILLS[id]);
+      const damageIndex = chips.findIndex((chip) => chip.startsWith("피해 "));
+      const poisonIndex = chips.findIndex((chip) =>
+        chip.startsWith("중독 지속피해"),
+      );
+
+      expect(damageIndex, `${id}: 계수 피해`).toBeGreaterThanOrEqual(0);
+      expect(poisonIndex, `${id}: 중독 스택`).toBeGreaterThan(damageIndex);
+    }
   });
 
   it("MP 0·무속성이면 MP·속성 칩 없음", () => {
@@ -748,10 +855,19 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
   it("5 SP 이하는 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
     expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
-    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(17);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(13);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBe(17);
+    ).toBe(16);
+  });
+
+  it("다단기는 전투에서 제거된 legacy 고정 피해를 타수만큼 SP로 중복 청구하지 않는다", () => {
+    expect([
+      spCostOf(V2_SKILLS.v2c_marksman_shot),
+      spCostOf(V2_SKILLS.v2c_nightshade_eclipse),
+      spCostOf(V2_SKILLS.v2c_heavenlybow_orbit),
+      spCostOf(V2_SKILLS.v2c_blackmoon_flurry),
+    ]).toEqual([7, 8, 10, 12]);
   });
 
   it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {

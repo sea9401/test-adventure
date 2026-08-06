@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Clock,
   CookingPot,
   FlowerTulip,
+  House,
   Leaf,
   Package,
   PottedPlant,
@@ -16,6 +16,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
   FARM_CROPS,
@@ -40,8 +41,9 @@ import {
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
 import { useFarm } from "./useFarm";
+import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 
-type FarmSectionKey = "grow" | "delivery" | "shop";
+type FarmSectionKey = "home" | "grow" | "delivery" | "shop";
 
 type FarmToast = {
   id: number;
@@ -51,9 +53,27 @@ type FarmToast = {
 
 const FARM_TOAST_MS = 2800;
 
+// 농장 안에서 다른 화면을 다녀와도 마지막 작업 탭으로 돌아오게 한다.
+// 새로고침하면 홈부터 시작하므로 브라우저 저장소와 서버 렌더 간 불일치도 없다.
+let lastFarmSection: FarmSectionKey = "home";
+
 const ITEM_LABELS = Object.fromEntries(
   Object.entries(FARM_ITEMS).map(([id, item]) => [id, item.name]),
 ) as Record<FarmItemId, string>;
+
+export function prioritizeDeliverable<T>(
+  items: readonly T[],
+  isDeliverable: (item: T) => boolean,
+): T[] {
+  const deliverable: T[] = [];
+  const unavailable: T[] = [];
+
+  for (const item of items) {
+    (isDeliverable(item) ? deliverable : unavailable).push(item);
+  }
+
+  return [...deliverable, ...unavailable];
+}
 
 export function AdventurerFarmPanel({
   onBack,
@@ -90,7 +110,9 @@ export function AdventurerFarmPanel({
     buyPlotUpgrade,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
-  const [activeSection, setActiveSection] = useState<FarmSectionKey>("grow");
+  const [activeSection, setActiveSection] = useState<FarmSectionKey>(
+    () => lastFarmSection,
+  );
   const cropById = useMemo(
     () => new Map(crops.map((crop) => [crop.id, crop])),
     [crops],
@@ -135,6 +157,11 @@ export function AdventurerFarmPanel({
     () =>
       [
         {
+          key: "home",
+          label: "농장 홈",
+          icon: <House size={16} weight="duotone" />,
+        },
+        {
           key: "grow",
           label: "재배",
           icon: <FlowerTulip size={16} weight="duotone" />,
@@ -160,6 +187,10 @@ export function AdventurerFarmPanel({
       }>,
     [affordableShopCount, deliverableCount, readyPlotCount],
   );
+  const selectFarmSection = (next: FarmSectionKey) => {
+    lastFarmSection = next;
+    setActiveSection(next);
+  };
   const toast = useMemo<FarmToast | null>(() => {
     if (!notice) return null;
     if (notice.kind === "error") {
@@ -231,136 +262,122 @@ export function AdventurerFarmPanel({
         }
       />
 
-      <section className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="relative border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
-          <Image
-            src="/images/ui/farm.webp"
-            alt=""
-            fill
-            sizes="(max-width: 768px) 100vw, 720px"
-            className="object-cover opacity-20 dark:opacity-25"
-            priority={false}
-          />
-          <div className="absolute inset-0 bg-white/75 dark:bg-zinc-950/75" />
-          <div className="relative flex flex-wrap items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-              <PottedPlant size={24} weight="duotone" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                아침에 심고, 모험 뒤에 거두는 작은 밭
-              </h2>
-              <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 증표를 확보합니다.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onOpenKitchen}
-              className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-zinc-900 dark:text-amber-200 dark:hover:bg-amber-950"
-            >
-              <CookingPot size={18} weight="duotone" aria-hidden />
-              주방으로 이동
-            </button>
-          </div>
-        </div>
+      <ProductionJobAdvanceNotice
+        refreshKey={farm ? farmingLevelForState(farm) : 0}
+      />
 
+      <section className={`${SURFACE_CARD} overflow-clip`}>
         {loading ? (
           <div className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
             농장 상태를 불러오는 중...
           </div>
         ) : farm ? (
-          <div className="space-y-4 p-4">
-            <FarmSummary farm={farm} />
-            <FarmGrowthPanel
-              farm={farm}
-              busy={busyPlotUpgrade}
-              onBuy={buyPlotUpgrade}
-            />
-
+          <div>
             <TabBar
               tabs={farmTabs}
               active={activeSection}
-              onChange={setActiveSection}
+              onChange={selectFarmSection}
               ariaLabel="농장 섹션"
               variant="underline"
-              className="border-zinc-200 dark:border-zinc-700"
+              scrollable
+              className="sticky top-16 z-20 bg-white px-1 dark:bg-zinc-900"
             />
 
-            <div
-              className={activeSection === "grow" ? "space-y-4" : "hidden"}
-            >
-              <CropSelector
-                crops={crops}
-                seeds={farm.seeds}
-                learnedSkillIds={learnedSkillIds}
-                selectedCropId={selectedCrop?.id ?? selectedCropId}
-                onSelect={setSelectedCropId}
-              />
+            <div className="p-4">
+              {activeSection === "home" ? (
+                <FarmHome
+                  farm={farm}
+                  busyPlotUpgrade={busyPlotUpgrade}
+                  readyPlotCount={readyPlotCount}
+                  deliverableCount={deliverableCount}
+                  affordableShopCount={affordableShopCount}
+                  onBuyPlotUpgrade={buyPlotUpgrade}
+                  onOpenKitchen={onOpenKitchen}
+                  onNavigate={selectFarmSection}
+                />
+              ) : null}
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                {farm.plots.map((plot) => (
-                  <PlotCard
-                    key={plot.id}
-                    plot={plot}
-                    now={now}
-                    crop={plot.cropId ? cropById.get(plot.cropId) : null}
-                    selectedCrop={selectedCrop}
-                    selectedCropLocked={
-                      selectedCrop
-                        ? !canPlantFarmCrop(selectedCrop.id, learnedSkillIds)
-                        : false
-                    }
-                    selectedSeedCount={
-                      selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
-                    }
-                    busy={busyPlotId === plot.id}
-                    onPlant={() => selectedCrop && plant(plot.id, selectedCrop.id)}
-                    onHarvest={() => harvest(plot.id)}
-                  />
-                ))}
+              <div
+                className={activeSection === "grow" ? "space-y-4" : "hidden"}
+              >
+                <CropSelector
+                  crops={crops}
+                  seeds={farm.seeds}
+                  learnedSkillIds={learnedSkillIds}
+                  selectedCropId={selectedCrop?.id ?? selectedCropId}
+                  onSelect={setSelectedCropId}
+                />
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {farm.plots.map((plot) => (
+                    <PlotCard
+                      key={plot.id}
+                      plot={plot}
+                      now={now}
+                      crop={plot.cropId ? cropById.get(plot.cropId) : null}
+                      selectedCrop={selectedCrop}
+                      selectedCropLocked={
+                        selectedCrop
+                          ? !canPlantFarmCrop(selectedCrop.id, learnedSkillIds)
+                          : false
+                      }
+                      selectedSeedCount={
+                        selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
+                      }
+                      busy={busyPlotId === plot.id}
+                      onPlant={() =>
+                        selectedCrop && plant(plot.id, selectedCrop.id)
+                      }
+                      onHarvest={() => harvest(plot.id)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div
-              className={activeSection === "delivery" ? "space-y-4" : "hidden"}
-            >
-              <DeliveryBoard
-                deliveries={deliveries}
-                inventory={farm.inventory}
-                claimedIds={farm.deliveries.claimedIds}
-                dailyDeliveryCount={dailyDeliveryCount}
-                dailyDeliveryLimit={FARM_DAILY_DELIVERY_LIMIT}
-                busyDeliveryId={busyDeliveryId}
-                onDeliver={deliver}
-              />
+              <div
+                className={
+                  activeSection === "delivery" ? "space-y-4" : "hidden"
+                }
+              >
+                <DeliveryBoard
+                  deliveries={deliveries}
+                  inventory={farm.inventory}
+                  claimedIds={farm.deliveries.claimedIds}
+                  dailyDeliveryCount={dailyDeliveryCount}
+                  dailyDeliveryLimit={FARM_DAILY_DELIVERY_LIMIT}
+                  busyDeliveryId={busyDeliveryId}
+                  onDeliver={deliver}
+                />
 
-              <RareDeliveryBoard
-                deliveries={specialDeliveries}
-                inventory={farm.inventory}
-                busyDeliveryId={busySpecialDeliveryId}
-                onDeliver={deliverSpecial}
-              />
+                <RareDeliveryBoard
+                  deliveries={specialDeliveries}
+                  inventory={farm.inventory}
+                  busyDeliveryId={busySpecialDeliveryId}
+                  onDeliver={deliverSpecial}
+                />
 
-              <WeeklyDeliveryBoard
-                deliveries={weeklyDeliveries}
-                inventory={farm.inventory}
-                claimedIds={farm.weekly.claimedIds}
-                busyDeliveryId={busyWeeklyDeliveryId}
-                onDeliver={deliverWeekly}
-              />
+                <WeeklyDeliveryBoard
+                  deliveries={weeklyDeliveries}
+                  inventory={farm.inventory}
+                  claimedIds={farm.weekly.claimedIds}
+                  busyDeliveryId={busyWeeklyDeliveryId}
+                  onDeliver={deliverWeekly}
+                />
 
-              <InventoryPanel inventory={farm.inventory} />
-            </div>
+                <InventoryPanel inventory={farm.inventory} />
+              </div>
 
-            <div className={activeSection === "shop" ? "space-y-4" : "hidden"}>
-              <FarmShopPanel
-                items={shopItems}
-                availableReputation={availableReputation}
-                learnedSkillIds={learnedSkillIds}
-                busyShopItemId={busyShopItemId}
-                onBuy={buyShopItem}
-              />
+              <div
+                className={activeSection === "shop" ? "space-y-4" : "hidden"}
+              >
+                <FarmShopPanel
+                  items={shopItems}
+                  availableReputation={availableReputation}
+                  learnedSkillIds={learnedSkillIds}
+                  busyShopItemId={busyShopItemId}
+                  onBuy={buyShopItem}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -371,6 +388,112 @@ export function AdventurerFarmPanel({
       </section>
       {toast ? <FarmToastMessage toast={toast} /> : null}
     </PageShell>
+  );
+}
+
+function FarmHome({
+  farm,
+  busyPlotUpgrade,
+  readyPlotCount,
+  deliverableCount,
+  affordableShopCount,
+  onBuyPlotUpgrade,
+  onOpenKitchen,
+  onNavigate,
+}: {
+  farm: FarmState;
+  busyPlotUpgrade: boolean;
+  readyPlotCount: number;
+  deliverableCount: number;
+  affordableShopCount: number;
+  onBuyPlotUpgrade: () => void;
+  onOpenKitchen: () => void;
+  onNavigate: (section: FarmSectionKey) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className={`${SURFACE_INSET} flex flex-wrap items-center gap-3 p-3`}>
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+          <PottedPlant size={24} weight="duotone" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+            아침에 심고, 모험 뒤에 거두는 작은 밭
+          </h2>
+          <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+            씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 증표를 확보합니다.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onOpenKitchen}
+          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-zinc-900 dark:text-amber-200 dark:hover:bg-amber-950"
+        >
+          <CookingPot size={18} weight="duotone" aria-hidden />
+          주방으로 이동
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2" aria-label="농장 바로가기">
+        <FarmHomeShortcut
+          icon={<FlowerTulip size={18} weight="duotone" />}
+          label="재배"
+          status={readyPlotCount > 0 ? `${readyPlotCount}칸 수확` : "밭 확인"}
+          onClick={() => onNavigate("grow")}
+        />
+        <FarmHomeShortcut
+          icon={<Package size={18} weight="duotone" />}
+          label="납품"
+          status={deliverableCount > 0 ? `${deliverableCount}건 가능` : "의뢰 확인"}
+          onClick={() => onNavigate("delivery")}
+        />
+        <FarmHomeShortcut
+          icon={<Sparkle size={18} weight="duotone" />}
+          label="상점"
+          status={
+            affordableShopCount > 0
+              ? `${affordableShopCount}개 구매`
+              : "상품 확인"
+          }
+          onClick={() => onNavigate("shop")}
+        />
+      </div>
+
+      <FarmSummary farm={farm} />
+      <FarmGrowthPanel
+        farm={farm}
+        busy={busyPlotUpgrade}
+        onBuy={onBuyPlotUpgrade}
+      />
+    </div>
+  );
+}
+
+function FarmHomeShortcut({
+  icon,
+  label,
+  status,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  status: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${SURFACE_INSET} min-w-0 px-2 py-2.5 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 dark:hover:border-emerald-800 dark:hover:bg-emerald-950`}
+    >
+      <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+        {icon}
+        {label}
+      </span>
+      <span className="mt-1 block truncate text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+        {status}
+      </span>
+    </button>
   );
 }
 
@@ -403,7 +526,7 @@ function FarmSummary({ farm }: { farm: FarmState }) {
   )} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농사 레벨"
@@ -450,7 +573,7 @@ function FarmGrowthPanel({
   const availableReputation = farmAvailableReputation(farm);
   const affordable = next ? availableReputation >= next.costReputation : false;
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div className={`${SURFACE_INSET} px-3 py-2 text-sm shadow-sm`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
           <PottedPlant size={17} weight="duotone" className="text-emerald-500" />
@@ -500,7 +623,7 @@ function SummaryTile({
     : 0;
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+    <div className={`${SURFACE_INSET} px-3 py-2 text-zinc-900 shadow-sm dark:text-zinc-100`}>
       <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
         {icon}
         {label}
@@ -549,6 +672,10 @@ function RareDeliveryBoard({
   busyDeliveryId: string | null;
   onDeliver: (requestId: string) => void;
 }) {
+  const orderedDeliveries = prioritizeDeliverable(deliveries, (delivery) =>
+    hasRequiredItems(inventory, delivery.requiredItems),
+  );
+
   return (
     <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -556,7 +683,7 @@ function RareDeliveryBoard({
         희귀 수확 납품
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
-        {deliveries.map((delivery) => {
+        {orderedDeliveries.map((delivery) => {
           const enough = hasRequiredItems(inventory, delivery.requiredItems);
           const busy = busyDeliveryId === delivery.id;
           const previewItemId = firstItemId(delivery.requiredItems);
@@ -600,6 +727,13 @@ function WeeklyDeliveryBoard({
   busyDeliveryId: string | null;
   onDeliver: (requestId: string) => void;
 }) {
+  const orderedDeliveries = prioritizeDeliverable(
+    deliveries,
+    (delivery) =>
+      !claimedIds.includes(delivery.id) &&
+      hasRequiredItems(inventory, delivery.requiredItems),
+  );
+
   return (
     <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -607,7 +741,7 @@ function WeeklyDeliveryBoard({
         주간 농장 납품
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
-        {deliveries.map((delivery) => {
+        {orderedDeliveries.map((delivery) => {
           const claimed = claimedIds.includes(delivery.id);
           const enough = hasRequiredItems(inventory, delivery.requiredItems);
           const busy = busyDeliveryId === delivery.id;
@@ -727,7 +861,7 @@ function FarmShopPanel({
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <Sparkle size={17} weight="duotone" className="text-emerald-500" />
-          농장 평판 상점
+          농장 증표 상점
         </div>
         <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           사용 가능 {availableReputation.toLocaleString("ko-KR")}
@@ -996,6 +1130,14 @@ function DeliveryBoard({
   onDeliver: (requestId: string) => void;
 }) {
   const dailyLimitReached = dailyDeliveryCount >= dailyDeliveryLimit;
+  const orderedDeliveries = prioritizeDeliverable(
+    deliveries,
+    (delivery) =>
+      !dailyLimitReached &&
+      !claimedIds.includes(delivery.id) &&
+      (inventory[delivery.requiredItemId] ?? 0) >= delivery.requiredQuantity,
+  );
+
   return (
     <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -1008,7 +1150,7 @@ function DeliveryBoard({
         </span>
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
-        {deliveries.map((delivery) => {
+        {orderedDeliveries.map((delivery) => {
           const have = inventory[delivery.requiredItemId] ?? 0;
           const claimed = claimedIds.includes(delivery.id);
           const enough = have >= delivery.requiredQuantity;

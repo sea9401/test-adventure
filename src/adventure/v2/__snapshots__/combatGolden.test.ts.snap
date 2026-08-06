@@ -30,6 +30,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 136.6,
+  "spiStat": 15,
   "vitStat": 15,
 }
 `;
@@ -64,6 +65,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 14.25,
+  "spiStat": 15,
   "vitStat": 15,
 }
 `;
@@ -98,6 +100,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 14.25,
+  "spiStat": 45,
   "vitStat": 15,
 }
 `;
@@ -132,6 +135,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 57,
+  "spiStat": 15,
   "vitStat": 15,
 }
 `;
@@ -166,6 +170,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 9.25,
+  "spiStat": 15,
   "vitStat": 170,
 }
 `;
@@ -200,6 +205,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 3.25,
+  "spiStat": 15,
   "vitStat": 55,
 }
 `;
@@ -272,7 +278,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "mage_skills_vs_골렘",
-    "logSha": "d56b0a07547675ec9c69aef75c13d8b0a8a6ffb5",
+    "logSha": "4483cdc1605948382dd9c0eb6abf78a3e900a963",
     "outcome": "win",
     "playerHp": 640,
     "playerMp": 501,
@@ -306,7 +312,7 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
   {
     "label": "tank_vs_warrior",
-    "logSha": "8c1094c2940b0c5e47e802bb09b28891a53fb04a",
+    "logSha": "2b9495c59ed92730233f5551ddac0aeda9e9a6b2",
     "outcome": "p2_win",
     "turns": 145,
   },

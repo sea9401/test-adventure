@@ -6,6 +6,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import {
   PriceInput,
+  PriceQuickFill,
   PriceRefLine,
   type MarketplacePager,
   type PriceStat,
@@ -23,6 +24,7 @@ export function MarketplaceMaterialTab({
   priceRef,
   busy,
   onListMaterial,
+  hideEmpty = false,
 }: {
   items: V2MaterialId[];
   pager: MarketplacePager<V2MaterialId>;
@@ -34,8 +36,10 @@ export function MarketplaceMaterialTab({
   priceRef: Record<string, PriceStat>;
   busy: boolean;
   onListMaterial: (matId: V2MaterialId) => void;
+  hideEmpty?: boolean;
 }) {
   if (items.length === 0) {
+    if (hideEmpty) return null;
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -51,12 +55,24 @@ export function MarketplaceMaterialTab({
         return (
           <Card key={matId} padding="sm">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium">
-                {V2_MATERIALS[matId]?.name ?? matId}
-                <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">보유 {have}</span>
-                <span className="ml-1.5">
-                  <PriceRefLine stat={priceRef[matId]} />
+              <span className="min-w-0 text-sm font-medium">
+                <span>
+                  {V2_MATERIALS[matId]?.name ?? matId}
+                  <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">보유 {have}</span>
                 </span>
+                <span className="ml-1.5 block sm:inline">
+                  <PriceRefLine stat={priceRef[matId]} unit />
+                </span>
+                <PriceQuickFill
+                  stat={priceRef[matId]}
+                  unit
+                  onSelect={(value) =>
+                    setPrices((current) => ({
+                      ...current,
+                      [matId]: String(value),
+                    }))
+                  }
+                />
               </span>
               <div className="flex shrink-0 items-center gap-1.5">
                 <input
@@ -71,6 +87,7 @@ export function MarketplaceMaterialTab({
                 <PriceInput
                   value={prices[matId] ?? ""}
                   onChange={(v) => setPrices((p) => ({ ...p, [matId]: v }))}
+                  placeholder="개당 가격"
                 />
                 <button
                   type="button"

@@ -116,14 +116,14 @@ export function onCritSpeedBuff(
   signatures: SignatureEffect[] | undefined,
   critRoll: boolean,
   dealtDamage: boolean,
-): { mult: number; turns: number } | null {
+): { mult: number; turns: number; label: string } | null {
   if (!critRoll || !dealtDamage || !signatures) return null;
-  let best: { mult: number; turns: number } | null = null;
+  let best: { mult: number; turns: number; label: string } | null = null;
   for (const s of signatures) {
     if (s.trigger !== "on_crit" || !s.spdBuffPct) continue;
     const mult = 1 + s.spdBuffPct / 100;
     const turns = Math.max(1, s.buffActions ?? 1);
-    if (!best || mult > best.mult) best = { mult, turns };
+    if (!best || mult > best.mult) best = { mult, turns, label: s.label };
   }
   return best;
 }
@@ -266,7 +266,7 @@ export function onDodgeHealAmount(
   return amt;
 }
 
-// every_n_hits — 추가타 주기 N(가장 작은 N = 가장 자주)과 발동 라벨.
+// every_n_hits — 평타·스킬 공용 실제 적중 주기 N(가장 작은 N = 가장 자주)과 발동 라벨.
 export function everyNHitsEffect(
   signatures: SignatureEffect[] | undefined,
 ): { hits: number; label: string } | null {

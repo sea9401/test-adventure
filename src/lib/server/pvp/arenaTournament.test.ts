@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
   ARENA_TOURNAMENT_BET_FEE_BPS,
+  ARENA_TOURNAMENT_BET_MAX_GOLD,
+  ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD,
   ARENA_TOURNAMENT_ROUND_INTERVAL_MS,
   ARENA_TOURNAMENT_MIN_MATCHES,
+  arenaTournamentBracketOverview,
   arenaRankedEndsAt,
   arenaSeasonPhase,
   arenaTournamentBetPayouts,
   arenaTournamentBracketSize,
   arenaTournamentFirstRoundPairs,
+  arenaTournamentSnapshotsAt,
   arenaTournamentStartsAt,
+  arenaTournamentMatchNoticeText,
   createArenaTournamentSchedule,
   nextDueArenaTournamentMatch,
   resolveArenaTournamentScheduledMatch,
+  stripArenaTournamentReplays,
   type ArenaTournamentEntrant,
 } from "./arenaTournament";
 
@@ -42,6 +48,9 @@ describe("arena tournament phase", () => {
     expect(arenaTournamentStartsAt(endAt).toISOString()).toBe(
       "2026-07-26T10:00:00.000Z",
     );
+    expect(arenaTournamentSnapshotsAt(endAt).toISOString()).toBe(
+      "2026-07-26T09:00:00.000Z",
+    );
     expect(arenaSeasonPhase(endAt, new Date("2026-07-25T14:59:59.999Z"))).toBe(
       "ranked",
     );
@@ -49,6 +58,52 @@ describe("arena tournament phase", () => {
       "tournament",
     );
     expect(arenaSeasonPhase(endAt, endAt)).toBe("closed");
+  });
+});
+
+describe("arena tournament replay retention", () => {
+  it("30일 뒤 전투 요약은 남기고 리플레이만 제거한다", () => {
+    const scheduled = createArenaTournamentSchedule({
+      seasonId: "2026-W30",
+      generatedAt: new Date("2026-07-25T15:00:00.000Z"),
+      startsAt: new Date("2026-07-26T10:00:00.000Z"),
+      entrants: entrants(8),
+    });
+    const first = scheduled.matches[0]!;
+    const bracket = {
+      ...scheduled,
+      matches: [
+        {
+          ...first,
+          games: [
+            {
+              game: 1,
+              outcome: "p1_win" as const,
+              turns: 12,
+              p1HpRatio: 0.5,
+              p2HpRatio: 0,
+              replay: {
+                enemy: { name: "상대", hp: 100 },
+                playerMaxHp: 100,
+                playerMaxMp: 0,
+                log: [],
+              },
+            },
+          ],
+        },
+        ...scheduled.matches.slice(1),
+      ],
+    };
+
+    const trimmed = stripArenaTournamentReplays(bracket);
+    expect(trimmed.removed).toBe(1);
+    expect(trimmed.bracket.matches[0]!.games[0]!.replay).toBeUndefined();
+    expect(trimmed.bracket.matches[0]!.games[0]).toMatchObject({
+      outcome: "p1_win",
+      turns: 12,
+      p1HpRatio: 0.5,
+    });
+    expect(bracket.matches[0]!.games[0]!.replay).toBeDefined();
   });
 });
 
@@ -163,6 +218,43 @@ describe("arena tournament schedule", () => {
     );
   });
 
+  it("경기별 리플레이는 저장하고 목록용 대진표에서는 존재 여부만 남긴다", () => {
+    const original = createArenaTournamentSchedule({
+      seasonId: "2026-W31",
+      generatedAt: new Date(0),
+      startsAt: new Date(0),
+      entrants: entrants(8),
+      rng: () => 0.5,
+    });
+    const replay = {
+      enemy: { name: "참가자 8", hp: 100 },
+      playerMaxHp: 100,
+      playerMaxMp: 0,
+      log: [{ kind: "info" as const, text: "테스트 전투" }],
+    };
+    const bracket = resolveArenaTournamentScheduledMatch({
+      bracket: original,
+      matchId: original.matches[0]!.id,
+      entrants: entrants(8),
+      fight: () => ({
+        outcome: "p1_win",
+        turns: 10,
+        p1HpRatio: 0.5,
+        p2HpRatio: 0,
+        replay,
+      }),
+    });
+    const match = bracket.matches[0]!;
+    expect(match.games[0]?.replay).toEqual(replay);
+    expect(arenaTournamentMatchNoticeText(bracket, match)).toContain(
+      `${match.p1Wins}:${match.p2Wins}`,
+    );
+
+    const overview = arenaTournamentBracketOverview(bracket);
+    expect(overview.matches[0]?.games[0]?.replay).toBeUndefined();
+    expect(overview.matches[0]?.games[0]?.hasReplay).toBe(true);
+  });
+
   it("승수가 같으면 HP 비율, 그것도 같으면 예선 상위 순위로 결정한다", () => {
     const original = createArenaTournamentSchedule({
       seasonId: "tie",
@@ -226,6 +318,14 @@ describe("arena tournament schedule", () => {
 });
 
 describe("arena tournament pool betting", () => {
+  it("경기당 150만, 주간 600만 골드까지 베팅할 수 있다", () => {
+    expect(ARENA_TOURNAMENT_BET_MAX_GOLD).toBe(1_500_000);
+    expect(ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD).toBe(6_000_000);
+    expect(ARENA_TOURNAMENT_BET_SEASON_MAX_GOLD).toBe(
+      ARENA_TOURNAMENT_BET_MAX_GOLD * 4,
+    );
+  });
+
   it("패배 풀에서 5%를 회수하고 승리 선택자에게 베팅 비율대로 분배한다", () => {
     const result = arenaTournamentBetPayouts({
       winnerUserId: "p1",

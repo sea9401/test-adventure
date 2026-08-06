@@ -8,7 +8,7 @@
 import {
   V2_JOB_LIST,
   cumLevelForJob,
-  isDirectNextJob,
+  isJobUnlockConditionRevealed,
   isJobUnlocked,
   jobIdFromLegacy,
   jobUnlockConditionText,
@@ -27,7 +27,7 @@ export type JobCodexJob = {
   mastery: number;
   // 해금 조건 텍스트(전직 화면과 동일 헬퍼). 잠긴 직업도 어떤 조건이 필요한지 보여준다.
   condition: string;
-  // 잠긴 먼 미래 직업은 조건을 숨기되, 현재 직업의 직접 후속 직업은 예외로 공개한다.
+  // 잠긴 먼 미래 직업은 조건을 숨기되, 현재 또는 과거에 경험한 직업의 직접 후속은 공개한다.
   conditionRevealed: boolean;
   // 스킬 수집 현황 — 그 직업의 시그니처 스킬(액티브+패시브) 중 학습한 개수 / 전체. 둘 다 배우면
   //   skillsLearned === skillsTotal = "수집 완료". UI 는 이 진행도만 표기(차수·패시브 정체 비공개).
@@ -56,8 +56,12 @@ export function buildJobCodex(
   const realJobs = V2_JOB_LIST.filter((j) => j.tier > 0);
   const jobs: JobCodexJob[] = realJobs.map((job) => {
     const unlocked = isJobUnlocked(job, prof, unlockCtx);
-    const conditionRevealed =
-      unlocked || job.id === currentJobId || isDirectNextJob(currentJobId, job);
+    const conditionRevealed = isJobUnlockConditionRevealed(
+      job,
+      prof,
+      currentJobId,
+      unlocked,
+    );
     // 스킬 수집 진행도 — 시그니처 스킬(액티브+패시브) 중 학습한 수.
     const signature = skillsForJob(job.id);
     return {

@@ -40,6 +40,7 @@ import {
   QualityPctText,
   type ItemCardAnchor,
 } from "../V2ItemCard";
+import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
 
 // 슬롯별 아이콘/색 — 카드 좌상단 표식.
 const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
@@ -82,11 +83,16 @@ export type EquipmentCard = {
 export function EquipmentCardGrid({
   cards,
   onOpenCard,
+  onRegisterCodex,
+  codexBusyIid,
   selectedIid,
   frontierDepth,
 }: {
   cards: EquipmentCard[];
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
+  // 인벤토리에서만 전달. 미등록 배지를 누르면 해당 개체의 도감 등록을 시작한다.
+  onRegisterCodex?: (inst: V2EquipInstance) => void;
+  codexBusyIid?: string | null;
   // 선택 모드(강화/재련): selectedIid 를 넘기면 에메랄드 하이라이트는 "선택한 장비"를 뜻하고,
   // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
   // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
@@ -117,18 +123,21 @@ export function EquipmentCardGrid({
             ? null
             : equipmentProgressionLock(item, frontierDepth);
         return (
-          <button
+          <div
             key={inst.iid}
-            type="button"
-            onClick={(e) => onOpenCard(inst, anchorOf(e.currentTarget))}
-            aria-label={`${item.name} 정보`}
             className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-lift-card relative flex min-h-[7.5rem] flex-col gap-1 rounded-lg border p-3 text-left shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950 ${
               highlighted
                 ? "is-active border-emerald-400 bg-emerald-50 ring-1 ring-emerald-200 dark:border-emerald-500 dark:bg-emerald-950 dark:ring-emerald-900/70"
                 : "border-zinc-300 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-900"
             }`}
           >
-            <div className="flex items-start justify-between gap-1">
+            <button
+              type="button"
+              onClick={(event) => onOpenCard(inst, anchorOf(event.currentTarget))}
+              aria-label={`${item.name} 정보`}
+              className="absolute inset-0 z-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
+            />
+            <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
               <span className="flex items-center gap-1">
                 <Icon size={20} weight="duotone" className={color} />
                 {inst.locked && (
@@ -163,7 +172,7 @@ export function EquipmentCardGrid({
                 ) : null}
               </span>
             </div>
-            <div className="flex min-w-0 items-center gap-1.5">
+            <div className="pointer-events-none relative z-10 flex min-w-0 items-center gap-1.5">
               <span
                 className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item, inst.roll, inst.enhance, inst.craftQuality)}`}
               >
@@ -171,8 +180,15 @@ export function EquipmentCardGrid({
               </span>
               <ItemTypeChip item={item} />
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-1">
+            <div className="pointer-events-none relative z-10 flex min-w-0 flex-wrap items-center gap-1">
               <EquipmentTierBadge tier={item.tier} compact />
+              <EquipmentCodexBadge
+                itemId={item.id}
+                onRegister={
+                  onRegisterCodex ? () => onRegisterCodex(inst) : undefined
+                }
+                busy={codexBusyIid === inst.iid}
+              />
               <EnhanceLevelBadge enhance={inst.enhance} />
               <CraftQualityBadge craftQuality={inst.craftQuality} />
               {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
@@ -186,10 +202,10 @@ export function EquipmentCardGrid({
                 </span>
               ) : null}
             </div>
-            <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            <div className="pointer-events-none relative z-10 line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               {cardStatLine(item, inst.roll, inst.enhance, inst.craftQuality)}
             </div>
-          </button>
+          </div>
         );
       })}
     </div>

@@ -11,8 +11,13 @@ import { Sword } from "@phosphor-icons/react";
 import { outpostDisplayName as outpostName } from "@/adventure/data/v2/tileWarfare";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
-import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
+import {
+  parseCoopBossKindId,
+  coopBossDurationMs,
+  COOP_BOSSES,
+} from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
+import { formatRelative } from "@/lib/notifications";
 import {
   FEED_POLL_MS,
   WAR_TICKER_MAX_ITEMS,
@@ -20,8 +25,58 @@ import {
   type FeedEntry,
 } from "@/lib/feed-config";
 
+type CoopFeedPayload = {
+  kind: string;
+  sessionId?: string;
+  expiresAt?: number;
+};
+
+function coopSummonExpiresAt(e: FeedEntry): number {
+  const payload = e.payload as CoopFeedPayload;
+  if (
+    typeof payload.expiresAt === "number" &&
+    Number.isFinite(payload.expiresAt)
+  ) {
+    return payload.expiresAt;
+  }
+  const kindId = parseCoopBossKindId(payload.kind);
+  return kindId
+    ? e.createdAt + coopBossDurationMs(COOP_BOSSES[kindId])
+    : e.createdAt;
+}
+
+/** 최근 전광판 항목 중 아직 참여 가능한 협동 보스 소환만 남긴다. */
+export function visibleWarTickerEntries(
+  entries: readonly FeedEntry[],
+  now = Date.now(),
+): FeedEntry[] {
+  const cutoff = now - WAR_TICKER_WINDOW_MIN * 60_000;
+  const defeatedSessionIds = new Set(
+    entries
+      .filter((entry) => entry.type === "coop_kill")
+      .map((entry) => (entry.payload as CoopFeedPayload).sessionId)
+      .filter((sessionId): sessionId is string => Boolean(sessionId)),
+  );
+
+  return entries
+    .filter((entry) => {
+      if (entry.createdAt < cutoff) return false;
+      if (entry.type !== "coop_summon") return true;
+      const payload = entry.payload as CoopFeedPayload;
+      return (
+        coopSummonExpiresAt(entry) > now &&
+        (!payload.sessionId || !defeatedSessionIds.has(payload.sessionId))
+      );
+    })
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, WAR_TICKER_MAX_ITEMS);
+}
+
 // 한 사건 → 티커 한 토막(컴팩트 플레인 텍스트). 모르는 타입은 null(렌더 제외).
-export function warTickerText(e: FeedEntry): string | null {
+export function warTickerText(
+  e: FeedEntry,
+  now = Date.now(),
+): string | null {
   if (e.type === "outpost_capture") {
     const p = e.payload as {
       outpostId: string;
@@ -67,11 +122,11 @@ export function warTickerText(e: FeedEntry): string | null {
     return `${e.actorName} 님의 ${name} +${p.level}, 강화 중 파괴…`;
   }
   if (e.type === "coop_summon" || e.type === "coop_kill") {
-    const p = e.payload as { kind: string };
+    const p = e.payload as CoopFeedPayload;
     const kindId = parseCoopBossKindId(p.kind);
     const boss = kindId ? COOP_BOSSES[kindId].name : p.kind;
     return e.type === "coop_summon"
-      ? `${e.actorName} 님이 협동 보스 ${boss} 소환! 토벌에 참여하세요`
+      ? `${e.actorName} 님이 협동 보스 ${boss} 소환! 토벌에 참여하세요 · ${formatRelative(e.createdAt, now)}`
       : `${e.actorName} 님이 협동 보스 ${boss} 처치 확정타!`;
   }
   if (e.type === "rare_map_drop") {
@@ -84,6 +139,9 @@ export function warTickerText(e: FeedEntry): string | null {
     const p = e.payload as { fishId: string; size: number };
     const name = FISH[p.fishId as keyof typeof FISH]?.name ?? p.fishId;
     return `${e.actorName} 님이 ${name} ${formatFishSize(Math.round(p.size))} 대물 낚시!`;
+  }
+  if (e.type === "cultivation_awakening") {
+    return `${e.actorName} 님이 수행에서 각성! 스탯 한계치 증가량 ×5`;
   }
   if (e.type === "newcomer") {
     return `새 모험가 ${e.actorName} 님이 모험을 시작했습니다!`;
@@ -138,24 +196,32 @@ export function WarTicker() {
   // 현재 흐르는 사건 묶음의 시그니처(id 목록). 내용이 바뀔 때만 갱신해 애니메이션 재시작 방지.
   const [sig, setSig] = useState("");
   const sigRef = useRef("");
+  const textSigRef = useRef("");
 
   const fetchWarFeed = useCallback(async () => {
     try {
       const res = await fetch("/api/feed?types=war");
       if (!res.ok) return;
       const data = (await res.json()) as { entries?: FeedEntry[] };
-      const cutoff = Date.now() - WAR_TICKER_WINDOW_MIN * 60_000;
-      // 최근 윈도우 안 사건을 최신순으로, 최대 N개만(폭주 방지). seen 박제 없이 계속 노출.
-      const recent = (data.entries ?? [])
-        .filter((e) => e.createdAt >= cutoff)
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .slice(0, WAR_TICKER_MAX_ITEMS);
+      const now = Date.now();
+      // 최근 윈도우 안 사건을 최신순으로, 최대 N개만. 만료·처치된 보스 소환은 모집에서 제외.
+      const recent = visibleWarTickerEntries(data.entries ?? [], now);
       const nextSig = recent.map((e) => e.id).join(",");
-      // 내용 동일하면 state 안 건드림 → 무한 루프 애니메이션이 끊기지 않는다.
-      if (nextSig === sigRef.current) return;
-      sigRef.current = nextSig;
-      setTexts(recent.map(warTickerText).filter((t): t is string => t != null));
-      setSig(nextSig);
+      const nextTexts = recent
+        .map((entry) => warTickerText(entry, now))
+        .filter((text): text is string => text != null);
+      const nextTextSig = nextTexts.join("\u0000");
+      // 사건과 상대시간 문구가 모두 같으면 state를 건드리지 않는다. 시간만 바뀌면 동일 key로
+      // 텍스트만 갱신해 애니메이션을 처음부터 다시 시작하지 않는다.
+      if (nextSig === sigRef.current && nextTextSig === textSigRef.current) {
+        return;
+      }
+      textSigRef.current = nextTextSig;
+      setTexts(nextTexts);
+      if (nextSig !== sigRef.current) {
+        sigRef.current = nextSig;
+        setSig(nextSig);
+      }
     } catch {
       /* 폴링 — 조용히 무시 */
     }

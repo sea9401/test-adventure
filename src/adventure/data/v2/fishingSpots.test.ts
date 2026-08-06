@@ -5,6 +5,7 @@ import {
   FISHING_SPOTS,
   FISHING_SPOT_IDS,
   getFishingSpot,
+  fishIdsByTierForSpot,
   isFishingSpotId,
   tierCountsForSpot,
 } from "./fishingSpots";
@@ -44,5 +45,16 @@ describe("낚시터 카탈로그", () => {
         highTiers.reduce((sum, tier) => sum + (counts[tier] ?? 0), 0),
       ).toBeGreaterThan(0);
     }
+  });
+
+  it("낚시터 전체 어종을 등급별로 빠짐없이 묶는다", () => {
+    const spot = FISHING_SPOTS.rocky_coast;
+    const groups = fishIdsByTierForSpot(spot);
+    expect(groups.flatMap((group) => group.fishIds)).toHaveLength(
+      spot.fishIds.length,
+    );
+    expect(
+      groups.find((group) => group.tier === "epic")?.fishIds,
+    ).toContain("sunfish");
   });
 });

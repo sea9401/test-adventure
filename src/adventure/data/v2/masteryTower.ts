@@ -28,6 +28,18 @@ export type MasteryTowerState = {
   cooldownUntil?: number;
 };
 
+export type MasteryTowerClaimPreview = {
+  base: number;
+  firstClearBonus: number;
+  total: number;
+  newlyClaimedMilestones: number[];
+};
+
+export type MasteryTowerRolloverReward = MasteryTowerClaimPreview & {
+  previousDate: string;
+  previousBestFloor: number;
+};
+
 export type MasteryTowerLogEntry = {
   kind: "info" | "player" | "enemy" | "success" | "fail" | "reward";
   text: string;
@@ -300,12 +312,7 @@ export function markMasteryTowerEntryStaminaPaid(
 
 export function masteryTowerClaimPreview(
   state: MasteryTowerState,
-): {
-  base: number;
-  firstClearBonus: number;
-  total: number;
-  newlyClaimedMilestones: number[];
-} {
+): MasteryTowerClaimPreview {
   if (state.claimed || state.todayBestFloor <= 0) {
     return { base: 0, firstClearBonus: 0, total: 0, newlyClaimedMilestones: [] };
   }
@@ -323,6 +330,54 @@ export function masteryTowerClaimPreview(
     firstClearBonus,
     total: base + firstClearBonus,
     newlyClaimedMilestones: newlyClaimedMilestones.map((m) => m.floor),
+  };
+}
+
+/**
+ * KST 날짜가 바뀐 저장 상태를 오늘 상태로 넘기면서 전날 미수령 보상을 분리한다.
+ * 실제 인벤토리 지급은 서버 트랜잭션 헬퍼가 이 결과를 사용해 처리한다.
+ */
+export function rolloverMasteryTowerState(
+  raw: unknown,
+  date: string = kstDateKey(),
+): {
+  tower: MasteryTowerState;
+  rolledOver: boolean;
+  reward: MasteryTowerRolloverReward | null;
+} {
+  const obj =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const savedDate = typeof obj.date === "string" ? obj.date : date;
+  const previous = parseMasteryTowerState(raw, savedDate);
+  if (previous.date === date) {
+    return { tower: previous, rolledOver: false, reward: null };
+  }
+
+  const preview = masteryTowerClaimPreview(previous);
+  const reward =
+    preview.total > 0
+      ? {
+          ...preview,
+          previousDate: previous.date,
+          previousBestFloor: previous.todayBestFloor,
+        }
+      : null;
+  const firstClearRewardsClaimed = reward
+    ? [
+        ...new Set([
+          ...previous.firstClearRewardsClaimed,
+          ...reward.newlyClaimedMilestones,
+        ]),
+      ].sort((a, b) => a - b)
+    : previous.firstClearRewardsClaimed;
+
+  return {
+    tower: resetMasteryTowerDailyProgress(
+      { ...previous, firstClearRewardsClaimed },
+      date,
+    ),
+    rolledOver: true,
+    reward,
   };
 }
 

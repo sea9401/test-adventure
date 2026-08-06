@@ -8,6 +8,8 @@ import {
   pvpTournamentBets,
   pvpTournaments,
   savesKv,
+  messages,
+  users,
 } from "@/db/schema";
 import { ARENA_LOADOUTS_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import {
@@ -28,21 +30,28 @@ import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
+import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
 import {
   derivePlayerCombatV2,
   type DerivedPlayerCombatV2,
   type SavedCharacterV2,
 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { readProfileValue } from "@/adventure/profile/profileValue";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
 import { ARENA_DAMAGE_MULTIPLIER } from "@/lib/server/arena";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { getOrCreateCurrentSeason } from "./season";
+import { spendArenaTournamentBetGold } from "./arenaTournamentBetGold";
 import {
   arenaChampionshipBadgeForPlacement,
   grantArenaChampionshipBadge,
+  isArenaChampionshipWinner,
 } from "@/adventure/data/v2/arenaChampionshipBadges";
+import { ARENA_CHAMPION_TITLE_ID } from "@/adventure/data/titles";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import {
   ARENA_TOURNAMENT_BET_CLOSE_MS,
   ARENA_TOURNAMENT_BET_MAX_GOLD,
@@ -52,7 +61,9 @@ import {
   arenaRankedEndsAt,
   arenaSeasonPhase,
   arenaTournamentBetPayouts,
+  arenaTournamentSnapshotsAt,
   arenaTournamentStartsAt,
+  arenaTournamentMatchNoticeText,
   createArenaTournamentSchedule,
   nextDueArenaTournamentMatch,
   resolveArenaTournamentScheduledMatch,
@@ -60,8 +71,14 @@ import {
   type ArenaTournamentBracket,
   type ArenaTournamentEntrant,
 } from "./arenaTournament";
+import {
+  ARENA_TOURNAMENT_NOTICE_CLASS_NAME,
+  arenaTournamentNoticeContent,
+} from "@/lib/chat-config";
 
 const PROFILE_KEY = "character-profile.v2";
+const SYSTEM_USER_ID = "system";
+const TOURNAMENT_REPLAY_LOG_CAP = 150;
 const TOURNAMENT_SAVE_KEYS = [
   CHARACTER_STATE_KEY,
   "equipment.v2",
@@ -96,7 +113,7 @@ export type ArenaTournamentEnsureResult =
     };
 
 export type ArenaTournamentBetResult =
-  | { kind: "ok"; amount: number; gold: number }
+  | { kind: "ok"; amount: number; gold: number; bankedGold: number }
   | {
       kind:
         | "not_open"
@@ -161,11 +178,17 @@ function skillsStateForArena(
   };
 }
 
-function profileName(value: unknown): string {
+function tournamentProfile(value: unknown): { name: string; avatar: string } {
+  const profile = readProfileValue(value);
   const raw = (value ?? {}) as { name?: unknown };
-  return typeof raw.name === "string" && raw.name.trim().length > 0
-    ? raw.name.trim()
-    : "모험가";
+  const fallbackName =
+    typeof raw.name === "string" && raw.name.trim().length > 0
+      ? raw.name.trim()
+      : "모험가";
+  return {
+    name: profile?.name.trim() || fallbackName,
+    avatar: profile?.gender ?? "male1",
+  };
 }
 
 function characterLevel(value: unknown): number {
@@ -247,10 +270,12 @@ async function buildCombatEntrants(
       includeCookingBuff: false,
     });
     if (!combat) continue;
+    const profile = tournamentProfile(saves?.get(PROFILE_KEY));
     entrants.push({
       participant: {
         userId: rating.userId,
-        name: profileName(saves?.get(PROFILE_KEY)),
+        name: profile.name,
+        avatar: profile.avatar,
         level: characterLevel(character),
         qualifyingRank: index + 1,
         rating: rating.rating,
@@ -260,6 +285,64 @@ async function buildCombatEntrants(
     });
   }
   return entrants;
+}
+
+function tournamentSnapshotsFromEntrants(
+  bracket: ArenaTournamentBracket,
+  entrants: readonly ArenaTournamentEntrant<TournamentCombatPayload>[],
+): TournamentSnapshots {
+  const participantIds = new Set(
+    bracket.participants.map((participant) => participant.userId),
+  );
+  return Object.fromEntries(
+    entrants
+      .filter((entrant) => participantIds.has(entrant.participant.userId))
+      .map((entrant) => [entrant.participant.userId, entrant.payload]),
+  );
+}
+
+/** 예선 대진은 유지하고, 본선 참가자의 현재 아레나 전투 세팅만 마감 시각에 다시 확정한다. */
+async function freezeTournamentSnapshots(
+  tx: Tx,
+  row: TournamentRow,
+  seasonEndAt: Date,
+  now: Date,
+): Promise<TournamentRow> {
+  const bracket = bracketFromRow(row);
+  if (
+    bracket.version !== 2 ||
+    bracket.snapshotsFrozenAt ||
+    bracket.status === "completed" ||
+    bracket.status === "not_enough_players" ||
+    bracket.matches.some((match) => match.status === "completed") ||
+    now.getTime() < arenaTournamentSnapshotsAt(seasonEndAt).getTime()
+  ) {
+    return row;
+  }
+
+  const ranked = [...bracket.participants]
+    .sort((a, b) => a.qualifyingRank - b.qualifyingRank)
+    .map((participant) => ({
+      userId: participant.userId,
+      rating: participant.rating,
+      wins: participant.matches,
+      losses: 0,
+      draws: 0,
+    }));
+  const entrants = await buildCombatEntrants(tx, ranked);
+  const snapshots = {
+    ...snapshotsFromRow(row),
+    ...tournamentSnapshotsFromEntrants(bracket, entrants),
+  };
+  const frozenBracket: ArenaTournamentBracket = {
+    ...bracket,
+    snapshotsFrozenAt: now.toISOString(),
+  };
+  await tx
+    .update(pvpTournaments)
+    .set({ bracket: frozenBracket, snapshots })
+    .where(eq(pvpTournaments.seasonId, row.seasonId));
+  return { ...row, bracket: frozenBracket, snapshots };
 }
 
 function fightTournamentMatch(
@@ -284,7 +367,39 @@ function fightTournamentMatch(
     turns: battle.turns,
     p1HpRatio: battle.finalState.p1.hp / Math.max(1, battle.finalState.p1.maxHp),
     p2HpRatio: battle.finalState.p2.hp / Math.max(1, battle.finalState.p2.maxHp),
+    replay: toPvpReplayPayload(
+      battle.finalState,
+      p2.participant.name,
+      TOURNAMENT_REPLAY_LOG_CAP,
+    ),
   };
+}
+
+async function broadcastTournamentMatchResult(
+  tx: Tx,
+  bracket: ArenaTournamentBracket,
+  match: ArenaTournamentBracket["matches"][number],
+  now: Date,
+): Promise<void> {
+  await tx
+    .insert(users)
+    .values({ id: SYSTEM_USER_ID, email: "system@internal" })
+    .onConflictDoNothing({ target: users.id });
+  await tx.insert(messages).values({
+    userId: SYSTEM_USER_ID,
+    channel: "global",
+    guildId: null,
+    roomId: null,
+    name: "시스템",
+    className: ARENA_TOURNAMENT_NOTICE_CLASS_NAME,
+    title: match.kind === "final" ? "아레나 결승" : "아레나 본선",
+    content: arenaTournamentNoticeContent(
+      arenaTournamentMatchNoticeText(bracket, match),
+      bracket.seasonId,
+      match.id,
+    ),
+    createdAt: now,
+  });
 }
 
 async function settleMatchBets(
@@ -384,6 +499,7 @@ async function advanceTournament(
     });
     const resolved = bracket.matches.find((match) => match.id === due.id)!;
     await settleMatchBets(tx, row.seasonId, due.id, resolved.winnerUserId!, now);
+    await broadcastTournamentMatchResult(tx, bracket, resolved, now);
     processedMatches += 1;
   }
 
@@ -405,6 +521,14 @@ async function advanceTournament(
           badge,
         ),
       });
+      if (isArenaChampionshipWinner(reward.placement)) {
+        await grantTitleIfMissingInTx(
+          tx,
+          reward.userId,
+          ARENA_CHAMPION_TITLE_ID,
+          now.getTime(),
+        );
+      }
     }
     if (bracket.rewards.length > 0) {
       await tx.insert(marketplaceInbox).values(
@@ -468,15 +592,17 @@ export async function ensureArenaTournament(
       .then((rows) => rows[0]);
     let created = false;
     if (!row) {
-      const ranked = await tx
+      const rankedRows = await tx
         .select({
           userId: pvpRatings.userId,
+          email: users.email,
           rating: pvpRatings.rating,
           wins: pvpRatings.wins,
           losses: pvpRatings.losses,
           draws: pvpRatings.draws,
         })
         .from(pvpRatings)
+        .innerJoin(users, eq(users.id, pvpRatings.userId))
         .where(
           and(
             eq(pvpRatings.seasonId, season.id),
@@ -492,6 +618,7 @@ export async function ensureArenaTournament(
           asc(pvpRatings.updatedAt),
           asc(pvpRatings.userId),
         );
+      const ranked = excludeArenaOperatorAccounts(rankedRows);
       const entrants = await buildCombatEntrants(tx, ranked);
       const bracket = createArenaTournamentSchedule({
         seasonId: season.id,
@@ -499,15 +626,10 @@ export async function ensureArenaTournament(
         startsAt: arenaTournamentStartsAt(season.endAt),
         entrants,
       });
-      const snapshots = Object.fromEntries(
-        entrants
-          .filter((entrant) =>
-            bracket.participants.some(
-              (participant) => participant.userId === entrant.participant.userId,
-            ),
-          )
-          .map((entrant) => [entrant.participant.userId, entrant.payload]),
-      );
+      if (now.getTime() >= arenaTournamentSnapshotsAt(season.endAt).getTime()) {
+        bracket.snapshotsFrozenAt = now.toISOString();
+      }
+      const snapshots = tournamentSnapshotsFromEntrants(bracket, entrants);
       row = await tx
         .insert(pvpTournaments)
         .values({
@@ -523,6 +645,7 @@ export async function ensureArenaTournament(
         .then((rows) => rows[0]!);
       created = true;
     }
+    row = await freezeTournamentSnapshots(tx, row, season.endAt, now);
     const advanced = await advanceTournament(tx, row, now);
     return {
       kind: "ok" as const,
@@ -616,13 +739,17 @@ export async function placeArenaTournamentBet(args: {
       CHARACTER_STATE_KEY,
       {},
     );
-    const gold = characterGold(character);
-    if (gold < amount) {
-      return { kind: "insufficient_gold" as const, remainingGold: gold };
+    const spent = spendArenaTournamentBetGold(character, amount);
+    if (!spent.ok) {
+      return {
+        kind: "insufficient_gold" as const,
+        remainingGold: spent.availableGold,
+      };
     }
     await upsertSave(tx, args.userId, CHARACTER_STATE_KEY, {
       ...character,
-      gold: gold - amount,
+      gold: spent.gold,
+      bankedGold: spent.bankedGold,
     });
     await tx.insert(pvpTournamentBets).values({
       seasonId: season.id,
@@ -645,7 +772,12 @@ export async function placeArenaTournamentBet(args: {
         chosenUserId: args.chosenUserId,
       },
     });
-    return { kind: "ok" as const, amount, gold: gold - amount };
+    return {
+      kind: "ok" as const,
+      amount,
+      gold: spent.gold,
+      bankedGold: spent.bankedGold,
+    };
   });
 }
 

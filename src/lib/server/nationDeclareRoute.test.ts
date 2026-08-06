@@ -65,8 +65,16 @@ vi.mock("@/db", () => {
         return { where: async () => undefined };
       },
     }),
-    // insert(guild_activity_log).values({...}) — 활동 로그(no-op).
-    insert: () => ({ values: async () => undefined }),
+    // 활동 로그는 INSERT ... RETURNING id/createdAt, 기여 원장은 일반 INSERT를 사용한다.
+    insert: () => ({
+      values: () => ({
+        returning: async () => [{ id: 1, createdAt: new Date(0) }],
+        then: (
+          res: (value: undefined) => unknown,
+          rej?: (error: unknown) => unknown,
+        ) => Promise.resolve(undefined).then(res, rej),
+      }),
+    }),
   };
   return {
     db: {

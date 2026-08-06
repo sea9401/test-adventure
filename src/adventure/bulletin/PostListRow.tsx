@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
+import { BulletinActivityBadge } from "./BulletinActivityBadge";
 
 // 게시판 목록의 한 줄 — 제목/작성자/시간 + 좋아요·댓글 카운트(읽기 전용).
 // 좋아요 토글·본문·댓글은 상세 페이지에서. 행 전체가 버튼이라 모바일 탭 영역 충분.
@@ -61,10 +62,13 @@ function PostListRowImpl({ post, onOpen }: Props) {
             </span>
           )}
         </div>
-        <div className="flex min-w-0 items-baseline gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span className="truncate font-medium text-zinc-700 dark:text-zinc-300">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="max-w-full shrink-0 break-all font-medium text-zinc-700 dark:text-zinc-300">
             {post.name}
           </span>
+          {post.authorActivity && (
+            <BulletinActivityBadge activity={post.authorActivity} />
+          )}
           <span className="shrink-0">{formatDate(post.createdAt)}</span>
           <span
             className="ml-auto inline-flex shrink-0 items-center gap-0.5"

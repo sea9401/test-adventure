@@ -11,7 +11,7 @@ AWS RDS PostgreSQL 18.3으로 옮겼으며, 옛 Neon DB는 운영에 사용하�
 | 요소 | 값 / 위치 |
 |---|---|
 | 클라우드 | AWS, 리전 `ap-northeast-2` (서울) |
-| 인스턴스 | EC2 `t4g.small` (Arm/Graviton, 2 vCPU / 2 GiB), Amazon Linux 2023 |
+| 인스턴스 | EC2 `t4g.medium` (Arm/Graviton, 2 vCPU / 4 GiB), Amazon Linux 2023 |
 | 고정 IP | Elastic IP `54.180.28.29` |
 | 디스크 | EBS gp3 20 GiB |
 | 스왑 | `/swapfile` 2 GiB (빌드 OOM 방지) |

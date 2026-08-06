@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/savesKv";
 import { parseMuseunCashItems } from "@/adventure/data/v2/museunCashItems";
 import {
+  equipArenaChampionshipBadge,
   equipChatBadge,
   equipChromaName,
   equipProfileBorder,
@@ -18,10 +19,15 @@ import {
   museunCosmeticAccessActive,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
+import {
+  isArenaChampionshipBadge,
+  parseArenaChampionshipBadges,
+} from "@/adventure/data/v2/arenaChampionshipBadges";
 
 type CharacterSave = {
   cashItems?: unknown;
   museunCosmetics?: unknown;
+  arenaChampionshipBadges?: unknown;
   [key: string]: unknown;
 };
 
@@ -39,6 +45,9 @@ export async function GET() {
   return Response.json({
     ok: true,
     cosmetics: parseMuseunCosmetics(character.museunCosmetics),
+    championshipBadges: parseArenaChampionshipBadges(
+      character.arenaChampionshipBadges,
+    ),
     cashItems: parseMuseunCashItems(character.cashItems),
   });
 }
@@ -66,7 +75,12 @@ export async function POST(req: Request) {
   const slot = body.slot ?? "chroma_name";
   const itemId = body.slot ? body.itemId : body.chromaNameId;
   if (
-    !["chroma_name", "profile_border", "chat_badge"].includes(String(slot))
+    ![
+      "chroma_name",
+      "profile_border",
+      "chat_badge",
+      "championship_badge",
+    ].includes(String(slot))
   ) {
     return Response.json(
       { ok: false, error: "invalid_cosmetic" },
@@ -105,6 +119,13 @@ export async function POST(req: Request) {
     } else if (slot === "chat_badge") {
       if (itemId !== null && !isChatBadgeItemId(itemId)) return null;
       cosmetics = equipChatBadge(current, itemId, now);
+    } else if (slot === "championship_badge") {
+      if (itemId !== null && !isArenaChampionshipBadge(itemId)) return null;
+      cosmetics = equipArenaChampionshipBadge(
+        current,
+        itemId,
+        character.arenaChampionshipBadges,
+      );
     } else {
       if (itemId !== null && !isChromaNameId(itemId)) return null;
       cosmetics = equipChromaName(current, itemId, now);
@@ -119,7 +140,16 @@ export async function POST(req: Request) {
       ...character,
       museunCosmetics: cosmetics,
     });
-    return { status: 200, body: { ok: true as const, cosmetics } };
+    return {
+      status: 200,
+      body: {
+        ok: true as const,
+        cosmetics,
+        championshipBadges: parseArenaChampionshipBadges(
+          character.arenaChampionshipBadges,
+        ),
+      },
+    };
   });
 
   if (!result) {

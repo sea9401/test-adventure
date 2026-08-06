@@ -1,13 +1,115 @@
+import {
+  WOODCUTTING_SPOTS,
+  type WoodcuttingSpotId,
+} from "@/adventure/data/v2/woodcuttingSpots";
+import {
+  MINING_SPOTS,
+  type MiningSpotId,
+} from "@/adventure/data/v2/miningSpots";
+
 export const AUTO_GATHERING_DURATION_MS = 30 * 60 * 1_000;
 export const AUTO_GATHERING_MATERIAL_EFFICIENCY = 0.8;
 export const AUTO_GATHERING_XP_EFFICIENCY = 0.7;
+export type AutoGatheringPlanId = "standard" | "extended";
+export type AutoGatheringPlan = {
+  id: AutoGatheringPlanId;
+  label: string;
+  durationLabel: string;
+  durationMs: number;
+  materialEfficiency: number;
+  successRateMultiplier: number;
+  xpEfficiency: number;
+};
+export const AUTO_GATHERING_PLANS: Record<
+  AutoGatheringPlanId,
+  AutoGatheringPlan
+> = {
+  standard: {
+    id: "standard",
+    label: "기본 작업",
+    durationLabel: "30분",
+    durationMs: AUTO_GATHERING_DURATION_MS,
+    materialEfficiency: AUTO_GATHERING_MATERIAL_EFFICIENCY,
+    successRateMultiplier: 1,
+    xpEfficiency: AUTO_GATHERING_XP_EFFICIENCY,
+  },
+  extended: {
+    id: "extended",
+    label: "느긋한 작업",
+    durationLabel: "2시간",
+    durationMs: 2 * 60 * 60 * 1_000,
+    materialEfficiency: 0.6,
+    successRateMultiplier: 0.8,
+    xpEfficiency: AUTO_GATHERING_XP_EFFICIENCY,
+  },
+};
+export const AUTO_GATHERING_PLAN_LIST = Object.values(AUTO_GATHERING_PLANS);
 export const WOODCUTTING_AUTO_KEY = "woodcutting-auto.v1";
 export const MINING_AUTO_KEY = "mining-auto.v1";
 
 export type AutoGatheringActivity = "woodcutting" | "mining";
 
+export type AutoGatheringStatus = {
+  activity: AutoGatheringActivity;
+  sourceId: string;
+  sourceName: string;
+  readyAt: number;
+};
+
+function woodcuttingSpotIdForSource(sourceId: string): WoodcuttingSpotId | null {
+  return (
+    (Object.values(WOODCUTTING_SPOTS).find(
+      (spot) => spot.treeId === sourceId,
+    )?.id as WoodcuttingSpotId | undefined) ?? null
+  );
+}
+
+function miningSpotIdForSource(sourceId: string): MiningSpotId | null {
+  return (
+    (Object.values(MINING_SPOTS).find(
+      (spot) => spot.nodeId === sourceId,
+    )?.id as MiningSpotId | undefined) ?? null
+  );
+}
+
+export function autoGatheringActivityHref(
+  status: AutoGatheringStatus | null,
+): string | null {
+  if (!status) return null;
+  if (status.activity === "woodcutting") {
+    const spotId = woodcuttingSpotIdForSource(status.sourceId);
+    return spotId ? `/town/logging?spot=${spotId}` : "/town/logging";
+  }
+  const spotId = miningSpotIdForSource(status.sourceId);
+  return spotId ? `/town/mining?spot=${spotId}` : "/town/mining";
+}
+
+export function autoGatheringStatusText(
+  status: AutoGatheringStatus | null,
+  now: number,
+): string {
+  if (!status) return "휴식 중";
+  const activityName = status.activity === "woodcutting" ? "벌목" : "채광";
+  if (now >= status.readyAt) {
+    return `${activityName} 정산 대기 · ${status.sourceName}`;
+  }
+  const remainingSeconds = Math.max(
+    0,
+    Math.ceil((status.readyAt - now) / 1_000),
+  );
+  const hours = Math.floor(remainingSeconds / 3_600);
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  const remainingLabel =
+    hours > 0
+      ? `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+      : `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${activityName} 자동 중 · ${status.sourceName} · ${remainingLabel}`;
+}
+
 export type AutoGatheringSession = {
   sessionId: string;
+  planId: AutoGatheringPlanId;
   sourceId: string;
   sourceName: string;
   materialId: string;
@@ -16,6 +118,8 @@ export type AutoGatheringSession = {
   cycleDurationMs: number;
   attempts: number;
   successRate: number;
+  materialEfficiency: number;
+  xpEfficiency: number;
   bonusMaterialRate: number;
   baseXp: number;
 };
@@ -57,12 +161,31 @@ function remainderMap(value: unknown): Record<string, number> {
   );
 }
 
-export function autoGatheringAttempts(cycleDurationMs: number): number {
+export function isAutoGatheringPlanId(
+  value: unknown,
+): value is AutoGatheringPlanId {
+  return value === "standard" || value === "extended";
+}
+
+export function autoGatheringPlan(value: unknown): AutoGatheringPlan {
+  return AUTO_GATHERING_PLANS[
+    isAutoGatheringPlanId(value) ? value : "standard"
+  ];
+}
+
+export function autoGatheringAttempts(
+  cycleDurationMs: number,
+  durationMs = AUTO_GATHERING_DURATION_MS,
+): number {
   const safeCycleDurationMs = Math.max(
     1_000,
     Math.floor(finiteNumber(cycleDurationMs, 1_000)),
   );
-  return Math.max(1, Math.floor(AUTO_GATHERING_DURATION_MS / safeCycleDurationMs));
+  const safeDurationMs = Math.max(
+    60_000,
+    Math.floor(finiteNumber(durationMs, AUTO_GATHERING_DURATION_MS)),
+  );
+  return Math.max(1, Math.floor(safeDurationMs / safeCycleDurationMs));
 }
 
 export function createAutoGatheringSession(args: {
@@ -70,26 +193,35 @@ export function createAutoGatheringSession(args: {
   sourceId: string;
   sourceName: string;
   materialId: string;
+  planId?: AutoGatheringPlanId;
   now: number;
   cycleDurationMs: number;
   successRate: number;
   bonusMaterialRate?: number;
   baseXp: number;
 }): AutoGatheringSession {
+  const plan = autoGatheringPlan(args.planId);
   const cycleDurationMs = Math.max(
     1_000,
     Math.floor(finiteNumber(args.cycleDurationMs, 1_000)),
   );
+  const successRate = Math.min(
+    1,
+    Math.max(0, finiteNumber(args.successRate) * plan.successRateMultiplier),
+  );
   return {
     sessionId: args.sessionId,
+    planId: plan.id,
     sourceId: args.sourceId,
     sourceName: args.sourceName,
     materialId: args.materialId,
     startedAt: args.now,
-    readyAt: args.now + AUTO_GATHERING_DURATION_MS,
+    readyAt: args.now + plan.durationMs,
     cycleDurationMs,
-    attempts: autoGatheringAttempts(cycleDurationMs),
-    successRate: Math.min(1, Math.max(0, finiteNumber(args.successRate))),
+    attempts: autoGatheringAttempts(cycleDurationMs, plan.durationMs),
+    successRate: Math.round(successRate * 1_000_000) / 1_000_000,
+    materialEfficiency: plan.materialEfficiency,
+    xpEfficiency: plan.xpEfficiency,
     bonusMaterialRate: Math.min(
       1,
       Math.max(0, finiteNumber(args.bonusMaterialRate)),
@@ -139,6 +271,7 @@ export function parseAutoGatheringState(raw: unknown): AutoGatheringState {
   return {
     session: {
       sessionId: session.sessionId,
+      planId: autoGatheringPlan(session.planId).id,
       sourceId: session.sourceId,
       sourceName: session.sourceName,
       materialId: session.materialId,
@@ -147,6 +280,26 @@ export function parseAutoGatheringState(raw: unknown): AutoGatheringState {
       cycleDurationMs: Math.max(1_000, Math.floor(cycleDurationMs)),
       attempts: Math.max(1, Math.floor(attempts)),
       successRate: Math.min(1, Math.max(0, finiteNumber(session.successRate))),
+      materialEfficiency: Math.min(
+        1,
+        Math.max(
+          0,
+          finiteNumber(
+            session.materialEfficiency,
+            autoGatheringPlan(session.planId).materialEfficiency,
+          ),
+        ),
+      ),
+      xpEfficiency: Math.min(
+        1,
+        Math.max(
+          0,
+          finiteNumber(
+            session.xpEfficiency,
+            autoGatheringPlan(session.planId).xpEfficiency,
+          ),
+        ),
+      ),
       bonusMaterialRate: Math.min(
         1,
         Math.max(0, finiteNumber(session.bonusMaterialRate)),
@@ -216,16 +369,16 @@ export function settleAutoGathering(
     (state.remainders.materials[session.materialId] ?? 0) +
     successes *
       (1 + session.bonusMaterialRate) *
-      AUTO_GATHERING_MATERIAL_EFFICIENCY;
+      session.materialEfficiency;
   const materialReward = splitWholeReward(expectedMaterials);
   const materialsGained = materialReward.whole;
   const expectedXp =
     state.remainders.xp +
-    successes * session.baseXp * AUTO_GATHERING_XP_EFFICIENCY;
+    successes * session.baseXp * session.xpEfficiency;
   const xpReward = splitWholeReward(expectedXp);
   const xpGained = xpReward.whole;
   const expectedMastery =
-    state.remainders.mastery + successes * AUTO_GATHERING_XP_EFFICIENCY;
+    state.remainders.mastery + successes * session.xpEfficiency;
   const masteryReward = splitWholeReward(expectedMastery);
   const masteryGained = masteryReward.whole;
 

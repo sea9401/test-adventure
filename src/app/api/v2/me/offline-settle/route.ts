@@ -3,6 +3,13 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { canHuntWithHp } from "@/adventure/v2/hpRegen";
+import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import {
+  getAutoHuntStopReason,
+  normalizeAutoHuntStopConfig,
+  type AutoHuntStopConfig,
+  type AutoHuntStopReason,
+} from "@/adventure/v2/autoHuntStopPolicy";
 import {
   V2_CORE_LOOP_V2,
   HUNT_COOLDOWN_MODE,
@@ -38,6 +45,7 @@ type SettleCharSave = {
   level?: number;
   // 오프라인 사냥 세션 시작 시각(없으면 비활성 → 정산 없음). 최대 OFFLINE_MAX_MS(2h) 창.
   offlineHuntStartedAt?: number;
+  offlineHuntStopConfig?: AutoHuntStopConfig | null;
   [k: string]: unknown;
 };
 
@@ -71,6 +79,9 @@ export async function POST(req: Request) {
     }
     // 세션 창 끝 = 시작 + 2h. 정산 기준 시각은 now 를 창 끝으로 클램프(2h 초과분 버림).
     const windowEnd = startedAt + OFFLINE_MAX_MS;
+    const autoStopConfig = normalizeAutoHuntStopConfig(
+      charSave.offlineHuntStopConfig,
+    );
     const effectiveNow = Math.min(now, windowEnd);
     const lastBattleAt = Number(charSave.lastBattleAt) || 0;
     const accrued = offlineBattlesAccrued(lastBattleAt, effectiveNow);
@@ -90,6 +101,7 @@ export async function POST(req: Request) {
         await upsertSave(tx, userId, "character.v2", {
           ...charSave,
           offlineHuntStartedAt: null,
+          offlineHuntStopConfig: null,
         });
       }
       return {
@@ -127,7 +139,7 @@ export async function POST(req: Request) {
     let totalMastery = 0;
     let levelsGained = 0;
     let spMilestonesGained = 0; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤 합산.
-    let stopped: "hp" | "error" | null = null;
+    let stopped: "hp" | "error" | AutoHuntStopReason | null = null;
 
     for (let i = 0; i < n; i++) {
       // 판별 시뮬 시각 — 5초 간격, 마지막 판이 이번 batchEnd에 맞닿는다.
@@ -160,6 +172,19 @@ export async function POST(req: Request) {
       totalMastery += res.masteryGained ?? 0;
       levelsGained += res.levelsGained;
       spMilestonesGained += res.spMilestonesGained ?? 0;
+      const autoStopReason = getAutoHuntStopReason(autoStopConfig, {
+        hpCharges: res.hpCharges,
+        mpCharges: res.mpCharges,
+        hasMp: (res.maxMp ?? 0) > 0,
+        rareMapFound:
+          !!res.rareMapDrop &&
+          RARE_MAP_KINDS[res.rareMapDrop]?.category === "hunt",
+        level: res.levelAfter,
+      });
+      if (autoStopReason) {
+        stopped = autoStopReason;
+        break;
+      }
       // HP/포션 소진 — 온라인 배치와 동일 조건으로 중단(누적시간은 아래서 소비).
       if (res.hpAfter <= 0 || !canHuntWithHp(res.hpAfter, res.maxHp)) {
         stopped = "hp";
@@ -175,16 +200,26 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+    const autoStopped =
+      stopped === "potion" ||
+      stopped === "rare_map" ||
+      stopped === "level_100";
+    const sessionDone = windowDone || autoStopped;
     await upsertSave(tx, userId, "character.v2", {
       ...after,
       lastBattleAt: batchEnd,
-      ...(windowDone ? { offlineHuntStartedAt: null } : {}),
+      ...(sessionDone
+        ? {
+            offlineHuntStartedAt: null,
+            offlineHuntStopConfig: null,
+          }
+        : {}),
     });
 
     return {
       battles: completed,
       accrued,
-      remainingBattles,
+      remainingBattles: autoStopped ? 0 : remainingBattles,
       wins,
       losses,
       totalExp,
@@ -197,8 +232,9 @@ export async function POST(req: Request) {
       depth,
       finalLevel: Math.max(1, Math.floor(Number(after.level) || 1)),
       stopped,
+      stoppedReason: stopped,
       // 창이 남아 있으면 세션 유지(true) — 또 비우면 더 누적됨. 다 쓰면 false(종료).
-      active: !windowDone,
+      active: !sessionDone,
     };
   });
 

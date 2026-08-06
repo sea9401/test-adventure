@@ -42,7 +42,7 @@ EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node`가 있다. A
 
 ## 3. 배포
 
-**배포 = `main` 에 머지** (CI 성공 후 자동). 흐름: GitHub Action `deploy.yml`이 CI가 검증한 정확한 SHA를 EC2에서 체크아웃 → **nginx 점검 ON** → `install-deps.sh` → 운영 환경 사전 검사 → `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl restart adventure-rpg` → **내부 스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → **점검 OFF** → **외부 공개 표면 스모크**(실제 도메인·TLS·nginx 경유, 배포 SHA·정책 문서·숨김 경로 검증). 중간 실패 시 Action이 실패하며, 점검 해제 전 실패는 점검 화면을 유지한다.
+**배포 = `main`의 CI 통과 SHA를 수동 승인**. 흐름: GitHub Action `deploy.yml`이 정확한 SHA를 EC2에서 체크아웃 → 운영 환경 사전 검사 → **nginx 점검 ON** → 운영·스테이징 Next.js 런타임 정지 → `install-deps.sh` → systemd 메모리·스왑·CPU 한도 안에서 `npm run build` → `migrate.mjs`(대기 마이그 적용) → `sudo systemctl start adventure-rpg` → **내부 스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증) → 스테이징 런타임 복구 → **점검 OFF** → **외부 공개 표면 스모크**(실제 도메인·TLS·nginx 경유, 배포 SHA·정책 문서·숨김 경로 검증). 빌드나 배포가 실패하면 남은 빌드 프로세스를 종료하고 이전 빌드로 운영 서비스를 복구하며, 복구 health가 실패할 때만 점검 화면을 유지한다.
 
 > ✅ **배포 후 스모크**: 재시작 뒤 라이브를 찔러보고 200 이 아니면 **배포 Action 을 빨간불**로 만든다(빌드 성공 ≠ 앱 정상 — 마이그 0-테이블 같은 사고도 잡음). 빨간불 뜨면 → `rollback.sh` 로 되돌린다.
 
@@ -114,6 +114,8 @@ cd ~/adventure-rpg
 bash deploy/install-rds-ca.sh
 # AWS SSM /adventure-rpg/production/env
 DATABASE_CA_CERT_PATH=/etc/pki/rds/global-bundle.pem
+# ops-retention의 DB 70%/85% 저장 공간 경고 기준. RDS 할당 용량과 같은 GiB 값.
+DB_STORAGE_LIMIT_GB=<RDS 할당 용량>
 ```
 
 `DATABASE_URL`에는 `sslmode`나 `sslrootcert`를 붙이지 않는다. 앱·마이그레이션은 위 CA로 인증서와 호스트명을 검증하고, `backup-db.sh`는 `verify-full`로 동일하게 검증한다.
@@ -211,7 +213,7 @@ journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 - **매시 00분**: 복권 정산 · NPC 공격
 - **매시 05분**: 거래소 만료 매물 정리
 - **일일 04:00 UTC**: 채팅 · 길드 정리
-- **일일 04:20 UTC**: ops-retention(이상 행동/경제 로그 보관 기간 초과분 및 실패한 외부 파일 삭제 재처리)
+- **일일 04:20 UTC**: ops-retention(로그 보관 정책 적용·길드/거래소 압축 집계·DB 용량 측정·실패한 외부 파일 삭제 재처리)
 - **일일 04:25 UTC**: ops-daily-report(최근 24시간 운영 지표 webhook 리포트)
 - **일일 17:00 UTC**: DB 백업(선택적으로 `BACKUP_S3_URI`에도 암호화 업로드)
 - **토요일 15:00 UTC**: PvP 토너먼트

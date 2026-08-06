@@ -25,7 +25,8 @@ import {
   clientIpFromRequest,
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
-import { FISH, isBigCatch } from "@/adventure/data/v2/fish";
+import { FISH, isBigCatch, isTinyCatch } from "@/adventure/data/v2/fish";
+import { TINY_CATCH_TITLE_ID } from "@/adventure/data/titles";
 import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
   addJobHistory,
@@ -45,6 +46,7 @@ import {
 } from "@/adventure/v2/fishingSession";
 import {
   FISHING_ANTI_MACRO_KEY,
+  isFishingAntiMacroStrongSignal,
   parseFishingAntiMacroState,
   recordFishingAntiMacroSample,
 } from "@/adventure/v2/fishingAntiMacro";
@@ -106,6 +108,7 @@ import {
 } from "@/lib/server/v2Coop";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -193,12 +196,7 @@ export async function POST(req: Request) {
         patternSignals: antiMacro.signals,
       },
     );
-    const strongSignal = antiMacro.signals.find(
-      (signal) =>
-        signal === "impossibly_fast_server_reel" ||
-        signal === "impossibly_fast_post_bite_reel" ||
-        signal === "repeated_prefire",
-    );
+    const strongSignal = antiMacro.signals.find(isFishingAntiMacroStrongSignal);
     let guardStrongSignal: string | null = null;
     if (strongSignal) {
       const strongUpdate = recordActivityStrongSignal(
@@ -350,6 +348,15 @@ export async function POST(req: Request) {
       session.size,
       new Date(now),
     );
+
+    if (isTinyCatch(session.fishId, session.size)) {
+      await grantTitleIfMissingInTx(
+        tx,
+        userId,
+        TINY_CATCH_TITLE_ID,
+        now,
+      );
+    }
 
     // 일일 낚시 도전과제 — 그날 카운터를 올린다(일 경계 롤오버는 applyDailyCatch 내부). 같은 tx.
     //   락 순서: 세션 → 코덱스 → 일일트래커 → (조각). claim 라우트는 일일트래커 → 지갑이라 순환 없음.
@@ -660,7 +667,11 @@ export async function POST(req: Request) {
     });
   }
   if (result.coopBoss) {
-    await insertFeedEntry(userId, "coop_summon", { kind: result.coopBoss.kind });
+    await insertFeedEntry(userId, "coop_summon", {
+      kind: result.coopBoss.kind,
+      sessionId: result.coopBoss.sessionId,
+      expiresAt: result.coopBoss.expiresAt,
+    });
     await broadcastCoopNotice(
       `${result.coopBoss.name}이(가) 낚싯줄을 타고 올라왔다`,
     );

@@ -7,7 +7,9 @@ name: Deploy to EC2
 #   EC2_HOST    — EC2 의 고정 IP 또는 도메인 (예: 54.180.28.29)
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
 #   OPS_ALERT_WEBHOOK_URL — 외부 공개 표면 검사 실패 알림 전용(선택)
-# 앱 런타임 비밀값은 EC2에서 SSM /adventure-rpg/production/env를 직접 읽는다.
+#   WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY, WEB_PUSH_SUBJECT
+# 앱 런타임 비밀값은 EC2에서 SSM을 읽고, 푸시 전용 키는 배포 환경 비밀값에서
+# 서버의 접근 제한 파일로 설치한다.
 on:
   workflow_dispatch:
     inputs:
@@ -21,10 +23,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify-manual:
+  verify-main-ci:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     env:
       DEPLOY_SHA: ${{ inputs.deploy_sha }}
+    outputs:
+      ci_run_id: ${{ steps.ci-run.outputs.ci_run_id }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,26 +43,39 @@ jobs:
           test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
           git fetch origin main
           git merge-base --is-ancestor "$DEPLOY_SHA" origin/main
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run check-images
-      - run: npx tsc --noEmit
-      - run: npm run lint
-      - run: npx vitest run
-      - run: npm audit --omit=dev --audit-level=moderate
-      - run: npm run build
+      # 검증과 빌드를 다시 하지 않고, 정확히 이 SHA로 성공한 main push CI만 신뢰한다.
+      - name: Locate successful main CI artifact
+        id: ci-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ci_run_id="$(
+            gh api \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&head_sha=$DEPLOY_SHA&per_page=10" \
+              --jq '.workflow_runs[0].id // empty'
+          )"
+          test -n "$ci_run_id"
+
+          artifact_name="production-next-$DEPLOY_SHA"
+          artifact_id="$(
+            gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$ci_run_id/artifacts" \
+              --jq ".artifacts[] | select(.name == \"$artifact_name\" and .expired == false) | .id" \
+              | head -n 1
+          )"
+          test -n "$artifact_id"
+          echo "ci_run_id=$ci_run_id" >> "$GITHUB_OUTPUT"
+          echo "✓ successful main CI run $ci_run_id has artifact $artifact_id"
 
   deploy:
-    needs: [verify-manual]
+    needs: [verify-main-ci]
     runs-on: ubuntu-latest
     environment: msmsge.com
     env:
       DEPLOY_SHA: ${{ inputs.deploy_sha }}
     # private repo fetch 용 GITHUB_TOKEN 에 contents:read 보장.
     permissions:
+      actions: read
       contents: read
     steps:
       - name: Checkout deployed revision
@@ -65,20 +85,40 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 20
-      # ──────────────────────────────────────────────────────────────────
-      # prod 배포 — 실패 시 워크플로 전체 실패. 91fb8d2 까지 잘 돌던 원형 스크립트
-      # 를 그대로 유지 (multi-line if/subshell 을 끼우니 prod 헬스 직후 SSH 세션이
-      # silent 하게 끊겨 워크플로가 빨간불이 되는 케이스가 발생 — #93 이후 두 번).
-      # ──────────────────────────────────────────────────────────────────
-      - name: SSH & deploy [prod]
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download exact CI production build
+        uses: actions/download-artifact@v8
+        with:
+          name: production-next-${{ env.DEPLOY_SHA }}
+          path: production-release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.verify-main-ci.outputs.ci_run_id }}
+      - name: Verify downloaded production build
+        run: |
+          cd production-release
+          sha256sum --check production-next.tar.gz.sha256
+      # 전송과 체크섬 검증은 운영 점검 모드를 켜기 전에 끝낸다.
+      - name: Transfer production build to EC2
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GH_TOKEN,DEPLOY_SHA
+          source: "production-release/*"
+          target: "/home/ec2-user/adventure-release-artifacts/${{ env.DEPLOY_SHA }}"
+          strip_components: 1
+      - name: SSH & deploy [prod]
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEB_PUSH_VAPID_PUBLIC_KEY: ${{ secrets.WEB_PUSH_VAPID_PUBLIC_KEY }}
+          WEB_PUSH_VAPID_PRIVATE_KEY: ${{ secrets.WEB_PUSH_VAPID_PRIVATE_KEY }}
+          WEB_PUSH_SUBJECT: ${{ secrets.WEB_PUSH_SUBJECT }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GH_TOKEN,DEPLOY_SHA,WEB_PUSH_VAPID_PUBLIC_KEY,WEB_PUSH_VAPID_PRIVATE_KEY,WEB_PUSH_SUBJECT
           script_stop: true
           command_timeout: 30m
           script: |
@@ -89,70 +129,35 @@ jobs:
             # runner 의 GITHUB_TOKEN(ephemeral, contents:read)으로 HTTPS fetch 해 우회.
             git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
             git checkout --detach --force "$DEPLOY_SHA"
-            echo "▶ [prod] cleanup stale Next builds"
-            # SSH command timeout 뒤 원격에 남은 빌드가 다음 배포와 메모리를 다투지 않게 한다.
-            pkill -f '[n]ext build' || true
+            release_dir="/home/ec2-user/adventure-release-artifacts/$DEPLOY_SHA"
+            PRODUCTION_BUILD_ARCHIVE="$release_dir/production-next.tar.gz"
+            PRODUCTION_BUILD_CHECKSUM="$release_dir/production-next.tar.gz.sha256"
+            export PRODUCTION_BUILD_ARCHIVE PRODUCTION_BUILD_CHECKSUM
+            push_env_file=""
+            cleanup_release_artifact() {
+              if [ -n "$push_env_file" ]; then
+                rm -f "$push_env_file"
+              fi
+              rm -f "$PRODUCTION_BUILD_ARCHIVE" "$PRODUCTION_BUILD_CHECKSUM"
+              rmdir "$release_dir" 2>/dev/null || true
+            }
+            trap cleanup_release_artifact EXIT
+            test -n "$WEB_PUSH_VAPID_PUBLIC_KEY"
+            test -n "$WEB_PUSH_VAPID_PRIVATE_KEY"
+            test -n "$WEB_PUSH_SUBJECT"
+            sudo install -d -o root -g ec2-user -m 0750 /etc/adventure-rpg
+            push_env_file="$(mktemp)"
+            chmod 0600 "$push_env_file"
+            printf 'WEB_PUSH_VAPID_PUBLIC_KEY=%s\nWEB_PUSH_VAPID_PRIVATE_KEY=%s\nWEB_PUSH_SUBJECT=%s\n' \
+              "$WEB_PUSH_VAPID_PUBLIC_KEY" \
+              "$WEB_PUSH_VAPID_PRIVATE_KEY" \
+              "$WEB_PUSH_SUBJECT" > "$push_env_file"
+            sudo install -o root -g ec2-user -m 0640 "$push_env_file" \
+              /etc/adventure-rpg/web-push.env
+            rm -f "$push_env_file"
             PRODUCTION_ENV_PATH=/run/adventure-rpg/production.env
             export PRODUCTION_ENV_PATH
-            echo "▶ [prod] sync production env from SSM"
-            sudo install -d -o ec2-user -g ec2-user -m 0700 /run/adventure-rpg
-            node scripts/sync-production-env-from-ssm.mjs "$PRODUCTION_ENV_PATH"
-            echo "▶ [prod] install AWS RDS CA bundle"
-            DATABASE_CA_CERT_PATH=$(grep '^DATABASE_CA_CERT_PATH=' "$PRODUCTION_ENV_PATH" | cut -d= -f2- | tr -d '"')
-            export DATABASE_CA_CERT_PATH
-            bash deploy/install-rds-ca.sh
-            echo "▶ [prod] production env preflight"
-            node --env-file="$PRODUCTION_ENV_PATH" scripts/check-production-env.mjs
-            echo "▶ [prod] nginx maintenance on"
-            bash deploy/maintenance.sh on
-            trap 'bash deploy/maintenance.sh off || true' EXIT
-            echo "▶ [prod] deps"
-            bash deploy/install-deps.sh
-            echo "▶ [prod] build"
-            bash deploy/build-production.sh
-            echo "▶ [prod] db migrate"
-            node --env-file="$PRODUCTION_ENV_PATH" src/db/migrate.mjs
-            echo "▶ [prod] sync systemd unit"
-            sudo install -d -m 0755 /usr/local/libexec/adventure-rpg
-            sudo install -m 0755 scripts/sync-production-env-from-ssm.mjs /usr/local/libexec/adventure-rpg/sync-production-env-from-ssm.mjs
-            sudo install -m 0644 deploy/adventure-rpg.service /etc/systemd/system/adventure-rpg.service
-            sudo install -m 0644 deploy/adventure-resource-monitor.service /etc/systemd/system/adventure-resource-monitor.service
-            sudo install -m 0644 deploy/adventure-resource-monitor.timer /etc/systemd/system/adventure-resource-monitor.timer
-            sudo systemctl daemon-reload
-            sudo systemctl enable --now adventure-resource-monitor.timer
-            echo "▶ [prod] restart"
-            sudo systemctl restart adventure-rpg
-            sleep 2
-            sudo systemctl --no-pager status adventure-rpg | head -n 4
-            echo "▶ [prod] smoke — 라이브가 진짜 살아있는지 검증(실패 시 배포 빨간불 → rollback.sh)"
-            ok=0
-            for i in $(seq 1 20); do
-              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/api/health || echo 000)
-              if [ "$code" = "200" ]; then ok=1; echo "  health 200 (try $i)"; break; fi
-              echo "  health $code — 부팅 대기 $i/20"; sleep 3
-            done
-            [ "$ok" = "1" ] || { echo "✗ SMOKE FAIL: /api/health 가 200 이 아님 (앱 미기동/DB 단절)"; exit 1; }
-            sc=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/sign-in || echo 000)
-            [ "$sc" = "200" ] || { echo "✗ SMOKE FAIL: /sign-in → $sc"; exit 1; }
-            echo "  /sign-in 200"
-            CRON_SECRET=$(grep '^CRON_SECRET=' "$PRODUCTION_ENV_PATH" | cut -d= -f2- | tr -d '"')
-            ops=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 -X POST -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/v2/cron/deploy-smoke || echo 000)
-            [ "$ops" = "200" ] || { echo "✗ SMOKE FAIL: deploy-smoke → $ops"; exit 1; }
-            echo "  deploy-smoke 200"
-            echo "▶ [prod] sync application crontab"
-            crontab deploy/crontab.txt
-            systemctl is-active --quiet crond
-            for path in \
-              /api/v2/cron/ops-retention \
-              /api/v2/cron/ops-daily-report; do
-              crontab -l | grep -Fq "$path" || { echo "✗ CRON SYNC FAIL: $path 누락"; exit 1; }
-            done
-            echo "  application crontab synced"
-            sudo systemctl start adventure-resource-monitor.service
-            echo "▶ [prod] nginx maintenance off"
-            bash deploy/maintenance.sh off
-            trap - EXIT
-            echo "✓ [prod] smoke pass · done"
+            bash deploy/release-production.sh
       - name: Verify public release surface
         env:
           PUBLIC_RELEASE_EXPECTED_BUILD_ID: ${{ env.DEPLOY_SHA }}

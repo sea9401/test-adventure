@@ -29,6 +29,7 @@ import {
   BLEED_ATK_COEF_PER_STACK,
   CRIT_MULT_BASE,
   POISON_PCT_PER_POINT,
+  combineDefReductionPcts,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
@@ -281,7 +282,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveOpeningMagicDamageReductionPct?: number;
   /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
   passiveOpeningMagicDamageReductionPhases?: number;
-  /** 중독된 적 방어 -%(부식 패시브) — poisonedEnemyDefReductionPct 에 가산. */
+  /** 중독된 적 방어 -%(부식 패시브) — 다른 부식과 남은 방어력 기준 곱연산. */
   passivePoisonedEnemyDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 엔진 computeBerserkBonus 로 소비. */
   passiveBerserkAtkPctPerLostHpPct?: number;
@@ -289,12 +290,14 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEnemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률. */
   passiveEnemyMagicVulnApplyChancePct?: number;
-  /** 마법 스킬 피해 +% — scaling="magic" 피해분에만 적용. */
+  /** 마법 스킬 피해 +% — scaling="magic"/"spi" 피해분에만 적용. */
   passiveMagicSkillDamagePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
   passiveSpdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
   passiveSkillCritOverflow?: boolean;
+  /** 흑월지배 — 회피 후 다음 직접 피해 스킬 확정 치명타. 장착 패시브에서 주입. */
+  passiveSkillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 장착 패시브에서 주입. */
   passiveComboFinisherBonusPct?: number;
 };
@@ -566,9 +569,10 @@ export function derivePlayerCombatV2Pure(
   const totalLifestealPct =
     (specEff.lifestealPct ?? 0) +
     (input.passiveLifestealPct ?? 0); // 장착 패시브(포식) — 저수치.
-  const totalPoisonedEnemyDefReductionPct =
-    (specEff.poisonedEnemyDefReductionPct ?? 0) +
-    (input.passivePoisonedEnemyDefReductionPct ?? 0);
+  const totalPoisonedEnemyDefReductionPct = combineDefReductionPcts(
+    specEff.poisonedEnemyDefReductionPct ?? 0,
+    input.passivePoisonedEnemyDefReductionPct ?? 0,
+  );
   const totalMagicSkillDamagePct =
     (specEff.magicSkillDamagePct ?? 0) +
     (input.passiveMagicSkillDamagePct ?? 0);
@@ -584,6 +588,7 @@ export function derivePlayerCombatV2Pure(
     // scaling:"dex"/"luk" 비례 딜(도적 직군 스킬)용 total. % 패시브/내장보너스 반영된 최종값.
     dexStat: totalStats.dex,
     lukStat: totalStats.luk,
+    spiStat: totalStats.spi,
     allStatTotal: V2_STAT_KEYS.reduce((sum, stat) => sum + totalStats[stat], 0),
     classTier: input.classTier,
     // 발동형 시그니처(Phase 2) — 활성분 있을 때만 키 추가(빈 배열이면 키 자체 생략 →
@@ -591,6 +596,8 @@ export function derivePlayerCombatV2Pure(
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
     // 밤그림자 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
     ...(input.passiveSkillCritOverflow ? { skillCritOverflow: true as const } : {}),
+    // 흑월지배 — 회피 뒤 다음 직접 피해 스킬 확정 치명타 플래그.
+    ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
     def: specDef,
@@ -608,6 +615,14 @@ export function derivePlayerCombatV2Pure(
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
     magicDef,
     critResistPct,
+    ...(equipAcc.statusDamageReductionPct > 0
+      ? {
+          statusDamageReductionPct: Math.min(
+            100,
+            equipAcc.statusDamageReductionPct,
+          ),
+        }
+      : {}),
     minDamage,
     healMult,
     // 직업 효과 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 합산(sumOrUndef).
@@ -869,6 +884,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveMagicSkillDamagePct: passiveAgg.magicSkillDamagePct,
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
+    passiveSkillCritAfterEvade: passiveAgg.skillCritAfterEvade,
     passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,
   });
 }

@@ -16,8 +16,10 @@ import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { formatDateTime } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { toggleLike } from "./api";
+import { BulletinMarkdown } from "./BulletinMarkdown";
 import { CommentsPanel } from "./CommentsPanel";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
+import { BulletinActivityBadge } from "./BulletinActivityBadge";
 
 // 게시판 글 상세 — 목록에서 한 글 클릭 시 같은 view 영역 안에서 전환되는 페이지.
 // 본문 전체 + 좋아요 토글 + 항상 펼쳐진 댓글 패널 + 뒤로 가기.
@@ -26,7 +28,12 @@ type Props = {
   onBack: () => void;
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
-  onLikeUpdate: (postId: number, liked: boolean, count: number) => void;
+  onLikeUpdate: (
+    postId: number,
+    liked: boolean,
+    count: number,
+    authorActivity?: BulletinPost["authorActivity"],
+  ) => void;
   onCommentCountChange: (postId: number, count: number) => void;
   onRequestSendMessage: (name: string) => void;
 };
@@ -87,7 +94,7 @@ export function PostDetailPage({
     );
     try {
       const next = await toggleLike(post.id);
-      onLikeUpdate(post.id, next.liked, next.count);
+      onLikeUpdate(post.id, next.liked, next.count, next.authorActivity);
     } catch {
       onLikeUpdate(post.id, beforeLiked, beforeCount);
     } finally {
@@ -112,8 +119,8 @@ export function PostDetailPage({
 
       <Card padding="none" className="-mx-2 px-5 py-4 sm:-mx-4 sm:px-6">
         <header className="border-b border-zinc-200 pb-4 dark:border-zinc-700">
-          <div className="flex items-start gap-4">
-            <div className="min-w-0 flex-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-start gap-x-4 gap-y-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+            <div className="min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span
@@ -157,56 +164,52 @@ export function PostDetailPage({
                   ? post.title
                   : "(제목 없음)"}
               </h2>
-
-              <div className="mt-4 flex min-w-0 items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
-                {post.mine || post.category === "notice" ? (
-                  // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
-                  <span className="min-w-0 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                    {post.name}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onRequestSendMessage(post.name)}
-                    title="쪽지 보내기"
-                    className="min-w-0 truncate rounded text-sm font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
-                  >
-                    {post.name}
-                  </button>
-                )}
-                <span
-                  className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400"
-                  aria-hidden="true"
-                >
-                  ·
-                </span>
-                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {post.className}
-                </span>
-                <span
-                  className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400"
-                  aria-hidden="true"
-                >
-                  ·
-                </span>
-                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {formatDateTime(post.createdAt)}
-                </span>
-                {post.updatedAt != null && (
-                  <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    (수정됨)
-                  </span>
-                )}
-              </div>
             </div>
 
-            <AuthorPortrait post={post} />
+            <div className="col-start-2 row-start-1 sm:row-span-2">
+              <AuthorPortrait post={post} />
+            </div>
+
+            <div className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 sm:col-span-1 sm:col-start-1">
+              {post.mine || post.category === "notice" ? (
+                // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
+                <span className="max-w-full shrink-0 break-all text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  {post.name}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onRequestSendMessage(post.name)}
+                  title="쪽지 보내기"
+                  className="max-w-full shrink-0 break-all rounded text-sm font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
+                >
+                  {post.name}
+                </button>
+              )}
+              {post.authorActivity && (
+                <BulletinActivityBadge
+                  activity={post.authorActivity}
+                  showTitle
+                />
+              )}
+              <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span aria-hidden="true">· </span>
+                {post.className}
+              </span>
+              <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span aria-hidden="true">· </span>
+                {formatDateTime(post.createdAt)}
+              </span>
+              {post.updatedAt != null && (
+                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  (수정됨)
+                </span>
+              )}
+            </div>
           </div>
         </header>
 
-        <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200">
-          {post.content}
-        </p>
+        <BulletinMarkdown content={post.content} className="mt-4" />
 
         <div className="mt-4 flex items-center gap-3 border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
           <button

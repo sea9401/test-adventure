@@ -23,6 +23,7 @@ import {
 } from "@/lib/chat-rooms";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import { parseChatEquipmentLink } from "@/lib/chat-item-link";
 import { resolveActor } from "@/lib/server/resolveActor";
 
 async function memberCountMap(roomIds: number[]) {
@@ -69,6 +70,7 @@ async function latestMessageMap(roomIds: number[], viewerId: string) {
       className: messages.className,
       title: messages.title,
       content: messages.content,
+      itemLink: messages.itemLink,
       createdAt: messages.createdAt,
     })
     .from(messages)
@@ -86,6 +88,7 @@ async function latestMessageMap(roomIds: number[], viewerId: string) {
       className: row.className,
       title: row.title,
       content: row.content,
+      itemLink: parseChatEquipmentLink(row.itemLink),
       createdAt: row.createdAt.getTime(),
       mine: row.userId === viewerId,
       cosmetics: cosmeticByUser.get(row.userId) ?? null,

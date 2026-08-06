@@ -17,10 +17,7 @@ import {
   isLifestyleMasteryJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
-import {
-  applyPostCapGrowth,
-  rollLevelGrowth,
-} from "@/adventure/data/v2/statGrowth";
+import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { equippedProfPerKillBonus } from "@/adventure/data/v2/v2Skills";
 import { rollGuildCombatProficiencyBonus } from "@/adventure/data/v2/guildCombatSupply";
@@ -52,9 +49,6 @@ export function applyHuntProficiency(params: {
   /** 길드 전투 보급 — 숙련도 보너스 확률(%). */
   proficiencyChancePct: number;
   levelsGained: number;
-  /** 사냥 후 레벨(expResult.level) — 만렙 post-cap 성장 판정용. */
-  levelAfter: number;
-  levelCap: number;
   rng?: () => number;
 }): HuntProficiencyResult {
   const {
@@ -65,8 +59,6 @@ export function applyHuntProficiency(params: {
     equippedSkills,
     proficiencyChancePct,
     levelsGained,
-    levelAfter,
-    levelCap,
     rng = Math.random,
   } = params;
 
@@ -118,15 +110,6 @@ export function applyHuntProficiency(params: {
       for (const k of V2_STAT_KEYS) {
         const d = (grown[k] ?? 0) - (grownBefore[k] ?? 0);
         if (d > 0) statGains[k] = d;
-      }
-    } else if (won && levelAfter >= levelCap) {
-      const postCap = applyPostCapGrowth(prof, playerClass, rng, {
-        currentJobId: v2JobId,
-      });
-      prof = postCap.proficiency;
-      for (const k of V2_STAT_KEYS) {
-        const d = postCap.statGains[k] ?? 0;
-        if (d > 0) statGains[k] = (statGains[k] ?? 0) + d;
       }
     }
     // 직업 숙련도(상시 카드 readout) — 현재 전직 중인 구체 직업 기준. none=숙련도 없음.

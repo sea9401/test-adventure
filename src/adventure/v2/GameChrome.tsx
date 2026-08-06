@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FocusEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { ChatButton } from "@/components/ChatButton";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
@@ -9,6 +10,7 @@ import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { shouldShowStaminaBar } from "@/adventure/v2/staminaBarVisibility";
+import { LotteryWinCelebration } from "@/adventure/v2/LotteryWinCelebration";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -65,6 +67,17 @@ function TabBackground({
   );
 }
 
+function selectNumericInputValue(event: FocusEvent<HTMLDivElement>) {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement)) return;
+  if (input.type !== "number" && input.inputMode !== "numeric") return;
+  // 기존 기본값을 먼저 지울 필요 없이 새 숫자로 바로 덮어쓸 수 있게 한다.
+  // 일부 브라우저는 type=number 의 select()를 지원하지 않으므로 그대로 입력 가능하게 둔다.
+  try {
+    input.select();
+  } catch {}
+}
+
 export function GameChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -75,8 +88,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     staminaPotions,
     viewerName,
     viewerGuildId,
-    viewerLevel,
-    bankedGold,
+    autoGathering,
     coreLoopOn,
     huntStaminaMode,
     refreshGameState,
@@ -138,16 +150,23 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
                                   : null;
 
   return (
-    <div className="game-desktop-compact">
-      <V2TopBar
-        playerName={viewerName}
-        playerLevel={viewerLevel}
-        bankedGold={bankedGold}
-        coreLoopOn={coreLoopOn}
+    <div
+      className="game-desktop-compact"
+      onFocusCapture={selectNumericInputValue}
+    >
+      <V2TopBar autoGathering={autoGathering} />
+      {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.
+          모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}
+      <ChatButton
+        name={viewerName}
+        className=""
+        title={null}
         viewerGuildId={viewerGuildId}
+        variant="floating"
       />
       {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
       <OfflineSettleCard />
+      <LotteryWinCelebration />
       {background && (
         <TabBackground
           key={background.src}
@@ -176,7 +195,11 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
             />
           </div>
         )}
-        {children}
+        {/* 모바일에서는 우하단 고정 채팅 버튼 뒤로 마지막 컨트롤이 가려지지 않도록
+            버튼 높이·위치와 기기 하단 안전 영역만큼 스크롤 여유를 둔다. */}
+        <div className="pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:pb-0">
+          {children}
+        </div>
       </div>
     </div>
   );

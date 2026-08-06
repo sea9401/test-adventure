@@ -133,6 +133,19 @@ export function pushArenaHistory(
   return [entry, ...list].slice(0, ARENA_HISTORY_MAX);
 }
 
+// 일반 아레나 다시보기는 주간 시즌이 바뀌면 초기화한다. 승/패/무와 최종 점수는
+// pvp_ratings 시즌 요약에 남으므로 리플레이가 사라져도 누적 전적은 유지된다.
+export function arenaHistorySince(
+  list: ArenaHistoryEntry[],
+  seasonStartsAt: Date,
+): ArenaHistoryEntry[] {
+  const cutoff = seasonStartsAt.getTime();
+  return list.filter((entry) => {
+    const at = new Date(entry.at).getTime();
+    return Number.isFinite(at) && at >= cutoff;
+  });
+}
+
 // ─── State 파싱·기본값 ──────────────────────────────────────────────────────
 
 export function defaultArenaState(): ArenaState {

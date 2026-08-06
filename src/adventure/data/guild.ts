@@ -15,7 +15,7 @@ export type GuildLevelUpgradeCost =
   (typeof GUILD_LEVEL_UPGRADE_COSTS)[number];
 
 // Lv.1 기본 정원. 이후 레벨이 오를 때마다 1명씩 늘어난다.
-export const GUILD_BASE_MEMBER_CAP = 5;
+export const GUILD_BASE_MEMBER_CAP = 6;
 export const GUILD_MEMBER_CAP_PER_LEVEL = 1;
 
 // 국가 선포 보상 — 레벨 정원과 별도로 더해지는 증가분.

@@ -125,6 +125,7 @@ export type V2CommonSkillId =
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
   | "v2c_ritualist_guardingarray" // 호법진 (받는 피해 감소)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
+  | "v2c_shadow_shadowstep" // 그림자 도약 (전투당 1회·다음 공격 확정 회피)
   | "v2c_venomancer_miasma" // 맹독 확산 (중독 심화 + 중독 스택 비례딜)
   | "v2c_fieldmedic_treatment" // 현장 처치 (큰 자힐)
   | "v2c_extremesurvivor_struggle" // 사투 (회복 + 보호막)
@@ -628,11 +629,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     },
   },
   v2c_assassin_fortune: {
-    // 크리 폭발(자객) — 옛 행운%에서 치명 확률로 리스킨.
-    id: "v2c_assassin_fortune", name: "치명타", stat: "luk", category: "passive", tier: 2,
-    description: "급소를 노린다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
+    // LUK 비례 액티브의 성장축. 치명 확률 정체성은 유지하되 행운 자체도 함께 올린다.
+    id: "v2c_assassin_fortune", name: "행운", stat: "luk", category: "passive", tier: 2,
+    description: "행운을 끌어당겨 급소를 노린다. 행운과 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { critPct: 8 },
+    passive: { statPct: { luk: 10 }, critPct: 8 },
   },
   v2c_archer_agility: {
     id: "v2c_archer_agility", name: "민첩", stat: "dex", category: "passive", tier: 2,
@@ -642,10 +643,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_venomist_corrosion: {
     id: "v2c_venomist_corrosion", name: "부식", stat: "luk", category: "passive", tier: 2,
-    description: "독이 스며든 적의 방어를 무르게 하고 중독 피해를 깊게 침투시킨다.",
+    description: "행운을 높이고, 독이 스며든 적의 방어를 무르게 해 중독 피해를 깊게 침투시킨다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 12 },
+    passive: { statPct: { luk: 10 }, poisonedEnemyDefReductionPct: 10 },
   },
   v2c_camper_ration: {
     id: "v2c_camper_ration", name: "비상식량", stat: "vit", category: "passive", tier: 2,
@@ -939,7 +940,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
     description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "magic" }],
+    effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "spi" }],
   },
   v2c_ritualist_guardingarray: {
     id: "v2c_ritualist_guardingarray", name: "호법진", stat: "int", category: "buff", tier: 3,
@@ -955,6 +956,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [210, 210, 210], hpThresholdPct: 15, bonusMult: 2.2, scaling: "luk" },
     ],
+  },
+  v2c_shadow_shadowstep: {
+    id: "v2c_shadow_shadowstep", name: "그림자 도약", stat: "luk", category: "buff", tier: 3,
+    description: "그림자 속으로 몸을 감춘다. 전투당 한 번, 다음에 받는 공격을 반드시 회피한다.",
+    mpCost: 0, cooldown: 0, procChance: 100, oncePerBattle: true,
+    effects: [{ kind: "guaranteedEvade", count: 1 }],
   },
   v2c_venomancer_miasma: {
     // 맹독술사 = 독술사 위 계보. 중독 스택을 더 깊게 쌓고, 이미 걸린 중독을 LUK 비례 피해로 회수한다.
@@ -1042,7 +1049,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어와 중독 피해를 더 크게 흔든다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 20 },
+    passive: { poisonedEnemyDefReductionPct: 15 },
   },
   v2c_fieldmedic_training: {
     id: "v2c_fieldmedic_training", name: "구급 숙련", stat: "vit", category: "passive", tier: 3,
@@ -1318,7 +1325,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "독을 다스리는 정점. 중독된 적의 방어와 독 피해 저항을 크게 무너뜨린다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 28 },
+    passive: { poisonedEnemyDefReductionPct: 20 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──
@@ -1476,7 +1483,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
     mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100,
     effects: [
-      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "magic" },
+      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "spi" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
@@ -1812,8 +1819,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "어둠이 덮이는 순간 파고든다. 첫 일격과 마무리에 모두 강하다.",
     mpCost: 52, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
-      { kind: "ambushDamage", statCoef: 0.16, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 3.0, scaling: "luk" },
-      { kind: "executeDamage", statCoef: 0.18, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 2.0, scaling: "luk" },
+      { kind: "ambushDamage", statCoef: 0.22, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 4.0, scaling: "luk" },
+      { kind: "executeDamage", statCoef: 0.26, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 2.0, scaling: "luk" },
     ],
   },
   v2c_nightshade_cloak: {
@@ -1828,7 +1835,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "기적의 빛으로 상처를 메우고 잠시 몸을 보호한다.",
     mpCost: 54, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
-      { kind: "heal", pctLostHp: 9, statCoef: 0.8, baseFlatByTier: [140, 140, 140], scaling: "magic" },
+      { kind: "heal", pctLostHp: 9, statCoef: 0.8, baseFlatByTier: [140, 140, 140], scaling: "spi" },
       { kind: "shield", pctMaxHp: 10, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
     ],
@@ -1854,7 +1861,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "독이 갑옷과 살을 함께 무너뜨려 중독 피해를 더 깊게 남긴다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 35, critDmgPct: 10 },
+    passive: { poisonedEnemyDefReductionPct: 25, critDmgPct: 10 },
   },
   v2c_dragonfist_rupture: {
     id: "v2c_dragonfist_rupture", name: "용린파쇄", stat: "str", category: "attack", tier: 3,
@@ -2000,10 +2007,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_archmage_theory: {
     id: "v2c_archmage_theory", name: "대마도 이론", stat: "int", category: "passive", tier: 3,
-    description: "마법식의 근본을 꿰뚫는다. 지능과 마법 스킬 피해가 오른다.",
+    description: "마법식의 근본을 꿰뚫는다. 지능과 마법 스킬 피해가 오르고 마력 방벽으로 피해를 흘린다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { int: 22 }, magicSkillDamagePct: 12 },
+    passive: {
+      statPct: { int: 22 },
+      magicSkillDamagePct: 16,
+      maxHpPct: 20,
+      damageTakenReductionPct: 8,
+    },
   },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
@@ -2097,10 +2109,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,
-    description: "구원의 빛을 심판으로 바꾸어 적을 태우고 빈틈을 드러낸다.",
+    description: "정신력을 구원의 빛으로 바꾸어 적을 태우고 빈틈을 드러낸다.",
     mpCost: 80, fixedMpCost: 185, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      { kind: "damage", statCoef: 2.2, baseFlat: 560, scaling: "magic" },
+      { kind: "damage", statCoef: 1.4, baseFlat: 560, scaling: "spi" },
       { kind: "enemyVuln", pct: 16, turns: 3 },
     ],
   },
@@ -2151,19 +2163,19 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "검은 달빛 아래서 연격을 흩뿌린다. 적의 조준을 흐트러뜨리고 다시 어둠 속으로 미끄러진다.",
     mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      { kind: "damage", statCoef: 0.46, baseFlat: 185, scaling: "luk", pierceDamagePct: 12 },
-      { kind: "damage", statCoef: 0.4, baseFlat: 170, scaling: "dex", pierceDamagePct: 12 },
-      { kind: "damage", statCoef: 0.52, baseFlat: 210, scaling: "luk", pierceDamagePct: 18 },
-      { kind: "enemyAccuracyDown", pct: 24, turns: 3 },
-      { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 3 },
+      { kind: "damage", statCoef: 0.55, baseFlat: 185, scaling: "luk", pierceDamagePct: 12 },
+      { kind: "damage", statCoef: 0.46, baseFlat: 170, scaling: "dex", pierceDamagePct: 12 },
+      { kind: "damage", statCoef: 0.62, baseFlat: 210, scaling: "luk", pierceDamagePct: 18 },
+      { kind: "enemyAccuracyDown", pct: 28, turns: 3 },
+      { kind: "selfBuffPct", target: "evasion", pct: 14, turns: 3 },
     ],
   },
   v2c_blackmoon_dominion: {
     id: "v2c_blackmoon_dominion", name: "흑월지배", stat: "luk", category: "passive", tier: 3,
-    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 치명타 한계를 넘긴 감각이 스킬에도 실린다.",
+    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 공격을 피하면 다음 공격 스킬이 반드시 치명타가 된다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 18, critDmgPct: 24, skillCritOverflow: true },
+    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 22, critDmgPct: 24, skillCritAfterEvade: true },
   },
   v2c_myriadvenom_mutation: {
     id: "v2c_myriadvenom_mutation", name: "만독개화", stat: "luk", category: "attack", tier: 3,
@@ -2177,10 +2189,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_myriadvenom_body: {
     id: "v2c_myriadvenom_body", name: "만독지배", stat: "luk", category: "passive", tier: 3,
-    description: "모든 독의 흐름을 장악한다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
+    description: "행운과 모든 독의 흐름을 장악한다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { poisonedEnemyDefReductionPct: 45, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
+    passive: { statPct: { luk: 22 }, poisonedEnemyDefReductionPct: 30, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,

@@ -27,11 +27,11 @@ import {
   woodcuttingProgressionView,
 } from "@/adventure/v2/woodcuttingProgression";
 import {
-  AUTO_GATHERING_MATERIAL_EFFICIENCY,
   autoGatheringCompletedAttempts,
   beginAutoGathering,
   cancelAutoGathering,
   createAutoGatheringSession,
+  isAutoGatheringPlanId,
   settleAutoGathering,
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
@@ -89,11 +89,14 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as
-    | { action?: unknown; spotId?: unknown }
+    | { action?: unknown; spotId?: unknown; planId?: unknown }
     | null;
   if (body?.action === "start") {
     if (typeof body.spotId !== "string" || !isWoodcuttingSpotId(body.spotId)) {
       return Response.json({ ok: false, error: "bad_spot" }, { status: 400 });
+    }
+    if (body.planId !== undefined && !isAutoGatheringPlanId(body.planId)) {
+      return Response.json({ ok: false, error: "bad_plan" }, { status: 400 });
     }
     const [logRaw, skillsRaw, guardRaw] = await Promise.all([
       readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
@@ -131,6 +134,7 @@ export async function POST(req: Request) {
       sourceId: treeId,
       sourceName: tree.name,
       materialId: tree.materialId,
+      planId: body.planId,
       now,
       cycleDurationMs: cycleDurationMs + WOODCUTTING_TREE_FALL_MS,
       successRate,
@@ -236,7 +240,7 @@ export async function POST(req: Request) {
 
     const seedDrops: Record<string, number> = {};
     const seedRolls = Math.floor(
-      settlement.successes * AUTO_GATHERING_MATERIAL_EFFICIENCY + 1e-9,
+      settlement.successes * session.materialEfficiency + 1e-9,
     );
     for (let index = 0; index < seedRolls; index += 1) {
       const drop = rollWoodcuttingSeedDrop();

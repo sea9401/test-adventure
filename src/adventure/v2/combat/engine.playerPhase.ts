@@ -752,7 +752,8 @@ export function resolvePlayerPhase(
   // 고유 시그니처 on-crit(Phase 2) — 크리 + 피해 발생 시 발동. 미장착=null/false → byte-identical.
   //   군림목걸이=속도 버프(playerSpdMult), 독니 단검=대상 중독 DoT. 둘 다 아래 afterDamage 에 합류.
   const sigDealtDamage = totalDmg > 0;
-  // every-N — N타마다 추가타 1회. 미장착(N=0)이면 카운터 불변·추가타 0 → byte-identical.
+  // every-N — 평타와 스킬을 합친 실제 적중 N회마다 추가 행동 1회. 평타는 이 경로에서
+  // 적중 1회씩 세고, 스킬 다단 적중은 applyPlayerV2SkillCast 에서 합산한다.
   const sigEvery = everyNHitsEffect(player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
@@ -768,7 +769,7 @@ export function resolvePlayerPhase(
   if (sigExtraAttack > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] 연격 — 한 번 더!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${sigEveryN}회 적중 — 추가 행동!`,
     });
   }
   const sigCritSpeedBuff = onCritSpeedBuff(
@@ -887,7 +888,7 @@ export function resolvePlayerPhase(
   if (sigSpdBuff) {
     log = appendLog(log, {
       kind: "info",
-      text: `[군림] 결정타 — 속도가 솟구친다!`,
+      text: `[${sigCritSpeedBuff?.label ?? "군림"}] 결정타 — 속도가 솟구친다!`,
     });
   }
   if (sigCritChill) {
@@ -947,7 +948,7 @@ export function resolvePlayerPhase(
       weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
       comboAtkBonus: nextComboAtkBonus,
       comboHitCount: nextComboHitCount,
-      signatureHitCount: nextSigHitCount, // 포식자 every-N 카운터(미장착=불변)
+      signatureHitCount: nextSigHitCount, // 평타·스킬 공용 every-N 카운터(미장착=불변)
     },
     turn: {
       ...state.turn,

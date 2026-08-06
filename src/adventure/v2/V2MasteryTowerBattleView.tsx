@@ -38,6 +38,11 @@ type TowerAttemptResult = {
   stamina?: StaminaState;
   staminaCost?: number;
   requiredStamina?: number;
+  autoClaimedReward?: {
+    total: number;
+    previousDate: string;
+    previousBestFloor: number;
+  } | null;
 };
 
 function resultMessage(
@@ -161,6 +166,14 @@ export function V2MasteryTowerBattleView() {
 
       {result && !result.ok && (
         <StatusBanner tone="error">{errorMessage(result.error)}</StatusBanner>
+      )}
+
+      {result?.autoClaimedReward && (
+        <StatusBanner tone="success">
+          전날 미수령 숙련 증서{" "}
+          {result.autoClaimedReward.total.toLocaleString("ko-KR")}개가 자동
+          지급되었습니다.
+        </StatusBanner>
       )}
 
       {result?.ok && (

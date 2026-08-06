@@ -23,6 +23,7 @@ const OpsDashboardTab = dynamic(() => import("./tabs/OpsDashboardTab").then((mod
 const OpsWorkflowsTab = dynamic(() => import("./tabs/OpsWorkflowsTab").then((module) => module.OpsWorkflowsTab), { loading: adminTabLoading });
 const AbuseLogTab = dynamic(() => import("./tabs/AbuseLogTab").then((module) => module.AbuseLogTab), { loading: adminTabLoading });
 const EconomyLogTab = dynamic(() => import("./tabs/EconomyLogTab").then((module) => module.EconomyLogTab), { loading: adminTabLoading });
+const MarketplaceEconomyTab = dynamic(() => import("./tabs/MarketplaceEconomyTab").then((module) => module.MarketplaceEconomyTab), { loading: adminTabLoading });
 const LifeGatheringTelemetryTab = dynamic(() => import("./tabs/LifeGatheringTelemetryTab").then((module) => module.LifeGatheringTelemetryTab), { loading: adminTabLoading });
 const AuditLogTab = dynamic(() => import("./tabs/AuditLogTab").then((module) => module.AuditLogTab), { loading: adminTabLoading });
 const BroadcastTab = dynamic(() => import("./tabs/BroadcastTab").then((module) => module.BroadcastTab), { loading: adminTabLoading });
@@ -44,6 +45,7 @@ type TabKey =
   | "season"
   | "abuse"
   | "economy"
+  | "marketplaceEconomy"
   | "lifeGathering"
   | "opsSearch"
   | "broadcast"
@@ -74,6 +76,7 @@ const TABS: AdminTab[] = [
   { key: "balance", label: "밸런스 지표", description: "재화와 성장 분포 분석", group: "analytics" },
   { key: "gridDungeon", label: "격자 던전", description: "던전 진입·완주·실패 원인 분석", group: "analytics", keywords: "던전 분석" },
   { key: "economy", label: "경제 로그", description: "골드와 아이템 증감 기록", group: "analytics", keywords: "재화 아이템" },
+  { key: "marketplaceEconomy", label: "거래소 경제", description: "거래량·가격 변동과 이상 거래 신호", group: "analytics", keywords: "거래소 호가 주문 세금 자전거래" },
   { key: "lifeGathering", label: "생활 수급", description: "벌목·채광 재화 수급량 분석", group: "analytics", keywords: "생활 벌목 채광 원목 광석 부산물" },
   { key: "abuse", label: "이상 행동", description: "요청 제한과 비정상 행동 기록", group: "analytics", keywords: "제재 어뷰징" },
   { key: "audit", label: "관리자 기록", description: "관리자 변경과 처리 이력", group: "analytics", keywords: "감사 로그" },
@@ -242,6 +245,7 @@ function ShellInner() {
           {tab === "season" && <SeasonOpsTab />}
           {tab === "abuse" && <AbuseLogTab />}
           {tab === "economy" && <EconomyLogTab />}
+          {tab === "marketplaceEconomy" && <MarketplaceEconomyTab />}
           {tab === "lifeGathering" && <LifeGatheringTelemetryTab />}
           {tab === "opsSearch" && <OpsSearchTab />}
           {tab === "broadcast" && <BroadcastTab />}

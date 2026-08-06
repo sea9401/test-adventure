@@ -47,7 +47,7 @@ export const WORLD_ACTIVITY_REGIONS: readonly WorldActivityRegion[] = [
     shortName: spot.shortName,
     kind: "fishing",
     headline: spot.description,
-    summary: `주요 어종: ${fishNames(spot.featuredFishIds).join(", ")}`,
+    summary: `대표 어종: ${fishNames(spot.featuredFishIds).join(", ")}`,
     tags: spot.tags,
     action: {
       label: "낚시하러 가기",

@@ -26,8 +26,17 @@ export const V2_NOTIFICATION_TYPES = [
   "guild_join_declined",
   "coop_defeated",
   "feedback_replied",
+  "farm_ready",
+  "lottery_won",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
+
+export type LotteryWonNotificationPayload = {
+  roundId: number;
+  ranks: number[];
+  ticketNumbers: number[];
+  prizeAmount: number;
+};
 
 // type 별 payload — 거점 이름은 클라에서 OUTPOST_BY_ID 해석, 라벨은 시점 스냅샷.
 export type V2NotificationPayload =
@@ -78,7 +87,13 @@ export type V2NotificationPayload =
   // feedback_replied — 내 건의에 관리자 답변이 새로 등록되거나 변경됨.
   | {
       feedbackId: number;
-    };
+    }
+  // farm_ready — 현재 수확할 수 있고 아직 확인하지 않은 밭을 한 건으로 묶은 동적 알림.
+  | {
+      readyCount: number;
+    }
+  // lottery_won — 한 회차에 같은 유저가 복수 등수에 당첨될 수 있어 한 알림으로 묶는다.
+  | LotteryWonNotificationPayload;
 
 // 클라/서버가 주고받는 한 항목.
 export type V2NotificationEntry = {
@@ -88,3 +103,10 @@ export type V2NotificationEntry = {
   readAt: number | null; // epoch ms, null = 미읽음
   createdAt: number; // epoch ms
 };
+
+/** 알림 종·알림 센터의 기본 목록은 아직 확인하지 않은 항목만 보여준다. */
+export function unreadV2Notifications(
+  entries: readonly V2NotificationEntry[],
+): V2NotificationEntry[] {
+  return entries.filter((entry) => entry.readAt === null);
+}

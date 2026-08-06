@@ -2,6 +2,7 @@ import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
   V2_JOB_LIST,
+  isLifestyleMasteryJobId,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
 import {
@@ -66,8 +67,17 @@ export function compareJobExplorerLineOrder(
 export type JobTagFilter = {
   key: string;
   label: string;
+  showOnCard?: boolean;
   matches: (job: JobExplorerJob, context?: JobExplorerContext) => boolean;
 };
+
+export function hasCollectedJobSkills(job: JobExplorerJob): boolean {
+  return (
+    job.skillsCollected === true ||
+    ((job.skillsTotal ?? 0) > 0 &&
+      (job.skillsLearned ?? 0) >= (job.skillsTotal ?? 0))
+  );
+}
 
 export const JOB_TAG_FILTERS: JobTagFilter[] = [
   { key: "tier-1", label: "기본", matches: (job) => job.tier === 1 },
@@ -86,17 +96,43 @@ export const JOB_TAG_FILTERS: JobTagFilter[] = [
   {
     key: "life",
     label: "생활",
-    matches: (job) => LIFE_JOB_IDS.has(job.id),
+    matches: (job) =>
+      isLifestyleMasteryJobId(job.id) || ADDITIONAL_LIFE_JOB_IDS.has(job.id),
   },
   {
     key: "collected",
     label: "수집완료",
-    matches: (job) =>
-      job.skillsCollected === true ||
-      ((job.skillsTotal ?? 0) > 0 &&
-        (job.skillsLearned ?? 0) >= (job.skillsTotal ?? 0)),
+    showOnCard: false,
+    matches: hasCollectedJobSkills,
+  },
+  {
+    key: "incomplete",
+    label: "수집미완료",
+    showOnCard: false,
+    matches: (job) => !hasCollectedJobSkills(job),
   },
 ];
+
+const JOB_CARD_HIDDEN_TAG_LABELS = new Set(
+  JOB_TAG_FILTERS.filter((filter) => filter.showOnCard === false).map(
+    (filter) => filter.label,
+  ),
+);
+
+export function toggleJobTagFilter(
+  activeTags: ReadonlySet<string>,
+  key: string,
+): Set<string> {
+  const next = new Set(activeTags);
+  if (next.has(key)) {
+    next.delete(key);
+    return next;
+  }
+  if (key === "collected") next.delete("incomplete");
+  if (key === "incomplete") next.delete("collected");
+  next.add(key);
+  return next;
+}
 
 export function normalizeJobQuery(value: string): string {
   return value.trim().toLocaleLowerCase("ko-KR");
@@ -119,6 +155,15 @@ export function jobTags(
     if (filter.matches(job, context)) tags.push(filter.label);
   }
   return [...new Set(tags)];
+}
+
+export function jobCardTags(
+  job: JobExplorerJob,
+  context?: JobExplorerContext,
+): string[] {
+  return jobTags(job, context).filter(
+    (tag) => !JOB_CARD_HIDDEN_TAG_LABELS.has(tag),
+  );
 }
 
 export function matchesJobExplorerFilters(
@@ -148,26 +193,18 @@ export function matchesJobExplorerFilters(
   return true;
 }
 
-const LIFE_JOB_IDS = new Set([
+// 생산직은 카탈로그 공용 판별을 사용해 새 계보가 추가돼도 자동으로 생활 탭에 포함한다.
+// 아래 목록은 생활 숙련 조건으로 전직하는 생산직은 아니지만 기존 UI에서 생활 계열로 묶던 직업만 유지한다.
+const ADDITIONAL_LIFE_JOB_IDS = new Set([
   "survivor",
   "camper",
   "fieldmedic",
   "rescueexpert",
-  "fisher",
-  "angler",
-  "masterangler",
-  "fullcatchking",
-  "seagod",
   "healthtrainer",
   "physicalcoach",
   "mastertrainer",
   "championmaker",
   "legendarytrainer",
-  "farmer",
-  "horticulturist",
-  "masterfarmer",
-  "harvestking",
-  "earthartisan",
 ]);
 
 function jobUsesStat(jobId: string, stat: V2StatKey): boolean {

@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   BACKGROUND_HIDDEN_MODE_STORED_VALUE,
   DISCREET_MODE_STORED_VALUE,
+  TERMINAL_MODE_STORED_VALUE,
   parseStoredDisplayMode,
   storedValueForDisplayMode,
 } from "./discreetMode";
 
 describe("displayMode", () => {
-  it("세 가지 화면 모드의 저장값을 복원한다", () => {
+  it("네 가지 화면 모드의 저장값을 복원한다", () => {
+    expect(parseStoredDisplayMode(TERMINAL_MODE_STORED_VALUE)).toBe(
+      "terminal",
+    );
     expect(parseStoredDisplayMode(DISCREET_MODE_STORED_VALUE)).toBe(
       "discreet",
     );
@@ -29,6 +33,9 @@ describe("displayMode", () => {
     );
     expect(storedValueForDisplayMode("discreet")).toBe(
       DISCREET_MODE_STORED_VALUE,
+    );
+    expect(storedValueForDisplayMode("terminal")).toBe(
+      TERMINAL_MODE_STORED_VALUE,
     );
   });
 });

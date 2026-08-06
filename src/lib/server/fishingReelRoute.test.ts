@@ -2,11 +2,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, upsertFishingRecord, incrementGuildExplorationProgressForUser } =
-  vi.hoisted(() => ({
+const {
+  store,
+  upsertFishingRecord,
+  incrementGuildExplorationProgressForUser,
+  grantTitleIfMissingInTx,
+} = vi.hoisted(() => ({
     store: new Map<string, unknown>(),
     upsertFishingRecord: vi.fn(async () => {}),
     incrementGuildExplorationProgressForUser: vi.fn(async () => null),
+    grantTitleIfMissingInTx: vi.fn(async () => true),
   }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -20,6 +25,9 @@ vi.mock("@/lib/server/fishing/records", () => ({
 }));
 vi.mock("@/lib/server/guildExplorationWeekly", () => ({
   incrementGuildExplorationProgressForUser,
+}));
+vi.mock("@/lib/server/grantTitle", () => ({
+  grantTitleIfMissingInTx,
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -70,6 +78,7 @@ import {
 } from "@/adventure/data/v2/v2RepeatQuests";
 import { REPEAT_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 import { MINING_AUTO_KEY } from "@/adventure/v2/autoGathering";
+import { FISH } from "@/adventure/data/v2/fish";
 
 function reelReq(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/fishing/reel", {
@@ -238,6 +247,28 @@ describe("POST /api/v2/fishing/reel", () => {
         "fishing",
       ).completedSinceVerification,
     ).toBe(1);
+  });
+
+  it("어종별 크기 하위 25% 물고기를 낚으면 잔챙이 전문 히든 칭호를 지급한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_SESSION_KEY, {
+      castId: "cast-1",
+      biteAt: now - 100,
+      expiresAt: now + 10_000,
+      fishId: "carp",
+      size: FISH.carp.minSize + (FISH.carp.maxSize - FISH.carp.minSize) * 0.25,
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    expect(grantTitleIfMissingInTx).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "tiny_catch",
+      now,
+    );
   });
 
   it("다른 직업으로 낚시해도 전직한 최고 차수 낚시 직업의 숙련도가 오른다", async () => {

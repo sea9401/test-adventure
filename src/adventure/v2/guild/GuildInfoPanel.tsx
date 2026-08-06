@@ -14,19 +14,26 @@ import {
 } from "../GuildActivityList";
 import { GuildCombatSupplySummary } from "./GuildCombatSupplyPanel";
 import { GuildEmblemImage } from "./GuildEmblemImage";
+import { GuildContributionPanel } from "./GuildContributionPanel";
 import { GameIcon } from "@/adventure/v2/GameIcon";
-import { fmtDate, type GuildInfoResponse } from "./guildShared";
+import {
+  fmtDate,
+  type GuildContributionResponse,
+  type GuildInfoResponse,
+} from "./guildShared";
 
 // 길드 정보 탭 — 정보 카드 · 금고 입금 · 활동 내역. (V2GuildHome 에서 추출, 거동 불변)
 export function GuildInfoPanel({
   info,
   loading,
   activity,
+  contribution,
   onRefresh,
 }: {
   info: GuildInfoResponse | null;
   loading: boolean;
   activity: GuildActivity[];
+  contribution: GuildContributionResponse | null;
   onRefresh: () => void;
 }) {
   const facilityLabels = PLACEABLE_SETTLEMENT_BUILDING_IDS.map((id) => {
@@ -134,6 +141,12 @@ export function GuildInfoPanel({
       </div>
 
       <GuildCombatSupplySummary />
+
+      <GuildContributionPanel
+        data={contribution}
+        info={info}
+        loading={loading}
+      />
 
       {/* 길드 금고 입금 — 길드 공용 자금 충원.
           입금 후 refresh 로 정보 카드 '길드 자금'·활동 내역도 갱신. */}

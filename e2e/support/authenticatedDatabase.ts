@@ -151,3 +151,35 @@ export async function authenticatedE2eAccountDeletionState() {
     await pool.end();
   }
 }
+
+/**
+ * 신규 모험가의 첫 전직 경계만 재현한다. 실제 생성 경로로 만들어진 character.v2에서
+ * 레벨만 바꾸며, loopback adventure_e2e 외 DB에서는 assert가 먼저 중단한다.
+ */
+export async function setAuthenticatedE2eCharacterLevel(level: number) {
+  if (!Number.isInteger(level) || level < 1) {
+    throw new Error(`Invalid E2E character level: ${level}`);
+  }
+  const databaseUrl = assertIsolatedE2eDatabaseUrl(process.env.DATABASE_URL);
+  const pool = new pg.Pool({
+    ...createDatabaseConnectionOptions(databaseUrl),
+    max: 1,
+  });
+
+  try {
+    const result = await pool.query(
+      `UPDATE saves_kv
+       SET value = jsonb_set(value, '{level}', to_jsonb($2::int), true),
+           version = version + 1,
+           updated_at = now()
+       WHERE user_id = $1 AND key = 'character.v2'
+       RETURNING user_id`,
+      [E2E_ACCOUNT_USER_ID, level],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error("The E2E character save is missing");
+    }
+  } finally {
+    await pool.end();
+  }
+}

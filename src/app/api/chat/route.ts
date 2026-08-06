@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { chatRoomMembers, chatRooms, messages } from "@/db/schema";
+import { chatRoomMembers, chatRooms, messages, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { recordUserChatMessageInTx } from "@/lib/server/chatProgress";
 import { resolveActor } from "@/lib/server/resolveActor";
@@ -19,6 +19,10 @@ import {
   clientIpFromRequest,
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
+import {
+  chatEquipmentLinkForOwnedIid,
+  parseChatEquipmentLink,
+} from "@/lib/chat-item-link";
 
 type ChatChannel = "global" | "guild" | "room";
 
@@ -88,6 +92,7 @@ export async function GET(req: Request) {
       className: messages.className,
       title: messages.title,
       content: messages.content,
+      itemLink: messages.itemLink,
       createdAt: messages.createdAt,
       mine: messages.userId,
     })
@@ -116,6 +121,7 @@ export async function GET(req: Request) {
       className: r.className,
       title: r.title,
       content: r.content,
+      itemLink: parseChatEquipmentLink(r.itemLink),
       createdAt: r.createdAt.getTime(),
       mine: r.mine === userId,
       userId: r.mine,
@@ -140,7 +146,12 @@ export async function POST(req: Request) {
 
   // identity(name/className/title)는 클라 body 무시 — 서버에서 권위로 해석.
   // (이전엔 body 그대로 저장돼 누구나 "관리자" 등으로 사칭 가능했다.)
-  let body: { content?: unknown; channel?: unknown; roomId?: unknown };
+  let body: {
+    content?: unknown;
+    channel?: unknown;
+    roomId?: unknown;
+    itemIid?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -160,7 +171,18 @@ export async function POST(req: Request) {
 
   const content =
     typeof body.content === "string" ? body.content.trim() : "";
-  if (!content) return new Response("empty content", { status: 400 });
+  const itemIid =
+    typeof body.itemIid === "string" &&
+    body.itemIid.length > 0 &&
+    body.itemIid.length <= 200
+      ? body.itemIid
+      : null;
+  if (body.itemIid != null && itemIid == null) {
+    return new Response("invalid item link", { status: 400 });
+  }
+  if (!content && !itemIid) {
+    return new Response("empty content", { status: 400 });
+  }
   if (content.length > CHAT_MAX_LENGTH) {
     return new Response(`too long (max ${CHAT_MAX_LENGTH})`, { status: 400 });
   }
@@ -204,6 +226,21 @@ export async function POST(req: Request) {
         .limit(1);
       if (!membership) return { error: "not in room" as const };
     }
+    let itemLink = null;
+    if (itemIid) {
+      const [equipmentRow] = await tx
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(
+            eq(savesKv.userId, userId),
+            eq(savesKv.key, "equipment.v2"),
+          ),
+        )
+        .for("update");
+      itemLink = chatEquipmentLinkForOwnedIid(equipmentRow?.value, itemIid);
+      if (!itemLink) return { error: "item not owned" as const };
+    }
     const [row] = await tx
       .insert(messages)
       .values({
@@ -215,6 +252,7 @@ export async function POST(req: Request) {
         className,
         title,
         content,
+        itemLink,
       })
       .returning({
         id: messages.id,
@@ -229,7 +267,7 @@ export async function POST(req: Request) {
         .set({ updatedAt: row.createdAt })
         .where(eq(chatRooms.id, Number(roomId)));
     }
-    return { row };
+    return { row, itemLink };
   });
   if ("error" in result) {
     return new Response(result.error, { status: 403 });
@@ -245,6 +283,7 @@ export async function POST(req: Request) {
     title,
     cosmetics,
     content,
+    itemLink: result.itemLink,
     createdAt: inserted.createdAt.getTime(),
     mine: true,
   });

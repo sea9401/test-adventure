@@ -5,14 +5,23 @@ import {
   floorDefMult,
   floorExpMult,
   endgameSoften,
+  underpreparedCombatMult,
+  endExtensionCombatSoften,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
   LADDER_EXP_SOFTCAP,
   ENDGAME_SOFTEN_START_DEPTH,
   ENDGAME_SOFTEN_MIN,
+  UNDERPREPARED_COMBAT_MAX,
+  UNDERPREPARED_COMBAT_LATE_MAX,
+  UNDERPREPARED_ENDGAME_MAX,
   END_EXTENSION_START_DEPTH,
   END_EXTENSION_START_STAT_MULT,
   END_EXTENSION_STAT_STEP,
+  END_EXTENSION_COMBAT_SOFTEN,
+  RED_PLAINS_COMBAT_SOFTEN,
+  BONE_PLATEAU_COMBAT_SOFTEN,
+  DEEP_FRONTIER_COMBAT_SOFTEN_MIN,
   REWARD_SLOWDOWN_START_DEPTH,
   REWARD_SLOWDOWN_EXP_STEP,
   REWARD_EXP_MULT_CAP,
@@ -44,6 +53,23 @@ describe("endgameSoften — 엔드게임 난이도 완화(floor 빌드 부양·�
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램프)", () => {
+  it("권장 전투력 미달 페널티는 중반과 최상위 4개 사냥터에 부족분 비례로 적용한다", () => {
+    const gate = floorPowerGate(20);
+    const endgameGate = floorPowerGate(60);
+    expect(underpreparedCombatMult(6, 0)).toBe(1);
+    expect(underpreparedCombatMult(20, gate)).toBe(1);
+    expect(underpreparedCombatMult(20, gate * 0.95)).toBeCloseTo(1.1, 5);
+    expect(underpreparedCombatMult(20, 0)).toBe(UNDERPREPARED_COMBAT_MAX);
+    expect(underpreparedCombatMult(38, 0)).toBe(UNDERPREPARED_COMBAT_LATE_MAX);
+    expect(underpreparedCombatMult(43, 0)).toBe(1);
+    expect(underpreparedCombatMult(48, 0)).toBe(1);
+    expect(underpreparedCombatMult(49, 0)).toBe(UNDERPREPARED_ENDGAME_MAX);
+    expect(underpreparedCombatMult(60, endgameGate)).toBe(1);
+    expect(underpreparedCombatMult(60, endgameGate * 0.9)).toBe(1);
+    expect(underpreparedCombatMult(60, endgameGate * 0.8)).toBeCloseTo(2.2, 5);
+    expect(underpreparedCombatMult(60, 0)).toBe(UNDERPREPARED_ENDGAME_MAX);
+  });
+
   it("권장 파워 게이트 — 들판(1~6) 50→95, 7+ statMult 비례 단일 램프, 단조 증가", () => {
     expect(floorPowerGate(1)).toBe(50);
     expect(floorPowerGate(6)).toBe(95); // 들판 상한
@@ -80,6 +106,28 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(floorPowerGate(43)).toBeGreaterThanOrEqual(1500);
     expect(floorStatMult(44) - floorStatMult(43)).toBe(END_EXTENSION_STAT_STEP);
     expect(END_EXTENSION_STAT_STEP).toBeGreaterThan(LADDER_STAT_STEP);
+  });
+
+  it("43+ 엔드 확장 전투 완화는 지역 경계부터 적용하고 심층 하한에서 멈춘다", () => {
+    expect(endExtensionCombatSoften(42)).toBe(1);
+    expect(endExtensionCombatSoften(43)).toBe(END_EXTENSION_COMBAT_SOFTEN);
+    expect(endExtensionCombatSoften(49)).toBe(RED_PLAINS_COMBAT_SOFTEN);
+    expect(endExtensionCombatSoften(55)).toBe(BONE_PLATEAU_COMBAT_SOFTEN);
+    expect(endExtensionCombatSoften(72)).toBe(DEEP_FRONTIER_COMBAT_SOFTEN_MIN);
+    expect(END_EXTENSION_COMBAT_SOFTEN).toBeLessThan(1);
+    expect(RED_PLAINS_COMBAT_SOFTEN).toBeLessThan(END_EXTENSION_COMBAT_SOFTEN);
+    expect(BONE_PLATEAU_COMBAT_SOFTEN).toBeLessThan(RED_PLAINS_COMBAT_SOFTEN);
+  });
+
+  it("55+ 실제 HP·ATK 배율은 깊어질수록 단조 증가한다", () => {
+    const combatMult = (depth: number) =>
+      floorStatMult(depth) *
+      endgameSoften(depth) *
+      endExtensionCombatSoften(depth);
+
+    for (let depth = 56; depth <= 72; depth++) {
+      expect(combatMult(depth)).toBeGreaterThan(combatMult(depth - 1));
+    }
   });
 
   it("def 배율은 hp/atk 보다 천천히 (관통 0 절벽 회피) — 2+ 에서 1 < def < stat", () => {

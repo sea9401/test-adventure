@@ -7,6 +7,7 @@ import { savesKv, users } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
+  sellPriceOf,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -26,6 +27,7 @@ import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
 import {
   MUSEUN_CASH_ITEMS,
   isMuseunCashItemId,
+  isTradeableMuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
   cookingFoodDefinition,
@@ -48,12 +50,17 @@ export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).
 export const MARKETPLACE_V2_HISTORY_LIMIT = 50;
-// 공개 입찰 유예는 판매자가 2~24시간 중 선택. 초과 입찰이 없으면 유예 종료 후
+// 새 매물은 즉시구매(유예 0)가 기본이며 24시간 노출한다.
+// 선택형 공개 입찰은 판매자가 2~24시간 중 선택. 초과 입찰이 없으면 유예 종료 후
 // 고정가 즉시구매로 2시간 더 노출하고, 그 뒤 만료·반환한다.
 export const MARKETPLACE_V2_BID_GRACE_MIN_HOURS = 2;
 export const MARKETPLACE_V2_BID_GRACE_MAX_HOURS = 24;
 export const MARKETPLACE_V2_FIXED_LISTING_HOURS = 2;
+export const MARKETPLACE_V2_DIRECT_LISTING_HOURS = 24;
 export const MARKETPLACE_V2_MIN_BID_RAISE_RATE = 0.05;
+export const MARKETPLACE_V2_BUY_ORDER_LIMIT = 10;
+export const MARKETPLACE_V2_BUY_ORDER_MAX_DAYS = 7;
+export const MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX = 999_999_999;
 
 export type MarketKind = "equip" | "material" | "consumable";
 
@@ -105,12 +112,22 @@ export function isValidBidGraceHours(value: unknown): value is number {
   return (
     typeof value === "number" &&
     Number.isInteger(value) &&
-    value >= MARKETPLACE_V2_BID_GRACE_MIN_HOURS &&
-    value <= MARKETPLACE_V2_BID_GRACE_MAX_HOURS
+    (value === 0 ||
+      (value >= MARKETPLACE_V2_BID_GRACE_MIN_HOURS &&
+        value <= MARKETPLACE_V2_BID_GRACE_MAX_HOURS))
   );
 }
 
 export function marketplaceListingTimes(createdAt: Date, graceHours: number) {
+  if (graceHours === 0) {
+    return {
+      bidEndsAt: createdAt,
+      expiresAt: new Date(
+        createdAt.getTime() +
+          MARKETPLACE_V2_DIRECT_LISTING_HOURS * 60 * 60 * 1000,
+      ),
+    };
+  }
   const bidEndsAt = new Date(
     createdAt.getTime() + graceHours * 60 * 60 * 1000,
   );
@@ -223,9 +240,46 @@ export function isMarketKind(s: unknown): s is MarketKind {
   return s === "equip" || s === "material" || s === "consumable";
 }
 
+export function isStackableMarketplaceItem(
+  kind: MarketKind,
+  itemId: string,
+): boolean {
+  return (
+    kind === "material" ||
+    (kind === "consumable" &&
+      (isTradeableMuseunCashItemId(itemId) || isCookingFoodId(itemId)))
+  );
+}
+
+export function marketplaceUnitPrice(price: number, quantity: number): number {
+  return Math.max(1, Math.ceil(price / Math.max(1, Math.floor(quantity))));
+}
+
+/** 기존 총액 매물을 일부 체결할 때 배분할 금액. 잔여 매물 가격도 최소 1골드로 보존한다. */
+export function marketplacePartialPrice(
+  price: number,
+  quantity: number,
+  purchaseQuantity: number,
+): number | null {
+  const safeQuantity = Math.max(1, Math.floor(quantity));
+  const take = Math.max(1, Math.min(safeQuantity, Math.floor(purchaseQuantity)));
+  if (take >= safeQuantity) return price;
+  if (price <= MARKETPLACE_V2_PRICE_MIN) return null;
+  return Math.min(
+    price - MARKETPLACE_V2_PRICE_MIN,
+    marketplaceUnitPrice(price, safeQuantity) * take,
+  );
+}
+
 // 거래 가능 종류 판정 — 카탈로그에 실재하는 id 인지(타입 가드 겸).
 export function isTradableEquip(id: string): id is V2EquipmentId {
   return Object.prototype.hasOwnProperty.call(V2_EQUIPMENT, id);
+}
+
+/** 장비 구매 주문 하한. NPC에 바로 팔아도 받는 금액보다 싼 계정 간 몰아주기를 차단한다. */
+export function equipmentBuyOrderMinimumPrice(id: string): number | null {
+  if (!isTradableEquip(id)) return null;
+  return sellPriceOf(V2_EQUIPMENT[id]);
 }
 
 export type MarketplaceEquipListError =

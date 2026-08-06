@@ -4,6 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import { useSystemToast } from "./RewardToastProvider";
+import {
+  GUILD_CONTRIBUTION_GOLD_UNIT,
+  GUILD_CONTRIBUTION_POINT_SCALE,
+  guildGoldContributionPoints,
+} from "@/adventure/data/v2/guildContribution";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 // 길드 골드 입금 패널 — 길드원이 개인 골드를 길드 공용 골드 풀에 넣는다.
 
@@ -69,6 +75,8 @@ export function GuildGoldDepositPanel({
         gold?: number;
         bankedGold?: number;
         guildGold?: number;
+        honorGained?: number;
+        contributionPoints?: number;
       } | null;
       if (!j?.ok) {
         notifySystem(`✗ ${DEPOSIT_ERROR_TEXT[j?.error ?? ""] ?? "입금에 실패했어요"}`);
@@ -79,7 +87,13 @@ export function GuildGoldDepositPanel({
       if (typeof j.guildGold === "number") setGuildGold(j.guildGold);
       setAmountText("");
       notifySystem(
-        `✓ 길드 금고에 ${(j.deposited ?? 0).toLocaleString()} G 입금 완료`,
+        `✓ 길드 금고에 ${(j.deposited ?? 0).toLocaleString()} G 입금 완료${
+          (j.honorGained ?? 0) > 0 ? ` · 명예 +${j.honorGained}` : ""
+        }${
+          (j.contributionPoints ?? 0) > 0
+            ? ` · 기여 +${j.contributionPoints}점`
+            : ""
+        }`,
       );
       onChanged?.();
     } catch (err) {
@@ -116,8 +130,18 @@ export function GuildGoldDepositPanel({
       </div>
 
       <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-        길드 골드는 길드 공용 활동에 쓰입니다. 은행 잔액부터 차감됩니다.
+        길드 골드는 길드 공용 활동에 쓰입니다. 은행 잔액부터 차감됩니다. {" "}
+        {(GUILD_CONTRIBUTION_GOLD_UNIT / GUILD_CONTRIBUTION_POINT_SCALE).toLocaleString()}G당
+        기여 1점을 얻습니다.
+        {V2_SETTLEMENT_WARFARE &&
+          " 10만G당 개인 명예와 길드 명성도 1씩 얻습니다."}
       </p>
+
+      {amount > 0 && (
+        <div className="mt-2 text-right text-[11px] font-medium text-sky-700 dark:text-sky-300">
+          예상 기여 +{guildGoldContributionPoints(amount).toLocaleString()}점
+        </div>
+      )}
 
       <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
         <NumberInput

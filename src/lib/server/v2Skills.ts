@@ -7,6 +7,7 @@ import {
   parseV2Class,
   elementalSkillsForClass,
 } from "@/adventure/data/v2/classes";
+import { grantCoreStarterSkill } from "@/adventure/data/v2/v2SkillsByJob";
 import {
   parseProficiencyForChar,
   emptyProficiency,
@@ -45,11 +46,15 @@ export function sanitizeCombatLoadout(
     spFruitUsed?: unknown;
   };
   const prof = parseProficiencyForChar(proficiencyRaw, cs);
+  const skillsWithCoreStarter = grantCoreStarterSkill(
+    skills,
+    parseV2Class(cs.class),
+  );
   return {
-    ...skills,
+    ...skillsWithCoreStarter,
     equipped: sanitizeLoadout(
-      skills.equipped,
-      skills.learned,
+      skillsWithCoreStarter.equipped,
+      skillsWithCoreStarter.learned,
       calcSpBudget(
         prof.groups,
         spCapBonusFromRaw(cs.spFruitUsed),
@@ -61,7 +66,8 @@ export function sanitizeCombatLoadout(
 }
 
 // 코어루프 — equipped 는 플레이어가 저장한 수동 SP 로드아웃이다. state 로드 시에는 learned/SP
-// 예산 기준으로만 sanitize 하고, 직업 체인으로 강제 재산출하지 않는다. learned 는 절대 안 건드림.
+// 예산 기준으로만 sanitize 하고, 직업 체인으로 강제 재산출하지 않는다. learned 는 마법사 코어
+// 기본기 누락 백필 외에는 건드리지 않는다.
 // flag off 레거시만 "학습한 스킬 중 현 체인 유효분 전부"로 자동 산출한다.
 //
 // 반드시 트랜잭션(tx) 안에서 호출 — character.v2 → skills.v2 → proficiency.v2 를 FOR UPDATE 로
@@ -76,7 +82,7 @@ export async function reconcileV2EquippedSkills(
     specChoice?: unknown;
     spFruitUsed?: unknown;
   }>(executor, userId, "character.v2", {});
-  const current = parseV2SkillsState(
+  const stored = parseV2SkillsState(
     await lockSaveForUpdate<V2SkillsState>(
       executor,
       userId,
@@ -84,6 +90,9 @@ export async function reconcileV2EquippedSkills(
       emptyV2SkillsState(),
     ),
   );
+  const current = V2_CORE_LOOP_V2
+    ? grantCoreStarterSkill(stored, parseV2Class(charSave.class))
+    : stored;
   const prof = parseProficiencyForChar(
     await lockSaveForUpdate<V2ProficiencyState>(
       executor,
@@ -120,7 +129,9 @@ export async function reconcileV2EquippedSkills(
       })();
   const same = (a: readonly string[], b: readonly string[]) =>
     a.length === b.length && a.every((x, i) => x === b[i]);
-  if (same(current.equipped, equipped)) return current;
+  if (same(stored.learned, current.learned) && same(stored.equipped, equipped)) {
+    return stored;
+  }
   const next: V2SkillsState = { ...current, equipped };
   await upsertSave(executor, userId, "skills.v2", next);
   return next;

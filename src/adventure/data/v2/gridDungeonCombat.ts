@@ -2,6 +2,7 @@ import type { Monster } from "@/adventure/data/monsters/types";
 import type { StatKey } from "@/adventure/data/stats";
 import {
   evaluateCombatPattern,
+  v2SkillAttackCoef,
   type V2CombatPattern,
   type V2CombatRole,
 } from "@/adventure/v2/combat/combatPattern";
@@ -41,6 +42,7 @@ export type GridDungeonPartyActor = {
   maxMp: number;
   atk: number;
   magicAtk: number;
+  spi: number;
   def: number;
   spd: number;
   healMult: number;
@@ -170,19 +172,37 @@ function partySkillDamage(
 ): number {
   const def = V2_SKILLS[skillId];
   if (!def) return 0;
+  const damageEffects = def.effects.filter((effect) => effect.kind === "damage");
+  const directDamageEffectCount = Math.max(1, damageEffects.length);
   let total = 0;
-  for (const effect of def.effects) {
-    if (effect.kind !== "damage") continue;
-    const base =
-      effect.scaling === "magic"
+  for (const effect of damageEffects) {
+    const specialized =
+      effect.scaling != null &&
+      effect.scaling !== "physical" &&
+      effect.scaling !== "magic";
+    const attackPower =
+      effect.scaling === "magic" || effect.scaling === "spi"
         ? actor.magicAtk
-        : effect.scaling === "def"
-          ? actor.def
-          : actor.atk;
-    const flat =
-      effect.baseFlat ??
-      (effect.baseFlatByTier ? effect.baseFlatByTier[0] : 0);
-    total += partyDamage(Math.round(base * effect.statCoef + flat), enemyDef);
+        : actor.atk;
+    const specializedPower =
+      effect.scaling === "spi"
+        ? actor.spi
+        : effect.scaling === "maxHp"
+          ? actor.maxHp
+          : effect.scaling === "def"
+            ? actor.def
+            : actor.atk;
+    const attackCoef = v2SkillAttackCoef({
+      tier: def.tier,
+      statCoef: effect.statCoef,
+      specialized,
+      directDamageEffectCount,
+      attackCoef: effect.attackCoef,
+    });
+    const raw =
+      attackPower * attackCoef +
+      (specialized ? specializedPower * effect.statCoef : 0);
+    total += partyDamage(Math.round(raw), enemyDef);
   }
   return total;
 }
@@ -202,7 +222,11 @@ function partySkillHeal(
       Math.floor(target.maxHp * ((effect.pctMaxHp ?? 0) / 100)) +
       Math.floor(missing * ((effect.pctLostHp ?? 0) / 100)) +
       Math.floor(
-        (effect.scaling === "magic" ? actor.magicAtk : actor.atk) *
+        (effect.scaling === "magic"
+          ? actor.magicAtk
+          : effect.scaling === "spi"
+            ? actor.spi
+            : actor.atk) *
           (effect.statCoef ?? 0) +
           (effect.baseFlatByTier?.[0] ?? 0),
       ) +
@@ -264,6 +288,7 @@ export function makeGridDungeonPartyActor({
   maxMp = 0,
   atk,
   magicAtk = 0,
+  spi = 0,
   def,
   spd,
   healMult = 1,
@@ -281,6 +306,7 @@ export function makeGridDungeonPartyActor({
   maxMp?: number;
   atk: number;
   magicAtk?: number;
+  spi?: number;
   def: number;
   spd: number;
   healMult?: number;
@@ -301,6 +327,7 @@ export function makeGridDungeonPartyActor({
     maxMp,
     atk,
     magicAtk,
+    spi,
     def,
     spd,
     healMult,
@@ -345,6 +372,7 @@ export function resolveGridDungeonPartyCombat({
         maxMp: supporter.maxMp,
         atk: supporter.atk,
         magicAtk: supporter.magicAtk,
+        spi: supporter.spi,
         def: supporter.def,
         spd: supporter.spd,
         healMult: supporter.healMult,

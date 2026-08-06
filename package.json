@@ -26,6 +26,9 @@
     "check-secrets": "node scripts/check-secrets.mjs && node scripts/check-secrets.mjs --self-test",
     "check-public-release": "node scripts/check-public-release.mjs",
     "load-test": "node scripts/load-test.mjs",
+    "sim:level-design": "node --env-file=.env.production --import tsx scripts/sim-v2-level-design.ts",
+    "sim:exp-pacing": "node --env-file=.env.production --import tsx scripts/sim-v2-exp-pacing.ts",
+    "sim:crit-balance": "node --import tsx scripts/sim-crit-balance.ts",
     "account:create": "node scripts/create-password-account.mjs",
     "coupon:issue": "node scripts/issue-beta-coupons.mjs",
     "coupon:set-cosmetic-boxes": "node scripts/set-coupon-cosmetic-boxes.mjs",
@@ -44,7 +47,11 @@
     "pg": "^8.13.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "sharp": "^0.35.3"
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.35.3",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
@@ -54,6 +61,7 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",

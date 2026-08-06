@@ -1,7 +1,8 @@
 export const RESET_CONFIRMATION = "RESET-GAME-PROGRESS";
 
-// Authentication identity, launch coupons, and append-only operator evidence survive
-// the reopening reset. users is updated in-place by the runner to clear only game state.
+// Authentication identity, launch coupon definitions, and append-only operator evidence
+// survive the reopening reset. User-facing inbox rows do not: users is updated in-place
+// by the runner to clear only identity-independent game state.
 export const PRESERVED_TABLES = Object.freeze([
   "abuse_events",
   "accounts",
@@ -36,6 +37,7 @@ export const RESET_TABLES = Object.freeze([
   "fishing_records",
   "fishing_seasons",
   "guild_activity_log",
+  "guild_contribution_events",
   "guild_dining_weekly",
   "guild_exploration_weekly",
   "guild_facility_upgrade_donations",
@@ -53,6 +55,7 @@ export const RESET_TABLES = Object.freeze([
   "lottery_rounds",
   "lottery_winners",
   "marketplace_bids_v2",
+  "marketplace_inbox",
   "marketplace_listings",
   "marketplace_listings_v2",
   "messages",
@@ -83,28 +86,13 @@ export const RESET_TABLES = Object.freeze([
   "verification_tokens",
 ]);
 
-// marketplace_inbox is reset except for operator-delivered coupon-code notices.
-export const PARTIAL_RESET_TABLES = Object.freeze(["marketplace_inbox"]);
-
-export const COUPON_NOTICE_PREDICATE = `
-  kind = 'user_message'
-  AND from_name = '운영자'
-  AND from_user_id IS NULL
-  AND COALESCE(payload->>'text', '') ~ E'(^|\\n)쿠폰 코드: [A-Z0-9-]+(\\n|$)'
-  AND COALESCE(payload->>'text', '') LIKE '%설정 → 이벤트 → 쿠폰 등록%'
-`.trim();
-
 export function quoteIdentifier(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
 
 export function validateTableCoverage(actualTables) {
   const actual = [...new Set(actualTables)].sort();
-  const classified = [
-    ...PRESERVED_TABLES,
-    ...RESET_TABLES,
-    ...PARTIAL_RESET_TABLES,
-  ].sort();
+  const classified = [...PRESERVED_TABLES, ...RESET_TABLES].sort();
   const duplicates = classified.filter((name, index) => classified.indexOf(name) !== index);
   if (duplicates.length > 0) {
     throw new Error(`reset plan has duplicate tables: ${[...new Set(duplicates)].join(", ")}`);
@@ -134,7 +122,7 @@ export function parseResetArgs(argv) {
     expectGoogleAccounts: undefined,
     expectDeletedGoogleUsers: undefined,
     expectCouponCodes: undefined,
-    expectCouponNotices: undefined,
+    expectInboxRows: undefined,
     confirmation: undefined,
     maintenanceFlag: undefined,
   };
@@ -157,7 +145,7 @@ export function parseResetArgs(argv) {
       "--expect-google-accounts": "expectGoogleAccounts",
       "--expect-deleted-google-users": "expectDeletedGoogleUsers",
       "--expect-coupon-codes": "expectCouponCodes",
-      "--expect-coupon-notices": "expectCouponNotices",
+      "--expect-inbox-rows": "expectInboxRows",
       "--confirm": "confirmation",
       "--maintenance-flag": "maintenanceFlag",
     }[token];
@@ -177,7 +165,7 @@ export function parseResetArgs(argv) {
     "expectGoogleAccounts",
     "expectDeletedGoogleUsers",
     "expectCouponCodes",
-    "expectCouponNotices",
+    "expectInboxRows",
   ]) {
     if (parsed[key] === undefined) continue;
     const numeric = Number(parsed[key]);
@@ -199,7 +187,7 @@ export function parseResetArgs(argv) {
       "expectGoogleAccounts",
       "expectDeletedGoogleUsers",
       "expectCouponCodes",
-      "expectCouponNotices",
+      "expectInboxRows",
     ]) {
       if (parsed[key] === undefined) {
         throw new Error(`--${camelToKebab(key)} is required with --execute`);

@@ -10,12 +10,14 @@ import {
   users,
 } from "@/db/schema";
 import { inboxValues } from "@/lib/server/inboxPayload";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 
 export const REFERRAL_COOKIE = "adventure_referral";
 export const REFERRAL_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 export const REFERRAL_CODE_PATTERN = /^[a-f0-9]{16}$/;
 export const REFERRAL_NEW_USER_STAMINA_POTIONS = 2;
-export const REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE = 1;
+export const REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS = 2;
+export const REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE = 2;
 export const REFERRAL_REWARD_DEPTHS = [6, 12, 18, 24, 36] as const;
 
 export type ReferralRewardMilestone = {
@@ -60,6 +62,7 @@ export async function attributeReferral(
   tx: DbExecutor,
   referredUserId: string,
   rawCode: unknown,
+  referredName = "새 모험가",
 ): Promise<{ attributed: boolean }> {
   const code = normalizeReferralCode(rawCode);
   if (!code) return { attributed: false };
@@ -81,6 +84,7 @@ export async function attributeReferral(
       referralCode: code,
       rewardGold: 0,
       rewardedDepth: 0,
+      referrerSignupRewardedAt: new Date(),
       rewardedStaminaDepth: 0,
     })
     .onConflictDoNothing({ target: referralConversions.referredUserId })
@@ -101,6 +105,22 @@ export async function attributeReferral(
         adventureSupportDays: 0,
       },
       message: `홍보 링크로 모험을 시작해 주셔서 스태미나 회복약 ${REFERRAL_NEW_USER_STAMINA_POTIONS}개를 드립니다.`,
+    }),
+  );
+  await tx.insert(marketplaceInbox).values(
+    inboxValues({
+      userId: owner.userId,
+      payload: {
+        kind: "admin_gift",
+        gold: 0,
+        materials: [],
+        items: [],
+        staminaPotions: REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
+        museunCoins: 0,
+        cashItems: [],
+        adventureSupportDays: 0,
+      },
+      message: `${referredName}님이 홍보 링크로 합류했습니다. 가입 보상 스태미나 회복약 ${REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS}개를 받아 주세요.`,
     }),
   );
   return { attributed: true };
@@ -167,7 +187,7 @@ export async function rewardReferralProgress(
           cashItems: [],
           adventureSupportDays: 0,
         },
-        message: `${referredName}님이 프론티어 ${targetDepth}에 도달했습니다. 홍보 보상 스태미나 회복약 ${dueStaminaPotions}개를 받아 주세요.`,
+        message: `${referredName}님이 ${huntStageName(targetDepth)}를 돌파했습니다. 홍보 보상 스태미나 회복약 ${dueStaminaPotions}개를 받아 주세요.`,
       }),
     );
   }

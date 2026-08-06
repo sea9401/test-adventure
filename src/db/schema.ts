@@ -13,6 +13,7 @@ import {
   check,
   numeric,
   doublePrecision,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // Auth.js(NextAuth) 와 게임 사용자 1:1 매핑.
@@ -175,7 +176,8 @@ export const referralCodes = pgTable(
 
 // 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. referredUserId PK가 한 계정의 중복
 // 귀속을 막는다. rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
-// 현재 회복약 보상은 rewardedStaminaDepth를 원자적으로 갱신하며 지급한다.
+// 현재 회복약 보상은 referrerSignupRewardedAt과 rewardedStaminaDepth로 지급 여부를
+// 기록한다. 가입 보상은 귀속 트랜잭션에서 함께 지급하며, 과거 귀속은 NULL로 남긴다.
 export const referralConversions = pgTable(
   "referral_conversions",
   {
@@ -190,6 +192,7 @@ export const referralConversions = pgTable(
       .references(() => referralCodes.code, { onDelete: "cascade" }),
     rewardGold: integer("reward_gold").default(0).notNull(),
     rewardedDepth: integer("rewarded_depth").default(0).notNull(),
+    referrerSignupRewardedAt: timestamp("referrer_signup_rewarded_at"),
     rewardedStaminaDepth: integer("rewarded_stamina_depth").default(0).notNull(),
     convertedAt: timestamp("converted_at").defaultNow().notNull(),
   },
@@ -317,6 +320,11 @@ export const bulletinComments = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // 한 단계 답글. 원댓글 삭제 시 그 아래 답글도 함께 정리한다.
+    parentId: integer("parent_id").references(
+      (): AnyPgColumn => bulletinComments.id,
+      { onDelete: "cascade" },
+    ),
     name: text("name").notNull(),
     className: text("class_name").notNull(),
     content: text("content").notNull(),
@@ -327,6 +335,8 @@ export const bulletinComments = pgTable(
     index("bulletin_comments_post_created_at_idx").on(t.postId, t.createdAt),
     // rate-limit 조회 — userId 마지막 댓글.
     index("bulletin_comments_user_created_at_idx").on(t.userId, t.createdAt),
+    // 원댓글별 답글 조회·cascade 삭제 보조.
+    index("bulletin_comments_parent_id_idx").on(t.parentId),
   ],
 );
 
@@ -434,6 +444,8 @@ export const messages = pgTable(
     className: text("class_name").notNull(),
     title: text("title"),
     content: text("content").notNull(),
+    // 채팅에 첨부한 장비의 전송 시점 공개 스냅샷. 서버가 보유 iid를 검증해 만든다.
+    itemLink: jsonb("item_link"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
@@ -605,6 +617,7 @@ export const marketplaceListings = pgTable(
 //   purchase_item:      { item_kind, item_id, grade, quantity }                     — 구매한 아이템 수령
 //   cancel_return:      { item_kind, item_id, grade, quantity }                     — 본인/admin 취소 환불
 //   listing_expired:    { item_kind, item_id, grade, quantity }                     — TTL 유찰 환불
+//   buy_order_equipment:{ order_id, item_id, instance_payload }                     — 장비 구매 주문 체결
 //   user_message:       { text: string }                                            — 유저 간 쪽지
 //   recipe_gift:        { recipe_id, recipe_name }                                  — 제작서 선물
 //   guild_invite:       { invite_id, guild_id, guild_name, expires_at }             — 길드 초대
@@ -794,6 +807,141 @@ export const marketplaceBidsV2 = pgTable(
   ],
 );
 
+// v2 스택 품목 구매 주문 — 구매 골드를 미리 에스크로하고 판매 매물과 자동 체결한다.
+// 잔여 수량·골드는 부분 체결마다 감소하며, 완료/취소/만료 시 감사 기록으로 보존한다.
+export const marketplaceBuyOrdersV2 = pgTable(
+  "marketplace_buy_orders_v2",
+  {
+    id: serial("id").primaryKey(),
+    buyerId: text("buyer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // equip | material | consumable(음식·거래 가능 캐시 아이템)
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    unitPrice: integer("unit_price").notNull(),
+    quantityInitial: integer("quantity_initial").notNull(),
+    quantityRemaining: integer("quantity_remaining").notNull(),
+    goldEscrow: integer("gold_escrow").notNull(),
+    // 장비 구매 주문 조건. 비장비 주문에서는 null이며 장비 주문은 quantity=1이다.
+    minPower: integer("min_power"),
+    minQualityPct: integer("min_quality_pct"),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    closedAt: timestamp("closed_at"),
+  },
+  (t) => [
+    index("marketplace_buy_orders_v2_match_idx")
+      .on(t.kind, t.itemId, t.unitPrice, t.createdAt)
+      .where(sql`${t.status} = 'active'`),
+    index("marketplace_buy_orders_v2_buyer_idx").on(
+      t.buyerId,
+      t.status,
+      t.createdAt,
+    ),
+    check(
+      "marketplace_buy_orders_v2_kind_valid",
+      sql`${t.kind} IN ('equip','material','consumable')`,
+    ),
+    check(
+      "marketplace_buy_orders_v2_status_valid",
+      sql`${t.status} IN ('active','filled','cancelled','expired')`,
+    ),
+    check("marketplace_buy_orders_v2_unit_price_pos", sql`${t.unitPrice} > 0`),
+    check("marketplace_buy_orders_v2_qty_initial_pos", sql`${t.quantityInitial} > 0`),
+    check("marketplace_buy_orders_v2_qty_remaining_nonneg", sql`${t.quantityRemaining} >= 0`),
+    check("marketplace_buy_orders_v2_escrow_nonneg", sql`${t.goldEscrow} >= 0`),
+    check(
+      "marketplace_buy_orders_v2_equip_criteria_valid",
+      sql`(${t.kind} = 'equip' AND ${t.quantityInitial} = 1 AND ${t.minPower} IS NOT NULL AND ${t.minPower} >= 1 AND ${t.minQualityPct} IS NOT NULL AND ${t.minQualityPct} BETWEEN 0 AND 100) OR (${t.kind} <> 'equip' AND ${t.minPower} IS NULL AND ${t.minQualityPct} IS NULL)`,
+    ),
+    check("marketplace_buy_orders_v2_expires_after_create", sql`${t.expiresAt} > ${t.createdAt}`),
+  ],
+);
+
+// 종료된 거래소 원본 행을 60일 뒤 정리하기 전에 남기는 일별 시세 집계.
+// 원본 매물/입찰 JSON은 지워도 장기 시세 추이는 작은 고정 폭 행으로 유지한다.
+export const marketplacePriceDaily = pgTable(
+  "marketplace_price_daily",
+  {
+    dateKey: text("date_key").notNull(), // UTC YYYY-MM-DD
+    kind: text("kind").notNull(),
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    trades: integer("trades").notNull().default(0),
+    quantity: integer("quantity").notNull().default(0),
+    grossGold: numeric("gross_gold", { precision: 30, scale: 0 })
+      .notNull()
+      .default("0"),
+    minUnitPrice: integer("min_unit_price").notNull(),
+    maxUnitPrice: integer("max_unit_price").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.dateKey, t.kind, t.itemId] }),
+    index("marketplace_price_daily_item_date_idx").on(
+      t.kind,
+      t.itemId,
+      t.dateKey,
+    ),
+  ],
+);
+
+// 60일이 지난 체결 원본을 지운 뒤에도 '거래 경험' 같은 평생 신호가 사라지지 않도록
+// 유저별 매수/매도 횟수만 압축 보존한다. 최근 60일은 원본 매물과 합쳐서 조회한다.
+export const marketplaceUserTradeTotals = pgTable(
+  "marketplace_user_trade_totals",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purchases: integer("purchases").notNull().default(0),
+    sales: integer("sales").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
+
+// 지정 개당 가격 이하 매물이 생겼을 때 한 번 울리는 가격 알림.
+export const marketplacePriceAlertsV2 = pgTable(
+  "marketplace_price_alerts_v2",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    targetUnitPrice: integer("target_unit_price").notNull(),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    triggeredAt: timestamp("triggered_at"),
+  },
+  (t) => [
+    index("marketplace_price_alerts_v2_match_idx")
+      .on(t.kind, t.itemId, t.targetUnitPrice)
+      .where(sql`${t.status} = 'active'`),
+    index("marketplace_price_alerts_v2_user_idx").on(
+      t.userId,
+      t.status,
+      t.createdAt,
+    ),
+    uniqueIndex("marketplace_price_alerts_v2_user_item_active_idx")
+      .on(t.userId, t.kind, t.itemId)
+      .where(sql`${t.status} = 'active'`),
+    check(
+      "marketplace_price_alerts_v2_kind_valid",
+      sql`${t.kind} IN ('material','consumable')`,
+    ),
+    check(
+      "marketplace_price_alerts_v2_status_valid",
+      sql`${t.status} IN ('active','triggered','cancelled')`,
+    ),
+    check("marketplace_price_alerts_v2_target_pos", sql`${t.targetUnitPrice} > 0`),
+  ],
+);
+
 // 랭킹 — opt-in. 사용자가 명시적으로 등록한 경우에만 row 가 존재한다.
 // 갱신은 수동 (RankingsView 의 '갱신' 버튼). DELETE 로 빠질 수 있음.
 // name 은 등록/갱신 시점 스냅샷 — 이후 닉네임 변경되면 다음 갱신에서 반영.
@@ -851,6 +999,9 @@ export const guilds = pgTable(
     color: text("color"),
     // 가입 신청을 받는지 — 마스터 토글. false 면 둘러보기에서 "신청" 비활성.
     acceptingRequests: boolean("accepting_requests").notNull().default(true),
+    // 운영 검증용 길드. 실제 콘텐츠는 정상 이용하되 공개 길드 목록·길드 랭킹 집계에서 제외한다.
+    // 이름(test 등)으로 판별하지 않고 명시적 플래그를 사용해 일반 길드 오탐을 막는다.
+    isTest: boolean("is_test").notNull().default(false),
     // 길드 버프 슬롯 — { buffId, tier, installedAt }[]. 슬롯 수 한도는 등급 산식.
     buffs: jsonb("buffs")
       .$type<GuildBuffSlotRow[]>()
@@ -917,6 +1068,81 @@ export const guildActivityLog = pgTable(
     index("guild_activity_log_actor_created_idx").on(
       t.actorUserId,
       t.createdAt,
+    ),
+  ],
+);
+
+// 길드 기여도 불변 원장. 활동 로그와 1:0..1로 연결해 동일 활동의 중복 적립을 막고,
+// 점수 규칙이 바뀌어도 이미 획득한 주간·누적 점수는 다시 계산하지 않는다.
+export const guildContributionEvents = pgTable(
+  "guild_contribution_events",
+  {
+    id: serial("id").primaryKey(),
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    activityLogId: integer("activity_log_id")
+      .notNull()
+      .references(() => guildActivityLog.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    category: text("category").notNull(),
+    points: integer("points").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("guild_contribution_events_activity_unique_idx").on(
+      t.activityLogId,
+    ),
+    index("guild_contribution_events_guild_created_idx").on(
+      t.guildId,
+      t.createdAt,
+    ),
+    index("guild_contribution_events_guild_user_created_idx").on(
+      t.guildId,
+      t.userId,
+      t.createdAt,
+    ),
+    check("guild_contribution_events_points_positive", sql`${t.points} > 0`),
+  ],
+);
+
+// 길드 활동 원본은 길드당 최근 500건만 보관한다. 잘려 나간 활동의 업적 횟수·기여 점수·
+// 입금액은 source/category 단위로 압축해 누적 및 월별 통계가 계속 유지되게 한다.
+// periodKey: 'lifetime' | UTC 'YYYY-MM'. 원본에 actor가 없는 시스템 활동은 집계하지 않는다.
+export const guildActivityRollups = pgTable(
+  "guild_activity_rollups",
+  {
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    source: text("source").notNull(),
+    category: text("category").notNull().default(""),
+    periodKey: text("period_key").notNull(),
+    eventCount: integer("event_count").notNull().default(0),
+    contributionPoints: numeric("contribution_points", {
+      precision: 30,
+      scale: 0,
+    })
+      .notNull()
+      .default("0"),
+    goldAmount: numeric("gold_amount", { precision: 30, scale: 0 })
+      .notNull()
+      .default("0"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.guildId, t.userId, t.source, t.category, t.periodKey],
+    }),
+    index("guild_activity_rollups_guild_period_idx").on(
+      t.guildId,
+      t.periodKey,
+    ),
+    index("guild_activity_rollups_user_period_idx").on(
+      t.userId,
+      t.periodKey,
     ),
   ],
 );
@@ -1237,6 +1463,8 @@ export const pvpTournaments = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
     rewardsGrantedAt: timestamp("rewards_granted_at"),
+    // 30일 뒤 bracket.games[*].replay와 snapshots만 제거하고 대진/우승 요약은 유지한다.
+    replaysTrimmedAt: timestamp("replays_trimmed_at"),
   },
   (t) => [
     index("pvp_tournaments_created_at_idx").on(t.createdAt),
@@ -1272,7 +1500,7 @@ export const pvpTournamentBets = pgTable(
     index("pvp_tournament_bets_user_idx").on(t.userId, t.createdAt),
     check(
       "pvp_tournament_bets_amount_valid",
-      sql`${t.amount} BETWEEN 100 AND 50000`,
+      sql`${t.amount} BETWEEN 100 AND 1500000`,
     ),
     check(
       "pvp_tournament_bets_status_valid",
@@ -1429,8 +1657,9 @@ export const guildDiningWeekly = pgTable("guild_dining_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// 길드 교역소 주간 공동 계약 상태. 주차가 바뀌면 첫 조회에서 계약 품목·진척·완료 목록과
-// 참여 가능 길드원 스냅샷을 함께 교체한다. 품목 추가에 마이그레이션이 필요 없도록 JSONB로 보관한다.
+// 길드 교역소 공동 상태. tokens 는 주차가 바뀌어도 유지되는 길드 공동 잔고이며,
+// 계약 품목·진척·완료 목록과 참여 가능 길드원 스냅샷만 첫 조회에서 교체한다.
+// 품목 추가에 마이그레이션이 필요 없도록 계약 데이터는 JSONB로 보관한다.
 export const guildTradeWeekly = pgTable("guild_trade_weekly", {
   guildId: integer("guild_id")
     .primaryKey()
@@ -1452,6 +1681,7 @@ export const guildTradeWeekly = pgTable("guild_trade_weekly", {
     .$type<string[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
+  tokens: integer("tokens").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -1660,6 +1890,42 @@ export const v2Notifications = pgTable(
   ],
 );
 
+// Web Push 구독 — 브라우저/TWA 설치 단위로 한 행. endpoint 는 Push Service 가 발급하는
+// 고유 주소이며 계정 삭제 시 함께 제거한다. 같은 브라우저에서 계정을 바꾸면 endpoint
+// unique 충돌을 upsert 하며 새 userId 로 소유권을 옮긴다.
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint),
+    index("push_subscriptions_user_idx").on(t.userId),
+  ],
+);
+
+// 타이머형 알림 멱등 마커. 자동 벌목·채광 세션과 농장 planting 단위 eventKey 를 남겨
+// 매분 cron 이 같은 완료 알림을 반복 발송하지 않게 한다.
+export const pushDeliveries = pgTable(
+  "push_deliveries",
+  {
+    eventKey: text("event_key").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("push_deliveries_user_created_idx").on(t.userId, t.createdAt)],
+);
+
 // 유저 제재 이력 — 밴/정지/경고의 append-only 로그. 현재 차단 여부는 users.bannedUntil
 // (비정규화)로 빠르게 검사하고, 이 테이블은 누가·언제·왜·얼마나 + 해제 이력을 보존한다.
 //   type:       'ban'(영구) | 'suspend'(기간) | 'warn'(경고, enforcement 없음)
@@ -1745,6 +2011,17 @@ export const opsSettings = pgTable("ops_settings", {
   value: jsonb("value").notNull(),
   updatedByEmail: text("updated_by_email"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 일별 DB/테이블 실사용량 스냅샷. 최근 30일만 유지하며 급증·할당량 임계치 경고에 사용한다.
+export const dbStorageMetrics = pgTable("db_storage_metrics", {
+  dateKey: text("date_key").primaryKey(), // UTC YYYY-MM-DD
+  databaseBytes: numeric("database_bytes", { precision: 30, scale: 0 }).notNull(),
+  tableBytes: jsonb("table_bytes")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // 관리자 감사 로그 — admin API 의 모든 변경 행동을 append-only 로 기록(누가·무엇을·대상).

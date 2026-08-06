@@ -113,6 +113,8 @@ export type BattleFlags = {
   luckyBuffActive: boolean;
   // 연쇄 운명 — 다음 공격 1회 크리 100% 보장 큐. 트리거 발동 후 true, 다음 공격에서 소비되며 false.
   fatedChainCritPending: boolean;
+  // 흑월지배 — 회피 성공 후 다음 직접 피해 액티브 스킬 확정 치명타 대기.
+  skillCritAfterEvadePending: boolean;
   // 장비 시그니처 — 전투당 1회 상태이상 무효 사용 여부.
   statusBlockUsed: boolean;
 };
@@ -185,7 +187,7 @@ export type BattleStacks = {
   comboAtkBonus: number;
   // 절초(연환) — 전투 내 누적 적중 횟수(마무리 강타 주기 판정용).
   comboHitCount: number;
-  // 고유 시그니처(포식자) — 전투 내 누적 적중 횟수(N타마다 추가타 주기·Phase 2). every_n_hits
+  // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 행동). every_n_hits
   //   시그니처 미장착이면 0 고정(증가 안 함) → byte-identical.
   signatureHitCount: number;
   // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).
@@ -297,6 +299,8 @@ export type PlayerCombat = {
   // v2 스킬 — scaling:"dex"/"luk" 비례 딜(도적 직군) 스케일용 DEX/LUK total. 0/undefined=no-op.
   dexStat?: number;
   lukStat?: number;
+  // v2 스킬 — scaling:"spi" 신술 공격/회복 스케일용 SPI total.
+  spiStat?: number;
   // v2 스킬 — scaling:"all" 비례 딜용 최종 스탯 합계(STR/VIT/DEX/SPD/INT/SPI/LUK).
   allStatTotal?: number;
   classTier?: number;
@@ -343,6 +347,8 @@ export type PlayerCombat = {
   // minDamage: 데미지 하한. healMult: heal effect 스케일(1.0=무영향).
   magicDef?: number;
   critResistPct?: number;
+  /** 중독·출혈 등 status_damage 피해 감소율. 직접 피해·둔화에는 적용하지 않는다. */
+  statusDamageReductionPct?: number;
   minDamage?: number;
   healMult?: number;
   // 기존 원소술사 스킬의 연출 분기용. 전투 상성에는 사용하지 않는다.
@@ -525,6 +531,8 @@ export type PlayerCombat = {
   equipSignatures?: SignatureEffect[];
   // 밤그림자(5차 LUK 캡스톤) — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 미보유 = undefined.
   skillCritOverflow?: boolean;
+  // 흑월지배 — 회피 성공 후 다음 직접 피해 액티브 스킬 확정 치명타. 미보유 = undefined.
+  skillCritAfterEvade?: boolean;
 };
 
 // AP 스킬 발동 슬롯 형태 — v2 미장착이라 런타임 비활성이나, apSel no-op scaffolding 의

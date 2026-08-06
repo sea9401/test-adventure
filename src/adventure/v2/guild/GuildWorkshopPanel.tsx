@@ -21,6 +21,7 @@ import {
   type CraftServerSync,
 } from "./WorkshopCraftPanel";
 import { workshopBasicMaterialGroups } from "./workshopBasicMaterials";
+import { useGameState } from "../GameStateProvider";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
@@ -56,6 +57,7 @@ export function GuildWorkshopPanel({
   outpostId?: string;
 }) {
   const { notifyReward } = useRewardToast();
+  const { setGold, setBankedGold } = useGameState();
   const smithy = SETTLEMENT_BUILDINGS.guild_smithy;
   const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
   const hasSmithy =
@@ -266,6 +268,7 @@ export function GuildWorkshopPanel({
         }
         setState({
           hasGuildSmithy: json.hasGuildSmithy,
+          spendableGold: Math.max(0, Number(json.spendableGold) || 0),
           resources: json.resources ?? {},
           materials: json.materials ?? {},
           artisan: json.artisan ?? {
@@ -341,10 +344,18 @@ export function GuildWorkshopPanel({
   // 스냅샷을 동봉할 수 있어(부족 등) 부분 동기화하고, 성공은 레시피 가능 여부 재계산 포함.
   const applyCraftServerState = useCallback(
     (json: CraftServerSync) => {
+      if (typeof json.gold === "number") setGold(Math.max(0, json.gold));
+      if (typeof json.bankedGold === "number") {
+        setBankedGold(Math.max(0, json.bankedGold));
+      }
       if (!json.ok) {
         if ((json.resources || json.artisan || json.materials || json.recipes) && state) {
           setState({
             ...state,
+            spendableGold:
+              typeof json.spendableGold === "number"
+                ? Math.max(0, json.spendableGold)
+                : state.spendableGold,
             resources: json.resources ?? state.resources,
             materials: json.materials ?? state.materials,
             ...(json.artisan ? { artisan: json.artisan } : {}),
@@ -365,6 +376,10 @@ export function GuildWorkshopPanel({
         prev
           ? {
               ...prev,
+              spendableGold:
+                typeof json.spendableGold === "number"
+                  ? Math.max(0, json.spendableGold)
+                  : prev.spendableGold,
               resources: nextResources,
               materials: nextMaterials,
               ...(nextArtisan ? { artisan: nextArtisan } : {}),
@@ -405,13 +420,14 @@ export function GuildWorkshopPanel({
           : prev,
       );
     },
-    [state],
+    [setBankedGold, setGold, state],
   );
-  // 제작 성공 후속 재조회 — 주간 의뢰 진행 + 기여도.
+  // 제작 성공 후속 재조회 — 새 제작품이 즉시 납품 후보에 나타나도록 일일 납품도 갱신한다.
   const afterCraftRefresh = useCallback(() => {
     void loadWeekly();
+    void loadDelivery();
     void loadContributionInfo();
-  }, [loadWeekly, loadContributionInfo]);
+  }, [loadWeekly, loadDelivery, loadContributionInfo]);
 
   async function claimWeekly(questId: string) {
     setWeeklyClaimingId(questId);

@@ -1,7 +1,9 @@
 import { and, asc, eq, ne, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv, pvpRatings } from "@/db/schema";
+import { savesKv, pvpRatings, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
+import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
 import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import { arenaSeasonPhase } from "@/lib/server/pvp/arenaTournament";
@@ -48,6 +50,7 @@ import {
   ARENA_INITIAL_RATING,
   ARENA_DAMAGE_MULTIPLIER,
   ARENA_MATCH_COOLDOWN_MS,
+  arenaHistorySince,
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
   arenaNextStaminaCost,
@@ -169,6 +172,13 @@ export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  // 운영 계정은 테스트 전투가 일반 유저의 Elo·전적에 섞이지 않도록 매칭 자체를 막는다.
+  if (await isCurrentUserAdmin()) {
+    return Response.json(
+      { ok: false, error: "admin_arena_disabled" },
+      { status: 403 },
+    );
   }
   const limited = enforceHighCostRateLimit(req, userId, "arenaMatch");
   if (limited) return limited;
@@ -305,15 +315,21 @@ export async function POST(req: Request) {
     const viewerName = nameOf(viewerProfileRow[0]?.value, "모험가");
 
     // 6. 후보 풀 — 본인 제외 character.v2 보유 유저들 (snapshot).
-    const candidateChars = await tx
-      .select({ userId: savesKv.userId, value: savesKv.value })
+    const candidateRows = await tx
+      .select({
+        userId: savesKv.userId,
+        value: savesKv.value,
+        email: users.email,
+      })
       .from(savesKv)
+      .innerJoin(users, eq(users.id, savesKv.userId))
       .where(
         and(
           eq(savesKv.key, CHARACTER_STATE_KEY),
           ne(savesKv.userId, userId),
         ),
       );
+    const candidateChars = excludeArenaOperatorAccounts(candidateRows);
     const candidateIds = candidateChars.map((r) => r.userId);
     // 6a. 순위표와 동일한 현재 시즌 pvp_ratings를 일괄 조회. 미참가자는 1000점.
     // arena-state.v2.score는 이전 누적 레이팅 호환 필드이며 매칭 기준으로 쓰지 않는다.
@@ -548,8 +564,11 @@ export async function POST(req: Request) {
       for (const id of lockIds) {
         out.set(
           id,
-          parseArenaHistory(
-            await lockSaveForUpdate<unknown>(tx, id, ARENA_HISTORY_KEY, []),
+          arenaHistorySince(
+            parseArenaHistory(
+              await lockSaveForUpdate<unknown>(tx, id, ARENA_HISTORY_KEY, []),
+            ),
+            season.startAt,
           ),
         );
       }

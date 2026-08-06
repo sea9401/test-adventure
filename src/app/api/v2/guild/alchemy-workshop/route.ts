@@ -272,6 +272,7 @@ export async function POST(req: Request) {
         itemName: recipe.name,
         chargeTarget: target,
         chargeAmount: gain.total,
+        contributionPoints: energyCost * 10,
       },
     });
 

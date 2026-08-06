@@ -14,8 +14,9 @@ import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 import {
   JOB_GOAL_STORAGE_KEY,
   JOB_TAG_FILTERS,
-  jobTags,
+  jobCardTags,
   matchesJobExplorerFilters,
+  toggleJobTagFilter,
 } from "./jobExplorer";
 
 // 직업 도감 — 읽기 전용. 직업 해금·스킬 수집을 평면 목록으로 표기. 직군(계열) 묶음·정복 바·수집
@@ -67,12 +68,7 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
   );
 
   function toggleTag(key: string) {
-    setActiveTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setActiveTags((prev) => toggleJobTagFilter(prev, key));
   }
 
   return (
@@ -245,7 +241,7 @@ function JobRow({
   currentJobId: string | null;
   onSetGoal: () => void;
 }) {
-  const tags = jobTags(job, { currentJobId }).slice(0, 4);
+  const tags = jobCardTags(job, { currentJobId }).slice(0, 4);
   return (
     <li
       className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${

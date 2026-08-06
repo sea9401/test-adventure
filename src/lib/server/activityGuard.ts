@@ -415,7 +415,9 @@ function observedBehaviorSignal(args: {
     args.stats.intervalSamples >= ACTIVITY_REGULARITY_MIN_INTERVALS &&
     args.now - args.sequenceStartedAt >= ACTIVITY_REGULARITY_MIN_ACTIVE_MS &&
     coefficientOfVariation <= ACTIVITY_REGULARITY_MAX_CV;
-  if (!fishingPattern && !highlyRegular) {
+  // 높은 성공률과 균일한 반응은 숙련된 손플레이에서도 반복될 수 있다.
+  // 완료 간격까지 기계적으로 일정할 때만 운영 위험도로 승격한다.
+  if (!highlyRegular) {
     return { stage: args.previous.behaviorStage, signal: null };
   }
   return {

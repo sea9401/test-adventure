@@ -19,6 +19,7 @@ import {
   weightForCandidate,
   weightedPick,
   ARENA_HISTORY_MAX,
+  arenaHistorySince,
   parseArenaHistory,
   pushArenaHistory,
   type ArenaCandidate,
@@ -78,6 +79,17 @@ describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
       { id: "attack", role: "attacker" },
       { id: "defense", role: "defender" },
     ]);
+  });
+
+  it("시즌 시작 전 리플레이는 월요일 초기화 대상으로 제외한다", () => {
+    const previous = { ...histEntry("old"), at: "2026-06-07T14:59:59.999Z" };
+    const current = { ...histEntry("new"), at: "2026-06-07T15:00:00.000Z" };
+    expect(
+      arenaHistorySince(
+        [current, previous],
+        new Date("2026-06-07T15:00:00.000Z"),
+      ).map((entry) => entry.id),
+    ).toEqual(["new"]);
   });
 });
 

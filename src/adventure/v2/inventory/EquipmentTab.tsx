@@ -8,7 +8,10 @@ import {
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { type BulkSellOpts } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  selectBulkSell,
+  type BulkSellOpts,
+} from "@/adventure/data/v2/v2EquipVariance";
 import { type ItemCardAnchor } from "../V2ItemCard";
 import {
   V2_ITEM_TABS,
@@ -35,6 +38,7 @@ export function EquipmentTab({
   frontierDepth,
   onBulkSell,
   onOpenCard,
+  onRegisterCodex,
 }: {
   slot: V2EquipSlot;
   instances: V2EquipInstance[];
@@ -48,6 +52,7 @@ export function EquipmentTab({
   frontierDepth: number;
   onBulkSell: (opts: BulkSellOpts, label: string) => void;
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
+  onRegisterCodex: (inst: V2EquipInstance) => void;
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
 
@@ -62,6 +67,15 @@ export function EquipmentTab({
     tabInstances,
     pageSize,
     `${slot}:${sortMode}`,
+  );
+  const qualitySellCount = useMemo(
+    () =>
+      selectBulkSell(
+        instances,
+        equippedIid ? { [slot]: equippedIid } : {},
+        { slot, belowPct: sellQualityPct },
+      ).count,
+    [equippedIid, instances, sellQualityPct, slot],
   );
 
   return (
@@ -78,17 +92,19 @@ export function EquipmentTab({
               품질
               <input
                 type="number"
+                inputMode="numeric"
                 min={0}
                 max={100}
                 value={sellQualityPct}
-                onChange={(e) =>
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => {
+                  const value = Number(event.currentTarget.value);
                   setSellQualityPct(
-                    Math.max(
-                      0,
-                      Math.min(100, Math.floor(Number(e.target.value) || 0)),
-                    ),
-                  )
-                }
+                    Number.isFinite(value)
+                      ? Math.max(0, Math.min(100, Math.floor(value)))
+                      : 0,
+                  );
+                }}
                 aria-label="일괄 판매 품질 임계값(%)"
                 className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
               />
@@ -101,12 +117,12 @@ export function EquipmentTab({
                   `${tabLabel} 품질 ${sellQualityPct}% 이하`,
                 )
               }
-              disabled={busy !== null}
+              disabled={busy !== null || qualitySellCount === 0}
               variant="warning"
               size="xs"
               className="min-h-0 px-2 py-0.5 text-[11px]"
             >
-              이하 판매
+              이하 판매 ({qualitySellCount})
             </Button>
             <Button
               onClick={() => onBulkSell({ slot }, `${tabLabel} 미장착 전부`)}
@@ -136,6 +152,8 @@ export function EquipmentTab({
           isEquipped: equippedIid === inst.iid,
         }))}
         onOpenCard={onOpenCard}
+        onRegisterCodex={onRegisterCodex}
+        codexBusyIid={busy}
         frontierDepth={frontierDepth}
       />
       <Pagination

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PolicyDocument } from "@/components/PolicyDocument";
 
-const EFFECTIVE_DATE = "2026년 7월 31일";
+const EFFECTIVE_DATE = "2026년 8월 4일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",
@@ -63,6 +63,11 @@ export default function PrivacyPage() {
                 <td>IP 주소, 브라우저·기기 환경과 TLS 신호, 사이트 키와 접속 출처, 확인 과정의 상호작용, 확인 토큰과 결과</td>
                 <td>낚시·벌목·채광의 반복 자동화와 부정 이용 탐지·차단</td>
               </tr>
+              <tr>
+                <td>푸시 알림</td>
+                <td>푸시 구독 주소, 브라우저가 발급한 암호화 공개키와 인증값, 알림 발송·수신 기록</td>
+                <td>이용자가 동의한 게임 작업 완료, 길드·협동 콘텐츠, 공지와 문의 답변 알림 전송</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -94,6 +99,8 @@ export default function PrivacyPage() {
               <tr><td>이상행동·보안 이벤트</td><td>발생 후 90일</td></tr>
               <tr><td>CloudFront·WAF 접속 및 보안 로그</td><td>생성 후 최대 90일</td></tr>
               <tr><td>재화 변동·경제 감사 이벤트</td><td>발생 후 180일</td></tr>
+              <tr><td>푸시 구독 정보</td><td>이용자가 알림을 해제하거나 회원 탈퇴할 때까지</td></tr>
+              <tr><td>푸시 중복 발송 방지 기록</td><td>발송 후 최대 180일</td></tr>
               <tr>
                 <td>프로필 이미지</td>
                 <td>교체·삭제 또는 회원 탈퇴 시까지</td>
@@ -388,6 +395,9 @@ export default function PrivacyPage() {
         </p>
         <p className="mt-3">
           이용자는 브라우저 설정에서 쿠키와 사이트 데이터를 삭제할 수 있습니다. 필수 쿠키를 차단하면 로그인이나 일부 기능이 정상적으로 동작하지 않을 수 있습니다.
+        </p>
+        <p className="mt-3">
+          푸시 알림은 이용자가 환경 설정에서 직접 켠 경우에만 사용합니다. 이용자는 같은 화면의 ‘알림 끄기’ 또는 기기의 앱·사이트 알림 설정에서 언제든 수신을 중단할 수 있습니다. 알림 전송 과정에서 브라우저 제공자의 푸시 서비스가 구독 주소와 암호화된 알림 데이터를 처리할 수 있습니다.
         </p>
       </section>
 

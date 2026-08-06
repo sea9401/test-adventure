@@ -33,6 +33,7 @@ type NumberInputProps = Omit<
 export function NumberInput({
   value,
   onValueChange,
+  onFocus,
   ...rest
 }: NumberInputProps) {
   return (
@@ -41,6 +42,10 @@ export function NumberInput({
       type="text"
       inputMode="numeric"
       value={value}
+      onFocus={(event) => {
+        event.currentTarget.select();
+        onFocus?.(event);
+      }}
       onChange={(e) => onValueChange(formatThousands(e.target.value))}
     />
   );

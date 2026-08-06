@@ -5,6 +5,7 @@
 // 사이즈 축소 — padding sm + 작은 font.
 
 import { Card } from "@/components/ui/Card";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { ChargeReadout } from "@/adventure/battle/BattleScene";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   RARE_MAP_KINDS,
+  type RareMapInstance,
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
 import {
@@ -71,6 +73,8 @@ export type HuntResult = {
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
   // 희귀 탐사 — 새 탐사 개방(kind id) / 입장 중 남은 판수.
   rareMapDrop?: RareMapKindId | null;
+  // 새로 생성된 지도 개체 — 결과 화면에서 해당 지도 바로가기용.
+  rareMapDropInstance?: RareMapInstance | null;
   rareMapRunsLeft?: number | null;
   // 도전(미정복) 구역 클리어 시 갱신된 최고 도달 깊이.
   maxDepth?: number;
@@ -118,45 +122,98 @@ export type RewardBalanceItem = {
   label: string;
   current: number | null | undefined;
   gained: number;
+  lost?: number;
   currentClassName: string;
   gainedClassName: string;
 };
 
-// 전투 결과의 핵심 재화 — 큰 숫자는 전투 후 현재 보유량, 작은 +숫자는 이번 획득량이다.
+// 전투 결과의 핵심 재화 — 큰 숫자는 전투 후 현재 보유량, 작은 숫자는 이번 획득/손실이다.
 export function RewardBalanceGrid({ items }: { items: RewardBalanceItem[] }) {
   return (
     <div
       className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"
-      aria-label="전투 후 보유량과 이번 획득량"
+      aria-label="전투 후 보유량과 이번 변동"
     >
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className={`${SURFACE_INSET} min-w-0 px-2 py-2 text-center`}
-        >
-          <div className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-            {item.label}
-          </div>
+      {items.map((item) => {
+        const gained = Math.max(0, item.gained);
+        const lost = Math.max(0, item.lost ?? 0);
+        return (
           <div
-            className={`mt-0.5 truncate text-base font-semibold tabular-nums ${item.currentClassName}`}
-            title={
-              item.current == null
-                ? undefined
-                : item.current.toLocaleString("ko-KR")
-            }
+            key={item.label}
+            className={`${SURFACE_INSET} min-w-0 px-2 py-2 text-center`}
           >
-            {item.current == null
-              ? "—"
-              : item.current.toLocaleString("ko-KR")}
+            <div className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              {item.label}
+            </div>
+            <div
+              className={`mt-0.5 truncate text-base font-semibold tabular-nums ${item.currentClassName}`}
+              title={
+                item.current == null
+                  ? undefined
+                  : item.current.toLocaleString("ko-KR")
+              }
+            >
+              {item.current == null
+                ? "—"
+                : item.current.toLocaleString("ko-KR")}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-1 text-xs font-semibold tabular-nums">
+              {(gained > 0 || lost === 0) && (
+                <span className={item.gainedClassName}>
+                  +{gained.toLocaleString("ko-KR")}
+                </span>
+              )}
+              {lost > 0 && (
+                <span className="text-rose-700 dark:text-rose-300">
+                  −{lost.toLocaleString("ko-KR")}
+                </span>
+              )}
+            </div>
           </div>
-          <div
-            className={`mt-0.5 text-xs font-semibold tabular-nums ${item.gainedClassName}`}
-          >
-            +{Math.max(0, item.gained).toLocaleString("ko-KR")}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
+  );
+}
+
+export function GoldLossNotice({
+  loss,
+  goldAfter,
+}: {
+  loss: number;
+  goldAfter?: number | null;
+}) {
+  const normalizedLoss = Number.isFinite(loss)
+    ? Math.max(0, Math.floor(loss))
+    : 0;
+  const normalizedAfter =
+    goldAfter == null || !Number.isFinite(goldAfter)
+      ? null
+      : Math.max(0, Math.floor(goldAfter));
+
+  return (
+    <StatusBanner
+      tone="error"
+      role="alert"
+      className="mt-2 py-3 text-center"
+    >
+      {normalizedLoss > 0 ? (
+        <>
+          <div className="text-sm font-bold tabular-nums">
+            패배 페널티 · 골드 −{normalizedLoss.toLocaleString("ko-KR")} G
+          </div>
+          {normalizedAfter != null && (
+            <div className="mt-1 tabular-nums">
+              보유 골드 {(normalizedAfter + normalizedLoss).toLocaleString("ko-KR")} G
+              {" → "}
+              {normalizedAfter.toLocaleString("ko-KR")} G
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-sm font-semibold">이번 패배로 잃은 골드는 없습니다.</div>
+      )}
+    </StatusBanner>
   );
 }
 
@@ -165,12 +222,14 @@ export function HuntResultCard({
   hpCharges,
   mpCharges,
   hasMp,
+  onEnterRareMap,
 }: {
   result: HuntResult;
   // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
   hpCharges?: number;
   mpCharges?: number;
   hasMp?: boolean;
+  onEnterRareMap?: (map: RareMapInstance) => void;
 }) {
   const won = result.won;
   const drops = result.drops
@@ -182,11 +241,12 @@ export function HuntResultCard({
   const droppedUniq = result.droppedUnique
     ? V2_EQUIPMENT[result.droppedUnique]
     : null;
+  const droppedSet = droppedEquip?.setId ? droppedEquip : null;
   // 드랍 알림 배너 — 매 사냥마다 (드랍 있을 때만). 1회성 storyFlags 폐기 (사용자
   // 요청 2026-05-28): 매번 어떤 아이템 받았는지 명시적 알림이 후크에 더 효과적.
   const dropBannerText = formatDropBanner(
     drops as Array<[string, number]>,
-    droppedEquip?.name ?? null,
+    droppedSet ? null : (droppedEquip?.name ?? null),
   );
   const rareMapDropDef = result.rareMapDrop
     ? RARE_MAP_KINDS[result.rareMapDrop]
@@ -198,6 +258,7 @@ export function HuntResultCard({
       label: "골드",
       current: result.goldAfter,
       gained: result.goldGained,
+      lost: result.lossTax,
       currentClassName: "text-yellow-700 dark:text-yellow-300",
       gainedClassName: "text-yellow-600 dark:text-yellow-400",
     },
@@ -231,11 +292,27 @@ export function HuntResultCard({
       className={won ? undefined : "ring-2 ring-rose-400 dark:ring-rose-600"}
     >
       {rareMapDropDef && (
-        <DiscoveryNotice kind={rareMapDropDef.category} className="mb-2">
+        <DiscoveryNotice
+          kind={rareMapDropDef.category}
+          className="mb-2"
+          action={
+            result.rareMapDropInstance &&
+            rareMapDropDef.category !== "utility" &&
+            onEnterRareMap ? (
+              <button
+                type="button"
+                onClick={() => onEnterRareMap(result.rareMapDropInstance!)}
+                className="ui-game-button shrink-0 rounded-md border border-sky-500 bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-700"
+              >
+                바로가기
+              </button>
+            ) : undefined
+          }
+        >
           {rareMapDropDef.category === "hunt"
-            ? `희귀 탐사 「${rareMapDropDef.name}」 개방! — 전투 탭 > 사냥터에서 입장`
+            ? `희귀 탐사 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
             : rareMapDropDef.category === "location"
-              ? `희귀 장소 「${rareMapDropDef.name}」 개방! — 전투 탭 > 사냥터에서 입장`
+              ? `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
               : `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`}
         </DiscoveryNotice>
       )}
@@ -243,10 +320,16 @@ export function HuntResultCard({
         <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           <GameIcon name="Sparkle" size={15} className="shrink-0" />
           <span>
-            유니크 「
+            {droppedUniq.setId ? "유니크 세트 「" : "유니크 「"}
             <span className={itemNameClass(droppedUniq)}>{droppedUniq.name}</span>
             」 획득!
           </span>
+        </div>
+      )}
+      {droppedSet && (
+        <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-emerald-400 bg-emerald-50 px-2 py-1.5 text-center text-xs font-semibold text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-200">
+          <GameIcon name="Sparkle" size={15} className="shrink-0" />
+          <span>세트 「{droppedSet.name}」 획득!</span>
         </div>
       )}
       {dropBannerText && (
@@ -265,9 +348,16 @@ export function HuntResultCard({
         </div>
       ) : (
         // 패배는 작은 글씨 대신 눈에 띄는 배지로 — 승리 카드와 한눈에 구분되게.
-        <div className="rounded-md bg-rose-100 py-1.5 text-center dark:bg-rose-900/50">
+        <StatusBanner tone="error" className="py-1.5 text-center">
           <BattleOutcomeBadge outcome="lose" />
-        </div>
+        </StatusBanner>
+      )}
+
+      {!won && (
+        <GoldLossNotice
+          loss={result.lossTax ?? 0}
+          goldAfter={result.goldAfter}
+        />
       )}
 
       <RewardBalanceGrid items={rewardBalances} />
@@ -282,11 +372,6 @@ export function HuntResultCard({
         {(result.goldTaxed ?? 0) > 0 && (
           <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
             세금 −{result.goldTaxed} G → {result.taxOwnerLabel ?? "점령자"}
-          </div>
-        )}
-        {(result.lossTax ?? 0) > 0 && (
-          <div className="text-xs font-semibold tabular-nums text-rose-600 dark:text-rose-400">
-            골드 −{result.lossTax} G 압류 (패배 페널티)
           </div>
         )}
       </div>

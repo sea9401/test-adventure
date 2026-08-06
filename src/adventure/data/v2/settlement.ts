@@ -446,6 +446,7 @@ export type AlchemyWorkshopUpgradeDef = {
 export type DiningHallUpgradeDef = {
   level: number;
   cost: SettlementBuildingUpgradeCost;
+  /** 기본 1장과 별도로 기부로 얻을 수 있는 주간 식권 상한. */
   weeklyMealTickets: number;
   weeklyMenuSlots: number;
   label: string;
@@ -456,6 +457,7 @@ export type TradePostUpgradeDef = {
   cost: SettlementBuildingUpgradeCost;
   weeklyContractCount: number;
   personalContributionCap: number;
+  tokenYieldBonusPct: number;
   completionRewardBonusPct: number;
   label: string;
 };
@@ -576,28 +578,28 @@ export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
     level: 2,
     cost: facilityUpgradeCost(2, 20_000_000, 0),
     weeklyMealTickets: 2,
-    weeklyMenuSlots: 1,
+    weeklyMenuSlots: 2,
     label: "식재료 저장고",
   },
   {
     level: 3,
     cost: facilityUpgradeCost(3, 45_000_000, 600),
     weeklyMealTickets: 3,
-    weeklyMenuSlots: 2,
+    weeklyMenuSlots: 3,
     label: "전문 조리실",
   },
   {
     level: 4,
     cost: facilityUpgradeCost(4, 90_000_000, 1250),
     weeklyMealTickets: 4,
-    weeklyMenuSlots: 2,
+    weeklyMenuSlots: 4,
     label: "연회 준비실",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 160_000_000, 2500),
     weeklyMealTickets: 5,
-    weeklyMenuSlots: 3,
+    weeklyMenuSlots: 5,
     label: "길드 대연회장",
   },
 ];
@@ -608,6 +610,7 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
     cost: {},
     weeklyContractCount: 3,
     personalContributionCap: 120,
+    tokenYieldBonusPct: 20,
     completionRewardBonusPct: 0,
     label: "임시 교역 천막",
   },
@@ -615,32 +618,36 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
     level: 2,
     cost: facilityUpgradeCost(2, 25_000_000, 0),
     weeklyContractCount: 3,
-    personalContributionCap: 140,
-    completionRewardBonusPct: 10,
+    personalContributionCap: 200,
+    tokenYieldBonusPct: 70,
+    completionRewardBonusPct: 25,
     label: "상단 접수대",
   },
   {
     level: 3,
     cost: facilityUpgradeCost(3, 55_000_000, 750),
     weeklyContractCount: 4,
-    personalContributionCap: 160,
-    completionRewardBonusPct: 20,
+    personalContributionCap: 300,
+    tokenYieldBonusPct: 120,
+    completionRewardBonusPct: 50,
     label: "광역 물류창고",
   },
   {
     level: 4,
     cost: facilityUpgradeCost(4, 110_000_000, 1600),
     weeklyContractCount: 4,
-    personalContributionCap: 180,
-    completionRewardBonusPct: 30,
+    personalContributionCap: 420,
+    tokenYieldBonusPct: 170,
+    completionRewardBonusPct: 75,
     label: "대륙 상단 지부",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 190_000_000, 3000),
     weeklyContractCount: 5,
-    personalContributionCap: 220,
-    completionRewardBonusPct: 40,
+    personalContributionCap: 600,
+    tokenYieldBonusPct: 220,
+    completionRewardBonusPct: 100,
     label: "왕립 교역 연합소",
   },
 ];
@@ -849,7 +856,7 @@ export function settlementBuildingUpgradeSummary(
   }
   if (buildingId === "exploration_hq") {
     const exploration = upgrade as ExplorationHqUpgradeDef;
-    return `주간 탐사 ${exploration.weeklyMissionCount}건 · 진척 +${exploration.missionProgressBonusPct}%`;
+    return `해금 의뢰 ${exploration.weeklyMissionCount}종 · 진척 +${exploration.missionProgressBonusPct}%`;
   }
   if (buildingId === "map_workshop") {
     const map = upgrade as MapWorkshopUpgradeDef;
@@ -861,11 +868,11 @@ export function settlementBuildingUpgradeSummary(
   }
   if (buildingId === "dining_hall") {
     const dining = upgrade as DiningHallUpgradeDef;
-    return `주간 식권 ${dining.weeklyMealTickets}장 · 메뉴 ${dining.weeklyMenuSlots}종`;
+    return `기본 식권 1장 + 기여 식권 ${dining.weeklyMealTickets}장 · 메뉴 ${dining.weeklyMenuSlots}종`;
   }
   if (buildingId === "trade_post") {
     const trade = upgrade as TradePostUpgradeDef;
-    return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 완료 보상 +${trade.completionRewardBonusPct}%`;
+    return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 토큰 +${trade.tokenYieldBonusPct}% · 완료 보상 +${trade.completionRewardBonusPct}%`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p · 주간 의뢰 진척 +${smithy.weeklyProgressBonusPct}%`;

@@ -1,26 +1,36 @@
 import { describe, expect, it } from "vitest";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMaterials";
-import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
+import {
+  MINING_MATERIAL_ID,
+  MINING_SPOT_IDS,
+  MINING_SPOTS,
+  miningNodeForSpot,
+} from "@/adventure/data/v2/miningSpots";
 import { MONSTER_CRAFT_MATERIAL_ID } from "@/adventure/data/v2/monsterCraftMaterials";
-import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
+import {
+  WOODCUTTING_MATERIAL_ID,
+  WOODCUTTING_SPOT_IDS,
+  WOODCUTTING_SPOTS,
+  woodcuttingTreeForSpot,
+} from "@/adventure/data/v2/woodcuttingSpots";
 import { workshopBasicMaterialGroups } from "./workshopBasicMaterials";
 
 describe("guild workshop basic material inventory", () => {
-  it("separates gathered wood and primary minerals", () => {
+  it("생활지도의 지역 순서대로 목재와 주 광물을 나눈다", () => {
     const groups = workshopBasicMaterialGroups({});
 
     expect(groups.map((group) => group.label)).toEqual(["목재", "광물"]);
     expect(groups[0].entries.map((entry) => entry.key)).toEqual(
-      Object.values(WOODCUTTING_MATERIAL_ID),
+      WOODCUTTING_SPOT_IDS.map(
+        (spotId) =>
+          woodcuttingTreeForSpot(WOODCUTTING_SPOTS[spotId]).materialId,
+      ),
     );
-    expect(groups[1].entries.map((entry) => entry.key)).toEqual([
-      MINING_MATERIAL_ID.iron,
-      MINING_MATERIAL_ID.copper,
-      MINING_MATERIAL_ID.silver,
-      MINING_MATERIAL_ID.gold,
-      MINING_MATERIAL_ID.mythril,
-      MINING_MATERIAL_ID.adamantite,
-    ]);
+    expect(groups[1].entries.map((entry) => entry.key)).toEqual(
+      MINING_SPOT_IDS.map(
+        (spotId) => miningNodeForSpot(MINING_SPOTS[spotId]).materialId,
+      ),
+    );
   });
 
   it("does not include mining byproducts or special crafting materials", () => {

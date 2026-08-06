@@ -38,7 +38,7 @@ describe("공개 정책 페이지", () => {
   it("확인된 처리 위치와 외부 보안 서비스의 국외 처리 내용을 안내한다", () => {
     const html = renderToStaticMarkup(<PrivacyPage />);
 
-    expect(html).toContain("2026년 7월 31일");
+    expect(html).toContain("2026년 8월 4일");
     expect(html).toContain("대한민국 서울 리전");
     expect(html).toContain("ap-northeast-2");
     expect(html).toContain("CloudFront·AWS WAF");
@@ -57,6 +57,8 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain("privacyquestions@cloudflare.com");
     expect(html).toContain("생성 후 최대 90일");
     expect(html).toContain("환경 설정 → 회원 탈퇴");
+    expect(html).toContain("푸시 구독 주소");
+    expect(html).toContain("‘알림 끄기’");
     expect(html).not.toContain("정식 출시 전 실제 운영 계약과 저장 위치");
   });
 });

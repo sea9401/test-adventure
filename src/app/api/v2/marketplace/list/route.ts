@@ -34,6 +34,11 @@ import {
   isCookingFoodId,
   removeCookingFood,
 } from "@/adventure/v2/cooking";
+import {
+  matchMarketplaceBuyOrdersForItem,
+  recordMarketplaceAutoMatchFills,
+  triggerMarketplacePriceAlertsForListing,
+} from "@/lib/server/marketplaceBuyOrdersV2";
 
 // POST /api/v2/marketplace/list — 매물 등록(에스크로: 내 save 에서 빼서 listing 으로 묶음).
 //   body(장비):   { kind:"equip", iid:string, price:int }
@@ -218,8 +223,21 @@ export async function POST(req: Request) {
             instancePayload: { kind: "museun_cash_item" },
           })
           .returning({ id: marketplaceListingsV2.id });
+        const autoMatchFills =
+          body.graceHours === 0
+            ? await matchMarketplaceBuyOrdersForItem(
+                tx,
+                "consumable",
+                itemId,
+                createdAt,
+              )
+            : [];
+        if (body.graceHours === 0) {
+          await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
+        }
         return {
           status: 200,
+          autoMatchFills,
           log: {
             listingId: row.id,
             itemKind: "consumable",
@@ -275,8 +293,21 @@ export async function POST(req: Request) {
             instancePayload: { kind: "cooking_food" },
           })
           .returning({ id: marketplaceListingsV2.id });
+        const autoMatchFills =
+          body.graceHours === 0
+            ? await matchMarketplaceBuyOrdersForItem(
+                tx,
+                "consumable",
+                itemId,
+                createdAt,
+              )
+            : [];
+        if (body.graceHours === 0) {
+          await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
+        }
         return {
           status: 200,
+          autoMatchFills,
           log: {
             listingId: row.id,
             itemKind: "consumable",
@@ -366,8 +397,21 @@ export async function POST(req: Request) {
         instancePayload: null,
       })
       .returning({ id: marketplaceListingsV2.id });
+    const autoMatchFills =
+      body.graceHours === 0
+        ? await matchMarketplaceBuyOrdersForItem(
+            tx,
+            "material",
+            itemId,
+            createdAt,
+          )
+        : [];
+    if (body.graceHours === 0) {
+      await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
+    }
     return {
       status: 200,
+      autoMatchFills,
       log: {
         listingId: row.id,
         itemKind: "material",
@@ -393,6 +437,9 @@ export async function POST(req: Request) {
         price: economyLog.price,
       },
     });
+  }
+  if (result.status === 200 && "autoMatchFills" in result) {
+    recordMarketplaceAutoMatchFills(result.autoMatchFills ?? []);
   }
 
   return Response.json(result.body, { status: result.status });

@@ -71,6 +71,11 @@ type TowerStatus = {
   entryStaminaCost: number;
   stamina: StaminaState;
   certificates: number;
+  autoClaimedReward?: {
+    total: number;
+    previousDate: string;
+    previousBestFloor: number;
+  } | null;
   claimPreview: {
     base: number;
     firstClearBonus: number;
@@ -138,6 +143,11 @@ export function V2MasteryTowerView({
       }
       setStatus(j);
       setStamina(j.stamina);
+      if (j.autoClaimedReward) {
+        setMsg(
+          `✓ 전날 미수령 숙련 증서 ${j.autoClaimedReward.total.toLocaleString("ko-KR")}개가 자동 지급되었습니다.`,
+        );
+      }
       setSelectedJobId((prev) =>
         j.jobs.some((job) => job.id === prev) ? prev : (j.jobs[0]?.id ?? ""),
       );
@@ -438,8 +448,8 @@ export function V2MasteryTowerView({
                       />
                     </div>
                     <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      명중 {status.nextGuardian.accuracy}% · 회피{" "}
-                      {status.nextGuardian.evasionPct}% · 치명타{" "}
+                      명중 능력 {status.nextGuardian.accuracy} · 회피 능력{" "}
+                      {status.nextGuardian.evasionPct} · 치명타{" "}
                       {status.nextGuardian.critPct}% · 추가타{" "}
                       {status.nextGuardian.bonusAttackChancePct}%{" "}
                       {status.nextGuardian.skills.length > 0

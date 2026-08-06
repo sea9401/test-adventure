@@ -11,7 +11,6 @@ import {
   isTradableMaterial,
   marketplaceTaxRateForAdventureSupport,
   marketplaceListingPhase,
-  resolvePlayerName,
   restoreMarketplaceRareMap,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
@@ -191,16 +190,15 @@ export async function POST(req: Request) {
     //   FK 라 v2 리스팅 id 를 넣으면 FK 위반(23503)으로 구매 tx 전체가 롤백되던 라이브 버그
     //   (#577 부터 잠복 — v1 테이블에 우연히 같은 id 가 있을 때만 통과). 정산 우편은
     //   message/payload 로 충분, v2 리스팅 추적은 listings_v2.buyerId/closedAt 이 담당.
+    // 거래 상대는 익명 정책이므로 fromUserId/fromName 도 저장하지 않는다. 이를 넣으면
+    // 구매자의 '보낸 우편'에 판매자가 받는 사람으로 노출된다.
     const proceeds = saleProceeds(listing.price, sellerTaxRate);
-    const buyerName = (await resolvePlayerName(tx, userId)) ?? "구매자";
     if (proceeds > 0) {
       await tx.insert(marketplaceInbox).values(
         inboxValues({
           userId: listing.sellerId,
           payload: { kind: "sale_proceeds", gold: proceeds },
           message: `${listing.itemName} 판매 대금 ${proceeds.toLocaleString()}골드`,
-          fromUserId: userId,
-          fromName: buyerName,
         }),
       );
     }

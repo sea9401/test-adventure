@@ -62,6 +62,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
 import { HUNT_COST } from "@/adventure/v2/stamina";
+import { requiredExpToNext } from "@/lib/leveling";
 
 function seedStrongWarrior(
   staminaCurrent: number,
@@ -146,6 +147,44 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
     expect(res.status).toBe(200);
     const json = (await res.json()) as { batch?: unknown };
     expect(json.batch).toBeDefined();
+  });
+
+  it("50회 일괄 사냥은 100레벨에 도달한 판에서 즉시 중단한다", async () => {
+    seedStrongWarrior(5000, true);
+    const before = store.get("character.v2") as Record<string, unknown>;
+    store.set("character.v2", {
+      ...before,
+      level: 99,
+      exp: requiredExpToNext(99)! - 1,
+    });
+
+    const res = await POST(
+      huntReq({
+        floor: 2,
+        count: 50,
+        autoStopConfig: { level100Enabled: true },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      batch: {
+        attempted: number;
+        completed: number;
+        levelsGained: number;
+        stoppedReason: string | null;
+        finalLevelAfter: number | null;
+        replays: unknown[];
+      };
+    };
+    expect(json.batch).toMatchObject({
+      attempted: 50,
+      completed: 1,
+      levelsGained: 1,
+      stoppedReason: "level_100",
+      finalLevelAfter: 100,
+    });
+    expect(json.batch.replays).toHaveLength(1);
+    expect(char().stamina.current).toBe(5000 - HUNT_COST);
   });
 
   it("지원권이 없으면 50회 요청을 서버에서 거부한다", async () => {

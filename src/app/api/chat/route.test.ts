@@ -87,6 +87,32 @@ describe("채팅 증분 조회", () => {
     expect(body.map((message) => message.id)).toEqual([4, 5]);
   });
 
+  it("서버에 저장된 장비 링크를 안전하게 파싱해 반환한다", async () => {
+    mocks.rows = [
+      {
+        ...row(6),
+        itemLink: {
+          kind: "equipment",
+          itemId: "v2_iron_sword",
+          enhance: { level: 4, bonusPct: 999 },
+        },
+      },
+    ];
+
+    const response = await GET(
+      new Request("http://localhost/api/chat?channel=global"),
+    );
+    const [message] = (await response.json()) as Array<{
+      itemLink: { itemId: string; enhance?: { level: number; bonusPct: number } };
+    }>;
+
+    expect(message.itemLink).toMatchObject({
+      itemId: "v2_iron_sword",
+      enhance: { level: 4 },
+    });
+    expect(message.itemLink.enhance?.bonusPct).not.toBe(999);
+  });
+
   it("잘못된 afterId는 DB 조회 전에 거부한다", async () => {
     const response = await GET(
       new Request("http://localhost/api/chat?channel=global&afterId=-1"),
@@ -99,6 +125,24 @@ describe("채팅 증분 조회", () => {
 });
 
 describe("채팅 전송 검열", () => {
+  it("잘못된 아이템 링크 형식은 사용자 정보를 조회하기 전에 거부한다", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "장비 공유",
+          channel: "global",
+          itemIid: 123,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe("invalid item link");
+    expect(mocks.resolveActor).not.toHaveBeenCalled();
+  });
+
   it("부적절한 표현은 사용자 정보를 조회하거나 저장하기 전에 거부한다", async () => {
     const response = await POST(request("씨 발"));
 

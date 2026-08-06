@@ -7,6 +7,7 @@ import {
   parseV2SkillsState,
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import type { JobUnlockContext } from "@/adventure/data/v2/v2JobCatalog";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
@@ -32,6 +33,18 @@ export type PreparedV2BattleActor = {
   equipmentSave: unknown;
 };
 
+/**
+ * 같은 트랜잭션에서 전투를 연속 실행할 때 변하지 않는 준비 데이터를 재사용한다.
+ * 첫 전투가 save row 잠금을 잡으므로 이후 전투는 캐시된 최신 proficiency를 사용해도
+ * 다른 요청과 섞이지 않는다.
+ */
+export type V2BattlePrepCache = {
+  skillsRaw?: unknown;
+  proficiencyRaw?: V2ProficiencyState;
+  codexBonus?: Awaited<ReturnType<typeof readCodexSpBonus>>;
+  jobUnlockCtx?: JobUnlockContext;
+};
+
 export async function prepareV2BattleActor({
   tx,
   userId,
@@ -39,6 +52,7 @@ export async function prepareV2BattleActor({
   equipmentSave: preloadedEquipmentSave,
   deriveSkills = "stored",
   includeCookingBuff = true,
+  cache,
 }: {
   tx: DbExecutor;
   userId: string;
@@ -47,27 +61,43 @@ export async function prepareV2BattleActor({
   deriveSkills?: "stored" | "sanitized";
   /** 거점전처럼 플레이어 간 전투이면 false. */
   includeCookingBuff?: boolean;
+  /** 동일 tx 안에서 반복 전투할 때만 전달하는 배치 범위 캐시. */
+  cache?: V2BattlePrepCache;
 }): Promise<PreparedV2BattleActor | null> {
   const equipmentSave =
     preloadedEquipmentSave ??
     (await lockSaveForUpdate(tx, userId, "equipment.v2", {}));
-  const skillsRaw = await lockSaveForUpdate(
-    tx,
-    userId,
-    "skills.v2",
-    emptyV2SkillsState() as unknown as Record<string, unknown>,
-  );
-  const proficiencyRaw = await lockSaveForUpdate<V2ProficiencyState>(
-    tx,
-    userId,
-    "proficiency.v2",
-    emptyProficiency(),
-  );
+  const skillsRaw =
+    cache?.skillsRaw !== undefined
+      ? cache.skillsRaw
+      : await lockSaveForUpdate(
+          tx,
+          userId,
+          "skills.v2",
+          emptyV2SkillsState() as unknown as Record<string, unknown>,
+        );
+  const proficiencyRaw =
+    cache?.proficiencyRaw !== undefined
+      ? cache.proficiencyRaw
+      : await lockSaveForUpdate<V2ProficiencyState>(
+          tx,
+          userId,
+          "proficiency.v2",
+          emptyProficiency(),
+        );
+  if (cache) {
+    cache.skillsRaw = skillsRaw;
+    cache.proficiencyRaw = proficiencyRaw;
+  }
   const storedSkills = parseV2SkillsState(skillsRaw);
-  const codexBonus = V2_CORE_LOOP_V2 ? await readCodexSpBonus(tx, userId) : null;
+  const codexBonus = V2_CORE_LOOP_V2
+    ? (cache?.codexBonus ?? (await readCodexSpBonus(tx, userId)))
+    : null;
+  if (cache && codexBonus) cache.codexBonus = codexBonus;
   const jobUnlockCtx = V2_CORE_LOOP_V2
-    ? await readJobUnlockContext(tx, userId)
+    ? (cache?.jobUnlockCtx ?? (await readJobUnlockContext(tx, userId)))
     : undefined;
+  if (cache && jobUnlockCtx) cache.jobUnlockCtx = jobUnlockCtx;
   const skills = V2_CORE_LOOP_V2
     ? sanitizeCombatLoadout(
         storedSkills,

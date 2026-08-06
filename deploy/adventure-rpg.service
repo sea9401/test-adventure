@@ -1,6 +1,6 @@
 # /etc/systemd/system/adventure-rpg.service
 # Next.js 프로덕션 서버를 항상 가동 + 죽으면 자동 재시작 + 서버 부팅 시 자동 시작.
-# SSM SecureString을 /run의 600 런타임 파일로 동기화한 뒤 Node가 직접 읽는다.
+# SSM 런타임 파일과 푸시 전용 환경 파일을 systemd가 읽어 Node에 전달한다.
 [Unit]
 Description=Adventure RPG
 After=network-online.target
@@ -12,8 +12,8 @@ WorkingDirectory=/home/ec2-user/adventure-rpg
 RuntimeDirectory=adventure-rpg
 RuntimeDirectoryMode=0700
 ExecStartPre=/usr/bin/node /usr/local/libexec/adventure-rpg/sync-production-env-from-ssm.mjs /run/adventure-rpg/production.env
-ExecStartPre=/usr/bin/node --env-file=/run/adventure-rpg/production.env /home/ec2-user/adventure-rpg/scripts/check-production-env.mjs
-ExecStart=/usr/bin/node --env-file=/run/adventure-rpg/production.env /home/ec2-user/adventure-rpg/node_modules/next/dist/bin/next start
+ExecStartPre=/bin/bash -c 'set -a; source /run/adventure-rpg/production.env; source /etc/adventure-rpg/web-push.env; exec /usr/bin/node /home/ec2-user/adventure-rpg/scripts/check-production-env.mjs'
+ExecStart=/bin/bash -c 'set -a; source /run/adventure-rpg/production.env; source /etc/adventure-rpg/web-push.env; exec /usr/bin/node /home/ec2-user/adventure-rpg/node_modules/next/dist/bin/next start'
 # Intentional stop/restart의 SIGTERM을 정상 종료로 취급한다.
 SuccessExitStatus=143
 Restart=always

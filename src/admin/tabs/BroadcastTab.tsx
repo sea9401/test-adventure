@@ -2,12 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useAdmin } from "../AdminContext";
-import { adminPost } from "../api";
+import { adminGet, adminPost } from "../api";
 import {
   v2EquipmentOptions,
   v2MaterialOptions,
   type CatalogOption,
 } from "../adminCatalogOptions";
+import {
+  exactMailRecipient,
+  mailRecipientMatches,
+} from "../mailRecipient";
 import { Button, Field, NumberInput, Select, TextInput } from "../ui/Field";
 import {
   AttachmentPicker,
@@ -20,6 +24,8 @@ import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_SHOP_ITEM_IDS,
 } from "@/adventure/data/v2/museunCashItems";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import type { AdminUserRow } from "./users/types";
 
 // 공지/방송 + 대량 우편.
 //   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 9000자.
@@ -34,7 +40,12 @@ export function BroadcastTab() {
 
   // 대량 우편
   const [target, setTarget] = useState<"all" | "user">("user");
-  const [userId, setUserId] = useState("");
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [recipientResults, setRecipientResults] = useState<AdminUserRow[]>([]);
+  const [selectedRecipient, setSelectedRecipient] =
+    useState<AdminUserRow | null>(null);
+  const [recipientSearching, setRecipientSearching] = useState(false);
+  const [recipientError, setRecipientError] = useState<string | null>(null);
   const [gold, setGold] = useState(1000);
   const [museunCoins, setMuseunCoins] = useState(0);
   const [adventureSupportDays, setAdventureSupportDays] = useState(0);
@@ -107,6 +118,52 @@ export function BroadcastTab() {
     }
   };
 
+  const searchRecipient = async () => {
+    const query = recipientQuery.trim();
+    if (!query) return;
+    setRecipientSearching(true);
+    setRecipientError(null);
+    setSelectedRecipient(null);
+    try {
+      const rows = await adminGet<AdminUserRow[]>(
+        `/api/admin/users?q=${encodeURIComponent(query)}`,
+      );
+      const matches = mailRecipientMatches(rows, query);
+      const exact = exactMailRecipient(matches, query);
+      if (exact) {
+        setSelectedRecipient(exact);
+        setRecipientQuery(exact.gameName ?? query);
+        setRecipientResults([]);
+      } else {
+        setRecipientResults(matches);
+        if (matches.length === 0) {
+          setRecipientError("일치하는 닉네임을 찾지 못했습니다.");
+        }
+      }
+    } catch (e) {
+      setRecipientResults([]);
+      setRecipientError(
+        `닉네임 검색 실패: ${e instanceof Error ? e.message : "오류"}`,
+      );
+    } finally {
+      setRecipientSearching(false);
+    }
+  };
+
+  const selectRecipient = (user: AdminUserRow) => {
+    setSelectedRecipient(user);
+    setRecipientQuery(user.gameName ?? "");
+    setRecipientResults([]);
+    setRecipientError(null);
+  };
+
+  const changeRecipientQuery = (value: string) => {
+    setRecipientQuery(value);
+    setSelectedRecipient(null);
+    setRecipientResults([]);
+    setRecipientError(null);
+  };
+
   const sendMail = async () => {
     setSending(true);
     try {
@@ -120,7 +177,7 @@ export function BroadcastTab() {
         adventureSupportDays?: number;
       }>("/api/admin/mail", {
         target,
-        userId,
+        userId: selectedRecipient?.id ?? "",
         gold,
         materials: attachMaterials.map((e) => ({
           materialId: e.id,
@@ -156,7 +213,11 @@ export function BroadcastTab() {
         parts.push(`월간 모험 지원권 ${j.adventureSupportDays}일`);
       }
       showToast(
-        `우편 발송 완료 — ${j.recipients ?? 0}명에게 ${parts.join(" · ") || "(빈 우편)"}`,
+        `우편 발송 완료 — ${
+          target === "user" && selectedRecipient?.gameName
+            ? `${selectedRecipient.gameName}님에게`
+            : `${j.recipients ?? 0}명에게`
+        } ${parts.join(" · ") || "(빈 우편)"}`,
       );
       setMailMsg("");
       setAttachMaterials([]);
@@ -245,14 +306,93 @@ export function BroadcastTab() {
             />
           </Field>
           {target === "user" && (
-            <Field label="유저 ID" hint="유저 탭에서 복사한 user id">
-              <TextInput
-                value={userId}
-                onChange={setUserId}
-                placeholder="user id"
-                disabled={mailDisabled}
-              />
-            </Field>
+            <div>
+              <span className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                수신자 닉네임
+              </span>
+              <form
+                className="mt-1 flex gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void searchRecipient();
+                }}
+              >
+                <TextInput
+                  value={recipientQuery}
+                  onChange={changeRecipientQuery}
+                  placeholder="닉네임 입력"
+                  disabled={mailDisabled}
+                />
+                <Button
+                  type="submit"
+                  disabled={
+                    mailDisabled || recipientSearching || !recipientQuery.trim()
+                  }
+                >
+                  {recipientSearching ? "검색 중…" : "검색"}
+                </Button>
+              </form>
+              <span className="mt-1 block text-[11px] text-zinc-500 dark:text-zinc-500">
+                닉네임을 검색한 뒤 정확한 계정을 선택하세요.
+              </span>
+
+              {recipientError ? (
+                <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">
+                  {recipientError}
+                </p>
+              ) : null}
+
+              {selectedRecipient ? (
+                <div className={`${SURFACE_INSET} mt-2 flex items-start gap-2 p-2`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                      수신자 선택됨 · {selectedRecipient.gameName}
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {selectedRecipient.email ?? "이메일 없음"}
+                    </div>
+                    <div className="mt-0.5 break-all font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
+                      ID {selectedRecipient.id}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={mailDisabled}
+                    onClick={() => changeRecipientQuery("")}
+                    className="shrink-0 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    변경
+                  </button>
+                </div>
+              ) : null}
+
+              {recipientResults.length > 0 ? (
+                <div
+                  role="listbox"
+                  aria-label="닉네임 검색 결과"
+                  className={`${SURFACE_INSET} mt-2 max-h-48 overflow-y-auto p-1`}
+                >
+                  {recipientResults.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      onClick={() => selectRecipient(user)}
+                      disabled={mailDisabled}
+                      className="block w-full rounded-md px-2 py-2 text-left hover:bg-white disabled:opacity-50 dark:hover:bg-zinc-800"
+                    >
+                      <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {user.gameName}
+                      </span>
+                      <span className="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {user.email ?? "이메일 없음"} · ID {user.id.slice(0, 12)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           )}
           <Field label="골드" hint="0이면 미첨부">
             <NumberInput
@@ -364,7 +504,7 @@ export function BroadcastTab() {
           ) : (
             <Button
               variant="primary"
-              disabled={mailDisabled || !hasReward || !userId.trim()}
+              disabled={mailDisabled || !hasReward || !selectedRecipient}
               onClick={() => void sendMail()}
             >
               {sending ? "발송 중…" : "우편 발송"}

@@ -139,6 +139,7 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     expect(json.reincarnated).toBe(true);
 
     expect(storedUsable()).toBe(1234);
+    expect(parseProficiency(store.get("proficiency.v2")).reincarnations).toBe(1);
   });
 });
 
@@ -203,18 +204,24 @@ describe("advance-class — 생활 직업 레벨 조건", () => {
     store.set("skills.v2", { learned: [], equipped: [] });
   }
 
-  it("생산 직업은 캐릭터 Lv.1에서도 재전직할 수 있다", async () => {
+  it("생산 직업은 Lv.1에서 재전직할 수 있지만 업적 횟수에는 포함하지 않는다", async () => {
     seedLifestyleCandidate("miner");
     store.set("character.v2", {
       class: "survivor",
       specChoice: "miner",
       level: 1,
     });
+    const seededProf = store.get("proficiency.v2") as Record<string, unknown>;
+    store.set("proficiency.v2", { ...seededProf, reincarnations: 7 });
 
-    const res = await POST(advanceReq("miner"));
-    const json = (await res.json()) as { ok?: boolean; reincarnated?: boolean };
-    expect(res.status).toBe(200);
-    expect(json).toMatchObject({ ok: true, reincarnated: true });
+    // 같은 생활직을 반복 선택해도 전직 자체는 허용하되 재전직 업적을 올릴 수 없다.
+    for (let i = 0; i < 2; i += 1) {
+      const res = await POST(advanceReq("miner"));
+      const json = (await res.json()) as { ok?: boolean; reincarnated?: boolean };
+      expect(res.status).toBe(200);
+      expect(json).toMatchObject({ ok: true, reincarnated: true });
+    }
+    expect(parseProficiency(store.get("proficiency.v2")).reincarnations).toBe(7);
   });
 
   it("전투 직업은 여전히 캐릭터 Lv.100을 요구한다", async () => {

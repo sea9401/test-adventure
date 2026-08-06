@@ -891,7 +891,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "swordmaster",
     name: "검호",
     tier: 5,
-    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    cultivateProfile: { str: 3, vit: 1, dex: 1 },
     jobBonus: { str: 18, vit: 8 },
     unlock: { prereqs: { veteran: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -899,7 +899,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "ironknight",
     name: "철벽기사",
     tier: 5,
-    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    cultivateProfile: { vit: 3, str: 1, dex: 1 },
     jobBonus: { vit: 18, str: 8 },
     unlock: { prereqs: { warden: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -907,7 +907,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "overlord",
     name: "패왕",
     tier: 5,
-    cultivateProfile: { str: 2, vit: 1, luk: 1 },
+    cultivateProfile: { str: 3, vit: 1, luk: 1 },
     jobBonus: { str: 22, vit: 4 },
     unlock: { prereqs: { warlord: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -915,7 +915,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "arcanist",
     name: "비전술사",
     tier: 5,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 2 },
     jobBonus: { int: 18, spi: 8 },
     unlock: { prereqs: { sage: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -923,7 +923,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "elementallord",
     name: "원소군주",
     tier: 5,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 2 },
     jobBonus: { int: 22, spi: 10 },
     unlock: {
       prereqs: {
@@ -939,7 +939,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "inscriber",
     name: "각인술사",
     tier: 5,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 2 },
     jobBonus: { int: 18, spi: 8 },
     unlock: { prereqs: { runecaster: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -947,7 +947,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "marksman",
     name: "명궁",
     tier: 5,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 2 },
     jobBonus: { dex: 18, luk: 8 },
     unlock: { prereqs: { chief: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -955,7 +955,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "nightshade",
     name: "밤그림자",
     tier: 5,
-    cultivateProfile: { luk: 2, dex: 2 },
+    cultivateProfile: { luk: 3, dex: 2 },
     jobBonus: { luk: 18, dex: 8 },
     unlock: { prereqs: { phantom: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -963,7 +963,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "saint",
     name: "성자",
     tier: 5,
-    cultivateProfile: { spi: 2, int: 1, vit: 1 },
+    cultivateProfile: { spi: 3, int: 1, vit: 1 },
     jobBonus: { spi: 18, vit: 6, int: 2 },
     unlock: { prereqs: { archbishop: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -971,7 +971,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "plaguebringer",
     name: "역병 군주",
     tier: 5,
-    cultivateProfile: { luk: 2, dex: 2 },
+    cultivateProfile: { luk: 3, dex: 2 },
     jobBonus: { luk: 19, dex: 7 },
     unlock: { prereqs: { venomlord: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -979,7 +979,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "dragonfist",
     name: "권황",
     tier: 5,
-    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    cultivateProfile: { str: 3, dex: 1, vit: 1 },
     jobBonus: { str: 20, dex: 6, vit: 4 },
     unlock: { prereqs: { sensei: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -987,7 +987,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "adamantmonk",
     name: "금강승",
     tier: 5,
-    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    cultivateProfile: { vit: 3, spi: 1, str: 1 },
     jobBonus: { vit: 20, spi: 6 },
     unlock: { prereqs: { battlemonk: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -995,7 +995,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "immortal",
     name: "불멸자",
     tier: 5,
-    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    cultivateProfile: { vit: 3, str: 1, spi: 1 },
     jobBonus: { vit: 22, str: 4 },
     unlock: { prereqs: { returner: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1003,7 +1003,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "championmaker",
     name: "챔피언 메이커",
     tier: 5,
-    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    cultivateProfile: { vit: 3, str: 1, spi: 1 },
     jobBonus: { vit: 18, str: 8 },
     unlock: { prereqs: { mastertrainer: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1011,7 +1011,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "fullcatchking",
     name: "만선왕",
     tier: 5,
-    cultivateProfile: { luk: 2, spi: 1, vit: 1 },
+    cultivateProfile: { luk: 3, spi: 1, vit: 1 },
     jobBonus: { luk: 20, spi: 8 },
     unlock: { prereqs: { masterangler: FISHING_TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1019,7 +1019,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "harvestking",
     name: "농업 장인",
     tier: 5,
-    cultivateProfile: { vit: 2, spi: 1, luk: 1 },
+    cultivateProfile: { vit: 3, spi: 1, luk: 1 },
     jobBonus: { vit: 16, luk: 12 },
     unlock: {
       prereqs: {},
@@ -1033,7 +1033,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "masterchef",
     name: "요리 명장",
     tier: 5,
-    cultivateProfile: { int: 2, luk: 1, spi: 1 },
+    cultivateProfile: { int: 3, luk: 1, spi: 1 },
     jobBonus: { int: 16, luk: 12 },
     unlock: {
       prereqs: {},
@@ -1050,7 +1050,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "forestmaster",
     name: "산림 대가",
     tier: 5,
-    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    cultivateProfile: { str: 3, vit: 1, dex: 1 },
     jobBonus: { str: 16, dex: 12 },
     unlock: {
       prereqs: {},
@@ -1064,7 +1064,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "minemaster",
     name: "광산 대가",
     tier: 5,
-    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    cultivateProfile: { vit: 3, str: 1, dex: 1 },
     jobBonus: { vit: 16, str: 12 },
     unlock: {
       prereqs: {},
@@ -1078,7 +1078,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "transcendent",
     name: "초월자",
     tier: 5,
-    cultivateProfile: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 },
+    cultivateProfile: { str: 1, vit: 1, dex: 1, int: 1, spi: 1 },
     jobBonus: { str: 4, vit: 4, dex: 4, int: 4, spi: 4, luk: 4 },
     unlock: {
       prereqs: {
@@ -1091,7 +1091,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "bloodlord",
     name: "혈성군주",
     tier: 5,
-    cultivateProfile: { str: 2, vit: 1, spi: 1 },
+    cultivateProfile: { str: 3, vit: 1, spi: 1 },
     jobBonus: { str: 13, vit: 9, spi: 4 },
     unlock: { prereqs: { crimsontemplar: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1099,7 +1099,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "calamitycaller",
     name: "재앙술사",
     tier: 5,
-    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    cultivateProfile: { int: 3, spi: 1, luk: 1 },
     jobBonus: { int: 18, spi: 6, luk: 4 },
     unlock: { prereqs: { archshaman: TIER5_UNLOCK_CUMLEVEL } },
   },
@@ -1109,7 +1109,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "fortressknight",
     name: "성채기사",
     tier: 6,
-    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    cultivateProfile: { vit: 3, str: 2, dex: 1 },
     jobBonus: { vit: 28, str: 8 },
     unlock: { prereqs: { ironknight: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1117,7 +1117,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "swordsaint",
     name: "검성",
     tier: 6,
-    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    cultivateProfile: { str: 3, dex: 2, vit: 1 },
     jobBonus: { str: 28, dex: 8 },
     unlock: { prereqs: { swordmaster: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1125,7 +1125,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "hegemon",
     name: "패황",
     tier: 6,
-    cultivateProfile: { str: 2, vit: 1, luk: 1 },
+    cultivateProfile: { str: 3, vit: 2, luk: 1 },
     jobBonus: { str: 30, vit: 6 },
     unlock: { prereqs: { overlord: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1133,7 +1133,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "archmage",
     name: "대마도사",
     tier: 6,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 3 },
     jobBonus: { int: 28, spi: 12 },
     unlock: { prereqs: { arcanist: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1141,7 +1141,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "primordialmage",
     name: "태초술사",
     tier: 6,
-    cultivateProfile: { int: 2, spi: 2 },
+    cultivateProfile: { int: 3, spi: 3 },
     jobBonus: { int: 32, spi: 14 },
     unlock: { prereqs: { elementallord: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1149,7 +1149,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "savior",
     name: "구원자",
     tier: 6,
-    cultivateProfile: { spi: 2, int: 1, vit: 1 },
+    cultivateProfile: { spi: 3, int: 2, vit: 1 },
     jobBonus: { spi: 28, vit: 10, int: 4 },
     unlock: { prereqs: { saint: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1157,7 +1157,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "doomprophet",
     name: "종말예언자",
     tier: 6,
-    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    cultivateProfile: { int: 3, spi: 2, luk: 1 },
     jobBonus: { int: 28, spi: 8, luk: 6 },
     unlock: { prereqs: { calamitycaller: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1165,7 +1165,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "heavenlybow",
     name: "천궁",
     tier: 6,
-    cultivateProfile: { dex: 2, luk: 2 },
+    cultivateProfile: { dex: 3, luk: 3 },
     jobBonus: { dex: 28, luk: 12 },
     unlock: { prereqs: { marksman: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1173,7 +1173,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "blackmoon",
     name: "흑월",
     tier: 6,
-    cultivateProfile: { luk: 2, dex: 2 },
+    cultivateProfile: { luk: 3, dex: 3 },
     jobBonus: { luk: 28, dex: 12 },
     unlock: { prereqs: { nightshade: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1181,7 +1181,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "myriadvenom",
     name: "독황",
     tier: 6,
-    cultivateProfile: { luk: 2, dex: 1, vit: 1 },
+    cultivateProfile: { luk: 3, dex: 2, vit: 1 },
     jobBonus: { luk: 28, dex: 8, vit: 4 },
     unlock: { prereqs: { plaguebringer: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1189,7 +1189,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "celestialdragon",
     name: "천룡권성",
     tier: 6,
-    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    cultivateProfile: { str: 3, dex: 2, vit: 1 },
     jobBonus: { str: 27, dex: 9, vit: 4 },
     unlock: { prereqs: { dragonfist: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1197,7 +1197,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "vajraarhat",
     name: "금강나한",
     tier: 6,
-    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    cultivateProfile: { vit: 3, spi: 2, str: 1 },
     jobBonus: { vit: 28, spi: 8 },
     unlock: { prereqs: { adamantmonk: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1205,7 +1205,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "eternal",
     name: "영겁자",
     tier: 6,
-    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    cultivateProfile: { vit: 3, spi: 2, str: 1 },
     jobBonus: { vit: 30, spi: 8, str: 4 },
     unlock: { prereqs: { immortal: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1213,7 +1213,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "legendarytrainer",
     name: "전설의 트레이너",
     tier: 6,
-    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    cultivateProfile: { vit: 3, str: 2, spi: 1 },
     jobBonus: { vit: 28, str: 12 },
     unlock: { prereqs: { championmaker: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1221,7 +1221,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "seagod",
     name: "해신",
     tier: 6,
-    cultivateProfile: { luk: 2, spi: 2 },
+    cultivateProfile: { luk: 3, spi: 3 },
     jobBonus: { luk: 28, spi: 12 },
     unlock: { prereqs: { fullcatchking: FISHING_TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1229,7 +1229,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "earthartisan",
     name: "전설의 농부",
     tier: 6,
-    cultivateProfile: { vit: 2, spi: 1, luk: 1 },
+    cultivateProfile: { vit: 3, spi: 2, luk: 1 },
     jobBonus: { vit: 24, luk: 16 },
     unlock: {
       prereqs: {},
@@ -1243,7 +1243,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "legendarychef",
     name: "전설의 요리사",
     tier: 6,
-    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    cultivateProfile: { int: 3, spi: 2, luk: 1 },
     jobBonus: { int: 24, spi: 16 },
     unlock: {
       prereqs: {},
@@ -1260,7 +1260,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "legendarylumberjack",
     name: "전설의 나무꾼",
     tier: 6,
-    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    cultivateProfile: { str: 3, vit: 2, dex: 1 },
     jobBonus: { str: 24, vit: 16 },
     unlock: {
       prereqs: {},
@@ -1274,7 +1274,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "legendaryminer",
     name: "전설의 광부",
     tier: 6,
-    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    cultivateProfile: { vit: 3, str: 2, dex: 1 },
     jobBonus: { vit: 24, str: 16 },
     unlock: {
       prereqs: {},
@@ -1288,7 +1288,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "blooddemon",
     name: "혈마",
     tier: 6,
-    cultivateProfile: { str: 2, vit: 1, spi: 1 },
+    cultivateProfile: { str: 3, vit: 2, spi: 1 },
     jobBonus: { str: 22, vit: 14, spi: 6 },
     unlock: { prereqs: { bloodlord: TIER6_UNLOCK_CUMLEVEL } },
   },
@@ -1451,6 +1451,39 @@ export function isDirectNextJob(
       (cond) => cond.type === "jobUnlocked" && cond.jobId === currentJobId,
     )
   );
+}
+
+/**
+ * 잠긴 직업의 해금 조건을 공개해도 되는지 판정한다.
+ *
+ * 현재 선행 직업뿐 아니라 과거에 전직했거나 숙련도를 쌓은 바로 아래 직업도 인정한다.
+ * 따라서 다른 직업으로 옮긴 뒤에도 이미 도달한 계보의 다음 조건이 다시 숨지 않는다.
+ */
+export function isJobUnlockConditionRevealed(
+  job: V2JobDefinition,
+  proficiency: V2ProficiencyState,
+  currentJobId: string | null | undefined,
+  unlocked: boolean,
+): boolean {
+  if (unlocked || job.id === currentJobId) return true;
+
+  const prerequisiteIds = new Set(Object.keys(job.unlock.prereqs));
+  for (const condition of job.unlock.extraConditions ?? []) {
+    if (condition.type === "jobUnlocked") {
+      prerequisiteIds.add(condition.jobId);
+    }
+  }
+
+  const history = new Set(proficiency.jobHistory ?? []);
+  return [...prerequisiteIds].some((prerequisiteId) => {
+    if (prerequisiteId === currentJobId || history.has(prerequisiteId)) {
+      return true;
+    }
+    const prerequisite = V2_JOB_CATALOG[prerequisiteId];
+    return prerequisite
+      ? cumLevelForJob(proficiency, prerequisite) > 0
+      : false;
+  });
 }
 
 // 그 직업에 쌓은 숙련도(표시용) — tier1 직업=직군 숙련도(groups), tier2+=직업별 숙련도(jobCumLevel).

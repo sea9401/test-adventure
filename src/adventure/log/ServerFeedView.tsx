@@ -25,7 +25,7 @@ import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
-import { formatDate, formatRelative } from "@/lib/notifications";
+import { formatDateTime, formatRelative } from "@/lib/notifications";
 import {
   FEED_CATEGORIES,
   FEED_CATEGORY_LABEL,
@@ -126,6 +126,13 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       className="shrink-0 text-cyan-500 dark:text-cyan-400"
     />
   ),
+  cultivation_awakening: (
+    <Sparkle
+      size={14}
+      weight="fill"
+      className="shrink-0 text-fuchsia-500 dark:text-fuchsia-400"
+    />
+  ),
   newcomer: (
     <HandWaving
       size={14}
@@ -205,6 +212,17 @@ function entryText(e: FeedEntry): React.ReactNode {
           {fishName} {formatFishSize(Math.round(p.size))}
         </span>{" "}
         대물 낚시!
+      </>
+    );
+  }
+  if (e.type === "cultivation_awakening") {
+    return (
+      <>
+        {name} 님이 수행에서{" "}
+        <span className="font-medium text-fuchsia-600 dark:text-fuchsia-400">
+          각성
+        </span>
+        ! 스탯 한계치 증가량 ×5
       </>
     );
   }
@@ -338,7 +356,7 @@ function FeedRow({ e }: { e: FeedEntry }) {
           {entryText(e)}
         </div>
         <div className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-          {formatRelative(e.createdAt)} · {formatDate(e.createdAt)}
+          {formatRelative(e.createdAt)} · {formatDateTime(e.createdAt)}
         </div>
       </span>
     </li>

@@ -3,6 +3,7 @@ import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_LIST,
+  isLifestyleMasteryJobId,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
   V2_STAT_KEYS,
@@ -12,10 +13,12 @@ import {
   JOB_TAG_FILTERS,
   compareJobExplorerLineOrder,
   isJobVisibleInShrine,
+  jobCardTags,
   jobCultivationProfile,
   jobCultivationSummary,
   jobTags,
   matchesJobExplorerFilters,
+  toggleJobTagFilter,
   type JobExplorerJob,
 } from "./jobExplorer";
 
@@ -40,6 +43,7 @@ describe("jobExplorer tags", () => {
       "행운",
       "생활",
       "수집완료",
+      "수집미완료",
     ]);
   });
 
@@ -134,11 +138,27 @@ describe("jobExplorer tags", () => {
     }
   });
 
-  it("생활 matches explicit non-combat job lines", () => {
+  it("생활 필터에 모든 생산직 계열과 기존 비전투 생활 계열을 포함한다", () => {
     const lifeTag = new Set(["life"]);
-    expect(matchesJobExplorerFilters(job("healthtrainer"), "", lifeTag)).toBe(true);
-    expect(matchesJobExplorerFilters(job("championmaker"), "", lifeTag)).toBe(true);
-    expect(matchesJobExplorerFilters(job("legendarytrainer"), "", lifeTag)).toBe(true);
+
+    for (const definition of V2_JOB_LIST.filter((entry) =>
+      isLifestyleMasteryJobId(entry.id),
+    )) {
+      expect(
+        matchesJobExplorerFilters(job(definition.id), "", lifeTag),
+        definition.id,
+      ).toBe(true);
+    }
+
+    expect(matchesJobExplorerFilters(job("healthtrainer"), "", lifeTag)).toBe(
+      true,
+    );
+    expect(matchesJobExplorerFilters(job("championmaker"), "", lifeTag)).toBe(
+      true,
+    );
+    expect(
+      matchesJobExplorerFilters(job("legendarytrainer"), "", lifeTag),
+    ).toBe(true);
     expect(matchesJobExplorerFilters(job("warrior"), "", lifeTag)).toBe(false);
   });
 
@@ -146,6 +166,41 @@ describe("jobExplorer tags", () => {
     expect(jobTags(job("templar", { tier: 3 }))).not.toEqual(
       expect.arrayContaining(["고차", "심화", "최종", "초월", "복합"]),
     );
+  });
+
+  it("keeps completed and incomplete collection filters mutually exclusive", () => {
+    const collectedJob = job("warrior", {
+      tier: 1,
+      skillsCollected: true,
+    });
+    const incompleteJob = job("mage", {
+      tier: 1,
+      skillsCollected: false,
+    });
+
+    expect(jobTags(collectedJob)).toContain("수집완료");
+    expect(jobTags(incompleteJob)).toContain("수집미완료");
+    expect(jobCardTags(collectedJob)).not.toContain("수집완료");
+    expect(jobCardTags(incompleteJob)).not.toContain("수집미완료");
+    expect(
+      matchesJobExplorerFilters(collectedJob, "", new Set(["collected"])),
+    ).toBe(true);
+    expect(
+      matchesJobExplorerFilters(collectedJob, "", new Set(["incomplete"])),
+    ).toBe(false);
+    expect(
+      matchesJobExplorerFilters(incompleteJob, "", new Set(["incomplete"])),
+    ).toBe(true);
+    expect(
+      matchesJobExplorerFilters(incompleteJob, "", new Set(["collected"])),
+    ).toBe(false);
+
+    expect(
+      toggleJobTagFilter(new Set(["str", "collected"]), "incomplete"),
+    ).toEqual(new Set(["str", "incomplete"]));
+    expect(
+      toggleJobTagFilter(new Set(["str", "incomplete"]), "collected"),
+    ).toEqual(new Set(["str", "collected"]));
   });
 
   it("growth shrine hides locked jobs until their unlock condition is revealed", () => {

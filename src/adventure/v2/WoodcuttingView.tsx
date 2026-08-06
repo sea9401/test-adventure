@@ -27,13 +27,17 @@ import {
   type AutoGatheringResultView,
   type AutoGatheringSessionView,
 } from "./AutoGatheringCard";
-import type { AutoGatheringActivity } from "./autoGathering";
+import type {
+  AutoGatheringActivity,
+  AutoGatheringPlanId,
+} from "./autoGathering";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
   type ActivityVerificationSubmission,
   useActivityCooldown,
 } from "./useActivityVerification";
+import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -93,7 +97,10 @@ export type WoodcuttingHandlers = {
   autoResult: AutoGatheringResultView | null;
   autoLoading: boolean;
   activeAutoActivity: AutoGatheringActivity | null;
-  startAuto: (spotId: WoodcuttingSpotId) => Promise<void>;
+  startAuto: (
+    spotId: WoodcuttingSpotId,
+    planId: AutoGatheringPlanId,
+  ) => Promise<void>;
   claimAuto: () => Promise<void>;
   cancelAuto: () => Promise<void>;
   verification?: ActivityVerificationChallenge | null;
@@ -101,6 +108,7 @@ export type WoodcuttingHandlers = {
 };
 
 type Phase = "idle" | "loading" | "cutting" | "finishing" | "result";
+type ViewMode = "choice" | "manual";
 
 const TAU = Math.PI * 2;
 
@@ -1024,6 +1032,7 @@ export function WoodcuttingView({
   onBack: () => void;
   spotId: WoodcuttingSpotId;
 }) {
+  const [viewMode, setViewMode] = useState<ViewMode>("choice");
   const [phase, setPhase] = useState<Phase>("idle");
   const [run, setRun] = useState<WoodcuttingStart | null>(null);
   const [startedAt, setStartedAt] = useState(0);
@@ -1038,6 +1047,7 @@ export function WoodcuttingView({
 
   const startCut = useCallback(async () => {
     if (cooldownRemainingSec > 0 || activeAutoActivity) return;
+    setViewMode("manual");
     setPhase("loading");
     setError(null);
     setResult(null);
@@ -1067,6 +1077,7 @@ export function WoodcuttingView({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isWoodcuttingShortcutTargetIgnored(event.target)) return;
       if (event.key !== " " && event.key !== "Enter") return;
+      if (viewMode !== "manual") return;
       if (phase !== "idle" && phase !== "result") return;
       if (cooldownRemainingSec > 0) return;
       if (activeAutoActivity) return;
@@ -1077,7 +1088,7 @@ export function WoodcuttingView({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeAutoActivity, cooldownRemainingSec, phase, startCut]);
+  }, [activeAutoActivity, cooldownRemainingSec, phase, startCut, viewMode]);
 
   useEffect(() => {
     if (!run) return;
@@ -1146,7 +1157,12 @@ export function WoodcuttingView({
 
   return (
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-3 rounded-2xl p-3 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-5`}>
-      <SubViewHeader title="벌목장" onBack={onBack} />
+      <SubViewHeader
+        title={viewMode === "choice" ? "벌목장" : `${selectedSpot.shortName} 벌목`}
+        onBack={onBack}
+      />
+
+      <ProductionJobAdvanceNotice refreshKey={progression.level} />
 
       {verification && verifyHuman ? (
         <ActivityVerificationGate
@@ -1155,6 +1171,8 @@ export function WoodcuttingView({
         />
       ) : null}
 
+      {viewMode === "choice" ? (
+        <>
       <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/30">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1197,7 +1215,7 @@ export function WoodcuttingView({
         </div>
       </Card>
 
-      {(phase === "idle" || phase === "result") && !verification ? (
+      {!verification ? (
         <AutoGatheringCard
           activityName="벌목"
           spotId={spotId}
@@ -1210,11 +1228,67 @@ export function WoodcuttingView({
               : null
           }
           buttonVariant="success"
-          onStart={(selectedSpotId) => startAuto(selectedSpotId as WoodcuttingSpotId)}
+          onStart={(selectedSpotId, planId) =>
+            startAuto(selectedSpotId as WoodcuttingSpotId, planId)
+          }
           onClaim={claimAuto}
           onCancel={cancelAuto}
         />
       ) : null}
+
+      {!verification ? (
+        <Card padding="md" className="space-y-3">
+          <div>
+            <div className="text-sm font-extrabold">직접 벌목</div>
+            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              짧은 작업을 직접 진행하고 완료 즉시 재료와 경험치를 획득합니다.
+            </div>
+          </div>
+          <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            {selectedTree.grade}등급 · 성공률 {formatRate(1 - expectedFailureRate)} · 예상{" "}
+            {formatDuration(expectedDurationMs)}
+          </div>
+          <Button
+            disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
+            onClick={() => void startCut()}
+            variant="success"
+            size="md"
+            fullWidth
+          >
+            {activeAutoActivity
+              ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
+              : cooldownRemainingSec > 0
+                ? `다음 벌목까지 ${cooldownRemainingSec}초`
+                : `${selectedSpot.shortName}에서 벌목 시작`}
+          </Button>
+        </Card>
+      ) : null}
+        </>
+      ) : (
+        <>
+
+      {(phase === "idle" || phase === "result") && !verification && (
+        <Button
+          disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
+          onClick={() => void startCut()}
+          variant="success"
+          size="md"
+          fullWidth
+        >
+          {activeAutoActivity
+            ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
+            : cooldownRemainingSec > 0
+              ? `다음 벌목까지 ${cooldownRemainingSec}초`
+              : phase === "result"
+                ? `${selectedSpot.shortName}에서 다시 벌목`
+                : "벌목 시작"}
+        </Button>
+      )}
+      {(phase === "loading" || phase === "cutting" || phase === "finishing") && (
+        <Button disabled variant="success" size="md" fullWidth>
+          {phase === "loading" ? "나무를 고르는 중…" : "벌목 중…"}
+        </Button>
+      )}
 
       {run ? (
         <div className="space-y-2">
@@ -1305,27 +1379,7 @@ export function WoodcuttingView({
         </Card>
       )}
 
-      {(phase === "idle" || phase === "result") && !verification && (
-        <Button
-          disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
-          onClick={() => void startCut()}
-          variant="success"
-          size="md"
-          fullWidth
-        >
-          {activeAutoActivity
-            ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
-            : cooldownRemainingSec > 0
-            ? `다음 벌목까지 ${cooldownRemainingSec}초`
-            : phase === "result"
-              ? `${selectedSpot.shortName}에서 다시 벌목`
-              : "벌목 시작"}
-        </Button>
-      )}
-      {(phase === "loading" || phase === "cutting" || phase === "finishing") && (
-        <Button disabled variant="success" size="md" fullWidth>
-          {phase === "loading" ? "나무를 고르는 중…" : "벌목 중…"}
-        </Button>
+        </>
       )}
     </main>
   );

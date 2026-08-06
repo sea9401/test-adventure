@@ -103,7 +103,12 @@ describe("길드 식당", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.donated).toEqual({ ingredientName: "밀", quantity: 10, points: 10 });
+    expect(json.donated).toEqual({
+      ingredientName: "밀",
+      quantity: 10,
+      points: 10,
+      contributionPoints: 100,
+    });
     expect(json.pantry.points).toBe(10);
     expect(json.contributionPoints).toBe(25);
     expect(upsertSave).toHaveBeenCalledWith(
@@ -129,6 +134,7 @@ describe("길드 식당", () => {
       ingredientName: "일반 어획물",
       quantity: 10,
       points: 2,
+      contributionPoints: 20,
     });
     expect(upsertSave).toHaveBeenCalledWith(
       expect.anything(),
@@ -159,14 +165,43 @@ describe("길드 식당", () => {
     expect(response.status).toBe(200);
     expect(json.ordered).toMatchObject({
       menuId: "hearty_stew",
-      recovery: { hp: 100_000, mp: 100_000 },
+      recovery: { hp: 250_000, mp: 250_000 },
     });
-    expect(json.tickets.available).toBe(0);
-    expect(json.charges).toMatchObject({ hp: 110_000, mp: 120_000 });
+    expect(json.tickets).toMatchObject({
+      base: 1,
+      contributionEarned: 1,
+      earned: 2,
+      used: 1,
+      available: 1,
+    });
+    expect(json.charges).toMatchObject({ hp: 260_000, mp: 270_000 });
     expect(logGuildActivity).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ type: "dining_meal", actorUserId: "u-diner" }),
     );
+  });
+
+  it("기부하지 않은 주간 참여 길드원도 기본 식권으로 한 번 식사한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === "inventory.v2") {
+        return { hpCharges: 10_000, mpCharges: 20_000 };
+      }
+      return {
+        weekKey: kstWeekMondayKey(),
+        guildId: 7,
+        contributionPoints: 0,
+        mealsUsed: 0,
+      };
+    });
+
+    const response = await POST(
+      request({ action: "order", menuId: "hearty_stew" }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.tickets).toMatchObject({ earned: 1, used: 1, available: 0 });
   });
 
   it("같은 효과식을 다시 주문하면 기존 만료 시각에 12시간을 더한다", async () => {
@@ -188,7 +223,7 @@ describe("길드 식당", () => {
         activeEffect: {
           menuId: "adventurer_meal",
           kind: "hunt_exp",
-          bonusPct: 5,
+          bonusPct: 8,
           expiresAt: currentExpiresAt,
           roundingRemainder: 0,
         },
@@ -228,7 +263,7 @@ describe("길드 식당", () => {
         activeEffect: {
           menuId: "adventurer_meal",
           kind: "hunt_exp",
-          bonusPct: 5,
+          bonusPct: 8,
           expiresAt: currentExpiresAt,
           roundingRemainder: 0,
         },

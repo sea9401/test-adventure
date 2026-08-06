@@ -6,12 +6,12 @@ import {
 } from "@/lib/server/economyLog";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { settleMasteryTowerRollover } from "@/lib/server/masteryTowerRollover";
 import {
   MASTERY_CERTIFICATE_KEY,
   MASTERY_TOWER_SAVE_KEY,
   kstDateKey,
   masteryTowerClaimPreview,
-  parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
 
 export async function POST(req: Request) {
@@ -29,18 +29,32 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const result = await db.transaction(async (tx) => {
-    const rawTower = await lockSaveForUpdate<unknown>(
+    const rollover = await settleMasteryTowerRollover(
       tx,
       userId,
-      MASTERY_TOWER_SAVE_KEY,
-      {},
+      kstDateKey(),
     );
-    const tower = parseMasteryTowerState(rawTower, kstDateKey());
+    const tower = rollover.tower;
     const preview = masteryTowerClaimPreview(tower);
     if (tower.claimed) {
       return { status: 400, body: { ok: false as const, error: "claimed" } };
     }
     if (tower.todayBestFloor <= 0 || preview.total <= 0) {
+      if (rollover.autoClaimedReward && rollover.certificates != null) {
+        return {
+          status: 200,
+          body: {
+            ok: true as const,
+            automatic: true,
+            gained: rollover.autoClaimedReward.total,
+            base: rollover.autoClaimedReward.base,
+            firstClearBonus: rollover.autoClaimedReward.firstClearBonus,
+            certificates: rollover.certificates,
+            tower,
+            autoClaimedReward: rollover.autoClaimedReward,
+          },
+        };
+      }
       return { status: 400, body: { ok: false as const, error: "no_reward" } };
     }
 
@@ -76,11 +90,13 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
+        automatic: false,
         gained: preview.total,
         base: preview.base,
         firstClearBonus: preview.firstClearBonus,
         certificates,
         tower: nextTower,
+        autoClaimedReward: null,
       },
     };
   });
@@ -93,8 +109,16 @@ export async function POST(req: Request) {
       itemId: MASTERY_CERTIFICATE_KEY,
       quantity: result.body.gained,
       detail: {
+        automatic: result.body.automatic === true,
         base: result.body.base,
         firstClearBonus: result.body.firstClearBonus,
+        ...(result.body.autoClaimedReward
+          ? {
+              previousDate: result.body.autoClaimedReward.previousDate,
+              previousBestFloor:
+                result.body.autoClaimedReward.previousBestFloor,
+            }
+          : {}),
       },
     });
   } else if (result.status !== 200 && !result.body.ok) {

@@ -30,7 +30,10 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     return new Response("not found or not owner", { status: 404 });
   }
   const where = admin
-    ? eq(bulletinComments.id, commentId)
+    ? and(
+        eq(bulletinComments.postId, postId),
+        eq(bulletinComments.id, commentId),
+      )
     : and(
         eq(bulletinComments.postId, postId),
         eq(bulletinComments.id, commentId),

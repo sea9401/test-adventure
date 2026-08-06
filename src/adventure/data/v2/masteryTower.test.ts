@@ -12,6 +12,7 @@ import {
   masteryTowerRequiredPower,
   parseMasteryTowerState,
   resetMasteryTowerDailyProgress,
+  rolloverMasteryTowerState,
 } from "./masteryTower";
 
 describe("masteryTower", () => {
@@ -64,6 +65,80 @@ describe("masteryTower", () => {
       firstClearRewardsClaimed: [10, 20],
       entryStaminaPaid: false,
     });
+  });
+
+  it("날짜 변경 시 전날 미수령 기본 보상과 첫 달성 보너스를 자동 정산한다", () => {
+    const rollover = rolloverMasteryTowerState(
+      {
+        date: "2026-07-02",
+        todayBestFloor: 18,
+        runFloor: 16,
+        claimed: false,
+        lifetimeBestFloor: 22,
+        firstClearRewardsClaimed: [],
+        entryStaminaPaid: true,
+      },
+      "2026-07-03",
+    );
+
+    expect(rollover).toEqual({
+      rolledOver: true,
+      reward: {
+        base: 440,
+        firstClearBonus: 100,
+        total: 540,
+        newlyClaimedMilestones: [10],
+        previousDate: "2026-07-02",
+        previousBestFloor: 18,
+      },
+      tower: {
+        date: "2026-07-03",
+        todayBestFloor: 0,
+        runFloor: 0,
+        claimed: false,
+        lifetimeBestFloor: 22,
+        firstClearRewardsClaimed: [10],
+        entryStaminaPaid: false,
+      },
+    });
+  });
+
+  it("이미 수령한 전날 상태는 날짜만 넘기고 추가 보상을 만들지 않는다", () => {
+    const rollover = rolloverMasteryTowerState(
+      {
+        date: "2026-07-02",
+        todayBestFloor: 20,
+        runFloor: 20,
+        claimed: true,
+        lifetimeBestFloor: 20,
+        firstClearRewardsClaimed: [10, 20],
+      },
+      "2026-07-03",
+    );
+
+    expect(rollover.reward).toBeNull();
+    expect(rollover.tower).toMatchObject({
+      date: "2026-07-03",
+      todayBestFloor: 0,
+      firstClearRewardsClaimed: [10, 20],
+    });
+  });
+
+  it("같은 날짜에 정산을 다시 실행해도 보상을 만들지 않는다", () => {
+    const first = rolloverMasteryTowerState(
+      {
+        date: "2026-07-02",
+        todayBestFloor: 10,
+        claimed: false,
+        lifetimeBestFloor: 10,
+        firstClearRewardsClaimed: [],
+      },
+      "2026-07-03",
+    );
+    const duplicate = rolloverMasteryTowerState(first.tower, "2026-07-03");
+
+    expect(duplicate.rolledOver).toBe(false);
+    expect(duplicate.reward).toBeNull();
   });
 
   it("당일 첫 입장만 스태미나 200을 받고 이후 재도전은 무료다", () => {

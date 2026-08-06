@@ -42,7 +42,10 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import {
+  useEquipmentCodexContext,
+  useGameState,
+} from "@/adventure/v2/GameStateProvider";
 import {
   V2_ITEM_TABS,
   type V2ItemTabKey,
@@ -186,10 +189,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
   const { frontierDepth, refreshGameState, setGold } = useGameState();
+  const equipmentCodex = useEquipmentCodexContext();
   const { notifySystem } = useSystemToast();
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     setLoadError(false);
     try {
       const [invRes, equipRes] = await Promise.all([
@@ -227,7 +231,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 setLoading)
-    refresh();
+    refresh(true);
   }, [refresh]);
 
   // 성공 시 true 반환 — 비교 카드가 실패 시엔 닫히지 않고 에러 메시지를 보여주도록.
@@ -384,6 +388,57 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     }
   }, [notifySystem, refresh, refreshGameState]);
 
+  // 경험치의 비약 — 사용 결과를 현재 화면과 전역 캐릭터 상태에 반영한다.
+  // 페이지 전체 새로고침은 하지 않아 탭·스크롤·열린 UI 상태를 유지한다.
+  const useExpTome = useCallback(
+    async (map: RareMapInstance) => {
+      if (map.kind !== "exp_tome") return;
+      setBusy(`exp_tome_${map.iid}`);
+      try {
+        const res = await fetch("/api/v2/me/use-exp-tome", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ map: map.iid }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          level?: number;
+          levelsGained?: number;
+          grantedExp?: number;
+          runsLeft?: number;
+        } | null;
+        if (!res.ok || !data?.ok) {
+          notifySystem(
+            `✗ ${
+              data?.error === "no_map"
+                ? "보유한 경험치의 비약이 없습니다"
+                : (data?.error ?? `http ${res.status}`)
+            }`,
+          );
+          return;
+        }
+        const runsLeft = Math.max(0, data.runsLeft ?? map.runsLeft - 1);
+        setRareMaps((current) =>
+          current?.flatMap((item) => {
+            if (item.iid !== map.iid) return [item];
+            return runsLeft > 0 ? [{ ...item, runsLeft }] : [];
+          }) ?? current,
+        );
+        await refreshGameState();
+        notifySystem(
+          `✓ 경험치 ${(data.grantedExp ?? 0).toLocaleString()} 획득` +
+            (typeof data.level === "number" ? ` (Lv.${data.level})` : ""),
+        );
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem, refreshGameState],
+  );
+
   const useCashItem = useCallback(
     async (itemId: MuseunCashItemId) => {
       setBusy(`cash_${itemId}`);
@@ -487,6 +542,102 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       }
     },
     [notifySystem],
+  );
+
+  // 인벤토리의 "도감 미등록" 배지에서 바로 등록한다. 서버 규칙과 동일하게 장착·잠금
+  // 개체는 차단하고, 영구 소모 작업이라 최종 확인은 유지한다.
+  const registerEquipmentCodex = useCallback(
+    async (inst: V2EquipInstance) => {
+      if (busy !== null) return;
+      const liveInst = owned.find((entry) => entry.iid === inst.iid);
+      const item = liveInst ? V2_EQUIPMENT[liveInst.id] : undefined;
+      if (!liveInst || !item) {
+        notifySystem("✗ 보유 장비를 찾을 수 없습니다");
+        return;
+      }
+      if (equipmentCodex?.registeredIds.has(liveInst.id)) {
+        notifySystem("✗ 이미 도감에 등록된 장비입니다");
+        return;
+      }
+      if (liveInst.locked) {
+        notifySystem("✗ 잠긴 장비는 등록할 수 없습니다. 먼저 잠금을 해제해 주세요");
+        return;
+      }
+      if (Object.values(equipped).includes(liveInst.iid)) {
+        notifySystem("✗ 장착 중인 장비는 등록할 수 없습니다. 먼저 해제해 주세요");
+        return;
+      }
+      if (
+        !window.confirm(
+          `${item.name} 1개를 장비 도감에 등록할까요?\n등록한 장비는 영구적으로 소모됩니다.`,
+        )
+      ) {
+        return;
+      }
+
+      setBusy(liveInst.iid);
+      try {
+        const res = await fetch("/api/v2/me/equipment-codex", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ iid: liveInst.iid }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          registeredIds?: string[];
+          owned?: V2EquipInstance[];
+          equipped?: Partial<Record<V2EquipSlot, string>>;
+          materials?: Partial<Record<V2MaterialId, number>>;
+        } | null;
+        if (!res.ok || !j?.ok) {
+          const reason =
+            j?.error === "locked"
+              ? "잠긴 장비는 등록할 수 없습니다"
+              : j?.error === "equipped"
+                ? "장착 중인 장비는 등록할 수 없습니다"
+                : j?.error === "already_registered"
+                  ? "이미 도감에 등록된 장비입니다"
+                  : j?.error === "not_owned"
+                    ? "보유 장비를 찾을 수 없습니다"
+                    : "장비를 도감에 등록할 수 없습니다";
+          notifySystem(`✗ ${reason}`);
+          return;
+        }
+
+        setOwned(
+          Array.isArray(j.owned)
+            ? j.owned
+            : owned.filter((entry) => entry.iid !== liveInst.iid),
+        );
+        if (j.equipped && typeof j.equipped === "object") {
+          setEquipped(j.equipped);
+        }
+        if (j.materials && typeof j.materials === "object") {
+          setMaterials(j.materials);
+        }
+        if (Array.isArray(j.registeredIds)) {
+          equipmentCodex?.replaceRegisteredIds(j.registeredIds);
+        }
+        setCard((current) =>
+          current?.inst.iid === liveInst.iid ? null : current,
+        );
+        void refreshGameState();
+        notifySystem(`✓ ${item.name} 도감 등록 완료`);
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [
+      busy,
+      equipmentCodex,
+      equipped,
+      notifySystem,
+      owned,
+      refreshGameState,
+    ],
   );
 
   // 일괄 판매 — 클라에서 selectBulkSell 로 미리보기(개수·골드) 후 확인, 서버가 권위 판매.
@@ -680,7 +831,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           scrollable
         />
 
-        {loadError && <LoadErrorBanner onRetry={refresh} />}
+        {loadError && <LoadErrorBanner onRetry={() => void refresh(true)} />}
 
         {loading ? (
           <div className="space-y-2">
@@ -701,6 +852,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUseCashItem={useCashItem}
             cookingFoods={cookingFoods}
             onUseCookingFood={useCookingFood}
+            onUseExpTome={useExpTome}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />
@@ -718,6 +870,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             frontierDepth={frontierDepth}
             onBulkSell={applyBulkSell}
             onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
+            onRegisterCodex={registerEquipmentCodex}
           />
         )}
       </Card>
@@ -751,6 +904,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             return (
               <V2ItemCompareCard
                 candidate={{
+                  iid: card.inst.iid,
                   item: candItem,
                   roll: card.inst.roll,
                   enhance: card.inst.enhance,
@@ -820,6 +974,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   : undefined
               }
               lock={lockAction}
+              codexRegister={{
+                busy: busy === card.inst.iid,
+                onRegister: () => registerEquipmentCodex(card.inst),
+              }}
             />
           );
         })()}

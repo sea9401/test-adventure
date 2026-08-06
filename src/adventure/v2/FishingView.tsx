@@ -26,6 +26,7 @@ import {
 import {
   FISHING_LURES,
   FISHING_RODS,
+  fishingSizeBonusLabels,
   type FishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
 import type { FishingProgressNotice } from "@/adventure/v2/fishingChallengeProgress";
@@ -41,6 +42,8 @@ import {
   useActivityCooldown,
 } from "./useActivityVerification";
 import type { AutoGatheringActivity } from "./autoGathering";
+import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
+import { fishingRewardSummaryLabels } from "./fishingRewardSummary";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -93,11 +96,14 @@ export type ReelOutcome =
       dailyCatchCoins?: FishingDailyCatchCoins;
       /** 낚시 레벨 상승으로 받은 별도 낚시 코인 보상. */
       levelRewardCoins?: number;
-      /** 성공한 챔질로 얻은 낚시 숙련도 경험치. */
+      /** 성공한 챔질로 얻은 낚시 콘텐츠 진행 경험치. */
       fishingXpGained?: number;
       fishingLevel?: number;
       fishingLevelUp?: boolean;
       fishingCatches?: number;
+      /** 이번 챔질로 오른 실제 낚시 직업 숙련도와 증가 후 누적값. */
+      masteryGained?: number;
+      masteryAfter?: number | null;
       /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
       special?: { id: string; label: string; emoji: string } | null;
       /** 서버 권위 연속 성공 기록과 현재 버프. */
@@ -141,7 +147,21 @@ export type FishingHandlers = {
   verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
 
-type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
+export type FishingPhase =
+  | "idle"
+  | "casting"
+  | "waiting"
+  | "biting"
+  | "resolving"
+  | "result";
+
+export function fishingTapAction(
+  phase: FishingPhase,
+): "cast" | "reel" | null {
+  if (phase === "idle" || phase === "result") return "cast";
+  if (phase === "waiting" || phase === "biting") return "reel";
+  return null;
+}
 
 function isTextEntryTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -852,7 +872,7 @@ function drawFishingCanvasScene(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  phase: Phase,
+  phase: FishingPhase,
   sceneElapsedMs: number,
   phaseElapsedMs: number,
   reducedMotion: boolean,
@@ -1031,7 +1051,7 @@ function FishingSceneCanvas({
   tapSignal,
   tideId,
 }: {
-  phase: Phase;
+  phase: FishingPhase;
   preBite: boolean;
   tapSignal: number;
   tideId: MulttaeConditionId;
@@ -1347,57 +1367,8 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
 
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   const bonuses = progression.levelBonuses;
-  const labels = [
-    `크기 +${bonuses.sizeBonusPct}%`,
-    `특별 손님 +${bonuses.specialWeightPct}%`,
-  ];
-  if (bonuses.rareSizeBonusPct > 0) {
-    labels.push(`희귀 이상 +${bonuses.rareSizeBonusPct}%`);
-  }
-  if (bonuses.bigCatchSizeBonusPct > 0) {
-    labels.push(`대물급 +${bonuses.bigCatchSizeBonusPct}%`);
-  }
-  return labels;
-}
-
-function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
-  const labels: string[] = [];
-  if (
-    !result.catchItem &&
-    result.catchItemStatus === "daily_cap" &&
-    result.catchItemDaily
-  ) {
-    labels.push(
-      `${result.catchItemDaily.name} 오늘 획득 한도 ${result.catchItemDaily.awarded}/${result.catchItemDaily.cap}`,
-    );
-  }
-  if (result.coinsGained != null && result.coinsGained > 0) {
-    labels.push(`코인 +${result.coinsGained}`);
-  } else if (
-    result.coinsGained === 0 &&
-    result.dailyCatchCoins &&
-    result.dailyCatchCoins.cap > 0 &&
-    result.dailyCatchCoins.earned >= result.dailyCatchCoins.cap
-  ) {
-    labels.push("일일 낚시 코인 제한 도달 · 추가 코인 +0");
-  }
-  if (result.levelRewardCoins != null && result.levelRewardCoins > 0) {
-    labels.push(`레벨업 보상 +${result.levelRewardCoins}`);
-  }
-  if (result.hotTime && (result.hotTime.catchBonus > 0 || result.hotTime.levelBonus > 0)) {
-    labels.push(
-      `핫타임 +${result.hotTime.fishingCoinPct}% · 코인 +${
-        result.hotTime.catchBonus + result.hotTime.levelBonus
-      }`,
-    );
-  }
-  if (result.fishingXpGained != null && result.fishingXpGained > 0) {
-    labels.push(
-      `숙련도 +${result.fishingXpGained}${
-        result.fishingLevel ? ` · Lv ${result.fishingLevel}` : ""
-      }${result.fishingLevelUp ? " 상승" : ""}`,
-    );
-  }
+  const labels = fishingSizeBonusLabels(bonuses);
+  labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
   return labels;
 }
 
@@ -1417,7 +1388,7 @@ function challengeProgressSummary(
 }
 
 function CatchRewardSummary({ result }: { result: CaughtReelOutcome }) {
-  const labels = rewardSummaryLabels(result);
+  const labels = fishingRewardSummaryLabels(result);
   const catchItem =
     result.catchItem &&
     result.catchItem.quantity > 0 &&
@@ -1496,7 +1467,7 @@ export function FishingView({
   onOpenHallOfFame?: () => void;
   onOpenCoopSession?: (sessionId: string) => void;
 }) {
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<FishingPhase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
   // 성공 시 결과에 보여줄 "입질→챔질" 반응시간(ms). 판정과 무관한 표시용.
@@ -1626,8 +1597,15 @@ export function FishingView({
     }
   }, [activeAutoActivity, cast, cooldownRemainingSec, handleCooldownError, onBite]);
 
-  // 큰 탭 존 클릭 — 단계에 따라 의미가 다르다.
+  // 중앙 탭 — 첫/재투척과 챔질 모두 엄지 위치를 옮기지 않고 처리한다.
   const onTapZone = useCallback(() => {
+    const action = fishingTapAction(phase);
+    if (action === "cast") {
+      void startCast();
+      return;
+    }
+    if (action !== "reel") return;
+
     setTapSignal((value) => value + 1);
     if (phase === "waiting") {
       // 입질 전 챔질 = 성급함. 서버가 too_early 로 판정하도록 reel 호출(세션 소비).
@@ -1637,7 +1615,7 @@ export function FishingView({
       setLastReactionMs(rms);
       resolveReel(rms);
     }
-  }, [phase, resolveReel]);
+  }, [phase, resolveReel, startCast]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1662,7 +1640,10 @@ export function FishingView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeAutoActivity, cooldownRemainingSec, onTapZone, phase, startCast, verification]);
 
-  const tapActive = phase === "waiting" || phase === "biting";
+  const canStartCast = cooldownRemainingSec <= 0 && !activeAutoActivity;
+  const tapAction = fishingTapAction(phase);
+  const tapActive =
+    tapAction === "reel" || (tapAction === "cast" && canStartCast);
   const biting = phase === "biting";
   const dailyCoinPct =
     dailyCatchCoins && dailyCatchCoins.cap > 0
@@ -1684,6 +1665,8 @@ export function FishingView({
     <>
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-2.5 rounded-2xl p-3 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:space-y-3 sm:p-5`}>
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
+
+        <ProductionJobAdvanceNotice refreshKey={progression?.catches ?? 0} />
 
         {verification && verifyHuman ? (
           <ActivityVerificationGate
@@ -1792,7 +1775,8 @@ export function FishingView({
           type="button"
           disabled={!tapActive}
           onClick={onTapZone}
-          className={`ui-fishing-zone relative flex h-56 w-full select-none flex-col items-center justify-center overflow-hidden rounded-lg border-2 text-center transition ${
+          aria-label={phase === "idle" ? "찌 던지기" : "챔질"}
+          className={`ui-fishing-zone relative flex h-56 w-full touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-lg border-2 text-center transition ${
             biting
               ? "is-biting border-rose-500 bg-rose-100 text-rose-950 ring-4 ring-rose-400/60 dark:border-rose-300 dark:bg-rose-950/70 dark:text-rose-100 dark:ring-rose-300/45"
               : tapActive
@@ -1811,7 +1795,14 @@ export function FishingView({
 
       {/* 결과 */}
       {phase === "result" && (
-        <div className="ui-fishing-result rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-700">
+        <div className="ui-fishing-result relative rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-700">
+          <button
+            type="button"
+            aria-label="다시 던지기"
+            disabled={!canStartCast}
+            onClick={onTapZone}
+            className="absolute inset-0 z-10 touch-manipulation rounded-xl bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 disabled:cursor-not-allowed"
+          />
           {error ? (
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (
@@ -1884,7 +1875,7 @@ export function FishingView({
                     <button
                       type="button"
                       onClick={() => onOpenCoopSession(result.coopBoss!.sessionId)}
-                      className="mt-2 w-full rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 active:scale-[0.99]"
+                      className="relative z-20 mt-2 w-full rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 active:scale-[0.99]"
                     >
                       토벌하러 가기
                     </button>

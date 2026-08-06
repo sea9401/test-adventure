@@ -11,7 +11,7 @@ vi.mock("./GameStateProvider", () => ({
 }));
 
 describe("환경 설정 화면", () => {
-  it("테마·표시 모드·정책·회원 탈퇴를 한 화면에서 제공한다", () => {
+  it("테마·표시 모드·푸시 알림·정책·회원 탈퇴를 한 화면에서 제공한다", () => {
     const html = renderToStaticMarkup(<V2PreferencesView />);
 
     expect(html).toContain("환경 설정");
@@ -20,6 +20,9 @@ describe("환경 설정 화면", () => {
     expect(html).toContain("기본 모드");
     expect(html).toContain("배경 숨김");
     expect(html).toContain("은신 모드");
+    expect(html).toContain("터미널 모드");
+    expect(html).toContain("푸시 알림");
+    expect(html).toContain("검은 화면");
     expect(html).toContain('href="/privacy"');
     expect(html).toContain("정책·약관");
     expect(html).toContain("회원 탈퇴 진행");

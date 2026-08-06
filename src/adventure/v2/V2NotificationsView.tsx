@@ -11,19 +11,24 @@ import {
   Envelope,
   Flag,
   Handshake,
+  Plant,
   ShieldWarning,
   Skull,
   Sword,
+  Ticket,
   UsersThree,
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
+import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
 import { V2InboxView } from "@/adventure/v2/V2InboxView";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatRelative } from "@/lib/notifications";
-import type {
-  V2NotificationEntry,
-  V2NotificationType,
+import {
+  unreadV2Notifications,
+  type V2NotificationEntry,
+  type V2NotificationType,
 } from "@/lib/v2-notification-config";
 
 export type NotificationCenterTab = "all" | "notifications" | "mail";
@@ -92,12 +97,30 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       className="shrink-0 text-sky-500 dark:text-sky-400"
     />
   ),
+  farm_ready: (
+    <Plant
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-emerald-600 dark:text-emerald-400"
+    />
+  ),
+  lottery_won: (
+    <Ticket
+      size={16}
+      weight="fill"
+      className="shrink-0 text-amber-600 dark:text-amber-300"
+    />
+  ),
 };
 
 const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
   user_message: "쪽지",
   sale_proceeds: "판매 대금",
   bid_refund: "입찰금 반환",
+  buy_order_refund: "구매 주문 환불",
+  buy_order_item: "구매 주문 체결",
+  buy_order_equipment: "장비 구매 주문 체결",
+  price_alert: "시세 알림",
   purchase_item: "구매 물품",
   cancel_return: "취소 반환",
   recipe_gift: "제작서 선물",
@@ -112,6 +135,12 @@ function mailBody(item: InboxItem): string {
   if (item.kind === "user_message") {
     const text = item.payload.text;
     return typeof text === "string" && text.length > 0 ? text : "(내용 없음)";
+  }
+  if (item.kind === "price_alert") {
+    const text = item.payload.text;
+    return typeof text === "string" && text.length > 0
+      ? text
+      : (item.message ?? MAIL_KIND_LABEL[item.kind]);
   }
   if (item.kind === "guild_invite") {
     const guildName = item.payload.guild_name;
@@ -204,6 +233,31 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       </>
     );
   }
+  if (n.type === "farm_ready") {
+    const p = n.payload as { readyCount: number };
+    return (
+      <>
+        농장에 수확 가능한 작물이 {p.readyCount}개 있습니다. 눌러서 확인해
+        주세요
+      </>
+    );
+  }
+  if (n.type === "lottery_won") {
+    const p = n.payload as {
+      roundId: number;
+      ranks: number[];
+      prizeAmount: number;
+    };
+    return (
+      <>
+        제 {p.roundId}회 복권에서{" "}
+        <span className="font-bold text-amber-700 dark:text-amber-300">
+          {Math.min(...p.ranks)}등 · {p.prizeAmount.toLocaleString()}G
+        </span>
+        에 당첨되었습니다
+      </>
+    );
+  }
   const p = n.payload as { byName?: string; gold?: number };
   return (
     <>
@@ -222,17 +276,29 @@ function NotificationRow({
   item,
   onOpenOutpost,
   onOpenFeedback,
+  onOpenFarm,
+  onOpenCoopSession,
 }: {
   item: V2NotificationEntry;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
+  onOpenFarm: () => void;
+  onOpenCoopSession: (sessionId: string) => void;
 }) {
   const outpostId = (item.payload as { outpostId?: string }).outpostId;
   const feedbackId =
     item.type === "feedback_replied"
       ? (item.payload as { feedbackId: number }).feedbackId
       : null;
-  const actionable = Boolean(outpostId || feedbackId);
+  const farmReady = item.type === "farm_ready";
+  const coopSessionId =
+    item.type === "coop_defeated"
+      ? (item.payload as { sessionId: string }).sessionId
+      : null;
+  const lotteryWon = item.type === "lottery_won";
+  const actionable = Boolean(
+    outpostId || feedbackId || farmReady || coopSessionId || lotteryWon,
+  );
 
   return (
     <button
@@ -240,6 +306,17 @@ function NotificationRow({
       onClick={() => {
         if (outpostId) onOpenOutpost(outpostId);
         else if (feedbackId) onOpenFeedback(feedbackId);
+        else if (farmReady) {
+          void acknowledgeFarmReadyNotification();
+          onOpenFarm();
+        } else if (coopSessionId) {
+          void acknowledgeV2Notification(item.id);
+          onOpenCoopSession(coopSessionId);
+        } else if (lotteryWon) {
+          window.dispatchEvent(
+            new CustomEvent("lottery:celebrate", { detail: item }),
+          );
+        }
       }}
       disabled={!actionable}
       className="flex w-full items-start gap-2 px-3 py-2.5 text-left disabled:cursor-default"
@@ -294,11 +371,15 @@ export function V2NotificationsView({
   onBack,
   onOpenOutpost,
   onOpenFeedback,
+  onOpenFarm,
+  onOpenCoopSession,
   initialTab = "all",
 }: {
   onBack: () => void;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
+  onOpenFarm: () => void;
+  onOpenCoopSession: (sessionId: string) => void;
   initialTab?: NotificationCenterTab;
 }) {
   const [tab, setTab] = useState<NotificationCenterTab>(initialTab);
@@ -317,7 +398,11 @@ export function V2NotificationsView({
           ok?: boolean;
           notifications?: V2NotificationEntry[];
         };
-        if (alive) setNotifications(json.ok ? (json.notifications ?? []) : []);
+        if (alive) {
+          setNotifications(
+            json.ok ? unreadV2Notifications(json.notifications ?? []) : [],
+          );
+        }
       } catch {
         if (alive) setNotifications([]);
       }
@@ -351,14 +436,24 @@ export function V2NotificationsView({
     readMarkedRef.current = true;
     void (async () => {
       try {
+        const hasFarmReady = notifications.some(
+          (item) => item.type === "farm_ready",
+        );
         const res = await fetch("/api/v2/notifications/read", {
           method: "POST",
         });
         if (!res.ok) throw new Error("notification read failed");
+        const farmReadyRead = hasFarmReady
+          ? await acknowledgeFarmReadyNotification()
+          : false;
         const readAt = Date.now();
         setNotifications((current) =>
           current?.map((item) =>
-            item.readAt === null ? { ...item, readAt } : item,
+            item.readAt === null &&
+            item.type !== "lottery_won" &&
+            (item.type !== "farm_ready" || farmReadyRead)
+              ? { ...item, readAt }
+              : item,
           ) ?? [],
         );
         window.dispatchEvent(new Event("v2notif:read"));
@@ -442,6 +537,8 @@ export function V2NotificationsView({
                     item={item}
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
+                    onOpenFarm={onOpenFarm}
+                    onOpenCoopSession={onOpenCoopSession}
                   />
                 </li>
               ))}
@@ -464,6 +561,8 @@ export function V2NotificationsView({
                     item={entry.item}
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
+                    onOpenFarm={onOpenFarm}
+                    onOpenCoopSession={onOpenCoopSession}
                   />
                 </li>
               ) : (

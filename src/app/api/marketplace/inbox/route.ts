@@ -1,7 +1,11 @@
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceInbox, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import {
+  ANONYMOUS_MARKETPLACE_MAIL_KINDS,
+  visibleInboxSenderName,
+} from "@/lib/server/inboxPrivacy";
 
 // 기록(history) 모드에서 한 번에 돌려주는 이미 읽은 우편 수 — 받은 우편 기록 보관용 상한.
 const HISTORY_LIMIT = 100;
@@ -10,7 +14,7 @@ const HISTORY_LIMIT = 100;
 //   ?count=1   → 경량 카운트 모드(미수령 수만 반환, 우편 배지 폴링용 — 전체 행 fetch 회피).
 //   ?history=1 → 기록 모드(이미 읽은/수령한 우편 최근 N개). 받은 우편이 사라지지 않고
 //                기록으로 남도록. 미수령 모드와 달리 상한(HISTORY_LIMIT)을 둔다.
-//   ?sent=1    → 보낸 우편 기록. marketplace_inbox.from_user_id 로 최근 N개를 조회한다.
+//   ?sent=1    → 보낸 우편 기록. 거래 상대가 드러나는 구매/정산 우편은 제외한다.
 export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
@@ -49,7 +53,14 @@ export async function GET(req: Request) {
       })
       .from(marketplaceInbox)
       .leftJoin(users, eq(users.id, marketplaceInbox.userId))
-      .where(eq(marketplaceInbox.fromUserId, userId))
+      .where(
+        and(
+          eq(marketplaceInbox.fromUserId, userId),
+          notInArray(marketplaceInbox.kind, [
+            ...ANONYMOUS_MARKETPLACE_MAIL_KINDS,
+          ]),
+        ),
+      )
       .orderBy(desc(marketplaceInbox.createdAt))
       .limit(HISTORY_LIMIT);
 
@@ -60,7 +71,7 @@ export async function GET(req: Request) {
         payload: r.payload,
         message: r.message,
         listingId: r.listingId,
-        fromName: r.fromName,
+        fromName: visibleInboxSenderName(r.kind, r.fromName),
         recipientName: r.recipientName,
         direction: "sent" as const,
         createdAt: r.createdAt.toISOString(),
@@ -104,7 +115,7 @@ export async function GET(req: Request) {
       payload: r.payload,
       message: r.message,
       listingId: r.listingId,
-      fromName: r.fromName,
+      fromName: visibleInboxSenderName(r.kind, r.fromName),
       recipientName: r.recipientName,
       direction: "received" as const,
       createdAt: r.createdAt.toISOString(),

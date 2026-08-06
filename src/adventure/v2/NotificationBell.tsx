@@ -7,10 +7,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CaretRight, Envelope } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
+import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
+import { coopBossSessionHref } from "@/adventure/v2/coop/coopRoutes";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { formatRelative } from "@/lib/notifications";
 import {
   NOTIF_POLL_MS,
+  unreadV2Notifications,
   type V2NotificationEntry,
 } from "@/lib/v2-notification-config";
 
@@ -20,6 +24,10 @@ const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
   user_message: "쪽지",
   sale_proceeds: "판매 대금",
   bid_refund: "입찰금 반환",
+  buy_order_refund: "구매 주문 환불",
+  buy_order_item: "구매 주문 체결",
+  buy_order_equipment: "장비 구매 주문 체결",
+  price_alert: "시세 알림",
   purchase_item: "구매 물품",
   cancel_return: "취소 반환",
   recipe_gift: "제작서 선물",
@@ -64,6 +72,20 @@ function previewText(notification: V2NotificationEntry): string {
     case "feedback_replied": {
       const p = payload as { feedbackId: number };
       return `내 건의 #${p.feedbackId}에 관리자 답변이 등록되었습니다.`;
+    }
+    case "farm_ready": {
+      const p = payload as { readyCount: number };
+      return `수확 가능한 작물이 ${p.readyCount}개 있어요.`;
+    }
+    case "lottery_won": {
+      const p = payload as { ranks: number[]; prizeAmount: number };
+      return [
+        "복권 ",
+        Math.min(...p.ranks),
+        "등 당첨 · ",
+        p.prizeAmount.toLocaleString(),
+        "G",
+      ].join("");
     }
   }
 }
@@ -136,11 +158,13 @@ export function NotificationBell() {
       if (!notificationJson.ok) throw new Error("notification preview failed");
 
       const combined: PreviewEntry[] = [
-        ...(notificationJson.notifications ?? []).map((item) => ({
-          kind: "notification" as const,
-          timestamp: item.createdAt,
-          item,
-        })),
+        ...unreadV2Notifications(notificationJson.notifications ?? []).map(
+          (item) => ({
+            kind: "notification" as const,
+            timestamp: item.createdAt,
+            item,
+          }),
+        ),
         ...inbox.items.map((item) => ({
           kind: "mail" as const,
           timestamp: Date.parse(item.createdAt),
@@ -207,6 +231,37 @@ export function NotificationBell() {
     router.push("/notifications");
   };
 
+  const openNotification = (notification: V2NotificationEntry) => {
+    if (notification.type === "lottery_won") {
+      setOpen(false);
+      window.dispatchEvent(
+        new CustomEvent("lottery:celebrate", { detail: notification }),
+      );
+      return;
+    }
+    if (notification.type === "coop_defeated") {
+      const { sessionId } = notification.payload as { sessionId: string };
+      setOpen(false);
+      setNotificationUnread((current) => Math.max(0, current - 1));
+      setItems((current) =>
+        current?.filter(
+          (entry) =>
+            entry.kind !== "notification" || entry.item.id !== notification.id,
+        ) ?? null,
+      );
+      void acknowledgeV2Notification(notification.id);
+      router.push(coopBossSessionHref(sessionId));
+      return;
+    }
+    if (notification.type !== "farm_ready") {
+      openNotifications();
+      return;
+    }
+    setOpen(false);
+    void acknowledgeFarmReadyNotification();
+    router.push("/town/farm");
+  };
+
   const openMail = () => {
     setOpen(false);
     router.push("/plaza/inbox");
@@ -271,7 +326,7 @@ export function NotificationBell() {
                     <li key={`notification-${entry.item.id}`}>
                       <button
                         type="button"
-                        onClick={openNotifications}
+                        onClick={() => openNotification(entry.item)}
                         className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
                       >
                         <span

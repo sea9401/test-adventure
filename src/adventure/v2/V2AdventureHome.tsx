@@ -53,6 +53,9 @@ type StateResponse = {
     groups?: Record<string, { tier?: number }>;
     current?: { group?: string };
   };
+  jobsV2?: {
+    currentJobLevelCap?: number;
+  } | null;
   skills?: {
     equipped?: string[];
     loadoutPresets?: { name: string; skills: string[] }[];
@@ -111,6 +114,7 @@ export function V2AdventureHome() {
             character={state.character}
             guild={state.guild ?? null}
             levelCap={levelCap}
+            rejobRequiredLevel={state.jobsV2?.currentJobLevelCap ?? null}
             showGold={true}
             activePresetName={activePresetName}
             adventureSupport={state.adventureSupport}

@@ -455,7 +455,10 @@ export async function POST(req: Request) {
     result.status === 200 && result.body.ok ? result.body.result : null;
   if (defeatedResult?.defeated) {
     const defeatedKind = defeatedResult.kind as CoopBossKindId;
-    await insertFeedEntry(userId, "coop_kill", { kind: defeatedKind });
+    await insertFeedEntry(userId, "coop_kill", {
+      kind: defeatedKind,
+      sessionId,
+    });
     const contributors = await db
       .select({
         userId: coopBossContributors.userId,

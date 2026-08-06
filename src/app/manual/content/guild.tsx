@@ -113,10 +113,11 @@ export function GuildContent() {
 
       <H2>길드 운영</H2>
       <P>
-        길드 탭은 <Em>길드 정보·길드원·시설</Em>로 나뉩니다. 길드 정보에서는
-        소개와 명성, 길드 자금과 활동 내역을 확인합니다. 마스터·관리자에게는{" "}
-        <Em>관리</Em> 탭이 추가되며, 초대·가입 신청·직책·길드 연구와 설정을
-        관리할 수 있습니다.
+        길드 탭은 <Em>길드 정보·길드원·길드 목록·시설</Em>로 나뉩니다. 길드
+        정보에서는 소개와 명성, 길드 자금과 활동 내역을 확인합니다. 길드 목록에서는
+        가입 후에도 다른 길드의 이름·레벨·인원·명성·길드장과 소개를 검색해서 볼 수
+        있습니다. 마스터·관리자에게는 <Em>관리</Em> 탭이 추가되며, 초대·가입
+        신청·직책·길드 연구와 설정을 관리할 수 있습니다.
       </P>
 
       <H2>길드 금고</H2>
@@ -223,7 +224,7 @@ export function GuildContent() {
       <H2>탐사 본부</H2>
       <P>
         탐사 본부는 길드 단위 주간 탐사 의뢰를 관리하는 시설입니다. 시설 레벨이
-        오르면 한 주에 진행할 수 있는 탐사 수와 의뢰 진척 보너스가 늘어납니다.
+        오르면 이용할 수 있는 의뢰 종류가 추가되고 의뢰 진척 보너스가 늘어납니다.
         원정은 시설 Lv.1부터 Lv.5까지 단계마다 한 종류씩, 총{" "}
         <Em>{GUILD_EXPLORATION_EXPEDITION_IDS.length}종</Em>이 열리며 상위 원정일수록
         시간이 오래 걸리는 대신 골드·명성·지도 조각 보상이 커집니다.
@@ -235,13 +236,13 @@ export function GuildContent() {
         열립니다. 완료 시 길드 금고 골드와 탐사 지도 조각을 보상으로 받습니다.
       </P>
       <Table
-        head={["레벨", "단계", "주간 탐사", "진척 보너스"]}
+        head={["레벨", "단계", "해금 의뢰 종류", "진척 보너스"]}
         rows={[1, 2, 3, 4, 5].map((level) => {
           const upgrade = explorationHqUpgradeForLevel(level);
           return [
             `Lv.${upgrade.level}`,
             <Em key={upgrade.level}>{upgrade.label}</Em>,
-            `${upgrade.weeklyMissionCount}건`,
+            `${upgrade.weeklyMissionCount}종`,
             `+${upgrade.missionProgressBonusPct}%`,
           ];
         })}
@@ -302,13 +303,13 @@ export function GuildContent() {
       </P>
       <UL>
         <li>
-          식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
-          식권 1장을 받습니다. 개인 기여와 공동 준비는 시설 레벨별 주간 한도를
-          넘길 수 없습니다.
+          이번 주 참여 대상 길드원은 식재료 기부 여부와 관계없이 기본 식권 1장을
+          받습니다. 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
+          시설 레벨별 한도까지 식권을 추가로 받습니다.
         </li>
         <li>
-          관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. Lv.3부터
-          메뉴 두 종류, Lv.5부터 세 종류를 함께 운영할 수 있습니다.
+          관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. 식당
+          레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다.
         </li>
         <li>
           식권·기여도·메뉴는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
@@ -316,13 +317,13 @@ export function GuildContent() {
         </li>
       </UL>
       <Table
-        head={["시설 레벨", "주간 식권", "동시 운영 메뉴"]}
+        head={["시설 레벨", "기여 식권", "동시 운영 메뉴"]}
         rows={DINING_HALL_UPGRADES.map((upgrade) => [
           `Lv.${upgrade.level}`,
-          `${upgrade.weeklyMealTickets}장`,
+          `최대 ${upgrade.weeklyMealTickets}장`,
           `${upgrade.weeklyMenuSlots}종`,
         ])}
-        caption="시설 레벨마다 신규 메뉴가 하나씩 열립니다. Lv.5에서는 메뉴 세 종류를 골라 한 주 동안 운영할 수 있습니다."
+        caption="모든 주간 참여 길드원은 기본 식권 1장을 받습니다. 시설 레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다."
       />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
@@ -353,8 +354,9 @@ export function GuildContent() {
       <H2>길드 교역소</H2>
       <P>
         길드 교역소는 벌목·채광·농장·낚시에서 모은 생활 재료를 주간 계약에
-        함께 납품하는 시설입니다. 개인은 납품 점수만큼 <Em>교역 토큰</Em>을
-        받고, 공동 목표를 채우면 길드 금고 골드와 명성을 획득합니다.
+        함께 납품하는 시설입니다. 누가 납품하든 납품 점수만큼 <Em>길드 공동
+        교역 토큰</Em>이 쌓이고, 공동 목표를 채우면 길드 금고 골드와 명성을
+        획득합니다.
       </P>
       <UL>
         <li>
@@ -363,16 +365,36 @@ export function GuildContent() {
           늘어납니다. 참여 대상도 이 시점에 함께 확정됩니다.
         </li>
         <li>
-          시설 레벨이 오르면 주간 계약 수가 3건에서 5건으로 늘고, 개인 납품
-          한도와 계약 완료 보너스도 증가합니다.
+          시설 레벨이 오를 때마다 납품 토큰 획득량, 개인 납품 한도와 계약 완료
+          보상이 증가합니다. 주간 계약 수도 3건에서 5건까지 늘어납니다.
         </li>
         <li>
-          계약·개인 납품·상점 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
-          남은 교역 토큰은 같은 길드에 있는 동안 다음 주에도 유지됩니다.
+          계약·개인 납품·개인 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
+          공동 교역 토큰은 모든 길드원이 함께 사용하며 다음 주에도 유지됩니다.
+        </li>
+        <li>
+          상점 품목은 공동 토큰으로 개인 구매하며 보상은 구매자에게 즉시 지급됩니다.
+          구매 한도는 길드원이 각자 적용받고, 구매자·품목·수량·사용 토큰과 남은
+          공동 토큰은 길드 활동 내역에 기록됩니다.
         </li>
       </UL>
       <Table
-        head={["교환 품목", "필요 시설", "비용", "주간 한도"]}
+        head={["레벨", "계약", "개인 납품 한도", "토큰 획득", "완료 보상"]}
+        rows={TRADE_POST_UPGRADES.map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          `${upgrade.weeklyContractCount}건`,
+          `${upgrade.personalContributionCap}점`,
+          upgrade.tokenYieldBonusPct > 0
+            ? `+${upgrade.tokenYieldBonusPct}%`
+            : "기본",
+          upgrade.completionRewardBonusPct > 0
+            ? `+${upgrade.completionRewardBonusPct}%`
+            : "기본",
+        ])}
+        caption="토큰 보너스는 작은 묶음을 여러 번 납품해도 개인의 주간 누적 납품 점수를 기준으로 소수점 손실 없이 계산됩니다."
+      />
+      <Table
+        head={["교환 품목", "필요 시설", "비용", "개인 주간 한도"]}
         rows={GUILD_TRADE_SHOP_ITEMS.map((item) => [
           <Em key={item.id}>{item.name}</Em>,
           `Lv.${item.minFacilityLevel}`,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ClockCountdown, Coins, Ticket } from "@phosphor-icons/react";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import {
+  LOTTERY_BASE_PRIZE_POOL,
   LOTTERY_FEE_PERCENT,
   LOTTERY_MAX_TICKETS_PER_ROUND,
   LOTTERY_TICKET_PRICE,
@@ -43,19 +44,24 @@ function LotteryRules() {
       </p>
       <p>
         장당 {LOTTERY_TICKET_PRICE.toLocaleString()}G · 1인당 회차 최대{" "}
-        {LOTTERY_MAX_TICKETS_PER_ROUND}장
+        {LOTTERY_MAX_TICKETS_PER_ROUND}장 추가 구매 가능
       </p>
       <p>
-        매시 정각(한국시간) 마감 · 수수료 {LOTTERY_FEE_PERCENT}% 공제 후 1등
+        4시간마다(한국시간 0·4·8·12·16·20시) 마감 · 수수료 {LOTTERY_FEE_PERCENT}% 공제 후 1등
         70% / 2등 20% / 3등 10%
+      </p>
+      <p>
+        이월금이 없는 새 회차는 기본 상금 {LOTTERY_BASE_PRIZE_POOL.toLocaleString()}G로
+        시작합니다.
       </p>
       <p>
         서로 다른 티켓 번호를 추첨하며, 여러 장 구매자는 복수 등수에 당첨될 수
         있습니다.
       </p>
       <p>
-        고유 참여자가 2명 이하이면 추첨하지 않고, 수수료를 제외한 상금 전액을 다음
-        회차로 이월합니다.
+        고유 참여자가 2명 이하이면 추첨하지 않고, 수수료를 제외한 상금과 참여 티켓
+        전부를 다음 회차로 이월합니다. 이월 티켓과 별도로 새 티켓을 추가 구매할 수
+        있습니다.
       </p>
     </div>
   );
@@ -73,13 +79,13 @@ export function LotteryRoundResultCard({
           제 {round.id}회 추첨 결과
         </p>
         <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
-          참여 {round.participantCount}명 · 판매 {round.totalTickets}장
+          참여 {round.participantCount}명 · 응모 {round.totalTickets}장
         </p>
       </div>
       {round.status === "rolled_over" ? (
         <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-          추첨 없이 상금 {round.prizePool.toLocaleString()}G가 다음 회차로
-          이월되었습니다.
+          추첨 없이 상금 {round.prizePool.toLocaleString()}G와 복권{" "}
+          {round.totalTickets.toLocaleString()}장이 다음 회차로 이월되었습니다.
         </p>
       ) : round.status === "refunded" ? (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -230,7 +236,7 @@ export function LotteryRoom() {
                   ? countdownLabel(snapshot.round.endsAt, now)
                   : "--:--:--"}
               </span>
-              <p className="mt-1">매시 정각 추첨</p>
+              <p className="mt-1">4시간마다 추첨</p>
             </div>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
@@ -245,13 +251,15 @@ export function LotteryRoom() {
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
             <span className="inline-flex items-center gap-1">
-              <Ticket size={15} weight="duotone" /> 판매{" "}
+              <Ticket size={15} weight="duotone" /> 응모{" "}
               {snapshot?.round.totalTickets ?? 0}장 · 참여{" "}
               {snapshot?.round.participantCount ?? 0}명 · 내 복권{" "}
               {snapshot?.myTickets ?? 0}장
+              {(snapshot?.myCarriedTickets ?? 0) > 0 &&
+                ` (이월 ${snapshot?.myCarriedTickets ?? 0}장)`}
             </span>
             <span className="inline-flex items-center gap-1 tabular-nums">
-              <Coins size={15} weight="duotone" /> 총 구매액{" "}
+              <Coins size={15} weight="duotone" /> 이번 회차 추가 구매액{" "}
               {snapshot?.round.grossPool.toLocaleString() ?? 0}G
             </span>
           </div>
@@ -299,7 +307,7 @@ export function LotteryRoom() {
 
         <section>
           <p className="mb-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-            이번 회차 구매 소식
+            이번 회차 참여 소식
           </p>
           {snapshot?.recentPurchases.length ? (
             <ul className="space-y-1.5">
@@ -317,7 +325,10 @@ export function LotteryRoom() {
                   >
                     {purchase.actorName}
                   </span>
-                  님이 복권 {purchase.ticketCount}장을 구매했습니다.
+                  님의 복권 {purchase.ticketCount}장이{" "}
+                  {purchase.isCarried
+                    ? "이월되어 자동 참여했습니다."
+                    : "추가 구매되었습니다."}
                 </li>
               ))}
             </ul>

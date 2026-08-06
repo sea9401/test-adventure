@@ -16,6 +16,9 @@ SUDO_CMD="${SUDO_CMD-sudo}"
 SYSTEMCTL_CMD="${SYSTEMCTL_CMD:-systemctl}"
 HEALTH_RETRIES="${HEALTH_RETRIES:-20}"
 HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-3}"
+COOP_TIMER_SCRIPT="${COOP_TIMER_SCRIPT:-scripts/coop-maintenance-timer.mjs}"
+COOP_TIMER_STATE_FILE="${COOP_TIMER_STATE_FILE:-${FLAG_FILE}.started-at}"
+NODE_CMD="${NODE_CMD:-node}"
 
 legacy_cur() { grep -E '^MAINTENANCE_MODE=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || echo "(미설정=off)"; }
 nginx_cur() { if $SUDO_CMD test -f "$FLAG_FILE"; then echo on; else echo off; fi; }
@@ -29,13 +32,40 @@ health_code() {
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/api/health) || code='000'
   printf '%s' "$code"
 }
+maintenance_started_at() {
+  if $SUDO_CMD test -f "$COOP_TIMER_STATE_FILE"; then
+    $SUDO_CMD cat "$COOP_TIMER_STATE_FILE"
+  fi
+}
+ensure_maintenance_started_at() {
+  local started_at
+  started_at="$(maintenance_started_at)"
+  if [ -z "$started_at" ]; then
+    started_at="$(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ')"
+    printf '%s\n' "$started_at" | $SUDO_CMD tee "$COOP_TIMER_STATE_FILE" >/dev/null
+  fi
+  printf '%s' "$started_at"
+}
+record_coop_timer_pause() {
+  local started_at="$1"
+  "$NODE_CMD" --env-file="$ENV_FILE" "$COOP_TIMER_SCRIPT" start "$started_at"
+}
+resume_coop_timers() {
+  "$NODE_CMD" --env-file="$ENV_FILE" "$COOP_TIMER_SCRIPT" resume
+}
 
 case "${1:-}" in
   on)
     # 최초 실행에서도 필요한 nginx include와 정적 HTML을 먼저 안전하게 설치한다.
     bash deploy/apply-nginx-rate-limit.sh
+    STARTED_AT="$(ensure_maintenance_started_at)"
     $SUDO_CMD touch "$FLAG_FILE"
     echo "→ nginx maintenance=on (앱 재시작 없음)"
+    # DB가 잠시 불통이어도 점검 화면 자체는 켠다. 로컬 시작 시각을 남겨 두었다가
+    # off에서 DB 기록을 복구한 뒤 반드시 보스 타이머를 연장한다.
+    if ! record_coop_timer_pause "$STARTED_AT"; then
+      echo "WARN: 협동 보스 타이머 일시정지 DB 기록 실패 — 점검 해제 시 재시도합니다." >&2
+    fi
     echo "live: $(live_code)  (503 기대)"
     echo "health: $(health_code)  (정상 운영 중이면 200)"
     ;;
@@ -67,12 +97,21 @@ case "${1:-}" in
       exit 1
     fi
 
+    STARTED_AT="$(maintenance_started_at)"
+    if [ -n "$STARTED_AT" ]; then
+      # on 시점의 DB가 불통이었어도 최초 로컬 시각으로 멱등 복구한다.
+      record_coop_timer_pause "$STARTED_AT"
+    fi
+    # 연장이 실패하면 nginx 점검 화면과 시작 시각을 그대로 보존한다.
+    resume_coop_timers
+    $SUDO_CMD rm -f "$COOP_TIMER_STATE_FILE"
     $SUDO_CMD rm -f "$FLAG_FILE"
     echo "→ nginx maintenance=off"
     echo "live: $(live_code)  (200 기대)"
     ;;
   status)
     echo "nginx maintenance: $(nginx_cur)"
+    echo "coop boss timer paused at: $(maintenance_started_at || true)"
     echo "legacy MAINTENANCE_MODE: $(legacy_cur)"
     echo "service: $($SUDO_CMD $SYSTEMCTL_CMD is-active "$SERVICE" 2>&1)"
     echo "live: $(live_code)  (점검 ON이면 503)"

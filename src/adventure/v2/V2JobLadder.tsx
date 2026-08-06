@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CaretDown,
   CaretUp,
   CheckCircle,
   MagnifyingGlass,
   Star,
+  TreeStructure,
   X,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -14,14 +15,16 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { useSystemMessageState } from "./RewardToastProvider";
+import { JobRoadmapDialog } from "./JobRoadmapDialog";
 import {
   JOB_GOAL_STORAGE_KEY,
   JOB_TAG_FILTERS,
   compareJobExplorerLineOrder,
   isJobVisibleInShrine,
+  jobCardTags,
   jobCultivationSummary,
-  jobTags,
   matchesJobExplorerFilters,
+  toggleJobTagFilter,
 } from "./jobExplorer";
 
 // 직업 시스템 v2 전직 화면(직업 숙련도 점진 공개).
@@ -41,8 +44,16 @@ export type JobLadderEntry = {
   condition: string;
   // 이 직업에 쌓은 숙련도(직업별/직군). 직업별 진행도 확인용.
   cumLevel?: number;
+  // 실제 전직 이력. 단순 해금과 구분하며, 레거시 계정은 숙련도 기록으로 보완한다.
+  visited?: boolean;
   // 직업 내장 스탯 보너스(현재 직업일 때 적용) 표기. 예: "활력 +12 · 힘 +6". 없으면 빈 문자열.
   bonus?: string;
+  // 로드맵에서 다른 직업을 선택했을 때 보여주는 대표 스킬의 가벼운 미리보기.
+  signatureSkills?: Array<{
+    id: string;
+    name: string;
+    kind: "active" | "passive";
+  }>;
   // 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일 기준) — "수집 완료" 배지용.
   skillsCollected?: boolean;
 };
@@ -52,6 +63,7 @@ type Pending = { id: string; name: string; current: boolean };
 export function V2JobLadder({
   currentJobId,
   atLevelCap,
+  rejobRequiredLevel,
   jobs,
   onChanged,
 }: {
@@ -60,6 +72,8 @@ export function V2JobLadder({
   currentJobName: string;
   currentJobId: string;
   atLevelCap: boolean;
+  /** 현재 직업에서 다른 직업으로 전직할 때 필요한 캐릭터 레벨. 생산직은 1(제한 없음). */
+  rejobRequiredLevel: number;
   jobs: JobLadderEntry[];
   onChanged: () => void | Promise<void>;
 }) {
@@ -69,6 +83,8 @@ export function V2JobLadder({
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
   const [goalJobId, setGoalJobId] = useState<string | null>(null);
+  const [roadmapOpen, setRoadmapOpen] = useState(false);
+  const closeRoadmap = useCallback(() => setRoadmapOpen(false), []);
 
   useEffect(() => {
     try {
@@ -113,14 +129,10 @@ export function V2JobLadder({
       job.id !== currentJobId && job.id !== goalJobId && job.unlocked === false,
   );
   const isFiltering = query.trim().length > 0 || activeTags.size > 0;
+  const hasNoCharacterLevelRequirement = rejobRequiredLevel <= 1;
 
   function toggleTag(key: string) {
-    setActiveTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setActiveTags((prev) => toggleJobTagFilter(prev, key));
   }
 
   async function confirmReJob() {
@@ -141,7 +153,7 @@ export function V2JobLadder({
       if (!j?.ok) {
         const label =
           j?.error === "level_too_low"
-            ? `Lv${j.required ?? V2_LEVEL_CAP} 도달 후 전직할 수 있어요`
+            ? `전투 Lv ${j.required ?? V2_LEVEL_CAP} 도달 후 전직할 수 있어요`
             : j?.error === "job_locked"
               ? "아직 해금되지 않은 직업이에요"
               : j?.error === "bad_target"
@@ -166,13 +178,31 @@ export function V2JobLadder({
 
   return (
     <div className="space-y-3">
+      {hasNoCharacterLevelRequirement ? (
+        <StatusBanner tone="info">
+          <strong>생산직 전직에는 캐릭터 레벨 제한이 없어요.</strong>{" "}
+          생산직 계보는 아래에 표시된 생활 숙련 조건만 충족하면 바로 전직할 수
+          있습니다.
+        </StatusBanner>
+      ) : null}
+
       {/* 전직 가능 직업 — 검색/태그/목표 기반 탐색. 해금 조건이 공개된 직업만 표시. */}
       <Card padding="md" className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">직업 찾기</h3>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            {filteredJobs.length}/{visibleJobs.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              {filteredJobs.length}/{visibleJobs.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => setRoadmapOpen(true)}
+              className="flex min-h-8 items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-2.5 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900"
+            >
+              <TreeStructure size={14} weight="duotone" />
+              전직 로드맵
+            </button>
+          </div>
         </div>
         <div className="relative">
           <MagnifyingGlass
@@ -220,7 +250,7 @@ export function V2JobLadder({
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {atLevelCap
               ? "아직 해금된 전직 후보가 없어요. 사냥으로 직업 숙련도를 더 쌓아 보세요."
-              : `Lv ${V2_LEVEL_CAP}에 도달하면 전직 후보가 표시됩니다.`}
+              : `전투 Lv ${rejobRequiredLevel}에 도달하면 전직 후보가 표시됩니다.`}
           </p>
         ) : filteredJobs.length === 0 ? (
           <p className="py-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
@@ -349,6 +379,16 @@ export function V2JobLadder({
           </div>
         </div>
       )}
+
+      {roadmapOpen ? (
+        <JobRoadmapDialog
+          jobs={jobs}
+          currentJobId={currentJobId}
+          goalJobId={goalJobId}
+          onSetGoal={setGoal}
+          onClose={closeRoadmap}
+        />
+      ) : null}
     </div>
   );
 }
@@ -489,7 +529,7 @@ function JobRow({
   onPick: () => void;
 }) {
   const unlocked = job.unlocked !== false;
-  const tags = jobTags(job, { currentJobId }).slice(0, 4);
+  const tags = jobCardTags(job, { currentJobId }).slice(0, 4);
   const cultivation = jobCultivationSummary(job.id);
   return (
     <li

@@ -28,7 +28,10 @@ import {
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import {
+  mintListedEquipInstance,
+  mintRolledEquipInstance,
+} from "@/adventure/data/v2/v2EquipMint";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import {
@@ -45,9 +48,15 @@ import {
 import {
   MUSEUN_COIN_WALLET_KEY,
   addMuseunCashItem,
+  isMuseunShopItemId,
   parseMuseunCoinBalance,
   type MuseunShopItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  addCookingFood,
+  isCookingFoodId,
+  type CookingFoodId,
+} from "@/adventure/v2/cooking";
 import { randomUUID } from "node:crypto";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
@@ -120,7 +129,9 @@ export async function POST(req: Request) {
         return { error: "no_unclaimed", status: 404 as const };
       }
 
-      let goldTotal = 0;
+      // 판매 대금은 은행으로, 환불·기타 우편 골드는 기존처럼 보유 현금으로 지급한다.
+      let walletGoldTotal = 0;
+      let bankedGoldTotal = 0;
       // 시즌 순위 보상 코인 — season 별로 합산해 각 지갑에 적립.
       const coinsBySeason: Record<SeasonRewardSeason, number> = {
         pvp: 0,
@@ -132,6 +143,10 @@ export async function POST(req: Request) {
       // V2 장비 보상(운영자 우편·길드 의뢰) — 스택형 inventory.v2 가 아니라 개체 모델인
       // equipment.v2.owned 에 들어가야 인벤토리에 보인다. count 만큼 개별 개체로 발급.
       const v2EquipToAdd: { id: V2EquipmentId; count: number }[] = [];
+      const v2MarketplaceEquipToAdd: Array<{
+        id: V2EquipmentId;
+        payload: Record<string, unknown> | null;
+      }> = [];
       // V2 재료 보상 — character.v2.materials 가 SSOT(인벤토리 UI 가 읽는 곳).
       // inventory.v2.materials 는 V1 잔재라 V2 에 안 보인다.
       const v2MaterialsToAdd: { id: string; count: number }[] = [];
@@ -139,6 +154,7 @@ export async function POST(req: Request) {
       let staminaPotionsTotal = 0;
       let museunCoinsTotal = 0;
       const museunCashItemTotals = new Map<MuseunShopItemId, number>();
+      const cookingFoodTotals = new Map<CookingFoodId, number>();
       let adventureSupportDaysTotal = 0;
       const titleIdsToGrant = new Set<string>();
       // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
@@ -181,11 +197,54 @@ export async function POST(req: Request) {
         switch (parsed.kind) {
           // user_message / guild_invite: 부수효과 없음 — claimedAt 만 마킹.
           case "user_message":
+          case "price_alert":
           case "guild_invite":
             break;
           case "sale_proceeds":
+            if (parsed.gold > 0) bankedGoldTotal += parsed.gold;
+            break;
           case "bid_refund":
-            if (parsed.gold > 0) goldTotal += parsed.gold;
+          case "buy_order_refund":
+            if (parsed.gold > 0) walletGoldTotal += parsed.gold;
+            break;
+          case "buy_order_item":
+            if (parsed.item_kind === "material") {
+              pushMaterial(parsed.item_id, parsed.quantity);
+            } else if (
+              parsed.item_kind === "cash" &&
+              isMuseunShopItemId(parsed.item_id)
+            ) {
+              museunCashItemTotals.set(
+                parsed.item_id,
+                (museunCashItemTotals.get(parsed.item_id) ?? 0) +
+                  parsed.quantity,
+              );
+            } else if (
+              parsed.item_kind === "cooking" &&
+              isCookingFoodId(parsed.item_id)
+            ) {
+              cookingFoodTotals.set(
+                parsed.item_id,
+                (cookingFoodTotals.get(parsed.item_id) ?? 0) + parsed.quantity,
+              );
+            } else {
+              parseFailedRowIds.push(row.id);
+            }
+            break;
+          case "buy_order_equipment":
+            if (
+              Object.prototype.hasOwnProperty.call(
+                V2_EQUIPMENT,
+                parsed.item_id,
+              )
+            ) {
+              v2MarketplaceEquipToAdd.push({
+                id: parsed.item_id as V2EquipmentId,
+                payload: parsed.instance_payload,
+              });
+            } else {
+              parseFailedRowIds.push(row.id);
+            }
             break;
           case "purchase_item":
           case "cancel_return":
@@ -213,7 +272,7 @@ export async function POST(req: Request) {
             break;
           case "guild_quest_reward": {
             // 길드 의뢰 보상 — 골드 + 멤버당 재료/아이템.
-            if (parsed.gold > 0) goldTotal += parsed.gold;
+            if (parsed.gold > 0) walletGoldTotal += parsed.gold;
             for (const m of parsed.materials) {
               pushMaterial(m.materialId, m.count);
             }
@@ -229,7 +288,7 @@ export async function POST(req: Request) {
           case "admin_gift": {
             // 운영자 대량 우편 — 골드 + 재료/장비/스태미나 회복약 지급(메시지는 message 컬럼).
             // 장비는 길드 의뢰 보상과 동일하게 항상 base 등급.
-            if (parsed.gold > 0) goldTotal += parsed.gold;
+            if (parsed.gold > 0) walletGoldTotal += parsed.gold;
             for (const m of parsed.materials) {
               pushMaterial(m.materialId, m.count);
             }
@@ -261,6 +320,7 @@ export async function POST(req: Request) {
 
       // 캐릭터 갱신 — 골드 + V2 재료(둘 다 character.v2 가 SSOT). 한 번만 잠그고 합쳐 upsert.
       let newGold: number | null = null;
+      let newBankedGold: number | null = null;
       let adventureSupportActiveUntil: number | null = null;
       let adventureSupportDaysApplied = 0;
       let adventureSupportFirstActivation = false;
@@ -268,7 +328,8 @@ export async function POST(req: Request) {
       let staminaMaxAfterSupport: number | null = null;
       const materialsV2Added: { id: string; count: number }[] = [];
       if (
-        goldTotal > 0 ||
+        walletGoldTotal > 0 ||
+        bankedGoldTotal > 0 ||
         v2MaterialsToAdd.length > 0 ||
         museunCashItemTotals.size > 0 ||
         adventureSupportDaysTotal > 0
@@ -281,15 +342,22 @@ export async function POST(req: Request) {
           )
           .for("update");
         // 골드 지급은 캐릭터가 반드시 있어야 함(기존 동작 보존). 재료만이면 없을 때 빈 캐릭터로 시작.
-        if (goldTotal > 0 && charRows.length === 0) {
+        if ((walletGoldTotal > 0 || bankedGoldTotal > 0) && charRows.length === 0) {
           return { error: "no_character", status: 400 as const };
         }
         const character = (charRows[0]?.value ?? {}) as Record<string, unknown>;
         let nextChar: Record<string, unknown> = { ...character };
-        if (goldTotal > 0) {
+        if (walletGoldTotal > 0) {
           const cur = Number((character as { gold?: unknown }).gold ?? 0);
-          newGold = cur + goldTotal;
+          newGold = cur + walletGoldTotal;
           nextChar = { ...nextChar, gold: newGold };
+        }
+        if (bankedGoldTotal > 0) {
+          const cur = Number(
+            (character as { bankedGold?: unknown }).bankedGold ?? 0,
+          );
+          newBankedGold = cur + bankedGoldTotal;
+          nextChar = { ...nextChar, bankedGold: newBankedGold };
         }
         if (v2MaterialsToAdd.length > 0) {
           const mats: Record<string, number> = {
@@ -352,7 +420,11 @@ export async function POST(req: Request) {
       // V2 장비 갱신 (equipment.v2). 운영자 우편/길드 보상 장비가 여기로 합류.
       let newEquipmentOwned: V2EquipInstance[] | null = null;
       const equipV2Added: { id: string; count: number }[] = [];
-      if (itemsToAdd.length > 0 || instancesToAdd.length > 0) {
+      if (
+        itemsToAdd.length > 0 ||
+        instancesToAdd.length > 0 ||
+        cookingFoodTotals.size > 0
+      ) {
         const invRows = await tx
           .select()
           .from(savesKv)
@@ -360,8 +432,10 @@ export async function POST(req: Request) {
             and(eq(savesKv.userId, userId), eq(savesKv.key, SAVES_INVENTORY)),
           )
           .for("update");
-        const inv = (invRows[0]?.value ?? {}) as InventoryShape;
-        let next: InventoryShape = { ...inv };
+        const inv = (invRows[0]?.value ?? {}) as InventoryShape & {
+          cookingFoods?: unknown;
+        };
+        let next: InventoryShape & { cookingFoods?: unknown } = { ...inv };
         for (const it of itemsToAdd) {
           if (it.kind === "equip") {
             next = addGradedEquip(next, it.id, it.grade, it.quantity);
@@ -386,6 +460,12 @@ export async function POST(req: Request) {
             instancesApplied.push(fresh);
           }
         }
+        for (const [itemId, count] of cookingFoodTotals) {
+          next = {
+            ...next,
+            cookingFoods: addCookingFood(next.cookingFoods, itemId, count),
+          };
+        }
         await upsertSave(tx, userId, SAVES_INVENTORY, next);
         newInventory = next;
       }
@@ -393,13 +473,19 @@ export async function POST(req: Request) {
       // V2 장비 갱신 — equipment.v2.owned 에 개체(iid)로 추가. V2 장비는 스택이 아니라
       // 개체 모델이라 count 만큼 굴림이 붙은 개별 개체를 발급한다.
       // 잠금 순서: character.v2 → inventory.v2 → equipment.v2 (buy/v2-grant 라우트와 동일).
-      if (v2EquipToAdd.length > 0) {
+      if (v2EquipToAdd.length > 0 || v2MarketplaceEquipToAdd.length > 0) {
         const minted: V2EquipInstance[] = [];
         for (const e of v2EquipToAdd) {
           for (let i = 0; i < e.count; i++) {
             minted.push(mintRolledEquipInstance(e.id));
           }
           equipV2Added.push({ id: e.id, count: e.count });
+        }
+        for (const equipment of v2MarketplaceEquipToAdd) {
+          minted.push(
+            mintListedEquipInstance(equipment.id, equipment.payload),
+          );
+          equipV2Added.push({ id: equipment.id, count: 1 });
         }
         newEquipmentOwned = await appendEquipInstances(tx, userId, minted);
       }
@@ -541,7 +627,8 @@ export async function POST(req: Request) {
       return {
         ok: true as const,
         claimed: idsToMark,
-        goldAdded: goldTotal,
+        goldAdded: walletGoldTotal,
+        bankedGoldAdded: bankedGoldTotal,
         itemsAdded: itemsToAdd,
         equipV2Added,
         materialsV2Added,
@@ -555,6 +642,10 @@ export async function POST(req: Request) {
           itemId,
           count,
         })),
+        cookingFoodsAdded: Array.from(cookingFoodTotals, ([itemId, count]) => ({
+          itemId,
+          count,
+        })),
         staminaPotionsAdded: staminaPotionsTotal,
         staminaPotions,
         adventureSupportDaysAdded: adventureSupportDaysApplied,
@@ -564,6 +655,7 @@ export async function POST(req: Request) {
         staminaAfterSupport,
         staminaMaxAfterSupport,
         newGold,
+        newBankedGold,
         newInventory,
         newEquipmentOwned,
       };

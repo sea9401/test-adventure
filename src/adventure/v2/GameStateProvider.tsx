@@ -55,6 +55,13 @@ import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
+import type {
+  AutoGatheringActivity,
+  AutoGatheringStatus,
+} from "@/adventure/v2/autoGathering";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import { parseEquipmentCodex } from "@/adventure/data/v2/equipmentCodex";
+import { isFishId, type FishId } from "@/adventure/data/v2/fish";
 
 // 신규/미방문 플레이어의 기본 현재 거점 — 인접 게이트의 부트스트랩 기준점.
 const START_OUTPOST = OUTPOSTS.find((o) => o.id === START_OUTPOST_ID)!;
@@ -134,6 +141,12 @@ type GameStateSnapshot = {
     groups?: Record<string, { tier?: number }>;
     current?: { group?: string; cumLevel?: number };
   };
+  jobsV2?: {
+    currentJobId?: string;
+    currentJobName?: string;
+    currentJobTier?: number;
+    currentJobLevelCap?: number;
+  } | null;
   coreLoopOn?: boolean;
   adventureSupport?: {
     active?: boolean;
@@ -155,7 +168,33 @@ type GameStateSnapshot = {
     serverNow?: number;
     depth?: number;
   } | null;
+  autoGathering?: {
+    activity?: AutoGatheringActivity;
+    sourceId?: string;
+    sourceName?: string;
+    readyAt?: number;
+    serverNow?: number;
+  } | null;
+  equipmentCodex?: {
+    registeredIds?: string[];
+  };
+  fishingCodex?: {
+    discoveredIds?: string[];
+  };
 } | null;
+
+type EquipmentCodexContextValue = {
+  registeredIds: ReadonlySet<V2EquipmentId>;
+  loaded: boolean;
+  replaceRegisteredIds: (ids: readonly string[]) => void;
+};
+
+type FishingCodexContextValue = {
+  discoveredIds: ReadonlySet<FishId>;
+  loaded: boolean;
+  replaceDiscoveredIds: (ids: readonly string[]) => void;
+  markDiscovered: (id: string) => void;
+};
 
 type GameStateValue = {
   // 신원/캐릭터
@@ -166,6 +205,7 @@ type GameStateValue = {
   viewerGender: Gender;
   viewerLevel: number;
   viewerLevelCap: number | null;
+  viewerJobTier: number | null;
   viewerClass: string;
   viewerExp: number;
   viewerExpToNext: number;
@@ -222,6 +262,11 @@ type GameStateValue = {
       endsAt: number;
       depth: number;
     } | null>
+  >;
+  // 자동 벌목·채광 전역 상태 — 헤더 표시와 생활 화면 mutation 직후 동기화에 사용.
+  autoGathering: AutoGatheringStatus | null;
+  setAutoGathering: React.Dispatch<
+    React.SetStateAction<AutoGatheringStatus | null>
   >;
   // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
   atRiskGold: number | null;
@@ -312,6 +357,10 @@ function tileSettlementErrorMessage(
 }
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
+const EquipmentCodexCtx = createContext<EquipmentCodexContextValue | null>(
+  null,
+);
+const FishingCodexCtx = createContext<FishingCodexContextValue | null>(null);
 
 export function useGameState(): GameStateValue {
   const ctx = useContext(GameStateCtx);
@@ -319,6 +368,18 @@ export function useGameState(): GameStateValue {
     throw new Error("useGameState must be used inside <GameStateProvider>");
   }
   return ctx;
+}
+
+// 장비가 노출되는 여러 화면에서 도감 상태만 구독한다. 별도 컨텍스트로 분리해 골드·HP처럼
+// 자주 바뀌는 GameState 값 때문에 모든 장비 배지가 다시 렌더링되지 않게 한다.
+export function useEquipmentCodexContext(): EquipmentCodexContextValue | null {
+  return useContext(EquipmentCodexCtx);
+}
+
+// 생활 지도와 낚시 화면이 어보 발견 상태만 구독한다. 새 어종을 낚으면 지도 배지가
+// me/state 재요청 없이 즉시 갱신된다.
+export function useFishingCodexContext(): FishingCodexContextValue | null {
+  return useContext(FishingCodexCtx);
 }
 
 export function GameStateProvider({ children }: { children: React.ReactNode }) {
@@ -342,6 +403,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // 전투 장면 부제(레벨·직업) 표기용 — me/state 에서 초기화.
   const [viewerLevel, setViewerLevel] = useState<number>(1);
   const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
+  const [viewerJobTier, setViewerJobTier] = useState<number | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
   const [viewerExp, setViewerExp] = useState(0);
   const [viewerExpToNext, setViewerExpToNext] = useState(1);
@@ -413,9 +475,41 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     endsAt: number;
     depth: number;
   } | null>(null);
+  const [autoGathering, setAutoGathering] =
+    useState<AutoGatheringStatus | null>(null);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
+  const [registeredEquipmentIds, setRegisteredEquipmentIds] = useState<
+    Set<V2EquipmentId>
+  >(() => new Set());
+  const [equipmentCodexLoaded, setEquipmentCodexLoaded] = useState(false);
+  const [discoveredFishIds, setDiscoveredFishIds] = useState<Set<FishId>>(
+    () => new Set(),
+  );
+  const [fishingCodexLoaded, setFishingCodexLoaded] = useState(false);
   // 최초 me/state 로드 완료 여부 — 성공/실패 무관하게 끝나면 true(아래 finally).
   const [gameStateLoaded, setGameStateLoaded] = useState(false);
+
+  const replaceRegisteredIds = useCallback((ids: readonly string[]) => {
+    setRegisteredEquipmentIds(
+      new Set(parseEquipmentCodex({ registeredIds: ids }).registeredIds),
+    );
+    setEquipmentCodexLoaded(true);
+  }, []);
+
+  const replaceDiscoveredFishIds = useCallback((ids: readonly string[]) => {
+    setDiscoveredFishIds(new Set(ids.filter(isFishId)));
+    setFishingCodexLoaded(true);
+  }, []);
+
+  const markFishDiscovered = useCallback((id: string) => {
+    if (!isFishId(id)) return;
+    setDiscoveredFishIds((current) => {
+      if (current.has(id)) return current;
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
   // ChatPanel 의 "접속 N명" 목록이 이걸로 채워진다. + 응답 buildVersion 불일치 시 옛 탭 자동 새로고침.
@@ -529,6 +623,13 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         currentGroup === "none"
           ? null
           : (j.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+      const currentJobTier =
+        typeof j.jobsV2?.currentJobTier === "number"
+          ? j.jobsV2.currentJobTier
+          : null;
+      setViewerJobTier(currentJobTier);
+      // jobsV2.currentJobLevelCap 은 실제 전투 레벨 상한이 아니라 전직 요구 레벨이다.
+      // 생산직에서는 1(레벨 제한 없음)이므로 전투 UI의 상한으로 사용하면 Lv N/1이 된다.
       setViewerLevelCap(
         currentTier == null ? null : effectiveLevelCap(currentTier),
       );
@@ -608,6 +709,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           Math.min(MAX_FRONTIER_DEPTH, Math.max(2, j.frontierDepth)),
         );
       }
+      if (Array.isArray(j.equipmentCodex?.registeredIds)) {
+        replaceRegisteredIds(j.equipmentCodex.registeredIds);
+      }
+      if (Array.isArray(j.fishingCodex?.discoveredIds)) {
+        replaceDiscoveredFishIds(j.fishingCodex.discoveredIds);
+      }
 
       const cc = j.combatCooldown;
       applyResourcePatch({
@@ -624,6 +731,25 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       setOfflinePending(
         typeof j.offlinePending === "number" ? j.offlinePending : null,
       );
+
+      const auto = j.autoGathering;
+      if (
+        auto &&
+        (auto.activity === "woodcutting" || auto.activity === "mining") &&
+        typeof auto.sourceId === "string" &&
+        typeof auto.sourceName === "string" &&
+        typeof auto.readyAt === "number" &&
+        typeof auto.serverNow === "number"
+      ) {
+        setAutoGathering({
+          activity: auto.activity,
+          sourceId: auto.sourceId,
+          sourceName: auto.sourceName,
+          readyAt: Date.now() + (auto.readyAt - auto.serverNow),
+        });
+      } else {
+        setAutoGathering(null);
+      }
 
       const oh = j.offlineHunt;
       if (oh == null) {
@@ -642,7 +768,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         setOfflineHunt({ active: false, endsAt: 0, depth: 0 });
       }
     },
-    [applyResourcePatch],
+    [applyResourcePatch, replaceDiscoveredFishIds, replaceRegisteredIds],
   );
 
   const refreshGameState = useCallback(async () => {
@@ -951,8 +1077,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const value: GameStateValue = useMemo(() => {
     // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사". 레벨·직업 간단 표기.
     const playerLevelText = viewerLevelCap
-      ? `Lv ${viewerLevel} / ${viewerLevelCap}`
-      : `Lv.${viewerLevel}`;
+      ? `전투 Lv ${viewerLevel} / ${viewerLevelCap}`
+      : `전투 Lv.${viewerLevel}`;
     const playerSubtitle = `${playerLevelText} · ${
       viewerJobName ?? V2_CLASS_DEFS[parseV2Class(viewerClass)].name
     }`;
@@ -964,6 +1090,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       viewerGender,
       viewerLevel,
       viewerLevelCap,
+      viewerJobTier,
       viewerClass,
       viewerExp,
       viewerExpToNext,
@@ -996,6 +1123,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       setOfflinePending,
       offlineHunt,
       setOfflineHunt,
+      autoGathering,
+      setAutoGathering,
       atRiskGold,
       setAtRiskGold,
       mp,
@@ -1032,6 +1161,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     viewerGender,
     viewerLevel,
     viewerLevelCap,
+    viewerJobTier,
     viewerClass,
     viewerExp,
     viewerExpToNext,
@@ -1063,6 +1193,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setOfflinePending,
     offlineHunt,
     setOfflineHunt,
+    autoGathering,
+    setAutoGathering,
     atRiskGold,
     setAtRiskGold,
     mp,
@@ -1092,7 +1224,37 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     clearTileActionError,
   ]);
 
+  const equipmentCodexValue = useMemo<EquipmentCodexContextValue>(
+    () => ({
+      registeredIds: registeredEquipmentIds,
+      loaded: equipmentCodexLoaded,
+      replaceRegisteredIds,
+    }),
+    [equipmentCodexLoaded, registeredEquipmentIds, replaceRegisteredIds],
+  );
+
+  const fishingCodexValue = useMemo<FishingCodexContextValue>(
+    () => ({
+      discoveredIds: discoveredFishIds,
+      loaded: fishingCodexLoaded,
+      replaceDiscoveredIds: replaceDiscoveredFishIds,
+      markDiscovered: markFishDiscovered,
+    }),
+    [
+      discoveredFishIds,
+      fishingCodexLoaded,
+      markFishDiscovered,
+      replaceDiscoveredFishIds,
+    ],
+  );
+
   return (
-    <GameStateCtx.Provider value={value}>{children}</GameStateCtx.Provider>
+    <GameStateCtx.Provider value={value}>
+      <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
+        <FishingCodexCtx.Provider value={fishingCodexValue}>
+          {children}
+        </FishingCodexCtx.Provider>
+      </EquipmentCodexCtx.Provider>
+    </GameStateCtx.Provider>
   );
 }

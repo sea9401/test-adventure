@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   advanceTurn,
+  applyPlayerV2SkillCast,
   appendLog,
   applyPotionEffect,
   damageBetween,
@@ -1013,6 +1014,114 @@ describe("회피 강화 (guaranteedEvades)", () => {
     expect(s1.stacks.evadesRemaining).toBe(0);
     expect(s1.log.some((e) => e.text.includes("[회피 강화]"))).toBe(true);
   });
+
+  it("그림자 도약 시전은 기존 보장 회피 스택에 1회를 더한다", () => {
+    const shadow: PlayerCombat = {
+      ...PLAYER,
+      spd: 99,
+      guaranteedEvades: 1,
+    };
+    const s0 = initialBattleState(
+      shadow,
+      makeEnemy(),
+      "P",
+      {
+        learned: ["v2c_shadow_shadowstep"],
+        equipped: ["v2c_shadow_shadowstep"],
+      },
+    );
+
+    const cast = applyPlayerV2SkillCast(s0, shadow, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.stacks.evadesRemaining).toBe(2);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text.includes("그림자 도약") && entry.text.includes("반드시 회피"),
+      ),
+    ).toBe(true);
+  });
+
+  it("흑월지배는 회피 후 다음 직접 피해 스킬을 확정 치명타로 만든다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const blackmoon: PlayerCombat = {
+      ...PLAYER,
+      hp: 500,
+      maxHp: 500,
+      mp: 500,
+      maxMp: 500,
+      atk: 100,
+      spd: 5,
+      critChancePct: 0,
+      guaranteedEvades: 1,
+      skillCritAfterEvade: true,
+    };
+    const s0 = initialBattleState(
+      blackmoon,
+      makeEnemy({ hp: 1000, atk: 100, spd: 99 }),
+      "P",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+
+    const dodged = advanceTurn(s0, blackmoon, "P");
+    expect(dodged.flags.skillCritAfterEvadePending).toBe(true);
+
+    const cast = applyPlayerV2SkillCast(dodged, blackmoon, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+    expect(cast.state.flags.skillCritAfterEvadePending).toBe(false);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text.includes("강타") && entry.text.includes("[치명타]"),
+      ),
+    ).toBe(true);
+    expect(
+      cast.state.log.some(
+        (entry) => entry.text.includes("흑월지배") && entry.text.includes("치명타"),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("상태이상 스킬 명중 판정", () => {
+  it("직접 피해 없는 중독 스킬도 빗나가면 DoT를 남기지 않는다", () => {
+    const player: PlayerCombat = {
+      ...PLAYER,
+      accuracyPct: 0,
+      accRating: 0,
+    };
+    const state = initialBattleState(
+      player,
+      makeEnemy({ hp: 500, evasionPct: 100 }),
+      "P",
+      {
+        learned: ["mob_venom_bite"],
+        equipped: ["mob_venom_bite"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.enemyV2Dots).toEqual([]);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(
+      true,
+    );
+  });
 });
 
 describe("연타 (extraAttackEveryNTurns)", () => {
@@ -1496,8 +1605,9 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       evaRating: 60, // 회피 대결형 — enemyPhase 가 evaRating 으로 대결.
     };
     const s0 = initialBattleState(dodgy, enemy, "P");
-    // 회피 대결형(eva 60 vs 명중 5·K8): 한기 0 → dodge 45%(굴림 40<45 회피), 4스택(−20 → eva 40) → 37.5%(40≥37.5 피격).
-    vi.spyOn(Math, "random").mockReturnValue(0.4);
+    // PvE 회피 대결형(eva 60 vs 명중 5·K6): 한기 0 → dodge 50%(굴림 45<50 회피),
+    // 4스택(−20 → eva 40) → 42.9%(45≥42.9 피격).
+    vi.spyOn(Math, "random").mockReturnValue(0.45);
     const noChill = advanceTurn(
       { ...s0, phase: "enemy" as const, stacks: { ...s0.stacks, chillStacks: 0 } },
       dodgy,

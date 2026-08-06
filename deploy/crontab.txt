@@ -5,15 +5,17 @@
 #   { echo "SHELL=/bin/bash"; echo "CRON_TZ=UTC";
 #     echo "0 4 * * * $C GET /api/chat/cleanup";
 #     echo "0 4 * * * $C GET /api/cron/guilds-cleanup";
-#     echo "0 * * * * $C GET /api/cron/lottery-settle";
+#     echo "0 3,7,11,15,19,23 * * * $C GET /api/cron/lottery-settle";
 #     echo "*/5 * * * * $C POST /api/v2/cron/marketplace-expire";
 #     echo "0 15 * * 6 $C GET /api/cron/pvp-tournament";
+#     echo "0 9 * * 0 $C GET /api/cron/pvp-tournament";
 #     echo "*/15 10-11 * * 0 $C GET /api/cron/pvp-tournament";
 #     echo "1 15 * * 0 $C GET /api/cron/tower-weekly-cycle";
 #     echo "2 15 * * 0 $C GET /api/cron/pvp-season-rollover";
 #     echo "5 15 * * 0 $C GET /api/cron/pvp-season-rewards";
 #     echo "7 15 * * 0 $C GET /api/cron/fishing-season-rewards";
 #     echo "* * * * * $C GET /api/cron/coop-respawn";
+#     echo "* * * * * $C GET /api/cron/push-notifications";
 #     echo "0 * * * * $C POST /api/v2/cron/npc-attacks";
 #     echo "20 4 * * * $C POST /api/v2/cron/ops-retention";
 #     echo "25 4 * * * $C POST /api/v2/cron/ops-daily-report";
@@ -27,15 +29,17 @@ SHELL=/bin/bash
 CRON_TZ=UTC
 0 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/chat/cleanup
 0 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/guilds-cleanup
-0 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/lottery-settle
+0 3,7,11,15,19,23 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/lottery-settle
 */5 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/marketplace-expire
 0 15 * * 6 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
+0 9 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
 */15 10-11 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-tournament
 1 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/tower-weekly-cycle
 2 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-season-rollover
 5 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/pvp-season-rewards
 7 15 * * 0 bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/fishing-season-rewards
 * * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/coop-respawn
+* * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh GET /api/cron/push-notifications
 0 * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/npc-attacks
 20 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-retention
 25 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-daily-report

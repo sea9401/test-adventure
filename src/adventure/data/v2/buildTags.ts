@@ -113,6 +113,7 @@ export const V2_EQUIPMENT_OPTION_BUILD_TAGS: Readonly<
   magicDef: ["magic", "tank"],
   healPowerPct: ["magic", "heal"],
   critResist: ["tank"],
+  statusDamageReductionPct: ["tank"],
 };
 
 const V2_EQUIP_SET_BUILD_TAGS = new Map(
@@ -269,6 +270,10 @@ function addPassiveTags(
   if ((passive.guildTrainingRewardBonusPct ?? 0) > 0) tags.add("guild");
   if ((passive.guildTrainingWeeklyBonusMastery ?? 0) > 0) tags.add("guild");
   if (passive.skillCritOverflow) tags.add("crit");
+  if (passive.skillCritAfterEvade) {
+    tags.add("crit");
+    tags.add("evasion");
+  }
 }
 
 function addEffectTags(
@@ -277,7 +282,7 @@ function addEffectTags(
 ): void {
   switch (effect.kind) {
     case "damage":
-      tags.add(effect.scaling === "magic" ? "magic" : "physical");
+      tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
       if ((effect.pierceDamagePct ?? 0) > 0) tags.add("pierce");
       break;
     case "heal":
@@ -302,6 +307,10 @@ function addEffectTags(
     case "manaRestore":
       tags.add("resource");
       break;
+    case "guaranteedEvade":
+      tags.add("evasion");
+      tags.add("tank");
+      break;
     case "enemyDebuff":
     case "enemyVuln":
     case "enemyEvasionDown":
@@ -320,12 +329,12 @@ function addEffectTags(
       break;
     case "hpCostDamage":
       tags.add("low_hp");
-      tags.add(effect.scaling === "magic" ? "magic" : "physical");
+      tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
       break;
     case "executeDamage":
     case "ambushDamage":
       tags.add("execute");
-      tags.add(effect.scaling === "magic" ? "magic" : "physical");
+      tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
       break;
     case "stackPayoffDamage":
       tags.add(effect.tag === "magicVuln" ? "vulnerability" : effect.tag);

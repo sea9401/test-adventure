@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from "node:crypto";
-import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { economyEvents } from "@/db/schema";
 import {
@@ -15,6 +15,8 @@ import {
   hasEnoughLotteryParticipants,
   lotteryPrizeAmounts,
   lotteryRoundWindow,
+  lotteryWinNotices,
+  type LotteryWinNotice,
   type LotterySnapshot,
 } from "@/lib/lottery";
 import {
@@ -24,10 +26,19 @@ import {
   type DbExecutor,
 } from "@/lib/server/savesKv";
 import { drawLotteryTickets } from "./lotteryDraw";
+import { insertNotificationWith } from "./v2Notifications";
+import {
+  pushMessageForNotification,
+  sendWebPushToUser,
+} from "./webPush";
 
 type LotteryRoundRow = typeof lotteryRounds.$inferSelect;
 type LotteryPurchaseRow = typeof lotteryPurchases.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type SettleRoundResult = {
+  carryIn: number | null;
+  winnerNotices: LotteryWinNotice[];
+};
 const LOTTERY_RESULT_HISTORY_LIMIT = 10;
 
 export type LotteryPurchaseError =
@@ -70,19 +81,64 @@ function economyGoldDelta(value: number) {
 
 async function ensureCurrentRound(tx: Tx, now: Date): Promise<LotteryRoundRow> {
   const window = lotteryRoundWindow(now.getTime());
+  // 1시간 회차에서 4시간 회차로 전환할 때 이미 진행 중인 회차가 있으면 다음 4시간
+  // 경계까지만 연장한다. 새 주기의 startsAt 이 과거에 정산된 1시간 회차와 겹쳐
+  // 닫힌 회차를 현재 회차로 잘못 선택하는 것도 방지한다.
+  const [active] = await tx
+    .select()
+    .from(lotteryRounds)
+    .where(
+      and(
+        eq(lotteryRounds.status, "open"),
+        lte(lotteryRounds.startsAt, now),
+        gt(lotteryRounds.endsAt, now),
+      ),
+    )
+    .orderBy(desc(lotteryRounds.startsAt))
+    .for("update")
+    .limit(1);
+  if (active) {
+    const targetEndsAt = new Date(window.endsAt);
+    if (active.endsAt < targetEndsAt) {
+      const [extended] = await tx
+        .update(lotteryRounds)
+        .set({ endsAt: targetEndsAt })
+        .where(eq(lotteryRounds.id, active.id))
+        .returning();
+      return extended ?? { ...active, endsAt: targetEndsAt };
+    }
+    return active;
+  }
+
   const [existing] = await tx
     .select()
     .from(lotteryRounds)
     .where(eq(lotteryRounds.startsAt, new Date(window.startsAt)))
     .limit(1);
-  if (existing) return existing;
+  if (existing?.status === "open") return existing;
+
+  // 전환 시점에 진행 중 회차가 없더라도, 새 4시간 경계와 같은 시각에 시작했던
+  // 정산 완료 1시간 회차가 남아 있을 수 있다. 이 한 회차만 1ms 뒤의 결정적 키를
+  // 사용하면 동시 요청도 같은 행에 모이고 다음 정상 경계부터는 정각 키로 돌아온다.
+  const startsAt = new Date(window.startsAt + (existing ? 1 : 0));
+  if (existing) {
+    const [transitionRound] = await tx
+      .select()
+      .from(lotteryRounds)
+      .where(eq(lotteryRounds.startsAt, startsAt))
+      .limit(1);
+    if (transitionRound?.status === "open") return transitionRound;
+    if (transitionRound) {
+      throw new Error("lottery transition round conflicts with a closed round");
+    }
+  }
 
   const secret = newRoundSecret();
   await tx
     .insert(lotteryRounds)
     .values({
       status: "open",
-      startsAt: new Date(window.startsAt),
+      startsAt,
       endsAt: new Date(window.endsAt),
       ticketPrice: LOTTERY_TICKET_PRICE,
       commitHash: hashSecret(secret),
@@ -93,7 +149,7 @@ async function ensureCurrentRound(tx: Tx, now: Date): Promise<LotteryRoundRow> {
   const [round] = await tx
     .select()
     .from(lotteryRounds)
-    .where(eq(lotteryRounds.startsAt, new Date(window.startsAt)))
+    .where(eq(lotteryRounds.startsAt, startsAt))
     .limit(1);
   if (!round) throw new Error("lottery round creation failed");
   return round;
@@ -147,14 +203,16 @@ async function settleRound(
   tx: Tx,
   roundId: number,
   now: Date,
-): Promise<number | null> {
+): Promise<SettleRoundResult> {
   const [round] = await tx
     .select()
     .from(lotteryRounds)
     .where(eq(lotteryRounds.id, roundId))
     .for("update")
     .limit(1);
-  if (!round || round.status !== "open" || round.endsAt > now) return null;
+  if (!round || round.status !== "open" || round.endsAt > now) {
+    return { carryIn: null, winnerNotices: [] };
+  }
 
   const purchases = await tx
     .select()
@@ -197,7 +255,7 @@ async function settleRound(
         settledAt: now,
       })
       .where(eq(lotteryRounds.id, round.id));
-    return prizePool;
+    return { carryIn: prizePool, winnerNotices: [] };
   }
 
   const ordinals = drawLotteryTickets(
@@ -231,6 +289,23 @@ async function settleRound(
       prizeAmount: winner.prizeAmount,
     })),
   );
+  const winnerNotices = lotteryWinNotices(
+    round.id,
+    winners.map((winner) => ({
+      userId: winner.purchase.userId,
+      rank: winner.rank,
+      ticketNumber: winner.ticketNumber,
+      prizeAmount: winner.prizeAmount,
+    })),
+  );
+  for (const notice of winnerNotices) {
+    await insertNotificationWith(
+      tx,
+      notice.userId,
+      "lottery_won",
+      notice.payload,
+    );
+  }
   for (const [userId, amount] of credits) {
     await tx.insert(economyEvents).values({
       userId,
@@ -257,7 +332,7 @@ async function settleRound(
       settledAt: now,
     })
     .where(eq(lotteryRounds.id, round.id));
-  return null;
+  return { carryIn: null, winnerNotices };
 }
 
 async function applyCarryToRound(
@@ -272,13 +347,89 @@ async function applyCarryToRound(
     .for("update")
     .limit(1);
   if (!round) throw new Error("lottery carry target not found");
-  if (round.status !== "open" || round.carryIn > 0 || carryIn <= 0) return round;
+  if (round.status !== "open") return round;
+
+  const [existingCarriedPurchase] = await tx
+    .select({ id: lotteryPurchases.id })
+    .from(lotteryPurchases)
+    .where(
+      and(
+        eq(lotteryPurchases.roundId, round.id),
+        eq(lotteryPurchases.isCarried, true),
+      ),
+    )
+    .limit(1);
+
+  let carriedTicketCount = 0;
+  if (!existingCarriedPurchase && (round.carryIn > 0 || carryIn > 0)) {
+    // 마지막 정상 추첨 뒤 이월된 모든 유료 구매를 원본으로 삼는다. 이 방식은
+    // 기능 배포 전 여러 빈 회차를 거친 티켓도 현재 회차로 한 번에 복구한다.
+    const priorRounds = await tx
+      .select({ id: lotteryRounds.id, status: lotteryRounds.status })
+      .from(lotteryRounds)
+      .where(lte(lotteryRounds.endsAt, round.startsAt))
+      .orderBy(desc(lotteryRounds.endsAt));
+    const rolledOverRoundIds: number[] = [];
+    for (const priorRound of priorRounds) {
+      if (priorRound.status !== "rolled_over") break;
+      rolledOverRoundIds.push(priorRound.id);
+    }
+    const sourcePurchases = rolledOverRoundIds.length
+      ? await tx
+          .select()
+          .from(lotteryPurchases)
+          .where(
+            and(
+              inArray(lotteryPurchases.roundId, rolledOverRoundIds),
+              eq(lotteryPurchases.isCarried, false),
+            ),
+          )
+          .orderBy(
+            asc(lotteryPurchases.roundId),
+            asc(lotteryPurchases.firstTicketNumber),
+          )
+      : [];
+    let nextTicketNumber = round.totalTickets + 1;
+    if (sourcePurchases.length) {
+      await tx.insert(lotteryPurchases).values(
+        sourcePurchases.map((purchase) => {
+          const firstTicketNumber = nextTicketNumber;
+          nextTicketNumber += purchase.ticketCount;
+          carriedTicketCount += purchase.ticketCount;
+          return {
+            roundId: round.id,
+            userId: purchase.userId,
+            requestId: `rollover:${purchase.id}:${round.id}`,
+            actorName: purchase.actorName,
+            ticketCount: purchase.ticketCount,
+            firstTicketNumber,
+            amountPaid: 0,
+            isCarried: true,
+            createdAt: round.startsAt,
+          };
+        }),
+      );
+    }
+  }
+
+  const shouldSetCarry = round.carryIn <= 0 && carryIn > 0;
+  if (!shouldSetCarry && carriedTicketCount === 0) return round;
+  const nextCarryIn = shouldSetCarry ? carryIn : Number(round.carryIn);
   const [updated] = await tx
     .update(lotteryRounds)
-    .set({ carryIn })
+    .set({
+      carryIn: nextCarryIn,
+      totalTickets: round.totalTickets + carriedTicketCount,
+    })
     .where(eq(lotteryRounds.id, round.id))
     .returning();
-  return updated ?? { ...round, carryIn };
+  return (
+    updated ?? {
+      ...round,
+      carryIn: nextCarryIn,
+      totalTickets: round.totalTickets + carriedTicketCount,
+    }
+  );
 }
 
 async function advanceRounds(tx: Tx, now: Date) {
@@ -288,17 +439,17 @@ async function advanceRounds(tx: Tx, now: Date) {
     .where(and(eq(lotteryRounds.status, "open"), lte(lotteryRounds.endsAt, now)))
     .orderBy(asc(lotteryRounds.endsAt));
   let pendingCarry: number | null = null;
+  const winnerNotices: LotteryWinNotice[] = [];
   for (const round of due) {
-    if (pendingCarry !== null) {
-      await applyCarryToRound(tx, round.id, pendingCarry);
-    }
-    pendingCarry = await settleRound(tx, round.id, now);
+    // 이미 돈만 이월된 배포 전 회차도 승계 티켓이 없으면 함께 복구한다.
+    await applyCarryToRound(tx, round.id, pendingCarry ?? 0);
+    const settled = await settleRound(tx, round.id, now);
+    pendingCarry = settled.carryIn;
+    winnerNotices.push(...settled.winnerNotices);
   }
   let current = await ensureCurrentRound(tx, now);
-  if (pendingCarry !== null) {
-    current = await applyCarryToRound(tx, current.id, pendingCarry);
-  }
-  return current;
+  current = await applyCarryToRound(tx, current.id, pendingCarry ?? 0);
+  return { current, winnerNotices };
 }
 
 async function snapshotInTx(
@@ -314,6 +465,10 @@ async function snapshotInTx(
   const myTickets = currentPurchases
     .filter((purchase) => purchase.userId === userId)
     .reduce((sum, purchase) => sum + purchase.ticketCount, 0);
+  const myCarriedTickets = currentPurchases
+    .filter((purchase) => purchase.userId === userId && purchase.isCarried)
+    .reduce((sum, purchase) => sum + purchase.ticketCount, 0);
+  const myPurchasedTickets = myTickets - myCarriedTickets;
   const recentRounds = await tx
     .select()
     .from(lotteryRounds)
@@ -406,11 +561,16 @@ async function snapshotInTx(
       commitHash: currentRound.commitHash,
     },
     myTickets,
-    remainingTickets: Math.max(0, LOTTERY_MAX_TICKETS_PER_ROUND - myTickets),
+    myCarriedTickets,
+    remainingTickets: Math.max(
+      0,
+      LOTTERY_MAX_TICKETS_PER_ROUND - myPurchasedTickets,
+    ),
     recentPurchases: currentPurchases.slice(0, 30).map((purchase) => ({
       id: purchase.id,
       actorName: purchase.actorName,
       ticketCount: purchase.ticketCount,
+      isCarried: purchase.isCarried,
       createdAt: purchase.createdAt.getTime(),
       mine: purchase.userId === userId,
     })),
@@ -425,21 +585,47 @@ export async function getLotterySnapshot(
   userId: string,
   now = new Date(),
 ): Promise<LotterySnapshot> {
-  return db.transaction(async (tx) => {
-    const current = await advanceRounds(tx, now);
-    return snapshotInTx(tx, userId, current);
+  const result = await db.transaction(async (tx) => {
+    const advanced = await advanceRounds(tx, now);
+    return {
+      snapshot: await snapshotInTx(tx, userId, advanced.current),
+      winnerNotices: advanced.winnerNotices,
+    };
   });
+  await pushLotteryWinnerNotices(result.winnerNotices);
+  return result.snapshot;
 }
 
 export async function settleLotteryRounds(now = new Date()) {
-  return db.transaction(async (tx) => {
-    const current = await advanceRounds(tx, now);
+  const result = await db.transaction(async (tx) => {
+    const advanced = await advanceRounds(tx, now);
     return {
-      currentRoundId: current.id,
-      startsAt: current.startsAt.getTime(),
-      endsAt: current.endsAt.getTime(),
+      currentRoundId: advanced.current.id,
+      startsAt: advanced.current.startsAt.getTime(),
+      endsAt: advanced.current.endsAt.getTime(),
+      winnerNotices: advanced.winnerNotices,
     };
   });
+  await pushLotteryWinnerNotices(result.winnerNotices);
+  return {
+    currentRoundId: result.currentRoundId,
+    startsAt: result.startsAt,
+    endsAt: result.endsAt,
+  };
+}
+
+async function pushLotteryWinnerNotices(
+  notices: readonly LotteryWinNotice[],
+): Promise<void> {
+  await Promise.allSettled(
+    notices.map(async (notice) => {
+      const message = pushMessageForNotification(
+        "lottery_won",
+        notice.payload,
+      );
+      if (message) await sendWebPushToUser(notice.userId, message);
+    }),
+  );
 }
 
 export async function purchaseLotteryTickets(input: {
@@ -461,8 +647,16 @@ export async function purchaseLotteryTickets(input: {
   }
   const now = input.now ?? new Date();
 
-  return db.transaction(async (tx) => {
-    const current = await advanceRounds(tx, now);
+  const settled = await db.transaction(async (tx): Promise<{
+    result: LotteryPurchaseResult;
+    winnerNotices: LotteryWinNotice[];
+  }> => {
+    const advanced = await advanceRounds(tx, now);
+    const current = advanced.current;
+    const finish = (result: LotteryPurchaseResult) => ({
+      result,
+      winnerNotices: advanced.winnerNotices,
+    });
     const [round] = await tx
       .select()
       .from(lotteryRounds)
@@ -483,13 +677,13 @@ export async function purchaseLotteryTickets(input: {
       )
       .limit(1);
     if (existingRequest) {
-      return {
+      return finish({
         ok: true,
         replayed: true,
         purchasedTickets: existingRequest.ticketCount,
         amountPaid: Number(existingRequest.amountPaid),
         snapshot: await snapshotInTx(tx, input.userId, round),
-      };
+      });
     }
 
     const [latestPurchase] = await tx
@@ -502,7 +696,7 @@ export async function purchaseLotteryTickets(input: {
       latestPurchase &&
       now.getTime() - latestPurchase.createdAt.getTime() < LOTTERY_PURCHASE_COOLDOWN_MS
     ) {
-      return { ok: false, error: "purchase_rate_limited" };
+      return finish({ ok: false, error: "purchase_rate_limited" });
     }
 
     const userPurchases = await tx
@@ -512,6 +706,7 @@ export async function purchaseLotteryTickets(input: {
         and(
           eq(lotteryPurchases.roundId, round.id),
           eq(lotteryPurchases.userId, input.userId),
+          eq(lotteryPurchases.isCarried, false),
         ),
       );
     const alreadyBought = userPurchases.reduce(
@@ -520,7 +715,11 @@ export async function purchaseLotteryTickets(input: {
     );
     const remainingTickets = LOTTERY_MAX_TICKETS_PER_ROUND - alreadyBought;
     if (input.ticketCount > remainingTickets) {
-      return { ok: false, error: "round_ticket_limit", remainingTickets };
+      return finish({
+        ok: false,
+        error: "round_ticket_limit",
+        remainingTickets,
+      });
     }
 
     const amountPaid = input.ticketCount * round.ticketPrice;
@@ -537,7 +736,11 @@ export async function purchaseLotteryTickets(input: {
       true,
     );
     if (!spent.ok) {
-      return { ok: false, error: "insufficient_gold", requiredGold: amountPaid };
+      return finish({
+        ok: false,
+        error: "insufficient_gold",
+        requiredGold: amountPaid,
+      });
     }
     await upsertSave(tx, input.userId, "character.v2", {
       ...character,
@@ -584,12 +787,14 @@ export async function purchaseLotteryTickets(input: {
       },
     });
 
-    return {
+    return finish({
       ok: true,
       replayed: false,
       purchasedTickets: input.ticketCount,
       amountPaid,
       snapshot: await snapshotInTx(tx, input.userId, updatedRound),
-    };
+    });
   });
+  await pushLotteryWinnerNotices(settled.winnerNotices);
+  return settled.result;
 }

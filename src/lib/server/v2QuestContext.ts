@@ -41,9 +41,11 @@ import {
   type DbExecutor,
 } from "@/lib/server/savesKv";
 import {
+  guildActivityRollups,
   guildMembers,
   guildActivityLog,
   marketplaceListingsV2,
+  marketplaceUserTradeTotals,
   pvpRatings,
 } from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
@@ -80,6 +82,7 @@ import {
   cookingLevelForXp,
   parseCookingState,
 } from "@/adventure/v2/cooking";
+import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 
 type CharSave = {
   class?: unknown;
@@ -231,16 +234,11 @@ export function buildQuestCtx(args: {
   const workshopStats = parseGuildWorkshopStats(craftingSave.workshopStats);
   const artisan = parseArtisanState(craftingSave.artisan);
   const blacksmithLevel = artisanLevel(artisan.blacksmith);
-  const skillsSave = (args.skillsRaw ?? {}) as {
-    equipped?: unknown;
-    learned?: unknown;
-  };
-  const skillsEquipped = Array.isArray(skillsSave.equipped)
-    ? skillsSave.equipped.filter((s) => typeof s === "string").length
-    : 0;
-  const skillsLearned = Array.isArray(skillsSave.learned)
-    ? skillsSave.learned.filter((s) => typeof s === "string").length
-    : 0;
+  // 튜토리얼 판정도 전투와 같은 정규화된 스킬 상태를 사용한다. 현재 장착 수가 1 이상이면
+  // 퀘스트 활성화 전에 장착했더라도 「기술 연마」가 즉시 완료된다.
+  const skillsSave = parseV2SkillsState(args.skillsRaw);
+  const skillsEquipped = skillsSave.equipped.length;
+  const skillsLearned = skillsSave.learned.length;
 
   const farm = parseFarmState(args.farmRaw);
   const woodcutting = parseWoodcuttingLog(args.woodcuttingRaw);
@@ -259,7 +257,7 @@ export function buildQuestCtx(args: {
 
   // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수.
   const cumLevel = totalCumLevel(prof);
-  // 재전직 횟수 — 숙련도 임계로 추측하지 않고 실제 행동 카운터를 사용한다.
+  // 전투직 재전직 횟수 — 생활직 반복 전환은 제외한 실제 행동 카운터를 사용한다.
   const reincarnations = prof.reincarnations ?? 0;
   const speciesKilled = Object.values(advLog.monsters ?? {}).filter(
     (m) => num(m?.kills) > 0,
@@ -303,8 +301,9 @@ export function buildQuestCtx(args: {
     farmHarvests: farm.stats.harvests,
     farmRareHarvests: farm.stats.rareHarvests,
     farmDeliveries: farm.stats.deliveries,
-    farmReputationEarned:
-      farm.stats.reputation + farm.stats.reputationSpent,
+    // reputation은 누적 획득량이고 reputationSpent는 그중 사용한 양이다.
+    // 사용량을 다시 더하면 증표를 쓸 때마다 업적 진행도가 이중으로 오르므로 획득량만 사용한다.
+    farmReputationEarned: farm.stats.reputation,
     woodcuttingLevel: woodcuttingProgress.level,
     woodcuttingCuts: woodcutting.cuts,
     woodcuttingSpecies: Object.keys(woodcutting.trees).length,
@@ -358,6 +357,16 @@ export async function assembleQuestExtras(
       ),
     )
     .limit(1);
+  const archivedTradeRows = await ex
+    .select({ userId: marketplaceUserTradeTotals.userId })
+    .from(marketplaceUserTradeTotals)
+    .where(
+      and(
+        eq(marketplaceUserTradeTotals.userId, userId),
+        sql`${marketplaceUserTradeTotals.purchases} + ${marketplaceUserTradeTotals.sales} > 0`,
+      ),
+    )
+    .limit(1);
   const arenaRaw = await readSave(ex, userId, ARENA_HISTORY_KEY, {});
   const arenaAgg = await ex
     .select({
@@ -378,6 +387,22 @@ export async function assembleQuestExtras(
     })
     .from(guildActivityLog)
     .where(eq(guildActivityLog.actorUserId, userId));
+  const archivedGuildActivityAgg = await ex
+    .select({
+      diningMeals: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'dining_meal'), 0)::bigint`,
+      trainingDrills: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'training_drill_claim'), 0)::bigint`,
+      expeditions: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'exploration_expedition_claim'), 0)::bigint`,
+      workshopDeliveries: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'workshop_delivery'), 0)::bigint`,
+      alchemyCrafts: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'alchemy_craft'), 0)::bigint`,
+      tradeContracts: sql<number>`coalesce(sum(${guildActivityRollups.eventCount}) filter (where ${guildActivityRollups.source} = 'trade_contract_complete'), 0)::bigint`,
+    })
+    .from(guildActivityRollups)
+    .where(
+      and(
+        eq(guildActivityRollups.userId, userId),
+        eq(guildActivityRollups.periodKey, "lifetime"),
+      ),
+    );
   const arenaHistory = parseArenaHistory(arenaRaw);
 
   const fishCodex = parseFishCodex(fishRaw);
@@ -385,20 +410,30 @@ export async function assembleQuestExtras(
   const lifetimeArenaWins = Number(arenaAgg[0]?.wins ?? 0);
   return {
     hasGuild: guildRows.length > 0,
-    hasTraded: tradeRows.length > 0,
+    hasTraded: tradeRows.length > 0 || archivedTradeRows.length > 0,
     arenaPlayed: lifetimeArenaMatches > 0 || arenaHistory.length > 0,
     arenaWins: Math.max(
       lifetimeArenaWins,
       arenaHistory.filter((e) => e.outcome === "win").length,
     ),
-    guildDiningMeals: Number(guildActivityAgg[0]?.diningMeals ?? 0),
-    guildTrainingDrills: Number(guildActivityAgg[0]?.trainingDrills ?? 0),
-    guildExpeditions: Number(guildActivityAgg[0]?.expeditions ?? 0),
+    guildDiningMeals:
+      Number(guildActivityAgg[0]?.diningMeals ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.diningMeals ?? 0),
+    guildTrainingDrills:
+      Number(guildActivityAgg[0]?.trainingDrills ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.trainingDrills ?? 0),
+    guildExpeditions:
+      Number(guildActivityAgg[0]?.expeditions ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.expeditions ?? 0),
     guildWorkshopDeliveries: Number(
       guildActivityAgg[0]?.workshopDeliveries ?? 0,
-    ),
-    guildAlchemyCrafts: Number(guildActivityAgg[0]?.alchemyCrafts ?? 0),
-    guildTradeContracts: Number(guildActivityAgg[0]?.tradeContracts ?? 0),
+    ) + Number(archivedGuildActivityAgg[0]?.workshopDeliveries ?? 0),
+    guildAlchemyCrafts:
+      Number(guildActivityAgg[0]?.alchemyCrafts ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.alchemyCrafts ?? 0),
+    guildTradeContracts:
+      Number(guildActivityAgg[0]?.tradeContracts ?? 0) +
+      Number(archivedGuildActivityAgg[0]?.tradeContracts ?? 0),
     fishSpecies: Object.keys(fishCodex.fish).length,
     fishCaught: Object.values(fishCodex.fish).reduce(
       (sum, e) => sum + Math.max(0, e.totalCaught ?? 0),
@@ -415,6 +450,23 @@ export function parseClaimed(raw: unknown): Set<string> {
   const obj = (raw ?? {}) as { claimed?: unknown };
   if (!Array.isArray(obj.claimed)) return new Set();
   return new Set(obj.claimed.filter((x): x is string => typeof x === "string"));
+}
+
+export function parseTrackedQuestId(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const trackedQuestId = (raw as { trackedQuestId?: unknown }).trackedQuestId;
+  return typeof trackedQuestId === "string" && trackedQuestId.length > 0
+    ? trackedQuestId
+    : null;
+}
+
+export function guideQuestSavePayload(
+  claimed: ReadonlySet<string>,
+  trackedQuestId: string | null,
+): { claimed: string[]; trackedQuestId?: string } {
+  return trackedQuestId
+    ? { claimed: [...claimed], trackedQuestId }
+    : { claimed: [...claimed] };
 }
 
 export const GUIDE_QUESTS_KEY = "guide-quests.v2";

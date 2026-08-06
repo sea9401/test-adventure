@@ -9,7 +9,9 @@ import {
   Lock,
   Circle,
   Gift,
+  Star,
   Trophy,
+  X,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -32,12 +34,16 @@ import type {
   RepeatBundleView as BaseRepeatBundleView,
   RepeatQuestView,
 } from "@/adventure/data/v2/v2RepeatQuests";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import {
+  V2_EQUIPMENT,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 import {
   FARM_CROPS,
   type FarmCropId,
   type FarmSeedInventory,
 } from "./farm";
+import type { MonsterHuntCodexView } from "@/adventure/data/v2/monsterHuntCodex";
 
 // 퀘스트 — 일일/주간/업적 3탭.
 //   업적(가이드 퀘스트): 튜토리얼 겸 성장 안내. 완료 자동 감지, 개별 보상 "받기".
@@ -67,9 +73,19 @@ type QuestsResponse = {
   quests?: QuestView[];
   repeat?: RepeatSection;
   achievementSummary?: AchievementSummary;
+  monsterCodex?: MonsterHuntCodexView;
+  trackedQuestId?: string | null;
 };
 
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
+type ClaimAllScope = Extract<TopTab, "tutorial" | "achievement">;
+
+export type ClaimAllReward = {
+  gold: number;
+  equipment: V2EquipmentId[];
+  staminaPotions: number;
+  titleIds: string[];
+};
 
 // 리셋 카운트다운 — "11시간 후" / "32분 후" (마운트 시점 고정 — 분 단위 정밀도면 충분).
 function resetLabel(at: number, nowMs: number): string {
@@ -105,6 +121,47 @@ function seedPouchText(pouch: SeedPouchReward): string {
   return seeds ? `${pouch.name}(${seeds})` : pouch.name;
 }
 
+function namedRewardText(
+  ids: readonly string[],
+  resolveName: (id: string) => string,
+): string {
+  const counts = new Map<string, number>();
+  for (const id of ids) {
+    const name = resolveName(id);
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
+    .join(", ");
+}
+
+export function claimAllRewardText(reward: ClaimAllReward): string {
+  const parts: string[] = [];
+  if (reward.gold > 0) {
+    parts.push(`${reward.gold.toLocaleString()} 골드(은행 입금)`);
+  }
+  if (reward.equipment.length > 0) {
+    parts.push(
+      `장비: ${namedRewardText(
+        reward.equipment,
+        (id) => V2_EQUIPMENT[id as V2EquipmentId]?.name ?? id,
+      )}`,
+    );
+  }
+  if (reward.staminaPotions > 0) {
+    parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
+  }
+  if (reward.titleIds.length > 0) {
+    parts.push(
+      `칭호: ${namedRewardText(
+        reward.titleIds,
+        (id) => TITLES[id]?.name ?? id,
+      )}`,
+    );
+  }
+  return parts.join(" · ");
+}
+
 export function V2QuestView({ onBack }: { onBack: () => void }) {
   const { refreshGameState } = useGameState();
   const { notifyReward, notifySystem } = useRewardToast();
@@ -112,8 +169,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [quests, setQuests] = useState<QuestView[]>([]);
   const [repeat, setRepeat] = useState<RepeatSection | null>(null);
   const [achievement, setAchievement] = useState<AchievementSummary | null>(null);
+  const [monsterCodex, setMonsterCodex] =
+    useState<MonsterHuntCodexView | null>(null);
+  const [monsterCodexOpen, setMonsterCodexOpen] = useState(false);
+  const [trackedQuestId, setTrackedQuestId] = useState<string | null>(null);
+  const [trackingBusy, setTrackingBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [claimAllBusy, setClaimAllBusy] = useState<ClaimAllScope | null>(null);
   const [bundleBusy, setBundleBusy] = useState<"daily" | "weekly" | null>(null);
   // 초기 탭 — 홈 튜토리얼 배너가 ?tab=tutorial 로 딥링크. 그 외 기본 일일.
   const tabParam = useSearchParams().get("tab");
@@ -136,6 +199,8 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setQuests(j.quests ?? []);
         setRepeat(j.repeat ?? null);
         setAchievement(j.achievementSummary ?? null);
+        setMonsterCodex(j.monsterCodex ?? null);
+        setTrackedQuestId(j.trackedQuestId ?? null);
       }
     } catch {}
     setLoading(false);
@@ -215,6 +280,75 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     [notifyReward, notifySystem, refresh, refreshGameState],
   );
 
+  const claimAll = useCallback(
+    async (scope: ClaimAllScope) => {
+      setClaimAllBusy(scope);
+      try {
+        const res = await fetch("/api/v2/me/quests/claim-all", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          count?: number;
+          reward?: ClaimAllReward;
+        } | null;
+        if (!j?.ok || !j.reward || !j.count) {
+          notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
+          return;
+        }
+        const groupLabel = scope === "tutorial" ? "튜토리얼" : "업적";
+        notifyReward(
+          `${groupLabel} 보상 ${j.count}개 수령`,
+          claimAllRewardText(j.reward) || "완료로 기록했어요.",
+        );
+        await Promise.all([refresh(), refreshGameState()]);
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setClaimAllBusy(null);
+      }
+    },
+    [notifyReward, notifySystem, refresh, refreshGameState],
+  );
+
+  const toggleQuestTracking = useCallback(
+    async (questId: string) => {
+      const nextQuestId = trackedQuestId === questId ? null : questId;
+      setTrackingBusy(questId);
+      try {
+        const response = await fetch("/api/v2/me/quests/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questId: nextQuestId }),
+        });
+        const body = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          trackedQuestId?: string | null;
+        } | null;
+        if (!response.ok || body?.ok !== true) {
+          notifySystem(`✗ ${body?.error ?? `http ${response.status}`}`);
+          return;
+        }
+        setTrackedQuestId(body.trackedQuestId ?? null);
+        notifySystem(
+          body.trackedQuestId
+            ? "메인 화면에서 이 업적을 추적합니다."
+            : "업적 추적을 해제했습니다.",
+        );
+        await refresh();
+      } catch (error) {
+        notifySystem(`✗ ${(error as Error).message}`);
+      } finally {
+        setTrackingBusy(null);
+      }
+    },
+    [notifySystem, refresh, trackedQuestId],
+  );
+
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="퀘스트" onBack={onBack} />
@@ -286,6 +420,12 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     // 가이드 퀘를 라인 tutorial 플래그로 분리 — 튜토리얼 탭 vs 업적 탭.
     const scoped = quests.filter((q) => isTutorialLine(q.line) === forTutorial);
     const groupLabel = forTutorial ? "튜토리얼" : "업적";
+    const claimAllScope: ClaimAllScope = forTutorial
+      ? "tutorial"
+      : "achievement";
+    const claimableCount = scoped.filter(
+      (q) => q.status === "claimable",
+    ).length;
     const activeCount = scoped.filter((q) => !isDone(q)).length;
     const doneCount = scoped.filter(isDone).length;
     const shown = scoped.filter((q) => (tab === "done" ? isDone(q) : !isDone(q)));
@@ -327,6 +467,37 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           size="sm"
         />
 
+        {!forTutorial && monsterCodexOpen && monsterCodex && (
+          <MonsterHuntCodexCard
+            codex={monsterCodex}
+            onClose={() => setMonsterCodexOpen(false)}
+          />
+        )}
+
+        {tab === "active" && (
+          <Card padding="sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                받을 수 있는 {groupLabel} 보상 {claimableCount}개
+              </p>
+              <Button
+                onClick={() => claimAll(claimAllScope)}
+                disabled={
+                  claimableCount === 0 || busy !== null || claimAllBusy !== null
+                }
+                variant="warning"
+                size="sm"
+                className="shrink-0"
+              >
+                <Gift size={16} weight="fill" aria-hidden />
+                {claimAllBusy === claimAllScope
+                  ? "모두 받는 중…"
+                  : `모두 받기 (${claimableCount})`}
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {shown.length === 0 ? (
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -359,8 +530,21 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
                     <QuestRow
                       key={q.id}
                       quest={q}
-                      busy={busy === q.id}
+                      busy={busy === q.id || claimAllBusy !== null}
                       onClaim={() => claim(q)}
+                      tracked={q.id === trackedQuestId}
+                      trackingBusy={trackingBusy !== null}
+                      onToggleTracking={
+                        !forTutorial &&
+                        (q.status === "active" || q.status === "claimable")
+                          ? () => toggleQuestTracking(q.id)
+                          : undefined
+                      }
+                      onOpenMonsterCodex={
+                        q.detailKind === "monster_codex" && monsterCodex
+                          ? () => setMonsterCodexOpen(true)
+                          : undefined
+                      }
                     />
                   ))}
                 </ul>
@@ -376,6 +560,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 function claimErr(error: string | undefined, status: number): string {
   if (error === "not_complete") return "아직 완료 조건을 채우지 못했어요";
   if (error === "already_claimed") return "이미 수령했어요";
+  if (error === "nothing_to_claim") return "지금 받을 수 있는 보상이 없어요";
   return error ?? `http ${status}`;
 }
 
@@ -463,14 +648,22 @@ function BundleCard({
   );
 }
 
-function QuestRow({
+export function QuestRow({
   quest,
   busy,
   onClaim,
+  tracked = false,
+  trackingBusy = false,
+  onToggleTracking,
+  onOpenMonsterCodex,
 }: {
   quest: QuestView;
   busy: boolean;
   onClaim: () => void;
+  tracked?: boolean;
+  trackingBusy?: boolean;
+  onToggleTracking?: () => void;
+  onOpenMonsterCodex?: () => void;
 }) {
   const { status } = quest;
   const reward = rewardText(quest.reward);
@@ -519,6 +712,11 @@ function QuestRow({
               진행 중
             </span>
           )}
+          {tracked && (
+            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              메인 추적 중
+            </span>
+          )}
         </div>
         {status !== "claimed" && (
           <p className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
@@ -544,28 +742,165 @@ function QuestRow({
           </p>
         )}
       </div>
-      {status === "claimable" && (
-        <Button
-          onClick={onClaim}
-          disabled={busy}
-          variant="secondary"
-          size="xs"
-          className="shrink-0"
-        >
-          {busy ? "처리 중…" : reward ? "받기" : "완료"}
-        </Button>
-      )}
-      {status === "active" && quest.href && (
-        <Link
-          href={quest.href}
-          aria-label={`${quest.title} 하러 가기`}
-          className="ui-game-button inline-flex min-h-7 shrink-0 items-center justify-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          이동
-          <ArrowRight size={12} aria-hidden />
-        </Link>
+      {(onToggleTracking || onOpenMonsterCodex || status === "claimable" || (status === "active" && quest.href)) && (
+        <div className="flex shrink-0 flex-col gap-1">
+          {onToggleTracking && (
+            <Button
+              onClick={onToggleTracking}
+              disabled={trackingBusy || busy}
+              variant={tracked ? "warning" : "secondary"}
+              size="xs"
+            >
+              <Star size={12} weight={tracked ? "fill" : "regular"} aria-hidden />
+              {trackingBusy ? "처리 중…" : tracked ? "추적 해제" : "메인 표시"}
+            </Button>
+          )}
+          {onOpenMonsterCodex && (
+            <Button
+              onClick={onOpenMonsterCodex}
+              variant="secondary"
+              size="xs"
+            >
+              처치 현황
+            </Button>
+          )}
+          {status === "claimable" && (
+            <Button
+              onClick={onClaim}
+              disabled={busy}
+              variant="secondary"
+              size="xs"
+            >
+              {busy ? "처리 중…" : reward ? "받기" : "완료"}
+            </Button>
+          )}
+          {status === "active" && quest.href && (
+            <Link
+              href={quest.href}
+              aria-label={`${quest.title} 하러 가기`}
+              className="ui-game-button inline-flex min-h-7 items-center justify-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              이동
+              <ArrowRight size={12} aria-hidden />
+            </Link>
+          )}
+        </div>
       )}
     </li>
+  );
+}
+
+export function MonsterHuntCodexCard({
+  codex,
+  onClose,
+}: {
+  codex: MonsterHuntCodexView;
+  onClose: () => void;
+}) {
+  const [filter, setFilter] = useState<"missing" | "all">("missing");
+  const filtered =
+    filter === "missing"
+      ? codex.entries.filter((entry) => !entry.defeated)
+      : codex.entries;
+  const groups = new Map<string, typeof filtered>();
+  for (const entry of filtered) {
+    const area = entry.areas.join(" · ") || "기타";
+    const entries = groups.get(area) ?? [];
+    entries.push(entry);
+    groups.set(area, entries);
+  }
+
+  return (
+    <Card padding="md" className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">몬스터 처치 현황</h2>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            현재 사냥 가능 {codex.currentKilled}/{codex.huntableSpecies}종 처치
+            {codex.legacyKilled > 0
+              ? ` · 과거 처치 기록 ${codex.legacyKilled}종 포함 업적 진행 ${codex.recordedSpecies}종`
+              : ""}
+          </p>
+        </div>
+        <Button
+          onClick={onClose}
+          variant="ghost"
+          size="xs"
+          aria-label="몬스터 처치 현황 닫기"
+        >
+          <X size={16} aria-hidden />
+        </Button>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          onClick={() => setFilter("missing")}
+          variant={filter === "missing" ? "primary" : "secondary"}
+          size="xs"
+        >
+          미처치 {codex.huntableSpecies - codex.currentKilled}종
+        </Button>
+        <Button
+          onClick={() => setFilter("all")}
+          variant={filter === "all" ? "primary" : "secondary"}
+          size="xs"
+        >
+          전체 {codex.huntableSpecies}종
+        </Button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className={`${SURFACE_INSET} p-3 text-sm text-emerald-700 dark:text-emerald-300`}>
+          현재 사냥 가능한 몬스터를 모두 처치했습니다.
+        </div>
+      ) : (
+        <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+          {[...groups.entries()].map(([area, entries]) => (
+            <section key={area} className={`${SURFACE_INSET} p-3`}>
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                  {area}
+                </h3>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {filter === "missing"
+                    ? `${entries.length}종 미처치`
+                    : `${entries.filter((entry) => entry.defeated).length}/${entries.length}종`}
+                </span>
+              </div>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                {entries.map((entry) => (
+                  <li
+                    key={entry.name}
+                    className="flex min-h-8 items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200"
+                  >
+                    {entry.defeated ? (
+                      <CheckCircle
+                        size={15}
+                        weight="fill"
+                        className="shrink-0 text-emerald-500"
+                        aria-label="처치 완료"
+                      />
+                    ) : (
+                      <Circle
+                        size={15}
+                        className="shrink-0 text-zinc-400"
+                        aria-label="미처치"
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                    {entry.kills > 0 && (
+                      <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {entry.kills.toLocaleString()}회
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

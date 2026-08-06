@@ -81,20 +81,19 @@ describe("production security surface", () => {
   });
 
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {
-    for (const path of [
-      join(ROOT, ".github/workflows/deploy.yml"),
-      join(ROOT, "deploy/deploy.sh"),
+    const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
+    const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+
+    for (const entrypoint of [workflow, manualDeploy]) {
+      expect(entrypoint).toContain("bash deploy/release-production.sh");
+    }
+    for (const marker of [
+      "crontab deploy/crontab.txt",
+      "/api/v2/cron/ops-retention",
+      "/api/v2/cron/ops-daily-report",
     ]) {
-      const contents = source(path);
-      expect(contents, relative(ROOT, path)).toContain(
-        "crontab deploy/crontab.txt",
-      );
-      expect(contents, relative(ROOT, path)).toContain(
-        "/api/v2/cron/ops-retention",
-      );
-      expect(contents, relative(ROOT, path)).toContain(
-        "/api/v2/cron/ops-daily-report",
-      );
+      expect(release).toContain(marker);
     }
   });
 
@@ -124,6 +123,73 @@ describe("production security surface", () => {
         `path: "${path}"`,
       );
     }
+  });
+
+  it("EC2 수동 fallback 빌드를 자원·시간 제한 안에서 실행한다", () => {
+    const build = source(join(ROOT, "deploy/build-production.sh"));
+
+    expect(build).toContain("systemd-run");
+    expect(build).toContain("MemoryHigh=1800M");
+    expect(build).toContain("MemoryMax=2100M");
+    expect(build).toContain("MemorySwapMax=256M");
+    expect(build).toContain(
+      'BUILD_TIMEOUT="${PRODUCTION_BUILD_TIMEOUT:-20m}"',
+    );
+    expect(build).toContain('RuntimeMaxSec="$BUILD_TIMEOUT"');
+    expect(build).toContain("OOMPolicy=stop");
+    expect(build).toContain("--pipe");
+    expect(build).toContain('PREVIOUS_BUILD=".next.previous"');
+    expect(build).toContain("restore_previous_build");
+  });
+
+  it("성공한 main CI 빌드만 SHA·체크섬으로 운영에 전달한다", () => {
+    const ci = source(join(ROOT, ".github/workflows/ci.yml"));
+    const deploy = source(join(ROOT, ".github/workflows/deploy.yml"));
+    const prepare = source(
+      join(ROOT, "scripts/prepare-production-artifact.mjs"),
+    );
+    const install = source(
+      join(ROOT, "deploy/install-production-build.sh"),
+    );
+
+    expect(ci).toContain("BUILD_ID: ${{ github.sha }}");
+    expect(ci).toContain("scripts/prepare-production-artifact.mjs");
+    expect(ci).toContain("production-next-${{ github.sha }}");
+    expect(ci).toContain("sha256sum production-next.tar.gz");
+    expect(ci).toContain("actions/upload-artifact@v7");
+
+    expect(deploy).toContain("actions/workflows/ci.yml/runs");
+    expect(deploy).toContain("head_sha=$DEPLOY_SHA");
+    expect(deploy).toContain("actions/download-artifact@v8");
+    expect(deploy).toContain("appleboy/scp-action@v1.0.0");
+    expect(deploy).toContain("PRODUCTION_BUILD_ARCHIVE");
+    expect(deploy).not.toContain("- run: npm run build");
+
+    expect(prepare).toContain("native binary cannot cross x64 CI to ARM64");
+    expect(prepare).toContain("runtimeDependencies: \"external-node_modules\"");
+    expect(install).toContain("sha256sum --check");
+    expect(install).toContain("artifact SHA");
+    expect(install).toContain('PREVIOUS_BUILD=".next.previous"');
+    expect(install).toContain("previous Next build restored");
+  });
+
+  it("운영 빌드 동안 두 Next 런타임을 멈추고 실패 시 복구한다", () => {
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+    const stagingService = source(
+      join(ROOT, "deploy/adventure-rpg-test.service"),
+    );
+
+    expect(release).toContain("recover_on_failure");
+    expect(release).toContain('systemctl stop "$STAGING_SERVICE"');
+    expect(release).toContain('systemctl stop "$PRODUCTION_SERVICE"');
+    expect(release).toContain('systemctl start "$PRODUCTION_SERVICE"');
+    expect(release).toContain('systemctl start "$STAGING_SERVICE"');
+    expect(release).toContain("bash deploy/install-production-build.sh");
+    expect(release).toContain('BUILD_SWAPPED=0');
+    expect(release).toContain("previous Next build restored");
+    expect(release.match(/^sync_production_env$/gm)).toHaveLength(2);
+    expect(stagingService).toContain("MemoryMax=768M");
+    expect(stagingService).toContain("MemorySwapMax=256M");
   });
 
   it("5분 정기 감시가 배포와 동일한 공개 출시 표면을 검사한다", () => {
@@ -163,8 +229,12 @@ describe("production security surface", () => {
     const browserTests = source(join(ROOT, "e2e/public-surface.spec.ts"));
 
     expect(workflow).toContain(
-      "npx playwright install --with-deps chromium webkit",
+      "mcr.microsoft.com/playwright:v1.62.0-noble",
     );
+    expect(workflow).toContain(
+      "Verify Playwright image and package versions match",
+    );
+    expect(workflow).not.toContain("npx playwright install-deps");
     expect(workflow).toContain("npm run test:e2e");
     expect(playwrightConfig).toContain('name: "desktop-chromium"');
     expect(playwrightConfig).toContain('name: "mobile-webkit"');

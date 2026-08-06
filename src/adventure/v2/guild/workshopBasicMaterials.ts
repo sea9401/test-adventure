@@ -1,10 +1,14 @@
 import {
   MINING_MATERIALS,
-  MINING_NODES,
+  MINING_SPOT_IDS,
+  MINING_SPOTS,
+  miningNodeForSpot,
 } from "@/adventure/data/v2/miningSpots";
 import {
   WOODCUTTING_MATERIALS,
-  WOODCUTTING_MATERIAL_ID,
+  WOODCUTTING_SPOT_IDS,
+  WOODCUTTING_SPOTS,
+  woodcuttingTreeForSpot,
 } from "@/adventure/data/v2/woodcuttingSpots";
 
 export type WorkshopBasicMaterialEntry = {
@@ -19,9 +23,13 @@ export type WorkshopBasicMaterialGroup = {
   entries: WorkshopBasicMaterialEntry[];
 };
 
-const WOOD_MATERIAL_IDS = Object.values(WOODCUTTING_MATERIAL_ID);
-const MINERAL_MATERIAL_IDS = Object.values(MINING_NODES).map(
-  (node) => node.materialId,
+// 생활지도와 같은 지역 순서를 그대로 사용한다. 재료 카탈로그의 선언 순서를 사용하면
+// 지역 순서가 바뀌었을 때 두 화면이 서로 다르게 보일 수 있다.
+const WOOD_MATERIAL_IDS = WOODCUTTING_SPOT_IDS.map(
+  (spotId) => woodcuttingTreeForSpot(WOODCUTTING_SPOTS[spotId]).materialId,
+);
+const MINERAL_MATERIAL_IDS = MINING_SPOT_IDS.map(
+  (spotId) => miningNodeForSpot(MINING_SPOTS[spotId]).materialId,
 );
 
 export function workshopBasicMaterialGroups(

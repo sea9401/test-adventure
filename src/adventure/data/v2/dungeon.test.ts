@@ -9,6 +9,8 @@ import {
   huntStageDepthForLegacyDepth,
   huntStageLabel,
   huntStageName,
+  HUNT_MONSTER_CODEX,
+  HUNT_MONSTER_SPECIES_COUNT,
   isHuntStageDepth,
   latestUnlockedHuntStageDepth,
   nextHuntStageDepth,
@@ -30,6 +32,23 @@ import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
 
 describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
+  it("몬스터 처치 도감은 현재 사냥 가능한 표시 이름 60종을 중복 없이 제공한다", () => {
+    expect(HUNT_MONSTER_SPECIES_COUNT).toBe(60);
+    expect(new Set(HUNT_MONSTER_CODEX.map((entry) => entry.name)).size).toBe(
+      HUNT_MONSTER_CODEX.length,
+    );
+    expect(HUNT_MONSTER_CODEX[0]).toEqual({
+      name: "들개",
+      areas: ["들판"],
+      firstDepth: 1,
+    });
+    expect(HUNT_MONSTER_CODEX.at(-1)).toEqual({
+      name: "암류 파수병",
+      areas: ["심해 폐허"],
+      firstDepth: 67,
+    });
+  });
+
   it("깊이 1..maxDepth 를 ≤6깊이 블록으로 묶고, 전부 빠짐없이 단조 커버", () => {
     for (const max of [3, 8, 14, 25, 50]) {
       const groups = dungeonThemeGroups(max);
@@ -351,6 +370,44 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.accuracy).toBeCloseTo((base.accuracy ?? 0) + floorAccuracy(8)); // 회피 대결 명중(라운드 안 함)
     expect(scaled.spd).toBe(base.spd); // hp/atk/def/exp/accuracy 외 필드 보존
     expect(scaled.name).toBe(base.name);
+  });
+
+  it("권장 전투력 미달은 HP·ATK만 보강하고 명중은 회피 생존축을 위해 분리한다", () => {
+    const depth = 26;
+    const gate = floorPowerGate(depth);
+    const ready = scaleMonsterForFloor(base, depth, true, gate);
+    const underprepared = scaleMonsterForFloor(base, depth, true, gate * 0.7);
+
+    expect(underprepared.hp).toBeGreaterThan(ready.hp);
+    expect(underprepared.atk).toBeGreaterThan(ready.atk);
+    expect(underprepared.accuracy).toBe(ready.accuracy);
+    expect(underprepared.def).toBe(ready.def);
+    expect(underprepared.exp).toBe(ready.exp);
+    expect(scaleMonsterForFloor(base, 43, true, 0)).toEqual(
+      scaleMonsterForFloor(base, 43),
+    );
+    const endgameDepth = 60;
+    const endgameGate = floorPowerGate(endgameDepth);
+    const endgameReady = scaleMonsterForFloor(
+      base,
+      endgameDepth,
+      true,
+      endgameGate,
+    );
+    const endgameUnderprepared = scaleMonsterForFloor(
+      base,
+      endgameDepth,
+      true,
+      endgameGate * 0.5,
+    );
+    expect(endgameUnderprepared.hp).toBeGreaterThan(endgameReady.hp);
+    expect(endgameUnderprepared.atk).toBeGreaterThan(endgameReady.atk);
+    expect(endgameUnderprepared.accuracy).toBe(endgameReady.accuracy);
+    expect(endgameUnderprepared.accuracy).toBeCloseTo(
+      (base.accuracy ?? 0) + floorAccuracy(endgameDepth),
+    );
+    expect(endgameUnderprepared.def).toBe(endgameReady.def);
+    expect(endgameUnderprepared.exp).toBe(endgameReady.exp);
   });
 
   it("베이스 변형 없음 (mutation 가드)", () => {

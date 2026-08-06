@@ -723,6 +723,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   );
 
   const won = battleResult.outcome === "win";
+  const timedOut = battleResult.endReason === "timeout";
   const curLevel = Math.max(1, charSave.level ?? 1);
   // 신참 보너스 판정용 누적 전투 전적 — adventure-log.v2 의 monster kills 합 + 패배수.
   // v2 는 재전직이 레벨을 1 로 리셋하므로 레벨이 아닌 전적으로 신참을 가린다(베테랑이
@@ -805,11 +806,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const goldTaxed = 0;
   const goldNet = goldGross;
 
-  // 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
-  //   절반(보유 한도 클램프)을 소실하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
+  // 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 일반 패배 시 그
+  //   절반(보유 한도 클램프)을 소실하고 0 리셋. 시간초과는 무승부성 패배라 소실·리셋하지 않는다.
   //   off = lossTax 0·atRiskGold 미기록(byte-identical). 소실 골드는 어디에도 입금하지 않는다.
   const { lossTax, nextAtRisk } = computeLossTax({
     won,
+    timedOut,
     goldNet,
     atRiskGoldRaw: charSave.atRiskGold,
     goldRaw: charSave.gold,
@@ -1029,6 +1031,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         ), // 최고 도달(MAX 캡으로 정규화)
         enemyName,
         won,
+        timedOut,
         expGained,
         proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~3).
         proficiencyPointsAfter, // 사냥 후 사용 가능한 숙달 포인트 잔액.

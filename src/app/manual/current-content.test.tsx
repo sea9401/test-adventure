@@ -46,7 +46,9 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(combat).toContain("위험 골드");
     expect(combat).toContain("50%");
+    expect(combat).toContain("시간초과는 골드 페널티에서");
     expect(hunting).toContain("은행 예치금");
+    expect(hunting).toContain("골드 페널티 계산에서 무승부");
     expect(economy).toContain("지역 세금은 붙지 않습니다");
     expect(combat).not.toContain("패배해도 페널티는 없습니다");
     expect(hunting).not.toContain("추가 손실은 없습니다");

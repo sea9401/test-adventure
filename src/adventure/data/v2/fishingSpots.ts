@@ -186,8 +186,8 @@ export const FISHING_SPOTS: Record<FishingSpotId, FishingSpot> = {
     name: "급류 계곡",
     shortName: "계곡",
     difficulty: "hard",
-    description: "차가운 물살이 바위를 때리는 계곡. 여울 어종과 폭포 연어가 강하게 버틴다.",
-    tags: ["민물", "급류", "송어"],
+    description: "차가운 물살이 바위를 때리는 계곡. 폭포 연어와 전설의 용비늘잉어가 강하게 버틴다.",
+    tags: ["민물", "급류", "전설"],
     fishIds: [
       "minnow",
       "killifish",
@@ -198,10 +198,11 @@ export const FISHING_SPOTS: Record<FishingSpotId, FishingSpot> = {
       "pike",
       "sturgeon",
       "ancient_fish",
+      "dragonscale_fish",
       "waterfall_salmon",
       "goldeye",
     ],
-    featuredFishIds: ["trout", "waterfall_salmon", "sturgeon"],
+    featuredFishIds: ["trout", "waterfall_salmon", "dragonscale_fish"],
     specialConditionIds: ["rapid", "dawn"],
   },
 };

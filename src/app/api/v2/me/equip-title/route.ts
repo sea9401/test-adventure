@@ -1,10 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
+import { savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
 import { TITLES } from "@/adventure/data/titles";
+import { isAdminEmail } from "@/lib/server/adminEmailAccess";
+import {
+  accountOwnsTitle,
+  titleIsAvailableToAccount,
+} from "@/lib/server/titleAccess";
 
 // POST /api/v2/me/equip-title — 모험의 서 "칭호" 탭에서 칭호 장착/해제.
 //
@@ -39,22 +43,31 @@ export async function POST(req: Request) {
   const titleId = raw as string | null;
 
   if (titleId !== null) {
-    if (!TITLES[titleId]) {
-      return Response.json(
-        { ok: false, error: "unknown_title" },
-        { status: 400 },
-      );
-    }
-    const logRow = (
-      await db
+    const [logRows, userRows] = await Promise.all([
+      db
         .select({ value: savesKv.value })
         .from(savesKv)
         .where(
           and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")),
         )
-        .limit(1)
-    )[0];
-    if (!ownedTitleIdsOf(logRow?.value).includes(titleId)) {
+        .limit(1),
+      db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1),
+    ]);
+    const isAdminAccount = isAdminEmail(userRows[0]?.email);
+    if (
+      !TITLES[titleId] ||
+      !titleIsAvailableToAccount(titleId, isAdminAccount)
+    ) {
+      return Response.json(
+        { ok: false, error: "unknown_title" },
+        { status: 400 },
+      );
+    }
+    if (!accountOwnsTitle(logRows[0]?.value, titleId, isAdminAccount)) {
       return Response.json({ ok: false, error: "not_owned" }, { status: 400 });
     }
   }

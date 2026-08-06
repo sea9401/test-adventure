@@ -45,11 +45,11 @@ describe("채광 장소 카탈로그", () => {
     ).toEqual([90, 80, 65, 50, 40, 30]);
   });
 
-  it("소비처가 마련될 때까지 부산물 드롭을 비활성화한다", () => {
+  it("생활 도구 소비처가 생긴 부산물을 광맥별 확률로 드롭한다", () => {
     const rng = vi.fn().mockReturnValueOnce(0.01).mockReturnValueOnce(0.99);
     const drops = rollMiningByproducts(MINING_NODES.iron, rng);
-    expect(MINING_BYPRODUCTS_ENABLED).toBe(false);
-    expect(drops).toEqual({});
-    expect(rng).not.toHaveBeenCalled();
+    expect(MINING_BYPRODUCTS_ENABLED).toBe(true);
+    expect(drops).toEqual({ v2_mining_stone: 1 });
+    expect(rng).toHaveBeenCalledTimes(2);
   });
 });

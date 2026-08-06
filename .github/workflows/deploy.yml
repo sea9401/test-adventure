@@ -158,8 +158,9 @@ jobs:
             PRODUCTION_ENV_PATH=/run/adventure-rpg/production.env
             export PRODUCTION_ENV_PATH
             bash deploy/release-production.sh
-      - name: Verify public release surface
+      - name: Verify deployment remains in maintenance
         env:
           PUBLIC_RELEASE_EXPECTED_BUILD_ID: ${{ env.DEPLOY_SHA }}
+          PUBLIC_RELEASE_MAINTENANCE_POLICY: require
           OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
         run: npm run check-public-release

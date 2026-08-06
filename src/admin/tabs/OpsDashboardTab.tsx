@@ -221,6 +221,14 @@ type HotTimeSettings = {
   note: string;
 };
 
+type LifeFieldFeatureSettings = {
+  environmentEnabled: boolean;
+  discoveriesEnabled: boolean;
+  discoveryRewardsEnabled: boolean;
+  feedEnabled: boolean;
+  milestonesEnabled: boolean;
+};
+
 type HotTimeSchedule = {
   id: string;
   enabled: boolean;
@@ -647,10 +655,87 @@ export function OpsDashboardTab() {
           <AlertChannelsPanel value={data.alertChannels} />
           <OpsChangeHistoryPanel rows={data.opsChangeHistory} userDirectory={userDirectory} />
           <AlertHistoryPanel rows={data.alertHistory} />
+          <LifeFieldFeaturePanel />
           <HotTimePanel />
         </>
       )}
     </section>
+  );
+}
+
+function LifeFieldFeaturePanel() {
+  const { showToast } = useAdmin();
+  const { data, loading, error, refetch } = useAsyncData<{
+    lifeFieldFeatures: LifeFieldFeatureSettings;
+  }>((signal) => adminGet("/api/admin/ops-settings", signal));
+  const [draft, setDraft] = useState<LifeFieldFeatureSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (data?.lifeFieldFeatures) setDraft(data.lifeFieldFeatures);
+  }, [data]);
+  useEffect(() => {
+    if (error) showToast(`현장 기록 설정 조회 실패: ${error}`);
+  }, [error, showToast]);
+
+  const save = async () => {
+    if (!draft) return;
+    setSaving(true);
+    try {
+      const saved = await adminPost<{
+        lifeFieldFeatures: LifeFieldFeatureSettings;
+      }>("/api/admin/ops-settings", { lifeFieldFeatures: draft });
+      setDraft(saved.lifeFieldFeatures);
+      showToast("현장 기록 기능 설정 저장됨");
+      void refetch();
+    } catch (e) {
+      showToast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rows: readonly [keyof LifeFieldFeatureSettings, string, string][] = [
+    ["environmentEnabled", "일일 현장 환경", "환경 배정과 모든 환경 효과"],
+    ["discoveriesEnabled", "흔적 발견 판정", "새 흔적 발견과 피티 진행"],
+    ["discoveryRewardsEnabled", "발견 완료 보상", "기존 생활 재화 보너스 지급"],
+    ["feedEnabled", "희귀 발견 전광판", "희귀 기록 완성 소식 발행"],
+    ["milestonesEnabled", "현장 기록 업적", "업적 점수·배지·칭호 수령"],
+  ];
+
+  return (
+    <Panel title="현장 환경·기록 기능 제어">
+      {loading && !draft ? (
+        <p className="text-xs text-zinc-500">설정 불러오는 중…</p>
+      ) : draft ? (
+        <div className="space-y-3">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            장애 범위를 좁혀 끌 수 있습니다. 진행 중인 세션의 환경 효과도 정산 시 현재 설정을 따릅니다.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {rows.map(([key, label, description]) => (
+              <label key={key} className="flex items-start gap-2 rounded-md border border-zinc-200 bg-white p-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+                <input
+                  type="checkbox"
+                  checked={draft[key]}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current ? { ...current, [key]: event.target.checked } : current,
+                    )
+                  }
+                  className="mt-0.5 size-4"
+                />
+                <span><b className="block">{label}</b><span className="mt-0.5 block text-[11px] text-zinc-500">{description}</span></span>
+              </label>
+            ))}
+          </div>
+          <Button variant="primary" disabled={saving} onClick={() => void save()}>
+            {saving ? "저장 중…" : "기능 설정 저장"}
+          </Button>
+        </div>
+      ) : null}
+    </Panel>
   );
 }
 

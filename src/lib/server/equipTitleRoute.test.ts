@@ -6,7 +6,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, account } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  account: { email: "player@example.com" },
+}));
 const k = (u: string, key: string) => `${u}::${key}`;
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -16,10 +19,11 @@ vi.mock("@/lib/server/ensureUser", () => ({
 // db.transaction(cb) → cb({}) (tx 미사용, lockSaveForUpdate/upsertSave 가 모킹됨).
 vi.mock("@/db", () => ({
   db: {
-    select: vi.fn(() => ({
+    select: vi.fn((fields: Record<string, unknown>) => ({
       from: () => ({
         where: () => ({
           limit: async () => {
+            if ("email" in fields) return [{ email: account.email }];
             const v = store.get(k("u1", "adventure-log.v2"));
             return v === undefined ? [] : [{ value: v }];
           },
@@ -43,7 +47,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/me/equip-title/route";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { TITLES } from "@/adventure/data/titles";
+import { GM_TITLE_ID, TITLES } from "@/adventure/data/titles";
 
 const OWNED = Object.keys(TITLES)[0]; // 카탈로그의 임의 실재 칭호 1개.
 const equipped = () =>
@@ -60,6 +64,7 @@ const post = (titleId: unknown) =>
 describe("POST /api/v2/me/equip-title", () => {
   beforeEach(() => {
     store.clear();
+    account.email = "player@example.com";
     vi.mocked(ensureUser).mockResolvedValue("u1");
     store.set(k("u1", "character.v2"), { level: 5, equippedTitleId: null });
     store.set(k("u1", "adventure-log.v2"), {
@@ -85,6 +90,31 @@ describe("POST /api/v2/me/equip-title", () => {
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe("not_owned");
     expect(equipped()).toBe(null);
+  });
+
+  it("일반 계정은 저장 데이터에 GM이 있어도 장착할 수 없다", async () => {
+    store.set(k("u1", "adventure-log.v2"), {
+      titles: { [GM_TITLE_ID]: { obtainedAt: 1 } },
+    });
+    const res = await post(GM_TITLE_ID);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("unknown_title");
+    expect(equipped()).toBe(null);
+  });
+
+  it("어드민 계정은 별도 지급 없이 GM을 장착할 수 있다", async () => {
+    const previous = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = "admin@example.com";
+    account.email = "ADMIN@example.com";
+    store.set(k("u1", "adventure-log.v2"), { titles: {} });
+    try {
+      const res = await post(GM_TITLE_ID);
+      expect(res.status).toBe(200);
+      expect(equipped()).toBe(GM_TITLE_ID);
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_EMAILS;
+      else process.env.ADMIN_EMAILS = previous;
+    }
   });
 
   it("보유 칭호 → 200, 장착 + 다른 필드 보존", async () => {

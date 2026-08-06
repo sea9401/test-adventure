@@ -11,8 +11,12 @@ export type TitleId = string;
 
 export const ARENA_CHAMPION_TITLE_ID = "pvp_champion";
 export const BEGGAR_TITLE_ID = "beggar";
+export const GM_TITLE_ID = "gm";
 export const TINY_CATCH_TITLE_ID = "tiny_catch";
 export const SHATTERED_DREAM_TITLE_ID = "shattered_dream";
+export const FIELD_RECORDER_TITLE_ID = "field_recorder";
+export const ECOLOGICAL_RESEARCHER_TITLE_ID = "ecological_researcher";
+export const EARTH_WITNESS_TITLE_ID = "earth_witness";
 
 // 도감의 칭호 섹션 분류. 추가 시 TITLE_CATEGORY_ORDER 에 라벨/순서 등록.
 export type TitleCategory =
@@ -40,6 +44,8 @@ export type Title = {
   category: TitleCategory;
   /** 보유 전엔 업적/도감 노출에서 제외할 히든 칭호. */
   hidden?: boolean;
+  /** 어드민 계정에서만 보유·장착·전시할 수 있는 칭호. */
+  adminOnly?: boolean;
 };
 
 // 도감에서의 섹션 순서 + 한글 라벨. 위에서 아래로 노출.
@@ -69,6 +75,37 @@ export const TITLES: Record<TitleId, Title> = {
     description: "처음으로 몬스터를 쓰러뜨린 자.",
     condition: "몬스터 1마리 처치",
     category: "battle",
+  },
+  [GM_TITLE_ID]: {
+    id: GM_TITLE_ID,
+    name: "GM",
+    description: "게임 운영을 맡은 관리자.",
+    condition: "어드민 계정 전용",
+    category: "town",
+    hidden: true,
+    adminOnly: true,
+  },
+  [FIELD_RECORDER_TITLE_ID]: {
+    id: FIELD_RECORDER_TITLE_ID,
+    name: "현장 기록가",
+    description: "생활 현장의 변화와 흔적을 꾸준히 기록한 모험가.",
+    condition: "현장 기록 15개 완성",
+    category: "collection",
+  },
+  [ECOLOGICAL_RESEARCHER_TITLE_ID]: {
+    id: ECOLOGICAL_RESEARCHER_TITLE_ID,
+    name: "생태 조사관",
+    description: "대륙 곳곳의 생활 환경을 한 권의 기록으로 엮어낸 조사관.",
+    condition: "일반 현장 기록 33개 완성",
+    category: "collection",
+  },
+  [EARTH_WITNESS_TITLE_ID]: {
+    id: EARTH_WITNESS_TITLE_ID,
+    name: "대지의 목격자",
+    description: "땅과 물, 숲이 감춘 드문 순간까지 직접 목격한 자.",
+    condition: "모든 현장 기록 36개 완성",
+    category: "collection",
+    hidden: true,
   },
   frail: {
     id: "frail",
@@ -1016,6 +1053,92 @@ export const TITLES: Record<TitleId, Title> = {
     description: "길드 제작소의 장비 계보를 완성한 자.",
     condition: "제작 전용 장비 도감 10종 등록",
     category: "guild",
+  },
+  life_processing_first: {
+    id: "life_processing_first",
+    name: "손질의 시작",
+    description: "거친 생활 재료에 처음으로 쓰임새 있는 형태를 부여한 자.",
+    condition: "생활 가공품 1종 발견",
+    category: "collection",
+  },
+  life_processing_refiner: {
+    id: "life_processing_refiner",
+    name: "재료를 읽는 자",
+    description: "나무의 결도 광석의 불순물도 놓치지 않는 가공 숙련자.",
+    condition: "생활 가공품 3종 발견",
+    category: "collection",
+  },
+  life_processing_master: {
+    id: "life_processing_master",
+    name: "두 손의 장인",
+    description: "목재와 광물을 모두 다루어 생활 가공의 계보를 완성한 자.",
+    condition: "생활 가공품 6종 모두 발견",
+    category: "collection",
+    hidden: true,
+  },
+  life_crafting_first: {
+    id: "life_crafting_first",
+    name: "손때 묻은 공구",
+    description: "생활 제작품에 처음으로 자신의 손길을 남긴 자.",
+    condition: "생활 제작 1회",
+    category: "collection",
+  },
+  life_crafting_macgyver: {
+    id: "life_crafting_macgyver",
+    name: "맥가이버",
+    description: "주어진 재료로 필요한 물건을 척척 만들어 내는 해결사.",
+    condition: "생활 제작품 7종 완성",
+    category: "collection",
+  },
+  life_diy_beginner: {
+    id: "life_diy_beginner",
+    name: "DIY 입문자",
+    description: "자신의 공간을 직접 만든 가구로 채우기 시작한 자.",
+    condition: "제작 가구 3종 완성",
+    category: "collection",
+  },
+  life_blueprint_collector: {
+    id: "life_blueprint_collector",
+    name: "도면 수집가",
+    description: "쉽게 드러나지 않는 생활 제작의 비법을 찾아낸 자.",
+    condition: "숨겨진 도안 1종 발견",
+    category: "collection",
+    hidden: true,
+  },
+  life_request_jimmy_regular: {
+    id: "life_request_jimmy_regular",
+    name: "지미의 믿을 만한 손",
+    description: "나무꾼 지미가 중요한 목재 일도 안심하고 맡기는 단골.",
+    condition: "나무꾼 지미 신뢰도 35 달성",
+    category: "town",
+  },
+  life_request_bold_regular: {
+    id: "life_request_bold_regular",
+    name: "볼드의 단골 조달꾼",
+    description: "대장장이 볼드의 까다로운 금속 주문을 꾸준히 해결한 자.",
+    condition: "대장장이 볼드 신뢰도 35 달성",
+    category: "town",
+  },
+  life_request_milla_regular: {
+    id: "life_request_milla_regular",
+    name: "공동 밭의 조력자",
+    description: "밀라와 함께 마을의 밭과 수확을 오래 돌본 단골.",
+    condition: "농장 관리인 밀라 신뢰도 35 달성",
+    category: "town",
+  },
+  life_request_rosa_regular: {
+    id: "life_request_rosa_regular",
+    name: "잔칫날의 해결사",
+    description: "로사가 바쁜 잔칫날마다 가장 먼저 찾는 믿음직한 단골.",
+    condition: "조리장 로사 신뢰도 35 달성",
+    category: "town",
+  },
+  life_request_theo_regular: {
+    id: "life_request_theo_regular",
+    name: "출조대의 벗",
+    description: "테오의 출조 준비를 도맡아 낚시 조합의 신뢰를 얻은 자.",
+    condition: "낚시 조합장 테오 신뢰도 35 달성",
+    category: "town",
   },
 };
 

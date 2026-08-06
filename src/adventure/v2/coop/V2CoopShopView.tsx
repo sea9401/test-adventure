@@ -46,9 +46,11 @@ function hasShopCost(
 export function V2CoopShopView({
   onBack,
   onOpenBosses,
+  embedded = false,
 }: {
-  onBack: () => void;
+  onBack?: () => void;
   onOpenBosses?: () => void;
+  embedded?: boolean;
 }) {
   const coopShop = useCoopShop();
   const [shopMessage, setShopMessage] = useState<{
@@ -61,21 +63,33 @@ export function V2CoopShopView({
     setShopMessage(result);
   };
 
-  return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader
-        title="협동 보스"
-        onBack={onBack}
-        right={
-          coopShop.loading ? (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              불러오는 중…
-            </span>
-          ) : null
-        }
-      />
+  const Root = embedded ? "section" : "main";
 
-      <V2CoopTabs active="shop" onOpenBosses={onOpenBosses} />
+  return (
+    <Root
+      className={
+        embedded
+          ? "space-y-4 text-zinc-900 dark:text-zinc-100"
+          : "mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100"
+      }
+    >
+      {!embedded && (
+        <>
+          <SubViewHeader
+            title="협동 보스"
+            onBack={onBack}
+            right={
+              coopShop.loading ? (
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  불러오는 중…
+                </span>
+              ) : null
+            }
+          />
+
+          <V2CoopTabs active="shop" onOpenBosses={onOpenBosses} />
+        </>
+      )}
 
       <Card padding="md" className="space-y-3">
         <div>
@@ -214,6 +228,6 @@ export function V2CoopShopView({
           })}
         </div>
       </Card>
-    </main>
+    </Root>
   );
 }

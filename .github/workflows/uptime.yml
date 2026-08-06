@@ -25,7 +25,9 @@ jobs:
       - name: Check full public release surface
         env:
           OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
-          # 배포 중 nginx 점검 화면이 잠시 503을 내도록 약 4분간 재시도한다.
+          # 명시적으로 유지 중인 점검 화면은 정상 운영 상태로 인정한다. 점검이
+          # 해제된 상태에서는 기존과 동일하게 전체 공개 표면을 검사한다.
+          PUBLIC_RELEASE_MAINTENANCE_POLICY: allow
           PUBLIC_RELEASE_RETRIES: "8"
           PUBLIC_RELEASE_RETRY_DELAY_MS: "20000"
         run: bash deploy/check-external-health.sh

@@ -52,6 +52,7 @@ import {
   effectiveCultivateProfile,
   V2_CULTIVATE_PROFILE,
   V2_HYBRID_CULTIVATE_PROFILE,
+  V2_SPECIALIZED_CULTIVATE_PROFILE,
 } from "./proficiency";
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
@@ -264,6 +265,26 @@ describe("스탯 맵 무결성", () => {
       );
       const tier = V2_JOB_CATALOG[id].tier;
       expect(sum, `${id} 프로필 합`).toBe(tier === 5 ? 5 : tier === 6 ? 6 : 4);
+    }
+  });
+
+  it("방패 계보는 민첩 없이 활력·힘 전용 수행 프로필을 사용한다", () => {
+    for (const [id, profile] of Object.entries(
+      V2_SPECIALIZED_CULTIVATE_PROFILE,
+    )) {
+      expect(V2_JOB_CATALOG[id]?.cultivateProfile, id).toEqual(profile);
+      expect(profile.dex, `${id} 민첩`).toBeUndefined();
+
+      const group = LEGACY_CLASS_SPEC_BY_JOB[id]?.class ?? id;
+      expect(effectiveCultivateProfile(group, id), `${id} 실제 수행`).toEqual(
+        profile,
+      );
+      const total = Object.values(profile).reduce(
+        (sum, value) => sum + (value ?? 0),
+        0,
+      );
+      const tier = V2_JOB_CATALOG[id].tier;
+      expect(total, `${id} 프로필 합`).toBe(tier >= 5 ? tier : 4);
     }
   });
 

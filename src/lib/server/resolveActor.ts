@@ -18,7 +18,8 @@ import { savesKv, users } from "@/db/schema";
 import { TITLES } from "@/adventure/data/titles";
 import type { Avatar } from "@/adventure/profile/avatars";
 import { readProfileValue } from "@/adventure/profile/profileValue";
-import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
+import { accountOwnedTitleIds } from "@/lib/server/titleAccess";
+import { isAdminEmail } from "@/lib/server/adminEmailAccess";
 import {
   museunCosmeticAppearance,
   type MuseunCosmeticAppearance,
@@ -37,7 +38,7 @@ const DEFAULT_CLASS = "모험가";
 
 export async function resolveActor(userId: string): Promise<ResolvedActor> {
   const [u] = await db
-    .select({ gameName: users.gameName })
+    .select({ gameName: users.gameName, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -85,7 +86,9 @@ export async function resolveActor(userId: string): Promise<ResolvedActor> {
       ? character.equippedTitleId
       : null;
   // 보유한 칭호만 노출 — 미보유 id 를 장착해도(변조) null 처리.
-  const owned = new Set(ownedTitleIdsOf(byKey["adventure-log.v2"]));
+  const owned = new Set(
+    accountOwnedTitleIds(byKey["adventure-log.v2"], isAdminEmail(u?.email)),
+  );
   const title =
     titleId && TITLES[titleId] && owned.has(titleId)
       ? TITLES[titleId].name

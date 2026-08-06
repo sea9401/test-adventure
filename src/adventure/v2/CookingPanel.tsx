@@ -5,10 +5,9 @@ import Image from "next/image";
 import { MagnifyingGlass, Star } from "@phosphor-icons/react";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
-import { FARM_CROP_LIST, FARM_ITEMS, type FarmItemInventory } from "./farm";
+import { FARM_ITEMS, type FarmItemInventory } from "./farm";
 import {
   COOKING_SURPLUS_BATCH_SIZE,
-  COOKING_SURPLUS_DAILY_LIMIT,
   cookingOrderReward,
   cookingIngredientRequirement,
   cookingRecipeMatchesQuery,
@@ -26,6 +25,9 @@ import {
   type FishingCatchItemId,
 } from "./fishingStock";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
+import { SurplusExchangePanel } from "./SurplusExchangePanel";
+
+export { SurplusCropLabel } from "./SurplusExchangePanel";
 
 type CookingResponse = {
   ok: boolean;
@@ -44,6 +46,7 @@ type CookingResponse = {
   cookingJobName: string | null;
   cookingJobTier: number;
   cookingSkillBonuses: EquippedCookingBonuses;
+  cookingPrepBalance: number;
   result?: {
     recipeName: string;
     action: "cook" | "order";
@@ -68,6 +71,7 @@ const ERROR_TEXT: Record<string, string> = {
   order_unavailable: "오늘 받을 수 없는 주문입니다.",
   daily_limit: "오늘의 떨이 교환 횟수를 모두 사용했습니다.",
   not_enough_items: "교환할 작물이 부족합니다.",
+  not_enough_prep_sets: "선택한 수량만큼의 요리 준비 세트가 없습니다.",
 };
 
 async function fetchCookingData(): Promise<CookingResponse> {
@@ -86,6 +90,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
   const [filter, setFilter] = useState<RecipeFilter>("all");
   const [recipeQuery, setRecipeQuery] = useState("");
   const [useRareByRecipe, setUseRareByRecipe] = useState<Record<string, boolean>>({});
+  const [usePrepByRecipe, setUsePrepByRecipe] = useState<Record<string, boolean>>({});
 
   const refresh = useCallback(async () => {
     try {
@@ -122,6 +127,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           quantity,
           ...(foodId ? { foodId } : {}),
           useRare: action === "cook" && useRareByRecipe[recipe.id] === true,
+          usePrep: action === "cook" && usePrepByRecipe[recipe.id] === true,
         }),
       });
       const json = await response.json() as CookingResponse & { error?: string };
@@ -142,7 +148,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
     } finally {
       setBusy(null);
     }
-  }, [onFarmChanged, useRareByRecipe]);
+  }, [onFarmChanged, usePrepByRecipe, useRareByRecipe]);
 
   const toggleFavorite = useCallback(async (recipeId: string) => {
     setBusy(`favorite:${recipeId}`);
@@ -187,7 +193,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
       .filter((recipe) => {
         if (!cookingRecipeMatchesQuery(recipe, recipeQuery)) return false;
         if (filter === "favorite") return data.cooking.favoriteRecipeIds.includes(recipe.id);
-        if (filter === "available") return maxCookable(recipe, data, useRareByRecipe[recipe.id] === true) > 0;
+        if (filter === "available") return Math.min(maxCookable(recipe, data, useRareByRecipe[recipe.id] === true), usePrepByRecipe[recipe.id] ? data.cookingPrepBalance : Number.MAX_SAFE_INTEGER) > 0;
         return true;
       })
       .sort((a, b) => {
@@ -195,7 +201,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
         const bf = data.cooking.favoriteRecipeIds.includes(b.id) ? 1 : 0;
         return bf - af || a.requiredLevel - b.requiredLevel;
       });
-  }, [data, filter, recipeQuery, useRareByRecipe]);
+  }, [data, filter, recipeQuery, usePrepByRecipe, useRareByRecipe]);
 
   const deliverableOrderCount = useMemo(() => {
     if (!data) return 0;
@@ -329,7 +335,8 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           {recipes.map((recipe) => {
             const unlocked = data.level >= recipe.requiredLevel;
             const useRare = useRareByRecipe[recipe.id] === true;
-            const max = maxCookable(recipe, data, useRare);
+            const usePrep = usePrepByRecipe[recipe.id] === true;
+            const max = Math.min(maxCookable(recipe, data, useRare), usePrep ? data.cookingPrepBalance : Number.MAX_SAFE_INTEGER);
             const favorite = data.cooking.favoriteRecipeIds.includes(recipe.id);
             return (
               <article key={recipe.id} className={`${SURFACE_INSET} flex flex-col p-3`}>
@@ -376,6 +383,14 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
                     희귀 재료 사용: {FARM_ITEMS[recipe.optionalRareItemId].name} ({data.farmItems[recipe.optionalRareItemId] ?? 0}개)
                   </label>
                 ) : null}
+                <label className="mt-2 flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={usePrep}
+                    onChange={(event) => setUsePrepByRecipe((current) => ({ ...current, [recipe.id]: event.target.checked }))}
+                  />
+                  요리 준비 세트 사용 · 걸작 +8%p (보유 {data.cookingPrepBalance}개)
+                </label>
                 <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
                   {[1, 5, Math.min(20, max)].filter((value, index, values) => value > 0 && values.indexOf(value) === index).map((quantity) => (
                     <button
@@ -403,7 +418,12 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
       )}
 
       {section === "surplus" && (
-        <SurplusExchange data={data} busy={busy} onExchange={exchange} />
+        <SurplusExchangePanel
+          farmItems={data.farmItems}
+          surplusTrades={data.cooking.daily.surplusTrades}
+          busy={busy}
+          onExchange={exchange}
+        />
       )}
     </div>
   );
@@ -514,43 +534,6 @@ function OrderBoard({
                     : selectedFoodId
                       ? `${qualityName(selectedFood?.quality ?? "normal")} 납품`
                       : "보유 요리 없음"}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function SurplusExchange({
-  data,
-  busy,
-  onExchange,
-}: {
-  data: CookingResponse;
-  busy: string | null;
-  onExchange: (itemId: string, batches: number) => void;
-}) {
-  const remaining = COOKING_SURPLUS_DAILY_LIMIT - data.cooking.daily.surplusTrades;
-  return (
-    <section className={`${SURFACE_CARD} p-4`}>
-      <h3 className="font-bold text-zinc-900 dark:text-zinc-100">일반 작물 떨이 교환</h3>
-      <p className="mt-1 text-xs text-zinc-500">일반 작물 20개를 농장 증표 1개로 교환합니다. 오늘 남은 횟수 {remaining}회.</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {FARM_CROP_LIST.map((crop) => {
-          const owned = data.farmItems[crop.itemId] ?? 0;
-          const possible = Math.min(remaining, Math.floor(owned / COOKING_SURPLUS_BATCH_SIZE));
-          return (
-            <div key={crop.itemId} className={`${SURFACE_INSET} flex items-center justify-between gap-2 p-2.5 text-sm`}>
-              <span>{FARM_ITEMS[crop.itemId].icon} {crop.itemName} <strong>{owned}</strong>개</span>
-              <button
-                type="button"
-                disabled={possible < 1 || busy != null}
-                onClick={() => onExchange(crop.itemId, possible)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-semibold dark:border-zinc-600 dark:bg-zinc-800 disabled:opacity-50"
-              >
-                {possible > 1 ? `${possible}회 교환` : "1회 교환"}
               </button>
             </div>
           );

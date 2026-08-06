@@ -75,6 +75,7 @@ export function FishingShopView({
   onOpenChallenges,
   onOpenLeaderboard,
   onOpenHallOfFame,
+  embedded = false,
 }: {
   state: FishingShopState | null;
   loading: boolean;
@@ -94,6 +95,7 @@ export function FishingShopView({
   onOpenChallenges?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
+  embedded?: boolean;
 }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -159,26 +161,47 @@ export function FishingShopView({
   const ownedLures = new Set(progression?.ownedLures ?? []);
   const anyInFlight = buying !== null;
 
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader
-        title="낚시 코인 상점"
-        onBack={onBack}
-        right={
+    <Root
+      className={
+        embedded
+          ? "space-y-4 text-zinc-900 dark:text-zinc-100"
+          : "mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100"
+      }
+    >
+      {!embedded && (
+        <>
+          <SubViewHeader
+            title="낚시 코인 상점"
+            onBack={onBack}
+            right={
+              <CoinAmount
+                amount={coins}
+                className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+              />
+            }
+          />
+
+          <FishingSubTabs
+            active="shop"
+            onOpenFishing={onOpenFishing}
+            onOpenChallenges={onOpenChallenges}
+            onOpenLeaderboard={onOpenLeaderboard}
+            onOpenHallOfFame={onOpenHallOfFame}
+          />
+        </>
+      )}
+
+      {embedded && (
+        <div className="flex justify-end">
           <CoinAmount
             amount={coins}
             className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
           />
-        }
-      />
-
-      <FishingSubTabs
-        active="shop"
-        onOpenFishing={onOpenFishing}
-        onOpenChallenges={onOpenChallenges}
-        onOpenLeaderboard={onOpenLeaderboard}
-        onOpenHallOfFame={onOpenHallOfFame}
-      />
+        </div>
+      )}
 
       {message && (
         <p
@@ -471,6 +494,6 @@ export function FishingShopView({
           />
         </div>
       )}
-    </main>
+    </Root>
   );
 }

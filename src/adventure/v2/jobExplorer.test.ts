@@ -105,9 +105,11 @@ describe("jobExplorer tags", () => {
   });
 
   it("일반 상위 직업과 생활 직업은 저장 직군의 실제 수행 프로필을 표시한다", () => {
-    expect(jobCultivationSummary("shieldman")).toBe(
-      "힘 +2 · 민첩 +1 · 활력 +1",
-    );
+    expect(jobCultivationSummary("shieldman")).toBe("활력 +3 · 힘 +1");
+    expect(jobCultivationSummary("guardian")).toBe("활력 +3 · 힘 +1");
+    expect(jobCultivationSummary("warden")).toBe("활력 +3 · 힘 +1");
+    expect(jobCultivationSummary("ironknight")).toBe("활력 +4 · 힘 +1");
+    expect(jobCultivationSummary("fortressknight")).toBe("활력 +4 · 힘 +2");
     expect(jobCultivationSummary("fisher")).toBe(
       "활력 +2 · 힘 +1 · 정신 +1",
     );

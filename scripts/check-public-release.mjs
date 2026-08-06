@@ -10,6 +10,10 @@ const retryDelayMs = positiveInteger(
   process.env.PUBLIC_RELEASE_RETRY_DELAY_MS,
   3_000,
 );
+const maintenancePolicy = maintenancePolicyFromEnv(
+  process.env.PUBLIC_RELEASE_MAINTENANCE_POLICY,
+);
+const maintenanceMarker = "서버 점검 중입니다";
 
 const checks = [
   {
@@ -133,6 +137,16 @@ function positiveInteger(value, fallback) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function maintenancePolicyFromEnv(value) {
+  const normalized = value?.trim().toLowerCase() || "forbid";
+  if (["forbid", "allow", "require"].includes(normalized)) {
+    return normalized;
+  }
+  throw new Error(
+    `PUBLIC_RELEASE_MAINTENANCE_POLICY must be forbid, allow, or require (received ${value})`,
+  );
+}
+
 function parseJson(body, path) {
   try {
     return JSON.parse(body);
@@ -195,6 +209,39 @@ async function runCheck(check) {
   return `${check.method ?? "GET"} ${check.path}: ${lastError}`;
 }
 
+async function probeMaintenance() {
+  let lastError = "unknown failure";
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(new URL("/", baseUrl), {
+        headers: { "user-agent": "msmsge-public-release-smoke/1.0" },
+        redirect: "manual",
+        signal: AbortSignal.timeout(12_000),
+      });
+      const body = await response.text();
+      if (response.status === 503 && body.includes(maintenanceMarker)) {
+        console.log(
+          `PUBLIC RELEASE MAINTENANCE: GET / 503 (try ${attempt})`,
+        );
+        return { active: true, error: null };
+      }
+      if (response.status !== 503) {
+        return { active: false, error: null };
+      }
+      throw new Error(`HTTP 503 without maintenance marker: ${maintenanceMarker}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "unknown failure";
+      console.error(
+        `PUBLIC RELEASE MAINTENANCE RETRY: GET / (${attempt}/${retries}) — ${lastError}`,
+      );
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+  }
+  return { active: false, error: lastError };
+}
+
 function isDiscordWebhook(url) {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
@@ -224,7 +271,7 @@ async function notifyFailure(failures) {
     ...failures.map((failure) => `- ${failure}`),
     "",
     "**확인할 일**",
-    "GitHub Actions의 External uptime monitor 또는 배포 로그를 확인하세요. 배포 중이라면 점검 화면이 해제됐는지도 확인하세요.",
+    "GitHub Actions의 External uptime monitor 또는 배포 로그를 확인하세요. 점검 중이라면 점검 화면이 의도한 상태로 유지되는지도 확인하세요.",
   ].join("\n");
   const payload = isDiscordWebhook(url)
     ? { content: message.slice(0, 2_000), allowed_mentions: { parse: [] } }
@@ -252,7 +299,30 @@ async function notifyFailure(failures) {
   }
 }
 
-const failures = (await Promise.all(checks.map(runCheck))).filter(Boolean);
+let failures = [];
+let maintenanceAccepted = false;
+
+if (maintenancePolicy === "forbid") {
+  failures = (await Promise.all(checks.map(runCheck))).filter(Boolean);
+} else {
+  const [healthFailure, maintenance] = await Promise.all([
+    runCheck(checks[0]),
+    probeMaintenance(),
+  ]);
+  if (healthFailure) failures.push(healthFailure);
+  if (maintenance.error) {
+    failures.push(`GET / maintenance probe: ${maintenance.error}`);
+  } else if (maintenance.active) {
+    maintenanceAccepted = true;
+  } else if (maintenancePolicy === "require") {
+    failures.push("GET /: maintenance mode is not enabled");
+  } else {
+    failures.push(
+      ...(await Promise.all(checks.slice(1).map(runCheck))).filter(Boolean),
+    );
+  }
+}
+
 if (failures.length > 0) {
   console.error(
     `PUBLIC RELEASE FAIL: ${baseUrl.origin} — ${failures.join(" | ")}`,
@@ -261,6 +331,12 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(
-  `PUBLIC RELEASE PASS: ${baseUrl.origin}${expectedBuildId ? ` · build ${expectedBuildId.slice(0, 12)}` : ""}`,
-);
+if (maintenanceAccepted) {
+  console.log(
+    `PUBLIC RELEASE MAINTENANCE PASS: ${baseUrl.origin} · health 200 · maintenance 503`,
+  );
+} else {
+  console.log(
+    `PUBLIC RELEASE PASS: ${baseUrl.origin}${expectedBuildId ? ` · build ${expectedBuildId.slice(0, 12)}` : ""}`,
+  );
+}

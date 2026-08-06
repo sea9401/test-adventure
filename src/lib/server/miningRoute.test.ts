@@ -313,7 +313,7 @@ describe("mining routes", () => {
     ).toMatchObject({ earlyAttempts: 0, strongSignals: 1, riskScore: 18 });
   });
 
-  it("strike — 성공 시 주 광석과 XP만 지급한다", async () => {
+  it("strike — 성공 시 주 광석·XP와 굴림에 성공한 부산물을 지급한다", async () => {
     vi.mocked(Math.random)
       .mockReturnValueOnce(0.99)
       .mockReturnValue(0.01);
@@ -337,17 +337,24 @@ describe("mining routes", () => {
       materialGained: 1,
       xpGained: 10,
     });
-    expect(json.byproducts).toEqual([]);
+    expect(json.byproducts).toEqual([
+      { materialId: MINING_MATERIAL_ID.stone, name: "단단한 돌", amount: 1 },
+      { materialId: MINING_MATERIAL_ID.coal, name: "석탄", amount: 1 },
+      { materialId: MINING_MATERIAL_ID.roughGem, name: "원석 보석", amount: 1 },
+    ]);
     expect(store.get("character.v2")).toMatchObject({
       materials: {
         [MINING_MATERIAL_ID.gold]: 1,
+        [MINING_MATERIAL_ID.stone]: 1,
+        [MINING_MATERIAL_ID.coal]: 1,
+        [MINING_MATERIAL_ID.roughGem]: 1,
       },
     });
     expect(store.get(MINING_LOG_KEY)).toMatchObject({
       successes: 1,
       xp: 10,
       oreEarned: 1,
-      byproductsEarned: 0,
+      byproductsEarned: 3,
       nodes: { gold: 1 },
     });
   });

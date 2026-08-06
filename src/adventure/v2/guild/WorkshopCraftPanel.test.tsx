@@ -9,6 +9,7 @@ import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMat
 import {
   WorkshopCraftPanel,
   matchesWorkshopCodexFilter,
+  matchesWorkshopTierFilter,
 } from "./WorkshopCraftPanel";
 import type {
   WorkshopEquipmentCodexLoadStatus,
@@ -126,6 +127,13 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(html).toContain('aria-pressed="false"');
   });
 
+  it("shows tier navigation without the redundant set description", () => {
+    const html = renderWorkshop(new Set(), "ready");
+    expect(html).toContain('aria-label="제작 장비 티어"');
+    expect(html).toContain("2T 1종");
+    expect(html).not.toContain("수호/격노/질풍/룬 각인 장비 중심");
+  });
+
   it("disables the codex filter while loading or after a read failure", () => {
     const loadingHtml = renderWorkshop(new Set(), "loading");
     const errorHtml = renderWorkshop(new Set(), "error");
@@ -133,6 +141,17 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(errorHtml).toContain("도감 필터 사용 불가");
     expect(loadingHtml).toContain("disabled");
     expect(errorHtml).toContain("disabled");
+  });
+});
+
+describe("matchesWorkshopTierFilter", () => {
+  it("groups internal equipment tiers into the displayed 1T-6T bands", () => {
+    expect(matchesWorkshopTierFilter({ tier: 1 }, 1)).toBe(true);
+    expect(matchesWorkshopTierFilter({ tier: 4 }, 2)).toBe(true);
+    expect(matchesWorkshopTierFilter({ tier: 13 }, 5)).toBe(true);
+    expect(matchesWorkshopTierFilter({ tier: 16 }, 6)).toBe(true);
+    expect(matchesWorkshopTierFilter({ tier: 4 }, 1)).toBe(false);
+    expect(matchesWorkshopTierFilter({ tier: 4 }, "all")).toBe(true);
   });
 });
 

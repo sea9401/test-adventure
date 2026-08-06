@@ -4,6 +4,7 @@ import {
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
   readActiveHotTime,
+  parseLifeFieldFeatureSettings,
 } from "./opsSettings";
 
 function executorReturning(rows: Array<{ key: string; value: unknown }>) {
@@ -76,6 +77,18 @@ describe("readActiveHotTime", () => {
       source: "schedule",
       scheduleId: "friday",
       bonuses: { masteryPct: 30 },
+    });
+  });
+});
+
+describe("life field feature settings", () => {
+  it("defaults missing switches on and preserves explicit emergency stops", () => {
+    expect(parseLifeFieldFeatureSettings({ discoveriesEnabled: false })).toEqual({
+      environmentEnabled: true,
+      discoveriesEnabled: false,
+      discoveryRewardsEnabled: true,
+      feedEnabled: true,
+      milestonesEnabled: true,
     });
   });
 });

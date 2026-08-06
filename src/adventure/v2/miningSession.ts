@@ -8,6 +8,10 @@ import {
   type MiningSpotId,
 } from "@/adventure/data/v2/miningSpots";
 import { MINING_XP_PER_SUCCESS, miningFailureRate } from "./miningProgression";
+import {
+  isLifeFieldEnvironmentId,
+  type LifeFieldEnvironmentId,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
 
 export const MINING_SESSION_KEY = "mining-session.v1";
 export const MINING_LOG_KEY = "mining-log.v1";
@@ -23,6 +27,9 @@ export type MiningSession = {
   failureRate?: number;
   failureRecoveryRate?: number;
   bonusOreRate?: number;
+  aidItemId?: string;
+  lifeEnvironmentId?: LifeFieldEnvironmentId;
+  lifeEnvironmentDayKey?: string;
 };
 
 export type MiningLog = {
@@ -62,6 +69,9 @@ export function createMiningSession(args: {
   failureRate?: number;
   failureRecoveryRate?: number;
   bonusOreRate?: number;
+  aidItemId?: string;
+  lifeEnvironmentId?: LifeFieldEnvironmentId;
+  lifeEnvironmentDayKey?: string;
 }): MiningSession {
   const durationMs = Math.max(
     1_000,
@@ -82,6 +92,13 @@ export function createMiningSession(args: {
       Math.max(0, Number(args.failureRecoveryRate) || 0),
     ),
     bonusOreRate: Math.min(1, Math.max(0, Number(args.bonusOreRate) || 0)),
+    ...(args.aidItemId ? { aidItemId: args.aidItemId } : {}),
+    ...(args.lifeEnvironmentId
+      ? {
+          lifeEnvironmentId: args.lifeEnvironmentId,
+          lifeEnvironmentDayKey: args.lifeEnvironmentDayKey,
+        }
+      : {}),
   };
 }
 
@@ -111,6 +128,15 @@ export function parseMiningSession(raw: unknown): MiningSession | null {
     bonusOreRate: Number.isFinite(storedBonusOreRate)
       ? Math.min(1, Math.max(0, storedBonusOreRate))
       : undefined,
+    aidItemId: typeof value.aidItemId === "string" ? value.aidItemId : undefined,
+    lifeEnvironmentId:
+      isLifeFieldEnvironmentId(value.lifeEnvironmentId)
+        ? value.lifeEnvironmentId
+        : undefined,
+    lifeEnvironmentDayKey:
+      typeof value.lifeEnvironmentDayKey === "string"
+        ? value.lifeEnvironmentDayKey
+        : undefined,
   };
 }
 

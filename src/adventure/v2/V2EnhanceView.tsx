@@ -499,6 +499,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             text:
               json.error === "insufficient_material"
                 ? `${materialLabel}이 부족합니다 (${need}개 필요)`
+                : json.error === "insufficient_gold"
+                  ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
                 : json.error === "rare_map_full"
                   ? "희귀 지도 보유 한도(5장)가 가득 찼습니다"
                   : json.error === "invalid_map_depth"
@@ -513,7 +515,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             : outputLabel;
         setMsg({
           kind: "success",
-          text: `${materialLabel} ${need}개 → ${craftedLabel}`,
+          text: `${materialLabel} ${need}개 → ${craftedLabel} (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
         });
         await Promise.all([refresh(), refreshGameState()]);
       } catch {
@@ -1010,7 +1012,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               key: "blue-enhance-stone",
               icon: <GameIcon name="Diamond" size={24} className="text-blue-500" />,
               output: "푸른 강화석",
-              cost: 0,
+              cost: COMBINE_GOLD_COST,
               mats: [
                 {
                   label: "강화의 불씨",
@@ -1031,7 +1033,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               key: "red-enhance-stone",
               icon: <GameIcon name="Diamond" size={24} className="text-red-500" />,
               output: "붉은 강화석",
-              cost: 0,
+              cost: COMBINE_GOLD_COST,
               mats: [
                 {
                   label: "강화의 불씨",
@@ -1052,7 +1054,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               key: "rare-map",
               icon: <GameIcon name="MapTrifold" size={24} />,
               output: "랜덤 희귀 지도",
-              cost: 0,
+              cost: COMBINE_GOLD_COST,
               mats: [
                 {
                   label: "찢어진 지도 조각",
@@ -1108,9 +1110,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   <div className="min-w-0 shrink-0">
                     <div className="text-sm font-semibold">{r.output}</div>
                     <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {r.cost > 0
-                        ? `조합비 ${r.cost.toLocaleString()} G`
-                        : "조합비 없음"}
+                      조합비 {r.cost.toLocaleString()} G
                     </div>
                   </div>
                   <div className="ml-auto space-y-0.5 text-xs tabular-nums">

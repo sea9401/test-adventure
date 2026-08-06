@@ -82,6 +82,7 @@ import {
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
 import {
+  CORROSION_POISON_DAMAGE_SCALE,
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
   MAGIC_VULN_STACK_CAP,
@@ -324,8 +325,6 @@ function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
   if (corrodePct <= 0 || !sideHasDot(defender, "poison")) return defender.player.def;
   return Math.max(0, Math.round(defender.player.def * (1 - corrodePct / 100)));
 }
-
-const CORROSION_POISON_DAMAGE_SCALE = 3;
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
   const corrodePct = combineDefReductionPcts(
@@ -1600,6 +1599,8 @@ export function castV2SkillOnAttackerTurnPvP(
       maxHp: side.maxHp,
       // PR2-B — PvP 시전자도 PlayerCombat → def/vit 비례딜·현재HP(사혈격)·maxMp(보호막/명상)·차수 flat 유효.
       def: side.player.def,
+      str: side.player.strStat,
+      int: side.player.intStat,
       vit: side.player.vitStat,
       dex: side.player.dexStat,
       luk: side.player.lukStat,

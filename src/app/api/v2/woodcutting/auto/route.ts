@@ -11,6 +11,7 @@ import { activityVerificationGateResponse } from "@/lib/server/activityGuardServ
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import {
   WOODCUTTING_MATERIALS,
+  WOODCUTTING_SPOTS,
   WOODCUTTING_TREES,
   isWoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
@@ -66,6 +67,25 @@ import {
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 import { WOODCUTTING_TREE_FALL_MS } from "@/adventure/v2/woodcuttingAnimation";
+import {
+  LIFE_TOOL_BONUS_MATERIAL_PCT,
+  LIFE_TOOL_DURATION_REDUCTION_PCT,
+  LIFE_WORKSHOP_SAVE_KEY,
+  lifeGatheringBonusPct,
+  parseLifeWorkshopState,
+} from "@/adventure/v2/lifeWorkshop";
+import { lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
+import {
+  applyLifeFieldDurationReduction,
+  lifeFieldEnvironmentSnapshot,
+} from "@/adventure/data/v2/lifeFieldEnvironment";
+import {
+  LIFE_FIELD_DISCOVERIES,
+  lifeFieldDiscoveryReward,
+} from "@/adventure/v2/lifeFieldRecords";
+import { recordLifeFieldSuccessInTx } from "@/lib/server/lifeFieldProgress";
+import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 
 type CharSave = {
   class?: unknown;
@@ -98,10 +118,13 @@ export async function POST(req: Request) {
     if (body.planId !== undefined && !isAutoGatheringPlanId(body.planId)) {
       return Response.json({ ok: false, error: "bad_plan" }, { status: 400 });
     }
-    const [logRaw, skillsRaw, guardRaw] = await Promise.all([
+    const now = Date.now();
+    const [logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures] = await Promise.all([
       readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
       readSave(db, userId, "skills.v2", {}),
       readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
+      readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
+      readLifeFieldFeatureSettings(),
     ]);
     const verificationRequired = activityVerificationGateResponse(
       parseActivityGuardState(guardRaw),
@@ -119,16 +142,37 @@ export async function POST(req: Request) {
     const bonuses = equippedWoodcuttingBonuses(
       parseV2SkillsState(skillsRaw).equipped,
     );
-    const cycleDurationMs = woodcuttingDurationWithPassive(
+    const workshop = parseLifeWorkshopState(workshopRaw);
+    const toolTier = workshop.tools.woodcutting;
+    const activeAid = workshop.crafting.activeAids.woodcutting;
+    const aidSpec = activeAid?.enabled ? lifeAidSpec(activeAid.itemId) : null;
+    const aidApplies = Boolean(aidSpec && tree.grade >= aidSpec.gradeMin && tree.grade <= aidSpec.gradeMax);
+    const durationReductionPct =
+      bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier];
+    const bonusMaterialRate = Math.min(
+      1,
+      (bonuses.bonusLogChancePct +
+        LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
+        lifeGatheringBonusPct("woodcutting", workshop, progression.level)) /
+        100,
+    );
+    const baseCycleDurationMs = woodcuttingDurationWithPassive(
       tree.durationMs,
       progression.level,
-      bonuses.durationReductionPct,
+      durationReductionPct,
+    );
+    const lifeEnvironment = lifeFeatures.environmentEnabled
+      ? lifeFieldEnvironmentSnapshot("woodcutting", spotId, now)
+      : null;
+    const cycleDurationMs = applyLifeFieldDurationReduction(
+      tree.durationMs,
+      baseCycleDurationMs,
+      lifeEnvironment?.environment.effect.durationReductionPct ?? 0,
     );
     const failureRate =
       woodcuttingFailureRate(tree.baseFailureRate, progression.level) *
       (1 - bonuses.failureReductionPct / 100);
     const successRate = 1 - failureRate * (1 - bonuses.failureRecoveryPct / 100);
-    const now = Date.now();
     const session = createAutoGatheringSession({
       sessionId: randomUUID(),
       sourceId: treeId,
@@ -138,8 +182,16 @@ export async function POST(req: Request) {
       now,
       cycleDurationMs: cycleDurationMs + WOODCUTTING_TREE_FALL_MS,
       successRate,
-      bonusMaterialRate: bonuses.bonusLogChancePct / 100,
+      bonusMaterialRate,
       baseXp: tree.xp,
+      aidItemId: aidApplies ? activeAid?.itemId : undefined,
+      aidBonusMaterialRate: aidApplies ? (aidSpec?.bonusPct ?? 0) / 100 : 0,
+      spotId,
+      lifeEnvironmentId: lifeEnvironment?.environment.id,
+      lifeEnvironmentDayKey: lifeEnvironment?.dayKey,
+      environmentPrimaryBonusChance:
+        lifeEnvironment?.environment.effect.primaryBonusChance,
+      environmentXpBonusPct: lifeEnvironment?.environment.effect.xpBonusPct,
     });
     const startResult = await db.transaction(async (tx) => {
       const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
@@ -170,6 +222,7 @@ export async function POST(req: Request) {
       ok: true,
       autoSession: startResult.session,
       materialName: WOODCUTTING_MATERIALS[tree.materialId].name,
+      lifeEnvironment,
     });
   }
 
@@ -196,14 +249,70 @@ export async function POST(req: Request) {
       );
       return { error: "invalid_session" as const };
     }
+    const lifeFeatures = await readLifeFieldFeatureSettings(tx);
+    const effectiveAutoState = lifeFeatures.environmentEnabled
+      ? autoState
+      : {
+          ...autoState,
+          session: {
+            ...session,
+            environmentPrimaryBonusChance: 0,
+            environmentXpBonusPct: 0,
+          },
+        };
     const settlement = settleAutoGathering(
-      autoState,
+      effectiveAutoState,
       canceling
         ? autoGatheringCompletedAttempts(session, now)
         : session.attempts,
     );
     if (!settlement) return { error: "no_session" as const };
     const tree = WOODCUTTING_TREES[session.sourceId];
+    const spotId = session.spotId ?? Object.values(WOODCUTTING_SPOTS).find(
+      (spot) => spot.treeId === session.sourceId,
+    )?.id;
+    const lifeEnvironmentId =
+      session.lifeEnvironmentId ??
+      (spotId
+        ? lifeFieldEnvironmentSnapshot("woodcutting", spotId, now).environment.id
+        : "woodcutting_dense_growth");
+    const lifeField = spotId
+      ? await recordLifeFieldSuccessInTx(tx, userId, {
+          activity: "woodcutting",
+          sourceId: spotId,
+          environmentId: lifeEnvironmentId,
+          sessionId: session.sessionId,
+          successes: settlement.successes,
+          now,
+          features: lifeFeatures,
+        })
+      : null;
+    const completedDiscovery = lifeField?.completedTrace
+      ? LIFE_FIELD_DISCOVERIES[lifeField.completedTrace.discoveryId]
+      : null;
+    const discoveryReward =
+      completedDiscovery && lifeFeatures.discoveryRewardsEnabled
+        ? lifeFieldDiscoveryReward(completedDiscovery.rare)
+        : null;
+    const discoveryRewardGained = discoveryReward?.resource ?? 0;
+    const discoveryRewardXp = discoveryReward?.xp ?? 0;
+    settlement.materialsGained += discoveryRewardGained;
+    settlement.xpGained += discoveryRewardXp;
+    let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
+    let crafting = workshop.crafting;
+    const activeAid = crafting.activeAids.woodcutting;
+    let aidSuccesses = 0;
+    if (session.aidItemId && activeAid?.itemId === session.aidItemId) {
+      aidSuccesses = Math.min(settlement.successes, activeAid.remainingUses);
+      settlement.materialsGained += Math.floor(aidSuccesses * (session.aidBonusMaterialRate ?? 0) * session.materialEfficiency);
+      const activeAids = { ...crafting.activeAids };
+      if (aidSuccesses >= activeAid.remainingUses) delete activeAids.woodcutting;
+      else activeAids.woodcutting = { ...activeAid, remainingUses: activeAid.remainingUses - aidSuccesses };
+      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + aidSuccesses };
+    }
+    const blueprint = rollHiddenBlueprint(crafting, "woodcutting", settlement.successes);
+    workshop = { ...workshop, crafting: blueprint.state };
+    await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -215,11 +324,22 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
+    const environmentXpGained = lifeFeatures.environmentEnabled
+      ? Math.floor(
+          settlement.successes *
+            session.baseXp *
+            session.xpEfficiency *
+            ((session.environmentXpBonusPct ?? 0) / 100),
+        )
+      : 0;
     const diningXp = await consumeGuildDiningEffect(
       tx,
       userId,
       "life_xp",
-      settlement.xpGained,
+      Math.max(
+        0,
+        settlement.xpGained - environmentXpGained - discoveryRewardXp,
+      ),
       new Date(now),
     );
     const xpGained = settlement.xpGained + diningXp.bonus;
@@ -285,6 +405,7 @@ export async function POST(req: Request) {
       tree,
       materialName: WOODCUTTING_MATERIALS[tree.materialId].name,
       xpGained,
+      environmentXpGained,
       masteryGained,
       masteryAfter,
       jobName: isWoodcuttingJobId(jobId)
@@ -295,12 +416,33 @@ export async function POST(req: Request) {
       log,
       canceled: canceling,
       activeAutoActivity: autoStates.mining.session ? "mining" as const : null,
+      blueprintRecipeId: blueprint.recipe?.id ?? null,
+      discoveryRewardGained,
+      discoveryRewardXp,
+      lifeField: lifeField
+        ? {
+            newRecordIds: lifeField.newRecordIds,
+            foundTrace: lifeField.foundTrace,
+            completedTrace: lifeField.completedTrace,
+          }
+        : null,
+      lifeFieldFeedEnabled: lifeFeatures.feedEnabled,
     };
   });
 
   if ("error" in result) {
     const status = result.error === "not_ready" ? 409 : 404;
     return Response.json({ ok: false, ...result }, { status });
+  }
+  if (result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.blueprintRecipeId });
+  if (
+    result.lifeFieldFeedEnabled &&
+    result.lifeField?.completedTrace &&
+    LIFE_FIELD_DISCOVERIES[result.lifeField.completedTrace.discoveryId].rare
+  ) {
+    await insertFeedEntry(userId, "life_discovery", {
+      discoveryId: result.lifeField.completedTrace.discoveryId,
+    });
   }
   if (result.settlement.attempts > 0) {
     recordLifeGatheringTelemetrySoon({
@@ -329,6 +471,10 @@ export async function POST(req: Request) {
     materialName: result.materialName,
     materialsGained: result.settlement.materialsGained,
     xpGained: result.xpGained,
+    environmentXpGained: result.environmentXpGained,
+    discoveryRewardGained: result.discoveryRewardGained,
+    discoveryRewardXp: result.discoveryRewardXp,
+    lifeField: result.lifeField,
     masteryGained: result.masteryGained,
     masteryAfter: result.masteryAfter,
     jobName: result.jobName,

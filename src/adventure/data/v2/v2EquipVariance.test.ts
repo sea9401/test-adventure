@@ -7,6 +7,7 @@ import {
   type V2EquipmentId,
 } from "./v2Equipment";
 import {
+  COMBINE_GOLD_COST,
   REFORGE_GOLD_K,
   REFORGE_HIGH_ROLLS,
   REFORGE_MIN_COST,
@@ -24,6 +25,12 @@ import {
   rollReforgeStoneDrops,
   selectBulkSell,
 } from "./v2EquipVariance";
+
+describe("조합소 공통 비용", () => {
+  it("조합 종류와 관계없이 300,000G를 사용한다", () => {
+    expect(COMBINE_GOLD_COST).toBe(300_000);
+  });
+});
 
 describe("rollItemStats", () => {
   it("rng=0 → 각 스탯 최소값(별노래궁: 위력 ±편차, crit ±1, 속도 페널티 고정)", () => {

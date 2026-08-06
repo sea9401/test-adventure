@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
 import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
+import { LIFE_PROCESSED_MATERIAL_ID } from "@/adventure/v2/lifeWorkshopMaterials";
 
 const ME = "u-me";
 const GUILD = 7;
@@ -157,6 +158,34 @@ describe("tileDonate — 개인 재료 → 정착지 풀 기부", () => {
       ore: 3,
       [WOODCUTTING_MATERIAL_ID.birch]: 7,
       [MINING_MATERIAL_ID.copper]: 4,
+    });
+  });
+
+  it("생활 가공품은 대응하는 정착지 자원 8개로 환산한다", async () => {
+    seedGuildOccupation();
+    store.set(v2GuildResources, [
+      { guildId: GUILD, gold: 0, settlement: { crop: 1, ore: 2 } },
+    ]);
+    soloSave.set(ME, {
+      materials: {
+        [LIFE_PROCESSED_MATERIAL_ID.softwood]: 2,
+        [LIFE_PROCESSED_MATERIAL_ID.preciousIngot]: 1,
+      },
+    });
+
+    const res = await tileDonate(ME, TILE, {
+      [LIFE_PROCESSED_MATERIAL_ID.softwood]: 2,
+      [LIFE_PROCESSED_MATERIAL_ID.preciousIngot]: 1,
+    });
+    expect(res.status).toBe(200);
+    expect((soloSave.get(ME)!.materials as Record<string, number>)).toEqual({
+      [LIFE_PROCESSED_MATERIAL_ID.softwood]: 0,
+      [LIFE_PROCESSED_MATERIAL_ID.preciousIngot]: 0,
+    });
+    expect(store.get(v2GuildResources)![0].settlement).toEqual({
+      crop: 17,
+      ore: 2,
+      [MINING_MATERIAL_ID.silver]: 8,
     });
   });
 

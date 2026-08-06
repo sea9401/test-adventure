@@ -43,6 +43,13 @@ import {
   activeAutoGatheringActivity,
   lockAutoGatheringStatesForUpdate,
 } from "@/lib/server/lifeActivityLock";
+import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { lifeFieldEnvironmentSnapshot } from "@/adventure/data/v2/lifeFieldEnvironment";
+import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+
+function multiplyTierWeightPct(value: number | undefined, multiplier: number) {
+  return ((1 + (value ?? 0) / 100) * multiplier - 1) * 100;
+}
 
 // POST /api/v2/fishing/cast — 찌 던지기.
 //
@@ -95,15 +102,25 @@ export async function POST(req: Request) {
   const fishingSpot = getFishingSpot(
     typeof body?.spotId === "string" ? body.spotId : null,
   );
-  const [skillsRaw, progressRaw, walletRaw] = await Promise.all([
+  const [skillsRaw, progressRaw, walletRaw, workshopRaw, lifeFeatures] = await Promise.all([
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, FISHING_PROGRESS_KEY, emptyFishingProgression()),
     readSave(db, userId, FISHING_WALLET_KEY, {}),
+    readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
+    readLifeFieldFeatureSettings(),
   ]);
   const skills = parseV2SkillsState(skillsRaw);
   const skillBonuses = equippedFishingBonuses(skills.equipped);
   const progress = parseFishingProgression(progressRaw);
   const progressBonuses = fishingBonusesFromProgression(progress);
+  const workshop = parseLifeWorkshopState(workshopRaw);
+  const activeAid = workshop.crafting.activeAids.fishing;
+  const baitEnabled = activeAid?.enabled === true && activeAid.itemId === "tidy_bait_box";
+  const lifeEnvironment = lifeFeatures.environmentEnabled
+    ? lifeFieldEnvironmentSnapshot("fishing", fishingSpot.id, now)
+    : null;
+  const rareTierMultiplier =
+    lifeEnvironment?.environment.effect.rareTierWeightMultiplier ?? 1;
   // 현재 물때(결정론) — 그 시간대 한정 특별 손님과 작은 시간대 보정을 합산한다.
   const mt = multtaeAt(now);
   const multtaeEffect = mt.condition.effect;
@@ -124,13 +141,30 @@ export async function POST(req: Request) {
       skillBonuses.bigCatchSizeBonusPct +
       progressBonuses.bigCatchSizeBonusPct +
       (multtaeEffect.bigCatchSizeBonusPct ?? 0),
-    tierWeightPct: progressBonuses.tierWeightPct,
+    tierWeightPct: {
+      ...progressBonuses.tierWeightPct,
+      common: (progressBonuses.tierWeightPct.common ?? 0) + (baitEnabled ? -2 : 0),
+      rare: multiplyTierWeightPct(
+        (progressBonuses.tierWeightPct.rare ?? 0) + (baitEnabled ? 5 : 0),
+        rareTierMultiplier,
+      ),
+      epic: multiplyTierWeightPct(
+        (progressBonuses.tierWeightPct.epic ?? 0) + (baitEnabled ? 4 : 0),
+        rareTierMultiplier,
+      ),
+      legendary: multiplyTierWeightPct(
+        (progressBonuses.tierWeightPct.legendary ?? 0) + (baitEnabled ? 3 : 0),
+        rareTierMultiplier,
+      ),
+    },
   };
   const waitReductionPct = Math.min(
     50,
     Math.max(
       0,
-      progressBonuses.waitReductionPct + (multtaeEffect.waitReductionPct ?? 0),
+      progressBonuses.waitReductionPct +
+        (multtaeEffect.waitReductionPct ?? 0) +
+        (lifeEnvironment?.environment.effect.waitReductionPct ?? 0),
     ),
   );
   const biteDelayMs = Math.max(
@@ -157,6 +191,9 @@ export async function POST(req: Request) {
     fishId,
     size,
     fishingSpotId: fishingSpot.id,
+    aidItemId: baitEnabled ? activeAid.itemId : undefined,
+    lifeEnvironmentId: lifeEnvironment?.environment.id,
+    lifeEnvironmentDayKey: lifeEnvironment?.dayKey,
   };
 
   const activeAutoActivity = await db.transaction(async (tx) => {
@@ -190,5 +227,6 @@ export async function POST(req: Request) {
       id: fishingSpot.id,
       name: fishingSpot.name,
     },
+    lifeEnvironment,
   });
 }

@@ -37,6 +37,7 @@ import {
   V2_PATTERN_DOT_POWER_MULT,
   V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER,
   V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
+  v2PureSkillFormulaCoefficients,
   v2SkillAttackCoef,
   type V2CombatPattern,
   type V2CombatRole,
@@ -650,6 +651,8 @@ export type V2SkillCastInput = {
     // PR2-B 스킬 메커닉 — def/vit 비례 딜(방패가격·나한권), 현재HP(사혈격·기공순환),
     //   maxMp(마나보호막·명상), 차수(전문화 스킬 baseFlatByTier flat 성장). 미지정=안전 폴백.
     def?: number;
+    str?: number;
+    int?: number;
     vit?: number;
     dex?: number;
     luk?: number;
@@ -930,7 +933,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   // 다단 스킬은 차수별 공격 기반선과 적 방어력 한 번분을 타격 수로 나눈다. 공격 기반선만
   // 나누고 방어력을 매타 전액 차감하면 동일 총계수의 단일타보다 방어력을 타수만큼 더 부담해,
   // 고방어 구간에서 다단기가 1 피해로 붕괴한다.
-  // physical/magic 의 기존 statCoef 는 이미 공격 계수이므로 차수 기반선과 큰 쪽을 사용한다.
+  // physical/magic 은 기존 공격 계수 일부를 STR/INT 직접 계수로 옮긴 순수형 산식을 사용한다.
   // def/vit/dex/luk/spi/all/maxHp 는 공격 기반선 + 해당 스탯×statCoef 의 혼합식이다.
   // extraFlat 은 HP 소모·스택 회수처럼 전투 중 생기는 동적 추가 피해에만 사용한다.
   //   targetDefOverride 지정 시 적 방어를 그 값으로 대체(관통 추가타의 "0방어 피해" 계산용).
@@ -964,7 +967,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
                   : scaling === "maxHp"
                     ? input.attacker.maxHp
                     : null;
-    const resolvedAttackCoef = def.monsterOnly
+    const baseAttackCoef = def.monsterOnly
       ? statCoef
       : v2SkillAttackCoef({
           tier: def.tier,
@@ -973,6 +976,18 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
           directDamageEffectCount,
           attackCoef,
         });
+    const purePrimaryStat =
+      scale === "magic" ? input.attacker.int : input.attacker.str;
+    const pureFormula =
+      !def.monsterOnly && specialized == null && purePrimaryStat != null
+        ? v2PureSkillFormulaCoefficients({
+            tier: def.tier,
+            scaling: scale,
+            directDamageEffectCount,
+            resolvedAttackCoef: baseAttackCoef,
+          })
+        : null;
+    const resolvedAttackCoef = pureFormula?.attackCoef ?? baseAttackCoef;
     const defenseShareCount = def.monsterOnly ? 1 : directDamageEffectCount;
     const targetPhysicalDef =
       targetDefOverride ?? input.target.def / defenseShareCount;
@@ -988,6 +1003,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : Math.floor(
             specialized * statCoef * (skillElementMult ?? 1),
           );
+    const purePrimaryStatBonus = pureFormula
+      ? Math.floor(
+          (purePrimaryStat ?? 0) *
+            pureFormula.primaryStatCoef *
+            (skillElementMult ?? 1),
+        )
+      : 0;
     const raw = v2DamageAmount({
       attackerAtk: attackPower,
       attackerMagicAtk: scale === "magic" ? attackPower : undefined,
@@ -999,6 +1021,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       baseFlat:
         (def.monsterOnly ? legacyBaseFlat : 0) +
         specializedBonus +
+        purePrimaryStatBonus +
         extraFlat,
       attackerSelfBuffs: input.attacker.selfBuffs,
       attackerSelfDebuffs: input.attacker.selfDebuffs,

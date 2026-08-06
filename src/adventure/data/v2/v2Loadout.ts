@@ -70,7 +70,7 @@ export function sanitizeLoadout(
 // 후보 로드아웃을 SP 예산에 맞게 잘라낸다 — 순서(우선순위) 보존, 누적합이 예산을 넘기지
 //   않는 선까지 앞에서부터 채택(greedy in-order). 비싸서 안 들어가는 스킬은 건너뛰고 다음
 //   더 싼 스킬은 들어올 수 있다. 자동장착 기본값(코어루프) + 비파괴 마이그(PR-4)용.
-//   카탈로그에 없는 id 는 건너뜀. budget ≤ 0 이면 빈 로드아웃.
+//   카탈로그에 없는 id 는 건너뜀. budget ≤ 0 이어도 SP 0 생활 스킬은 보존한다.
 export function clampLoadoutToBudget(
   ids: readonly V2SkillId[],
   spBudget: number,

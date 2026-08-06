@@ -71,7 +71,7 @@ describe("V2CharacterCard profile theme", () => {
     expect(html).toMatch(/ui-profile-theme-copy text-sm/);
   });
 
-  it("renders the badge rack in its own responsive column", () => {
+  it("renders the representative trophies as a compact full-width row", () => {
     const title = Object.values(TITLES)[0];
     const html = renderToStaticMarkup(
       <V2CharacterCard
@@ -83,17 +83,18 @@ describe("V2CharacterCard profile theme", () => {
           null,
         ]}
         showcaseEditable
+        onOpenTrophies={() => undefined}
       />,
     );
 
-    expect(html).toContain("대표 배지 전시대");
+    expect(html).toContain("대표 트로피");
     expect(html).toContain(title.name);
-    expect(html).toContain("대표 배지 편집");
-    expect(html).toContain("2번 칸");
-    expect(html).toContain("3번 칸");
+    expect(html).toContain("트로피 전시대 열기");
+    expect(html).toContain("2번 배지 선택");
+    expect(html).toContain("3번 배지 선택");
     expect(html).not.toContain("잠김");
-    expect(html).toContain("sm:grid-cols-[7rem_minmax(0,1fr)_minmax(15rem,1fr)]");
-    expect(html).toContain("col-span-2 min-w-0 sm:col-span-1");
+    expect(html).not.toContain("sm:grid-cols-[7rem_minmax(0,1fr)_minmax(15rem,1fr)]");
+    expect(html).toContain("col-span-2 min-w-0");
   });
 
   it("shows only the selected medal on a public profile", () => {
@@ -110,9 +111,8 @@ describe("V2CharacterCard profile theme", () => {
     );
 
     expect(html).toContain("백전");
-    expect(html).toContain("10점");
     expect(html).not.toContain("clip-path");
-    expect(html).toContain("line-clamp-2 min-h-6");
+    expect(html).toContain("size-8");
     expect(html).not.toContain("잠김");
     expect(html).not.toContain("대표 배지 편집");
   });
@@ -130,10 +130,10 @@ describe("V2CharacterCard profile theme", () => {
       />,
     );
 
-    expect(html).not.toContain("대표 배지 전시대");
+    expect(html).not.toContain("대표 트로피");
     expect(html).not.toContain("코인 상점에서 보기");
     expect(html).not.toContain("백전");
-    expect(html).not.toContain("col-span-2 min-w-0 sm:col-span-1");
+    expect(html).not.toContain("col-span-2 min-w-0");
   });
 
   it("hides a disabled stand publicly but keeps its owner control available", () => {
@@ -160,9 +160,9 @@ describe("V2CharacterCard profile theme", () => {
       />,
     );
 
-    expect(publicHtml).not.toContain("대표 배지 전시대");
+    expect(publicHtml).not.toContain("대표 트로피");
     expect(publicHtml).not.toContain("백전");
-    expect(ownerHtml).toContain("대표 배지 전시대 비공개");
+    expect(ownerHtml).toContain("대표 트로피 비공개");
     expect(ownerHtml).toContain("공개하기");
   });
 });

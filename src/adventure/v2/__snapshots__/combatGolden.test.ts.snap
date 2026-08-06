@@ -31,6 +31,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 136.6,
   "spiStat": 15,
+  "strStat": 15,
   "vitStat": 15,
 }
 `;
@@ -66,6 +67,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 14.25,
   "spiStat": 15,
+  "strStat": 25,
   "vitStat": 15,
 }
 `;
@@ -101,6 +103,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 14.25,
   "spiStat": 45,
+  "strStat": 15,
   "vitStat": 15,
 }
 `;
@@ -136,6 +139,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 57,
   "spiStat": 15,
+  "strStat": 15,
   "vitStat": 15,
 }
 `;
@@ -171,6 +175,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 9.25,
   "spiStat": 15,
+  "strStat": 45,
   "vitStat": 170,
 }
 `;
@@ -206,6 +211,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 3.25,
   "spiStat": 15,
+  "strStat": 148,
   "vitStat": 55,
 }
 `;

@@ -36,6 +36,8 @@ type FarmResponse = {
   weeklyDeliveryResult?: FarmWeeklyDeliveryResult;
   shopResult?: FarmShopPurchaseResult;
   plotUpgradeResult?: FarmPlotUpgradeResult;
+  fertilizerBalance?: number;
+  fertilizerResult?: { plotId: string; reducedMs: number };
 };
 
 export type FarmClientState = {
@@ -46,6 +48,7 @@ export type FarmClientState = {
   busyWeeklyDeliveryId: string | null;
   busyShopItemId: string | null;
   busyPlotUpgrade: boolean;
+  fertilizerBalance: number;
   error: string | null;
   notice: FarmNotice | null;
   now: number;
@@ -68,6 +71,7 @@ export type FarmClientState = {
   refresh: () => Promise<void>;
   plant: (plotId: string, cropId: FarmCropId) => Promise<void>;
   harvest: (plotId: string) => Promise<void>;
+  fertilize: (plotId: string) => Promise<void>;
   deliver: (requestId: string) => Promise<void>;
   deliverSpecial: (requestId: string) => Promise<void>;
   deliverWeekly: (requestId: string) => Promise<void>;
@@ -82,7 +86,8 @@ export type FarmNotice =
   | { id: number; kind: "specialDelivery"; result: FarmSpecialDeliveryResult }
   | { id: number; kind: "weeklyDelivery"; result: FarmWeeklyDeliveryResult }
   | { id: number; kind: "shop"; result: FarmShopPurchaseResult }
-  | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult };
+  | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult }
+  | { id: number; kind: "fertilizer"; reducedMs: number };
 
 export function useFarm(): FarmClientState {
   const [loading, setLoading] = useState(true);
@@ -96,6 +101,7 @@ export function useFarm(): FarmClientState {
   );
   const [busyShopItemId, setBusyShopItemId] = useState<string | null>(null);
   const [busyPlotUpgrade, setBusyPlotUpgrade] = useState(false);
+  const [fertilizerBalance, setFertilizerBalance] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<FarmNotice | null>(null);
   const [now, setNow] = useState(0);
@@ -146,6 +152,8 @@ export function useFarm(): FarmClientState {
     setWeeklyDeliveries(data.weeklyDeliveries ?? []);
     setShopItems(data.shopItems ?? []);
     setNow(data.now ?? Date.now());
+    if ("fertilizerBalance" in data) setFertilizerBalance(Math.max(0, data.fertilizerBalance ?? 0));
+    if (data.fertilizerResult) setNotice({ id: Date.now(), kind: "fertilizer", reducedMs: data.fertilizerResult.reducedMs });
     if (data.result) {
       setLastResult(data.result);
       setNotice({ id: Date.now(), kind: "harvest", result: data.result });
@@ -241,6 +249,21 @@ export function useFarm(): FarmClientState {
     },
     [apply, reportError],
   );
+
+  const fertilize = useCallback(async (plotId: string) => {
+    setBusyPlotId(plotId);
+    setError(null);
+    try {
+      const res = await fetch("/api/v2/farm/fertilize", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plotId }) });
+      const data = await res.json() as FarmResponse;
+      if (!res.ok) throw new Error(data.error ?? "fertilize_failed");
+      apply(data);
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setBusyPlotId(null);
+    }
+  }, [apply, reportError]);
 
   const deliver = useCallback(
     async (requestId: string) => {
@@ -370,6 +393,7 @@ export function useFarm(): FarmClientState {
     busyWeeklyDeliveryId,
     busyShopItemId,
     busyPlotUpgrade,
+    fertilizerBalance,
     error,
     notice,
     now,
@@ -392,6 +416,7 @@ export function useFarm(): FarmClientState {
     refresh,
     plant,
     harvest,
+    fertilize,
     deliver,
     deliverSpecial,
     deliverWeekly,
@@ -416,6 +441,9 @@ function errorMessage(error: unknown): string {
       not_ready: "아직 수확할 수 없습니다.",
       plot_occupied: "이미 작물이 심어진 밭입니다.",
       plot_empty: "수확할 작물이 없습니다.",
+      no_fertilizer: "보유한 유기질 거름이 없습니다.",
+      already_fertilized: "이번 파종에는 이미 거름을 사용했습니다.",
+      already_ready: "이미 수확할 수 있는 작물에는 거름을 사용할 수 없습니다.",
     }[message] ?? "요청에 실패했습니다."
   );
 }

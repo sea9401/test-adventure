@@ -125,7 +125,13 @@ export function shopSellEquipmentInstances(
   );
 }
 
-export function V2ShopView({ onBack }: { onBack: () => void }) {
+export function V2ShopView({
+  onBack,
+  embedded = false,
+}: {
+  onBack?: () => void;
+  embedded?: boolean;
+}) {
   // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬(이 화면의 me/state·구매 응답)로
   //   추적해 항상 신선하게 유지하고, 앱 전역(은행 패널 등)을 위해 컨텍스트도 함께 동기화한다.
   const { coreLoopOn, applyResourcePatch } = useGameState();
@@ -412,22 +418,41 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     [materials],
   );
 
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader
-        title="상점"
-        onBack={onBack}
-        right={
-          // 보유 골드 — 결제 가능 총액(spendable: 코어루프면 지갑+은행)을 표시. 구매 가능여부
-          //   게이트(gold={spendable})와 일치 + 치료소·대장간 표기와 통일.
+    <Root
+      className={
+        embedded
+          ? "space-y-4 text-zinc-900 dark:text-zinc-100"
+          : "mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100"
+      }
+    >
+      {!embedded ? (
+        <SubViewHeader
+          title="상점"
+          onBack={onBack}
+          right={
+            // 보유 골드 — 결제 가능 총액(spendable: 코어루프면 지갑+은행)을 표시. 구매 가능여부
+            //   게이트(gold={spendable})와 일치 + 치료소·대장간 표기와 통일.
+            <span className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
+              <Coins size={16} weight="fill" className="text-yellow-500" />
+              <span className="font-semibold tabular-nums">
+                {spendable.toLocaleString()}G
+              </span>
+            </span>
+          }
+        />
+      ) : (
+        <div className="flex justify-end">
           <span className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
             <Coins size={16} weight="fill" className="text-yellow-500" />
             <span className="font-semibold tabular-nums">
               {spendable.toLocaleString()}G
             </span>
           </span>
-        }
-      />
+        </div>
+      )}
       {loadError && <LoadErrorBanner onRetry={refresh} />}
 
       {/* 탭(구매/판매 + 부위) — 지역 배경 위라 라이트모드 가독성 위해 surface 패널로 감쌈. */}
@@ -566,7 +591,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           equippedIds={equipped}
         />
       )}
-    </main>
+    </Root>
   );
 }
 

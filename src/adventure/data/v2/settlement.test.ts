@@ -181,18 +181,18 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     );
   });
 
-  it("길드 창고는 배치 가능하며 Lv1 5천 개에서 Lv5 5만 개까지 확장된다", () => {
+  it("길드 창고는 배치 가능하며 레벨마다 슬롯이 2칸씩 늘어난다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("guild_warehouse");
     expect(GUILD_WAREHOUSE_UPGRADES.map((upgrade) => upgrade.capacity)).toEqual([
-      5_000, 10_000, 20_000, 35_000, 50_000,
+      1, 3, 5, 7, 9,
     ]);
     expect(nextSettlementBuildingUpgrade("guild_warehouse", 1)).toMatchObject({
       level: 2,
       cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
-      capacity: 10_000,
+      capacity: 3,
     });
     expect(guildWarehouseUpgradeForLevel(5)).toMatchObject({
-      capacity: 50_000,
+      capacity: 9,
       label: "왕립 공동 창고",
     });
     expect(
@@ -200,7 +200,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "guild_warehouse",
         guildWarehouseUpgradeForLevel(5),
       ),
-    ).toBe("재료 보관 한도 50,000개");
+    ).toBe("아이템 보관 슬롯 9칸");
   });
 
   it("시설 재료 비용은 Lv2~5에서 기존 대비 2~5배이며 Lv2 명성은 무료다", () => {

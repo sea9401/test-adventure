@@ -88,6 +88,9 @@ export async function GET() {
         deliveryTitle?: string;
         itemName?: string;
         materialId?: string;
+        equipmentIid?: string;
+        itemKind?: "material" | "equipment";
+        permissionEnabled?: boolean;
         tokenCost?: number;
         remainingTokens?: number;
         smithyLevel?: number;

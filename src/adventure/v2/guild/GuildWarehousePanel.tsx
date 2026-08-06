@@ -1,19 +1,55 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MagnifyingGlass, Package, Warehouse } from "@phosphor-icons/react";
-import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  Lock,
+  MagnifyingGlass,
+  Package,
+  UsersThree,
+  Warehouse,
+} from "@phosphor-icons/react";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  V2_EQUIPMENT,
+  v2EquipCatalogTierToDisplayTier,
+  type V2EquipInstance,
+  type V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
+import {
+  CraftQualityBadge,
+  EnhanceLevelBadge,
+  EquipmentTierBadge,
+  powerNameClass,
+} from "@/adventure/v2/V2ItemCard";
 import { InventoryItemIcon } from "@/adventure/v2/inventory/InventoryItemIcon";
 
 type WarehouseAction = "deposit" | "withdraw";
+type WarehouseKind = "material" | "equipment";
 
 type WarehouseActivity = {
   id: number;
   action: WarehouseAction;
   actorName: string;
-  meta: { itemName?: string; materialId?: string; quantity?: number } | null;
+  meta: {
+    itemName?: string;
+    itemKind?: WarehouseKind;
+    materialId?: string;
+    equipmentIid?: string;
+    quantity?: number;
+  } | null;
   createdAt: string;
+};
+
+type WarehouseMember = {
+  userId: string;
+  name: string;
+  role: string;
+  allowed: boolean;
 };
 
 type WarehouseResponse = {
@@ -22,10 +58,24 @@ type WarehouseResponse = {
   level?: number;
   capacity?: number;
   used?: number;
-  canWithdraw?: boolean;
+  canTransfer?: boolean;
+  canManagePermissions?: boolean;
   personalMaterials?: Record<string, number>;
+  personalEquipment?: V2EquipInstance[];
+  equippedIids?: string[];
   warehouse?: Record<string, number>;
+  equipment?: V2EquipInstance[];
+  members?: WarehouseMember[];
   activity?: WarehouseActivity[];
+};
+
+const SLOT_NAME: Record<V2EquipSlot, string> = {
+  weapon: "무기",
+  armor: "갑옷",
+  gloves: "장갑",
+  boots: "신발",
+  ring: "반지",
+  necklace: "목걸이",
 };
 
 export function GuildWarehousePanel() {
@@ -33,11 +83,17 @@ export function GuildWarehousePanel() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [action, setAction] = useState<WarehouseAction>("deposit");
+  const [kind, setKind] = useState<WarehouseKind>("material");
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
+  const [selectedEquipmentIid, setSelectedEquipmentIid] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [permissionBusy, setPermissionBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(false);
@@ -61,68 +117,127 @@ export function GuildWarehousePanel() {
     void load();
   }, [load]);
 
-  const source = action === "deposit" ? data?.personalMaterials : data?.warehouse;
-  const candidates = useMemo(
+  const materialSource =
+    action === "deposit" ? data?.personalMaterials : data?.warehouse;
+  const materialCandidates = useMemo(
     () =>
-      Object.entries(source ?? {})
+      Object.entries(materialSource ?? {})
         .filter(([materialId, count]) => V2_MATERIALS[materialId] && count > 0)
         .sort(([a], [b]) =>
           V2_MATERIALS[a].name.localeCompare(V2_MATERIALS[b].name, "ko"),
         ),
-    [source],
+    [materialSource],
   );
-  const activeMaterialId = candidates.some(([id]) => id === selectedMaterialId)
+  const activeMaterialId = materialCandidates.some(
+    ([id]) => id === selectedMaterialId,
+  )
     ? selectedMaterialId
-    : (candidates[0]?.[0] ?? "");
-  const maxQuantity = activeMaterialId ? (source?.[activeMaterialId] ?? 0) : 0;
-  const storedRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("ko");
-    return Object.entries(data?.warehouse ?? {})
-      .filter(([materialId, count]) => {
-        const material = V2_MATERIALS[materialId];
-        if (!material || count <= 0) return false;
-        return (
-          normalizedQuery.length === 0 ||
-          material.name.toLocaleLowerCase("ko").includes(normalizedQuery)
-        );
-      })
-      .sort(([a], [b]) =>
-        V2_MATERIALS[a].name.localeCompare(V2_MATERIALS[b].name, "ko"),
+    : (materialCandidates[0]?.[0] ?? "");
+  const maxQuantity = activeMaterialId
+    ? (materialSource?.[activeMaterialId] ?? 0)
+    : 0;
+
+  const equippedIids = useMemo(
+    () => new Set(data?.equippedIids ?? []),
+    [data?.equippedIids],
+  );
+  const equipmentCandidates = useMemo(() => {
+    const source =
+      action === "deposit" ? data?.personalEquipment : data?.equipment;
+    return (source ?? [])
+      .filter((equipment) =>
+        action === "deposit" ? !equippedIids.has(equipment.iid) : true,
+      )
+      .sort((a, b) =>
+        V2_EQUIPMENT[a.id].name.localeCompare(V2_EQUIPMENT[b.id].name, "ko"),
       );
-  }, [data?.warehouse, query]);
+  }, [action, data?.equipment, data?.personalEquipment, equippedIids]);
+  const activeEquipmentIid = equipmentCandidates.some(
+    (equipment) => equipment.iid === selectedEquipmentIid,
+  )
+    ? selectedEquipmentIid
+    : (equipmentCandidates[0]?.iid ?? "");
+
+  const normalizedQuery = query.trim().toLocaleLowerCase("ko");
+  const storedMaterialRows = useMemo(
+    () =>
+      Object.entries(data?.warehouse ?? {})
+        .filter(([materialId, count]) => {
+          const material = V2_MATERIALS[materialId];
+          return (
+            material != null &&
+            count > 0 &&
+            (normalizedQuery.length === 0 ||
+              material.name.toLocaleLowerCase("ko").includes(normalizedQuery))
+          );
+        })
+        .sort(([a], [b]) =>
+          V2_MATERIALS[a].name.localeCompare(V2_MATERIALS[b].name, "ko"),
+        ),
+    [data?.warehouse, normalizedQuery],
+  );
+  const storedEquipmentRows = useMemo(
+    () =>
+      (data?.equipment ?? [])
+        .filter((equipment) => {
+          const item = V2_EQUIPMENT[equipment.id];
+          return (
+            normalizedQuery.length === 0 ||
+            item.name.toLocaleLowerCase("ko").includes(normalizedQuery)
+          );
+        })
+        .sort((a, b) =>
+          V2_EQUIPMENT[a.id].name.localeCompare(V2_EQUIPMENT[b.id].name, "ko"),
+        ),
+    [data?.equipment, normalizedQuery],
+  );
 
   async function submit() {
     const parsedQuantity = Number(quantity);
-    if (
-      busy ||
-      !activeMaterialId ||
-      !Number.isSafeInteger(parsedQuantity) ||
-      parsedQuantity <= 0
-    ) {
-      setNotice({ kind: "err", text: "처리할 재료와 수량을 확인해 주세요." });
+    const invalidMaterial =
+      kind === "material" &&
+      (!activeMaterialId ||
+        !Number.isSafeInteger(parsedQuantity) ||
+        parsedQuantity <= 0);
+    const invalidEquipment = kind === "equipment" && !activeEquipmentIid;
+    if (busy || invalidMaterial || invalidEquipment) {
+      setNotice({ kind: "err", text: "처리할 아이템과 수량을 확인해 주세요." });
       return;
     }
     setBusy(true);
     setNotice(null);
     try {
+      const body =
+        kind === "material"
+          ? {
+              action,
+              kind,
+              materialId: activeMaterialId,
+              quantity: parsedQuantity,
+            }
+          : { action, kind, iid: activeEquipmentIid };
       const res = await fetch("/api/v2/guild/warehouse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          materialId: activeMaterialId,
-          quantity: parsedQuantity,
-        }),
+        body: JSON.stringify(body),
       });
       const json = (await res.json().catch(() => null)) as WarehouseResponse | null;
       if (!res.ok || !json?.ok) {
         setNotice({ kind: "err", text: warehouseErrorText(json?.error) });
         return;
       }
+      const itemName =
+        kind === "material"
+          ? V2_MATERIALS[activeMaterialId].name
+          : V2_EQUIPMENT[
+              equipmentCandidates.find(
+                (equipment) => equipment.iid === activeEquipmentIid,
+              )!.id
+            ].name;
       setQuantity("1");
       setNotice({
         kind: "ok",
-        text: `${V2_MATERIALS[activeMaterialId].name} ${parsedQuantity.toLocaleString()}개를 ${action === "deposit" ? "입고" : "출고"}했습니다.`,
+        text: `${itemName}${kind === "material" ? ` ${parsedQuantity.toLocaleString()}개` : ""}를 ${action === "deposit" ? "입고" : "출고"}했습니다.`,
       });
       await load();
     } catch {
@@ -132,13 +247,52 @@ export function GuildWarehousePanel() {
     }
   }
 
+  async function changePermission(member: WarehouseMember) {
+    if (permissionBusy) return;
+    setPermissionBusy(member.userId);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/v2/guild/warehouse/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: member.userId,
+          allowed: !member.allowed,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!res.ok || !json?.ok) {
+        setNotice({ kind: "err", text: warehouseErrorText(json?.error) });
+        return;
+      }
+      setNotice({
+        kind: "ok",
+        text: `${member.name} 님의 창고 입출고 권한을 ${member.allowed ? "회수" : "부여"}했습니다.`,
+      });
+      await load();
+    } catch {
+      setNotice({ kind: "err", text: "창고 권한 변경에 실패했습니다." });
+    } finally {
+      setPermissionBusy(null);
+    }
+  }
+
   if (loading) {
-    return <div className={`${SURFACE_CARD} p-4 text-sm text-zinc-500`}>길드 창고를 불러오는 중…</div>;
+    return (
+      <div className={`${SURFACE_CARD} p-4 text-sm text-zinc-500`}>
+        길드 창고를 불러오는 중…
+      </div>
+    );
   }
   if (loadError || !data?.ok) {
     return (
       <div className={`${SURFACE_CARD} space-y-3 p-4 text-sm`}>
-        <p className="text-rose-600 dark:text-rose-300">길드 창고를 불러오지 못했습니다.</p>
+        <p className="text-rose-600 dark:text-rose-300">
+          길드 창고를 불러오지 못했습니다.
+        </p>
         <button
           type="button"
           onClick={() => {
@@ -156,98 +310,105 @@ export function GuildWarehousePanel() {
   const capacity = data.capacity ?? 0;
   const used = data.used ?? 0;
   const usagePct = capacity > 0 ? Math.min(100, (used / capacity) * 100) : 0;
+  const members = (data.members ?? []).filter(
+    (member) => member.role !== "master" && member.role !== "manager",
+  );
 
   return (
     <div className="space-y-3 text-zinc-900 dark:text-zinc-100">
       <section className={`${SURFACE_ACCENT} space-y-3 p-4`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Warehouse size={30} weight="duotone" className="text-blue-600 dark:text-blue-300" />
+            <Warehouse
+              size={30}
+              weight="duotone"
+              className="text-blue-600 dark:text-blue-300"
+            />
             <div>
               <h3 className="font-semibold">길드 창고 Lv {data.level ?? 1}</h3>
               <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
-                길드원은 재료를 입고하고, 마스터와 관리자는 출고할 수 있습니다.
+                재료 한 종류와 장비 한 개가 각각 1칸을 사용합니다. 같은 재료는
+                한 칸에 수량 제한 없이 쌓입니다.
               </p>
             </div>
           </div>
           <span className="shrink-0 text-sm font-semibold tabular-nums">
-            {used.toLocaleString()} / {capacity.toLocaleString()}
+            {used.toLocaleString()} / {capacity.toLocaleString()}칸
           </span>
         </div>
         <div
           role="progressbar"
-          aria-label="길드 창고 사용량"
+          aria-label="길드 창고 사용 슬롯"
           aria-valuemin={0}
           aria-valuemax={capacity}
           aria-valuenow={used}
           className="h-2 overflow-hidden rounded-full bg-amber-200 dark:bg-amber-900"
         >
-          <div className="h-full rounded-full bg-blue-600" style={{ width: `${usagePct}%` }} />
+          <div
+            className="h-full rounded-full bg-blue-600"
+            style={{ width: `${usagePct}%` }}
+          />
         </div>
       </section>
 
       <section className={`${SURFACE_CARD} space-y-3 p-3`}>
-        <div className="flex gap-2" role="tablist" aria-label="창고 처리 방식">
-          <ActionTab active={action === "deposit"} onClick={() => setAction("deposit")}>
-            재료 입고
-          </ActionTab>
-          {data.canWithdraw ? (
-            <ActionTab active={action === "withdraw"} onClick={() => setAction("withdraw")}>
-              재료 출고
-            </ActionTab>
-          ) : null}
-        </div>
-
-        {candidates.length === 0 ? (
-          <div className={`${SURFACE_INSET} px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400`}>
-            {action === "deposit" ? "입고할 수 있는 개인 재료가 없습니다." : "출고할 재료가 없습니다."}
-          </div>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
-            <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-              재료
-              <select
-                value={activeMaterialId}
-                onChange={(event) => setSelectedMaterialId(event.target.value)}
-                className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-              >
-                {candidates.map(([materialId, count]) => (
-                  <option key={materialId} value={materialId}>
-                    {V2_MATERIALS[materialId].name} ({count.toLocaleString()}개)
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-              수량
-              <div className="flex">
-                <input
-                  type="number"
-                  min={1}
-                  max={maxQuantity}
-                  step={1}
-                  inputMode="numeric"
-                  value={quantity}
-                  onChange={(event) => setQuantity(event.target.value)}
-                  className="h-10 min-w-0 flex-1 rounded-l-md border border-r-0 border-zinc-300 bg-white px-2 text-right text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
-                />
-                <button
-                  type="button"
-                  onClick={() => setQuantity(String(maxQuantity))}
-                  className="h-10 rounded-r-md border border-zinc-300 bg-zinc-100 px-2 text-xs font-semibold dark:border-zinc-700 dark:bg-zinc-800"
+        {data.canTransfer ? (
+          <>
+            <div className="flex flex-wrap justify-between gap-2">
+              <div className="flex gap-2" role="tablist" aria-label="창고 처리 방식">
+                <ActionTab
+                  active={action === "deposit"}
+                  onClick={() => setAction("deposit")}
                 >
-                  전부
-                </button>
+                  입고
+                </ActionTab>
+                <ActionTab
+                  active={action === "withdraw"}
+                  onClick={() => setAction("withdraw")}
+                >
+                  출고
+                </ActionTab>
               </div>
-            </label>
-            <button
-              type="button"
-              onClick={() => void submit()}
-              disabled={busy}
-              className="h-10 self-end rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy ? "처리 중" : action === "deposit" ? "입고" : "출고"}
-            </button>
+              <div className="flex gap-2" role="tablist" aria-label="창고 아이템 종류">
+                <KindTab active={kind === "material"} onClick={() => setKind("material")}>
+                  재료
+                </KindTab>
+                <KindTab active={kind === "equipment"} onClick={() => setKind("equipment")}>
+                  장비
+                </KindTab>
+              </div>
+            </div>
+
+            {kind === "material" ? (
+              <MaterialTransferForm
+                action={action}
+                candidates={materialCandidates}
+                activeMaterialId={activeMaterialId}
+                maxQuantity={maxQuantity}
+                quantity={quantity}
+                busy={busy}
+                onMaterialChange={setSelectedMaterialId}
+                onQuantityChange={setQuantity}
+                onSubmit={() => void submit()}
+              />
+            ) : (
+              <EquipmentTransferForm
+                action={action}
+                candidates={equipmentCandidates}
+                activeEquipmentIid={activeEquipmentIid}
+                busy={busy}
+                onEquipmentChange={setSelectedEquipmentIid}
+                onSubmit={() => void submit()}
+              />
+            )}
+          </>
+        ) : (
+          <div
+            className={`${SURFACE_INSET} flex items-center gap-2 px-3 py-4 text-xs text-zinc-600 dark:text-zinc-300`}
+          >
+            <Lock size={18} weight="duotone" className="shrink-0" />
+            창고를 조회할 수 있습니다. 입출고는 마스터·관리자 또는 권한을 받은
+            길드원만 가능합니다.
           </div>
         )}
         {notice ? (
@@ -263,10 +424,10 @@ export function GuildWarehousePanel() {
       <section className={`${SURFACE_CARD} space-y-3 p-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <Package size={18} weight="duotone" /> 보관 재료
+            <Package size={18} weight="duotone" /> 보관 아이템
           </h3>
           <label className="relative block min-w-0 flex-1 sm:max-w-56">
-            <span className="sr-only">보관 재료 검색</span>
+            <span className="sr-only">보관 아이템 검색</span>
             <MagnifyingGlass
               aria-hidden="true"
               size={16}
@@ -276,45 +437,140 @@ export function GuildWarehousePanel() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="재료 검색"
+              placeholder="재료·장비 검색"
               className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-8 pr-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
         </div>
-        {storedRows.length === 0 ? (
-          <div className={`${SURFACE_INSET} px-3 py-8 text-center text-xs text-zinc-500 dark:text-zinc-400`}>
-            {query.trim() ? "검색 결과가 없습니다." : "아직 보관 중인 재료가 없습니다."}
+        {storedMaterialRows.length === 0 && storedEquipmentRows.length === 0 ? (
+          <div
+            className={`${SURFACE_INSET} px-3 py-8 text-center text-xs text-zinc-500 dark:text-zinc-400`}
+          >
+            {query.trim()
+              ? "검색 결과가 없습니다."
+              : "아직 보관 중인 아이템이 없습니다."}
           </div>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {storedRows.map(([materialId, count]) => (
-              <div key={materialId} className={`${SURFACE_INSET} flex items-center gap-2 px-3 py-2`}>
-                <InventoryItemIcon itemId={materialId} size={22} />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {V2_MATERIALS[materialId].name}
-                </span>
-                <span className="shrink-0 text-sm font-semibold tabular-nums">×{count.toLocaleString()}</span>
+          <div className="space-y-3">
+            {storedMaterialRows.length > 0 ? (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  재료
+                </h4>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {storedMaterialRows.map(([materialId, count]) => (
+                    <div
+                      key={materialId}
+                      className={`${SURFACE_INSET} flex items-center gap-2 px-3 py-2`}
+                    >
+                      <InventoryItemIcon itemId={materialId} size={22} />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {V2_MATERIALS[materialId].name}
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        ×{count.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            ) : null}
+            {storedEquipmentRows.length > 0 ? (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  장비
+                </h4>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {storedEquipmentRows.map((equipment) => (
+                    <StoredEquipmentCard key={equipment.iid} equipment={equipment} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </section>
+
+      {data.canManagePermissions ? (
+        <section className={`${SURFACE_CARD} space-y-3 p-3`}>
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <UsersThree size={18} weight="duotone" /> 길드원 입출고 권한
+            </h3>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              마스터와 관리자는 항상 이용할 수 있습니다. 일반 길드원에게 입고와
+              출고 권한을 함께 부여합니다.
+            </p>
+          </div>
+          {members.length === 0 ? (
+            <div
+              className={`${SURFACE_INSET} px-3 py-5 text-center text-xs text-zinc-500 dark:text-zinc-400`}
+            >
+              권한을 설정할 일반 길드원이 없습니다.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {members.map((member) => (
+                <li
+                  key={member.userId}
+                  className={`${SURFACE_INSET} flex items-center justify-between gap-3 px-3 py-2`}
+                >
+                  <span className="min-w-0 truncate text-sm font-medium">
+                    {member.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void changePermission(member)}
+                    disabled={permissionBusy != null}
+                    aria-pressed={member.allowed}
+                    className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+                      member.allowed
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                        : "bg-zinc-200 text-zinc-600 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200"
+                    }`}
+                  >
+                    {permissionBusy === member.userId
+                      ? "변경 중"
+                      : member.allowed
+                        ? "권한 있음"
+                        : "권한 부여"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       <section className={`${SURFACE_CARD} overflow-hidden`}>
         <h3 className="border-b border-zinc-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           최근 입출고
         </h3>
         {(data.activity ?? []).length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">아직 입출고 기록이 없습니다.</p>
+          <p className="px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
+            아직 입출고 기록이 없습니다.
+          </p>
         ) : (
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
             {(data.activity ?? []).map((entry) => (
-              <li key={entry.id} className="flex items-center gap-2 px-3 py-2 text-xs">
-                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${entry.action === "deposit" ? "bg-blue-500" : "bg-indigo-500"}`} />
+              <li
+                key={entry.id}
+                className="flex items-center gap-2 px-3 py-2 text-xs"
+              >
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${entry.action === "deposit" ? "bg-blue-500" : "bg-indigo-500"}`}
+                />
                 <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
-                  {entry.actorName} · {entry.meta?.itemName ?? "재료"} {(entry.meta?.quantity ?? 0).toLocaleString()}개 {entry.action === "deposit" ? "입고" : "출고"}
+                  {entry.actorName} · {entry.meta?.itemName ?? "아이템"}{" "}
+                  {entry.meta?.itemKind === "material"
+                    ? `${(entry.meta.quantity ?? 0).toLocaleString()}개 `
+                    : ""}
+                  {entry.action === "deposit" ? "입고" : "출고"}
                 </span>
-                <time dateTime={entry.createdAt} className="shrink-0 text-zinc-400">
+                <time
+                  dateTime={entry.createdAt}
+                  className="shrink-0 text-zinc-400"
+                >
                   {formatActivityDate(entry.createdAt)}
                 </time>
               </li>
@@ -326,34 +582,246 @@ export function GuildWarehousePanel() {
   );
 }
 
-function ActionTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function MaterialTransferForm({
+  action,
+  candidates,
+  activeMaterialId,
+  maxQuantity,
+  quantity,
+  busy,
+  onMaterialChange,
+  onQuantityChange,
+  onSubmit,
+}: {
+  action: WarehouseAction;
+  candidates: Array<[string, number]>;
+  activeMaterialId: string;
+  maxQuantity: number;
+  quantity: string;
+  busy: boolean;
+  onMaterialChange: (value: string) => void;
+  onQuantityChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  if (candidates.length === 0) {
+    return (
+      <div
+        className={`${SURFACE_INSET} px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400`}
+      >
+        {action === "deposit"
+          ? "입고할 수 있는 개인 재료가 없습니다."
+          : "출고할 재료가 없습니다."}
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+        재료
+        <select
+          value={activeMaterialId}
+          onChange={(event) => onMaterialChange(event.target.value)}
+          className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        >
+          {candidates.map(([materialId, count]) => (
+            <option key={materialId} value={materialId}>
+              {V2_MATERIALS[materialId].name} ({count.toLocaleString()}개)
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+        수량
+        <div className="flex">
+          <input
+            type="number"
+            min={1}
+            max={maxQuantity}
+            step={1}
+            inputMode="numeric"
+            value={quantity}
+            onChange={(event) => onQuantityChange(event.target.value)}
+            className="h-10 min-w-0 flex-1 rounded-l-md border border-r-0 border-zinc-300 bg-white px-2 text-right text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <button
+            type="button"
+            onClick={() => onQuantityChange(String(maxQuantity))}
+            className="h-10 rounded-r-md border border-zinc-300 bg-zinc-100 px-2 text-xs font-semibold dark:border-zinc-700 dark:bg-zinc-800"
+          >
+            전부
+          </button>
+        </div>
+      </label>
+      <TransferButton action={action} busy={busy} onClick={onSubmit} />
+    </div>
+  );
+}
+
+function EquipmentTransferForm({
+  action,
+  candidates,
+  activeEquipmentIid,
+  busy,
+  onEquipmentChange,
+  onSubmit,
+}: {
+  action: WarehouseAction;
+  candidates: V2EquipInstance[];
+  activeEquipmentIid: string;
+  busy: boolean;
+  onEquipmentChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  if (candidates.length === 0) {
+    return (
+      <div
+        className={`${SURFACE_INSET} px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400`}
+      >
+        {action === "deposit"
+          ? "입고할 수 있는 미착용 장비가 없습니다."
+          : "출고할 장비가 없습니다."}
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+        장비
+        <select
+          value={activeEquipmentIid}
+          onChange={(event) => onEquipmentChange(event.target.value)}
+          className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        >
+          {candidates.map((equipment) => {
+            const item = V2_EQUIPMENT[equipment.id];
+            return (
+              <option key={equipment.iid} value={equipment.iid}>
+                {item.name} · {SLOT_NAME[item.slot]}
+                {equipment.enhance ? ` · +${equipment.enhance.level}` : ""}
+                {equipment.locked ? " · 잠금" : ""}
+              </option>
+            );
+          })}
+        </select>
+      </label>
+      <TransferButton action={action} busy={busy} onClick={onSubmit} />
+    </div>
+  );
+}
+
+function TransferButton({
+  action,
+  busy,
+  onClick,
+}: {
+  action: WarehouseAction;
+  busy: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="h-10 self-end rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {busy ? "처리 중" : action === "deposit" ? "입고" : "출고"}
+    </button>
+  );
+}
+
+function StoredEquipmentCard({ equipment }: { equipment: V2EquipInstance }) {
+  const item = V2_EQUIPMENT[equipment.id];
+  return (
+    <div className={`${SURFACE_INSET} space-y-1.5 px-3 py-2`}>
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className={`min-w-0 truncate text-sm font-semibold ${powerNameClass(
+            item,
+            equipment.roll,
+            equipment.enhance,
+            equipment.craftQuality,
+          )}`}
+        >
+          {item.name}
+        </span>
+        {equipment.locked ? (
+          <Lock
+            size={14}
+            weight="fill"
+            className="shrink-0 text-amber-500"
+            aria-label="잠금 장비"
+          />
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        <EquipmentTierBadge tier={item.tier} compact />
+        <EnhanceLevelBadge enhance={equipment.enhance} />
+        <CraftQualityBadge craftQuality={equipment.craftQuality} />
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          {SLOT_NAME[item.slot]} · {v2EquipCatalogTierToDisplayTier(item.tier)}T
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ActionTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`rounded-md px-3 py-2 text-xs font-semibold ${active ? "bg-blue-600 text-white" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"}`}
+      className={`rounded-md px-3 py-2 text-xs font-semibold ${
+        active
+          ? "bg-blue-600 text-white"
+          : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+      }`}
     >
       {children}
     </button>
   );
 }
 
+function KindTab(props: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return <ActionTab {...props} />;
+}
+
 function warehouseErrorText(error?: string): string {
   switch (error) {
     case "not_authorized":
-      return "출고는 길드 마스터와 관리자만 할 수 있습니다.";
+      return "창고 입출고 권한이 없습니다.";
     case "insufficient_material":
       return "개인 보유 재료가 부족합니다.";
     case "insufficient_stock":
       return "창고에 보관된 수량이 부족합니다.";
     case "capacity_exceeded":
-      return "창고 보관 한도를 초과합니다.";
+      return "새 아이템을 보관할 빈 슬롯이 없습니다.";
     case "warehouse_required":
       return "먼저 길드 창고를 개방해야 합니다.";
     case "inventory_overflow":
       return "개인 인벤토리에 재료를 더 보관할 수 없습니다.";
+    case "equipment_not_owned":
+      return "개인 장비 목록에서 해당 장비를 찾을 수 없습니다.";
+    case "equipment_equipped":
+      return "착용 중인 장비는 입고할 수 없습니다.";
+    case "equipment_not_stored":
+      return "창고에서 해당 장비를 찾을 수 없습니다.";
+    case "member_not_found":
+      return "해당 길드원을 찾을 수 없습니다.";
     default:
       return "창고 처리에 실패했습니다.";
   }

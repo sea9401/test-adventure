@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
-import { itemNameClass } from "./shared";
+import { itemNameClass, QualityPctText } from "./shared";
 
 describe("itemNameClass", () => {
   it("uses the set color before the unique color", () => {
@@ -60,5 +62,16 @@ describe("itemNameClass", () => {
     expect(venomDagger.rarity).not.toBe("unique");
     expect(venomDagger.signature).toBeDefined();
     expect(itemNameClass(venomDagger)).toBe("ui-item-name-signature");
+  });
+});
+
+describe("QualityPctText", () => {
+  it("renders perfect quality with a vivid solid color", () => {
+    const html = renderToStaticMarkup(createElement(QualityPctText, { pct: 100 }));
+
+    expect(html).toContain("text-fuchsia-600");
+    expect(html).toContain("dark:text-fuchsia-300");
+    expect(html).not.toContain("text-transparent");
+    expect(html).not.toContain("background-image");
   });
 });

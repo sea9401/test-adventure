@@ -18,9 +18,6 @@ import {
 import { VARIANCE_FRACTION } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 
-const QUALITY_PRISM_TEXT_GRADIENT =
-  "linear-gradient(100deg,#a8648b,#bc884a,#7f9a67,#5f9aac,#8874ad,#b16d94)";
-
 // 굴림 품질 % → 색. 색 기준은 위력이 아니라 같은 장비 안에서의 개체 굴림 품질이다.
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
 export function rollPctClass(pct: number): string {
@@ -106,17 +103,9 @@ export function QualityPctText({
     <span
       className={`${className} ${
         perfect
-          ? "bg-clip-text font-semibold text-transparent"
+          ? "font-extrabold text-fuchsia-600 dark:text-fuchsia-300"
           : rollPctClass(pct)
       }`}
-      style={
-        perfect
-          ? {
-              backgroundImage: QUALITY_PRISM_TEXT_GRADIENT,
-              filter: "saturate(0.78)",
-            }
-          : undefined
-      }
     >
       {pct}%
     </span>

@@ -208,7 +208,7 @@ export function lateStatusDamageReductionBonus(depth: number): number {
 }
 
 // 권장 전투력 미달 보정도 HP·ATK 동일 배율에서 분리한다. HP는 기존 우회 방지 강도를 유지하되
-// 공격력은 차이의 45%, 방어력은 20%를 따라가고 명중·회피를 소폭 보강한다. 최대 미달 배율 6일 때
+// 공격력은 차이의 15%만, 방어력은 20%만 따라가고 명중·회피를 소폭 보강한다. 최대 미달 배율 6일 때
 // HP×6 / ATK×3.25 / DEF×2 / 명중×1.4 / 회피+12가 되어 즉사를 완화하면서도
 // 권장 전투력이 크게 부족한 캐릭터의 상위 사냥터 우회를 막는다.
 export function underpreparedAttackMult(combatMult: number): number {

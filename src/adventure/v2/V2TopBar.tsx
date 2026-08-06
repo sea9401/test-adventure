@@ -9,11 +9,12 @@ import {
   type AutoGatheringStatus,
 } from "./autoGathering";
 import { NotificationBell } from "./NotificationBell";
+import { V2NoticeLink } from "./V2NoticeLink";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
 // 좌측: 게임 아이콘(홈) + 자동 생활 작업 상태(진행 중인 생활 화면) 독립 링크.
-// 우측: 통합 알림(일반 알림+우편) 미리보기·광장/설정 메뉴.
+// 우측: 공지사항 바로가기·통합 알림(일반 알림+우편) 미리보기·광장/설정 메뉴.
 
 function LifeActivityStatus({
   status,
@@ -88,6 +89,7 @@ export function V2TopBar({
         )}
       </div>
       <nav className="relative z-[61] flex shrink-0 items-center gap-1">
+        <V2NoticeLink />
         <NotificationBell />
         <V2SettingsMenu />
       </nav>

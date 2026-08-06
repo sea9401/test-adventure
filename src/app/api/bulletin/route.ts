@@ -139,6 +139,7 @@ export async function GET(req: Request) {
     commentCountRows,
     viewCountRows,
     likedByMeRows,
+    viewedByMeRows,
     cosmeticByUser,
     activityByUser,
   ] =
@@ -176,6 +177,15 @@ export async function GET(req: Request) {
             inArray(bulletinLikes.postId, postIds),
           ),
         ),
+      db
+        .select({ postId: bulletinViews.postId })
+        .from(bulletinViews)
+        .where(
+          and(
+            eq(bulletinViews.userId, userId),
+            inArray(bulletinViews.postId, postIds),
+          ),
+        ),
       readMuseunCosmeticAppearanceMap(posts.map((post) => post.mine)),
       readBulletinActivityMap([
         userId,
@@ -189,6 +199,7 @@ export async function GET(req: Request) {
   );
   const viewCountMap = new Map(viewCountRows.map((r) => [r.postId, r.count]));
   const likedSet = new Set(likedByMeRows.map((r) => r.postId));
+  const viewedSet = new Set(viewedByMeRows.map((r) => r.postId));
   const myActivity = bulletinActivityFromMap(activityByUser, userId);
   await syncBulletinActivityTitlesBestEffort(userId, myActivity);
 
@@ -217,6 +228,7 @@ export async function GET(req: Request) {
     commentCount: commentCountMap.get(r.id) ?? 0,
     viewCount: viewCountMap.get(r.id) ?? 0,
     likedByMe: likedSet.has(r.id),
+    viewedByMe: viewedSet.has(r.id),
     authorActivity:
       r.category === "notice"
         ? null
@@ -325,7 +337,7 @@ export async function POST(req: Request) {
     await sendWebPushToAll({
       title: "새 공지사항",
       body: title,
-      url: "/plaza/bulletin",
+      url: "/plaza/notices",
       tag: `notice-${inserted.id}`,
     });
   }
@@ -349,6 +361,7 @@ export async function POST(req: Request) {
     commentCount: 0,
     viewCount: 0,
     likedByMe: false,
+    viewedByMe: false,
     authorActivity:
       category === "notice"
         ? null

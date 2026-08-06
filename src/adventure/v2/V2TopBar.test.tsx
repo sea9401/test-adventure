@@ -6,6 +6,10 @@ vi.mock("./NotificationBell", () => ({
   NotificationBell: () => <span>알림</span>,
 }));
 
+vi.mock("./V2NoticeLink", () => ({
+  V2NoticeLink: () => <a href="/plaza/notices">공지사항</a>,
+}));
+
 vi.mock("./V2SettingsMenu", () => ({
   V2SettingsMenu: () => <span>메뉴</span>,
 }));
@@ -15,6 +19,7 @@ describe("V2TopBar", () => {
     const html = renderToStaticMarkup(<V2TopBar autoGathering={null} />);
 
     expect(html).toContain('href="/"');
+    expect(html).toContain('href="/plaza/notices"');
     expect(html).toContain('aria-label="무슨무슨게임 홈으로 이동"');
     expect(html).toContain('width="32"');
     expect(html).toContain('height="32"');

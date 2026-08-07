@@ -38,7 +38,7 @@ export type HuntResult = {
   won: boolean;
   expGained: number;
   expAfter?: number; // 사냥 후 현재 레벨의 경험치 잔액.
-  proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~3).
+  proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~5).
   proficiencyPointsAfter?: number; // 사냥 후 사용 가능한 숙달 포인트 잔액.
   masteryGained?: number; // 직업 숙련도 획득(승리당 +1).
   masteryAfter?: number | null; // 사냥 후 현재 직업 숙련도.

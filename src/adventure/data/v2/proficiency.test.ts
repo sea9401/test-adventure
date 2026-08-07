@@ -639,8 +639,8 @@ describe("levelCapFor (코어루프 단일 레벨캡)", () => {
   });
 });
 
-describe("proficiencyPerKillAtDepth (승리당 숙달 — 초반 유지, 중후반 상한)", () => {
-  it("들판~심층 동굴은 2, 잊힌 성소 이후는 3에서 클램프", () => {
+describe("proficiencyPerKillAtDepth (승리당 숙달 — 최상위 사냥터 보상 강화)", () => {
+  it("사냥터 구간에 따라 2~5를 지급한다", () => {
     // 테마당 6깊이 — 각 테마의 시작·끝 깊이에서 같은 값. 깊이당 값은 깊은 산 삭제로 불변(테마 인덱스 동일).
     expect(proficiencyPerKillAtDepth(1)).toBe(2); // 들판 1
     expect(proficiencyPerKillAtDepth(6)).toBe(2); // 들판 6
@@ -652,11 +652,19 @@ describe("proficiencyPerKillAtDepth (승리당 숙달 — 초반 유지, 중후�
     expect(proficiencyPerKillAtDepth(37)).toBe(3); // 짐승의 소굴 1
     expect(proficiencyPerKillAtDepth(48)).toBe(3); // 검은 왕도 6
     expect(proficiencyPerKillAtDepth(49)).toBe(3); // 붉은 벌판 1
+    expect(proficiencyPerKillAtDepth(54)).toBe(3); // 붉은 벌판 6
+    expect(proficiencyPerKillAtDepth(55)).toBe(3); // 백골 고원 1
     expect(proficiencyPerKillAtDepth(60)).toBe(3); // 백골 고원 6
+    expect(proficiencyPerKillAtDepth(61)).toBe(4); // 폭풍 산맥 1
+    expect(proficiencyPerKillAtDepth(66)).toBe(4); // 폭풍 산맥 6
+    expect(proficiencyPerKillAtDepth(67)).toBe(4); // 심해 폐허 1
+    expect(proficiencyPerKillAtDepth(72)).toBe(4); // 심해 폐허 6
+    expect(proficiencyPerKillAtDepth(73)).toBe(5); // 천공 균열 1
+    expect(proficiencyPerKillAtDepth(78)).toBe(5); // 천공 균열 6
   });
 
-  it("프론티어 밖 방어 입력도 3 으로 클램프", () => {
-    expect(proficiencyPerKillAtDepth(120)).toBe(3);
+  it("프론티어 밖 방어 입력은 마지막 사냥터 보상 5로 클램프", () => {
+    expect(proficiencyPerKillAtDepth(120)).toBe(5);
   });
 
   it("비정상 입력 가드 — 0 이하·소수도 들판(2)으로 처리", () => {

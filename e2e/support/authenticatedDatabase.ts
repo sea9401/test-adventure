@@ -7,6 +7,7 @@ import {
   readE2eAccountConfig,
 } from "../../src/db/e2eDatabase.mjs";
 import { hashPasswordAccountPassword } from "../../src/lib/passwordCredentialCore.mjs";
+import { UGC_POLICY_VERSION } from "../../src/lib/ugc-safety";
 
 type AuthenticatedE2eConfig = {
   loginId: string;
@@ -86,6 +87,16 @@ export async function resetAuthenticatedE2eAccount() {
         account.normalizedLoginId,
         passwordHash,
       ],
+    );
+    // 인증 E2E는 게임 진행 복원과 API 경계를 검증한다. 전역 정책 동의 대화상자가
+    // 각 시나리오의 첫 입력을 가리지 않도록 격리 계정에 현재 버전 동의를 준비한다.
+    await client.query("DELETE FROM ugc_policy_consents WHERE user_id = $1", [
+      E2E_ACCOUNT_USER_ID,
+    ]);
+    await client.query(
+      `INSERT INTO ugc_policy_consents (user_id, version, accepted_at)
+       VALUES ($1, $2, now())`,
+      [E2E_ACCOUNT_USER_ID, UGC_POLICY_VERSION],
     );
     await client.query("DELETE FROM server_feed WHERE user_id = $1", [
       E2E_ACCOUNT_USER_ID,

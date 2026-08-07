@@ -111,6 +111,7 @@ export function AdventurerAssociationView({ onBack }: { onBack: () => void }) {
           <GuildDiningHallPanel
             endpoint="/api/v2/association/dining-hall"
             title="협회 식당"
+            source="association"
           />
         )}
         {active === "trade_post" && (

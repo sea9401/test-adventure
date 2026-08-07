@@ -3,6 +3,9 @@ import { COOP_BOSS_KIND_IDS, COOP_TIER_ORDER } from "./coopBosses";
 import {
   COOP_BOSS_MATERIAL,
   COOP_COIN_MATERIAL_ID,
+  COOP_KILLING_BLOW_HARD_COIN,
+  COOP_KILLING_BLOW_MATERIAL_COUNT,
+  COOP_KILLING_BLOW_NORMAL_COIN,
   COOP_EQUIPMENT_BOX,
   COOP_EQUIPMENT_BOX_ID,
   COOP_EXTRA_REWARD_RULES,
@@ -17,6 +20,7 @@ import {
   rollCoopEquipmentBoxDefItem,
   rollCoopEquipmentBoxItem,
   rollCoopExtraRewards,
+  coopKillingBlowReward,
 } from "./coopRewards";
 import { V2_EQUIPMENT, isUnique } from "./v2Equipment";
 
@@ -37,6 +41,20 @@ describe("coopRewards", () => {
     expect(coopEquipmentBoxById(COOP_TIER5_EQUIPMENT_BOX.id)).toBe(
       COOP_TIER5_EQUIPMENT_BOX,
     );
+  });
+
+  it("처치 확정타 보상은 일반/하드 주화를 구분하고 보스 재료를 확정 지급한다", () => {
+    expect(coopKillingBlowReward("mountain_chief")).toEqual({
+      coin: COOP_KILLING_BLOW_NORMAL_COIN,
+      bossMaterialId: COOP_BOSS_MATERIAL.mountain_chief.id,
+      bossMaterialName: COOP_BOSS_MATERIAL.mountain_chief.name,
+      bossMaterialCount: COOP_KILLING_BLOW_MATERIAL_COUNT,
+    });
+    expect(coopKillingBlowReward("abyssal_tyrant")).toMatchObject({
+      coin: COOP_KILLING_BLOW_HARD_COIN,
+      bossMaterialId: COOP_BOSS_MATERIAL.abyssal_tyrant.id,
+      bossMaterialCount: COOP_KILLING_BLOW_MATERIAL_COUNT,
+    });
   });
 
   it("공용 5T 상자는 산군·어룡 5T 장비 풀을 합쳐서 굴린다", () => {

@@ -59,7 +59,7 @@ import {
 } from "@/adventure/v2/farm";
 import { rollWoodcuttingSeedDrop } from "@/adventure/v2/woodcuttingSeedDrops";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
-import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   LIFE_FIELD_DISCOVERIES,
@@ -265,13 +265,7 @@ export async function POST(req: Request) {
     }
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.woodcutting;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
-      const activeAids = { ...crafting.activeAids };
-      if (activeAid.remainingUses <= 1) delete activeAids.woodcutting;
-      else activeAids.woodcutting = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
-    }
+    crafting = consumeLifeAidUses(crafting, "woodcutting", session.aidItemId, 1).state;
     const blueprint = rollHiddenBlueprint(crafting, "woodcutting");
     workshop = { ...workshop, crafting: blueprint.state };
     await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);

@@ -648,29 +648,33 @@ export function advanceTurnPvP(
       text: `[이중 행운] ${attacker.name} 회피/치명타 +${attacker.player.doubleLuck!.crit}% 발동!`,
     });
   }
-  // 흡혈 / 행운의 흡혈 / 흡혈의 룬 — 가한 dmg (본타) 의 N% HP 회복.
+  // 흡혈 / 행운의 흡혈 / 흡혈의 룬 — 보호막을 뚫고 실제 HP에 가한 피해의 N% HP 회복.
+  // 방어막에 전량 흡수돼 로그상 0 피해인 공격은 흡혈도 0이어야 한다.
+  const lifestealDamage = Math.min(dmg, dmgToHp);
   const lifestealHeal =
     critRoll && (attacker.player.lifestealCritHealPct ?? 0) > 0
-      ? Math.floor((dmg * attacker.player.lifestealCritHealPct!) / 100)
+      ? Math.floor((lifestealDamage * attacker.player.lifestealCritHealPct!) / 100)
       : 0;
   const luckyLifestealHeal =
     (attacker.player.luckyLifestealPct ?? 0) > 0
-      ? Math.floor((dmg * attacker.player.luckyLifestealPct!) / 100)
+      ? Math.floor((lifestealDamage * attacker.player.luckyLifestealPct!) / 100)
       : 0;
   const runeLifestealHeal =
     (attacker.player.runeLifestealPct ?? 0) > 0
-      ? Math.floor((dmg * attacker.player.runeLifestealPct!) / 100)
+      ? Math.floor((lifestealDamage * attacker.player.runeLifestealPct!) / 100)
       : 0;
   const apLifestealHeal =
     nextBuffsTimedFromAp.playerLifestealTurnsLeft > 0 &&
     nextBuffsTimedFromAp.playerLifestealPct > 0
-      ? Math.floor((dmg * nextBuffsTimedFromAp.playerLifestealPct) / 100)
+      ? Math.floor(
+          (lifestealDamage * nextBuffsTimedFromAp.playerLifestealPct) / 100,
+        )
       : 0;
   // 별빛 흡혈(enchant lifesteal) + 포식 패시브(둘 다 enchantLifestealPct 로 합류) — 가한 피해의 pct%
   //   HP 회복. PvE(playerPhase)에선 항상 소비되나 PvP 에선 inert 였던 걸 미러(2026-06-19, full mirror).
   const enchantLifestealHeal =
     (attacker.player.enchantLifestealPct ?? 0) > 0
-      ? Math.floor((dmg * attacker.player.enchantLifestealPct!) / 100)
+      ? Math.floor((lifestealDamage * attacker.player.enchantLifestealPct!) / 100)
       : 0;
   const totalLifestealHeal =
     lifestealHeal +

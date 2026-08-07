@@ -74,7 +74,7 @@ import {
   lifeGatheringBonusPct,
   parseLifeWorkshopState,
 } from "@/adventure/v2/lifeWorkshop";
-import { lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   applyLifeFieldDurationReduction,
@@ -300,15 +300,12 @@ export async function POST(req: Request) {
     settlement.xpGained += discoveryRewardXp;
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.woodcutting;
     let aidSuccesses = 0;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId) {
-      aidSuccesses = Math.min(settlement.successes, activeAid.remainingUses);
+    if (session.aidItemId) {
+      const aidConsumption = consumeLifeAidUses(crafting, "woodcutting", session.aidItemId, settlement.successes);
+      aidSuccesses = aidConsumption.consumed;
       settlement.materialsGained += Math.floor(aidSuccesses * (session.aidBonusMaterialRate ?? 0) * session.materialEfficiency);
-      const activeAids = { ...crafting.activeAids };
-      if (aidSuccesses >= activeAid.remainingUses) delete activeAids.woodcutting;
-      else activeAids.woodcutting = { ...activeAid, remainingUses: activeAid.remainingUses - aidSuccesses };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + aidSuccesses };
+      crafting = aidConsumption.state;
     }
     const blueprint = rollHiddenBlueprint(crafting, "woodcutting", settlement.successes);
     workshop = { ...workshop, crafting: blueprint.state };

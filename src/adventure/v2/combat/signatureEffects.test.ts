@@ -478,15 +478,19 @@ describe("onDodgeHealAmount (봉인 회피 회복)", () => {
   });
 });
 
-describe("onDodgeSpeedBuff (독왕 회피 속도)", () => {
+describe("onDodgeSpeedBuff (회피 속도 시그니처)", () => {
   const VENOM: SignatureEffect = {
     trigger: "on_dodge",
     label: "독왕",
     spdBuffPct: 25,
     buffActions: 3,
   };
-  it("on_dodge spdBuffPct → {배수, 지속}", () => {
-    expect(onDodgeSpeedBuff([VENOM])).toEqual({ mult: 1.25, turns: 3 });
+  it("on_dodge spdBuffPct → {배수, 지속, 라벨}", () => {
+    expect(onDodgeSpeedBuff([VENOM])).toEqual({
+      mult: 1.25,
+      turns: 3,
+      label: "독왕",
+    });
   });
   it("미장착/회복전용(봉인)/on_crit → null", () => {
     expect(onDodgeSpeedBuff(undefined)).toBeNull();
@@ -494,6 +498,34 @@ describe("onDodgeSpeedBuff (독왕 회피 속도)", () => {
       onDodgeSpeedBuff([{ trigger: "on_dodge", label: "봉인", healPct: 8 }]),
     ).toBeNull(); // spdBuffPct 없음
     expect(onDodgeSpeedBuff([CROWN])).toBeNull(); // on_crit
+  });
+});
+
+describe("엔진 통합 — 밤기수 회피 속도", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("밤기수를 장착하고 회피하면 속도 버프와 발동 로그가 남는다", () => {
+    const player = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { boots: "v2_plateau_sig_rider_boots" },
+    }).player;
+    const enemy = V2_MONSTERS["훈련용 허수아비"];
+    const state = {
+      ...initialBattleState(player, enemy, "용사"),
+      phase: "enemy" as const,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const after = advanceTurn(state, player, "용사");
+
+    expect(after.buffs.playerSpdMult).toBe(1.25);
+    expect(after.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(
+      after.log.some(
+        (entry) =>
+          entry.text.includes("[밤기수]") && entry.text.includes("속도 +25%"),
+      ),
+    ).toBe(true);
   });
 });
 

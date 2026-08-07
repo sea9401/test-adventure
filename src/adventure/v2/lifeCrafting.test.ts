@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   LIFE_CRAFTING_RECIPES,
+  activateLifeAid,
+  consumeLifeAidUses,
   emptyLifeCraftingState,
   lifeBlueprintSourceLabel,
   lifeAidSpec,
@@ -15,6 +17,11 @@ describe("life crafting", () => {
   it("keeps only valid balances and active aids", () => {
     const state = parseLifeCraftingState({
       balances: { organic_fertilizer: 3, unknown: 99 },
+      reserveAidUses: {
+        logging_wedge_advanced: 321,
+        organic_fertilizer: 3,
+        unknown: 99,
+      },
       activeAids: {
         woodcutting: { itemId: "logging_wedge_basic", remainingUses: 12, enabled: true },
         fishing: { itemId: "organic_fertilizer", remainingUses: 5, enabled: true },
@@ -23,6 +30,58 @@ describe("life crafting", () => {
     expect(state.balances).toEqual({ organic_fertilizer: 3 });
     expect(state.activeAids.woodcutting?.remainingUses).toBe(12);
     expect(state.activeAids.fishing).toBeUndefined();
+    expect(state.reserveAidUses).toEqual({ logging_wedge_advanced: 321 });
+  });
+
+  it("switches aid tiers without losing the remaining uses", () => {
+    const initial = parseLifeCraftingState({
+      balances: { logging_wedge_advanced: 1 },
+      activeAids: {
+        woodcutting: {
+          itemId: "logging_wedge_basic",
+          remainingUses: 599,
+          enabled: true,
+        },
+      },
+    });
+
+    const advanced = activateLifeAid(initial, "logging_wedge_advanced");
+    expect(advanced).toMatchObject({ replaced: true, resumed: false });
+    expect(advanced?.state.activeAids.woodcutting).toMatchObject({
+      itemId: "logging_wedge_advanced",
+      remainingUses: 800,
+      enabled: true,
+    });
+    expect(advanced?.state.reserveAidUses).toEqual({ logging_wedge_basic: 599 });
+    expect(advanced?.state.balances.logging_wedge_advanced).toBeUndefined();
+
+    const basic = activateLifeAid(advanced!.state, "logging_wedge_basic");
+    expect(basic).toMatchObject({ replaced: true, resumed: true });
+    expect(basic?.state.activeAids.woodcutting).toMatchObject({
+      itemId: "logging_wedge_basic",
+      remainingUses: 599,
+      enabled: true,
+    });
+    expect(basic?.state.reserveAidUses).toEqual({ logging_wedge_advanced: 800 });
+  });
+
+  it("charges an in-flight gathering action to the aid moved into reserve", () => {
+    const state = parseLifeCraftingState({
+      reserveAidUses: { logging_wedge_basic: 599 },
+      activeAids: {
+        woodcutting: {
+          itemId: "logging_wedge_advanced",
+          remainingUses: 800,
+          enabled: true,
+        },
+      },
+    });
+
+    const result = consumeLifeAidUses(state, "woodcutting", "logging_wedge_basic", 1);
+    expect(result.consumed).toBe(1);
+    expect(result.state.reserveAidUses.logging_wedge_basic).toBe(598);
+    expect(result.state.activeAids.woodcutting?.remainingUses).toBe(800);
+    expect(result.state.aidsUsed).toBe(1);
   });
 
   it("uses the approved grade bands, charges and bonuses", () => {

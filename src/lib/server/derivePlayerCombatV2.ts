@@ -294,7 +294,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveMagicSkillDamagePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
   passiveSpdOverflowToAtkPct?: number;
-  /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
+  /** 치명 한계 확장 — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
   passiveSkillCritOverflow?: boolean;
   /** 흑월지배 — 회피 후 다음 직접 피해 스킬 확정 치명타. 장착 패시브에서 주입. */
   passiveSkillCritAfterEvade?: boolean;
@@ -595,7 +595,7 @@ export function derivePlayerCombatV2Pure(
     // 발동형 시그니처(Phase 2) — 활성분 있을 때만 키 추가(빈 배열이면 키 자체 생략 →
     //   미장착 액터의 player 객체·스냅샷 byte-identical, 엔진 훅 미발화).
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
-    // 밤그림자 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
+    // 치명 한계 확장 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
     ...(input.passiveSkillCritOverflow ? { skillCritOverflow: true as const } : {}),
     // 흑월지배 — 회피 뒤 다음 직접 피해 스킬 확정 치명타 플래그.
     ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),

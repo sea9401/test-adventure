@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LandingContent } from "./LandingContent";
+import { urlWithoutReferralParam } from "./ReferralStatusNotice";
 
 describe("대문 로그인 선택지", () => {
   it("로그인했지만 캐릭터가 없어도 생성과 기존 계정 로그인을 모두 제공한다", () => {
@@ -40,6 +41,14 @@ describe("대문 로그인 선택지", () => {
     expect(html).toContain("홍보 링크가 적용되었습니다");
     expect(html).toContain("나와 홍보자 모두 회복약 2개를 받고");
     expect(html).toContain("홍보자에게 추가 보상이 지급됩니다");
+  });
+
+  it("홍보 안내를 표시한 뒤 URL에서는 홍보 상태만 제거한다", () => {
+    expect(
+      urlWithoutReferralParam(
+        "https://msmsge.com/sign-in?referral=accepted&error=AccessDenied#login",
+      ),
+    ).toBe("/sign-in?error=AccessDenied#login");
   });
 
   it("OAuth 계정 연결 실패를 로그인 반복 대신 명시적으로 안내한다", () => {

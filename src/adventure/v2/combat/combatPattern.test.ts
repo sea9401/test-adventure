@@ -132,10 +132,12 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "enemy_hp", op: "below", pct: 30 }, ctx({ enemyHpPct: 80 }))).toBe(false);
   });
 
-  it("enemy_status atLeast/none — 스택 폭발 패턴", () => {
+  it("enemy_status atLeast/atMost/none — 스택 조건 패턴", () => {
     const c = ctx({ enemyBleed: 3 });
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 3 }, c)).toBe(true);
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 4 }, c)).toBe(false);
+    expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atMost", stacks: 3 }, c)).toBe(true);
+    expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "atMost", stacks: 2 }, c)).toBe(false);
     expect(conditionPasses({ kind: "enemy_status", tag: "poison", op: "none", stacks: 0 }, c)).toBe(true);
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "none", stacks: 0 }, c)).toBe(false);
   });
@@ -260,9 +262,13 @@ describe("parseCombatPattern (저장 검증)", () => {
 
   it("pct/stacks 클램프 + 블록 상한", () => {
     const p = parseCombatPattern({
-      blocks: [{ condition: { kind: "enemy_hp", op: "below", pct: 999 }, action: { kind: "skill", skillId: "a" } }],
+      blocks: [
+        { condition: { kind: "enemy_hp", op: "below", pct: 999 }, action: { kind: "skill", skillId: "a" } },
+        { condition: { kind: "enemy_status", tag: "poison", op: "atMost", stacks: 4.9 }, action: { kind: "skill", skillId: "b" } },
+      ],
     });
     expect(p.blocks[0].condition).toEqual({ kind: "enemy_hp", op: "below", pct: 100 });
+    expect(p.blocks[1].condition).toEqual({ kind: "enemy_status", tag: "poison", op: "atMost", stacks: 4 });
     // 상한 초과 → 잘림.
     const many = parseCombatPattern({
       blocks: Array.from({ length: V2_COMBAT_PATTERN_MAX_BLOCKS + 5 }, () => ({

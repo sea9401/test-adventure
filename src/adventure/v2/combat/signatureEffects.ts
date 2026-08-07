@@ -288,18 +288,18 @@ export function everyNHitsValue(
   return everyNHitsEffect(signatures)?.hits ?? 0;
 }
 
-// on_dodge 속도 버프(독왕 세트) — 회피 성공 시 발동할 속도 버프 {배수, 지속행동}(가장 강한).
+// on_dodge 속도 버프 — 회피 성공 시 발동할 속도 버프 {배수, 지속행동, 라벨}(가장 강한).
 //   미장착/미발동 = null.
 export function onDodgeSpeedBuff(
   signatures: SignatureEffect[] | undefined,
-): { mult: number; turns: number } | null {
+): { mult: number; turns: number; label: string } | null {
   if (!signatures) return null;
-  let best: { mult: number; turns: number } | null = null;
+  let best: { mult: number; turns: number; label: string } | null = null;
   for (const s of signatures) {
     if (s.trigger !== "on_dodge" || !s.spdBuffPct) continue;
     const mult = 1 + s.spdBuffPct / 100;
     const turns = Math.max(1, s.buffActions ?? 1);
-    if (!best || mult > best.mult) best = { mult, turns };
+    if (!best || mult > best.mult) best = { mult, turns, label: s.label };
   }
   return best;
 }

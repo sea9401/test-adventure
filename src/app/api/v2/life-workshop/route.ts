@@ -38,7 +38,7 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   LIFE_CRAFTING_RECIPE_BY_ID,
   LIFE_CRAFTING_RECIPES,
-  consumeFinishedItem,
+  activateLifeAid,
   lifeAidSpec,
   recipeMasteryStage,
   rollHiddenBlueprint,
@@ -251,12 +251,12 @@ export async function POST(req: Request) {
       const itemId = typeof requestBody.itemId === "string" ? requestBody.itemId as LifeFinishedItemId : "" as LifeFinishedItemId;
       const spec = lifeAidSpec(itemId);
       if (!spec) return { error: "bad_aid" as const };
-      if (state.crafting.activeAids[spec.activity]?.remainingUses) return { error: "aid_in_use" as const };
-      const consumed = consumeFinishedItem(state.crafting, itemId, 1);
-      if (!consumed) return { error: "aid_not_owned" as const };
-      const nextState: LifeWorkshopState = { ...state, crafting: { ...consumed, activeAids: { ...consumed.activeAids, [spec.activity]: { itemId, remainingUses: spec.uses, enabled: true } } } };
+      if (state.crafting.activeAids[spec.activity]?.itemId === itemId) return { error: "aid_in_use" as const };
+      const activation = activateLifeAid(state.crafting, itemId);
+      if (!activation) return { error: "aid_not_owned" as const };
+      const nextState: LifeWorkshopState = { ...state, crafting: activation.state };
       await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, nextState);
-      return { ok: true as const, result: { action, itemId, activity: spec.activity }, snapshot: { state: nextState, charSave, woodcuttingRaw, miningRaw } };
+      return { ok: true as const, result: { action, itemId, activity: spec.activity, replaced: activation.replaced, resumed: activation.resumed }, snapshot: { state: nextState, charSave, woodcuttingRaw, miningRaw } };
     }
 
     if (action === "toggle_aid") {

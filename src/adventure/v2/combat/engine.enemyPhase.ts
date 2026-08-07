@@ -221,7 +221,7 @@ export function resolveEnemyPhase(
     onDodgeHealAmount(player.equipSignatures, state.playerMaxHp);
   const healOnDodge = (hp: number): number =>
     evadeHeal > 0 ? Math.min(state.playerMaxHp, hp + evadeHeal) : hp;
-  // 독왕 on-dodge 속도 버프(Phase 2) — 회피 성공 분기들이 next.buffs 로 쓸 값. 미발동=state.buffs
+  // on-dodge 속도 버프(Phase 2) — 회피 성공 분기들이 next.buffs 로 쓸 값. 미발동=state.buffs
   //   그대로(Math.max 로 기존 버프 미감소) → byte-identical.
   const sigDodgeSpd = onDodgeSpeedBuff(player.equipSignatures);
   const dodgeSpdActiveMult =
@@ -236,6 +236,13 @@ export function resolveEnemyPhase(
         ),
       }
     : state.buffs;
+  const appendDodgeSpeedBuffLog = (log: BattleLogEntry[]): BattleLogEntry[] =>
+    sigDodgeSpd
+      ? appendLog(log, {
+          kind: "info",
+          text: `[${sigDodgeSpd.label}] ${playerName}의 속도 +${Math.round((sigDodgeSpd.mult - 1) * 100)}% (${sigDodgeSpd.turns}행동)`,
+        })
+      : log;
   const dodgeFlags = player.skillCritAfterEvade
     ? { ...state.flags, skillCritAfterEvadePending: true }
     : state.flags;
@@ -314,6 +321,7 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[그림자 보법] ${playerName}이(가) 모든 공격을 그림자처럼 흘려보냈다!`,
     });
+    log = appendDodgeSpeedBuffLog(log);
     if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
       log = appendLog(log, {
         kind: "info",
@@ -351,7 +359,7 @@ export function resolveEnemyPhase(
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       flags: dodgeFlags,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
+      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -372,6 +380,7 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[회피 강화] ${state.enemy.name}의 공격을 회피했다!`,
     });
+    log = appendDodgeSpeedBuffLog(log);
     if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
       log = appendLog(log, {
         kind: "info",
@@ -412,7 +421,7 @@ export function resolveEnemyPhase(
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       flags: dodgeFlags,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
+      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       stacks: {
         ...state.stacks,
         evadesRemaining: state.stacks.evadesRemaining - 1,
@@ -474,6 +483,7 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `${playerName}이(가) ${state.enemy.name}의 공격을 회피했다!`,
     });
+    log = appendDodgeSpeedBuffLog(log);
     if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
       log = appendLog(log, {
         kind: "info",
@@ -510,7 +520,7 @@ export function resolveEnemyPhase(
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
       flags: dodgeFlags,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
+      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -566,6 +576,7 @@ export function resolveEnemyPhase(
       kind: "info",
       text: `[행운의 방패] ${playerName}이(가) ${state.enemy.name}의 공격을 흘려보냈다!`,
     });
+    log = appendDodgeSpeedBuffLog(log);
     if (healedHp > state.playerHp) {
       log = appendLog(log, {
         kind: "info",
@@ -594,7 +605,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
-      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
+      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,

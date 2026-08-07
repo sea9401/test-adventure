@@ -106,6 +106,7 @@ const ENEMY_STATUS_OPTIONS = [
 ] as const;
 const ENEMY_STATUS_OP_OPTIONS = [
   { value: "atLeast", label: "스택 이상" },
+  { value: "atMost", label: "스택 이하" },
   { value: "none", label: "없을 때" },
 ] as const;
 const ENEMY_DEBUFF_OPTIONS = [
@@ -1218,10 +1219,10 @@ function ConditionParams({
             label="적 상태 비교 방식"
             onChange={(op) => onChange({ ...c, op })}
           />
-          {c.op === "atLeast" && (
+          {c.op !== "none" && (
             <PatternNumberInput
               key="enemy-status-stacks"
-              min={1}
+              min={c.op === "atLeast" ? 1 : 0}
               value={c.stacks}
               onValueChange={(stacks) => onChange({ ...c, stacks })}
             />

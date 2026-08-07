@@ -54,7 +54,7 @@ import {
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
-import { lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   LIFE_FIELD_DISCOVERIES,
@@ -254,13 +254,7 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.mining;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
-      const activeAids = { ...crafting.activeAids };
-      if (activeAid.remainingUses <= 1) delete activeAids.mining;
-      else activeAids.mining = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
-    }
+    crafting = consumeLifeAidUses(crafting, "mining", session.aidItemId, 1).state;
     const blueprint = rollHiddenBlueprint(crafting, "mining");
     workshop = { ...workshop, crafting: blueprint.state };
     await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);

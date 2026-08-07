@@ -14,7 +14,7 @@ import {
 } from "@/lib/server/savesKv";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
-import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { appendLog, resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -43,6 +43,12 @@ import {
 } from "@/adventure/v2/stamina";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
+import {
+  COOP_COIN_MATERIAL_ID,
+  coopKillingBlowReward,
+} from "@/adventure/data/v2/coopRewards";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 
 // POST /api/v2/coop/attack — 협동 보스 1회 공격.
 //
@@ -55,14 +61,15 @@ import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 //   4. session FOR UPDATE → 재검증(처치/만료) + 쿨다운 → hp 차감 + 처치 CAS(락 보유로
 //      1명만 defeated 분기 — v1 attack.ts 의 C1/C2 race fix 승계).
 //   5. contributor UPSERT + 공격 로그 1줄.
-//   6. character.v2 에 스태미너만 기록 — 협동 보스는 현재 HP/MP 를 소모하지 않는 별도 전투.
+//   6. character.v2 에 스태미너와 처치 확정타 보상을 기록 — 협동 보스는 현재 HP/MP 를 소모하지 않는 별도 전투.
 //      세션 검증을 통과한 뒤에만 쓰므로 쿨다운/만료 거부 시 스태미너 미소모.
-// 처치 확정자(킬 CAS)는 tx 후 coop_kill 피드 발행. 보상은 별도 claim(본인 세이브만 —
-// 교차 유저 락 0 원칙).
+// 처치 확정자(킬 CAS)는 트랜잭션 안에서 소액 막타 보상을 즉시 받고, tx 후 coop_kill 피드를
+// 발행한다. 기여 보상은 별도 claim(본인 세이브만 — 교차 유저 락 0 원칙).
 
 type CharSave = {
   stamina?: unknown;
   staminaCapBonus?: unknown;
+  materials?: unknown;
   [k: string]: unknown;
 };
 
@@ -261,8 +268,6 @@ export async function POST(req: Request) {
       bossBattleStartMp - simulatedBossMpAfter,
     );
     const diedEarly = battleResult.finalState.playerHp <= 0;
-    const replay = toReplayPayload(battleResult.finalState, 200);
-
     // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
     const [s] = await tx
       .select()
@@ -367,6 +372,8 @@ export async function POST(req: Request) {
       .where(eq(coopBossSessions.id, s.id))
       .returning({ hp: coopBossSessions.hp });
     const bossHp = updated?.hp ?? s.hp;
+    const killingBlowReward =
+      bossHp === 0 ? coopKillingBlowReward(kindId) : null;
     if (bossHp === 0) {
       // 처치 — 락 보유로 이 분기는 정확히 1명(킬 CAS). nextSpawnAt 없음(소환형).
       await tx
@@ -374,6 +381,20 @@ export async function POST(req: Request) {
         .set({ defeatedAt: nowDate })
         .where(eq(coopBossSessions.id, s.id));
     }
+
+    const replay = toReplayPayload(
+      killingBlowReward
+        ? {
+            ...battleResult.finalState,
+            log: appendLog(battleResult.finalState.log, {
+              kind: "info",
+              turn: "player",
+              text: `[처치 확정타] 협동 주화 ×${killingBlowReward.coin} · ${killingBlowReward.bossMaterialName} ×${killingBlowReward.bossMaterialCount} 획득`,
+            }),
+          }
+        : battleResult.finalState,
+      200,
+    );
 
     // === 5. contributor UPSERT + 공격 로그 ===
     await tx
@@ -417,10 +438,19 @@ export async function POST(req: Request) {
       })
       .returning({ id: coopBossAttackLog.id });
 
-    // === 6. character.v2 스태미너만 기록 — HP/MP·회복약은 협동 보스 전투와 분리 ===
+    // === 6. character.v2 스태미너 + 처치 확정타 보상 기록 — HP/MP·회복약은 협동 보스 전투와 분리 ===
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       stamina: afterStamina,
+      ...(killingBlowReward
+        ? {
+            materials: mergeDrops(charSave.materials, {
+              [COOP_COIN_MATERIAL_ID]: killingBlowReward.coin,
+              [killingBlowReward.bossMaterialId]:
+                killingBlowReward.bossMaterialCount,
+            }),
+          }
+        : {}),
     });
 
     return {
@@ -444,6 +474,7 @@ export async function POST(req: Request) {
           defeated: bossHp === 0,
           myDamage,
           myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId),
+          killingBlowReward,
           replay,
         },
       },
@@ -455,6 +486,22 @@ export async function POST(req: Request) {
     result.status === 200 && result.body.ok ? result.body.result : null;
   if (defeatedResult?.defeated) {
     const defeatedKind = defeatedResult.kind as CoopBossKindId;
+    if (defeatedResult.killingBlowReward) {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.coop.killing_blow",
+        itemKind: "coop_killing_blow_bundle",
+        quantity: 1,
+        detail: {
+          sessionId,
+          kind: defeatedKind,
+          coopCoin: defeatedResult.killingBlowReward.coin,
+          bossMaterialId: defeatedResult.killingBlowReward.bossMaterialId,
+          bossMaterialCount:
+            defeatedResult.killingBlowReward.bossMaterialCount,
+        },
+      });
+    }
     await insertFeedEntry(userId, "coop_kill", {
       kind: defeatedKind,
       sessionId,

@@ -89,7 +89,9 @@ describe("production security surface", () => {
       expect(proxy).toContain(path);
     }
     expect(proxy).toContain('datetime="2026-08-08T04:00:00+09:00"');
-    expect(proxy).toContain('datetime="2026-08-08T05:00:00+09:00"');
+    expect(proxy).toContain('datetime="2026-08-08T05:30:00+09:00"');
+    expect(proxy).toContain("서버 점검 · 30분 연장");
+    expect(proxy).toContain("진심으로 죄송합니다");
   });
 
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {

@@ -410,6 +410,9 @@ async function createCharacter(page: Page, name: string) {
   await page.getByPlaceholder("이름 입력").fill(name);
   await expect(page.getByText("사용 가능한 이름이에요.")).toBeVisible();
   await page.getByRole("button", { name: "남성 1" }).click();
+  await page
+    .getByRole("checkbox", { name: /커뮤니티 운영정책/ })
+    .check();
 
   const setupResponse = page.waitForResponse(
     (response) =>

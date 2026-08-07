@@ -47,12 +47,14 @@ vi.mock("@/lib/server/guildActivityLog", () => ({
 }));
 vi.mock("@/lib/server/adventurerAssociation", () => ({
   claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
+  readWeeklyFacilitySource: vi.fn(async () => null),
 }));
 
 import { lockGuildDiningWeekly } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import { POST } from "./route";
+import { readWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
+import { GET, POST } from "./route";
 
 function request(body: Record<string, unknown>) {
   return new Request("http://localhost/api/v2/guild/dining-hall", {
@@ -78,6 +80,7 @@ function weekly(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(readWeeklyFacilitySource).mockResolvedValue(null);
   vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly());
   vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
     if (key === "farm.v2") {
@@ -99,6 +102,16 @@ beforeEach(() => {
 });
 
 describe("길드 식당", () => {
+  it("현재 선택한 주간 식당 이용처를 화면 데이터에 포함한다", async () => {
+    vi.mocked(readWeeklyFacilitySource).mockResolvedValue("association");
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.weeklySource).toBe("association");
+  });
+
   it("등록된 농장 식재료를 소비해 공동 준비와 개인 식권 진척을 함께 올린다", async () => {
     const response = await POST(
       request({ action: "donate", ingredientId: "farm:wheat", quantity: 10 }),

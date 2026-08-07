@@ -34,7 +34,10 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
-import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
+import {
+  claimWeeklyFacilitySource,
+  readWeeklyFacilitySource,
+} from "@/lib/server/adventurerAssociation";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -79,7 +82,7 @@ async function diningView(args: {
   inventory?: InventorySave;
 }) {
   const { tx, userId, guildId, level, weekly } = args;
-  const [ingredientBalances, inventoryRaw, diningRaw, canManage] = await Promise.all([
+  const [ingredientBalances, inventoryRaw, diningRaw, canManage, weeklySource] = await Promise.all([
     readGuildDiningIngredientBalances(tx, userId),
     args.inventory
       ? Promise.resolve(args.inventory)
@@ -93,6 +96,7 @@ async function diningView(args: {
           {},
         ),
     isGuildAdmin(tx, guildId, userId),
+    readWeeklyFacilitySource(tx, userId, "dining_hall", weekly.weekKey),
   ]);
   const inventory = inventoryRaw as InventorySave;
   const userState =
@@ -117,6 +121,7 @@ async function diningView(args: {
     weekKey: weekly.weekKey,
     canManage,
     eligible: weekly.eligibleUserIds.includes(userId),
+    weeklySource,
     pantry: {
       points: weekly.pantryPoints,
       target: weekly.targetPoints,

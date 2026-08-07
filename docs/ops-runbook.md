@@ -183,17 +183,18 @@ bash deploy/maintenance.sh status   # 현재 상태
 - 앱을 직접 `stop`한 상태에서 `off`를 실행하면 nginx 화면 아래에서 서비스를 먼저 시작한 뒤 health를 확인한다.
 - 예전 앱 레벨 `MAINTENANCE_MODE`는 SSM 운영 환경에 넣지 않는다. 점검은 nginx 플래그만 사용한다.
 
-### 다음 점검 대기 작업
+### 최근 점검 완료 작업
 
-- [ ] **비공개 숙소 도안 회수** (2026-08-08 운영 DB 읽기 전용 사전 조사 완료)
-  - 배포 변경에는 `LIFE_HOUSING_ENABLED=false`와 숙소 페이지·API의 404 차단이 포함되어야 한다.
+- [x] **비공개 숙소 도안 회수** (2026-08-08 완료)
+  - `LIFE_HOUSING_ENABLED=false`와 Proxy 이중 게이트로 숙소 페이지·API를 실제 HTTP 404로 차단했다.
   - 대상: `혈향` 1명, `fishing_trophy_wall`(낚시 기념 벽장식) 도안 1종.
   - 조사 당시 해당 가구의 제작·보유·숙소 배치는 모두 0건이다.
   - `life-workshop.v1.crafting.learnedHiddenRecipeIds`에서 해당 도안 ID만 제거한다.
   - 이미 수령한 `life_blueprint1` 업적과 `life_blueprint_collector` 칭호는 회수하지 않는다.
   - 기존 `life_blueprint` 피드 1건은 화면·전광판에서 숨기되 DB 기록은 보존한다.
-  - 작업 직전 DB 백업과 동일 조건 재조사를 하고, 점검 모드 안에서 트랜잭션으로 처리한 뒤 제작·보유·배치 0건 및 도안 제거를 재확인한다.
-  - 배포 후 `/character/room`, `/character/{name}/room`, `/api/v2/me/housing`, `/api/v2/player/{name}/housing`이 모두 404인지 확인한다.
+  - 작업 직전 DB 백업과 동일 조건 재조사 후 점검 모드 안에서 트랜잭션으로 회수했으며, 제작·보유·배치 0건과 도안 제거를 재확인했다.
+  - `life_blueprint1` 업적과 `life_blueprint_collector` 칭호 보존을 재확인했다.
+  - `/character/room`, `/character/{name}/room`, `/api/v2/me/housing`, `/api/v2/player/{name}/housing`은 공개 표면 검사에서 모두 실제 HTTP 404를 요구한다.
 
 ## 5. 헬스 / 모니터링
 - `https://msmsge.com/api/health` → `{ok, db:"ok", ms}` (DB 핑 포함, 실패 시 503). 인증 불필요.

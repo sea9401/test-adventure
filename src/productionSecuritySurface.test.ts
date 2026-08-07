@@ -78,6 +78,18 @@ describe("production security surface", () => {
       'req.nextUrl.pathname === "/api/v2/museun-coin-shop"',
     );
     expect(proxy).toMatch(/status:\s*404/);
+
+    expect(proxy).toContain("LIFE_HOUSING_ROUTES_ENABLED = false");
+    for (const path of [
+      'pathname === "/character/room"',
+      'pathname === "/api/v2/me/housing"',
+      "\\/character\\/[^/]+\\/room",
+      "\\/api\\/v2\\/player\\/[^/]+\\/housing",
+    ]) {
+      expect(proxy).toContain(path);
+    }
+    expect(proxy).toContain('datetime="2026-08-08T04:00:00+09:00"');
+    expect(proxy).toContain('datetime="2026-08-08T05:00:00+09:00"');
   });
 
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {
@@ -119,6 +131,10 @@ describe("production security surface", () => {
       "/dev",
       "/settings/coin-shop",
       "/api/v2/museun-coin-shop",
+      "/character/room",
+      "/character/nonexistent/room",
+      "/api/v2/me/housing",
+      "/api/v2/player/nonexistent/housing",
       "/api/v2/dev/grant",
     ]) {
       expect(smoke, `public release smoke is missing ${path}`).toContain(

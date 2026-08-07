@@ -644,6 +644,68 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(result.selfHeal).toBe(Math.floor(42 * 0.14));
   });
 
+  it("healFromDamage effect — 공격이 빗나가면 회복하지 않는다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        str: 100,
+        maxHp: 1000,
+        currentHp: 500,
+        healMult: 1,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 0,
+        currentHp: 1000,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    });
+
+    expect(result.selfHeal).toBeGreaterThan(0);
+    expect(removeMissedV2SkillTargetEffects(result).selfHeal).toBe(0);
+  });
+
+  it("독립 자가 회복은 공격이 빗나가도 유지한다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_crusader_judgment"],
+        equipped: ["v2c_crusader_judgment"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        str: 100,
+        maxHp: 1000,
+        currentHp: 500,
+        healMult: 1,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 0,
+        currentHp: 1000,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    });
+
+    expect(result.selfHeal).toBeGreaterThan(0);
+    expect(removeMissedV2SkillTargetEffects(result).selfHeal).toBe(
+      result.selfHeal,
+    );
+  });
+
   it("selfBuff effect — buff 목록 반환 (stat/pct/turns)", () => {
     // dash: selfBuff stat=spd pct=10 turns=3.
     const result = resolveV2SkillCast({

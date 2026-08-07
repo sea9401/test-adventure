@@ -224,7 +224,7 @@ export type V2CommonSkillId =
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
-  | "v2c_nightshade_cloak" // 은신 II (회피 + 치명피해)
+  | "v2c_nightshade_cloak" // 은신 II (회피 + 치명확률·피해 + 명중)
   | "v2c_saint_miracle" // 기적 (회복 + 방벽)
   | "v2c_saint_benediction" // 축복 (회복 + 내구)
   | "v2c_plaguebringer_outbreak" // 역병 창궐 (중독 폭발)
@@ -1828,10 +1828,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_nightshade_cloak: {
     id: "v2c_nightshade_cloak", name: "은신 II", stat: "luk", category: "passive", tier: 3,
-    description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다. 치명타 한계 초과분이 스킬에도 실린다.",
+    description: "어둠 속에서 몸을 숨기고 급소를 정확히 찌른다. 회피와 치명타 확률·피해, 명중이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { evasionPct: 18, critDmgPct: 20, skillCritOverflow: true },
+    passive: { evasionPct: 18, critPct: 8, critDmgPct: 20, accuracyPct: 10 },
   },
   v2c_saint_miracle: {
     id: "v2c_saint_miracle", name: "기적", stat: "int", category: "heal", tier: 3,

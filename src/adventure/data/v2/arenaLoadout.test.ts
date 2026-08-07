@@ -167,6 +167,28 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     ]);
   });
 
+  it("적 상태의 N스택 이하 조건을 표시한다", () => {
+    const loadout = mk("enemy-status-at-most", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_status",
+              tag: "poison",
+              op: "atMost",
+              stacks: 4,
+            },
+            action: { kind: "role", role: "debuff" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 중독 4스택 이하",
+    );
+  });
+
   it("패턴 미설정은 빈 목록으로 표시한다", () => {
     expect(arenaPatternActionSummary(mk("no-pattern"))).toEqual([]);
   });

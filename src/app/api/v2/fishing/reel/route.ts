@@ -110,7 +110,7 @@ import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExpl
 import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
-import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { getFishingSpot } from "@/adventure/data/v2/fishingSpots";
 import {
   LIFE_FIELD_DISCOVERIES,
@@ -506,13 +506,7 @@ export async function POST(req: Request) {
     );
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
-    const activeAid = crafting.activeAids.fishing;
-    if (session.aidItemId && activeAid?.itemId === session.aidItemId && activeAid.remainingUses > 0) {
-      const activeAids = { ...crafting.activeAids };
-      if (activeAid.remainingUses <= 1) delete activeAids.fishing;
-      else activeAids.fishing = { ...activeAid, remainingUses: activeAid.remainingUses - 1 };
-      crafting = { ...crafting, activeAids, aidsUsed: crafting.aidsUsed + 1 };
-    }
+    crafting = consumeLifeAidUses(crafting, "fishing", session.aidItemId, 1).state;
     const blueprint = rollHiddenBlueprint(crafting, "fishing");
     workshop = { ...workshop, crafting: blueprint.state };
     await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);

@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { SignInButtons } from "./SignInButtons";
+import {
+  ReferralStatusNotice,
+  type ReferralStatus,
+} from "./ReferralStatusNotice";
 
 // 대문(랜딩)의 순수 표현 컴포넌트.
 // /sign-in 과 /dev/landing 이 공유해 로그인·DB 없이도 비주얼 QA 가 가능하다.
@@ -35,7 +39,7 @@ export function LandingContent({
 }: {
   // 로그인은 됐지만 아직 캐릭터가 없는 유저 — 로그인 버튼 대신 "시작하기"(→/create) 노출.
   authed?: boolean;
-  referralStatus?: "accepted" | "invalid" | null;
+  referralStatus?: ReferralStatus | null;
   authError?: "account-not-linked" | "login-failed" | null;
 }) {
   return (
@@ -82,18 +86,7 @@ export function LandingContent({
               </p>
             )}
             {referralStatus && (
-              <p
-                role="status"
-                className={`w-full max-w-xs rounded-lg border px-4 py-3 text-sm leading-relaxed ${
-                  referralStatus === "accepted"
-                    ? "border-amber-300/40 bg-amber-300/10 text-amber-100"
-                    : "border-rose-300/30 bg-rose-300/10 text-rose-200"
-                }`}
-              >
-                {referralStatus === "accepted"
-                  ? "홍보 링크가 적용되었습니다. 캐릭터를 만들면 나와 홍보자 모두 회복약 2개를 받고, 사냥터 개척 진행도에 따라 홍보자에게 추가 보상이 지급됩니다."
-                  : "유효하지 않거나 종료된 홍보 링크입니다."}
-              </p>
+              <ReferralStatusNotice status={referralStatus} />
             )}
             {authed ? (
               <>

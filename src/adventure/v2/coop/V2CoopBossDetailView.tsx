@@ -22,6 +22,7 @@ import {
   coopEnrageStatus,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { coopKillingBlowReward } from "@/adventure/data/v2/coopRewards";
 import {
   fmtCoopRemain,
   useCoopSessionState,
@@ -108,6 +109,7 @@ export function V2CoopBossDetailView({
 
   const { session, my } = detail;
   const def = COOP_BOSSES[session.kind];
+  const killingBlowReward = coopKillingBlowReward(session.kind);
   // 활성 판정 — 서버 sweep 전이라도 시간상 만료면 비활성 취급(공격 버튼 숨김).
   const ended =
     session.defeated || session.expired || session.expiresAt <= now;
@@ -263,20 +265,27 @@ export function V2CoopBossDetailView({
         )}
 
         {active && (
-          <button
-            type="button"
-            disabled={busy || onCooldown || lowStamina}
-            onClick={() => void handleAttack()}
-            className="ui-game-button ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-          >
-            {busy
-              ? "전투 중…"
-              : onCooldown
-                ? `재공격 ${Math.ceil(cooldownLeft / 1000)}초 후`
-                : lowStamina
-                  ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
-                  : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
-          </button>
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              disabled={busy || onCooldown || lowStamina}
+              onClick={() => void handleAttack()}
+              className="ui-game-button ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+            >
+              {busy
+                ? "전투 중…"
+                : onCooldown
+                  ? `재공격 ${Math.ceil(cooldownLeft / 1000)}초 후`
+                  : lowStamina
+                    ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
+                    : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
+            </button>
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+              처치 확정타 보너스 · 협동 주화 ×{killingBlowReward.coin} +{" "}
+              {killingBlowReward.bossMaterialName} ×
+              {killingBlowReward.bossMaterialCount}
+            </p>
+          </div>
         )}
         {session.defeated && (
           <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">

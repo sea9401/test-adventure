@@ -534,7 +534,7 @@ export type PlayerCombat = {
   // ── 고유 아이템 발동형 시그니처(Phase 2) — 장착 세트/단품의 전투내 발동 효과 ──
   // 미장착/없음 = undefined → 엔진 훅 미발화(골든 byte-identical). derive 가 활성분만 채운다.
   equipSignatures?: SignatureEffect[];
-  // 밤그림자(5차 LUK 캡스톤) — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 미보유 = undefined.
+  // 치명 한계 확장 — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 미보유 = undefined.
   skillCritOverflow?: boolean;
   // 흑월지배 — 회피 성공 후 다음 직접 피해 액티브 스킬 확정 치명타. 미보유 = undefined.
   skillCritAfterEvade?: boolean;

@@ -23,6 +23,7 @@ import {
   COOP_BOSS_MATERIAL,
   COOP_EQUIPMENT_BOX,
   coopExtraRewardRuleFor,
+  coopKillingBlowReward,
 } from "@/adventure/data/v2/coopRewards";
 
 // 보상 캡션 — 무엇을 주나(SP 열매 이름·효과 + 보스 전용 유니크 트로피). 인라인/모달 공용.
@@ -32,8 +33,16 @@ export function CoopRewardCaptions({ kind }: { kind: CoopBossKind }) {
   const uniqueNames = kind.uniqueIds
     .map((id) => V2_EQUIPMENT[id]?.name)
     .filter((n): n is string => Boolean(n));
+  const killingBlow = coopKillingBlowReward(kind.id);
   return (
     <div className="space-y-1.5">
+      <p className="text-xs text-zinc-600 dark:text-zinc-300">
+        처치 확정타 · 협동 주화 ×{killingBlow.coin} + {killingBlow.bossMaterialName} ×
+        {killingBlow.bossMaterialCount}
+        <span className="text-zinc-400 dark:text-zinc-500">
+          {" "}(기여 등급과 별도 즉시 지급)
+        </span>
+      </p>
       {fruit && (
         <p className="text-xs text-zinc-600 dark:text-zinc-300">
           보상 ·{" "}
@@ -100,6 +109,7 @@ function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
 export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
   const fruitTier = fruitTierForBoss(kind.id);
   const hasFruit = fruitTier != null;
+  const killingBlow = coopKillingBlowReward(kind.id);
   return (
     <div className="space-y-3 text-xs text-zinc-600 dark:text-zinc-300">
       <p>
@@ -109,6 +119,11 @@ export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
         </span>
         로 계산합니다. 보스가 처치되었을 때 도달한 가장 높은 티어 기준으로 보상을
         받을 수 있습니다.
+      </p>
+      <p className="font-medium text-emerald-700 dark:text-emerald-300">
+        마지막 공격으로 보스를 처치하면 기여 등급과 별도로 협동 주화 ×
+        {killingBlow.coin}, {killingBlow.bossMaterialName} ×
+        {killingBlow.bossMaterialCount}을 즉시 받습니다.
       </p>
       <div className="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700">
         <table className="w-full border-collapse text-left">

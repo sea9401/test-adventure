@@ -614,6 +614,42 @@ describe("방어자 측 dodge cascade", () => {
     expect(s1.log.some((e) => e.text.includes("회피 강화"))).toBe(true);
   });
 
+  it("밤기수 — 회피 시 속도 +25% 버프와 발동 로그", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 30, def: 0, hp: 1000, maxHp: 1000 }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        guaranteedEvades: 1,
+        hp: 500,
+        maxHp: 500,
+        equipSignatures: [
+          {
+            trigger: "on_dodge",
+            label: "밤기수",
+            spdBuffPct: 25,
+            buffActions: 2,
+          },
+        ],
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    expect(s1.p2.buffs.playerSpdMult).toBe(1.25);
+    expect(s1.p2.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(
+      s1.log.some(
+        (entry) =>
+          entry.text.includes("[밤기수]") && entry.text.includes("속도 +25%"),
+      ),
+    ).toBe(true);
+  });
+
   it("행운의 방패 — 발동 시 공격 회피", () => {
     // Math.random=0 으로 모든 확률 발동. 단 shadowStep, evasion 등은 luckyShield 보다 먼저 굴려 적중하지 않게 — 그래서 그 능력들은 없게 설정.
     vi.spyOn(Math, "random").mockReturnValue(0);
@@ -1120,6 +1156,39 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     );
   });
 
+  it("피해 연동 회복 스킬이 빗나가면 흡혈 회복도 발동하지 않는다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 1000,
+        mp: 1000,
+        maxMp: 1000,
+        spd: 15,
+        strStat: 100,
+        accuracyPct: 0,
+        accRating: 0,
+      }),
+      makePlayer({ spd: 5, evasionPct: 100, evaRating: 100 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(true);
+    expect(
+      cast.log.some(
+        (entry) => entry.text.includes("혈마군림") && entry.text.includes("회복했다"),
+      ),
+    ).toBe(false);
+    expect(cast.p1.hp).toBeLessThanOrEqual(500);
+  });
+
   it("그림자 도약 시전은 PvP에서도 보장 회피 1회를 충전한다", () => {
     const s0 = initialBattleStatePvP(
       makePlayer({ spd: 15, guaranteedEvades: 1 }),
@@ -1477,6 +1546,17 @@ describe("PvE 효과 PvP 미러 — 흡혈/받피감/별빛 인내", () => {
       {},
     );
     expect(heal.p1.hp).toBe(200); // 199 + 큰 회복 → 200 클램프
+  });
+
+  it("별빛 흡혈 — 보호막에 전량 흡수된 0 피해 공격은 회복 없음", () => {
+    const blocked = firstAttack(
+      { hp: 50, maxHp: 200, enchantLifestealPct: 50 },
+      { bulwarkShield: 100 },
+    );
+
+    expect(blocked.p1.hp).toBe(50);
+    expect(blocked.p2.hp).toBe(300);
+    expect(blocked.log.some((l) => l.text.includes("별빛 흡혈"))).toBe(false);
   });
 
   it("받피감(passiveDamageTakenReductionPct) — PvP 에서 받는 피해 감소(이전엔 inert)", () => {

@@ -720,6 +720,12 @@ describe("직업 킷 — 스킬셋", () => {
       critDmgPct: 30,
       maxHpPct: 8,
     });
+    expect(V2_SKILLS.v2c_nightshade_cloak.passive).toEqual({
+      evasionPct: 18,
+      critPct: 8,
+      critDmgPct: 20,
+      accuracyPct: 10,
+    });
     expect(V2_SKILLS.v2c_elementallord_surge.category).toBe("attack");
     expect(V2_SKILLS.v2c_elementallord_surge.effects).toEqual([
       { kind: "damage", statCoef: 1.98, baseFlat: 486, scaling: "magic" },

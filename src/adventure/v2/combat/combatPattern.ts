@@ -48,8 +48,13 @@ export type V2CombatCondition =
     }
   // 적 HP 비율.
   | { kind: "enemy_hp"; op: "below" | "above"; pct: number }
-  // 적 상태 — DoT/취약 스택. atLeast = stacks 이상, none = 0(스택 없을 때).
-  | { kind: "enemy_status"; tag: V2PatternEnemyStatus; op: "atLeast" | "none"; stacks: number }
+  // 적 상태 — DoT/취약 스택. atLeast/atMost = stacks 이상/이하, none = 0(스택 없을 때).
+  | {
+      kind: "enemy_status";
+      tag: V2PatternEnemyStatus;
+      op: "atLeast" | "atMost" | "none";
+      stacks: number;
+    }
   // 적에게 걸린 봉쇄 계열 디버프 — 봉마진 같은 순수 유틸의 중복 시전을 막고 만료 시 갱신한다.
   | { kind: "enemy_debuff"; target: V2PatternEnemyDebuff; active: boolean }
   // 내 공격 차례(턴, 1-based). atMost/atLeast = 이하/이상, every = N 배수(주기).
@@ -128,7 +133,11 @@ export function conditionPasses(
         : ctx.enemyHpPct >= cond.pct;
     case "enemy_status": {
       const stacks = enemyStatusStacks(ctx, cond.tag);
-      return cond.op === "none" ? stacks === 0 : stacks >= cond.stacks;
+      return cond.op === "none"
+        ? stacks === 0
+        : cond.op === "atMost"
+          ? stacks <= cond.stacks
+          : stacks >= cond.stacks;
     }
     case "enemy_debuff":
       return (
@@ -370,7 +379,10 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
     case "enemy_status": {
       const tag =
         c.tag === "bleed" || c.tag === "poison" || c.tag === "vuln" ? c.tag : null;
-      const op = c.op === "atLeast" || c.op === "none" ? c.op : null;
+      const op =
+        c.op === "atLeast" || c.op === "atMost" || c.op === "none"
+          ? c.op
+          : null;
       if (!tag || !op || !isFinitePct(c.stacks)) return null;
       return { kind: "enemy_status", tag, op, stacks: Math.max(0, Math.floor(c.stacks)) };
     }

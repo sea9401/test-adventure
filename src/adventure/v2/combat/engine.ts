@@ -1194,6 +1194,12 @@ function evadeIncomingEnemySkill(
   }
 
   const speedBuff = onDodgeSpeedBuff(player.equipSignatures);
+  if (speedBuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${speedBuff.label}] 플레이어의 속도 +${Math.round((speedBuff.mult - 1) * 100)}% (${speedBuff.turns}행동)`,
+    });
+  }
   const activeSpeedMult =
     state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
   let nextState: BattleState = {
@@ -1628,7 +1634,7 @@ export function applyPlayerV2SkillCast(
       magicVulnMult *
       erosionMult *
       vulnMult *
-      // 밤그림자(skillCritOverflow) — 스킬 크리에도 크리 오버플로(75% 초과분 크리뎀) 가산. 전역=flat.
+      // 치명 한계 확장(skillCritOverflow) — 스킬 크리에도 크리 오버플로(75% 초과분 크리뎀) 가산. 전역=flat.
       (skillCritFired
         ? player.skillCritOverflow
           ? SKILL_CRIT_MULT + computeCritOverflowBonus(player.critChancePct ?? 0)

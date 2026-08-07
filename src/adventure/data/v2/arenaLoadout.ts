@@ -114,7 +114,7 @@ export function arenaPatternConditionSummary(
     case "enemy_status":
       return condition.op === "none"
         ? `적 ${ENEMY_STATUS_LABEL[condition.tag]} 없음`
-        : `적 ${ENEMY_STATUS_LABEL[condition.tag]} ${condition.stacks}스택 이상`;
+        : `적 ${ENEMY_STATUS_LABEL[condition.tag]} ${condition.stacks}스택 ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "enemy_debuff":
       return `적 ${ENEMY_DEBUFF_LABEL[condition.target]} ${condition.active ? "있음" : "없음"}`;
     case "turn":

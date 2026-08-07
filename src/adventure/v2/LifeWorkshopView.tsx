@@ -82,6 +82,8 @@ type WorkshopPayload = {
     itemId?: LifeFinishedItemId;
     recipeId?: string;
     blueprintRecipeId?: string;
+    replaced?: boolean;
+    resumed?: boolean;
   };
 };
 
@@ -122,10 +124,28 @@ const ERROR_TEXT: Record<string, string> = {
   bad_craft_recipe: "제작법을 확인할 수 없습니다.",
   blueprint_required: "아직 숨겨진 도안을 발견하지 못했습니다.",
   batch_locked: "제작 기록이 부족해 해당 수량을 한 번에 만들 수 없습니다.",
-  aid_in_use: "사용 중인 보조품의 횟수를 먼저 소진해야 합니다.",
+  aid_in_use: "이미 사용 중인 보조품입니다.",
   aid_not_owned: "활성화할 보조품을 보유하고 있지 않습니다.",
   aid_not_active: "활성화된 보조품이 없습니다.",
 };
+
+type WorkshopErrorPayload = {
+  error?: string;
+  requiredLevel?: number;
+  retryAfterSec?: number;
+};
+
+export function lifeWorkshopErrorText(payload: WorkshopErrorPayload | null): string {
+  if (payload?.error === "rate_limited") {
+    const retryAfterSec = Math.max(1, Math.ceil(Number(payload.retryAfterSec) || 1));
+    return `요청이 너무 많습니다. ${retryAfterSec}초 후 다시 시도해 주세요.`;
+  }
+
+  const base = ERROR_TEXT[payload?.error ?? ""] ?? "작업을 완료하지 못했습니다.";
+  return payload?.error === "level_required" && payload.requiredLevel
+    ? `${base} (필요 Lv.${payload.requiredLevel})`
+    : base;
+}
 
 function materialName(id: string): string {
   return V2_MATERIALS[id]?.name ?? id;
@@ -254,22 +274,23 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const response = await fetch("/api/v2/life-workshop");
       const json = (await response.json().catch(() => null)) as WorkshopPayload | null;
-      setData(response.ok && json?.ok ? json : null);
+      if (response.ok && json?.ok) setData(json);
+      else if (showLoading) setData(null);
     } catch {
-      setData(null);
+      if (showLoading) setData(null);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 서버 상태를 불러온 뒤 렌더링한다.
-    void refresh();
+    void refresh(true);
   }, [refresh]);
 
   const mutate = useCallback(
@@ -284,15 +305,10 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
           body: JSON.stringify(body),
         });
         const json = (await response.json().catch(() => null)) as
-          | (WorkshopPayload & { error?: string; requiredLevel?: number })
+          | (WorkshopPayload & WorkshopErrorPayload)
           | null;
         if (!response.ok || !json?.ok) {
-          const base = ERROR_TEXT[json?.error ?? ""] ?? "작업을 완료하지 못했습니다.";
-          setNotice(
-            json?.error === "level_required" && json.requiredLevel
-              ? `${base} (필요 Lv.${json.requiredLevel})`
-              : base,
-          );
+          setNotice(lifeWorkshopErrorText(json));
           return;
         }
         setData(json);
@@ -307,7 +323,13 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
           const recipe = LIFE_CRAFTING_RECIPES.find((entry) => entry.id === json.result?.recipeId);
           setNotice(`${recipe?.name ?? "생활 제작품"} ${json.result.produced ?? 0}개를 완성했습니다.`);
         } else if (json.result?.action === "activate_aid") {
-          setNotice("보조품을 활성화했습니다. 성공한 관련 행동에만 횟수가 소모됩니다.");
+          setNotice(
+            json.result.replaced
+              ? "보조품을 변경했습니다. 이전 보조품의 남은 횟수는 보관됩니다."
+              : json.result.resumed
+                ? "보관한 보조품을 다시 활성화했습니다."
+                : "보조품을 활성화했습니다. 성공한 관련 행동에만 횟수가 소모됩니다.",
+          );
         } else if (json.result?.action === "toggle_aid") {
           setNotice("보조품 사용 설정을 변경했습니다.");
         } else if (json.result?.action === "upgrade_tool") {
@@ -378,7 +400,7 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
       {loading ? (
         <Card padding="md"><Skeleton rows={5} /></Card>
       ) : !data ? (
-        <LoadErrorBanner onRetry={() => void refresh()} />
+        <LoadErrorBanner onRetry={() => void refresh(true)} />
       ) : tab === "requests" ? (
         <LifeRequestBoard
           onChanged={() => void refresh()}
@@ -494,7 +516,8 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
           <h2 className="text-sm font-bold">사용 중인 생활 보조품</h2>
           <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
             제작한 보조품을 활동별로 하나씩 활성화합니다. 효과가 적용되는 등급에서
-            성공한 행동에만 남은 횟수가 줄며, 사용을 끄면 소모되지 않습니다.
+            성공한 행동에만 남은 횟수가 줄며, 사용을 끄면 소모되지 않습니다. 다른
+            등급으로 변경해도 기존 보조품의 남은 횟수는 보관됩니다.
           </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {(["woodcutting", "mining", "fishing"] as const).map((activity) => {
@@ -505,8 +528,11 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
                     )
                   : null;
                 const candidates = LIFE_CRAFTING_RECIPES.filter((recipe) => recipe.kind === "aid" && ((activity === "woodcutting" && recipe.outputId.startsWith("logging_wedge_")) || (activity === "mining" && recipe.outputId.startsWith("mining_probe_")) || (activity === "fishing" && recipe.outputId === "tidy_bait_box")));
-                const ownedCandidates = candidates.filter(
-                  (recipe) => (data.state.crafting.balances[recipe.outputId] ?? 0) > 0,
+                const availableCandidates = candidates.filter(
+                  (recipe) =>
+                    recipe.outputId !== active?.itemId &&
+                    ((data.state.crafting.balances[recipe.outputId] ?? 0) > 0 ||
+                      (data.state.crafting.reserveAidUses[recipe.outputId] ?? 0) > 0),
                 );
                 const previewRecipe = candidates.find((recipe) => !recipe.hidden) ?? candidates[0];
                 return (
@@ -530,21 +556,56 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
                           </div>
                         </div>
                         <Button className="mt-2 w-full" size="xs" variant="secondary" disabled={busy !== null} onClick={() => void mutate(`toggle:${activity}`, { action: "toggle_aid", activity })}>{active.enabled ? "사용 끄기" : "사용 켜기"}</Button>
+                        {availableCandidates.length > 0 ? (
+                          <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                            <div className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+                              다른 보조품으로 변경
+                            </div>
+                            {availableCandidates.map((recipe) => {
+                              const reservedUses = data.state.crafting.reserveAidUses[recipe.outputId] ?? 0;
+                              const owned = data.state.crafting.balances[recipe.outputId] ?? 0;
+                              return (
+                                <div key={recipe.id} className="space-y-1.5">
+                                  <div className="flex items-start gap-2.5">
+                                    <LifeAidArtwork recipe={recipe} size="sm" />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-xs font-semibold">{recipe.name}</div>
+                                      <div className="mt-0.5 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
+                                        {reservedUses > 0
+                                          ? `보관 중 · 남은 성공 ${reservedUses.toLocaleString()}회`
+                                          : `보유 ${owned.toLocaleString()}개`}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Button className="w-full" size="xs" disabled={busy !== null} onClick={() => void mutate(`aid:${recipe.outputId}`, { action: "activate_aid", itemId: recipe.outputId })}>이 보조품으로 변경</Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                       </>
                     ) : (
                       <div className="mt-2 space-y-2">
-                        {ownedCandidates.map((recipe) => (
-                          <div key={recipe.id} className="space-y-1.5 border-t border-zinc-200 pt-2 first:border-t-0 first:pt-0 dark:border-zinc-800">
-                            <div className="flex items-start gap-2.5">
-                              <LifeAidArtwork recipe={recipe} size="sm" />
-                              <div className="min-w-0 flex-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
-                                {recipe.description}
+                        {availableCandidates.map((recipe) => {
+                          const reservedUses = data.state.crafting.reserveAidUses[recipe.outputId] ?? 0;
+                          return (
+                            <div key={recipe.id} className="space-y-1.5 border-t border-zinc-200 pt-2 first:border-t-0 first:pt-0 dark:border-zinc-800">
+                              <div className="flex items-start gap-2.5">
+                                <LifeAidArtwork recipe={recipe} size="sm" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-semibold">{recipe.name}</div>
+                                  <div className="mt-0.5 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
+                                    {reservedUses > 0
+                                      ? `보관 중 · 남은 성공 ${reservedUses.toLocaleString()}회`
+                                      : recipe.description}
+                                  </div>
+                                </div>
                               </div>
+                              <Button className="w-full" size="xs" disabled={busy !== null} onClick={() => void mutate(`aid:${recipe.outputId}`, { action: "activate_aid", itemId: recipe.outputId })}>{reservedUses > 0 ? "다시 사용" : "활성화"}</Button>
                             </div>
-                            <Button className="w-full" size="xs" disabled={busy !== null} onClick={() => void mutate(`aid:${recipe.outputId}`, { action: "activate_aid", itemId: recipe.outputId })}>{recipe.name} 활성화</Button>
-                          </div>
-                        ))}
-                        {ownedCandidates.length === 0 ? (
+                          );
+                        })}
+                        {availableCandidates.length === 0 ? (
                           <div className="flex items-center gap-2.5">
                             <LifeAidArtwork recipe={previewRecipe} size="sm" />
                             <div className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">

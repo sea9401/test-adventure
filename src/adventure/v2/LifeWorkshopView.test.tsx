@@ -1,6 +1,23 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { LifeWorkshopQuantityControls } from "./LifeWorkshopView";
+import {
+  LifeWorkshopQuantityControls,
+  lifeWorkshopErrorText,
+} from "./LifeWorkshopView";
+
+describe("생활 조합 작업장 오류 안내", () => {
+  it("요청 제한의 남은 대기 시간을 알려준다", () => {
+    expect(
+      lifeWorkshopErrorText({ error: "rate_limited", retryAfterSec: 24 }),
+    ).toBe("요청이 너무 많습니다. 24초 후 다시 시도해 주세요.");
+  });
+
+  it("생활 레벨 제한 안내를 유지한다", () => {
+    expect(
+      lifeWorkshopErrorText({ error: "level_required", requiredLevel: 20 }),
+    ).toBe("생활 레벨이 부족합니다. (필요 Lv.20)");
+  });
+});
 
 describe("생활 조합 작업장 수량 선택", () => {
   it("1개, 10개, 최대 빠른 제작과 직접 입력을 함께 제공한다", () => {

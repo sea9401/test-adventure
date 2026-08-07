@@ -63,6 +63,12 @@ export type CoopAttackResult = {
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
+  killingBlowReward: {
+    coin: number;
+    bossMaterialId: string;
+    bossMaterialName: string;
+    bossMaterialCount: number;
+  } | null;
   replay?: ReplayPayload;
 };
 

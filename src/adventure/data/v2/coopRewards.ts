@@ -2,6 +2,7 @@
 // 표시 테이블과 claim 라우트가 같은 데이터를 읽어, 보이는 드랍과 실제 지급이 어긋나지 않게 한다.
 
 import {
+  coopBossDifficultyOf,
   COOP_TIER_LABEL,
   COOP_TIER_ORDER,
   type CoopBossKindId,
@@ -18,6 +19,9 @@ export const COOP_COIN_MATERIAL_ID = "v2_coop_coin";
 export const COOP_MASTERY_TOME_MATERIAL_ID = "v2_coop_mastery_tome";
 export const COOP_MASTERY_TOME_GAIN = 50;
 export const COOP_TIER5_EQUIPMENT_BOX_ID = "v2_coop_tier5_equipment_box";
+export const COOP_KILLING_BLOW_NORMAL_COIN = 5;
+export const COOP_KILLING_BLOW_HARD_COIN = 10;
+export const COOP_KILLING_BLOW_MATERIAL_COUNT = 1;
 
 export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_claw",
@@ -175,6 +179,29 @@ export const COOP_BOSS_MATERIAL: Record<
       "공허 사제 토벌 기여 보상으로 얻는 재료. 협동 보스 교환 보상에 쓰일 수 있다.",
   },
 };
+
+export type CoopKillingBlowReward = {
+  coin: number;
+  bossMaterialId: string;
+  bossMaterialName: string;
+  bossMaterialCount: number;
+};
+
+/** 기여 등급과 별도로 처치 확정타를 넣은 한 명에게 즉시 지급하는 소액 보상. */
+export function coopKillingBlowReward(
+  boss: CoopBossKindId,
+): CoopKillingBlowReward {
+  const hard = coopBossDifficultyOf(boss) === "hard";
+  const material = COOP_BOSS_MATERIAL[boss];
+  return {
+    coin: hard
+      ? COOP_KILLING_BLOW_HARD_COIN
+      : COOP_KILLING_BLOW_NORMAL_COIN,
+    bossMaterialId: material.id,
+    bossMaterialName: material.name,
+    bossMaterialCount: COOP_KILLING_BLOW_MATERIAL_COUNT,
+  };
+}
 
 export const COOP_REWARD_MATERIALS: Record<
   string,

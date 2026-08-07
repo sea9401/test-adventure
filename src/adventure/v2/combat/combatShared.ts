@@ -540,6 +540,7 @@ export function pickAutoCastV2Skill(args: {
 //   PR-4b (효과 적용):
 //     - enemyDamage: damage effect 들의 합 (0 = 미발동)
 //     - selfHeal: heal effect 들의 합 (caller 가 maxHp 클램프, 0 = 미발동)
+//     - selfHealOnMiss: 상대에게 피해를 주지 못해도 유지되는 독립 자가 회복분
 //     - selfBuffsToApply: selfBuff effect 의 {stat,pct,turns} 목록 — caller 가 state.v2SelfBuffs 갱신
 //     - enemyDebuffsToApply: enemyDebuff effect 의 {stat,pct,turns} 목록 — caller 가 target.v2SelfDebuffs 갱신
 //   PR-8 (DoT 적용):
@@ -564,6 +565,8 @@ export type V2SkillCastResult = {
    *  엔진이 전투 로그를 타마다 한 줄로 쪼개는 데 사용(부스트는 distributeBoostedHits 로 분배). */
   hitDamages: number[];
   selfHeal: number;
+  /** 빗나감 시에도 유지되는 직접 회복분. healFromDamage 회복은 포함하지 않는다. */
+  selfHealOnMiss: number;
   selfBuffsToApply: V2SkillBuffApply[];
   enemyDebuffsToApply: V2SkillBuffApply[];
   dotsToApplyToTarget: V2SkillDotApply[];
@@ -602,7 +605,7 @@ export function v2SkillHasTargetEffects(result: V2SkillCastResult): boolean {
   );
 }
 
-/** 스킬이 빗나갔을 때 상대 대상 효과만 제거한다. 자가 회복·강화·소모는 유지한다. */
+/** 스킬이 빗나갔을 때 상대 대상 효과와 피해 연동 회복을 제거한다. 독립 자가 회복·강화·소모는 유지한다. */
 export function removeMissedV2SkillTargetEffects(
   result: V2SkillCastResult,
 ): V2SkillCastResult {
@@ -611,6 +614,7 @@ export function removeMissedV2SkillTargetEffects(
     enemyDamage: 0,
     magicEnemyDamage: 0,
     hitDamages: [],
+    selfHeal: result.selfHealOnMiss,
     enemyDebuffsToApply: [],
     dotsToApplyToTarget: [],
     enemyVulnToApply: undefined,
@@ -712,6 +716,7 @@ const EMPTY_CAST_RESULT_BASE = {
   magicEnemyDamage: 0,
   hitDamages: [] as number[],
   selfHeal: 0,
+  selfHealOnMiss: 0,
   selfBuffsToApply: [] as V2SkillBuffApply[],
   enemyDebuffsToApply: [] as V2SkillBuffApply[],
   dotsToApplyToTarget: [] as V2SkillDotApply[],
@@ -1393,6 +1398,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     directHealMult === 1
       ? selfHeal + damageBasedHeal
       : Math.round(selfHeal * directHealMult) + damageBasedHeal;
+  const scaledSelfHealOnMiss =
+    directHealMult === 1 ? selfHeal : Math.round(selfHeal * directHealMult);
   const boostedShield = shieldToApply
     ? {
         ...shieldToApply,
@@ -1415,6 +1422,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
     hitDamages,
     selfHeal: applyRitualPower(scaledSelfHeal),
+    selfHealOnMiss: applyRitualPower(scaledSelfHealOnMiss),
     selfBuffsToApply,
     enemyDebuffsToApply,
     dotsToApplyToTarget,

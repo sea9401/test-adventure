@@ -823,7 +823,7 @@ function applyDodgeEffects(
       };
     }
   }
-  // 독왕 on-dodge 속도 버프(Phase 2) — 회피 성공 시 방어자 속도↑(Math.max 로 기존 버프 미감소).
+  // on-dodge 속도 버프(Phase 2) — 회피 성공 시 방어자 속도↑(Math.max 로 기존 버프 미감소).
   //   미발동=불변 → byte-identical.
   const sigDodgeSpd = onDodgeSpeedBuff(st[defKey].player.equipSignatures);
   if (sigDodgeSpd) {
@@ -841,6 +841,14 @@ function applyDodgeEffects(
         ),
       },
     });
+    st = {
+      ...st,
+      log: appendLog(st.log, {
+        kind: "info",
+        text: `[${sigDodgeSpd.label}] ${d.name}의 속도 +${Math.round((sigDodgeSpd.mult - 1) * 100)}% (${sigDodgeSpd.turns}행동)`,
+        side: defKey,
+      }),
+    };
   }
   // 보장 회피 소비 (회피 강화 분기에서만).
   if (consumeEvade) {
@@ -1763,7 +1771,7 @@ export function castV2SkillOnAttackerTurnPvP(
       (side.stacks.damageDownTurns > 0
         ? 1 - side.stacks.damageDownPct / 100
         : 1) *
-      // 밤그림자(skillCritOverflow) — PvE 미러. 스킬 크리에도 크리 오버플로 가산. 전역=flat.
+      // 치명 한계 확장(skillCritOverflow) — PvE 미러. 스킬 크리에도 크리 오버플로 가산. 전역=flat.
       (skillCritFired
         ? side.player.skillCritOverflow
           ? SKILL_CRIT_MULT +

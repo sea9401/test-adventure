@@ -89,6 +89,7 @@ export type LifeCraftingState = {
   discoveredRecipeIds: string[];
   learnedHiddenRecipeIds: string[];
   activeAids: Partial<Record<LifeAidActivity, ActiveLifeAid>>;
+  reserveAidUses: Partial<Record<LifeFinishedItemId, number>>;
   blueprintMisses: Partial<Record<LifeBlueprintSource, number>>;
   totalCrafts: number;
   aidsUsed: number;
@@ -96,7 +97,7 @@ export type LifeCraftingState = {
 };
 
 export function emptyLifeCraftingState(): LifeCraftingState {
-  return { balances: {}, craftCounts: {}, discoveredRecipeIds: [], learnedHiddenRecipeIds: [], activeAids: {}, blueprintMisses: {}, totalCrafts: 0, aidsUsed: 0, furnitureCrafted: 0 };
+  return { balances: {}, craftCounts: {}, discoveredRecipeIds: [], learnedHiddenRecipeIds: [], activeAids: {}, reserveAidUses: {}, blueprintMisses: {}, totalCrafts: 0, aidsUsed: 0, furnitureCrafted: 0 };
 }
 
 const FINISHED_IDS = new Set(LIFE_CRAFTING_RECIPES.map((recipe) => recipe.outputId));
@@ -114,6 +115,7 @@ export function parseLifeCraftingState(raw: unknown): LifeCraftingState {
   const balancesRaw = source.balances && typeof source.balances === "object" ? source.balances as Record<string, unknown> : {};
   const countsRaw = source.craftCounts && typeof source.craftCounts === "object" ? source.craftCounts as Record<string, unknown> : {};
   const aidsRaw = source.activeAids && typeof source.activeAids === "object" ? source.activeAids as Record<string, unknown> : {};
+  const reserveAidUsesRaw = source.reserveAidUses && typeof source.reserveAidUses === "object" ? source.reserveAidUses as Record<string, unknown> : {};
   const missesRaw = source.blueprintMisses && typeof source.blueprintMisses === "object" ? source.blueprintMisses as Record<string, unknown> : {};
   const balances: LifeCraftingState["balances"] = {};
   for (const [id, amount] of Object.entries(balancesRaw)) if (FINISHED_IDS.has(id as LifeFinishedItemId) && safeInt(amount) > 0) balances[id as LifeFinishedItemId] = safeInt(amount);
@@ -124,6 +126,12 @@ export function parseLifeCraftingState(raw: unknown): LifeCraftingState {
     const value = aidsRaw[activity] && typeof aidsRaw[activity] === "object" ? aidsRaw[activity] as Record<string, unknown> : null;
     if (value && typeof value.itemId === "string" && AID_IDS.has(value.itemId as LifeFinishedItemId) && lifeAidSpec(value.itemId as LifeFinishedItemId)?.activity === activity && safeInt(value.remainingUses) > 0) activeAids[activity] = { itemId: value.itemId as LifeFinishedItemId, remainingUses: safeInt(value.remainingUses), enabled: value.enabled === true };
   }
+  const reserveAidUses: LifeCraftingState["reserveAidUses"] = {};
+  for (const [id, remainingUses] of Object.entries(reserveAidUsesRaw)) {
+    const itemId = id as LifeFinishedItemId;
+    if (AID_IDS.has(itemId) && lifeAidSpec(itemId) && safeInt(remainingUses) > 0) reserveAidUses[itemId] = safeInt(remainingUses);
+  }
+  for (const active of Object.values(activeAids)) delete reserveAidUses[active.itemId];
   const blueprintMisses: LifeCraftingState["blueprintMisses"] = {};
   for (const sourceId of ["woodcutting", "mining", "fishing", "farming", "cooking", "processing"] as const) blueprintMisses[sourceId] = safeInt(missesRaw[sourceId]);
   return {
@@ -132,6 +140,7 @@ export function parseLifeCraftingState(raw: unknown): LifeCraftingState {
     discoveredRecipeIds: Array.isArray(source.discoveredRecipeIds) ? [...new Set(source.discoveredRecipeIds.filter((id): id is string => typeof id === "string" && RECIPE_IDS.has(id)))] : [],
     learnedHiddenRecipeIds: Array.isArray(source.learnedHiddenRecipeIds) ? [...new Set(source.learnedHiddenRecipeIds.filter((id): id is string => typeof id === "string" && HIDDEN_IDS.has(id)))] : [],
     activeAids,
+    reserveAidUses,
     blueprintMisses,
     totalCrafts: safeInt(source.totalCrafts),
     aidsUsed: safeInt(source.aidsUsed),
@@ -154,6 +163,78 @@ export function consumeFinishedItem(state: LifeCraftingState, itemId: LifeFinish
   const balances = { ...state.balances, [itemId]: (state.balances[itemId] ?? 0) - count };
   if (!balances[itemId]) delete balances[itemId];
   return { ...state, balances };
+}
+
+export function activateLifeAid(
+  state: LifeCraftingState,
+  itemId: LifeFinishedItemId,
+): { state: LifeCraftingState; replaced: boolean; resumed: boolean } | null {
+  const spec = lifeAidSpec(itemId);
+  if (!spec) return null;
+  const current = state.activeAids[spec.activity];
+  if (current?.itemId === itemId) return null;
+
+  const reservedUses = state.reserveAidUses[itemId] ?? 0;
+  const resumed = reservedUses > 0;
+  let next = state;
+  if (resumed) {
+    const reserveAidUses = { ...state.reserveAidUses };
+    delete reserveAidUses[itemId];
+    next = { ...state, reserveAidUses };
+  } else {
+    const consumed = consumeFinishedItem(state, itemId, 1);
+    if (!consumed) return null;
+    next = consumed;
+  }
+
+  const reserveAidUses = { ...next.reserveAidUses };
+  if (current?.remainingUses) reserveAidUses[current.itemId] = current.remainingUses;
+  return {
+    state: {
+      ...next,
+      reserveAidUses,
+      activeAids: {
+        ...next.activeAids,
+        [spec.activity]: {
+          itemId,
+          remainingUses: resumed ? reservedUses : spec.uses,
+          enabled: true,
+        },
+      },
+    },
+    replaced: current != null,
+    resumed,
+  };
+}
+
+export function consumeLifeAidUses(
+  state: LifeCraftingState,
+  activity: LifeAidActivity,
+  itemIdRaw: unknown,
+  requestedUses: number,
+): { state: LifeCraftingState; consumed: number } {
+  if (typeof itemIdRaw !== "string") return { state, consumed: 0 };
+  const itemId = itemIdRaw as LifeFinishedItemId;
+  if (lifeAidSpec(itemId)?.activity !== activity) return { state, consumed: 0 };
+  const requested = Math.max(0, Math.floor(requestedUses));
+  if (requested < 1) return { state, consumed: 0 };
+
+  const active = state.activeAids[activity];
+  if (active?.itemId === itemId) {
+    const consumed = Math.min(requested, active.remainingUses);
+    const activeAids = { ...state.activeAids };
+    if (consumed >= active.remainingUses) delete activeAids[activity];
+    else activeAids[activity] = { ...active, remainingUses: active.remainingUses - consumed };
+    return { state: { ...state, activeAids, aidsUsed: state.aidsUsed + consumed }, consumed };
+  }
+
+  const reservedUses = state.reserveAidUses[itemId] ?? 0;
+  const consumed = Math.min(requested, reservedUses);
+  if (consumed < 1) return { state, consumed: 0 };
+  const reserveAidUses = { ...state.reserveAidUses };
+  if (consumed >= reservedUses) delete reserveAidUses[itemId];
+  else reserveAidUses[itemId] = reservedUses - consumed;
+  return { state: { ...state, reserveAidUses, aidsUsed: state.aidsUsed + consumed }, consumed };
 }
 
 export function recipeMasteryStage(count: number): 0 | 1 | 2 | 3 | 4 | 5 {

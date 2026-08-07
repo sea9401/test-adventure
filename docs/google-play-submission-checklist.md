@@ -63,9 +63,9 @@
 - [ ] 지원 이메일과 웹사이트 입력
 - [ ] AAB의 패키지명, versionCode, versionName 확인
 - [x] `compileSdk`/`targetSdk` 36 설정
-- [ ] Play App Signing 인증서 지문을 Digital Asset Links와 TWA 설정에 반영
-- [ ] `https://msmsge.com/.well-known/assetlinks.json`의 현재 지문을 Play App Signing SHA-256과 대조 (운영 URL 응답 자체는 정상)
-- [ ] `android/twa-manifest.json`의 빈 `fingerprints`를 확인된 Play App Signing 지문으로 갱신
+- [x] Play App Signing 인증서 지문을 Digital Asset Links와 TWA 설정에 반영
+- [x] `https://msmsge.com/.well-known/assetlinks.json`의 현재 지문을 Play App Signing SHA-256과 대조 (2026-08-04 `Play-signed Android app` 등록 이력 및 운영 응답 일치)
+- [x] `android/twa-manifest.json`의 `fingerprints`를 확인된 Play App Signing 지문으로 갱신
 - [ ] 내부 테스트 트랙에서 설치, 로그인, 뒤로 가기, 딥링크, 푸시, 파일 업로드 점검
 
 관련 안내: [스토어 등록정보 그래픽 자산](https://support.google.com/googleplay/android-developer/answer/9866151)

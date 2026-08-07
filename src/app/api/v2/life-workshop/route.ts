@@ -39,6 +39,7 @@ import {
   LIFE_CRAFTING_RECIPE_BY_ID,
   LIFE_CRAFTING_RECIPES,
   activateLifeAid,
+  isLifeCraftingRecipeAvailable,
   lifeAidSpec,
   recipeMasteryStage,
   rollHiddenBlueprint,
@@ -104,7 +105,9 @@ function workshopPayload(args: {
         LIFE_TOOL_BONUS_MATERIAL_PCT[args.state.tools[activity]],
       nextUpgrade: nextLifeToolUpgrade(activity, args.state),
     })),
-    craftingRecipes: LIFE_CRAFTING_RECIPES.map((recipe) => {
+    craftingRecipes: LIFE_CRAFTING_RECIPES.filter(
+      isLifeCraftingRecipeAvailable,
+    ).map((recipe) => {
       const level = Math.max(levels.woodcutting, levels.mining);
       const learned = !recipe.hidden || args.state.crafting.learnedHiddenRecipeIds.includes(recipe.id);
       const craftCount = args.state.crafting.craftCounts[recipe.id] ?? 0;
@@ -208,7 +211,7 @@ export async function POST(req: Request) {
     if (action === "craft") {
       const recipe = typeof requestBody.recipeId === "string" ? LIFE_CRAFTING_RECIPE_BY_ID.get(requestBody.recipeId) : undefined;
       const quantity = Math.floor(Number(requestBody.quantity));
-      if (!recipe || !Number.isFinite(quantity) || quantity < 1) return { error: "bad_craft_recipe" as const };
+      if (!recipe || !isLifeCraftingRecipeAvailable(recipe) || !Number.isFinite(quantity) || quantity < 1) return { error: "bad_craft_recipe" as const };
       if (recipe.hidden && !state.crafting.learnedHiddenRecipeIds.includes(recipe.id)) return { error: "blueprint_required" as const };
       const level = Math.max(levels.woodcutting, levels.mining);
       if (level < recipe.requiredLevel) return { error: "level_required" as const, requiredLevel: recipe.requiredLevel };

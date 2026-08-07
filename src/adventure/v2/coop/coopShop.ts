@@ -114,10 +114,10 @@ export const COOP_SHOP_ENTRIES: readonly CoopShopEntry[] = [
     itemId: "stamina_potion",
     category: "consumable",
     name: "스태미나 회복약",
-    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 하루 3개까지 교환한다.`,
+    description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 하루 5개까지 교환한다.`,
     cost: coinCost(25),
     output: { kind: "stamina_potion", count: 1 },
-    limit: { scope: "daily", count: 3 },
+    limit: { scope: "daily", count: 5 },
   },
   {
     itemId: "summon_scroll",

@@ -47,6 +47,30 @@ describe("HuntResultCard 패배 골드 안내", () => {
   });
 });
 
+describe("HuntResultCard 경험치 음식 안내", () => {
+  it("경험치 버프 비율과 실제 추가 EXP를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <HuntResultCard
+        result={{
+          ...BASE_RESULT,
+          won: true,
+          expGained: 160,
+          hpAfter: 100,
+          foodExpBuff: {
+            name: "깨달음의 허브차",
+            expPct: 60,
+            expBonus: 60,
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("깨달음의 허브차");
+    expect(html).toContain("사냥 경험치 +60%");
+    expect(html).toContain("EXP +60");
+  });
+});
+
 describe("BatchSummaryCard 패배 골드 안내", () => {
   it("일괄 사냥의 획득 골드와 패배 손실 골드를 함께 표시한다", () => {
     const summary: BatchSummary = {

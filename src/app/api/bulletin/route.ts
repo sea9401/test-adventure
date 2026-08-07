@@ -5,6 +5,7 @@ import {
   ilike,
   inArray,
   isNull,
+  notInArray,
   or,
   sql,
   type SQL,
@@ -44,6 +45,10 @@ import {
 } from "@/lib/server/bulletinActivity";
 import { syncBulletinActivityTitlesBestEffort } from "@/lib/server/bulletinActivityTitles";
 import { sendWebPushToAll } from "@/lib/server/webPush";
+import {
+  readBlockedUserIds,
+  requireCurrentUgcConsent,
+} from "@/lib/server/ugcSafety";
 
 // GET /api/bulletin?category=<cat>&q=<search>
 //   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
@@ -58,6 +63,7 @@ export async function GET(req: Request) {
   const scopeParam = url.searchParams.get("scope");
   const q = (url.searchParams.get("q") ?? "").trim();
   const viewerGuild = await getViewerGuild(db, userId);
+  const blockedUserIds = await readBlockedUserIds(userId);
 
   if (scopeParam === "guild" && viewerGuild == null) {
     return Response.json([]);
@@ -71,6 +77,9 @@ export async function GET(req: Request) {
         : [visibleBulletinWhere(viewerGuild?.guildId ?? null)];
   if (categoryParam && isBulletinCategory(categoryParam)) {
     filters.push(eq(bulletinPosts.category, categoryParam));
+  }
+  if (blockedUserIds.length > 0) {
+    filters.push(notInArray(bulletinPosts.userId, blockedUserIds));
   }
   if (q) {
     // PG `ILIKE` 는 대소문자 무시. % 와 _ 는 사용자 입력 그대로 패턴 메타가 되므로
@@ -158,7 +167,14 @@ export async function GET(req: Request) {
           count: sql<number>`COUNT(*)::int`,
         })
         .from(bulletinComments)
-        .where(inArray(bulletinComments.postId, postIds))
+        .where(
+          blockedUserIds.length > 0
+            ? and(
+                inArray(bulletinComments.postId, postIds),
+                notInArray(bulletinComments.userId, blockedUserIds),
+              )
+            : inArray(bulletinComments.postId, postIds),
+        )
         .groupBy(bulletinComments.postId),
       db
         .select({
@@ -205,6 +221,7 @@ export async function GET(req: Request) {
 
   const result = posts.map((r) => ({
     id: r.id,
+    authorUserId: r.category === "notice" ? null : r.mine,
     // 공지(notice)는 작성자를 항상 "운영자" 로 노출 — 실제 작성 admin 닉을 가린다.
     name: r.category === "notice" ? "운영자" : r.name,
     avatar:
@@ -296,6 +313,9 @@ export async function POST(req: Request) {
   }
   const title = rawTitle;
 
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
+
   const { name, avatar, className, cosmetics } = await resolveActor(userId);
   const viewerGuild = scope === "guild" ? await getViewerGuild(db, userId) : null;
   if (scope === "guild" && viewerGuild == null) {
@@ -344,6 +364,7 @@ export async function POST(req: Request) {
 
   return Response.json({
     id: inserted.id,
+    authorUserId: category === "notice" ? null : userId,
     name,
     avatar: category === "notice" ? null : avatar,
     profileBorder:
@@ -417,6 +438,9 @@ export async function PATCH(req: Request) {
       status: 400,
     });
   }
+
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   const updatedAt = new Date();
   const result = await db

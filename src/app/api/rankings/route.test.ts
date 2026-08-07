@@ -12,6 +12,9 @@ vi.mock("@/lib/server/isAdmin", () => ({
 vi.mock("@/lib/server/museunCosmetics", () => ({
   readMuseunCosmeticAppearanceMap: vi.fn(async () => new Map()),
 }));
+vi.mock("@/lib/server/ugcSafety", () => ({
+  readBlockedUserIds: vi.fn(async () => []),
+}));
 
 import { GET } from "./route";
 

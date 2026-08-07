@@ -16,6 +16,10 @@ import {
   getKnownArr,
   getShareableArr,
 } from "@/lib/server/marketplace";
+import {
+  requireCurrentUgcConsent,
+  usersCannotInteract,
+} from "@/lib/server/ugcSafety";
 
 const SAVES_CRAFTING = "crafting.v2";
 
@@ -152,6 +156,11 @@ export async function POST(req: Request) {
   if (recipient.id === senderId) {
     return new Response("self_send", { status: 400 });
   }
+  if (await usersCannotInteract(senderId, recipient.id)) {
+    return new Response("user_blocked", { status: 403 });
+  }
+  const consentFailure = await requireCurrentUgcConsent(senderId);
+  if (consentFailure) return consentFailure;
 
   // rate limit — 마지막 발송 시각 + 24h 누적. recipe_gift 도 같은 한도에 포함.
   const since = new Date(Date.now() - USER_MESSAGE_RATE_LIMIT_MS);

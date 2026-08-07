@@ -30,9 +30,11 @@ const SAFE_WEBHOOK_STRING_KEYS = new Set([
   "action",
   "group",
   "scope",
+  "sourceType",
   "activity",
   "riskLevel",
   "channel",
+  "reason",
 ]);
 const SAFE_WEBHOOK_NUMBER_KEYS = new Set([
   "count",
@@ -56,6 +58,7 @@ const SAFE_WEBHOOK_NUMBER_KEYS = new Set([
   "goldOut",
   "rewardFailures",
   "adminActions",
+  "reportId",
 ]);
 const SAFE_WEBHOOK_COUNT_LIST_KEYS = new Set([
   "topEconomyEvents",
@@ -205,6 +208,12 @@ const ALERT_COPY: Record<string, AlertCopy> = {
     description: "정기 정리 작업이 탈퇴 회원의 외부 파일 일부를 다시 삭제하지 못했습니다.",
     nextStep: "서버 로그에서 실패 건수와 파일 저장소 연결 상태를 확인하세요.",
     color: 0xef4444,
+  },
+  "ugc.report.created": {
+    title: "🚩 새 사용자 콘텐츠 신고가 접수됐습니다",
+    description: "이용자가 콘텐츠 또는 작성자를 신고해 운영자 확인이 필요합니다.",
+    nextStep: "관리자 > 콘텐츠·사용자 신고에서 원문과 문맥을 확인하고 처리 상태를 기록하세요.",
+    color: 0xf43f5e,
   },
 };
 

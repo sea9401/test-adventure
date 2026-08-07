@@ -32,19 +32,25 @@ export type TownAction =
   | { kind: "open-life-workshop" };
 
 export function V2TownHome({
+  gameStateLoaded,
   onAction,
+  viewerGuildId,
 }: {
+  gameStateLoaded: boolean;
   onAction: (action: TownAction) => void;
+  viewerGuildId: number | null;
 }) {
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="마을" />
       <div className="space-y-2">
-        <EntryCard
-          icon={<Buildings size={28} weight="duotone" className="text-indigo-600" />}
-          title="모험가 협회"
-          onClick={() => onAction({ kind: "open-association" })}
-        />
+        {gameStateLoaded && viewerGuildId == null && (
+          <EntryCard
+            icon={<Buildings size={28} weight="duotone" className="text-indigo-600" />}
+            title="모험가 협회"
+            onClick={() => onAction({ kind: "open-association" })}
+          />
+        )}
         <EntryCard
           icon={<Compass size={28} weight="duotone" className="text-sky-600" />}
           title="생활 지도"

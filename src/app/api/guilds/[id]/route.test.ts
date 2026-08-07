@@ -26,6 +26,9 @@ vi.mock("@/db", () => ({
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: mocks.ensureUser,
 }));
+vi.mock("@/lib/server/ugcSafety", () => ({
+  readBlockedUserIds: vi.fn(async () => []),
+}));
 
 import { GET } from "./route";
 

@@ -24,6 +24,9 @@ vi.mock("@/lib/server/abuseLog", () => ({
   clientIpFromRequest: vi.fn(() => "127.0.0.1"),
   recordAbuseEventSoon: mocks.recordAbuseEventSoon,
 }));
+vi.mock("@/lib/server/ugcSafety", () => ({
+  readBlockedUserIds: vi.fn(async () => []),
+}));
 
 import { GET, POST } from "./route";
 
@@ -85,6 +88,21 @@ describe("채팅 증분 조회", () => {
 
     expect(response.status).toBe(200);
     expect(body.map((message) => message.id)).toEqual([4, 5]);
+  });
+
+  it("거래 채팅을 전체 채팅과 다른 채널로 반환한다", async () => {
+    mocks.rows = [{ ...row(6), channel: "trade" }];
+
+    const response = await GET(
+      new Request("http://localhost/api/chat?channel=trade"),
+    );
+    const body = (await response.json()) as Array<{
+      id: number;
+      channel: string;
+    }>;
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject([{ id: 6, channel: "trade" }]);
   });
 
   it("서버에 저장된 장비 링크를 안전하게 파싱해 반환한다", async () => {

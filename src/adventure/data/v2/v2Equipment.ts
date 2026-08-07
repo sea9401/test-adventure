@@ -1034,7 +1034,7 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   hp: "HP",
   critMult: "치명타 피해",
   spd: "속도",
-  def: "방어",
+  def: "추가 방어력",
   magicDef: "마법방어",
   healPowerPct: "회복",
   critResist: "치명타 저항",

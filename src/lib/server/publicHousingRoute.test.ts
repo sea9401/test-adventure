@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, resolved } = vi.hoisted(() => ({
+const { store, resolved, housingGate } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   resolved: { userId: "target", displayName: "은빛나무" },
+  housingGate: { enabled: true },
 }));
 const keyOf = (userId: string, key: string) => `${userId}::${key}`;
 
@@ -12,6 +13,13 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
 }));
+vi.mock("@/adventure/v2/lifeCrafting", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/adventure/v2/lifeCrafting")>();
+  return {
+    ...actual,
+    isLifeHousingEnabled: () => housingGate.enabled,
+  };
+});
 vi.mock("@/db", () => ({
   db: {
     execute: vi.fn(async () => ({
@@ -34,6 +42,8 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { GET } from "@/app/api/v2/player/[name]/housing/route";
 import { defaultHousingState } from "@/adventure/data/v2/housing";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { db } from "@/db";
+import { ensureUser } from "@/lib/server/ensureUser";
 
 const EQUIPMENT_ID = Object.keys(V2_EQUIPMENT)[0] as keyof typeof V2_EQUIPMENT;
 
@@ -45,7 +55,9 @@ function get() {
 
 describe("public housing route", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     store.clear();
+    housingGate.enabled = true;
     resolved.userId = "target";
     resolved.displayName = "은빛나무";
     store.set(keyOf("target", "equipment.v2"), {
@@ -55,6 +67,17 @@ describe("public housing route", () => {
       ],
       equipped: {},
     });
+  });
+
+  it("returns 404 before looking up a player while housing is disabled", async () => {
+    housingGate.enabled = false;
+
+    const response = await get();
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ ok: false, error: "not_found" });
+    expect(ensureUser).not.toHaveBeenCalled();
+    expect(db.execute).not.toHaveBeenCalled();
   });
 
   it("blocks another viewer from a private room", async () => {

@@ -26,6 +26,7 @@ export type GuildActivity = {
     permissionEnabled?: boolean;
     tokenCost?: number;
     remainingTokens?: number;
+    recipientCount?: number;
     smithyLevel?: number;
     buildingName?: string;
     buildingLevel?: number;
@@ -44,6 +45,9 @@ export type GuildActivity = {
     mapFragments?: number;
     chargeTarget?: "hp" | "mp" | "balanced";
     chargeAmount?: number;
+    staminaPotions?: number;
+    alchemyRewardName?: string;
+    alchemyRewardAmount?: number;
   } | null;
   createdAt: string;
 };
@@ -90,7 +94,7 @@ function describe(a: GuildActivity): string {
     case "trade_delivery":
       return `${actor} 님이 교역소에 ${a.meta?.itemName ?? "물품"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 납품했어요${contributionText(a)}`;
     case "trade_shop_purchase":
-      return `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 구매했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
+      return `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드원 ${(a.meta?.recipientCount ?? 0).toLocaleString()}명에게 ${(a.meta?.quantity ?? 0).toLocaleString()}개씩 지급했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
     case "warehouse_deposit":
       return a.meta?.itemKind === "equipment"
         ? `${actor} 님이 길드 창고에 ${a.meta?.itemName ?? "장비"} 입고를 완료했어요`
@@ -144,7 +148,11 @@ function describe(a: GuildActivity): string {
           : ""
       }`;
     case "alchemy_craft":
-      return `${actor} 님이 ${a.meta?.itemName ?? "충전액"}을 조제했어요 · ${alchemyTargetLabel(a.meta?.chargeTarget)} +${(a.meta?.chargeAmount ?? 0).toLocaleString()}`;
+      return a.meta?.staminaPotions
+        ? `${actor} 님이 ${a.meta?.itemName ?? "활력 영약"}을 조제했어요 · 스태미나 회복약 +${a.meta.staminaPotions.toLocaleString()}개`
+        : a.meta?.alchemyRewardAmount
+          ? `${actor} 님이 ${a.meta?.itemName ?? "연성 재료"}을 조제했어요 · ${a.meta.alchemyRewardName ?? "연성 재료"} +${a.meta.alchemyRewardAmount.toLocaleString()}개`
+        : `${actor} 님이 ${a.meta?.itemName ?? "충전액"}을 조제했어요 · ${alchemyTargetLabel(a.meta?.chargeTarget)} +${(a.meta?.chargeAmount ?? 0).toLocaleString()}`;
     case "emblem_change":
       return a.meta?.amount
         ? `${actor} 님이 길드 엠블럼을 변경했어요 · 길드 자금 -${a.meta.amount.toLocaleString()} G`

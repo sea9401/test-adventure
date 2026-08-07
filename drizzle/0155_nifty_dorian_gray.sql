@@ -1,0 +1,2 @@
+ALTER TABLE "messages" DROP CONSTRAINT "messages_channel_scope_check";--> statement-breakpoint
+ALTER TABLE "messages" ADD CONSTRAINT "messages_channel_scope_check" CHECK (("messages"."channel" IN ('global', 'trade') AND "messages"."guild_id" IS NULL AND "messages"."room_id" IS NULL) OR ("messages"."channel" = 'guild' AND "messages"."guild_id" IS NOT NULL AND "messages"."room_id" IS NULL) OR ("messages"."channel" = 'room' AND "messages"."guild_id" IS NULL AND "messages"."room_id" IS NOT NULL));

@@ -18,7 +18,10 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
 import { formatRelative } from "@/lib/notifications";
-import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+import {
+  LIFE_CRAFTING_RECIPE_BY_ID,
+  isLifeCraftingRecipeAvailable,
+} from "@/adventure/v2/lifeCrafting";
 import { LIFE_FIELD_DISCOVERIES } from "@/adventure/v2/lifeFieldRecords";
 import {
   FEED_POLL_MS,
@@ -150,7 +153,9 @@ export function warTickerText(
   }
   if (e.type === "life_blueprint") {
     const p = e.payload as { recipeId: string };
-    return `${e.actorName} 님이 숨겨진 도안 ${LIFE_CRAFTING_RECIPE_BY_ID.get(p.recipeId)?.name ?? p.recipeId} 발견!`;
+    const recipe = LIFE_CRAFTING_RECIPE_BY_ID.get(p.recipeId);
+    if (recipe && !isLifeCraftingRecipeAvailable(recipe)) return null;
+    return `${e.actorName} 님이 숨겨진 도안 ${recipe?.name ?? p.recipeId} 발견!`;
   }
   if (e.type === "life_discovery") {
     const p = e.payload as { discoveryId: string };

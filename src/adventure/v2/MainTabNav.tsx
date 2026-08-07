@@ -111,6 +111,15 @@ export const TOWN_MENU_ITEMS = [
   { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
 ] satisfies SubItem[];
 
+export function townMenuItemsForViewer(
+  viewerGuildId: number | null,
+  gameStateLoaded = true,
+): SubItem[] {
+  return gameStateLoaded && viewerGuildId == null
+    ? TOWN_MENU_ITEMS
+    : TOWN_MENU_ITEMS.filter((item) => item.href !== "/town/association");
+}
+
 // 하위 항목·아이콘은 각 탭 홈(card 메뉴)에서 그대로 가져온 라우트/아이콘. 새 하위화면 추가 시 여기 한 줄.
 const TABS: TabDef[] = [
   { key: "adventure", label: "모험", href: "/" },
@@ -152,11 +161,13 @@ const TABS: TabDef[] = [
 
 export function MainTabNav({
   activeKey,
+  gameStateLoaded,
   onNavigate,
   viewerGuildId,
 }: {
   // 현재 활성 탭 key(경로 파생). TABS 에 없는 값(예: plaza)이면 아무 탭도 강조 안 함.
   activeKey: string;
+  gameStateLoaded: boolean;
   onNavigate: (href: string) => void;
   viewerGuildId: number | null;
 }) {
@@ -200,6 +211,8 @@ export function MainTabNav({
   const openSubItems =
     openTab?.key === "guild"
       ? [GUILD_ROOT_ITEM, ...cachedGuildFacilityIds.map(guildFacilityMenuItem)]
+      : openTab?.key === "town"
+        ? townMenuItemsForViewer(viewerGuildId, gameStateLoaded)
       : (openTab?.sub ?? []);
 
   return (

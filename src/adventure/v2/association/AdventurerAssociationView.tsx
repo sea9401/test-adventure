@@ -42,7 +42,7 @@ type FacilityRow = {
 
 const DESCRIPTIONS: Record<AdventurerAssociationFacilityId, string> = {
   guild_smithy: "길드 없이도 제작 장비와 대장장이 성장을 이용하는 공공 제작소입니다.",
-  training_ground: "모든 모험가가 직업 숙련도 훈련을 받을 수 있는 공공 훈련장입니다.",
+  training_ground: "무소속 모험가가 직업 숙련도 훈련을 받을 수 있는 공공 훈련장입니다.",
   exploration_hq: "서버 전체가 주간 탐사 의뢰와 원정 진행을 함께 준비합니다.",
   alchemy_workshop: "개인 재료로 HP·MP 충전액을 조제하는 공공 연금 공방입니다.",
   dining_hall: "공동 메뉴를 준비하되 식권과 식사 효과는 이용자별로 관리합니다.",
@@ -135,10 +135,11 @@ export function AdventurerAssociationView({ onBack }: { onBack: () => void }) {
     <PageShell spacing="tight">
       <SubViewHeader title="모험가 협회" onBack={onBack} />
       <section className={`${SURFACE_ACCENT} space-y-1 p-4 text-sm`}>
-        <h2 className="font-bold">모든 모험가를 위한 공공시설</h2>
+        <h2 className="font-bold">무소속 모험가를 위한 공공시설</h2>
         <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-          시설은 모두 Lv.1부터 개방됩니다. 누구나 재료와 골드를 기부할 수 있으며,
-          목표를 채우는 즉시 자동으로 승급합니다. 길드 창고는 협회 시설에 포함되지 않습니다.
+          시설은 모두 Lv.1부터 개방됩니다. 길드에 가입하지 않은 모험가가 재료와
+          골드를 기부할 수 있으며, 목표를 채우는 즉시 자동으로 승급합니다. 길드
+          창고는 협회 시설에 포함되지 않습니다.
         </p>
         <p className="text-xs text-amber-700 dark:text-amber-300">
           각 시설의 주간 보상은 길드 또는 협회 중 먼저 이용한 한쪽으로 고정됩니다.

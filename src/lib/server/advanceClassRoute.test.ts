@@ -295,6 +295,83 @@ describe("advance-class — 생활 직업 레벨 조건", () => {
   });
 });
 
+describe("advance-class — 과거 직업 재방문", () => {
+  it("과거 직업에서는 Lv.1에도 다른 직업으로 나갈 수 있고 환생 횟수는 올리지 않는다", async () => {
+    seed("mage", "mage", 5000);
+    const seededProf = store.get("proficiency.v2") as Record<string, unknown>;
+    store.set("proficiency.v2", {
+      ...seededProf,
+      reincarnations: 4,
+      jobHistory: ["warrior", "mage"],
+      jobCumLevel: { warrior: 30, mage: 200 },
+    });
+
+    // 정상적인 Lv.100 전직으로 예전에 수련했던 병사에 돌아온다.
+    const returned = await POST(advanceReq("warrior"));
+    expect(returned.status).toBe(200);
+    expect(await returned.json()).toMatchObject({
+      ok: true,
+      revisitExpedited: true,
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      class: "warrior",
+      level: 1,
+      revisitJobId: "warrior",
+    });
+    expect(parseProficiency(store.get("proficiency.v2")).reincarnations).toBe(5);
+
+    // 놓친 스킬을 배웠다고 가정하고, 재육성 없이 곧바로 마법사로 복귀한다.
+    const left = await POST(advanceReq("mage"));
+    expect(left.status).toBe(200);
+    expect(await left.json()).toMatchObject({
+      ok: true,
+      revisitExpedited: true,
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      class: "mage",
+      level: 1,
+      revisitJobId: "mage",
+    });
+    // Lv.1 조기 이동은 전투직 재전직 업적을 올리지 않는다.
+    expect(parseProficiency(store.get("proficiency.v2")).reincarnations).toBe(5);
+  });
+
+  it("재방문하지 않은 전투 직업은 다른 직업으로 갈 때도 Lv.100이 필요하다", async () => {
+    seed("warrior", "warrior", 0);
+    store.set("character.v2", {
+      class: "warrior",
+      specChoice: null,
+      level: 1,
+    });
+
+    const res = await POST(advanceReq("mage"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "level_too_low",
+      required: 100,
+    });
+  });
+
+  it("재방문 패스로 같은 직업을 Lv.1에서 반복 초기화할 수는 없다", async () => {
+    seed("warrior", "warrior", 0);
+    store.set("character.v2", {
+      class: "warrior",
+      specChoice: null,
+      level: 1,
+      revisitJobId: "warrior",
+    });
+
+    const res = await POST(advanceReq("warrior"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "level_too_low",
+      required: 100,
+    });
+  });
+});
+
 describe("advance-class — 재전직/환생 진입 자체는 직업 숙련도를 더하지 않음", () => {
   it("재전직(병사→병사): 직군 숙련도 보존, 직업 숙련도 시드 없음", async () => {
     // 직업 숙련도는 사냥 승리에서만 +1. 전직/재전직은 레벨과 grown만 리셋한다.

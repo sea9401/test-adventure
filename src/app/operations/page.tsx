@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PolicyDocument } from "@/components/PolicyDocument";
 
-const EFFECTIVE_DATE = "2026년 7월 26일";
+const EFFECTIVE_DATE = "2026년 8월 8일";
 
 export const metadata: Metadata = {
   title: "운영정책 — 무슨무슨게임",
@@ -87,7 +87,9 @@ export default function OperationsPage() {
       <section>
         <h2>7. 신고와 이의 제기</h2>
         <ol>
-          <li>신고와 건의는 게임 메뉴의 ‘건의사항’ 또는 <a href="mailto:sea9401@gmail.com">sea9401@gmail.com</a>으로 접수할 수 있습니다.</li>
+          <li>게시글·댓글·채팅의 ‘신고’ 버튼에서 해당 콘텐츠 또는 작성자를 신고할 수 있습니다. 신고 당시 원문과 문맥 정보가 운영자에게 전달됩니다.</li>
+          <li>‘차단’ 버튼을 사용하면 해당 사용자의 콘텐츠가 숨겨지고 서로 새 쪽지나 채팅방 초대를 보낼 수 없습니다. 차단은 ‘환경 설정 → 차단한 사용자’에서 해제할 수 있습니다.</li>
+          <li>일반 건의와 버그 제보는 게임 메뉴의 ‘건의사항’ 또는 <a href="mailto:sea9401@gmail.com">sea9401@gmail.com</a>으로 접수할 수 있습니다.</li>
           <li>계정 제재에 이의가 있다면 계정 식별 정보, 발생 시각, 이의 사유를 함께 보내 주세요.</li>
           <li>운영자는 서버 기록과 제출 자료를 확인해 결과를 안내하며, 새로운 사실이 확인되면 조치를 변경하거나 해제할 수 있습니다.</li>
           <li>허위 신고, 반복적인 업무 방해 또는 신고 대상에 대한 공개적인 괴롭힘은 별도 조치 대상이 될 수 있습니다.</li>

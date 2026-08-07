@@ -9,6 +9,7 @@ import {
   marketplaceInbox,
   marketplaceListingsV2,
   storageDeletionQueue,
+  ugcReports,
   users,
 } from "@/db/schema";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
@@ -185,6 +186,15 @@ export async function POST(req: Request) {
             .onConflictDoNothing()
             .returning({ id: storageDeletionQueue.id })
         : [];
+    // 안전 신고는 운영 감사 기간 동안 보존하되 탈퇴자 식별값과 표시 이름은 익명화한다.
+    await tx
+      .update(ugcReports)
+      .set({ reporterName: "탈퇴한 사용자", updatedAt: new Date() })
+      .where(eq(ugcReports.reporterUserId, userId));
+    await tx
+      .update(ugcReports)
+      .set({ targetName: "탈퇴한 사용자", updatedAt: new Date() })
+      .where(eq(ugcReports.targetUserId, userId));
     await tx.delete(users).where(eq(users.id, userId));
     return queued.map((row) => row.id);
   });

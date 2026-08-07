@@ -24,6 +24,7 @@ import {
   pushDeliveries,
   pvpTournaments,
   serverFeed,
+  ugcReports,
   userSanctions,
 } from "@/db/schema";
 import { requireCronAuth } from "@/lib/server/cronAuth";
@@ -445,7 +446,7 @@ export async function POST(req: Request) {
   if (unauthorized) return unauthorized;
 
   const now = new Date();
-  const [abuse, economy, adminAudit, serverFeedResult, pushDelivery, tournament] =
+  const [abuse, economy, adminAudit, serverFeedResult, pushDelivery, safetyReports, tournament] =
     await Promise.all([
       deleteSimpleRows(
         abuseEvents,
@@ -485,6 +486,18 @@ export async function POST(req: Request) {
         lt(
           pushDeliveries.createdAt,
           retentionCutoff(RETENTION_POLICY.pushDeliveryDays, now),
+        ),
+      ),
+      deleteSimpleRows(
+        ugcReports,
+        ugcReports.id,
+        and(
+          inArray(ugcReports.status, ["resolved", "dismissed"]),
+          isNotNull(ugcReports.resolvedAt),
+          lt(
+            ugcReports.resolvedAt,
+            retentionCutoff(RETENTION_POLICY.resolvedUgcReportDays, now),
+          ),
         ),
       ),
       trimArenaTournamentReplays(now),
@@ -572,6 +585,7 @@ export async function POST(req: Request) {
     sanctions,
     serverFeed: serverFeedResult,
     pushDelivery,
+    safetyReports,
     arenaTournament: tournament,
     coopReplay,
     guildActivity,

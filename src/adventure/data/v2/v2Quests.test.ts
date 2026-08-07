@@ -109,6 +109,18 @@ describe("v2Quests 카탈로그 무결성", () => {
     );
   });
 
+  it("생활 도구 업적은 승급 횟수가 아니라 도달 단계를 안내한다", () => {
+    expect(questById("life_tool_tier1")?.desc).toBe(
+      "벌목 또는 채광 생활 도구를 1단계로 승급하세요.",
+    );
+    expect(questById("life_tool_tier2")?.desc).toBe(
+      "벌목 또는 채광 생활 도구를 2단계로 승급하세요.",
+    );
+    expect(questById("life_tool_tier3")?.desc).toBe(
+      "벌목 또는 채광 생활 도구를 3단계로 승급하세요.",
+    );
+  });
+
   it("제거된 지도·전쟁·벌목 미니게임 업적은 카탈로그에 없다", () => {
     const removedIds = [
       "b_travel",
@@ -852,6 +864,7 @@ describe("deriveQuestViews", () => {
     // 직군 가시 퀘 중, 체인은 첫 단계만 보임(미수령 상태 기준).
     const seenChains = new Set<string>();
     const visibleCount = V2_QUESTS.filter((q) => {
+      if (q.contentEnabled === false && !q.check(ZERO)) return false;
       if (q.hiddenUntilComplete && !q.check(ZERO)) return false;
       if (!q.chain) return true;
       if (seenChains.has(q.chain)) return false;
@@ -876,6 +889,27 @@ describe("deriveQuestViews", () => {
     expect(ids).not.toContain("l_fish25");
     expect(after.find((v) => v.id === "l_fish1")!.status).toBe("claimed");
     expect(after.find((v) => v.id === "l_fish10")!.status).toBe("claimable");
+  });
+
+  it("비공개 숙소 업적은 숨기되 과거 달성·수령 권리는 보존한다", () => {
+    const fresh = deriveQuestViews(ZERO, none).map((view) => view.id);
+    expect(fresh).not.toContain("life_furniture_type1");
+    expect(fresh).not.toContain("life_blueprint_all");
+    expect(fresh).toContain("life_blueprint1");
+
+    const completed = deriveQuestViews(
+      { ...ZERO, lifeFurnitureTypes: 1, lifeHiddenBlueprints: 6 },
+      new Set(["life_blueprint1"]),
+    );
+    expect(completed.find((view) => view.id === "life_furniture_type1")?.status).toBe("claimable");
+    expect(completed.find((view) => view.id === "life_blueprint_all")?.status).toBe("claimable");
+
+    const claimed = deriveQuestViews(
+      ZERO,
+      new Set(["life_furniture_type1", "life_blueprint1", "life_blueprint_all"]),
+    );
+    expect(claimed.find((view) => view.id === "life_furniture_type1")?.status).toBe("claimed");
+    expect(claimed.find((view) => view.id === "life_blueprint_all")?.status).toBe("claimed");
   });
 
   it("작물 수확 50회 수령 뒤 다음 단계인 계절을 일구다만 공개", () => {

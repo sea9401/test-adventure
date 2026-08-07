@@ -22,6 +22,7 @@ import {
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 const MAX_MULTIPART_BYTES = GUILD_EMBLEM_IMAGE_MAX_BYTES + 256 * 1024;
 
@@ -67,6 +68,9 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   const limited = enforceUserAndIpRateLimit(req, {
     userId,

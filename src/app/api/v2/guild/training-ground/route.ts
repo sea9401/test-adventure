@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { recordEconomyEventSoon, recordRewardFailureSoon } from "@/lib/server/economyLog";
 import {
   associationFacilityLevel,
+  canUseAdventurerAssociation,
   claimWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
@@ -78,6 +79,13 @@ async function resolveTrainingAccess(
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
   if (association) {
+    if (!(await canUseAdventurerAssociation(db, userId))) {
+      return {
+        ok: false,
+        status: 403,
+        body: { ok: false, error: "association_for_solo_only" },
+      };
+    }
     const level = await associationFacilityLevel(db, "training_ground");
     return {
       ok: true,

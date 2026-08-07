@@ -5,16 +5,12 @@ import {
   floorDefMult,
   floorExpMult,
   endgameSoften,
-  underpreparedCombatMult,
   endExtensionCombatSoften,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
   LADDER_EXP_SOFTCAP,
   ENDGAME_SOFTEN_START_DEPTH,
   ENDGAME_SOFTEN_MIN,
-  UNDERPREPARED_COMBAT_MAX,
-  UNDERPREPARED_COMBAT_LATE_MAX,
-  UNDERPREPARED_ENDGAME_MAX,
   END_EXTENSION_START_DEPTH,
   END_EXTENSION_START_STAT_MULT,
   END_EXTENSION_STAT_STEP,
@@ -53,24 +49,7 @@ describe("endgameSoften — 엔드게임 난이도 완화(floor 빌드 부양·�
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램프)", () => {
-  it("권장 전투력 미달 페널티는 중반과 최상위 4개 사냥터에 부족분 비례로 적용한다", () => {
-    const gate = floorPowerGate(20);
-    const endgameGate = floorPowerGate(60);
-    expect(underpreparedCombatMult(6, 0)).toBe(1);
-    expect(underpreparedCombatMult(20, gate)).toBe(1);
-    expect(underpreparedCombatMult(20, gate * 0.95)).toBeCloseTo(1.1, 5);
-    expect(underpreparedCombatMult(20, 0)).toBe(UNDERPREPARED_COMBAT_MAX);
-    expect(underpreparedCombatMult(38, 0)).toBe(UNDERPREPARED_COMBAT_LATE_MAX);
-    expect(underpreparedCombatMult(43, 0)).toBe(1);
-    expect(underpreparedCombatMult(48, 0)).toBe(1);
-    expect(underpreparedCombatMult(49, 0)).toBe(UNDERPREPARED_ENDGAME_MAX);
-    expect(underpreparedCombatMult(60, endgameGate)).toBe(1);
-    expect(underpreparedCombatMult(60, endgameGate * 0.9)).toBe(1);
-    expect(underpreparedCombatMult(60, endgameGate * 0.8)).toBeCloseTo(2.2, 5);
-    expect(underpreparedCombatMult(60, 0)).toBe(UNDERPREPARED_ENDGAME_MAX);
-  });
-
-  it("권장 파워 게이트 — 들판(1~6) 50→95, 7+ statMult 비례 단일 램프, 단조 증가", () => {
+  it("권장 파워 게이트 — 들판(1~6) 50→95, 7~42 statMult 비례, 단조 증가", () => {
     expect(floorPowerGate(1)).toBe(50);
     expect(floorPowerGate(6)).toBe(95); // 들판 상한
     // 깊이 7+ = statMult × 110. 옛 앵커 점프(310)보다 훨씬 완만.
@@ -99,13 +78,18 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     }
   });
 
-  it("43+ 엔드 확장 램프 — 새 사냥터는 권장 전투력 1500대에서 시작하고 증가폭이 더 큼", () => {
+  it("43+ 엔드 확장 — 실제 몬스터 램프와 표시 권장 전투력을 분리", () => {
     expect(floorStatMult(END_EXTENSION_START_DEPTH)).toBe(END_EXTENSION_START_STAT_MULT);
-    expect(floorPowerGate(END_EXTENSION_START_DEPTH)).toBe(1509);
+    expect(floorPowerGate(END_EXTENSION_START_DEPTH)).toBe(1200);
     expect(floorPowerGate(42)).toBeLessThan(1200);
-    expect(floorPowerGate(43)).toBeGreaterThanOrEqual(1500);
+    expect(floorPowerGate(43)).toBeGreaterThan(floorPowerGate(42));
     expect(floorStatMult(44) - floorStatMult(43)).toBe(END_EXTENSION_STAT_STEP);
     expect(END_EXTENSION_STAT_STEP).toBeGreaterThan(LADDER_STAT_STEP);
+  });
+
+  it("권장 전투력 조정은 49+ 실제 몬스터 스탯 배율을 바꾸지 않는다", () => {
+    expect(floorStatMult(49)).toBeCloseTo(Math.pow(2000 / 110, 1 / 0.77), 8);
+    expect(floorStatMult(72)).toBeCloseTo(Math.pow(4500 / 110, 1 / 0.77), 8);
   });
 
   it("43+ 엔드 확장 전투 완화는 지역 경계부터 적용하고 심층 하한에서 멈춘다", () => {

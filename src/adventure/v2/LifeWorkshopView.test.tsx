@@ -1,9 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  LifeWorkshopView,
   LifeWorkshopQuantityControls,
   lifeWorkshopErrorText,
 } from "./LifeWorkshopView";
+
+describe("생활 조합 작업장 모바일 배치", () => {
+  it("터치 기기에서 상단 메뉴를 네 칸으로 되돌릴 수 있는 표식을 둔다", () => {
+    const html = renderToStaticMarkup(<LifeWorkshopView onBack={vi.fn()} />);
+
+    expect(html).toContain("life-workshop-touch-tabs");
+  });
+});
 
 describe("생활 조합 작업장 오류 안내", () => {
   it("요청 제한의 남은 대기 시간을 알려준다", () => {

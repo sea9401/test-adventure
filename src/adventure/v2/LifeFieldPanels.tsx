@@ -245,7 +245,7 @@ export function LifeFieldCodexPanel() {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
               <div>
                 <h3 className="text-sm font-bold">{ACTIVITY_LABEL[activity]} 기록</h3>
-                <p className="mt-0.5 text-[11px] text-zinc-500">오늘 발견 판정 {daily.evaluated}/{daily.limit}{daily.paused ? " · 일시 정지" : ""}</p>
+                <p className="mt-0.5 text-[11px] text-zinc-500">일일 흔적 탐색 {daily.evaluated}/{daily.limit}회{daily.paused ? " · 일시 정지" : ""}</p>
               </div>
               {trace ? (
                 <button type="button" disabled={abandoning === activity} onClick={() => void abandon(activity)} className="rounded-md border border-rose-300 bg-white px-2 py-1 text-[11px] font-bold text-rose-600 disabled:opacity-50 dark:border-rose-800 dark:bg-zinc-900 dark:text-rose-300">흔적 포기</button>

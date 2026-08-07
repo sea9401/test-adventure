@@ -93,6 +93,7 @@ export async function GET() {
         permissionEnabled?: boolean;
         tokenCost?: number;
         remainingTokens?: number;
+        recipientCount?: number;
         smithyLevel?: number;
         buildingName?: string;
         buildingLevel?: number;
@@ -108,6 +109,11 @@ export async function GET() {
         titleName?: string;
         rewardGold?: number;
         rewardFame?: number;
+        chargeTarget?: "hp" | "mp" | "balanced";
+        chargeAmount?: number;
+        staminaPotions?: number;
+        alchemyRewardName?: string;
+        alchemyRewardAmount?: number;
       } | null,
       createdAt: r.createdAt,
     })),

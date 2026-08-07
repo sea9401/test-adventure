@@ -32,6 +32,9 @@ export type CookingRecipe = {
   xp: number;
   baseStatPct: Partial<Record<V2StatKey, number>>;
   specialStatPct?: Partial<Record<V2StatKey, number>>;
+  /** 사냥 캐릭터 경험치 획득량 증가. 품질 배율을 적용하며 직업 숙련도에는 적용하지 않는다. */
+  baseExpPct?: number;
+  specialExpPct?: number;
   description: string;
 };
 
@@ -39,6 +42,7 @@ export type ActiveCookingBuff = {
   recipeId: string;
   recipeName: string;
   statPct: Partial<Record<V2StatKey, number>>;
+  expPct?: number;
   quality: CookingQuality;
   expiresAt: number;
 };
@@ -98,6 +102,7 @@ export type CookingFoodDefinition = CookingFoodVariant & {
   name: string;
   durationMs: number;
   statPct: Partial<Record<V2StatKey, number>>;
+  expPct: number;
 };
 
 export type DeliverableCookingFood = {
@@ -114,7 +119,7 @@ const recipe = (
 
 export const COOKING_RECIPES: readonly CookingRecipe[] = [
   recipe({ id: "rustic_bread", name: "투박한 밀빵", icon: "🍞", requiredLevel: 1, farmIngredients: { wheat: 15 }, optionalRareItemId: "golden_wheat", xp: 12, baseStatPct: { vit: 5 }, specialStatPct: { vit: 7 }, description: "든든한 빵으로 활력을 높입니다." }),
-  recipe({ id: "herb_tea", name: "향긋한 허브차", icon: "🍵", requiredLevel: 1, farmIngredients: { herb: 12 }, optionalRareItemId: "silverleaf", xp: 12, baseStatPct: { int: 5 }, specialStatPct: { int: 7 }, description: "맑은 향으로 지능을 가다듬습니다." }),
+  recipe({ id: "herb_tea", name: "깨달음의 허브차", icon: "🍵", requiredLevel: 1, farmIngredients: { herb: 12 }, optionalRareItemId: "silverleaf", xp: 12, baseStatPct: { int: 5 }, specialStatPct: { int: 7 }, baseExpPct: 60, specialExpPct: 90, description: "맑은 향으로 지능을 가다듬고 사냥 경험치 획득량을 높입니다." }),
   recipe({ id: "grilled_corn", name: "구운 옥수수", icon: "🌽", requiredLevel: 1, farmIngredients: { corn: 18 }, optionalRareItemId: "sweet_corn", xp: 14, baseStatPct: { str: 5 }, specialStatPct: { str: 7 }, description: "힘이 나는 간단한 농장 요리입니다." }),
   recipe({ id: "fish_skewer", name: "생선 꼬치구이", icon: "🐟", requiredLevel: 1, farmIngredients: { herb: 3 }, fishingIngredients: { catch_common: 5 }, xp: 14, baseStatPct: { dex: 5 }, description: "일반 어획물을 손질한 민첩 요리입니다." }),
   recipe({ id: "herb_flatbread", name: "향긋한 허브 납작빵", icon: "🫓", requiredLevel: 1, farmIngredients: { wheat: 8, herb: 5 }, optionalRareItemId: "silverleaf", xp: 13, baseStatPct: { spi: 5 }, specialStatPct: { spi: 7 }, description: "갓 구운 빵과 허브 향으로 정신을 가다듬습니다." }),
@@ -170,13 +175,15 @@ export function cookingQualityName(quality: CookingQuality): string {
 /** 요리 효과 스탯을 다른 캐릭터 화면과 같은 한글 라벨로 표시한다. */
 export function cookingStatText(
   stats: Partial<Record<string, number>>,
+  expPct = 0,
 ): string {
-  return Object.entries(stats)
-    .map(([key, value]) => {
+  return [
+    ...Object.entries(stats).map(([key, value]) => {
       const stat = parseV2StatKey(key);
       return `${stat ? V2_STAT_LABELS[stat] : key.toUpperCase()} +${value}%`;
-    })
-    .join(" · ");
+    }),
+    ...(expPct > 0 ? [`사냥 경험치 +${expPct}%`] : []),
+  ].join(" · ");
 }
 
 export function cookingFoodId(args: {
@@ -242,6 +249,7 @@ export function cookingFoodDefinition(
     name: `${recipe.name} (${tags.join(" · ")})`,
     durationMs: cookingBuffDurationMs(variant.quality, variant.extended ? 5 : 0),
     statPct: cookingStatPct(recipe, variant.quality, variant.usedRare),
+    expPct: cookingExpPct(recipe, variant.quality, variant.usedRare),
   };
 }
 
@@ -568,11 +576,26 @@ export function cookingStatPct(
   ) as Partial<Record<V2StatKey, number>>;
 }
 
+export function cookingExpPct(
+  recipe: CookingRecipe,
+  quality: CookingQuality,
+  usedRare: boolean,
+): number {
+  const base =
+    usedRare && recipe.specialExpPct != null
+      ? recipe.specialExpPct
+      : (recipe.baseExpPct ?? 0);
+  const qualityMultiplier =
+    quality === "masterpiece" ? 1.2 : quality === "careful" ? 1.1 : 1;
+  return Math.round(base * qualityMultiplier * 10) / 10;
+}
+
 export function activeCookingBuff(raw: unknown, now = Date.now()): ActiveCookingBuff | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as Partial<ActiveCookingBuff>;
   const recipe = typeof value.recipeId === "string" ? COOKING_RECIPE_BY_ID.get(value.recipeId) : null;
   if (!recipe || !Number.isFinite(value.expiresAt) || Number(value.expiresAt) <= now) return null;
   const quality: CookingQuality = value.quality === "masterpiece" || value.quality === "careful" ? value.quality : "normal";
-  return { recipeId: recipe.id, recipeName: recipe.name, statPct: { ...(value.statPct ?? {}) }, quality, expiresAt: Number(value.expiresAt) };
+  const expPct = Math.min(300, Math.max(0, Number(value.expPct) || 0));
+  return { recipeId: recipe.id, recipeName: recipe.name, statPct: { ...(value.statPct ?? {}) }, expPct, quality, expiresAt: Number(value.expiresAt) };
 }

@@ -108,11 +108,11 @@ describe("guild dining", () => {
       GUILD_DINING_MENUS.map((menu) => [menu.id, menu.effect]),
     ).toEqual([
       ["hearty_stew", { kind: "recovery", hp: 250_000, mp: 250_000 }],
-      ["adventurer_meal", { kind: "hunt_exp", bonusPct: 8, durationHours: 12 }],
-      ["worker_lunch", { kind: "life_xp", bonusPct: 8, durationHours: 12 }],
-      ["hunters_barbecue", { kind: "hunt_exp", bonusPct: 12, durationHours: 12 }],
-      ["artisan_seafood_rice", { kind: "life_xp", bonusPct: 12, durationHours: 12 }],
-      ["guild_grand_feast", { kind: "all_xp", bonusPct: 20, durationHours: 12 }],
+      ["adventurer_meal", { kind: "hunt_exp", bonusPct: 25, durationHours: 12 }],
+      ["worker_lunch", { kind: "life_xp", bonusPct: 10, durationHours: 12 }],
+      ["hunters_barbecue", { kind: "hunt_exp", bonusPct: 40, durationHours: 12 }],
+      ["artisan_seafood_rice", { kind: "life_xp", bonusPct: 15, durationHours: 12 }],
+      ["guild_grand_feast", { kind: "all_xp", bonusPct: 60, lifeBonusPct: 20, durationHours: 12 }],
     ]);
   });
 
@@ -135,7 +135,7 @@ describe("guild dining", () => {
       state = consumed.state;
       bonus += consumed.bonus;
     }
-    expect(bonus).toBe(1);
+    expect(bonus).toBe(2);
     expect(state.activeEffect?.expiresAt).toBe(
       now.getTime() + GUILD_DINING_EFFECT_DURATION_MS,
     );
@@ -190,7 +190,7 @@ describe("guild dining", () => {
     state = hunt.state;
     const life = consumeGuildDiningEffectState(state, "life_xp", 500, now);
 
-    expect(hunt.bonus).toBe(200);
+    expect(hunt.bonus).toBe(600);
     expect(life.bonus).toBe(100);
     expect(life.state.activeEffect?.kind).toBe("all_xp");
   });

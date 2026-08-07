@@ -12,6 +12,7 @@ export const RETENTION_POLICY = {
   arenaTournamentDays: 30,
   serverFeedDays: 30,
   pushDeliveryDays: 30,
+  resolvedUgcReportDays: 180,
   storageMetricsDays: 30,
   deleteBatchSize: 5_000,
   tableDailyGrowthBytes: 100 * 1024 * 1024,

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 // POST /api/v2/guild/description — 길드 소개 저장(마스터 전용).
 // body: { description: string }, 공백만 입력하면 소개를 제거한다.
@@ -12,6 +13,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   const limited = enforceUserAndIpRateLimit(req, {
     userId,

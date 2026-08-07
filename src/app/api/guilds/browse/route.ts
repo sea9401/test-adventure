@@ -12,6 +12,7 @@ import {
   guildMemberCap,
   normalizeGuildLevel,
 } from "@/adventure/data/guild";
+import { readBlockedUserIds } from "@/lib/server/ugcSafety";
 
 const BROWSE_LIMIT = 30;
 
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim();
+  const blockedUserIds = await readBlockedUserIds(userId);
 
   const rows = await db
     .select({
@@ -45,6 +47,9 @@ export async function GET(req: Request) {
       and(
         isNull(guilds.disbandedAt),
         eq(guilds.isTest, false),
+        blockedUserIds.length > 0
+          ? sql`${guilds.masterId} NOT IN (${sql.join(blockedUserIds.map((id) => sql`${id}`), sql`, `)})`
+          : undefined,
         q.length > 0 ? ilike(guilds.name, `%${q}%`) : undefined,
       ),
     )

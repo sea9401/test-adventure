@@ -23,6 +23,7 @@ export type InboxItem = {
   message: string | null;
   listingId: number | null;
   fromName: string | null;
+  fromUserId?: string | null;
   recipientName: string | null;
   direction?: "received" | "sent";
   createdAt: string;
@@ -102,6 +103,10 @@ function translateError(text: string, status: number): string {
       return "해당 닉네임의 유저를 찾을 수 없습니다.";
     case "self_send":
       return "자기 자신에게는 보낼 수 없습니다.";
+    case "user_blocked":
+      return "차단 관계인 사용자와는 쪽지를 주고받을 수 없습니다.";
+    case "ugc consent required":
+      return "커뮤니티 운영정책에 동의한 뒤 쪽지를 보낼 수 있습니다.";
     case "sender_no_name":
       return "닉네임을 먼저 설정해야 합니다.";
     case "empty text":

@@ -204,5 +204,21 @@ describe("life workshop route", () => {
       materials: { [LIFE_PROCESSED_MATERIAL_ID.arcaneAlloy]: 4 },
       state: { tools: { woodcutting: 0, mining: 2 }, processing: { batches: 7 } },
     });
+    expect(json.craftingRecipes.every((recipe: { kind: string }) => recipe.kind === "aid")).toBe(true);
+    expect(json.craftingRecipes.some((recipe: { id: string }) => recipe.id === "fishing_trophy_wall")).toBe(false);
+  });
+
+  it("비공개 숙소 가구는 직접 제작 요청도 거절한다", async () => {
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "pine_work_shelf",
+      quantity: 1,
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "bad_craft_recipe",
+    });
   });
 });

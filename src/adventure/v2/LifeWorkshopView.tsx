@@ -28,6 +28,7 @@ import {
 } from "./lifeWorkshop";
 import {
   LIFE_CRAFTING_RECIPES,
+  LIFE_HOUSING_ENABLED,
   lifeBlueprintSourceLabel,
   type LifeCraftingRecipe,
   type LifeFinishedItemId,
@@ -111,8 +112,9 @@ const ACTIVITY_LABEL: Record<LifeWorkshopActivity, string> = {
   mining: "채광",
 };
 
-// 숙소 가구 제작 데이터와 기존 보유 내역은 유지하되, 생활 제작 화면에서는 노출하지 않는다.
-const VISIBLE_LIFE_CRAFTING_KINDS: LifeCraftingRecipe["kind"][] = ["aid"];
+// 숙소 가구 제작 데이터와 기존 보유 내역은 유지하되, 기능이 닫힌 동안에는 노출하지 않는다.
+const VISIBLE_LIFE_CRAFTING_KINDS: LifeCraftingRecipe["kind"][] =
+  LIFE_HOUSING_ENABLED ? ["aid", "furniture"] : ["aid"];
 
 const ERROR_TEXT: Record<string, string> = {
   bad_recipe: "가공법을 확인할 수 없습니다.",
@@ -358,29 +360,32 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
     <PageShell spacing="normal">
       <SubViewHeader title="생활 조합 작업장" onBack={onBack} />
 
-      <Card padding="md">
-        <div className="flex items-start gap-3">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200">
-            <Hammer size={25} weight="duotone" aria-hidden />
-          </span>
-          <div>
-            <h2 className="font-bold text-zinc-900 dark:text-zinc-100">
-              채집한 재료를 생활 성장으로 연결합니다
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              원목과 광석을 가공해 도구를 승급하고, 생활 레벨 15부터 원하는 전문화를 선택할 수 있습니다.
-            </p>
+      {tab !== "requests" ? (
+        <Card padding="md">
+          <div className="flex items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200">
+              <Hammer size={25} weight="duotone" aria-hidden />
+            </span>
+            <div>
+              <h2 className="font-bold text-zinc-900 dark:text-zinc-100">
+                채집한 재료를 생활 성장으로 연결합니다
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                원목과 광석을 가공해 도구를 승급하고, 생활 레벨 15부터 원하는 전문화를 선택할 수 있습니다.
+              </p>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      ) : null}
 
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-zinc-100 p-1 sm:grid-cols-7 dark:bg-zinc-900">
+      <div className="life-workshop-touch-tabs grid grid-cols-4 gap-1 rounded-xl bg-zinc-100 p-1 sm:grid-cols-7 dark:bg-zinc-900">
         {TAB_LABELS.map((entry) => (
           <button
             key={entry.id}
             type="button"
+            aria-pressed={tab === entry.id}
             onClick={() => setTab(entry.id)}
-            className={`rounded-lg px-1 py-2 text-[11px] font-semibold transition sm:text-xs ${
+            className={`min-h-10 rounded-lg px-1 py-2 text-[11px] font-semibold transition sm:text-xs ${
               tab === entry.id
                 ? "bg-white text-amber-700 shadow-sm dark:bg-zinc-800 dark:text-amber-300"
                 : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"

@@ -5,6 +5,7 @@ import {
   adjustedCookingXp,
   cookingFoodDefinition,
   cookingFoodId,
+  cookingExpPct,
   cookingIngredientRequirement,
   cookingLevelForXp,
   cookingLevelXpThreshold,
@@ -28,6 +29,28 @@ describe("personal cooking", () => {
     expect(cookingStatText({ str: 8, vit: 5, custom: 2 })).toBe(
       "힘 +8% · 활력 +5% · CUSTOM +2%",
     );
+    expect(cookingStatText({ int: 5 }, 50)).toBe(
+      "지능 +5% · 사냥 경험치 +50%",
+    );
+  });
+
+  it("깨달음의 허브차는 품질과 희귀 재료에 따라 사냥 경험치 버프가 강해진다", () => {
+    const tea = COOKING_RECIPES.find((entry) => entry.id === "herb_tea")!;
+    expect(tea.name).toBe("깨달음의 허브차");
+    expect(cookingExpPct(tea, "normal", false)).toBe(60);
+    expect(cookingExpPct(tea, "careful", false)).toBe(66);
+    expect(cookingExpPct(tea, "masterpiece", false)).toBe(72);
+    expect(cookingExpPct(tea, "careful", true)).toBe(99);
+
+    const food = cookingFoodDefinition(
+      cookingFoodId({
+        recipeId: tea.id,
+        quality: "normal",
+        usedRare: false,
+        extended: false,
+      }),
+    );
+    expect(food).toMatchObject({ expPct: 60 });
   });
 
   it("maps every recipe to its own cooking image asset", () => {

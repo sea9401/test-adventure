@@ -15,6 +15,11 @@ import {
 } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
+import { isLifeHousingEnabled } from "@/adventure/v2/lifeCrafting";
+
+function housingUnavailableResponse() {
+  return Response.json({ ok: false, error: "not_found" }, { status: 404 });
+}
 
 async function housingSourceSaves(userId: string) {
   const [housingRaw, equipmentRaw, adventureLogRaw, fishingCodexRaw, profileRaw, lifeWorkshopRaw] =
@@ -37,6 +42,7 @@ async function housingSourceSaves(userId: string) {
 }
 
 export async function GET(req: Request) {
+  if (!isLifeHousingEnabled()) return housingUnavailableResponse();
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -63,6 +69,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!isLifeHousingEnabled()) return housingUnavailableResponse();
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });

@@ -61,8 +61,10 @@ export type JobLadderEntry = {
 type Pending = { id: string; name: string; current: boolean };
 
 export function V2JobLadder({
+  level,
   currentJobId,
   atLevelCap,
+  revisitExpedited,
   rejobRequiredLevel,
   jobs,
   onChanged,
@@ -72,6 +74,8 @@ export function V2JobLadder({
   currentJobName: string;
   currentJobId: string;
   atLevelCap: boolean;
+  /** 과거에 수련한 현 직업에서 다른 직업으로 즉시 빠져나갈 수 있는 상태. */
+  revisitExpedited: boolean;
   /** 현재 직업에서 다른 직업으로 전직할 때 필요한 캐릭터 레벨. 생산직은 1(제한 없음). */
   rejobRequiredLevel: number;
   jobs: JobLadderEntry[];
@@ -130,6 +134,11 @@ export function V2JobLadder({
   );
   const isFiltering = query.trim().length > 0 || activeTags.size > 0;
   const hasNoCharacterLevelRequirement = rejobRequiredLevel <= 1;
+  // 재방문 패스는 다른 직업으로 이동할 때만 적용한다. 같은 직업을 반복 초기화해
+  // 환생 기록 등을 우회하지 못하도록 현재 직업 재전직은 원래 레벨 조건을 요구한다.
+  const currentJobSelectable = revisitExpedited
+    ? level >= rejobRequiredLevel
+    : atLevelCap;
 
   function toggleTag(key: string) {
     setActiveTags((prev) => toggleJobTagFilter(prev, key));
@@ -178,7 +187,12 @@ export function V2JobLadder({
 
   return (
     <div className="space-y-3">
-      {hasNoCharacterLevelRequirement ? (
+      {revisitExpedited ? (
+        <StatusBanner tone="info">
+          <strong>이전에 수련한 직업이라 전직 레벨 제한이 없어요.</strong>{" "}
+          놓친 스킬을 배운 뒤 바로 다른 직업으로 이동할 수 있습니다.
+        </StatusBanner>
+      ) : hasNoCharacterLevelRequirement ? (
         <StatusBanner tone="info">
           <strong>생산직 전직에는 캐릭터 레벨 제한이 없어요.</strong>{" "}
           생산직 계보는 아래에 표시된 생활 숙련 조건만 충족하면 바로 전직할 수
@@ -263,6 +277,7 @@ export function V2JobLadder({
               jobs={goalJobs}
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
               onPick={(job) =>
@@ -278,6 +293,7 @@ export function V2JobLadder({
               jobs={currentJobs}
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
               onPick={(job) =>
@@ -296,6 +312,7 @@ export function V2JobLadder({
               useGrid
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
               onPick={(job) =>
@@ -314,6 +331,7 @@ export function V2JobLadder({
               useGrid
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
               onPick={(job) =>
@@ -398,6 +416,7 @@ function JobSection({
   jobs,
   currentJobId,
   atLevelCap,
+  currentJobSelectable,
   goalJobId,
   onSetGoal,
   onPick,
@@ -410,6 +429,7 @@ function JobSection({
   jobs: JobLadderEntry[];
   currentJobId: string;
   atLevelCap: boolean;
+  currentJobSelectable: boolean;
   goalJobId: string | null;
   onSetGoal: (jobId: string | null) => void;
   onPick: (job: JobLadderEntry) => void;
@@ -478,6 +498,7 @@ function JobSection({
               isCurrent={job.id === currentJobId}
               isGoal={job.id === goalJobId}
               atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               currentJobId={currentJobId}
               onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
               onPick={() => onPick(job)}
@@ -516,6 +537,7 @@ function JobRow({
   isCurrent,
   isGoal,
   atLevelCap,
+  currentJobSelectable,
   currentJobId,
   onSetGoal,
   onPick,
@@ -524,6 +546,7 @@ function JobRow({
   isCurrent: boolean;
   isGoal: boolean;
   atLevelCap: boolean;
+  currentJobSelectable: boolean;
   currentJobId: string;
   onSetGoal: () => void;
   onPick: () => void;
@@ -531,6 +554,7 @@ function JobRow({
   const unlocked = job.unlocked !== false;
   const tags = jobCardTags(job, { currentJobId }).slice(0, 4);
   const cultivation = jobCultivationSummary(job.id);
+  const canPick = unlocked && (isCurrent ? currentJobSelectable : atLevelCap);
   return (
     <li
       aria-current={isCurrent ? "true" : undefined}
@@ -615,10 +639,16 @@ function JobRow({
         <button
           type="button"
           onClick={onPick}
-          disabled={!atLevelCap || !unlocked}
+          disabled={!canPick}
           className="rounded-md border border-emerald-600 px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400 disabled:hover:bg-transparent dark:text-emerald-400 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:text-zinc-600"
         >
-          {!unlocked ? "조건 부족" : isCurrent ? "재전직" : "전직"}
+          {!unlocked
+            ? "조건 부족"
+            : isCurrent && !currentJobSelectable
+              ? `Lv ${V2_LEVEL_CAP} 필요`
+              : isCurrent
+                ? "재전직"
+                : "전직"}
         </button>
       </div>
     </li>

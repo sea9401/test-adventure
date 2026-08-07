@@ -24,6 +24,9 @@ describe("chatMessagesApi", () => {
     expect(chatMessagesUrl({ channel: "global", afterId: 0 })).toBe(
       "/api/chat?channel=global&afterId=0",
     );
+    expect(chatMessagesUrl({ channel: "trade", afterId: 3 })).toBe(
+      "/api/chat?channel=trade&afterId=3",
+    );
     expect(chatMessagesUrl({ channel: "room", roomId: 7, afterId: 12 })).toBe(
       "/api/chat?channel=room&roomId=7&afterId=12",
     );

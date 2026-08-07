@@ -1949,7 +1949,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: {
       maxHpPct: 20,
-      lifestealPct: 8,
+      lifestealPct: 2,
       damageTakenReductionPct: 8,
     },
   },
@@ -2273,7 +2273,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "마혈이 상처를 삼키고 육신을 다시 일으킨다. 생명력과 방어, 피해 저항과 흡혈이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { maxHpPct: 28, lifestealPct: 5, damageTakenReductionPct: 9, defPct: 12 },
+    passive: { maxHpPct: 28, lifestealPct: 4, damageTakenReductionPct: 9, defPct: 12 },
   },
   v2c_absolute_unity: {
     id: "v2c_absolute_unity", name: "만상귀일", stat: "str", category: "attack", tier: 3,

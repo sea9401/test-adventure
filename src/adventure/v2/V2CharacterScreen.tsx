@@ -26,6 +26,7 @@ import type {
 } from "@/adventure/profile/profileShowcase";
 import type { LifeSummary } from "./lifeSummary";
 import { LifeMasterySummaryCard } from "./LifeMasterySummaryCard";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -234,6 +235,22 @@ export function V2CharacterScreen({
           </div>
         </Card>
       )}
+
+      {playerName && character ? (
+        <Card padding="sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              부적절한 이름이나 프로필 이미지를 발견하셨나요?
+            </p>
+            <ContentSafetyActions
+              sourceType="profile"
+              sourceId={character.name}
+              targetName={character.name}
+              onBlocked={() => onBack?.()}
+            />
+          </div>
+        </Card>
+      ) : null}
 
       {character && (
         <V2CharacterBasics

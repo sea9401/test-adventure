@@ -14,6 +14,9 @@ export function translateChatError(msg: string): string {
   }
   if (msg === "not in guild") return "길드 가입 후 사용할 수 있습니다.";
   if (msg === "not in room") return "채팅방 참여 권한이 없습니다.";
+  if (msg === "ugc consent required") {
+    return "커뮤니티 운영정책에 동의한 뒤 채팅을 이용할 수 있습니다.";
+  }
   if (msg === "item not owned") return "보유 중인 장비만 공유할 수 있습니다.";
   if (msg === "invalid item link") return "아이템 링크 형식이 올바르지 않습니다.";
   if (msg === "unauthorized") return "로그인이 만료됐습니다. 새로고침 해주세요.";

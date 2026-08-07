@@ -1390,8 +1390,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : Math.floor(
             (scaledEnemyDamage * magicEnemyDamage) / Math.max(1, enemyDamage),
           );
+  // 공격 피해를 기준으로 하는 흡혈형 회복은 이미 피해 증가 효과의 영향을 받는다.
+  // 회복량 증가까지 곱하면 두 번 증폭되므로 healMult와 분리한다.
   const damageBasedHeal = Math.floor(
-    ((scaledEnemyDamage * healFromDamagePct) / 100) * (input.attacker.healMult ?? 1),
+    (scaledEnemyDamage * healFromDamagePct) / 100,
   );
   const directHealMult = def.oncePerBattle ? 1 : skillMult;
   const scaledSelfHeal =

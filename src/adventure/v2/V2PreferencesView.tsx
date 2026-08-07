@@ -21,6 +21,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
+import { BlockedUsersPanel } from "@/components/safety/BlockedUsersPanel";
 import { useGameState } from "./GameStateProvider";
 import {
   BACKGROUND_HIDDEN_MODE_CLASS,
@@ -239,6 +240,7 @@ export function V2PreferencesView() {
           </span>
           <CaretRight size={18} weight="bold" className="shrink-0" aria-hidden />
         </Link>
+        <BlockedUsersPanel />
         <div className={`${SURFACE_INSET} p-3`}>
           <div className="flex items-start gap-3">
             <UserMinus

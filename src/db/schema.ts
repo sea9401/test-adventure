@@ -422,8 +422,8 @@ export const chatRoomInvites = pgTable(
   ],
 );
 
-// 채팅 메시지. channel='global' 은 전체 채팅, channel='guild' 는 guildId 길드원 전용,
-// channel='room' 은 roomId 채팅방 참여자 전용이다.
+// 채팅 메시지. channel='global' 은 전체 채팅, channel='trade' 는 거래 채팅,
+// channel='guild' 는 guildId 길드원 전용, channel='room' 은 roomId 참여자 전용이다.
 // 3일 후 cron 으로 일괄 삭제.
 // name/className/title 은 전송 시점 스냅샷 — 이후 사용자가 바뀌어도 과거 메시지는 그대로.
 // title 은 미장착 시 NULL.
@@ -458,7 +458,7 @@ export const messages = pgTable(
     index("messages_user_created_at_idx").on(t.userId, t.createdAt),
     check(
       "messages_channel_scope_check",
-      sql`(${t.channel} = 'global' AND ${t.guildId} IS NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'guild' AND ${t.guildId} IS NOT NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'room' AND ${t.guildId} IS NULL AND ${t.roomId} IS NOT NULL)`,
+      sql`(${t.channel} IN ('global', 'trade') AND ${t.guildId} IS NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'guild' AND ${t.guildId} IS NOT NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'room' AND ${t.guildId} IS NULL AND ${t.roomId} IS NOT NULL)`,
     ),
   ],
 );
@@ -489,6 +489,117 @@ export const feedbackReports = pgTable(
     index("feedback_reports_user_created_idx").on(t.userId, t.createdAt),
     index("feedback_reports_status_created_idx").on(t.status, sql`${t.id} DESC`),
   ],
+);
+
+// 사용자 제작 콘텐츠(게시글·댓글·채팅) 신고. 원본 콘텐츠는 삭제되거나 채팅 보존
+// 기간이 지나도 운영자가 판단할 수 있도록 접수 시점의 표시 이름과 내용을 보존한다.
+// 계정 삭제 시 신고자/대상 UUID만 익명화하고 신고 기록 자체는 운영 감사용으로 남긴다.
+export const ugcReports = pgTable(
+  "ugc_reports",
+  {
+    id: serial("id").primaryKey(),
+    reporterUserId: text("reporter_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reporterName: text("reporter_name").notNull(),
+    // content = 해당 콘텐츠 자체 신고, user = 콘텐츠 작성자 신고.
+    subjectType: text("subject_type").notNull(),
+    sourceType: text("source_type").notNull(),
+    // 숫자 PK 콘텐츠와 UUID/이름 기반 프로필을 같은 신고 흐름에서 참조한다.
+    sourceId: text("source_id").notNull(),
+    targetUserId: text("target_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    targetName: text("target_name").notNull(),
+    reason: text("reason").notNull(),
+    details: text("details"),
+    contentSnapshot: text("content_snapshot").notNull(),
+    contextSnapshot: jsonb("context_snapshot")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text("status").notNull().default("open"),
+    adminNote: text("admin_note"),
+    resolvedByUserId: text("resolved_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at"),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("ugc_reports_status_created_idx").on(t.status, t.createdAt),
+    index("ugc_reports_target_user_created_idx").on(
+      t.targetUserId,
+      t.createdAt,
+    ),
+    index("ugc_reports_reporter_created_idx").on(
+      t.reporterUserId,
+      t.createdAt,
+    ),
+    uniqueIndex("ugc_reports_active_duplicate_idx")
+      .on(t.reporterUserId, t.subjectType, t.sourceType, t.sourceId)
+      .where(sql`${t.status} IN ('open', 'reviewing')`),
+    check(
+      "ugc_reports_subject_type_check",
+      sql`${t.subjectType} IN ('content', 'user')`,
+    ),
+    check(
+      "ugc_reports_source_type_check",
+      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room')`,
+    ),
+    check(
+      "ugc_reports_reason_check",
+      sql`${t.reason} IN ('harassment', 'hate', 'sexual', 'violence', 'spam', 'fraud', 'personal_info', 'other')`,
+    ),
+    check(
+      "ugc_reports_status_check",
+      sql`${t.status} IN ('open', 'reviewing', 'resolved', 'dismissed')`,
+    ),
+    check(
+      "ugc_reports_details_length_check",
+      sql`${t.details} IS NULL OR char_length(${t.details}) <= 500`,
+    ),
+  ],
+);
+
+// 사용자 차단은 단방향이다. blocker가 보는 UGC에서 blocked 작성자의 콘텐츠를 숨기고,
+// 두 사용자 사이의 새 쪽지와 채팅방 초대도 서버에서 거절한다.
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    blockerUserId: text("blocker_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedUserId: text("blocked_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedName: text("blocked_name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.blockerUserId, t.blockedUserId] }),
+    index("user_blocks_blocked_user_idx").on(t.blockedUserId, t.createdAt),
+    check(
+      "user_blocks_not_self_check",
+      sql`${t.blockerUserId} <> ${t.blockedUserId}`,
+    ),
+  ],
+);
+
+// UGC 약관은 버전별로 명시적 동의를 보존한다. 정책 내용이 실질적으로 바뀌면
+// 애플리케이션의 UGC_POLICY_VERSION을 올려 기존 사용자에게 다시 동의를 받는다.
+export const ugcPolicyConsents = pgTable(
+  "ugc_policy_consents",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    version: text("version").notNull(),
+    acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.version] })],
 );
 
 // R2 객체 삭제 재시도 큐. 회원 탈퇴처럼 DB 행이 먼저 사라지는 흐름에서 외부 저장소가
@@ -1682,9 +1793,8 @@ export const guildDiningWeekly = pgTable("guild_dining_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// 길드 교역소 공동 상태. tokens 는 주차가 바뀌어도 유지되는 길드 공동 잔고이며,
-// memberPurchasesEnabled 도 길드장이 바꾸기 전까지 유지된다. 계약 품목·진척·완료
-// 목록과 참여 가능 길드원 스냅샷만 첫 조회에서 교체한다.
+// 길드 교역소 공동 상태. tokens 는 주차가 바뀌어도 유지되는 길드 공동 잔고다.
+// purchases 와 계약 품목·진척·완료 목록, 참여 가능 길드원 스냅샷은 주차마다 교체한다.
 // 품목 추가에 마이그레이션이 필요 없도록 계약 데이터는 JSONB로 보관한다.
 export const guildTradeWeekly = pgTable("guild_trade_weekly", {
   guildId: integer("guild_id")
@@ -1708,7 +1818,11 @@ export const guildTradeWeekly = pgTable("guild_trade_weekly", {
     .notNull()
     .default(sql`'[]'::jsonb`),
   tokens: integer("tokens").notNull().default(0),
-  // false 면 일반 길드원의 공동 토큰 구매를 막고 길드장만 구매할 수 있다.
+  purchases: jsonb("purchases")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  // 이전 구매 권한 정책 호환용. 신규 로직에서는 사용하지 않는다.
   memberPurchasesEnabled: boolean("member_purchases_enabled")
     .notNull()
     .default(true),

@@ -371,7 +371,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
                   {ingredientText(recipe, data)}
                 </div>
                 <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                  효과: {cookingStatText(recipe.baseStatPct)}
+                  효과: {cookingStatText(recipe.baseStatPct, recipe.baseExpPct)}
                 </div>
                 {recipe.optionalRareItemId ? (
                   <label className="mt-2 flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">

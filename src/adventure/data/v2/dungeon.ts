@@ -91,7 +91,7 @@ const BAND_G_BLACK_THRONE_ENEMIES: DungeonEnemy[] = [
   { key: "심연 집행자", name: "심연 집행자", image: "/images/monster/v2/throne-abyss-executor.webp", element: "void", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
 ];
 
-// 붉은 벌판 — 전쟁터·화염·쇳가루. 49~54 권장 전투력 2000~2300, 물리 압박+화염/출혈.
+// 붉은 벌판 — 전쟁터·화염·쇳가루. 49~54 권장 전투력 1400~1650, 물리 압박+화염/출혈.
 const BAND_H_RED_FIELD_ENEMIES: DungeonEnemy[] = [
   { key: "잿빛 창병", name: "잿빛 창병", image: "/images/monster/v2/ash-spearman.webp", element: "earth", statusSkill: "mob_rending_claw" },
   { key: "화약 투척병", name: "화약 투척병", image: "/images/monster/v2/powder-thrower.webp", element: "fire", castSkill: "mob_arcane_bolt" },
@@ -100,7 +100,7 @@ const BAND_H_RED_FIELD_ENEMIES: DungeonEnemy[] = [
   { key: "폭풍 깃발수", name: "폭풍 깃발수", image: "/images/monster/v2/storm-standard-bearer.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
 ];
 
-// 백골 고원 — 오래된 전쟁의 고지대. 55~60 권장 전투력 2800~3300, 고피해·출혈·치명·탱커 혼합.
+// 백골 고원 — 오래된 전쟁의 고지대. 55~60 권장 전투력 1700~2000, 고피해·출혈·치명·탱커 혼합.
 const BAND_I_BONE_PLATEAU_ENEMIES: DungeonEnemy[] = [
   { key: "해골 기수", name: "해골 기수", image: "/images/monster/v2/skeleton-rider.webp", element: "wind", statusSkill: "mob_rending_claw" },
   { key: "고원 학살자", name: "고원 학살자", image: "/images/monster/v2/plateau-slayer.webp", element: "fire", statusSkill: "mob_rending_claw" },
@@ -109,7 +109,7 @@ const BAND_I_BONE_PLATEAU_ENEMIES: DungeonEnemy[] = [
   { key: "백골 군주", name: "백골 군주", image: "/images/monster/v2/bone-lord.webp", element: "earth", statusSkill: "mob_rending_claw" },
 ];
 
-// 폭풍 산맥 — 고산 폭풍지대. 61~66 권장 전투력 3400~3900, 고회피·감전·돌진 압박.
+// 폭풍 산맥 — 고산 폭풍지대. 61~66 권장 전투력 2050~2250, 고회피·감전·돌진 압박.
 const BAND_J_STORM_MOUNTAIN_ENEMIES: DungeonEnemy[] = [
   { key: "뇌운 절벽늑대", name: "뇌운 절벽늑대", image: "/images/monster/v2/stormcloud-cliff-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
   { key: "폭풍뿔 거수", name: "폭풍뿔 거수", image: "/images/monster/v2/stormhorn-behemoth.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
@@ -118,7 +118,7 @@ const BAND_J_STORM_MOUNTAIN_ENEMIES: DungeonEnemy[] = [
   { key: "낙뢰 예언자", name: "낙뢰 예언자", image: "/images/monster/v2/lightning-oracle.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
 ];
 
-// 심해 폐허 — 잠긴 고대 폐허. 67~72 권장 전투력 4000~4500, 물·공허·별빛 마법 압박.
+// 심해 폐허 — 잠긴 고대 폐허. 67~72 권장 전투력 2300~2500, 물·공허·별빛 마법 압박.
 const BAND_K_ABYSS_RUINS_ENEMIES: DungeonEnemy[] = [
   { key: "해연 추적자", name: "해연 추적자", image: "/images/monster/v2/abyssal-pursuer.webp", element: "water", statusSkill: "mob_chilling_touch" },
   { key: "청독 집게왕", name: "청독 집게왕", image: "/images/monster/v2/blue-venom-pincer-king.webp", element: "earth", statusSkill: "mob_venom_bite" },
@@ -146,7 +146,7 @@ export const MAIN_DUNGEON: Dungeon = {
 // "테마명 + 테마 내 로컬 번호(1~6)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
 // 2026-06-19: "깊은 산"(옛 7~12) 삭제 → 마른 협곡부터 6깊이씩 앞으로 당겨짐.
-// 2026-06-28: 검은 왕도(43~48) 추가. 43+ 는 dungeonLadder 의 엔드 확장 램프로 권장 전투력 1500대.
+// 2026-06-28: 검은 왕도(43~48) 추가. 43+ 권장치는 실제 난이도에 맞춘 별도 표시 곡선을 쓴다.
 // 2026-06-30: 붉은 벌판(49~54)·백골 고원(55~60) 추가.
 // 2026-07-04: 폭풍 산맥(61~66)·심해 폐허(67~72) 추가.
 export const THEME_DEPTH_SPAN = 6;

@@ -33,10 +33,16 @@ export const GOLD_WIN_PER_LEVEL = 50;
 export const GOLD_LOSS_PER_LEVEL = 10;
 export const GOLD_DRAW_PER_LEVEL = GOLD_LOSS_PER_LEVEL;
 
-// 매칭 가중치 곡선
+// 매칭 후보군 — 가까운 점수대부터 찾고, 풀 자체를 제한해 먼 후보 다수가
+// 합산 가중치로 가까운 후보를 밀어내지 못하게 한다.
+export const ARENA_MATCH_SCORE_WINDOWS = [50, 100, 200] as const;
+export const ARENA_MATCH_POOL_TARGET = 5;
+export const ARENA_MATCH_POOL_MAX = 12;
+
+// 매칭 가중치 곡선. 점수 차 50마다 선택 가중치가 절반으로 감소한다.
 export const SCORE_WEIGHT_AT_ZERO = 1.0;
-export const SCORE_WEIGHT_FLOOR = 0.3;
-export const SCORE_WEIGHT_SPAN = 200; // 점수 차 ±200 = 0.3
+export const SCORE_WEIGHT_FLOOR = 0.02;
+export const SCORE_WEIGHT_HALF_LIFE = 50;
 export const LEVEL_WEIGHT_AT_ZERO = 1.0;
 export const LEVEL_WEIGHT_FLOOR = 0.3;
 export const LEVEL_WEIGHT_SPAN = 20; // 레벨 차 ±20 = 0.3
@@ -345,6 +351,76 @@ function linearWeight(
 }
 
 /**
+ * 점수상 가장 가까운 후보군을 만든다.
+ *
+ * ±50 → ±100 → ±200 순서로 넓히며 목표 인원에 처음 도달한 구간을 사용한다.
+ * 구간 안 후보가 너무 많으면 가까운 순서로 상한을 두고, ±200 안에도 목표 인원이
+ * 없으면 전체에서 가장 가까운 후보만 보충한다. 고정 50점 버킷의 경계 단절 없이
+ * 작은 시즌 풀에서도 항상 상대를 찾을 수 있다.
+ */
+export function selectArenaCandidatePool<T extends ArenaCandidate>(
+  myScore: number,
+  candidates: ReadonlyArray<T>,
+  options: { target?: number; max?: number; rng?: () => number } = {},
+): T[] {
+  const target = Math.max(
+    1,
+    Math.floor(options.target ?? ARENA_MATCH_POOL_TARGET),
+  );
+  const max = Math.max(
+    target,
+    Math.floor(options.max ?? ARENA_MATCH_POOL_MAX),
+  );
+  const rng = options.rng ?? Math.random;
+  const sorted = candidates
+    .map((candidate) => ({ candidate, tieBreaker: rng() }))
+    .sort((a, b) => {
+      const scoreGap =
+        Math.abs(a.candidate.score - myScore) -
+        Math.abs(b.candidate.score - myScore);
+      if (scoreGap !== 0) return scoreGap;
+      return a.tieBreaker - b.tieBreaker;
+    })
+    .map(({ candidate }) => candidate);
+
+  for (const window of ARENA_MATCH_SCORE_WINDOWS) {
+    const inWindow = sorted.filter(
+      (candidate) => Math.abs(candidate.score - myScore) <= window,
+    );
+    if (inWindow.length >= target) return inWindow.slice(0, max);
+  }
+
+  return sorted.slice(0, Math.min(target, sorted.length));
+}
+
+/** 현재 시즌 참가자를 우선하고 목표 인원이 부족할 때만 미참가자로 보충한다. */
+export function selectPreferredArenaCandidatePool<T extends ArenaCandidate>(
+  myScore: number,
+  preferred: ReadonlyArray<T>,
+  fallback: ReadonlyArray<T>,
+  options: { target?: number; max?: number; rng?: () => number } = {},
+): T[] {
+  const target = Math.max(
+    1,
+    Math.floor(options.target ?? ARENA_MATCH_POOL_TARGET),
+  );
+  const preferredPool = selectArenaCandidatePool(myScore, preferred, {
+    ...options,
+    target,
+  });
+  const missing = Math.max(0, target - preferredPool.length);
+  if (missing === 0) return preferredPool;
+  return [
+    ...preferredPool,
+    ...selectArenaCandidatePool(myScore, fallback, {
+      target: missing,
+      max: missing,
+      rng: options.rng,
+    }),
+  ];
+}
+
+/**
  * 한 후보에 대한 가중치. recentOpponents 의 userId/botId 와 일치하면
  * RECENT_OPPONENT_PENALTY 곱셈 페널티. 0 이하는 0.0001 로 클램프(가중 랜덤이
  * 모두 0 이면 추첨 실패하므로 트레이스 가능한 최소값).
@@ -355,11 +431,13 @@ export function weightForCandidate(
   candidate: ArenaCandidate,
   recent: ReadonlyArray<ArenaOpponentRef>,
 ): number {
-  const scoreW = linearWeight(
-    candidate.score - myScore,
-    SCORE_WEIGHT_SPAN,
-    SCORE_WEIGHT_AT_ZERO,
+  const scoreW = Math.max(
     SCORE_WEIGHT_FLOOR,
+    SCORE_WEIGHT_AT_ZERO *
+      Math.pow(
+        0.5,
+        Math.abs(candidate.score - myScore) / SCORE_WEIGHT_HALF_LIFE,
+      ),
   );
   const levelW = linearWeight(
     candidate.level - myLevel,

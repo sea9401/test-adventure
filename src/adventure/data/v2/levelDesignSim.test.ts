@@ -113,7 +113,7 @@ describe("sim-v2-level-design", () => {
     expect(Math.max(...underpowered.map((build) => build.winRatePct))).toBeLessThan(20);
   });
 
-  it("무수행 저성장 캐릭터는 중반 지역을 안정적으로 연속 우회하지 못한다", () => {
+  it("전투력 미달 보정 없이도 무수행 저성장 캐릭터는 후반까지 연속 우회하지 못한다", () => {
     const averageWinRate = (depth: number) => {
       const builds = auditFixedProgressionCombat({
         depth,
@@ -125,13 +125,13 @@ describe("sim-v2-level-design", () => {
     };
 
     expect(averageWinRate(8)).toBeGreaterThanOrEqual(90); // 첫 프론티어는 온보딩 보호
-    expect(averageWinRate(20)).toBeLessThan(85);
-    expect(averageWinRate(26)).toBeLessThan(70);
-    expect(averageWinRate(32)).toBeLessThan(75);
-    // 스킬 치명타 1.5→1.7 상향 뒤에도 평균 60% 미만이어야 한다. 빌드별 편차가 커
-    // 특정 빌드의 돌파 가능성과 전체 저성장 캐릭터의 안정적 우회를 구분한다.
-    expect(averageWinRate(38)).toBeLessThan(60);
-    expect(averageWinRate(42)).toBeLessThan(55);
+    // 예전 전투력 미달 몬스터 강화가 사라져 초중반은 높은 승률로 통과할 수 있다.
+    expect(averageWinRate(20)).toBeGreaterThan(90);
+    expect(averageWinRate(26)).toBeGreaterThan(90);
+    // 다만 실제 단계 스탯만으로도 32부터 평균 90% 아래로 내려가며 최종 지역은 막힌다.
+    expect(averageWinRate(32)).toBeLessThan(90);
+    expect(averageWinRate(42)).toBeLessThan(90);
+    expect(averageWinRate(72)).toBeLessThan(20);
   }, 15_000);
 
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {

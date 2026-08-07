@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { chatRoomMembers, chatRooms, messages, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -23,11 +23,15 @@ import {
   chatEquipmentLinkForOwnedIid,
   parseChatEquipmentLink,
 } from "@/lib/chat-item-link";
+import {
+  readBlockedUserIds,
+  requireCurrentUgcConsent,
+} from "@/lib/server/ugcSafety";
 
-type ChatChannel = "global" | "guild" | "room";
+type ChatChannel = "global" | "trade" | "guild" | "room";
 
 function parseChannel(value: string | null): ChatChannel {
-  if (value === "guild" || value === "room") return value;
+  if (value === "trade" || value === "guild" || value === "room") return value;
   return "global";
 }
 
@@ -78,11 +82,22 @@ export async function GET(req: Request) {
             eq(messages.channel, "guild"),
             eq(messages.guildId, viewerGuild?.guildId ?? -1),
           )
+        : channel === "trade"
+          ? and(
+              eq(messages.channel, "trade"),
+              isNull(messages.guildId),
+              isNull(messages.roomId),
+            )
         : and(
             eq(messages.channel, "global"),
             isNull(messages.guildId),
             isNull(messages.roomId),
           );
+  const blockedUserIds = await readBlockedUserIds(userId);
+  const visibleChannelWhere =
+    blockedUserIds.length > 0
+      ? and(channelWhere, notInArray(messages.userId, blockedUserIds))
+      : channelWhere;
   const rows = await db
     .select({
       id: messages.id,
@@ -99,8 +114,8 @@ export async function GET(req: Request) {
     .from(messages)
     .where(
       afterId == null
-        ? channelWhere
-        : and(channelWhere, gt(messages.id, afterId)),
+        ? visibleChannelWhere
+        : and(visibleChannelWhere, gt(messages.id, afterId)),
     )
     // 최초 조회는 최신 50개를 가져온 뒤 시간순으로 뒤집는다. 증분 조회는
     // afterId 이후를 오래된 순서로 보내 누락 없이 기존 목록 뒤에 합칠 수 있게 한다.
@@ -115,7 +130,13 @@ export async function GET(req: Request) {
     .map((r) => ({
       id: r.id,
       channel:
-        r.channel === "guild" ? "guild" : r.channel === "room" ? "room" : "global",
+        r.channel === "trade"
+          ? "trade"
+          : r.channel === "guild"
+            ? "guild"
+            : r.channel === "room"
+              ? "room"
+              : "global",
       roomId: r.roomId,
       name: r.name,
       className: r.className,
@@ -124,18 +145,18 @@ export async function GET(req: Request) {
       itemLink: parseChatEquipmentLink(r.itemLink),
       createdAt: r.createdAt.getTime(),
       mine: r.mine === userId,
-      userId: r.mine,
-    }))
+      authorUserId: r.mine,
+    }));
   if (afterId == null) result.reverse();
 
   const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
-    result.map((message) => message.userId),
+    result.map((message) => message.authorUserId),
   );
 
   return Response.json(
-    result.map(({ userId: messageUserId, ...message }) => ({
+    result.map((message) => ({
       ...message,
-      cosmetics: cosmeticByUser.get(messageUserId) ?? null,
+      cosmetics: cosmeticByUser.get(message.authorUserId) ?? null,
     })),
   );
 }
@@ -158,7 +179,13 @@ export async function POST(req: Request) {
     return new Response("invalid json", { status: 400 });
   }
   const channel: ChatChannel =
-    body.channel === "guild" ? "guild" : body.channel === "room" ? "room" : "global";
+    body.channel === "trade"
+      ? "trade"
+      : body.channel === "guild"
+        ? "guild"
+        : body.channel === "room"
+          ? "room"
+          : "global";
   const roomId = channel === "room" ? Number(body.roomId) : null;
   if (channel === "room" && (!Number.isInteger(roomId) || Number(roomId) <= 0)) {
     return new Response("invalid room id", { status: 400 });
@@ -198,6 +225,9 @@ export async function POST(req: Request) {
     });
     return new Response(CHAT_INAPPROPRIATE_CONTENT_ERROR, { status: 400 });
   }
+
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   const { name, className, title, cosmetics } = await resolveActor(userId);
 
@@ -276,6 +306,7 @@ export async function POST(req: Request) {
 
   return Response.json({
     id: inserted.id,
+    authorUserId: userId,
     channel,
     roomId,
     name,

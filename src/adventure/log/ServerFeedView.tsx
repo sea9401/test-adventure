@@ -26,7 +26,10 @@ import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
 import { formatDateTime, formatRelative } from "@/lib/notifications";
-import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+import {
+  LIFE_CRAFTING_RECIPE_BY_ID,
+  isLifeCraftingRecipeAvailable,
+} from "@/adventure/v2/lifeCrafting";
 import { LIFE_FIELD_DISCOVERIES } from "@/adventure/v2/lifeFieldRecords";
 import {
   FEED_CATEGORIES,
@@ -391,6 +394,15 @@ function FeedRow({ e }: { e: FeedEntry }) {
   );
 }
 
+function isFeedEntryAvailable(e: FeedEntry): boolean {
+  if (e.type !== "life_blueprint") return true;
+  const recipeId = (e.payload as { recipeId?: unknown }).recipeId;
+  const recipe = typeof recipeId === "string"
+    ? LIFE_CRAFTING_RECIPE_BY_ID.get(recipeId)
+    : undefined;
+  return !recipe || isLifeCraftingRecipeAvailable(recipe);
+}
+
 export function ServerFeedView() {
   const [entries, setEntries] = useState<FeedEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -517,7 +529,7 @@ export function ServerFeedView() {
 
   if (!loaded) return null;
 
-  const shown = entries.slice().reverse();
+  const shown = entries.filter(isFeedEntryAvailable).reverse();
 
   return (
     <Card as="section" padding="none" className="mt-4 overflow-hidden">
@@ -557,7 +569,7 @@ export function ServerFeedView() {
         })}
       </div>
 
-      {entries.length === 0 ? (
+      {shown.length === 0 ? (
         <div className="px-3 pb-3 pt-1 text-xs text-zinc-400 dark:text-zinc-500">
           {loading
             ? "소식을 불러오는 중입니다."

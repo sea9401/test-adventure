@@ -40,7 +40,7 @@ describe("대문 로그인 선택지", () => {
 
     expect(html).toContain("홍보 링크가 적용되었습니다");
     expect(html).toContain("나와 홍보자 모두 회복약 2개를 받고");
-    expect(html).toContain("홍보자에게 추가 보상이 지급됩니다");
+    expect(html).toContain("양쪽 모두 추가 보상을 받습니다");
   });
 
   it("홍보 안내를 표시한 뒤 URL에서는 홍보 상태만 제거한다", () => {

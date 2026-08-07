@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, housingGate } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  housingGate: { enabled: true },
+}));
 const keyOf = (userId: string, key: string) => `${userId}::${key}`;
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -9,6 +12,13 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
 }));
+vi.mock("@/adventure/v2/lifeCrafting", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/adventure/v2/lifeCrafting")>();
+  return {
+    ...actual,
+    isLifeHousingEnabled: () => housingGate.enabled,
+  };
+});
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({})),
@@ -47,7 +57,9 @@ function request(body?: unknown) {
 
 describe("housing route", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     store.clear();
+    housingGate.enabled = true;
     vi.mocked(ensureUser).mockResolvedValue("u1");
     store.set(keyOf("u1", "character-profile.v2"), { name: "검은여우" });
     store.set(keyOf("u1", "equipment.v2"), {
@@ -68,6 +80,22 @@ describe("housing route", () => {
         },
       },
     });
+  });
+
+  it("returns 404 without authentication or save access while housing is disabled", async () => {
+    housingGate.enabled = false;
+
+    const [getResponse, postResponse] = await Promise.all([
+      GET(request()),
+      POST(request(defaultHousingState())),
+    ]);
+
+    expect(getResponse.status).toBe(404);
+    expect(postResponse.status).toBe(404);
+    expect(await getResponse.json()).toEqual({ ok: false, error: "not_found" });
+    expect(await postResponse.json()).toEqual({ ok: false, error: "not_found" });
+    expect(ensureUser).not.toHaveBeenCalled();
+    expect(store.has(keyOf("u1", HOUSING_SAVE_KEY))).toBe(false);
   });
 
   it("requires authentication", async () => {

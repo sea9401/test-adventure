@@ -32,6 +32,7 @@ import {
   useSystemMessageState,
 } from "@/adventure/v2/RewardToastProvider";
 import { TITLES } from "@/adventure/data/titles";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import { cookingFoodDefinition } from "@/adventure/v2/cooking";
 
 const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
@@ -691,6 +692,15 @@ export function V2InboxView({
           onClose={() => setSelected(null)}
           onClaim={(id) => claim([id])}
           onRespondInvite={respondInvite}
+          onBlocked={(blockedUserId) => {
+            setItems((current) =>
+              current?.filter((item) => item.fromUserId !== blockedUserId) ?? [],
+            );
+            setHistory((current) =>
+              current?.filter((item) => item.fromUserId !== blockedUserId) ?? null,
+            );
+            setSelected(null);
+          }}
         />
       )}
 
@@ -739,12 +749,14 @@ function MailDetailModal({
   onClose,
   onClaim,
   onRespondInvite,
+  onBlocked,
 }: {
   item: InboxItem;
   busy: boolean;
   onClose: () => void;
   onClaim: (id: number) => void;
   onRespondInvite: (it: InboxItem, accept: boolean) => void;
+  onBlocked: (blockedUserId: string) => void;
 }) {
   const sent = item.direction === "sent";
   const claimed = item.claimedAt != null;
@@ -816,6 +828,16 @@ function MailDetailModal({
         <div className="mt-3 max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-zinc-50 p-3 text-sm text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
           {bodyOf(item)}
         </div>
+
+        {!sent && item.kind === "user_message" && item.fromName && (
+          <ContentSafetyActions
+            sourceType="inbox_message"
+            sourceId={item.id}
+            targetName={item.fromName}
+            className="mt-2"
+            onBlocked={onBlocked}
+          />
+        )}
 
         {rewards.length > 0 && (
           <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/30">

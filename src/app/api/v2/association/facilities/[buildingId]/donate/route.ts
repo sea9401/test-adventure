@@ -14,6 +14,7 @@ import {
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 import {
+  canUseAdventurerAssociation,
   lockAssociationFacility,
   saveAssociationFacility,
 } from "@/lib/server/adventurerAssociation";
@@ -36,6 +37,12 @@ export async function POST(req: Request, { params }: Ctx) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!(await canUseAdventurerAssociation(db, userId))) {
+    return Response.json(
+      { ok: false, error: "association_for_solo_only" },
+      { status: 403 },
+    );
   }
   const limited = enforceUserAndIpRateLimit(req, {
     userId,

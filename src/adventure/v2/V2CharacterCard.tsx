@@ -548,7 +548,7 @@ function ActiveFoodBuffBadge({ buff }: { buff: ActiveCookingBuff }) {
   }, []);
   const remaining = buff.expiresAt - now;
   if (remaining <= 0) return null;
-  const stats = cookingStatText(buff.statPct);
+  const stats = cookingStatText(buff.statPct, buff.expPct);
   return (
     <div
       title={`${buff.recipeName} · ${cookingQualityName(buff.quality)} · ${stats}`}

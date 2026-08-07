@@ -11,6 +11,7 @@ import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import {
   createReferralCode,
   REFERRAL_NEW_USER_STAMINA_POTIONS,
+  REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE,
   REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
   REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
   referralRewardMilestones,
@@ -77,6 +78,8 @@ async function referralSummary(userId: string) {
   return {
     code: codeRow[0]?.disabledAt ? null : (codeRow[0]?.code ?? null),
     newUserStaminaPotions: REFERRAL_NEW_USER_STAMINA_POTIONS,
+    newUserStaminaPotionsPerMilestone:
+      REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE,
     referrerSignupStaminaPotions:
       REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
     referrerStaminaPotionsPerMilestone:

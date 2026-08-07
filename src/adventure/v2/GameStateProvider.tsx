@@ -146,6 +146,7 @@ type GameStateSnapshot = {
     currentJobName?: string;
     currentJobTier?: number;
     currentJobLevelCap?: number;
+    revisitExpedited?: boolean;
   } | null;
   coreLoopOn?: boolean;
   adventureSupport?: {

@@ -66,6 +66,7 @@ type StateShape = {
     currentJobName: string;
     currentJobLevelCap: number;
     atLevelCap: boolean;
+    revisitExpedited: boolean;
     jobs: JobLadderEntry[];
   } | null;
   proficiency?: {
@@ -114,6 +115,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     currentJobName: string;
     rejobRequiredLevel: number;
     atLevelCap: boolean;
+    revisitExpedited: boolean;
     jobs: JobLadderEntry[];
     level: number;
   } | null>(null);
@@ -162,6 +164,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                 currentJobName: j.jobsV2.currentJobName,
                 rejobRequiredLevel: j.jobsV2.currentJobLevelCap,
                 atLevelCap: j.jobsV2.atLevelCap,
+                revisitExpedited: j.jobsV2.revisitExpedited,
                 jobs: j.jobsV2.jobs,
                 level: j.character?.level ?? 1,
               }
@@ -331,6 +334,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               currentJobName={jobLadder.currentJobName}
               currentJobId={jobLadder.currentJobId}
               atLevelCap={jobLadder.atLevelCap}
+              revisitExpedited={jobLadder.revisitExpedited}
               rejobRequiredLevel={jobLadder.rejobRequiredLevel}
               jobs={jobLadder.jobs}
               onChanged={async () => {

@@ -170,6 +170,47 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(log.monsters[json.result.enemyName]?.kills).toBe(1);
   });
 
+  it("활성 음식의 사냥 경험치 버프를 캐릭터 EXP에 적용한다", async () => {
+    const baselineRes = await POST(huntReq({ floor: 2 }));
+    const baseline = (await baselineRes.json()) as {
+      result: { expGained: number };
+    };
+
+    seedStrongWarrior();
+    const char = store.get("character.v2") as Record<string, unknown>;
+    store.set("character.v2", {
+      ...char,
+      activeFoodBuff: {
+        recipeId: "herb_tea",
+        recipeName: "깨달음의 허브차",
+        statPct: { int: 5 },
+        expPct: 60,
+        quality: "normal",
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      },
+    });
+
+    const boostedRes = await POST(huntReq({ floor: 2 }));
+    expect(boostedRes.status).toBe(200);
+    const boosted = (await boostedRes.json()) as {
+      result: {
+        expGained: number;
+        foodExpBuff: {
+          name: string;
+          expPct: number;
+          expBonus: number;
+        };
+      };
+    };
+    const expected = Math.floor(baseline.result.expGained * 1.6);
+    expect(boosted.result.expGained).toBe(expected);
+    expect(boosted.result.foodExpBuff).toEqual({
+      name: "깨달음의 허브차",
+      expPct: 60,
+      expBonus: expected - baseline.result.expGained,
+    });
+  });
+
   it("레벨업 시 레거시 totalLevels 를 새로 갱신하지 않는다", async () => {
     // beforeEach 가 강한 전사(Lv30) 시드 — 다음 레벨까지 1 EXP 부족하게 설정.
     const char0 = store.get("character.v2") as Record<string, unknown>;

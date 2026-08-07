@@ -14,12 +14,6 @@ import {
   lateDurabilityMult,
   lateEvasionBonus,
   lateStatusDamageReductionBonus,
-  LATE_DIFFICULTY_START_DEPTH,
-  underpreparedAccuracyMult,
-  underpreparedAttackMult,
-  underpreparedCombatMult,
-  underpreparedDefenseMult,
-  underpreparedEvasionBonus,
 } from "./dungeonLadder";
 
 // 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/magicDef/exp/accuracy/evasion/
@@ -36,14 +30,9 @@ export function scaleMonsterForFloor(
   // 엔드게임 완화 적용 여부. 솔로 던전 사냥=true(기본). 협동 보스는 sharedMaxHp+anchorDepth 로
   //   난이도를 따로 튜닝하므로 false(앵커 깊이 24·42 가 완화 임계 위라 atk 가 의도치 않게 약화되는 것 방지).
   softenEndgame: boolean = true,
-  // 솔로 일반 사냥에서만 전달하는 표시 전투력. 권장치 미달 사냥터 우회 페널티에 사용한다.
-  playerPower?: number,
 ): Monster {
   // 엔드게임·프론티어 진입·43+ 확장 완화는 기본 HP/ATK 성장에 적용하고, 그 뒤 상위 난도를
-  // 내구·공격·방어·명중·회피 축으로 분산한다. exp/권장파워는 전투 분산과 무관하다.
-  const underpreparedMult = underpreparedCombatMult(depth, playerPower);
-  const spreadUnderpreparedDifficulty =
-    softenEndgame && depth >= LATE_DIFFICULTY_START_DEPTH;
+  // 내구·공격·방어·명중·회피 축으로 분산한다. 권장 전투력은 표시용이며 몬스터 능력치를 바꾸지 않는다.
   const baseCombatMult =
     floorStatMult(depth) *
     (softenEndgame
@@ -53,19 +42,12 @@ export function scaleMonsterForFloor(
       : 1);
   const hpMult =
     baseCombatMult *
-    underpreparedMult *
     (softenEndgame ? lateDurabilityMult(depth) : 1);
   const atkMult =
     baseCombatMult *
-    (spreadUnderpreparedDifficulty
-      ? underpreparedAttackMult(underpreparedMult)
-      : underpreparedMult) *
     (softenEndgame ? lateAttackMult(depth) : 1);
   const dMult =
     floorDefMult(depth) *
-    (spreadUnderpreparedDifficulty
-      ? underpreparedDefenseMult(underpreparedMult)
-      : 1) *
     (softenEndgame ? lateDefenseMult(depth) : 1);
   const eMult = floorExpMult(depth);
   // 크리 HP 상쇄 — HP 에만(atk/def/exp 무관). 크리 점감 곡선의 엔드 딜 손실 보전. coop(softenEndgame=false) 제외.
@@ -81,20 +63,14 @@ export function scaleMonsterForFloor(
   // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
   //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
   //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
-  // 회피·치명 축은 표시 전투력에 직접 반영되지 않는다. 권장치 미달 시에도 명중·회피 보강은
-  // 제한된 보조축으로만 두고, 우회 방지의 주력은 HP가 담당한다.
+  // 회피·치명 축은 표시 전투력에 직접 반영되지 않으므로 권장 전투력은 안내에만 사용한다.
+  // 같은 깊이의 몬스터 능력치는 플레이어 표시 전투력과 관계없이 항상 같다.
   const accuracy =
     ((monster.accuracy ?? 0) + floorAccuracy(depth)) *
-    (softenEndgame ? lateAccuracyMult(depth) : 1) *
-    (spreadUnderpreparedDifficulty
-      ? underpreparedAccuracyMult(underpreparedMult)
-      : 1);
+    (softenEndgame ? lateAccuracyMult(depth) : 1);
   const evasionPct =
     (monster.evasionPct ?? 0) +
-    (softenEndgame ? lateEvasionBonus(depth) : 0) +
-    (spreadUnderpreparedDifficulty
-      ? underpreparedEvasionBonus(underpreparedMult)
-      : 0);
+    (softenEndgame ? lateEvasionBonus(depth) : 0);
   const statusDamageReductionPct = Math.min(
     80,
     Math.max(

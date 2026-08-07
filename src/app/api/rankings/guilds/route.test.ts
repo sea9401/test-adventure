@@ -8,6 +8,9 @@ vi.mock("@/db", () => ({ db: { execute } }));
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-me"),
 }));
+vi.mock("@/lib/server/ugcSafety", () => ({
+  readBlockedUserIds: vi.fn(async () => []),
+}));
 
 import { GET } from "./route";
 
@@ -24,6 +27,7 @@ describe("길드 랭킹", () => {
         rows: [
           {
             guild_id: 3,
+            master_id: "u-master",
             name: "테스트길드",
             emblem,
             description: "함께 성장하는 길드",

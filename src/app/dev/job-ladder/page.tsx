@@ -65,6 +65,7 @@ export default function DevJobLadderPage() {
           currentJobName="모험가"
           currentJobId="none"
           atLevelCap={false}
+          revisitExpedited={false}
           rejobRequiredLevel={V2_LEVEL_CAP}
           jobs={[]}
           onChanged={noop}
@@ -80,6 +81,7 @@ export default function DevJobLadderPage() {
           currentJobName="모험가"
           currentJobId="none"
           atLevelCap={true}
+          revisitExpedited={false}
           rejobRequiredLevel={V2_LEVEL_CAP}
           jobs={BASE_JOBS}
           onChanged={noop}
@@ -95,6 +97,7 @@ export default function DevJobLadderPage() {
           currentJobName="견습 병사"
           currentJobId="warrior"
           atLevelCap={true}
+          revisitExpedited={false}
           rejobRequiredLevel={V2_LEVEL_CAP}
           jobs={[...BASE_JOBS, ...WARRIOR_UPPER]}
           onChanged={noop}

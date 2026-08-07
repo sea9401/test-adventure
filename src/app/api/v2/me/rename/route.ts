@@ -10,6 +10,7 @@ import {
   removeMuseunCashItem,
 } from "@/adventure/data/v2/museunCashItems";
 import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
+import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 // POST /api/v2/me/rename — 닉네임 변경. 열린 「개명 신전 지도」를 완료하거나
 // 캐시 「개명 허가증」 1장을 소모한다.
@@ -36,6 +37,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
 
   let body: { map?: unknown; cashItemId?: unknown; name?: unknown };
   try {

@@ -15,10 +15,14 @@ import {
 import { readSave } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
+import { isLifeHousingEnabled } from "@/adventure/v2/lifeCrafting";
 
 type Ctx = { params: Promise<{ name: string }> };
 
 export async function GET(req: Request, ctx: Ctx) {
+  if (!isLifeHousingEnabled()) {
+    return Response.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
   const viewerId = await ensureUser();
   if (!viewerId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });

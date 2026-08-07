@@ -44,6 +44,20 @@ export type LifeCraftingRecipe = {
   blueprintRarity?: "normal" | "top";
 };
 
+// 숙소 기능을 다시 공개할 때까지 가구 데이터와 기존 보유 기록만 보존한다.
+// 신규 제작과 숨겨진 가구 도안 획득은 이 플래그를 기준으로 함께 차단한다.
+export const LIFE_HOUSING_ENABLED = false;
+
+export function isLifeHousingEnabled(): boolean {
+  return LIFE_HOUSING_ENABLED;
+}
+
+export function isLifeCraftingRecipeAvailable(
+  recipe: LifeCraftingRecipe,
+): boolean {
+  return isLifeHousingEnabled() || recipe.kind !== "furniture";
+}
+
 const P = LIFE_PROCESSED_MATERIAL_ID;
 const M = MINING_MATERIAL_ID;
 
@@ -247,7 +261,13 @@ export function recipeMasteryStage(count: number): 0 | 1 | 2 | 3 | 4 | 5 {
 }
 
 export function rollHiddenBlueprint(state: LifeCraftingState, source: LifeBlueprintSource, successes = 1, rng: () => number = Math.random): { state: LifeCraftingState; recipe: LifeCraftingRecipe | null } {
-  const eligible = LIFE_CRAFTING_RECIPES.filter((recipe) => recipe.hidden && recipe.blueprintSource === source && !state.learnedHiddenRecipeIds.includes(recipe.id));
+  const eligible = LIFE_CRAFTING_RECIPES.filter(
+    (recipe) =>
+      isLifeCraftingRecipeAvailable(recipe) &&
+      recipe.hidden &&
+      recipe.blueprintSource === source &&
+      !state.learnedHiddenRecipeIds.includes(recipe.id),
+  );
   if (eligible.length === 0 || successes < 1) return { state, recipe: null };
   let misses = state.blueprintMisses[source] ?? 0;
   for (let index = 0; index < Math.floor(successes); index += 1) {

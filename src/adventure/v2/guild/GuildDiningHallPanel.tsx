@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
+  GuildDiningEffectKind,
   GuildDiningIngredient,
   GuildDiningMenu,
   GuildDiningMenuId,
@@ -54,7 +55,9 @@ type DiningState = {
   activeEffect: {
     menuId: GuildDiningMenuId;
     name: string;
+    kind: GuildDiningEffectKind;
     bonusPct: number;
+    lifeBonusPct?: number;
     expiresAt: number;
   } | null;
   charges: { hp: number; mp: number; max: number };
@@ -517,7 +520,9 @@ export function GuildDiningHallPanel({
 
       {activeEffect && (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-          적용 중: {activeEffect.name} · +{activeEffect.bonusPct}% · 남은 시간 {formatDiningRemaining(activeEffect.expiresAt - clockNow)}
+          적용 중: {activeEffect.name} · {activeEffect.kind === "all_xp" && activeEffect.lifeBonusPct != null
+            ? `사냥 +${activeEffect.bonusPct}% · 생활 +${activeEffect.lifeBonusPct}%`
+            : `+${activeEffect.bonusPct}%`} · 남은 시간 {formatDiningRemaining(activeEffect.expiresAt - clockNow)}
         </p>
       )}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">

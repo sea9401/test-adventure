@@ -75,6 +75,7 @@ export async function POST(req: Request) {
       recipeName: food.recipe.name,
       quality: food.quality,
       statPct: food.statPct,
+      expPct: food.expPct,
       expiresAt,
     };
 

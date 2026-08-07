@@ -22,10 +22,12 @@ type ReferralSummary = {
   ok: true;
   code: string | null;
   newUserStaminaPotions: number;
+  newUserStaminaPotionsPerMilestone: number;
   referrerSignupStaminaPotions: number;
   referrerStaminaPotionsPerMilestone: number;
   rewardMilestones: Array<{
     frontierDepth: number;
+    newUserStaminaPotions: number;
     referrerStaminaPotions: number;
   }>;
   attributedCount: number;
@@ -98,6 +100,8 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
   );
   const rewardStageCount = (summary?.rewardMilestones.length ?? 5) + 1;
   const referrerSignupReward = summary?.referrerSignupStaminaPotions ?? 2;
+  const newUserRewardPerMilestone =
+    summary?.newUserStaminaPotionsPerMilestone ?? 2;
   const referrerRewardPerMilestone =
     summary?.referrerStaminaPotionsPerMilestone ?? 2;
   const maxReferrerReward =
@@ -161,7 +165,7 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
             <h2 className="font-bold">친구를 초대하고 보상받기</h2>
             <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               링크로 합류한 친구와 나는 가입 완료 시 회복약 2개씩 받고,
-              친구가 새로운 사냥터를 개척할 때마다 추가 보상이 도착합니다.
+              친구가 지정된 사냥터를 돌파할 때마다 둘 다 추가 보상을 받습니다.
             </p>
           </div>
         </div>
@@ -204,10 +208,11 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
         )}
 
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          신규 모험가: 스태미나 회복약{" "}
-          {summary?.newUserStaminaPotions ?? 2}개 · 홍보자: 가입 시{" "}
-          {referrerSignupReward}개 + 진행 단계마다 {referrerRewardPerMilestone}개,
-          1명당 최대 {maxReferrerReward}개 · 한
+          신규 모험가: 가입 시 스태미나 회복약{" "}
+          {summary?.newUserStaminaPotions ?? 2}개 + 진행 단계마다{" "}
+          {newUserRewardPerMilestone}개 · 홍보자: 가입 시 {referrerSignupReward}개
+          + 진행 단계마다 {referrerRewardPerMilestone}개 · 각자 1명당 최대{" "}
+          {maxReferrerReward}개 · 한
           계정은 한 번만 인정 · 본인 링크는 제외됩니다.
         </p>
       </Card>
@@ -230,11 +235,31 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
             </p>
           </div>
           {(summary?.rewardMilestones ?? [
-            { frontierDepth: 6, referrerStaminaPotions: 2 },
-            { frontierDepth: 12, referrerStaminaPotions: 2 },
-            { frontierDepth: 18, referrerStaminaPotions: 2 },
-            { frontierDepth: 24, referrerStaminaPotions: 2 },
-            { frontierDepth: 36, referrerStaminaPotions: 2 },
+            {
+              frontierDepth: 6,
+              newUserStaminaPotions: 2,
+              referrerStaminaPotions: 2,
+            },
+            {
+              frontierDepth: 12,
+              newUserStaminaPotions: 2,
+              referrerStaminaPotions: 2,
+            },
+            {
+              frontierDepth: 18,
+              newUserStaminaPotions: 2,
+              referrerStaminaPotions: 2,
+            },
+            {
+              frontierDepth: 24,
+              newUserStaminaPotions: 2,
+              referrerStaminaPotions: 2,
+            },
+            {
+              frontierDepth: 36,
+              newUserStaminaPotions: 2,
+              referrerStaminaPotions: 2,
+            },
           ]).map((milestone) => (
             <div
               key={milestone.frontierDepth}
@@ -244,7 +269,8 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
                 {huntStageName(milestone.frontierDepth)} 돌파
               </p>
               <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">
-                회복약 +{milestone.referrerStaminaPotions}개
+                신규 +{milestone.newUserStaminaPotions}개 · 홍보 +
+                {milestone.referrerStaminaPotions}개
               </p>
             </div>
           ))}
@@ -260,7 +286,7 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
           </p>
         </Card>
         <Card padding="md">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">누적 보상</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">내 누적 보상</p>
           <p className="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-300">
             {loading
               ? "-"

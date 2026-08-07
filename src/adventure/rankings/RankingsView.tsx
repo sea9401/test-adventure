@@ -15,6 +15,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { chatNameClass } from "@/components/chat/ChatCosmetics";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import {
@@ -527,6 +528,13 @@ function GuildRankingInfoDialog({
             <p className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-200">
               {description?.trim() || "등록된 길드 소개가 없습니다."}
             </p>
+            <ContentSafetyActions
+              sourceType="guild_profile"
+              sourceId={guild.guildId}
+              targetName={`${guild.name} 길드장`}
+              className="mt-2 justify-end"
+              onBlocked={onClose}
+            />
           </div>
 
           <section className="p-4" aria-labelledby="guild-member-list-title">

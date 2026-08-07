@@ -268,7 +268,7 @@ export type V2SkillEffect =
       baseFlatByTier?: readonly [number, number, number];
       scaling?: V2DamageScaling;
     }
-  // 이번 스킬로 가한 피해량의 pct% 만큼 회복.
+  // 이번 스킬로 가한 피해량의 pct% 만큼 회복. 회복량 증가 보정은 적용하지 않는다.
   | { kind: "healFromDamage"; pct: number }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   // 파생 스탯 버프 — StatKey 밖(회피=선풍각, 크리율=연환 집중, 받피감 등).
@@ -1501,7 +1501,7 @@ function describeV2Effect(
         e.flat ? `+${e.flat}` : "",
       ].filter(Boolean).join(" + ").replace(/^/, "회복 ")} (회복량 보정 적용)`;
     case "healFromDamage":
-      return `피해량 ${e.pct}% 회복 (회복량 보정 적용)`;
+      return `피해량 ${e.pct}% 회복 (회복량 보정 미적용)`;
     case "selfBuff":
       return `${STAT_LABELS[e.stat]} +${e.pct}% (${actionsChip(e.turns)})`;
     case "selfBuffPct":

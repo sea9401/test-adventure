@@ -62,6 +62,7 @@ import {
   pushArenaHistory,
   pushRecentOpponent,
   recordArenaDailyMatch,
+  selectPreferredArenaCandidatePool,
   settleArenaElo,
   weightForCandidate,
   weightedPick,
@@ -334,6 +335,7 @@ export async function POST(req: Request) {
     // 6a. 순위표와 동일한 현재 시즌 pvp_ratings를 일괄 조회. 미참가자는 1000점.
     // arena-state.v2.score는 이전 누적 레이팅 호환 필드이며 매칭 기준으로 쓰지 않는다.
     const scoreByUser = new Map<string, number>();
+    const seasonParticipantIds = new Set<string>();
     const ratingUserIds = [...new Set([userId, ...candidateIds])];
     if (ratingUserIds.length > 0) {
       const ratingRows = await tx
@@ -347,6 +349,7 @@ export async function POST(req: Request) {
         );
       for (const row of ratingRows) {
         scoreByUser.set(row.userId, row.rating);
+        seasonParticipantIds.add(row.userId);
       }
     }
     const myScore = scoreByUser.get(userId) ?? ARENA_INITIAL_RATING;
@@ -383,9 +386,23 @@ export async function POST(req: Request) {
       return weightedPick(weightedBots, Math.random);
     };
 
-    // 7. 가중 추첨 — 실유저 풀을 우선한다. 후보가 없으면 비랭크 봇 폴백으로 새 서버/저인구
-    //    상황에서도 아레나가 실제로 진행된다. 봇도 recentOpponents 페널티를 받아 같은 봇 반복을 줄인다.
-    const weighted = realCandidates.map((cand) => ({
+    // 7. 가까운 점수 후보군 안에서 가중 추첨. 현재 시즌 참가자를 먼저 채우고 목표 인원보다
+    //    적을 때만 미참가자를 가까운 점수순으로 보충한다. 전 유저를 한 번에 추첨하면 먼 점수대
+    //    다수가 합산 가중치로 가까운 상대를 밀어내므로 후보 풀 단계에서 먼저 막는다.
+    const participantCandidates = realCandidates.filter(
+      (candidate) =>
+        candidate.userId != null && seasonParticipantIds.has(candidate.userId),
+    );
+    const candidatePool = selectPreferredArenaCandidatePool(
+      myScore,
+      participantCandidates,
+      realCandidates.filter(
+        (candidate) =>
+          candidate.userId == null ||
+          !seasonParticipantIds.has(candidate.userId),
+      ),
+    );
+    const weighted = candidatePool.map((cand) => ({
       item: cand,
       weight: weightForCandidate(
         myScore,

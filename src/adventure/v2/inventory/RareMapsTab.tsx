@@ -177,7 +177,7 @@ function CookingFoodSection({
   return (
     <div>
       <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-        음식 · 거래 가능 · 사용 시 PvE 능력치 효과
+        음식 · 거래 가능 · 사용 시 PvE 버프
       </div>
       <ul className="space-y-1.5">
         {foods.map(({ food, count }) => {
@@ -201,7 +201,7 @@ function CookingFoodSection({
                     </span>
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    {cookingStatText(food.statPct)} · {formatFoodDuration(food.durationMs)}
+                    {cookingStatText(food.statPct, food.expPct)} · {formatFoodDuration(food.durationMs)}
                   </div>
                 </div>
                 <Button

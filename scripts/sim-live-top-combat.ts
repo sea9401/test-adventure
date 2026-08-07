@@ -1,0 +1,330 @@
+// 운영 전투력 상위 캐릭터의 일반 사냥 승률을 실제 저장 스냅샷으로 점검한다.
+// 읽기 전용: users/saves_kv를 SELECT만 하며 게임 데이터는 변경하지 않는다.
+// 실행: node --env-file=.env.production --import tsx scripts/sim-live-top-combat.ts
+
+import { Pool } from "pg";
+import { createDatabaseConnectionOptions } from "../src/db/databaseTls.mjs";
+import {
+  derivePlayerCombatV2FromSaves,
+  type SavedCharacterV2,
+} from "../src/lib/server/derivePlayerCombatV2";
+import { derivePowerScore } from "../src/adventure/data/v2/power";
+import {
+  parseV2SkillsState,
+  type V2SkillsState,
+} from "../src/adventure/data/v2/v2Skills";
+import { sanitizeCombatLoadout } from "../src/lib/server/v2Skills";
+import { codexSpBonusFromRaw } from "../src/lib/server/codexSpBonus";
+import { jobUnlockContextFromSaves } from "../src/lib/server/jobUnlockContext";
+import { parseClaimed } from "../src/lib/server/v2QuestContext";
+import {
+  enemiesForDepth,
+  huntStageName,
+  MAX_FRONTIER_DEPTH,
+  nextHuntStageDepth,
+} from "../src/adventure/data/v2/dungeon";
+import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
+import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
+import { resolveBattle } from "../src/adventure/v2/combat/engine";
+import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
+import { jobDisplayName, parseV2Class } from "../src/adventure/data/v2/classes";
+import { superAdminEmails } from "../src/lib/server/adminEmailAccess";
+
+const TOP_COUNT = 20;
+const TRIALS_PER_ENEMY = 20;
+const SEED = 20260807;
+const DEPTHS = Array.from(
+  { length: MAX_FRONTIER_DEPTH / 2 },
+  (_, index) => (index + 1) * 2,
+);
+
+const SAVE_KEYS = [
+  "character.v2",
+  "character-profile.v2",
+  "equipment.v2",
+  "proficiency.v2",
+  "skills.v2",
+  "fishing-codex.v1",
+  "equipment-codex.v1",
+  "farm.v2",
+  "cooking.v1",
+  "woodcutting-log.v1",
+  "mining-log.v1",
+  "guide-quests.v2",
+] as const;
+
+type SaveMap = Record<string, unknown>;
+type DbRow = {
+  user_id: string;
+  email: string | null;
+  game_name: string | null;
+  saves: SaveMap | null;
+};
+
+type Candidate = {
+  userId: string;
+  saves: SaveMap;
+  character: SavedCharacterV2 & {
+    frontierDepth?: unknown;
+    specChoice?: unknown;
+  };
+  rankingPower: number;
+};
+
+type SimPlayer = Candidate & {
+  combat: NonNullable<ReturnType<typeof derivePlayerCombatV2FromSaves>>;
+  skills: V2SkillsState;
+  job: string;
+  frontierDepth: number;
+};
+
+type Rate = { wins: number; total: number };
+
+function powerOf(
+  combat: NonNullable<ReturnType<typeof derivePlayerCombatV2FromSaves>>,
+): number {
+  return derivePowerScore({
+    atk: combat.player.atk,
+    magicAtk: combat.player.magicAtk,
+    def: combat.player.def,
+    spd: combat.player.spd,
+    maxHp: combat.maxHp,
+    maxMp: combat.player.maxMp,
+  });
+}
+
+function seededRandom(seed: number): () => number {
+  let value = seed >>> 0;
+  return () => {
+    value = (value + 0x6d2b79f5) >>> 0;
+    let mixed = value;
+    mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+function percentile(values: readonly number[], ratio: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * ratio))];
+}
+
+function pct(rate: Rate): number {
+  return rate.total > 0 ? (rate.wins / rate.total) * 100 : 0;
+}
+
+function simulateDepth(player: SimPlayer, depth: number): Rate {
+  let wins = 0;
+  let total = 0;
+  for (const entry of enemiesForDepth(depth)) {
+    const base = V2_MONSTERS[entry.key];
+    if (!base) continue;
+    const scaled = scaleMonsterForFloor(base, depth, true);
+    const monsterSkills = [entry.statusSkill, entry.castSkill].filter(
+      (skill): skill is NonNullable<typeof skill> => skill != null,
+    );
+    const enemy = {
+      ...scaled,
+      name: entry.name,
+      image: entry.image ?? base.image,
+      element: "neutral" as const,
+      ...(monsterSkills.length > 0
+        ? { v2Skills: { learned: monsterSkills, equipped: monsterSkills } }
+        : {}),
+    };
+    for (let trial = 0; trial < TRIALS_PER_ENEMY; trial += 1) {
+      const result = resolveBattle(
+        {
+          ...player.combat.player,
+          hp: player.combat.maxHp,
+          mp: player.combat.player.maxMp ?? player.combat.player.mp ?? 0,
+        },
+        enemy,
+        "시뮬레이션 모험가",
+        {
+          pickAction: (state) =>
+            pickAutoAction(state, { rules: [], potions: {} }),
+          potions: {},
+          v2Skills: player.skills,
+          depth,
+        },
+      );
+      total += 1;
+      if (result.outcome === "win") wins += 1;
+    }
+  }
+  return { wins, total };
+}
+
+function preparePlayer(candidate: Candidate): SimPlayer | null {
+  const { saves, character } = candidate;
+  const storedSkills = parseV2SkillsState(saves["skills.v2"]);
+  const codexBonus = codexSpBonusFromRaw(
+    saves["fishing-codex.v1"],
+    saves["equipment-codex.v1"],
+  );
+  const unlockContext = jobUnlockContextFromSaves({
+    farmRaw: saves["farm.v2"],
+    cookingRaw: saves["cooking.v1"],
+    woodcuttingRaw: saves["woodcutting-log.v1"],
+    miningRaw: saves["mining-log.v1"],
+    completedQuestIds: parseClaimed(saves["guide-quests.v2"]),
+  });
+  const skills = sanitizeCombatLoadout(
+    storedSkills,
+    character,
+    saves["proficiency.v2"],
+    codexBonus.total,
+    unlockContext,
+  );
+  const combat = derivePlayerCombatV2FromSaves({
+    character,
+    equipmentSave: saves["equipment.v2"],
+    proficiencyRaw: saves["proficiency.v2"],
+    skillsRaw: skills,
+  });
+  if (!combat) return null;
+  const spec =
+    typeof character.specChoice === "string" ? character.specChoice : null;
+  return {
+    ...candidate,
+    combat,
+    skills,
+    job: jobDisplayName(parseV2Class(character.class), spec),
+    frontierDepth: Math.min(
+      MAX_FRONTIER_DEPTH,
+      Math.max(2, Math.floor(Number(character.frontierDepth) || 2)),
+    ),
+  };
+}
+
+async function loadTopPlayers(pool: Pool): Promise<SimPlayer[]> {
+  const result = await pool.query<DbRow>(
+    `
+      SELECT
+        u.id AS user_id,
+        u.email,
+        u.game_name,
+        COALESCE(
+          jsonb_object_agg(s.key, s.value) FILTER (WHERE s.key IS NOT NULL),
+          '{}'::jsonb
+        ) AS saves
+      FROM users u
+      LEFT JOIN saves_kv s
+        ON s.user_id = u.id
+       AND s.key = ANY($1::text[])
+      GROUP BY u.id, u.email, u.game_name
+    `,
+    [SAVE_KEYS],
+  );
+  const admins = superAdminEmails();
+  const candidates: Candidate[] = [];
+  for (const row of result.rows) {
+    if (row.email && admins.has(row.email.toLowerCase())) continue;
+    const saves = row.saves ?? {};
+    const character = saves["character.v2"] as Candidate["character"] | undefined;
+    if (!character) continue;
+    const rankingCombat = derivePlayerCombatV2FromSaves({
+      character,
+      equipmentSave: saves["equipment.v2"],
+      proficiencyRaw: saves["proficiency.v2"],
+      skillsRaw: saves["skills.v2"],
+      includeCookingBuff: false,
+    });
+    if (!rankingCombat) continue;
+    candidates.push({
+      userId: row.user_id,
+      saves,
+      character,
+      rankingPower: powerOf(rankingCombat),
+    });
+  }
+  return candidates
+    .sort(
+      (left, right) =>
+        right.rankingPower - left.rankingPower ||
+        left.userId.localeCompare(right.userId),
+    )
+    .slice(0, TOP_COUNT)
+    .map(preparePlayer)
+    .filter((player): player is SimPlayer => player != null);
+}
+
+async function main(): Promise<void> {
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+  const pool = new Pool({
+    ...createDatabaseConnectionOptions(process.env.DATABASE_URL),
+    max: 1,
+    statement_timeout: 30_000,
+  });
+  try {
+    const players = await loadTopPlayers(pool);
+    if (players.length === 0) throw new Error("시뮬레이션할 캐릭터가 없습니다.");
+
+    const originalRandom = Math.random;
+    Math.random = seededRandom(SEED);
+    const matrix = new Map<number, Rate[]>();
+    try {
+      for (const depth of DEPTHS) {
+        matrix.set(
+          depth,
+          players.map((player) => simulateDepth(player, depth)),
+        );
+      }
+    } finally {
+      Math.random = originalRandom;
+    }
+
+    console.log(
+      `운영 전투력 상위 ${players.length}명 · 일반 사냥 전투력 미달 보정 없음 · 몬스터당 ${TRIALS_PER_ENEMY}회 · seed ${SEED}`,
+    );
+    console.log("랭크  전투력  직업              도달  HP     ATK  MATK  DEF  SPD");
+    players.forEach((player, index) => {
+      const combat = player.combat.player;
+      console.log(
+        `${String(index + 1).padStart(2)}  ${String(player.rankingPower).padStart(6)}  ${player.job.slice(0, 14).padEnd(16)}  ${String(player.frontierDepth).padStart(2)}  ${String(player.combat.maxHp).padStart(5)}  ${String(combat.atk).padStart(4)}  ${String(combat.magicAtk ?? 0).padStart(4)}  ${String(combat.def).padStart(3)}  ${String(combat.spd).padStart(3)}`,
+      );
+    });
+
+    console.log("\n단계                       도전가능  전체승률  도전가능승률  개인승률 최소/중앙/최대");
+    for (const depth of DEPTHS) {
+      const rates = matrix.get(depth) ?? [];
+      const all = rates.reduce<Rate>(
+        (sum, rate) => ({ wins: sum.wins + rate.wins, total: sum.total + rate.total }),
+        { wins: 0, total: 0 },
+      );
+      const eligibleIndexes = players.flatMap((player, index) => {
+        const next = nextHuntStageDepth(player.frontierDepth);
+        return depth <= player.frontierDepth || depth === next ? [index] : [];
+      });
+      const eligible = eligibleIndexes.reduce<Rate>(
+        (sum, index) => ({
+          wins: sum.wins + (rates[index]?.wins ?? 0),
+          total: sum.total + (rates[index]?.total ?? 0),
+        }),
+        { wins: 0, total: 0 },
+      );
+      const individualRates = rates.map(pct);
+      console.log(
+        `${`${String(depth).padStart(2)} ${huntStageName(depth)}`.padEnd(28)} ${String(eligibleIndexes.length).padStart(2)}/${players.length}      ${pct(all).toFixed(1).padStart(5)}%       ${eligible.total > 0 ? pct(eligible).toFixed(1).padStart(5) : "    -"}%       ${percentile(individualRates, 0).toFixed(0).padStart(3)}/${percentile(individualRates, 0.5).toFixed(0).padStart(3)}/${percentile(individualRates, 1).toFixed(0).padStart(3)}%`,
+      );
+    }
+
+    console.log("\n각 유저의 현재 다음 도전 단계 승률");
+    players.forEach((player, index) => {
+      const depth = nextHuntStageDepth(player.frontierDepth) ?? player.frontierDepth;
+      const rate = matrix.get(depth)?.[index] ?? { wins: 0, total: 0 };
+      console.log(
+        `${String(index + 1).padStart(2)}위 · ${player.job} · 전투력 ${player.rankingPower} · ${huntStageName(depth)}(${depth}) · ${pct(rate).toFixed(1)}%`,
+      );
+    });
+  } finally {
+    await pool.end();
+  }
+}
+
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

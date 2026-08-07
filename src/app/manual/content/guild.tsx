@@ -277,20 +277,26 @@ export function GuildContent() {
       <H2>연금 공방</H2>
       <P>
         연금 공방은 개인 농장에서 수확한 <Em>허브·은빛잎</Em>을 HP 또는 MP
-        충전량으로 조제하는 길드 시설입니다. 결과는 즉시 개인 충전약에 더해지며
-        거래할 수 없습니다. 연성력은 계정 단위로 매주 월요일 00:00 KST에
-        초기화되고, 길드를 옮겨도 같은 주의 사용량은 유지됩니다.
+        충전량, <Em>강화석</Em>, <Em>보스 소환서</Em>로 바꾸는 길드 시설입니다.
+        공방 Lv.4부터는 연성력을 집중해 <Em>스태미나 회복약</Em>도 만들 수
+        있습니다. 결과는 즉시 개인 보유량에 더해집니다. 연성력은 계정 단위로
+        매주 월요일 00:00 KST에 초기화되고, 길드를 옮겨도 같은 주의 사용량은
+        유지됩니다.
       </P>
       <Table
-        head={["레시피", "시설", "재료", "연성력", "충전량"]}
+        head={["레시피", "시설", "재료", "연성력", "결과"]}
         rows={GUILD_ALCHEMY_RECIPES.map((recipe) => [
           <Em key={recipe.id}>{recipe.name}</Em>,
           `Lv.${recipe.minFacilityLevel}`,
           `허브 ${recipe.ingredients.herb}${recipe.ingredients.silverleaf > 0 ? ` · 은빛잎 ${recipe.ingredients.silverleaf}` : ""}`,
           recipe.energyCost.toLocaleString("ko-KR"),
-          `+${recipe.chargeAmount.toLocaleString("ko-KR")}`,
+          recipe.output === "stamina_potion"
+            ? `스태미나 회복약 ${recipe.staminaPotionAmount ?? 0}개`
+            : recipe.output === "material"
+              ? `${recipe.outputMaterialName ?? "연성 재료"} ${recipe.outputMaterialAmount ?? 0}개`
+            : `충전 +${recipe.chargeAmount.toLocaleString("ko-KR")}`,
         ])}
-        caption="조제할 때 HP·MP·반반 충전 중 하나를 선택합니다. HP와 MP 충전량은 각각 최대 10,000,000을 넘을 수 없습니다."
+        caption="충전액은 조제할 때 HP·MP·반반 충전 중 하나를 선택합니다. 강화 촉매·소환의 잉크·활력 영약은 분배 설정과 무관합니다. HP와 MP 충전량은 각각 최대 10,000,000을 넘을 수 없습니다."
       />
 
       <H2>길드 식당</H2>
@@ -369,18 +375,17 @@ export function GuildContent() {
           보상이 증가합니다. 주간 계약 수도 3건에서 5건까지 늘어납니다.
         </li>
         <li>
-          계약·개인 납품·개인 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
-          공동 교역 토큰은 모든 길드원이 함께 사용하며 다음 주에도 유지됩니다.
+          계약·개인 납품·길드 전체 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
+          공동 교역 토큰은 다음 주에도 유지됩니다.
         </li>
         <li>
-          상점 품목은 공동 토큰으로 개인 구매하며 보상은 구매자에게 즉시 지급됩니다.
-          구매 한도는 길드원이 각자 적용받고, 구매자·품목·수량·사용 토큰과 남은
-          공동 토큰은 길드 활동 내역에 기록됩니다.
+          상점 품목은 길드장과 관리자만 선택할 수 있습니다. 선택한 품목은 현재
+          길드원 전원에게 같은 수량으로 지급되며, 구매 한도는 길드 전체에
+          적용됩니다.
         </li>
         <li>
-          길드장은 일반 길드원의 공동 토큰 구매를 허용하거나 잠글 수 있습니다.
-          잠긴 동안에는 길드장만 상점에서 공동 토큰을 사용할 수 있으며, 납품과 토큰
-          적립은 그대로 이용할 수 있습니다.
+          선택한 관리자·품목·인원·사용 토큰과 남은 공동 토큰은 길드 활동 내역에
+          기록됩니다.
         </li>
       </UL>
       <Table

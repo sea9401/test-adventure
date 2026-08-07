@@ -614,7 +614,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(second.guaranteedEvadesToAdd).toBe(0);
   });
 
-  it("healFromDamage effect — 스킬 피해량의 %를 회복한다", () => {
+  it("healFromDamage effect — 스킬 피해량의 %를 회복하되 회복량 증가 보정은 받지 않는다", () => {
     const result = resolveV2SkillCast({
       skills: {
         learned: ["v2c_darkpriest_reap"],
@@ -627,7 +627,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         luk: 100,
         maxHp: 200,
         currentHp: 100,
-        healMult: 1,
+        healMult: 3,
         selfBuffs: {},
         selfDebuffs: {},
       },

@@ -1,13 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 
 // /town — 마을 탭 home. 협회/통합 교환소/생활 시설 진입.
 export default function TownPage() {
   const router = useRouter();
+  const { gameStateLoaded, viewerGuildId } = useGameState();
   return (
     <V2TownHome
+      gameStateLoaded={gameStateLoaded}
+      viewerGuildId={viewerGuildId}
       onAction={(a: TownAction) => {
         switch (a.kind) {
           case "open-association":

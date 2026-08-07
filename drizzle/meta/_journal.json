@@ -1051,6 +1051,48 @@
       "when": 1786050082394,
       "tag": "0149_mighty_grandmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1786095020629,
+      "tag": "0150_guild_trade_shared_rewards",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1786115427455,
+      "tag": "0151_ugc_safety_reports_and_blocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1786115940170,
+      "tag": "0152_ugc_policy_consents",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1786116446997,
+      "tag": "0153_ugc_inbox_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1786124838583,
+      "tag": "0154_ugc_profile_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1786125083497,
+      "tag": "0155_nifty_dorian_gray",
+      "breakpoints": true
     }
   ]
 }

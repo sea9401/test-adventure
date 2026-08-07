@@ -24,6 +24,7 @@ import {
   type CustomChatRoomInvite,
   type PublicChatRoom,
 } from "./chatRoomsApi";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 
 type ManagerTab = "create" | "public" | "invites";
 
@@ -251,6 +252,17 @@ export function ChatRoomManager({
                         <Users size={12} /> {room.memberCount}명
                       </span>
                     </div>
+                    <ContentSafetyActions
+                      sourceType="chat_room"
+                      sourceId={room.id}
+                      targetName={room.ownerName}
+                      className="mt-1"
+                      onBlocked={() =>
+                        setPublicRooms((current) =>
+                          current.filter((candidate) => candidate.id !== room.id),
+                        )
+                      }
+                    />
                   </div>
                   <button
                     type="button"

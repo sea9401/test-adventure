@@ -22,6 +22,7 @@ export const CHAT_FLOATING_CLOSED_LAYER_CLASS = "z-[44]";
 export const CHAT_FLOATING_OPEN_LAYER_CLASS = "z-[75] sm:z-[44]";
 // 채팅 / 알림(협동 보스 등) 의 "마지막으로 본 메시지 id" 를 따로 저장 — 둘이 섞이지 않게.
 const LAST_SEEN_KEY = "chat:lastSeenId";
+const LAST_SEEN_TRADE_KEY = "chat:lastSeenTradeId";
 const LAST_SEEN_NOTICE_KEY = "chat:lastSeenNoticeId";
 const LAST_SEEN_GUILD_KEY = "chat:lastSeenGuildId";
 
@@ -54,12 +55,16 @@ export function ChatButton({
 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [tradeMessages, setTradeMessages] = useState<ChatMessage[]>([]);
   const [guildMessages, setGuildMessages] = useState<ChatMessage[]>([]);
   const [lastSeenChatId, setLastSeenChatId] = useState<number>(() =>
     readId(LAST_SEEN_KEY),
   );
   const [lastSeenGuildId, setLastSeenGuildId] = useState<number>(() =>
     readId(LAST_SEEN_GUILD_KEY),
+  );
+  const [lastSeenTradeId, setLastSeenTradeId] = useState<number>(() =>
+    readId(LAST_SEEN_TRADE_KEY),
   );
   const [lastSeenNoticeId, setLastSeenNoticeId] = useState<number>(() =>
     readId(LAST_SEEN_NOTICE_KEY),
@@ -73,6 +78,7 @@ export function ChatButton({
     let cancelled = false;
     let initialized = false;
     let globalAfterId = 0;
+    let tradeAfterId = 0;
     let guildAfterId = 0;
     let running = false;
     let timeoutId: number | null = null;
@@ -96,10 +102,14 @@ export function ChatButton({
       if (cancelled || running || document.visibilityState === "hidden") return;
       running = true;
       try {
-        const [next, nextGuild] = await Promise.all([
+        const [next, nextTrade, nextGuild] = await Promise.all([
           fetchChatMessages({
             channel: "global",
             ...(initialized ? { afterId: globalAfterId } : {}),
+          }),
+          fetchChatMessages({
+            channel: "trade",
+            ...(initialized ? { afterId: tradeAfterId } : {}),
           }),
           guildAvailable
             ? fetchChatMessages({
@@ -110,10 +120,14 @@ export function ChatButton({
         ]);
         if (cancelled) return;
         globalAfterId = Math.max(globalAfterId, latestChatMessageId(next));
+        tradeAfterId = Math.max(tradeAfterId, latestChatMessageId(nextTrade));
         guildAfterId = Math.max(guildAfterId, latestChatMessageId(nextGuild));
         // 최초 조회도 기존 상태와 병합한다. 패널을 연 직후 보낸 메시지가 먼저
         // 상태에 들어온 뒤 느린 최초 조회가 끝나더라도 과거 스냅샷으로 덮어쓰지 않는다.
         setMessages((previous) => mergeChatMessages(previous, next));
+        setTradeMessages((previous) =>
+          mergeChatMessages(previous, nextTrade),
+        );
         setGuildMessages((previous) =>
           mergeChatMessages(previous, nextGuild),
         );
@@ -133,6 +147,7 @@ export function ChatButton({
             (mx, m) => (m.id > mx ? m.id : mx),
             0,
           );
+          const lastTrade = latestChatMessageId(nextTrade);
           // 두 경우에 prev 를 현재 최신 id 로 맞춤:
           //  (a) 신규 유저 (prev=0) — 옛 메시지 전부 unread 로 표시되는 거 막음.
           //  (b) prev > lastChat — DB 마이그레이션 등으로 messages.id serial 이 작은 값부터
@@ -149,6 +164,12 @@ export function ChatButton({
             if (prev !== 0 && prev <= lastNotice) return prev;
             writeId(LAST_SEEN_NOTICE_KEY, lastNotice);
             return lastNotice;
+          });
+          setLastSeenTradeId((prev) => {
+            if (lastTrade === 0) return prev;
+            if (prev !== 0 && prev <= lastTrade) return prev;
+            writeId(LAST_SEEN_TRADE_KEY, lastTrade);
+            return lastTrade;
           });
           setLastSeenGuildId((prev) => {
             if (lastGuild === 0) return prev;
@@ -181,11 +202,17 @@ export function ChatButton({
 
   // ChatPanel 이 보고 있는 탭의 최신 메시지를 본 것으로 처리.
   const handleSeen = useCallback(
-    (kind: "chat" | "guild" | "notice", lastId: number) => {
+    (kind: "chat" | "trade" | "guild" | "notice", lastId: number) => {
       if (kind === "chat") {
         setLastSeenChatId((prev) => {
           if (lastId <= prev) return prev;
           writeId(LAST_SEEN_KEY, lastId);
+          return lastId;
+        });
+      } else if (kind === "trade") {
+        setLastSeenTradeId((prev) => {
+          if (lastId <= prev) return prev;
+          writeId(LAST_SEEN_TRADE_KEY, lastId);
           return lastId;
         });
       } else if (kind === "guild") {
@@ -211,6 +238,10 @@ export function ChatButton({
         setGuildMessages((prev) =>
           prev.some((x) => x.id === m.id) ? prev : [...prev, m],
         );
+      } else if (m.channel === "trade") {
+        setTradeMessages((prev) =>
+          prev.some((x) => x.id === m.id) ? prev : [...prev, m],
+        );
       } else {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id) ? prev : [...prev, m],
@@ -227,10 +258,14 @@ export function ChatButton({
   const hasUnreadGuild = guildMessages.some(
     (m) => m.id > lastSeenGuildId && !m.mine,
   );
+  const hasUnreadTrade = tradeMessages.some(
+    (m) => m.id > lastSeenTradeId && !m.mine,
+  );
   const hasUnreadNotice = messages.some(
     (m) => isNoticeMessage(m) && m.id > lastSeenNoticeId && !m.mine,
   );
-  const hasUnread = hasUnreadChat || hasUnreadGuild || hasUnreadNotice;
+  const hasUnread =
+    hasUnreadChat || hasUnreadTrade || hasUnreadGuild || hasUnreadNotice;
   const floating = variant === "floating";
   const floatingLayerClass = open
     ? CHAT_FLOATING_OPEN_LAYER_CLASS
@@ -273,7 +308,7 @@ export function ChatButton({
           />
         )}
         {!open &&
-          (hasUnreadChat || hasUnreadGuild ? (
+          (hasUnreadChat || hasUnreadTrade || hasUnreadGuild ? (
             <span
               aria-hidden
               className={`absolute h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950 ${
@@ -299,10 +334,12 @@ export function ChatButton({
         className={className}
         title={title}
         messages={messages}
+        tradeMessages={tradeMessages}
         guildMessages={guildMessages}
         guildAvailable={guildAvailable}
         onMessageSent={handleMessageSent}
         unreadChat={hasUnreadChat}
+        unreadTrade={hasUnreadTrade}
         unreadGuild={hasUnreadGuild}
         unreadNotice={hasUnreadNotice}
         onSeen={handleSeen}

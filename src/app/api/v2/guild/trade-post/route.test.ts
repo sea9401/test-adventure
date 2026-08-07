@@ -3,13 +3,13 @@ import { GUILD_TRADE_USER_SAVE_KEY } from "@/adventure/data/v2/guildTrade";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { kstWeekMondayKey } from "@/lib/kst";
 
-let mockMasterId = "u-trader";
+let mockRecipientIds = ["u-trader", "u-member"];
 const tx = {
   select: vi.fn((fields?: Record<string, unknown>) => ({
     from: vi.fn(() => ({
       where: vi.fn(async () =>
-        fields && "masterId" in fields
-          ? [{ masterId: mockMasterId }]
+        fields && "userId" in fields
+          ? mockRecipientIds.map((userId) => ({ userId }))
           : [{ buildings: {} }],
       ),
     })),
@@ -59,6 +59,9 @@ vi.mock("@/lib/server/guildActivityLog", () => ({
 vi.mock("@/lib/server/adventurerAssociation", () => ({
   claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
 }));
+vi.mock("@/lib/server/guildAdmin", () => ({
+  isGuildMasterOrManager: vi.fn(async () => true),
+}));
 
 import { lockGuildTradeWeekly, saveGuildTradeWeekly } from "@/lib/server/guildTrade";
 import {
@@ -69,6 +72,7 @@ import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { upsertGuildResources } from "@/lib/server/v2GuildResources";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { GET, POST } from "./route";
 
 const CONTRACT_ID = "material:v2_timber";
@@ -92,6 +96,7 @@ function weekly(progress = 0, tokens = 0) {
     eligibleUserIds: ["u-trader"],
     target: 40,
     tokens,
+    purchases: {},
     memberPurchasesEnabled: true,
   };
 }
@@ -110,7 +115,8 @@ function userState(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockMasterId = "u-trader";
+  mockRecipientIds = ["u-trader", "u-member"];
+  vi.mocked(isGuildMasterOrManager).mockResolvedValue(true);
   vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly());
   vi.mocked(lockGuildTradeItem).mockResolvedValue({ owned: 100, consume });
   vi.mocked(readGuildTradeItemBalances).mockResolvedValue({ [CONTRACT_ID]: 100 });
@@ -130,64 +136,27 @@ describe("길드 교역소", () => {
     expect(response.status).toBe(200);
     expect(json.tokens).toBe(37);
     expect(json).toMatchObject({
-      isMaster: true,
-      memberPurchasesEnabled: true,
+      canManage: true,
       canPurchase: true,
     });
     expect(json.shop[0]).toMatchObject({ tokenCost: 20, affordable: true });
   });
 
-  it("길드장은 일반 길드원의 공동 토큰 구매를 잠글 수 있다", async () => {
-    const response = await POST(
-      request({ action: "set_member_purchases", enabled: false }),
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json).toMatchObject({
-      isMaster: true,
-      memberPurchasesEnabled: false,
-      canPurchase: true,
-    });
-    expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ memberPurchasesEnabled: false }),
-    );
-  });
-
-  it("일반 길드원은 공동 토큰 구매 설정을 바꿀 수 없다", async () => {
-    mockMasterId = "u-master";
-
-    const response = await POST(
-      request({ action: "set_member_purchases", enabled: false }),
-    );
-
-    expect(response.status).toBe(403);
-    expect((await response.json()).error).toBe("not_master");
-    expect(saveGuildTradeWeekly).not.toHaveBeenCalled();
-  });
-
-  it("길드장이 구매를 잠그면 일반 길드원의 구매를 서버에서 차단한다", async () => {
-    mockMasterId = "u-master";
-    vi.mocked(lockGuildTradeWeekly).mockResolvedValue({
-      ...weekly(0, 100),
-      memberPurchasesEnabled: false,
-    });
+  it("일반 길드원은 공동 토큰 상점 물품을 선택할 수 없다", async () => {
+    vi.mocked(isGuildMasterOrManager).mockResolvedValue(false);
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
 
     const response = await POST(
       request({ action: "buy", shopItemId: "refined_iron" }),
     );
 
     expect(response.status).toBe(403);
-    expect((await response.json()).error).toBe("trade_tokens_locked");
+    expect((await response.json()).error).toBe("guild_admin_required");
     expect(saveGuildTradeWeekly).not.toHaveBeenCalled();
   });
 
-  it("구매가 잠겨 있어도 길드장은 공동 토큰을 사용할 수 있다", async () => {
-    vi.mocked(lockGuildTradeWeekly).mockResolvedValue({
-      ...weekly(0, 100),
-      memberPurchasesEnabled: false,
-    });
+  it("관리자가 선택한 물품을 현재 길드원 전원에게 지급한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
     vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
       if (key === GUILD_TRADE_USER_SAVE_KEY) return userState();
       if (key === "character.v2") return { materials: {} };
@@ -199,7 +168,48 @@ describe("길드 교역소", () => {
     );
 
     expect(response.status).toBe(200);
-    expect((await response.json()).tokens).toBe(80);
+    const json = await response.json();
+    expect(json.tokens).toBe(80);
+    expect(json.purchased).toMatchObject({ recipientCount: 2 });
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-trader",
+      "character.v2",
+      { materials: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 } },
+    );
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-member",
+      "character.v2",
+      { materials: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 } },
+    );
+    expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tokens: 80,
+        purchases: { refined_iron: 1 },
+      }),
+    );
+  });
+
+  it("품목 구매 한도는 관리자 개인이 아니라 길드 전체에 적용한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue({
+      ...weekly(0, 100),
+      purchases: { refined_iron: 3 },
+    });
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "refined_iron" }),
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("purchase_limit");
+    expect(upsertSave).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "character.v2",
+      expect.anything(),
+    );
   });
 
   it("보유 채집품을 납품하면 같은 점수를 길드 공동 토큰에 더한다", async () => {
@@ -294,7 +304,7 @@ describe("길드 교역소", () => {
     expect(consume).not.toHaveBeenCalled();
   });
 
-  it("공동 토큰으로 개인 구매하고 구매 내역과 잔액을 길드 활동에 기록한다", async () => {
+  it("공동 구매 횟수와 전원 지급 인원을 길드 활동에 기록한다", async () => {
     vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
     vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
       if (key === GUILD_TRADE_USER_SAVE_KEY) return userState({ tokens: 0 });
@@ -314,6 +324,7 @@ describe("길드 교역소", () => {
       quantity: 1,
       tokenCost: 20,
       remainingTokens: 80,
+      recipientCount: 2,
     });
     expect(upsertSave).toHaveBeenCalledWith(
       expect.anything(),
@@ -321,15 +332,12 @@ describe("길드 교역소", () => {
       "character.v2",
       { materials: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 } },
     );
-    expect(upsertSave).toHaveBeenCalledWith(
-      expect.anything(),
-      "u-trader",
-      GUILD_TRADE_USER_SAVE_KEY,
-      expect.objectContaining({ tokens: 0, purchases: { refined_iron: 1 } }),
-    );
     expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ tokens: 80 }),
+      expect.objectContaining({
+        tokens: 80,
+        purchases: { refined_iron: 1 },
+      }),
     );
     expect(logGuildActivity).toHaveBeenCalledWith(
       expect.anything(),
@@ -342,6 +350,7 @@ describe("길드 교역소", () => {
           quantity: 1,
           tokenCost: 20,
           remainingTokens: 80,
+          recipientCount: 2,
         },
       },
     );

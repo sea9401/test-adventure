@@ -1,9 +1,10 @@
-import { and, asc, eq, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   chatRoomInvites,
   chatRoomMembers,
   chatRooms,
+  userBlocks,
   users,
 } from "@/db/schema";
 import {
@@ -12,6 +13,7 @@ import {
   CHAT_ROOM_MEMBER_MAX,
 } from "@/lib/chat-rooms";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 type ActionBody = { action?: unknown; targetName?: unknown };
 
@@ -160,6 +162,8 @@ export async function POST(
   }
 
   if (body.action === "invite") {
+    const consentFailure = await requireCurrentUgcConsent(userId);
+    if (consentFailure) return consentFailure;
     const targetName =
       typeof body.targetName === "string" ? body.targetName.trim() : "";
     if (!targetName || targetName.length > 24) {
@@ -184,6 +188,23 @@ export async function POST(
       if (target.id === userId) {
         return { error: "cannot invite self", status: 400 as const };
       }
+      const [blocked] = await tx
+        .select({ blockerUserId: userBlocks.blockerUserId })
+        .from(userBlocks)
+        .where(
+          or(
+            and(
+              eq(userBlocks.blockerUserId, userId),
+              eq(userBlocks.blockedUserId, target.id),
+            ),
+            and(
+              eq(userBlocks.blockerUserId, target.id),
+              eq(userBlocks.blockedUserId, userId),
+            ),
+          ),
+        )
+        .limit(1);
+      if (blocked) return { error: "user blocked", status: 403 as const };
       const [existingMember] = await tx
         .select({ userId: chatRoomMembers.userId })
         .from(chatRoomMembers)

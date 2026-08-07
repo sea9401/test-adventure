@@ -4,6 +4,7 @@ import {
   createReferralCode,
   normalizeReferralCode,
   REFERRAL_NEW_USER_STAMINA_POTIONS,
+  REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE,
   REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
   REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
   referralLandingUrl,
@@ -47,15 +48,36 @@ describe("referrals", () => {
     ).toBe("https://msmsge.com/sign-in?referral=accepted");
   });
 
-  it("프론티어 6·12·18·24·36의 5단계마다 홍보자 회복약 2개를 지급한다", () => {
+  it("프론티어 6·12·18·24·36의 5단계마다 양쪽에 회복약 2개를 지급한다", () => {
     expect(referralRewardMilestones()).toEqual([
-      { frontierDepth: 6, referrerStaminaPotions: 2 },
-      { frontierDepth: 12, referrerStaminaPotions: 2 },
-      { frontierDepth: 18, referrerStaminaPotions: 2 },
-      { frontierDepth: 24, referrerStaminaPotions: 2 },
-      { frontierDepth: 36, referrerStaminaPotions: 2 },
+      {
+        frontierDepth: 6,
+        newUserStaminaPotions: 2,
+        referrerStaminaPotions: 2,
+      },
+      {
+        frontierDepth: 12,
+        newUserStaminaPotions: 2,
+        referrerStaminaPotions: 2,
+      },
+      {
+        frontierDepth: 18,
+        newUserStaminaPotions: 2,
+        referrerStaminaPotions: 2,
+      },
+      {
+        frontierDepth: 24,
+        newUserStaminaPotions: 2,
+        referrerStaminaPotions: 2,
+      },
+      {
+        frontierDepth: 36,
+        newUserStaminaPotions: 2,
+        referrerStaminaPotions: 2,
+      },
     ]);
     expect(REFERRAL_NEW_USER_STAMINA_POTIONS).toBe(2);
+    expect(REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE).toBe(2);
     expect(REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS).toBe(2);
     expect(REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE).toBe(2);
   });
@@ -135,7 +157,7 @@ describe("referrals", () => {
     ]);
   });
 
-  it("프론티어 단계 도달 시 진척도를 갱신하고 홍보자에게 회복약을 보낸다", async () => {
+  it("프론티어 단계 도달 시 진척도를 갱신하고 신규와 홍보자에게 회복약을 보낸다", async () => {
     const trace = makeTrace();
     const tx = fakeExecutor({
       ownerUserId: "unused",
@@ -156,8 +178,17 @@ describe("referrals", () => {
         values: { rewardedStaminaDepth: 24 },
       },
     ]);
-    expect(trace.inserted).toHaveLength(1);
+    expect(trace.inserted).toHaveLength(2);
     expect(trace.inserted[0]).toMatchObject({
+      table: marketplaceInbox,
+      values: {
+        userId: "new-user",
+        kind: "admin_gift",
+        payload: { gold: 0, staminaPotions: 4 },
+        message: expect.stringContaining("심층 동굴 · 최심부"),
+      },
+    });
+    expect(trace.inserted[1]).toMatchObject({
       table: marketplaceInbox,
       values: {
         userId: "referrer",
@@ -182,6 +213,17 @@ describe("referrals", () => {
     await expect(
       rewardReferralProgress(skipped as never, "new-user", "새싹", 36),
     ).resolves.toEqual({ staminaPotions: 10, rewardedDepth: 36 });
+    expect(skipTrace.inserted).toHaveLength(2);
+    expect(skipTrace.inserted.map((entry) => entry.values)).toEqual([
+      expect.objectContaining({
+        userId: "new-user",
+        payload: expect.objectContaining({ staminaPotions: 10 }),
+      }),
+      expect.objectContaining({
+        userId: "referrer",
+        payload: expect.objectContaining({ staminaPotions: 10 }),
+      }),
+    ]);
 
     const repeatedTrace = makeTrace();
     const repeated = fakeExecutor({

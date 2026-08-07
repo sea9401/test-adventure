@@ -94,7 +94,11 @@ export async function GET(req: Request) {
   if (!userId) return bad("unauthorized", 401);
 
   const association = new URL(req.url).searchParams.get("scope") === "association";
-  const guildId = association ? 0 : await getGuildIdByUser(userId);
+  const memberGuildId = await getGuildIdByUser(userId);
+  if (association && memberGuildId != null) {
+    return bad("association_for_solo_only", 403);
+  }
+  const guildId = association ? 0 : memberGuildId;
   if (!association && guildId == null) return bad("no_guild", 403);
   const smithyLevel = association
     ? await associationFacilityLevel(db, "guild_smithy")
@@ -146,7 +150,11 @@ export async function POST(req: Request) {
   if (!iid) return bad("invalid_iid");
 
   const association = new URL(req.url).searchParams.get("scope") === "association";
-  const guildId = association ? 0 : await getGuildIdByUser(userId);
+  const memberGuildId = await getGuildIdByUser(userId);
+  if (association && memberGuildId != null) {
+    return bad("association_for_solo_only", 403);
+  }
+  const guildId = association ? 0 : memberGuildId;
   if (!association && guildId == null) return bad("no_guild", 403);
   const smithyLevel = association
     ? await associationFacilityLevel(db, "guild_smithy")

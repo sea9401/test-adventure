@@ -27,10 +27,7 @@ import {
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
-import {
-  floorPowerGate,
-  underpreparedCombatMult,
-} from "@/adventure/data/v2/dungeonLadder";
+import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import {
   dropPoolForDepth,
@@ -610,10 +607,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             {themes.map((theme) => {
               const deepDepth = codexThemeDeepDepth(theme.depthStart);
               const recommendedPower = floorPowerGate(deepDepth);
-              const preparationMult = underpreparedCombatMult(
-                deepDepth,
-                combatPower ?? undefined,
-              );
               const pool = dropPoolForDepth(theme.depthStart);
               const band = bandCommonPoolForDepth(theme.depthStart);
               const uniqueIds = uniqueIdsForDepthRange(
@@ -648,23 +641,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
                       {combatPower == null
                         ? `권장 전투력 ${recommendedPower.toLocaleString()} 기준`
-                        : `내 전투력 ${combatPower.toLocaleString()} · 권장 ${recommendedPower.toLocaleString()}${
-                            preparationMult > 1
-                              ? ` · 미달 보정 ×${preparationMult.toFixed(2)}`
-                              : ""
-                          }`}
+                        : `내 전투력 ${combatPower.toLocaleString()} · 권장 ${recommendedPower.toLocaleString()}`}
                     </p>
                   </div>
                   <div className="space-y-1.5">
                     {theme.enemies.map((e) => {
                       const base = V2_MONSTERS[e.key];
                       if (!base) return null;
-                      const m = scaleMonsterForFloor(
-                        base,
-                        deepDepth,
-                        true,
-                        combatPower ?? undefined,
-                      );
+                      const m = scaleMonsterForFloor(base, deepDepth, true);
                       const status = e.statusSkill
                         ? (V2_SKILLS[e.statusSkill as V2SkillId]?.name ?? null)
                         : null;

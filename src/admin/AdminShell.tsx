@@ -28,6 +28,7 @@ const LifeGatheringTelemetryTab = dynamic(() => import("./tabs/LifeGatheringTele
 const AuditLogTab = dynamic(() => import("./tabs/AuditLogTab").then((module) => module.AuditLogTab), { loading: adminTabLoading });
 const BroadcastTab = dynamic(() => import("./tabs/BroadcastTab").then((module) => module.BroadcastTab), { loading: adminTabLoading });
 const FeedbackTab = dynamic(() => import("./tabs/FeedbackTab").then((module) => module.FeedbackTab), { loading: adminTabLoading });
+const SafetyReportsTab = dynamic(() => import("./tabs/SafetyReportsTab").then((module) => module.SafetyReportsTab), { loading: adminTabLoading });
 const OpsManualTab = dynamic(() => import("./tabs/OpsManualTab").then((module) => module.OpsManualTab), { loading: adminTabLoading });
 const OpsSearchTab = dynamic(() => import("./tabs/OpsSearchTab").then((module) => module.OpsSearchTab), { loading: adminTabLoading });
 const OnlineUsersTab = dynamic(() => import("./tabs/OnlineUsersTab").then((module) => module.OnlineUsersTab), { loading: adminTabLoading });
@@ -50,6 +51,7 @@ type TabKey =
   | "opsSearch"
   | "broadcast"
   | "feedback"
+  | "safetyReports"
   | "opsManual"
   | "audit";
 
@@ -71,6 +73,7 @@ const TABS: AdminTab[] = [
   { key: "users", label: "유저 관리", description: "유저 조회, 지급, 제재와 데이터 수정", group: "daily", keywords: "닉네임 계정 캐릭터" },
   { key: "broadcast", label: "공지·우편", description: "공지 등록과 개인·전체 우편 발송", group: "community", keywords: "메일 보상" },
   { key: "feedback", label: "건의사항", description: "버그 제보와 유저 의견 확인", group: "community", keywords: "문의 피드백" },
+  { key: "safetyReports", label: "신고 관리", description: "콘텐츠·사용자 신고 검토와 조치", group: "community", keywords: "UGC 신고 차단 제재 삭제" },
   { key: "season", label: "시즌 운영", description: "시즌 정산과 운영 스케줄 관리", group: "community" },
   { key: "stats", label: "전체 통계", description: "접속·성장·보유 현황 통계", group: "analytics" },
   { key: "balance", label: "밸런스 지표", description: "재화와 성장 분포 분석", group: "analytics" },
@@ -257,6 +260,7 @@ function ShellInner() {
           {tab === "opsSearch" && <OpsSearchTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "feedback" && <FeedbackTab />}
+          {tab === "safetyReports" && <SafetyReportsTab />}
           {tab === "opsManual" && <OpsManualTab />}
           {tab === "audit" && <AuditLogTab />}
         </main>

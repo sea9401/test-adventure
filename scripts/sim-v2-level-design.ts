@@ -1037,11 +1037,11 @@ function minimumProgressionFor(
   return snapshotFor(arch, depth, MAX_CAREER_WINS, seed, enhanceLevel);
 }
 
-function monstersAtDepth(depth: number, playerPower?: number): Monster[] {
+function monstersAtDepth(depth: number): Monster[] {
   return enemiesForDepth(depth)
     .map((entry) => V2_MONSTERS[entry.key])
     .filter((monster): monster is Monster => monster !== undefined)
-    .map((monster) => scaleMonsterForFloor(monster, depth, true, playerPower));
+    .map((monster) => scaleMonsterForFloor(monster, depth, true));
 }
 
 function wilsonHalfWidth(wins: number, total: number): number {
@@ -1061,7 +1061,7 @@ function combatAudit(
 ): CombatAudit {
   const originalRandom = Math.random;
   Math.random = mulberry32(hashSeed(seed, snapshot.arch, depth, "combat"));
-  const enemies = monstersAtDepth(depth, snapshot.power);
+  const enemies = monstersAtDepth(depth);
   const v2Skills: V2SkillsState = {
     learned: snapshot.equippedSkills,
     equipped: snapshot.equippedSkills,

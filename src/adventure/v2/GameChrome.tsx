@@ -10,6 +10,7 @@ import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { shouldShowStaminaBar } from "@/adventure/v2/staminaBarVisibility";
+import { UgcConsentPrompt } from "@/components/safety/UgcConsentPrompt";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -87,6 +88,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     staminaPotions,
     viewerName,
     viewerGuildId,
+    gameStateLoaded,
     autoGathering,
     coreLoopOn,
     huntStaminaMode,
@@ -154,6 +156,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       onFocusCapture={selectNumericInputValue}
     >
       <V2TopBar autoGathering={autoGathering} />
+      <UgcConsentPrompt />
       {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.
           모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}
       <ChatButton
@@ -176,6 +179,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         {/* 메인 내비 — 5탭 유지, 하위 화면은 드롭다운으로 진입. */}
         <MainTabNav
           activeKey={activeTab}
+          gameStateLoaded={gameStateLoaded}
           viewerGuildId={viewerGuildId}
           onNavigate={(href) => router.push(href)}
         />

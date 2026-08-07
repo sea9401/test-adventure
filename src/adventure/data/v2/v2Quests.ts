@@ -29,6 +29,7 @@ import {
   FIELD_RECORDER_TITLE_ID,
 } from "../titles";
 import { COOKING_CODEX_MILESTONES } from "../../v2/cooking";
+import { LIFE_HOUSING_ENABLED } from "../../v2/lifeCrafting";
 
 export type QuestLineId = string;
 export type AchievementBadgeTier = "bronze" | "silver" | "gold" | "legendary";
@@ -189,6 +190,8 @@ export type QuestDef = {
   detailKind?: QuestDetailKind;
   /** 현재 사냥 가능 종 수가 이 값보다 적으면 미달성 업적을 숨긴다. */
   requiredHuntableSpecies?: number;
+  /** 아직 공개하지 않은 콘텐츠의 미달성 업적을 목록과 총점에서 숨긴다. */
+  contentEnabled?: boolean;
   /** 조건 달성 전 업적 목록에서도 감추는 히든 보상. */
   hiddenUntilComplete?: boolean;
   /** 체인 — 같은 내용·증가 목표 마일스톤 묶음. 정의 순서대로 "현재 단계"만 노출
@@ -460,6 +463,7 @@ type Milestone = {
   points: number;
   titleId?: TitleId;
   badgeTier?: AchievementBadgeTier;
+  contentEnabled?: boolean;
 };
 
 // 반복해서 쌓을 수 있는 기록의 장기 목표. 초반의 고유 업적명은 그대로 두고, 그 이후는
@@ -483,6 +487,7 @@ function milestones(
   label: string,
   value: (c: QuestCtx) => number,
   entries: readonly Milestone[],
+  describeGoal?: (goal: number) => string,
 ): QuestDef[] {
   return entries.map((entry) => {
     const unit =
@@ -509,10 +514,13 @@ function milestones(
       id: entry.id,
       line,
       title: entry.title,
-      desc: `${label} ${entry.goal.toLocaleString()}${unit}${particle} 달성하세요.`,
+      desc:
+        describeGoal?.(entry.goal) ??
+        `${label} ${entry.goal.toLocaleString()}${unit}${particle} 달성하세요.`,
       reward: entry.titleId ? { titleId: entry.titleId } : {},
       points: entry.points,
       badgeTier: entry.badgeTier,
+      contentEnabled: entry.contentEnabled,
       chain: `${line}:${label}`,
       progress: value,
       goal: entry.goal,
@@ -776,11 +784,17 @@ const LIFE_PROCESSING: QuestDef[] = [
     { id: "life_process_great25", title: "정밀한 손끝", goal: 25, points: 25, badgeTier: "silver" },
     { id: "life_process_great100", title: "오차 없는 장인", goal: 100, points: 50, badgeTier: "gold" },
   ]),
-  ...milestones("life_processing", "생활 도구 단계", (c) => c.maxLifeToolTier, [
-    { id: "life_tool_tier1", title: "손에 맞는 도구", goal: 1, points: 10 },
-    { id: "life_tool_tier2", title: "숙련자의 장비", goal: 2, points: 25, badgeTier: "silver" },
-    { id: "life_tool_tier3", title: "명인의 연장", goal: 3, points: 50, badgeTier: "legendary" },
-  ]),
+  ...milestones(
+    "life_processing",
+    "생활 도구 단계",
+    (c) => c.maxLifeToolTier,
+    [
+      { id: "life_tool_tier1", title: "손에 맞는 도구", goal: 1, points: 10 },
+      { id: "life_tool_tier2", title: "숙련자의 장비", goal: 2, points: 25, badgeTier: "silver" },
+      { id: "life_tool_tier3", title: "명인의 연장", goal: 3, points: 50, badgeTier: "legendary" },
+    ],
+    (goal) => `벌목 또는 채광 생활 도구를 ${goal}단계로 승급하세요.`,
+  ),
   ...milestones("life_processing", "생활 제작", (c) => c.lifeCraftingTotal ?? 0, [
     { id: "life_craft_first", title: "손때 묻은 공구", goal: 1, points: 5 },
     { id: "life_craft_100", title: "생활 제작자", goal: 100, points: 25, badgeTier: "silver" },
@@ -790,13 +804,13 @@ const LIFE_PROCESSING: QuestDef[] = [
     { id: "life_craft_type7", title: "맥가이버", goal: 7, points: 30, badgeTier: "gold" },
   ]),
   ...milestones("life_processing", "제작 가구 발견", (c) => c.lifeFurnitureTypes ?? 0, [
-    { id: "life_furniture_type1", title: "내 손으로 한 점", goal: 1, points: 5 },
-    { id: "life_furniture_type3", title: "DIY 입문자", goal: 3, points: 20, badgeTier: "silver" },
-    { id: "life_furniture_type8", title: "방 하나를 만든 손", goal: 8, points: 50, badgeTier: "legendary" },
+    { id: "life_furniture_type1", title: "내 손으로 한 점", goal: 1, points: 5, contentEnabled: LIFE_HOUSING_ENABLED },
+    { id: "life_furniture_type3", title: "DIY 입문자", goal: 3, points: 20, badgeTier: "silver", contentEnabled: LIFE_HOUSING_ENABLED },
+    { id: "life_furniture_type8", title: "방 하나를 만든 손", goal: 8, points: 50, badgeTier: "legendary", contentEnabled: LIFE_HOUSING_ENABLED },
   ]),
   ...milestones("life_processing", "숨겨진 도안 발견", (c) => c.lifeHiddenBlueprints ?? 0, [
     { id: "life_blueprint1", title: "도면 수집가", goal: 1, points: 30, badgeTier: "gold" },
-    { id: "life_blueprint_all", title: "비전의 설계자", goal: 6, points: 75, badgeTier: "legendary" },
+    { id: "life_blueprint_all", title: "비전의 설계자", goal: 6, points: 75, badgeTier: "legendary", contentEnabled: LIFE_HOUSING_ENABLED },
   ]),
   ...milestones("life_processing", "도안 숙련", (c) => c.lifeMasteredRecipes ?? 0, [
     { id: "life_master_recipe1", title: "백 번의 손길", goal: 1, points: 40, badgeTier: "gold" },
@@ -1160,6 +1174,9 @@ function isContentAvailable(
   ctx: QuestCtx,
   claimed: ReadonlySet<string>,
 ): boolean {
+  if (def.contentEnabled === false) {
+    return claimed.has(def.id) || def.check(ctx);
+  }
   if (def.requiredHuntableSpecies == null) return true;
   return (
     HUNT_MONSTER_SPECIES_COUNT >= def.requiredHuntableSpecies ||

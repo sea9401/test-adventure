@@ -14,6 +14,7 @@ import { STAMINA_POTIONS_KEY, parseStaminaPotions } from "@/adventure/v2/stamina
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   associationFacilityLevel,
+  canUseAdventurerAssociation,
   claimWeeklyFacilitySource,
   readWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
@@ -172,6 +173,12 @@ async function tradeView(args: {
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  if (!(await canUseAdventurerAssociation(db, userId))) {
+    return Response.json(
+      { ok: false, error: "association_for_solo_only" },
+      { status: 403 },
+    );
+  }
   const now = new Date();
   const weekKey = kstWeekMondayKey(now);
   const body = await db.transaction(async (tx) => {
@@ -193,6 +200,12 @@ export async function GET() {
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  if (!(await canUseAdventurerAssociation(db, userId))) {
+    return Response.json(
+      { ok: false, error: "association_for_solo_only" },
+      { status: 403 },
+    );
+  }
   const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:association:trade-post",

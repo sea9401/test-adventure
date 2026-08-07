@@ -81,6 +81,12 @@ describe("coopShop", () => {
     expect(isCoopShopLimitReached(reset, weekly)).toBe(true);
   });
 
+  it("스태미나 회복약은 하루 5개까지 교환한다", () => {
+    const stamina = COOP_SHOP_ENTRIES.find((e) => e.itemId === "stamina_potion");
+    expect(stamina?.limit).toEqual({ scope: "daily", count: 5 });
+    expect(stamina?.description).toContain("하루 5개");
+  });
+
   it("재련 비활성 중에는 재련석 교환 상품을 노출하지 않는다", () => {
     expect(
       COOP_SHOP_ENTRIES.some((e) => e.itemId === "reforge_stone"),

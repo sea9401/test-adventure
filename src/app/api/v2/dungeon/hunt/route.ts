@@ -38,7 +38,6 @@ import {
   MAX_FRONTIER_DEPTH,
 } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
-import { derivePowerScore } from "@/adventure/data/v2/power";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
@@ -114,6 +113,7 @@ import {
   type AdventureLogSave,
 } from "./huntKillLog";
 import { applyHuntProficiency } from "./huntProficiency";
+import { activeCookingBuff } from "@/adventure/v2/cooking";
 import {
   getAutoHuntStopReason,
   normalizeAutoHuntStopConfig,
@@ -588,15 +588,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     };
   }
   const enemyName: string = enemy.name;
-  const playerPower = derivePowerScore({
-    atk: player.player.atk,
-    magicAtk: player.player.magicAtk,
-    def: player.player.def,
-    spd: player.player.spd,
-    maxHp: player.player.maxHp,
-    maxMp: player.player.maxMp,
-  });
-  const scaledEnemy = scaleMonsterForFloor(baseMonster, depth, true, playerPower);
+  const scaledEnemy = scaleMonsterForFloor(baseMonster, depth, true);
   // PR-9 + 마법몹 시전 — 사냥터 몹 v2 스킬 시드. statusSkill(DoT/디버프) + castSkill(마법 단일딜)을
   //   병합해 equipped 에 둔다(둘 다 monsterOnly·mpCost 0). 엔진 적 페이즈가 슬롯순+쿨다운+procChance 로
   //   자동 시전(시전 턴 평타 생략). 둘 다 없으면 v2Skills 미시드(byte-identical). v2 전용(라이브 Monster 무수정).
@@ -762,19 +754,25 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const expBeforeDining = hotTime.active
     ? applyPctBonus(expAfterGuild, hotTime.bonuses.expPct)
     : expAfterGuild;
+  const foodBuff = activeCookingBuff(charSave.activeFoodBuff, now);
+  const expAfterFood =
+    foodBuff && (foodBuff.expPct ?? 0) > 0
+      ? applyPctBonus(expBeforeDining, foodBuff.expPct ?? 0)
+      : expBeforeDining;
   const diningExp = await consumeGuildDiningEffect(
     tx,
     userId,
     "hunt_exp",
-    expBeforeDining,
+    expAfterFood,
     new Date(now),
     ctx.batchState?.dining,
   );
-  const expGained = expBeforeDining + diningExp.bonus;
+  const expGained = expAfterFood + diningExp.bonus;
   const goldGross = hotTime.active
     ? applyPctBonus(goldAfterGuild, hotTime.bonuses.goldPct)
     : goldAfterGuild;
   const hotTimeExpBonus = bonusDelta(expAfterGuild, expBeforeDining);
+  const foodExpBonus = bonusDelta(expBeforeDining, expAfterFood);
   const hotTimeGoldBonus = bonusDelta(goldAfterGuild, goldGross);
   // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
   //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.
@@ -1048,6 +1046,14 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
                 goldBonus: hotTimeGoldBonus,
                 expPct: hotTime.bonuses.expPct,
                 goldPct: hotTime.bonuses.goldPct,
+              }
+            : null,
+        foodExpBuff:
+          foodBuff && foodExpBonus > 0
+            ? {
+                name: foodBuff.recipeName,
+                expPct: foodBuff.expPct ?? 0,
+                expBonus: foodExpBonus,
               }
             : null,
         goldTaxed,

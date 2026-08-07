@@ -853,7 +853,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_bloodlord_martyrdom.passive).toMatchObject({
       maxHpPct: 20,
-      lifestealPct: 8,
+      lifestealPct: 2,
       damageTakenReductionPct: 8,
     });
     expect(V2_SKILLS.v2c_bloodlord_martyrdom.passive?.thornsDefPct).toBeUndefined();
@@ -1180,7 +1180,7 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_blooddemon_immortalblood.passive).toMatchObject({
       maxHpPct: 28,
-      lifestealPct: 5,
+      lifestealPct: 4,
       damageTakenReductionPct: 9,
       defPct: 12,
     });

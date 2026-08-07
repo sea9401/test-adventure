@@ -93,6 +93,19 @@ body {
   }
 }
 
+/* 생활 작업장은 일부 Android 브라우저의 데스크톱 보기에서 화면 폭이 크게
+   보고되어 다열 카드가 휴대폰 안에 억지로 들어가는 경우가 있다. 터치 기기에서는
+   실제 조작 폭을 우선해 선택 칸과 의뢰 카드를 한 열로 유지한다. */
+@media (hover: none) and (pointer: coarse) {
+  .life-workshop-touch-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .life-workshop-touch-stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ── 게임 드롭다운·도킹 패널 등장 모션 ────────────────────────────
    메뉴는 즉시 조작할 수 있을 만큼 짧게 열되, 위에서 풀리며 항목이 연달아 보이는 감각을 준다.
    채팅은 화면 아래에 붙으므로 같은 속도로 아래에서 살짝 올라온다. */

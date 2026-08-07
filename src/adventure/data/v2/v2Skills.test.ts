@@ -812,7 +812,10 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       "회복 잃은 체력 6% + 마법 공격력×0.45 +50~50 (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
-      "피해량 14% 회복 (회복량 보정 적용)",
+      "피해량 14% 회복 (회복량 보정 미적용)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_blooddemon_reign)).toContain(
+      "피해량 20% 회복 (회복량 보정 미적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
       "회복 잃은 체력 20% (회복량 보정 적용)",

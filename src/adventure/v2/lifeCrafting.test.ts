@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   LIFE_CRAFTING_RECIPES,
+  LIFE_HOUSING_ENABLED,
   activateLifeAid,
   consumeLifeAidUses,
   emptyLifeCraftingState,
   lifeBlueprintSourceLabel,
   lifeAidSpec,
+  isLifeCraftingRecipeAvailable,
   parseLifeCraftingState,
   recipeMasteryStage,
   rollHiddenBlueprint,
@@ -140,11 +142,25 @@ describe("life crafting", () => {
     expect(lifeBlueprintSourceLabel()).toBe("생활");
   });
 
-  it("discovers an eligible hidden recipe without duplicates", () => {
-    const first = rollHiddenBlueprint(emptyLifeCraftingState(), "farming", 1, () => 0);
-    expect(first.recipe?.id).toBe("herb_display_planter");
-    const second = rollHiddenBlueprint(first.state, "farming", 100, () => 0);
+  it("discovers an active hidden aid recipe without duplicates", () => {
+    const first = rollHiddenBlueprint(emptyLifeCraftingState(), "woodcutting", 1, () => 0);
+    expect(first.recipe?.id).toBe("logging_wedge_master");
+    const second = rollHiddenBlueprint(first.state, "woodcutting", 100, () => 0);
     expect(second.recipe).toBeNull();
-    expect(second.state.learnedHiddenRecipeIds).toEqual(["herb_display_planter"]);
+    expect(second.state.learnedHiddenRecipeIds).toEqual(["logging_wedge_master"]);
+  });
+
+  it("keeps housing recipes dormant without deleting their catalog data", () => {
+    expect(LIFE_HOUSING_ENABLED).toBe(false);
+    expect(
+      LIFE_CRAFTING_RECIPES.filter(isLifeCraftingRecipeAvailable).every(
+        (recipe) => recipe.kind === "aid",
+      ),
+    ).toBe(true);
+
+    const initial = emptyLifeCraftingState();
+    const result = rollHiddenBlueprint(initial, "fishing", 100_000, () => 0);
+    expect(result.recipe).toBeNull();
+    expect(result.state).toBe(initial);
   });
 });

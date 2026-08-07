@@ -1,4 +1,7 @@
-import type { ChatRoomVisibility } from "@/lib/chat-rooms";
+import type {
+  ChatRoomOrderId,
+  ChatRoomVisibility,
+} from "@/lib/chat-rooms";
 import type { ChatMessage } from "../ChatPanel";
 import { fetchChatMessages } from "./chatMessagesApi";
 
@@ -48,6 +51,8 @@ export function translateChatRoomError(message: string) {
     "cannot invite self": "자기 자신은 초대할 수 없습니다.",
     "already member": "이미 참여 중인 사용자입니다.",
     "already invited": "이미 초대장을 보낸 사용자입니다.",
+    "user blocked": "차단 관계인 사용자는 초대할 수 없습니다.",
+    "ugc consent required": "커뮤니티 운영정책에 동의한 뒤 이용할 수 있습니다.",
     "invite not found": "초대장을 찾을 수 없습니다.",
     "invite not pending": "이미 처리된 초대장입니다.",
     "invite expired": "초대장이 만료되었습니다.",
@@ -60,7 +65,19 @@ export function fetchJoinedChatRooms() {
   return requestJson<{
     rooms: CustomChatRoom[];
     invites: CustomChatRoomInvite[];
+    roomOrder: ChatRoomOrderId[];
   }>("/api/chat/rooms");
+}
+
+export function updateChatRoomOrder(roomOrder: ChatRoomOrderId[]) {
+  return requestJson<{ ok: true; roomOrder: ChatRoomOrderId[] }>(
+    "/api/chat/rooms",
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomOrder }),
+    },
+  );
 }
 
 export function fetchPublicChatRooms() {

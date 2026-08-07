@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { db } from "@/db";
 import {
   adventurerAssociationFacilities,
+  guildMembers,
   savesKv,
 } from "@/db/schema";
 import {
@@ -17,6 +18,20 @@ import type { SettlementResources } from "@/adventure/data/v2/settlement";
 import { readSave, upsertSave, type DbExecutor } from "./savesKv";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function canUseAdventurerAssociation(
+  executor: DbExecutor,
+  userId: string,
+): Promise<boolean> {
+  const membership = (
+    await executor
+      .select({ userId: guildMembers.userId })
+      .from(guildMembers)
+      .where(eq(guildMembers.userId, userId))
+      .limit(1)
+  )[0];
+  return membership == null;
+}
 
 function nonNegativeInt(value: unknown): number {
   return Math.max(0, Math.floor(Number(value) || 0));

@@ -4,12 +4,14 @@ import OperationsPage from "./operations/page";
 import PrivacyPage from "./privacy/page";
 import TermsPage from "./terms/page";
 import LicensesPage from "./licenses/page";
+import AccountDeletionPage from "./account-deletion/page";
 
 describe("공개 정책 페이지", () => {
   it.each([
     ["개인정보처리방침", PrivacyPage],
     ["이용약관", TermsPage],
     ["운영정책", OperationsPage],
+    ["계정 및 데이터 삭제", AccountDeletionPage],
     ["오픈소스 고지", LicensesPage],
   ] as const)("%s 문서를 로그인 없이 렌더링한다", (title, Page) => {
     const html = renderToStaticMarkup(<Page />);
@@ -18,6 +20,7 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain('href="/terms"');
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/operations"');
+    expect(html).toContain('href="/account-deletion"');
     expect(html).toContain('href="/licenses"');
     expect(html).toContain("sea9401@gmail.com");
   });
@@ -38,7 +41,7 @@ describe("공개 정책 페이지", () => {
   it("확인된 처리 위치와 외부 보안 서비스의 국외 처리 내용을 안내한다", () => {
     const html = renderToStaticMarkup(<PrivacyPage />);
 
-    expect(html).toContain("2026년 8월 4일");
+    expect(html).toContain("2026년 8월 8일");
     expect(html).toContain("대한민국 서울 리전");
     expect(html).toContain("ap-northeast-2");
     expect(html).toContain("CloudFront·AWS WAF");
@@ -57,6 +60,7 @@ describe("공개 정책 페이지", () => {
     expect(html).toContain("privacyquestions@cloudflare.com");
     expect(html).toContain("생성 후 최대 90일");
     expect(html).toContain("환경 설정 → 회원 탈퇴");
+    expect(html).toContain("처리 완료 후 180일");
     expect(html).toContain("푸시 구독 주소");
     expect(html).toContain("‘알림 끄기’");
     expect(html).not.toContain("정식 출시 전 실제 운영 계약과 저장 위치");

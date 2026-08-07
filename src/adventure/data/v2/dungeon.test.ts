@@ -236,38 +236,46 @@ describe("v2 dungeon", () => {
     expect(depthName(MAX_FRONTIER_DEPTH)).toBe("심해 폐허 6");
   });
 
-  it("신규 엔드 사냥터 권장 전투력 — 붉은 벌판부터 심해 폐허까지 단계 상승", () => {
+  it("신규 엔드 사냥터 권장 전투력 — 검은 왕도부터 심해 폐허까지 실전 곡선으로 상승", () => {
+    expect([43, 44, 45, 46, 47, 48].map(floorPowerGate)).toEqual([
+      1200,
+      1230,
+      1260,
+      1290,
+      1320,
+      1350,
+    ]);
     expect([49, 50, 51, 52, 53, 54].map(floorPowerGate)).toEqual([
-      2000,
-      2060,
-      2120,
-      2180,
-      2240,
-      2300,
+      1400,
+      1450,
+      1500,
+      1550,
+      1600,
+      1650,
     ]);
     expect([55, 56, 57, 58, 59, 60].map(floorPowerGate)).toEqual([
-      2800,
-      2900,
-      3000,
-      3100,
-      3200,
-      3300,
+      1700,
+      1760,
+      1820,
+      1880,
+      1940,
+      2000,
     ]);
     expect([61, 62, 63, 64, 65, 66].map(floorPowerGate)).toEqual([
-      3400,
-      3500,
-      3600,
-      3700,
-      3800,
-      3900,
+      2050,
+      2090,
+      2130,
+      2170,
+      2210,
+      2250,
     ]);
     expect([67, 68, 69, 70, 71, 72].map(floorPowerGate)).toEqual([
-      4000,
-      4100,
-      4200,
-      4300,
-      4400,
-      4500,
+      2300,
+      2340,
+      2380,
+      2420,
+      2460,
+      2500,
     ]);
   });
 
@@ -378,54 +386,6 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.accuracy).toBeCloseTo((base.accuracy ?? 0) + floorAccuracy(8)); // 회피 대결 명중(라운드 안 함)
     expect(scaled.spd).toBe(base.spd); // hp/atk/def/exp/accuracy 외 필드 보존
     expect(scaled.name).toBe(base.name);
-  });
-
-  it("중반 미달 보정은 보존하고 상위 구간만 HP 중심의 다축 난도로 분산한다", () => {
-    const depth = 26;
-    const gate = floorPowerGate(depth);
-    const ready = scaleMonsterForFloor(base, depth, true, gate);
-    const underprepared = scaleMonsterForFloor(base, depth, true, gate * 0.7);
-
-    expect(underprepared.hp).toBeGreaterThan(ready.hp);
-    expect(underprepared.atk).toBeGreaterThan(ready.atk);
-    expect(underprepared.hp / ready.hp).toBeCloseTo(
-      underprepared.atk / ready.atk,
-      1,
-    );
-    expect(underprepared.accuracy).toBe(ready.accuracy);
-    expect(underprepared.evasionPct).toBe(ready.evasionPct);
-    expect(underprepared.def).toBe(ready.def);
-    expect(underprepared.exp).toBe(ready.exp);
-    expect(scaleMonsterForFloor(base, 43, true, 0)).toEqual(
-      scaleMonsterForFloor(base, 43),
-    );
-    const endgameDepth = 60;
-    const endgameGate = floorPowerGate(endgameDepth);
-    const endgameReady = scaleMonsterForFloor(
-      base,
-      endgameDepth,
-      true,
-      endgameGate,
-    );
-    const endgameUnderprepared = scaleMonsterForFloor(
-      base,
-      endgameDepth,
-      true,
-      endgameGate * 0.5,
-    );
-    expect(endgameUnderprepared.hp).toBeGreaterThan(endgameReady.hp);
-    expect(endgameUnderprepared.atk).toBeGreaterThan(endgameReady.atk);
-    expect(endgameUnderprepared.hp / endgameReady.hp).toBeGreaterThan(
-      endgameUnderprepared.atk / endgameReady.atk,
-    );
-    expect(endgameUnderprepared.accuracy).toBeGreaterThan(
-      endgameReady.accuracy ?? 0,
-    );
-    expect(endgameUnderprepared.evasionPct).toBeGreaterThan(
-      endgameReady.evasionPct ?? 0,
-    );
-    expect(endgameUnderprepared.def).toBeGreaterThan(endgameReady.def);
-    expect(endgameUnderprepared.exp).toBe(endgameReady.exp);
   });
 
   it("상위 사냥터는 HP·공격력 예산을 방어·명중·회피·상태 피해 대응으로 옮긴다", () => {

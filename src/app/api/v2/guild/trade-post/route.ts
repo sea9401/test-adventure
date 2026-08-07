@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guilds, outpostVillages } from "@/db/schema";
+import { guildMembers, outpostVillages } from "@/db/schema";
 import {
   GUILD_TRADE_SHOP_ITEMS,
   GUILD_TRADE_USER_SAVE_KEY,
@@ -35,6 +35,7 @@ import {
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
 
@@ -43,7 +44,6 @@ type TradeBody = {
   contractId?: unknown;
   batches?: unknown;
   shopItemId?: unknown;
-  enabled?: unknown;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -60,16 +60,15 @@ async function tradePostLevel(tx: Tx, guildId: number): Promise<number> {
   );
 }
 
-async function isGuildMaster(
+async function guildMemberIds(
   tx: Tx,
   guildId: number,
-  userId: string,
-): Promise<boolean> {
+): Promise<string[]> {
   const rows = await tx
-    .select({ masterId: guilds.masterId })
-    .from(guilds)
-    .where(eq(guilds.id, guildId));
-  return rows[0]?.masterId === userId;
+    .select({ userId: guildMembers.userId })
+    .from(guildMembers)
+    .where(eq(guildMembers.guildId, guildId));
+  return [...new Set(rows.map((row) => row.userId))].sort();
 }
 
 /**
@@ -114,7 +113,7 @@ async function tradeView(args: {
   weekly: GuildTradeWeeklyState;
   now: Date;
   userState: GuildTradeUserState;
-  isMaster: boolean;
+  canManage: boolean;
 }) {
   const { tx, userId, level, weekly, now } = args;
   const upgrade = tradePostUpgradeForLevel(level);
@@ -136,9 +135,8 @@ async function tradeView(args: {
     stageLabel: upgrade.label,
     weekKey: weekly.weekKey,
     eligible: weekly.eligibleUserIds.includes(userId),
-    isMaster: args.isMaster,
-    memberPurchasesEnabled: weekly.memberPurchasesEnabled,
-    canPurchase: args.isMaster || weekly.memberPurchasesEnabled,
+    canManage: args.canManage,
+    canPurchase: args.canManage,
     rewardBonusPct: upgrade.completionRewardBonusPct,
     tokenYieldBonusPct: upgrade.tokenYieldBonusPct,
     contribution: {
@@ -170,7 +168,7 @@ async function tradeView(args: {
       };
     }),
     shop: GUILD_TRADE_SHOP_ITEMS.map((item) => {
-      const purchased = userState.purchases[item.id] ?? 0;
+      const purchased = weekly.purchases[item.id] ?? 0;
       return {
         ...item,
         unlocked: level >= item.minFacilityLevel,
@@ -214,7 +212,7 @@ export async function GET() {
       guildId,
       weekly: lockedWeekly,
     });
-    const isMaster = await isGuildMaster(tx, guildId, userId);
+    const canManage = await isGuildMasterOrManager(tx, guildId, userId);
     return {
       status: 200,
       body: {
@@ -226,7 +224,7 @@ export async function GET() {
           weekly,
           now,
           userState,
-          isMaster,
+          canManage,
         })),
       },
     };
@@ -254,11 +252,7 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  if (
-    body.action !== "deliver" &&
-    body.action !== "buy" &&
-    body.action !== "set_member_purchases"
-  ) {
+  if (body.action !== "deliver" && body.action !== "buy") {
     return Response.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
 
@@ -290,36 +284,7 @@ export async function POST(req: Request) {
       weekly: lockedWeekly,
     });
     const { weekly, userState } = tradeState;
-    const isMaster = await isGuildMaster(tx, guildId, userId);
-
-    if (body.action === "set_member_purchases") {
-      if (!isMaster) {
-        return { status: 403, body: { ok: false as const, error: "not_master" } };
-      }
-      if (typeof body.enabled !== "boolean") {
-        return { status: 400, body: { ok: false as const, error: "invalid_setting" } };
-      }
-      const nextWeekly: GuildTradeWeeklyState = {
-        ...weekly,
-        memberPurchasesEnabled: body.enabled,
-      };
-      await saveGuildTradeWeekly(tx, nextWeekly);
-      return {
-        status: 200,
-        body: {
-          ok: true as const,
-          ...(await tradeView({
-            tx,
-            userId,
-            level,
-            weekly: nextWeekly,
-            now,
-            userState,
-            isMaster,
-          })),
-        },
-      };
-    }
+    const canManage = await isGuildMasterOrManager(tx, guildId, userId);
 
     if (body.action === "deliver") {
       if (!weekly.eligibleUserIds.includes(userId)) {
@@ -453,16 +418,16 @@ export async function POST(req: Request) {
             weekly: nextWeekly,
             now,
             userState: nextUserState,
-            isMaster,
+            canManage,
           })),
         },
       };
     }
 
-    if (!weekly.memberPurchasesEnabled && !isMaster) {
+    if (!canManage) {
       return {
         status: 403,
-        body: { ok: false as const, error: "trade_tokens_locked" },
+        body: { ok: false as const, error: "guild_admin_required" },
       };
     }
     const shopItem = guildTradeShopItem(body.shopItemId);
@@ -472,44 +437,29 @@ export async function POST(req: Request) {
     if (level < shopItem.minFacilityLevel) {
       return { status: 403, body: { ok: false as const, error: "shop_item_locked" } };
     }
-    if ((userState.purchases[shopItem.id] ?? 0) >= shopItem.weeklyLimit) {
+    if ((weekly.purchases[shopItem.id] ?? 0) >= shopItem.weeklyLimit) {
       return { status: 409, body: { ok: false as const, error: "purchase_limit" } };
     }
     if (weekly.tokens < shopItem.tokenCost) {
       return { status: 409, body: { ok: false as const, error: "insufficient_tokens" } };
     }
-    const grant = await lockShopGrant(tx, userId, shopItem);
-    const weeklySource = await claimWeeklyFacilitySource(
-      tx,
-      userId,
-      "trade_post",
-      "guild",
-      weekKey,
-    );
-    if (!weeklySource.ok) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "weekly_source_conflict",
-          selectedSource: weeklySource.selected,
-        },
-      };
+    const recipientUserIds = await guildMemberIds(tx, guildId);
+    if (recipientUserIds.length === 0) {
+      return { status: 409, body: { ok: false as const, error: "no_recipients" } };
+    }
+    const grants: Array<() => Promise<void>> = [];
+    for (const recipientUserId of recipientUserIds) {
+      grants.push(await lockShopGrant(tx, recipientUserId, shopItem));
     }
     const nextWeekly: GuildTradeWeeklyState = {
       ...weekly,
       tokens: weekly.tokens - shopItem.tokenCost,
-    };
-    const nextUserState: GuildTradeUserState = {
-      ...userState,
-      tokens: 0,
       purchases: {
-        ...userState.purchases,
-        [shopItem.id]: (userState.purchases[shopItem.id] ?? 0) + 1,
+        ...weekly.purchases,
+        [shopItem.id]: (weekly.purchases[shopItem.id] ?? 0) + 1,
       },
     };
-    await grant();
-    await upsertSave(tx, userId, GUILD_TRADE_USER_SAVE_KEY, nextUserState);
+    for (const grant of grants) await grant();
     await saveGuildTradeWeekly(tx, nextWeekly);
     await logGuildActivity(tx, {
       guildId,
@@ -520,6 +470,7 @@ export async function POST(req: Request) {
         quantity: shopItem.output.count,
         tokenCost: shopItem.tokenCost,
         remainingTokens: nextWeekly.tokens,
+        recipientCount: recipientUserIds.length,
       },
     });
     return {
@@ -532,6 +483,7 @@ export async function POST(req: Request) {
           quantity: shopItem.output.count,
           tokenCost: shopItem.tokenCost,
           remainingTokens: nextWeekly.tokens,
+          recipientCount: recipientUserIds.length,
         },
         ...(await tradeView({
           tx,
@@ -539,8 +491,8 @@ export async function POST(req: Request) {
           level,
           weekly: nextWeekly,
           now,
-          userState: nextUserState,
-          isMaster,
+          userState,
+          canManage,
         })),
       },
     };

@@ -17,6 +17,7 @@ import {
 } from "@/adventure/profile/avatars";
 import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
 import { attributeReferral, REFERRAL_COOKIE } from "@/lib/server/referrals";
+import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
 
 // 트랜잭션 안에서 "이름 중복" 신호용 — Postgres 23505 또는 legacy hit 양쪽을 한곳에서 처리.
 class TakenError extends Error {
@@ -56,6 +57,8 @@ export async function POST(req: Request) {
   if (!userId) return new Response("unauthorized", { status: 401 });
   const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
+  const consentFailure = await requireCurrentUgcConsent(userId);
+  if (consentFailure) return consentFailure;
   const uid = userId;
   const cookieStore = await cookies();
   const referralCode = cookieStore.get(REFERRAL_COOKIE)?.value;

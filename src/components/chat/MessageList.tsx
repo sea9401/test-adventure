@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { formatRelative } from "@/lib/notifications";
 import { parseChatMessageContent } from "@/lib/chat-config";
@@ -10,6 +10,7 @@ import {
   EquippedCosmeticBadge,
   chatNameClass,
 } from "./ChatCosmetics";
+import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 
 export const CHAT_BOTTOM_THRESHOLD_PX = 100;
 
@@ -35,11 +36,22 @@ export function MessageList({
   onSelectName,
 }: {
   open: boolean;
-  tab: "chat" | "guild" | "notice";
+  tab: "chat" | "trade" | "guild" | "notice";
   messages: ChatMessage[];
   onSelectName: (name: string) => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
+  const [hiddenUserIds, setHiddenUserIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const visibleMessages = useMemo(
+    () =>
+      messages.filter(
+        (message) =>
+          !message.authorUserId || !hiddenUserIds.has(message.authorUserId),
+      ),
+    [hiddenUserIds, messages],
+  );
   // 키보드가 열리기 전 최신 메시지를 보고 있었는지 보존한다. 높이가 줄어든 뒤
   // 현재 scrollTop 으로 다시 계산하면 하단에서 멀어진 것으로 오인할 수 있다.
   const pinnedToBottomRef = useRef(true);
@@ -64,13 +76,24 @@ export function MessageList({
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    if (open && !initialScrolledRef.current && messages.length > 0) {
+    if (open && !initialScrolledRef.current && visibleMessages.length > 0) {
       scrollToBottom();
       initialScrolledRef.current = true;
       return;
     }
     if (pinnedToBottomRef.current) scrollToBottom();
-  }, [messages, open, scrollToBottom]);
+  }, [visibleMessages, open, scrollToBottom]);
+
+  useEffect(() => {
+    const hideBlockedUser = (event: Event) => {
+      const userId = (event as CustomEvent<{ userId?: unknown }>).detail?.userId;
+      if (typeof userId !== "string") return;
+      setHiddenUserIds((current) => new Set(current).add(userId));
+    };
+    window.addEventListener("user-safety:blocked", hideBlockedUser);
+    return () =>
+      window.removeEventListener("user-safety:blocked", hideBlockedUser);
+  }, []);
 
   // 탭을 바꾸면 그 탭의 맨 아래(최신)로 한 번 정렬.
   useEffect(() => {
@@ -116,7 +139,7 @@ export function MessageList({
       }}
       className="no-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3"
     >
-      {messages.length === 0 ? (
+      {visibleMessages.length === 0 ? (
         <div className="flex h-full items-center justify-center text-xs text-zinc-500 dark:text-zinc-400">
           {tab === "notice"
             ? "시스템 알림이 없습니다."
@@ -124,7 +147,7 @@ export function MessageList({
         </div>
       ) : (
         // 일반 채팅은 메타 정보와 본문을 두 줄로, 시스템 알림은 한 줄로 표시한다.
-        messages.map((m) => {
+        visibleMessages.map((m) => {
           const body = parseChatMessageContent(m);
           return (
             <div
@@ -193,6 +216,16 @@ export function MessageList({
                 <div className="whitespace-pre-wrap break-words leading-relaxed">
                   <MessageBody content={body.text} itemLink={m.itemLink} />
                 </div>
+              )}
+              {tab !== "notice" && !m.mine && (
+                <ContentSafetyActions
+                  sourceType="chat_message"
+                  sourceId={m.id}
+                  targetName={m.name}
+                  onBlocked={(userId) =>
+                    setHiddenUserIds((current) => new Set(current).add(userId))
+                  }
+                />
               )}
               </div>
           );

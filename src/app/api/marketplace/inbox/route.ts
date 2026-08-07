@@ -1,6 +1,17 @@
-import { and, desc, eq, isNotNull, isNull, notInArray, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  ne,
+  notExists,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
-import { marketplaceInbox, users } from "@/db/schema";
+import { marketplaceInbox, userBlocks, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   ANONYMOUS_MARKETPLACE_MAIL_KINDS,
@@ -9,6 +20,24 @@ import {
 
 // 기록(history) 모드에서 한 번에 돌려주는 이미 읽은 우편 수 — 받은 우편 기록 보관용 상한.
 const HISTORY_LIMIT = 100;
+
+function visiblePersonalMessageWhere(userId: string) {
+  return or(
+    ne(marketplaceInbox.kind, "user_message"),
+    isNull(marketplaceInbox.fromUserId),
+    notExists(
+      db
+        .select({ one: sql`1` })
+        .from(userBlocks)
+        .where(
+          and(
+            eq(userBlocks.blockerUserId, userId),
+            eq(userBlocks.blockedUserId, marketplaceInbox.fromUserId),
+          ),
+        ),
+    ),
+  );
+}
 
 // GET /api/marketplace/inbox — 미수령 우편함 (전체). claimed_at IS NULL, created_at DESC.
 //   ?count=1   → 경량 카운트 모드(미수령 수만 반환, 우편 배지 폴링용 — 전체 행 fetch 회피).
@@ -30,6 +59,7 @@ export async function GET(req: Request) {
         and(
           eq(marketplaceInbox.userId, userId),
           isNull(marketplaceInbox.claimedAt),
+          visiblePersonalMessageWhere(userId),
         ),
       );
     return Response.json({ ok: true, unclaimedCount: row?.n ?? 0 });
@@ -47,6 +77,7 @@ export async function GET(req: Request) {
         message: marketplaceInbox.message,
         listingId: marketplaceInbox.listingId,
         fromName: marketplaceInbox.fromName,
+        fromUserId: marketplaceInbox.fromUserId,
         recipientName: users.gameName,
         createdAt: marketplaceInbox.createdAt,
         claimedAt: marketplaceInbox.claimedAt,
@@ -72,6 +103,7 @@ export async function GET(req: Request) {
         message: r.message,
         listingId: r.listingId,
         fromName: visibleInboxSenderName(r.kind, r.fromName),
+        fromUserId: r.fromUserId,
         recipientName: r.recipientName,
         direction: "sent" as const,
         createdAt: r.createdAt.toISOString(),
@@ -91,6 +123,7 @@ export async function GET(req: Request) {
       message: marketplaceInbox.message,
       listingId: marketplaceInbox.listingId,
       fromName: marketplaceInbox.fromName,
+      fromUserId: marketplaceInbox.fromUserId,
       recipientName: sql<string | null>`null`,
       createdAt: marketplaceInbox.createdAt,
       claimedAt: marketplaceInbox.claimedAt,
@@ -102,6 +135,7 @@ export async function GET(req: Request) {
         history
           ? isNotNull(marketplaceInbox.claimedAt)
           : isNull(marketplaceInbox.claimedAt),
+        visiblePersonalMessageWhere(userId),
       ),
     )
     .orderBy(desc(marketplaceInbox.createdAt));
@@ -116,6 +150,7 @@ export async function GET(req: Request) {
       message: r.message,
       listingId: r.listingId,
       fromName: visibleInboxSenderName(r.kind, r.fromName),
+      fromUserId: r.fromUserId,
       recipientName: r.recipientName,
       direction: "received" as const,
       createdAt: r.createdAt.toISOString(),

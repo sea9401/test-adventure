@@ -38,8 +38,7 @@ type TradeState = {
   stageLabel: string;
   weekKey: string;
   eligible: boolean;
-  isMaster: boolean;
-  memberPurchasesEnabled: boolean;
+  canManage: boolean;
   canPurchase: boolean;
   rewardBonusPct: number;
   tokenYieldBonusPct: number;
@@ -68,6 +67,7 @@ type TradeResponse = TradeState & {
     quantity: number;
     tokenCost: number;
     remainingTokens: number;
+    recipientCount?: number;
   };
   completionReward?: { contracts: number; tokensGained: number };
 };
@@ -270,7 +270,7 @@ export function GuildTradePostPanel({
             </div>
             <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
               {sharedTokens
-                ? "누가 납품하든 레벨 보너스를 적용한 공동 토큰이 쌓이며, 모든 길드원이 개인 구매에 사용합니다."
+                ? "누가 납품하든 레벨 보너스를 적용한 공동 토큰이 쌓이며, 관리자가 길드원 전원에게 지급할 물품을 선택합니다."
                 : "내가 납품한 점수에 레벨 보너스를 적용한 개인 토큰이 쌓이며, 다음 주에도 유지됩니다."}
             </p>
           </section>
@@ -390,55 +390,22 @@ export function GuildTradePostPanel({
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="font-bold">교역 토큰 상점</h4>
               {sharedTokens && (
-                <span
-                  className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                    state.memberPurchasesEnabled
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                      : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                  }`}
-                >
-                  {state.memberPurchasesEnabled ? "길드원 구매 허용" : "길드원 구매 잠김"}
+                <span className="rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  관리자 선택 · 전원 지급
                 </span>
               )}
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               {sharedTokens
-                ? "공동 토큰으로 나에게 지급되는 품목을 구매합니다. 구매 횟수는 개인별 주간 한도이며, 구매자·품목·수량·사용 토큰은 길드 활동 내역에 남습니다."
+                ? "길드장과 관리자가 공동 토큰으로 품목을 선택하면 현재 길드원 전원에게 동일한 보상이 지급됩니다. 구매 한도는 길드 전체에 적용됩니다."
                 : "내 협회 토큰으로 구매합니다. 상품 재고와 구매 한도도 이용자별로 관리됩니다."}
             </p>
           </div>
-          {sharedTokens && state.isMaster && (
-            <button
-              type="button"
-              disabled={Boolean(busyKey)}
-              onClick={() => {
-                const enabled = !state.memberPurchasesEnabled;
-                if (
-                  !enabled &&
-                  !window.confirm(
-                    "일반 길드원의 교역 토큰 구매를 잠글까요? 잠긴 동안에는 길드장만 공동 토큰을 사용할 수 있습니다.",
-                  )
-                ) {
-                  return;
-                }
-                void submit(
-                  "set-member-purchases",
-                  { action: "set_member_purchases", enabled },
-                  () =>
-                    enabled
-                      ? "길드원의 교역 토큰 구매를 허용했습니다."
-                      : "길드원의 교역 토큰 구매를 잠갔습니다.",
-                );
-              }}
-              className="shrink-0 rounded-md border border-cyan-700 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-cyan-300 dark:hover:bg-zinc-900"
-            >
-              {state.memberPurchasesEnabled ? "길드원 구매 잠그기" : "길드원 구매 허용하기"}
-            </button>
-          )}
         </div>
-        {sharedTokens && !state.canPurchase && (
+        {sharedTokens && !state.canManage && (
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            길드장이 공동 토큰 사용을 잠갔습니다. 현재는 길드장만 구매할 수 있습니다.
+            길드장 또는 관리자만 공동 토큰으로 물품을 선택할 수 있습니다. 선택된
+            물품은 길드원 전원에게 지급됩니다.
           </p>
         )}
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -472,7 +439,9 @@ export function GuildTradePostPanel({
                     onClick={() => {
                       if (
                         !window.confirm(
-                          `${item.name}을(를) 구매할까요?\n보상은 내 계정에 즉시 지급되며 ${sharedTokens ? "공동" : "내 협회"} 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`,
+                          sharedTokens
+                            ? `${item.name}을(를) 길드원 전원에게 지급할까요?\n길드 공동 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`
+                            : `${item.name}을(를) 구매할까요?\n내 협회 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`,
                         )
                       ) {
                         return;
@@ -482,7 +451,9 @@ export function GuildTradePostPanel({
                         { action: "buy", shopItemId: item.id },
                         (json) => {
                           const purchase = json.purchased;
-                          return `${purchase?.itemName ?? item.name} ${(purchase?.quantity ?? item.output.count).toLocaleString()}개 구매 완료 · 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`;
+                          return sharedTokens
+                            ? `${purchase?.itemName ?? item.name} 길드원 ${(purchase?.recipientCount ?? 0).toLocaleString()}명 지급 완료 · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`
+                            : `${purchase?.itemName ?? item.name} ${(purchase?.quantity ?? item.output.count).toLocaleString()}개 구매 완료 · 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`;
                         },
                       );
                     }}
@@ -512,7 +483,7 @@ function deliveryNotice(json: TradeResponse, sharedTokens: boolean): string {
 }
 
 function shopButtonText(item: TradeShopItem, canPurchase: boolean): string {
-  if (!canPurchase) return "길드원 구매 잠김";
+  if (!canPurchase) return "관리자 전용";
   if (!item.unlocked) return `교역소 Lv.${item.minFacilityLevel} 필요`;
   if (item.remaining <= 0) return "이번 주 구매 완료";
   return `구매 · 주 ${item.remaining}/${item.weeklyLimit}회 남음`;
@@ -524,12 +495,10 @@ function tradeErrorText(error?: string): string {
       return "소속 길드가 없습니다.";
     case "trade_post_required":
       return "길드 교역소를 먼저 개발해야 합니다.";
-    case "not_master":
-      return "길드장만 교역 토큰 사용 설정을 바꿀 수 있습니다.";
-    case "invalid_setting":
-      return "교역 토큰 사용 설정을 확인해 주세요.";
-    case "trade_tokens_locked":
-      return "길드장이 공동 토큰 사용을 잠갔습니다.";
+    case "guild_admin_required":
+      return "길드장 또는 관리자만 공동 토큰으로 물품을 선택할 수 있습니다.";
+    case "no_recipients":
+      return "물품을 지급할 길드원이 없습니다.";
     case "not_eligible":
       return "이번 주 계약에는 참여할 수 없습니다.";
     case "weekly_source_conflict":
@@ -547,7 +516,7 @@ function tradeErrorText(error?: string): string {
     case "shop_item_locked":
       return "교역소 레벨이 부족한 품목입니다.";
     case "purchase_limit":
-      return "이번 주 개인 구매 한도에 도달했습니다.";
+      return "이번 주 길드 전체 구매 한도에 도달했습니다.";
     case "insufficient_tokens":
       return "길드 공동 교역 토큰이 부족합니다.";
     case "invalid_shop_item":

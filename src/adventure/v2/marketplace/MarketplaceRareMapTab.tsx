@@ -90,7 +90,7 @@ export function MarketplaceRareMapTab({
     <div className="space-y-2">
       {heldCookingFoods.map(({ itemId, count, definition }) => {
         if (!definition) return null;
-        const statLine = cookingStatText(definition.statPct);
+        const statLine = cookingStatText(definition.statPct, definition.expPct);
         return (
           <Card key={itemId} padding="sm">
             <div className="flex flex-wrap items-center justify-between gap-2">

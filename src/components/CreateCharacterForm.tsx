@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
 import type {
   SubmitOptions,
@@ -18,6 +19,8 @@ import {
   type CharacterNameInvalidReason,
   validateCharacterName,
 } from "@/adventure/profile/characterNamePolicy";
+import { UGC_POLICY_VERSION } from "@/lib/ugc-safety";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 const CHECK_DEBOUNCE_MS = 400;
 
@@ -48,6 +51,7 @@ export function CreateCharacterForm({
   const [submitting, setSubmitting] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const nameCheck = validateCharacterName(name);
 
   // 입력 변경 시 debounce 후 가용성 체크. 컴포넌트 unmount/입력 변경 시 fetch 결과는 무시.
@@ -98,6 +102,7 @@ export function CreateCharacterForm({
     nameCheck.ok &&
     avatar !== null &&
     check.kind === "available" &&
+    policyAccepted &&
     !submitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,6 +111,22 @@ export function CreateCharacterForm({
     setSubmitting(true);
     setRetrying(false);
     setSubmitError(null);
+    try {
+      const consentResponse = await fetch("/api/safety/ugc-consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accepted: true, version: UGC_POLICY_VERSION }),
+      });
+      if (!consentResponse.ok) {
+        setSubmitting(false);
+        setSubmitError("커뮤니티 운영정책 동의를 저장하지 못했습니다. 다시 시도해주세요.");
+        return;
+      }
+    } catch {
+      setSubmitting(false);
+      setSubmitError("커뮤니티 운영정책 동의를 저장하지 못했습니다. 네트워크를 확인해주세요.");
+      return;
+    }
     const result = await onSubmit(
       { name: nameCheck.name, gender: avatar },
       { onRetry: () => setRetrying(true) },
@@ -166,6 +187,22 @@ export function CreateCharacterForm({
             onSelect={setAvatar}
           />
         </div>
+        <label className={`${SURFACE_INSET} flex cursor-pointer items-start gap-3 p-3 text-sm`}>
+          <input
+            type="checkbox"
+            checked={policyAccepted}
+            onChange={(event) => setPolicyAccepted(event.target.checked)}
+            disabled={submitting}
+            className="mt-0.5 h-5 w-5 shrink-0"
+          />
+          <span className="leading-relaxed text-zinc-700 dark:text-zinc-200">
+            이름·프로필 이미지·길드·게시글·채팅 등 다른 이용자에게 공개되는 콘텐츠에 적용되는{" "}
+            <Link href="/operations" target="_blank" className="font-semibold underline underline-offset-2">
+              커뮤니티 운영정책
+            </Link>
+            을 확인했으며, 위반 콘텐츠의 신고·차단·삭제 및 이용 제한에 동의합니다.
+          </span>
+        </label>
         {submitError && (
           <p className="text-sm text-rose-600 dark:text-rose-400">
             {submitError}

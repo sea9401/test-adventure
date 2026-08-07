@@ -868,7 +868,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     ]);
   });
 
-  it("def 옵션(신설) — 방어 라벨 + flat 표기(+N), 키 등록", () => {
+  it("def 옵션(신설) — 추가 방어력 라벨 + flat 표기(+N), 키 등록", () => {
     expect(V2_EQUIP_OPTION_KEYS).toContain("def");
     // 카탈로그 def 아이템은 PR2 에서 추가 — 여기선 표시/키만(임의 옵션 주입).
     const fake = {
@@ -876,7 +876,7 @@ describe("v2EquipStatRows (표시 행)", () => {
       options: { def: 20, hp: 40 },
     };
     const rows = v2EquipStatRows(fake);
-    expect(rows).toContainEqual({ label: "방어", value: "+20" });
+    expect(rows).toContainEqual({ label: "추가 방어력", value: "+20" });
     expect(rows).toContainEqual({ label: "HP", value: "+40" });
   });
 

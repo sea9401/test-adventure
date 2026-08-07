@@ -156,7 +156,7 @@ export function CookingCodexPanel({
                         {recipe.description}
                       </p>
                       <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                        기본 효과 · {cookingStatText(recipe.baseStatPct)}
+                        기본 효과 · {cookingStatText(recipe.baseStatPct, recipe.baseExpPct)}
                       </p>
                     </div>
                   </li>

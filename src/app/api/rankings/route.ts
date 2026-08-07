@@ -33,6 +33,7 @@ import {
   lifeMasteryRankingFromSaves,
 } from "@/lib/server/rankingMetrics";
 import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import { readBlockedUserIds } from "@/lib/server/ugcSafety";
 
 // 관리자 계정을 랭킹에서 제외하는 SQL 필터. ADMIN_EMAILS 가 비어 있으면 빈 fragment.
 // 호출처는 stats CTE 의 WHERE 절에 그대로 합성한다.
@@ -900,7 +901,10 @@ export async function GET(req: Request) {
   }
 
   const rows = await getRows(metric);
-  const visibleRows = rows.slice(0, LIST_LIMIT);
+  const blockedUserIds = new Set(await readBlockedUserIds(userId));
+  const visibleRows = rows
+    .filter((row) => row.userId === userId || !blockedUserIds.has(row.userId))
+    .slice(0, LIST_LIMIT);
   const myRow = rows.find((r) => r.userId === userId);
   const cosmeticByUser = await readMuseunCosmeticAppearanceMap([
     ...visibleRows.map((r) => r.userId),

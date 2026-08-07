@@ -59,6 +59,7 @@ export type GuildActivityMeta = {
   permissionEnabled?: boolean; // warehouse_permission_change
   tokenCost?: number; // trade_shop_purchase
   remainingTokens?: number; // trade_shop_purchase
+  recipientCount?: number; // trade_shop_purchase
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade
@@ -71,6 +72,9 @@ export type GuildActivityMeta = {
   rewardMastery?: number; // training_drill_claim
   chargeTarget?: GuildAlchemyChargeTarget; // alchemy_craft
   chargeAmount?: number; // alchemy_craft
+  staminaPotions?: number; // alchemy_craft
+  alchemyRewardName?: string; // alchemy_craft
+  alchemyRewardAmount?: number; // alchemy_craft
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward

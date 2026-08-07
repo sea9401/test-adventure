@@ -71,6 +71,7 @@ import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import {
   associationFacilityLevel,
+  canUseAdventurerAssociation,
   claimWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
 
@@ -118,6 +119,13 @@ async function resolveWorkshopAccess(
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
   if (association) {
+    if (!(await canUseAdventurerAssociation(db, userId))) {
+      return {
+        ok: false,
+        status: 403,
+        body: { ok: false, error: "association_for_solo_only" },
+      };
+    }
     const level = await associationFacilityLevel(db, "guild_smithy");
     return {
       ok: true,

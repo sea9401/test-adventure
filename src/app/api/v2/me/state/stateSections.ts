@@ -98,6 +98,7 @@ type StateCharSave = {
   level?: number;
   class?: unknown;
   specChoice?: unknown;
+  revisitJobId?: unknown;
   materials?: unknown;
   frontierDepth?: unknown;
   spFruitUsed?: unknown;
@@ -172,6 +173,9 @@ export function jobsV2Section(params: {
     V2_JOB_CATALOG[currentJobId]?.name ??
     (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
   const currentJobTier = V2_JOB_CATALOG[currentJobId]?.tier ?? 0;
+  // 이미 수련했던 직업으로 돌아온 경우에는 놓친 스킬만 익히고 곧바로 다른
+  // 직업으로 이동할 수 있다. 같은 직업 재전직은 여전히 원래 레벨 조건을 쓴다.
+  const revisitExpedited = charSave.revisitJobId === currentJobId;
   const currentJobLevelCap = rejobRequiredLevel(currentJobId);
   const jobHistory = new Set(prof.jobHistory ?? []);
   // 스킬 수집 완료 판정용 — 학습한 스킬 집합(직업 도감과 동일 기준).
@@ -181,7 +185,8 @@ export function jobsV2Section(params: {
     currentJobName,
     currentJobTier,
     currentJobLevelCap,
-    atLevelCap: level >= currentJobLevelCap,
+    atLevelCap: revisitExpedited || level >= currentJobLevelCap,
+    revisitExpedited,
     jobs: V2_JOB_LIST.filter(
       // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
       (job) => isRootJobSelectable(job),

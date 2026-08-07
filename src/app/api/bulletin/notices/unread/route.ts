@@ -1,16 +1,17 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { bulletinPosts, bulletinViews } from "@/db/schema";
-import { BULLETIN_FETCH_LIMIT } from "@/lib/bulletin-config";
 import { ensureUser } from "@/lib/server/ensureUser";
 
 // GET /api/bulletin/notices/unread — 상단바 신규 점을 위한 경량 존재 여부 조회.
-// 공지 화면에서 실제로 제공하는 최근 글 범위 안에 조회하지 않은 글이 있으면 true다.
+// 상단 점은 "새 공지가 올라왔는가"를 알리는 용도라 최신 공지 하나만 판정한다.
+// 최근 50개를 모두 요구하면 기능 도입 전의 옛 공지까지 전부 열어야 점이 사라진다.
+// 목록 안의 공지별 미열람 점은 GET /api/bulletin의 viewedByMe로 계속 따로 표시한다.
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
 
-  const recentNotices = await db
+  const latestNotices = await db
     .select({ id: bulletinPosts.id })
     .from(bulletinPosts)
     .where(
@@ -20,22 +21,22 @@ export async function GET() {
       ),
     )
     .orderBy(desc(bulletinPosts.createdAt))
-    .limit(BULLETIN_FETCH_LIMIT);
+    .limit(1);
 
-  if (recentNotices.length === 0) return unreadResponse(false);
+  const latestNotice = latestNotices[0];
+  if (!latestNotice) return unreadResponse(false);
 
-  const recentIds = recentNotices.map((notice) => notice.id);
   const viewed = await db
     .select({ postId: bulletinViews.postId })
     .from(bulletinViews)
     .where(
       and(
         eq(bulletinViews.userId, userId),
-        inArray(bulletinViews.postId, recentIds),
+        eq(bulletinViews.postId, latestNotice.id),
       ),
     );
 
-  return unreadResponse(viewed.length < recentNotices.length);
+  return unreadResponse(viewed.length === 0);
 }
 
 function unreadResponse(hasUnread: boolean) {

@@ -213,19 +213,24 @@ export function MessageList({
               )}
               </div>
               {tab !== "notice" && (
-                <div className="whitespace-pre-wrap break-words leading-relaxed">
-                  <MessageBody content={body.text} itemLink={m.itemLink} />
+                <div className="flex min-w-0 items-start gap-1">
+                  <div className="min-w-0 flex-1 whitespace-pre-wrap break-words leading-relaxed">
+                    <MessageBody content={body.text} itemLink={m.itemLink} />
+                  </div>
+                  {!m.mine && (
+                    <ContentSafetyActions
+                      sourceType="chat_message"
+                      sourceId={m.id}
+                      targetName={m.name}
+                      className="-mr-1 -mt-1 shrink-0"
+                      onBlocked={(userId) =>
+                        setHiddenUserIds((current) =>
+                          new Set(current).add(userId),
+                        )
+                      }
+                    />
+                  )}
                 </div>
-              )}
-              {tab !== "notice" && !m.mine && (
-                <ContentSafetyActions
-                  sourceType="chat_message"
-                  sourceId={m.id}
-                  targetName={m.name}
-                  onBlocked={(userId) =>
-                    setHiddenUserIds((current) => new Set(current).add(userId))
-                  }
-                />
               )}
               </div>
           );

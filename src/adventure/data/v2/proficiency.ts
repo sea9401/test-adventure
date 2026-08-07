@@ -8,7 +8,7 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 //   groups: { [tier1classId]: { cultivations, tier, cumLevel } },
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
-//   - points = 숙달 포인트(사용가능 잔액). 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~3),
+//   - points = 숙달 포인트(사용가능 잔액). 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
 //     수행·스킬학습에 소모. 🔑 caps/grown 처럼 캐릭터 전역(직군 무관) — 전직해도 유지.
 //     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 → 단일 잔액. 2026-06-27: 옛 직군별 points 를
 //      전역으로 승격 — 재전직 시 잔액이 0 으로 보이던 문제 해소. parse 가 옛 직군별을 합산 이관.)
@@ -59,15 +59,16 @@ export type V2ProficiencyState = {
 };
 
 // §10 다이얼.
-// 승리당 숙달 포인트 — 초반은 유지, 중후반 수행/스킬 경제 인플레는 억제.
-// 들판~심층 동굴 2 / 잊힌 성소 이후 3. 직업 숙련도(+1/승리)는 그대로 두고
-// 수행 재화만 낮춰, 초반 고통 없이 중후반 성장 폭주를 늦춘다.
+// 승리당 숙달 포인트 — 초반은 유지하고 최상위 사냥터의 성장 보상을 강화한다.
+// 들판~심층 동굴 2 / 잊힌 성소~백골 고원 3 / 폭풍 산맥~심해 폐허 4 /
+// 천공 균열 5. 직업 숙련도(+1/승리)는 사냥터와 관계없이 그대로 유지한다.
 export const V2_PROFICIENCY_PER_KILL_BASE = 2;
 export function proficiencyPerKillAtDepth(depth: number): number {
-  return Math.min(
-    3,
-    V2_PROFICIENCY_PER_KILL_BASE + Math.floor(themeIndexForDepth(depth) / 4),
-  );
+  const themeIndex = themeIndexForDepth(depth);
+  if (themeIndex >= 12) return 5; // 천공 균열
+  if (themeIndex >= 10) return 4; // 폭풍 산맥~심해 폐허
+  if (themeIndex >= 4) return 3; // 잊힌 성소~백골 고원
+  return V2_PROFICIENCY_PER_KILL_BASE;
 }
 // 스탯 한계치는 저점(floor)과 독립적인 절대치다. 신규 캐릭터는 60에서 시작하고,
 // 수행으로 올린 이득만 더해진다. 직업 숙련도로 저점이 올라가더라도 한계치는 올라가지

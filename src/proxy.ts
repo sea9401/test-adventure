@@ -59,22 +59,22 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <body>
 <main>
   <div class="box" role="status" aria-live="polite">
-    <div class="status">서버 점검</div>
+    <div class="status">서버 점검 · 30분 연장</div>
     <h1>서버 점검 중입니다</h1>
-    <p class="lead">업데이트 적용 및 서비스 안정화를 위해<br />점검을 진행하고 있습니다.</p>
+    <p class="lead">점검 작업이 예상보다 지연되어<br />종료 시간이 30분 연장되었습니다.</p>
     <div class="schedule" aria-label="점검 일정">
       <p class="schedule-label">점검 일정</p>
       <span class="schedule-time">
         <time datetime="2026-08-08T04:00:00+09:00">8월 8일(토) 오전 4시</time>
         ~
-        <time datetime="2026-08-08T05:00:00+09:00">오전 5시</time>
+        <time datetime="2026-08-08T05:30:00+09:00">오전 5시 30분</time>
       </span>
-      <span class="duration">예상 소요 시간 · 약 1시간</span>
+      <span class="duration">예상 소요 시간 · 약 1시간 30분 (30분 연장)</span>
     </div>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
-      점검 진행 상황에 따라 종료 시각이<br />앞당겨지거나 연장될 수 있습니다.<br />
-      안정적인 서비스 제공을 위해 최선을 다하겠습니다.
+      기다려 주시는 모험가 여러분께 진심으로 죄송합니다.<br />
+      안정적으로 서비스를 재개할 수 있도록 최선을 다하겠습니다.
     </p>
   </div>
 </main>

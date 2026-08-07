@@ -1720,7 +1720,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(after.enemyHp).toBe(50000 - 3 * poisonPer);
   });
 
-  it("보스는 중독의 최대 HP 비례 피해를 절반만 받는다", () => {
+  it("보스는 중독의 최대 HP 비례 피해를 20% 감소해 받는다", () => {
     const venomer: PlayerCombat = {
       ...tank,
       accuracyPct: 100,
@@ -1745,7 +1745,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     };
     const after = advanceTurn(primed, venomer, "P");
     const poisonPer =
-      Math.min(50000 * pct, 1000 * POISON_CAP_ATK_COEF) * 0.5;
+      Math.min(50000 * pct, 1000 * POISON_CAP_ATK_COEF) * 0.8;
     expect(after.enemyHp).toBe(50000 - 3 * poisonPer);
   });
 

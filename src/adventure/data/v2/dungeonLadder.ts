@@ -135,6 +135,73 @@ export function endExtensionCombatSoften(depth: number): number {
   return depth >= END_EXTENSION_START_DEPTH ? END_EXTENSION_COMBAT_SOFTEN : 1;
 }
 
+// 49+ 솔로 사냥터 고정 난도 복원(2026-08-08). 과거의 권장 전투력 미달 보정은 같은 몬스터가
+// 캐릭터마다 최대 6배까지 달라지는 문제가 있어 제거했지만, 보정 제거와 함께 상위 사냥터 HP가
+// 한 번에 70~80% 낮아져 진행도가 지나치게 빠르게 열렸다. 플레이어 전투력은 다시 읽지 않고,
+// 깊이만으로 모두에게 같은 내구·공격 배율을 적용한다. HP를 주축으로 올리고 공격은 완만하게
+// 올려 즉사전보다 장기전·회복 소모로 난도를 만든다. 협동 보스는 softenEndgame=false라 제외된다.
+export const FIXED_FRONTIER_DIFFICULTY_START_DEPTH = 49;
+export const FIXED_FRONTIER_DURABILITY_START = 1.5;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_72 = 2.75;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_78 = 3.25;
+export const FIXED_FRONTIER_ATTACK_START = 1.02;
+export const FIXED_FRONTIER_ATTACK_DEPTH_72 = 1.2;
+export const FIXED_FRONTIER_ATTACK_DEPTH_78 = 1.3;
+
+function linearRamp(
+  depth: number,
+  startDepth: number,
+  endDepth: number,
+  startValue: number,
+  endValue: number,
+): number {
+  const t = Math.min(
+    1,
+    Math.max(0, (Math.floor(depth) - startDepth) / (endDepth - startDepth)),
+  );
+  return startValue + (endValue - startValue) * t;
+}
+
+export function fixedFrontierDurabilityMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_DURABILITY_START,
+      FIXED_FRONTIER_DURABILITY_DEPTH_72,
+    );
+  }
+  return linearRamp(
+    depth,
+    73,
+    78,
+    FIXED_FRONTIER_DURABILITY_DEPTH_72,
+    FIXED_FRONTIER_DURABILITY_DEPTH_78,
+  );
+}
+
+export function fixedFrontierAttackMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_ATTACK_START,
+      FIXED_FRONTIER_ATTACK_DEPTH_72,
+    );
+  }
+  return linearRamp(
+    depth,
+    73,
+    78,
+    FIXED_FRONTIER_ATTACK_DEPTH_72,
+    FIXED_FRONTIER_ATTACK_DEPTH_78,
+  );
+}
+
 // 상위 사냥터 스펙 예산 재분배(43~72) — HP·ATK만 함께 부풀리면 "맞기 전에 처치 / 한 방에 사망"의
 // 이진 전투가 된다. 기존 HP·ATK 예산을 낮추고 방어·명중·회피·상태이상 저항으로 옮긴다.
 // 42 이하는 기존 곡선과 byte-identical, 72 이후는 plateau.

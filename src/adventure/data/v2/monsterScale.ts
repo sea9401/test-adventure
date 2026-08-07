@@ -8,6 +8,8 @@ import {
   frontierOnsetSoften,
   floorCritHpComp,
   floorAccuracy,
+  fixedFrontierAttackMult,
+  fixedFrontierDurabilityMult,
   lateAccuracyMult,
   lateAttackMult,
   lateDefenseMult,
@@ -42,9 +44,11 @@ export function scaleMonsterForFloor(
       : 1);
   const hpMult =
     baseCombatMult *
+    (softenEndgame ? fixedFrontierDurabilityMult(depth) : 1) *
     (softenEndgame ? lateDurabilityMult(depth) : 1);
   const atkMult =
     baseCombatMult *
+    (softenEndgame ? fixedFrontierAttackMult(depth) : 1) *
     (softenEndgame ? lateAttackMult(depth) : 1);
   const dMult =
     floorDefMult(depth) *

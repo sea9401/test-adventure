@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { canAccessMuseunCoinShop } from "@/lib/server/museunCoinShopAccess";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import {
   lockSaveForUpdate,
@@ -36,11 +37,13 @@ function unavailable() {
 }
 
 export async function GET() {
-  if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true") {
-    return unavailable();
-  }
   const userId = await ensureUser();
-  if (!userId) return bad("unauthorized", 401);
+  if (!userId) {
+    return process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true"
+      ? bad("unauthorized", 401)
+      : unavailable();
+  }
+  if (!(await canAccessMuseunCoinShop(userId))) return unavailable();
 
   const [wallet, character] = await Promise.all([
     readSave(db, userId, MUSEUN_COIN_WALLET_KEY, {}),
@@ -56,11 +59,13 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true") {
-    return unavailable();
-  }
   const userId = await ensureUser();
-  if (!userId) return bad("unauthorized", 401);
+  if (!userId) {
+    return process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true"
+      ? bad("unauthorized", 401)
+      : unavailable();
+  }
+  if (!(await canAccessMuseunCoinShop(userId))) return unavailable();
   const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:museun-coin-shop:buy",

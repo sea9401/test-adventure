@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 import { isApiRequestBodyTooLarge } from "@/lib/apiRequestBodyLimit";
+import { canPassMuseunCoinShopProxy } from "@/lib/museunCoinShopGate";
 import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
@@ -128,17 +129,17 @@ export default auth((req) => {
     });
   }
 
-  // 유료 서비스 출시 승인 전에는 인증/정적 렌더보다 앞에서 코인 상점의 존재 자체를 숨긴다.
-  // page의 notFound()만으로는 정적 App Router 셸이 HTTP 200으로 응답할 수 있어 Proxy에서도
-  // 동일한 fail-closed 게이트를 둔다. Route Handler에도 별도 404 검사가 남아 있다.
+  const isCoinShopRoute =
+    req.nextUrl.pathname === "/settings/coin-shop" ||
+    req.nextUrl.pathname === "/api/v2/museun-coin-shop" ||
+    req.nextUrl.pathname.startsWith("/api/v2/museun-coin-shop/");
   if (
-    process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN !== "true" &&
-    (req.nextUrl.pathname === "/settings/coin-shop" ||
-      req.nextUrl.pathname === "/api/v2/museun-coin-shop")
+    isCoinShopRoute &&
+    !canPassMuseunCoinShopProxy(req.auth?.user, process.env)
   ) {
     return new NextResponse(null, {
       status: 404,
-      headers: { "cache-control": "no-store" },
+      headers: { "cache-control": "private, no-store" },
     });
   }
 

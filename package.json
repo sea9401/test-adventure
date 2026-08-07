@@ -32,6 +32,7 @@
     "account:create": "node scripts/create-password-account.mjs",
     "coupon:issue": "node scripts/issue-beta-coupons.mjs",
     "coupon:set-cosmetic-boxes": "node scripts/set-coupon-cosmetic-boxes.mjs",
+    "coin:grant-review": "node scripts/grant-review-museun-coins.mjs",
     "db:reset-game-progress": "node scripts/reset-game-progress.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node src/db/migrate.mjs",

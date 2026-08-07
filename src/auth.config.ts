@@ -33,6 +33,12 @@ export const authConfig: NextAuthConfig = {
   providers: [Kakao],
   pages: { signIn: "/sign-in" },
   callbacks: {
+    // Proxy의 심의용 상점 게이트가 JWT subject를 계정 allowlist와 비교할 수 있게 한다.
+    // full auth 설정(src/auth.ts)도 같은 매핑을 유지한다.
+    session({ session, token }) {
+      if (token.sub) session.user.id = token.sub;
+      return session;
+    },
     authorized({ auth, request: { nextUrl } }) {
       const isPublic = PUBLIC_PATHS.some(
         (p) => nextUrl.pathname === p || nextUrl.pathname.startsWith(p + "/"),

@@ -192,6 +192,14 @@ export function EquipmentCardGrid({
               <EnhanceLevelBadge enhance={inst.enhance} />
               <CraftQualityBadge craftQuality={inst.craftQuality} />
               {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+              {inst.stormRefined ? (
+                <span
+                  className="rounded bg-violet-600 px-1.5 py-px text-[10px] font-semibold text-white"
+                  title="특화 효과와 굴림 품질을 유지한 6T 위력 개량 장비"
+                >
+                  폭풍 개량
+                </span>
+              ) : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {progressionLock ? (
                 <span

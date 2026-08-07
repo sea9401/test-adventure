@@ -162,11 +162,12 @@ export async function POST(req: Request) {
           // roll 스냅샷(iid 제외) — 구매 시 새 개체로 복원. roll 없으면 null.
           // 굴림 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체(권위 파스가 양형 흡수).
           instancePayload:
-            inst.roll || inst.craftQuality || inst.craftedBy
+            inst.roll || inst.craftQuality || inst.craftedBy || inst.stormRefined
               ? {
                   ...(inst.roll ?? {}),
                   ...(inst.craftQuality ? { craftQuality: inst.craftQuality } : {}),
                   ...(inst.craftedBy ? { craftedBy: inst.craftedBy } : {}),
+                  ...(inst.stormRefined ? { stormRefined: true } : {}),
                 }
               : null,
         })

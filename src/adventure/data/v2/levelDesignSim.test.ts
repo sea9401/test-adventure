@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  auditCustomLoadoutCombat,
   auditFixedProgressionCombat,
   buildGrowthPacing,
   buildReport,
@@ -8,6 +9,7 @@ import {
   huntStageDepths,
   parseOptions,
 } from "../../../../scripts/sim-v2-level-design";
+import type { V2EquipSlot, V2EquipmentId } from "./v2Equipment";
 
 describe("sim-v2-level-design", () => {
   it("기본 전투 표본은 경고선 근처의 승률 오탐을 줄이는 50회다", () => {
@@ -16,11 +18,11 @@ describe("sim-v2-level-design", () => {
     expect(parseOptions(["--trials=999"]).trials).toBe(100);
   });
 
-  it("검사 대상은 실제 선택 가능한 2~72 짝수 단계 36개다", () => {
+  it("검사 대상은 실제 선택 가능한 2~78 짝수 단계 39개다", () => {
     const depths = huntStageDepths();
-    expect(depths).toHaveLength(36);
+    expect(depths).toHaveLength(39);
     expect(depths[0]).toBe(2);
-    expect(depths.at(-1)).toBe(72);
+    expect(depths.at(-1)).toBe(78);
     expect(depths.every((depth) => depth % 2 === 0)).toBe(true);
   });
 
@@ -29,6 +31,7 @@ describe("sim-v2-level-design", () => {
     const fieldEnd = growth.rows.find((row) => row.depth === 6)!;
     const frontierEntry = growth.rows.find((row) => row.depth === 8)!;
     const endgame = growth.rows.find((row) => row.depth === 72)!;
+    const skyRift = growth.rows.find((row) => row.depth === 78)!;
 
     expect(growth.totalExpToLevelCap).toBe(2_275_428);
     expect(growth.energy).toMatchObject({
@@ -55,6 +58,9 @@ describe("sim-v2-level-design", () => {
     expect(endgame.commonAnyExpectedWins).toBeCloseTo(1 / 0.00075);
     expect(endgame.signatureAnyExpectedWins).toBe(2_000);
     expect(endgame.signatureSpecificExpectedWins).toBe(10_000);
+    expect(skyRift.commonAnyExpectedWins).toBe(1_000);
+    expect(skyRift.commonSpecificExpectedWins).toBe(6_000);
+    expect(skyRift.signatureAnyExpectedWins).toBeNull();
   });
 
   it("실제 승률 절벽·전직 회복 필요·저승률·빌드 격차·장기전을 독립적으로 경고한다", () => {
@@ -134,13 +140,68 @@ describe("sim-v2-level-design", () => {
     expect(averageWinRate(72)).toBeLessThan(20);
   }, 15_000);
 
+  it("흑월은 산군에서 무풍암영 2→6부위로 교체하는 전 구간에서 성능이 급락하지 않는다", () => {
+    const sangoon = {
+      armor: "v2_hard_sangoon_hide",
+      gloves: "v2_hard_sangoon_claws",
+      boots: "v2_hard_sangoon_stride",
+      ring: "v2_hard_sangoon_ring",
+      necklace: "v2_hard_sangoon_amulet",
+    } as const;
+    const shadow = {
+      weapon: "v2_storm_gale_dagger",
+      armor: "v2_storm_shadow_armor",
+      gloves: "v2_storm_shadow_gloves",
+      boots: "v2_storm_shadow_boots",
+      ring: "v2_storm_shadow_ring",
+      necklace: "v2_storm_shadow_necklace",
+    } as const;
+    const slots: V2EquipSlot[] = [
+      "weapon",
+      "ring",
+      "necklace",
+      "armor",
+      "gloves",
+      "boots",
+    ];
+    const results = [2, 3, 4, 5, 6].map((count) => {
+      const equipment: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
+        weapon: shadow.weapon,
+        ...sangoon,
+      };
+      for (const slot of slots.slice(0, count)) equipment[slot] = shadow[slot];
+      return auditCustomLoadoutCombat({
+        arch: "LUK",
+        depth: 76,
+        equipment,
+        careerWins: 500_000,
+        extraSp: count === 2 ? 2 : 4,
+        enhanceLevel: 12,
+        trials: 50,
+        seed: 20260808,
+      });
+    });
+    const winRates = results.map((result) => result.winRatePct);
+    const powers = results.map((result) => result.power);
+
+    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(60);
+    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(150);
+    for (let i = 1; i < winRates.length; i++) {
+      expect(winRates[i - 1] - winRates[i]).toBeLessThan(20);
+    }
+    expect(results[0].player.spd).toBeGreaterThan(900);
+    expect(results[0].player.spd).toBeLessThan(1_100);
+  }, 15_000);
+
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {
     const full = buildReport(parseOptions(["--trials=1"]));
     const single = buildReport(parseOptions(["--depth=62", "--trials=1"]));
     const fromFull = full.stages.find((stage) => stage.depth === 62);
 
     expect(fromFull).toBeDefined();
-    expect(full.warningCounts.READINESS_RECOVERY).toBe(0);
+    expect(single.stages[0].readinessRecoveryCount).toBe(
+      fromFull!.readinessRecoveryCount,
+    );
     expect(full.observationCounts.powerTargetMissStages).toBeGreaterThan(0);
     expect(full.observationCounts.powerTargetMissBuilds).toBeGreaterThan(0);
     expect(

@@ -136,24 +136,12 @@ export type GuildWorkshopRecipeId =
   | "crafted_oblivion_ring"
   | "crafted_painless_relic"
   | "storm_wreckage_greatsword"
-  | "storm_wreckage_armor"
-  | "storm_wreckage_gloves"
-  | "storm_wreckage_boots"
-  | "storm_wreckage_ring"
-  | "storm_wreckage_necklace"
   | "storm_gale_bow"
   | "storm_gale_dagger"
-  | "storm_gale_armor"
-  | "storm_gale_gloves"
-  | "storm_gale_boots"
-  | "storm_gale_ring"
-  | "storm_gale_necklace"
   | "storm_thunder_staff"
-  | "storm_thunder_armor"
-  | "storm_thunder_gloves"
-  | "storm_thunder_boots"
-  | "storm_thunder_ring"
-  | "storm_thunder_necklace";
+  | "storm_breaker_greatsword"
+  | "storm_venom_dagger"
+  | "storm_sanctuary_staff";
 
 export type GuildWorkshopRecipe = {
   id: GuildWorkshopRecipeId;
@@ -1200,46 +1188,6 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     28,
     "폭풍 원정 6T · 힘/활력 대검",
   ),
-  storm_wreckage_armor: stormExpeditionRecipe(
-    "storm_wreckage_armor",
-    "v2_storm_wreckage_armor",
-    "wreckage",
-    "guard",
-    24,
-    "폭풍 원정 6T · 힘/활력 갑옷",
-  ),
-  storm_wreckage_gloves: stormExpeditionRecipe(
-    "storm_wreckage_gloves",
-    "v2_storm_wreckage_gloves",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 장갑",
-  ),
-  storm_wreckage_boots: stormExpeditionRecipe(
-    "storm_wreckage_boots",
-    "v2_storm_wreckage_boots",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 장화",
-  ),
-  storm_wreckage_ring: stormExpeditionRecipe(
-    "storm_wreckage_ring",
-    "v2_storm_wreckage_ring",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 반지",
-  ),
-  storm_wreckage_necklace: stormExpeditionRecipe(
-    "storm_wreckage_necklace",
-    "v2_storm_wreckage_necklace",
-    "wreckage",
-    "guard",
-    18,
-    "폭풍 원정 6T · 힘/활력 목걸이",
-  ),
   storm_gale_bow: stormExpeditionRecipe(
     "storm_gale_bow",
     "v2_storm_gale_bow",
@@ -1256,46 +1204,6 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     28,
     "폭풍 원정 6T · 민첩/행운 단검",
   ),
-  storm_gale_armor: stormExpeditionRecipe(
-    "storm_gale_armor",
-    "v2_storm_gale_armor",
-    "gale",
-    "pursuit",
-    24,
-    "폭풍 원정 6T · 민첩/행운 갑옷",
-  ),
-  storm_gale_gloves: stormExpeditionRecipe(
-    "storm_gale_gloves",
-    "v2_storm_gale_gloves",
-    "gale",
-    "pursuit",
-    18,
-    "폭풍 원정 6T · 민첩/행운 장갑",
-  ),
-  storm_gale_boots: stormExpeditionRecipe(
-    "storm_gale_boots",
-    "v2_storm_gale_boots",
-    "gale",
-    "pursuit",
-    18,
-    "폭풍 원정 6T · 민첩/행운 장화",
-  ),
-  storm_gale_ring: stormExpeditionRecipe(
-    "storm_gale_ring",
-    "v2_storm_gale_ring",
-    "gale",
-    "combo",
-    18,
-    "폭풍 원정 6T · 민첩/행운 반지",
-  ),
-  storm_gale_necklace: stormExpeditionRecipe(
-    "storm_gale_necklace",
-    "v2_storm_gale_necklace",
-    "gale",
-    "pursuit",
-    18,
-    "폭풍 원정 6T · 민첩/행운 목걸이",
-  ),
   storm_thunder_staff: stormExpeditionRecipe(
     "storm_thunder_staff",
     "v2_storm_thunder_staff",
@@ -1304,45 +1212,29 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     28,
     "폭풍 원정 6T · 지능/정신 지팡이",
   ),
-  storm_thunder_armor: stormExpeditionRecipe(
-    "storm_thunder_armor",
-    "v2_storm_thunder_armor",
-    "thunder",
-    "focus",
-    24,
-    "폭풍 원정 6T · 지능/정신 갑옷",
+  storm_breaker_greatsword: stormExpeditionRecipe(
+    "storm_breaker_greatsword",
+    "v2_storm_breaker_greatsword",
+    "wreckage",
+    "fury",
+    28,
+    "폭풍 원정 6T · 붕괴의 선봉 대검",
   ),
-  storm_thunder_gloves: stormExpeditionRecipe(
-    "storm_thunder_gloves",
-    "v2_storm_thunder_gloves",
-    "thunder",
-    "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 장갑",
+  storm_venom_dagger: stormExpeditionRecipe(
+    "storm_venom_dagger",
+    "v2_storm_venom_dagger",
+    "gale",
+    "corrosion",
+    28,
+    "폭풍 원정 6T · 만독침식 단검",
   ),
-  storm_thunder_boots: stormExpeditionRecipe(
-    "storm_thunder_boots",
-    "v2_storm_thunder_boots",
+  storm_sanctuary_staff: stormExpeditionRecipe(
+    "storm_sanctuary_staff",
+    "v2_storm_sanctuary_staff",
     "thunder",
     "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 장화",
-  ),
-  storm_thunder_ring: stormExpeditionRecipe(
-    "storm_thunder_ring",
-    "v2_storm_thunder_ring",
-    "thunder",
-    "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 반지",
-  ),
-  storm_thunder_necklace: stormExpeditionRecipe(
-    "storm_thunder_necklace",
-    "v2_storm_thunder_necklace",
-    "thunder",
-    "focus",
-    18,
-    "폭풍 원정 6T · 지능/정신 목걸이",
+    28,
+    "폭풍 원정 6T · 성역공명 지팡이",
   ),
 };
 

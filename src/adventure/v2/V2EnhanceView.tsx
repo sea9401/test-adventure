@@ -67,6 +67,18 @@ import {
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
 import {
+  canStormRefine,
+  isStormRefinementCandidate,
+  STORM_REFINEMENT_GOLD_COST,
+  STORM_REFINEMENT_HEART_COST,
+  STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+  stormRefinementPreview,
+} from "@/adventure/data/v2/stormEquipmentRefinement";
+import {
+  STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+  STORM_HEART_FRAGMENT_MATERIAL_ID,
+} from "@/adventure/data/v2/stormExpeditionRewards";
+import {
   EquipmentCardGrid,
   type EquipmentCard,
 } from "@/adventure/v2/V2InventoryView";
@@ -120,7 +132,14 @@ type ReforgeResponse = {
   improved?: boolean;
 };
 
-type ForgeMode = "enhance" | "reforge" | "combine";
+type StormRefineResponse = {
+  ok?: boolean;
+  error?: string;
+  oldPower?: number;
+  newPower?: number;
+};
+
+type ForgeMode = "enhance" | "refine" | "reforge" | "combine";
 
 export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   // 강화·재련·조합은 골드 sink — 보유 골드를 헤더에 노출(사용자 요청). 코어루프면 지갑+은행이
@@ -144,6 +163,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const [scavengedMats, setScavengedMats] = useState({
     enhanceEmbers: 0,
     tornMapFragments: 0,
+  });
+  const [stormMats, setStormMats] = useState({
+    wreckage: 0,
+    gale: 0,
+    thunder: 0,
+    heart: 0,
   });
   const [chosenRareMapDepth, setChosenRareMapDepth] = useState<number | null>(
     null,
@@ -224,6 +249,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           tornMapFragments:
             j.materials?.[TORN_MAP_FRAGMENT_MATERIAL_ID] ?? 0,
         });
+        setStormMats({
+          wreckage:
+            j.materials?.[STORM_EXPEDITION_ROUTE_MATERIAL_ID.wreckage] ?? 0,
+          gale: j.materials?.[STORM_EXPEDITION_ROUTE_MATERIAL_ID.gale] ?? 0,
+          thunder:
+            j.materials?.[STORM_EXPEDITION_ROUTE_MATERIAL_ID.thunder] ?? 0,
+          heart: j.materials?.[STORM_HEART_FRAGMENT_MATERIAL_ID] ?? 0,
+        });
       }
     } catch {
       /* 폴링 아님 — 조용히 */
@@ -239,10 +272,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const tabInstances = useMemo(
     () =>
       sortEnhanceCandidates(
-        owned.filter((o) => V2_EQUIPMENT[o.id]?.slot === tab),
+        owned.filter(
+          (o) =>
+            V2_EQUIPMENT[o.id]?.slot === tab &&
+            (mode !== "refine" ||
+              isStormRefinementCandidate(V2_EQUIPMENT[o.id])),
+        ),
         equipped[tab] ?? null,
       ),
-    [equipped, owned, tab],
+    [equipped, mode, owned, tab],
   );
   const pager = usePagination(tabInstances, 8, tab);
 
@@ -345,6 +383,78 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       setBusy(false);
     }
   }, [selected, stone, feedIid, busy, refresh, refreshGameState]);
+
+  // ── 폭풍 개량 — 특화 유니크의 옵션·강화는 유지하고 위력만 6T 밴드로 확정 이전 ──
+  const refineable = !!(
+    selected &&
+    item &&
+    canStormRefine(item, selected)
+  );
+  const refinePreview =
+    selected && item ? stormRefinementPreview(item, selected) : null;
+  const refineCurrentPower = refinePreview
+    ? powerWithBonuses(
+        refinePreview.currentPower,
+        selected?.enhance,
+        selected?.craftQuality,
+      )
+    : 0;
+  const refinedPower = refinePreview
+    ? powerWithBonuses(
+        refinePreview.refinedPower,
+        selected?.enhance,
+        selected?.craftQuality,
+      )
+    : 0;
+  const stormMaterialShort =
+    stormMats.wreckage < STORM_REFINEMENT_ROUTE_MATERIAL_COST ||
+    stormMats.gale < STORM_REFINEMENT_ROUTE_MATERIAL_COST ||
+    stormMats.thunder < STORM_REFINEMENT_ROUTE_MATERIAL_COST ||
+    stormMats.heart < STORM_REFINEMENT_HEART_COST;
+  const refineActionDisabled =
+    busy ||
+    !refineable ||
+    stormMaterialShort ||
+    spendable < STORM_REFINEMENT_GOLD_COST;
+
+  const doStormRefine = useCallback(async () => {
+    if (!selected || !item || busy || !refineable) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/storm-refine", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ iid: selected.iid }),
+      });
+      const json = (await res.json()) as StormRefineResponse;
+      if (!json.ok) {
+        setMsg({
+          kind: "error",
+          text:
+            json.error === "insufficient_material"
+              ? "폭풍 개량 재료가 부족합니다"
+              : json.error === "insufficient_gold"
+                ? "골드가 부족합니다"
+                : json.error === "already_refined"
+                  ? "이미 폭풍 개량을 마친 장비입니다"
+                  : json.error === "not_refineable"
+                    ? "폭풍 개량 대상이 아닌 장비입니다"
+                    : `실패: ${json.error ?? "unknown"}`,
+        });
+        return;
+      }
+      setMsg({
+        kind: "success",
+        text: `폭풍 개량 완료 — 위력 ${refineCurrentPower} → ${refinedPower}`,
+      });
+      await Promise.all([refresh(), refreshGameState()]);
+    } catch {
+      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, item, refineCurrentPower, refineable, refinedPower, refresh, refreshGameState, selected]);
 
   // ── 재련(reforge) — 골드로 옵션 굴림 재시도(항상 적용 = 도박) ──
   const reforgeCost = item ? reforgeGoldCost(item) : 0;
@@ -564,6 +674,25 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           variant: "warning" as const,
           onClick: () => void doEnhance(),
         }
+      : mode === "refine" && selected && item && refinePreview
+        ? {
+            title: `${selectedLevelLabel}${item.name}`,
+            subtitle: `위력 ${refineCurrentPower} → ${refinedPower} · ${STORM_REFINEMENT_GOLD_COST.toLocaleString()} G`,
+            label: selected.stormRefined
+              ? "개량 완료"
+              : !refineable
+                ? "이미 6T 기준 위력"
+              : stormMaterialShort
+                ? "재료 부족"
+                : spendable < STORM_REFINEMENT_GOLD_COST
+                  ? "골드 부족"
+                  : busy
+                    ? "개량 중…"
+                    : "폭풍 개량",
+            disabled: refineActionDisabled,
+            variant: "primary" as const,
+            onClick: () => void doStormRefine(),
+          }
       : mode === "reforge" && selected && item && reforgeable
         ? {
             title: `${selectedLevelLabel}${item.name}`,
@@ -601,6 +730,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   {stones.blue}
                 </span>
               </>
+            ) : mode === "refine" ? (
+              <span className="inline-flex items-center gap-1 text-violet-500">
+                <GameIcon name="Sparkle" size={15} />
+                {stormMats.heart}
+              </span>
             ) : mode === "reforge" && V2_REFORGE_ENABLED ? (
               <>
                 <span className="inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
@@ -629,6 +763,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       <TabBar
         tabs={[
           { key: "enhance" as ForgeMode, label: "강화" },
+          { key: "refine" as ForgeMode, label: "폭풍 개량" },
           ...(V2_REFORGE_ENABLED
             ? [{ key: "reforge" as ForgeMode, label: "재련" }]
             : []),
@@ -637,6 +772,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         active={mode}
         onChange={(m) => {
           setMode(m);
+          setSelectedIid(null);
+          setFeedIid(null);
           setMsg(null);
         }}
         ariaLabel="대장간 작업"
@@ -835,6 +972,127 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   {enhanceActionLabel}
                 </Button>
             </>
+            {msg && (
+              <StatusBanner tone={statusToneOf(msg.kind)}>
+                {msg.text}
+              </StatusBanner>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* 폭풍 개량 — 세트가 없는 특화 유니크를 6T 조합용 단품으로 보존한다. */}
+      {mode === "refine" && selected && item && refinePreview && (
+        <Card padding="sm" className="ui-forge-panel">
+          <div className="space-y-3">
+            <div className={`${SURFACE_ACCENT} px-3 py-2`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                    폭풍 개량 작업대 · {selectedSlotLabel}
+                  </div>
+                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-sm font-semibold">
+                    {level > 0 && (
+                      <span className="text-amber-600 dark:text-amber-300">
+                        +{level}
+                      </span>
+                    )}
+                    <CraftQualityStars
+                      craftQuality={selected.craftQuality}
+                      className="shrink-0"
+                    />
+                    <span className="truncate">{item.name}</span>
+                    {selected.stormRefined && (
+                      <span className="rounded bg-violet-600 px-1.5 py-px text-[10px] font-semibold text-white">
+                        개량 완료
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIid(null);
+                    setMsg(null);
+                  }}
+                  className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+                >
+                  선택 해제
+                </button>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
+                  <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
+                  <div className="font-semibold">{refineCurrentPower}</div>
+                </div>
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
+                  <div className="text-zinc-500 dark:text-zinc-400">개량 위력</div>
+                  <div className="font-semibold text-violet-600 dark:text-violet-400">
+                    {refinedPower}
+                  </div>
+                </div>
+                <div className={`${SURFACE_CARD} rounded-md px-2 py-1`}>
+                  <div className="text-zinc-500 dark:text-zinc-400">결과</div>
+                  <div className="font-semibold">확정</div>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+              이 장비의 고유 효과와 옵션 굴림, 강화 단계, 제작 품질은 그대로
+              유지하고 위력만 같은 부위의 6T 기준으로 올립니다. 세트 태그는 붙지
+              않아 4세트와 함께 쓰는 특화 단품으로 남습니다.
+            </p>
+
+            <div className={`${SURFACE_INSET} grid grid-cols-2 gap-2 px-3 py-2 text-xs tabular-nums sm:grid-cols-4`}>
+              {[
+                ["부유 합금핵", stormMats.wreckage, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
+                ["칼바람 정수", stormMats.gale, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
+                ["뇌운 결정", stormMats.thunder, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
+                ["폭풍 심장", stormMats.heart, STORM_REFINEMENT_HEART_COST],
+              ].map(([label, have, need]) => {
+                const enough = Number(have) >= Number(need);
+                return (
+                  <div
+                    key={String(label)}
+                    className={
+                      enough
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    }
+                  >
+                    <div className="font-medium">{label}</div>
+                    <div>
+                      {have}/{need}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              개량비: {STORM_REFINEMENT_GOLD_COST.toLocaleString()} G · 실패 및
+              파괴 없음
+            </div>
+            <Button
+              onClick={() => void doStormRefine()}
+              disabled={refineActionDisabled}
+              variant="primary"
+              size="md"
+              fullWidth
+            >
+              {selected.stormRefined
+                ? "폭풍 개량 완료"
+                : !refineable
+                  ? "이미 6T 기준 위력"
+                : stormMaterialShort
+                  ? "개량 재료 부족"
+                  : spendable < STORM_REFINEMENT_GOLD_COST
+                    ? "골드 부족"
+                    : busy
+                      ? "개량 중…"
+                      : "폭풍 개량"}
+            </Button>
             {msg && (
               <StatusBanner tone={statusToneOf(msg.kind)}>
                 {msg.text}

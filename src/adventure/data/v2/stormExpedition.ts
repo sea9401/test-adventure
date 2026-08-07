@@ -221,6 +221,10 @@ export type StormExpeditionState = {
   attemptsUsed: number;
   active: StormExpeditionActive | null;
   clears: number;
+  /** 항로 공용 SP 열매 미획득 완주 횟수. 획득 시 0으로 초기화된다. */
+  spFruitPity: number;
+  /** 이 원정에서 누적 획득한 SP 열매 수. */
+  spFruitObtained: number;
 };
 
 export function stormExpeditionDateKey(now: number = Date.now()): string {
@@ -237,6 +241,8 @@ export function parseStormExpeditionState(raw: unknown, date = stormExpeditionDa
     // 자정이 지나도 진행 중 원정은 사라지지 않는다. 새 입장 횟수만 갱신한다.
     active: parseActive(source.active),
     clears: clampInt(source.clears, 0, Number.MAX_SAFE_INTEGER),
+    spFruitPity: clampInt(source.spFruitPity, 0, 24),
+    spFruitObtained: clampInt(source.spFruitObtained, 0, 3),
   };
 }
 

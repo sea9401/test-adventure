@@ -211,6 +211,7 @@ export function MasterworkBadge({
 const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   crit: "치명타",
   eva: "회피",
+  accuracy: "명중",
   mp: "MP",
   hp: "HP",
   critMult: "치명타 피해",

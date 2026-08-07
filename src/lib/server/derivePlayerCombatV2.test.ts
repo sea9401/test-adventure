@@ -39,6 +39,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       crit: 0,
       mp: 0,
       eva: 0,
+      accuracy: 0,
       hp: 0,
       critMult: 0,
       spd: 0,
@@ -97,6 +98,36 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     const a = aggregateV2Equipment({ weapon: "v2_oak_staff" });
     expect(a.atk).toBe(0);
     expect(a.magicAtk).toBe(staffPow);
+  });
+
+  it("6T 추적 장비의 명중 옵션이 PvE/PvP 공용 accRating에 반영된다", () => {
+    const id = "v2_storm_gale_bow" as const;
+    const optionAccuracy = V2_EQUIPMENT[id].options?.accuracy ?? 0;
+    expect(aggregateV2Equipment({ weapon: id }).accuracy).toBe(optionAccuracy);
+    const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const geared = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: id },
+    }).player;
+    expect((geared.accRating ?? 0) - (plain.accRating ?? 0)).toBe(
+      optionAccuracy,
+    );
+  });
+
+  it("6T 4세트와 다른 2세트를 동시에 조합할 수 있다", () => {
+    const signatures = collectEquipSignatures({
+      weapon: "v2_storm_wreckage_greatsword",
+      armor: "v2_storm_wreckage_armor",
+      gloves: "v2_storm_wreckage_gloves",
+      boots: "v2_storm_wreckage_boots",
+      ring: "v2_storm_sanctuary_ring",
+      necklace: "v2_storm_sanctuary_necklace",
+    });
+    expect(signatures.map((signature) => signature.label)).toEqual([
+      "성채 전개",
+      "중력 고정",
+      "치유 공명",
+    ]);
   });
 
   it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·옵션", () => {
@@ -1000,6 +1031,33 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     }).player;
     expect(plain.skillCritAfterEvade).toBeUndefined();
     expect(blackmoon.skillCritAfterEvade).toBe(true);
+  });
+
+  it("흑월지배의 행운 속도 환산은 최종 LUK에만 비례해 행동 속도를 올린다", () => {
+    const plain = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+    }).player;
+    const blackmoon = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+      passiveSpdPerLukCoef: 0.75,
+    }).player;
+    expect(blackmoon.spd - plain.spd).toBeCloseTo(115 * 0.75);
+  });
+
+  it("흑월지배의 행운 공격 환산은 최종 LUK에 비례해 물리 공격력을 올린다", () => {
+    const plain = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+    }).player;
+    const blackmoon = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 100 },
+      atkPerLukCoef: 0.95,
+    }).player;
+    expect(blackmoon.atk - plain.atk).toBeGreaterThanOrEqual(Math.floor(115 * 0.95));
+    expect(blackmoon.atk - plain.atk).toBeLessThanOrEqual(Math.ceil(115 * 0.95));
   });
 
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {

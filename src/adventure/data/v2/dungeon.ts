@@ -127,6 +127,16 @@ const BAND_K_ABYSS_RUINS_ENEMIES: DungeonEnemy[] = [
   { key: "암류 파수병", name: "암류 파수병", image: "/images/monster/v2/undertow-sentinel.webp", element: "void", statusSkill: "mob_rending_claw" },
 ];
 
+// 천공 균열 — 폭풍 원정 이후 열린 부유 대륙의 단층. 73~78 권장 전투력 4650~5500,
+// 물리 관통·고회피·중독·마법 폭발을 함께 배치해 6T 빌드별 강점을 시험한다.
+const BAND_L_SKY_RIFT_ENEMIES: DungeonEnemy[] = [
+  { key: "중력핵 골렘", name: "중력핵 골렘", image: "/images/monster/v2/rockback-guardian-beast.webp", element: "earth" },
+  { key: "붕괴의 선봉장", name: "붕괴의 선봉장", image: "/images/monster/v2/storm-standard-bearer.webp", element: "fire", statusSkill: "mob_rending_claw" },
+  { key: "무풍 추적귀", name: "무풍 추적귀", image: "/images/monster/v2/coldwind-raider-captain.webp", element: "wind", statusSkill: "mob_rending_claw" },
+  { key: "만독 비룡", name: "만독 비룡", image: "/images/monster/v2/blue-venom-pincer-king.webp", element: "earth", statusSkill: "mob_venom_bite" },
+  { key: "뇌정 성역지기", name: "뇌정 성역지기", image: "/images/monster/v2/lightning-oracle.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
+];
+
 // 들판 = 깊이 1~6 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
 export const MAIN_DUNGEON: Dungeon = {
   id: "main",
@@ -142,13 +152,14 @@ export const MAIN_DUNGEON: Dungeon = {
 };
 
 // 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판 onboarding 풀도 6깊이.
-// 마지막 테마(심해 폐허)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
+// 마지막 테마(천공 균열)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
 // "테마명 + 테마 내 로컬 번호(1~6)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
 // 2026-06-19: "깊은 산"(옛 7~12) 삭제 → 마른 협곡부터 6깊이씩 앞으로 당겨짐.
 // 2026-06-28: 검은 왕도(43~48) 추가. 43+ 권장치는 실제 난이도에 맞춘 별도 표시 곡선을 쓴다.
 // 2026-06-30: 붉은 벌판(49~54)·백골 고원(55~60) 추가.
 // 2026-07-04: 폭풍 산맥(61~66)·심해 폐허(67~72) 추가.
+// 2026-08-07: 천공 균열(73~78) 추가. 6T 장비의 방어구 목표 파밍 지역.
 export const THEME_DEPTH_SPAN = 6;
 const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "들판", enemies: FLOOR1_ENEMIES }, // 깊이 1~6
@@ -162,7 +173,8 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "붉은 벌판", enemies: BAND_H_RED_FIELD_ENEMIES }, // 49~54
   { name: "백골 고원", enemies: BAND_I_BONE_PLATEAU_ENEMIES }, // 55~60
   { name: "폭풍 산맥", enemies: BAND_J_STORM_MOUNTAIN_ENEMIES }, // 61~66
-  { name: "심해 폐허", enemies: BAND_K_ABYSS_RUINS_ENEMIES }, // 67~72 (마지막 테마 = 프론티어 끝)
+  { name: "심해 폐허", enemies: BAND_K_ABYSS_RUINS_ENEMIES }, // 67~72
+  { name: "천공 균열", enemies: BAND_L_SKY_RIFT_ENEMIES }, // 73~78 (마지막 테마 = 프론티어 끝)
 ];
 
 export type HuntMonsterCodexDefinition = {

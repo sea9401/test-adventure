@@ -1041,6 +1041,11 @@ describe("직업 킷 — 스킬셋", () => {
       scaling: "luk",
       pierceDamagePct: 12,
     });
+    expect(V2_SKILLS.v2c_blackmoon_flurry.effects[1]).toMatchObject({
+      kind: "damage",
+      scaling: "luk",
+      pierceDamagePct: 12,
+    });
     expect(V2_SKILLS.v2c_blackmoon_flurry.effects[3]).toMatchObject({
       kind: "enemyAccuracyDown",
       pct: 28,
@@ -1052,9 +1057,13 @@ describe("직업 킷 — 스킬셋", () => {
       statPct: { luk: 22, dex: 8 },
       evasionPct: 22,
       critDmgPct: 24,
+      spdPerLukCoef: 0.75,
+      atkPerLukCoef: 0.95,
+      accuracyPct: 10,
+      skillCritOverflow: true,
       skillCritAfterEvade: true,
     });
-    expect(V2_SKILLS.v2c_blackmoon_dominion.passive?.skillCritOverflow).not.toBe(true);
+    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(13);
     expect(skillsForJob("myriadvenom")).toEqual([
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",

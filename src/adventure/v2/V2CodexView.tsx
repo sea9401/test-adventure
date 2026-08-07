@@ -35,8 +35,10 @@ import {
 } from "@/adventure/data/v2/dungeonEquipDrops";
 import {
   uniqueIdsForDepthRange,
-  bandCommonPoolForDepth,
   bandCommonChanceForDepth,
+  commonIdsForDepthRange,
+  SKY_RIFT_WEAPON_DROP_CHANCE,
+  SKY_RIFT_WEAPON_IDS,
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
@@ -608,20 +610,29 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               const deepDepth = codexThemeDeepDepth(theme.depthStart);
               const recommendedPower = floorPowerGate(deepDepth);
               const pool = dropPoolForDepth(theme.depthStart);
-              const band = bandCommonPoolForDepth(theme.depthStart);
+              const bandIds = commonIdsForDepthRange(
+                theme.depthStart,
+                deepDepth,
+              );
+              const skyRiftWeaponIds =
+                theme.depthStart <= 78 && deepDepth >= 78
+                  ? [...SKY_RIFT_WEAPON_IDS]
+                  : [];
               const uniqueIds = uniqueIdsForDepthRange(
                 theme.depthStart,
                 deepDepth,
               );
-              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~72) 또는 들판 스타터 그리드(1~6). + 처치당 확률 라벨.
-              const regularIds: V2EquipmentId[] = band
-                ? band.ids
+              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~78) 또는 들판 스타터 그리드(1~6).
+              const regularIds: V2EquipmentId[] = bandIds.length > 0
+                ? [...bandIds, ...skyRiftWeaponIds]
                 : pool
                   ? starterGridIds(pool)
                   : [];
               const classified = classifyCodexEquipmentIds(regularIds);
-              const regularChance = band
-                ? `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`
+              const regularChance = bandIds.length > 0
+                ? theme.depthStart >= 73
+                  ? "깊이별 0.05~0.10% · 해당 구간 방어구 무작위 1종"
+                  : `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`
                 : pool
                   ? `처치당 ${(equipPoolChance(pool) * 100).toFixed(0)}% · 무작위 1종`
                   : "";
@@ -696,6 +707,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     {regularIds.length > 0 && (
                       <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
                         일반·세트 장비 {regularChance}
+                      </p>
+                    )}
+                    {skyRiftWeaponIds.length > 0 && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        78단계 무기 완제품 {(SKY_RIFT_WEAPON_DROP_CHANCE * 100).toFixed(2)}% · 길드 공방 확정 제작 가능
                       </p>
                     )}
                     <div>

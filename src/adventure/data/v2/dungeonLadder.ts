@@ -44,6 +44,10 @@ export const END_EXTENSION_STAT_STEP = 1.0;
 
 // 49+ 몬스터 스탯을 보존하는 내부 앵커. 과거에는 이 값을 그대로 권장 전투력으로 노출했지만,
 // 전투 완화·스킬·회피·회복 효율이 반영되지 않아 실제 필요 전투력보다 최대 80% 높게 보였다.
+// 천공 균열(73~78)은 원정·개량으로 크게 성장한 유저가 힘을 체감하도록 더 가파르게
+// 4650→5500까지 상승한다. 단, 73은 5T 최종 세팅으로 진입 가능한 수준을 유지한다.
+export const SKY_RIFT_POWER_GATES = [4650, 4800, 4950, 5100, 5300, 5500] as const;
+
 function endExtensionStatAnchorPower(depth: number): number {
   const d = Math.max(END_EXTENSION_START_DEPTH, Math.floor(depth));
   if (d < 49) {
@@ -56,6 +60,13 @@ function endExtensionStatAnchorPower(depth: number): number {
     );
   }
   if (d <= 54) return 2000 + (d - 49) * 60;
+  if (d >= 73) {
+    const index = d - 73;
+    return index < SKY_RIFT_POWER_GATES.length
+      ? SKY_RIFT_POWER_GATES[index]
+      : SKY_RIFT_POWER_GATES[SKY_RIFT_POWER_GATES.length - 1] +
+          (index - SKY_RIFT_POWER_GATES.length + 1) * 200;
+  }
   return 2800 + (d - 55) * 100;
 }
 
@@ -68,6 +79,13 @@ function endExtensionRecommendedPower(depth: number): number {
   if (d <= 54) return 1400 + (d - 49) * 50;
   if (d <= 60) return 1700 + (d - 55) * 60;
   if (d <= 66) return 2050 + (d - 61) * 40;
+  if (d >= 73) {
+    const index = d - 73;
+    return index < SKY_RIFT_POWER_GATES.length
+      ? SKY_RIFT_POWER_GATES[index]
+      : SKY_RIFT_POWER_GATES[SKY_RIFT_POWER_GATES.length - 1] +
+          (index - SKY_RIFT_POWER_GATES.length + 1) * 200;
+  }
   return 2300 + (d - 67) * 40;
 }
 

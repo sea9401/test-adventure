@@ -51,6 +51,17 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
     expect(inst.roll).toEqual(roll);
   });
 
+  it("폭풍 개량의 품질 기준 위력과 개량 표식을 거래 뒤에도 보존한다", () => {
+    const inst = mintListedEquipInstance(ANY_ID, {
+      power: 620,
+      weight: 0,
+      powerBase: 550,
+      stormRefined: true,
+    });
+    expect(inst.roll).toMatchObject({ power: 620, powerBase: 550 });
+    expect(inst.stormRefined).toBe(true);
+  });
+
   it("강화 상태를 보존한다 — 만료 회수(expire)도 강화가 소실되면 안 된다", () => {
     const payloadEnhance = { level: 7, bonusPct: 21 };
     const inst = mintListedEquipInstance(ANY_ID, {

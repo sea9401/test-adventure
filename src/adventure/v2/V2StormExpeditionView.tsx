@@ -61,7 +61,12 @@ type ExpeditionStatus = {
   attemptsLeft?: number;
   nodeCount?: number;
   gold?: number;
-  state?: { clears: number; active: ActiveExpedition | null };
+  state?: {
+    clears: number;
+    active: ActiveExpedition | null;
+    spFruitPity: number;
+    spFruitObtained: number;
+  };
   routes?: Array<{
     id: StormExpeditionRouteId;
     name: string;
@@ -75,6 +80,12 @@ type ExpeditionStatus = {
   riskEvents?: Record<StormExpeditionRiskEventId, StormExpeditionChoice & { nodeIndex: 1 | 3 | 5; cost: string }>;
   riskCurses?: Record<StormExpeditionRiskCurseId, StormExpeditionChoice>;
   lootRules?: Record<StormExpeditionEncounterKind, StormExpeditionLootRule>;
+  spFruitReward?: {
+    materialId: string;
+    chance: number;
+    pityClears: number;
+    cap: number;
+  };
   success?: boolean;
   bossClear?: boolean;
   failed?: boolean;
@@ -91,6 +102,7 @@ type ExpeditionStatus = {
   droppedMaterials?: Record<string, number>;
   droppedEquipment?: V2EquipInstance | null;
   claimedRewards?: boolean;
+  spFruitDropped?: boolean;
   nodeIndex?: number;
   encounterIndex?: number;
   encounterKind?: StormExpeditionEncounterKind;
@@ -214,6 +226,13 @@ export function V2StormExpeditionView() {
             <Metric label="완주" value={`${status.state?.clears ?? 0}회`} />
             <Metric label="보유 골드" value={`${(status.gold ?? 0).toLocaleString("ko-KR")} G`} />
           </div>
+          {status.spFruitReward && (
+            <SpFruitProgress
+              reward={status.spFruitReward}
+              pity={status.state?.spFruitPity ?? 0}
+              obtained={status.state?.spFruitObtained ?? 0}
+            />
+          )}
         </Card>
       )}
 
@@ -222,6 +241,7 @@ export function V2StormExpeditionView() {
       )}
       {result?.error && <StatusBanner tone="error">{ERROR_MESSAGES[result.error] ?? "원정을 진행하지 못했습니다. 잠시 후 다시 시도해 주세요."}</StatusBanner>}
       {result?.bossClear && <StatusBanner tone="success">폭풍의 심장을 쓰러뜨렸습니다. 모든 임시 전리품을 확보했습니다.</StatusBanner>}
+      {result?.spFruitDropped && <StatusBanner tone="success">원정 완주 보상으로 SP 열매 IV를 획득했습니다. SP 열매 천장 횟수가 초기화됩니다.</StatusBanner>}
       {result?.withdrew && <StatusBanner tone="success">안전하게 귀환해 임시 전리품을 모두 확보했습니다.</StatusBanner>}
       {result?.failed && <StatusBanner tone="error">전투에서 패배해 이번 원정의 임시 전리품을 모두 잃었습니다.</StatusBanner>}
       {result?.choiceApplied && <StatusBanner tone="info">선택한 정비 효과를 적용했습니다.</StatusBanner>}
@@ -491,6 +511,31 @@ function BoonList({ boons }: { boons: StormExpeditionBoonId[] }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return <div className={`${SURFACE_INSET} px-2 py-2.5`}><p className="text-[11px] text-zinc-500">{label}</p><p className="mt-0.5 font-semibold tabular-nums">{value}</p></div>;
+}
+
+function SpFruitProgress({ reward, pity, obtained }: {
+  reward: NonNullable<ExpeditionStatus["spFruitReward"]>;
+  pity: number;
+  obtained: number;
+}) {
+  const completed = obtained >= reward.cap;
+  const fruitName = V2_MATERIALS[reward.materialId]?.name ?? "SP 열매 IV";
+  return (
+    <div className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-x-4 gap-y-1 p-3 text-xs`}>
+      <div>
+        <p className="font-semibold text-violet-700 dark:text-violet-300">완주 보상 · {fruitName}</p>
+        <p className="mt-0.5 text-zinc-500 dark:text-zinc-400">
+          {completed
+            ? "원정에서 획득할 수 있는 최대 수량을 모두 얻었습니다."
+            : `최종 보스 처치 시 ${formatChance(reward.chance)} · ${reward.pityClears}회 연속 미획득 시 확정`}
+        </p>
+      </div>
+      <div className="text-right font-semibold tabular-nums">
+        <p>획득 {obtained}/{reward.cap}개</p>
+        {!completed && <p className="mt-0.5 text-zinc-500 dark:text-zinc-400">천장 {pity}/{reward.pityClears}회</p>}
+      </div>
+    </div>
+  );
 }
 
 function LootRows({ gold, materials, equipment = [] }: { gold?: number; materials?: Record<string, number>; equipment?: V2EquipInstance[] }) {

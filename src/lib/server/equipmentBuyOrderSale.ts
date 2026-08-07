@@ -28,13 +28,17 @@ export type EquipmentBuyOrderSaleAudit = {
 };
 
 function equipmentPayload(instance: V2EquipInstance) {
-  return instance.roll || instance.craftQuality || instance.craftedBy
+  return instance.roll ||
+    instance.craftQuality ||
+    instance.craftedBy ||
+    instance.stormRefined
     ? {
         ...(instance.roll ?? {}),
         ...(instance.craftQuality
           ? { craftQuality: instance.craftQuality }
           : {}),
         ...(instance.craftedBy ? { craftedBy: instance.craftedBy } : {}),
+        ...(instance.stormRefined ? { stormRefined: true } : {}),
       }
     : null;
 }

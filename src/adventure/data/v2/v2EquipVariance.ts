@@ -96,7 +96,9 @@ export function rollQualityPct(
     acc += w * Math.max(0, Math.min(1, pos));
     weightSum += w;
   };
-  consider(item.power, roll.power, 1, ROLL_WEIGHT_POWER, false);
+  // 폭풍 개량은 원래 굴림의 위치를 6T 위력 밴드로 옮긴다. powerBase 를 기준으로 읽어야
+  // 개량 전 품질(저품질/고품질)이 100%로 뭉개지지 않고 그대로 보존된다.
+  consider(roll.powerBase ?? item.power, roll.power, 1, ROLL_WEIGHT_POWER, false);
   if (item.options) {
     for (const k of V2_EQUIP_OPTION_KEYS) {
       const base = item.options[k];
@@ -138,9 +140,11 @@ export function reforgeGoldCost(item: V2Equipment): number {
 export function canReforge(
   item: V2Equipment,
   roll: V2EquipRoll | undefined,
-  inst?: Pick<V2EquipInstance, "craftedBy">,
+  inst?: Pick<V2EquipInstance, "craftedBy" | "stormRefined">,
 ): boolean {
   if (!V2_REFORGE_ENABLED) return false;
+  // 개량 장비를 원래 카탈로그 밴드로 다시 굴려 위력을 잃는 사고를 막는다.
+  if (inst?.stormRefined) return false;
   const effectiveRoll =
     roll ?? (item.craftOnly || inst?.craftedBy ? catalogItemStats(item) : undefined);
   return effectiveRoll != null && rollQualityPct(item, effectiveRoll) !== null;

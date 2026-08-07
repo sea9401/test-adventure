@@ -8,8 +8,11 @@ import {
   frontierOnsetSoften,
   floorCritHpComp,
   floorAccuracy,
+  fixedFrontierAccuracyMult,
   fixedFrontierAttackMult,
+  fixedFrontierDefenseMult,
   fixedFrontierDurabilityMult,
+  fixedFrontierEvasionBonus,
   lateAccuracyMult,
   lateAttackMult,
   lateDefenseMult,
@@ -52,6 +55,7 @@ export function scaleMonsterForFloor(
     (softenEndgame ? lateAttackMult(depth) : 1);
   const dMult =
     floorDefMult(depth) *
+    (softenEndgame ? fixedFrontierDefenseMult(depth) : 1) *
     (softenEndgame ? lateDefenseMult(depth) : 1);
   const eMult = floorExpMult(depth);
   // 크리 HP 상쇄 — HP 에만(atk/def/exp 무관). 크리 점감 곡선의 엔드 딜 손실 보전. coop(softenEndgame=false) 제외.
@@ -71,9 +75,11 @@ export function scaleMonsterForFloor(
   // 같은 깊이의 몬스터 능력치는 플레이어 표시 전투력과 관계없이 항상 같다.
   const accuracy =
     ((monster.accuracy ?? 0) + floorAccuracy(depth)) *
+    (softenEndgame ? fixedFrontierAccuracyMult(depth) : 1) *
     (softenEndgame ? lateAccuracyMult(depth) : 1);
   const evasionPct =
     (monster.evasionPct ?? 0) +
+    (softenEndgame ? fixedFrontierEvasionBonus(depth) : 0) +
     (softenEndgame ? lateEvasionBonus(depth) : 0);
   const statusDamageReductionPct = Math.min(
     80,

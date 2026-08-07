@@ -184,7 +184,8 @@ describe("sim-v2-level-design", () => {
     const winRates = results.map((result) => result.winRatePct);
     const powers = results.map((result) => result.power);
 
-    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(60);
+    // 예전 상위권 중앙 보정치에 가까운 공통 난도에서는 절대 승률보다 교체 중 급락 여부가 핵심이다.
+    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(30);
     expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(150);
     for (let i = 1; i < winRates.length; i++) {
       expect(winRates[i - 1] - winRates[i]).toBeLessThan(20);

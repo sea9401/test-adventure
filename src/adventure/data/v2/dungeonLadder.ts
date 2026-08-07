@@ -138,15 +138,25 @@ export function endExtensionCombatSoften(depth: number): number {
 // 49+ 솔로 사냥터 고정 난도 복원(2026-08-08). 과거의 권장 전투력 미달 보정은 같은 몬스터가
 // 캐릭터마다 최대 6배까지 달라지는 문제가 있어 제거했지만, 보정 제거와 함께 상위 사냥터 HP가
 // 한 번에 70~80% 낮아져 진행도가 지나치게 빠르게 열렸다. 플레이어 전투력은 다시 읽지 않고,
-// 깊이만으로 모두에게 같은 내구·공격 배율을 적용한다. HP를 주축으로 올리고 공격은 완만하게
-// 올려 즉사전보다 장기전·회복 소모로 난도를 만든다. 협동 보스는 softenEndgame=false라 제외된다.
+// 깊이만으로 모두에게 같은 전투 배율을 적용한다. 72·78의 종점은 과거 운영 상위 20명에게
+// 적용되던 보정의 중앙값에 가깝게 고정해 절대 난도는 복원하되, 생존형·극딜형 등 빌드에 따라
+// 같은 몬스터 스펙이 달라지던 불공정은 되살리지 않는다. 협동 보스는 softenEndgame=false라 제외된다.
 export const FIXED_FRONTIER_DIFFICULTY_START_DEPTH = 49;
 export const FIXED_FRONTIER_DURABILITY_START = 1.5;
-export const FIXED_FRONTIER_DURABILITY_DEPTH_72 = 2.75;
-export const FIXED_FRONTIER_DURABILITY_DEPTH_78 = 3.25;
-export const FIXED_FRONTIER_ATTACK_START = 1.02;
-export const FIXED_FRONTIER_ATTACK_DEPTH_72 = 1.2;
-export const FIXED_FRONTIER_ATTACK_DEPTH_78 = 1.3;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_72 = 3.9;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_78 = 4.8;
+export const FIXED_FRONTIER_ATTACK_START = 1.1;
+export const FIXED_FRONTIER_ATTACK_DEPTH_72 = 2.3;
+export const FIXED_FRONTIER_ATTACK_DEPTH_78 = 2.7;
+export const FIXED_FRONTIER_DEFENSE_START = 1;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_72 = 1.58;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_78 = 1.76;
+export const FIXED_FRONTIER_ACCURACY_START = 1;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_72 = 1.23;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_78 = 1.3;
+export const FIXED_FRONTIER_EVASION_START = 0;
+export const FIXED_FRONTIER_EVASION_DEPTH_72 = 7;
+export const FIXED_FRONTIER_EVASION_DEPTH_78 = 9;
 
 function linearRamp(
   depth: number,
@@ -199,6 +209,66 @@ export function fixedFrontierAttackMult(depth: number): number {
     78,
     FIXED_FRONTIER_ATTACK_DEPTH_72,
     FIXED_FRONTIER_ATTACK_DEPTH_78,
+  );
+}
+
+export function fixedFrontierDefenseMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_DEFENSE_START,
+      FIXED_FRONTIER_DEFENSE_DEPTH_72,
+    );
+  }
+  return linearRamp(
+    depth,
+    73,
+    78,
+    FIXED_FRONTIER_DEFENSE_DEPTH_72,
+    FIXED_FRONTIER_DEFENSE_DEPTH_78,
+  );
+}
+
+export function fixedFrontierAccuracyMult(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 1;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_ACCURACY_START,
+      FIXED_FRONTIER_ACCURACY_DEPTH_72,
+    );
+  }
+  return linearRamp(
+    depth,
+    73,
+    78,
+    FIXED_FRONTIER_ACCURACY_DEPTH_72,
+    FIXED_FRONTIER_ACCURACY_DEPTH_78,
+  );
+}
+
+export function fixedFrontierEvasionBonus(depth: number): number {
+  if (depth < FIXED_FRONTIER_DIFFICULTY_START_DEPTH) return 0;
+  if (depth <= 72) {
+    return linearRamp(
+      depth,
+      FIXED_FRONTIER_DIFFICULTY_START_DEPTH,
+      72,
+      FIXED_FRONTIER_EVASION_START,
+      FIXED_FRONTIER_EVASION_DEPTH_72,
+    );
+  }
+  return linearRamp(
+    depth,
+    73,
+    78,
+    FIXED_FRONTIER_EVASION_DEPTH_72,
+    FIXED_FRONTIER_EVASION_DEPTH_78,
   );
 }
 

@@ -6,8 +6,11 @@ import {
   floorExpMult,
   endgameSoften,
   endExtensionCombatSoften,
+  fixedFrontierAccuracyMult,
   fixedFrontierAttackMult,
+  fixedFrontierDefenseMult,
   fixedFrontierDurabilityMult,
+  fixedFrontierEvasionBonus,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
   LADDER_EXP_SOFTCAP,
@@ -133,7 +136,7 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     }
   });
 
-  it("49+ 솔로 사냥터는 플레이어와 무관한 고정 HP·ATK 보정을 깊이별로 적용한다", () => {
+  it("49+ 솔로 사냥터는 플레이어와 무관한 고정 전투 보정을 깊이별로 적용한다", () => {
     expect(fixedFrontierDurabilityMult(48)).toBe(1);
     expect(fixedFrontierDurabilityMult(49)).toBe(
       FIXED_FRONTIER_DURABILITY_START,
@@ -148,12 +151,30 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(fixedFrontierAttackMult(49)).toBe(FIXED_FRONTIER_ATTACK_START);
     expect(fixedFrontierAttackMult(72)).toBe(FIXED_FRONTIER_ATTACK_DEPTH_72);
     expect(fixedFrontierAttackMult(78)).toBe(FIXED_FRONTIER_ATTACK_DEPTH_78);
+    expect(fixedFrontierDefenseMult(48)).toBe(1);
+    expect(fixedFrontierDefenseMult(72)).toBe(1.58);
+    expect(fixedFrontierDefenseMult(78)).toBe(1.76);
+    expect(fixedFrontierAccuracyMult(48)).toBe(1);
+    expect(fixedFrontierAccuracyMult(72)).toBe(1.23);
+    expect(fixedFrontierAccuracyMult(78)).toBe(1.3);
+    expect(fixedFrontierEvasionBonus(48)).toBe(0);
+    expect(fixedFrontierEvasionBonus(72)).toBe(7);
+    expect(fixedFrontierEvasionBonus(78)).toBe(9);
     for (let depth = 50; depth <= 78; depth++) {
       expect(fixedFrontierDurabilityMult(depth)).toBeGreaterThanOrEqual(
         fixedFrontierDurabilityMult(depth - 1),
       );
       expect(fixedFrontierAttackMult(depth)).toBeGreaterThanOrEqual(
         fixedFrontierAttackMult(depth - 1),
+      );
+      expect(fixedFrontierDefenseMult(depth)).toBeGreaterThanOrEqual(
+        fixedFrontierDefenseMult(depth - 1),
+      );
+      expect(fixedFrontierAccuracyMult(depth)).toBeGreaterThanOrEqual(
+        fixedFrontierAccuracyMult(depth - 1),
+      );
+      expect(fixedFrontierEvasionBonus(depth)).toBeGreaterThanOrEqual(
+        fixedFrontierEvasionBonus(depth - 1),
       );
     }
   });

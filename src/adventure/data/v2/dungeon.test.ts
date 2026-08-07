@@ -27,8 +27,11 @@ import {
   frontierOnsetSoften,
   floorAccuracy,
   floorPowerGate,
+  fixedFrontierAccuracyMult,
   fixedFrontierAttackMult,
+  fixedFrontierDefenseMult,
   fixedFrontierDurabilityMult,
+  fixedFrontierEvasionBonus,
   lateAccuracyMult,
   lateAttackMult,
   lateDefenseMult,
@@ -437,13 +440,22 @@ describe("scaleMonsterForFloor", () => {
       ),
     );
     expect(scaled.def).toBe(
-      Math.round(base.def * floorDefMult(depth) * lateDefenseMult(depth)),
+      Math.round(
+        base.def *
+          floorDefMult(depth) *
+          fixedFrontierDefenseMult(depth) *
+          lateDefenseMult(depth),
+      ),
     );
     expect(scaled.evasionPct).toBeCloseTo(
-      (base.evasionPct ?? 0) + lateEvasionBonus(depth),
+      (base.evasionPct ?? 0) +
+        fixedFrontierEvasionBonus(depth) +
+        lateEvasionBonus(depth),
     );
     expect(scaled.accuracy).toBeCloseTo(
-      ((base.accuracy ?? 0) + floorAccuracy(depth)) * lateAccuracyMult(depth),
+      ((base.accuracy ?? 0) + floorAccuracy(depth)) *
+        fixedFrontierAccuracyMult(depth) *
+        lateAccuracyMult(depth),
     );
     expect(scaled.statusDamageReductionPct).toBe(30);
   });

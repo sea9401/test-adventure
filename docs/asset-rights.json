@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-07-29",
+  "reviewedAt": "2026-08-08",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -29,13 +29,19 @@
     {
       "id": "operator-cleared-brand-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed on 2026-07-29 that all current app icons and social-preview images were created directly, generated through an account they control, or licensed for public distribution in this game.",
+      "rightsBasis": "The operator confirmed on 2026-07-29 that all current app icons and social-preview images were created directly, generated through an account they control, or licensed for public distribution in this game. The Google Play feature graphic added on 2026-08-08 was generated for this repository from its operator-cleared village artwork in the operator-controlled Codex/OpenAI image-generation session.",
       "evidence": [
-        "Git history for public/icon-* and public/og*"
+        "Git history for public/icon-* and public/og*",
+        "docs/google-play-store-listing.md"
       ]
     }
   ],
   "assets": [
+    {
+      "path": "android/store-assets/feature-graphic.png",
+      "sha256": "fddb15326fb2ecb18c83fc01bec20617c46eb60a4f72d93498a7f98ddcad00f4",
+      "source": "operator-cleared-brand-art"
+    },
     {
       "path": "public/icon-192.png",
       "sha256": "e0051c302fd64c51653d4ee60cd4221587692161589745a64b8cd768ef25907a",

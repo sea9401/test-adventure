@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Flag, Prohibit, X } from "@phosphor-icons/react";
+import { DotsThreeVertical, Flag, Prohibit, X } from "@phosphor-icons/react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   UGC_REPORT_REASONS,
@@ -48,6 +48,14 @@ export function ContentSafetyActions({
   className = "",
   onBlocked,
 }: Props) {
+  const menuId = useId();
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [subjectType, setSubjectType] =
     useState<UgcReportSubject>("content");
@@ -55,6 +63,74 @@ export function ContentSafetyActions({
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState<"report" | "block" | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  const toggleMenu = () => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      setMenuPosition(null);
+      return;
+    }
+    const trigger = menuTriggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 160;
+    const menuHeight = 88;
+    const viewportGap = 8;
+    const left = Math.min(
+      Math.max(viewportGap, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportGap,
+    );
+    const belowTop = rect.bottom + 4;
+    const top =
+      belowTop + menuHeight <= window.innerHeight - viewportGap
+        ? belowTop
+        : Math.max(viewportGap, rect.top - menuHeight - 4);
+    setMenuPosition({ left, top });
+    setMenuOpen(true);
+    setFeedback(null);
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const closeMenu = (returnFocus = false) => {
+      setMenuOpen(false);
+      setMenuPosition(null);
+      if (returnFocus) menuTriggerRef.current?.focus();
+    };
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuTriggerRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      closeMenu();
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeMenu(true);
+    };
+    const closeOnViewportChange = () => closeMenu();
+    const focusFrame = window.requestAnimationFrame(() => {
+      menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    });
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeOnViewportChange);
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeOnViewportChange);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+    };
+  }, [menuOpen]);
+
   useEffect(() => {
     if (!reportOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -97,6 +173,8 @@ export function ContentSafetyActions({
 
   const blockUser = async () => {
     if (busy) return;
+    setMenuOpen(false);
+    setMenuPosition(null);
     if (
       !window.confirm(
         `${targetName}님을 차단할까요?\n\n이 사용자의 공개 콘텐츠와 게시글·댓글·채팅이 숨겨지고 서로 새 쪽지나 채팅방 초대를 보낼 수 없습니다.`,
@@ -250,28 +328,79 @@ export function ContentSafetyActions({
     </div>
   ) : null;
 
-  return (
-    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
+  const menu = menuOpen && menuPosition ? (
+    <div
+      ref={menuRef}
+      id={menuId}
+      role="menu"
+      aria-label={`${targetName} 콘텐츠 관리`}
+      onKeyDown={(event) => {
+        if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          return;
+        }
+        const items = Array.from(
+          event.currentTarget.querySelectorAll<HTMLButtonElement>(
+            '[role="menuitem"]:not(:disabled)',
+          ),
+        );
+        if (items.length === 0) return;
+        event.preventDefault();
+        const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+        const nextIndex =
+          event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? items.length - 1
+              : event.key === "ArrowDown"
+                ? (currentIndex + 1) % items.length
+                : (currentIndex - 1 + items.length) % items.length;
+        items[nextIndex]?.focus();
+      }}
+      className={`${SURFACE_CARD} fixed z-[110] w-40 overflow-hidden p-1 shadow-lg`}
+      style={{ left: menuPosition.left, top: menuPosition.top }}
+    >
       <button
         type="button"
+        role="menuitem"
         onClick={() => {
+          setMenuOpen(false);
+          setMenuPosition(null);
           setFeedback(null);
           setReportOpen(true);
         }}
         disabled={busy !== null}
-        className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 hover:text-rose-600 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-rose-400"
+        className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:text-rose-600 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-rose-400"
       >
-        <Flag size={13} weight="bold" aria-hidden />
+        <Flag size={16} weight="bold" aria-hidden />
         신고
       </button>
       <button
         type="button"
+        role="menuitem"
         onClick={blockUser}
         disabled={busy !== null}
-        className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 hover:text-rose-600 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-rose-400"
+        className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:text-rose-600 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-rose-400"
       >
-        <Prohibit size={13} weight="bold" aria-hidden />
+        <Prohibit size={16} weight="bold" aria-hidden />
         차단
+      </button>
+    </div>
+  ) : null;
+
+  return (
+    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
+      <button
+        ref={menuTriggerRef}
+        type="button"
+        onClick={toggleMenu}
+        disabled={busy !== null}
+        aria-label={`${targetName} 신고 및 차단 메뉴`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={menuOpen ? menuId : undefined}
+        className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+      >
+        <DotsThreeVertical size={19} weight="bold" aria-hidden />
       </button>
       {feedback && (
         <span className="text-[11px] text-zinc-600 dark:text-zinc-300" role="status">
@@ -280,6 +409,9 @@ export function ContentSafetyActions({
       )}
       {typeof document !== "undefined" && dialog
         ? createPortal(dialog, document.body)
+        : null}
+      {typeof document !== "undefined" && menu
+        ? createPortal(menu, document.body)
         : null}
     </div>
   );

@@ -125,7 +125,7 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     expect(reducedDamage).toBe(Math.floor(normalDamage * 0.5));
   });
 
-  it("ATB 보스는 중독의 최대 HP 비례 피해를 절반만 받는다", () => {
+  it("ATB 보스는 중독의 최대 HP 비례 피해를 20% 감소해 받는다", () => {
     const venomer = derive({
       atk: 100,
       spd: 10,
@@ -152,6 +152,6 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     const normalDamage = firstPoisonDamage(run(false).finalState.log);
     const bossDamage = firstPoisonDamage(run(true).finalState.log);
     expect(normalDamage).toBe(50);
-    expect(bossDamage).toBe(25);
+    expect(bossDamage).toBe(40);
   });
 });

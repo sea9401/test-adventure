@@ -278,7 +278,7 @@ export type BattleState = {
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 
 /** 보스에게 가하는 최대 HP 비례 피해 성분 감산 계수. 정액·ATK 계수 성분에는 적용하지 않는다. */
-export const BOSS_MAX_HP_DAMAGE_MULT = 0.5;
+export const BOSS_MAX_HP_DAMAGE_MULT = 0.8;
 
 // 절초 주기(COMBO_FINISHER_PERIOD)·SPELL_STACK_CAP·MAGIC_VULN_STACK_CAP 은 v2CombatConstants 로
 // 이관 — PvE/PvP 공용. 기존 import 경로 호환 재노출.

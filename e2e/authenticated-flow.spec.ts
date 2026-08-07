@@ -244,13 +244,16 @@ test("모바일 전체화면 채팅은 헤더에서 방 목록으로 돌아가�
   await expect(floatingToggle).toBeVisible();
   await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(2);
 
-  await page.getByRole("button", { name: /전체 채팅방/ }).click();
+  const globalRoomButton = page.getByRole("button", {
+    name: "전체 채팅방 메시지가 없습니다",
+  });
+  await globalRoomButton.click();
   const headerRoomBack = page.getByTestId("chat-room-header-back");
   await expect(headerRoomBack).toBeVisible();
 
   await headerRoomBack.click();
   await expect(headerRoomBack).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /전체 채팅방/ })).toBeVisible();
+  await expect(globalRoomButton).toBeVisible();
 
   await floatingToggle.click();
   await expect(page.getByRole("dialog", { name: "채팅" })).toHaveCount(0);

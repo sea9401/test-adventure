@@ -17,6 +17,20 @@ const STAGING_ALLOW = new Set<string>(["/api/health"]);
 //   deploy/maintenance.sh off 가 legacy 값을 false 로 정리한 뒤 nginx 플래그를 해제한다.
 const MAINTENANCE_ALLOW = new Set<string>(["/api/health"]);
 
+// 숙소 콘텐츠를 다시 공개할 때 lifeCrafting.ts의 LIFE_HOUSING_ENABLED와 함께 연다.
+// 페이지 내부 notFound()는 스트리밍 응답에서 HTTP 200 소프트 404가 될 수 있으므로,
+// 비공개 기간에는 Proxy에서 페이지와 API 모두 실제 404로 먼저 차단한다.
+const LIFE_HOUSING_ROUTES_ENABLED = false;
+
+function isLifeHousingRoute(pathname: string): boolean {
+  return (
+    pathname === "/character/room" ||
+    pathname === "/api/v2/me/housing" ||
+    /^\/character\/[^/]+\/room\/?$/.test(pathname) ||
+    /^\/api\/v2\/player\/[^/]+\/housing\/?$/.test(pathname)
+  );
+}
+
 // 점검 중 보일 HTML. CLOSED_HTML 과 동일 톤(니어블랙·미니멀·이모지 없음). 앱 의존 없이 인라인.
 const MAINTENANCE_HTML = `<!DOCTYPE html>
 <html lang="ko">
@@ -51,11 +65,11 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
     <div class="schedule" aria-label="점검 일정">
       <p class="schedule-label">점검 일정</p>
       <span class="schedule-time">
-        <time datetime="2026-08-06T07:30:00+09:00">8월 6일(목) 오전 7시 30분</time>
+        <time datetime="2026-08-08T04:00:00+09:00">8월 8일(토) 오전 4시</time>
         ~
-        <time datetime="2026-08-06T08:00:00+09:00">오전 8시</time>
+        <time datetime="2026-08-08T05:00:00+09:00">오전 5시</time>
       </span>
-      <span class="duration">예상 소요 시간 · 약 30분</span>
+      <span class="duration">예상 소요 시간 · 약 1시간</span>
     </div>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
@@ -104,6 +118,16 @@ const CLOSED_HTML = `<!DOCTYPE html>
 </html>`;
 
 export default auth((req) => {
+  if (
+    !LIFE_HOUSING_ROUTES_ENABLED &&
+    isLifeHousingRoute(req.nextUrl.pathname)
+  ) {
+    return new NextResponse(null, {
+      status: 404,
+      headers: { "cache-control": "no-store" },
+    });
+  }
+
   // 유료 서비스 출시 승인 전에는 인증/정적 렌더보다 앞에서 코인 상점의 존재 자체를 숨긴다.
   // page의 notFound()만으로는 정적 App Router 셸이 HTTP 200으로 응답할 수 있어 Proxy에서도
   // 동일한 fail-closed 게이트를 둔다. Route Handler에도 별도 404 검사가 남아 있다.

@@ -123,6 +123,26 @@ const checks = [
     status: 404,
   },
   {
+    label: "private housing page hidden",
+    path: "/character/room",
+    status: 404,
+  },
+  {
+    label: "public housing page hidden",
+    path: "/character/nonexistent/room",
+    status: 404,
+  },
+  {
+    label: "private housing API hidden",
+    path: "/api/v2/me/housing",
+    status: 404,
+  },
+  {
+    label: "public housing API hidden",
+    path: "/api/v2/player/nonexistent/housing",
+    status: 404,
+  },
+  {
     label: "development API hidden",
     path: "/api/v2/dev/grant",
     method: "POST",

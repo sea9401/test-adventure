@@ -37,6 +37,7 @@ export function listedEquipEnhance(payload: unknown) {
         craftedBy?: unknown;
         craftQuality?: unknown;
         enhance?: unknown;
+        stormRefined?: unknown;
       })
     | null
     | undefined;
@@ -63,6 +64,7 @@ export function mintListedEquipInstance(
         craftedBy?: unknown;
         craftQuality?: unknown;
         enhance?: unknown;
+        stormRefined?: unknown;
       })
     | null
     | undefined;
@@ -79,5 +81,6 @@ export function mintListedEquipInstance(
     ...(enhance ? { enhance } : {}),
     ...(craftQuality ? { craftQuality } : {}),
     ...(craftedBy ? { craftedBy } : {}),
+    ...(payloadRaw?.stormRefined === true ? { stormRefined: true } : {}),
   };
 }

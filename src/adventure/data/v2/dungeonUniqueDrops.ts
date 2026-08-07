@@ -301,6 +301,48 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_abyssruin_sentinel_necklace",
     ],
   },
+  {
+    // 천공 균열 초입(73~74) — 중력성채·붕괴의 선봉 방어구.
+    minDepth: 73,
+    maxDepth: 74,
+    ids: [
+      "v2_storm_wreckage_armor",
+      "v2_storm_wreckage_gloves",
+      "v2_storm_wreckage_boots",
+      "v2_storm_breaker_armor",
+      "v2_storm_breaker_gloves",
+      "v2_storm_breaker_boots",
+    ],
+  },
+  {
+    // 천공 균열 중층(75~76) — 천공추적·무풍암영·만독침식 방어구.
+    minDepth: 75,
+    maxDepth: 76,
+    ids: [
+      "v2_storm_gale_armor",
+      "v2_storm_gale_gloves",
+      "v2_storm_gale_boots",
+      "v2_storm_shadow_armor",
+      "v2_storm_shadow_gloves",
+      "v2_storm_shadow_boots",
+      "v2_storm_venom_armor",
+      "v2_storm_venom_gloves",
+      "v2_storm_venom_boots",
+    ],
+  },
+  {
+    // 천공 균열 심층(77~78) — 뇌정술식·성역공명 방어구.
+    minDepth: 77,
+    maxDepth: 78,
+    ids: [
+      "v2_storm_thunder_armor",
+      "v2_storm_thunder_gloves",
+      "v2_storm_thunder_boots",
+      "v2_storm_sanctuary_armor",
+      "v2_storm_sanctuary_gloves",
+      "v2_storm_sanctuary_boots",
+    ],
+  },
 ];
 
 // 흔한 밴드 장비 드랍률 — 모든 테마에서 로컬 깊이 기준으로 통일한다.
@@ -320,10 +362,19 @@ function endgameBandCommonChance(localDepth: number): number {
   return 0.00075;
 }
 
+// 천공 균열은 6T 전환의 핵심 파밍 지역이다. 입구는 5T 최종 세팅으로 진입할 수 있게 두고,
+// 더 깊은 구간을 돌파할수록 목표 방어구 획득 속도가 크게 오르도록 구간별 확률을 높인다.
+export function skyRiftCommonChance(depth: number): number {
+  if (depth <= 74) return 0.0005;
+  if (depth <= 76) return 0.00075;
+  return 0.001;
+}
+
 export function bandCommonChanceForDepth(depth: number): number {
   const pool = bandCommonPoolForDepth(depth);
   if (!pool) return 0;
   const localDepth = depth - pool.minDepth + 1;
+  if (depth >= 73) return skyRiftCommonChance(depth);
   return depth >= 55
     ? endgameBandCommonChance(localDepth)
     : bandCommonChance(localDepth);
@@ -334,6 +385,43 @@ export function bandCommonPoolForDepth(depth: number): BandPool | null {
     if (depth >= p.minDepth && depth <= p.maxDepth) return p;
   }
   return null;
+}
+
+// 코덱스 표시용 — 한 테마 안에서 깊이별로 갈라진 모든 정규 장비 풀의 합집합.
+export function commonIdsForDepthRange(
+  start: number,
+  end: number,
+): V2EquipmentId[] {
+  const ids = new Set<V2EquipmentId>();
+  for (const pool of BAND_COMMON_POOLS) {
+    if (pool.maxDepth >= start && pool.minDepth <= end) {
+      for (const id of pool.ids) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+export const SKY_RIFT_WEAPON_DROP_CHANCE = 0.0005;
+export const SKY_RIFT_WEAPON_IDS: readonly V2EquipmentId[] = [
+  "v2_storm_wreckage_greatsword",
+  "v2_storm_breaker_greatsword",
+  "v2_storm_gale_bow",
+  "v2_storm_gale_dagger",
+  "v2_storm_venom_dagger",
+  "v2_storm_thunder_staff",
+  "v2_storm_sanctuary_staff",
+];
+
+// 무기는 길드 공방의 확정 제작이 본 경로다. 길드가 없는 유저도 막히지 않도록 78단계에서만
+// 극저확률 완제품 대체 경로를 제공한다. 밴드 밖에서는 RNG를 소비하지 않는다.
+export function rollSkyRiftWeaponDrop(
+  depth: number,
+  rng: () => number,
+  chanceMult: number = 1,
+): V2EquipmentId | null {
+  if (depth !== 78) return null;
+  if (rng() >= Math.min(1, SKY_RIFT_WEAPON_DROP_CHANCE * chanceMult)) return null;
+  return SKY_RIFT_WEAPON_IDS[Math.floor(rng() * SKY_RIFT_WEAPON_IDS.length)];
 }
 
 export type BandUniquePool = {
@@ -464,6 +552,8 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_abyssruin_sig_sentinel_plate",
     ],
   },
+  // 천공 균열은 6T 세트 파밍 지역이다. 별도 시그니처 유니크는 두지 않는다.
+  { minDepth: 73, maxDepth: 78, chance: 0, ids: [] },
 ];
 
 // 깊이 → 밴드 유니크 풀(없으면 null). 밴드는 겹치지 않게 정의.

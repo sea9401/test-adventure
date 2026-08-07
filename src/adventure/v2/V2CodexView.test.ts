@@ -37,6 +37,7 @@ describe("모험의 서 사냥터 표시", () => {
     expect(codexThemeDeepDepth(1)).toBe(6);
     expect(codexThemeDeepDepth(7)).toBe(12);
     expect(codexThemeDeepDepth(67)).toBe(72);
+    expect(codexThemeDeepDepth(73)).toBe(78);
   });
 
   it("정규 드랍을 일반 장비와 세트 장비로 분리한다", () => {

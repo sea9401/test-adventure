@@ -74,6 +74,7 @@ import {
 } from "@/adventure/data/v2/stormExpedition";
 import {
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+  STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID,
   STORM_ORIGIN_FRAGMENT_MATERIAL_ID,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 
@@ -310,6 +311,61 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       clears: 1,
       active: null,
+      spFruitPity: 1,
+      spFruitObtained: 0,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("모든 항로가 공유하는 25회 천장에서 SP 열매를 지급하고 누적 횟수를 초기화한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 24,
+      spFruitPity: 24,
+      spFruitObtained: 1,
+      active: {
+        version: 2,
+        routeId: "thunder",
+        nodeIndex: 8,
+        encounterIndex: 0,
+        hp: 800,
+        mp: 400,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 6,
+        pendingGold: 167_000,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: [],
+        nextBattleEffects: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+      },
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const response = await POST(request({ action: "fight" }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      bossClear: true,
+      spFruitDropped: true,
+      gainedMaterials: { [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 1 },
+      state: {
+        clears: 25,
+        spFruitPity: 0,
+        spFruitObtained: 2,
+      },
+    });
+    expect(store.get("character.v2")).toMatchObject({
+      materials: { [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 1 },
+    });
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      active: null,
+      spFruitPity: 0,
+      spFruitObtained: 2,
     });
     vi.restoreAllMocks();
   });

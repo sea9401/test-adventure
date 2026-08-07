@@ -2167,7 +2167,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
       { kind: "damage", statCoef: 0.55, baseFlat: 185, scaling: "luk", pierceDamagePct: 12 },
-      { kind: "damage", statCoef: 0.46, baseFlat: 170, scaling: "dex", pierceDamagePct: 12 },
+      { kind: "damage", statCoef: 0.46, baseFlat: 170, scaling: "luk", pierceDamagePct: 12 },
       { kind: "damage", statCoef: 0.62, baseFlat: 210, scaling: "luk", pierceDamagePct: 18 },
       { kind: "enemyAccuracyDown", pct: 28, turns: 3 },
       { kind: "selfBuffPct", target: "evasion", pct: 14, turns: 3 },
@@ -2175,10 +2175,19 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_blackmoon_dominion: {
     id: "v2c_blackmoon_dominion", name: "흑월지배", stat: "luk", category: "passive", tier: 3,
-    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 공격을 피하면 다음 공격 스킬이 반드시 치명타가 된다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000,
+    description: "달빛조차 숨기는 보법. 행운을 공격력과 속도로 바꾸고, 치명타 한계를 넘어 급소를 파고든다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 13,
     effects: [],
-    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 22, critDmgPct: 24, skillCritAfterEvade: true },
+    passive: {
+      statPct: { luk: 22, dex: 8 },
+      evasionPct: 22,
+      critDmgPct: 24,
+      spdPerLukCoef: 0.75,
+      atkPerLukCoef: 0.95,
+      accuracyPct: 10,
+      skillCritOverflow: true,
+      skillCritAfterEvade: true,
+    },
   },
   v2c_myriadvenom_mutation: {
     id: "v2c_myriadvenom_mutation", name: "만독개화", stat: "luk", category: "attack", tier: 3,

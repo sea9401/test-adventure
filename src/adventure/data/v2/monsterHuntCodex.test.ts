@@ -13,7 +13,7 @@ describe("몬스터 처치 현황", () => {
     });
 
     expect(codex).toMatchObject({
-      huntableSpecies: 60,
+      huntableSpecies: 65,
       currentKilled: 1,
       recordedSpecies: 2,
       legacyKilled: 1,

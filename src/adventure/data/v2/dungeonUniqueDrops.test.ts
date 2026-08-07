@@ -9,8 +9,12 @@ import {
   bandCommonPoolForDepth,
   bandCommonChance,
   bandCommonChanceForDepth,
+  commonIdsForDepthRange,
   rollBandUniqueDrop,
   rollBandCommonDrop,
+  rollSkyRiftWeaponDrop,
+  SKY_RIFT_WEAPON_DROP_CHANCE,
+  SKY_RIFT_WEAPON_IDS,
   rollUniqueDrop,
   uniqueIdsForDepthRange,
 } from "./dungeonUniqueDrops";
@@ -33,12 +37,14 @@ function seqRng(values: number[]): () => number {
 }
 
 describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => {
-  it("밴드당 흔한 ≥9종(기본 9 + 강등된 옛 필드 유니크) — 전부 noDrop·비유니크", () => {
+  it("기존 밴드는 흔한 ≥9종, 천공 균열은 깊이별 6T 방어구 풀 — 전부 noDrop·비유니크", () => {
     // 2026-06-26 유니크 재정의: 옛 필드 유니크가 일반(noDrop)으로 강등돼 흔한 풀에 합류 →
     //   밴드별 9 + 강등분(canyon/lake+2·cave+4·sanctum/swamp+2·den+3).
-    expect(BAND_COMMON_POOLS).toHaveLength(11);
+    expect(BAND_COMMON_POOLS).toHaveLength(14);
     for (const p of BAND_COMMON_POOLS) {
-      expect(p.ids.length, `밴드 ${p.minDepth}`).toBeGreaterThanOrEqual(9);
+      expect(p.ids.length, `밴드 ${p.minDepth}`).toBeGreaterThanOrEqual(
+        p.minDepth >= 73 ? 6 : 9,
+      );
       for (const id of p.ids) {
         expect(V2_EQUIPMENT[id], id).toBeDefined();
         expect(isUnique(V2_EQUIPMENT[id]), `${id} 흔한=비유니크`).toBe(false);
@@ -95,6 +101,13 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(1 / combined).toBeCloseTo(800, 0);
   });
 
+  it("천공 균열은 깊어질수록 6T 방어구 드랍률이 0.05%→0.075%→0.10%로 상승한다", () => {
+    expect([73, 74].map(bandCommonChanceForDepth)).toEqual([0.0005, 0.0005]);
+    expect([75, 76].map(bandCommonChanceForDepth)).toEqual([0.00075, 0.00075]);
+    expect([77, 78].map(bandCommonChanceForDepth)).toEqual([0.001, 0.001]);
+    expect(commonIdsForDepthRange(73, 78)).toHaveLength(21);
+  });
+
   it("rollBandCommonDrop — 깊이별 chance 로 통과/실패, 통과 시 흔한 후보 반환", () => {
     const canyon = bandCommonPoolForDepth(7)!;
     expect(rollBandCommonDrop(7, seqRng([0.0029, 0]))).toBe(canyon.ids[0]); // 로컬1 0.003 미만 통과
@@ -108,13 +121,13 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
       calls++;
       return 0;
     };
-    // 밴드 = 7~72(들판 1~6 전·마지막 심해 폐허 밴드 72에서 끝=프론티어 캡).
+    // 밴드 = 7~78(들판 1~6 전·마지막 천공 균열 밴드 78에서 끝=프론티어 캡).
     expect(rollBandCommonDrop(6, rng)).toBeNull(); // 들판(밴드 전)
-    expect(rollBandCommonDrop(73, rng)).toBeNull(); // 마지막 밴드(72) 너머 = 프론티어 끝
+    expect(rollBandCommonDrop(79, rng)).toBeNull(); // 마지막 밴드(78) 너머 = 프론티어 끝
     expect(calls).toBe(0);
   });
 
-  it("소굴→검은 왕도→붉은 벌판→백골 고원→폭풍 산맥→심해 폐허 밴드가 6깊이씩 이어짐", () => {
+  it("심해 폐허 뒤 천공 균열은 목표 파밍용 2깊이 풀 3개로 이어짐", () => {
     const den = bandCommonPoolForDepth(37)!;
     expect(bandCommonPoolForDepth(42)).toBe(den);
     const throne = bandCommonPoolForDepth(43)!;
@@ -132,7 +145,14 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     const abyss = bandCommonPoolForDepth(67)!;
     expect(abyss).not.toBe(storm);
     expect(bandCommonPoolForDepth(72)).toBe(abyss);
-    expect(bandCommonPoolForDepth(73)).toBeNull(); // 캡 너머 = 콘텐츠 없음
+    const skyEntry = bandCommonPoolForDepth(73)!;
+    const skyMiddle = bandCommonPoolForDepth(75)!;
+    const skyDeep = bandCommonPoolForDepth(77)!;
+    expect(bandCommonPoolForDepth(74)).toBe(skyEntry);
+    expect(bandCommonPoolForDepth(76)).toBe(skyMiddle);
+    expect(bandCommonPoolForDepth(78)).toBe(skyDeep);
+    expect(new Set([skyEntry, skyMiddle, skyDeep]).size).toBe(3);
+    expect(bandCommonPoolForDepth(79)).toBeNull();
     expect(rollBandCommonDrop(40, seqRng([0.0004, 0]))).toBe(den.ids[0]); // 밴드 내 드랍
     expect(rollBandCommonDrop(46, seqRng([0.0004, 0]))).toBe(throne.ids[0]); // 신규 밴드 내 드랍
     expect(rollBandCommonDrop(46, seqRng([0.005, 0]))).toBeNull(); // 로컬4 0.0045 이상이라 실패
@@ -141,6 +161,18 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(rollBandCommonDrop(55, () => 0.0005)).toBeNull();
     expect(rollBandCommonDrop(61, seqRng([0.0002, 0]))).toBe(storm.ids[0]);
     expect(rollBandCommonDrop(67, seqRng([0.0002, 0]))).toBe(abyss.ids[0]);
+  });
+
+  it("78단계 무기는 0.05% 완제품 우회 드롭이며 다른 깊이에서는 RNG를 쓰지 않는다", () => {
+    expect(SKY_RIFT_WEAPON_DROP_CHANCE).toBe(0.0005);
+    expect(SKY_RIFT_WEAPON_IDS).toHaveLength(7);
+    let calls = 0;
+    expect(rollSkyRiftWeaponDrop(77, () => (calls++, 0))).toBeNull();
+    expect(calls).toBe(0);
+    expect(rollSkyRiftWeaponDrop(78, seqRng([0.00049, 0]))).toBe(
+      SKY_RIFT_WEAPON_IDS[0],
+    );
+    expect(rollSkyRiftWeaponDrop(78, () => 0.0005)).toBeNull();
   });
 });
 
@@ -218,6 +250,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~72)
   const plateau = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 55)!;
   const storm = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 61)!;
   const abyss = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 67)!;
+  const skyRift = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 73)!;
 
   it("성소부터 심해 폐허까지 6깊이별 고유 5종, chance 0.0005, 전부 유니크", () => {
     for (const [pool, min, max] of [
@@ -258,7 +291,9 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~72)
     expect(bandUniquePoolForDepth(66)).toBe(storm);
     expect(bandUniquePoolForDepth(67)).toBe(abyss);
     expect(bandUniquePoolForDepth(72)).toBe(abyss);
-    expect(bandUniquePoolForDepth(73)).toBeNull();
+    expect(bandUniquePoolForDepth(73)).toBe(skyRift);
+    expect(skyRift).toMatchObject({ maxDepth: 78, chance: 0, ids: [] });
+    expect(bandUniquePoolForDepth(79)).toBeNull();
   });
 
   it("통과 굴림(rng<chance) → 그 밴드 고유 반환(pick 0 → 첫 id)", () => {

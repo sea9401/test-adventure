@@ -244,6 +244,8 @@ export type DerivePlayerCombatV2PureInput = {
    * 베이스라인 대신 이 값 사용(0 = 미장착). 미지정 = 도적 베이스라인 폴백(flag off / sim).
    */
   atkPerDexCoef?: number;
+  /** 흑월지배(행운→공격력) 계수. 미지정이면 0. */
+  atkPerLukCoef?: number;
   /**
    * 상위 직업 % 스탯 패시브(근력 II 힘 +15% 등). 여러 패시브 %는 합산(가산) 후 1회 적용.
    * 플랫 jobBonus 가산 뒤에 곱해 "스탯 → % 증폭" 순서. flag off/sim 이면 미지정 → 무적용.
@@ -294,6 +296,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveMagicSkillDamagePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
   passiveSpdOverflowToAtkPct?: number;
+  /** 흑월지배 — 최종 행운 1당 속도 가산 계수. */
+  passiveSpdPerLukCoef?: number;
   /** 치명 한계 확장 — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
   passiveSkillCritOverflow?: boolean;
   /** 흑월지배 — 회피 후 다음 직접 피해 스킬 확정 치명타. 장착 패시브에서 주입. */
@@ -379,6 +383,7 @@ export function derivePlayerCombatV2Pure(
     Math.floor(
       totalStats.str * ATK_PER_STR +
         totalStats.dex * atkPerDexCoef +
+        totalStats.luk * (input.atkPerLukCoef ?? 0) +
         totalStats.vit * VIT_ATK_COEF +
         equipAcc.atk,
     ) + V2_BASE_COMBAT_BONUS;
@@ -476,14 +481,16 @@ export function derivePlayerCombatV2Pure(
     totalStats.dex * ACCURACY_PCT_PER_DEX +
       totalStats.str * ACC_PER_STR +
       totalStats.int * ACC_PER_INT +
-      totalStats.spi * ACC_PER_SPI,
+      totalStats.spi * ACC_PER_SPI +
+      equipAcc.accuracy,
   );
   // 속도 = 민첩 파생(1차 아님) − 장비 무게×계수(중갑일수록 느림). 음수 0 클램프.
   const spd = Math.max(
     0,
     totalStats.dex * SPD_PER_DEX -
       equipAcc.weight * WEIGHT_SPD_PENALTY +
-      equipAcc.spd, // 신발 슬롯 고유 축.
+      equipAcc.spd + // 신발 슬롯 고유 축.
+      totalStats.luk * (input.passiveSpdPerLukCoef ?? 0),
   );
   // v2 다중공격 — SPD × 0.5%p 추가공격 확률 (SPD 200=100% 확정 +1, …).
   const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;
@@ -853,6 +860,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     jobBonus,
     jobPassiveEffect,
     atkPerDexCoef,
+    atkPerLukCoef: passiveAgg.atkPerLukCoef,
     statPct,
     maxHpPct,
     maxMpPct,
@@ -884,6 +892,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.enemyMagicVulnApplyChancePct,
     passiveMagicSkillDamagePct: passiveAgg.magicSkillDamagePct,
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
+    passiveSpdPerLukCoef: passiveAgg.spdPerLukCoef,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
     passiveSkillCritAfterEvade: passiveAgg.skillCritAfterEvade,
     passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,

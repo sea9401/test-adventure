@@ -373,11 +373,16 @@ describe("guild workshop recipes", () => {
 
   it("exposes craft-only equipment, monster upgrades, boss upgrade, and storm equipment", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(87);
+    expect(recipes).toHaveLength(75);
     const stormRecipes = recipes.filter((recipe) => recipe.id.startsWith("storm_"));
-    expect(stormRecipes).toHaveLength(19);
+    expect(stormRecipes).toHaveLength(7);
     expect(stormRecipes.every((recipe) => recipe.equipmentId.startsWith("v2_storm_")))
       .toBe(true);
+    expect(
+      stormRecipes.every(
+        (recipe) => V2_EQUIPMENT[recipe.equipmentId].slot === "weapon",
+      ),
+    ).toBe(true);
     expect(
       recipes.filter(
         (recipe) =>

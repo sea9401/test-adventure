@@ -40,8 +40,8 @@ import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
 
 describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
-  it("몬스터 처치 도감은 현재 사냥 가능한 표시 이름 60종을 중복 없이 제공한다", () => {
-    expect(HUNT_MONSTER_SPECIES_COUNT).toBe(60);
+  it("몬스터 처치 도감은 현재 사냥 가능한 표시 이름 65종을 중복 없이 제공한다", () => {
+    expect(HUNT_MONSTER_SPECIES_COUNT).toBe(65);
     expect(new Set(HUNT_MONSTER_CODEX.map((entry) => entry.name)).size).toBe(
       HUNT_MONSTER_CODEX.length,
     );
@@ -51,9 +51,9 @@ describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
       firstDepth: 1,
     });
     expect(HUNT_MONSTER_CODEX.at(-1)).toEqual({
-      name: "암류 파수병",
-      areas: ["심해 폐허"],
-      firstDepth: 67,
+      name: "뇌정 성역지기",
+      areas: ["천공 균열"],
+      firstDepth: 73,
     });
   });
 
@@ -118,7 +118,9 @@ describe("3단계 일반 사냥 진행", () => {
     expect(nextHuntStageDepth(3)).toBe(4);
     expect(nextHuntStageDepth(7)).toBe(8);
     expect(nextHuntStageDepth(71)).toBe(72);
-    expect(nextHuntStageDepth(72)).toBeNull();
+    expect(nextHuntStageDepth(72)).toBe(74);
+    expect(nextHuntStageDepth(77)).toBe(78);
+    expect(nextHuntStageDepth(78)).toBeNull();
     expect(latestUnlockedHuntStageDepth(7)).toBe(6);
   });
 
@@ -170,7 +172,8 @@ describe("v2 dungeon", () => {
   it("enemiesForDepth / depthName — 테마당 6깊이, 테마 내 로컬 번호 표시", () => {
     // 들판(1~6)·마른협곡(7~12)·얼음호수(13~18)·심층동굴(19~24)·
     // 잊힌성소(25~30)·리자드늪지(31~36)·짐승의소굴(37~42)·검은왕도(43~48)·
-    // 붉은벌판(49~54)·백골고원(55~60)·폭풍산맥(61~66)·심해폐허(67~72=프론티어 끝).
+    // 붉은벌판(49~54)·백골고원(55~60)·폭풍산맥(61~66)·심해폐허(67~72)·
+    // 천공균열(73~78=프론티어 끝).
     expect(depthName(1)).toBe("들판 1");
     expect(depthName(6)).toBe("들판 6");
     expect(depthName(7)).toBe("마른 협곡 1");
@@ -188,7 +191,9 @@ describe("v2 dungeon", () => {
     expect(depthName(66)).toBe("폭풍 산맥 6");
     expect(depthName(67)).toBe("심해 폐허 1");
     expect(depthName(72)).toBe("심해 폐허 6");
-    expect(depthName(74)).toBe("심해 폐허 8"); // 캡(72) 밖=도달 불가, 방어적 클램프 표시만
+    expect(depthName(73)).toBe("천공 균열 1");
+    expect(depthName(78)).toBe("천공 균열 6");
+    expect(depthName(80)).toBe("천공 균열 8"); // 캡(78) 밖=도달 불가, 방어적 클램프 표시만
 
     // 풀: 들판 = authored(MAIN_DUNGEON), 나머지 = 밴드(마른 협곡부터).
     expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies); // 들판
@@ -202,11 +207,12 @@ describe("v2 dungeon", () => {
     expect(enemiesForDepth(55)).not.toBe(enemiesForDepth(49)); // 붉은 벌판→백골 고원 전환
     expect(enemiesForDepth(61)).not.toBe(enemiesForDepth(55)); // 백골 고원→폭풍 산맥 전환
     expect(enemiesForDepth(67)).not.toBe(enemiesForDepth(61)); // 폭풍 산맥→심해 폐허 전환
-    expect(enemiesForDepth(999)).toBe(enemiesForDepth(67)); // 캡 밖도 방어적 클램프(도달 불가)
+    expect(enemiesForDepth(73)).not.toBe(enemiesForDepth(67)); // 심해 폐허→천공 균열 전환
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(73)); // 캡 밖도 방어적 클램프(도달 불가)
 
-    // 12테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
-    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43, 49, 55, 61, 67];
-    const themeNames = ["들판", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴", "검은 왕도", "붉은 벌판", "백골 고원", "폭풍 산맥", "심해 폐허"];
+    // 13테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
+    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43, 49, 55, 61, 67, 73];
+    const themeNames = ["들판", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴", "검은 왕도", "붉은 벌판", "백골 고원", "폭풍 산맥", "심해 폐허", "천공 균열"];
     for (let i = 0; i < themeReps.length; i++) {
       const pool = enemiesForDepth(themeReps[i]);
       expect(pool.length, `${themeNames[i]} 5종`).toBe(5);
@@ -231,12 +237,12 @@ describe("v2 dungeon", () => {
   });
 
   it("MAX_FRONTIER_DEPTH = 마지막 테마 끝(테마수 × 6) — 무한 반복 안 함, 새 테마 추가 시 자동 확장", () => {
-    // 12테마 × 6깊이 = 72. 심해 폐허 6(깊이 72)이 프론티어의 끝.
-    expect(MAX_FRONTIER_DEPTH).toBe(72);
-    expect(depthName(MAX_FRONTIER_DEPTH)).toBe("심해 폐허 6");
+    // 13테마 × 6깊이 = 78. 천공 균열 6(깊이 78)이 프론티어의 끝.
+    expect(MAX_FRONTIER_DEPTH).toBe(78);
+    expect(depthName(MAX_FRONTIER_DEPTH)).toBe("천공 균열 6");
   });
 
-  it("신규 엔드 사냥터 권장 전투력 — 검은 왕도부터 심해 폐허까지 실전 곡선으로 상승", () => {
+  it("신규 엔드 사냥터 권장 전투력 — 검은 왕도부터 천공 균열까지 단계 상승", () => {
     expect([43, 44, 45, 46, 47, 48].map(floorPowerGate)).toEqual([
       1200,
       1230,
@@ -276,6 +282,14 @@ describe("v2 dungeon", () => {
       2420,
       2460,
       2500,
+    ]);
+    expect([73, 74, 75, 76, 77, 78].map(floorPowerGate)).toEqual([
+      4650,
+      4800,
+      4950,
+      5100,
+      5300,
+      5500,
     ]);
   });
 
@@ -453,13 +467,13 @@ describe("dungeonThemeCatalog (코덱스 사냥터 도감)", () => {
     expect(c[1].depthEnd).toBe(8); // 도달 8
   });
 
-  it("캡 밖 마지막 테마(심해 폐허) — 중복 카드 없이 한 장으로 합침", () => {
-    const c = dungeonThemeCatalog(74);
-    expect(c).toHaveLength(12); // 12 테마(깊은 산 삭제 후 + 엔드 4개), 중복 없음
+  it("캡 밖 마지막 테마(천공 균열) — 중복 카드 없이 한 장으로 합침", () => {
+    const c = dungeonThemeCatalog(80);
+    expect(c).toHaveLength(13); // 13 테마, 중복 없음
     const last = c[c.length - 1];
-    expect(last.name).toBe("심해 폐허");
-    expect(last.depthStart).toBe(67);
-    expect(last.depthEnd).toBe(74); // 캡 밖 방어 입력도 마지막 테마 한 카드
+    expect(last.name).toBe("천공 균열");
+    expect(last.depthStart).toBe(73);
+    expect(last.depthEnd).toBe(80); // 캡 밖 방어 입력도 마지막 테마 한 카드
     // 테마명 중복 없음
     expect(new Set(c.map((t) => t.name)).size).toBe(c.length);
   });

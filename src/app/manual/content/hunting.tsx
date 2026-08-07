@@ -12,6 +12,11 @@ import {
   STORM_EXPEDITION_UNLOCK_DEPTH,
 } from "@/adventure/data/v2/stormExpedition";
 import {
+  STORM_EXPEDITION_SP_FRUIT_CAP,
+  STORM_EXPEDITION_SP_FRUIT_CHANCE,
+  STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS,
+} from "@/adventure/data/v2/stormExpeditionRewards";
+import {
   MAX_FRONTIER_DEPTH,
   dungeonThemeCatalog,
   huntStageName,
@@ -121,6 +126,11 @@ export function HuntingContent() {
         <li>
           다음 전투에서 패배하면 해당 원정의 임시 전리품을 모두 잃습니다. 남은
           상태와 보상을 보고 계속 진행할지 결정해야 합니다.
+        </li>
+        <li>
+          최종 보스를 처치해 완주하면 <Em>SP 열매 IV</Em>를 {percentText(STORM_EXPEDITION_SP_FRUIT_CHANCE * 100)}
+          확률로 얻습니다. 항로를 바꿔도 미획득 횟수는 공용으로 누적되며, {STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS}회
+          연속 미획득 시 확정 지급됩니다. 원정에서는 캐릭터당 최대 {STORM_EXPEDITION_SP_FRUIT_CAP}개까지 획득할 수 있습니다.
         </li>
       </UL>
 

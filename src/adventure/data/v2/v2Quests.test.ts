@@ -657,6 +657,20 @@ describe("정점을 향해 (확장 마일스톤)", () => {
         beforeFrontierEnd,
       ),
     ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("frontier_78")!,
+        { ...ZERO, frontierDepth: 77 },
+        new Set([...beforeFrontierEnd, "a_depth48"]),
+      ),
+    ).toBe(false);
+    expect(
+      isQuestClaimable(
+        questById("frontier_78")!,
+        { ...ZERO, frontierDepth: 78 },
+        new Set([...beforeFrontierEnd, "a_depth48"]),
+      ),
+    ).toBe(true);
   });
 });
 

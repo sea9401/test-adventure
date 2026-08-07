@@ -46,6 +46,8 @@ export type V2EquipRarity = "common" | "unique";
 export type V2EquipOptions = {
   crit?: number;
   eva?: number;
+  /** 회피형 적을 상대하는 명중 보정 수치. */
+  accuracy?: number;
   mp?: number;
   hp?: number;
   critMult?: number;

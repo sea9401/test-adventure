@@ -24,6 +24,7 @@ export type V2EquipAggregate = {
   crit: number;
   mp: number;
   eva: number;
+  accuracy: number;
   hp: number;
   critMult: number; // 백분의 일 정수 합(100=+1.0×). derive 에서 /100 환산.
   spd: number; // flat 속도 합.
@@ -41,6 +42,7 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
   crit: 0,
   mp: 0,
   eva: 0,
+  accuracy: 0,
   hp: 0,
   critMult: 0,
   spd: 0,
@@ -54,6 +56,7 @@ function addEquipBonus(
   b: Readonly<{
     crit?: number;
     eva?: number;
+    accuracy?: number;
     mp?: number;
     hp?: number;
     critMult?: number;
@@ -67,6 +70,7 @@ function addEquipBonus(
 ) {
   acc.crit += b.crit ?? 0;
   acc.eva += b.eva ?? 0;
+  acc.accuracy += b.accuracy ?? 0;
   acc.mp += b.mp ?? 0;
   acc.hp += b.hp ?? 0;
   acc.critMult += b.critMult ?? 0;
@@ -116,6 +120,7 @@ export function aggregateV2Equipment(
     acc.crit += o.crit ?? 0;
     acc.mp += o.mp ?? 0;
     acc.eva += o.eva ?? 0;
+    acc.accuracy += o.accuracy ?? 0;
     acc.hp += o.hp ?? 0;
     acc.critMult += o.critMult ?? 0;
     acc.spd += o.spd ?? 0;

@@ -126,9 +126,17 @@ describe("흑월지배 회피 연계 패시브", () => {
   it("장착 집계와 상세 설명이 회피 후 다음 스킬 확정 치명타를 노출한다", () => {
     const passive = aggregateEquippedPassives(["v2c_blackmoon_dominion"]);
     expect(passive.skillCritAfterEvade).toBe(true);
-    expect(passive.skillCritOverflow).toBe(false);
+    expect(passive.skillCritOverflow).toBe(true);
+    expect(passive.spdPerLukCoef).toBe(0.75);
+    expect(passive.atkPerLukCoef).toBe(0.95);
     expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
       "회피 후 다음 직접 피해 스킬 확정 치명타",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
+      "행운 ×0.75만큼 속도 증가",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_blackmoon_dominion)).toContain(
+      "행운 ×0.95만큼 공격력 증가",
     );
   });
 });

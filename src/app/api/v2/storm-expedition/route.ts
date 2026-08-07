@@ -41,8 +41,13 @@ import {
 import {
   STORM_EXPEDITION_LOOT,
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
+  STORM_EXPEDITION_SP_FRUIT_CAP,
+  STORM_EXPEDITION_SP_FRUIT_CHANCE,
+  STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID,
+  STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS,
   mergeStormExpeditionMaterials,
   rollStormExpeditionLoot,
+  rollStormExpeditionSpFruit,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 
@@ -257,6 +262,7 @@ export async function POST(req: Request) {
     let gainedEquipment: V2EquipInstance[] = [];
     let droppedMaterials: Record<string, number> = {};
     let droppedEquipment: V2EquipInstance | null = null;
+    let spFruitDropped = false;
 
     if (!success) {
       state = { ...state, active: null };
@@ -295,12 +301,31 @@ export async function POST(req: Request) {
       }, node.encounterCount ?? 1);
 
       if (finalClear) {
-        const claimed = await claimPendingRewards({ tx, userId, charSave, equipmentSave, active: advanced });
+        const spFruitRoll = rollStormExpeditionSpFruit({
+          pity: state.spFruitPity,
+          obtained: state.spFruitObtained,
+        });
+        spFruitDropped = spFruitRoll.dropped;
+        const completed = spFruitDropped
+          ? {
+              ...advanced,
+              pendingMaterials: mergeStormExpeditionMaterials(advanced.pendingMaterials, {
+                [STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]: 1,
+              }),
+            }
+          : advanced;
+        const claimed = await claimPendingRewards({ tx, userId, charSave, equipmentSave, active: completed });
         gainedGold = claimed.result.gainedGold;
         gainedMaterials = claimed.result.gainedMaterials;
         gainedEquipment = claimed.result.gainedEquipment;
         responseCharSave = claimed.character;
-        state = { ...state, active: null, clears: state.clears + 1 };
+        state = {
+          ...state,
+          active: null,
+          clears: state.clears + 1,
+          spFruitPity: spFruitRoll.next.pity,
+          spFruitObtained: spFruitRoll.next.obtained,
+        };
       } else {
         state = { ...state, active: advanced };
       }
@@ -319,6 +344,7 @@ export async function POST(req: Request) {
       droppedMaterials,
       droppedEquipment,
       claimedRewards: finalClear,
+      spFruitDropped,
       nodeIndex: active.nodeIndex,
       encounterIndex: active.encounterIndex,
       encounterKind: node.encounterKind,
@@ -603,6 +629,12 @@ function statusBody(charSave: CharacterSave, raw: unknown) {
     riskEvents: STORM_EXPEDITION_RISK_EVENTS,
     riskCurses: STORM_EXPEDITION_RISK_CURSES,
     lootRules: STORM_EXPEDITION_LOOT,
+    spFruitReward: {
+      materialId: STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID,
+      chance: STORM_EXPEDITION_SP_FRUIT_CHANCE,
+      pityClears: STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS,
+      cap: STORM_EXPEDITION_SP_FRUIT_CAP,
+    },
     gold: Math.max(0, Math.floor(Number(charSave.gold) || 0)),
   };
 }

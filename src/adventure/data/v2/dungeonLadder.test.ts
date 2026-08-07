@@ -21,6 +21,7 @@ import {
   REWARD_SLOWDOWN_START_DEPTH,
   REWARD_SLOWDOWN_EXP_STEP,
   REWARD_EXP_MULT_CAP,
+  SKY_RIFT_POWER_GATES,
 } from "./dungeonLadder";
 import type { DungeonFloorId } from "./types";
 
@@ -92,6 +93,15 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(floorStatMult(72)).toBeCloseTo(Math.pow(4500 / 110, 1 / 0.77), 8);
   });
 
+  it("천공 균열 73~78 권장 전투력은 진입 4650에서 최심부 5500까지 가파르게 오른다", () => {
+    expect([73, 74, 75, 76, 77, 78].map(floorPowerGate)).toEqual([
+      ...SKY_RIFT_POWER_GATES,
+    ]);
+    expect(floorPowerGate(73)).toBe(4650);
+    expect(floorStatMult(73)).toBeCloseTo(Math.pow(4650 / 110, 1 / 0.77), 8);
+    expect(floorPowerGate(78)).toBe(5500);
+  });
+
   it("43+ 엔드 확장 전투 완화는 지역 경계부터 적용하고 심층 하한에서 멈춘다", () => {
     expect(endExtensionCombatSoften(42)).toBe(1);
     expect(endExtensionCombatSoften(43)).toBe(END_EXTENSION_COMBAT_SOFTEN);
@@ -109,7 +119,7 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
       endgameSoften(depth) *
       endExtensionCombatSoften(depth);
 
-    for (let depth = 56; depth <= 72; depth++) {
+    for (let depth = 56; depth <= 78; depth++) {
       expect(combatMult(depth)).toBeGreaterThan(combatMult(depth - 1));
     }
   });
@@ -144,7 +154,7 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(floorExpMult(999)).toBe(REWARD_EXP_MULT_CAP);
     expect(REWARD_EXP_MULT_CAP).toBe(30);
     // 전 구간 단조 증가(절벽 없음) — 소프트캡 경계 포함.
-    for (let d = 2; d <= 72; d++) {
+    for (let d = 2; d <= 78; d++) {
       expect(floorExpMult(d)).toBeGreaterThanOrEqual(floorExpMult(d - 1));
     }
     // 소프트캡 경계 연속성 — 기울기는 꺾이되 점프(절벽) 없음.

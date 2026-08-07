@@ -581,7 +581,8 @@ const FRONTIER_MILESTONES: readonly Milestone[] = [
   { id: "a_depth40", title: "심연 개척", goal: 34, points: 20, badgeTier: "silver" },
   { id: "frontier_48", title: "사냥터 원정대", goal: 48, points: 25 },
   { id: "frontier_60", title: "심해의 문턱", goal: 60, points: 30, badgeTier: "gold" },
-  { id: "a_depth48", title: "사냥터의 끝", goal: 72, points: 50, titleId: "ach_frontier_end", badgeTier: "legendary" },
+  { id: "a_depth48", title: "심해를 건넌 자", goal: 72, points: 50, titleId: "ach_frontier_end", badgeTier: "legendary" },
+  { id: "frontier_78", title: "천공 균열 정복", goal: 78, points: 60, badgeTier: "legendary" },
 ];
 
 const FRONTIER: QuestDef[] = FRONTIER_MILESTONES.map((entry) => ({

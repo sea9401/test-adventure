@@ -1,7 +1,7 @@
-// v2 1→72 레벨 디자인 통합 점검기.
+// v2 1→78 레벨 디자인 통합 점검기.
 //
 // 운영 환경(.env.production)의 코어루프/스태미나/ATB/EXP 설정을 그대로 읽고, 플레이어가 실제로
-// 선택하는 대표 깊이(2·4·6 ... 72)를 전부 검사한다. 기존 sim-v2-progression 과 달리:
+// 선택하는 대표 깊이(2·4·6 ... 78)를 전부 검사한다. 기존 sim-v2-progression 과 달리:
 //   - 레벨은 실제 상한 100을 넘기지 않는다.
 //   - 직업 계보별 숙련도 해금, 직업 내장 보너스, SP 예산, 장착 패시브를 반영한다.
 //   - 수행은 실제 비용 곡선으로 계산한다(보수적으로 전 구간 최소 숙달 포인트 2/승 사용).
@@ -225,7 +225,9 @@ const STAMINA_PER_DAY = Math.floor(
 );
 const MAX_CAREER_WINS = 500_000;
 const NEWBIE_BONUS_BATTLES = NEWBIE_BONUS_BATTLE_THRESHOLD + 1;
-const GROWTH_PACING_DEPTHS = [2, 6, 8, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72] as const;
+const GROWTH_PACING_DEPTHS = [
+  2, 6, 8, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78,
+] as const;
 
 export type CliOptions = {
   trials: number;
@@ -890,6 +892,11 @@ function snapshotFor(
   seed: number,
   enhanceLevel: number = 0,
   cultivate: boolean = true,
+  overrides: {
+    equipment?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+    extraSp?: number;
+    equipmentEnhanceLevels?: Partial<Record<V2EquipmentId, number>>;
+  } = {},
 ): ProgressionSnapshot {
   const spec = ARCH_SPEC[arch];
   const { proficiency, currentJobId, unlockedJobs, level } = proficiencyForCareer(
@@ -906,7 +913,7 @@ function snapshotFor(
   const spBudget = calcSpBudget(
     proficiency.groups,
     0,
-    0,
+    Math.max(0, Math.floor(overrides.extraSp ?? 0)),
     jobUnlockSpBonus(proficiency),
   );
   const equippedSkills = equippedSkillsFor(
@@ -928,12 +935,13 @@ function snapshotFor(
       points: Math.max(0, level - 1) * 3,
     },
   );
-  const equipment = equipmentForEntry(arch, depth);
-  const enhancePct = enhanceBonusPct(enhanceLevel);
+  const equipment = overrides.equipment ?? equipmentForEntry(arch, depth);
   const equipmentRolls = Object.values(equipment).reduce<
     Partial<Record<V2EquipmentId, V2EquipRoll>>
   >((rolls, id) => {
     const item = V2_EQUIPMENT[id];
+    const itemEnhanceLevel = overrides.equipmentEnhanceLevels?.[id] ?? enhanceLevel;
+    const enhancePct = enhanceBonusPct(itemEnhanceLevel);
     if (enhancePct > 0) {
       rolls[id] = {
         power: Math.floor(item.power * (1 + enhancePct / 100)),
@@ -955,6 +963,7 @@ function snapshotFor(
     jobBonus: mergeStats(currentJob?.jobBonus ?? {}, passive.stat),
     jobPassiveEffect: jobPassive(currentJobId),
     atkPerDexCoef: passive.atkPerDexCoef,
+    atkPerLukCoef: passive.atkPerLukCoef,
     statPct: passive.statPct,
     maxHpPct: passive.maxHpPct,
     maxMpPct: passive.maxMpPct,
@@ -978,7 +987,9 @@ function snapshotFor(
     passiveEnemyMagicVulnApplyChancePct: passive.enemyMagicVulnApplyChancePct,
     passiveMagicSkillDamagePct: passive.magicSkillDamagePct,
     passiveSpdOverflowToAtkPct: passive.spdOverflowToAtkPct,
+    passiveSpdPerLukCoef: passive.spdPerLukCoef,
     passiveSkillCritOverflow: passive.skillCritOverflow,
+    passiveSkillCritAfterEvade: passive.skillCritAfterEvade,
     passiveComboFinisherBonusPct: passive.comboFinisherBonusPct,
   });
   const player = derived.player;
@@ -1005,6 +1016,43 @@ function snapshotFor(
     totalStats: derived.totalStats,
     player,
     power,
+  };
+}
+
+export function auditCustomLoadoutCombat(options: {
+  arch: LevelDesignArchetype;
+  depth: number;
+  equipment: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+  careerWins: number;
+  extraSp?: number;
+  enhanceLevel?: number;
+  equipmentEnhanceLevels?: Partial<Record<V2EquipmentId, number>>;
+  trials?: number;
+  seed?: number;
+}) {
+  const seed = Math.floor(options.seed ?? 20260808);
+  const snapshot = snapshotFor(
+    options.arch,
+    options.depth,
+    options.careerWins,
+    seed,
+    options.enhanceLevel ?? 0,
+    true,
+    {
+      equipment: options.equipment,
+      extraSp: options.extraSp,
+      equipmentEnhanceLevels: options.equipmentEnhanceLevels,
+    },
+  );
+  return {
+    ...combatAudit(snapshot, options.depth, options.trials ?? 200, seed),
+    power: snapshot.power,
+    spBudget: snapshot.spBudget,
+    passiveSkills: snapshot.equippedSkills.filter((id) => Boolean(V2_SKILLS[id].passive)),
+    equippedSkills: snapshot.equippedSkills,
+    player: snapshot.player,
+    totalStats: snapshot.totalStats,
+    enemies: monstersAtDepth(options.depth),
   };
 }
 
@@ -1421,7 +1469,7 @@ function printBuilds(stage: StageAudit): void {
 }
 
 function printReport(report: AuditReport, options: CliOptions): void {
-  console.log("v2 1→72 레벨 디자인 통합 점검");
+  console.log("v2 1→78 레벨 디자인 통합 점검");
   console.log(
     `운영 설정: core=${report.config.coreLoop} stamina=${report.config.staminaHunt} atb=${report.config.atbSkills} XP×${report.config.xpRate} · 에너지 ${report.config.maxStamina}/${report.config.regenSecondsPerPoint}초 · 자연회복 ${report.config.staminaPerDay.toLocaleString("ko-KR")}회/일`,
   );

@@ -137,6 +137,8 @@ export type V2EquipOptions = {
   crit?: number;
   /** evasionPct 후-가산, 퍼센트 정수 (EVASION_PCT_CAP 클램프 유지). */
   eva?: number;
+  /** accRating 후-가산. 추적·정밀 장비가 회피형 적을 상대하는 전용 축. */
+  accuracy?: number;
   /** maxMp 후-가산, flat. */
   mp?: number;
   /** maxHp 후-가산, flat. */
@@ -163,6 +165,7 @@ export type V2EquipOptions = {
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "crit",
   "eva",
+  "accuracy",
   "mp",
   "hp",
   "critMult",
@@ -960,6 +963,279 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
     ],
   },
+  // 6T 세트의 2·4부위는 컨셉 발동 효과, 3·5부위는 산군 세트가 끊길 때 사라지는 기반 스탯을
+  // 각 컨셉의 생존 방식으로 되돌린다. 홀수 단계에는 새 발동 효과를 두지 않아 4+2 혼합 선택을 보존한다.
+  {
+    id: "storm_gravity",
+    name: "중력성채",
+    buildTags: ["tank", "shield", "low_hp"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { hp: 200, def: 20, critResist: 6 },
+        signature: {
+          trigger: "battle_start",
+          label: "성채 전개",
+          battleStartShieldPctMaxHp: 10,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 600, def: 80, magicDef: 25, critResist: 8 },
+      },
+      {
+        count: 4,
+        bonus: { hp: 300, def: 30, critResist: 8 },
+        signature: {
+          trigger: "low_hp",
+          label: "중력 고정",
+          hpThresholdPct: 40,
+          damageTakenReductionPct: 20,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 300, def: 30, magicDef: 20, critResist: 5 },
+      },
+    ],
+  },
+  {
+    id: "storm_breaker",
+    name: "붕괴의 선봉",
+    buildTags: ["physical", "crit", "bleed", "vulnerability"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { crit: 4, critMult: 30 },
+        signature: {
+          trigger: "on_crit",
+          label: "균열",
+          enemyDefDebuffPct: 12,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 600, def: 60, crit: 2, critMult: 15 },
+      },
+      {
+        count: 4,
+        bonus: { crit: 6, critMult: 50, spd: 4 },
+        signature: {
+          trigger: "on_hit",
+          label: "붕괴상",
+          bleedChancePct: 30,
+          bleedStacks: 1,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 600, def: 60, critMult: 20, spd: 2 },
+      },
+    ],
+  },
+  {
+    id: "storm_pursuit",
+    name: "천공추적",
+    buildTags: ["physical", "crit", "speed"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { crit: 4, accuracy: 10, spd: 5 },
+        signature: {
+          trigger: "on_crit",
+          label: "추적 호흡",
+          spdBuffPct: 18,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 250, def: 25, magicDef: 15, eva: 4 },
+      },
+      {
+        count: 4,
+        bonus: { crit: 6, accuracy: 14, spd: 8 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "추적 화살",
+          everyNHits: 3,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 300, def: 30, magicDef: 15, eva: 5 },
+      },
+    ],
+  },
+  {
+    id: "storm_shadow",
+    name: "무풍암영",
+    buildTags: ["physical", "crit", "evasion", "speed"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { crit: 4, eva: 5, spd: 5 },
+        signature: {
+          trigger: "on_dodge",
+          label: "암영",
+          spdBuffPct: 25,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 600, def: 70, magicDef: 25, eva: 8 },
+      },
+      {
+        count: 4,
+        bonus: {
+          hp: 400,
+          def: 70,
+          magicDef: 20,
+          crit: 6,
+          critMult: 50,
+          eva: 8,
+          spd: 8,
+        },
+        signature: {
+          trigger: "on_crit",
+          label: "그림자 절명",
+          enemyDefDebuffPct: 18,
+          buffActions: 1,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 650, def: 85, magicDef: 30, eva: 10 },
+      },
+    ],
+  },
+  {
+    id: "storm_venom",
+    name: "만독침식",
+    buildTags: ["poison", "dot", "evasion", "vulnerability"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { hp: 180, eva: 3, statusDamageReductionPct: 5 },
+        signature: {
+          trigger: "on_hit",
+          label: "만독",
+          poisonChancePct: 20,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: {
+          hp: 500,
+          def: 50,
+          magicDef: 20,
+          statusDamageReductionPct: 5,
+        },
+      },
+      {
+        count: 4,
+        bonus: { hp: 280, crit: 4, eva: 5, statusDamageReductionPct: 10 },
+        signature: {
+          trigger: "on_hit",
+          label: "침식독",
+          poisonChancePct: 25,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 5,
+        bonus: {
+          hp: 500,
+          def: 55,
+          magicDef: 25,
+          statusDamageReductionPct: 5,
+        },
+      },
+    ],
+  },
+  {
+    id: "storm_arcane",
+    name: "뇌정술식",
+    buildTags: ["magic", "crit", "speed", "resource"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { mp: 160, crit: 4 },
+        signature: {
+          trigger: "on_skill_cast",
+          label: "마력 순환",
+          mpRefundPctOfCost: 15,
+        },
+      },
+      {
+        count: 3,
+        bonus: { hp: 250, mp: 200, def: 20, magicDef: 10 },
+      },
+      {
+        count: 4,
+        bonus: { hp: 200, mp: 260, def: 20, crit: 6, critMult: 35, spd: 8 },
+        signature: {
+          trigger: "on_hit",
+          label: "전도 낙뢰",
+          shockChancePct: 20,
+          shockSlowPct: 25,
+          buffActions: 2,
+        },
+      },
+      {
+        count: 5,
+        bonus: { hp: 400, mp: 200, def: 60, magicDef: 15 },
+      },
+    ],
+  },
+  {
+    id: "storm_sanctuary",
+    name: "성역공명",
+    buildTags: ["magic", "tank", "heal", "shield", "resource"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { mp: 180, magicDef: 20, healPowerPct: 8 },
+        signature: {
+          trigger: "on_heal",
+          label: "치유 공명",
+          healToShieldPct: 25,
+        },
+      },
+      {
+        count: 3,
+        bonus: {
+          hp: 400,
+          mp: 200,
+          def: 40,
+          magicDef: 20,
+          healPowerPct: 4,
+        },
+      },
+      {
+        count: 4,
+        bonus: { hp: 300, mp: 220, magicDef: 30, healPowerPct: 12 },
+        signature: {
+          trigger: "status_block_once",
+          label: "성역 정화",
+          statusBlockOnce: true,
+        },
+      },
+      {
+        count: 5,
+        bonus: {
+          hp: 350,
+          mp: 170,
+          def: 40,
+          magicDef: 20,
+          healPowerPct: 4,
+        },
+      },
+    ],
+  },
 ];
 
 // 슬롯별 catalog id 모음 — UI 가 슬롯 탭 표시할 때 사용.
@@ -1030,6 +1306,7 @@ export function v2ItemTypeLabel(item: V2Equipment): string {
 const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   crit: "치명타",
   eva: "회피",
+  accuracy: "명중",
   mp: "MP",
   hp: "HP",
   critMult: "치명타 피해",
@@ -1311,6 +1588,8 @@ export type V2EquipRoll = {
   power: number;
   weight: number;
   options?: V2EquipOptions;
+  /** 폭풍 개량 후 품질 계산 기준이 되는 6T 기본 위력. 일반 굴림에는 없다. */
+  powerBase?: number;
 };
 
 export type EquipmentSave = {
@@ -1381,6 +1660,8 @@ export type V2EquipInstance = {
   craftQuality?: V2CraftQualityState;
   /** 제작자 표식 — 길드 제작소 제작품에만 붙는 표시용 메타. */
   craftedBy?: V2CraftedBy;
+  /** 기존 특화 장비의 개성과 강화 상태를 유지한 채 6T 위력대로 개량했는지 여부. */
+  stormRefined?: true;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -1433,6 +1714,10 @@ export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
     power: Math.max(1, Math.floor(r.power)),
     weight: Math.max(0, Math.floor(r.weight)),
   };
+  const powerBase = (val as { powerBase?: unknown }).powerBase;
+  if (typeof powerBase === "number" && Number.isFinite(powerBase)) {
+    roll.powerBase = Math.max(1, Math.floor(powerBase));
+  }
   if (r.options && typeof r.options === "object") {
     const opts: V2EquipOptions = {};
     const rawOpts = r.options as Record<string, unknown>;
@@ -1524,6 +1809,7 @@ export function parseEquipmentSave(raw: unknown): {
       enhance?: unknown;
       craftQuality?: unknown;
       craftedBy?: unknown;
+      stormRefined?: unknown;
     };
     if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
     const id = e.id as V2EquipmentId;
@@ -1549,6 +1835,7 @@ export function parseEquipmentSave(raw: unknown): {
     if (enhance) inst.enhance = enhance;
     if (craftQuality) inst.craftQuality = craftQuality;
     if (craftedBy) inst.craftedBy = craftedBy;
+    if (e.stormRefined === true) inst.stormRefined = true;
     owned.push(inst);
     byIid.set(iid, inst);
   }

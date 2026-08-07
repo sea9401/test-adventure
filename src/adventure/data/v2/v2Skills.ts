@@ -160,6 +160,10 @@ export type V2PassiveSkillEffect = {
   miningBonusOreChancePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
   spdOverflowToAtkPct?: number;
+  /** 흑월지배 — 행운 1당 속도 가산 계수. 순수 LUK 암살 계보의 행동 빈도를 복구한다. */
+  spdPerLukCoef?: number;
+  /** 흑월지배 — 행운 1당 물리 공격력 가산 계수. */
+  atkPerLukCoef?: number;
   /** 치명 한계 확장 — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
   skillCritOverflow?: boolean;
   /** 흑월지배 — 회피 성공 후 다음에 적중하는 직접 피해 액티브 스킬을 확정 치명타로 만든다. */
@@ -1108,6 +1112,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   maxHpPct: number;
   maxMpPct: number;
   atkPerDexCoef: number;
+  atkPerLukCoef: number;
   critPct: number;
   critDmgPct: number;
   evasionPct: number;
@@ -1128,6 +1133,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   enemyMagicVulnApplyChancePct: number;
   magicSkillDamagePct: number;
   spdOverflowToAtkPct: number;
+  spdPerLukCoef: number;
   skillCritOverflow: boolean;
   skillCritAfterEvade: boolean;
   comboFinisherBonusPct: number;
@@ -1137,6 +1143,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let maxHpPct = 0;
   let maxMpPct = 0;
   let atkPerDexCoef = 0;
+  let atkPerLukCoef = 0;
   let critPct = 0;
   let critDmgPct = 0;
   let evasionPct = 0;
@@ -1157,6 +1164,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let enemyMagicVulnApplyChancePct = 0;
   let magicSkillDamagePct = 0;
   let spdOverflowToAtkPct = 0;
+  let spdPerLukCoef = 0;
   let skillCritOverflow = false;
   let skillCritAfterEvade = false;
   let comboFinisherBonusPct = 0;
@@ -1172,6 +1180,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     maxHpPct += p.maxHpPct ?? 0;
     maxMpPct += p.maxMpPct ?? 0;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
+    atkPerLukCoef += p.atkPerLukCoef ?? 0;
     critPct += p.critPct ?? 0;
     critDmgPct += p.critDmgPct ?? 0;
     evasionPct += p.evasionPct ?? 0;
@@ -1206,6 +1215,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     }
     magicSkillDamagePct += p.magicSkillDamagePct ?? 0;
     spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
+    spdPerLukCoef += p.spdPerLukCoef ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
     if (p.skillCritAfterEvade) skillCritAfterEvade = true;
     comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
@@ -1216,6 +1226,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     maxHpPct,
     maxMpPct,
     atkPerDexCoef,
+    atkPerLukCoef,
     critPct,
     critDmgPct,
     evasionPct,
@@ -1236,6 +1247,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     enemyMagicVulnApplyChancePct,
     magicSkillDamagePct,
     spdOverflowToAtkPct,
+    spdPerLukCoef,
     skillCritOverflow,
     skillCritAfterEvade,
     comboFinisherBonusPct,
@@ -1647,6 +1659,10 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`추가 광석 확률 ${p.miningBonusOreChancePct}%`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
+  if (p.spdPerLukCoef)
+    chips.push(`행운 ×${p.spdPerLukCoef}만큼 속도 증가`);
+  if (p.atkPerLukCoef)
+    chips.push(`행운 ×${p.atkPerLukCoef}만큼 공격력 증가`);
   if (p.skillCritOverflow)
     chips.push(`치명타 한계(75%) 초과 보너스를 스킬에도 적용`);
   if (p.skillCritAfterEvade)

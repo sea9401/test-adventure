@@ -140,11 +140,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       cookieStore.set("link_user_id", "", { maxAge: 0, path: "/" });
 
       // Credentials provider 는 운영자 발급 계정 또는 기존 심사용 사용자를 JWT 로만
-      // 인증한다. OAuth 계정 연동 테이블을 건드리면 안 되므로 아래 분기에는 진입시키지 않는다.
+      // 인증한다. 올바른 비밀번호로 다시 로그인한 경우 심사 담당자가 다른 기기에서도
+      // 단일 기기 세션을 인계할 수 있게 일회성 takeover 표식을 발급한다.
+      // OAuth 계정 연동 테이블을 건드리면 안 되므로 아래 분기에는 진입시키지 않는다.
       if (account.type === "credentials") {
         cookieStore.set(ACCOUNT_LINK_INTENT_COOKIE, "", {
           maxAge: 0,
           path: "/api/auth",
+        });
+        cookieStore.set(DEVICE_SESSION_TAKEOVER_COOKIE, "1", {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: 5 * 60,
+          priority: "high",
         });
         return true;
       }

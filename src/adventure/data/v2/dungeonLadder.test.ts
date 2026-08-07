@@ -6,6 +6,8 @@ import {
   floorExpMult,
   endgameSoften,
   endExtensionCombatSoften,
+  fixedFrontierAttackMult,
+  fixedFrontierDurabilityMult,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
   LADDER_EXP_SOFTCAP,
@@ -22,6 +24,12 @@ import {
   REWARD_SLOWDOWN_EXP_STEP,
   REWARD_EXP_MULT_CAP,
   SKY_RIFT_POWER_GATES,
+  FIXED_FRONTIER_ATTACK_DEPTH_72,
+  FIXED_FRONTIER_ATTACK_DEPTH_78,
+  FIXED_FRONTIER_ATTACK_START,
+  FIXED_FRONTIER_DURABILITY_DEPTH_72,
+  FIXED_FRONTIER_DURABILITY_DEPTH_78,
+  FIXED_FRONTIER_DURABILITY_START,
 } from "./dungeonLadder";
 import type { DungeonFloorId } from "./types";
 
@@ -117,10 +125,36 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     const combatMult = (depth: number) =>
       floorStatMult(depth) *
       endgameSoften(depth) *
-      endExtensionCombatSoften(depth);
+      endExtensionCombatSoften(depth) *
+      fixedFrontierDurabilityMult(depth);
 
     for (let depth = 56; depth <= 78; depth++) {
       expect(combatMult(depth)).toBeGreaterThan(combatMult(depth - 1));
+    }
+  });
+
+  it("49+ 솔로 사냥터는 플레이어와 무관한 고정 HP·ATK 보정을 깊이별로 적용한다", () => {
+    expect(fixedFrontierDurabilityMult(48)).toBe(1);
+    expect(fixedFrontierDurabilityMult(49)).toBe(
+      FIXED_FRONTIER_DURABILITY_START,
+    );
+    expect(fixedFrontierDurabilityMult(72)).toBe(
+      FIXED_FRONTIER_DURABILITY_DEPTH_72,
+    );
+    expect(fixedFrontierDurabilityMult(78)).toBe(
+      FIXED_FRONTIER_DURABILITY_DEPTH_78,
+    );
+    expect(fixedFrontierAttackMult(48)).toBe(1);
+    expect(fixedFrontierAttackMult(49)).toBe(FIXED_FRONTIER_ATTACK_START);
+    expect(fixedFrontierAttackMult(72)).toBe(FIXED_FRONTIER_ATTACK_DEPTH_72);
+    expect(fixedFrontierAttackMult(78)).toBe(FIXED_FRONTIER_ATTACK_DEPTH_78);
+    for (let depth = 50; depth <= 78; depth++) {
+      expect(fixedFrontierDurabilityMult(depth)).toBeGreaterThanOrEqual(
+        fixedFrontierDurabilityMult(depth - 1),
+      );
+      expect(fixedFrontierAttackMult(depth)).toBeGreaterThanOrEqual(
+        fixedFrontierAttackMult(depth - 1),
+      );
     }
   });
 

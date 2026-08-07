@@ -27,6 +27,8 @@ import {
   frontierOnsetSoften,
   floorAccuracy,
   floorPowerGate,
+  fixedFrontierAttackMult,
+  fixedFrontierDurabilityMult,
   lateAccuracyMult,
   lateAttackMult,
   lateDefenseMult,
@@ -419,11 +421,20 @@ describe("scaleMonsterForFloor", () => {
     expect(lateStatusDamageReductionBonus(depth)).toBe(30);
     expect(scaled.hp).toBe(
       Math.round(
-        base.hp * combatMult * floorCritHpComp(depth) * lateDurabilityMult(depth),
+        base.hp *
+          combatMult *
+          fixedFrontierDurabilityMult(depth) *
+          floorCritHpComp(depth) *
+          lateDurabilityMult(depth),
       ),
     );
     expect(scaled.atk).toBe(
-      Math.round(base.atk * combatMult * lateAttackMult(depth)),
+      Math.round(
+        base.atk *
+          combatMult *
+          fixedFrontierAttackMult(depth) *
+          lateAttackMult(depth),
+      ),
     );
     expect(scaled.def).toBe(
       Math.round(base.def * floorDefMult(depth) * lateDefenseMult(depth)),
@@ -435,6 +446,18 @@ describe("scaleMonsterForFloor", () => {
       ((base.accuracy ?? 0) + floorAccuracy(depth)) * lateAccuracyMult(depth),
     );
     expect(scaled.statusDamageReductionPct).toBe(30);
+  });
+
+  it("49+ 고정 난도 보정은 협동 보스 스케일에는 적용하지 않는다", () => {
+    const depth = 72;
+    const coopScaled = scaleMonsterForFloor(base, depth, false);
+
+    expect(coopScaled.hp).toBe(
+      Math.round(base.hp * floorStatMult(depth)),
+    );
+    expect(coopScaled.atk).toBe(
+      Math.round(base.atk * floorStatMult(depth)),
+    );
   });
 
   it("베이스 변형 없음 (mutation 가드)", () => {

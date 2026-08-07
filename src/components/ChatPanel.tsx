@@ -57,7 +57,6 @@ import {
 import { ChatEquipmentPicker } from "./chat/ChatEquipmentPicker";
 import { useMobileChatHistory } from "./chat/useMobileChatHistory";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
-import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import {
   chatEquipmentLinkFromInstance,
   chatEquipmentLinkLabel,
@@ -1202,20 +1201,6 @@ export function ChatPanel({
             </button>
           </div>
         </header>
-
-        {activeCustomRoom && activeCustomRoom.role !== "owner" ? (
-          <div className="flex items-center justify-end border-b border-zinc-200 bg-white px-3 py-1 dark:border-zinc-700 dark:bg-zinc-900">
-            <ContentSafetyActions
-              sourceType="chat_room"
-              sourceId={activeCustomRoom.id}
-              targetName={activeCustomRoom.ownerName}
-              onBlocked={() => {
-                returnToRooms();
-                void refreshCustomRooms();
-              }}
-            />
-          </div>
-        ) : null}
 
         {inviteOpen && activeCustomRoom?.role === "owner" && (
           <form

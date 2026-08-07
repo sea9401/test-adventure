@@ -14,7 +14,6 @@ import {
   type GuildBrowseEntry,
   type GuildBrowseResponse,
 } from "./api";
-import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 
 // 길드 둘러보기 — 활성 길드 목록(명성순) + 이름 검색.
 // join 모드는 미소속 유저의 가입 신청/취소를 함께 제공하고, browse 모드는 소속 유저에게
@@ -191,26 +190,6 @@ export function GuildBrowsePanel({
                         <p className="mt-1 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-300">
                           {g.description}
                         </p>
-                      ) : null}
-                      {!isCurrentGuild ? (
-                        <ContentSafetyActions
-                          sourceType="guild_profile"
-                          sourceId={g.id}
-                          targetName={`${g.name} 길드장`}
-                          className="mt-1"
-                          onBlocked={() =>
-                            setData((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    guilds: current.guilds.filter(
-                                      (guild) => guild.id !== g.id,
-                                    ),
-                                  }
-                                : current,
-                            )
-                          }
-                        />
                       ) : null}
                     </div>
                     {canJoin ? (

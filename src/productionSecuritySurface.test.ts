@@ -119,6 +119,18 @@ describe("production security surface", () => {
     expect(proxy).toContain("진심으로 죄송합니다");
   });
 
+  it("심의용 비밀번호 재로그인은 다른 기기로 단일 세션을 안전하게 인계한다", () => {
+    const auth = source(join(ROOT, "src/auth.ts"));
+    const credentialsBranch = auth.slice(
+      auth.indexOf('if (account.type === "credentials")'),
+      auth.indexOf("if (account.provider !== \"kakao\")"),
+    );
+
+    expect(credentialsBranch).toContain("DEVICE_SESSION_TAKEOVER_COOKIE");
+    expect(credentialsBranch).toContain('cookieStore.set(DEVICE_SESSION_TAKEOVER_COOKIE, "1"');
+    expect(credentialsBranch).toContain("maxAge: 5 * 60");
+  });
+
   it("배포가 최신 크론 목록을 설치하고 개인정보 정리 작업을 확인한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
     const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));

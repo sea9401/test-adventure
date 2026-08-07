@@ -23,6 +23,11 @@ import {
   guildDiningMenuLockNotice,
   toggleGuildDiningMenuSelection,
 } from "./guildDiningMenuSelection";
+import {
+  guildDiningMenuUnavailableReason,
+  guildDiningUnavailableReasons,
+  type DiningFacilitySource,
+} from "./guildDiningAvailability";
 
 const DINING_PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
 
@@ -32,6 +37,7 @@ type DiningState = {
   weekKey: string;
   canManage: boolean;
   eligible: boolean;
+  weeklySource?: DiningFacilitySource | null;
   pantry: { points: number; target: number; remaining: number; ready: boolean };
   tickets: {
     base: number;
@@ -72,9 +78,11 @@ type DiningResponse = DiningState & {
 export function GuildDiningHallPanel({
   endpoint = "/api/v2/guild/dining-hall",
   title = "길드 식당",
+  source = "guild",
 }: {
   endpoint?: string;
   title?: string;
+  source?: DiningFacilitySource;
 } = {}) {
   const { applyResourcePatch } = useGameState();
   const [state, setState] = useState<DiningState | null>(null);
@@ -211,6 +219,17 @@ export function GuildDiningHallPanel({
 
   const menuEditable = state.canManage && state.pantry.points === 0;
   const selectedMenuCount = state.menus.filter((menu) => menu.selected).length;
+  const sourceConflict =
+    state.weeklySource != null && state.weeklySource !== source;
+  const canParticipate = state.eligible && !sourceConflict;
+  const unavailableReasons = guildDiningUnavailableReasons({
+    eligible: state.eligible,
+    weeklySource: state.weeklySource,
+    currentSource: source,
+    pantry: state.pantry,
+    availableTickets: state.tickets.available,
+    selectedMenuCount,
+  });
   const menuLockNotice = guildDiningMenuLockNotice({
     pantryPoints: state.pantry.points,
     level: state.level,
@@ -244,12 +263,6 @@ export function GuildDiningHallPanel({
         </div>
       </section>
 
-      {!state.eligible && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          이번 주 준비가 시작된 뒤 가입했습니다. 다음 주부터 기부와 식사가 가능합니다.
-        </p>
-      )}
-
       <section className={`${SURFACE_INSET} p-3`}>
         <div className="flex items-center justify-between gap-3 text-xs">
           <span className="font-semibold">공동 식재료 준비</span>
@@ -268,6 +281,20 @@ export function GuildDiningHallPanel({
           {state.tickets.contributionCap}점 · 15점마다 추가 식권 1장
         </p>
       </section>
+
+      {unavailableReasons.length > 0 && (
+        <section
+          role="status"
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+        >
+          <p className="text-sm font-bold">지금 식권을 사용할 수 없는 이유</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs leading-relaxed">
+            {unavailableReasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {notice && (
         <p
@@ -306,7 +333,7 @@ export function GuildDiningHallPanel({
                   ?.batchSize ?? 1,
               );
             }}
-            disabled={busy || !state.eligible || state.pantry.ready}
+            disabled={busy || !canParticipate || state.pantry.ready}
             className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           >
             {(["farm", "fishing_item"] as const).map((source) => (
@@ -340,13 +367,13 @@ export function GuildDiningHallPanel({
               )
             }
             onValueChange={setQuantity}
-            disabled={busy || maxDonation <= 0}
+            disabled={busy || !canParticipate || maxDonation <= 0}
             aria-label="식재료 기부 수량"
             className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-center text-sm dark:border-zinc-700 dark:bg-zinc-950"
           />
           <button
             type="button"
-            disabled={busy || maxDonation <= 0}
+            disabled={busy || !canParticipate || maxDonation <= 0}
             onClick={() =>
               void submit(
                 {
@@ -397,6 +424,12 @@ export function GuildDiningHallPanel({
         <div className="grid gap-2 md:grid-cols-2">
           {state.menus.map((menu) => {
             const checked = selectedMenuIds.includes(menu.id);
+            const menuUnavailableReason = guildDiningMenuUnavailableReason({
+              isRecoveryMenu: menu.effect.kind === "recovery",
+              charges: state.charges,
+            });
+            const orderUnavailableReason =
+              unavailableReasons[0] ?? menuUnavailableReason;
             const menuSurface = !menu.unlocked
               ? SURFACE_INSET
               : checked
@@ -443,29 +476,36 @@ export function GuildDiningHallPanel({
                 {!menu.unlocked ? (
                   <p className="mt-3 text-center text-xs font-semibold">식당 Lv.{menu.minFacilityLevel} 필요</p>
                 ) : menu.selected ? (
-                  <button
-                    type="button"
-                    disabled={busy || !state.eligible || !state.pantry.ready || state.tickets.available <= 0}
-                    onClick={() => {
-                      if (
-                        menu.effect.kind !== "recovery" &&
-                        activeEffect &&
-                        activeEffect.menuId !== menu.id &&
-                        !window.confirm(
-                          `현재 적용 중인 ${activeEffect.name} 효과와 남은 시간이 사라집니다. ${menu.name} 메뉴로 교체할까요?`,
-                        )
-                      ) {
-                        return;
-                      }
-                      void submit(
-                        { action: "order", menuId: menu.id },
-                        (json) => `${json.ordered?.menuName ?? menu.name} 식사를 마쳤습니다.`,
-                      );
-                    }}
-                    className="mt-3 h-9 w-full rounded-md bg-amber-600 px-3 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
-                  >
-                    식권 1장으로 주문
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy || orderUnavailableReason != null}
+                      onClick={() => {
+                        if (
+                          menu.effect.kind !== "recovery" &&
+                          activeEffect &&
+                          activeEffect.menuId !== menu.id &&
+                          !window.confirm(
+                            `현재 적용 중인 ${activeEffect.name} 효과와 남은 시간이 사라집니다. ${menu.name} 메뉴로 교체할까요?`,
+                          )
+                        ) {
+                          return;
+                        }
+                        void submit(
+                          { action: "order", menuId: menu.id },
+                          (json) => `${json.ordered?.menuName ?? menu.name} 식사를 마쳤습니다.`,
+                        );
+                      }}
+                      className="mt-3 h-9 w-full rounded-md bg-amber-600 px-3 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+                    >
+                      식권 1장으로 주문
+                    </button>
+                    {orderUnavailableReason && (
+                      <p className="mt-2 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+                        {orderUnavailableReason}
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <p className="mt-3 text-center text-xs text-zinc-500">이번 주 선택되지 않은 메뉴</p>
                 )}

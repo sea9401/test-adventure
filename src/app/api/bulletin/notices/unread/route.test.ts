@@ -60,11 +60,12 @@ describe("GET /api/bulletin/notices/unread", () => {
     const response = await GET();
 
     expect(await response.json()).toEqual({ hasUnread: true });
+    expect(mocks.recentLimit).toHaveBeenCalledWith(1);
   });
 
-  it("최근 공지를 모두 조회했으면 false를 반환한다", async () => {
-    mocks.recentLimit.mockResolvedValue([{ id: 17 }, { id: 12 }]);
-    mocks.viewedWhere.mockResolvedValue([{ postId: 17 }, { postId: 12 }]);
+  it("최신 공지를 조회했으면 이전 공지의 미열람 여부와 무관하게 false를 반환한다", async () => {
+    mocks.recentLimit.mockResolvedValue([{ id: 17 }]);
+    mocks.viewedWhere.mockResolvedValue([{ postId: 17 }]);
 
     const response = await GET();
 

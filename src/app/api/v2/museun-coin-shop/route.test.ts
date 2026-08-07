@@ -15,6 +15,9 @@ vi.mock("@/db", () => ({
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-buyer"),
 }));
+vi.mock("@/lib/server/museunCoinShopAccess", () => ({
+  canAccessMuseunCoinShop: vi.fn(async () => true),
+}));
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
 }));
@@ -24,7 +27,12 @@ vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async () => undefined),
 }));
 
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+} from "@/lib/server/savesKv";
+import { canAccessMuseunCoinShop } from "@/lib/server/museunCoinShopAccess";
 import { GET, POST } from "./route";
 
 function request(body: Record<string, unknown>) {
@@ -38,6 +46,11 @@ function request(body: Record<string, unknown>) {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN", "true");
   vi.clearAllMocks();
+  vi.mocked(readSave).mockImplementation(async (_db, _userId, key) => {
+    if (key === MUSEUN_COIN_WALLET_KEY) return { coins: 3_000 };
+    if (key === "character.v2") return { cashItems: {} };
+    return {};
+  });
   vi.mocked(lockSaveForUpdate).mockImplementation(
     async (_tx, _userId, key) => {
       if (key === "character.v2") {
@@ -56,11 +69,20 @@ afterEach(() => {
 describe("무슨 코인 상점 일괄 구매", () => {
   it("공개 플래그가 꺼지면 조회와 구매를 모두 숨긴다", async () => {
     vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN", "false");
+    vi.mocked(canAccessMuseunCoinShop).mockResolvedValue(false);
 
     expect((await GET()).status).toBe(404);
     expect((await POST(request({ itemId: "rename_permit" }))).status).toBe(404);
     expect(lockSaveForUpdate).not.toHaveBeenCalled();
     expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("공개 플래그가 꺼져도 허용된 심의 계정은 조회와 구매가 가능하다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN", "false");
+    vi.mocked(canAccessMuseunCoinShop).mockResolvedValue(true);
+
+    expect((await GET()).status).toBe(200);
+    expect((await POST(request({ itemId: "rename_permit" }))).status).toBe(200);
   });
 
   it("선택한 수량의 총액을 한 번에 차감하고 가방 수량을 늘린다", async () => {

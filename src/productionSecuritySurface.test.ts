@@ -61,7 +61,7 @@ describe("production security surface", () => {
     }
   });
 
-  it("개발 UI와 출시 전 코인 상점이 운영 설정에서 닫혀 있다", () => {
+  it("개발 UI와 출시 전 코인 상점이 일반 이용자에게 닫혀 있다", () => {
     const devLayout = source(join(ROOT, "src/app/dev/layout.tsx"));
     expect(devLayout).toContain('process.env.NODE_ENV === "production"');
     expect(devLayout).toContain('process.env.IS_STAGING !== "true"');
@@ -71,8 +71,33 @@ describe("production security surface", () => {
     expect(productionEnv).toMatch(
       /^NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=false$/m,
     );
+    expect(productionEnv).toMatch(
+      /^MUSEUN_COIN_SHOP_REVIEW_LOGIN_IDS=gcrb-review-01,gcrb-review-02,gcrb-review-03$/m,
+    );
+    expect(productionEnv).toMatch(
+      /^MUSEUN_COIN_SHOP_REVIEW_USER_IDS=[0-9a-f-]+,[0-9a-f-]+,[0-9a-f-]+$/m,
+    );
+
+    const coinShopPage = source(
+      join(ROOT, "src/app/(game)/settings/coin-shop/page.tsx"),
+    );
+    const coinShopApi = source(
+      join(ROOT, "src/app/api/v2/museun-coin-shop/route.ts"),
+    );
+    const coinShopAccess = source(
+      join(ROOT, "src/lib/server/museunCoinShopAccess.ts"),
+    );
+    expect(coinShopPage).toContain("canAccessMuseunCoinShop");
+    expect(coinShopPage).toContain("notFound()");
+    expect(coinShopApi).toContain("canAccessMuseunCoinShop");
+    expect(coinShopApi).toContain("unavailable()");
+    expect(coinShopAccess).toContain("DEFAULT_REVIEW_LOGIN_IDS");
+    expect(coinShopAccess).toContain("ADMIN_EMAILS");
 
     const proxy = source(join(ROOT, "src/proxy.ts"));
+    const authConfig = source(join(ROOT, "src/auth.config.ts"));
+    expect(authConfig).toContain("session.user.id = token.sub");
+    expect(proxy).toContain("canPassMuseunCoinShopProxy");
     expect(proxy).toContain('req.nextUrl.pathname === "/settings/coin-shop"');
     expect(proxy).toContain(
       'req.nextUrl.pathname === "/api/v2/museun-coin-shop"',

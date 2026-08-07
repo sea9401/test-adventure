@@ -27,8 +27,25 @@ import { useAttendanceReminder } from "./useAttendanceReminder";
 // 화면 모드·정책·회원 탈퇴는 /settings/preferences 한곳에서 관리한다.
 export function V2SettingsMenu() {
   const [open, setOpen] = useState(false);
+  const [coinShopAccessible, setCoinShopAccessible] = useState(
+    process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true",
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const attendancePending = useAttendanceReminder();
+
+  useEffect(() => {
+    if (coinShopAccessible) return;
+    const controller = new AbortController();
+    void fetch("/api/v2/museun-coin-shop/access", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (response.ok) setCoinShopAccessible(true);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [coinShopAccessible]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,7 +144,7 @@ export function V2SettingsMenu() {
                 )}
               </Link>
             </li>
-            {process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true" && (
+            {coinShopAccessible && (
               <li>
                 <Link
                   href="/settings/coin-shop"

@@ -2055,7 +2055,7 @@ function resolveBattleLegacy(
       // 매 player phase 진입 시 1회 — buff/debuff turn -1 tick + cast.
       if (!v2CastedThisPlayerPhase) {
         v2CastedThisPlayerPhase = true;
-        // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF 무시. lethal 처리.
+        // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF/보호막 무시. lethal 처리.
         // 일반 공격 레인과 섞이지 않도록 status_damage 효과 행으로 기록한다.
         const playerDotTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
         const playerDotDamage = statusDamageAfterReduction(

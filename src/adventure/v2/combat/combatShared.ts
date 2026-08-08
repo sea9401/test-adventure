@@ -9,6 +9,7 @@
 import { computeHealAmount, type Potion } from "@/adventure/data/potions";
 import type { APSkillEffect } from "@/adventure/character/apSkills";
 import {
+  isLimitedRecoverySkillId,
   V2_SKILLS,
   v2SkillMpCostValue,
   type V2SkillDefinition,
@@ -500,6 +501,7 @@ export function emptyV2SkillCooldowns(): V2SkillCooldowns {
 }
 
 const ONCE_PER_BATTLE_COOLDOWN = 1_000_000;
+const PVP_LIMITED_RECOVERY_EFFECT_MULT = 0.5;
 
 // 매 플레이어 턴 진입 시 호출. 양수 카운터 -1 (0 이하 키는 삭제 — ready 상태).
 export function tickV2SkillCooldowns(map: V2SkillCooldowns): V2SkillCooldowns {
@@ -1211,8 +1213,15 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     } else if (effect.kind === "enemyDotVuln") {
       enemyDotVulnToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "hpCostDamage") {
-      // 사혈격 — 현재 HP pct 소모 + 소모량×soakRatio 추가딜.
-      const cost = Math.floor(((input.attacker.currentHp ?? input.attacker.maxHp) * effect.pctCurrentHp) / 100);
+      // 사혈격 — 실제 소모는 현재 HP 기준. 혈성 계보처럼 floor가 있는 스킬은 저체력에서 실제
+      // 소모량은 줄어도 추가 피해 기준까지 함께 붕괴하지 않도록 최대 HP 비율 하한을 적용한다.
+      const currentHp = input.attacker.currentHp ?? input.attacker.maxHp;
+      const cost = Math.floor((currentHp * effect.pctCurrentHp) / 100);
+      const soakBaseHp = Math.max(
+        currentHp,
+        (input.attacker.maxHp * (effect.soakCurrentHpFloorPct ?? 0)) / 100,
+      );
+      const soakAmount = Math.floor((soakBaseHp * effect.pctCurrentHp) / 100);
       selfHpCost += cost;
       dealDamage(
         damageWith(
@@ -1220,7 +1229,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
           effect.scaling,
           effect.attackCoef,
           flatOf(undefined, effect.baseFlatByTier),
-          Math.floor(cost * effect.soakRatio),
+          Math.floor(soakAmount * effect.soakRatio),
         ),
         effect.scaling,
       );
@@ -1396,17 +1405,31 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     (scaledEnemyDamage * healFromDamagePct) / 100,
   );
   const directHealMult = def.oncePerBattle ? 1 : skillMult;
-  const scaledSelfHeal =
+  const patternScaledSelfHeal =
     directHealMult === 1
       ? selfHeal + damageBasedHeal
       : Math.round(selfHeal * directHealMult) + damageBasedHeal;
-  const scaledSelfHealOnMiss =
+  const patternScaledSelfHealOnMiss =
     directHealMult === 1 ? selfHeal : Math.round(selfHeal * directHealMult);
+  const limitedRecoveryEffectMult =
+    input.combatMode === "pvp" && isLimitedRecoverySkillId(id)
+      ? PVP_LIMITED_RECOVERY_EFFECT_MULT
+      : 1;
+  const scaledSelfHeal = Math.floor(
+    patternScaledSelfHeal * limitedRecoveryEffectMult,
+  );
+  const scaledSelfHealOnMiss = Math.floor(
+    patternScaledSelfHealOnMiss * limitedRecoveryEffectMult,
+  );
   const boostedShield = shieldToApply
     ? {
         ...shieldToApply,
-        hp: applyRitualPower(shieldToApply.hp),
-        mp: applyRitualPower(shieldToApply.mp),
+        hp: Math.floor(
+          applyRitualPower(shieldToApply.hp) * limitedRecoveryEffectMult,
+        ),
+        mp: Math.floor(
+          applyRitualPower(shieldToApply.mp) * limitedRecoveryEffectMult,
+        ),
       }
     : undefined;
   return {

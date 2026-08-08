@@ -4,7 +4,12 @@ import {
   codexTabFromParam,
   codexThemeDeepDepth,
   shouldShowCodexTutorial,
+  spFruitCodexSource,
 } from "./V2CodexView";
+import {
+  commonIdsForDepthRange,
+  SKY_RIFT_WEAPON_IDS,
+} from "@/adventure/data/v2/dungeonUniqueDrops";
 
 describe("모험의 서 이용 안내", () => {
   it("처음 방문한 이용자에게 표시하고 확인 후에는 자동으로 숨긴다", () => {
@@ -29,6 +34,7 @@ describe("모험의 서 URL 탭", () => {
   it("탭이 없거나 잘못됐으면 기존 기본 탭을 사용한다", () => {
     expect(codexTabFromParam(null)).toBe("spFruit");
     expect(codexTabFromParam("unknown")).toBe("spFruit");
+    expect(codexTabFromParam("materials")).toBe("spFruit");
   });
 });
 
@@ -50,5 +56,41 @@ describe("모험의 서 사냥터 표시", () => {
       common: ["v2_canyon_greatsword"],
       set: ["v2_canyon_set_armor"],
     });
+  });
+
+  it("상위 사냥터의 태그 세트 장비도 세트로 분류한다", () => {
+    expect(
+      classifyCodexEquipmentIds([
+        "v2_throne_greatsword",
+        "v2_throne_black_armor",
+      ]),
+    ).toEqual({
+      common: [],
+      set: ["v2_throne_greatsword", "v2_throne_black_armor"],
+    });
+  });
+
+  it("마지막 지역의 정규 드랍은 모두 세트 장비로 표시한다", () => {
+    const ids = [
+      ...commonIdsForDepthRange(73, 78),
+      ...SKY_RIFT_WEAPON_IDS,
+    ];
+
+    const classified = classifyCodexEquipmentIds(ids);
+
+    expect(classified.common).toEqual([]);
+    expect(classified.set).toEqual(ids);
+  });
+});
+
+describe("모험의 서 SP 열매 획득처", () => {
+  it("SP 열매 IV에 협동 보스와 폭풍 원정 완주를 함께 표시한다", () => {
+    expect(spFruitCodexSource(4)).toBe(
+      "공허의 대사제 보상 · 폭풍 원정 완주 보상",
+    );
+  });
+
+  it("나머지 SP 열매는 기존 협동 보스 획득처만 표시한다", () => {
+    expect(spFruitCodexSource(1)).toBe("산군 보상");
   });
 });

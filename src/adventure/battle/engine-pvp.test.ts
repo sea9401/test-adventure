@@ -276,6 +276,41 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     });
   });
 
+  it("상태이상 피해는 보호막을 무시하고 HP에 직접 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 20,
+        def: 0,
+        bleedOnHit: { flatPerStack: 5, atkCoefPerStack: 0.12 },
+        hp: 1000,
+        maxHp: 1000,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        bulwarkShield: 50,
+        hp: 500,
+        maxHp: 500,
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 본타 20은 보호막에서 차감되지만 출혈 7은 남은 보호막 30을 건너뛴다.
+    expect(s1.p2.stacks.playerShield).toBe(30);
+    expect(s1.p2.hp).toBe(500 - Math.floor(5 + 20 * 0.12));
+    expect(
+      s1.log.find(
+        (e) => "effect" in e && e.effect === "status_damage",
+      ),
+    ).toMatchObject({ side: "p2" });
+  });
+
   it("그림자 분신 (shadowClone) — p1 턴 종료 시 분신 추가 데미지", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
@@ -844,6 +879,74 @@ describe("방어자 측 on-hit reflect / counter", () => {
     expect(s1.log.some((e) => e.text.includes("25 반사 피해"))).toBe(true);
   });
 
+  it("반사 피해를 공격자의 보호막이 전부 흡수한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 50,
+        def: 0,
+        bulwarkShield: 30,
+        hp: 500,
+        maxHp: 500,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        thornsPct: 50,
+        hp: 500,
+        maxHp: 500,
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 반사 25를 보호막 30이 전부 흡수한다.
+    expect(s1.p1.hp).toBe(500);
+    expect(s1.p1.stacks.playerShield).toBe(5);
+    expect(
+      s1.log.some((e) => e.text.includes("보호막이 반사 피해 25 흡수")),
+    ).toBe(true);
+    expect(s1.log.some((e) => e.text.includes("0 반사 피해"))).toBe(true);
+  });
+
+  it("보호막을 초과한 반사 피해만 공격자의 HP에 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 50,
+        def: 0,
+        bulwarkShield: 10,
+        hp: 500,
+        maxHp: 500,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 0,
+        thornsPct: 50,
+        hp: 500,
+        maxHp: 500,
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 반사 25 중 보호막이 10을 흡수하고 나머지 15만 HP에 적용한다.
+    expect(s1.p1.hp).toBe(485);
+    expect(s1.p1.stacks.playerShield).toBe(0);
+    expect(
+      s1.log.some((e) => e.text.includes("보호막이 반사 피해 10 흡수")),
+    ).toBe(true);
+    expect(s1.log.some((e) => e.text.includes("15 반사 피해"))).toBe(true);
+  });
+
   it("가시 갑옷 (bramblePct, 5tier) — 받은 HP 피해의 N% 추가 반사 (반사 갑주와 별개)", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
@@ -881,6 +984,42 @@ describe("방어자 측 on-hit reflect / counter", () => {
     // p2 takes 100 dmg → thorns 20% = 20. 반사 증폭 50% = 30.
     expect(s1.p1.hp).toBe(470);
     expect(s1.log.some((e) => e.text.includes("반사 증폭"))).toBe(true);
+  });
+
+  it("방어력 기반 반사는 피격 누적 방어와 무관하게 전투 시작 원량을 사용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 200, def: 0, hp: 500, maxHp: 500 }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 100,
+        hp: 1000,
+        maxHp: 1000,
+        thornsDefPct: 100,
+        thornsFlatFromDef: 100,
+        equipSignatures: [
+          {
+            trigger: "on_hit_taken",
+            label: "맥동석",
+            defGainOnHitPct: 50,
+          },
+        ],
+      }),
+      "P1",
+      "P2",
+    );
+
+    const s1 = advanceTurnPvP(s0);
+
+    // 본타 100 피해로 방어 +50이 누적돼도 반사 원량은 전투 시작 시 계산한 100을 유지한다.
+    expect(s1.p2.stacks.braceDefBonus).toBe(50);
+    expect(s1.p1.hp).toBe(400);
+    expect(
+      s1.log.some(
+        (e) => e.text.includes("수호 반사") && e.text.includes("100 반사 피해"),
+      ),
+    ).toBe(true);
   });
 
   it("무한 가시 (on-hit 분기) — 공격자 ATK 의 N% 반사", () => {
@@ -1064,10 +1203,51 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
 
     expect(cast.p1.stacks.signatureHitCount).toBe(3);
-    expect(cast.p1.attacksLeft).toBe(attacksBefore + 1);
+    expect(attacksBefore).toBeGreaterThanOrEqual(1);
+    expect(cast.p1.attacksLeft).toBe(1);
     expect(cast.log.some((entry) => entry.text.includes("추가 행동 1회"))).toBe(
       true,
     );
+  });
+
+  it("직접 피해 스킬 피격에도 방어력 기반 반사가 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 100,
+        def: 0,
+        hp: 500,
+        maxHp: 500,
+        maxMp: 1000,
+      }),
+      makePlayer({
+        spd: 5,
+        def: 40,
+        hp: 1000,
+        maxHp: 1000,
+        thornsDefPct: 100,
+        thornsFlatFromDef: 40,
+      }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1");
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.p1.hp).toBe(460);
+    expect(
+      cast.state.log.some(
+        (entry) =>
+          entry.text.includes("수호 반사") &&
+          entry.text.includes("40 반사 피해"),
+      ),
+    ).toBe(true);
   });
 
   it("월식 오프너는 PvE 5배 대신 PvP 전용 4배를 적용한다", () => {

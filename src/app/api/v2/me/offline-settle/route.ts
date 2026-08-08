@@ -151,6 +151,7 @@ export async function POST(req: Request) {
         dropFloor,
         outpostId: null,
         rareMapIid: null,
+        hpPotionTargetPct: autoStopConfig.hpPotionTargetPct,
         offline: true,
         nowOverride,
       };

@@ -18,9 +18,11 @@ import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 export const ARENA_MATCH_COOLDOWN_MS = 10_000;
 // 아레나 한정 최종 피해 배율. 다른 resolveBattlePvP 호출부(전초기지 등)는 기본값 1을 유지한다.
 export const ARENA_DAMAGE_MULTIPLIER = 0.65;
+// 아레나 한정 회복·보호막 생성 배율. 무자원 1회 회복기의 별도 PvP 제한과는 중복 적용하지 않는다.
+export const ARENA_SUSTAIN_MULTIPLIER = 0.65;
 export const ARENA_STAMINA_MATCHES_PER_STEP = 10;
 export const RECENT_OPPONENT_TRACK = 5;
-// 전투 기록 — 최근 N판을 리플레이 로그까지 저장(다시보기). 세이브 크기 바운드.
+// 전투 기록 — 최근 N판의 요약과 별도 저장된 replayId를 보존한다.
 export const ARENA_HISTORY_MAX = 50;
 
 // Elo 레이팅. 옛 누적 점수와 의미가 달라서 ratingVersion 으로 구분한다.
@@ -114,7 +116,13 @@ export function parseArenaHistory(value: unknown): ArenaHistoryEntry[] {
     }
     if (!o.opponent || typeof o.opponent !== "object") continue;
     const replay = o.replay as { log?: unknown } | null;
-    if (!replay || typeof replay !== "object" || !Array.isArray(replay.log)) {
+    if (
+      !replay ||
+      typeof replay !== "object" ||
+      !Array.isArray(replay.log) ||
+      (replay.log.length === 0 &&
+        typeof (replay as { replayId?: unknown }).replayId !== "string")
+    ) {
       continue;
     }
     // role 도입 전 기록 호환: 공격자는 결과와 무관하게 골드 보상을 받았고 방어자는 0이었다.

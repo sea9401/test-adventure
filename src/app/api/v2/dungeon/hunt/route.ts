@@ -89,6 +89,10 @@ import {
   toReplayPayloadLite,
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
+import {
+  BATTLE_REPLAY_RETENTION_DAYS,
+  storeBattleReplays,
+} from "@/lib/server/battleReplayStore";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
   parseEjectedFrom,
@@ -105,7 +109,11 @@ import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExpl
 import { rewardReferralProgress } from "@/lib/server/referrals";
 import { rollHuntDrops } from "./huntDrops";
 import { computeLossTax } from "./huntTax";
-import { computeBattleRewards, applyChargeRestore } from "./huntRewards";
+import {
+  applyChargeRestore,
+  computeBattleRewards,
+  hpPotionTargetAmount,
+} from "./huntRewards";
 import { updateRareMaps } from "./huntRareMaps";
 import {
   applyMonsterKill,
@@ -140,10 +148,6 @@ import {
 // 단일 무한 프론티어 — 깊이(depth) 1→∞. 조기 검증은 정수·≥1 만, 실제 게이트(최고도달+1)는
 // character.v2 lock 후. 드랍 풀은 깊이를 DungeonFloorId(1~8)로 클램프해 조회(8 이상=8 풀).
 const DROP_FLOOR_CAP = 8 as DungeonFloorId;
-// 배치에서도 각 전투를 다시 볼 수 있게 로그는 보존한다. 다만 50개 응답에서 긴 전투 로그가
-// 한꺼번에 커지지 않도록 단판(200)보다 낮은 tail cap을 둔다.
-const BATCH_REPLAY_LOG_CAP = 80;
-
 // 온라인 자동 사냥은 1.5초 간격(분당 약 40회)으로 요청한다. 네트워크 지연 뒤 재시도나
 // 수동 입력이 섞여도 정상 루프가 끊기지 않도록 전투 API 운영 권장 범위의 상한을 사용한다.
 // IP 제한은 이동통신사 CGNAT·PC방처럼 다수가 한 공인 IP를 공유하는 환경을 고려해
@@ -253,6 +257,8 @@ export type RunOneHuntCtx = {
   tileOutpostId?: string | null;
   // 레어맵 입장 — 보유 지도 iid. 검증(소유·깊이 일치·잔여 판수)은 save lock 후.
   rareMapIid: string | null;
+  // 전투 전·후 HP 충전약이 채울 목표 체력 비율. 미지정은 기존 동작인 100%.
+  hpPotionTargetPct?: number;
   // 오프라인 정산 모드 — 전투 쿨다운 게이트·per-battle lastBattleAt 기록을 건너뛴다(정산
   //   루프가 마지막에 한 번 lastBattleAt=realNow 기록). 패배 페널티/HP/포션/레벨업은 그대로 적용.
   offline?: boolean;
@@ -261,8 +267,6 @@ export type RunOneHuntCtx = {
   nowOverride?: number;
   // 온라인 일괄 사냥 전용. 첫 판이 잡은 row lock과 최신 save 상태를 같은 tx의 다음 판에서 재사용한다.
   batchState?: HuntBatchState;
-  // 단판 기본 200. 배치는 클릭 리플레이를 유지하되 긴 전투의 전송량만 제한한다.
-  replayLogCap?: number;
 };
 
 // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
@@ -646,7 +650,14 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   let startPlayerHp = regenResult.hp;
   let usedPreBattleHpCharge = false;
   if (!canHuntWithHp(startPlayerHp, player.maxHp) && hpCharges > 0) {
-    const restore = Math.min(player.maxHp - startPlayerHp, hpCharges);
+    const targetHp = hpPotionTargetAmount(
+      player.maxHp,
+      ctx.hpPotionTargetPct,
+    );
+    const restore = Math.min(
+      Math.max(0, targetHp - startPlayerHp),
+      hpCharges,
+    );
     if (restore > 0) {
       startPlayerHp += restore;
       hpCharges -= restore;
@@ -851,6 +862,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     maxMp,
     hpCharges,
     mpCharges,
+    hpTargetPct: ctx.hpPotionTargetPct,
   }));
   const nextInventory: InventorySave = {
     ...invSave,
@@ -1085,11 +1097,10 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         ejected: ejectedNotice,
         // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
         // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
-        // 로 BattleState 형태로 재구성. log 는 마지막 200 cap.
+        // 로 BattleState 형태로 재구성. 단판은 전체 로그를 즉시 응답하고, 일괄 사냥은
+        // 바깥 루프가 전체 payload를 별도 저장한 뒤 replayId 참조로 치환한다.
         replay: fullReplay
-          ? toReplayPayload(battleResult.finalState, ctx.replayLogCap ?? 200, {
-              depth,
-            })
+          ? toReplayPayload(battleResult.finalState, { depth })
           : toReplayPayloadLite(battleResult.finalState, { depth }),
         // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
         startPlayerHp,
@@ -1234,6 +1245,7 @@ async function handleHunt(req: Request, userId: string) {
       outpostId,
       tileOutpostId: lockedTileOutpostId,
       rareMapIid,
+      hpPotionTargetPct: autoStopConfig.hpPotionTargetPct,
     };
 
     // === 일괄(batch) 루프 ===
@@ -1245,7 +1257,6 @@ async function handleHunt(req: Request, userId: string) {
     const batchCtx: RunOneHuntCtx = {
       ...ctx,
       batchState,
-      replayLogCap: BATCH_REPLAY_LOG_CAP,
     };
     // count>1 — 한 트랜잭션에서 N회. 스태미나 부족·HP 부족·사망이면 중단(완료분은 커밋).
     let completed = 0;
@@ -1477,6 +1488,19 @@ async function handleHunt(req: Request, userId: string) {
       }
     }
 
+    // 최대 50판의 전체 로그를 한 응답에 싣지 않는다. 로그는 하루 동안 별도 보관하고
+    // 결과 목록에는 replayId와 전투 메타만 남겨, 사용자가 선택한 한 판만 지연 조회한다.
+    const deferredPayloads = await storeBattleReplays(
+      tx,
+      userId,
+      replays.map((entry) => entry.replay),
+      BATTLE_REPLAY_RETENTION_DAYS.batchHunt,
+    );
+    const deferredReplays = replays.map((entry, index) => ({
+      ...entry,
+      replay: deferredPayloads[index],
+    }));
+
     return {
       ok: true as const,
       status: 200,
@@ -1520,7 +1544,7 @@ async function handleHunt(req: Request, userId: string) {
           hpCharges,
           mpCharges,
           playerMaxMp,
-          replays,
+          replays: deferredReplays,
           ejected,
         },
       },

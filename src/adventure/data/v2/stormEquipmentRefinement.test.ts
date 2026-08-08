@@ -7,6 +7,7 @@ import {
 } from "./v2Equipment";
 import { rollQualityPct } from "./v2EquipVariance";
 import {
+  STORM_REFINEMENT_GOLD_COST,
   STORM_REFINEMENT_MATERIAL_COST,
   canStormRefine,
   isStormRefinementCandidate,
@@ -122,16 +123,37 @@ describe("6T 빌드 세트", () => {
 describe("특화 장비 폭풍 개량", () => {
   const item = V2_EQUIPMENT.v2_throne_sig_eclipse_staff;
 
-  it("4~5T 유니크만 대상으로 삼고 이미 개량한 장비는 다시 받지 않는다", () => {
+  it("6T 이전 비세트 유니크만 대상으로 삼고 이미 개량한 장비는 다시 받지 않는다", () => {
     expect(isStormRefinementCandidate(item)).toBe(true);
     expect(canStormRefine(item, {})).toBe(true);
     expect(canStormRefine(item, { stormRefined: true })).toBe(false);
+    expect(
+      isStormRefinementCandidate(V2_EQUIPMENT.v2_sanctum_sig_priest_armor),
+    ).toBe(false);
+    expect(
+      isStormRefinementCandidate(V2_EQUIPMENT.v2_boss_void_bastion),
+    ).toBe(false);
     expect(
       isStormRefinementCandidate(V2_EQUIPMENT.v2_storm_thunder_staff),
     ).toBe(false);
     expect(
       canStormRefine(V2_EQUIPMENT.v2_abyssruin_sig_apostle_staff, {}),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("대상 장비에는 구형·태그형 세트 장비가 한 개도 섞이지 않는다", () => {
+    const candidates = Object.values(V2_EQUIPMENT).filter(
+      isStormRefinementCandidate,
+    );
+
+    expect(candidates).toHaveLength(32);
+    expect(candidates.every((candidate) => !candidate.setId)).toBe(true);
+    expect(candidates.every((candidate) => !candidate.setTags?.length)).toBe(
+      true,
+    );
+    expect(
+      candidates.filter((candidate) => canStormRefine(candidate, {})),
+    ).toHaveLength(32);
   });
 
   it("위력을 낮추지 않으면서 굴림 품질과 옵션을 보존한다", () => {
@@ -168,11 +190,12 @@ describe("특화 장비 폭풍 개량", () => {
     expect(parsed.owned[0]).toMatchObject({
       iid: "eq_refined",
       stormRefined: true,
-      roll: { power: 600, powerBase: 550 },
+      roll: { power: 660, powerBase: 605, powerScaleVersion: 1 },
     });
   });
 
   it("7차 전직용 기원의 파편은 개량 재료로 소비하지 않는다", () => {
+    expect(STORM_REFINEMENT_GOLD_COST).toBe(10_000_000);
     expect(STORM_REFINEMENT_MATERIAL_COST).not.toHaveProperty(
       STORM_ORIGIN_FRAGMENT_MATERIAL_ID,
     );

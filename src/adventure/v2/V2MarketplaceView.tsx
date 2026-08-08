@@ -3369,14 +3369,13 @@ function BuyConfirm({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const roll =
-    listing.kind === "equip"
-      ? listingEquipRoll(listing.instancePayload)
-      : undefined;
   const item =
     listing.kind === "equip"
       ? V2_EQUIPMENT[listing.itemId as keyof typeof V2_EQUIPMENT]
       : null;
+  const roll = item
+    ? listingEquipRoll(item, listing.instancePayload)
+    : undefined;
   const detail =
     listing.kind === "equip"
       ? equipDetail(
@@ -3637,10 +3636,13 @@ function ListingList({
   return (
     <div className="space-y-2">
       {rows.map((l) => {
-        const roll =
+        const item =
           l.kind === "equip"
-            ? listingEquipRoll(l.instancePayload)
+            ? V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]
             : undefined;
+        const roll = item
+          ? listingEquipRoll(item, l.instancePayload)
+          : undefined;
         const detail =
           l.kind === "equip"
             ? equipDetail(
@@ -3649,10 +3651,6 @@ function ListingList({
                 listingEnhance(l.instancePayload),
                 listingCraftQuality(l.instancePayload),
               )
-            : null;
-        const item =
-          l.kind === "equip"
-            ? V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]
             : null;
         const progressionLock =
           item && frontierDepth != null

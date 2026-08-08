@@ -43,6 +43,9 @@ export type ReplayPayload = {
   // 복원할 때는 로그의 마지막 HP/MP 스냅샷으로 폴백한다.
   enemyMp?: number;
   enemyMaxMp?: number;
+  // 묶음 결과는 전체 로그를 별도 저장한다. log=[]이고 replayId가 있으면 클라이언트가
+  // /api/v2/battle-replays/[replayId]에서 전체 payload를 지연 조회한다.
+  replayId?: string;
   log: BattleLogEntry[];
 };
 
@@ -55,22 +58,6 @@ export type StoredReplayEnvelope = {
   // 프로필 아바타 성별 — 없으면 클라가 기본값 폴백 (NPC 정기 공격 등).
   gender?: string;
 };
-
-// 로그를 마지막 logCap 개로 자르되, 잘렸으면 깔끔하게 — 첫 turn_marker 앞의 잘린-턴 잔여
-// entry 를 떼어내(머리 없는 그룹 방지) 첫 그룹이 항상 "N턴" 헤더로 시작하게 하고, "앞선 턴 생략"
-// 안내를 맨 앞에 끼운다(전투가 끊긴 게 아니라 긴 전투의 뒷부분임을 명시). cap 이하면 원본 그대로.
-// 참고: 자른 경우 생략 안내는 의도적으로 *항상* 맨 앞에 붙인다 — tail 이 이미 turn_marker 로
-// 깔끔히 시작(firstMarker===0)하더라도 "앞이 생략됐다"는 신호 자체가 목적이라 그대로 붙인다.
-export function clampReplayLog(
-  log: BattleLogEntry[],
-  cap: number,
-): BattleLogEntry[] {
-  if (log.length <= cap) return log;
-  let tail = log.slice(-cap);
-  const firstMarker = tail.findIndex((e) => e.kind === "turn_marker");
-  if (firstMarker > 0) tail = tail.slice(firstMarker);
-  return [{ kind: "info", text: "앞선 턴 기록 생략 (긴 전투)" }, ...tail];
-}
 
 type ReplayPayloadOptions = {
   depth?: number;
@@ -102,7 +89,6 @@ function replayEnemy(
 // 서버 — finalState 에서 필요 필드만 추출.
 export function toReplayPayload(
   finalState: BattleState,
-  logCap: number,
   options?: ReplayPayloadOptions,
 ): ReplayPayload {
   return {
@@ -112,18 +98,26 @@ export function toReplayPayload(
     playerMp: finalState.playerMp,
     enemyMp: finalState.enemyMp,
     enemyMaxMp: finalState.enemyMaxMp,
-    log: clampReplayLog(finalState.log, logCap),
+    log: finalState.log,
   };
 }
 
-// 허수아비처럼 전투 횟수가 서버에서 짧게 제한된 연습전용 전체 로그 payload.
-// 일반 사냥/PvP의 저장·응답 크기 cap은 그대로 두고, 호출한 모의전 한 판의 첫 기록부터
-// 마지막 기록까지 보존한다.
+// 기존 연습전 호출부용 명시적 별칭. 모든 사용자 다시보기가 이제 전체 로그를 보존하므로
+// 일반 변환과 결과는 같다.
 export function toFullReplayPayload(
   finalState: BattleState,
   options?: ReplayPayloadOptions,
 ): ReplayPayload {
-  return toReplayPayload(finalState, finalState.log.length, options);
+  return toReplayPayload(finalState, options);
+}
+
+// 전체 payload를 별도 저장한 뒤 목록/묶음 응답에 넣는 가벼운 참조형. 전투 메타는 그대로라
+// 결과 카드가 즉시 그려지고, 로그만 사용자가 열 때 내려받는다.
+export function toDeferredReplayPayload(
+  payload: ReplayPayload,
+  replayId: string,
+): ReplayPayload {
+  return { ...payload, replayId, log: [] };
 }
 
 // PvP(아레나) 배틀 → ReplayPayload 변환. resolveBattlePvP 의 finalState 는 p1/p2 두 사이드 +
@@ -139,7 +133,6 @@ export function toPvpReplayPayloadForSide(
   },
   perspective: "p1" | "p2",
   opponentName: string,
-  logCap: number,
 ): ReplayPayload {
   const opponentSide = perspective === "p1" ? "p2" : "p1";
   const remapped: BattleLogEntry[] = finalState.log.map((e) => {
@@ -184,7 +177,7 @@ export function toPvpReplayPayloadForSide(
     playerMp: me.mp,
     enemyMp: opponent.mp,
     enemyMaxMp: opponent.maxMp,
-    log: clampReplayLog(remapped, logCap),
+    log: remapped,
   };
 }
 
@@ -195,14 +188,12 @@ export function toPvpReplayPayload(
     log: BattleLogEntry[];
   },
   opponentName: string,
-  logCap: number,
 ): ReplayPayload {
-  return toPvpReplayPayloadForSide(finalState, "p1", opponentName, logCap);
+  return toPvpReplayPayloadForSide(finalState, "p1", opponentName);
 }
 
-// 일괄(batch) 사냥용 경량 payload — 클라 배치 집계는 playerMaxMp 만 읽고 log/enemy 는 버린다.
-//   full toReplayPayload 의 clampReplayLog(최대 200 entry slice + scan)을 건너뛰어 판마다 발생하던
-//   로그 복사/할당을 없앤다. log 는 [](미사용). 단판(count===1)은 full payload 그대로 — 무변경.
+// 로그가 필요 없는 서버 내부 시뮬레이션용 경량 payload. 전투 메타만 유지하고 log는 비운다.
+// 사용자에게 제공하는 단판·묶음 다시보기는 모두 toReplayPayload의 전체 로그를 사용한다.
 export function toReplayPayloadLite(
   finalState: BattleState,
   options?: ReplayPayloadOptions,

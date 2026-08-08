@@ -34,6 +34,11 @@ describe("mintRolledEquipInstance", () => {
     expect(a.roll).toEqual(b.roll);
     expect(a.iid).not.toBe(b.iid);
   });
+
+  it("새 6티어 굴림에는 현재 위력 보정 버전을 기록한다", () => {
+    const inst = mintRolledEquipInstance("v2_storm_gale_bow", () => 0.5);
+    expect(inst.roll?.powerScaleVersion).toBe(1);
+  });
 });
 
 describe("mintListedEquipInstance (거래소 payload 복원)", () => {
@@ -51,14 +56,18 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
     expect(inst.roll).toEqual(roll);
   });
 
-  it("폭풍 개량의 품질 기준 위력과 개량 표식을 거래 뒤에도 보존한다", () => {
+  it("옛 폭풍 개량 매물의 위력을 상향하고 개량 표식을 보존한다", () => {
     const inst = mintListedEquipInstance(ANY_ID, {
       power: 620,
       weight: 0,
       powerBase: 550,
       stormRefined: true,
     });
-    expect(inst.roll).toMatchObject({ power: 620, powerBase: 550 });
+    expect(inst.roll).toMatchObject({
+      power: 682,
+      powerBase: 605,
+      powerScaleVersion: 1,
+    });
     expect(inst.stormRefined).toBe(true);
   });
 

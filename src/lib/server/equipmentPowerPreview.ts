@@ -3,7 +3,7 @@ import "server-only";
 import {
   V2_EQUIPMENT,
   parseCraftedBy,
-  parseEquipRoll,
+  parseEquipRollForItem,
   parseEquipmentSave,
   parseInstanceCraftQuality,
   type V2EquipInstance,
@@ -82,7 +82,10 @@ export function previewEquipmentPowerFromSaves(input: {
     candidate = {
       iid: previewIid,
       id: itemId as keyof typeof V2_EQUIPMENT,
-      roll: parseEquipRoll(input.candidate.roll),
+      roll: parseEquipRollForItem(
+        V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT],
+        input.candidate.roll,
+      ),
       enhance: craftQuality
         ? undefined
         : parseEnhance(input.candidate.enhance),

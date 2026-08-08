@@ -483,8 +483,33 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // t1 순수 물리: 공격력×1.2 + 힘×0.1 - 방어력 20.
-    expect(result.enemyDamage).toBe(120);
+    // t1 순수 물리: 공격력×1.08 + 힘×0.5 - 방어력 20.
+    expect(result.enemyDamage).toBe(188);
+  });
+
+  it("무심검은 현 세대 힘 300의 총량을 유지하면서 장기 힘 투자에 크게 보상한다", () => {
+    const cast = (str: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2c_swordsaint_flash"],
+          equipped: ["v2c_swordsaint_flash"],
+        },
+        cooldowns: {},
+        procRoll: 0,
+        attacker: {
+          mp: 10_000,
+          atk: 1_000,
+          str,
+          maxHp: 10_000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+
+    // 본타 공격력×1.3 + 힘×1.3, 여기에 무심검의 15% 관통 추가 피해.
+    expect(cast(300).enemyDamage).toBe(1_944);
+    expect(cast(1_000).enemyDamage).toBe(2_990);
   });
 
   it("heal effect — pctMaxHp 비례", () => {
@@ -672,6 +697,33 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
 
     expect(result.selfHeal).toBeGreaterThan(0);
     expect(removeMissedV2SkillTargetEffects(result).selfHeal).toBe(0);
+  });
+
+  it("혈성기사 HP 소모기는 저체력에서도 최대 HP 50% 기준 추가 피해를 보장한다", () => {
+    const castAt = (currentHp: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2c_bloodtemplar_stigma"],
+          equipped: ["v2c_bloodtemplar_stigma"],
+        },
+        cooldowns: {},
+        attacker: {
+          mp: 1000,
+          atk: 100,
+          str: 100,
+          maxHp: 1000,
+          currentHp,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+
+    const atFloor = castAt(500);
+    const belowFloor = castAt(250);
+    expect(atFloor.selfHpCost).toBe(40);
+    expect(belowFloor.selfHpCost).toBe(20);
+    expect(belowFloor.enemyDamage).toBe(atFloor.enemyDamage);
   });
 
   it("독립 자가 회복은 공격이 빗나가도 유지한다", () => {

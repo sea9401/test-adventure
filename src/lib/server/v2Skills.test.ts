@@ -27,7 +27,7 @@ import {
 import type { DbExecutor } from "@/lib/server/savesKv";
 
 const FRUIT_BUDGET_LOADOUT = [
-  "v2c_warrior_strike", // 5
+  "v2c_warrior_strike", // 4
   "v2c_mage_boltcast", // 5
   "v2c_warrior_might", // 3
 ] as const;
@@ -39,6 +39,7 @@ const OVER_BUDGET_LOADOUT = [
   "v2c_archmage_collapse",
   "v2c_primordialmage_return",
   "v2c_absolute_unity",
+  "v2c_blackmoon_dominion",
 ] as const;
 
 const FARMING_UNLOCK_LOADOUT = [

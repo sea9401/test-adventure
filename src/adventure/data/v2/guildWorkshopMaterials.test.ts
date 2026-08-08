@@ -4,6 +4,7 @@ import {
   GUILD_WORKSHOP_MATERIAL_IDS,
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_DROP_PCT,
+  GUILD_WORKSHOP_MATERIAL_DROP_RULES,
   rollGuildWorkshopMaterialDrops,
 } from "./guildWorkshopMaterials";
 
@@ -27,6 +28,7 @@ describe("guild workshop materials", () => {
   });
 
   it("rolls only the material band for the current depth", () => {
+    expect(GUILD_WORKSHOP_MATERIAL_DROP_RULES).toHaveLength(5);
     expect(rollGuildWorkshopMaterialDrops(7, () => 0)).toEqual({
       [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1,
     });

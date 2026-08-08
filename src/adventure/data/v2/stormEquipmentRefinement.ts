@@ -1,5 +1,6 @@
 import {
   V2_EQUIPMENT,
+  TIER_6_POWER_SCALE_VERSION,
   type V2EquipInstance,
   type V2Equipment,
   type V2EquipRoll,
@@ -11,7 +12,7 @@ import {
 } from "./stormExpeditionRewards";
 
 /** 특화 단품을 버리지 않고 6T 조합의 1+1 자리에 남기는 확정 개량. */
-export const STORM_REFINEMENT_GOLD_COST = 1_000_000;
+export const STORM_REFINEMENT_GOLD_COST = 10_000_000;
 export const STORM_REFINEMENT_ROUTE_MATERIAL_COST = 6;
 export const STORM_REFINEMENT_HEART_COST = 1;
 
@@ -24,9 +25,20 @@ export const STORM_REFINEMENT_MATERIAL_COST: Readonly<Record<string, number>> = 
   [STORM_HEART_FRAGMENT_MATERIAL_ID]: STORM_REFINEMENT_HEART_COST,
 };
 
-/** 앞서 추가된 4~5T 특화 유니크. 일반 장비나 완성된 6T 세트는 대상이 아니다. */
+/**
+ * 6T 이전 구간의 비세트 특화 유니크만 대상으로 삼는다.
+ *
+ * setId(구형 세트)와 setTags(태그형 세트)를 모두 검사해, 세트 장비가 새로
+ * 추가되더라도 폭풍 개량 목록에 섞이지 않게 한다.
+ */
 export function isStormRefinementCandidate(item: V2Equipment): boolean {
-  return item.rarity === "unique" && item.tier >= 7 && item.tier <= 12;
+  return (
+    item.rarity === "unique" &&
+    item.tier >= 7 &&
+    item.tier <= 12 &&
+    !item.setId &&
+    !(item.setTags?.length)
+  );
 }
 
 export function canStormRefine(
@@ -95,6 +107,7 @@ export function stormRefinedRoll(
         ? { options: { ...item.options } }
         : {}),
     powerBase: targetBase,
+    powerScaleVersion: TIER_6_POWER_SCALE_VERSION,
   };
 }
 

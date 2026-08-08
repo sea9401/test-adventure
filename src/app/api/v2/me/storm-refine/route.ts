@@ -21,7 +21,7 @@ type CharSave = {
   [key: string]: unknown;
 };
 
-// POST /api/v2/me/storm-refine — 4~5T 특화 유니크를 6T 위력대로 확정 개량한다.
+// POST /api/v2/me/storm-refine — 6T 이전 비세트 특화 유니크를 6T 위력대로 확정 개량한다.
 // 옵션 굴림·강화·제작 품질·잠금·장착 상태는 유지하고 위력 굴림의 상대 품질만 옮긴다.
 export async function POST(req: Request) {
   const userId = await ensureUser();

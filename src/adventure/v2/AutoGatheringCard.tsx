@@ -137,9 +137,17 @@ export function AutoGatheringCard({
 
       {session ? (
         <div className={`${SURFACE_INSET} p-3 text-xs`}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-semibold">{session.sourceName}</span>
-            <span className="font-bold tabular-nums">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <span
+              title={session.sourceName}
+              className="min-w-0 truncate font-semibold"
+            >
+              {session.sourceName}
+            </span>
+            <span
+              data-auto-gathering-time={ready ? "ready" : "remaining"}
+              className="shrink-0 whitespace-nowrap font-bold tabular-nums"
+            >
               {ready ? "정산 가능" : `남은 시간 ${remainingLabel(session.readyAt, now)}`}
             </span>
           </div>

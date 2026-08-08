@@ -393,7 +393,6 @@ export async function POST(req: Request) {
             }),
           }
         : battleResult.finalState,
-      200,
     );
 
     // === 5. contributor UPSERT + 공격 로그 ===

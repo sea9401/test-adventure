@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, resolveBattleMock } = vi.hoisted(() => ({
+const { store, resolveBattleMock, prepareBattleActorMock } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   resolveBattleMock: vi.fn(),
+  prepareBattleActorMock: vi.fn(),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -14,24 +15,7 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 }));
 
 vi.mock("@/lib/server/v2BattlePrep", () => ({
-  prepareV2BattleActor: vi.fn(async () => ({
-    player: {
-      maxHp: 1_000,
-      player: {
-        hp: 1_000,
-        maxHp: 1_000,
-        mp: 500,
-        maxMp: 500,
-        atk: 100,
-        magicAtk: 100,
-        def: 50,
-        spd: 50,
-        evasionPct: 0,
-        attackCount: 1,
-      },
-    },
-    skills: { learned: [], equipped: [] },
-  })),
+  prepareV2BattleActor: prepareBattleActorMock,
 }));
 
 vi.mock("@/adventure/v2/combat/engine", () => ({
@@ -128,7 +112,30 @@ describe("POST /api/v2/storm-expedition", () => {
     resolveBattleMock.mockReturnValue({
       outcome: "win",
       turns: 1,
-      finalState: { playerHp: 700, playerMp: 300 },
+      finalState: {
+        playerHp: 700,
+        playerMp: 300,
+        v2SkillCooldowns: {},
+      },
+    });
+    prepareBattleActorMock.mockReset();
+    prepareBattleActorMock.mockResolvedValue({
+      player: {
+        maxHp: 1_000,
+        player: {
+          hp: 1_000,
+          maxHp: 1_000,
+          mp: 500,
+          maxMp: 500,
+          atk: 100,
+          magicAtk: 100,
+          def: 50,
+          spd: 50,
+          evasionPct: 0,
+          attackCount: 1,
+        },
+      },
+      skills: { learned: [], equipped: [] },
     });
   });
 
@@ -256,6 +263,87 @@ describe("POST /api/v2/storm-expedition", () => {
       },
     });
 
+  });
+
+  it("제한 회복기는 원정에서 사용한 뒤 다음 전투부터 장착 목록에서 제외한다", async () => {
+    const treatment = "v2c_fieldmedic_treatment";
+    const shadowStep = "v2c_shadow_shadowstep";
+    prepareBattleActorMock.mockResolvedValue({
+      player: {
+        maxHp: 1_000,
+        player: {
+          hp: 1_000,
+          maxHp: 1_000,
+          mp: 500,
+          maxMp: 500,
+          atk: 100,
+          magicAtk: 100,
+          def: 50,
+          spd: 50,
+          evasionPct: 0,
+          attackCount: 1,
+        },
+      },
+      skills: {
+        learned: [treatment, shadowStep],
+        equipped: [treatment, shadowStep],
+      },
+    });
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 1,
+      clears: 0,
+      active: {
+        version: 2,
+        routeId: "gale",
+        nodeIndex: 0,
+        encounterIndex: 0,
+        hp: 600,
+        mp: 300,
+        maxHp: 1_000,
+        maxMp: 500,
+        defeatedCount: 0,
+        pendingGold: 0,
+        pendingMaterials: {},
+        pendingEquipment: [],
+        boons: [],
+        nextBattleEffects: [],
+        usedRecoverySkillIds: [],
+        altarOffers: ["tempest_might", "storm_guard", "deep_mana"],
+        chosenChoices: {},
+      },
+    });
+    resolveBattleMock.mockReturnValue({
+      outcome: "win",
+      turns: 1,
+      finalState: {
+        playerHp: 700,
+        playerMp: 300,
+        v2SkillCooldowns: {
+          [treatment]: 999_999,
+          [shadowStep]: 999_999,
+        },
+      },
+    });
+
+    const first = await POST(request({ action: "fight" }));
+    expect(first.status).toBe(200);
+    expect(resolveBattleMock.mock.calls[0]?.[3].v2Skills.equipped).toEqual([
+      treatment,
+      shadowStep,
+    ]);
+    expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
+      active: {
+        encounterIndex: 1,
+        usedRecoverySkillIds: [treatment],
+      },
+    });
+
+    const second = await POST(request({ action: "fight" }));
+    expect(second.status).toBe(200);
+    expect(resolveBattleMock.mock.calls[1]?.[3].v2Skills.equipped).toEqual([
+      shadowStep,
+    ]);
   });
 
   it("공통 최종 보스 처치 시 7전투 누적 보상과 확정 재료를 정산한다", async () => {

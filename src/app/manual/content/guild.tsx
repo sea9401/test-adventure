@@ -30,6 +30,8 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { GUILD_ALCHEMY_RECIPES } from "@/adventure/data/v2/guildAlchemy";
 import {
+  GUILD_DINING_BASE_WEEKLY_TICKETS,
+  GUILD_DINING_EFFECT_DURATION_HOURS,
   GUILD_DINING_INGREDIENTS,
   GUILD_DINING_MENUS,
   GUILD_DINING_POINTS_PER_TICKET,
@@ -124,15 +126,16 @@ export function GuildContent() {
       <P>
         길드원은 길드 정보 화면에서 개인 골드를 <Em>길드 금고</Em>에 입금할 수
         있습니다. 주간 탐사와 교역 계약 보상도 길드 자금에 더해집니다. 길드
-        금고는 길드 레벨과 시설을 개방하거나 업그레이드할 때 사용합니다.
+        금고는 길드 레벨과 시설을 업그레이드할 때 사용합니다.
       </P>
 
-      <H2>길드 시설 업그레이드</H2>
+      <H2>길드 시설</H2>
       <P>
-        개방된 시설이 Lv.5 미만이면 다음 레벨의 재료 기부가 항상 열려 있습니다.
-        길드원 누구나 생활에서 얻은 <Em>모든 등급의 원목·광석</Em>을 원하는
-        만큼 보탤 수 있으며, 시설 단계가 오를수록 상위 원목과 광석도 함께
-        요구합니다.
+        길드를 창단하면 제작소·훈련장·탐사 본부·연금 공방·길드 식당·교역소·길드
+        창고가 모두 <Em>Lv.1</Em>로 기본 지급됩니다. 별도의 개방 비용은 없습니다.
+        시설이 Lv.5 미만이면 다음 레벨의 재료 기부가 항상 열려 있으며, 길드원
+        누구나 생활에서 얻은 <Em>모든 등급의 원목·광석</Em>을 원하는 만큼 보탤
+        수 있습니다. 시설 단계가 오를수록 상위 원목과 광석도 함께 요구합니다.
       </P>
       <Table
         head={["목표 레벨", "공통 생활 재료 요구량"]}
@@ -309,7 +312,7 @@ export function GuildContent() {
       </P>
       <UL>
         <li>
-          이번 주 참여 대상 길드원은 식재료 기부 여부와 관계없이 기본 식권 1장을
+          이번 주 참여 대상 길드원은 식재료 기부 여부와 관계없이 기본 식권 {GUILD_DINING_BASE_WEEKLY_TICKETS}장을
           받습니다. 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
           시설 레벨별 한도까지 식권을 추가로 받습니다.
         </li>
@@ -329,7 +332,7 @@ export function GuildContent() {
           `최대 ${upgrade.weeklyMealTickets}장`,
           `${upgrade.weeklyMenuSlots}종`,
         ])}
-        caption="모든 주간 참여 길드원은 기본 식권 1장을 받습니다. 시설 레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다."
+        caption={`모든 주간 참여 길드원은 기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장을 받습니다. 시설 레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다.`}
       />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
@@ -354,7 +357,7 @@ export function GuildContent() {
           `Lv.${menu.minFacilityLevel}`,
           menu.description,
         ])}
-        caption="지속 효과 메뉴는 식권 1장당 12시간 적용됩니다. 같은 메뉴는 남은 시간에 12시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다."
+        caption={`지속 효과 메뉴는 식권 1장당 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간 적용됩니다. 같은 메뉴는 남은 시간에 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다.`}
       />
 
       <H2>길드 교역소</H2>
@@ -441,7 +444,8 @@ export function GuildContent() {
         <li>
           기본 제작 목록은 <Em>수호 · 격노 · 질풍 · 룬 · 연격 · 부식각인</Em>{" "}
           제작 세트 장비를 중심으로 표시됩니다. 드랍 장비와 같은 일반 레시피는
-          초반 숙련도 보강용 수련 제작으로 분리됩니다.
+          초반 숙련도 보강용 수련 제작으로 분리됩니다. 자주 만드는 레시피는
+          별표로 즐겨찾기에 저장하고 즐겨찾기 필터로 모아 볼 수 있습니다.
         </li>
         <li>
           같은 티어는 부위와 관계없이 원목·광석 총량이 같습니다. 수호는 광석

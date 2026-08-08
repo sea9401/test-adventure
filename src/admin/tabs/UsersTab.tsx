@@ -26,7 +26,7 @@ function formatLastSeen(iso: string | null): string {
 }
 
 export function UsersTab() {
-  const { readOnly, showToast } = useAdmin();
+  const { adminMe, readOnly, showToast } = useAdmin();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
 
@@ -39,6 +39,8 @@ export function UsersTab() {
   const [saves, setSaves] = useState<SavesMap | null>(null);
   const [savesLoading, setSavesLoading] = useState(false);
   const [savesError, setSavesError] = useState<string | null>(null);
+  const [stormExpeditionResetting, setStormExpeditionResetting] =
+    useState(false);
 
   const runSearch = useCallback(async (q: string) => {
     setSearchLoading(true);
@@ -227,6 +229,41 @@ export function UsersTab() {
     }
   };
 
+  const resetStormExpeditionDailyAttempts = async () => {
+    if (!selected || readOnly || !adminMe?.capabilities.reward) return;
+    const name = selected.gameName?.trim() || selected.email || selected.id;
+    const ok = window.confirm(
+      `「${name}」 님의 오늘 폭풍 원정 입장 사용 횟수를 0회로 초기화합니다.\n` +
+        "진행 중 원정과 누적 완주·SP 열매 기록은 유지됩니다.",
+    );
+    if (!ok) return;
+
+    setStormExpeditionResetting(true);
+    try {
+      const result = await adminPost<{
+        previousAttemptsUsed?: number;
+        attemptsUsed?: number;
+        attemptsLeft?: number;
+        activePreserved?: boolean;
+      }>("/api/admin/storm-expedition/reset", { userId: selected.id });
+      showToast(
+        `폭풍 원정 횟수 초기화 완료: ${result.previousAttemptsUsed ?? 0}회 → ${
+          result.attemptsUsed ?? 0
+        }회, 오늘 ${result.attemptsLeft ?? 3}회 입장 가능${
+          result.activePreserved ? " (진행 중 원정 유지)" : ""
+        }.`,
+      );
+    } catch (e) {
+      showToast(
+        `폭풍 원정 횟수 초기화 실패: ${
+          e instanceof Error ? e.message : "오류"
+        }`,
+      );
+    } finally {
+      setStormExpeditionResetting(false);
+    }
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-[320px_1fr]">
       <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -309,6 +346,11 @@ export function UsersTab() {
             onGrantV2={grantV2}
             onResetCharacter={resetCharacter}
             onResetMasteryTowerDaily={resetMasteryTowerDaily}
+            onResetStormExpeditionDailyAttempts={
+              resetStormExpeditionDailyAttempts
+            }
+            canResetStormExpedition={Boolean(adminMe?.capabilities.reward)}
+            stormExpeditionResetting={stormExpeditionResetting}
             onReload={() => loadSaves(selected.id)}
           />
         )}

@@ -84,6 +84,40 @@ export const GUILD_WORKSHOP_MATERIAL_DROP_PCT: Record<
   [GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel]: 0.0017,
 };
 
+export type GuildWorkshopMaterialDropRule = {
+  materialId: GuildWorkshopMaterialId;
+  minDepth: number;
+  maxDepth?: number;
+};
+
+// 실제 드랍과 모험의 서가 같은 깊이 구간을 사용하도록 규칙을 데이터로 공유한다.
+// 오로라 결정과 심해성철은 65단계부터 서로 독립적으로 함께 드랍될 수 있다.
+export const GUILD_WORKSHOP_MATERIAL_DROP_RULES: readonly GuildWorkshopMaterialDropRule[] = [
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
+    minDepth: 7,
+    maxDepth: 18,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
+    minDepth: 19,
+    maxDepth: 30,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+    minDepth: 31,
+    maxDepth: 42,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
+    minDepth: 43,
+  },
+  {
+    materialId: GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel,
+    minDepth: 65,
+  },
+];
+
 export const GUILD_WORKSHOP_MATERIAL_SOURCES: Record<
   GuildWorkshopMaterialId,
   {
@@ -125,23 +159,11 @@ export function rollGuildWorkshopMaterialDrops(
 ): Record<string, number> {
   const depth = Math.max(1, Math.floor(depthRaw));
   const out: Record<string, number> = {};
-  const candidates: GuildWorkshopMaterialId[] = [];
-  if (depth >= 7 && depth <= 18) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.refinedIron);
-  }
-  if (depth >= 19 && depth <= 30) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.mithrilShard);
-  }
-  if (depth >= 31 && depth <= 42) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.sunstone);
-  }
-  if (depth >= 43) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal);
-  }
-  // 폭풍 산맥의 최심부 쌍(65~66)과 심해 폐허 전 구간(67~72).
-  if (depth >= 65) {
-    candidates.push(GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel);
-  }
+  const candidates = GUILD_WORKSHOP_MATERIAL_DROP_RULES.filter(
+    (rule) =>
+      depth >= rule.minDepth &&
+      (rule.maxDepth == null || depth <= rule.maxDepth),
+  ).map((rule) => rule.materialId);
 
   for (const id of candidates) {
     if (rng() < GUILD_WORKSHOP_MATERIAL_DROP_PCT[id]) {

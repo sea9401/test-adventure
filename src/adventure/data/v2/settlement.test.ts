@@ -126,23 +126,26 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 연성력 30 · 조제법 Lv.5");
   });
 
-  it("길드 식당은 레벨마다 운영 메뉴가 늘고 Lv5에서 기여 식권 5장을 연다", () => {
+  it("길드 식당은 레벨마다 운영 메뉴가 늘고 Lv5에서 기여 식권 20장을 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("dining_hall");
     expect(DINING_HALL_UPGRADES.map((upgrade) => upgrade.weeklyMenuSlots)).toEqual([
       1, 2, 3, 4, 5,
     ]);
+    expect(DINING_HALL_UPGRADES.map((upgrade) => upgrade.weeklyMealTickets)).toEqual([
+      8, 8, 12, 16, 20,
+    ]);
     expect(nextSettlementBuildingUpgrade("dining_hall", 1)).toMatchObject({
       level: 2,
       cost: { crop: 500, ore: 500, gold: 20_000_000, fame: 0 },
-      weeklyMealTickets: 2,
+      weeklyMealTickets: 8,
       weeklyMenuSlots: 2,
     });
     expect(diningHallUpgradeForLevel(4)).toMatchObject({
-      weeklyMealTickets: 4,
+      weeklyMealTickets: 16,
       weeklyMenuSlots: 4,
     });
     expect(diningHallUpgradeForLevel(5)).toMatchObject({
-      weeklyMealTickets: 5,
+      weeklyMealTickets: 20,
       weeklyMenuSlots: 5,
       label: "길드 대연회장",
     });
@@ -151,7 +154,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "dining_hall",
         diningHallUpgradeForLevel(5),
       ),
-    ).toBe("기본 식권 1장 + 기여 식권 5장 · 메뉴 5종");
+    ).toBe("기본 식권 4장 + 기여 식권 20장 · 메뉴 5종");
   });
 
   it("길드 교역소는 매 레벨 토큰·납품 한도·완료 보상을 크게 높인다", () => {

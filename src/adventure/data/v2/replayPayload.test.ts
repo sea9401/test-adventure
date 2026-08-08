@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildBattleStateFromReplay,
+  toDeferredReplayPayload,
   toFullReplayPayload,
   toReplayPayload,
   toReplayPayloadLite,
@@ -35,6 +36,27 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(p.log.some((entry) => entry.text.includes("생략"))).toBe(false);
   });
 
+  it("일반 다시보기도 예전 상한을 넘는 전체 로그를 보존한다", () => {
+    const p = toReplayPayload(fixture(500));
+
+    expect(p.log).toHaveLength(500);
+    expect(p.log[0]).toMatchObject({ text: "줄 0" });
+    expect(p.log.at(-1)).toMatchObject({ text: "줄 499" });
+  });
+
+  it("별도 저장 참조는 메타와 replayId를 유지하고 인라인 로그만 비운다", () => {
+    const full = toReplayPayload(fixture(500));
+    const deferred = toDeferredReplayPayload(full, "replay-id");
+
+    expect(deferred).toMatchObject({
+      replayId: "replay-id",
+      enemy: full.enemy,
+      playerMaxHp: full.playerMaxHp,
+      log: [],
+    });
+    expect(full.log).toHaveLength(500);
+  });
+
   it("배치가 읽는 메타(playerMaxMp 등)는 담고 log 는 빈 배열(무거운 복사 회피)", () => {
     const p = toReplayPayloadLite(fixture(500));
     expect(p.playerMaxMp).toBe(120); // 배치 집계가 읽는 유일 필드
@@ -54,7 +76,7 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
       ...fixture(3),
       enemy: { name: "불도마뱀", hp: 200, image: "x.webp", element: "fire" },
     } as unknown as BattleState;
-    expect(toReplayPayload(fs, 200).enemy.element).toBe("fire");
+    expect(toReplayPayload(fs).enemy.element).toBe("fire");
     expect(toReplayPayloadLite(fs).enemy.element).toBe("fire");
   });
 
@@ -72,7 +94,7 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
         critPct: 25,
       },
     } as unknown as BattleState;
-    expect(toReplayPayload(fs, 200).enemy).toMatchObject({
+    expect(toReplayPayload(fs).enemy).toMatchObject({
       atkType: "magic",
       critPct: 25,
     });
@@ -93,7 +115,7 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
         bonusAttackChancePct: 35,
       },
     } as unknown as BattleState;
-    expect(toReplayPayload(fs, 200, { depth: 12 }).enemy).toMatchObject({
+    expect(toReplayPayload(fs, { depth: 12 }).enemy).toMatchObject({
       spd: 6,
       actionSpd: 57,
       bonusAttackChancePct: 35,
@@ -107,7 +129,7 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
 
   it("full toReplayPayload 와 메타 필드는 동일 — log 만 다름(단판 무변경 보증)", () => {
     const fs = fixture(10);
-    const full = toReplayPayload(fs, 200);
+    const full = toReplayPayload(fs);
     const lite = toReplayPayloadLite(fs);
     expect(lite.enemy).toEqual(full.enemy);
     expect(lite.playerMaxHp).toBe(full.playerMaxHp);
@@ -125,7 +147,7 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
       enemyMp: 20,
       enemyMaxMp: 75,
     } as BattleState;
-    const payload = toReplayPayload(fs, 200);
+    const payload = toReplayPayload(fs);
     const restored = buildBattleStateFromReplay(payload, 500, 300);
 
     expect(payload).toMatchObject({ enemyMp: 20, enemyMaxMp: 75 });
@@ -173,7 +195,6 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
         { kind: "player_attack", text: "상대 공격", side: "p2" },
       ]),
       "상대",
-      200,
     );
     expect(p.log[0]).toMatchObject({ kind: "player_attack", turn: "player" });
     expect(p.log[1]).toMatchObject({ kind: "enemy_attack", turn: "enemy" });
@@ -189,7 +210,7 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       enemyMaxHp: 450,
       side: "p2", // hp_bar 는 side 무관하게 그대로 둬야 함
     };
-    const p = toPvpReplayPayload(pvpFinal([hpBar]), "상대", 200);
+    const p = toPvpReplayPayload(pvpFinal([hpBar]), "상대");
     expect(p.log[0]).toEqual(hpBar); // 변형 없이 통과
   });
 
@@ -214,7 +235,6 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       ]),
       "p2",
       "공격자",
-      200,
     );
     expect(p.log[0]).toMatchObject({ kind: "enemy_attack", turn: "enemy" });
     expect(p.log[1]).toMatchObject({ kind: "player_attack", turn: "player" });
@@ -238,7 +258,7 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
   });
 
   it("메타 — enemy.hp=상대 maxHp, playerMax*/playerMp=p1 사이드", () => {
-    const p = toPvpReplayPayload(pvpFinal([]), "검투사", 200);
+    const p = toPvpReplayPayload(pvpFinal([]), "검투사");
     expect(p.enemy).toEqual({ name: "검투사", hp: 450 });
     expect(p.playerMaxHp).toBe(600);
     expect(p.playerMaxMp).toBe(100);
@@ -249,7 +269,6 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
     const p = toPvpReplayPayload(
       pvpFinal([{ kind: "info", text: "상대 발동", side: "p2" }]),
       "상대",
-      200,
     );
     expect(p.log[0]).toMatchObject({ kind: "info", turn: "enemy" });
   });

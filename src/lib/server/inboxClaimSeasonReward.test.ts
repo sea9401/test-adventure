@@ -263,8 +263,8 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.adventureSupportActiveUntil).toBeGreaterThanOrEqual(
       before + 30 * 86_400_000,
     );
-    expect(j.staminaAfterSupport.current).toBe(2500);
-    expect(j.staminaMaxAfterSupport).toBe(2500);
+    expect(j.staminaAfterSupport.current).toBe(3000);
+    expect(j.staminaMaxAfterSupport).toBe(3000);
 
     const character = savesStore.get("u1::character.v2") as {
       adventureSupport: { activeUntil: number };
@@ -273,7 +273,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(character.adventureSupport.activeUntil).toBe(
       j.adventureSupportActiveUntil,
     );
-    expect(character.stamina.current).toBe(2500);
+    expect(character.stamina.current).toBe(3000);
   });
 
   it("admin_gift 장비는 inventory.v2 가 아니라 equipment.v2 개체로 들어간다", async () => {

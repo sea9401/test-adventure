@@ -406,9 +406,12 @@ export type PlayerCombat = {
   skirmishNextTurnBonus?: number;
   // 반사 갑주 — 피격 시 받은 HP 피해의 N% 를 적에게 반사. 0/undefined = 미장착.
   thornsPct?: number;
-  // 수호자 반사 — 피격 시 내 방어력 기반 고정 데미지(derive 가 def×thornsDefPct% 환산).
-  //   PvE enemyPhase + PvP applyOnHitReflect 양쪽이 가산. 0/undefined = 미장착.
+  // 수호자 반사 — 피격 시 전투 시작 방어력 기반 데미지. thornsDefPct 는 구 전투 데이터의
+  //   시작 원량 복원용 계수이며, thornsFlatFromDef 가 PvE/PvP 공통 원량이다.
+  thornsDefPct?: number;
   thornsFlatFromDef?: number;
+  // 반사 간파 — 반사 계열로 받는 피해 감소. 일반 받는 피해 감소와 별도로 적용한다.
+  reflectDamageTakenReductionPct?: number;
   // ── 2티어 특기 (각 스탯 50 도달) ────────────────────────────────────────
   // 불굴의 일격 — 매 턴 본타에 (전투 누적 피해 × N) 추가. 0/undefined = 미장착.
   enduringStrikeMult?: number;

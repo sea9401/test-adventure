@@ -113,10 +113,10 @@ describe("production security surface", () => {
     ]) {
       expect(proxy).toContain(path);
     }
-    expect(proxy).toContain('datetime="2026-08-08T04:00:00+09:00"');
-    expect(proxy).toContain('datetime="2026-08-08T05:30:00+09:00"');
-    expect(proxy).toContain("서버 점검 · 30분 연장");
-    expect(proxy).toContain("진심으로 죄송합니다");
+    expect(proxy).toContain('datetime="2026-08-08T21:30:00+09:00"');
+    expect(proxy).toContain('datetime="2026-08-08T22:00:00+09:00"');
+    expect(proxy).toContain("서버 점검 · 약 30분");
+    expect(proxy).toContain("서비스 점검을 위해");
   });
 
   it("심의용 비밀번호 재로그인은 다른 기기로 단일 세션을 안전하게 인계한다", () => {

@@ -88,7 +88,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "enhance",
     title: "장비 강화",
-    summary: "강화 결과와 단계별 재료, 장비 파괴 위험을 정리합니다.",
+    summary: "강화 결과와 단계별 재료, 장비 파괴 위험, 폭풍 개량을 정리합니다.",
     group: "growth",
   },
   {

@@ -184,11 +184,11 @@ describe("길드 식당", () => {
       recovery: { hp: 250_000, mp: 250_000 },
     });
     expect(json.tickets).toMatchObject({
-      base: 1,
-      contributionEarned: 1,
-      earned: 2,
+      base: 4,
+      contributionEarned: 3,
+      earned: 7,
       used: 1,
-      available: 1,
+      available: 6,
     });
     expect(json.charges).toMatchObject({ hp: 260_000, mp: 270_000 });
     expect(logGuildActivity).toHaveBeenCalledWith(
@@ -197,7 +197,7 @@ describe("길드 식당", () => {
     );
   });
 
-  it("기부하지 않은 주간 참여 길드원도 기본 식권으로 한 번 식사한다", async () => {
+  it("기부하지 않은 주간 참여 길드원도 기본 식권으로 식사한다", async () => {
     vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
     vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
       if (key === "inventory.v2") {
@@ -217,10 +217,10 @@ describe("길드 식당", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.tickets).toMatchObject({ earned: 1, used: 1, available: 0 });
+    expect(json.tickets).toMatchObject({ earned: 4, used: 1, available: 3 });
   });
 
-  it("같은 효과식을 다시 주문하면 기존 만료 시각에 12시간을 더한다", async () => {
+  it("같은 효과식을 다시 주문하면 기존 만료 시각에 3시간을 더한다", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
     const currentExpiresAt = Date.now() + 60 * 60 * 1000;
@@ -255,7 +255,7 @@ describe("길드 식당", () => {
       expect(response.status).toBe(200);
       expect(json.activeEffect).toMatchObject({
         menuId: "adventurer_meal",
-        expiresAt: currentExpiresAt + 12 * 60 * 60 * 1000,
+        expiresAt: currentExpiresAt + 3 * 60 * 60 * 1000,
       });
     } finally {
       vi.useRealTimers();

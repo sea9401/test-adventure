@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { SpinnerGap, X } from "@phosphor-icons/react";
+import { SpinnerGap, Star, X } from "@phosphor-icons/react";
 import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -213,6 +213,7 @@ export function WorkshopCraftPanel({
   onMessage,
   onServerSync,
   onAfterCraft,
+  onFavoriteRecipeIdsChange,
   autoCraft,
   onAutoCraftConsumed,
   outpostId,
@@ -233,6 +234,8 @@ export function WorkshopCraftPanel({
   onServerSync: (sync: CraftServerSync) => void;
   /** 제작 성공 후속 재조회(주간 의뢰·일일 납품·기여도) — 부모 로더 위임. */
   onAfterCraft: () => void;
+  /** 계정에 저장된 즐겨찾기를 부모 워크숍 상태에 즉시 반영. */
+  onFavoriteRecipeIdsChange: (recipeIds: GuildWorkshopRecipeId[]) => void;
   /** 추천 카드(메인 모드) 원클릭 제작 요청 — 마운트 시 1회 실행 후 소비 통지. */
   autoCraft: {
     recipeId: GuildWorkshopRecipeId;
@@ -254,7 +257,7 @@ export function WorkshopCraftPanel({
     "all",
   );
   const [recipeScopeFilter, setRecipeScopeFilter] = useState<
-    "all" | "craftable"
+    "all" | "craftable" | "favorite"
   >("all");
   const [recipeTierFilter, setRecipeTierFilter] =
     useState<WorkshopTierFilter | null>(null);
@@ -265,8 +268,14 @@ export function WorkshopCraftPanel({
   const [recipeSort, setRecipeSort] = useState<"level" | "tier" | "chance">(
     "level",
   );
+  const [favoriteBusyId, setFavoriteBusyId] =
+    useState<GuildWorkshopRecipeId | null>(null);
 
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
+  const favoriteSet = useMemo(
+    () => new Set(state?.favoriteRecipeIds ?? []),
+    [state?.favoriteRecipeIds],
+  );
   const {
     craftedRecipes,
     trainingRecipes,
@@ -290,6 +299,9 @@ export function WorkshopCraftPanel({
       ) {
         return false;
       }
+      if (recipeScopeFilter === "favorite" && !favoriteSet.has(recipe.id)) {
+        return false;
+      }
       if (
         !matchesWorkshopCodexFilter(
           recipe.equipmentId,
@@ -309,6 +321,9 @@ export function WorkshopCraftPanel({
           const br = b.id === recommendedRecipeId ? 1 : 0;
           if (ar !== br) return br - ar;
         }
+        const af = favoriteSet.has(a.id) ? 1 : 0;
+        const bf = favoriteSet.has(b.id) ? 1 : 0;
+        if (af !== bf) return bf - af;
         if (recipeSort === "tier") {
           return b.tier - a.tier || a.requiredArtisanLevel - b.requiredArtisanLevel;
         }
@@ -390,6 +405,7 @@ export function WorkshopCraftPanel({
     recipeTierFilter,
     unregisteredCodexOnly,
     equipmentCodexStatus,
+    favoriteSet,
     registeredEquipmentIds,
     state?.recipes,
     recommendedRecipeId,
@@ -407,12 +423,43 @@ export function WorkshopCraftPanel({
     });
   }
 
+  async function toggleFavorite(recipeId: GuildWorkshopRecipeId) {
+    setFavoriteBusyId(recipeId);
+    onMessage(null);
+    try {
+      const response = await fetch("/api/v2/guild/workshop/favorite", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipeId }),
+      });
+      const json = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        favoriteRecipeIds?: unknown;
+      } | null;
+      if (!response.ok || json?.ok !== true) {
+        throw new Error("favorite_failed");
+      }
+      onFavoriteRecipeIdsChange(
+        Array.isArray(json.favoriteRecipeIds)
+          ? json.favoriteRecipeIds.filter(
+              (id): id is GuildWorkshopRecipeId => typeof id === "string",
+            )
+          : [],
+      );
+    } catch {
+      onMessage("즐겨찾기를 변경하지 못했습니다.");
+    } finally {
+      setFavoriteBusyId(null);
+    }
+  }
+
   function renderRecipeRow(recipe: WorkshopRecipeView) {
     const busy = craftingId === recipe.id;
     const expanded = expandedRecipeIds.has(recipe.id);
     const masterwork = recipe.masterwork;
     const weeklyHints = weeklyRecipeHints(recipe, weekly);
     const recommended = recommendedRecipeId === recipe.id;
+    const favorite = favoriteSet.has(recipe.id);
     const equipment = V2_EQUIPMENT[recipe.equipmentId as V2EquipmentId];
     const codexStatus = workshopEquipmentCodexStatus(
       recipe.equipmentId,
@@ -439,31 +486,51 @@ export function WorkshopCraftPanel({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-              {equipment ? (
-                <button
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-label={`${recipe.itemName} 옵션 미리보기`}
-                  onClick={(event) =>
-                    setPreviewCard({
-                      item: equipment,
-                      anchor: anchorOf(event.currentTarget),
-                    })
-                  }
-                  className="group inline-flex items-center gap-1.5 text-left"
-                >
-                  <strong className="text-sm text-zinc-950 underline decoration-dotted underline-offset-4 group-hover:text-emerald-700 dark:text-zinc-50 dark:group-hover:text-emerald-300">
+              <div className="flex min-w-0 items-center gap-1">
+                {equipment ? (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-label={`${recipe.itemName} 옵션 미리보기`}
+                    onClick={(event) =>
+                      setPreviewCard({
+                        item: equipment,
+                        anchor: anchorOf(event.currentTarget),
+                      })
+                    }
+                    className="group inline-flex min-w-0 items-center gap-1.5 text-left"
+                  >
+                    <strong className="truncate text-sm text-zinc-950 underline decoration-dotted underline-offset-4 group-hover:text-emerald-700 dark:text-zinc-50 dark:group-hover:text-emerald-300">
+                      {recipe.itemName}
+                    </strong>
+                    <span className="shrink-0 text-[10px] font-medium text-emerald-700 group-hover:underline dark:text-emerald-300">
+                      옵션 보기
+                    </span>
+                  </button>
+                ) : (
+                  <strong className="truncate text-sm text-zinc-950 dark:text-zinc-50">
                     {recipe.itemName}
                   </strong>
-                  <span className="text-[10px] font-medium text-emerald-700 group-hover:underline dark:text-emerald-300">
-                    옵션 보기
-                  </span>
+                )}
+                <button
+                  type="button"
+                  aria-label={`${recipe.itemName} 즐겨찾기 ${favorite ? "해제" : "추가"}`}
+                  aria-pressed={favorite}
+                  disabled={favoriteBusyId != null}
+                  onClick={() => void toggleFavorite(recipe.id)}
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded text-amber-500 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-zinc-400 dark:hover:bg-amber-950"
+                >
+                  {favoriteBusyId === recipe.id ? (
+                    <SpinnerGap size={17} className="animate-spin" aria-hidden />
+                  ) : (
+                    <Star
+                      size={18}
+                      weight={favorite ? "fill" : "regular"}
+                      aria-hidden
+                    />
+                  )}
                 </button>
-              ) : (
-                <strong className="text-sm text-zinc-950 dark:text-zinc-50">
-                  {recipe.itemName}
-                </strong>
-              )}
+              </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {recommended ? (
                   <span className="rounded bg-emerald-700 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
@@ -945,13 +1012,19 @@ export function WorkshopCraftPanel({
         <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_auto]">
           <select
             value={recipeScopeFilter}
-            onChange={(e) =>
-              setRecipeScopeFilter(e.target.value as "all" | "craftable")
-            }
+            onChange={(e) => {
+              const next = e.target.value as
+                | "all"
+                | "craftable"
+                | "favorite";
+              setRecipeScopeFilter(next);
+              if (next === "favorite") setRecipeTierFilter("all");
+            }}
             className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="all">제작 세트 전체</option>
             <option value="craftable">제작 가능</option>
+            <option value="favorite">즐겨찾기</option>
           </select>
           <select
             value={recipeSort}

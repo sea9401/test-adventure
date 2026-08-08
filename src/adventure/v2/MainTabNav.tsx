@@ -37,12 +37,12 @@ import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
 import {
   GUILD_FACILITY_ICON_COLORS,
   GUILD_FACILITY_LABELS,
+  availableGuildFacilityIds,
   type GuildFacilityId,
-  unlockedGuildFacilityIds,
 } from "./guild/guildFacilities";
 
 // 메인 내비 — 가로 5탭(모험/전투/마을/캐릭터/길드). 하위 메뉴가 있는 탭은 누르면
-// 드롭다운으로 내려온다. 길드는 기존 길드 화면 + 실제 개방된 시설만 동적으로 노출한다.
+// 드롭다운으로 내려온다. 길드는 기존 길드 화면 + 준비된 기본 시설을 동적으로 노출한다.
 // 색·활성 표기는 기존 탭바(highlight)와 동일한 인디고 언어. 드롭다운 항목은 각 탭 홈 카드와
 // 같은 아이콘·색을 재사용해 일관·깔끔하게 보이도록 한다.
 
@@ -192,7 +192,7 @@ export function MainTabNav({
       };
       setGuildFacilityCache({
         guildId,
-        ids: unlockedGuildFacilityIds(json.settlementBuildings),
+        ids: availableGuildFacilityIds(json.settlementBuildings),
       });
     } catch {
       // 조회 실패 시 기존 캐시(또는 길드 기본 항목)만 유지한다.

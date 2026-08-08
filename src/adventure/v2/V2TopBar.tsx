@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   autoGatheringActivityHref,
-  autoGatheringStatusText,
+  autoGatheringStatusDisplay,
   type AutoGatheringStatus,
 } from "./autoGathering";
 import { NotificationBell } from "./NotificationBell";
@@ -29,12 +29,12 @@ function LifeActivityStatus({
     return () => window.clearInterval(timer);
   }, [status]);
 
-  const text = autoGatheringStatusText(status, now);
+  const display = autoGatheringStatusDisplay(status, now);
   const ready = status != null && now >= status.readyAt;
   return (
     <span
-      title={text}
-      className={`min-w-0 max-w-[142px] truncate text-left text-[10px] tabular-nums sm:max-w-[320px] sm:text-[11px] ${
+      title={display.text}
+      className={`flex min-w-0 max-w-[142px] items-center gap-1 text-left text-[10px] tabular-nums sm:max-w-[320px] sm:text-[11px] ${
         status == null
           ? "text-zinc-500 dark:text-zinc-400"
           : ready
@@ -42,7 +42,15 @@ function LifeActivityStatus({
             : "font-medium text-emerald-700 dark:text-emerald-300"
       }`}
     >
-      {text}
+      <span className="min-w-0 truncate">{display.contextLabel}</span>
+      {display.stateLabel ? (
+        <span
+          data-auto-gathering-status-detail
+          className="shrink-0 whitespace-nowrap"
+        >
+          {display.stateLabel}
+        </span>
+      ) : null}
     </span>
   );
 }

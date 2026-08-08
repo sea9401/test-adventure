@@ -37,6 +37,7 @@ import {
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopMaterialInventory,
   parseGuildWorkshopCraftRecords,
+  parseGuildWorkshopFavoriteRecipeIds,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
   shouldLogGuildWorkshopCraftActivity,
@@ -272,6 +273,7 @@ export async function GET(req: Request) {
     artisanState,
     workshopStats,
     workshopRecords,
+    favoriteRecipeIds,
     playerSpendableGold,
   } = await db.transaction(async (tx) => {
     const resources = association ? {} : await readGuildSettlement(tx, guildId);
@@ -301,6 +303,9 @@ export async function GET(req: Request) {
       artisanState: parseArtisanState(craftingRaw.artisan),
       workshopStats: workshopStatsView(craftingRaw),
       workshopRecords: workshopRecordsView(craftingRaw),
+      favoriteRecipeIds: parseGuildWorkshopFavoriteRecipeIds(
+        craftingRaw.workshopFavoriteRecipeIds,
+      ),
       playerSpendableGold: spendableGold(
         Math.max(0, Math.floor(Number(charRaw.gold) || 0)),
         Math.max(0, Math.floor(Number(charRaw.bankedGold) || 0)),
@@ -323,6 +328,7 @@ export async function GET(req: Request) {
     artisan,
     workshopStats,
     workshopRecords,
+    favoriteRecipeIds,
     externalAccess: externalAccessView(access),
     recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
       guildWorkshopRecipeView(

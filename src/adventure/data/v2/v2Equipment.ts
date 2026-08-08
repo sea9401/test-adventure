@@ -19,7 +19,10 @@
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { V2BuildTagId } from "./buildTags";
 
-import { V2_EQUIPMENT } from "./v2EquipmentCatalog";
+import {
+  DISPLAY_TIER_6_POWER_SCALE,
+  V2_EQUIPMENT,
+} from "./v2EquipmentCatalog";
 import {
   enhanceGoldCost,
   parseEnhance,
@@ -241,12 +244,42 @@ const ENHANCE_POWER_FLOOR_DISPLAY_TIER_5: Record<V2EquipSlot, number> = {
   necklace: maxPowerByDisplayTierAndSlot(4, "necklace") + 1,
 };
 
+// 6T는 5T의 특수 제작 위력 이상치가 아니라 기존 5T 강화 비용 기준선을 이어받는다.
+// 저품질 굴림이 나오더라도 상위 티어 강화비가 역전되지 않도록 부위별로 20% 프리미엄을 둔다.
+export const ENHANCE_DISPLAY_TIER_6_COST_PREMIUM = 1.2;
+const ENHANCE_POWER_FLOOR_DISPLAY_TIER_6: Record<V2EquipSlot, number> = {
+  weapon: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.weapon * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  armor: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.armor * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  gloves: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.gloves * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  boots: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.boots * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  ring: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.ring * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+  necklace: Math.ceil(
+    ENHANCE_POWER_FLOOR_DISPLAY_TIER_5.necklace * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  ),
+};
+
 export function enhancePowerForCost(
   item: V2Equipment,
   power: number,
 ): number {
-  if (v2EquipCatalogTierToDisplayTier(item.tier) !== 5) return power;
-  return Math.max(power, ENHANCE_POWER_FLOOR_DISPLAY_TIER_5[item.slot]);
+  const displayTier = v2EquipCatalogTierToDisplayTier(item.tier);
+  if (displayTier === 5) {
+    return Math.max(power, ENHANCE_POWER_FLOOR_DISPLAY_TIER_5[item.slot]);
+  }
+  if (displayTier === 6) {
+    return Math.max(power, ENHANCE_POWER_FLOOR_DISPLAY_TIER_6[item.slot]);
+  }
+  return power;
 }
 
 export function enhanceGoldCostForEquipment(
@@ -1590,7 +1623,11 @@ export type V2EquipRoll = {
   options?: V2EquipOptions;
   /** 폭풍 개량 후 품질 계산 기준이 되는 6T 기본 위력. 일반 굴림에는 없다. */
   powerBase?: number;
+  /** 6T 기본 위력 보정 적용 버전. 기존 굴림을 한 번만 마이그레이션한다. */
+  powerScaleVersion?: number;
 };
+
+export const TIER_6_POWER_SCALE_VERSION = 1;
 
 export type EquipmentSave = {
   owned?: unknown;
@@ -1718,6 +1755,15 @@ export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
   if (typeof powerBase === "number" && Number.isFinite(powerBase)) {
     roll.powerBase = Math.max(1, Math.floor(powerBase));
   }
+  const powerScaleVersion = (val as { powerScaleVersion?: unknown })
+    .powerScaleVersion;
+  if (
+    typeof powerScaleVersion === "number" &&
+    Number.isFinite(powerScaleVersion) &&
+    powerScaleVersion > 0
+  ) {
+    roll.powerScaleVersion = Math.floor(powerScaleVersion);
+  }
   if (r.options && typeof r.options === "object") {
     const opts: V2EquipOptions = {};
     const rawOpts = r.options as Record<string, unknown>;
@@ -1728,6 +1774,40 @@ export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
     if (Object.keys(opts).length > 0) roll.options = opts;
   }
   return roll;
+}
+
+/** 기존 6T·폭풍 개량 굴림을 현재 카탈로그 위력대로 한 번만 올린다. */
+export function migrateEquipRollPowerScale(
+  item: V2Equipment,
+  roll: V2EquipRoll | undefined,
+): V2EquipRoll | undefined {
+  if (
+    !roll ||
+    (item.tier !== 16 && roll.powerBase == null) ||
+    (roll.powerScaleVersion ?? 0) >= TIER_6_POWER_SCALE_VERSION
+  ) {
+    return roll;
+  }
+  return {
+    ...roll,
+    power: Math.max(1, Math.round(roll.power * DISPLAY_TIER_6_POWER_SCALE)),
+    ...(roll.powerBase != null
+      ? {
+          powerBase: Math.max(
+            1,
+            Math.round(roll.powerBase * DISPLAY_TIER_6_POWER_SCALE),
+          ),
+        }
+      : {}),
+    powerScaleVersion: TIER_6_POWER_SCALE_VERSION,
+  };
+}
+
+export function parseEquipRollForItem(
+  item: V2Equipment,
+  val: unknown,
+): V2EquipRoll | undefined {
+  return migrateEquipRollPowerScale(item, parseEquipRoll(val));
 }
 
 export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
@@ -1826,7 +1906,7 @@ export function parseEquipmentSave(raw: unknown): {
     const inst: V2EquipInstance = {
       iid,
       id,
-      roll: parseEquipRoll(e.roll),
+      roll: parseEquipRollForItem(V2_EQUIPMENT[id], e.roll),
     };
     if (e.locked === true) inst.locked = true;
     const craftedBy = parseCraftedBy(e.craftedBy);

@@ -4628,9 +4628,12 @@ export type V2Equipment = V2EquipmentBase<V2EquipmentId>;
 //   위력이 되레 폭증(sim 확인). 시작값 — sim 으로 튜닝.
 // PR-엔드위력완화(2026-07-01) — T10+ 장비 기본 위력 ×0.9. 강화/굴림/품질로 색이 오르는 재미는
 //   유지하되, 이후 장비가 숫자 인플레로만 올라가지 않도록 엔드 카탈로그 기준선을 한 번 낮춘다.
+// PR-6T위력보정(2026-08-08) — 표시 6T(tier 16)가 표준 산군 5T보다 낮아지는 부위를 없애고
+//   완성 세트 효과를 과도하게 키우지 않는 선에서 기본 위력만 ×1.1. 옵션·세트 효과는 불변.
 export const WEAPON_POWER_SCALE = 0.8;
 export const ENDGAME_POWER_SCALE_FROM_TIER = 10;
 export const ENDGAME_POWER_SCALE = 0.9;
+export const DISPLAY_TIER_6_POWER_SCALE = 1.1;
 const LIGHT_WEIGHT_POWER_TRIM = 0.95;
 const SPEED_PENALTY_THRESHOLD = 3;
 
@@ -4640,6 +4643,7 @@ function equipmentPowerScale(item: V2Equipment): number {
   if (item.tier >= ENDGAME_POWER_SCALE_FROM_TIER) {
     scale *= ENDGAME_POWER_SCALE;
   }
+  if (item.tier === 16) scale *= DISPLAY_TIER_6_POWER_SCALE;
   return scale;
 }
 

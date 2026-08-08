@@ -42,7 +42,7 @@ export function isGuildFacilityId(
   );
 }
 
-export function unlockedGuildFacilityIds(
+export function availableGuildFacilityIds(
   buildings?: Partial<Record<SettlementBuildingId, number>>,
 ): GuildFacilityId[] {
   return GUILD_FACILITY_IDS.filter((id) => (buildings?.[id] ?? 0) > 0);

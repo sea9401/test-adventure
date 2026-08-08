@@ -239,6 +239,26 @@ export const savesKv = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );
 
+// 묶음 전투 결과(일괄 사냥·아레나 기록)의 전체 리플레이를 본문 세이브와 분리해 보관한다.
+// 목록/결과 응답에는 id가 포함된 가벼운 ReplayPayload만 싣고, 사용자가 실제로 다시보기를
+// 열 때 단건 조회한다. expiresAt 이후 행은 ops-retention cron이 삭제한다.
+export const battleReplays = pgTable(
+  "battle_replays",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("battle_replays_user_created_idx").on(t.userId, t.createdAt),
+    index("battle_replays_expires_idx").on(t.expiresAt),
+  ],
+);
+
 // 광장 게시판 글. 영구 보관 — cleanup cron 없음 (자동 삭제 정책 제거됨).
 // guildId NULL = 공개 글, 값 있음 = 해당 길드원만 볼 수 있는 길드 전용 글.
 // category — "notice" | "free" | "guide". 작성 시 BULLETIN_CATEGORIES 로 검증.

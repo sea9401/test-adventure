@@ -180,7 +180,7 @@ export async function POST(req: Request) {
       availableDepth,
       enemyName: enemy.name,
       enemyKey: enemy.key,
-      replay: toReplayPayload(battle.finalState, 200),
+      replay: toReplayPayload(battle.finalState),
       startPlayerHp: derived.maxHp,
       profile: {
         name: playerName,

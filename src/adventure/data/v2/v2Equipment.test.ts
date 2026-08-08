@@ -9,6 +9,8 @@ import {
   V2_EQUIP_SETS,
   V2_EQUIP_TAG_SETS,
   V2_EQUIP_CATALOG_TIER_ORDER,
+  ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+  TIER_6_POWER_SCALE_VERSION,
   enhanceGoldCostForEquipment,
   enhancePowerForCost,
   signatureLabel,
@@ -102,6 +104,15 @@ describe("powerBandOf — 레거시 절대 위력 구간(부위별 step)", () =>
 });
 
 describe("enhanceGoldCostForEquipment — 표시 티어 비용 바닥", () => {
+  const hardSangoonBySlot = {
+    weapon: V2_EQUIPMENT.v2_hard_sangoon_cleaver,
+    armor: V2_EQUIPMENT.v2_hard_sangoon_hide,
+    gloves: V2_EQUIPMENT.v2_hard_sangoon_claws,
+    boots: V2_EQUIPMENT.v2_hard_sangoon_stride,
+    ring: V2_EQUIPMENT.v2_hard_sangoon_ring,
+    necklace: V2_EQUIPMENT.v2_hard_sangoon_amulet,
+  } satisfies Record<V2EquipSlot, V2Equipment>;
+
   it("하드 보스 5티어 장비는 같은 슬롯 4티어 최고 장비보다 강화비가 낮지 않다", () => {
     const hardSangoonIds = [
       "v2_hard_sangoon_cleaver",
@@ -139,6 +150,40 @@ describe("enhanceGoldCostForEquipment — 표시 티어 비용 바닥", () => {
           strongestDisplay4.power,
           9,
         ),
+      );
+    }
+  });
+
+  it("6티어 기본 위력은 같은 부위의 표준 산군 5티어보다 높다", () => {
+    const displayTier6 = Object.values(V2_EQUIPMENT).filter(
+      (item) => v2EquipCatalogTierToDisplayTier(item.tier) === 6,
+    );
+
+    for (const item of displayTier6) {
+      expect(item.power, item.id).toBeGreaterThan(
+        hardSangoonBySlot[item.slot].power,
+      );
+    }
+  });
+
+  it("6티어 저품질 굴림도 5티어 부위별 기준보다 강화비가 20% 높다", () => {
+    const displayTier6 = Object.values(V2_EQUIPMENT).filter(
+      (item) => v2EquipCatalogTierToDisplayTier(item.tier) === 6,
+    );
+
+    for (const item of displayTier6) {
+      const displayTier5 = hardSangoonBySlot[item.slot];
+      const displayTier5Floor = enhancePowerForCost(displayTier5, 1);
+      const expectedTier6Floor = Math.ceil(
+        displayTier5Floor * ENHANCE_DISPLAY_TIER_6_COST_PREMIUM,
+      );
+
+      expect(enhancePowerForCost(item, 1), item.id).toBe(expectedTier6Floor);
+      expect(
+        enhanceGoldCostForEquipment(item, 1, 9),
+        item.id,
+      ).toBeGreaterThan(
+        enhanceGoldCostForEquipment(displayTier5, 1, 9),
       );
     }
   });
@@ -924,6 +969,25 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       ],
     });
     expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
+  });
+
+  it("기존 6티어 굴림 위력을 한 번만 10% 상향한다", () => {
+    const first = parseEquipmentSave({
+      owned: [
+        {
+          iid: "storm_old",
+          id: "v2_storm_gale_bow",
+          roll: { power: 500, weight: 0 },
+        },
+      ],
+    });
+    expect(first.owned[0].roll).toMatchObject({
+      power: 550,
+      powerScaleVersion: TIER_6_POWER_SCALE_VERSION,
+    });
+
+    const second = parseEquipmentSave({ owned: first.owned });
+    expect(second.owned[0].roll).toEqual(first.owned[0].roll);
   });
 
   it("equipped 가 slot→id(방어적 폴백)면 보유 개체 iid 로 해석, 미보유는 제외", () => {

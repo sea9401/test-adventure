@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  LifeWorkshopMaxConfirmDialog,
   LifeWorkshopView,
   LifeWorkshopQuantityControls,
   lifeWorkshopErrorText,
@@ -44,9 +45,28 @@ describe("생활 조합 작업장 수량 선택", () => {
     expect(html).toContain(">1개</button>");
     expect(html).toContain(">10개</button>");
     expect(html).toContain("최대 37개");
+    expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-label="쐐기 제작 수량"');
     expect(html).toContain('max="37"');
     expect(html).toContain(">1개 제작</button>");
+  });
+
+  it("최대 수량은 별도 확인 창에서 실행량을 다시 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <LifeWorkshopMaxConfirmDialog
+        quantity={37}
+        unit="개"
+        actionLabel="제작"
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain("최대 37개를 제작할까요?");
+    expect(html).toContain("현재 보유 재료로 가능한 최대 수량");
+    expect(html).toContain(">취소</button>");
+    expect(html).toContain(">최대 37개 제작</button>");
   });
 
   it("10회분이 없으면 10회 빠른 가공을 비활성화한다", () => {

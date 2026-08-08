@@ -187,14 +187,29 @@ function passiveScore(arch: SimArch, id: V2SkillId): number {
   score += (passive.healPowerPct ?? 0) * (arch === "SPI" ? 1.8 : 0.4);
   score += (passive.damageTakenReductionPct ?? 0) * sustain * 2;
   score += (passive.magicDefPct ?? 0) * sustain;
-  score += (passive.openingMagicDamageReductionPct ?? 0) * sustain * 0.5;
+  score +=
+    (passive.openingMagicDamageReductionPct ?? 0) *
+    sustain *
+    0.5 *
+    Math.sqrt((passive.openingMagicDamageReductionPhases ?? 3) / 3);
   score += (passive.poisonedEnemyDefReductionPct ?? 0) * (arch === "LUK" ? 1.4 : 0.2);
   score += (passive.berserkAtkPctPerLostHpPct ?? 0) * (arch === "STR" ? 40 : 8);
-  score += (passive.enemyMagicVulnPctPerStack ?? 0) * magic * 2;
+  score +=
+    (passive.enemyMagicVulnPctPerStack ?? 0) *
+    magic *
+    2 *
+    ((passive.enemyMagicVulnApplyChancePct ?? 100) / 100);
   score += (passive.magicSkillDamagePct ?? 0) * magic * 1.5;
   score += (passive.spdOverflowToAtkPct ?? 0) * physical;
+  score +=
+    (passive.atkPerLukCoef ?? 0) *
+    (arch === "LUK" ? 95 : arch === "DEX" ? 35 : 8);
+  score +=
+    (passive.spdPerLukCoef ?? 0) *
+    (arch === "LUK" ? 60 : arch === "DEX" ? 20 : 5);
   if (passive.skillCritOverflow) score += arch === "DEX" || arch === "LUK" ? 35 : 8;
   if (passive.skillCritAfterEvade) score += arch === "DEX" || arch === "LUK" ? 30 : 6;
+  if (passive.counterDamageUsesReflectBoost) score += arch === "VIT" ? 28 : 5;
   score += (passive.comboFinisherBonusPct ?? 0) * (arch === "STR" || arch === "DEX" ? 1.1 : 0.3);
   return score * (1 + Math.max(0, V2_SKILLS[id].tier - 1) * 0.04);
 }
@@ -207,8 +222,19 @@ function activeScore(arch: SimArch, id: V2SkillId): number {
   else if (skill.category === "heal") score += arch === "SPI" || arch === "VIT" ? 38 : 16;
   else if (skill.category === "buff") score += 25;
   for (const rawEffect of skill.effects) {
-    const effect = rawEffect as { kind: string; scaling?: string };
-    if (effect.kind === "damage" || effect.kind === "hpCostDamage" || effect.kind === "executeDamage") {
+    const effect = rawEffect as {
+      kind: string;
+      scaling?: string;
+      pierceDamagePct?: number;
+    };
+    if (
+      effect.kind === "damage" ||
+      effect.kind === "hpCostDamage" ||
+      effect.kind === "executeDamage" ||
+      effect.kind === "ambushDamage" ||
+      effect.kind === "stackPayoffDamage" ||
+      effect.kind === "healToDamage"
+    ) {
       score += 12;
       const scaling = effect.scaling;
       if (scaling === "all" || scaling === MAIN_STAT[arch]) score += 24;
@@ -216,6 +242,7 @@ function activeScore(arch: SimArch, id: V2SkillId): number {
       if (arch === "SPI" && (scaling === "spi" || scaling === "magic")) score += 24;
       if (arch === "VIT" && (scaling === "def" || scaling === "maxHp")) score += 24;
       if ((arch === "STR" || arch === "DEX" || arch === "LUK") && scaling === "atk") score += 16;
+      score += (effect.pierceDamagePct ?? 0) * 0.3;
     }
     if (effect.kind === "heal" || effect.kind === "shield" || effect.kind === "selfRegen") {
       score += arch === "VIT" || arch === "SPI" ? 20 : 7;

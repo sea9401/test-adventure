@@ -9,6 +9,7 @@ import {
 import {
   advanceTurnPvP,
   castV2SkillOnAttackerTurnPvP,
+  endAttackerPhase,
   initialBattleStatePvP,
   rollPvPAttackCount,
   type PvPBattleResolution,
@@ -19,9 +20,9 @@ import {
 } from "./engine-pvp";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
-// PvP has two player-scale actors. 2600 ticks is roughly 2x the PvE ATB cap
-// and is the dial equivalent of legacy PVP_TURN_CAP=100 rounds.
-export const PVP_ATB_TICK_CAP = 50 * 26 * 2;
+// PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는
+// 각자의 actionInterval에 따라 달라지며, 장기전만 사냥과 동일한 타임라인 길이까지 허용한다.
+export const PVP_ATB_TICK_CAP = 3_000;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
@@ -183,6 +184,7 @@ export function resolveBattlePvPAtb(
     ctx.v2Skills?.p1,
     ctx.v2Skills?.p2,
     ctx.damageMultiplier,
+    ctx.sustainMultiplier,
   );
   state = withAtbPlayers(state);
   if (state.p1.hp <= 0 && state.p2.hp <= 0) {
@@ -220,17 +222,17 @@ export function resolveBattlePvPAtb(
     actions += 1;
     state = ensureBundleReady({ ...state, phase: who }, who);
 
-    // v2 스킬 시전(V2_ATB_SKILLS) — PvP 는 legacy 와 동일하게 cast + 평타(XOR 아님): 이번 액터의
-    //   번들 시작에 1회 시전한 뒤 아래 평타 루프가 그대로 돈다. PvP 의 v2 buff tick 은
-    //   castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음. atbPlayerView
-    //   적용은 평타와 동일하게 withAtbPlayers 로 감싼다. cast 가 적을 처치(phase=ended)하면
-    //   아래 평타 루프가 자연히 스킵되고 return 의 최종 hp_bar 가 마무리한다(legacy 미러).
+    // v2 스킬 시전(V2_ATB_SKILLS) — 스킬이 발동하면 이번 행동을 소진해 평타를 대체한다.
+    // 다단 적중 시그니처로 생긴 추가 행동만 같은 번들에서 평타로 이어진다. PvP 의 v2 buff tick 은
+    // castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음.
     let castSelfHastePct = 0; // 바람 — who 의 다음 행동 틱 가속(아래 틱 증가에서 반영).
+    let castFired = false;
     if (V2_ATB_SKILLS) {
       const castLogLen = state.log.length;
       const cast = castV2SkillOnAttackerTurnPvP(state, who);
       state = withAtbPlayers(cast.state);
       state = tagNewLogEntries(state, castLogLen, who, nextTick);
+      castFired = cast.castFired;
       castSelfHastePct = cast.selfHastePct;
       if (cast.enemyDelayPct > 0) {
         // 대지 — 상대(other)의 다음 행동(p?NextTick 에 예약됨)을 상대 인터벌의 pct% 만큼 뒤로 민다.
@@ -239,27 +241,41 @@ export function resolveBattlePvPAtb(
         if (other === "p1") p1NextTick += push;
         else p2NextTick += push;
       }
-    }
-
-    let action: PlayerAction = { kind: "attack" };
-    const picked = ctx.pickAction(state, who);
-    if (picked.kind === "use_potion") {
-      const have = potions[who][picked.potionId] ?? 0;
-      if (have > 0) {
-        potions[who][picked.potionId] = have - 1;
-        consumed[who][picked.potionId] = (consumed[who][picked.potionId] ?? 0) + 1;
-        action = picked;
+      if (
+        cast.castFired &&
+        cast.signatureExtraActions <= 0 &&
+        state.phase === who
+      ) {
+        state = withAtbPlayers(endAttackerPhase(state, who, other));
+        state = tagNewLogEntries(state, castLogLen, who, nextTick);
       }
-    } else {
-      action = picked;
     }
 
-    while (state.phase === who) {
-      const prevLogLen = state.log.length;
-      state = withAtbPlayers(advanceTurnPvP(state, action));
-      state = tagNewLogEntries(state, prevLogLen, who, nextTick);
-      action = { kind: "attack" };
-      if (state.phase === "ended") break;
+    if (state.phase === who) {
+      let action: PlayerAction = { kind: "attack" };
+      // 스킬로 얻은 추가 행동은 PvE와 동일하게 평타로만 소비한다.
+      if (!castFired) {
+        const picked = ctx.pickAction(state, who);
+        if (picked.kind === "use_potion") {
+          const have = potions[who][picked.potionId] ?? 0;
+          if (have > 0) {
+            potions[who][picked.potionId] = have - 1;
+            consumed[who][picked.potionId] =
+              (consumed[who][picked.potionId] ?? 0) + 1;
+            action = picked;
+          }
+        } else {
+          action = picked;
+        }
+      }
+
+      while (state.phase === who) {
+        const prevLogLen = state.log.length;
+        state = withAtbPlayers(advanceTurnPvP(state, action));
+        state = tagNewLogEntries(state, prevLogLen, who, nextTick);
+        action = { kind: "attack" };
+        if (state.phase === "ended") break;
+      }
     }
 
     // 바람 — 이번 액터의 다음 행동 틱을 가속(pct% 단축). 미시전이면 0 → 무변.

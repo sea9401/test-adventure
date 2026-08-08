@@ -6,7 +6,7 @@
 //  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화.
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hammer } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -19,6 +19,8 @@ import { GameIcon } from "@/adventure/v2/GameIcon";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   effectiveStats,
   enhanceGoldCostForEquipment,
@@ -139,6 +141,127 @@ type StormRefineResponse = {
   newPower?: number;
 };
 
+type StormRefinementConfirmMaterial = {
+  label: string;
+  have: number;
+  need: number;
+};
+
+export function StormRefinementConfirmDialog({
+  itemName,
+  enhanceLevel,
+  currentPower,
+  refinedPower,
+  goldCost,
+  materials,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  itemName: string;
+  enhanceLevel: number;
+  currentPower: number;
+  refinedPower: number;
+  goldCost: number;
+  materials: readonly StormRefinementConfirmMaterial[];
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeIfIdle = useCallback(() => {
+    if (!busy) onClose();
+  }, [busy, onClose]);
+  useEscapeKey(closeIfIdle);
+  useModalA11y(panelRef);
+
+  return (
+    <div
+      className="ui-modal-reveal fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) closeIfIdle();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="storm-refinement-confirm-title"
+        aria-describedby="storm-refinement-confirm-description"
+        className={`${SURFACE_CARD} ui-modal-panel w-full max-w-md p-5 shadow-2xl`}
+      >
+        <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+          폭풍 개량 작업 확인
+        </p>
+        <h2
+          id="storm-refinement-confirm-title"
+          className="mt-1 text-lg font-bold"
+        >
+          {enhanceLevel > 0 ? `+${enhanceLevel} ` : ""}
+          {itemName} 장비를 개량할까요?
+        </h2>
+        <p
+          id="storm-refinement-confirm-description"
+          className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300"
+        >
+          고유 효과·옵션·강화·제작 품질은 유지하고, 현재 위력 굴림의 품질을
+          같은 부위의 6T 기준으로 옮깁니다. 새 세트 효과는 추가되지 않습니다.
+        </p>
+
+        <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">위력</span>
+            <strong className="tabular-nums text-violet-700 dark:text-violet-300">
+              {currentPower.toLocaleString()} → {refinedPower.toLocaleString()}
+            </strong>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">개량비</span>
+            <strong className="tabular-nums text-amber-700 dark:text-amber-300">
+              {goldCost.toLocaleString()} G
+            </strong>
+          </div>
+          <div className="border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
+            {materials.map((material) => (
+              <div
+                key={material.label}
+                className="flex items-center justify-between gap-3 py-0.5"
+              >
+                <span className="text-zinc-500 dark:text-zinc-400">
+                  {material.label}
+                </span>
+                <span className="font-medium tabular-nums">
+                  {material.have.toLocaleString()}/{material.need.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          개량은 한 번만 가능하고 되돌릴 수 없습니다. 개량한 장비는 향후에도
+          재련할 수 없으며, 현재 옵션과 품질이 그대로 확정됩니다.
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Button size="md" disabled={busy} onClick={onClose}>
+            취소
+          </Button>
+          <Button
+            size="md"
+            variant="primary"
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? "개량 중…" : "비용 확인 · 개량 확정"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type ForgeMode = "enhance" | "refine" | "reforge" | "combine";
 
 export function V2EnhanceView({ onBack }: { onBack: () => void }) {
@@ -184,6 +307,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     text: string;
   } | null>(null);
   const [mode, setMode] = useState<ForgeMode>("enhance");
+  const [stormRefineConfirmOpen, setStormRefineConfirmOpen] = useState(false);
   const { notifySystem } = useSystemToast();
   const rareMapDepthOptions = useMemo(
     () => craftedRareMapDepthOptions(frontierDepth),
@@ -452,6 +576,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     } catch {
       setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
     } finally {
+      setStormRefineConfirmOpen(false);
       setBusy(false);
     }
   }, [busy, item, refineCurrentPower, refineable, refinedPower, refresh, refreshGameState, selected]);
@@ -691,7 +816,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     : "폭풍 개량",
             disabled: refineActionDisabled,
             variant: "primary" as const,
-            onClick: () => void doStormRefine(),
+            onClick: () => setStormRefineConfirmOpen(true),
           }
       : mode === "reforge" && selected && item && reforgeable
         ? {
@@ -775,6 +900,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           setSelectedIid(null);
           setFeedIid(null);
           setMsg(null);
+          setStormRefineConfirmOpen(false);
         }}
         ariaLabel="대장간 작업"
         size="sm"
@@ -1014,6 +1140,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   onClick={() => {
                     setSelectedIid(null);
                     setMsg(null);
+                    setStormRefineConfirmOpen(false);
                   }}
                   className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
                 >
@@ -1049,7 +1176,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 ["부유 합금핵", stormMats.wreckage, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
                 ["칼바람 정수", stormMats.gale, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
                 ["뇌운 결정", stormMats.thunder, STORM_REFINEMENT_ROUTE_MATERIAL_COST],
-                ["폭풍 심장", stormMats.heart, STORM_REFINEMENT_HEART_COST],
+                ["폭풍 심장 조각", stormMats.heart, STORM_REFINEMENT_HEART_COST],
               ].map(([label, have, need]) => {
                 const enough = Number(have) >= Number(need);
                 return (
@@ -1075,7 +1202,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               파괴 없음
             </div>
             <Button
-              onClick={() => void doStormRefine()}
+              onClick={() => setStormRefineConfirmOpen(true)}
               disabled={refineActionDisabled}
               variant="primary"
               size="md"
@@ -1433,6 +1560,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               setSelectedIid(null);
               setMsg(null);
               setFeedIid(null);
+              setStormRefineConfirmOpen(false);
             }}
             ariaLabel="강화 슬롯"
             size="sm"
@@ -1452,6 +1580,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 setSelectedIid(inst.iid);
                 setMsg(null);
                 setFeedIid(null);
+                setStormRefineConfirmOpen(false);
               }}
             />
             <Pagination
@@ -1484,6 +1613,40 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             </Button>
           </div>
         </div>
+      ) : null}
+      {stormRefineConfirmOpen && selected && item && refinePreview ? (
+        <StormRefinementConfirmDialog
+          itemName={item.name}
+          enhanceLevel={level}
+          currentPower={refineCurrentPower}
+          refinedPower={refinedPower}
+          goldCost={STORM_REFINEMENT_GOLD_COST}
+          materials={[
+            {
+              label: "부유 합금핵",
+              have: stormMats.wreckage,
+              need: STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+            },
+            {
+              label: "칼바람 정수",
+              have: stormMats.gale,
+              need: STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+            },
+            {
+              label: "뇌운 결정",
+              have: stormMats.thunder,
+              need: STORM_REFINEMENT_ROUTE_MATERIAL_COST,
+            },
+            {
+              label: "폭풍 심장 조각",
+              have: stormMats.heart,
+              need: STORM_REFINEMENT_HEART_COST,
+            },
+          ]}
+          busy={busy}
+          onClose={() => setStormRefineConfirmOpen(false)}
+          onConfirm={() => void doStormRefine()}
+        />
       ) : null}
     </main>
   );

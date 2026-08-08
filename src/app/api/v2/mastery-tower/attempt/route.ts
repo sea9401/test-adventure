@@ -236,7 +236,7 @@ export async function POST(req: Request) {
         startPlayerHp: player.maxHp,
         playerName,
         gender: typeof profile?.gender === "string" ? profile.gender : "male1",
-        replay: toReplayPayload(battle.finalState, 220),
+        replay: toReplayPayload(battle.finalState),
         claimPreview,
         log: masteryTowerAttemptLog({
           floor,

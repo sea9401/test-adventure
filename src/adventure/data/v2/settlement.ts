@@ -18,6 +18,7 @@ import {
   LIFE_PROCESSED_MATERIALS,
   type LifeProcessedMaterialId,
 } from "../../v2/lifeWorkshopMaterials";
+import { GUILD_DINING_BASE_WEEKLY_TICKETS } from "./guildDining";
 
 // ── 정착지 단계 ──────────────────────────────────────────────────────────
 export type VillageTier = "village" | "city" | "metropolis";
@@ -313,19 +314,6 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "guild_warehouse",
 ];
 
-export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
-  Record<SettlementBuildingId, number>
-> = {
-  guild_smithy: 50_000_000,
-  training_ground: 80_000_000,
-  exploration_hq: 65_000_000,
-  map_workshop: 15_000_000,
-  alchemy_workshop: 60_000_000,
-  dining_hall: 50_000_000,
-  trade_post: 70_000_000,
-  guild_warehouse: 60_000_000,
-};
-
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
 
 export type SettlementBuildingUpgradeCost = Partial<
@@ -496,7 +484,7 @@ export type AlchemyWorkshopUpgradeDef = {
 export type DiningHallUpgradeDef = {
   level: number;
   cost: SettlementBuildingUpgradeCost;
-  /** 기본 1장과 별도로 기부로 얻을 수 있는 주간 식권 상한. */
+  /** 기본 식권과 별도로 기부로 얻을 수 있는 주간 식권 상한. */
   weeklyMealTickets: number;
   weeklyMenuSlots: number;
   label: string;
@@ -627,35 +615,35 @@ export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
   {
     level: 1,
     cost: {},
-    weeklyMealTickets: 2,
+    weeklyMealTickets: 8,
     weeklyMenuSlots: 1,
     label: "공동 취사장",
   },
   {
     level: 2,
     cost: facilityUpgradeCost(2, 20_000_000, 0),
-    weeklyMealTickets: 2,
+    weeklyMealTickets: 8,
     weeklyMenuSlots: 2,
     label: "식재료 저장고",
   },
   {
     level: 3,
     cost: facilityUpgradeCost(3, 45_000_000, 600),
-    weeklyMealTickets: 3,
+    weeklyMealTickets: 12,
     weeklyMenuSlots: 3,
     label: "전문 조리실",
   },
   {
     level: 4,
     cost: facilityUpgradeCost(4, 90_000_000, 1250),
-    weeklyMealTickets: 4,
+    weeklyMealTickets: 16,
     weeklyMenuSlots: 4,
     label: "연회 준비실",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 160_000_000, 2500),
-    weeklyMealTickets: 5,
+    weeklyMealTickets: 20,
     weeklyMenuSlots: 5,
     label: "길드 대연회장",
   },
@@ -977,7 +965,7 @@ export function settlementBuildingUpgradeSummary(
   }
   if (buildingId === "dining_hall") {
     const dining = upgrade as DiningHallUpgradeDef;
-    return `기본 식권 1장 + 기여 식권 ${dining.weeklyMealTickets}장 · 메뉴 ${dining.weeklyMenuSlots}종`;
+    return `기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장 + 기여 식권 ${dining.weeklyMealTickets}장 · 메뉴 ${dining.weeklyMenuSlots}종`;
   }
   if (buildingId === "trade_post") {
     const trade = upgrade as TradePostUpgradeDef;

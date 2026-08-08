@@ -386,7 +386,7 @@ function donationErrorText(error?: string): string {
     case "no_guild":
       return "소속 길드가 없습니다.";
     case "building_required":
-      return "먼저 해당 시설을 개방해야 합니다.";
+      return "길드 시설 정보를 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.";
     case "max_level":
       return "이미 최고 레벨입니다.";
     case "material_not_required":

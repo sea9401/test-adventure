@@ -157,7 +157,8 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
   };
 }
 
-// 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 먼저 틱한다. 로그는 플레이어 행동 묶음(tick)에 붙인다.
+// 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 DEF/보호막을 무시하고 먼저 틱한다.
+// 로그는 플레이어 행동 묶음(tick)에 붙인다.
 function tickPlayerDotsOnAction(
   state: BattleState,
   playerName: string,
@@ -205,8 +206,14 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
     state.enemy.hp,
     state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1,
   );
+  const damageBeforeReduction =
+    eTick.totalDmg > 0 && state.stacks.enemyDotVulnTurns > 0
+      ? Math.floor(
+          eTick.totalDmg * (1 + state.stacks.enemyDotVulnPct / 100),
+        )
+      : eTick.totalDmg;
   const damage = statusDamageAfterReduction(
-    eTick.totalDmg,
+    damageBeforeReduction,
     state.enemy.statusDamageReductionPct,
   );
   if (damage <= 0) return { ...state, enemyV2Dots: eTick.nextDots };

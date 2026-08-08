@@ -297,6 +297,27 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(result.selfHeal).toBe(20);
   });
 
+  it("제한 회복기는 PvP에서 회복과 부가 보호막이 50%만 적용된다", () => {
+    const skillId = "v2c_rescueexpert_rescue";
+    const base = castInput([skillId], {
+      attacker: {
+        ...castInput([skillId]).attacker,
+        maxHp: 1_000,
+        currentHp: 500,
+        healMult: 1,
+      },
+    });
+
+    const pve = resolveV2SkillCast(base);
+    const pvp = resolveV2SkillCast({ ...base, combatMode: "pvp" });
+
+    expect(pve.castSkillId).toBe(skillId);
+    expect(pve.selfHeal).toBe(225);
+    expect(pve.shieldToApply?.hp).toBe(80);
+    expect(pvp.selfHeal).toBe(112);
+    expect(pvp.shieldToApply?.hp).toBe(40);
+  });
+
   it("PR2 — 고차(t3) 스킬은 통과율이 더 커 초과분을 더 많이 반영(t1<t3)", () => {
     const T3 = "v2c_brawler_combo"; // 벽력권 t3 — 순수 데미지(디버프/힐 없음)
     expect(V2_SKILLS[T3]?.tier).toBe(3);

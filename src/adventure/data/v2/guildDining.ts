@@ -2,10 +2,10 @@ import { FARM_ITEMS, type FarmItemId } from "@/adventure/v2/farm";
 import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 
 export const GUILD_DINING_USER_SAVE_KEY = "guild-dining-user.v1";
-export const GUILD_DINING_BASE_WEEKLY_TICKETS = 1;
-export const GUILD_DINING_POINTS_PER_TICKET = 15;
+export const GUILD_DINING_BASE_WEEKLY_TICKETS = 4;
+export const GUILD_DINING_POINTS_PER_TICKET = 4;
 export const GUILD_DINING_POINTS_PER_MEMBER_TARGET = 20;
-export const GUILD_DINING_EFFECT_DURATION_HOURS = 12;
+export const GUILD_DINING_EFFECT_DURATION_HOURS = 3;
 export const GUILD_DINING_EFFECT_DURATION_MS =
   GUILD_DINING_EFFECT_DURATION_HOURS * 60 * 60 * 1000;
 
@@ -147,7 +147,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "모험가 정식",
     icon: "🍛",
     imageSrc: "/images/items/dining/adventurer_meal.webp",
-    description: "12시간 동안 사냥 경험치가 25% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 25% 증가합니다.`,
     minFacilityLevel: 1,
     effect: {
       kind: "hunt_exp",
@@ -160,7 +160,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "일꾼 도시락",
     icon: "🍱",
     imageSrc: "/images/items/dining/worker_lunch.webp",
-    description: "12시간 동안 생활 경험치가 10% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 생활 경험치가 10% 증가합니다.`,
     minFacilityLevel: 2,
     effect: {
       kind: "life_xp",
@@ -173,7 +173,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "사냥꾼 바비큐",
     icon: "🍖",
     imageSrc: "/images/items/dining/hunters_barbecue.webp",
-    description: "12시간 동안 사냥 경험치가 40% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 40% 증가합니다.`,
     minFacilityLevel: 3,
     effect: {
       kind: "hunt_exp",
@@ -186,7 +186,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "장인의 해산물 덮밥",
     icon: "🍤",
     imageSrc: "/images/items/dining/artisan_seafood_rice.webp",
-    description: "12시간 동안 생활 경험치가 15% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 생활 경험치가 15% 증가합니다.`,
     minFacilityLevel: 4,
     effect: {
       kind: "life_xp",
@@ -199,7 +199,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     name: "길드 대연회",
     icon: "🍽️",
     imageSrc: "/images/items/dining/guild_grand_feast.webp",
-    description: "12시간 동안 사냥 경험치가 60%, 생활 경험치가 20% 증가합니다.",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 60%, 생활 경험치가 20% 증가합니다.`,
     minFacilityLevel: 5,
     effect: {
       kind: "all_xp",
@@ -253,7 +253,7 @@ function parseActiveEffect(
   if (value.kind !== menu.effect.kind) return null;
   const weekEndsAt = guildDiningWeekEndsAt(args.weekKey);
   const storedExpiresAt = Number(value.expiresAt);
-  // 횟수형 효과를 보유한 기존 세이브는 남은 식권을 잃지 않도록 최초 사용 시 12시간제로 승계한다.
+  // 횟수형 효과를 보유한 기존 세이브는 남은 식권을 잃지 않도록 최초 사용 시 현재 지속 시간으로 승계한다.
   const legacyExpiresAt =
     nonNegativeInt(value.remainingUses) > 0
       ? args.now.getTime() + GUILD_DINING_EFFECT_DURATION_MS

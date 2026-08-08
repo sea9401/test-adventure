@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CombatContent } from "./content/combat";
 import { ControlsContent } from "./content/controls";
 import { EconomyContent } from "./content/economy";
+import { EnhanceContent } from "./content/enhance";
 import { GuildContent } from "./content/guild";
 import { HuntingContent } from "./content/hunting";
 import { JobsContent } from "./content/jobs";
@@ -108,6 +109,20 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("전술 모의전");
     expect(html).toContain("별빛 성채 대원정");
     expect(html).toContain("총 <strong");
+    expect(html).toContain("별표로 즐겨찾기에 저장");
+    expect(html).toContain("즐겨찾기 필터");
+  });
+
+  it("폭풍 개량의 대상·비용·되돌릴 수 없는 제한을 안내한다", () => {
+    const html = renderToStaticMarkup(<EnhanceContent />);
+
+    expect(html).toContain("비세트 특화 유니크");
+    expect(html).toContain("세트 효과가 전혀 없는 장비");
+    expect(html).toContain("10,000,000 G");
+    expect(html).toContain("폭풍 심장 조각");
+    expect(html).toContain("재련은 할 수 없습니다");
+    expect(html).toContain("되돌릴 수 없습니다");
+    expect(html).toContain("폭풍 기원의 파편은 개량 재료로 사용하지 않습니다");
   });
 
   it("공개 화면에서 접속자 정보를 제공하지 않는다고 안내한다", () => {

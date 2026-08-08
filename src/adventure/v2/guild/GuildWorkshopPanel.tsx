@@ -290,6 +290,9 @@ export function GuildWorkshopPanel({
           },
           workshopStats: json.workshopStats ?? emptyWorkshopStats(),
           workshopRecords: json.workshopRecords ?? emptyWorkshopRecords(),
+          favoriteRecipeIds: Array.isArray(json.favoriteRecipeIds)
+            ? json.favoriteRecipeIds
+            : [],
           guildBonus: json.guildBonus ?? emptyGuildBonus(),
           smithyLevel: Number(json.smithyLevel ?? 1),
           smithyBonus: json.smithyBonus,
@@ -1064,6 +1067,11 @@ export function GuildWorkshopPanel({
           onMessage={setMessage}
           onServerSync={applyCraftServerState}
           onAfterCraft={afterCraftRefresh}
+          onFavoriteRecipeIdsChange={(favoriteRecipeIds) =>
+            setState((current) =>
+              current ? { ...current, favoriteRecipeIds } : current,
+            )
+          }
           autoCraft={pendingCraft}
           onAutoCraftConsumed={() => setPendingCraft(null)}
           outpostId={outpostId}

@@ -56,7 +56,7 @@ export const SP_FRUIT_MATERIALS: Record<string, V2Material> = {
     id: "sp_fruit_4",
     name: "SP 열매 IV",
     description:
-      "공허의 대사제를 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
+      "공허의 대사제를 토벌하거나 폭풍 원정을 완주해 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
   },
 };
 

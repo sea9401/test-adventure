@@ -35,10 +35,10 @@ describe("sim-v2-level-design", () => {
 
     expect(growth.totalExpToLevelCap).toBe(2_275_428);
     expect(growth.energy).toMatchObject({
-      baseMax: 1_500,
-      baseFullHours: 5,
+      baseMax: 2_000,
+      baseFullHours: 20 / 3,
       baseNaturalPerDay: 7_200,
-      supportMax: 2_500,
+      supportMax: 3_000,
       supportNaturalPerDay: 8_640,
       starterChargeEach: 100_000,
     });

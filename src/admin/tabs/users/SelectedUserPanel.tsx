@@ -19,6 +19,7 @@ import { V2GrantSection } from "./V2GrantSection";
 import { CharacterPreviewSection } from "./CharacterPreviewSection";
 import { UserImpersonationSection } from "./UserImpersonationSection";
 import { Warning } from "@phosphor-icons/react";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 
 export function SelectedUserPanel({
   user,
@@ -31,6 +32,9 @@ export function SelectedUserPanel({
   onGrantV2,
   onResetCharacter,
   onResetMasteryTowerDaily,
+  onResetStormExpeditionDailyAttempts,
+  canResetStormExpedition,
+  stormExpeditionResetting,
   onReload,
 }: {
   user: AdminUserRow;
@@ -43,6 +47,9 @@ export function SelectedUserPanel({
   onGrantV2: (payload: V2GrantPayload) => void | Promise<void>;
   onResetCharacter: () => void | Promise<void>;
   onResetMasteryTowerDaily: () => void | Promise<void>;
+  onResetStormExpeditionDailyAttempts: () => void | Promise<void>;
+  canResetStormExpedition: boolean;
+  stormExpeditionResetting: boolean;
   onReload: () => void;
 }) {
   const character = saves?.["character.v2"] ?? initialCharacterState;
@@ -110,6 +117,34 @@ export function SelectedUserPanel({
       />
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
+
+      <section className={`${SURFACE_CARD} p-3`}>
+        <h2 className="text-sm font-semibold">폭풍 원정</h2>
+        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          오늘 사용한 입장 횟수만 0회로 초기화합니다. 진행 중 원정과 누적
+          완주·SP 열매 천장 및 획득 기록은 유지됩니다.
+        </p>
+        <Button
+          variant="danger"
+          disabled={
+            readOnly ||
+            loading ||
+            stormExpeditionResetting ||
+            !canResetStormExpedition
+          }
+          onClick={() => void onResetStormExpeditionDailyAttempts()}
+          className="mt-2"
+        >
+          {stormExpeditionResetting
+            ? "초기화 중…"
+            : "오늘 입장 횟수 초기화"}
+        </Button>
+        {!canResetStormExpedition ? (
+          <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            보상 권한이 있는 관리자만 초기화할 수 있습니다.
+          </p>
+        ) : null}
+      </section>
 
       <section className="rounded-md border border-amber-300 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
         <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300">

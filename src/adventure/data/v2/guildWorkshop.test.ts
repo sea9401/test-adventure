@@ -33,6 +33,7 @@ import {
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopStats,
   parseGuildWorkshopCraftRecords,
+  parseGuildWorkshopFavoriteRecipeIds,
   rollGuildWorkshopEnhance,
   shouldLogGuildWorkshopCraftActivity,
   spendGuildWorkshopRecipeCost,
@@ -73,6 +74,20 @@ const ENOUGH_WORKSHOP_MATERIALS = {
     Object.values(STORM_EXPEDITION_ROUTE_MATERIAL_ID).map((id) => [id, 99]),
   ),
 };
+
+describe("guild workshop favorites", () => {
+  it("등록된 레시피만 중복 없이 보존한다", () => {
+    expect(
+      parseGuildWorkshopFavoriteRecipeIds([
+        "crafted_oathblade",
+        "unknown_recipe",
+        "crafted_oathblade",
+        123,
+      ]),
+    ).toEqual(["crafted_oathblade"]);
+    expect(parseGuildWorkshopFavoriteRecipeIds(null)).toEqual([]);
+  });
+});
 
 describe("guild workshop activity log", () => {
   it("records craft-only equipment from displayed 4T onwards", () => {

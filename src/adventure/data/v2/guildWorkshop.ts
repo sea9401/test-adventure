@@ -1251,6 +1251,13 @@ export function isGuildWorkshopRecipeId(
   );
 }
 
+export function parseGuildWorkshopFavoriteRecipeIds(
+  raw: unknown,
+): GuildWorkshopRecipeId[] {
+  if (!Array.isArray(raw)) return [];
+  return Array.from(new Set(raw.filter(isGuildWorkshopRecipeId)));
+}
+
 export function parseGuildWorkshopStats(raw: unknown): GuildWorkshopStats {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     return { totalCrafts: 0, qualityCrafts: 0, craftedByRecipe: {} };

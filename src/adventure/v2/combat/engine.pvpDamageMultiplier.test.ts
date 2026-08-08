@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ARENA_DAMAGE_MULTIPLIER } from "@/lib/server/arena";
+import {
+  ARENA_DAMAGE_MULTIPLIER,
+  ARENA_SUSTAIN_MULTIPLIER,
+} from "@/lib/server/arena";
 import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { makeBleedDot } from "./combatShared";
 import {
@@ -35,6 +38,7 @@ function stateWith(
   multiplier?: number,
   p1: PlayerCombat = BASE,
   p2: PlayerCombat = BASE,
+  sustainMultiplier?: number,
 ) {
   return initialBattleStatePvP(
     p1,
@@ -44,6 +48,7 @@ function stateWith(
     EMPTY_SKILLS,
     EMPTY_SKILLS,
     multiplier,
+    sustainMultiplier,
   );
 }
 
@@ -52,8 +57,18 @@ afterEach(() => vi.restoreAllMocks());
 describe("PvP 호출 표면별 최종 피해 배율", () => {
   it("아레나 배율은 0.65이고 기본 PvP 상태에는 배율이 주입되지 않는다", () => {
     expect(ARENA_DAMAGE_MULTIPLIER).toBe(0.65);
+    expect(ARENA_SUSTAIN_MULTIPLIER).toBe(0.65);
     expect(stateWith().damageMultiplier).toBeUndefined();
+    expect(stateWith().sustainMultiplier).toBeUndefined();
     expect(stateWith(ARENA_DAMAGE_MULTIPLIER).damageMultiplier).toBe(0.65);
+    expect(
+      stateWith(
+        ARENA_DAMAGE_MULTIPLIER,
+        BASE,
+        BASE,
+        ARENA_SUSTAIN_MULTIPLIER,
+      ).sustainMultiplier,
+    ).toBe(0.65);
   });
 
   it("평타 최종 피해를 35% 줄인다", () => {
@@ -200,6 +215,63 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
     }
   });
 
+  it("공격형 패시브의 반사 피해 감소는 반사 원량에만 적용한다", () => {
+    const normal = applyOnHitReflect(
+      stateWith(undefined, BASE, { ...BASE, thornsPct: 100 }),
+      "p1",
+      "p2",
+      100,
+    ).state;
+    const reduced = applyOnHitReflect(
+      stateWith(
+        undefined,
+        { ...BASE, reflectDamageTakenReductionPct: 50 },
+        { ...BASE, thornsPct: 100 },
+      ),
+      "p1",
+      "p2",
+      100,
+    ).state;
+
+    expect(BASE.hp - normal.p1.hp).toBe(80);
+    expect(BASE.hp - reduced.p1.hp).toBe(30);
+  });
+
+  it("장비 방어 관통은 일반 공격뿐 아니라 물리 스킬의 대상 방어력에도 적용된다", () => {
+    const skills: V2SkillsState = {
+      learned: ["v2_skill_strike"],
+      equipped: ["v2_skill_strike"],
+    };
+    const attacker = {
+      ...BASE,
+      atk: 200,
+      strStat: 300,
+      maxMp: 10_000,
+      mp: 10_000,
+    };
+    const defender = { ...BASE, hp: 10_000, maxHp: 10_000, def: 200 };
+    const cast = (armorPierceFraction?: number) => {
+      const state = initialBattleStatePvP(
+        { ...attacker, armorPierceFraction },
+        defender,
+        "P1",
+        "P2",
+        skills,
+        EMPTY_SKILLS,
+      );
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      return castV2SkillOnAttackerTurnPvP(state, "p1").state;
+    };
+    const normal = cast();
+    vi.restoreAllMocks();
+    const pierced = cast(0.5);
+
+    const normalDamage = 10_000 - normal.p2.hp;
+    const piercedDamage = 10_000 - pierced.p2.hp;
+    expect(normalDamage).toBe(54);
+    expect(piercedDamage).toBe(130);
+  });
+
   it("분신 같은 턴 종료 추가타에도 배율을 적용한다", () => {
     const attacker = { ...BASE, shadowCloneAtkPct: 100 };
     const target = { ...BASE, hp: 10_000, maxHp: 10_000 };
@@ -246,5 +318,107 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
     expect(normal.p1.hp).toBeLessThan(BASE.hp);
     expect(arena.p1.hp).toBe(normal.p1.hp);
     expect(arena.p2.hp).toBeGreaterThan(normal.p2.hp);
+  });
+
+  it("아레나의 일반 회복 스킬 회복량을 35% 줄인다", () => {
+    const skills: V2SkillsState = {
+      learned: ["v2c_acolyte_smite"],
+      equipped: ["v2c_acolyte_smite"],
+    };
+    const wounded = { ...BASE, hp: 100, magicAtk: 120, healMult: 1 };
+    const makeSkillState = (sustainMultiplier?: number) =>
+      initialBattleStatePvP(
+        wounded,
+        BASE,
+        "P1",
+        "P2",
+        skills,
+        EMPTY_SKILLS,
+        undefined,
+        sustainMultiplier,
+      );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const normal = castV2SkillOnAttackerTurnPvP(makeSkillState(), "p1").state;
+    const arena = castV2SkillOnAttackerTurnPvP(
+      makeSkillState(ARENA_SUSTAIN_MULTIPLIER),
+      "p1",
+    ).state;
+    const normalHealing = normal.p1.hp - wounded.hp;
+    const arenaHealing = arena.p1.hp - wounded.hp;
+
+    expect(normalHealing).toBeGreaterThan(0);
+    expect(arenaHealing).toBe(Math.floor(normalHealing * 0.65));
+  });
+
+  it("아레나의 직접 보호막 생성량을 35% 줄인다", () => {
+    const skills: V2SkillsState = {
+      learned: ["v2c_warder_barrier"],
+      equipped: ["v2c_warder_barrier"],
+    };
+    const wounded = { ...BASE, hp: 500 };
+    const makeSkillState = (sustainMultiplier?: number) =>
+      initialBattleStatePvP(
+        wounded,
+        BASE,
+        "P1",
+        "P2",
+        skills,
+        EMPTY_SKILLS,
+        undefined,
+        sustainMultiplier,
+      );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const normal = castV2SkillOnAttackerTurnPvP(makeSkillState(), "p1").state;
+    const arena = castV2SkillOnAttackerTurnPvP(
+      makeSkillState(ARENA_SUSTAIN_MULTIPLIER),
+      "p1",
+    ).state;
+
+    expect(normal.p1.stacks.playerShield).toBeGreaterThan(0);
+    expect(arena.p1.stacks.playerShield).toBe(
+      Math.floor(normal.p1.stacks.playerShield * 0.65),
+    );
+  });
+
+  it("별도 PvP 50% 제한을 받는 1회 회복기에는 아레나 배율을 중복 적용하지 않는다", () => {
+    const skills: V2SkillsState = {
+      learned: ["v2c_survivor_firstaid"],
+      equipped: ["v2c_survivor_firstaid"],
+    };
+    const wounded = { ...BASE, hp: 100, healMult: 1 };
+    const makeSkillState = (sustainMultiplier?: number) =>
+      initialBattleStatePvP(
+        wounded,
+        BASE,
+        "P1",
+        "P2",
+        skills,
+        EMPTY_SKILLS,
+        undefined,
+        sustainMultiplier,
+      );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const normal = castV2SkillOnAttackerTurnPvP(makeSkillState(), "p1").state;
+    const arena = castV2SkillOnAttackerTurnPvP(
+      makeSkillState(ARENA_SUSTAIN_MULTIPLIER),
+      "p1",
+    ).state;
+
+    expect(normal.p1.hp).toBeGreaterThan(wounded.hp);
+    expect(arena.p1.hp).toBe(normal.p1.hp);
+  });
+
+  it("전투 시작 시 생성되는 보호막에도 아레나 보정을 적용한다", () => {
+    const shielded = { ...BASE, bulwarkShield: 100 };
+    const normal = stateWith(undefined, shielded, BASE);
+    const arena = stateWith(
+      undefined,
+      shielded,
+      BASE,
+      ARENA_SUSTAIN_MULTIPLIER,
+    );
+
+    expect(normal.p1.stacks.playerShield).toBe(100);
+    expect(arena.p1.stacks.playerShield).toBe(65);
   });
 });

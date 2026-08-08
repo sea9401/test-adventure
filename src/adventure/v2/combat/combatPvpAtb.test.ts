@@ -133,7 +133,7 @@ describe("resolveBattlePvP ATB invariants", () => {
     const result = run(p1, p2, 11);
     expect(result.outcome).toBe("p1_win");
     expect(result.finalState.phase).toBe("ended");
-    expect(PVP_ATB_TICK_CAP).toBe(2_600);
+    expect(PVP_ATB_TICK_CAP).toBe(3_000);
     expect(result.finalState.log.some((entry) => entry.text.includes("틱 경과"))).toBe(true);
   });
 

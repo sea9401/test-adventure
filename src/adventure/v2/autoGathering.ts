@@ -60,6 +60,12 @@ export type AutoGatheringStatus = {
   readyAt: number;
 };
 
+export type AutoGatheringStatusDisplay = {
+  text: string;
+  contextLabel: string;
+  stateLabel: string | null;
+};
+
 function woodcuttingSpotIdForSource(sourceId: string): WoodcuttingSpotId | null {
   return (
     (Object.values(WOODCUTTING_SPOTS).find(
@@ -88,14 +94,24 @@ export function autoGatheringActivityHref(
   return spotId ? `/town/mining?spot=${spotId}` : "/town/mining";
 }
 
-export function autoGatheringStatusText(
+export function autoGatheringStatusDisplay(
   status: AutoGatheringStatus | null,
   now: number,
-): string {
-  if (!status) return "휴식 중";
+): AutoGatheringStatusDisplay {
+  if (!status) {
+    return {
+      text: "휴식 중",
+      contextLabel: "휴식 중",
+      stateLabel: null,
+    };
+  }
   const activityName = status.activity === "woodcutting" ? "벌목" : "채광";
   if (now >= status.readyAt) {
-    return `${activityName} 정산 대기 · ${status.sourceName}`;
+    return {
+      text: `${activityName} 정산 대기 · ${status.sourceName}`,
+      contextLabel: `${activityName} · ${status.sourceName}`,
+      stateLabel: "정산 대기",
+    };
   }
   const remainingSeconds = Math.max(
     0,
@@ -108,7 +124,18 @@ export function autoGatheringStatusText(
     hours > 0
       ? `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
       : `${minutes}:${String(seconds).padStart(2, "0")}`;
-  return `${activityName} 자동 중 · ${status.sourceName} · ${remainingLabel}`;
+  return {
+    text: `${activityName} 자동 중 · ${status.sourceName} · ${remainingLabel}`,
+    contextLabel: `${activityName} 자동 중 · ${status.sourceName}`,
+    stateLabel: `남은 ${remainingLabel}`,
+  };
+}
+
+export function autoGatheringStatusText(
+  status: AutoGatheringStatus | null,
+  now: number,
+): string {
+  return autoGatheringStatusDisplay(status, now).text;
 }
 
 export type AutoGatheringSession = {

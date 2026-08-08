@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type {
-  GuildDiningEffectKind,
-  GuildDiningIngredient,
-  GuildDiningMenu,
-  GuildDiningMenuId,
+import {
+  GUILD_DINING_EFFECT_DURATION_HOURS,
+  GUILD_DINING_POINTS_PER_TICKET,
+  type GuildDiningEffectKind,
+  type GuildDiningIngredient,
+  type GuildDiningMenu,
+  type GuildDiningMenuId,
 } from "@/adventure/data/v2/guildDining";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
@@ -281,7 +283,7 @@ export function GuildDiningHallPanel({
         </div>
         <p className="mt-2 text-xs text-zinc-500">
           모든 주간 참여 길드원 기본 {state.tickets.base}장 · 내 기여 {state.contributionPoints}/
-          {state.tickets.contributionCap}점 · 15점마다 추가 식권 1장
+          {state.tickets.contributionCap}점 · {GUILD_DINING_POINTS_PER_TICKET}점마다 추가 식권 1장
         </p>
       </section>
 
@@ -526,7 +528,7 @@ export function GuildDiningHallPanel({
         </p>
       )}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 12시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 식재료·식권·메뉴·효과는 매주 월요일 00:00 KST에 초기화됩니다.
+        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 {GUILD_DINING_EFFECT_DURATION_HOURS}시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 식재료·식권·메뉴·효과는 매주 월요일 00:00 KST에 초기화됩니다.
       </p>
     </section>
   );

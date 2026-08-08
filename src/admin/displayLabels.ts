@@ -41,6 +41,7 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   "season-ops.pvp-rewards": "아레나 보상 지급",
   "season-ops.pvp-rollover": "아레나 시즌 정리",
   "season-ops.war-rollover": "전쟁 시즌 정리",
+  "storm-expedition.reset-daily-attempts": "폭풍 원정 일일 횟수 초기화",
   "suspicion-score.reset": "매크로 의심 점수 초기화",
 };
 
@@ -111,6 +112,7 @@ const LOG_LABELS: Record<string, string> = {
 const DETAIL_KEY_LABELS: Record<string, string> = {
   accountCount: "계정 수",
   accounts: "계정 목록",
+  activePreserved: "진행 중 원정 유지",
   action: "행동",
   adminMemo: "관리자 메모",
   amount: "수량",
@@ -119,6 +121,8 @@ const DETAIL_KEY_LABELS: Record<string, string> = {
   classId: "직업",
   count: "개수",
   continuousMinutes: "지속 시간(분)",
+  changed: "변경 여부",
+  date: "기준일",
   days: "일수",
   error: "오류",
   eventId: "이벤트 ID",
@@ -133,6 +137,7 @@ const DETAIL_KEY_LABELS: Record<string, string> = {
   message: "메시지",
   mpCharges: "MP 충전약",
   path: "경로",
+  previousAttemptsUsed: "이전 입장 사용 횟수",
   quantity: "수량",
   reason: "사유",
   recipients: "수신자",

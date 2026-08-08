@@ -144,7 +144,7 @@ export async function POST(req: Request) {
           won: battle.outcome === "win",
           turns: battle.turns,
           replay: {
-            payload: toReplayPayload(battle.finalState, 200),
+            payload: toReplayPayload(battle.finalState),
             playerName: ownerLabel,
           } satisfies StoredReplayEnvelope,
         });

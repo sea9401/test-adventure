@@ -45,6 +45,7 @@ describe("POST /api/v2/me/offline-hunt", () => {
       request({
         action: "start",
         autoStopConfig: {
+          hpPotionTargetPct: 55.9,
           potionEnabled: true,
           potionThreshold: 77.9,
           rareMapEnabled: true,
@@ -55,6 +56,7 @@ describe("POST /api/v2/me/offline-hunt", () => {
     expect(response.status).toBe(200);
     expect(store.get("character.v2")).toMatchObject({
       offlineHuntStopConfig: {
+        hpPotionTargetPct: 55,
         potionEnabled: true,
         potionThreshold: 77,
         rareMapEnabled: true,

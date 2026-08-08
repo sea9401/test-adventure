@@ -128,6 +128,7 @@ export type GuildWorkshopBonusView = {
 
 export type WorkshopState = {
   hasGuildSmithy: boolean;
+  favoriteRecipeIds: GuildWorkshopRecipeId[];
   spendableGold: number;
   resources: SettlementResources;
   materials: Record<string, number>;

@@ -518,7 +518,7 @@ export async function POST(req: Request) {
         turns = pvp.turns;
         battleFinalPlayerHp = pvp.finalState.p1.hp;
         // PvP 일기토 리플레이(나=p1·상대=수비자). 승패 무관 — 전투 진행을 로그로 표시.
-        replay = toPvpReplayPayload(pvp.finalState, defenderLabel, 200);
+        replay = toPvpReplayPayload(pvp.finalState, defenderLabel);
 
         // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅 일기토 결과로 결정.
         won = duelWonByAttacker;
@@ -544,7 +544,7 @@ export async function POST(req: Request) {
       won = battle.outcome === "win";
       turns = battle.turns;
       battleFinalPlayerHp = battle.finalState.playerHp;
-      replay = toReplayPayload(battle.finalState, 200);
+      replay = toReplayPayload(battle.finalState);
     }
 
     // log attempt — replay 봉투는 공격자(=나) 시점 스냅샷.

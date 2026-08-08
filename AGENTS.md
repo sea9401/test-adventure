@@ -10,6 +10,24 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 운영 배포와 롤백이 끝나도 점검 모드를 자동으로 해제하지 않는다. 사용자가 별도로
   점검 해제를 지시한 뒤에만 `bash deploy/maintenance.sh off`를 실행한다.
 
+# Superpowers 시험 운용
+
+- Superpowers는 중요한 기능 개발, 여러 단계의 변경, 로직 버그 조사에 우선 활용한다.
+  단순 밸런스 수치, 문구, 정적 데이터, 설정 파일 변경에는 brainstorming 설계 문서와
+  장문의 구현 계획을 생략할 수 있다.
+- 동작 또는 로직을 바꾸는 기능과 버그 수정은 가능한 경우 회귀 테스트를 먼저 작성하고,
+  원인 분석과 완료 전 검증을 적용한다. 테스트가 실익이 없거나 설정·생성 코드에 해당하면
+  TDD 생략 여부를 사용자에게 확인한다.
+- TDD를 다시 시작한다는 이유로 기존 코드, 사용자가 작성한 코드, 현재 작업 트리의 변경을
+  삭제하지 않는다.
+- 격리 작업 공간이 필요하면 프로젝트 내부 `.worktrees/`를 만들거나 `.gitignore`를 바꾸지
+  말고 `/tmp` 아래에 생성한다. 이미 격리된 작업 공간이면 그대로 사용한다.
+- 사용자가 명시적으로 요청하지 않으면 서브에이전트를 생성하지 않는다.
+- 사용자가 스쿼시 대상 커밋이나 통합 방식을 지정했다면 일반적인 브랜치 완료 메뉴보다 그
+  지시를 우선한다.
+- Superpowers의 시각적 브레인스토밍 동반 기능은 별도 요청이 있을 때만 사용한다.
+- 위 규칙은 기존 배포 및 점검 모드 규칙을 완화하지 않는다.
+
 # Image assets
 
 `public/images/` 안의 모든 그림은 카테고리별 max-width 규격으로 다운샘플 + WebP 변환된 상태다. 새 PNG를 추가하면 `npm run dev`/`npm run build` 시 `predev`/`prebuild` 훅이 `optimize-images` 스크립트를 자동으로 돌려 WebP로 교체하고 원본 PNG를 삭제한다 (스크립트는 idempotent — 이미 변환된 상태면 빠르게 통과). 새 카테고리 폴더를 만들 때는 `scripts/optimize-images.mjs` 상단 `PROFILES`에 max-width/quality를 한 줄 추가해야 처리된다. 카테고리 안의 서브폴더는 같은 프로필로 자동 재귀 처리.

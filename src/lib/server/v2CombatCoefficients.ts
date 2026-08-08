@@ -37,7 +37,7 @@ export const SPD_PER_DEX = 0.95;
 //   weight 다이얼은 페널티 계수 그대로 두고, 무게 자체를 effectiveStats 에서 슬롯별 스케일
 //   (일반 ×2·무기 ×4)로 키워 SPD 가치 대비 너무 미미하던 무게 트레이드오프를 강화(2026-06-20, 오너).
 //   "표시 무게 1 = 속도 −2" 직관은 유지. 무게는 전투력 점수 미산입이라 순수 속도 트레이드오프.
-//   2.0→0.5 (2026-06-25, 오너·sim): ATB 속도곡선 ~6배 전환과 함께 중갑 탱(STR/VIT)이 속도열세로
+//   2.0→0.5 (2026-06-25, 오너·sim): ATB 속도곡선 전환과 함께 중갑 탱(STR/VIT)이 속도열세로
 //   전멸하던 걸 막기 위해 무게 속도페널티를 1/4 로 완화 — 6배에서 STR 67%·VIT 58% 생존(sim 검증).
 export const WEIGHT_SPD_PENALTY = 0.5;
 // 최소 데미지(데미지 하한) — 힘·지능 major, 활력 minor.
@@ -115,8 +115,8 @@ export const ACCURACY_PCT_CAP = 35;
 //   (의도된 이중 활용; 다른 빌드는 hit 한 번만). coef·임계는 sim 캘리브 대상.
 export const BOW_HIT_THRESHOLD = 10;
 export const BOW_ACCURACY_TO_ATK_COEF = 3;
-// 5차 물리 캡스톤 — 명궁 "초월 사격": 행동빈도 포화 데드존(combatTimeline: spd≳292 부터 actionRate
-//   거의 불변) 초과 속도를 점근 곡선으로 공격력 환원. 활 명중→딜의 속도판. 점근=죽은 투자 없음.
+// 검호·검성 패시브 — 고속 구간(combatTimeline: SPD 292 초과)의 완만해진 성장분을 점근 곡선으로
+// 공격력에 추가 환원한다. 행동 빈도는 SPD 1,024까지 계속 오르며, 점근 보너스는 투자 가치를 보탠다.
 export const SPD_OVERFLOW_THRESHOLD = 292;
 export const SPD_OVERFLOW_SCALE = 200; // 점근 완만도(클수록 천천히 상한 접근).
 

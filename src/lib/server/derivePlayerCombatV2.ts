@@ -555,8 +555,8 @@ export function derivePlayerCombatV2Pure(
     const excessAccuracy = Math.max(0, rawAccuracyPct - BOW_HIT_THRESHOLD);
     specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
   }
-  // 5차 물리 캡스톤(검호·명궁) — 행동빈도 데드존(SPD>292) 초과 속도를 공격력 %로. SPD 무한 →
-  //   점근(재폭주 방지). 상한 수렴·절대 도달X = 속도 죽은 스탯 X. %라 무기/레벨로 큰 atk 풀에 비례.
+  // 검호·검성 패시브 — 완만해지는 고속 구간(SPD>292)을 공격력 %로 추가 환원한다. SPD 무한 →
+  // 점근(재폭주 방지). 행동 빈도는 SPD 1,024까지 별도로 계속 상승한다.
   if (input.passiveSpdOverflowToAtkPct) {
     const excessSpd = Math.max(0, specSpd - SPD_OVERFLOW_THRESHOLD);
     const pct =

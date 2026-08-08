@@ -9,6 +9,15 @@ import {
   removeMuseunCashItem,
 } from "@/adventure/data/v2/museunCashItems";
 import {
+  cultivationResetGoldCost,
+  emptyProficiency,
+  parseProficiencyForChar,
+  resetCultivation,
+  totalCapGains,
+  usablePoints,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
+import {
   ADVENTURE_SUPPORT_PASS,
   grantAdventureSupport,
 } from "@/adventure/data/v2/adventureSupport";
@@ -38,6 +47,8 @@ import {
 } from "@/adventure/data/v2/museunCosmetics";
 
 type CharacterSave = {
+  class?: unknown;
+  level?: unknown;
   cashItems?: unknown;
   adventureSupport?: unknown;
   stamina?: unknown;
@@ -277,6 +288,65 @@ export async function POST(req: Request) {
           cosmetics,
           cosmetic: { ...variant, slot: "chat_badge" as const },
           remaining: available.length - 1,
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
+  if (item.effect.kind === "cultivation_reset") {
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" as const },
+        };
+      }
+
+      const proficiency = parseProficiencyForChar(
+        await lockSaveForUpdate<V2ProficiencyState>(
+          tx,
+          userId,
+          "proficiency.v2",
+          emptyProficiency(),
+        ),
+        character,
+      );
+      const reset = resetCultivation(proficiency);
+      if (!reset) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "nothing_to_reset" as const },
+        };
+      }
+
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+      });
+      await upsertSave(tx, userId, "proficiency.v2", reset.next);
+
+      const resetCount = reset.next.cultivationResetCount ?? 0;
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          cashItems,
+          spentGold: 0,
+          refundedPoints: reset.refundedPoints,
+          points: usablePoints(reset.next),
+          capGains: totalCapGains(reset.next),
+          caps: {},
+          growthRespecPoints: reset.next.growthRespecPoints ?? 0,
+          resetCount,
+          nextResetGoldCost: cultivationResetGoldCost(resetCount),
         },
       };
     });

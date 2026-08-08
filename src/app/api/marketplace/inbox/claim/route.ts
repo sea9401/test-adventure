@@ -50,7 +50,7 @@ import {
   addMuseunCashItem,
   isMuseunShopItemId,
   parseMuseunCoinBalance,
-  type MuseunShopItemId,
+  type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
   addCookingFood,
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
       const recipesToAdd: AddRecipe[] = [];
       let staminaPotionsTotal = 0;
       let museunCoinsTotal = 0;
-      const museunCashItemTotals = new Map<MuseunShopItemId, number>();
+      const museunCashItemTotals = new Map<MuseunCashItemId, number>();
       const cookingFoodTotals = new Map<CookingFoodId, number>();
       let adventureSupportDaysTotal = 0;
       const titleIdsToGrant = new Set<string>();

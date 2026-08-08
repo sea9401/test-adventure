@@ -22,7 +22,8 @@ import { BULLETIN_NOTICE_MAX_LENGTH } from "@/lib/bulletin-config";
 import { ADVENTURE_SUPPORT_MAX_GRANT_DAYS } from "@/adventure/data/v2/adventureSupport";
 import {
   MUSEUN_CASH_ITEMS,
-  MUSEUN_SHOP_ITEM_IDS,
+  MUSEUN_ADMIN_GIFT_ITEM_IDS,
+  CULTIVATION_RESET_POTION_ITEM_ID,
 } from "@/adventure/data/v2/museunCashItems";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { AdminUserRow } from "./users/types";
@@ -75,10 +76,13 @@ export function BroadcastTab() {
   );
   const cashItemOptions = useMemo<CatalogOption[]>(
     () =>
-      MUSEUN_SHOP_ITEM_IDS.map((id) => ({
+      MUSEUN_ADMIN_GIFT_ITEM_IDS.map((id) => ({
         id,
         name: MUSEUN_CASH_ITEMS[id].name,
-        label: `${MUSEUN_CASH_ITEMS[id].name} (${MUSEUN_CASH_ITEMS[id].coinPrice.toLocaleString()}코인 상품)`,
+        label:
+          id === CULTIVATION_RESET_POTION_ITEM_ID
+            ? `${MUSEUN_CASH_ITEMS[id].name} (보상 전용)`
+            : `${MUSEUN_CASH_ITEMS[id].name} (${MUSEUN_CASH_ITEMS[id].coinPrice.toLocaleString()}코인 상품)`,
       })),
     [],
   );

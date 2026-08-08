@@ -206,6 +206,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
         cashItems: [
           { itemId: "rename_permit", count: 2 },
           { itemId: "adventure_support_30d", count: 1 },
+          { itemId: "cultivation_reset_potion", count: 1 },
         ],
       },
       claimedAt: null,
@@ -226,10 +227,15 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.cashItemsAdded).toEqual([
       { itemId: "rename_permit", count: 2 },
       { itemId: "adventure_support_30d", count: 1 },
+      { itemId: "cultivation_reset_potion", count: 1 },
     ]);
     expect(savesStore.get("u1::museun-coin-wallet.v1")).toEqual({ coins: 800 });
     expect(savesStore.get("u1::character.v2")).toEqual({
-      cashItems: { rename_permit: 2, adventure_support_30d: 1 },
+      cashItems: {
+        rename_permit: 2,
+        adventure_support_30d: 1,
+        cultivation_reset_potion: 1,
+      },
     });
   });
 

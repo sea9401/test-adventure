@@ -310,6 +310,7 @@ describe("parseInboxPayload — happy path", () => {
         cashItems: [
           { itemId: "rename_permit", count: 2 },
           { itemId: "adventure_support_30d", count: 1 },
+          { itemId: "cultivation_reset_potion", count: 1 },
           { itemId: "not_a_shop_item", count: 99 },
         ],
       }),
@@ -323,6 +324,7 @@ describe("parseInboxPayload — happy path", () => {
       cashItems: [
         { itemId: "rename_permit", count: 2 },
         { itemId: "adventure_support_30d", count: 1 },
+        { itemId: "cultivation_reset_potion", count: 1 },
       ],
       adventureSupportDays: 0,
     });

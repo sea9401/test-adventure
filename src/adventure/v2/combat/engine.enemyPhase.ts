@@ -39,6 +39,8 @@ export function resolveEnemyPhase(
   enteringEnemyPhase: boolean,
   // 몹이 이 턴 스킬을 시전했으면 평타 생략(스킬이 평타 대체 — 플레이어 대칭). 한기 틱 뒤 분기.
   skipBasicAttack: boolean = false,
+  // 도발로 즉시 발생한 공격은 몬스터 고유 스킬 없이 기본 공격 판정만 수행한다.
+  forceBasicAttack: boolean = false,
 ): BattleState {
   // ── 한기 (chill) — 적 페이즈 시작 시 한기 스택당 고정 피해 (DEF·보호막 무시) ──────
   // 출혈의 미러. threshold 이상부터 발동. 스택은 적 chill 공격 적중 시 누적(아래 적 공격부).
@@ -623,7 +625,9 @@ export function resolveEnemyPhase(
   // ── 잡몹 스킬 (적 공격에 영향) ──────────────────────────────────────────
   // 천뢰 일격 (AP) — silence 활성 중엔 enemy.skill 전체 효과 비활성.
   const skill =
-    state.buffs.enemySilenceTurnsLeft > 0 ? undefined : state.enemy.skill;
+    forceBasicAttack || state.buffs.enemySilenceTurnsLeft > 0
+      ? undefined
+      : state.enemy.skill;
   // 한기 누적 — chill 공격이 적중하면 perHit 만큼 스택. 적 HP 가 deepHpFraction 미만이면 2배(깊은 한기).
   // silence 중엔 누적 안 됨(skill 이 undefined). 실제 DoT 는 다음 적 페이즈 시작에 틱.
   const chillAdd =

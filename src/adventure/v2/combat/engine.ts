@@ -962,7 +962,6 @@ export function initialBattleState(
       enemyDamageDownTurns: 0,
       enemySkillProcDownPct: 0,
       enemySkillProcDownTurns: 0,
-      provokedEnemyBasicAttacks: 0,
       enemyDotVulnPct: 0,
       enemyDotVulnTurns: 0,
     },
@@ -1015,21 +1014,12 @@ export function advanceTurn(
   const enteringEnemyPhase =
     state.phase === "enemy" && state.turn.enemyAttacksLeft <= 0;
   if (enteringEnemyPhase) {
-    const provokedEnemyBasicAttacks =
-      state.stacks.provokedEnemyBasicAttacks ?? 0;
     state = {
       ...state,
       turn: {
         ...state.turn,
-        enemyAttacksLeft:
-          provokedEnemyBasicAttacks > 0
-            ? provokedEnemyBasicAttacks
-            : rollEnemyAttackCount(state.enemy),
+        enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
       },
-      stacks:
-        provokedEnemyBasicAttacks > 0
-          ? { ...state.stacks, provokedEnemyBasicAttacks: 0 }
-          : state.stacks,
     };
     const enemyDotTick = tickV2Dots(
       state.enemyV2Dots,
@@ -1489,6 +1479,55 @@ export function applyEnemyV2SkillCast(
 // buff/debuff tick 은 호출부 책임(legacy=인라인 tick, ATB=tickPlayerBundleEntry). lethal 체크와
 // "시전=완료 턴"(평타 XOR) 처리도 호출부가 루프 모델에 맞게 한다. 이 함수는 cast 결정 + 데미지/힐/
 // 마나/HP비용/버프/디버프/도트/취약·실명·암흑 + state 업데이트(로그 포함)까지만 한다(byte-identical).
+function applyImmediateProvokedEnemyBasicAttacks(
+  state: BattleState,
+  player: PlayerCombat,
+  playerName: string,
+  count: number,
+  skillName: string,
+): BattleState {
+  const attacks = Math.max(0, Math.floor(count));
+  if (attacks <= 0 || state.phase === "ended") return state;
+  const originalPhase = state.phase;
+  const originalEnemyAttacksLeft = state.turn.enemyAttacksLeft;
+  const originalEnemyPhasesCompleted = state.turn.enemyPhasesCompleted;
+  let next: BattleState = {
+    ...state,
+    phase: "enemy",
+    turn: { ...state.turn, enemyAttacksLeft: attacks },
+    log: appendLog(state.log, {
+      kind: "info",
+      text: `[${skillName}] ${state.enemy.name}이(가) 즉시 기본 공격 ${attacks}회!`,
+      turn: "player",
+    }),
+  };
+  for (let index = 0; index < attacks && next.phase !== "ended"; index += 1) {
+    if (index > 0 && next.phase !== "enemy") break;
+    const logStart = next.log.length;
+    next = resolveEnemyPhase(next, player, playerName, false, false, true);
+    if (next.log.length > logStart) {
+      next = {
+        ...next,
+        log: next.log.map((entry, logIndex) =>
+          logIndex < logStart || entry.turn
+            ? entry
+            : { ...entry, turn: "enemy" as const },
+        ),
+      };
+    }
+  }
+  if (next.phase === "ended") return next;
+  return {
+    ...next,
+    phase: originalPhase,
+    turn: {
+      ...next.turn,
+      enemyAttacksLeft: originalEnemyAttacksLeft,
+      enemyPhasesCompleted: originalEnemyPhasesCompleted,
+    },
+  };
+}
+
 export function applyPlayerV2SkillCast(
   state: BattleState,
   player: PlayerCombat,
@@ -1497,6 +1536,7 @@ export function applyPlayerV2SkillCast(
     selfDebuffs: import("./combatShared").V2BuffMap;
     enemyDebuffs: import("./combatShared").V2BuffMap;
   },
+  playerName = "플레이어",
 ): {
   state: BattleState;
   castFired: boolean;
@@ -1951,24 +1991,15 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
-  const provoke =
+  const provokeImmediateBasicAttacks =
     !skillMissed && result.castSkillId
-      ? V2_SKILLS[result.castSkillId]?.pveProvokeBasicAttacks
-      : undefined;
-  const provokeMin = provoke ? Math.max(1, Math.floor(provoke.min)) : 0;
-  const provokeMax = provoke
-    ? Math.max(provokeMin, Math.floor(provoke.max))
-    : 0;
-  const provokedEnemyBasicAttacks = provoke
-    ? provokeMin + Math.floor(Math.random() * (provokeMax - provokeMin + 1))
-    : 0;
-  if (provokedEnemyBasicAttacks > 0) {
-    nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[${result.castSkillName ?? "도발"}] ${state.enemy.name}의 다음 행동을 기본 공격 ${provokedEnemyBasicAttacks}회로 강제한다.`,
-      turn: "player",
-    });
-  }
+      ? Math.max(
+          0,
+          Math.floor(
+            V2_SKILLS[result.castSkillId]?.provokeImmediateBasicAttacks ?? 0,
+          ),
+        )
+      : 0;
   if (result.enemyDotVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -2022,13 +2053,6 @@ export function applyPlayerV2SkillCast(
       signatureHitCount: nextSigHitCount,
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
-      provokedEnemyBasicAttacks:
-        provokedEnemyBasicAttacks > 0
-          ? Math.max(
-              state.stacks.provokedEnemyBasicAttacks ?? 0,
-              provokedEnemyBasicAttacks,
-            )
-          : (state.stacks.provokedEnemyBasicAttacks ?? 0),
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
       playerShield:
         state.stacks.playerShield +
@@ -2039,6 +2063,15 @@ export function applyPlayerV2SkillCast(
     },
     log: nextLog,
   };
+  if (provokeImmediateBasicAttacks > 0 && result.castSkillName) {
+    state = applyImmediateProvokedEnemyBasicAttacks(
+      state,
+      player,
+      playerName,
+      provokeImmediateBasicAttacks,
+      result.castSkillName,
+    );
+  }
   return {
     state,
     castFired: result.castSkillId != null,
@@ -2180,8 +2213,11 @@ function resolveBattleLegacy(
           selfBuffs: tickedSelfBuffs,
           selfDebuffs: tickedSelfDebuffs,
           enemyDebuffs: tickedEnemyDebuffs,
-        });
+        }, playerName);
         state = cast.state;
+        if (state.phase === "ended") {
+          continue;
+        }
         // lethal 체크 — v2 damage 로 적 사망 시 정상 종료 처리 (옛 spell cast 분기와 일관).
         if (state.enemyHp <= 0) {
           state = {
@@ -2246,14 +2282,6 @@ function resolveBattleLegacy(
     } else if (state.phase === "enemy") {
       // PR-5b — enemy 의 v2 스킬 cast (player cast hook 미러). monster.v2Skills 미지정이면 no-op.
       v2CastedThisPlayerPhase = false;
-      // 도발된 다음 적 행동은 스킬 판정을 생략하고 예약된 2~3회 기본 공격만 수행한다.
-      // 다중 공격 도중 두 번째 반복에서 스킬이 끼어들지 않도록 enemy phase cast 플래그도 소비한다.
-      if (
-        !v2CastedThisEnemyPhase &&
-        (state.stacks.provokedEnemyBasicAttacks ?? 0) > 0
-      ) {
-        v2CastedThisEnemyPhase = true;
-      }
       if (!v2CastedThisEnemyPhase) {
         v2CastedThisEnemyPhase = true;
         const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);

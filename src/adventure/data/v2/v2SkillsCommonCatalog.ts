@@ -195,7 +195,7 @@ export type V2CommonSkillId =
   | "v2c_spellsealer_sealingfield" // 봉마진 (적 공격·스킬 발동 봉쇄)
   | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
-  | "v2c_warden_aegis" // 수호의 도발 (PvE 2~3회 기본 공격 유도·PvP 다음 스킬 제한)
+  | "v2c_warden_aegis" // 수호의 도발 (상대의 즉시 기본 공격 2회 유도)
   | "v2c_warden_thorns" // 가시 방벽 (HP 피해 시 방어력만큼 반사)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) ──
   | "v2c_warlord_bloodbath" // 혈전 (HP 소모 강타)
@@ -211,7 +211,7 @@ export type V2CommonSkillId =
   // ── 5차 직업 ──
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
-  | "v2c_ironknight_guard" // 철벽 태세 (강화 보호막)
+  | "v2c_ironknight_guard" // 철벽 태세 (받는 피해 감소 + 반사 증폭)
   | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
   | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
@@ -1520,10 +1520,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 도발 액티브 + 반사 패시브 ──
   v2c_warden_aegis: {
     id: "v2c_warden_aegis", name: "수호의 도발", stat: "vit", category: "buff", tier: 3,
-    description: "적의 시선을 끌어 자신을 공격하게 한다. 사냥에서는 적이 다음 행동에 기본 공격을 2~3회 사용하며, PvP에서는 상대의 다음 행동을 기본 공격으로 유도한다.",
+    description: "적의 시선을 끌어 즉시 자신을 두 번 공격하게 한다. 상대의 원래 다음 행동은 소모하지 않는다.",
     mpCost: 40, cooldown: 3, procChance: 100, spCost: 10,
-    effects: [{ kind: "enemySkillProcDown", pct: 100, turns: 1 }],
-    pveProvokeBasicAttacks: { min: 2, max: 3 },
+    effects: [],
+    provokeImmediateBasicAttacks: 2,
   },
   v2c_warden_thorns: {
     // 가시 방벽(패시브) — HP 피해를 받을 때 전투 시작 방어력의 70%를 고정 반사.
@@ -1615,9 +1615,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_ironknight_guard: {
     id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
-    description: "방패를 고정해 강화 보호막을 세운다. 보호막이 피해를 모두 흡수한 공격에는 반사와 반격이 발동하지 않는다.",
+    description: "철벽처럼 버티며 받는 피해를 줄이고 반사 피해를 높인다.",
     mpCost: 48, cooldown: 3, procChance: 100, spCost: 10, learnCost: 8000,
-    effects: [{ kind: "shield", pctMaxHp: 15, turns: 3 }],
+    effects: [
+      { kind: "selfBuffPct", target: "damageReduction", pct: 30, turns: 2 },
+      { kind: "selfBuffPct", target: "reflectDamage", pct: 50, turns: 2 },
+    ],
   },
   v2c_ironknight_wall: {
     id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,

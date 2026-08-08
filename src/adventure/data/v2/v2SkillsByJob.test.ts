@@ -120,16 +120,12 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "selfBuffPct",
       target: "damageReduction",
     });
-    expect(V2_SKILLS.v2c_warden_aegis.effects).toEqual([
-      { kind: "enemySkillProcDown", pct: 100, turns: 1 },
-    ]);
+    expect(V2_SKILLS.v2c_warden_aegis.effects).toEqual([]);
     expect(V2_SKILLS.v2c_warden_aegis.cooldown).toBe(3);
-    expect(V2_SKILLS.v2c_warden_aegis.pveProvokeBasicAttacks).toEqual({
-      min: 2,
-      max: 3,
-    });
+    expect(V2_SKILLS.v2c_warden_aegis.provokeImmediateBasicAttacks).toBe(2);
     expect(V2_SKILLS.v2c_ironknight_guard.effects).toEqual([
-      { kind: "shield", pctMaxHp: 15, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 30, turns: 2 },
+      { kind: "selfBuffPct", target: "reflectDamage", pct: 50, turns: 2 },
     ]);
     expect(V2_SKILLS.v2c_assassin_ambush.effects[0]).toMatchObject({
       kind: "executeDamage",
@@ -726,6 +722,14 @@ describe("직업 킷 — 스킬셋", () => {
         "v2c_fortressknight_citadel",
       ]).thornsDefPct,
     ).toBe(200);
+    const ironStanceReflect = V2_SKILLS.v2c_ironknight_guard.effects.find(
+      (effect) =>
+        effect.kind === "selfBuffPct" && effect.target === "reflectDamage",
+    );
+    expect(ironStanceReflect).toMatchObject({ pct: 50, turns: 2 });
+    const ironStanceReflectPct =
+      ironStanceReflect?.kind === "selfBuffPct" ? ironStanceReflect.pct : 0;
+    expect(Math.floor(200 * (1 + ironStanceReflectPct / 100))).toBe(300);
     expect(V2_SKILLS.v2c_overlord_ruin.effects.map((e) => e.kind)).toEqual([
       "hpCostDamage",
       "executeDamage",
@@ -1484,13 +1488,8 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_warden_aegis",
       "v2c_warden_thorns",
     ]);
-    expect(V2_SKILLS.v2c_warden_aegis.effects).toEqual([
-      { kind: "enemySkillProcDown", pct: 100, turns: 1 },
-    ]);
-    expect(V2_SKILLS.v2c_warden_aegis.pveProvokeBasicAttacks).toEqual({
-      min: 2,
-      max: 3,
-    });
+    expect(V2_SKILLS.v2c_warden_aegis.effects).toEqual([]);
+    expect(V2_SKILLS.v2c_warden_aegis.provokeImmediateBasicAttacks).toBe(2);
     // 패시브: HP 피해를 받을 때 전투 시작 방어력 70% 반사
     expect(V2_SKILLS.v2c_warden_thorns.passive?.thornsDefPct).toBe(70);
     // aggregate 가 thornsDefPct 를 수집(미보유=0)

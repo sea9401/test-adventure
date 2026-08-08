@@ -404,14 +404,8 @@ export type V2SkillDefinition = {
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
-  /**
-   * 사냥 전용 도발. 적의 다음 행동을 스킬 대신 이 범위의 기본 공격 횟수로 바꾼다.
-   * PvP에서는 추가 공격을 만들지 않으며, effects의 enemySkillProcDown만 적용한다.
-   */
-  pveProvokeBasicAttacks?: {
-    min: number;
-    max: number;
-  };
+  /** 도발 시 사냥·PvP 상대가 즉시 시전자에게 가하는 기본 공격 횟수. */
+  provokeImmediateBasicAttacks?: number;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -1902,12 +1896,10 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   if (!skill.passive && directDamageEffectCount > 1) {
     chips.unshift(`${directDamageEffectCount}회 공격`);
   }
-  if (skill.pveProvokeBasicAttacks) {
-    const { min, max } = skill.pveProvokeBasicAttacks;
+  if (skill.provokeImmediateBasicAttacks) {
     chips.push(
-      `사냥 도발: 적 다음 행동 기본 공격 ${min === max ? `${min}회` : `${min}~${max}회`}`,
+      `도발: 상대가 즉시 시전자를 기본 공격 ${skill.provokeImmediateBasicAttacks}회`,
     );
-    chips.push("PvP 도발: 상대 다음 행동 스킬 제한");
   }
   if (
     skill.effects.some(
@@ -2178,6 +2170,9 @@ export function smartDefaultConditionForSkill(
   def: V2SkillDefinition,
 ): V2CombatCondition {
   const effs = def.effects;
+  if (def.provokeImmediateBasicAttacks) {
+    return { kind: "always" };
+  }
   // 기습(ambushDamage) — 풀피 적에게만 큰 딜(처형의 역). 기본딜이 낮아 깎인 적엔 평타 이하라, 기본
   //   조건을 "첫 턴만(turn≤1)"으로 깔아 자동전투가 오프너 1회만 쏘게 한다("딱 첫 턴만"). 더 정교하게
   //   쓰려면 패턴 편집(예: 적 풀피일 때 재발동) — 패턴 사용 유도. DAMAGE_EFFECT_KINDS 의 "항상"보다 먼저.

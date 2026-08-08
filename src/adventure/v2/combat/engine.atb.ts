@@ -366,7 +366,7 @@ export function resolveBattleAtb(
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: state.v2SelfDebuffs,
             enemyDebuffs: state.enemyV2Debuffs,
-          });
+          }, playerName);
           state = cast.state;
           castFired = cast.castFired;
           castSelfHastePct = cast.selfHastePct;
@@ -376,7 +376,9 @@ export function resolveBattleAtb(
               actionInterval(effectiveEnemyTimelineSpd(state, depthCorr)) *
               (cast.enemyDelayPct / 100);
           }
-          if (state.enemyHp <= 0) {
+          if (state.phase === "ended") {
+            // 도발 직후 강제 기본 공격 또는 그 반사로 끝난 전투 상태를 보존한다.
+          } else if (state.enemyHp <= 0) {
             // 시전으로 적 처치 — 플레이어 관점 승리(ATB 평타 처치 로그와 동형).
             state = {
               ...state,
@@ -455,22 +457,13 @@ export function resolveBattleAtb(
         (1 - castSelfHastePct / 100);
       turns += 1;
     } else {
-      const provokedEnemyBasicAttacks =
-        state.stacks.provokedEnemyBasicAttacks ?? 0;
       state = {
         ...state,
         phase: "enemy",
         turn: {
           ...state.turn,
-          enemyAttacksLeft:
-            provokedEnemyBasicAttacks > 0
-              ? provokedEnemyBasicAttacks
-              : rollEnemyAttackCount(state.enemy),
+          enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
         },
-        stacks:
-          provokedEnemyBasicAttacks > 0
-            ? { ...state.stacks, provokedEnemyBasicAttacks: 0 }
-            : state.stacks,
       };
       const enemyBundleStart = state.log.length;
       state = tickEnemyDotsOnAction(state);
@@ -486,10 +479,7 @@ export function resolveBattleAtb(
         //   cast 미러·더블어택 방지). v2Skills 미장착 몹은 헬퍼가 즉시 no-op → 기존 전투 byte-identical.
         //   버프/디버프 tick 은 위 tickEnemyBundleEntry 가 이미 했으므로 헬퍼는 tick 없이 cast+적용만.
         let enemyCastFired = false;
-        if (
-          provokedEnemyBasicAttacks <= 0 &&
-          (V2_ATB_SKILLS || ctx.forceAtbSkills)
-        ) {
+        if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
           const prevLogLen = state.log.length;
           const cast = applyEnemyV2SkillCast(state, atbPlayer);
           state = cast.state;

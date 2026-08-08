@@ -218,8 +218,6 @@ export type BattleStacks = {
   enemyDamageDownTurns: number;
   enemySkillProcDownPct: number; // 금제 — 적 v2 스킬 발동률 -%p.
   enemySkillProcDownTurns: number;
-  // 사냥 도발 — 다음 적 행동의 기본 공격 총횟수. 적 행동 묶음 진입 시 소비한다.
-  provokedEnemyBasicAttacks?: number;
   enemyDotVulnPct: number; // 침식 — 적이 받는 DoT 틱/마법취약 폭발 피해 +%.
   enemyDotVulnTurns: number;
 };

@@ -377,9 +377,8 @@ describe("v2Skills 카탈로그", () => {
     expect(corrosion).toContain("중독 적 방어");
 
     const provoke = v2SkillSearchText(V2_SKILLS.v2c_warden_aegis);
-    expect(provoke).toContain("사냥 도발");
-    expect(provoke).toContain("기본 공격 2~3회");
-    expect(provoke).toContain("pvp 도발");
+    expect(provoke).toContain("도발");
+    expect(provoke).toContain("즉시 시전자를 기본 공격 2회");
   });
 
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {
@@ -853,6 +852,8 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   it("액티브 스킬은 100% 발동도 확률 칩으로 표시", () => {
     const chips = describeV2Skill(V2_SKILLS.v2c_ironknight_guard);
     expect(chips).toContain("발동 100%");
+    expect(chips).toContain("받는 피해 -30% (2행동)");
+    expect(chips).toContain("반사 피해 +50% (2행동)");
   });
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {

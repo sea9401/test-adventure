@@ -517,7 +517,7 @@ export function tickV2SkillCooldowns(map: V2SkillCooldowns): V2SkillCooldowns {
 // 슬롯 우선순위로 발동 가능한 첫 스킬 선택. 조건:
 //   (a) cooldowns[id] === 0 (또는 undefined),
 //   (b) mp >= def.mpCost,
-//   (c) def.effects.length > 0 (효과 없는 스킬은 PR-4a 에서 skip).
+//   (c) 일반 효과 또는 즉시 도발처럼 독립 실행 메타 효과가 있음.
 // equipped 배열 순서가 우선순위 = 자동 발동 정책 (spec Section 6.4 PR-4 contract).
 export function pickAutoCastV2Skill(args: {
   equipped: readonly V2SkillId[];
@@ -529,7 +529,7 @@ export function pickAutoCastV2Skill(args: {
     if (!def) continue;
     if ((args.cooldowns[id] ?? 0) > 0) continue;
     if (args.mp < v2SkillMpCost(def)) continue;
-    if (def.effects.length === 0) continue;
+    if (def.effects.length === 0 && !def.provokeImmediateBasicAttacks) continue;
     return id;
   }
   return null;
@@ -792,18 +792,20 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const isUsable = (sid: string) => {
     if (!equippedSet.has(sid)) return false;
     const d = V2_SKILLS[sid as V2SkillId];
-    const hasUsefulEffect = d?.effects.some((effect) => {
-      if (effect.kind === "enemyDamageDown") {
-        return !(input.target.enemyDamageDownActive ?? false);
-      }
-      if (effect.kind === "enemyVuln") {
-        return !(input.target.enemyVulnerabilityActive ?? false);
-      }
-      if (effect.kind === "enemySkillProcDown") {
-        return !(input.target.enemySkillProcDownActive ?? false);
-      }
-      return true;
-    });
+    const hasUsefulEffect =
+      (d?.provokeImmediateBasicAttacks ?? 0) > 0 ||
+      d?.effects.some((effect) => {
+        if (effect.kind === "enemyDamageDown") {
+          return !(input.target.enemyDamageDownActive ?? false);
+        }
+        if (effect.kind === "enemyVuln") {
+          return !(input.target.enemyVulnerabilityActive ?? false);
+        }
+        if (effect.kind === "enemySkillProcDown") {
+          return !(input.target.enemySkillProcDownActive ?? false);
+        }
+        return true;
+      });
     return (
       !!d &&
       hasUsefulEffect &&

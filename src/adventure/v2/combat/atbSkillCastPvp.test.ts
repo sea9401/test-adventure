@@ -67,9 +67,16 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     expect(p1Basic).toBe(0);
   });
 
-  it("수호의 도발은 PvP에서 추가타 없이 상대의 다음 행동만 기본 공격으로 유도한다", () => {
+  it("수호의 도발은 PvP에서 상대의 다음 행동을 소모하지 않고 즉시 기본 공격 2회를 유도한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.1);
-    const res = resolveBattlePvP(caster, target, "수호자", "상대", {
+    const provokeCaster: PlayerCombat = {
+      ...caster,
+      hp: 1_000,
+      maxHp: 1_000,
+      thornsDefPct: 200,
+      thornsFlatFromDef: 200,
+    };
+    const res = resolveBattlePvP(provokeCaster, target, "수호자", "상대", {
       pickAction: () => ({ kind: "attack" }),
       potions: { p1: {}, p2: {} },
       v2Skills: {
@@ -86,20 +93,38 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     vi.restoreAllMocks();
 
     const provokeIndex = res.finalState.log.findIndex(
-      (entry) =>
-        entry.side === "p1" && entry.text.includes("스킬 발동률 −100%p"),
+      (entry) => entry.side === "p1" && entry.text.includes("즉시 기본 공격 2회"),
     );
     expect(provokeIndex).toBeGreaterThanOrEqual(0);
-    const firstOpponentAttack = res.finalState.log
+    const provokeTick = res.finalState.log[provokeIndex]?.t;
+    const immediateOpponentAttacks = res.finalState.log
       .slice(provokeIndex + 1)
-      .find(
+      .filter(
         (entry) =>
-          entry.side === "p2" && entry.kind === "player_attack",
-      );
-    expect(firstOpponentAttack?.text).toContain("공격!");
-    expect(firstOpponentAttack?.text).not.toContain("난격");
-    expect(res.finalState.log.some((entry) => entry.text.includes("보호막 +"))).toBe(
-      false,
+          entry.side === "p2" &&
+          entry.kind === "player_attack" &&
+          entry.t === provokeTick &&
+          entry.text.includes("공격!"),
     );
+    expect(immediateOpponentAttacks).toHaveLength(2);
+    expect(
+      res.finalState.log.filter(
+        (entry) => entry.t === provokeTick && entry.text.includes("수호 반사"),
+      ),
+    ).toHaveLength(2);
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.side === "p2" &&
+          entry.t !== provokeTick &&
+          entry.kind === "player_attack",
+      ),
+    ).toBe(true);
+    expect(
+      res.finalState.log.some((entry) => entry.text.includes("스킬 발동률 −100%p")),
+    ).toBe(false);
+    expect(
+      res.finalState.log.some((entry) => entry.text.includes("보호막 +")),
+    ).toBe(false);
   });
 });

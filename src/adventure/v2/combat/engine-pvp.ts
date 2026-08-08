@@ -106,6 +106,10 @@ export type PvPPhase = "p1" | "p2" | "ended";
 
 export type PvPOutcome = "p1_win" | "p2_win" | "draw";
 
+export type PvPPhaseEndOptions = {
+  tickDefenderDots?: boolean;
+};
+
 // 각 사이드별 1회성 토글. PvE 의 BattleFlags 와 비교해 Monster 전용(phaseTriggered, enrageTriggered) 제거.
 export type PvPSideFlags = {
   enduranceTriggered: boolean;
@@ -1050,6 +1054,7 @@ export function applyShadowStepDodge(
   state: PvPBattleState,
   atkKey: "p1" | "p2",
   defKey: "p1" | "p2",
+  phaseEndOptions: PvPPhaseEndOptions = {},
 ): PvPBattleState {
   const defender = state[defKey];
   const dodged = applyDodgeEffects(
@@ -1061,7 +1066,7 @@ export function applyShadowStepDodge(
     true,
   );
   if (dodged.phase === "ended") return dodged;
-  return endAttackerPhase(dodged, atkKey, defKey);
+  return endAttackerPhase(dodged, atkKey, defKey, phaseEndOptions);
 }
 
 // per-attack dodge — dodge 효과 + 공격 횟수 1 차감. attacksLeft 0 이면 페이즈 종료.
@@ -1072,6 +1077,7 @@ export function applyPerAttackDodge(
   logText: string,
   consumeEvade: boolean,
   triggersSkillCritAfterEvade = true,
+  phaseEndOptions: PvPPhaseEndOptions = {},
 ): PvPBattleState {
   const dodged = applyDodgeEffects(
     state,
@@ -1091,7 +1097,7 @@ export function applyPerAttackDodge(
       turn: { ...attacker.turn, firstAttackPending: false },
     });
   }
-  return endAttackerPhase(dodged, atkKey, defKey);
+  return endAttackerPhase(dodged, atkKey, defKey, phaseEndOptions);
 }
 
 // 데미지 적중 시 반사 (반사 갑주 + 가시 갑옷 + 무한 가시). 공격자가 죽으면 attackerKilled=true.
@@ -1465,13 +1471,66 @@ export type PvPAttackDamageResult = {
   weakpointDefIgnore: boolean;
 };
 
-// 공격자 페이즈 종료 → 후처리(분신/난무/막다른 격노/약점 분석/재생) → 출혈 도트 → 방어자 페이즈 시작.
-// "방어자 페이즈 시작" 처리는 사실상 그냥 phase 를 상대 키로 토글 + 다음 공격자에게 attacksLeft 세팅.
-// 출혈 도트는 "다음 공격자가 자기 페이즈 시작 시 도트 데미지를 입는" 시점이라 페이즈 전환 직후 처리.
+// 대상의 행동 시작 시 tagged DoT 를 한 번 tick. ATB 는 실제 스케줄러 행동 진입 시 이 helper 를
+// 호출하고, legacy 턴제는 endAttackerPhase 의 페이즈 전환 시 호출한다.
+export function tickPvPSideDotsOnAction(
+  state: PvPBattleState,
+  targetKey: "p1" | "p2",
+): PvPBattleState {
+  if (state.phase === "ended") return state;
+  const target = state[targetKey];
+  const dotTick = tickV2Dots(target.v2Dots, target.maxHp);
+  const rawDotDamage =
+    dotTick.totalDmg > 0 && target.stacks.dotVulnTurns > 0
+      ? Math.floor(dotTick.totalDmg * (1 + target.stacks.dotVulnPct / 100))
+      : dotTick.totalDmg;
+  const dotDamage = scalePvPDamage(
+    state,
+    statusDamageAfterReduction(
+      rawDotDamage,
+      target.player.statusDamageReductionPct,
+    ),
+  );
+  let next = setSide(state, targetKey, {
+    ...target,
+    hp: Math.max(0, target.hp - dotDamage),
+    v2Dots: dotTick.nextDots,
+  });
+  if (dotDamage > 0) {
+    next = {
+      ...next,
+      log: distributeV2DotTicks(dotTick.ticks, dotDamage).reduce(
+        (log, tick) =>
+          appendLog(log, {
+            kind: "info",
+            effect: "status_damage",
+            text: `${target.name}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
+            side: targetKey,
+          }),
+        next.log,
+      ),
+    };
+  }
+  if (next[targetKey].hp > 0) return next;
+  return {
+    ...next,
+    log: appendLog(next.log, {
+      kind: "info",
+      text: `${target.name}이(가) 쓰러졌다.`,
+    }),
+    phase: "ended",
+    outcome: targetKey === "p1" ? "p2_win" : "p1_win",
+  };
+}
+
+// 공격자 페이즈 종료 → 후처리(분신/난무/막다른 격노/약점 분석/재생) → 방어자 페이즈 시작.
+// legacy 턴제에서는 페이즈 전환이 곧 다음 행동 시작이므로 여기서 DoT 를 처리한다.
+// ATB 는 독립된 행동 시계를 사용하므로 실제 행동 진입 시 처리하고 여기서는 생략한다.
 export function endAttackerPhase(
   state: PvPBattleState,
   atkKey: "p1" | "p2",
   defKey: "p1" | "p2",
+  options: PvPPhaseEndOptions = {},
 ): PvPBattleState {
   if (state.phase === "ended") return state;
   // 턴 카운터 갱신 — 공격자: completedPlayerTurns +1, 게이트 리셋.
@@ -1493,57 +1552,9 @@ export function endAttackerPhase(
   // 공격자 턴 후처리 (분신/난무/막다른 격노/약점 분석/재생).
   next = finishAttackerTurn(next, atkKey, defKey);
   if (next.phase === "ended") return next;
-  // 방어자 페이즈 시작 — 방어자가 받는 tagged DoT 를 한 번 tick.
-  const defenderBeforeDot = next[defKey];
-  const dotTick = tickV2Dots(defenderBeforeDot.v2Dots, defenderBeforeDot.maxHp);
-  const rawDotDamage =
-    dotTick.totalDmg > 0 && defenderBeforeDot.stacks.dotVulnTurns > 0
-      ? Math.floor(dotTick.totalDmg * (1 + defenderBeforeDot.stacks.dotVulnPct / 100))
-      : dotTick.totalDmg;
-  const dotDamage = scalePvPDamage(
-    next,
-    statusDamageAfterReduction(
-      rawDotDamage,
-      defenderBeforeDot.player.statusDamageReductionPct,
-    ),
-  );
-  if (dotDamage > 0) {
-    // 상태이상 피해는 보호막을 우회해 HP에 직접 적용하는 전투 규칙이다.
-    const newHp = Math.max(0, defenderBeforeDot.hp - dotDamage);
-    next = setSide(next, defKey, {
-      ...defenderBeforeDot,
-      hp: newHp,
-      v2Dots: dotTick.nextDots,
-    });
-    next = {
-      ...next,
-      log: distributeV2DotTicks(dotTick.ticks, dotDamage).reduce(
-        (log, tick) =>
-          appendLog(log, {
-            kind: "info",
-            effect: "status_damage",
-            text: `${defenderBeforeDot.name}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
-            side: defKey,
-          }),
-        next.log,
-      ),
-    };
-    if (newHp <= 0) {
-      return {
-        ...next,
-        log: appendLog(next.log, {
-          kind: "info",
-          text: `${defenderBeforeDot.name}이(가) 쓰러졌다.`,
-        }),
-        phase: "ended",
-        outcome: atkKey === "p1" ? "p1_win" : "p2_win",
-      };
-    }
-  } else {
-    next = setSide(next, defKey, {
-      ...defenderBeforeDot,
-      v2Dots: dotTick.nextDots,
-    });
+  if (options.tickDefenderDots !== false) {
+    next = tickPvPSideDotsOnAction(next, defKey);
+    if (next.phase === "ended") return next;
   }
   // 방어자(다음 공격자) 의 enemyPhasesCompleted +1 — 이번 라운드에서 방어를 1회 마침 (가드 카운터에 사용).
   const defenderAfterBleed = next[defKey];
@@ -1800,7 +1811,7 @@ export function castV2SkillOnAttackerTurnPvP(
       result = removeMissedV2SkillTargetEffects(result);
     }
   }
-  // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.
+  // 3) state 업데이트. 앞 단계에서 만든 st 의 로그를 이어서 누적한다.
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   let nextLog = st.log;
   let nextSideHp = side.hp;
@@ -2454,7 +2465,7 @@ function resolveBattlePvPLegacy(
       ) {
         state = endAttackerPhase(state, who, other);
       }
-      // PR-8: cast hook 의 dot tick 으로 side 가 사망 → outcome=ended. 후속 처리 skip.
+      // 스킬 피해 또는 페이즈 종료 후처리로 side 가 사망하면 후속 처리를 건너뛴다.
       if (state.phase === "ended") {
         state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };
         turns += 1;

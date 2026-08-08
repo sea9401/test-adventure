@@ -113,6 +113,37 @@ describe("resolveBattlePvP ATB invariants", () => {
     expect(observed).toBeCloseTo(expected, 0);
   });
 
+  it("중독 피해는 중독시킨 상대가 아니라 대상 본인의 행동 tick에 발생한다", () => {
+    const fastPoisoner: PlayerCombat = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+      spd: 292,
+      poisonOnHit: { pctMaxHpPerStack: 0.001 },
+    };
+    const slowTarget: PlayerCombat = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+      spd: 14,
+    };
+    const result = run(fastPoisoner, slowTarget, 17);
+    const firstPoisonTick = result.finalState.log.find(
+      (entry) =>
+        entry.kind === "info" &&
+        entry.effect === "status_damage" &&
+        entry.side === "p2" &&
+        entry.text.includes("중독으로"),
+    );
+
+    expect(firstPoisonTick).toBeDefined();
+    expect(firstPoisonTick?.t).toBe(actionInterval(slowTarget.spd));
+  });
+
   it("stalemate hits the tick cap and resolves by HP ratio", () => {
     const p1: PlayerCombat = {
       ...basePlayer,

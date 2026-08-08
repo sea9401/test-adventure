@@ -17,6 +17,7 @@ import {
   setSide,
   type PvPAttackDamageResult,
   type PvPBattleState,
+  type PvPPhaseEndOptions,
   type PvPSide,
   type PvPSideBuffs,
 } from "./engine-pvp";
@@ -287,6 +288,7 @@ function computeAttackDamagePvP(
 export function advanceTurnPvP(
   state: PvPBattleState,
   action: PlayerAction = { kind: "attack" },
+  phaseEndOptions: PvPPhaseEndOptions = {},
 ): PvPBattleState {
   if (state.phase === "ended") return state;
   const { atkKey, defKey } = actorKeys(state.phase);
@@ -320,7 +322,7 @@ export function advanceTurnPvP(
       attacksLeft: rollPvPAttackCount(a, st[defKey]),
       turn: { ...a.turn, firstAttackPending: true },
     });
-    return endAttackerPhase(st, atkKey, defKey);
+    return endAttackerPhase(st, atkKey, defKey, phaseEndOptions);
   }
 
   const attacker = state[atkKey];
@@ -397,7 +399,7 @@ export function advanceTurnPvP(
       nextDefender,
     );
     if (nextAttacker.attacksLeft > 0) return nextSt;
-    return endAttackerPhase(nextSt, atkKey, defKey);
+    return endAttackerPhase(nextSt, atkKey, defKey, phaseEndOptions);
   }
 
   // ── 방어자 dodge cascade ──────────────────────────────────────────────────
@@ -412,7 +414,7 @@ export function advanceTurnPvP(
     if (isFirstAttackOfTurn) {
       const shadowStepPct = defender.player.shadowStepPct ?? 0;
       if (shadowStepPct > 0 && Math.random() * 100 < shadowStepPct) {
-        return applyShadowStepDodge(state, atkKey, defKey);
+        return applyShadowStepDodge(state, atkKey, defKey, phaseEndOptions);
       }
     }
     if (defender.stacks.evadesRemaining > 0) {
@@ -422,6 +424,8 @@ export function advanceTurnPvP(
         defKey,
         `[회피 강화] ${defender.name}이(가) 공격을 회피했다.`,
         true,
+        true,
+        phaseEndOptions,
       );
     }
     const precisionMult = attacker.player.precisionEvasionMult ?? 1;
@@ -452,6 +456,8 @@ export function advanceTurnPvP(
         defKey,
         `${defender.name}이(가) ${attacker.name}의 공격을 회피했다.`,
         false,
+        true,
+        phaseEndOptions,
       );
     }
     const luckyShieldPct = defender.player.luckyShieldBlockPct ?? 0;
@@ -463,6 +469,7 @@ export function advanceTurnPvP(
         `[행운의 방패] ${defender.name}이(가) 공격을 흘려보냈다.`,
         false,
         false,
+        phaseEndOptions,
       );
     }
   }
@@ -1261,5 +1268,5 @@ export function advanceTurnPvP(
     });
   }
   // 공격 턴 종료.
-  return endAttackerPhase(next, atkKey, defKey);
+  return endAttackerPhase(next, atkKey, defKey, phaseEndOptions);
 }

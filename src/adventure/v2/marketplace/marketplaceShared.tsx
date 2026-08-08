@@ -5,7 +5,7 @@ import {
   V2_EQUIPMENT,
   effectiveStats,
   parseCraftedBy,
-  parseEquipRoll,
+  parseEquipRollForItem,
   parseInstanceCraftQuality,
   powerWithBonuses,
   v2EquipStatRows,
@@ -121,7 +121,7 @@ export function marketplaceListingPower(listing: Listing): number | null {
   if (!item) return null;
   const metadata = listingCraftMetadata(listing.instancePayload);
   return powerWithBonuses(
-    effectiveStats(item, listingEquipRoll(listing.instancePayload)).power,
+    effectiveStats(item, listingEquipRoll(item, listing.instancePayload)).power,
     metadata.enhance,
     metadata.craftQuality,
   );
@@ -143,8 +143,12 @@ export function compareMarketplaceListings(
     b.kind === "equip"
       ? V2_EQUIPMENT[b.itemId as keyof typeof V2_EQUIPMENT]
       : undefined;
-  const aRoll = aItem ? listingEquipRoll(a.instancePayload) : undefined;
-  const bRoll = bItem ? listingEquipRoll(b.instancePayload) : undefined;
+  const aRoll = aItem
+    ? listingEquipRoll(aItem, a.instancePayload)
+    : undefined;
+  const bRoll = bItem
+    ? listingEquipRoll(bItem, b.instancePayload)
+    : undefined;
   const aPrice = listingUnitPrice(a);
   const bPrice = listingUnitPrice(b);
   let compared = 0;
@@ -276,8 +280,11 @@ export type MarketplacePager<T> = {
 
 // 매물 payload 는 옛 raw roll 또는 { power, weight, options, enhance, craftQuality, craftedBy } 혼합형이다.
 // craftedBy/enhance/craftQuality 만 있는 제작품은 roll 이 없으므로 undefined 로 정규화해야 카탈로그 스탯을 쓴다.
-export function listingEquipRoll(payload: unknown): V2EquipRoll | undefined {
-  return parseEquipRoll(payload);
+export function listingEquipRoll(
+  item: V2Equipment,
+  payload: unknown,
+): V2EquipRoll | undefined {
+  return parseEquipRollForItem(item, payload);
 }
 
 export function priceStatForKey(

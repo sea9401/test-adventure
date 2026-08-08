@@ -55,6 +55,19 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).not.toContain("추가 손실은 없습니다");
   });
 
+  it("최소 피해 하한과 반사의 실제 적용 순서를 안내한다", () => {
+    const html = renderToStaticMarkup(<CombatContent />);
+
+    expect(html).toContain("유효 공격력의 15%");
+    expect(html).toContain("공격력² ÷ (공격력 + 3×방어력)");
+    expect(html).toContain("공격력 − 방어력");
+    expect(html).toContain("최종 HP 피해는");
+    expect(html).toContain("최소 데미지");
+    expect(html).toContain("전투 시작 방어력");
+    expect(html).toContain("최종 HP 피해가 0이어도 반사가 발생");
+    expect(html).not.toContain("어느 쪽이든 방어가 아무리");
+  });
+
   it("독립 주방과 거래 가능한 개인 요리를 안내한다", () => {
     const town = renderToStaticMarkup(<TownContent />);
     const pastimes = renderToStaticMarkup(<PastimesContent />);

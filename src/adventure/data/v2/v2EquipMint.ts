@@ -4,7 +4,7 @@
 import {
   genEquipIid,
   parseCraftedBy,
-  parseEquipRoll,
+  parseEquipRollForItem,
   parseInstanceCraftQuality,
   V2_EQUIPMENT,
   type V2EquipInstance,
@@ -68,7 +68,7 @@ export function mintListedEquipInstance(
       })
     | null
     | undefined;
-  const roll = parseEquipRoll(payloadRaw ?? undefined);
+  const roll = parseEquipRollForItem(V2_EQUIPMENT[id], payloadRaw ?? undefined);
   const craftedBy = parseCraftedBy(payloadRaw?.craftedBy);
   const craftQuality = parseInstanceCraftQuality(
     payloadRaw?.craftQuality,

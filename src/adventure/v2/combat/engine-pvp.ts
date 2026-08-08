@@ -1118,31 +1118,17 @@ export function applyOnHitReflect(
   const infinitePct = defender.player.infiniteThornsAtkPct ?? 0;
   const infiniteDmg =
     infinitePct > 0 ? Math.floor((attacker.player.atk * infinitePct) / 100) : 0;
-  // 수호자 반사 — 피격(적중) 시 현재 방어력 기반 데미지("방어 계수만큼").
-  // 강체/장비로 전투 중 누적된 방어와 활성 VIT 버프·디버프까지 반영한다. 구 전투 데이터처럼
-  // 계수가 없는 경우에는 시작 시점에 파생된 thornsFlatFromDef 로 폴백한다.
+  // 수호자 반사 — 피격(적중) 시 전투 시작 방어력 기반 데미지("방어 계수만큼").
+  // 강체로 누적된 방어와 전투 중 VIT 버프는 생존에만 적용하고 반사 원량에는 더하지 않는다.
+  // PvE의 thornsFlatFromDef 경로와 같은 기준이며, 시작 원량이 없는 구 전투 데이터만
+  // 시작 방어력과 계수로 복원한다.
   const thornsDefPct = defender.player.thornsDefPct ?? 0;
-  const currentDefBeforeVit =
-    defender.player.def + (defender.stacks.braceDefBonus ?? 0);
-  const currentDefAfterMadness =
-    defender.buffs.playerDefDebuffTurnsLeft > 0
-      ? Math.floor(
-          currentDefBeforeVit *
-            (1 - defender.buffs.playerDefDebuffPct / 100),
-        )
-      : currentDefBeforeVit;
-  const currentReflectDef = Math.max(
-    0,
-    Math.floor(
-      currentDefAfterMadness *
-        v2DefBuffMult(defender.v2SelfBuffs, defender.v2SelfDebuffs),
-    ),
-  );
   const wardenReflectDmg =
     rawDmgBeforeMitigation > 0
-      ? thornsDefPct > 0
-        ? Math.floor((currentReflectDef * thornsDefPct) / 100)
-        : (defender.player.thornsFlatFromDef ?? 0)
+      ? (defender.player.thornsFlatFromDef ??
+        (thornsDefPct > 0
+          ? Math.floor((defender.player.def * thornsDefPct) / 100)
+          : 0))
       : 0;
   const baseTotal = thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
   const reflectBoostPct =

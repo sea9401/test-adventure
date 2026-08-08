@@ -986,7 +986,7 @@ describe("방어자 측 on-hit reflect / counter", () => {
     expect(s1.log.some((e) => e.text.includes("반사 증폭"))).toBe(true);
   });
 
-  it("방어력 기반 반사는 피격으로 누적된 현재 방어력을 사용한다", () => {
+  it("방어력 기반 반사는 피격 누적 방어와 무관하게 전투 시작 원량을 사용한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
       makePlayer({ spd: 15, atk: 200, def: 0, hp: 500, maxHp: 500 }),
@@ -1012,10 +1012,14 @@ describe("방어자 측 on-hit reflect / counter", () => {
 
     const s1 = advanceTurnPvP(s0);
 
-    // 본타 100 피해로 방어 +50 누적 후, 현재 방어 150을 반사 원량으로 사용한다.
+    // 본타 100 피해로 방어 +50이 누적돼도 반사 원량은 전투 시작 시 계산한 100을 유지한다.
     expect(s1.p2.stacks.braceDefBonus).toBe(50);
-    expect(s1.p1.hp).toBe(350);
-    expect(s1.log.some((e) => e.text.includes("수호 반사"))).toBe(true);
+    expect(s1.p1.hp).toBe(400);
+    expect(
+      s1.log.some(
+        (e) => e.text.includes("수호 반사") && e.text.includes("100 반사 피해"),
+      ),
+    ).toBe(true);
   });
 
   it("무한 가시 (on-hit 분기) — 공격자 ATK 의 N% 반사", () => {

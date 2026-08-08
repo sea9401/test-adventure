@@ -1,5 +1,6 @@
 import {
   V2_EQUIPMENT,
+  TIER_6_POWER_SCALE_VERSION,
   type V2EquipInstance,
   type V2Equipment,
   type V2EquipRoll,
@@ -106,6 +107,7 @@ export function stormRefinedRoll(
         ? { options: { ...item.options } }
         : {}),
     powerBase: targetBase,
+    powerScaleVersion: TIER_6_POWER_SCALE_VERSION,
   };
 }
 

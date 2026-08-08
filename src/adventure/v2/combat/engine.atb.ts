@@ -3,7 +3,7 @@ import type { PotionId } from "@/adventure/data/potions";
 import {
   actionInterval,
   depthSpdCorrection,
-  effectiveMonsterSpd,
+  monsterActionSpd,
   nextActor1v1,
 } from "./combatTimeline";
 import {
@@ -75,7 +75,7 @@ function effectiveEnemyTimelineSpd(
   state: BattleState,
   depthCorr: number,
 ): number {
-  const base = effectiveMonsterSpd(state.enemy.spd, depthCorr);
+  const base = monsterActionSpd(state.enemy, depthCorr);
   return state.buffs.enemySpdTurnsLeft > 0
     ? base * state.buffs.enemySpdMult
     : base;

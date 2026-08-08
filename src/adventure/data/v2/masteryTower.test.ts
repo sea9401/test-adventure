@@ -222,6 +222,7 @@ describe("masteryTower", () => {
     const guardian = masteryTowerGuardianForFloor(25);
     expect(guardian.exp).toBe(0);
     expect(guardian.drops).toEqual([]);
+    expect(guardian.directActionSpd).toBe(true);
     expect(guardian.v2Skills?.equipped.length).toBeGreaterThan(0);
   });
 

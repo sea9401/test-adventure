@@ -144,6 +144,31 @@ describe("resolveBattle ATB invariants", () => {
     expect(observed).toBeCloseTo(expected, 0);
   });
 
+  it("직접 속도 몬스터는 변환 없이 데이터 spd로 행동한다", () => {
+    const player: PlayerCombat = {
+      ...basePlayer,
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 1,
+      def: 100,
+    };
+    const enemy: Monster = {
+      ...baseEnemy,
+      hp: 10_000,
+      atk: 1,
+      def: 100,
+      spd: 244,
+      directActionSpd: true,
+    };
+
+    const result = run(player, enemy, 7, 2);
+    const firstEnemyAction = result.finalState.log.find(
+      (entry) => entry.kind === "enemy_attack",
+    );
+
+    expect(firstEnemyAction?.t).toBe(actionInterval(enemy.spd));
+  });
+
   it("stalemate hits cap: nonlethal fixtures resolve as player loss", () => {
     const player: PlayerCombat = {
       ...basePlayer,

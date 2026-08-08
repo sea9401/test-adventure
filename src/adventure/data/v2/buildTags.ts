@@ -271,6 +271,7 @@ function addPassiveTags(
   if ((passive.guildTrainingRewardBonusPct ?? 0) > 0) tags.add("guild");
   if ((passive.guildTrainingWeeklyBonusMastery ?? 0) > 0) tags.add("guild");
   if (passive.skillCritOverflow) tags.add("crit");
+  if ((passive.skillCritDmgPct ?? 0) > 0) tags.add("crit");
   if (passive.skillCritAfterEvade) {
     tags.add("crit");
     tags.add("evasion");

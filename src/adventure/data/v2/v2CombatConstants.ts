@@ -17,7 +17,7 @@ export const PVE_DODGE_K = 2.5;
 export const DODGE_MAX = EVASION_DAMAGE_REDUCTION_MAX_PCT;
 export const DODGE_K = EVASION_CONTEST_K;
 
-// INT 생존축: 현재 MP를 소모하지 않는 전투별 마력 장벽이다. 일반 보호막이 먼저 피해를
+// 마나 실드 패시브의 INT 생존축: 현재 MP를 소모하지 않는 전투별 장벽이다. 일반 보호막이 먼저 피해를
 // 받고, 남은 직접 피해의 일부만 장벽 내구도로 흡수한다. 지속/반사/상태 피해와 HP 비용은 제외한다.
 export const MAGIC_BARRIER_BASE_INT = 15;
 export const MAGIC_BARRIER_MAX_MP_PCT = 60;

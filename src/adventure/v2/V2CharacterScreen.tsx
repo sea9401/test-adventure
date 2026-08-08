@@ -6,8 +6,6 @@ import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
-import { pveEvasionDamageReductionPct } from "@/adventure/data/v2/v2CombatConstants";
-import { floorAccuracy } from "@/adventure/data/v2/dungeonLadder";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -64,18 +62,18 @@ type StateResponse = {
     magicBarrierMax?: number;
     magicBarrierAbsorbPct?: number;
     evasionPct?: number;
-    evaRating?: number; // 회피도. 현재 깊이 몬스터 적중도와 대결해 직접 피해 경감률을 표시한다.
+    evaRating?: number; // 회피도. StatsPanel에서 원본 수치로 표시한다.
     accuracyPct?: number;
     accRating?: number; // 적중도. StatsPanel에서 원본 수치로 표시한다.
     critChancePct?: number;
     critMult?: number;
     skillCritOverflow?: boolean;
+    skillCritDmgPct?: number;
     // 콘텐츠 파워(합성 전투력) — 기본 정보 카드 헤드라인.
     power?: number;
   } | null;
   // 누적 전투 횟수(전적) — 기본 정보 카드.
   battleCount?: number;
-  frontierDepth?: number; // 현재 사냥터 최대 깊이 — 회피 경감률 표시 기준(몬스터 적중도).
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
     // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.
@@ -335,21 +333,7 @@ export function V2CharacterScreen({
           <StatsPanel
             stats={stats.base}
             caps={state?.proficiency?.caps}
-            // 현재 깊이의 기준 몬스터 적중도와 겨룬 실제 PvE 회피 경감률을 표시한다.
-            combat={
-              combat.evaRating != null
-                ? {
-                    ...combat,
-                    evasionPct: (() => {
-                      const depth = state?.frontierDepth ?? 2;
-                      return pveEvasionDamageReductionPct(
-                        combat.evaRating,
-                        floorAccuracy(depth),
-                      );
-                    })(),
-                  }
-                : combat
-            }
+            combat={combat}
             statKeys={V2_STAT_KEYS}
             statLabels={V2_STAT_LABELS}
             statDescriptions={playerName ? undefined : V2_STAT_DESCRIPTIONS}

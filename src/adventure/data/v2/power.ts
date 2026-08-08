@@ -53,7 +53,7 @@ export function effectiveRatingForPower(rating: number): number {
 }
 
 // 합성 파워 점수(정수). 주 공격축 + 보조 공격축 25% + 방어 + 생존(maxHp×0.1)
-//   + 상한 반영 템포 + 자원(MP·마력 장벽) + 점감된 회피·적중 레이팅.
+//   + 상한 반영 템포 + 자원(MP·마나 실드) + 점감된 회피·적중 레이팅.
 // 서로 대체되는 공격축의 이중 계산과 전투 상한 이후 원시 수치의 과대평가를 막는다.
 export function derivePowerScore(c: V2PowerInput): number {
   return Math.round(

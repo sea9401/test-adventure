@@ -132,8 +132,9 @@ describe("sim-v2-level-design", () => {
 
     expect(averageWinRate(8)).toBeGreaterThanOrEqual(90); // 첫 프론티어는 온보딩 보호
     // 예전 전투력 미달 몬스터 강화가 사라져 초중반은 높은 승률로 통과할 수 있다.
+    // 전역 INT 장벽을 2차 마법사 패시브로 옮긴 뒤 26구간 무수행 표본은 약 89.5%다.
     expect(averageWinRate(20)).toBeGreaterThan(90);
-    expect(averageWinRate(26)).toBeGreaterThan(90);
+    expect(averageWinRate(26)).toBeGreaterThan(85);
     // 수행 스탯 상향으로 일부 중반 구간은 쉬워졌지만, 44부터 다시 막히며 최종 지역은 통과할 수 없다.
     expect(averageWinRate(32)).toBeLessThan(90);
     expect(averageWinRate(44)).toBeLessThan(90);
@@ -184,16 +185,98 @@ describe("sim-v2-level-design", () => {
     const winRates = results.map((result) => result.winRatePct);
     const powers = results.map((result) => result.power);
 
-    // 예전 상위권 중앙 보정치에 가까운 공통 난도에서는 절대 승률보다 교체 중 급락 여부가 핵심이다.
-    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(30);
-    // 새 전투력 산식은 이미 ATB 상한에 도달한 SPD를 더 계산하지 않는다. 따라서 방어를
-    // 회피 장비로 바꾸는 구간의 표시 점수 차이는 커질 수 있지만 실제 승률 급락 가드는 유지한다.
-    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(220);
+    // 산군 부분 착용 효율을 낮춘 만큼 초반 혼합 구간은 이전보다 약해질 수 있다. 완성 전까지
+    // 최소 사용 가능선은 지키되, 아래의 교체 중 급락과 6T 완성 우위 검증을 핵심으로 둔다.
+    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(25);
+    // 방어·회피 생존축 분리로 무풍암영의 방어 보너스를 HP로 일부 전환했다. 표시 점수는
+    // 방어를 함께 주던 때보다 더 벌어질 수 있지만, 실제 승률 급락 가드를 우선한다.
+    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(320);
     for (let i = 1; i < winRates.length; i++) {
       expect(winRates[i - 1] - winRates[i]).toBeLessThan(20);
     }
     expect(results[0].player.spd).toBeGreaterThan(900);
     expect(results[0].player.spd).toBeLessThan(1_100);
+  }, 15_000);
+
+  it("회피형 6T 완성 세트는 산군 장비를 남긴 혼합 세팅에 밀리지 않는다", () => {
+    const sangoon = {
+      armor: "v2_hard_sangoon_hide",
+      gloves: "v2_hard_sangoon_claws",
+      boots: "v2_hard_sangoon_stride",
+      ring: "v2_hard_sangoon_ring",
+      necklace: "v2_hard_sangoon_amulet",
+    } as const;
+    const cases = [
+      {
+        arch: "DEX" as const,
+        equipment: {
+          weapon: "v2_storm_gale_bow",
+          armor: "v2_storm_gale_armor",
+          gloves: "v2_storm_gale_gloves",
+          boots: "v2_storm_gale_boots",
+          ring: "v2_storm_gale_ring",
+          necklace: "v2_storm_gale_necklace",
+        } as const,
+      },
+      {
+        arch: "LUK" as const,
+        equipment: {
+          weapon: "v2_storm_gale_dagger",
+          armor: "v2_storm_shadow_armor",
+          gloves: "v2_storm_shadow_gloves",
+          boots: "v2_storm_shadow_boots",
+          ring: "v2_storm_shadow_ring",
+          necklace: "v2_storm_shadow_necklace",
+        } as const,
+      },
+      {
+        arch: "LUK" as const,
+        equipment: {
+          weapon: "v2_storm_venom_dagger",
+          armor: "v2_storm_venom_armor",
+          gloves: "v2_storm_venom_gloves",
+          boots: "v2_storm_venom_boots",
+          ring: "v2_storm_venom_ring",
+          necklace: "v2_storm_venom_necklace",
+        } as const,
+      },
+    ];
+    const replacementOrder: V2EquipSlot[] = [
+      "weapon",
+      "ring",
+      "necklace",
+      "armor",
+      "gloves",
+      "boots",
+    ];
+
+    for (const testCase of cases) {
+      const results = [2, 3, 4, 5, 6].map((count) => {
+        const equipment: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
+          weapon: testCase.equipment.weapon,
+          ...sangoon,
+        };
+        for (const slot of replacementOrder.slice(0, count)) {
+          equipment[slot] = testCase.equipment[slot];
+        }
+        return auditCustomLoadoutCombat({
+          arch: testCase.arch,
+          depth: 76,
+          equipment,
+          careerWins: 500_000,
+          extraSp: 4,
+          enhanceLevel: 12,
+          trials: 50,
+          seed: 20260809,
+        });
+      });
+      const completeWinRate = results.at(-1)!.winRatePct;
+      const bestSangoonMixWinRate = Math.max(
+        ...results.slice(0, -1).map((result) => result.winRatePct),
+      );
+
+      expect(completeWinRate).toBeGreaterThan(bestSangoonMixWinRate);
+    }
   }, 15_000);
 
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {

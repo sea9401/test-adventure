@@ -203,7 +203,7 @@ export function CombatMatchupSummary({
             {fmtPct(result.playerEvasionReductionPct)}
             {result.playerBarrierAbsorbPct > 0 && (
               <>
-                {" "}· 마력 장벽 {fmtPct(result.playerBarrierAbsorbPct)}
+                {" "}· 마나 실드 {fmtPct(result.playerBarrierAbsorbPct)}
                 {player.magicBarrierDurability != null &&
                   ` (남은 ${Math.round(player.magicBarrierDurability).toLocaleString()})`}
               </>

@@ -100,6 +100,12 @@ export async function POST(req: Request) {
         reportId: inserted.id,
         sourceType: target.sourceType,
         reason: body.reason,
+        userId: reporterUserId,
+        counterpartyUserId: target.targetUserId,
+        accounts: [
+          { userId: reporterUserId, name: reporter.name },
+          { userId: target.targetUserId, name: target.targetName },
+        ],
       });
     });
     return Response.json({ ok: true, reportId: inserted.id }, { status: 201 });

@@ -45,6 +45,7 @@ import {
   unownedChromaNames,
   unownedProfileBorders,
 } from "@/adventure/data/v2/museunCosmetics";
+import { applyLevelTargetGrant } from "@/lib/server/levelTargetGrant";
 
 type CharacterSave = {
   class?: unknown;
@@ -288,6 +289,68 @@ export async function POST(req: Request) {
           cosmetics,
           cosmetic: { ...variant, slot: "chat_badge" as const },
           remaining: available.length - 1,
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
+  if (item.effect.kind === "level_target") {
+    const targetLevel = item.effect.level;
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" as const },
+        };
+      }
+      const currentLevel = Math.max(
+        1,
+        Math.floor(Number(character.level) || 1),
+      );
+      if (currentLevel >= targetLevel) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "already_max_level" as const,
+          },
+        };
+      }
+
+      const proficiency = await lockSaveForUpdate(
+        tx,
+        userId,
+        "proficiency.v2",
+        {},
+      );
+      const grant = applyLevelTargetGrant(
+        character,
+        proficiency,
+        targetLevel,
+      );
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+        level: grant.level,
+        exp: grant.exp,
+      });
+      await upsertSave(tx, userId, "proficiency.v2", grant.proficiency);
+
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          cashItems,
+          level: grant.level,
+          levelsGained: grant.levelsGained,
         },
       };
     });

@@ -483,8 +483,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // t1 순수 물리: 공격력×1.08 + 힘×0.5 - 방어력 20.
-    expect(result.enemyDamage).toBe(188);
+    // t1 순수 물리: 공격력×1.08 + 힘×(0.5×1.15) - 방어력 20.
+    expect(result.enemyDamage).toBe(203);
   });
 
   it("무심검은 현 세대 힘 300의 총량을 유지하면서 장기 힘 투자에 크게 보상한다", () => {
@@ -507,9 +507,9 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
       });
 
-    // 본타 공격력×1.3 + 힘×1.3, 여기에 무심검의 15% 관통 추가 피해.
-    expect(cast(300).enemyDamage).toBe(1_944);
-    expect(cast(1_000).enemyDamage).toBe(2_990);
+    // 본타 공격력×1.3 + 힘×(1.3×1.15), 여기에 무심검의 15% 관통 추가 피해.
+    expect(cast(300).enemyDamage).toBe(2_010);
+    expect(cast(1_000).enemyDamage).toBe(3_214);
   });
 
   it("heal effect — pctMaxHp 비례", () => {
@@ -554,8 +554,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    // 치유: 잃은 HP 100의 6% + magicAtk 100×0.45 + flat 50 = 101.
-    expect(result.selfHeal).toBe(101);
+    // 치유: 잃은 HP 100의 6% + magicAtk 100×(0.45×1.1) + flat 50 = 105.
+    expect(result.selfHeal).toBe(105);
   });
 
   it("oncePerBattle 스킬은 시전 뒤 전투 내 재사용 불가 쿨다운으로 잠긴다", () => {
@@ -664,9 +664,9 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfDebuffs: {},
       },
     });
-    // atk 0 이어도 원본 LUK 계수(0.42)는 유지되며, 옛 고정 기본 피해는 더하지 않는다.
-    expect(result.enemyDamage).toBe(42);
-    expect(result.selfHeal).toBe(Math.floor(42 * 0.14));
+    // atk 0 이어도 상향된 LUK 계수(0.42×1.15)는 유지되며, 옛 고정 기본 피해는 더하지 않는다.
+    expect(result.enemyDamage).toBe(47);
+    expect(result.selfHeal).toBe(Math.floor(47 * 0.14));
   });
 
   it("healFromDamage effect — 공격이 빗나가면 회복하지 않는다", () => {
@@ -1166,8 +1166,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("생명 강타");
-    // t3 공격 기반선(5×1.2) + maxHp 계수(2000×0.03), 고정 피해 없음.
-    expect(result.enemyDamage).toBe(66);
+    // t3 공격 기반선(5×1.2) + maxHp 계수(2000×0.04), 고정 피해 없음.
+    expect(result.enemyDamage).toBe(86);
   });
 
   it("resolveV2SkillCast — 만상검(scaling all)은 올스탯 합계로 스케일", () => {
@@ -1185,8 +1185,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("만상검");
-    // t3 공격 기반선(5×1.2) + 올스탯 계수(700×0.14), 고정 피해 없음.
-    expect(result.enemyDamage).toBe(104);
+    // t3 공격 기반선(5×1.2) + 올스탯 계수(700×0.14×1.15), 고정 피해 없음.
+    expect(result.enemyDamage).toBe(118);
   });
 
   it("resolveV2SkillCast — 만상귀일은 올스탯 피해와 취약·행동 가속을 함께 적용", () => {
@@ -1205,7 +1205,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
 
     expect(result.castSkillName).toBe("만상귀일");
-    expect(result.enemyDamage).toBe(153);
+    expect(result.enemyDamage).toBe(175);
     expect(result.enemyVulnToApply).toEqual({ pct: 14, turns: 3 });
     expect(result.selfHasteToApply).toEqual({ pct: 25 });
   });

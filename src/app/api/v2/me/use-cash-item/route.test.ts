@@ -128,3 +128,85 @@ describe("POST /api/v2/me/use-cash-item — 수행 초기화 물약", () => {
     expect(mocks.store.get("proficiency.v2")).toBe(before);
   });
 });
+
+describe("POST /api/v2/me/use-cash-item — 100레벨 달성의 비약", () => {
+  it("비약 한 개를 소모하고 100레벨과 성장 상태를 함께 저장한다", async () => {
+    mocks.store.set("character.v2", {
+      class: "warrior",
+      level: 70,
+      exp: 321,
+      cashItems: { level_100_elixir: 2 },
+    });
+    mocks.store.set("proficiency.v2", emptyProficiency());
+
+    const response = await POST(request("level_100_elixir"));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      ok: true,
+      itemId: "level_100_elixir",
+      cashItems: { level_100_elixir: 1 },
+      level: 100,
+      levelsGained: 30,
+    });
+    expect(mocks.store.get("character.v2")).toMatchObject({
+      level: 100,
+      exp: 0,
+      cashItems: { level_100_elixir: 1 },
+    });
+    const proficiency = mocks.store.get("proficiency.v2") as V2ProficiencyState;
+    expect(proficiency.groups).toEqual({});
+    expect(proficiency.jobCumLevel).toEqual({});
+    expect(
+      Object.values(proficiency.grown).reduce(
+        (sum, value) => sum + (value ?? 0),
+        0,
+      ),
+    ).toBe(90);
+  });
+
+  it("이미 100레벨이면 비약을 소모하지 않는다", async () => {
+    mocks.store.set("character.v2", {
+      class: "warrior",
+      level: 100,
+      exp: 0,
+      cashItems: { level_100_elixir: 1 },
+    });
+    const proficiencyBefore = mocks.store.get("proficiency.v2");
+
+    const response = await POST(request("level_100_elixir"));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "already_max_level",
+    });
+    expect(mocks.store.get("character.v2")).toMatchObject({
+      level: 100,
+      cashItems: { level_100_elixir: 1 },
+    });
+    expect(mocks.store.get("proficiency.v2")).toBe(proficiencyBefore);
+  });
+
+  it("비약을 보유하지 않았으면 캐릭터와 숙련도를 변경하지 않는다", async () => {
+    mocks.store.set("character.v2", {
+      class: "warrior",
+      level: 70,
+      exp: 321,
+      cashItems: {},
+    });
+    const characterBefore = mocks.store.get("character.v2");
+    const proficiencyBefore = mocks.store.get("proficiency.v2");
+
+    const response = await POST(request("level_100_elixir"));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "not_owned",
+    });
+    expect(mocks.store.get("character.v2")).toBe(characterBefore);
+    expect(mocks.store.get("proficiency.v2")).toBe(proficiencyBefore);
+  });
+});

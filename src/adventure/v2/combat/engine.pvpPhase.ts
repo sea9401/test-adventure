@@ -647,7 +647,7 @@ export function advanceTurnPvP(
   if (magicBarrier.absorbed > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[마력 장벽] ${defender.name} ${magicBarrier.absorbed} 흡수 (남은 ${magicBarrier.durabilityLeft})`,
+      text: `[마나 실드] ${defender.name} ${magicBarrier.absorbed} 흡수 (남은 ${magicBarrier.durabilityLeft})`,
     });
   }
   log = appendLog(log, {

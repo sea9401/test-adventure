@@ -65,6 +65,7 @@ import {
 } from "@/adventure/data/v2/artisanLeaderboard";
 import {
   V2_EQUIPMENT,
+  isUnique,
   parseEquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
@@ -75,6 +76,8 @@ import {
   canUseAdventurerAssociation,
   claimWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -710,6 +713,22 @@ export async function POST(req: Request) {
       owned: nextOwned,
       equipped: parsed.equipped,
     });
+    if (isUnique(item)) {
+      await recordUniqueEquipmentAcquisitions({
+        executor: tx,
+        userId,
+        evidence: {
+          equipmentOwnedAfter: nextOwned,
+          equipmentCodexRaw: await readSave(
+            tx,
+            userId,
+            EQUIPMENT_CODEX_KEY,
+            {},
+          ),
+          acquiredIds: [recipe.equipmentId],
+        },
+      });
+    }
     const nextWorkshopRecords = addGuildWorkshopCraftRecord(
       parseGuildWorkshopCraftRecords(craftingRaw.workshopRecords),
       {

@@ -130,6 +130,9 @@ function itemSummary(itemId: MuseunCashItemId): string {
   if (item.effect.kind === "cultivation_reset") {
     return "골드 소모 없이 수행 한계치를 초기화하고 숙달 포인트를 돌려받습니다.";
   }
+  if (item.effect.kind === "level_target") {
+    return `사용 즉시 ${item.effect.level}레벨을 달성합니다.`;
+  }
   return item.effect.slot === "profile_border"
     ? "프로필 바깥 테두리와 상단 배경 꾸미기를 해금하고 30일간 사용합니다."
     : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";

@@ -23,6 +23,7 @@ import {
   shopPriceOf,
   shopPriceForSell,
   v2EquipCatalogTierToDisplayTier,
+  v2EquipSurvivalPowerKind,
   v2EquipStatRows,
   v2EquipCatalogTierDisplayLabel,
   v2EquipmentBySlot,
@@ -55,6 +56,47 @@ describe("장비 이름 식별성", () => {
       .filter((name) => name.includes("성벽"));
 
     expect(names).toEqual(["백골성벽"]);
+  });
+});
+
+describe("방어력·회피도 장비 생존축 분리", () => {
+  it("개별 장비는 물리 방어력과 회피도를 동시에 제공하지 않는다", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      const survivalKind = v2EquipSurvivalPowerKind(item);
+      const physicalDefense =
+        (survivalKind === "def" ? item.power : 0) + (item.options?.def ?? 0);
+      const evasion =
+        (survivalKind === "evasion" ? item.power : 0) +
+        (item.options?.eva ?? 0);
+
+      expect(
+        physicalDefense > 0 && evasion > 0,
+        `${item.id}: 방어력 ${physicalDefense}, 회피도 ${evasion}`,
+      ).toBe(false);
+    }
+  });
+
+  it("완성 세트와 태그 세트의 누적 보너스도 물리 방어력·회피도를 함께 주지 않는다", () => {
+    for (const set of V2_EQUIP_SETS) {
+      expect(
+        (set.bonus.def ?? 0) > 0 && (set.bonus.eva ?? 0) > 0,
+        `${set.id}: 방어력 ${set.bonus.def ?? 0}, 회피도 ${set.bonus.eva ?? 0}`,
+      ).toBe(false);
+    }
+
+    for (const set of V2_EQUIP_TAG_SETS) {
+      let cumulativeDef = 0;
+      let cumulativeEvasion = 0;
+
+      for (const threshold of set.thresholds) {
+        cumulativeDef += threshold.bonus.def ?? 0;
+        cumulativeEvasion += threshold.bonus.eva ?? 0;
+        expect(
+          cumulativeDef > 0 && cumulativeEvasion > 0,
+          `${set.id}:${threshold.count}: 누적 방어력 ${cumulativeDef}, 누적 회피도 ${cumulativeEvasion}`,
+        ).toBe(false);
+      }
+    }
   });
 });
 

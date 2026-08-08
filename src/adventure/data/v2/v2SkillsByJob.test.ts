@@ -66,6 +66,12 @@ describe("직업 킷 — 스킬셋", () => {
       effects: [{ kind: "manaRestore", pctMaxMp: 6 }],
     });
     expect(V2_SKILLS.v2c_mage_meditate.oncePerBattle).not.toBe(true);
+    expect(V2_SKILLS.v2c_caster_acumen).toMatchObject({
+      name: "마나 실드",
+      category: "passive",
+      passive: { statPct: { int: 20 }, magicBarrier: true },
+    });
+    expect(spCostOf(V2_SKILLS.v2c_caster_acumen)).toBe(3);
   });
 
   it("모든 직업 스킬 id 가 전투 카탈로그(V2_SKILLS)에 존재", () => {
@@ -588,7 +594,7 @@ describe("직업 킷 — 스킬셋", () => {
       openingMagicDamageReductionPct: 20,
       openingMagicDamageReductionPhases: 5,
     });
-    expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
+    expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(30); // 매의 눈 — 명중(궁수 라인 정점)
     expect(V2_SKILLS.v2c_phantom_stealth.passive?.evasionPct).toBe(16); // 은신 — 회피(암살자·tier4 유일 회피축)
     expect(
       V2_SKILLS.v2c_venomlord_sovereign.passive
@@ -754,7 +760,7 @@ describe("직업 킷 — 스킬셋", () => {
       evasionPct: 18,
       critPct: 8,
       critDmgPct: 20,
-      accuracyPct: 10,
+      accuracyPct: 15,
     });
     expect(V2_SKILLS.v2c_elementallord_surge.category).toBe("attack");
     expect(V2_SKILLS.v2c_elementallord_surge.effects).toEqual([
@@ -841,7 +847,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_dragonfist_footwork.passive).toMatchObject({
       statPct: { str: 18 },
       evasionPct: 16,
-      accuracyPct: 8,
+      accuracyPct: 12,
     });
     expect(V2_SKILLS.v2c_adamantmonk_stance.effects).toEqual([
       { kind: "shield", pctMaxHp: 14, turns: 3 },
@@ -937,7 +943,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_swordsaint_transcendence.passive).toMatchObject({
       statPct: { str: 24 },
       critDmgPct: 35,
-      accuracyPct: 10,
+      accuracyPct: 15,
       spdOverflowToAtkPct: 35,
       reflectDamageTakenReductionPct: 20,
     });
@@ -955,7 +961,7 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "hpCostDamage",
       pctCurrentHp: 14,
       soakCurrentHpFloorPct: 50,
-      soakRatio: 3,
+      soakRatio: 3.42,
     });
     expect(V2_SKILLS.v2c_hegemon_dominion.category).toBe("passive");
     expect(V2_SKILLS.v2c_hegemon_dominion.passive).toMatchObject({
@@ -1068,10 +1074,11 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_heavenlybow_starpath.category).toBe("passive");
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive).toMatchObject({
       statPct: { dex: 22, luk: 8 },
-      accuracyPct: 20,
+      accuracyPct: 30,
       critPct: 8,
-      skillCritOverflow: true,
+      skillCritDmgPct: 30,
     });
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritOverflow).toBeUndefined();
     expect(skillsForJob("blackmoon")).toEqual([
       "v2c_blackmoon_flurry",
       "v2c_blackmoon_dominion",
@@ -1108,7 +1115,7 @@ describe("직업 킷 — 스킬셋", () => {
       critDmgPct: 24,
       spdPerLukCoef: 0.75,
       atkPerLukCoef: 0.95,
-      accuracyPct: 10,
+      accuracyPct: 15,
       skillCritOverflow: true,
       skillCritAfterEvade: true,
     });
@@ -1164,7 +1171,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_celestialdragon_breath.passive).toMatchObject({
       statPct: { str: 22, dex: 10 },
       evasionPct: 20,
-      accuracyPct: 12,
+      accuracyPct: 18,
       comboFinisherBonusPct: 30,
     });
     expect(skillsForJob("vajraarhat")).toEqual([
@@ -1226,7 +1233,7 @@ describe("직업 킷 — 스킬셋", () => {
         soakCurrentHpFloorPct: 50,
         statCoef: 1.76,
         baseFlatByTier: [409, 409, 409],
-        soakRatio: 2.3,
+        soakRatio: 2.62,
       },
       {
         kind: "executeDamage",
@@ -1430,6 +1437,16 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     ]);
     expect(agg.statPct).toEqual({ vit: 10 });
     expect(agg.atkPerDexCoef).toBeGreaterThan(0);
+  });
+
+  it("aggregateEquippedPassives — 2차 마법사의 마나 실드만 장벽을 활성화한다", () => {
+    expect(
+      aggregateEquippedPassives(["v2c_caster_acumen"]).magicBarrier,
+    ).toBe(true);
+    expect(aggregateEquippedPassives(["v2c_mage_acumen"]).magicBarrier).toBe(
+      false,
+    );
+    expect(aggregateEquippedPassives([]).magicBarrier).toBe(false);
   });
 
   it("aggregateEquippedPassives — % 패시브(statPct/maxHpPct/healPowerPct) 합산", () => {

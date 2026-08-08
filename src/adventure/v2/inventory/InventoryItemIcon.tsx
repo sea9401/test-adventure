@@ -29,7 +29,10 @@ import {
   ENHANCE_EMBER_MATERIAL_ID,
   TORN_MAP_FRAGMENT_MATERIAL_ID,
 } from "@/adventure/data/v2/scavengedCrafting";
-import { CULTIVATION_RESET_POTION_ITEM_ID } from "@/adventure/data/v2/museunCashItems";
+import {
+  CULTIVATION_RESET_POTION_ITEM_ID,
+  LEVEL_100_ELIXIR_ITEM_ID,
+} from "@/adventure/data/v2/museunCashItems";
 
 export type InventoryIconKind =
   | "bone"
@@ -101,6 +104,7 @@ export function inventoryIconKind(itemId: string): InventoryIconKind {
   if (itemId === "rename_permit") return "identity";
   if (itemId === "adventure_support_30d") return "shield";
   if (itemId === CULTIVATION_RESET_POTION_ITEM_ID) return "flask";
+  if (itemId === LEVEL_100_ELIXIR_ITEM_ID) return "flask";
   if (itemId === "exp_tome") return "flask";
   if (itemId === STAMINA_SHARD_MATERIAL_ID) return "flask";
   if (itemId === ENHANCE_EMBER_MATERIAL_ID) return "ember";

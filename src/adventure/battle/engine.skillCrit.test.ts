@@ -45,10 +45,14 @@ function dummy(hp: number): Monster {
 
 // Math.random 을 0 으로 고정 → 두 런이 완전히 동일한 RNG 스트림. critChancePct 만 다르게 두면
 //   유일한 차이가 "스킬 크리 발동 여부"라 그 효과를 순수 분리 측정할 수 있다.
-function battle(critChancePct: number, enemyHp = 3000) {
+function battle(
+  critChancePct: number,
+  enemyHp = 3000,
+  playerBonus: Partial<PlayerCombat> = {},
+) {
   vi.spyOn(Math, "random").mockReturnValue(0);
   const r = resolveBattle(
-    { ...MAGE, critChancePct, hp: MAGE.maxHp },
+    { ...MAGE, critChancePct, hp: MAGE.maxHp, ...playerBonus },
     dummy(enemyHp),
     "마법사",
     {
@@ -84,6 +88,14 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     expect(noCrit.firstCastDamage).toBeGreaterThan(0);
     expect(crit.firstCastDamage).toBe(
       Math.floor(noCrit.firstCastDamage * SKILL_CRIT_MULT),
+    );
+  });
+
+  it("스킬 치명타 피해 패시브는 고정 스킬 치명 배율에 가산된다", () => {
+    const noCrit = battle(0);
+    const heavenlyBowCrit = battle(100, 3000, { skillCritDmgPct: 30 });
+    expect(heavenlyBowCrit.firstCastDamage).toBe(
+      Math.floor(noCrit.firstCastDamage * 2),
     );
   });
 

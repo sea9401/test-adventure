@@ -875,7 +875,7 @@ export function resolveEnemyPhase(
   if (magicBarrier.absorbed > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[마력 장벽] ${magicBarrier.absorbed} 흡수 (남은 ${magicBarrier.durabilityLeft})`,
+      text: `[마나 실드] ${magicBarrier.absorbed} 흡수 (남은 ${magicBarrier.durabilityLeft})`,
     });
   }
   const atkPrefix =

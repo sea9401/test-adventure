@@ -7,7 +7,7 @@ import {
   parseInboxPayload,
   type SeasonRewardSeason,
 } from "@/lib/server/inboxPayload";
-import { upsertSave } from "@/lib/server/savesKv";
+import { readSave, upsertSave } from "@/lib/server/savesKv";
 import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 import { STAMINA_POTIONS_KEY } from "@/adventure/v2/staminaPotions";
@@ -25,6 +25,7 @@ import {
 } from "@/adventure/inventory/equipmentInstances";
 import {
   V2_EQUIPMENT,
+  isUnique,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -33,6 +34,8 @@ import {
   mintRolledEquipInstance,
 } from "@/adventure/data/v2/v2EquipMint";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import {
   ADVENTURE_SUPPORT_PASS,
@@ -475,9 +478,11 @@ export async function POST(req: Request) {
       // 잠금 순서: character.v2 → inventory.v2 → equipment.v2 (buy/v2-grant 라우트와 동일).
       if (v2EquipToAdd.length > 0 || v2MarketplaceEquipToAdd.length > 0) {
         const minted: V2EquipInstance[] = [];
+        const acquiredUniqueIds: V2EquipmentId[] = [];
         for (const e of v2EquipToAdd) {
           for (let i = 0; i < e.count; i++) {
             minted.push(mintRolledEquipInstance(e.id));
+            if (isUnique(V2_EQUIPMENT[e.id])) acquiredUniqueIds.push(e.id);
           }
           equipV2Added.push({ id: e.id, count: e.count });
         }
@@ -488,6 +493,24 @@ export async function POST(req: Request) {
           equipV2Added.push({ id: equipment.id, count: 1 });
         }
         newEquipmentOwned = await appendEquipInstances(tx, userId, minted);
+        // 거래소 매물 수령·반환은 같은 개체의 이동이므로 제외하고, 운영 보상/우편이 새로
+        // 발급한 v2EquipToAdd 유니크만 누적 획득으로 기록한다.
+        if (acquiredUniqueIds.length > 0) {
+          await recordUniqueEquipmentAcquisitions({
+            executor: tx,
+            userId,
+            evidence: {
+              equipmentOwnedAfter: newEquipmentOwned,
+              equipmentCodexRaw: await readSave(
+                tx,
+                userId,
+                EQUIPMENT_CODEX_KEY,
+                {},
+              ),
+              acquiredIds: acquiredUniqueIds,
+            },
+          });
+        }
       }
 
       // 레시피 학습 (있을 때만).

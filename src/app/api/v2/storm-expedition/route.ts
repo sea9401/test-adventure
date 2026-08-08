@@ -8,8 +8,15 @@ import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import type { PlayerCombat } from "@/adventure/v2/combat/engineState";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Monster } from "@/adventure/data/monsters/types";
-import { parseEquipmentSave, type V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
+import {
+  V2_EQUIPMENT,
+  isUnique,
+  parseEquipmentSave,
+  type V2EquipInstance,
+} from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 import {
   STORM_EXPEDITION_ALTAR_CHOICES,
   STORM_EXPEDITION_CAMP_CHOICES,
@@ -614,10 +621,30 @@ async function claimPendingRewards({
     materials: mergeDrops(charSave.materials, active.pendingMaterials),
   };
   await upsertSave(tx, userId, "character.v2", character);
+  const nextOwned = [...parsedEquipment.owned, ...active.pendingEquipment];
   await upsertSave(tx, userId, "equipment.v2", {
-    owned: [...parsedEquipment.owned, ...active.pendingEquipment],
+    owned: nextOwned,
     equipped: parsedEquipment.equipped,
   });
+  const acquiredUniqueIds = active.pendingEquipment
+    .map((instance) => instance.id)
+    .filter((id) => isUnique(V2_EQUIPMENT[id]));
+  if (acquiredUniqueIds.length > 0) {
+    await recordUniqueEquipmentAcquisitions({
+      executor: tx,
+      userId,
+      evidence: {
+        equipmentOwnedAfter: nextOwned,
+        equipmentCodexRaw: await readSave(
+          tx,
+          userId,
+          EQUIPMENT_CODEX_KEY,
+          {},
+        ),
+        acquiredIds: acquiredUniqueIds,
+      },
+    });
+  }
   return {
     character,
     result: {

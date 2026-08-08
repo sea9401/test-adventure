@@ -5,7 +5,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "accRating": 80.925,
   "accuracyPct": 35,
   "allStatTotal": 263,
-  "atk": 74,
+  "atk": 78,
   "attackCount": 1,
   "classTier": undefined,
   "critChancePct": 8.6,
@@ -93,9 +93,6 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "intStat": 148,
   "lukStat": 15,
   "magicAtk": 66,
-  "magicBarrierAbsorbPct": 12.154046997389035,
-  "magicBarrierMax": 566,
-  "magicBarrierPvpAbsorbPct": 8.681462140992167,
   "magicDef": 43,
   "maxHp": 670,
   "maxMp": 501,
@@ -251,7 +248,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "archer_pen_vs_골렘",
-    "logSha": "a9109232dc1dd6c25e04a4a3e9219d9975923cd4",
+    "logSha": "599411e5bfdbbc55233baf92bc9d40feb45670dd",
     "outcome": "win",
     "playerHp": 669,
     "playerMp": 227,
@@ -260,11 +257,11 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "magic_vs_약탈자",
-    "logSha": "d71ca1e9f75108a8cf4384b340e1db673798fe33",
+    "logSha": "95aef202dc384a9015f6c12e9e5b7f8e411707cd",
     "outcome": "win",
-    "playerHp": 560,
+    "playerHp": 550,
     "playerMp": 501,
-    "turns": 33,
+    "turns": 27,
   },
   {
     "enemyHp": 0,
@@ -287,11 +284,11 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "mage_skills_vs_골렘",
-    "logSha": "6cfed131b231e25417d0ef1597c185d8c096b46b",
+    "logSha": "7d647e2712b369404fe1c0e5cc6a1839aad61bde",
     "outcome": "win",
-    "playerHp": 658,
+    "playerHp": 657,
     "playerMp": 501,
-    "turns": 12,
+    "turns": 10,
   },
   {
     "enemyHp": 0,
@@ -309,15 +306,15 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "49c0ee32120a451f89b154788ebc2ba559f34ea2",
+    "logSha": "03c16011f1db789e5dea91e4f05de332a6bebc17",
     "outcome": "p1_win",
-    "turns": 59,
+    "turns": 43,
   },
   {
     "label": "archer_vs_ninja",
-    "logSha": "17e8c8e8a331e2dd569db8a0a0f73ea4a60bbd3e",
+    "logSha": "eb65d8c29664ce076a0c8cf37c3b1a8eb74ee861",
     "outcome": "p1_win",
-    "turns": 84,
+    "turns": 78,
   },
   {
     "label": "tank_vs_warrior",

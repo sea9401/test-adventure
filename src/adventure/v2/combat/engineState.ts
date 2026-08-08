@@ -549,6 +549,8 @@ export type PlayerCombat = {
   equipSignatures?: SignatureEffect[];
   // 치명 한계 확장 — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 미보유 = undefined.
   skillCritOverflow?: boolean;
+  // 스킬 치명타 피해 +% — 기본 스킬 치명타 배율에 /100 가산. 미보유 = undefined.
+  skillCritDmgPct?: number;
   // 흑월지배 — 회피 성공 후 다음 직접 피해 액티브 스킬 확정 치명타. 미보유 = undefined.
   skillCritAfterEvade?: boolean;
 };

@@ -1337,8 +1337,8 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       }).enemyDamage;
 
     expect(actualPvPDamage).toBe(resolve("pvp"));
-    expect(actualPvPDamage).toBe(2_548);
-    expect(resolve("pve")).toBe(3_052);
+    expect(actualPvPDamage).toBe(2_667);
+    expect(resolve("pve")).toBe(3_194);
   });
 
   it("일반 회피도는 직접 피해 없는 상태이상 스킬을 막지 않는다", () => {
@@ -1559,6 +1559,36 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         (entry) => entry.text.includes("흑월지배") && entry.text.includes("치명타"),
       ),
     ).toBe(true);
+  });
+
+  it("성도 조준의 스킬 치명타 피해는 PvP 스킬 치명 배율에도 적용된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castDamage = (critChancePct: number, skillCritDmgPct = 0) => {
+      const state = initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          spd: 99,
+          critChancePct,
+          skillCritDmgPct,
+        }),
+        makePlayer({ hp: 10_000, maxHp: 10_000, def: 0, spd: 1 }),
+        "천궁",
+        "대상",
+        {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      );
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+      return state.p2.hp - cast.p2.hp;
+    };
+
+    const noCritDamage = castDamage(0);
+    expect(castDamage(100, 30)).toBe(Math.floor(noCritDamage * 2));
   });
 
   it("PvP 스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {

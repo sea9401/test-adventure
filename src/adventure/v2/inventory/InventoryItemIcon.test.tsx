@@ -23,6 +23,7 @@ describe("inventoryIconKind", () => {
     expect(inventoryIconKind("profile_image_permit")).toBe("camera");
     expect(inventoryIconKind("rename_permit")).toBe("identity");
     expect(inventoryIconKind("cultivation_reset_potion")).toBe("flask");
+    expect(inventoryIconKind("level_100_elixir")).toBe("flask");
     expect(inventoryIconKind("exp_tome")).toBe("flask");
     expect(inventoryIconKind("v2_stamina_shard")).toBe("flask");
     expect(inventoryIconKind("v2_enhance_ember")).toBe("ember");

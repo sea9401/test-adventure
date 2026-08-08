@@ -5,10 +5,7 @@ import {
   STAT_KEYS,
   STAT_LABELS,
 } from "@/adventure/data/stats";
-import {
-  SKILL_CRIT_MULT,
-  physicalDefenseDamageReductionPct,
-} from "@/adventure/data/v2/v2CombatConstants";
+import { SKILL_CRIT_MULT } from "@/adventure/data/v2/v2CombatConstants";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
@@ -17,22 +14,18 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   공격력: "일반 공격과 물리 스킬의 기본값입니다. 힘이 높을수록 커집니다.",
   방어력: "받는 물리 피해를 줄입니다. 활력이 높을수록 커집니다.",
-  "물리 피해 경감률":
-    "현재 방어력이 물리 직접 피해를 줄이는 비율입니다. 관통·방어 감소를 받으면 실제 전투에서는 낮아질 수 있으며 최대 85%에 가까워지지만 도달하지는 않습니다.",
   "마법 공격력":
     "마법 스킬과 마법 기본 공격의 위력입니다. 정신이 지능보다 높은 캐릭터는 초과한 정신 일부가 마법 공격력으로 전환됩니다.",
   "마법 방어력":
     "마법형 몬스터의 공격과 마법 스킬 피해를 줄입니다. 정신이 주축이고 지능·반지·목걸이·마법 방어 옵션이 보조합니다.",
-  "마력 장벽":
-    "지능과 최대 MP로 정해지는 전투별 내구도입니다. 일반 보호막 다음에 남은 직접 피해 일부를 흡수하며 MP는 소모하지 않습니다.",
-  "마력 장벽 흡수율":
-    "마력 장벽이 남아 있을 때 직접 피해에서 흡수하는 비율입니다. 지속 피해·반사·상태 피해에는 적용되지 않습니다.",
+  "마나 실드":
+    "마나 실드 패시브 장착 시 지능과 최대 MP로 정해지는 전투별 내구도입니다. 일반 보호막 다음에 남은 직접 피해 일부를 흡수하며 MP는 소모하지 않습니다.",
+  "마나 실드 흡수율":
+    "마나 실드가 남아 있을 때 직접 피해에서 흡수하는 비율입니다. 지속 피해·반사·상태 피해에는 적용되지 않습니다.",
   적중도:
     "상대의 회피도와 함께 계산해 상대의 직접 피해 경감률을 낮추는 수치입니다. 장비·민첩·힘·지능·정신으로 얻은 수치에 적중도 증가 패시브가 적용됩니다.",
   회피도:
     "상대의 적중도와 함께 계산해 직접 피해 경감률을 정하는 수치입니다. 경갑·민첩·행운으로 얻은 수치에 회피도 증가 패시브가 적용됩니다.",
-  "현재 사냥터 회피 경감률":
-    "현재 사냥터(최대 깊이) 적의 적중도를 반영해 일반 직접 피해를 줄이는 비율입니다. 더 깊은 곳에서는 적의 적중도가 높아져 달라질 수 있습니다.",
   "치명타 확률":
     "평타와 직접 피해를 주는 액티브 스킬이 함께 사용하는 치명타 확률. 전투에서는 최대 75%까지 적용되고, 초과분은 기본적으로 평타 치명타 피해로 전환됩니다.",
   "평타 치명타 배율":
@@ -56,11 +49,12 @@ type CombatStats = {
   accuracyPct?: number;
   // 캡 없는 적중도. 표시는 이 raw 를 우선하고, 없으면 레거시 필드로 폴백한다.
   accRating?: number;
-  // 캡 없는 회피도. 현재 사냥터 경감률(evasionPct)과 구분해 표시한다.
+  // 캡 없는 회피도. 내 정보에서는 이 원본 수치를 표시한다.
   evaRating?: number;
   critChancePct?: number;
   critMult?: number;
   skillCritOverflow?: boolean;
+  skillCritDmgPct?: number;
 };
 
 type CombatItem = { label: string; value: string | number; accent: string };
@@ -75,12 +69,13 @@ function critOverflowMult(critChancePct: number | undefined): number {
 
 export function activeSkillCritStats(combat: Pick<
   CombatStats,
-  "critChancePct" | "skillCritOverflow"
+  "critChancePct" | "skillCritOverflow" | "skillCritDmgPct"
 >) {
   return {
     chancePct: Math.min(CRIT_PCT_CAP, Math.max(0, combat.critChancePct ?? 0)),
     multiplier:
       SKILL_CRIT_MULT +
+      Math.max(0, combat.skillCritDmgPct ?? 0) / 100 +
       (combat.skillCritOverflow
         ? critOverflowMult(combat.critChancePct)
         : 0),
@@ -94,11 +89,6 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
   const items: CombatItem[] = [
     { label: "공격력", value: combat.atk, accent: "text-rose-600 dark:text-rose-400" },
     { label: "방어력", value: combat.def, accent: "text-sky-600 dark:text-sky-400" },
-    {
-      label: "물리 피해 경감률",
-      value: `${physicalDefenseDamageReductionPct(combat.def).toFixed(1)}%`,
-      accent: "text-blue-600 dark:text-blue-400",
-    },
   ];
   if (combat.magicAtk) {
     items.push({
@@ -117,12 +107,12 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
   if ((combat.magicBarrierMax ?? 0) > 0) {
     items.push(
       {
-        label: "마력 장벽",
+        label: "마나 실드",
         value: Math.round(combat.magicBarrierMax ?? 0),
         accent: "text-violet-600 dark:text-violet-400",
       },
       {
-        label: "마력 장벽 흡수율",
+        label: "마나 실드 흡수율",
         value: `${(combat.magicBarrierAbsorbPct ?? 0).toFixed(1)}%`,
         accent: "text-violet-600 dark:text-violet-400",
       },
@@ -139,11 +129,6 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
         label: "회피도",
         value: Math.round(combat.evaRating ?? combat.evasionPct),
         accent: "text-cyan-600 dark:text-cyan-400",
-      },
-      {
-        label: "현재 사냥터 회피 경감률",
-        value: `${Math.round(combat.evasionPct)}%`,
-        accent: "text-teal-600 dark:text-teal-400",
       },
       {
         label: "치명타 확률",

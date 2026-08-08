@@ -46,7 +46,7 @@ describe("적중·회피 경감 전투 예상", () => {
     expect(html).toContain("완전 회피는 별도");
   });
 
-  it("방어·회피·마력 장벽을 합친 현재 상대 직접 피해 예상치를 표시한다", () => {
+  it("방어·회피·마나 실드를 합친 현재 상대 직접 피해 예상치를 표시한다", () => {
     const result = combatMatchupResult(
       {
         ...player,
@@ -78,6 +78,6 @@ describe("적중·회피 경감 전투 예상", () => {
     expect(html).toContain("내 최종 직접 피해");
     expect(html).toContain("15% 받음");
     expect(html).toContain("물리 방어");
-    expect(html).toContain("마력 장벽 20%");
+    expect(html).toContain("마나 실드 20%");
   });
 });

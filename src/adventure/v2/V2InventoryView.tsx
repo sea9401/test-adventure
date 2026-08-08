@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { TabBar } from "@/components/ui/TabBar";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import {
+  LEVEL_100_ELIXIR_ITEM_ID,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
@@ -454,12 +455,16 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           cashItems?: MuseunCashItemCounts;
           daysAdded?: number;
           refundedPoints?: number;
+          level?: number;
+          levelsGained?: number;
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
             `✗ ${
               data?.error === "not_owned"
                 ? "보유한 아이템이 없습니다"
+                : data?.error === "already_max_level"
+                  ? "이미 100레벨입니다 · 비약은 소모되지 않았습니다"
                 : data?.error === "nothing_to_reset"
                   ? "초기화할 수행 한계치가 없습니다"
                 : (data?.error ?? `http ${res.status}`)
@@ -470,7 +475,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setCashItems(data.cashItems ?? {});
         await refreshGameState();
         notifySystem(
-          itemId === "cultivation_reset_potion"
+          itemId === LEVEL_100_ELIXIR_ITEM_ID
+            ? `✓ 100레벨 달성 · ${data.levelsGained ?? 0}레벨 상승`
+            : itemId === "cultivation_reset_potion"
             ? `✓ 수행 초기화 완료 · 숙달 포인트 +${(data.refundedPoints ?? 0).toLocaleString()}`
             : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
         );

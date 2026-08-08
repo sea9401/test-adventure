@@ -296,6 +296,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       critChancePct: combat.player.critChancePct,
       critMult: combat.player.critMult,
       skillCritOverflow: combat.player.skillCritOverflow === true,
+      skillCritDmgPct: combat.player.skillCritDmgPct,
       power: derivePowerScore({
         atk: combat.player.atk,
         magicAtk: combat.player.magicAtk ?? 0,

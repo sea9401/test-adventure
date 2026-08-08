@@ -659,13 +659,13 @@ export function initialBattleStatePvP(
   if ((p1Side.maxMagicBarrier ?? 0) > 0) {
     log.push({
       kind: "info",
-      text: `[마력 장벽] ${p1Side.name} 내구도 ${p1Side.maxMagicBarrier ?? 0} 전개`,
+      text: `[마나 실드] ${p1Side.name} 내구도 ${p1Side.maxMagicBarrier ?? 0} 전개`,
     });
   }
   if ((p2Side.maxMagicBarrier ?? 0) > 0) {
     log.push({
       kind: "info",
-      text: `[마력 장벽] ${p2Side.name} 내구도 ${p2Side.maxMagicBarrier ?? 0} 전개`,
+      text: `[마나 실드] ${p2Side.name} 내구도 ${p2Side.maxMagicBarrier ?? 0} 전개`,
     });
   }
   const state: PvPBattleState = {
@@ -1998,12 +1998,13 @@ export function castV2SkillOnAttackerTurnPvP(
       (side.stacks.damageDownTurns > 0
         ? 1 - side.stacks.damageDownPct / 100
         : 1) *
-      // 치명 한계 확장(skillCritOverflow) — PvE 미러. 스킬 크리에도 크리 오버플로 가산. 전역=flat.
+      // 천궁은 고정 스킬 치명 피해, 흑월은 75% 초과 치명 오버플로를 스킬 배율에 가산한다.
       (skillCritFired
-        ? side.player.skillCritOverflow
-          ? SKILL_CRIT_MULT +
-            computeCritOverflowBonus(side.player.critChancePct ?? 0)
-          : SKILL_CRIT_MULT
+        ? SKILL_CRIT_MULT +
+          Math.max(0, side.player.skillCritDmgPct ?? 0) / 100 +
+          (side.player.skillCritOverflow
+            ? computeCritOverflowBonus(side.player.critChancePct ?? 0)
+            : 0)
         : 1),
   );
   let nextComboHitCount = side.stacks.comboHitCount;
@@ -2110,7 +2111,7 @@ export function castV2SkillOnAttackerTurnPvP(
     if (skillMagicBarrierAbsorbed > 0) {
       nextLog = appendLog(nextLog, {
         kind: "info",
-        text: `[마력 장벽] ${opp.name} ${skillMagicBarrierAbsorbed} 흡수 (남은 ${nextOppMagicBarrier})`,
+        text: `[마나 실드] ${opp.name} ${skillMagicBarrierAbsorbed} 흡수 (남은 ${nextOppMagicBarrier})`,
         side: otherKey,
       });
     }

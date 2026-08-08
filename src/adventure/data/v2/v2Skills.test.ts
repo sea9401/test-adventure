@@ -704,34 +704,34 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("피해 계수는 공격 기반선과 특화 스탯을 구분해 명시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
-      "피해 마법 공격력×1.05 + 지능×0.35",
+      "피해 마법 공격력×1.05 + 지능×0.4",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
-      "피해 공격력×1.05 + 방어력×1.3",
+      "피해 공격력×1.05 + 방어력×1.5",
     );
   });
 
-  it("6차 순수형만 주스탯 계수를 받고 혼합형 계수는 유지한다", () => {
+  it("6차 순수형과 혼합형 모두 직접 스탯 계수 상향을 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
-      "피해 공격력×1.3 + 힘×1.3",
+      "피해 공격력×1.3 + 힘×1.5",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
-      "피해 마법 공격력×1.68 + 지능×1.1",
+      "피해 마법 공격력×1.68 + 지능×1.27",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)).toEqual(
       expect.arrayContaining([
-        "피해 공격력×0.4 + 민첩×0.5",
-        "피해 공격력×0.4 + 민첩×0.62",
+        "피해 공격력×0.4 + 민첩×0.58",
+        "피해 공격력×0.4 + 민첩×0.71",
       ]),
     );
   });
 
   it("다단 스킬의 공격 계수는 소수 둘째 자리까지 반올림해 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_flurry)).toContain(
-      "피해 공격력×0.36 + 힘×0.17",
+      "피해 공격력×0.36 + 힘×0.19",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
-      "피해 공격력×0.4 + 민첩×0.1",
+      "피해 공격력×0.4 + 민첩×0.12",
     );
 
     for (const skill of Object.values(V2_SKILLS)) {
@@ -806,12 +806,12 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
-        chip.includes("공격력×1.08 + 힘×0.5"),
+        chip.includes("공격력×1.08 + 힘×0.58"),
       ),
     ).toBe(true);
     expect(
       describeV2Skill(V2_SKILLS.v2c_fortressknight_ram).some((chip) =>
-        chip.includes("공격력×1.2 + 방어력×1.71"),
+        chip.includes("공격력×1.2 + 방어력×1.97"),
       ),
     ).toBe(true);
 
@@ -858,7 +858,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_acolyte_smite)).toContain(
-      "회복 잃은 체력 6% + 마법 공격력×0.45 +50~50 (회복량 보정 적용)",
+      "회복 잃은 체력 6% + 마법 공격력×0.5 +50~50 (회복량 보정 적용)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
       "피해량 14% 회복 (회복량 보정 미적용)",
@@ -973,6 +973,26 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_boxer_fortitude)).toBe(2); // 회피도 +8%
     expect(spCostOf(V2_SKILLS.v2c_brawler_fortitude3)).toBe(3); // 회피 +12%
     expect(spCostOf(V2_SKILLS.v2c_phantom_stealth)).toBe(3); // 회피도 +16%
+  });
+
+  it("조건부 대항축인 명중은 수치 상향 뒤에도 SP를 과청구하지 않는다", () => {
+    expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(30);
+    expect(spCostOf(V2_SKILLS.v2c_chief_afterimage)).toBe(3);
+    expect(V2_SKILLS.v2c_marksman_aim.passive?.accuracyPct).toBe(24);
+    expect(spCostOf(V2_SKILLS.v2c_marksman_aim)).toBe(5);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.accuracyPct).toBe(30);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritDmgPct).toBe(30);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritOverflow).toBeUndefined();
+    expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(8);
+  });
+
+  it("성도 조준은 흑월의 치명 오버플로 대신 고정 스킬 치명 피해를 제공한다", () => {
+    const passive = aggregateEquippedPassives(["v2c_heavenlybow_starpath"]);
+    expect(passive.skillCritDmgPct).toBe(30);
+    expect(passive.skillCritOverflow).toBe(false);
+    expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_starpath)).toContain(
+      "스킬 치명타 피해 +30%",
+    );
   });
 
   it("액티브 효율 보정 — 높은 발동률·낮은 MP 비용일수록 같은 효과의 SP가 높다", () => {

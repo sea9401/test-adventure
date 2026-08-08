@@ -9,6 +9,7 @@ import {
   currentGuideQuest,
   isTutorialLine,
   achievementSummary,
+  claimedUniqueEquipmentAcquisitionFloor,
   type QuestCtx,
 } from "./v2Quests";
 import { V2_EQUIPMENT } from "./v2Equipment";
@@ -26,7 +27,7 @@ const ZERO: QuestCtx = {
   equippedCount: 0,
   hasManuallyEquippedGear: false,
   hasBattledAfterEquippingGear: false,
-  uniqueOwned: 0,
+  uniqueAcquired: 0,
   cultivations: 0,
   bossKills: 0,
   hasGuild: false,
@@ -565,7 +566,7 @@ describe("모험가의 길 (콘텐츠·사회, 비순차)", () => {
 describe("정점을 향해 (확장 마일스톤)", () => {
   it("유니크 수집 / 깊이 40(체인 — 앞 단계 수령 후) / 보스 / 고차수", () => {
     expect(
-      isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueOwned: 1 }, none),
+      isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueAcquired: 1 }, none),
     ).toBe(true);
     // 체인 중간 단계는 앞 목표를 전부 수령하기 전에는 건너뛸 수 없다.
     expect(
@@ -628,7 +629,7 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     expect(
       isQuestClaimable(
         questById("a_unique5")!,
-        { ...ZERO, uniqueOwned: 5 },
+        { ...ZERO, uniqueAcquired: 5 },
         new Set(["a_unique"]),
       ),
     ).toBe(true);
@@ -675,6 +676,17 @@ describe("정점을 향해 (확장 마일스톤)", () => {
 });
 
 describe("장비·수집·교류 업적", () => {
+  it("유니크 업적은 보유가 아니라 누적 획득으로 안내하고 수령 단계는 이관 하한이 된다", () => {
+    expect(questById("marathon_unique_50")?.desc).toBe(
+      "유니크 장비를 누적 50개 획득하세요.",
+    );
+    expect(
+      claimedUniqueEquipmentAcquisitionFloor(
+        new Set(["a_unique", "a_unique5", "equipment_unique10"]),
+      ),
+    ).toBe(10);
+  });
+
   it("완전 무장 / 장비 도감 / 지갑+은행 골드 / 칭호", () => {
     expect(isQuestClaimable(questById("x_full_gear")!, { ...ZERO, equippedCount: 6 }, none)).toBe(true);
     expect(questStatus(questById("x_full_gear")!, { ...ZERO, equippedCount: 5 }, none)).toBe("active");
@@ -759,7 +771,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       equippedCount: 6,
       hasManuallyEquippedGear: true,
       hasBattledAfterEquippingGear: true,
-      uniqueOwned: 5,
+      uniqueAcquired: 5,
       cultivations: 9,
       bossKills: 4,
       hasGuild: true,

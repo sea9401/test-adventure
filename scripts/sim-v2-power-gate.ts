@@ -127,6 +127,9 @@ function makeRef(depth: number, cumLevel: number) {
     spd: p.spd,
     maxHp: d.maxHp,
     maxMp: p.maxMp ?? 0,
+    magicBarrierMax: p.magicBarrierMax,
+    evaRating: p.evaRating,
+    accRating: p.accRating,
   });
   return { d, power };
 }

@@ -1,6 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BattleLogList } from "./BattleLogList";
+import { battleLogPillColor, BattleLogList } from "./BattleLogList";
+
+describe("방어 기제 로그 라벨", () => {
+  it("회피·장벽·방어 라벨을 서로 다른 색상으로 구분한다", () => {
+    expect(battleLogPillColor("회피 경감 32.5%")).toContain("teal");
+    expect(battleLogPillColor("마력 장벽")).toContain("violet");
+    expect(battleLogPillColor("철벽")).toContain("blue");
+  });
+});
 
 describe("BattleLogList 표시 기호", () => {
   it("치명타 라벨 앞에 별 아이콘을 붙이지 않는다", () => {

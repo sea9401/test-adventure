@@ -9,6 +9,7 @@ import {
 } from "./engine";
 import {
   damageBetween,
+  damageToMagicDefender,
   damageToDefender,
   v2AtkBuffMult,
   v2DefBuffMult,
@@ -21,7 +22,11 @@ import {
   onHitTakenDefGain,
   statusBlockOnce,
 } from "./signatureEffects";
-import { pveDodgeChance } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  absorbWithMagicBarrier,
+  applyEvasionDamageReduction,
+  pveEvasionDamageReductionPct,
+} from "@/adventure/data/v2/v2CombatConstants";
 
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
@@ -441,101 +446,48 @@ export function resolveEnemyPhase(
     if (counter.ended) return counter.state;
     return finishEnemyAttack(counter.state);
   }
-  // 이중 행운 — 활성 시 회피 확률 +bonus%.
+  // 이중 행운 — 활성 시 회피도 +bonus%.
   const luckEvadeBonus = state.flags.luckyBuffActive
     ? player.doubleLuck?.evade ?? 0
     : 0;
-  // 만물 행운 (6티어) — 회피 확률에도 +N%.
+  // 만물 행운 (6티어) — 회피도에도 +N%.
   const universalLuckEvadeBonus = player.universalLuckBonusPct ?? 0;
-  // 회전 운기 (2티어 특기) — 누적 보너스 회피에도 적용.
-  // 회피 캡 EVASION_PCT_CAP — 100% 회피 무적 빌드 차단.
-  // 보장 회피 (소모형 적립) 는 위쪽 분기에서 별도 처리되어 캡 무관 100% 회피 유지.
-  // 한기 슬로우 — chill 스택당 회피율 감소(굼떠짐). 미지정/0 = 효과 없음. 회피는 0 미만 안 됨.
+  // 회전 운기 (2티어 특기) — 누적 보너스를 회피도 증가율에 적용.
+  // 보장 회피(소모형 적립)는 위쪽 분기에서 별도 처리한다.
+  // 한기 슬로우 — chill 스택당 회피도를 일정 비율 낮춘다.
   const chillSlowPct =
     state.enemy.skill?.kind === "chill"
       ? state.stacks.chillStacks *
         (state.enemy.skill.evasionPenaltyPerStack ?? 0)
       : 0;
-  // 적 명중(accuracy) — 유효 회피에서 %p 차감. 0/undefined = 차감 없음(기존 동작).
-  // chillSlowPct 와 같은 자리에서 빼 회피 캡 적용 후 감산. 고탑 보스가 층 비례로 보유.
-  // 암흑(원소술사 어둠) — 적 명중 -%p(적 헛침↑). 디버프 없으면 0 → 기존 동작(byte-identical).
+  // 암흑(원소술사 어둠) — 적 적중도를 일정 비율 낮춘다.
   const accDown =
     state.stacks.enemyAccuracyDownTurns > 0
       ? state.stacks.enemyAccuracyDownPct
       : 0;
-  // 회피 대결형 Slice 1 — 몹 명중레이팅(floorAccuracy(depth)+몹 accuracy, scaleMonsterForFloor 가 합산) − 암흑.
-  const enemyAccuracy = Math.max(0, (state.enemy.accuracy ?? 0) - accDown);
-  // 플레이어 회피레이팅(캡 없는 raw) + temp 버프(행운/운기/선풍각) − 한기슬로우. 버프는 이제 레이팅 가산(점감).
+  // 몬스터 기본 적중도에 디버프를 곱한다. 100%를 넘는 감소도 0 아래로 내려가지 않는다.
+  const enemyAccuracy = Math.max(
+    0,
+    (state.enemy.accuracy ?? 0) * (1 - Math.min(100, accDown) / 100),
+  );
+  const temporaryEvasionIncreasePct =
+    luckEvadeBonus +
+    universalLuckEvadeBonus +
+    state.buffs.cyclingChiBonus +
+    (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0);
+  // 스탯·경갑·옵션으로 만든 기본 회피도에 전투 중 증가율과 감소율을 차례로 곱한다.
   const evaRatingTotal = Math.max(
     0,
-    (player.evaRating ?? player.evasionPct) +
-      luckEvadeBonus +
-      universalLuckEvadeBonus +
-      state.buffs.cyclingChiBonus +
-      // PR2-B-2c 선풍각 — 회피 temp 버프.
-      (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0) -
-      chillSlowPct,
+    (player.evaRating ?? player.evasionPct) *
+      (1 + Math.max(0, temporaryEvasionIncreasePct) / 100) *
+      (1 - Math.min(100, Math.max(0, chillSlowPct)) / 100),
   );
-  // PvE 대결 → 완화된 생존 계수·점근 천장 DODGE_MAX(절대 도달X).
-  // 보장회피(소모형 100%)는 위 분기에서 별도.
-  const effectiveEvadePct = pveDodgeChance(evaRatingTotal, enemyAccuracy);
-  if (Math.random() * 100 < effectiveEvadePct) {
-    const healedHp = healOnDodge(state.playerHp);
-    let log = appendLog(state.log, {
-      kind: "info",
-      text: `${playerName}이(가) ${state.enemy.name}의 공격을 회피했다!`,
-    });
-    log = appendDodgeSpeedBuffLog(log);
-    if (player.skillCritAfterEvade && !state.flags.skillCritAfterEvadePending) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[흑월지배] 다음 직접 피해 스킬 치명타 준비.`,
-      });
-    }
-    if (healedHp > state.playerHp) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[곡예] ${playerName}의 HP +${healedHp - state.playerHp}`,
-      });
-    }
-    const reflect = applyDodgeReflect(log, state.enemyHp);
-    if (reflect.killed) {
-      return {
-        ...state,
-        playerHp: healedHp,
-        enemyHp: 0,
-        flags: dodgeFlags,
-        turn: {
-          ...state.turn,
-          enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
-        },
-        log: appendLog(reflect.log, {
-          kind: "info",
-          text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
-        }),
-        phase: "ended",
-        outcome: "win",
-      };
-    }
-    const next: BattleState = {
-      ...state,
-      playerHp: healedHp,
-      enemyHp: reflect.enemyHp,
-      flags: dodgeFlags,
-      buffs: dodgeBuffs, // on-dodge 속도 버프(미발동=state.buffs → byte-identical)
-      turn: {
-        ...state.turn,
-        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
-      },
-      // 유격 (특기) — 회피 성공 시 다음 플레이어 턴 공격 횟수 +N (현재 playerAttacksLeft 는 다음 턴 선롤분).
-      playerAttacksLeft:
-        state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
-      log: reflect.log,
-    };
-    const counter = applyCounterIfAny(next, player);
-    if (counter.ended) return counter.state;
-    return finishEnemyAttack(counter.state);
-  }
+  // 일반 회피도는 완전 회피 굴림을 만들지 않고 직접 피해 경감률로 작동한다.
+  // 보장 회피·그림자 보법 등 명시적 완전 회피는 위쪽 분기에서 별도로 처리한다.
+  const evasionReductionPct = pveEvasionDamageReductionPct(
+    evaRatingTotal,
+    enemyAccuracy,
+  );
   // 별빛 가드(enchant guard) — 회피/럭키 방패 전에 굴리는 % 블록. 슬롯당 5~20% 누적.
   // 회피와 별개 라벨 — 회피는 비켜서고, 가드는 받아낸 다음 흩어 낸다.
   const enchantGuardPct = player.enchantGuardBlockPct ?? 0;
@@ -712,7 +664,9 @@ export function resolveEnemyPhase(
   const defenseForAttack = magicAttack
     ? Math.max(0, player.magicDef ?? 0)
     : v2EffectivePlayerDef;
-  const baseEnemyDmg = damageToDefender(v2EffectiveEnemyAtk, defenseForAttack);
+  const baseEnemyDmg = magicAttack
+    ? damageToMagicDefender(v2EffectiveEnemyAtk, defenseForAttack)
+    : damageToDefender(v2EffectiveEnemyAtk, defenseForAttack);
   // 치명형 몹(SPI PR-3b) — critPct 굴려(플레이어 critResistPct=정신 차감) 적중 시 피해 ×critMult.
   //   heavy_blow 와 곱연산. 🔑 critPct 0(잡몹)이면 굴림 자체를 스킵 → RNG 스트림 불변(기존 전투
   //   byte-identical). 이 지점은 회피/가드/무효 분기를 모두 통과(=명중 확정)한 뒤라 헛굴림 없음.
@@ -738,13 +692,17 @@ export function resolveEnemyPhase(
     skill?.kind === "curse" && skill.maxDamageTakenPct !== undefined
       ? Math.min(skill.maxDamageTakenPct, curseDamageTakenPctRaw)
       : curseDamageTakenPctRaw;
-  const rawDmgBeforeReduction =
+  const rawDmgBeforeEvasion =
     curseDamageTakenPct > 0
       ? Math.max(
           1,
           Math.floor(rawDmgBeforeCurse * (1 + curseDamageTakenPct / 100)),
         )
       : rawDmgBeforeCurse;
+  const rawDmgBeforeReduction = applyEvasionDamageReduction(
+    rawDmgBeforeEvasion,
+    evasionReductionPct,
+  );
   const rawDmgAfterEnemyDamageDown =
     state.stacks.enemyDamageDownTurns > 0 && state.stacks.enemyDamageDownPct > 0
       ? Math.max(
@@ -814,8 +772,14 @@ export function resolveEnemyPhase(
   const steadfastApplied = dmg < guarded;
   // 철벽 (4티어) — 보호막이 데미지를 먼저 흡수, 남은 만큼만 HP 에 적용. 무피해 난무는 dmgToHp 로 누적.
   const shieldAbsorbed = Math.min(state.stacks.playerShield, dmg);
-  const dmgToHp = dmg - shieldAbsorbed;
+  const afterShield = dmg - shieldAbsorbed;
   const newShield = state.stacks.playerShield - shieldAbsorbed;
+  const magicBarrier = absorbWithMagicBarrier(
+    afterShield,
+    state.playerMagicBarrier ?? 0,
+    player.magicBarrierAbsorbPct ?? 0,
+  );
+  const dmgToHp = magicBarrier.damageToHp;
   // 보호막이 이번 공격을 전부 받아냈다면 피격 반사·반격은 발동하지 않는다.
   // 일부만 흡수해 HP 피해가 남은 경우에는 기존처럼 정상 발동한다.
   const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
@@ -878,6 +842,12 @@ export function resolveEnemyPhase(
       text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
     });
   }
+  if (rawDmgBeforeReduction < rawDmgBeforeEvasion) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] 피해 -${rawDmgBeforeEvasion - rawDmgBeforeReduction}`,
+    });
+  }
   if (enduredApplied) {
     log = appendLog(log, {
       kind: "info",
@@ -900,6 +870,12 @@ export function resolveEnemyPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[철벽] 보호막이 ${shieldAbsorbed} 흡수 (남은 ${newShield})`,
+    });
+  }
+  if (magicBarrier.absorbed > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[마력 장벽] ${magicBarrier.absorbed} 흡수 (남은 ${magicBarrier.durabilityLeft})`,
     });
   }
   const atkPrefix =
@@ -1060,6 +1036,7 @@ export function resolveEnemyPhase(
     return {
       ...state,
       playerHp,
+      playerMagicBarrier: magicBarrier.durabilityLeft,
       enemyHp: enemyHpAfterMartialCounter,
       flags: {
         ...state.flags,
@@ -1096,6 +1073,7 @@ export function resolveEnemyPhase(
     return {
       ...state,
       playerHp,
+      playerMagicBarrier: magicBarrier.durabilityLeft,
       enemyHp: 0,
       flags: {
         ...state.flags,
@@ -1130,6 +1108,7 @@ export function resolveEnemyPhase(
   return finishEnemyAttack({
     ...state,
     playerHp,
+    playerMagicBarrier: magicBarrier.durabilityLeft,
     enemyHp: enemyHpAfterMartialCounter,
     flags: {
       ...state.flags,

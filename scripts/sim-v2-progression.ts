@@ -34,7 +34,9 @@ import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import {
   aggregateEquippedPassives,
+  LIMITED_RECOVERY_SKILL_IDS,
   V2_SKILLS,
+  type LimitedRecoverySkillId,
   type V2SkillId,
   type V2SkillsState,
 } from "../src/adventure/data/v2/v2Skills";
@@ -58,10 +60,18 @@ import type {
 import type { V2StatKey } from "../src/adventure/data/v2/v2StatKeys";
 import type { Monster } from "../src/adventure/data/monsters/types";
 import {
+  stormExpeditionEncounterDepth,
   stormExpeditionEnemy,
   type StormExpeditionEncounterKind,
   type StormExpeditionRouteId,
 } from "../src/adventure/data/v2/stormExpedition";
+import { masteryTowerGuardianForFloor } from "../src/adventure/data/v2/masteryTower";
+import { resolveBattlePvP } from "../src/adventure/v2/combat/engine-pvp";
+import { autoDuelContext } from "../src/adventure/v2/combat/duelOptions";
+import {
+  ARENA_DAMAGE_MULTIPLIER,
+  ARENA_SUSTAIN_MULTIPLIER,
+} from "../src/lib/server/arena";
 import { V2_JOB_CATALOG } from "../src/adventure/data/v2/v2JobCatalog";
 import {
   buildCareerSnapshot,
@@ -72,6 +82,21 @@ import {
 
 type Arch = SimArch;
 const ARCHES: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"];
+const CROSSCHECK_ARCHES: Arch[] = ["STR", "VIT", "DEX", "LUK", "INT", "SPI"];
+const SIM_SEED = 20260809;
+
+function seededRandom(seed: number): () => number {
+  let value = seed >>> 0;
+  return () => {
+    value = (value + 0x6d2b79f5) >>> 0;
+    let mixed = value;
+    mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+Math.random = seededRandom(SIM_SEED);
 
 // 깊이 sweep — 각 깊이의 권장 파워(floorPowerGate)에 매칭되는 레벨로 전 아키타입 sim.
 // 깊이 1·2=authored(들판/깊은산), 3+=프론티어 풀 스케일. 무한 깊이서 난이도/def 절벽/spi-luk 검증.
@@ -91,7 +116,8 @@ function tierForLevel(level: number): 1 | 2 | 3 | 4 | 5 {
   return 5;
 }
 
-// 무기: STR/VIT/LUK/BAL = sword (str+atk), DEX/SPD = bow (dex+atk+crit), INT = staff
+// 무기: STR/VIT/LUK/BAL = sword, DEX = bow, INT/SPI = staff.
+// SPI 는 보조축이지만 정신 우세 시 마법 기본 공격을 사용하므로 마법 장비를 검증해야 한다.
 const WEAPON_LINE: Record<"sword" | "bow" | "staff", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
   sword: { 1: "v2_iron_sword", 2: "v2_greatsword", 3: "v2_greatsword", 4: "v2_mithril_sword", 5: "v2_mithril_sword" },
   bow: { 1: "v2_wooden_bow", 2: "v2_horn_bow", 3: "v2_horn_bow", 4: "v2_starsong_bow", 5: "v2_starsong_bow" },
@@ -118,7 +144,7 @@ function equipFor(arch: Arch, level: number): Partial<Record<V2EquipSlot, V2Equi
   const weapon =
     arch === "DEX"
       ? WEAPON_LINE.bow[tier]
-      : arch === "INT"
+      : arch === "INT" || arch === "SPI"
         ? WEAPON_LINE.staff[tier]
         : WEAPON_LINE.sword[tier];
   // VIT 와 STR 은 중갑 (vit+def, spd 페널티 감수). 나머지는 경갑. 장갑·신발은 갑옷 결을 따른다.
@@ -169,6 +195,14 @@ function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
     a.dex = Math.round(total * 0.2);
     a.luk = Math.round(total * 0.15);
     a.spi = total - a.str - a.vit - a.dex - a.luk;
+    return a;
+  }
+  if (arch === "SPI") {
+    // SPI 는 주력 공격 스탯이 아니라 INT 마법 빌드의 방어·회복 보조축으로 검증한다.
+    a.int = Math.round(total * 0.55);
+    a.spi = Math.round(total * 0.3);
+    a.vit = Math.round(total * 0.1);
+    a.luk = total - a.spi - a.int - a.vit;
     return a;
   }
   const main = arch.toLowerCase() as V2StatKey;
@@ -379,6 +413,9 @@ function levelForPower(target: number): number {
       spd: p.spd,
       maxHp: p.maxHp,
       maxMp: p.maxMp,
+      magicBarrierMax: p.magicBarrierMax,
+      evaRating: p.evaRating,
+      accRating: p.accRating,
     });
     if (pw >= target) return lv;
   }
@@ -590,34 +627,43 @@ if (MSPD_MODE) {
 // 권장 파워 4,500 참조 빌드로 HP/MP를 7전투 동안 실제 이어서 측정한다.
 // 기본 선택: 현재 HP/MP 비율이 더 낮은 자원을 정비 → 제단 받피감10%.
 const STORM_MODE = process.argv.includes("--storm");
+const STORM_DETAIL_MODE = process.argv.includes("--storm-detail");
+const STORM_TRACE = process.argv
+  .find((arg) => arg.startsWith("--storm-trace="))
+  ?.slice("--storm-trace=".length);
 const STORM_RISK_MODE = process.argv
   .find((arg) => arg.startsWith("--storm-risk="))
   ?.split("=")[1] ?? "none";
+const stormLevelArg = process.argv.find((arg) =>
+  arg.startsWith("--storm-level="),
+);
+const STORM_LEVEL = stormLevelArg
+  ? Math.max(1, Math.floor(Number(stormLevelArg.split("=")[1]) || 1))
+  : null;
 function runStormExpedition() {
   const runs = Math.max(
     1,
     Math.floor(Number(process.argv.find((arg) => arg.startsWith("--storm-runs="))?.split("=")[1]) || 500),
   );
-  const level = levelForDepth(72);
+  const level = STORM_LEVEL ?? levelForDepth(72);
   const encounters: Array<{
     kind: StormExpeditionEncounterKind;
     encounterIndex: number;
-    depth: number;
   }> = [
-    { kind: "early_trash", encounterIndex: 0, depth: 70 },
-    { kind: "early_trash", encounterIndex: 1, depth: 71 },
-    { kind: "late_trash", encounterIndex: 0, depth: 72 },
-    { kind: "late_trash", encounterIndex: 1, depth: 73 },
-    { kind: "elite", encounterIndex: 0, depth: 74 },
-    { kind: "guardian", encounterIndex: 0, depth: 75 },
-    { kind: "final_boss", encounterIndex: 0, depth: 76 },
+    { kind: "early_trash", encounterIndex: 0 },
+    { kind: "early_trash", encounterIndex: 1 },
+    { kind: "late_trash", encounterIndex: 0 },
+    { kind: "late_trash", encounterIndex: 1 },
+    { kind: "elite", encounterIndex: 0 },
+    { kind: "guardian", encounterIndex: 0 },
+    { kind: "final_boss", encounterIndex: 0 },
   ];
   console.log(`폭풍 원정 연속전투 | 기준파워 4500≈Lv${level} | ${runs}회/빌드/항로`);
   console.log(`선택: 현재 HP/MP 비율 기반 정비 → 제단 받피감10% | 위험=${STORM_RISK_MODE}`);
   const careerCounts: Array<number | null> = TIER6_COUNTS ?? [null];
   for (const tier6Count of careerCounts) {
     const setupPower = tier6Count == null ? 4500 : stormCareerPower(tier6Count);
-    const setupLevel = levelForPower(setupPower);
+    const setupLevel = STORM_LEVEL ?? levelForPower(setupPower);
     const setups = new Map<Arch, {
       derived: ReturnType<typeof makePlayer>;
       skills: V2SkillsState;
@@ -648,9 +694,18 @@ function runStormExpedition() {
         const passiveNames = career.skills.equipped
           .filter((id) => V2_SKILLS[id].passive != null)
           .map((id) => V2_SKILLS[id].name);
+        const activeNames = career.skills.equipped
+          .filter((id) => V2_SKILLS[id].passive == null)
+          .map((id) => V2_SKILLS[id].name);
         console.log(
-          `${arch}: 현재 ${currentName} | 6차 [${routeNames.join(", ") || "없음"}] | SP ${career.spUsed}/${career.snapshot.spBudget} | 패시브 [${passiveNames.join(", ") || "없음"}]`,
+          `${arch}: 현재 ${currentName} | 6차 [${routeNames.join(", ") || "없음"}] | SP ${career.spUsed}/${career.snapshot.spBudget} | 액티브 [${activeNames.join(", ") || "없음"}] | 패시브 [${passiveNames.join(", ") || "없음"}]`,
         );
+        if (STORM_DETAIL_MODE) {
+          const p = career.derived.player;
+          console.log(
+            `  stats HP${p.maxHp} MP${p.maxMp ?? 0} ATK${p.atk} MATK${p.magicAtk ?? 0} DEF${p.def} MDEF${p.magicDef ?? 0} SPD${p.spd} EVA${p.evaRating ?? 0} ACC${p.accRating ?? 0}`,
+          );
+        }
       }
     }
     for (const route of ["gale", "thunder", "wreckage"] as StormExpeditionRouteId[]) {
@@ -664,6 +719,7 @@ function runStormExpedition() {
           let hp = derived.player.maxHp;
           let mp = derived.player.maxMp ?? 0;
           let guarded = false;
+          const usedRecoverySkillIds = new Set<LimitedRecoverySkillId>();
           for (let index = 0; index < encounters.length; index += 1) {
             const encounter = encounters[index];
             const unstable = STORM_RISK_MODE === "unstable" && index >= 5;
@@ -697,27 +753,58 @@ function runStormExpedition() {
               {
                 pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
                 potions: {},
-                v2Skills: skills,
+                v2Skills: usedRecoverySkillIds.size > 0
+                  ? {
+                      ...skills,
+                      equipped: skills.equipped.filter(
+                        (skillId) =>
+                          !usedRecoverySkillIds.has(
+                            skillId as LimitedRecoverySkillId,
+                          ),
+                      ),
+                    }
+                  : skills,
                 forceAtbSkills: SKILLS_MODE,
-                depth: encounter.depth,
                 isBoss: encounter.kind === "guardian" || encounter.kind === "final_boss",
                 maxTurns: 100,
               },
             );
+            if (STORM_TRACE === `${arch}:${route}` && run === 0) {
+              console.log(
+                `  trace ${encounter.kind}[${encounter.encounterIndex}] d${stormExpeditionEncounterDepth(encounter.kind, encounter.encounterIndex)} ${result.outcome} turns=${result.turns} hp=${result.finalState.playerHp}/${derived.player.maxHp} mp=${result.finalState.playerMp}/${derived.player.maxMp ?? 0} enemyHp=${result.finalState.enemyHp}/${enemy.hp}`,
+              );
+            }
             if (result.outcome !== "win") break;
             cleared[index] += 1;
             hp = result.finalState.playerHp;
             mp = result.finalState.playerMp;
+            for (const skillId of LIMITED_RECOVERY_SKILL_IDS) {
+              if ((result.finalState.v2SkillCooldowns[skillId] ?? 0) > 0) {
+                usedRecoverySkillIds.add(skillId);
+              }
+            }
             if (index === 1) {
               const hpRatio = hp / derived.player.maxHp;
               const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
-              if (hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.15));
+              // 정신 우세 빌드는 MP가 바닥나도 마법 기본 공격을 이어갈 수 있다.
+              // 따라서 생존력이 깎였으면 MP 비율보다 응급 식량을 우선한다.
+              if ((derived.player.passiveMagicBasicAttack && hpRatio < 0.9) || hpRatio <= mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.15));
               else mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.2));
             }
             if (index === 3 && STORM_RISK_MODE !== "golden") {
               const hpRatio = hp / derived.player.maxHp;
               const mpRatio = mp / Math.max(1, derived.player.maxMp ?? 1);
-              if (hpRatio + 0.15 < mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.35));
+              const needsBalancedMagicRecovery = Boolean(
+                derived.player.passiveMagicBasicAttack &&
+                hpRatio >= 0.25 &&
+                mpRatio < 0.2,
+              );
+              // 빈사 상태에서는 두 자원의 비율이 비슷해도 균형 정비보다 깊은 휴식이 우선이다.
+              // 특히 마법 기본 공격이 가능한 SPI 보조 빌드는 MP 고갈보다 다음 전투 생존이 급하다.
+              if (needsBalancedMagicRecovery) {
+                hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.2));
+                mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.25));
+              } else if (hpRatio < 0.7 || hpRatio + 0.15 < mpRatio) hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.35));
               else if (mpRatio + 0.15 < hpRatio) mp = Math.min(derived.player.maxMp ?? 0, mp + Math.floor((derived.player.maxMp ?? 0) * 0.45));
               else {
                 hp = Math.min(derived.player.maxHp, hp + Math.floor(derived.player.maxHp * 0.2));
@@ -739,13 +826,189 @@ function runStormExpedition() {
         const remainingHp = fullClears > 0
           ? ((finalHpSum / fullClears / derived.player.maxHp) * 100).toFixed(1)
           : "-";
-        console.log(`${route.padEnd(8)} ${arch.padEnd(3)} | elite ${pctAt(4)}% | guardian ${pctAt(5)}% | clear ${pctAt(6)}% | clearHP ${remainingHp}%`);
+        const detail = STORM_DETAIL_MODE
+          ? ` | stages ${cleared.map((_, index) => pctAt(index)).join("/")}%`
+          : "";
+        console.log(`${route.padEnd(8)} ${arch.padEnd(3)} | elite ${pctAt(4)}% | guardian ${pctAt(5)}% | clear ${pctAt(6)}% | clearHP ${remainingHp}%${detail}`);
       }
     }
   }
 }
 if (STORM_MODE) {
   runStormExpedition();
+  process.exit(0);
+}
+
+// ── 동일 투자 교차 검증(--crosscheck) ────────────────────────────────
+// 원시 스탯 총량·장비 티어·SP 예산을 고정한 6개 주력 스탯 빌드로 숙련의 탑과
+// 아레나를 함께 측정한다. 사냥과 원정은 기존 --depths/--storm 모드를 같은 조건으로 사용한다.
+const CROSSCHECK_MODE = process.argv.includes("--crosscheck");
+const crosscheckLevelArg = process.argv.find((arg) =>
+  arg.startsWith("--crosscheck-level="),
+);
+const CROSSCHECK_LEVEL = crosscheckLevelArg
+  ? Math.max(1, Math.floor(Number(crosscheckLevelArg.split("=")[1]) || 1))
+  : null;
+
+function crosscheckLevel(power: number): number {
+  return CROSSCHECK_LEVEL ?? levelForPower(power);
+}
+
+function crosscheckSetup(arch: Arch, tier6Count: number, power: number) {
+  return careerCombatSetup(arch, crosscheckLevel(power), tier6Count);
+}
+
+function runTowerCrosscheck() {
+  const trials = Math.max(
+    10,
+    Math.floor(
+      Number(
+        process.argv
+          .find((arg) => arg.startsWith("--tower-runs="))
+          ?.split("=")[1],
+      ) || 200,
+    ),
+  );
+  const tier6Count = TIER6_COUNTS?.at(-1) ?? 3;
+  const power = stormCareerPower(tier6Count);
+  const level = crosscheckLevel(power);
+  const floors = [20, 25, 30, 35, 40, 45, 50];
+  console.log(
+    `동일 투자 숙련의 탑 | 기준파워 ${power}≈Lv${level} | 6차 ${tier6Count}개 | ${trials}회/빌드/층 | seed ${SIM_SEED}`,
+  );
+  console.log("파생  power    HP   ATK  MATK   DEF  MDEF   SPD   EVA   ACC  장벽");
+  for (const arch of CROSSCHECK_ARCHES) {
+    const setup = crosscheckSetup(arch, tier6Count, power);
+    const player = setup.derived.player;
+    const derivedPower = derivePowerScore({
+      atk: player.atk,
+      magicAtk: player.magicAtk,
+      def: player.def,
+      spd: player.spd,
+      maxHp: player.maxHp,
+      maxMp: player.maxMp,
+      magicBarrierMax: player.magicBarrierMax,
+      evaRating: player.evaRating,
+      accRating: player.accRating,
+    });
+    console.log(
+      `${arch.padEnd(5)} ${String(derivedPower).padStart(5)} ${String(player.maxHp).padStart(6)} ${String(player.atk).padStart(5)} ${String(player.magicAtk ?? 0).padStart(5)} ${String(player.def).padStart(5)} ${String(player.magicDef ?? 0).padStart(5)} ${String(player.spd).padStart(5)} ${String(Math.round(player.evaRating ?? 0)).padStart(5)} ${String(Math.round(player.accRating ?? 0)).padStart(5)} ${String(player.magicBarrierMax ?? 0).padStart(6)}`,
+    );
+  }
+  console.log("Arch  SP      20F   25F   30F   35F   40F   45F   50F");
+  for (const arch of CROSSCHECK_ARCHES) {
+    const setup = crosscheckSetup(arch, tier6Count, power);
+    const rates = floors.map((floor) => {
+      let wins = 0;
+      const enemy = masteryTowerGuardianForFloor(floor);
+      for (let trial = 0; trial < trials; trial += 1) {
+        const result = resolveBattle(
+          {
+            ...setup.derived.player,
+            hp: setup.derived.maxHp,
+            mp: setup.derived.player.maxMp ?? 0,
+          },
+          enemy,
+          "Sim",
+          {
+            pickAction: (state) =>
+              pickAutoAction(state, { rules: [], potions: {} }),
+            potions: {},
+            v2Skills: setup.skills,
+            forceAtbSkills: true,
+            maxTurns: 80,
+          },
+        );
+        if (result.outcome === "win") wins += 1;
+      }
+      return `${((wins / trials) * 100).toFixed(1)}%`.padStart(6);
+    });
+    console.log(
+      `${arch.padEnd(5)} ${`${setup.spUsed}/${setup.snapshot.spBudget}`.padEnd(7)} ${rates.join(" ")}`,
+    );
+  }
+}
+
+function runPvpCrosscheck() {
+  const trials = Math.max(
+    10,
+    Math.floor(
+      Number(
+        process.argv
+          .find((arg) => arg.startsWith("--pvp-runs="))
+          ?.split("=")[1],
+      ) || 200,
+    ),
+  );
+  const tier6Count = TIER6_COUNTS?.at(-1) ?? 3;
+  const power = stormCareerPower(tier6Count);
+  const level = crosscheckLevel(power);
+  const setups = Object.fromEntries(
+    CROSSCHECK_ARCHES.map((arch) => [
+      arch,
+      crosscheckSetup(arch, tier6Count, power),
+    ]),
+  ) as Record<Arch, CareerCombatSetup>;
+  console.log(
+    `\n동일 투자 아레나 | 기준파워 ${power}≈Lv${level} | 6차 ${tier6Count}개 | 양 진영 ${trials}회/대진 | seed ${SIM_SEED}`,
+  );
+  console.log("Arch  SP      승점률  무승부  평균행동  상대별 승점률(STR/VIT/DEX/LUK/INT/SPI)");
+  for (const arch of CROSSCHECK_ARCHES) {
+    let score = 0;
+    let draws = 0;
+    let total = 0;
+    let turns = 0;
+    const matchup: string[] = [];
+    for (const opponent of CROSSCHECK_ARCHES) {
+      if (arch === opponent) {
+        matchup.push("  -- ");
+        continue;
+      }
+      let opponentScore = 0;
+      let opponentTotal = 0;
+      for (let trial = 0; trial < trials; trial += 1) {
+        for (const swapped of [false, true]) {
+          const p1 = setups[swapped ? opponent : arch];
+          const p2 = setups[swapped ? arch : opponent];
+          const result = resolveBattlePvP(
+            { ...p1.derived.player, hp: p1.derived.maxHp },
+            { ...p2.derived.player, hp: p2.derived.maxHp },
+            swapped ? opponent : arch,
+            swapped ? arch : opponent,
+            {
+              ...autoDuelContext(),
+              damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
+              sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
+              v2Skills: { p1: p1.skills, p2: p2.skills },
+            },
+          );
+          const archWon =
+            (!swapped && result.outcome === "p1_win") ||
+            (swapped && result.outcome === "p2_win");
+          const draw = result.outcome === "draw";
+          const value = archWon ? 1 : draw ? 0.5 : 0;
+          score += value;
+          opponentScore += value;
+          if (draw) draws += 1;
+          total += 1;
+          opponentTotal += 1;
+          turns += result.turns;
+        }
+      }
+      matchup.push(
+        `${((opponentScore / opponentTotal) * 100).toFixed(0)}%`.padStart(5),
+      );
+    }
+    const setup = setups[arch];
+    console.log(
+      `${arch.padEnd(5)} ${`${setup.spUsed}/${setup.snapshot.spBudget}`.padEnd(7)} ${`${((score / total) * 100).toFixed(1)}%`.padStart(6)} ${`${((draws / total) * 100).toFixed(1)}%`.padStart(6)} ${`${(turns / total).toFixed(1)}`.padStart(8)}  ${matchup.join("/")}`,
+    );
+  }
+}
+
+if (CROSSCHECK_MODE) {
+  runTowerCrosscheck();
+  runPvpCrosscheck();
   process.exit(0);
 }
 

@@ -46,6 +46,9 @@ function powerOf(combat: DerivedPlayerCombatV2): number {
     spd: combat.player.spd,
     maxHp: combat.maxHp,
     maxMp: combat.player.maxMp ?? 0,
+    magicBarrierMax: combat.player.magicBarrierMax,
+    evaRating: combat.player.evaRating,
+    accRating: combat.player.accRating,
   });
 }
 

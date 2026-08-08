@@ -43,10 +43,10 @@ describe("길드 창고 장비 선택 표시", () => {
     const masterworkLabel = formatWarehouseEquipmentOptionLabel(masterwork);
 
     expect(plainLabel).toContain("기폭 사냥화 · 신발");
-    expect(plainLabel).toContain("방어력 +40 / 회피 +15% / 속도 +14");
+    expect(plainLabel).toContain("회피도 +40 / 추가 회피도 +15 / 속도 +14");
     expect(plainLabel).toMatch(/품질 \d+%/);
     expect(masterworkLabel).toContain("기폭 사냥화 · 신발 · 명장 · ★★ 품질");
-    expect(masterworkLabel).toContain("방어력 +52 / 회피 +19% / 속도 +18");
+    expect(masterworkLabel).toContain("회피도 +52 / 추가 회피도 +19 / 속도 +18");
     expect(masterworkLabel).toMatch(/품질 \d+%/);
     expect(masterworkLabel).toContain("제작 폴라 · 잠금");
     expect(masterworkLabel).not.toBe(plainLabel);
@@ -106,8 +106,8 @@ describe("길드 창고 장비 선택 표시", () => {
     expect(html).toContain("출고할 장비 선택");
     expect(html).toContain("장비명·옵션·제작자 검색");
     expect(html).toContain("기폭 사냥화");
-    expect(html).toContain("방어력");
-    expect(html).toContain("회피");
+    expect(html).toContain("회피도");
+    expect(html).toContain("추가 회피도");
     expect(html).toContain("속도");
     expect(html).toContain("잠금");
   });

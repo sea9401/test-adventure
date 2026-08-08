@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 // 기본: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠름 → 항상 선공.
-// 적 회피 0 / 추가공격 확률 0 → 결정적. damageBetween(10,3)=7, damageBetween(8,5)=3.
+// 적 회피 0 / 추가공격 확률 0 → 결정적. 플레이어 공격 7, 적 공격은 방어 점감 후 8.
 const PLAYER: PlayerCombat = {
   accuracyPct: 100,
   hp: 50,
@@ -107,10 +107,10 @@ describe("특기 — 반사 갑주", () => {
     const p: PlayerCombat = { ...PLAYER, thornsPct: 50 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 1턴: 7 → 93
-    s = advanceTurn(s, p, "용사"); // 적 턴: 적 공격 3 → 플레이어 47, 반사 floor(3×0.5)=1 → 적 92
-    expect(s.playerHp).toBe(47);
+    s = advanceTurn(s, p, "용사");
+    expect(s.playerHp).toBe(42);
     expect(s.enemyHp).toBe(92);
-    expect(s.stacks.damageTakenThisCombat).toBe(3);
+    expect(s.stacks.damageTakenThisCombat).toBe(8);
   });
 
   it("반사 피해에 적 방어력을 적용한다", () => {
@@ -160,10 +160,10 @@ describe("2티어 특기 — 불굴의 일격", () => {
     const p: PlayerCombat = { ...PLAYER, enduringStrikeMult: 0.25 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 1턴 본타: 누적 0 → baseDmg=7 → 93. (보너스 없음 — 누적 0)
-    s = advanceTurn(s, p, "용사"); // 적 턴: 플레이어 -3 → damageTakenThisCombat=3
-    expect(s.stacks.damageTakenThisCombat).toBe(3);
-    s = advanceTurn(s, p, "용사"); // 2턴 본타: floor(3*0.25)=0 → 변화 없음 → 86
-    expect(s.enemyHp).toBe(86);
+    s = advanceTurn(s, p, "용사");
+    expect(s.stacks.damageTakenThisCombat).toBe(8);
+    s = advanceTurn(s, p, "용사"); // floor(8×0.25)=2 추가 공격력
+    expect(s.enemyHp).toBe(84);
   });
   it("누적 피해가 4 이상 누적되면 본타에 +1 ATK 보너스", () => {
     // 더 강한 적으로 누적 피해 키움. baseDmg 9 (10-1).
@@ -171,10 +171,10 @@ describe("2티어 특기 — 불굴의 일격", () => {
     const p: PlayerCombat = { ...PLAYER, enduringStrikeMult: 0.25 };
     let s = initialBattleState(p, strongEnemy, "용사");
     s = advanceTurn(s, p, "용사"); // 본타 9 → 91
-    s = advanceTurn(s, p, "용사"); // 적 턴 damageToDefender(12,5)=round(144/27)=5 → damageTaken=5
-    expect(s.stacks.damageTakenThisCombat).toBe(5);
-    s = advanceTurn(s, p, "용사"); // 2턴 본타: floor(5*0.25)=1 추가 ATK → baseDmg(11,1)=10 → 81 (플레이어 공격 불변)
-    expect(s.enemyHp).toBe(81);
+    s = advanceTurn(s, p, "용사");
+    expect(s.stacks.damageTakenThisCombat).toBe(12);
+    s = advanceTurn(s, p, "용사"); // floor(12×0.25)=3 추가 공격력
+    expect(s.enemyHp).toBe(79);
   });
 });
 
@@ -277,8 +277,8 @@ describe("2티어 특기 — 무한 가시", () => {
     const p: PlayerCombat = { ...PLAYER, infiniteThornsAtkPct: 25 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 1턴: 7 → 93
-    s = advanceTurn(s, p, "용사"); // 적 턴 피격 3, 방어 적용 반사 1 → 적 92
-    expect(s.playerHp).toBe(47);
+    s = advanceTurn(s, p, "용사");
+    expect(s.playerHp).toBe(42);
     expect(s.enemyHp).toBe(92);
   });
 });
@@ -288,8 +288,8 @@ describe("2티어 특기 — 굳건한 의지", () => {
     const p: PlayerCombat = { ...PLAYER, steadfastWillFlat: 2 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 1턴: 7 → 93
-    s = advanceTurn(s, p, "용사"); // 적 턴 raw 3 → -2 → 1 → 플레이어 49
-    expect(s.playerHp).toBe(49);
+    s = advanceTurn(s, p, "용사"); // 적 턴 raw 8 → -2 → 6
+    expect(s.playerHp).toBe(44);
   });
 });
 

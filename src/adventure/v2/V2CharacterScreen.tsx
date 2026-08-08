@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
-import { pveDodgeChance } from "@/adventure/data/v2/v2CombatConstants";
+import { pveEvasionDamageReductionPct } from "@/adventure/data/v2/v2CombatConstants";
 import { floorAccuracy } from "@/adventure/data/v2/dungeonLadder";
 import {
   V2_STAT_KEYS,
@@ -61,10 +61,12 @@ type StateResponse = {
     spd: number;
     magicAtk?: number;
     magicDef?: number;
+    magicBarrierMax?: number;
+    magicBarrierAbsorbPct?: number;
     evasionPct?: number;
-    evaRating?: number; // 회피 대결형 Slice 1b — 캡 없는 raw. 현재 깊이 몹명중과 대결해 실제 dodge% 표시.
+    evaRating?: number; // 회피도. 현재 깊이 몬스터 적중도와 대결해 직접 피해 경감률을 표시한다.
     accuracyPct?: number;
-    accRating?: number; // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. "명중" 표시에 사용(StatsPanel 폴백).
+    accRating?: number; // 적중도. StatsPanel에서 원본 수치로 표시한다.
     critChancePct?: number;
     critMult?: number;
     skillCritOverflow?: boolean;
@@ -73,7 +75,7 @@ type StateResponse = {
   } | null;
   // 누적 전투 횟수(전적) — 기본 정보 카드.
   battleCount?: number;
-  frontierDepth?: number; // 현재 사냥터 최대 깊이 — 회피 대결형 dodge% 표시 기준(몹 명중).
+  frontierDepth?: number; // 현재 사냥터 최대 깊이 — 회피 경감률 표시 기준(몬스터 적중도).
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
     // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.
@@ -333,15 +335,14 @@ export function V2CharacterScreen({
           <StatsPanel
             stats={stats.base}
             caps={state?.proficiency?.caps}
-            // 회피 대결형 Slice 1b — "회피"는 현재 깊이 몹 명중과 겨룬 실제 PvE dodge% 로 표시
-            //   (캡 evasionPct 가 아니라 evaRating vs floorAccuracy(현재깊이) 대결값).
+            // 현재 깊이의 기준 몬스터 적중도와 겨룬 실제 PvE 회피 경감률을 표시한다.
             combat={
               combat.evaRating != null
                 ? {
                     ...combat,
                     evasionPct: (() => {
                       const depth = state?.frontierDepth ?? 2;
-                      return pveDodgeChance(
+                      return pveEvasionDamageReductionPct(
                         combat.evaRating,
                         floorAccuracy(depth),
                       );

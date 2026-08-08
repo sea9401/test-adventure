@@ -5,6 +5,7 @@ import {
   PatternChoicePicker,
   SkillPatternChoiceList,
   SkillPatternPicker,
+  ENEMY_DEBUFF_OPTIONS,
   filterPatternChoiceOptions,
 } from "./V2CombatPatternView";
 
@@ -15,6 +16,13 @@ const OPTIONS = [
 ] as const;
 
 describe("combat pattern choice controls", () => {
+  it("적 디버프 선택지에 상대 회복 감소를 표시한다", () => {
+    expect(ENEMY_DEBUFF_OPTIONS).toContainEqual({
+      value: "healReduction",
+      label: "회복 효과 감소",
+    });
+  });
+
   it("filters choice labels and groups with Korean search text", () => {
     expect(filterPatternChoiceOptions(OPTIONS, "HP").map((item) => item.value))
       .toEqual(["self_hp", "enemy_hp"]);

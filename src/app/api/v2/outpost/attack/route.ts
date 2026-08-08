@@ -735,6 +735,9 @@ export async function POST(req: Request) {
         spd: attacker.player.spd,
         maxHp: attacker.maxHp,
         maxMp: aMaxMp,
+        magicBarrierMax: attacker.player.magicBarrierMax,
+        evaRating: attacker.player.evaRating,
+        accRating: attacker.player.accRating,
       });
       // 무방비(수비 큐 0명 = defendersDefeated 0)면 전투력÷4(캡 50%HP·벌칙), 수비 격파면 전투력 비율.
       let siegeAmt =

@@ -449,6 +449,9 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(30);
     expect(V2_SKILLS.v2c_shaman_omen3.passive?.enemyMagicVulnPctPerStack).toBe(5);
     expect(V2_SKILLS.v2c_shaman_omen3.passive?.enemyMagicVulnApplyChancePct).toBe(70);
+    expect(V2_SKILLS.v2c_shaman_omen3.description).toBe(
+      "장착 중 직접 피해 스킬 적중 시 70% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +5%.",
+    );
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct?.dex).toBe(20);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBeUndefined();
     // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
@@ -672,6 +675,9 @@ describe("직업 킷 — 스킬셋", () => {
         (e) => e.kind === "stackPayoffDamage" && e.tag === "magicVuln",
       ),
     ).toBe(true);
+    expect(V2_SKILLS.v2c_archshaman_rite.description).toContain(
+      "누적된 마법취약 스택 수에 따라 추가 피해",
+    );
     // 암살자 액티브 기습 = 처형의 역(풀피 보너스·LUK 비례) 오프너.
     expect(V2_SKILLS.v2c_phantom_ambush.effects[0]).toMatchObject({ kind: "ambushDamage", scaling: "luk" });
     // 독왕 액티브 독왕진 = 중독 누적 + 중독 스택 페이오프.
@@ -1106,7 +1112,7 @@ describe("직업 킷 — 스킬셋", () => {
       skillCritOverflow: true,
       skillCritAfterEvade: true,
     });
-    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(16);
+    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(13);
     expect(skillsForJob("myriadvenom")).toEqual([
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",
@@ -1260,11 +1266,11 @@ describe("직업 킷 — 스킬셋", () => {
     const costs = (jobId: string) =>
       skillsForJob(jobId).map((id) => spCostOf(V2_SKILLS[id]));
 
-    expect(costs("venomist")).toEqual([6, 5]);
+    expect(costs("venomist")).toEqual([6, 4]);
     expect(costs("venomancer")).toEqual([7, 4]);
     expect(costs("venomlord")).toEqual([7, 4]);
     expect(costs("plaguebringer")).toEqual([8, 7]);
-    expect(costs("myriadvenom")).toEqual([12, 13]);
+    expect(costs("myriadvenom")).toEqual([12, 12]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {

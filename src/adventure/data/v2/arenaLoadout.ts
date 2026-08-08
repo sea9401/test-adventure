@@ -83,6 +83,7 @@ const ENEMY_DEBUFF_LABEL = {
   vulnerability: "받는 피해 증가(취약)",
   damageDown: "주는 피해 감소",
   skillProcDown: "스킬 발동률 감소",
+  healReduction: "회복 효과 감소",
 } as const;
 
 /** 아레나 템플릿에서 저장된 전투패턴 조건을 사람이 읽는 문구로 표시한다. */

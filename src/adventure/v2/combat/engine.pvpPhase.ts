@@ -71,7 +71,9 @@ import {
   IMPACT_WAVE_INTERVAL,
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
-  pvpAttackMissPct,
+  applyEvasionDamageReduction,
+  absorbWithMagicBarrier,
+  pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
@@ -102,7 +104,12 @@ function computeAttackDamagePvP(
   // 2026-05-23: 암살/약점/AP 방어 관통은 완전 무시(0)가 아니라 DEF_IGNORE_FRACTION(30%)만 무시.
   // engine.ts 와 동일 — 분쇄(고정 감산) 후 30% 곱연산 관통.
   const crushReduction = attacker.player.crushDefReduction ?? 0;
-  const baseDef = attackerFacingDef(attacker, defender, nextBuffsTimedFromAp);
+  const usesMagicBasicAttack =
+    attacker.player.passiveMagicBasicAttack === true &&
+    (attacker.player.magicAtk ?? 0) > attacker.player.atk;
+  const baseDef = usesMagicBasicAttack
+    ? Math.max(0, defender.player.magicDef ?? defender.player.def)
+    : attackerFacingDef(attacker, defender, nextBuffsTimedFromAp);
   const afterCrush = computeAfterCrush(baseDef, powerBonus, crushReduction);
   const targetDef = applyDefIgnore(
     afterCrush,
@@ -188,8 +195,11 @@ function computeAttackDamagePvP(
       ? Math.floor((attacker.player.atk * nextBuffsTimedFromAp.playerAtkBuffPct) / 100)
       : 0;
   // 베이스 데미지 — ATK + rampage + powerBonus + berserk + gust + enduringStrike + madness vs targetDef.
+  const basicAttackPower = usesMagicBasicAttack
+    ? (attacker.player.magicAtk ?? attacker.player.atk)
+    : attacker.player.atk;
   const baseAtkValue =
-    attacker.player.atk +
+    basicAttackPower +
     attacker.buffs.rampageAtkBonus +
     powerBonus +
     berserkBonus +
@@ -402,14 +412,15 @@ export function advanceTurnPvP(
     return endAttackerPhase(nextSt, atkKey, defKey, phaseEndOptions);
   }
 
-  // ── 방어자 dodge cascade ──────────────────────────────────────────────────
+  // ── 방어자 완전 회피 cascade + 일반 회피 경감 ─────────────────────────────
   // 1. 그림자 보법 — 페이즈 첫 공격(firstAttackPending) 시 한 번만 굴려, 발동하면 페이즈 통째 회피.
   // 2. 회피 강화 (evadesRemaining) — 잔량 > 0 이면 우선 1 소비, 이 공격 회피.
-  // 3. % 회피 (evasionPct × precisionMult) — 표준 회피 굴림.
-  // 4. 행운의 방패 (luckyShieldBlockPct) — 위 모두 실패 시 마지막 확률 굴림.
-  // 어느 단계든 회피 시 dodge effects(곡예/무한 가시/반사 회피/반격/유격) 적용.
+  // 3. 일반 회피도 — 적중도와 대결해 직접 피해를 일정 비율 경감.
+  // 4. 행운의 방패 (luckyShieldBlockPct) — 완전 무효 확률 굴림.
+  // 명시적 완전 회피에만 dodge effects(곡예/무한 가시/반사 회피/반격/유격)를 적용한다.
 
   // AP 스킬의 ignoresEvasion = true (천살 등) 면 회피 cascade 전체 스킵.
+  let evasionReductionPct = 0;
   if (!apIgnoresEvasion) {
     if (isFirstAttackOfTurn) {
       const shadowStepPct = defender.player.shadowStepPct ?? 0;
@@ -429,7 +440,7 @@ export function advanceTurnPvP(
       );
     }
     const precisionMult = attacker.player.precisionEvasionMult ?? 1;
-    // 이중 행운 — 방어자 활성 시 회피 +bonus. 만물 행운 / 회전 운기도 회피레이팅에 합산.
+    // 이중 행운·만물 행운·회전 운기·선풍각은 기본 회피도에 곱하는 증가율이다.
     const luckEvadeBonus = defender.flags.luckyBuffActive
       ? defender.player.doubleLuck?.evade ?? 0
       : 0;
@@ -437,29 +448,22 @@ export function advanceTurnPvP(
     // PR2-B 선풍각 — 회피 temp 버프. PvP 는 회피가 유효축이라 실제 작동.
     const skillEvadeBonus =
       defender.stacks.skillEvasionTurns > 0 ? defender.stacks.skillEvasionPct : 0;
-    // 회피 대결형 Slice 2(B안) — 미스 = 베이스미스(플랫) + dodgeChance(방어자 회피레이팅, 공격자 명중레이팅).
-    //   정밀(precisionMult)은 base 회피레이팅에만 곱하고 버프는 가산. 무적 회피탱은 점근선 DODGE_MAX 로 완화.
+    const temporaryEvasionIncreasePct =
+      luckEvadeBonus +
+      universalLuckEvadeBonus +
+      defender.buffs.cyclingChiBonus +
+      skillEvadeBonus;
     const defenderEvaR = Math.max(
       0,
-      (defender.player.evaRating ?? defender.player.evasionPct ?? 0) * precisionMult +
-        luckEvadeBonus +
-        universalLuckEvadeBonus +
-        defender.buffs.cyclingChiBonus +
-        skillEvadeBonus,
+      (defender.player.evaRating ?? defender.player.evasionPct ?? 0) *
+        precisionMult *
+        (1 + Math.max(0, temporaryEvasionIncreasePct) / 100),
     );
     const attackerAccR = attacker.player.accRating ?? attacker.player.accuracyPct ?? 0;
-    const missPct = pvpAttackMissPct(defenderEvaR, attackerAccR);
-    if (Math.random() * 100 < missPct) {
-      return applyPerAttackDodge(
-        state,
-        atkKey,
-        defKey,
-        `${defender.name}이(가) ${attacker.name}의 공격을 회피했다.`,
-        false,
-        true,
-        phaseEndOptions,
-      );
-    }
+    evasionReductionPct = pvpEvasionDamageReductionPct(
+      defenderEvaR,
+      attackerAccR,
+    );
     const luckyShieldPct = defender.player.luckyShieldBlockPct ?? 0;
     if (luckyShieldPct > 0 && Math.random() * 100 < luckyShieldPct) {
       return applyPerAttackDodge(
@@ -479,7 +483,7 @@ export function advanceTurnPvP(
   // dodge cascade 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 위에서 이미 return 된 상태.
   const nextBuffsTimedFromAp = attacker.buffs;
 
-  const { assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, totalDmg, weakpointDefIgnore } = computeAttackDamagePvP(
+  const { assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg: dmgBeforeEvasion, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, totalDmg: totalDmgBeforeEvasion, weakpointDefIgnore } = computeAttackDamagePvP(
     attacker,
     defender,
     powerBonus,
@@ -490,6 +494,14 @@ export function advanceTurnPvP(
     apAtkMult,
     apHits,
     apIgnoresDef,
+  );
+  const dmg = applyEvasionDamageReduction(
+    dmgBeforeEvasion,
+    evasionReductionPct,
+  );
+  const totalDmg = applyEvasionDamageReduction(
+    totalDmgBeforeEvasion,
+    evasionReductionPct,
   );
   const labels: string[] = [];
   if (powerBonus > 0) labels.push("강공격");
@@ -541,8 +553,14 @@ export function advanceTurnPvP(
   const steadfastApplied = afterSteadfast < guarded;
   const arenaAdjustedDmg = scalePvPDamage(state, afterSteadfast);
   const shieldAbsorbed = Math.min(defender.stacks.playerShield, arenaAdjustedDmg);
-  const dmgToHp = arenaAdjustedDmg - shieldAbsorbed;
+  const afterShield = arenaAdjustedDmg - shieldAbsorbed;
   const newShield = defender.stacks.playerShield - shieldAbsorbed;
+  const magicBarrier = absorbWithMagicBarrier(
+    afterShield,
+    defender.magicBarrier ?? 0,
+    defender.player.magicBarrierPvpAbsorbPct ?? 0,
+  );
+  const dmgToHp = magicBarrier.damageToHp;
   // 보호막이 공격을 전부 흡수한 경우에는 피격 반사·반격이 발동하지 않는다.
   // 보호막을 뚫고 HP 피해가 남은 공격은 기존과 동일하게 처리한다.
   const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
@@ -584,6 +602,12 @@ export function advanceTurnPvP(
   const braceDefDelta = nextBraceDefBonus - prevBraceDefBonus;
   // ── 로그 — 결의 → 가드 → 굳건한 의지 → 철벽 → 본타 → 불굴 → 흡혈 갑옷 → 이중 행운 → 흡혈 ──
   let log = state.log;
+  if (totalDmg < totalDmgBeforeEvasion) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] ${defender.name} 피해 -${totalDmgBeforeEvasion - totalDmg}`,
+    });
+  }
   if (resolveApplied) {
     log = appendLog(log, {
       kind: "info",
@@ -618,6 +642,12 @@ export function advanceTurnPvP(
     log = appendLog(log, {
       kind: "info",
       text: `[철벽] ${defender.name} 보호막이 ${shieldAbsorbed} 흡수 (남은 ${newShield})`,
+    });
+  }
+  if (magicBarrier.absorbed > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[마력 장벽] ${defender.name} ${magicBarrier.absorbed} 흡수 (남은 ${magicBarrier.durabilityLeft})`,
     });
   }
   log = appendLog(log, {
@@ -1114,6 +1144,7 @@ export function advanceTurnPvP(
         ])
       : defender.v2Dots,
     hp: newDefenderHp,
+    magicBarrier: magicBarrier.durabilityLeft,
     flags: {
       ...defender.flags,
       enduranceTriggered: defender.flags.enduranceTriggered || enduranceFires,
@@ -1145,7 +1176,7 @@ export function advanceTurnPvP(
     };
   }
   // ── on-hit reflect (반사 갑주 + 가시 갑옷 + 무한 가시) — 공격자에게 반사 피해 ──
-  // 베이스는 totalDmg (방어자 결의/가드/굳건/철벽 감산 전, 공격 보너스는 모두 반영).
+  // 베이스는 회피 경감 후 totalDmg(그 밖의 받피감·가드·보호막 적용 전).
   if (!hitStoppedByShield) {
     const reflectResult = applyOnHitReflect(next, atkKey, defKey, totalDmg);
     next = reflectResult.state;

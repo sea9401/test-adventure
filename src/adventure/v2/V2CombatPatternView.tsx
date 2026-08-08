@@ -109,10 +109,11 @@ const ENEMY_STATUS_OP_OPTIONS = [
   { value: "atMost", label: "스택 이하" },
   { value: "none", label: "없을 때" },
 ] as const;
-const ENEMY_DEBUFF_OPTIONS = [
+export const ENEMY_DEBUFF_OPTIONS = [
   { value: "vulnerability", label: "받는 피해 증가(취약)" },
   { value: "damageDown", label: "주는 피해 감소" },
   { value: "skillProcDown", label: "스킬 발동률 감소" },
+  { value: "healReduction", label: "회복 효과 감소" },
 ] as const;
 const TURN_OP_OPTIONS = [
   { value: "atMost", label: "이하" },

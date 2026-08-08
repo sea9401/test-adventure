@@ -104,6 +104,31 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     ).toBe(strike);
   });
 
+  it("상대 회복 감소 상태를 전투 패턴 조건으로 전달한다", () => {
+    const skillId = "v2c_warrior_strike";
+    const combatPattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: {
+            kind: "enemy_debuff",
+            target: "healReduction",
+            active: false,
+          },
+          action: { kind: "skill", skillId },
+        },
+      ],
+    };
+    const base = castInput([skillId], { combatPattern });
+
+    expect(resolveV2SkillCast(base).castSkillId).toBe(skillId);
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        target: { ...base.target, enemyHealReductionActive: true },
+      }).castSkillId,
+    ).toBeNull();
+  });
+
   it("self_shield 조건 — 보호막이 남아 있으면 보호막 스킬을 다시 쓰지 않는다", () => {
     const pattern: V2CombatPattern = {
       blocks: [

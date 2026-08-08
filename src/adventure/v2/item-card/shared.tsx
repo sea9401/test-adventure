@@ -207,11 +207,11 @@ export function MasterworkBadge({
   );
 }
 
-// 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
+// 세트 보너스(V2EquipOptions) → 표시 문자열. 회피도·적중도는 고정 수치다.
 const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   crit: "치명타",
-  eva: "회피",
-  accuracy: "명중",
+  eva: "회피도",
+  accuracy: "적중도",
   mp: "MP",
   hp: "HP",
   critMult: "치명타 피해",
@@ -226,12 +226,11 @@ export function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
     .filter((k) => bonus[k])
     .map((k) => {
-      // critMult 은 백분의 일 정수(30=+0.30×). crit/eva/healPowerPct = %, 그 외 flat.
+      // critMult 은 백분의 일 정수(30=+0.30×). crit/healPowerPct = %, 그 외 flat.
       if (k === "critMult")
         return `${SET_BONUS_LABEL[k]} +${((bonus[k] ?? 0) / 100).toFixed(2)}×`;
       const unit =
         k === "crit" ||
-        k === "eva" ||
         k === "healPowerPct" ||
         k === "critResist" ||
         k === "statusDamageReductionPct"

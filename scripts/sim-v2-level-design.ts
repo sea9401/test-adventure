@@ -1000,6 +1000,9 @@ function snapshotFor(
     spd: player.spd,
     maxHp: player.maxHp,
     maxMp: player.maxMp,
+    magicBarrierMax: player.magicBarrierMax,
+    evaRating: player.evaRating,
+    accRating: player.accRating,
   });
   const tiers = Object.values(equipment).map((id) => V2_EQUIPMENT[id].tier);
   return {

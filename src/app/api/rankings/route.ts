@@ -703,6 +703,9 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
         spd: combat.player.spd,
         maxHp: combat.maxHp,
         maxMp: combat.player.maxMp ?? 0,
+        magicBarrierMax: combat.player.magicBarrierMax,
+        evaRating: combat.player.evaRating,
+        accRating: combat.player.accRating,
       });
       const character = r.character_save as SavedCharacterV2;
       return [{

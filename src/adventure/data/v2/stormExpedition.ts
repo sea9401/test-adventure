@@ -274,6 +274,21 @@ export function stormExpeditionStageReward(stage: number): number {
   return rewards[clampInt(stage, 0, rewards.length - 1)] ?? 0;
 }
 
+/**
+ * 원정 전투의 몬스터 스케일 기준 깊이.
+ * 초반 연전의 누적 소모는 낮추되 최종 보스의 기준은 유지한다.
+ */
+export function stormExpeditionEncounterDepth(
+  kind: StormExpeditionEncounterKind,
+  encounterIndex = 0,
+): number {
+  if (kind === "early_trash") return 65 + clampInt(encounterIndex, 0, 1);
+  if (kind === "late_trash") return 67 + clampInt(encounterIndex, 0, 1);
+  if (kind === "elite") return 71;
+  if (kind === "guardian") return 74;
+  return 76;
+}
+
 export function stormExpeditionEnemy(
   routeId: StormExpeditionRouteId,
   kindOrLegacyStage: StormExpeditionEncounterKind | number,
@@ -282,11 +297,7 @@ export function stormExpeditionEnemy(
   const kind = typeof kindOrLegacyStage === "number"
     ? (["early_trash", "late_trash", "elite", "guardian"] as const)[clampInt(kindOrLegacyStage, 0, 3)]
     : kindOrLegacyStage;
-  const depth = kind === "early_trash"
-    ? 70 + clampInt(encounterIndex, 0, 1)
-    : kind === "late_trash"
-      ? 72 + clampInt(encounterIndex, 0, 1)
-      : kind === "elite" ? 74 : kind === "guardian" ? 75 : 76;
+  const depth = stormExpeditionEncounterDepth(kind, encounterIndex);
   return scaleMonsterForFloor(stormExpeditionEnemyBase(routeId, kind, encounterIndex), depth);
 }
 
@@ -335,6 +346,29 @@ function stormExpeditionEnemyBase(
   encounterIndex: number,
 ): Monster {
   if (kind === "final_boss") {
+    const routeWeakness: Partial<Monster> = routeId === "gale"
+      ? {
+          statusDamageReductionPct: 0,
+          evasionPct: 16,
+          v2Skills: undefined,
+          v2MaxMp: 0,
+          skill: { kind: "pierce", name: "심장부 칼바람", armorPierce: 9 },
+          bonusAttackChancePct: 25,
+        }
+      : routeId === "thunder"
+        ? { hp: 800, magicDef: 6 }
+        : {
+            hp: 700,
+            atk: 30,
+            def: 6,
+            spd: 8,
+            armorVulnerable: 0.4,
+            playerDefVulnerable: 0.04,
+            v2Skills: undefined,
+            v2MaxMp: 0,
+            skill: { kind: "heavy_blow", name: "심장부 붕괴", everyPhases: 3, multiplier: 1.25 },
+            bonusAttackChancePct: 10,
+          };
     return {
       name: "폭풍의 심장",
       tags: ["spirit", "golem"],
@@ -355,6 +389,7 @@ function stormExpeditionEnemyBase(
       v2Skills: { learned: ["mob_arcane_burst", "mob_arcane_nova"], equipped: ["mob_arcane_nova", "mob_arcane_burst"] },
       v2MaxMp: 260,
       bonusAttackChancePct: 15,
+      ...routeWeakness,
     };
   }
 
@@ -385,13 +420,13 @@ function stormExpeditionEnemyBase(
     const names = ["뇌운 정령", "전광 부유체", "낙뢰 인도자", "자전 마도체", "천뢰 집행자", "뇌정의 핵 아스트라"];
     return {
       ...common,
-      name: names[rank], hp: [400, 450, 510, 575, 730, 900][rank], atk: [39, 41, 43, 45, 48, 49][rank],
-      def: [10, 11, 13, 14, 17, 17][rank], magicDef: [14, 16, 18, 20, 23, 22][rank],
+      name: names[rank], hp: [400, 450, 510, 575, 600, 780][rank], atk: [35, 37, 39, 41, 38, 41][rank],
+      def: [10, 11, 13, 14, 17, 17][rank], magicDef: [11, 12, 14, 15, 14, 14][rank],
       spd: [9, 9, 10, 11, 12, 13][rank], accuracy: [30, 36, 43, 49, 58, 64][rank],
       evasionPct: [13, 15, 17, 19, 21, 25][rank], atkType: "magic", critPct: [17, 20, 23, 27, 30, 36][rank],
       element: "lightning",
       statusDamageReductionPct: guardian ? 20 : elite ? 15 : 5,
-      v2Skills: { learned: guardian || elite ? ["mob_arcane_burst", "mob_arcane_nova"] : ["mob_arcane_burst"], equipped: guardian || elite ? ["mob_arcane_nova", "mob_arcane_burst"] : ["mob_arcane_burst"] },
+      v2Skills: { learned: guardian ? ["mob_arcane_burst", "mob_arcane_nova"] : ["mob_arcane_burst"], equipped: guardian ? ["mob_arcane_nova", "mob_arcane_burst"] : ["mob_arcane_burst"] },
       v2MaxMp: guardian ? 230 : elite ? 180 : 110 + rank * 15,
       bonusAttackChancePct: guardian ? 25 : 0,
     };
@@ -399,7 +434,7 @@ function stormExpeditionEnemyBase(
   const names = ["잔해 갑주병", "부유석 파수꾼", "고철 감시자", "부유석 파쇄자", "침몰섬 거신", "붕괴의 수문장 모르가"];
   return {
     ...common,
-    name: names[rank], hp: [500, 560, 640, 710, 900, 1_000][rank], atk: [36, 38, 40, 42, 45, 47][rank],
+    name: names[rank], hp: [500, 560, 640, 710, 900, 740][rank], atk: [36, 38, 40, 42, 45, 47][rank],
     def: [19, 21, 24, 26, 30, 19][rank], spd: [5, 5, 6, 7, 7, 8][rank],
     accuracy: [28, 34, 40, 47, 55, 62][rank], evasionPct: [5, 6, 7, 9, 10, 12][rank],
     critPct: [11, 13, 16, 19, 23, 29][rank], element: "earth",
@@ -407,7 +442,8 @@ function stormExpeditionEnemyBase(
     skill: guardian
       ? { kind: "heavy_blow", name: "섬 붕괴", everyPhases: 3, multiplier: 1.9 }
       : { kind: "pierce", name: "잔해 관통", armorPierce: elite ? 10 : 7 + Math.floor(rank / 2) },
-    playerDefVulnerable: guardian ? 0.24 : elite ? 0.16 : 0.1,
+    playerDefVulnerable: guardian ? 0.08 : elite ? 0.16 : 0.1,
+    ...(guardian ? { atk: 32, skill: { kind: "heavy_blow" as const, name: "섬 붕괴", everyPhases: 3, multiplier: 1.25 } } : {}),
   };
 }
 

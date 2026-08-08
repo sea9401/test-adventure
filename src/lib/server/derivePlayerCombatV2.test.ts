@@ -11,10 +11,18 @@ import {
   derivePlayerCombatV2FromSaves,
   derivePlayerCombatV2Pure,
   MAGIC_ATK_PER_INT,
+  MAGIC_ATK_PER_EXCESS_SPI,
+  stackedDefenseIncreasePct,
+  stackedDamageReductionPct,
+  stackedMaxHpIncreasePct,
+  stackedVitalityIncreasePct,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
 } from "./derivePlayerCombatV2";
 import {
+  ATK_PER_STR,
+  diminishingExtraAttackChancePct,
+  HP_PER_VIT,
   MAGIC_DEF_PER_INT,
   MAGIC_DEF_PER_SPI,
 } from "./v2CombatCoefficients";
@@ -177,16 +185,15 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.spd).toBe(-4);
   });
 
-  it("장갑·신발 위력 → 물방 (+ 슬롯 축 crit·eva·spd)", () => {
-    // 슬롯 고유 축(C): 바람결 장갑 T3 위력 4 crit 12 / 바람결 신 T3 위력 4 eva 12 spd 14.
+  it("경갑 장갑·신발 위력 → 회피도 (+ 옵션 crit·eva·spd)", () => {
     const a = aggregateV2Equipment({
       gloves: "v2_windweave_gloves",
       boots: "v2_windweave_boots",
     });
-    expect(a.def).toBe(4 + 4);
+    expect(a.def).toBe(0);
     expect(a.magicDef).toBe(0);
     expect(a.crit).toBe(12);
-    expect(a.eva).toBe(12);
+    expect(a.eva).toBe(4 + 4 + 12);
     expect(a.spd).toBe(14);
   });
 
@@ -201,13 +208,13 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     });
     expect(a.atk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
     expect(a.magicAtk).toBe(0);
-    expect(a.def).toBe(6); // 갑옷만
+    expect(a.def).toBe(0);
     expect(a.magicDef).toBe(7 + 14); // 목걸이 위력 7 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
     expect(a.healPowerPct).toBe(8); // 마나의 정수 healPowerPct 옵션(SPI gear PR-2)
     expect(a.weight).toBe(0);
     expect(a.spd).toBe(-4);
     expect(a.crit).toBe(2);
-    expect(a.eva).toBe(6); // 바람망토 3 + 마나의 정수 3
+    expect(a.eva).toBe(12); // 망토 위력 6 + 옵션 3 + 목걸이 옵션 3
     expect(a.hp).toBe(80);
     expect(a.mp).toBe(48);
   });
@@ -303,6 +310,23 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   });
 });
 
+describe("derivePlayerCombatV2Pure INT 마력 장벽", () => {
+  it("기본 INT는 장벽이 없고 INT 투자 시 MP와 분리된 내구도·흡수율을 만든다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 1, v2Equipped: {} }).player;
+    const invested = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 300 },
+      v2Equipped: {},
+    }).player;
+
+    expect(base.magicBarrierMax).toBeUndefined();
+    expect(invested.magicBarrierMax).toBe(1_008);
+    expect(invested.magicBarrierAbsorbPct).toBeCloseTo(19.0909, 3);
+    expect(invested.magicBarrierPvpAbsorbPct).toBeCloseTo(13.6364, 3);
+    expect(invested.mp).toBe(invested.maxMp);
+  });
+});
+
 describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
   it("기본 int 15 → magicAtk = floor(15×MAGIC_ATK_PER_INT) (마법 베이스라인)", () => {
     const d = derivePlayerCombatV2Pure({
@@ -341,12 +365,12 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.atk).toBe(
-      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * ATK_PER_STR + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS,
     );
   });
 
   it("VIT의 범용 공격력 환산은 STR보다 낮은 보조 계수다", () => {
-    expect(VIT_ATK_COEF).toBe(0.1);
+    expect(VIT_ATK_COEF).toBe(0.07);
     expect(VIT_ATK_COEF).toBeLessThan(0.15);
   });
 
@@ -361,6 +385,62 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     expect(d.player.magicAtk).toBe(
       Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
     );
+  });
+
+  it("INT를 초과한 SPI만 마공으로 전환하고, 유리할 때 평타도 마법으로 전환한다", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0, spi: 200 },
+      v2Equipped: {},
+    });
+    const excessSpi = Math.max(0, d.totalStats.spi - d.totalStats.int);
+    expect(d.player.magicAtk).toBe(
+      Math.floor(
+        d.totalStats.int * MAGIC_ATK_PER_INT +
+          excessSpi * MAGIC_ATK_PER_EXCESS_SPI,
+      ) + V2_BASE_COMBAT_BONUS,
+    );
+    expect(d.player.magicAtk).toBeGreaterThan(d.player.atk);
+    expect(d.player.passiveMagicBasicAttack).toBe(true);
+  });
+
+  it("SPI가 INT 이하이면 정신 공격 전환이 발생하지 않는다", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 200, spi: 100 },
+      v2Equipped: {},
+    });
+    expect(d.player.magicAtk).toBe(
+      Math.floor(d.totalStats.int * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+    );
+    expect(d.player.passiveMagicBasicAttack).toBeUndefined();
+  });
+});
+
+describe("속도 기반 추가 공격 점감", () => {
+  it("100%까지는 선형이고 이후 증가분은 200% 미만으로 점근한다", () => {
+    expect(diminishingExtraAttackChancePct(80)).toBe(80);
+    expect(diminishingExtraAttackChancePct(100)).toBe(100);
+    expect(diminishingExtraAttackChancePct(300)).toBeCloseTo(163.212, 3);
+    expect(diminishingExtraAttackChancePct(1_000)).toBeLessThan(200);
+  });
+});
+
+describe("받는 피해 감소 중첩 점감", () => {
+  it("20%까지는 보존하고 이후 증가분만 40% 반영한다", () => {
+    expect(stackedDamageReductionPct(15)).toBe(15);
+    expect(stackedDamageReductionPct(20)).toBe(20);
+    expect(stackedDamageReductionPct(25)).toBe(22);
+    expect(stackedDamageReductionPct(100)).toBe(30);
+  });
+});
+
+describe("생존 패시브 중첩 점감", () => {
+  it("단일 패시브 구간은 보존하고 다중 중첩분만 완만하게 반영한다", () => {
+    expect(stackedVitalityIncreasePct(30)).toBe(30);
+    expect(stackedVitalityIncreasePct(72)).toBeCloseTo(52.8, 5);
+    expect(stackedMaxHpIncreasePct(66)).toBeCloseTo(42.6, 5);
+    expect(stackedDefenseIncreasePct(58)).toBeCloseTo(41.2, 5);
   });
 });
 
@@ -459,14 +539,13 @@ describe("derivePlayerCombatV2Pure critResistPct (SPI PR-3b — 정신 치명저
 });
 
 describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", () => {
-  it("Lv1 신캐 (빈 장비, vit 15) → maxHp = V2_BASE_HP + vit = 135 + 15 = 150", () => {
+  it("Lv1 신캐는 VIT 1당 HP 3을 얻는다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       v2Equipped: {},
     });
     expect(d.totalStats.vit).toBe(15);
-    expect(d.maxHp).toBe(V2_BASE_HP + 15);
-    expect(d.maxHp).toBe(150);
+    expect(d.maxHp).toBe(V2_BASE_HP + 15 * HP_PER_VIT);
   });
 
   it("레벨 성장 — Lv100 = V2_BASE_HP + 99×10 + vit", () => {
@@ -474,19 +553,19 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
       level: 100,
       v2Equipped: {},
     });
-    expect(d.maxHp).toBe(V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15);
-    expect(d.maxHp).toBe(135 + 990 + 15); // 1140
+    expect(d.maxHp).toBe(
+      V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15 * HP_PER_VIT,
+    );
   });
 
-  it("vit 투자 시 추가 (HP_PER_VIT 1)", () => {
+  it("VIT 투자분에도 HP_PER_VIT를 적용한다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       allocatedStats: { str: 0, dex: 0, vit: 50, luk: 0, int: 0 },
       v2Equipped: {},
     });
-    // 베이스 vit 15 + 할당 50 = 65. maxHp = 135 + 65 = 200.
     expect(d.totalStats.vit).toBe(65);
-    expect(d.maxHp).toBe(V2_BASE_HP + 65);
+    expect(d.maxHp).toBe(V2_BASE_HP + 65 * HP_PER_VIT);
   });
 });
 
@@ -533,6 +612,24 @@ describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPc
       maxHpPct: 12,
     });
     expect(withPct.maxHp).toBe(Math.floor(base.maxHp * 1.12));
+  });
+
+  it("maxHpPct는 장비 고정 HP를 다시 증폭하지 않는다", () => {
+    const equipment = { armor: "v2_windweave_cloak" } as const;
+    const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
+    const geared = derivePlayerCombatV2Pure({ level: 50, v2Equipped: equipment });
+    const plainPct = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      maxHpPct: 20,
+    });
+    const gearedPct = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: equipment,
+      maxHpPct: 20,
+    });
+    expect(geared.maxHp - plain.maxHp).toBe(80);
+    expect(gearedPct.maxHp - plainPct.maxHp).toBe(80);
   });
 
   it("maxMpPct — 최대 MP 비례 증가(마나 +12%)", () => {
@@ -972,7 +1069,18 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       30 / 100,
       5,
     );
-    expect((buffed.evasionPct ?? 0) - (plain.evasionPct ?? 0)).toBeCloseTo(10, 5);
+    expect(plain.evaRating).toBe(0);
+    const invested = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { dex: 20 },
+    }).player;
+    const investedBuffed = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { dex: 20 },
+      passiveEvasionPct: 10,
+    }).player;
+    expect(invested.evaRating).toBeCloseTo(10, 5);
+    expect(investedBuffed.evaRating).toBeCloseTo((invested.evaRating ?? 0) * 1.1, 5);
     // 흡혈 — 미장착 시 미설정(undefined), 장착 시 enchantLifestealPct 훅으로 노출.
     expect(plain.enchantLifestealPct ?? 0).toBe(0);
     expect(buffed.enchantLifestealPct).toBe(4);
@@ -988,11 +1096,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     // 방어% — def/magicDef 곱연산(철벽·결계 공통 방어축).
     expect(buffed.def).toBe(Math.floor(plain.def * 1.2));
     expect(buffed.magicDef).toBe(Math.floor((plain.magicDef ?? 0) * 1.2));
-    // 명중 — accuracyPct 가산(정밀). 저레벨 베이스라 캡(35) 미도달 → +12.
-    expect((buffed.accuracyPct ?? 0) - (plain.accuracyPct ?? 0)).toBeCloseTo(
-      12,
-      5,
-    );
+    expect(buffed.accRating).toBeCloseTo((plain.accRating ?? 0) * 1.12, 5);
   });
 
   it("광전 패시브는 잃은 HP 비례 공격력 레버로 노출된다", () => {

@@ -28,8 +28,12 @@ import {
   BLEED_ATK_COEF_PER_STACK,
   BLEED_MAX_STACKS,
   COMBO_FINISHER_PERIOD,
+  MAGIC_DEF_MITIGATION_K as MAGIC_DEF_MITIGATION_K_VALUE,
+  PHYSICAL_DEF_MITIGATION_MAX_PCT,
+  PHYSICAL_DEF_MITIGATION_SCALE,
   POISON_CAP_ATK_COEF,
   POISON_MAX_STACKS,
+  physicalDefenseDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import type { StatKey } from "@/adventure/data/stats";
 import type { PlayerCombat } from "./engine";
@@ -151,18 +155,30 @@ export function damageBetween(atk: number, def: number): number {
   return Math.max(1, minByAtk, atk - def);
 }
 
-// 비대칭 방어 비율감산(DEX 독주 재설계 — docs/v2-dex-dominance-plan §0-C) — **적→플레이어 피격 전용**.
-//   경감률 = K·def/(atk + K·def). 엔드(적atk≫def)서도 def 가 %경감 유지 → VIT/SPI 방어축 부활.
-//   🔑 비대칭인 이유: 대칭(damageBetween 양쪽)이면 K↑가 적 def 로 플레이어 공격도 깎아 저공격 빌드를
-//   floor 로 밀어 백파이어(실측 #922 §0-B). 그래서 **피격(생존)에만** 적용, 플레이어 공격은 불변.
-//   def=0 이면 atk 그대로(무방어 적 무관). 15% floor 유지 = 최대 경감 85%(무적 탱 방지).
-export const DEF_MITIGATION_K = 3; // sim 보정 다이얼
+// 방어력 점감식 — **적→플레이어 피격 전용**. 공격력과 무관하게 같은 방어력은 같은 비율을
+// 줄이고, 경감률은 85% × def/(def+500)으로 85%에 점근한다. 플레이어→적 평타는 기존
+// damageBetween 선형식을 유지한다. 두 경로 모두 방어 계산 단계에서 공격력의 15% 하한을 둔다.
+export const DEF_MITIGATION_MAX_PCT = PHYSICAL_DEF_MITIGATION_MAX_PCT;
+export const DEF_MITIGATION_SCALE = PHYSICAL_DEF_MITIGATION_SCALE;
 export function damageToDefender(atk: number, def: number): number {
   const a = Math.max(0, atk);
   const d = Math.max(0, def);
   const minByAtk = Math.ceil(a * DAMAGE_FLOOR_FRACTION);
-  // 분모 가드 — a=0(적 atk 완전 디버프) & d=0 이면 0/0=NaN → Math.max 가 NaN 전파(Codex). 0 으로.
-  const denom = a + DEF_MITIGATION_K * d;
+  // 방어 효율은 몬스터 공격력과 무관한 점감 곡선으로 계산한다. 새 사냥터의 공격력이
+  // 올라가도 같은 방어력의 경감률은 유지되며, 85%에는 점근하지만 도달하지 않는다.
+  const mitigationPct = physicalDefenseDamageReductionPct(d);
+  const mitigated = Math.round(a * (1 - mitigationPct / 100));
+  return Math.max(1, minByAtk, mitigated);
+}
+
+// 마법 방어는 이번 VIT·물리 방어 개편 대상이 아니다. 정신 빌드의 기존 마법 대응력을
+// 보존하기 위해 공격력 대항형 비율식을 별도로 유지한다.
+export const MAGIC_DEF_MITIGATION_K = MAGIC_DEF_MITIGATION_K_VALUE;
+export function damageToMagicDefender(atk: number, magicDef: number): number {
+  const a = Math.max(0, atk);
+  const d = Math.max(0, magicDef);
+  const minByAtk = Math.ceil(a * DAMAGE_FLOOR_FRACTION);
+  const denom = a + MAGIC_DEF_MITIGATION_K * d;
   const mitigated = denom > 0 ? Math.round((a * a) / denom) : 0;
   return Math.max(1, minByAtk, mitigated);
 }
@@ -579,8 +595,8 @@ export type V2SkillCastResult = {
   shieldToApply?: { hp: number; mp: number; turns: number }; // 마나 보호막(흡수량)
   selfRegenToApply?: { pctMaxHpPerTurn: number; turns: number }; // 운기 리젠
   enemyVulnToApply?: { pct: number; turns: number }; // 속박 취약(받는 피해 +%)
-  enemyEvasionDownToApply?: { pct: number; turns: number }; // 실명(원소술사 빛) — 적 회피 -%
-  enemyAccuracyDownToApply?: { pct: number; turns: number }; // 암흑(원소술사 어둠) — 적 명중 -%
+  enemyEvasionDownToApply?: { pct: number; turns: number }; // 실명 — 적 회피도 -%
+  enemyAccuracyDownToApply?: { pct: number; turns: number }; // 암흑 — 적 적중도 -%
   selfHasteToApply?: { pct: number }; // 바람(원소술사) — ATB 내 다음 행동 가속 %(1회). 비-ATB 무시.
   enemyDelayToApply?: { pct: number }; // 대지(원소술사) — ATB 적 다음 행동 지연 %(1회). 비-ATB 무시.
   enemyHealReduceToApply?: { pct: number; turns: number }; // 화상(원소술사 불) — 적 회복 −%(N턴)
@@ -710,6 +726,7 @@ export type V2SkillCastInput = {
     enemyVulnerabilityActive?: boolean;
     enemyDamageDownActive?: boolean;
     enemySkillProcDownActive?: boolean;
+    enemyHealReductionActive?: boolean;
     // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
@@ -776,6 +793,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
     enemyVulnerabilityActive: t.enemyVulnerabilityActive ?? false,
     enemyDamageDownActive: t.enemyDamageDownActive ?? false,
     enemySkillProcDownActive: t.enemySkillProcDownActive ?? false,
+    enemyHealReductionActive: t.enemyHealReductionActive ?? false,
     turn: input.turn ?? 1,
   };
 }

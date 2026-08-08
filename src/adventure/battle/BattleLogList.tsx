@@ -5,6 +5,24 @@ import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
+export function battleLogPillColor(label: string): string {
+  const status = v2StatusPillColor(label);
+  if (status) return status;
+  if (label.startsWith("회피 경감")) {
+    return "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200";
+  }
+  if (label === "완전 회피" || label.includes("확정 회피")) {
+    return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200";
+  }
+  if (label === "마력 장벽") {
+    return "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+  }
+  if (label === "철벽" || label === "가드" || label === "인내") {
+    return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200";
+  }
+  return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+}
+
 // 전투 로그 공용 렌더러 — BattleScene / RecentLogView / CoopBossCard 가 같은 UI 로 통일.
 // 라벨 pill + 데미지 강조 + 양쪽 레인 버블 + 턴 구분선 + 페이즈 트리거 배너.
 //
@@ -72,6 +90,10 @@ export function BattleLogList({
           playerMaxMp={entry.playerMaxMp}
           enemyMp={entry.enemyMp}
           enemyMaxMp={entry.enemyMaxMp}
+          playerMagicBarrier={entry.playerMagicBarrier}
+          playerMagicBarrierMax={entry.playerMagicBarrierMax}
+          enemyMagicBarrier={entry.enemyMagicBarrier}
+          enemyMagicBarrierMax={entry.enemyMagicBarrierMax}
           sizes={s}
         />
       );
@@ -364,8 +386,7 @@ function AttackBubble({
               <span
                 key={idx}
                 className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
-                  v2StatusPillColor(l) ??
-                  "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+                  battleLogPillColor(l)
                 }`}
               >
                 {l}
@@ -408,8 +429,7 @@ function InfoLine({
         <span
           key={idx}
           className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
-            v2StatusPillColor(l) ??
-            "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            battleLogPillColor(l)
           }`}
         >
           {l}
@@ -466,8 +486,7 @@ function EffectLine({
             <span
               key={`${label}-${index}`}
               className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${
-                v2StatusPillColor(label) ??
-                "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                battleLogPillColor(label)
               }`}
             >
               {label}
@@ -506,6 +525,10 @@ function HpBar({
   playerMaxMp,
   enemyMp,
   enemyMaxMp,
+  playerMagicBarrier,
+  playerMagicBarrierMax,
+  enemyMagicBarrier,
+  enemyMagicBarrierMax,
   sizes,
 }: {
   playerHp: number;
@@ -516,15 +539,23 @@ function HpBar({
   playerMaxMp?: number;
   enemyMp?: number;
   enemyMaxMp?: number;
+  playerMagicBarrier?: number;
+  playerMagicBarrierMax?: number;
+  enemyMagicBarrier?: number;
+  enemyMagicBarrierMax?: number;
   sizes: Sizes;
 }) {
   const showPlayerMp =
     playerMaxMp != null && playerMaxMp > 0 && playerMp != null;
   const showEnemyMp =
     enemyMaxMp != null && enemyMaxMp > 0 && enemyMp != null;
+  const showPlayerMagicBarrier =
+    playerMagicBarrierMax != null && playerMagicBarrierMax > 0 && playerMagicBarrier != null;
+  const showEnemyMagicBarrier =
+    enemyMagicBarrierMax != null && enemyMagicBarrierMax > 0 && enemyMagicBarrier != null;
   return (
     <div
-      className={`rounded border border-zinc-200 bg-zinc-50/70 px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300`}
+      className={`${SURFACE_INSET} px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:text-zinc-300`}
     >
       <div className="grid grid-cols-2 gap-3">
         <InlineBar
@@ -541,6 +572,31 @@ function HpBar({
           align="right"
         />
       </div>
+      {(showPlayerMagicBarrier || showEnemyMagicBarrier) && (
+        <div className="mt-1 grid grid-cols-2 gap-3">
+          {showPlayerMagicBarrier ? (
+            <InlineBar
+              label="장벽"
+              value={playerMagicBarrier!}
+              max={playerMagicBarrierMax!}
+              color="bg-violet-500"
+            />
+          ) : (
+            <span />
+          )}
+          {showEnemyMagicBarrier ? (
+            <InlineBar
+              label="장벽"
+              value={enemyMagicBarrier!}
+              max={enemyMagicBarrierMax!}
+              color="bg-violet-500"
+              align="right"
+            />
+          ) : (
+            <span />
+          )}
+        </div>
+      )}
       {(showPlayerMp || showEnemyMp) && (
         <div className="mt-1 grid grid-cols-2 gap-3">
           {showPlayerMp ? (

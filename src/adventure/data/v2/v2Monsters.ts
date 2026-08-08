@@ -132,10 +132,9 @@ export const V2_MONSTERS: Record<string, Monster> = {
   "호수 망령": { name: "호수 망령", tags: ["undead"], hp: 240, atk: 19, def: 9, spd: 5, exp: 25, atkType: "magic" },
 
   // ── 프론티어 밴드 C — 심층 동굴 (깊이 15~21). earth·void, 기습·혼합. ──────
-  // evasionPct(회피) 도입 구간(#487 명중 재설계로 PvE 회피축 활성). 후반 밴드(C→F)로 갈수록
-  //   민첩 몹(고spd·저def: 거미·박쥐·정령·표범·늑대류)의 회피↑(~22 peak) → 명중/DEX 투자 보상.
-  //   골렘·탱키(둔중)=0/저. 명중 상한(derive ACCURACY_PCT_CAP=35)까지 채우면 회피 상쇄(missPct=10+회피−명중),
-  //   덜 채운 빌드는 회피만큼 빗나감. 깊이 스케일은 안 함(authored flat).
+  // evasionPct 필드는 몬스터의 회피도(레거시 필드명)다. 후반 밴드(C→F)로 갈수록
+  // 민첩 몬스터의 회피도가 높아져 직접 피해를 더 줄이고, 플레이어 적중도 투자가 이를 상쇄한다.
+  // 골렘·중갑형은 0 또는 낮은 값이며 깊이별 자동 스케일 없이 개별 지정한다.
   "동굴 거미": { name: "동굴 거미", tags: ["beast"], hp: 175, atk: 21, def: 6, spd: 9, exp: 23, evasionPct: 10 },
   "암반 골렘": {
     name: "암반 골렘",

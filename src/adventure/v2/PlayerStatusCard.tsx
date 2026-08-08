@@ -13,8 +13,11 @@ import { applyHpRegen, canHuntWithHp } from "./hpRegen";
 export type PlayerCombatStats = {
   atk: number;
   def: number;
+  magicDef?: number;
   spd: number;
   magicAtk?: number;
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
   accuracyPct?: number;
   accRating?: number;
   evasionPct?: number;
@@ -34,12 +37,15 @@ export function playerCombatToBattleStats(
   return {
     atk: c.atk,
     def: c.def,
+    magicDef: c.magicDef,
     spd: c.spd,
     accuracy: c.accRating ?? c.accuracyPct,
     evasionPct: c.evasionPct,
     evaRating: c.evaRating ?? c.evasionPct,
     critChancePct: c.critChancePct,
     magicAtk: c.magicAtk,
+    magicBarrierMax: c.magicBarrierMax,
+    magicBarrierAbsorbPct: c.magicBarrierAbsorbPct,
     primaryAttack: options.primaryAttack,
   };
 }

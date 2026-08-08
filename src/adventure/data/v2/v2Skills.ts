@@ -65,7 +65,7 @@ export type V2PassiveSkillEffect = {
   critPct?: number;
   /** 치명타 피해 +% 가산(맹공) — critMult 에 /100 환산 가산. */
   critDmgPct?: number;
-  /** 회피 +%p 가산(허보) — eva 캡 적용 대상. */
+  /** 회피도 +% 증가(허보) — 스탯·경갑·옵션 회피도 합계에 적용. */
   evasionPct?: number;
   /** 흡혈 +% — 가한 피해의 일부 체력 흡수(포식). 자동전투 눈덩이 방지로 의도적 저수치. */
   lifestealPct?: number;
@@ -81,7 +81,7 @@ export type V2PassiveSkillEffect = {
    *  derive 가 def × %/100 → PlayerCombat.thornsFlatFromDef, 엔진이 피격 시 가산(PvE enemyPhase +
    *  PvP applyOnHitReflect 양쪽). 미지정=무적용(byte-identical). 100 = "방어 계수의 수치만큼". */
   thornsDefPct?: number;
-  /** 명중 +%p 가산(정밀) — accuracyPct 에 가산(캡 적용). */
+  /** 적중도 +% 증가(정밀) — 스탯·장비 적중도 합계에 적용. */
   accuracyPct?: number;
   // ── SPI 부활(신술 지원) — 회복 강화. healMult 에 곱연산(딜 아님 → INT 와 역할 분리·파워크립 차단).
   /** 회복 +% 가산(치유 강화) — healMult ×(1+합산%/100). 신술 지원 라인 패시브. */
@@ -682,20 +682,22 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     const p = def.passive;
     let mag = 0;
     for (const v of Object.values(p.stat ?? {})) mag += Math.abs(v ?? 0) / 10;
-    for (const v of Object.values(p.statPct ?? {})) mag += Math.abs(v ?? 0) / 10;
-    mag += (p.maxHpPct ?? 0) / 10;
+    // 주스탯%는 캐릭터 스탯만, HP%는 큰 기본·레벨 HP 풀을 증폭한다. 같은 숫자를 같은
+    // 가격으로 보던 종전 평가를 분리해 주스탯%는 저렴하게, HP%는 비싸게 계산한다.
+    for (const v of Object.values(p.statPct ?? {})) mag += Math.abs(v ?? 0) / 20;
+    mag += (p.maxHpPct ?? 0) / 8;
     mag += (p.maxMpPct ?? 0) / 12;
     mag += (p.atkPerDexCoef ?? 0) * 12;
     mag += (p.critPct ?? 0) / 6;
     // 치명타 피해 25%가 회피 8%와 같은 가격이던 종전 환산은 공격 패시브를 과소평가하고
     // 회피 패시브를 과청구했다. 치명타 피해는 20%당, 회피는 10%당 power 1로 맞춘다.
     mag += (p.critDmgPct ?? 0) / 20;
-    mag += (p.evasionPct ?? 0) / 10;
+    mag += (p.evasionPct ?? 0) / 15;
     mag += (p.lifestealPct ?? 0) / 4;
     mag += (p.counterChancePct ?? 0) / 12;
     mag += (p.defPct ?? 0) / 12;
     mag += (p.thornsDefPct ?? 0) / 40;
-    mag += (p.accuracyPct ?? 0) / 12;
+    mag += (p.accuracyPct ?? 0) / 15;
     mag += (p.healPowerPct ?? 0) / 16;
     mag += (p.damageTakenReductionPct ?? 0) / 8;
     mag += (p.reflectDamageTakenReductionPct ?? 0) / 50;
@@ -1726,12 +1728,12 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
   if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
-  if (p.evasionPct) chips.push(`회피 +${p.evasionPct}%`);
+  if (p.evasionPct) chips.push(`회피도 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
   if (p.counterChancePct) chips.push(`HP 피해 시 ${p.counterChancePct}% 반격`);
   if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
   if (p.thornsDefPct) chips.push(`HP 피해 시 방어력의 ${p.thornsDefPct}% 반사`);
-  if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
+  if (p.accuracyPct) chips.push(`적중도 +${p.accuracyPct}%`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
     chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);

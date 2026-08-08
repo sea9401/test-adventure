@@ -21,7 +21,6 @@ import {
   makePoisonDot,
   potionHealAmount,
   applyComboFinisherToHits,
-  removeMissedV2SkillTargetEffects,
   resolveV2SkillCast,
   type V2SkillCastResult,
   type V2SkillDotApply,
@@ -33,7 +32,6 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
-  v2SkillHasTargetEffects,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -59,8 +57,10 @@ import {
   RAMPAGE_START_TURN,
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
-  attackMissPct,
+  applyEvasionDamageReduction,
+  absorbWithMagicBarrier,
   combineDefReductionPcts,
+  evasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
@@ -863,6 +863,13 @@ export function initialBattleState(
     playerMaxMp,
     Math.max(0, player.mp ?? playerMaxMp),
   );
+  const playerMagicBarrierMax = Math.max(0, player.magicBarrierMax ?? 0);
+  if (playerMagicBarrierMax > 0) {
+    log.push({
+      kind: "info",
+      text: `[마력 장벽] 내구도 ${playerMagicBarrierMax} 전개`,
+    });
+  }
   return {
     enemy,
     enemyHp:
@@ -873,6 +880,8 @@ export function initialBattleState(
     playerMaxHp: player.maxHp,
     playerMp: playerMpStart,
     playerMaxMp,
+    playerMagicBarrier: playerMagicBarrierMax,
+    playerMagicBarrierMax,
     log,
     phase: playerFirst ? "player" : "enemy",
     outcome: null,
@@ -1338,14 +1347,26 @@ export function applyEnemyV2SkillCast(
     state.stacks.playerShield,
     enemySkillDamage,
   );
-  const enemySkillDamageToHp = enemySkillDamage - enemySkillShieldAbsorbed;
+  const enemySkillAfterShield = enemySkillDamage - enemySkillShieldAbsorbed;
   const nextPlayerShield =
     state.stacks.playerShield - enemySkillShieldAbsorbed;
+  const enemySkillMagicBarrier = absorbWithMagicBarrier(
+    enemySkillAfterShield,
+    state.playerMagicBarrier ?? 0,
+    player.magicBarrierAbsorbPct ?? 0,
+  );
+  const enemySkillDamageToHp = enemySkillMagicBarrier.damageToHp;
   if (enemySkillDamage > 0 && result.castSkillName) {
     if (enemySkillShieldAbsorbed > 0) {
       nextLog = appendLog(nextLog, {
         kind: "info",
         text: `[철벽] 보호막이 ${enemySkillShieldAbsorbed} 흡수 (남은 ${nextPlayerShield})`,
+      });
+    }
+    if (enemySkillMagicBarrier.absorbed > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[마력 장벽] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
       });
     }
     nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamageToHp);
@@ -1438,6 +1459,7 @@ export function applyEnemyV2SkillCast(
   let nextState: BattleState = {
     ...state,
     playerHp: nextPlayerHp,
+    playerMagicBarrier: enemySkillMagicBarrier.durabilityLeft,
     enemyHp: nextEnemyHp,
     enemyMp: result.nextMp,
     enemyV2SkillCooldowns: result.nextCooldowns,
@@ -1549,7 +1571,7 @@ export function applyPlayerV2SkillCast(
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
   const tickedEnemyDebuffs = ticked.enemyDebuffs;
-  let result = resolveV2SkillCast({
+  const result = resolveV2SkillCast({
     skills: state.v2Skills,
     cooldowns: state.v2SkillCooldowns,
     procRoll: Math.random() * 100,
@@ -1618,22 +1640,23 @@ export function applyPlayerV2SkillCast(
       enemyVulnerabilityActive: state.stacks.enemyVulnTurns > 0,
       enemyDamageDownActive: state.stacks.enemyDamageDownTurns > 0,
       enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
+      enemyHealReductionActive: state.stacks.enemyHealReduceTurns > 0,
     },
   });
-  // 스킬도 명중 영향(2026-06-06) — 상대 대상 효과가 있으면 발동 후 미스 판정(평타와 같은 공식).
-  // 미스면 피해·DoT·디버프·제어를 모두 무효화하고, MP·쿨다운·자버프·자힐은 유지한다.
-  // 자기 대상 효과만 있는 스킬에는 롤하지 않아 RNG 드리프트를 막는다.
-  let skillMissed = false;
-  if (result.castSkillId && v2SkillHasTargetEffects(result)) {
-    // 회피 대결형 Slice 2(B안) — 평타와 같은 공식. 몹 회피레이팅(정밀 반영) vs 플레이어 명중레이팅.
-    const sEnemyEvaR =
-      Math.max(0, state.enemy.evasionPct ?? 0) * (player.precisionEvasionMult ?? 1);
-    const sMissPct = attackMissPct(sEnemyEvaR, player.accRating ?? player.accuracyPct ?? 0);
-    if (Math.random() * 100 < sMissPct) {
-      skillMissed = true;
-      result = removeMissedV2SkillTargetEffects(result);
-    }
-  }
+  // 일반 회피도는 스킬을 빗나가게 하지 않는다. 대상의 회피도와 시전자의 적중도를
+  // 대결해 직접 피해만 줄이고, 적중 시 부가 효과는 정상 적용한다.
+  const skillEvaDown =
+    state.stacks.enemyEvasionDownTurns > 0
+      ? state.stacks.enemyEvasionDownPct
+      : 0;
+  const skillEnemyEvaRating =
+    Math.max(0, state.enemy.evasionPct ?? 0) *
+    (1 - Math.min(100, Math.max(0, skillEvaDown)) / 100) *
+    (player.precisionEvasionMult ?? 1);
+  const skillEvasionReductionPct = evasionDamageReductionPct(
+    skillEnemyEvaRating,
+    player.accRating ?? player.accuracyPct ?? 0,
+  );
   // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).
   //   주문중첩: 누적 시전 횟수 × skillDmgPctPerCast.  약점노출: 적 마법취약 스택 × enemyMagicVulnPctPerStack.
   // 둘 다 미보유면 스택 0 → 배수 1 → 무변. 적중 후 아래에서 스택 증가.
@@ -1699,7 +1722,7 @@ export function applyPlayerV2SkillCast(
     result.castSkillId && result.enemyDamage > 0
       ? Math.max(1, state.playerAttacksLeft)
       : 1;
-  const singleSkillDamage = Math.floor(
+  const singleSkillDamageBeforeEvasion = Math.floor(
     skillDamageBase *
       spellStackMult *
       magicVulnMult *
@@ -1712,6 +1735,7 @@ export function applyPlayerV2SkillCast(
           : SKILL_CRIT_MULT
         : 1),
   );
+  const singleSkillDamage = singleSkillDamageBeforeEvasion;
   let nextComboHitCount = state.stacks.comboHitCount;
   let landedSkillHits = 0;
   // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
@@ -1763,8 +1787,8 @@ export function applyPlayerV2SkillCast(
       )?.pct ?? 0)
     : 0;
   let bloodDemonEffectiveDamage = 0;
-  // hpCostDamage 의 HP는 적중한 피해로 바뀌는 자원이다. 미스에서는 공통 miss
-  // 정리가 비용을 0으로 만들고, 적중 시에는 흡혈보다 먼저 비용을 낸다.
+  // hpCostDamage의 HP는 적중한 피해로 바뀌는 자원이다. 확정 회피에서는 비용이 0이 되며,
+  // 일반 회피 경감은 적중으로 취급해 흡혈보다 먼저 비용을 낸다.
   if (result.selfHpCost > 0) {
     const cost = Math.min(Math.max(0, nextPlayerHp - 1), result.selfHpCost);
     if (cost > 0) {
@@ -1800,7 +1824,24 @@ export function applyPlayerV2SkillCast(
       state.stacks.comboHitCount,
       player.comboFinisherBonusPct,
     );
-    const perHit = comboResult.hitDamages;
+    const perHitBeforeEvasion = comboResult.hitDamages;
+    const perHit = perHitBeforeEvasion.map((hit) =>
+      applyEvasionDamageReduction(hit, skillEvasionReductionPct),
+    );
+    const rawDamageBeforeEvasion = perHitBeforeEvasion.reduce(
+      (sum, hit) => sum + hit,
+      0,
+    );
+    const rawDamageAfterEvasion = perHit.reduce(
+      (sum, hit) => sum + hit,
+      0,
+    );
+    if (rawDamageAfterEvasion < rawDamageBeforeEvasion) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[회피 경감 ${skillEvasionReductionPct.toFixed(1)}%] ${state.enemy.name} 피해 -${rawDamageBeforeEvasion - rawDamageAfterEvasion}`,
+      });
+    }
     landedSkillHits = perHit.filter((hit) => hit > 0).length;
     nextComboHitCount = comboResult.nextComboHitCount;
     const boostedSkillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
@@ -1816,10 +1857,11 @@ export function applyPlayerV2SkillCast(
         text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
       });
     }
-  } else if (skillMissed && result.castSkillName) {
+  }
+  if (nextMagicVulnStacks > state.stacks.enemyMagicVulnStacks) {
     nextLog = appendLog(nextLog, {
-      kind: "player_attack",
-      text: `${result.castSkillName}! 빗나갔다.`,
+      kind: "info",
+      text: `[흉조] 적에게 마법취약 +1 (${nextMagicVulnStacks}/${MAGIC_VULN_STACK_CAP})`,
     });
   }
   if (sigSkillCritSpdBuff) {
@@ -1935,7 +1977,7 @@ export function applyPlayerV2SkillCast(
   if (evaBuffForLog) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuffForLog.pct}%p (${evaBuffForLog.turns}행동)`,
+      text: `[${result.castSkillName ?? "회피"}] 회피도 +${evaBuffForLog.pct}% (${evaBuffForLog.turns}행동)`,
       turn: "player",
     });
   }
@@ -1959,14 +2001,14 @@ export function applyPlayerV2SkillCast(
   if (result.enemyEvasionDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "실명"}] 적 회피 −${result.enemyEvasionDownToApply.pct}% (적 행동 ${result.enemyEvasionDownToApply.turns}회)`,
+      text: `[${result.castSkillName ?? "실명"}] 적 회피도 −${result.enemyEvasionDownToApply.pct}% (적 행동 ${result.enemyEvasionDownToApply.turns}회)`,
       turn: "player",
     });
   }
   if (result.enemyAccuracyDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "암흑"}] 적 명중 −${result.enemyAccuracyDownToApply.pct}% (적 행동 ${result.enemyAccuracyDownToApply.turns}회)`,
+      text: `[${result.castSkillName ?? "암흑"}] 적 적중도 −${result.enemyAccuracyDownToApply.pct}% (적 행동 ${result.enemyAccuracyDownToApply.turns}회)`,
       turn: "player",
     });
   }
@@ -1992,7 +2034,7 @@ export function applyPlayerV2SkillCast(
     });
   }
   const provokeImmediateBasicAttacks =
-    !skillMissed && result.castSkillId
+    result.castSkillId
       ? Math.max(
           0,
           Math.floor(
@@ -2009,7 +2051,7 @@ export function applyPlayerV2SkillCast(
   }
   // 평타 전용이던 every-N 시그니처를 직접 피해 스킬의 실제 적중에도 연결한다.
   // 다단 스킬은 양수 피해가 표시된 각 타격을 모두 세며, 한 시전에서 주기를 여러 번
-  // 넘으면 그 횟수만큼 추가 행동을 지급한다. 빗나감·버프·회복 스킬은 0회다.
+  // 넘으면 그 횟수만큼 추가 행동을 지급한다. 버프·회복 스킬과 완전 회피된 공격은 0회다.
   const sigEvery = everyNHitsEffect(player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
@@ -2120,6 +2162,8 @@ function resolveBattleLegacy(
     playerMaxMp: s.playerMaxMp,
     enemyMp: s.enemyMp,
     enemyMaxMp: s.enemyMaxMp,
+    playerMagicBarrier: s.playerMagicBarrier,
+    playerMagicBarrierMax: s.playerMagicBarrierMax,
   });
   // 초기 entry (적 등장 / 선공 / 능력 안내 등) 는 player 턴으로 태깅. 첫 턴 marker 도 박는다.
   // openingNote(전술 안내 등)가 있으면 적 등장 다음·첫 턴 marker 앞에 info 로 끼운다.
@@ -2356,15 +2400,28 @@ function resolveBattleLegacy(
           state.stacks.playerShield,
           enemySkillDamage,
         );
-        const enemySkillDamageToHp =
+        const enemySkillAfterShield =
           enemySkillDamage - enemySkillShieldAbsorbed;
         const nextPlayerShield =
           state.stacks.playerShield - enemySkillShieldAbsorbed;
+        const enemySkillMagicBarrier = absorbWithMagicBarrier(
+          enemySkillAfterShield,
+          state.playerMagicBarrier ?? 0,
+          player.magicBarrierAbsorbPct ?? 0,
+        );
+        const enemySkillDamageToHp = enemySkillMagicBarrier.damageToHp;
         if (enemySkillDamage > 0 && result.castSkillName) {
           if (enemySkillShieldAbsorbed > 0) {
             nextLog = appendLog(nextLog, {
               kind: "info",
               text: `[철벽] 보호막이 ${enemySkillShieldAbsorbed} 흡수 (남은 ${nextPlayerShield})`,
+              turn: "enemy",
+            });
+          }
+          if (enemySkillMagicBarrier.absorbed > 0) {
+            nextLog = appendLog(nextLog, {
+              kind: "info",
+              text: `[마력 장벽] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
               turn: "enemy",
             });
           }
@@ -2457,6 +2514,7 @@ function resolveBattleLegacy(
         state = {
           ...state,
           playerHp: nextPlayerHp,
+          playerMagicBarrier: enemySkillMagicBarrier.durabilityLeft,
           enemyHp: nextEnemyHp,
           enemyMp: result.nextMp,
           enemyV2SkillCooldowns: result.nextCooldowns,

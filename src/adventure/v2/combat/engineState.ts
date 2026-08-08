@@ -55,6 +55,10 @@ export type BattleLogEntry =
       /** 적 MP 스냅샷. 몬스터가 v2MaxMp 미정의면 0 → UI 비표시. */
       enemyMp?: number;
       enemyMaxMp?: number;
+      playerMagicBarrier?: number;
+      playerMagicBarrierMax?: number;
+      enemyMagicBarrier?: number;
+      enemyMagicBarrierMax?: number;
     };
 
 export type BattleOutcome = "win" | "lose";
@@ -199,7 +203,7 @@ export type BattleStacks = {
   skillRegenTurns: number;
   skillCritPct: number; // 연환집중 — 치명률 +%
   skillCritTurns: number;
-  skillEvasionPct: number; // 선풍각 — 회피 +%(PvE 죽은축, PvP 유효)
+  skillEvasionPct: number; // 선풍각 — 회피도 +%
   skillEvasionTurns: number;
   skillDmgReducePct: number; // 철포 — 받는 피해 -%(받피감 버프, 직업 킷 재설계)
   skillDmgReduceTurns: number;
@@ -208,9 +212,9 @@ export type BattleStacks = {
   enemyVulnPct: number; // 속박 — 적 받는 피해 +%(전 데미지)
   enemyVulnTurns: number;
   // 원소술사 — 빛(실명: 적 회피 -%) / 어둠(암흑: 적 명중 -%). enemyVuln 미러(타겟 디버프).
-  enemyEvasionDownPct: number; // 실명 — 적 회피 -%p(플레이어 명중↑)
+  enemyEvasionDownPct: number; // 실명 — 적 회피도 -%
   enemyEvasionDownTurns: number;
-  enemyAccuracyDownPct: number; // 암흑 — 적 명중 -%p(적 헛침↑)
+  enemyAccuracyDownPct: number; // 암흑 — 적 적중도 -%
   enemyAccuracyDownTurns: number;
   enemyHealReducePct: number; // 화상 — 적 회복 효과 -%(회복 스킬·재생). 흡혈 제외.
   enemyHealReduceTurns: number;
@@ -232,6 +236,9 @@ export type BattleState = {
   // 라이브 캐릭(INT=0)은 둘 다 0 — MP 바 표시·소비 메커닉 자체 비활성.
   playerMp: number;
   playerMaxMp: number;
+  /** INT 기반 별도 내구도. 일반 보호막 뒤에 남은 직접 피해 일부를 흡수한다. */
+  playerMagicBarrier?: number;
+  playerMagicBarrierMax?: number;
   // v2 스킬 (v2_skill_*) 시스템 — PR-4a framework. 옛 spell 시스템 폐기 (PR-7a) — 모든 마법
   // 시전은 V2_SKILLS 카탈로그 + V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델 (시작 = maxMp).
   // equipped 빈 배열이면 cast 분기 no-op. cooldown 맵은 키 없음 = ready.
@@ -297,6 +304,9 @@ export type PlayerCombat = {
   // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
+  magicBarrierPvpAbsorbPct?: number;
   // 순수 물리 스킬의 STR 직접 계수용 최종 힘. 구 저장/테스트 호환을 위해 optional.
   strStat?: number;
   // v2 스킬 — 나한권(VIT 비례 딜) 스케일용 VIT total, 전문화 스킬 차수 flat(baseFlatByTier) 해석용 차수.
@@ -315,13 +325,13 @@ export type PlayerCombat = {
   magicAtk?: number;
   def: number;
   spd: number; // 선공 판정에 사용
-  evasionPct: number; // 0~100, 표시 전용(캡 75). 전투 회피는 evaRating 대결.
-  // 회피 대결형 — 캡 없는 raw 회피레이팅. 전투(PvE 양방향·PvP)가 공격자 명중과 dodgeChance 대결.
+  evasionPct: number; // 레거시 표시 호환용. 전투 경감은 evaRating 대결.
+  // 회피도 — PvE·PvP에서 공격자 적중도와 대결해 직접 피해 경감률을 만든다.
   //   미지정 시 evasionPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
   evaRating?: number;
-  // v2 명중률 — 표시 전용(캡 35). 전투 명중은 accRating(대결형 Slice 2).
+  // 레거시 표시 필드. 실제 전투에서 상대 회피 경감을 누르는 수치는 accRating이다.
   accuracyPct?: number;
-  // 회피 대결형 Slice 2 — 캡 없는 raw 명중레이팅. 방어자 회피 대결을 누른다(evaRating 대칭).
+  // 캡 없는 적중도. 방어자의 회피도와 대결해 직접 피해 경감을 낮춘다.
   //   미지정 시 accuracyPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
   accRating?: number;
   attackCount: number; // 한 턴에 가하는 공격 횟수 (>=1)
@@ -367,7 +377,7 @@ export type PlayerCombat = {
   // 처형 — 적 HP 비율이 hpFraction 미만일 때 데미지 ×mult. mult <= 1 또는 hpFraction <= 0 = 미보유.
   executionDamageMult?: number;
   executionHpFraction?: number;
-  // 정확 — 적 evasionPct 에 곱할 배수 (0~1). undefined/1 = 미보유 (정상 회피).
+  // 정확 — 적 회피도에 곱할 배수 (0~1). undefined/1 = 미보유 (정상 회피).
   precisionEvasionMult?: number;
   // 불굴 — true 면 전투당 1회 HP 0 데미지를 HP 1 로 막아준다.
   enduranceActive?: boolean;

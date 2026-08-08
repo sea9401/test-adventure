@@ -220,6 +220,9 @@ export async function GET(req: Request) {
       spd: derived.player.spd,
       maxHp: derived.maxHp,
       maxMp: derived.player.maxMp ?? 0,
+      magicBarrierMax: derived.player.magicBarrierMax,
+      evaRating: derived.player.evaRating,
+      accRating: derived.player.accRating,
     });
 
     // 장착 6슬롯의 장비 id(사용률).

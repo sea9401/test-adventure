@@ -23,7 +23,7 @@ describe("activeSkillCritStats", () => {
 });
 
 describe("StatsPanel 명중·회피 표기", () => {
-  it("원본 능력 수치와 현재 사냥터 최종 회피율을 구분한다", () => {
+  it("원본 회피도와 현재 사냥터의 직접 피해 경감률을 구분한다", () => {
     const html = renderToStaticMarkup(
       createElement(StatsPanel, {
         stats: { str: 1 },
@@ -39,9 +39,11 @@ describe("StatsPanel 명중·회피 표기", () => {
       }),
     );
 
-    expect(html).toContain("명중 능력");
-    expect(html).toContain("회피 능력");
-    expect(html).toContain("현재 사냥터 회피율");
+    expect(html).toContain("적중도");
+    expect(html).toContain("회피도");
+    expect(html).toContain("현재 사냥터 회피 경감률");
+    expect(html).toContain("물리 피해 경감률");
+    expect(html).toContain("0.8%");
     expect(html).toContain("40%");
     expect(html).not.toContain("명중</span><span");
   });

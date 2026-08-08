@@ -58,4 +58,37 @@ describe("AutoGatheringCard", () => {
     expect(html).toContain("부산물");
     expect(html).toContain("단단한 돌 +2");
   });
+
+  it("긴 작업 장소명과 별개로 남은 시간을 줄어들지 않는 영역에 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        activityName="채광"
+        spotId="iron_mine"
+        session={{
+          sessionId: "auto-mining-long-name",
+          planId: "extended",
+          sourceId: "iron",
+          sourceName: "아주 길어서 좁은 화면을 가득 채우는 깊은 철 광맥",
+          materialId: "iron_ore",
+          startedAt: Date.now(),
+          readyAt: Date.now() + 2 * 60 * 60 * 1_000,
+          attempts: 120,
+        }}
+        result={null}
+        loading={false}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        onStart={vi.fn(async () => {})}
+        onClaim={vi.fn(async () => {})}
+        onCancel={vi.fn(async () => {})}
+      />,
+    );
+
+    expect(html).toContain('data-auto-gathering-time="remaining"');
+    expect(html).toContain("min-w-0 truncate font-semibold");
+    expect(html).toContain(
+      "shrink-0 whitespace-nowrap font-bold tabular-nums",
+    );
+    expect(html).toContain("남은 시간 2:00:00");
+  });
 });

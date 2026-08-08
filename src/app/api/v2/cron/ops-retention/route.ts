@@ -14,6 +14,7 @@ import { db } from "@/db";
 import {
   abuseEvents,
   adminAuditLog,
+  battleReplays,
   coopBossAttackLog,
   dbStorageMetrics,
   economyEvents,
@@ -528,11 +529,17 @@ export async function POST(req: Request) {
     ),
   );
 
-  const [coopReplay, guildActivity, marketplace] = await Promise.all([
-    trimCoopReplays(now),
-    archiveAndTrimGuildActivities(),
-    archiveAndTrimMarketplace(now),
-  ]);
+  const [battleReplay, coopReplay, guildActivity, marketplace] =
+    await Promise.all([
+      deleteSimpleRows(
+        battleReplays,
+        battleReplays.id,
+        lt(battleReplays.expiresAt, now),
+      ),
+      trimCoopReplays(now),
+      archiveAndTrimGuildActivities(),
+      archiveAndTrimMarketplace(now),
+    ]);
   const marketplaceCutoff = retentionCutoff(
     RETENTION_POLICY.marketplaceClosedDays,
     now,
@@ -587,6 +594,7 @@ export async function POST(req: Request) {
     pushDelivery,
     safetyReports,
     arenaTournament: tournament,
+    battleReplay,
     coopReplay,
     guildActivity,
     marketplace,

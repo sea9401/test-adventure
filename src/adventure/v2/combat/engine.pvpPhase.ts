@@ -13,6 +13,7 @@ import {
   pvpSideDamageTakenReductionPct,
   rollPvPAttackCount,
   scalePvPDamage,
+  scalePvPHealing,
   setSide,
   type PvPAttackDamageResult,
   type PvPBattleState,
@@ -754,7 +755,10 @@ export function advanceTurnPvP(
   for (const skill of apAllFiredSkills) {
     const effect = skill.effect;
     if (effect.kind === "heal_pct") {
-      const amount = Math.floor((attacker.maxHp * effect.pct) / 100);
+      const amount = scalePvPHealing(
+        state,
+        Math.floor((attacker.maxHp * effect.pct) / 100),
+      );
       const healed = Math.min(attacker.maxHp, attackerHpAfterAPHeal + amount);
       const actual = healed - attackerHpAfterAPHeal;
       attackerHpAfterAPHeal = healed;

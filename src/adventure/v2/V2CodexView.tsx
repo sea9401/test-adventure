@@ -75,6 +75,7 @@ import {
   type SpFruitTier,
 } from "@/adventure/data/v2/spFruit";
 import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
+import { STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID } from "@/adventure/data/v2/stormExpeditionRewards";
 import { CodexEquipmentPanel } from "./CodexEquipmentPanel";
 import { CodexTitlePanel } from "./CodexTitlePanel";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
@@ -172,6 +173,17 @@ export function shouldShowCodexTutorial(
   return !hasSeen || replayRequested;
 }
 
+export function spFruitCodexSource(tier: SpFruitTier): string {
+  const def = SP_FRUIT[tier];
+  const sources = [
+    `${COOP_BOSSES[def.bossKind]?.name ?? "협동 보스"} 보상`,
+  ];
+  if (def.materialId === STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID) {
+    sources.push("폭풍 원정 완주 보상");
+  }
+  return sources.join(" · ");
+}
+
 function equipPoolChance(pool: FloorEquipDropPool): number {
   return pool.chance;
 }
@@ -253,7 +265,10 @@ export function classifyCodexEquipmentIds(ids: V2EquipmentId[]): {
   const common: V2EquipmentId[] = [];
   const set: V2EquipmentId[] = [];
   for (const id of ids) {
-    if (V2_EQUIPMENT[id]?.setId) set.push(id);
+    const item = V2_EQUIPMENT[id];
+    // 상위 사냥터(43+)와 천공 균열 장비는 완성형 setId 대신
+    // 단계 보너스를 가진 태그 세트(setTags)를 사용한다. 둘 다 세트 장비로 표시한다.
+    if (item?.setId || (item?.setTags?.length ?? 0) > 0) set.push(id);
     else common.push(id);
   }
   return { common, set };
@@ -919,14 +934,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             <div className="flex items-baseline justify-between gap-2 px-1">
               <h3 className="text-sm font-bold">SP 열매 상세</h3>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                협동 보스 보상
+                협동 보스 · 폭풍 원정 보상
               </span>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               {SP_FRUIT_TIERS.map((tier) => {
                 const def = SP_FRUIT[tier];
                 const used = spFruitUsed[tier] ?? 0;
-                const source = COOP_BOSSES[def.bossKind]?.name ?? "협동 보스";
+                const source = spFruitCodexSource(tier);
                 const complete = used >= def.useCap;
                 return (
                   <Card key={tier} padding="md">
@@ -937,7 +952,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                             {def.name}
                           </h3>
                           <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            {source} 보상
+                            {source}
                           </p>
                         </div>
                         <span

@@ -60,4 +60,27 @@ describe("sim-v2 6차 직업 수집 스냅샷", () => {
     expect(selected.equipped.filter((id) => V2_SKILLS[id].passive != null).length).toBeGreaterThan(2);
     expect(passiveJobs.size).toBeGreaterThan(1);
   });
+
+  it("모든 대표 성장 경로가 공격기와 복수 패시브를 예산 안에 유지한다", () => {
+    for (const arch of Object.keys(TIER6_CAREER_ROUTES) as SimArch[]) {
+      for (const tier6Count of [0, 1, 2, 3]) {
+        const snapshot = buildCareerSnapshot(arch, tier6Count);
+        const selected = selectCareerLoadout(
+          arch,
+          snapshot.learnedJobSkills,
+          snapshot.spBudget,
+        );
+        const activeCount = selected.equipped.filter(
+          (id) => V2_SKILLS[id].passive == null,
+        ).length;
+        const passiveCount = selected.equipped.length - activeCount;
+
+        expect(selected.spUsed, `${arch}/${tier6Count}`).toBeLessThanOrEqual(
+          snapshot.spBudget,
+        );
+        expect(activeCount, `${arch}/${tier6Count}`).toBeGreaterThanOrEqual(1);
+        expect(passiveCount, `${arch}/${tier6Count}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
 });

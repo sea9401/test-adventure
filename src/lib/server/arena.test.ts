@@ -39,7 +39,12 @@ const histEntry = (id: string): ArenaHistoryEntry => ({
   scoreDelta: 20,
   goldGained: 1500,
   turns: 12,
-  replay: { enemy: { name: "상대", hp: 450 }, playerMaxHp: 600, playerMaxMp: 100, log: [] },
+  replay: {
+    enemy: { name: "상대", hp: 450 },
+    playerMaxHp: 600,
+    playerMaxMp: 100,
+    log: [{ kind: "info", text: "전투 시작" }],
+  },
 });
 
 describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
@@ -53,6 +58,20 @@ describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
       { outcome: "loss", opponent: { name: "x", level: 1 }, replay: { log: "nope" } }, // log 배열 아님 → 제거
     ];
     expect(parseArenaHistory(mixed)).toHaveLength(1);
+  });
+
+  it("전체 로그를 별도 저장한 replayId 기록은 빈 미리보기 로그여도 유지한다", () => {
+    const deferred = {
+      ...histEntry("deferred"),
+      replay: {
+        ...histEntry("deferred").replay,
+        replayId: "01987654-3210-4abc-8def-0123456789ab",
+        log: [],
+      },
+    };
+    expect(parseArenaHistory([deferred])).toMatchObject([
+      { id: "deferred", replay: { replayId: deferred.replay.replayId, log: [] } },
+    ]);
   });
 
   it("pushArenaHistory — 최근순 prepend + MAX 로 cap", () => {

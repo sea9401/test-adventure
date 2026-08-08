@@ -6,6 +6,17 @@ import {
 import { monsterGoldReward } from "@/adventure/v2/combat/monsterGold";
 import type { Monster } from "@/adventure/data/monsters";
 
+export function hpPotionTargetAmount(
+  maxHp: number,
+  targetPct: number = 100,
+): number {
+  const safeMaxHp = Math.max(0, maxHp);
+  const safeTargetPct = Number.isFinite(targetPct)
+    ? Math.min(100, Math.max(0, targetPct))
+    : 100;
+  return Math.ceil((safeMaxHp * safeTargetPct) / 100);
+}
+
 // EXP/골드 gross — monster.exp → 신참 보너스(전적 ≤ 3만 ×2, EXP 전용) → 전역 배율 → 레어맵 배수.
 //   라이브 battleClaim 과 같은 순서(newbie 먼저, 그 다음 배율). 신참 드롭 보너스는 폐지(EXP 전용).
 export function computeBattleRewards(params: {
@@ -35,12 +46,14 @@ export function applyChargeRestore(params: {
   maxMp: number;
   hpCharges: number;
   mpCharges: number;
+  hpTargetPct?: number;
 }): { afterHp: number; afterMp: number; hpCharges: number; mpCharges: number } {
   let { afterHp, afterMp, hpCharges, mpCharges } = params;
   const { maxHp, maxMp } = params;
-  // HP 부족분 만큼 hpCharges 차감.
-  if (afterHp < maxHp && hpCharges > 0) {
-    const need = maxHp - afterHp;
+  const hpTarget = hpPotionTargetAmount(maxHp, params.hpTargetPct);
+  // 설정한 목표 HP까지의 부족분만큼 hpCharges 차감.
+  if (afterHp < hpTarget && hpCharges > 0) {
+    const need = hpTarget - afterHp;
     const restore = Math.min(need, hpCharges);
     afterHp += restore;
     hpCharges -= restore;

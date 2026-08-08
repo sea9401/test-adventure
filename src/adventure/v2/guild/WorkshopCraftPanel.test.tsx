@@ -17,10 +17,12 @@ import type {
 } from "./guildWorkshopPanelModel";
 
 const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
+const recipeItemName = guildWorkshopRecipeView(recipe, {}).itemName;
 
 function workshopState(): WorkshopState {
   return {
     hasGuildSmithy: true,
+    favoriteRecipeIds: [],
     spendableGold: Number.MAX_SAFE_INTEGER,
     resources: {},
     materials: {},
@@ -61,6 +63,7 @@ function renderWorkshop(
       onMessage={vi.fn()}
       onServerSync={vi.fn()}
       onAfterCraft={vi.fn()}
+      onFavoriteRecipeIdsChange={vi.fn()}
       autoCraft={null}
       onAutoCraftConsumed={vi.fn()}
     />,
@@ -125,6 +128,20 @@ describe("guild workshop recipe equipment codex badge", () => {
     const html = renderWorkshop(new Set(), "ready");
     expect(html).toContain("도감 미등록만");
     expect(html).toContain('aria-pressed="false"');
+  });
+
+  it("제작 레시피 즐겨찾기 필터와 별표 상태를 표시한다", () => {
+    const state = {
+      ...workshopState(),
+      favoriteRecipeIds: [recipe.id],
+    };
+    const html = renderWorkshop(new Set(), "ready", state);
+
+    expect(html).toContain('<option value="favorite">즐겨찾기</option>');
+    expect(html).toContain(
+      `aria-label="${recipeItemName} 즐겨찾기 해제"`,
+    );
+    expect(html).toContain('aria-pressed="true"');
   });
 
   it("shows tier navigation without the redundant set description", () => {

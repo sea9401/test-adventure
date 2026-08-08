@@ -80,7 +80,10 @@ import {
   statusBlockOnce,
 } from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
-import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
+import {
+  isLimitedRecoverySkillId,
+  smartDefaultPatternFromEquipped,
+} from "@/adventure/data/v2/v2Skills";
 import {
   CORROSION_POISON_DAMAGE_SCALE,
   HEAVEN_DECREE_HP_PCT,
@@ -232,6 +235,9 @@ export type PvPBattleState = {
   // 호출 표면별 최종 피해 배율. 미지정(일반 PvP)은 1, 아레나는 라우트에서 0.65를 주입한다.
   // HP 비용·자해·회복에는 사용하지 않고 상대에게 가하는 피해 경로에서만 읽는다.
   damageMultiplier?: number;
+  // 호출 표면별 회복·보호막 생성 배율. 미지정(일반 PvP)은 1, 아레나는 0.65를 주입한다.
+  // 직접 보호막은 이 값을 적용하고, 회복 전환 보호막은 보정된 실제 회복량을 기준으로 계산한다.
+  sustainMultiplier?: number;
 };
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────
@@ -244,6 +250,25 @@ export function scalePvPDamage(
   const multiplier = state.damageMultiplier ?? 1;
   if (multiplier === 1) return damage;
   return Math.max(1, Math.floor(damage * multiplier));
+}
+
+function scalePositivePvPValue(value: number, multiplier = 1): number {
+  if (value <= 0 || multiplier === 1) return value;
+  return Math.max(1, Math.floor(value * multiplier));
+}
+
+export function scalePvPHealing(
+  state: PvPBattleState,
+  healing: number,
+): number {
+  return scalePositivePvPValue(healing, state.sustainMultiplier);
+}
+
+export function scalePvPShield(
+  state: PvPBattleState,
+  shield: number,
+): number {
+  return scalePositivePvPValue(shield, state.sustainMultiplier);
 }
 
 // 공격자가 마주하는 방어자의 effective DEF — analysis 누적 페널티(자기 측 buffs 에 기록) 차감.
@@ -319,11 +344,14 @@ function sideHasDot(side: PvPSide, tag: import("./combatShared").V2DotTag): bool
 }
 
 function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
+  // 스킬도 기본 공격과 같은 방어 관통·전투 중 DEF 페널티를 존중한다. 종전에는 중독 부식만
+  // 별도로 적용해 장비의 armorPierceFraction과 분쇄/약점 노출이 주력 스킬에서 사라졌다.
+  const facingDef = attackerFacingDef(attacker, defender);
   const corrodePct = combineDefReductionPcts(
     attacker.player.poisonedEnemyDefReductionPct ?? 0,
   );
-  if (corrodePct <= 0 || !sideHasDot(defender, "poison")) return defender.player.def;
-  return Math.max(0, Math.round(defender.player.def * (1 - corrodePct / 100)));
+  if (corrodePct <= 0 || !sideHasDot(defender, "poison")) return facingDef;
+  return Math.max(0, Math.round(facingDef * (1 - corrodePct / 100)));
 }
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
@@ -443,9 +471,15 @@ function buildSide(
   player: PlayerCombat,
   name: string,
   v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  sustainMultiplier = 1,
 ): PvPSide {
   const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
-  const startShield = (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0);
+  const rawStartShield =
+    (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0);
+  const startShield = scalePositivePvPValue(
+    rawStartShield,
+    sustainMultiplier,
+  );
   const sideMaxMp = Math.max(0, player.maxMp ?? 0);
   return {
     player,
@@ -551,9 +585,32 @@ export function initialBattleStatePvP(
   p1Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
   p2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
   damageMultiplier?: number,
+  sustainMultiplier?: number,
 ): PvPBattleState {
-  const p1Side = buildSide(p1Player, p1Name, p1Skills);
-  const p2Side = buildSide(p2Player, p2Name, p2Skills);
+  const normalizedDamageMultiplier =
+    typeof damageMultiplier === "number" &&
+    Number.isFinite(damageMultiplier) &&
+    damageMultiplier > 0
+      ? damageMultiplier
+      : 1;
+  const normalizedSustainMultiplier =
+    typeof sustainMultiplier === "number" &&
+    Number.isFinite(sustainMultiplier) &&
+    sustainMultiplier > 0
+      ? sustainMultiplier
+      : 1;
+  const p1Side = buildSide(
+    p1Player,
+    p1Name,
+    p1Skills,
+    normalizedSustainMultiplier,
+  );
+  const p2Side = buildSide(
+    p2Player,
+    p2Name,
+    p2Skills,
+    normalizedSustainMultiplier,
+  );
   const p1First = p1Player.spd >= p2Player.spd;
   const phase: PvPPhase = p1First ? "p1" : "p2";
   const initiator = p1First ? p1Name : p2Name;
@@ -595,15 +652,15 @@ export function initialBattleStatePvP(
     outcome: null,
     log,
   };
-  const normalizedMultiplier =
-    typeof damageMultiplier === "number" &&
-    Number.isFinite(damageMultiplier) &&
-    damageMultiplier > 0
-      ? damageMultiplier
-      : 1;
-  return normalizedMultiplier === 1
-    ? state
-    : { ...state, damageMultiplier: normalizedMultiplier };
+  return {
+    ...state,
+    ...(normalizedDamageMultiplier !== 1
+      ? { damageMultiplier: normalizedDamageMultiplier }
+      : {}),
+    ...(normalizedSustainMultiplier !== 1
+      ? { sustainMultiplier: normalizedSustainMultiplier }
+      : {}),
+  };
 }
 
 // ── 헬퍼 — 사이드 mutate 패턴들 ────────────────────────────────────────────
@@ -618,7 +675,9 @@ function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleState {
   if (side.hp >= side.maxHp) return state;
   // 화상(healReduce) — 재생도 회복이므로 감소. 디버프 없으면(0) byte-identical.
   const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
-  const amount = hr > 0 ? Math.floor(r.amount * (1 - hr / 100)) : r.amount;
+  const reducedAmount =
+    hr > 0 ? Math.floor(r.amount * (1 - hr / 100)) : r.amount;
+  const amount = scalePvPHealing(state, reducedAmount);
   const newHp = Math.min(side.maxHp, side.hp + amount);
   const actual = newHp - side.hp;
   const sigShield = healToShield(side.player.equipSignatures, actual);
@@ -696,7 +755,10 @@ function dealExtraDamage(
     attacker.buffs.playerLifestealPct > 0
       ? Math.floor((rawTotalDmg * attacker.buffs.playerLifestealPct) / 100)
       : 0;
-  const totalHeal = luckyLifestealHeal + runeLifestealHeal + apLifestealHeal;
+  const totalHeal = scalePvPHealing(
+    state,
+    luckyLifestealHeal + runeLifestealHeal + apLifestealHeal,
+  );
   const newAtkHp =
     totalHeal > 0 ? Math.min(attacker.maxHp, attacker.hp + totalHeal) : attacker.hp;
   const actualHeal = newAtkHp - attacker.hp;
@@ -789,9 +851,11 @@ function applyDodgeEffects(
   }
   // 곡예 — 회피 성공 시 HP +amount. + 봉인 on-dodge 회복(Phase 2·미장착=0 → byte-identical).
   const defForHeal = st[defKey];
-  const evadeHeal =
+  const evadeHeal = scalePvPHealing(
+    st,
     (defForHeal.player.evadeHealAmount ?? 0) +
-    onDodgeHealAmount(defForHeal.player.equipSignatures, defForHeal.maxHp);
+      onDodgeHealAmount(defForHeal.player.equipSignatures, defForHeal.maxHp),
+  );
   if (evadeHeal > 0 && defForHeal.hp < defForHeal.maxHp) {
     const newHp = Math.min(defForHeal.maxHp, defForHeal.hp + evadeHeal);
     const actual = newHp - defForHeal.hp;
@@ -1054,10 +1118,31 @@ export function applyOnHitReflect(
   const infinitePct = defender.player.infiniteThornsAtkPct ?? 0;
   const infiniteDmg =
     infinitePct > 0 ? Math.floor((attacker.player.atk * infinitePct) / 100) : 0;
-  // 수호자 반사 — 피격(적중) 시 방어력 기반 고정 데미지("방어 계수만큼"). PvE enemyPhase 와 동일.
+  // 수호자 반사 — 피격(적중) 시 현재 방어력 기반 데미지("방어 계수만큼").
+  // 강체/장비로 전투 중 누적된 방어와 활성 VIT 버프·디버프까지 반영한다. 구 전투 데이터처럼
+  // 계수가 없는 경우에는 시작 시점에 파생된 thornsFlatFromDef 로 폴백한다.
+  const thornsDefPct = defender.player.thornsDefPct ?? 0;
+  const currentDefBeforeVit =
+    defender.player.def + (defender.stacks.braceDefBonus ?? 0);
+  const currentDefAfterMadness =
+    defender.buffs.playerDefDebuffTurnsLeft > 0
+      ? Math.floor(
+          currentDefBeforeVit *
+            (1 - defender.buffs.playerDefDebuffPct / 100),
+        )
+      : currentDefBeforeVit;
+  const currentReflectDef = Math.max(
+    0,
+    Math.floor(
+      currentDefAfterMadness *
+        v2DefBuffMult(defender.v2SelfBuffs, defender.v2SelfDebuffs),
+    ),
+  );
   const wardenReflectDmg =
-    (defender.player.thornsFlatFromDef ?? 0) > 0 && rawDmgBeforeMitigation > 0
-      ? defender.player.thornsFlatFromDef!
+    rawDmgBeforeMitigation > 0
+      ? thornsDefPct > 0
+        ? Math.floor((currentReflectDef * thornsDefPct) / 100)
+        : (defender.player.thornsFlatFromDef ?? 0)
       : 0;
   const baseTotal = thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
   const reflectBoostPct =
@@ -1069,6 +1154,14 @@ export function applyOnHitReflect(
       ? Math.floor(baseTotal * (1 + reflectBoostPct / 100))
       : baseTotal;
   if (rawTotal <= 0) return { state, attackerKilled: false };
+  const reflectTakenReductionPct = Math.max(
+    0,
+    Math.min(80, attacker.player.reflectDamageTakenReductionPct ?? 0),
+  );
+  const reducedRawTotal =
+    reflectTakenReductionPct > 0
+      ? Math.floor(rawTotal * (1 - reflectTakenReductionPct / 100))
+      : rawTotal;
   const reflectDefMult = v2DefBuffMult(
     attacker.v2SelfBuffs,
     attacker.v2SelfDebuffs,
@@ -1077,23 +1170,42 @@ export function applyOnHitReflect(
   const total = scalePvPDamage(
     state,
     damageBetween(
-      rawTotal,
+      reducedRawTotal,
       reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
     ),
   );
-  const newAtkHp = Math.max(0, attacker.hp - total);
-  let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
+  const shieldAbsorbed = Math.min(attacker.stacks.playerShield, total);
+  const dmgToHp = total - shieldAbsorbed;
+  const newShield = attacker.stacks.playerShield - shieldAbsorbed;
+  const newAtkHp = Math.max(0, attacker.hp - dmgToHp);
+  let st = setSide(state, atkKey, {
+    ...attacker,
+    hp: newAtkHp,
+    stacks: {
+      ...attacker.stacks,
+      playerShield: newShield,
+    },
+  });
   const labels: string[] = [];
   if (thornsDmg > 0) labels.push("반사 갑주");
   if (brambleDmg > 0) labels.push("가시 갑옷");
   if (infiniteDmg > 0) labels.push("무한 가시");
   if (wardenReflectDmg > 0) labels.push("수호 반사");
   if (reflectBoostPct > 0) labels.push("반사 증폭");
+  if (shieldAbsorbed > 0) {
+    st = {
+      ...st,
+      log: appendLog(st.log, {
+        kind: "info",
+        text: `[철벽] ${attacker.name} 보호막이 반사 피해 ${shieldAbsorbed} 흡수 (남은 ${newShield})`,
+      }),
+    };
+  }
   st = {
     ...st,
     log: appendLog(st.log, {
       kind: "player_attack",
-      text: `[${labels.join(" + ")}] ${attacker.name}에게 ${total} 반사 피해.`,
+      text: `[${labels.join(" + ")}] ${attacker.name}에게 ${dmgToHp} 반사 피해.`,
     }),
   };
   if (newAtkHp <= 0) {
@@ -1323,7 +1435,10 @@ function finishAttackerTurn(
     const side = st[atkKey];
     const s = side.stacks;
     if (s.skillRegenTurns > 0 && s.skillRegenPct > 0 && side.hp > 0) {
-      const heal = Math.floor((side.maxHp * s.skillRegenPct) / 100);
+      const heal = scalePvPHealing(
+        st,
+        Math.floor((side.maxHp * s.skillRegenPct) / 100),
+      );
       const nextHp = Math.min(side.maxHp, side.hp + heal);
       if (nextHp > side.hp) {
         st = setSide(
@@ -1407,6 +1522,7 @@ export function endAttackerPhase(
     ),
   );
   if (dotDamage > 0) {
+    // 상태이상 피해는 보호막을 우회해 HP에 직접 적용하는 전투 규칙이다.
     const newHp = Math.max(0, defenderBeforeDot.hp - dotDamage);
     next = setSide(next, defKey, {
       ...defenderBeforeDot,
@@ -1474,7 +1590,10 @@ export function applyPotionTo(
 ): PvPBattleState {
   const side = state[key];
   if (potion.effect.kind === "heal_hp") {
-    const heal = potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0);
+    const heal = scalePvPHealing(
+      state,
+      potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0),
+    );
     const newHp = Math.min(side.maxHp, side.hp + heal);
     const actual = newHp - side.hp;
     const sigShield = healToShield(side.player.equipSignatures, actual);
@@ -1536,6 +1655,8 @@ export type PvPResolveContext = {
   openingNote?: string;
   // 상대에게 가하는 최종 피해 배율. 기본 1이며 아레나처럼 특정 호출 표면만 조정할 때 사용한다.
   damageMultiplier?: number;
+  // HP 회복과 새 보호막 생성 배율. 기본 1이며 아레나에서만 별도 조정한다.
+  sustainMultiplier?: number;
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped, 양 side 별도. 미지정/빈 배열이면
   // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
   v2Skills?: {
@@ -1564,6 +1685,10 @@ export function castV2SkillOnAttackerTurnPvP(
   who: "p1" | "p2",
 ): {
   state: PvPBattleState;
+  /** 실제 스킬이 발동했으면 true. 호출부는 해당 행동의 기본 공격을 생략한다. */
+  castFired: boolean;
+  /** 스킬 적중으로 얻어 같은 행동 묶음에서 실행할 추가 기본 공격 수. */
+  signatureExtraActions: number;
   // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 .state 만 쓰고 무시. ATB 루프가 틱 반영.
   selfHastePct: number;
   enemyDelayPct: number;
@@ -1781,6 +1906,7 @@ export function castV2SkillOnAttackerTurnPvP(
   );
   let nextComboHitCount = side.stacks.comboHitCount;
   let landedSkillHits = 0;
+  let skillReflectBase = 0;
   if (skillCritAfterEvadeFired && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1824,6 +1950,11 @@ export function castV2SkillOnAttackerTurnPvP(
       (sum, hit) => sum + hit,
       0,
     );
+    // 평타 반사와 같은 기준: 방어자의 받피감·아레나 배율 적용 전 스킬 피해 원량.
+    skillReflectBase = comboResult.hitDamages.reduce(
+      (sum, hit) => sum + hit,
+      0,
+    );
     nextOppHp = Math.max(0, nextOppHp - skillDamage);
     if (skillDamage < skillDamageBeforeReduction) {
       nextLog = appendLog(nextLog, {
@@ -1858,8 +1989,13 @@ export function castV2SkillOnAttackerTurnPvP(
   //   디버프 없으면(0) Math.floor 미적용 → byte-identical.
   if (result.selfHeal > 0 && result.castSkillName) {
     const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
-    const effHeal =
+    const debuffAdjustedHeal =
       hr > 0 ? Math.floor(result.selfHeal * (1 - hr / 100)) : result.selfHeal;
+    // 무자원 1회 회복기는 combatShared 의 PvP 50% 제한을 이미 받는다. 아레나 공통
+    // 지속력 배율까지 중복 적용하지 않고, 그 밖의 회복만 호출 표면 보정을 거친다.
+    const effHeal = isLimitedRecoverySkillId(result.castSkillId)
+      ? debuffAdjustedHeal
+      : scalePvPHealing(st, debuffAdjustedHeal);
     const before = nextSideHp;
     nextSideHp = Math.min(side.maxHp, nextSideHp + effHeal);
     const actual = nextSideHp - before;
@@ -1915,9 +2051,12 @@ export function castV2SkillOnAttackerTurnPvP(
   // PR2-B — 보호막 + temp 버프(운기/연환집중/선풍각/속박) 적용(PvE applySkillTempBuffs/shield 미러).
   //   보호막 흡수는 기존 로직(stacks.playerShield)이 처리, 4 버프는 stacks 에 기록 후 전투에서 소비.
   //   (비전 작렬=마법취약 payoff 는 PvP magicVuln 트래커 없어 여전히 no-op — 별도 follow-up.)
-  const shieldGain = result.shieldToApply
+  const rawShieldGain = result.shieldToApply
     ? result.shieldToApply.hp + result.shieldToApply.mp
     : 0;
+  const shieldGain = isLimitedRecoverySkillId(result.castSkillId)
+    ? rawShieldGain
+    : scalePvPShield(st, rawShieldGain);
   const critBuff = result.selfBuffPctToApply.find((b) => b.target === "crit");
   const evaBuff = result.selfBuffPctToApply.find((b) => b.target === "evasion");
   const dmgReduceBuff = result.selfBuffPctToApply.find(
@@ -2106,7 +2245,10 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   const nextSide: PvPSide = {
     ...side,
-    attacksLeft: side.attacksLeft + signatureExtraActions,
+    // 스킬은 이번 행동의 평타를 대체한다. 다단 적중 시그니처가 만든 추가 행동만 남긴다.
+    attacksLeft: result.castSkillId
+      ? signatureExtraActions
+      : side.attacksLeft,
     hp: nextSideHp,
     mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
     buffs: sigSkillCritSpdBuff
@@ -2186,6 +2328,26 @@ export function castV2SkillOnAttackerTurnPvP(
       true,
     );
   }
+  // 직접 피해 스킬도 한 번의 피격 행동으로 반사를 발동한다. 다단 스킬은 회피 판정과 동일하게
+  // 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로 반사하지 않는다.
+  if (skillReflectBase > 0 && next[otherKey].hp > 0 && next.phase !== "ended") {
+    const reflected = applyOnHitReflect(
+      next,
+      who,
+      otherKey,
+      skillReflectBase,
+    );
+    next = reflected.state;
+    if (reflected.attackerKilled) {
+      return {
+        state: next,
+        castFired: result.castSkillId != null,
+        signatureExtraActions,
+        selfHastePct,
+        enemyDelayPct,
+      };
+    }
+  }
   // 스킬 데미지로 상대가 쓰러지면 즉시 전투 종료 (PvE resolveBattle 의 enemyHp<=0 가드 미러).
   //   이 가드가 없으면 상대 HP 0 인 채로 시전자의 후속 액션이 한 스텝 더 진행된다 — 평타면 시체를
   //   한 번 더 때려(cosmetic) 결국 종료되지만, 포션 등 비공격 액션이면 죽은 쪽으로 페이즈가 넘어가는
@@ -2202,11 +2364,19 @@ export function castV2SkillOnAttackerTurnPvP(
         phase: "ended",
         outcome: who === "p1" ? "p1_win" : "p2_win",
       },
+      castFired: result.castSkillId != null,
+      signatureExtraActions,
       selfHastePct,
       enemyDelayPct,
     };
   }
-  return { state: next, selfHastePct, enemyDelayPct };
+  return {
+    state: next,
+    castFired: result.castSkillId != null,
+    signatureExtraActions,
+    selfHastePct,
+    enemyDelayPct,
+  };
 }
 
 function resolveBattlePvPLegacy(
@@ -2232,6 +2402,7 @@ function resolveBattlePvPLegacy(
     ctx.v2Skills?.p1,
     ctx.v2Skills?.p2,
     ctx.damageMultiplier,
+    ctx.sustainMultiplier,
   );
   // PR-7a — 옛 spell 시스템 폐기. start-of-battle one-shot 도 제거됐고, v2 스킬 cast hook
   // 이 각 side 의 첫 turn 진입 시 1회 발동 (resolveBattlePvP main loop).
@@ -2272,15 +2443,31 @@ function resolveBattlePvPLegacy(
   // loop iteration 하나가 곧 한 turn 은 아니다 — per-side phase-entry flag 로 dedupe.
   // 효과 적용은 PR-4b. 옛 applyStartOfBattleSpellsPvP (battle-start one-shot) 와 별개.
   const v2CastedThisPhase: { p1: boolean; p2: boolean } = { p1: false, p2: false };
+  const v2SkillConsumedThisPhase: { p1: boolean; p2: boolean } = {
+    p1: false,
+    p2: false,
+  };
   while (state.phase !== "ended") {
     const who: "p1" | "p2" = state.phase === "p1" ? "p1" : "p2";
     const other: "p1" | "p2" = who === "p1" ? "p2" : "p1";
     // who 가 이번 phase 의 actor — 다른 쪽 flag 는 reset (그 쪽 다음 phase 에서 1회 보장).
     v2CastedThisPhase[other] = false;
+    v2SkillConsumedThisPhase[other] = false;
+    let castFiredThisPhase = v2SkillConsumedThisPhase[who];
     if (!v2CastedThisPhase[who]) {
       v2CastedThisPhase[who] = true;
-      // legacy(턴제)는 ATB 템포(selfHaste/enemyDelay)를 쓰지 않으므로 .state 만 사용.
-      state = castV2SkillOnAttackerTurnPvP(state, who).state;
+      // legacy(턴제)는 ATB 템포(selfHaste/enemyDelay)를 쓰지 않는다.
+      const cast = castV2SkillOnAttackerTurnPvP(state, who);
+      state = cast.state;
+      castFiredThisPhase = cast.castFired;
+      v2SkillConsumedThisPhase[who] = cast.castFired;
+      if (
+        cast.castFired &&
+        cast.signatureExtraActions <= 0 &&
+        state.phase === who
+      ) {
+        state = endAttackerPhase(state, who, other);
+      }
       // PR-8: cast hook 의 dot tick 으로 side 가 사망 → outcome=ended. 후속 처리 skip.
       if (state.phase === "ended") {
         state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };
@@ -2288,27 +2475,32 @@ function resolveBattlePvPLegacy(
         break;
       }
     }
-    let action: PlayerAction = { kind: "attack" };
-    const picked = ctx.pickAction(state, who);
-    if (picked.kind === "use_potion") {
-      const have = potions[who][picked.potionId] ?? 0;
-      if (have > 0) {
-        potions[who][picked.potionId] = have - 1;
-        consumed[who][picked.potionId] = (consumed[who][picked.potionId] ?? 0) + 1;
-        action = picked;
+    if (state.phase === who) {
+      let action: PlayerAction = { kind: "attack" };
+      if (!castFiredThisPhase) {
+        const picked = ctx.pickAction(state, who);
+        if (picked.kind === "use_potion") {
+          const have = potions[who][picked.potionId] ?? 0;
+          if (have > 0) {
+            potions[who][picked.potionId] = have - 1;
+            consumed[who][picked.potionId] =
+              (consumed[who][picked.potionId] ?? 0) + 1;
+            action = picked;
+          }
+        } else {
+          action = picked;
+        }
       }
-    } else {
-      action = picked;
-    }
-    const prevLogLen = state.log.length;
-    state = advanceTurnPvP(state, action);
-    // advanceTurnPvP 안에서 push 된 entry 들은 모두 이번 액터(who) 의 것.
-    // 이미 side 가 박힌 entry 는 보존.
-    if (state.log.length > prevLogLen) {
-      const tagged = state.log.map((e, idx) =>
-        idx < prevLogLen || e.side ? e : { ...e, side: who },
-      );
-      state = { ...state, log: tagged };
+      const prevLogLen = state.log.length;
+      state = advanceTurnPvP(state, action);
+      // advanceTurnPvP 안에서 push 된 entry 들은 모두 이번 액터(who) 의 것.
+      // 이미 side 가 박힌 entry 는 보존.
+      if (state.log.length > prevLogLen) {
+        const tagged = state.log.map((e, idx) =>
+          idx < prevLogLen || e.side ? e : { ...e, side: who },
+        );
+        state = { ...state, log: tagged };
+      }
     }
     // 턴 종료 시점 HP/AP 스냅샷. 종료된 상태(phase==="ended")에서도 한 번 박는다.
     state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };

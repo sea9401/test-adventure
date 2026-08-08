@@ -291,11 +291,13 @@ const dmg = (
   statCoef: number,
   baseFlat: number,
   scaling?: V2DamageScaling,
+  pierceDamagePct?: number,
 ): V2SkillEffect => ({
   kind: "damage",
   statCoef,
   baseFlat,
   ...(scaling ? { scaling } : {}),
+  ...(pierceDamagePct ? { pierceDamagePct } : {}),
 });
 
 export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
@@ -920,7 +922,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_berserker_bloodslash", name: "사혈격", stat: "str", category: "attack", tier: 3,
     description: "제 피를 뿌리듯 베어낸다. 현재 체력을 일부 소모해 피해를 키운다.", mpCost: 38, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.25, baseFlatByTier: [220, 220, 220], soakRatio: 1.4 },
+      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.25, baseFlatByTier: [220, 220, 220], soakRatio: 1.4 },
     ],
   },
   v2c_shaman_hex: {
@@ -1106,7 +1108,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "피를 성흔처럼 새겨 적을 베고, 맹세의 방벽으로 반격을 버틴다.",
     mpCost: 44, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.05, baseFlatByTier: [180, 180, 180], soakRatio: 1.0 },
+      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.05, baseFlatByTier: [180, 180, 180], soakRatio: 1.0 },
       { kind: "enemyDamageDown", pct: 10, turns: 3 },
       { kind: "shield", pctMaxHp: 6, turns: 3 },
     ],
@@ -1123,7 +1125,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "진홍빛 심판으로 적을 짓누르고, 회복의 흐름과 반격의 기세를 끊는다.",
     mpCost: 48, cooldown: 0, procChance: 30,
     effects: [
-      dmg(1.35, 260, "def"),
+      dmg(1.8, 260, "def"),
       { kind: "enemyHealReduce", pct: 45, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
@@ -1539,7 +1541,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "피로 길을 열듯 내리친다. 더 큰 체력을 걸고 더 크게 베어낸다.",
     mpCost: 42, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.45, baseFlatByTier: [280, 280, 280], soakRatio: 1.8 },
+      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.45, baseFlatByTier: [280, 280, 280], soakRatio: 1.8 },
     ],
   },
   v2c_warlord_slaughter: {
@@ -1632,7 +1634,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "체력을 깎아 광폭한 연격을 퍼붓는다. 위태로운 적은 그대로 무너진다.",
     mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 12, statCoef: 1.75, baseFlatByTier: [360, 360, 360], soakRatio: 2.4 },
+      { kind: "hpCostDamage", pctCurrentHp: 12, soakCurrentHpFloorPct: 50, statCoef: 1.75, baseFlatByTier: [360, 360, 360], soakRatio: 2.4 },
       { kind: "executeDamage", statCoef: 0.35, baseFlatByTier: [180, 180, 180], hpThresholdPct: 25, bonusMult: 2.3 },
     ],
   },
@@ -1938,7 +1940,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "군주의 피로 낙인을 찍는다. 상처를 대가로 약해진 적에게 최후를 선고한다.",
     mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.6 },
+      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.6 },
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [160, 160, 160], hpThresholdPct: 30, bonusMult: 2.2 },
     ],
   },
@@ -1973,8 +1975,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "마음을 비운 한 검으로 적의 자세와 흐름을 동시에 끊는다.",
     mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      dmg(1.95, 460),
+      dmg(1.95, 460, undefined, 15),
       { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
+      { kind: "enemyHealReduce", pct: 40, turns: 2 },
       { kind: "enemyDelay", pct: 45 },
     ],
   },
@@ -1983,16 +1986,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "검로가 완성된다. 힘과 치명타 피해가 오르고, 한계를 넘어선 속도가 더 큰 공격력으로 돌아온다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { str: 24 }, critDmgPct: 35, accuracyPct: 10, spdOverflowToAtkPct: 35 },
+    passive: {
+      statPct: { str: 24 },
+      critDmgPct: 35,
+      accuracyPct: 10,
+      spdOverflowToAtkPct: 35,
+      reflectDamageTakenReductionPct: 20,
+    },
   },
   v2c_hegemon_annihilation: {
     id: "v2c_hegemon_annihilation", name: "멸왕난무", stat: "str", category: "attack", tier: 3,
     description: "왕좌까지 피로 물들이는 연격. 생명을 태워 몰아붙이고 약해진 적을 짓밟는다.",
     mpCost: 62, cooldown: 0, procChance: 30, learnCost: 12000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 14, statCoef: 1.95, baseFlatByTier: [430, 430, 430], soakRatio: 2.6 },
+      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.95, baseFlatByTier: [430, 430, 430], soakRatio: 3.0 },
       { kind: "executeDamage", statCoef: 0.42, baseFlatByTier: [220, 220, 220], hpThresholdPct: 28, bonusMult: 2.5 },
       { kind: "enemyVuln", pct: 12, turns: 3 },
+      { kind: "enemyHealReduce", pct: 50, turns: 2 },
     ],
   },
   v2c_hegemon_dominion: {
@@ -2000,13 +2010,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "상처가 깊을수록 지배력이 강해진다. 잃은 체력에 따른 공격력과 치명타 피해가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 1.0, critDmgPct: 40, maxHpPct: 12 },
+    passive: {
+      berserkAtkPctPerLostHpPct: 1.0,
+      critDmgPct: 40,
+      maxHpPct: 12,
+      reflectDamageTakenReductionPct: 20,
+    },
   },
   v2c_archmage_collapse: {
     id: "v2c_archmage_collapse", name: "비전 붕괴", stat: "int", category: "attack", tier: 3,
     description: "고도로 압축한 마력을 무너뜨려 순수한 마법 피해를 준다.",
     mpCost: 58, fixedMpCost: 190, cooldown: 0, procChance: 32, learnCost: 12000,
-    effects: [dmg(2.45, 620, "magic"), { kind: "enemyDelay", pct: 35 }],
+    effects: [
+      dmg(2.45, 620, "magic", 12),
+      { kind: "enemyHealReduce", pct: 40, turns: 2 },
+      { kind: "enemyDelay", pct: 35 },
+    ],
   },
   v2c_archmage_theory: {
     id: "v2c_archmage_theory", name: "대마도 이론", stat: "int", category: "passive", tier: 3,
@@ -2018,6 +2037,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       magicSkillDamagePct: 16,
       maxHpPct: 20,
       damageTakenReductionPct: 8,
+      reflectDamageTakenReductionPct: 20,
     },
   },
   v2c_primordialmage_return: {
@@ -2272,7 +2292,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "피를 태워 마성을 해방한다. 약해진 적을 짓밟고 빼앗은 생명으로 상처를 되메운다.",
     mpCost: 62, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 14, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.3 },
+      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.3 },
       { kind: "executeDamage", statCoef: 0.32, baseFlatByTier: [220, 220, 220], hpThresholdPct: 35, bonusMult: 2.3 },
       { kind: "healFromDamage", pct: 20 },
     ],

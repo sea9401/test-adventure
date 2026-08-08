@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  LIMITED_RECOVERY_SKILL_IDS,
   V2_SKILLS,
   V2_STARTER_SKILL_IDS,
   parseV2SkillsState,
@@ -20,6 +21,7 @@ import {
   isLifestyleSkill,
   spCostOf,
   rubricSpCost,
+  skillPowerScore,
   type V2SkillId,
 } from "./v2Skills";
 
@@ -150,6 +152,18 @@ describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 
   });
   it("damageTakenReductionPct 어휘는 배선 보존(현재 미사용·aggregate 기본 0)", () => {
     expect(aggregateEquippedPassives([]).damageTakenReductionPct).toBe(0);
+  });
+});
+
+describe("공격형 6차 반사 대응 패시브", () => {
+  it("반사 피해 감소를 집계하고 상세 설명에 노출한다", () => {
+    const passive = aggregateEquippedPassives([
+      "v2c_swordsaint_transcendence",
+    ]);
+    expect(passive.reflectDamageTakenReductionPct).toBe(20);
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_swordsaint_transcendence),
+    ).toContain("받는 반사 피해 -20%");
   });
 });
 
@@ -657,6 +671,15 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     }
   });
 
+  it("광전 계열 패시브는 잃은 HP 1%당 공격력 증가량으로 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_berserker_madness3)).toContain(
+      "잃은 HP 1%당 공격력 +0.45%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_warlord_slaughter)).toContain(
+      "잃은 HP 1%당 공격력 +0.65%",
+    );
+  });
+
   it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
     const chips = describeV2Skill(V2_SKILLS.v2_skill_strike); // 강타: 대지, coef 1.0
     expect(chips.some((c) => c.includes("공격력×1"))).toBe(true);
@@ -665,7 +688,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("피해 계수는 공격 기반선과 특화 스탯을 구분해 명시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain(
-      "피해 마법 공격력×1.12 + 지능×0.07",
+      "피해 마법 공격력×1.05 + 지능×0.35",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
       "피해 공격력×1.05 + 방어력×1.3",
@@ -674,10 +697,10 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("6차 순수형만 주스탯 계수를 받고 혼합형 계수는 유지한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
-      "피해 공격력×1.65 + 힘×0.2",
+      "피해 공격력×1.3 + 힘×1.3",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
-      "피해 마법 공격력×1.98 + 지능×0.14",
+      "피해 마법 공격력×1.68 + 지능×1.1",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)).toEqual(
       expect.arrayContaining([
@@ -689,7 +712,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("다단 스킬의 공격 계수는 소수 둘째 자리까지 반올림해 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_flurry)).toContain(
-      "피해 공격력×0.4 + 힘×0.03",
+      "피해 공격력×0.36 + 힘×0.17",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_ranger_ambush)).toContain(
       "피해 공격력×0.4 + 민첩×0.1",
@@ -767,7 +790,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_warrior_strike).some((chip) =>
-        chip.includes("공격력×1.2 + 힘×0.1"),
+        chip.includes("공격력×1.08 + 힘×0.5"),
       ),
     ).toBe(true);
     expect(
@@ -831,6 +854,39 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
       "전투당 1회",
     );
+    expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
+      "원정당 1회 · 대련 효과 50%",
+    );
+  });
+
+  it("혈성기사·패황 계보 HP 소모기는 저체력 추가 피해 기준 하한을 표시한다", () => {
+    for (const id of [
+      "v2c_bloodtemplar_stigma",
+      "v2c_bloodlord_brand",
+      "v2c_blooddemon_reign",
+      "v2c_berserker_bloodslash",
+      "v2c_warlord_bloodbath",
+      "v2c_overlord_ruin",
+      "v2c_hegemon_annihilation",
+    ] as const) {
+      expect(describeV2Skill(V2_SKILLS[id])).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("추가 피해 기준 현재 HP 최소 50%"),
+        ]),
+      );
+    }
+  });
+
+  it("원정 제한 회복기 목록은 무자원·전투당 1회 회복기만 포함한다", () => {
+    for (const skillId of LIMITED_RECOVERY_SKILL_IDS) {
+      const skill = V2_SKILLS[skillId];
+      expect(skill.mpCost, skillId).toBe(0);
+      expect(skill.oncePerBattle, skillId).toBe(true);
+      expect(
+        skill.effects.some((effect) => effect.kind === "heal"),
+        skillId,
+      ).toBe(true);
+    }
   });
 
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
@@ -893,6 +949,14 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_warrior_warcry)).toBe(2);
   });
 
+  it("치명타 피해는 회피보다 비싸게, 회피 단계는 완만하게 책정한다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4); // 치명타 피해 +25%
+    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(4); // 치명타 피해 +30%
+    expect(spCostOf(V2_SKILLS.v2c_boxer_fortitude)).toBe(3); // 회피 +8%
+    expect(spCostOf(V2_SKILLS.v2c_brawler_fortitude3)).toBe(3); // 회피 +12%
+    expect(spCostOf(V2_SKILLS.v2c_phantom_stealth)).toBe(4); // 회피 +16%
+  });
+
   it("액티브 효율 보정 — 높은 발동률·낮은 MP 비용일수록 같은 효과의 SP가 높다", () => {
     const base = V2_SKILLS.v2_skill_strike;
     const lowProc = { ...base, procChance: 30 };
@@ -945,13 +1009,26 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(isLifestyleSkill(V2_SKILLS.v2c_none_diligence)).toBe(false);
   });
 
-  it("5 SP 이하는 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
+  it("저비용 구간은 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
-    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
-    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(13);
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(7);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(9);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
     ).toBe(16);
+  });
+
+  it("🔑 트립와이어 — 자원·발동률까지 우월한 스킬이 더 싸지는 가격 역전을 막는다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_ranger_ambush)).toBeGreaterThanOrEqual(
+      spCostOf(V2_SKILLS.v2c_warrior_flurry),
+    );
+    expect(spCostOf(V2_SKILLS.v2c_mage_boltcast)).toBeGreaterThan(
+      spCostOf(V2_SKILLS.v2c_caster_bolt),
+    );
+    expect(spCostOf(V2_SKILLS.v2c_warder_barrier)).toBeLessThan(
+      spCostOf(V2_SKILLS.v2c_ironman_brace),
+    );
+    expect(spCostOf(V2_SKILLS.v2c_mage_meditate)).toBe(2);
   });
 
   it("다단기는 전투에서 제거된 legacy 고정 피해를 타수만큼 SP로 중복 청구하지 않는다", () => {
@@ -960,7 +1037,155 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       spCostOf(V2_SKILLS.v2c_nightshade_eclipse),
       spCostOf(V2_SKILLS.v2c_heavenlybow_orbit),
       spCostOf(V2_SKILLS.v2c_blackmoon_flurry),
-    ]).toEqual([7, 10, 10, 12]);
+    ]).toEqual([5, 10, 8, 10]);
+  });
+
+  it("플레이어 피해에서 사용하지 않는 legacy 고정 피해는 SP를 올리지 않는다", () => {
+    const base = V2_SKILLS.v2_skill_strike;
+    const zeroFlat = {
+      ...base,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 0 }],
+    };
+    const ghostFlat = {
+      ...zeroFlat,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 999_999 }],
+    };
+
+    expect(skillPowerScore(ghostFlat)).toBe(skillPowerScore(zeroFlat));
+    expect(rubricSpCost(ghostFlat)).toBe(rubricSpCost(zeroFlat));
+  });
+
+  it("몬스터 고정 피해는 실제 전투에서 쓰이므로 SP power에도 남긴다", () => {
+    const base = {
+      ...V2_SKILLS.v2_skill_strike,
+      monsterOnly: true,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 0 }],
+    };
+    const stronger = {
+      ...base,
+      effects: [{ kind: "damage" as const, statCoef: 1, baseFlat: 280 }],
+    };
+
+    expect(skillPowerScore(stronger)).toBeGreaterThan(skillPowerScore(base));
+  });
+
+  it("보호막 turns는 만료되지 않는 엔진 동작에 맞춰 과금하지 않는다", () => {
+    const base = V2_SKILLS.v2c_warder_barrier;
+    const short = {
+      ...base,
+      effects: [{ kind: "shield" as const, pctMaxHp: 8, turns: 1 }],
+    };
+    const long = {
+      ...base,
+      effects: [{ kind: "shield" as const, pctMaxHp: 8, turns: 99 }],
+    };
+    const larger = {
+      ...base,
+      effects: [{ kind: "shield" as const, pctMaxHp: 16, turns: 1 }],
+    };
+
+    expect(skillPowerScore(long)).toBe(skillPowerScore(short));
+    expect(skillPowerScore(larger)).toBeGreaterThan(skillPowerScore(short));
+  });
+
+  it("관통 피해와 누락됐던 고유 패시브는 SP power에 반영한다", () => {
+    const attack = V2_SKILLS.v2c_chief_strike;
+    const withoutPierce = {
+      ...attack,
+      effects: attack.effects.map((effect) =>
+        effect.kind === "damage"
+          ? { ...effect, pierceDamagePct: 0 }
+          : effect,
+      ),
+    };
+    const blackmoon = V2_SKILLS.v2c_blackmoon_dominion;
+    const withoutHooks = {
+      ...blackmoon,
+      passive: {
+        ...blackmoon.passive,
+        atkPerLukCoef: 0,
+        spdPerLukCoef: 0,
+        skillCritOverflow: false,
+        skillCritAfterEvade: false,
+      },
+    };
+
+    expect(skillPowerScore(attack)).toBeGreaterThan(
+      skillPowerScore(withoutPierce),
+    );
+    expect(skillPowerScore(blackmoon)).toBeGreaterThan(
+      skillPowerScore(withoutHooks),
+    );
+  });
+
+  it("초반 마법 피해 감소의 지속 구간과 마법취약 발동률을 반영한다", () => {
+    const ward = V2_SKILLS.v2c_warder_ward;
+    const shortWard = {
+      ...ward,
+      passive: { ...ward.passive, openingMagicDamageReductionPhases: 1 },
+    };
+    const omen = V2_SKILLS.v2c_shaman_omen3;
+    const lowChance = {
+      ...omen,
+      passive: { ...omen.passive, enemyMagicVulnApplyChancePct: 50 },
+    };
+
+    expect(skillPowerScore(ward)).toBeGreaterThan(skillPowerScore(shortWard));
+    expect(skillPowerScore(omen)).toBeGreaterThan(skillPowerScore(lowChance));
+  });
+
+  it("선행 스킬이 필요한 장착 시너지는 본체에 추가 효과의 절반만 청구한다", () => {
+    const base = V2_SKILLS.v2_skill_strike;
+    const utilityEffect = {
+      kind: "enemyVuln" as const,
+      pct: 10,
+      turns: 3,
+    };
+    const direct = {
+      ...base,
+      effects: [...base.effects, utilityEffect],
+    };
+    const conditional = {
+      ...base,
+      equippedSynergies: [
+        {
+          requiredSkillId: "v2c_warrior_might" as const,
+          effects: [utilityEffect],
+        },
+      ],
+    };
+    const directDelta = skillPowerScore(direct) - skillPowerScore(base);
+    const conditionalDelta = skillPowerScore(conditional) - skillPowerScore(base);
+
+    expect(conditionalDelta).toBeCloseTo(directDelta * 0.5, 8);
+  });
+
+  it("선행 패시브가 필요한 속성 강화도 기본 변형 대비 증분의 절반만 청구한다", () => {
+    const base = V2_SKILLS.v2_skill_strike;
+    const utilityEffect = {
+      kind: "enemyVuln" as const,
+      pct: 10,
+      turns: 3,
+    };
+    const direct = {
+      ...base,
+      effects: [...base.effects, utilityEffect],
+    };
+    const conditional = {
+      ...base,
+      elementEffectSynergies: [
+        {
+          requiredSkillId: "v2c_warrior_might" as const,
+          elementEffects: {
+            fire: [...base.effects, utilityEffect],
+          },
+        },
+      ],
+    };
+    const directDelta = skillPowerScore(direct) - skillPowerScore(base);
+    const conditionalDelta = skillPowerScore(conditional) - skillPowerScore(base);
+
+    expect(conditionalDelta).toBeCloseTo(directDelta * 0.5, 8);
   });
 
   it("🔑 트립와이어 — 전투 스킬은 루브릭 미만으로 underprice 금지", () => {

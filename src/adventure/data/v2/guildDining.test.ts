@@ -61,18 +61,18 @@ describe("guild dining", () => {
     expect(state.activeEffect?.expiresAt).toBe(now.getTime() + 60_000);
   });
 
-  it("모든 길드원에게 기본 식권을 주고 기여 15점마다 추가 지급한다", () => {
+  it("모든 길드원에게 기본 식권 4장을 주고 기여 4점마다 추가 지급한다", () => {
     const state = parseGuildDiningUserState(
       { weekKey: "2026-07-13", guildId: 1, contributionPoints: 100, mealsUsed: 1 },
       { weekKey: "2026-07-13", guildId: 1 },
     );
     expect(guildDiningTicketProgress(state, 3)).toEqual({
-      base: 1,
+      base: 4,
       contributionEarned: 3,
-      earned: 4,
+      earned: 7,
       used: 1,
-      available: 3,
-      contributionCap: 45,
+      available: 6,
+      contributionCap: 12,
     });
     expect(
       guildDiningTicketProgress(
@@ -83,10 +83,10 @@ describe("guild dining", () => {
         3,
       ),
     ).toMatchObject({
-      base: 1,
+      base: 4,
       contributionEarned: 0,
-      earned: 1,
-      available: 1,
+      earned: 4,
+      available: 4,
     });
   });
 
@@ -108,15 +108,15 @@ describe("guild dining", () => {
       GUILD_DINING_MENUS.map((menu) => [menu.id, menu.effect]),
     ).toEqual([
       ["hearty_stew", { kind: "recovery", hp: 250_000, mp: 250_000 }],
-      ["adventurer_meal", { kind: "hunt_exp", bonusPct: 25, durationHours: 12 }],
-      ["worker_lunch", { kind: "life_xp", bonusPct: 10, durationHours: 12 }],
-      ["hunters_barbecue", { kind: "hunt_exp", bonusPct: 40, durationHours: 12 }],
-      ["artisan_seafood_rice", { kind: "life_xp", bonusPct: 15, durationHours: 12 }],
-      ["guild_grand_feast", { kind: "all_xp", bonusPct: 60, lifeBonusPct: 20, durationHours: 12 }],
+      ["adventurer_meal", { kind: "hunt_exp", bonusPct: 25, durationHours: 3 }],
+      ["worker_lunch", { kind: "life_xp", bonusPct: 10, durationHours: 3 }],
+      ["hunters_barbecue", { kind: "hunt_exp", bonusPct: 40, durationHours: 3 }],
+      ["artisan_seafood_rice", { kind: "life_xp", bonusPct: 15, durationHours: 3 }],
+      ["guild_grand_feast", { kind: "all_xp", bonusPct: 60, lifeBonusPct: 20, durationHours: 3 }],
     ]);
   });
 
-  it("12시간 동안 횟수 제한 없이 소수 보너스를 정확히 누적한다", () => {
+  it("3시간 동안 횟수 제한 없이 소수 보너스를 정확히 누적한다", () => {
     let state = parseGuildDiningUserState(
       {
         weekKey: "2026-07-13",
@@ -141,7 +141,7 @@ describe("guild dining", () => {
     );
   });
 
-  it("같은 메뉴는 남은 시간에 12시간을 더하고 다른 메뉴는 교체한다", () => {
+  it("같은 메뉴는 남은 시간에 3시간을 더하고 다른 메뉴는 교체한다", () => {
     const adventurerMeal = guildDiningMenu("adventurer_meal")!;
     const workerLunch = guildDiningMenu("worker_lunch")!;
     const currentEffect = activeEffectForMenu(adventurerMeal, {
@@ -212,7 +212,7 @@ describe("guild dining", () => {
     expect(state.activeEffect).toBeNull();
   });
 
-  it("기존 횟수형 효과는 남은 식권 손실 없이 12시간제로 승계한다", () => {
+  it("기존 횟수형 효과는 남은 식권 손실 없이 3시간제로 승계한다", () => {
     const state = parseGuildDiningUserState(
       {
         weekKey: "2026-07-13",

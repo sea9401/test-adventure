@@ -340,7 +340,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         replays: Array<{
           index: number;
           enemyName: string;
-          replay: { log: unknown[] };
+          replay: { replayId?: string; log: unknown[] };
         }>;
       };
     };
@@ -360,7 +360,10 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.replays).toHaveLength(5);
     expect(json.batch.replays[0]?.index).toBe(1);
     expect(json.batch.replays[0]?.enemyName).toBeTruthy();
-    expect(json.batch.replays[0]?.replay.log.length).toBeGreaterThan(0);
+    expect(json.batch.replays[0]?.replay.log).toEqual([]);
+    expect(json.batch.replays[0]?.replay.replayId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
 
     // 판간 이월 — 매 판 stamina 1 차감을 다음 판이 재read. 5판 후 5000-5=4995.
     const char = store.get("character.v2") as {
@@ -592,6 +595,27 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
 
     const inv = store.get("inventory.v2") as { hpCharges: number };
     expect(inv.hpCharges).toBe(json.result.hpCharges);
+  });
+
+  it("HP 충전약 목표를 설정하면 전투 전에도 해당 체력까지만 회복한다", async () => {
+    store.set("character.v2", {
+      ...(store.get("character.v2") as object),
+      hp: 0,
+      hpRegenSince: Date.now(),
+    });
+    store.set("inventory.v2", { hpCharges: 999_999, mpCharges: 0 });
+
+    const res = await POST(
+      huntReq({
+        floor: 2,
+        autoStopConfig: { hpPotionTargetPct: 50 },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      result: { hpBefore: number; maxHp: number };
+    };
+    expect(json.result.hpBefore).toBe(Math.ceil(json.result.maxHp * 0.5));
   });
 
   it("단계 잠금 — 다음 대표 단계보다 깊은 곳은 403", async () => {

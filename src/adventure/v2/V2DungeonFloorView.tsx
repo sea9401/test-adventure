@@ -765,7 +765,7 @@ export function V2DungeonFloorView({
       if (huntInFlightRef.current) return;
       huntInFlightRef.current = true;
       setBatchStatus(null);
-      void hunt(depth).then((r) => {
+      void hunt(depth, autoStopConfigRef.current).then((r) => {
         huntInFlightRef.current = false;
         if (r) {
           if (
@@ -1147,6 +1147,47 @@ export function V2DungeonFloorView({
                 </div>
               </div>
             )}
+
+            <div className={`${SURFACE_INSET} space-y-2 p-3`}>
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="hp-potion-target"
+                  className="text-sm font-medium"
+                >
+                  HP 충전약 사용 목표
+                </label>
+                <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                  {autoStopConfig.hpPotionTargetPct === 0
+                    ? "사용 안 함"
+                    : `체력 ${autoStopConfig.hpPotionTargetPct}%`}
+                </span>
+              </div>
+              <input
+                id="hp-potion-target"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={autoStopConfig.hpPotionTargetPct}
+                onChange={(e) =>
+                  updateAutoStopConfig({
+                    hpPotionTargetPct: Number(e.target.value),
+                  })
+                }
+                aria-label="HP 충전약 사용 목표 체력"
+                aria-valuetext={
+                  autoStopConfig.hpPotionTargetPct === 0
+                    ? "사용 안 함"
+                    : `체력 ${autoStopConfig.hpPotionTargetPct}%까지`
+                }
+                className="w-full accent-emerald-600"
+              />
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                사냥 후 HP 충전약을 설정한 체력까지만 사용합니다. 체력이
+                너무 낮아 사냥 전에 자동 회복할 때도 같은 기준을 적용하며,
+                MP 충전약은 기존처럼 100%까지 사용합니다.
+              </p>
+            </div>
 
             <div className={`${SURFACE_INSET} space-y-3 p-3`}>
               <div>

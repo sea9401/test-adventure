@@ -509,7 +509,10 @@ describe("직업 킷 — 스킬셋", () => {
       oncePerBattle: true,
       effects: [{ kind: "guaranteedEvade", count: 1 }],
     });
-    expect(V2_SKILLS.v2c_berserker_bloodslash.effects[0].kind).toBe("hpCostDamage");
+    expect(V2_SKILLS.v2c_berserker_bloodslash.effects[0]).toMatchObject({
+      kind: "hpCostDamage",
+      soakCurrentHpFloorPct: 50,
+    });
     expect(
       V2_SKILLS.v2c_venomancer_miasma.effects.some(
         (e) => e.kind === "stackPayoffDamage" && e.tag === "poison",
@@ -636,6 +639,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects[0]).toMatchObject({
       kind: "damage",
       scaling: "def",
+      statCoef: 1.51,
     });
     expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects).not.toContainEqual(
       expect.objectContaining({ kind: "hpCostDamage" }),
@@ -657,6 +661,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_warlord_bloodbath.effects[0]).toMatchObject({
       kind: "hpCostDamage",
       pctCurrentHp: 10,
+      soakCurrentHpFloorPct: 50,
     });
     // 대주술사 액티브 금단 의식 = 마법취약 스택 페이오프.
     expect(
@@ -714,6 +719,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_overlord_ruin.effects[0]).toMatchObject({
       kind: "hpCostDamage",
       pctCurrentHp: 12,
+      soakCurrentHpFloorPct: 50,
     });
     expect(V2_SKILLS.v2c_overlord_throne.passive).toMatchObject({
       berserkAtkPctPerLostHpPct: 0.8,
@@ -846,6 +852,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_bloodlord_brand.effects[0]).toMatchObject({
       kind: "hpCostDamage",
       pctCurrentHp: 10,
+      soakCurrentHpFloorPct: 50,
     });
     expect(V2_SKILLS.v2c_bloodlord_brand.effects[1]).toMatchObject({
       kind: "executeDamage",
@@ -895,14 +902,20 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_swordsaint_flash.effects.map((e) => e.kind)).toEqual([
       "damage",
       "enemyDebuff",
+      "enemyHealReduce",
       "enemyDelay",
     ]);
+    expect(V2_SKILLS.v2c_swordsaint_flash.effects[0]).toMatchObject({
+      kind: "damage",
+      pierceDamagePct: 15,
+    });
     expect(V2_SKILLS.v2c_swordsaint_transcendence.category).toBe("passive");
     expect(V2_SKILLS.v2c_swordsaint_transcendence.passive).toMatchObject({
       statPct: { str: 24 },
       critDmgPct: 35,
       accuracyPct: 10,
       spdOverflowToAtkPct: 35,
+      reflectDamageTakenReductionPct: 20,
     });
     expect(skillsForJob("hegemon")).toEqual([
       "v2c_hegemon_annihilation",
@@ -912,16 +925,20 @@ describe("직업 킷 — 스킬셋", () => {
       "hpCostDamage",
       "executeDamage",
       "enemyVuln",
+      "enemyHealReduce",
     ]);
     expect(V2_SKILLS.v2c_hegemon_annihilation.effects[0]).toMatchObject({
       kind: "hpCostDamage",
       pctCurrentHp: 14,
+      soakCurrentHpFloorPct: 50,
+      soakRatio: 3,
     });
     expect(V2_SKILLS.v2c_hegemon_dominion.category).toBe("passive");
     expect(V2_SKILLS.v2c_hegemon_dominion.passive).toMatchObject({
       berserkAtkPctPerLostHpPct: 1.0,
       critDmgPct: 40,
       maxHpPct: 12,
+      reflectDamageTakenReductionPct: 20,
     });
     expect(skillsForJob("archmage")).toEqual([
       "v2c_archmage_collapse",
@@ -929,7 +946,14 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_archmage_collapse.category).toBe("attack");
     expect(V2_SKILLS.v2c_archmage_collapse.effects).toEqual([
-      { kind: "damage", statCoef: 2.33, baseFlat: 589, scaling: "magic" },
+      {
+        kind: "damage",
+        statCoef: 2.33,
+        baseFlat: 589,
+        scaling: "magic",
+        pierceDamagePct: 12,
+      },
+      { kind: "enemyHealReduce", pct: 40, turns: 2 },
       { kind: "enemyDelay", pct: 35 },
     ]);
     expect(V2_SKILLS.v2c_archmage_theory.category).toBe("passive");
@@ -938,6 +962,7 @@ describe("직업 킷 — 스킬셋", () => {
       magicSkillDamagePct: 16,
       maxHpPct: 20,
       damageTakenReductionPct: 8,
+      reflectDamageTakenReductionPct: 20,
     });
     expect(skillsForJob("primordialmage")).toEqual([
       "v2c_primordialmage_return",
@@ -1063,7 +1088,7 @@ describe("직업 킷 — 스킬셋", () => {
       skillCritOverflow: true,
       skillCritAfterEvade: true,
     });
-    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(13);
+    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(16);
     expect(skillsForJob("myriadvenom")).toEqual([
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",
@@ -1174,6 +1199,7 @@ describe("직업 킷 — 스킬셋", () => {
       {
         kind: "hpCostDamage",
         pctCurrentHp: 14,
+        soakCurrentHpFloorPct: 50,
         statCoef: 1.76,
         baseFlatByTier: [409, 409, 409],
         soakRatio: 2.3,
@@ -1209,18 +1235,18 @@ describe("직업 킷 — 스킬셋", () => {
       maxHpPct: 10,
       maxMpPct: 10,
     });
-    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(7);
   });
 
   it("독 계보 SP 비용은 조건부 중독·부식 가치를 반영해 단계적으로 오른다", () => {
     const costs = (jobId: string) =>
       skillsForJob(jobId).map((id) => spCostOf(V2_SKILLS[id]));
 
-    expect(costs("venomist")).toEqual([4, 5]);
-    expect(costs("venomancer")).toEqual([5, 4]);
+    expect(costs("venomist")).toEqual([6, 5]);
+    expect(costs("venomancer")).toEqual([7, 4]);
     expect(costs("venomlord")).toEqual([7, 4]);
-    expect(costs("plaguebringer")).toEqual([9, 6]);
-    expect(costs("myriadvenom")).toEqual([13, 14]);
+    expect(costs("plaguebringer")).toEqual([8, 7]);
+    expect(costs("myriadvenom")).toEqual([12, 13]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {
@@ -1261,6 +1287,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_bloodtemplar_stigma.effects[0]).toMatchObject({
       kind: "hpCostDamage",
       pctCurrentHp: 8,
+      soakCurrentHpFloorPct: 50,
     });
     expect(V2_SKILLS.v2c_bloodtemplar_stigma.effects.map((e) => e.kind)).toEqual([
       "hpCostDamage",

@@ -278,6 +278,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveHealPowerPct?: number;
   /** 받는 피해 -%(방벽 패시브) — totalDamageTakenReductionPct 에 합산. PvE/PvP 양쪽(#835). */
   passiveDamageTakenReductionPct?: number;
+  /** 받는 반사 피해 -%. 공격형 상위 패시브의 반사 탱커 대응 수단. */
+  passiveReflectDamageTakenReductionPct?: number;
   /** 마법 방어력 +%(결계술 패시브) — magicDef 에 곱연산. */
   passiveMagicDefPct?: number;
   /** 초반 마법형 평타 받는 피해 -%(결계술 패시브). */
@@ -664,7 +666,12 @@ export function derivePlayerCombatV2Pure(
         }
       : {}),
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
-    ...(thornsFlatFromDef > 0 ? { thornsFlatFromDef } : {}),
+    ...(thornsFlatFromDef > 0
+      ? {
+          thornsDefPct: input.passiveThornsDefPct,
+          thornsFlatFromDef,
+        }
+      : {}),
     ...(totalBleedDmgPerStack > 0
       ? {
           bleedOnHit: {
@@ -720,6 +727,14 @@ export function derivePlayerCombatV2Pure(
       : {}),
     ...(totalMagicSkillDamagePct > 0
       ? { magicSkillDamagePct: totalMagicSkillDamagePct }
+      : {}),
+    ...(input.passiveReflectDamageTakenReductionPct
+      ? {
+          reflectDamageTakenReductionPct: Math.min(
+            80,
+            input.passiveReflectDamageTakenReductionPct,
+          ),
+        }
       : {}),
     // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
     ...(specEff.extraAttackChancePctWhileEnemyBleeding
@@ -877,6 +892,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
+    passiveReflectDamageTakenReductionPct:
+      passiveAgg.reflectDamageTakenReductionPct,
     passiveMagicDefPct: passiveAgg.magicDefPct,
     passiveOpeningMagicDamageReductionPct:
       passiveAgg.openingMagicDamageReductionPct,

@@ -1,6 +1,6 @@
 // PR-C — V2_ATB_SKILLS on 일 때 PvP ATB(라이브 아레나) 전투에서 v2 액티브 스킬이 시전되는지.
-//   PvP 는 cast + 평타(XOR 아님) — 시전해도 그 턴 평타는 그대로 난다. 플래그 off 는
-//   combatPvpAtb.test 가 byte-identical 로 커버.
+//   PvP 도 PvE처럼 스킬 시전이 그 행동의 평타를 대체한다. 플래그 off 는
+//   combatPvpAtb.test 가 byte-identical 로 커버한다.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
@@ -55,7 +55,7 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     }
   });
 
-  it("cast + 평타(XOR 아님) — 시전 턴에도 p1 평타가 난다", () => {
+  it("cast XOR 평타 — 매 행동에 스킬이 발동하면 p1 평타가 나가지 않는다", () => {
     const res = run();
     const p1Basic = res.finalState.log.filter(
       (e) =>
@@ -64,6 +64,6 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
         typeof (e as { text?: string }).text === "string" &&
         (e as { text: string }).text.includes("공격!"),
     ).length;
-    expect(p1Basic).toBeGreaterThan(0);
+    expect(p1Basic).toBe(0);
   });
 });

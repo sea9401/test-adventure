@@ -40,7 +40,10 @@ import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
-import { ARENA_DAMAGE_MULTIPLIER } from "@/lib/server/arena";
+import {
+  ARENA_DAMAGE_MULTIPLIER,
+  ARENA_SUSTAIN_MULTIPLIER,
+} from "@/lib/server/arena";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { getOrCreateCurrentSeason } from "./season";
@@ -72,7 +75,6 @@ import {
 
 const PROFILE_KEY = "character-profile.v2";
 const SYSTEM_USER_ID = "system";
-const TOURNAMENT_REPLAY_LOG_CAP = 150;
 const TOURNAMENT_SAVE_KEYS = [
   CHARACTER_STATE_KEY,
   "equipment.v2",
@@ -313,6 +315,7 @@ function fightTournamentMatch(
     {
       ...autoDuelContext(),
       damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
+      sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
       v2Skills: { p1: p1.payload.skills, p2: p2.payload.skills },
     },
   );
@@ -321,11 +324,7 @@ function fightTournamentMatch(
     turns: battle.turns,
     p1HpRatio: battle.finalState.p1.hp / Math.max(1, battle.finalState.p1.maxHp),
     p2HpRatio: battle.finalState.p2.hp / Math.max(1, battle.finalState.p2.maxHp),
-    replay: toPvpReplayPayload(
-      battle.finalState,
-      p2.participant.name,
-      TOURNAMENT_REPLAY_LOG_CAP,
-    ),
+    replay: toPvpReplayPayload(battle.finalState, p2.participant.name),
   };
 }
 

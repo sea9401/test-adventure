@@ -158,7 +158,10 @@ export function useDungeonHunt({
 
   // hunt 결과를 리턴 — caller(batch 모드 등) 가 직접 누적 가능. 실패 시 null.
   const hunt = useCallback(
-    async (floor: number): Promise<HuntResultPayload | null> => {
+    async (
+      floor: number,
+      autoStopConfig?: AutoHuntStopConfig,
+    ): Promise<HuntResultPayload | null> => {
       setBusy(true);
       setLastResult(null);
       try {
@@ -177,6 +180,7 @@ export function useDungeonHunt({
           body: JSON.stringify({
             floor: f,
             outpostId,
+            ...(autoStopConfig ? { autoStopConfig } : {}),
             ...(rareMapIid ? { rareMap: rareMapIid } : {}),
           }),
         });

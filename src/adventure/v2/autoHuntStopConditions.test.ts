@@ -65,16 +65,30 @@ describe("normalizeAutoHuntStopConfig", () => {
   it("uses safe defaults for malformed persisted values", () => {
     expect(
       normalizeAutoHuntStopConfig({
+        hpPotionTargetPct: 150.9,
         potionEnabled: "yes",
         potionThreshold: -10,
         rareMapEnabled: true,
         level100Enabled: null,
       }),
     ).toEqual({
+      hpPotionTargetPct: 100,
       potionEnabled: false,
       potionThreshold: 0,
       rareMapEnabled: true,
       level100Enabled: false,
+    });
+  });
+
+  it("HP 충전약 목표 체력을 0~100 정수로 제한하고 옛 설정은 100%로 보완한다", () => {
+    expect(
+      normalizeAutoHuntStopConfig({ hpPotionTargetPct: 49.9 }),
+    ).toMatchObject({ hpPotionTargetPct: 49 });
+    expect(
+      normalizeAutoHuntStopConfig({ hpPotionTargetPct: -1 }),
+    ).toMatchObject({ hpPotionTargetPct: 0 });
+    expect(normalizeAutoHuntStopConfig({})).toMatchObject({
+      hpPotionTargetPct: 100,
     });
   });
 });

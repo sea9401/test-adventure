@@ -13,11 +13,11 @@ export const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 // LUK 빌드 정체성은 확률보다 누적 투자 보상 쪽에 남긴다.
 export const CRIT_PER_LUK = 0.12;
 export const ATK_PER_STR = 0.15; // 무기 위력 ×0.8 하향과 함께 스탯 비중 상대적↑(계수는 불변 — 올리면 엔드 폭증).
-// VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게. lever-1(비대칭
-//   감산)으로 생존은 살았으나 VIT 는 공격력 0 라 못 죽였음(sim). STR 0.15 의 ⅔ = 탱의 보조 딜(천천히 범·
-//   DEX #1 불변). 2026-06-21 0.10→0.16 상향(sim: VIT d50 wr ~45%→~90% = 무리 패리티·DEX 100 불변·
-//   부수피해 0). docs/v2-dex-rebalance-plan.md. 더 올리면 광역 물리버프 과함(d50 과조정 주의).
-export const VIT_ATK_COEF = 0.16;
+// VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게 하는 보조 딜.
+// 2026-06-21 0.10→0.16은 VIT d50 생존 빌드의 막힌 사냥을 풀었지만, STR 0.15보다 높은 범용 공격
+// 환산에 HP·DEF까지 함께 붙어 VIT가 물리 공격 투자까지 대체했다. 범용 환산은 다시 STR의 약 2/3로
+// 두고, 탱커의 추가 화력은 생존 스탯을 공격력으로도 이중 지급하기보다 전용 DEF/VIT 스킬이 맡는다.
+export const VIT_ATK_COEF = 0.1;
 // 도적 직군 패시브 "예기" — 공격력에 DEX×계수 가산(도적 한정). 죽은 축 DEX 부활.
 // 스킬 재설계(docs/v2-skill-system-plan.md). 🔑 v2c_rogue_finesse(예기) passive.atkPerDexCoef 와 동기.
 export const ROGUE_ATK_PER_DEX = 0.08;

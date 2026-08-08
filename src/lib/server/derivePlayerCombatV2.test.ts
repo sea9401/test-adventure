@@ -345,6 +345,11 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     );
   });
 
+  it("VIT의 범용 공격력 환산은 STR보다 낮은 보조 계수다", () => {
+    expect(VIT_ATK_COEF).toBe(0.1);
+    expect(VIT_ATK_COEF).toBeLessThan(0.15);
+  });
+
   it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
     // 참나무 지팡이 위력만큼 magicAtk 합산(물리 빌드는 마법스킬 없어 실제론 무용이나 derive 합산은 정상).
     const staffPow = V2_EQUIPMENT.v2_oak_staff.power;
@@ -1132,7 +1137,16 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
       v2Equipped: {},
       passiveThornsDefPct: 100,
     }).player;
+    expect(p.thornsDefPct).toBe(100);
     expect(p.thornsFlatFromDef).toBe(p.def);
+  });
+
+  it("passiveReflectDamageTakenReductionPct 는 반사 전용 감소율로 보존하고 80%에서 제한한다", () => {
+    const player = derivePlayerCombatV2Pure({
+      level: 1,
+      passiveReflectDamageTakenReductionPct: 95,
+    }).player;
+    expect(player.reflectDamageTakenReductionPct).toBe(80);
   });
 
   it("passiveThornsDefPct 50 → def 의 50%(floor)", () => {
@@ -1146,6 +1160,7 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
 
   it("미지정 → thornsFlatFromDef 미설정(inert·byte-identical)", () => {
     const p = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    expect(p.thornsDefPct).toBeUndefined();
     expect(p.thornsFlatFromDef).toBeUndefined();
   });
 });

@@ -38,7 +38,32 @@ describe("stormExpedition", () => {
       pendingGold: 46_000,
       pendingMaterials: {},
       pendingEquipment: [],
+      usedRecoverySkillIds: [],
     });
+  });
+
+  it("원정 회복기 사용 기록은 허용된 스킬만 중복 없이 복원한다", () => {
+    const state = parseStormExpeditionState({
+      date: "2026-07-11",
+      active: {
+        version: 2,
+        routeId: "gale",
+        nodeIndex: 2,
+        encounterIndex: 0,
+        hp: 500,
+        mp: 100,
+        usedRecoverySkillIds: [
+          "v2c_survivor_firstaid",
+          "v2c_survivor_firstaid",
+          "v2c_shadow_shadowstep",
+          "unknown",
+        ],
+      },
+    }, "2026-07-11");
+
+    expect(state.active?.usedRecoverySkillIds).toEqual([
+      "v2c_survivor_firstaid",
+    ]);
   });
 
   it("손상된 저장값을 안전한 범위로 정규화한다", () => {

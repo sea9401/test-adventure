@@ -233,18 +233,19 @@ export const V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER: Record<1 | 2 | 3, number>
 };
 
 // 순수 물리/마법 공격기는 공격력 계수만 받으면 레벨업으로 쌓은 STR/INT보다 무기 위력에 성장이
-// 치우친다. 기존 공격력 예산 일부를 주스탯 계수로 옮겨 현재 피해는 크게 흔들지 않으면서, 순수형도
-// 주스탯 집중 투자에 보상을 받게 한다. 혼합형(def/dex/luk/spi/all/maxHp)은 기존 산식을 그대로 쓴다.
+// 치우친다. 라이브 기준 공격력≈1000/주스탯≈300에서 총 피해가 거의 같도록 공격력 예산을 직접
+// 주스탯 항으로 옮긴다. 그보다 오래 주스탯을 수행한 캐릭터는 비용에 맞는 추가 보상을 받는다.
+// 혼합형(def/dex/luk/spi/all/maxHp)은 단위가 다르므로 이 표를 공유하지 않고 기존 산식을 유지한다.
 const V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER = {
   physical: {
-    1: { attackTransfer: 0.1, primaryStatCoef: 0.1 },
-    2: { attackTransfer: 0.15, primaryStatCoef: 0.15 },
-    3: { attackTransfer: 0.2, primaryStatCoef: 0.2 },
+    1: { attackTransfer: 0.22, primaryStatCoef: 0.5 },
+    2: { attackTransfer: 0.38, primaryStatCoef: 0.9 },
+    3: { attackTransfer: 0.55, primaryStatCoef: 1.3 },
   },
   magic: {
-    1: { attackTransfer: 0.18, primaryStatCoef: 0.07 },
-    2: { attackTransfer: 0.26, primaryStatCoef: 0.1 },
-    3: { attackTransfer: 0.35, primaryStatCoef: 0.14 },
+    1: { attackTransfer: 0.25, primaryStatCoef: 0.35 },
+    2: { attackTransfer: 0.42, primaryStatCoef: 0.65 },
+    3: { attackTransfer: 0.65, primaryStatCoef: 1.1 },
   },
 } as const;
 

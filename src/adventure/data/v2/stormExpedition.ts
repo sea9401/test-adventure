@@ -4,6 +4,10 @@ import {
   parseEquipmentSave,
   type V2EquipInstance,
 } from "./v2Equipment";
+import {
+  LIMITED_RECOVERY_SKILL_IDS,
+  type LimitedRecoverySkillId,
+} from "./v2Skills";
 
 export const STORM_EXPEDITION_SAVE_KEY = "storm-expedition.v1";
 export const STORM_EXPEDITION_UNLOCK_DEPTH = 72;
@@ -210,6 +214,8 @@ export type StormExpeditionActive = {
   pendingEquipment: V2EquipInstance[];
   boons: StormExpeditionBoonId[];
   nextBattleEffects: StormExpeditionBattleEffectId[];
+  /** 이번 원정에서 이미 사용한 무자원 생존 회복기. 재접속해도 유지된다. */
+  usedRecoverySkillIds: LimitedRecoverySkillId[];
   altarOffers: StormExpeditionBoonId[];
   chosenChoices: Partial<Record<StormExpeditionChoiceKind, string>>;
   /** 출발 시 결과까지 고정되는 선택형 위험 이벤트. 기존 진행 중 원정에는 null. */
@@ -434,6 +440,10 @@ function parseActive(raw: unknown): StormExpeditionActive | null {
     pendingEquipment: parseEquipmentSave({ owned: source.pendingEquipment, equipped: {} }).owned,
     boons: parseEnumArray(source.boons, STORM_EXPEDITION_ALTAR_CHOICES.map((choice) => choice.id)) as StormExpeditionBoonId[],
     nextBattleEffects: parseEnumArray(source.nextBattleEffects, ["next_guard", "next_assault", "heart_assault", "risk_enemy_fury"]) as StormExpeditionBattleEffectId[],
+    usedRecoverySkillIds: parseEnumArray(
+      source.usedRecoverySkillIds,
+      LIMITED_RECOVERY_SKILL_IDS,
+    ) as LimitedRecoverySkillId[],
     altarOffers: parsedAltarOffers.length === 3
       ? parsedAltarOffers
       : defaultStormAltarOffers(route.id),

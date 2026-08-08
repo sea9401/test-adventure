@@ -31,6 +31,10 @@ import {
   toPvpReplayPayloadForSide,
 } from "@/adventure/data/v2/replayPayload";
 import {
+  BATTLE_REPLAY_RETENTION_DAYS,
+  storeBattleReplay,
+} from "@/lib/server/battleReplayStore";
+import {
   ARENA_STATE_KEY,
   ARENA_HISTORY_KEY,
   ARENA_LOADOUTS_KEY,
@@ -49,6 +53,7 @@ import {
 import {
   ARENA_INITIAL_RATING,
   ARENA_DAMAGE_MULTIPLIER,
+  ARENA_SUSTAIN_MULTIPLIER,
   ARENA_MATCH_COOLDOWN_MS,
   arenaHistorySince,
   arenaCooldownRemainingMs,
@@ -115,10 +120,6 @@ type CandidateInternal = ArenaCandidate;
 
 const PROFILE_KEY = "character-profile.v2";
 const ARENA_BOT_LEVEL_BAND = 5;
-// 전투 로그 다시보기 — 저장/표시 로그 길이 상한(PvP 100턴 ≈ 300+ 엔트리 → cap 으로 바운드,
-// 초과 시 clampReplayLog 가 "앞선 턴 생략" 안내 + 뒷부분만). 기록 MAX(10)판 × 이 cap 이 세이브 크기.
-const ARENA_REPLAY_LOG_CAP = 150;
-
 type BotPick = {
   candidate: CandidateInternal;
   bot: ArenaBot;
@@ -518,6 +519,7 @@ export async function POST(req: Request) {
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {
       ...autoDuelContext(),
       damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
+      sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
       v2Skills: { p1: mySkills, p2: oppSkills },
     });
 
@@ -684,8 +686,30 @@ export async function POST(req: Request) {
       }
     }
 
-    // 11b. 전투 로그(다시보기) — 나=p1 관점 ReplayPayload + 전투 기록 1판.
-    const replay = toPvpReplayPayload(battle.finalState, oppName, ARENA_REPLAY_LOG_CAP);
+    // 11b. 전투 로그(다시보기) — 전체 로그는 전용 테이블에 보관하고 arena-history.v2에는
+    // replayId가 든 가벼운 payload만 둔다. 기록 목록 조회로 여러 판의 로그를 한꺼번에
+    // 전송하지 않고, 사용자가 다시보기를 열 때 한 판만 불러온다.
+    const replay = await storeBattleReplay(
+      tx,
+      userId,
+      toPvpReplayPayload(battle.finalState, oppName),
+      BATTLE_REPLAY_RETENTION_DAYS.arena,
+      now,
+    );
+    const defenderReplay =
+      ranked && oppUserId && defenderArena
+        ? await storeBattleReplay(
+            tx,
+            oppUserId,
+            toPvpReplayPayloadForSide(
+              battle.finalState,
+              "p2",
+              viewerName,
+            ),
+            BATTLE_REPLAY_RETENTION_DAYS.arena,
+            now,
+          )
+        : null;
     const historyEntry: ArenaHistoryEntry = {
       id: `${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
       at: now.toISOString(),
@@ -700,7 +724,7 @@ export async function POST(req: Request) {
       replay,
     };
     const defenderHistoryEntry: ArenaHistoryEntry | null =
-      ranked && oppUserId && defenderArena
+      ranked && oppUserId && defenderArena && defenderReplay
         ? {
             id: `${now.getTime().toString(36)}-${Math.floor(
               Math.random() * 1e6,
@@ -714,12 +738,7 @@ export async function POST(req: Request) {
             scoreDelta: elo.defenderDelta,
             goldGained: 0,
             turns: battle.turns,
-            replay: toPvpReplayPayloadForSide(
-              battle.finalState,
-              "p2",
-              viewerName,
-              ARENA_REPLAY_LOG_CAP,
-            ),
+            replay: defenderReplay,
           }
         : null;
 

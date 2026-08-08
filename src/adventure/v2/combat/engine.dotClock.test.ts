@@ -11,7 +11,10 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 import { resolveBattle, type PlayerCombat } from "./engine";
 import { pickAutoAction } from "./pickAutoAction";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import {
+  emptyV2SkillsState,
+  V2_SKILLS,
+} from "@/adventure/data/v2/v2Skills";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
 import { BLEED_ATK_COEF_PER_STACK } from "@/adventure/data/v2/v2CombatConstants";
 import type { Monster } from "@/adventure/data/monsters";
@@ -123,6 +126,61 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     const reducedDamage = firstBleedDamage(run(50).finalState.log);
     expect(normalDamage).toBeGreaterThan(0);
     expect(reducedDamage).toBe(Math.floor(normalDamage * 0.5));
+  });
+
+  it("만독개화의 침식은 ATB 사냥에서 중독 피해를 28% 증폭한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const venomer: PlayerCombat = {
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 100,
+      def: 100,
+      spd: 100,
+      evasionPct: 0,
+      attackCount: 1,
+      accuracyPct: 100,
+      maxMp: 100_000,
+      mp: 100_000,
+    };
+    const enemy: Monster = {
+      name: "침식 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 1_000,
+      spd: 10,
+      exp: 0,
+      evasionPct: 0,
+    };
+    const skill = V2_SKILLS.v2c_myriadvenom_mutation;
+    const erosion = skill.effects.find(
+      (effect) => effect.kind === "enemyDotVuln",
+    );
+    expect(erosion).toBeDefined();
+    const mutableErosion = erosion as { pct: number };
+    const originalPct = mutableErosion.pct;
+    const run = () =>
+      resolveBattle(venomer, enemy, "테스터", {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_myriadvenom_mutation"],
+          equipped: ["v2c_myriadvenom_mutation"],
+        },
+        maxTurns: 5,
+      });
+
+    try {
+      mutableErosion.pct = 0;
+      const baseDamage = firstPoisonDamage(run().finalState.log);
+      mutableErosion.pct = originalPct;
+      const amplifiedDamage = firstPoisonDamage(run().finalState.log);
+
+      expect(baseDamage).toBeGreaterThan(0);
+      expect(amplifiedDamage).toBe(Math.floor(baseDamage * 1.28));
+    } finally {
+      mutableErosion.pct = originalPct;
+    }
   });
 
   it("ATB 보스는 중독의 최대 HP 비례 피해를 20% 감소해 받는다", () => {

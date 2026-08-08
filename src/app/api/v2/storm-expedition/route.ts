@@ -50,6 +50,10 @@ import {
   rollStormExpeditionSpFruit,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
+import {
+  LIMITED_RECOVERY_SKILL_IDS,
+  type LimitedRecoverySkillId,
+} from "@/adventure/data/v2/v2Skills";
 
 type CharacterSave = Record<string, unknown> & {
   frontierDepth?: number;
@@ -131,6 +135,7 @@ export async function POST(req: Request) {
           pendingEquipment: [],
           boons: [],
           nextBattleEffects: [],
+          usedRecoverySkillIds: [],
           altarOffers: createStormAltarOffers(),
           chosenChoices: {},
           riskEvent: createStormRiskEvent(),
@@ -247,10 +252,19 @@ export async function POST(req: Request) {
       active,
     );
     const isBoss = node.encounterKind === "guardian" || node.encounterKind === "final_boss";
+    const usedRecoverySkillIds = new Set(active.usedRecoverySkillIds);
+    const expeditionSkills = usedRecoverySkillIds.size > 0
+      ? {
+          ...prepared.skills,
+          equipped: prepared.skills.equipped.filter(
+            (skillId) => !usedRecoverySkillIds.has(skillId as LimitedRecoverySkillId),
+          ),
+        }
+      : prepared.skills;
     const battle = resolveBattle(playerForBattle, enemy, playerName, {
       pickAction: (battleState) => pickAutoAction(battleState, { rules: [], potions: {} }),
       potions: {},
-      v2Skills: prepared.skills,
+      v2Skills: expeditionSkills,
       maxTurns: 100,
       isBoss,
       openingNote: `${stormExpeditionRoute(active.routeId)?.name ?? "원정"} · ${node.name}${(node.encounterCount ?? 1) > 1 ? ` ${active.encounterIndex + 1}전` : ""}`,
@@ -287,6 +301,13 @@ export async function POST(req: Request) {
       const nextHp = active.boons.includes("victory_vigor")
         ? Math.min(baseMaxHp, nextHpBeforeHeal + Math.floor(baseMaxHp * 0.08))
         : nextHpBeforeHeal;
+      const usedRecoverySkillIdsAfterBattle = [
+        ...usedRecoverySkillIds,
+        ...LIMITED_RECOVERY_SKILL_IDS.filter(
+          (skillId) =>
+            (battle.finalState.v2SkillCooldowns[skillId] ?? 0) > 0,
+        ),
+      ];
       const advanced = advanceAfterBattle({
         ...active,
         hp: nextHp,
@@ -298,6 +319,7 @@ export async function POST(req: Request) {
         pendingMaterials,
         pendingEquipment,
         nextBattleEffects: nextEffects,
+        usedRecoverySkillIds: [...new Set(usedRecoverySkillIdsAfterBattle)],
       }, node.encounterCount ?? 1);
 
       if (finalClear) {
@@ -351,7 +373,7 @@ export async function POST(req: Request) {
       routeId: active.routeId,
       enemyName: enemy.name,
       turns: battle.turns,
-      replay: toReplayPayload(battle.finalState, 220),
+      replay: toReplayPayload(battle.finalState),
       startPlayerHp,
       playerName,
       gender: profile?.gender ?? "male1",

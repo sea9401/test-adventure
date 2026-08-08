@@ -192,7 +192,7 @@ export type BattleStats = {
   def: number;
   magicDef?: number;
   spd: number;
-  actionSpd?: number; // 몬스터 ATB 행동속도 — raw spd 를 플레이어 속도 스케일로 환산한 값
+  actionSpd?: number; // 몬스터 ATB 행동속도 — 일반 몬스터는 환산값, 직접 속도 몬스터는 데이터값
   accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
   evasionPct?: number; // 레거시 표시값·몬스터 회피 능력. 플레이어 raw 는 evaRating 우선.
   evaRating?: number; // 플레이어 회피 레이팅(raw). 없으면 evasionPct 폴백.

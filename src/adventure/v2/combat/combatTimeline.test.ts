@@ -5,6 +5,7 @@ import {
   actionRate,
   actionInterval,
   effectiveMonsterSpd,
+  monsterActionSpd,
   depthSpdCorrection,
   tieRank,
   pickNextEntry,
@@ -70,6 +71,16 @@ describe("effectiveMonsterSpd — 원시 1~14 → 플레이어 스케일", () =>
   it("깊이 보정 가산(음수 무시)", () => {
     expect(effectiveMonsterSpd(6, 10)).toBe(56);
     expect(effectiveMonsterSpd(6, -10)).toBe(46); // 음수 보정 무시
+  });
+});
+
+describe("monsterActionSpd — 몬스터별 속도 단위 선택", () => {
+  it("일반 몬스터는 기존 원시 속도 변환을 유지한다", () => {
+    expect(monsterActionSpd({ spd: 6 })).toBe(46);
+  });
+
+  it("직접 속도 몬스터는 데이터의 spd를 그대로 사용한다", () => {
+    expect(monsterActionSpd({ spd: 244, directActionSpd: true })).toBe(244);
   });
 });
 

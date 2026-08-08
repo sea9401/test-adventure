@@ -127,6 +127,23 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     });
   });
 
+  it("직접 속도 몬스터는 리플레이에도 데이터 spd를 그대로 표시한다", () => {
+    const fs = {
+      ...fixture(3),
+      enemy: {
+        name: "심층 수호자",
+        hp: 20_459,
+        spd: 244,
+        directActionSpd: true,
+      },
+    } as unknown as BattleState;
+
+    expect(toReplayPayload(fs).enemy).toMatchObject({
+      spd: 244,
+      actionSpd: 244,
+    });
+  });
+
   it("full toReplayPayload 와 메타 필드는 동일 — log 만 다름(단판 무변경 보증)", () => {
     const fs = fixture(10);
     const full = toReplayPayload(fs);

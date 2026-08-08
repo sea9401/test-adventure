@@ -104,6 +104,11 @@ export type Monster = {
   /** 마법 데미지 경감용 방어력. 미지정이면 전투 계산에서 def 를 폴백으로 쓴다. */
   magicDef?: number;
   spd: number;
+  /**
+   * true면 spd가 이미 플레이어와 같은 행동 속도 단위다. 일반 몬스터용 원시 속도
+   * 변환(10 + spd * 6)을 건너뛰고 ATB와 전투 화면에서 이 값을 직접 사용한다.
+   */
+  directActionSpd?: boolean;
   /** 0~100. 플레이어 공격을 % 확률로 회피. 0/undefined = 항상 피격. */
   evasionPct?: number;
   /**

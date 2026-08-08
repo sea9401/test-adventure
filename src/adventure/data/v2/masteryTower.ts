@@ -97,6 +97,7 @@ export function masteryTowerGuardianForFloor(floor: number): Monster {
     atk: Math.round((18 + power * 0.72 + f * 2) * (boss?.atkMult ?? 1)),
     def: Math.round((8 + power * 0.42 + f * 1.4) * (boss?.defMult ?? 1)),
     spd: Math.round((55 + f * 7) * (boss?.spdMult ?? 1)),
+    directActionSpd: true,
     accuracy: Math.min(
       92,
       Math.round(f * 2 + (f >= 16 ? 15 : 0) + (boss?.accuracyBonus ?? 0)),

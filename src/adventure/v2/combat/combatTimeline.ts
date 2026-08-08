@@ -45,6 +45,18 @@ export function effectiveMonsterSpd(rawSpd: number, depthCorrection = 0): number
   return 10 + s * 6 + Math.max(0, Number(depthCorrection) || 0);
 }
 
+// 수련의 탑처럼 데이터가 이미 플레이어와 같은 속도 단위로 작성된 몬스터는 spd를 직접 쓴다.
+// 일반 몬스터는 기존 원시 속도 매핑과 던전 깊이 보정을 그대로 유지한다.
+export function monsterActionSpd(
+  monster: { spd: number; directActionSpd?: boolean },
+  depthCorrection = 0,
+): number {
+  if (monster.directActionSpd) {
+    return Math.max(1, Number(monster.spd) || 0);
+  }
+  return effectiveMonsterSpd(monster.spd, depthCorrection);
+}
+
 // 깊이당 몬스터 effective SPD 가산 — 깊을수록 ↑(약한 보정). depth 1=0(초반 균형 보존), 이후
 //   선형, DEPTH_CORR_MAX_DEPTH 에서 평탄(endgame frontier 폭주 차단 — 무한 가산이면 느린/균형
 //   빌드가 깊이서 swarm 당해 무너짐을 sim 으로 확인). 다이얼: GAIN↑=페이스 유지↑·깊이 난이도↑.

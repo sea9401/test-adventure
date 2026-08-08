@@ -7,7 +7,7 @@
 import type { BattleLogEntry, BattleState } from "@/adventure/v2/combat/engine";
 import {
   depthSpdCorrection,
-  effectiveMonsterSpd,
+  monsterActionSpd,
 } from "@/adventure/v2/combat/combatTimeline";
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { V2Element } from "@/adventure/data/v2/elements";
@@ -77,7 +77,7 @@ function replayEnemy(
     atk: enemy.atk,
     def: enemy.def,
     spd: enemy.spd,
-    actionSpd: effectiveMonsterSpd(enemy.spd, depthCorr),
+    actionSpd: monsterActionSpd(enemy, depthCorr),
     accuracy: enemy.accuracy,
     evasionPct: enemy.evasionPct,
     atkType: enemy.atkType,

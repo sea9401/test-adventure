@@ -20,7 +20,7 @@ import {
   enemiesForDepth,
 } from "@/adventure/data/v2/dungeon";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
+import { scaleMonsterForHunt } from "@/adventure/data/v2/monsterScale";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
   );
   const profile = readProfileValue(saves.get("character-profile.v2"));
   const playerName = profile?.name ?? "모험가";
-  const scaledEnemy = scaleMonsterForFloor(baseMonster, depth, true);
+  const scaledEnemy = scaleMonsterForHunt(baseMonster, depth);
   const seededMonsterSkills = [enemy.statusSkill, enemy.castSkill].filter(
     (skill): skill is NonNullable<typeof skill> => skill != null,
   );

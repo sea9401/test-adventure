@@ -16,7 +16,7 @@ import {
   nextHuntStageDepth,
   MAX_FRONTIER_DEPTH,
 } from "./dungeon";
-import { scaleMonsterForFloor } from "./monsterScale";
+import { scaleMonsterForFloor, scaleMonsterForHunt } from "./monsterScale";
 import {
   floorStatMult,
   floorDefMult,
@@ -407,7 +407,7 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.name).toBe(base.name);
   });
 
-  it("상위 사냥터는 HP·공격력 예산을 방어·명중·회피·상태 피해 대응으로 옮긴다", () => {
+  it("상위 난도 스케일은 HP·공격력 예산을 방어·명중·회피·상태 피해 대응으로 옮긴다", () => {
     const depth = 72;
     const scaled = scaleMonsterForFloor(base, depth);
     const combatMult =
@@ -458,6 +458,17 @@ describe("scaleMonsterForFloor", () => {
         lateAccuracyMult(depth),
     );
     expect(scaled.statusDamageReductionPct).toBe(30);
+  });
+
+  it("일반 사냥터는 깊이 보너스와 몬스터 고유 상태 피해 감소를 적용하지 않는다", () => {
+    const baseWithResistance = {
+      ...base,
+      statusDamageReductionPct: 40,
+    };
+    const scaled = scaleMonsterForHunt(baseWithResistance, 72);
+
+    expect(scaled.statusDamageReductionPct).toBeUndefined();
+    expect(baseWithResistance.statusDamageReductionPct).toBe(40);
   });
 
   it("49+ 고정 난도 보정은 협동 보스 스케일에는 적용하지 않는다", () => {

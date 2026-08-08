@@ -44,6 +44,21 @@ describe("트레이너 상시 패시브", () => {
   });
 });
 
+describe("HP 소모 공격 툴팁", () => {
+  it("공통 명중 조건과 혈마군림의 보호막 포함 회복 기준을 안내한다", () => {
+    const bloodDemon = V2_SKILLS.v2c_blooddemon_reign;
+    expect(bloodDemon.description).toContain("명중 시 현재 HP 14%");
+    expect(bloodDemon.description).toContain("보호막과 HP");
+    expect(bloodDemon.description).toContain("실제로 준 피해의 20%");
+    expect(describeV2Skill(bloodDemon)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("명중 시 HP 14% 소모"),
+        expect.stringContaining("피해량 20% 회복"),
+      ]),
+    );
+  });
+});
+
 describe("사제 회복 패시브 (SPI PR-4 — v2c_acolyte_mana 리스킨)", () => {
   it("v2c_acolyte_mana 는 회복강화(healPowerPct) 패시브 — 옛 마나(maxMpPct) 아님", () => {
     const p = V2_SKILLS.v2c_acolyte_mana?.passive;

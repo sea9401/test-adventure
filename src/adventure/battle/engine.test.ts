@@ -1124,6 +1124,77 @@ describe("상태이상 스킬 명중 판정", () => {
   });
 });
 
+describe("HP 소모 공격", () => {
+  it("빗나가면 HP를 소모하지 않는다", () => {
+    const player: PlayerCombat = {
+      ...PLAYER,
+      hp: 500,
+      maxHp: 1000,
+      mp: 1000,
+      maxMp: 1000,
+      atk: 100,
+      strStat: 100,
+      accuracyPct: 0,
+      accRating: 0,
+    };
+    const state = initialBattleState(
+      player,
+      makeEnemy({ hp: 5000, evasionPct: 100 }),
+      "P",
+      {
+        learned: ["v2c_berserker_bloodslash"],
+        equipped: ["v2c_berserker_bloodslash"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(cast.state.playerHp).toBe(500);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(true);
+  });
+
+  it("혈마군림은 HP 소모 후 실제 HP 피해의 20%를 회복한다", () => {
+    const player: PlayerCombat = {
+      ...PLAYER,
+      hp: 1000,
+      maxHp: 1000,
+      mp: 1000,
+      maxMp: 1000,
+      atk: 100,
+      strStat: 100,
+      accuracyPct: 100,
+    };
+    const enemy = makeEnemy({ hp: 5000, def: 0, evasionPct: 0 });
+    const state = initialBattleState(
+      player,
+      enemy,
+      "P",
+      {
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+    const actualDamage = 5000 - cast.state.enemyHp;
+
+    expect(actualDamage).toBeGreaterThan(0);
+    expect(cast.state.playerHp).toBe(
+      Math.min(1000, 1000 - 140 + Math.floor(actualDamage * 0.2)),
+    );
+  });
+});
+
 describe("연타 (extraAttackEveryNTurns)", () => {
   it("매 5턴마다 마지막 공격 후 추가 1회 공격", () => {
     const dbl: PlayerCombat = {

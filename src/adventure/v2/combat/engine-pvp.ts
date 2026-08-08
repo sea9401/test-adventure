@@ -83,6 +83,7 @@ import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   isLimitedRecoverySkillId,
   smartDefaultPatternFromEquipped,
+  V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
 import {
   CORROSION_POISON_DAMAGE_SCALE,
@@ -1816,7 +1817,32 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextLog = st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
+  let nextOppShield = opp.stacks.playerShield;
   let healShieldAmount = 0;
+  const castSkillDef = result.castSkillId ? V2_SKILLS[result.castSkillId] : null;
+  const isHpCostAttack =
+    castSkillDef?.effects.some((effect) => effect.kind === "hpCostDamage") ?? false;
+  const isBloodDemonReign = result.castSkillId === "v2c_blooddemon_reign";
+  const bloodDemonHealPct = isBloodDemonReign
+    ? (castSkillDef?.effects.find(
+        (effect) => effect.kind === "healFromDamage",
+      )?.pct ?? 0)
+    : 0;
+  let bloodDemonEffectiveDamage = 0;
+  // hpCostDamage 는 명중한 공격에 HP를 피해로 교환한다. 미스/확정 회피에서는
+  // removeMissedV2SkillTargetEffects 가 selfHpCost 를 0으로 만들며, 적중 시에는
+  // 흡혈보다 먼저 비용을 내 최대 HP에서도 회복할 공간이 생기게 한다.
+  if (result.selfHpCost > 0) {
+    const cost = Math.min(Math.max(0, nextSideHp - 1), result.selfHpCost);
+    if (cost > 0) {
+      nextSideHp -= cost;
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `${result.castSkillName ?? "사혈"}! ${side.name} 생명력 ${cost} 소모`,
+        side: who,
+      });
+    }
+  }
   // 스킬 데미지 배수 — 주문중첩(워메이지)·약점노출(마도사 magicVuln)·속박(enemyVuln). 현재 누적
   //   기준, 적용은 이번 시전부터(적중 후 아래에서 스택 증가). 전부 미보유면 배수 1 → 무변(PvE 미러).
   const spellStackMult =
@@ -1952,7 +1978,35 @@ export function castV2SkillOnAttackerTurnPvP(
       (sum, hit) => sum + hit,
       0,
     );
-    nextOppHp = Math.max(0, nextOppHp - skillDamage);
+    // HP 소모 공격기는 보호막을 정상적으로 먼저 깎는다. 다른 직접 피해 스킬의
+    // 기존 경로는 이번 변경 범위 밖이므로 그대로 유지한다.
+    let displayedHits = perHit;
+    if (isHpCostAttack) {
+      let shieldAbsorbed = 0;
+      let hpDamage = 0;
+      displayedHits = perHit.map((hit) => {
+        const absorbed = Math.min(nextOppShield, hit);
+        nextOppShield -= absorbed;
+        shieldAbsorbed += absorbed;
+        const remaining = hit - absorbed;
+        const actualHpDamage = Math.min(nextOppHp, remaining);
+        nextOppHp -= actualHpDamage;
+        hpDamage += actualHpDamage;
+        return actualHpDamage;
+      });
+      if (shieldAbsorbed > 0) {
+        nextLog = appendLog(nextLog, {
+          kind: "info",
+          text: `[철벽] ${opp.name} 보호막이 ${shieldAbsorbed} 흡수 (남은 ${nextOppShield})`,
+          side: otherKey,
+        });
+      }
+      if (isBloodDemonReign) {
+        bloodDemonEffectiveDamage = shieldAbsorbed + hpDamage;
+      }
+    } else {
+      nextOppHp = Math.max(0, nextOppHp - skillDamage);
+    }
     if (skillDamage < skillDamageBeforeReduction) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -1960,7 +2014,7 @@ export function castV2SkillOnAttackerTurnPvP(
         side: otherKey,
       });
     }
-    for (const hit of perHit) {
+    for (const hit of displayedHits) {
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
@@ -1984,10 +2038,13 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   // heal: 같은 player_attack kind (자기 행동). 화상(healReduce)이 걸렸으면 회복 감소.
   //   디버프 없으면(0) Math.floor 미적용 → byte-identical.
-  if (result.selfHeal > 0 && result.castSkillName) {
+  const resolvedSelfHeal = isBloodDemonReign
+    ? Math.floor((bloodDemonEffectiveDamage * bloodDemonHealPct) / 100)
+    : result.selfHeal;
+  if (resolvedSelfHeal > 0 && result.castSkillName) {
     const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
     const debuffAdjustedHeal =
-      hr > 0 ? Math.floor(result.selfHeal * (1 - hr / 100)) : result.selfHeal;
+      hr > 0 ? Math.floor(resolvedSelfHeal * (1 - hr / 100)) : resolvedSelfHeal;
     // 무자원 1회 회복기는 combatShared 의 PvP 50% 제한을 이미 받는다. 아레나 공통
     // 지속력 배율까지 중복 적용하지 않고, 그 밖의 회복만 호출 표면 보정을 거친다.
     const effHeal = isLimitedRecoverySkillId(result.castSkillId)
@@ -2040,10 +2097,6 @@ export function castV2SkillOnAttackerTurnPvP(
       text: `[${sigMpRefund.label}] ${side.name} 마나 ${sigMpRefundAmount} 환급`,
       side: who,
     });
-  }
-  // PR2-B 사혈격(PvP) — 시전자 HP 소모(자살 방지 최소 1).
-  if (result.selfHpCost > 0) {
-    nextSideHp = Math.max(1, nextSideHp - result.selfHpCost);
   }
   // PR2-B — 보호막 + temp 버프(운기/연환집중/선풍각/속박) 적용(PvE applySkillTempBuffs/shield 미러).
   //   보호막 흡수는 기존 로직(stacks.playerShield)이 처리, 4 버프는 stacks 에 기록 후 전투에서 소비.
@@ -2289,6 +2342,7 @@ export function castV2SkillOnAttackerTurnPvP(
     v2Dots: nextOppDots,
     stacks: {
       ...opp.stacks,
+      playerShield: nextOppShield,
       magicVulnStacks: nextOppMagicVuln,
       // 화상 부착 — 시전자가 상대에게 회복 감소 디버프. 상대는 자기 턴(cast hook)에 turns 감소.
       healReducePct: result.enemyHealReduceToApply?.pct ?? opp.stacks.healReducePct,

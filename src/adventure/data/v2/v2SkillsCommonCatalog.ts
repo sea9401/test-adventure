@@ -2289,7 +2289,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_blooddemon_reign: {
     id: "v2c_blooddemon_reign", name: "혈마군림", stat: "str", category: "attack", tier: 3,
-    description: "피를 태워 마성을 해방한다. 약해진 적을 짓밟고 빼앗은 생명으로 상처를 되메운다.",
+    description: "명중 시 현재 HP 14%를 소모한다. 보호막과 HP에 실제로 준 피해의 20%를 회복한다.",
     mpCost: 62, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
       { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.3 },

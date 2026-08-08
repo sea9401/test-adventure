@@ -1716,6 +1716,26 @@ export function applyPlayerV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextLog = state.log;
   let healShieldAmount = 0;
+  const isBloodDemonReign = result.castSkillId === "v2c_blooddemon_reign";
+  const bloodDemonHealPct = isBloodDemonReign
+    ? (V2_SKILLS.v2c_blooddemon_reign.effects.find(
+        (effect) => effect.kind === "healFromDamage",
+      )?.pct ?? 0)
+    : 0;
+  let bloodDemonEffectiveDamage = 0;
+  // hpCostDamage 의 HP는 적중한 피해로 바뀌는 자원이다. 미스에서는 공통 miss
+  // 정리가 비용을 0으로 만들고, 적중 시에는 흡혈보다 먼저 비용을 낸다.
+  if (result.selfHpCost > 0) {
+    const cost = Math.min(Math.max(0, nextPlayerHp - 1), result.selfHpCost);
+    if (cost > 0) {
+      nextPlayerHp -= cost;
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `${result.castSkillName ?? "사혈"}! 생명력 ${cost} 소모`,
+        turn: "player",
+      });
+    }
+  }
   if (skillCritAfterEvadeFired && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1744,7 +1764,11 @@ export function applyPlayerV2SkillCast(
     landedSkillHits = perHit.filter((hit) => hit > 0).length;
     nextComboHitCount = comboResult.nextComboHitCount;
     const boostedSkillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
+    const enemyHpBeforeSkill = nextEnemyHp;
     nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
+    if (isBloodDemonReign) {
+      bloodDemonEffectiveDamage = enemyHpBeforeSkill - nextEnemyHp;
+    }
     for (const hit of perHit) {
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
@@ -1766,9 +1790,12 @@ export function applyPlayerV2SkillCast(
     });
   }
   // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
-  if (result.selfHeal > 0 && result.castSkillName) {
+  const resolvedSelfHeal = isBloodDemonReign
+    ? Math.floor((bloodDemonEffectiveDamage * bloodDemonHealPct) / 100)
+    : result.selfHeal;
+  if (resolvedSelfHeal > 0 && result.castSkillName) {
     const before = nextPlayerHp;
-    nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + result.selfHeal);
+    nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + resolvedSelfHeal);
     const actual = nextPlayerHp - before;
     if (actual > 0) {
       nextLog = appendLog(nextLog, {
@@ -1807,18 +1834,6 @@ export function applyPlayerV2SkillCast(
       text: `[${sigMpRefund.label}] 마나 ${sigMpRefundAmount} 환급`,
       turn: "player",
     });
-  }
-  // PR2-B 사혈격 — 현재 HP 소모(자살 방지 최소 1).
-  if (result.selfHpCost > 0) {
-    const cost = Math.min(Math.max(0, nextPlayerHp - 1), result.selfHpCost);
-    if (cost > 0) {
-      nextPlayerHp -= cost;
-      nextLog = appendLog(nextLog, {
-        kind: "info",
-        text: `${result.castSkillName ?? "사혈"}! 생명력 ${cost} 소모`,
-        turn: "player",
-      });
-    }
   }
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);

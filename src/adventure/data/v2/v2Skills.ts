@@ -1697,7 +1697,7 @@ function describeV2Effect(
     case "enemyDotVuln":
       return `적 지속/저주 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "hpCostDamage":
-      return `HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 기준 소모량×${e.soakRatio}${e.soakCurrentHpFloorPct ? ` (추가 피해 기준 현재 HP 최소 ${e.soakCurrentHpFloorPct}%)` : ""}`;
+      return `명중 시 HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 기준 소모량×${e.soakRatio}${e.soakCurrentHpFloorPct ? ` (추가 피해 기준 현재 HP 최소 ${e.soakCurrentHpFloorPct}%)` : ""}`;
     case "healToDamage":
       return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} (회복량 보정 적용) → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":

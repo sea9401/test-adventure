@@ -85,6 +85,7 @@ function seed(activeClass: string, group: string, points: number): void {
     groups: { [group]: { points, cultivations: 3, tier: 2, cumLevel: 200 } },
     caps: { int: 40 },
     grown: { int: 30 },
+    growthRespecPoints: 20,
   });
   store.set("skills.v2", { learned: [], equipped: [] });
 }
@@ -123,6 +124,7 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     };
     expect(stored.points).toBe(5000);
     expect(stored.jobHistory).toEqual(["mage", "warrior"]);
+    expect(stored).toMatchObject({ grown: {}, growthRespecPoints: 0 });
     for (const g of Object.values(stored.groups ?? {})) {
       expect(g.points).toBeUndefined();
     }

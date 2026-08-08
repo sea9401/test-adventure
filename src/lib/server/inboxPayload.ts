@@ -16,15 +16,15 @@ import {
   type EquipmentInstance,
 } from "@/adventure/inventory/equipmentInstances";
 import {
-  isMuseunShopItemId,
-  type MuseunShopItemId,
+  isMuseunAdminGiftItemId,
+  type MuseunAdminGiftItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import { TITLES } from "@/adventure/data/titles";
 
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
 export type AdminGiftCashItem = {
-  itemId: MuseunShopItemId;
+  itemId: MuseunAdminGiftItemId;
   count: number;
 };
 
@@ -371,7 +371,12 @@ function parseRewardCashItems(v: unknown): AdminGiftCashItem[] {
     const row = item as Record<string, unknown>;
     const itemId = asString(row.itemId);
     const count = asNonNegInt(row.count);
-    if (itemId && isMuseunShopItemId(itemId) && count != null && count > 0) {
+    if (
+      itemId &&
+      isMuseunAdminGiftItemId(itemId) &&
+      count != null &&
+      count > 0
+    ) {
       out.push({ itemId, count });
     }
   }

@@ -118,7 +118,8 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       points: 0,
       groups: { warrior: { tier: 5, cultivations: 0, cumLevel: 2250 } },
       caps: {},
-      grown: {},
+      grown: { str: 12 },
+      growthRespecPoints: 9,
     });
 
     const res = await POST(req("martial"));
@@ -137,5 +138,9 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       "v2c_mage_boltcast",
       "v2c_warrior_strike",
     ]);
+    expect(store.get("proficiency.v2")).toMatchObject({
+      grown: {},
+      growthRespecPoints: 0,
+    });
   });
 });

@@ -17,4 +17,14 @@ describe("관리자 공지·우편", () => {
     expect(html).not.toContain("유저 탭에서 복사한 user id");
     expect(html).not.toContain('placeholder="user id"');
   });
+
+  it("보상 우편 첨부 목록에서 수행 초기화 물약을 선택할 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <AdminProvider>
+        <BroadcastTab />
+      </AdminProvider>,
+    );
+
+    expect(html).toContain("수행 초기화 물약");
+  });
 });

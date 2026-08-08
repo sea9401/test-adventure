@@ -107,6 +107,7 @@ describe("proficiencySection", () => {
         caps: { str: 2, vit: 1, dex: 1 },
         cultivationPointsSpent: 8,
         cultivationResetCount: 1,
+        growthRespecPoints: 27,
         cultivationLedgerVersion: 1,
       },
       { class: "warrior" },
@@ -115,6 +116,7 @@ describe("proficiencySection", () => {
     expect(s.current.cultivationPointsSpent).toBe(8);
     expect(s.current.cultivationResetCount).toBe(1);
     expect(s.current.cultivationResetGoldCost).toBe(15_000_000);
+    expect(s.current.growthRespecPoints).toBe(27);
   });
 
   it("사냥 숙련도가 높아도 표시 한계치는 기본 60 + 수행 이득만 반영한다", () => {

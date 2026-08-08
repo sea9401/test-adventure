@@ -3,6 +3,7 @@ import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_COSMETIC_BOX_ITEM_IDS,
   MUSEUN_COSMETIC_INVENTORY_ITEM_IDS,
+  MUSEUN_ADMIN_GIFT_ITEM_IDS,
   MUSEUN_SHOP_ITEM_IDS,
   MUSEUN_UTILITY_ITEM_IDS,
   MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY,
@@ -16,10 +17,18 @@ import {
   removeMuseunCashItem,
   isTradeableMuseunCashItemId,
   isMuseunShopItemId,
+  isMuseunAdminGiftItemId,
 } from "./museunCashItems";
 
 describe("무슨 코인 캐시 소모품", () => {
   it("프로필·개명 변경권과 30일 지원권의 가격·효과를 고정한다", () => {
+    expect(MUSEUN_CASH_ITEMS.cultivation_reset_potion).toMatchObject({
+      name: "수행 초기화 물약",
+      coinPrice: 0,
+      delivery: "inventory",
+      tradeable: false,
+      effect: { kind: "cultivation_reset" },
+    });
     expect(MUSEUN_CASH_ITEMS.profile_badge_display_stand).toMatchObject({
       coinPrice: 600,
       delivery: "permanent",
@@ -84,12 +93,16 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isMuseunCashItemId("rename_permit")).toBe(true);
     expect(isMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isMuseunCashItemId("adventure_support_30d")).toBe(true);
+    expect(isMuseunCashItemId("cultivation_reset_potion")).toBe(true);
     expect(isMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isMuseunShopItemId("profile_border_box")).toBe(true);
     expect(isMuseunShopItemId("chat_badge_box")).toBe(true);
     expect(isMuseunShopItemId("profile_badge_display_stand")).toBe(true);
     expect(isMuseunShopItemId("prismatic_profile_border")).toBe(false);
     expect(MUSEUN_SHOP_ITEM_IDS).not.toContain("starlight_chat_badge");
+    expect(MUSEUN_SHOP_ITEM_IDS).not.toContain("cultivation_reset_potion");
+    expect(MUSEUN_ADMIN_GIFT_ITEM_IDS).toContain("cultivation_reset_potion");
+    expect(isMuseunAdminGiftItemId("cultivation_reset_potion")).toBe(true);
     expect(isMuseunCashItemId("toString")).toBe(false);
     expect(isMuseunCashItemId("unknown")).toBe(false);
   });
@@ -111,6 +124,7 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("rename_permit");
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("profile_image_permit");
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("adventure_support_30d");
+    expect(MUSEUN_UTILITY_ITEM_IDS).toContain("cultivation_reset_potion");
     expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("profile_border_box");
     expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("cosmetic_extension_30d");
   });
@@ -122,6 +136,9 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isTradeableMuseunCashItemId("rename_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("adventure_support_30d")).toBe(true);
+    expect(isTradeableMuseunCashItemId("cultivation_reset_potion")).toBe(
+      false,
+    );
     expect(isTradeableMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isTradeableMuseunCashItemId("profile_border_box")).toBe(true);
     expect(isTradeableMuseunCashItemId("chat_badge_box")).toBe(true);

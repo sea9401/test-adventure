@@ -453,12 +453,15 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           error?: string;
           cashItems?: MuseunCashItemCounts;
           daysAdded?: number;
+          refundedPoints?: number;
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
             `✗ ${
               data?.error === "not_owned"
                 ? "보유한 아이템이 없습니다"
+                : data?.error === "nothing_to_reset"
+                  ? "초기화할 수행 한계치가 없습니다"
                 : (data?.error ?? `http ${res.status}`)
             }`,
           );
@@ -466,7 +469,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         }
         setCashItems(data.cashItems ?? {});
         await refreshGameState();
-        notifySystem(`✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`);
+        notifySystem(
+          itemId === "cultivation_reset_potion"
+            ? `✓ 수행 초기화 완료 · 숙달 포인트 +${(data.refundedPoints ?? 0).toLocaleString()}`
+            : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
+        );
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {

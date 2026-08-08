@@ -52,6 +52,9 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
   if (effect.kind === "adventure_support") {
     return `모험 지원 혜택 ${effect.days}일`;
   }
+  if (effect.kind === "cultivation_reset") {
+    return "골드 소모 없이 수행 전체 초기화";
+  }
   if (effect.kind === "profile_border_box") return "미보유 프로필 꾸미기 1종 확정";
   if (effect.kind === "chat_badge_box") return "미보유 채팅 배지 1종 확정";
   return "미보유 닉네임 꾸미기 1종 확정";

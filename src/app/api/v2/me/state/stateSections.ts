@@ -538,6 +538,7 @@ export function proficiencySection(
       capGains: totalCapGains(prof),
       nextCost: cultivationCost(totalCapGains(prof)),
       cultivationPointsSpent: refundableCultivationPoints(prof),
+      growthRespecPoints: prof.growthRespecPoints ?? 0,
       cultivationResetCount: prof.cultivationResetCount ?? 0,
       cultivationResetGoldCost: cultivationResetGoldCost(
         prof.cultivationResetCount ?? 0,

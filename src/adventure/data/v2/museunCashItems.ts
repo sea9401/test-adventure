@@ -6,6 +6,8 @@ import {
 
 export const MUSEUN_COIN_WALLET_KEY = "museun-coin-wallet.v1";
 export const MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY = 99;
+export const CULTIVATION_RESET_POTION_ITEM_ID =
+  "cultivation_reset_potion" as const;
 
 export const MUSEUN_CASH_ITEMS = {
   [PROFILE_BADGE_STAND_ITEM_ID]: {
@@ -37,6 +39,16 @@ export const MUSEUN_CASH_ITEMS = {
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "rename" },
+  },
+  [CULTIVATION_RESET_POTION_ITEM_ID]: {
+    id: CULTIVATION_RESET_POTION_ITEM_ID,
+    name: "수행 초기화 물약",
+    description:
+      "골드 소모 없이 수행 한계치를 모두 초기화하고 사용한 숙달 포인트를 돌려받습니다. 현재 성장 스탯은 재분배 대기 포인트로 회수되며, 다시 수행하면 새 수행 방향에 맞춰 배분됩니다. 계정 귀속 아이템입니다.",
+    coinPrice: 0,
+    delivery: "inventory",
+    tradeable: false,
+    effect: { kind: "cultivation_reset" },
   },
   adventure_support_30d: {
     id: "adventure_support_30d",
@@ -573,9 +585,19 @@ export const MUSEUN_UTILITY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
 
 // 상점에서는 사용 가능한 아이템만 직접 판매한다. 꾸미기는 각 전용 상자에서 해금되고
 // 통합 연장권으로 사용 기간을 늘린다.
+type MuseunShopInventoryItemId = Exclude<
+  MuseunInventoryItemId,
+  typeof CULTIVATION_RESET_POTION_ITEM_ID
+>;
+
+const MUSEUN_SHOP_INVENTORY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
+  (id): id is MuseunShopInventoryItemId =>
+    id !== CULTIVATION_RESET_POTION_ITEM_ID,
+);
+
 export const MUSEUN_SHOP_ITEM_IDS = [
   PROFILE_BADGE_STAND_ITEM_ID,
-  ...MUSEUN_INVENTORY_ITEM_IDS,
+  ...MUSEUN_SHOP_INVENTORY_ITEM_IDS,
 ] as const;
 export type MuseunShopItemId = (typeof MUSEUN_SHOP_ITEM_IDS)[number];
 
@@ -583,6 +605,22 @@ export function isMuseunShopItemId(value: unknown): value is MuseunShopItemId {
   return (
     typeof value === "string" &&
     (MUSEUN_SHOP_ITEM_IDS as readonly string[]).includes(value)
+  );
+}
+
+export const MUSEUN_ADMIN_GIFT_ITEM_IDS = [
+  ...MUSEUN_SHOP_ITEM_IDS,
+  CULTIVATION_RESET_POTION_ITEM_ID,
+] as const;
+export type MuseunAdminGiftItemId =
+  (typeof MUSEUN_ADMIN_GIFT_ITEM_IDS)[number];
+
+export function isMuseunAdminGiftItemId(
+  value: unknown,
+): value is MuseunAdminGiftItemId {
+  return (
+    typeof value === "string" &&
+    (MUSEUN_ADMIN_GIFT_ITEM_IDS as readonly string[]).includes(value)
   );
 }
 

@@ -9,6 +9,7 @@
 import {
   V2_EQUIPMENT,
   V2_EQUIP_OPTION_KEYS,
+  TIER_6_POWER_SCALE_VERSION,
   isUnique,
   sellPriceOf,
   type V2Equipment,
@@ -38,6 +39,9 @@ export function rollItemStats(
   const roll: V2EquipRoll = {
     power: rollStat(item.power, 1, rng),
     weight: 0,
+    ...(item.tier === 16
+      ? { powerScaleVersion: TIER_6_POWER_SCALE_VERSION }
+      : {}),
   };
   if (item.options) {
     const opts: V2EquipOptions = {};

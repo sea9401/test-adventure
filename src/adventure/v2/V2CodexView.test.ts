@@ -34,6 +34,7 @@ describe("모험의 서 URL 탭", () => {
   it("탭이 없거나 잘못됐으면 기존 기본 탭을 사용한다", () => {
     expect(codexTabFromParam(null)).toBe("spFruit");
     expect(codexTabFromParam("unknown")).toBe("spFruit");
+    expect(codexTabFromParam("materials")).toBe("spFruit");
   });
 });
 

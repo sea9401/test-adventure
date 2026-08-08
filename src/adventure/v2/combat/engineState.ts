@@ -406,8 +406,8 @@ export type PlayerCombat = {
   skirmishNextTurnBonus?: number;
   // 반사 갑주 — 피격 시 받은 HP 피해의 N% 를 적에게 반사. 0/undefined = 미장착.
   thornsPct?: number;
-  // 수호자 반사 — 피격 시 내 방어력 기반 데미지. PvP 는 전투 중 방어력 변동까지 반영하기 위해
-  //   계수를 보존하고, thornsFlatFromDef 는 구 경로/PvE 호환용 시작 시점 원량으로 둔다.
+  // 수호자 반사 — 피격 시 전투 시작 방어력 기반 데미지. thornsDefPct 는 구 전투 데이터의
+  //   시작 원량 복원용 계수이며, thornsFlatFromDef 가 PvE/PvP 공통 원량이다.
   thornsDefPct?: number;
   thornsFlatFromDef?: number;
   // 반사 간파 — 반사 계열로 받는 피해 감소. 일반 받는 피해 감소와 별도로 적용한다.

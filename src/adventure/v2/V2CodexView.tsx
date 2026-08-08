@@ -3,28 +3,14 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import {
-  Mountains,
-  Package,
-  Question,
-  Sword,
-} from "@phosphor-icons/react";
+import { Package, Question, Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
-  V2_MATERIALS,
-  V2_MATERIAL_SELL_PRICE,
-  MATERIAL_DROP_SOURCES,
-  type V2MaterialId,
-  type MaterialDropSource,
-} from "@/adventure/data/v2/dungeonDrops";
-import {
-  MAIN_DUNGEON,
   MAX_FRONTIER_DEPTH,
   dungeonThemeCatalog,
 } from "@/adventure/data/v2/dungeon";
-import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
@@ -83,32 +69,15 @@ import { TUTORIAL_CODEX_INTRO } from "@/adventure/tutorial/flags";
 import { LifeFieldCodexPanel } from "@/adventure/v2/LifeFieldPanels";
 import { CookingCodexPanel } from "@/adventure/v2/CookingCodexPanel";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
+import {
+  commonHuntMaterialDrops,
+  formatHuntMaterialDropChance,
+  regionalHuntMaterialDrops,
+  type HuntMaterialDropCatalogEntry,
+} from "@/adventure/data/v2/huntMaterialCatalog";
 
-// v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
+// v2 모험의 서 — 사냥터(장비·재료 드랍) + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
-
-// floor id → "들판 (Lv 1~5)" 식 표시명. MAIN_DUNGEON 이 단일 출처.
-const FLOOR_LABEL: Record<DungeonFloorId, string> = (() => {
-  const out = {} as Record<DungeonFloorId, string>;
-  for (const f of MAIN_DUNGEON.floors) {
-    const req =
-      f.requirement.kind === "power"
-        ? ` (난이도 지표 ${f.requirement.min})`
-        : "";
-    out[f.id] = `${f.name}${req}`;
-  }
-  return out;
-})();
-
-function formatChance(chance: number): string {
-  return `${(chance * 100).toFixed(chance < 0.01 ? 2 : 1)}%`;
-}
-
-function formatAmount(s: MaterialDropSource): string {
-  return s.amountMin === s.amountMax
-    ? `×${s.amountMin}`
-    : `×${s.amountMin}~${s.amountMax}`;
-}
 
 // 도감 티어 배지 색 — 어보 티어.
 const TIER_BADGE: Record<FishTier, string> = {
@@ -139,7 +108,6 @@ const defaultFishingCodexMeta = (discoveredCount = 0): FishingCodexMeta => ({
 
 export type CodexTab =
   | "huntground"
-  | "materials"
   | "equipment"
   | "spFruit"
   | "fish"
@@ -150,7 +118,6 @@ export type CodexTab =
 
 const CODEX_TABS: readonly CodexTab[] = [
   "huntground",
-  "materials",
   "equipment",
   "spFruit",
   "fish",
@@ -233,6 +200,78 @@ function DropChip({
   );
 }
 
+const COMMON_HUNT_MATERIAL_DROPS = commonHuntMaterialDrops();
+
+function MaterialDropGrid({
+  entries,
+}: {
+  entries: readonly HuntMaterialDropCatalogEntry[];
+}) {
+  return (
+    <div className="grid gap-1.5 sm:grid-cols-2">
+      {entries.map((entry) => (
+        <div
+          key={`${entry.id}:${entry.source}`}
+          className={`${SURFACE_INSET} flex min-h-[72px] items-start gap-2.5 p-2.5`}
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            <Package size={18} weight="duotone" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-xs font-bold leading-5 text-zinc-900 dark:text-zinc-100">
+                {entry.name}
+              </span>
+              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                {formatHuntMaterialDropChance(entry.chancePct)}
+              </span>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+              <span>{entry.source} · 승리 시 1개</span>
+              {entry.boost && (
+                <span className="rounded border border-sky-200 bg-sky-50 px-1 py-px font-medium text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                  희귀 지도 보정
+                </span>
+              )}
+            </div>
+            <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+              {entry.description}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CommonMaterialDropsCard() {
+  if (COMMON_HUNT_MATERIAL_DROPS.length === 0) return null;
+  return (
+    <Card padding="md">
+      <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200 pb-2 dark:border-zinc-800">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold">
+            <Package
+              size={18}
+              weight="duotone"
+              className="text-amber-600 dark:text-amber-300"
+              aria-hidden
+            />
+            전 지역 공통 재료
+          </h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+            일반 사냥 승리마다 서로 독립적으로 판정되는 기본 확률입니다.
+          </p>
+        </div>
+        <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          기본 확률 기준
+        </span>
+      </div>
+      <MaterialDropGrid entries={COMMON_HUNT_MATERIAL_DROPS} />
+    </Card>
+  );
+}
+
 // 스타터 풀(깊이 1~6)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 카탈로그 티어 가중 후
 //   무작위 슬롯·컨셉으로 뽑히므로 해당 카탈로그 티어들의 그리드 전 종류가 후보.
 //   유니크·제작전용·전문화스타터·밴드흔한(noDrop) 제외.
@@ -299,8 +338,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     anchor: ItemCardAnchor;
   } | null>(null);
 
-  // 내 도감 진척 — /me/state 가 권위. 재료: 수집한 id 집합. 어보: 발견 id + 종별 최대어.
-  const [discovered, setDiscovered] = useState<Set<string>>(new Set());
+  // 내 도감 진척 — /me/state 가 권위. 어보: 발견 id + 종별 최대어.
   const [fishDiscovered, setFishDiscovered] = useState<Set<string>>(new Set());
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
   const [cookingDiscoveredIds, setCookingDiscoveredIds] = useState<string[]>([]);
@@ -333,9 +371,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive || !j) return;
-        if (Array.isArray(j?.codex?.discoveredIds)) {
-          setDiscovered(new Set(j.codex.discoveredIds as string[]));
-        }
         // 어보 진척은 PR-2 에서 라우트가 채운다. 없으면 빈 상태(전종 미발견).
         let fishingDiscoveredCount = 0;
         if (Array.isArray(j?.fishingCodex?.discoveredIds)) {
@@ -446,18 +481,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       alive = false;
     };
   }, [tab, jobCodex]);
-
-
-  // 드랍 출처가 하나라도 있는 재료만 — 출처 없는 재료(미배치)는 숨긴다.
-  const materialEntries = (Object.keys(V2_MATERIALS) as V2MaterialId[])
-    .map((id) => ({
-      id,
-      material: V2_MATERIALS[id],
-      sources: MATERIAL_DROP_SOURCES[id],
-      sellPrice: V2_MATERIAL_SELL_PRICE[id],
-    }))
-    .filter((e) => e.sources.length > 0)
-    .sort((a, b) => a.material.name.localeCompare(b.material.name));
   const spFruitUseCap = SP_FRUIT_TIERS.reduce(
     (sum, tier) => sum + SP_FRUIT[tier].useCap,
     0,
@@ -621,6 +644,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           />
         ) : (
           <div className="space-y-3">
+            <CommonMaterialDropsCard />
             {themes.map((theme) => {
               const deepDepth = codexThemeDeepDepth(theme.depthStart);
               const recommendedPower = floorPowerGate(deepDepth);
@@ -637,6 +661,12 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 theme.depthStart,
                 deepDepth,
               );
+              const materialDrops = regionalHuntMaterialDrops({
+                areaName: theme.name,
+                depthStart: theme.depthStart,
+                depthEnd: deepDepth,
+                monsterKeys: theme.enemies.map((enemy) => enemy.key),
+              });
               // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~78) 또는 들판 스타터 그리드(1~6).
               const regularIds: V2EquipmentId[] = bandIds.length > 0
                 ? [...bandIds, ...skyRiftWeaponIds]
@@ -717,8 +747,32 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     })}
                   </div>
 
+                  {materialDrops.length > 0 && (
+                    <section className="mt-2.5 space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                          <Package size={15} weight="duotone" aria-hidden />
+                          지역 재료 드랍
+                        </h3>
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                          지역 공통 · 몬스터 전용
+                        </span>
+                      </div>
+                      <MaterialDropGrid entries={materialDrops} />
+                    </section>
+                  )}
+
                   {/* 드랍 — 일반·세트·유니크를 표시 속성으로 분리. 유니크 세트는 유니크 우선. */}
                   <div className="mt-2.5 space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-200">
+                        <Sword size={15} weight="duotone" aria-hidden />
+                        장비 드랍
+                      </h3>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                        일반 · 세트 · 유니크
+                      </span>
+                    </div>
                     {regularIds.length > 0 && (
                       <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
                         일반·세트 장비 {regularChance}
@@ -993,76 +1047,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {tab === "materials" && (
-        materialEntries.length === 0 ? (
-          <EmptyState
-            icon={<Package size={40} weight="duotone" />}
-            title="아직 기록된 재료가 없습니다"
-            message="사냥터에서 재료를 얻으면 여기에 출처가 표시됩니다."
-          />
-        ) : (
-          <Card padding="none" className="overflow-hidden">
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {materialEntries.map(({ id, material, sources, sellPrice }) => {
-                const found = discovered.has(id);
-                return (
-                  <li
-                    key={id}
-                    className={`ui-codex-card px-3 py-2.5 ${found ? "is-registered" : "text-zinc-500 dark:text-zinc-400"}`}
-                  >
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        <Package size={16} weight="duotone" />
-                        {material.name}
-                        {found ? (
-                          <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                            등재
-                          </span>
-                        ) : (
-                          <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
-                            미발견
-                          </span>
-                        )}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        판매 {sellPrice}골드
-                      </span>
-                    </div>
-                    {material.description && (
-                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                        {material.description}
-                      </p>
-                    )}
-                    <ul className="mt-2 space-y-0.5 border-t border-dashed border-zinc-200 pt-1.5 text-[11px] dark:border-zinc-700">
-                      {sources.map((s) => (
-                        <li
-                          key={s.floorId}
-                          className="flex items-center justify-between gap-2 py-0.5"
-                        >
-                          <span className="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
-                            <Mountains
-                              size={15}
-                              weight="duotone"
-                              className="text-zinc-400 dark:text-zinc-500"
-                            />
-                            {FLOOR_LABEL[s.floorId]}
-                            <span className="text-zinc-500 dark:text-zinc-400">
-                              {formatAmount(s)}
-                            </span>
-                          </span>
-                          <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-                            {formatChance(s.chance)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        )
-      )}
       {tab === "fish" && (
         <div className="space-y-3">
           <Card padding="md">

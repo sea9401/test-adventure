@@ -51,7 +51,7 @@ test("신규 모험가의 초기 지급·첫 전직 경계와 저장 진행을 �
     level: 1,
     exp: 0,
     gold: 50,
-    stamina: { current: 1500 },
+    stamina: { current: 2_000 },
   });
   expect(bootstrap.saves["character.v2"]).not.toHaveProperty("class");
   expect(bootstrap.saves["inventory.v2"]).toMatchObject({

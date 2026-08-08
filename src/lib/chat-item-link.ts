@@ -1,7 +1,7 @@
 import {
   V2_EQUIPMENT,
   parseCraftedBy,
-  parseEquipRoll,
+  parseEquipRollForItem,
   parseEquipmentSave,
   parseInstanceCraftQuality,
   type V2CraftQualityState,
@@ -51,7 +51,7 @@ export function parseChatEquipmentLink(raw: unknown): ChatEquipmentLink | null {
     return null;
   }
   const itemId = value.itemId as V2EquipmentId;
-  const roll = parseEquipRoll(value.roll);
+  const roll = parseEquipRollForItem(V2_EQUIPMENT[itemId], value.roll);
   const craftedBy = parseCraftedBy(value.craftedBy);
   const craftQuality = parseInstanceCraftQuality(
     value.craftQuality,

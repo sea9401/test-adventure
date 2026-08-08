@@ -1,6 +1,9 @@
 import type { Monster } from "@/adventure/data/monsters";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
-import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
+import {
+  smartDefaultPatternFromEquipped,
+  V2_SKILLS,
+} from "@/adventure/data/v2/v2Skills";
 import {
   computeMpRestoreAmount,
   type Potion,
@@ -959,6 +962,7 @@ export function initialBattleState(
       enemyDamageDownTurns: 0,
       enemySkillProcDownPct: 0,
       enemySkillProcDownTurns: 0,
+      provokedEnemyBasicAttacks: 0,
       enemyDotVulnPct: 0,
       enemyDotVulnTurns: 0,
     },
@@ -1011,12 +1015,21 @@ export function advanceTurn(
   const enteringEnemyPhase =
     state.phase === "enemy" && state.turn.enemyAttacksLeft <= 0;
   if (enteringEnemyPhase) {
+    const provokedEnemyBasicAttacks =
+      state.stacks.provokedEnemyBasicAttacks ?? 0;
     state = {
       ...state,
       turn: {
         ...state.turn,
-        enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
+        enemyAttacksLeft:
+          provokedEnemyBasicAttacks > 0
+            ? provokedEnemyBasicAttacks
+            : rollEnemyAttackCount(state.enemy),
       },
+      stacks:
+        provokedEnemyBasicAttacks > 0
+          ? { ...state.stacks, provokedEnemyBasicAttacks: 0 }
+          : state.stacks,
     };
     const enemyDotTick = tickV2Dots(
       state.enemyV2Dots,
@@ -1905,6 +1918,24 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  const provoke =
+    !skillMissed && result.castSkillId
+      ? V2_SKILLS[result.castSkillId]?.pveProvokeBasicAttacks
+      : undefined;
+  const provokeMin = provoke ? Math.max(1, Math.floor(provoke.min)) : 0;
+  const provokeMax = provoke
+    ? Math.max(provokeMin, Math.floor(provoke.max))
+    : 0;
+  const provokedEnemyBasicAttacks = provoke
+    ? provokeMin + Math.floor(Math.random() * (provokeMax - provokeMin + 1))
+    : 0;
+  if (provokedEnemyBasicAttacks > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "도발"}] ${state.enemy.name}의 다음 행동을 기본 공격 ${provokedEnemyBasicAttacks}회로 강제한다.`,
+      turn: "player",
+    });
+  }
   if (result.enemyDotVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1958,6 +1989,13 @@ export function applyPlayerV2SkillCast(
       signatureHitCount: nextSigHitCount,
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
+      provokedEnemyBasicAttacks:
+        provokedEnemyBasicAttacks > 0
+          ? Math.max(
+              state.stacks.provokedEnemyBasicAttacks ?? 0,
+              provokedEnemyBasicAttacks,
+            )
+          : (state.stacks.provokedEnemyBasicAttacks ?? 0),
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
       playerShield:
         state.stacks.playerShield +
@@ -2175,6 +2213,14 @@ function resolveBattleLegacy(
     } else if (state.phase === "enemy") {
       // PR-5b — enemy 의 v2 스킬 cast (player cast hook 미러). monster.v2Skills 미지정이면 no-op.
       v2CastedThisPlayerPhase = false;
+      // 도발된 다음 적 행동은 스킬 판정을 생략하고 예약된 2~3회 기본 공격만 수행한다.
+      // 다중 공격 도중 두 번째 반복에서 스킬이 끼어들지 않도록 enemy phase cast 플래그도 소비한다.
+      if (
+        !v2CastedThisEnemyPhase &&
+        (state.stacks.provokedEnemyBasicAttacks ?? 0) > 0
+      ) {
+        v2CastedThisEnemyPhase = true;
+      }
       if (!v2CastedThisEnemyPhase) {
         v2CastedThisEnemyPhase = true;
         const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);

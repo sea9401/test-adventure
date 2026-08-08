@@ -362,7 +362,9 @@ describe("v2Skills 카탈로그", () => {
     expect(corrosion).toContain("중독 적 방어");
 
     const guard = v2SkillSearchText(V2_SKILLS.v2c_ironknight_guard);
-    expect(guard).toContain("보호막");
+    expect(guard).toContain("사냥 도발");
+    expect(guard).toContain("기본 공격 2~3회");
+    expect(guard).toContain("pvp 도발");
   });
 
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {

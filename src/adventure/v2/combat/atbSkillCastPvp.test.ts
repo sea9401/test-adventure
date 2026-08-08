@@ -66,4 +66,40 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     ).length;
     expect(p1Basic).toBe(0);
   });
+
+  it("철벽 도발은 PvP에서 추가타 없이 상대의 다음 행동만 기본 공격으로 유도한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattlePvP(caster, target, "철벽기사", "상대", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: {
+          learned: ["v2c_ironknight_guard"],
+          equipped: ["v2c_ironknight_guard"],
+        },
+        p2: {
+          learned: ["v2c_warrior_flurry"],
+          equipped: ["v2c_warrior_flurry"],
+        },
+      },
+    } as never);
+    vi.restoreAllMocks();
+
+    const provokeIndex = res.finalState.log.findIndex(
+      (entry) =>
+        entry.side === "p1" && entry.text.includes("스킬 발동률 −100%p"),
+    );
+    expect(provokeIndex).toBeGreaterThanOrEqual(0);
+    const firstOpponentAttack = res.finalState.log
+      .slice(provokeIndex + 1)
+      .find(
+        (entry) =>
+          entry.side === "p2" && entry.kind === "player_attack",
+      );
+    expect(firstOpponentAttack?.text).toContain("공격!");
+    expect(firstOpponentAttack?.text).not.toContain("난격");
+    expect(res.finalState.log.some((entry) => entry.text.includes("보호막 +"))).toBe(
+      false,
+    );
+  });
 });

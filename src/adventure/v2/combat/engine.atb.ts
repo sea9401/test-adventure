@@ -455,13 +455,22 @@ export function resolveBattleAtb(
         (1 - castSelfHastePct / 100);
       turns += 1;
     } else {
+      const provokedEnemyBasicAttacks =
+        state.stacks.provokedEnemyBasicAttacks ?? 0;
       state = {
         ...state,
         phase: "enemy",
         turn: {
           ...state.turn,
-          enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
+          enemyAttacksLeft:
+            provokedEnemyBasicAttacks > 0
+              ? provokedEnemyBasicAttacks
+              : rollEnemyAttackCount(state.enemy),
         },
+        stacks:
+          provokedEnemyBasicAttacks > 0
+            ? { ...state.stacks, provokedEnemyBasicAttacks: 0 }
+            : state.stacks,
       };
       const enemyBundleStart = state.log.length;
       state = tickEnemyDotsOnAction(state);
@@ -477,7 +486,10 @@ export function resolveBattleAtb(
         //   cast 미러·더블어택 방지). v2Skills 미장착 몹은 헬퍼가 즉시 no-op → 기존 전투 byte-identical.
         //   버프/디버프 tick 은 위 tickEnemyBundleEntry 가 이미 했으므로 헬퍼는 tick 없이 cast+적용만.
         let enemyCastFired = false;
-        if (V2_ATB_SKILLS || ctx.forceAtbSkills) {
+        if (
+          provokedEnemyBasicAttacks <= 0 &&
+          (V2_ATB_SKILLS || ctx.forceAtbSkills)
+        ) {
           const prevLogLen = state.log.length;
           const cast = applyEnemyV2SkillCast(state, atbPlayer);
           state = cast.state;

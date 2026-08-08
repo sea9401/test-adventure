@@ -961,7 +961,7 @@ describe("방어자 측 on-hit reflect / counter", () => {
     expect(s1.log.some((e) => e.text.includes("가시 갑옷"))).toBe(true);
   });
 
-  it("반사 태세 버프가 PvP 반사 피해도 증폭한다", () => {
+  it("반사 증폭 버프가 PvP 반사 피해도 증폭한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
       makePlayer({ spd: 15, atk: 100, def: 0, hp: 500, maxHp: 500 }),

@@ -121,6 +121,11 @@ describe("v2 build tags", () => {
       "str",
       "tank",
     ]);
+    expectTags(buildTagsForSkill(V2_SKILLS.v2c_ironknight_guard), [
+      "vit",
+      "tank",
+      "vulnerability",
+    ]);
   });
 
   it("명시 buildTags 는 추론 태그와 함께 유지된다", () => {

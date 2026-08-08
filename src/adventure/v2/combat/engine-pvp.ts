@@ -176,7 +176,7 @@ export type PvPSideStacks = {
   skillEvasionTurns: number;
   skillDmgReducePct: number; // 진홍 심판·철포 — 받는 피해 -%
   skillDmgReduceTurns: number;
-  skillReflectBoostPct: number; // 반사 태세 — 모든 반사 피해 +%
+  skillReflectBoostPct: number; // 활성 반사 증폭 — 모든 반사 피해 +%
   skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
   enemyVulnTurns: number;

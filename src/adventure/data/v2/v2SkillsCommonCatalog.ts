@@ -211,7 +211,7 @@ export type V2CommonSkillId =
   // ── 5차 직업 ──
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
-  | "v2c_ironknight_guard" // 반사 태세 (보호막 + 반사 증폭)
+  | "v2c_ironknight_guard" // 철벽 도발 (PvE 2~3회 기본 공격 유도·PvP 다음 스킬 제한)
   | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
   | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
@@ -1526,13 +1526,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [{ kind: "shield", pctMaxHp: 10, turns: 3 }],
   },
   v2c_warden_thorns: {
-    // 가시 방벽(패시브) — 피격(적중) 시 내 방어력의 100%를 적에게 고정 반사("방어 계수만큼").
+    // 가시 방벽(패시브) — 피격(적중) 시 전투 시작 방어력의 60%를 고정 반사.
     //   엔진 thornsFlatFromDef 훅(derive 가 def×thornsDefPct% 환산·enemyPhase[PvE]·applyOnHitReflect[PvP]
     //   양쪽 가산). 방어=딜로 전환되는 탱딜 시너지(방벽 방어%와 결합).
     id: "v2c_warden_thorns", name: "가시 방벽", stat: "vit", category: "passive", tier: 3,
-    description: "방벽에 돋은 가시. 공격을 받을 때마다 방어력만큼 되받아친다.", mpCost: 0, cooldown: 0,
+    description: "방벽에 돋은 가시. 공격을 받을 때마다 전투 시작 방어력의 일부를 되돌려준다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { thornsDefPct: 100 },
+    passive: { thornsDefPct: 60 },
   },
 
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력을 끌어올리는 순수 공격 라인 ──
@@ -1614,20 +1614,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 18 }, critDmgPct: 25, spdOverflowToAtkPct: 25 },
   },
   v2c_ironknight_guard: {
-    id: "v2c_ironknight_guard", name: "반사 태세", stat: "vit", category: "buff", tier: 3,
-    description: "방패를 고정해 보호막을 세우고, 잠시 모든 반사 피해를 증폭한다.",
-    mpCost: 48, cooldown: 0, procChance: 100, learnCost: 8000,
+    id: "v2c_ironknight_guard", name: "철벽 도발", stat: "vit", category: "buff", tier: 3,
+    description: "상대를 도발한다. 사냥에서는 적이 다음 행동에 기본 공격을 2~3회 사용하며, PvP에서는 상대의 다음 행동을 기본 공격으로 유도한다.",
+    mpCost: 48, cooldown: 3, procChance: 100, spCost: 10, learnCost: 8000,
     effects: [
-      { kind: "shield", pctMaxHp: 10, turns: 3 },
-      { kind: "selfBuffPct", target: "reflectDamage", pct: 60, turns: 3 },
+      { kind: "enemySkillProcDown", pct: 100, turns: 1 },
     ],
+    pveProvokeBasicAttacks: { min: 2, max: 3 },
   },
   v2c_ironknight_wall: {
     id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,
     description: "단단한 장벽 운용에 익숙해진다. 방어와 반사가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { defPct: 18, thornsDefPct: 80 },
+    passive: { defPct: 18, thornsDefPct: 40 },
   },
   v2c_overlord_ruin: {
     id: "v2c_overlord_ruin", name: "파멸 난무", stat: "str", category: "attack", tier: 3,
@@ -1968,7 +1968,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "갑옷과 방패가 하나의 성채가 된다. 방어와 피해 저항, 방어력 기반 반사가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 120 },
+    passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 60 },
   },
   v2c_swordsaint_flash: {
     id: "v2c_swordsaint_flash", name: "무심검", stat: "str", category: "attack", tier: 3,

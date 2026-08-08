@@ -113,7 +113,7 @@ describe("5티어 — 가시 갑옷", () => {
     expect(before - s.enemyHp).toBe(40);
   });
 
-  it("반사 태세 버프가 반사 피해 합산값을 증폭한다", () => {
+  it("반사 증폭 버프가 반사 피해 합산값을 증폭한다", () => {
     // bramble 26, 반사 증폭 50% → 원량 39 → 적 DEF 3 적용 후 36.
     const p: PlayerCombat = { ...PLAYER, bramblePct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");

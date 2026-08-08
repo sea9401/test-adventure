@@ -404,6 +404,14 @@ export type V2SkillDefinition = {
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
+  /**
+   * 사냥 전용 도발. 적의 다음 행동을 스킬 대신 이 범위의 기본 공격 횟수로 바꾼다.
+   * PvP에서는 추가 공격을 만들지 않으며, effects의 enemySkillProcDown만 적용한다.
+   */
+  pveProvokeBasicAttacks?: {
+    min: number;
+    max: number;
+  };
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -1893,6 +1901,13 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   // 다단 여부가 잘 드러나지 않으므로 학습·장착·전투 패턴 툴팁 맨 앞에 기본 타수를 명시한다.
   if (!skill.passive && directDamageEffectCount > 1) {
     chips.unshift(`${directDamageEffectCount}회 공격`);
+  }
+  if (skill.pveProvokeBasicAttacks) {
+    const { min, max } = skill.pveProvokeBasicAttacks;
+    chips.push(
+      `사냥 도발: 적 다음 행동 기본 공격 ${min === max ? `${min}회` : `${min}~${max}회`}`,
+    );
+    chips.push("PvP 도발: 상대 다음 행동 스킬 제한");
   }
   if (
     skill.effects.some(

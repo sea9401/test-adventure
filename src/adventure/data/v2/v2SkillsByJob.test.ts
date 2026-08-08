@@ -121,9 +121,13 @@ describe("직업 킷 — 스킬셋", () => {
       target: "damageReduction",
     });
     expect(V2_SKILLS.v2c_ironknight_guard.effects).toEqual([
-      { kind: "shield", pctMaxHp: 10, turns: 3 },
-      { kind: "selfBuffPct", target: "reflectDamage", pct: 60, turns: 3 },
+      { kind: "enemySkillProcDown", pct: 100, turns: 1 },
     ]);
+    expect(V2_SKILLS.v2c_ironknight_guard.cooldown).toBe(3);
+    expect(V2_SKILLS.v2c_ironknight_guard.pveProvokeBasicAttacks).toEqual({
+      min: 2,
+      max: 3,
+    });
     expect(V2_SKILLS.v2c_assassin_ambush.effects[0]).toMatchObject({
       kind: "executeDamage",
     });
@@ -710,8 +714,15 @@ describe("직업 킷 — 스킬셋", () => {
     }
     expect(V2_SKILLS.v2c_ironknight_wall.passive).toMatchObject({
       defPct: 18,
-      thornsDefPct: 80,
+      thornsDefPct: 40,
     });
+    expect(
+      aggregateEquippedPassives([
+        "v2c_warden_thorns",
+        "v2c_ironknight_wall",
+        "v2c_fortressknight_citadel",
+      ]).thornsDefPct,
+    ).toBe(160);
     expect(V2_SKILLS.v2c_overlord_ruin.effects.map((e) => e.kind)).toEqual([
       "hpCostDamage",
       "executeDamage",
@@ -892,7 +903,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_fortressknight_citadel.passive).toMatchObject({
       defPct: 30,
       damageTakenReductionPct: 8,
-      thornsDefPct: 120,
+      thornsDefPct: 60,
     });
     expect(skillsForJob("swordsaint")).toEqual([
       "v2c_swordsaint_flash",
@@ -1475,11 +1486,11 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       kind: "shield",
       pctMaxHp: 10,
     });
-    // 패시브: 피격 시 방어력 100% 반사("방어 계수만큼")
-    expect(V2_SKILLS.v2c_warden_thorns.passive?.thornsDefPct).toBe(100);
+    // 패시브: 피격 시 전투 시작 방어력 60% 반사
+    expect(V2_SKILLS.v2c_warden_thorns.passive?.thornsDefPct).toBe(60);
     // aggregate 가 thornsDefPct 를 수집(미보유=0)
     expect(aggregateEquippedPassives(["v2c_warden_thorns"]).thornsDefPct).toBe(
-      100,
+      60,
     );
     expect(
       aggregateEquippedPassives(["v2c_guardian_bulwark3"]).thornsDefPct,

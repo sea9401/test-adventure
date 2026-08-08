@@ -21,8 +21,8 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  attackMissPct,
-  pveDodgeChance,
+  evasionDamageReductionPct,
+  pveEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { effectiveMonsterSpd } from "@/adventure/v2/combat/combatTimeline";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
@@ -161,7 +161,10 @@ export async function GET(_req: Request, { params }: Ctx) {
     const bossEvaRating = Math.max(0, monster.evasionPct ?? 0) *
       (player.precisionEvasionMult ?? 1);
     const playerAccRating = player.accRating ?? player.accuracyPct ?? 0;
-    const playerMissPct = attackMissPct(bossEvaRating, playerAccRating);
+    const bossEvasionReductionPct = evasionDamageReductionPct(
+      bossEvaRating,
+      playerAccRating,
+    );
     const playerEvaRating = player.evaRating ?? player.evasionPct;
     const bossAccRating = monster.accuracy ?? 0;
     return {
@@ -177,8 +180,14 @@ export async function GET(_req: Request, { params }: Ctx) {
       player: {
         accRating: playerAccRating,
         evaRating: playerEvaRating,
-        hitPct: Math.max(0, Math.min(100, 100 - playerMissPct)),
-        evadePct: pveDodgeChance(playerEvaRating, bossAccRating),
+        damageRetainedPct: Math.max(
+          0,
+          Math.min(100, 100 - bossEvasionReductionPct),
+        ),
+        evasionReductionPct: pveEvasionDamageReductionPct(
+          playerEvaRating,
+          bossAccRating,
+        ),
       },
     };
   })();

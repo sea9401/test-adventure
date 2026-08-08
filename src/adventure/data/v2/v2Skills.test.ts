@@ -970,9 +970,9 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
   it("치명타 피해는 회피보다 비싸게, 회피 단계는 완만하게 책정한다", () => {
     expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4); // 치명타 피해 +25%
     expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(4); // 치명타 피해 +30%
-    expect(spCostOf(V2_SKILLS.v2c_boxer_fortitude)).toBe(3); // 회피 +8%
+    expect(spCostOf(V2_SKILLS.v2c_boxer_fortitude)).toBe(2); // 회피도 +8%
     expect(spCostOf(V2_SKILLS.v2c_brawler_fortitude3)).toBe(3); // 회피 +12%
-    expect(spCostOf(V2_SKILLS.v2c_phantom_stealth)).toBe(4); // 회피 +16%
+    expect(spCostOf(V2_SKILLS.v2c_phantom_stealth)).toBe(3); // 회피도 +16%
   });
 
   it("액티브 효율 보정 — 높은 발동률·낮은 MP 비용일수록 같은 효과의 SP가 높다", () => {
@@ -1033,7 +1033,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(9);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBe(16);
+    ).toBe(15);
   });
 
   it("🔑 트립와이어 — 자원·발동률까지 우월한 스킬이 더 싸지는 가격 역전을 막는다", () => {

@@ -194,10 +194,12 @@ export type BattleStats = {
   spd: number;
   actionSpd?: number; // 몬스터 ATB 행동속도 — 일반 몬스터는 환산값, 직접 속도 몬스터는 데이터값
   accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
-  evasionPct?: number; // 레거시 표시값·몬스터 회피 능력. 플레이어 raw 는 evaRating 우선.
+  evasionPct?: number; // 레거시 표시값·몬스터 회피도. 플레이어 raw 는 evaRating 우선.
   evaRating?: number; // 플레이어 회피 레이팅(raw). 없으면 evasionPct 폴백.
   critChancePct?: number; // 치명 % (플레이어)
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
   bonusAttackChancePct?: number; // 몬스터 행동 1회당 추가타 성향
   statusDamageReductionPct?: number; // 중독·출혈 등 상태 피해 감소율
   primaryAttack?: "physical" | "magic";
@@ -205,8 +207,8 @@ export type BattleStats = {
 
 // 상세 스탯 칩 — 항목별 은은한 색 강조(명중/회피/치명/마공).
 const DETAIL_COLOR: Record<string, string> = {
-  "명중 능력": "text-sky-600 dark:text-sky-400",
-  "회피 능력": "text-cyan-600 dark:text-cyan-400",
+  적중도: "text-sky-600 dark:text-sky-400",
+  회피도: "text-cyan-600 dark:text-cyan-400",
   치명타: "text-amber-600 dark:text-amber-400",
   마공: "text-violet-600 dark:text-violet-400",
   마방: "text-fuchsia-600 dark:text-fuchsia-400",
@@ -235,9 +237,9 @@ export function BattleStatStrip({
     ? (stats.magicAtk ?? stats.atk ?? 0)
     : (stats.atk ?? 0);
   const details: { label: string; value: string }[] = [
-    { label: "명중 능력", value: String(Math.round(stats.accuracy ?? 0)) },
+    { label: "적중도", value: String(Math.round(stats.accuracy ?? 0)) },
     {
-      label: "회피 능력",
+      label: "회피도",
       value: String(Math.round(stats.evaRating ?? stats.evasionPct ?? 0)),
     },
     ...(stats.critChancePct && stats.critChancePct > 0
@@ -459,6 +461,7 @@ export function BattleScene({
   profileBorder?: ProfileBorderId | null;
 }) {
   const hasMp = state.playerMaxMp > 0;
+  const hasMagicBarrier = (state.playerMagicBarrierMax ?? 0) > 0;
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -564,6 +567,15 @@ export function BattleScene({
                   max={state.playerMaxHp}
                   color="bg-rose-500"
                 />
+                {hasMagicBarrier && (
+                  <HpBar
+                    compact
+                    label="장벽"
+                    value={state.playerMagicBarrier ?? 0}
+                    max={state.playerMagicBarrierMax ?? 0}
+                    color="bg-violet-500"
+                  />
+                )}
                 {hasMp && (
                   <HpBar
                     compact
@@ -608,6 +620,9 @@ export function BattleScene({
                   max={state.enemy.hp}
                   color="bg-rose-500"
                 />
+                {hasMagicBarrier && (
+                  <div aria-hidden="true" className="h-[1.125rem]" />
+                )}
                 {/* MP — 플레이어와 좌우 위치 맞춤(플레이어가 MP 보유 시 또는 적이 MP 풀 보유 시). */}
                 {(hasMp || state.enemyMaxMp > 0) && (
                   <HpBar
@@ -638,11 +653,22 @@ export function BattleScene({
                     evasionRating:
                       playerCombat.evaRating ?? playerCombat.evasionPct ?? 0,
                     speed: playerCombat.spd,
+                    physicalDefense: playerCombat.def,
+                    magicDefense: playerCombat.magicDef ?? 0,
+                    magicBarrierAbsorbPct:
+                      playerCombat.magicBarrierAbsorbPct ?? 0,
+                    magicBarrierDurability: state.playerMagicBarrier ?? 0,
                   }}
                   enemy={{
                     accuracyRating: enemyCombat.accuracy ?? 0,
                     evasionRating: enemyCombat.evasionPct ?? 0,
                     speed: enemyCombat.actionSpd ?? enemyCombat.spd,
+                    incomingAttack:
+                      enemyCombat.primaryAttack === "magic"
+                        ? (enemyCombat.magicAtk ?? enemyCombat.atk)
+                        : enemyCombat.atk,
+                    incomingAttackType:
+                      enemyCombat.primaryAttack ?? "physical",
                   }}
                 />
               </div>
@@ -680,6 +706,14 @@ export function BattleScene({
                   max={state.playerMaxHp}
                   color="bg-rose-500"
                 />
+                {hasMagicBarrier && (
+                  <HpBar
+                    label="마력 장벽"
+                    value={state.playerMagicBarrier ?? 0}
+                    max={state.playerMagicBarrierMax ?? 0}
+                    color="bg-violet-500"
+                  />
+                )}
                 {hasMp && (
                   <HpBar
                     label="MP"

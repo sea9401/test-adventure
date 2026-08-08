@@ -9,7 +9,7 @@
 //   str → atk 주력 (atk += str×0.15)
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
-//   spd → 다중공격 확률 (extra += spd×0.5%p, 100%↑ 정수확정) + 선공권
+//   spd → 레거시 다중공격 확률(100% 이후 점감) + ATB 행동 빈도(최대 기준의 3배)
 //   luk → 치명 확률(crit += luk×0.12) + 치명 데미지(critMult 점감곡선 bonus += luk×0.007). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
@@ -30,6 +30,7 @@ import {
   CRIT_MULT_BASE,
   POISON_PCT_PER_POINT,
   combineDefReductionPcts,
+  magicBarrierStats,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
@@ -110,6 +111,7 @@ import {
   HEAL_MULT_PER_VIT,
   HP_PER_VIT,
   MAGIC_ATK_PER_INT,
+  MAGIC_ATK_PER_EXCESS_SPI,
   MAGIC_DEF_PER_INT,
   MAGIC_DEF_PER_SPI,
   MIN_DMG_PER_INT,
@@ -123,6 +125,7 @@ import {
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
   WEIGHT_SPD_PENALTY,
+  diminishingExtraAttackChancePct,
 } from "./v2CombatCoefficients";
 
 export type SavedCharacterV2 = {
@@ -170,6 +173,7 @@ import {
 export {
   CRIT_MULT_CEIL,
   CRIT_MULT_SCALE,
+  MAGIC_ATK_PER_EXCESS_SPI,
   MAGIC_ATK_PER_INT,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
@@ -195,6 +199,40 @@ function critMultCurve(bonus: number): number {
     (CRIT_MULT_CEIL - CRIT_MULT_BASE) *
       Math.exp(-Math.max(0, bonus) / CRIT_MULT_SCALE)
   );
+}
+
+// 동일 계열 받는 피해 감소를 여러 개 수집했을 때의 점감. 첫 20%는 그대로 보존하고 이후
+// 증가분은 40%만 반영해, 단일 패시브 가치는 유지하면서 다중 생존 패시브의 곱연산 폭주를 막는다.
+export function stackedDamageReductionPct(rawPct: number): number {
+  const raw = Math.max(0, rawPct);
+  if (raw <= 20) return raw;
+  return Math.min(30, 20 + (raw - 20) * 0.4);
+}
+
+function stackedSurvivalIncreasePct(
+  rawPct: number,
+  softCapPct: number,
+  overflowRetention: number,
+  hardCapPct: number,
+): number {
+  const raw = Math.max(0, rawPct);
+  if (raw <= softCapPct) return raw;
+  return Math.min(
+    hardCapPct,
+    softCapPct + (raw - softCapPct) * overflowRetention,
+  );
+}
+
+export function stackedVitalityIncreasePct(rawPct: number): number {
+  return stackedSurvivalIncreasePct(rawPct, 40, 0.4, 60);
+}
+
+export function stackedMaxHpIncreasePct(rawPct: number): number {
+  return stackedSurvivalIncreasePct(rawPct, 30, 0.35, 50);
+}
+
+export function stackedDefenseIncreasePct(rawPct: number): number {
+  return stackedSurvivalIncreasePct(rawPct, 30, 0.4, 50);
 }
 
 // PR-S2: V2_BASE_STATS / V2_STAT_POINTS_PER_LEVEL 은 v2Stats.ts 로 분리 (클라 import 가능).
@@ -251,7 +289,7 @@ export type DerivePlayerCombatV2PureInput = {
    * 플랫 jobBonus 가산 뒤에 곱해 "스탯 → % 증폭" 순서. flag off/sim 이면 미지정 → 무적용.
    */
   statPct?: Partial<Record<V2StatKey, number>>;
-  /** 최대 HP % 패시브(체력) — 합산 후 maxHp 에 1회 적용. 미지정 = 무적용. */
+  /** 최대 HP % 패시브(체력) — 장비 HP를 제외한 캐릭터 HP에 적용. */
   maxHpPct?: number;
   /** 최대 MP % 패시브(마나) — 합산 후 maxMp 에 1회 적용. 미지정 = 무적용. */
   maxMpPct?: number;
@@ -260,7 +298,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveCritPct?: number;
   /** 치명타 피해 +%(맹공) — critMult 점감 곡선 bonus 에 /100 환산 가산. */
   passiveCritDmgPct?: number;
-  /** 회피 +%p(허보) — evasionPct 에 가산(캡 적용). */
+  /** 회피도 +%(허보) — 스탯·경갑·옵션 회피도의 합을 증폭. */
   passiveEvasionPct?: number;
   /** 흡혈 +%(포식, 저수치) — totalLifestealPct 에 가산. */
   passiveLifestealPct?: number;
@@ -272,7 +310,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveDefPct?: number;
   /** 반사(수호자) — 피격 시 내 방어력의 이 %만큼 고정 데미지 반사. def 확정 후 thornsFlatFromDef 로 환산. */
   passiveThornsDefPct?: number;
-  /** 명중 +%p(정밀, 다양성 2차) — accuracyPct 에 가산(캡 적용). PvE/PvP 양쪽. */
+  /** 적중도 +%(정밀) — 스탯·장비 적중도의 합을 증폭. */
   passiveAccuracyPct?: number;
   /** 회복 강화 +%(신술 지원 패시브, SPI 부활) — healMult 에 곱연산(×(1+%/100)). 미지정 = 무적용. */
   passiveHealPowerPct?: number;
@@ -367,7 +405,11 @@ export function derivePlayerCombatV2Pure(
   if (input.statPct) {
     for (const k of V2_STAT_KEYS) {
       const pct = input.statPct[k];
-      if (pct) totalStats[k] = Math.floor(totalStats[k] * (1 + pct / 100));
+      if (pct) {
+        const effectivePct =
+          k === "vit" ? stackedVitalityIncreasePct(pct) : pct;
+        totalStats[k] = Math.floor(totalStats[k] * (1 + effectivePct / 100));
+      }
     }
   }
 
@@ -393,17 +435,25 @@ export function derivePlayerCombatV2Pure(
   const baseDef =
     Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def) +
     V2_BASE_COMBAT_BONUS;
-  const def = input.passiveDefPct
-    ? Math.floor(baseDef * (1 + input.passiveDefPct / 100))
+  const effectivePassiveDefPct = stackedDefenseIncreasePct(
+    input.passiveDefPct ?? 0,
+  );
+  const def = effectivePassiveDefPct
+    ? Math.floor(baseDef * (1 + effectivePassiveDefPct / 100))
     : baseDef;
   // 수호자 반사 — 피격 시 (확정 방어력 × thornsDefPct%) 만큼 적에게 고정 반사.
   //   미보유=0 → 키 생략(아래 spread)으로 byte-identical.
   const thornsFlatFromDef = input.passiveThornsDefPct
     ? Math.floor((def * input.passiveThornsDefPct) / 100)
     : 0;
-  // 마법 공격력 — 지능 + 무기 위력(magicAtk). +기본 보너스(마법 빌드 0 빌드도 베이스 확보).
+  // 마법 공격력 — 지능 + 무기 위력(magicAtk). 정신이 지능보다 높은 부분은 제한적으로 마공에
+  // 전환해 SPI 주력 빌드에 솔로 공격 수단을 준다. INT≥SPI면 전환량 0이라 INT 화력은 불변이다.
+  const excessSpi = Math.max(0, totalStats.spi - totalStats.int);
   const magicAtk =
-    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) +
+    Math.floor(
+      totalStats.int * MAGIC_ATK_PER_INT +
+        excessSpi * MAGIC_ATK_PER_EXCESS_SPI,
+    ) +
     equipAcc.magicAtk +
     V2_BASE_COMBAT_BONUS;
   // 마법 방어력 — 정신 major + 지능 minor + 장신구 위력. 방어% 패시브는 방벽 계열 공통 내구
@@ -415,7 +465,7 @@ export function derivePlayerCombatV2Pure(
         equipAcc.magicDef,
     ) + V2_BASE_COMBAT_BONUS;
   const passiveMagicDefPct =
-    (input.passiveDefPct ?? 0) + (input.passiveMagicDefPct ?? 0);
+    effectivePassiveDefPct + (input.passiveMagicDefPct ?? 0);
   const magicDef = passiveMagicDefPct
     ? Math.floor(baseMagicDef * (1 + passiveMagicDefPct / 100))
     : baseMagicDef;
@@ -432,15 +482,17 @@ export function derivePlayerCombatV2Pure(
       totalStats.vit * HEAL_MULT_PER_VIT +
       totalStats.spi * HEAL_MULT_PER_SPI) *
     (1 + ((input.passiveHealPowerPct ?? 0) + equipAcc.healPowerPct) / 100);
-  // 코어루프 모험가 HP 패시브 — on + 무직(=모험가)일 때만 ×1.1. off = ×1.0(무변경).
-  // 직업 시스템 v2 — 최대 HP/MP % 패시브(체력/마나). 미지정(flag off/sim) = ×1(무변경).
-  const maxHp = Math.floor(
-    (V2_BASE_HP +
+  // HP%는 캐릭터 자체 HP만 강화한다. 장비 HP는 마지막에 더해 장비 HP와 HP% 패시브가
+  // 서로를 중복 증폭하던 생존 편중을 제거한다.
+  const characterHp =
+    V2_BASE_HP +
       Math.max(0, level - 1) * V2_HP_PER_LEVEL +
-      totalStats.vit * HP_PER_VIT +
-      equipAcc.hp) *
+      totalStats.vit * HP_PER_VIT;
+  const maxHp = Math.floor(
+    characterHp *
       coreLoopMaxHpMult(playerClass, V2_CORE_LOOP_V2) *
-      (1 + (input.maxHpPct ?? 0) / 100),
+      (1 + stackedMaxHpIncreasePct(input.maxHpPct ?? 0) / 100) +
+      equipAcc.hp,
   );
   const maxMp = Math.floor(
     (V2_BASE_MP +
@@ -468,19 +520,21 @@ export function derivePlayerCombatV2Pure(
     CRIT_RESIST_PCT_CAP,
     totalStats.spi * CRIT_RESIST_PER_SPI + equipAcc.critResist,
   );
-  // 회피 — 민첩 + 행운 minor + 장비 + 장착 패시브(허보).
-  //   evaRating = 캡 없는 raw 합. 회피 대결형(Slice 1 PvE 몹→플레이어 + Slice 2 플레이어→몹·PvP 양방향)이
-  //   전투에서 쓰는 값. evasionPct = min(evaRating, 75) 은 이제 표시 전용(캡=UI 한정·전투 미사용).
+  // 회피도 — 기본 15를 넘긴 DEX·LUK 성장분과 경갑 위력·옵션을 합산한 뒤 패시브로 증폭한다.
+  // 전 캐릭터가 시작 스탯만으로 높은 경감을 얻지 않게 하고 실제 투자분에 생존 가치를 준다.
+  const baseEvaRating =
+    Math.max(0, totalStats.dex - V2_BASE_STATS.dex) * EVA_PER_DEX +
+    Math.max(0, totalStats.luk - V2_BASE_STATS.luk) * EVA_PER_LUK +
+    equipAcc.eva;
   const evaRating =
-    totalStats.dex * EVA_PER_DEX +
-    totalStats.luk * EVA_PER_LUK +
-    equipAcc.eva +
-    (input.passiveEvasionPct ?? 0);
+    baseEvaRating * (1 + Math.max(0, input.passiveEvasionPct ?? 0) / 100);
   const evasionPct = Math.min(evaRating, EVASION_PCT_CAP);
-  // 명중 — 민첩 major + 힘·정신 minor.
-  const accuracyPct = Math.max(
+  // 적중도 — 기본 적중과 스탯·장비를 합산한다. 직업·장착 패시브의 적중도%는 아래에서
+  // 합산해 한 번만 곱한다.
+  const baseAccuracyRating = Math.max(
     0,
-    totalStats.dex * ACCURACY_PCT_PER_DEX +
+    ACC_BASE_RATING +
+      totalStats.dex * ACCURACY_PCT_PER_DEX +
       totalStats.str * ACC_PER_STR +
       totalStats.int * ACC_PER_INT +
       totalStats.spi * ACC_PER_SPI +
@@ -494,7 +548,7 @@ export function derivePlayerCombatV2Pure(
       equipAcc.spd + // 신발 슬롯 고유 축.
       totalStats.luk * (input.passiveSpdPerLukCoef ?? 0),
   );
-  // v2 다중공격 — SPD × 0.5%p 추가공격 확률 (SPD 200=100% 확정 +1, …).
+  // v2 레거시 다중공격 — SPD × 0.5%p 원시 확률을 아래 반환 단계에서 점감시킨다.
   const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;
 
   // hp 클램프 (저장값이 maxHp 초과 안 되게)
@@ -547,12 +601,13 @@ export function derivePlayerCombatV2Pure(
     specMagicAtk = Math.floor(specMagicAtk * m);
   }
 
-  // 명중 — 상한 적용 전 raw(스탯+전문화+장착 패시브 정밀). 궁사 활 패시브는 이 raw 의 적중 임계
-  //   초과분을 공격력으로. 다양성 패시브(정밀)는 명중에 가산(PvE/PvP 양쪽 소비).
-  const rawAccuracyPct =
-    accuracyPct + (specEff.accuracyPctAdd ?? 0) + (input.passiveAccuracyPct ?? 0);
+  // 적중도% 패시브는 스탯과 장비에서 얻은 기본 적중도를 함께 증폭한다.
+  const accuracyIncreasePct =
+    (specEff.accuracyPctAdd ?? 0) + (input.passiveAccuracyPct ?? 0);
+  const accRating =
+    baseAccuracyRating * (1 + Math.max(0, accuracyIncreasePct) / 100);
   if (weaponTypeOf(v2Equipped.weapon) === "bow") {
-    const excessAccuracy = Math.max(0, rawAccuracyPct - BOW_HIT_THRESHOLD);
+    const excessAccuracy = Math.max(0, accRating - BOW_HIT_THRESHOLD);
     specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
   }
   // 검호·검성 패시브 — 완만해지는 고속 구간(SPD>292)을 공격력 %로 추가 환원한다. SPD 무한 →
@@ -563,16 +618,14 @@ export function derivePlayerCombatV2Pure(
       input.passiveSpdOverflowToAtkPct * (1 - Math.exp(-excessSpd / SPD_OVERFLOW_SCALE));
     specAtk += Math.floor(specAtk * (pct / 100));
   }
-  // accRating = 캡 없는 raw + 기본 명중(회피 대결형 Slice 2 — 명중이 방어자 회피 대결을 누르는
-  //   레이팅·evaRating 대칭). ACC_BASE_RATING 는 대결 퇴화(acc0→75%) 방지·회피몹 옛 느낌 보존용.
-  //   finalAccuracyPct(캡 35)는 이제 표시 전용. 궁사 활 잉여 딜 환원은 위 raw 기준이라 영향 없음.
-  const accRating = rawAccuracyPct + ACC_BASE_RATING;
-  const finalAccuracyPct = Math.min(ACCURACY_PCT_CAP, rawAccuracyPct);
+  // 기존 accuracyPct 필드는 호환용 표시값이며 실제 전투는 accRating을 사용한다.
+  const finalAccuracyPct = Math.min(ACCURACY_PCT_CAP, accRating);
 
   // 직업 효과 패시브 + 장착 패시브 합산. 0 이면 spread 생략(inert).
-  const totalDamageTakenReductionPct =
+  const totalDamageTakenReductionPct = stackedDamageReductionPct(
     (specEff.damageTakenReductionPct ?? 0) +
-    (input.passiveDamageTakenReductionPct ?? 0); // 장착 패시브(방벽) — 가산.
+      (input.passiveDamageTakenReductionPct ?? 0),
+  ); // 장착 패시브(방벽) — 합산 후 다중 중첩 점감.
   const totalBleedDmgPerStack = specEff.bleedDmgPerStack ?? 0;
   const totalPoisonStrength = specEff.poisonPctPerStackBase ?? 0;
   const totalLifestealPct =
@@ -585,6 +638,7 @@ export function derivePlayerCombatV2Pure(
   const totalMagicSkillDamagePct =
     (specEff.magicSkillDamagePct ?? 0) +
     (input.passiveMagicSkillDamagePct ?? 0);
+  const magicBarrier = magicBarrierStats(totalStats.int, maxMp);
 
   const player: PlayerCombat = {
     hp,
@@ -592,6 +646,13 @@ export function derivePlayerCombatV2Pure(
     mp,
     maxMp,
     intStat: totalStats.int,
+    ...(magicBarrier.maxDurability > 0
+      ? {
+          magicBarrierMax: magicBarrier.maxDurability,
+          magicBarrierAbsorbPct: magicBarrier.pveAbsorbPct,
+          magicBarrierPvpAbsorbPct: magicBarrier.pvpAbsorbPct,
+        }
+      : {}),
     strStat: totalStats.str,
     // 스킬 스케일/차수용 — 나한권(vit 비례 딜)·전문화 스킬 차수 flat(baseFlatByTier).
     vitStat: totalStats.vit,
@@ -610,6 +671,9 @@ export function derivePlayerCombatV2Pure(
     ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
+    ...(excessSpi > 0 && specMagicAtk > specAtk
+      ? { passiveMagicBasicAttack: true as const }
+      : {}),
     def: specDef,
     spd: specSpd,
     evasionPct,
@@ -618,7 +682,8 @@ export function derivePlayerCombatV2Pure(
     accRating, // 회피 대결형 Slice 2 — 명중이 방어자 회피 대결을 누르는 캡 없는 raw.
     attackCount: 1,
     extraAttackChancePct:
-      extraAttackChancePct + (specEff.extraAttackChancePct ?? 0),
+      diminishingExtraAttackChancePct(extraAttackChancePct) +
+      (specEff.extraAttackChancePct ?? 0),
     critChancePct: critChancePct + (specEff.critChancePctAdd ?? 0), // 급습
     // 치명타 피해 — 전 가산원(luk/str/장비/맹공/인술/spec) 합을 점감 곡선으로 1회 환산.
     critMult: critMultCurve(critBonusWithPassive + (specEff.critMultAdd ?? 0)),

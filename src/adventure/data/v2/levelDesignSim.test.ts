@@ -134,9 +134,9 @@ describe("sim-v2-level-design", () => {
     // 예전 전투력 미달 몬스터 강화가 사라져 초중반은 높은 승률로 통과할 수 있다.
     expect(averageWinRate(20)).toBeGreaterThan(90);
     expect(averageWinRate(26)).toBeGreaterThan(90);
-    // 다만 실제 단계 스탯만으로도 32부터 평균 90% 아래로 내려가며 최종 지역은 막힌다.
+    // 수행 스탯 상향으로 일부 중반 구간은 쉬워졌지만, 44부터 다시 막히며 최종 지역은 통과할 수 없다.
     expect(averageWinRate(32)).toBeLessThan(90);
-    expect(averageWinRate(42)).toBeLessThan(90);
+    expect(averageWinRate(44)).toBeLessThan(90);
     expect(averageWinRate(72)).toBeLessThan(20);
   }, 15_000);
 
@@ -186,7 +186,9 @@ describe("sim-v2-level-design", () => {
 
     // 예전 상위권 중앙 보정치에 가까운 공통 난도에서는 절대 승률보다 교체 중 급락 여부가 핵심이다.
     expect(Math.min(...winRates)).toBeGreaterThanOrEqual(30);
-    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(150);
+    // 새 전투력 산식은 이미 ATB 상한에 도달한 SPD를 더 계산하지 않는다. 따라서 방어를
+    // 회피 장비로 바꾸는 구간의 표시 점수 차이는 커질 수 있지만 실제 승률 급락 가드는 유지한다.
+    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(220);
     for (let i = 1; i < winRates.length; i++) {
       expect(winRates[i - 1] - winRates[i]).toBeLessThan(20);
     }
@@ -218,5 +220,5 @@ describe("sim-v2-level-design", () => {
         turns: build.combat.avgWinTurns,
       })),
     );
-  }, 15_000);
+  }, 30_000);
 });

@@ -5,7 +5,10 @@ import {
   STAT_KEYS,
   STAT_LABELS,
 } from "@/adventure/data/stats";
-import { SKILL_CRIT_MULT } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  SKILL_CRIT_MULT,
+  physicalDefenseDamageReductionPct,
+} from "@/adventure/data/v2/v2CombatConstants";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
@@ -14,15 +17,22 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   공격력: "일반 공격과 물리 스킬의 기본값입니다. 힘이 높을수록 커집니다.",
   방어력: "받는 물리 피해를 줄입니다. 활력이 높을수록 커집니다.",
-  "마법 공격력": "마력탄 같은 마법 스킬의 기본값입니다. 지능이 높을수록 커집니다.",
+  "물리 피해 경감률":
+    "현재 방어력이 물리 직접 피해를 줄이는 비율입니다. 관통·방어 감소를 받으면 실제 전투에서는 낮아질 수 있으며 최대 85%에 가까워지지만 도달하지는 않습니다.",
+  "마법 공격력":
+    "마법 스킬과 마법 기본 공격의 위력입니다. 정신이 지능보다 높은 캐릭터는 초과한 정신 일부가 마법 공격력으로 전환됩니다.",
   "마법 방어력":
     "마법형 몬스터의 공격과 마법 스킬 피해를 줄입니다. 정신이 주축이고 지능·반지·목걸이·마법 방어 옵션이 보조합니다.",
-  "명중 능력":
-    "확률이 아닌 원본 능력 수치입니다. 상대의 회피 능력과 함께 계산해 실제 적중률이 정해집니다. 민첩·힘·지능·정신이 보조합니다.",
-  "회피 능력":
-    "확률이 아닌 원본 능력 수치입니다. 상대의 명중 능력과 함께 계산해 실제 회피율이 정해집니다. 민첩·행운이 높을수록 커집니다.",
-  "현재 사냥터 회피율":
-    "현재 사냥터(최대 깊이) 적의 명중 능력을 반영한 실제 회피 확률입니다. 더 깊은 곳에서는 적의 명중 능력이 높아져 달라질 수 있습니다.",
+  "마력 장벽":
+    "지능과 최대 MP로 정해지는 전투별 내구도입니다. 일반 보호막 다음에 남은 직접 피해 일부를 흡수하며 MP는 소모하지 않습니다.",
+  "마력 장벽 흡수율":
+    "마력 장벽이 남아 있을 때 직접 피해에서 흡수하는 비율입니다. 지속 피해·반사·상태 피해에는 적용되지 않습니다.",
+  적중도:
+    "상대의 회피도와 함께 계산해 상대의 직접 피해 경감률을 낮추는 수치입니다. 장비·민첩·힘·지능·정신으로 얻은 수치에 적중도 증가 패시브가 적용됩니다.",
+  회피도:
+    "상대의 적중도와 함께 계산해 직접 피해 경감률을 정하는 수치입니다. 경갑·민첩·행운으로 얻은 수치에 회피도 증가 패시브가 적용됩니다.",
+  "현재 사냥터 회피 경감률":
+    "현재 사냥터(최대 깊이) 적의 적중도를 반영해 일반 직접 피해를 줄이는 비율입니다. 더 깊은 곳에서는 적의 적중도가 높아져 달라질 수 있습니다.",
   "치명타 확률":
     "평타와 직접 피해를 주는 액티브 스킬이 함께 사용하는 치명타 확률. 전투에서는 최대 75%까지 적용되고, 초과분은 기본적으로 평타 치명타 피해로 전환됩니다.",
   "평타 치명타 배율":
@@ -39,12 +49,14 @@ type CombatStats = {
   def: number;
   magicAtk?: number;
   magicDef?: number;
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
   spd?: number;
   evasionPct?: number;
   accuracyPct?: number;
-  // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. 표시는 이 raw 를 우선(없으면 accuracyPct 폴백).
+  // 캡 없는 적중도. 표시는 이 raw 를 우선하고, 없으면 레거시 필드로 폴백한다.
   accRating?: number;
-  // 회피 대결형 — 캡 없는 회피레이팅. 확률(evasionPct)과 구분해 표시한다.
+  // 캡 없는 회피도. 현재 사냥터 경감률(evasionPct)과 구분해 표시한다.
   evaRating?: number;
   critChancePct?: number;
   critMult?: number;
@@ -82,6 +94,11 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
   const items: CombatItem[] = [
     { label: "공격력", value: combat.atk, accent: "text-rose-600 dark:text-rose-400" },
     { label: "방어력", value: combat.def, accent: "text-sky-600 dark:text-sky-400" },
+    {
+      label: "물리 피해 경감률",
+      value: `${physicalDefenseDamageReductionPct(combat.def).toFixed(1)}%`,
+      accent: "text-blue-600 dark:text-blue-400",
+    },
   ];
   if (combat.magicAtk) {
     items.push({
@@ -97,20 +114,34 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
       accent: "text-cyan-600 dark:text-cyan-400",
     });
   }
+  if ((combat.magicBarrierMax ?? 0) > 0) {
+    items.push(
+      {
+        label: "마력 장벽",
+        value: Math.round(combat.magicBarrierMax ?? 0),
+        accent: "text-violet-600 dark:text-violet-400",
+      },
+      {
+        label: "마력 장벽 흡수율",
+        value: `${(combat.magicBarrierAbsorbPct ?? 0).toFixed(1)}%`,
+        accent: "text-violet-600 dark:text-violet-400",
+      },
+    );
+  }
   if (combat.evasionPct !== undefined) {
     items.push(
       {
-        label: "명중 능력",
+        label: "적중도",
         value: Math.round(combat.accRating ?? combat.accuracyPct ?? 0),
         accent: "text-amber-600 dark:text-amber-400",
       },
       {
-        label: "회피 능력",
+        label: "회피도",
         value: Math.round(combat.evaRating ?? combat.evasionPct),
         accent: "text-cyan-600 dark:text-cyan-400",
       },
       {
-        label: "현재 사냥터 회피율",
+        label: "현재 사냥터 회피 경감률",
         value: `${Math.round(combat.evasionPct)}%`,
         accent: "text-teal-600 dark:text-teal-400",
       },

@@ -201,6 +201,32 @@ describe("advanceTurnPvP — 기본 흐름", () => {
 // ── 공격자 측 능력 ──────────────────────────────────────────────────────────
 
 describe("공격자 측 능력 — 대칭 적용", () => {
+  it("정신 우세 마법 평타는 magicAtk로 공격하고 상대 magicDef로 경감된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 1,
+        magicAtk: 50,
+        passiveMagicBasicAttack: true,
+        hp: 1000,
+        maxHp: 1000,
+      }),
+      makePlayer({
+        spd: 5,
+        atk: 1,
+        def: 100,
+        magicDef: 10,
+        hp: 1000,
+        maxHp: 1000,
+      }),
+      "P1",
+      "P2",
+    );
+    const s1 = advanceTurnPvP(s0);
+    expect(s0.p2.hp - s1.p2.hp).toBe(40);
+  });
+
   it("막다른 격노 (rampage) — 양쪽 사이드가 각자 ATK 누적", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
@@ -1315,7 +1341,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(resolve("pve")).toBe(3_052);
   });
 
-  it("직접 피해 없는 상태이상 스킬도 회피되면 상대에게 남지 않는다", () => {
+  it("일반 회피도는 직접 피해 없는 상태이상 스킬을 막지 않는다", () => {
     const state = initialBattleStatePvP(
       makePlayer({ spd: 15, accuracyPct: 0, accRating: 0 }),
       makePlayer({ spd: 5, evasionPct: 100, evaRating: 100 }),
@@ -1330,13 +1356,11 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
 
     const cast = castV2SkillOnAttackerTurnPvP(state, "p1");
 
-    expect(cast.state.p2.v2Dots).toEqual([]);
-    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(
-      true,
-    );
+    expect(cast.state.p2.v2Dots).toHaveLength(1);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(false);
   });
 
-  it("피해 연동 회복 스킬이 빗나가면 흡혈 회복도 발동하지 않는다", () => {
+  it("피해 연동 회복은 회피 경감 후 실제 피해를 기준으로 발동한다", () => {
     const state = initialBattleStatePvP(
       makePlayer({
         hp: 500,
@@ -1360,13 +1384,14 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
 
     const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
 
-    expect(cast.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(true);
+    expect(cast.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(false);
+    expect(cast.log.some((entry) => entry.text.includes("회피 경감"))).toBe(true);
     expect(
       cast.log.some(
         (entry) => entry.text.includes("혈마군림") && entry.text.includes("회복했다"),
       ),
-    ).toBe(false);
-    expect(cast.p1.hp).toBe(500);
+    ).toBe(true);
+    expect(cast.p2.hp).toBeLessThan(cast.p2.maxHp);
   });
 
   it("혈마군림은 HP 소모 후 보호막 포함 실제 피해의 20%를 회복한다", () => {
@@ -1728,6 +1753,67 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     // 시전자 패시브로 상대(p2)에 마법취약 누적(>0), 상한 10 클램프.
     expect(r.finalState.p2.stacks.magicVulnStacks).toBeGreaterThan(0);
     expect(r.finalState.p2.stacks.magicVulnStacks).toBeLessThanOrEqual(10);
+  });
+
+  it("흉조는 PvP에서도 마법취약 스택이 실제 증가할 때 누적 수치를 기록한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 100,
+        atk: 100,
+        maxMp: 1000,
+        mp: 1000,
+        enemyMagicVulnPctPerStack: 5,
+        enemyMagicVulnApplyChancePct: 100,
+      }),
+      makePlayer({ spd: 1, def: 0, hp: 5000, maxHp: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.p2.stacks.magicVulnStacks).toBe(1);
+    expect(cast.log.some((entry) =>
+      entry.text.includes("[흉조] P2에게 마법취약 +1 (1/10)"),
+    )).toBe(true);
+  });
+
+  it("PvP 흉조는 이미 최대 스택이면 추가 로그를 남기지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 100,
+        atk: 100,
+        maxMp: 1000,
+        mp: 1000,
+        enemyMagicVulnPctPerStack: 5,
+        enemyMagicVulnApplyChancePct: 100,
+      }),
+      makePlayer({ spd: 1, def: 0, hp: 5000, maxHp: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+    const capped = {
+      ...state,
+      p2: {
+        ...state.p2,
+        stacks: { ...state.p2.stacks, magicVulnStacks: 10 },
+      },
+    };
+
+    const cast = castV2SkillOnAttackerTurnPvP(capped, "p1").state;
+
+    expect(cast.p2.stacks.magicVulnStacks).toBe(10);
+    expect(cast.log.some((entry) => entry.text.includes("[흉조]"))).toBe(false);
   });
 
   it("PR2-B — 주문 중첩(워메이지)이 PvP 스킬 시전마다 누적된다", () => {

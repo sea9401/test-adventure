@@ -56,7 +56,8 @@ import {
   IMPACT_WAVE_INTERVAL,
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
-  attackMissPct,
+  applyEvasionDamageReduction,
+  evasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 
 type AttackDamageResult = {
@@ -375,7 +376,7 @@ function computeAttackDamage(
 }
 
 // 플레이어 페이즈 전체 — advanceTurn 에서 적 페이즈(resolveEnemyPhase)와 대칭으로 분리한다.
-// 평타 1회 해상도: 포션 → 강공격/AP 선택 → 회피(미스) 판정 → 데미지 파이프라인(분쇄·처형·크리·
+// 평타 1회 해상도: 포션 → 강공격/AP 선택 → 회피 경감 계산 → 데미지 파이프라인(분쇄·처형·크리·
 // 흡혈·천명·충돌파 등) → 적중 후 추가타 캐스케이드(연타·광속·풍사슬·연참) → finishPlayerTurn.
 // state.phase === "player" 가드는 호출부(advanceTurn)에 남고 이 함수는 진입 직후 상태를 받는다.
 // 모든 경로가 return 으로 끝나며 동작은 인라인 시절과 1비트도 다르지 않다(combatGolden 가드).
@@ -452,64 +453,27 @@ export function resolvePlayerPhase(
     hits: apHits,
   } = extractApEffect(apMultEffect);
 
-  // 적 회피 — 데미지 굴리기 전에 1차 판정. 회피하면 공격 1회가 그대로 빗나간다.
-  // 정확 슬롯 시 적 회피레이팅에 배수(<1) 가 곱해져 부분 무력화.
-  // 회피 대결형 Slice 2(B안): 미스 = 베이스미스(플랫) + dodgeChance(몹 회피레이팅, 플레이어 명중레이팅).
-  //   명중은 대결 항만 누르고 플랫 베이스미스는 못 깎는다. 일반몹(회피 0)은 미스=베이스(현 평타 느낌 보존).
-  // AP 스킬의 ignoresEvasion = true 면 회피 판정 자체 스킵.
+  // 적 회피도와 플레이어 적중도를 겨뤄 직접 피해 경감률을 계산한다.
+  // 정확 슬롯과 실명은 적 회피도를 낮추며, ignoresEvasion은 경감을 무시한다.
   const precisionMult = player.precisionEvasionMult ?? 1;
-  // 실명(원소술사 빛) — 적 회피레이팅 차감. 디버프 없으면 0 → 회피 0 몹은 dodgeChance=0(byte-identical).
+  // 실명(원소술사 빛) — 적 회피도를 일정 비율 낮춘다.
   const evaDown =
     state.stacks.enemyEvasionDownTurns > 0 ? state.stacks.enemyEvasionDownPct : 0;
   const enemyEvaRating =
-    Math.max(0, (state.enemy.evasionPct ?? 0) - evaDown) * precisionMult;
+    Math.max(0, state.enemy.evasionPct ?? 0) *
+    (1 - Math.min(100, Math.max(0, evaDown)) / 100) *
+    precisionMult;
   const playerAccRating = player.accRating ?? player.accuracyPct ?? 0;
-  const missPct = attackMissPct(enemyEvaRating, playerAccRating);
-  if (!apIgnoresEvasion && Math.random() * 100 < missPct) {
-    const log = appendLog(state.log, {
-      kind: "player_attack",
-      text:
-        enemyEvaRating > 0
-          ? `${state.enemy.name}이(가) 공격을 피했다.`
-          : "공격이 빗나갔다.",
-    });
-    const attacksLeft = state.playerAttacksLeft - 1;
-    if (attacksLeft > 0) {
-      return {
-        ...state,
-        log,
-        playerAttacksLeft: attacksLeft,
-        turn: { ...state.turn, firstAttackPending: false },
-      };
-    }
-    const ended: BattleState = {
-      ...state,
-      log,
-      phase: "enemy",
-      playerAttacksLeft: rollPlayerAttackCountWithBleed(state, player),
-      turn: {
-        ...state.turn,
-        completedPlayerTurns: state.turn.completedPlayerTurns + 1,
-        doubleStrikeUsedThisTurn: false,
-        lightspeedUsedThisTurn: false,
-        critThisTurn: false,
-        riposteUsedThisTurn: false,
-        firstAttackPending: true,
-        galeChainsThisTurn: 0,
-        weakpointUsedThisTurn: false,
-        fatedChainTriggeredThisTurn: false,
-        // fatedChainCritPending 은 "다음 공격" 까지 살아 있어야 하므로 턴 경계에서 리셋 안 함.
-      },
-    };
-    return finishPlayerTurn(ended, player, playerName);
-  }
+  const evasionReductionPct = apIgnoresEvasion
+    ? 0
+    : evasionDamageReductionPct(enemyEvaRating, playerAccRating);
 
   // AP 스킬 시한부 버프 — 발동턴 damage calc 부터 효과 받도록 buffs 를 미리 갱신.
   // decrementTimedEffects 는 다음 플레이어 턴 진입 시 -1 → 발동턴 + (turns-1) 후속턴 = 총 turns 턴.
-  // evasion 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 그 분기는 위에서 이미 return 된 상태.
+  // 일반 회피는 공격 자체를 무효화하지 않으므로 AP 효과와 적중 효과는 정상 발동한다.
   const nextBuffsTimed = state.buffs;
 
-  const { assassinFires, breakerActive, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, enchantBerserkActive, enchantExeActive, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, nextComboAtkBonus, nextComboHitCount, totalDmg, weakpointDefIgnore } = computeAttackDamage(
+  const { assassinFires, breakerActive, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg: dmgBeforeEvasion, enchantBerserkActive, enchantExeActive, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, nextComboAtkBonus, nextComboHitCount, totalDmg: totalDmgBeforeEvasion, weakpointDefIgnore } = computeAttackDamage(
     state,
     player,
     bonus,
@@ -520,6 +484,14 @@ export function resolvePlayerPhase(
     apAtkMult,
     apHits,
     apIgnoresDef,
+  );
+  const dmg = applyEvasionDamageReduction(
+    dmgBeforeEvasion,
+    evasionReductionPct,
+  );
+  const totalDmg = applyEvasionDamageReduction(
+    totalDmgBeforeEvasion,
+    evasionReductionPct,
   );
   const labels: string[] = [];
   if (bonus > 0) labels.push("강공격");
@@ -539,7 +511,14 @@ export function resolvePlayerPhase(
   for (const skill of apAllFiredSkills) labels.push(skill.name);
   const prefix = labels.length > 0 ? `[${labels.join(" + ")}] ` : "";
   // 항상 "공격! " 접두 → 라벨(크리티컬·강공격 등)은 [..] 인라인(스킬 "마탄! [크리티컬] N…"과 통일).
-  let log = appendLog(state.log, {
+  let log = state.log;
+  if (totalDmg < totalDmgBeforeEvasion) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[회피 경감 ${evasionReductionPct.toFixed(1)}%] ${state.enemy.name} 피해 -${totalDmgBeforeEvasion - totalDmg}`,
+    });
+  }
+  log = appendLog(log, {
     kind: "player_attack",
     text: `공격! ${prefix}${totalDmg} 피해를 입혔다.`,
   });

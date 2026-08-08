@@ -66,7 +66,6 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
-  v2SkillHasTargetEffects,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -93,8 +92,10 @@ import {
   RAMPAGE_START_TURN,
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
-  pvpAttackMissPct,
+  applyEvasionDamageReduction,
+  absorbWithMagicBarrier,
   combineDefReductionPcts,
+  pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
@@ -173,7 +174,7 @@ export type PvPSideStacks = {
   skillRegenTurns: number;
   skillCritPct: number; // 연환집중 — 치명률 +%p
   skillCritTurns: number;
-  skillEvasionPct: number; // 선풍각 — 회피 +%p (PvP 는 회피 유효축)
+  skillEvasionPct: number; // 선풍각 — 회피도 +%
   skillEvasionTurns: number;
   skillDmgReducePct: number; // 진홍 심판·철포 — 받는 피해 -%
   skillDmgReduceTurns: number;
@@ -211,6 +212,8 @@ export type PvPSide = {
   // v2 마법 풀 — 일기토/토너먼트 매치 시작 시 풀충전 (PR-3·4). INT 0 = 둘 다 0.
   mp: number;
   maxMp: number;
+  magicBarrier?: number;
+  maxMagicBarrier?: number;
   attacksLeft: number;
   // 유격 (skirmishNextTurnBonus) — 이 사이드가 회피 성공 시 누적, 다음 자기 공격 페이즈
   // 시작 시 attacksLeft 에 더해지고 0 으로 리셋. PvE 의 enemy phase 내 직접 가산을
@@ -486,6 +489,7 @@ function buildSide(
     sustainMultiplier,
   );
   const sideMaxMp = Math.max(0, player.maxMp ?? 0);
+  const maxMagicBarrier = Math.max(0, player.magicBarrierMax ?? 0);
   return {
     player,
     name,
@@ -498,6 +502,8 @@ function buildSide(
     maxHp: player.maxHp,
     mp: sideMaxMp, // 매치 시작 풀충전 (단판 모델). 토너먼트는 매치마다 다시 풀충전.
     maxMp: sideMaxMp,
+    magicBarrier: maxMagicBarrier,
+    maxMagicBarrier,
     attacksLeft: 0, // initialBattleStatePvP 에서 선공 측만 채움
     nextTurnAttackBonus: 0,
     turn: {
@@ -648,6 +654,18 @@ export function initialBattleStatePvP(
     log.push({
       kind: "info",
       text: `[철벽] ${p2Side.name} 보호막 ${p2Side.stacks.playerShield} 전개`,
+    });
+  }
+  if ((p1Side.maxMagicBarrier ?? 0) > 0) {
+    log.push({
+      kind: "info",
+      text: `[마력 장벽] ${p1Side.name} 내구도 ${p1Side.maxMagicBarrier ?? 0} 전개`,
+    });
+  }
+  if ((p2Side.maxMagicBarrier ?? 0) > 0) {
+    log.push({
+      kind: "info",
+      text: `[마력 장벽] ${p2Side.name} 내구도 ${p2Side.maxMagicBarrier ?? 0} 전개`,
     });
   }
   const state: PvPBattleState = {
@@ -1828,12 +1846,16 @@ export function castV2SkillOnAttackerTurnPvP(
       poisonStacks: opp.v2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
       // 약점 노출 — 비전 작렬(magicVuln payoff)이 상대 누적 스택을 읽어 추가딜.
       magicVulnStacks: opp.stacks.magicVulnStacks,
+      enemyVulnerabilityActive: opp.stacks.enemyVulnTurns > 0,
+      enemyDamageDownActive: opp.stacks.damageDownTurns > 0,
+      enemySkillProcDownActive: opp.stacks.skillProcDownTurns > 0,
+      enemyHealReductionActive: opp.stacks.healReduceTurns > 0,
     },
   });
-  // 스킬도 명중 영향 — 상대 대상 효과가 있으면 발동 후 미스 판정(평타와 같은 공식). 미스면
-  //   피해·DoT·디버프·제어를 모두 무효화하고 MP·쿨다운·자버프·자힐은 유지한다.
-  let skillMissed = false;
+  // 보장 회피는 스킬 전체를 무효화한다. 일반 회피도는 빗나감 대신 직접 피해만 줄이며,
+  // DoT·디버프·제어 같은 적중 시 효과는 정상 적용한다.
   let skillGuaranteedEvaded = false;
+  let skillEvasionReductionPct = 0;
   if (
     result.castSkillId &&
     result.enemyDamage > 0 &&
@@ -1843,31 +1865,29 @@ export function castV2SkillOnAttackerTurnPvP(
     // 스킬 다단히트는 일반 명중 판정과 마찬가지로 한 번의 공격 행동으로 취급해 전체를 회피한다.
     skillGuaranteedEvaded = true;
     result = removeMissedV2SkillTargetEffects(result);
-  } else if (result.castSkillId && v2SkillHasTargetEffects(result)) {
-    // 평타 미스 공식과 동일(회피 대결형 Slice 2 B안) — 방어자 회피레이팅(정밀·이중행운·만물행운·회전
-    //   운기·선풍각 합) vs 공격자 명중레이팅. ⚠️ 평타 missPct(engine.pvpPhase.ts)와 동기화 유지.
+  } else if (result.castSkillId && result.enemyDamage > 0) {
+    // 평타와 동일하게 기본 회피도에 전투 중 증가율을 곱하고 공격자의 적중도와 대결한다.
     const sPrecisionMult = side.player.precisionEvasionMult ?? 1;
     const sLuckEvadeBonus = opp.flags.luckyBuffActive
       ? opp.player.doubleLuck?.evade ?? 0
       : 0;
     const sSkillEvadeBonus =
       opp.stacks.skillEvasionTurns > 0 ? opp.stacks.skillEvasionPct : 0;
+    const sTemporaryEvasionIncreasePct =
+      sLuckEvadeBonus +
+      (opp.player.universalLuckBonusPct ?? 0) +
+      opp.buffs.cyclingChiBonus +
+      sSkillEvadeBonus;
     const sDefenderEvaR = Math.max(
       0,
-      (opp.player.evaRating ?? opp.player.evasionPct ?? 0) * sPrecisionMult +
-        sLuckEvadeBonus +
-        (opp.player.universalLuckBonusPct ?? 0) +
-        opp.buffs.cyclingChiBonus +
-        sSkillEvadeBonus,
+      (opp.player.evaRating ?? opp.player.evasionPct ?? 0) *
+        sPrecisionMult *
+        (1 + Math.max(0, sTemporaryEvasionIncreasePct) / 100),
     );
-    const sMissPct = pvpAttackMissPct(
+    skillEvasionReductionPct = pvpEvasionDamageReductionPct(
       sDefenderEvaR,
       side.player.accRating ?? side.player.accuracyPct ?? 0,
     );
-    if (Math.random() * 100 < sMissPct) {
-      skillMissed = true;
-      result = removeMissedV2SkillTargetEffects(result);
-    }
   }
   // 3) state 업데이트. 앞 단계에서 만든 st 의 로그를 이어서 누적한다.
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
@@ -1875,7 +1895,9 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
   let nextOppShield = opp.stacks.playerShield;
+  let nextOppMagicBarrier = opp.magicBarrier ?? 0;
   let skillShieldAbsorbed = 0;
+  let skillMagicBarrierAbsorbed = 0;
   let skillDamageToHp = 0;
   let healShieldAmount = 0;
   const castSkillDef = result.castSkillId ? V2_SKILLS[result.castSkillId] : null;
@@ -1886,8 +1908,8 @@ export function castV2SkillOnAttackerTurnPvP(
       )?.pct ?? 0)
     : 0;
   let bloodDemonEffectiveDamage = 0;
-  // hpCostDamage 는 명중한 공격에 HP를 피해로 교환한다. 미스/확정 회피에서는
-  // removeMissedV2SkillTargetEffects 가 selfHpCost 를 0으로 만들며, 적중 시에는
+  // hpCostDamage는 명중한 공격에 HP를 피해로 교환한다. 확정 회피에서는
+  // removeMissedV2SkillTargetEffects가 selfHpCost를 0으로 만들며, 일반 회피 경감에서는
   // 흡혈보다 먼저 비용을 내 최대 HP에서도 회복할 공간이 생기게 한다.
   if (result.selfHpCost > 0) {
     const cost = Math.min(Math.max(0, nextSideHp - 1), result.selfHpCost);
@@ -2009,11 +2031,29 @@ export function castV2SkillOnAttackerTurnPvP(
       side.stacks.comboHitCount,
       side.player.comboFinisherBonusPct,
     );
+    const perHitAfterEvasion = comboResult.hitDamages.map((hit) =>
+      applyEvasionDamageReduction(hit, skillEvasionReductionPct),
+    );
+    const rawDamageBeforeEvasion = comboResult.hitDamages.reduce(
+      (sum, hit) => sum + hit,
+      0,
+    );
+    const rawDamageAfterEvasion = perHitAfterEvasion.reduce(
+      (sum, hit) => sum + hit,
+      0,
+    );
+    if (rawDamageAfterEvasion < rawDamageBeforeEvasion) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[회피 경감 ${skillEvasionReductionPct.toFixed(1)}%] ${opp.name} 피해 -${rawDamageBeforeEvasion - rawDamageAfterEvasion}`,
+        side: otherKey,
+      });
+    }
     const damageReductionPct = pvpSideDamageTakenReductionPct(opp);
-    const perHitBeforeReduction = comboResult.hitDamages.map((hit) =>
+    const perHitBeforeReduction = perHitAfterEvasion.map((hit) =>
       scalePvPDamage(st, hit),
     );
-    const perHit = comboResult.hitDamages.map((hit) => {
+    const perHit = perHitAfterEvasion.map((hit) => {
       const reduced =
         damageReductionPct > 0
           ? Math.max(
@@ -2030,8 +2070,8 @@ export function castV2SkillOnAttackerTurnPvP(
       (sum, hit) => sum + hit,
       0,
     );
-    // 평타 반사와 같은 기준: 방어자의 받피감·아레나 배율 적용 전 스킬 피해 원량.
-    skillReflectBase = comboResult.hitDamages.reduce(
+    // 평타 반사와 같은 기준: 회피 경감 후, 그 밖의 받피감·아레나 배율 적용 전 스킬 피해.
+    skillReflectBase = perHitAfterEvasion.reduce(
       (sum, hit) => sum + hit,
       0,
     );
@@ -2048,8 +2088,14 @@ export function castV2SkillOnAttackerTurnPvP(
       const absorbed = Math.min(nextOppShield, hit);
       nextOppShield -= absorbed;
       skillShieldAbsorbed += absorbed;
-      const remaining = hit - absorbed;
-      const actualHpDamage = Math.min(nextOppHp, remaining);
+      const barrier = absorbWithMagicBarrier(
+        hit - absorbed,
+        nextOppMagicBarrier,
+        opp.player.magicBarrierPvpAbsorbPct ?? 0,
+      );
+      nextOppMagicBarrier = barrier.durabilityLeft;
+      skillMagicBarrierAbsorbed += barrier.absorbed;
+      const actualHpDamage = Math.min(nextOppHp, barrier.damageToHp);
       nextOppHp -= actualHpDamage;
       skillDamageToHp += actualHpDamage;
       return actualHpDamage;
@@ -2061,8 +2107,16 @@ export function castV2SkillOnAttackerTurnPvP(
         side: otherKey,
       });
     }
+    if (skillMagicBarrierAbsorbed > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[마력 장벽] ${opp.name} ${skillMagicBarrierAbsorbed} 흡수 (남은 ${nextOppMagicBarrier})`,
+        side: otherKey,
+      });
+    }
     if (isBloodDemonReign) {
-      bloodDemonEffectiveDamage = skillShieldAbsorbed + skillDamageToHp;
+      bloodDemonEffectiveDamage =
+        skillShieldAbsorbed + skillMagicBarrierAbsorbed + skillDamageToHp;
     }
     for (const hit of hpHits) {
       nextLog = appendLog(nextLog, {
@@ -2071,12 +2125,6 @@ export function castV2SkillOnAttackerTurnPvP(
         side: who,
       });
     }
-  } else if (skillMissed && result.castSkillName) {
-    nextLog = appendLog(nextLog, {
-      kind: "player_attack",
-      text: `${result.castSkillName}! 빗나갔다.`,
-      side: who,
-    });
   }
   if (sigSkillCritSpdBuff) {
     nextLog = appendLog(nextLog, {
@@ -2256,7 +2304,7 @@ export function castV2SkillOnAttackerTurnPvP(
   if (evaBuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuff.pct}%p (${evaBuff.turns}행동)`,
+      text: `[${result.castSkillName ?? "회피"}] 회피도 +${evaBuff.pct}% (${evaBuff.turns}행동)`,
       side: who,
     });
   }
@@ -2380,9 +2428,17 @@ export function castV2SkillOnAttackerTurnPvP(
     magicVulnApplied
       ? Math.min(MAGIC_VULN_STACK_CAP, opp.stacks.magicVulnStacks + 1)
       : opp.stacks.magicVulnStacks;
+  if (nextOppMagicVuln > opp.stacks.magicVulnStacks) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[흉조] ${opp.name}에게 마법취약 +1 (${nextOppMagicVuln}/${MAGIC_VULN_STACK_CAP})`,
+      side: who,
+    });
+  }
   const nextOpp: PvPSide = {
     ...opp,
     hp: nextOppHp,
+    magicBarrier: nextOppMagicBarrier,
     flags: {
       ...opp.flags,
       statusBlockUsed: opp.flags.statusBlockUsed || statusBlockDots,
@@ -2557,6 +2613,10 @@ function resolveBattlePvPLegacy(
     playerMaxMp: s.p1.maxMp,
     enemyMp: s.p2.mp,
     enemyMaxMp: s.p2.maxMp,
+    playerMagicBarrier: s.p1.magicBarrier,
+    playerMagicBarrierMax: s.p1.maxMagicBarrier,
+    enemyMagicBarrier: s.p2.magicBarrier,
+    enemyMagicBarrierMax: s.p2.maxMagicBarrier,
   });
   let turns = 0;
   // v2 스킬 (PR-4a) — 각 side 의 턴 진입 시 1회 cast (framework only).

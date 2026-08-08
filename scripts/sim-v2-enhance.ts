@@ -81,7 +81,8 @@ function makeRef(enhance: V2EnhanceState | undefined) {
   const p = d.player;
   const power = derivePowerScore({
     atk: p.atk, magicAtk: p.magicAtk ?? 0, def: p.def, spd: p.spd,
-    maxHp: d.maxHp, maxMp: p.maxMp ?? 0,
+    maxHp: d.maxHp, maxMp: p.maxMp ?? 0, magicBarrierMax: p.magicBarrierMax,
+    evaRating: p.evaRating, accRating: p.accRating,
   });
   return { d, power };
 }

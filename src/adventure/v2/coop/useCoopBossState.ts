@@ -136,8 +136,8 @@ export type CoopSessionDetail = {
     player: {
       accRating: number;
       evaRating: number;
-      hitPct: number;
-      evadePct: number;
+      damageRetainedPct: number;
+      evasionReductionPct: number;
     };
   } | null;
   participantCount: number;

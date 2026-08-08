@@ -18,7 +18,8 @@ export type V2PatternEnemyStatus = "bleed" | "poison" | "vuln";
 export type V2PatternEnemyDebuff =
   | "vulnerability"
   | "damageDown"
-  | "skillProcDown";
+  | "skillProcDown"
+  | "healReduction";
 export type V2PatternSelfStatus =
   | "evasion"
   | "crit"
@@ -90,6 +91,7 @@ export type V2PatternCtx = {
   enemyVulnerabilityActive?: boolean;
   enemyDamageDownActive?: boolean;
   enemySkillProcDownActive?: boolean;
+  enemyHealReductionActive?: boolean;
   turn: number; // 1-based 공격 차례
 };
 
@@ -99,6 +101,22 @@ function enemyStatusStacks(ctx: V2PatternCtx, tag: V2PatternEnemyStatus): number
     : tag === "poison"
       ? ctx.enemyPoison
       : ctx.enemyVuln;
+}
+
+function enemyDebuffActive(
+  ctx: V2PatternCtx,
+  target: V2PatternEnemyDebuff,
+): boolean {
+  switch (target) {
+    case "vulnerability":
+      return ctx.enemyVulnerabilityActive ?? false;
+    case "damageDown":
+      return ctx.enemyDamageDownActive ?? false;
+    case "skillProcDown":
+      return ctx.enemySkillProcDownActive ?? false;
+    case "healReduction":
+      return ctx.enemyHealReductionActive ?? false;
+  }
 }
 
 // 단일 조건 충족 여부. 알 수 없는 kind 는 false(보수적).
@@ -140,13 +158,7 @@ export function conditionPasses(
           : stacks >= cond.stacks;
     }
     case "enemy_debuff":
-      return (
-        (cond.target === "vulnerability"
-          ? (ctx.enemyVulnerabilityActive ?? false)
-          : cond.target === "damageDown"
-            ? (ctx.enemyDamageDownActive ?? false)
-            : (ctx.enemySkillProcDownActive ?? false)) === cond.active
-      );
+      return enemyDebuffActive(ctx, cond.target) === cond.active;
     case "turn":
       if (cond.value <= 0) return false;
       return cond.op === "atMost"
@@ -391,7 +403,8 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
       const target =
         c.target === "vulnerability" ||
         c.target === "damageDown" ||
-        c.target === "skillProcDown"
+        c.target === "skillProcDown" ||
+        c.target === "healReduction"
           ? c.target
           : null;
       if (!target || typeof c.active !== "boolean") return null;

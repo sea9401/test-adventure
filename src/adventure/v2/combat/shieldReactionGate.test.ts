@@ -183,3 +183,38 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     ).toBe(true);
   });
 });
+
+describe("마력 장벽 직접 피해 순서", () => {
+  it("일반 보호막이 먼저 소모된 뒤 남은 평타 일부를 별도 내구도로 흡수한다", () => {
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      bulwarkShield: 10,
+      magicBarrierMax: 100,
+      magicBarrierAbsorbPct: 50,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const initial = initialBattleState(defender, ENEMY, "마도사");
+    const next = resolveEnemyPhase(initial, defender, "마도사", true);
+
+    expect(next.stacks.playerShield).toBe(0);
+    expect(next.playerMagicBarrier).toBeLessThan(100);
+    expect(next.playerHp).toBeLessThan(defender.hp);
+    expect(next.log.some((entry) => entry.text.includes("[철벽]"))).toBe(true);
+    expect(next.log.some((entry) => entry.text.includes("[마력 장벽]"))).toBe(true);
+  });
+
+  it("PvP에서는 별도 PvP 흡수율로 평타 일부를 흡수한다", () => {
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      magicBarrierMax: 100,
+      magicBarrierPvpAbsorbPct: 25,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const initial = initialBattleStatePvP(PLAYER, defender, "공격자", "마도사");
+    const next = advanceTurnPvP(initial, { kind: "attack" });
+
+    expect(next.p2.magicBarrier).toBeLessThan(100);
+    expect(next.p2.hp).toBeLessThan(defender.hp);
+    expect(next.log.some((entry) => entry.text.includes("[마력 장벽]"))).toBe(true);
+  });
+});

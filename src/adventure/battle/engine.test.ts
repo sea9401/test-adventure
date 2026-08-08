@@ -74,18 +74,19 @@ describe("damageBetween", () => {
 });
 
 describe("damageToDefender (적→플레이어 비대칭 비율감산)", () => {
-  it("비율감산 = round(atk²/(atk+3·def)), def=0 면 atk 그대로(불변)", () => {
+  it("경감률 = 85%×방어력/(방어력+500), def=0이면 공격력 그대로다", () => {
     expect(damageToDefender(20, 0)).toBe(20); // 무방어 = atk(damageBetween 과 byte-identical)
-    expect(damageToDefender(100, 5)).toBe(87); // round(10000/115)
-    expect(damageToDefender(20, 3)).toBe(14); // round(400/29)
+    expect(damageToDefender(100, 5)).toBe(99);
+    expect(damageToDefender(20, 3)).toBe(20);
   });
-  it("엔드(atk≫def)서도 def 가 %경감 유지 — 선형 atk−def 와 달리 무용화 안 됨", () => {
-    // atk 1000, def 200: 선형이면 800(20%경감)·비율이면 round(1e6/1600)=625(37.5%경감).
-    expect(damageToDefender(1000, 200)).toBe(625);
+  it("같은 방어력은 상대 공격력과 무관하게 같은 경감률을 제공한다", () => {
+    expect(damageToDefender(1000, 200)).toBe(757);
+    expect(damageToDefender(4000, 200)).toBe(3029);
     expect(damageBetween(1000, 200)).toBe(800); // 대조 — 선형은 경감 약함
   });
-  it("15% floor — 고방어도 최대 85% 경감(무적 탱 방지)", () => {
-    expect(damageToDefender(100, 10000)).toBe(15); // ceil(100×0.15)
+  it("방어 경감은 85%에 점근하고 15% 피해 하한을 넘지 않는다", () => {
+    expect(damageToDefender(100, 10_000)).toBe(19);
+    expect(damageToDefender(100, 1_000_000_000)).toBe(15);
   });
   it("분모 가드 — atk=0 & def=0 이면 NaN 아니라 1(Codex 엣지)", () => {
     expect(damageToDefender(0, 0)).toBe(1);
@@ -107,9 +108,9 @@ describe("보스 부분 관통 (armorVulnerable / playerDefVulnerable)", () => {
   it("playerDefVulnerable — 적 공격이 플레이어 DEF 의 그 비율을 무시", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const enemy = makeEnemy({ atk: 20, def: 0, spd: 99, playerDefVulnerable: 0.5 });
-    // 적 선공. 실효 플레이어 DEF = round(5 × 0.5) = 3 → damageToDefender(20,3)=round(400/29)=14 (바닥 ceil(20×0.15)=3 보다 큼).
+    // 적 선공. 실효 플레이어 DEF = round(5 × 0.5) = 3.
     const s = advanceTurn(initialBattleState(PLAYER, enemy, "용사"), PLAYER, "용사");
-    expect(s.playerHp).toBe(PLAYER.hp - 14);
+    expect(s.playerHp).toBe(PLAYER.hp - damageToDefender(20, 3));
   });
 });
 
@@ -236,21 +237,20 @@ describe("페이즈 트리거", () => {
 });
 
 describe("advanceTurn (enemy phase)", () => {
-  it("회피 성공 시 데미지 없이 player phase로 복귀", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0); // 0 < evasionPct = 회피
-    const dodgy: PlayerCombat = { ...PLAYER, evasionPct: 100 };
+  it("일반 회피도는 완전 회피 대신 직접 피해를 경감한다", () => {
+    const dodgy: PlayerCombat = { ...PLAYER, evasionPct: 100, evaRating: 100 };
     const s0 = { ...initialBattleState(dodgy, makeEnemy(), "P"), phase: "enemy" as const };
     const s1 = advanceTurn(s0, dodgy, "P");
-    expect(s1.playerHp).toBe(dodgy.hp);
+    expect(s1.playerHp).toBe(dodgy.hp - 1);
+    expect(s1.log.some((entry) => entry.text.includes("회피 경감"))).toBe(true);
     expect(s1.phase).toBe("player");
   });
 
-  it("회피 실패 시 데미지를 입고 player phase", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.99); // evasionPct=0이면 무조건 피격
+  it("회피도가 없으면 방어 공식의 피해를 그대로 받는다", () => {
     const enemy = makeEnemy();
     const s0 = { ...initialBattleState(PLAYER, enemy, "P"), phase: "enemy" as const };
     const s1 = advanceTurn(s0, PLAYER, "P");
-    expect(s1.playerHp).toBe(PLAYER.hp - damageBetween(enemy.atk, PLAYER.def));
+    expect(s1.playerHp).toBe(PLAYER.hp - damageToDefender(enemy.atk, PLAYER.def));
     expect(s1.phase).toBe("player");
   });
 
@@ -1092,8 +1092,8 @@ describe("회피 강화 (guaranteedEvades)", () => {
   });
 });
 
-describe("상태이상 스킬 명중 판정", () => {
-  it("직접 피해 없는 중독 스킬도 빗나가면 DoT를 남기지 않는다", () => {
+describe("상태이상 스킬과 일반 회피", () => {
+  it("일반 회피도는 적중 시 DoT를 막지 않는다", () => {
     const player: PlayerCombat = {
       ...PLAYER,
       accuracyPct: 0,
@@ -1117,15 +1117,88 @@ describe("상태이상 스킬 명중 판정", () => {
     });
 
     expect(cast.castFired).toBe(true);
-    expect(cast.state.enemyV2Dots).toEqual([]);
-    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(
-      true,
+    expect(cast.state.enemyV2Dots).toHaveLength(1);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(false);
+  });
+});
+
+describe("흉조 마법취약 로그", () => {
+  it("직접 피해 적중으로 스택이 실제 증가할 때만 누적 수치를 기록한다", () => {
+    const player: PlayerCombat = {
+      ...PLAYER,
+      atk: 100,
+      maxMp: 1000,
+      mp: 1000,
+      accuracyPct: 100,
+      enemyMagicVulnPctPerStack: 5,
+      enemyMagicVulnApplyChancePct: 100,
+    };
+    const state = initialBattleState(
+      player,
+      makeEnemy({ hp: 5000, def: 0, evasionPct: 0 }),
+      "P",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
     );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(cast.state.stacks.enemyMagicVulnStacks).toBe(1);
+    expect(cast.state.log.some((entry) =>
+      entry.text.includes("[흉조] 적에게 마법취약 +1 (1/10)"),
+    )).toBe(true);
+  });
+
+  it("누적 확률 실패 또는 최대 스택이면 흉조 로그를 남기지 않는다", () => {
+    const player: PlayerCombat = {
+      ...PLAYER,
+      atk: 100,
+      maxMp: 1000,
+      mp: 1000,
+      accuracyPct: 100,
+      enemyMagicVulnPctPerStack: 5,
+      enemyMagicVulnApplyChancePct: 0,
+    };
+    const base = initialBattleState(
+      player,
+      makeEnemy({ hp: 5000, def: 0, evasionPct: 0 }),
+      "P",
+      {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const failed = applyPlayerV2SkillCast(base, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+    const capped = applyPlayerV2SkillCast(
+      {
+        ...base,
+        stacks: { ...base.stacks, enemyMagicVulnStacks: 10 },
+      },
+      { ...player, enemyMagicVulnApplyChancePct: 100 },
+      { selfBuffs: {}, selfDebuffs: {}, enemyDebuffs: {} },
+    ).state;
+
+    expect(failed.log.some((entry) => entry.text.includes("[흉조]"))).toBe(false);
+    expect(capped.stacks.enemyMagicVulnStacks).toBe(10);
+    expect(capped.log.some((entry) => entry.text.includes("[흉조]"))).toBe(false);
   });
 });
 
 describe("HP 소모 공격", () => {
-  it("빗나가면 HP를 소모하지 않는다", () => {
+  it("일반 회피 경감에도 HP 소모 공격은 적중하고 비용을 낸다", () => {
     const player: PlayerCombat = {
       ...PLAYER,
       hp: 500,
@@ -1154,8 +1227,9 @@ describe("HP 소모 공격", () => {
       enemyDebuffs: {},
     });
 
-    expect(cast.state.playerHp).toBe(500);
-    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(true);
+    expect(cast.state.playerHp).toBe(460);
+    expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(false);
+    expect(cast.state.log.some((entry) => entry.text.includes("회피 경감"))).toBe(true);
   });
 
   it("혈마군림은 HP 소모 후 실제 HP 피해의 20%를 회복한다", () => {
@@ -1331,38 +1405,33 @@ describe("처형 (executionDamageMult)", () => {
 });
 
 describe("정확 (precisionEvasionMult)", () => {
-  it("evasion 20% 적에게 mult 0.5 적용 시 회피 10% — 100번 시도에서 회피 빈도가 절반에 가까움", () => {
-    // 결정적 검증을 위해 Math.random 모킹.
+  it("정확은 상대 회피도를 낮춰 피해 경감률을 줄인다", () => {
     const enemy = makeEnemy({ hp: 1000, def: 0, evasionPct: 20 });
     const precise: PlayerCombat = {
       ...PLAYER,
       atk: 10,
       precisionEvasionMult: 0.5,
-      // 기본 명중 90% 상쇄 — 명중=기본빗나감(10)이면 적 회피(정확 적용분)만 미스로 남아 원래 임계 복원.
       accuracyPct: 10,
+      accRating: 10,
     };
-    // 첫 공격에 0.05 굴림 (5%) → 정확 적용된 10% 임계 안 → 회피 발동.
-    vi.spyOn(Math, "random").mockReturnValue(0.05);
     let s = initialBattleState(precise, enemy, "P");
     s = advanceTurn(s, precise, "P");
-    // 회피 → enemyHp 그대로
-    expect(s.enemyHp).toBe(1000);
-    expect(s.log.some((l) => l.text.includes("피했다"))).toBe(true);
+    expect(s.enemyHp).toBe(993);
+    expect(s.log.some((l) => l.text.includes("회피 경감"))).toBe(true);
   });
-  it("evasion 20% 에 mult 0.5 적용 시 12% 굴림은 명중", () => {
+  it("일반 회피 경감은 난수와 무관하게 같은 피해를 만든다", () => {
     const enemy = makeEnemy({ hp: 1000, def: 0, evasionPct: 20 });
     const precise: PlayerCombat = {
       ...PLAYER,
       atk: 10,
       precisionEvasionMult: 0.5,
-      // 기본 명중 90% 상쇄 — 명중=기본빗나감(10)이면 적 회피(정확 적용분)만 미스로 남아 원래 임계 복원.
       accuracyPct: 10,
+      accRating: 10,
     };
-    // 정확 적용 후 임계 10% — 0.12 = 12% 는 임계 위 → 회피 실패 → 명중.
     vi.spyOn(Math, "random").mockReturnValue(0.12);
     let s = initialBattleState(precise, enemy, "P");
     s = advanceTurn(s, precise, "P");
-    expect(s.enemyHp).toBe(990);
+    expect(s.enemyHp).toBe(993);
   });
 });
 
@@ -1466,7 +1535,7 @@ describe("만개 (critMult / critChance) 누적", () => {
 
 describe("잡몹 스킬", () => {
   it("관통 — 적 공격이 플레이어 DEF 를 무시", () => {
-    // PLAYER def 5, 적 atk 8, 관통 3 → def 2 취급 → damageToDefender(8,2)=round(64/14)=5.
+    // PLAYER def 5, 적 atk 8, 관통 3 → def 2 취급.
     const enemy = makeEnemy({
       atk: 8,
       spd: 99, // 적 선공
@@ -1474,7 +1543,7 @@ describe("잡몹 스킬", () => {
     });
     let s = initialBattleState(PLAYER, enemy, "P");
     s = advanceTurn(s, PLAYER, "P");
-    expect(PLAYER.hp - s.playerHp).toBe(5);
+    expect(PLAYER.hp - s.playerHp).toBe(damageToDefender(8, 2));
   });
 
   it("방어 태세 — 플레이어 공격 데미지 감소 (최소 1 클램프)", () => {
@@ -1501,7 +1570,7 @@ describe("잡몹 스킬", () => {
   });
 
   it("강타 — everyPhases 번째 적 페이즈마다 데미지 ×배율", () => {
-    // 적 atk 8, PLAYER def 5 → 평소 3. everyPhases 2 / multiplier 2 → 2번째 적 페이즈에 6.
+    // 적 atk 8, PLAYER def 5. everyPhases 2 / multiplier 2.
     const enemy = makeEnemy({
       hp: 1000,
       atk: 8,
@@ -1510,11 +1579,13 @@ describe("잡몹 스킬", () => {
       skill: { kind: "heavy_blow", name: "강타", everyPhases: 2, multiplier: 2 },
     });
     let s = initialBattleState(PLAYER, enemy, "P");
-    s = advanceTurn(s, PLAYER, "P"); // 적 페이즈 1 — 평타 3
-    expect(PLAYER.hp - s.playerHp).toBe(3);
+    s = advanceTurn(s, PLAYER, "P");
+    expect(PLAYER.hp - s.playerHp).toBe(damageToDefender(8, 5));
     s = advanceTurn(s, PLAYER, "P"); // 플레이어 페이즈
-    s = advanceTurn(s, PLAYER, "P"); // 적 페이즈 2 — 강타 ×2 → +6
-    expect(PLAYER.hp - s.playerHp).toBe(9);
+    s = advanceTurn(s, PLAYER, "P");
+    expect(PLAYER.hp - s.playerHp).toBe(
+      damageToDefender(8, 5) + damageToDefender(8, 5) * 2,
+    );
     // 라벨은 "공격! " 접두 뒤 인라인([강타])으로 통일됨(평타·스킬 어투 일치).
     expect(s.log.some((e) => e.text.includes("[강타]"))).toBe(true);
   });
@@ -1531,14 +1602,16 @@ describe("잡몹 스킬", () => {
     });
     let s = initialBattleState(strong, enemy, "P");
     s = advanceTurn(s, strong, "P"); // 플레이어 — 적 30→18 (≥ 15, 격노 X)
-    s = advanceTurn(s, strong, "P"); // 적 페이즈 — 평타 8-5 = 3
-    expect(strong.hp - s.playerHp).toBe(3);
+    s = advanceTurn(s, strong, "P");
+    expect(strong.hp - s.playerHp).toBe(damageToDefender(8, 5));
     expect(s.buffs.enemyAtkBonus).toBe(0);
     s = advanceTurn(s, strong, "P"); // 플레이어 — 적 18→6 (< 15)
-    s = advanceTurn(s, strong, "P"); // 적 페이즈 — 격노 발동, atk 18 → damageToDefender(18,5)=round(324/33)=10
+    s = advanceTurn(s, strong, "P");
     expect(s.buffs.enemyAtkBonus).toBe(10);
     expect(s.flags.enrageTriggered).toBe(true);
-    expect(strong.hp - s.playerHp).toBe(3 + 10);
+    expect(strong.hp - s.playerHp).toBe(
+      damageToDefender(8, 5) + damageToDefender(18, 5),
+    );
     expect(s.log.filter((e) => e.text.startsWith("[격노]")).length).toBe(1);
   });
 });
@@ -1546,15 +1619,15 @@ describe("잡몹 스킬", () => {
 describe("반격의 룬 — non-lethal counter 데미지 반영", () => {
   it("반격의 룬 카운터가 적 HP 에서 차감된다 (적 생존)", () => {
     // 적 ATK 8 / DEF 0, 플레이어 ATK 10 / DEF 5 → 평타 7. 반사 갑주 없음.
-    // 플레이어 피해는 적 ATK 8 - DEF 5 = 3. 반격의 룬 100% — 적에게 ATK 10 반격.
+    // 플레이어 피해는 damageToDefender 공식을 사용. 반격의 룬 100% — 적에게 ATK 10 반격.
     // 1턴 적 페이즈 후 적 HP = (시작 HP) - 평타 7 (플레이어 턴) - 10 (반격).
     const p: PlayerCombat = { ...PLAYER, runeCounterChancePct: 100 };
     const enemy = makeEnemy({ hp: 100, atk: 8, def: 0, spd: 1 });
     let s = initialBattleState(p, enemy, "P");
     s = advanceTurn(s, p, "P"); // 플레이어 페이즈 — 평타 10, 적 100 → 90
     expect(s.enemyHp).toBe(90);
-    s = advanceTurn(s, p, "P"); // 적 페이즈 — 피해 3 + 반격의 룬 10 → 적 90 → 80
-    expect(p.hp - s.playerHp).toBe(3);
+    s = advanceTurn(s, p, "P");
+    expect(p.hp - s.playerHp).toBe(damageToDefender(8, 5));
     expect(s.enemyHp).toBe(80);
     expect(s.log.some((e) => e.text.startsWith("[반격의 룬]"))).toBe(true);
   });
@@ -1577,7 +1650,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       },
       ...over,
     });
-  // DEF 100 탱커 — 적 평타를 바닥(1)으로 눌러 한기 DoT 를 분리 관측.
+  // DEF 100 탱커 — 방어 점감식을 적용한 평타와 한기 DoT를 함께 검증한다.
   const tank: PlayerCombat = { ...PLAYER, hp: 200, maxHp: 200, def: 100 };
 
   it("적 공격이 적중하면 한기가 perHit 만큼 누적된다", () => {
@@ -1591,14 +1664,14 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
   it("threshold 이상이면 적 페이즈 시작에 스택당 dmgPerStack 피해 (DEF 무시)", () => {
     const enemy = chillEnemy();
     const s0 = initialBattleState(tank, enemy, "P");
-    // 스택 5 로 시작 → 한기 DoT 5×3=15, 적 평타 1 → 200-16=184. 누적은 +2 → 7.
+    // 스택 5로 시작 → 한기 DoT 15 + 방어 적용 평타 5. 누적은 +2 → 7.
     const primed = {
       ...s0,
       phase: "enemy" as const,
       stacks: { ...s0.stacks, chillStacks: 5 },
     };
     const after = advanceTurn(primed, tank, "P");
-    expect(after.playerHp).toBe(184);
+    expect(after.playerHp).toBe(180);
     expect(after.stacks.chillStacks).toBe(7);
     expect(
       after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("15 피해")),
@@ -1649,11 +1722,11 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(
       after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("120 피해")),
     ).toBe(true);
-    // 한기 120 + 적 평타 바닥 1 → 200 − 121 = 79.
-    expect(after.playerHp).toBe(79);
+    // 한기 120 + 방어 적용 평타 5.
+    expect(after.playerHp).toBe(75);
   });
 
-  it("evasionPenaltyPerStack — 한기 스택만큼 회피율이 줄어 못 피한다 (슬로우)", () => {
+  it("evasionPenaltyPerStack — 한기 스택만큼 회피 경감률이 줄어든다", () => {
     const enemy = chillEnemy({
       atk: 50,
       accuracy: 5, // 회피 대결형 — 라이브 몹은 floorAccuracy 보유(0이면 대결 퇴화). 대결 상대 명중.
@@ -1676,21 +1749,19 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       evaRating: 60, // 회피 대결형 — enemyPhase 가 evaRating 으로 대결.
     };
     const s0 = initialBattleState(dodgy, enemy, "P");
-    // PvE 회피 대결형(eva 60 vs 명중 5·K6): 한기 0 → dodge 50%(굴림 45<50 회피),
-    // 4스택(−20 → eva 40) → 42.9%(45≥42.9 피격).
-    vi.spyOn(Math, "random").mockReturnValue(0.45);
+    // 한기 4스택은 회피도를 20% 낮춰 같은 공격에서 더 큰 피해를 받게 한다.
     const noChill = advanceTurn(
       { ...s0, phase: "enemy" as const, stacks: { ...s0.stacks, chillStacks: 0 } },
       dodgy,
       "P",
     );
-    expect(noChill.playerHp).toBe(500); // 회피 성공
+    expect(noChill.playerHp).toBe(486);
     const chilled = advanceTurn(
       { ...s0, phase: "enemy" as const, stacks: { ...s0.stacks, chillStacks: 4 } },
       dodgy,
       "P",
     );
-    expect(chilled.playerHp).toBeLessThan(500); // 슬로우로 못 피함 → 피격
+    expect(chilled.playerHp).toBeLessThan(noChill.playerHp);
   });
 
   it("threshold 미만이면 DoT 가 발동하지 않는다", () => {
@@ -1702,8 +1773,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       stacks: { ...s0.stacks, chillStacks: 3 },
     };
     const after = advanceTurn(primed, tank, "P");
-    // 한기 DoT 없음 → 적 평타 1 만. 200-1=199.
-    expect(after.playerHp).toBe(199);
+    expect(after.playerHp).toBe(195);
     expect(after.log.some((e) => e.text.startsWith("[한기]"))).toBe(false);
   });
 
@@ -1730,7 +1800,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     };
     const after1 = advanceTurn(primed, tank, "P");
     const after2 = advanceTurn(after1, tank, "P");
-    expect(after2.playerHp).toBe(183);
+    expect(after2.playerHp).toBe(175);
     expect(after2.log.filter((e) => e.text.startsWith("[한기]")).length).toBe(1);
   });
 
@@ -1856,7 +1926,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       stacks: { ...s0.stacks, chillStacks: 5 },
     };
     const after = advanceTurn(primed, tank, "P");
-    expect(after.playerHp).toBe(192);
+    expect(after.playerHp).toBe(191);
     expect(
       after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("7 피해")),
     ).toBe(true);
@@ -1872,7 +1942,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       stacks: { ...s0.stacks, chillStacks: 5 },
     };
     const after = advanceTurn(primed, enduring, "P");
-    expect(after.playerHp).toBe(192);
+    expect(after.playerHp).toBe(191);
     expect(
       after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("7 피해")),
     ).toBe(true);

@@ -7,6 +7,7 @@ import {
   createStormRiskEvent,
   parseStormExpeditionState,
   stormExpeditionBattleReward,
+  stormExpeditionEncounterDepth,
   stormExpeditionEnemy,
 } from "./stormExpedition";
 
@@ -103,13 +104,33 @@ describe("stormExpedition", () => {
     const gale = stormExpeditionEnemy("gale", "guardian");
     const thunder = stormExpeditionEnemy("thunder", "guardian");
     const wreckage = stormExpeditionEnemy("wreckage", "guardian");
-    const heart = stormExpeditionEnemy("gale", "final_boss");
+    const galeHeart = stormExpeditionEnemy("gale", "final_boss");
+    const thunderHeart = stormExpeditionEnemy("thunder", "final_boss");
+    const wreckageHeart = stormExpeditionEnemy("wreckage", "final_boss");
 
     expect(gale.evasionPct).toBeGreaterThan(thunder.evasionPct ?? 0);
     expect(thunder.magicDef).toBeGreaterThan(gale.magicDef ?? 0);
     expect(wreckage.def).toBeGreaterThan(thunder.def);
     expect(wreckage.statusDamageReductionPct).toBe(60);
-    expect(heart.statusDamageReductionPct).toBe(50);
+    expect(galeHeart.statusDamageReductionPct).toBe(30);
+    expect(galeHeart.v2Skills).toBeUndefined();
+    expect(galeHeart.skill?.kind).toBe("pierce");
+    expect(thunderHeart.v2Skills?.equipped).toHaveLength(2);
+    expect(thunderHeart.magicDef).toBeLessThan(galeHeart.def);
+    expect(wreckageHeart.v2Skills).toBeUndefined();
+    expect(wreckageHeart.skill?.kind).toBe("heavy_blow");
+    expect(wreckageHeart.spd).toBeLessThan(thunderHeart.spd);
+  });
+
+  it("뇌운 정예는 단일 마법, 수호자는 연속 마법 패턴을 사용한다", () => {
+    const elite = stormExpeditionEnemy("thunder", "elite");
+    const guardian = stormExpeditionEnemy("thunder", "guardian");
+
+    expect(elite.v2Skills?.equipped).toEqual(["mob_arcane_burst"]);
+    expect(guardian.v2Skills?.equipped).toEqual([
+      "mob_arcane_nova",
+      "mob_arcane_burst",
+    ]);
   });
 
   it("9개 노드 사이에 7개 전투와 공통 최종 보스를 배치한다", () => {
@@ -121,6 +142,18 @@ describe("stormExpedition", () => {
       0,
     )).toBe(7);
     expect(STORM_EXPEDITION_NODES.at(-1)?.id).toBe("storm_heart");
+  });
+
+  it("초반 연전은 완화하고 최종 보스 스케일은 유지한다", () => {
+    expect([
+      stormExpeditionEncounterDepth("early_trash", 0),
+      stormExpeditionEncounterDepth("early_trash", 1),
+      stormExpeditionEncounterDepth("late_trash", 0),
+      stormExpeditionEncounterDepth("late_trash", 1),
+      stormExpeditionEncounterDepth("elite"),
+      stormExpeditionEncounterDepth("guardian"),
+      stormExpeditionEncounterDepth("final_boss"),
+    ]).toEqual([65, 66, 67, 68, 71, 74, 76]);
   });
 
   it("후반 전투일수록 골드가 증가하고 완주 기본 골드는 262,000G다", () => {

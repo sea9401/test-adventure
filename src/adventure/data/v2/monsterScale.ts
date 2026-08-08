@@ -68,10 +68,8 @@ export function scaleMonsterForFloor(
       ? undefined
       : Math.max(0, Math.round(monster.magicDef * dMult));
   const exp = Math.max(0, Math.round(monster.exp * eMult));
-  // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
-  //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
-  //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
-  // 회피·치명 축은 표시 전투력에 직접 반영되지 않으므로 권장 전투력은 안내에만 사용한다.
+  // 몬스터 적중도 = 고유 적중도 + floorAccuracy(depth). 플레이어 회피 경감과 대결한다.
+  // 소수값도 의미가 있으므로 반올림하지 않는다. 회피도·적중도는 플레이어 표시 전투력에도 반영된다.
   // 같은 깊이의 몬스터 능력치는 플레이어 표시 전투력과 관계없이 항상 같다.
   const accuracy =
     ((monster.accuracy ?? 0) + floorAccuracy(depth)) *

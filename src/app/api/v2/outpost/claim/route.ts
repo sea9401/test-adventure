@@ -404,6 +404,9 @@ export async function POST(req: Request) {
       spd: player.player.spd,
       maxHp: player.maxHp,
       maxMp: player.player.maxMp,
+      magicBarrierMax: player.player.magicBarrierMax,
+      evaRating: player.player.evaRating,
+      accRating: player.player.accRating,
     });
     if (outpostDefense > 0) {
       if (myPower < outpostDefense) {

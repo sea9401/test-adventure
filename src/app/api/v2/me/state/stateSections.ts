@@ -129,6 +129,8 @@ export function combatStatsSection(
         magicAtk: combat.player.magicAtk ?? 0,
         // 마법 방어력 — SPI(+INT 약간)+장신구 환산. 마법 데미지를 막는 별개 방어 스탯.
         magicDef: combat.player.magicDef ?? 0,
+        magicBarrierMax: combat.player.magicBarrierMax ?? 0,
+        magicBarrierAbsorbPct: combat.player.magicBarrierAbsorbPct ?? 0,
         // 숨은 전투 축 — 회피/명중/치명타/다중공격.
         evasionPct: combat.player.evasionPct,
         // 회피 대결형(Slice 1b) — 캡 없는 raw 회피레이팅.
@@ -147,6 +149,9 @@ export function combatStatsSection(
           spd: combat.player.spd,
           maxHp,
           maxMp,
+          magicBarrierMax: combat.player.magicBarrierMax,
+          evaRating: combat.player.evaRating,
+          accRating: combat.player.accRating,
         }),
       }
     : null;

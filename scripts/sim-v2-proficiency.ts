@@ -129,6 +129,9 @@ function maturePower(
     spd: d.player.spd,
     maxHp: d.maxHp,
     maxMp: d.player.maxMp ?? 0,
+    magicBarrierMax: d.player.magicBarrierMax,
+    evaRating: d.player.evaRating,
+    accRating: d.player.accRating,
   });
 }
 

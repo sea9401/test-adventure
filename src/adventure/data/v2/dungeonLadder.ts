@@ -70,9 +70,10 @@ function endExtensionStatAnchorPower(depth: number): number {
   return 2800 + (d - 55) * 100;
 }
 
-// 운영 상위 20명 실데이터 재검증(2026-08-07): 전투력 1,991이 깊이 62, 2,501이 깊이 72를
-// 각각 100%로 통과했다. 권장치는 합격선이 아닌 안내값이므로 실제 난이도에 맞춰 43~72를
-// 1,200→2,500으로 재배치한다. 이 함수는 몬스터 능력치·EXP에는 영향을 주지 않는다.
+// 운영 상위 20명 실데이터 재검증 뒤 43~66은 기존 안내 곡선을 유지한다. 방어기제·전투력 산식
+// 재설계 후 심해 폐허 후반(67~72)의 실제 몬스터 앵커는 4,500인데 권장치는 2,500에 머물러,
+// 72가 다음 지역 73보다 오히려 어려운 역전이 생겼다. 67~72만 2,500→4,500으로 이어
+// 천공 균열 진입 4,650과 연결한다. 몬스터 능력치·EXP는 바꾸지 않는다.
 function endExtensionRecommendedPower(depth: number): number {
   const d = Math.max(END_EXTENSION_START_DEPTH, Math.floor(depth));
   if (d <= 48) return 1200 + (d - 43) * 30;
@@ -86,7 +87,7 @@ function endExtensionRecommendedPower(depth: number): number {
       : SKY_RIFT_POWER_GATES[SKY_RIFT_POWER_GATES.length - 1] +
           (index - SKY_RIFT_POWER_GATES.length + 1) * 200;
   }
-  return 2300 + (d - 67) * 40;
+  return 2500 + (d - 67) * 400;
 }
 
 function statMultForAnchorPower(power: number): number {
@@ -141,22 +142,25 @@ export function endExtensionCombatSoften(depth: number): number {
 // 깊이만으로 모두에게 같은 전투 배율을 적용한다. 72·78의 종점은 과거 운영 상위 20명에게
 // 적용되던 보정의 중앙값에 가깝게 고정해 절대 난도는 복원하되, 생존형·극딜형 등 빌드에 따라
 // 같은 몬스터 스펙이 달라지던 불공정은 되살리지 않는다. 협동 보스는 softenEndgame=false라 제외된다.
+// 2026-08-09: 방어·회피가 확률/선형 감산에서 수치 대결형 경감으로 바뀐 뒤 기존 복원 배율과
+// 상위 난도 재분배가 중첩되어 60+ 사냥터가 과도해졌다. 깊이별 고정 원칙은 유지하되 생존축을
+// 다시 무효화하지 않는 수준으로 HP·ATK·DEF·명중·회피 종점을 함께 낮춘다.
 export const FIXED_FRONTIER_DIFFICULTY_START_DEPTH = 49;
 export const FIXED_FRONTIER_DURABILITY_START = 1.5;
-export const FIXED_FRONTIER_DURABILITY_DEPTH_72 = 3.9;
-export const FIXED_FRONTIER_DURABILITY_DEPTH_78 = 4.8;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_72 = 4.5;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_78 = 6;
 export const FIXED_FRONTIER_ATTACK_START = 1.1;
 export const FIXED_FRONTIER_ATTACK_DEPTH_72 = 2.3;
 export const FIXED_FRONTIER_ATTACK_DEPTH_78 = 2.7;
 export const FIXED_FRONTIER_DEFENSE_START = 1;
-export const FIXED_FRONTIER_DEFENSE_DEPTH_72 = 1.58;
-export const FIXED_FRONTIER_DEFENSE_DEPTH_78 = 1.76;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_72 = 1.45;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_78 = 1.5;
 export const FIXED_FRONTIER_ACCURACY_START = 1;
-export const FIXED_FRONTIER_ACCURACY_DEPTH_72 = 1.23;
-export const FIXED_FRONTIER_ACCURACY_DEPTH_78 = 1.3;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_72 = 1;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_78 = 1.03;
 export const FIXED_FRONTIER_EVASION_START = 0;
-export const FIXED_FRONTIER_EVASION_DEPTH_72 = 7;
-export const FIXED_FRONTIER_EVASION_DEPTH_78 = 9;
+export const FIXED_FRONTIER_EVASION_DEPTH_72 = 2;
+export const FIXED_FRONTIER_EVASION_DEPTH_78 = 3;
 
 function linearRamp(
   depth: number,
@@ -279,13 +283,13 @@ export function fixedFrontierEvasionBonus(depth: number): number {
 // 일반 사냥은 scaleMonsterForHunt 에서 상태이상 저항만 제거한다.
 export const LATE_DIFFICULTY_START_DEPTH = 43;
 export const LATE_DIFFICULTY_FULL_DEPTH = 72;
-// 상위 10명 실데이터 ATB 시뮬에서 0.70/0.55는 심해 폐허 승률을 지나치게 올렸다.
-// 유틸 스펙 분산은 유지하되 HP·ATK·DEF 예산을 일부 복원해 현행보다 조금 높은 절대 난도를 만든다.
+// 새 방어·회피 경감식 기준으로 HP·ATK에 몰린 예산을 완화하되, DEF·명중·회피로 과도하게
+// 재분배해 특정 생존축을 다시 무효화하지 않도록 상위 종점을 함께 제한한다.
 export const LATE_DURABILITY_MULT_MAX = 0.92;
 export const LATE_ATTACK_MULT_MIN = 0.75;
-export const LATE_DEFENSE_MULT_MAX = 3.2;
-export const LATE_ACCURACY_MULT_MAX = 1.35;
-export const LATE_EVASION_BONUS_MAX = 10;
+export const LATE_DEFENSE_MULT_MAX = 2.25;
+export const LATE_ACCURACY_MULT_MAX = 1;
+export const LATE_EVASION_BONUS_MAX = 3;
 export const LATE_STATUS_DAMAGE_REDUCTION_MAX = 30;
 
 function lateDifficultyT(depth: number): number {
@@ -357,12 +361,12 @@ export function floorCritHpComp(depth: number): number {
   );
 }
 
-// 회피 대결형(2026-06-21 Slice 1) — 몹 명중레이팅. 플레이어 evaRating 이 깊이 따라(dex/luk 성장)
-//   커지는 만큼 몹 명중도 floorStatMult 로 키워, 회피%가 깊이 무관 일정(콘텐츠 자동 추종). enemyPhase
-//   가 dodgeChance(evaR, 몹명중)에 씀. scaleMonsterForFloor 가 몹 accuracy 에 합산. docs/v2-evasion-rating-plan.md.
-// 몹 명중 = MOB_ACC_BASE × floorStatMult(depth). win-rate 캘리브(2026-06-21): 회피%-only 캘리브 1.05는
-//   필드 회귀(STR 94→73 — 회피 누르면 느린 빌드만 죽음), 0.3 이라야 PR-2 무회귀 + DEX dodge 75→56%(EHP ×4→×2.3).
-export const MOB_ACC_BASE = 0.3;
+// 몬스터 적중도. 플레이어 회피도가 깊이 따라 커지는 만큼 몬스터 적중도도 floorStatMult로
+// 키워 회피 경감률이 콘텐츠 깊이를 자동으로 따라가게 한다. scaleMonsterForFloor가 몬스터
+// 고유 적중도에 이 값을 합산한다.
+// 몹 명중 = MOB_ACC_BASE × floorStatMult(depth). 새 회피도 규모에서 무투자 캐릭터가 점근 상한에
+// 붙지 않고, DEX/LUK 집중 투자만 의미 있는 경감을 얻도록 캘리브한다.
+export const MOB_ACC_BASE = 1.5;
 export function floorAccuracy(depth: number): number {
   return MOB_ACC_BASE * floorStatMult(depth);
 }

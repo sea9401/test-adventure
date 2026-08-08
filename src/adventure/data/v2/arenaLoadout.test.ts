@@ -189,6 +189,27 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     );
   });
 
+  it("상대 회복 감소 조건을 표시한다", () => {
+    const loadout = mk("enemy-heal-reduction", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "enemy_debuff",
+              target: "healReduction",
+              active: false,
+            },
+            action: { kind: "role", role: "debuff" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "적 회복 효과 감소 없음",
+    );
+  });
+
   it("패턴 미설정은 빈 목록으로 표시한다", () => {
     expect(arenaPatternActionSummary(mk("no-pattern"))).toEqual([]);
   });

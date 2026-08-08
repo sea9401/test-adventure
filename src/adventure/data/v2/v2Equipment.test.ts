@@ -907,7 +907,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
       { label: "마법 방어력", value: "+7" },
-      { label: "회피", value: "+3%" },
+      { label: "추가 회피도", value: "+3" },
       { label: "MP", value: "+48" },
       { label: "회복", value: "+8%" },
     ]);

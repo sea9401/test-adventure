@@ -33,6 +33,12 @@ import {
   FIXED_FRONTIER_DURABILITY_DEPTH_72,
   FIXED_FRONTIER_DURABILITY_DEPTH_78,
   FIXED_FRONTIER_DURABILITY_START,
+  FIXED_FRONTIER_DEFENSE_DEPTH_72,
+  FIXED_FRONTIER_DEFENSE_DEPTH_78,
+  FIXED_FRONTIER_ACCURACY_DEPTH_72,
+  FIXED_FRONTIER_ACCURACY_DEPTH_78,
+  FIXED_FRONTIER_EVASION_DEPTH_72,
+  FIXED_FRONTIER_EVASION_DEPTH_78,
 } from "./dungeonLadder";
 import type { DungeonFloorId } from "./types";
 
@@ -152,14 +158,14 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(fixedFrontierAttackMult(72)).toBe(FIXED_FRONTIER_ATTACK_DEPTH_72);
     expect(fixedFrontierAttackMult(78)).toBe(FIXED_FRONTIER_ATTACK_DEPTH_78);
     expect(fixedFrontierDefenseMult(48)).toBe(1);
-    expect(fixedFrontierDefenseMult(72)).toBe(1.58);
-    expect(fixedFrontierDefenseMult(78)).toBe(1.76);
+    expect(fixedFrontierDefenseMult(72)).toBe(FIXED_FRONTIER_DEFENSE_DEPTH_72);
+    expect(fixedFrontierDefenseMult(78)).toBe(FIXED_FRONTIER_DEFENSE_DEPTH_78);
     expect(fixedFrontierAccuracyMult(48)).toBe(1);
-    expect(fixedFrontierAccuracyMult(72)).toBe(1.23);
-    expect(fixedFrontierAccuracyMult(78)).toBe(1.3);
+    expect(fixedFrontierAccuracyMult(72)).toBe(FIXED_FRONTIER_ACCURACY_DEPTH_72);
+    expect(fixedFrontierAccuracyMult(78)).toBe(FIXED_FRONTIER_ACCURACY_DEPTH_78);
     expect(fixedFrontierEvasionBonus(48)).toBe(0);
-    expect(fixedFrontierEvasionBonus(72)).toBe(7);
-    expect(fixedFrontierEvasionBonus(78)).toBe(9);
+    expect(fixedFrontierEvasionBonus(72)).toBe(FIXED_FRONTIER_EVASION_DEPTH_72);
+    expect(fixedFrontierEvasionBonus(78)).toBe(FIXED_FRONTIER_EVASION_DEPTH_78);
     for (let depth = 50; depth <= 78; depth++) {
       expect(fixedFrontierDurabilityMult(depth)).toBeGreaterThanOrEqual(
         fixedFrontierDurabilityMult(depth - 1),

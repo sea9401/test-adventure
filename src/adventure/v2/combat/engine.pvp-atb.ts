@@ -39,6 +39,10 @@ function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
     playerMaxMp: state.p1.maxMp,
     enemyMp: state.p2.mp,
     enemyMaxMp: state.p2.maxMp,
+    playerMagicBarrier: state.p1.magicBarrier,
+    playerMagicBarrierMax: state.p1.maxMagicBarrier,
+    enemyMagicBarrier: state.p2.magicBarrier,
+    enemyMagicBarrierMax: state.p2.maxMagicBarrier,
   };
 }
 

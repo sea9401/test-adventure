@@ -6,7 +6,8 @@
 // PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 옵션(options)** 중심으로
 // 통합 (옛 atk/def/matk 직접표기 + 6스탯 token 폐기). 효과는 **슬롯별 분기**(derive):
 //   - 무기: 위력 → weaponType 별 공격력. 지팡이=마법 공격력, 그 외=물리 공격력.
-//   - 갑옷/장갑/신발: 위력 → 물리 방어력 (물리 방어선 3슬롯).
+//   - 중갑 갑옷/장갑/신발: 위력 → 물리 방어력.
+//   - 경갑 갑옷/장갑/신발: 위력 → 회피도.
 //   - 반지/목걸이: 위력 → 마법 방어력 (장신구선 2슬롯).
 //   - 예전 무게 페널티는 카탈로그 변환 단계에서 일부 장비의 속도 감소 옵션으로 노출한다.
 //   - 옵션(crit/eva/mp/hp) → 위력 외 flavor 차별화. derive 결과 player 에 후-가산.
@@ -138,9 +139,9 @@ export type V2EquipmentId = keyof typeof V2_EQUIPMENT;
 export type V2EquipOptions = {
   /** critChancePct 후-가산, 퍼센트 정수. */
   crit?: number;
-  /** evasionPct 후-가산, 퍼센트 정수 (EVASION_PCT_CAP 클램프 유지). */
+  /** 경갑 위력과 합산되는 고정 회피도. */
   eva?: number;
-  /** accRating 후-가산. 추적·정밀 장비가 회피형 적을 상대하는 전용 축. */
+  /** 스탯 적중도와 합산되는 고정 적중도. */
   accuracy?: number;
   /** maxMp 후-가산, flat. */
   mp?: number;
@@ -1338,8 +1339,8 @@ export function v2ItemTypeLabel(item: V2Equipment): string {
 
 const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   crit: "치명타",
-  eva: "회피",
-  accuracy: "명중",
+  eva: "추가 회피도",
+  accuracy: "추가 적중도",
   mp: "MP",
   hp: "HP",
   critMult: "치명타 피해",
@@ -1356,11 +1357,31 @@ const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   keyof V2EquipOptions
 >([
   "crit",
-  "eva",
   "healPowerPct",
   "critResist",
   "statusDamageReductionPct",
 ]);
+
+// 장갑·신발 카탈로그는 역사적으로 concept="light"를 공통 기본값으로 사용했다. 중갑 갑옷과
+// 같은 세트 태그를 가진 부속 장비까지 회피도로 오분류하지 않도록 세트 기준을 함께 본다.
+const HEAVY_ARMOR_SET_TAGS = new Set(
+  Object.values(V2_EQUIPMENT)
+    .filter((item) => item.slot === "armor" && item.concept === "heavy")
+    .flatMap((item) => item.setTags ?? []),
+);
+
+export function v2EquipSurvivalPowerKind(
+  item: V2Equipment,
+): "def" | "evasion" | null {
+  if (item.slot !== "armor" && item.slot !== "gloves" && item.slot !== "boots") {
+    return null;
+  }
+  if (item.concept === "heavy") return "def";
+  if ((item.setTags ?? []).some((tag) => HEAVY_ARMOR_SET_TAGS.has(tag))) {
+    return "def";
+  }
+  return "evasion";
+}
 
 // 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
@@ -1376,6 +1397,7 @@ export function v2EquipPowerLabel(item: V2Equipment): string {
     return item.weaponType === "staff" ? "마법 공격력" : "공격력";
   }
   if (item.slot === "ring" || item.slot === "necklace") return "마법 방어력";
+  if (v2EquipSurvivalPowerKind(item) === "evasion") return "회피도";
   return "방어력";
 }
 

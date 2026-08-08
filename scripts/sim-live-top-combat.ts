@@ -29,10 +29,21 @@ import { resolveBattle } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { jobDisplayName, parseV2Class } from "../src/adventure/data/v2/classes";
 import { superAdminEmails } from "../src/lib/server/adminEmailAccess";
+import {
+  stormExpeditionEnemy,
+  type StormExpeditionEncounterKind,
+  type StormExpeditionRouteId,
+} from "../src/adventure/data/v2/stormExpedition";
+import {
+  LIMITED_RECOVERY_SKILL_IDS,
+  type LimitedRecoverySkillId,
+} from "../src/adventure/data/v2/v2Skills";
 
 const TOP_COUNT = 20;
 const TRIALS_PER_ENEMY = 20;
+const STORM_TRIALS_PER_ROUTE = 100;
 const SEED = 20260807;
+const STORM_ONLY = process.argv.includes("--storm-only");
 const DEPTHS = Array.from(
   { length: MAX_FRONTIER_DEPTH / 2 },
   (_, index) => (index + 1) * 2,
@@ -90,6 +101,9 @@ function powerOf(
     spd: combat.player.spd,
     maxHp: combat.maxHp,
     maxMp: combat.player.maxMp,
+    magicBarrierMax: combat.player.magicBarrierMax,
+    evaRating: combat.player.evaRating,
+    accRating: combat.player.accRating,
   });
 }
 
@@ -155,6 +169,144 @@ function simulateDepth(player: SimPlayer, depth: number): Rate {
     }
   }
   return { wins, total };
+}
+
+const STORM_ENCOUNTERS: ReadonlyArray<{
+  kind: StormExpeditionEncounterKind;
+  encounterIndex: number;
+}> = [
+  { kind: "early_trash", encounterIndex: 0 },
+  { kind: "early_trash", encounterIndex: 1 },
+  { kind: "late_trash", encounterIndex: 0 },
+  { kind: "late_trash", encounterIndex: 1 },
+  { kind: "elite", encounterIndex: 0 },
+  { kind: "guardian", encounterIndex: 0 },
+  { kind: "final_boss", encounterIndex: 0 },
+];
+
+type StormRate = {
+  cleared: number[];
+  runs: number;
+};
+
+function simulateStormRoute(
+  player: SimPlayer,
+  route: StormExpeditionRouteId,
+): StormRate {
+  const cleared = STORM_ENCOUNTERS.map(() => 0);
+  const base = player.combat.player;
+  const maxHp = player.combat.maxHp;
+  const maxMp = base.maxMp ?? 0;
+  for (let run = 0; run < STORM_TRIALS_PER_ROUTE; run += 1) {
+    let hp = maxHp;
+    let mp = maxMp;
+    let guarded = false;
+    const usedRecoverySkillIds = new Set<LimitedRecoverySkillId>();
+    for (let index = 0; index < STORM_ENCOUNTERS.length; index += 1) {
+      const encounter = STORM_ENCOUNTERS[index];
+      const result = resolveBattle(
+        {
+          ...base,
+          hp,
+          mp,
+          ...(guarded
+            ? {
+                passiveDamageTakenReductionPct:
+                  (base.passiveDamageTakenReductionPct ?? 0) + 10,
+              }
+            : {}),
+        },
+        stormExpeditionEnemy(route, encounter.kind, encounter.encounterIndex),
+        "시뮬레이션 모험가",
+        {
+          pickAction: (state) =>
+            pickAutoAction(state, { rules: [], potions: {} }),
+          potions: {},
+          v2Skills: usedRecoverySkillIds.size > 0
+            ? {
+                ...player.skills,
+                equipped: player.skills.equipped.filter(
+                  (skillId) =>
+                    !usedRecoverySkillIds.has(skillId as LimitedRecoverySkillId),
+                ),
+              }
+            : player.skills,
+          maxTurns: 100,
+          isBoss:
+            encounter.kind === "guardian" || encounter.kind === "final_boss",
+        },
+      );
+      if (result.outcome !== "win") break;
+      cleared[index] += 1;
+      hp = result.finalState.playerHp;
+      mp = result.finalState.playerMp;
+      for (const skillId of LIMITED_RECOVERY_SKILL_IDS) {
+        if ((result.finalState.v2SkillCooldowns[skillId] ?? 0) > 0) {
+          usedRecoverySkillIds.add(skillId);
+        }
+      }
+
+      if (index === 1) {
+        const hpRatio = hp / maxHp;
+        const mpRatio = mp / Math.max(1, maxMp);
+        if ((base.passiveMagicBasicAttack && hpRatio < 0.9) || hpRatio <= mpRatio) {
+          hp = Math.min(maxHp, hp + Math.floor(maxHp * 0.15));
+        } else {
+          mp = Math.min(maxMp, mp + Math.floor(maxMp * 0.2));
+        }
+      }
+      if (index === 3) {
+        const hpRatio = hp / maxHp;
+        const mpRatio = mp / Math.max(1, maxMp);
+        const balancedMagicRecovery = Boolean(
+          base.passiveMagicBasicAttack && hpRatio >= 0.25 && mpRatio < 0.2,
+        );
+        if (balancedMagicRecovery) {
+          hp = Math.min(maxHp, hp + Math.floor(maxHp * 0.2));
+          mp = Math.min(maxMp, mp + Math.floor(maxMp * 0.25));
+        } else if (hpRatio < 0.7 || hpRatio + 0.15 < mpRatio) {
+          hp = Math.min(maxHp, hp + Math.floor(maxHp * 0.35));
+        } else if (mpRatio + 0.15 < hpRatio) {
+          mp = Math.min(maxMp, mp + Math.floor(maxMp * 0.45));
+        } else {
+          hp = Math.min(maxHp, hp + Math.floor(maxHp * 0.2));
+          mp = Math.min(maxMp, mp + Math.floor(maxMp * 0.25));
+        }
+      }
+      if (index === 4) guarded = true;
+      if (index === 5) {
+        const hpRatio = hp / maxHp;
+        const mpRatio = mp / Math.max(1, maxMp);
+        if (hpRatio <= mpRatio) {
+          hp = Math.min(maxHp, hp + Math.floor(maxHp * 0.25));
+        } else {
+          mp = Math.min(maxMp, mp + Math.floor(maxMp * 0.35));
+        }
+      }
+    }
+  }
+  return { cleared, runs: STORM_TRIALS_PER_ROUTE };
+}
+
+function printStormResults(players: SimPlayer[]): void {
+  console.log(
+    `운영 전투력 상위 ${players.length}명 · 폭풍 원정 ${STORM_TRIALS_PER_ROUTE}회/인/항로 · 위험 이벤트·충전약 없음`,
+  );
+  for (const route of ["gale", "thunder", "wreckage"] as const) {
+    const rates = players.map((player) => simulateStormRoute(player, route));
+    const totals = STORM_ENCOUNTERS.map((_, index) =>
+      rates.reduce((sum, rate) => sum + rate.cleared[index], 0),
+    );
+    const totalRuns = rates.reduce((sum, rate) => sum + rate.runs, 0);
+    const individualClears = rates.map((rate) =>
+      ((rate.cleared.at(-1) ?? 0) / rate.runs) * 100,
+    );
+    const percentage = (index: number) =>
+      ((totals[index] / totalRuns) * 100).toFixed(1);
+    console.log(
+      `${route.padEnd(8)} 외곽 ${percentage(1)}% · 중층 ${percentage(3)}% · 정예 ${percentage(4)}% · 수호자 ${percentage(5)}% · 완주 ${percentage(6)}% · 개인 완주 최소/중앙/최대 ${percentile(individualClears, 0).toFixed(0)}/${percentile(individualClears, 0.5).toFixed(0)}/${percentile(individualClears, 1).toFixed(0)}%`,
+    );
+  }
 }
 
 function preparePlayer(candidate: Candidate): SimPlayer | null {
@@ -264,6 +416,14 @@ async function main(): Promise<void> {
 
     const originalRandom = Math.random;
     Math.random = seededRandom(SEED);
+    if (STORM_ONLY) {
+      try {
+        printStormResults(players);
+      } finally {
+        Math.random = originalRandom;
+      }
+      return;
+    }
     const matrix = new Map<number, Rate[]>();
     try {
       for (const depth of DEPTHS) {

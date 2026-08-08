@@ -1009,7 +1009,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_shaman_omen3: {
     id: "v2c_shaman_omen3", name: "흉조", stat: "int", category: "passive", tier: 3,
-    description: "주문이 적의 혼을 흐트러뜨린다. 스킬 적중 시 마법취약을 누적시킨다.",
+    description: "장착 중 직접 피해 스킬 적중 시 70% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +5%.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 5, enemyMagicVulnApplyChancePct: 70 },
@@ -1449,7 +1449,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──
   v2c_archshaman_rite: {
     id: "v2c_archshaman_rite", name: "금단 의식", stat: "int", category: "attack", tier: 3,
-    description: "금단의 의식으로 적의 혼을 찢는다. 누적된 마법취약이 많을수록 더 깊게 파고든다.",
+    description: "직접 마법 피해를 주고, 누적된 마법취약 스택 수에 따라 추가 피해를 준다.",
     mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 30,
     effects: [
       dmg(1.45, 300, "magic"),
@@ -1458,7 +1458,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_archshaman_curse: {
     id: "v2c_archshaman_curse", name: "흉조 II", stat: "int", category: "passive", tier: 3,
-    description: "금기를 새긴 주문이 적의 혼을 더 크게 흔든다. 마법취약 효과가 깊어진다.",
+    description: "장착 중 직접 피해 스킬 적중 시 85% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +8%.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 8, enemyMagicVulnApplyChancePct: 85 },
@@ -1475,7 +1475,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_calamitycaller_omen: {
     id: "v2c_calamitycaller_omen", name: "흉조 III", stat: "int", category: "passive", tier: 3,
-    description: "흉조가 재앙으로 번진다. 마법취약이 더 안정적으로 쌓이고 더 깊게 파고든다.",
+    description: "장착 중 직접 피해 스킬 적중 시 95% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +10%.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 10, enemyMagicVulnApplyChancePct: 95 },
@@ -2158,7 +2158,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_doomprophet_revelation: {
     id: "v2c_doomprophet_revelation", name: "불길한 계시", stat: "int", category: "passive", tier: 3,
-    description: "종말의 계시가 모든 주문에 스민다. 마법취약과 저주 디버프가 한층 깊어진다.",
+    description: "장착 중 직접 피해 스킬 적중 시 100% 확률로 마법취약 +1스택(최대 10). 스택당 대상이 받는 스킬 피해 +12%.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 12, enemyMagicVulnApplyChancePct: 100 },

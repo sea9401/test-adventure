@@ -114,6 +114,9 @@ export async function GET() {
     spd: derived.player.spd,
     maxHp: derived.maxHp,
     maxMp: derived.player.maxMp ?? 0,
+    magicBarrierMax: derived.player.magicBarrierMax,
+    evaRating: derived.player.evaRating,
+    accRating: derived.player.accRating,
   });
 
   const jobs = V2_JOB_LIST.filter(

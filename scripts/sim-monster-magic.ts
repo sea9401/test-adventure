@@ -128,7 +128,7 @@ function levelForDepth(depth: number): number {
   const target = floorPowerGate(depth);
   for (let lv = 1; lv <= 2000; lv++) {
     const p = makePlayer("BAL", lv);
-    const pw = derivePowerScore({ atk: p.atk, magicAtk: p.magicAtk, def: p.def, spd: p.spd, maxHp: p.maxHp, maxMp: p.maxMp });
+    const pw = derivePowerScore({ atk: p.atk, magicAtk: p.magicAtk, def: p.def, spd: p.spd, maxHp: p.maxHp, maxMp: p.maxMp, magicBarrierMax: p.magicBarrierMax, evaRating: p.evaRating, accRating: p.accRating });
     if (pw >= target) return lv;
   }
   return 2000;

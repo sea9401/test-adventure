@@ -59,7 +59,7 @@ describe("최신 게임 안내서 내용", () => {
     const html = renderToStaticMarkup(<CombatContent />);
 
     expect(html).toContain("유효 공격력의 15%");
-    expect(html).toContain("공격력² ÷ (공격력 + 3×방어력)");
+    expect(html).toContain("85% × 방어력 ÷ (방어력 + 500)");
     expect(html).toContain("공격력 − 방어력");
     expect(html).toContain("최종 HP 피해는");
     expect(html).toContain("최소 데미지");

@@ -281,12 +281,12 @@ describe("v2 dungeon", () => {
       2250,
     ]);
     expect([67, 68, 69, 70, 71, 72].map(floorPowerGate)).toEqual([
-      2300,
-      2340,
-      2380,
-      2420,
-      2460,
       2500,
+      2900,
+      3300,
+      3700,
+      4100,
+      4500,
     ]);
     expect([73, 74, 75, 76, 77, 78].map(floorPowerGate)).toEqual([
       4650,
@@ -379,7 +379,7 @@ describe("scaleMonsterForFloor", () => {
   it("들판 1 — hp/atk 는 ×1.0 동일하나 회피 대결용 명중(floorAccuracy)은 가산", () => {
     const weak = MONSTERS["슬라임"];
     const d1 = scaleMonsterForFloor(weak, 1);
-    // 깊이 1 = hp/atk/def/exp ×1.0(평탄). 단 명중은 floorAccuracy(1)=0.3 가산(들판 대결 퇴화 방지·라운드 금지).
+    // 깊이 1 = hp/atk/def/exp ×1.0(평탄). 명중도는 floorAccuracy(1)를 가산한다.
     expect(d1.hp).toBe(weak.hp);
     expect(d1.atk).toBe(weak.atk);
     expect(d1.accuracy).toBeCloseTo((weak.accuracy ?? 0) + floorAccuracy(1));
@@ -418,9 +418,9 @@ describe("scaleMonsterForFloor", () => {
 
     expect(lateDurabilityMult(depth)).toBe(0.92);
     expect(lateAttackMult(depth)).toBe(0.75);
-    expect(lateDefenseMult(depth)).toBe(3.2);
-    expect(lateAccuracyMult(depth)).toBe(1.35);
-    expect(lateEvasionBonus(depth)).toBe(10);
+    expect(lateDefenseMult(depth)).toBe(2.25);
+    expect(lateAccuracyMult(depth)).toBe(1);
+    expect(lateEvasionBonus(depth)).toBe(3);
     expect(lateStatusDamageReductionBonus(depth)).toBe(30);
     expect(scaled.hp).toBe(
       Math.round(

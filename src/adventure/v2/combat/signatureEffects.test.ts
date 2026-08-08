@@ -501,10 +501,10 @@ describe("onDodgeSpeedBuff (회피 속도 시그니처)", () => {
   });
 });
 
-describe("엔진 통합 — 밤기수 회피 속도", () => {
+describe("엔진 통합 — 밤기수 완전 회피 속도", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("밤기수를 장착하고 회피하면 속도 버프와 발동 로그가 남는다", () => {
+  it("밤기수를 장착하고 보장 회피하면 속도 버프와 발동 로그가 남는다", () => {
     const player = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { boots: "v2_plateau_sig_rider_boots" },
@@ -513,6 +513,10 @@ describe("엔진 통합 — 밤기수 회피 속도", () => {
     const state = {
       ...initialBattleState(player, enemy, "용사"),
       phase: "enemy" as const,
+      stacks: {
+        ...initialBattleState(player, enemy, "용사").stacks,
+        evadesRemaining: 1,
+      },
     };
     vi.spyOn(Math, "random").mockReturnValue(0);
 

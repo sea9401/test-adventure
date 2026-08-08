@@ -157,6 +157,21 @@ describe("conditionPasses", () => {
     ).toBe(false);
   });
 
+  it("enemy_debuff — 상대 회복 감소 활성 여부를 판정한다", () => {
+    const condition = {
+      kind: "enemy_debuff" as const,
+      target: "healReduction" as const,
+      active: true,
+    };
+    expect(conditionPasses(condition, ctx())).toBe(false);
+    expect(
+      conditionPasses(
+        condition,
+        ctx({ enemyHealReductionActive: true }),
+      ),
+    ).toBe(true);
+  });
+
   it("turn atMost/atLeast/every — 오프너/주기", () => {
     expect(conditionPasses({ kind: "turn", op: "atMost", value: 1 }, ctx({ turn: 1 }))).toBe(true);
     expect(conditionPasses({ kind: "turn", op: "atMost", value: 1 }, ctx({ turn: 2 }))).toBe(false);
@@ -279,9 +294,17 @@ describe("parseCombatPattern (저장 검증)", () => {
     expect(many.blocks).toHaveLength(V2_COMBAT_PATTERN_MAX_BLOCKS);
   });
 
-  it("봉쇄 디버프 조건만 안전하게 파싱한다", () => {
+  it("상대 디버프 조건만 안전하게 파싱한다", () => {
     const parsed = parseCombatPattern({
       blocks: [
+        {
+          condition: {
+            kind: "enemy_debuff",
+            target: "healReduction",
+            active: true,
+          },
+          action: { kind: "skill", skillId: "anti-heal" },
+        },
         {
           condition: {
             kind: "enemy_debuff",
@@ -300,8 +323,13 @@ describe("parseCombatPattern (저장 검증)", () => {
         },
       ],
     });
-    expect(parsed.blocks).toHaveLength(1);
+    expect(parsed.blocks).toHaveLength(2);
     expect(parsed.blocks[0].condition).toEqual({
+      kind: "enemy_debuff",
+      target: "healReduction",
+      active: true,
+    });
+    expect(parsed.blocks[1].condition).toEqual({
       kind: "enemy_debuff",
       target: "skillProcDown",
       active: false,

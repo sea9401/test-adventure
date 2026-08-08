@@ -69,7 +69,7 @@ export type MonsterSkill =
        */
       defMitigationFraction?: number;
       /**
-       * 한기 스택당 플레이어 회피율 감소(%p) — 슬로우 느낌(추울수록 굼떠져 못 피함).
+       * 한기 스택당 플레이어 회피도 감소율(%) — 추울수록 몸이 굳어 경감 효율이 낮아진다.
        * 미지정/0 = 효과 없음. 적 공격 회피 굴림 때 stacks×이 값만큼 차감(회피 0 하한).
        */
       evasionPenaltyPerStack?: number;
@@ -112,7 +112,7 @@ export type Monster = {
   /** 0~100. 플레이어 공격을 % 확률로 회피. 0/undefined = 항상 피격. */
   evasionPct?: number;
   /**
-   * 명중 — 플레이어의 유효 회피율에서 이만큼(%p) 차감한다. 0/undefined = 차감 없음(기존 동작).
+   * 적중도 — 플레이어 회피도와 대결해 직접 피해 경감률을 낮춘다.
    * 회피의 이진·무한대응 구조(고회피 빌드가 스케일링을 무시) 견제용 맞상대 축.
    * 현재는 고탑 보스가 층 비례로 보유(towerEnemyAccuracy). 일반 몬스터는 0.
    */

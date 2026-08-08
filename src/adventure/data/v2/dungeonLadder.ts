@@ -272,10 +272,11 @@ export function fixedFrontierEvasionBonus(depth: number): number {
   );
 }
 
-// 상위 사냥터 스펙 예산 재분배(43~72) — HP·ATK만 함께 부풀리면 "맞기 전에 처치 / 한 방에 사망"의
+// 상위 난도 스펙 예산 재분배(43~72) — HP·ATK만 함께 부풀리면 "맞기 전에 처치 / 한 방에 사망"의
 // 이진 전투가 된다. 기존 HP·ATK 예산을 낮추고 방어·명중·회피·상태이상 저항으로 옮긴다.
 // 42 이하는 기존 곡선과 byte-identical, 72 이후는 plateau.
 // 협동 보스(scaleMonsterForFloor softenEndgame=false)는 별도 난도표를 쓰므로 적용하지 않는다.
+// 일반 사냥은 scaleMonsterForHunt 에서 상태이상 저항만 제거한다.
 export const LATE_DIFFICULTY_START_DEPTH = 43;
 export const LATE_DIFFICULTY_FULL_DEPTH = 72;
 // 상위 10명 실데이터 ATB 시뮬에서 0.70/0.55는 심해 폐허 승률을 지나치게 올렸다.

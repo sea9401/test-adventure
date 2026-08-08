@@ -113,3 +113,19 @@ export function scaleMonsterForFloor(
     ...(statusDamageReductionPct > 0 ? { statusDamageReductionPct } : {}),
   };
 }
+
+/**
+ * 일반 사냥터 전용 스케일.
+ *
+ * 상태이상 피해 감소는 협동 보스·원정 등 특수 전투의 대응 능력치로만 사용한다.
+ * 사냥터 몬스터의 베이스 저항과 깊이 보너스를 모두 제거해 중독·출혈 피해가
+ * 일반 몬스터에게 원래 수치대로 적용되도록 한다.
+ */
+export function scaleMonsterForHunt(monster: Monster, depth: number): Monster {
+  const scaled = scaleMonsterForFloor(monster, depth, true);
+  if (scaled.statusDamageReductionPct == null) return scaled;
+
+  const huntMonster = { ...scaled };
+  delete huntMonster.statusDamageReductionPct;
+  return huntMonster;
+}

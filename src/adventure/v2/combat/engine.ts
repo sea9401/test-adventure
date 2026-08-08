@@ -867,7 +867,7 @@ export function initialBattleState(
   if (playerMagicBarrierMax > 0) {
     log.push({
       kind: "info",
-      text: `[마력 장벽] 내구도 ${playerMagicBarrierMax} 전개`,
+      text: `[마나 실드] 내구도 ${playerMagicBarrierMax} 전개`,
     });
   }
   return {
@@ -1366,7 +1366,7 @@ export function applyEnemyV2SkillCast(
     if (enemySkillMagicBarrier.absorbed > 0) {
       nextLog = appendLog(nextLog, {
         kind: "info",
-        text: `[마력 장벽] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
+        text: `[마나 실드] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
       });
     }
     nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamageToHp);
@@ -1728,11 +1728,13 @@ export function applyPlayerV2SkillCast(
       magicVulnMult *
       erosionMult *
       vulnMult *
-      // 치명 한계 확장(skillCritOverflow) — 스킬 크리에도 크리 오버플로(75% 초과분 크리뎀) 가산. 전역=flat.
+      // 천궁은 고정 스킬 치명 피해, 흑월은 75% 초과 치명 오버플로를 스킬 배율에 가산한다.
       (skillCritFired
-        ? player.skillCritOverflow
-          ? SKILL_CRIT_MULT + computeCritOverflowBonus(player.critChancePct ?? 0)
-          : SKILL_CRIT_MULT
+        ? SKILL_CRIT_MULT +
+          Math.max(0, player.skillCritDmgPct ?? 0) / 100 +
+          (player.skillCritOverflow
+            ? computeCritOverflowBonus(player.critChancePct ?? 0)
+            : 0)
         : 1),
   );
   const singleSkillDamage = singleSkillDamageBeforeEvasion;
@@ -2421,7 +2423,7 @@ function resolveBattleLegacy(
           if (enemySkillMagicBarrier.absorbed > 0) {
             nextLog = appendLog(nextLog, {
               kind: "info",
-              text: `[마력 장벽] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
+              text: `[마나 실드] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
               turn: "enemy",
             });
           }

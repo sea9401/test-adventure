@@ -184,7 +184,7 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
   });
 });
 
-describe("마력 장벽 직접 피해 순서", () => {
+describe("마나 실드 직접 피해 순서", () => {
   it("일반 보호막이 먼저 소모된 뒤 남은 평타 일부를 별도 내구도로 흡수한다", () => {
     const defender: PlayerCombat = {
       ...PLAYER,
@@ -200,7 +200,7 @@ describe("마력 장벽 직접 피해 순서", () => {
     expect(next.playerMagicBarrier).toBeLessThan(100);
     expect(next.playerHp).toBeLessThan(defender.hp);
     expect(next.log.some((entry) => entry.text.includes("[철벽]"))).toBe(true);
-    expect(next.log.some((entry) => entry.text.includes("[마력 장벽]"))).toBe(true);
+    expect(next.log.some((entry) => entry.text.includes("[마나 실드]"))).toBe(true);
   });
 
   it("PvP에서는 별도 PvP 흡수율로 평타 일부를 흡수한다", () => {
@@ -215,6 +215,6 @@ describe("마력 장벽 직접 피해 순서", () => {
 
     expect(next.p2.magicBarrier).toBeLessThan(100);
     expect(next.p2.hp).toBeLessThan(defender.hp);
-    expect(next.log.some((entry) => entry.text.includes("[마력 장벽]"))).toBe(true);
+    expect(next.log.some((entry) => entry.text.includes("[마나 실드]"))).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { SendMessageModal } from "@/adventure/marketplace/SendMessageModal";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -743,7 +744,7 @@ function TabButton({
 }
 
 // 우편 상세 — 본문 전체 + 발신자/시각. 미수령 우편이면 수령/확인/초대응답 버튼도 노출.
-function MailDetailModal({
+export function MailDetailModal({
   item,
   busy,
   onClose,
@@ -771,88 +772,92 @@ function MailDetailModal({
       aria-modal="true"
       aria-labelledby="mail-detail-title"
       onClick={onClose}
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      className="ui-modal-reveal fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-4"
     >
       <div
         ref={contentRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        className={`ui-modal-panel ${SURFACE_CARD} flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden shadow-xl`}
       >
-        <div className="flex items-start justify-between gap-2">
-          <h2
-            id="mail-detail-title"
-            className="flex items-center gap-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100"
-          >
-            <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-              {KIND_LABEL[item.kind]}
-            </span>
-            {(sent || claimed) && (
-              <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">
-                {sent ? (claimed ? "읽음" : "미확인") : "읽음"}
+        <div className="shrink-0 border-b border-zinc-200 px-5 py-4 dark:border-zinc-700 sm:px-6">
+          <div className="flex items-start justify-between gap-2">
+            <h2
+              id="mail-detail-title"
+              className="flex items-center gap-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100"
+            >
+              <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {KIND_LABEL[item.kind]}
               </span>
-            )}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-          >
-            <X size={18} weight="bold" />
-          </button>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-          {sent ? (
-            <span>
-              받는이:{" "}
-              {item.recipientName ? (
-                <PlayerNameLink name={item.recipientName} />
-              ) : (
-                "알 수 없음"
+              {(sent || claimed) && (
+                <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">
+                  {sent ? (claimed ? "읽음" : "미확인") : "읽음"}
+                </span>
               )}
-            </span>
-          ) : (
-            item.fromName && (
-              <span>
-                보낸이: <PlayerNameLink name={item.fromName} />
-              </span>
-            )
-          )}
-          <span>
-            {(sent ? item.recipientName : item.fromName) ? "· " : ""}
-            {sent ? "보낸 시각" : "받은 시각"}: {formatFull(item.createdAt)}
-          </span>
-        </div>
-
-        <div className="mt-3 max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-zinc-50 p-3 text-sm text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
-          {bodyOf(item)}
-        </div>
-
-        {!sent && item.kind === "user_message" && item.fromName && (
-          <ContentSafetyActions
-            sourceType="inbox_message"
-            sourceId={item.id}
-            targetName={item.fromName}
-            className="mt-2"
-            onBlocked={onBlocked}
-          />
-        )}
-
-        {rewards.length > 0 && (
-          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/30">
-            <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-              포함된 보상
-            </div>
-            <div className="mt-2 space-y-1 text-sm text-emerald-950 dark:text-emerald-100">
-              {rewards.map((reward, i) => (
-                <div key={`${reward}-${i}`}>{reward}</div>
-              ))}
-            </div>
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              <X size={18} weight="bold" />
+            </button>
           </div>
-        )}
 
-        <div className="mt-4 flex justify-end gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {sent ? (
+              <span>
+                받는이:{" "}
+                {item.recipientName ? (
+                  <PlayerNameLink name={item.recipientName} />
+                ) : (
+                  "알 수 없음"
+                )}
+              </span>
+            ) : (
+              item.fromName && (
+                <span>
+                  보낸이: <PlayerNameLink name={item.fromName} />
+                </span>
+              )
+            )}
+            <span>
+              {(sent ? item.recipientName : item.fromName) ? "· " : ""}
+              {sent ? "보낸 시각" : "받은 시각"}: {formatFull(item.createdAt)}
+            </span>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className={`${SURFACE_INSET} min-h-36 whitespace-pre-wrap break-words p-4 text-[15px] leading-7 text-zinc-800 dark:text-zinc-100 sm:p-5`}>
+            {bodyOf(item)}
+          </div>
+
+          {!sent && item.kind === "user_message" && item.fromName && (
+            <ContentSafetyActions
+              sourceType="inbox_message"
+              sourceId={item.id}
+              targetName={item.fromName}
+              className="mt-2"
+              onBlocked={onBlocked}
+            />
+          )}
+
+          {rewards.length > 0 && (
+            <div className={`${SURFACE_INSET} mt-4 p-4`}>
+              <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                포함된 보상
+              </div>
+              <div className="mt-2 space-y-1 text-sm text-emerald-950 dark:text-emerald-100">
+                {rewards.map((reward, i) => (
+                  <div key={`${reward}-${i}`}>{reward}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex shrink-0 justify-end gap-2 border-t border-zinc-200 px-5 py-3.5 dark:border-zinc-700 sm:px-6">
           {sent ? (
             <button
               type="button"

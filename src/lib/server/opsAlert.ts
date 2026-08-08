@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { opsSettings } from "@/db/schema";
+import { opsSettings, users } from "@/db/schema";
+import { LARGE_GOLD_MOVEMENT_LABEL } from "@/lib/server/opsEconomyThresholds";
 import {
   OPS_ALERT_HISTORY_KEY,
   parseOpsAlertHistory,
@@ -20,6 +21,7 @@ type SignalBucket = {
   count: number;
   resetAt: number;
   alertedAt: number;
+  userIds: Set<string>;
 };
 
 const signalBuckets = new Map<string, SignalBucket>();
@@ -35,6 +37,11 @@ const SAFE_WEBHOOK_STRING_KEYS = new Set([
   "riskLevel",
   "channel",
   "reason",
+  "signal",
+  "error",
+  "itemKind",
+  "itemId",
+  "referenceType",
 ]);
 const SAFE_WEBHOOK_NUMBER_KEYS = new Set([
   "count",
@@ -59,15 +66,42 @@ const SAFE_WEBHOOK_NUMBER_KEYS = new Set([
   "rewardFailures",
   "adminActions",
   "reportId",
+  "limit",
+  "retryAfterSec",
+  "quantity",
+  "actualTradeGold",
+  "actualUnitPrice",
+  "referenceUnitPrice",
+  "priceRatioPct",
+  "referenceSampleCount",
 ]);
 const SAFE_WEBHOOK_COUNT_LIST_KEYS = new Set([
   "topEconomyEvents",
   "topAbuseActions",
 ]);
+const SAFE_WEBHOOK_DISPLAY_KEYS = new Set([
+  "actorAccount",
+  "counterpartyAccount",
+  "buyerAccount",
+  "sellerAccount",
+]);
+const SAFE_WEBHOOK_DISPLAY_LIST_KEYS = new Set(["relatedAccounts"]);
 const SAFE_CODE = /^[a-zA-Z0-9._:/-]{1,160}$/;
 
 function safeCode(value: unknown): string | null {
   return typeof value === "string" && SAFE_CODE.test(value) ? value : null;
+}
+
+function safeDisplayText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replaceAll("@", "＠")
+    .replaceAll("<", "＜")
+    .replaceAll(">", "＞")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text ? text.slice(0, 120) : null;
 }
 
 // 외부 웹훅은 허용 목록으로 새 객체를 만든다. userId/IP/name/accounts/queueIds 등은
@@ -85,6 +119,20 @@ export function sanitizeOpsWebhookDetail(detail: Record<string, unknown>) {
       if (typeof value === "number" && Number.isFinite(value)) {
         sanitized[key] = value;
       }
+      continue;
+    }
+    if (SAFE_WEBHOOK_DISPLAY_KEYS.has(key)) {
+      const text = safeDisplayText(value);
+      if (text !== null) sanitized[key] = text;
+      continue;
+    }
+    if (SAFE_WEBHOOK_DISPLAY_LIST_KEYS.has(key) && Array.isArray(value)) {
+      sanitized[key] = value
+        .flatMap((entry) => {
+          const text = safeDisplayText(entry);
+          return text === null ? [] : [text];
+        })
+        .slice(0, 8);
       continue;
     }
     if (SAFE_WEBHOOK_COUNT_LIST_KEYS.has(key) && Array.isArray(value)) {
@@ -181,9 +229,15 @@ const ALERT_COPY: Record<string, AlertCopy> = {
   },
   "economy.large_gold_movement": {
     title: "💰 큰 규모의 골드 이동이 반복됐습니다",
-    description: "짧은 시간에 50만 골드 이상의 이동이 여러 번 기록됐습니다. 정상 거래나 관리자 지급일 수도 있습니다.",
+    description: `짧은 시간에 ${LARGE_GOLD_MOVEMENT_LABEL} 골드 이상의 이동이 여러 번 기록됐습니다. 정상 거래나 관리자 지급일 수도 있습니다.`,
     nextStep: "관리자 > 운영 현황 > 경제 기록에서 이벤트 종류와 유입·유출 흐름을 확인하세요.",
     color: 0xeab308,
+  },
+  "economy.marketplace_extreme_low_price": {
+    title: "🚨 거래소에서 비정상적으로 싼 거래가 체결됐습니다",
+    description: "동일 아이템의 최근 체결가 중앙값 또는 장비 기준가의 10% 이하에서 거래가 체결됐습니다. 단순한 저가 등록이 아니라 실제 체결 건입니다.",
+    nextStep: "관리자 > 운영 현황 > 경제 기록에서 판매자·구매자와 해당 아이템의 최근 거래 내역을 확인하세요.",
+    color: 0xef4444,
   },
   "reward.claim_failure": {
     title: "🎁 보상 지급 실패가 반복됐습니다",
@@ -258,9 +312,37 @@ const DETAIL_LABELS: Record<string, string> = {
   adminActions: "관리자 작업",
   topEconomyEvents: "자주 발생한 경제 이벤트",
   topAbuseActions: "자주 제한된 기능",
+  sourceType: "발생 위치",
+  reason: "발생 사유",
+  signal: "감지 신호",
+  error: "오류 코드",
+  limit: "요청 허용량",
+  retryAfterSec: "재시도 대기",
+  quantity: "수량",
+  itemKind: "아이템 분류",
+  itemId: "아이템 ID",
+  actualTradeGold: "실제 체결 총액",
+  actualUnitPrice: "실제 개당 가격",
+  referenceUnitPrice: "판정 기준 개당 가격",
+  priceRatioPct: "기준가 대비",
+  referenceSampleCount: "참고 거래 수",
+  referenceType: "판정 기준",
+  actorAccount: "발생 계정",
+  counterpartyAccount: "상대 계정",
+  buyerAccount: "구매 계정",
+  sellerAccount: "판매 계정",
+  relatedAccounts: "관련 계정",
 };
 
 const CODE_DETAIL_KEYS = new Set(["eventType", "action"]);
+const FULL_WIDTH_DETAIL_KEYS = new Set([
+  ...CODE_DETAIL_KEYS,
+  "actorAccount",
+  "counterpartyAccount",
+  "buyerAccount",
+  "sellerAccount",
+  "relatedAccounts",
+]);
 const VALUE_LABELS: Record<string, string> = {
   fishing: "낚시",
   woodcutting: "벌목",
@@ -277,6 +359,9 @@ const VALUE_LABELS: Record<string, string> = {
   watch: "관찰",
   high: "높음",
   critical: "매우 높음",
+  recent_median: "최근 체결가 중앙값",
+  catalog_floor: "장비 NPC 판매가",
+  recent_median_or_catalog: "최근 중앙값·장비 NPC 판매가 중 높은 값",
 };
 
 function formatDuration(milliseconds: number) {
@@ -291,8 +376,24 @@ function formatDuration(milliseconds: number) {
 function formatDetailValue(key: string, value: unknown) {
   if (key === "windowMs" && typeof value === "number") return formatDuration(value);
   if (key === "continuousMinutes" && typeof value === "number") return `${value.toLocaleString("ko-KR")}분`;
-  if (["goldDelta", "goldIn", "goldOut"].includes(key) && typeof value === "number") {
+  if (key === "retryAfterSec" && typeof value === "number") {
+    return `${value.toLocaleString("ko-KR")}초`;
+  }
+  if (
+    [
+      "goldDelta",
+      "goldIn",
+      "goldOut",
+      "actualTradeGold",
+      "actualUnitPrice",
+      "referenceUnitPrice",
+    ].includes(key) &&
+    typeof value === "number"
+  ) {
     return `${value.toLocaleString("ko-KR")} G`;
+  }
+  if (key === "priceRatioPct" && typeof value === "number") {
+    return `${value.toLocaleString("ko-KR")}%`;
   }
   if (typeof value === "number") return value.toLocaleString("ko-KR");
   if (typeof value === "string") {
@@ -300,6 +401,13 @@ function formatDetailValue(key: string, value: unknown) {
     return CODE_DETAIL_KEYS.has(key) ? `\`${translated}\`` : translated;
   }
   if (Array.isArray(value)) {
+    if (SAFE_WEBHOOK_DISPLAY_LIST_KEYS.has(key)) {
+      return value
+        .filter((entry): entry is string => typeof entry === "string")
+        .slice(0, 8)
+        .map((entry) => `• ${entry}`)
+        .join("\n");
+    }
     return value
       .slice(0, 8)
       .map((entry) => {
@@ -319,7 +427,9 @@ function discordDetailFields(detail: Record<string, unknown>) {
     .map(([key, value]) => ({
       name: DETAIL_LABELS[key],
       value: formatDetailValue(key, value).slice(0, 1_024) || "0",
-      inline: !SAFE_WEBHOOK_COUNT_LIST_KEYS.has(key) && !CODE_DETAIL_KEYS.has(key),
+      inline:
+        !SAFE_WEBHOOK_COUNT_LIST_KEYS.has(key) &&
+        !FULL_WIDTH_DETAIL_KEYS.has(key),
     }))
     .slice(0, 25);
 }
@@ -377,7 +487,10 @@ export async function sendOpsAlert(
   const channel = selectOpsAlertChannel(detail);
   const url = channel.url;
   const recordedDetail = { ...(detail ?? {}), channel: channel.key };
-  const webhookDetail = sanitizeOpsWebhookDetail(recordedDetail);
+  const webhookDetail = sanitizeOpsWebhookDetail({
+    ...recordedDetail,
+    ...(await resolveWebhookIdentities(recordedDetail)),
+  });
   if (!url) {
     await recordOpsAlertHistory({
       message,
@@ -434,21 +547,138 @@ export function recordOpsSignal({
   const bucket =
     current && current.resetAt > now
       ? current
-      : { count: 0, resetAt: now + windowMs, alertedAt: 0 };
+      : {
+          count: 0,
+          resetAt: now + windowMs,
+          alertedAt: 0,
+          userIds: new Set<string>(),
+        };
 
   bucket.count += 1;
+  for (const userId of userIdsFromDetail(detail)) bucket.userIds.add(userId);
   signalBuckets.set(key, bucket);
 
   if (bucket.count < threshold || bucket.alertedAt > 0) return;
   bucket.alertedAt = now;
   void sendOpsAlert(`[ops] ${label}`, {
     ...detail,
+    relatedUserIds: [...bucket.userIds].slice(0, 8),
     alertType,
     signalKey: key,
     count: bucket.count,
     threshold,
     windowMs,
   });
+}
+
+function shortUserId(userId: string): string {
+  return userId.length > 12 ? `${userId.slice(0, 8)}…` : userId;
+}
+
+function validUserId(value: unknown): string | null {
+  return safeCode(value);
+}
+
+function userIdsFromDetail(detail?: Record<string, unknown>): string[] {
+  if (!detail) return [];
+  const ids = new Set<string>();
+  for (const key of [
+    "userId",
+    "counterpartyUserId",
+    "buyerUserId",
+    "sellerUserId",
+  ]) {
+    const userId = validUserId(detail[key]);
+    if (userId) ids.add(userId);
+  }
+  for (const key of ["sampleUserIds", "relatedUserIds"]) {
+    const values = detail[key];
+    if (!Array.isArray(values)) continue;
+    for (const value of values) {
+      const userId = validUserId(value);
+      if (userId) ids.add(userId);
+    }
+  }
+  const accounts = detail.accounts;
+  if (Array.isArray(accounts)) {
+    for (const account of accounts) {
+      if (!account || typeof account !== "object") continue;
+      const userId = validUserId((account as Record<string, unknown>).userId);
+      if (userId) ids.add(userId);
+    }
+  }
+  return [...ids].slice(0, 16);
+}
+
+async function resolveWebhookIdentities(detail: Record<string, unknown>) {
+  const userIds = userIdsFromDetail(detail);
+  if (userIds.length === 0) return {};
+
+  const nameByUserId = new Map<string, string>();
+  if (Array.isArray(detail.accounts)) {
+    for (const account of detail.accounts) {
+      if (!account || typeof account !== "object") continue;
+      const record = account as Record<string, unknown>;
+      const userId = validUserId(record.userId);
+      const name = safeDisplayText(record.name);
+      if (userId && name) nameByUserId.set(userId, name);
+    }
+  }
+  if (process.env.DATABASE_URL) {
+    try {
+      const rows = await db
+        .select({ id: users.id, gameName: users.gameName })
+        .from(users)
+        .where(inArray(users.id, userIds));
+      for (const row of rows) {
+        const name = safeDisplayText(row.gameName);
+        if (name) nameByUserId.set(row.id, name);
+      }
+    } catch (e) {
+      console.error("[ops-alert] account identity lookup failed", e);
+    }
+  }
+
+  const identityLabel = (userId: string) => {
+    const shortId = shortUserId(userId);
+    const name = nameByUserId.get(userId);
+    return name ? `${name} · ${shortId}` : shortId;
+  };
+  const actorId = validUserId(detail.userId);
+  const counterpartyId = validUserId(detail.counterpartyUserId);
+  const buyerId = validUserId(detail.buyerUserId);
+  const sellerId = validUserId(detail.sellerUserId);
+  const relatedIds = new Set<string>();
+  for (const key of ["sampleUserIds", "relatedUserIds"]) {
+    const values = detail[key];
+    if (!Array.isArray(values)) continue;
+    for (const value of values) {
+      const userId = validUserId(value);
+      if (userId) relatedIds.add(userId);
+    }
+  }
+  if (Array.isArray(detail.accounts)) {
+    for (const account of detail.accounts) {
+      if (!account || typeof account !== "object") continue;
+      const userId = validUserId((account as Record<string, unknown>).userId);
+      if (userId) relatedIds.add(userId);
+    }
+  }
+  for (const directId of [actorId, counterpartyId, buyerId, sellerId]) {
+    if (directId) relatedIds.delete(directId);
+  }
+
+  return {
+    ...(actorId ? { actorAccount: identityLabel(actorId) } : {}),
+    ...(counterpartyId
+      ? { counterpartyAccount: identityLabel(counterpartyId) }
+      : {}),
+    ...(buyerId ? { buyerAccount: identityLabel(buyerId) } : {}),
+    ...(sellerId ? { sellerAccount: identityLabel(sellerId) } : {}),
+    ...(relatedIds.size > 0
+      ? { relatedAccounts: [...relatedIds].slice(0, 8).map(identityLabel) }
+      : {}),
+  };
 }
 
 export function resetOpsAlertsForTests() {

@@ -708,7 +708,7 @@ export function BattleScene({
                 />
                 {hasMagicBarrier && (
                   <HpBar
-                    label="마력 장벽"
+                    label="마나 실드"
                     value={state.playerMagicBarrier ?? 0}
                     max={state.playerMagicBarrierMax ?? 0}
                     color="bg-violet-500"

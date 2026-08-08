@@ -47,7 +47,7 @@ describe("회피도·적중도 직접 피해 경감", () => {
   });
 });
 
-describe("INT 마력 장벽", () => {
+describe("마나 실드 수치", () => {
   it("기본 INT 15에서는 생기지 않고 초과 INT와 최대 MP로 내구도를 만든다", () => {
     expect(magicBarrierStats(15, 1_500)).toEqual({
       maxDurability: 0,

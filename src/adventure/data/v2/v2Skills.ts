@@ -24,8 +24,11 @@ import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
   parseCombatPattern,
   parseCombatPresets,
+  V2_DIRECT_SKILL_STAT_COEF_MULT,
   v2PureSkillFormulaCoefficients,
+  v2SkillHealStatCoef,
   v2SkillAttackCoef,
+  v2SpecializedSkillStatCoef,
   type V2CombatCondition,
   type V2CombatPattern,
   type V2CombatPreset,
@@ -56,6 +59,8 @@ export type V2PassiveSkillEffect = {
   maxHpPct?: number;
   /** 최대 MP % 가산(마나). */
   maxMpPct?: number;
+  /** 마나 실드 활성화 — INT·최대 MP 기반 전투별 장벽을 전개한다. 현재 MP는 소모하지 않는다. */
+  magicBarrier?: boolean;
   /** 민첩→공격력 보조 계수(예기). */
   atkPerDexCoef?: number;
   // ── 다양성 확장(A 메타) — 스탯 크기 외 "작동 방식" 사이드그레이드. 반격 확률 외에는 가산 합산.
@@ -168,6 +173,8 @@ export type V2PassiveSkillEffect = {
   atkPerLukCoef?: number;
   /** 치명 한계 확장 — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
   skillCritOverflow?: boolean;
+  /** 스킬 치명타 피해 +% — 액티브 스킬의 기본 치명타 배율(1.7)에 /100만큼 가산. */
+  skillCritDmgPct?: number;
   /** 흑월지배 — 회피 성공 후 다음에 적중하는 직접 피해 액티브 스킬을 확정 치명타로 만든다. */
   skillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 다단 액티브 스킬과 평타가 같은 카운터를 공유. */
@@ -515,6 +522,9 @@ function spAvgTier(byTier?: readonly [number, number, number]): number {
   return byTier ? (byTier[0] + byTier[1] + byTier[2]) / 3 : 0;
 }
 
+// HP 풀 감소를 상쇄하는 피해 전환 보정은 신규 스킬 파워로 과금하지 않는다.
+const HP_COST_DAMAGE_COMPENSATION_MULT = 1.14;
+
 function spDirectDamageValue(
   def: V2SkillDefinition,
   effect: V2DirectDamageEffect,
@@ -547,7 +557,8 @@ function spDirectDamageValue(
     });
     return (
       pure.attackCoef +
-      pure.primaryStatCoef * SP_REFERENCE_PRIMARY_STAT_TO_ATTACK
+      (pure.primaryStatCoef / V2_DIRECT_SKILL_STAT_COEF_MULT) *
+        SP_REFERENCE_PRIMARY_STAT_TO_ATTACK
     );
   }
 
@@ -599,7 +610,7 @@ function spEffectValue(
         expectedSoakHpRatio *
         (e.pctCurrentHp / 100) *
         hpToAttackRatio *
-        e.soakRatio;
+        (e.soakRatio / HP_COST_DAMAGE_COMPENSATION_MULT);
       const selfCostDiscount = 1 - Math.min(0.25, (e.pctCurrentHp / 100) * 1.25);
       return (base + soakValue) * selfCostDiscount;
     }
@@ -687,6 +698,8 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     for (const v of Object.values(p.statPct ?? {})) mag += Math.abs(v ?? 0) / 20;
     mag += (p.maxHpPct ?? 0) / 8;
     mag += (p.maxMpPct ?? 0) / 12;
+    // 마나 실드는 기존 전역 INT 장벽을 2차 마법사 패시브로 옮긴 것이므로,
+    // 기존 총명 II 장착자의 SP 구성이 깨지지 않게 별도 비용을 더하지 않는다.
     mag += (p.atkPerDexCoef ?? 0) * 12;
     mag += (p.critPct ?? 0) / 6;
     // 치명타 피해 25%가 회피 8%와 같은 가격이던 종전 환산은 공격 패시브를 과소평가하고
@@ -697,7 +710,9 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.counterChancePct ?? 0) / 12;
     mag += (p.defPct ?? 0) / 12;
     mag += (p.thornsDefPct ?? 0) / 40;
-    mag += (p.accuracyPct ?? 0) / 15;
+    // 적중도는 상대가 회피도에 투자한 경우에만 직접 피해 경감을 완화하고, 보장 회피는
+    // 뚫지 못한다. 저회피 상대에서도 항상 작동하는 치명·주스탯과 같은 가격을 매기지 않는다.
+    mag += (p.accuracyPct ?? 0) / 30;
     mag += (p.healPowerPct ?? 0) / 16;
     mag += (p.damageTakenReductionPct ?? 0) / 8;
     mag += (p.reflectDamageTakenReductionPct ?? 0) / 50;
@@ -723,6 +738,8 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     }
     mag += ((p.spdPerLukCoef ?? 0) / 0.95) * 0.5;
     if (p.skillCritOverflow) mag += 0.5;
+    // 스킬이 발동하고 치명타까지 발생해야 적용되는 조건부 배율이라 일반 치명 피해보다 낮게 평가한다.
+    mag += (p.skillCritDmgPct ?? 0) / 60;
     if (p.skillCritAfterEvade) mag += 0.5;
     if (p.counterDamageUsesReflectBoost) mag += 0.5;
     mag += (p.comboFinisherBonusPct ?? 0) / 25;
@@ -1065,10 +1082,10 @@ function scaledDirectStatCoef(
   scaling: V2DamageScaling | undefined,
   scale: number,
 ): number {
-  // 일반 공격력 계수는 전투 산식의 차수별 기반선으로 하한이 보장되지만, DEX·LUK
+  // 일반 공격력 계수는 전투 산식의 차수별 기반선으로 하한이 보장되지만, DEX·LUK·최대 HP
   // 직접 비례분은 그대로 사용된다. 발동률 상향 보정을 여기에 다시 적용하면 특화 빌드만
   // 이중으로 약해지므로, 카탈로그에서 의도한 원시 스탯 계수는 보존한다.
-  if (scaling === "dex" || scaling === "luk") {
+  if (scaling === "dex" || scaling === "luk" || scaling === "maxHp") {
     return statCoef;
   }
 
@@ -1242,6 +1259,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   statPct: Partial<Record<V2StatKey, number>>;
   maxHpPct: number;
   maxMpPct: number;
+  magicBarrier: boolean;
   atkPerDexCoef: number;
   atkPerLukCoef: number;
   critPct: number;
@@ -1267,6 +1285,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   spdOverflowToAtkPct: number;
   spdPerLukCoef: number;
   skillCritOverflow: boolean;
+  skillCritDmgPct: number;
   skillCritAfterEvade: boolean;
   comboFinisherBonusPct: number;
 } {
@@ -1274,6 +1293,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   const statPct: Partial<Record<V2StatKey, number>> = {};
   let maxHpPct = 0;
   let maxMpPct = 0;
+  let magicBarrier = false;
   let atkPerDexCoef = 0;
   let atkPerLukCoef = 0;
   let critPct = 0;
@@ -1299,6 +1319,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let spdOverflowToAtkPct = 0;
   let spdPerLukCoef = 0;
   let skillCritOverflow = false;
+  let skillCritDmgPct = 0;
   let skillCritAfterEvade = false;
   let comboFinisherBonusPct = 0;
   for (const id of equipped) {
@@ -1312,6 +1333,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     }
     maxHpPct += p.maxHpPct ?? 0;
     maxMpPct += p.maxMpPct ?? 0;
+    if (p.magicBarrier) magicBarrier = true;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
     atkPerLukCoef += p.atkPerLukCoef ?? 0;
     critPct += p.critPct ?? 0;
@@ -1352,6 +1374,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
     spdPerLukCoef += p.spdPerLukCoef ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
+    skillCritDmgPct += p.skillCritDmgPct ?? 0;
     if (p.skillCritAfterEvade) skillCritAfterEvade = true;
     comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
   }
@@ -1360,6 +1383,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     statPct,
     maxHpPct,
     maxMpPct,
+    magicBarrier,
     atkPerDexCoef,
     atkPerLukCoef,
     critPct,
@@ -1388,6 +1412,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     spdOverflowToAtkPct,
     spdPerLukCoef,
     skillCritOverflow,
+    skillCritDmgPct,
     skillCritAfterEvade,
     comboFinisherBonusPct,
   };
@@ -1588,7 +1613,7 @@ function scalingStatLabel(scaling?: V2DamageScaling): string {
 // 부동소수점 꼬리가 생길 수 있다. 전투 계산값은 유지하고 설명에서만 소수 둘째
 // 자리까지 반올림해 읽기 좋은 계수로 표시한다.
 function formatSkillCoefficient(value: number): string {
-  return Number(value.toFixed(2)).toString();
+  return (Math.round((value + 1e-9) * 100) / 100).toString();
 }
 function damageFormulaChip(
   e: V2DirectDamageEffect,
@@ -1620,7 +1645,10 @@ function damageFormulaChip(
   const attackCoef = pureFormula?.attackCoef ?? baseAttackCoef;
   const attackTerm = `${attackLabel}×${formatSkillCoefficient(attackCoef)}`;
   if (specialized) {
-    return `${attackTerm} + ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(e.statCoef)}`;
+    const statCoef = monsterOnly
+      ? e.statCoef
+      : v2SpecializedSkillStatCoef(e.statCoef, e.scaling);
+    return `${attackTerm} + ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(statCoef)}`;
   }
   if (!pureFormula) return attackTerm;
   const primaryStatLabel = e.scaling === "magic" ? "지능" : "힘";
@@ -1647,7 +1675,7 @@ function describeV2Effect(
         e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
         e.pctMaxHp != null ? `최대HP ${e.pctMaxHp}%` : "",
         e.statCoef != null
-          ? `${scalingStatLabel(e.scaling)}×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)}`
+          ? `${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(v2SkillHealStatCoef(e.statCoef))}${flatChip(undefined, e.baseFlatByTier)}`
           : "",
         e.flat ? `+${e.flat}` : "",
       ].filter(Boolean).join(" + ").replace(/^/, "회복 ")} (회복량 보정 적용)`;
@@ -1695,7 +1723,7 @@ function describeV2Effect(
     case "hpCostDamage":
       return `명중 시 HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 기준 소모량×${e.soakRatio}${e.soakCurrentHpFloorPct ? ` (추가 피해 기준 현재 HP 최소 ${e.soakCurrentHpFloorPct}%)` : ""}`;
     case "healToDamage":
-      return `자힐 ${scalingStatLabel(e.scaling)}×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} (회복량 보정 적용) → 힐량×${e.damageRatio} 피해`;
+      return `자힐 ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(v2SkillHealStatCoef(e.healStatCoef))}${flatChip(undefined, e.healFlatByTier)} (회복량 보정 적용) → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
       return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult}, 일반 몬스터는 35%↓)`;
     case "ambushDamage":
@@ -1725,6 +1753,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   }
   if (p.maxHpPct) chips.push(`최대 HP +${p.maxHpPct}%`);
   if (p.maxMpPct) chips.push(`최대 MP +${p.maxMpPct}%`);
+  if (p.magicBarrier) chips.push("마나 실드 활성화");
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
   if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
@@ -1806,6 +1835,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`행운 ×${p.atkPerLukCoef}만큼 공격력 증가`);
   if (p.skillCritOverflow)
     chips.push(`치명타 한계(75%) 초과 보너스를 스킬에도 적용`);
+  if (p.skillCritDmgPct)
+    chips.push(`스킬 치명타 피해 +${p.skillCritDmgPct}%`);
   if (p.skillCritAfterEvade)
     chips.push(`회피 후 다음 직접 피해 스킬 확정 치명타`);
   if (p.comboFinisherBonusPct)

@@ -43,7 +43,9 @@ import {
   V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER,
   V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
   v2PureSkillFormulaCoefficients,
+  v2SkillHealStatCoef,
   v2SkillAttackCoef,
+  v2SpecializedSkillStatCoef,
   type V2CombatPattern,
   type V2CombatRole,
   type V2PatternCtx,
@@ -1042,13 +1044,19 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       specialized == null
         ? 0
         : Math.floor(
-            specialized * statCoef * (skillElementMult ?? 1),
+            specialized *
+              (def.monsterOnly
+                ? statCoef
+                : v2SpecializedSkillStatCoef(statCoef, scaling)) *
+              (skillElementMult ?? 1) +
+              1e-9,
           );
     const purePrimaryStatBonus = pureFormula
       ? Math.floor(
           (purePrimaryStat ?? 0) *
             pureFormula.primaryStatCoef *
-            (skillElementMult ?? 1),
+            (skillElementMult ?? 1) +
+            1e-9,
         )
       : 0;
     const raw = v2DamageAmount({
@@ -1092,7 +1100,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     else if (scaling === "spi") base = input.attacker.spi ?? input.attacker.magicAtk ?? input.attacker.atk;
     else if (scaling === "all") base = input.attacker.allStatTotal ?? input.attacker.atk;
     else if (scaling === "maxHp") base = input.attacker.maxHp;
-    return Math.floor((base * statCoef + baseFlat) * (input.attacker.healMult ?? 1));
+    return Math.floor(
+      (base * v2SkillHealStatCoef(statCoef) + baseFlat) *
+        (input.attacker.healMult ?? 1),
+    );
   };
 
   // 조합형 주문식 — 보유 스킬로 변형을 해금하고 장착 스킬로 실제 발현한다. 데이터 선언 순서상
@@ -1258,7 +1269,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       );
     } else if (effect.kind === "healToDamage") {
       // 신성 강타 — 자힐 후 힐량×damageRatio 적에게 딜.
-      const atkBase = (effect.scaling === "magic" ? input.attacker.magicAtk ?? input.attacker.atk : input.attacker.atk) * effect.healStatCoef;
+      const atkBase =
+        (effect.scaling === "magic"
+          ? input.attacker.magicAtk ?? input.attacker.atk
+          : input.attacker.atk) *
+        v2SkillHealStatCoef(effect.healStatCoef);
       const heal = Math.floor((atkBase + flatOf(undefined, effect.healFlatByTier)) * (input.attacker.healMult ?? 1));
       selfHeal += heal;
       dealDamage(

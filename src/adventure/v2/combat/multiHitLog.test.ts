@@ -4,7 +4,10 @@
 
 import { describe, it, expect } from "vitest";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
-import { V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER } from "./combatPattern";
+import {
+  V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER,
+  v2SpecializedSkillStatCoef,
+} from "./combatPattern";
 import {
   applyComboFinisherToHits,
   resolveV2SkillCast,
@@ -120,7 +123,9 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
       scaling: "physical" as const,
       statCoef:
         effect.attackCoef ?? V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER[3],
-      baseFlat: Math.floor(100 * effect.statCoef),
+      baseFlat: Math.floor(
+        100 * v2SpecializedSkillStatCoef(effect.statCoef, effect.scaling),
+      ),
       attackerSelfBuffs: {},
       attackerSelfDebuffs: {},
       targetSelfBuffs: {},
@@ -341,7 +346,7 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
       100,
       "pvp",
     );
-    expect(pveOpener).toBe(3652);
-    expect(pvpOpener).toBe(3048);
+    expect(pveOpener).toBe(3794);
+    expect(pvpOpener).toBe(3167);
   });
 });

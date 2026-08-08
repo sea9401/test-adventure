@@ -19,6 +19,10 @@ import {
   suspicionScoreResetCutoffs,
 } from "@/lib/server/suspicionScoreReset";
 import { scoreSuspiciousUsers } from "@/lib/server/suspiciousUserScore";
+import {
+  LARGE_GOLD_MOVEMENT_LABEL,
+  isLargeGoldMovement,
+} from "@/lib/server/opsEconomyThresholds";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FIVE_MIN_MS = 5 * 60 * 1000;
@@ -545,11 +549,11 @@ function buildRiskEvents(
       : [];
   });
   const economyRisks = economyRows.flatMap((row) => {
-    if (Math.abs(row.goldDelta) < 500_000 && (row.quantity ?? 0) < 5_000) return [];
+    if (!isLargeGoldMovement(row.goldDelta) && (row.quantity ?? 0) < 5_000) return [];
     return [
       {
         id: `economy:${row.id}`,
-        level: Math.abs(row.goldDelta) >= 1_000_000 ? "danger" : "warning",
+        level: isLargeGoldMovement(row.goldDelta) ? "danger" : "warning",
         title: "대량 재화 이동",
         message: `${row.eventType} · ${row.itemKind ?? "gold"} ${(
           row.quantity ?? Math.abs(row.goldDelta)
@@ -846,7 +850,7 @@ function summarizeEconomy(
   const rewardFailures = rows.filter((r) =>
     r.eventType.startsWith("reward.failure."),
   );
-  const largeGoldEvents = rows.filter((r) => Math.abs(r.goldDelta) >= 500_000);
+  const largeGoldEvents = rows.filter((r) => isLargeGoldMovement(r.goldDelta));
   return {
     last1h: last1h.length,
     last24h: rows.length,
@@ -923,7 +927,7 @@ function buildAlerts({
     alerts.push({
       level: "warning",
       title: "대량 골드 이동",
-      message: `50만 골드 이상 이동 ${economy.largeGoldEvents24h.toLocaleString()}건`,
+      message: `${LARGE_GOLD_MOVEMENT_LABEL} 골드 이상 이동 ${economy.largeGoldEvents24h.toLocaleString()}건`,
     });
   }
 

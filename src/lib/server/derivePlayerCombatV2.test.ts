@@ -21,6 +21,8 @@ import {
 } from "./derivePlayerCombatV2";
 import {
   ATK_PER_STR,
+  BOW_ACCURACY_TO_ATK_COEF,
+  BOW_HIT_THRESHOLD,
   diminishingExtraAttackChancePct,
   HP_PER_VIT,
   MAGIC_DEF_PER_INT,
@@ -120,6 +122,26 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect((geared.accRating ?? 0) - (plain.accRating ?? 0)).toBe(
       optionAccuracy,
     );
+  });
+
+  it("활은 임계 초과 적중도를 공격력으로 환원해 저회피 상대에서도 명중 투자를 보전한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_storm_gale_bow" },
+    }).player;
+    const aimed = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_storm_gale_bow" },
+      passiveAccuracyPct: 30,
+    }).player;
+    const bowAttackBonus = (accuracy: number) =>
+      Math.floor(
+        Math.max(0, accuracy - BOW_HIT_THRESHOLD) * BOW_ACCURACY_TO_ATK_COEF,
+      );
+    expect(aimed.atk - base.atk).toBe(
+      bowAttackBonus(aimed.accRating ?? 0) - bowAttackBonus(base.accRating ?? 0),
+    );
+    expect(aimed.atk).toBeGreaterThan(base.atk);
   });
 
   it("6T 4세트와 다른 2세트를 동시에 조합할 수 있다", () => {
@@ -310,20 +332,27 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   });
 });
 
-describe("derivePlayerCombatV2Pure INT 마력 장벽", () => {
-  it("기본 INT는 장벽이 없고 INT 투자 시 MP와 분리된 내구도·흡수율을 만든다", () => {
+describe("derivePlayerCombatV2Pure 마나 실드", () => {
+  it("INT만 투자해서는 생기지 않고 마나 실드 패시브 장착 시 내구도·흡수율을 만든다", () => {
     const base = derivePlayerCombatV2Pure({ level: 1, v2Equipped: {} }).player;
     const invested = derivePlayerCombatV2Pure({
       level: 1,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 300 },
       v2Equipped: {},
     }).player;
+    const shielded = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 300 },
+      v2Equipped: {},
+      passiveMagicBarrier: true,
+    }).player;
 
     expect(base.magicBarrierMax).toBeUndefined();
-    expect(invested.magicBarrierMax).toBe(1_008);
-    expect(invested.magicBarrierAbsorbPct).toBeCloseTo(19.0909, 3);
-    expect(invested.magicBarrierPvpAbsorbPct).toBeCloseTo(13.6364, 3);
-    expect(invested.mp).toBe(invested.maxMp);
+    expect(invested.magicBarrierMax).toBeUndefined();
+    expect(shielded.magicBarrierMax).toBe(1_008);
+    expect(shielded.magicBarrierAbsorbPct).toBeCloseTo(19.0909, 3);
+    expect(shielded.magicBarrierPvpAbsorbPct).toBeCloseTo(13.6364, 3);
+    expect(shielded.mp).toBe(shielded.maxMp);
   });
 });
 
@@ -866,6 +895,32 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     expect(pve.totalStats.str).toBeGreaterThan(pvp.totalStats.str);
     expect(pve.totalStats.vit).toBeGreaterThan(pvp.totalStats.vit);
   });
+
+  it("2차 마법사는 마나 실드를 장착한 경우에만 장벽을 전개한다", () => {
+    const saves = {
+      character: {
+        ...character,
+        class: "mage",
+        specChoice: "arcane",
+      },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: {
+        learned: ["v2c_caster_acumen"],
+        equipped: ["v2c_caster_acumen"],
+      },
+    };
+
+    const equipped = derivePlayerCombatV2FromSaves(saves)!;
+    const unequipped = derivePlayerCombatV2FromSaves({
+      ...saves,
+      skillsRaw: { ...saves.skillsRaw, equipped: [] },
+    })!;
+
+    expect(equipped.player.magicBarrierMax).toBeGreaterThan(0);
+    expect(equipped.player.magicBarrierAbsorbPct).toBeGreaterThan(0);
+    expect(unequipped.player.magicBarrierMax).toBeUndefined();
+  });
 });
 
 describe("derivePlayerCombatV2 preloaded (사냥 배치 char/equip 중복 select 제거)", () => {
@@ -1130,6 +1185,16 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     }).player;
     expect(plain.magicSkillDamagePct).toBeUndefined();
     expect(archmage.magicSkillDamagePct).toBe(12);
+  });
+
+  it("성도 조준의 스킬 치명타 피해는 별도 전투 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const heavenlyBow = derivePlayerCombatV2Pure({
+      ...base,
+      passiveSkillCritDmgPct: 30,
+    }).player;
+    expect(plain.skillCritDmgPct).toBeUndefined();
+    expect(heavenlyBow.skillCritDmgPct).toBe(30);
   });
 
   it("흑월지배 패시브는 회피 후 스킬 치명타 레버로 노출된다", () => {

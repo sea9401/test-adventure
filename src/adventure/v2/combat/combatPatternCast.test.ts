@@ -599,6 +599,60 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
       ),
     );
   });
+
+  it("순수 공격 스킬의 주스탯 계수는 기존보다 15% 높다", () => {
+    const result = resolveV2SkillCast(
+      castInput(["v2c_warrior_strike"], {
+        procRoll: 0,
+        attacker: {
+          ...castInput(["v2c_warrior_strike"]).attacker,
+          atk: 100,
+          str: 200,
+        },
+        target: {
+          ...castInput(["v2c_warrior_strike"]).target,
+          def: 0,
+        },
+      }),
+    );
+
+    expect(result.enemyDamage).toBe(223);
+  });
+
+  it("특화 공격 스킬의 직접 스탯 계수는 기존보다 15% 높다", () => {
+    const result = resolveV2SkillCast(
+      castInput(["v2c_shieldman_bash"], {
+        procRoll: 0,
+        attacker: {
+          ...castInput(["v2c_shieldman_bash"]).attacker,
+          atk: 100,
+          def: 200,
+        },
+        target: {
+          ...castInput(["v2c_shieldman_bash"]).target,
+          def: 0,
+        },
+      }),
+    );
+
+    expect(result.enemyDamage).toBe(404);
+  });
+
+  it("회복 스킬의 스탯 계수는 기존보다 10% 높다", () => {
+    const result = resolveV2SkillCast(
+      castInput(["v2c_acolyte_smite"], {
+        procRoll: 0,
+        attacker: {
+          ...castInput(["v2c_acolyte_smite"]).attacker,
+          magicAtk: 100,
+          currentHp: 1_000,
+          healMult: 1,
+        },
+      }),
+    );
+
+    expect(result.selfHeal).toBe(99);
+  });
 });
 
 describe("resolveV2SkillCast — 기습(ambushDamage · 암살자 오프너)", () => {

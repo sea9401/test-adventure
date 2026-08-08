@@ -15,6 +15,7 @@ import {
 import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_UTILITY_ITEM_IDS,
+  museunCashItemTags,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
@@ -54,6 +55,9 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
   }
   if (effect.kind === "cultivation_reset") {
     return "골드 소모 없이 수행 전체 초기화";
+  }
+  if (effect.kind === "level_target") {
+    return `사용 즉시 ${effect.level}레벨 달성`;
   }
   if (effect.kind === "profile_border_box") return "미보유 프로필 꾸미기 1종 확정";
   if (effect.kind === "chat_badge_box") return "미보유 채팅 배지 1종 확정";
@@ -258,6 +262,7 @@ function CashItemSection({
       <ul className="space-y-1.5">
         {heldItems.map((itemId) => {
           const item = MUSEUN_CASH_ITEMS[itemId];
+          const tags = museunCashItemTags(itemId);
           const held = cashItems[itemId] ?? 0;
           const isBusy = busy === `cash_${itemId}`;
           return (
@@ -280,6 +285,14 @@ function CashItemSection({
                       className="shrink-0"
                     />
                     <span className="truncate">{item.name}</span>
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="shrink-0 rounded border border-amber-300 bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                     <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                       ×{held}
                     </span>
@@ -305,11 +318,14 @@ function CashItemSection({
       {infoCard ? (
         (() => {
           const item = MUSEUN_CASH_ITEMS[infoCard.itemId];
+          const isEvent = museunCashItemTags(infoCard.itemId).includes("이벤트");
           return (
             <V2SimpleItemInfoCard
               title={item.name}
               subtitle={
-                item.tradeable
+                isEvent
+                  ? "이벤트 소모품"
+                  : item.tradeable
                   ? "거래 가능한 캐시 소모품"
                   : "계정 귀속 캐시 소모품"
               }

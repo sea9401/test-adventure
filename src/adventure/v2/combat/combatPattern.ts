@@ -244,6 +244,28 @@ export const V2_SKILL_HYBRID_ATTACK_BASE_COEF_BY_TIER: Record<1 | 2 | 3, number>
   3: 1.2,
 };
 
+// 스킬이 장비 공격력뿐 아니라 육성한 주·특화 스탯에도 더 민감하게 성장하도록 직접 스탯
+// 기여분만 높인다. 공격력 기반선·최대 HP 비례·조건부 배수·DoT 계수에는 적용하지 않는다.
+export const V2_DIRECT_SKILL_STAT_COEF_MULT = 1.15;
+export const V2_HEAL_SKILL_STAT_COEF_MULT = 1.1;
+
+function scaledSkillStatCoef(statCoef: number, multiplier: number): number {
+  return Math.round((statCoef * multiplier + 1e-9) * 1_000_000) / 1_000_000;
+}
+
+export function v2SpecializedSkillStatCoef(
+  statCoef: number,
+  scaling?: string,
+): number {
+  return scaling === "maxHp"
+    ? statCoef
+    : scaledSkillStatCoef(statCoef, V2_DIRECT_SKILL_STAT_COEF_MULT);
+}
+
+export function v2SkillHealStatCoef(statCoef: number): number {
+  return scaledSkillStatCoef(statCoef, V2_HEAL_SKILL_STAT_COEF_MULT);
+}
+
 // 순수 물리/마법 공격기는 공격력 계수만 받으면 레벨업으로 쌓은 STR/INT보다 무기 위력에 성장이
 // 치우친다. 라이브 기준 공격력≈1000/주스탯≈300에서 총 피해가 거의 같도록 공격력 예산을 직접
 // 주스탯 항으로 옮긴다. 그보다 오래 주스탯을 수행한 캐릭터는 비용에 맞는 추가 보상을 받는다.
@@ -277,7 +299,11 @@ export function v2PureSkillFormulaCoefficients({
   const formula = V2_PURE_SKILL_PRIMARY_STAT_FORMULA_BY_TIER[scaling][tier];
   return {
     attackCoef: Math.max(0, resolvedAttackCoef - formula.attackTransfer / hitCount),
-    primaryStatCoef: formula.primaryStatCoef / hitCount,
+    primaryStatCoef:
+      scaledSkillStatCoef(
+        formula.primaryStatCoef,
+        V2_DIRECT_SKILL_STAT_COEF_MULT,
+      ) / hitCount,
   };
 }
 

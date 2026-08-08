@@ -3,7 +3,9 @@ import type { StatKey } from "@/adventure/data/stats";
 import {
   evaluateCombatPattern,
   v2PureSkillFormulaCoefficients,
+  v2SkillHealStatCoef,
   v2SkillAttackCoef,
+  v2SpecializedSkillStatCoef,
   type V2CombatPattern,
   type V2CombatRole,
 } from "@/adventure/v2/combat/combatPattern";
@@ -216,7 +218,12 @@ function partySkillDamage(
     const attackCoef = pureFormula?.attackCoef ?? baseAttackCoef;
     const raw =
       attackPower * attackCoef +
-      (specialized ? specializedPower * effect.statCoef : 0) +
+      (specialized
+        ? specializedPower *
+          (def.monsterOnly
+            ? effect.statCoef
+            : v2SpecializedSkillStatCoef(effect.statCoef, effect.scaling))
+        : 0) +
       (pureFormula ? purePrimaryStat * pureFormula.primaryStatCoef : 0);
     total += partyDamage(Math.round(raw), enemyDef);
   }
@@ -243,7 +250,7 @@ function partySkillHeal(
           : effect.scaling === "spi"
             ? actor.spi
             : actor.atk) *
-          (effect.statCoef ?? 0) +
+          v2SkillHealStatCoef(effect.statCoef ?? 0) +
           (effect.baseFlatByTier?.[0] ?? 0),
       ) +
       (effect.flat ?? 0);

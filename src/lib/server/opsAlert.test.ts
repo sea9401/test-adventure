@@ -7,7 +7,7 @@ import {
 
 const USER_ID = "123e4567-e89b-42d3-a456-426614174000";
 
-describe("운영 웹훅 개인정보 최소화", () => {
+describe("운영 웹훅 식별 정보", () => {
   beforeEach(() => {
     resetOpsAlertsForTests();
     vi.stubEnv("DATABASE_URL", "");
@@ -24,7 +24,7 @@ describe("운영 웹훅 개인정보 최소화", () => {
     vi.unstubAllGlobals();
   });
 
-  it("IP·사용자 식별자·닉네임·계정 목록을 외부 payload에서 제거한다", async () => {
+  it("인게임 닉네임·짧은 계정 ID는 남기고 IP·이메일·전체 ID는 제거한다", async () => {
     await sendOpsAlert("[ops] 동일 IP 30분 지속 접속: 비밀닉네임", {
       alertType: "abuse.persistent_same_ip",
       signalKey: `abuse:persistent-same-ip:203.0.113.8:${USER_ID}`,
@@ -54,12 +54,13 @@ describe("운영 웹훅 개인정보 최소화", () => {
       alertType: "abuse.persistent_same_ip",
       accountCount: 2,
       riskLevel: "high",
+      actorAccount: "비밀닉네임 · 123e4567…",
       channel: "abuse",
     });
     const serialized = JSON.stringify(payload);
     expect(serialized).not.toContain("203.0.113.8");
     expect(serialized).not.toContain(USER_ID);
-    expect(serialized).not.toContain("비밀닉네임");
+    expect(serialized).toContain("비밀닉네임");
     expect(serialized).not.toContain("admin@example.com");
   });
 
@@ -172,5 +173,81 @@ describe("운영 웹훅 개인정보 최소화", () => {
       ]),
     );
     expect(JSON.stringify(payload)).not.toContain(USER_ID);
+  });
+
+  it("Discord 경제 알림에 발생 계정·상대 계정·거래 내용을 같이 보여준다", async () => {
+    vi.stubEnv(
+      "OPS_ALERT_ECONOMY_WEBHOOK_URL",
+      "https://discord.com/api/webhooks/123/secret-token",
+    );
+
+    await sendOpsAlert("[ops] internal label", {
+      channel: "economy",
+      alertType: "economy.large_gold_movement",
+      eventType: "marketplace.buy",
+      goldDelta: -25_000_000,
+      userId: "actor-user-123456",
+      counterpartyUserId: "seller-user-987654",
+    });
+
+    const fetchMock = vi.mocked(fetch);
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const payload = JSON.parse(String(init.body)) as {
+      embeds: Array<{ fields: Array<{ name: string; value: string; inline: boolean }> }>;
+    };
+    expect(payload.embeds[0].fields).toEqual(
+      expect.arrayContaining([
+        { name: "발생 계정", value: "actor-us…", inline: false },
+        { name: "상대 계정", value: "seller-u…", inline: false },
+        { name: "관련 이벤트", value: "`marketplace.buy`", inline: false },
+        { name: "골드 변동", value: "-25,000,000 G", inline: true },
+      ]),
+    );
+  });
+
+  it("극단적 저가 체결 알림에 판매자·구매자와 판정 근거를 보여준다", async () => {
+    vi.stubEnv(
+      "OPS_ALERT_ECONOMY_WEBHOOK_URL",
+      "https://discord.com/api/webhooks/123/secret-token",
+    );
+
+    await sendOpsAlert("[ops] internal label", {
+      channel: "economy",
+      alertType: "economy.marketplace_extreme_low_price",
+      eventType: "marketplace.buy",
+      itemKind: "equip",
+      itemId: "v2_endgame_sword",
+      quantity: 1,
+      actualTradeGold: 1,
+      actualUnitPrice: 1,
+      referenceUnitPrice: 600_000,
+      priceRatioPct: 0,
+      referenceSampleCount: 0,
+      referenceType: "catalog_floor",
+      buyerUserId: "buyer-user-123456",
+      sellerUserId: "seller-user-987654",
+    });
+
+    const fetchMock = vi.mocked(fetch);
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const payload = JSON.parse(String(init.body)) as {
+      content: string;
+      embeds: Array<{ fields: Array<{ name: string; value: string; inline: boolean }> }>;
+    };
+    expect(payload.content).toContain("비정상적으로 싼 거래");
+    expect(payload.embeds[0].fields).toEqual(
+      expect.arrayContaining([
+        { name: "구매 계정", value: "buyer-us…", inline: false },
+        { name: "판매 계정", value: "seller-u…", inline: false },
+        { name: "아이템 ID", value: "v2_endgame_sword", inline: true },
+        { name: "실제 체결 총액", value: "1 G", inline: true },
+        {
+          name: "판정 기준 개당 가격",
+          value: "600,000 G",
+          inline: true,
+        },
+        { name: "판정 기준", value: "장비 NPC 판매가", inline: true },
+      ]),
+    );
   });
 });

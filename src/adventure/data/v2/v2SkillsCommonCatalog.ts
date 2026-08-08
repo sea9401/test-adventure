@@ -96,7 +96,7 @@ export type V2CommonSkillId =
   | "v2c_squire_might" // 근력 II (힘 +15%)
   | "v2c_boxer_fortitude" // 보법 (회피 +8%·권사)
   | "v2c_monk_spirit" // 강건 II (활력 +20%·수도승)
-  | "v2c_caster_acumen" // 총명 II (지능 +20%)
+  | "v2c_caster_acumen" // 마나 실드 (지능 +20%·마력 장벽 활성화)
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
   | "v2c_warder_ward" // 결계술 (마법 방어력 + 초반 마법 피해 감소)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
@@ -165,7 +165,7 @@ export type V2CommonSkillId =
   | "v2c_sage_insight" // 치명 II (치명 확률 +10%)
   | "v2c_runecaster_grandsigil" // 대문장 해방 (저차 마법 패시브 장착 시 추가 효과)
   | "v2c_runecaster_circuit" // 문장 회로 (최대 MP + 치명)
-  | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
+  | "v2c_chief_afterimage" // 매의 눈 (명중 +30%)
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) ──
   | "v2c_phantom_ambush" // 기습 (풀피 적에게 큰 오프너 — ambushDamage·LUK 비례)
   | "v2c_phantom_stealth" // 은신 (회피 +16%)
@@ -257,7 +257,7 @@ export type V2CommonSkillId =
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
   | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + 궤도 마무리)
-  | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 치명 한계 초과)
+  | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 스킬 치명타 피해)
   | "v2c_blackmoon_flurry" // 암월난무 (연격 + 명중 교란 + 회피)
   | "v2c_blackmoon_dominion" // 흑월지배 (행운 + 민첩 + 회피)
   | "v2c_myriadvenom_mutation" // 만독개화 (중독 + 침식 + 중독 폭발)
@@ -603,12 +603,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { vit: 20 } },
   },
   v2c_caster_acumen: {
-    // 마법 라인 총명 진행(2026-06-22): 견습 총명 +10% → 마법사 총명 II +20% → 마도사 총명 III +30%.
-    //   순수 INT 스케일로 통일(옛 "맹공"=치명피해 크리축에서 전환 — 라인 정합). 크리축은 그림자/정예/현자가 담당.
-    id: "v2c_caster_acumen", name: "총명 II", stat: "int", category: "passive", tier: 2,
-    description: "통찰이 깊어져 지능이 더 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 2차 마법사 생존 패시브. 기존 id와 INT +20%는 세이브·선행 조건 호환을 위해 유지하고,
+    //   전 캐릭터에게 열려 있던 INT 마력 장벽을 이 패시브 장착 효과로 이동한다.
+    id: "v2c_caster_acumen", name: "마나 실드", stat: "int", category: "passive", tier: 2,
+    description: "지능이 크게 비례해 오른다. 전투 시작 시 지능과 최대 MP에 비례한 실드를 전개해 직접 피해 일부를 흡수한다. 현재 MP는 소모하지 않는다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { int: 20 } },
+    passive: { statPct: { int: 20 }, magicBarrier: true },
   },
   v2c_acolyte_mana: {
     // SPI 부활 PR-4 — 사제 = 힐러. 마나(maxMP%)→회복강화(healPowerPct)로 리스킨(id 유지=세이브 호환).
@@ -922,7 +922,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_berserker_bloodslash", name: "사혈격", stat: "str", category: "attack", tier: 3,
     description: "제 피를 뿌리듯 베어낸다. 현재 체력을 일부 소모해 피해를 키운다.", mpCost: 38, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.25, baseFlatByTier: [220, 220, 220], soakRatio: 1.4 },
+      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.25, baseFlatByTier: [220, 220, 220], soakRatio: 1.6 },
     ],
   },
   v2c_shaman_hex: {
@@ -1108,7 +1108,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "피를 성흔처럼 새겨 적을 베고, 맹세의 방벽으로 반격을 버틴다.",
     mpCost: 44, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.05, baseFlatByTier: [180, 180, 180], soakRatio: 1.0 },
+      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.05, baseFlatByTier: [180, 180, 180], soakRatio: 1.14 },
       { kind: "enemyDamageDown", pct: 10, turns: 3 },
       { kind: "shield", pctMaxHp: 6, turns: 3 },
     ],
@@ -1287,7 +1287,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_chief_afterimage", name: "매의 눈", stat: "dex", category: "passive", tier: 3,
     description: "매처럼 날카로운 눈. 명중이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { accuracyPct: 20 },
+    passive: { accuracyPct: 30 },
   },
 
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) 킷 — 기습(오프너 액티브) + 은신(회피 패시브) ──
@@ -1427,7 +1427,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_windmage_flow", name: "바람의 흐름", stat: "int", category: "passive", tier: 3,
     description: "전장의 기류를 읽어 공격을 흘리고 주문의 궤도를 바로잡는다.",
     mpCost: 0, cooldown: 0, effects: [],
-    passive: { evasionPct: 10, accuracyPct: 8 },
+    passive: { evasionPct: 10, accuracyPct: 12 },
   },
   v2c_earthmage_tectonic: {
     id: "v2c_earthmage_tectonic", name: "지각진", stat: "int", category: "attack", tier: 3,
@@ -1541,7 +1541,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "피로 길을 열듯 내리친다. 더 큰 체력을 걸고 더 크게 베어낸다.",
     mpCost: 42, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.45, baseFlatByTier: [280, 280, 280], soakRatio: 1.8 },
+      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.45, baseFlatByTier: [280, 280, 280], soakRatio: 2.05 },
     ],
   },
   v2c_warlord_slaughter: {
@@ -1634,7 +1634,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "체력을 깎아 광폭한 연격을 퍼붓는다. 위태로운 적은 그대로 무너진다.",
     mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 12, soakCurrentHpFloorPct: 50, statCoef: 1.75, baseFlatByTier: [360, 360, 360], soakRatio: 2.4 },
+      { kind: "hpCostDamage", pctCurrentHp: 12, soakCurrentHpFloorPct: 50, statCoef: 1.75, baseFlatByTier: [360, 360, 360], soakRatio: 2.74 },
       { kind: "executeDamage", statCoef: 0.35, baseFlatByTier: [180, 180, 180], hpThresholdPct: 25, bonusMult: 2.3 },
     ],
   },
@@ -1814,7 +1814,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "흔들림 없는 조준으로 민첩과 명중이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { statPct: { dex: 18 }, accuracyPct: 16 },
+    passive: { statPct: { dex: 18 }, accuracyPct: 24 },
   },
   v2c_nightshade_eclipse: {
     id: "v2c_nightshade_eclipse", name: "월식", stat: "luk", category: "attack", tier: 3,
@@ -1833,7 +1833,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "어둠 속에서 몸을 숨기고 급소를 정확히 찌른다. 회피와 치명타 확률·피해, 명중이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { evasionPct: 18, critPct: 8, critDmgPct: 20, accuracyPct: 10 },
+    passive: { evasionPct: 18, critPct: 8, critDmgPct: 20, accuracyPct: 15 },
   },
   v2c_saint_miracle: {
     id: "v2c_saint_miracle", name: "기적", stat: "int", category: "heal", tier: 3,
@@ -1886,7 +1886,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "힘을 실으면서도 발이 멈추지 않는다. 힘, 회피, 명중이 함께 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { statPct: { str: 18 }, evasionPct: 16, accuracyPct: 8 },
+    passive: { statPct: { str: 18 }, evasionPct: 16, accuracyPct: 12 },
   },
   v2c_adamantmonk_stance: {
     id: "v2c_adamantmonk_stance", name: "금강 자세", stat: "vit", category: "buff", tier: 3,
@@ -1908,7 +1908,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_immortal_lifestrike", name: "생명 강타", stat: "vit", category: "attack", tier: 3,
     description: "불멸의 생명력을 힘으로 바꾸어 적을 짓누른다.",
     mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
-    effects: [dmg(0.035, 260, "maxHp")],
+    effects: [dmg(0.04, 260, "maxHp")],
   },
   v2c_immortal_heart: {
     id: "v2c_immortal_heart", name: "불멸의 심장", stat: "vit", category: "passive", tier: 3,
@@ -1940,7 +1940,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "군주의 피로 낙인을 찍는다. 상처를 대가로 약해진 적에게 최후를 선고한다.",
     mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.6 },
+      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.82 },
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [160, 160, 160], hpThresholdPct: 30, bonusMult: 2.2 },
     ],
   },
@@ -1989,7 +1989,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: {
       statPct: { str: 24 },
       critDmgPct: 35,
-      accuracyPct: 10,
+      accuracyPct: 15,
       spdOverflowToAtkPct: 35,
       reflectDamageTakenReductionPct: 20,
     },
@@ -1999,7 +1999,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "왕좌까지 피로 물들이는 연격. 생명을 태워 몰아붙이고 약해진 적을 짓밟는다.",
     mpCost: 62, cooldown: 0, procChance: 30, learnCost: 12000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.95, baseFlatByTier: [430, 430, 430], soakRatio: 3.0 },
+      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.95, baseFlatByTier: [430, 430, 430], soakRatio: 3.42 },
       { kind: "executeDamage", statCoef: 0.42, baseFlatByTier: [220, 220, 220], hpThresholdPct: 28, bonusMult: 2.5 },
       { kind: "enemyVuln", pct: 12, turns: 3 },
       { kind: "enemyHealReduce", pct: 50, turns: 2 },
@@ -2176,10 +2176,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_heavenlybow_starpath: {
     id: "v2c_heavenlybow_starpath", name: "성도 조준", stat: "dex", category: "passive", tier: 3,
-    description: "화살이 별자리처럼 이어진다. 민첩과 명중이 오르고, 치명타 한계를 넘긴 조준이 스킬에도 실린다.",
+    description: "화살이 별자리처럼 이어진다. 민첩과 명중이 오르고, 스킬 치명타의 위력이 강해진다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { dex: 22, luk: 8 }, accuracyPct: 20, critPct: 8, skillCritOverflow: true },
+    passive: { statPct: { dex: 22, luk: 8 }, accuracyPct: 30, critPct: 8, skillCritDmgPct: 30 },
   },
   v2c_blackmoon_flurry: {
     id: "v2c_blackmoon_flurry", name: "암월난무", stat: "luk", category: "attack", tier: 3,
@@ -2204,7 +2204,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       critDmgPct: 24,
       spdPerLukCoef: 0.75,
       atkPerLukCoef: 0.95,
-      accuracyPct: 10,
+      accuracyPct: 15,
       skillCritOverflow: true,
       skillCritAfterEvade: true,
     },
@@ -2245,7 +2245,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: {
       statPct: { str: 22, dex: 10 },
       evasionPct: 20,
-      accuracyPct: 12,
+      accuracyPct: 18,
       comboFinisherBonusPct: 30,
     },
   },
@@ -2292,7 +2292,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "명중 시 현재 HP 14%를 소모한다. 보호막과 HP에 실제로 준 피해의 20%를 회복한다.",
     mpCost: 62, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.3 },
+      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.62 },
       { kind: "executeDamage", statCoef: 0.32, baseFlatByTier: [220, 220, 220], hpThresholdPct: 35, bonusMult: 2.3 },
       { kind: "healFromDamage", pct: 20 },
     ],

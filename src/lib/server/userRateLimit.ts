@@ -108,6 +108,7 @@ function logRateLimitExceeded(
     threshold: rateLimitAlertThreshold(options.action),
     windowMs: 5 * 60_000,
     detail: {
+      userId: options.userId,
       action: options.action,
       group: rateLimitAlertGroup(options.action),
       scope: extra?.scope ?? "user",
@@ -196,6 +197,7 @@ function lifeIpFanoutResponse(args: {
         channel: "abuse",
         ip: args.ip,
         accountCount: bucket.users.size,
+        sampleUserIds: [...bucket.users].slice(0, 8),
       },
     });
   }

@@ -14,7 +14,7 @@ export function battleLogPillColor(label: string): string {
   if (label === "완전 회피" || label.includes("확정 회피")) {
     return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200";
   }
-  if (label === "마력 장벽") {
+  if (label === "마나 실드") {
     return "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
   }
   if (label === "철벽" || label === "가드" || label === "인내") {

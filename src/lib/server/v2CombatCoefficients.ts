@@ -109,7 +109,7 @@ export const ACCURACY_PCT_PER_DEX = 0.35;
 export const ACCURACY_PCT_CAP = 35;
 // 궁사 활 패시브 — 임계치를 넘긴 적중도를 공격력으로 일부 변환한다.
 export const BOW_HIT_THRESHOLD = 50;
-export const BOW_ACCURACY_TO_ATK_COEF = 0.3;
+export const BOW_ACCURACY_TO_ATK_COEF = 0.45;
 // 검호·검성 패시브 — 고속 구간(combatTimeline: SPD 292 초과)의 완만해진 성장분을 점근 곡선으로
 // 공격력에 추가 환원한다. 행동 빈도는 별도의 상한까지 오르며, 점근 보너스는 투자 가치를 보탠다.
 export const SPD_OVERFLOW_THRESHOLD = 292;

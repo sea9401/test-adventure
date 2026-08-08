@@ -62,7 +62,7 @@ describe("v2 콘텐츠 파워 지표", () => {
     expect(effectiveRatingForPower(10_000)).toBeLessThan(5_000);
   });
 
-  it("마력 장벽은 유한 내구도·부분 흡수임을 반영해 보수적으로 합산한다", () => {
+  it("마나 실드는 유한 내구도·부분 흡수임을 반영해 보수적으로 합산한다", () => {
     expect(
       derivePowerScore({
         atk: 0,

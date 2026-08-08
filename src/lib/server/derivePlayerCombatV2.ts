@@ -293,6 +293,8 @@ export type DerivePlayerCombatV2PureInput = {
   maxHpPct?: number;
   /** 최대 MP % 패시브(마나) — 합산 후 maxMp 에 1회 적용. 미지정 = 무적용. */
   maxMpPct?: number;
+  /** 마나 실드 패시브 장착 여부. true일 때만 INT·최대 MP 기반 장벽을 활성화한다. */
+  passiveMagicBarrier?: boolean;
   // ── 다양성 확장(A 메타) — 장착 패시브 합산분. 엔진 레버에 가산. 미지정 = 무적용(byte-identical).
   /** 치명타 확률 +%p(급소·치명) — critChancePct 에 가산. */
   passiveCritPct?: number;
@@ -340,6 +342,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveSpdPerLukCoef?: number;
   /** 치명 한계 확장 — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
   passiveSkillCritOverflow?: boolean;
+  /** 스킬 치명타 피해 +% — 액티브 스킬 치명타 배율에 /100 가산. */
+  passiveSkillCritDmgPct?: number;
   /** 흑월지배 — 회피 후 다음 직접 피해 스킬 확정 치명타. 장착 패시브에서 주입. */
   passiveSkillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 장착 패시브에서 주입. */
@@ -638,7 +642,9 @@ export function derivePlayerCombatV2Pure(
   const totalMagicSkillDamagePct =
     (specEff.magicSkillDamagePct ?? 0) +
     (input.passiveMagicSkillDamagePct ?? 0);
-  const magicBarrier = magicBarrierStats(totalStats.int, maxMp);
+  const magicBarrier = input.passiveMagicBarrier
+    ? magicBarrierStats(totalStats.int, maxMp)
+    : { maxDurability: 0, pveAbsorbPct: 0, pvpAbsorbPct: 0 };
 
   const player: PlayerCombat = {
     hp,
@@ -667,6 +673,9 @@ export function derivePlayerCombatV2Pure(
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
     // 치명 한계 확장 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
     ...(input.passiveSkillCritOverflow ? { skillCritOverflow: true as const } : {}),
+    ...(input.passiveSkillCritDmgPct
+      ? { skillCritDmgPct: input.passiveSkillCritDmgPct }
+      : {}),
     // 흑월지배 — 회피 뒤 다음 직접 피해 스킬 확정 치명타 플래그.
     ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),
     atk: specAtk,
@@ -944,6 +953,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     statPct,
     maxHpPct,
     maxMpPct,
+    passiveMagicBarrier: passiveAgg.magicBarrier,
     // 다양성 패시브(A 메타) — 장착 합산분을 엔진 레버로 전달.
     passiveCritPct: passiveAgg.critPct,
     passiveCritDmgPct: passiveAgg.critDmgPct,
@@ -976,6 +986,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
     passiveSpdPerLukCoef: passiveAgg.spdPerLukCoef,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
+    passiveSkillCritDmgPct: passiveAgg.skillCritDmgPct,
     passiveSkillCritAfterEvade: passiveAgg.skillCritAfterEvade,
     passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,
   });

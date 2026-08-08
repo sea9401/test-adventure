@@ -3,7 +3,7 @@
 //   character.v2  → class·level·frontierDepth·specChoice(→직업 tier 브리지)
 //   proficiency.v2 → cultivations(현 직군). tier = 직업 카탈로그 tier(jobIdFromLegacy)
 //   adventure-log.v2 → battleCount·bossKills(보스 첫 처치 칭호 수)
-//   equipment.v2  → equippedCount·uniqueOwned
+//   equipment.v2  → equippedCount (유니크 누적 획득은 adventure-log.v2, 레거시 보정은 equipment/codex)
 //   extras(DB/별도 세이브) → hasGuild·hasTraded·arenaPlayed (assembleQuestExtras)
 
 import { and, eq, or, sql } from "drizzle-orm";
@@ -18,9 +18,6 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import {
   parseEquipmentSave,
-  isUnique,
-  V2_EQUIPMENT,
-  type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import {
@@ -87,6 +84,7 @@ import { parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
 import { parseLifeRequestsState } from "@/adventure/v2/lifeRequests";
 import { lifeFieldRecordSummary } from "@/adventure/v2/lifeFieldRecords";
+import { uniqueEquipmentAcquisitionProgress } from "@/lib/server/uniqueEquipmentAchievement";
 
 type CharSave = {
   class?: unknown;
@@ -148,6 +146,7 @@ export function buildQuestCtx(args: {
   lifeRequestsRaw?: unknown;
   lifeFieldRecordsRaw?: unknown;
   lifeFieldMilestonesEnabled?: boolean;
+  uniqueAcquiredFloor?: number;
   extras: QuestExtras;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
@@ -206,10 +205,12 @@ export function buildQuestCtx(args: {
   const equippedCount = Object.values(equipped).filter(
     (iid) => iid != null,
   ).length;
-  const uniqueOwned = owned.filter((it) => {
-    const def = V2_EQUIPMENT[it.id as V2EquipmentId];
-    return def ? isUnique(def) : false;
-  }).length;
+  const uniqueAcquired = uniqueEquipmentAcquisitionProgress({
+    adventureLogRaw: advLog,
+    equipmentRaw: args.equipmentRaw,
+    equipmentCodexRaw: args.equipmentCodexRaw,
+    minimum: args.uniqueAcquiredFloor,
+  });
   // 강화의 길 — 보유 장비 최고 강화 레벨 + 강화석 보유 합(붉은+푸른).
   const maxEnhanceLevel = owned.reduce(
     (max, it) => Math.max(max, it.enhance?.level ?? 0),
@@ -283,7 +284,7 @@ export function buildQuestCtx(args: {
     equippedCount,
     hasManuallyEquippedGear,
     hasBattledAfterEquippingGear,
-    uniqueOwned,
+    uniqueAcquired,
     cultivations,
     bossKills,
     hasGuild: args.extras.hasGuild,

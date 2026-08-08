@@ -8,6 +8,7 @@ export const MUSEUN_COIN_WALLET_KEY = "museun-coin-wallet.v1";
 export const MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY = 99;
 export const CULTIVATION_RESET_POTION_ITEM_ID =
   "cultivation_reset_potion" as const;
+export const LEVEL_100_ELIXIR_ITEM_ID = "level_100_elixir" as const;
 
 export const MUSEUN_CASH_ITEMS = {
   [PROFILE_BADGE_STAND_ITEM_ID]: {
@@ -49,6 +50,17 @@ export const MUSEUN_CASH_ITEMS = {
     delivery: "inventory",
     tradeable: false,
     effect: { kind: "cultivation_reset" },
+  },
+  [LEVEL_100_ELIXIR_ITEM_ID]: {
+    id: LEVEL_100_ELIXIR_ITEM_ID,
+    name: "100레벨 달성의 비약",
+    description:
+      "사용하면 현재 레벨에서 즉시 100레벨에 도달합니다. 레벨업 성장 능력치는 정상 적용되며 직업 숙련도는 오르지 않습니다.",
+    coinPrice: 0,
+    delivery: "inventory",
+    tradeable: false,
+    tags: ["이벤트"],
+    effect: { kind: "level_target", level: 100 },
   },
   adventure_support_30d: {
     id: "adventure_support_30d",
@@ -538,6 +550,13 @@ export const MUSEUN_CASH_ITEMS = {
 export type MuseunCashItemId = keyof typeof MUSEUN_CASH_ITEMS;
 export type MuseunCashItemCounts = Partial<Record<MuseunCashItemId, number>>;
 
+export function museunCashItemTags(
+  itemId: MuseunCashItemId,
+): readonly string[] {
+  const item = MUSEUN_CASH_ITEMS[itemId];
+  return "tags" in item ? item.tags : [];
+}
+
 export const MUSEUN_CASH_ITEM_IDS = Object.keys(
   MUSEUN_CASH_ITEMS,
 ) as MuseunCashItemId[];
@@ -587,12 +606,14 @@ export const MUSEUN_UTILITY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
 // 통합 연장권으로 사용 기간을 늘린다.
 type MuseunShopInventoryItemId = Exclude<
   MuseunInventoryItemId,
-  typeof CULTIVATION_RESET_POTION_ITEM_ID
+  | typeof CULTIVATION_RESET_POTION_ITEM_ID
+  | typeof LEVEL_100_ELIXIR_ITEM_ID
 >;
 
 const MUSEUN_SHOP_INVENTORY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
   (id): id is MuseunShopInventoryItemId =>
-    id !== CULTIVATION_RESET_POTION_ITEM_ID,
+    id !== CULTIVATION_RESET_POTION_ITEM_ID &&
+    id !== LEVEL_100_ELIXIR_ITEM_ID,
 );
 
 export const MUSEUN_SHOP_ITEM_IDS = [
@@ -611,6 +632,7 @@ export function isMuseunShopItemId(value: unknown): value is MuseunShopItemId {
 export const MUSEUN_ADMIN_GIFT_ITEM_IDS = [
   ...MUSEUN_SHOP_ITEM_IDS,
   CULTIVATION_RESET_POTION_ITEM_ID,
+  LEVEL_100_ELIXIR_ITEM_ID,
 ] as const;
 export type MuseunAdminGiftItemId =
   (typeof MUSEUN_ADMIN_GIFT_ITEM_IDS)[number];

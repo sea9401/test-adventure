@@ -44,7 +44,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   squire: ["v2c_squire_cleave", "v2c_squire_might"], // 돌격 + 근력 II(힘+15%)
   boxer: ["v2c_boxer_combo", "v2c_boxer_fortitude"], // 연권 + 보법(회피+8%)
   monk: ["v2c_monk_palm", "v2c_monk_spirit"], // 철포(받피감버프) + 강건 II(활력+20%)
-  caster: ["v2c_caster_bolt", "v2c_caster_acumen"], // 마탄 + 총명 II(지능+20%)
+  caster: ["v2c_caster_bolt", "v2c_caster_acumen"], // 마탄 + 마나 실드(지능+20%·장벽)
   acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"], // 치유(자힐 active) + 회복(회복량+20%, SPI PR-4)
   warder: ["v2c_warder_barrier", "v2c_warder_ward"], // 결계(보호막) + 결계술(마법 방어)
   assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 처단(처형·LUK 비례) + 행운(LUK+10%·치명확률)
@@ -65,7 +65,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력연권(연격+취약) + 보법 II(회피+12%)
   magus: ["v2c_magus_bolt", "v2c_magus_acumen3"], // 마력 작렬 + 총명 III(지능+20%)
   shaman: ["v2c_shaman_hex", "v2c_shaman_omen3"], // 저주(마법+약화) + 흉조(마법취약 누적)
-  ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 연사(DEX 3연사) + 정밀(명중+12)
+  ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 연사(DEX 3연사) + 민첩 II(DEX+20%)
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
   guardian: ["v2c_guardian_bash", "v2c_guardian_bulwark3"], // 방패 강타(방어기반) + 방벽(방어+20%)
   berserker: ["v2c_berserker_bloodslash", "v2c_berserker_madness3"], // 사혈격(HP 소모 강타) + 광기(잃은 HP 비례 공격력)
@@ -91,7 +91,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 결전의 일격(처형딜) + 필살 II(치명피해)
   sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 권룡: 권룡연파(연격+방깎+취약) + 근력 III(힘+20%) — 공격형 정점
   sage: ["v2c_sage_bolt", "v2c_sage_insight"], // 마력 폭사 + 치명 II(치명확률)
-  chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 관통사(DEX 궁술) + 잔영(회피+12%)
+  chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 관통사(DEX 궁술) + 매의 눈(명중+30%)
   phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"], // 기습(풀피 오프너·LUK) + 은신(회피+16%)
   venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"], // 독왕진(중독 폭발) + 부식 III
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──

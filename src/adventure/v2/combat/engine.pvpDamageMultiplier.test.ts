@@ -268,8 +268,8 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
 
     const normalDamage = 10_000 - normal.p2.hp;
     const piercedDamage = 10_000 - pierced.p2.hp;
-    expect(normalDamage).toBe(54);
-    expect(piercedDamage).toBe(130);
+    expect(normalDamage).toBe(58);
+    expect(piercedDamage).toBe(134);
   });
 
   it("분신 같은 턴 종료 추가타에도 배율을 적용한다", () => {

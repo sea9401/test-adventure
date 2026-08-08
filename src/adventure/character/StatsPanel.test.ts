@@ -20,10 +20,16 @@ describe("activeSkillCritStats", () => {
       activeSkillCritStats({ critChancePct: 100, skillCritOverflow: true }),
     ).toEqual({ chancePct: 75, multiplier: 1.95 });
   });
+
+  it("천궁의 고정 스킬 치명타 피해를 오버플로와 독립적으로 표시한다", () => {
+    expect(
+      activeSkillCritStats({ critChancePct: 83, skillCritDmgPct: 30 }),
+    ).toEqual({ chancePct: 75, multiplier: 2 });
+  });
 });
 
 describe("StatsPanel 명중·회피 표기", () => {
-  it("원본 회피도와 현재 사냥터의 직접 피해 경감률을 구분한다", () => {
+  it("내 정보에는 원본 방어력·회피도만 표시하고 상대별 경감률은 숨긴다", () => {
     const html = renderToStaticMarkup(
       createElement(StatsPanel, {
         stats: { str: 1 },
@@ -41,10 +47,10 @@ describe("StatsPanel 명중·회피 표기", () => {
 
     expect(html).toContain("적중도");
     expect(html).toContain("회피도");
-    expect(html).toContain("현재 사냥터 회피 경감률");
-    expect(html).toContain("물리 피해 경감률");
-    expect(html).toContain("0.8%");
-    expect(html).toContain("40%");
+    expect(html).not.toContain("현재 사냥터 회피 경감률");
+    expect(html).not.toContain("물리 피해 경감률");
+    expect(html).not.toContain("0.8%");
+    expect(html).not.toContain("40%");
     expect(html).not.toContain("명중</span><span");
   });
 });

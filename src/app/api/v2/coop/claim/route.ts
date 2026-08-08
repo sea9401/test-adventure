@@ -10,7 +10,7 @@ import {
   recordEconomyEventSoon,
   recordRewardFailureSoon,
 } from "@/lib/server/economyLog";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_BOSSES,
   coopTierForRatio,
@@ -33,6 +33,8 @@ import {
 } from "@/adventure/data/v2/coopRewards";
 import { coopTierMeetsExplorationRequirement } from "@/adventure/data/v2/guildExploration";
 import { incrementGuildExplorationCoopProgress } from "@/lib/server/guildExplorationWeekly";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { applyUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -208,11 +210,11 @@ export async function POST(req: Request) {
       kind.uniqueIds.length > 0 && rollCoopUnique(tier, Math.random)
         ? kind.uniqueIds[Math.floor(Math.random() * kind.uniqueIds.length)]
         : null;
-    if (uniqueId) {
-      await appendEquipInstances(tx, userId, [
+    const equipmentOwnedAfter = uniqueId
+      ? await appendEquipInstances(tx, userId, [
         mintRolledEquipInstance(uniqueId),
-      ]);
-    }
+      ])
+      : null;
 
     // 가이드 퀘스트 bossKills 호환 — 격파(기여)한 보스 종류를 멱등 기록(칭호 지급 폐지 대체).
     //   v2QuestContext 가 coopBossKinds 종류 수 + 레거시 칭호 보유분으로 bossKills 산정.
@@ -223,10 +225,26 @@ export async function POST(req: Request) {
     const priorKinds = Array.isArray(logSave.coopBossKinds)
       ? (logSave.coopBossKinds.filter((k) => typeof k === "string") as string[])
       : [];
-    if (!priorKinds.includes(kindId)) {
+    const nextKinds = priorKinds.includes(kindId)
+      ? priorKinds
+      : [...priorKinds, kindId];
+    const nextLog = uniqueId && equipmentOwnedAfter
+      ? applyUniqueEquipmentAcquisitions({
+          adventureLogRaw: logSave,
+          equipmentOwnedAfter,
+          equipmentCodexRaw: await readSave(
+            tx,
+            userId,
+            EQUIPMENT_CODEX_KEY,
+            {},
+          ),
+          acquiredIds: [uniqueId],
+        })
+      : logSave;
+    if (nextKinds !== priorKinds || nextLog !== logSave) {
       await upsertSave(tx, userId, "adventure-log.v2", {
-        ...logSave,
-        coopBossKinds: [...priorKinds, kindId],
+        ...nextLog,
+        coopBossKinds: nextKinds,
       });
     }
 

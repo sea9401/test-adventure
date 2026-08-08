@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as museunCashCatalog from "./museunCashItems";
 import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_COSMETIC_BOX_ITEM_IDS,
@@ -22,6 +23,28 @@ import {
 
 describe("무슨 코인 캐시 소모품", () => {
   it("프로필·개명 변경권과 30일 지원권의 가격·효과를 고정한다", () => {
+    expect(
+      (
+        MUSEUN_CASH_ITEMS as Record<
+          string,
+          {
+            id: string;
+            name: string;
+            delivery: string;
+            tradeable: boolean;
+            tags?: readonly string[];
+            effect: { kind: string; level?: number };
+          }
+        >
+      ).level_100_elixir,
+    ).toMatchObject({
+      id: "level_100_elixir",
+      name: "100레벨 달성의 비약",
+      delivery: "inventory",
+      tradeable: false,
+      tags: ["이벤트"],
+      effect: { kind: "level_target", level: 100 },
+    });
     expect(MUSEUN_CASH_ITEMS.cultivation_reset_potion).toMatchObject({
       name: "수행 초기화 물약",
       coinPrice: 0,
@@ -90,6 +113,10 @@ describe("무슨 코인 캐시 소모품", () => {
   });
 
   it("카탈로그 id만 캐시 아이템으로 인정한다", () => {
+    expect(isMuseunCashItemId("level_100_elixir")).toBe(true);
+    expect(MUSEUN_SHOP_ITEM_IDS).not.toContain("level_100_elixir");
+    expect(MUSEUN_ADMIN_GIFT_ITEM_IDS).toContain("level_100_elixir");
+    expect(isMuseunAdminGiftItemId("level_100_elixir")).toBe(true);
     expect(isMuseunCashItemId("rename_permit")).toBe(true);
     expect(isMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isMuseunCashItemId("adventure_support_30d")).toBe(true);
@@ -108,6 +135,7 @@ describe("무슨 코인 캐시 소모품", () => {
   });
 
   it("꾸미기 상자와 일반 소모품의 화면 분류를 구분한다", () => {
+    expect(MUSEUN_UTILITY_ITEM_IDS).toContain("level_100_elixir");
     expect(MUSEUN_COSMETIC_BOX_ITEM_IDS).toEqual([
       "chroma_name_box",
       "profile_border_box",
@@ -180,6 +208,18 @@ describe("무슨 코인 캐시 소모품", () => {
       adventure_support_30d: 1,
     });
     expect(removeMuseunCashItem(added, "adventure_support_30d", 4)).toBeNull();
+  });
+
+  it("이벤트 아이템 태그를 인벤토리 표시용으로 제공한다", () => {
+    const tags = (
+      museunCashCatalog as typeof museunCashCatalog & {
+        museunCashItemTags?: (itemId: string) => readonly string[];
+      }
+    ).museunCashItemTags;
+
+    expect(tags).toBeTypeOf("function");
+    expect(tags?.("level_100_elixir")).toEqual(["이벤트"]);
+    expect(tags?.("rename_permit")).toEqual([]);
   });
 
   it("코인 잔액은 음수·손상 값을 0으로 정규화한다", () => {

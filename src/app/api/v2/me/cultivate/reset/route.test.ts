@@ -43,6 +43,8 @@ function activeCultivation(
       warrior: { cultivations: 2, tier: 1, cumLevel: 77 },
     },
     caps: { str: 4, vit: 2, dex: 2 },
+    grown: { str: 3, vit: 2, dex: 1 },
+    growthRespecPoints: 5,
     cultivationPointsSpent: 40,
     ...overrides,
   };
@@ -72,6 +74,7 @@ describe("POST /api/v2/me/cultivate/reset", () => {
     expect(json.resetCount).toBe(1);
     expect(json.nextResetGoldCost).toBe(V2_CULTIVATION_RESET_GOLD_COST);
     expect(json.gold).toBe(20_000_000);
+    expect(json.growthRespecPoints).toBe(11);
 
     const saved = mocks.store.get("proficiency.v2") as V2ProficiencyState;
     expect(saved.caps).toEqual({});
@@ -81,6 +84,8 @@ describe("POST /api/v2/me/cultivate/reset", () => {
       cumLevel: 77,
     });
     expect(saved.cultivationPointsSpent).toBe(0);
+    expect(saved.grown).toEqual({});
+    expect(saved.growthRespecPoints).toBe(11);
   });
 
   it("두 번째부터는 1,500만 골드를 차감한다", async () => {

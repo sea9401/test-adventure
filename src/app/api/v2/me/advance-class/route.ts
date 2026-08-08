@@ -10,7 +10,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
-  setGrown,
+  resetLevelGrowth,
   setGroupTier,
   flattenGroupTiers,
   addReincarnation,
@@ -245,7 +245,7 @@ export async function POST(req: Request) {
       //   생활직은 Lv.1에서 같은 직업을 반복 선택할 수 있으므로 업적 카운터에서 제외한다.
       // 직업 숙련도는 사냥 승리에서만 오르므로, 재전직/환생 진입 자체는 숙련도를 더하지 않는다.
       const targetGroup = tier1ClassOf(targetClass);
-      const resetProf = flattenGroupTiers(setGrown(prof, {}), targetGroup);
+      const resetProf = flattenGroupTiers(resetLevelGrowth(prof), targetGroup);
       const completedCombatCycle =
         baseRequiredLevel === V2_LEVEL_CAP && lvl >= baseRequiredLevel;
       const rejobProf =
@@ -365,7 +365,7 @@ export async function POST(req: Request) {
     // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
     // points/숙련도/caps 는 보존(전직해도 잔액·숙련도·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
     // 환생(4차 정점→1차)일 때만 환생 1회 기록 — 일반 차수 승급은 환생이 아니므로 제외.
-    const advancedProf = setGroupTier(setGrown(prof, {}), group, nextTier);
+    const advancedProf = setGroupTier(resetLevelGrowth(prof), group, nextTier);
     const nextProf = isReincarnate
       ? addReincarnation(advancedProf)
       : advancedProf;

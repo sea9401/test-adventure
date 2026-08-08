@@ -21,8 +21,9 @@ type CharSave = {
 };
 
 // POST /api/v2/me/cultivate/reset — 수행으로 얻은 한계치를 전부 초기화하고,
-// 해당 한계치에 사용한 숙달 포인트를 전액 돌려준다. 첫 1회 무료, 이후 매회 1,500만 골드.
-// 수행 횟수·직업 숙련도·성장 스탯은 업적/진행 기록이므로 유지한다.
+// 해당 한계치에 사용한 숙달 포인트를 전액 돌려준다. 적용 중인 레벨 성장값은 재분배
+// 대기 포인트로 회수해 이후 수행 프로필로 다시 배분한다. 첫 1회 무료, 이후 매회 1,500만 골드.
+// 수행 횟수·직업 숙련도는 업적/진행 기록이므로 유지한다.
 export async function POST() {
   const userId = await ensureUser();
   if (!userId) {
@@ -90,6 +91,7 @@ export async function POST() {
         points: usablePoints(reset.next),
         capGains: totalCapGains(reset.next),
         caps: {},
+        growthRespecPoints: reset.next.growthRespecPoints ?? 0,
         resetCount: reset.next.cultivationResetCount ?? resetCount + 1,
         nextResetGoldCost: cultivationResetGoldCost(
           reset.next.cultivationResetCount ?? resetCount + 1,

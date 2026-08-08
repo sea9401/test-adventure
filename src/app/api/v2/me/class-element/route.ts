@@ -32,7 +32,7 @@ import {
 } from "@/adventure/data/v2/respec";
 import {
   parseProficiencyForChar,
-  setGrown,
+  resetLevelGrowth,
   emptyProficiency,
   effectiveLevelCap,
   type V2ProficiencyState,
@@ -270,7 +270,7 @@ export async function POST(req: Request) {
     // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).
     // 위에서 이미 잠가 읽은 prof 재사용(중복 락 X). points/caps/tier/cumLevel 은 보존.
     if (groupChanged) {
-      await upsertSave(tx, userId, "proficiency.v2", setGrown(prof, {}));
+      await upsertSave(tx, userId, "proficiency.v2", resetLevelGrowth(prof));
     }
 
     return {

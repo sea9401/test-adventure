@@ -36,6 +36,7 @@ import {
   estimateLegacyCultivationSpend,
   refundableCultivationPoints,
   resetCultivation,
+  resetLevelGrowth,
   V2_CULTIVATION_RESET_GOLD_COST,
 } from "./proficiency";
 
@@ -315,13 +316,16 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(usablePoints(p)).toBe(100); // 원본 비파괴
   });
 
-  it("resetCultivation — 한계치만 비우고 사용 숙달 포인트를 전액 환급한다", () => {
+  it("resetCultivation — 한계치와 적용 성장값을 비우고 성장 포인트는 재분배 대기로 보존한다", () => {
     const p = parseProficiency({
       points: 60,
       groups: {
         warrior: { cultivations: 2, tier: 1, cumLevel: 77 },
       },
       caps: { str: 4, vit: 2, dex: 2 },
+      grown: { str: 3, vit: 2, dex: 1 },
+      growthScaleVersion: 1,
+      growthRespecPoints: 5,
       cultivationPointsSpent: 40,
       cultivationResetCount: 0,
       cultivationLedgerVersion: 1,
@@ -334,6 +338,94 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(refundableCultivationPoints(reset!.next)).toBe(0);
     expect(reset!.next.cultivationResetCount).toBe(1);
     expect(reset!.next.groups.warrior).toEqual(p.groups.warrior);
+    expect(reset!.next.grown).toEqual({});
+    expect(reset!.next.growthRespecPoints).toBe(11);
+  });
+
+  it("applyCultivation — 재분배 대기 성장값을 새 수행 프로필과 같은 비율로 옮긴다", () => {
+    const p = parseProficiency({
+      points: 1_000,
+      groups: { warrior: { cultivations: 0, tier: 1, cumLevel: 0 } },
+      growthRespecPoints: 10,
+    });
+
+    const result = applyCultivation(p, "warrior");
+
+    expect(result).not.toBeNull();
+    expect(result!.redistributedGrowthPoints).toBe(4);
+    expect(result!.next.grown).toEqual({ str: 2, dex: 1, vit: 1 });
+    expect(result!.next.growthRespecPoints).toBe(6);
+    expect(
+      Object.values(result!.next.grown).reduce(
+        (sum, value) => sum + (value ?? 0),
+        0,
+      ) + (result!.next.growthRespecPoints ?? 0),
+    ).toBe(10);
+  });
+
+  it("applyCultivation — 각성 배수만큼 재분배하고 반복 초기화해도 성장 총량이 복제되지 않는다", () => {
+    const p = parseProficiency({
+      points: 10_000,
+      groups: { warrior: { cultivations: 0, tier: 1, cumLevel: 0 } },
+      growthRespecPoints: 100,
+    });
+
+    const awakened = applyCultivation(p, "warrior", () => 0);
+    expect(awakened).not.toBeNull();
+    expect(awakened!.redistributedGrowthPoints).toBe(20);
+    expect(awakened!.next.grown).toEqual({ str: 10, dex: 5, vit: 5 });
+    expect(awakened!.next.growthRespecPoints).toBe(80);
+
+    const reset = resetCultivation(awakened!.next);
+    expect(reset).not.toBeNull();
+    expect(reset!.next.grown).toEqual({});
+    expect(reset!.next.growthRespecPoints).toBe(100);
+  });
+
+  it("레히인 회귀 — 기존 219 성장 포인트를 초기화한 뒤 도적 재수행하면 민첩·행운으로만 옮긴다", () => {
+    const before = parseProficiency({
+      points: 1_000_000,
+      groups: { rogue: { cultivations: 177, tier: 1, cumLevel: 11_503 } },
+      caps: { str: 180, vit: 90, spi: 90 },
+      grown: { str: 77, dex: 12, vit: 33, int: 5, spi: 31, luk: 61 },
+      growthScaleVersion: 1,
+      cultivationPointsSpent: 100_000,
+      cultivationLedgerVersion: 1,
+    });
+    const reset = resetCultivation(before);
+    expect(reset).not.toBeNull();
+    expect(reset!.next.grown).toEqual({});
+    expect(reset!.next.growthRespecPoints).toBe(219);
+
+    let current = reset!.next;
+    for (let i = 0; i < 55; i += 1) {
+      const cultivated = applyCultivation(
+        current,
+        "rogue",
+        undefined,
+        undefined,
+        "archer",
+      );
+      expect(cultivated).not.toBeNull();
+      current = cultivated!.next;
+    }
+
+    expect(current.grown).toEqual({ dex: 110, luk: 109 });
+    expect(current.growthRespecPoints).toBe(0);
+  });
+
+  it("resetLevelGrowth — 환생·직업군 변경은 적용값과 재분배 대기값을 함께 비운다", () => {
+    const p = parseProficiency({
+      grown: { str: 7, dex: 3 },
+      growthRespecPoints: 20,
+      reincarnations: 2,
+    });
+
+    const reset = resetLevelGrowth(p);
+
+    expect(reset.grown).toEqual({});
+    expect(reset.growthRespecPoints).toBe(0);
+    expect(reset.reincarnations).toBe(2);
   });
 
   it("applyCultivation — 대성공·각성 이름과 특별 수행 배수를 구분한다", () => {

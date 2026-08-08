@@ -80,6 +80,7 @@ type StateShape = {
       capGains: number;
       nextCost: number;
       cultivationPointsSpent: number;
+      growthRespecPoints: number;
       cultivationResetCount: number;
       cultivationResetGoldCost: number;
       advance?: V2AdvanceInfo | null;
@@ -97,6 +98,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [capGains, setCapGains] = useState(0);
   const [nextCost, setNextCost] = useState(0);
   const [cultivationPointsSpent, setCultivationPointsSpent] = useState(0);
+  const [growthRespecPoints, setGrowthRespecPoints] = useState(0);
   const [cultivationResetGoldCost, setCultivationResetGoldCost] = useState(0);
   const [resetConfirming, setResetConfirming] = useState(false);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
@@ -144,6 +146,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setCapGains(cur.capGains ?? 0);
         setNextCost(cur.nextCost);
         setCultivationPointsSpent(cur.cultivationPointsSpent ?? 0);
+        setGrowthRespecPoints(cur.growthRespecPoints ?? 0);
         setCultivationResetGoldCost(cur.cultivationResetGoldCost ?? 0);
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
@@ -214,6 +217,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         points?: number;
         nextCost?: number;
         cultivationPointsSpent?: number;
+        redistributedGrowthPoints?: number;
+        growthRespecPoints?: number;
         required?: number;
         have?: number;
       } | null;
@@ -231,7 +236,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       }
       const outcome = cultivationOutcomeLabel(j.mult ?? 1);
       const special = outcome ? ` · ${outcome} ×${j.mult}!` : "";
-      setMsg(`✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${special}`);
+      const redistributed = j.redistributedGrowthPoints ?? 0;
+      const redistribution =
+        redistributed > 0
+          ? ` · 성장 재분배 +${redistributed} (대기 ${(j.growthRespecPoints ?? 0).toLocaleString()})`
+          : "";
+      setMsg(
+        `✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${special}${redistribution}`,
+      );
       setCaps(j.caps ?? caps);
       setCultivations(j.cultivations ?? cultivations + 1);
       setCapGains(j.capGains ?? capGains);
@@ -239,7 +251,11 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       setCultivationPointsSpent(
         j.cultivationPointsSpent ?? cultivationPointsSpent + (j.spent ?? nextCost),
       );
+      setGrowthRespecPoints(j.growthRespecPoints ?? growthRespecPoints);
       setNextCost(j.nextCost ?? nextCost);
+      if (redistributed > 0) {
+        await Promise.all([refresh(), refreshGameState()]);
+      }
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
@@ -250,8 +266,11 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     caps,
     cultivationPointsSpent,
     cultivations,
+    growthRespecPoints,
     usable,
     nextCost,
+    refresh,
+    refreshGameState,
     setMsg,
   ]);
 
@@ -268,6 +287,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         refundedPoints?: number;
         gold?: number;
         bankedGold?: number;
+        growthRespecPoints?: number;
       } | null;
       if (!j?.ok) {
         const label =
@@ -289,7 +309,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         ? ` · 골드 -${(j.spentGold ?? 0).toLocaleString()} G`
         : " · 첫 초기화 무료";
       setMsg(
-        `✓ 수행 초기화 완료 · 숙달 포인트 +${(j.refundedPoints ?? 0).toLocaleString()}${costLabel}`,
+        `✓ 수행 초기화 완료 · 숙달 포인트 +${(j.refundedPoints ?? 0).toLocaleString()} · 성장 재분배 대기 ${(j.growthRespecPoints ?? 0).toLocaleString()}${costLabel}`,
       );
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
@@ -378,8 +398,18 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               </div>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              숙달 포인트로 스탯 한계치를 올리면, 레벨업 랜덤 성장이 그 한계까지 채운다.
+              숙달 포인트로 스탯 한계치를 올리면, 레벨업 성장과 재분배 대기
+              포인트가 그 한계까지 채운다.
             </p>
+
+            {growthRespecPoints > 0 ? (
+              <p
+                className={`${SURFACE_INSET} mt-3 px-3 py-2 text-xs text-amber-700 dark:text-amber-300`}
+              >
+                재분배 대기 성장 포인트 {growthRespecPoints.toLocaleString()} · 다시
+                수행하면 현재 직업의 수행 스탯에 배분됩니다.
+              </p>
+            ) : null}
 
             {isLifestyleJob ? (
               <p className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-300">
@@ -507,7 +537,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                       <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
                         대성공·각성 결과를 포함한 한계 증가치가 모두 사라집니다.
                         사용한 숙달 포인트 {cultivationPointsSpent.toLocaleString()}은
-                        전액 돌려받으며, 수행 횟수와 직업 숙련도는 유지됩니다.
+                        전액 돌려받습니다. 적용 중인 레벨 성장값은 재분배 대기
+                        포인트로 전환되며, 다시 수행할 때 현재 직업의 수행 스탯에
+                        배분됩니다. 수행 횟수와 직업 숙련도는 유지됩니다.
                       </p>
                       <div className="mt-3 flex justify-end gap-2">
                         <Button

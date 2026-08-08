@@ -94,6 +94,8 @@ export async function POST() {
         capGains: totalCapGains(applied.next),
         points: usablePoints(applied.next),
         cultivationPointsSpent: refundableCultivationPoints(applied.next),
+        redistributedGrowthPoints: applied.redistributedGrowthPoints,
+        growthRespecPoints: applied.next.growthRespecPoints ?? 0,
         nextCost: cultivationCost(totalCapGains(applied.next)),
       },
     };

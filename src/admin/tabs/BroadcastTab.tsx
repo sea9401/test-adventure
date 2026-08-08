@@ -264,7 +264,8 @@ export function BroadcastTab() {
           </Field>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
             접기: <code>:::details 제목</code>으로 시작하고 접을 내용 아래에{" "}
-            <code>:::</code>만 입력해 닫습니다. 내부 마크다운도 적용됩니다.
+            <code>:::</code>만 입력해 닫습니다. 내부 마크다운도 적용되며, 문단
+            사이는 빈 줄로 구분합니다.
           </p>
           <div className="flex items-center justify-between">
             <Button

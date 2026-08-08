@@ -107,6 +107,19 @@ export type BulletinMarkdownSegment =
 
 type MarkdownFence = { marker: "`" | "~"; length: number } | null;
 
+function normalizeBulletinLineEndings(content: string): string {
+  return content.replace(/\r\n?/g, "\n");
+}
+
+// 제목·목록·접기처럼 블록 문법을 사용한 글은 일반 마크다운의 개행 규칙을 따른다.
+// 그래야 편집기에서 읽기 편하게 나눈 한 줄이 본문에서 강제 줄바꿈으로 남지 않는다.
+// 블록 문법이 없는 기존 평문 글은 종전처럼 단일 개행을 그대로 보존한다.
+function hasStructuredMarkdown(content: string): boolean {
+  return /^(?:[ \t]{0,3})(?:#{1,6}(?:[ \t]+|$)|(?:[-+*]|\d+[.)])[ \t]+|>[ \t]?|`{3,}|~{3,}|:::details(?:[ \t]+|$)|(?:[-*_][ \t]*){3,}$|\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-{3,}:?[ \t]*)+\|?[ \t]*$)/m.test(
+    content,
+  );
+}
+
 function nextMarkdownFence(line: string, current: MarkdownFence): MarkdownFence {
   const match = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
   if (!match) return current;
@@ -127,7 +140,7 @@ function nextMarkdownFence(line: string, current: MarkdownFence): MarkdownFence 
 export function parseBulletinMarkdownSegments(
   content: string,
 ): BulletinMarkdownSegment[] {
-  const lines = content.split("\n");
+  const lines = normalizeBulletinLineEndings(content).split("\n");
   const segments: BulletinMarkdownSegment[] = [];
   let markdownLines: string[] = [];
   let fence: MarkdownFence = null;
@@ -185,12 +198,20 @@ export function parseBulletinMarkdownSegments(
   return segments;
 }
 
-function SafeMarkdown({ content }: { content: string }) {
+function SafeMarkdown({
+  content,
+  preserveSingleLineBreaks,
+}: {
+  content: string;
+  preserveSingleLineBreaks: boolean;
+}) {
   return (
     <ReactMarkdown
       allowedElements={[...BULLETIN_MARKDOWN_ELEMENTS]}
       components={COMPONENTS}
-      remarkPlugins={[remarkGfm, remarkBreaks]}
+      remarkPlugins={
+        preserveSingleLineBreaks ? [remarkGfm, remarkBreaks] : [remarkGfm]
+      }
       skipHtml
       urlTransform={safeBulletinMarkdownUrl}
     >
@@ -206,7 +227,9 @@ export function BulletinMarkdown({
   content: string;
   className?: string;
 }) {
-  const segments = parseBulletinMarkdownSegments(content);
+  const normalizedContent = normalizeBulletinLineEndings(content);
+  const preserveSingleLineBreaks = !hasStructuredMarkdown(normalizedContent);
+  const segments = parseBulletinMarkdownSegments(normalizedContent);
   return (
     <div
       className={`bulletin-markdown min-w-0 break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200 ${className}
@@ -234,8 +257,8 @@ export function BulletinMarkdown({
             className={`${SURFACE_INSET} group mt-4 px-3 py-2`}
           >
             <summary className="cursor-pointer select-none font-semibold text-zinc-900 marker:text-zinc-400 dark:text-zinc-100">
-              <span className="inline-flex w-[calc(100%-1rem)] items-center justify-between gap-3 align-middle">
-                <span>{segment.summary}</span>
+              <span className="inline-flex w-[calc(100%_-_1rem)] min-w-0 items-center justify-between gap-3 align-middle">
+                <span className="min-w-0">{segment.summary}</span>
                 <span className="shrink-0 text-[11px] font-medium text-sky-700 dark:text-sky-300">
                   <span className="group-open:hidden">펼치기</span>
                   <span className="hidden group-open:inline">접기</span>
@@ -243,11 +266,18 @@ export function BulletinMarkdown({
               </span>
             </summary>
             <div className="mt-2 border-t border-zinc-200 pt-1 dark:border-zinc-700">
-              <SafeMarkdown content={segment.content} />
+              <SafeMarkdown
+                content={segment.content}
+                preserveSingleLineBreaks={preserveSingleLineBreaks}
+              />
             </div>
           </details>
         ) : (
-          <SafeMarkdown key={`markdown:${index}`} content={segment.content} />
+          <SafeMarkdown
+            key={`markdown:${index}`}
+            content={segment.content}
+            preserveSingleLineBreaks={preserveSingleLineBreaks}
+          />
         ),
       )}
     </div>

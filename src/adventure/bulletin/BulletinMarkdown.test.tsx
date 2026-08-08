@@ -38,6 +38,25 @@ describe("BulletinMarkdown", () => {
     expect(html).toContain("첫째 줄<br/>\n둘째 줄");
   });
 
+  it("구조화된 공지의 편집용 단일 개행은 강제 줄바꿈으로 만들지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content={[
+          "# 업데이트 안내",
+          "",
+          "긴 문장을 편집기에서 읽기 편하게 나눴지만",
+          "게시된 본문에서는 한 문단으로 자연스럽게 이어집니다.",
+          "",
+          "- 변경 사항",
+        ].join("\n")}
+      />,
+    );
+
+    expect(html).toContain("<h1>업데이트 안내</h1>");
+    expect(html).not.toContain("<br");
+    expect(html).toContain("읽기 편하게 나눴지만\n게시된 본문에서는");
+  });
+
   it("허용된 기본 색상 문법을 안전한 글자색으로 렌더링한다", () => {
     const html = renderToStaticMarkup(
       <BulletinMarkdown
@@ -106,6 +125,41 @@ describe("BulletinMarkdown", () => {
     expect(html).toContain(">접기</span>");
     expect(html).toContain("<strong>중요 변경</strong>");
     expect(html).toContain("<li>변경 사항</li>");
+  });
+
+  it("CRLF와 들여쓰기가 섞인 연속 details 블록을 각각 정확히 접는다", () => {
+    const html = renderToStaticMarkup(
+      <BulletinMarkdown
+        content={[
+          "  ## 스킬 SP 요구량 전면 조정",
+          "",
+          "  :::details SP 요구량이 증가한 스킬",
+          "",
+          "  - 연격 3 → 4",
+          "  - 흑월지배 13 → 16",
+          "",
+          "  :::",
+          "",
+          "  :::details SP 요구량이 감소한 스킬",
+          "",
+          "  - 만상귀일 10 → 7",
+          "  - 비전 폭발 9 → 4",
+          "",
+          "  :::",
+          "",
+          "  이후 안내입니다.",
+        ].join("\r\n")}
+      />,
+    );
+
+    expect(html.match(/<details/g)).toHaveLength(2);
+    expect(html.match(/<summary/g)).toHaveLength(2);
+    expect(html).toContain("SP 요구량이 증가한 스킬");
+    expect(html).toContain("SP 요구량이 감소한 스킬");
+    expect(html).toContain("<li>연격 3 → 4</li>");
+    expect(html).toContain("<li>만상귀일 10 → 7</li>");
+    expect(html).toContain("이후 안내입니다.");
+    expect(html).not.toContain(":::details");
   });
 
   it("네 칸 들여쓴 details 예시는 코드로 유지한다", () => {

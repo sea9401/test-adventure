@@ -288,7 +288,8 @@ export function ComposePage({
         <code>## 소제목</code> · <code>**굵게**</code> · <code>- 목록</code> ·{" "}
         <code>&gt; 인용</code> · <code>[링크](https://주소)</code> ·{" "}
         <code>[빨강]강조[/빨강]</code> ·{" "}
-        <code>:::details 제목</code> 접기 시작 / <code>:::</code> 접기 끝
+        <code>:::details 제목</code> 접기 시작 / <code>:::</code> 접기 끝 ·
+        문단 사이는 빈 줄로 구분
       </p>
       <div className="flex items-center justify-between text-xs">
         <span

@@ -723,7 +723,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: { ranger: TIER4_UNLOCK_CUMLEVEL } }, // 궁사 계보
   },
   // 전사 직군 4차 두 번째 갈래 — 가디언(전사 3차 두 번째 갈래) 계승. 방어 탱 정점.
-  //   액티브=보호막(생존), 패시브=피격 시 방어력만큼 반사(방어=딜 전환). 가디언 jobCumLevel TIER4 해금.
+  //   액티브=도발(공격 유도), 패시브=HP 피해 시 방어력만큼 반사(방어=딜 전환). 가디언 jobCumLevel TIER4 해금.
   warden: {
     id: "warden",
     name: "수호자",

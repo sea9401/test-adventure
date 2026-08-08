@@ -120,9 +120,16 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "selfBuffPct",
       target: "damageReduction",
     });
+    expect(V2_SKILLS.v2c_warden_aegis.effects).toEqual([
+      { kind: "enemySkillProcDown", pct: 100, turns: 1 },
+    ]);
+    expect(V2_SKILLS.v2c_warden_aegis.cooldown).toBe(3);
+    expect(V2_SKILLS.v2c_warden_aegis.pveProvokeBasicAttacks).toEqual({
+      min: 2,
+      max: 3,
+    });
     expect(V2_SKILLS.v2c_ironknight_guard.effects).toEqual([
-      { kind: "shield", pctMaxHp: 10, turns: 3 },
-      { kind: "selfBuffPct", target: "reflectDamage", pct: 60, turns: 3 },
+      { kind: "shield", pctMaxHp: 15, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_assassin_ambush.effects[0]).toMatchObject({
       kind: "executeDamage",
@@ -710,8 +717,15 @@ describe("직업 킷 — 스킬셋", () => {
     }
     expect(V2_SKILLS.v2c_ironknight_wall.passive).toMatchObject({
       defPct: 18,
-      thornsDefPct: 80,
+      thornsDefPct: 50,
     });
+    expect(
+      aggregateEquippedPassives([
+        "v2c_warden_thorns",
+        "v2c_ironknight_wall",
+        "v2c_fortressknight_citadel",
+      ]).thornsDefPct,
+    ).toBe(200);
     expect(V2_SKILLS.v2c_overlord_ruin.effects.map((e) => e.kind)).toEqual([
       "hpCostDamage",
       "executeDamage",
@@ -886,13 +900,13 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_fortressknight_ram.category).toBe("attack");
     expect(V2_SKILLS.v2c_fortressknight_ram.effects).toEqual([
       { kind: "damage", statCoef: 1.71, baseFlat: 399, scaling: "def" },
-      { kind: "enemyDelay", pct: 60 },
+      { kind: "enemyDamageDown", pct: 15, turns: 2 },
     ]);
     expect(V2_SKILLS.v2c_fortressknight_citadel.category).toBe("passive");
     expect(V2_SKILLS.v2c_fortressknight_citadel.passive).toMatchObject({
       defPct: 30,
       damageTakenReductionPct: 8,
-      thornsDefPct: 120,
+      thornsDefPct: 80,
     });
     expect(skillsForJob("swordsaint")).toEqual([
       "v2c_swordsaint_flash",
@@ -1465,21 +1479,23 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(aggregateEquippedPassives([]).comboFinisherBonusPct).toBe(0);
   });
 
-  it("수호자(warden) 킷 — 수호의 방벽(보호막) + 가시 방벽(반사)", () => {
+  it("수호자(warden) 킷 — 수호의 도발 + 가시 방벽(반사)", () => {
     expect(skillsForJob("warden")).toEqual([
       "v2c_warden_aegis",
       "v2c_warden_thorns",
     ]);
-    // 액티브: 최대HP 10% 보호막
-    expect(V2_SKILLS.v2c_warden_aegis.effects[0]).toMatchObject({
-      kind: "shield",
-      pctMaxHp: 10,
+    expect(V2_SKILLS.v2c_warden_aegis.effects).toEqual([
+      { kind: "enemySkillProcDown", pct: 100, turns: 1 },
+    ]);
+    expect(V2_SKILLS.v2c_warden_aegis.pveProvokeBasicAttacks).toEqual({
+      min: 2,
+      max: 3,
     });
-    // 패시브: 피격 시 방어력 100% 반사("방어 계수만큼")
-    expect(V2_SKILLS.v2c_warden_thorns.passive?.thornsDefPct).toBe(100);
+    // 패시브: HP 피해를 받을 때 전투 시작 방어력 70% 반사
+    expect(V2_SKILLS.v2c_warden_thorns.passive?.thornsDefPct).toBe(70);
     // aggregate 가 thornsDefPct 를 수집(미보유=0)
     expect(aggregateEquippedPassives(["v2c_warden_thorns"]).thornsDefPct).toBe(
-      100,
+      70,
     );
     expect(
       aggregateEquippedPassives(["v2c_guardian_bulwark3"]).thornsDefPct,

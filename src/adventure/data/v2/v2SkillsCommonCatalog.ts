@@ -195,8 +195,8 @@ export type V2CommonSkillId =
   | "v2c_spellsealer_sealingfield" // 봉마진 (적 공격·스킬 발동 봉쇄)
   | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
-  | "v2c_warden_aegis" // 수호의 방벽 (보호막 — 최대HP 10%)
-  | "v2c_warden_thorns" // 가시 방벽 (피격 시 방어력만큼 반사)
+  | "v2c_warden_aegis" // 수호의 도발 (PvE 2~3회 기본 공격 유도·PvP 다음 스킬 제한)
+  | "v2c_warden_thorns" // 가시 방벽 (HP 피해 시 방어력만큼 반사)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) ──
   | "v2c_warlord_bloodbath" // 혈전 (HP 소모 강타)
   | "v2c_warlord_slaughter" // 광기 II (광기 상위)
@@ -211,7 +211,7 @@ export type V2CommonSkillId =
   // ── 5차 직업 ──
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
-  | "v2c_ironknight_guard" // 반사 태세 (보호막 + 반사 증폭)
+  | "v2c_ironknight_guard" // 철벽 태세 (강화 보호막)
   | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
   | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
@@ -242,7 +242,7 @@ export type V2CommonSkillId =
   | "v2c_calamitycaller_brand" // 재앙의 낙인 (마법 피해 + 쇠약 + 금제)
   | "v2c_calamitycaller_omen" // 흉조 III (마법취약 심화)
   // ── 6차 직업 ──
-  | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + ATB 지연)
+  | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + 주는 피해 감소)
   | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 반사)
   | "v2c_swordsaint_flash" // 무심검 (강한 일격 + 무력 + ATB 지연)
   | "v2c_swordsaint_transcendence" // 검성의 경지 (힘 + 치명피해 + 속도초과 전환)
@@ -1517,22 +1517,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     },
   },
 
-  // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 액티브 보호막 + 반사 패시브 ──
+  // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 도발 액티브 + 반사 패시브 ──
   v2c_warden_aegis: {
-    // 수호의 방벽 — 최대 HP 10% 보호막(기존 shield effect 재사용·마나 보호막 패턴). 방어 탱의
-    //   생존기. tier 필드 3(비용 클램프). 보호막은 enemyPhase 가 dmg 흡수.
-    id: "v2c_warden_aegis", name: "수호의 방벽", stat: "vit", category: "buff", tier: 3,
-    description: "체력을 끌어모아 방벽을 두른다. 한동안 피해를 흡수한다.", mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "shield", pctMaxHp: 10, turns: 3 }],
+    id: "v2c_warden_aegis", name: "수호의 도발", stat: "vit", category: "buff", tier: 3,
+    description: "적의 시선을 끌어 자신을 공격하게 한다. 사냥에서는 적이 다음 행동에 기본 공격을 2~3회 사용하며, PvP에서는 상대의 다음 행동을 기본 공격으로 유도한다.",
+    mpCost: 40, cooldown: 3, procChance: 100, spCost: 10,
+    effects: [{ kind: "enemySkillProcDown", pct: 100, turns: 1 }],
+    pveProvokeBasicAttacks: { min: 2, max: 3 },
   },
   v2c_warden_thorns: {
-    // 가시 방벽(패시브) — 피격(적중) 시 내 방어력의 100%를 적에게 고정 반사("방어 계수만큼").
+    // 가시 방벽(패시브) — HP 피해를 받을 때 전투 시작 방어력의 70%를 고정 반사.
     //   엔진 thornsFlatFromDef 훅(derive 가 def×thornsDefPct% 환산·enemyPhase[PvE]·applyOnHitReflect[PvP]
     //   양쪽 가산). 방어=딜로 전환되는 탱딜 시너지(방벽 방어%와 결합).
     id: "v2c_warden_thorns", name: "가시 방벽", stat: "vit", category: "passive", tier: 3,
-    description: "방벽에 돋은 가시. 공격을 받을 때마다 방어력만큼 되받아친다.", mpCost: 0, cooldown: 0,
+    description: "방벽에 돋은 가시. 보호막을 뚫고 HP 피해를 받을 때 전투 시작 방어력의 일부를 되돌려준다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { thornsDefPct: 100 },
+    passive: { thornsDefPct: 70 },
   },
 
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력을 끌어올리는 순수 공격 라인 ──
@@ -1614,20 +1614,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 18 }, critDmgPct: 25, spdOverflowToAtkPct: 25 },
   },
   v2c_ironknight_guard: {
-    id: "v2c_ironknight_guard", name: "반사 태세", stat: "vit", category: "buff", tier: 3,
-    description: "방패를 고정해 보호막을 세우고, 잠시 모든 반사 피해를 증폭한다.",
-    mpCost: 48, cooldown: 0, procChance: 100, learnCost: 8000,
-    effects: [
-      { kind: "shield", pctMaxHp: 10, turns: 3 },
-      { kind: "selfBuffPct", target: "reflectDamage", pct: 60, turns: 3 },
-    ],
+    id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
+    description: "방패를 고정해 강화 보호막을 세운다. 보호막이 피해를 모두 흡수한 공격에는 반사와 반격이 발동하지 않는다.",
+    mpCost: 48, cooldown: 3, procChance: 100, spCost: 10, learnCost: 8000,
+    effects: [{ kind: "shield", pctMaxHp: 15, turns: 3 }],
   },
   v2c_ironknight_wall: {
     id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,
     description: "단단한 장벽 운용에 익숙해진다. 방어와 반사가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { defPct: 18, thornsDefPct: 80 },
+    passive: { defPct: 18, thornsDefPct: 50 },
   },
   v2c_overlord_ruin: {
     id: "v2c_overlord_ruin", name: "파멸 난무", stat: "str", category: "attack", tier: 3,
@@ -1959,16 +1956,16 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 6차 직업 — 직업 숙련도 기반 엔드 성장 ──
   v2c_fortressknight_ram: {
     id: "v2c_fortressknight_ram", name: "성채 충각", stat: "vit", category: "attack", tier: 3,
-    description: "성채처럼 밀고 들어가 방어력으로 적을 짓누르고 다음 행동을 늦춘다.",
+    description: "성채처럼 밀고 들어가 방어력으로 적을 짓누르고, 충격으로 적이 주는 피해를 감소시킨다.",
     mpCost: 58, cooldown: 0, procChance: 35, learnCost: 12000,
-    effects: [dmg(1.8, 420, "def"), { kind: "enemyDelay", pct: 60 }],
+    effects: [dmg(1.8, 420, "def"), { kind: "enemyDamageDown", pct: 15, turns: 2 }],
   },
   v2c_fortressknight_citadel: {
     id: "v2c_fortressknight_citadel", name: "움직이는 성채", stat: "vit", category: "passive", tier: 3,
     description: "갑옷과 방패가 하나의 성채가 된다. 방어와 피해 저항, 방어력 기반 반사가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 120 },
+    passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 80 },
   },
   v2c_swordsaint_flash: {
     id: "v2c_swordsaint_flash", name: "무심검", stat: "str", category: "attack", tier: 3,

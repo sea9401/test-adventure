@@ -543,6 +543,9 @@ export function advanceTurnPvP(
   const shieldAbsorbed = Math.min(defender.stacks.playerShield, arenaAdjustedDmg);
   const dmgToHp = arenaAdjustedDmg - shieldAbsorbed;
   const newShield = defender.stacks.playerShield - shieldAbsorbed;
+  // 보호막이 공격을 전부 흡수한 경우에는 피격 반사·반격이 발동하지 않는다.
+  // 보호막을 뚫고 HP 피해가 남은 공격은 기존과 동일하게 처리한다.
+  const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
   // 불굴 — HP 0 직전 1 로 막아준다 (전투당 1회).
   const wouldKill = defender.hp - dmgToHp <= 0;
   const enduranceFires =
@@ -1143,17 +1146,19 @@ export function advanceTurnPvP(
   }
   // ── on-hit reflect (반사 갑주 + 가시 갑옷 + 무한 가시) — 공격자에게 반사 피해 ──
   // 베이스는 totalDmg (방어자 결의/가드/굳건/철벽 감산 전, 공격 보너스는 모두 반영).
-  const reflectResult = applyOnHitReflect(next, atkKey, defKey, totalDmg);
-  next = reflectResult.state;
-  if (reflectResult.attackerKilled) return next;
-  // ── 반격의 룬 — 피격 후 일정 확률로 ATK 카운터 ──
-  const runeCounterResult = maybeApplyRuneCounter(next, atkKey, defKey);
-  next = runeCounterResult.state;
-  if (runeCounterResult.attackerKilled) return next;
-  // ── 무도가/절정 반격 패시브 — 피격 후 일정 확률로 ATK 카운터(PvE enemyPhase 미러) ──
-  const martialCounterResult = maybeApplyMartialCounter(next, atkKey, defKey);
-  next = martialCounterResult.state;
-  if (martialCounterResult.attackerKilled) return next;
+  if (!hitStoppedByShield) {
+    const reflectResult = applyOnHitReflect(next, atkKey, defKey, totalDmg);
+    next = reflectResult.state;
+    if (reflectResult.attackerKilled) return next;
+    // ── 반격의 룬 — 피격 후 일정 확률로 ATK 카운터 ──
+    const runeCounterResult = maybeApplyRuneCounter(next, atkKey, defKey);
+    next = runeCounterResult.state;
+    if (runeCounterResult.attackerKilled) return next;
+    // ── 무도가/절정 반격 패시브 — 피격 후 일정 확률로 ATK 카운터(PvE enemyPhase 미러) ──
+    const martialCounterResult = maybeApplyMartialCounter(next, atkKey, defKey);
+    next = martialCounterResult.state;
+    if (martialCounterResult.attackerKilled) return next;
+  }
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
   const attacksLeft =
     attacker.attacksLeft - 1 + weakpointAdd + comboExtraAttacks + sigExtraAttack;

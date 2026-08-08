@@ -177,7 +177,7 @@ export type PvPSideStacks = {
   skillEvasionTurns: number;
   skillDmgReducePct: number; // 진홍 심판·철포 — 받는 피해 -%
   skillDmgReduceTurns: number;
-  skillReflectBoostPct: number; // 반사 태세 — 모든 반사 피해 +%
+  skillReflectBoostPct: number; // 활성 반사 증폭 — 모든 반사 피해 +%
   skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
   enemyVulnTurns: number;
@@ -1818,10 +1818,10 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
   let nextOppShield = opp.stacks.playerShield;
+  let skillShieldAbsorbed = 0;
+  let skillDamageToHp = 0;
   let healShieldAmount = 0;
   const castSkillDef = result.castSkillId ? V2_SKILLS[result.castSkillId] : null;
-  const isHpCostAttack =
-    castSkillDef?.effects.some((effect) => effect.kind === "hpCostDamage") ?? false;
   const isBloodDemonReign = result.castSkillId === "v2c_blooddemon_reign";
   const bloodDemonHealPct = isBloodDemonReign
     ? (castSkillDef?.effects.find(
@@ -1978,35 +1978,6 @@ export function castV2SkillOnAttackerTurnPvP(
       (sum, hit) => sum + hit,
       0,
     );
-    // HP 소모 공격기는 보호막을 정상적으로 먼저 깎는다. 다른 직접 피해 스킬의
-    // 기존 경로는 이번 변경 범위 밖이므로 그대로 유지한다.
-    let displayedHits = perHit;
-    if (isHpCostAttack) {
-      let shieldAbsorbed = 0;
-      let hpDamage = 0;
-      displayedHits = perHit.map((hit) => {
-        const absorbed = Math.min(nextOppShield, hit);
-        nextOppShield -= absorbed;
-        shieldAbsorbed += absorbed;
-        const remaining = hit - absorbed;
-        const actualHpDamage = Math.min(nextOppHp, remaining);
-        nextOppHp -= actualHpDamage;
-        hpDamage += actualHpDamage;
-        return actualHpDamage;
-      });
-      if (shieldAbsorbed > 0) {
-        nextLog = appendLog(nextLog, {
-          kind: "info",
-          text: `[철벽] ${opp.name} 보호막이 ${shieldAbsorbed} 흡수 (남은 ${nextOppShield})`,
-          side: otherKey,
-        });
-      }
-      if (isBloodDemonReign) {
-        bloodDemonEffectiveDamage = shieldAbsorbed + hpDamage;
-      }
-    } else {
-      nextOppHp = Math.max(0, nextOppHp - skillDamage);
-    }
     if (skillDamage < skillDamageBeforeReduction) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -2014,8 +1985,29 @@ export function castV2SkillOnAttackerTurnPvP(
         side: otherKey,
       });
     }
-    for (const hit of displayedHits) {
-      if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
+    // 모든 직접 피해 스킬은 보호막을 먼저 소모한다. 보호막을 뚫고 실제 HP 피해가
+    // 남은 경우에만 아래 반사 판정이 활성화된다.
+    const hpHits = perHit.map((hit) => {
+      const absorbed = Math.min(nextOppShield, hit);
+      nextOppShield -= absorbed;
+      skillShieldAbsorbed += absorbed;
+      const remaining = hit - absorbed;
+      const actualHpDamage = Math.min(nextOppHp, remaining);
+      nextOppHp -= actualHpDamage;
+      skillDamageToHp += actualHpDamage;
+      return actualHpDamage;
+    });
+    if (skillShieldAbsorbed > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[철벽] ${opp.name} 보호막이 ${skillShieldAbsorbed} 흡수 (남은 ${nextOppShield})`,
+        side: otherKey,
+      });
+    }
+    if (isBloodDemonReign) {
+      bloodDemonEffectiveDamage = skillShieldAbsorbed + skillDamageToHp;
+    }
+    for (const hit of hpHits) {
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
         text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
@@ -2381,7 +2373,12 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   // 직접 피해 스킬도 한 번의 피격 행동으로 반사를 발동한다. 다단 스킬은 회피 판정과 동일하게
   // 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로 반사하지 않는다.
-  if (skillReflectBase > 0 && next[otherKey].hp > 0 && next.phase !== "ended") {
+  if (
+    skillReflectBase > 0 &&
+    skillDamageToHp > 0 &&
+    next[otherKey].hp > 0 &&
+    next.phase !== "ended"
+  ) {
     const reflected = applyOnHitReflect(
       next,
       who,

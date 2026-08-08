@@ -215,6 +215,7 @@ export function buildTagsForSkill(skill: V2SkillDefinition): V2BuildTagId[] {
   addStatTag(tags, skill.stat);
   if (skill.stat === "int") tags.add("magic");
   if (skill.category === "heal") tags.add("heal");
+  if (skill.pveProvokeBasicAttacks) tags.add("tank");
   if (skill.category === "passive" && skill.passive) {
     addPassiveTags(tags, skill.passive);
   }

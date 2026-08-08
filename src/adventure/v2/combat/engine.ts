@@ -962,6 +962,7 @@ export function initialBattleState(
       enemyDamageDownTurns: 0,
       enemySkillProcDownPct: 0,
       enemySkillProcDownTurns: 0,
+      provokedEnemyBasicAttacks: 0,
       enemyDotVulnPct: 0,
       enemyDotVulnTurns: 0,
     },
@@ -1014,12 +1015,21 @@ export function advanceTurn(
   const enteringEnemyPhase =
     state.phase === "enemy" && state.turn.enemyAttacksLeft <= 0;
   if (enteringEnemyPhase) {
+    const provokedEnemyBasicAttacks =
+      state.stacks.provokedEnemyBasicAttacks ?? 0;
     state = {
       ...state,
       turn: {
         ...state.turn,
-        enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
+        enemyAttacksLeft:
+          provokedEnemyBasicAttacks > 0
+            ? provokedEnemyBasicAttacks
+            : rollEnemyAttackCount(state.enemy),
       },
+      stacks:
+        provokedEnemyBasicAttacks > 0
+          ? { ...state.stacks, provokedEnemyBasicAttacks: 0 }
+          : state.stacks,
     };
     const enemyDotTick = tickV2Dots(
       state.enemyV2Dots,
@@ -1258,7 +1268,8 @@ function evadeIncomingEnemySkill(
 // v2 적(몬스터) 스킬 시전 — applyPlayerV2SkillCast 의 적 대칭판(ATB 라이브 경로용).
 //   ⚠️ ATB 전용: 버프/디버프 tick 은 tickEnemyBundleEntry/tickPlayerBundleEntry(번들)가 이미 했으므로
 //   여기선 tick 없이 cast 결정 + 효과 적용만 한다(player cast 헬퍼와 동일 소유권 모델 — 이중 tick 방지).
-//   레거시 advanceTurn 의 인라인 적 cast 는 자체 tick 을 가지므로 별개(그쪽은 미수정 — 골든 byte-identical).
+//   레거시 advanceTurn 의 인라인 적 cast 는 자체 tick 을 가지므로 별개이며, 양쪽 모두 직접 피해를
+//   보호막으로 먼저 흡수하고 HP 피해가 남을 때만 피격 반격을 허용한다.
 //   🔑 v2Skills 미장착 몹은 즉시 no-op → 기존 전투 전부 byte-identical(골든 불변). MP·쿨다운(소모) +
 //   데미지/힐/HP비용/자버프/적디버프/도트 + lethal 까지. "시전=평타 XOR"(skipBasic)은 호출부가 처리.
 export function applyEnemyV2SkillCast(
@@ -1333,11 +1344,24 @@ export function applyEnemyV2SkillCast(
     result.enemyDamage > 0 && state.stacks.enemyDamageDownTurns > 0
       ? Math.floor(result.enemyDamage * (1 - state.stacks.enemyDamageDownPct / 100))
       : result.enemyDamage;
+  const enemySkillShieldAbsorbed = Math.min(
+    state.stacks.playerShield,
+    enemySkillDamage,
+  );
+  const enemySkillDamageToHp = enemySkillDamage - enemySkillShieldAbsorbed;
+  const nextPlayerShield =
+    state.stacks.playerShield - enemySkillShieldAbsorbed;
   if (enemySkillDamage > 0 && result.castSkillName) {
-    nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamage);
+    if (enemySkillShieldAbsorbed > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[철벽] 보호막이 ${enemySkillShieldAbsorbed} 흡수 (남은 ${nextPlayerShield})`,
+      });
+    }
+    nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamageToHp);
     nextLog = appendLog(nextLog, {
       kind: "enemy_attack",
-      text: `${result.castSkillName}! ${enemySkillDamage} 피해를 입혔다.`,
+      text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
     });
   }
   if (result.selfHeal > 0 && result.castSkillName) {
@@ -1405,7 +1429,7 @@ export function applyEnemyV2SkillCast(
     });
   }
   const countered =
-    enemySkillDamage > 0 && result.castSkillName
+    enemySkillDamageToHp > 0 && result.castSkillName
       ? applyPassiveCounterOnHitIfAny(
           {
             ...state,
@@ -1433,6 +1457,10 @@ export function applyEnemyV2SkillCast(
     flags: {
       ...state.flags,
       statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
+    },
+    stacks: {
+      ...state.stacks,
+      playerShield: nextPlayerShield,
     },
     log: nextLog,
   };
@@ -1923,6 +1951,24 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  const provoke =
+    !skillMissed && result.castSkillId
+      ? V2_SKILLS[result.castSkillId]?.pveProvokeBasicAttacks
+      : undefined;
+  const provokeMin = provoke ? Math.max(1, Math.floor(provoke.min)) : 0;
+  const provokeMax = provoke
+    ? Math.max(provokeMin, Math.floor(provoke.max))
+    : 0;
+  const provokedEnemyBasicAttacks = provoke
+    ? provokeMin + Math.floor(Math.random() * (provokeMax - provokeMin + 1))
+    : 0;
+  if (provokedEnemyBasicAttacks > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "도발"}] ${state.enemy.name}의 다음 행동을 기본 공격 ${provokedEnemyBasicAttacks}회로 강제한다.`,
+      turn: "player",
+    });
+  }
   if (result.enemyDotVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1976,6 +2022,13 @@ export function applyPlayerV2SkillCast(
       signatureHitCount: nextSigHitCount,
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
+      provokedEnemyBasicAttacks:
+        provokedEnemyBasicAttacks > 0
+          ? Math.max(
+              state.stacks.provokedEnemyBasicAttacks ?? 0,
+              provokedEnemyBasicAttacks,
+            )
+          : (state.stacks.provokedEnemyBasicAttacks ?? 0),
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
       playerShield:
         state.stacks.playerShield +
@@ -2193,6 +2246,14 @@ function resolveBattleLegacy(
     } else if (state.phase === "enemy") {
       // PR-5b — enemy 의 v2 스킬 cast (player cast hook 미러). monster.v2Skills 미지정이면 no-op.
       v2CastedThisPlayerPhase = false;
+      // 도발된 다음 적 행동은 스킬 판정을 생략하고 예약된 2~3회 기본 공격만 수행한다.
+      // 다중 공격 도중 두 번째 반복에서 스킬이 끼어들지 않도록 enemy phase cast 플래그도 소비한다.
+      if (
+        !v2CastedThisEnemyPhase &&
+        (state.stacks.provokedEnemyBasicAttacks ?? 0) > 0
+      ) {
+        v2CastedThisEnemyPhase = true;
+      }
       if (!v2CastedThisEnemyPhase) {
         v2CastedThisEnemyPhase = true;
         const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
@@ -2263,11 +2324,26 @@ function resolveBattleLegacy(
           result.enemyDamage > 0 && state.stacks.enemyDamageDownTurns > 0
             ? Math.floor(result.enemyDamage * (1 - state.stacks.enemyDamageDownPct / 100))
             : result.enemyDamage;
+        const enemySkillShieldAbsorbed = Math.min(
+          state.stacks.playerShield,
+          enemySkillDamage,
+        );
+        const enemySkillDamageToHp =
+          enemySkillDamage - enemySkillShieldAbsorbed;
+        const nextPlayerShield =
+          state.stacks.playerShield - enemySkillShieldAbsorbed;
         if (enemySkillDamage > 0 && result.castSkillName) {
-          nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamage);
+          if (enemySkillShieldAbsorbed > 0) {
+            nextLog = appendLog(nextLog, {
+              kind: "info",
+              text: `[철벽] 보호막이 ${enemySkillShieldAbsorbed} 흡수 (남은 ${nextPlayerShield})`,
+              turn: "enemy",
+            });
+          }
+          nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamageToHp);
           nextLog = appendLog(nextLog, {
             kind: "enemy_attack",
-            text: `${result.castSkillName}! ${enemySkillDamage} 피해를 입혔다.`,
+            text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
           });
         }
         // 적의 self heal — enemy_attack kind (적 측 행동). 화상(enemyHealReduce)이 있으면 회복 감소.
@@ -2334,7 +2410,7 @@ function resolveBattleLegacy(
           });
         }
         const countered =
-          enemySkillDamage > 0 && result.castSkillName
+          enemySkillDamageToHp > 0 && result.castSkillName
             ? applyPassiveCounterOnHitIfAny(
                 {
                   ...state,
@@ -2363,6 +2439,10 @@ function resolveBattleLegacy(
           flags: {
             ...state.flags,
             statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
+          },
+          stacks: {
+            ...state.stacks,
+            playerShield: nextPlayerShield,
           },
           log: nextLog,
         };

@@ -139,4 +139,58 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "공격!")).toBeGreaterThan(0);
     expect(countText(res, "적 행동 3회")).toBeGreaterThan(0);
   });
+
+  it("수호의 도발은 사냥에서 다음 적 행동을 2~3회 기본 공격으로 도발한다", () => {
+    const enemy: Monster = {
+      name: "도발 허수아비",
+      tags: [],
+      hp: 2_000,
+      atk: 10,
+      def: 0,
+      spd: 10,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_venom_bite"],
+        equipped: ["mob_venom_bite"],
+      },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1); // 2~3회 굴림에서 2회.
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 5_000,
+        maxHp: 5_000,
+        atk: 1,
+        def: 100,
+        thornsFlatFromDef: 200,
+      },
+      enemy,
+      "수호자",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_warden_aegis"],
+          equipped: ["v2c_warden_aegis"],
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    expect(countText(res, "다음 행동을 기본 공격 2회로 강제")).toBeGreaterThan(0);
+    const provokeIndex = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("다음 행동을 기본 공격 2회로 강제"),
+    );
+    const firstEnemyAttacks = res.finalState.log
+      .slice(provokeIndex + 1)
+      .filter((entry) => entry.kind === "enemy_attack")
+      .slice(0, 2);
+    expect(firstEnemyAttacks).toHaveLength(2);
+    expect(firstEnemyAttacks.every((entry) => entry.text.startsWith("공격!"))).toBe(
+      true,
+    );
+    expect(firstEnemyAttacks[0]?.t).toBe(firstEnemyAttacks[1]?.t);
+    expect(countText(res, "수호 반사")).toBeGreaterThanOrEqual(2);
+  });
 });

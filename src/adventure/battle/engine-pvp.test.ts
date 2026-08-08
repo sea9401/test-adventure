@@ -1366,7 +1366,70 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         (entry) => entry.text.includes("혈마군림") && entry.text.includes("회복했다"),
       ),
     ).toBe(false);
-    expect(cast.p1.hp).toBeLessThanOrEqual(500);
+    expect(cast.p1.hp).toBe(500);
+  });
+
+  it("혈마군림은 HP 소모 후 보호막 포함 실제 피해의 20%를 회복한다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        mp: 1000,
+        maxMp: 1000,
+        atk: 100,
+        strStat: 100,
+        spd: 15,
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, def: 0, spd: 5, bulwarkShield: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_blooddemon_reign"],
+        equipped: ["v2c_blooddemon_reign"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+    const shieldDamage = 5000 - cast.p2.stacks.playerShield;
+
+    expect(shieldDamage).toBeGreaterThan(0);
+    expect(cast.p2.hp).toBe(1000);
+    expect(cast.p1.hp).toBe(1000 - 140 + Math.floor(shieldDamage * 0.2));
+    expect(
+      cast.log.some(
+        (entry) => entry.text.includes("혈마군림") && entry.text.includes("회복했다"),
+      ),
+    ).toBe(true);
+  });
+
+  it("다른 HP 소모 공격기는 보호막을 먼저 깎되 회복하지 않는다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        mp: 1000,
+        maxMp: 1000,
+        atk: 100,
+        strStat: 100,
+        spd: 15,
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, def: 0, spd: 5, bulwarkShield: 5000 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_berserker_bloodslash"],
+        equipped: ["v2c_berserker_bloodslash"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.p1.hp).toBe(920);
+    expect(cast.p2.hp).toBe(1000);
+    expect(cast.p2.stacks.playerShield).toBeLessThan(5000);
+    expect(cast.log.some((entry) => entry.text.includes("회복했다"))).toBe(false);
   });
 
   it("그림자 도약 시전은 PvP에서도 보장 회피 1회를 충전한다", () => {

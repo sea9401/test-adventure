@@ -607,7 +607,7 @@ export function v2SkillHasTargetEffects(result: V2SkillCastResult): boolean {
   );
 }
 
-/** 스킬이 빗나갔을 때 상대 대상 효과와 피해 연동 회복을 제거한다. 독립 자가 회복·강화·소모는 유지한다. */
+/** 스킬이 빗나갔을 때 상대 대상 효과와 피해 연동 회복을 제거한다. 독립 자가 회복·강화는 유지한다. */
 export function removeMissedV2SkillTargetEffects(
   result: V2SkillCastResult,
 ): V2SkillCastResult {
@@ -617,6 +617,9 @@ export function removeMissedV2SkillTargetEffects(
     magicEnemyDamage: 0,
     hitDamages: [],
     selfHeal: result.selfHealOnMiss,
+    // hpCostDamage 의 HP는 적중한 피해로 전환되는 자원이다. 빗나감·확정 회피로
+    // 대상 효과가 사라지면 교환할 피해도 없으므로 HP 소모 역시 취소한다.
+    selfHpCost: 0,
     enemyDebuffsToApply: [],
     dotsToApplyToTarget: [],
     enemyVulnToApply: undefined,

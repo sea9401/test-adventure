@@ -64,7 +64,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("최종 HP 피해는");
     expect(html).toContain("최소 데미지");
     expect(html).toContain("전투 시작 방어력");
-    expect(html).toContain("최종 HP 피해가 0이어도 반사가 발생");
+    expect(html).toContain("가드 등으로 최종 HP 피해가 0이어도 반사가 발생");
+    expect(html).toContain("보호막이 공격을 전부 흡수하면 반사와 피격 반격은 발동하지 않습니다");
     expect(html).not.toContain("어느 쪽이든 방어가 아무리");
   });
 

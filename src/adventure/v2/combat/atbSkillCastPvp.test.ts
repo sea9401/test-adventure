@@ -67,15 +67,15 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     expect(p1Basic).toBe(0);
   });
 
-  it("철벽 도발은 PvP에서 추가타 없이 상대의 다음 행동만 기본 공격으로 유도한다", () => {
+  it("수호의 도발은 PvP에서 추가타 없이 상대의 다음 행동만 기본 공격으로 유도한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.1);
-    const res = resolveBattlePvP(caster, target, "철벽기사", "상대", {
+    const res = resolveBattlePvP(caster, target, "수호자", "상대", {
       pickAction: () => ({ kind: "attack" }),
       potions: { p1: {}, p2: {} },
       v2Skills: {
         p1: {
-          learned: ["v2c_ironknight_guard"],
-          equipped: ["v2c_ironknight_guard"],
+          learned: ["v2c_warden_aegis"],
+          equipped: ["v2c_warden_aegis"],
         },
         p2: {
           learned: ["v2c_warrior_flurry"],

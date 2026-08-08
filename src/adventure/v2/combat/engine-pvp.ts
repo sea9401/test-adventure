@@ -1816,6 +1816,9 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextLog = st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
+  let nextOppShield = opp.stacks.playerShield;
+  let skillShieldAbsorbed = 0;
+  let skillDamageToHp = 0;
   let healShieldAmount = 0;
   // 스킬 데미지 배수 — 주문중첩(워메이지)·약점노출(마도사 magicVuln)·속박(enemyVuln). 현재 누적
   //   기준, 적용은 이번 시전부터(적중 후 아래에서 스택 증가). 전부 미보유면 배수 1 → 무변(PvE 미러).
@@ -1952,7 +1955,6 @@ export function castV2SkillOnAttackerTurnPvP(
       (sum, hit) => sum + hit,
       0,
     );
-    nextOppHp = Math.max(0, nextOppHp - skillDamage);
     if (skillDamage < skillDamageBeforeReduction) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -1960,8 +1962,23 @@ export function castV2SkillOnAttackerTurnPvP(
         side: otherKey,
       });
     }
-    for (const hit of perHit) {
-      if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
+    const hpHits = perHit.map((hit) => {
+      const absorbed = Math.min(nextOppShield, hit);
+      nextOppShield -= absorbed;
+      skillShieldAbsorbed += absorbed;
+      const hpHit = hit - absorbed;
+      skillDamageToHp += hpHit;
+      nextOppHp = Math.max(0, nextOppHp - hpHit);
+      return hpHit;
+    });
+    if (skillShieldAbsorbed > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[철벽] ${opp.name} 보호막이 ${skillShieldAbsorbed} 흡수 (남은 ${nextOppShield})`,
+        side: otherKey,
+      });
+    }
+    for (const hit of hpHits) {
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
         text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
@@ -2289,6 +2306,7 @@ export function castV2SkillOnAttackerTurnPvP(
     v2Dots: nextOppDots,
     stacks: {
       ...opp.stacks,
+      playerShield: nextOppShield,
       magicVulnStacks: nextOppMagicVuln,
       // 화상 부착 — 시전자가 상대에게 회복 감소 디버프. 상대는 자기 턴(cast hook)에 turns 감소.
       healReducePct: result.enemyHealReduceToApply?.pct ?? opp.stacks.healReducePct,
@@ -2327,7 +2345,12 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   // 직접 피해 스킬도 한 번의 피격 행동으로 반사를 발동한다. 다단 스킬은 회피 판정과 동일하게
   // 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로 반사하지 않는다.
-  if (skillReflectBase > 0 && next[otherKey].hp > 0 && next.phase !== "ended") {
+  if (
+    skillReflectBase > 0 &&
+    skillDamageToHp > 0 &&
+    next[otherKey].hp > 0 &&
+    next.phase !== "ended"
+  ) {
     const reflected = applyOnHitReflect(
       next,
       who,

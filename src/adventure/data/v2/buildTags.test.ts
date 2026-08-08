@@ -123,6 +123,11 @@ describe("v2 build tags", () => {
     ]);
     expectTags(buildTagsForSkill(V2_SKILLS.v2c_ironknight_guard), [
       "vit",
+      "shield",
+      "tank",
+    ]);
+    expectTags(buildTagsForSkill(V2_SKILLS.v2c_warden_aegis), [
+      "vit",
       "tank",
       "vulnerability",
     ]);

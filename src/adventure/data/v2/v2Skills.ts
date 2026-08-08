@@ -1734,9 +1734,9 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
   if (p.evasionPct) chips.push(`회피 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
-  if (p.counterChancePct) chips.push(`피격 시 ${p.counterChancePct}% 반격`);
+  if (p.counterChancePct) chips.push(`HP 피해 시 ${p.counterChancePct}% 반격`);
   if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
-  if (p.thornsDefPct) chips.push(`피격 시 방어력의 ${p.thornsDefPct}% 반사`);
+  if (p.thornsDefPct) chips.push(`HP 피해 시 방어력의 ${p.thornsDefPct}% 반사`);
   if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)

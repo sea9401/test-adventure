@@ -140,7 +140,7 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "적 행동 3회")).toBeGreaterThan(0);
   });
 
-  it("철벽 도발은 사냥에서 다음 적 행동을 2~3회 기본 공격으로 도발한다", () => {
+  it("수호의 도발은 사냥에서 다음 적 행동을 2~3회 기본 공격으로 도발한다", () => {
     const enemy: Monster = {
       name: "도발 허수아비",
       tags: [],
@@ -163,16 +163,16 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
         maxHp: 5_000,
         atk: 1,
         def: 100,
-        thornsFlatFromDef: 160,
+        thornsFlatFromDef: 200,
       },
       enemy,
-      "철벽기사",
+      "수호자",
       {
         pickAction: () => ({ kind: "attack" }),
         potions: {},
         v2Skills: {
-          learned: ["v2c_ironknight_guard"],
-          equipped: ["v2c_ironknight_guard"],
+          learned: ["v2c_warden_aegis"],
+          equipped: ["v2c_warden_aegis"],
         },
       } as never,
     );

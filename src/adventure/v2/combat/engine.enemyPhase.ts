@@ -812,6 +812,9 @@ export function resolveEnemyPhase(
   const shieldAbsorbed = Math.min(state.stacks.playerShield, dmg);
   const dmgToHp = dmg - shieldAbsorbed;
   const newShield = state.stacks.playerShield - shieldAbsorbed;
+  // 보호막이 이번 공격을 전부 받아냈다면 피격 반사·반격은 발동하지 않는다.
+  // 일부만 흡수해 HP 피해가 남은 경우에는 기존처럼 정상 발동한다.
+  const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
   // 불굴 — HP 0 이 되는 데미지를 HP 1 로 막는다. 전투당 1회 (enduranceTriggered).
   const wouldKill = state.playerHp - dmgToHp <= 0;
   const enduranceFires =
@@ -935,15 +938,16 @@ export function resolveEnemyPhase(
       text: `[${sigDefGain.label}] 방어 +${braceDefDelta}`,
     });
   }
-  // 반사 갑주 (특기) + 가시 갑옷 (5티어) — 적이 넣은 피해(가드/굳건/철벽 감산 전, heavyBlow 반영)의
+  // 반사 갑주 (특기) + 가시 갑옷 (5티어) — 보호막을 뚫고 적이 넣은 피해가 있을 때,
+  // 가드/굳건/철벽 감산 전 원량(heavyBlow 반영)의
   // N% 를 적에게 반사. 둘 다 있으면 합산. 베이스가 pre-mit 이라 탱커 빌드여도 반사가 살아남는다.
   // 무한 가시 (2티어 특기) — 피격분과 별개로 적 ATK 의 N% 를 추가 반사 (회피/피격 무관).
   const thornsDmg =
-    (player.thornsPct ?? 0) > 0
+    !hitStoppedByShield && (player.thornsPct ?? 0) > 0
       ? Math.floor((rawDmgBeforeReduction * player.thornsPct!) / 100)
       : 0;
   const brambleDmg =
-    (player.bramblePct ?? 0) > 0
+    !hitStoppedByShield && (player.bramblePct ?? 0) > 0
       ? Math.floor((rawDmgBeforeReduction * player.bramblePct!) / 100)
       : 0;
   // 별빛 반사(enchant reflect) — 실제 HP 로 들어간 피해의 N% 만 반사 (회피·가드 무효
@@ -955,13 +959,15 @@ export function resolveEnemyPhase(
   // 수호자 반사 — 피격(공격 적중) 시 방어력 기반 고정 데미지. 피해량과 무관하게 "방어 계수만큼".
   //   rawDmgBeforeReduction > 0 = 적 공격이 적중(회피·무효 아님)했을 때만 발동.
   const wardenReflectDmg =
-    (player.thornsFlatFromDef ?? 0) > 0 && rawDmgBeforeReduction > 0
+    !hitStoppedByShield &&
+    (player.thornsFlatFromDef ?? 0) > 0 &&
+    rawDmgBeforeReduction > 0
       ? player.thornsFlatFromDef!
       : 0;
   const baseReflectDmg =
     thornsDmg +
     brambleDmg +
-    infiniteThornsDmg +
+    (hitStoppedByShield ? 0 : infiniteThornsDmg) +
     enchantReflectDmg +
     wardenReflectDmg;
   const reflectBoostPct =
@@ -989,7 +995,7 @@ export function resolveEnemyPhase(
     const reflectLabels: string[] = [];
     if (thornsDmg > 0) reflectLabels.push("반사 갑주");
     if (brambleDmg > 0) reflectLabels.push("가시 갑옷");
-    if (infiniteThornsDmg > 0) reflectLabels.push("무한 가시");
+    if (!hitStoppedByShield && infiniteThornsDmg > 0) reflectLabels.push("무한 가시");
     if (enchantReflectDmg > 0) reflectLabels.push("별빛 반사");
     if (wardenReflectDmg > 0) reflectLabels.push("수호 반사");
     if (reflectBoostPct > 0) reflectLabels.push("반사 증폭");
@@ -1004,6 +1010,7 @@ export function resolveEnemyPhase(
   let enemyHpAfterRuneCounter = enemyHpAfterThorns;
   if (
     runeCounterPct > 0 &&
+    !hitStoppedByShield &&
     playerHp > 0 &&
     enemyHpAfterThorns > 0 &&
     Math.random() * 100 < runeCounterPct
@@ -1027,6 +1034,7 @@ export function resolveEnemyPhase(
   let enemyHpAfterMartialCounter = enemyHpAfterRuneCounter;
   if (
     martialCounterPct > 0 &&
+    !hitStoppedByShield &&
     playerHp > 0 &&
     enemyHpAfterRuneCounter > 0 &&
     Math.random() * 100 < martialCounterPct

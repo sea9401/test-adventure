@@ -13,7 +13,7 @@ const retryDelayMs = positiveInteger(
 const maintenancePolicy = maintenancePolicyFromEnv(
   process.env.PUBLIC_RELEASE_MAINTENANCE_POLICY,
 );
-const maintenanceMarker = "서버 점검 중입니다";
+const maintenanceMarker = "잠시 점검 중입니다";
 
 const checks = [
   {

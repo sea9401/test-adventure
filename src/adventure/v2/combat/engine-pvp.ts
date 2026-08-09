@@ -75,6 +75,7 @@ import {
   onCritSpeedBuff,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
+  rollEvasionReaction,
   onSkillCastMpRefund,
   statusBlockOnce,
 } from "./signatureEffects";
@@ -1896,9 +1897,12 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextOppHp = opp.hp;
   let nextOppShield = opp.stacks.playerShield;
   let nextOppMagicBarrier = opp.magicBarrier ?? 0;
+  let nextOppBuffs = opp.buffs;
   let skillShieldAbsorbed = 0;
   let skillMagicBarrierAbsorbed = 0;
   let skillDamageToHp = 0;
+  let skillDamageBeforeEvasion = 0;
+  let skillDamageAfterEvasion = 0;
   let healShieldAmount = 0;
   const castSkillDef = result.castSkillId ? V2_SKILLS[result.castSkillId] : null;
   const isBloodDemonReign = result.castSkillId === "v2c_blooddemon_reign";
@@ -2043,6 +2047,8 @@ export function castV2SkillOnAttackerTurnPvP(
       (sum, hit) => sum + hit,
       0,
     );
+    skillDamageBeforeEvasion = rawDamageBeforeEvasion;
+    skillDamageAfterEvasion = rawDamageAfterEvasion;
     if (rawDamageAfterEvasion < rawDamageBeforeEvasion) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -2126,6 +2132,57 @@ export function castV2SkillOnAttackerTurnPvP(
         side: who,
       });
     }
+  }
+  const evasionReaction =
+    !skillGuaranteedEvaded && nextOppHp > 0
+      ? rollEvasionReaction(
+          opp.player.equipSignatures,
+          opp.maxHp,
+          skillEvasionReductionPct,
+          skillDamageBeforeEvasion,
+          skillDamageAfterEvasion,
+        )
+      : null;
+  if (evasionReaction?.heal) {
+    const scaledHeal = scalePvPHealing(st, evasionReaction.heal.amount);
+    const healedHp = Math.min(opp.maxHp, nextOppHp + scaledHeal);
+    const actualHeal = healedHp - nextOppHp;
+    nextOppHp = healedHp;
+    if (actualHeal > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[${evasionReaction.heal.label}] ${opp.name}의 HP +${actualHeal}`,
+        side: otherKey,
+      });
+      const healShield = healToShield(opp.player.equipSignatures, actualHeal);
+      if (healShield) {
+        nextOppShield += healShield.amount;
+        nextLog = appendLog(nextLog, {
+          kind: "info",
+          text: `[${healShield.label}] ${opp.name} 보호막 +${healShield.amount}`,
+          side: otherKey,
+        });
+      }
+    }
+  }
+  if (evasionReaction?.speed) {
+    const activeSpeedMult =
+      nextOppBuffs.playerSpdTurnsLeft > 0
+        ? nextOppBuffs.playerSpdMult
+        : 1;
+    nextOppBuffs = {
+      ...nextOppBuffs,
+      playerSpdMult: Math.max(activeSpeedMult, evasionReaction.speed.mult),
+      playerSpdTurnsLeft: Math.max(
+        nextOppBuffs.playerSpdTurnsLeft,
+        evasionReaction.speed.turns,
+      ),
+    };
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${evasionReaction.speed.label}] ${opp.name}의 속도 +${Math.round((evasionReaction.speed.mult - 1) * 100)}% (${evasionReaction.speed.turns}행동)`,
+      side: otherKey,
+    });
   }
   if (sigSkillCritSpdBuff) {
     nextLog = appendLog(nextLog, {
@@ -2440,6 +2497,7 @@ export function castV2SkillOnAttackerTurnPvP(
     ...opp,
     hp: nextOppHp,
     magicBarrier: nextOppMagicBarrier,
+    buffs: nextOppBuffs,
     flags: {
       ...opp.flags,
       statusBlockUsed: opp.flags.statusBlockUsed || statusBlockDots,

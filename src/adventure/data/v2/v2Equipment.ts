@@ -481,10 +481,11 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "on_heal":
       return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막`;
     case "on_dodge":
-      if (sig.healPct) return `회피 시 HP +${sig.healPct}% 회복`;
+      if (sig.healPct)
+        return `회피 경감률과 같은 확률로 피격 후 HP +${sig.healPct}% 회복`;
       if (sig.spdBuffPct)
-        return `회피 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
-      return "회피 시 발동";
+        return `회피 경감률과 같은 확률로 피격 후 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
+      return "회피 경감률과 같은 확률로 피격 후 발동";
     case "on_crit":
       if (sig.poisonOnCrit) return "치명타 시 대상 중독(독)";
       if (sig.chillSlowPct)

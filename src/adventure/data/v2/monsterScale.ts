@@ -118,12 +118,31 @@ export function scaleMonsterForFloor(
  * 상태이상 피해 감소는 협동 보스·원정 등 특수 전투의 대응 능력치로만 사용한다.
  * 사냥터 몬스터의 베이스 저항과 깊이 보너스를 모두 제거해 중독·출혈 피해가
  * 일반 몬스터에게 원래 수치대로 적용되도록 한다.
+ * 61층 이후에는 깊이 기본 적중도와 몬스터 고유 적중도가 중복해 생존축을 누르지 않도록
+ * 고유분의 25%만 반영하고, 산출된 최종 적중도를 추가로 10% 완화한다.
+ * 깊이 기본 성장과 몬스터별 차이는 그대로 유지한다.
  */
+export const HUNT_HIGH_DEPTH_ACCURACY_START = 61;
+export const HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT = 0.25;
+export const HUNT_HIGH_DEPTH_ACCURACY_MULT = 0.9;
+
 export function scaleMonsterForHunt(monster: Monster, depth: number): Monster {
   const scaled = scaleMonsterForFloor(monster, depth, true);
-  if (scaled.statusDamageReductionPct == null) return scaled;
+  const authoredAccuracy = Math.max(0, monster.accuracy ?? 0);
+  const softenHighDepthAccuracy = depth >= HUNT_HIGH_DEPTH_ACCURACY_START;
+  if (!softenHighDepthAccuracy && scaled.statusDamageReductionPct == null) {
+    return scaled;
+  }
 
   const huntMonster = { ...scaled };
+  if (softenHighDepthAccuracy) {
+    huntMonster.accuracy =
+      (floorAccuracy(depth) +
+        authoredAccuracy * HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT) *
+      fixedFrontierAccuracyMult(depth) *
+      lateAccuracyMult(depth) *
+      HUNT_HIGH_DEPTH_ACCURACY_MULT;
+  }
   delete huntMonster.statusDamageReductionPct;
   return huntMonster;
 }

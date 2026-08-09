@@ -3,15 +3,36 @@ import { describe, expect, it } from "vitest";
 import {
   auditCustomLoadoutCombat,
   auditFixedProgressionCombat,
+  buildLevelDesignProgressionSnapshot,
   buildGrowthPacing,
   buildReport,
   classifyStage,
   huntStageDepths,
+  LEVEL_DESIGN_ARCHETYPES,
   parseOptions,
 } from "../../../../scripts/sim-v2-level-design";
 import type { V2EquipSlot, V2EquipmentId } from "./v2Equipment";
 
 describe("sim-v2-level-design", () => {
+  it("협동 보스 시뮬레이션용 대표 성장 표본은 7계보의 전투 스탯과 장착 스킬을 공개한다", () => {
+    const snapshots = LEVEL_DESIGN_ARCHETYPES.map((arch) =>
+      buildLevelDesignProgressionSnapshot({
+        arch,
+        depth: 24,
+        seed: 20260809,
+      }),
+    );
+
+    expect(snapshots).toHaveLength(7);
+    expect(snapshots.every((snapshot) => snapshot.player.maxHp > 0)).toBe(true);
+    expect(
+      snapshots.every((snapshot) => snapshot.v2Skills.equipped.length > 0),
+    ).toBe(true);
+    expect(snapshots.map((snapshot) => snapshot.arch)).toEqual(
+      LEVEL_DESIGN_ARCHETYPES,
+    );
+  });
+
   it("기본 전투 표본은 경고선 근처의 승률 오탐을 줄이는 50회다", () => {
     expect(parseOptions([]).trials).toBe(50);
     expect(parseOptions(["--trials=20"]).trials).toBe(20);

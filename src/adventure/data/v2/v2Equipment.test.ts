@@ -1276,10 +1276,10 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         spdBuffPct: 25,
         buffActions: 3,
       }),
-    ).toBe("회피 시 속도 +25% (3행동)");
+    ).toBe("회피 경감률과 같은 확률로 피격 후 속도 +25% (3행동)");
     expect(
       signatureLabel({ trigger: "on_dodge", label: "봉인", healPct: 8 }),
-    ).toBe("회피 시 HP +8% 회복");
+    ).toBe("회피 경감률과 같은 확률로 피격 후 HP +8% 회복");
     expect(
       signatureLabel({ trigger: "on_crit", label: "독니", poisonOnCrit: true }),
     ).toBe("치명타 시 대상 중독(독)");

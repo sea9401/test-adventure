@@ -15,6 +15,7 @@ import {
   onHitTakenDefGain,
   onSkillCastMpRefund,
   rollOnHitBleed,
+  rollEvasionReaction,
   rollOnHitPoison,
   rollOnHitShock,
   statusBlockOnce,
@@ -498,6 +499,87 @@ describe("onDodgeSpeedBuff (회피 속도 시그니처)", () => {
       onDodgeSpeedBuff([{ trigger: "on_dodge", label: "봉인", healPct: 8 }]),
     ).toBeNull(); // spdBuffPct 없음
     expect(onDodgeSpeedBuff([CROWN])).toBeNull(); // on_crit
+  });
+});
+
+describe("rollEvasionReaction (일반 회피 경감 장비 반응)", () => {
+  const SEAL: SignatureEffect = {
+    trigger: "on_dodge",
+    label: "해연",
+    healPct: 6,
+  };
+  const RIDER: SignatureEffect = {
+    trigger: "on_dodge",
+    label: "밤기수",
+    spdBuffPct: 25,
+    buffActions: 2,
+  };
+
+  it("경감률보다 낮은 한 번의 굴림으로 회복과 속도 효과를 함께 발동한다", () => {
+    const roll = vi.fn(() => 0.299);
+
+    expect(
+      rollEvasionReaction([SEAL, RIDER], 1_000, 30, 100, 70, roll),
+    ).toEqual({
+      heal: { amount: 60, label: "해연" },
+      speed: { mult: 1.25, turns: 2, label: "밤기수" },
+    });
+    expect(roll).toHaveBeenCalledTimes(1);
+  });
+
+  it("경계값은 미발동한다", () => {
+    expect(
+      rollEvasionReaction([SEAL], 1_000, 30, 100, 70, () => 0.3),
+    ).toBeNull();
+  });
+
+  it("실제 정수 피해 감소가 없거나 지원 효과가 없으면 굴리지 않는다", () => {
+    const roll = vi.fn(() => 0);
+
+    expect(
+      rollEvasionReaction([SEAL], 1_000, 30, 1, 1, roll),
+    ).toBeNull();
+    expect(
+      rollEvasionReaction([CROWN], 1_000, 30, 100, 70, roll),
+    ).toBeNull();
+    expect(roll).not.toHaveBeenCalled();
+  });
+
+  it("유효하지 않은 경감률이나 굴림은 미발동한다", () => {
+    expect(
+      rollEvasionReaction([SEAL], 1_000, Number.NaN, 100, 70, () => 0),
+    ).toBeNull();
+    expect(
+      rollEvasionReaction([SEAL], 1_000, 30, 100, 70, () => Number.NaN),
+    ).toBeNull();
+  });
+
+  it("회복은 합산하고 속도는 가장 강한 효과와 그 라벨을 보존한다", () => {
+    const OTHER_HEAL: SignatureEffect = {
+      trigger: "on_dodge",
+      label: "봉인",
+      healPct: 8,
+    };
+    const FASTER: SignatureEffect = {
+      trigger: "on_dodge",
+      label: "독왕",
+      spdBuffPct: 35,
+      buffActions: 1,
+    };
+
+    expect(
+      rollEvasionReaction(
+        [SEAL, OTHER_HEAL, RIDER, FASTER],
+        1_000,
+        30,
+        100,
+        70,
+        () => 0,
+      ),
+    ).toEqual({
+      heal: { amount: 140, label: "해연 + 봉인" },
+      speed: { mult: 1.35, turns: 1, label: "독왕" },
+    });
   });
 });
 

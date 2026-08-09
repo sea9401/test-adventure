@@ -32,6 +32,8 @@ export type LifeFieldEnvironmentId =
 export type LifeFieldEnvironmentEffect = {
   rareTierWeightMultiplier?: number;
   xpBonusPct?: number;
+  flatXpBonus?: number;
+  flatXpBonusChance?: number;
   waitReductionPct?: number;
   primaryBonusChance?: number;
   durationReductionPct?: number;
@@ -64,8 +66,8 @@ export const LIFE_FIELD_ENVIRONMENTS: Record<
     activity: "fishing",
     label: "잔잔한 수면",
     description: "수면이 잔잔해 물길을 읽고 경험을 쌓기 좋습니다.",
-    effectLabel: "낚시 경험치 +8%",
-    effect: { xpBonusPct: 8 },
+    effectLabel: "8% 확률로 낚시 경험치 +2",
+    effect: { flatXpBonus: 2, flatXpBonusChance: 0.08 },
   },
   fishing_feeding_time: {
     id: "fishing_feeding_time",
@@ -293,4 +295,15 @@ export function lifeFieldXpBonus(
     (Math.max(0, Number(bonusPct) || 0) / 100);
   const whole = Math.floor(expected);
   return whole + (Math.max(0, Math.min(1, roll)) < expected - whole ? 1 : 0);
+}
+
+export function lifeFieldFlatXpBonus(
+  bonusXp: number,
+  chance: number,
+  roll = 1,
+): number {
+  const safeBonusXp = Math.max(0, Math.floor(Number(bonusXp) || 0));
+  const safeChance = Math.max(0, Math.min(1, Number(chance) || 0));
+  const safeRoll = Math.max(0, Math.min(1, Number(roll) || 0));
+  return safeRoll < safeChance ? safeBonusXp : 0;
 }

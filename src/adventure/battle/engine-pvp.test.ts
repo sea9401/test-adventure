@@ -711,6 +711,107 @@ describe("방어자 측 dodge cascade", () => {
     ).toBe(true);
   });
 
+  it("일반 회피 경감은 장비 회복과 속도를 공격당 한 번 발동한다", () => {
+    const base = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 100,
+        def: 0,
+        accuracyPct: 0,
+        accRating: 0,
+      }),
+      makePlayer({
+        hp: 500,
+        maxHp: 1_000,
+        spd: 5,
+        def: 0,
+        evasionPct: 100,
+        evaRating: 100,
+        equipSignatures: [
+          { trigger: "on_dodge", label: "해연", healPct: 6 },
+          {
+            trigger: "on_dodge",
+            label: "밤기수",
+            spdBuffPct: 25,
+            buffActions: 2,
+          },
+        ],
+      }),
+      "P1",
+      "P2",
+    );
+    const state = { ...base, sustainMultiplier: 0.5 };
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const next = advanceTurnPvP(state);
+
+    expect(next.p2.hp).toBe(515); // 15 피해 후 PvP 보정된 30 회복
+    expect(next.p2.buffs.playerSpdMult).toBe(1.25);
+    expect(next.p2.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(next.log.filter((entry) => entry.text.includes("[해연]")).length).toBe(1);
+    expect(next.log.filter((entry) => entry.text.includes("[밤기수]")).length).toBe(1);
+    expect(random).toHaveBeenCalledTimes(1);
+  });
+
+  it("일반 회피 경감 뒤 쓰러지면 장비 반응을 발동하지 않는다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 100,
+        def: 0,
+        accuracyPct: 0,
+        accRating: 0,
+      }),
+      makePlayer({
+        hp: 1,
+        maxHp: 1_000,
+        spd: 5,
+        def: 0,
+        evasionPct: 100,
+        evaRating: 100,
+        equipSignatures: [
+          { trigger: "on_dodge", label: "해연", healPct: 6 },
+        ],
+      }),
+      "P1",
+      "P2",
+    );
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const next = advanceTurnPvP(state);
+
+    expect(next.p2.hp).toBe(0);
+    expect(next.log.some((entry) => entry.text.includes("[해연]"))).toBe(false);
+    expect(random).not.toHaveBeenCalled();
+  });
+
+  it("on_dodge 장비가 없으면 일반 회피 경감이 난수열을 소비하지 않는다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        atk: 100,
+        def: 0,
+        accuracyPct: 0,
+        accRating: 0,
+      }),
+      makePlayer({
+        hp: 500,
+        maxHp: 1_000,
+        spd: 5,
+        def: 0,
+        evasionPct: 100,
+        evaRating: 100,
+      }),
+      "P1",
+      "P2",
+    );
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    advanceTurnPvP(state);
+
+    expect(random).not.toHaveBeenCalled();
+  });
+
   it("행운의 방패 — 발동 시 공격 회피", () => {
     // Math.random=0 으로 모든 확률 발동. 단 shadowStep, evasion 등은 luckyShield 보다 먼저 굴려 적중하지 않게 — 그래서 그 능력들은 없게 설정.
     vi.spyOn(Math, "random").mockReturnValue(0);
@@ -1394,6 +1495,91 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(cast.p2.hp).toBeLessThan(cast.p2.maxHp);
   });
 
+  it("다단 직접 피해 스킬의 일반 회피 반응은 시전당 한 번만 발동한다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        hp: 5_000,
+        maxHp: 5_000,
+        mp: 1_000,
+        maxMp: 1_000,
+        magicAtk: 300,
+        spd: 15,
+        accuracyPct: 0,
+        accRating: 0,
+      }),
+      makePlayer({
+        hp: 5_000,
+        maxHp: 10_000,
+        def: 0,
+        spd: 5,
+        evasionPct: 100,
+        evaRating: 100,
+        equipSignatures: [
+          { trigger: "on_dodge", label: "해연", healPct: 6 },
+        ],
+      }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_mage_barrage"],
+        equipped: ["v2c_mage_barrage"],
+      },
+    );
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    const hitLogs = cast.log.filter(
+      (entry) =>
+        entry.text.includes("마력 탄막!") && entry.text.includes("피해를 입혔다"),
+    );
+    const damage = hitLogs.reduce(
+      (sum, entry) => sum + Number(entry.text.match(/(\d+) 피해/)?.[1]),
+      0,
+    );
+    expect(hitLogs).toHaveLength(3);
+    expect(cast.p2.hp).toBe(5_000 - damage + 600);
+    expect(cast.log.filter((entry) => entry.text.includes("[해연]")).length).toBe(1);
+    expect(random).toHaveBeenCalledTimes(2); // 스킬 proc + 회피 반응
+  });
+
+  it("일반 회피 반응이 발동해도 직접 피해 스킬의 DoT는 적용한다", () => {
+    const state = initialBattleStatePvP(
+      makePlayer({
+        mp: 1_000,
+        maxMp: 1_000,
+        magicAtk: 100,
+        spd: 15,
+        accuracyPct: 0,
+        accRating: 0,
+      }),
+      makePlayer({
+        hp: 500,
+        maxHp: 1_000,
+        def: 0,
+        spd: 5,
+        evasionPct: 100,
+        evaRating: 100,
+        equipSignatures: [
+          { trigger: "on_dodge", label: "해연", healPct: 6 },
+        ],
+      }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
+      },
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    expect(cast.log.some((entry) => entry.text.includes("회피 경감"))).toBe(true);
+    expect(cast.log.filter((entry) => entry.text.includes("[해연]")).length).toBe(1);
+    expect(cast.p2.v2Dots.some((dot) => dot.tag === "burn")).toBe(true);
+  });
+
   it("혈마군림은 HP 소모 후 보호막 포함 실제 피해의 20%를 회복한다", () => {
     const state = initialBattleStatePvP(
       makePlayer({
@@ -1480,9 +1666,21 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
   });
 
   it("그림자 도약은 상대의 다음 직접 피해 스킬도 확정 회피한다", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.1);
     const s0 = initialBattleStatePvP(
-      makePlayer({ hp: 1_000, maxHp: 1_000, def: 0, spd: 15 }),
+      makePlayer({
+        hp: 1_000,
+        maxHp: 1_000,
+        def: 0,
+        spd: 15,
+        equipSignatures: [
+          {
+            trigger: "on_dodge",
+            label: "밤기수",
+            spdBuffPct: 25,
+            buffActions: 2,
+          },
+        ],
+      }),
       makePlayer({
         hp: 1_000,
         maxHp: 1_000,
@@ -1502,8 +1700,10 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         equipped: ["v2c_warrior_flurry"],
       },
     );
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.1);
 
     const shadowStep = castV2SkillOnAttackerTurnPvP(s0, "p1").state;
+    random.mockClear();
     const attacked = castV2SkillOnAttackerTurnPvP(shadowStep, "p2").state;
 
     expect(shadowStep.p1.stacks.evadesRemaining).toBe(1);
@@ -1520,6 +1720,10 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         (entry) => entry.text.includes("난격!") && entry.text.includes("피해를 입혔다"),
       ),
     ).toBe(false);
+    expect(
+      attacked.log.filter((entry) => entry.text.includes("[밤기수]")),
+    ).toHaveLength(1);
+    expect(random).toHaveBeenCalledTimes(1); // 공격 스킬 proc만, 일반 회피 반응 없음
   });
 
   it("흑월지배는 PvP 회피 후 다음 직접 피해 스킬을 확정 치명타로 만든다", () => {

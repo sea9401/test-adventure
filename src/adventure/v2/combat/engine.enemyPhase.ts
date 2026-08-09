@@ -20,6 +20,7 @@ import {
   onDodgeHealAmount,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
+  rollEvasionReaction,
   statusBlockOnce,
 } from "./signatureEffects";
 import {
@@ -31,6 +32,41 @@ import {
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
 const MONSTER_CRIT_MULT_DEFAULT = 1.5;
+
+export function pvePlayerEvasionReductionPct(
+  state: BattleState,
+  player: PlayerCombat,
+): number {
+  const luckEvadeBonus = state.flags.luckyBuffActive
+    ? player.doubleLuck?.evade ?? 0
+    : 0;
+  const universalLuckEvadeBonus = player.universalLuckBonusPct ?? 0;
+  const chillSlowPct =
+    state.enemy.skill?.kind === "chill"
+      ? state.stacks.chillStacks *
+        (state.enemy.skill.evasionPenaltyPerStack ?? 0)
+      : 0;
+  const accDown =
+    state.stacks.enemyAccuracyDownTurns > 0
+      ? state.stacks.enemyAccuracyDownPct
+      : 0;
+  const enemyAccuracy = Math.max(
+    0,
+    (state.enemy.accuracy ?? 0) * (1 - Math.min(100, accDown) / 100),
+  );
+  const temporaryEvasionIncreasePct =
+    luckEvadeBonus +
+    universalLuckEvadeBonus +
+    state.buffs.cyclingChiBonus +
+    (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0);
+  const evaRatingTotal = Math.max(
+    0,
+    (player.evaRating ?? player.evasionPct) *
+      (1 + Math.max(0, temporaryEvasionIncreasePct) / 100) *
+      (1 - Math.min(100, Math.max(0, chillSlowPct)) / 100),
+  );
+  return pveEvasionDamageReductionPct(evaRatingTotal, enemyAccuracy);
+}
 
 // 적 페이즈 전체 — advanceTurn 에서 플레이어 페이즈(평타·스킬)와 분량을 가르기 위해 분리한다.
 // 한기 틱 → 잔상(AP 블록) → 회피 캐스케이드(그림자보법·보장회피·%회피·별빛가드·흘려막기·
@@ -446,48 +482,9 @@ export function resolveEnemyPhase(
     if (counter.ended) return counter.state;
     return finishEnemyAttack(counter.state);
   }
-  // 이중 행운 — 활성 시 회피도 +bonus%.
-  const luckEvadeBonus = state.flags.luckyBuffActive
-    ? player.doubleLuck?.evade ?? 0
-    : 0;
-  // 만물 행운 (6티어) — 회피도에도 +N%.
-  const universalLuckEvadeBonus = player.universalLuckBonusPct ?? 0;
-  // 회전 운기 (2티어 특기) — 누적 보너스를 회피도 증가율에 적용.
-  // 보장 회피(소모형 적립)는 위쪽 분기에서 별도 처리한다.
-  // 한기 슬로우 — chill 스택당 회피도를 일정 비율 낮춘다.
-  const chillSlowPct =
-    state.enemy.skill?.kind === "chill"
-      ? state.stacks.chillStacks *
-        (state.enemy.skill.evasionPenaltyPerStack ?? 0)
-      : 0;
-  // 암흑(원소술사 어둠) — 적 적중도를 일정 비율 낮춘다.
-  const accDown =
-    state.stacks.enemyAccuracyDownTurns > 0
-      ? state.stacks.enemyAccuracyDownPct
-      : 0;
-  // 몬스터 기본 적중도에 디버프를 곱한다. 100%를 넘는 감소도 0 아래로 내려가지 않는다.
-  const enemyAccuracy = Math.max(
-    0,
-    (state.enemy.accuracy ?? 0) * (1 - Math.min(100, accDown) / 100),
-  );
-  const temporaryEvasionIncreasePct =
-    luckEvadeBonus +
-    universalLuckEvadeBonus +
-    state.buffs.cyclingChiBonus +
-    (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0);
-  // 스탯·경갑·옵션으로 만든 기본 회피도에 전투 중 증가율과 감소율을 차례로 곱한다.
-  const evaRatingTotal = Math.max(
-    0,
-    (player.evaRating ?? player.evasionPct) *
-      (1 + Math.max(0, temporaryEvasionIncreasePct) / 100) *
-      (1 - Math.min(100, Math.max(0, chillSlowPct)) / 100),
-  );
   // 일반 회피도는 완전 회피 굴림을 만들지 않고 직접 피해 경감률로 작동한다.
   // 보장 회피·그림자 보법 등 명시적 완전 회피는 위쪽 분기에서 별도로 처리한다.
-  const evasionReductionPct = pveEvasionDamageReductionPct(
-    evaRatingTotal,
-    enemyAccuracy,
-  );
+  const evasionReductionPct = pvePlayerEvasionReductionPct(state, player);
   // 별빛 가드(enchant guard) — 회피/럭키 방패 전에 굴리는 % 블록. 슬롯당 5~20% 누적.
   // 회피와 별개 라벨 — 회피는 비켜서고, 가드는 받아낸 다음 흩어 낸다.
   const enchantGuardPct = player.enchantGuardBlockPct ?? 0;
@@ -796,16 +793,55 @@ export function resolveEnemyPhase(
     bloodfeastPct > 0 && dmgToHp > 0 && playerHpAfterDmg > 0
       ? Math.floor((dmgToHp * bloodfeastPct) / 100)
       : 0;
-  const playerHp =
+  const playerHpAfterBloodfeast =
     bloodfeastHeal > 0
       ? Math.min(state.playerMaxHp, playerHpAfterDmg + bloodfeastHeal)
       : playerHpAfterDmg;
-  const bloodfeastActualHeal = playerHp - playerHpAfterDmg;
+  const bloodfeastActualHeal = playerHpAfterBloodfeast - playerHpAfterDmg;
   const sigHealShield = healToShield(
     player.equipSignatures,
     bloodfeastActualHeal,
   );
-  const nextPlayerShield = newShield + (sigHealShield?.amount ?? 0);
+  const evasionReaction =
+    playerHpAfterBloodfeast > 0
+      ? rollEvasionReaction(
+          player.equipSignatures,
+          state.playerMaxHp,
+          evasionReductionPct,
+          rawDmgBeforeEvasion,
+          rawDmgBeforeReduction,
+        )
+      : null;
+  const playerHp = evasionReaction?.heal
+    ? Math.min(
+        state.playerMaxHp,
+        playerHpAfterBloodfeast + evasionReaction.heal.amount,
+      )
+    : playerHpAfterBloodfeast;
+  const evasionReactionActualHeal = playerHp - playerHpAfterBloodfeast;
+  const evasionReactionHealShield = healToShield(
+    player.equipSignatures,
+    evasionReactionActualHeal,
+  );
+  const nextPlayerShield =
+    newShield +
+    (sigHealShield?.amount ?? 0) +
+    (evasionReactionHealShield?.amount ?? 0);
+  const evasionReactionActiveSpeedMult =
+    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
+  const evasionReactionBuffs = evasionReaction?.speed
+    ? {
+        ...state.buffs,
+        playerSpdMult: Math.max(
+          evasionReactionActiveSpeedMult,
+          evasionReaction.speed.mult,
+        ),
+        playerSpdTurnsLeft: Math.max(
+          state.buffs.playerSpdTurnsLeft,
+          evasionReaction.speed.turns,
+        ),
+      }
+    : state.buffs;
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
   const statusBlockUsed =
     state.flags.statusBlockUsed || statusBlockChill || statusBlockCurse;
@@ -910,6 +946,24 @@ export function resolveEnemyPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[${sigHealShield.label}] 보호막 +${sigHealShield.amount}`,
+    });
+  }
+  if (evasionReaction?.heal && evasionReactionActualHeal > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${evasionReaction.heal.label}] ${playerName}의 HP +${evasionReactionActualHeal}`,
+    });
+  }
+  if (evasionReactionHealShield) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${evasionReactionHealShield.label}] 보호막 +${evasionReactionHealShield.amount}`,
+    });
+  }
+  if (evasionReaction?.speed) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${evasionReaction.speed.label}] ${playerName}의 속도 +${Math.round((evasionReaction.speed.mult - 1) * 100)}% (${evasionReaction.speed.turns}행동)`,
     });
   }
   if (sigDefGain && braceDefDelta > 0) {
@@ -1045,7 +1099,7 @@ export function resolveEnemyPhase(
         statusBlockUsed,
       },
       buffs: {
-        ...state.buffs,
+        ...evasionReactionBuffs,
         enemyAtkBonus,
       },
       stacks: {
@@ -1082,7 +1136,7 @@ export function resolveEnemyPhase(
         statusBlockUsed,
       },
       buffs: {
-        ...state.buffs,
+        ...evasionReactionBuffs,
         enemyAtkBonus,
       },
       stacks: {
@@ -1117,7 +1171,7 @@ export function resolveEnemyPhase(
       statusBlockUsed,
     },
     buffs: {
-      ...state.buffs,
+      ...evasionReactionBuffs,
       enemyAtkBonus,
     },
     stacks: {

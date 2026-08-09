@@ -213,14 +213,12 @@ function stackedSurvivalIncreasePct(
   rawPct: number,
   softCapPct: number,
   overflowRetention: number,
-  hardCapPct: number,
+  hardCapPct: number | null,
 ): number {
   const raw = Math.max(0, rawPct);
   if (raw <= softCapPct) return raw;
-  return Math.min(
-    hardCapPct,
-    softCapPct + (raw - softCapPct) * overflowRetention,
-  );
+  const softened = softCapPct + (raw - softCapPct) * overflowRetention;
+  return hardCapPct === null ? softened : Math.min(hardCapPct, softened);
 }
 
 export function stackedVitalityIncreasePct(rawPct: number): number {
@@ -228,7 +226,7 @@ export function stackedVitalityIncreasePct(rawPct: number): number {
 }
 
 export function stackedMaxHpIncreasePct(rawPct: number): number {
-  return stackedSurvivalIncreasePct(rawPct, 30, 0.35, 50);
+  return stackedSurvivalIncreasePct(rawPct, 30, 0.35, null);
 }
 
 export function stackedDefenseIncreasePct(rawPct: number): number {

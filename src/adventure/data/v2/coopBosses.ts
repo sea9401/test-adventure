@@ -423,7 +423,8 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
   tags: ["humanoid"],
   image: "/images/monster/v2/sangoon.webp",
   hp: 620,
-  atk: 33,
+  // 새 DEF 점감식에서 깊이 12 대표 표본의 20행동 생존율이 약 98%가 되도록 재보정.
+  atk: 28,
   def: 18,
   magicDef: 20,
   // spd ↑(2026-06-26) — 협동 보스는 effectiveMonsterSpd(10+raw×6)로 매핑돼 필드 1~9 밴드에선
@@ -452,11 +453,14 @@ const MOUNTAIN_CHIEF_HARD_BASE: Monster = {
   ...MOUNTAIN_CHIEF_BASE,
   name: "흉포한 산군",
   hp: 860,
-  atk: 40,
+  // 깊이 68의 soften 없는 공격 배율(×109.84)을 직접 상쇄하고,
+  // 회피 반응 경감이 있어도 VIT·LUK 대응축과 35~70% 중앙 생존율을 지킨다.
+  atk: 5.42,
   def: 28,
   magicDef: 36,
   spd: 16,
-  accuracy: 8,
+  // floorAccuracy(+164.76) 적용 뒤 실전 명중 104.76. LUK 회피 투자를 대응축으로 남긴다.
+  accuracy: -60,
   evasionPct: 12,
   armorVulnerable: 0.35,
   playerDefVulnerable: 0.35,
@@ -470,11 +474,14 @@ const ABYSSAL_TYRANT_BASE: Monster = {
   image: "/images/monster/deepseamonster.webp",
   element: "water",
   hp: 840,
-  atk: 40,
+  // 깊이 60의 급격한 배율(×82.86)을 상쇄하고 마방·정신 계보를 보상한다.
+  // 회피 반응 경감 통합 후에는 정확도를 함께 올려 SPI 생존율을 지키면서 중앙 잔여 HP를 5% 아래로 맞춘다.
+  atk: 11.66,
+  atkType: "magic",
   def: 16,
   magicDef: 32,
   spd: 17,
-  accuracy: 8,
+  accuracy: 10,
   evasionPct: 8,
   exp: 120,
   skill: {
@@ -496,7 +503,8 @@ const CANYON_PREDATOR_BASE: Monster = {
   image: "/images/monster/v2/scorpionking.webp",
   element: "earth",
   hp: 600,
-  atk: 37,
+  // 회피 반응 경감 후에도 일반 보스 난도 사다리와 3~8% 기여율을 만족한다.
+  atk: 27,
   def: 13,
   spd: 15, // ↑ 레이드 보스 속도(유효 ~101) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 95,
@@ -516,7 +524,7 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   image: "/images/monster/v2/nessi.webp",
   element: "water",
   hp: 680,
-  atk: 36,
+  atk: 4,
   def: 16,
   spd: 12, // ↑ 레이드 보스 속도(유효 ~83·느린 골렘이라 셋 중 최저) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 100,
@@ -528,7 +536,8 @@ const LAKE_SOVEREIGN_BASE: Monster = {
     name: "얼어붙는 손길",
     perHit: 2,
     threshold: 2,
-    dmgPerStack: 35,
+    // ATK 최저 보정만으로는 20행동 누적 고정 피해가 HP를 넘어서므로 구조는 유지하고 피해만 완화.
+    dmgPerStack: 17,
     maxStacks: 10,
     defMitigationFraction: 0.25,
     evasionPenaltyPerStack: 1.5,
@@ -549,7 +558,8 @@ const VOID_PRIEST_BASE: Monster = {
   element: "void",
   atkType: "magic",
   hp: 760,
-  atk: 42,
+  // 새 회피 반응 경감을 반영해 호수 보스보다 낮은 20턴 중앙 생존율을 유지한다.
+  atk: 5.5,
   def: 18,
   spd: 14,
   critPct: 18,
@@ -581,7 +591,7 @@ const VOID_PRIEST_BASE: Monster = {
 // === 소환 유지시간 — 공유 HP 비례 ====================================
 // HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
 // 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
-// 현재 사다리: 30k→6h · 80k→16h · 200k→24h(캡) · 420k→24h(캡).
+// 현재 사다리: 30k→6h · 80k→16h · 270k 이상→24h(캡).
 export const COOP_DURATION_HP_PER_HOUR = 5_000;
 export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
 export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
@@ -686,7 +696,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "호수의 괴물",
     desc: "얼음 호수 가장 깊은 곳에서 깨어난 거대한 존재. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
-    sharedMaxHp: 200_000,
+    sharedMaxHp: 270_000,
     anchorDepth: 42,
     base: LAKE_SOVEREIGN_BASE,
     uniqueIds: ["v2_boss_lake_maul", "v2_boss_lake_gloves"],
@@ -724,7 +734,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "공허의 대사제",
     desc: "검은 왕도의 봉인 아래 남은 대사제. 맞설수록 저주가 깊어지고, 남은 저주는 다음 일격을 더 무겁게 만든다.",
     scrollCost: 30,
-    sharedMaxHp: 420_000,
+    sharedMaxHp: 630_000,
     anchorDepth: 60,
     base: VOID_PRIEST_BASE,
     uniqueIds: ["v2_boss_void_bastion", "v2_boss_void_reliquary"],
@@ -761,7 +771,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "흉포한 산군",
     desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
     scrollCost: 30,
-    sharedMaxHp: 600_000,
+    sharedMaxHp: 1_200_000,
     anchorDepth: 68,
     base: MOUNTAIN_CHIEF_HARD_BASE,
     uniqueIds: [],
@@ -791,7 +801,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "심연어룡",
     desc: "낚싯줄 아래 어둠을 찢고 올라오는 거대한 어룡. 거품과 해류를 몰아치며 전장을 휘젓는다.",
     scrollCost: 30,
-    sharedMaxHp: 600_000,
+    sharedMaxHp: 1_400_000,
     anchorDepth: 60,
     base: ABYSSAL_TYRANT_BASE,
     uniqueIds: [],

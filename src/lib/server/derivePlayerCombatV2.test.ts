@@ -966,7 +966,7 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     expect(unequipped.player.magicBarrierMax).toBeUndefined();
   });
 
-  it("맹독 네 단계와 만독지배를 장착하면 중독 피해 증폭 122%를 전투 캐릭터에 전달한다", () => {
+  it("맹독 네 단계와 만독지배를 장착하면 중독 피해 증폭 122.4%를 전투 캐릭터에 전달한다", () => {
     const poisonSkills = [
       "v2c_venomist_virulence",
       "v2c_venomancer_virulence2",
@@ -981,7 +981,7 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
       skillsRaw: { learned: poisonSkills, equipped: poisonSkills },
     })!;
 
-    expect(derived.player.poisonDamagePct).toBe(122);
+    expect(derived.player.poisonDamagePct).toBeCloseTo(122.4);
   });
 });
 

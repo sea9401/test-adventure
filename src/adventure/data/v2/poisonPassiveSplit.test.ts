@@ -10,10 +10,10 @@ import {
 import { skillsForJob } from "./v2SkillsByJob";
 
 const VIRULENCE = [
-  ["venomist", "v2c_venomist_virulence", "맹독 I", 24.4, 4],
-  ["venomancer", "v2c_venomancer_virulence2", "맹독 II", 24.4, 4],
-  ["venomlord", "v2c_venomlord_virulence3", "맹독 III", 24.4, 4],
-  ["plaguebringer", "v2c_plaguebringer_virulence4", "맹독 IV", 24.4, 6],
+  ["venomist", "v2c_venomist_virulence", "맹독 I", 12, 4],
+  ["venomancer", "v2c_venomancer_virulence2", "맹독 II", 18, 4],
+  ["venomlord", "v2c_venomlord_virulence3", "맹독 III", 26, 4],
+  ["plaguebringer", "v2c_plaguebringer_virulence4", "맹독 IV", 42, 6],
 ] as const;
 
 const CORROSION = [
@@ -25,7 +25,7 @@ const CORROSION = [
 ] as const;
 
 describe("독술 계보 맹독·부식 분리", () => {
-  it("하위 네 직업은 기존 부식과 별개인 맹독 패시브를 마지막 학습 선택지로 제공한다", () => {
+  it("맹독은 차수와 SP 비용이 오를수록 중독 피해 증가량도 커진다", () => {
     for (const [jobId, skillId, name, poisonDamagePct, spCost] of VIRULENCE) {
       const skill = V2_SKILLS[skillId as V2SkillId];
 
@@ -39,13 +39,13 @@ describe("독술 계보 맹독·부식 분리", () => {
     }
   });
 
-  it("맹독 네 단계와 만독지배를 모두 장착하면 중독 피해가 총 122% 증가한다", () => {
+  it("맹독 네 단계와 만독지배를 모두 장착하면 기존 총량과 비슷한 122.4%가 된다", () => {
     const ids = [
       ...VIRULENCE.map(([, id]) => id),
       "v2c_myriadvenom_body",
     ] as V2SkillId[];
 
-    expect(aggregateEquippedPassives(ids).poisonDamagePct).toBe(122);
+    expect(aggregateEquippedPassives(ids).poisonDamagePct).toBeCloseTo(122.4);
   });
 
   it("부식 다섯 단계는 약 39.8%를 곱연산하고 기존 SP 비용을 유지한다", () => {

@@ -14,7 +14,7 @@ import {
 import {
   V2_SKILLS,
   describeV2Skill,
-  smartDefaultPatternFromEquipped,
+  effectiveCombatPatternFromEquipped,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
@@ -678,12 +678,13 @@ export function V2CombatPatternView({
         setEquipped(eq);
         setPresets(j?.skills?.presets ?? []);
         const saved = j?.skills?.pattern?.blocks;
-        if (saved && saved.length > 0) {
-          setBlocks(saved);
-        } else {
-          // 기본 — 학습한 스킬 종류별 스마트 조건(엔진과 동일 소스). 유틸은 매 턴 스팸 안 함.
-          setBlocks(smartDefaultPatternFromEquipped(eq).blocks);
-        }
+        // 저장 패턴은 보존하되 그림자 도약 같은 필수 오프너는 엔진과 같은 규칙으로 첫 블록에 보완한다.
+        setBlocks(
+          effectiveCombatPatternFromEquipped(
+            eq,
+            saved ? { blocks: saved } : null,
+          ).blocks,
+        );
       } catch {}
       setLoading(false);
     })();

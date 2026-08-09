@@ -9,6 +9,7 @@
 import { computeHealAmount, type Potion } from "@/adventure/data/potions";
 import type { APSkillEffect } from "@/adventure/character/apSkills";
 import {
+  effectiveCombatPatternFromEquipped,
   isLimitedRecoverySkillId,
   V2_SKILLS,
   v2SkillMpCostValue,
@@ -807,6 +808,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const ticked = tickV2SkillCooldowns(input.cooldowns);
   // 2) 발동 후보 선택 — 전투 패턴(갬빗)이 주어지면 우선순위 평가, 아니면 옛 슬롯순서+proc.
   const viaPattern = input.combatPattern != null;
+  const effectivePattern = viaPattern
+    ? effectiveCombatPatternFromEquipped(
+        input.skills.equipped,
+        input.combatPattern,
+      )
+    : undefined;
   // 패턴 경로도 "장착 스킬만 발동"(옛 pickAutoCastV2Skill 의 equipped 풀 의미 유지) — 커스텀 패턴이
   //   미장착/미학습 스킬 id 를 참조해도 발동 안 함. + 효과 있음·쿨다운·MP 게이트.
   const equippedSet = new Set<string>(input.skills.equipped);
@@ -847,7 +854,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   };
   const candidateIds: V2SkillId[] = viaPattern
     ? (evaluateCombatPatternCandidates(
-        input.combatPattern!,
+        effectivePattern!,
         buildPatternCtx(input),
         isUsable,
         resolveRole,

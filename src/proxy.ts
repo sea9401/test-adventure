@@ -39,7 +39,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>8월 9일 서버 점검 안내 — 무슨무슨게임</title>
+<title>잠시 점검 중입니다 — 무슨무슨게임</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -48,10 +48,6 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
   .status::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 .2rem rgba(245,158,11,.14)}
   h1{font-size:clamp(1.6rem,6vw,2rem);font-weight:800;letter-spacing:-.035em;margin:0}
   .lead{margin:1rem 0 0;color:#d4d4d8;font-size:1rem;font-weight:600;line-height:1.7}
-  .schedule{margin:1.5rem 0 0;padding:1rem;background:#27272a;border:1px solid #3f3f46;border-radius:.75rem}
-  .schedule-label{margin:0 0 .55rem;color:#fbbf24;font-size:.75rem;font-weight:800;letter-spacing:.06em}
-  .schedule-time{display:block;color:#fafafa;font-size:1rem;font-weight:800;line-height:1.6}
-  .duration{display:block;margin-top:.2rem;color:#d4d4d8;font-size:.825rem;font-weight:600}
   .divider{width:3rem;height:1px;margin:1.5rem auto;background:#3f3f46}
   .note{margin:0;color:#a1a1aa;font-size:.875rem;line-height:1.75}
   @media (max-width:30rem){main{padding:1rem}.box{padding:2.25rem 1.35rem;border-radius:.875rem}}
@@ -60,22 +56,13 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <body>
 <main>
   <div class="box" role="status" aria-live="polite">
-    <div class="status">서버 점검 · 오전 4시~5시</div>
-    <h1>서버 점검 중입니다</h1>
-    <p class="lead">안정적인 서비스 제공을 위해<br />서버 점검을 진행하고 있습니다.</p>
-    <div class="schedule" aria-label="점검 일정">
-      <p class="schedule-label">점검 일정</p>
-      <span class="schedule-time">
-        <time datetime="2026-08-09T04:00:00+09:00">8월 9일(일) 오전 4시</time>
-        ~
-        <time datetime="2026-08-09T05:00:00+09:00">오전 5시</time>
-      </span>
-      <span class="duration">예상 소요 시간 · 약 1시간</span>
-    </div>
+    <div class="status">서비스 점검</div>
+    <h1>잠시 점검 중입니다</h1>
+    <p class="lead">더 나은 서비스 제공을 위해<br />잠시 점검하고 있습니다.</p>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
-      점검 중에는 게임 이용이 일시적으로 제한됩니다.<br />
-      안정적으로 서비스를 재개할 수 있도록 최선을 다하겠습니다.
+      점검이 끝나는 대로 다시 이용하실 수 있습니다.<br />
+      잠시만 기다려 주세요.
     </p>
   </div>
 </main>

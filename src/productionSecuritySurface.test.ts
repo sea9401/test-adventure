@@ -115,10 +115,12 @@ describe("production security surface", () => {
       expect(proxy).toContain(path);
     }
     for (const maintenance of [proxy, maintenancePage]) {
-      expect(maintenance).toContain('datetime="2026-08-09T04:00:00+09:00"');
-      expect(maintenance).toContain('datetime="2026-08-09T05:00:00+09:00"');
-      expect(maintenance).toContain("서버 점검 · 오전 4시~5시");
-      expect(maintenance).toContain("안정적인 서비스 제공을 위해");
+      expect(maintenance).toContain("잠시 점검 중입니다");
+      expect(maintenance).toContain("서비스 점검");
+      expect(maintenance).toContain("잠시만 기다려 주세요");
+      expect(maintenance).not.toContain("점검 일정");
+      expect(maintenance).not.toContain("예상 소요 시간");
+      expect(maintenance).not.toContain("2026-08-09");
     }
   });
 

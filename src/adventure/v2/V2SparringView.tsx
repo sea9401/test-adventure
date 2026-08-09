@@ -202,6 +202,7 @@ export function V2SparringView({
           {fullLogOpen && (
             <SparringFullLogDialog
               entries={lastResult.replay.log}
+              playerName={playerName}
               enemyName={lastResult.enemyName}
               onClose={() => setFullLogOpen(false)}
             />

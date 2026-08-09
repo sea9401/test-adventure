@@ -136,6 +136,7 @@ export default function SparringFullLogPreviewPage() {
       {open && (
         <SparringFullLogDialog
           entries={SAMPLE_LOG}
+          playerName="테스터"
           enemyName="훈련용 허수아비"
           onClose={() => setOpen(false)}
         />

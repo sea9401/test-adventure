@@ -45,6 +45,19 @@ import {
   rollHiddenBlueprint,
   type LifeFinishedItemId,
 } from "@/adventure/v2/lifeCrafting";
+import {
+  FARM_CROP_REQUIRED_SKILL_ID,
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
+  emptyV2SkillsState,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import { RANCH_FEED_RECIPE } from "@/adventure/v2/ranch";
+
+const CRAFTING_BATCH_LIMITS = [1, 5, 15, 40, 100, 100] as const;
 
 type CharacterSave = {
   gold?: unknown;
@@ -74,9 +87,22 @@ function workshopPayload(args: {
   charSave: CharacterSave;
   woodcuttingRaw: unknown;
   miningRaw: unknown;
+  farmRaw?: unknown;
+  skillsRaw?: unknown;
 }) {
   const levels = lifeLevels(args.woodcuttingRaw, args.miningRaw);
   const materials = materialBalances(args.charSave.materials);
+  const farm = parseFarmState(args.farmRaw ?? emptyFarmState());
+  const skills = parseV2SkillsState(args.skillsRaw ?? emptyV2SkillsState());
+  const ranchCraftCount =
+    args.state.crafting.craftCounts[RANCH_FEED_RECIPE.id] ?? 0;
+  const ranchMasteryStage = recipeMasteryStage(ranchCraftCount);
+  const ranchBatchLimit = CRAFTING_BATCH_LIMITS[ranchMasteryStage];
+  const ranchMaxByMaterials = Math.min(
+    ...Object.entries(RANCH_FEED_RECIPE.costs).map(([id, amount]) =>
+      Math.floor((farm.inventory[id as keyof typeof farm.inventory] ?? 0) / amount),
+    ),
+  );
   return {
     state: args.state,
     levels,
@@ -116,21 +142,42 @@ function workshopPayload(args: {
       const maxByMaterials = Math.min(...Object.entries(recipe.costs).map(([id, amount]) => Math.floor((materials[id] ?? 0) / amount)));
       return { ...recipe, learned, craftCount, masteryStage: stage, batchLimit, maxCraftable: learned && level >= recipe.requiredLevel ? Math.max(0, Math.min(batchLimit, maxByMaterials)) : 0 };
     }),
+    ranchCraftingRecipe: {
+      ...RANCH_FEED_RECIPE,
+      unlocked: skills.learned.includes(FARM_CROP_REQUIRED_SKILL_ID),
+      craftCount: ranchCraftCount,
+      masteryStage: ranchMasteryStage,
+      batchLimit: ranchBatchLimit,
+      maxCraftable: skills.learned.includes(FARM_CROP_REQUIRED_SKILL_ID)
+        ? Math.max(0, Math.min(ranchBatchLimit, ranchMaxByMaterials))
+        : 0,
+      ownedFeed: farm.inventory.compound_feed ?? 0,
+      ingredientBalances: Object.fromEntries(
+        Object.keys(RANCH_FEED_RECIPE.costs).map((id) => [
+          id,
+          farm.inventory[id as keyof typeof farm.inventory] ?? 0,
+        ]),
+      ),
+    },
   };
 }
 
 async function readWorkshopSnapshot(userId: string) {
-  const [charSave, workshopRaw, woodcuttingRaw, miningRaw] = await Promise.all([
+  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw] = await Promise.all([
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
     readSave(db, userId, MINING_LOG_KEY, {}),
+    readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
   ]);
   return {
     charSave,
     state: parseLifeWorkshopState(workshopRaw),
     woodcuttingRaw,
     miningRaw,
+    farmRaw,
+    skillsRaw,
   };
 }
 
@@ -404,9 +451,13 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, ...result }, { status });
   }
   if ("blueprintRecipeId" in result.result && result.result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.result.blueprintRecipeId });
+  const [farmRaw, skillsRaw] = await Promise.all([
+    readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
+  ]);
   return Response.json({
     ok: true,
     result: result.result,
-    ...workshopPayload(result.snapshot),
+    ...workshopPayload({ ...result.snapshot, farmRaw, skillsRaw }),
   });
 }

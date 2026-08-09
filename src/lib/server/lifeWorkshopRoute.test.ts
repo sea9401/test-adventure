@@ -45,6 +45,11 @@ import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
 import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
+import {
+  FARM_CROP_REQUIRED_SKILL_ID,
+  FARM_SAVE_KEY,
+  emptyFarmState,
+} from "@/adventure/v2/farm";
 
 function request(body: unknown) {
   return new Request("http://test.local/api/v2/life-workshop", {
@@ -206,6 +211,33 @@ describe("life workshop route", () => {
     });
     expect(json.craftingRecipes.every((recipe: { kind: string }) => recipe.kind === "aid")).toBe(true);
     expect(json.craftingRecipes.some((recipe: { id: string }) => recipe.id === "fishing_trophy_wall")).toBe(false);
+  });
+
+  it("GET은 농장 재료와 제작 숙련도로 배합 사료 제작 가능량을 계산한다", async () => {
+    store.set(FARM_SAVE_KEY, {
+      ...emptyFarmState(1_000),
+      inventory: { wheat: 8, corn: 6, herb: 2, compound_feed: 7 },
+    });
+    store.set("skills.v2", { learned: [FARM_CROP_REQUIRED_SKILL_ID] });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { compound_feed: 1 } },
+    });
+
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.ranchCraftingRecipe).toMatchObject({
+      id: "compound_feed",
+      outputAmount: 5,
+      unlocked: true,
+      craftCount: 1,
+      masteryStage: 1,
+      batchLimit: 5,
+      maxCraftable: 2,
+      ownedFeed: 7,
+      ingredientBalances: { wheat: 8, corn: 6, herb: 2 },
+    });
   });
 
   it("비공개 숙소 가구는 직접 제작 요청도 거절한다", async () => {

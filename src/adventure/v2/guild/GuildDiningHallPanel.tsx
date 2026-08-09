@@ -23,10 +23,6 @@ import {
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
 import {
-  guildDiningMenuLockNotice,
-  toggleGuildDiningMenuSelection,
-} from "./guildDiningMenuSelection";
-import {
   guildDiningMenuUnavailableReason,
   guildDiningUnavailableReasons,
   type DiningFacilitySource,
@@ -38,7 +34,6 @@ type DiningState = {
   level: number;
   stageLabel: string;
   weekKey: string;
-  canManage: boolean;
   eligible: boolean;
   weeklySource?: DiningFacilitySource | null;
   pantry: { points: number; target: number; remaining: number; ready: boolean };
@@ -51,9 +46,8 @@ type DiningState = {
     contributionCap: number;
   };
   contributionPoints: number;
-  menuSlots: number;
   ingredients: Array<GuildDiningIngredient & { owned: number }>;
-  menus: Array<GuildDiningMenu & { unlocked: boolean; selected: boolean }>;
+  menus: Array<GuildDiningMenu & { unlocked: boolean }>;
   activeEffect: {
     menuId: GuildDiningMenuId;
     name: string;
@@ -95,7 +89,6 @@ export function GuildDiningHallPanel({
   const [busy, setBusy] = useState(false);
   const [ingredientId, setIngredientId] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [selectedMenuIds, setSelectedMenuIds] = useState<GuildDiningMenuId[]>([]);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(
     null,
@@ -104,7 +97,6 @@ export function GuildDiningHallPanel({
   const applyState = useCallback(
     (next: DiningState) => {
       setState(next);
-      setSelectedMenuIds(next.menus.filter((menu) => menu.selected).map((menu) => menu.id));
       setIngredientId((current) =>
         next.ingredients.some((item) => item.id === current)
           ? current
@@ -222,8 +214,6 @@ export function GuildDiningHallPanel({
     );
   }
 
-  const menuEditable = state.canManage && state.pantry.points === 0;
-  const selectedMenuCount = state.menus.filter((menu) => menu.selected).length;
   const sourceConflict =
     state.weeklySource != null && state.weeklySource !== source;
   const canParticipate = state.eligible && !sourceConflict;
@@ -233,13 +223,6 @@ export function GuildDiningHallPanel({
     currentSource: source,
     pantry: state.pantry,
     availableTickets: state.tickets.available,
-    selectedMenuCount,
-  });
-  const menuLockNotice = guildDiningMenuLockNotice({
-    pantryPoints: state.pantry.points,
-    level: state.level,
-    menuSlots: state.menuSlots,
-    selectedCount: selectedMenuCount,
   });
   const activeEffect =
     state.activeEffect && state.activeEffect.expiresAt > clockNow
@@ -256,11 +239,13 @@ export function GuildDiningHallPanel({
               <h3 className="text-base font-bold">{title} Lv.{state.level}</h3>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              {state.stageLabel} · 식재료를 함께 준비하고 주간 식권으로 식사합니다.
+              {state.stageLabel} · 공동 목표를 달성하면 각자 원하는 메뉴를 고를 수 있습니다.
             </p>
           </div>
           <div className="rounded-md bg-white px-3 py-2 text-right shadow-sm dark:bg-zinc-900">
-            <div className="text-[11px] text-zinc-500">내 식권</div>
+            <div className="text-[11px] text-zinc-500">
+              {state.pantry.ready ? "내 식권" : "목표 달성 시 식권"}
+            </div>
             <div className="text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
               {state.tickets.available} / {state.tickets.earned}장
             </div>
@@ -282,7 +267,7 @@ export function GuildDiningHallPanel({
           />
         </div>
         <p className="mt-2 text-xs text-zinc-500">
-          모든 주간 참여 길드원 기본 {state.tickets.base}장 · 내 기여 {state.contributionPoints}/
+          목표 달성 후 주간 참여자 기본 {state.tickets.base}장 사용 가능 · 내 기여 {state.contributionPoints}/
           {state.tickets.contributionCap}점 · {GUILD_DINING_POINTS_PER_TICKET}점마다 추가 식권 1장
         </p>
       </section>
@@ -400,35 +385,14 @@ export function GuildDiningHallPanel({
       <section className={`${SURFACE_INSET} space-y-2 p-3`}>
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h4 className="text-sm font-bold">이번 주 메뉴</h4>
+            <h4 className="text-sm font-bold">시설 메뉴</h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              식당 Lv.{state.level} · 동시에 {state.menuSlots}종 운영
+              식당 Lv.{state.level} · 해금된 메뉴 중 원하는 메뉴를 직접 선택
             </p>
           </div>
-          {menuEditable && (
-            <button
-              type="button"
-              disabled={busy || selectedMenuIds.length < 1}
-              onClick={() =>
-                void submit(
-                  { action: "select_menus", menuIds: selectedMenuIds },
-                  () => "이번 주 메뉴를 확정했습니다.",
-                )
-              }
-              className="rounded-md border border-amber-600 px-3 py-1 text-xs font-bold text-amber-700 disabled:opacity-50 dark:text-amber-300"
-            >
-              메뉴 확정
-            </button>
-          )}
         </div>
-        {menuLockNotice && (
-          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            {menuLockNotice}
-          </p>
-        )}
         <div className="grid gap-2 md:grid-cols-2">
           {state.menus.map((menu) => {
-            const checked = selectedMenuIds.includes(menu.id);
             const menuUnavailableReason = guildDiningMenuUnavailableReason({
               isRecoveryMenu: menu.effect.kind === "recovery",
               charges: state.charges,
@@ -437,9 +401,7 @@ export function GuildDiningHallPanel({
               unavailableReasons[0] ?? menuUnavailableReason;
             const menuSurface = !menu.unlocked
               ? SURFACE_INSET
-              : checked
-                ? SURFACE_ACCENT
-                : SURFACE_CARD;
+              : SURFACE_CARD;
             return (
               <article
                 key={menu.id}
@@ -448,23 +410,6 @@ export function GuildDiningHallPanel({
                 }`}
               >
                 <div className="flex items-start gap-2">
-                  {menuEditable && menu.unlocked && (
-                    <input
-                      type={state.menuSlots === 1 ? "radio" : "checkbox"}
-                      name={state.menuSlots === 1 ? "guild-dining-weekly-menu" : undefined}
-                      checked={checked}
-                      onChange={() => {
-                        setSelectedMenuIds((current) =>
-                          toggleGuildDiningMenuSelection(
-                            current,
-                            menu.id,
-                            state.menuSlots,
-                          ),
-                        );
-                      }}
-                      aria-label={`${menu.name} 선택`}
-                    />
-                  )}
                   <Image
                     src={menu.imageSrc}
                     alt=""
@@ -480,7 +425,7 @@ export function GuildDiningHallPanel({
                 </div>
                 {!menu.unlocked ? (
                   <p className="mt-3 text-center text-xs font-semibold">식당 Lv.{menu.minFacilityLevel} 필요</p>
-                ) : menu.selected ? (
+                ) : (
                   <>
                     <button
                       type="button"
@@ -511,8 +456,6 @@ export function GuildDiningHallPanel({
                       </p>
                     )}
                   </>
-                ) : (
-                  <p className="mt-3 text-center text-xs text-zinc-500">이번 주 선택되지 않은 메뉴</p>
                 )}
               </article>
             );
@@ -528,7 +471,7 @@ export function GuildDiningHallPanel({
         </p>
       )}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 {GUILD_DINING_EFFECT_DURATION_HOURS}시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 식재료·식권·메뉴·효과는 매주 월요일 00:00 KST에 초기화됩니다.
+        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 {GUILD_DINING_EFFECT_DURATION_HOURS}시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 공동 준비·개인 기여·식권·효과는 매주 월요일 00:00 KST에 초기화됩니다.
       </p>
     </section>
   );
@@ -549,16 +492,10 @@ function diningErrorText(error?: string): string {
       return "소속 길드가 없습니다.";
     case "dining_hall_required":
       return "길드 식당을 먼저 개방해야 합니다.";
-    case "not_authorized":
-      return "메뉴를 선택할 권한이 없습니다.";
     case "not_eligible":
       return "다음 주부터 식당을 이용할 수 있습니다.";
     case "weekly_source_conflict":
       return "이번 주 식당 보상처를 길드·협회 중 다른 쪽으로 선택했습니다.";
-    case "menu_locked":
-      return "식재료 기부가 시작되어 이번 주 메뉴를 바꿀 수 없습니다.";
-    case "invalid_menus":
-      return "선택 가능한 메뉴 수와 시설 레벨을 확인해주세요.";
     case "contribution_cap":
       return "개인 기여 한도 또는 공동 준비 목표를 넘습니다.";
     case "insufficient_ingredients":
@@ -568,7 +505,7 @@ function diningErrorText(error?: string): string {
     case "no_meal_ticket":
       return "사용 가능한 식권이 없습니다.";
     case "menu_unavailable":
-      return "이번 주에 주문할 수 없는 메뉴입니다.";
+      return "현재 시설 레벨에서 주문할 수 없는 메뉴입니다.";
     case "charge_capacity":
       return "HP·MP 충전량이 이미 가득 찼습니다.";
     default:

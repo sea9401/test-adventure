@@ -40,6 +40,51 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("회피 회복 장비는 PvP 스킬 행동 시작에도 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const recoveringCaster: PlayerCombat = {
+      ...caster,
+      hp: 200,
+      maxHp: 400,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [
+        {
+          trigger: "on_action_evasion",
+          label: "봉인",
+          lostHpHealPct: 4,
+        },
+      ],
+    };
+    const lowAccuracyTarget: PlayerCombat = {
+      ...target,
+      hp: 120,
+      maxHp: 120,
+      accRating: 0,
+      accuracyPct: 0,
+    };
+
+    const res = resolveBattlePvP(recoveringCaster, lowAccuracyTarget, "P1", "P2", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: { p1: { learned: [SKILL], equipped: [SKILL] } },
+    } as never);
+
+    expect(
+      res.finalState.log.some(
+        (entry) => entry.side === "p1" && entry.text.includes("[봉인]"),
+      ),
+    ).toBe(true);
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.side === "p1" &&
+          entry.kind === "player_attack" &&
+          entry.text.includes("공격!"),
+      ),
+    ).toBe(false);
+  });
+
   it("p1 이 PvP ATB 에서 난격을 시전한다 (라이브 아레나 액티브 활성화)", () => {
     const res = run();
     const p1Casts = res.finalState.log.filter(

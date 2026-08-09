@@ -3,7 +3,7 @@ import type { BattleLogEntry } from "../v2/combat/engine";
 import { ATB_LOG_WINDOW_TICKS } from "../v2/combat/combatTimeline";
 import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 import { GameIcon } from "@/adventure/v2/GameIcon";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
 export function battleLogPillColor(label: string): string {
   const status = v2StatusPillColor(label);
@@ -61,12 +61,151 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
   },
 };
 
+export type BattleLogDisplayItem =
+  | {
+      kind: "action";
+      main: BattleLogEntry;
+      calculations: BattleLogEntry[];
+      effects: BattleLogEntry[];
+    }
+  | { kind: "entry"; entry: BattleLogEntry };
+
+const DAMAGE_CALCULATION_LABELS = [
+  "회피 경감",
+  "받피감",
+  "결의",
+  "인내",
+  "가드",
+  "굳건한 의지",
+] as const;
+
+const ACTION_RECOVERY_LABELS = ["봉인", "그림자", "해연"] as const;
+
+function battleLogDisplayLabel(label: string): string {
+  return label === "해연" ? "해연추적" : label;
+}
+
+function isDirectActionEntry(entry: BattleLogEntry): boolean {
+  if (entry.kind !== "player_attack" && entry.kind !== "enemy_attack") {
+    return false;
+  }
+  return /^[^!]+!/.test(parseBattleLogText(entry.text).body);
+}
+
+function isDamageCalculationEntry(entry: BattleLogEntry): boolean {
+  if (entry.kind === "hp_bar") return false;
+  const { labels } = parseBattleLogText(entry.text);
+  return labels.some((label) =>
+    DAMAGE_CALCULATION_LABELS.some(
+      (calculation) =>
+        label === calculation || label.startsWith(`${calculation} `),
+    ),
+  );
+}
+
+function isActionOpeningEffect(entry: BattleLogEntry): boolean {
+  if (entry.kind === "hp_bar") return false;
+  const { labels, body } = parseBattleLogText(entry.text);
+  return (
+    labels.some((label) =>
+      ACTION_RECOVERY_LABELS.some((recovery) => label === recovery),
+    ) && /HP\s*\+\d/.test(body)
+  );
+}
+
+function isActionBoundaryEntry(entry: BattleLogEntry): boolean {
+  return (
+    entry.kind === "hp_bar" ||
+    entry.kind === "turn_marker" ||
+    entry.kind === "phase_trigger"
+  );
+}
+
+export function groupBattleLogActions(
+  entries: BattleLogEntry[],
+): BattleLogDisplayItem[] {
+  const items: BattleLogDisplayItem[] = [];
+  let current: Extract<BattleLogDisplayItem, { kind: "action" }> | null = null;
+  let pendingCalculations: BattleLogEntry[] = [];
+  let pendingEffects: BattleLogEntry[] = [];
+
+  const flushCurrent = () => {
+    if (!current) return;
+    items.push(current);
+    current = null;
+  };
+  const flushPendingCalculations = () => {
+    for (const entry of pendingCalculations) {
+      items.push({ kind: "entry", entry });
+    }
+    pendingCalculations = [];
+  };
+  const flushPendingEffects = () => {
+    for (const entry of pendingEffects) {
+      items.push({ kind: "entry", entry });
+    }
+    pendingEffects = [];
+  };
+
+  for (const entry of entries) {
+    if (isActionBoundaryEntry(entry)) {
+      flushCurrent();
+      flushPendingCalculations();
+      flushPendingEffects();
+      items.push({ kind: "entry", entry });
+      continue;
+    }
+    if (isDamageCalculationEntry(entry)) {
+      flushCurrent();
+      pendingCalculations.push(entry);
+      continue;
+    }
+    if (isActionOpeningEffect(entry)) {
+      flushCurrent();
+      pendingEffects.push(entry);
+      continue;
+    }
+    if (isDirectActionEntry(entry)) {
+      flushCurrent();
+      current = {
+        kind: "action",
+        main: entry,
+        calculations: pendingCalculations,
+        effects: pendingEffects,
+      };
+      pendingCalculations = [];
+      pendingEffects = [];
+      continue;
+    }
+    if (current) {
+      current.effects.push(entry);
+      continue;
+    }
+    if (pendingCalculations.length > 0 || pendingEffects.length > 0) {
+      pendingEffects.push(entry);
+      continue;
+    }
+    flushPendingCalculations();
+    flushPendingEffects();
+    items.push({ kind: "entry", entry });
+  }
+
+  flushCurrent();
+  flushPendingCalculations();
+  flushPendingEffects();
+  return items;
+}
+
 export function BattleLogList({
   entries,
   compact = false,
+  playerName = "나",
+  enemyName = "상대",
 }: {
   entries: BattleLogEntry[];
   compact?: boolean;
+  playerName?: string;
+  enemyName?: string;
 }) {
   const s = compact ? SIZES.compact : SIZES.normal;
   const groups = groupBattleLogEntries(entries);
@@ -139,15 +278,30 @@ export function BattleLogList({
         // 한 박스 안 HP/MP 바는 마지막 1개만 렌더 — 매 행동 뒤 바가 붙어 너무 많아 보이던 것을,
         //   그 윈도우의 "최종 상태" 한 줄로 축약(중간 스냅샷 생략). 표시 단 처리(로그 데이터 불변).
         const lastHpIdx = lastHpBarIndex(group);
+        const visibleGroup = group.filter(
+          (entry, index) => entry.kind !== "hp_bar" || index === lastHpIdx,
+        );
+        const displayItems = groupBattleLogActions(visibleGroup);
         return (
           <div
             key={gi}
             className={`${SURFACE_INSET} ${s.spacing} p-2`}
           >
-            {group.map((entry, i) =>
-              entry.kind === "hp_bar" && i !== lastHpIdx
-                ? null
-                : renderEntry(entry, i),
+            {displayItems.map((item, index) =>
+              item.kind === "action" ? (
+                <ActionCard
+                  key={`action-${index}`}
+                  item={item}
+                  side={
+                    item.main.kind === "player_attack" ? "left" : "right"
+                  }
+                  playerName={playerName}
+                  enemyName={enemyName}
+                  sizes={s}
+                />
+              ) : (
+                renderEntry(item.entry, index)
+              ),
             )}
           </div>
         );
@@ -268,7 +422,7 @@ function groupByTickWindow(entries: BattleLogEntry[]): BattleLogEntry[][] {
 // 데미지·회복·스탯 수치를 강조. 피해량(N 피해) 은 빨강 + 굵게, 나머지는 굵게.
 function emphasizeNumbers(text: string): ReactNode[] {
   const re =
-    /(\d+)\s*피해|HP\s*[+-]\s*\d+|ATK\s*[+-]\s*\d+|DEF\s*[+-]\s*\d+|SPD\s*[+-]\s*\d+|[+-]\s*\d+%?/g;
+    /(\d[\d,]*)\s*피해|HP\s*[+-]\s*\d[\d,]*|ATK\s*[+-]\s*\d[\d,]*|DEF\s*[+-]\s*\d[\d,]*|SPD\s*[+-]\s*\d[\d,]*|[+-]\s*\d+(?:\.\d+)?%?/g;
   const parts: ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -349,6 +503,169 @@ function isClimaxInfo(text: string): boolean {
 
 // ── components ──────────────────────────────────────────────────────────
 
+type BattleLogActionItem = Extract<
+  BattleLogDisplayItem,
+  { kind: "action" }
+>;
+
+function actionHeadline(text: string): {
+  labels: string[];
+  title: string;
+  result: string;
+} {
+  const { labels, body } = parseBattleLogText(text);
+  const match = body.match(/^([^!]+)!\s*(.*)$/);
+  const rawTitle = match?.[1]?.trim() || "행동";
+  const rawResult = match?.[2]?.trim() || body;
+  const damage = rawResult.match(/^(\d+)\s*피해를 입혔다\.?$/);
+  return {
+    labels,
+    title: rawTitle === "공격" ? "기본 공격" : rawTitle,
+    result: damage
+      ? `${Number(damage[1]).toLocaleString("ko-KR")} 피해`
+      : rawResult,
+  };
+}
+
+function actionEffectContent(
+  entry: BattleLogEntry,
+  actionTitle: string,
+  sizes: Sizes,
+  ownerName?: string,
+): ReactNode {
+  const { labels, body } = parseBattleLogText(entry.text);
+  const visibleLabels = labels.filter((label) => label !== actionTitle);
+  const actionPrefix = `${actionTitle}!`;
+  const visibleBody = body.startsWith(actionPrefix)
+    ? body.slice(actionPrefix.length).trim()
+    : body;
+  if (visibleLabels.length === 0 && visibleBody.length === 0) return null;
+  return (
+    <div className={`flex flex-wrap items-center gap-1 ${sizes.info}`}>
+      {visibleLabels.map((label, index) => (
+        <span
+          key={`${label}-${index}`}
+          className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${battleLogPillColor(label)}`}
+        >
+          {ownerName && index === 0
+            ? `${ownerName}의 ${battleLogDisplayLabel(label)}`
+            : battleLogDisplayLabel(label)}
+        </span>
+      ))}
+      {visibleBody ? (
+        <span className="text-zinc-600 dark:text-zinc-300">
+          {emphasizeNumbers(visibleBody)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ActionCard({
+  item,
+  side,
+  playerName,
+  enemyName,
+  sizes,
+}: {
+  item: BattleLogActionItem;
+  side: "left" | "right";
+  playerName: string;
+  enemyName: string;
+  sizes: Sizes;
+}) {
+  const { labels, title, result } = actionHeadline(item.main.text);
+  const actorName = side === "left" ? playerName : enemyName;
+  const effects = item.effects
+    .map((entry, index) => {
+      const effectSide = effectBattleLogSide(entry);
+      const { labels: effectLabels } = parseBattleLogText(entry.text);
+      const isReaction =
+        effectSide != null &&
+        effectSide !== side &&
+        effectLabels.some(
+          (label) => label.includes("반사") || label.includes("반격"),
+        );
+      const ownerName = isReaction
+        ? effectSide === "left"
+          ? playerName
+          : enemyName
+        : undefined;
+      return {
+        content: actionEffectContent(entry, title, sizes, ownerName),
+        key: index,
+      };
+    })
+    .filter((effect) => effect.content != null);
+  const align = side === "left" ? "justify-start" : "justify-end";
+  const accent =
+    side === "left"
+      ? "border-l-4 border-l-blue-500"
+      : "border-r-4 border-r-violet-500";
+  return (
+    <div className={`flex ${align}`} data-battle-action={side}>
+      <section className={`${SURFACE_CARD} ${accent} w-[92%] overflow-hidden`}>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+          <div className="min-w-0">
+            <div className={`${sizes.label} truncate font-semibold text-zinc-500 dark:text-zinc-400`}>
+              {actorName}
+            </div>
+            <div className={`${sizes.bubble} truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
+              {title}
+            </div>
+          </div>
+          <div className="text-right">
+            {labels.length > 0 ? (
+              <div className="mb-1 flex justify-end gap-1">
+                {labels.map((label, index) => (
+                  <span
+                    key={`${label}-${index}`}
+                    className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${battleLogPillColor(label)}`}
+                  >
+                    {battleLogDisplayLabel(label)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className={`${sizes.bubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}>
+              {emphasizeNumbers(result)}
+            </div>
+          </div>
+        </div>
+
+        {effects.length > 0 ? (
+          <div className={`${SURFACE_INSET} mx-2 mb-2 space-y-1.5 px-2.5 py-2`}>
+            {effects.map(({ content, key }) => (
+              <div key={key}>{content}</div>
+            ))}
+          </div>
+        ) : null}
+
+        {item.calculations.length > 0 ? (
+          <details
+            name="battle-log-action-details"
+            className="border-t border-zinc-200 dark:border-zinc-700"
+          >
+            <summary className={`${sizes.label} cursor-pointer list-none px-3 py-2 text-right font-semibold text-zinc-500 marker:hidden hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100`}>
+              계산 상세
+            </summary>
+            <div className={`${SURFACE_INSET} mx-2 mb-2 space-y-1.5 px-2.5 py-2`}>
+              <div className={`${sizes.label} font-semibold text-zinc-700 dark:text-zinc-200`}>
+                방어 계산
+              </div>
+              {item.calculations.map((entry, index) => (
+                <div key={index}>
+                  {actionEffectContent(entry, title, sizes)}
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
 function AttackBubble({
   side,
   text,
@@ -389,7 +706,7 @@ function AttackBubble({
                   battleLogPillColor(l)
                 }`}
               >
-                {l}
+                {battleLogDisplayLabel(l)}
               </span>
             ))}
           </div>
@@ -432,7 +749,7 @@ function InfoLine({
             battleLogPillColor(l)
           }`}
         >
-          {l}
+          {battleLogDisplayLabel(l)}
         </span>
       ))}
       <span className={climax ? "" : "italic"}>
@@ -489,7 +806,7 @@ function EffectLine({
                 battleLogPillColor(label)
               }`}
             >
-              {label}
+              {battleLogDisplayLabel(label)}
             </span>
           ))}
           <span>

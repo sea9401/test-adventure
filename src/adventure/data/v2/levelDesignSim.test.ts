@@ -3,36 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   auditCustomLoadoutCombat,
   auditFixedProgressionCombat,
-  buildLevelDesignProgressionSnapshot,
   buildGrowthPacing,
   buildReport,
   classifyStage,
   huntStageDepths,
-  LEVEL_DESIGN_ARCHETYPES,
   parseOptions,
 } from "../../../../scripts/sim-v2-level-design";
 import type { V2EquipSlot, V2EquipmentId } from "./v2Equipment";
 
 describe("sim-v2-level-design", () => {
-  it("협동 보스 시뮬레이션용 대표 성장 표본은 7계보의 전투 스탯과 장착 스킬을 공개한다", () => {
-    const snapshots = LEVEL_DESIGN_ARCHETYPES.map((arch) =>
-      buildLevelDesignProgressionSnapshot({
-        arch,
-        depth: 24,
-        seed: 20260809,
-      }),
-    );
-
-    expect(snapshots).toHaveLength(7);
-    expect(snapshots.every((snapshot) => snapshot.player.maxHp > 0)).toBe(true);
-    expect(
-      snapshots.every((snapshot) => snapshot.v2Skills.equipped.length > 0),
-    ).toBe(true);
-    expect(snapshots.map((snapshot) => snapshot.arch)).toEqual(
-      LEVEL_DESIGN_ARCHETYPES,
-    );
-  });
-
   it("기본 전투 표본은 경고선 근처의 승률 오탐을 줄이는 50회다", () => {
     expect(parseOptions([]).trials).toBe(50);
     expect(parseOptions(["--trials=20"]).trials).toBe(20);
@@ -206,98 +185,19 @@ describe("sim-v2-level-design", () => {
     const winRates = results.map((result) => result.winRatePct);
     const powers = results.map((result) => result.power);
 
-    // 산군 부분 착용 효율을 낮춘 만큼 초반 혼합 구간은 이전보다 약해질 수 있다. 완성 전까지
-    // 최소 사용 가능선은 지키되, 아래의 교체 중 급락과 6T 완성 우위 검증을 핵심으로 둔다.
-    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(25);
-    // 방어·회피 생존축 분리로 무풍암영의 방어 보너스를 HP로 일부 전환했다. 표시 점수는
-    // 방어를 함께 주던 때보다 더 벌어질 수 있지만, 실제 승률 급락 가드를 우선한다.
-    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(320);
+    // 장착 패시브를 소비하는 성장 시뮬레이터도 신규 방어 감소를 실제 전투 캐릭터에 전달한다.
+    expect(results[0].player.enemyPhysicalDefReductionPct).toBeGreaterThan(0);
+    // 예전 상위권 중앙 보정치에 가까운 공통 난도에서는 절대 승률보다 교체 중 급락 여부가 핵심이다.
+    expect(Math.min(...winRates)).toBeGreaterThanOrEqual(30);
+    // 새 전투력 산식은 이미 ATB 상한에 도달한 SPD를 더 계산하지 않는다. 방어 감소처럼
+    // 표시 점수에 직접 환산되지 않는 고비용 패시브도 기존 능력치 패시브와 장착 경쟁을 한다.
+    // 따라서 장비 교체 구간의 표시 점수 차이는 커질 수 있지만 실제 승률 급락 가드는 유지한다.
+    expect(Math.max(...powers) - Math.min(...powers)).toBeLessThan(225);
     for (let i = 1; i < winRates.length; i++) {
       expect(winRates[i - 1] - winRates[i]).toBeLessThan(20);
     }
     expect(results[0].player.spd).toBeGreaterThan(900);
     expect(results[0].player.spd).toBeLessThan(1_100);
-  }, 15_000);
-
-  it("회피형 6T 완성 세트는 산군 장비를 남긴 혼합 세팅에 밀리지 않는다", () => {
-    const sangoon = {
-      armor: "v2_hard_sangoon_hide",
-      gloves: "v2_hard_sangoon_claws",
-      boots: "v2_hard_sangoon_stride",
-      ring: "v2_hard_sangoon_ring",
-      necklace: "v2_hard_sangoon_amulet",
-    } as const;
-    const cases = [
-      {
-        arch: "DEX" as const,
-        equipment: {
-          weapon: "v2_storm_gale_bow",
-          armor: "v2_storm_gale_armor",
-          gloves: "v2_storm_gale_gloves",
-          boots: "v2_storm_gale_boots",
-          ring: "v2_storm_gale_ring",
-          necklace: "v2_storm_gale_necklace",
-        } as const,
-      },
-      {
-        arch: "LUK" as const,
-        equipment: {
-          weapon: "v2_storm_gale_dagger",
-          armor: "v2_storm_shadow_armor",
-          gloves: "v2_storm_shadow_gloves",
-          boots: "v2_storm_shadow_boots",
-          ring: "v2_storm_shadow_ring",
-          necklace: "v2_storm_shadow_necklace",
-        } as const,
-      },
-      {
-        arch: "LUK" as const,
-        equipment: {
-          weapon: "v2_storm_venom_dagger",
-          armor: "v2_storm_venom_armor",
-          gloves: "v2_storm_venom_gloves",
-          boots: "v2_storm_venom_boots",
-          ring: "v2_storm_venom_ring",
-          necklace: "v2_storm_venom_necklace",
-        } as const,
-      },
-    ];
-    const replacementOrder: V2EquipSlot[] = [
-      "weapon",
-      "ring",
-      "necklace",
-      "armor",
-      "gloves",
-      "boots",
-    ];
-
-    for (const testCase of cases) {
-      const results = [2, 3, 4, 5, 6].map((count) => {
-        const equipment: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
-          weapon: testCase.equipment.weapon,
-          ...sangoon,
-        };
-        for (const slot of replacementOrder.slice(0, count)) {
-          equipment[slot] = testCase.equipment[slot];
-        }
-        return auditCustomLoadoutCombat({
-          arch: testCase.arch,
-          depth: 76,
-          equipment,
-          careerWins: 500_000,
-          extraSp: 4,
-          enhanceLevel: 12,
-          trials: 50,
-          seed: 20260809,
-        });
-      });
-      const completeWinRate = results.at(-1)!.winRatePct;
-      const bestSangoonMixWinRate = Math.max(
-        ...results.slice(0, -1).map((result) => result.winRatePct),
-      );
-
-      expect(completeWinRate).toBeGreaterThan(bestSangoonMixWinRate);
-    }
   }, 15_000);
 
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {

@@ -10,6 +10,7 @@ import {
   BOSS_MAX_HP_DAMAGE_MULT,
   appendLog,
   applyEnemyV2SkillCast,
+  applyEvasionActionRecoveryPvE,
   applyPhaseTriggerIfAny,
   applyPlayerV2SkillCast,
   finishEnemyAttack,
@@ -350,6 +351,7 @@ export function resolveBattleAtb(
         turns += 1;
         break;
       }
+      state = applyEvasionActionRecoveryPvE(state, atbPlayer, playerName);
       state = tickPlayerBundleEntry(state);
       // 번들 진입 로그가 t 없이 남으면 최종 hp_bar 만 t 를 가져 외톨이 박스가 생긴다.
       // 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.

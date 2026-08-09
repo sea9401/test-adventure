@@ -28,7 +28,7 @@ export function V2LoadoutPresetsPanel({
   onApplied,
 }: {
   currentEquipped: string[];
-  onApplied?: () => void;
+  onApplied?: () => void | Promise<void>;
 }) {
   const [state, setState] = useState<PresetState | null>(null);
   const [name, setName] = useState("");
@@ -165,7 +165,7 @@ export function V2LoadoutPresetsPanel({
         );
       } else {
         showFeedback(`'${preset.name}' 프리셋을 적용했어요.`, "success");
-        onApplied?.();
+        await onApplied?.();
       }
     } catch {
       showFeedback("오류가 발생했어요.", "error");

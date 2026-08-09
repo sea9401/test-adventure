@@ -39,10 +39,9 @@ import {
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
-  onDodgeHealAmount,
   onDodgeSpeedBuff,
-  rollEvasionReaction,
   onSkillCastMpRefund,
+  rollEvasionActionRecovery,
   statusBlockOnce,
 } from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
@@ -63,12 +62,10 @@ import {
   absorbWithMagicBarrier,
   combineDefReductionPcts,
   evasionDamageReductionPct,
+  pveEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { resolvePlayerPhase } from "./engine.playerPhase";
-import {
-  pvePlayerEvasionReductionPct,
-  resolveEnemyPhase,
-} from "./engine.enemyPhase";
+import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { computeCritOverflowBonus } from "./engine.damageHelpers";
 import {
   V2_CORE_LOOP_V2,
@@ -199,6 +196,71 @@ export function applyHealShieldIfAny(
   };
 }
 
+export function playerPveEvasionReductionPct(
+  state: BattleState,
+  player: PlayerCombat,
+): number {
+  const luckEvadeBonus = state.flags.luckyBuffActive
+    ? player.doubleLuck?.evade ?? 0
+    : 0;
+  const temporaryEvasionIncreasePct =
+    luckEvadeBonus +
+    (player.universalLuckBonusPct ?? 0) +
+    state.buffs.cyclingChiBonus +
+    (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0);
+  const chillSlowPct =
+    state.enemy.skill?.kind === "chill"
+      ? state.stacks.chillStacks *
+        (state.enemy.skill.evasionPenaltyPerStack ?? 0)
+      : 0;
+  const accuracyDownPct =
+    state.stacks.enemyAccuracyDownTurns > 0
+      ? state.stacks.enemyAccuracyDownPct
+      : 0;
+  const enemyAccuracy = Math.max(
+    0,
+    (state.enemy.accuracy ?? 0) *
+      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100),
+  );
+  const evasionRating = Math.max(
+    0,
+    (player.evaRating ?? player.evasionPct) *
+      (1 + Math.max(0, temporaryEvasionIncreasePct) / 100) *
+      (1 - Math.min(100, Math.max(0, chillSlowPct)) / 100),
+  );
+  return pveEvasionDamageReductionPct(evasionRating, enemyAccuracy);
+}
+
+// 소유자 행동 시작 회복 — 행동 시작 DoT 생존 확인 뒤, 스킬/평타/포션 선택 전에 한 번 호출한다.
+export function applyEvasionActionRecoveryPvE(
+  state: BattleState,
+  player: PlayerCombat,
+  playerName: string,
+  roll: () => number = Math.random,
+): BattleState {
+  const recovery = rollEvasionActionRecovery(
+    player.equipSignatures,
+    state.playerHp,
+    state.playerMaxHp,
+    playerPveEvasionReductionPct(state, player),
+    roll,
+  );
+  if (!recovery) return state;
+  const nextHp = Math.min(state.playerMaxHp, state.playerHp + recovery.amount);
+  const actual = nextHp - state.playerHp;
+  if (actual <= 0) return state;
+  const next = {
+    ...state,
+    playerHp: nextHp,
+    log: appendLog(state.log, {
+      kind: "info" as const,
+      text: `[${recovery.label}] ${playerName}의 HP +${actual}`,
+      turn: "player" as const,
+    }),
+  };
+  return applyHealShieldIfAny(next, player, actual);
+}
+
 // 데미지 최소 비율(DAMAGE_FLOOR_FRACTION)·평타 데미지(damageBetween)는 combatShared 로 이전
 //   (패턴 "평타 바닥" 모델이 같은 공식을 써야 해서 더 하위 레이어로 내림). 여기선 재노출만.
 export { DAMAGE_FLOOR_FRACTION, damageBetween };
@@ -236,13 +298,23 @@ export function playerFacingEnemyDef(
     buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0
       ? Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100))
       : afterEnchantPierce;
-  // 부식 (독사 시그니처) — 중독된 적의 DEF -pct%. 곱연산으로 마지막에.
+  const physicalReductionPct = combineDefReductionPcts(
+    player.enemyPhysicalDefReductionPct ?? 0,
+  );
+  const afterPhysicalReduction =
+    physicalReductionPct > 0
+      ? Math.round(afterDebuff * (1 - physicalReductionPct / 100))
+      : afterDebuff;
+  // 부식 (독사 시그니처) — 중독된 적의 DEF -pct%. 상시 물리 감소 뒤 별도 곱연산.
   const corrodePct = combineDefReductionPcts(
     player.poisonedEnemyDefReductionPct ?? 0,
   );
   return corrodePct > 0 && isEnemyPoisoned(state)
-    ? Math.max(0, Math.round(afterDebuff * (1 - corrodePct / 100)))
-    : afterDebuff;
+    ? Math.max(
+        0,
+        Math.round(afterPhysicalReduction * (1 - corrodePct / 100)),
+      )
+    : afterPhysicalReduction;
 }
 
 function isEnemyBleeding(state: BattleState): boolean {
@@ -254,11 +326,20 @@ function isEnemyPoisoned(state: BattleState): boolean {
 }
 
 function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number {
-  const corrodePct = combineDefReductionPcts(
-    player.poisonedEnemyDefReductionPct ?? 0,
+  // 평타와 같은 고정·비율 관통, 전투 중 방어 디버프, 상시 감소와 부식을 순서대로 한 번만 적용한다.
+  return playerFacingEnemyDef(state, player);
+}
+
+function playerSkillTargetMagicDef(
+  state: BattleState,
+  player: PlayerCombat,
+): number {
+  const base = state.enemy.magicDef ?? state.enemy.def;
+  const reductionPct = combineDefReductionPcts(
+    player.enemyMagicDefReductionPct ?? 0,
   );
-  if (corrodePct <= 0 || !isEnemyPoisoned(state)) return state.enemy.def;
-  return Math.max(0, Math.round(state.enemy.def * (1 - corrodePct / 100)));
+  if (reductionPct <= 0) return base;
+  return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
 }
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
@@ -1238,9 +1319,7 @@ function evadeIncomingEnemySkill(
     });
   }
 
-  const evadeHeal =
-    (player.evadeHealAmount ?? 0) +
-    onDodgeHealAmount(player.equipSignatures, state.playerMaxHp);
+  const evadeHeal = player.evadeHealAmount ?? 0;
   const nextPlayerHp =
     evadeHeal > 0
       ? Math.min(state.playerMaxHp, state.playerHp + evadeHeal)
@@ -1322,80 +1401,6 @@ function evadeIncomingEnemySkill(
   };
 }
 
-function applyEnemySkillEvasionReaction(
-  state: BattleState,
-  player: PlayerCombat,
-  playerHp: number,
-  playerShield: number,
-  buffs: BattleBuffs,
-  log: BattleLogEntry[],
-  reductionPct: number,
-  damageBeforeEvasion: number,
-  damageAfterEvasion: number,
-): {
-  playerHp: number;
-  playerShield: number;
-  buffs: BattleBuffs;
-  log: BattleLogEntry[];
-} {
-  const reaction =
-    playerHp > 0
-      ? rollEvasionReaction(
-          player.equipSignatures,
-          state.playerMaxHp,
-          reductionPct,
-          damageBeforeEvasion,
-          damageAfterEvasion,
-        )
-      : null;
-  if (!reaction) return { playerHp, playerShield, buffs, log };
-
-  const healedHp = reaction.heal
-    ? Math.min(state.playerMaxHp, playerHp + reaction.heal.amount)
-    : playerHp;
-  const actualHeal = healedHp - playerHp;
-  const healShield = healToShield(player.equipSignatures, actualHeal);
-  let nextLog = log;
-  if (reaction.heal && actualHeal > 0) {
-    nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[${reaction.heal.label}] 플레이어의 HP +${actualHeal}`,
-      turn: "enemy",
-    });
-  }
-  if (healShield) {
-    nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[${healShield.label}] 플레이어 보호막 +${healShield.amount}`,
-      turn: "enemy",
-    });
-  }
-  if (reaction.speed) {
-    nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[${reaction.speed.label}] 플레이어의 속도 +${Math.round((reaction.speed.mult - 1) * 100)}% (${reaction.speed.turns}행동)`,
-      turn: "enemy",
-    });
-  }
-  const activeSpeedMult =
-    buffs.playerSpdTurnsLeft > 0 ? buffs.playerSpdMult : 1;
-  return {
-    playerHp: healedHp,
-    playerShield: playerShield + (healShield?.amount ?? 0),
-    buffs: reaction.speed
-      ? {
-          ...buffs,
-          playerSpdMult: Math.max(activeSpeedMult, reaction.speed.mult),
-          playerSpdTurnsLeft: Math.max(
-            buffs.playerSpdTurnsLeft,
-            reaction.speed.turns,
-          ),
-        }
-      : buffs,
-    log: nextLog,
-  };
-}
-
 // v2 적(몬스터) 스킬 시전 — applyPlayerV2SkillCast 의 적 대칭판(ATB 라이브 경로용).
 //   ⚠️ ATB 전용: 버프/디버프 tick 은 tickEnemyBundleEntry/tickPlayerBundleEntry(번들)가 이미 했으므로
 //   여기선 tick 없이 cast 결정 + 효과 적용만 한다(player cast 헬퍼와 동일 소유권 모델 — 이중 tick 방지).
@@ -1471,34 +1476,17 @@ export function applyEnemyV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextEnemyHp = state.enemyHp;
   let nextLog = state.log;
-  let nextBuffs = state.buffs;
-  const enemySkillEvasionReductionPct = pvePlayerEvasionReductionPct(
-    state,
-    player,
-  );
-  const enemySkillDamageBeforeEvasion = result.enemyDamage;
-  const enemySkillDamageAfterEvasion = applyEvasionDamageReduction(
-    enemySkillDamageBeforeEvasion,
-    enemySkillEvasionReductionPct,
-  );
-  if (enemySkillDamageAfterEvasion < enemySkillDamageBeforeEvasion) {
-    nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[회피 경감 ${enemySkillEvasionReductionPct.toFixed(1)}%] 피해 -${enemySkillDamageBeforeEvasion - enemySkillDamageAfterEvasion}`,
-      turn: "enemy",
-    });
-  }
   const enemySkillDamage = reduceIncomingEnemySkillDamage(
     state,
     player,
-    enemySkillDamageAfterEvasion,
+    result.enemyDamage,
   );
   const enemySkillShieldAbsorbed = Math.min(
     state.stacks.playerShield,
     enemySkillDamage,
   );
   const enemySkillAfterShield = enemySkillDamage - enemySkillShieldAbsorbed;
-  let nextPlayerShield =
+  const nextPlayerShield =
     state.stacks.playerShield - enemySkillShieldAbsorbed;
   const enemySkillMagicBarrier = absorbWithMagicBarrier(
     enemySkillAfterShield,
@@ -1525,21 +1513,6 @@ export function applyEnemyV2SkillCast(
       text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
     });
   }
-  const evasionReaction = applyEnemySkillEvasionReaction(
-    state,
-    player,
-    nextPlayerHp,
-    nextPlayerShield,
-    nextBuffs,
-    nextLog,
-    enemySkillEvasionReductionPct,
-    enemySkillDamageBeforeEvasion,
-    enemySkillDamageAfterEvasion,
-  );
-  nextPlayerHp = evasionReaction.playerHp;
-  nextPlayerShield = evasionReaction.playerShield;
-  nextBuffs = evasionReaction.buffs;
-  nextLog = evasionReaction.log;
   if (result.selfHeal > 0 && result.castSkillName) {
     const healReduce =
       state.stacks.enemyHealReduceTurns > 0 ? state.stacks.enemyHealReducePct : 0;
@@ -1631,7 +1604,6 @@ export function applyEnemyV2SkillCast(
     enemyV2SelfBuffs: nextEnemySelfBuffs,
     v2SelfDebuffs: nextPlayerDebuffs,
     playerV2Dots: nextPlayerDots,
-    buffs: nextBuffs,
     flags: {
       ...state.flags,
       statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
@@ -1791,7 +1763,7 @@ export function applyPlayerV2SkillCast(
     },
     target: {
       def: playerSkillTargetDef(state, player),
-      magicDef: state.enemy.magicDef,
+      magicDef: playerSkillTargetMagicDef(state, player),
       // PR-5b: monster 측 v2 self buff 도 def 곱셈에 반영 (격리 해제 일관).
       selfBuffs: state.enemyV2SelfBuffs,
       selfDebuffs: tickedEnemyDebuffs,
@@ -2416,6 +2388,7 @@ function resolveBattleLegacy(
           // 누적 데미지 0 (dot 비어있음) 라도 tick 결과 next 로 갱신.
           state = { ...state, playerV2Dots: playerDotTick.nextDots };
         }
+        state = applyEvasionActionRecoveryPvE(state, player, playerName);
         // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
         const tickedSelfBuffs = tickV2BuffMap(state.v2SelfBuffs);
         const tickedSelfDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
@@ -2544,7 +2517,6 @@ function resolveBattleLegacy(
         let nextPlayerHp = state.playerHp;
         let nextEnemyHp = state.enemyHp;
         let nextLog = state.log;
-        let nextBuffs = state.buffs;
         // 스킬이 실제 발동(castSkillId)했으면 이 enemy 페이즈 평타 생략 — 스킬이 평타를 대체(플레이어
         //   대칭). resolveEnemyPhase 가 skipEnemyBasicAttack 으로 받아 데미지/회피/반사 스킵. 더블어택 fix.
         enemySkillFiredThisTurn = result.castSkillId != null;
@@ -2561,26 +2533,10 @@ function resolveBattleLegacy(
         }
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
-        const enemySkillEvasionReductionPct = pvePlayerEvasionReductionPct(
-          state,
-          player,
-        );
-        const enemySkillDamageBeforeEvasion = result.enemyDamage;
-        const enemySkillDamageAfterEvasion = applyEvasionDamageReduction(
-          enemySkillDamageBeforeEvasion,
-          enemySkillEvasionReductionPct,
-        );
-        if (enemySkillDamageAfterEvasion < enemySkillDamageBeforeEvasion) {
-          nextLog = appendLog(nextLog, {
-            kind: "info",
-            text: `[회피 경감 ${enemySkillEvasionReductionPct.toFixed(1)}%] 피해 -${enemySkillDamageBeforeEvasion - enemySkillDamageAfterEvasion}`,
-            turn: "enemy",
-          });
-        }
         const enemySkillDamage = reduceIncomingEnemySkillDamage(
           state,
           player,
-          enemySkillDamageAfterEvasion,
+          result.enemyDamage,
         );
         const enemySkillShieldAbsorbed = Math.min(
           state.stacks.playerShield,
@@ -2588,7 +2544,7 @@ function resolveBattleLegacy(
         );
         const enemySkillAfterShield =
           enemySkillDamage - enemySkillShieldAbsorbed;
-        let nextPlayerShield =
+        const nextPlayerShield =
           state.stacks.playerShield - enemySkillShieldAbsorbed;
         const enemySkillMagicBarrier = absorbWithMagicBarrier(
           enemySkillAfterShield,
@@ -2617,21 +2573,6 @@ function resolveBattleLegacy(
             text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
           });
         }
-        const evasionReaction = applyEnemySkillEvasionReaction(
-          state,
-          player,
-          nextPlayerHp,
-          nextPlayerShield,
-          nextBuffs,
-          nextLog,
-          enemySkillEvasionReductionPct,
-          enemySkillDamageBeforeEvasion,
-          enemySkillDamageAfterEvasion,
-        );
-        nextPlayerHp = evasionReaction.playerHp;
-        nextPlayerShield = evasionReaction.playerShield;
-        nextBuffs = evasionReaction.buffs;
-        nextLog = evasionReaction.log;
         // 적의 self heal — enemy_attack kind (적 측 행동). 화상(enemyHealReduce)이 있으면 회복 감소.
         //   디버프 없으면(0) Math.floor 미적용 → byte-identical. (라이브 ATB 는 적 cast 미발동이라 inert)
         if (result.selfHeal > 0 && result.castSkillName) {
@@ -2723,7 +2664,6 @@ function resolveBattleLegacy(
           enemyV2Debuffs: tickedEnemyDebuffsLocal,
           v2SelfDebuffs: nextPlayerDebuffs,
           playerV2Dots: nextPlayerDots,
-          buffs: nextBuffs,
           flags: {
             ...state.flags,
             statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,

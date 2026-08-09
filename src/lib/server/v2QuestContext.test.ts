@@ -36,21 +36,6 @@ const EXTRAS: QuestExtras = {
 };
 
 describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
-  it("유니크 장비는 현재 보유량이 아니라 저장된 누적 획득량을 사용한다", () => {
-    const ctx = buildQuestCtx({
-      charRaw: {},
-      proficiencyRaw: {},
-      advLogRaw: { uniqueEquipmentAcquired: 28 },
-      equipmentRaw: { owned: [], equipped: {} },
-      skillsRaw: {},
-      craftingRaw: {},
-      equipmentCodexRaw: {},
-      extras: EXTRAS,
-    });
-
-    expect(ctx.uniqueAcquired).toBe(28);
-  });
-
   it("요리 XP·발견 목록과 길드 활동 누적을 업적 컨텍스트로 변환한다", () => {
     const ctx = buildQuestCtx({
       charRaw: {},

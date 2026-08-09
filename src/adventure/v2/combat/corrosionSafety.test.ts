@@ -26,10 +26,10 @@ const PLAYER: PlayerCombat = {
 };
 
 describe("부식 손상 입력 안전장치", () => {
-  it("완성 부식 계보는 중독 피해를 약 2.02배로 증폭한다", () => {
+  it("완성 부식 계보는 중독 피해를 약 1.51배로 증폭한다", () => {
     const fullLinePlayer = {
       ...PLAYER,
-      poisonedEnemyDefReductionPct: 67.87,
+      poisonedEnemyDefReductionPct: 22.6647712,
     };
     const state = initialBattleState(
       fullLinePlayer,
@@ -39,7 +39,7 @@ describe("부식 손상 입력 안전장치", () => {
     const next = applyPlayerOnHitDots(state, fullLinePlayer);
     const poison = next.enemyV2Dots.find((dot) => dot.tag === "poison");
 
-    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.0201805);
+    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.01509957352, 10);
   });
 
   it("100%를 넘는 옛 값도 적 방어력을 음수로 만들지 않는다", () => {
@@ -76,7 +76,7 @@ describe("부식 손상 입력 안전장치", () => {
     const next = applyPlayerOnHitDots(state, PLAYER);
     const poison = next.enemyV2Dots.find((dot) => dot.tag === "poison");
 
-    // 부식 100%의 중독 배율 = 1 + 100×1.5/100 = 2.5배.
-    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.025);
+    // 부식 100%의 중독 배율 = 1 + 100×2.25/100 = 3.25배.
+    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.0325, 10);
   });
 });

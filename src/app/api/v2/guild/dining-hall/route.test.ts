@@ -197,6 +197,34 @@ describe("길드 식당", () => {
     );
   });
 
+  it("과거 주간 선택 목록과 무관하게 시설에서 해금된 메뉴를 개인이 주문한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(
+      weekly(60, ["hearty_stew"]),
+    );
+
+    const response = await POST(
+      request({ action: "order", menuId: "adventurer_meal" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).ordered).toMatchObject({
+      menuId: "adventurer_meal",
+    });
+  });
+
+  it("시설 레벨보다 높은 메뉴는 개인 선택에서도 거부한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(
+      weekly(60, ["guild_grand_feast"]),
+    );
+
+    const response = await POST(
+      request({ action: "order", menuId: "guild_grand_feast" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("menu_unavailable");
+  });
+
   it("기부하지 않은 주간 참여 길드원도 기본 식권으로 식사한다", async () => {
     vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
     vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
@@ -302,14 +330,13 @@ describe("길드 식당", () => {
     }
   });
 
-  it("기부가 시작된 뒤에는 관리자의 메뉴 변경도 거부한다", async () => {
-    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(1));
+  it("폐기된 주간 메뉴 선택 요청을 거부한다", async () => {
     const response = await POST(
       request({ action: "select_menus", menuIds: ["adventurer_meal"] }),
     );
 
-    expect(response.status).toBe(409);
-    expect((await response.json()).error).toBe("menu_locked");
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("invalid_body");
     expect(upsertSave).not.toHaveBeenCalled();
   });
 });

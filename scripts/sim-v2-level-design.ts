@@ -263,15 +263,6 @@ type ProgressionSnapshot = {
   power: number;
 };
 
-export type LevelDesignProgressionSnapshot = {
-  arch: LevelDesignArchetype;
-  depth: number;
-  power: number;
-  currentJobId: string;
-  player: PlayerCombat;
-  v2Skills: V2SkillsState;
-};
-
 type CombatAudit = {
   wins: number;
   attempts: number;
@@ -990,6 +981,8 @@ function snapshotFor(
     passiveMagicDefPct: passive.magicDefPct,
     passiveOpeningMagicDamageReductionPct: passive.openingMagicDamageReductionPct,
     passiveOpeningMagicDamageReductionPhases: passive.openingMagicDamageReductionPhases,
+    passiveEnemyPhysicalDefReductionPct: passive.enemyPhysicalDefReductionPct,
+    passiveEnemyMagicDefReductionPct: passive.enemyMagicDefReductionPct,
     passivePoisonedEnemyDefReductionPct: passive.poisonedEnemyDefReductionPct,
     passiveBerserkAtkPctPerLostHpPct: passive.berserkAtkPctPerLostHpPct,
     passiveEnemyMagicVulnPctPerStack: passive.enemyMagicVulnPctPerStack,
@@ -1095,44 +1088,6 @@ function minimumProgressionFor(
     return snapshotFor(arch, depth, lowWins, seed, enhanceLevel);
   }
   return snapshotFor(arch, depth, MAX_CAREER_WINS, seed, enhanceLevel);
-}
-
-export function buildLevelDesignProgressionSnapshot(options: {
-  arch: LevelDesignArchetype;
-  depth: number;
-  seed?: number;
-  enhanceLevel?: number;
-  careerWins?: number;
-  cultivate?: boolean;
-}): LevelDesignProgressionSnapshot {
-  const depth = Math.max(
-    2,
-    Math.min(MAX_FRONTIER_DEPTH, Math.floor(options.depth)),
-  );
-  const seed = Math.floor(options.seed ?? 20260809);
-  const enhanceLevel = Math.max(
-    0,
-    Math.min(20, Math.floor(options.enhanceLevel ?? 0)),
-  );
-  const snapshot = options.careerWins == null
-    ? minimumProgressionFor(options.arch, depth, seed, enhanceLevel)
-    : snapshotFor(
-        options.arch,
-        depth,
-        Math.max(0, Math.floor(options.careerWins)),
-        seed,
-        enhanceLevel,
-        options.cultivate ?? true,
-      );
-  const equipped = [...snapshot.equippedSkills];
-  return {
-    arch: snapshot.arch,
-    depth,
-    power: snapshot.power,
-    currentJobId: snapshot.currentJobId,
-    player: snapshot.player,
-    v2Skills: { learned: equipped, equipped: [...equipped] },
-  };
 }
 
 function monstersAtDepth(depth: number): Monster[] {

@@ -10,19 +10,19 @@ import {
   onCritEnemyDefDebuff,
   onCritEnemyChill,
   firesOnCritPoison,
-  onDodgeHealAmount,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
   onSkillCastMpRefund,
   rollOnHitBleed,
-  rollEvasionReaction,
   rollOnHitPoison,
   rollOnHitShock,
+  rollEvasionActionRecovery,
   statusBlockOnce,
   everyNHitsValue,
 } from "./signatureEffects";
 import {
   advanceTurn,
+  applyEvasionActionRecoveryPvE,
   applyPlayerV2SkillCast,
   initialBattleState,
   resolveBattle,
@@ -462,20 +462,201 @@ describe("rollOnHitShock (공격 적중 시 감전 둔화)", () => {
   });
 });
 
-describe("onDodgeHealAmount (봉인 회피 회복)", () => {
+describe("rollEvasionActionRecovery (행동 회피 회복)", () => {
   const SEAL: SignatureEffect = {
-    trigger: "on_dodge",
+    trigger: "on_action_evasion",
     label: "봉인",
-    healPct: 8,
+    lostHpHealPct: 4,
   };
-  it("on_dodge healPct → maxHp 의 % 회복량(내림)", () => {
-    expect(onDodgeHealAmount([SEAL], 100)).toBe(8); // 8% of 100
-    expect(onDodgeHealAmount([SEAL], 250)).toBe(20); // floor(0.08*250)
+
+  it("회피 경감률의 절반 확률로 잃은 HP 비례 회복량을 반환한다", () => {
+    expect(
+      rollEvasionActionRecovery([SEAL], 500, 1000, 50, () => 0.249),
+    ).toEqual({ amount: 20, label: "봉인" });
+    expect(
+      rollEvasionActionRecovery([SEAL], 500, 1000, 50, () => 0.25),
+    ).toBeNull();
   });
-  it("미장착/다른 트리거/maxHp 0 → 0", () => {
-    expect(onDodgeHealAmount(undefined, 100)).toBe(0);
-    expect(onDodgeHealAmount([CROWN], 100)).toBe(0); // on_crit
-    expect(onDodgeHealAmount([SEAL], 0)).toBe(0);
+
+  it("여러 장비는 한 번 판정해 잃은 HP 회복률과 라벨을 합산한다", () => {
+    const SHADOW: SignatureEffect = {
+      trigger: "on_action_evasion",
+      label: "그림자",
+      lostHpHealPct: 3,
+    };
+    expect(
+      rollEvasionActionRecovery([SEAL, SHADOW], 500, 1000, 50, () => 0),
+    ).toEqual({ amount: 35, label: "봉인 + 그림자" });
+  });
+
+  it("미장착·다른 트리거·만피·0 회복량·0 경감률이면 난수를 소비하지 않는다", () => {
+    const roll = vi.fn(() => 0);
+    expect(rollEvasionActionRecovery(undefined, 500, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([CROWN], 500, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 1000, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 0, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 999, 1000, 50, roll)).toBeNull();
+    expect(rollEvasionActionRecovery([SEAL], 500, 1000, 0, roll)).toBeNull();
+    expect(roll).not.toHaveBeenCalled();
+  });
+});
+
+describe("엔진 통합 — PvE 행동 회피 회복", () => {
+  const RECOVERY: SignatureEffect = {
+    trigger: "on_action_evasion",
+    label: "봉인",
+    lostHpHealPct: 4,
+  };
+
+  it("현재 상대 기준 회피 경감률로 판정해 잃은 HP를 회복한다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      accuracy: 0,
+    };
+    const state = initialBattleState(player, enemy, "용사");
+
+    const after = applyEvasionActionRecoveryPvE(state, player, "용사", () => 0);
+
+    expect(after.playerHp).toBe(520);
+    expect(after.log.some((entry) => entry.text.includes("[봉인]") && entry.text.includes("HP +20"))).toBe(true);
+  });
+
+  it("실제 회복량은 on_heal 보호막으로 이어진다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [
+        RECOVERY,
+        { trigger: "on_heal" as const, label: "성광", healToShieldPct: 50 },
+      ],
+    };
+    const enemy = { ...V2_MONSTERS["훈련용 허수아비"], accuracy: 0 };
+
+    const after = applyEvasionActionRecoveryPvE(
+      initialBattleState(player, enemy, "용사"),
+      player,
+      "용사",
+      () => 0,
+    );
+
+    expect(after.playerHp).toBe(520);
+    expect(after.stacks.playerShield).toBe(10);
+  });
+
+  it("적을 처치하는 행동도 시작 시 한 번 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      atk: 10_000,
+      spd: 100,
+      evaRating: 100,
+      evasionPct: 100,
+      attackCount: 3,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 10,
+      spd: 1,
+      accuracy: 0,
+    };
+
+    const result = resolveBattle(player, enemy, "용사", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+    });
+
+    expect(result.outcome).toBe("win");
+    expect(result.finalState.playerHp).toBe(520);
+    expect(result.finalState.log.filter((entry) => entry.text.includes("[봉인]")).length).toBe(1);
+  });
+
+  it("다중 공격도 한 행동에서 한 번만 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      atk: 1,
+      spd: 100,
+      evaRating: 100,
+      evasionPct: 100,
+      attackCount: 3,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 100_000,
+      atk: 1,
+      def: 100,
+      spd: 1,
+      accuracy: 0,
+    };
+
+    const result = resolveBattle(player, enemy, "용사", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+      maxTurns: 1,
+    });
+
+    expect(result.finalState.log.filter((entry) => entry.text.includes("[봉인]")).length).toBe(1);
+  });
+
+  it("포션 사용도 한 행동으로 세어 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 500,
+      maxHp: 1000,
+      spd: 100,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [RECOVERY],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 100_000,
+      atk: 1,
+      spd: 1,
+      accuracy: 0,
+    };
+    const potion = {
+      id: "potion_mp_s" as const,
+      name: "시험 마나 물약",
+      description: "",
+      effect: { kind: "heal_mp" as const, flat: 1 },
+      price: 0,
+    };
+
+    const result = resolveBattle(player, enemy, "용사", {
+      pickAction: () => ({ kind: "use_potion", potionId: potion.id, potion }),
+      potions: { [potion.id]: 1 },
+      v2Skills: emptyV2SkillsState(),
+      maxTurns: 1,
+    });
+
+    expect(result.potionsConsumed[potion.id]).toBe(1);
+    expect(result.finalState.log.filter((entry) => entry.text.includes("[봉인]")).length).toBe(1);
   });
 });
 
@@ -493,93 +674,18 @@ describe("onDodgeSpeedBuff (회피 속도 시그니처)", () => {
       label: "독왕",
     });
   });
-  it("미장착/회복전용(봉인)/on_crit → null", () => {
+  it("미장착/행동 회복전용(봉인)/on_crit → null", () => {
     expect(onDodgeSpeedBuff(undefined)).toBeNull();
     expect(
-      onDodgeSpeedBuff([{ trigger: "on_dodge", label: "봉인", healPct: 8 }]),
+      onDodgeSpeedBuff([
+        {
+          trigger: "on_action_evasion",
+          label: "봉인",
+          lostHpHealPct: 4,
+        },
+      ]),
     ).toBeNull(); // spdBuffPct 없음
     expect(onDodgeSpeedBuff([CROWN])).toBeNull(); // on_crit
-  });
-});
-
-describe("rollEvasionReaction (일반 회피 경감 장비 반응)", () => {
-  const SEAL: SignatureEffect = {
-    trigger: "on_dodge",
-    label: "해연",
-    healPct: 6,
-  };
-  const RIDER: SignatureEffect = {
-    trigger: "on_dodge",
-    label: "밤기수",
-    spdBuffPct: 25,
-    buffActions: 2,
-  };
-
-  it("경감률보다 낮은 한 번의 굴림으로 회복과 속도 효과를 함께 발동한다", () => {
-    const roll = vi.fn(() => 0.299);
-
-    expect(
-      rollEvasionReaction([SEAL, RIDER], 1_000, 30, 100, 70, roll),
-    ).toEqual({
-      heal: { amount: 60, label: "해연" },
-      speed: { mult: 1.25, turns: 2, label: "밤기수" },
-    });
-    expect(roll).toHaveBeenCalledTimes(1);
-  });
-
-  it("경계값은 미발동한다", () => {
-    expect(
-      rollEvasionReaction([SEAL], 1_000, 30, 100, 70, () => 0.3),
-    ).toBeNull();
-  });
-
-  it("실제 정수 피해 감소가 없거나 지원 효과가 없으면 굴리지 않는다", () => {
-    const roll = vi.fn(() => 0);
-
-    expect(
-      rollEvasionReaction([SEAL], 1_000, 30, 1, 1, roll),
-    ).toBeNull();
-    expect(
-      rollEvasionReaction([CROWN], 1_000, 30, 100, 70, roll),
-    ).toBeNull();
-    expect(roll).not.toHaveBeenCalled();
-  });
-
-  it("유효하지 않은 경감률이나 굴림은 미발동한다", () => {
-    expect(
-      rollEvasionReaction([SEAL], 1_000, Number.NaN, 100, 70, () => 0),
-    ).toBeNull();
-    expect(
-      rollEvasionReaction([SEAL], 1_000, 30, 100, 70, () => Number.NaN),
-    ).toBeNull();
-  });
-
-  it("회복은 합산하고 속도는 가장 강한 효과와 그 라벨을 보존한다", () => {
-    const OTHER_HEAL: SignatureEffect = {
-      trigger: "on_dodge",
-      label: "봉인",
-      healPct: 8,
-    };
-    const FASTER: SignatureEffect = {
-      trigger: "on_dodge",
-      label: "독왕",
-      spdBuffPct: 35,
-      buffActions: 1,
-    };
-
-    expect(
-      rollEvasionReaction(
-        [SEAL, OTHER_HEAL, RIDER, FASTER],
-        1_000,
-        30,
-        100,
-        70,
-        () => 0,
-      ),
-    ).toEqual({
-      heal: { amount: 140, label: "해연 + 봉인" },
-      speed: { mult: 1.35, turns: 1, label: "독왕" },
-    });
   });
 });
 

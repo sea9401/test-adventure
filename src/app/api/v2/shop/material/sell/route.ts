@@ -18,6 +18,7 @@ import {
 
 type CharSave = {
   gold?: number;
+  bankedGold?: number;
   materials?: Record<string, unknown>;
   [k: string]: unknown;
 };
@@ -105,17 +106,24 @@ export async function POST(req: Request) {
       typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
         ? Math.max(0, charSave.gold)
         : 0;
-    const newGold = gold + gain;
+    const bankedGold =
+      typeof charSave.bankedGold === "number" &&
+      Number.isFinite(charSave.bankedGold)
+        ? Math.max(0, charSave.bankedGold)
+        : 0;
+    const newBankedGold = bankedGold + gain;
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       materials: nextMaterials,
-      gold: newGold,
+      gold,
+      bankedGold: newBankedGold,
     });
     return {
       status: 200,
       body: {
         ok: true as const,
-        gold: newGold,
+        gold,
+        bankedGold: newBankedGold,
         materials: nextMaterials,
         sold: { id, count: sellCount, gold: gain },
       },

@@ -116,11 +116,10 @@ import {
 } from "./huntRewards";
 import { updateRareMaps } from "./huntRareMaps";
 import {
-  applyHuntAdventureProgress,
+  applyMonsterKill,
   recordMonsterKill,
   type AdventureLogSave,
 } from "./huntKillLog";
-import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { applyHuntProficiency } from "./huntProficiency";
 import { activeCookingBuff } from "@/adventure/v2/cooking";
 import {
@@ -241,7 +240,6 @@ type HuntBatchState = {
   dining: GuildDiningEffectCache;
   adventureLog?: AdventureLogSave;
   adventureLogDirty?: boolean;
-  equipmentCodexRaw?: unknown;
   actor: V2BattlePrepCache;
   proficiencyDirty?: boolean;
 };
@@ -959,26 +957,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 전투수 랭킹용 몬스터 킬 카운터 — huntKillLog(콜로케이트) 로 추출.
   // lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피)은 이 위치가 보장.
   if (won) {
-    const uniqueEquipment = droppedUnique
-      ? {
-          equipmentOwnedAfter: nextOwned,
-          equipmentCodexRaw: ctx.batchState
-            ? (ctx.batchState.equipmentCodexRaw ??=
-                await readSave(tx, userId, EQUIPMENT_CODEX_KEY, {}))
-            : await readSave(tx, userId, EQUIPMENT_CODEX_KEY, {}),
-          acquiredIds: [droppedUnique],
-        }
-      : undefined;
     if (ctx.batchState) {
-      ctx.batchState.adventureLog = applyHuntAdventureProgress(
+      ctx.batchState.adventureLog = applyMonsterKill(
         ctx.batchState.adventureLog ?? {},
         enemyName,
         now,
-        uniqueEquipment,
       );
       ctx.batchState.adventureLogDirty = true;
     } else {
-      await recordMonsterKill(tx, userId, enemyName, now, uniqueEquipment);
+      await recordMonsterKill(tx, userId, enemyName, now);
     }
   }
 

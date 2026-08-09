@@ -6,10 +6,10 @@ import {
   parseEquipRollForItem,
   parseEquipmentSave,
   parseInstanceCraftQuality,
+  parseInstanceEnhance,
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
 import { derivePowerScore } from "@/adventure/data/v2/power";
-import { parseEnhance } from "@/adventure/data/v2/v2Enhance";
 import {
   derivePlayerCombatV2FromSaves,
   type DerivedPlayerCombatV2,
@@ -89,9 +89,11 @@ export function previewEquipmentPowerFromSaves(input: {
         V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT],
         input.candidate.roll,
       ),
-      enhance: craftQuality
-        ? undefined
-        : parseEnhance(input.candidate.enhance),
+      enhance: parseInstanceEnhance(
+        input.candidate.enhance,
+        input.candidate.craftQuality,
+        craftedBy,
+      ),
       craftQuality,
       craftedBy,
     };

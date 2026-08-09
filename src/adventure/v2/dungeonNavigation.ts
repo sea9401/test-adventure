@@ -1,4 +1,7 @@
-import { themeFirstDepth } from "@/adventure/data/v2/dungeon";
+import {
+  huntStageDepthForLegacyDepth,
+  themeFirstDepth,
+} from "@/adventure/data/v2/dungeon";
 import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 
 export function dungeonFloorBackHref(
@@ -7,6 +10,10 @@ export function dungeonFloorBackHref(
 ): string {
   if (rareMapIid !== null) return "/battle/dungeon";
   return `/battle/dungeon?openDepth=${themeFirstDepth(depth)}`;
+}
+
+export function normalHuntFloorHref(depth: number): string {
+  return `/battle/dungeon/${huntStageDepthForLegacyDepth(depth)}`;
 }
 
 export function rareMapEntryHref(

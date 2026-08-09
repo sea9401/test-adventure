@@ -27,6 +27,7 @@ import {
   masteryTowerGuardianForFloor,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
+  resolveMasteryTowerAttemptFloor,
 } from "@/adventure/data/v2/masteryTower";
 import {
   applyRegen,
@@ -34,6 +35,7 @@ import {
   staminaConfigForCharacter,
   tryConsume,
 } from "@/adventure/v2/stamina";
+import { parseMasteryTowerAttemptRequest } from "./request";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -48,6 +50,16 @@ export async function POST(req: Request) {
     windowMs: 60_000,
   });
   if (limited) return limited;
+
+  const attemptRequest = parseMasteryTowerAttemptRequest(
+    await req.json().catch(() => ({})),
+  );
+  if (!attemptRequest.ok) {
+    return Response.json(
+      { ok: false, error: attemptRequest.error },
+      { status: 400 },
+    );
+  }
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<Record<string, unknown>>(
@@ -106,14 +118,24 @@ export async function POST(req: Request) {
           log: [
             {
               kind: "fail" as const,
-              text: `재입장 대기 중입니다. ${retryAfterSeconds}초 후 1층부터 다시 시작할 수 있습니다.`,
+              text: `재입장 대기 중입니다. ${retryAfterSeconds}초 후 시작 위치를 다시 선택할 수 있습니다.`,
             },
           ],
         },
       };
     }
 
-    const floor = tower.runFloor + 1;
+    const resolvedFloor = resolveMasteryTowerAttemptFloor(
+      tower,
+      attemptRequest.startFloor,
+    );
+    if (!resolvedFloor.ok) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: resolvedFloor.error },
+      };
+    }
+    const floor = resolvedFloor.floor;
     if (floor > MASTERY_TOWER_MAX_FLOOR) {
       const claimPreview = masteryTowerClaimPreview(tower);
       return {

@@ -4,16 +4,14 @@ import {
   parseEquipRollForItem,
   parseEquipmentSave,
   parseInstanceCraftQuality,
+  parseInstanceEnhance,
   type V2CraftQualityState,
   type V2CraftedBy,
   type V2EquipmentId,
   type V2EquipInstance,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
-import {
-  parseEnhance,
-  type V2EnhanceState,
-} from "@/adventure/data/v2/v2Enhance";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 
 // 메시지에 저장하는 전송 시점 장비 스냅샷. iid·잠금·장착 여부는 공개하지 않는다.
 export type ChatEquipmentLink = {
@@ -58,7 +56,11 @@ export function parseChatEquipmentLink(raw: unknown): ChatEquipmentLink | null {
     value.enhance,
     craftedBy,
   );
-  const enhance = craftQuality ? undefined : parseEnhance(value.enhance);
+  const enhance = parseInstanceEnhance(
+    value.enhance,
+    value.craftQuality,
+    craftedBy,
+  );
   return {
     kind: "equipment",
     itemId,

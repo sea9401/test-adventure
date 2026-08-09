@@ -95,6 +95,7 @@ describe("production security surface", () => {
     expect(coinShopAccess).toContain("ADMIN_EMAILS");
 
     const proxy = source(join(ROOT, "src/proxy.ts"));
+    const maintenancePage = source(join(ROOT, "deploy/maintenance.html"));
     const authConfig = source(join(ROOT, "src/auth.config.ts"));
     expect(authConfig).toContain("session.user.id = token.sub");
     expect(proxy).toContain("canPassMuseunCoinShopProxy");
@@ -113,10 +114,12 @@ describe("production security surface", () => {
     ]) {
       expect(proxy).toContain(path);
     }
-    expect(proxy).toContain('datetime="2026-08-08T21:30:00+09:00"');
-    expect(proxy).toContain('datetime="2026-08-08T22:00:00+09:00"');
-    expect(proxy).toContain("서버 점검 · 약 30분");
-    expect(proxy).toContain("서비스 점검을 위해");
+    for (const maintenance of [proxy, maintenancePage]) {
+      expect(maintenance).toContain('datetime="2026-08-09T04:00:00+09:00"');
+      expect(maintenance).toContain('datetime="2026-08-09T05:00:00+09:00"');
+      expect(maintenance).toContain("서버 점검 · 오전 4시~5시");
+      expect(maintenance).toContain("안정적인 서비스 제공을 위해");
+    }
   });
 
   it("심의용 비밀번호 재로그인은 다른 기기로 단일 세션을 안전하게 인계한다", () => {

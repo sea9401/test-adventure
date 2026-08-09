@@ -101,6 +101,24 @@ const COMPONENTS: Components = {
   },
 };
 
+const INLINE_COMPONENTS: Components = {
+  p({ node, children }) {
+    void node;
+    return <>{children}</>;
+  },
+  a({ node, href, children }) {
+    void node;
+    const textColor = bulletinTextColorFromUrl(href);
+    return textColor ? (
+      <span className={`${textColor.textClassName} [&_strong]:!text-current`}>
+        {children}
+      </span>
+    ) : (
+      <span>{children}</span>
+    );
+  },
+};
+
 export type BulletinMarkdownSegment =
   | { kind: "markdown"; content: string }
   | { kind: "details"; summary: string; content: string };
@@ -220,6 +238,21 @@ function SafeMarkdown({
   );
 }
 
+function SafeInlineMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      allowedElements={["p", "strong", "em", "del", "code", "a"]}
+      components={INLINE_COMPONENTS}
+      remarkPlugins={[remarkGfm]}
+      skipHtml
+      unwrapDisallowed
+      urlTransform={safeBulletinMarkdownUrl}
+    >
+      {expandBulletinTextColors(content)}
+    </ReactMarkdown>
+  );
+}
+
 export function BulletinMarkdown({
   content,
   className = "",
@@ -258,7 +291,9 @@ export function BulletinMarkdown({
           >
             <summary className="cursor-pointer select-none font-semibold text-zinc-900 marker:text-zinc-400 dark:text-zinc-100">
               <span className="inline-flex w-[calc(100%_-_1rem)] min-w-0 items-center justify-between gap-3 align-middle">
-                <span className="min-w-0">{segment.summary}</span>
+                <span className="min-w-0">
+                  <SafeInlineMarkdown content={segment.summary} />
+                </span>
                 <span className="shrink-0 text-[11px] font-medium text-sky-700 dark:text-sky-300">
                   <span className="group-open:hidden">펼치기</span>
                   <span className="hidden group-open:inline">접기</span>

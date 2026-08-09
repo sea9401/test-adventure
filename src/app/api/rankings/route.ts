@@ -26,10 +26,7 @@ import {
   buildQuestCtx,
   parseClaimed,
 } from "@/lib/server/v2QuestContext";
-import {
-  achievementSummary,
-  claimedUniqueEquipmentAcquisitionFloor,
-} from "@/adventure/data/v2/v2Quests";
+import { achievementSummary } from "@/adventure/data/v2/v2Quests";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
 import {
   codexCompletionRankingFromSaves,
@@ -523,7 +520,6 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
   return (result.rows as unknown as DbRow[])
     .map((r) => {
       const fishCodex = parseFishCodex(r.fishing_codex_save);
-      const claimed = parseClaimed(r.quests_save);
       const fishCaught = Object.values(fishCodex.fish).reduce(
         (sum, entry) => sum + Math.max(0, entry.totalCaught ?? 0),
         0,
@@ -540,7 +536,6 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
         miningRaw: r.mining_save,
         fishingProgressRaw: r.fishing_save,
         equipmentCodexRaw: r.equipment_codex_save,
-        uniqueAcquiredFloor: claimedUniqueEquipmentAcquisitionFloor(claimed),
         masteryTowerRaw: r.tower_save,
         cookingRaw: r.cooking_save,
         lifeWorkshopRaw: r.life_workshop_save,
@@ -560,7 +555,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
           guildTradeContracts: Number(r.guild_trade_contracts ?? 0),
         },
       });
-      const summary = achievementSummary(ctx, claimed);
+      const summary = achievementSummary(ctx, parseClaimed(r.quests_save));
       return {
         userId: String(r.user_id), name: String(r.name), avatar: rankingAvatar(r.avatar),
         level: 1, cumLevel: 0, paragonLevel: 0, fame: 0, combatPower: 0,

@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   LifeWorkshopMaxConfirmDialog,
+  RanchFeedRecipeCard,
   LifeWorkshopView,
   LifeWorkshopQuantityControls,
   lifeWorkshopErrorText,
@@ -12,6 +13,47 @@ describe("생활 조합 작업장 모바일 배치", () => {
     const html = renderToStaticMarkup(<LifeWorkshopView onBack={vi.fn()} />);
 
     expect(html).toContain("life-workshop-touch-tabs");
+  });
+
+  it("직접 제작 경로는 첫 렌더부터 생활 제작 탭을 선택한다", () => {
+    const html = renderToStaticMarkup(
+      <LifeWorkshopView onBack={vi.fn()} initialTab="craft" />,
+    );
+
+    expect(html).toMatch(/aria-pressed="true"[^>]*>생활 제작<\/button>/);
+  });
+});
+
+describe("목장 사료 제작 카드", () => {
+  it("공용 사료의 재료, 생산량, 보유량과 제작 수량을 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <RanchFeedRecipeCard
+        recipe={{
+          id: "compound_feed",
+          name: "배합 사료",
+          outputAmount: 5,
+          costs: { wheat: 4, corn: 3, herb: 1 },
+          unlocked: true,
+          craftCount: 1,
+          masteryStage: 1,
+          batchLimit: 5,
+          maxCraftable: 2,
+          ownedFeed: 7,
+          ingredientBalances: { wheat: 8, corn: 6, herb: 2 },
+        }}
+        busy={false}
+        onCraft={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("목장 용품");
+    expect(html).toContain("배합 사료");
+    expect(html).toContain("보유 7개");
+    expect(html).toContain("밀 4개");
+    expect(html).toContain("옥수수 3개");
+    expect(html).toContain("허브 1개");
+    expect(html).toContain("5개 완성");
+    expect(html).toContain('max="2"');
   });
 });
 

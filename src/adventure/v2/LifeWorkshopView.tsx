@@ -36,6 +36,8 @@ import {
   type LifeFinishedItemId,
 } from "./lifeCrafting";
 import { LifeRequestBoard } from "./LifeRequestBoard";
+import { FarmItemIcon } from "./FarmItemIcon";
+import { FARM_ITEMS, type FarmItemId } from "./farm";
 
 type WorkshopRecipeView = {
   id: string;
@@ -76,6 +78,7 @@ type WorkshopPayload = {
     batchLimit: number;
     maxCraftable: number;
   }>;
+  ranchCraftingRecipe: RanchCraftingRecipeView;
   result?: {
     action: string;
     produced?: number;
@@ -90,7 +93,7 @@ type WorkshopPayload = {
   };
 };
 
-type WorkshopTab =
+export type WorkshopTab =
   | "requests"
   | "process"
   | "craft"
@@ -131,6 +134,23 @@ const ERROR_TEXT: Record<string, string> = {
   aid_in_use: "이미 사용 중인 보조품입니다.",
   aid_not_owned: "활성화할 보조품을 보유하고 있지 않습니다.",
   aid_not_active: "활성화된 보조품이 없습니다.",
+  ranch_locked: "씨앗 선별을 배우면 배합 사료를 제작할 수 있습니다.",
+  not_enough_items: "배합 사료 제작에 필요한 농장 재료가 부족합니다.",
+  bad_request: "제작 수량을 확인해 주세요.",
+};
+
+export type RanchCraftingRecipeView = {
+  id: "compound_feed";
+  name: string;
+  outputAmount: number;
+  costs: Record<"wheat" | "corn" | "herb", number>;
+  unlocked: boolean;
+  craftCount: number;
+  masteryStage: number;
+  batchLimit: number;
+  maxCraftable: number;
+  ownedFeed: number;
+  ingredientBalances: Record<"wheat" | "corn" | "herb", number>;
 };
 
 type WorkshopErrorPayload = {
@@ -356,9 +376,82 @@ export function LifeWorkshopQuantityControls({
   );
 }
 
-export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
+export function RanchFeedRecipeCard({
+  recipe,
+  busy,
+  onCraft,
+}: {
+  recipe: RanchCraftingRecipeView;
+  busy: boolean;
+  onCraft: (quantity: number) => void;
+}) {
+  return (
+    <Card padding="md">
+      <h2 className="text-sm font-bold">목장 용품</h2>
+      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        농장에서 수확한 작물을 공용 사료로 배합합니다.
+      </p>
+      <div className={`${SURFACE_INSET} mt-3 p-3`}>
+        <div className="flex items-start gap-3">
+          <FarmItemIcon itemId="compound_feed" className="size-16" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <strong>{recipe.name}</strong>
+              <span className="shrink-0 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                보유 {recipe.ownedFeed.toLocaleString("ko-KR")}개
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              닭과 소가 함께 먹는 공용 사료입니다. 1회 제작 시 {recipe.outputAmount}개 완성.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-zinc-700 dark:text-zinc-200">
+          {Object.entries(recipe.costs).map(([itemId, amount]) => (
+            <span key={itemId} className={`${SURFACE_CARD} px-2 py-1`}>
+              {FARM_ITEMS[itemId as FarmItemId].name} {amount}개
+              <span className="ml-1 text-zinc-500 dark:text-zinc-400">
+                (보유 {recipe.ingredientBalances[itemId as keyof typeof recipe.ingredientBalances]}개)
+              </span>
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+          제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}
+        </div>
+        {recipe.unlocked ? (
+          <div className="mt-2">
+            <LifeWorkshopQuantityControls
+              maxQuantity={recipe.maxCraftable}
+              unit="회"
+              actionLabel="제작"
+              inputLabel="배합 사료 제작 수량"
+              busy={busy}
+              onSubmit={onCraft}
+            />
+            {recipe.maxCraftable === 0 ? (
+              <span className="text-[11px] text-rose-600">농장 재료가 부족합니다.</span>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs font-semibold text-rose-600 dark:text-rose-300">
+            씨앗 선별을 배우면 제작할 수 있습니다.
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+export function LifeWorkshopView({
+  onBack,
+  initialTab = "requests",
+}: {
+  onBack: () => void;
+  initialTab?: WorkshopTab;
+}) {
   const [data, setData] = useState<WorkshopPayload | null>(null);
-  const [tab, setTab] = useState<WorkshopTab>("requests");
+  const [tab, setTab] = useState<WorkshopTab>(() => initialTab);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -433,6 +526,41 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
       }
     },
     [busy],
+  );
+
+  const craftRanchFeed = useCallback(
+    async (quantity: number) => {
+      if (busy) return;
+      setBusy(`ranch-feed:${quantity}`);
+      setNotice(null);
+      try {
+        const response = await fetch("/api/v2/farm/feed-craft", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ quantity }),
+        });
+        const json = (await response.json().catch(() => null)) as
+          | ({
+              ok: true;
+              feedCraftResult: { produced: number };
+            } & WorkshopErrorPayload)
+          | ({ ok: false } & WorkshopErrorPayload)
+          | null;
+        if (!response.ok || !json?.ok) {
+          setNotice(lifeWorkshopErrorText(json));
+          return;
+        }
+        await refresh();
+        setNotice(
+          `배합 사료 ${json.feedCraftResult.produced.toLocaleString("ko-KR")}개를 완성했습니다.`,
+        );
+      } catch {
+        setNotice("네트워크 오류가 발생했습니다.");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [busy, refresh],
   );
 
   const recipesByActivity = useMemo(() => {
@@ -558,6 +686,11 @@ export function LifeWorkshopView({ onBack }: { onBack: () => void }) {
         </div>
       ) : tab === "craft" ? (
         <div className="space-y-3">
+          <RanchFeedRecipeCard
+            recipe={data.ranchCraftingRecipe}
+            busy={busy !== null}
+            onCraft={(quantity) => void craftRanchFeed(quantity)}
+          />
           {VISIBLE_LIFE_CRAFTING_KINDS.map((kind) => (
             <Card key={kind} padding="md">
               <h2 className="text-sm font-bold">{kind === "aid" ? "생활 보조품" : "숙소 가구"}</h2>

@@ -1,6 +1,12 @@
 import { CHAT_FETCH_LIMIT } from "@/lib/chat-config";
 import type { ChatChannel, ChatMessage } from "../ChatPanel";
 
+export type MainChatMessages = {
+  global: ChatMessage[];
+  trade: ChatMessage[];
+  guild: ChatMessage[];
+};
+
 export function chatMessagesUrl(input: {
   channel: ChatChannel;
   roomId?: number;
@@ -24,6 +30,37 @@ export async function fetchChatMessages(input: {
   const res = await fetch(chatMessagesUrl(input), { cache: "no-store" });
   if (!res.ok) throw new Error((await res.text()) || `fetch failed: ${res.status}`);
   return res.json() as Promise<ChatMessage[]>;
+}
+
+export function mainChatMessagesUrl(input: {
+  globalAfterId?: number;
+  tradeAfterId?: number;
+  guildAfterId?: number;
+  includeGuild: boolean;
+}): string {
+  const params = new URLSearchParams({ channels: "main" });
+  if (input.globalAfterId != null && input.globalAfterId >= 0) {
+    params.set("globalAfterId", String(input.globalAfterId));
+  }
+  if (input.tradeAfterId != null && input.tradeAfterId >= 0) {
+    params.set("tradeAfterId", String(input.tradeAfterId));
+  }
+  if (input.guildAfterId != null && input.guildAfterId >= 0) {
+    params.set("guildAfterId", String(input.guildAfterId));
+  }
+  if (input.includeGuild) params.set("includeGuild", "1");
+  return `/api/chat?${params.toString()}`;
+}
+
+export async function fetchMainChatMessages(input: {
+  globalAfterId?: number;
+  tradeAfterId?: number;
+  guildAfterId?: number;
+  includeGuild: boolean;
+}): Promise<MainChatMessages> {
+  const res = await fetch(mainChatMessagesUrl(input), { cache: "no-store" });
+  if (!res.ok) throw new Error((await res.text()) || `fetch failed: ${res.status}`);
+  return res.json() as Promise<MainChatMessages>;
 }
 
 export function latestChatMessageId(messages: readonly ChatMessage[]): number {

@@ -7,6 +7,7 @@ import {
   parseCraftedBy,
   parseEquipRollForItem,
   parseInstanceCraftQuality,
+  parseInstanceEnhance,
   powerWithBonuses,
   v2EquipStatRows,
   type V2Equipment,
@@ -14,10 +15,7 @@ import {
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
-import {
-  parseEnhance,
-  type V2EnhanceState,
-} from "@/adventure/data/v2/v2Enhance";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 export {
   marketplaceCraftPriceKey,
   marketplacePriceKeyForEquipInstance,
@@ -110,7 +108,7 @@ function listingCraftMetadata(payload: unknown) {
   return {
     craftedBy,
     craftQuality,
-    enhance: craftQuality ? undefined : parseEnhance(raw?.enhance),
+    enhance: parseInstanceEnhance(raw?.enhance, raw?.craftQuality, craftedBy),
   };
 }
 

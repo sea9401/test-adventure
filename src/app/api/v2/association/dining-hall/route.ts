@@ -7,6 +7,7 @@ import {
   guildDiningDonationPoints,
   guildDiningIngredient,
   guildDiningMenu,
+  guildDiningMenusForFacilityLevel,
   guildDiningTicketProgress,
   parseGuildDiningUserState,
   type GuildDiningMenuId,
@@ -44,10 +45,7 @@ function safeCharge(value: unknown): number {
 }
 
 function defaultMenus(level: number): GuildDiningMenuId[] {
-  const slots = diningHallUpgradeForLevel(level).weeklyMenuSlots;
-  return GUILD_DINING_MENUS.filter((menu) => menu.minFacilityLevel <= level)
-    .slice(0, slots)
-    .map((menu) => menu.id);
+  return guildDiningMenusForFacilityLevel(level).map((menu) => menu.id);
 }
 
 async function diningView(args: {
@@ -85,7 +83,6 @@ async function diningView(args: {
       now: args.now,
     });
   const upgrade = diningHallUpgradeForLevel(args.level);
-  const selected = new Set(args.weekly.selectedMenuIds);
   const activeMenu = userState.activeEffect
     ? guildDiningMenu(userState.activeEffect.menuId)
     : null;
@@ -95,7 +92,6 @@ async function diningView(args: {
     stageLabel: upgrade.label,
     weekKey: args.weekly.weekKey,
     weeklySource,
-    canManage: false,
     eligible: weeklySource !== "guild",
     pantry: {
       points: args.weekly.pantryPoints,
@@ -105,7 +101,6 @@ async function diningView(args: {
     },
     tickets: guildDiningTicketProgress(userState, upgrade.weeklyMealTickets),
     contributionPoints: userState.contributionPoints,
-    menuSlots: upgrade.weeklyMenuSlots,
     ingredients: GUILD_DINING_INGREDIENTS.map((ingredient) => ({
       ...ingredient,
       owned: balances[ingredient.id] ?? 0,
@@ -113,7 +108,6 @@ async function diningView(args: {
     menus: GUILD_DINING_MENUS.map((menu) => ({
       ...menu,
       unlocked: args.level >= menu.minFacilityLevel,
-      selected: selected.has(menu.id),
     })),
     activeEffect: userState.activeEffect
       ? { ...userState.activeEffect, name: activeMenu?.name ?? "식사 효과" }
@@ -240,7 +234,7 @@ export async function POST(req: Request) {
     }
 
     const menu = guildDiningMenu(body.menuId);
-    if (!menu || !weekly.selectedMenuIds.includes(menu.id) || menu.minFacilityLevel > level) {
+    if (!menu || menu.minFacilityLevel > level) {
       return { status: 400, body: { ok: false as const, error: "menu_unavailable" } };
     }
     if (weekly.pantryPoints < weekly.targetPoints) {

@@ -10,6 +10,7 @@ import {
   type NotificationKind,
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { GameIconName } from "@/adventure/data/v2/gameIcon";
@@ -737,9 +738,13 @@ export function BattleScene({
 
       <div
         ref={logRef}
-        className="no-scrollbar mb-6 h-[58svh] min-h-[22rem] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-3 dark:border-zinc-800 dark:bg-zinc-950/90 sm:mb-8 sm:h-[40rem] sm:min-h-0"
+        className={`${SURFACE_CARD} no-scrollbar mb-6 h-[58svh] min-h-[22rem] overflow-y-auto p-3 sm:mb-8 sm:h-[40rem] sm:min-h-0`}
       >
-        <BattleLogList entries={state.log} />
+        <BattleLogList
+          entries={state.log}
+          playerName={playerName}
+          enemyName={state.enemy.name}
+        />
       </div>
 
       {recents.length > 0 && (

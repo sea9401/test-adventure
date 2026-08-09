@@ -47,7 +47,7 @@ function request(belowPct: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.saves.clear();
-  mocks.saves.set("character.v2", { gold: 100 });
+  mocks.saves.set("character.v2", { gold: 100, bankedGold: 200 });
   mocks.saves.set("equipment.v2", {
     owned: [
       {
@@ -80,6 +80,7 @@ describe("POST /api/v2/shop/equipment/sell-bulk", () => {
       soldGold: number;
       owned: { iid: string }[];
       gold: number;
+      bankedGold: number;
     };
 
     expect(response.status).toBe(200);
@@ -90,7 +91,12 @@ describe("POST /api/v2/shop/equipment/sell-bulk", () => {
       "fixed",
       "locked-low",
     ]);
-    expect(json.gold).toBe(100 + json.soldGold);
+    expect(json.gold).toBe(100);
+    expect(json.bankedGold).toBe(200 + json.soldGold);
+    expect(mocks.saves.get("character.v2")).toMatchObject({
+      gold: 100,
+      bankedGold: 200 + json.soldGold,
+    });
     expect(mocks.recordEconomyEventSoon).toHaveBeenCalledOnce();
   });
 

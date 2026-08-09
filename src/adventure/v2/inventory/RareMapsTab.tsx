@@ -45,6 +45,7 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import { InventoryItemIcon } from "./InventoryItemIcon";
+import { MasteryCertificateEntryCard } from "../MasteryCertificateUseModal";
 
 function cashItemUseLabel(itemId: MuseunCashItemId): string {
   const effect = MUSEUN_CASH_ITEMS[itemId].effect;
@@ -72,6 +73,8 @@ export function RareMapsTab({
   onUseSpFruit,
   onUseEquipmentBox,
   onUseMasteryTome,
+  masteryCertificates,
+  onUseMasteryCertificate,
   rareMaps,
   cashItems,
   onUseCashItem,
@@ -85,6 +88,8 @@ export function RareMapsTab({
   onUseSpFruit: (tier: SpFruitTier) => void;
   onUseEquipmentBox: (boxId: string) => void;
   onUseMasteryTome: () => void;
+  masteryCertificates: number;
+  onUseMasteryCertificate: () => void;
   rareMaps: RareMapInstance[] | null;
   cashItems: MuseunCashItemCounts;
   onUseCashItem: (itemId: MuseunCashItemId) => void;
@@ -100,6 +105,7 @@ export function RareMapsTab({
     (box) => (materials[box.id] ?? 0) > 0,
   );
   const hasMasteryTome = (materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0) > 0;
+  const hasMasteryCertificate = masteryCertificates > 0;
   const hasCashItem = MUSEUN_UTILITY_ITEM_IDS.some(
     (id) => (cashItems[id] ?? 0) > 0,
   );
@@ -144,6 +150,17 @@ export function RareMapsTab({
         busy={busy}
         onUse={onUseMasteryTome}
       />
+      {hasMasteryCertificate && (
+        <div>
+          <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+            숙련 증서 · 직업 성장
+          </div>
+          <MasteryCertificateEntryCard
+            certificates={masteryCertificates}
+            onUse={onUseMasteryCertificate}
+          />
+        </div>
+      )}
       <ConsumableList
         maps={rareMaps}
         busy={busy}
@@ -152,7 +169,8 @@ export function RareMapsTab({
           hasCashItem ||
           hasSpFruit ||
           hasEquipmentBox ||
-          hasMasteryTome
+          hasMasteryTome ||
+          hasMasteryCertificate
         }
         onUse={onUseExpTome}
       />

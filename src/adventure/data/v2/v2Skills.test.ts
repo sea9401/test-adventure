@@ -361,6 +361,12 @@ describe("광부 생활 패시브", () => {
 });
 
 describe("v2Skills 카탈로그", () => {
+  it("부식 패시브는 실제 중독 피해 환산 계수를 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_venomist_corrosion)).toContain(
+      "중독 적 방어 -3% / 중독 피해 +6.75%",
+    );
+  });
+
   it("모바일 선택창용 라벨에 스킬 이름과 모든 효과 정보를 포함한다", () => {
     const skill = V2_SKILLS.v2_skill_strike;
     const label = v2SkillSelectLabel(skill);

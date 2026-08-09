@@ -1,27 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowClockwise,
   CastleTurret,
-  Certificate,
   CheckCircle,
-  HandFist,
-  Heartbeat,
-  Knife,
-  MagicWand,
-  Sword,
-  type Icon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
-import {
-  formatThousands,
-  NumberInput,
-  parseAmount,
-} from "@/components/ui/NumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { TabBar } from "@/components/ui/TabBar";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
@@ -29,6 +17,11 @@ import {
   useSystemMessageState,
   useSystemToast,
 } from "./RewardToastProvider";
+import {
+  MasteryCertificateEntryCard,
+  MasteryCertificateUseModal,
+} from "./MasteryCertificateUseModal";
+import type { MasteryCertificateStatus } from "@/lib/server/masteryCertificateStatus";
 
 type TowerState = {
   date: string;
@@ -37,6 +30,8 @@ type TowerState = {
   claimed: boolean;
   lifetimeBestFloor: number;
   firstClearRewardsClaimed: number[];
+  weekStartedAt: string;
+  weekBestFloor: number;
   cooldownUntil?: number;
 };
 
@@ -64,6 +59,15 @@ type TowerGuardian = {
   skills: string[];
 };
 
+type TowerStartOption = {
+  floor: number;
+  checkpointFloor: number | null;
+  requiredPower: number;
+  guardian: TowerGuardian;
+};
+
+type TowerStartChoice = Pick<TowerStartOption, "floor" | "checkpointFloor">;
+
 type TowerStatus = {
   ok?: boolean;
   error?: string;
@@ -87,21 +91,12 @@ type TowerStatus = {
   nextFloor: number | null;
   nextRequiredPower: number | null;
   nextGuardian: TowerGuardian | null;
+  startOptions: TowerStartOption[];
   rewards: {
     samples: { floor: number; reward: number }[];
     milestones: { floor: number; bonus: number }[];
   };
   jobs: TowerJob[];
-};
-
-type CertificateUseMode = "mastery" | "proficiency";
-
-const JOB_GROUP_META: Record<string, { label: string; icon: Icon }> = {
-  warrior: { label: "전사", icon: Sword },
-  martial: { label: "무도가", icon: HandFist },
-  mage: { label: "마법사", icon: MagicWand },
-  rogue: { label: "도적", icon: Knife },
-  survivor: { label: "생존자", icon: Heartbeat },
 };
 
 export function V2MasteryTowerView({
@@ -110,19 +105,16 @@ export function V2MasteryTowerView({
   onRefreshGameState,
 }: {
   onBack: () => void;
-  onEnterBattle: () => void;
+  onEnterBattle: (startFloor?: number) => void;
   onRefreshGameState?: () => void | Promise<void>;
 }) {
   const [status, setStatus] = useState<TowerStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"claim" | "use" | null>(null);
+  const [busy, setBusy] = useState<"claim" | null>(null);
   const [msg, setMsg] = useSystemMessageState();
-  const [selectedJobId, setSelectedJobId] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState("");
-  const [certificateUseMode, setCertificateUseMode] =
-    useState<CertificateUseMode>("mastery");
-  const [amount, setAmount] = useState("");
+  const [certificateModalOpen, setCertificateModalOpen] = useState(false);
   const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
+  const [selectedStartFloor, setSelectedStartFloor] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const { notifySystem } = useSystemToast();
   const {
@@ -148,15 +140,9 @@ export function V2MasteryTowerView({
           `✓ 전날 미수령 숙련 증서 ${j.autoClaimedReward.total.toLocaleString("ko-KR")}개가 자동 지급되었습니다.`,
         );
       }
-      setSelectedJobId((prev) =>
-        j.jobs.some((job) => job.id === prev) ? prev : (j.jobs[0]?.id ?? ""),
+      setSelectedStartFloor((prev) =>
+        selectMasteryTowerStartFloor(j.startOptions, prev),
       );
-      setSelectedGroup((prev) =>
-        j.jobs.some((job) => job.group === prev)
-          ? prev
-          : (j.jobs[0]?.group ?? ""),
-      );
-      setAmount((prev) => prev || formatThousands(String(j.certificates || 0)));
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
@@ -171,27 +157,6 @@ export function V2MasteryTowerView({
     return () => clearTimeout(timer);
   }, [refresh]);
 
-  const selectedJob = useMemo(
-    () => status?.jobs.find((job) => job.id === selectedJobId) ?? null,
-    [selectedJobId, status?.jobs],
-  );
-  const jobGroups = useMemo(() => {
-    const groups = new Map<string, TowerJob[]>();
-    for (const job of status?.jobs ?? []) {
-      const groupJobs = groups.get(job.group) ?? [];
-      groupJobs.push(job);
-      groups.set(job.group, groupJobs);
-    }
-    return [...groups.entries()].map(([group, jobs]) => ({
-      group,
-      jobs,
-      label: JOB_GROUP_META[group]?.label ?? group,
-    }));
-  }, [status?.jobs]);
-  const visibleJobs = useMemo(
-    () => jobGroups.find((entry) => entry.group === selectedGroup)?.jobs ?? [],
-    [jobGroups, selectedGroup],
-  );
   const cooldownUntil =
     typeof status?.tower.cooldownUntil === "number"
       ? status.tower.cooldownUntil
@@ -202,6 +167,21 @@ export function V2MasteryTowerView({
       : cooldownUntil
         ? 0
         : Math.max(0, Math.ceil(status?.retryAfterSeconds ?? 0));
+  const selectedStartOption =
+    status?.startOptions.find((option) => option.floor === selectedStartFloor) ??
+    status?.startOptions.at(-1) ??
+    null;
+  const isNewRun = (status?.tower.runFloor ?? 0) === 0;
+  const targetFloor =
+    isNewRun && selectedStartOption ? selectedStartOption.floor : status?.nextFloor;
+  const targetRequiredPower =
+    isNewRun && selectedStartOption
+      ? (selectedStartOption.requiredPower ?? null)
+      : (status?.nextRequiredPower ?? null);
+  const targetGuardian =
+    isNewRun && selectedStartOption
+      ? (selectedStartOption.guardian ?? null)
+      : (status?.nextGuardian ?? null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -234,57 +214,6 @@ export function V2MasteryTowerView({
     }
   }
 
-  async function spendCertificates() {
-    if (certificateUseMode === "mastery" && !selectedJobId) return;
-    const useAmount = Math.max(0, Math.floor(parseAmount(amount)));
-    setBusy("use");
-    try {
-      const res = await fetch("/api/v2/mastery-tower/use-certificate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          mode: certificateUseMode,
-          ...(certificateUseMode === "mastery" ? { jobId: selectedJobId } : {}),
-          amount: useAmount,
-        }),
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        mode?: CertificateUseMode;
-        jobName?: string;
-        used?: number;
-        jobMastery?: number;
-        proficiencyAfter?: number;
-      } | null;
-      if (!j?.ok) {
-        notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
-        return;
-      }
-      if (j.mode === "proficiency") {
-        notifySystem(
-          `✓ 숙달 포인트 +${(j.used ?? 0).toLocaleString("ko-KR")}` +
-            (typeof j.proficiencyAfter === "number"
-              ? ` (보유 ${j.proficiencyAfter.toLocaleString("ko-KR")})`
-              : ""),
-        );
-      } else {
-        notifySystem(
-          `✓ ${j.jobName ?? "직업"} 숙련도 +${(j.used ?? 0).toLocaleString("ko-KR")}` +
-            (typeof j.jobMastery === "number"
-              ? ` (현재 ${j.jobMastery.toLocaleString("ko-KR")})`
-              : ""),
-        );
-      }
-      await refresh();
-      await onRefreshGameState?.();
-    } catch (err) {
-      notifySystem(`✗ ${(err as Error).message}`);
-    } finally {
-      setBusy(null);
-    }
-  }
-
   const canClaim = Boolean(status && !status.tower.claimed && status.claimPreview.total > 0);
   const entryStaminaCost = status?.entryStaminaCost ?? 0;
   const liveStamina = applyRegen(
@@ -296,34 +225,10 @@ export function V2MasteryTowerView({
   const lowStamina = entryStaminaCost > 0 && liveStamina < entryStaminaCost;
   const canAttempt = Boolean(
     status &&
-      status.nextFloor != null &&
+      targetFloor != null &&
       cooldownSeconds <= 0 &&
       !lowStamina,
   );
-  const certificateUseAmount = Math.min(
-    status?.certificates ?? 0,
-    Math.max(0, Math.floor(parseAmount(amount))),
-  );
-  const canUse =
-    Boolean(
-      status &&
-        status.certificates > 0 &&
-        (certificateUseMode === "proficiency" || selectedJobId),
-    ) &&
-    certificateUseAmount > 0;
-
-  function selectGroup(group: string) {
-    setSelectedGroup(group);
-    const currentJobIsVisible = status?.jobs.some(
-      (job) => job.id === selectedJobId && job.group === group,
-    );
-    if (!currentJobIsVisible) {
-      setSelectedJobId(
-        status?.jobs.find((job) => job.group === group)?.id ?? "",
-      );
-    }
-  }
-
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="숙련의 탑" onBack={onBack} />
@@ -355,25 +260,38 @@ export function V2MasteryTowerView({
           </p>
         ) : (
           <>
-            <div className="rounded-md border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/60">
+            {isNewRun && status.startOptions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  시작 위치
+                </p>
+                <MasteryTowerStartPicker
+                  options={status.startOptions}
+                  selectedFloor={selectedStartOption?.floor ?? 1}
+                  onSelect={setSelectedStartFloor}
+                />
+              </div>
+            )}
+
+            <div className={`${SURFACE_INSET} p-4`}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                     다음 목표
                   </p>
-                  {status.nextFloor == null ? (
+                  {targetFloor == null ? (
                     <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                       50층 완료
                     </p>
                   ) : (
                     <p className="mt-1 text-3xl font-bold tabular-nums">
-                      {status.nextFloor}층
+                      {targetFloor}층
                     </p>
                   )}
-                  {status.nextFloor != null && (
+                  {targetFloor != null && (
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                       권장 전투력{" "}
-                      {status.nextRequiredPower?.toLocaleString("ko-KR") ?? "-"}
+                      {targetRequiredPower?.toLocaleString("ko-KR") ?? "-"}
                     </p>
                   )}
                   <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -404,17 +322,17 @@ export function V2MasteryTowerView({
 
               {cooldownSeconds > 0 && (
                 <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                  재입장 대기 중 · {cooldownSeconds}초 후 1층부터 다시 시작
+                  재입장 대기 중 · {cooldownSeconds}초 후 시작 위치 선택 가능
                 </p>
               )}
 
-              {status.nextGuardian && (
+              {targetGuardian && (
                 <details className="group mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">
                     <span>
-                      {status.nextGuardian.name}
-                      {status.nextGuardian.gimmickName
-                        ? ` · ${status.nextGuardian.gimmickName}`
+                      {targetGuardian.name}
+                      {targetGuardian.gimmickName
+                        ? ` · ${targetGuardian.gimmickName}`
                         : ""}
                     </span>
                     <span className="text-xs text-zinc-400 group-open:hidden">
@@ -428,39 +346,39 @@ export function V2MasteryTowerView({
                     <div className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-4">
                       <CompactMetric
                         label="HP"
-                        value={status.nextGuardian.hp.toLocaleString("ko-KR")}
+                        value={targetGuardian.hp.toLocaleString("ko-KR")}
                       />
                       <CompactMetric
                         label={
-                          status.nextGuardian.atkType === "magic"
+                          targetGuardian.atkType === "magic"
                             ? "마법 공격"
                             : "물리 공격"
                         }
-                        value={status.nextGuardian.atk.toLocaleString("ko-KR")}
+                        value={targetGuardian.atk.toLocaleString("ko-KR")}
                       />
                       <CompactMetric
                         label="방어"
-                        value={status.nextGuardian.def.toLocaleString("ko-KR")}
+                        value={targetGuardian.def.toLocaleString("ko-KR")}
                       />
                       <CompactMetric
                         label="속도"
-                        value={status.nextGuardian.spd.toLocaleString("ko-KR")}
+                        value={targetGuardian.spd.toLocaleString("ko-KR")}
                       />
                     </div>
                     <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      적중도 {status.nextGuardian.accuracy} · 회피도{" "}
-                      {status.nextGuardian.evasionPct} · 치명타{" "}
-                      {status.nextGuardian.critPct}% · 추가타{" "}
-                      {status.nextGuardian.bonusAttackChancePct}%{" "}
-                      {status.nextGuardian.skills.length > 0
-                        ? `· ${status.nextGuardian.skills
+                      적중도 {targetGuardian.accuracy} · 회피도{" "}
+                      {targetGuardian.evasionPct} · 치명타{" "}
+                      {targetGuardian.critPct}% · 추가타{" "}
+                      {targetGuardian.bonusAttackChancePct}%{" "}
+                      {targetGuardian.skills.length > 0
+                        ? `· ${targetGuardian.skills
                             .map((id) => towerSkillName(id))
                             .join(" / ")}`
                         : ""}
                     </p>
-                    {status.nextGuardian.gimmickDescription && (
+                    {targetGuardian.gimmickDescription && (
                       <p className="rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                        {status.nextGuardian.gimmickDescription}
+                        {targetGuardian.gimmickDescription}
                       </p>
                     )}
                   </div>
@@ -471,7 +389,9 @@ export function V2MasteryTowerView({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={onEnterBattle}
+                onClick={() =>
+                  onEnterBattle(isNewRun ? selectedStartOption?.floor : undefined)
+                }
                 disabled={busy != null || !canAttempt}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
               >
@@ -539,7 +459,7 @@ export function V2MasteryTowerView({
                 disabled={busy != null || !canAttempt}
                 onClick={() => {
                   setConfirmClaimOpen(false);
-                  onEnterBattle();
+                  onEnterBattle(isNewRun ? selectedStartOption?.floor : undefined);
                 }}
                 className="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
@@ -567,167 +487,16 @@ export function V2MasteryTowerView({
       )}
 
       {status && (
-        <Card padding="md" className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Certificate size={18} weight="duotone" className="text-amber-500" />
-              <h2 className="text-base font-semibold">숙련 증서 사용</h2>
-            </div>
-            <p className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-              보유 {status.certificates.toLocaleString("ko-KR")}개
-            </p>
-          </div>
-
-          <div
-            className="grid grid-cols-2 gap-2"
-            role="group"
-            aria-label="숙련 증서 사용 용도"
-          >
-            {(
-              [
-                {
-                  mode: "mastery" as const,
-                  label: "직업 숙련도",
-                  description: "선택한 직업을 성장시킵니다.",
-                },
-                {
-                  mode: "proficiency" as const,
-                  label: "숙달 포인트",
-                  description: "공용 잔액으로 1:1 전환합니다.",
-                },
-              ] satisfies readonly {
-                mode: CertificateUseMode;
-                label: string;
-                description: string;
-              }[]
-            ).map((option) => {
-              const selected = certificateUseMode === option.mode;
-              return (
-                <button
-                  key={option.mode}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setCertificateUseMode(option.mode)}
-                  className={`rounded-md border px-3 py-2 text-left transition ${
-                    selected
-                      ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-950/30 dark:text-amber-100"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-amber-300 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:border-amber-700"
-                  }`}
-                >
-                  <span className="block text-sm font-semibold">{option.label}</span>
-                  <span className="mt-0.5 block text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    {option.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {certificateUseMode === "mastery" ? (
-            jobGroups.length > 0 ? (
-              <>
-                <TabBar
-                  tabs={jobGroups.map(({ group, label, jobs }) => {
-                    const GroupIcon = JOB_GROUP_META[group]?.icon;
-                    return {
-                      key: group,
-                      label,
-                      badge: jobs.length,
-                      icon: GroupIcon ? (
-                        <GroupIcon size={15} weight="duotone" />
-                      ) : undefined,
-                    };
-                  })}
-                  active={selectedGroup}
-                  onChange={selectGroup}
-                  ariaLabel="숙련 증서를 사용할 직업군"
-                  scrollable
-                />
-
-                <div
-                  role="tabpanel"
-                  aria-label={`${JOB_GROUP_META[selectedGroup]?.label ?? selectedGroup} 직업 목록`}
-                  className="grid grid-cols-2 gap-2"
-                >
-                  {visibleJobs.map((job) => {
-                    const selected = job.id === selectedJobId;
-                    return (
-                      <button
-                        key={job.id}
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() => setSelectedJobId(job.id)}
-                        className={`min-h-16 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 ${
-                          selected
-                            ? "border-amber-500 bg-amber-50 text-amber-950 shadow-sm dark:border-amber-400 dark:bg-amber-950/30 dark:text-amber-100"
-                            : "border-zinc-200 bg-white text-zinc-800 hover:border-amber-300 hover:bg-amber-50/50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-100 dark:hover:border-amber-700 dark:hover:bg-amber-950/20"
-                        }`}
-                      >
-                        <span className="flex items-start justify-between gap-2">
-                          <span className="min-w-0 text-sm font-semibold leading-snug">
-                            {job.name}
-                          </span>
-                          <span className="shrink-0 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                            {job.tier > 0 ? `${job.tier}차` : "기본"}
-                          </span>
-                        </span>
-                        <span className="mt-1 block text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                          숙련도 {job.mastery.toLocaleString("ko-KR")}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <p className="rounded-md bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-                숙련 증서를 사용할 수 있는 직업이 없습니다.
-              </p>
-            )
-          ) : (
-            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm leading-relaxed text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">
-              숙련 증서 1개를 숙달 포인트 1점으로 전환합니다. 전환한 포인트는
-              수행과 스킬 습득·강화에 사용할 수 있습니다.
-            </p>
-          )}
-
-          <div className="grid items-end gap-2 sm:grid-cols-[1fr_auto]">
-            <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-              사용할 증서
-              <NumberInput
-                min={1}
-                max={status.certificates}
-                value={amount}
-                onValueChange={setAmount}
-                aria-label="사용할 숙련 증서 수량"
-                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal text-zinc-900 outline-none focus:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => void spendCertificates()}
-              disabled={busy != null || !canUse}
-              className="h-10 rounded-md bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy === "use"
-                ? "사용 중…"
-                : certificateUseAmount > 0
-                  ? `${certificateUseAmount.toLocaleString("ko-KR")}개 ${
-                      certificateUseMode === "proficiency" ? "전환" : "사용"
-                    }`
-                  : "사용"}
-            </button>
-          </div>
-          <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-relaxed text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-            {certificateUseMode === "proficiency"
-              ? `숙달 포인트 +${certificateUseAmount.toLocaleString("ko-KR")} · 전환 후에는 증서로 되돌릴 수 없습니다.`
-              : selectedJob
-                ? `${selectedJob.name}에 증서를 투자합니다. 사용 후 예상 숙련도 ${(
-                    selectedJob.mastery + certificateUseAmount
-                  ).toLocaleString("ko-KR")}`
-                : "사용할 직업을 선택하세요."}
-          </p>
-        </Card>
+        <MasteryCertificateTowerEntry
+          status={{ certificates: status.certificates, jobs: status.jobs }}
+          modalOpen={certificateModalOpen}
+          onOpen={() => setCertificateModalOpen(true)}
+          onClose={() => setCertificateModalOpen(false)}
+          onUsed={async () => {
+            await refresh();
+            await onRefreshGameState?.();
+          }}
+        />
       )}
 
       {status && (
@@ -758,6 +527,90 @@ export function V2MasteryTowerView({
       )}
     </main>
   );
+}
+
+export function MasteryCertificateTowerEntry({
+  status,
+  modalOpen,
+  onOpen,
+  onClose,
+  onUsed,
+}: {
+  status: MasteryCertificateStatus;
+  modalOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onUsed: () => void | Promise<void>;
+}) {
+  return (
+    <>
+      <MasteryCertificateEntryCard
+        certificates={status.certificates}
+        onUse={onOpen}
+      />
+      <MasteryCertificateUseModal
+        open={modalOpen}
+        initialStatus={status}
+        onClose={onClose}
+        onUsed={onUsed}
+      />
+    </>
+  );
+}
+
+export function MasteryTowerStartPicker({
+  options,
+  selectedFloor,
+  onSelect,
+}: {
+  options: TowerStartChoice[];
+  selectedFloor: number;
+  onSelect: (floor: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="등반 시작 위치">
+      {options.map((option) => {
+        const selected = selectedFloor === option.floor;
+        return (
+          <button
+            key={option.floor}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onSelect(option.floor)}
+            className={`${SURFACE_INSET} px-3 py-2 text-left transition ${
+              selected
+                ? "border-emerald-500 ring-1 ring-emerald-500"
+                : "hover:border-emerald-300 dark:hover:border-emerald-700"
+            }`}
+          >
+            <span className="block text-sm font-semibold">
+              {option.checkpointFloor === null
+                ? "1층부터"
+                : `${option.floor}층부터 시작`}
+            </span>
+            <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+              {option.checkpointFloor === null
+                ? "처음부터 전체 구간 등반"
+                : `${option.checkpointFloor}층 체크포인트 돌파`}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function selectMasteryTowerStartFloor(
+  options: TowerStartChoice[],
+  previousFloor: number | null,
+): number {
+  if (
+    previousFloor !== null &&
+    options.some((option) => option.floor === previousFloor)
+  ) {
+    return previousFloor;
+  }
+  return options.at(-1)?.floor ?? 1;
 }
 
 function towerSkillName(id: string): string {

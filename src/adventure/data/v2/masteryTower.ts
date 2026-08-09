@@ -1,4 +1,5 @@
 import type { Monster } from "@/adventure/data/monsters/types";
+import { kstWeekMondayKey } from "@/lib/kst";
 import type { V2SkillId } from "./v2Skills";
 
 export const MASTERY_TOWER_SAVE_KEY = "mastery-tower.v1";
@@ -23,6 +24,8 @@ export type MasteryTowerState = {
   claimed: boolean;
   lifetimeBestFloor: number;
   firstClearRewardsClaimed: number[];
+  weekStartedAt?: string;
+  weekBestFloor?: number;
   /** 오늘 첫 실제 전투에서 입장 스태미나를 이미 지불했는지 여부. */
   entryStaminaPaid?: boolean;
   cooldownUntil?: number;
@@ -262,6 +265,7 @@ function towerGuardianBossGimmick(floor: number):
 export function parseMasteryTowerState(
   raw: unknown,
   date: string = kstDateKey(),
+  weekStartedAt: string = masteryTowerWeekStartKey(date),
 ): MasteryTowerState {
   const obj =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -280,6 +284,9 @@ export function parseMasteryTowerState(
     claimed: obj.claimed === true,
     lifetimeBestFloor: clampFloor(obj.lifetimeBestFloor),
     firstClearRewardsClaimed: [...new Set(claimedFloors)].sort((a, b) => a - b),
+    weekStartedAt,
+    weekBestFloor:
+      obj.weekStartedAt === weekStartedAt ? clampFloor(obj.weekBestFloor) : 0,
     entryStaminaPaid: obj.entryStaminaPaid === true,
     ...(typeof obj.cooldownUntil === "number" && Number.isFinite(obj.cooldownUntil)
       ? { cooldownUntil: Math.max(0, Math.floor(obj.cooldownUntil)) }
@@ -293,6 +300,8 @@ export function parseMasteryTowerState(
       claimed: false,
       lifetimeBestFloor: base.lifetimeBestFloor,
       firstClearRewardsClaimed: base.firstClearRewardsClaimed,
+      weekStartedAt: base.weekStartedAt,
+      weekBestFloor: base.weekBestFloor,
       entryStaminaPaid: false,
     };
   }
@@ -341,6 +350,7 @@ export function masteryTowerClaimPreview(
 export function rolloverMasteryTowerState(
   raw: unknown,
   date: string = kstDateKey(),
+  weekStartedAt: string = masteryTowerWeekStartKey(date),
 ): {
   tower: MasteryTowerState;
   rolledOver: boolean;
@@ -349,12 +359,16 @@ export function rolloverMasteryTowerState(
   const obj =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const savedDate = typeof obj.date === "string" ? obj.date : date;
-  const previous = parseMasteryTowerState(raw, savedDate);
-  if (previous.date === date) {
+  const dateChanged = savedDate !== date;
+  const weekChanged = obj.weekStartedAt !== weekStartedAt;
+  const previous = parseMasteryTowerState(raw, savedDate, weekStartedAt);
+  if (!dateChanged && !weekChanged) {
     return { tower: previous, rolledOver: false, reward: null };
   }
 
-  const preview = masteryTowerClaimPreview(previous);
+  const preview = dateChanged
+    ? masteryTowerClaimPreview(previous)
+    : { base: 0, firstClearBonus: 0, total: 0, newlyClaimedMilestones: [] };
   const reward =
     preview.total > 0
       ? {
@@ -373,10 +387,12 @@ export function rolloverMasteryTowerState(
     : previous.firstClearRewardsClaimed;
 
   return {
-    tower: resetMasteryTowerDailyProgress(
-      { ...previous, firstClearRewardsClaimed },
-      date,
-    ),
+    tower: dateChanged
+      ? resetMasteryTowerDailyProgress(
+          { ...previous, firstClearRewardsClaimed },
+          date,
+        )
+      : { ...previous, firstClearRewardsClaimed },
     rolledOver: true,
     reward,
   };
@@ -392,7 +408,41 @@ export function clearMasteryTowerFloor(
     runFloor: Math.max(state.runFloor, cleared),
     todayBestFloor: Math.max(state.todayBestFloor, cleared),
     lifetimeBestFloor: Math.max(state.lifetimeBestFloor, cleared),
+    weekBestFloor: Math.max(state.weekBestFloor ?? 0, cleared),
   };
+}
+
+export function masteryTowerCheckpointStartFloor(
+  state: MasteryTowerState,
+): number | null {
+  const checkpointFloor = Math.min(
+    Math.floor(clampFloor(state.weekBestFloor ?? 0) / 10) * 10,
+    MASTERY_TOWER_MAX_FLOOR - 10,
+  );
+  return checkpointFloor >= 10 ? checkpointFloor + 1 : null;
+}
+
+export function masteryTowerStartFloors(state: MasteryTowerState): number[] {
+  if (state.runFloor > 0) return [];
+  const checkpointStartFloor = masteryTowerCheckpointStartFloor(state);
+  return checkpointStartFloor === null ? [1] : [1, checkpointStartFloor];
+}
+
+export function resolveMasteryTowerAttemptFloor(
+  state: MasteryTowerState,
+  requestedStartFloor?: number,
+):
+  | { ok: true; floor: number }
+  | { ok: false; error: "invalid_start_floor" } {
+  if (state.runFloor > 0) {
+    return requestedStartFloor === undefined
+      ? { ok: true, floor: state.runFloor + 1 }
+      : { ok: false, error: "invalid_start_floor" };
+  }
+  const floor = requestedStartFloor ?? 1;
+  return Number.isInteger(floor) && masteryTowerStartFloors(state).includes(floor)
+    ? { ok: true, floor }
+    : { ok: false, error: "invalid_start_floor" };
 }
 
 export function resetMasteryTowerDailyProgress(
@@ -500,6 +550,13 @@ function clampFloor(raw: unknown): number {
   const n = Math.floor(Number(raw));
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(MASTERY_TOWER_MAX_FLOOR, n));
+}
+
+function masteryTowerWeekStartKey(date: string): string {
+  const atKstMidnight = new Date(`${date}T00:00:00+09:00`);
+  return Number.isNaN(atKstMidnight.getTime())
+    ? kstWeekMondayKey()
+    : kstWeekMondayKey(atKstMidnight);
 }
 
 function withoutMasteryTowerCooldown(

@@ -160,7 +160,7 @@ export function buildTagsForEquipment(item: V2Equipment): V2BuildTagId[] {
   }
   if (
     (options.healPowerPct ?? 0) > 0 ||
-    (item.signature?.healPct ?? 0) > 0 ||
+    (item.signature?.lostHpHealPct ?? 0) > 0 ||
     (item.signature?.healToShieldPct ?? 0) > 0
   ) {
     tags.add("heal");
@@ -259,6 +259,13 @@ function addPassiveTags(
   if ((passive.magicDefPct ?? 0) > 0) tags.add("magic");
   if ((passive.poisonedEnemyDefReductionPct ?? 0) > 0) {
     tags.add("poison");
+    tags.add("vulnerability");
+  }
+  if ((passive.enemyPhysicalDefReductionPct ?? 0) > 0) {
+    tags.add("vulnerability");
+  }
+  if ((passive.enemyMagicDefReductionPct ?? 0) > 0) {
+    tags.add("magic");
     tags.add("vulnerability");
   }
   if ((passive.berserkAtkPctPerLostHpPct ?? 0) > 0) tags.add("low_hp");

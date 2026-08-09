@@ -1247,7 +1247,7 @@ const V2_EQUIPMENT_BASE = {
       "호수의 괴물의 냉기가 어린 장갑. 위기에 몰릴수록 얼음이 굳어 몸을 지킨다.",
     power: 26,
     weight: 3,
-    options: { magicDef: 14 },
+    options: { def: 16, magicDef: 14 }, // 개성: 경갑 장갑에 방어·마방
     rarity: "unique",
     // 혹한 — 체력 35% 이하 받피감 −25%(성물 아키타입 재사용).
     signature: {
@@ -1318,7 +1318,7 @@ const V2_EQUIPMENT_BASE = {
     description: "칼날을 튕겨 낸 두꺼운 가죽갑주. 버티며 밀고 들어가는 전열에 맞다.",
     power: 225,
     weight: 18,
-    options: { hp: 750, def: 70, magicDef: 55, critResist: 8, spd: -12 },
+    options: { hp: 900, def: 90, magicDef: 55, critResist: 8, spd: -12 },
     noDrop: true,
     setTags: ["hard_sangoon"],
   },
@@ -1331,7 +1331,7 @@ const V2_EQUIPMENT_BASE = {
     description: "산군의 발톱 조각을 덧댄 장갑. 방어 자세에서도 반격의 힘을 남긴다.",
     power: 66,
     weight: 8,
-    options: { hp: 170, def: 26, crit: 4, critResist: 4 },
+    options: { hp: 220, def: 38, crit: 4, critResist: 4 },
     noDrop: true,
     setTags: ["hard_sangoon"],
   },
@@ -1344,7 +1344,7 @@ const V2_EQUIPMENT_BASE = {
     description: "거친 산비탈을 짓누르듯 걷는 신. 빠르진 않지만 디딘 자리가 무너지지 않는다.",
     power: 64,
     weight: 8,
-    options: { hp: 150, def: 22, critResist: 4, spd: -6 },
+    options: { hp: 200, def: 32, eva: 4, critResist: 4, spd: -6 },
     noDrop: true,
     setTags: ["hard_sangoon"],
   },
@@ -2022,7 +2022,7 @@ const V2_EQUIPMENT_BASE = {
     description: "독기를 피부 가까이 순환시켜 오랜 전투에서도 독맥이 마르지 않게 하는 옷.",
     power: 225,
     weight: 0,
-    options: { hp: 700, magicDef: 30, statusDamageReductionPct: 15 },
+    options: { hp: 700, def: 30, magicDef: 30, statusDamageReductionPct: 15 },
     noDrop: true,
     setTags: ["storm_venom"],
   },
@@ -4078,10 +4078,14 @@ const V2_EQUIPMENT_BASE = {
     description: "오래 봉인되어 있던 반지. 화려함 대신 끈질긴 생명력을 손끝에 새긴다.",
     power: 29,
     weight: 0,
-    options: { hp: 120, eva: 6 },
+    options: { hp: 120, def: 14, eva: 6 },
     rarity: "unique",
-    // 회피 성공 시 HP 소량(maxHp 8%) 회복 — 회피탱 sustain(Phase 2).
-    signature: { trigger: "on_dodge", label: "봉인", healPct: 8 },
+    // 행동마다 회피 경감률의 절반 확률로 잃은 HP 4% 회복.
+    signature: {
+      trigger: "on_action_evasion",
+      label: "봉인",
+      lostHpHealPct: 4,
+    },
   },
   // ── 리자드 늪지(31–36) — 회피·기동 ───────────────────────────────────────────
   v2_swamp_sig_venom_gloves: {
@@ -4119,7 +4123,7 @@ const V2_EQUIPMENT_BASE = {
     description: "독왕의 비늘을 얇게 엮어, 막기보다 흘리기에 모든 걸 건 가벼운 갑옷.",
     power: 80,
     weight: 4,
-    options: { eva: 10, hp: 150 },
+    options: { eva: 10, hp: 150, def: 14 },
     rarity: "unique",
   },
   v2_swamp_sig_fang_dagger: {
@@ -4302,7 +4306,11 @@ const V2_EQUIPMENT_BASE = {
     weight: 0,
     options: { crit: 9, critMult: 75, magicDef: 10 },
     rarity: "unique",
-    signature: { trigger: "on_dodge", label: "그림자", healPct: 6 },
+    signature: {
+      trigger: "on_action_evasion",
+      label: "그림자",
+      lostHpHealPct: 3,
+    },
   },
   // ── 붉은 벌판(49–54) — 전선·화약·폭풍 ─────────────────────────────────
   v2_redfield_sig_ash_spear: {
@@ -4556,7 +4564,11 @@ const V2_EQUIPMENT_BASE = {
     options: { crit: 17, eva: 16, critResist: 6 },
     weaponType: "bow",
     rarity: "unique",
-    signature: { trigger: "on_dodge", label: "해연", healPct: 6 },
+    signature: {
+      trigger: "on_action_evasion",
+      label: "해연",
+      lostHpHealPct: 3,
+    },
   },
   v2_abyssruin_sig_pincer_gloves: {
     id: "v2_abyssruin_sig_pincer_gloves",

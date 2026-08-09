@@ -15,7 +15,6 @@ import {
   currentGuideQuest,
   questLinesFor,
   achievementSummary,
-  claimedUniqueEquipmentAcquisitionFloor,
 } from "@/adventure/data/v2/v2Quests";
 import {
   addTitlesToAdventureLog,
@@ -45,15 +44,9 @@ import { LIFE_REQUESTS_SAVE_KEY } from "@/adventure/v2/lifeRequests";
 import { LIFE_FIELD_RECORDS_KEY } from "@/adventure/v2/lifeFieldRecords";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 import { deriveMonsterHuntCodex } from "@/adventure/data/v2/monsterHuntCodex";
-import {
-  ensureUniqueEquipmentAcquisitionBaseline,
-  persistedUniqueEquipmentAcquired,
-  uniqueEquipmentAcquisitionProgress,
-} from "@/lib/server/uniqueEquipmentAchievement";
 
-// GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생.
+// GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
-//   레거시 이관·반복 퀘스트 롤오버처럼 멱등인 lazy 보정만 필요할 때 저장한다.
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
@@ -105,7 +98,6 @@ export async function GET() {
   ]);
 
   const claimed = parseClaimed(guideRaw);
-  const uniqueAcquiredFloor = claimedUniqueEquipmentAcquisitionFloor(claimed);
   const savedTrackedQuestId = parseTrackedQuestId(guideRaw);
   const retroactiveObtainedAt = Date.now();
   const retroactiveTitleIds = await backfillClaimedQuestTitleRewards(
@@ -114,7 +106,7 @@ export async function GET() {
     advLogRaw,
     retroactiveObtainedAt,
   );
-  let effectiveAdvLogRaw =
+  const effectiveAdvLogRaw =
     retroactiveTitleIds.length > 0
       ? addTitlesToAdventureLog(
           advLogRaw,
@@ -122,24 +114,6 @@ export async function GET() {
           retroactiveObtainedAt,
         )
       : advLogRaw;
-
-  // 보유량 기반이던 레거시 진행도를 누적 획득 시작값으로 한 번만 이관한다. 현재 인벤토리,
-  // 유니크 도감, 이미 수령한 단계 중 가장 높은 증거를 사용해 판매·분해 후에도 내려가지 않는다.
-  const uniqueBaseline = uniqueEquipmentAcquisitionProgress({
-    adventureLogRaw: effectiveAdvLogRaw,
-    equipmentRaw,
-    equipmentCodexRaw,
-    minimum: uniqueAcquiredFloor,
-  });
-  if (uniqueBaseline > persistedUniqueEquipmentAcquired(effectiveAdvLogRaw)) {
-    effectiveAdvLogRaw = await ensureUniqueEquipmentAcquisitionBaseline({
-      executor: db,
-      userId,
-      equipmentRaw,
-      equipmentCodexRaw,
-      minimum: uniqueAcquiredFloor,
-    });
-  }
 
   const ctx = buildQuestCtx({
     charRaw,
@@ -159,7 +133,6 @@ export async function GET() {
     lifeRequestsRaw,
     lifeFieldRecordsRaw,
     lifeFieldMilestonesEnabled: lifeFieldFeatures.milestonesEnabled,
-    uniqueAcquiredFloor,
     extras,
   });
   const quests = deriveQuestViews(ctx, claimed);

@@ -13,11 +13,7 @@ import {
   parseTrackedQuestId,
   GUIDE_QUESTS_KEY,
 } from "@/lib/server/v2QuestContext";
-import {
-  claimedUniqueEquipmentAcquisitionFloor,
-  isQuestClaimable,
-  questById,
-} from "@/adventure/data/v2/v2Quests";
+import { questById, isQuestClaimable } from "@/adventure/data/v2/v2Quests";
 import {
   parseEquipmentSave,
   type EquipmentSave,
@@ -110,8 +106,6 @@ export async function POST(req: Request) {
     const lifeFieldRecordsRaw = await readSave(tx, userId, LIFE_FIELD_RECORDS_KEY, {});
     const lifeFieldFeatures = await readLifeFieldFeatureSettings(tx);
     const extras = await assembleQuestExtras(tx, userId);
-    const claimed = parseClaimed(guideSave);
-    const uniqueAcquiredFloor = claimedUniqueEquipmentAcquisitionFloor(claimed);
 
     const ctx = buildQuestCtx({
       charRaw: charSave,
@@ -131,9 +125,9 @@ export async function POST(req: Request) {
       lifeRequestsRaw,
       lifeFieldRecordsRaw,
       lifeFieldMilestonesEnabled: lifeFieldFeatures.milestonesEnabled,
-      uniqueAcquiredFloor,
       extras,
     });
+    const claimed = parseClaimed(guideSave);
     const trackedQuestId = parseTrackedQuestId(guideSave);
 
     if (claimed.has(def.id)) {

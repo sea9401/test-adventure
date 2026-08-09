@@ -5,13 +5,16 @@ import {
   markMasteryTowerEntryStaminaPaid,
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
+  masteryTowerCheckpointStartFloor,
   masteryTowerEntryStaminaCost,
   masteryTowerFloorReward,
   masteryTowerGuardianForFloor,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
+  masteryTowerStartFloors,
   parseMasteryTowerState,
   resetMasteryTowerDailyProgress,
+  resolveMasteryTowerAttemptFloor,
   rolloverMasteryTowerState,
 } from "./masteryTower";
 
@@ -63,6 +66,8 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 22,
       firstClearRewardsClaimed: [10, 20],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 0,
       entryStaminaPaid: false,
     });
   });
@@ -98,6 +103,8 @@ describe("masteryTower", () => {
         claimed: false,
         lifetimeBestFloor: 22,
         firstClearRewardsClaimed: [10],
+        weekStartedAt: "2026-06-29",
+        weekBestFloor: 0,
         entryStaminaPaid: false,
       },
     });
@@ -312,6 +319,8 @@ describe("masteryTower", () => {
         claimed: false,
         lifetimeBestFloor: 12,
         firstClearRewardsClaimed: [10],
+        weekStartedAt: "2026-06-29",
+        weekBestFloor: 7,
       },
       8,
     );
@@ -323,6 +332,8 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 12,
       firstClearRewardsClaimed: [10],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 8,
     });
 
     expect(failMasteryTowerRun(cleared, 1000)).toEqual({
@@ -332,7 +343,118 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 12,
       firstClearRewardsClaimed: [10],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 8,
       cooldownUntil: 31_000,
     });
+  });
+
+  it("이번 주 최고층으로 최근 10층 체크포인트의 다음 층을 계산한다", () => {
+    for (const [weekBestFloor, expected] of [
+      [0, null],
+      [9, null],
+      [10, 11],
+      [37, 31],
+      [50, 41],
+    ] as const) {
+      const state = parseMasteryTowerState(
+        {
+          date: "2026-08-09",
+          weekStartedAt: "2026-08-03",
+          weekBestFloor,
+        },
+        "2026-08-09",
+        "2026-08-03",
+      );
+      expect(masteryTowerCheckpointStartFloor(state)).toBe(expected);
+    }
+  });
+
+  it("새 등반은 1층과 최근 주간 체크포인트만 시작할 수 있다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 37,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(masteryTowerStartFloors(state)).toEqual([1, 31]);
+    expect(resolveMasteryTowerAttemptFloor(state, 1)).toEqual({ ok: true, floor: 1 });
+    expect(resolveMasteryTowerAttemptFloor(state, 31)).toEqual({ ok: true, floor: 31 });
+    expect(resolveMasteryTowerAttemptFloor(state, 27)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+    expect(resolveMasteryTowerAttemptFloor(state, 31.5)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+  });
+
+  it("진행 중인 등반은 시작 층 변경 없이 다음 층만 이어간다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        runFloor: 12,
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 37,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(masteryTowerStartFloors(state)).toEqual([]);
+    expect(resolveMasteryTowerAttemptFloor(state)).toEqual({ ok: true, floor: 13 });
+    expect(resolveMasteryTowerAttemptFloor(state, 1)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+  });
+
+  it("월요일이 되면 주간 진행만 초기화하고 영구 기록은 유지한다", () => {
+    const monday = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        todayBestFloor: 37,
+        runFloor: 37,
+        claimed: true,
+        lifetimeBestFloor: 44,
+        firstClearRewardsClaimed: [10, 20, 30, 40],
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 37,
+      },
+      "2026-08-10",
+      "2026-08-10",
+    );
+
+    expect(monday).toMatchObject({
+      date: "2026-08-10",
+      todayBestFloor: 0,
+      runFloor: 0,
+      claimed: false,
+      lifetimeBestFloor: 44,
+      firstClearRewardsClaimed: [10, 20, 30, 40],
+      weekStartedAt: "2026-08-10",
+      weekBestFloor: 0,
+    });
+  });
+
+  it("승리하면 주간 최고층을 올리고 패배해도 유지한다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 20,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+    const cleared = clearMasteryTowerFloor(state, 21);
+
+    expect(cleared.weekBestFloor).toBe(21);
+    expect(failMasteryTowerRun(cleared, 1_000).weekBestFloor).toBe(21);
   });
 });

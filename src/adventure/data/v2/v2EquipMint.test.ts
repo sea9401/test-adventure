@@ -84,15 +84,15 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
     expect(listedEquipEnhance({ ...roll, enhance: payloadEnhance })?.level).toBe(7);
   });
 
-  it("craftQuality 가 있으면 enhance 는 무시(동시 부착 금지 규약)", () => {
+  it("명시적 craftQuality 와 enhance 를 함께 복원한다", () => {
     const inst = mintListedEquipInstance(ANY_ID, {
       ...roll,
       craftQuality: { level: 1, bonusPct: 6 },
       enhance: { level: 3, bonusPct: 9 },
       craftedBy: { userId: "u1", profession: "blacksmith" },
     });
-    expect(inst.craftQuality).toBeDefined();
-    expect("enhance" in inst).toBe(false);
+    expect(inst.craftQuality).toEqual({ level: 1, bonusPct: 5 });
+    expect(inst.enhance).toEqual({ level: 3, bonusPct: 4 });
     expect(inst.craftedBy).toMatchObject({ userId: "u1" });
     expect(
       listedEquipEnhance({
@@ -101,6 +101,6 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
         enhance: { level: 3, bonusPct: 9 },
         craftedBy: { userId: "u1", profession: "blacksmith" },
       }),
-    ).toBeUndefined();
+    ).toEqual({ level: 3, bonusPct: 4 });
   });
 });

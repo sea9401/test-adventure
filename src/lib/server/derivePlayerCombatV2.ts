@@ -326,6 +326,10 @@ export type DerivePlayerCombatV2PureInput = {
   passiveOpeningMagicDamageReductionPhases?: number;
   /** 중독된 적 방어 -%(부식 패시브) — 다른 부식과 남은 방어력 기준 곱연산. */
   passivePoisonedEnemyDefReductionPct?: number;
+  /** 적 물리 방어 -%(독립 패시브) — 같은 종류끼리 집계 단계에서 곱연산. */
+  passiveEnemyPhysicalDefReductionPct?: number;
+  /** 적 마법 방어 -%(독립 패시브) — 같은 종류끼리 집계 단계에서 곱연산. */
+  passiveEnemyMagicDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 엔진 computeBerserkBonus 로 소비. */
   passiveBerserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 누적. */
@@ -783,6 +787,15 @@ export function derivePlayerCombatV2Pure(
     ...(totalPoisonedEnemyDefReductionPct
       ? { poisonedEnemyDefReductionPct: totalPoisonedEnemyDefReductionPct }
       : {}),
+    ...(input.passiveEnemyPhysicalDefReductionPct
+      ? {
+          enemyPhysicalDefReductionPct:
+            input.passiveEnemyPhysicalDefReductionPct,
+        }
+      : {}),
+    ...(input.passiveEnemyMagicDefReductionPct
+      ? { enemyMagicDefReductionPct: input.passiveEnemyMagicDefReductionPct }
+      : {}),
     ...(input.passiveBerserkAtkPctPerLostHpPct
       ? {
           berserkAtkPctPerLostHpPct:
@@ -974,6 +987,9 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.openingMagicDamageReductionPhases,
     passivePoisonedEnemyDefReductionPct:
       passiveAgg.poisonedEnemyDefReductionPct,
+    passiveEnemyPhysicalDefReductionPct:
+      passiveAgg.enemyPhysicalDefReductionPct,
+    passiveEnemyMagicDefReductionPct: passiveAgg.enemyMagicDefReductionPct,
     passiveBerserkAtkPctPerLostHpPct:
       passiveAgg.berserkAtkPctPerLostHpPct,
     passiveEnemyMagicVulnPctPerStack:

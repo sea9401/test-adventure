@@ -59,6 +59,7 @@ type StateResponse = {
     spd: number;
     magicAtk?: number;
     magicDef?: number;
+    healMult?: number;
     magicBarrierMax?: number;
     magicBarrierAbsorbPct?: number;
     evasionPct?: number;

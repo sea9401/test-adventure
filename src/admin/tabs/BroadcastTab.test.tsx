@@ -18,13 +18,24 @@ describe("관리자 공지·우편", () => {
     expect(html).not.toContain('placeholder="user id"');
   });
 
-  it("보상 우편 첨부 목록에서 수행 초기화 물약을 선택할 수 있다", () => {
+  it("보상 우편 소비 아이템 목록에서 세 소모품을 선택하고 코인샵 목록과 중복하지 않는다", () => {
     const html = renderToStaticMarkup(
       <AdminProvider>
         <BroadcastTab />
       </AdminProvider>,
     );
 
-    expect(html).toContain("수행 초기화 물약");
+    const consumableStart = html.indexOf(">소비 아이템 첨부<");
+    const cashItemStart = html.indexOf(">무슨 코인샵 아이템 첨부<");
+    const consumableSection = html.slice(consumableStart, cashItemStart);
+    const cashItemSection = html.slice(cashItemStart);
+
+    expect(consumableStart).toBeGreaterThanOrEqual(0);
+    expect(cashItemStart).toBeGreaterThan(consumableStart);
+    expect(consumableSection).toContain("스태미나 회복약");
+    expect(consumableSection).toContain("수행 초기화 물약");
+    expect(consumableSection).toContain("100레벨 달성의 비약");
+    expect(cashItemSection).not.toContain("수행 초기화 물약");
+    expect(cashItemSection).not.toContain("100레벨 달성의 비약");
   });
 });

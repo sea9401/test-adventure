@@ -249,6 +249,54 @@ describe("POST /api/v2/fishing/reel", () => {
     ).toBe(1);
   });
 
+  it("잔잔한 수면에서 8% 확률 판정에 성공하면 낚시 경험치 2를 추가로 얻는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_SESSION_KEY, {
+      castId: "calm-26",
+      biteAt: now - 100,
+      expiresAt: now + 10_000,
+      fishId: "carp",
+      size: 42,
+      lifeEnvironmentId: "fishing_calm_water",
+    });
+
+    const res = await POST(reelReq({ castId: "calm-26", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      caught: true,
+      fishingXpGained: 6,
+      environmentXpGained: 2,
+      lifeEnvironment: {
+        id: "fishing_calm_water",
+        effectLabel: "8% 확률로 낚시 경험치 +2",
+      },
+    });
+  });
+
+  it("잔잔한 수면에서 8% 확률 판정에 실패하면 추가 낚시 경험치를 주지 않는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_SESSION_KEY, {
+      castId: "calm-0",
+      biteAt: now - 100,
+      expiresAt: now + 10_000,
+      fishId: "carp",
+      size: 42,
+      lifeEnvironmentId: "fishing_calm_water",
+    });
+
+    const res = await POST(reelReq({ castId: "calm-0", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      caught: true,
+      fishingXpGained: 4,
+      environmentXpGained: 0,
+    });
+  });
+
   it("어종별 크기 하위 25% 물고기를 낚으면 잔챙이 전문 히든 칭호를 지급한다", async () => {
     const now = Date.now();
     seedFisherSession(now);

@@ -246,6 +246,85 @@ describe("advanceTurn (enemy phase)", () => {
     expect(s1.phase).toBe("player");
   });
 
+  it("일반 회피 경감이 발동하면 장비 회복과 속도를 피격 후 한 번 적용한다", () => {
+    const reactive: PlayerCombat = {
+      ...PLAYER,
+      hp: 100,
+      maxHp: 100,
+      def: 0,
+      evasionPct: 100,
+      evaRating: 100,
+      equipSignatures: [
+        { trigger: "on_dodge", label: "해연", healPct: 6 },
+        {
+          trigger: "on_dodge",
+          label: "밤기수",
+          spdBuffPct: 25,
+          buffActions: 2,
+        },
+      ],
+    };
+    const s0 = {
+      ...initialBattleState(reactive, makeEnemy({ atk: 40 }), "용사"),
+      playerHp: 50,
+      phase: "enemy" as const,
+    };
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const s1 = advanceTurn(s0, reactive, "용사");
+
+    expect(s1.playerHp).toBe(50); // 6 피해 후 최대 HP 6% 회복
+    expect(s1.buffs.playerSpdMult).toBe(1.25);
+    expect(s1.buffs.playerSpdTurnsLeft).toBe(2);
+    expect(s1.log.filter((entry) => entry.text.includes("[해연]")).length).toBe(1);
+    expect(s1.log.filter((entry) => entry.text.includes("[밤기수]")).length).toBe(1);
+    expect(random).toHaveBeenCalledTimes(1);
+  });
+
+  it("회피 경감의 정수 피해 차가 없으면 장비 반응을 굴리지 않는다", () => {
+    const reactive: PlayerCombat = {
+      ...PLAYER,
+      hp: 100,
+      maxHp: 100,
+      def: 0,
+      evasionPct: 100,
+      evaRating: 100,
+      equipSignatures: [
+        { trigger: "on_dodge", label: "해연", healPct: 6 },
+      ],
+    };
+    const s0 = {
+      ...initialBattleState(reactive, makeEnemy({ atk: 1 }), "용사"),
+      playerHp: 50,
+      phase: "enemy" as const,
+    };
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const s1 = advanceTurn(s0, reactive, "용사");
+
+    expect(s1.playerHp).toBe(49);
+    expect(s1.log.some((entry) => entry.text.includes("[해연]"))).toBe(false);
+    expect(random).not.toHaveBeenCalled();
+  });
+
+  it("on_dodge 장비가 없으면 일반 회피 경감이 난수열을 소비하지 않는다", () => {
+    const dodgy: PlayerCombat = {
+      ...PLAYER,
+      def: 0,
+      evasionPct: 100,
+      evaRating: 100,
+    };
+    const s0 = {
+      ...initialBattleState(dodgy, makeEnemy({ atk: 40 }), "용사"),
+      phase: "enemy" as const,
+    };
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    advanceTurn(s0, dodgy, "용사");
+
+    expect(random).not.toHaveBeenCalled();
+  });
+
   it("회피도가 없으면 방어 공식의 피해를 그대로 받는다", () => {
     const enemy = makeEnemy();
     const s0 = { ...initialBattleState(PLAYER, enemy, "P"), phase: "enemy" as const };

@@ -303,3 +303,61 @@ export function onDodgeSpeedBuff(
   }
   return best;
 }
+
+export type EvasionReaction = {
+  heal: { amount: number; label: string } | null;
+  speed: { mult: number; turns: number; label: string } | null;
+};
+
+// 일반 회피 경감 반응 — 정수 직접 피해가 실제로 줄었을 때 경감률과 같은 확률로
+// 장비의 on_dodge 효과 묶음을 한 번 발동한다. 장비가 없거나 경감이 없으면 RNG를
+// 소비하지 않아 기존 전투의 난수열을 보존한다.
+export function rollEvasionReaction(
+  signatures: SignatureEffect[] | undefined,
+  maxHp: number,
+  reductionPct: number,
+  damageBefore: number,
+  damageAfter: number,
+  roll: () => number = Math.random,
+): EvasionReaction | null {
+  if (
+    !signatures ||
+    signatures.length === 0 ||
+    !Number.isFinite(reductionPct) ||
+    reductionPct <= 0 ||
+    !Number.isFinite(damageBefore) ||
+    !Number.isFinite(damageAfter) ||
+    damageAfter >= damageBefore
+  ) {
+    return null;
+  }
+
+  let healAmount = 0;
+  const healLabels: string[] = [];
+  let speed: EvasionReaction["speed"] = null;
+  for (const signature of signatures) {
+    if (signature.trigger !== "on_dodge") continue;
+    if (signature.healPct && maxHp > 0) {
+      healAmount += Math.floor((signature.healPct / 100) * maxHp);
+      healLabels.push(signature.label);
+    }
+    if (signature.spdBuffPct) {
+      const candidate = {
+        mult: 1 + signature.spdBuffPct / 100,
+        turns: Math.max(1, signature.buffActions ?? 1),
+        label: signature.label,
+      };
+      if (!speed || candidate.mult > speed.mult) speed = candidate;
+    }
+  }
+  const heal =
+    healAmount > 0
+      ? { amount: healAmount, label: healLabels.join(" + ") }
+      : null;
+  if (!heal && !speed) return null;
+
+  const sample = roll();
+  if (!Number.isFinite(sample) || sample < 0 || sample > 1) return null;
+  if (sample * 100 >= Math.min(100, reductionPct)) return null;
+  return { heal, speed };
+}

@@ -140,13 +140,63 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
     expect(countText(res, "[반격] 정예 반격 시험체에게")).toBeGreaterThan(0);
   });
 
+  it("몬스터 직접 피해 스킬의 일반 회피 경감이 on_dodge 장비를 한 번 발동한다", () => {
+    const reactivePlayer: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      evasionPct: 100,
+      evaRating: 100,
+      equipSignatures: [
+        { trigger: "on_dodge", label: "해연", healPct: 6 },
+      ],
+    };
+    const enemy: Monster = {
+      name: "정예 경감 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      accuracy: 0,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+    const state = {
+      ...initialBattleState(reactivePlayer, enemy, "그림자"),
+      playerHp: 500,
+    };
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const cast = applyEnemyV2SkillCast(state, reactivePlayer);
+
+    const damageLog = cast.state.log.find(
+      (entry) =>
+        entry.text.includes("분쇄 일격!") && entry.text.includes("피해를 입혔다"),
+    );
+    const damage = Number(damageLog?.text.match(/(\d+) 피해/)?.[1]);
+    expect(cast.castFired).toBe(true);
+    expect(damage).toBeGreaterThan(0);
+    expect(cast.state.playerHp).toBe(500 - damage + 60);
+    expect(cast.state.log.some((entry) => entry.text.includes("회피 경감"))).toBe(true);
+    expect(cast.state.log.filter((entry) => entry.text.includes("[해연]")).length).toBe(1);
+    expect(random).toHaveBeenCalledTimes(2); // 스킬 proc 1회 + 회피 반응 1회
+  });
+
   it("그림자 도약의 보장 회피는 몬스터의 다음 직접 피해 스킬도 막는다", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.1);
     const guardedPlayer: PlayerCombat = {
       ...player,
       hp: 1_000,
       maxHp: 1_000,
       guaranteedEvades: 1,
+      equipSignatures: [
+        { trigger: "on_dodge", label: "해연", healPct: 6 },
+      ],
     };
     const enemy: Monster = {
       name: "정예 회피 시험체",
@@ -164,6 +214,7 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
       v2MaxMp: 30,
     };
     const state = initialBattleState(guardedPlayer, enemy, "그림자");
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.1);
 
     const cast = applyEnemyV2SkillCast(state, guardedPlayer);
 
@@ -184,6 +235,7 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
           entry.text.includes("피해를 입혔다"),
       ),
     ).toBe(false);
+    expect(random).toHaveBeenCalledTimes(1); // 스킬 proc만 굴리고 일반 회피 반응은 생략
   });
 
   it("ATB 몬스터 직접 피해 스킬에도 일반 받는 피해 감소를 적용한다", () => {

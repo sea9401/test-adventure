@@ -471,6 +471,26 @@ describe("생존 패시브 중첩 점감", () => {
     expect(stackedMaxHpIncreasePct(66)).toBeCloseTo(42.6, 5);
     expect(stackedDefenseIncreasePct(58)).toBeCloseTo(41.2, 5);
   });
+
+  it("최대 HP 비율은 소프트캡 뒤에도 하드캡 없이 계속 증가한다", () => {
+    expect(stackedMaxHpIncreasePct(30)).toBe(30);
+    expect(stackedMaxHpIncreasePct(124)).toBeCloseTo(62.9, 5);
+  });
+
+  it("고중첩 최대 HP 패시브를 해제하면 실제 최대 HP도 감소한다", () => {
+    const full = derivePlayerCombatV2Pure({
+      level: 100,
+      v2Equipped: {},
+      maxHpPct: 124,
+    });
+    const reduced = derivePlayerCombatV2Pure({
+      level: 100,
+      v2Equipped: {},
+      maxHpPct: 90,
+    });
+
+    expect(full.maxHp).toBeGreaterThan(reduced.maxHp);
+  });
 });
 
 describe("derivePlayerCombatV2Pure magicDef (마법형 몬스터 대응축)", () => {

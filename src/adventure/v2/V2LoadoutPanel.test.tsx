@@ -1,6 +1,70 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { V2LoadoutPanel } from "./V2LoadoutPanel";
+import {
+  isSkillDisplayed,
+  parseHiddenSkillIds,
+  toggleHiddenSkill,
+  V2LoadoutPanel,
+} from "./V2LoadoutPanel";
+
+describe("보유 스킬 표시 설정", () => {
+  it("숨김 스킬을 입력 Set 변경 없이 토글한다", () => {
+    const original = new Set(["v2_skill_strike"]);
+    const added = toggleHiddenSkill(original, "v2c_rogue_poison");
+    const restored = toggleHiddenSkill(added, "v2_skill_strike");
+
+    expect([...original]).toEqual(["v2_skill_strike"]);
+    expect([...added]).toEqual(["v2_skill_strike", "v2c_rogue_poison"]);
+    expect([...restored]).toEqual(["v2c_rogue_poison"]);
+  });
+
+  it("저장값에서 유효한 문자열 스킬 ID만 복원한다", () => {
+    expect([
+      ...parseHiddenSkillIds(
+        '["v2_skill_strike"," v2c_rogue_poison ",null,3,"", "v2_skill_strike"]',
+      ),
+    ]).toEqual(["v2_skill_strike", "v2c_rogue_poison"]);
+    expect([...parseHiddenSkillIds("not json")]).toEqual([]);
+  });
+
+  it("숨긴 스킬도 장착 중이면 목록에서 보호해 표시한다", () => {
+    const hidden = new Set(["v2_skill_strike", "v2c_rogue_poison"]);
+
+    expect(
+      isSkillDisplayed(
+        "v2_skill_strike",
+        hidden,
+        new Set(["v2_skill_strike"]),
+      ),
+    ).toBe(true);
+    expect(
+      isSkillDisplayed("v2c_rogue_poison", hidden, new Set()),
+    ).toBe(false);
+  });
+
+  it("표시 설정과 장착 스킬 보호 안내를 렌더한다", () => {
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 4,
+          spUsed: 4,
+          equipped: ["v2_skill_strike"],
+          library: [
+            {
+              skillId: "v2_skill_strike",
+              name: "강타",
+              spCost: 4,
+              equipped: true,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain("표시 스킬 1/1");
+    expect(html).toContain("표시 설정");
+  });
+});
 
 describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
   it("즐겨찾기 옆 동작 버튼의 폭을 고정하고 줄바꿈을 막는다", () => {

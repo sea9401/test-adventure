@@ -119,7 +119,7 @@ import {
 import {
   LIFE_FIELD_ENVIRONMENTS,
   lifeFieldEnvironmentSnapshot,
-  lifeFieldXpBonus,
+  lifeFieldFlatXpBonus,
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import {
   lifeFieldSessionRoll,
@@ -327,9 +327,9 @@ export async function POST(req: Request) {
       new Date(now),
     );
     const environmentXpGained = lifeFeatures.environmentEnabled
-      ? lifeFieldXpBonus(
-          fishingXpForCatch(session.fishId),
-          lifeEnvironment.effect.xpBonusPct ?? 0,
+      ? lifeFieldFlatXpBonus(
+          lifeEnvironment.effect.flatXpBonus ?? 0,
+          lifeEnvironment.effect.flatXpBonusChance ?? 0,
           lifeFieldSessionRoll(session.castId, "xp-bonus"),
         )
       : 0;

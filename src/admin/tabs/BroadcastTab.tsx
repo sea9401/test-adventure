@@ -6,8 +6,12 @@ import { adminGet, adminPost } from "../api";
 import {
   v2EquipmentOptions,
   v2MaterialOptions,
-  type CatalogOption,
 } from "../adminCatalogOptions";
+import {
+  adminMailCashItemOptions,
+  adminMailConsumableOptions,
+  splitAdminMailConsumables,
+} from "../broadcastMailAttachments";
 import {
   exactMailRecipient,
   mailRecipientMatches,
@@ -20,11 +24,6 @@ import {
 import { DangerAction } from "../ui/DangerAction";
 import { BULLETIN_NOTICE_MAX_LENGTH } from "@/lib/bulletin-config";
 import { ADVENTURE_SUPPORT_MAX_GRANT_DAYS } from "@/adventure/data/v2/adventureSupport";
-import {
-  MUSEUN_CASH_ITEMS,
-  MUSEUN_ADMIN_GIFT_ITEM_IDS,
-  CULTIVATION_RESET_POTION_ITEM_ID,
-} from "@/adventure/data/v2/museunCashItems";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { AdminUserRow } from "./users/types";
 
@@ -64,28 +63,8 @@ export function BroadcastTab() {
   // 카탈로그 옵션 (V2GrantSection 과 공용 — adminCatalogOptions).
   const materialOptions = useMemo(() => v2MaterialOptions(), []);
   const equipOptions = useMemo(() => v2EquipmentOptions(), []);
-  const consumableOptions = useMemo<CatalogOption[]>(
-    () => [
-      {
-        id: "stamina_potion",
-        name: "스태미나 회복약",
-        label: "스태미나 회복약",
-      },
-    ],
-    [],
-  );
-  const cashItemOptions = useMemo<CatalogOption[]>(
-    () =>
-      MUSEUN_ADMIN_GIFT_ITEM_IDS.map((id) => ({
-        id,
-        name: MUSEUN_CASH_ITEMS[id].name,
-        label:
-          id === CULTIVATION_RESET_POTION_ITEM_ID
-            ? `${MUSEUN_CASH_ITEMS[id].name} (보상 전용)`
-            : `${MUSEUN_CASH_ITEMS[id].name} (${MUSEUN_CASH_ITEMS[id].coinPrice.toLocaleString()}코인 상품)`,
-      })),
-    [],
-  );
+  const consumableOptions = useMemo(() => adminMailConsumableOptions(), []);
+  const cashItemOptions = useMemo(() => adminMailCashItemOptions(), []);
 
   const noticeDisabled = readOnly || posting;
   const mailDisabled = readOnly || sending;
@@ -171,6 +150,10 @@ export function BroadcastTab() {
   const sendMail = async () => {
     setSending(true);
     try {
+      const consumables = splitAdminMailConsumables(
+        attachConsumables,
+        attachCashItems,
+      );
       const j = await adminPost<{
         recipients?: number;
         materials?: unknown[];
@@ -188,13 +171,9 @@ export function BroadcastTab() {
           count: e.count,
         })),
         items: attachItems.map((e) => ({ itemId: e.id, count: e.count })),
-        staminaPotions:
-          attachConsumables.find((e) => e.id === "stamina_potion")?.count ?? 0,
+        staminaPotions: consumables.staminaPotions,
         museunCoins,
-        cashItems: attachCashItems.map((e) => ({
-          itemId: e.id,
-          count: e.count,
-        })),
+        cashItems: consumables.cashItems,
         adventureSupportDays,
         message: mailMsg,
       });

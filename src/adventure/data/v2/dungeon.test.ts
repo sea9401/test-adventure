@@ -16,7 +16,13 @@ import {
   nextHuntStageDepth,
   MAX_FRONTIER_DEPTH,
 } from "./dungeon";
-import { scaleMonsterForFloor, scaleMonsterForHunt } from "./monsterScale";
+import {
+  HUNT_HIGH_DEPTH_ACCURACY_MULT,
+  HUNT_HIGH_DEPTH_ACCURACY_START,
+  HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT,
+  scaleMonsterForFloor,
+  scaleMonsterForHunt,
+} from "./monsterScale";
 import {
   floorStatMult,
   floorDefMult,
@@ -469,6 +475,49 @@ describe("scaleMonsterForFloor", () => {
 
     expect(scaled.statusDamageReductionPct).toBeUndefined();
     expect(baseWithResistance.statusDamageReductionPct).toBe(40);
+  });
+
+  it("61층 이후 일반 사냥터는 고유 적중도를 25%만 반영하고 최종값을 10% 낮춘다", () => {
+    expect(HUNT_HIGH_DEPTH_ACCURACY_START).toBe(61);
+    expect(HUNT_HIGH_DEPTH_AUTHORED_ACCURACY_WEIGHT).toBe(0.25);
+    expect(HUNT_HIGH_DEPTH_ACCURACY_MULT).toBe(0.9);
+    const accurateMonster = V2_MONSTERS["낙뢰 예언자"];
+    const authoredAccuracy = accurateMonster.accuracy ?? 0;
+
+    const depth60 = scaleMonsterForHunt(accurateMonster, 60);
+    expect(depth60.accuracy).toBeCloseTo(
+      (floorAccuracy(60) + authoredAccuracy) *
+        fixedFrontierAccuracyMult(60) *
+        lateAccuracyMult(60),
+    );
+
+    const depth61 = scaleMonsterForHunt(accurateMonster, 61);
+    expect(depth61.accuracy).toBeCloseTo(
+      (floorAccuracy(61) + authoredAccuracy * 0.25) *
+        fixedFrontierAccuracyMult(61) *
+        lateAccuracyMult(61) *
+        0.9,
+    );
+
+    // 고유 적중도가 없는 몬스터도 같은 일반 사냥터 최종 완화를 받는다.
+    const noAuthoredAccuracy = scaleMonsterForHunt(
+      { ...accurateMonster, accuracy: undefined },
+      61,
+    );
+    expect(noAuthoredAccuracy.accuracy).toBeCloseTo(
+      floorAccuracy(61) *
+        fixedFrontierAccuracyMult(61) *
+        lateAccuracyMult(61) *
+        0.9,
+    );
+
+    // 격자 던전·원정 등 별도 난도표는 기존 고유 적중도를 유지한다.
+    const specialCombat = scaleMonsterForFloor(accurateMonster, 61);
+    expect(specialCombat.accuracy).toBeCloseTo(
+      (floorAccuracy(61) + authoredAccuracy) *
+        fixedFrontierAccuracyMult(61) *
+        lateAccuracyMult(61),
+    );
   });
 
   it("49+ 고정 난도 보정은 협동 보스 스케일에는 적용하지 않는다", () => {

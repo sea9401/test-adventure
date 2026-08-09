@@ -39,6 +39,7 @@ import {
   onCritEnemyChill,
   onCritSpeedBuff,
   onHitTakenDefGain,
+  rollEvasionReaction,
   rollOnHitBleed,
   rollOnHitPoison,
   rollOnHitShock,
@@ -579,16 +580,61 @@ export function advanceTurnPvP(
     bloodfeastPct > 0 && dmgToHp > 0 && defenderHpAfterDmg > 0
       ? Math.floor((dmgToHp * bloodfeastPct) / 100)
       : 0;
-  const newDefenderHp =
+  const defenderHpAfterBloodfeast =
     bloodfeastHeal > 0
       ? Math.min(defender.maxHp, defenderHpAfterDmg + bloodfeastHeal)
       : defenderHpAfterDmg;
-  const bloodfeastActualHeal = newDefenderHp - defenderHpAfterDmg;
+  const bloodfeastActualHeal = defenderHpAfterBloodfeast - defenderHpAfterDmg;
   const defenderHealShield = healToShield(
     defender.player.equipSignatures,
     bloodfeastActualHeal,
   );
-  const newShieldAfterHeal = newShield + (defenderHealShield?.amount ?? 0);
+  const evasionReaction =
+    defenderHpAfterBloodfeast > 0
+      ? rollEvasionReaction(
+          defender.player.equipSignatures,
+          defender.maxHp,
+          evasionReductionPct,
+          totalDmgBeforeEvasion,
+          totalDmg,
+        )
+      : null;
+  const evasionReactionHeal = evasionReaction?.heal
+    ? scalePvPHealing(state, evasionReaction.heal.amount)
+    : 0;
+  const newDefenderHp =
+    evasionReactionHeal > 0
+      ? Math.min(
+          defender.maxHp,
+          defenderHpAfterBloodfeast + evasionReactionHeal,
+        )
+      : defenderHpAfterBloodfeast;
+  const evasionReactionActualHeal = newDefenderHp - defenderHpAfterBloodfeast;
+  const evasionReactionHealShield = healToShield(
+    defender.player.equipSignatures,
+    evasionReactionActualHeal,
+  );
+  const newShieldAfterHeal =
+    newShield +
+    (defenderHealShield?.amount ?? 0) +
+    (evasionReactionHealShield?.amount ?? 0);
+  const evasionReactionActiveSpeedMult =
+    defender.buffs.playerSpdTurnsLeft > 0
+      ? defender.buffs.playerSpdMult
+      : 1;
+  const defenderBuffsAfterEvasionReaction = evasionReaction?.speed
+    ? {
+        ...defender.buffs,
+        playerSpdMult: Math.max(
+          evasionReactionActiveSpeedMult,
+          evasionReaction.speed.mult,
+        ),
+        playerSpdTurnsLeft: Math.max(
+          defender.buffs.playerSpdTurnsLeft,
+          evasionReaction.speed.turns,
+        ),
+      }
+    : defender.buffs;
   const sigDefGain = onHitTakenDefGain(defender.player.equipSignatures);
   const braceGainPct = sigDefGain?.pct ?? 0;
   const prevBraceDefBonus = defender.stacks.braceDefBonus ?? 0;
@@ -670,6 +716,25 @@ export function advanceTurnPvP(
     log = appendLog(log, {
       kind: "info",
       text: `[${defenderHealShield.label}] ${defender.name} 보호막 +${defenderHealShield.amount}`,
+    });
+  }
+  if (evasionReaction?.heal && evasionReactionActualHeal > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${evasionReaction.heal.label}] ${defender.name}의 HP +${evasionReactionActualHeal}`,
+    });
+  }
+  if (evasionReactionHealShield) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${evasionReactionHealShield.label}] ${defender.name} 보호막 +${evasionReactionHealShield.amount}`,
+    });
+  }
+  if (evasionReaction?.speed) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${evasionReaction.speed.label}] ${defender.name}의 속도 +${Math.round((evasionReaction.speed.mult - 1) * 100)}% (${evasionReaction.speed.turns}행동)`,
+      side: defKey,
     });
   }
   if (sigDefGain && braceDefDelta > 0) {
@@ -1144,6 +1209,7 @@ export function advanceTurnPvP(
         ])
       : defender.v2Dots,
     hp: newDefenderHp,
+    buffs: defenderBuffsAfterEvasionReaction,
     magicBarrier: magicBarrier.durabilityLeft,
     flags: {
       ...defender.flags,

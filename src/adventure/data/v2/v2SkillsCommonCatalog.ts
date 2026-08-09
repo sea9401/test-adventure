@@ -670,7 +670,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_venomist_virulence", name: "맹독 I", stat: "luk", category: "passive", tier: 2,
     description: "독의 농도를 높여 중독 피해를 증폭한다.",
     mpCost: 0, cooldown: 0, spCost: 4, effects: [],
-    passive: { poisonDamagePct: 24.4 },
+    passive: { poisonDamagePct: 12 },
   },
   v2c_camper_ration: {
     id: "v2c_camper_ration", name: "비상식량", stat: "vit", category: "passive", tier: 2,
@@ -1079,7 +1079,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_venomancer_virulence2", name: "맹독 II", stat: "luk", category: "passive", tier: 3,
     description: "정제한 맹독으로 중독 피해를 한층 증폭한다.",
     mpCost: 0, cooldown: 0, spCost: 4, effects: [],
-    passive: { poisonDamagePct: 24.4 },
+    passive: { poisonDamagePct: 18 },
   },
   v2c_fieldmedic_training: {
     id: "v2c_fieldmedic_training", name: "구급 숙련", stat: "vit", category: "passive", tier: 3,
@@ -1385,7 +1385,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_venomlord_virulence3", name: "맹독 III", stat: "luk", category: "passive", tier: 3,
     description: "독왕의 맹독으로 중독 피해를 크게 증폭한다.",
     mpCost: 0, cooldown: 0, spCost: 4, effects: [],
-    passive: { poisonDamagePct: 24.4 },
+    passive: { poisonDamagePct: 26 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──
@@ -1948,7 +1948,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_plaguebringer_virulence4", name: "맹독 IV", stat: "luk", category: "passive", tier: 3,
     description: "역병의 독성을 극대화해 중독 피해를 크게 증폭한다.",
     mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 6, effects: [],
-    passive: { poisonDamagePct: 24.4 },
+    // I~IV 합산은 기존 97.6%와 거의 같은 98%로 유지하면서, SP 6인 최종 단계가
+    // SP 4인 하위 단계보다 단일 효과와 SP 효율 모두 확실히 높게 한다.
+    passive: { poisonDamagePct: 42 },
   },
   v2c_dragonfist_rupture: {
     id: "v2c_dragonfist_rupture", name: "용린파쇄", stat: "str", category: "attack", tier: 3,

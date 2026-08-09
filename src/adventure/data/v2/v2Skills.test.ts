@@ -366,7 +366,7 @@ describe("v2Skills 카탈로그", () => {
       "중독 적 방어 -6%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_venomist_virulence)).toContain(
-      "중독 피해 +24.4%",
+      "중독 피해 +12%",
     );
   });
 

@@ -48,7 +48,7 @@ describe("독술 계보 맹독·부식 분리", () => {
     expect(aggregateEquippedPassives(ids).poisonDamagePct).toBeCloseTo(122.4);
   });
 
-  it("부식 다섯 단계는 약 39.8%를 곱연산하고 기존 SP 비용을 유지한다", () => {
+  it("부식 다섯 단계는 약 39.8%를 곱연산하고 차수별 SP 정책을 따른다", () => {
     const ids = CORROSION.map(([id]) => id) as V2SkillId[];
 
     expect(
@@ -58,7 +58,7 @@ describe("독술 계보 맹독·부식 분리", () => {
     ).toEqual([6, 7, 9, 12, 14]);
     expect(
       CORROSION.map(([id]) => spCostOf(V2_SKILLS[id as V2SkillId])),
-    ).toEqual([4, 4, 4, 6, 11]);
+    ).toEqual([4, 4, 4, 6, 15]);
     expect(
       aggregateEquippedPassives(ids).poisonedEnemyDefReductionPct,
     ).toBeCloseTo(39.794895, 6);

@@ -604,7 +604,7 @@ function ActionCard({
       : "border-r-4 border-r-violet-500";
   return (
     <div className={`flex ${align}`} data-battle-action={side}>
-      <section className={`${SURFACE_CARD} ${accent} w-[92%] overflow-hidden`}>
+      <section className={`${SURFACE_CARD} ${accent} w-[70%] overflow-hidden`}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
           <div className="min-w-0">
             <div className={`${sizes.label} truncate font-semibold text-zinc-500 dark:text-zinc-400`}>

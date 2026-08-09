@@ -994,7 +994,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritDmgPct).toBe(30);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.spdToAtkMaxPct).toBe(30);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritOverflow).toBeUndefined();
-    expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(11);
+    expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(14);
   });
 
   it("속도 비례 공격력 전환은 검 계보가 아니라 6차 천궁에만 있다", () => {
@@ -1021,7 +1021,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(passive.singleHitPhysicalSkillDamagePct).toBe(30);
     expect(passive.accuracyPct).toBe(15);
     expect(passive.reflectDamageTakenReductionPct).toBe(0);
-    expect(spCostOf(skill)).toBe(11);
+    expect(spCostOf(skill)).toBe(15);
     expect(describeV2Skill(skill)).toContain("단일 타격 물리 스킬 피해 +30%");
   });
 
@@ -1086,13 +1086,21 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(isLifestyleSkill(V2_SKILLS.v2c_none_diligence)).toBe(false);
   });
 
-  it("저비용 구간은 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
+  it("저비용·1~4차 압축은 유지하고 5·6차 고성능 스킬은 원시 비용을 쓴다", () => {
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
-    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(7);
-    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(9);
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(8);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(11);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBe(15);
+    ).toBe(19);
+  });
+
+  it("5·6차만 고가 SP 압축을 제거하고 1~4차·조합형 상한은 유지한다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_spellsealer_greatward)).toBe(10);
+    expect(spCostOf(V2_SKILLS.v2c_elementallord_surge)).toBe(16);
+    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(17);
+    expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(18);
+    expect(spCostOf(V2_SKILLS.v2c_primordialmage_return)).toBe(16);
   });
 
   it("🔑 트립와이어 — 자원·발동률까지 우월한 스킬이 더 싸지는 가격 역전을 막는다", () => {
@@ -1114,7 +1122,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       spCostOf(V2_SKILLS.v2c_nightshade_eclipse),
       spCostOf(V2_SKILLS.v2c_heavenlybow_orbit),
       spCostOf(V2_SKILLS.v2c_blackmoon_flurry),
-    ]).toEqual([5, 10, 8, 10]);
+    ]).toEqual([5, 10, 10, 12]);
   });
 
   it("플레이어 피해에서 사용하지 않는 legacy 고정 피해는 SP를 올리지 않는다", () => {

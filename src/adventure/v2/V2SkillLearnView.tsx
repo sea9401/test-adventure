@@ -437,6 +437,8 @@ export function V2SkillLearnView({
           >
             <V2LoadoutPresetsPanel
               currentEquipped={loadout.equipped}
+              spBudget={loadout.spBudget}
+              library={loadout.library}
               onApplied={handleLoadoutChanged}
             />
             <V2LoadoutPanel
@@ -448,6 +450,8 @@ export function V2SkillLearnView({
           <>
             <V2LoadoutPresetsPanel
               currentEquipped={loadout.equipped}
+              spBudget={loadout.spBudget}
+              library={loadout.library}
               onApplied={handleLoadoutChanged}
             />
             <V2LoadoutPanel

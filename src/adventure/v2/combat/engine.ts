@@ -102,22 +102,50 @@ export type {
   PlayerCombat,
 } from "./engineState";
 
+type EnemySkillMitigation = {
+  damage: number;
+  evasionReductionPct: number;
+  evasionReducedBy: number;
+  resolveReducedBy: number;
+  endureReducedBy: number;
+  passiveReducedBy: number;
+  guardReducedBy: number;
+  steadfastReducedBy: number;
+};
+
 function reduceIncomingEnemySkillDamage(
   state: BattleState,
   player: PlayerCombat,
-  damage: number,
-): number {
-  if (damage <= 0) return 0;
+  result: Pick<V2SkillCastResult, "enemyDamage" | "magicEnemyDamage">,
+): EnemySkillMitigation {
+  const damage = result.enemyDamage;
+  if (damage <= 0) {
+    return {
+      damage: 0,
+      evasionReductionPct: 0,
+      evasionReducedBy: 0,
+      resolveReducedBy: 0,
+      endureReducedBy: 0,
+      passiveReducedBy: 0,
+      guardReducedBy: 0,
+      steadfastReducedBy: 0,
+    };
+  }
+  const evasionReductionPct = playerPveEvasionReductionPct(state, player);
+  const afterEvasion = applyEvasionDamageReduction(
+    damage,
+    evasionReductionPct,
+  );
   const afterEnemyDamageDown =
     state.stacks.enemyDamageDownTurns > 0 &&
     state.stacks.enemyDamageDownPct > 0
       ? Math.max(
           1,
           Math.floor(
-            damage * (1 - state.stacks.enemyDamageDownPct / 100),
+            afterEvasion * (1 - state.stacks.enemyDamageDownPct / 100),
           ),
         )
-      : damage;
+      : afterEvasion;
   const afterResolve =
     state.buffs.playerDmgReductionTurnsLeft > 0 &&
     state.buffs.playerDmgReductionPct > 0
@@ -147,12 +175,88 @@ function reduceIncomingEnemySkillDamage(
     (player.passiveDamageTakenReductionPct ?? 0) +
     activeReductionPct +
     lowHpReductionPct;
-  return generalReductionPct > 0
+  const openingMagicReductionPct =
+    result.magicEnemyDamage > 0 &&
+    state.turn.enemyPhasesCompleted <
+      (player.passiveOpeningMagicDamageReductionPhases ?? 0)
+      ? (player.passiveOpeningMagicDamageReductionPct ?? 0)
+      : 0;
+  const magicDamageShare = Math.min(
+    1,
+    Math.max(0, result.magicEnemyDamage / Math.max(1, damage)),
+  );
+  const passiveReductionPct =
+    generalReductionPct + openingMagicReductionPct * magicDamageShare;
+  const afterPassive = passiveReductionPct > 0
     ? Math.max(
         1,
-        Math.floor(afterEndure * (1 - generalReductionPct / 100)),
+        Math.floor(afterEndure * (1 - passiveReductionPct / 100)),
       )
     : afterEndure;
+  const guard = player.guard;
+  const afterGuard =
+    guard &&
+    guard.turns > 0 &&
+    state.turn.enemyPhasesCompleted < guard.turns
+      ? Math.max(0, afterPassive - guard.reduction)
+      : afterPassive;
+  const steadfastFlat = player.steadfastWillFlat ?? 0;
+  const afterSteadfast =
+    steadfastFlat > 0 ? Math.max(0, afterGuard - steadfastFlat) : afterGuard;
+  return {
+    damage: afterSteadfast,
+    evasionReductionPct,
+    evasionReducedBy: damage - afterEvasion,
+    resolveReducedBy: afterEnemyDamageDown - afterResolve,
+    endureReducedBy: afterResolve - afterEndure,
+    passiveReducedBy: afterEndure - afterPassive,
+    guardReducedBy: afterPassive - afterGuard,
+    steadfastReducedBy: afterGuard - afterSteadfast,
+  };
+}
+
+function appendEnemySkillMitigationLogs(
+  log: BattleLogEntry[],
+  mitigation: EnemySkillMitigation,
+): BattleLogEntry[] {
+  let next = log;
+  if (mitigation.evasionReducedBy > 0) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[회피 경감 ${mitigation.evasionReductionPct.toFixed(1)}%] 피해 -${mitigation.evasionReducedBy}`,
+    });
+  }
+  if (mitigation.resolveReducedBy > 0) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[결의] 피해 -${mitigation.resolveReducedBy}`,
+    });
+  }
+  if (mitigation.endureReducedBy > 0) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[인내] 피해 -${mitigation.endureReducedBy}`,
+    });
+  }
+  if (mitigation.passiveReducedBy > 0) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[받피감] 피해 -${mitigation.passiveReducedBy}`,
+    });
+  }
+  if (mitigation.guardReducedBy > 0) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[가드] 피해 -${mitigation.guardReducedBy}`,
+    });
+  }
+  if (mitigation.steadfastReducedBy > 0) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[굳건한 의지] 피해 -${mitigation.steadfastReducedBy}`,
+    });
+  }
+  return next;
 }
 
 // 로그는 전체 보관 — 종료 후 알림에 첨부되는 battleLog 도 같은 배열을 사용한다.
@@ -1463,11 +1567,13 @@ export function applyEnemyV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextEnemyHp = state.enemyHp;
   let nextLog = state.log;
-  const enemySkillDamage = reduceIncomingEnemySkillDamage(
+  const mitigation = reduceIncomingEnemySkillDamage(
     state,
     player,
-    result.enemyDamage,
+    result,
   );
+  nextLog = appendEnemySkillMitigationLogs(nextLog, mitigation);
+  const enemySkillDamage = mitigation.damage;
   const enemySkillShieldAbsorbed = Math.min(
     state.stacks.playerShield,
     enemySkillDamage,
@@ -1481,7 +1587,7 @@ export function applyEnemyV2SkillCast(
     player.magicBarrierAbsorbPct ?? 0,
   );
   const enemySkillDamageToHp = enemySkillMagicBarrier.damageToHp;
-  if (enemySkillDamage > 0 && result.castSkillName) {
+  if (result.enemyDamage > 0 && result.castSkillName) {
     if (enemySkillShieldAbsorbed > 0) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -2494,11 +2600,6 @@ function resolveBattleLegacy(
             // PR2-B — 상대(플레이어)의 처단/스택 payoff 대상 = 시전자 player.
             currentHp: state.playerHp,
             maxHp: state.playerMaxHp,
-            magicSkillDamageReductionPct:
-              state.turn.enemyPhasesCompleted <
-              (player.passiveOpeningMagicDamageReductionPhases ?? 0)
-                ? (player.passiveOpeningMagicDamageReductionPct ?? 0)
-                : 0,
             bleedStacks: state.playerV2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
             poisonStacks: state.playerV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
           },
@@ -2522,11 +2623,13 @@ function resolveBattleLegacy(
         }
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
-        const enemySkillDamage = reduceIncomingEnemySkillDamage(
+        const mitigation = reduceIncomingEnemySkillDamage(
           state,
           player,
-          result.enemyDamage,
+          result,
         );
+        nextLog = appendEnemySkillMitigationLogs(nextLog, mitigation);
+        const enemySkillDamage = mitigation.damage;
         const enemySkillShieldAbsorbed = Math.min(
           state.stacks.playerShield,
           enemySkillDamage,
@@ -2541,7 +2644,7 @@ function resolveBattleLegacy(
           player.magicBarrierAbsorbPct ?? 0,
         );
         const enemySkillDamageToHp = enemySkillMagicBarrier.damageToHp;
-        if (enemySkillDamage > 0 && result.castSkillName) {
+        if (result.enemyDamage > 0 && result.castSkillName) {
           if (enemySkillShieldAbsorbed > 0) {
             nextLog = appendLog(nextLog, {
               kind: "info",

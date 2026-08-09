@@ -43,7 +43,7 @@ describe("부식 방어 감소 곱연산", () => {
 
   it("방어 감소를 자유롭게 모으는 대신 높은 SP 비용을 요구한다", () => {
     expect(CORROSION_LINE.map((id) => spCostOf(V2_SKILLS[id]))).toEqual([
-      4, 4, 4, 6, 11,
+      4, 4, 4, 6, 15,
     ]);
   });
 

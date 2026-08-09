@@ -1013,7 +1013,7 @@ describe("직업 킷 — 스킬셋", () => {
       V2_SKILLS.v2c_swordsaint_transcendence.passive
         ?.reflectDamageTakenReductionPct,
     ).toBeUndefined();
-    expect(spCostOf(V2_SKILLS.v2c_swordsaint_transcendence)).toBe(11);
+    expect(spCostOf(V2_SKILLS.v2c_swordsaint_transcendence)).toBe(15);
     expect(
       V2_SKILLS.v2c_swordsaint_transcendence.passive?.spdToAtkMaxPct,
     ).toBeUndefined();
@@ -1192,7 +1192,7 @@ describe("직업 킷 — 스킬셋", () => {
       skillCritOverflow: true,
       skillCritAfterEvade: true,
     });
-    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(13);
+    expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(17);
     expect(skillsForJob("myriadvenom")).toEqual([
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",
@@ -1341,7 +1341,7 @@ describe("직업 킷 — 스킬셋", () => {
       maxHpPct: 10,
       maxMpPct: 10,
     });
-    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(7);
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(8);
   });
 
   it("독 계보 SP 비용은 조건부 중독·부식 가치를 반영해 단계적으로 오른다", () => {
@@ -1351,8 +1351,8 @@ describe("직업 킷 — 스킬셋", () => {
     expect(costs("venomist")).toEqual([6, 4, 4]);
     expect(costs("venomancer")).toEqual([7, 4, 4]);
     expect(costs("venomlord")).toEqual([7, 4, 4]);
-    expect(costs("plaguebringer")).toEqual([8, 6, 6]);
-    expect(costs("myriadvenom")).toEqual([12, 11]);
+    expect(costs("plaguebringer")).toEqual([10, 6, 6]);
+    expect(costs("myriadvenom")).toEqual([16, 15]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {

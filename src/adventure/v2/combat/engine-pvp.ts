@@ -85,7 +85,6 @@ import {
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
 import {
-  CORROSION_POISON_DAMAGE_SCALE,
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
   MAGIC_VULN_STACK_CAP,
@@ -94,7 +93,7 @@ import {
   SPELL_STACK_CAP,
   applyEvasionDamageReduction,
   absorbWithMagicBarrier,
-  combineDefReductionPcts,
+  cappedDefReductionPct,
   pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { advanceTurnPvP } from "./engine.pvpPhase";
@@ -375,35 +374,22 @@ export function attackerFacingDef(
   );
   const frac = attacker.player.armorPierceFraction ?? 0;
   let afterPierce = frac > 0 ? Math.round(raw * (1 - frac)) : raw;
-  if (
-    defender.buffs.playerDefDebuffTurnsLeft > 0 &&
-    defender.buffs.playerDefDebuffPct > 0
-  ) {
-    afterPierce = Math.round(
-      afterPierce * (1 - defender.buffs.playerDefDebuffPct / 100),
-    );
-  }
-  if (
-    attackerBuffs.enemyDefDebuffTurnsLeft > 0 &&
-    attackerBuffs.enemyDefDebuffPct > 0
-  ) {
-    afterPierce = Math.round(
-      afterPierce * (1 - attackerBuffs.enemyDefDebuffPct / 100),
-    );
-  }
-  const physicalReductionPct = combineDefReductionPcts(
+  const physicalReductionPct = cappedDefReductionPct(
+    defender.buffs.playerDefDebuffTurnsLeft > 0
+      ? defender.buffs.playerDefDebuffPct
+      : 0,
+    attackerBuffs.enemyDefDebuffTurnsLeft > 0
+      ? attackerBuffs.enemyDefDebuffPct
+      : 0,
     attacker.player.enemyPhysicalDefReductionPct ?? 0,
+    sideHasDot(defender, "poison")
+      ? attacker.player.poisonedEnemyDefReductionPct ?? 0
+      : 0,
   );
   if (physicalReductionPct > 0) {
     afterPierce = Math.round(
       afterPierce * (1 - physicalReductionPct / 100),
     );
-  }
-  const corrodePct = combineDefReductionPcts(
-    attacker.player.poisonedEnemyDefReductionPct ?? 0,
-  );
-  if (corrodePct > 0 && sideHasDot(defender, "poison")) {
-    afterPierce = Math.round(afterPierce * (1 - corrodePct / 100));
   }
   return Math.max(0, afterPierce);
 }
@@ -445,25 +431,22 @@ function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
 
 function skillTargetMagicDef(attacker: PvPSide, defender: PvPSide): number {
   const base = defender.player.magicDef ?? defender.player.def;
-  const reductionPct = combineDefReductionPcts(
+  const reductionPct = cappedDefReductionPct(
     attacker.player.enemyMagicDefReductionPct ?? 0,
   );
   if (reductionPct <= 0) return base;
   return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
 }
 
-function corrosionPoisonDotMult(player: PlayerCombat): number {
-  const corrodePct = combineDefReductionPcts(
-    player.poisonedEnemyDefReductionPct ?? 0,
-  );
-  return corrodePct > 0 ? 1 + (corrodePct * CORROSION_POISON_DAMAGE_SCALE) / 100 : 1;
+function poisonDamageMult(player: PlayerCombat): number {
+  return 1 + Math.max(0, player.poisonDamagePct ?? 0) / 100;
 }
 
-function applyCorrosionToPoisonDots(
+function applyPoisonDamageToDots(
   dots: readonly V2SkillDotApply[],
   player: PlayerCombat,
 ): V2SkillDotApply[] {
-  const mult = corrosionPoisonDotMult(player);
+  const mult = poisonDamageMult(player);
   if (mult === 1) return [...dots];
   return dots.map((dot) =>
     dot.tag === "poison"
@@ -506,7 +489,7 @@ export function applyPvPOnHitDots(
   const poisonStacks =
     (add?.poisonStacks ?? 0) + (attacker.player.poisonOnHit ? 1 : 0);
   if (attacker.player.poisonOnHit && poisonStacks > 0) {
-    const poisonMult = corrosionPoisonDotMult(attacker.player);
+    const poisonMult = poisonDamageMult(attacker.player);
     dots.push(makePoisonDot({
       stacks: poisonStacks,
       pctMaxHpPerStack: attacker.player.poisonOnHit.pctMaxHpPerStack * poisonMult,
@@ -1890,6 +1873,8 @@ export function castV2SkillOnAttackerTurnPvP(
       atk: side.player.atk,
       attackCount: side.player.attackCount,
       magicAtk: side.player.magicAtk ?? side.player.atk,
+      singleHitPhysicalSkillDamagePct:
+        side.player.singleHitPhysicalSkillDamagePct,
       minDamage: side.player.minDamage,
       healMult: side.player.healMult,
       maxHp: side.maxHp,
@@ -2445,7 +2430,7 @@ export function castV2SkillOnAttackerTurnPvP(
     result.dotsToApplyToTarget.length > 0 &&
     !!sigStatusBlock &&
     !opp.flags.statusBlockUsed;
-  const dotsToApplyToTarget = applyCorrosionToPoisonDots(
+  const dotsToApplyToTarget = applyPoisonDamageToDots(
     result.dotsToApplyToTarget,
     side.player,
   );

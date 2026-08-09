@@ -3,6 +3,7 @@ import {
   advanceTurn,
   applyPlayerV2SkillCast,
   initialBattleState,
+  playerFacingEnemyDef,
   resolveBattle,
   type PlayerCombat,
 } from "../v2/combat/engine";
@@ -373,10 +374,10 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
       maxMp: 1000,
       mp: 1000,
       accRating: 1000,
-      poisonedEnemyDefReductionPct: 12,
+      poisonDamagePct: 18,
     });
     expect(corrodeDmg).toBeGreaterThan(baseDmg);
-    // 부식 12% × 중독 환산 1.5 = 약 18% 증폭(틱 정수 반올림 여유 포함).
+    // 맹독 18% 증폭(틱 정수 반올림 여유 포함).
     expect(corrodeDmg).toBeGreaterThanOrEqual(Math.floor(baseDmg * 1.15));
   });
 });
@@ -484,6 +485,38 @@ describe("직업 패시브 물리·마법 방어 감소", () => {
 
     expect(pierced).toBeGreaterThan(physicalBase);
     expect(piercedAndReduced).toBeGreaterThan(pierced);
+  });
+
+  it("물리 방어 감소는 부식과 합쳐 60%에서 멈추고 관통은 상한 전에 별도로 적용한다", () => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      armorPierceFraction: 0.5,
+      enemyPhysicalDefReductionPct: 50,
+      poisonedEnemyDefReductionPct: 40,
+    };
+    const initial = initialBattleState(
+      player,
+      enemy({ def: 1_000 }),
+      "용사",
+    );
+    const poisoned = {
+      ...initial,
+      enemyV2Dots: [
+        makePoisonDot({ stacks: 1, pctMaxHpPerStack: 0, sourceAtk: 0 }),
+      ],
+    };
+
+    expect(playerFacingEnemyDef(poisoned, player)).toBe(200);
+  });
+
+  it("마법 방어 감소도 60%를 넘겨 투자하면 같은 피해에 머문다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    expect(
+      measureSkill("v2c_mage_fireball", { enemyMagicDefReductionPct: 90 }),
+    ).toBe(
+      measureSkill("v2c_mage_fireball", { enemyMagicDefReductionPct: 60 }),
+    );
   });
 
   it("마법 방어가 없는 적은 원래 물리 방어를 기준값으로 쓰되 마법 감소만 적용한다", () => {

@@ -46,11 +46,11 @@ describe("타 직업 방어 감소 선택지", () => {
     );
 
     expect(physicalValues).toEqual([
-      [3, 4, 5],
-      [2, 3, 4],
-      [2, 3, 4],
+      [9, 11, 13],
+      [8, 10, 12],
+      [8, 10, 12],
     ]);
-    expect(magicValues).toEqual([3, 4, 5]);
+    expect(magicValues).toEqual([9, 11, 13]);
     expect(
       [SWORD_LINE, FIST_LINE, SHADOW_LINE].map((ids) =>
         ids.map((id) => spCostOf(V2_SKILLS[id])),
@@ -68,31 +68,31 @@ describe("타 직업 방어 감소 선택지", () => {
   it("같은 종류의 감소율을 남은 방어력 기준으로 곱연산한다", () => {
     expect(
       aggregateEquippedPassives(SWORD_LINE).enemyPhysicalDefReductionPct,
-    ).toBeCloseTo(11.536);
+    ).toBeCloseTo(29.5387);
     expect(
       aggregateEquippedPassives(FIST_LINE).enemyPhysicalDefReductionPct,
-    ).toBeCloseTo(8.7424);
+    ).toBeCloseTo(27.136);
     expect(
       aggregateEquippedPassives(SHADOW_LINE).enemyPhysicalDefReductionPct,
-    ).toBeCloseTo(8.7424);
+    ).toBeCloseTo(27.136);
     expect(
       aggregateEquippedPassives([
         ...SWORD_LINE,
         ...FIST_LINE,
         ...SHADOW_LINE,
       ]).enemyPhysicalDefReductionPct,
-    ).toBeCloseTo(26.3276270322);
+    ).toBeCloseTo(62.5909508621);
     expect(
       aggregateEquippedPassives(ARCHMAGE_LINE).enemyMagicDefReductionPct,
-    ).toBeCloseTo(11.536);
+    ).toBeCloseTo(29.5387);
   });
 
   it("스킬 설명과 빌드 검색 태그에 방어 감소를 노출한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_veteran_armorinsight)).toContain(
-      "적 물리 방어 -3%",
+      "적 물리 방어 -9%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_sage_magicdismantle)).toContain(
-      "적 마법 방어 -3%",
+      "적 마법 방어 -9%",
     );
     expect(
       buildTagsForSkill(V2_SKILLS.v2c_veteran_armorinsight),

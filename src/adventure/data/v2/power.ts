@@ -8,6 +8,8 @@
 // 템포(SPD) 0.5, 회피도 0.45, 적중도 0.35. 실제 전투에서 대체 관계인 물공·마공은
 // 단순 합산하지 않고, 속도·레이팅은 전투의 점감 구간을 반영한다.
 
+import { PLAYER_ACTION_SPD_CAP } from "@/adventure/v2/combat/combatTimeline";
+
 export type V2PowerInput = {
   atk: number;
   magicAtk?: number;
@@ -30,7 +32,7 @@ export const V2_POWER_WEIGHT = {
 } as const;
 
 // ATB 행동 빈도가 최대치에 도달하는 SPD. 그 이후 원본 SPD를 전투력에 계속 더하지 않는다.
-export const POWER_SPD_CAP = 576;
+export const POWER_SPD_CAP = PLAYER_ACTION_SPD_CAP;
 // 회피·적중 레이팅은 상대 수치와 겨루는 점근식이므로 표시 전투력도 같은 성격의 소프트캡을 쓴다.
 export const POWER_RATING_SOFTCAP = 5_000;
 export const SECONDARY_ATTACK_POWER_WEIGHT = 0.25;

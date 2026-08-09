@@ -271,6 +271,9 @@ function addPassiveTags(
   if ((passive.berserkAtkPctPerLostHpPct ?? 0) > 0) tags.add("low_hp");
   if ((passive.enemyMagicVulnPctPerStack ?? 0) > 0) tags.add("vulnerability");
   if ((passive.magicSkillDamagePct ?? 0) > 0) tags.add("magic");
+  if ((passive.singleHitPhysicalSkillDamagePct ?? 0) > 0) {
+    tags.add("physical");
+  }
   if ((passive.fishingSizeBonusPct ?? 0) > 0) tags.add("fishing");
   if ((passive.fishingSpecialWeightPct ?? 0) > 0) tags.add("fishing");
   if ((passive.fishingRareSizeBonusPct ?? 0) > 0) tags.add("fishing");

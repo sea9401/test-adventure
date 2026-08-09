@@ -117,6 +117,9 @@ type SkillDomain = "combat" | "lifestyle";
 const AUTO_SCROLL_EDGE_PX = 80;
 const AUTO_SCROLL_MAX_STEP = 18;
 
+export const V2_SKILL_VISIBILITY_STORAGE_KEY =
+  "adventure.v2.loadoutHiddenSkillIds";
+
 function isLifestyleSkillId(skillId: string): boolean {
   const skill = V2_SKILLS[skillId as V2SkillId];
   return !!skill && isLifestyleSkill(skill);
@@ -150,6 +153,10 @@ export function V2LoadoutPanel({
     useState<SkillLineageFilter>("all");
   const [domain, setDomain] = useState<SkillDomain>("combat");
   const [compact, setCompact] = useState(false);
+  const [visibilitySettingsOpen, setVisibilitySettingsOpen] = useState(false);
+  const [hiddenSkillIds, setHiddenSkillIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [showSpDetails, setShowSpDetails] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
@@ -180,6 +187,18 @@ export function V2LoadoutPanel({
     // libraryKey 로 내용 비교(refresh 마다 새 배열 ref 라도 내용 같으면 미발화).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryKey]);
+
+  // 사냥터 표시 설정과 같은 로컬 저장 방식. 서버 렌더 결과와 첫 화면을 맞춘 뒤
+  // 브라우저에서만 저장값을 불러온다.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(V2_SKILL_VISIBILITY_STORAGE_KEY);
+        setHiddenSkillIds(parseHiddenSkillIds(raw));
+      } catch {}
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const meta = useMemo(
     () => new Map(loadout.library.map((s) => [s.skillId, s])),
@@ -250,9 +269,17 @@ export function V2LoadoutPanel({
       ),
     [domain, orderedLibrary],
   );
+  const displayedDomainLibrary = useMemo(
+    () =>
+      domainLibrary.filter(
+        (skill) => isSkillDisplayed(skill.skillId, hiddenSkillIds, equippedSet),
+      ),
+    [domainLibrary, equippedSet, hiddenSkillIds],
+  );
+  const hiddenDomainCount = domainLibrary.length - displayedDomainLibrary.length;
   const visibleLibrary = useMemo(
     () =>
-      domainLibrary.filter((s) => {
+      displayedDomainLibrary.filter((s) => {
         const equipped = equippedSet.has(s.skillId);
         const favorite = favoriteSet.has(s.skillId);
         const wouldFit = spUsed + s.spCost <= spBudget;
@@ -281,7 +308,7 @@ export function V2LoadoutPanel({
       equippedSet,
       favoriteSet,
       filter,
-      domainLibrary,
+      displayedDomainLibrary,
       queryTerms,
       searchIndex,
       skillLineageFilter,
@@ -401,6 +428,33 @@ export function V2LoadoutPanel({
     } else {
       commit([...order, skillId]);
     }
+  }
+
+  function setHiddenSkills(next: Set<string>) {
+    setHiddenSkillIds(next);
+    try {
+      if (next.size === 0) {
+        localStorage.removeItem(V2_SKILL_VISIBILITY_STORAGE_KEY);
+      } else {
+        localStorage.setItem(
+          V2_SKILL_VISIBILITY_STORAGE_KEY,
+          JSON.stringify([...next].sort()),
+        );
+      }
+    } catch {}
+  }
+
+  function toggleSkillVisibility(skillId: string) {
+    // 전투에 쓰는 스킬이 목록에서 사라져 해제 경로를 잃지 않도록 보호한다.
+    if (equippedSet.has(skillId)) return;
+    setHiddenSkills(toggleHiddenSkill(hiddenSkillIds, skillId));
+  }
+
+  function showAllSkillsInDomain() {
+    const domainIds = new Set(domainLibrary.map((skill) => skill.skillId));
+    setHiddenSkills(
+      new Set([...hiddenSkillIds].filter((skillId) => !domainIds.has(skillId))),
+    );
   }
 
   function clearEquippedDomain(targetDomain: SkillDomain) {
@@ -839,6 +893,69 @@ export function V2LoadoutPanel({
             훈련 효과와 작물 해금은 장착 여부와 무관합니다.
           </p>
         )}
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <span className="font-medium text-zinc-600 dark:text-zinc-300">
+            표시 스킬 {displayedDomainLibrary.length}/{domainLibrary.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setVisibilitySettingsOpen((open) => !open)}
+            aria-expanded={visibilitySettingsOpen}
+            className="rounded-md border border-zinc-300 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            표시 설정
+          </button>
+        </div>
+        {visibilitySettingsOpen && (
+          <Card padding="sm" className="mt-2 space-y-2">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              체크를 끈 스킬은 보유 목록에서만 숨겨집니다. 장착 중인 스킬은 항상
+              표시됩니다.
+            </p>
+            <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
+              {domainLibrary.map((skill) => {
+                const equipped = equippedSet.has(skill.skillId);
+                const checked = equipped || !hiddenSkillIds.has(skill.skillId);
+                return (
+                  <label
+                    key={skill.skillId}
+                    className={`flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800 ${
+                      equipped
+                        ? "cursor-not-allowed text-zinc-500 dark:text-zinc-400"
+                        : "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <span className="min-w-0 truncate font-medium">
+                      {skill.name}
+                      {equipped && (
+                        <span className="ml-1.5 text-[11px] font-normal text-violet-600 dark:text-violet-400">
+                          장착 중
+                        </span>
+                      )}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={equipped}
+                      onChange={() => toggleSkillVisibility(skill.skillId)}
+                      aria-label={`${skill.name} 목록에 표시`}
+                      className="h-4 w-4 shrink-0 accent-rose-600"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+            {hiddenDomainCount > 0 && (
+              <button
+                type="button"
+                onClick={showAllSkillsInDomain}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {domain === "combat" ? "전투 스킬" : "생활 스킬"} 전체 표시
+              </button>
+            )}
+          </Card>
+        )}
         <div className="mt-3 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
           {domain === "combat" ? "전투 스킬 목록" : "생활 스킬 목록"}
         </div>
@@ -937,7 +1054,7 @@ export function V2LoadoutPanel({
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
           <span>
-            표시 {visibleLibrary.length} / {domainLibrary.length}
+            검색 결과 {visibleLibrary.length} / {displayedDomainLibrary.length}
           </span>
           <button
             type="button"
@@ -1108,4 +1225,38 @@ export function V2LoadoutPanel({
       )}
     </Card>
   );
+}
+
+export function toggleHiddenSkill(
+  hidden: ReadonlySet<string>,
+  skillId: string,
+): Set<string> {
+  const next = new Set(hidden);
+  if (next.has(skillId)) next.delete(skillId);
+  else next.add(skillId);
+  return next;
+}
+
+export function parseHiddenSkillIds(raw: string | null): Set<string> {
+  try {
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    if (!Array.isArray(parsed)) return new Set();
+    const next = new Set<string>();
+    for (const value of parsed) {
+      if (typeof value !== "string") continue;
+      const skillId = value.trim();
+      if (skillId.length > 0 && skillId.length <= 128) next.add(skillId);
+    }
+    return next;
+  } catch {
+    return new Set();
+  }
+}
+
+export function isSkillDisplayed(
+  skillId: string,
+  hidden: ReadonlySet<string>,
+  equipped: ReadonlySet<string>,
+): boolean {
+  return equipped.has(skillId) || !hidden.has(skillId);
 }

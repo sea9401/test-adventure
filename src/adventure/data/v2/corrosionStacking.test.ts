@@ -22,22 +22,22 @@ describe("부식 방어 감소 곱연산", () => {
     expect(
       aggregateEquippedPassives(["v2c_venomlord_sovereign"])
         .poisonedEnemyDefReductionPct,
-    ).toBeCloseTo(5);
+    ).toBeCloseTo(9);
   });
 
   it("여러 단계는 남은 방어력에 곱연산되어 100%를 넘지 않는다", () => {
     const values = CORROSION_LINE.map(
       (id) => V2_SKILLS[id].passive?.poisonedEnemyDefReductionPct ?? 0,
     );
-    const expected = (1 - 0.97 * 0.96 * 0.95 * 0.94 * 0.93) * 100;
+    const expected = (1 - 0.94 * 0.93 * 0.91 * 0.88 * 0.86) * 100;
 
-    expect(values).toEqual([3, 4, 5, 6, 7]);
+    expect(values).toEqual([6, 7, 9, 12, 14]);
     expect(combineDefReductionPcts(...values)).toBeCloseTo(expected);
     expect(
       aggregateEquippedPassives(CORROSION_LINE)
         .poisonedEnemyDefReductionPct,
     ).toBeCloseTo(expected);
-    expect(expected).toBeCloseTo(22.6647712);
+    expect(expected).toBeCloseTo(39.79489504);
     expect(expected).toBeLessThan(100);
   });
 

@@ -525,6 +525,8 @@ export type PlayerCombat = {
   extraHitDmgPct?: number;
   // 독사 부식 — 중독(출혈 스택)된 적의 DEF -pct%(playerFacingEnemyDef 곱연산). 0/undefined=미보유.
   poisonedEnemyDefReductionPct?: number;
+  // 맹독 — 중독 지속 피해 +%. 부식과 독립적으로 독 DoT 생성 시 적용. 0/undefined=미보유.
+  poisonDamagePct?: number;
   // 상시 물리 방어 감소 — 물리 평타·스킬이 마주하는 적 DEF -pct%. 0/undefined=미보유.
   enemyPhysicalDefReductionPct?: number;
   // 상시 마법 방어 감소 — 마법 스킬이 마주하는 적 magicDef -pct%. 0/undefined=미보유.
@@ -546,6 +548,8 @@ export type PlayerCombat = {
   enemyMagicVulnApplyChancePct?: number;
   // 대마도 이론 — scaling="magic" 스킬 피해 +%. 0/undefined=미보유.
   magicSkillDamagePct?: number;
+  // 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬 피해 +%. 0/undefined=미보유.
+  singleHitPhysicalSkillDamagePct?: number;
   // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.
   mpCostReductionPct?: number;
   // ── 고유 아이템 발동형 시그니처(Phase 2) — 장착 세트/단품의 전투내 발동 효과 ──

@@ -22,8 +22,8 @@ describe("actionRate — 멱 곡선", () => {
       prev = r;
     }
   });
-  it("RATE_CAP(300) 에서 평평 — 고속 DEX·LUK의 행동 빈도 점감", () => {
-    expect(actionRate(576)).toBe(RATE_CAP);
+  it("RATE_CAP(400) 에서 평평 — 극단 고SPD 만 캡", () => {
+    expect(actionRate(1_024)).toBe(RATE_CAP);
     expect(actionRate(10000)).toBe(RATE_CAP);
   });
   it("기준(spd REF=64)=100", () => {
@@ -54,11 +54,12 @@ describe("actionInterval — 완만한 고속 성장 곡선", () => {
     expect(ratio).toBeLessThanOrEqual(4.7);
   });
 
-  it("행동 빈도 상한은 SPD 576에서 기준 속도의 3배로 고정된다", () => {
-    expect(actionRate(575)).toBeLessThan(RATE_CAP);
-    expect(actionRate(576)).toBe(RATE_CAP);
-    expect(actionInterval(576)).toBe(34);
-    expect(actionInterval(1_024)).toBe(34);
+  it("행동 빈도는 SPD 1,024까지 증가하고 그 이후 고정된다", () => {
+    expect(actionRate(1_000)).toBeLessThan(RATE_CAP);
+    expect(actionInterval(1_000)).toBe(26);
+    expect(actionRate(1_024)).toBe(RATE_CAP);
+    expect(actionInterval(1_024)).toBe(25);
+    expect(actionInterval(10_000)).toBe(25);
   });
 });
 

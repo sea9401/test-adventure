@@ -26,10 +26,11 @@ const PLAYER: PlayerCombat = {
 };
 
 describe("부식 손상 입력 안전장치", () => {
-  it("완성 부식 계보는 중독 피해를 약 1.51배로 증폭한다", () => {
+  it("완성 맹독 계보는 부식과 독립적으로 중독 피해를 2.22배 증폭한다", () => {
     const fullLinePlayer = {
       ...PLAYER,
-      poisonedEnemyDefReductionPct: 22.6647712,
+      poisonedEnemyDefReductionPct: 39.79489504,
+      poisonDamagePct: 122,
     };
     const state = initialBattleState(
       fullLinePlayer,
@@ -39,10 +40,10 @@ describe("부식 손상 입력 안전장치", () => {
     const next = applyPlayerOnHitDots(state, fullLinePlayer);
     const poison = next.enemyV2Dots.find((dot) => dot.tag === "poison");
 
-    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.01509957352, 10);
+    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.0222, 10);
   });
 
-  it("100%를 넘는 옛 값도 적 방어력을 음수로 만들지 않는다", () => {
+  it("100%를 넘는 옛 값도 최종 60% 상한에서 멈춘다", () => {
     const state = {
       ...initialBattleState(
         PLAYER,
@@ -64,10 +65,10 @@ describe("부식 손상 입력 안전장치", () => {
       ],
     };
 
-    expect(playerFacingEnemyDef(state, PLAYER)).toBe(0);
+    expect(playerFacingEnemyDef(state, PLAYER)).toBe(400);
   });
 
-  it("손상된 140% 값의 중독 증폭도 100% 부식 상한에서 멈춘다", () => {
+  it("손상된 부식 수치는 중독 피해를 증폭하지 않는다", () => {
     const state = initialBattleState(
       PLAYER,
       V2_MONSTERS["훈련용 허수아비"],
@@ -76,7 +77,6 @@ describe("부식 손상 입력 안전장치", () => {
     const next = applyPlayerOnHitDots(state, PLAYER);
     const poison = next.enemyV2Dots.find((dot) => dot.tag === "poison");
 
-    // 부식 100%의 중독 배율 = 1 + 100×2.25/100 = 3.25배.
-    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.0325, 10);
+    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.01, 10);
   });
 });

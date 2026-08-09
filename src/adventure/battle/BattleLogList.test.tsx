@@ -173,6 +173,35 @@ describe("BattleLogList 행동 묶음", () => {
     ]);
   });
 
+  it("혈마군림 HP 소모를 직전 적 공격이 아니라 다음 사용자 공격에 연결한다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "enemy_attack",
+        text: "기본 공격! 579 피해를 입혔다.",
+        turn: "enemy",
+      },
+      {
+        kind: "info",
+        text: "혈마군림! 생명력 696 소모",
+        turn: "player",
+      },
+      {
+        kind: "player_attack",
+        text: "혈마군림! 3090 피해를 입혔다.",
+        turn: "player",
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      { kind: "action", effects: [] },
+      {
+        kind: "action",
+        main: { text: "혈마군림! 3090 피해를 입혔다." },
+        effects: [{ text: "혈마군림! 생명력 696 소모" }],
+      },
+    ]);
+  });
+
   it("방어 계산과 본 공격 사이의 보호막 흡수도 같은 행동에 연결한다", () => {
     const items = groupBattleLogActions([
       {

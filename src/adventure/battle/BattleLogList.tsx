@@ -34,6 +34,9 @@ type Sizes = {
   bubble: string;
   info: string;
   label: string;
+  actionBubble: string;
+  actionInfo: string;
+  actionLabel: string;
   banner: string;
   turnMarker: string;
   hpBar: string;
@@ -45,6 +48,9 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     bubble: "text-[15px]",
     info: "text-[13px]",
     label: "text-[11px]",
+    actionBubble: "text-[13px] sm:text-[15px]",
+    actionInfo: "text-[11px] sm:text-[13px]",
+    actionLabel: "text-[10px] sm:text-[11px]",
     banner: "text-base",
     turnMarker: "text-[12px]",
     hpBar: "text-[10px]",
@@ -54,6 +60,9 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     bubble: "text-[13px]",
     info: "text-[11px]",
     label: "text-[10px]",
+    actionBubble: "text-[12px] sm:text-[13px]",
+    actionInfo: "text-[10px] sm:text-[11px]",
+    actionLabel: "text-[9px] sm:text-[10px]",
     banner: "text-[13px]",
     turnMarker: "text-[10px]",
     hpBar: "text-[9px]",
@@ -541,11 +550,11 @@ function actionEffectContent(
     : body;
   if (visibleLabels.length === 0 && visibleBody.length === 0) return null;
   return (
-    <div className={`flex flex-wrap items-center gap-1 ${sizes.info}`}>
+    <div className={`flex flex-wrap items-center gap-1 ${sizes.actionInfo}`}>
       {visibleLabels.map((label, index) => (
         <span
           key={`${label}-${index}`}
-          className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${battleLogPillColor(label)}`}
+          className={`rounded px-1 py-0.5 sm:px-1.5 ${sizes.actionLabel} font-semibold tracking-wide ${battleLogPillColor(label)}`}
         >
           {ownerName && index === 0
             ? `${ownerName}의 ${battleLogDisplayLabel(label)}`
@@ -605,36 +614,36 @@ function ActionCard({
   return (
     <div className={`flex ${align}`} data-battle-action={side}>
       <section className={`${SURFACE_CARD} ${accent} w-[70%] overflow-hidden`}>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
-          <div className="min-w-0">
-            <div className={`${sizes.label} truncate font-semibold text-zinc-500 dark:text-zinc-400`}>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2.5">
+          <div className="flex min-w-0 items-baseline gap-1.5 sm:block">
+            <div className={`${sizes.actionLabel} max-w-[35%] shrink-0 truncate font-semibold text-zinc-500 dark:text-zinc-400 sm:max-w-none`}>
               {actorName}
             </div>
-            <div className={`${sizes.bubble} truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
+            <div className={`${sizes.actionBubble} min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
               {title}
             </div>
           </div>
           <div className="text-right">
             {labels.length > 0 ? (
-              <div className="mb-1 flex justify-end gap-1">
+              <div className="mb-0.5 flex justify-end gap-1 sm:mb-1">
                 {labels.map((label, index) => (
                   <span
                     key={`${label}-${index}`}
-                    className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${battleLogPillColor(label)}`}
+                    className={`rounded px-1 py-0.5 sm:px-1.5 ${sizes.actionLabel} font-semibold tracking-wide ${battleLogPillColor(label)}`}
                   >
                     {battleLogDisplayLabel(label)}
                   </span>
                 ))}
               </div>
             ) : null}
-            <div className={`${sizes.bubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}>
+            <div className={`${sizes.actionBubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}>
               {emphasizeNumbers(result)}
             </div>
           </div>
         </div>
 
         {effects.length > 0 ? (
-          <div className={`${SURFACE_INSET} mx-2 mb-2 space-y-1.5 px-2.5 py-2`}>
+          <div className={`${SURFACE_INSET} mx-1.5 mb-1.5 space-y-1 px-2 py-1.5 sm:mx-2 sm:mb-2 sm:space-y-1.5 sm:px-2.5 sm:py-2`}>
             {effects.map(({ content, key }) => (
               <div key={key}>{content}</div>
             ))}
@@ -646,11 +655,11 @@ function ActionCard({
             name="battle-log-action-details"
             className="border-t border-zinc-200 dark:border-zinc-700"
           >
-            <summary className={`${sizes.label} cursor-pointer list-none px-3 py-2 text-right font-semibold text-zinc-500 marker:hidden hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100`}>
+            <summary className={`${sizes.actionLabel} cursor-pointer list-none px-2 py-1.5 text-right font-semibold text-zinc-500 marker:hidden hover:text-zinc-800 sm:px-3 sm:py-2 dark:text-zinc-400 dark:hover:text-zinc-100`}>
               계산 상세
             </summary>
-            <div className={`${SURFACE_INSET} mx-2 mb-2 space-y-1.5 px-2.5 py-2`}>
-              <div className={`${sizes.label} font-semibold text-zinc-700 dark:text-zinc-200`}>
+            <div className={`${SURFACE_INSET} mx-1.5 mb-1.5 space-y-1 px-2 py-1.5 sm:mx-2 sm:mb-2 sm:space-y-1.5 sm:px-2.5 sm:py-2`}>
+              <div className={`${sizes.actionLabel} font-semibold text-zinc-700 dark:text-zinc-200`}>
                 방어 계산
               </div>
               {item.calculations.map((entry, index) => (

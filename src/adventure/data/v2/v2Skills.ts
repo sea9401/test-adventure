@@ -2328,6 +2328,14 @@ export function smartDefaultConditionForSkill(
   return { kind: "turn", op: "atMost", value: 1 };
 }
 
+function isOncePerBattleEvadeOpener(skillId: string): boolean {
+  const def = V2_SKILLS[skillId as V2SkillId];
+  return (
+    def?.oncePerBattle === true &&
+    def.effects.some((effect) => effect.kind === "guaranteedEvade")
+  );
+}
+
 // 장착 스킬을 스마트 기본 조건으로 묶은 패턴. 미설정 캐릭의 폴백.
 //   전투당 1회 생존 오프너(그림자 도약)는 "항상" 공격보다 먼저 독립 시전되어야 하므로 최우선에
 //   두고, 나머지는 슬롯 순서를 유지한다. 카탈로그에 없는 id 는 안전하게 "항상".
@@ -2338,13 +2346,6 @@ export function smartDefaultPatternFromEquipped(
   const activeSkillIds = equipped.filter(
     (skillId) => V2_SKILLS[skillId as V2SkillId]?.category !== "passive",
   );
-  const isOncePerBattleEvadeOpener = (skillId: string): boolean => {
-    const def = V2_SKILLS[skillId as V2SkillId];
-    return (
-      def?.oncePerBattle === true &&
-      def.effects.some((effect) => effect.kind === "guaranteedEvade")
-    );
-  };
   const orderedSkillIds = [
     ...activeSkillIds.filter(isOncePerBattleEvadeOpener),
     ...activeSkillIds.filter((skillId) => !isOncePerBattleEvadeOpener(skillId)),
@@ -2360,5 +2361,34 @@ export function smartDefaultPatternFromEquipped(
         action: { kind: "skill" as const, skillId },
       };
     }),
+  };
+}
+
+// 저장된 사용자 패턴은 그대로 보존하되, 장착한 전투당 1회 확정 회피 오프너가 누락됐거나
+// 후순위에 있으면 전투용 패턴의 첫 블록으로 정규화한다. 장착만 해도 적용된다는 스킬 계약을
+// 사용자 패턴이 우연히 무효화하지 않게 하며, 나머지 사용자 블록의 조건과 순서는 유지한다.
+export function effectiveCombatPatternFromEquipped(
+  equipped: readonly string[],
+  savedPattern: V2CombatPattern | null | undefined,
+): V2CombatPattern {
+  const basePattern =
+    savedPattern && savedPattern.blocks.length > 0
+      ? savedPattern
+      : smartDefaultPatternFromEquipped(equipped);
+  const openerSkillId = equipped.find(isOncePerBattleEvadeOpener);
+  if (!openerSkillId) return basePattern;
+
+  return {
+    blocks: [
+      {
+        condition: { kind: "turn", op: "atMost", value: 1 },
+        action: { kind: "skill", skillId: openerSkillId },
+      },
+      ...basePattern.blocks.filter(
+        (block) =>
+          block.action.kind !== "skill" ||
+          block.action.skillId !== openerSkillId,
+      ),
+    ],
   };
 }

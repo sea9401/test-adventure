@@ -49,6 +49,36 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  it("저장 패턴에서 빠진 그림자 도약도 장착 중이면 첫 행동으로 보완한다", () => {
+    const shadowStep = "v2c_shadow_shadowstep";
+    const combo = "v2c_brawler_combo";
+    const equipped = [combo, shadowStep];
+    const savedPattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: combo },
+        },
+      ],
+    };
+
+    const first = resolveV2SkillCast(
+      castInput(equipped, { combatPattern: savedPattern, turn: 1 }),
+    );
+
+    expect(first.castSkillId).toBe(shadowStep);
+    expect(first.guaranteedEvadesToAdd).toBe(1);
+
+    const second = resolveV2SkillCast(
+      castInput(equipped, {
+        combatPattern: savedPattern,
+        turn: 2,
+        cooldowns: first.nextCooldowns,
+      }),
+    );
+    expect(second.castSkillId).toBe(combo);
+  });
+
   it("그림자 도약은 첫 턴에 단독 시전되고 다음 공격 스킬에 효과가 섞이지 않는다", () => {
     const assassinate = "v2c_shadow_assassinate";
     const shadowStep = "v2c_shadow_shadowstep";

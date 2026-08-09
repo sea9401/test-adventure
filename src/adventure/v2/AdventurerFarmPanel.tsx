@@ -9,6 +9,7 @@ import {
   House,
   Leaf,
   Package,
+  PawPrint,
   PottedPlant,
   Sparkle,
   X,
@@ -41,10 +42,12 @@ import {
   type FarmState,
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
+import { ranchReadyPenCount } from "./ranch";
+import { FarmRanchPanel } from "./FarmRanchPanel";
 import { useFarm } from "./useFarm";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 
-type FarmSectionKey = "home" | "grow" | "delivery" | "shop";
+type FarmSectionKey = "home" | "grow" | "ranch" | "delivery" | "shop";
 
 type FarmToast = {
   id: number;
@@ -79,9 +82,11 @@ export function prioritizeDeliverable<T>(
 export function AdventurerFarmPanel({
   onBack,
   onOpenKitchen,
+  onOpenLifeWorkshop,
 }: {
   onBack: () => void;
   onOpenKitchen: () => void;
+  onOpenLifeWorkshop: () => void;
 }) {
   const {
     loading,
@@ -91,6 +96,9 @@ export function AdventurerFarmPanel({
     busyWeeklyDeliveryId,
     busyShopItemId,
     busyPlotUpgrade,
+    busyRanchFeedPenId,
+    busyRanchCollect,
+    busyRanchUpgradePenId,
     fertilizerBalance,
     notice,
     now,
@@ -111,6 +119,9 @@ export function AdventurerFarmPanel({
     deliverWeekly,
     buyShopItem,
     buyPlotUpgrade,
+    feedRanchPen,
+    collectRanch,
+    buyRanchPen,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
   const [activeSection, setActiveSection] = useState<FarmSectionKey>(
@@ -129,6 +140,7 @@ export function AdventurerFarmPanel({
         .length ?? 0,
     [farm?.plots, now],
   );
+  const readyRanchPenCount = farm ? ranchReadyPenCount(farm.ranch) : 0;
   const deliverableCount = useMemo(
     () =>
       farm
@@ -171,6 +183,12 @@ export function AdventurerFarmPanel({
           badge: readyPlotCount > 0 ? readyPlotCount : undefined,
         },
         {
+          key: "ranch",
+          label: "목장",
+          icon: <PawPrint size={16} weight="duotone" />,
+          badge: readyRanchPenCount > 0 ? readyRanchPenCount : undefined,
+        },
+        {
           key: "delivery",
           label: "납품",
           icon: <Package size={16} weight="duotone" />,
@@ -188,7 +206,7 @@ export function AdventurerFarmPanel({
         icon: ReactNode;
         badge?: number;
       }>,
-    [affordableShopCount, deliverableCount, readyPlotCount],
+    [affordableShopCount, deliverableCount, readyPlotCount, readyRanchPenCount],
   );
   const selectFarmSection = (next: FarmSectionKey) => {
     lastFarmSection = next;
@@ -233,6 +251,31 @@ export function AdventurerFarmPanel({
     }
     if (notice.kind === "fertilizer") {
       return { id: notice.id, tone: "ok", text: `유기질 거름을 사용해 수확 시간을 ${Math.max(1, Math.round(notice.reducedMs / 60_000))}분 줄였습니다.` };
+    }
+    if (notice.kind === "ranchFeed") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `배합 사료 ${notice.result.amount}개를 넣었습니다. 남은 사료 ${notice.result.feedRemaining}개.`,
+      };
+    }
+    if (notice.kind === "ranchCollect") {
+      const rewards = Object.entries(notice.result.items)
+        .filter(([, amount]) => (amount ?? 0) > 0)
+        .map(([itemId, amount]) => `${ITEM_LABELS[itemId as FarmItemId]} ${amount}개`)
+        .join(", ");
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${rewards}를 수확했습니다. 농사 XP +${notice.result.farmingXpGained}.`,
+      };
+    }
+    if (notice.kind === "ranchUpgrade") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `새 축사를 열었습니다. 농장 증표 ${notice.result.costReputation}개를 사용했습니다.`,
+      };
     }
     const { result } = notice;
     return {
@@ -295,6 +338,7 @@ export function AdventurerFarmPanel({
                   farm={farm}
                   busyPlotUpgrade={busyPlotUpgrade}
                   readyPlotCount={readyPlotCount}
+                  readyRanchPenCount={readyRanchPenCount}
                   deliverableCount={deliverableCount}
                   affordableShopCount={affordableShopCount}
                   onBuyPlotUpgrade={buyPlotUpgrade}
@@ -309,6 +353,7 @@ export function AdventurerFarmPanel({
                 <CropSelector
                   crops={crops}
                   seeds={farm.seeds}
+                  inventory={farm.inventory}
                   learnedSkillIds={learnedSkillIds}
                   selectedCropId={selectedCrop?.id ?? selectedCropId}
                   onSelect={setSelectedCropId}
@@ -340,6 +385,21 @@ export function AdventurerFarmPanel({
                     />
                   ))}
                 </div>
+              </div>
+
+              <div className={activeSection === "ranch" ? "space-y-4" : "hidden"}>
+                <FarmRanchPanel
+                  farm={farm}
+                  now={now}
+                  learnedSkillIds={learnedSkillIds}
+                  busyFeedPenId={busyRanchFeedPenId}
+                  busyCollect={busyRanchCollect}
+                  busyUpgradePenId={busyRanchUpgradePenId}
+                  onFeed={(penId, amount) => void feedRanchPen(penId, amount)}
+                  onCollect={() => void collectRanch()}
+                  onUpgrade={(penId) => void buyRanchPen(penId)}
+                  onOpenLifeWorkshop={onOpenLifeWorkshop}
+                />
               </div>
 
               <div
@@ -489,6 +549,7 @@ function FarmHome({
   farm,
   busyPlotUpgrade,
   readyPlotCount,
+  readyRanchPenCount,
   deliverableCount,
   affordableShopCount,
   onBuyPlotUpgrade,
@@ -498,6 +559,7 @@ function FarmHome({
   farm: FarmState;
   busyPlotUpgrade: boolean;
   readyPlotCount: number;
+  readyRanchPenCount: number;
   deliverableCount: number;
   affordableShopCount: number;
   onBuyPlotUpgrade: () => void;
@@ -528,12 +590,18 @@ function FarmHome({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2" aria-label="농장 바로가기">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="농장 바로가기">
         <FarmHomeShortcut
           icon={<FlowerTulip size={18} weight="duotone" />}
           label="재배"
           status={readyPlotCount > 0 ? `${readyPlotCount}칸 수확` : "밭 확인"}
           onClick={() => onNavigate("grow")}
+        />
+        <FarmHomeShortcut
+          icon={<PawPrint size={18} weight="duotone" />}
+          label="목장"
+          status={readyRanchPenCount > 0 ? `${readyRanchPenCount}칸 수확` : "축사 확인"}
+          onClick={() => onNavigate("ranch")}
         />
         <FarmHomeShortcut
           icon={<Package size={18} weight="duotone" />}
@@ -1046,12 +1114,14 @@ function FarmShopPanel({
 function CropSelector({
   crops,
   seeds,
+  inventory,
   learnedSkillIds,
   selectedCropId,
   onSelect,
 }: {
   crops: FarmCrop[];
   seeds: FarmSeedInventory;
+  inventory: FarmItemInventory;
   learnedSkillIds: readonly string[];
   selectedCropId: FarmCropId;
   onSelect: (id: FarmCropId) => void;
@@ -1076,9 +1146,9 @@ function CropSelector({
               disabled={locked}
               className={`flex min-h-[6.25rem] items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
                 active
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100"
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100"
                   : locked
-                    ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400 opacity-75 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-500"
+                    ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-500"
                     : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"
               }`}
             >
@@ -1090,8 +1160,15 @@ function CropSelector({
                     ? `${crop.requiredSkillName ?? "농부 패시브"} 필요`
                     : `${formatDuration(crop.growMs)} · ${crop.yieldMin}-${crop.yieldMax}개`}
                 </span>
-                <span className="mt-1 inline-flex rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-900 dark:text-emerald-300">
-                  보유 {seeds[crop.id] ?? 0}개
+                <span
+                  className={`mt-1 inline-flex max-w-full flex-wrap rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold dark:bg-zinc-900 ${
+                    locked
+                      ? "text-zinc-500 dark:text-zinc-400"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  }`}
+                >
+                  씨앗 {(seeds[crop.id] ?? 0).toLocaleString("ko-KR")}개 · 작물{" "}
+                  {(inventory[crop.itemId] ?? 0).toLocaleString("ko-KR")}개
                 </span>
               </span>
             </button>

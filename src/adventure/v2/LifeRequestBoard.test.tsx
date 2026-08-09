@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LIFE_REQUEST_BOARD_TABS,
   LifeRequestCard,
+  WeeklyRequestChoiceSection,
+  groupWeeklyRequestChoices,
   type LifeRequestView,
 } from "./LifeRequestBoard";
 
@@ -57,5 +59,101 @@ describe("생활 의뢰 정보 구조", () => {
     expect(html).toContain("3개 더 필요");
     expect(html).toContain("life-workshop-touch-stack");
     expect(html).not.toContain(">보유<");
+  });
+
+  it("다른 주간 의뢰를 선택해 마감된 카드에 선택한 의뢰명을 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <LifeRequestCard
+        request={{ ...REQUEST, scope: "weekly" }}
+        periodLimitReached
+        closedByWeeklyRequestTitle="마을 행사 조리 지원"
+        categoryLabel="전용 · 지미"
+        busy={false}
+        onDeliver={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("전용 · 지미");
+    expect(html).toContain("마을 행사 조리 지원");
+    expect(html).toContain("다른 주간 의뢰 선택으로 마감");
+    expect(html).not.toContain("납품 완료");
+  });
+
+  it("일반 의뢰와 해금된 전용 의뢰를 한 선택지로 묶고 잠긴 전용 의뢰는 분리한다", () => {
+    const normal = { ...REQUEST, id: "weekly_normal", scope: "weekly" as const, title: "일반 대량 의뢰" };
+    const unlockedSpecial = {
+      ...REQUEST,
+      id: "weekly_special_unlocked",
+      scope: "weekly" as const,
+      title: "해금된 전용 의뢰",
+      requesterUnlocked: true,
+    };
+    const lockedSpecial = {
+      ...REQUEST,
+      id: "weekly_special_locked",
+      scope: "weekly" as const,
+      title: "잠긴 전용 의뢰",
+      requesterUnlocked: false,
+    };
+
+    const grouped = groupWeeklyRequestChoices(
+      [normal],
+      [unlockedSpecial, lockedSpecial],
+      [unlockedSpecial.id],
+    );
+
+    expect(grouped.available.map((request) => request.id)).toEqual([
+      "weekly_normal",
+      "weekly_special_unlocked",
+    ]);
+    expect(grouped.locked.map((request) => request.id)).toEqual([
+      "weekly_special_locked",
+    ]);
+    expect(grouped.selected?.title).toBe("해금된 전용 의뢰");
+  });
+
+  it("주간 선택 영역에서 선택 결과와 잠긴 전용 의뢰를 함께 설명한다", () => {
+    const normal = {
+      ...REQUEST,
+      id: "weekly_normal",
+      scope: "weekly" as const,
+      title: "마을 행사 조리 지원",
+      completed: true,
+    };
+    const unlockedSpecial = {
+      ...REQUEST,
+      id: "weekly_special_unlocked",
+      scope: "weekly" as const,
+      title: "지미의 특별 주문",
+      requesterUnlocked: true,
+    };
+    const lockedSpecial = {
+      ...REQUEST,
+      id: "weekly_special_locked",
+      scope: "weekly" as const,
+      title: "볼드의 특별 주문",
+      requesterId: "blacksmith" as const,
+      requesterUnlocked: false,
+      requiredRequesterTrust: 15,
+    };
+    const html = renderToStaticMarkup(
+      <WeeklyRequestChoiceSection
+        normal={[normal]}
+        special={[unlockedSpecial, lockedSpecial]}
+        completedIds={[normal.id]}
+        nextResetAt={1_800_000_000_000}
+        busy={null}
+        onDeliver={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("이번 주 의뢰 선택");
+    expect(html).toContain("마을 행사 조리 지원");
+    expect(html).toContain("선택 완료");
+    expect(html).toContain("일반 대량");
+    expect(html).toContain("전용 · 나무꾼 지미");
+    expect(html).toContain("다른 주간 의뢰 선택으로 마감");
+    expect(html).toContain("잠긴 전용 의뢰 1개");
+    expect(html).toContain("전용 · 대장장이 볼드");
   });
 });

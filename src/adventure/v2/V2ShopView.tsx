@@ -42,6 +42,7 @@ import { sortEquipInstances } from "./v2ItemListShared";
 import { useGameState } from "./GameStateProvider";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import { useSystemToast } from "./RewardToastProvider";
+import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -284,6 +285,7 @@ export function V2ShopView({
               error?: string;
               retryAfterSec?: number;
               gold?: number;
+              bankedGold?: number;
               owned?: V2EquipInstance[];
               sellPrice?: number;
             }
@@ -301,13 +303,15 @@ export function V2ShopView({
           return;
         }
         const item = V2_EQUIPMENT[inst.id];
-        notifySystem(`✓ ${item.name} 판매 (+${j.sellPrice ?? 0} G)`);
+        notifySystem(shopSaleBankNotice(item.name, j.sellPrice ?? 0));
         const insts = j.owned ?? [];
         setOwnedInsts(insts);
-        if (typeof j.gold === "number") {
-          setGold(j.gold);
-          applyResourcePatch({ gold: j.gold });
+        const balancePatch = shopSaleBalancePatch(j);
+        if (balancePatch.gold != null) setGold(balancePatch.gold);
+        if (balancePatch.bankedGold != null) {
+          setBankedGold(balancePatch.bankedGold);
         }
+        applyResourcePatch(balancePatch);
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
@@ -341,6 +345,7 @@ export function V2ShopView({
             error?: string;
             retryAfterSec?: number;
             gold?: number;
+            bankedGold?: number;
             materials?: Partial<Record<V2MaterialId, number>>;
             sold?: { count: number; gold: number };
           }
@@ -351,13 +356,18 @@ export function V2ShopView({
       }
       const mat = V2_MATERIALS[id];
       notifySystem(
-        `✓ ${mat.name} ×${j.sold?.count ?? 0} 판매 (+${j.sold?.gold ?? 0} G)`,
+        shopSaleBankNotice(
+          `${mat.name} ×${j.sold?.count ?? 0}`,
+          j.sold?.gold ?? 0,
+        ),
       );
       setMaterials(j.materials ?? {});
-      if (typeof j.gold === "number") {
-        setGold(j.gold);
-        applyResourcePatch({ gold: j.gold });
+      const balancePatch = shopSaleBalancePatch(j);
+      if (balancePatch.gold != null) setGold(balancePatch.gold);
+      if (balancePatch.bankedGold != null) {
+        setBankedGold(balancePatch.bankedGold);
       }
+      applyResourcePatch(balancePatch);
     } catch (err) {
       notifySystem(`✗ ${(err as Error).message}`);
     } finally {

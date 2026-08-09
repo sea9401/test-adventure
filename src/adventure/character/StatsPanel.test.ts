@@ -28,6 +28,39 @@ describe("activeSkillCritStats", () => {
   });
 });
 
+describe("StatsPanel 회복량 표기", () => {
+  it("최종 회복 배율을 소수 첫째 자리 백분율로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { str: 1 },
+        statKeys: ["str"],
+        statLabels: { str: "힘" },
+        combat: {
+          atk: 10,
+          def: 5,
+          healMult: 1.2744,
+        },
+      }),
+    );
+
+    expect(html).toContain("회복량");
+    expect(html).toContain("127.4%");
+  });
+
+  it("회복 배율을 전달하지 않은 기존 호출에는 회복량을 표시하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { str: 1 },
+        statKeys: ["str"],
+        statLabels: { str: "힘" },
+        combat: { atk: 10, def: 5 },
+      }),
+    );
+
+    expect(html).not.toContain("회복량");
+  });
+});
+
 describe("StatsPanel 명중·회피 표기", () => {
   it("내 정보에는 원본 방어력·회피도만 표시하고 상대별 경감률은 숨긴다", () => {
     const html = renderToStaticMarkup(

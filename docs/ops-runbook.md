@@ -209,13 +209,55 @@ bash deploy/maintenance.sh status   # 현재 상태
   정기 실행에서만 최대 8회·20초 간격으로 재시도한다. 계속 실패하면 Action이 실패하고
   `OPS_ALERT_WEBHOOK_URL`에도 실패 경로를 알린다.
 - EC2의 `adventure-resource-monitor.timer`는 2분마다 5분 load(코어 대비 90%),
-  가용 메모리(15% 이하), 루트 디스크(85% 이상)를 확인한다. 상태 변화 시 즉시,
-  같은 경보가 계속되면 30분마다 webhook으로 알린다.
+  가용 메모리(15% 이하), 루트 디스크(85% 이상)와 RDS `FreeableMemory`(기본 192 MiB
+  미만)를 확인한다. 상태 변화 시 즉시, 같은 경보가 계속되면 30분마다 webhook으로
+  알린다. RDS 지표 조회에는 EC2 역할의 `cloudwatch:GetMetricStatistics` 권한이 필요하다.
+
+### 기능별 런타임 프로파일러
+
+운영 Node 프로세스는 기본적으로 1분마다 `[runtime-profiler]` 구조화 로그를 남긴다.
+DB에 원시 요청을 저장하지 않으며 URL·query string·IP·userId·요청 본문도 수집하지
+않는다. 최근 60개 완료 구간과 현재 구간은 관리자 전용
+`GET /api/admin/runtime-profiler`에서 조회할 수 있다.
+
+```bash
+# 최근 기능별 집계
+journalctl -u adventure-rpg --since "30 minutes ago" --no-pager \
+  | grep -F '[runtime-profiler]'
+
+# 필요할 때만 SSM 운영 환경에 추가. 기본값은 production 활성/60초다.
+RUNTIME_PROFILER_ENABLED=0
+RUNTIME_PROFILER_INTERVAL_MS=60000
+```
+
+- `features.*.requests/errors/durationMs`: 기능별 요청량, 5xx/중단 수, 지연 분포.
+- `features.*.database`: 해당 기능 요청에서 실행한 쿼리 수와 처리 시간.
+- `runtime.cpuPercent/eventLoopDelayMs`: Node 연산 또는 이벤트 루프 포화 판단 기준.
+- `runtime.databasePool.waiting`: DB 커넥션 풀 대기 요청 수. 여러 기능에서 동시에
+  상승하면 DB 포화나 풀 고착을 우선 확인한다.
+- `responseBytes`는 nginx 앞의 Node 소켓 `bytesWritten` 차이이므로 네트워크 크기의
+  근삿값이다. 정확한 전송량·압축률 확인에는 nginx access log를 함께 본다.
+- `slowRequests`에는 기능명·HTTP method·상태·시간/바이트/DB 합계만 들어가며 경로와
+  사용자 식별자는 없다.
+
+판단 예: `combat` 지연과 DB 시간이 같이 상승하면 전투 DB/락을, DB 시간은 낮지만
+CPU·event loop 지연이 상승하면 전투 연산을 본다. `chat` 요청 수와 바이트가 대부분이면
+폴링 주기·응답 페이로드·캐시를 먼저 확인한다.
 
 ```bash
 systemctl list-timers adventure-resource-monitor.timer
 sudo systemctl start adventure-resource-monitor.service
 journalctl -u adventure-resource-monitor.service -n 50 --no-pager
+
+# 최초 1회: EC2 역할에 RDS CloudWatch 지표 읽기 권한 추가(관리자 AWS CLI/CloudShell)
+aws iam put-role-policy \
+  --role-name MsmsgeProdDbBackupEc2Role \
+  --policy-name AdventureRdsMetricsRead \
+  --policy-document file://infra/iam/adventure-rds-metrics-policy.json
+
+# 수동 검증: journal에 RDS MEMORY OK/WARN과 현재 MiB가 출력돼야 한다.
+sudo systemctl start adventure-resource-monitor.service
+journalctl -u adventure-resource-monitor.service -n 30 --no-pager
 ```
 
 ---

@@ -5,13 +5,17 @@ import {
   FARM_CROP_REQUIRED_SKILL_ID,
   FARM_CROP_UNLOCK_SKILLS,
   FARM_CROPS,
+  FARM_ITEMS,
+  buyFarmRanchPen,
   buyFarmPlotUpgrade,
   buyFarmShopItem,
   canPlantFarmCrop,
   claimFarmSpecialDelivery,
   claimFarmDelivery,
   claimFarmWeeklyDelivery,
+  collectFarmRanch,
   emptyFarmState,
+  feedFarmRanch,
   farmCropMasteryGain,
   farmAvailableReputation,
   farmingLevelForXp,
@@ -28,6 +32,66 @@ import {
 describe("adventurer farm", () => {
   it("starts with two farm plots", () => {
     expect(emptyFarmState().plots).toHaveLength(2);
+  });
+
+  it("migrates an old farm with a starter coop but no retroactive production", () => {
+    const { ranch: _ranch, ...oldFarm } = emptyFarmState(1_000);
+    const parsed = parseFarmState(oldFarm, 50_000);
+
+    expect(parsed.ranch.pens["coop-1"]).toMatchObject({
+      unlocked: true,
+      feed: 0,
+      readyItems: 0,
+      lastSettledAt: 50_000,
+    });
+  });
+
+  it("moves feed into a pen and collects products into the farm inventory", () => {
+    const started = feedFarmRanch(
+      {
+        ...emptyFarmState(1_000),
+        inventory: { compound_feed: 6 },
+      },
+      "coop-1",
+      6,
+      1_000,
+    );
+    expect(started.inventory.compound_feed).toBeUndefined();
+
+    const collected = collectFarmRanch(started, 1_000 + 12 * 60 * 60 * 1000);
+    expect(collected.result).toMatchObject({
+      items: { egg: 12 },
+      farmingXpGained: 12,
+    });
+    expect(collected.state.inventory.egg).toBe(12);
+    expect(collected.state.stats.farmingXp).toBe(12);
+  });
+
+  it("buys ranch pens with available reputation at the required farming level", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      stats: {
+        ...emptyFarmState(1_000).stats,
+        reputation: 30,
+        farmingXp: 810,
+      },
+    };
+
+    const bought = buyFarmRanchPen(state, "coop-2", 1_000);
+    expect(bought.result).toMatchObject({
+      penId: "coop-2",
+      costReputation: 30,
+    });
+    expect(bought.state.ranch.pens["coop-2"].unlocked).toBe(true);
+    expect(bought.state.stats.reputationSpent).toBe(30);
+  });
+
+  it("maps ranch inventory items to identifier-matched image assets", () => {
+    expect(FARM_ITEMS.compound_feed.imageSrc).toBe(
+      "/images/items/farm/compound_feed.webp",
+    );
+    expect(FARM_ITEMS.egg.imageSrc).toBe("/images/items/farm/egg.webp");
+    expect(FARM_ITEMS.milk.imageSrc).toBe("/images/items/farm/milk.webp");
   });
 
   it("초반 확인 주기는 늘리고 후반 재배 시간은 16시간 이하로 제한한다", () => {
@@ -240,10 +304,42 @@ describe("adventurer farm", () => {
     expect(next.stats.reputationSpent).toBe(0);
   });
 
-  it("모든 일반 일일 납품이 같은 작물 씨앗 2개를 돌려준다", () => {
-    for (const request of getFarmDeliveryRequests()) {
+  it("모든 작물 일일 납품이 같은 작물 씨앗 2개를 돌려준다", () => {
+    for (const request of getFarmDeliveryRequests().filter(
+      (entry) => entry.requiredItemId !== "egg" && entry.requiredItemId !== "milk",
+    )) {
       expect(request.rewardSeeds).toEqual({ [request.requiredItemId]: 2 });
     }
+  });
+
+  it("adds egg and milk deliveries to the shared daily farm limit", () => {
+    expect(
+      getFarmDeliveryRequests().find((request) => request.id === "bakery-eggs"),
+    ).toMatchObject({
+      requiredItemId: "egg",
+      requiredQuantity: 8,
+      rewardSeeds: {},
+      rewardReputation: 3,
+    });
+    expect(
+      getFarmDeliveryRequests().find((request) => request.id === "inn-milk"),
+    ).toMatchObject({
+      requiredItemId: "milk",
+      requiredQuantity: 6,
+      rewardSeeds: {},
+      rewardReputation: 4,
+    });
+
+    const base = {
+      ...emptyFarmState(1_000),
+      inventory: { egg: 8, milk: 6, wheat: 3 },
+      seeds: {},
+    };
+    const first = claimFarmDelivery(base, "bakery-eggs", 1_000).state;
+    const second = claimFarmDelivery(first, "inn-milk", 1_000).state;
+    expect(() => claimFarmDelivery(second, "bakery-wheat", 1_000)).toThrow(
+      "delivery_daily_limit",
+    );
   });
 
   it("claims a rare harvest delivery as a repeatable sink", () => {

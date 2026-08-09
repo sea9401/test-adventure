@@ -129,6 +129,8 @@ export function combatStatsSection(
         magicAtk: combat.player.magicAtk ?? 0,
         // 마법 방어력 — SPI(+INT 약간)+장신구 환산. 마법 데미지를 막는 별개 방어 스탯.
         magicDef: combat.player.magicDef ?? 0,
+        // 최종 회복량 배율 — SPI·VIT 파생값과 장비·장착 패시브 회복 옵션을 모두 반영한다.
+        healMult: combat.player.healMult ?? 1,
         magicBarrierMax: combat.player.magicBarrierMax ?? 0,
         magicBarrierAbsorbPct: combat.player.magicBarrierAbsorbPct ?? 0,
         // 숨은 전투 축 — 회피/명중/치명타/다중공격.

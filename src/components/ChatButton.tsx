@@ -6,16 +6,15 @@ import { isNoticeMessage } from "@/lib/chat-config";
 import { ChatPanel, type ChatMessage } from "./ChatPanel";
 import { CHAT_CLOSE_REQUEST_EVENT } from "./chat/useMobileChatHistory";
 import {
-  fetchChatMessages,
+  fetchMainChatMessages,
   latestChatMessageId,
   mergeChatMessages,
 } from "./chat/chatMessagesApi";
+import { chatPollDelayMs } from "./chat/chatPollingPolicy";
 
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
 // 배경 폴링은 모든 로그인 유저에게서 영구히 도는 비용이라 보수적으로 길게.
-const POLL_INTERVAL_BG_MS = 10000;
-const POLL_INTERVAL_OPEN_MS = 1500;
 // 모바일 전체화면 채팅(z-65)이 열려도 원래 플로팅 토글을 그 위에 남겨,
 // 헤더가 기기 UI나 작은 뷰포트에 가려져도 항상 닫을 수 있게 한다.
 export const CHAT_FLOATING_CLOSED_LAYER_CLASS = "z-[44]";
@@ -94,7 +93,7 @@ export function ChatButton({
       if (cancelled || document.visibilityState === "hidden") return;
       timeoutId = window.setTimeout(
         () => void tick(),
-        open ? POLL_INTERVAL_OPEN_MS : POLL_INTERVAL_BG_MS,
+        chatPollDelayMs(open),
       );
     };
 
@@ -102,22 +101,20 @@ export function ChatButton({
       if (cancelled || running || document.visibilityState === "hidden") return;
       running = true;
       try {
-        const [next, nextTrade, nextGuild] = await Promise.all([
-          fetchChatMessages({
-            channel: "global",
-            ...(initialized ? { afterId: globalAfterId } : {}),
-          }),
-          fetchChatMessages({
-            channel: "trade",
-            ...(initialized ? { afterId: tradeAfterId } : {}),
-          }),
-          guildAvailable
-            ? fetchChatMessages({
-                channel: "guild",
-                ...(initialized ? { afterId: guildAfterId } : {}),
-              }).catch(() => [])
-            : [],
-        ]);
+        const {
+          global: next,
+          trade: nextTrade,
+          guild: nextGuild,
+        } = await fetchMainChatMessages({
+          includeGuild: guildAvailable,
+          ...(initialized
+            ? {
+                globalAfterId,
+                tradeAfterId,
+                guildAfterId,
+              }
+            : {}),
+        });
         if (cancelled) return;
         globalAfterId = Math.max(globalAfterId, latestChatMessageId(next));
         tradeAfterId = Math.max(tradeAfterId, latestChatMessageId(nextTrade));

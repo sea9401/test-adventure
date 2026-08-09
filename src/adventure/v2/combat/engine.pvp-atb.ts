@@ -8,6 +8,7 @@ import {
 } from "./engine";
 import {
   advanceTurnPvP,
+  applyEvasionActionRecoveryPvP,
   castV2SkillOnAttackerTurnPvP,
   endAttackerPhase,
   initialBattleStatePvP,
@@ -235,6 +236,7 @@ export function resolveBattlePvPAtb(
       turns += 1;
       break;
     }
+    state = withAtbPlayers(applyEvasionActionRecoveryPvP(state, who));
 
     // v2 스킬 시전(V2_ATB_SKILLS) — 스킬이 발동하면 이번 행동을 소진해 평타를 대체한다.
     // 다단 적중 시그니처로 생긴 추가 행동만 같은 번들에서 평타로 이어진다. PvP 의 v2 buff tick 은

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Gear } from "@phosphor-icons/react";
@@ -182,6 +183,7 @@ export function V2DungeonFloorView({
   onProficiencyChange,
   onRecoveryChargesChange,
   onEnterRareMap,
+  onReturnToNormalHunt,
   offlineHunt,
   onRefresh,
 }: {
@@ -246,6 +248,8 @@ export function V2DungeonFloorView({
   onRecoveryChargesChange?: (update: RecoveryChargesUpdate) => void;
   // 사냥 결과에서 새로 발견한 희귀 탐사/장소로 즉시 이동.
   onEnterRareMap?: (map: RareMapInstance) => void;
+  // 희귀 탐사와 같은 단계의 일반 사냥터로 즉시 복귀. 일반 사냥 모드에서는 사용하지 않는다.
+  onReturnToNormalHunt?: () => void;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
@@ -999,7 +1003,22 @@ export function V2DungeonFloorView({
         </span>
       </p>
       {rareMapIid && (
-        <DiscoveryNotice kind="hunt" align="start">
+        <DiscoveryNotice
+          kind="hunt"
+          align="start"
+          action={
+            onReturnToNormalHunt ? (
+              <Button
+                size="xs"
+                variant="info"
+                onClick={onReturnToNormalHunt}
+                className="shrink-0"
+              >
+                일반 사냥터로
+              </Button>
+            ) : undefined
+          }
+        >
           희귀 탐사 진행 중
           {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
           {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}

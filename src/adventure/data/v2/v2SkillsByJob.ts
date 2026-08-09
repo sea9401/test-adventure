@@ -88,11 +88,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   bloodtemplar: ["v2c_bloodtemplar_stigma", "v2c_bloodtemplar_martyr"], // 혈성기사: 피의 성흔(HP소모+방벽/약화) + 순교의 맹세
   darkpriest: ["v2c_darkpriest_reap", "v2c_darkpriest_blessing"], // 암흑사제: 영혼 수확(처형+회복) + 검은 축복
   // ── 심화 직업(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화) ──
-  veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 결전의 일격(처형딜) + 필살 II(치명피해)
-  sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 권룡: 권룡연파(연격+방깎+취약) + 근력 III(힘+20%) — 공격형 정점
-  sage: ["v2c_sage_bolt", "v2c_sage_insight"], // 마력 폭사 + 치명 II(치명확률)
+  veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal", "v2c_veteran_armorinsight"], // 결전의 일격 + 필살 II + 갑주 간파 I
+  sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody", "v2c_sensei_formationbreak"], // 권룡연파 + 근력 III + 파진경 I
+  sage: ["v2c_sage_bolt", "v2c_sage_insight", "v2c_sage_magicdismantle"], // 마력 폭사 + 치명 II + 마력 해체 I
   chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 관통사(DEX 궁술) + 매의 눈(명중+30%)
-  phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"], // 기습(풀피 오프너·LUK) + 은신(회피+16%)
+  phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth", "v2c_phantom_weakpoint"], // 기습 + 은신 + 급소 노출 I
   venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"], // 독왕진(중독 폭발) + 부식 III
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
   firemage: ["v2c_firemage_inferno", "v2c_firemage_ember"],
@@ -124,17 +124,17 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"], // 룬 기사: 룬 검격 + 룬 각인
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판(방어비례/회복억제) + 피의 서약
   // ── 5차 직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──
-  swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus"], // 검호: 검격 + 검의 집중
+  swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus", "v2c_swordmaster_armorinsight2"], // 검호: 검격 + 검의 집중 + 갑주 간파 II
   ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"], // 철벽기사: 철벽 태세 + 장벽술
   overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"], // 패왕: 파멸 난무 + 광기의 왕좌
-  arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"], // 비전술사: 비전 폭발 + 비전 이론
+  arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory", "v2c_arcanist_magicdismantle2"], // 비전술사: 비전 폭발 + 비전 이론 + 마력 해체 II
   elementallord: ["v2c_elementallord_surge", "v2c_elementallord_resonance"], // 원소군주: 원소 폭주 + 원소 공명
   inscriber: ["v2c_inscriber_release", "v2c_inscriber_amplification"], // 각인술사: 각인 해방 + 각인 증폭
   marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준
-  nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"], // 밤그림자: 월식 + 은신 II
+  nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak", "v2c_nightshade_weakpoint2"], // 밤그림자: 월식 + 은신 II + 급소 노출 II
   saint: ["v2c_saint_miracle", "v2c_saint_benediction"], // 성자: 기적 + 축복
   plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"], // 역병 군주: 역병 창궐 + 부식 IV
-  dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork"], // 권황: 용린파쇄 + 무극보법
+  dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork", "v2c_dragonfist_formationbreak2"], // 권황: 용린파쇄 + 무극보법 + 파진경 II
   adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"], // 금강승: 금강 자세 + 금강불괴
   immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"], // 불멸자: 생명 강타 + 불멸의 심장
   championmaker: ["v2c_championmaker_championprogram"], // 챔피언 메이커 — 챔피언 프로그램
@@ -146,16 +146,16 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   calamitycaller: ["v2c_calamitycaller_brand", "v2c_calamitycaller_omen"], // 재앙술사: 재앙의 낙인 + 흉조 III
   // ── 6차 직업 — 5차 직업 숙련도 기반 엔드 성장 ──
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
-  swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence"], // 검성: 무심검 + 검성의 경지
+  swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence", "v2c_swordsaint_armorinsight3"], // 검성: 무심검 + 검성의 경지 + 갑주 간파 III
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕난무 + 패황의 지배
-  archmage: ["v2c_archmage_collapse", "v2c_archmage_theory"], // 대마도사: 비전 붕괴 + 대마도 이론
+  archmage: ["v2c_archmage_collapse", "v2c_archmage_theory", "v2c_archmage_magicdismantle3"], // 대마도사: 비전 붕괴 + 대마도 이론 + 마력 해체 III
   primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance"], // 태초술사: 태초회귀 + 근원공명
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총
   doomprophet: ["v2c_doomprophet_sentence", "v2c_doomprophet_revelation"], // 종말예언자: 종말 선고 + 불길한 계시
   heavenlybow: ["v2c_heavenlybow_orbit", "v2c_heavenlybow_starpath"], // 천궁: 천궁궤적 + 성도 조준
-  blackmoon: ["v2c_blackmoon_flurry", "v2c_blackmoon_dominion"], // 흑월: 암월난무 + 흑월지배
+  blackmoon: ["v2c_blackmoon_flurry", "v2c_blackmoon_dominion", "v2c_blackmoon_weakpoint3"], // 흑월: 암월난무 + 흑월지배 + 급소 노출 III
   myriadvenom: ["v2c_myriadvenom_mutation", "v2c_myriadvenom_body"], // 독황: 만독개화 + 만독지배
-  celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath"], // 천룡권성: 천룡난무 + 천룡의 호흡
+  celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath", "v2c_celestialdragon_formationbreak3"], // 천룡권성: 천룡난무 + 천룡의 호흡 + 파진경 III
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
   eternal: ["v2c_eternal_cycle", "v2c_eternal_body"], // 영겁자: 영겁 순환 + 영겁의 육신
   legendarytrainer: ["v2c_legendarytrainer_mentorship"], // 전설의 트레이너 — 전설의 지도

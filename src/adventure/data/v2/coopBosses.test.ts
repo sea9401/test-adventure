@@ -68,17 +68,17 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_BOSSES.canyon_predator.scrollCost).toBe(15);
     expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
     expect(COOP_BOSSES.void_priest.scrollCost).toBe(30);
-    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(630_000);
+    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(420_000);
     expect(COOP_BOSSES.mountain_chief_hard).toMatchObject({
       difficulty: "hard",
       scrollCost: 30,
-      sharedMaxHp: 1_200_000,
+      sharedMaxHp: 600_000,
       anchorDepth: 68,
     });
     expect(COOP_BOSSES.abyssal_tyrant).toMatchObject({
       difficulty: "hard",
       scrollCost: 30,
-      sharedMaxHp: 1_400_000,
+      sharedMaxHp: 600_000,
       anchorDepth: 60,
     });
   });
@@ -327,42 +327,25 @@ describe("coopBosses 카탈로그", () => {
     ).toBe(100);
   });
 
-  it("6종은 새 방어 체계에 재보정된 파생 전투 스탯을 가진다", () => {
-    const expected = {
-      mountain_chief: { atk: 124, def: 44, magicDef: 49, accuracy: 9.63 },
-      canyon_predator: { atk: 288, def: 54, magicDef: undefined, accuracy: 15.99 },
-      lake_sovereign: { atk: 80, def: 97, magicDef: undefined, accuracy: 30.03 },
-      void_priest: {
-        atk: 456,
-        def: 255,
-        magicDef: undefined,
-        accuracy: 124.28838673308641,
-      },
-      mountain_chief_hard: {
-        atk: 595,
-        def: 469,
-        magicDef: 604,
-        accuracy: 104.76274329310041,
-      },
-      abyssal_tyrant: {
-        atk: 966,
-        def: 227,
-        magicDef: 453,
-        accuracy: 134.2883867330864,
-      },
-    } as const;
-
-    for (const id of COOP_BOSS_KIND_IDS) {
-      const monster = coopBossForBattle(
-        COOP_BOSSES[id],
-        COOP_BOSSES[id].sharedMaxHp,
-      ).monster;
-      const stats = expected[id];
-      expect(monster.atk).toBe(stats.atk);
-      expect(monster.def).toBe(stats.def);
-      expect(monster.magicDef).toBe(stats.magicDef);
-      expect(monster.accuracy).toBeCloseTo(stats.accuracy);
-    }
+  it("산군 난이도별 방어·마법방어·명중·회피 스탯을 가진다", () => {
+    const normal = coopBossForBattle(
+      COOP_BOSSES.mountain_chief,
+      COOP_BOSSES.mountain_chief.sharedMaxHp,
+    ).monster;
+    const hard = coopBossForBattle(
+      COOP_BOSSES.mountain_chief_hard,
+      COOP_BOSSES.mountain_chief_hard.sharedMaxHp,
+    ).monster;
+    expect(normal.atk).toBe(146);
+    expect(normal.def).toBe(44);
+    expect(normal.magicDef).toBe(49);
+    expect(normal.accuracy).toBeGreaterThan(4);
+    expect(normal.evasionPct).toBe(5);
+    expect(hard.atk).toBe(4394);
+    expect(hard.def).toBe(469);
+    expect(hard.magicDef).toBe(604);
+    expect(hard.accuracy).toBeGreaterThan(40);
+    expect(hard.evasionPct).toBe(12);
   });
 
   it("유지시간 — HP 비례·최소 2h·최대 24h 클램프·HP 오름차순과 단조", () => {

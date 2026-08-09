@@ -4,7 +4,8 @@
 //   → 골든 byte-identical.
 //
 // 🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만(battle_start/
-//   low_hp/on_heal/on_dodge/on_crit/on_hit/on_hit_taken/on_skill_cast/status_block_once/every_n_hits).
+//   low_hp/on_heal/on_dodge/on_action_evasion/on_crit/on_hit/on_hit_taken/on_skill_cast/
+//   status_block_once/every_n_hits).
 //   PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
 
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
@@ -252,18 +253,38 @@ export function formatShockSlowLog(
   return `[${shock.label}] ${targetName}이(가) 감전되어 움직임이 끊긴다. (속도 ${slowPct}% 감소, ${shock.turns}행동)`;
 }
 
-// on_dodge 회복(봉인된 반지) — 회피 성공 시 maxHp 의 healPct% 회복량 합산. 없으면 0.
-export function onDodgeHealAmount(
+// on_action_evasion 회복 — 행동마다 현재 상대 기준 회피 경감률의 절반 확률로
+// 잃은 HP 의 lostHpHealPct%를 회복한다. 여러 장비는 한 번 판정하고 회복률을 합산한다.
+export function rollEvasionActionRecovery(
   signatures: SignatureEffect[] | undefined,
+  currentHp: number,
   maxHp: number,
-): number {
-  if (!signatures || maxHp <= 0) return 0;
-  let amt = 0;
-  for (const s of signatures) {
-    if (s.trigger !== "on_dodge" || !s.healPct) continue;
-    amt += Math.floor((s.healPct / 100) * maxHp);
+  evasionReductionPct: number,
+  roll: () => number = Math.random,
+): { amount: number; label: string } | null {
+  if (
+    !signatures ||
+    maxHp <= 0 ||
+    currentHp <= 0 ||
+    currentHp >= maxHp ||
+    evasionReductionPct <= 0
+  ) {
+    return null;
   }
-  return amt;
+  let lostHpHealPct = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_action_evasion" || !s.lostHpHealPct) continue;
+    lostHpHealPct += s.lostHpHealPct;
+    labels.push(s.label);
+  }
+  const amount = Math.floor(
+    ((maxHp - Math.max(0, currentHp)) * lostHpHealPct) / 100,
+  );
+  if (amount <= 0 || labels.length === 0) return null;
+  const procChancePct = Math.max(0, evasionReductionPct) / 2;
+  if (roll() * 100 >= procChancePct) return null;
+  return { amount, label: labels.join(" + ") };
 }
 
 // every_n_hits — 평타·스킬 공용 실제 적중 주기 N(가장 작은 N = 가장 자주)과 발동 라벨.
@@ -302,62 +323,4 @@ export function onDodgeSpeedBuff(
     if (!best || mult > best.mult) best = { mult, turns, label: s.label };
   }
   return best;
-}
-
-export type EvasionReaction = {
-  heal: { amount: number; label: string } | null;
-  speed: { mult: number; turns: number; label: string } | null;
-};
-
-// 일반 회피 경감 반응 — 정수 직접 피해가 실제로 줄었을 때 경감률과 같은 확률로
-// 장비의 on_dodge 효과 묶음을 한 번 발동한다. 장비가 없거나 경감이 없으면 RNG를
-// 소비하지 않아 기존 전투의 난수열을 보존한다.
-export function rollEvasionReaction(
-  signatures: SignatureEffect[] | undefined,
-  maxHp: number,
-  reductionPct: number,
-  damageBefore: number,
-  damageAfter: number,
-  roll: () => number = Math.random,
-): EvasionReaction | null {
-  if (
-    !signatures ||
-    signatures.length === 0 ||
-    !Number.isFinite(reductionPct) ||
-    reductionPct <= 0 ||
-    !Number.isFinite(damageBefore) ||
-    !Number.isFinite(damageAfter) ||
-    damageAfter >= damageBefore
-  ) {
-    return null;
-  }
-
-  let healAmount = 0;
-  const healLabels: string[] = [];
-  let speed: EvasionReaction["speed"] = null;
-  for (const signature of signatures) {
-    if (signature.trigger !== "on_dodge") continue;
-    if (signature.healPct && maxHp > 0) {
-      healAmount += Math.floor((signature.healPct / 100) * maxHp);
-      healLabels.push(signature.label);
-    }
-    if (signature.spdBuffPct) {
-      const candidate = {
-        mult: 1 + signature.spdBuffPct / 100,
-        turns: Math.max(1, signature.buffActions ?? 1),
-        label: signature.label,
-      };
-      if (!speed || candidate.mult > speed.mult) speed = candidate;
-    }
-  }
-  const heal =
-    healAmount > 0
-      ? { amount: healAmount, label: healLabels.join(" + ") }
-      : null;
-  if (!heal && !speed) return null;
-
-  const sample = roll();
-  if (!Number.isFinite(sample) || sample < 0 || sample > 1) return null;
-  if (sample * 100 >= Math.min(100, reductionPct)) return null;
-  return { heal, speed };
 }

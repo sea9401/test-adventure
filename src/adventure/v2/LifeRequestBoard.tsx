@@ -167,6 +167,122 @@ const GRADE_STYLE: Record<LifeRequestGrade, string> = {
   expert: "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200",
 };
 
+export function groupWeeklyRequestChoices(
+  normal: readonly LifeRequestView[],
+  special: readonly LifeRequestView[],
+  completedIds: readonly string[],
+): {
+  available: LifeRequestView[];
+  locked: LifeRequestView[];
+  selected: LifeRequestView | null;
+} {
+  const unlockedSpecial = special.filter((request) => request.requesterUnlocked);
+  const locked = special.filter((request) => !request.requesterUnlocked);
+  const all = [...normal, ...special];
+  return {
+    available: [...normal, ...unlockedSpecial],
+    locked,
+    selected: all.find((request) => completedIds.includes(request.id)) ?? null,
+  };
+}
+
+export function WeeklyRequestChoiceSection({
+  normal,
+  special,
+  completedIds,
+  nextResetAt,
+  busy,
+  onDeliver,
+  onOpenWorkshopTab,
+  className = "",
+}: {
+  normal: readonly LifeRequestView[];
+  special: readonly LifeRequestView[];
+  completedIds: readonly string[];
+  nextResetAt: number;
+  busy: string | null;
+  onDeliver: (request: LifeRequestView) => void;
+  onOpenWorkshopTab?: (tab: WorkshopDestination) => void;
+  className?: string;
+}) {
+  const grouped = groupWeeklyRequestChoices(normal, special, completedIds);
+  const limitReached = completedIds.length >= LIFE_REQUEST_WEEKLY_LIMIT;
+  const selectedTitle = grouped.selected?.title;
+  const normalIds = new Set(normal.map((request) => request.id));
+  const categoryLabel = (request: LifeRequestView) => normalIds.has(request.id)
+    ? "일반 대량"
+    : `전용 · ${LIFE_REQUEST_REQUESTERS[request.requesterId].name}`;
+
+  return (
+    <section className={`${SURFACE_CARD} ${className} p-4 sm:p-5`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-bold"><Package size={20} weight="duotone" />이번 주 의뢰 선택</h2>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            일반 대량 의뢰와 신뢰로 해금한 전용 의뢰 가운데 하나만 납품할 수 있습니다.
+          </p>
+        </div>
+        <div className="text-right text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <div>{completedIds.length}/{LIFE_REQUEST_WEEKLY_LIMIT}건 완료</div>
+          <div className="mt-1 flex items-center gap-1 text-[10px] font-normal text-zinc-500"><ClockCountdown size={12} />{resetText(nextResetAt)}</div>
+        </div>
+      </div>
+
+      {grouped.selected ? (
+        <div className={`${SURFACE_ACCENT} mt-3 px-3 py-2 text-xs leading-5 text-amber-900 dark:text-amber-100`}>
+          <span className="font-extrabold">‘{grouped.selected.title}’ 선택 완료</span>
+          <span className="ml-1">· 다른 주간 의뢰는 다음 갱신까지 마감됩니다.</span>
+        </div>
+      ) : (
+        <div className={`${SURFACE_INSET} mt-3 px-3 py-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300`}>
+          카드의 요구 품목과 보상을 비교한 뒤 이번 주에 진행할 의뢰 하나를 선택하세요.
+        </div>
+      )}
+
+      <div className="life-workshop-touch-stack mt-3 grid gap-2 sm:grid-cols-2">
+        {grouped.available.map((request) => (
+          <LifeRequestCard
+            key={request.id}
+            request={request}
+            categoryLabel={categoryLabel(request)}
+            periodLimitReached={limitReached}
+            closedByWeeklyRequestTitle={limitReached && !request.completed ? selectedTitle : undefined}
+            busy={busy === request.id}
+            onDeliver={() => onDeliver(request)}
+            onOpenWorkshopTab={onOpenWorkshopTab}
+          />
+        ))}
+      </div>
+
+      {grouped.locked.length > 0 ? (
+        <details className={`${SURFACE_INSET} mt-3 group p-3`}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <div>
+              <div className="text-sm font-bold">잠긴 전용 의뢰 {grouped.locked.length}개</div>
+              <div className="mt-0.5 text-xs text-zinc-500">의뢰인별 신뢰 15를 달성하면 위 선택지에 합류합니다.</div>
+            </div>
+            <span className="shrink-0 text-xs font-semibold text-amber-700 group-open:hidden dark:text-amber-300">목록 보기</span>
+            <span className="hidden shrink-0 text-xs font-semibold text-amber-700 group-open:inline dark:text-amber-300">접기</span>
+          </summary>
+          <div className="life-workshop-touch-stack mt-3 grid gap-2 border-t border-zinc-200 pt-3 sm:grid-cols-2 dark:border-zinc-700">
+            {grouped.locked.map((request) => (
+              <LifeRequestCard
+                key={request.id}
+                request={request}
+                categoryLabel={categoryLabel(request)}
+                periodLimitReached={limitReached}
+                busy={busy === request.id}
+                onDeliver={() => onDeliver(request)}
+                onOpenWorkshopTab={onOpenWorkshopTab}
+              />
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
 const ERROR_TEXT: Record<string, string> = {
   not_enough_items: "납품할 물품이 부족합니다.",
   already_completed: "이미 완료한 의뢰입니다.",
@@ -286,7 +402,6 @@ export function LifeRequestBoard({
     return <div className={`${SURFACE_CARD} p-6 text-center text-sm text-zinc-500`}><Button size="sm" onClick={() => void refresh()}>다시 불러오기</Button></div>;
   }
 
-  const weeklyDone = data.state.weekly.completedIds.length;
   const chainDone = data.state.chain.completedIds.length;
   const selectedRerollLane = data.reroll.lanes.find((entry) => entry.lane === rerollLane);
   const selectedRerollCandidate = selectedRerollLane?.candidates.find((entry) => entry.offset === rerollOffset);
@@ -341,6 +456,7 @@ export function LifeRequestBoard({
         <div>
           <h2 className="text-sm font-bold">의뢰인 신뢰도</h2>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">의뢰를 해결한 기록이 의뢰인별로 영구 누적됩니다. 신뢰도는 소모되지 않습니다.</p>
+          <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">해금한 전용 의뢰는 주간 메뉴의 ‘이번 주 의뢰 선택’에서 일반 대량 의뢰와 비교할 수 있습니다.</p>
         </div>
         <div className="life-workshop-touch-stack mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           {data.requesterProgress.map((requester) => (
@@ -362,19 +478,6 @@ export function LifeRequestBoard({
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className={`${SURFACE_CARD} ${boardTab === "requesters" ? "order-3" : "hidden"} p-4`}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-bold">의뢰인 전용 주간 의뢰</h2>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">각 의뢰인 신뢰 15부터 열립니다. 일반 주간 대량 의뢰와 완료 한도를 공유하므로 이번 주에는 하나만 선택할 수 있습니다.</p>
-          </div>
-          <div className="text-right text-xs font-semibold text-zinc-600 dark:text-zinc-300">{weeklyDone}/{LIFE_REQUEST_WEEKLY_LIMIT}건 완료</div>
-        </div>
-        <div className="life-workshop-touch-stack mt-3 grid gap-2 lg:grid-cols-2">
-          {data.special.map((request) => <LifeRequestCard key={request.id} request={request} periodLimitReached={weeklyDone >= LIFE_REQUEST_WEEKLY_LIMIT} busy={busy === request.id} onDeliver={() => void deliver(request)} onOpenWorkshopTab={onOpenWorkshopTab} />)}
         </div>
       </section>
 
@@ -486,21 +589,16 @@ export function LifeRequestBoard({
         </div>
       </section>
 
-      <section className={`${SURFACE_CARD} ${boardTab === "weekly" ? "order-3" : "hidden"} p-4 sm:p-5`}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-sm font-bold"><Package size={20} weight="duotone" />주간 대량 의뢰</h2>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">가공품과 생활 보조품 대량 주문 중 하나만 선택할 수 있습니다. 연계 의뢰와는 별도입니다.</p>
-          </div>
-          <div className="text-right text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-            <div>{weeklyDone}/{LIFE_REQUEST_WEEKLY_LIMIT}건 완료</div>
-            <div className="mt-1 flex items-center gap-1 text-[10px] font-normal text-zinc-500"><ClockCountdown size={12} />{resetText(data.nextWeeklyResetAt)}</div>
-          </div>
-        </div>
-        <div className="life-workshop-touch-stack mt-3 grid gap-2 sm:grid-cols-2">
-          {data.weekly.map((request) => <LifeRequestCard key={request.id} request={request} periodLimitReached={weeklyDone >= LIFE_REQUEST_WEEKLY_LIMIT} busy={busy === request.id} onDeliver={() => void deliver(request)} onOpenWorkshopTab={onOpenWorkshopTab} />)}
-        </div>
-      </section>
+      <WeeklyRequestChoiceSection
+        className={boardTab === "weekly" ? "order-3" : "hidden"}
+        normal={data.weekly}
+        special={data.special}
+        completedIds={data.state.weekly.completedIds}
+        nextResetAt={data.nextWeeklyResetAt}
+        busy={busy}
+        onDeliver={(request) => void deliver(request)}
+        onOpenWorkshopTab={onOpenWorkshopTab}
+      />
 
       <section className={`${SURFACE_CARD} ${boardTab === "records" ? "order-2" : "hidden"} p-4 sm:p-5`}>
         <div className="flex items-start justify-between gap-3">
@@ -559,12 +657,16 @@ export function LifeRequestBoard({
 export function LifeRequestCard({
   request,
   periodLimitReached,
+  closedByWeeklyRequestTitle,
+  categoryLabel,
   busy,
   onDeliver,
   onOpenWorkshopTab,
 }: {
   request: LifeRequestView;
   periodLimitReached: boolean;
+  closedByWeeklyRequestTitle?: string;
+  categoryLabel?: string;
   busy: boolean;
   onDeliver: () => void;
   onOpenWorkshopTab?: (tab: WorkshopDestination) => void;
@@ -586,7 +688,9 @@ export function LifeRequestCard({
           : request.chainLocked
             ? "앞 단계 완료 필요"
             : periodLimitReached
-              ? "선택 횟수 마감"
+              ? closedByWeeklyRequestTitle
+                ? "다른 주간 의뢰 선택으로 마감"
+                : "선택 횟수 마감"
               : enough
                 ? "즉시 납품"
                 : `부족 ${request.shortage.toLocaleString()}개`;
@@ -596,6 +700,7 @@ export function LifeRequestCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
             {request.completed ? <SealCheck size={14} weight="fill" /> : null}
+            {categoryLabel ? <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-300">{categoryLabel}</span> : null}
             {LANE_LABEL[request.lane]}
             {request.chainStage ? <span>· {request.chainStage}/{request.chainTotal}단계</span> : null}
           </div>
@@ -607,6 +712,11 @@ export function LifeRequestCard({
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{request.description}</p>
+      {periodLimitReached && !request.completed && closedByWeeklyRequestTitle ? (
+        <div className={`${SURFACE_ACCENT} mt-3 px-3 py-2 text-xs font-semibold leading-5 text-amber-900 dark:text-amber-100`}>
+          ‘{closedByWeeklyRequestTitle}’ 의뢰를 선택하여 이번 주에는 납품할 수 없습니다.
+        </div>
+      ) : null}
       <div className="mt-4 border-y border-zinc-200 py-3 dark:border-zinc-700">
         <div className="flex items-center justify-between gap-3 text-sm">
           <div className="min-w-0">

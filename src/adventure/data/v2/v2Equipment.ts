@@ -409,7 +409,8 @@ export function weaponGateOpen(
 
 // === 발동형 시그니처 효과 (Phase 2) ==================================
 // 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
-//   트리거가 있다(전투시작/저체력/회복/회피/크리/적중/피격/스킬시전/상태방어/N타마다).
+//   트리거가 있다(전투시작/저체력/회복/회피/행동 회피 회복/크리/적중/피격/스킬시전/
+//   상태방어/N타마다).
 //   docs/v2-signature-uniques-plan.md §10.
 //   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
 //   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
@@ -419,6 +420,7 @@ export type SignatureTrigger =
   | "low_hp"
   | "on_heal"
   | "on_dodge"
+  | "on_action_evasion"
   | "on_crit"
   | "on_hit"
   | "on_hit_taken"
@@ -437,8 +439,8 @@ export type SignatureEffect = {
   spdBuffPct?: number;
   /** 속도/스탯 버프 지속(행동 수). */
   buffActions?: number;
-  /** on_dodge/on_crit: 발동 시 maxHp 의 이 % 만큼 회복. */
-  healPct?: number;
+  /** on_action_evasion: 발동 시 잃은 HP 의 이 % 만큼 회복. */
+  lostHpHealPct?: number;
   /** on_crit: 크리 시 대상에게 중독(독 DoT) 부여. */
   poisonOnCrit?: boolean;
   /** on_crit: 크리 시 대상에게 한기(둔화) — 적 속도 −% (buffActions 행동). 군림(자속도+)의 거울. */
@@ -481,11 +483,11 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "on_heal":
       return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막`;
     case "on_dodge":
-      if (sig.healPct)
-        return `회피 경감률과 같은 확률로 피격 후 HP +${sig.healPct}% 회복`;
       if (sig.spdBuffPct)
-        return `회피 경감률과 같은 확률로 피격 후 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
-      return "회피 경감률과 같은 확률로 피격 후 발동";
+        return `회피 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
+      return "회피 시 발동";
+    case "on_action_evasion":
+      return `행동 시 회피 경감률의 절반 확률로 잃은 HP의 ${sig.lostHpHealPct ?? 0}% 회복`;
     case "on_crit":
       if (sig.poisonOnCrit) return "치명타 시 대상 중독(독)";
       if (sig.chillSlowPct)
@@ -985,12 +987,11 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     name: "흉포한 산군",
     buildTags: ["physical", "crit", "tank"],
     thresholds: [
-      { count: 2, bonus: { hp: 260, def: 32, magicDef: 24 } },
-      { count: 4, bonus: { hp: 400, def: 48, crit: 4, critResist: 8 } },
+      { count: 2, bonus: { hp: 360, def: 44, magicDef: 24 } },
+      { count: 4, bonus: { hp: 520, def: 64, crit: 4, critResist: 8 } },
       {
         count: 6,
-        // 방어구·2·4세트에서 덜어낸 총량을 완성 보너스로 옮겨 순수 산군 탱커는 중립으로 유지한다.
-        bonus: { hp: 1_230, def: 166, magicDef: 48, critResist: 14 },
+        bonus: { hp: 760, def: 96, magicDef: 48, critResist: 14 },
         signature: {
           trigger: "on_hit_taken",
           label: "정면돌파",
@@ -1000,7 +1001,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     ],
   },
   // 6T 세트의 2·4부위는 컨셉 발동 효과, 3·5부위는 산군 세트가 끊길 때 사라지는 기반 스탯을
-  // 각 컨셉의 생존 방식으로 되돌린다. 6부위는 공격 템포를 여는 완성 효과로, 4+2 혼합과 경쟁한다.
+  // 각 컨셉의 생존 방식으로 되돌린다. 홀수 단계에는 새 발동 효과를 두지 않아 4+2 혼합 선택을 보존한다.
   {
     id: "storm_gravity",
     name: "중력성채",
@@ -1087,7 +1088,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 3,
-        bonus: { hp: 350, magicDef: 15, eva: 4 },
+        bonus: { hp: 250, def: 25, magicDef: 15, eva: 4 },
       },
       {
         count: 4,
@@ -1100,16 +1101,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 5,
-        bonus: { hp: 420, magicDef: 15, eva: 5 },
-      },
-      {
-        count: 6,
-        bonus: { accuracy: 20, critMult: 60 },
-        signature: {
-          trigger: "every_n_hits",
-          label: "천공질주",
-          everyNHits: 2,
-        },
+        bonus: { hp: 300, def: 30, magicDef: 15, eva: 5 },
       },
     ],
   },
@@ -1130,12 +1122,13 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 3,
-        bonus: { hp: 850, magicDef: 25, eva: 8 },
+        bonus: { hp: 600, def: 70, magicDef: 25, eva: 8 },
       },
       {
         count: 4,
         bonus: {
-          hp: 650,
+          hp: 400,
+          def: 70,
           magicDef: 20,
           crit: 6,
           critMult: 50,
@@ -1151,16 +1144,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 5,
-        bonus: { hp: 1_250, magicDef: 30, eva: 10 },
-      },
-      {
-        count: 6,
-        bonus: { crit: 6, critMult: 100 },
-        signature: {
-          trigger: "every_n_hits",
-          label: "무풍연살",
-          everyNHits: 7,
-        },
+        bonus: { hp: 650, def: 85, magicDef: 30, eva: 10 },
       },
     ],
   },
@@ -1182,7 +1166,8 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       {
         count: 3,
         bonus: {
-          hp: 700,
+          hp: 500,
+          def: 50,
           magicDef: 20,
           statusDamageReductionPct: 5,
         },
@@ -1200,18 +1185,10 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       {
         count: 5,
         bonus: {
-          hp: 720,
+          hp: 500,
+          def: 55,
           magicDef: 25,
           statusDamageReductionPct: 5,
-        },
-      },
-      {
-        count: 6,
-        bonus: { crit: 4, critMult: 60 },
-        signature: {
-          trigger: "every_n_hits",
-          label: "만독순환",
-          everyNHits: 8,
         },
       },
     ],
@@ -1913,6 +1890,22 @@ export function parseInstanceCraftQuality(
   return parseCraftQuality(craftQuality) ?? parseLegacyCraftQuality(legacyEnhance, craftedBy);
 }
 
+/**
+ * 실제 강화와, 구형 제작품이 enhance 필드에 저장하던 제작 품질을 구분한다.
+ * 명시적 craftQuality가 있으면 두 보너스는 별도 축이므로 enhance도 함께 보존한다.
+ */
+export function parseInstanceEnhance(
+  enhance: unknown,
+  craftQuality: unknown,
+  craftedBy: V2CraftedBy | undefined,
+): V2EnhanceState | undefined {
+  const hasExplicitCraftQuality = parseCraftQuality(craftQuality) != null;
+  if (!hasExplicitCraftQuality && parseLegacyCraftQuality(enhance, craftedBy)) {
+    return undefined;
+  }
+  return parseEnhance(enhance);
+}
+
 // equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
 // 카탈로그 슬롯(item.slot) 기준 배치(저장 슬롯 키 불신). equipped = 슬롯→iid. 옛 24-class·티어
 // 리매핑(LEGACY_ID_REMAP)·옛 {owned:id[], statRolls} 마이그는 폐지(DB 초기화 전제) — 알 수 없는
@@ -1959,7 +1952,7 @@ export function parseEquipmentSave(raw: unknown): {
     if (e.locked === true) inst.locked = true;
     const craftedBy = parseCraftedBy(e.craftedBy);
     const craftQuality = parseInstanceCraftQuality(e.craftQuality, e.enhance, craftedBy);
-    const enhance = craftQuality ? undefined : parseEnhance(e.enhance);
+    const enhance = parseInstanceEnhance(e.enhance, e.craftQuality, craftedBy);
     if (enhance) inst.enhance = enhance;
     if (craftQuality) inst.craftQuality = craftQuality;
     if (craftedBy) inst.craftedBy = craftedBy;

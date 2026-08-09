@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { requireAdmin, currentAdminEmail } from "@/lib/server/isAdmin";
 import { logAdminAction } from "@/lib/server/adminAudit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MAX_LEVEL } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -24,7 +24,6 @@ import {
 } from "@/adventure/data/v2/dungeonDrops";
 import {
   V2_EQUIPMENT,
-  isUnique,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -37,8 +36,6 @@ import {
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
-import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
-import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
 
 // POST /api/admin/v2-grant — 관리자가 선택한 유저에게 v2 자원 지급.
 //
@@ -269,22 +266,6 @@ export async function POST(req: Request) {
       out.equipmentOwned = await appendEquipInstances(tx, userId, [
         mintRolledEquipInstance(equipmentId),
       ]);
-      if (isUnique(V2_EQUIPMENT[equipmentId])) {
-        await recordUniqueEquipmentAcquisitions({
-          executor: tx,
-          userId,
-          evidence: {
-            equipmentOwnedAfter: out.equipmentOwned,
-            equipmentCodexRaw: await readSave(
-              tx,
-              userId,
-              EQUIPMENT_CODEX_KEY,
-              {},
-            ),
-            acquiredIds: [equipmentId],
-          },
-        });
-      }
     }
 
     // 사이드 화폐 — 낚시 코인 지갑({coins}) 적립. character/proficiency/inventory/

@@ -24,7 +24,13 @@ const VALID_SLOTS = new Set<V2EquipSlot>([
   "necklace",
 ]);
 
-type CharSave = { gold?: number; [k: string]: unknown };
+type CharSave = { gold?: number; bankedGold?: number; [k: string]: unknown };
+
+function safeGold(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, value)
+    : 0;
+}
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -89,7 +95,8 @@ export async function POST(req: Request) {
           ok: true as const,
           soldCount: 0,
           soldGold: 0,
-          gold: Math.max(0, charSave.gold ?? 0),
+          gold: safeGold(charSave.gold),
+          bankedGold: safeGold(charSave.bankedGold),
           owned,
           equipped,
         },
@@ -97,15 +104,16 @@ export async function POST(req: Request) {
     }
     const sellSet = new Set(plan.iids);
     const nextOwned = owned.filter((i) => !sellSet.has(i.iid));
-    const gold = Math.max(0, charSave.gold ?? 0);
-    const newGold = gold + plan.gold;
+    const gold = safeGold(charSave.gold);
+    const newBankedGold = safeGold(charSave.bankedGold) + plan.gold;
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped,
     });
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      gold: newGold,
+      gold,
+      bankedGold: newBankedGold,
     });
     return {
       status: 200,
@@ -119,7 +127,8 @@ export async function POST(req: Request) {
         ok: true as const,
         soldCount: plan.count,
         soldGold: plan.gold,
-        gold: newGold,
+        gold,
+        bankedGold: newBankedGold,
         owned: nextOwned,
         equipped,
       },

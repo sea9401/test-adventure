@@ -525,6 +525,10 @@ export type PlayerCombat = {
   extraHitDmgPct?: number;
   // 독사 부식 — 중독(출혈 스택)된 적의 DEF -pct%(playerFacingEnemyDef 곱연산). 0/undefined=미보유.
   poisonedEnemyDefReductionPct?: number;
+  // 상시 물리 방어 감소 — 물리 평타·스킬이 마주하는 적 DEF -pct%. 0/undefined=미보유.
+  enemyPhysicalDefReductionPct?: number;
+  // 상시 마법 방어 감소 — 마법 스킬이 마주하는 적 magicDef -pct%. 0/undefined=미보유.
+  enemyMagicDefReductionPct?: number;
   // 검투사 혈광 — 적 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p(속도=연타). 0/undefined=미보유.
   extraAttackChancePctWhileEnemyBleeding?: number;
   // ── 전문화 시그니처(c) 전투내 누적형 ──

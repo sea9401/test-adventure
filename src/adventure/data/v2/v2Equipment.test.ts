@@ -23,7 +23,6 @@ import {
   shopPriceOf,
   shopPriceForSell,
   v2EquipCatalogTierToDisplayTier,
-  v2EquipSurvivalPowerKind,
   v2EquipStatRows,
   v2EquipCatalogTierDisplayLabel,
   v2EquipmentBySlot,
@@ -56,47 +55,6 @@ describe("장비 이름 식별성", () => {
       .filter((name) => name.includes("성벽"));
 
     expect(names).toEqual(["백골성벽"]);
-  });
-});
-
-describe("방어력·회피도 장비 생존축 분리", () => {
-  it("개별 장비는 물리 방어력과 회피도를 동시에 제공하지 않는다", () => {
-    for (const item of Object.values(V2_EQUIPMENT)) {
-      const survivalKind = v2EquipSurvivalPowerKind(item);
-      const physicalDefense =
-        (survivalKind === "def" ? item.power : 0) + (item.options?.def ?? 0);
-      const evasion =
-        (survivalKind === "evasion" ? item.power : 0) +
-        (item.options?.eva ?? 0);
-
-      expect(
-        physicalDefense > 0 && evasion > 0,
-        `${item.id}: 방어력 ${physicalDefense}, 회피도 ${evasion}`,
-      ).toBe(false);
-    }
-  });
-
-  it("완성 세트와 태그 세트의 누적 보너스도 물리 방어력·회피도를 함께 주지 않는다", () => {
-    for (const set of V2_EQUIP_SETS) {
-      expect(
-        (set.bonus.def ?? 0) > 0 && (set.bonus.eva ?? 0) > 0,
-        `${set.id}: 방어력 ${set.bonus.def ?? 0}, 회피도 ${set.bonus.eva ?? 0}`,
-      ).toBe(false);
-    }
-
-    for (const set of V2_EQUIP_TAG_SETS) {
-      let cumulativeDef = 0;
-      let cumulativeEvasion = 0;
-
-      for (const threshold of set.thresholds) {
-        cumulativeDef += threshold.bonus.def ?? 0;
-        cumulativeEvasion += threshold.bonus.eva ?? 0;
-        expect(
-          cumulativeDef > 0 && cumulativeEvasion > 0,
-          `${set.id}:${threshold.count}: 누적 방어력 ${cumulativeDef}, 누적 회피도 ${cumulativeEvasion}`,
-        ).toBe(false);
-      }
-    }
   });
 });
 
@@ -1190,6 +1148,28 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     });
   });
 
+  it("명시적 제작 품질과 실제 강화 상태를 함께 보존한다", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        {
+          iid: "quality-crafted-necklace",
+          id: "v2_crafted_fury_necklace",
+          craftQuality: { level: 1, bonusPct: 999 },
+          enhance: { level: 3, bonusPct: 999 },
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 6,
+            craftedAt: "2026-08-09T00:00:00.000Z",
+          },
+        },
+      ],
+    });
+
+    expect(r.owned[0].craftQuality).toEqual({ level: 1, bonusPct: 5 });
+    expect(r.owned[0].enhance).toEqual({ level: 3, bonusPct: 4 });
+  });
+
 });
 
 describe("setInstanceLock", () => {
@@ -1276,10 +1256,14 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         spdBuffPct: 25,
         buffActions: 3,
       }),
-    ).toBe("회피 경감률과 같은 확률로 피격 후 속도 +25% (3행동)");
+    ).toBe("회피 시 속도 +25% (3행동)");
     expect(
-      signatureLabel({ trigger: "on_dodge", label: "봉인", healPct: 8 }),
-    ).toBe("회피 경감률과 같은 확률로 피격 후 HP +8% 회복");
+      signatureLabel({
+        trigger: "on_action_evasion",
+        label: "봉인",
+        lostHpHealPct: 4,
+      }),
+    ).toBe("행동 시 회피 경감률의 절반 확률로 잃은 HP의 4% 회복");
     expect(
       signatureLabel({ trigger: "on_crit", label: "독니", poisonOnCrit: true }),
     ).toBe("치명타 시 대상 중독(독)");
@@ -1345,6 +1329,24 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         statusBlockOnce: true,
       }),
     ).toBe("전투당 1회 상태이상 무효");
+  });
+
+  it("회피 회복 장비 3종은 행동 발동과 잃은 HP 4%/3%/3%를 사용", () => {
+    expect(V2_EQUIPMENT.v2_sanctum_sig_sealed_ring.signature).toEqual({
+      trigger: "on_action_evasion",
+      label: "봉인",
+      lostHpHealPct: 4,
+    });
+    expect(V2_EQUIPMENT.v2_throne_sig_shadow_ring.signature).toEqual({
+      trigger: "on_action_evasion",
+      label: "그림자",
+      lostHpHealPct: 3,
+    });
+    expect(V2_EQUIPMENT.v2_abyssruin_sig_pursuer_bow.signature).toEqual({
+      trigger: "on_action_evasion",
+      label: "해연",
+      lostHpHealPct: 3,
+    });
   });
 
   it("세트/단품 카탈로그 시그니처 전부 비어있지 않은 표기", () => {

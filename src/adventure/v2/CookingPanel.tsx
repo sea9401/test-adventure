@@ -351,7 +351,13 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-bold text-zinc-900 dark:text-zinc-100">{recipe.name}</h4>
+                      <h4 className="flex min-w-0 items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
+                        <span className="truncate">{recipe.name}</span>
+                        <RecipeOwnedCount
+                          recipeId={recipe.id}
+                          cookingFoods={data.cookingFoods}
+                        />
+                      </h4>
                       <button
                         type="button"
                         aria-label={favorite ? "즐겨찾기 해제" : "즐겨찾기"}
@@ -426,6 +432,25 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
         />
       )}
     </div>
+  );
+}
+
+export function RecipeOwnedCount({
+  recipeId,
+  cookingFoods,
+}: {
+  recipeId: string;
+  cookingFoods: CookingFoodInventory;
+}) {
+  const owned = deliverableCookingFoods(cookingFoods, recipeId).reduce(
+    (total, entry) => total + entry.count,
+    0,
+  );
+
+  return (
+    <span className="shrink-0 rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+      보유 <strong>{owned}</strong>개
+    </span>
   );
 }
 

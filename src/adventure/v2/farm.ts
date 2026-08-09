@@ -1,3 +1,13 @@
+import {
+  addRanchFeed,
+  collectRanchProducts,
+  emptyRanchState,
+  parseRanchState,
+  unlockRanchPen,
+  type RanchPenId,
+  type RanchState,
+} from "./ranch";
+
 export const FARM_SAVE_KEY = "farm.v2";
 
 export const FARM_PLOT_COUNT = 2;
@@ -112,7 +122,10 @@ export type FarmItemId =
   | "sugarcane"
   | "crystal_sugarcane"
   | "cacao"
-  | "royal_cacao";
+  | "royal_cacao"
+  | "compound_feed"
+  | "egg"
+  | "milk";
 
 export type FarmItemDefinition = {
   name: string;
@@ -219,6 +232,21 @@ export const FARM_ITEMS: Record<FarmItemId, FarmItemDefinition> = {
     icon: "🍫",
     imageSrc: "/images/items/farm/royal_cacao.webp",
   },
+  compound_feed: {
+    name: "배합 사료",
+    icon: "🌾",
+    imageSrc: "/images/items/farm/compound_feed.webp",
+  },
+  egg: {
+    name: "달걀",
+    icon: "🥚",
+    imageSrc: "/images/items/farm/egg.webp",
+  },
+  milk: {
+    name: "우유",
+    icon: "🥛",
+    imageSrc: "/images/items/farm/milk.webp",
+  },
 };
 
 export type FarmCrop = {
@@ -249,6 +277,7 @@ export type FarmPlot = {
 export type FarmState = {
   version: 1;
   plots: FarmPlot[];
+  ranch: RanchState;
   inventory: FarmItemInventory;
   seeds: FarmSeedInventory;
   deliveries: {
@@ -364,6 +393,24 @@ export type FarmShopPurchaseResult = {
 export type FarmPlotUpgradeResult = {
   title: string;
   plotCount: number;
+  costReputation: number;
+};
+
+export type FarmRanchFeedResult = {
+  penId: RanchPenId;
+  amount: number;
+  feedRemaining: number;
+};
+
+export type FarmRanchCollectResult = {
+  items: FarmItemInventory;
+  farmingXpGained: number;
+  farmingXp: number;
+  farmingLevel: number;
+};
+
+export type FarmRanchUpgradeResult = {
+  penId: RanchPenId;
   costReputation: number;
 };
 
@@ -553,6 +600,7 @@ export function emptyFarmState(now = Date.now()): FarmState {
   return {
     version: 1,
     plots: createFarmPlots(FARM_PLOT_COUNT),
+    ranch: emptyRanchState(now),
     inventory: {},
     seeds: { ...FARM_STARTER_SEEDS },
     deliveries: { dayKey: farmDayKey(now), claimedIds: [] },
@@ -569,8 +617,8 @@ export function emptyFarmState(now = Date.now()): FarmState {
   };
 }
 
-export function parseFarmState(raw: unknown): FarmState {
-  const fallback = emptyFarmState();
+export function parseFarmState(raw: unknown, now = Date.now()): FarmState {
+  const fallback = emptyFarmState(now);
   if (!raw || typeof raw !== "object") return fallback;
   const value = raw as Partial<FarmState>;
   const stats = {
@@ -608,6 +656,7 @@ export function parseFarmState(raw: unknown): FarmState {
   return {
     version: 1,
     plots,
+    ranch: parseRanchState(value.ranch, now),
     inventory: parseInventory(value.inventory),
     seeds:
       value.seeds === undefined
@@ -730,6 +779,26 @@ export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
       requiredQuantity: 4,
       rewardSeeds: { cacao: 2 },
       rewardReputation: 8,
+    },
+    {
+      id: "bakery-eggs",
+      title: "제빵소 달걀 상자",
+      note: "빵과 과자를 구울 때 쓸 신선한 달걀을 제빵소에 납품합니다.",
+      requiredItemId: "egg",
+      requiredItemName: "달걀",
+      requiredQuantity: 8,
+      rewardSeeds: {},
+      rewardReputation: 3,
+    },
+    {
+      id: "inn-milk",
+      title: "여관 우유병 묶음",
+      note: "수프와 음료에 쓸 신선한 우유를 여관 주방에 납품합니다.",
+      requiredItemId: "milk",
+      requiredItemName: "우유",
+      requiredQuantity: 6,
+      rewardSeeds: {},
+      rewardReputation: 4,
     },
   ];
 }
@@ -1087,6 +1156,83 @@ export function nextFarmPlotUpgrade(state: FarmState): FarmPlotUpgrade | null {
   );
 }
 
+export function feedFarmRanch(
+  state: FarmState,
+  penId: RanchPenId,
+  amount: number,
+  now = Date.now(),
+): FarmState {
+  const count = Math.floor(Number(amount));
+  if (!Number.isFinite(count) || count < 1) throw new FarmError("bad_quantity");
+  if ((state.inventory.compound_feed ?? 0) < count) {
+    throw new FarmError("not_enough_feed");
+  }
+  const ranch = addRanchFeed(state.ranch, penId, count, now);
+  return {
+    ...state,
+    ranch,
+    inventory: spendFarmItems(state.inventory, { compound_feed: count }),
+  };
+}
+
+export function collectFarmRanch(
+  state: FarmState,
+  now = Date.now(),
+): { state: FarmState; result: FarmRanchCollectResult } {
+  const collected = collectRanchProducts(state.ranch, now);
+  const inventory = { ...state.inventory };
+  for (const [itemId, amount] of Object.entries(collected.items)) {
+    setPositiveCount(
+      inventory,
+      itemId as FarmItemId,
+      (inventory[itemId as FarmItemId] ?? 0) + nonNegativeInt(amount),
+    );
+  }
+  const farmingXp = state.stats.farmingXp + collected.farmingXp;
+  return {
+    state: {
+      ...state,
+      ranch: collected.ranch,
+      inventory,
+      stats: { ...state.stats, farmingXp },
+    },
+    result: {
+      items: collected.items,
+      farmingXpGained: collected.farmingXp,
+      farmingXp,
+      farmingLevel: farmingLevelForXp(farmingXp),
+    },
+  };
+}
+
+export function buyFarmRanchPen(
+  state: FarmState,
+  penId: RanchPenId,
+  now = Date.now(),
+): { state: FarmState; result: FarmRanchUpgradeResult } {
+  const unlocked = unlockRanchPen(
+    state.ranch,
+    penId,
+    farmingLevelForState(state),
+    now,
+  );
+  if (farmAvailableReputation(state) < unlocked.costReputation) {
+    throw new FarmError("not_enough_reputation");
+  }
+  return {
+    state: {
+      ...state,
+      ranch: unlocked.ranch,
+      stats: {
+        ...state.stats,
+        reputationSpent:
+          state.stats.reputationSpent + unlocked.costReputation,
+      },
+    },
+    result: { penId, costReputation: unlocked.costReputation },
+  };
+}
+
 export function plantCrop(
   state: FarmState,
   plotId: string,
@@ -1387,9 +1533,7 @@ export function spendFarmItems(
 }
 
 function isFarmItemId(value: string): value is FarmItemId {
-  return FARM_CROP_LIST.some(
-    (crop) => crop.itemId === value || crop.rareItemId === value,
-  );
+  return Object.prototype.hasOwnProperty.call(FARM_ITEMS, value);
 }
 
 function positiveNumberOrNull(value: unknown): number | null {

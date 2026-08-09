@@ -381,6 +381,133 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
   });
 });
 
+describe("직업 패시브 물리·마법 방어 감소", () => {
+  const measureBasic = (over: Partial<PlayerCombat> = {}) => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 100,
+      accRating: 1000,
+      ...over,
+    };
+    const start = initialBattleState(
+      player,
+      enemy({ hp: 5000, def: 80, magicDef: 80, spd: 1, evasionPct: 0 }),
+      "용사",
+    );
+    const next = advanceTurn(start, player, "용사", { kind: "attack" });
+    return start.enemyHp - next.enemyHp;
+  };
+
+  const measureSkill = (
+    skillId: "v2_skill_strike" | "v2c_mage_fireball",
+    over: Partial<PlayerCombat> = {},
+    monsterOver: Partial<Monster> = {},
+  ) => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 100,
+      magicAtk: 100,
+      maxMp: 1000,
+      mp: 1000,
+      accRating: 1000,
+      ...over,
+    };
+    const start = initialBattleState(
+      player,
+      enemy({
+        hp: 5000,
+        def: 80,
+        magicDef: 80,
+        spd: 1,
+        evasionPct: 0,
+        ...monsterOver,
+      }),
+      "용사",
+      { learned: [skillId], equipped: [skillId] },
+    );
+    const next = applyPlayerV2SkillCast(start, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+    return start.enemyHp - next.enemyHp;
+  };
+
+  it("물리 방어 감소는 중독 없이 평타 피해를 높이고 마법 방어 감소는 평타에 영향이 없다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    expect(measureBasic({ enemyPhysicalDefReductionPct: 50 })).toBeGreaterThan(
+      measureBasic(),
+    );
+    expect(measureBasic({ enemyMagicDefReductionPct: 50 })).toBe(
+      measureBasic(),
+    );
+  });
+
+  it("물리와 마법 방어 감소는 각각 대응하는 스킬 피해에만 적용된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const physicalBase = measureSkill("v2_skill_strike");
+    const magicBase = measureSkill("v2c_mage_fireball");
+
+    expect(
+      measureSkill("v2_skill_strike", {
+        enemyPhysicalDefReductionPct: 50,
+      }),
+    ).toBeGreaterThan(physicalBase);
+    expect(
+      measureSkill("v2_skill_strike", { enemyMagicDefReductionPct: 50 }),
+    ).toBe(physicalBase);
+    expect(
+      measureSkill("v2c_mage_fireball", {
+        enemyMagicDefReductionPct: 50,
+      }),
+    ).toBeGreaterThan(magicBase);
+    expect(
+      measureSkill("v2c_mage_fireball", {
+        enemyPhysicalDefReductionPct: 50,
+      }),
+    ).toBe(magicBase);
+  });
+
+  it("물리 스킬은 기존 방어 관통 뒤에 상시 물리 방어 감소를 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const physicalBase = measureSkill("v2_skill_strike");
+    const pierced = measureSkill("v2_skill_strike", {
+      armorPierceFraction: 0.5,
+    });
+    const piercedAndReduced = measureSkill("v2_skill_strike", {
+      armorPierceFraction: 0.5,
+      enemyPhysicalDefReductionPct: 50,
+    });
+
+    expect(pierced).toBeGreaterThan(physicalBase);
+    expect(piercedAndReduced).toBeGreaterThan(pierced);
+  });
+
+  it("마법 방어가 없는 적은 원래 물리 방어를 기준값으로 쓰되 마법 감소만 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const withoutMagicDef = { magicDef: undefined };
+    const base = measureSkill("v2c_mage_fireball", {}, withoutMagicDef);
+
+    expect(
+      measureSkill(
+        "v2c_mage_fireball",
+        { enemyMagicDefReductionPct: 50 },
+        withoutMagicDef,
+      ),
+    ).toBeGreaterThan(base);
+    expect(
+      measureSkill(
+        "v2c_mage_fireball",
+        { enemyPhysicalDefReductionPct: 50 },
+        withoutMagicDef,
+      ),
+    ).toBe(base);
+  });
+});
+
 describe("extraAttackChancePctWhileEnemyBleeding — 검투사 혈광 (출혈 적에게 연타)", () => {
   it("적 출혈 중이면 다음 턴 공격 횟수 굴림에 +확률 (100% → +1)", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);

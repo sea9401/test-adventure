@@ -65,6 +65,7 @@ export type SignatureTrigger =
   | "low_hp"
   | "on_heal"
   | "on_dodge"
+  | "on_action_evasion"
   | "on_crit"
   | "on_hit"
   | "on_hit_taken"
@@ -79,7 +80,7 @@ export type SignatureEffect = {
   damageTakenReductionPct?: number;
   spdBuffPct?: number;
   buffActions?: number;
-  healPct?: number;
+  lostHpHealPct?: number;
   poisonOnCrit?: boolean;
   chillSlowPct?: number;
   poisonChancePct?: number;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   battleCountOf,
+  combatStatsSection,
   cookingCodexSection,
   frontierDepthOf,
   huntGateSections,
@@ -28,6 +29,25 @@ describe("battleCountOf", () => {
     expect(battleCountOf(null)).toBe(0);
     expect(battleCountOf(undefined)).toBe(0);
     expect(battleCountOf({})).toBe(0);
+  });
+});
+
+describe("combatStatsSection", () => {
+  it("최종 회복량 배율을 캐릭터 전투 스탯에 전달한다", () => {
+    const combat = {
+      player: {
+        atk: 10,
+        def: 8,
+        spd: 7,
+        healMult: 1.2744,
+      },
+    } as unknown as NonNullable<
+      Parameters<typeof combatStatsSection>[0]
+    >;
+
+    expect(combatStatsSection(combat, 100, 50)).toMatchObject({
+      healMult: 1.2744,
+    });
   });
 });
 

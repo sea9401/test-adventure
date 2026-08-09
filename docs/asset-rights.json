@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-08",
+  "reviewedAt": "2026-08-10",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06 were generated for this repository in the operator-controlled Codex/OpenAI image-generation session. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06 and the nine ranch and cooking rasters added on 2026-08-10 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -433,6 +433,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/country_egg_bread.webp",
+      "sha256": "a29700a679a62e1259a07e85dc697cf8c4aa1b4ba6b552de304cba029616e1a3",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/crystal_cacao_drink.webp",
       "sha256": "0bf347dfedd3c3bf43681100039a46ebd57a76c10db72a6dc6ee8bfcc00e67d1",
       "source": "operator-cleared-game-art"
@@ -488,6 +493,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/herb_omelet.webp",
+      "sha256": "535aefe544e031ef4531c8bce1807edb4ba135b0cb6809aa6400b2c6524160f9",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/herb_tea.webp",
       "sha256": "8f312bf257b0c02079e1a009bf1e62d3705a993830803320eac9a54d1709330d",
       "source": "operator-cleared-game-art"
@@ -495,6 +505,11 @@
     {
       "path": "public/images/items/cooking/legendary_sea_banquet.webp",
       "sha256": "fe5fe754e8ccc924fd49d4901e6a6747737c8db256f57a25472aa9eddbc1f6a5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_potato_soup.webp",
+      "sha256": "f3ac69cd43f7253433a983a85c02ea9c0eebd8ea2840b99143aaac752cb61ccc",
       "source": "operator-cleared-game-art"
     },
     {
@@ -510,6 +525,11 @@
     {
       "path": "public/images/items/cooking/quality_fish_platter.webp",
       "sha256": "c884b0fc6d5cb2d4c6e89e372ea8f57bd6af9216cf9034bd0ff0d1c0c2fd5307",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/ranch_cream_gratin.webp",
+      "sha256": "e2ba6621a663aa5a2b0c4259c379bce407ac20614f68f70fbda7759bdb79faa6",
       "source": "operator-cleared-game-art"
     },
     {
@@ -598,13 +618,33 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/farm/chicken.webp",
+      "sha256": "c16f1cbf53da720629eb4e5f2581db52b81cf3d3ffec1df1f136cc5c8431b25d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/compound_feed.webp",
+      "sha256": "f23520e76b3edd243007f13fc3ae9a5948f6e4aaae62a35da0b38e0cd050c9ca",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/farm/corn.webp",
       "sha256": "a78ed4ed4a268b1d6418d0c12d581434a804552c92c61e1f9c7992910cd4372f",
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/farm/cow.webp",
+      "sha256": "0eaef699091f8c8dbb5282ca810ee934450a940d5136b2ed58e26c08663a6cd4",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/farm/crystal_sugarcane.webp",
       "sha256": "a8941f5f9324c54ff19ebcfef04f0b0800ad640782dbaf7fdbfaff210180d7b3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/egg.webp",
+      "sha256": "fafa670e4d191b1fe124172e832bc35a4c44b9610ac1095832165c731dfbc951",
       "source": "operator-cleared-game-art"
     },
     {
@@ -630,6 +670,11 @@
     {
       "path": "public/images/items/farm/herb.webp",
       "sha256": "fa06ee9fd03af3707d45456edf5cc74a29a858243cec46513015a7176b2c0c08",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/milk.webp",
+      "sha256": "7f44da8235ba71e8f426da44c8a874d81edbcffa82224ac6a52f7426b5dbbf19",
       "source": "operator-cleared-game-art"
     },
     {

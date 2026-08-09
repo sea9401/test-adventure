@@ -17,6 +17,7 @@ import {
   masteryTowerFloorReward,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
+  masteryTowerStartFloors,
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
 import {
@@ -135,6 +136,12 @@ export async function GET() {
         ? (prof.groups[job.id]?.cumLevel ?? 0)
         : (prof.jobCumLevel?.[job.id] ?? 0),
   }));
+  const startOptions = masteryTowerStartFloors(tower).map((floor) => ({
+    floor,
+    checkpointFloor: floor === 1 ? null : floor - 1,
+    requiredPower: masteryTowerRequiredPower(floor),
+    guardian: masteryTowerGuardianPreview(floor),
+  }));
 
   return Response.json({
     ok: true,
@@ -156,6 +163,7 @@ export async function GET() {
       tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
         ? null
         : masteryTowerGuardianPreview(tower.runFloor + 1),
+    startOptions,
     rewards: {
       maxFloor: MASTERY_TOWER_MAX_FLOOR,
       milestones: MASTERY_TOWER_MILESTONES,

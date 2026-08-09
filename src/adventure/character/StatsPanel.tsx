@@ -18,6 +18,8 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
     "마법 스킬과 마법 기본 공격의 위력입니다. 정신이 지능보다 높은 캐릭터는 초과한 정신 일부가 마법 공격력으로 전환됩니다.",
   "마법 방어력":
     "마법형 몬스터의 공격과 마법 스킬 피해를 줄입니다. 정신이 주축이고 지능·반지·목걸이·마법 방어 옵션이 보조합니다.",
+  회복량:
+    "회복 스킬·흡혈·일부 자가 회복에 적용되는 최종 배율입니다. 정신과 활력이 높을수록 커지며 장비의 회복 옵션과 장착 패시브도 반영됩니다.",
   "마나 실드":
     "마나 실드 패시브 장착 시 지능과 최대 MP로 정해지는 전투별 내구도입니다. 일반 보호막 다음에 남은 직접 피해 일부를 흡수하며 MP는 소모하지 않습니다.",
   "마나 실드 흡수율":
@@ -42,6 +44,7 @@ type CombatStats = {
   def: number;
   magicAtk?: number;
   magicDef?: number;
+  healMult?: number;
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
   spd?: number;
@@ -102,6 +105,13 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
       label: "마법 방어력",
       value: combat.magicDef,
       accent: "text-cyan-600 dark:text-cyan-400",
+    });
+  }
+  if (combat.healMult !== undefined) {
+    items.push({
+      label: "회복량",
+      value: `${(combat.healMult * 100).toFixed(1)}%`,
+      accent: "text-emerald-600 dark:text-emerald-400",
     });
   }
   if ((combat.magicBarrierMax ?? 0) > 0) {

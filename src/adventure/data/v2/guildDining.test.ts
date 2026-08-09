@@ -7,6 +7,7 @@ import {
   GUILD_DINING_MENUS,
   guildDiningDonationPoints,
   guildDiningMenu,
+  guildDiningMenusForFacilityLevel,
   guildDiningPantryTarget,
   guildDiningTicketProgress,
   parseGuildDiningUserState,
@@ -100,6 +101,18 @@ describe("guild dining", () => {
       ["hunters_barbecue", 3],
       ["artisan_seafood_rice", 4],
       ["guild_grand_feast", 5],
+    ]);
+  });
+
+  it("시설 레벨에서 해금된 메뉴를 모두 개인 선택 대상으로 제공한다", () => {
+    expect(
+      [1, 2, 3, 4, 5].map(
+        (level) => guildDiningMenusForFacilityLevel(level).length,
+      ),
+    ).toEqual([2, 3, 4, 5, 6]);
+    expect(guildDiningMenusForFacilityLevel(1).map((menu) => menu.id)).toEqual([
+      "hearty_stew",
+      "adventurer_meal",
     ]);
   });
 

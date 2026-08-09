@@ -43,7 +43,10 @@ import {
   type V2SkillEnhancements,
 } from "./skillRitual";
 import type { V2BuildTagId } from "./buildTags";
-import { combineDefReductionPcts } from "./v2CombatConstants";
+import {
+  combineDefReductionPcts,
+  CORROSION_POISON_DAMAGE_SCALE,
+} from "./v2CombatConstants";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
 export type V2SkillTempo = "rapid" | "balanced" | "control" | "burst" | "payoff";
@@ -109,6 +112,10 @@ export type V2PassiveSkillEffect = {
   inscriptionAmplification?: boolean;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
+  /** 적 물리 방어 -% — 장착 중 항상 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
+  enemyPhysicalDefReductionPct?: number;
+  /** 적 마법 방어 -% — 마법 피해에만 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
+  enemyMagicDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 0.45 = HP를 전부 잃은 상태 기준 공격력 +45%. */
   berserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 스킬피해 +%. */
@@ -725,8 +732,10 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     // 마커 패시브의 실제 추가 효과는 액티브의 조건부 시너지 쪽에서 절반 가격으로 평가한다.
     if (p.elementResonance) mag += 0.75;
     if (p.inscriptionAmplification) mag += 0.75;
-    // 부식은 중독이 먼저 걸린 적에게만 유효하다. 상시 방어 감소보다 낮은 조건부 가치로 평가한다.
-    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 12;
+    // 방어 감소는 여러 직업을 순회해 자유롭게 모을 수 있는 대신 높은 SP 기회비용을 치른다.
+    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 3;
+    mag += (p.enemyPhysicalDefReductionPct ?? 0) / 3;
+    mag += (p.enemyMagicDefReductionPct ?? 0) / 3;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
     mag +=
       ((p.enemyMagicVulnPctPerStack ?? 0) / 5) *
@@ -1278,6 +1287,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   openingMagicDamageReductionPct: number;
   openingMagicDamageReductionPhases: number;
   poisonedEnemyDefReductionPct: number;
+  enemyPhysicalDefReductionPct: number;
+  enemyMagicDefReductionPct: number;
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
   enemyMagicVulnApplyChancePct: number;
@@ -1312,6 +1323,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let openingMagicDamageReductionPct = 0;
   let openingMagicDamageReductionPhases = 0;
   let poisonedEnemyDefReductionPct = 0;
+  let enemyPhysicalDefReductionPct = 0;
+  let enemyMagicDefReductionPct = 0;
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
   let enemyMagicVulnApplyChancePct = 0;
@@ -1362,6 +1375,14 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       poisonedEnemyDefReductionPct,
       p.poisonedEnemyDefReductionPct ?? 0,
     );
+    enemyPhysicalDefReductionPct = combineDefReductionPcts(
+      enemyPhysicalDefReductionPct,
+      p.enemyPhysicalDefReductionPct ?? 0,
+    );
+    enemyMagicDefReductionPct = combineDefReductionPcts(
+      enemyMagicDefReductionPct,
+      p.enemyMagicDefReductionPct ?? 0,
+    );
     berserkAtkPctPerLostHpPct += p.berserkAtkPctPerLostHpPct ?? 0;
     enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
     if ((p.enemyMagicVulnPctPerStack ?? 0) > 0) {
@@ -1405,6 +1426,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     openingMagicDamageReductionPct,
     openingMagicDamageReductionPhases,
     poisonedEnemyDefReductionPct,
+    enemyPhysicalDefReductionPct,
+    enemyMagicDefReductionPct,
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
     enemyMagicVulnApplyChancePct,
@@ -1776,7 +1799,13 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
   if (p.poisonedEnemyDefReductionPct)
-    chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct * 3}%`);
+    chips.push(
+      `중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct * CORROSION_POISON_DAMAGE_SCALE}%`,
+    );
+  if (p.enemyPhysicalDefReductionPct)
+    chips.push(`적 물리 방어 -${p.enemyPhysicalDefReductionPct}%`);
+  if (p.enemyMagicDefReductionPct)
+    chips.push(`적 마법 방어 -${p.enemyMagicDefReductionPct}%`);
   if (p.berserkAtkPctPerLostHpPct)
     chips.push(`잃은 HP 1%당 공격력 +${p.berserkAtkPctPerLostHpPct}%`);
   if (p.enemyMagicVulnPctPerStack)

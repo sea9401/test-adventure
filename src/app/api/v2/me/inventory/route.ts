@@ -13,6 +13,7 @@ import {
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
 import { parseCookingFoodInventory } from "@/adventure/v2/cooking";
+import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.
 //
@@ -42,6 +43,7 @@ export async function GET() {
     hpCharges?: number;
     mpCharges?: number;
     cookingFoods?: unknown;
+    [MASTERY_CERTIFICATE_KEY]?: unknown;
   } = {};
   for (const r of rows) {
     if (r.key === "character.v2")
@@ -71,10 +73,15 @@ export async function GET() {
   // SP 열매 사용 현황 — 소모품 탭이 등급별 "사용 N/캡"·캡 도달 차단을 그린다.
   const spFruitUsed = parseSpFruitUsed(charSave.spFruitUsed);
   const spCapBonus = spCapBonusFromRaw(charSave.spFruitUsed);
+  const masteryCertificates = Math.max(
+    0,
+    Math.floor(Number(invSave[MASTERY_CERTIFICATE_KEY]) || 0),
+  );
 
   return Response.json({
     ok: true,
     materials,
+    masteryCertificates,
     hpCharges,
     mpCharges,
     cookingFoods: parseCookingFoodInventory(invSave.cookingFoods),

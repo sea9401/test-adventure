@@ -31,6 +31,7 @@ import {
   V2_EQUIPMENT,
   parseCraftedBy,
   parseInstanceCraftQuality,
+  parseInstanceEnhance,
   sellPriceOf,
   type V2Equipment,
   type V2EquipmentId,
@@ -40,10 +41,7 @@ import {
   type V2CraftedBy,
   type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
-import {
-  parseEnhance,
-  type V2EnhanceState,
-} from "@/adventure/data/v2/v2Enhance";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import {
@@ -118,6 +116,11 @@ import {
   equippedItemIdsForMarketplace,
 } from "./marketplace/equipmentComparison";
 import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
+import {
+  MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
+  matchesMarketplaceEquipmentTier,
+  type MarketplaceEquipmentTierFilter,
+} from "./marketplace/marketplaceBrowseFilters";
 
 // v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시·음식 소모품 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -127,8 +130,7 @@ import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
 function listingEnhance(payload: unknown): V2EnhanceState | undefined {
   const raw = payload as { craftQuality?: unknown; craftedBy?: unknown; enhance?: unknown } | null;
   const craftedBy = parseCraftedBy(raw?.craftedBy);
-  const craftQuality = parseInstanceCraftQuality(raw?.craftQuality, raw?.enhance, craftedBy);
-  return craftQuality ? undefined : parseEnhance(raw?.enhance);
+  return parseInstanceEnhance(raw?.enhance, raw?.craftQuality, craftedBy);
 }
 function listingCraftedBy(payload: unknown): V2CraftedBy | undefined {
   return parseCraftedBy((payload as { craftedBy?: unknown } | null)?.craftedBy);
@@ -399,6 +401,8 @@ export function V2MarketplaceView({
   const [craftedLevelFilter, setCraftedLevelFilter] = useState<
     "all" | "2" | "3" | "4" | "5"
   >("all");
+  const [equipmentTierFilter, setEquipmentTierFilter] =
+    useState<MarketplaceEquipmentTierFilter>("all");
   const [sort, setSort] = useState<MarketplaceBrowseSort>("price_asc");
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
   const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>(
@@ -1182,6 +1186,11 @@ export function V2MarketplaceView({
         : !isAuctionListing(l) && new Date(l.expiresAt).getTime() > clockMs,
     )
     .filter((l) => !favoriteOnly || favoriteKeys.has(favoriteKeyForListing(l)))
+    .filter(
+      (l) =>
+        !browseEquipmentTab ||
+        matchesMarketplaceEquipmentTier(l.itemId, equipmentTierFilter),
+    )
     .filter((l) => !browseEquipmentTab || !craftedOnly || isCraftedListing(l))
     .filter(
       (l) =>
@@ -1270,13 +1279,15 @@ export function V2MarketplaceView({
   const activeFilterCount =
     Number(favoriteOnly) +
     (browseEquipmentTab
-      ? Number(craftedOnly) +
-      Number(craftedQualityFilter !== "all") +
-      Number(craftedLevelFilter !== "all")
+      ? Number(equipmentTierFilter !== "all") +
+        Number(craftedOnly) +
+        Number(craftedQualityFilter !== "all") +
+        Number(craftedLevelFilter !== "all")
       : 0);
   const activeSortLabel =
     browseSortOptions.find(([value]) => value === sort)?.[1] ?? "가격 낮은순";
   const resetBrowseFilters = () => {
+    setEquipmentTierFilter("all");
     setCraftedOnly(false);
     setCraftedQualityFilter("all");
     setCraftedLevelFilter("all");
@@ -1285,7 +1296,7 @@ export function V2MarketplaceView({
   const browsePager = usePagination(
     individualListings,
     MARKETPLACE_PAGE_SIZE,
-    `browse:${browseMode}:${browseTab}:${q}:${favoriteOnly}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
+    `browse:${browseMode}:${browseTab}:${q}:${favoriteOnly}:${equipmentTierFilter}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
   );
   const stackGroupPager = usePagination(
     stackGroups,
@@ -1624,6 +1635,21 @@ export function V2MarketplaceView({
                     <>
                       <label className="space-y-1">
                         <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          아이템 티어
+                        </span>
+                        <SelectControl
+                          value={equipmentTierFilter}
+                          onChange={(value) =>
+                            setEquipmentTierFilter(
+                              value as MarketplaceEquipmentTierFilter,
+                            )
+                          }
+                          options={MARKETPLACE_EQUIPMENT_TIER_OPTIONS}
+                          className="w-full"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                           제작 품질
                         </span>
                         <SelectControl
@@ -1710,6 +1736,11 @@ export function V2MarketplaceView({
                   {q ? (
                     <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       “{search.trim()}”
+                    </span>
+                  ) : null}
+                  {browseEquipmentTab && equipmentTierFilter !== "all" ? (
+                    <span className="rounded-full bg-violet-100 px-2 py-1 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                      {equipmentTierFilter}T
                     </span>
                   ) : null}
                   {craftedOnly ? (
@@ -3510,7 +3541,7 @@ function SelectControl({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: [string, string][];
+  options: ReadonlyArray<readonly [string, string]>;
   className?: string;
 }) {
   return (

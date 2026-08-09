@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dungeonFloorBackHref,
+  normalHuntFloorHref,
   rareMapEntryHref,
 } from "./dungeonNavigation";
 
@@ -13,6 +14,13 @@ describe("dungeonFloorBackHref", () => {
 
   it("레어맵 사냥은 열린 레어맵이 모인 사냥터 메인으로 돌아간다", () => {
     expect(dungeonFloorBackHref(10, "rare-map-1")).toBe("/battle/dungeon");
+  });
+});
+
+describe("normalHuntFloorHref", () => {
+  it("희귀 탐사 깊이를 같은 지역의 일반 사냥 대표 층 주소로 바꾼다", () => {
+    expect(normalHuntFloorHref(10)).toBe("/battle/dungeon/10");
+    expect(normalHuntFloorHref(9)).toBe("/battle/dungeon/10");
   });
 });
 

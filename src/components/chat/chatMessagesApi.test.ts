@@ -3,6 +3,7 @@ import type { ChatMessage } from "../ChatPanel";
 import {
   chatMessagesUrl,
   latestChatMessageId,
+  mainChatMessagesUrl,
   mergeChatMessages,
 } from "./chatMessagesApi";
 
@@ -29,6 +30,25 @@ describe("chatMessagesApi", () => {
     );
     expect(chatMessagesUrl({ channel: "room", roomId: 7, afterId: 12 })).toBe(
       "/api/chat?channel=room&roomId=7&afterId=12",
+    );
+  });
+
+  it("세 기본 채널의 증분 커서를 한 요청에 담는다", () => {
+    expect(
+      mainChatMessagesUrl({
+        globalAfterId: 11,
+        tradeAfterId: 22,
+        guildAfterId: 33,
+        includeGuild: true,
+      }),
+    ).toBe(
+      "/api/chat?channels=main&globalAfterId=11&tradeAfterId=22&guildAfterId=33&includeGuild=1",
+    );
+  });
+
+  it("기본 채널 초기 조회에서는 커서와 길드 채널을 생략한다", () => {
+    expect(mainChatMessagesUrl({ includeGuild: false })).toBe(
+      "/api/chat?channels=main",
     );
   });
 

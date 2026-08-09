@@ -1,4 +1,4 @@
-export const PLAYER_SANCTION_POLL_MS = 30_000;
+export const PLAYER_SANCTION_POLL_MS = 120_000;
 
 export type PlayerSanctionWarning = {
   id: number;

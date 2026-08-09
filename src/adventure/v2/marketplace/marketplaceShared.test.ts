@@ -133,6 +133,24 @@ describe("거래소 매물 정렬", () => {
     ).toEqual([2, 1]);
   });
 
+  it("제작 품질과 강화 보너스를 매물 위력에 함께 반영한다", () => {
+    const listing = equipListing(3, "v2_wooden_bow", 100, 1_000);
+    listing.instancePayload = {
+      power: 100,
+      weight: 0,
+      craftQuality: { level: 1, bonusPct: 5 },
+      enhance: { level: 3, bonusPct: 4 },
+      craftedBy: {
+        userId: "u1",
+        profession: "blacksmith",
+        level: 6,
+        craftedAt: "2026-08-09T00:00:00.000Z",
+      },
+    };
+
+    expect(marketplaceListingPower(listing)).toBe(109);
+  });
+
   it("스택 매물 가격 정렬은 총액이 아니라 개당 가격을 사용한다", () => {
     const bulk = stackListing(1, 10, 1_000);
     const single = stackListing(2, 1, 150);

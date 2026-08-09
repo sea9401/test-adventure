@@ -35,6 +35,7 @@ import {
   GUILD_DINING_INGREDIENTS,
   GUILD_DINING_MENUS,
   GUILD_DINING_POINTS_PER_TICKET,
+  guildDiningMenusForFacilityLevel,
 } from "@/adventure/data/v2/guildDining";
 import {
   GUILD_TRADE_BASE_REWARD_FAME,
@@ -312,27 +313,27 @@ export function GuildContent() {
       </P>
       <UL>
         <li>
-          이번 주 참여 대상 길드원은 식재료 기부 여부와 관계없이 기본 식권 {GUILD_DINING_BASE_WEEKLY_TICKETS}장을
-          받습니다. 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
-          시설 레벨별 한도까지 식권을 추가로 받습니다.
+          이번 주 참여 대상 길드원이 함께 공동 준비 목표를 달성하면 각자 기본 식권 {GUILD_DINING_BASE_WEEKLY_TICKETS}장을
+          사용할 수 있습니다. 개인이 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
+          시설 레벨별 한도까지 추가 식권이 발급됩니다.
         </li>
         <li>
-          관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. 식당
-          레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다.
+          메뉴는 관리자가 미리 정하지 않습니다. 공동 준비가 끝나면 각 길드원이
+          현재 식당 레벨에서 해금된 메뉴 중 원하는 메뉴를 직접 골라 먹습니다.
         </li>
         <li>
-          식권·기여도·메뉴는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
+          공동 준비·식권·기여도·효과는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
           같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
         </li>
       </UL>
       <Table
-        head={["시설 레벨", "기여 식권", "동시 운영 메뉴"]}
+        head={["시설 레벨", "기여 식권", "이용 가능 메뉴"]}
         rows={DINING_HALL_UPGRADES.map((upgrade) => [
           `Lv.${upgrade.level}`,
           `최대 ${upgrade.weeklyMealTickets}장`,
-          `${upgrade.weeklyMenuSlots}종`,
+          `${guildDiningMenusForFacilityLevel(upgrade.level).length}종`,
         ])}
-        caption={`모든 주간 참여 길드원은 기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장을 받습니다. 시설 레벨이 오를 때마다 동시에 운영할 수 있는 메뉴가 한 종류씩 늘어납니다.`}
+        caption={`공동 준비 목표를 달성하면 모든 주간 참여 길드원이 기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장을 사용할 수 있습니다. 시설 레벨에서 해금된 메뉴는 누구나 개인별로 선택할 수 있습니다.`}
       />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}

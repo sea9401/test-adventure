@@ -73,10 +73,9 @@ import {
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
-  onDodgeHealAmount,
   onDodgeSpeedBuff,
-  rollEvasionReaction,
   onSkillCastMpRefund,
+  rollEvasionActionRecovery,
   statusBlockOnce,
 } from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
@@ -280,6 +279,84 @@ export function scalePvPShield(
   return scalePositivePvPValue(shield, state.sustainMultiplier);
 }
 
+export function playerPvpEvasionReductionPct(
+  state: PvPBattleState,
+  who: "p1" | "p2",
+): number {
+  const actor = state[who];
+  const opponent = state[who === "p1" ? "p2" : "p1"];
+  const luckEvadeBonus = actor.flags.luckyBuffActive
+    ? actor.player.doubleLuck?.evade ?? 0
+    : 0;
+  const temporaryEvasionIncreasePct =
+    luckEvadeBonus +
+    (actor.player.universalLuckBonusPct ?? 0) +
+    actor.buffs.cyclingChiBonus +
+    (actor.stacks.skillEvasionTurns > 0 ? actor.stacks.skillEvasionPct : 0);
+  const precisionMult = opponent.player.precisionEvasionMult ?? 1;
+  const evasionRating = Math.max(
+    0,
+    (actor.player.evaRating ?? actor.player.evasionPct ?? 0) *
+      precisionMult *
+      (1 + Math.max(0, temporaryEvasionIncreasePct) / 100),
+  );
+  return pvpEvasionDamageReductionPct(
+    evasionRating,
+    opponent.player.accRating ?? opponent.player.accuracyPct ?? 0,
+  );
+}
+
+// PvP 소유자 행동 시작 회복. 회복량에는 해당 전투 표면의 sustain 배율을 적용한다.
+export function applyEvasionActionRecoveryPvP(
+  state: PvPBattleState,
+  who: "p1" | "p2",
+  roll: () => number = Math.random,
+): PvPBattleState {
+  const actor = state[who];
+  const recovery = rollEvasionActionRecovery(
+    actor.player.equipSignatures,
+    actor.hp,
+    actor.maxHp,
+    playerPvpEvasionReductionPct(state, who),
+    roll,
+  );
+  if (!recovery) return state;
+  const scaled = scalePvPHealing(state, recovery.amount);
+  const nextHp = Math.min(actor.maxHp, actor.hp + scaled);
+  const actual = nextHp - actor.hp;
+  if (actual <= 0) return state;
+  const shield = healToShield(actor.player.equipSignatures, actual);
+  let next = setSide(state, who, {
+    ...actor,
+    hp: nextHp,
+    stacks: shield
+      ? {
+          ...actor.stacks,
+          playerShield: actor.stacks.playerShield + shield.amount,
+        }
+      : actor.stacks,
+  });
+  next = {
+    ...next,
+    log: appendLog(next.log, {
+      kind: "info",
+      text: `[${recovery.label}] ${actor.name}의 HP +${actual}`,
+      side: who,
+    }),
+  };
+  if (shield) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[${shield.label}] ${actor.name} 보호막 +${shield.amount}`,
+        side: who,
+      }),
+    };
+  }
+  return next;
+}
+
 // 공격자가 마주하는 방어자의 effective DEF — analysis 누적 페널티(자기 측 buffs 에 기록) 차감.
 // armorPierceFraction 비례 관통 적용. 분쇄/암살/약점은 호출 측에서 별도 처리.
 // 약점 노출 (attacker 측 enemyDefDebuffPct) 활성 시 위 모든 감산 후 비례 차감.
@@ -312,6 +389,14 @@ export function attackerFacingDef(
   ) {
     afterPierce = Math.round(
       afterPierce * (1 - attackerBuffs.enemyDefDebuffPct / 100),
+    );
+  }
+  const physicalReductionPct = combineDefReductionPcts(
+    attacker.player.enemyPhysicalDefReductionPct ?? 0,
+  );
+  if (physicalReductionPct > 0) {
+    afterPierce = Math.round(
+      afterPierce * (1 - physicalReductionPct / 100),
     );
   }
   const corrodePct = combineDefReductionPcts(
@@ -353,14 +438,18 @@ function sideHasDot(side: PvPSide, tag: import("./combatShared").V2DotTag): bool
 }
 
 function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
-  // 스킬도 기본 공격과 같은 방어 관통·전투 중 DEF 페널티를 존중한다. 종전에는 중독 부식만
-  // 별도로 적용해 장비의 armorPierceFraction과 분쇄/약점 노출이 주력 스킬에서 사라졌다.
-  const facingDef = attackerFacingDef(attacker, defender);
-  const corrodePct = combineDefReductionPcts(
-    attacker.player.poisonedEnemyDefReductionPct ?? 0,
+  // 평타와 같은 방어 관통·전투 중 페널티·상시 감소·부식을 그대로 사용한다.
+  // attackerFacingDef 가 부식을 이미 적용하므로 이 경로에서 다시 감산하지 않는다.
+  return attackerFacingDef(attacker, defender);
+}
+
+function skillTargetMagicDef(attacker: PvPSide, defender: PvPSide): number {
+  const base = defender.player.magicDef ?? defender.player.def;
+  const reductionPct = combineDefReductionPcts(
+    attacker.player.enemyMagicDefReductionPct ?? 0,
   );
-  if (corrodePct <= 0 || !sideHasDot(defender, "poison")) return facingDef;
-  return Math.max(0, Math.round(facingDef * (1 - corrodePct / 100)));
+  if (reductionPct <= 0) return base;
+  return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
 }
 
 function corrosionPoisonDotMult(player: PlayerCombat): number {
@@ -873,12 +962,11 @@ function applyDodgeEffects(
       }),
     };
   }
-  // 곡예 — 회피 성공 시 HP +amount. + 봉인 on-dodge 회복(Phase 2·미장착=0 → byte-identical).
+  // 곡예 — 회피 성공 시 HP +amount. 장비의 회피 경감 연동 회복은 소유자 행동 시작에 판정한다.
   const defForHeal = st[defKey];
   const evadeHeal = scalePvPHealing(
     st,
-    (defForHeal.player.evadeHealAmount ?? 0) +
-      onDodgeHealAmount(defForHeal.player.equipSignatures, defForHeal.maxHp),
+    defForHeal.player.evadeHealAmount ?? 0,
   );
   if (evadeHeal > 0 && defForHeal.hp < defForHeal.maxHp) {
     const newHp = Math.min(defForHeal.maxHp, defForHeal.hp + evadeHeal);
@@ -1836,7 +1924,7 @@ export function castV2SkillOnAttackerTurnPvP(
     },
     target: {
       def: skillTargetDef(side, opp),
-      magicDef: opp.player.magicDef,
+      magicDef: skillTargetMagicDef(side, opp),
       // PR-5a: PvP 양 side 다 v2 buff slot 있음 — opponent 의 buff 도 def 곱셈에 반영.
       selfBuffs: opp.v2SelfBuffs,
       selfDebuffs: opp.v2SelfDebuffs,
@@ -1897,12 +1985,9 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextOppHp = opp.hp;
   let nextOppShield = opp.stacks.playerShield;
   let nextOppMagicBarrier = opp.magicBarrier ?? 0;
-  let nextOppBuffs = opp.buffs;
   let skillShieldAbsorbed = 0;
   let skillMagicBarrierAbsorbed = 0;
   let skillDamageToHp = 0;
-  let skillDamageBeforeEvasion = 0;
-  let skillDamageAfterEvasion = 0;
   let healShieldAmount = 0;
   const castSkillDef = result.castSkillId ? V2_SKILLS[result.castSkillId] : null;
   const isBloodDemonReign = result.castSkillId === "v2c_blooddemon_reign";
@@ -2047,8 +2132,6 @@ export function castV2SkillOnAttackerTurnPvP(
       (sum, hit) => sum + hit,
       0,
     );
-    skillDamageBeforeEvasion = rawDamageBeforeEvasion;
-    skillDamageAfterEvasion = rawDamageAfterEvasion;
     if (rawDamageAfterEvasion < rawDamageBeforeEvasion) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -2132,57 +2215,6 @@ export function castV2SkillOnAttackerTurnPvP(
         side: who,
       });
     }
-  }
-  const evasionReaction =
-    !skillGuaranteedEvaded && nextOppHp > 0
-      ? rollEvasionReaction(
-          opp.player.equipSignatures,
-          opp.maxHp,
-          skillEvasionReductionPct,
-          skillDamageBeforeEvasion,
-          skillDamageAfterEvasion,
-        )
-      : null;
-  if (evasionReaction?.heal) {
-    const scaledHeal = scalePvPHealing(st, evasionReaction.heal.amount);
-    const healedHp = Math.min(opp.maxHp, nextOppHp + scaledHeal);
-    const actualHeal = healedHp - nextOppHp;
-    nextOppHp = healedHp;
-    if (actualHeal > 0) {
-      nextLog = appendLog(nextLog, {
-        kind: "info",
-        text: `[${evasionReaction.heal.label}] ${opp.name}의 HP +${actualHeal}`,
-        side: otherKey,
-      });
-      const healShield = healToShield(opp.player.equipSignatures, actualHeal);
-      if (healShield) {
-        nextOppShield += healShield.amount;
-        nextLog = appendLog(nextLog, {
-          kind: "info",
-          text: `[${healShield.label}] ${opp.name} 보호막 +${healShield.amount}`,
-          side: otherKey,
-        });
-      }
-    }
-  }
-  if (evasionReaction?.speed) {
-    const activeSpeedMult =
-      nextOppBuffs.playerSpdTurnsLeft > 0
-        ? nextOppBuffs.playerSpdMult
-        : 1;
-    nextOppBuffs = {
-      ...nextOppBuffs,
-      playerSpdMult: Math.max(activeSpeedMult, evasionReaction.speed.mult),
-      playerSpdTurnsLeft: Math.max(
-        nextOppBuffs.playerSpdTurnsLeft,
-        evasionReaction.speed.turns,
-      ),
-    };
-    nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[${evasionReaction.speed.label}] ${opp.name}의 속도 +${Math.round((evasionReaction.speed.mult - 1) * 100)}% (${evasionReaction.speed.turns}행동)`,
-      side: otherKey,
-    });
   }
   if (sigSkillCritSpdBuff) {
     nextLog = appendLog(nextLog, {
@@ -2497,7 +2529,6 @@ export function castV2SkillOnAttackerTurnPvP(
     ...opp,
     hp: nextOppHp,
     magicBarrier: nextOppMagicBarrier,
-    buffs: nextOppBuffs,
     flags: {
       ...opp.flags,
       statusBlockUsed: opp.flags.statusBlockUsed || statusBlockDots,
@@ -2687,12 +2718,21 @@ function resolveBattlePvPLegacy(
     p1: false,
     p2: false,
   };
+  const evasionRecoveryAppliedThisPhase: { p1: boolean; p2: boolean } = {
+    p1: false,
+    p2: false,
+  };
   while (state.phase !== "ended") {
     const who: "p1" | "p2" = state.phase === "p1" ? "p1" : "p2";
     const other: "p1" | "p2" = who === "p1" ? "p2" : "p1";
     // who 가 이번 phase 의 actor — 다른 쪽 flag 는 reset (그 쪽 다음 phase 에서 1회 보장).
     v2CastedThisPhase[other] = false;
     v2SkillConsumedThisPhase[other] = false;
+    evasionRecoveryAppliedThisPhase[other] = false;
+    if (!evasionRecoveryAppliedThisPhase[who]) {
+      evasionRecoveryAppliedThisPhase[who] = true;
+      state = applyEvasionActionRecoveryPvP(state, who);
+    }
     let castFiredThisPhase = v2SkillConsumedThisPhase[who];
     if (!v2CastedThisPhase[who]) {
       v2CastedThisPhase[who] = true;

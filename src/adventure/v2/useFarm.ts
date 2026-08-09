@@ -8,6 +8,9 @@ import type {
   FarmDeliveryResult,
   FarmHarvestResult,
   FarmPlotUpgradeResult,
+  FarmRanchCollectResult,
+  FarmRanchFeedResult,
+  FarmRanchUpgradeResult,
   FarmShopItem,
   FarmShopPurchaseResult,
   FarmSpecialDeliveryRequest,
@@ -16,6 +19,7 @@ import type {
   FarmWeeklyDeliveryRequest,
   FarmWeeklyDeliveryResult,
 } from "./farm";
+import type { RanchPenId } from "./ranch";
 
 type FarmResponse = {
   ok: boolean;
@@ -38,6 +42,9 @@ type FarmResponse = {
   plotUpgradeResult?: FarmPlotUpgradeResult;
   fertilizerBalance?: number;
   fertilizerResult?: { plotId: string; reducedMs: number };
+  ranchFeedResult?: FarmRanchFeedResult;
+  ranchCollectResult?: FarmRanchCollectResult;
+  ranchUpgradeResult?: FarmRanchUpgradeResult;
 };
 
 export type FarmClientState = {
@@ -48,6 +55,9 @@ export type FarmClientState = {
   busyWeeklyDeliveryId: string | null;
   busyShopItemId: string | null;
   busyPlotUpgrade: boolean;
+  busyRanchFeedPenId: RanchPenId | null;
+  busyRanchCollect: boolean;
+  busyRanchUpgradePenId: RanchPenId | null;
   fertilizerBalance: number;
   error: string | null;
   notice: FarmNotice | null;
@@ -77,6 +87,9 @@ export type FarmClientState = {
   deliverWeekly: (requestId: string) => Promise<void>;
   buyShopItem: (itemId: string) => Promise<void>;
   buyPlotUpgrade: () => Promise<void>;
+  feedRanchPen: (penId: RanchPenId, amount: number) => Promise<void>;
+  collectRanch: () => Promise<void>;
+  buyRanchPen: (penId: RanchPenId) => Promise<void>;
 };
 
 export type FarmNotice =
@@ -87,7 +100,10 @@ export type FarmNotice =
   | { id: number; kind: "weeklyDelivery"; result: FarmWeeklyDeliveryResult }
   | { id: number; kind: "shop"; result: FarmShopPurchaseResult }
   | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult }
-  | { id: number; kind: "fertilizer"; reducedMs: number };
+  | { id: number; kind: "fertilizer"; reducedMs: number }
+  | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
+  | { id: number; kind: "ranchCollect"; result: FarmRanchCollectResult }
+  | { id: number; kind: "ranchUpgrade"; result: FarmRanchUpgradeResult };
 
 export function useFarm(): FarmClientState {
   const [loading, setLoading] = useState(true);
@@ -101,6 +117,11 @@ export function useFarm(): FarmClientState {
   );
   const [busyShopItemId, setBusyShopItemId] = useState<string | null>(null);
   const [busyPlotUpgrade, setBusyPlotUpgrade] = useState(false);
+  const [busyRanchFeedPenId, setBusyRanchFeedPenId] =
+    useState<RanchPenId | null>(null);
+  const [busyRanchCollect, setBusyRanchCollect] = useState(false);
+  const [busyRanchUpgradePenId, setBusyRanchUpgradePenId] =
+    useState<RanchPenId | null>(null);
   const [fertilizerBalance, setFertilizerBalance] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<FarmNotice | null>(null);
@@ -193,6 +214,27 @@ export function useFarm(): FarmClientState {
         id: Date.now(),
         kind: "plotUpgrade",
         result: data.plotUpgradeResult,
+      });
+    }
+    if (data.ranchFeedResult) {
+      setNotice({
+        id: Date.now(),
+        kind: "ranchFeed",
+        result: data.ranchFeedResult,
+      });
+    }
+    if (data.ranchCollectResult) {
+      setNotice({
+        id: Date.now(),
+        kind: "ranchCollect",
+        result: data.ranchCollectResult,
+      });
+    }
+    if (data.ranchUpgradeResult) {
+      setNotice({
+        id: Date.now(),
+        kind: "ranchUpgrade",
+        result: data.ranchUpgradeResult,
       });
     }
   }, []);
@@ -365,6 +407,64 @@ export function useFarm(): FarmClientState {
     }
   }, [apply, reportError]);
 
+  const feedRanchPen = useCallback(
+    async (penId: RanchPenId, amount: number) => {
+      setBusyRanchFeedPenId(penId);
+      setError(null);
+      try {
+        const res = await fetch("/api/v2/farm/ranch/feed", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ penId, amount }),
+        });
+        const data = (await res.json()) as FarmResponse;
+        apply(data);
+      } catch (e) {
+        reportError(e);
+      } finally {
+        setBusyRanchFeedPenId(null);
+      }
+    },
+    [apply, reportError],
+  );
+
+  const collectRanch = useCallback(async () => {
+    setBusyRanchCollect(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/v2/farm/ranch/collect", {
+        method: "POST",
+      });
+      const data = (await res.json()) as FarmResponse;
+      apply(data);
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setBusyRanchCollect(false);
+    }
+  }, [apply, reportError]);
+
+  const buyRanchPen = useCallback(
+    async (penId: RanchPenId) => {
+      setBusyRanchUpgradePenId(penId);
+      setError(null);
+      try {
+        const res = await fetch("/api/v2/farm/ranch/upgrade", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ penId }),
+        });
+        const data = (await res.json()) as FarmResponse;
+        apply(data);
+      } catch (e) {
+        reportError(e);
+      } finally {
+        setBusyRanchUpgradePenId(null);
+      }
+    },
+    [apply, reportError],
+  );
+
   useEffect(() => {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- farm state is loaded from the server on mount.
@@ -393,6 +493,9 @@ export function useFarm(): FarmClientState {
     busyWeeklyDeliveryId,
     busyShopItemId,
     busyPlotUpgrade,
+    busyRanchFeedPenId,
+    busyRanchCollect,
+    busyRanchUpgradePenId,
     fertilizerBalance,
     error,
     notice,
@@ -422,6 +525,9 @@ export function useFarm(): FarmClientState {
     deliverWeekly,
     buyShopItem,
     buyPlotUpgrade,
+    feedRanchPen,
+    collectRanch,
+    buyRanchPen,
   };
 }
 
@@ -444,6 +550,15 @@ function errorMessage(error: unknown): string {
       no_fertilizer: "보유한 유기질 거름이 없습니다.",
       already_fertilized: "이번 파종에는 이미 거름을 사용했습니다.",
       already_ready: "이미 수확할 수 있는 작물에는 거름을 사용할 수 없습니다.",
+      ranch_locked: "씨앗 선별을 배우면 목장을 이용할 수 있습니다.",
+      pen_locked: "아직 열리지 않은 축사입니다.",
+      feed_capacity: "이 축사에는 사료가 이미 가득 차 있습니다.",
+      not_enough_feed: "보유한 배합 사료가 부족합니다.",
+      nothing_to_collect: "아직 수확할 축산물이 없습니다.",
+      level_required: "농사 레벨이 부족합니다.",
+      already_unlocked: "이미 열린 축사입니다.",
+      pen_not_found: "축사 정보를 찾을 수 없습니다.",
+      bad_quantity: "넣을 사료 수량을 확인해 주세요.",
     }[message] ?? "요청에 실패했습니다."
   );
 }

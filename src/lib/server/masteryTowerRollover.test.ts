@@ -34,6 +34,8 @@ describe("숙련의 탑 날짜 변경 정산", () => {
       claimed: false,
       lifetimeBestFloor: 18,
       firstClearRewardsClaimed: [],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 18,
     });
     mocks.saves.set("inventory.v2", {
       masteryCertificates: 60,
@@ -57,6 +59,40 @@ describe("숙련의 탑 날짜 변경 정산", () => {
       todayBestFloor: 0,
       runFloor: 0,
       firstClearRewardsClaimed: [10],
+      weekStartedAt: "2026-06-29",
+      weekBestFloor: 18,
+    });
+  });
+
+  it("새 주에는 주간 최고층만 초기화하고 영구 기록을 보존한다", async () => {
+    mocks.saves.set("mastery-tower.v1", {
+      date: "2026-08-09",
+      todayBestFloor: 37,
+      runFloor: 37,
+      claimed: true,
+      lifetimeBestFloor: 44,
+      firstClearRewardsClaimed: [10, 20, 30, 40],
+      weekStartedAt: "2026-08-03",
+      weekBestFloor: 37,
+    });
+
+    const result = await settleMasteryTowerRollover(
+      {} as never,
+      "u-tower",
+      "2026-08-10",
+      "2026-08-10",
+    );
+
+    expect(result.autoClaimedReward).toBeNull();
+    expect(mocks.saves.get("mastery-tower.v1")).toMatchObject({
+      date: "2026-08-10",
+      todayBestFloor: 0,
+      runFloor: 0,
+      claimed: false,
+      lifetimeBestFloor: 44,
+      firstClearRewardsClaimed: [10, 20, 30, 40],
+      weekStartedAt: "2026-08-10",
+      weekBestFloor: 0,
     });
   });
 

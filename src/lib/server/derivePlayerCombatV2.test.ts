@@ -1363,13 +1363,14 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     ).toEqual([]);
   });
 
-  it("마퀴 단품(봉인된 반지) 장착 → on_dodge 시그니처", () => {
+  it("마퀴 단품(봉인된 반지) 장착 → on_action_evasion 시그니처", () => {
     const sigs = collectEquipSignatures({
       ring: "v2_sanctum_sig_sealed_ring",
     } as never);
     expect(sigs).toHaveLength(1);
-    expect(sigs[0].trigger).toBe("on_dodge");
+    expect(sigs[0].trigger).toBe("on_action_evasion");
     expect(sigs[0].label).toBe("봉인");
+    expect(sigs[0].lostHpHealPct).toBe(4);
   });
 
   it("제작 독샘 단검 장착 → 적중 시 중독 시그니처", () => {
@@ -1542,6 +1543,6 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
       level: 50,
       v2Equipped: { ring: "v2_sanctum_sig_sealed_ring" } as never,
     }).player;
-    expect(withSig.equipSignatures?.[0]?.trigger).toBe("on_dodge");
+    expect(withSig.equipSignatures?.[0]?.trigger).toBe("on_action_evasion");
   });
 });

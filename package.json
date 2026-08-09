@@ -27,7 +27,6 @@
     "check-public-release": "node scripts/check-public-release.mjs",
     "load-test": "node scripts/load-test.mjs",
     "sim:level-design": "node --env-file=.env.production --import tsx scripts/sim-v2-level-design.ts",
-    "sim:coop-boss": "node --import tsx scripts/sim-v2-coop-boss.ts",
     "sim:exp-pacing": "node --env-file=.env.production --import tsx scripts/sim-v2-exp-pacing.ts",
     "sim:crit-balance": "node --import tsx scripts/sim-crit-balance.ts",
     "account:create": "node scripts/create-password-account.mjs",

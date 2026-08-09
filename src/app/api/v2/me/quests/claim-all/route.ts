@@ -15,7 +15,6 @@ import {
 } from "@/lib/server/v2QuestContext";
 import {
   V2_QUESTS,
-  claimedUniqueEquipmentAcquisitionFloor,
   isQuestClaimable,
   isTutorialLine,
 } from "@/adventure/data/v2/v2Quests";
@@ -125,8 +124,6 @@ export async function POST(req: Request) {
     const lifeFieldRecordsRaw = await readSave(tx, userId, LIFE_FIELD_RECORDS_KEY, {});
     const lifeFieldFeatures = await readLifeFieldFeatureSettings(tx);
     const extras = await assembleQuestExtras(tx, userId);
-    const claimed = parseClaimed(guideSave);
-    const uniqueAcquiredFloor = claimedUniqueEquipmentAcquisitionFloor(claimed);
 
     const ctx = buildQuestCtx({
       charRaw: charSave,
@@ -146,9 +143,9 @@ export async function POST(req: Request) {
       lifeRequestsRaw,
       lifeFieldRecordsRaw,
       lifeFieldMilestonesEnabled: lifeFieldFeatures.milestonesEnabled,
-      uniqueAcquiredFloor,
       extras,
     });
+    const claimed = parseClaimed(guideSave);
     const trackedQuestId = parseTrackedQuestId(guideSave);
     const tutorial = scope === "tutorial";
     const claimable: (typeof V2_QUESTS)[number][] = [];

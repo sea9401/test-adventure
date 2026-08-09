@@ -37,6 +37,7 @@ import {
   cookingFoodId,
   cookingOrderReward,
   cookingOrders,
+  cookingLevelXpThreshold,
   emptyCookingState,
 } from "@/adventure/v2/cooking";
 import { emptyFarmState } from "@/adventure/v2/farm";
@@ -123,6 +124,33 @@ describe("/api/v2/cooking", () => {
     expect(store.get("cooking.v1")).toMatchObject({
       discoveredRecipeIds: ["rustic_bread"],
       stats: expect.objectContaining({ dishesCooked: 1, ordersCompleted: 0 }),
+    });
+  });
+
+  it("달걀과 우유 목장 요리는 농장 재료를 정확히 차감한다", async () => {
+    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
+    const cooking = store.get("cooking.v1") as ReturnType<typeof emptyCookingState>;
+    store.set("farm.v2", {
+      ...farm,
+      inventory: { wheat: 10, egg: 10, milk: 10, potato: 10, onion: 5 },
+    });
+    store.set("cooking.v1", {
+      ...cooking,
+      xp: cookingLevelXpThreshold(50),
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const eggResponse = await POST(
+      request({ action: "cook", recipeId: "country_egg_bread", quantity: 1 }),
+    );
+    const milkResponse = await POST(
+      request({ action: "cook", recipeId: "milk_potato_soup", quantity: 1 }),
+    );
+
+    expect(eggResponse.status).toBe(200);
+    expect(milkResponse.status).toBe(200);
+    expect(store.get("farm.v2")).toMatchObject({
+      inventory: { wheat: 2, egg: 6, milk: 4, potato: 2, onion: 1 },
     });
   });
 

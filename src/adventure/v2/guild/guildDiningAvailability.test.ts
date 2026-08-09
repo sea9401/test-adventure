@@ -10,7 +10,6 @@ const available = {
   currentSource: "guild" as const,
   pantry: { ready: true, remaining: 0 },
   availableTickets: 1,
-  selectedMenuCount: 1,
 };
 
 describe("guild dining availability", () => {
@@ -43,10 +42,8 @@ describe("guild dining availability", () => {
         ...available,
         pantry: { ready: false, remaining: 37 },
         availableTickets: 0,
-        selectedMenuCount: 0,
       }),
     ).toEqual([
-      "이번 주 운영 메뉴가 아직 정해지지 않았습니다.",
       "공동 식재료 준비가 끝나지 않았습니다. 37점이 더 필요합니다.",
       "이번 주 사용할 수 있는 식권을 모두 사용했습니다.",
     ]);

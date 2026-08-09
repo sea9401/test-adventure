@@ -61,6 +61,8 @@ import {
   type CookingFoodId,
   type CookingFoodInventory,
 } from "./cooking";
+import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
+import { MasteryCertificateUseModal } from "./MasteryCertificateUseModal";
 
 // 강화/재련 등 다른 화면도 같은 장비 카드 그리드를 쓴다 — 기존 import 경로 유지를 위해
 // 분리한 컴포넌트를 여기서 재노출(re-export).
@@ -119,6 +121,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
+  const [masteryCertificates, setMasteryCertificates] = useState(0);
+  const [certificateModalOpen, setCertificateModalOpen] = useState(false);
   useEffect(() => {
     if (tab !== "consumable") return;
     let alive = true;
@@ -189,7 +193,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   } | null>(null);
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
-  const { frontierDepth, refreshGameState, setGold } = useGameState();
+  const { frontierDepth, refreshGameState, setGold, setBankedGold } =
+    useGameState();
   const equipmentCodex = useEquipmentCodexContext();
   const { notifySystem } = useSystemToast();
 
@@ -206,9 +211,13 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           materials?: Partial<Record<V2MaterialId, number>>;
           spFruitUsed?: Partial<Record<SpFruitTier, number>>;
           cookingFoods?: CookingFoodInventory;
+          masteryCertificates?: number;
         };
         setMaterials(j.materials ?? {});
         setCookingFoods(j.cookingFoods ?? {});
+        setMasteryCertificates(
+          Math.max(0, Math.floor(Number(j.masteryCertificates) || 0)),
+        );
         setSpFruitUsed({
           1: j.spFruitUsed?.[1] ?? 0,
           2: j.spFruitUsed?.[2] ?? 0,
@@ -304,6 +313,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           return;
         }
         await refresh();
+        await refreshGameState();
         notifySystem(
           `✓ ${SP_FRUIT[tier].name} 사용 — SP 최대치 +${SP_FRUIT[tier].spPerUse}` +
             (typeof j.spBudget === "number" ? ` (현재 ${j.spBudget})` : ""),
@@ -314,7 +324,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setBusy(null);
       }
     },
-    [notifySystem, refresh],
+    [notifySystem, refresh, refreshGameState],
   );
 
   // 협동 보스 장비 상자 사용 — 상자 1개 소모 후 장비 인스턴스 1개 획득.
@@ -684,17 +694,20 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           soldCount?: number;
           soldGold?: number;
           gold?: number;
+          bankedGold?: number;
         } | null;
         if (!j?.ok) {
           notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
         setOwned(j.owned ?? []);
-        if (typeof j.gold === "number") {
-          setGold(j.gold);
+        const balancePatch = shopSaleBalancePatch(j);
+        if (balancePatch.gold != null) setGold(balancePatch.gold);
+        if (balancePatch.bankedGold != null) {
+          setBankedGold(balancePatch.bankedGold);
         }
         notifySystem(
-          `✓ ${j.soldCount ?? 0}개 판매 (+${(j.soldGold ?? 0).toLocaleString()}골드)`,
+          shopSaleBankNotice(`${j.soldCount ?? 0}개`, j.soldGold ?? 0),
         );
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
@@ -702,7 +715,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setBusy(null);
       }
     },
-    [notifySystem, owned, equipped, setGold],
+    [notifySystem, owned, equipped, setBankedGold, setGold],
   );
 
   // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(슬롯→iid → id).
@@ -861,6 +874,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUseSpFruit={useSpFruit}
             onUseEquipmentBox={useCoopEquipmentBox}
             onUseMasteryTome={useCoopMasteryTome}
+            masteryCertificates={masteryCertificates}
+            onUseMasteryCertificate={() => setCertificateModalOpen(true)}
             rareMaps={rareMaps}
             cashItems={cashItems}
             onUseCashItem={useCashItem}
@@ -995,6 +1010,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             />
           );
         })()}
+      <MasteryCertificateUseModal
+        open={certificateModalOpen}
+        onClose={() => setCertificateModalOpen(false)}
+        onUsed={async () => {
+          await refresh();
+          await refreshGameState();
+        }}
+      />
     </PageShell>
   );
 }

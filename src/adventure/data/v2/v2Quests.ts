@@ -15,7 +15,7 @@
 //
 // 진행도 source(서버 집계, lib/server/v2QuestContext.ts):
 //   level·frontierDepth·class = character.v2 / cultivations = proficiency.v2 / tier = 직업 카탈로그
-//   battleCount·bossKills·uniqueAcquired = adventure-log.v2 / equippedCount = equipment.v2
+//   battleCount·bossKills = adventure-log.v2 / equippedCount·uniqueOwned = equipment.v2
 //   hasGuild = guildMembers / hasTraded = marketplace_listings_v2 / arenaPlayed = arena-history.v2
 
 import type { V2EquipmentId } from "./v2Equipment";
@@ -63,8 +63,8 @@ export type QuestCtx = {
   hasManuallyEquippedGear: boolean;
   /** 장비를 직접 장착한 뒤 사냥터 전투를 치른 적 있는가. character.v2.hasBattledAfterEquippingGear. */
   hasBattledAfterEquippingGear: boolean;
-  /** 유니크 장비 누적 획득 수. adventure-log.v2.uniqueEquipmentAcquired. */
-  uniqueAcquired: number;
+  /** 보유 유니크 장비 수. equipment.v2.owned 중 rarity:unique. */
+  uniqueOwned: number;
   /** 수행 횟수. proficiency.v2 groups[group].cultivations. */
   cultivations: number;
   /** 처치한 협동 보스 수. adventure-log.v2.coopBossKinds + 레거시 칭호 보유분. */
@@ -630,25 +630,17 @@ const GROWTH_ACHIEVEMENTS: QuestDef[] = [
   { id: "growth_tier6", line: "growth_achievement", chain: "growth_achievement:tier", title: "초월 직업", desc: "6차 직업으로 전직하세요.", reward: {}, points: 60, badgeTier: "legendary", progress: (c) => c.tier, goal: 6, check: (c) => c.tier >= 6 },
 ];
 
-export const UNIQUE_EQUIPMENT_ACQUISITION_LABEL = "유니크 장비 누적 획득";
-
 const EQUIPMENT: QuestDef[] = [
   { id: "x_full_gear", line: "equipment", title: "완전 무장", desc: "장비 6부위를 모두 장착하세요.", reward: { titleId: "ach_full_gear" }, points: 10, progress: (c) => c.equippedCount, goal: 6, check: (c) => c.equippedCount >= 6 },
-  ...milestones(
-    "equipment",
-    UNIQUE_EQUIPMENT_ACQUISITION_LABEL,
-    (c) => c.uniqueAcquired,
-    [
-      { id: "a_unique", title: "첫 유니크", goal: 1, points: 10, badgeTier: "bronze" },
-      { id: "a_unique5", title: "유니크 컬렉터", goal: 5, points: 20, badgeTier: "silver" },
-      { id: "equipment_unique10", title: "진귀한 무기고", goal: 10, points: 30, badgeTier: "gold" },
-      { id: "equipment_unique20", title: "유일무이한 수집가", goal: 20, points: 50, badgeTier: "legendary" },
-      ...marathonMilestones("marathon_unique", "유니크 장비", [
-        50, 100, 250, 500, 1_000,
-      ]),
-    ],
-    (goal) => `유니크 장비를 누적 ${goal.toLocaleString()}개 획득하세요.`,
-  ),
+  ...milestones("equipment", "유니크 장비 보유", (c) => c.uniqueOwned, [
+    { id: "a_unique", title: "첫 유니크", goal: 1, points: 10, badgeTier: "bronze" },
+    { id: "a_unique5", title: "유니크 컬렉터", goal: 5, points: 20, badgeTier: "silver" },
+    { id: "equipment_unique10", title: "진귀한 무기고", goal: 10, points: 30, badgeTier: "gold" },
+    { id: "equipment_unique20", title: "유일무이한 수집가", goal: 20, points: 50, badgeTier: "legendary" },
+    ...marathonMilestones("marathon_unique", "유니크 장비", [
+      50, 100, 250, 500, 1_000,
+    ]),
+  ]),
   ...milestones("equipment", "장비 도감 등록", (c) => c.equipmentCodexRegistered, [
     { id: "codex_10", title: "도감의 첫 장", goal: 10, points: 5 },
     { id: "codex_25", title: "장비 연구가", goal: 25, points: 10, badgeTier: "bronze" },
@@ -1139,19 +1131,6 @@ const LINE_BY_ID = new Map(QUEST_LINES.map((l) => [l.id, l]));
 
 export function questById(id: string): QuestDef | undefined {
   return QUEST_BY_ID.get(id);
-}
-
-export function claimedUniqueEquipmentAcquisitionFloor(
-  claimed: ReadonlySet<string>,
-): number {
-  const chain = `equipment:${UNIQUE_EQUIPMENT_ACQUISITION_LABEL}`;
-  return V2_QUESTS.reduce(
-    (highest, quest) =>
-      quest.chain === chain && claimed.has(quest.id)
-        ? Math.max(highest, quest.goal ?? 0)
-        : highest,
-    0,
-  );
 }
 
 // 라인이 "튜토리얼" 탭 소속인가(기본 조작 안내 라인). 그 외는 "업적" 탭.

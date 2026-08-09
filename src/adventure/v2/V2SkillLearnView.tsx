@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -21,6 +21,14 @@ import {
   type V2LoadoutSkill,
 } from "./V2LoadoutPanel";
 import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
+import {
+  diffLoadoutStats,
+  loadoutStatSnapshot,
+  LoadoutStatResponsiveLayout,
+  type LoadoutStatDelta,
+  type LoadoutStatSnapshot,
+  type LoadoutStatSource,
+} from "./LoadoutStatSummary";
 import { useGameState } from "./GameStateProvider";
 import { useSystemMessageState } from "./RewardToastProvider";
 
@@ -48,12 +56,28 @@ type ElementalRow = {
   };
 };
 
-type StateShape = {
+type StateShape = LoadoutStatSource & {
   ok?: boolean;
   elementalSkills?: ElementalRow[];
   proficiency?: { current?: { points: number } };
   loadout?: V2LoadoutData; // 코어루프 flag-on 만 존재(SP 로드아웃).
 };
+
+export function nextLoadoutStatFeedback(
+  previous: LoadoutStatSnapshot | null,
+  source: LoadoutStatSource,
+  compare: boolean,
+): {
+  current: LoadoutStatSnapshot | null;
+  delta: LoadoutStatDelta | null;
+} {
+  const current = loadoutStatSnapshot(source);
+  if (!current) return { current: previous, delta: null };
+  return {
+    current,
+    delta: compare && previous ? diffLoadoutStats(previous, current) : null,
+  };
+}
 
 function skillName(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.name ?? id;
@@ -63,6 +87,12 @@ function skillDesc(id: string): string {
 }
 function goldLabel(value: number): string {
   return `${value.toLocaleString()}G`;
+}
+export function skillRitualCostLabel(cost: {
+  goldCost: number;
+  proficiencyCost: number;
+}): string {
+  return `비용 ${goldLabel(cost.goldCost)} · 숙달 ${cost.proficiencyCost.toLocaleString()}`;
 }
 function modeLabel(mode: SkillRitualMode): string {
   return mode === "focus" ? "집중 의식" : "위력 의식";
@@ -115,6 +145,12 @@ export function V2SkillLearnView({
   const [msg, setMsg] = useSystemMessageState();
   const [ritualTarget, setRitualTarget] = useState<V2LoadoutSkill | null>(null);
   const [ritualMode, setRitualMode] = useState<SkillRitualMode>("power");
+  const [statFeedback, setStatFeedback] = useState<{
+    current: LoadoutStatSnapshot | null;
+    delta: LoadoutStatDelta | null;
+  }>({ current: null, delta: null });
+  const statSnapshotRef = useRef<LoadoutStatSnapshot | null>(null);
+  const compareNextRefreshRef = useRef(false);
 
   // 마운트 1회 로드 — setState 동기 호출을 피하려 loading 초기값(true)에서 시작, 완료 시 해제.
   const refresh = useCallback(async () => {
@@ -125,10 +161,23 @@ export function V2SkillLearnView({
         setElementalSkills(j.elementalSkills ?? []);
         setLoadout(j.loadout ?? null);
         setUsable(j.proficiency?.current?.points ?? 0);
+        const nextFeedback = nextLoadoutStatFeedback(
+          statSnapshotRef.current,
+          j,
+          compareNextRefreshRef.current,
+        );
+        statSnapshotRef.current = nextFeedback.current;
+        setStatFeedback(nextFeedback);
       }
     } catch {}
+    compareNextRefreshRef.current = false;
     setLoading(false);
   }, []);
+
+  const handleLoadoutChanged = useCallback(async () => {
+    compareNextRefreshRef.current = true;
+    await refresh();
+  }, [refresh]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 스킬/로드아웃 fetch
@@ -242,9 +291,6 @@ export function V2SkillLearnView({
           required?: number;
           have?: number;
           goldCost?: number;
-          requiredJobCumLevel?: number;
-          haveJobCumLevel?: number;
-          jobName?: string | null;
         } | null;
         if (!j?.ok) {
           const label =
@@ -252,9 +298,7 @@ export function V2SkillLearnView({
               ? `골드 부족 (필요 ${goldLabel(j.goldCost ?? 0)})`
               : j?.error === "insufficient_proficiency"
                 ? `숙달 포인트 부족 (필요 ${j.required ?? 0}, 보유 ${j.have ?? usable})`
-                : j?.error === "insufficient_mastery"
-                  ? `${j.jobName ?? "해당 직업"} 숙련도 부족 (${j.haveJobCumLevel ?? 0}/${j.requiredJobCumLevel ?? 0})`
-                  : j?.error === "not_learned"
+                : j?.error === "not_learned"
                     ? "배운 스킬만 강화할 수 있어요"
                     : j?.error === "not_eligible"
                       ? "강화 의식 대상이 아닌 스킬이에요"
@@ -385,16 +429,33 @@ export function V2SkillLearnView({
     >
       {!embedded && <SubViewHeader title="스킬" onBack={onBack} />}
 
-      {section !== "learn" && section !== "enhance" && !loading && loadout && (
-        <V2LoadoutPresetsPanel
-          currentEquipped={loadout.equipped}
-          onApplied={refresh}
-        />
-      )}
-
-      {section !== "learn" && section !== "enhance" && !loading && loadout && (
-        <V2LoadoutPanel loadout={loadout} onChanged={refresh} />
-      )}
+      {section !== "learn" && section !== "enhance" && !loading && loadout &&
+        (section === "loadout" ? (
+          <LoadoutStatResponsiveLayout
+            current={statFeedback.current}
+            delta={statFeedback.delta}
+          >
+            <V2LoadoutPresetsPanel
+              currentEquipped={loadout.equipped}
+              onApplied={handleLoadoutChanged}
+            />
+            <V2LoadoutPanel
+              loadout={loadout}
+              onChanged={handleLoadoutChanged}
+            />
+          </LoadoutStatResponsiveLayout>
+        ) : (
+          <>
+            <V2LoadoutPresetsPanel
+              currentEquipped={loadout.equipped}
+              onApplied={handleLoadoutChanged}
+            />
+            <V2LoadoutPanel
+              loadout={loadout}
+              onChanged={handleLoadoutChanged}
+            />
+          </>
+        ))}
 
       {section !== "loadout" &&
         section !== "enhance" &&
@@ -692,7 +753,7 @@ export function V2SkillLearnView({
               </div>
               <div className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">
                 {selectedNext
-                  ? `비용 ${goldLabel(selectedNext.goldCost)} · 숙달 ${selectedNext.proficiencyCost.toLocaleString()} · 직업 숙련도 ${selectedNext.requiredJobCumLevel.toLocaleString()}`
+                  ? skillRitualCostLabel(selectedNext)
                   : modeLocked
                     ? "현재 적용된 의식을 초기화해야 다른 방향을 선택할 수 있습니다."
                     : "최대 단계이거나 조건을 만족하지 않는 의식입니다."}

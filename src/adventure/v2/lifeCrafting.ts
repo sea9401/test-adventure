@@ -1,5 +1,6 @@
 import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
 import { LIFE_PROCESSED_MATERIAL_ID } from "./lifeWorkshopMaterials";
+import { RANCH_FEED_RECIPE } from "./ranch";
 
 export type LifeAidActivity = "woodcutting" | "mining" | "fishing";
 export type LifeBlueprintSource =
@@ -115,7 +116,10 @@ export function emptyLifeCraftingState(): LifeCraftingState {
 }
 
 const FINISHED_IDS = new Set(LIFE_CRAFTING_RECIPES.map((recipe) => recipe.outputId));
-const RECIPE_IDS = new Set(LIFE_CRAFTING_RECIPES.map((recipe) => recipe.id));
+const RECIPE_IDS = new Set([
+  ...LIFE_CRAFTING_RECIPES.map((recipe) => recipe.id),
+  RANCH_FEED_RECIPE.id,
+]);
 const HIDDEN_IDS = new Set(LIFE_CRAFTING_RECIPES.filter((recipe) => recipe.hidden).map((recipe) => recipe.id));
 const AID_IDS = new Set(LIFE_CRAFTING_RECIPES.filter((recipe) => recipe.kind === "aid").map((recipe) => recipe.outputId));
 

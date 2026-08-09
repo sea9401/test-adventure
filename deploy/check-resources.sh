@@ -21,6 +21,12 @@ MEM_AVAILABLE_PCT="${RESOURCE_MONITOR_MEM_AVAILABLE_PCT:-$(awk '
 DISK_USED_PCT="${RESOURCE_MONITOR_DISK_USED_PCT:-$(df -P "${RESOURCE_MONITOR_DISK_PATH:-/}" | awk 'NR == 2 { gsub(/%/, "", $5); print $5 }')}"
 LOAD_PCT="$(awk -v current_load="$LOAD_5" -v cpus="$CPU_COUNT" 'BEGIN { if (cpus > 0) printf "%.1f", current_load * 100 / cpus; else print "999" }')"
 
+# 같은 2분 타이머에서 RDS FreeableMemory도 확인한다. CloudWatch/IAM 오류는
+# EC2 자체 감시를 중단시키지 않고 자식 스크립트가 journal 경고로만 남긴다.
+if ! node scripts/check-rds-memory.mjs; then
+  echo "RESOURCE WARN: RDS 메모리 감시 스크립트 실행 실패" >&2
+fi
+
 ALERTS=()
 if awk -v value="$LOAD_PCT" -v threshold="$LOAD_MAX_PCT" 'BEGIN { exit !(value >= threshold) }'; then
   ALERTS+=("load=${LOAD_PCT}%>=${LOAD_MAX_PCT}%")

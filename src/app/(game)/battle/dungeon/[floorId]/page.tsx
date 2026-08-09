@@ -16,6 +16,7 @@ import {
 } from "@/adventure/data/v2/dungeon";
 import {
   dungeonFloorBackHref,
+  normalHuntFloorHref,
   rareMapEntryHref,
 } from "@/adventure/v2/dungeonNavigation";
 
@@ -132,6 +133,9 @@ export default function DungeonFloorPage() {
       }
       onRecoveryChargesChange={applyResourcePatch}
       onEnterRareMap={(map) => router.push(rareMapEntryHref(map))}
+      onReturnToNormalHunt={() =>
+        router.push(normalHuntFloorHref(n))
+      }
       offlineHunt={offlineHunt}
       onRefresh={refreshGameState}
     />

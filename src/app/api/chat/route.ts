@@ -30,15 +30,180 @@ import {
 
 type ChatChannel = "global" | "trade" | "guild" | "room";
 
+type ChatRow = {
+  id: number;
+  channel: string;
+  roomId: number | null;
+  name: string;
+  className: string;
+  title: string | null;
+  content: string;
+  itemLink: unknown;
+  createdAt: Date;
+  mine: string;
+};
+
 function parseChannel(value: string | null): ChatChannel {
   if (value === "trade" || value === "guild" || value === "room") return value;
   return "global";
+}
+
+function parseAfterId(searchParams: URLSearchParams, key: string): number | null | undefined {
+  const raw = searchParams.get(key);
+  if (raw == null) return null;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function channelWhere(
+  channel: Exclude<ChatChannel, "room">,
+  guildId: number | null,
+  blockedUserIds: string[],
+) {
+  const baseWhere =
+    channel === "guild"
+      ? and(eq(messages.channel, "guild"), eq(messages.guildId, guildId ?? -1))
+      : channel === "trade"
+        ? and(
+            eq(messages.channel, "trade"),
+            isNull(messages.guildId),
+            isNull(messages.roomId),
+          )
+        : and(
+            eq(messages.channel, "global"),
+            isNull(messages.guildId),
+            isNull(messages.roomId),
+          );
+  return blockedUserIds.length > 0
+    ? and(baseWhere, notInArray(messages.userId, blockedUserIds))
+    : baseWhere;
+}
+
+async function readChannelRows(input: {
+  channel: Exclude<ChatChannel, "room">;
+  afterId: number | null;
+  guildId: number | null;
+  blockedUserIds: string[];
+}): Promise<ChatRow[]> {
+  const visibleWhere = channelWhere(
+    input.channel,
+    input.guildId,
+    input.blockedUserIds,
+  );
+  return db
+    .select({
+      id: messages.id,
+      channel: messages.channel,
+      roomId: messages.roomId,
+      name: messages.name,
+      className: messages.className,
+      title: messages.title,
+      content: messages.content,
+      itemLink: messages.itemLink,
+      createdAt: messages.createdAt,
+      mine: messages.userId,
+    })
+    .from(messages)
+    .where(
+      input.afterId == null
+        ? visibleWhere
+        : and(visibleWhere, gt(messages.id, input.afterId)),
+    )
+    .orderBy(
+      ...(input.afterId == null
+        ? [desc(messages.createdAt), desc(messages.id)]
+        : [asc(messages.createdAt), asc(messages.id)]),
+    )
+    .limit(CHAT_FETCH_LIMIT);
+}
+
+function serializeRows(
+  rows: ChatRow[],
+  userId: string,
+  cosmeticByUser: Awaited<ReturnType<typeof readMuseunCosmeticAppearanceMap>>,
+) {
+  const result = rows.map((row) => ({
+    id: row.id,
+    channel:
+      row.channel === "trade"
+        ? "trade"
+        : row.channel === "guild"
+          ? "guild"
+          : row.channel === "room"
+            ? "room"
+            : "global",
+    roomId: row.roomId,
+    name: row.name,
+    className: row.className,
+    title: row.title,
+    content: row.content,
+    itemLink: parseChatEquipmentLink(row.itemLink),
+    createdAt: row.createdAt.getTime(),
+    mine: row.mine === userId,
+    cosmetics: cosmeticByUser.get(row.mine) ?? null,
+  }));
+  return result;
+}
+
+async function readMainChannels(searchParams: URLSearchParams, userId: string) {
+  const globalAfterId = parseAfterId(searchParams, "globalAfterId");
+  const tradeAfterId = parseAfterId(searchParams, "tradeAfterId");
+  const guildAfterId = parseAfterId(searchParams, "guildAfterId");
+  if (
+    globalAfterId === undefined ||
+    tradeAfterId === undefined ||
+    guildAfterId === undefined
+  ) {
+    return new Response("invalid after id", { status: 400 });
+  }
+
+  const includeGuild = searchParams.get("includeGuild") === "1";
+  const viewerGuild = includeGuild ? await getViewerGuild(db, userId) : null;
+  const blockedUserIds = await readBlockedUserIds(userId);
+  const [globalRows, tradeRows, guildRows] = await Promise.all([
+    readChannelRows({
+      channel: "global",
+      afterId: globalAfterId,
+      guildId: null,
+      blockedUserIds,
+    }),
+    readChannelRows({
+      channel: "trade",
+      afterId: tradeAfterId,
+      guildId: null,
+      blockedUserIds,
+    }),
+    includeGuild && viewerGuild
+      ? readChannelRows({
+          channel: "guild",
+          afterId: guildAfterId,
+          guildId: viewerGuild.guildId,
+          blockedUserIds,
+        })
+      : [],
+  ]);
+  if (globalAfterId == null) globalRows.reverse();
+  if (tradeAfterId == null) tradeRows.reverse();
+  if (guildAfterId == null) guildRows.reverse();
+
+  const allRows = [...globalRows, ...tradeRows, ...guildRows];
+  const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
+    allRows.map((message) => message.mine),
+  );
+  return Response.json({
+    global: serializeRows(globalRows, userId, cosmeticByUser),
+    trade: serializeRows(tradeRows, userId, cosmeticByUser),
+    guild: serializeRows(guildRows, userId, cosmeticByUser),
+  });
 }
 
 export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
   const searchParams = new URL(req.url).searchParams;
+  if (searchParams.get("channels") === "main") {
+    return readMainChannels(searchParams, userId);
+  }
   const channel = parseChannel(searchParams.get("channel"));
   const afterIdRaw = searchParams.get("afterId");
   const afterId = afterIdRaw == null ? null : Number(afterIdRaw);

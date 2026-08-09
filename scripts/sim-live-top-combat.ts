@@ -1,9 +1,8 @@
 // 운영 전투력 상위 캐릭터의 일반 사냥 승률을 실제 저장 스냅샷으로 점검한다.
 // 읽기 전용: users/saves_kv를 SELECT만 하며 게임 데이터는 변경하지 않는다.
-// 운영 EC2 실행: node --env-file=/run/adventure-rpg/production.env --env-file=.env.production --import tsx scripts/sim-live-top-combat.ts
+// 실행: node --env-file=.env.production --import tsx scripts/sim-live-top-combat.ts
 
 import { Pool } from "pg";
-import { pathToFileURL } from "node:url";
 import { createDatabaseConnectionOptions } from "../src/db/databaseTls.mjs";
 import {
   derivePlayerCombatV2FromSaves,
@@ -39,20 +38,12 @@ import {
   LIMITED_RECOVERY_SKILL_IDS,
   type LimitedRecoverySkillId,
 } from "../src/adventure/data/v2/v2Skills";
-import {
-  COOP_BOSSES,
-  COOP_BOSS_KIND_IDS,
-  type CoopBossKindId,
-} from "../src/adventure/data/v2/coopBosses";
-import { auditCoopBossForPlayer } from "./sim-v2-coop-boss";
 
 const TOP_COUNT = 20;
 const TRIALS_PER_ENEMY = 20;
 const STORM_TRIALS_PER_ROUTE = 100;
-const COOP_TRIALS_PER_BOSS = 20;
 const SEED = 20260807;
 const STORM_ONLY = process.argv.includes("--storm-only");
-const COOP_ONLY = process.argv.includes("--coop-only");
 const DEPTHS = Array.from(
   { length: MAX_FRONTIER_DEPTH / 2 },
   (_, index) => (index + 1) * 2,
@@ -100,20 +91,6 @@ type SimPlayer = Candidate & {
 
 type Rate = { wins: number; total: number };
 
-export type LiveCoopAuditRow = {
-  bossId: CoopBossKindId;
-  survived: boolean;
-  contributionRatio: number;
-};
-
-export type LiveCoopAuditSummary = {
-  bossId: CoopBossKindId;
-  survivalRatePct: number;
-  minContributionRatio: number;
-  medianContributionRatio: number;
-  p95ContributionRatio: number;
-};
-
 function powerOf(
   combat: NonNullable<ReturnType<typeof derivePlayerCombatV2FromSaves>>,
 ): number {
@@ -145,27 +122,6 @@ function percentile(values: readonly number[], ratio: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * ratio))];
-}
-
-export function summarizeLiveCoopAudits(
-  rows: readonly LiveCoopAuditRow[],
-): LiveCoopAuditSummary[] {
-  return COOP_BOSS_KIND_IDS.flatMap((bossId) => {
-    const bossRows = rows.filter((row) => row.bossId === bossId);
-    if (bossRows.length === 0) return [];
-    const contributions = bossRows.map((row) => row.contributionRatio);
-    return [
-      {
-        bossId,
-        survivalRatePct:
-          (bossRows.filter((row) => row.survived).length / bossRows.length) *
-          100,
-        minContributionRatio: percentile(contributions, 0),
-        medianContributionRatio: percentile(contributions, 0.5),
-        p95ContributionRatio: percentile(contributions, 0.95),
-      },
-    ];
-  });
 }
 
 function pct(rate: Rate): number {
@@ -353,39 +309,6 @@ function printStormResults(players: SimPlayer[]): void {
   }
 }
 
-function printCoopResults(players: SimPlayer[]): void {
-  const rows: LiveCoopAuditRow[] = [];
-  players.forEach((player, playerIndex) => {
-    for (const bossId of COOP_BOSS_KIND_IDS) {
-      const trials = auditCoopBossForPlayer({
-        bossId,
-        player: player.combat.player,
-        skills: player.skills,
-        trials: COOP_TRIALS_PER_BOSS,
-        seed: SEED + playerIndex * 10_000,
-      });
-      rows.push(
-        ...trials.map((trial) => ({
-          bossId,
-          survived: trial.survived,
-          contributionRatio: trial.contributionRatio,
-        })),
-      );
-    }
-  });
-
-  console.log(
-    `운영 전투력 상위 ${players.length}명 · 협동 보스 ${COOP_TRIALS_PER_BOSS}회/인/보스 · 식별 정보 제외`,
-  );
-  console.log("보스                         생존율  기여율 최소/중앙/p95");
-  for (const summary of summarizeLiveCoopAudits(rows)) {
-    const label = `${summary.bossId} (${COOP_BOSSES[summary.bossId].name})`;
-    console.log(
-      `${label.padEnd(29)} ${summary.survivalRatePct.toFixed(1).padStart(5)}%  ${(summary.minContributionRatio * 100).toFixed(2).padStart(5)}/${(summary.medianContributionRatio * 100).toFixed(2).padStart(5)}/${(summary.p95ContributionRatio * 100).toFixed(2).padStart(5)}%`,
-    );
-  }
-}
-
 function preparePlayer(candidate: Candidate): SimPlayer | null {
   const { saves, character } = candidate;
   const storedSkills = parseV2SkillsState(saves["skills.v2"]);
@@ -491,11 +414,6 @@ async function main(): Promise<void> {
     const players = await loadTopPlayers(pool);
     if (players.length === 0) throw new Error("시뮬레이션할 캐릭터가 없습니다.");
 
-    if (COOP_ONLY) {
-      printCoopResults(players);
-      return;
-    }
-
     const originalRandom = Math.random;
     Math.random = seededRandom(SEED);
     if (STORM_ONLY) {
@@ -566,12 +484,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (
-  process.argv[1] &&
-  pathToFileURL(process.argv[1]).href === import.meta.url
-) {
-  void main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
-}
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

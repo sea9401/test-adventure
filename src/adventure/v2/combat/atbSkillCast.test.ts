@@ -55,6 +55,52 @@ function countText(res: BattleResolution, needle: string): number {
 }
 
 describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
+  it("회피 회복 장비는 스킬 행동 시작에도 한 번 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const recoveringPlayer: PlayerCombat = {
+      ...player,
+      hp: 200,
+      maxHp: 400,
+      evaRating: 100,
+      evasionPct: 100,
+      equipSignatures: [
+        {
+          trigger: "on_action_evasion",
+          label: "봉인",
+          lostHpHealPct: 4,
+        },
+      ],
+    };
+    const enemy: Monster = {
+      name: "허수아비",
+      tags: [],
+      hp: 120,
+      atk: 1,
+      def: 3,
+      spd: 6,
+      exp: 0,
+      evasionPct: 0,
+      accuracy: 0,
+    };
+
+    const res = resolveBattle(recoveringPlayer, enemy, "테스터", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: { learned: [SKILL], equipped: [SKILL] },
+    } as never);
+
+    const recoveryTicks = new Set(
+      res.finalState.log
+        .filter((entry) => entry.text.includes("[봉인]"))
+        .map((entry) => entry.t),
+    );
+    const skillTicks = res.finalState.log
+      .filter((entry) => entry.text.includes("난격"))
+      .map((entry) => entry.t);
+    expect(recoveryTicks.size).toBeGreaterThan(0);
+    expect(skillTicks.some((tick) => recoveryTicks.has(tick))).toBe(true);
+  });
+
   it("난격이 ATB 전투에서 시전된다 (라이브 PvE 액티브 활성화)", () => {
     // 항상 proc(0.1×100=10 < 40) → 매 플레이어 행동이 시전. 적 HP 충분히 커서 여러 번 시전.
     const enemy: Monster = {

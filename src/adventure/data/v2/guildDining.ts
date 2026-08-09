@@ -215,6 +215,15 @@ export function guildDiningMenu(raw: unknown): GuildDiningMenu | null {
   return GUILD_DINING_MENUS.find((menu) => menu.id === raw) ?? null;
 }
 
+export function guildDiningMenusForFacilityLevel(
+  level: number,
+): readonly GuildDiningMenu[] {
+  const safeLevel = Math.max(0, Math.floor(Number(level) || 0));
+  return GUILD_DINING_MENUS.filter(
+    (menu) => menu.minFacilityLevel <= safeLevel,
+  );
+}
+
 export type GuildDiningActiveEffect = {
   menuId: GuildDiningMenuId;
   kind: GuildDiningEffectKind;

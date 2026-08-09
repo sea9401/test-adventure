@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   COOKING_RECIPES,
+  COOKING_RECIPE_BY_ID,
   addCookingFood,
   adjustedCookingXp,
   cookingFoodDefinition,
@@ -85,13 +86,41 @@ describe("personal cooking", () => {
     }
     expect(recipeCounts).toEqual(
       new Map([
-        [1, 6],
-        [10, 5],
-        [20, 4],
-        [35, 4],
+        [1, 7],
+        [10, 6],
+        [20, 5],
+        [35, 5],
         [50, 9],
       ]),
     );
+  });
+
+  it("adds four ranch recipes at the intended cooking tiers", () => {
+    expect(COOKING_RECIPE_BY_ID.get("country_egg_bread")).toMatchObject({
+      name: "시골식 달걀빵",
+      requiredLevel: 1,
+      farmIngredients: { wheat: 8, egg: 4 },
+      xp: 13,
+      baseStatPct: { str: 5 },
+    });
+    expect(COOKING_RECIPE_BY_ID.get("herb_omelet")).toMatchObject({
+      requiredLevel: 10,
+      farmIngredients: { egg: 6, tomato: 5, herb: 3 },
+      xp: 29,
+      baseStatPct: { dex: 7, vit: 3 },
+    });
+    expect(COOKING_RECIPE_BY_ID.get("milk_potato_soup")).toMatchObject({
+      requiredLevel: 20,
+      farmIngredients: { milk: 6, potato: 8, onion: 4 },
+      xp: 54,
+      baseStatPct: { vit: 8, spi: 4 },
+    });
+    expect(COOKING_RECIPE_BY_ID.get("ranch_cream_gratin")).toMatchObject({
+      requiredLevel: 35,
+      farmIngredients: { milk: 8, egg: 6, potato: 8 },
+      xp: 90,
+      baseStatPct: { int: 15, vit: 7 },
+    });
   });
 
   it("uses the previously underused pearl onion and crystal sugarcane specials", () => {

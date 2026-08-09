@@ -6,7 +6,6 @@ export type DiningAvailabilityState = {
   currentSource: DiningFacilitySource;
   pantry: { ready: boolean; remaining: number };
   availableTickets: number;
-  selectedMenuCount: number;
 };
 
 export function guildDiningUnavailableReasons(
@@ -28,9 +27,6 @@ export function guildDiningUnavailableReasons(
     );
   }
 
-  if (state.selectedMenuCount <= 0) {
-    reasons.push("이번 주 운영 메뉴가 아직 정해지지 않았습니다.");
-  }
   if (!state.pantry.ready) {
     reasons.push(
       `공동 식재료 준비가 끝나지 않았습니다. ${Math.max(0, state.pantry.remaining).toLocaleString("ko-KR")}점이 더 필요합니다.`,

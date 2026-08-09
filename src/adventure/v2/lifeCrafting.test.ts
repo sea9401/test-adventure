@@ -35,6 +35,20 @@ describe("life crafting", () => {
     expect(state.reserveAidUses).toEqual({ logging_wedge_advanced: 321 });
   });
 
+  it("preserves ranch feed crafting records stored outside workshop balances", () => {
+    const state = parseLifeCraftingState({
+      balances: { compound_feed: 50 },
+      craftCounts: { compound_feed: 7 },
+      discoveredRecipeIds: ["compound_feed"],
+      totalCrafts: 7,
+    });
+
+    expect(state.balances).not.toHaveProperty("compound_feed");
+    expect(state.craftCounts.compound_feed).toBe(7);
+    expect(state.discoveredRecipeIds).toContain("compound_feed");
+    expect(state.totalCrafts).toBe(7);
+  });
+
   it("switches aid tiers without losing the remaining uses", () => {
     const initial = parseLifeCraftingState({
       balances: { logging_wedge_advanced: 1 },

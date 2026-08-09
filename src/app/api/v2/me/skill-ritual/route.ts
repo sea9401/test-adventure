@@ -2,7 +2,6 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
-import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
   emptyProficiency,
   parseProficiencyForChar,
@@ -10,13 +9,6 @@ import {
   usablePoints,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
-import {
-  V2_JOB_CATALOG,
-  V2_JOB_LIST,
-  cumLevelForJob,
-  jobIdFromLegacy,
-} from "@/adventure/data/v2/v2JobCatalog";
-import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
 import {
   V2_SKILLS,
   emptyV2SkillsState,
@@ -42,13 +34,6 @@ type CharSave = {
   bankedGold?: number;
   [key: string]: unknown;
 };
-
-function ownerJobForSkill(skillId: V2SkillId, fallbackJobId: string) {
-  for (const job of V2_JOB_LIST) {
-    if (skillsForJob(job.id).includes(skillId)) return job;
-  }
-  return V2_JOB_CATALOG[fallbackJobId] ?? null;
-}
 
 function addGold(gold: number, amount: number): number {
   return Math.max(0, Math.floor(Number(gold) || 0)) + Math.max(0, amount);
@@ -196,25 +181,6 @@ export async function POST(req: Request) {
       return {
         status: 400,
         body: { ok: false as const, error: "max_level" as const },
-      };
-    }
-
-    const cls = parseV2Class(charSave.class);
-    const specChoice =
-      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
-    const currentJobId = jobIdFromLegacy(cls, specChoice);
-    const ownerJob = ownerJobForSkill(sid, currentJobId);
-    const currentMastery = ownerJob ? cumLevelForJob(prof, ownerJob) : 0;
-    if (currentMastery < step.requiredJobCumLevel) {
-      return {
-        status: 400,
-        body: {
-          ok: false as const,
-          error: "insufficient_mastery" as const,
-          requiredJobCumLevel: step.requiredJobCumLevel,
-          haveJobCumLevel: currentMastery,
-          jobName: ownerJob?.name ?? null,
-        },
       };
     }
 

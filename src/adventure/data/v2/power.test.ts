@@ -45,10 +45,16 @@ describe("v2 콘텐츠 파워 지표", () => {
   });
 
   it("속도는 ATB 상한 이후, 회피·적중은 고레이팅에서 점감한다", () => {
+    const justBelowCap = derivePowerScore({
+      atk: 0,
+      def: 0,
+      spd: 1_022,
+      maxHp: 0,
+    });
     const capped = derivePowerScore({
       atk: 0,
       def: 0,
-      spd: POWER_SPD_CAP,
+      spd: 1_024,
       maxHp: 0,
     });
     const overflow = derivePowerScore({
@@ -57,6 +63,7 @@ describe("v2 콘텐츠 파워 지표", () => {
       spd: POWER_SPD_CAP * 10,
       maxHp: 0,
     });
+    expect(capped).toBeGreaterThan(justBelowCap);
     expect(overflow).toBe(capped);
     expect(effectiveRatingForPower(100)).toBeCloseTo(99.0066, 3);
     expect(effectiveRatingForPower(10_000)).toBeLessThan(5_000);

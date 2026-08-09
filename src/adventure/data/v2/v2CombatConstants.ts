@@ -201,11 +201,6 @@ export const POISON_PCT_PER_POINT = 0.0005;
 export const COMBO_FINISHER_PERIOD = 4;
 export const POISON_CAP_ATK_COEF = 0.9;
 
-// 부식의 방어 감소율을 중독 피해 증폭으로 환산하는 배율.
-// 완성 계보(부식 약 22.66%) 기준 중독 피해 약 1.51배가 된다.
-// 방어 감소는 낮추되 독 전문 빌드의 지속 피해 보상은 보존하며 PvE/PvP 엔진이 같은 값을 공유한다.
-export const CORROSION_POISON_DAMAGE_SCALE = 2.25;
-
 // 여러 방어 감소 효과는 남은 방어력에 차례로 적용한다.
 // 예: 20%와 30%를 함께 쓰면 50%가 아니라 44%(남은 방어 0.8×0.7=0.56).
 // 각 입력은 0~100%로 방어적으로 제한하며 결과는 절대 100%를 넘지 않는다.
@@ -217,6 +212,10 @@ export function combineDefReductionPcts(...values: number[]): number {
     remaining *= 1 - pct / 100;
   }
   return Math.round((1 - remaining) * 100 * 1_000_000) / 1_000_000;
+}
+export const DEF_REDUCTION_PCT_CAP = 60;
+export function cappedDefReductionPct(...values: number[]): number {
+  return Math.min(DEF_REDUCTION_PCT_CAP, combineDefReductionPcts(...values));
 }
 export const HEAVEN_DECREE_HP_PCT = 5;
 export const RAMPAGE_START_TURN = 3;

@@ -25,7 +25,7 @@ import {
   V2_DOT_PRESETS,
   V2_DEBUFF_PRESETS,
 } from "../data/v2/statusEffects";
-import { V2_SKILLS } from "../data/v2/v2Skills";
+import { V2_SKILLS, type V2SkillId } from "../data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -1127,6 +1127,74 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     const high = cast(1000);
     expect(high.enemyDamage).toBeGreaterThan(low.enemyDamage);
     expect(high.magicEnemyDamage).toBe(high.enemyDamage);
+  });
+
+  describe("일검필살 — 단일 타격 물리 공격 스킬만 강화", () => {
+    const cast = (
+      skillId: V2SkillId,
+      bonusPct?: number,
+      viaPattern = false,
+    ) =>
+      resolveV2SkillCast({
+        skills: { learned: [skillId], equipped: [skillId] },
+        cooldowns: {},
+        combatPattern: viaPattern
+          ? {
+              blocks: [
+                {
+                  condition: { kind: "always" },
+                  action: { kind: "skill", skillId },
+                },
+              ],
+            }
+          : undefined,
+        attacker: {
+          mp: 9_999,
+          atk: 500,
+          magicAtk: 500,
+          str: 1_000,
+          int: 1_000,
+          maxHp: 10_000,
+          currentHp: 10_000,
+          singleHitPhysicalSkillDamagePct: bonusPct,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+        target: {
+          def: 200,
+          magicDef: 200,
+          currentHp: 10_000,
+          maxHp: 10_000,
+          selfBuffs: {},
+          selfDebuffs: {},
+        },
+      });
+
+    it("무심검의 직접 피해와 타격 로그를 30% 강화한다", () => {
+      const plain = cast("v2c_swordsaint_flash");
+      const boosted = cast("v2c_swordsaint_flash", 30);
+      expect(boosted.enemyDamage).toBe(Math.floor(plain.enemyDamage * 1.3));
+      expect(boosted.hitDamages.reduce((sum, damage) => sum + damage, 0)).toBe(
+        boosted.enemyDamage,
+      );
+    });
+
+    it("연타·마법·특수 피해 스킬에는 적용하지 않는다", () => {
+      for (const skillId of [
+        "v2c_warrior_flurry",
+        "v2c_archmage_collapse",
+        "v2c_assassin_ambush",
+        "v2c_hegemon_annihilation",
+      ] as const) {
+        expect(cast(skillId, 30).enemyDamage).toBe(cast(skillId).enemyDamage);
+      }
+    });
+
+    it("전투 패턴의 위력 보정 이후 최종 피해도 30% 강화한다", () => {
+      const plain = cast("v2c_swordsaint_flash", undefined, true);
+      const boosted = cast("v2c_swordsaint_flash", 30, true);
+      expect(boosted.enemyDamage).toBe(Math.floor(plain.enemyDamage * 1.3));
+    });
   });
 
   it("resolveV2SkillCast — 성직 계보 회복기는 SPI가 높을수록 더 회복", () => {

@@ -200,7 +200,9 @@ function passiveScore(arch: SimArch, id: V2SkillId): number {
     2 *
     ((passive.enemyMagicVulnApplyChancePct ?? 100) / 100);
   score += (passive.magicSkillDamagePct ?? 0) * magic * 1.5;
-  score += (passive.spdOverflowToAtkPct ?? 0) * physical;
+  score +=
+    (passive.singleHitPhysicalSkillDamagePct ?? 0) * physical * 1.2;
+  score += (passive.spdToAtkMaxPct ?? 0) * physical;
   score +=
     (passive.atkPerLukCoef ?? 0) *
     (arch === "LUK" ? 95 : arch === "DEX" ? 35 : 8);

@@ -682,6 +682,8 @@ export type V2SkillCastInput = {
     // 마법 공격력(INT 환산). 미지정이면 v2DamageAmount 가 atk 로 폴백 — 적·구 호출 무영향.
     // scaling="magic" 데미지 스킬만 이 값을 쓴다.
     magicAtk?: number;
+    // 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬 피해 +%.
+    singleHitPhysicalSkillDamagePct?: number;
     // PR-2 v2 — 최소 데미지(하한)·회복량 배수. 미지정 안전(폴백).
     minDamage?: number;
     healMult?: number;
@@ -1144,6 +1146,16 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     1,
     castEffects.filter((effect) => directDamageKinds.has(effect.kind)).length,
   );
+  const directDamageEffects = castEffects.filter((effect) =>
+    directDamageKinds.has(effect.kind),
+  );
+  const singleDirectDamageEffect =
+    directDamageEffects.length === 1 ? directDamageEffects[0] : undefined;
+  const singleHitPhysicalBonusActive =
+    def.category === "attack" &&
+    singleDirectDamageEffect?.kind === "damage" &&
+    singleDirectDamageEffect.scaling !== "magic" &&
+    singleDirectDamageEffect.scaling !== "spi";
   // 같은 시전에서 먼저 부여하는 중독 스택도 뒤의 독 회수 효과가 읽는다. 독무처럼
   // "중독을 쌓고 터뜨리는" 복합기는 첫 시전부터 표기된 스택 추가 피해가 나와야 한다.
   const sameCastDotStacks = (tag: V2DotTag): number =>
@@ -1437,10 +1449,17 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : Math.floor(
             (scaledEnemyDamage * magicEnemyDamage) / Math.max(1, enemyDamage),
           );
+  const singleHitPhysicalDamageMult = singleHitPhysicalBonusActive
+    ? 1 + (input.attacker.singleHitPhysicalSkillDamagePct ?? 0) / 100
+    : 1;
+  const boostedEnemyDamage =
+    singleHitPhysicalDamageMult === 1
+      ? scaledEnemyDamage
+      : Math.floor(scaledEnemyDamage * singleHitPhysicalDamageMult);
   // 공격 피해를 기준으로 하는 흡혈형 회복은 이미 피해 증가 효과의 영향을 받는다.
   // 회복량 증가까지 곱하면 두 번 증폭되므로 healMult와 분리한다.
   const damageBasedHeal = Math.floor(
-    (scaledEnemyDamage * healFromDamagePct) / 100,
+    (boostedEnemyDamage * healFromDamagePct) / 100,
   );
   const directHealMult = def.oncePerBattle ? 1 : skillMult;
   const patternScaledSelfHeal =
@@ -1470,6 +1489,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         ),
       }
     : undefined;
+  const finalEnemyDamage = applyRitualPower(boostedEnemyDamage);
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: {
@@ -1481,9 +1501,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     castSkillName:
       castVariant?.name ??
       (def.elementNamed ? `${V2_ELEMENT_LABEL[charEl]} 마법` : def.name),
-    enemyDamage: applyRitualPower(scaledEnemyDamage),
+    enemyDamage: finalEnemyDamage,
     magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
-    hitDamages,
+    hitDamages:
+      singleHitPhysicalBonusActive && hitDamages.length === 1
+        ? [finalEnemyDamage]
+        : hitDamages,
     selfHeal: applyRitualPower(scaledSelfHeal),
     selfHealOnMiss: applyRitualPower(scaledSelfHealOnMiss),
     selfBuffsToApply,

@@ -988,7 +988,9 @@ function snapshotFor(
     passiveEnemyMagicVulnPctPerStack: passive.enemyMagicVulnPctPerStack,
     passiveEnemyMagicVulnApplyChancePct: passive.enemyMagicVulnApplyChancePct,
     passiveMagicSkillDamagePct: passive.magicSkillDamagePct,
-    passiveSpdOverflowToAtkPct: passive.spdOverflowToAtkPct,
+    passiveSingleHitPhysicalSkillDamagePct:
+      passive.singleHitPhysicalSkillDamagePct,
+    passiveSpdToAtkMaxPct: passive.spdToAtkMaxPct,
     passiveSpdPerLukCoef: passive.spdPerLukCoef,
     passiveSkillCritOverflow: passive.skillCritOverflow,
     passiveSkillCritAfterEvade: passive.skillCritAfterEvade,

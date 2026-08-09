@@ -51,7 +51,6 @@ import {
 } from "@/adventure/data/stats";
 import {
   ANALYSIS_PENALTY_CAP_PCT,
-  CORROSION_POISON_DAMAGE_SCALE,
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
   MAGIC_VULN_STACK_CAP,
@@ -60,7 +59,7 @@ import {
   SPELL_STACK_CAP,
   applyEvasionDamageReduction,
   absorbWithMagicBarrier,
-  combineDefReductionPcts,
+  cappedDefReductionPct,
   evasionDamageReductionPct,
   pveEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
@@ -293,28 +292,19 @@ export function playerFacingEnemyDef(
   const enchantPierce = player.enchantPierceFlat ?? 0;
   const afterEnchantPierce =
     enchantPierce > 0 ? Math.max(0, afterPierce - enchantPierce) : afterPierce;
-  // 약점 노출 (AP) — 적 DEF -pct%. 곱연산.
-  const afterDebuff =
-    buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0
-      ? Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100))
-      : afterEnchantPierce;
-  const physicalReductionPct = combineDefReductionPcts(
+  const activeReductionPct =
+    buffs.enemyDefDebuffTurnsLeft > 0 ? buffs.enemyDefDebuffPct : 0;
+  const physicalReductionPct = cappedDefReductionPct(
+    activeReductionPct,
     player.enemyPhysicalDefReductionPct ?? 0,
+    isEnemyPoisoned(state) ? player.poisonedEnemyDefReductionPct ?? 0 : 0,
   );
-  const afterPhysicalReduction =
-    physicalReductionPct > 0
-      ? Math.round(afterDebuff * (1 - physicalReductionPct / 100))
-      : afterDebuff;
-  // 부식 (독사 시그니처) — 중독된 적의 DEF -pct%. 상시 물리 감소 뒤 별도 곱연산.
-  const corrodePct = combineDefReductionPcts(
-    player.poisonedEnemyDefReductionPct ?? 0,
-  );
-  return corrodePct > 0 && isEnemyPoisoned(state)
+  return physicalReductionPct > 0
     ? Math.max(
         0,
-        Math.round(afterPhysicalReduction * (1 - corrodePct / 100)),
+        Math.round(afterEnchantPierce * (1 - physicalReductionPct / 100)),
       )
-    : afterPhysicalReduction;
+    : afterEnchantPierce;
 }
 
 function isEnemyBleeding(state: BattleState): boolean {
@@ -335,25 +325,22 @@ function playerSkillTargetMagicDef(
   player: PlayerCombat,
 ): number {
   const base = state.enemy.magicDef ?? state.enemy.def;
-  const reductionPct = combineDefReductionPcts(
+  const reductionPct = cappedDefReductionPct(
     player.enemyMagicDefReductionPct ?? 0,
   );
   if (reductionPct <= 0) return base;
   return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
 }
 
-function corrosionPoisonDotMult(player: PlayerCombat): number {
-  const corrodePct = combineDefReductionPcts(
-    player.poisonedEnemyDefReductionPct ?? 0,
-  );
-  return corrodePct > 0 ? 1 + (corrodePct * CORROSION_POISON_DAMAGE_SCALE) / 100 : 1;
+function poisonDamageMult(player: PlayerCombat): number {
+  return 1 + Math.max(0, player.poisonDamagePct ?? 0) / 100;
 }
 
-function applyCorrosionToPoisonDots(
+function applyPoisonDamageToDots(
   dots: readonly V2SkillDotApply[],
   player: PlayerCombat,
 ): V2SkillDotApply[] {
-  const mult = corrosionPoisonDotMult(player);
+  const mult = poisonDamageMult(player);
   if (mult === 1) return [...dots];
   return dots.map((dot) =>
     dot.tag === "poison"
@@ -385,7 +372,7 @@ export function applyPlayerOnHitDots(
   const poisonStacks =
     (add?.poisonStacks ?? 0) + (player.poisonOnHit ? 1 : 0);
   if (player.poisonOnHit && poisonStacks > 0) {
-    const poisonMult = corrosionPoisonDotMult(player);
+    const poisonMult = poisonDamageMult(player);
     dots.push(makePoisonDot({
       stacks: poisonStacks,
       pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack * poisonMult,
@@ -1728,6 +1715,8 @@ export function applyPlayerV2SkillCast(
       atk: player.atk,
       attackCount: player.attackCount,
       magicAtk: player.magicAtk ?? player.atk,
+      singleHitPhysicalSkillDamagePct:
+        player.singleHitPhysicalSkillDamagePct,
       minDamage: player.minDamage,
       healMult: player.healMult,
       maxHp: state.playerMaxHp,
@@ -2059,7 +2048,7 @@ export function applyPlayerV2SkillCast(
   }
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);
-  const dotsToApplyToTarget = applyCorrosionToPoisonDots(
+  const dotsToApplyToTarget = applyPoisonDamageToDots(
     result.dotsToApplyToTarget,
     player,
   );

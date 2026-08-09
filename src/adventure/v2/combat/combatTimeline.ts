@@ -9,17 +9,20 @@
 //    그걸 제거(빈도로 일원화)해야 ~2배로 통제된다 — 그 제거는 엔진 통합 단계에서.
 // 이 모듈은 결정론(Math.random 미사용) — 리플레이가 동일 타임라인을 재현한다.
 
-// 속도 매운맛 다이얼 — 멱 곡선 rate 상한. 고속 DEX·LUK가 방어·치명 축과 함께 행동 횟수까지
-// 무제한으로 키우지 않도록 기준 속도의 최대 3배에서 멈춘다. 회피·적중·치명 정체성은 불변이다.
-export const RATE_CAP = 300;
 // 멱지수 — 클수록 SPD 당 빈도 증가가 가파르다. 제곱근 곡선은 저속 구간의 기존 빈도를 거의
 // 유지하면서 최슬로(14)↔기존 최패스트(292) 행동빈도를 약 4.5배로 압축한다.
 export const SPD_RATE_POW = 0.5;
 // (spd/REF)^POW 기준 스케일 — spd=REF(64) 에서 rate=기준 100.
-// REF 64 × (RATE_CAP/100)² = SPD 576에서 상한에 정확히 도달한다.
+// REF 64 × (RATE_CAP/100)² = SPD 1,024에서 상한에 정확히 도달한다.
 export const RATE_REF_SPD = 64;
 // 기준 액터(rate 100)의 행동 간격(tick). interval = ceil(RATE_BASE^2 / rate).
 const RATE_BASE = 100;
+// 플레이어 행동 속도 상한 — 전투력 표시와 초과 속도 전환도 이 값을 단일 기준으로 공유한다.
+export const PLAYER_ACTION_SPD_CAP = 1_024;
+// 속도 매운맛 다이얼 — SPD 상한에서 도달하는 행동 레이트. 고속 성장 구간을 길게 유지하되,
+// 최종 행동 빈도는 기준 속도의 최대 4배로 제한한다.
+export const RATE_CAP =
+  RATE_BASE * Math.pow(PLAYER_ACTION_SPD_CAP / RATE_REF_SPD, SPD_RATE_POW);
 
 // 전투 로그 표시 — 이 틱 폭 단위로 행동들을 한 박스에 묶는다(UI). 기준 액터 1행동≈100틱이라
 //   400 ≈ 약 4교대(플레이어·적 행동 여러 개 + HP 바 1개)를 한 "순간"으로 보여줘 잘게 쪼개짐을 줄임.

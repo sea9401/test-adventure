@@ -49,7 +49,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   warder: ["v2c_warder_barrier", "v2c_warder_ward"], // 결계(보호막) + 결계술(마법 방어)
   assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 처단(처형·LUK 비례) + 행운(LUK+10%·치명확률)
   archer: ["v2c_archer_volley", "v2c_archer_agility"], // 속박 사격(딜+취약) + 민첩(민첩+10%)
-  venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"], // 독무(중독 누적+스택딜) + 부식(중독 적 방어↓)
+  venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion", "v2c_venomist_virulence"], // 독무 + 부식 I + 맹독 I
   camper: ["v2c_camper_camp", "v2c_camper_ration"], // 야영(자힐) + 비상식량(회복+최대 HP)
   ironman: ["v2c_ironman_brace", "v2c_ironman_body"], // 버티기(보호막) + 단련된 몸(최대 HP)
   fisher: ["v2c_camper_tidereading"], // 낚시꾼 — 물때 읽기
@@ -73,7 +73,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"], // 대치유(자힐) + 회복 II(회복+30%)
   ritualist: ["v2c_ritualist_guardingarray", "v2c_ritualist_wardcraft"], // 호법진(받피감) + 진법술(마법 방어)
   shadow: ["v2c_shadow_assassinate", "v2c_shadow_shadowstep", "v2c_shadow_lethality3"], // 암살 + 그림자 도약(1회 확정 회피) + 필살
-  venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"], // 맹독 확산(중독 심화) + 부식 II(중독 적 방어↓)
+  venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3", "v2c_venomancer_virulence2"], // 맹독 확산 + 부식 II + 맹독 II
   fieldmedic: ["v2c_fieldmedic_treatment", "v2c_fieldmedic_training"], // 현장 처치 + 구급 숙련
   extremesurvivor: ["v2c_extremesurvivor_struggle", "v2c_extremesurvivor_adaptation"], // 사투 + 극한 적응
   angler: ["v2c_angler_pointreading"], // 명인 낚시꾼 — 포인트 짚기
@@ -93,7 +93,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   sage: ["v2c_sage_bolt", "v2c_sage_insight", "v2c_sage_magicdismantle"], // 마력 폭사 + 치명 II + 마력 해체 I
   chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 관통사(DEX 궁술) + 매의 눈(명중+30%)
   phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth", "v2c_phantom_weakpoint"], // 기습 + 은신 + 급소 노출 I
-  venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"], // 독왕진(중독 폭발) + 부식 III
+  venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign", "v2c_venomlord_virulence3"], // 독왕진 + 부식 III + 맹독 III
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
   firemage: ["v2c_firemage_inferno", "v2c_firemage_ember"],
   frostmage: ["v2c_frostmage_glacier", "v2c_frostmage_frozenheart"],
@@ -133,7 +133,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준
   nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak", "v2c_nightshade_weakpoint2"], // 밤그림자: 월식 + 은신 II + 급소 노출 II
   saint: ["v2c_saint_miracle", "v2c_saint_benediction"], // 성자: 기적 + 축복
-  plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"], // 역병 군주: 역병 창궐 + 부식 IV
+  plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay", "v2c_plaguebringer_virulence4"], // 역병 군주: 역병 창궐 + 부식 IV + 맹독 IV
   dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork", "v2c_dragonfist_formationbreak2"], // 권황: 용린파쇄 + 무극보법 + 파진경 II
   adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"], // 금강승: 금강 자세 + 금강불괴
   immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"], // 불멸자: 생명 강타 + 불멸의 심장
@@ -146,7 +146,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   calamitycaller: ["v2c_calamitycaller_brand", "v2c_calamitycaller_omen"], // 재앙술사: 재앙의 낙인 + 흉조 III
   // ── 6차 직업 — 5차 직업 숙련도 기반 엔드 성장 ──
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
-  swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence", "v2c_swordsaint_armorinsight3"], // 검성: 무심검 + 검성의 경지 + 갑주 간파 III
+  swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence", "v2c_swordsaint_armorinsight3"], // 검성: 무심검 + 일검필살 + 갑주 간파 III
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕난무 + 패황의 지배
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory", "v2c_archmage_magicdismantle3"], // 대마도사: 비전 붕괴 + 대마도 이론 + 마력 해체 III
   primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance"], // 태초술사: 태초회귀 + 근원공명

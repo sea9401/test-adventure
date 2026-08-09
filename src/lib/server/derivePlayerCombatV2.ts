@@ -119,8 +119,7 @@ import {
   MIN_DMG_PER_VIT,
   MP_PER_INT,
   ROGUE_ATK_PER_DEX,
-  SPD_OVERFLOW_SCALE,
-  SPD_OVERFLOW_THRESHOLD,
+  speedToAttackBonusPct,
   SPD_PER_DEX,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
@@ -326,6 +325,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveOpeningMagicDamageReductionPhases?: number;
   /** 중독된 적 방어 -%(부식 패시브) — 다른 부식과 남은 방어력 기준 곱연산. */
   passivePoisonedEnemyDefReductionPct?: number;
+  /** 중독 지속 피해 +%(맹독 패시브) — 부식과 독립적으로 합산. */
+  passivePoisonDamagePct?: number;
   /** 적 물리 방어 -%(독립 패시브) — 같은 종류끼리 집계 단계에서 곱연산. */
   passiveEnemyPhysicalDefReductionPct?: number;
   /** 적 마법 방어 -%(독립 패시브) — 같은 종류끼리 집계 단계에서 곱연산. */
@@ -338,8 +339,10 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEnemyMagicVulnApplyChancePct?: number;
   /** 마법 스킬 피해 +% — scaling="magic"/"spi" 피해분에만 적용. */
   passiveMagicSkillDamagePct?: number;
-  /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
-  passiveSpdOverflowToAtkPct?: number;
+  /** 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬 피해 +%. */
+  passiveSingleHitPhysicalSkillDamagePct?: number;
+  /** 전체 속도를 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
+  passiveSpdToAtkMaxPct?: number;
   /** 흑월지배 — 최종 행운 1당 속도 가산 계수. */
   passiveSpdPerLukCoef?: number;
   /** 치명 한계 확장 — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
@@ -616,12 +619,9 @@ export function derivePlayerCombatV2Pure(
     const excessAccuracy = Math.max(0, accRating - BOW_HIT_THRESHOLD);
     specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
   }
-  // 검호·검성 패시브 — 완만해지는 고속 구간(SPD>292)을 공격력 %로 추가 환원한다. SPD 무한 →
-  // 점근(재폭주 방지). 행동 빈도는 SPD 1,024까지 별도로 계속 상승한다.
-  if (input.passiveSpdOverflowToAtkPct) {
-    const excessSpd = Math.max(0, specSpd - SPD_OVERFLOW_THRESHOLD);
-    const pct =
-      input.passiveSpdOverflowToAtkPct * (1 - Math.exp(-excessSpd / SPD_OVERFLOW_SCALE));
+  // 천궁 속도 전환 — 전체 SPD를 공격력으로 환원하되 SPD 무한에서 상한값으로 점근한다.
+  if (input.passiveSpdToAtkMaxPct) {
+    const pct = speedToAttackBonusPct(specSpd, input.passiveSpdToAtkMaxPct);
     specAtk += Math.floor(specAtk * (pct / 100));
   }
   // 기존 accuracyPct 필드는 호환용 표시값이며 실제 전투는 accRating을 사용한다.
@@ -641,6 +641,7 @@ export function derivePlayerCombatV2Pure(
     specEff.poisonedEnemyDefReductionPct ?? 0,
     input.passivePoisonedEnemyDefReductionPct ?? 0,
   );
+  const totalPoisonDamagePct = Math.max(0, input.passivePoisonDamagePct ?? 0);
   const totalMagicSkillDamagePct =
     (specEff.magicSkillDamagePct ?? 0) +
     (input.passiveMagicSkillDamagePct ?? 0);
@@ -787,6 +788,7 @@ export function derivePlayerCombatV2Pure(
     ...(totalPoisonedEnemyDefReductionPct
       ? { poisonedEnemyDefReductionPct: totalPoisonedEnemyDefReductionPct }
       : {}),
+    ...(totalPoisonDamagePct ? { poisonDamagePct: totalPoisonDamagePct } : {}),
     ...(input.passiveEnemyPhysicalDefReductionPct
       ? {
           enemyPhysicalDefReductionPct:
@@ -812,6 +814,12 @@ export function derivePlayerCombatV2Pure(
       : {}),
     ...(totalMagicSkillDamagePct > 0
       ? { magicSkillDamagePct: totalMagicSkillDamagePct }
+      : {}),
+    ...(input.passiveSingleHitPhysicalSkillDamagePct
+      ? {
+          singleHitPhysicalSkillDamagePct:
+            input.passiveSingleHitPhysicalSkillDamagePct,
+        }
       : {}),
     ...(input.passiveReflectDamageTakenReductionPct
       ? {
@@ -987,6 +995,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.openingMagicDamageReductionPhases,
     passivePoisonedEnemyDefReductionPct:
       passiveAgg.poisonedEnemyDefReductionPct,
+    passivePoisonDamagePct: passiveAgg.poisonDamagePct,
     passiveEnemyPhysicalDefReductionPct:
       passiveAgg.enemyPhysicalDefReductionPct,
     passiveEnemyMagicDefReductionPct: passiveAgg.enemyMagicDefReductionPct,
@@ -997,7 +1006,9 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveEnemyMagicVulnApplyChancePct:
       passiveAgg.enemyMagicVulnApplyChancePct,
     passiveMagicSkillDamagePct: passiveAgg.magicSkillDamagePct,
-    passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
+    passiveSingleHitPhysicalSkillDamagePct:
+      passiveAgg.singleHitPhysicalSkillDamagePct,
+    passiveSpdToAtkMaxPct: passiveAgg.spdToAtkMaxPct,
     passiveSpdPerLukCoef: passiveAgg.spdPerLukCoef,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
     passiveSkillCritDmgPct: passiveAgg.skillCritDmgPct,

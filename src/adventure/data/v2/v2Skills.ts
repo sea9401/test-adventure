@@ -43,10 +43,7 @@ import {
   type V2SkillEnhancements,
 } from "./skillRitual";
 import type { V2BuildTagId } from "./buildTags";
-import {
-  combineDefReductionPcts,
-  CORROSION_POISON_DAMAGE_SCALE,
-} from "./v2CombatConstants";
+import { combineDefReductionPcts } from "./v2CombatConstants";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
 export type V2SkillTempo = "rapid" | "balanced" | "control" | "burst" | "payoff";
@@ -112,6 +109,8 @@ export type V2PassiveSkillEffect = {
   inscriptionAmplification?: boolean;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
+  /** 중독 지속 피해 +% 가산(맹독). 부식과 분리해 독 피해에만 적용한다. */
+  poisonDamagePct?: number;
   /** 적 물리 방어 -% — 장착 중 항상 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
   enemyPhysicalDefReductionPct?: number;
   /** 적 마법 방어 -% — 마법 피해에만 적용하며 같은 효과끼리 남은 방어력 기준 곱연산. */
@@ -124,6 +123,8 @@ export type V2PassiveSkillEffect = {
   enemyMagicVulnApplyChancePct?: number;
   /** 마법 스킬 피해 +% — damage effect 의 scaling="magic"/"spi" 피해분에만 적용. */
   magicSkillDamagePct?: number;
+  /** 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬의 직접 피해 +%. */
+  singleHitPhysicalSkillDamagePct?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
   // ── 낚시(비전투) — 캐스팅 시 서버 권위 판정에서만 소비. 전투 derive 와 무관.
@@ -172,8 +173,8 @@ export type V2PassiveSkillEffect = {
   miningFailureRecoveryPct?: number;
   /** 성공 시 같은 광석을 1개 더 얻을 확률 +%p. */
   miningBonusOreChancePct?: number;
-  /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
-  spdOverflowToAtkPct?: number;
+  /** 전체 속도를 공격력 %로 환원(점근, 값=상한%). */
+  spdToAtkMaxPct?: number;
   /** 흑월지배 — 행운 1당 속도 가산 계수. 순수 LUK 암살 계보의 행동 빈도를 복구한다. */
   spdPerLukCoef?: number;
   /** 흑월지배 — 행운 1당 물리 공격력 가산 계수. */
@@ -374,6 +375,8 @@ export type V2SkillEffect =
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       perStackFlat: number;
+      /** 보상 계수만 올리고 기존 SP 평가를 유지할 때 쓰는 스택당 피해 산정 기준. */
+      spCostPerStackFlat?: number;
       scaling?: V2DamageScaling;
     }
   | {
@@ -641,7 +644,8 @@ function spEffectValue(
     }
     case "stackPayoffDamage": {
       const base = spDirectDamageValue(def, e, directDamageEffectCount);
-      return base + (e.perStackFlat / SP_FLAT_NORM) * 2 * 0.6; // ~2 스택·조건부.
+      const pricedPerStackFlat = e.spCostPerStackFlat ?? e.perStackFlat;
+      return base + (pricedPerStackFlat / SP_FLAT_NORM) * 2 * 0.6; // ~2 스택·조건부.
     }
     case "dot": {
       const perStack =
@@ -733,15 +737,18 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     if (p.elementResonance) mag += 0.75;
     if (p.inscriptionAmplification) mag += 0.75;
     // 방어 감소는 여러 직업을 순회해 자유롭게 모을 수 있는 대신 높은 SP 기회비용을 치른다.
-    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 3;
-    mag += (p.enemyPhysicalDefReductionPct ?? 0) / 3;
-    mag += (p.enemyMagicDefReductionPct ?? 0) / 3;
+    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 6;
+    // 맹독은 독 계보 안에서 부식과 같은 단계별 선택지다. 각 단계의 명시 SP가
+    // 같은 예산 선택을 보장하므로 generic power 루브릭에서 다시 과금하지 않는다.
+    mag += (p.enemyPhysicalDefReductionPct ?? 0) / 8;
+    mag += (p.enemyMagicDefReductionPct ?? 0) / 8;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
     mag +=
       ((p.enemyMagicVulnPctPerStack ?? 0) / 5) *
       ((p.enemyMagicVulnApplyChancePct ?? 100) / 100);
     mag += (p.magicSkillDamagePct ?? 0) / 8;
-    mag += (p.spdOverflowToAtkPct ?? 0) / 20;
+    mag += (p.singleHitPhysicalSkillDamagePct ?? 0) / 10;
+    mag += (p.spdToAtkMaxPct ?? 0) / 20;
     if (p.atkPerLukCoef) {
       mag += Math.sqrt(p.atkPerLukCoef / 0.08) * 0.35;
     }
@@ -1137,6 +1144,9 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
         ...effect,
         statCoef: scaledDirectStatCoef(effect.statCoef, effect.scaling, scale),
         perStackFlat: scaledFlat(effect.perStackFlat, scale),
+        ...(effect.spCostPerStackFlat != null
+          ? { spCostPerStackFlat: scaledFlat(effect.spCostPerStackFlat, scale) }
+          : {}),
         ...(effect.baseFlatByTier
           ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
           : {}),
@@ -1287,13 +1297,15 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   openingMagicDamageReductionPct: number;
   openingMagicDamageReductionPhases: number;
   poisonedEnemyDefReductionPct: number;
+  poisonDamagePct: number;
   enemyPhysicalDefReductionPct: number;
   enemyMagicDefReductionPct: number;
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
   enemyMagicVulnApplyChancePct: number;
   magicSkillDamagePct: number;
-  spdOverflowToAtkPct: number;
+  singleHitPhysicalSkillDamagePct: number;
+  spdToAtkMaxPct: number;
   spdPerLukCoef: number;
   skillCritOverflow: boolean;
   skillCritDmgPct: number;
@@ -1323,13 +1335,15 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let openingMagicDamageReductionPct = 0;
   let openingMagicDamageReductionPhases = 0;
   let poisonedEnemyDefReductionPct = 0;
+  let poisonDamagePct = 0;
   let enemyPhysicalDefReductionPct = 0;
   let enemyMagicDefReductionPct = 0;
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
   let enemyMagicVulnApplyChancePct = 0;
   let magicSkillDamagePct = 0;
-  let spdOverflowToAtkPct = 0;
+  let singleHitPhysicalSkillDamagePct = 0;
+  let spdToAtkMaxPct = 0;
   let spdPerLukCoef = 0;
   let skillCritOverflow = false;
   let skillCritDmgPct = 0;
@@ -1375,6 +1389,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       poisonedEnemyDefReductionPct,
       p.poisonedEnemyDefReductionPct ?? 0,
     );
+    poisonDamagePct += p.poisonDamagePct ?? 0;
     enemyPhysicalDefReductionPct = combineDefReductionPcts(
       enemyPhysicalDefReductionPct,
       p.enemyPhysicalDefReductionPct ?? 0,
@@ -1392,7 +1407,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       );
     }
     magicSkillDamagePct += p.magicSkillDamagePct ?? 0;
-    spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
+    singleHitPhysicalSkillDamagePct +=
+      p.singleHitPhysicalSkillDamagePct ?? 0;
+    spdToAtkMaxPct += p.spdToAtkMaxPct ?? 0;
     spdPerLukCoef += p.spdPerLukCoef ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
     skillCritDmgPct += p.skillCritDmgPct ?? 0;
@@ -1426,13 +1443,15 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     openingMagicDamageReductionPct,
     openingMagicDamageReductionPhases,
     poisonedEnemyDefReductionPct,
+    poisonDamagePct,
     enemyPhysicalDefReductionPct,
     enemyMagicDefReductionPct,
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
     enemyMagicVulnApplyChancePct,
     magicSkillDamagePct,
-    spdOverflowToAtkPct,
+    singleHitPhysicalSkillDamagePct,
+    spdToAtkMaxPct,
     spdPerLukCoef,
     skillCritOverflow,
     skillCritDmgPct,
@@ -1799,9 +1818,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
   if (p.poisonedEnemyDefReductionPct)
-    chips.push(
-      `중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct * CORROSION_POISON_DAMAGE_SCALE}%`,
-    );
+    chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
+  if (p.poisonDamagePct) chips.push(`중독 피해 +${p.poisonDamagePct}%`);
   if (p.enemyPhysicalDefReductionPct)
     chips.push(`적 물리 방어 -${p.enemyPhysicalDefReductionPct}%`);
   if (p.enemyMagicDefReductionPct)
@@ -1814,6 +1832,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`마법취약 누적 확률 ${p.enemyMagicVulnApplyChancePct}%`);
   if (p.magicSkillDamagePct)
     chips.push(`마법 스킬 피해 +${p.magicSkillDamagePct}%`);
+  if (p.singleHitPhysicalSkillDamagePct)
+    chips.push(`단일 타격 물리 스킬 피해 +${p.singleHitPhysicalSkillDamagePct}%`);
   if (p.profPerKillBonus) chips.push(`사냥 승리 숙달 +${p.profPerKillBonus}`);
   if (p.fishingSizeBonusPct)
     chips.push(`물고기 크기 +${p.fishingSizeBonusPct}%`);
@@ -1856,8 +1876,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`채광 실패 구제 ${p.miningFailureRecoveryPct}%`);
   if (p.miningBonusOreChancePct)
     chips.push(`추가 광석 확률 ${p.miningBonusOreChancePct}%`);
-  if (p.spdOverflowToAtkPct)
-    chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
+  if (p.spdToAtkMaxPct)
+    chips.push(`속도에 비례해 공격력 증가 (최대 +${p.spdToAtkMaxPct}%에 가까워짐)`);
   if (p.spdPerLukCoef)
     chips.push(`행운 ×${p.spdPerLukCoef}만큼 속도 증가`);
   if (p.atkPerLukCoef)

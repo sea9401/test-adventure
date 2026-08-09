@@ -110,10 +110,14 @@ export const ACCURACY_PCT_CAP = 35;
 // 궁사 활 패시브 — 임계치를 넘긴 적중도를 공격력으로 일부 변환한다.
 export const BOW_HIT_THRESHOLD = 50;
 export const BOW_ACCURACY_TO_ATK_COEF = 0.45;
-// 검호·검성 패시브 — 고속 구간(combatTimeline: SPD 292 초과)의 완만해진 성장분을 점근 곡선으로
-// 공격력에 추가 환원한다. 행동 빈도는 별도의 상한까지 오르며, 점근 보너스는 투자 가치를 보탠다.
-export const SPD_OVERFLOW_THRESHOLD = 292;
-export const SPD_OVERFLOW_SCALE = 200; // 점근 완만도(클수록 천천히 상한 접근).
+// 천궁 속도 전환 — 전체 SPD를 공격력으로 환원하되, 이 값에서 최대 보너스의 절반에 도달한다.
+export const SPD_TO_ATK_HALF_SATURATION = 500;
+
+export function speedToAttackBonusPct(spd: number, maxPct: number): number {
+  const safeSpd = Math.max(0, Number(spd) || 0);
+  const safeMaxPct = Math.max(0, Number(maxPct) || 0);
+  return safeMaxPct * (safeSpd / (safeSpd + SPD_TO_ATK_HALF_SATURATION));
+}
 
 // v2 SPD → 레거시 다중공격 원시 확률. 실제 반환값은 아래 점감 곡선을 거친다. 라이브 ATB는
 // extraAttackChancePct를 끄고 combatTimeline의 행동 빈도 곡선만 사용한다.

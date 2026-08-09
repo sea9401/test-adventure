@@ -8,6 +8,7 @@ import {
   advanceTurnPvP,
   applyEvasionActionRecoveryPvP,
   applyShadowStepDodge,
+  attackerFacingDef,
   castV2SkillOnAttackerTurnPvP,
   initialBattleStatePvP,
   resolveBattlePvP,
@@ -144,6 +145,35 @@ describe("PvP 직업 패시브 물리·마법 방어 감소", () => {
     );
 
     expect(corroded).toBe(fortyDefenseControl);
+  });
+
+  it("물리 방어 감소와 부식은 합쳐 60%에서 멈추고 관통은 별도로 적용한다", () => {
+    const attacker = makePlayer({
+      spd: 100,
+      armorPierceFraction: 0.5,
+      enemyPhysicalDefReductionPct: 50,
+      poisonedEnemyDefReductionPct: 40,
+    });
+    const defender = makePlayer({ spd: 1, def: 1_000 });
+    const initial = initialBattleStatePvP(attacker, defender, "P1", "P2");
+    const poisonedDefender = {
+      ...initial.p2,
+      v2Dots: [
+        makePoisonDot({ stacks: 1, pctMaxHpPerStack: 0, sourceAtk: 0 }),
+      ],
+    };
+
+    expect(attackerFacingDef(initial.p1, poisonedDefender)).toBe(200);
+  });
+
+  it("마법 방어 감소도 60% 상한을 넘기면 피해가 더 오르지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    expect(
+      castDamage("v2c_mage_fireball", { enemyMagicDefReductionPct: 90 }),
+    ).toBe(
+      castDamage("v2c_mage_fireball", { enemyMagicDefReductionPct: 60 }),
+    );
   });
 });
 

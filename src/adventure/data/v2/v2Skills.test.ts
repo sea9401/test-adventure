@@ -170,15 +170,15 @@ describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 
   });
 });
 
-describe("공격형 6차 반사 대응 패시브", () => {
-  it("반사 피해 감소를 집계하고 상세 설명에 노출한다", () => {
+describe("일검필살 공격 전념", () => {
+  it("반사 피해 감소를 제거하고 상세 설명에서도 노출하지 않는다", () => {
     const passive = aggregateEquippedPassives([
       "v2c_swordsaint_transcendence",
     ]);
-    expect(passive.reflectDamageTakenReductionPct).toBe(20);
+    expect(passive.reflectDamageTakenReductionPct).toBe(0);
     expect(
       describeV2Skill(V2_SKILLS.v2c_swordsaint_transcendence),
-    ).toContain("받는 반사 피해 -20%");
+    ).not.toContain("받는 반사 피해 -20%");
   });
 });
 
@@ -361,9 +361,12 @@ describe("광부 생활 패시브", () => {
 });
 
 describe("v2Skills 카탈로그", () => {
-  it("부식 패시브는 실제 중독 피해 환산 계수를 표시한다", () => {
+  it("부식과 맹독 패시브는 방어 감소와 중독 피해를 분리해 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_venomist_corrosion)).toContain(
-      "중독 적 방어 -3% / 중독 피해 +6.75%",
+      "중독 적 방어 -6%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_venomist_virulence)).toContain(
+      "중독 피해 +24.4%",
     );
   });
 
@@ -981,15 +984,45 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_phantom_stealth)).toBe(3); // 회피도 +16%
   });
 
-  it("조건부 대항축인 명중은 수치 상향 뒤에도 SP를 과청구하지 않는다", () => {
+  it("조건부 대항축인 명중과 속도 전환을 성능에 맞게 SP로 청구한다", () => {
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(30);
     expect(spCostOf(V2_SKILLS.v2c_chief_afterimage)).toBe(3);
     expect(V2_SKILLS.v2c_marksman_aim.passive?.accuracyPct).toBe(24);
+    expect(V2_SKILLS.v2c_marksman_aim.passive?.spdToAtkMaxPct).toBeUndefined();
     expect(spCostOf(V2_SKILLS.v2c_marksman_aim)).toBe(5);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.accuracyPct).toBe(30);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritDmgPct).toBe(30);
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.spdToAtkMaxPct).toBe(30);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritOverflow).toBeUndefined();
-    expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(8);
+    expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(11);
+  });
+
+  it("속도 비례 공격력 전환은 검 계보가 아니라 6차 천궁에만 있다", () => {
+    const sword = aggregateEquippedPassives([
+      "v2c_swordmaster_focus",
+      "v2c_swordsaint_transcendence",
+    ]);
+    const bow = aggregateEquippedPassives([
+      "v2c_marksman_aim",
+      "v2c_heavenlybow_starpath",
+    ]);
+
+    expect(sword.spdToAtkMaxPct).toBe(0);
+    expect(bow.spdToAtkMaxPct).toBe(30);
+  });
+
+  it("일검필살은 방어 효과 없이 검성의 공격 능력을 모두 강화한다", () => {
+    const skill = V2_SKILLS.v2c_swordsaint_transcendence;
+    const passive = aggregateEquippedPassives([skill.id]);
+
+    expect(skill.name).toBe("일검필살");
+    expect(skill.passive?.statPct).toEqual({ str: 24 });
+    expect(skill.passive?.critDmgPct).toBe(35);
+    expect(passive.singleHitPhysicalSkillDamagePct).toBe(30);
+    expect(passive.accuracyPct).toBe(15);
+    expect(passive.reflectDamageTakenReductionPct).toBe(0);
+    expect(spCostOf(skill)).toBe(11);
+    expect(describeV2Skill(skill)).toContain("단일 타격 물리 스킬 피해 +30%");
   });
 
   it("성도 조준은 흑월의 치명 오버플로 대신 고정 스킬 치명 피해를 제공한다", () => {

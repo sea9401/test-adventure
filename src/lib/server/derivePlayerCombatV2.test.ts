@@ -144,6 +144,30 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(aimed.atk).toBeGreaterThan(base.atk);
   });
 
+  it("속도 비례 공격력 전환은 1,024 아래부터 작동하고 고속에서 점감한다", () => {
+    const derive = (allocatedDex: number, maxPct = 0) =>
+      derivePlayerCombatV2Pure({
+        level: 100,
+        allocatedStats: { str: 1_000, dex: allocatedDex },
+        v2Equipped: {},
+        passiveSpdToAtkMaxPct: maxPct,
+      }).player;
+
+    const cases = [
+      { allocatedDex: 300, spd: 299.25, expectedAtk: 401 },
+      { allocatedDex: 511, spd: 499.7, expectedAtk: 415 },
+      { allocatedDex: 1_062, spd: 1_023.15, expectedAtk: 433 },
+      { allocatedDex: 2_000, spd: 1_914.25, expectedAtk: 446 },
+    ];
+    for (const testCase of cases) {
+      const base = derive(testCase.allocatedDex);
+      const converted = derive(testCase.allocatedDex, 30);
+      expect(base.spd).toBe(testCase.spd);
+      expect(base.atk).toBe(361);
+      expect(converted.atk).toBe(testCase.expectedAtk);
+    }
+  });
+
   it("6T 4세트와 다른 2세트를 동시에 조합할 수 있다", () => {
     const signatures = collectEquipSignatures({
       weapon: "v2_storm_wreckage_greatsword",
@@ -941,6 +965,24 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     expect(equipped.player.magicBarrierAbsorbPct).toBeGreaterThan(0);
     expect(unequipped.player.magicBarrierMax).toBeUndefined();
   });
+
+  it("맹독 네 단계와 만독지배를 장착하면 중독 피해 증폭 122%를 전투 캐릭터에 전달한다", () => {
+    const poisonSkills = [
+      "v2c_venomist_virulence",
+      "v2c_venomancer_virulence2",
+      "v2c_venomlord_virulence3",
+      "v2c_plaguebringer_virulence4",
+      "v2c_myriadvenom_body",
+    ];
+    const derived = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "rogue", specChoice: "myriadvenom" },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { learned: poisonSkills, equipped: poisonSkills },
+    })!;
+
+    expect(derived.player.poisonDamagePct).toBe(122);
+  });
 });
 
 describe("derivePlayerCombatV2 preloaded (사냥 배치 char/equip 중복 select 제거)", () => {
@@ -1205,6 +1247,16 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     }).player;
     expect(plain.magicSkillDamagePct).toBeUndefined();
     expect(archmage.magicSkillDamagePct).toBe(12);
+  });
+
+  it("일검필살 패시브는 단일 타격 물리 스킬 피해 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const swordSaint = derivePlayerCombatV2Pure({
+      ...base,
+      passiveSingleHitPhysicalSkillDamagePct: 30,
+    }).player;
+    expect(plain.singleHitPhysicalSkillDamagePct).toBeUndefined();
+    expect(swordSaint.singleHitPhysicalSkillDamagePct).toBe(30);
   });
 
   it("성도 조준의 스킬 치명타 피해는 별도 전투 레버로 노출된다", () => {

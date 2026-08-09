@@ -185,4 +185,75 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
       ),
     ).toBe(false);
   });
+
+  it("ATB 몬스터 직접 피해 스킬에도 일반 받는 피해 감소를 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const enemy: Monster = {
+      name: "정예 경감 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+    const plainPlayer: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+    };
+    const reducedPlayer: PlayerCombat = {
+      ...plainPlayer,
+      passiveDamageTakenReductionPct: 20,
+    };
+    const plainState = initialBattleState(plainPlayer, enemy, "일반");
+    const reducedState = initialBattleState(reducedPlayer, enemy, "경감");
+
+    const plainAfter = applyEnemyV2SkillCast(plainState, plainPlayer).state;
+    const reducedAfter = applyEnemyV2SkillCast(
+      reducedState,
+      reducedPlayer,
+    ).state;
+    const plainDamage = plainState.playerHp - plainAfter.playerHp;
+    const reducedDamage = reducedState.playerHp - reducedAfter.playerHp;
+
+    expect(reducedDamage).toBe(Math.floor(plainDamage * 0.8));
+  });
+
+  it("받는 피해 감소가 있어도 몬스터의 비피해 스킬은 피해를 주지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const defender: PlayerCombat = {
+      ...player,
+      hp: 1_000,
+      maxHp: 1_000,
+      passiveDamageTakenReductionPct: 20,
+    };
+    const enemy: Monster = {
+      name: "포효 시험체",
+      tags: [],
+      hp: 10_000,
+      atk: 100,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_savage_roar"],
+        equipped: ["mob_savage_roar"],
+      },
+      v2MaxMp: 25,
+    };
+    const state = initialBattleState(defender, enemy, "경감");
+
+    const cast = applyEnemyV2SkillCast(state, defender);
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.playerHp).toBe(state.playerHp);
+  });
 });

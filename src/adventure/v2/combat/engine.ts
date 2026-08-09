@@ -37,6 +37,7 @@ import {
   battleStartShield,
   everyNHitsEffect,
   healToShield,
+  lowHpDamageReductionPct,
   onCritSpeedBuff,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
@@ -100,6 +101,59 @@ export type {
   PlayerAction,
   PlayerCombat,
 } from "./engineState";
+
+function reduceIncomingEnemySkillDamage(
+  state: BattleState,
+  player: PlayerCombat,
+  damage: number,
+): number {
+  if (damage <= 0) return 0;
+  const afterEnemyDamageDown =
+    state.stacks.enemyDamageDownTurns > 0 &&
+    state.stacks.enemyDamageDownPct > 0
+      ? Math.max(
+          1,
+          Math.floor(
+            damage * (1 - state.stacks.enemyDamageDownPct / 100),
+          ),
+        )
+      : damage;
+  const afterResolve =
+    state.buffs.playerDmgReductionTurnsLeft > 0 &&
+    state.buffs.playerDmgReductionPct > 0
+      ? Math.max(
+          1,
+          Math.floor(
+            afterEnemyDamageDown *
+              (1 - state.buffs.playerDmgReductionPct / 100),
+          ),
+        )
+      : afterEnemyDamageDown;
+  const endurePct = player.enchantEndurePct ?? 0;
+  const afterEndure =
+    endurePct > 0
+      ? Math.max(1, Math.floor(afterResolve * (1 - endurePct / 100)))
+      : afterResolve;
+  const activeReductionPct =
+    state.stacks.skillDmgReduceTurns > 0
+      ? state.stacks.skillDmgReducePct
+      : 0;
+  const lowHpReductionPct = lowHpDamageReductionPct(
+    player.equipSignatures,
+    state.playerHp,
+    player.maxHp,
+  );
+  const generalReductionPct =
+    (player.passiveDamageTakenReductionPct ?? 0) +
+    activeReductionPct +
+    lowHpReductionPct;
+  return generalReductionPct > 0
+    ? Math.max(
+        1,
+        Math.floor(afterEndure * (1 - generalReductionPct / 100)),
+      )
+    : afterEndure;
+}
 
 // 로그는 전체 보관 — 종료 후 알림에 첨부되는 battleLog 도 같은 배열을 사용한다.
 // BattleScene 은 스크롤 컨테이너라 길이가 늘어도 UX 영향 없음.
@@ -1339,10 +1393,11 @@ export function applyEnemyV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextEnemyHp = state.enemyHp;
   let nextLog = state.log;
-  const enemySkillDamage =
-    result.enemyDamage > 0 && state.stacks.enemyDamageDownTurns > 0
-      ? Math.floor(result.enemyDamage * (1 - state.stacks.enemyDamageDownPct / 100))
-      : result.enemyDamage;
+  const enemySkillDamage = reduceIncomingEnemySkillDamage(
+    state,
+    player,
+    result.enemyDamage,
+  );
   const enemySkillShieldAbsorbed = Math.min(
     state.stacks.playerShield,
     enemySkillDamage,
@@ -2394,10 +2449,11 @@ function resolveBattleLegacy(
         }
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
-        const enemySkillDamage =
-          result.enemyDamage > 0 && state.stacks.enemyDamageDownTurns > 0
-            ? Math.floor(result.enemyDamage * (1 - state.stacks.enemyDamageDownPct / 100))
-            : result.enemyDamage;
+        const enemySkillDamage = reduceIncomingEnemySkillDamage(
+          state,
+          player,
+          result.enemyDamage,
+        );
         const enemySkillShieldAbsorbed = Math.min(
           state.stacks.playerShield,
           enemySkillDamage,

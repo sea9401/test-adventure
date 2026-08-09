@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   advanceTurn,
   initialBattleState,
+  resolveBattle,
   type PlayerCombat,
 } from "./engine";
 import type { Monster } from "@/adventure/data/monsters";
@@ -116,6 +117,46 @@ describe("마법형 몬스터(atkType:magic) — 마법방어(정신)로 경감"
     );
 
     expect(warded).toBe(Math.floor(plain * 0.9));
+  });
+
+  it("일반 받는 피해 감소는 몬스터 마법 스킬 피해에도 적용된다", () => {
+    const magicCaster: Monster = {
+      ...baseMob,
+      atkType: "magic",
+      v2Skills: {
+        learned: ["mob_arcane_bolt"],
+        equipped: ["mob_arcane_bolt"],
+      },
+      v2MaxMp: 999,
+    };
+    const run = (player: PlayerCombat) => {
+      const spy = vi.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        const result = resolveBattle(player, magicCaster, "용사", {
+          pickAction: () => ({ kind: "attack" }),
+          potions: {},
+          v2Skills: { learned: [], equipped: [] },
+        });
+        const skillLog = result.finalState.log.find((entry) =>
+          entry.text.startsWith("마력탄!"),
+        );
+        expect(skillLog).toBeDefined();
+        const match = skillLog?.text.match(/ (\d+) 피해를 입혔다\./);
+        expect(match).not.toBeNull();
+        return Number(match?.[1]);
+      } finally {
+        spy.mockRestore();
+      }
+    };
+    const plain = run(combatant({ magicDef: 0 }));
+    const reduced = run(
+      combatant({
+        magicDef: 0,
+        passiveDamageTakenReductionPct: 20,
+      }),
+    );
+
+    expect(reduced).toBe(Math.floor(plain * 0.8));
   });
 
   it("물리 몹: 물리방어로 경감 — magicDef 는 무용", () => {

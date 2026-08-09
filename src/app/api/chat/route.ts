@@ -282,7 +282,7 @@ export async function GET(req: Request) {
         ? visibleChannelWhere
         : and(visibleChannelWhere, gt(messages.id, afterId)),
     )
-    // 최초 조회는 최신 50개를 가져온 뒤 시간순으로 뒤집는다. 증분 조회는
+    // 최초 조회는 최신 100개를 가져온 뒤 시간순으로 뒤집는다. 증분 조회는
     // afterId 이후를 오래된 순서로 보내 누락 없이 기존 목록 뒤에 합칠 수 있게 한다.
     .orderBy(
       ...(afterId == null

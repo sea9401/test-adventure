@@ -826,19 +826,22 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   return raw;
 }
 
-// 성능비례 코스트 바닥(루브릭) — power 점수 → 원시 SP 뒤 중·고비용 구간만 압축.
-//   기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
+// 성능비례 코스트 바닥(루브릭) — power 점수 → 원시 SP. 1~4차의 중·고비용 구간만 압축하고
+// 5·6차는 원시 SP를 그대로 써 상위 전직의 강한 스킬이 지나치게 싸지 않게 한다.
+// 기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
 export function rubricSpCost(skill: V2SkillDefinition): number {
   // 패시브는 코스트만 ×SP_PASSIVE_DISCOUNT 할인(상시 효과 과청구 완화). power 점수 자체는 불변.
   const power = skillPowerScore(skill) * (skill.passive ? SP_PASSIVE_DISCOUNT : 1);
   const rawSp = Math.max(1, Math.round(0.7 + 3.0 * power));
   if (rawSp <= 5) return rawSp;
   const compressed = 5 + Math.ceil((rawSp - 5) * 0.6);
+  const jobTier = combatJobTierForSkill(skill.id);
+  const pricedSp = jobTier === 5 || jobTier === 6 ? rawSp : compressed;
   // 조합형 액티브는 표시된 최대 효과를 혼자 내는 스킬이 아니다. 강한 주문식을 쓰려면 하위 재료
   // 스킬도 각각 SP를 지불해 함께 장착해야 하므로, 본체까지 최대 효과 전액으로 청구하면 조합 자체가
   // 성립하지 않는다. 재료 비용을 감안해 본체는 현 카탈로그 고성능 상한(16 SP)에서 제한한다.
   // 원소군주 최대 변형 기준 22→16으로 약 27% 할인되어, 오원소 선행 조건의 실전 보상이 된다.
-  return skill.castVariants?.length ? Math.min(16, compressed) : compressed;
+  return skill.castVariants?.length ? Math.min(16, pricedSp) : pricedSp;
 }
 
 const LIFESTYLE_PASSIVE_KEYS = [

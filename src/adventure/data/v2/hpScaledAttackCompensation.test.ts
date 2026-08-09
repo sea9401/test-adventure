@@ -45,16 +45,16 @@ describe("HP 기반 공격 계수 보상", () => {
     }
   });
 
-  it("자해·회복·보호막과 SP 비용은 유지한다", () => {
+  it("자해·회복·보호막과 차수별 SP 정책을 유지한다", () => {
     const expectedSp = {
       v2c_immortal_lifestrike: 4,
       v2c_berserker_bloodslash: 6,
       v2c_bloodtemplar_stigma: 7,
       v2c_warlord_bloodbath: 6,
-      v2c_overlord_ruin: 8,
+      v2c_overlord_ruin: 10,
       v2c_bloodlord_brand: 7,
-      v2c_hegemon_annihilation: 11,
-      v2c_blooddemon_reign: 10,
+      v2c_hegemon_annihilation: 15,
+      v2c_blooddemon_reign: 12,
     } as const;
     for (const [id, sp] of Object.entries(expectedSp)) {
       expect(spCostOf(V2_SKILLS[id as keyof typeof expectedSp]), id).toBe(sp);

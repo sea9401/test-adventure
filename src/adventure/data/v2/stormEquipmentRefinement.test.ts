@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { aggregateV2Equipment } from "@/lib/server/derivePlayerEquipmentV2";
 import {
   parseEquipmentSave,
   V2_EQUIPMENT,
@@ -32,12 +33,28 @@ const STORM_SET_IDS = [
 ] as const;
 
 describe("6T 빌드 세트", () => {
-  it("7개 컨셉이 각각 6부위이며 2·4부위 발동과 3·5부위 전환 보정을 제공한다", () => {
+  it("방어 체계 이후 확정된 경갑·회피 장비의 방어력 배분을 유지한다", () => {
+    expect(V2_EQUIPMENT.v2_boss_lake_gloves.options?.def).toBeUndefined();
+    expect(V2_EQUIPMENT.v2_sanctum_sig_sealed_ring.options?.def).toBeUndefined();
+    expect(V2_EQUIPMENT.v2_swamp_sig_scale_armor.options?.def).toBeUndefined();
+    expect(V2_EQUIPMENT.v2_storm_venom_armor.options?.def).toBeUndefined();
+  });
+
+  it("7개 컨셉이 각각 6부위이며 회피형 완성 세트는 6부위 공격 효과를 제공한다", () => {
+    const completionSetIds = new Set([
+      "storm_pursuit",
+      "storm_shadow",
+      "storm_venom",
+    ]);
+
     for (const setId of STORM_SET_IDS) {
       const set = V2_EQUIP_TAG_SETS.find((candidate) => candidate.id === setId);
-      expect(set?.thresholds.map((threshold) => threshold.count)).toEqual([
-        2, 3, 4, 5,
-      ]);
+      const expectedThresholds = completionSetIds.has(setId)
+        ? [2, 3, 4, 5, 6]
+        : [2, 3, 4, 5];
+      expect(set?.thresholds.map((threshold) => threshold.count)).toEqual(
+        expectedThresholds,
+      );
       const pieces = Object.values(V2_EQUIPMENT).filter((item) =>
         item.setTags?.includes(setId),
       );
@@ -45,6 +62,77 @@ describe("6T 빌드 세트", () => {
       expect(new Set(pieces.map((item) => item.slot)).size).toBe(6);
       expect(pieces.every((item) => item.tier === 16 && item.noDrop)).toBe(true);
     }
+  });
+
+  it("천공추적·무풍암영·만독침식은 생존 스탯 대신 공격 템포를 여는 6부위 효과를 쓴다", () => {
+    const completion = (
+      setId: "storm_pursuit" | "storm_shadow" | "storm_venom",
+    ) =>
+      V2_EQUIP_TAG_SETS.find(
+        (set) => set.id === setId,
+      )?.thresholds.find((threshold) => threshold.count === 6);
+
+    expect(completion("storm_pursuit")).toMatchObject({
+      bonus: { accuracy: 20, critMult: 60 },
+      signature: { trigger: "every_n_hits", everyNHits: 2 },
+    });
+    expect(completion("storm_shadow")).toMatchObject({
+      bonus: { crit: 6, critMult: 100 },
+      signature: { trigger: "every_n_hits", everyNHits: 7 },
+    });
+    expect(completion("storm_venom")).toMatchObject({
+      bonus: { crit: 4, critMult: 60 },
+      signature: { trigger: "every_n_hits", everyNHits: 8 },
+    });
+    for (const setId of [
+      "storm_pursuit",
+      "storm_shadow",
+      "storm_venom",
+    ] as const) {
+      expect(completion(setId)?.bonus.hp).toBeUndefined();
+      expect(completion(setId)?.bonus.def).toBeUndefined();
+    }
+  });
+
+  it("산군의 체력·방어 총량은 6부위에 집중되어 완성 탱커 성능만 보존한다", () => {
+    expect(V2_EQUIPMENT.v2_hard_sangoon_hide.options).toMatchObject({
+      hp: 750,
+      def: 70,
+    });
+    expect(V2_EQUIPMENT.v2_hard_sangoon_claws.options).toMatchObject({
+      hp: 170,
+      def: 26,
+    });
+    expect(V2_EQUIPMENT.v2_hard_sangoon_stride.options).toMatchObject({
+      hp: 150,
+      def: 22,
+    });
+
+    const set = V2_EQUIP_TAG_SETS.find(
+      (candidate) => candidate.id === "hard_sangoon",
+    );
+    expect(set?.thresholds.map((threshold) => threshold.bonus)).toMatchObject([
+      { hp: 260, def: 32 },
+      { hp: 400, def: 48 },
+      { hp: 1_230, def: 166 },
+    ]);
+
+    const full = aggregateV2Equipment({
+      weapon: "v2_hard_sangoon_cleaver",
+      armor: "v2_hard_sangoon_hide",
+      gloves: "v2_hard_sangoon_claws",
+      boots: "v2_hard_sangoon_stride",
+      ring: "v2_hard_sangoon_ring",
+      necklace: "v2_hard_sangoon_amulet",
+    });
+    const fourPieceSplash = aggregateV2Equipment({
+      armor: "v2_hard_sangoon_hide",
+      gloves: "v2_hard_sangoon_claws",
+      boots: "v2_hard_sangoon_stride",
+      ring: "v2_hard_sangoon_ring",
+    });
+    expect(full).toMatchObject({ hp: 3_940, def: 720 });
+    expect(fourPieceSplash).toMatchObject({ hp: 1_990, def: 518 });
   });
 
   it("3·5부위 보정은 세트별 생존 방식과 자원 축을 유지한다", () => {
@@ -56,10 +144,17 @@ describe("6T 빌드 세트", () => {
     expect(threshold("storm_gravity", 3)).toMatchObject({ def: 80, critResist: 8 });
     expect(threshold("storm_breaker", 3)).toMatchObject({ crit: 2, critMult: 15 });
     expect(threshold("storm_pursuit", 3)).toMatchObject({ eva: 4 });
+    expect(threshold("storm_pursuit", 3)?.def).toBeUndefined();
+    expect(threshold("storm_pursuit", 5)?.def).toBeUndefined();
     expect(threshold("storm_shadow", 3)).toMatchObject({ eva: 8 });
+    expect(threshold("storm_shadow", 3)?.def).toBeUndefined();
+    expect(threshold("storm_shadow", 5)?.def).toBeUndefined();
     expect(threshold("storm_venom", 3)).toMatchObject({
+      hp: 700,
       statusDamageReductionPct: 5,
     });
+    expect(threshold("storm_venom", 3)?.def).toBeUndefined();
+    expect(threshold("storm_venom", 5)?.def).toBeUndefined();
     expect(threshold("storm_arcane", 3)).toMatchObject({ mp: 200 });
     expect(threshold("storm_sanctuary", 3)).toMatchObject({
       healPowerPct: 4,

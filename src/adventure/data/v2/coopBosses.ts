@@ -417,14 +417,17 @@ export function coopBossMpPressureDamage(
 // 보스 베이스 — 옛 dungeonBosses.ts(#622 파일럿) 승계 + 협동 레이드 킷(#715).
 // phaseTrigger(시뮬 내부 HP 비율 트리거)는 폐기 — 시뮬이 전역 잔여 HP 에서 시작하므로
 // 발악은 CoopBossKind.enrageStages(전역 비율)로 coopBossForBattle 이 미리 구워 넣는다.
+// 2026-08-10 후속 조정 — 6종의 기본 ATK를 약 10%, 물리 DEF를 약 3% 상향.
+// 공유 HP·마법 DEF·기믹 피해·발악 수치는 유지한다.
 
 const MOUNTAIN_CHIEF_BASE: Monster = {
   name: "산군",
   tags: ["humanoid"],
   image: "/images/monster/v2/sangoon.webp",
   hp: 620,
-  atk: 33,
-  def: 18,
+  // 새 DEF 점감식 재보정값에 후속 공격·방어 상향을 반영.
+  atk: 30.8,
+  def: 18.54,
   magicDef: 20,
   // spd ↑(2026-06-26) — 협동 보스는 effectiveMonsterSpd(10+raw×6)로 매핑돼 필드 1~9 밴드에선
   //   엔드 플레이어(spd 200~300) 대비 반격이 너무 굼떴다. 레이드 보스라 밴드 밖으로 올림(유효 ~95).
@@ -452,11 +455,13 @@ const MOUNTAIN_CHIEF_HARD_BASE: Monster = {
   ...MOUNTAIN_CHIEF_BASE,
   name: "흉포한 산군",
   hp: 860,
-  atk: 40,
-  def: 28,
+  // 깊이 68의 soften 없는 공격 배율(×109.84)을 직접 상쇄한 재보정값에 후속 상향을 반영.
+  atk: 5.962,
+  def: 28.84,
   magicDef: 36,
   spd: 16,
-  accuracy: 8,
+  // floorAccuracy(+164.76) 적용 뒤 실전 명중 104.76. LUK 회피 투자를 대응축으로 남긴다.
+  accuracy: -60,
   evasionPct: 12,
   armorVulnerable: 0.35,
   playerDefVulnerable: 0.35,
@@ -470,11 +475,14 @@ const ABYSSAL_TYRANT_BASE: Monster = {
   image: "/images/monster/deepseamonster.webp",
   element: "water",
   hp: 840,
-  atk: 40,
-  def: 16,
+  // 깊이 60의 급격한 배율(×82.86)을 상쇄한 재보정값에 후속 상향을 반영.
+  // 공격 유형과 정확도는 마방·정신 계보가 대응축이 되도록 유지한다.
+  atk: 12.826,
+  atkType: "magic",
+  def: 16.5,
   magicDef: 32,
   spd: 17,
-  accuracy: 8,
+  accuracy: 10,
   evasionPct: 8,
   exp: 120,
   skill: {
@@ -496,8 +504,9 @@ const CANYON_PREDATOR_BASE: Monster = {
   image: "/images/monster/v2/scorpionking.webp",
   element: "earth",
   hp: 600,
-  atk: 37,
-  def: 13,
+  // 회피 반응 경감 기준 재보정값에 후속 상향을 반영.
+  atk: 29.7,
+  def: 13.45,
   spd: 15, // ↑ 레이드 보스 속도(유효 ~101) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 95,
   skill: { kind: "pierce", name: "절벽 발톱", armorPierce: 10 },
@@ -516,8 +525,8 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   image: "/images/monster/v2/nessi.webp",
   element: "water",
   hp: 680,
-  atk: 36,
-  def: 16,
+  atk: 4.4,
+  def: 16.48,
   spd: 12, // ↑ 레이드 보스 속도(유효 ~83·느린 골렘이라 셋 중 최저) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 100,
   // 한기 스택 기믹(옛 월드 보스 「별을 잊은 것」 계열) — 맞을수록 한기가 쌓여 고정
@@ -528,7 +537,8 @@ const LAKE_SOVEREIGN_BASE: Monster = {
     name: "얼어붙는 손길",
     perHit: 2,
     threshold: 2,
-    dmgPerStack: 35,
+    // ATK 최저 보정만으로는 20행동 누적 고정 피해가 HP를 넘어서므로 구조는 유지하고 피해만 완화.
+    dmgPerStack: 17,
     maxStacks: 10,
     defMitigationFraction: 0.25,
     evasionPenaltyPerStack: 1.5,
@@ -549,8 +559,9 @@ const VOID_PRIEST_BASE: Monster = {
   element: "void",
   atkType: "magic",
   hp: 760,
-  atk: 42,
-  def: 18,
+  // 새 회피 반응 경감 기준 재보정값에 후속 상향을 반영.
+  atk: 6.05,
+  def: 18.55,
   spd: 14,
   critPct: 18,
   critMult: 1.6,
@@ -581,7 +592,7 @@ const VOID_PRIEST_BASE: Monster = {
 // === 소환 유지시간 — 공유 HP 비례 ====================================
 // HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
 // 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
-// 현재 사다리: 30k→6h · 80k→16h · 200k→24h(캡) · 420k→24h(캡).
+// 현재 사다리: 30k→6h · 80k→16h · 270k 이상→24h(캡).
 export const COOP_DURATION_HP_PER_HOUR = 5_000;
 export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
 export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
@@ -686,7 +697,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "호수의 괴물",
     desc: "얼음 호수 가장 깊은 곳에서 깨어난 거대한 존재. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
-    sharedMaxHp: 200_000,
+    sharedMaxHp: 270_000,
     anchorDepth: 42,
     base: LAKE_SOVEREIGN_BASE,
     uniqueIds: ["v2_boss_lake_maul", "v2_boss_lake_gloves"],
@@ -724,7 +735,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "공허의 대사제",
     desc: "검은 왕도의 봉인 아래 남은 대사제. 맞설수록 저주가 깊어지고, 남은 저주는 다음 일격을 더 무겁게 만든다.",
     scrollCost: 30,
-    sharedMaxHp: 420_000,
+    sharedMaxHp: 630_000,
     anchorDepth: 60,
     base: VOID_PRIEST_BASE,
     uniqueIds: ["v2_boss_void_bastion", "v2_boss_void_reliquary"],
@@ -761,7 +772,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "흉포한 산군",
     desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
     scrollCost: 30,
-    sharedMaxHp: 600_000,
+    sharedMaxHp: 1_200_000,
     anchorDepth: 68,
     base: MOUNTAIN_CHIEF_HARD_BASE,
     uniqueIds: [],
@@ -791,7 +802,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "심연어룡",
     desc: "낚싯줄 아래 어둠을 찢고 올라오는 거대한 어룡. 거품과 해류를 몰아치며 전장을 휘젓는다.",
     scrollCost: 30,
-    sharedMaxHp: 600_000,
+    sharedMaxHp: 1_400_000,
     anchorDepth: 60,
     base: ABYSSAL_TYRANT_BASE,
     uniqueIds: [],

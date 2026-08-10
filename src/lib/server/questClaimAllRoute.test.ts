@@ -83,6 +83,7 @@ vi.mock("@/adventure/data/v2/v2Quests", () => ({
       check: () => true,
     },
   ],
+  claimedUniqueEquipmentAcquisitionFloor: vi.fn(() => 0),
   isTutorialLine: vi.fn((line: string) => line === "tutorial"),
   isQuestClaimable: vi.fn(
     (

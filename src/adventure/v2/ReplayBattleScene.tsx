@@ -30,6 +30,7 @@ export type ReplayBattleSceneProps = BattleLogReplayProps & {
   outcomeAction?: BattleOutcomeAction;
   presentation?: "link" | "page" | "embedded";
   logTitle?: string;
+  scrollTargetId?: string;
 };
 
 export function ReplayBattleScene(props: ReplayBattleSceneProps) {
@@ -182,6 +183,7 @@ function ResolvedReplayBattleScene({
   outcomeAction,
   profileBorder,
   presentation,
+  scrollTargetId,
 }: ReplayBattleSceneProps) {
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영). 캐릭터 정보에 충전량으로 표기.
@@ -226,7 +228,9 @@ function ResolvedReplayBattleScene({
         profileBorder={profileBorder}
         logViewport={presentation === "page" ? "page" : "contained"}
       />
-      {presentation === "page" && <BattleLogScrollTopButton />}
+      {presentation === "page" && (
+        <BattleLogScrollTopButton scrollTargetId={scrollTargetId} />
+      )}
     </>
   );
 }

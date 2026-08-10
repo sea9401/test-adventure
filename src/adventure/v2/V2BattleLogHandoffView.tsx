@@ -49,7 +49,15 @@ function TextBattleLog({
   );
 }
 
-export function V2BattleLogHandoffView({ handoffId }: { handoffId: string }) {
+const OVERLAY_SCROLL_TARGET_ID = "battle-log-overlay-scroll";
+
+export function V2BattleLogHandoffView({
+  handoffId,
+  presentation = "page",
+}: {
+  handoffId: string;
+  presentation?: "page" | "overlay";
+}) {
   const router = useRouter();
   const [handoff, setHandoff] = useState<BattleLogHandoff | null | undefined>(
     undefined,
@@ -61,8 +69,10 @@ export function V2BattleLogHandoffView({ handoffId }: { handoffId: string }) {
   }, [handoffId]);
 
   const title = handoff?.title ?? "전투 로그";
+  const scrollTargetId =
+    presentation === "overlay" ? OVERLAY_SCROLL_TARGET_ID : undefined;
 
-  return (
+  const content = (
     <main className="mx-auto max-w-[880px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader
         title={
@@ -100,11 +110,34 @@ export function V2BattleLogHandoffView({ handoffId }: { handoffId: string }) {
       )}
 
       {handoff?.kind === "replay" && (
-        <ReplayBattleScene {...handoff.replay} presentation="page" />
+        <ReplayBattleScene
+          {...handoff.replay}
+          presentation="page"
+          scrollTargetId={scrollTargetId}
+        />
       )}
       {handoff?.kind === "text" && <TextBattleLog handoff={handoff} />}
 
-      {handoff?.kind === "text" && <BattleLogScrollTopButton />}
+      {handoff?.kind === "text" && (
+        <BattleLogScrollTopButton scrollTargetId={scrollTargetId} />
+      )}
     </main>
   );
+
+  if (presentation === "overlay") {
+    return (
+      <div
+        id={OVERLAY_SCROLL_TARGET_ID}
+        role="dialog"
+        aria-modal="true"
+        aria-label="전투 로그"
+        data-battle-log-scroll-container="true"
+        className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-white dark:bg-zinc-950"
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return content;
 }

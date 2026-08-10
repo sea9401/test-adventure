@@ -7,6 +7,7 @@ import {
   playerFacingEnemyDef,
   type PlayerCombat,
 } from "./engine";
+import { v2DotPerStackDamage } from "./combatShared";
 
 const PLAYER: PlayerCombat = {
   hp: 1_000,
@@ -40,7 +41,7 @@ describe("부식 손상 입력 안전장치", () => {
     const next = applyPlayerOnHitDots(state, fullLinePlayer);
     const poison = next.enemyV2Dots.find((dot) => dot.tag === "poison");
 
-    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.0222, 10);
+    expect(v2DotPerStackDamage(poison!, 1_000)).toBeCloseTo(22.2, 10);
   });
 
   it("100%를 넘는 옛 값도 최종 60% 상한에서 멈춘다", () => {
@@ -77,6 +78,6 @@ describe("부식 손상 입력 안전장치", () => {
     const next = applyPlayerOnHitDots(state, PLAYER);
     const poison = next.enemyV2Dots.find((dot) => dot.tag === "poison");
 
-    expect(poison?.pctMaxHpPerStack).toBeCloseTo(0.01, 10);
+    expect(v2DotPerStackDamage(poison!, 1_000)).toBeCloseTo(10, 10);
   });
 });

@@ -200,6 +200,11 @@ export const POISON_PCT_PER_POINT = 0.0005;
 // engine.ts 에서 이관(2026-06-12).
 export const COMBO_FINISHER_PERIOD = 4;
 export const POISON_CAP_ATK_COEF = 0.9;
+// 맹독 I~IV + 만독지배의 완성 세팅(+122.4%)을 중독 최종 피해의 기준점으로 삼는다.
+// 고체력 대상에서도 이 기준 피해는 기존과 같고, 실제 패시브 배율은 최종 피해에 선형 적용된다.
+export const POISON_FULL_BUILD_DAMAGE_MULT = 2.224;
+// 일반 보스는 기존 80%를 유지하고, 공유 체력을 가진 협동 보스만 더 강하게 감산한다.
+export const COOP_BOSS_MAX_HP_DAMAGE_MULT = 0.5;
 
 // 여러 방어 감소 효과는 남은 방어력에 차례로 적용한다.
 // 예: 20%와 30%를 함께 쓰면 50%가 아니라 44%(남은 방어 0.8×0.7=0.56).

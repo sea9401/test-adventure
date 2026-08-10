@@ -49,6 +49,7 @@ import {
 import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
+  applyPlayerPoisonDamageScaling,
   decrementTimedBuffs,
   distributeV2DotTicks,
   makeBleedDot,
@@ -438,26 +439,11 @@ function skillTargetMagicDef(attacker: PvPSide, defender: PvPSide): number {
   return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
 }
 
-function poisonDamageMult(player: PlayerCombat): number {
-  return 1 + Math.max(0, player.poisonDamagePct ?? 0) / 100;
-}
-
 function applyPoisonDamageToDots(
   dots: readonly V2SkillDotApply[],
   player: PlayerCombat,
 ): V2SkillDotApply[] {
-  const mult = poisonDamageMult(player);
-  if (mult === 1) return [...dots];
-  return dots.map((dot) =>
-    dot.tag === "poison"
-      ? {
-          ...dot,
-          flatPerStack: dot.flatPerStack * mult,
-          atkCoefPerStack: dot.atkCoefPerStack * mult,
-          pctMaxHpPerStack: dot.pctMaxHpPerStack * mult,
-        }
-      : dot,
-  );
+  return applyPlayerPoisonDamageScaling(dots, player.poisonDamagePct);
 }
 
 export function rollPvPAttackCount(attacker: PvPSide, defender: PvPSide): number {
@@ -489,12 +475,18 @@ export function applyPvPOnHitDots(
   const poisonStacks =
     (add?.poisonStacks ?? 0) + (attacker.player.poisonOnHit ? 1 : 0);
   if (attacker.player.poisonOnHit && poisonStacks > 0) {
-    const poisonMult = poisonDamageMult(attacker.player);
-    dots.push(makePoisonDot({
-      stacks: poisonStacks,
-      pctMaxHpPerStack: attacker.player.poisonOnHit.pctMaxHpPerStack * poisonMult,
-      sourceAtk: attacker.player.atk,
-    }));
+    dots.push(
+      ...applyPlayerPoisonDamageScaling(
+        [
+          makePoisonDot({
+            stacks: poisonStacks,
+            pctMaxHpPerStack: attacker.player.poisonOnHit.pctMaxHpPerStack,
+            sourceAtk: attacker.player.atk,
+          }),
+        ],
+        attacker.player.poisonDamagePct,
+      ),
+    );
   }
   if (dots.length === 0) return defender;
   const sigStatusBlock = statusBlockOnce(defender.player.equipSignatures);

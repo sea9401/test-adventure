@@ -33,6 +33,7 @@ import {
   PHYSICAL_DEF_MITIGATION_MAX_PCT,
   PHYSICAL_DEF_MITIGATION_SCALE,
   POISON_CAP_ATK_COEF,
+  POISON_FULL_BUILD_DAMAGE_MULT,
   POISON_MAX_STACKS,
   physicalDefenseDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
@@ -212,8 +213,36 @@ export type V2Dot = {
   atkCoefPerStack: number;
   pctMaxHpPerStack: number;
   sourceAtk: number;
+  /** 플레이어 맹독처럼 상한 계산 뒤 최종 DoT 피해에 적용하는 배율. 미지정은 1. */
+  finalDamageMult?: number;
 };
 export type V2DotList = readonly V2Dot[];
+
+// 플레이어 중독은 완성 세팅(+122.4%)의 기존 피해를 기준점으로 고정한다.
+// 먼저 기존 완성 세팅과 같은 파라미터로 상한까지 계산하고, 실제 맹독 투자 배율을
+// 기준점(2.224) 대비 최종 배율로 적용해 고체력 대상에서도 투자량이 선형으로 반영된다.
+export function applyPlayerPoisonDamageScaling(
+  dots: readonly V2Dot[],
+  poisonDamagePct = 0,
+): V2Dot[] {
+  const actualMult = 1 + Math.max(0, poisonDamagePct) / 100;
+  const finalDamageMult = actualMult / POISON_FULL_BUILD_DAMAGE_MULT;
+  return dots.map((dot) =>
+    dot.tag === "poison"
+      ? {
+          ...dot,
+          flatPerStack:
+            dot.flatPerStack * POISON_FULL_BUILD_DAMAGE_MULT,
+          atkCoefPerStack:
+            dot.atkCoefPerStack * POISON_FULL_BUILD_DAMAGE_MULT,
+          pctMaxHpPerStack:
+            dot.pctMaxHpPerStack * POISON_FULL_BUILD_DAMAGE_MULT,
+          finalDamageMult:
+            (dot.finalDamageMult ?? 1) * finalDamageMult,
+        }
+      : dot,
+  );
+}
 
 // 모든 v2 DoT 의 1틱 피해 = floor(스택 수 × 스택당 피해) (음수 클램프). 갈래 A(리스트 dot,
 // stacks=1)와 갈래 B(출혈·독공 스택 풀)가 공유하는 단일 공식. 스택당 피해의 구성(정액 vs
@@ -241,7 +270,7 @@ export function v2DotPerStackDamage(
     dot.flatPerStack +
     dot.sourceAtk * dot.atkCoefPerStack +
     hpComponent * Math.max(0, maxHpDamageMult)
-  );
+  ) * Math.max(0, dot.finalDamageMult ?? 1);
 }
 
 // tick: dot 들 turns -1 + 총 dmg 합산. turns 0 도달 dot drop.

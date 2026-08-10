@@ -165,6 +165,17 @@ describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 
       V2_SKILLS.v2c_guardian_bulwark3?.passive?.damageTakenReductionPct,
     ).toBeUndefined();
   });
+  it("공용 방어와 결계사의 마법 전용 방어를 상세 표기에서 구분한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_guardian_bulwark3)).toContain(
+      "물리·마법 방어력 +20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_warder_ward)).toContain(
+      "마법 방어력 +15%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_warder_ward)).not.toContain(
+      "물리·마법 방어력 +15%",
+    );
+  });
   it("damageTakenReductionPct 어휘는 배선 보존(현재 미사용·aggregate 기본 0)", () => {
     expect(aggregateEquippedPassives([]).damageTakenReductionPct).toBe(0);
   });

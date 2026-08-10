@@ -116,9 +116,12 @@ function isActionOpeningEffect(entry: BattleLogEntry): boolean {
   if (entry.kind === "hp_bar") return false;
   const { labels, body } = parseBattleLogText(entry.text);
   return (
-    labels.some((label) =>
+    (labels.some((label) =>
       ACTION_RECOVERY_LABELS.some((recovery) => label === recovery),
-    ) && /HP\s*\+\d/.test(body)
+    ) &&
+      /HP\s*\+\d/.test(body)) ||
+    (entry.kind === "info" &&
+      /^[^!]+!\s+(?:.+?\s+)?생명력\s+\d+\s+소모$/.test(body))
   );
 }
 

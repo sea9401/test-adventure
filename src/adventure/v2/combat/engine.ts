@@ -12,6 +12,7 @@ import {
 import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
+  applyPlayerPoisonDamageScaling,
   damageBetween,
   DAMAGE_FLOOR_FRACTION,
   defaultV2MaxMpFor,
@@ -436,26 +437,11 @@ function playerSkillTargetMagicDef(
   return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
 }
 
-function poisonDamageMult(player: PlayerCombat): number {
-  return 1 + Math.max(0, player.poisonDamagePct ?? 0) / 100;
-}
-
 function applyPoisonDamageToDots(
   dots: readonly V2SkillDotApply[],
   player: PlayerCombat,
 ): V2SkillDotApply[] {
-  const mult = poisonDamageMult(player);
-  if (mult === 1) return [...dots];
-  return dots.map((dot) =>
-    dot.tag === "poison"
-      ? {
-          ...dot,
-          flatPerStack: dot.flatPerStack * mult,
-          atkCoefPerStack: dot.atkCoefPerStack * mult,
-          pctMaxHpPerStack: dot.pctMaxHpPerStack * mult,
-        }
-      : dot,
-  );
+  return applyPlayerPoisonDamageScaling(dots, player.poisonDamagePct);
 }
 
 export function applyPlayerOnHitDots(
@@ -476,12 +462,18 @@ export function applyPlayerOnHitDots(
   const poisonStacks =
     (add?.poisonStacks ?? 0) + (player.poisonOnHit ? 1 : 0);
   if (player.poisonOnHit && poisonStacks > 0) {
-    const poisonMult = poisonDamageMult(player);
-    dots.push(makePoisonDot({
-      stacks: poisonStacks,
-      pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack * poisonMult,
-      sourceAtk: player.atk,
-    }));
+    dots.push(
+      ...applyPlayerPoisonDamageScaling(
+        [
+          makePoisonDot({
+            stacks: poisonStacks,
+            pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack,
+            sourceAtk: player.atk,
+          }),
+        ],
+        player.poisonDamagePct,
+      ),
+    );
   }
   if (dots.length === 0) return state;
   return {
@@ -1263,7 +1255,8 @@ export function advanceTurn(
     const enemyDotTick = tickV2Dots(
       state.enemyV2Dots,
       state.enemy.hp,
-      state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1,
+      state.maxHpDamageMult ??
+        (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
     );
     const enemyDotDamageBeforeReduction =
       enemyDotTick.totalDmg > 0 && state.stacks.enemyDotVulnTurns > 0
@@ -1349,6 +1342,9 @@ export type ResolveContext = {
   potions: Partial<Record<PotionId, number>>;
   // 보스 전투면 BOSS_TURN_CAP 턴 경과 시 패배로 타임아웃. 일반 전투에는 영향 없음.
   isBoss?: boolean;
+  // 협동 보스 등에서 최대 HP 비례 지속 피해 성분만 별도 감산할 때 사용한다.
+  // isBoss 기본값은 BOSS_MAX_HP_DAMAGE_MULT(0.8), 미지정 일반 전투는 1.
+  maxHpDamageMult?: number;
   // 전투 시작 로그에 박을 안내 한 줄(전술 등). 호출부가 문자열로 빌드해 넘긴다
   // (엔진은 stance 를 모름 — 순환 의존 회피). 미지정이면 추가 안 함.
   openingNote?: string;
@@ -2375,6 +2371,12 @@ function resolveBattleLegacy(
   );
   // 보스 전투 여부 — 현재/최대 HP 비례 피해에 각 보스 감산 계수를 적용할 때 사용.
   if (ctx.isBoss) state = { ...state, isBoss: true };
+  if (ctx.maxHpDamageMult != null) {
+    state = {
+      ...state,
+      maxHpDamageMult: Math.max(0, ctx.maxHpDamageMult),
+    };
+  }
   // v2 마법 (PR-7b) — 매 player turn 시작 시 cast. 전투 시작 시 sweep 폐기.
   // INT 0(라이브) 캐릭은 자동 미발동. cast hook 은 main loop 안.
   // 선공자 캐시 — 사이클(1턴) 정의가 선공자에 따라 달라진다.

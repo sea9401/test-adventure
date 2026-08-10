@@ -7,6 +7,7 @@ import {
   type PlayerCombat,
 } from "./engine";
 import { applyPvPOnHitDots, initialBattleStatePvP } from "./engine-pvp";
+import { tickV2Dots, v2DotPerStackDamage } from "./combatShared";
 
 const BASE_PLAYER: PlayerCombat = {
   hp: 1_000,
@@ -58,8 +59,29 @@ describe("맹독 중독 피해 증폭", () => {
     const baseBleed = base.find((dot) => dot.tag === "bleed");
     const doubledBleed = doubled.find((dot) => dot.tag === "bleed");
 
-    expect(basePoison?.pctMaxHpPerStack).toBe(0.01);
-    expect(doubledPoison?.pctMaxHpPerStack).toBe(0.02);
-    expect(doubledBleed?.flatPerStack).toBe(baseBleed?.flatPerStack);
+    expect(v2DotPerStackDamage(basePoison!, 1_000)).toBe(10);
+    expect(v2DotPerStackDamage(doubledPoison!, 1_000)).toBe(20);
+    expect(v2DotPerStackDamage(doubledBleed!, 1_000)).toBe(
+      v2DotPerStackDamage(baseBleed!, 1_000),
+    );
   });
+
+  it.each([
+    ["PvE", pveDots],
+    ["PvP", pvpDots],
+  ] as const)(
+    "%s에서 고체력 대상 중독은 완성 세팅의 현재 상한 피해를 유지하며 2.224배 차이가 난다",
+    (_label, run) => {
+      const plain = tickV2Dots(run(0), 100_000).ticks.find(
+        (tick) => tick.tag === "poison",
+      );
+      const fullBuild = tickV2Dots(run(122.4), 100_000).ticks.find(
+        (tick) => tick.tag === "poison",
+      );
+
+      // 기존 완성 세팅 상한은 ATK 100 × 0.9 = 90. 새 기본값은 90 / 2.224 → floor 40.
+      expect(plain?.damage).toBe(40);
+      expect(fullBuild?.damage).toBe(90);
+    },
+  );
 });

@@ -277,6 +277,8 @@ export type BattleState = {
   stacks: BattleStacks;
   /** 보스 전투 여부 — 현재/최대 HP 비례 피해에 각각의 보스 감산 계수를 적용한다. */
   isBoss?: boolean;
+  /** 협동 보스처럼 최대 HP 비례 지속 피해 계수를 별도로 쓰는 전투의 재정의값. */
+  maxHpDamageMult?: number;
   /** ATB에서는 적 대상 디버프 지속시간을 플레이어 차례가 아닌 적 행동 횟수로 소모한다. */
   usesAtb?: boolean;
 };

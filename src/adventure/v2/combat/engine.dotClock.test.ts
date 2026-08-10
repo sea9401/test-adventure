@@ -209,7 +209,40 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
 
     const normalDamage = firstPoisonDamage(run(false).finalState.log);
     const bossDamage = firstPoisonDamage(run(true).finalState.log);
-    expect(normalDamage).toBe(50);
-    expect(bossDamage).toBe(40);
+    // 고체력 대상의 패시브 없는 중독은 완성 세팅 기준점 조정으로 40,
+    // 일반 보스는 그 최대 HP 비례 성분의 80%를 받는다.
+    expect(normalDamage).toBe(40);
+    expect(bossDamage).toBe(32);
+  });
+
+  it("ATB 협동 보스는 전용 보정으로 중독의 최대 HP 비례 피해를 35% 감소해 받는다", () => {
+    const venomer = derive({
+      atk: 100,
+      spd: 10,
+      poisonOnHit: { pctMaxHpPerStack: 0.0005 },
+    });
+    const enemy: Monster = {
+      ...m("부서진 골렘"),
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 10,
+    };
+    vi.spyOn(Math, "random").mockImplementation(mulberry32(11));
+    const context = {
+      pickAction: (state: Parameters<typeof pickAutoAction>[0]) =>
+        pickAutoAction(state, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+      isBoss: true,
+      maxHpDamageMult: 0.65,
+      maxTurns: 3,
+    };
+
+    const damage = firstPoisonDamage(
+      resolveBattle(venomer, enemy, "용사", context).finalState.log,
+    );
+    // 같은 기준 피해 40에서 협동 보스 전용 65% 적용 → floor 26.
+    expect(damage).toBe(26);
   });
 });

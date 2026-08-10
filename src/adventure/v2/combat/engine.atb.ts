@@ -207,7 +207,8 @@ function tickEnemyDotsOnAction(state: BattleState): BattleState {
   const eTick = tickV2Dots(
     state.enemyV2Dots,
     state.enemy.hp,
-    state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1,
+    state.maxHpDamageMult ??
+      (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
   );
   const damageBeforeReduction =
     eTick.totalDmg > 0 && state.stacks.enemyDotVulnTurns > 0
@@ -296,6 +297,12 @@ export function resolveBattleAtb(
   );
   state = { ...state, usesAtb: true };
   if (ctx.isBoss) state = { ...state, isBoss: true };
+  if (ctx.maxHpDamageMult != null) {
+    state = {
+      ...state,
+      maxHpDamageMult: Math.max(0, ctx.maxHpDamageMult),
+    };
+  }
   const openingExtra: BattleLogEntry[] = ctx.openingNote
     ? [{ kind: "info", text: ctx.openingNote, turn: "player" }]
     : [];

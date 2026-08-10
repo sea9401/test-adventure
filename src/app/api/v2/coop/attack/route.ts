@@ -49,6 +49,7 @@ import {
   coopKillingBlowReward,
 } from "@/adventure/data/v2/coopRewards";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { COOP_BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/data/v2/v2CombatConstants";
 
 // POST /api/v2/coop/attack — 협동 보스 1회 공격.
 //
@@ -238,6 +239,7 @@ export async function POST(req: Request) {
       potions: {},
       v2Skills,
       isBoss: true, // %HP 효과 감산 + breaker 보너스.
+      maxHpDamageMult: COOP_BOSS_MAX_HP_DAMAGE_MULT,
       // 발악 상태 안내 — 전투 로그 첫머리(현재 전역 HP 기준 적용 중인 스테이지).
       ...(enrageNotes.length > 0
         ? { openingNote: enrageNotes.join(" ") }

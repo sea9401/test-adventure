@@ -1,6 +1,9 @@
 import { Server } from "node:http";
 import type { ProfilerAggregator } from "./aggregate";
-import { classifyRequestPath } from "./routeClassifier";
+import {
+  classifyRequestOperation,
+  classifyRequestPath,
+} from "./routeClassifier";
 import {
   createRequestProfile,
   runWithRequestProfile,
@@ -70,6 +73,10 @@ export function installHttpRequestInstrumentation(
       const profile = createRequestProfile({
         feature: classifyRequestPath(request.url ?? "/"),
         method: request.method?.toUpperCase() ?? "UNKNOWN",
+        operation: classifyRequestOperation(
+          request.url ?? "/",
+          request.method ?? "UNKNOWN",
+        ),
         startedAtNs: nowNs(),
         socketBytesAtStart: bytesWritten(request.socket),
       });
@@ -87,6 +94,7 @@ export function installHttpRequestInstrumentation(
           );
           aggregator.recordRequest({
             feature: profile.feature,
+            operation: profile.operation,
             method: profile.method,
             statusCode: response.statusCode ?? 0,
             durationMs,

@@ -189,11 +189,11 @@ export function StatsPanel({
   statLabels = STAT_LABELS,
   statDescriptions,
 }: {
-  /** 베이스 + 분배 스탯 (장비 보너스 제외). */
+  /** 베이스 + 성장/분배 스탯 (추가 효과 제외). */
   stats: Record<string, number>;
-  /** 베이스 + 분배 + 장비 합산된 최종 스탯. 미지정 시 stats 와 동일 (장비 보너스 표시 X). */
+  /** 추가 효과까지 합산된 최종 스탯. 미지정 시 stats 와 동일 (증가분 표시 X). */
   totalStats?: Record<string, number>;
-  /** 각 스탯의 한계치(cap). 지정 시 "값(한계치)" 표기로 바뀌고 장비 보너스 분리는 숨긴다(v2 내 정보). */
+  /** 각 스탯의 성장 한계치(cap). 지정 시 최종값과 효과 증가분을 분리한다(v2 내 정보). */
   caps?: Record<string, number | undefined>;
   /** 상세(전투 세부) — 공격력/방어력 + (v2) 마법공·마방·회피·명중·치명타·속도. magicAtk 은 0이면 숨김.
    *  v2 전용 필드(magicDef·회피 등)는 v2 caller 만 전달 — 라이브 caller(undefined)는 미표시. */
@@ -245,10 +245,14 @@ export function StatsPanel({
           {statKeys.map((k, idx) => {
             const base = stats[k];
             const finalValue = total[k];
-            const equipBonus = finalValue - base;
-            // caps 모드(v2 내 정보): 장비 분리 대신 "값(한계치)" 표기. 라이브는 종전 장비 분리 유지.
-            const hasBonus =
-              !showCaps && totalStats !== undefined && equipBonus !== 0;
+            const bonus = finalValue - base;
+            const hasBonus = totalStats !== undefined && bonus !== 0;
+            // caps 모드(v2 내 정보)는 직업·패시브·음식 등을 합친 "효과" 증가분,
+            // 라이브는 종전처럼 장비 증가분으로 표시한다.
+            const hasEffectBonus = showCaps && hasBonus;
+            const hasEquipmentBonus = !showCaps && hasBonus;
+            const displayedValue =
+              showCaps && totalStats !== undefined ? finalValue : base;
             const cap = caps?.[k];
             const desc = statDescriptions?.[k];
             const inner = (
@@ -256,26 +260,43 @@ export function StatsPanel({
                 <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                   {statLabels[k]}
                 </span>
-                {/* 큰 글자 = 기본(베이스 + 분배). caps 모드면 옆에 (한계치), 아니면 장비 보너스로 갈라진다. */}
+                {/* v2는 최종값, 라이브는 종전대로 기본값을 큰 글자로 표시한다. */}
                 <span className="mt-0.5 block break-all text-lg font-semibold leading-none tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {base.toLocaleString()}
+                  {displayedValue.toLocaleString()}
                 </span>
-                {cap !== undefined && (
-                  <span className="mt-1 block break-all text-[11px] leading-none tabular-nums text-zinc-500 dark:text-zinc-400">
-                    ({cap.toLocaleString()})
-                  </span>
-                )}
-                {hasBonus && (
+                {hasEffectBonus && (
                   <>
+                    <span className="mt-1 block text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      기본·성장 {base.toLocaleString()}
+                    </span>
                     <span
                       className={`block text-[10px] tabular-nums ${
-                        equipBonus > 0
+                        bonus > 0
                           ? "text-emerald-600 dark:text-emerald-400"
                           : "text-rose-500 dark:text-rose-400"
                       }`}
                     >
-                      장비 {equipBonus > 0 ? "+" : ""}
-                      {equipBonus}
+                      효과 {bonus > 0 ? "+" : ""}
+                      {bonus.toLocaleString()}
+                    </span>
+                  </>
+                )}
+                {cap !== undefined && (
+                  <span className="mt-1 block break-all text-[11px] leading-none tabular-nums text-zinc-500 dark:text-zinc-400">
+                    성장 한계 {cap.toLocaleString()}
+                  </span>
+                )}
+                {hasEquipmentBonus && (
+                  <>
+                    <span
+                      className={`block text-[10px] tabular-nums ${
+                        bonus > 0
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-500 dark:text-rose-400"
+                      }`}
+                    >
+                      장비 {bonus > 0 ? "+" : ""}
+                      {bonus.toLocaleString()}
                     </span>
                     <span className="block text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
                       = {finalValue}

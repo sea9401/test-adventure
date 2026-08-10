@@ -232,13 +232,17 @@ RUNTIME_PROFILER_INTERVAL_MS=60000
 
 - `features.*.requests/errors/durationMs`: 기능별 요청량, 5xx/중단 수, 지연 분포.
 - `features.*.database`: 해당 기능 요청에서 실행한 쿼리 수와 처리 시간.
+- `operations.*`: query string과 동적 ID를 제거한 안전한 작업명별 동일 집계. 전투는
+  `POST /api/v2/dungeon/hunt`, `GET /api/v2/coop/:sessionId`처럼 라우트 단위로
+  요청·바이트·DB 쿼리를 비교한다. 허용 목록 밖 경로는 `combat:other` 등 기능명으로만
+  남아 원본 경로나 사용자 입력이 기록되지 않는다.
 - `runtime.cpuPercent/eventLoopDelayMs`: Node 연산 또는 이벤트 루프 포화 판단 기준.
 - `runtime.databasePool.waiting`: DB 커넥션 풀 대기 요청 수. 여러 기능에서 동시에
   상승하면 DB 포화나 풀 고착을 우선 확인한다.
 - `responseBytes`는 nginx 앞의 Node 소켓 `bytesWritten` 차이이므로 네트워크 크기의
   근삿값이다. 정확한 전송량·압축률 확인에는 nginx access log를 함께 본다.
-- `slowRequests`에는 기능명·HTTP method·상태·시간/바이트/DB 합계만 들어가며 경로와
-  사용자 식별자는 없다.
+- `slowRequests`에는 기능명·정규화 작업명·HTTP method·상태·시간/바이트/DB 합계만
+  들어가며 원본 경로와 사용자 식별자는 없다.
 
 판단 예: `combat` 지연과 DB 시간이 같이 상승하면 전투 DB/락을, DB 시간은 낮지만
 CPU·event loop 지연이 상승하면 전투 연산을 본다. `chat` 요청 수와 바이트가 대부분이면

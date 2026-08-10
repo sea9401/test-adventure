@@ -317,6 +317,7 @@ export async function POST(req: Request) {
       "alchemy_workshop",
       association ? "association" : "guild",
       weekKey,
+      association ? undefined : guildId!,
     );
     if (!weeklySource.ok) {
       return {

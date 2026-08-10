@@ -2244,6 +2244,11 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   if (result.guaranteedEvadesToAdd > 0 && result.castSkillName) {
     nextLog = appendLog(nextLog, {
+      kind: "player_attack",
+      text: `${result.castSkillName}! 확정 회피를 준비했다.`,
+      side: who,
+    });
+    nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName}] ${side.name}이(가) 다음 공격 ${result.guaranteedEvadesToAdd}회를 반드시 회피한다.`,
       side: who,

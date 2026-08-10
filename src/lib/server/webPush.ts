@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import webPush from "web-push";
 import { db } from "@/db";
 import { pushSubscriptions } from "@/db/schema";
+import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import type { GamePushMessage } from "@/lib/push-notifications";
 import type {
   V2NotificationPayload,
@@ -158,13 +159,15 @@ export function pushMessageForNotification(
         tag: "coop-defeated",
       };
     }
-    case "feedback_replied":
+    case "feedback_replied": {
+      const value = payload as { feedbackId: number };
       return {
         title: "문의 답변 도착",
         body: "등록한 문의에 운영자 답변이 도착했습니다.",
-        url: "/feedback",
+        url: feedbackReplyHref(value.feedbackId),
         tag: "feedback-replied",
       };
+    }
     default:
       return null;
   }

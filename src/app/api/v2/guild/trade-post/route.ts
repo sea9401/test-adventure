@@ -134,7 +134,7 @@ async function tradeView(args: {
     level,
     stageLabel: upgrade.label,
     weekKey: weekly.weekKey,
-    eligible: weekly.eligibleUserIds.includes(userId),
+    eligible: true,
     canManage: args.canManage,
     canPurchase: args.canManage,
     rewardBonusPct: upgrade.completionRewardBonusPct,
@@ -287,9 +287,6 @@ export async function POST(req: Request) {
     const canManage = await isGuildMasterOrManager(tx, guildId, userId);
 
     if (body.action === "deliver") {
-      if (!weekly.eligibleUserIds.includes(userId)) {
-        return { status: 403, body: { ok: false as const, error: "not_eligible" } };
-      }
       const item = guildTradeItem(body.contractId);
       const batches = Math.floor(Number(body.batches));
       if (
@@ -332,6 +329,7 @@ export async function POST(req: Request) {
         "trade_post",
         "guild",
         weekKey,
+        guildId,
       );
       if (!weeklySource.ok) {
         return {

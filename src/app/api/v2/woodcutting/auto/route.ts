@@ -304,7 +304,9 @@ export async function POST(req: Request) {
     if (session.aidItemId) {
       const aidConsumption = consumeLifeAidUses(crafting, "woodcutting", session.aidItemId, settlement.successes);
       aidSuccesses = aidConsumption.consumed;
-      settlement.materialsGained += Math.floor(aidSuccesses * (session.aidBonusMaterialRate ?? 0) * session.materialEfficiency);
+      settlement.materialsGained += Math.floor(
+        aidSuccesses * (session.aidBonusMaterialRate ?? 0),
+      );
       crafting = aidConsumption.state;
     }
     const blueprint = rollHiddenBlueprint(crafting, "woodcutting", settlement.successes);

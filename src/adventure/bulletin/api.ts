@@ -4,6 +4,12 @@ import type { BulletinActivitySummary } from "@/lib/bulletinActivity";
 
 export type BulletinBoardTab = BulletinCategory | "all" | "guild";
 
+export type NoticePreviewPost = {
+  id: number;
+  title: string | null;
+  createdAt: number;
+};
+
 // 게시판 클라이언트 API helper — 모든 fetch 호출을 한 곳에 모아 라우트 경로/메서드
 // 변경 시 검색 영역을 좁힌다. UI 컴포넌트는 fetch 디테일을 모르고 이 함수만 호출.
 
@@ -25,6 +31,15 @@ export async function fetchPosts(
   });
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   return res.json();
+}
+
+export async function fetchNoticePreview(): Promise<NoticePreviewPost[]> {
+  const res = await fetch("/api/bulletin?preview=notice", {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+  const body = (await res.json()) as { posts?: NoticePreviewPost[] };
+  return Array.isArray(body.posts) ? body.posts : [];
 }
 
 export async function fetchPermissions(): Promise<{

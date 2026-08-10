@@ -13,6 +13,7 @@ import type {
   LifeFieldEnvironmentSnapshot,
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { environmentRefreshDelay } from "./lifeFieldRefresh";
 
 type DailyView = {
   evaluated: number;
@@ -25,16 +26,39 @@ type DailyView = {
   trace: LifeFieldTrace | null;
 };
 
-type LifeFieldStatus = {
+type LifeFieldFeatures = {
+  environmentEnabled: boolean;
+  discoveriesEnabled: boolean;
+  discoveryRewardsEnabled: boolean;
+  feedEnabled: boolean;
+  milestonesEnabled: boolean;
+};
+
+type LifeFieldEnvironmentStatus = {
   ok: true;
   serverNow: number;
-  features: {
-    environmentEnabled: boolean;
-    discoveriesEnabled: boolean;
-    discoveryRewardsEnabled: boolean;
-    feedEnabled: boolean;
-    milestonesEnabled: boolean;
+  features: LifeFieldFeatures;
+  environment: {
+    current: LifeFieldEnvironmentSnapshot;
+    next: LifeFieldEnvironmentSnapshot;
+  } | null;
+  trace: LifeFieldTrace | null;
+};
+
+type LifeFieldCodexStatus = {
+  ok: true;
+  serverNow: number;
+  features: LifeFieldFeatures;
+  summary: {
+    basic: { discovered: number; total: number };
+    rare: { discovered: number; total: number };
+    entries: LifeFieldRecordView[];
   };
+  daily: Record<LifeFieldActivity, DailyView>;
+  traces: Partial<Record<LifeFieldActivity, LifeFieldTrace>>;
+};
+
+type LifeFieldFullStatus = LifeFieldCodexStatus & {
   environments: Record<
     LifeFieldActivity,
     Record<
@@ -45,13 +69,6 @@ type LifeFieldStatus = {
       }
     >
   > | null;
-  summary: {
-    basic: { discovered: number; total: number };
-    rare: { discovered: number; total: number };
-    entries: LifeFieldRecordView[];
-  };
-  daily: Record<LifeFieldActivity, DailyView>;
-  traces: Partial<Record<LifeFieldActivity, LifeFieldTrace>>;
 };
 
 const ACTIVITY_LABEL: Record<LifeFieldActivity, string> = {
@@ -62,23 +79,27 @@ const ACTIVITY_LABEL: Record<LifeFieldActivity, string> = {
 
 const MEDAL_LABEL = { bronze: "동", silver: "은", gold: "금" } as const;
 
-export function useLifeFieldStatus() {
-  const [data, setData] = useState<LifeFieldStatus | null>(null);
+function useLifeFieldStatus<T extends { ok: true; serverNow: number }>(
+  url: string,
+  refreshDelay?: (data: T) => number | null,
+) {
+  const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/v2/life-fields", { cache: "no-store" });
-    const next = (await response.json().catch(() => null)) as LifeFieldStatus | null;
+    const response = await fetch(url, { cache: "no-store" });
+    const next = (await response.json().catch(() => null)) as T | null;
     if (!response.ok || !next?.ok) throw new Error("life field status failed");
     return next;
-  }, []);
+  }, [url]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      setData(await load());
+      const next = await load();
+      setData(next);
     } catch {
       setError(true);
     } finally {
@@ -109,15 +130,55 @@ export function useLifeFieldStatus() {
     const onRefresh = () => void refresh();
     window.addEventListener("life-field:refresh", onRefresh);
     window.addEventListener("focus", onRefresh);
-    const interval = window.setInterval(onRefresh, 30_000);
     return () => {
       window.removeEventListener("life-field:refresh", onRefresh);
       window.removeEventListener("focus", onRefresh);
-      window.clearInterval(interval);
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (!data || !refreshDelay) return;
+    const delay = refreshDelay(data);
+    if (delay == null) return;
+    const timeout = window.setTimeout(() => void refresh(), delay);
+    return () => window.clearTimeout(timeout);
+  }, [data, refresh, refreshDelay]);
+
   return { data, loading, error, refresh };
+}
+
+export function useFullLifeFieldStatus() {
+  return useLifeFieldStatus<LifeFieldFullStatus>("/api/v2/life-fields");
+}
+
+function environmentStatusRefreshDelay(
+  data: LifeFieldEnvironmentStatus,
+): number | null {
+  return data.environment
+    ? environmentRefreshDelay(data.serverNow, data.environment.current.endsAt)
+    : null;
+}
+
+function useServerMinuteClock(
+  serverNow: number | null,
+): number {
+  const [clock, setClock] = useState<{
+    anchor: number | null;
+    elapsed: number;
+  }>({ anchor: null, elapsed: 0 });
+  useEffect(() => {
+    let elapsed = 0;
+    const interval = window.setInterval(
+      () => {
+        elapsed += 60_000;
+        setClock({ anchor: serverNow, elapsed });
+      },
+      60_000,
+    );
+    return () => window.clearInterval(interval);
+  }, [serverNow]);
+  if (serverNow == null) return 0;
+  return serverNow + (clock.anchor === serverNow ? clock.elapsed : 0);
 }
 
 export function LifeFieldEnvironmentCard({
@@ -127,20 +188,26 @@ export function LifeFieldEnvironmentCard({
   activity: LifeFieldActivity;
   spotId: string;
 }) {
-  const { data, loading, error } = useLifeFieldStatus();
+  const url = `/api/v2/life-fields?view=environment&activity=${encodeURIComponent(activity)}&spotId=${encodeURIComponent(spotId)}`;
+  const { data, loading, error } =
+    useLifeFieldStatus<LifeFieldEnvironmentStatus>(
+      url,
+      environmentStatusRefreshDelay,
+    );
+  const clock = useServerMinuteClock(data?.serverNow ?? null);
   if (loading) {
     return <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-500`}>현장 환경 확인 중…</div>;
   }
   if (error || !data) {
     return <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-500`}>현장 정보를 불러오지 못했습니다.</div>;
   }
-  if (!data.features.environmentEnabled || !data.environments) return null;
-  const row = data.environments[activity]?.[spotId];
+  if (!data.features.environmentEnabled || !data.environment) return null;
+  const row = data.environment;
   if (!row) return null;
-  const trace = data.traces[activity];
+  const trace = data.trace;
   const remainingMinutes = Math.max(
     0,
-    Math.ceil((row.current.endsAt - data.serverNow) / 60_000),
+    Math.ceil((row.current.endsAt - clock) / 60_000),
   );
   const remainingLabel = `${Math.floor(remainingMinutes / 60)}시간 ${remainingMinutes % 60}분 후 변경`;
   return (
@@ -173,7 +240,10 @@ export function LifeFieldEnvironmentCard({
 }
 
 export function LifeFieldCodexPanel() {
-  const { data, loading, error, refresh } = useLifeFieldStatus();
+  const { data, loading, error, refresh } =
+    useLifeFieldStatus<LifeFieldCodexStatus>(
+      "/api/v2/life-fields?view=codex",
+    );
   const [abandoning, setAbandoning] = useState<LifeFieldActivity | null>(null);
   const grouped = useMemo(() => {
     if (!data) return null;

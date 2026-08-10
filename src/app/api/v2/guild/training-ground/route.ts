@@ -442,6 +442,7 @@ export async function POST(req: Request) {
       "training_ground",
       association ? "association" : "guild",
       weekKey,
+      association ? undefined : access.guildId,
     );
     if (!weeklySource.ok) {
       return {

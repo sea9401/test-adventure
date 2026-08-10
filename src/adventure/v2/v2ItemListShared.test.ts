@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { COOP_ALL_EQUIPMENT_BOXES } from "@/adventure/data/v2/coopRewards";
 import { SP_FRUIT_TIERS, SP_FRUIT } from "@/adventure/data/v2/spFruit";
 import {
   itemTabForMarketplaceListing,
@@ -15,6 +16,15 @@ describe("itemTabForMaterial", () => {
           SP_FRUIT[tier].materialId,
         ),
       ).toBe("consumable");
+    }
+  });
+
+  it("협동 장비 상자 전부를 인벤토리와 거래소의 소모품 탭으로 분류한다", () => {
+    for (const box of COOP_ALL_EQUIPMENT_BOXES) {
+      expect(itemTabForMaterial(box.id)).toBe("consumable");
+      expect(itemTabForMarketplaceListing("material", box.id)).toBe(
+        "consumable",
+      );
     }
   });
 

@@ -2091,3 +2091,29 @@ export function setInstanceLock(
     return next;
   });
 }
+
+export type EnhancementResetError = "not_enhanced" | "equipped" | "locked";
+
+/** 강화 초기화 가능 여부. 거래 전 보호 해제를 강제해 사용 중 장비의 오조작을 막는다. */
+export function enhancementResetError(
+  inst: V2EquipInstance,
+  equipped: Partial<Record<V2EquipSlot, string>>,
+): EnhancementResetError | null {
+  if (!inst.enhance) return "not_enhanced";
+  if (Object.values(equipped).includes(inst.iid)) return "equipped";
+  if (inst.locked) return "locked";
+  return null;
+}
+
+/** 해당 개체의 강화 상태만 제거한다. 옵션·제작·개량 메타데이터는 그대로 보존한다. */
+export function resetInstanceEnhancement(
+  owned: V2EquipInstance[],
+  iid: string,
+): V2EquipInstance[] {
+  return owned.map((inst) => {
+    if (inst.iid !== iid) return inst;
+    const next = { ...inst };
+    delete next.enhance;
+    return next;
+  });
+}

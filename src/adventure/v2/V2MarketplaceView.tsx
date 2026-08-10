@@ -269,6 +269,7 @@ const ERR_LABEL: Record<string, string> = {
   slot_full: "활성 매물이 가득 찼어요.",
   not_owned: "보유하지 않은 장비예요.",
   not_tradable: "거래할 수 없는 품목이에요.",
+  secret_shop_used: "품목을 구매한 비밀상점 지도는 등록할 수 없어요.",
   enhanced: "강화한 장비는 거래할 수 없어요.",
   locked: "잠긴 장비는 등록할 수 없어요.",
   equipped: "장착 중인 장비는 등록할 수 없어요.",

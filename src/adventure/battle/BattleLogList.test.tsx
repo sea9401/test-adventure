@@ -117,6 +117,174 @@ describe("BattleLogList 표시 기호", () => {
 });
 
 describe("BattleLogList 행동 묶음", () => {
+  it("행동 시작 상태 피해를 직전 공격이 아니라 피해자의 다음 행동에 연결한다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "player_attack",
+        text: "공격! 120 피해를 입혔다.",
+        turn: "player",
+      },
+      {
+        kind: "info",
+        effect: "status_damage",
+        text: "뇌정 성역지기이(가) 중독으로 2145 피해를 입었다.",
+        turn: "enemy",
+      },
+      {
+        kind: "enemy_attack",
+        text: "공격! 50 피해를 입혔다.",
+        turn: "enemy",
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      { kind: "action", effects: [] },
+      {
+        kind: "action",
+        main: { turn: "enemy" },
+        effects: [{ effect: "status_damage", turn: "enemy" }],
+      },
+    ]);
+  });
+
+  it("상태 피해로 행동 전에 쓰러지면 상태 피해와 사망을 독립 로그로 남긴다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "player_attack",
+        text: "공격! 120 피해를 입혔다.",
+        turn: "player",
+      },
+      {
+        kind: "info",
+        effect: "status_damage",
+        text: "뇌정 성역지기이(가) 중독으로 2145 피해를 입었다.",
+        turn: "enemy",
+      },
+      {
+        kind: "info",
+        text: "뇌정 성역지기을(를) 쓰러뜨렸다!",
+        turn: "enemy",
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      { kind: "action", effects: [] },
+      { kind: "entry", entry: { effect: "status_damage" } },
+      {
+        kind: "entry",
+        entry: { text: "뇌정 성역지기을(를) 쓰러뜨렸다!" },
+      },
+    ]);
+  });
+
+  it("옛 치명타 기본 공격을 다음 사람 행동의 효과로 합치지 않는다", () => {
+    const entries: BattleLogEntry[] = [
+      {
+        kind: "enemy_attack",
+        text: "[치명타] 738 피해를 입혔다.",
+        turn: "enemy",
+        t: 10,
+      },
+      {
+        kind: "info",
+        text: "[칼바람 낙인] 혈향에게 표식을 남겼다. (방어 18% 감소, 2행동)",
+        turn: "enemy",
+        t: 10,
+      },
+      {
+        kind: "player_attack",
+        text: "공격! 85 피해를 입혔다.",
+        turn: "player",
+        t: 10,
+      },
+    ];
+
+    const items = groupBattleLogActions(entries);
+
+    expect(items).toMatchObject([
+      {
+        kind: "action",
+        main: { text: "[치명타] 738 피해를 입혔다." },
+        effects: [
+          {
+            text: "[칼바람 낙인] 혈향에게 표식을 남겼다. (방어 18% 감소, 2행동)",
+          },
+        ],
+      },
+      {
+        kind: "action",
+        main: { text: "공격! 85 피해를 입혔다." },
+        effects: [],
+      },
+    ]);
+  });
+
+  it("옛 그림자 도약 효과 로그도 다음 공격과 분리된 행동으로 복원한다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "info",
+        text: "[그림자 도약] Soo이(가) 다음 공격 1회를 반드시 회피한다.",
+        turn: "enemy",
+        t: 10,
+      },
+      {
+        kind: "player_attack",
+        text: "공격! 85 피해를 입혔다.",
+        turn: "player",
+        t: 10,
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        kind: "action",
+        main: {
+          kind: "enemy_attack",
+          text: "그림자 도약! 확정 회피를 준비했다.",
+        },
+        effects: [
+          {
+            text: "[그림자 도약] Soo이(가) 다음 공격 1회를 반드시 회피한다.",
+          },
+        ],
+      },
+      {
+        kind: "action",
+        main: { text: "공격! 85 피해를 입혔다." },
+      },
+    ]);
+  });
+
+  it("새 그림자 도약 행동과 효과 로그는 하나의 행동 카드로 묶는다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "enemy_attack",
+        text: "그림자 도약! 확정 회피를 준비했다.",
+        turn: "enemy",
+        t: 10,
+      },
+      {
+        kind: "info",
+        text: "[그림자 도약] Soo이(가) 다음 공격 1회를 반드시 회피한다.",
+        turn: "enemy",
+        t: 10,
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        kind: "action",
+        main: { text: "그림자 도약! 확정 회피를 준비했다." },
+        effects: [
+          {
+            text: "[그림자 도약] Soo이(가) 다음 공격 1회를 반드시 회피한다.",
+          },
+        ],
+      },
+    ]);
+    expect(items).toHaveLength(1);
+  });
+
   it("다음 공격 전에 기록된 방어 계산을 그 공격에 연결한다", () => {
     const items = groupBattleLogActions(ACTION_LOG);
 
@@ -273,6 +441,10 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html.match(/data-battle-action=/g)).toHaveLength(2);
     expect(text).toContain("Allure");
     expect(text).toContain("동키오");
+    expect(text).toContain("내 행동");
+    expect(text).toContain("상대 행동");
+    expect(text).toContain("상대가 받음");
+    expect(text).toContain("내가 받음");
     expect(text).toContain("만독개화");
     expect(text).toContain("1,491 피해");
     expect(text).toContain("지속/저주 피해 +28%");

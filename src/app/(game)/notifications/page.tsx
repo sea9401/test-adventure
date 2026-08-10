@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { V2NotificationsView } from "@/adventure/v2/V2NotificationsView";
 import { coopBossSessionHref } from "@/adventure/v2/coop/coopRoutes";
+import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 
 // /notifications — 알림 목록(Bell 착지점). 어느 탭에서든 진입하므로 뒤로 = history back.
 export default function NotificationsPage() {
@@ -12,7 +13,7 @@ export default function NotificationsPage() {
       onBack={() => router.back()}
       onOpenOutpost={() => router.push("/guild")}
       onOpenFeedback={(feedbackId) =>
-        router.push(`/feedback#feedback-${feedbackId}`)
+        router.push(feedbackReplyHref(feedbackId))
       }
       onOpenFarm={() => router.push("/town/farm")}
       onOpenCoopSession={(sessionId) =>

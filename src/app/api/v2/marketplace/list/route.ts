@@ -331,6 +331,12 @@ export async function POST(req: Request) {
       if (!inst) {
         return { status: 400, body: { ok: false as const, error: "not_owned" } };
       }
+      if (inst.kind === "secret_shop_map" && (inst.bought?.length ?? 0) > 0) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "secret_shop_used" },
+        };
+      }
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         rareMaps: maps.filter((m) => m.iid !== iid),

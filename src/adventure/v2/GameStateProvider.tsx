@@ -136,6 +136,7 @@ type GameStateSnapshot = {
   tilePos?: { col: number; row: number; at?: number } | null;
   tileSettlements?: TileSettlement[];
   accountName?: string | null;
+  guild?: { id?: number } | null;
   frontierDepth?: number;
   proficiency?: {
     groups?: Record<string, { tier?: number }>;
@@ -590,6 +591,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       if (!j) return;
       if (j.character?.name) setViewerName(j.character.name);
       setAccountName(j.accountName ?? null);
+      if ("guild" in j) {
+        setViewerGuildId(
+          typeof j.guild?.id === "number" ? j.guild.id : null,
+        );
+      }
       if (j.character?.gender) setViewerGender(j.character.gender as Gender);
       if (typeof j.character?.level === "number") {
         setViewerLevel(j.character.level);
@@ -778,7 +784,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
 
   const refreshGameState = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
+      const res = await fetch("/api/v2/me/state?view=core");
       if (res.ok) {
         applyGameStateSnapshot((await res.json()) as GameStateSnapshot);
       }
@@ -795,7 +801,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     // 보고 발화(ServerFeedView 동일 패턴).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshOccupations();
-    refreshGuildId();
     (async () => {
       try {
         const res = await fetch("/api/auth/session");
@@ -806,7 +811,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       } catch {}
     })();
     void refreshGameState();
-  }, [refreshOccupations, refreshGuildId, refreshGameState]);
+  }, [refreshOccupations, refreshGameState]);
 
   // 이동 요청 직렬화 — 직전 visit 이 끝나기 전 두 번째 이동을 막는다. 낙관적 위치와
   // 서버에 저장된 위치가 어긋나 두 번째 이동이 400 나는 레이스를 차단.

@@ -302,11 +302,15 @@ export function parseGuildDiningUserState(
     };
   }
   const sameGuild = Number(value.guildId) === args.guildId;
+  const associationToGuild = Number(value.guildId) === 0 && args.guildId > 0;
   return {
     version: 1,
     weekKey: args.weekKey,
     guildId: args.guildId,
-    contributionPoints: sameGuild ? nonNegativeInt(value.contributionPoints) : 0,
+    contributionPoints:
+      sameGuild || associationToGuild
+        ? nonNegativeInt(value.contributionPoints)
+        : 0,
     // 길드 이동으로 식권을 다시 받지 못하게 사용량과 이미 먹은 음식 효과는 주차 단위로 유지한다.
     mealsUsed: nonNegativeInt(value.mealsUsed),
     activeEffect: parseActiveEffect(value.activeEffect, {

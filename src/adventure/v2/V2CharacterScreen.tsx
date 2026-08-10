@@ -333,6 +333,7 @@ export function V2CharacterScreen({
         <Card padding="md">
           <StatsPanel
             stats={stats.base}
+            totalStats={stats.total}
             caps={state?.proficiency?.caps}
             combat={combat}
             statKeys={V2_STAT_KEYS}

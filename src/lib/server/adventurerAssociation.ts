@@ -10,6 +10,8 @@ import {
   WEEKLY_FACILITY_SOURCE_SAVE_KEY,
   nextAssociationFacilityUpgrade,
   parseWeeklyFacilitySourceState,
+  resolveWeeklyFacilitySourceClaim,
+  weeklyFacilitySourcesAfterGuildJoin,
   type AdventurerAssociationFacilityId,
   type AdventurerAssociationFacilityProgress,
   type WeeklyFacilitySource,
@@ -154,6 +156,7 @@ export async function claimWeeklyFacilitySource(
   buildingId: AdventurerAssociationFacilityId,
   source: WeeklyFacilitySource,
   weekKey: string,
+  guildId?: number,
 ): Promise<{ ok: true } | { ok: false; selected: WeeklyFacilitySource }> {
   // 미존재 saves_kv 행은 FOR UPDATE로 잠글 수 없으므로 먼저 빈 행을 만든다.
   await tx
@@ -182,12 +185,63 @@ export async function claimWeeklyFacilitySource(
   const raw = row?.value ?? {};
   const state = parseWeeklyFacilitySourceState(raw);
   const current = state[buildingId];
-  if (current?.weekKey === weekKey && current.source !== source) {
-    return { ok: false, selected: current.source };
+  const decision = resolveWeeklyFacilitySourceClaim(buildingId, current, {
+    weekKey,
+    source,
+    ...(source === "guild" && guildId != null ? { guildId } : {}),
+  });
+  if (!decision.ok) {
+    return decision;
   }
   await upsertSave(tx, userId, WEEKLY_FACILITY_SOURCE_SAVE_KEY, {
     ...state,
-    [buildingId]: { weekKey, source },
+    [buildingId]: decision.selection,
   });
   return { ok: true };
+}
+
+export async function reconcileWeeklyFacilitySourcesOnGuildJoin(
+  tx: Tx,
+  userId: string,
+  guildId: number,
+  weekKey: string,
+): Promise<AdventurerAssociationFacilityId[]> {
+  await tx
+    .insert(savesKv)
+    .values({
+      userId,
+      key: WEEKLY_FACILITY_SOURCE_SAVE_KEY,
+      value: {},
+      version: 1,
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing();
+  const row = (
+    await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(
+          eq(savesKv.userId, userId),
+          eq(savesKv.key, WEEKLY_FACILITY_SOURCE_SAVE_KEY),
+        ),
+      )
+      .for("update")
+      .limit(1)
+  )[0];
+  const current = parseWeeklyFacilitySourceState(row?.value ?? {});
+  const result = weeklyFacilitySourcesAfterGuildJoin(
+    current,
+    weekKey,
+    guildId,
+  );
+  if (result.transferred.length > 0) {
+    await upsertSave(
+      tx,
+      userId,
+      WEEKLY_FACILITY_SOURCE_SAVE_KEY,
+      result.state,
+    );
+  }
+  return result.transferred;
 }

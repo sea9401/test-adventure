@@ -86,14 +86,14 @@ function request(body: Record<string, unknown>) {
   });
 }
 
-function weekly(progress = 0, tokens = 0) {
+function weekly(progress = 0, tokens = 0, eligibleUserIds = ["u-trader"]) {
   return {
     guildId: 7,
     weekKey: kstWeekMondayKey(),
     contractIds: [CONTRACT_ID],
     progress: { [CONTRACT_ID]: progress },
     completedIds: [],
-    eligibleUserIds: ["u-trader"],
+    eligibleUserIds,
     target: 40,
     tokens,
     purchases: {},
@@ -243,6 +243,20 @@ describe("길드 교역소", () => {
       GUILD_TRADE_USER_SAVE_KEY,
       expect.objectContaining({ tokens: 0, contributionPoints: 2 }),
     );
+  });
+
+  it("주간 목표 명단이 확정된 뒤 가입해도 협회 사용 이력이 없으면 납품한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 0, []));
+
+    const response = await POST(
+      request({ action: "deliver", contractId: CONTRACT_ID, batches: 1 }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).delivered).toMatchObject({
+      quantity: 10,
+      points: 1,
+    });
   });
 
   it("마지막 납품으로 계약을 완료하면 시설 보너스가 적용된 길드 보상을 지급한다", async () => {

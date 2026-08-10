@@ -75,9 +75,7 @@ export async function readLifeFieldProgress(
   userId: string,
   now = Date.now(),
 ) {
-  const state = parseLifeFieldRecordsState(
-    await readSave(executor, userId, LIFE_FIELD_RECORDS_KEY, {}),
-  );
+  const state = await readLifeFieldState(executor, userId);
   const dayKey = lifeFieldDayKey(now);
   return {
     state,
@@ -88,6 +86,15 @@ export async function readLifeFieldProgress(
       mining: lifeFieldDailyView(state, "mining", dayKey),
     },
   };
+}
+
+export async function readLifeFieldState(
+  executor: DbExecutor,
+  userId: string,
+) {
+  return parseLifeFieldRecordsState(
+    await readSave(executor, userId, LIFE_FIELD_RECORDS_KEY, {}),
+  );
 }
 
 export async function abandonLifeFieldTraceInTx(

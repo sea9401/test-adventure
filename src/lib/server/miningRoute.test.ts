@@ -51,6 +51,7 @@ import {
   MINING_AUTO_KEY,
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 
 const NOW = 1_700_000_000_000;
 
@@ -164,6 +165,58 @@ describe("mining routes", () => {
       successes: 100,
       xp: 700,
       oreEarned: 80,
+    });
+  });
+
+  it("자동 채광 보조품의 추가 광석은 작업 효율로 감산하지 않는다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    const iron = MINING_MATERIAL_ID.iron;
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-aid-auto",
+        planId: "extended",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: iron,
+        startedAt: NOW,
+        readyAt: NOW + 2 * 60 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 800,
+        successRate: 1,
+        materialEfficiency: 0.6,
+        xpEfficiency: 0.7,
+        bonusMaterialRate: 0,
+        baseXp: 5,
+        aidItemId: "mining_probe_basic",
+        aidBonusMaterialRate: 0.1,
+        aidByproductMultiplier: 1.25,
+      },
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: {
+        activeAids: {
+          mining: {
+            itemId: "mining_probe_basic",
+            remainingUses: 600,
+            enabled: true,
+          },
+        },
+      },
+    });
+
+    const response = await AUTO(request("auto", { action: "cancel" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      successes: 100,
+      materialsGained: 70,
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toMatchObject({
+      crafting: {
+        activeAids: {
+          mining: { remainingUses: 500 },
+        },
+      },
     });
   });
 

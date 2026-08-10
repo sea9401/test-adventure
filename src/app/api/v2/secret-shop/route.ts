@@ -4,6 +4,7 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   parseRareMaps,
+  RARE_MAP_TTL_MS,
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
 import {
@@ -66,8 +67,9 @@ export async function GET(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const iid = new URL(req.url).searchParams.get("map") ?? "";
+  const now = Date.now();
   const save = await readSave<CharSave | null>(db, userId, "character.v2", null);
-  const maps = parseRareMaps(save?.rareMaps, Date.now());
+  const maps = parseRareMaps(save?.rareMaps, now);
   const map = findShopMap(maps, iid);
   if (!map) {
     return Response.json({ ok: false, error: "no_map" }, { status: 403 });
@@ -76,6 +78,8 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     map: map.iid,
+    serverNow: now,
+    expiresAt: map.foundAt + RARE_MAP_TTL_MS,
     gold: Math.max(0, Math.floor(save?.gold ?? 0)),
     ...(V2_CORE_LOOP_V2
       ? { bankedGold: Math.max(0, Math.floor(Number(save?.bankedGold) || 0)) }

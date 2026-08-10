@@ -67,6 +67,7 @@ function request(body: Record<string, unknown>) {
 function weekly(
   pantryPoints = 0,
   selectedMenuIds: GuildDiningMenuId[] = ["hearty_stew"],
+  eligibleUserIds = ["u-diner"],
 ) {
   return {
     guildId: 7,
@@ -74,7 +75,7 @@ function weekly(
     selectedMenuIds,
     pantryPoints,
     targetPoints: 60,
-    eligibleUserIds: ["u-diner"],
+    eligibleUserIds,
   };
 }
 
@@ -246,6 +247,34 @@ describe("길드 식당", () => {
 
     expect(response.status).toBe(200);
     expect(json.tickets).toMatchObject({ earned: 4, used: 1, available: 3 });
+  });
+
+  it("주간 목표 명단이 확정된 뒤 가입한 길드원도 기본 식권으로 식사한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(
+      weekly(60, ["hearty_stew"], []),
+    );
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === "inventory.v2") {
+        return { hpCharges: 10_000, mpCharges: 20_000 };
+      }
+      return {
+        weekKey: kstWeekMondayKey(),
+        guildId: 7,
+        contributionPoints: 0,
+        mealsUsed: 0,
+      };
+    });
+
+    const response = await POST(
+      request({ action: "order", menuId: "hearty_stew" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).tickets).toMatchObject({
+      earned: 4,
+      used: 1,
+      available: 3,
+    });
   });
 
   it("같은 효과식을 다시 주문하면 기존 만료 시각에 3시간을 더한다", async () => {

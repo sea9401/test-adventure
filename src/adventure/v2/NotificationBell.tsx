@@ -11,6 +11,7 @@ import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotifi
 import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
 import { coopBossSessionHref } from "@/adventure/v2/coop/coopRoutes";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import { formatRelative } from "@/lib/notifications";
 import {
   NOTIF_POLL_MS,
@@ -234,6 +235,21 @@ export function NotificationBell() {
       );
       void acknowledgeV2Notification(notification.id);
       router.push(coopBossSessionHref(sessionId));
+      return;
+    }
+    if (notification.type === "feedback_replied") {
+      const { feedbackId } = notification.payload as { feedbackId: number };
+      setOpen(false);
+      setNotificationUnread((current) => Math.max(0, current - 1));
+      setItems((current) =>
+        current?.filter(
+          (entry) =>
+            entry.kind !== "notification" ||
+            entry.item.id !== notification.id,
+        ) ?? null,
+      );
+      void acknowledgeV2Notification(notification.id);
+      router.push(feedbackReplyHref(feedbackId));
       return;
     }
     if (notification.type !== "farm_ready") {

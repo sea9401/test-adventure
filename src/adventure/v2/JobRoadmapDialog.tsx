@@ -24,7 +24,12 @@ import {
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  V2_SKILLS,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
 import { jobCultivationSummary } from "./jobExplorer";
+import { SkillEffectChips } from "./SkillEffectChips";
 import {
   buildJobRoadmap,
   type JobRoadmapNode,
@@ -95,7 +100,7 @@ export function JobRoadmapDialog({
               전직 로드맵
             </h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              다른 직업을 선택하면 아래에서 성장 방향과 대표 스킬을 미리 볼 수
+              현재 직업과 전직 이력 또는 해금된 직업의 스킬 정보를 확인할 수
               있습니다.
             </p>
           </div>
@@ -177,6 +182,8 @@ export function JobRoadmapDetails({
 }) {
   const cultivation = jobCultivationSummary(job.id);
   const tierLabel = job.tier <= 0 ? "루트 직업" : `${job.tier}차 직업`;
+  const canInspectSkills =
+    job.id === currentJobId || job.visited === true || job.unlocked !== false;
 
   return (
     <section
@@ -246,21 +253,46 @@ export function JobRoadmapDetails({
             {cultivation || "수행 성장 정보 없음"}
           </dd>
         </div>
-        <div>
-          <dt className="text-zinc-500 dark:text-zinc-400">대표 스킬</dt>
-          <dd className="mt-1 flex flex-wrap gap-1.5 text-zinc-800 dark:text-zinc-200">
-            {job.signatureSkills?.length ? (
-              job.signatureSkills.map((skill) => (
-                <span
-                  key={skill.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <span>{skill.name}</span>
-                  <span className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
-                    {skill.kind === "passive" ? "패시브" : "액티브"}
-                  </span>
-                </span>
-              ))
+        <div className="sm:col-span-2">
+          <dt className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-zinc-500 dark:text-zinc-400">
+            <span>대표 스킬</span>
+            {canInspectSkills && job.signatureSkills?.length ? (
+              <span className="text-[10px]">스킬명을 눌러 상세 확인</span>
+            ) : null}
+          </dt>
+          <dd className="mt-1 grid gap-1.5 text-zinc-800 dark:text-zinc-200 sm:grid-cols-2">
+            {!canInspectSkills ? (
+              <span className="text-zinc-500 dark:text-zinc-400">
+                직업을 해금하면 스킬 정보를 확인할 수 있습니다.
+              </span>
+            ) : job.signatureSkills?.length ? (
+              job.signatureSkills.map((skill) => {
+                const skillDef = V2_SKILLS[skill.id as V2SkillId];
+                return (
+                  <details
+                    key={skill.id}
+                    className={`${SURFACE_CARD} group overflow-hidden`}
+                  >
+                    <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 px-2.5 py-1.5 font-semibold transition hover:bg-zinc-100 [&::-webkit-details-marker]:hidden dark:hover:bg-zinc-800">
+                      <CaretRight
+                        size={13}
+                        className="shrink-0 text-zinc-400 transition-transform group-open:rotate-90"
+                      />
+                      <span>{skill.name}</span>
+                      <span className="ml-auto text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
+                        {skill.kind === "passive" ? "패시브" : "액티브"}
+                      </span>
+                    </summary>
+                    <div className="border-t border-zinc-200 px-2.5 py-2 dark:border-zinc-700">
+                      <p className="leading-relaxed text-zinc-700 dark:text-zinc-300">
+                        {skillDef?.description ??
+                          "등록된 스킬 설명이 없습니다."}
+                      </p>
+                      <SkillEffectChips skillId={skill.id} />
+                    </div>
+                  </details>
+                );
+              })
             ) : (
               <span>전용 스킬 정보 없음</span>
             )}

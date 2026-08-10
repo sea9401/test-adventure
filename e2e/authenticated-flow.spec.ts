@@ -314,15 +314,16 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   await expect(battleLogButton).toBeVisible();
   await battleLogButton.click();
   await expect(page).toHaveURL(/\/battle\/log\/[^/]+$/);
-  await expect(page.getByRole("dialog", { name: "전투 로그" })).toBeVisible();
-  await page.getByRole("button", { name: "뒤로" }).click();
+  const battleLogDialog = page.getByRole("dialog", { name: "전투 로그" });
+  await expect(battleLogDialog).toBeVisible();
+  await battleLogDialog.getByRole("button", { name: "뒤로" }).click();
   await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2`);
   await expect(battleLogButton).toBeVisible();
 
   await battleLogButton.click();
   await expect(page).toHaveURL(/\/battle\/log\/[^/]+$/);
-  await expect(page.getByRole("dialog", { name: "전투 로그" })).toBeVisible();
-  await page.getByRole("button", { name: "뒤로" }).click();
+  await expect(battleLogDialog).toBeVisible();
+  await battleLogDialog.getByRole("button", { name: "뒤로" }).click();
   await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2`);
   await expect(battleLogButton).toBeVisible();
 

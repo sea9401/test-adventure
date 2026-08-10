@@ -114,6 +114,11 @@ import {
   loadCurrentOutpost,
   loadFreeformTileSettlements,
 } from "./stateOutpost";
+import {
+  currentJobSummary,
+  parseStateView,
+  proficiencySummary,
+} from "./stateView";
 
 // GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
 //
@@ -144,12 +149,30 @@ const STATE_SAVE_KEYS = [
 
 type StateSaveKey = (typeof STATE_SAVE_KEYS)[number];
 
-async function readStateSaveRows(userId: string) {
+const CORE_STATE_SAVE_KEYS = [
+  "character.v2",
+  "character-profile.v2",
+  "equipment.v2",
+  "skills.v2",
+  "proficiency.v2",
+  "fishing-codex.v1",
+  "adventure-log.v2",
+  STAMINA_POTIONS_KEY,
+  "inventory.v2",
+  EQUIPMENT_CODEX_KEY,
+  WOODCUTTING_AUTO_KEY,
+  MINING_AUTO_KEY,
+] as const satisfies readonly StateSaveKey[];
+
+async function readStateSaveRows(
+  userId: string,
+  keys: readonly StateSaveKey[],
+) {
   const rows = await db
     .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
     .where(
-      and(eq(savesKv.userId, userId), inArray(savesKv.key, [...STATE_SAVE_KEYS])),
+      and(eq(savesKv.userId, userId), inArray(savesKv.key, [...keys])),
     );
   return new Map(rows.map((row) => [row.key as StateSaveKey, row.value]));
 }
@@ -168,6 +191,12 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
 
+  const stateView = parseStateView(req.url);
+  if (stateView == null) {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
+  const coreView = stateView === "core";
+
   // reconcileV2EquippedSkills 는 idempotent — 코어루프에서는 수동 SP 로드아웃을 보존하고
   // 학습분/SP예산 기준으로만 정리한다. learned 불변.
   // 길드는 더 이상 자동 생성 X — null 이면 무소속.
@@ -179,8 +208,11 @@ export async function GET(req: Request) {
   });
 
   const [stateSaves, guildRow, resources, userRow] = await Promise.all([
-    readStateSaveRows(userId),
-    guildId == null
+    readStateSaveRows(
+      userId,
+      coreView ? CORE_STATE_SAVE_KEYS : STATE_SAVE_KEYS,
+    ),
+    coreView || guildId == null
       ? Promise.resolve(undefined)
       : db
           // 길드 이름 + 내 직책 한 번에 — 정착지 관리 탭 게이트(마스터/관리자)용.
@@ -200,7 +232,7 @@ export async function GET(req: Request) {
           .where(eq(guilds.id, guildId))
           .limit(1)
           .then((rows) => rows[0]),
-    guildId == null
+    coreView || guildId == null
       ? Promise.resolve(null)
       : db.transaction(async (tx) => readGuildResources(tx, guildId)),
     db
@@ -291,14 +323,16 @@ export async function GET(req: Request) {
       ? charSave.equippedTitleId
       : null;
   const ownedTitleIdSet = new Set(ownedTitleIds);
-  const profileShowcaseSlots = parseProfileShowcaseSlots(
-    stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
-  ).map((slot) =>
-    slot?.kind === "title" &&
-    (!TITLES[slot.titleId] || !ownedTitleIdSet.has(slot.titleId))
-      ? null
-      : slot,
-  ) as ProfileShowcaseSlots;
+  const profileShowcaseSlots = coreView
+    ? ([null, null, null] as ProfileShowcaseSlots)
+    : (parseProfileShowcaseSlots(
+        stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
+      ).map((slot) =>
+        slot?.kind === "title" &&
+        (!TITLES[slot.titleId] || !ownedTitleIdSet.has(slot.titleId))
+          ? null
+          : slot,
+      ) as ProfileShowcaseSlots);
 
   // 현 거점 카드 — character.v2.lastVisitedOutpost → 점령/영주/금고 동봉(stateOutpost).
   const currentOutpost = await loadCurrentOutpost(
@@ -362,7 +396,7 @@ export async function GET(req: Request) {
   );
 
   // V2CharacterScreen 의 StatsPanel 표시용. combat 미생성(캐릭 없음) 시 null.
-  const stats = combat
+  const stats = !coreView && combat
     ? {
         base: combat.baseAllocatedStats,
         total: combat.totalStats,
@@ -373,19 +407,22 @@ export async function GET(req: Request) {
   // 침입 상태 — 다른 길드 점령 거점에서 사냥한 TTL 내 기록(intruderTracking 과 동일 판정).
   // OutpostView 가 "이 거점에 침입 중 (토벌 가능)" 배너에 사용. 없으면 null.
   const lastHunted = parseLastHuntedOutpost(charSave.lastHuntedOutpost);
-  const intrusion =
+  const intrusion = !coreView &&
     lastHunted && isIntruderActive(lastHunted, lastHunted.outpostId, now)
       ? { outpostId: lastHunted.outpostId, at: lastHunted.at }
       : null;
 
   const cls = parseV2Class((charSave as { class?: unknown }).class);
-  const woodcuttingLog = parseWoodcuttingLog(
-    stateSaves.get(WOODCUTTING_LOG_KEY),
-  );
-  const miningLog = parseMiningLog(stateSaves.get(MINING_LOG_KEY));
+  const woodcuttingLog = coreView
+    ? null
+    : parseWoodcuttingLog(stateSaves.get(WOODCUTTING_LOG_KEY));
+  const miningLog = coreView
+    ? null
+    : parseMiningLog(stateSaves.get(MINING_LOG_KEY));
   // 직업 시스템 v2(직업 숙련도 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
   // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋 로드(현 카탈로그=무쿼리).
-  const jobUnlockCtx: JobUnlockContext | undefined = V2_CORE_LOOP_V2
+  const jobUnlockCtx: JobUnlockContext | undefined =
+    !coreView && V2_CORE_LOOP_V2
     ? {
         ...(CATALOG_USES_QUEST_CONDITION
           ? { completedQuestIds: await loadCompletedQuestIds(db, userId) }
@@ -407,27 +444,31 @@ export async function GET(req: Request) {
         ...(CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
           ? {
               woodcuttingLevel: woodcuttingProgressionView(
-                woodcuttingLog.cuts,
-                woodcuttingLog.xp,
+                woodcuttingLog?.cuts ?? 0,
+                woodcuttingLog?.xp ?? 0,
               ).level,
             }
           : {}),
         ...(CATALOG_USES_MINING_LEVEL_CONDITION
           ? {
               miningLevel: miningProgressionView(
-                miningLog.successes,
-                miningLog.xp,
+                miningLog?.successes ?? 0,
+                miningLog?.xp ?? 0,
               ).level,
             }
           : {}),
       }
     : undefined;
-  const jobsV2 = jobsV2Section({
-    charSave,
-    proficiencyRaw: proficiencyRow?.value,
-    skillsRaw: skillsRow?.value,
-    jobUnlockCtx,
-  });
+  const jobsV2 = coreView
+    ? V2_CORE_LOOP_V2
+      ? currentJobSummary(charSave)
+      : null
+    : jobsV2Section({
+        charSave,
+        proficiencyRaw: proficiencyRow?.value,
+        skillsRaw: skillsRow?.value,
+        jobUnlockCtx,
+      });
   // 직업 표시명 — 캐릭터 카드/전투 부제가 쓴다(jobDisplayName: 직업 시스템이면 견습 병사·방패병
   //   등, 아니면 옛 직군명). core-loop off 면 null(레거시 화면이 자체 처리).
   const classDisplaySpec =
@@ -448,7 +489,85 @@ export async function GET(req: Request) {
     ? await loadFreeformTileSettlements()
     : [];
   const equipmentCodex = equipmentCodexSummary(equipmentCodexRow?.value);
-  const hotTime = await readActiveHotTime(now);
+  const hotTime = coreView ? null : await readActiveHotTime(now);
+
+  if (coreView) {
+    const fishingCodex = fishingCodexSection(fishingCodexRow?.value);
+    return Response.json({
+      ok: true,
+      accountName: userRow?.gameName?.trim() || null,
+      jobsV2,
+      coreLoopOn: V2_CORE_LOOP_V2,
+      autoGathering:
+        activeAutoActivity && activeAutoSession
+          ? {
+              activity: activeAutoActivity,
+              sourceId: activeAutoSession.sourceId,
+              sourceName: activeAutoSession.sourceName,
+              readyAt: activeAutoSession.readyAt,
+              serverNow: now,
+            }
+          : null,
+      adventureSupport: {
+        active: staminaConfig.adventureSupportActive,
+        activeUntil: adventureSupportState?.activeUntil ?? null,
+        regenBonusPct: staminaConfig.regenBonusPct,
+      },
+      huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
+      combatCooldown,
+      offlinePending,
+      offlineHunt,
+      character: {
+        name,
+        gender,
+        level,
+        exp,
+        expToNext,
+        hpCharges,
+        mpCharges,
+        hp: hpRegen.hp,
+        maxHp,
+        mp: combat?.player.mp ?? maxMp,
+        maxMp,
+        stamina: {
+          current: stamina.current,
+          max: staminaMax,
+          lastUpdatedAt: stamina.lastUpdatedAt,
+        },
+        staminaPotions: staminaPotionCount(staminaPotionsRow?.value),
+        gold: Math.max(0, charSave.gold ?? 0),
+        bankedGold: Math.max(
+          0,
+          (charSave as { bankedGold?: number }).bankedGold ?? 0,
+        ),
+        atRiskGold: V2_CORE_LOOP_V2
+          ? Math.max(
+              0,
+              Number((charSave as { atRiskGold?: number }).atRiskGold) || 0,
+            )
+          : null,
+        class: cls,
+        classDisplayName,
+        spec: V2_CORE_LOOP_V2 ? classDisplaySpec : null,
+      },
+      combat: combatStats,
+      guild: guildId == null ? null : { id: guildId },
+      currentOutpost: currentOutpost
+        ? { id: currentOutpost.id, name: currentOutpost.name }
+        : null,
+      tilePos: tilePosOf(charSave.tilePos),
+      tileSettlements: freeformTileSettlements,
+      discoveredOutpostIds:
+        charSave.discoveredOutpostIds &&
+        charSave.discoveredOutpostIds.length > 0
+          ? charSave.discoveredOutpostIds
+          : seededDiscovery(),
+      equipmentCodex: { registeredIds: equipmentCodex.registeredIds },
+      fishingCodex: { discoveredIds: fishingCodex.discoveredIds },
+      frontierDepth: frontierDepthOf(charSave.frontierDepth),
+      proficiency: proficiencySummary(proficiencyRow?.value, charSave),
+    });
+  }
 
   return Response.json({
     ok: true,
@@ -485,7 +604,7 @@ export async function GET(req: Request) {
     profileBadgeStandVisible: parseProfileBadgeStandVisible(
       stateSaves.get(PROFILE_SHOWCASE_SAVE_KEY),
     ),
-    hotTime: hotTime.active
+    hotTime: hotTime?.active
       ? {
           title: hotTime.title,
           endsAt: hotTime.endsAt,

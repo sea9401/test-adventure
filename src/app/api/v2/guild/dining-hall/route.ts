@@ -114,7 +114,7 @@ async function diningView(args: {
     level,
     stageLabel: upgrade.label,
     weekKey: weekly.weekKey,
-    eligible: weekly.eligibleUserIds.includes(userId),
+    eligible: true,
     weeklySource,
     pantry: {
       points: weekly.pantryPoints,
@@ -218,10 +218,6 @@ export async function POST(req: Request) {
     const weekly = await lockGuildDiningWeekly(tx, guildId, weekKey);
     const upgrade = diningHallUpgradeForLevel(level);
 
-    if (!weekly.eligibleUserIds.includes(userId)) {
-      return { status: 403, body: { ok: false as const, error: "not_eligible" } };
-    }
-
     if (body.action === "donate") {
       const ingredient = guildDiningIngredient(body.ingredientId);
       const quantity = Number(body.quantity);
@@ -267,6 +263,7 @@ export async function POST(req: Request) {
         "dining_hall",
         "guild",
         weekKey,
+        guildId,
       );
       if (!weeklySource.ok) {
         return {
@@ -358,6 +355,7 @@ export async function POST(req: Request) {
       "dining_hall",
       "guild",
       weekKey,
+      guildId,
     );
     if (!weeklySource.ok) {
       return {

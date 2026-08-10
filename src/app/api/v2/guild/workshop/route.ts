@@ -632,6 +632,7 @@ export async function POST(req: Request) {
       "guild_smithy",
       association ? "association" : "guild",
       week.key,
+      association ? undefined : guildId,
     );
     if (!weeklySource.ok) {
       return {

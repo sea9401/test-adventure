@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { classifyRequestPath } from "./routeClassifier";
+import {
+  classifyRequestOperation,
+  classifyRequestPath,
+} from "./routeClassifier";
 
 describe("classifyRequestPath", () => {
   it.each([
@@ -30,5 +33,35 @@ describe("classifyRequestPath", () => {
     ["/api/unclassified", "other"],
   ] as const)("%s 경로를 %s 기능으로 분류한다", (pathname, expected) => {
     expect(classifyRequestPath(pathname)).toBe(expected);
+  });
+});
+
+describe("classifyRequestOperation", () => {
+  it.each([
+    [
+      "/api/v2/dungeon/hunt?floor=private",
+      "POST",
+      "POST /api/v2/dungeon/hunt",
+    ],
+    [
+      "/api/v2/coop/session-secret/attacks/attack-secret?token=hidden",
+      "get",
+      "GET /api/v2/coop/:sessionId/attacks/:attackId",
+    ],
+    [
+      "/api/v2/arena/tournament/season-secret/matches/match-secret",
+      "GET",
+      "GET /api/v2/arena/tournament/:seasonId/matches/:matchId",
+    ],
+    [
+      "/api/v2/battle-replays/replay-secret",
+      "GET",
+      "GET /api/v2/battle-replays/:replayId",
+    ],
+    ["/api/profile/by-name?name=hidden", "GET", "GET auth"],
+  ] as const)("%s를 비식별 작업명으로 분류한다", (url, method, expected) => {
+    const operation = classifyRequestOperation(url, method);
+    expect(operation).toBe(expected);
+    expect(operation).not.toMatch(/private|secret|hidden/);
   });
 });

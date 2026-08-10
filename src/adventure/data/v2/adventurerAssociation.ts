@@ -81,15 +81,30 @@ export function associationFacilityMaterialsComplete(
 
 export type WeeklyFacilitySource = "guild" | "association";
 
+export type WeeklyFacilitySourceSelection = {
+  weekKey: string;
+  source: WeeklyFacilitySource;
+  guildId?: number;
+};
+
 export const WEEKLY_FACILITY_SOURCE_SAVE_KEY =
   "facility-weekly-source.v1" as const;
 
 export type WeeklyFacilitySourceState = Partial<
-  Record<
-    AdventurerAssociationFacilityId,
-    { weekKey: string; source: WeeklyFacilitySource }
-  >
+  Record<AdventurerAssociationFacilityId, WeeklyFacilitySourceSelection>
 >;
+
+const ASSOCIATION_TO_GUILD_TRANSFER_FACILITIES = new Set<AdventurerAssociationFacilityId>([
+  "guild_smithy",
+  "training_ground",
+  "alchemy_workshop",
+  "dining_hall",
+]);
+
+function positiveInt(value: unknown): number | undefined {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
 
 export function parseWeeklyFacilitySourceState(
   raw: unknown,
@@ -104,9 +119,69 @@ export function parseWeeklyFacilitySourceState(
       typeof row.weekKey === "string" &&
       (row.source === "guild" || row.source === "association")
     ) {
-      result[facilityId] = { weekKey: row.weekKey, source: row.source };
+      const guildId = row.source === "guild" ? positiveInt(row.guildId) : undefined;
+      result[facilityId] = {
+        weekKey: row.weekKey,
+        source: row.source,
+        ...(guildId ? { guildId } : {}),
+      };
     }
   }
   return result;
 }
 
+export function resolveWeeklyFacilitySourceClaim(
+  facilityId: AdventurerAssociationFacilityId,
+  current: WeeklyFacilitySourceSelection | undefined,
+  request: WeeklyFacilitySourceSelection,
+):
+  | { ok: true; selection: WeeklyFacilitySourceSelection }
+  | { ok: false; selected: WeeklyFacilitySource } {
+  const requestedGuildId =
+    request.source === "guild" ? positiveInt(request.guildId) : undefined;
+  const selection: WeeklyFacilitySourceSelection = {
+    weekKey: request.weekKey,
+    source: request.source,
+    ...(requestedGuildId ? { guildId: requestedGuildId } : {}),
+  };
+  if (!current || current.weekKey !== request.weekKey) {
+    return { ok: true, selection };
+  }
+  if (current.source === request.source) {
+    if (
+      request.source === "guild" &&
+      current.guildId != null &&
+      requestedGuildId !== current.guildId
+    ) {
+      return { ok: false, selected: current.source };
+    }
+    return { ok: true, selection: { ...current, ...selection } };
+  }
+  if (
+    current.source === "association" &&
+    request.source === "guild" &&
+    ASSOCIATION_TO_GUILD_TRANSFER_FACILITIES.has(facilityId)
+  ) {
+    return { ok: true, selection };
+  }
+  return { ok: false, selected: current.source };
+}
+
+export function weeklyFacilitySourcesAfterGuildJoin(
+  state: WeeklyFacilitySourceState,
+  weekKey: string,
+  guildId: number,
+): {
+  state: WeeklyFacilitySourceState;
+  transferred: AdventurerAssociationFacilityId[];
+} {
+  const next = { ...state };
+  const transferred: AdventurerAssociationFacilityId[] = [];
+  for (const facilityId of ASSOCIATION_TO_GUILD_TRANSFER_FACILITIES) {
+    const current = state[facilityId];
+    if (current?.weekKey !== weekKey || current.source !== "association") continue;
+    next[facilityId] = { weekKey, source: "guild", guildId };
+    transferred.push(facilityId);
+  }
+  return { state: next, transferred };
+}

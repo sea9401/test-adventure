@@ -65,6 +65,7 @@ import {
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
+import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
@@ -227,6 +228,61 @@ describe("woodcutting routes", () => {
       cuts: 90,
       xp: 630,
       timberEarned: 72,
+    });
+  });
+
+  it("자동 벌목 보조품의 추가 원목은 작업 효율로 감산하지 않는다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-aid-auto",
+        planId: "extended",
+        sourceId: "pine",
+        sourceName: "소나무",
+        materialId: TIMBER,
+        startedAt: NOW,
+        readyAt: NOW + 2 * 60 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 800,
+        successRate: 1,
+        materialEfficiency: 0.6,
+        xpEfficiency: 0.7,
+        bonusMaterialRate: 0,
+        baseXp: 5,
+        aidItemId: "logging_wedge_basic",
+        aidBonusMaterialRate: 0.1,
+      },
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: {
+        activeAids: {
+          woodcutting: {
+            itemId: "logging_wedge_basic",
+            remainingUses: 600,
+            enabled: true,
+          },
+        },
+      },
+    });
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "cancel" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      successes: 100,
+      materialsGained: 70,
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toMatchObject({
+      crafting: {
+        activeAids: {
+          woodcutting: { remainingUses: 500 },
+        },
+      },
     });
   });
 

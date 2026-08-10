@@ -87,3 +87,23 @@ describe("StatsPanel 명중·회피 표기", () => {
     expect(html).not.toContain("명중</span><span");
   });
 });
+
+describe("StatsPanel 효과 능력치 표기", () => {
+  it("한계치가 있는 내 정보에서는 최종값과 효과 증가분을 함께 표시한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { str: 110 },
+        totalStats: { str: 142 },
+        caps: { str: 160 },
+        statKeys: ["str"],
+        statLabels: { str: "힘" },
+      }),
+    );
+
+    expect(html).toMatch(/font-semibold[^>]*>142<\/span>/);
+    expect(html).toContain("기본·성장 110");
+    expect(html).toContain("효과 +32");
+    expect(html).toContain("성장 한계 160");
+    expect(html).not.toContain("장비 +32");
+  });
+});

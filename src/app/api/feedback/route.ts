@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { feedbackReports } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -17,6 +17,17 @@ const PATH_MAX = 240;
 const RATE_LIMIT_MS = 60_000;
 const MAX_MULTIPART_BYTES = FEEDBACK_IMAGE_MAX_BYTES + 256 * 1024;
 const CATEGORIES = new Set(["suggestion", "bug", "balance", "ui", "other"]);
+const FEEDBACK_SELECTION = {
+  id: feedbackReports.id,
+  category: feedbackReports.category,
+  content: feedbackReports.content,
+  imageKey: feedbackReports.imageKey,
+  status: feedbackReports.status,
+  adminReply: feedbackReports.adminReply,
+  reviewedAt: feedbackReports.reviewedAt,
+  repliedAt: feedbackReports.repliedAt,
+  createdAt: feedbackReports.createdAt,
+};
 
 function normalizeCategory(value: unknown) {
   return typeof value === "string" && CATEGORIES.has(value)
@@ -32,28 +43,42 @@ function normalizePath(value: unknown) {
 }
 
 // GET /api/feedback — 로그인 유저 본인의 최근 건의와 공개 답변을 조회한다.
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const entries = await db
-    .select({
-      id: feedbackReports.id,
-      category: feedbackReports.category,
-      content: feedbackReports.content,
-      imageKey: feedbackReports.imageKey,
-      status: feedbackReports.status,
-      adminReply: feedbackReports.adminReply,
-      reviewedAt: feedbackReports.reviewedAt,
-      repliedAt: feedbackReports.repliedAt,
-      createdAt: feedbackReports.createdAt,
-    })
+  const rawTargetId = new URL(req.url).searchParams.get("targetId");
+  const parsedTargetId = Number(rawTargetId);
+  const targetId =
+    rawTargetId !== null &&
+    Number.isSafeInteger(parsedTargetId) &&
+    parsedTargetId > 0
+      ? parsedTargetId
+      : null;
+  const recentEntries = await db
+    .select(FEEDBACK_SELECTION)
     .from(feedbackReports)
     .where(eq(feedbackReports.userId, userId))
     .orderBy(desc(feedbackReports.id))
     .limit(50);
+  let entries = recentEntries;
+  if (targetId && !recentEntries.some((entry) => entry.id === targetId)) {
+    const [target] = await db
+      .select(FEEDBACK_SELECTION)
+      .from(feedbackReports)
+      .where(
+        and(
+          eq(feedbackReports.userId, userId),
+          eq(feedbackReports.id, targetId),
+        ),
+      )
+      .limit(1);
+    if (target) {
+      entries = [...recentEntries, target].sort((left, right) => right.id - left.id);
+    }
+  }
 
   return Response.json({
     ok: true,

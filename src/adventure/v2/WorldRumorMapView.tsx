@@ -42,7 +42,7 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useFishingCodexContext } from "@/adventure/v2/GameStateProvider";
 import {
   LifeFieldEnvironmentCard,
-  useLifeFieldStatus,
+  useFullLifeFieldStatus,
 } from "@/adventure/v2/LifeFieldPanels";
 import { lifeFieldRegionRecordId } from "@/adventure/v2/lifeFieldRecords";
 import {
@@ -347,7 +347,7 @@ export function WorldRumorMapView({
   fishCodexDiscoveredIds?: ReadonlySet<FishId>;
 }) {
   const fishingCodex = useFishingCodexContext();
-  const { data: lifeFieldStatus } = useLifeFieldStatus();
+  const { data: lifeFieldStatus } = useFullLifeFieldStatus();
   const discoveredFishIds =
     fishCodexDiscoveredIds ??
     (fishingCodex?.loaded ? fishingCodex.discoveredIds : null);

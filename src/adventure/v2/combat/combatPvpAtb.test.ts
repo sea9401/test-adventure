@@ -69,6 +69,22 @@ function actionCounts(result: PvPBattleResolution): { p1: number; p2: number } {
 }
 
 describe("resolveBattlePvP ATB invariants", () => {
+  it("치명타 기본 공격도 행동명을 보존해 독립 로그로 식별된다", () => {
+    const result = run(
+      { ...basePlayer, critChancePct: 100 },
+      { ...basePlayer, hp: 1_000, maxHp: 1_000, spd: 30 },
+      29,
+    );
+    const criticalBasic = result.finalState.log.find(
+      (entry) =>
+        entry.side === "p1" &&
+        entry.kind === "player_attack" &&
+        entry.text.includes("치명타"),
+    );
+
+    expect(criticalBasic?.text).toMatch(/^\[치명타(?: \+ [^\]]+)*\] 공격! /);
+  });
+
   it("deterministic: same seeded inputs produce identical outcome and log", () => {
     const runs = [
       run(basePlayer, { ...basePlayer, spd: 45 }, 123),

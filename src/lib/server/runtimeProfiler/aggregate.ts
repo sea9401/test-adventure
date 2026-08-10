@@ -25,6 +25,7 @@ type MutableFeatureProfile = {
 type MutableWindow = {
   startedAtMs: number;
   features: Partial<Record<RuntimeFeature, MutableFeatureProfile>>;
+  operations: Record<string, MutableFeatureProfile>;
   slowRequests: SlowRequestProfile[];
 };
 
@@ -146,6 +147,46 @@ function serializeFeatures(
   );
 }
 
+function serializeOperations(
+  operations: MutableWindow["operations"],
+): Record<string, FeatureProfile> {
+  return Object.fromEntries(
+    Object.entries(operations).map(([operation, profile]) => [
+      operation,
+      serializeFeature(profile),
+    ]),
+  );
+}
+
+function addRequestToProfile(
+  profile: MutableFeatureProfile,
+  record: RequestProfileRecord,
+): number {
+  const durationMs = Math.max(0, record.durationMs);
+  profile.requests += 1;
+  profile.errors +=
+    record.aborted === true || record.statusCode >= 500 ? 1 : 0;
+  profile.responseBytes += Math.max(0, Math.round(record.responseBytes));
+  profile.durationTotalMs += durationMs;
+  profile.durationMaxMs = Math.max(profile.durationMaxMs, durationMs);
+  addDuration(profile.durationBucketCounts, durationMs);
+  profile.database.queryCount += Math.max(0, record.database.queryCount);
+  profile.database.errorCount += Math.max(0, record.database.errorCount);
+  profile.database.totalDurationMs += Math.max(
+    0,
+    record.database.totalDurationMs,
+  );
+  profile.database.maxDurationMs = Math.max(
+    profile.database.maxDurationMs,
+    record.database.maxDurationMs,
+  );
+  mergeBuckets(
+    profile.database.durationBucketCounts,
+    record.database.durationBucketCounts,
+  );
+  return durationMs;
+}
+
 export function createProfilerAggregator(options: AggregatorOptions = {}) {
   const now = options.now ?? Date.now;
   const historyLimit = Math.max(1, options.historyLimit ?? 60);
@@ -157,40 +198,23 @@ export function createProfilerAggregator(options: AggregatorOptions = {}) {
   let current: MutableWindow = {
     startedAtMs: now(),
     features: {},
+    operations: {},
     slowRequests: [],
   };
   const history: ProfilerWindow[] = [];
 
   const recordRequest = (record: RequestProfileRecord): void => {
-    const profile = (current.features[record.feature] ??=
+    const featureProfile = (current.features[record.feature] ??=
       emptyFeatureProfile());
-    const durationMs = Math.max(0, record.durationMs);
-    profile.requests += 1;
-    profile.errors +=
-      record.aborted === true || record.statusCode >= 500 ? 1 : 0;
-    profile.responseBytes += Math.max(0, Math.round(record.responseBytes));
-    profile.durationTotalMs += durationMs;
-    profile.durationMaxMs = Math.max(profile.durationMaxMs, durationMs);
-    addDuration(profile.durationBucketCounts, durationMs);
-
-    profile.database.queryCount += Math.max(0, record.database.queryCount);
-    profile.database.errorCount += Math.max(0, record.database.errorCount);
-    profile.database.totalDurationMs += Math.max(
-      0,
-      record.database.totalDurationMs,
-    );
-    profile.database.maxDurationMs = Math.max(
-      profile.database.maxDurationMs,
-      record.database.maxDurationMs,
-    );
-    mergeBuckets(
-      profile.database.durationBucketCounts,
-      record.database.durationBucketCounts,
-    );
+    const durationMs = addRequestToProfile(featureProfile, record);
+    const operationProfile = (current.operations[record.operation] ??=
+      emptyFeatureProfile());
+    addRequestToProfile(operationProfile, record);
 
     if (durationMs >= slowRequestThresholdMs && slowRequestLimit > 0) {
       current.slowRequests.push({
         feature: record.feature,
+        operation: record.operation,
         method: record.method,
         statusCode: record.statusCode,
         durationMs: round(durationMs),
@@ -212,6 +236,7 @@ export function createProfilerAggregator(options: AggregatorOptions = {}) {
     startedAt: new Date(current.startedAtMs).toISOString(),
     endedAt: new Date(endedAtMs).toISOString(),
     features: serializeFeatures(current.features),
+    operations: serializeOperations(current.operations),
     slowRequests: current.slowRequests.map((request) => ({ ...request })),
   });
 
@@ -223,7 +248,12 @@ export function createProfilerAggregator(options: AggregatorOptions = {}) {
     };
     history.push(completed);
     if (history.length > historyLimit) history.shift();
-    current = { startedAtMs: endedAtMs, features: {}, slowRequests: [] };
+    current = {
+      startedAtMs: endedAtMs,
+      features: {},
+      operations: {},
+      slowRequests: [],
+    };
     return structuredClone(completed);
   };
 

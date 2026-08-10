@@ -107,16 +107,33 @@ describe("life crafting", () => {
     expect(lifeAidSpec("tidy_bait_box")).toMatchObject({ uses: 800 });
   });
 
-  it("charges the expanded material bundles for long-running aids", () => {
+  it("charges sustainable material bundles for gathering aids", () => {
     const byId = new Map(LIFE_CRAFTING_RECIPES.map((recipe) => [recipe.id, recipe]));
     expect(byId.get("logging_wedge_basic")?.costs).toEqual({
-      [LIFE_PROCESSED_MATERIAL_ID.softwood]: 8,
+      [LIFE_PROCESSED_MATERIAL_ID.softwood]: 4,
+      [LIFE_PROCESSED_MATERIAL_ID.basicIngot]: 1,
+    });
+    expect(byId.get("logging_wedge_advanced")?.costs).toEqual({
+      [LIFE_PROCESSED_MATERIAL_ID.hardwood]: 4,
+      [LIFE_PROCESSED_MATERIAL_ID.preciousIngot]: 1,
+    });
+    expect(byId.get("logging_wedge_master")?.costs).toEqual({
+      [LIFE_PROCESSED_MATERIAL_ID.masterwood]: 4,
+      [LIFE_PROCESSED_MATERIAL_ID.arcaneAlloy]: 1,
+      [MINING_MATERIAL_ID.roughGem]: 1,
+    });
+    expect(byId.get("mining_probe_basic")?.costs).toEqual({
       [LIFE_PROCESSED_MATERIAL_ID.basicIngot]: 4,
+      [LIFE_PROCESSED_MATERIAL_ID.softwood]: 1,
+    });
+    expect(byId.get("mining_probe_advanced")?.costs).toEqual({
+      [LIFE_PROCESSED_MATERIAL_ID.preciousIngot]: 4,
+      [LIFE_PROCESSED_MATERIAL_ID.hardwood]: 1,
     });
     expect(byId.get("mining_probe_master")?.costs).toEqual({
-      [LIFE_PROCESSED_MATERIAL_ID.arcaneAlloy]: 10,
-      [LIFE_PROCESSED_MATERIAL_ID.masterwood]: 4,
-      [MINING_MATERIAL_ID.roughGem]: 4,
+      [LIFE_PROCESSED_MATERIAL_ID.arcaneAlloy]: 4,
+      [LIFE_PROCESSED_MATERIAL_ID.masterwood]: 1,
+      [MINING_MATERIAL_ID.roughGem]: 1,
     });
     expect(byId.get("tidy_bait_box")?.costs).toEqual({
       [LIFE_PROCESSED_MATERIAL_ID.hardwood]: 8,

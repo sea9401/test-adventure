@@ -7,6 +7,7 @@ import {
 
 export type RequestProfileContext = {
   feature: RuntimeFeature;
+  operation: string;
   method: string;
   startedAtNs: bigint;
   socketBytesAtStart: number;
@@ -26,12 +27,15 @@ function requestStorage(): AsyncLocalStorage<RequestProfileContext> {
 
 export function createRequestProfile(input: {
   feature: RuntimeFeature;
+  operation?: string;
   method: string;
   startedAtNs: bigint;
   socketBytesAtStart: number;
 }): RequestProfileContext {
   return {
     ...input,
+    operation:
+      input.operation ?? `${input.method.toUpperCase()} ${input.feature}`,
     database: {
       queryCount: 0,
       errorCount: 0,

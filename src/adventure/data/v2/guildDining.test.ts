@@ -62,6 +62,31 @@ describe("guild dining", () => {
     expect(state.activeEffect?.expiresAt).toBe(now.getTime() + 60_000);
   });
 
+  it("협회에서 길드로 가입하면 같은 주 개인 기여도와 식사 상태를 모두 승계한다", () => {
+    const state = parseGuildDiningUserState(
+      {
+        weekKey: "2026-07-13",
+        guildId: 0,
+        contributionPoints: 12,
+        mealsUsed: 2,
+        activeEffect: {
+          menuId: "adventurer_meal",
+          kind: "hunt_exp",
+          expiresAt: now.getTime() + 60_000,
+          roundingRemainder: 20,
+        },
+      },
+      { weekKey: "2026-07-13", guildId: 7, now },
+    );
+
+    expect(state).toMatchObject({
+      guildId: 7,
+      contributionPoints: 12,
+      mealsUsed: 2,
+      activeEffect: { expiresAt: now.getTime() + 60_000 },
+    });
+  });
+
   it("모든 길드원에게 기본 식권 4장을 주고 기여 4점마다 추가 지급한다", () => {
     const state = parseGuildDiningUserState(
       { weekKey: "2026-07-13", guildId: 1, contributionPoints: 100, mealsUsed: 1 },

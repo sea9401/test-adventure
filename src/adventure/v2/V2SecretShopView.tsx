@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Coins } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -11,11 +11,30 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
 import { useSystemMessageState } from "./RewardToastProvider";
+import {
+  correctedSecretShopExpiry,
+  formatSecretShopRemaining,
+} from "./secretShopCountdown";
 
 // 비밀 상점 — 사냥터에 열린 「비밀 상점 지도」로 입장.
 // 서버(/api/v2/secret-shop)가 지도 소유/품목 중복을 권위 검증.
 
 type StockRow = SecretShopItem & { bought: boolean };
+
+export function SecretShopAccessNote({
+  remainingMs,
+}: {
+  remainingMs: number | null;
+}) {
+  return (
+    <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+      품목당 1회 구매 · 비밀 상점 지도는 발견 후 30분 동안 개방
+      {remainingMs != null
+        ? ` · 남은 시간 ${formatSecretShopRemaining(remainingMs)}`
+        : ""}
+    </p>
+  );
+}
 
 export function V2SecretShopView({
   mapIid,
@@ -37,6 +56,18 @@ export function V2SecretShopView({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
   const [denied, setDenied] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [expired, setExpired] = useState(false);
+  const expiryHandledRef = useRef(false);
+
+  const expireAndLeave = useCallback(() => {
+    if (expiryHandledRef.current) return;
+    expiryHandledRef.current = true;
+    setExpired(true);
+    setMsg("✗ 비밀 상점 이용 시간이 종료되었습니다");
+    onBack();
+  }, [onBack, setMsg]);
 
   const refresh = useCallback(async () => {
     setDenied(false);
@@ -50,6 +81,8 @@ export function V2SecretShopView({
         stock?: StockRow[];
         gold?: number;
         bankedGold?: number;
+        expiresAt?: number;
+        serverNow?: number;
       } | null;
       if (!res.ok || !j?.ok) {
         setDenied(true);
@@ -59,6 +92,22 @@ export function V2SecretShopView({
       setStock(j.stock ?? []);
       setGold(j.gold ?? 0);
       setBankedGold(j.bankedGold ?? 0);
+      if (
+        typeof j.expiresAt === "number" &&
+        Number.isFinite(j.expiresAt) &&
+        typeof j.serverNow === "number" &&
+        Number.isFinite(j.serverNow)
+      ) {
+        const clientNow = Date.now();
+        expiryHandledRef.current = false;
+        setExpired(false);
+        setClockNow(clientNow);
+        setExpiresAt(
+          correctedSecretShopExpiry(j.expiresAt, j.serverNow, clientNow),
+        );
+      } else {
+        setExpiresAt(null);
+      }
       applyResourcePatch({
         gold: j.gold ?? 0,
         bankedGold: j.bankedGold ?? 0,
@@ -72,6 +121,24 @@ export function V2SecretShopView({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트/지도 변경 시 비밀상점 fetch
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (expiresAt == null || expired) return;
+    const updateClock = () => {
+      const nextNow = Date.now();
+      setClockNow(nextNow);
+      if (nextNow >= expiresAt) expireAndLeave();
+    };
+    const intervalId = window.setInterval(updateClock, 1_000);
+    const expiryTimeoutId = window.setTimeout(
+      updateClock,
+      Math.max(0, expiresAt - Date.now()),
+    );
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(expiryTimeoutId);
+    };
+  }, [expiresAt, expired, expireAndLeave]);
 
   async function buy(item: StockRow) {
     if (busy) return;
@@ -115,6 +182,10 @@ export function V2SecretShopView({
           await refreshGameState();
         }
       } else {
+        if (j?.error === "no_map") {
+          expireAndLeave();
+          return;
+        }
         const label =
           j?.error === "insufficient_gold"
             ? "골드가 부족합니다"
@@ -132,6 +203,8 @@ export function V2SecretShopView({
 
   // flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행(은행 골드로도 구매).
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
+  const remainingMs =
+    expiresAt == null ? null : Math.max(0, expiresAt - clockNow);
   return (
     <PageShell>
       <SubViewHeader
@@ -148,11 +221,7 @@ export function V2SecretShopView({
           ) : null
         }
       />
-      {gold != null && (
-        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-          품목당 1회 구매 · 비밀 상점 지도는 발견 후 30분 동안 개방
-        </p>
-      )}
+      {gold != null && <SecretShopAccessNote remainingMs={remainingMs} />}
 
       {denied ? (
         <Card padding="md">
@@ -184,7 +253,9 @@ export function V2SecretShopView({
                 </div>
                 <Button
                   onClick={() => buy(item)}
-                  disabled={busy || item.bought || spendable < item.price}
+                  disabled={
+                    busy || expired || item.bought || spendable < item.price
+                  }
                   variant={item.bought ? "secondary" : "info"}
                   size="xs"
                   className="shrink-0"
@@ -198,7 +269,7 @@ export function V2SecretShopView({
           ))}
           <Button
             onClick={onBack}
-            disabled={busy}
+            disabled={busy || expired}
             variant="danger"
             size="sm"
             fullWidth

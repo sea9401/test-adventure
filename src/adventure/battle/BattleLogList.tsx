@@ -90,15 +90,65 @@ const DAMAGE_CALCULATION_LABELS = [
 
 const ACTION_RECOVERY_LABELS = ["봉인", "그림자", "해연"] as const;
 
+// 2026-08-10 이전 PvP 리플레이는 치명타 등 수식어가 붙은 기본 공격에서 `공격!`을
+// 빠뜨렸다. 반사·추가타까지 행동으로 오인하지 않도록 기본 공격 자체를 만들 수 있는
+// 수식어가 있으면서 본문이 순수 피해 결과인 경우만 옛 기본 공격으로 복원한다.
+const LEGACY_BASIC_ATTACK_LABELS = [
+  "강공격",
+  "분쇄",
+  "처형",
+  "치명타",
+  "행운의 별",
+  "암살",
+  "천명",
+  "충돌파",
+  "불굴의 일격",
+  "약점 적중",
+  "연쇄 운명",
+] as const;
+
 function battleLogDisplayLabel(label: string): string {
   return label === "해연" ? "해연추적" : label;
+}
+
+function isLegacyBasicAttackEntry(entry: BattleLogEntry): boolean {
+  if (entry.kind !== "player_attack" && entry.kind !== "enemy_attack") {
+    return false;
+  }
+  const { labels, body } = parseBattleLogText(entry.text);
+  return (
+    labels.some((label) =>
+      LEGACY_BASIC_ATTACK_LABELS.some((attackLabel) => label === attackLabel),
+    ) && /^\d[\d,]*\s*피해를 입혔다\.?$/.test(body)
+  );
 }
 
 function isDirectActionEntry(entry: BattleLogEntry): boolean {
   if (entry.kind !== "player_attack" && entry.kind !== "enemy_attack") {
     return false;
   }
-  return /^[^!]+!/.test(parseBattleLogText(entry.text).body);
+  return (
+    /^[^!]+!/.test(parseBattleLogText(entry.text).body) ||
+    isLegacyBasicAttackEntry(entry)
+  );
+}
+
+function legacyStandaloneActionMain(
+  entry: BattleLogEntry,
+): BattleLogEntry | null {
+  if (entry.kind !== "info") return null;
+  const { labels, body } = parseBattleLogText(entry.text);
+  if (
+    !labels.includes("그림자 도약") ||
+    !/다음 공격 \d+회를 반드시 회피한다\.?$/.test(body)
+  ) {
+    return null;
+  }
+  return {
+    ...entry,
+    kind: entry.turn === "enemy" ? "enemy_attack" : "player_attack",
+    text: "그림자 도약! 확정 회피를 준비했다.",
+  };
 }
 
 function isDamageCalculationEntry(entry: BattleLogEntry): boolean {
@@ -123,6 +173,10 @@ function isActionOpeningEffect(entry: BattleLogEntry): boolean {
     (entry.kind === "info" &&
       /^[^!]+!\s+(?:.+?\s+)?생명력\s+\d+\s+소모$/.test(body))
   );
+}
+
+function isActionStartStatusDamage(entry: BattleLogEntry): boolean {
+  return "effect" in entry && entry.effect === "status_damage";
 }
 
 function isActionBoundaryEntry(entry: BattleLogEntry): boolean {
@@ -167,6 +221,27 @@ export function groupBattleLogActions(
       items.push({ kind: "entry", entry });
       continue;
     }
+    const legacyStandaloneMain = legacyStandaloneActionMain(entry);
+    if (legacyStandaloneMain) {
+      if (
+        current != null &&
+        parseBattleLogText(current.main.text).body.startsWith("그림자 도약!") &&
+        entryTurnSide(current.main) === entryTurnSide(entry)
+      ) {
+        current.effects.push(entry);
+        continue;
+      }
+      flushCurrent();
+      current = {
+        kind: "action",
+        main: legacyStandaloneMain,
+        calculations: pendingCalculations,
+        effects: [...pendingEffects, entry],
+      };
+      pendingCalculations = [];
+      pendingEffects = [];
+      continue;
+    }
     if (isDamageCalculationEntry(entry)) {
       flushCurrent();
       pendingCalculations.push(entry);
@@ -177,13 +252,32 @@ export function groupBattleLogActions(
       pendingEffects.push(entry);
       continue;
     }
+    if (isActionStartStatusDamage(entry)) {
+      flushCurrent();
+      pendingEffects.push(entry);
+      continue;
+    }
     if (isDirectActionEntry(entry)) {
       flushCurrent();
+      const actionSide = entryTurnSide(entry);
+      const actionEffects: BattleLogEntry[] = [];
+      for (const pending of pendingEffects) {
+        const pendingSide = entryTurnSide(pending);
+        if (
+          isActionStartStatusDamage(pending) &&
+          pendingSide != null &&
+          pendingSide !== actionSide
+        ) {
+          items.push({ kind: "entry", entry: pending });
+        } else {
+          actionEffects.push(pending);
+        }
+      }
       current = {
         kind: "action",
         main: entry,
         calculations: pendingCalculations,
-        effects: pendingEffects,
+        effects: actionEffects,
       };
       pendingCalculations = [];
       pendingEffects = [];
@@ -527,7 +621,13 @@ function actionHeadline(text: string): {
 } {
   const { labels, body } = parseBattleLogText(text);
   const match = body.match(/^([^!]+)!\s*(.*)$/);
-  const rawTitle = match?.[1]?.trim() || "행동";
+  const legacyBasicAttack =
+    !match &&
+    labels.some((label) =>
+      LEGACY_BASIC_ATTACK_LABELS.some((attackLabel) => label === attackLabel),
+    ) &&
+    /^\d[\d,]*\s*피해를 입혔다\.?$/.test(body);
+  const rawTitle = match?.[1]?.trim() || (legacyBasicAttack ? "공격" : "행동");
   const rawResult = match?.[2]?.trim() || body;
   const damage = rawResult.match(/^(\d+)\s*피해를 입혔다\.?$/);
   return {
@@ -588,6 +688,9 @@ function ActionCard({
 }) {
   const { labels, title, result } = actionHeadline(item.main.text);
   const actorName = side === "left" ? playerName : enemyName;
+  const actorLabel = side === "left" ? "내 행동" : "상대 행동";
+  const damageTargetLabel = side === "left" ? "상대가 받음" : "내가 받음";
+  const hasDamageResult = /\d[\d,]*\s*피해/.test(result);
   const effects = item.effects
     .map((entry, index) => {
       const effectSide = effectBattleLogSide(entry);
@@ -622,9 +725,20 @@ function ActionCard({
   const resultAlign = side === "left" ? "text-right" : "text-left";
   const labelAlign = side === "left" ? "justify-end" : "justify-start";
   const identityContent = (
-    <div className={`flex min-w-0 items-baseline gap-1.5 sm:block ${identityAlign}`}>
-      <div className={`${sizes.actionLabel} max-w-[35%] shrink-0 truncate font-semibold text-zinc-500 dark:text-zinc-400 sm:max-w-none`}>
-        {actorName}
+    <div className={`min-w-0 ${identityAlign}`}>
+      <div className={`mb-0.5 flex min-w-0 items-center gap-1 ${side === "right" ? "justify-end" : ""}`}>
+        <span
+          className={`${sizes.actionLabel} shrink-0 rounded border px-1 py-0.5 font-bold ${
+            side === "left"
+              ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
+              : "border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300"
+          }`}
+        >
+          {actorLabel}
+        </span>
+        <span className={`${sizes.actionLabel} min-w-0 truncate font-semibold text-zinc-500 dark:text-zinc-400`}>
+          {actorName}
+        </span>
       </div>
       <div className={`${sizes.actionBubble} min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
         {title}
@@ -633,6 +747,11 @@ function ActionCard({
   );
   const resultContent = (
     <div className={resultAlign}>
+      {hasDamageResult ? (
+        <div className={`${sizes.actionLabel} mb-0.5 font-semibold text-zinc-500 dark:text-zinc-400`}>
+          {damageTargetLabel}
+        </div>
+      ) : null}
       {labels.length > 0 ? (
         <div className={`mb-0.5 flex gap-1 sm:mb-1 ${labelAlign}`}>
           {labels.map((label, index) => (

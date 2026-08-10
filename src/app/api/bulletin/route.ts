@@ -49,6 +49,7 @@ import {
   readBlockedUserIds,
   requireCurrentUgcConsent,
 } from "@/lib/server/ugcSafety";
+import { readNoticePreview } from "./preview";
 
 // GET /api/bulletin?category=<cat>&q=<search>
 //   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
@@ -59,6 +60,12 @@ export async function GET(req: Request) {
   if (!userId) return new Response("unauthorized", { status: 401 });
 
   const url = new URL(req.url);
+  if (url.searchParams.get("preview") === "notice") {
+    const preview = await readNoticePreview(db);
+    return Response.json(preview, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
   const categoryParam = url.searchParams.get("category");
   const scopeParam = url.searchParams.get("scope");
   const q = (url.searchParams.get("q") ?? "").trim();

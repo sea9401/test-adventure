@@ -28,6 +28,7 @@ describe("createProfilerAggregator", () => {
 
     aggregator.recordRequest({
       feature: "chat",
+      operation: "GET chat",
       method: "GET",
       statusCode: 200,
       durationMs: 50,
@@ -42,6 +43,7 @@ describe("createProfilerAggregator", () => {
     });
     aggregator.recordRequest({
       feature: "chat",
+      operation: "GET chat",
       method: "GET",
       statusCode: 503,
       durationMs: 200,
@@ -78,6 +80,9 @@ describe("createProfilerAggregator", () => {
         },
       },
     });
+    expect(completed.operations["GET chat"]).toEqual(
+      completed.features.chat,
+    );
   });
 
   it("가장 느린 비식별 요청만 제한 수만큼 보존한다", () => {
@@ -91,6 +96,7 @@ describe("createProfilerAggregator", () => {
     for (const durationMs of [1_100, 3_000, 2_000]) {
       aggregator.recordRequest({
         feature: "combat",
+        operation: "POST /api/v2/dungeon/hunt",
         method: "POST",
         statusCode: 200,
         durationMs,
@@ -105,6 +111,7 @@ describe("createProfilerAggregator", () => {
     expect(completed.slowRequests).toEqual([
       {
         feature: "combat",
+        operation: "POST /api/v2/dungeon/hunt",
         method: "POST",
         statusCode: 200,
         durationMs: 3_000,
@@ -114,6 +121,7 @@ describe("createProfilerAggregator", () => {
       },
       {
         feature: "combat",
+        operation: "POST /api/v2/dungeon/hunt",
         method: "POST",
         statusCode: 200,
         durationMs: 2_000,
@@ -137,6 +145,7 @@ describe("createProfilerAggregator", () => {
     for (const minute of [1, 2, 3]) {
       aggregator.recordRequest({
         feature: "health",
+        operation: "GET health",
         method: "GET",
         statusCode: 200,
         durationMs: minute * 10,
@@ -153,6 +162,7 @@ describe("createProfilerAggregator", () => {
       3,
     ]);
     expect(firstSnapshot.current.features).toEqual({});
+    expect(firstSnapshot.current.operations).toEqual({});
 
     firstSnapshot.history.pop();
     expect(aggregator.snapshot().history).toHaveLength(2);

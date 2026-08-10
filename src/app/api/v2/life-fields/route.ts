@@ -10,8 +10,14 @@ import {
 import {
   abandonLifeFieldTraceInTx,
   readLifeFieldProgress,
+  readLifeFieldState,
 } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import {
+  buildLifeFieldCodexPayload,
+  buildLifeFieldEnvironmentPayload,
+  parseLifeFieldView,
+} from "./lifeFieldView";
 
 const ACTIVITIES = ["fishing", "woodcutting", "mining"] as const;
 
@@ -19,16 +25,41 @@ function isLifeFieldActivity(value: unknown): value is LifeFieldActivity {
   return ACTIVITIES.includes(value as LifeFieldActivity);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const view = parseLifeFieldView(req.url);
+  if (view == null) {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
   const now = Date.now();
+  if (view.kind === "environment") {
+    const [features, state] = await Promise.all([
+      readLifeFieldFeatureSettings(),
+      readLifeFieldState(db, userId),
+    ]);
+    return Response.json(
+      buildLifeFieldEnvironmentPayload({
+        now,
+        features,
+        activity: view.activity,
+        spotId: view.spotId,
+        trace: state.traces[view.activity],
+      }),
+    );
+  }
+
   const [features, progress] = await Promise.all([
     readLifeFieldFeatureSettings(),
     readLifeFieldProgress(db, userId, now),
   ]);
+  if (view.kind === "codex") {
+    return Response.json(
+      buildLifeFieldCodexPayload({ now, features, progress }),
+    );
+  }
   const environments = features.environmentEnabled
     ? Object.fromEntries(
         ACTIVITIES.map((activity) => [

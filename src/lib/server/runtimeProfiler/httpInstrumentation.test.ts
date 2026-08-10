@@ -26,9 +26,11 @@ describe("installHttpRequestInstrumentation", () => {
     const server = new FakeServer();
     const response = new FakeResponse();
     let observedFeature: string | undefined;
+    let observedOperation: string | undefined;
 
     server.on("request", () => {
       observedFeature = currentRequestProfile()?.feature;
+      observedOperation = currentRequestProfile()?.operation;
     });
     server.emit(
       "request",
@@ -44,12 +46,16 @@ describe("installHttpRequestInstrumentation", () => {
     expect(installed).toBe(true);
     expect(installedAgain).toBe(false);
     expect(observedFeature).toBe("chat");
+    expect(observedOperation).toBe("GET chat");
     expect(aggregator.snapshot().current.features.chat).toMatchObject({
       requests: 1,
       errors: 1,
       responseBytes: 250,
       durationMs: { average: 50, max: 50 },
     });
+    expect(
+      aggregator.snapshot().current.operations["GET chat"],
+    ).toMatchObject({ requests: 1, errors: 1, responseBytes: 250 });
   });
 
   it("finish 전에 연결이 닫히면 중단 오류로 한 번 기록한다", () => {
@@ -75,6 +81,11 @@ describe("installHttpRequestInstrumentation", () => {
       requests: 1,
       errors: 1,
     });
+    expect(
+      aggregator.snapshot().current.operations[
+        "POST /api/v2/dungeon/hunt"
+      ],
+    ).toMatchObject({ requests: 1, errors: 1 });
   });
 
   it("원래 request listener가 throw해도 요청을 다시 실행하지 않는다", () => {

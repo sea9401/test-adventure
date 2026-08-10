@@ -7,6 +7,7 @@ import {
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { coopEquipmentBoxById } from "@/adventure/data/v2/coopRewards";
 import { fruitTierForMaterial } from "@/adventure/data/v2/spFruit";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 
@@ -30,7 +31,10 @@ export const V2_ITEM_TABS: ReadonlyArray<{ key: V2ItemTabKey; label: string }> =
 export function itemTabForMaterial(
   materialId: string,
 ): "material" | "consumable" {
-  return fruitTierForMaterial(materialId) == null ? "material" : "consumable";
+  return fruitTierForMaterial(materialId) != null ||
+    coopEquipmentBoxById(materialId) != null
+    ? "consumable"
+    : "material";
 }
 
 export function itemTabForMarketplaceListing(

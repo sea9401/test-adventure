@@ -40,6 +40,40 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("그림자 도약은 독립 행동 로그를 남기고 같은 행동에서 평타를 쓰지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattlePvP(
+      { ...caster, spd: 30 },
+      { ...target, hp: 800, maxHp: 800, spd: 80 },
+      "혈향",
+      "Soo",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: { p1: {}, p2: {} },
+        v2Skills: {
+          p2: {
+            learned: ["v2c_shadow_shadowstep"],
+            equipped: ["v2c_shadow_shadowstep"],
+          },
+        },
+      } as never,
+    );
+
+    const shadowStep = res.finalState.log.find(
+      (entry) => entry.side === "p2" && entry.text.startsWith("그림자 도약!"),
+    );
+    expect(shadowStep).toMatchObject({ kind: "player_attack", side: "p2" });
+    expect(shadowStep?.t).toBeTypeOf("number");
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.side === "p2" &&
+          entry.t === shadowStep?.t &&
+          entry.text.startsWith("공격!"),
+      ),
+    ).toBe(false);
+  });
+
   it("회피 회복 장비는 PvP 스킬 행동 시작에도 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.1);
     const recoveringCaster: PlayerCombat = {

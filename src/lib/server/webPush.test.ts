@@ -18,7 +18,10 @@ describe("시스템 푸시 이벤트 매핑", () => {
     ).toMatchObject({ title: "협동 보스 처치", url: "/battle/coop" });
     expect(
       pushMessageForNotification("feedback_replied", { feedbackId: 7 }),
-    ).toMatchObject({ title: "문의 답변 도착", url: "/feedback" });
+    ).toMatchObject({
+      title: "문의 답변 도착",
+      url: "/feedback#feedback-7",
+    });
   });
 
   it("폐기된 거점 피격·함락은 시스템 푸시에서 제외한다", () => {

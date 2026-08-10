@@ -100,3 +100,72 @@ export function classifyRequestPath(rawPathname: string): RuntimeFeature {
   if (matchesPrefix(pathname, "/api/v2/me")) return "progression";
   return "other";
 }
+
+const STATIC_COMBAT_PATHS = new Set([
+  "/api/v2/dungeon/hunt",
+  "/api/v2/grid-dungeon",
+  "/api/v2/arena/history",
+  "/api/v2/arena/loadout",
+  "/api/v2/arena/match",
+  "/api/v2/arena/ranking",
+  "/api/v2/arena/shop",
+  "/api/v2/arena/state",
+  "/api/v2/arena/tournament",
+  "/api/v2/coop",
+  "/api/v2/coop/attack",
+  "/api/v2/coop/claim",
+  "/api/v2/coop/shop",
+  "/api/v2/coop/summon",
+  "/api/v2/mastery-tower",
+  "/api/v2/mastery-tower/attempt",
+  "/api/v2/mastery-tower/claim",
+  "/api/v2/mastery-tower/use-certificate",
+  "/api/v2/storm-expedition",
+]);
+
+const SAFE_METHODS = new Set([
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS",
+]);
+
+function safeMethod(method: string): string {
+  const normalized = method.toUpperCase();
+  return SAFE_METHODS.has(normalized) ? normalized : "OTHER";
+}
+
+export function classifyRequestOperation(
+  rawUrl: string,
+  method: string,
+): string {
+  const pathname = rawUrl.split("?", 1)[0] || "/";
+  const verb = safeMethod(method);
+  const feature = classifyRequestPath(pathname);
+  if (feature !== "combat") return `${verb} ${feature}`;
+
+  if (STATIC_COMBAT_PATHS.has(pathname)) return `${verb} ${pathname}`;
+  if (/^\/api\/v2\/coop\/[^/]+\/attacks\/[^/]+$/.test(pathname)) {
+    return `${verb} /api/v2/coop/:sessionId/attacks/:attackId`;
+  }
+  if (/^\/api\/v2\/coop\/[^/]+\/visibility$/.test(pathname)) {
+    return `${verb} /api/v2/coop/:sessionId/visibility`;
+  }
+  if (/^\/api\/v2\/coop\/[^/]+$/.test(pathname)) {
+    return `${verb} /api/v2/coop/:sessionId`;
+  }
+  if (
+    /^\/api\/v2\/arena\/tournament\/[^/]+\/matches\/[^/]+$/.test(
+      pathname,
+    )
+  ) {
+    return `${verb} /api/v2/arena/tournament/:seasonId/matches/:matchId`;
+  }
+  if (/^\/api\/v2\/battle-replays\/[^/]+$/.test(pathname)) {
+    return `${verb} /api/v2/battle-replays/:replayId`;
+  }
+  return `${verb} combat:other`;
+}

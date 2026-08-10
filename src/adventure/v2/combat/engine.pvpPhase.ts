@@ -652,7 +652,7 @@ export function advanceTurnPvP(
   }
   log = appendLog(log, {
     kind: "player_attack",
-    text: `${prefix || "공격! "}${dmgToHp} 피해를 입혔다.`,
+    text: `${prefix}공격! ${dmgToHp} 피해를 입혔다.`,
   });
   if (enduranceFires) {
     log = appendLog(log, {

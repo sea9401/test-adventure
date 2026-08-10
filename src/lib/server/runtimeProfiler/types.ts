@@ -43,6 +43,7 @@ export type DatabaseRequestMetrics = {
 
 export type RequestProfileRecord = {
   feature: RuntimeFeature;
+  operation: string;
   method: string;
   statusCode: number;
   durationMs: number;
@@ -73,6 +74,7 @@ export type FeatureProfile = {
 
 export type SlowRequestProfile = {
   feature: RuntimeFeature;
+  operation: string;
   method: string;
   statusCode: number;
   durationMs: number;
@@ -103,6 +105,7 @@ export type ProfilerWindow = {
   startedAt: string;
   endedAt: string;
   features: Partial<Record<RuntimeFeature, FeatureProfile>>;
+  operations: Record<string, FeatureProfile>;
   slowRequests: SlowRequestProfile[];
   runtime: RuntimeIntervalMetrics;
 };

@@ -13,7 +13,14 @@ const payload: ReplayPayload = {
   playerMaxMp: 0,
   log: [
     { kind: "info", text: "전투가 시작됐다." },
-    { kind: "hp_bar", playerHp: 90, enemyHp: 0 },
+    {
+      kind: "hp_bar",
+      text: "",
+      playerHp: 90,
+      playerMaxHp: 100,
+      enemyHp: 0,
+      enemyMaxHp: 100,
+    },
   ],
 };
 

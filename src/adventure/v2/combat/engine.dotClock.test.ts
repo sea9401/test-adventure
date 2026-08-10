@@ -215,7 +215,7 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     expect(bossDamage).toBe(32);
   });
 
-  it("ATB 협동 보스는 전용 보정으로 중독의 최대 HP 비례 피해를 35% 감소해 받는다", () => {
+  it("ATB 협동 보스는 전용 보정으로 중독의 최대 HP 비례 피해를 50% 감소해 받는다", () => {
     const venomer = derive({
       atk: 100,
       spd: 10,
@@ -235,14 +235,14 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
       potions: {},
       v2Skills: emptyV2SkillsState(),
       isBoss: true,
-      maxHpDamageMult: 0.65,
+      maxHpDamageMult: 0.5,
       maxTurns: 3,
     };
 
     const damage = firstPoisonDamage(
       resolveBattle(venomer, enemy, "용사", context).finalState.log,
     );
-    // 같은 기준 피해 40에서 협동 보스 전용 65% 적용 → floor 26.
-    expect(damage).toBe(26);
+    // 같은 기준 피해 40에서 협동 보스 전용 50% 적용 → 20.
+    expect(damage).toBe(20);
   });
 });

@@ -24,6 +24,10 @@ import {
   upsertGuildWarehouse,
 } from "@/lib/server/guildWarehouse";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  isTradableMaterial,
+  marketplaceEquipListError,
+} from "@/lib/server/marketplaceV2";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
 
@@ -183,8 +187,19 @@ export async function GET() {
     }),
   );
   const personalEquipment = parseEquipmentSave(equipmentSave);
+  const equippedIids = new Set(Object.values(personalEquipment.equipped));
   const permissionSet = new Set(permissionUserIds);
   const capacity = guildWarehouseUpgradeForLevel(level).capacity;
+  const depositablePersonalMaterials = Object.fromEntries(
+    Object.entries(parsePersonalMaterials(character.materials)).filter(
+      ([materialId]) => isTradableMaterial(materialId),
+    ),
+  );
+  const depositablePersonalEquipment = personalEquipment.owned.filter(
+    (equipment) =>
+      marketplaceEquipListError(equipment, equippedIids.has(equipment.iid)) ===
+      null,
+  );
 
   return Response.json({
     ok: true,
@@ -192,9 +207,9 @@ export async function GET() {
     capacity,
     used: guildWarehouseUsedSlots(warehouse),
     ...access,
-    personalMaterials: parsePersonalMaterials(character.materials),
-    personalEquipment: personalEquipment.owned,
-    equippedIids: Object.values(personalEquipment.equipped),
+    personalMaterials: depositablePersonalMaterials,
+    personalEquipment: depositablePersonalEquipment,
+    equippedIids: [...equippedIids],
     warehouse: warehouse.materials,
     equipment: warehouse.equipment,
     members: memberRows.map((row) => ({
@@ -298,6 +313,12 @@ export async function POST(req: Request) {
         const safeMaterialId = materialId as string;
 
         if (action === "deposit") {
+          if (!isTradableMaterial(safeMaterialId)) {
+            return {
+              status: 409,
+              body: { ok: false as const, error: "material_not_tradable" },
+            };
+          }
           const owned = personalMaterialCount(personalMaterials, safeMaterialId);
           if (owned < quantity) {
             return {
@@ -400,6 +421,17 @@ export async function POST(req: Request) {
           return {
             status: 409,
             body: { ok: false as const, error: "equipment_equipped" },
+          };
+        }
+        const tradeError = marketplaceEquipListError(found, false);
+        if (tradeError) {
+          return {
+            status: 409,
+            body: {
+              ok: false as const,
+              error: "equipment_not_tradable",
+              reason: tradeError,
+            },
           };
         }
         const used = guildWarehouseUsedSlots(warehouse);

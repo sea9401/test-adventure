@@ -614,35 +614,57 @@ function ActionCard({
     side === "left"
       ? "border-l-4 border-l-blue-500"
       : "border-r-4 border-r-violet-500";
+  const headerGrid =
+    side === "left"
+      ? "grid-cols-[minmax(0,1fr)_auto]"
+      : "grid-cols-[auto_minmax(0,1fr)]";
+  const identityAlign = side === "left" ? "" : "justify-end text-right";
+  const resultAlign = side === "left" ? "text-right" : "text-left";
+  const labelAlign = side === "left" ? "justify-end" : "justify-start";
+  const identityContent = (
+    <div className={`flex min-w-0 items-baseline gap-1.5 sm:block ${identityAlign}`}>
+      <div className={`${sizes.actionLabel} max-w-[35%] shrink-0 truncate font-semibold text-zinc-500 dark:text-zinc-400 sm:max-w-none`}>
+        {actorName}
+      </div>
+      <div className={`${sizes.actionBubble} min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
+        {title}
+      </div>
+    </div>
+  );
+  const resultContent = (
+    <div className={resultAlign}>
+      {labels.length > 0 ? (
+        <div className={`mb-0.5 flex gap-1 sm:mb-1 ${labelAlign}`}>
+          {labels.map((label, index) => (
+            <span
+              key={`${label}-${index}`}
+              className={`rounded px-1 py-0.5 sm:px-1.5 ${sizes.actionLabel} font-semibold tracking-wide ${battleLogPillColor(label)}`}
+            >
+              {battleLogDisplayLabel(label)}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className={`${sizes.actionBubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}>
+        {emphasizeNumbers(result)}
+      </div>
+    </div>
+  );
   return (
     <div className={`flex ${align}`} data-battle-action={side}>
       <section className={`${SURFACE_CARD} ${accent} w-[70%] overflow-hidden`}>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2.5">
-          <div className="flex min-w-0 items-baseline gap-1.5 sm:block">
-            <div className={`${sizes.actionLabel} max-w-[35%] shrink-0 truncate font-semibold text-zinc-500 dark:text-zinc-400 sm:max-w-none`}>
-              {actorName}
-            </div>
-            <div className={`${sizes.actionBubble} min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100`}>
-              {title}
-            </div>
-          </div>
-          <div className="text-right">
-            {labels.length > 0 ? (
-              <div className="mb-0.5 flex justify-end gap-1 sm:mb-1">
-                {labels.map((label, index) => (
-                  <span
-                    key={`${label}-${index}`}
-                    className={`rounded px-1 py-0.5 sm:px-1.5 ${sizes.actionLabel} font-semibold tracking-wide ${battleLogPillColor(label)}`}
-                  >
-                    {battleLogDisplayLabel(label)}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            <div className={`${sizes.actionBubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}>
-              {emphasizeNumbers(result)}
-            </div>
-          </div>
+        <div className={`grid ${headerGrid} items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2.5`}>
+          {side === "left" ? (
+            <>
+              {identityContent}
+              {resultContent}
+            </>
+          ) : (
+            <>
+              {resultContent}
+              {identityContent}
+            </>
+          )}
         </div>
 
         {effects.length > 0 ? (

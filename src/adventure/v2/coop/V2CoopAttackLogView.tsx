@@ -181,6 +181,7 @@ export function V2CoopAttackLogView({
           </Card>
 
           <ReplayBattleScene
+            presentation="page"
             payload={attack.replay}
             playerName={attack.name}
             gender={attack.avatar ?? (attack.isMe ? viewerGender : "male1")}

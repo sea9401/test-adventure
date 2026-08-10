@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import {
-  CaretDown,
-  CaretUp,
-} from "@phosphor-icons/react";
-import {
-  type GridDungeonPublicRun,
-} from "@/adventure/data/v2/gridDungeon";
+import { useRouter } from "next/navigation";
+import { FilmStrip } from "@phosphor-icons/react";
+import type { GridDungeonPublicRun } from "@/adventure/data/v2/gridDungeon";
 import { SupportRolePill } from "./DungeonSupportPanels";
+import {
+  battleLogHandoffHref,
+  writeBattleLogHandoff,
+} from "@/adventure/v2/battleLogHandoff";
 
 // 격자 던전 — 전투 요약/로그/파티 지표 패널(V2GridDungeonView 에서 분리, 2026-07).
 
@@ -169,26 +168,13 @@ function CombatLogList({
   isPlaying: boolean;
   summaryLine: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const visibleLines = lines.slice(-8);
-  if (visibleLines.length === 0) return null;
-  const headline = isPlaying ? "전투 진행 중..." : summaryLine;
+  const latestLine = lines.at(-1);
+  if (!latestLine) return null;
+  const headline = isPlaying ? latestLine : summaryLine;
   const headlineKind = classifyCombatLogLine(headline, enemyName);
   return (
     <div className="space-y-1.5 border-t border-zinc-800 pt-2 text-[11px]">
-      <div className="flex items-center justify-between gap-2">
-        <div className="font-semibold text-zinc-300">전투 로그</div>
-        {visibleLines.length > 1 && (
-          <button
-            type="button"
-            onClick={() => setExpanded((prev) => !prev)}
-            className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800"
-          >
-            {expanded ? <CaretUp size={12} /> : <CaretDown size={12} />}
-            상세
-          </button>
-        )}
-      </div>
+      <div className="font-semibold text-zinc-300">최근 전투 상황</div>
       <div className="grid grid-cols-[42px_1fr] items-center gap-2 rounded border border-zinc-800 bg-zinc-950/70 px-2 py-1.5">
         <span
           className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[headlineKind]}`}
@@ -196,28 +182,6 @@ function CombatLogList({
           {isPlaying ? "진행" : combatLogLabel(headlineKind)}
         </span>
         <span className="min-w-0 truncate text-zinc-300">{headline}</span>
-      </div>
-      <div className="ui-expand-grid" data-open={expanded} aria-hidden={!expanded}>
-        <div className="ui-expand-content">
-          <div className="space-y-1 pt-1">
-            {visibleLines.map((line, idx) => {
-              const kind = classifyCombatLogLine(line, enemyName);
-              return (
-                <div
-                  key={`${idx}:${line}`}
-                  className="grid grid-cols-[42px_1fr] items-center gap-2"
-                >
-                  <span
-                    className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[kind]}`}
-                  >
-                    {combatLogLabel(kind)}
-                  </span>
-                  <span className="min-w-0 truncate text-zinc-400">{line}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -293,6 +257,7 @@ export function DungeonCombatSummary({
   combat: NonNullable<GridDungeonPublicRun["lastCombat"]>;
   isPlaying: boolean;
 }) {
+  const router = useRouter();
   const displayedPlayerHp = isPlaying
     ? combat.playerHpBefore
     : combat.playerHpAfter;
@@ -438,6 +403,25 @@ export function DungeonCombatSummary({
         isPlaying={isPlaying}
         summaryLine={combatSummaryLine(combat)}
       />
+      {combat.log.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            const id = writeBattleLogHandoff({
+              kind: "text",
+              title: `${combat.enemyName} 전투 로그`,
+              playerName: "나",
+              enemyName: combat.enemyName,
+              lines: combat.log,
+            });
+            router.push(battleLogHandoffHref(id));
+          }}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500"
+        >
+          <FilmStrip size={15} weight="duotone" aria-hidden />
+          전체 전투 로그 보기
+        </button>
+      )}
     </div>
   );
 }

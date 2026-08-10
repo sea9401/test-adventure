@@ -201,6 +201,7 @@ export function V2ArenaTournamentReplayView({
 
           <ReplayBattleScene
             key={`${match.id}-${game.game}`}
+            presentation="page"
             payload={game.replay}
             playerName={match.p1.name}
             gender={match.p1.avatar ?? "male1"}

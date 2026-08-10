@@ -716,7 +716,7 @@ export function EquipmentTransferForm({
         className={`${SURFACE_INSET} px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400`}
       >
         {action === "deposit"
-          ? "입고할 수 있는 미착용 장비가 없습니다."
+          ? "입고할 수 있는 거래 가능 미착용 장비가 없습니다."
           : "출고할 장비가 없습니다."}
       </div>
     );
@@ -1172,6 +1172,10 @@ function warehouseErrorText(error?: string): string {
       return "개인 장비 목록에서 해당 장비를 찾을 수 없습니다.";
     case "equipment_equipped":
       return "착용 중인 장비는 입고할 수 없습니다.";
+    case "equipment_not_tradable":
+      return "강화되었거나 잠긴 거래 불가 장비는 입고할 수 없습니다.";
+    case "material_not_tradable":
+      return "거래 불가 재료는 입고할 수 없습니다.";
     case "equipment_not_stored":
       return "창고에서 해당 장비를 찾을 수 없습니다.";
     case "member_not_found":

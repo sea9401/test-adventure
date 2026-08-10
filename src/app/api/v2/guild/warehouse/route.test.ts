@@ -63,8 +63,16 @@ const SECOND_MATERIAL_ID = ENHANCE_STONE_MATERIAL_ID.blue;
 const EQUIPMENT = {
   iid: "eq-warehouse-1",
   id: "v2_iron_sword" as const,
-  locked: true,
+};
+const ENHANCED_EQUIPMENT = {
+  ...EQUIPMENT,
+  iid: "eq-warehouse-enhanced",
   enhance: { level: 3, bonusPct: 4 },
+};
+const LOCKED_EQUIPMENT = {
+  ...EQUIPMENT,
+  iid: "eq-warehouse-locked",
+  locked: true,
 };
 
 function request(body: Record<string, unknown>) {
@@ -216,7 +224,7 @@ describe("길드 창고 입출고", () => {
     );
   });
 
-  it("권한을 받은 길드원은 강화·잠금 정보를 보존해 장비를 입고한다", async () => {
+  it("권한을 받은 길드원은 거래 가능한 미착용 장비를 입고한다", async () => {
     vi.mocked(lockGuildWarehouse).mockResolvedValue({
       materials: {},
       equipment: [],
@@ -243,6 +251,60 @@ describe("길드 창고 입출고", () => {
         equipment: [expect.objectContaining(EQUIPMENT)],
       }),
     );
+  });
+
+  it("강화 장비는 창고에 입고할 수 없다", async () => {
+    vi.mocked(lockSaveForUpdate).mockResolvedValue({
+      owned: [ENHANCED_EQUIPMENT],
+      equipped: {},
+    });
+    vi.mocked(lockGuildWarehouse).mockResolvedValue({
+      materials: {},
+      equipment: [],
+    });
+
+    const response = await POST(
+      request({
+        action: "deposit",
+        kind: "equipment",
+        iid: ENHANCED_EQUIPMENT.iid,
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "equipment_not_tradable",
+      reason: "enhanced",
+    });
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertGuildWarehouse).not.toHaveBeenCalled();
+  });
+
+  it("잠금 장비는 창고에 입고할 수 없다", async () => {
+    vi.mocked(lockSaveForUpdate).mockResolvedValue({
+      owned: [LOCKED_EQUIPMENT],
+      equipped: {},
+    });
+    vi.mocked(lockGuildWarehouse).mockResolvedValue({
+      materials: {},
+      equipment: [],
+    });
+
+    const response = await POST(
+      request({
+        action: "deposit",
+        kind: "equipment",
+        iid: LOCKED_EQUIPMENT.iid,
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "equipment_not_tradable",
+      reason: "locked",
+    });
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertGuildWarehouse).not.toHaveBeenCalled();
   });
 
   it("착용 중인 장비는 창고에 입고할 수 없다", async () => {
@@ -290,6 +352,72 @@ describe("길드 창고 입출고", () => {
     expect(upsertGuildWarehouse).toHaveBeenCalledWith(tx, 7, {
       materials: {},
       equipment: [],
+    });
+  });
+
+  it("기존 창고에 보관된 강화 장비는 개인 장비 목록으로 회수할 수 있다", async () => {
+    vi.mocked(lockSaveForUpdate).mockResolvedValue({ owned: [], equipped: {} });
+    vi.mocked(lockGuildWarehouse).mockResolvedValue({
+      materials: {},
+      equipment: [ENHANCED_EQUIPMENT],
+    });
+
+    const response = await POST(
+      request({
+        action: "withdraw",
+        kind: "equipment",
+        iid: ENHANCED_EQUIPMENT.iid,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upsertSave).toHaveBeenCalledWith(tx, "u-member", "equipment.v2", {
+      owned: [ENHANCED_EQUIPMENT],
+      equipped: {},
+    });
+  });
+
+  it("거래 불가 재료는 창고에 입고할 수 없다", async () => {
+    vi.mocked(lockSaveForUpdate).mockResolvedValue({
+      materials: { v2_reforge_stone: 1 },
+    });
+    vi.mocked(lockGuildWarehouse).mockResolvedValue({
+      materials: {},
+      equipment: [],
+    });
+
+    const response = await POST(
+      request({
+        action: "deposit",
+        materialId: "v2_reforge_stone",
+        quantity: 1,
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("material_not_tradable");
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertGuildWarehouse).not.toHaveBeenCalled();
+  });
+
+  it("기존 창고에 보관된 거래 불가 재료는 개인 인벤토리로 회수할 수 있다", async () => {
+    vi.mocked(lockSaveForUpdate).mockResolvedValue({ materials: {} });
+    vi.mocked(lockGuildWarehouse).mockResolvedValue({
+      materials: { v2_reforge_stone: 1 },
+      equipment: [],
+    });
+
+    const response = await POST(
+      request({
+        action: "withdraw",
+        materialId: "v2_reforge_stone",
+        quantity: 1,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upsertSave).toHaveBeenCalledWith(tx, "u-member", "character.v2", {
+      materials: { v2_reforge_stone: 1 },
     });
   });
 

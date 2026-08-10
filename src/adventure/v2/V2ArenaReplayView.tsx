@@ -317,6 +317,7 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
 
           <ReplayBattleScene
             key={entry.id}
+            presentation="page"
             payload={entry.replay}
             playerName={viewerName}
             gender={viewerGender}

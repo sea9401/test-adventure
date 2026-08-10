@@ -80,7 +80,7 @@ export type V2PassiveSkillEffect = {
   /** 활성 반사 피해 증폭을 이 패시브의 반격 피해에도 적용한다. 금강나한 고유 연계. */
   counterDamageUsesReflectBoost?: boolean;
   // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
-  /** 물리 방어력 +% 가산(철벽) — def 에 곱연산. */
+  /** 물리·마법 방어력 +% 가산(철벽) — def 와 magicDef 에 곱연산. */
   defPct?: number;
   /** 반사(가시) — 피격 시 내 방어력의 이 %만큼을 적에게 고정 데미지로 반사(수호자 패시브).
    *  derive 가 def × %/100 → PlayerCombat.thornsFlatFromDef, 엔진이 피격 시 가산(PvE enemyPhase +
@@ -1805,7 +1805,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.evasionPct) chips.push(`회피도 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
   if (p.counterChancePct) chips.push(`HP 피해 시 ${p.counterChancePct}% 반격`);
-  if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
+  if (p.defPct) chips.push(`물리·마법 방어력 +${p.defPct}%`);
   if (p.thornsDefPct) chips.push(`HP 피해 시 방어력의 ${p.thornsDefPct}% 반사`);
   if (p.accuracyPct) chips.push(`적중도 +${p.accuracyPct}%`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);

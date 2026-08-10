@@ -1,42 +1,113 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FilmStrip } from "@phosphor-icons/react";
 import {
   BattleScene,
   type BattleOutcomeAction,
   type BattlePlayerStatus,
-  type BattleStats,
 } from "@/adventure/battle/BattleScene";
 import type { BattleState } from "@/adventure/v2/combat/engine";
 import {
   buildBattleStateFromReplay,
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
-import type { Gender } from "@/adventure/profile/avatars";
-import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
+import { BattleLogScrollTopButton } from "@/adventure/v2/BattleLogScrollTopButton";
+import {
+  battleLogHandoffHref,
+  writeBattleLogHandoff,
+  type BattleLogReplayProps,
+} from "@/adventure/v2/battleLogHandoff";
 
-// v2 던전 사냥 결과 — 라이브 BattleScene 으로 한 컷 표시.
-// 옛 step-through(한 줄씩 노출) 폐기. 모든 log 즉시 (사용자 요청).
+// 플레이어 결과 화면에서는 전용 로그 페이지 링크를, 이미 고유 URL인 기록 화면에서는
+// 전체 BattleScene을 렌더한다. 관리자·개발 하니스만 embedded 모드를 명시한다.
 
-type ReplayBattleSceneProps = {
-  payload: ReplayPayload;
-  startPlayerHp?: number;
-  playerName: string;
-  gender: Gender;
-  exp: number;
-  maxExp: number;
-  hpCharges?: number;
-  mpCharges?: number;
-  playerSubtitle?: string;
-  playerCombat?: BattleStats;
-  outcome?: "win" | "lose";
+export type ReplayBattleSceneProps = BattleLogReplayProps & {
   outcomeAction?: BattleOutcomeAction;
-  profileBorder?: ProfileBorderId | null;
+  presentation?: "link" | "page" | "embedded";
+  logTitle?: string;
 };
 
 export function ReplayBattleScene(props: ReplayBattleSceneProps) {
+  if ((props.presentation ?? "link") === "link") {
+    return <ReplayBattleLogLink {...props} />;
+  }
+  return <ReplayBattleLogContent {...props} />;
+}
+
+function ReplayBattleLogLink({
+  outcomeAction,
+  presentation: _presentation,
+  logTitle,
+  ...replay
+}: ReplayBattleSceneProps) {
+  const router = useRouter();
+  const title = logTitle ?? `${replay.payload.enemy.name} 전투 로그`;
+  const logCount = replay.payload.log.length;
+
+  const openLog = () => {
+    const id = writeBattleLogHandoff({ kind: "replay", title, replay });
+    router.push(battleLogHandoffHref(id));
+  };
+
+  return (
+    <Card padding="md" className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <FilmStrip
+              size={18}
+              weight="duotone"
+              className="shrink-0 text-emerald-500"
+            />
+            <h2 className="truncate font-semibold text-zinc-900 dark:text-zinc-100">
+              {title}
+            </h2>
+            {replay.outcome && <BattleOutcomeBadge outcome={replay.outcome} />}
+          </div>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {replay.payload.replayId
+              ? "저장된 전투 기록 · 첫 행동부터 표시"
+              : `${logCount.toLocaleString()}개 기록 · 첫 행동부터 표시`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openLog}
+          className="shrink-0 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:ring-offset-zinc-900"
+        >
+          전체 전투 로그 보기
+        </button>
+      </div>
+
+      {outcomeAction && (
+        <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">
+          <button
+            type="button"
+            onClick={outcomeAction.onClick}
+            disabled={outcomeAction.disabled || outcomeAction.busy}
+            className="w-full rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
+          >
+            {outcomeAction.busy
+              ? (outcomeAction.busyLabel ?? "진행 중...")
+              : outcomeAction.label}
+          </button>
+          {outcomeAction.hint ? (
+            <div className="mt-1 text-center text-xs text-zinc-600 dark:text-zinc-300">
+              {outcomeAction.hint}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ReplayBattleLogContent(props: ReplayBattleSceneProps) {
   const { payload } = props;
   const replayId = payload.log.length === 0 ? payload.replayId : undefined;
   const [loaded, setLoaded] = useState<ReplayPayload | null>(null);
@@ -110,6 +181,7 @@ function ResolvedReplayBattleScene({
   outcome,
   outcomeAction,
   profileBorder,
+  presentation,
 }: ReplayBattleSceneProps) {
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영). 캐릭터 정보에 충전량으로 표기.
@@ -140,17 +212,21 @@ function ResolvedReplayBattleScene({
   };
 
   return (
-    <BattleScene
-      state={derivedState}
-      playerName={playerName}
-      playerStatus={playerStatus}
-      layout="split"
-      playerSubtitle={playerSubtitle}
-      logAnchor="top"
-      playerCombat={playerCombat}
-      outcome={outcome}
-      outcomeAction={outcomeAction}
-      profileBorder={profileBorder}
-    />
+    <>
+      <BattleScene
+        state={derivedState}
+        playerName={playerName}
+        playerStatus={playerStatus}
+        layout="split"
+        playerSubtitle={playerSubtitle}
+        logAnchor="top"
+        playerCombat={playerCombat}
+        outcome={outcome}
+        outcomeAction={outcomeAction}
+        profileBorder={profileBorder}
+        logViewport={presentation === "page" ? "page" : "contained"}
+      />
+      {presentation === "page" && <BattleLogScrollTopButton />}
+    </>
   );
 }

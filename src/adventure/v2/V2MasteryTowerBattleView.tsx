@@ -206,7 +206,7 @@ export function V2MasteryTowerBattleView({
         <Card padding="md" className="space-y-3">
           <div className="flex items-center gap-2">
             <CastleTurret size={18} weight="duotone" className="text-emerald-500" />
-            <h2 className="text-base font-semibold">전투 로그</h2>
+            <h2 className="text-base font-semibold">도전 요약</h2>
           </div>
           <ol className="space-y-1.5">
             {result.log.map((entry, index) => (

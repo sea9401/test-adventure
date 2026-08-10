@@ -439,6 +439,7 @@ export function BattleScene({
   outcome,
   outcomeAction,
   profileBorder,
+  logViewport = "contained",
 }: {
   state: BattleState;
   playerName: string;
@@ -460,15 +461,18 @@ export function BattleScene({
   // 결과 배너 안에 붙일 후속 액션. 아레나처럼 결과 직후 다음 전투로 이어지는 화면에서만 사용.
   outcomeAction?: BattleOutcomeAction;
   profileBorder?: ProfileBorderId | null;
+  // 결과 화면 안에서는 높이가 제한된 로그, 전용 로그 페이지에서는 문서 흐름에 전체 로그를 표시한다.
+  logViewport?: "contained" | "page";
 }) {
   const hasMp = state.playerMaxMp > 0;
   const hasMagicBarrier = (state.playerMagicBarrierMax ?? 0) > 0;
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (logViewport === "page") return;
     const el = logRef.current;
     if (el) el.scrollTop = logAnchor === "top" ? 0 : el.scrollHeight;
-  }, [state.log, logAnchor]);
+  }, [state.log, logAnchor, logViewport]);
 
   const recents = (recentNotifications ?? []).slice(
     0,
@@ -738,7 +742,12 @@ export function BattleScene({
 
       <div
         ref={logRef}
-        className={`${SURFACE_CARD} no-scrollbar mb-6 h-[58svh] min-h-[22rem] overflow-y-auto p-3 sm:mb-8 sm:h-[40rem] sm:min-h-0`}
+        data-battle-log-viewport={logViewport}
+        className={`${SURFACE_CARD} mb-6 p-3 sm:mb-8 ${
+          logViewport === "page"
+            ? ""
+            : "no-scrollbar h-[58svh] min-h-[22rem] overflow-y-auto sm:h-[40rem] sm:min-h-0"
+        }`}
       >
         <BattleLogList
           entries={state.log}

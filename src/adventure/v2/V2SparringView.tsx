@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import { SparringFullLogDialog } from "@/adventure/v2/SparringFullLogDialog";
 import type { BattleStats } from "@/adventure/battle/BattleScene";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { useSparring } from "@/adventure/v2/useSparring";
@@ -56,7 +55,6 @@ export function V2SparringView({
 }) {
   const { busy, lastResult, error, spar } = useSparring();
   const [round, setRound] = useState(0);
-  const [fullLogOpen, setFullLogOpen] = useState(false);
   const [preset, setPreset] = useState<SparringDummyPresetId | "custom">(
     "sandbag",
   );
@@ -66,7 +64,6 @@ export function V2SparringView({
   const currentDummy = sanitizeSparringDummyConfig(dummyDraft);
 
   const handleSpar = async () => {
-    setFullLogOpen(false);
     const r = await spar(currentDummy);
     if (r) setRound((n) => n + 1);
   };
@@ -166,48 +163,18 @@ export function V2SparringView({
       </Card>
 
       {lastResult?.replay && (
-        <>
-          <Card
-            padding="sm"
-            className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div>
-              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                전투 시작부터 종료까지 기록했어요.
-              </p>
-              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                초반 MP 스킬의 피해량도 전체 로그에서 다시 확인할 수 있습니다.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFullLogOpen(true)}
-              aria-haspopup="dialog"
-              className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:ring-offset-zinc-900"
-            >
-              전체 로그 보기
-            </button>
-          </Card>
-          <ReplayBattleScene
-            key={round}
-            payload={lastResult.replay}
-            startPlayerHp={lastResult.startPlayerHp}
-            playerName={playerName}
-            gender={gender}
-            exp={0}
-            maxExp={1}
-            playerSubtitle={playerSubtitle}
-            playerCombat={playerCombat}
-          />
-          {fullLogOpen && (
-            <SparringFullLogDialog
-              entries={lastResult.replay.log}
-              playerName={playerName}
-              enemyName={lastResult.enemyName}
-              onClose={() => setFullLogOpen(false)}
-            />
-          )}
-        </>
+        <ReplayBattleScene
+          key={round}
+          payload={lastResult.replay}
+          startPlayerHp={lastResult.startPlayerHp}
+          playerName={playerName}
+          gender={gender}
+          exp={0}
+          maxExp={1}
+          playerSubtitle={playerSubtitle}
+          playerCombat={playerCombat}
+          logTitle="허수아비 전체 전투 로그"
+        />
       )}
     </main>
   );

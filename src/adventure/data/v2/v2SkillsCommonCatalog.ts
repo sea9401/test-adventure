@@ -591,7 +591,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 방패병 = 방어 탱(방패 타격이 방어기반 딜) — 방벽 진행의 1차(2026-06-22, 사용자 지정).
     //   진행: 방패병 방벽 +10% → 가디언(계승) 방벽 II +20%. 옛 "체력"(HP+12%)에서 방어%로 전환.
     id: "v2c_shieldman_vitality", name: "방벽", stat: "vit", category: "passive", tier: 2,
-    description: "방패로 받아낸다. 물리 방어력이 오른다.", mpCost: 0, cooldown: 0,
+    description: "방패로 받아낸다. 물리·마법 방어력이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 10 },
   },
@@ -902,7 +902,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 기사 = 균형형 — 공격(힘%)·방어(방어%) 동시 향상, 각 수치는 낮게. id 유지(세이브 호환).
     //   순수 방어는 가디언(방어 20%)이, 공격 힘%는 견습기사가 더 높게. 기사는 둘을 겸비.
     id: "v2c_paladin_might3", name: "기사도", stat: "str", category: "passive", tier: 3,
-    description: "공방 균형의 기사도. 힘과 방어력이 함께 오른다.", mpCost: 0, cooldown: 0,
+    description: "공방 균형의 기사도. 힘과 물리·마법 방어력이 함께 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { str: 10 }, defPct: 10 },
   },
@@ -1018,7 +1018,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   견습기사(힘%)와 다른 축. defPct 는 PvE/PvP 양쪽(def=damageBetween 공용).
     //   방벽 진행의 2차(방패병 방벽 +10% → 가디언 방벽 II +20%, 2026-06-22).
     id: "v2c_guardian_bulwark3", name: "방벽 II", stat: "vit", category: "passive", tier: 3,
-    description: "온몸으로 받아낸다. 물리 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
+    description: "온몸으로 받아낸다. 물리·마법 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 20 },
   },
@@ -1194,7 +1194,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_crusader_oath: {
     id: "v2c_crusader_oath", name: "불굴의 맹세", stat: "vit", category: "passive", tier: 3,
-    description: "성전사의 맹세가 방어와 회복을 함께 끌어올리고 피해를 조금 누른다.",
+    description: "성전사의 맹세가 물리·마법 방어력과 회복을 함께 끌어올리고 피해를 조금 누른다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 14, healPowerPct: 14, damageTakenReductionPct: 4 },
@@ -1499,7 +1499,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_earthmage_bedrock: {
     id: "v2c_earthmage_bedrock", name: "기반암", stat: "int", category: "passive", tier: 3,
-    description: "기반암처럼 흔들리지 않는 몸과 방어를 갖춘다.",
+    description: "기반암처럼 흔들리지 않는 몸과 물리·마법 방어력을 갖춘다.",
     mpCost: 0, cooldown: 0, effects: [],
     passive: { maxHpPct: 10, defPct: 14 },
   },
@@ -1688,7 +1688,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_ironknight_wall: {
     id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,
-    description: "단단한 장벽 운용에 익숙해진다. 방어와 반사가 오른다.",
+    description: "단단한 장벽 운용에 익숙해진다. 물리·마법 방어력과 반사가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { defPct: 18, thornsDefPct: 50 },
@@ -2055,7 +2055,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_fortressknight_citadel: {
     id: "v2c_fortressknight_citadel", name: "움직이는 성채", stat: "vit", category: "passive", tier: 3,
-    description: "갑옷과 방패가 하나의 성채가 된다. 방어와 피해 저항, 방어력 기반 반사가 오른다.",
+    description: "갑옷과 방패가 하나의 성채가 된다. 물리·마법 방어력과 피해 저항이 오르고, 물리 방어력 기반 반사가 강화된다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 80 },
@@ -2418,7 +2418,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_blooddemon_immortalblood: {
     id: "v2c_blooddemon_immortalblood", name: "불사마혈", stat: "vit", category: "passive", tier: 3,
-    description: "마혈이 상처를 삼키고 육신을 다시 일으킨다. 생명력과 방어, 피해 저항과 흡혈이 오른다.",
+    description: "마혈이 상처를 삼키고 육신을 다시 일으킨다. 생명력과 물리·마법 방어력, 피해 저항과 흡혈이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { maxHpPct: 28, lifestealPct: 4, damageTakenReductionPct: 9, defPct: 12 },

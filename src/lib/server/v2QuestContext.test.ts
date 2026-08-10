@@ -5,6 +5,7 @@ import {
   parseTrackedQuestId,
   type QuestExtras,
 } from "./v2QuestContext";
+import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
 
 describe("가이드 퀘스트 추적 저장", () => {
   it("추적 id를 안전하게 읽고 해제 시 저장 필드에서 제거한다", () => {
@@ -36,6 +37,21 @@ const EXTRAS: QuestExtras = {
 };
 
 describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
+  it("유니크 장비는 현재 보유량이 아니라 저장된 누적 획득량을 사용한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: { uniqueEquipmentAcquired: 28 },
+      equipmentRaw: { owned: [], equipped: {} },
+      skillsRaw: {},
+      craftingRaw: {},
+      equipmentCodexRaw: {},
+      extras: EXTRAS,
+    });
+
+    expect((ctx as QuestCtx & { uniqueAcquired?: number }).uniqueAcquired).toBe(28);
+  });
+
   it("요리 XP·발견 목록과 길드 활동 누적을 업적 컨텍스트로 변환한다", () => {
     const ctx = buildQuestCtx({
       charRaw: {},

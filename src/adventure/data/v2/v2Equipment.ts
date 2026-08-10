@@ -987,11 +987,12 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     name: "흉포한 산군",
     buildTags: ["physical", "crit", "tank"],
     thresholds: [
-      { count: 2, bonus: { hp: 360, def: 44, magicDef: 24 } },
-      { count: 4, bonus: { hp: 520, def: 64, crit: 4, critResist: 8 } },
+      { count: 2, bonus: { hp: 260, def: 32, magicDef: 24 } },
+      { count: 4, bonus: { hp: 400, def: 48, crit: 4, critResist: 8 } },
       {
         count: 6,
-        bonus: { hp: 760, def: 96, magicDef: 48, critResist: 14 },
+        // 방어구·2·4세트에서 덜어낸 총량을 완성 보너스로 옮겨 순수 산군 탱커는 중립으로 유지한다.
+        bonus: { hp: 1_230, def: 166, magicDef: 48, critResist: 14 },
         signature: {
           trigger: "on_hit_taken",
           label: "정면돌파",
@@ -1001,7 +1002,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     ],
   },
   // 6T 세트의 2·4부위는 컨셉 발동 효과, 3·5부위는 산군 세트가 끊길 때 사라지는 기반 스탯을
-  // 각 컨셉의 생존 방식으로 되돌린다. 홀수 단계에는 새 발동 효과를 두지 않아 4+2 혼합 선택을 보존한다.
+  // 각 컨셉의 생존 방식으로 되돌린다. 6부위는 공격 템포를 여는 완성 효과로, 4+2 혼합과 경쟁한다.
   {
     id: "storm_gravity",
     name: "중력성채",
@@ -1088,7 +1089,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 3,
-        bonus: { hp: 250, def: 25, magicDef: 15, eva: 4 },
+        bonus: { hp: 350, magicDef: 15, eva: 4 },
       },
       {
         count: 4,
@@ -1101,7 +1102,16 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 5,
-        bonus: { hp: 300, def: 30, magicDef: 15, eva: 5 },
+        bonus: { hp: 420, magicDef: 15, eva: 5 },
+      },
+      {
+        count: 6,
+        bonus: { accuracy: 20, critMult: 60 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "천공질주",
+          everyNHits: 2,
+        },
       },
     ],
   },
@@ -1122,13 +1132,12 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 3,
-        bonus: { hp: 600, def: 70, magicDef: 25, eva: 8 },
+        bonus: { hp: 850, magicDef: 25, eva: 8 },
       },
       {
         count: 4,
         bonus: {
-          hp: 400,
-          def: 70,
+          hp: 650,
           magicDef: 20,
           crit: 6,
           critMult: 50,
@@ -1144,7 +1153,16 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       },
       {
         count: 5,
-        bonus: { hp: 650, def: 85, magicDef: 30, eva: 10 },
+        bonus: { hp: 1_250, magicDef: 30, eva: 10 },
+      },
+      {
+        count: 6,
+        bonus: { crit: 6, critMult: 100 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "무풍연살",
+          everyNHits: 7,
+        },
       },
     ],
   },
@@ -1166,8 +1184,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       {
         count: 3,
         bonus: {
-          hp: 500,
-          def: 50,
+          hp: 700,
           magicDef: 20,
           statusDamageReductionPct: 5,
         },
@@ -1185,10 +1202,18 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       {
         count: 5,
         bonus: {
-          hp: 500,
-          def: 55,
+          hp: 720,
           magicDef: 25,
           statusDamageReductionPct: 5,
+        },
+      },
+      {
+        count: 6,
+        bonus: { crit: 4, critMult: 60 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "만독순환",
+          everyNHits: 8,
         },
       },
     ],

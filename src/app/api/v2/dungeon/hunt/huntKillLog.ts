@@ -3,6 +3,10 @@ import {
   upsertSave,
   type DbExecutor,
 } from "@/lib/server/savesKv";
+import {
+  applyUniqueEquipmentAcquisitions,
+  type UniqueEquipmentAcquisitionEvidence,
+} from "@/lib/server/uniqueEquipmentAchievement";
 
 export type AdventureLogSave = {
   monsters?: Record<
@@ -35,6 +39,21 @@ export function applyMonsterKill(
   return { ...logSave, monsters };
 }
 
+export function applyHuntAdventureProgress(
+  logSave: AdventureLogSave,
+  enemyName: string,
+  nowMs: number,
+  uniqueEquipment?: UniqueEquipmentAcquisitionEvidence,
+): AdventureLogSave {
+  const killed = applyMonsterKill(logSave, enemyName, nowMs);
+  return uniqueEquipment
+    ? applyUniqueEquipmentAcquisitions({
+        adventureLogRaw: killed,
+        ...uniqueEquipment,
+      })
+    : killed;
+}
+
 // 전투수 랭킹용 몬스터 킬 카운터(adventure-log.v2) — 승리 시 서버 권위로 누적.
 // /api/rankings 가 monsters[*].kills 를 SUM 해 battleCount 를 낸다. v2 클라는 이 키를
 // 안 건드려(hook 없음) 서버 단독 소유 → sync clobber 없음. v1 battleClaim 과 동일 키·키잉.
@@ -44,6 +63,7 @@ export async function recordMonsterKill(
   userId: string,
   enemyName: string,
   nowMs: number,
+  uniqueEquipment?: UniqueEquipmentAcquisitionEvidence,
 ): Promise<void> {
   const logSave = await lockSaveForUpdate<AdventureLogSave>(
     tx,
@@ -55,6 +75,6 @@ export async function recordMonsterKill(
     tx,
     userId,
     "adventure-log.v2",
-    applyMonsterKill(logSave, enemyName, nowMs),
+    applyHuntAdventureProgress(logSave, enemyName, nowMs, uniqueEquipment),
   );
 }

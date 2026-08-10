@@ -282,6 +282,45 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).not.toContain("┘");
   });
 
+  it("상대 행동은 결과를 먼저, 행동 주체와 행동명을 오른쪽에 배치한다", () => {
+    const playerHtml = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "player_attack",
+            text: "기본 공격! 12 피해를 입혔다.",
+            turn: "player",
+          },
+        ]}
+        playerName="플루디아"
+        enemyName="풍력핵 골렘"
+      />,
+    );
+    const enemyHtml = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "enemy_attack",
+            text: "[치명타] 기본 공격! 12 피해를 입혔다.",
+            turn: "enemy",
+          },
+        ]}
+        playerName="플루디아"
+        enemyName="풍력핵 골렘"
+      />,
+    );
+
+    expect(playerHtml.indexOf("기본 공격")).toBeLessThan(
+      playerHtml.indexOf("12 피해"),
+    );
+    expect(enemyHtml.indexOf("12 피해")).toBeLessThan(
+      enemyHtml.indexOf("기본 공격"),
+    );
+    expect(enemyHtml).toContain("grid-cols-[auto_minmax(0,1fr)]");
+    expect(enemyHtml).toContain("justify-start");
+    expect(enemyHtml).toContain("justify-end text-right");
+  });
+
   it("방어 계산이 없는 행동에는 상세 펼침을 만들지 않는다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

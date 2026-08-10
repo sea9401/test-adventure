@@ -308,6 +308,25 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   expect(hunt.result?.goldGained).toBeGreaterThan(0);
   await expect(page.getByText("승리", { exact: true }).first()).toBeVisible();
 
+  const battleLogButton = page.getByRole("button", {
+    name: "전체 전투 로그 보기",
+  });
+  await expect(battleLogButton).toBeVisible();
+  await battleLogButton.click();
+  await expect(page).toHaveURL(/\/battle\/log\/[^/]+$/);
+  const battleLogDialog = page.getByRole("dialog", { name: "전투 로그" });
+  await expect(battleLogDialog).toBeVisible();
+  await battleLogDialog.getByRole("button", { name: "뒤로" }).click();
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2`);
+  await expect(battleLogButton).toBeVisible();
+
+  await battleLogButton.click();
+  await expect(page).toHaveURL(/\/battle\/log\/[^/]+$/);
+  await expect(battleLogDialog).toBeVisible();
+  await battleLogDialog.getByRole("button", { name: "뒤로" }).click();
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2`);
+  await expect(battleLogButton).toBeVisible();
+
   const afterHunt = await coreGameplayState(page);
   expect(afterHunt.battleCount).toBe(before.battleCount + 1);
   expect(afterHunt.character.exp).toBe(hunt.result?.expAfter);

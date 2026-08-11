@@ -71,6 +71,8 @@ const DERIVED_BUFF_LABEL = {
   reflectDamage: "반사 피해",
   regen: "지속 회복",
   guaranteedEvade: "확정 회피",
+  berserkerFinisher: "혈전 준비",
+  berserkerDeathOvercome: "사망 극복 공격 준비",
 } as const;
 
 const ENEMY_STATUS_LABEL = {

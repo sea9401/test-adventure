@@ -3,12 +3,8 @@ import { V2_COMMON_SKILLS } from "./v2SkillsCommonCatalog";
 import { describeV2Skill, spCostOf, V2_SKILLS } from "./v2Skills";
 
 const HP_COST_RATIOS = {
-  v2c_berserker_bloodslash: 1.6,
   v2c_bloodtemplar_stigma: 1.14,
-  v2c_warlord_bloodbath: 2.05,
-  v2c_overlord_ruin: 2.74,
   v2c_bloodlord_brand: 1.82,
-  v2c_hegemon_annihilation: 3.42,
   v2c_blooddemon_reign: 2.62,
 } as const;
 
@@ -50,10 +46,10 @@ describe("HP 기반 공격 계수 보상", () => {
       v2c_immortal_lifestrike: 4,
       v2c_berserker_bloodslash: 6,
       v2c_bloodtemplar_stigma: 7,
-      v2c_warlord_bloodbath: 6,
+      v2c_warlord_bloodbath: 7,
       v2c_overlord_ruin: 10,
       v2c_bloodlord_brand: 7,
-      v2c_hegemon_annihilation: 15,
+      v2c_hegemon_annihilation: 13,
       v2c_blooddemon_reign: 12,
     } as const;
     for (const [id, sp] of Object.entries(expectedSp)) {

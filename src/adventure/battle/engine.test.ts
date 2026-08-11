@@ -1217,6 +1217,17 @@ describe("HP 소모 공격", () => {
       {
         learned: ["v2c_berserker_bloodslash"],
         equipped: ["v2c_berserker_bloodslash"],
+        pattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: {
+                kind: "skill",
+                skillId: "v2c_berserker_bloodslash",
+              },
+            },
+          ],
+        },
       },
     );
     vi.spyOn(Math, "random").mockReturnValue(0);
@@ -1227,7 +1238,7 @@ describe("HP 소모 공격", () => {
       enemyDebuffs: {},
     });
 
-    expect(cast.state.playerHp).toBe(460);
+    expect(cast.state.playerHp).toBe(450);
     expect(cast.state.log.some((entry) => entry.text.includes("빗나갔다"))).toBe(false);
     expect(cast.state.log.some((entry) => entry.text.includes("회피 경감"))).toBe(true);
   });

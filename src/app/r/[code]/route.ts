@@ -17,7 +17,7 @@ export async function GET(
   const { code: rawCode } = await ctx.params;
   const code = normalizeReferralCode(rawCode);
   const valid = code ? await referralCodeIsActive(db, code) : false;
-  const url = referralLandingUrl(req.url, valid ? "accepted" : "invalid");
+  const url = referralLandingUrl(req.url);
   const response = NextResponse.redirect(url);
 
   if (valid && code) {

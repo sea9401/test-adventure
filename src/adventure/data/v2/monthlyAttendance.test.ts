@@ -15,14 +15,38 @@ describe("월간 출석", () => {
     });
   });
 
-  it("골드 없이 성장 재료와 소모품으로 28일 보상판을 구성한다", () => {
+  it("강화석 없이 탐험 재화와 이정표 보상으로 28일 보상판을 구성한다", () => {
     expect(MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
-    expect(MONTHLY_ATTENDANCE_REWARDS.map((reward) => reward.kind)).not.toContain(
-      "gold",
+    const rewardKinds = MONTHLY_ATTENDANCE_REWARDS.map(
+      (reward) => reward.kind,
     );
+    for (const forbiddenKind of [
+      "enhancement_stone",
+      "enhancement_stone_bundle",
+      "gold",
+      "sp_fruit",
+    ]) {
+      expect(rewardKinds).not.toContain(forbiddenKind);
+    }
+    expect(
+      [2, 6, 8, 11, 15, 17, 19, 22, 24, 26].map(
+        (day) => MONTHLY_ATTENDANCE_REWARDS[day - 1],
+      ),
+    ).toEqual([
+      { kind: "torn_map_fragment", count: 2 },
+      { kind: "coop_coin", count: 20 },
+      { kind: "boss_summon_scroll", count: 2 },
+      { kind: "torn_map_fragment", count: 3 },
+      { kind: "coop_coin", count: 25 },
+      { kind: "boss_summon_scroll", count: 2 },
+      { kind: "torn_map_fragment", count: 5 },
+      { kind: "coop_coin", count: 35 },
+      { kind: "boss_summon_scroll", count: 3 },
+      { kind: "coop_coin", count: 40 },
+    ]);
     expect(MONTHLY_ATTENDANCE_REWARDS[13]).toEqual({
-      kind: "boss_summon_scroll",
-      count: 3,
+      kind: "adventure_support",
+      days: 7,
       cosmeticBox: "chat_badge_box",
     });
     expect(MONTHLY_ATTENDANCE_REWARDS[20]).toEqual({
@@ -30,10 +54,45 @@ describe("월간 출석", () => {
       count: 300,
     });
     expect(MONTHLY_ATTENDANCE_REWARDS[27]).toEqual({
-      kind: "enhancement_stone_bundle",
-      red: 2,
-      blue: 2,
+      kind: "mastery_certificate",
+      count: 500,
       cosmeticBox: "profile_border_box",
+    });
+  });
+
+  it("월간 합계는 지원권 22일과 탐험 재화 완결 수량을 지급한다", () => {
+    const totals = {
+      adventureSupportDays: 0,
+      staminaPotions: 0,
+      masteryCertificates: 0,
+      bossSummonScrolls: 0,
+      tornMapFragments: 0,
+      coopCoins: 0,
+    };
+
+    for (const reward of MONTHLY_ATTENDANCE_REWARDS) {
+      if (reward.kind === "adventure_support") {
+        totals.adventureSupportDays += reward.days;
+      } else if (reward.kind === "stamina_potion") {
+        totals.staminaPotions += reward.count;
+      } else if (reward.kind === "mastery_certificate") {
+        totals.masteryCertificates += reward.count;
+      } else if (reward.kind === "boss_summon_scroll") {
+        totals.bossSummonScrolls += reward.count;
+      } else if (reward.kind === "torn_map_fragment") {
+        totals.tornMapFragments += reward.count;
+      } else if (reward.kind === "coop_coin") {
+        totals.coopCoins += reward.count;
+      }
+    }
+
+    expect(totals).toEqual({
+      adventureSupportDays: 22,
+      staminaPotions: 29,
+      masteryCertificates: 800,
+      bossSummonScrolls: 7,
+      tornMapFragments: 10,
+      coopCoins: 120,
     });
   });
 
@@ -48,7 +107,7 @@ describe("월간 출석", () => {
       "profile_border_box",
     );
     expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[27])).toBe(
-      "붉은·푸른 강화석 각 2개 · 프로필 꾸미기 상자",
+      "숙련의 증표 500개 · 프로필 꾸미기 상자",
     );
   });
 

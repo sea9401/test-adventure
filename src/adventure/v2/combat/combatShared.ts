@@ -603,6 +603,28 @@ export type V2SkillPctBuffApply = {
   pct: number;
   turns: number;
 };
+export type V2BerserkerCastContext = {
+  madnessRank: 0 | 1 | 2 | 3 | 4;
+  finisherReady: boolean;
+  deathDamageReady: boolean;
+  annihilationUsesRemaining: number;
+};
+export type V2BerserkerCastTransition = {
+  grantFinisher: boolean;
+  consumeFinisher: boolean;
+  consumeDeathDamage: boolean;
+  consumeAnnihilationUse: boolean;
+  forceSkillCrit: boolean;
+  bonusSkillCritDamagePct: number;
+};
+const EMPTY_BERSERKER_CAST_TRANSITION: V2BerserkerCastTransition = {
+  grantFinisher: false,
+  consumeFinisher: false,
+  consumeDeathDamage: false,
+  consumeAnnihilationUse: false,
+  forceSkillCrit: false,
+  bonusSkillCritDamagePct: 0,
+};
 export type V2SkillCastResult = {
   nextMp: number;
   nextCooldowns: V2SkillCooldowns;
@@ -636,6 +658,7 @@ export type V2SkillCastResult = {
   enemySkillProcDownToApply?: { pct: number; turns: number }; // 금제 — 적 스킬 발동률 −%p(N턴)
   enemyDotVulnToApply?: { pct: number; turns: number }; // 침식 — 적 지속/저주 피해 +%(N턴)
   manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
+  berserkerTransition: V2BerserkerCastTransition;
 };
 
 /** 직접 피해뿐 아니라 DoT·약화·제어처럼 상대에게 적중해야 하는 효과가 있는지 판정한다. */
@@ -668,6 +691,10 @@ export function removeMissedV2SkillTargetEffects(
     // hpCostDamage 의 HP는 적중한 피해로 전환되는 자원이다. 빗나감·확정 회피로
     // 대상 효과가 사라지면 교환할 피해도 없으므로 HP 소모 역시 취소한다.
     selfHpCost: 0,
+    berserkerTransition: {
+      ...result.berserkerTransition,
+      grantFinisher: false,
+    },
     enemyDebuffsToApply: [],
     dotsToApplyToTarget: [],
     enemyVulnToApply: undefined,
@@ -703,6 +730,8 @@ export type V2SkillCastInput = {
   turn?: number;
   /** 전투 환경별 스킬 수치 분기. 미지정은 PvE로 취급한다. */
   combatMode?: "pve" | "pvp";
+  /** 광전사–패황 계보의 전투 중 준비/사용 횟수. 미지정이면 기존 호출과 동일하게 동작한다. */
+  berserker?: V2BerserkerCastContext;
   attacker: {
     mp: number;
     atk: number;
@@ -780,6 +809,7 @@ const EMPTY_CAST_RESULT_BASE = {
   selfBuffPctToApply: [] as V2SkillPctBuffApply[],
   guaranteedEvadesToAdd: 0,
   manaRestored: 0,
+  berserkerTransition: EMPTY_BERSERKER_CAST_TRANSITION,
 };
 
 // 전투 패턴 조건 평가용 ctx — cast 입력(공격자/대상 상태)에서 합성. 자버프 활성 스탯 = selfBuffs 키.
@@ -817,8 +847,16 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
           "reflectDamage",
           "regen",
           "guaranteedEvade",
+          "berserkerFinisher",
+          "berserkerDeathOvercome",
         ] as const
-      ).filter((tg) => a.selfBuffPctActive?.[tg]),
+      ).filter((tg) =>
+        tg === "berserkerFinisher"
+          ? (input.berserker?.finisherReady ?? false)
+          : tg === "berserkerDeathOvercome"
+            ? (input.berserker?.deathDamageReady ?? false)
+            : a.selfBuffPctActive?.[tg],
+      ),
     ),
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
     enemyBleed: t.bleedStacks ?? 0,
@@ -864,10 +902,20 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         }
         return true;
       });
+    const isAnnihilation = sid === "v2c_hegemon_annihilation";
+    if (
+      isAnnihilation &&
+      input.berserker != null &&
+      input.berserker.annihilationUsesRemaining <= 0
+    ) {
+      return false;
+    }
     return (
       !!d &&
       hasUsefulEffect &&
-      (ticked[sid as V2SkillId] ?? 0) === 0 &&
+      (isAnnihilation && input.berserker != null
+        ? true
+        : (ticked[sid as V2SkillId] ?? 0) === 0) &&
       input.attacker.mp >= v2SkillMpCost(d)
     );
   };
@@ -900,6 +948,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   for (const candidateId of candidateIds) {
     const candidateDef = V2_SKILLS[candidateId];
     if (!candidateDef) continue;
+    // 비패턴 경로도 광전사 전투별 사용 횟수처럼 카탈로그 밖의 강제 게이트를 우회할 수 없다.
+    if (!isUsable(candidateId)) continue;
     // 발동 확률 — 옛 경로(viaPattern=false)는 항상 procChance 롤. 패턴 경로는 기본적으로 procChance
     // 은퇴(조건 충족 = 확정 발동)지만, applyProcInPattern(V2_SKILL_PROC_IN_PATTERN) 가 켜지면 패턴이
     // 고른 스킬도 procChance 게이트를 통과해야 발동(확정 발동 → 확률 발동, 부활).
@@ -912,12 +962,24 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         input.skills.enhancements,
         candidateId,
       );
-      const procChance = Math.max(
+      const lowHpMadnessProcBonus =
+        (input.berserker?.madnessRank ?? 0) >= 1 &&
+        candidateDef.category === "attack" &&
+        (input.attacker.currentHp ?? input.attacker.maxHp) /
+          Math.max(1, input.attacker.maxHp) <=
+          0.5
+          ? 10
+          : 0;
+      const forceDeathReadyProc =
+        (input.berserker?.deathDamageReady ?? false) &&
+        candidateDef.category === "attack";
+      const procChance = forceDeathReadyProc ? 100 : Math.max(
         0,
         Math.min(
           100,
           (candidateDef.procChance ?? 100) +
             (input.procChanceBonus ?? 0) +
+            lowHpMadnessProcBonus +
             ritualFocusBonus,
         ),
       );
@@ -944,6 +1006,21 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
+  const isBerserkerFinisher =
+    id === "v2c_overlord_ruin" || id === "v2c_hegemon_annihilation";
+  const bloodPrepared =
+    (input.berserker?.finisherReady ?? false) && isBerserkerFinisher;
+  const deathPrepared =
+    (input.berserker?.deathDamageReady ?? false) && def.category === "attack";
+  const berserkerTransition: V2BerserkerCastTransition = {
+    grantFinisher: id === "v2c_warlord_bloodbath",
+    consumeFinisher: bloodPrepared,
+    consumeDeathDamage: deathPrepared,
+    consumeAnnihilationUse: id === "v2c_hegemon_annihilation",
+    forceSkillCrit: bloodPrepared,
+    bonusSkillCritDamagePct:
+      bloodPrepared && (input.berserker?.madnessRank ?? 0) >= 2 ? 30 : 0,
+  };
   const ritualPowerMult =
     1 + skillRitualPowerBonusFor(input.skills.enhancements, id) / 100;
   const applyRitualPower = (amount: number): number =>
@@ -1003,6 +1080,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const directDamageKinds = new Set([
     "damage",
     "hpCostDamage",
+    "missingHpDamage",
     "executeDamage",
     "ambushDamage",
     "stackPayoffDamage",
@@ -1192,6 +1270,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     singleDirectDamageEffect?.kind === "damage" &&
     singleDirectDamageEffect.scaling !== "magic" &&
     singleDirectDamageEffect.scaling !== "spi";
+  const missingHpSingleHit =
+    singleDirectDamageEffect?.kind === "missingHpDamage";
   // 같은 시전에서 먼저 부여하는 중독 스택도 뒤의 독 회수 효과가 읽는다. 독무처럼
   // "중독을 쌓고 터뜨리는" 복합기는 첫 시전부터 표기된 스택 추가 피해가 나와야 한다.
   const sameCastDotStacks = (tag: V2DotTag): number =>
@@ -1315,6 +1395,50 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         ),
         effect.scaling,
       );
+    } else if (effect.kind === "missingHpDamage") {
+      const currentHp = input.attacker.currentHp ?? input.attacker.maxHp;
+      const cost = Math.floor(
+        (currentHp * (effect.selfCurrentHpCostPct ?? 0)) / 100,
+      );
+      const projectedHp = Math.max(0, currentHp - cost);
+      const lostHpRatio = deathPrepared
+        ? 1
+        : Math.max(
+            0,
+            Math.min(
+              1,
+              (input.attacker.maxHp - projectedHp) /
+                Math.max(1, input.attacker.maxHp),
+            ),
+          );
+      const bloodCoefMult = bloodPrepared ? 1.25 : 1;
+      const deathCoefMult = deathPrepared ? 1.5 : 1;
+      const pvpCoefMult = input.combatMode === "pvp" ? 0.6 : 1;
+      const effectiveMissingHpCoef =
+        effect.missingHpCoef *
+        bloodCoefMult *
+        deathCoefMult *
+        pvpCoefMult;
+      const attackMult = v2AtkBuffMult(
+        input.attacker.selfBuffs,
+        input.attacker.selfDebuffs,
+      );
+      const defenseMult = v2DefBuffMult(
+        input.target.selfBuffs,
+        input.target.selfDebuffs,
+      );
+      const baseDamage =
+        Math.floor(input.attacker.atk * attackMult) * effect.attackCoef +
+        (input.attacker.str ?? 0) * effect.statCoef;
+      const rawDamage = Math.floor(
+        baseDamage * (1 + lostHpRatio * effectiveMissingHpCoef),
+      );
+      const effectiveDefense = Math.floor(input.target.def * defenseMult);
+      selfHpCost += cost;
+      dealDamage(
+        Math.max(input.attacker.minDamage ?? 1, rawDamage - effectiveDefense),
+        effect.scaling,
+      );
     } else if (effect.kind === "healToDamage") {
       // 신성 강타 — 자힐 후 힐량×damageRatio 적에게 딜.
       const atkBase =
@@ -1433,8 +1557,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   //   매 턴 스팸이 아니다. 패턴 빈도 throttle(0.14·~5배 발동 가정)을 면제하지 않으면 "큰 오프너"가
   //   평타바닥+14% 로 뭉개진다(설계 무력화). raw 그대로 통과(off 경로/일반 스킬은 무영향).
   const ambushOpener = castEffects.some((e) => e.kind === "ambushDamage");
+  const missingHpFinisher = castEffects.some(
+    (e) => e.kind === "missingHpDamage",
+  );
   const scaledEnemyDamage = ((): number => {
-    if (!viaPattern || enemyDamage <= 0 || ambushOpener) return enemyDamage;
+    if (!viaPattern || enemyDamage <= 0 || ambushOpener || missingHpFinisher) {
+      return enemyDamage;
+    }
     // 평타 바닥 — 단타 평타(statCoef 1·baseFlat 0) × 한 턴 평타 횟수. 스킬에 마법 데미지 효과가
     //   하나라도 있으면 마법 공격력 기준, 아니면 물리 공격력 기준으로 바닥을 잡는다.
     //   (물리+마법 혼합 효과 스킬은 전체 바닥을 마법으로 잡게 되나, 현 데이터엔 혼합 스킬 없음.)
@@ -1442,6 +1571,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       (e) =>
         (e.kind === "damage" ||
           e.kind === "hpCostDamage" ||
+          e.kind === "missingHpDamage" ||
           e.kind === "executeDamage" ||
           e.kind === "stackPayoffDamage" ||
           e.kind === "healToDamage") &&
@@ -1530,7 +1660,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: {
       ...ticked,
-      [id]: def.oncePerBattle ? ONCE_PER_BATTLE_COOLDOWN : def.cooldown + 1,
+      [id]:
+        def.oncePerBattle && !(id === "v2c_hegemon_annihilation" && input.berserker != null)
+          ? ONCE_PER_BATTLE_COOLDOWN
+          : def.cooldown + 1,
     },
     castSkillId: id,
     // 원소술사 "속성 마법" → 로그에 시전자 속성으로 동적 표기("불 마법" 등). 그 외=정적 def.name.
@@ -1540,7 +1673,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     enemyDamage: finalEnemyDamage,
     magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
     hitDamages:
-      singleHitPhysicalBonusActive && hitDamages.length === 1
+      (singleHitPhysicalBonusActive || missingHpSingleHit) &&
+      hitDamages.length === 1
         ? [finalEnemyDamage]
         : hitDamages,
     selfHeal: applyRitualPower(scaledSelfHeal),
@@ -1563,6 +1697,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     enemySkillProcDownToApply,
     enemyDotVulnToApply,
     manaRestored: manaRestore,
+    berserkerTransition,
   };
 }
 

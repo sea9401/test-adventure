@@ -103,6 +103,10 @@ export function ControlsContent() {
           이 즉시 적용됩니다. 이용 중이라면 남은 기간 뒤에 이어집니다.
         </li>
         <li>
+          14일차에는 <Em>월간 모험 지원권 7일</Em>을 추가로 받아 현재 이용
+          기간을 연장합니다.
+        </li>
+        <li>
           지원권 적용 중에는 최대 스태미나 +
           {ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString("ko-KR")},
           스태미나 회복 속도 +{ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}%,

@@ -231,6 +231,8 @@ export type BattleState = {
   enemyHp: number;
   playerHp: number;
   playerMaxHp: number;
+  /** 광전사–패황의 전투 중 준비, 사망 극복, 멸왕일도 사용 횟수. */
+  berserker?: import("./berserkerCombat").BerserkerCombatState;
   // v2 마법 시스템 자원. INT 가 있는 캐릭만 > 0. 단판 전투당 풀충전 모델 —
   // 전투 시작 시 = playerMaxMp, 마법 발동 시 차감.
   // 라이브 캐릭(INT=0)은 둘 다 0 — MP 바 표시·소비 메커닉 자체 비활성.
@@ -296,6 +298,8 @@ export { COMBO_FINISHER_PERIOD } from "@/adventure/data/v2/v2CombatConstants";
 export type PlayerCombat = {
   hp: number;
   maxHp: number;
+  /** 장착한 광기 배타 패시브의 최고 단계. */
+  berserkerMadnessRank?: 1 | 2 | 3 | 4;
   // v2 마법 시스템 — derive 에서 INT × MP_PER_INT + V2_BASE_MP 로 계산.
   // INT 0 인 캐릭(라이브) 은 0/undefined → 전투 메커닉·UI 자동 비활성.
   // optional 로 둠 — 라이브 PlayerCombat 객체 리터럴(테스트 다수)이 매번 안 박아도 되게.
@@ -422,8 +426,6 @@ export type PlayerCombat = {
   //   시작 원량 복원용 계수이며, thornsFlatFromDef 가 PvE/PvP 공통 원량이다.
   thornsDefPct?: number;
   thornsFlatFromDef?: number;
-  // 반사 간파 — 반사 계열로 받는 피해 감소. 일반 받는 피해 감소와 별도로 적용한다.
-  reflectDamageTakenReductionPct?: number;
   // ── 2티어 특기 (각 스탯 50 도달) ────────────────────────────────────────
   // 불굴의 일격 — 매 턴 본타에 (전투 누적 피해 × N) 추가. 0/undefined = 미장착.
   enduringStrikeMult?: number;

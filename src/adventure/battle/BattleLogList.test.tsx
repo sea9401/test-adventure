@@ -117,6 +117,93 @@ describe("BattleLogList 표시 기호", () => {
 });
 
 describe("BattleLogList 행동 묶음", () => {
+  const MULTI_HIT_LOG: BattleLogEntry[] = [
+    {
+      kind: "player_attack",
+      text: "천궁궤적! 100 피해를 입혔다.",
+      turn: "player",
+      t: 120,
+    },
+    {
+      kind: "player_attack",
+      text: "천궁궤적! 200 피해를 입혔다.",
+      turn: "player",
+      t: 120,
+    },
+    {
+      kind: "player_attack",
+      text: "천궁궤적! 300 피해를 입혔다.",
+      turn: "player",
+      t: 120,
+    },
+    {
+      kind: "info",
+      text: "[천궁궤적] 받는 피해 +18% (3행동)",
+      turn: "player",
+      t: 120,
+    },
+  ];
+
+  it("같은 시각에 이어진 동일 기술의 연타를 한 행동으로 묶는다", () => {
+    const items = groupBattleLogActions(MULTI_HIT_LOG);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "action",
+      main: { text: "천궁궤적! 100 피해를 입혔다." },
+      hits: [
+        { text: "천궁궤적! 100 피해를 입혔다." },
+        { text: "천궁궤적! 200 피해를 입혔다." },
+        { text: "천궁궤적! 300 피해를 입혔다." },
+      ],
+      effects: [{ text: "[천궁궤적] 받는 피해 +18% (3행동)" }],
+    });
+  });
+
+  it("연타 카드에 총피해와 각 타격 피해를 바로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList entries={MULTI_HIT_LOG} playerName="궁수" />,
+    );
+
+    expect(html).toContain("3타");
+    expect(html).toContain("총 600 피해");
+    expect(html).toContain("1타 100");
+    expect(html).toContain("2타 200");
+    expect(html).toContain("3타 300");
+  });
+
+  it("다른 시각에 시전한 동일 기술은 별도 행동으로 유지한다", () => {
+    const items = groupBattleLogActions([
+      MULTI_HIT_LOG[0],
+      { ...MULTI_HIT_LOG[1], t: 121 },
+    ]);
+
+    expect(items).toHaveLength(2);
+    expect(items).toMatchObject([
+      { kind: "action", main: { t: 120 } },
+      { kind: "action", main: { t: 121 } },
+    ]);
+  });
+
+  it("같은 시각의 기본 공격은 연속되어도 각각의 행동으로 유지한다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "player_attack",
+        text: "공격! 100 피해를 입혔다.",
+        turn: "player",
+        t: 120,
+      },
+      {
+        kind: "player_attack",
+        text: "공격! 120 피해를 입혔다.",
+        turn: "player",
+        t: 120,
+      },
+    ]);
+
+    expect(items).toHaveLength(2);
+  });
+
   it("행동 시작 상태 피해를 직전 공격이 아니라 피해자의 다음 행동에 연결한다", () => {
     const items = groupBattleLogActions([
       {

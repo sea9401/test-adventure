@@ -518,7 +518,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
     // 형제(기사/격투가/마도사/궁사)와 다른 축: 방어%(순수)·활력(무승 강건 III)·회복강화·치명피해.
     expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.defPct).toBe(20);
-    expect(V2_SKILLS.v2c_berserker_madness3.passive?.berserkAtkPctPerLostHpPct).toBe(0.45);
+    expect(V2_SKILLS.v2c_berserker_madness3.passive).toEqual({});
     expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.statPct?.vit).toBe(30);
     expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
     expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(25); // 크리축 차수 단조(3차)
@@ -535,8 +535,9 @@ describe("직업 킷 — 스킬셋", () => {
       effects: [{ kind: "guaranteedEvade", count: 1 }],
     });
     expect(V2_SKILLS.v2c_berserker_bloodslash.effects[0]).toMatchObject({
-      kind: "hpCostDamage",
-      soakCurrentHpFloorPct: 50,
+      kind: "missingHpDamage",
+      selfCurrentHpCostPct: 10,
+      missingHpCoef: 0.4,
     });
     expect(
       V2_SKILLS.v2c_venomancer_miasma.effects.some(
@@ -598,7 +599,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
     // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
     expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(30); // 크리축 차수 단조 — 4차 최상
-    expect(V2_SKILLS.v2c_warlord_slaughter.passive?.berserkAtkPctPerLostHpPct).toBe(0.65);
+    expect(V2_SKILLS.v2c_warlord_slaughter.passive).toEqual({});
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 근력 III(힘%·옛 철신서 전환·무인 재설계)
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_runecaster_grandsigil.equippedSynergies?.map((s) => s.requiredSkillId)).toEqual([
@@ -704,11 +705,11 @@ describe("직업 킷 — 스킬셋", () => {
       hpThresholdPct: 15,
       bonusMult: 2.0,
     });
-    // 광왕 액티브 혈전 = HP 소모 강타.
+    // 광왕 액티브 혈전 = 현재 HP를 걸고 필살을 준비하는 잃은 HP 비례 강타.
     expect(V2_SKILLS.v2c_warlord_bloodbath.effects[0]).toMatchObject({
-      kind: "hpCostDamage",
-      pctCurrentHp: 10,
-      soakCurrentHpFloorPct: 50,
+      kind: "missingHpDamage",
+      selfCurrentHpCostPct: 15,
+      missingHpCoef: 0.7,
     });
     // 대주술사 액티브 금단 의식 = 마법취약 스택 페이오프.
     expect(
@@ -803,20 +804,17 @@ describe("직업 킷 — 스킬셋", () => {
     const ironStanceReflectPct =
       ironStanceReflect?.kind === "selfBuffPct" ? ironStanceReflect.pct : 0;
     expect(Math.floor(200 * (1 + ironStanceReflectPct / 100))).toBe(300);
+    expect(V2_SKILLS.v2c_overlord_ruin.name).toBe("파멸일격");
     expect(V2_SKILLS.v2c_overlord_ruin.effects.map((e) => e.kind)).toEqual([
-      "hpCostDamage",
-      "executeDamage",
+      "missingHpDamage",
     ]);
     expect(V2_SKILLS.v2c_overlord_ruin.effects[0]).toMatchObject({
-      kind: "hpCostDamage",
-      pctCurrentHp: 12,
-      soakCurrentHpFloorPct: 50,
+      kind: "missingHpDamage",
+      attackCoef: 1.5,
+      statCoef: 1.8,
+      missingHpCoef: 1.4,
     });
-    expect(V2_SKILLS.v2c_overlord_throne.passive).toMatchObject({
-      berserkAtkPctPerLostHpPct: 0.8,
-      critDmgPct: 30,
-      maxHpPct: 8,
-    });
+    expect(V2_SKILLS.v2c_overlord_throne.passive).toEqual({});
     expect(V2_SKILLS.v2c_nightshade_cloak.passive).toEqual({
       evasionPct: 18,
       critPct: 8,
@@ -1010,9 +1008,8 @@ describe("직업 킷 — 스킬셋", () => {
       accuracyPct: 15,
     });
     expect(
-      V2_SKILLS.v2c_swordsaint_transcendence.passive
-        ?.reflectDamageTakenReductionPct,
-    ).toBeUndefined();
+      V2_SKILLS.v2c_swordsaint_transcendence.passive,
+    ).not.toHaveProperty("reflectDamageTakenReductionPct");
     expect(spCostOf(V2_SKILLS.v2c_swordsaint_transcendence)).toBe(15);
     expect(
       V2_SKILLS.v2c_swordsaint_transcendence.passive?.spdToAtkMaxPct,
@@ -1021,25 +1018,19 @@ describe("직업 킷 — 스킬셋", () => {
       "v2c_hegemon_annihilation",
       "v2c_hegemon_dominion",
     ]);
+    expect(V2_SKILLS.v2c_hegemon_annihilation.name).toBe("멸왕일도");
     expect(V2_SKILLS.v2c_hegemon_annihilation.effects.map((e) => e.kind)).toEqual([
-      "hpCostDamage",
-      "executeDamage",
-      "enemyVuln",
-      "enemyHealReduce",
+      "missingHpDamage",
     ]);
     expect(V2_SKILLS.v2c_hegemon_annihilation.effects[0]).toMatchObject({
-      kind: "hpCostDamage",
-      pctCurrentHp: 14,
-      soakCurrentHpFloorPct: 50,
-      soakRatio: 3.42,
+      kind: "missingHpDamage",
+      attackCoef: 2,
+      statCoef: 2.4,
+      missingHpCoef: 2,
     });
+    expect(V2_SKILLS.v2c_hegemon_annihilation.oncePerBattle).toBe(true);
     expect(V2_SKILLS.v2c_hegemon_dominion.category).toBe("passive");
-    expect(V2_SKILLS.v2c_hegemon_dominion.passive).toMatchObject({
-      berserkAtkPctPerLostHpPct: 1.0,
-      critDmgPct: 40,
-      maxHpPct: 12,
-      reflectDamageTakenReductionPct: 20,
-    });
+    expect(V2_SKILLS.v2c_hegemon_dominion.passive).toEqual({});
     expect(skillsForJob("archmage")).toEqual([
       "v2c_archmage_collapse",
       "v2c_archmage_theory",
@@ -1063,8 +1054,11 @@ describe("직업 킷 — 스킬셋", () => {
       magicSkillDamagePct: 16,
       maxHpPct: 20,
       damageTakenReductionPct: 8,
-      reflectDamageTakenReductionPct: 20,
     });
+    expect(V2_SKILLS.v2c_archmage_theory.passive).not.toHaveProperty(
+      "reflectDamageTakenReductionPct",
+    );
+    expect(spCostOf(V2_SKILLS.v2c_archmage_theory)).toBe(15);
     expect(skillsForJob("primordialmage")).toEqual([
       "v2c_primordialmage_return",
       "v2c_primordialmage_resonance",
@@ -1538,7 +1532,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });
 
-  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%/부식/광전/마법취약/마방) 합산", () => {
+  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%/부식/마법취약/마방) 합산", () => {
     // 명중(accuracyPct) 축은 신궁 "매의 눈"(tier4)으로, 흡혈(lifesteal)은 보류(무인 재설계 2026-06-22)라
     //   이 케이스엔 미포함. 회피 원천 = 권사 보법(v2c_boxer_fortitude, evasionPct 8).
     const agg = aggregateEquippedPassives([
@@ -1547,7 +1541,6 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_boxer_fortitude", // evasionPct 8 (보법)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
       "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 6 (중독 적 방어 약화)
-      "v2c_berserker_madness3", // berserkAtkPctPerLostHpPct 0.45
       "v2c_shaman_omen3", // enemyMagicVulnPctPerStack 5
       "v2c_warder_ward", // magicDefPct 15 + 초반 마법 피해 감소
     ]);
@@ -1556,7 +1549,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.evasionPct).toBe(8);
     expect(agg.defPct).toBe(20);
     expect(agg.poisonedEnemyDefReductionPct).toBeCloseTo(6);
-    expect(agg.berserkAtkPctPerLostHpPct).toBe(0.45);
+    expect(agg.berserkAtkPctPerLostHpPct).toBe(0);
     expect(agg.enemyMagicVulnPctPerStack).toBe(5);
     expect(agg.enemyMagicVulnApplyChancePct).toBe(70);
     expect(agg.magicDefPct).toBe(15);
@@ -1564,6 +1557,20 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.openingMagicDamageReductionPhases).toBe(3);
     // 2차 계보 시작 패시브 두 개만 행운을 제공한다.
     expect(agg.statPct).toEqual({ luk: 20 });
+  });
+
+  it("aggregateEquippedPassives — 광기 계열이 중첩된 손상 입력도 최고 단계 하나만 적용한다", () => {
+    const agg = aggregateEquippedPassives([
+      "v2c_berserker_madness3",
+      "v2c_warlord_slaughter",
+      "v2c_overlord_throne",
+      "v2c_hegemon_dominion",
+    ]);
+
+    expect(agg.berserkAtkPctPerLostHpPct).toBe(0);
+    expect(agg.critDmgPct).toBe(0);
+    expect(agg.maxHpPct).toBe(0);
+    expect(agg).not.toHaveProperty("reflectDamageTakenReductionPct");
   });
 
   it("aggregateEquippedPassives — 대마도 이론은 INT%와 마법 스킬 피해를 합산한다", () => {

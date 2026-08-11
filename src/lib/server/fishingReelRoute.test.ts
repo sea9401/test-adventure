@@ -249,6 +249,42 @@ describe("POST /api/v2/fishing/reel", () => {
     ).toBe(1);
   });
 
+  it("등록권을 추출했던 어종을 다시 낚으면 기록을 이어 쓰며 등록을 복구한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_CODEX_KEY, {
+      fish: {
+        carp: {
+          registered: false,
+          caughtEver: true,
+          bestSize: 50,
+          totalCaught: 7,
+          firstCaughtAt: now - 100_000,
+          bestCaughtAt: now - 100_000,
+        },
+      },
+    });
+
+    const response = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      caught: true,
+      isNewSpecies: false,
+      registrationRestored: true,
+    });
+    expect(store.get(FISHING_CODEX_KEY)).toMatchObject({
+      fish: {
+        carp: {
+          registered: true,
+          caughtEver: true,
+          bestSize: 50,
+          totalCaught: 8,
+        },
+      },
+    });
+  });
+
   it("잔잔한 수면에서 8% 확률 판정에 성공하면 낚시 경험치 2를 추가로 얻는다", async () => {
     const now = Date.now();
     seedFisherSession(now);

@@ -6,7 +6,7 @@ import {
 import { FISH, FISH_TIERS } from "@/adventure/data/v2/fish";
 import {
   FISHING_CODEX_KEY,
-  discoveredFishIds,
+  caughtFishIds,
   parseFishCodex,
 } from "@/adventure/v2/fishingCodex";
 import {
@@ -91,11 +91,11 @@ export function housingContextFromSaves(args: {
     .map(({ sortTier: _sortTier, sortEnhance: _sortEnhance, ...option }) => option);
 
   const fishCodex = parseFishCodex(args.fishingCodexRaw);
-  const discoveredFish = discoveredFishIds(fishCodex);
+  const caughtFish = caughtFishIds(fishCodex);
   const fishOptions: HousingDisplayOption[] = Object.entries(fishCodex.fish)
     .map(([fishId, entry]) => {
       const fish = FISH[fishId as keyof typeof FISH];
-      if (!fish || !entry.discovered) return null;
+      if (!fish || !entry.caughtEver) return null;
       return {
         kind: "fish" as const,
         fishId: fish.id,
@@ -134,7 +134,7 @@ export function housingContextFromSaves(args: {
     entitlements: {
       ownedCounts,
       equipmentIids: new Set(owned.map((instance) => instance.iid)),
-      fishIds: new Set(discoveredFish),
+      fishIds: new Set(caughtFish),
       bossIds,
     },
     displayOptions: [...equipmentOptions, ...fishOptions, ...bossOptions],

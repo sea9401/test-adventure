@@ -4,6 +4,7 @@ import {
   combatStatsSection,
   cookingCodexSection,
   frontierDepthOf,
+  fishingCodexSection,
   huntGateSections,
   isRecordedJobVisit,
   elementalSkillsSection,
@@ -92,6 +93,29 @@ describe("cookingCodexSection", () => {
 
     expect(section.discoveredIds).toEqual(["rustic_bread"]);
     expect(section.total).toBeGreaterThan(section.discoveredIds.length);
+  });
+});
+
+describe("fishingCodexSection", () => {
+  it("도감 등록권과 실제 포획 기록을 서로 분리해 직렬화한다", () => {
+    const section = fishingCodexSection({
+      fish: {
+        carp: { registered: true, caughtEver: false },
+        trout: {
+          registered: false,
+          caughtEver: true,
+          bestSize: 55,
+          totalCaught: 2,
+          firstCaughtAt: 10,
+          bestCaughtAt: 20,
+        },
+      },
+    });
+
+    expect(section.registeredIds).toEqual(["carp"]);
+    expect(section.discoveredIds).toEqual(["carp"]);
+    expect(section.caughtIds).toEqual(["trout"]);
+    expect(section.best).toEqual({ trout: 55 });
   });
 });
 

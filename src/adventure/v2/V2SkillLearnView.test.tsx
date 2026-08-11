@@ -9,10 +9,19 @@ import {
 describe("SkillLearningCostSummary", () => {
   it("학습 전에 숙달 포인트와 장착 SP 비용을 명확히 구분한다", () => {
     const html = renderToStaticMarkup(
-      <SkillLearningCostSummary learnCost={1500} spCost={4} />,
+      <SkillLearningCostSummary learnCost={1500} spCost={4} learned={false} />,
     );
 
     expect(html).toContain("학습 숙달 1,500");
+    expect(html).toContain("장착 SP 4");
+  });
+
+  it("학습 후에도 장착 SP 비용은 계속 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <SkillLearningCostSummary learnCost={1500} spCost={4} learned />,
+    );
+
+    expect(html).not.toContain("학습 숙달");
     expect(html).toContain("장착 SP 4");
   });
 });

@@ -15,8 +15,9 @@ import {
   grantAdventureSupport,
 } from "@/adventure/data/v2/adventureSupport";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+import { COOP_COIN_MATERIAL_ID } from "@/adventure/data/v2/coopRewards";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
-import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import { TORN_MAP_FRAGMENT_MATERIAL_ID } from "@/adventure/data/v2/scavengedCrafting";
 import {
   applyRegen,
   parseStaminaFromSave,
@@ -197,13 +198,12 @@ export async function POST() {
           grantedMaterials![materialId] = count;
         };
 
-        if (reward.kind === "enhancement_stone") {
-          grantMaterial(ENHANCE_STONE_MATERIAL_ID[reward.color], reward.count);
-        } else if (reward.kind === "boss_summon_scroll") {
+        if (reward.kind === "boss_summon_scroll") {
           grantMaterial(SUMMON_SCROLL_MATERIAL_ID, reward.count);
+        } else if (reward.kind === "torn_map_fragment") {
+          grantMaterial(TORN_MAP_FRAGMENT_MATERIAL_ID, reward.count);
         } else {
-          grantMaterial(ENHANCE_STONE_MATERIAL_ID.red, reward.red);
-          grantMaterial(ENHANCE_STONE_MATERIAL_ID.blue, reward.blue);
+          grantMaterial(COOP_COIN_MATERIAL_ID, reward.count);
         }
         nextCharacter = { ...nextCharacter, materials };
         characterChanged = true;
@@ -322,12 +322,11 @@ function recordAttendanceReward(
       itemId,
       quantity,
     });
-  if (reward.kind === "enhancement_stone") {
-    recordMaterial(ENHANCE_STONE_MATERIAL_ID[reward.color], reward.count);
-  } else if (reward.kind === "boss_summon_scroll") {
+  if (reward.kind === "boss_summon_scroll") {
     recordMaterial(SUMMON_SCROLL_MATERIAL_ID, reward.count);
+  } else if (reward.kind === "torn_map_fragment") {
+    recordMaterial(TORN_MAP_FRAGMENT_MATERIAL_ID, reward.count);
   } else {
-    recordMaterial(ENHANCE_STONE_MATERIAL_ID.red, reward.red);
-    recordMaterial(ENHANCE_STONE_MATERIAL_ID.blue, reward.blue);
+    recordMaterial(COOP_COIN_MATERIAL_ID, reward.count);
   }
 }

@@ -29,6 +29,7 @@ import {
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import { isTradeableMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 import { isCookingFoodId } from "@/adventure/v2/cooking";
+import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 
 type CharSave = { adventureSupport?: unknown; [key: string]: unknown };
@@ -82,14 +83,15 @@ export function recordMarketplaceAutoMatchFills(
   }
 }
 
-function deliveryKind(
+export function marketplaceBuyOrderDeliveryKind(
   kind: string,
   itemId: string,
-): "material" | "cash" | "cooking" | null {
+): "material" | "cash" | "cooking" | "specimen" | null {
   if (kind === "material") return "material";
   if (kind !== "consumable") return null;
   if (isTradeableMuseunCashItemId(itemId)) return "cash";
   if (isCookingFoodId(itemId)) return "cooking";
+  if (fishIdFromSpecimenItemId(itemId)) return "specimen";
   return null;
 }
 
@@ -111,7 +113,7 @@ export async function matchMarketplaceBuyOrder(
   ) {
     return [];
   }
-  const itemKind = deliveryKind(order.kind, order.itemId);
+  const itemKind = marketplaceBuyOrderDeliveryKind(order.kind, order.itemId);
   if (!itemKind) return [];
 
   const listings = await tx

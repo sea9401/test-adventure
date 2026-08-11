@@ -18,7 +18,7 @@ export const STORM_EXPEDITION_ROUTE_MATERIAL_ID: Record<
 export const STORM_ORIGIN_FRAGMENT_MATERIAL_ID = "v2_storm_origin_fragment";
 export const STORM_HEART_FRAGMENT_MATERIAL_ID = "v2_storm_heart_fragment";
 
-export const STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID = SP_FRUIT[4].materialId;
+export const STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID = SP_FRUIT[5].materialId;
 export const STORM_EXPEDITION_SP_FRUIT_CHANCE = 0.04;
 export const STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS = 25;
 export const STORM_EXPEDITION_SP_FRUIT_CAP = 3;

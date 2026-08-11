@@ -63,6 +63,8 @@ import {
 } from "./cooking";
 import { shopSaleBalancePatch, shopSaleBankNotice } from "./shopSaleBalance";
 import { MasteryCertificateUseModal } from "./MasteryCertificateUseModal";
+import type { FishId } from "@/adventure/data/v2/fish";
+import type { FishSpecimenInventory } from "@/adventure/v2/fishSpecimens";
 
 // 강화/재련 등 다른 화면도 같은 장비 카드 그리드를 쓴다 — 기존 import 경로 유지를 위해
 // 분리한 컴포넌트를 여기서 재노출(re-export).
@@ -121,21 +123,38 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
+  const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
+  const [registeredFishIds, setRegisteredFishIds] = useState<string[]>([]);
   const [masteryCertificates, setMasteryCertificates] = useState(0);
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
   useEffect(() => {
     if (tab !== "consumable") return;
     let alive = true;
-    fetch("/api/v2/me/rare-maps")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: {
-        ok?: boolean;
-        rareMaps?: RareMapInstance[];
-        cashItems?: MuseunCashItemCounts;
-      } | null) => {
+    Promise.all([
+      fetch("/api/v2/me/rare-maps").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/v2/me/fishing-specimens").then((r) =>
+        r.ok ? r.json() : null,
+      ),
+    ])
+      .then(([j, specimenJson]: [
+        {
+          ok?: boolean;
+          rareMaps?: RareMapInstance[];
+          cashItems?: MuseunCashItemCounts;
+        } | null,
+        {
+          ok?: boolean;
+          specimens?: FishSpecimenInventory["items"];
+          registeredIds?: string[];
+        } | null,
+      ]) => {
         if (!alive) return;
         setRareMaps(j?.ok ? (j.rareMaps ?? []) : []);
         setCashItems(j?.ok ? (j.cashItems ?? {}) : {});
+        setFishSpecimens(specimenJson?.ok ? (specimenJson.specimens ?? {}) : {});
+        setRegisteredFishIds(
+          specimenJson?.ok ? (specimenJson.registeredIds ?? []) : [],
+        );
       })
       .catch(() => {
         if (alive) setRareMaps([]);
@@ -180,6 +199,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     2: 0,
     3: 0,
     4: 0,
+    5: 0,
   });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -223,6 +243,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           2: j.spFruitUsed?.[2] ?? 0,
           3: j.spFruitUsed?.[3] ?? 0,
           4: j.spFruitUsed?.[4] ?? 0,
+          5: j.spFruitUsed?.[5] ?? 0,
         });
       }
       if (equipRes.ok) {
@@ -532,6 +553,58 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         );
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem, refreshGameState],
+  );
+
+  const useFishSpecimen = useCallback(
+    async (fishId: FishId) => {
+      setBusy(`fish_specimen_${fishId}`);
+      try {
+        const response = await fetch("/api/v2/me/fishing-specimens/use", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ fishId }),
+        });
+        const data = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          specimenBalance?: number;
+          registeredIds?: string[];
+          fishSpBefore?: number;
+          fishSpAfter?: number;
+        } | null;
+        if (!response.ok || !data?.ok) {
+          notifySystem(
+            `✗ ${
+              data?.error === "already_registered"
+                ? "이미 등록된 어종입니다"
+                : data?.error === "not_owned"
+                  ? "보유한 표본이 없습니다"
+                  : (data?.error ?? `http ${response.status}`)
+            }`,
+          );
+          return;
+        }
+        setFishSpecimens((current) => {
+          const next = { ...current };
+          if ((data.specimenBalance ?? 0) > 0) next[fishId] = data.specimenBalance;
+          else delete next[fishId];
+          return next;
+        });
+        setRegisteredFishIds(data.registeredIds ?? []);
+        await refreshGameState();
+        const gained = Math.max(0, (data.fishSpAfter ?? 0) - (data.fishSpBefore ?? 0));
+        notifySystem(
+          gained > 0
+            ? `✓ 도감 등록 완료 · 어보 SP +${gained}`
+            : "✓ 도감 등록 완료",
+        );
+      } catch (error) {
+        notifySystem(`✗ ${(error as Error).message}`);
       } finally {
         setBusy(null);
       }
@@ -882,6 +955,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             cookingFoods={cookingFoods}
             onUseCookingFood={useCookingFood}
             onUseExpTome={useExpTome}
+            fishSpecimens={fishSpecimens}
+            registeredFishIds={registeredFishIds}
+            onUseFishSpecimen={useFishSpecimen}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />

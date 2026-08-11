@@ -18,6 +18,9 @@ import {
   addCookingFood,
   isCookingFoodId,
 } from "@/adventure/v2/cooking";
+import {
+  deliverFishSpecimenStack,
+} from "@/lib/server/marketplaceV2Fulfillment";
 
 // POST /api/v2/marketplace/cancel — 내 활성 매물 취소(에스크로 반환).
 //   body: { listingId:int }
@@ -89,7 +92,16 @@ export async function POST(req: Request) {
       ]);
     } else if (listing.kind === "consumable") {
       const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
-      if (isMuseunCashItemId(listing.itemId)) {
+      if (
+        await deliverFishSpecimenStack(
+          tx,
+          userId,
+          listing.itemId,
+          listing.quantity,
+        )
+      ) {
+        // 표본 스택 반환 완료.
+      } else if (isMuseunCashItemId(listing.itemId)) {
         await upsertSave(tx, userId, "character.v2", {
           ...charSave,
           cashItems: addMuseunCashItem(

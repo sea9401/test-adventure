@@ -11,7 +11,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
     const html = renderToStaticMarkup(
       <RareMapsTab
         materials={{}}
-        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0 }}
+        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }}
         busy={null}
         onUseSpFruit={() => undefined}
         onUseEquipmentBox={() => undefined}
@@ -24,6 +24,9 @@ describe("RareMapsTab 이벤트 소모품", () => {
         cookingFoods={{}}
         onUseCookingFood={() => undefined}
         onUseExpTome={() => undefined}
+        fishSpecimens={{}}
+        registeredFishIds={[]}
+        onUseFishSpecimen={() => undefined}
       />,
     );
 
@@ -37,7 +40,7 @@ describe("RareMapsTab 이벤트 소모품", () => {
     const html = renderToStaticMarkup(
       <RareMapsTab
         materials={{}}
-        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0 }}
+        spFruitUsed={{ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }}
         busy={null}
         onUseSpFruit={() => undefined}
         onUseEquipmentBox={() => undefined}
@@ -50,6 +53,9 @@ describe("RareMapsTab 이벤트 소모품", () => {
         cookingFoods={{}}
         onUseCookingFood={() => undefined}
         onUseExpTome={() => undefined}
+        fishSpecimens={{}}
+        registeredFishIds={[]}
+        onUseFishSpecimen={() => undefined}
       />,
     );
 

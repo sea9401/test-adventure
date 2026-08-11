@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Package, Question, Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
@@ -49,6 +50,7 @@ import {
   FISH_TIERS,
   FISH_TIER_ORDER,
   formatFishSize,
+  type FishId,
   type FishTier,
 } from "@/adventure/data/v2/fish";
 import { JobCodexList } from "./V2JobCodexView";
@@ -75,6 +77,12 @@ import {
   regionalHuntMaterialDrops,
   type HuntMaterialDropCatalogEntry,
 } from "@/adventure/data/v2/huntMaterialCatalog";
+import {
+  FishSpecimenExtractModal,
+  type FishSpecimenExtractProjection,
+} from "./FishSpecimenExtractModal";
+import { useGameState } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
 
 // v2 모험의 서 — 사냥터(장비·재료 드랍) + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
@@ -90,6 +98,56 @@ const TIER_BADGE: Record<FishTier, string> = {
   legendary:
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
+
+export function fishCodexCardState(registered: boolean, caughtEver: boolean) {
+  if (!registered && !caughtEver) {
+    return {
+      visible: false,
+      canExtract: false,
+      status: "미발견" as const,
+      recordLabel: null,
+    };
+  }
+  return {
+    visible: true,
+    canExtract: registered,
+    status: registered ? ("등재" as const) : ("미등록" as const),
+    recordLabel:
+      registered && !caughtEver ? "표본 등록 · 직접 어획 기록 없음" : null,
+  };
+}
+
+type FishSpecimenExtractResponse = Partial<FishSpecimenExtractProjection> & {
+  ok?: boolean;
+  error?: string;
+  registeredIds?: string[];
+};
+
+function projectionFromExtractResponse(
+  response: FishSpecimenExtractResponse | null,
+): FishSpecimenExtractProjection | null {
+  if (
+    !response ||
+    typeof response.fishSpBefore !== "number" ||
+    typeof response.fishSpAfter !== "number" ||
+    typeof response.totalSpBefore !== "number" ||
+    typeof response.totalSpAfter !== "number" ||
+    typeof response.spLoss !== "number" ||
+    typeof response.equippedSpUsed !== "number" ||
+    typeof response.overBudget !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    fishSpBefore: response.fishSpBefore,
+    fishSpAfter: response.fishSpAfter,
+    totalSpBefore: response.totalSpBefore,
+    totalSpAfter: response.totalSpAfter,
+    spLoss: response.spLoss,
+    equippedSpUsed: response.equippedSpUsed,
+    overBudget: response.overBudget,
+  };
+}
 const CODEX_PANEL_SURFACE = `${SURFACE_INSET} p-2.5 sm:p-3`;
 
 type FishingCodexMeta = {
@@ -142,9 +200,10 @@ export function shouldShowCodexTutorial(
 
 export function spFruitCodexSource(tier: SpFruitTier): string {
   const def = SP_FRUIT[tier];
-  const sources = [
-    `${COOP_BOSSES[def.bossKind]?.name ?? "협동 보스"} 보상`,
-  ];
+  const sources: string[] = [];
+  if (def.bossKind) {
+    sources.push(`${COOP_BOSSES[def.bossKind]?.name ?? "협동 보스"} 보상`);
+  }
   if (def.materialId === STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID) {
     sources.push("폭풍 원정 완주 보상");
   }
@@ -316,6 +375,8 @@ export function classifyCodexEquipmentIds(ids: V2EquipmentId[]): {
 export function V2CodexView({ onBack }: { onBack: () => void }) {
   const tabParam = useSearchParams().get("tab");
   const { has: hasStoryFlag, set: setStoryFlag } = useStoryFlags();
+  const { refreshGameState } = useGameState();
+  const { notifySystem } = useSystemToast();
   const [tutorialReplayRequested, setTutorialReplayRequested] = useState(false);
   const showTutorial = shouldShowCodexTutorial(
     hasStoryFlag(TUTORIAL_CODEX_INTRO),
@@ -340,7 +401,13 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
 
   // 내 도감 진척 — /me/state 가 권위. 어보: 발견 id + 종별 최대어.
   const [fishDiscovered, setFishDiscovered] = useState<Set<string>>(new Set());
+  const [fishCaught, setFishCaught] = useState<Set<string>>(new Set());
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
+  const [extractSelection, setExtractSelection] = useState<{
+    fishId: FishId;
+    projection: FishSpecimenExtractProjection;
+  } | null>(null);
+  const [extractBusy, setExtractBusy] = useState(false);
   const [cookingDiscoveredIds, setCookingDiscoveredIds] = useState<string[]>([]);
   const [fishingCodexMeta, setFishingCodexMeta] = useState<FishingCodexMeta>(
     () => defaultFishingCodexMeta(),
@@ -373,10 +440,17 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         if (!alive || !j) return;
         // 어보 진척은 PR-2 에서 라우트가 채운다. 없으면 빈 상태(전종 미발견).
         let fishingDiscoveredCount = 0;
-        if (Array.isArray(j?.fishingCodex?.discoveredIds)) {
-          const ids = j.fishingCodex.discoveredIds as string[];
+        const registeredIds = Array.isArray(j?.fishingCodex?.registeredIds)
+          ? (j.fishingCodex.registeredIds as string[])
+          : Array.isArray(j?.fishingCodex?.discoveredIds)
+            ? (j.fishingCodex.discoveredIds as string[])
+            : [];
+        if (registeredIds.length > 0) {
+          const ids = registeredIds;
           fishingDiscoveredCount = ids.length;
           setFishDiscovered(new Set(ids));
+        } else {
+          setFishDiscovered(new Set());
         }
         const fallbackFishingMeta =
           defaultFishingCodexMeta(fishingDiscoveredCount);
@@ -402,7 +476,24 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               : fallbackFishingMeta.nextMilestone,
         });
         if (j?.fishingCodex?.best && typeof j.fishingCodex.best === "object") {
-          setFishBest(j.fishingCodex.best as Record<string, number>);
+          const best = j.fishingCodex.best as Record<string, number>;
+          setFishBest(best);
+          setFishCaught(
+            new Set(
+              Array.isArray(j?.fishingCodex?.caughtIds)
+                ? (j.fishingCodex.caughtIds as string[])
+                : Object.keys(best),
+            ),
+          );
+        } else {
+          setFishBest({});
+          setFishCaught(
+            new Set(
+              Array.isArray(j?.fishingCodex?.caughtIds)
+                ? (j.fishingCodex.caughtIds as string[])
+                : [],
+            ),
+          );
         }
         if (Array.isArray(j?.cookingCodex?.discoveredIds)) {
           setCookingDiscoveredIds(j.cookingCodex.discoveredIds as string[]);
@@ -481,6 +572,105 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       alive = false;
     };
   }, [tab, jobCodex]);
+
+  const previewFishExtraction = async (fishId: FishId) => {
+    setExtractBusy(true);
+    try {
+      const response = await fetch("/api/v2/me/fishing-specimens/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fishId, preview: true }),
+      });
+      const json = (await response.json().catch(() => null)) as
+        | FishSpecimenExtractResponse
+        | null;
+      const projection = projectionFromExtractResponse(json);
+      if (
+        projection &&
+        [
+          "confirmation_required",
+          "sp_confirmation_required",
+          "loadout_over_budget",
+        ].includes(json?.error ?? "")
+      ) {
+        setExtractSelection({ fishId, projection });
+        return;
+      }
+      notifySystem(
+        `✗ ${
+          json?.error === "not_registered"
+            ? "이미 미등록 상태인 어종입니다"
+            : (json?.error ?? `http ${response.status}`)
+        }`,
+      );
+    } catch (error) {
+      notifySystem(`✗ ${(error as Error).message}`);
+    } finally {
+      setExtractBusy(false);
+    }
+  };
+
+  const confirmFishExtraction = async () => {
+    if (!extractSelection || extractSelection.projection.overBudget) return;
+    const { fishId, projection } = extractSelection;
+    setExtractBusy(true);
+    try {
+      const response = await fetch("/api/v2/me/fishing-specimens/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fishId,
+          confirmed: {
+            fishSpBefore: projection.fishSpBefore,
+            fishSpAfter: projection.fishSpAfter,
+            totalSpBefore: projection.totalSpBefore,
+            totalSpAfter: projection.totalSpAfter,
+          },
+        }),
+      });
+      const json = (await response.json().catch(() => null)) as
+        | FishSpecimenExtractResponse
+        | null;
+      if (!response.ok || !json?.ok) {
+        const latest = projectionFromExtractResponse(json);
+        if (
+          latest &&
+          (json?.error === "stale_confirmation" ||
+            json?.error === "loadout_over_budget")
+        ) {
+          setExtractSelection({ fishId, projection: latest });
+          notifySystem(
+            json.error === "stale_confirmation"
+              ? "도감 SP 상태가 달라져 새 값으로 다시 확인해 주세요"
+              : "장착 스킬을 새 SP 한도 안으로 조정해 주세요",
+          );
+          return;
+        }
+        notifySystem(`✗ ${json?.error ?? `http ${response.status}`}`);
+        return;
+      }
+
+      const nextRegistered = new Set(fishDiscovered);
+      nextRegistered.delete(fishId);
+      setFishDiscovered(nextRegistered);
+      setFishingCodexMeta((current) => ({
+        ...current,
+        spBonus:
+          typeof json.fishSpAfter === "number"
+            ? json.fishSpAfter
+            : fishCodexSpBonusForCount(nextRegistered.size),
+        nextMilestone: nextFishCodexMilestone(nextRegistered.size),
+      }));
+      setExtractSelection(null);
+      await refreshGameState();
+      notifySystem("✓ 표본 추출 완료 · 개인 어획 기록은 유지됩니다");
+    } catch (error) {
+      notifySystem(`✗ ${(error as Error).message}`);
+    } finally {
+      setExtractBusy(false);
+    }
+  };
+
   const spFruitUseCap = SP_FRUIT_TIERS.reduce(
     (sum, tier) => sum + SP_FRUIT[tier].useCap,
     0,
@@ -1094,7 +1284,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             ).length;
             return (
               <Card key={tier} padding="none" className="overflow-hidden">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
+                <div className={`${SURFACE_INSET} flex flex-wrap items-baseline justify-between gap-2 rounded-none border-x-0 border-t-0 px-3 py-2`}>
                   <span
                     className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${TIER_BADGE[tier]}`}
                   >
@@ -1110,25 +1300,31 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {species.map((id) => {
                     const fish = FISH[id];
-                    const found = fishDiscovered.has(id);
+                    const registered = fishDiscovered.has(id);
+                    const caughtEver = fishCaught.has(id);
+                    const cardState = fishCodexCardState(registered, caughtEver);
                     const best = fishBest[id];
                     return (
                       <li
                         key={id}
-                        className={`px-3 py-2.5 ${found ? "" : "text-zinc-500 dark:text-zinc-400"}`}
+                        className={`px-3 py-2.5 ${cardState.visible ? "" : "text-zinc-500 dark:text-zinc-400"}`}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                             <FishIcon
                               fishId={id}
-                              name={found ? fish.name : undefined}
-                              decorative={!found}
-                              className={`h-6 w-6 ${found ? "" : "grayscale"}`}
+                              name={cardState.visible ? fish.name : undefined}
+                              decorative={!cardState.visible}
+                              className={`h-6 w-6 ${cardState.visible ? "" : "grayscale"}`}
                             />
-                            {found ? fish.name : "???"}
-                            {found ? (
+                            {cardState.visible ? fish.name : "???"}
+                            {registered ? (
                               <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                                등재
+                                {cardState.status}
+                              </span>
+                            ) : caughtEver ? (
+                              <span className="rounded bg-amber-200/70 px-1 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                                미등록
                               </span>
                             ) : (
                               <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
@@ -1136,13 +1332,30 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               </span>
                             )}
                           </span>
-                          {found && typeof best === "number" && best > 0 && (
-                            <span className="shrink-0 text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                              최대어 {formatFishSize(best)}
-                            </span>
-                          )}
+                          <span className="flex shrink-0 items-center gap-2">
+                            {caughtEver && typeof best === "number" && best > 0 && (
+                              <span className="text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-400">
+                                최대어 {formatFishSize(best)}
+                              </span>
+                            )}
+                            {cardState.canExtract && (
+                              <Button
+                                size="xs"
+                                variant="secondary"
+                                disabled={extractBusy}
+                                onClick={() => void previewFishExtraction(id)}
+                              >
+                                표본 추출
+                              </Button>
+                            )}
+                          </span>
                         </div>
-                        {found && fish.description && (
+                        {cardState.recordLabel && (
+                          <p className="mt-1 text-xs font-medium text-sky-700 dark:text-sky-300">
+                            {cardState.recordLabel}
+                          </p>
+                        )}
+                        {cardState.visible && fish.description && (
                           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
                             {fish.description}
                           </p>
@@ -1186,6 +1399,16 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           item={card.item}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+        />
+      )}
+
+      {extractSelection && (
+        <FishSpecimenExtractModal
+          fish={FISH[extractSelection.fishId]}
+          projection={extractSelection.projection}
+          busy={extractBusy}
+          onConfirm={() => void confirmFishExtraction()}
+          onClose={() => setExtractSelection(null)}
         />
       )}
 

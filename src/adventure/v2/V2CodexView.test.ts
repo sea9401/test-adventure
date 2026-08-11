@@ -3,6 +3,7 @@ import {
   classifyCodexEquipmentIds,
   codexTabFromParam,
   codexThemeDeepDepth,
+  fishCodexCardState,
   shouldShowCodexTutorial,
   spFruitCodexSource,
 } from "./V2CodexView";
@@ -84,13 +85,42 @@ describe("모험의 서 사냥터 표시", () => {
 });
 
 describe("모험의 서 SP 열매 획득처", () => {
-  it("SP 열매 IV에 협동 보스와 폭풍 원정 완주를 함께 표시한다", () => {
-    expect(spFruitCodexSource(4)).toBe(
-      "공허의 대사제 보상 · 폭풍 원정 완주 보상",
-    );
+  it("SP 열매 IV는 공허의 대사제 보상으로만 표시한다", () => {
+    expect(spFruitCodexSource(4)).toBe("공허의 대사제 보상");
+  });
+
+  it("SP 열매 V는 폭풍 원정 완주 보상으로만 표시한다", () => {
+    expect(spFruitCodexSource(5)).toBe("폭풍 원정 완주 보상");
   });
 
   it("나머지 SP 열매는 기존 협동 보스 획득처만 표시한다", () => {
     expect(spFruitCodexSource(1)).toBe("산군 보상");
+  });
+});
+
+describe("어보 표본 등록 상태", () => {
+  it("등록과 포획 기록의 네 상태를 구분한다", () => {
+    expect(fishCodexCardState(true, true)).toEqual({
+      visible: true,
+      canExtract: true,
+      status: "등재",
+      recordLabel: null,
+    });
+    expect(fishCodexCardState(true, false)).toMatchObject({
+      visible: true,
+      canExtract: true,
+      status: "등재",
+      recordLabel: "표본 등록 · 직접 어획 기록 없음",
+    });
+    expect(fishCodexCardState(false, true)).toMatchObject({
+      visible: true,
+      canExtract: false,
+      status: "미등록",
+    });
+    expect(fishCodexCardState(false, false)).toMatchObject({
+      visible: false,
+      canExtract: false,
+      status: "미발견",
+    });
   });
 });

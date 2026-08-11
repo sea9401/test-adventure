@@ -348,6 +348,19 @@ describe("parseCombatPattern (저장 검증)", () => {
       { kind: "self_buff_pct", target: "guaranteedEvade", active: false },
     ]);
   });
+
+  it("광전사 내부 준비 상태를 조건으로 안전하게 파싱한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: ["berserkerFinisher", "berserkerDeathOvercome"].map((target) => ({
+        condition: { kind: "self_buff_pct", target, active: true },
+        action: { kind: "skill", skillId: target },
+      })),
+    });
+    expect(parsed.blocks.map((block) => block.condition)).toEqual([
+      { kind: "self_buff_pct", target: "berserkerFinisher", active: true },
+      { kind: "self_buff_pct", target: "berserkerDeathOvercome", active: true },
+    ]);
+  });
 });
 
 describe("defaultPatternFromEquipped", () => {

@@ -44,8 +44,8 @@ describe("referrals", () => {
   it("프록시 내부 주소 대신 운영 AUTH_URL로 대문 이동 주소를 만든다", () => {
     process.env.AUTH_URL = "https://msmsge.com";
     expect(
-      referralLandingUrl("https://localhost:3000/r/code", "accepted").href,
-    ).toBe("https://msmsge.com/sign-in?referral=accepted");
+      referralLandingUrl("https://localhost:3000/r/code").href,
+    ).toBe("https://msmsge.com/sign-in");
   });
 
   it("프론티어 6·12·18·24·36의 5단계마다 양쪽에 회복약 2개를 지급한다", () => {

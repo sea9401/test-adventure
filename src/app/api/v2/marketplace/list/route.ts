@@ -35,6 +35,12 @@ import {
   removeCookingFood,
 } from "@/adventure/v2/cooking";
 import {
+  FISH_SPECIMEN_SAVE_KEY,
+  fishIdFromSpecimenItemId,
+  parseFishSpecimenInventory,
+  removeFishSpecimen,
+} from "@/adventure/v2/fishSpecimens";
+import {
   matchMarketplaceBuyOrdersForItem,
   recordMarketplaceAutoMatchFills,
   triggerMarketplacePriceAlertsForListing,
@@ -186,6 +192,84 @@ export async function POST(req: Request) {
     }
 
     if (kind === "consumable") {
+      const specimenFishId =
+        typeof body.itemId === "string"
+          ? fishIdFromSpecimenItemId(body.itemId)
+          : null;
+      if (specimenFishId) {
+        if (!isValidMaterialQty(body.quantity)) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "bad_quantity" },
+          };
+        }
+        const itemId = body.itemId as string;
+        const quantity = body.quantity;
+        const specimens = parseFishSpecimenInventory(
+          await lockSaveForUpdate(
+            tx,
+            userId,
+            FISH_SPECIMEN_SAVE_KEY,
+            {},
+          ),
+        );
+        const nextSpecimens = removeFishSpecimen(
+          specimens,
+          specimenFishId,
+          quantity,
+        );
+        if (!nextSpecimens) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "not_owned" },
+          };
+        }
+        await upsertSave(
+          tx,
+          userId,
+          FISH_SPECIMEN_SAVE_KEY,
+          nextSpecimens,
+        );
+        const [row] = await tx
+          .insert(marketplaceListingsV2)
+          .values({
+            ...listingWindow,
+            sellerId: userId,
+            sellerName,
+            kind: "consumable",
+            itemId,
+            itemName: itemDisplayName("consumable", itemId) ?? itemId,
+            quantity,
+            price,
+            instancePayload: { kind: "fish_specimen", fishId: specimenFishId },
+          })
+          .returning({ id: marketplaceListingsV2.id });
+        const autoMatchFills =
+          body.graceHours === 0
+            ? await matchMarketplaceBuyOrdersForItem(
+                tx,
+                "consumable",
+                itemId,
+                createdAt,
+              )
+            : [];
+        if (body.graceHours === 0) {
+          await triggerMarketplacePriceAlertsForListing(tx, row.id, createdAt);
+        }
+        return {
+          status: 200,
+          autoMatchFills,
+          log: {
+            listingId: row.id,
+            itemKind: "consumable",
+            itemId,
+            quantity,
+            price,
+          },
+          body: { ok: true as const, listingId: row.id },
+        };
+      }
+
       if (isTradeableMuseunCashItemId(body.itemId)) {
         if (!isValidMaterialQty(body.quantity)) {
           return {

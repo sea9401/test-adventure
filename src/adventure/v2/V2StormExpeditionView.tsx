@@ -241,7 +241,7 @@ export function V2StormExpeditionView() {
       )}
       {result?.error && <StatusBanner tone="error">{ERROR_MESSAGES[result.error] ?? "원정을 진행하지 못했습니다. 잠시 후 다시 시도해 주세요."}</StatusBanner>}
       {result?.bossClear && <StatusBanner tone="success">폭풍의 심장을 쓰러뜨렸습니다. 모든 임시 전리품을 확보했습니다.</StatusBanner>}
-      {result?.spFruitDropped && <StatusBanner tone="success">원정 완주 보상으로 SP 열매 IV를 획득했습니다. SP 열매 천장 횟수가 초기화됩니다.</StatusBanner>}
+      {result?.spFruitDropped && <StatusBanner tone="success">원정 완주 보상으로 SP 열매 V를 획득했습니다. SP 열매 천장 횟수가 초기화됩니다.</StatusBanner>}
       {result?.withdrew && <StatusBanner tone="success">안전하게 귀환해 임시 전리품을 모두 확보했습니다.</StatusBanner>}
       {result?.failed && <StatusBanner tone="error">전투에서 패배해 이번 원정의 임시 전리품을 모두 잃었습니다.</StatusBanner>}
       {result?.choiceApplied && <StatusBanner tone="info">선택한 정비 효과를 적용했습니다.</StatusBanner>}
@@ -519,7 +519,7 @@ function SpFruitProgress({ reward, pity, obtained }: {
   obtained: number;
 }) {
   const completed = obtained >= reward.cap;
-  const fruitName = V2_MATERIALS[reward.materialId]?.name ?? "SP 열매 IV";
+  const fruitName = V2_MATERIALS[reward.materialId]?.name ?? "SP 열매 V";
   return (
     <div className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-x-4 gap-y-1 p-3 text-xs`}>
       <div>

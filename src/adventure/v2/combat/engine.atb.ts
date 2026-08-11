@@ -9,6 +9,7 @@ import {
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
   appendLog,
+  applyBerserkerHostileDamage,
   applyEnemyV2SkillCast,
   applyEvasionActionRecoveryPvE,
   applyPhaseTriggerIfAny,
@@ -24,6 +25,7 @@ import {
   initialBattleState,
   rollPlayerAttackCountWithBleed,
 } from "./engine";
+import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import {
@@ -162,15 +164,15 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
 
 // 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 DEF/보호막을 무시하고 먼저 틱한다.
 // 로그는 플레이어 행동 묶음(tick)에 붙인다.
-function tickPlayerDotsOnAction(
+export function tickPlayerDotsOnAction(
   state: BattleState,
+  player: PlayerCombat,
   playerName: string,
-  statusDamageReductionPct?: number,
 ): BattleState {
   const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
   const damage = statusDamageAfterReduction(
     pTick.totalDmg,
-    statusDamageReductionPct,
+    player.statusDamageReductionPct,
   );
   if (damage <= 0) return { ...state, playerV2Dots: pTick.nextDots };
   const dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
@@ -183,12 +185,40 @@ function tickPlayerDotsOnAction(
       }),
     state.log,
   );
-  const next: BattleState = {
+  let next: BattleState = {
     ...state,
     playerV2Dots: pTick.nextDots,
-    playerHp: Math.max(0, state.playerHp - damage),
     log: dotLog,
   };
+  const survival = applyBerserkerHostileDamage(
+    next,
+    player,
+    state.playerHp - damage,
+    "player",
+  );
+  next = survival.state;
+  if (survival.triggered && next.berserker) {
+    next = {
+      ...next,
+      berserker: finishBerserkerCurrentActionGuard(next.berserker),
+    };
+  }
+  const enduranceFires =
+    next.playerHp <= 0 &&
+    !!player.enduranceActive &&
+    !next.flags.enduranceTriggered;
+  if (enduranceFires) {
+    next = {
+      ...next,
+      playerHp: 1,
+      flags: { ...next.flags, enduranceTriggered: true },
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+        turn: "player",
+      }),
+    };
+  }
   if (next.playerHp > 0) return next;
   return {
     ...next,
@@ -350,8 +380,8 @@ export function resolveBattleAtb(
       const playerBundleStart = state.log.length;
       state = tickPlayerDotsOnAction(
         state,
+        atbPlayer,
         playerName,
-        atbPlayer.statusDamageReductionPct,
       );
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
       if (state.phase === "ended") {

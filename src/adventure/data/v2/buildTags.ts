@@ -343,6 +343,10 @@ function addEffectTags(
       tags.add("low_hp");
       tags.add(effect.scaling === "magic" || effect.scaling === "spi" ? "magic" : "physical");
       break;
+    case "missingHpDamage":
+      tags.add("low_hp");
+      tags.add("physical");
+      break;
     case "executeDamage":
     case "ambushDamage":
       tags.add("execute");

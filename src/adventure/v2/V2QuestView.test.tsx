@@ -3,8 +3,40 @@ import { describe, expect, it, vi } from "vitest";
 import {
   claimAllRewardText,
   MonsterHuntCodexCard,
+  QuestTopTabs,
   QuestRow,
 } from "./V2QuestView";
+
+describe("일일·주간 퀘스트 보상 탭 알림", () => {
+  it("업적 탭을 보고 있어도 받을 수 있는 일일·주간 보상을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <QuestTopTabs
+        active="achievement"
+        dailyRewardReady
+        weeklyRewardReady
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-label="일일 보상 수령 가능"');
+    expect(html).toContain('aria-label="주간 보상 수령 가능"');
+    expect(html.match(/>받기<\/span>/g)).toHaveLength(2);
+  });
+
+  it("받을 반복 보상이 없으면 일일·주간 탭 배지를 숨긴다", () => {
+    const html = renderToStaticMarkup(
+      <QuestTopTabs
+        active="daily"
+        dailyRewardReady={false}
+        weeklyRewardReady={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(html).not.toContain("보상 수령 가능");
+    expect(html).not.toContain(">받기</span>");
+  });
+});
 
 describe("업적 메인 추적", () => {
   const quest = {

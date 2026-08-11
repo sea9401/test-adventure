@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { FISH_IDS } from "@/adventure/data/v2/fish";
+import { emptyFishCodex, registerFishSpecimen } from "@/adventure/v2/fishingCodex";
 import { codexSpBonusFromRaw } from "./codexSpBonus";
 
 describe("codexSpBonusFromRaw", () => {
@@ -17,5 +19,17 @@ describe("codexSpBonusFromRaw", () => {
 
     expect(bonus.equipmentSp).toBe(0);
     expect(bonus.total).toBe(0);
+  });
+
+  it("직접 포획 여부와 무관하게 현재 보유한 어보 등록권만 SP로 계산한다", () => {
+    let codex = emptyFishCodex();
+    for (const fishId of FISH_IDS.slice(0, 5)) {
+      codex = registerFishSpecimen(codex, fishId).codex;
+    }
+
+    const bonus = codexSpBonusFromRaw(codex);
+
+    expect(bonus.fishSp).toBe(1);
+    expect(bonus.total).toBe(1);
   });
 });

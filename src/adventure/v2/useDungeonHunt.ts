@@ -19,6 +19,7 @@ import type { AutoHuntStopConfig } from "@/adventure/v2/autoHuntStopPolicy";
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
+  referralRewardEarned?: boolean;
   replay?: ReplayPayload;
   startPlayerHp?: number;
   expForBar?: number;
@@ -62,6 +63,7 @@ export type BatchHuntPayload = {
   completed: number;
   wins: number;
   losses: number;
+  referralRewardEarned?: boolean;
   totalExp: number;
   totalProficiency: number;
   // 일괄 사냥 후 사용 가능한 숙달 포인트 잔액.
@@ -200,6 +202,9 @@ export function useDungeonHunt({
           const cur = json.stamina?.current ?? "?";
           const r = json.result;
           if (r) {
+            if (r.referralRewardEarned) {
+              window.dispatchEvent(new Event("v2inbox:refresh"));
+            }
             setLastResult(r);
             const verdict = r.won ? "승리" : "패배";
             const levelUp =
@@ -278,6 +283,9 @@ export function useDungeonHunt({
         if (json.stamina) setStamina(json.stamina);
         if (json.ok === true && json.batch) {
           const b = json.batch;
+          if (b.referralRewardEarned) {
+            window.dispatchEvent(new Event("v2inbox:refresh"));
+          }
           const cur = json.stamina?.current ?? "?";
           const mastery =
             (b.totalMastery ?? 0) > 0

@@ -26,7 +26,9 @@ export type V2PatternSelfStatus =
   | "damageReduction"
   | "reflectDamage"
   | "regen"
-  | "guaranteedEvade";
+  | "guaranteedEvade"
+  | "berserkerFinisher"
+  | "berserkerDeathOvercome";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -409,7 +411,9 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.target === "damageReduction" ||
         c.target === "reflectDamage" ||
         c.target === "regen" ||
-        c.target === "guaranteedEvade"
+        c.target === "guaranteedEvade" ||
+        c.target === "berserkerFinisher" ||
+        c.target === "berserkerDeathOvercome"
           ? c.target
           : null;
       if (!target || typeof c.active !== "boolean") return null;

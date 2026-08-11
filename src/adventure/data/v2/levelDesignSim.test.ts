@@ -3,15 +3,49 @@ import { describe, expect, it } from "vitest";
 import {
   auditCustomLoadoutCombat,
   auditFixedProgressionCombat,
+  buildLevelDesignProgressionSnapshot,
   buildGrowthPacing,
   buildReport,
   classifyStage,
   huntStageDepths,
   parseOptions,
 } from "../../../../scripts/sim-v2-level-design";
+import {
+  exclusiveSkillConflicts,
+  spCostOf,
+  V2_SKILLS,
+} from "./v2Skills";
 import type { V2EquipSlot, V2EquipmentId } from "./v2Equipment";
 
 describe("sim-v2-level-design", () => {
+  it("패황 STR 표본은 광기 중첩 없이 계보 액티브 4종과 최고 패시브를 51 SP로 장착한다", () => {
+    const snapshot = buildLevelDesignProgressionSnapshot({
+      arch: "STR",
+      depth: 54,
+      careerWins: 500_000,
+      seed: 20260811,
+    });
+    const expected = [
+      "v2c_berserker_bloodslash",
+      "v2c_warlord_bloodbath",
+      "v2c_overlord_ruin",
+      "v2c_hegemon_annihilation",
+      "v2c_hegemon_dominion",
+    ] as const;
+
+    expect(snapshot.currentJobId).toBe("hegemon");
+    expect(snapshot.v2Skills.equipped).toEqual(
+      expect.arrayContaining([...expected]),
+    );
+    expect(exclusiveSkillConflicts(snapshot.v2Skills.equipped)).toEqual([]);
+    expect(
+      snapshot.v2Skills.equipped.reduce(
+        (sum, skillId) => sum + spCostOf(V2_SKILLS[skillId]),
+        0,
+      ),
+    ).toBe(51);
+  });
+
   it("기본 전투 표본은 경고선 근처의 승률 오탐을 줄이는 50회다", () => {
     expect(parseOptions([]).trials).toBe(50);
     expect(parseOptions(["--trials=20"]).trials).toBe(20);

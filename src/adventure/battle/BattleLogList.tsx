@@ -74,6 +74,7 @@ export type BattleLogDisplayItem =
   | {
       kind: "action";
       main: BattleLogEntry;
+      hits: BattleLogEntry[];
       calculations: BattleLogEntry[];
       effects: BattleLogEntry[];
     }
@@ -187,6 +188,38 @@ function isActionBoundaryEntry(entry: BattleLogEntry): boolean {
   );
 }
 
+function damageActionHeadline(entry: BattleLogEntry): {
+  title: string;
+  damage: number;
+} | null {
+  const { title, result } = actionHeadline(entry.text);
+  const match = result.match(/^([\d,]+)\s*피해$/);
+  if (!match) return null;
+  return {
+    title,
+    damage: Number(match[1].replaceAll(",", "")),
+  };
+}
+
+function canMergeActionHit(
+  current: Extract<BattleLogDisplayItem, { kind: "action" }>,
+  entry: BattleLogEntry,
+): boolean {
+  if (current.effects.length > 0) return false;
+  const previous = current.hits.at(-1) ?? current.main;
+  const previousHeadline = damageActionHeadline(previous);
+  const nextHeadline = damageActionHeadline(entry);
+  if (!previousHeadline || !nextHeadline) return false;
+  if (
+    previousHeadline.title === "기본 공격" ||
+    previousHeadline.title !== nextHeadline.title ||
+    entryTurnSide(previous) !== entryTurnSide(entry)
+  ) {
+    return false;
+  }
+  return previous.t == null || entry.t == null || previous.t === entry.t;
+}
+
 export function groupBattleLogActions(
   entries: BattleLogEntry[],
 ): BattleLogDisplayItem[] {
@@ -235,6 +268,7 @@ export function groupBattleLogActions(
       current = {
         kind: "action",
         main: legacyStandaloneMain,
+        hits: [legacyStandaloneMain],
         calculations: pendingCalculations,
         effects: [...pendingEffects, entry],
       };
@@ -258,6 +292,10 @@ export function groupBattleLogActions(
       continue;
     }
     if (isDirectActionEntry(entry)) {
+      if (current && canMergeActionHit(current, entry)) {
+        current.hits.push(entry);
+        continue;
+      }
       flushCurrent();
       const actionSide = entryTurnSide(entry);
       const actionEffects: BattleLogEntry[] = [];
@@ -276,6 +314,7 @@ export function groupBattleLogActions(
       current = {
         kind: "action",
         main: entry,
+        hits: [entry],
         calculations: pendingCalculations,
         effects: actionEffects,
       };
@@ -687,10 +726,19 @@ function ActionCard({
   sizes: Sizes;
 }) {
   const { labels, title, result } = actionHeadline(item.main.text);
+  const hitDamages = item.hits
+    .map((entry) => damageActionHeadline(entry)?.damage ?? null)
+    .filter((damage): damage is number => damage != null);
+  const isMultiHit =
+    hitDamages.length > 1 && hitDamages.length === item.hits.length;
+  const totalHitDamage = hitDamages.reduce((sum, damage) => sum + damage, 0);
+  const displayedResult = isMultiHit
+    ? `${hitDamages.length}타 · 총 ${totalHitDamage.toLocaleString("ko-KR")} 피해`
+    : result;
   const actorName = side === "left" ? playerName : enemyName;
   const actorLabel = side === "left" ? "내 행동" : "상대 행동";
   const damageTargetLabel = side === "left" ? "상대가 받음" : "내가 받음";
-  const hasDamageResult = /\d[\d,]*\s*피해/.test(result);
+  const hasDamageResult = /\d[\d,]*\s*피해/.test(displayedResult);
   const effects = item.effects
     .map((entry, index) => {
       const effectSide = effectBattleLogSide(entry);
@@ -764,8 +812,11 @@ function ActionCard({
           ))}
         </div>
       ) : null}
-      <div className={`${sizes.actionBubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}>
-        {emphasizeNumbers(result)}
+      <div
+        className={`${sizes.actionBubble} whitespace-nowrap text-zinc-700 dark:text-zinc-200`}
+        aria-label={isMultiHit ? displayedResult : undefined}
+      >
+        {emphasizeNumbers(displayedResult)}
       </div>
     </div>
   );
@@ -786,8 +837,23 @@ function ActionCard({
           )}
         </div>
 
-        {effects.length > 0 ? (
+        {isMultiHit || effects.length > 0 ? (
           <div className={`${SURFACE_INSET} mx-1.5 mb-1.5 space-y-1 px-2 py-1.5 sm:mx-2 sm:mb-2 sm:space-y-1.5 sm:px-2.5 sm:py-2`}>
+            {isMultiHit ? (
+              <div
+                className={`flex flex-wrap items-center gap-1 ${sizes.actionInfo}`}
+                aria-label="타격별 피해"
+              >
+                {hitDamages.map((damage, index) => (
+                  <span
+                    key={`${index}-${damage}`}
+                    className="rounded bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                  >
+                    {index + 1}타 {damage.toLocaleString("ko-KR")} 피해
+                  </span>
+                ))}
+              </div>
+            ) : null}
             {effects.map(({ content, key }) => (
               <div key={key}>{content}</div>
             ))}

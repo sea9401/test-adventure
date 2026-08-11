@@ -181,7 +181,10 @@ type GameStateSnapshot = {
     registeredIds?: string[];
   };
   fishingCodex?: {
+    registeredIds?: string[];
+    caughtIds?: string[];
     discoveredIds?: string[];
+    best?: Record<string, number>;
   };
   cookingCodex?: {
     discoveredIds?: string[];

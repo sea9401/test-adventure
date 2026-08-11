@@ -46,6 +46,27 @@ describe("validateLoadout — SP 예산 + 학습", () => {
     // unknown 은 비용에 안 들어간다(STRIKE 만 계산).
     expect(r.spUsed).toBe(cost(STRIKE));
   });
+
+  it("광기 계열을 둘 이상 장착하면 배타 충돌로 검증 실패한다", () => {
+    const madness: V2SkillId[] = [
+      "v2c_berserker_madness3",
+      "v2c_hegemon_dominion",
+    ];
+    const r = validateLoadout(madness, madness, 99);
+
+    expect(r.ok).toBe(false);
+    expect(r.exclusiveConflicts).toEqual([
+      { group: "berserker_madness", skillIds: madness },
+    ]);
+  });
+
+  it("광기 계열 하나만 고른 저가 선택은 정상 검증된다", () => {
+    const madness: V2SkillId = "v2c_berserker_madness3";
+    const r = validateLoadout([madness], [madness], 99);
+
+    expect(r.ok).toBe(true);
+    expect(r.exclusiveConflicts).toEqual([]);
+  });
 });
 
 describe("clampLoadoutToBudget — 예산까지 순서 보존 greedy", () => {
@@ -111,6 +132,13 @@ describe("sanitizeLoadout — 수동 로드아웃 보존 + 무효분/예산 정�
     expect(sanitizeLoadout([STRIKE, SUNDER], [STRIKE], 99)).toEqual([STRIKE]);
   });
 
+  it("누락된 학습 생활 패시브는 예산과 무관하게 다시 장착한다", () => {
+    expect(sanitizeLoadout([STRIKE], [STRIKE, FARMING], cost(STRIKE))).toEqual([
+      STRIKE,
+      FARMING,
+    ]);
+  });
+
   it("예산 초과분은 순서 보존 클램프", () => {
     // strike(3)+recover(2)=5. 예산 4 → strike 만.
     expect(sanitizeLoadout([STRIKE, RECOVER], learned, 4)).toEqual([STRIKE]);
@@ -120,5 +148,35 @@ describe("sanitizeLoadout — 수동 로드아웃 보존 + 무효분/예산 정�
     expect(
       sanitizeLoadout(["__ghost__" as V2SkillId, STRIKE], learned, 99),
     ).toEqual([STRIKE]);
+  });
+
+  it("기존 광기 중첩은 최고 단계 하나만 남기고 나머지 순서를 보존한다", () => {
+    const madness: V2SkillId[] = [
+      "v2c_berserker_madness3",
+      "v2c_overlord_throne",
+      "v2c_hegemon_dominion",
+    ];
+    const allLearned = [...madness, STRIKE];
+
+    expect(
+      sanitizeLoadout(
+        [madness[0], STRIKE, madness[1], madness[2]],
+        allLearned,
+        99,
+      ),
+    ).toEqual([STRIKE, "v2c_hegemon_dominion"]);
+  });
+
+  it("같은 광기 단계가 중복된 손상 입력은 첫 항목 하나만 남긴다", () => {
+    const madness: V2SkillId = "v2c_warlord_slaughter";
+    expect(sanitizeLoadout([madness, madness], [madness], 99)).toEqual([
+      madness,
+    ]);
+  });
+
+  it("사용자가 고른 하위 광기 하나는 최고 단계로 자동 교체하지 않는다", () => {
+    const lower: V2SkillId = "v2c_warlord_slaughter";
+    const higher: V2SkillId = "v2c_hegemon_dominion";
+    expect(sanitizeLoadout([lower], [lower, higher], 99)).toEqual([lower]);
   });
 });

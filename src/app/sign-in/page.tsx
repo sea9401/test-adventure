@@ -33,7 +33,6 @@ export default async function SignInPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    referral?: string | string[];
     error?: string | string[];
   }>;
 }) {
@@ -49,7 +48,6 @@ export default async function SignInPage({
   }
 
   const params = await searchParams;
-  const referral = params.referral;
   const error = Array.isArray(params.error) ? params.error[0] : params.error;
   return (
     <LandingContent
@@ -59,13 +57,6 @@ export default async function SignInPage({
           ? "account-not-linked"
           : error
             ? "login-failed"
-            : null
-      }
-      referralStatus={
-        referral === "accepted"
-          ? "accepted"
-          : referral === "invalid"
-            ? "invalid"
             : null
       }
     />

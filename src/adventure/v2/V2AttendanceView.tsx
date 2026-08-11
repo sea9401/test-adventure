@@ -42,11 +42,8 @@ function rewardMark(reward: MonthlyAttendanceReward): string {
   if (reward.kind === "stamina_potion") return "🧪";
   if (reward.kind === "boss_summon_scroll") return "📜";
   if (reward.kind === "mastery_certificate") return "🏅";
-  return reward.kind === "enhancement_stone" && reward.color === "blue"
-    ? "🔷"
-    : reward.kind === "enhancement_stone" && reward.color === "red"
-      ? "🔶"
-      : "💎";
+  if (reward.kind === "torn_map_fragment") return "🗺️";
+  return "🪙";
 }
 
 function monthLabel(monthKey: string): string {
@@ -158,6 +155,9 @@ export function V2AttendanceView() {
             1일차에는 월간 모험 지원권 {MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS}일이
             계정에 즉시 적용됩니다. 이미 이용 중이면 남은 기간 뒤에{" "}
             {MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS}일이 이어집니다.
+          </span>
+          <span className="mt-1 block">
+            14일차에는 월간 모험 지원권 7일을 추가로 받아 이용 기간을 연장합니다.
           </span>
           <span className="mt-1 block">
             7·14·28일차에는 닉네임·채팅 배지·프로필 꾸미기 상자를 추가로 받고,

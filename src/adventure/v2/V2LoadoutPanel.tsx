@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import {
+  exclusiveSkillConflicts,
   isLifestyleSkill,
   V2_SKILLS,
   v2SkillSearchText,
@@ -27,7 +28,7 @@ import {
   type SkillLineageFilter,
 } from "./skillLibraryFilters";
 
-// SP 로드아웃 패널 — 배운 스킬 라이브러리에서 SP 예산 안으로 장착/해제(코어루프 전용).
+// SP 로드아웃 패널 — 배운 전투 스킬은 SP 예산 안으로 장착/해제하고, 생활 패시브는 항상 적용한다.
 //   공용/기본기는 직업 무관 장착(오픈믹스), 시그니처는 현 직업 체인 밖이면 잠김(locked).
 //   장착 변경은 POST /api/v2/me/loadout 로 전체 equipped(우선순위 순서)를 재전송 — 서버가
 //   validateLoadout 으로 재검증(예산/학습/직업고정). 거부 시 직전 상태로 롤백.
@@ -123,6 +124,21 @@ export const V2_SKILL_VISIBILITY_STORAGE_KEY =
 function isLifestyleSkillId(skillId: string): boolean {
   const skill = V2_SKILLS[skillId as V2SkillId];
   return !!skill && isLifestyleSkill(skill);
+}
+
+export function loadoutExclusiveConflictMessage(
+  skillIds: readonly string[],
+): string | null {
+  const knownIds = skillIds.filter(
+    (skillId): skillId is V2SkillId => skillId in V2_SKILLS,
+  );
+  const conflicts = exclusiveSkillConflicts(knownIds);
+  if (conflicts.some((conflict) => conflict.group === "berserker_madness")) {
+    return "광기 계열은 하나만 장착할 수 있습니다.";
+  }
+  return conflicts.length > 0
+    ? "같은 계열 스킬은 하나만 장착할 수 있습니다."
+    : null;
 }
 
 export function V2LoadoutPanel({
@@ -332,9 +348,7 @@ export function V2LoadoutPanel({
   const filterDefs =
     domain === "lifestyle"
       ? allFilterDefs.filter((item) =>
-          ["all", "favorite", "equipped", "available", "passive"].includes(
-            item.id,
-          ),
+          ["all", "favorite", "equipped", "passive"].includes(item.id),
         )
       : allFilterDefs;
 
@@ -365,11 +379,18 @@ export function V2LoadoutPanel({
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         overBudget?: boolean;
+        exclusiveConflicts?: Array<{ group?: string }>;
       } | null;
       if (!j?.ok) {
         setOrder(prev); // 롤백.
         setMsg(
-          j?.overBudget ? "스킬포인트가 부족해요" : "장착을 변경할 수 없어요",
+          j?.exclusiveConflicts?.some(
+            (conflict) => conflict.group === "berserker_madness",
+          )
+            ? "광기 계열은 하나만 장착할 수 있습니다."
+            : j?.overBudget
+              ? "스킬포인트가 부족해요"
+              : "장착을 변경할 수 없어요",
         );
       } else {
         await waitForLoadoutRefresh(onChanged);
@@ -423,10 +444,17 @@ export function V2LoadoutPanel({
   }
 
   function toggle(skillId: string) {
+    if (isLifestyleSkillId(skillId)) return;
     if (equippedSet.has(skillId)) {
       commit(order.filter((x) => x !== skillId));
     } else {
-      commit([...order, skillId]);
+      const nextOrder = [...order, skillId];
+      const exclusiveMessage = loadoutExclusiveConflictMessage(nextOrder);
+      if (exclusiveMessage) {
+        setMsg(exclusiveMessage);
+        return;
+      }
+      commit(nextOrder);
     }
   }
 
@@ -457,10 +485,8 @@ export function V2LoadoutPanel({
     );
   }
 
-  function clearEquippedDomain(targetDomain: SkillDomain) {
-    const next = order.filter(
-      (id) => isLifestyleSkillId(id) !== (targetDomain === "lifestyle"),
-    );
+  function clearCombatSkills() {
+    const next = order.filter((id) => isLifestyleSkillId(id));
     if (busy || next.length === order.length) return;
     commit(next);
   }
@@ -710,8 +736,8 @@ export function V2LoadoutPanel({
         </div>
       )}
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        배운 전투 스킬을 스킬포인트 예산 안에서 장착하세요. 생활 스킬은 SP를
-        사용하지 않으며 별도 목록에서 관리합니다.
+        배운 전투 스킬을 스킬포인트 예산 안에서 장착하세요. 생활 패시브는 SP를
+        사용하지 않으며 배우면 자동으로 항상 적용됩니다.
       </p>
       <div className="mt-4 grid gap-2 border-t border-zinc-200 pt-3 sm:grid-cols-2 dark:border-zinc-800">
         <section className={`${SURFACE_INSET} p-3`} aria-labelledby="combat-equipped-heading">
@@ -724,7 +750,7 @@ export function V2LoadoutPanel({
             </div>
             <button
               type="button"
-              onClick={() => clearEquippedDomain("combat")}
+              onClick={clearCombatSkills}
               disabled={busy || combatEquippedSkills.length === 0}
               className="rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -815,46 +841,32 @@ export function V2LoadoutPanel({
         </section>
 
         <section className={`${SURFACE_INSET} p-3`} aria-labelledby="lifestyle-equipped-heading">
-          <div className="flex items-center justify-between gap-2">
-            <div
-              id="lifestyle-equipped-heading"
-              className="text-xs font-semibold text-emerald-700 dark:text-emerald-300"
-            >
-              생활 스킬 장착 <span className="font-normal">· SP 0</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => clearEquippedDomain("lifestyle")}
-              disabled={busy || lifestyleEquippedSkills.length === 0}
-              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              전부 해제
-            </button>
+          <div
+            id="lifestyle-equipped-heading"
+            className="text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+          >
+            생활 패시브 적용 <span className="font-normal">· SP 0</span>
           </div>
           <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            전투 우선순위와 별도로 관리합니다.
+            배우면 자동으로 항상 적용됩니다.
           </p>
           {lifestyleEquippedSkills.length > 0 ? (
             <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
               {lifestyleEquippedSkills.map((s) => (
-                <button
+                <span
                   key={s.skillId}
-                  type="button"
-                  onClick={() => toggle(s.skillId)}
-                  disabled={busy}
-                  title={`${s.name} 해제`}
-                  className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs font-medium text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                  className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
                 >
                   <span className="truncate">{s.name}</span>
                   <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                    SP 0
+                    적용 중
                   </span>
-                </button>
+                </span>
               ))}
             </div>
           ) : (
             <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              장착한 생활 스킬이 없어요.
+              배운 생활 패시브가 없어요.
             </p>
           )}
         </section>
@@ -889,8 +901,7 @@ export function V2LoadoutPanel({
         </div>
         {domain === "lifestyle" && (
           <p className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-            생활 스킬은 SP를 사용하지 않습니다. 장착한 효과가 적용되며, 학습 즉시 적용되는
-            훈련 효과와 작물 해금은 장착 여부와 무관합니다.
+            생활 패시브는 SP를 사용하지 않으며, 배우는 즉시 항상 적용됩니다.
           </p>
         )}
         <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -1079,8 +1090,10 @@ export function V2LoadoutPanel({
         <ul className="mt-3 space-y-1.5">
           {visibleLibrary.map((s) => {
           const equipped = equippedSet.has(s.skillId);
+          const lifestyle = isLifestyleSkillId(s.skillId);
           const favorite = favoriteSet.has(s.skillId);
           const wouldFit = spUsed + s.spCost <= spBudget;
+          const skillDef = V2_SKILLS[s.skillId as V2SkillId];
           return (
             <li
               key={s.skillId}
@@ -1163,6 +1176,11 @@ export function V2LoadoutPanel({
                 </div>
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 {!compact && <SkillEffectChips skillId={s.skillId} />}
+                {skillDef?.exclusiveGroup && (
+                  <span className="mt-1 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                    같은 계열 1개만 장착
+                  </span>
+                )}
               </div>
               <div className="grid w-[6.25rem] shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
                 <button
@@ -1181,7 +1199,14 @@ export function V2LoadoutPanel({
                 >
                   <Star size={15} weight={favorite ? "fill" : "regular"} />
                 </button>
-                {equipped ? (
+                {lifestyle ? (
+                  <span
+                    aria-label={`${s.name} 적용 중`}
+                    className="inline-flex h-8 w-full items-center justify-center whitespace-nowrap rounded-md border border-emerald-500 bg-emerald-50 px-2 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  >
+                    적용 중
+                  </span>
+                ) : equipped ? (
                   <button
                     type="button"
                     onClick={() => toggle(s.skillId)}

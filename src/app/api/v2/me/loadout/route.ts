@@ -9,6 +9,7 @@ import {
 import {
   parseV2SkillsState,
   emptyV2SkillsState,
+  includeLearnedLifestyleSkills,
   V2_SKILLS,
   type V2SkillsState,
   type V2SkillId,
@@ -24,7 +25,7 @@ import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 
 // POST /api/v2/me/loadout — 수동 SP 로드아웃 저장(코어루프). body: { equipped: string[] }(우선순위 순서).
-//   배운 스킬 중 SP 예산 내여야 통과(validateLoadout). 통과 시 그대로 저장(순서 보존),
+//   배운 스킬 중 SP 예산 내여야 통과(validateLoadout). 생활 패시브를 항상 합친 뒤 저장(순서 보존),
 //   위반이면 400 + 위반 버킷(UI 안내). learned 불변. 갬빗 pattern 보존(spread).
 //   lock 순서: character.v2 → skills.v2 → proficiency.v2 (다른 스킬 라우트와 동일).
 //   flag off: SP 로드아웃 개념 없음 → disabled(클라가 호출 안 함).
@@ -115,7 +116,11 @@ export async function POST(req: Request) {
       jobUnlockSpBonus(prof, jobUnlockCtx),
     );
 
-    const check = validateLoadout(requested, skills.learned, spBudget);
+    const nextEquipped = includeLearnedLifestyleSkills(
+      requested,
+      skills.learned,
+    );
+    const check = validateLoadout(nextEquipped, skills.learned, spBudget);
     if (!check.ok) {
       return {
         status: 400 as const,
@@ -127,10 +132,11 @@ export async function POST(req: Request) {
           overBudget: check.overBudget,
           notLearned: check.notLearned,
           unknown: check.unknown,
+          exclusiveConflicts: check.exclusiveConflicts,
         },
       };
     }
-    const next: V2SkillsState = { ...skills, equipped: requested };
+    const next: V2SkillsState = { ...skills, equipped: nextEquipped };
     await upsertSave(tx, userId, "skills.v2", next);
     if (requested.length > 0 && charSave.hasEditedSkillLoadout !== true) {
       await upsertSave(tx, userId, "character.v2", {
@@ -142,7 +148,7 @@ export async function POST(req: Request) {
       status: 200 as const,
       body: {
         ok: true as const,
-        equipped: requested,
+        equipped: nextEquipped,
         spUsed: check.spUsed,
         spBudget: check.spBudget,
       },

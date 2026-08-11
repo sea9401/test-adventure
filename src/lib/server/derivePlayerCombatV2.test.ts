@@ -893,6 +893,38 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     ).toBeNull();
   });
 
+  it("광기 배타 패시브의 최고 단계를 전투 상태로 파생하고 제거된 범용 보너스는 되살리지 않는다", () => {
+    const ranks = [
+      ["v2c_berserker_madness3", 1],
+      ["v2c_warlord_slaughter", 2],
+      ["v2c_overlord_throne", 3],
+      ["v2c_hegemon_dominion", 4],
+    ] as const;
+
+    for (const [skillId, rank] of ranks) {
+      const derived = derivePlayerCombatV2FromSaves({
+        character,
+        equipmentSave: { owned: [], equipped: {} },
+        proficiencyRaw: {},
+        skillsRaw: { learned: [skillId], equipped: [skillId] },
+      })!;
+      expect(derived.player.berserkerMadnessRank, skillId).toBe(rank);
+      expect(derived.player.berserkAtkPctPerLostHpPct, skillId).toBeUndefined();
+      expect(derived.player, skillId).not.toHaveProperty(
+        "reflectDamageTakenReductionPct",
+      );
+    }
+
+    const corrupted = ranks.map(([skillId]) => skillId);
+    const highest = derivePlayerCombatV2FromSaves({
+      character,
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { learned: corrupted, equipped: corrupted },
+    })!;
+    expect(highest.player.berserkerMadnessRank).toBe(4);
+  });
+
   it("4 save → derive: select 래퍼(derivePlayerCombatV2)와 byte-동일 결과", async () => {
     const saves = {
       character,
@@ -1380,14 +1412,6 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
     }).player;
     expect(p.thornsDefPct).toBe(100);
     expect(p.thornsFlatFromDef).toBe(p.def);
-  });
-
-  it("passiveReflectDamageTakenReductionPct 는 반사 전용 감소율로 보존하고 80%에서 제한한다", () => {
-    const player = derivePlayerCombatV2Pure({
-      level: 1,
-      passiveReflectDamageTakenReductionPct: 95,
-    }).player;
-    expect(player.reflectDamageTakenReductionPct).toBe(80);
   });
 
   it("passiveThornsDefPct 50 → def 의 50%(floor)", () => {

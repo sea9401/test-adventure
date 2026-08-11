@@ -73,6 +73,20 @@ function listRareMapRequest(iid: string): Request {
   });
 }
 
+function listSpecimenRequest(quantity: number): Request {
+  return new Request("http://test/api/v2/marketplace/list", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      kind: "consumable",
+      itemId: "fish_specimen_carp",
+      quantity,
+      price: 10_000,
+      graceHours: 2,
+    }),
+  });
+}
+
 describe("거래소 레어맵 등록", () => {
   beforeEach(() => {
     insertValues.length = 0;
@@ -99,5 +113,40 @@ describe("거래소 레어맵 등록", () => {
     });
     expect(store.get("character.v2")).toEqual({ rareMaps: [map] });
     expect(insertValues).toHaveLength(0);
+  });
+
+  it("보유한 어종 표본을 수량만큼 에스크로로 옮긴다", async () => {
+    store.set("character.v2", {});
+    store.set("fishing-specimens.v1", { version: 1, items: { carp: 3 } });
+
+    const response = await POST(listSpecimenRequest(2));
+
+    expect(response.status).toBe(200);
+    expect(store.get("fishing-specimens.v1")).toEqual({
+      version: 1,
+      items: { carp: 1 },
+    });
+    expect(insertValues).toContainEqual(
+      expect.objectContaining({
+        kind: "consumable",
+        itemId: "fish_specimen_carp",
+        itemName: "잉어 표본",
+        quantity: 2,
+      }),
+    );
+  });
+
+  it("보유량보다 많은 어종 표본은 등록하지 않는다", async () => {
+    store.set("character.v2", {});
+    store.set("fishing-specimens.v1", { version: 1, items: { carp: 1 } });
+
+    const response = await POST(listSpecimenRequest(2));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: "not_owned" });
+    expect(store.get("fishing-specimens.v1")).toEqual({
+      version: 1,
+      items: { carp: 1 },
+    });
   });
 });

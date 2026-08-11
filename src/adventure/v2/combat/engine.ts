@@ -72,6 +72,15 @@ import {
   V2_SKILL_PROC_IN_PATTERN,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { resolveBattleAtb } from "./engine.atb";
+import {
+  applyBerserkerCastTransition,
+  applyBerserkerLethalDamage,
+  berserkerCastContext,
+  clampBerserkerGuardedHp,
+  finishBerserkerCurrentActionGuard,
+  finishBerserkerPlayerAttack,
+  initialBerserkerCombatState,
+} from "./berserkerCombat";
 
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
@@ -520,10 +529,64 @@ function rollEnemyAttackCount(enemy: Monster): number {
 // 그림자 보법처럼 모든 공격 무효인 경우 호출자가 enemyAttacksLeft 를 0 으로 강제하고 phase: "player" 직접 set.
 export function finishEnemyAttack(state: BattleState): BattleState {
   const remaining = Math.max(0, state.turn.enemyAttacksLeft - 1);
+  const berserker = state.berserker
+    ? finishBerserkerCurrentActionGuard(state.berserker)
+    : undefined;
   return {
     ...state,
+    ...(berserker ? { berserker } : {}),
     turn: { ...state.turn, enemyAttacksLeft: remaining },
     phase: remaining > 0 ? "enemy" : "player",
+  };
+}
+
+/** 보호막·경감 뒤 적대 피해를 사망 극복 → 일반 불굴 순으로 넘기기 위한 PvE 공통 관문. */
+export function applyBerserkerHostileDamage(
+  state: BattleState,
+  player: PlayerCombat,
+  hpAfterDamage: number,
+  turn: "player" | "enemy" = "enemy",
+): { state: BattleState; triggered: boolean } {
+  if (!state.berserker) {
+    return {
+      state: { ...state, playerHp: Math.max(0, hpAfterDamage) },
+      triggered: false,
+    };
+  }
+  const guardedHp = clampBerserkerGuardedHp(
+    state.berserker,
+    hpAfterDamage,
+  );
+  const result = applyBerserkerLethalDamage({
+    state: state.berserker,
+    madnessRank: player.berserkerMadnessRank ?? 0,
+    hp: guardedHp,
+    maxHp: state.playerMaxHp,
+    source: "hostile",
+  });
+  let log = state.log;
+  if (result.triggered) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[사망 극복] 쓰러지지 않고 HP ${result.hp}로 돌아왔다.`,
+      turn,
+    });
+    if ((player.berserkerMadnessRank ?? 0) >= 4) {
+      log = appendLog(log, {
+        kind: "info",
+        text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
+        turn,
+      });
+    }
+  }
+  return {
+    state: {
+      ...state,
+      playerHp: Math.max(0, result.hp),
+      berserker: result.state,
+      log,
+    },
+    triggered: result.triggered,
   };
 }
 
@@ -1092,6 +1155,12 @@ export function initialBattleState(
       text: `[마나 실드] 내구도 ${playerMagicBarrierMax} 전개`,
     });
   }
+  const berserkerLineageEquipped = v2Skills.equipped.some((skillId) =>
+    skillId === "v2c_berserker_bloodslash" ||
+    skillId === "v2c_warlord_bloodbath" ||
+    skillId === "v2c_overlord_ruin" ||
+    skillId === "v2c_hegemon_annihilation",
+  );
   return {
     enemy,
     enemyHp:
@@ -1100,6 +1169,9 @@ export function initialBattleState(
         : Math.max(1, Math.min(enemy.hp, Math.floor(initialEnemyHp))),
     playerHp: player.hp,
     playerMaxHp: player.maxHp,
+    ...((player.berserkerMadnessRank ?? 0) > 0 || berserkerLineageEquipped
+      ? { berserker: initialBerserkerCombatState() }
+      : {}),
     playerMp: playerMpStart,
     playerMaxMp,
     playerMagicBarrier: playerMagicBarrierMax,
@@ -1601,6 +1673,26 @@ export function applyEnemyV2SkillCast(
       kind: "enemy_attack",
       text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
     });
+    const survival = applyBerserkerHostileDamage(
+      { ...state, playerHp: nextPlayerHp, log: nextLog },
+      player,
+      nextPlayerHp,
+    );
+    state = survival.state;
+    nextPlayerHp = state.playerHp;
+    nextLog = state.log;
+  }
+  const enemySkillEnduranceFires =
+    nextPlayerHp <= 0 &&
+    !!player.enduranceActive &&
+    !state.flags.enduranceTriggered;
+  if (enemySkillEnduranceFires) {
+    nextPlayerHp = 1;
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+      turn: "enemy",
+    });
   }
   if (result.selfHeal > 0 && result.castSkillName) {
     const healReduce =
@@ -1695,6 +1787,8 @@ export function applyEnemyV2SkillCast(
     playerV2Dots: nextPlayerDots,
     flags: {
       ...state.flags,
+      enduranceTriggered:
+        state.flags.enduranceTriggered || enemySkillEnduranceFires,
       statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
     },
     stacks: {
@@ -1719,6 +1813,12 @@ export function applyEnemyV2SkillCast(
       }),
       outcome: "lose",
       phase: "ended",
+    };
+  }
+  if (nextState.berserker) {
+    nextState = {
+      ...nextState,
+      berserker: finishBerserkerCurrentActionGuard(nextState.berserker),
     };
   }
   return { state: nextState, castFired: true };
@@ -1811,6 +1911,12 @@ export function applyPlayerV2SkillCast(
     combatPattern: V2_COMBAT_PATTERN_ENABLED
       ? (state.v2Skills.pattern ??
         smartDefaultPatternFromEquipped(state.v2Skills.equipped))
+      : undefined,
+    berserker: state.berserker
+      ? berserkerCastContext(
+          player.berserkerMadnessRank ?? 0,
+          state.berserker,
+        )
       : undefined,
     attacker: {
       mp: state.playerMp,
@@ -1920,7 +2026,8 @@ export function applyPlayerV2SkillCast(
     result.enemyDamage > 0 && state.flags.skillCritAfterEvadePending;
   const skillCritFired =
     result.enemyDamage > 0 &&
-    (skillCritAfterEvadeFired ||
+    (result.berserkerTransition.forceSkillCrit ||
+      skillCritAfterEvadeFired ||
       ((player.critChancePct ?? 0) > 0 &&
         Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0)));
   // 치명타 발동형 고유 효과는 평타뿐 아니라 직접 피해 액티브 스킬 치명타에도 적용한다.
@@ -1961,6 +2068,7 @@ export function applyPlayerV2SkillCast(
       (skillCritFired
         ? SKILL_CRIT_MULT +
           Math.max(0, player.skillCritDmgPct ?? 0) / 100 +
+          result.berserkerTransition.bonusSkillCritDamagePct / 100 +
           (player.skillCritOverflow
             ? computeCritOverflowBonus(player.critChancePct ?? 0)
             : 0)
@@ -2030,6 +2138,27 @@ export function applyPlayerV2SkillCast(
         turn: "player",
       });
     }
+  }
+  if (result.berserkerTransition.grantFinisher) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[혈전] 다음 파멸일격 또는 멸왕일도를 준비한다.`,
+      turn: "player",
+    });
+  }
+  if (result.berserkerTransition.consumeFinisher) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[혈전 해방] ${result.castSkillName ?? "필살기"}에 피의 기세를 터뜨린다.`,
+      turn: "player",
+    });
+  }
+  if (result.berserkerTransition.consumeDeathDamage) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[패황의 지배] ${result.castSkillName ?? "공격"}에 죽음 직전의 힘을 싣는다.`,
+      turn: "player",
+    });
   }
   if (skillCritAfterEvadeFired && result.castSkillName) {
     nextLog = appendLog(nextLog, {
@@ -2305,9 +2434,22 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  const transitionedBerserker = state.berserker
+    ? applyBerserkerCastTransition(
+        state.berserker,
+        result.berserkerTransition,
+      )
+    : undefined;
+  const nextBerserker =
+    transitionedBerserker &&
+    result.castSkillId &&
+    V2_SKILLS[result.castSkillId]?.category === "attack"
+      ? finishBerserkerPlayerAttack(transitionedBerserker)
+      : transitionedBerserker;
   state = {
     ...state,
     playerHp: nextPlayerHp,
+    ...(nextBerserker ? { berserker: nextBerserker } : {}),
     enemyHp: nextEnemyHp,
     playerMp: adjustedNextMp,
     v2SkillCooldowns: result.nextCooldowns,
@@ -2468,10 +2610,38 @@ function resolveBattleLegacy(
           );
           state = {
             ...state,
-            playerHp: newHp,
             playerV2Dots: playerDotTick.nextDots,
             log: dotLog,
           };
+          const survival = applyBerserkerHostileDamage(
+            state,
+            player,
+            newHp,
+            "player",
+          );
+          state = survival.state;
+          if (survival.triggered && state.berserker) {
+            state = {
+              ...state,
+              berserker: finishBerserkerCurrentActionGuard(state.berserker),
+            };
+          }
+          const dotEnduranceFires =
+            state.playerHp <= 0 &&
+            !!player.enduranceActive &&
+            !state.flags.enduranceTriggered;
+          if (dotEnduranceFires) {
+            state = {
+              ...state,
+              playerHp: 1,
+              flags: { ...state.flags, enduranceTriggered: true },
+              log: appendLog(state.log, {
+                kind: "info",
+                text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+                turn: "player",
+              }),
+            };
+          }
           if (state.playerHp <= 0) {
             state = {
               ...state,
@@ -2670,6 +2840,26 @@ function resolveBattleLegacy(
             kind: "enemy_attack",
             text: `${result.castSkillName}! ${enemySkillDamageToHp} 피해를 입혔다.`,
           });
+          const survival = applyBerserkerHostileDamage(
+            { ...state, playerHp: nextPlayerHp, log: nextLog },
+            player,
+            nextPlayerHp,
+          );
+          state = survival.state;
+          nextPlayerHp = state.playerHp;
+          nextLog = state.log;
+        }
+        const enemySkillEnduranceFires =
+          nextPlayerHp <= 0 &&
+          !!player.enduranceActive &&
+          !state.flags.enduranceTriggered;
+        if (enemySkillEnduranceFires) {
+          nextPlayerHp = 1;
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+            turn: "enemy",
+          });
         }
         // 적의 self heal — enemy_attack kind (적 측 행동). 화상(enemyHealReduce)이 있으면 회복 감소.
         //   디버프 없으면(0) Math.floor 미적용 → byte-identical. (라이브 ATB 는 적 cast 미발동이라 inert)
@@ -2764,6 +2954,8 @@ function resolveBattleLegacy(
           playerV2Dots: nextPlayerDots,
           flags: {
             ...state.flags,
+            enduranceTriggered:
+              state.flags.enduranceTriggered || enemySkillEnduranceFires,
             statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
           },
           stacks: {
@@ -2793,6 +2985,12 @@ function resolveBattleLegacy(
             phase: "ended",
           };
           continue;
+        }
+        if (state.berserker) {
+          state = {
+            ...state,
+            berserker: finishBerserkerCurrentActionGuard(state.berserker),
+          };
         }
       }
     } else {

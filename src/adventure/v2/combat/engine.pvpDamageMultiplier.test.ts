@@ -215,26 +215,104 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
     }
   });
 
-  it("공격형 패시브의 반사 피해 감소는 반사 원량에만 적용한다", () => {
-    const normal = applyOnHitReflect(
-      stateWith(undefined, BASE, { ...BASE, thornsPct: 100 }),
+  it("반사는 방어 감산과 PvP 회피 경감 중 낮은 피해만 적용한다", () => {
+    const receiver = { ...BASE, def: 20, evaRating: 300 };
+    const reflector = { ...BASE, accRating: 50, thornsPct: 100 };
+    const result = applyOnHitReflect(
+      stateWith(undefined, receiver, reflector),
       "p1",
       "p2",
       100,
     ).state;
-    const reduced = applyOnHitReflect(
+
+    expect(BASE.hp - result.p1.hp).toBe(43);
+  });
+
+  it("반사한 캐릭터의 적중도가 높으면 방어 후보를 선택한다", () => {
+    const receiver = { ...BASE, def: 20, evaRating: 300 };
+    const reflector = { ...BASE, accRating: 500, thornsPct: 100 };
+    const result = applyOnHitReflect(
+      stateWith(undefined, receiver, reflector),
+      "p1",
+      "p2",
+      100,
+    ).state;
+
+    expect(BASE.hp - result.p1.hp).toBe(80);
+  });
+
+  it.each([
+    ["가시 갑옷", { bramblePct: 100 }, 43],
+    ["수호 반사", { thornsFlatFromDef: 100 }, 43],
+    ["무한 가시", { infiniteThornsAtkPct: 100 }, 52],
+  ] as const)("%s 피격 반사도 같은 경감 공식을 사용한다", (_label, reflect, damage) => {
+    const result = applyOnHitReflect(
       stateWith(
         undefined,
-        { ...BASE, reflectDamageTakenReductionPct: 50 },
-        { ...BASE, thornsPct: 100 },
+        { ...BASE, def: 20, evaRating: 300 },
+        { ...BASE, accRating: 50, ...reflect },
       ),
       "p1",
       "p2",
       100,
     ).state;
 
-    expect(BASE.hp - normal.p1.hp).toBe(80);
-    expect(BASE.hp - reduced.p1.hp).toBe(30);
+    expect(BASE.hp - result.p1.hp).toBe(damage);
+  });
+
+  it("회피 시 발생하는 무한 가시 반사도 같은 경감 공식을 사용한다", () => {
+    const result = applyPerAttackDodge(
+      stateWith(
+        undefined,
+        { ...BASE, def: 20, evaRating: 300 },
+        { ...BASE, accRating: 50, infiniteThornsAtkPct: 100 },
+      ),
+      "p1",
+      "p2",
+      "회피",
+      false,
+    );
+
+    expect(result.p1.hp).toBe(948);
+  });
+
+  it("반사 회피도 같은 경감 공식을 사용한다", () => {
+    const result = applyPerAttackDodge(
+      stateWith(
+        undefined,
+        { ...BASE, def: 20, evaRating: 300 },
+        { ...BASE, accRating: 50, reflexEvadeMult: 1 },
+      ),
+      "p1",
+      "p2",
+      "회피",
+      false,
+    );
+
+    expect(result.p1.hp).toBe(957);
+  });
+
+  it("회피 경감은 일반 반격과 반격의 룬 피해를 줄이지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const recipient = { ...BASE, evaRating: 10_000 };
+    const normal = stateWith(undefined, BASE, {
+      ...BASE,
+      passiveCounterChancePct: 100,
+      runeCounterChancePct: 100,
+    });
+    const evasive = stateWith(undefined, recipient, {
+      ...BASE,
+      passiveCounterChancePct: 100,
+      runeCounterChancePct: 100,
+    });
+
+    const normalMartial = maybeApplyMartialCounter(normal, "p1", "p2").state;
+    const evasiveMartial = maybeApplyMartialCounter(evasive, "p1", "p2").state;
+    const normalRune = maybeApplyRuneCounter(normal, "p1", "p2").state;
+    const evasiveRune = maybeApplyRuneCounter(evasive, "p1", "p2").state;
+
+    expect(BASE.hp - evasiveMartial.p1.hp).toBe(BASE.hp - normalMartial.p1.hp);
+    expect(BASE.hp - evasiveRune.p1.hp).toBe(BASE.hp - normalRune.p1.hp);
   });
 
   it("장비 방어 관통은 일반 공격뿐 아니라 물리 스킬의 대상 방어력에도 적용된다", () => {

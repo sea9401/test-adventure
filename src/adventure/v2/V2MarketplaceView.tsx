@@ -121,6 +121,11 @@ import {
   matchesMarketplaceEquipmentTier,
   type MarketplaceEquipmentTierFilter,
 } from "./marketplace/marketplaceBrowseFilters";
+import { FISH, type FishId } from "@/adventure/data/v2/fish";
+import {
+  fishSpecimenItemId,
+  type FishSpecimenInventory,
+} from "@/adventure/v2/fishSpecimens";
 
 // v2 거래소 — 장비 개체 + 재료 + 레어맵/캐시·음식 소모품 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -358,6 +363,7 @@ export function V2MarketplaceView({
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cookingFoods, setCookingFoods] = useState<CookingFoodInventory>({});
+  const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [graceHours, setGraceHours] = useState(
@@ -475,10 +481,11 @@ export function V2MarketplaceView({
   }, []);
 
   const loadInventory = useCallback(async () => {
-    const [, inv, rm] = await Promise.all([
+    const [, inv, rm, specimenResponse] = await Promise.all([
       loadEquipment(),
       fetch("/api/v2/me/inventory"),
       fetch("/api/v2/me/rare-maps"),
+      fetch("/api/v2/me/fishing-specimens"),
     ]);
     if (inv.ok) {
       const j = (await inv.json()) as {
@@ -495,6 +502,12 @@ export function V2MarketplaceView({
       };
       setRareMaps(j.rareMaps ?? []);
       setCashItems(j.cashItems ?? {});
+    }
+    if (specimenResponse.ok) {
+      const json = (await specimenResponse.json()) as {
+        specimens?: FishSpecimenInventory["items"];
+      };
+      setFishSpecimens(json.specimens ?? {});
     }
   }, [loadEquipment]);
 
@@ -1073,6 +1086,37 @@ export function V2MarketplaceView({
         graceHours: listingMode === "fixed" ? 0 : graceHours,
       },
       `✓ ${name} ${quantity}개 등록`,
+      loadInventory,
+    );
+  };
+
+  const listFishSpecimen = (fishId: FishId) => {
+    const itemId = fishSpecimenItemId(fishId);
+    const unitPrice = parseAmount(prices[itemId]);
+    const quantity = parseAmount(qtys[itemId] ?? "1");
+    if (!Number.isInteger(unitPrice) || unitPrice < 1) {
+      setError("개당 가격은 1 이상 정수로 입력하세요.");
+      return;
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setError("수량은 1 이상 정수로 입력하세요.");
+      return;
+    }
+    const price = unitPrice * quantity;
+    if (!Number.isSafeInteger(price) || price > 999_999_999) {
+      setError("판매 총액은 999,999,999골드를 넘을 수 없어요.");
+      return;
+    }
+    return act(
+      "/api/v2/marketplace/list",
+      {
+        kind: "consumable",
+        itemId,
+        quantity,
+        price,
+        graceHours: listingMode === "fixed" ? 0 : graceHours,
+      },
+      `✓ ${FISH[fishId].name} 표본 ${quantity}개 등록`,
       loadInventory,
     );
   };
@@ -2094,6 +2138,7 @@ export function V2MarketplaceView({
                 rareMaps={rareMaps}
                 cashItems={cashItems}
                 cookingFoods={cookingFoods}
+                fishSpecimens={fishSpecimens}
                 pager={sellRareMapPager}
                 prices={prices}
                 setPrices={setPrices}
@@ -2104,6 +2149,7 @@ export function V2MarketplaceView({
                 onListConsumable={listConsumable}
                 onListCashItem={listCashItem}
                 onListCookingFood={listCookingFood}
+                onListFishSpecimen={listFishSpecimen}
                 hideEmpty={sellableConsumableMaterials.length > 0}
               />
             </div>

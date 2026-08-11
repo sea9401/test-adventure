@@ -98,6 +98,8 @@ const SELF_STATUS_OPTIONS: PatternChoiceOption<V2PatternSelfStatus>[] = [
   { value: "reflectDamage", label: "반사 피해" },
   { value: "regen", label: "지속 회복" },
   { value: "guaranteedEvade", label: "확정 회피" },
+  { value: "berserkerFinisher", label: "혈전 준비" },
+  { value: "berserkerDeathOvercome", label: "사망 극복 공격 준비" },
 ];
 const ENEMY_STATUS_OPTIONS = [
   { value: "bleed", label: "출혈" },

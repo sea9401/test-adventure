@@ -307,6 +307,7 @@ test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 �
   expect(hunt.result?.expGained).toBeGreaterThan(0);
   expect(hunt.result?.goldGained).toBeGreaterThan(0);
   await expect(page.getByText("승리", { exact: true }).first()).toBeVisible();
+  await dismissTutorialOverlayIfVisible(page);
 
   const battleLogButton = page.getByRole("button", {
     name: "전체 전투 로그 보기",
@@ -446,6 +447,17 @@ async function createCharacter(page: Page, name: string) {
 
   await expect(page).toHaveURL(`${LOCAL_ORIGIN}/`);
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+}
+
+async function dismissTutorialOverlayIfVisible(page: Page) {
+  const overlay = page
+    .locator('[role="dialog"][aria-labelledby="tutorial-overlay-title"]')
+    .first();
+  await overlay.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+  if (!(await overlay.isVisible())) return;
+
+  await overlay.getByRole("button", { name: "닫기" }).click();
+  await expect(overlay).toHaveCount(0);
 }
 
 type CoreGameplayState = {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   damageBetween,
+  removeMissedV2SkillTargetEffects,
   resolveV2SkillCast,
   type V2SkillCastInput,
 } from "./combatShared";
@@ -11,6 +12,7 @@ import {
 } from "./combatPattern";
 import {
   V2_SKILLS,
+  effectiveCombatPatternFromEquipped,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
 } from "@/adventure/data/v2/v2Skills";
@@ -49,6 +51,262 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  const berserkerCast = (
+    skillId: string,
+    currentHp: number,
+    over: Partial<V2SkillCastInput> = {},
+  ) => {
+    const base = castInput([skillId]);
+    return resolveV2SkillCast({
+      ...base,
+      ...over,
+      attacker: {
+        ...base.attacker,
+        atk: 100,
+        str: 100,
+        currentHp,
+        ...(over.attacker ?? {}),
+      },
+      target: {
+        ...base.target,
+        def: 0,
+        ...(over.target ?? {}),
+      },
+    });
+  };
+
+  it("잃은 HP 경계와 명중 후 자해 예상 체력으로 단발 피해를 계산한다", () => {
+    expect(berserkerCast("v2c_overlord_ruin", 1_000).enemyDamage).toBe(330);
+    expect(berserkerCast("v2c_overlord_ruin", 700).enemyDamage).toBe(468);
+    expect(berserkerCast("v2c_overlord_ruin", 500).enemyDamage).toBe(561);
+    expect(berserkerCast("v2c_overlord_ruin", 250).enemyDamage).toBe(676);
+    expect(berserkerCast("v2c_overlord_ruin", 1).enemyDamage).toBe(791);
+
+    const bloodslash = berserkerCast("v2c_berserker_bloodslash", 1_000);
+    const bloodbath = berserkerCast("v2c_warlord_bloodbath", 700);
+    expect(bloodslash.selfHpCost).toBe(100);
+    expect(bloodslash.enemyDamage).toBe(208); // 명중 뒤 HP 900, 잃은 HP 10%
+    expect(bloodbath.selfHpCost).toBe(105);
+    expect(bloodbath.enemyDamage).toBe(295); // 명중 뒤 HP 595, 잃은 HP 40.5%
+  });
+
+  it("혈전 준비와 사망 극복 준비를 계수에 곱한 뒤 PvP에서 기여분만 60% 적용한다", () => {
+    const context = {
+      madnessRank: 4 as const,
+      finisherReady: true,
+      deathDamageReady: true,
+      annihilationUsesRemaining: 1,
+    };
+    const pve = berserkerCast("v2c_hegemon_annihilation", 400, {
+      berserker: context,
+    });
+    const pvp = berserkerCast("v2c_hegemon_annihilation", 400, {
+      berserker: context,
+      combatMode: "pvp",
+    });
+
+    expect(pve.enemyDamage).toBe(2_090); // (200+240) × (1 + 2×1.25×1.5)
+    expect(pvp.enemyDamage).toBe(1_430); // (200+240) × (1 + 3.75×0.6)
+    expect(pve.berserkerTransition).toEqual({
+      grantFinisher: false,
+      consumeFinisher: true,
+      consumeDeathDamage: true,
+      consumeAnnihilationUse: true,
+      forceSkillCrit: true,
+      bonusSkillCritDamagePct: 30,
+    });
+  });
+
+  it("혈전 준비는 발동 실패 때 유지되고 실제 필살 시전은 빗나가도 소비 대상으로 남는다", () => {
+    const context = {
+      madnessRank: 2 as const,
+      finisherReady: true,
+      deathDamageReady: false,
+      annihilationUsesRemaining: 1,
+    };
+    const failed = berserkerCast("v2c_overlord_ruin", 500, {
+      berserker: context,
+      procRoll: 99,
+    });
+    expect(failed.castSkillId).toBeNull();
+    expect(failed.berserkerTransition.consumeFinisher).toBe(false);
+
+    const fired = berserkerCast("v2c_overlord_ruin", 500, {
+      berserker: context,
+      procRoll: 0,
+    });
+    const missed = removeMissedV2SkillTargetEffects(fired);
+    expect(missed.berserkerTransition.consumeFinisher).toBe(true);
+    expect(missed.berserkerTransition.forceSkillCrit).toBe(true);
+    expect(missed.berserkerTransition.bonusSkillCritDamagePct).toBe(30);
+  });
+
+  it("광기는 HP 50% 이하 공격 발동률에 10%p를 더하고 사망 준비 공격은 확정 발동한다", () => {
+    const lowHpMadness = berserkerCast("v2c_overlord_ruin", 500, {
+      procRoll: 50,
+      berserker: {
+        madnessRank: 1,
+        finisherReady: false,
+        deathDamageReady: false,
+        annihilationUsesRemaining: 1,
+      },
+    });
+    expect(lowHpMadness.castSkillId).toBe("v2c_overlord_ruin"); // 기본 44% + 광기 10%p
+
+    const deathReady = berserkerCast("v2c_overlord_ruin", 700, {
+      procRoll: 99,
+      berserker: {
+        madnessRank: 4,
+        finisherReady: false,
+        deathDamageReady: true,
+        annihilationUsesRemaining: 1,
+      },
+    });
+    expect(deathReady.castSkillId).toBe("v2c_overlord_ruin");
+    expect(deathReady.berserkerTransition.consumeDeathDamage).toBe(true);
+  });
+
+  it("혈전 시전은 필살 준비를 부여하고 멸왕일도 사용 횟수 0은 커스텀 패턴도 우회하지 못한다", () => {
+    const bloodbath = berserkerCast("v2c_warlord_bloodbath", 700, {
+      berserker: {
+        madnessRank: 1,
+        finisherReady: false,
+        deathDamageReady: false,
+        annihilationUsesRemaining: 1,
+      },
+    });
+    expect(bloodbath.berserkerTransition.grantFinisher).toBe(true);
+
+    const blocked = berserkerCast("v2c_hegemon_annihilation", 100, {
+      combatPattern: {
+        blocks: [{ condition: { kind: "always" }, action: { kind: "skill", skillId: "v2c_hegemon_annihilation" } }],
+      },
+      berserker: {
+        madnessRank: 4,
+        finisherReady: false,
+        deathDamageReady: true,
+        annihilationUsesRemaining: 0,
+      },
+    });
+    expect(blocked.castSkillId).toBeNull();
+  });
+
+  it("광전사–패황 스마트 기본 패턴은 사망 준비→저HP 멸왕→준비된 파멸→혈전→사혈 순이다", () => {
+    const equipped = [
+      "v2c_berserker_bloodslash",
+      "v2c_hegemon_annihilation",
+      "v2c_overlord_ruin",
+      "v2c_warlord_bloodbath",
+    ];
+
+    expect(smartDefaultPatternFromEquipped(equipped).blocks).toEqual([
+      {
+        condition: {
+          kind: "any",
+          conditions: [
+            { kind: "self_buff_pct", target: "berserkerDeathOvercome", active: true },
+            { kind: "self_hp", op: "below", pct: 25 },
+          ],
+        },
+        action: { kind: "skill", skillId: "v2c_hegemon_annihilation" },
+      },
+      {
+        condition: {
+          kind: "all",
+          conditions: [
+            { kind: "self_hp", op: "below", pct: 50 },
+            { kind: "self_buff_pct", target: "berserkerFinisher", active: true },
+          ],
+        },
+        action: { kind: "skill", skillId: "v2c_overlord_ruin" },
+      },
+      {
+        condition: {
+          kind: "all",
+          conditions: [
+            { kind: "self_hp", op: "below", pct: 70 },
+            { kind: "self_buff_pct", target: "berserkerFinisher", active: false },
+          ],
+        },
+        action: { kind: "skill", skillId: "v2c_warlord_bloodbath" },
+      },
+      {
+        condition: { kind: "self_hp", op: "above", pct: 70 },
+        action: { kind: "skill", skillId: "v2c_berserker_bloodslash" },
+      },
+    ]);
+  });
+
+  it("스마트 선택은 70/50/25% 경계와 내부 준비 상태를 지킨다", () => {
+    const equipped = [
+      "v2c_warlord_bloodbath",
+      "v2c_overlord_ruin",
+      "v2c_berserker_bloodslash",
+      "v2c_hegemon_annihilation",
+    ];
+    const combatPattern = smartDefaultPatternFromEquipped(equipped);
+    const base = castInput(equipped, { combatPattern });
+    const castAt = ({
+      selfHp,
+      enemyHp,
+      finisherReady = false,
+      deathDamageReady = false,
+    }: {
+      selfHp: number;
+      enemyHp: number;
+      finisherReady?: boolean;
+      deathDamageReady?: boolean;
+    }) =>
+      resolveV2SkillCast({
+        ...base,
+        attacker: {
+          ...base.attacker,
+          currentHp: selfHp,
+        },
+        berserker: {
+          madnessRank: 4,
+          finisherReady,
+          deathDamageReady,
+          annihilationUsesRemaining: 1,
+        },
+        target: { ...base.target, currentHp: enemyHp },
+      }).castSkillId;
+
+    expect(castAt({ selfHp: 1_000, enemyHp: 1_000 })).toBe("v2c_berserker_bloodslash");
+    expect(castAt({ selfHp: 700, enemyHp: 1_000 })).toBe(
+      "v2c_warlord_bloodbath",
+    );
+    expect(castAt({ selfHp: 500, enemyHp: 1_000, finisherReady: true })).toBe(
+      "v2c_overlord_ruin",
+    );
+    expect(castAt({ selfHp: 250, enemyHp: 1_000 })).toBe("v2c_hegemon_annihilation");
+    expect(castAt({ selfHp: 700, enemyHp: 1_000, deathDamageReady: true })).toBe("v2c_hegemon_annihilation");
+  });
+
+  it("광전사–패황의 저장된 커스텀 패턴은 스마트 우선순위로 덮어쓰지 않는다", () => {
+    const equipped = [
+      "v2c_berserker_bloodslash",
+      "v2c_warlord_bloodbath",
+      "v2c_overlord_ruin",
+      "v2c_hegemon_annihilation",
+    ];
+    const savedPattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: {
+            kind: "skill",
+            skillId: "v2c_hegemon_annihilation",
+          },
+        },
+      ],
+    };
+
+    expect(
+      effectiveCombatPatternFromEquipped(equipped, savedPattern),
+    ).toBe(savedPattern);
+  });
+
   it("저장 패턴에서 빠진 그림자 도약도 장착 중이면 첫 행동으로 보완한다", () => {
     const shadowStep = "v2c_shadow_shadowstep";
     const combo = "v2c_brawler_combo";

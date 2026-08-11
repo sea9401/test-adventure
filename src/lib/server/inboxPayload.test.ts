@@ -68,6 +68,18 @@ describe("parseInboxPayload — happy path", () => {
   it("구매 주문 체결 물품의 종류와 수량을 검증한다", () => {
     expect(
       parseInboxPayload("buy_order_item", {
+        item_kind: "specimen",
+        item_id: "fish_specimen_carp",
+        quantity: 2,
+      }),
+    ).toEqual({
+      kind: "buy_order_item",
+      item_kind: "specimen",
+      item_id: "fish_specimen_carp",
+      quantity: 2,
+    });
+    expect(
+      parseInboxPayload("buy_order_item", {
         item_kind: "equip",
         item_id: "iron_sword",
         quantity: 1,

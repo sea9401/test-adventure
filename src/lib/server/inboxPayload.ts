@@ -43,7 +43,7 @@ export type InboxPayload =
   | { kind: "price_alert"; text: string }
   | {
       kind: "buy_order_item";
-      item_kind: "material" | "cash" | "cooking";
+      item_kind: "material" | "cash" | "cooking" | "specimen";
       item_id: string;
       quantity: number;
     }
@@ -168,7 +168,8 @@ export function parseInboxPayload(
       if (
         (item_kind !== "material" &&
           item_kind !== "cash" &&
-          item_kind !== "cooking") ||
+          item_kind !== "cooking" &&
+          item_kind !== "specimen") ||
         !item_id ||
         quantity == null ||
         quantity < 1

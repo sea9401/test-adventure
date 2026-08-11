@@ -259,8 +259,8 @@ export type V2CommonSkillId =
   | "v2c_swordsaint_flash" // 무심검 (강한 일격 + 무력 + ATB 지연)
   | "v2c_swordsaint_transcendence" // 일검필살 (힘 + 치명피해 + 단일 타격 물리 스킬 피해 + 명중)
   | "v2c_swordsaint_armorinsight3" // 갑주 간파 III (적 물리 방어 -13%)
-  | "v2c_hegemon_annihilation" // 멸왕난무 (HP 소모 + 처형 + 취약)
-  | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해 + 최대 HP)
+  | "v2c_hegemon_annihilation" // 멸왕난무 (HP 소모 + 취약 + 회복 억제)
+  | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해)
   | "v2c_archmage_collapse" // 비전 붕괴 (순수 마법 피해 + ATB 지연)
   | "v2c_archmage_theory" // 대마도 이론 (지능 + 마법 스킬 피해)
   | "v2c_archmage_magicdismantle3" // 마력 해체 III (적 마법 방어 -13%)
@@ -939,12 +939,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.8, 220, "def")],
   },
   v2c_berserker_bloodslash: {
-    // 광전사 = 견습 기사에서 갈라지는 유리대포 라인. 현재 HP를 일부 태워 그 소모량까지 피해로 돌린다.
-    //   저HP 패시브(광기)와 자연스럽게 맞물리지만, 자동전투 눈덩이를 막기 위해 현재 HP 기준 소모로 둔다.
     id: "v2c_berserker_bloodslash", name: "사혈격", stat: "str", category: "attack", tier: 3,
-    description: "제 피를 뿌리듯 베어낸다. 현재 체력을 일부 소모해 피해를 키운다.", mpCost: 38, cooldown: 0, procChance: 30,
+    description: "제 피를 뿌리듯 베어낸다. 명중하면 현재 체력을 10% 소모하고, 잃은 체력이 많을수록 강해진다.",
+    mpCost: 38, fixedMpCost: 76, cooldown: 0, procChance: 30, spCost: 6,
+    defaultPattern: {
+      priority: 100,
+      condition: { kind: "self_hp", op: "above", pct: 70 },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, soakCurrentHpFloorPct: 50, statCoef: 1.25, baseFlatByTier: [220, 220, 220], soakRatio: 1.6 },
+      { kind: "missingHpDamage", attackCoef: 1, statCoef: 1, missingHpCoef: 0.4, selfCurrentHpCostPct: 10, scaling: "physical" },
     ],
   },
   v2c_shaman_hex: {
@@ -1024,10 +1027,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_berserker_madness3: {
     id: "v2c_berserker_madness3", name: "광기", stat: "str", category: "passive", tier: 3,
-    description: "상처가 깊을수록 더 사납게 몰아친다. 잃은 체력 비율에 따라 공격력이 오른다.",
-    mpCost: 0, cooldown: 0,
+    description: "체력이 절반 이하일 때 공격 스킬 발동률이 10%p 오른다.",
+    mpCost: 0, cooldown: 0, spCost: 5,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.45 },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 1,
+    passive: {},
   },
   v2c_shaman_omen3: {
     id: "v2c_shaman_omen3", name: "흉조", stat: "int", category: "passive", tier: 3,
@@ -1596,18 +1601,30 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력을 끌어올리는 순수 공격 라인 ──
   v2c_warlord_bloodbath: {
     id: "v2c_warlord_bloodbath", name: "혈전", stat: "str", category: "attack", tier: 3,
-    description: "피로 길을 열듯 내리친다. 더 큰 체력을 걸고 더 크게 베어낸다.",
-    mpCost: 42, cooldown: 0, procChance: 30,
+    description: "피로 길을 연다. 명중하면 현재 체력을 15% 소모하고, 다음 파멸일격 또는 멸왕일도를 준비한다.",
+    mpCost: 42, fixedMpCost: 76, cooldown: 0, procChance: 30, spCost: 7,
+    defaultPattern: {
+      priority: 200,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 70 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: false },
+        ],
+      },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, soakCurrentHpFloorPct: 50, statCoef: 1.45, baseFlatByTier: [280, 280, 280], soakRatio: 2.05 },
+      { kind: "missingHpDamage", attackCoef: 1.1, statCoef: 1.2, missingHpCoef: 0.7, selfCurrentHpCostPct: 15, scaling: "physical" },
     ],
   },
   v2c_warlord_slaughter: {
     id: "v2c_warlord_slaughter", name: "광기 II", stat: "str", category: "passive", tier: 3,
-    description: "죽음에 가까울수록 전장이 선명해진다. 광기보다 더 크게 공격력이 오른다.",
-    mpCost: 0, cooldown: 0,
+    description: "광기의 효과를 계승한다. 혈전으로 준비한 필살기의 치명타 피해가 30% 오른다.",
+    mpCost: 0, cooldown: 0, spCost: 7,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.65 },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 2,
+    passive: {},
   },
 
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) 킷 — 반격(피격 카운터) + 철신(최대 HP) ──
@@ -1694,20 +1711,31 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { defPct: 18, thornsDefPct: 50 },
   },
   v2c_overlord_ruin: {
-    id: "v2c_overlord_ruin", name: "파멸 난무", stat: "str", category: "attack", tier: 3,
-    description: "체력을 깎아 광폭한 연격을 퍼붓는다. 위태로운 적은 그대로 무너진다.",
-    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
+    id: "v2c_overlord_ruin", name: "파멸일격", stat: "str", category: "attack", tier: 3,
+    description: "모든 힘을 한 번에 내리꽂는다. 잃은 체력이 많을수록 파괴력이 폭증한다.",
+    mpCost: 54, fixedMpCost: 76, cooldown: 0, procChance: 30, learnCost: 8000, spCost: 10,
+    defaultPattern: {
+      priority: 300,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 50 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: true },
+        ],
+      },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 12, soakCurrentHpFloorPct: 50, statCoef: 1.75, baseFlatByTier: [360, 360, 360], soakRatio: 2.74 },
-      { kind: "executeDamage", statCoef: 0.35, baseFlatByTier: [180, 180, 180], hpThresholdPct: 25, bonusMult: 2.3 },
+      { kind: "missingHpDamage", attackCoef: 1.5, statCoef: 1.8, missingHpCoef: 1.4, scaling: "physical" },
     ],
   },
   v2c_overlord_throne: {
     id: "v2c_overlord_throne", name: "광기의 왕좌", stat: "str", category: "passive", tier: 3,
-    description: "피가 마를수록 전장이 선명해진다. 낮은 체력에서 공격성과 치명성이 크게 오른다.",
-    mpCost: 0, cooldown: 0, learnCost: 8000,
+    description: "광기 II를 계승한다. 전투당 한 번, 사망할 피해를 버티고 최대 체력의 40%로 회복한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 14,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.8, critDmgPct: 30, maxHpPct: 8 },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 3,
+    passive: {},
   },
   v2c_arcanist_burst: {
     id: "v2c_arcanist_burst", name: "비전 폭발", stat: "int", category: "attack", tier: 3,
@@ -2090,27 +2118,32 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { enemyPhysicalDefReductionPct: 13 },
   },
   v2c_hegemon_annihilation: {
-    id: "v2c_hegemon_annihilation", name: "멸왕난무", stat: "str", category: "attack", tier: 3,
-    description: "왕좌까지 피로 물들이는 연격. 생명을 태워 몰아붙이고 약해진 적을 짓밟는다.",
-    mpCost: 62, cooldown: 0, procChance: 30, learnCost: 12000,
+    id: "v2c_hegemon_annihilation", name: "멸왕일도", stat: "str", category: "attack", tier: 3,
+    description: "왕마저 베어 넘기는 단 한 번의 일도. 잃은 체력이 많을수록 파괴력이 폭증한다.",
+    mpCost: 62, fixedMpCost: 76, cooldown: 0, procChance: 30, learnCost: 12000, spCost: 13,
+    oncePerBattle: true,
+    defaultPattern: {
+      priority: 400,
+      condition: {
+        kind: "any",
+        conditions: [
+          { kind: "self_buff_pct", target: "berserkerDeathOvercome", active: true },
+          { kind: "self_hp", op: "below", pct: 25 },
+        ],
+      },
+    },
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.95, baseFlatByTier: [430, 430, 430], soakRatio: 3.42 },
-      { kind: "executeDamage", statCoef: 0.42, baseFlatByTier: [220, 220, 220], hpThresholdPct: 28, bonusMult: 2.5 },
-      { kind: "enemyVuln", pct: 12, turns: 3 },
-      { kind: "enemyHealReduce", pct: 50, turns: 2 },
+      { kind: "missingHpDamage", attackCoef: 2, statCoef: 2.4, missingHpCoef: 2, scaling: "physical" },
     ],
   },
   v2c_hegemon_dominion: {
     id: "v2c_hegemon_dominion", name: "패황의 지배", stat: "str", category: "passive", tier: 3,
-    description: "상처가 깊을수록 지배력이 강해진다. 잃은 체력에 따른 공격력과 치명타 피해가 오른다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000,
+    description: "광기의 왕좌를 계승한다. 사망 극복 뒤 다음 공격은 죽음 직전의 힘을 담고, 멸왕일도를 한 번 되찾는다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 15,
     effects: [],
-    passive: {
-      berserkAtkPctPerLostHpPct: 1.0,
-      critDmgPct: 40,
-      maxHpPct: 12,
-      reflectDamageTakenReductionPct: 20,
-    },
+    exclusiveGroup: "berserker_madness",
+    exclusiveRank: 4,
+    passive: {},
   },
   v2c_archmage_collapse: {
     id: "v2c_archmage_collapse", name: "비전 붕괴", stat: "int", category: "attack", tier: 3,
@@ -2126,13 +2159,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_archmage_theory", name: "대마도 이론", stat: "int", category: "passive", tier: 3,
     description: "마법식의 근본을 꿰뚫는다. 지능과 마법 스킬 피해가 오르고 마력 방벽으로 피해를 흘린다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
+    spCostDiscount: 1,
     effects: [],
     passive: {
       statPct: { int: 22 },
       magicSkillDamagePct: 16,
       maxHpPct: 20,
       damageTakenReductionPct: 8,
-      reflectDamageTakenReductionPct: 20,
     },
   },
   v2c_archmage_magicdismantle3: {

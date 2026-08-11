@@ -2,11 +2,49 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   isSkillDisplayed,
+  loadoutExclusiveConflictMessage,
   parseHiddenSkillIds,
   toggleHiddenSkill,
   V2LoadoutPanel,
   waitForLoadoutRefresh,
 } from "./V2LoadoutPanel";
+
+describe("광기 계열 배타 장착 안내", () => {
+  it("후보 로드아웃에 광기 계열이 둘이면 즉시 설명한다", () => {
+    expect(
+      loadoutExclusiveConflictMessage([
+        "v2c_berserker_madness3",
+        "v2c_hegemon_dominion",
+      ]),
+    ).toBe("광기 계열은 하나만 장착할 수 있습니다.");
+    expect(
+      loadoutExclusiveConflictMessage(["v2c_berserker_madness3"]),
+    ).toBeNull();
+  });
+
+  it("광기 패시브 카드에 같은 계열 장착 제한을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 99,
+          spUsed: 0,
+          equipped: [],
+          library: [
+            {
+              skillId: "v2c_berserker_madness3",
+              name: "광기",
+              spCost: 4,
+              equipped: false,
+              category: "passive",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain("같은 계열 1개만 장착");
+  });
+});
 
 describe("장착 저장 후 상태 갱신", () => {
   it("부모의 비동기 갱신이 끝날 때까지 완료 처리하지 않는다", async () => {
@@ -146,7 +184,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">SP 부족<");
   });
 
-  it("전투·생활 장착 목록을 나누고 생활 스킬 SP 0 규칙을 안내한다", () => {
+  it("생활 패시브를 항상 적용 상태로 표시하고 해제 동작을 제공하지 않는다", () => {
     const html = renderToStaticMarkup(
       <V2LoadoutPanel
         loadout={{
@@ -173,9 +211,12 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     );
 
     expect(html).toContain("전투 스킬 장착");
-    expect(html).toContain("생활 스킬 장착");
+    expect(html).toContain("생활 패시브 적용");
     expect(html).toContain("씨앗 선별");
     expect(html).toContain("SP 0");
-    expect(html).toContain("전투 우선순위와 별도로 관리합니다.");
+    expect(html).toContain("배우면 자동으로 항상 적용됩니다.");
+    expect(html).toContain("적용 중");
+    expect(html.match(/전부 해제/g)).toHaveLength(1);
+    expect(html).not.toContain('aria-label="씨앗 선별 해제"');
   });
 });

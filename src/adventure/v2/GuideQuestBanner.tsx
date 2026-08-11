@@ -3,17 +3,30 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Compass, Gift, CaretRight, Circle } from "@phosphor-icons/react";
-import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import { isTutorialLine, type QuestView } from "@/adventure/data/v2/v2Quests";
+import type {
+  RepeatBundleView,
+  RepeatScope,
+} from "@/adventure/data/v2/v2RepeatQuests";
 
-// 홈 상단 배너 — 튜토리얼 우선.
-//   미완료(진행중/받기) 튜토리얼 퀘가 있으면 그 목록을 체크리스트로 우선 노출(신규
-//   플레이어가 쉬운 기초부터 바로 깨도록). 튜토리얼을 다 끝내면 기존처럼 "현재 목표"
-//   하나만 안내. 둘 다 없으면 렌더 안 함. 클릭 → /quests.
+type RepeatRewardSummary = {
+  dailyBundle: RepeatBundleView;
+  weeklyBundle: RepeatBundleView;
+};
+
+// 홈 상단 배너 — 수령 가능한 일일·주간 보상을 먼저 알리고 기존 가이드 배너를 이어서 노출.
+//   미완료(진행중/받기) 튜토리얼은 체크리스트로, 튜토리얼을 다 끝내면 "현재 목표"
+//   업적 하나를 안내한다. 아무 알림도 없으면 렌더하지 않는다.
 export function GuideQuestBanner() {
   const router = useRouter();
   const [quests, setQuests] = useState<QuestView[]>([]);
   const [current, setCurrent] = useState<QuestView | null>(null);
+  const [repeat, setRepeat] = useState<RepeatRewardSummary | null>(null);
   const [trackedQuestId, setTrackedQuestId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -28,6 +41,7 @@ export function GuideQuestBanner() {
                 ok?: boolean;
                 quests?: QuestView[];
                 current?: QuestView | null;
+                repeat?: RepeatRewardSummary;
                 trackedQuestId?: string | null;
               }
             | null,
@@ -35,6 +49,7 @@ export function GuideQuestBanner() {
           if (alive && j?.ok) {
             setQuests(Array.isArray(j.quests) ? j.quests : []);
             setCurrent(j.current ?? null);
+            setRepeat(j.repeat ?? null);
             setTrackedQuestId(j.trackedQuestId ?? null);
           }
         },
@@ -62,23 +77,104 @@ export function GuideQuestBanner() {
         (a.status === "claimable" ? 0 : 1) - (b.status === "claimable" ? 0 : 1),
     );
 
+  const repeatRewardReady =
+    repeat?.dailyBundle.claimable === true ||
+    repeat?.weeklyBundle.claimable === true;
+  const repeatRewardBanner = repeatRewardReady ? (
+    <RepeatRewardBanner
+      daily={repeat?.dailyBundle}
+      weekly={repeat?.weeklyBundle}
+      onOpen={(scope) => router.push(`/quests?tab=${scope}`)}
+    />
+  ) : null;
+
+  let guideBanner = null;
   if (tutorialTodo.length > 0) {
-    return (
+    guideBanner = (
       <TutorialChecklist
         items={tutorialTodo}
         onOpen={() => router.push("/quests?tab=tutorial")}
       />
     );
+  } else if (current) {
+    guideBanner = (
+      <CurrentGoalBanner
+        current={current}
+        tracked={current.id === trackedQuestId}
+        onOpen={() => router.push("/quests?tab=achievement")}
+      />
+    );
   }
 
-  // 튜토리얼 완료 — 기존 단일 "현재 목표" 배너.
-  if (!current) return null;
+  if (!repeatRewardBanner && !guideBanner) return null;
   return (
-    <CurrentGoalBanner
-      current={current}
-      tracked={current.id === trackedQuestId}
-      onOpen={() => router.push("/quests?tab=achievement")}
-    />
+    <div className="space-y-2">
+      {repeatRewardBanner}
+      {guideBanner}
+    </div>
+  );
+}
+
+export function RepeatRewardBanner({
+  daily,
+  weekly,
+  onOpen,
+}: {
+  daily?: RepeatBundleView;
+  weekly?: RepeatBundleView;
+  onOpen: (scope: RepeatScope) => void;
+}) {
+  const ready = [daily, weekly].filter(
+    (bundle): bundle is RepeatBundleView => bundle?.claimable === true,
+  );
+  if (ready.length === 0) return null;
+
+  return (
+    <section
+      className={`${SURFACE_ACCENT} ui-quest-card is-claimable space-y-2.5 p-3`}
+      aria-label="받을 수 있는 퀘스트 보상"
+    >
+      <div className="flex items-center gap-2 px-1">
+        <Gift size={18} weight="fill" className="shrink-0 text-amber-500" />
+        <strong className="text-sm text-zinc-900 dark:text-zinc-100">
+          받을 수 있는 퀘스트 보상
+        </strong>
+        <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          수령 가능 {ready.length}
+        </span>
+      </div>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        {ready.map((bundle) => {
+          const label = bundle.scope === "daily" ? "일일" : "주간";
+          return (
+            <button
+              key={bundle.scope}
+              type="button"
+              aria-label={`${label} 보상 받으러 가기`}
+              onClick={() => onOpen(bundle.scope)}
+              className={`${SURFACE_INSET} flex items-center gap-3 px-3 py-2.5 text-left transition hover:border-amber-400 dark:hover:border-amber-700`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  {label} 보상
+                </p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                  스태미나 포션 {bundle.potions}개
+                </p>
+              </div>
+              <span className="shrink-0 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                받으러 가기
+              </span>
+              <CaretRight
+                size={15}
+                className="shrink-0 text-amber-500"
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

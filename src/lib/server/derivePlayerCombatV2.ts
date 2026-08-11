@@ -315,8 +315,6 @@ export type DerivePlayerCombatV2PureInput = {
   passiveHealPowerPct?: number;
   /** 받는 피해 -%(방벽 패시브) — totalDamageTakenReductionPct 에 합산. PvE/PvP 양쪽(#835). */
   passiveDamageTakenReductionPct?: number;
-  /** 받는 반사 피해 -%. 공격형 상위 패시브의 반사 탱커 대응 수단. */
-  passiveReflectDamageTakenReductionPct?: number;
   /** 마법 방어력 +%(결계술 패시브) — magicDef 에 곱연산. */
   passiveMagicDefPct?: number;
   /** 초반 마법형 평타 받는 피해 -%(결계술 패시브). */
@@ -333,6 +331,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEnemyMagicDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 엔진 computeBerserkBonus 로 소비. */
   passiveBerserkAtkPctPerLostHpPct?: number;
+  /** 광전사–패황 배타 패시브 최고 단계. 범용 광전 공격력 보너스와 독립이다. */
+  berserkerMadnessRank?: 0 | 1 | 2 | 3 | 4;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 누적. */
   passiveEnemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률. */
@@ -804,6 +804,15 @@ export function derivePlayerCombatV2Pure(
             input.passiveBerserkAtkPctPerLostHpPct,
         }
       : {}),
+    ...((input.berserkerMadnessRank ?? 0) > 0
+      ? {
+          berserkerMadnessRank: input.berserkerMadnessRank as
+            | 1
+            | 2
+            | 3
+            | 4,
+        }
+      : {}),
     ...(input.passiveEnemyMagicVulnPctPerStack
       ? {
           enemyMagicVulnPctPerStack:
@@ -819,14 +828,6 @@ export function derivePlayerCombatV2Pure(
       ? {
           singleHitPhysicalSkillDamagePct:
             input.passiveSingleHitPhysicalSkillDamagePct,
-        }
-      : {}),
-    ...(input.passiveReflectDamageTakenReductionPct
-      ? {
-          reflectDamageTakenReductionPct: Math.min(
-            80,
-            input.passiveReflectDamageTakenReductionPct,
-          ),
         }
       : {}),
     // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
@@ -986,8 +987,6 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
-    passiveReflectDamageTakenReductionPct:
-      passiveAgg.reflectDamageTakenReductionPct,
     passiveMagicDefPct: passiveAgg.magicDefPct,
     passiveOpeningMagicDamageReductionPct:
       passiveAgg.openingMagicDamageReductionPct,
@@ -1001,6 +1000,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveEnemyMagicDefReductionPct: passiveAgg.enemyMagicDefReductionPct,
     passiveBerserkAtkPctPerLostHpPct:
       passiveAgg.berserkAtkPctPerLostHpPct,
+    berserkerMadnessRank: passiveAgg.berserkerMadnessRank,
     passiveEnemyMagicVulnPctPerStack:
       passiveAgg.enemyMagicVulnPctPerStack,
     passiveEnemyMagicVulnApplyChancePct:

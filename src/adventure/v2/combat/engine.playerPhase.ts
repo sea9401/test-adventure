@@ -30,6 +30,7 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import { finishBerserkerPlayerAttack } from "./berserkerCombat";
 import {
   everyNHitsEffect,
   formatDefDebuffLog,
@@ -890,7 +891,7 @@ export function resolvePlayerPhase(
   }
   // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
   // 같은 턴 후속 공격(다중공격/연타)에 즉시 반영된다.
-  const afterDamage = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
+  let afterDamage = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
     ...state,
     enemyHp,
     enemyV2Dots: sigEnemyDots, // 고유 시그니처 on-crit 독(독니) 합류·미발동=state 그대로.
@@ -947,6 +948,12 @@ export function resolvePlayerPhase(
         : state.turn.queuedExtraAttacks,
     },
   }, player, { bleedStacks: apBleedAdd + (sigHitBleed?.stacks ?? 0) }));
+  if (afterDamage.berserker) {
+    afterDamage = {
+      ...afterDamage,
+      berserker: finishBerserkerPlayerAttack(afterDamage.berserker),
+    };
+  }
   if (enemyHp <= 0) {
     return {
       ...afterDamage,

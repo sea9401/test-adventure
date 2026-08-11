@@ -14,6 +14,12 @@ import {
   isCookingFoodId,
 } from "@/adventure/v2/cooking";
 import { restoreMarketplaceRareMap } from "@/lib/server/marketplaceV2";
+import {
+  FISH_SPECIMEN_SAVE_KEY,
+  addFishSpecimen,
+  fishIdFromSpecimenItemId,
+  parseFishSpecimenInventory,
+} from "@/adventure/v2/fishSpecimens";
 
 export type MarketplaceListingRow = typeof marketplaceListingsV2.$inferSelect;
 
@@ -27,6 +33,31 @@ type CharSave = {
 type InventorySave = Record<string, unknown> & {
   cookingFoods?: unknown;
 };
+
+export async function deliverFishSpecimenStack(
+  executor: DbExecutor,
+  userId: string,
+  itemId: string,
+  quantity: number,
+): Promise<boolean> {
+  const fishId = fishIdFromSpecimenItemId(itemId);
+  if (!fishId) return false;
+  const specimens = parseFishSpecimenInventory(
+    await lockSaveForUpdate(
+      executor,
+      userId,
+      FISH_SPECIMEN_SAVE_KEY,
+      {},
+    ),
+  );
+  await upsertSave(
+    executor,
+    userId,
+    FISH_SPECIMEN_SAVE_KEY,
+    addFishSpecimen(specimens, fishId, quantity),
+  );
+  return true;
+}
 
 export async function deliverMarketplaceListing(
   executor: DbExecutor,
@@ -51,6 +82,16 @@ export async function deliverMarketplaceListing(
       "character.v2",
       {},
     );
+    if (
+      await deliverFishSpecimenStack(
+        executor,
+        userId,
+        listing.itemId,
+        listing.quantity,
+      )
+    ) {
+      return null;
+    }
     if (isMuseunCashItemId(listing.itemId)) {
       await upsertSave(executor, userId, "character.v2", {
         ...charSave,

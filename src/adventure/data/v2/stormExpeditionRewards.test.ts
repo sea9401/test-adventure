@@ -8,6 +8,7 @@ import {
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
   STORM_EXPEDITION_SP_FRUIT_CAP,
   STORM_EXPEDITION_SP_FRUIT_CHANCE,
+  STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID,
   STORM_EXPEDITION_SP_FRUIT_PITY_CLEARS,
   STORM_ORIGIN_FRAGMENT_MATERIAL_ID,
   mergeStormExpeditionMaterials,
@@ -22,6 +23,13 @@ function sequence(...values: number[]): () => number {
 }
 
 describe("폭풍 원정 보상", () => {
+  it("원정 전용 SP 열매 V를 지급한다", () => {
+    expect(STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID).toBe("sp_fruit_5");
+    expect(V2_MATERIALS[STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]?.name).toBe(
+      "SP 열매 V",
+    );
+  });
+
   it("항로 재료 3종·7차 선행 파편·최종 보스 조각을 카탈로그에 등록한다", () => {
     expect(Object.keys(STORM_EXPEDITION_MATERIALS)).toHaveLength(5);
     for (const id of Object.keys(STORM_EXPEDITION_MATERIALS)) {

@@ -382,7 +382,8 @@ export async function POST(req: Request) {
     );
     const prev = codex.fish[session.fishId];
     const prevBest = prev?.bestSize ?? 0;
-    const isNewSpecies = !prev?.discovered;
+    const isNewSpecies = prev?.caughtEver !== true;
+    const registrationRestored = prev?.caughtEver === true && prev.registered !== true;
     const isPersonalBest = session.size > prevBest;
     const next = recordCatch(codex, session.fishId, session.size, now);
     await upsertSave(tx, userId, FISHING_CODEX_KEY, next);
@@ -517,6 +518,7 @@ export async function POST(req: Request) {
       fishId: session.fishId,
       size: session.size,
       isNewSpecies,
+      registrationRestored,
       isPersonalBest,
       prevBest,
       codexCount: countDiscoveredFish(next),
@@ -770,6 +772,7 @@ export async function POST(req: Request) {
     tier: fish.tier,
     size: result.size,
     isNewSpecies: result.isNewSpecies,
+    registrationRestored: result.registrationRestored,
     isPersonalBest: result.isPersonalBest,
     prevBest: result.prevBest,
     codexCount: result.codexCount,

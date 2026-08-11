@@ -33,6 +33,8 @@ import {
   cookingFoodDefinition,
   isCookingFoodId,
 } from "@/adventure/v2/cooking";
+import { FISH } from "@/adventure/data/v2/fish";
+import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -247,7 +249,9 @@ export function isStackableMarketplaceItem(
   return (
     kind === "material" ||
     (kind === "consumable" &&
-      (isTradeableMuseunCashItemId(itemId) || isCookingFoodId(itemId)))
+      (isTradeableMuseunCashItemId(itemId) ||
+        isCookingFoodId(itemId) ||
+        fishIdFromSpecimenItemId(itemId) !== null))
   );
 }
 
@@ -313,6 +317,8 @@ export function itemDisplayName(kind: MarketKind, id: string): string | null {
   if (kind === "consumable") {
     if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
     if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? null;
+    const specimenFishId = fishIdFromSpecimenItemId(id);
+    if (specimenFishId) return `${FISH[specimenFishId].name} 표본`;
     return id in RARE_MAP_KINDS
       ? RARE_MAP_KINDS[id as keyof typeof RARE_MAP_KINDS].name
       : null;
@@ -331,6 +337,8 @@ export function currentMarketplaceItemName(
   if (kind === "consumable") {
     if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
     if (isCookingFoodId(id)) return cookingFoodDefinition(id)?.name ?? storedName;
+    const specimenFishId = fishIdFromSpecimenItemId(id);
+    if (specimenFishId) return `${FISH[specimenFishId].name} 표본`;
     return storedName;
   }
   return itemDisplayName(kind, id) ?? storedName;

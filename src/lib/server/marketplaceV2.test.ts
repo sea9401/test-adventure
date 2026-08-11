@@ -15,6 +15,7 @@ import {
   MARKETPLACE_V2_PRICE_MAX,
   MARKETPLACE_V2_TAX_RATE,
   isMarketKind,
+  isStackableMarketplaceItem,
   isTradableEquip,
   isTradableMaterial,
   isValidBidGraceHours,
@@ -179,6 +180,22 @@ describe("isValidMaterialQty", () => {
   });
 });
 
+describe("물고기 표본 거래 분류", () => {
+  it("카탈로그에 있는 표본만 수량형 소비 아이템으로 허용하고 이름을 파생한다", () => {
+    expect(isStackableMarketplaceItem("consumable", "fish_specimen_carp")).toBe(true);
+    expect(itemDisplayName("consumable", "fish_specimen_carp")).toBe("잉어 표본");
+    expect(isStackableMarketplaceItem("consumable", "fish_specimen_fake")).toBe(false);
+    expect(itemDisplayName("consumable", "fish_specimen_fake")).toBeNull();
+    expect(
+      currentMarketplaceItemName(
+        "consumable",
+        "fish_specimen_carp",
+        "오래된 이름",
+      ),
+    ).toBe("잉어 표본");
+  });
+});
+
 describe("isMarketKind", () => {
   it("v2 거래소 종류만 통과", () => {
     expect(isMarketKind("equip")).toBe(true);
@@ -243,7 +260,7 @@ describe("tradable 판정 + 이름 스냅샷", () => {
   });
 
   it("채광·생활 가공 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(68);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(69);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",

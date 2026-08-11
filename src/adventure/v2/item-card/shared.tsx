@@ -265,7 +265,8 @@ export function StatRow({ row }: { row: V2EquipStatRow }) {
 const RANGE_OPTION_LABEL_TO_KEY: Partial<Record<string, keyof V2EquipOptions>> =
   {
     치명타: "crit",
-    회피: "eva",
+    "추가 회피도": "eva",
+    "추가 적중도": "accuracy",
     MP: "mp",
     HP: "hp",
     속도: "spd",

@@ -1,9 +1,5 @@
 import Link from "next/link";
 import { SignInButtons } from "./SignInButtons";
-import {
-  ReferralStatusNotice,
-  type ReferralStatus,
-} from "./ReferralStatusNotice";
 
 // 대문(랜딩)의 순수 표현 컴포넌트.
 // /sign-in 과 /dev/landing 이 공유해 로그인·DB 없이도 비주얼 QA 가 가능하다.
@@ -34,12 +30,10 @@ const FEATURES = [
 
 export function LandingContent({
   authed = false,
-  referralStatus = null,
   authError = null,
 }: {
   // 로그인은 됐지만 아직 캐릭터가 없는 유저 — 로그인 버튼 대신 "시작하기"(→/create) 노출.
   authed?: boolean;
-  referralStatus?: ReferralStatus | null;
   authError?: "account-not-linked" | "login-failed" | null;
 }) {
   return (
@@ -84,9 +78,6 @@ export function LandingContent({
                   ? "기존 계정과 카카오 로그인을 연결하지 못했습니다. 같은 화면이 반복되면 인게임 닉네임과 함께 운영자에게 문의해 주세요."
                   : "로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."}
               </p>
-            )}
-            {referralStatus && (
-              <ReferralStatusNotice status={referralStatus} />
             )}
             {authed ? (
               <>

@@ -100,6 +100,7 @@ import { skillsForJob } from "../src/adventure/data/v2/v2SkillsByJob";
 import {
   V2_SKILLS,
   aggregateEquippedPassives,
+  resolveExclusiveSkills,
   spCostOf,
   v2SkillLearnCost,
   type V2SkillId,
@@ -794,6 +795,13 @@ function equippedSkillsFor(
     const currentA = current.has(a) ? 1 : 0;
     const currentB = current.has(b) ? 1 : 0;
     if (currentA !== currentB) return currentB - currentA;
+    const patternPriorityA = da.defaultPattern?.priority;
+    const patternPriorityB = db.defaultPattern?.priority;
+    if (patternPriorityA !== undefined && patternPriorityB !== undefined) {
+      return patternPriorityB - patternPriorityA;
+    }
+    if (patternPriorityA !== undefined) return -1;
+    if (patternPriorityB !== undefined) return 1;
     // SPI 지원 빌드는 최종 회복기 하나를 챙긴다고 본다. 회복기를 전부 우선하면 공격/생존
     // 패시브가 밀리므로 정점 회복기 하나만 보장한다.
     const roleA = spec.growthTargets.includes("spi") && a === "v2c_saint_miracle" ? 1 : 0;
@@ -809,7 +817,7 @@ function equippedSkillsFor(
     if (combatA !== combatB) return combatB - combatA;
     return db.tier - da.tier || spCostOf(da) - spCostOf(db);
   });
-  return clampLoadoutToBudget(ordered, spBudget);
+  return clampLoadoutToBudget(resolveExclusiveSkills(ordered), spBudget);
 }
 
 function starterEquipmentCandidates(completedDepth: number): V2EquipmentId[] {

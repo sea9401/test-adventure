@@ -130,6 +130,7 @@ function isPowerEffect(effect: V2SkillEffect): boolean {
     effect.kind === "heal" ||
     effect.kind === "shield" ||
     effect.kind === "hpCostDamage" ||
+    effect.kind === "missingHpDamage" ||
     effect.kind === "healToDamage" ||
     effect.kind === "executeDamage" ||
     effect.kind === "ambushDamage" ||

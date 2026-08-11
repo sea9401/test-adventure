@@ -7,7 +7,7 @@ import {
   parseInboxPayload,
   type SeasonRewardSeason,
 } from "@/lib/server/inboxPayload";
-import { readSave, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 import { STAMINA_POTIONS_KEY } from "@/adventure/v2/staminaPotions";
@@ -62,6 +62,13 @@ import {
 } from "@/adventure/v2/cooking";
 import { randomUUID } from "node:crypto";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import type { FishId } from "@/adventure/data/v2/fish";
+import {
+  FISH_SPECIMEN_SAVE_KEY,
+  addFishSpecimen,
+  fishIdFromSpecimenItemId,
+  parseFishSpecimenInventory,
+} from "@/adventure/v2/fishSpecimens";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
@@ -158,6 +165,7 @@ export async function POST(req: Request) {
       let museunCoinsTotal = 0;
       const museunCashItemTotals = new Map<MuseunCashItemId, number>();
       const cookingFoodTotals = new Map<CookingFoodId, number>();
+      const fishSpecimenTotals = new Map<FishId, number>();
       let adventureSupportDaysTotal = 0;
       const titleIdsToGrant = new Set<string>();
       // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
@@ -230,6 +238,16 @@ export async function POST(req: Request) {
                 parsed.item_id,
                 (cookingFoodTotals.get(parsed.item_id) ?? 0) + parsed.quantity,
               );
+            } else if (parsed.item_kind === "specimen") {
+              const fishId = fishIdFromSpecimenItemId(parsed.item_id);
+              if (fishId) {
+                fishSpecimenTotals.set(
+                  fishId,
+                  (fishSpecimenTotals.get(fishId) ?? 0) + parsed.quantity,
+                );
+              } else {
+                parseFailedRowIds.push(row.id);
+              }
             } else {
               parseFailedRowIds.push(row.id);
             }
@@ -473,6 +491,23 @@ export async function POST(req: Request) {
         newInventory = next;
       }
 
+      let fishSpecimensAfter: ReturnType<typeof parseFishSpecimenInventory> | null = null;
+      if (fishSpecimenTotals.size > 0) {
+        let specimens = parseFishSpecimenInventory(
+          await lockSaveForUpdate(
+            tx,
+            userId,
+            FISH_SPECIMEN_SAVE_KEY,
+            {},
+          ),
+        );
+        for (const [fishId, count] of fishSpecimenTotals) {
+          specimens = addFishSpecimen(specimens, fishId, count);
+        }
+        await upsertSave(tx, userId, FISH_SPECIMEN_SAVE_KEY, specimens);
+        fishSpecimensAfter = specimens;
+      }
+
       // V2 장비 갱신 — equipment.v2.owned 에 개체(iid)로 추가. V2 장비는 스택이 아니라
       // 개체 모델이라 count 만큼 굴림이 붙은 개별 개체를 발급한다.
       // 잠금 순서: character.v2 → inventory.v2 → equipment.v2 (buy/v2-grant 라우트와 동일).
@@ -669,6 +704,11 @@ export async function POST(req: Request) {
           itemId,
           count,
         })),
+        fishSpecimensAdded: Array.from(fishSpecimenTotals, ([fishId, count]) => ({
+          fishId,
+          count,
+        })),
+        fishSpecimens: fishSpecimensAfter?.items ?? null,
         staminaPotionsAdded: staminaPotionsTotal,
         staminaPotions,
         adventureSupportDaysAdded: adventureSupportDaysApplied,

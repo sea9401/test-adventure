@@ -80,6 +80,45 @@ type QuestsResponse = {
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
 type ClaimAllScope = Extract<TopTab, "tutorial" | "achievement">;
 
+export function QuestTopTabs({
+  active,
+  dailyRewardReady,
+  weeklyRewardReady,
+  onChange,
+}: {
+  active: TopTab;
+  dailyRewardReady: boolean;
+  weeklyRewardReady: boolean;
+  onChange: (tab: TopTab) => void;
+}) {
+  return (
+    <TabBar
+      tabs={[
+        { key: "tutorial", label: "튜토리얼" },
+        {
+          key: "daily",
+          label: "일일",
+          badge: dailyRewardReady ? "받기" : undefined,
+          badgeLabel: dailyRewardReady ? "일일 보상 수령 가능" : undefined,
+        },
+        {
+          key: "weekly",
+          label: "주간",
+          badge: weeklyRewardReady ? "받기" : undefined,
+          badgeLabel: weeklyRewardReady ? "주간 보상 수령 가능" : undefined,
+        },
+        { key: "achievement", label: "업적" },
+      ]}
+      active={active}
+      onChange={onChange}
+      ariaLabel="퀘스트 분류"
+      size="md"
+      badgeVariant="alert"
+      scrollable
+    />
+  );
+}
+
 export type ClaimAllReward = {
   gold: number;
   equipment: V2EquipmentId[];
@@ -353,17 +392,11 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     <PageShell spacing="tight">
       <SubViewHeader title="퀘스트" onBack={onBack} />
 
-      <TabBar
-        tabs={[
-          { key: "tutorial", label: "튜토리얼" },
-          { key: "daily", label: "일일" },
-          { key: "weekly", label: "주간" },
-          { key: "achievement", label: "업적" },
-        ]}
+      <QuestTopTabs
         active={topTab}
         onChange={setTopTab}
-        ariaLabel="퀘스트 분류"
-        size="md"
+        dailyRewardReady={repeat?.dailyBundle.claimable === true}
+        weeklyRewardReady={repeat?.weeklyBundle.claimable === true}
       />
 
       {loading ? (

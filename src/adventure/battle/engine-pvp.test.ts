@@ -1655,7 +1655,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
 
     const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
 
-    expect(cast.p1.hp).toBe(920);
+    expect(cast.p1.hp).toBe(900);
     expect(cast.p2.hp).toBe(1000);
     expect(cast.p2.stacks.playerShield).toBeLessThan(5000);
     expect(cast.log.some((entry) => entry.text.includes("회복했다"))).toBe(false);

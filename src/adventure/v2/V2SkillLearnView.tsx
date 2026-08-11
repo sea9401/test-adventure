@@ -109,15 +109,19 @@ function ritualBonusFor(mode: SkillRitualMode, level: number): number {
 export function SkillLearningCostSummary({
   learnCost,
   spCost,
+  learned,
 }: {
   learnCost: number;
   spCost: number;
+  learned: boolean;
 }) {
   return (
     <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium">
-      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-        학습 숙달 {learnCost.toLocaleString("ko-KR")}
-      </span>
+      {!learned && (
+        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          학습 숙달 {learnCost.toLocaleString("ko-KR")}
+        </span>
+      )}
       <span className="rounded bg-violet-100 px-1.5 py-0.5 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
         장착 SP {spCost.toLocaleString("ko-KR")}
       </span>
@@ -499,12 +503,11 @@ export function V2SkillLearnView({
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                       {skillDesc(s.skillId)}
                     </p>
-                    {!s.learned && (
-                      <SkillLearningCostSummary
-                        learnCost={s.cost}
-                        spCost={s.spCost}
-                      />
-                    )}
+                    <SkillLearningCostSummary
+                      learnCost={s.cost}
+                      spCost={s.spCost}
+                      learned={s.learned}
+                    />
                     <SkillEffectChips skillId={s.skillId} />
                   </div>
                   {!s.learned ? (

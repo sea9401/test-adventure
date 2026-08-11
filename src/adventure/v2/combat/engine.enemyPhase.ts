@@ -1,5 +1,6 @@
 import {
   appendLog,
+  applyBerserkerHostileDamage,
   applyCounterIfAny,
   playerPveEvasionReductionPct,
   finishEnemyAttack,
@@ -15,6 +16,7 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   lowHpDamageReductionPct,
   healToShield,
@@ -78,9 +80,8 @@ export function resolveEnemyPhase(
         : chillDmgAfterResolve;
     const chillDmg = Math.max(1, chillDmgAfterEndure);
     const afterChillHp = Math.max(0, state.playerHp - chillDmg);
-    const chilled: BattleState = {
+    let chilled: BattleState = {
       ...state,
-      playerHp: afterChillHp,
       stacks: {
         ...state.stacks,
         damageTakenThisCombat:
@@ -91,7 +92,19 @@ export function resolveEnemyPhase(
         text: `[한기] ${chillSkill.name} — 추위가 ${chillDmg} 피해 (스택 ${state.stacks.chillStacks})`,
       }),
     };
-    if (afterChillHp <= 0) {
+    const survival = applyBerserkerHostileDamage(
+      chilled,
+      player,
+      afterChillHp,
+    );
+    chilled = survival.state;
+    if (survival.triggered && chilled.berserker) {
+      chilled = {
+        ...chilled,
+        berserker: finishBerserkerCurrentActionGuard(chilled.berserker),
+      };
+    }
+    if (chilled.playerHp <= 0) {
       return {
         ...chilled,
         log: appendLog(chilled.log, {
@@ -140,9 +153,8 @@ export function resolveEnemyPhase(
       0,
       curseStacksBefore - curseSkill.threshold,
     );
-    const cursed: BattleState = {
+    let cursed: BattleState = {
       ...state,
-      playerHp: afterCurseHp,
       stacks: {
         ...state.stacks,
         curseStacks: curseStacksAfter,
@@ -154,7 +166,19 @@ export function resolveEnemyPhase(
         text: `[저주] ${curseSkill.name} — 저주가 폭발해 ${curseDmg} 피해 (스택 ${curseStacksBefore}→${curseStacksAfter})`,
       }),
     };
-    if (afterCurseHp <= 0) {
+    const survival = applyBerserkerHostileDamage(
+      cursed,
+      player,
+      afterCurseHp,
+    );
+    cursed = survival.state;
+    if (survival.triggered && cursed.berserker) {
+      cursed = {
+        ...cursed,
+        berserker: finishBerserkerCurrentActionGuard(cursed.berserker),
+      };
+    }
+    if (cursed.playerHp <= 0) {
       return {
         ...cursed,
         log: appendLog(cursed.log, {
@@ -742,16 +766,25 @@ export function resolveEnemyPhase(
   // 일부만 흡수해 HP 피해가 남은 경우에는 기존처럼 정상 발동한다.
   const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
   // 불굴 — HP 0 이 되는 데미지를 HP 1 로 막는다. 전투당 1회 (enduranceTriggered).
-  const wouldKill = state.playerHp - dmgToHp <= 0;
+  const berserkerSurvival = applyBerserkerHostileDamage(
+    state,
+    player,
+    state.playerHp - dmgToHp,
+  );
+  state = berserkerSurvival.state;
+  const wouldKill = state.playerHp <= 0;
   const enduranceFires =
     wouldKill && !!player.enduranceActive && !state.flags.enduranceTriggered;
   const playerHpAfterDmg = enduranceFires
     ? 1
-    : Math.max(0, state.playerHp - dmgToHp);
+    : state.playerHp;
   // 흡혈 갑옷 (6티어) — 받은 HP 피해의 N% HP 회복. HP 0 으로 죽은 후엔 미발동, 불굴로 버틴 후엔 발동.
   const bloodfeastPct = player.bloodfeastPct ?? 0;
   const bloodfeastHeal =
-    bloodfeastPct > 0 && dmgToHp > 0 && playerHpAfterDmg > 0
+    bloodfeastPct > 0 &&
+    dmgToHp > 0 &&
+    playerHpAfterDmg > 0 &&
+    !berserkerSurvival.triggered
       ? Math.floor((dmgToHp * bloodfeastPct) / 100)
       : 0;
   const playerHp =

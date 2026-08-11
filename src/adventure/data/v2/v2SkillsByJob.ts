@@ -68,7 +68,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 연사(DEX 3연사) + 민첩 II(DEX+20%)
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
   guardian: ["v2c_guardian_bash", "v2c_guardian_bulwark3"], // 방패 강타(방어기반) + 방벽(방어+20%)
-  berserker: ["v2c_berserker_bloodslash", "v2c_berserker_madness3"], // 사혈격(HP 소모 강타) + 광기(잃은 HP 비례 공격력)
+  berserker: ["v2c_berserker_bloodslash", "v2c_berserker_madness3"], // 사혈격(잃은 HP 비례 강타) + 광기(저HP 발동 보정)
   warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"], // 연환각(다단) + 강건 III(활력+30%)
   bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"], // 대치유(자힐) + 회복 II(회복+30%)
   ritualist: ["v2c_ritualist_guardingarray", "v2c_ritualist_wardcraft"], // 호법진(받피감) + 진법술(마법 방어)
@@ -109,7 +109,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 도발 액티브 + 반사 패시브 ──
   warden: ["v2c_warden_aegis", "v2c_warden_thorns"], // 수호의 도발 + 가시 방벽(HP 피해 시 방어력만큼 반사)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력으로 밀어붙이는 라인 ──
-  warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"], // 혈전(HP 소모 강타) + 광기 II
+  warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"], // 혈전(필살 준비) + 광기 II
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) — 옛 절정 킷(반격+철신) 상속 ──
   battlemonk: ["v2c_battlemonk_counter", "v2c_battlemonk_ironbody"], // 반격(피격 카운터) + 철신(최대HP+20%) — 둘 다 패시브
   rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"], // 긴급 구조 + 생환 지원
@@ -126,7 +126,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 5차 직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──
   swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus", "v2c_swordmaster_armorinsight2"], // 검호: 검격 + 검의 집중 + 갑주 간파 II
   ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"], // 철벽기사: 철벽 태세 + 장벽술
-  overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"], // 패왕: 파멸 난무 + 광기의 왕좌
+  overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"], // 패왕: 파멸일격 + 광기의 왕좌
   arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory", "v2c_arcanist_magicdismantle2"], // 비전술사: 비전 폭발 + 비전 이론 + 마력 해체 II
   elementallord: ["v2c_elementallord_surge", "v2c_elementallord_resonance"], // 원소군주: 원소 폭주 + 원소 공명
   inscriber: ["v2c_inscriber_release", "v2c_inscriber_amplification"], // 각인술사: 각인 해방 + 각인 증폭
@@ -147,7 +147,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 6차 직업 — 5차 직업 숙련도 기반 엔드 성장 ──
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
   swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence", "v2c_swordsaint_armorinsight3"], // 검성: 무심검 + 일검필살 + 갑주 간파 III
-  hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕난무 + 패황의 지배
+  hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕일도 + 패황의 지배
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory", "v2c_archmage_magicdismantle3"], // 대마도사: 비전 붕괴 + 대마도 이론 + 마력 해체 III
   primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance"], // 태초술사: 태초회귀 + 근원공명
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총

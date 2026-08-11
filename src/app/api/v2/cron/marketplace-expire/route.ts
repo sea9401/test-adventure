@@ -18,7 +18,10 @@ import {
   restoreMarketplaceRareMap,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
-import { deliverMarketplaceListing } from "@/lib/server/marketplaceV2Fulfillment";
+import {
+  deliverFishSpecimenStack,
+  deliverMarketplaceListing,
+} from "@/lib/server/marketplaceV2Fulfillment";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import {
   addMuseunCashItem,
@@ -284,7 +287,16 @@ async function returnListing(
     {},
   );
   if (listing.kind === "consumable") {
-    if (isMuseunCashItemId(listing.itemId)) {
+    if (
+      await deliverFishSpecimenStack(
+        tx,
+        listing.sellerId,
+        listing.itemId,
+        listing.quantity,
+      )
+    ) {
+      // 표본 스택 반환 완료.
+    } else if (isMuseunCashItemId(listing.itemId)) {
       await upsertSave(tx, listing.sellerId, "character.v2", {
         ...charSave,
         cashItems: addMuseunCashItem(

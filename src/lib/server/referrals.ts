@@ -51,14 +51,10 @@ export function createReferralCode(): string {
   return randomBytes(8).toString("hex");
 }
 
-export function referralLandingUrl(
-  requestUrl: string,
-  status: "accepted" | "invalid",
-): URL {
+export function referralLandingUrl(requestUrl: string): URL {
   // nginx 뒤에서는 request origin 이 내부 localhost:3000일 수 있다. 운영의 권위 공개
   // origin인 AUTH_URL을 우선해야 Location 헤더가 외부 사용자를 localhost로 보내지 않는다.
   const url = new URL("/sign-in", process.env.AUTH_URL ?? requestUrl);
-  url.searchParams.set("referral", status);
   return url;
 }
 

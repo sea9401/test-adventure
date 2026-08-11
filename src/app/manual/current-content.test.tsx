@@ -34,6 +34,8 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("일반 알림");
     expect(html).toContain("월간 모험 지원권");
+    expect(html).toContain("14일차");
+    expect(html).toContain("지원권 7일");
     expect(html).toContain("빨간");
     expect(html).toContain("프로필 이미지");
     expect(html).toContain("회원 탈퇴");
@@ -94,6 +96,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("15코인");
     expect(html).toContain("농장 씨앗 주머니");
     expect(html).toContain("같은 날 살 때마다 가격이 오릅니다");
+  });
+
+  it("어종 표본의 등록 권리 이전과 어획 기록 보존을 안내한다", () => {
+    const pastimes = renderToStaticMarkup(<PastimesContent />);
+    const plaza = renderToStaticMarkup(<PlazaContent />);
+
+    expect(pastimes).toContain("어종 표본");
+    expect(pastimes).toContain("등록 권리");
+    expect(pastimes).toContain("어획 기록은 유지");
+    expect(pastimes).toContain("장착 스킬");
+    expect(plaza).toContain("어종 표본");
+    expect(plaza).toContain("다시 추출해 판매");
   });
 
   it("생활 튜토리얼과 SP 수집 보너스를 안내한다", () => {

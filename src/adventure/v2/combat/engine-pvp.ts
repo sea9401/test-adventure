@@ -100,6 +100,16 @@ import {
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
 import { computeCritOverflowBonus } from "./engine.damageHelpers";
+import {
+  applyBerserkerCastTransition,
+  applyBerserkerLethalDamage,
+  berserkerCastContext,
+  clampBerserkerGuardedHp,
+  finishBerserkerCurrentActionGuard,
+  finishBerserkerPlayerAttack,
+  initialBerserkerCombatState,
+  type BerserkerCombatState,
+} from "./berserkerCombat";
 export { advanceTurnPvP }; // 공개 API 보존 (resolveBattlePvP 가 로컬 호출도 함 → import+export 둘 다)
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
@@ -232,6 +242,7 @@ export type PvPSide = {
   v2SelfDebuffs: import("./combatShared").V2BuffMap;
   // PR-8 — DoT (지속 피해). 상대가 이 side 에 박은 dot. 매 자기 turn 진입 시 tick → hp 차감.
   v2Dots: import("./combatShared").V2Dot[];
+  berserker?: BerserkerCombatState;
 };
 
 export type PvPBattleState = {
@@ -304,6 +315,31 @@ export function playerPvpEvasionReductionPct(
     evasionRating,
     opponent.player.accRating ?? opponent.player.accuracyPct ?? 0,
   );
+}
+
+export function mitigatePvPReflectDamage(
+  state: PvPBattleState,
+  recipientKey: "p1" | "p2",
+  reflectorKey: "p1" | "p2",
+  rawDamage: number,
+): number {
+  if (rawDamage <= 0) return 0;
+  const recipient = state[recipientKey];
+  const reflector = state[reflectorKey];
+  const defMult = v2DefBuffMult(
+    recipient.v2SelfBuffs,
+    recipient.v2SelfDebuffs,
+  );
+  const effectiveDef = attackerFacingDef(reflector, recipient);
+  const defenseDamage = damageBetween(
+    rawDamage,
+    defMult !== 1 ? Math.floor(effectiveDef * defMult) : effectiveDef,
+  );
+  const evasionDamage = applyEvasionDamageReduction(
+    rawDamage,
+    playerPvpEvasionReductionPct(state, recipientKey),
+  );
+  return Math.min(defenseDamage, evasionDamage);
 }
 
 // PvP 소유자 행동 시작 회복. 회복량에는 해당 전투 표면의 sustain 배율을 적용한다.
@@ -555,6 +591,12 @@ function buildSide(
   );
   const sideMaxMp = Math.max(0, player.maxMp ?? 0);
   const maxMagicBarrier = Math.max(0, player.magicBarrierMax ?? 0);
+  const berserkerLineageEquipped = v2Skills.equipped.some((skillId) =>
+    skillId === "v2c_berserker_bloodslash" ||
+    skillId === "v2c_warlord_bloodbath" ||
+    skillId === "v2c_overlord_ruin" ||
+    skillId === "v2c_hegemon_annihilation",
+  );
   return {
     player,
     name,
@@ -569,6 +611,9 @@ function buildSide(
     maxMp: sideMaxMp,
     magicBarrier: maxMagicBarrier,
     maxMagicBarrier,
+    ...((player.berserkerMadnessRank ?? 0) > 0 || berserkerLineageEquipped
+      ? { berserker: initialBerserkerCombatState() }
+      : {}),
     attacksLeft: 0, // initialBattleStatePvP 에서 선공 측만 채움
     nextTurnAttackBonus: 0,
     turn: {
@@ -650,6 +695,124 @@ function buildSide(
       signatureHitCount: 0,
     },
   };
+}
+
+/** PvP의 모든 적대 피해가 공유하는 사망 극복 관문. 일반 불굴은 호출자가 뒤에서 처리한다. */
+export function applyBerserkerHostileDamagePvP(
+  side: PvPSide,
+  hpAfterDamage: number,
+): { side: PvPSide; triggered: boolean } {
+  if (!side.berserker) {
+    return {
+      side: { ...side, hp: Math.max(0, hpAfterDamage) },
+      triggered: false,
+    };
+  }
+  const guardedHp = clampBerserkerGuardedHp(
+    side.berserker,
+    hpAfterDamage,
+  );
+  const result = applyBerserkerLethalDamage({
+    state: side.berserker,
+    madnessRank: side.player.berserkerMadnessRank ?? 0,
+    hp: guardedHp,
+    maxHp: side.maxHp,
+    source: "hostile",
+  });
+  return {
+    side: {
+      ...side,
+      hp: Math.max(0, result.hp),
+      berserker: result.state,
+    },
+    triggered: result.triggered,
+  };
+}
+
+function resolvePvPHostileDamageSurvival(
+  side: PvPSide,
+  hpAfterDamage: number,
+): {
+  side: PvPSide;
+  berserkerTriggered: boolean;
+  enduranceTriggered: boolean;
+} {
+  const survival = applyBerserkerHostileDamagePvP(side, hpAfterDamage);
+  let nextSide = survival.side;
+  const enduranceTriggered =
+    nextSide.hp <= 0 &&
+    !!side.player.enduranceActive &&
+    !side.flags.enduranceTriggered;
+  if (enduranceTriggered) {
+    nextSide = {
+      ...nextSide,
+      hp: 1,
+      flags: { ...nextSide.flags, enduranceTriggered: true },
+    };
+  }
+  return {
+    side: nextSide,
+    berserkerTriggered: survival.triggered,
+    enduranceTriggered,
+  };
+}
+
+function appendPvPSurvivalLogs(
+  state: PvPBattleState,
+  key: "p1" | "p2",
+  name: string,
+  result: ReturnType<typeof resolvePvPHostileDamageSurvival>,
+): PvPBattleState {
+  let next = state;
+  if (result.berserkerTriggered) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[사망 극복] ${name}이(가) 쓰러지지 않고 HP ${result.side.hp}로 돌아왔다.`,
+        side: key,
+      }),
+    };
+    if ((result.side.player.berserkerMadnessRank ?? 0) >= 4) {
+      next = {
+        ...next,
+        log: appendLog(next.log, {
+          kind: "info",
+          text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
+          side: key,
+        }),
+      };
+    }
+  }
+  if (result.enduranceTriggered) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[불굴] ${name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        side: key,
+      }),
+    };
+  }
+  return next;
+}
+
+/** 공격 시작 시점의 패황 보호만 소비하고, 반사로 새로 얻은 다음 공격 준비는 보존한다. */
+export function finishPvPBerserkerAttackAction(
+  state: PvPBattleState,
+  key: "p1" | "p2",
+  started: BerserkerCombatState | undefined,
+): PvPBattleState {
+  const current = state[key];
+  if (!current.berserker) return state;
+  let berserker = finishBerserkerCurrentActionGuard(current.berserker);
+  if (
+    started?.deathDamageReady ||
+    started?.guardUntil === "player_attack_end"
+  ) {
+    berserker = finishBerserkerPlayerAttack(berserker);
+  }
+  return setSide(state, key, { ...current, berserker });
 }
 
 // 선공 — SPD 가 높은 쪽이 먼저. 동점이면 p1 우선.
@@ -828,7 +991,30 @@ function dealExtraDamage(
     : 0;
   const rawTotalDmg = dmgAfterLuckyStar + decreeDmg;
   const totalDmg = scalePvPDamage(state, rawTotalDmg);
-  const newDefHp = Math.max(0, defender.hp - totalDmg);
+  const survival = applyBerserkerHostileDamagePvP(
+    defender,
+    defender.hp - totalDmg,
+  );
+  let defenderAfterDamage = survival.side;
+  const enduranceFires =
+    defenderAfterDamage.hp <= 0 &&
+    !!defender.player.enduranceActive &&
+    !defender.flags.enduranceTriggered;
+  if (enduranceFires) {
+    defenderAfterDamage = {
+      ...defenderAfterDamage,
+      hp: 1,
+      flags: { ...defenderAfterDamage.flags, enduranceTriggered: true },
+    };
+  }
+  if (defenderAfterDamage.berserker) {
+    defenderAfterDamage = {
+      ...defenderAfterDamage,
+      berserker: finishBerserkerCurrentActionGuard(
+        defenderAfterDamage.berserker,
+      ),
+    };
+  }
   // 흡혈류 — 비크리 기반만 (luckyLifesteal / runeLifesteal / 흡령).
   const luckyLifestealHeal =
     (player.luckyLifestealPct ?? 0) > 0
@@ -857,7 +1043,7 @@ function dealExtraDamage(
   let next = setSide(
     state,
     defKey,
-    applyPvPOnHitDots({ ...defender, hp: newDefHp }, attacker),
+    applyPvPOnHitDots(defenderAfterDamage, attacker),
   );
   next = setSide(next, atkKey, {
     ...next[atkKey],
@@ -870,6 +1056,36 @@ function dealExtraDamage(
       text: `[${dmgLabels.join(" + ")}] ${totalDmg} 피해를 입혔다.`,
     }),
   };
+  if (survival.triggered) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[사망 극복] ${defender.name}이(가) 쓰러지지 않고 HP ${defenderAfterDamage.hp}로 돌아왔다.`,
+        side: defKey,
+      }),
+    };
+    if ((defender.player.berserkerMadnessRank ?? 0) >= 4) {
+      next = {
+        ...next,
+        log: appendLog(next.log, {
+          kind: "info",
+          text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
+          side: defKey,
+        }),
+      };
+    }
+  }
+  if (enduranceFires) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[불굴] ${defender.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        side: defKey,
+      }),
+    };
+  }
   if (actualHeal > 0) {
     const healLabels: string[] = [];
     if (luckyLifestealHeal > 0) healLabels.push("행운의 흡혈");
@@ -883,7 +1099,7 @@ function dealExtraDamage(
       }),
     };
   }
-  if (newDefHp <= 0) {
+  if (defenderAfterDamage.hp <= 0) {
     next = {
       ...next,
       log: appendLog(next.log, {
@@ -910,6 +1126,7 @@ function applyDodgeEffects(
   consumeEvade: boolean,
   triggersSkillCritAfterEvade: boolean,
 ): PvPBattleState {
+  const berserkerAtAttackStart = state[atkKey].berserker;
   let st: PvPBattleState = {
     ...state,
     log: appendLog(state.log, { kind: "info", text: dodgeLogText }),
@@ -1043,20 +1260,15 @@ function applyDodgeEffects(
     reflexEvadeMult > 0 ? Math.floor(estimatedRawDmg * reflexEvadeMult) : 0;
   const rawReflect = infiniteThornsDmg + reflexEvadeDmg;
   if (rawReflect > 0) {
-    const reflectDefMult = v2DefBuffMult(
-      attackerNow.v2SelfBuffs,
-      attackerNow.v2SelfDebuffs,
-    );
-    const reflectDef = attackerFacingDef(defenderNow, attackerNow);
     const totalReflect = scalePvPDamage(
       st,
-      damageBetween(
-        rawReflect,
-        reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
-      ),
+      mitigatePvPReflectDamage(st, atkKey, defKey, rawReflect),
     );
-    const newAtkHp = Math.max(0, attackerNow.hp - totalReflect);
-    st = setSide(st, atkKey, { ...attackerNow, hp: newAtkHp });
+    const survival = resolvePvPHostileDamageSurvival(
+      attackerNow,
+      attackerNow.hp - totalReflect,
+    );
+    st = setSide(st, atkKey, survival.side);
     const labels: string[] = [];
     if (infiniteThornsDmg > 0) labels.push("무한 가시");
     if (reflexEvadeDmg > 0) labels.push("반사 회피");
@@ -1067,7 +1279,8 @@ function applyDodgeEffects(
         text: `[${labels.join(" + ")}] ${attackerNow.name}에게 ${totalReflect} 반사 피해.`,
       }),
     };
-    if (newAtkHp <= 0) {
+    st = appendPvPSurvivalLogs(st, atkKey, attackerNow.name, survival);
+    if (survival.side.hp <= 0) {
       return {
         ...st,
         log: appendLog(st.log, {
@@ -1099,8 +1312,11 @@ function applyDodgeEffects(
           : attackerAfterReflect.player.def,
       ),
     );
-    const newAtkHp = Math.max(0, attackerAfterReflect.hp - counterDmg);
-    st = setSide(st, atkKey, { ...attackerAfterReflect, hp: newAtkHp });
+    const survival = resolvePvPHostileDamageSurvival(
+      attackerAfterReflect,
+      attackerAfterReflect.hp - counterDmg,
+    );
+    st = setSide(st, atkKey, survival.side);
     st = {
       ...st,
       log: appendLog(st.log, {
@@ -1108,7 +1324,13 @@ function applyDodgeEffects(
         text: `[반격] ${attackerAfterReflect.name}에게 ${counterDmg} 피해.`,
       }),
     };
-    if (newAtkHp <= 0) {
+    st = appendPvPSurvivalLogs(
+      st,
+      atkKey,
+      attackerAfterReflect.name,
+      survival,
+    );
+    if (survival.side.hp <= 0) {
       return {
         ...st,
         log: appendLog(st.log, {
@@ -1129,7 +1351,11 @@ function applyDodgeEffects(
       nextTurnAttackBonus: d.nextTurnAttackBonus + skirmishBonus,
     });
   }
-  return st;
+  return finishPvPBerserkerAttackAction(
+    st,
+    atkKey,
+    berserkerAtAttackStart,
+  );
 }
 
 // shadowStep dodge — 한 페이즈 통째로 회피 + dodge 효과 + 페이즈 종료.
@@ -1191,6 +1417,7 @@ export function applyOnHitReflect(
   atkKey: "p1" | "p2",
   defKey: "p1" | "p2",
   rawDmgBeforeMitigation: number,
+  finishCurrentAction = true,
 ): { state: PvPBattleState; attackerKilled: boolean } {
   const attacker = state[atkKey];
   const defender = state[defKey];
@@ -1229,37 +1456,44 @@ export function applyOnHitReflect(
       ? Math.floor(baseTotal * (1 + reflectBoostPct / 100))
       : baseTotal;
   if (rawTotal <= 0) return { state, attackerKilled: false };
-  const reflectTakenReductionPct = Math.max(
-    0,
-    Math.min(80, attacker.player.reflectDamageTakenReductionPct ?? 0),
-  );
-  const reducedRawTotal =
-    reflectTakenReductionPct > 0
-      ? Math.floor(rawTotal * (1 - reflectTakenReductionPct / 100))
-      : rawTotal;
-  const reflectDefMult = v2DefBuffMult(
-    attacker.v2SelfBuffs,
-    attacker.v2SelfDebuffs,
-  );
-  const reflectDef = attackerFacingDef(defender, attacker);
   const total = scalePvPDamage(
     state,
-    damageBetween(
-      reducedRawTotal,
-      reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
-    ),
+    mitigatePvPReflectDamage(state, atkKey, defKey, rawTotal),
   );
   const shieldAbsorbed = Math.min(attacker.stacks.playerShield, total);
   const dmgToHp = total - shieldAbsorbed;
   const newShield = attacker.stacks.playerShield - shieldAbsorbed;
-  const newAtkHp = Math.max(0, attacker.hp - dmgToHp);
-  let st = setSide(state, atkKey, {
-    ...attacker,
-    hp: newAtkHp,
-    stacks: {
-      ...attacker.stacks,
-      playerShield: newShield,
+  const hpAfterReflect = Math.max(0, attacker.hp - dmgToHp);
+  const survival = applyBerserkerHostileDamagePvP(
+    {
+      ...attacker,
+      stacks: {
+        ...attacker.stacks,
+        playerShield: newShield,
+      },
     },
+    hpAfterReflect,
+  );
+  let nextAttacker = survival.side;
+  const enduranceFires =
+    nextAttacker.hp <= 0 &&
+    !!attacker.player.enduranceActive &&
+    !attacker.flags.enduranceTriggered;
+  if (enduranceFires) {
+    nextAttacker = {
+      ...nextAttacker,
+      hp: 1,
+      flags: { ...nextAttacker.flags, enduranceTriggered: true },
+    };
+  }
+  if (finishCurrentAction && nextAttacker.berserker) {
+    nextAttacker = {
+      ...nextAttacker,
+      berserker: finishBerserkerCurrentActionGuard(nextAttacker.berserker),
+    };
+  }
+  let st = setSide(state, atkKey, {
+    ...nextAttacker,
   });
   const labels: string[] = [];
   if (thornsDmg > 0) labels.push("반사 갑주");
@@ -1283,7 +1517,37 @@ export function applyOnHitReflect(
       text: `[${labels.join(" + ")}] ${attacker.name}에게 ${dmgToHp} 반사 피해.`,
     }),
   };
-  if (newAtkHp <= 0) {
+  if (survival.triggered) {
+    st = {
+      ...st,
+      log: appendLog(st.log, {
+        kind: "info",
+        text: `[사망 극복] ${attacker.name}이(가) 쓰러지지 않고 HP ${nextAttacker.hp}로 돌아왔다.`,
+        side: atkKey,
+      }),
+    };
+    if ((attacker.player.berserkerMadnessRank ?? 0) >= 4) {
+      st = {
+        ...st,
+        log: appendLog(st.log, {
+          kind: "info",
+          text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
+          side: atkKey,
+        }),
+      };
+    }
+  }
+  if (enduranceFires) {
+    st = {
+      ...st,
+      log: appendLog(st.log, {
+        kind: "info",
+        text: `[불굴] ${attacker.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        side: atkKey,
+      }),
+    };
+  }
+  if (nextAttacker.hp <= 0) {
     st = {
       ...st,
       log: appendLog(st.log, {
@@ -1303,6 +1567,7 @@ export function maybeApplyRuneCounter(
   state: PvPBattleState,
   atkKey: "p1" | "p2",
   defKey: "p1" | "p2",
+  finishCurrentAction = true,
 ): { state: PvPBattleState; attackerKilled: boolean } {
   const defender = state[defKey];
   const attacker = state[atkKey];
@@ -1322,8 +1587,19 @@ export function maybeApplyRuneCounter(
       v2DefMultRC !== 1 ? Math.floor(rcDef * v2DefMultRC) : rcDef,
     ),
   );
-  const newAtkHp = Math.max(0, attacker.hp - dmg);
-  let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
+  const survival = resolvePvPHostileDamageSurvival(
+    attacker,
+    attacker.hp - dmg,
+  );
+  if (finishCurrentAction && survival.side.berserker) {
+    survival.side = {
+      ...survival.side,
+      berserker: finishBerserkerCurrentActionGuard(
+        survival.side.berserker,
+      ),
+    };
+  }
+  let st = setSide(state, atkKey, survival.side);
   st = {
     ...st,
     log: appendLog(st.log, {
@@ -1331,7 +1607,8 @@ export function maybeApplyRuneCounter(
       text: `[반격의 룬] ${attacker.name}에게 ${dmg} 반격 피해.`,
     }),
   };
-  if (newAtkHp <= 0) {
+  st = appendPvPSurvivalLogs(st, atkKey, attacker.name, survival);
+  if (survival.side.hp <= 0) {
     st = {
       ...st,
       log: appendLog(st.log, {
@@ -1352,6 +1629,7 @@ export function maybeApplyMartialCounter(
   state: PvPBattleState,
   atkKey: "p1" | "p2",
   defKey: "p1" | "p2",
+  finishCurrentAction = true,
 ): { state: PvPBattleState; attackerKilled: boolean } {
   const defender = state[defKey];
   const attacker = state[atkKey];
@@ -1381,8 +1659,19 @@ export function maybeApplyMartialCounter(
       v2DefMultMC !== 1 ? Math.floor(mcDef * v2DefMultMC) : mcDef,
     ),
   );
-  const newAtkHp = Math.max(0, attacker.hp - dmg);
-  let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
+  const survival = resolvePvPHostileDamageSurvival(
+    attacker,
+    attacker.hp - dmg,
+  );
+  if (finishCurrentAction && survival.side.berserker) {
+    survival.side = {
+      ...survival.side,
+      berserker: finishBerserkerCurrentActionGuard(
+        survival.side.berserker,
+      ),
+    };
+  }
+  let st = setSide(state, atkKey, survival.side);
   st = {
     ...st,
     log: appendLog(st.log, {
@@ -1390,7 +1679,8 @@ export function maybeApplyMartialCounter(
       text: `[${counterBoostPct > 0 ? "반격 + 금강인" : "반격"}] ${attacker.name}에게 ${dmg} 반격 피해.`,
     }),
   };
-  if (newAtkHp <= 0) {
+  st = appendPvPSurvivalLogs(st, atkKey, attacker.name, survival);
+  if (survival.side.hp <= 0) {
     st = {
       ...st,
       log: appendLog(st.log, {
@@ -1574,11 +1864,29 @@ export function tickPvPSideDotsOnAction(
       target.player.statusDamageReductionPct,
     ),
   );
-  let next = setSide(state, targetKey, {
-    ...target,
-    hp: Math.max(0, target.hp - dotDamage),
-    v2Dots: dotTick.nextDots,
-  });
+  const survival = applyBerserkerHostileDamagePvP(
+    { ...target, v2Dots: dotTick.nextDots },
+    target.hp - dotDamage,
+  );
+  let nextTarget = survival.side;
+  const enduranceFires =
+    nextTarget.hp <= 0 &&
+    !!target.player.enduranceActive &&
+    !target.flags.enduranceTriggered;
+  if (enduranceFires) {
+    nextTarget = {
+      ...nextTarget,
+      hp: 1,
+      flags: { ...nextTarget.flags, enduranceTriggered: true },
+    };
+  }
+  if (nextTarget.berserker) {
+    nextTarget = {
+      ...nextTarget,
+      berserker: finishBerserkerCurrentActionGuard(nextTarget.berserker),
+    };
+  }
+  let next = setSide(state, targetKey, nextTarget);
   if (dotDamage > 0) {
     next = {
       ...next,
@@ -1592,6 +1900,36 @@ export function tickPvPSideDotsOnAction(
           }),
         next.log,
       ),
+    };
+  }
+  if (survival.triggered) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[사망 극복] ${target.name}이(가) 쓰러지지 않고 HP ${nextTarget.hp}로 돌아왔다.`,
+        side: targetKey,
+      }),
+    };
+    if ((target.player.berserkerMadnessRank ?? 0) >= 4) {
+      next = {
+        ...next,
+        log: appendLog(next.log, {
+          kind: "info",
+          text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
+          side: targetKey,
+        }),
+      };
+    }
+  }
+  if (enduranceFires) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[불굴] ${target.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        side: targetKey,
+      }),
     };
   }
   if (next[targetKey].hp > 0) return next;
@@ -1860,6 +2198,12 @@ export function castV2SkillOnAttackerTurnPvP(
       ? (side.v2Skills.pattern ??
         smartDefaultPatternFromEquipped(side.v2Skills.equipped))
       : undefined,
+    berserker: side.berserker
+      ? berserkerCastContext(
+          side.player.berserkerMadnessRank ?? 0,
+          side.berserker,
+        )
+      : undefined,
     attacker: {
       mp: side.mp,
       atk: side.player.atk,
@@ -2025,7 +2369,8 @@ export function castV2SkillOnAttackerTurnPvP(
     result.enemyDamage > 0 && side.flags.skillCritAfterEvadePending;
   const skillCritFired =
     result.enemyDamage > 0 &&
-    (skillCritAfterEvadeFired ||
+    (result.berserkerTransition.forceSkillCrit ||
+      skillCritAfterEvadeFired ||
       ((side.player.critChancePct ?? 0) > 0 &&
         Math.random() * 100 <
           Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0)));
@@ -2068,6 +2413,7 @@ export function castV2SkillOnAttackerTurnPvP(
       (skillCritFired
         ? SKILL_CRIT_MULT +
           Math.max(0, side.player.skillCritDmgPct ?? 0) / 100 +
+          result.berserkerTransition.bonusSkillCritDamagePct / 100 +
           (side.player.skillCritOverflow
             ? computeCritOverflowBonus(side.player.critChancePct ?? 0)
             : 0)
@@ -2198,6 +2544,64 @@ export function castV2SkillOnAttackerTurnPvP(
       kind: "info",
       text: `[${sigSkillCritSpeed?.label ?? "군림"}] ${side.name} 결정타 — 속도가 솟구친다!`,
       side: who,
+    });
+  }
+  if (result.berserkerTransition.grantFinisher) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[혈전] 다음 파멸일격 또는 멸왕일도를 준비한다.`,
+      side: who,
+    });
+  }
+  if (result.berserkerTransition.consumeFinisher) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[혈전 해방] ${result.castSkillName ?? "필살기"}에 피의 기세를 터뜨린다.`,
+      side: who,
+    });
+  }
+  if (result.berserkerTransition.consumeDeathDamage) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[패황의 지배] ${result.castSkillName ?? "공격"}에 죽음 직전의 힘을 싣는다.`,
+      side: who,
+    });
+  }
+  let nextOppBerserker = opp.berserker;
+  let berserkerSurvivalTriggered = false;
+  if (skillDamageToHp > 0) {
+    const survival = applyBerserkerHostileDamagePvP(
+      { ...opp, hp: nextOppHp },
+      nextOppHp,
+    );
+    nextOppHp = survival.side.hp;
+    nextOppBerserker = survival.side.berserker;
+    berserkerSurvivalTriggered = survival.triggered;
+  }
+  if (berserkerSurvivalTriggered) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[사망 극복] ${opp.name}이(가) 쓰러지지 않고 HP ${nextOppHp}로 돌아왔다.`,
+      side: otherKey,
+    });
+    if ((opp.player.berserkerMadnessRank ?? 0) >= 4) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
+        side: otherKey,
+      });
+    }
+  }
+  const skillEnduranceFires =
+    nextOppHp <= 0 &&
+    !!opp.player.enduranceActive &&
+    !opp.flags.enduranceTriggered;
+  if (skillEnduranceFires) {
+    nextOppHp = 1;
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[불굴] ${opp.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+      side: otherKey,
     });
   }
   // heal: 같은 player_attack kind (자기 행동). 화상(healReduce)이 걸렸으면 회복 감소.
@@ -2462,6 +2866,18 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
+  const transitionedBerserker = side.berserker
+    ? applyBerserkerCastTransition(
+        side.berserker,
+        result.berserkerTransition,
+      )
+    : undefined;
+  const nextBerserker = transitionedBerserker;
+  const berserkerAttackStart =
+    result.castSkillId &&
+    V2_SKILLS[result.castSkillId]?.category === "attack"
+      ? side.berserker
+      : undefined;
   const nextSide: PvPSide = {
     ...side,
     // 스킬은 이번 행동의 평타를 대체한다. 다단 적중 시그니처가 만든 추가 행동만 남긴다.
@@ -2469,6 +2885,7 @@ export function castV2SkillOnAttackerTurnPvP(
       ? signatureExtraActions
       : side.attacksLeft,
     hp: nextSideHp,
+    ...(nextBerserker ? { berserker: nextBerserker } : {}),
     mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
     buffs: sigSkillCritSpdBuff
       ? { ...side.buffs, ...sigSkillCritSpdBuff }
@@ -2513,8 +2930,15 @@ export function castV2SkillOnAttackerTurnPvP(
     magicBarrier: nextOppMagicBarrier,
     flags: {
       ...opp.flags,
+      enduranceTriggered:
+        opp.flags.enduranceTriggered || skillEnduranceFires,
       statusBlockUsed: opp.flags.statusBlockUsed || statusBlockDots,
     },
+    ...(nextOppBerserker
+      ? {
+          berserker: finishBerserkerCurrentActionGuard(nextOppBerserker),
+        }
+      : {}),
     v2SelfDebuffs: nextOppSelfDebuffs,
     v2Dots: nextOppDots,
     stacks: {
@@ -2569,6 +2993,7 @@ export function castV2SkillOnAttackerTurnPvP(
       who,
       otherKey,
       skillReflectBase,
+      false,
     );
     next = reflected.state;
     if (reflected.attackerKilled) {
@@ -2580,6 +3005,16 @@ export function castV2SkillOnAttackerTurnPvP(
         enemyDelayPct,
       };
     }
+  }
+  if (
+    result.castSkillId &&
+    V2_SKILLS[result.castSkillId]?.category === "attack"
+  ) {
+    next = finishPvPBerserkerAttackAction(
+      next,
+      who,
+      berserkerAttackStart,
+    );
   }
   // 스킬 데미지로 상대가 쓰러지면 즉시 전투 종료 (PvE resolveBattle 의 enemyHp<=0 가드 미러).
   //   이 가드가 없으면 상대 HP 0 인 채로 시전자의 후속 액션이 한 스텝 더 진행된다 — 평타면 시체를

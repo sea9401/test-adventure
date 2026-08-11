@@ -146,6 +146,7 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
     const directKinds = new Set([
       "damage",
       "hpCostDamage",
+      "missingHpDamage",
       "executeDamage",
       "ambushDamage",
       "stackPayoffDamage",
@@ -189,7 +190,7 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
         },
       });
 
-    expect(multiHitSkills).toHaveLength(23);
+    expect(multiHitSkills).toHaveLength(21);
     for (const skill of multiHitSkills) {
       const noDef = cast(skill.id, 0);
       const guarded = cast(skill.id, TARGET_DEF);

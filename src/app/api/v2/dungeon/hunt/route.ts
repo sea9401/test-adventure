@@ -952,8 +952,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
 
   // 홍보 보상은 가입이 아니라 서버 권위 프론티어 진행으로만 지급한다. 프론티어가
   // 갱신될 때 확인하고, conversion row lock으로 일괄 사냥/중복 요청도 멱등 처리한다.
+  let referralRewardEarned = false;
   if (won && next.frontierDepth > frontierDepth) {
-    await rewardReferralProgress(tx, userId, playerName, next.frontierDepth);
+    const referralReward = await rewardReferralProgress(
+      tx,
+      userId,
+      playerName,
+      next.frontierDepth,
+    );
+    referralRewardEarned = referralReward.staminaPotions > 0;
   }
 
   // 전투수 랭킹용 몬스터 킬 카운터 — huntKillLog(콜로케이트) 로 추출.
@@ -1054,6 +1061,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         ), // 최고 도달(MAX 캡으로 정규화)
         enemyName,
         won,
+        referralRewardEarned,
         timedOut,
         expGained,
         proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~5).
@@ -1275,6 +1283,7 @@ async function handleHunt(req: Request, userId: string) {
     let completed = 0;
     let wins = 0;
     let losses = 0;
+    let referralRewardEarned = false;
     let totalExp = 0;
     let totalProficiency = 0;
     let totalGold = 0;
@@ -1348,6 +1357,7 @@ async function handleHunt(req: Request, userId: string) {
       completed++;
       if (res.won) wins++;
       else losses++;
+      referralRewardEarned ||= res.referralRewardEarned;
       totalExp += res.expGained;
       totalProficiency += res.proficiencyGained;
       totalMastery += res.masteryGained ?? 0;
@@ -1525,6 +1535,7 @@ async function handleHunt(req: Request, userId: string) {
           completed,
           wins,
           losses,
+          referralRewardEarned,
           totalExp,
           totalProficiency,
           totalMastery,

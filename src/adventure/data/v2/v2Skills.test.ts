@@ -22,6 +22,7 @@ import {
   spCostOf,
   rubricSpCost,
   skillPowerScore,
+  v2SkillMpCostValue,
   type V2SkillId,
 } from "./v2Skills";
 
@@ -186,7 +187,7 @@ describe("일검필살 공격 전념", () => {
     const passive = aggregateEquippedPassives([
       "v2c_swordsaint_transcendence",
     ]);
-    expect(passive.reflectDamageTakenReductionPct).toBe(0);
+    expect(passive).not.toHaveProperty("reflectDamageTakenReductionPct");
     expect(
       describeV2Skill(V2_SKILLS.v2c_swordsaint_transcendence),
     ).not.toContain("받는 반사 피해 -20%");
@@ -465,6 +466,18 @@ describe("parseV2SkillsState", () => {
     expect(r.equipped).toEqual(["v2_skill_strike"]);
   });
 
+  it("배운 생활 패시브가 저장된 장착 목록에서 빠져도 자동 장착한다", () => {
+    const r = parseV2SkillsState({
+      learned: ["v2_skill_strike", "v2c_farmer_seedselection"],
+      equipped: ["v2_skill_strike"],
+    });
+
+    expect(r.equipped).toEqual([
+      "v2_skill_strike",
+      "v2c_farmer_seedselection",
+    ]);
+  });
+
   it("equipped 순서 보존 (자동 발동 우선순위)", () => {
     const ids: V2SkillId[] = [
       "v2_skill_dash",
@@ -707,13 +720,20 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     }
   });
 
-  it("광전 계열 패시브는 잃은 HP 1%당 공격력 증가량으로 표시한다", () => {
-    expect(describeV2Skill(V2_SKILLS.v2c_berserker_madness3)).toContain(
-      "잃은 HP 1%당 공격력 +0.45%",
-    );
-    expect(describeV2Skill(V2_SKILLS.v2c_warlord_slaughter)).toContain(
-      "잃은 HP 1%당 공격력 +0.65%",
-    );
+  it("광전 계열 패시브는 기존 잃은 HP 비례 공격력 칩을 제거한다", () => {
+    for (const id of [
+      "v2c_berserker_madness3",
+      "v2c_warlord_slaughter",
+      "v2c_overlord_throne",
+      "v2c_hegemon_dominion",
+    ] as const) {
+      expect(
+        describeV2Skill(V2_SKILLS[id]).some((chip) =>
+          chip.includes("잃은 HP 1%당 공격력"),
+        ),
+        id,
+      ).toBe(false);
+    }
   });
 
   it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
@@ -897,15 +917,11 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
   });
 
-  it("혈성기사·패황 계보 HP 소모기는 저체력 추가 피해 기준 하한을 표시한다", () => {
+  it("혈성기사 계보 HP 소모기는 저체력 추가 피해 기준 하한을 표시한다", () => {
     for (const id of [
       "v2c_bloodtemplar_stigma",
       "v2c_bloodlord_brand",
       "v2c_blooddemon_reign",
-      "v2c_berserker_bloodslash",
-      "v2c_warlord_bloodbath",
-      "v2c_overlord_ruin",
-      "v2c_hegemon_annihilation",
     ] as const) {
       expect(describeV2Skill(V2_SKILLS[id])).toEqual(
         expect.arrayContaining([
@@ -976,6 +992,161 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 });
 
 describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
+  it("명시 할인은 루브릭 산정 뒤 정수만 적용하고 최소 1 SP를 보장한다", () => {
+    const strike = V2_SKILLS.v2_skill_strike;
+    const oneCost = V2_SKILLS.v2c_none_diligence;
+
+    expect(spCostOf({ ...strike, spCostDiscount: 1 })).toBe(3);
+    expect(spCostOf({ ...strike, spCostDiscount: -5 })).toBe(4);
+    expect(spCostOf({ ...strike, spCostDiscount: 0.9 })).toBe(4);
+    expect(spCostOf({ ...oneCost, spCostDiscount: 99 })).toBe(1);
+  });
+
+  it("광전사–패황 계보는 단발 필살 역할과 광기 배타 단계를 데이터로 선언한다", () => {
+    expect(V2_SKILLS.v2c_berserker_bloodslash.effects).toEqual([
+      {
+        kind: "missingHpDamage",
+        attackCoef: 1,
+        statCoef: 1,
+        missingHpCoef: 0.4,
+        selfCurrentHpCostPct: 10,
+        scaling: "physical",
+      },
+    ]);
+    expect(V2_SKILLS.v2c_warlord_bloodbath.effects).toEqual([
+      {
+        kind: "missingHpDamage",
+        attackCoef: 1.1,
+        statCoef: 1.2,
+        missingHpCoef: 0.7,
+        selfCurrentHpCostPct: 15,
+        scaling: "physical",
+      },
+    ]);
+    expect(V2_SKILLS.v2c_overlord_ruin).toMatchObject({
+      name: "파멸일격",
+      effects: [
+        {
+          kind: "missingHpDamage",
+          attackCoef: 1.5,
+          statCoef: 1.8,
+          missingHpCoef: 1.4,
+          scaling: "physical",
+        },
+      ],
+    });
+    expect(V2_SKILLS.v2c_hegemon_annihilation).toMatchObject({
+      name: "멸왕일도",
+      oncePerBattle: true,
+      effects: [
+        {
+          kind: "missingHpDamage",
+          attackCoef: 2,
+          statCoef: 2.4,
+          missingHpCoef: 2,
+          scaling: "physical",
+        },
+      ],
+    });
+    expect(V2_SKILLS.v2c_berserker_bloodslash.defaultPattern).toEqual({
+      priority: 100,
+      condition: { kind: "self_hp", op: "above", pct: 70 },
+    });
+    expect(V2_SKILLS.v2c_warlord_bloodbath.defaultPattern).toEqual({
+      priority: 200,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 70 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: false },
+        ],
+      },
+    });
+    expect(V2_SKILLS.v2c_overlord_ruin.defaultPattern).toEqual({
+      priority: 300,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 50 },
+          { kind: "self_buff_pct", target: "berserkerFinisher", active: true },
+        ],
+      },
+    });
+    expect(V2_SKILLS.v2c_hegemon_annihilation.defaultPattern).toEqual({
+      priority: 400,
+      condition: {
+        kind: "any",
+        conditions: [
+          { kind: "self_buff_pct", target: "berserkerDeathOvercome", active: true },
+          { kind: "self_hp", op: "below", pct: 25 },
+        ],
+      },
+    });
+
+    expect(V2_SKILLS.v2c_overlord_ruin.effects).toHaveLength(1);
+    expect(V2_SKILLS.v2c_hegemon_annihilation.effects).toHaveLength(1);
+    expect(V2_SKILLS.v2c_overlord_throne.passive).toEqual({});
+    expect(V2_SKILLS.v2c_hegemon_dominion.passive).toEqual({});
+
+    const madnessRanks = [
+      ["v2c_berserker_madness3", 1],
+      ["v2c_warlord_slaughter", 2],
+      ["v2c_overlord_throne", 3],
+      ["v2c_hegemon_dominion", 4],
+    ] as const;
+    for (const [skillId, exclusiveRank] of madnessRanks) {
+      expect(V2_SKILLS[skillId]).toMatchObject({
+        exclusiveGroup: "berserker_madness",
+        exclusiveRank,
+      });
+    }
+
+    expect(spCostOf(V2_SKILLS.v2c_berserker_bloodslash)).toBe(6);
+    expect(spCostOf(V2_SKILLS.v2c_warlord_bloodbath)).toBe(7);
+    expect(spCostOf(V2_SKILLS.v2c_overlord_ruin)).toBe(10);
+    expect(spCostOf(V2_SKILLS.v2c_hegemon_annihilation)).toBe(13);
+    expect(spCostOf(V2_SKILLS.v2c_berserker_madness3)).toBe(5);
+    expect(spCostOf(V2_SKILLS.v2c_warlord_slaughter)).toBe(7);
+    expect(spCostOf(V2_SKILLS.v2c_overlord_throne)).toBe(14);
+    expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(15);
+    expect(spCostOf(V2_SKILLS.v2c_archmage_theory)).toBe(15);
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_hegemon_dominion).join(" "),
+    ).not.toContain("받는 반사 피해");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_archmage_theory).join(" "),
+    ).not.toContain("받는 반사 피해");
+    expect(
+      [
+        "v2c_berserker_bloodslash",
+        "v2c_warlord_bloodbath",
+        "v2c_overlord_ruin",
+        "v2c_hegemon_annihilation",
+      ].map((skillId) => ({
+        mp: v2SkillMpCostValue(V2_SKILLS[skillId as V2SkillId]),
+        proc: V2_SKILLS[skillId as V2SkillId].procChance,
+      })),
+    ).toEqual([
+      { mp: 76, proc: 56 },
+      { mp: 76, proc: 50 },
+      { mp: 76, proc: 44 },
+      { mp: 76, proc: 40 },
+    ]);
+    expect(
+      [
+        "v2c_berserker_bloodslash",
+        "v2c_warlord_bloodbath",
+        "v2c_overlord_ruin",
+        "v2c_hegemon_annihilation",
+        "v2c_hegemon_dominion",
+      ].reduce(
+        (sum, skillId) =>
+          sum + spCostOf(V2_SKILLS[skillId as V2SkillId]),
+        0,
+      ),
+    ).toBe(51);
+  });
+
   it("코스트는 성능(power)에 비례 — 강타 스타터(dmg 1.0)=4", () => {
     // 강타(attack, dmg 1.0·proc100) = 루브릭 4. 차수가 아니라 effects power 로 도출.
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
@@ -1031,7 +1202,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(skill.passive?.critDmgPct).toBe(35);
     expect(passive.singleHitPhysicalSkillDamagePct).toBe(30);
     expect(passive.accuracyPct).toBe(15);
-    expect(passive.reflectDamageTakenReductionPct).toBe(0);
+    expect(passive).not.toHaveProperty("reflectDamageTakenReductionPct");
     expect(spCostOf(skill)).toBe(15);
     expect(describeV2Skill(skill)).toContain("단일 타격 물리 스킬 피해 +30%");
   });
@@ -1110,7 +1281,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_spellsealer_greatward)).toBe(10);
     expect(spCostOf(V2_SKILLS.v2c_elementallord_surge)).toBe(16);
     expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(17);
-    expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(18);
+    expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(15);
     expect(spCostOf(V2_SKILLS.v2c_primordialmage_return)).toBe(16);
   });
 
@@ -1284,15 +1455,17 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(conditionalDelta).toBeCloseTo(directDelta * 0.5, 8);
   });
 
-  it("🔑 트립와이어 — 전투 스킬은 루브릭 미만으로 underprice 금지", () => {
-    // override 는 루브릭 "위로만"(아웃라이어 너프) 허용. 아래로 깎으면 값싼+강한 공용으로
-    // 직업 무관 유틸 스택 길이 열린다(PR-5 잔여 리스크). 새 스킬/override 가 바닥을 뚫으면 실패.
+  it("🔑 트립와이어 — 전투 스킬은 명시 할인 이상으로 underprice 금지", () => {
+    // override 는 루브릭 "위로만"(아웃라이어 너프) 허용하고, 합의된 소량의
+    // 명시 할인만 예외로 허용한다. 새 스킬/오버라이드가 그 바닥을 뚫으면 실패한다.
     for (const def of Object.values(V2_SKILLS)) {
       if (isLifestyleSkill(def)) continue;
+      const discount = Math.max(0, Math.floor(def.spCostDiscount ?? 0));
+      const floor = Math.max(1, rubricSpCost(def) - discount);
       expect(
         spCostOf(def),
-        `${def.id} 가 루브릭(${rubricSpCost(def)}) 미만으로 underprice 됨`,
-      ).toBeGreaterThanOrEqual(rubricSpCost(def));
+        `${def.id} 가 할인 반영 루브릭(${floor}) 미만으로 underprice 됨`,
+      ).toBeGreaterThanOrEqual(floor);
     }
   });
 });

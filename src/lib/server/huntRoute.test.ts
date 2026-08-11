@@ -11,7 +11,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { rewardReferralProgress, store } = vi.hoisted(() => ({
+  rewardReferralProgress: vi.fn(async () => ({
+    staminaPotions: 0,
+    rewardedDepth: 0,
+  })),
+  store: new Map<string, unknown>(),
+}));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -23,6 +29,7 @@ vi.mock("@/lib/server/serverFeed", () => ({
   insertFeedEntry: vi.fn(async () => {}),
   resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralProgress }));
 // tx/db raw 쿼리 — 모든 select 체인은 빈 결과, insert 는 no-op. 솔로 경로는 안 타고,
 // outpostId 경로에선 occupations FOR SHARE [] = 미점령 거점으로 동작.
 vi.mock("@/db", () => {
@@ -642,5 +649,28 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     };
     expect(json.result.won).toBe(true);
     expect(json.result.maxDepth).toBe(4);
+  });
+
+  it("홍보 단계 보상이 지급된 사냥 응답에만 우편 알림 갱신 신호를 담는다", async () => {
+    rewardReferralProgress.mockResolvedValueOnce({
+      staminaPotions: 2,
+      rewardedDepth: 6,
+    });
+    store.set("character.v2", {
+      ...(store.get("character.v2") as object),
+      frontierDepth: 4,
+    });
+
+    const rewardedRes = await POST(huntReq({ floor: 6 }));
+    expect(rewardedRes.status).toBe(200);
+    await expect(rewardedRes.json()).resolves.toMatchObject({
+      result: { referralRewardEarned: true },
+    });
+
+    const ordinaryRes = await POST(huntReq({ floor: 6 }));
+    expect(ordinaryRes.status).toBe(200);
+    await expect(ordinaryRes.json()).resolves.toMatchObject({
+      result: { referralRewardEarned: false },
+    });
   });
 });

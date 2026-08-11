@@ -46,6 +46,9 @@ import {
 } from "../V2ItemCard";
 import { InventoryItemIcon } from "./InventoryItemIcon";
 import { MasteryCertificateEntryCard } from "../MasteryCertificateUseModal";
+import type { FishId } from "@/adventure/data/v2/fish";
+import type { FishSpecimenInventory } from "@/adventure/v2/fishSpecimens";
+import { FishSpecimenSection } from "./FishSpecimenSection";
 
 function cashItemUseLabel(itemId: MuseunCashItemId): string {
   const effect = MUSEUN_CASH_ITEMS[itemId].effect;
@@ -81,6 +84,9 @@ export function RareMapsTab({
   cookingFoods,
   onUseCookingFood,
   onUseExpTome,
+  fishSpecimens,
+  registeredFishIds,
+  onUseFishSpecimen,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
@@ -96,6 +102,9 @@ export function RareMapsTab({
   cookingFoods: CookingFoodInventory;
   onUseCookingFood: (itemId: CookingFoodId) => void;
   onUseExpTome: (map: RareMapInstance) => void;
+  fishSpecimens: FishSpecimenInventory["items"];
+  registeredFishIds: readonly string[];
+  onUseFishSpecimen: (fishId: FishId) => void;
 }) {
   const router = useRouter();
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -114,6 +123,12 @@ export function RareMapsTab({
   );
   return (
     <div className="space-y-4">
+      <FishSpecimenSection
+        specimens={fishSpecimens}
+        registeredIds={registeredFishIds}
+        busyFishId={busy?.startsWith("fish_specimen_") ? (busy.slice(14) as FishId) : null}
+        onUse={onUseFishSpecimen}
+      />
       <CookingFoodSection
         cookingFoods={cookingFoods}
         busy={busy}
@@ -170,7 +185,8 @@ export function RareMapsTab({
           hasSpFruit ||
           hasEquipmentBox ||
           hasMasteryTome ||
-          hasMasteryCertificate
+          hasMasteryCertificate ||
+          Object.values(fishSpecimens).some((count) => (count ?? 0) > 0)
         }
         onUse={onUseExpTome}
       />

@@ -95,8 +95,6 @@ export type V2PassiveSkillEffect = {
   //   PvE/PvP 양쪽 작동(#835 PvP 미러 후). 미지정=무적용(byte-identical).
   /** 받는 피해 -% 가산(방벽) — totalDamageTakenReductionPct 에 합산. */
   damageTakenReductionPct?: number;
-  /** 받는 반사 피해 -%. 직접 공격 빌드가 반사 탱커를 상대할 때 쓰는 제한적 카운터. */
-  reflectDamageTakenReductionPct?: number;
   /** 마법 방어력 +% 가산(결계술) — magicDef 에 곱연산. */
   magicDefPct?: number;
   /** 전투 초반 마법형 평타 받는 피해 -% 가산(결계술). */
@@ -333,6 +331,16 @@ export type V2SkillEffect =
       soakRatio: number;
       scaling?: V2DamageScaling;
     }
+  // 광전사·패황 단발 필살 — 잃은 체력 비율로 기본 피해 전체를 증폭한다.
+  // selfCurrentHpCostPct가 있으면 명중 뒤 예상 체력을 기준으로 잃은 체력을 계산한다.
+  | {
+      kind: "missingHpDamage";
+      attackCoef: number;
+      statCoef: number;
+      missingHpCoef: number;
+      selfCurrentHpCostPct?: number;
+      scaling: "physical";
+    }
   // 힐→딜 — 자힐 후 힐량×damageRatio 적에게 딜(신성 강타).
   | {
       kind: "healToDamage";
@@ -438,6 +446,17 @@ export type V2SkillDefinition = {
   /** SP 로드아웃 코스트(코어루프) — 생활 스킬은 항상 0, 나머지는 미지정 시
    *  (category, tier) 루브릭 표(spCostOf)에서 도출. PR-5 sim 튜닝 때 아웃라이어만 명시 override. */
   spCost?: number;
+  /** 성능 루브릭 산정 뒤 적용하는 명시 할인. 결과 SP는 최소 1. */
+  spCostDiscount?: number;
+  /** 저장 패턴이 없을 때 사용할 스킬별 스마트 기본 조건과 전역 우선순위. */
+  defaultPattern?: {
+    priority: number;
+    condition: V2CombatCondition;
+  };
+  /** 같은 그룹에서는 한 스킬만 장착할 수 있다. */
+  exclusiveGroup?: string;
+  /** 배타 그룹의 마이그레이션 우선순위. 높은 단계가 기존 중첩 장착에서 살아남는다. */
+  exclusiveRank?: number;
   /** 학습 비용 오버라이드(숙달 포인트) — 미지정이면 tier 스케일(V2_SKILL_LEARN_COST_BY_TIER). */
   learnCost?: number;
   /** 패시브 스킬(category "passive") 의 상시 효과 — 장착 시 derive 가 적용(캐스트 아님).
@@ -508,6 +527,7 @@ type V2DirectDamageEffect = Extract<
     kind:
       | "damage"
       | "hpCostDamage"
+      | "missingHpDamage"
       | "executeDamage"
       | "ambushDamage"
       | "stackPayoffDamage";
@@ -518,6 +538,7 @@ function isDirectDamageEffect(e: V2SkillEffect): e is V2DirectDamageEffect {
   return (
     e.kind === "damage" ||
     e.kind === "hpCostDamage" ||
+    e.kind === "missingHpDamage" ||
     e.kind === "executeDamage" ||
     e.kind === "ambushDamage" ||
     e.kind === "stackPayoffDamage"
@@ -624,6 +645,14 @@ function spEffectValue(
       const selfCostDiscount = 1 - Math.min(0.25, (e.pctCurrentHp / 100) * 1.25);
       return (base + soakValue) * selfCostDiscount;
     }
+    case "missingHpDamage": {
+      const base = spDirectDamageValue(def, e, directDamageEffectCount);
+      // 필살기를 쓰는 평균 시점을 HP 50%로 잡고, 자해가 있는 기술은 그 위험만큼 할인한다.
+      const expectedMissingHpRatio = 0.5;
+      const selfCostDiscount =
+        1 - Math.min(0.25, ((e.selfCurrentHpCostPct ?? 0) / 100) * 1.25);
+      return base * (1 + expectedMissingHpRatio * e.missingHpCoef) * selfCostDiscount;
+    }
     case "healToDamage": {
       const base = e.healStatCoef + spAvgTier(e.healFlatByTier) / SP_FLAT_NORM;
       return base * (1 + 0.5 * e.damageRatio); // 자힐 + 미러 데미지.
@@ -726,7 +755,6 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.accuracyPct ?? 0) / 30;
     mag += (p.healPowerPct ?? 0) / 16;
     mag += (p.damageTakenReductionPct ?? 0) / 8;
-    mag += (p.reflectDamageTakenReductionPct ?? 0) / 50;
     mag += (p.magicDefPct ?? 0) / 12;
     if (p.openingMagicDamageReductionPct) {
       mag +=
@@ -769,6 +797,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
         (effect) =>
           effect.kind === "damage" ||
           effect.kind === "hpCostDamage" ||
+          effect.kind === "missingHpDamage" ||
           effect.kind === "executeDamage" ||
           effect.kind === "ambushDamage" ||
           effect.kind === "stackPayoffDamage",
@@ -874,15 +903,34 @@ export function isLifestyleSkill(skill: V2SkillDefinition): boolean {
   return !!passive && LIFESTYLE_PASSIVE_KEYS.some((key) => key in passive);
 }
 
+/** 배운 생활 패시브는 선택형 로드아웃과 무관하게 항상 적용한다. 기존 전투 우선순위는 보존하고,
+ *  누락된 생활 패시브만 학습 순서대로 뒤에 추가한다. */
+export function includeLearnedLifestyleSkills(
+  equipped: readonly V2SkillId[],
+  learned: readonly V2SkillId[],
+): V2SkillId[] {
+  const next = [...equipped];
+  const equippedSet = new Set<V2SkillId>(next);
+  for (const id of learned) {
+    const skill = V2_SKILLS[id];
+    if (!skill || !isLifestyleSkill(skill) || equippedSet.has(id)) continue;
+    equippedSet.add(id);
+    next.push(id);
+  }
+  return next;
+}
+
 // 스킬 1종의 SP 코스트 — 생활 스킬은 장착 혼동을 줄이기 위해 항상 0.
-//   전투 스킬의 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).
-//   아래로 깎으면 값싼+강한 공용 스택(정체성 붕괴) 길이 열린다 → max(루브릭, override).
+//   전투 스킬의 명시 spCost override 는 "위로만"(루브릭 이상) 허용한다.
+//   합의된 소량의 하향 조정은 spCostDiscount 로 별도 명시하며, 최종 비용은 최소 1 SP다.
 export function spCostOf(skill: V2SkillDefinition): number {
   if (isLifestyleSkill(skill)) return 0;
-  if (typeof skill.spCost === "number" && skill.spCost > 0) {
-    return Math.max(rubricSpCost(skill), Math.floor(skill.spCost));
-  }
-  return rubricSpCost(skill);
+  const baseCost =
+    typeof skill.spCost === "number" && skill.spCost > 0
+      ? Math.max(rubricSpCost(skill), Math.floor(skill.spCost))
+      : rubricSpCost(skill);
+  const discount = Math.max(0, Math.floor(skill.spCostDiscount ?? 0));
+  return Math.max(1, baseCost - discount);
 }
 
 // 전체 액티브 리밸런싱(2026-07): 낮은 차수는 자주·약하게, 높은 차수는 덜 자주·강하게.
@@ -1124,6 +1172,9 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
           ? { baseFlatByTier: scaledFlatByTier(effect.baseFlatByTier, scale) }
           : {}),
       };
+    case "missingHpDamage":
+      // 승인된 단발 필살 계수는 발동률 공통 리밸런싱으로 다시 깎지 않는다.
+      return effect;
     case "hpCostDamage":
     case "executeDamage":
     case "ambushDamage":
@@ -1273,9 +1324,55 @@ export function isLimitedRecoverySkillId(
   );
 }
 
+export type V2ExclusiveSkillConflict = {
+  group: string;
+  skillIds: V2SkillId[];
+};
+
+/** 같은 배타 그룹을 둘 이상 장착한 입력을 원래 순서대로 분류한다. */
+export function exclusiveSkillConflicts(
+  ids: readonly V2SkillId[],
+): V2ExclusiveSkillConflict[] {
+  const grouped = new Map<string, V2SkillId[]>();
+  for (const id of ids) {
+    const group = V2_SKILLS[id]?.exclusiveGroup;
+    if (!group) continue;
+    const skillIds = grouped.get(group) ?? [];
+    skillIds.push(id);
+    grouped.set(group, skillIds);
+  }
+  return [...grouped.entries()]
+    .filter(([, skillIds]) => skillIds.length > 1)
+    .map(([group, skillIds]) => ({ group, skillIds }));
+}
+
+/** 손상된 기존 장착에서 그룹별 최고 단계를 하나만 남긴다. 동률은 먼저 나온 항목이 이긴다. */
+export function resolveExclusiveSkills(
+  ids: readonly V2SkillId[],
+): V2SkillId[] {
+  const winnerByGroup = new Map<
+    string,
+    { index: number; rank: number }
+  >();
+  ids.forEach((id, index) => {
+    const def = V2_SKILLS[id];
+    if (!def?.exclusiveGroup) return;
+    const rank = def.exclusiveRank ?? 0;
+    const current = winnerByGroup.get(def.exclusiveGroup);
+    if (!current || rank > current.rank) {
+      winnerByGroup.set(def.exclusiveGroup, { index, rank });
+    }
+  });
+
+  return ids.filter((id, index) => {
+    const group = V2_SKILLS[id]?.exclusiveGroup;
+    return !group || winnerByGroup.get(group)?.index === index;
+  });
+}
+
 // 장착(로드아웃)된 패시브 스킬들의 상시 효과 집계 — 코어루프 derive 가 호출.
 //   대부분은 합산한다. 반격 확률(counterChancePct)은 100%에 쉽게 닿지 않도록 실패 확률을 곱한다.
-//   패시브 아닌 스킬·미존재 id 는 무시.
+//   배타 그룹은 최고 단계 하나만 적용하고, 패시브 아닌 스킬·미존재 id 는 무시.
 export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   stat: Partial<Record<V2StatKey, number>>;
   statPct: Partial<Record<V2StatKey, number>>;
@@ -1295,7 +1392,6 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
-  reflectDamageTakenReductionPct: number;
   magicDefPct: number;
   openingMagicDamageReductionPct: number;
   openingMagicDamageReductionPhases: number;
@@ -1314,6 +1410,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   skillCritDmgPct: number;
   skillCritAfterEvade: boolean;
   comboFinisherBonusPct: number;
+  berserkerMadnessRank: 0 | 1 | 2 | 3 | 4;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -1333,7 +1430,6 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
-  let reflectDamageTakenReductionPct = 0;
   let magicDefPct = 0;
   let openingMagicDamageReductionPct = 0;
   let openingMagicDamageReductionPhases = 0;
@@ -1352,8 +1448,22 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let skillCritDmgPct = 0;
   let skillCritAfterEvade = false;
   let comboFinisherBonusPct = 0;
-  for (const id of equipped) {
-    const p = V2_SKILLS[id]?.passive;
+  let berserkerMadnessRank: 0 | 1 | 2 | 3 | 4 = 0;
+  for (const id of resolveExclusiveSkills(equipped)) {
+    const def = V2_SKILLS[id];
+    if (def?.exclusiveGroup === "berserker_madness") {
+      const rank = Math.max(0, Math.min(4, def.exclusiveRank ?? 0)) as
+        | 0
+        | 1
+        | 2
+        | 3
+        | 4;
+      berserkerMadnessRank = Math.max(
+        berserkerMadnessRank,
+        rank,
+      ) as 0 | 1 | 2 | 3 | 4;
+    }
+    const p = def?.passive;
     if (!p) continue;
     for (const [k, v] of Object.entries(p.stat ?? {})) {
       if (v) stat[k as V2StatKey] = (stat[k as V2StatKey] ?? 0) + v;
@@ -1380,8 +1490,6 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
-    reflectDamageTakenReductionPct +=
-      p.reflectDamageTakenReductionPct ?? 0;
     magicDefPct += p.magicDefPct ?? 0;
     openingMagicDamageReductionPct += p.openingMagicDamageReductionPct ?? 0;
     openingMagicDamageReductionPhases = Math.max(
@@ -1438,10 +1546,6 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
-    reflectDamageTakenReductionPct: Math.min(
-      80,
-      reflectDamageTakenReductionPct,
-    ),
     magicDefPct,
     openingMagicDamageReductionPct,
     openingMagicDamageReductionPhases,
@@ -1460,6 +1564,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     skillCritDmgPct,
     skillCritAfterEvade,
     comboFinisherBonusPct,
+    berserkerMadnessRank,
   };
 }
 
@@ -1767,6 +1872,8 @@ function describeV2Effect(
       return `적 지속/저주 피해 +${e.pct}% (${targetActionsChip(e.turns)})`;
     case "hpCostDamage":
       return `명중 시 HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 기준 소모량×${e.soakRatio}${e.soakCurrentHpFloorPct ? ` (추가 피해 기준 현재 HP 최소 ${e.soakCurrentHpFloorPct}%)` : ""}`;
+    case "missingHpDamage":
+      return `${e.selfCurrentHpCostPct ? `명중 시 현재 HP ${e.selfCurrentHpCostPct}% 소모 → ` : ""}피해 공격력×${formatSkillCoefficient(e.attackCoef)} + 힘×${formatSkillCoefficient(e.statCoef)} (잃은 HP 비율 광폭 계수 ×${formatSkillCoefficient(e.missingHpCoef)})`;
     case "healToDamage":
       return `자힐 ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(v2SkillHealStatCoef(e.healStatCoef))}${flatChip(undefined, e.healFlatByTier)} (회복량 보정 적용) → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
@@ -1811,8 +1918,6 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
     chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);
-  if (p.reflectDamageTakenReductionPct)
-    chips.push(`받는 반사 피해 -${p.reflectDamageTakenReductionPct}%`);
   if (p.magicDefPct) chips.push(`마법 방어력 +${p.magicDefPct}%`);
   if (p.openingMagicDamageReductionPct)
     chips.push(
@@ -2060,7 +2165,8 @@ const MAX_SKILL_ORDER_INPUT = Object.keys(V2_SKILLS).length;
 export type V2SkillsState = {
   /** 학습 보유 스킬 id 목록 (영구, 중복 없음). */
   learned: V2SkillId[];
-  /** SP 로드아웃 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합). */
+  /** SP 로드아웃 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합).
+   *  배운 생활 패시브는 파싱 시 항상 포함된다. */
   equipped: V2SkillId[];
   /** 학습 라이브러리 표시 순서. 전투/소유 판정과 무관한 UI 정렬값. */
   skillOrder?: V2SkillId[];
@@ -2143,7 +2249,8 @@ export function normalizeFavoriteSkills(
   return out;
 }
 
-// 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지한다.
+// 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지하고, 배운 생활
+// 패시브는 누락됐더라도 항상 추가한다.
 // SP 예산 클램프는 proficiency/character 컨텍스트가 있는 라우트에서 sanitizeLoadout 으로 처리한다.
 export function parseV2SkillsState(raw: unknown): V2SkillsState {
   if (!raw || typeof raw !== "object") return emptyV2SkillsState();
@@ -2168,6 +2275,10 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     equippedSet.add(id);
     equipped.push(id as V2SkillId);
   }
+  const equippedWithLifestyle = includeLearnedLifestyleSkills(
+    equipped,
+    learned,
+  );
   // 전투 패턴 — 있으면 검증 파싱(블록 단위 drop), 없으면 미설정(undefined → 엔진 기본 패턴).
   const rawPattern = (raw as { pattern?: unknown }).pattern;
   const pattern =
@@ -2196,8 +2307,8 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     learned,
   );
   let base: V2SkillsState = pattern
-    ? { learned, equipped, pattern }
-    : { learned, equipped };
+    ? { learned, equipped: equippedWithLifestyle, pattern }
+    : { learned, equipped: equippedWithLifestyle };
   if (skillOrder.length > 0) base = { ...base, skillOrder };
   if (favoriteSkills.length > 0) base = { ...base, favoriteSkills };
   if (presets.length > 0) base = { ...base, presets };
@@ -2245,6 +2356,7 @@ const DAMAGE_EFFECT_KINDS = new Set([
   "damage",
   "dot",
   "hpCostDamage",
+  "missingHpDamage",
   "healToDamage",
   "executeDamage",
   "stackPayoffDamage",
@@ -2338,7 +2450,8 @@ function isOncePerBattleEvadeOpener(skillId: string): boolean {
 
 // 장착 스킬을 스마트 기본 조건으로 묶은 패턴. 미설정 캐릭의 폴백.
 //   전투당 1회 생존 오프너(그림자 도약)는 "항상" 공격보다 먼저 독립 시전되어야 하므로 최우선에
-//   두고, 나머지는 슬롯 순서를 유지한다. 카탈로그에 없는 id 는 안전하게 "항상".
+//   둔다. 그 뒤 카탈로그가 명시한 기본 우선순위를 적용하고, 메타데이터가 없는 나머지는 슬롯
+//   순서를 유지한다. 카탈로그에 없는 id 는 안전하게 "항상".
 //   엔진·에디터·PvP 가 공유(단일 소스).
 export function smartDefaultPatternFromEquipped(
   equipped: readonly string[],
@@ -2346,17 +2459,31 @@ export function smartDefaultPatternFromEquipped(
   const activeSkillIds = equipped.filter(
     (skillId) => V2_SKILLS[skillId as V2SkillId]?.category !== "passive",
   );
-  const orderedSkillIds = [
-    ...activeSkillIds.filter(isOncePerBattleEvadeOpener),
-    ...activeSkillIds.filter((skillId) => !isOncePerBattleEvadeOpener(skillId)),
-  ];
+  const openerSkillIds = activeSkillIds.filter(isOncePerBattleEvadeOpener);
+  const remainingSkillIds = activeSkillIds
+    .filter((skillId) => !isOncePerBattleEvadeOpener(skillId))
+    .map((skillId, index) => ({ skillId, index }))
+    .sort((left, right) => {
+      const leftPriority =
+        V2_SKILLS[left.skillId as V2SkillId]?.defaultPattern?.priority;
+      const rightPriority =
+        V2_SKILLS[right.skillId as V2SkillId]?.defaultPattern?.priority;
+      if (leftPriority !== undefined && rightPriority !== undefined) {
+        return rightPriority - leftPriority || left.index - right.index;
+      }
+      if (leftPriority !== undefined) return -1;
+      if (rightPriority !== undefined) return 1;
+      return left.index - right.index;
+    })
+    .map(({ skillId }) => skillId);
+  const orderedSkillIds = [...openerSkillIds, ...remainingSkillIds];
 
   return {
     blocks: orderedSkillIds.map((skillId) => {
       const def = V2_SKILLS[skillId as V2SkillId];
       return {
         condition: def
-          ? smartDefaultConditionForSkill(def)
+          ? (def.defaultPattern?.condition ?? smartDefaultConditionForSkill(def))
           : ({ kind: "always" } as V2CombatCondition),
         action: { kind: "skill" as const, skillId },
       };

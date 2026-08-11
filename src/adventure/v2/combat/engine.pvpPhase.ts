@@ -1,5 +1,6 @@
 import {
   actorKeys,
+  applyBerserkerHostileDamagePvP,
   applyOnHitReflect,
   applyPerAttackDodge,
   applyPotionTo,
@@ -8,6 +9,7 @@ import {
   attackerFacingDef,
   decrementTimedEffects,
   endAttackerPhase,
+  finishPvPBerserkerAttackAction,
   maybeApplyRuneCounter,
   maybeApplyMartialCounter,
   pvpSideDamageTakenReductionPct,
@@ -21,6 +23,7 @@ import {
   type PvPSide,
   type PvPSideBuffs,
 } from "./engine-pvp";
+import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   applyV2DotsToTarget,
   extractApEffect,
@@ -565,18 +568,26 @@ export function advanceTurnPvP(
   // 보호막을 뚫고 HP 피해가 남은 공격은 기존과 동일하게 처리한다.
   const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
   // 불굴 — HP 0 직전 1 로 막아준다 (전투당 1회).
-  const wouldKill = defender.hp - dmgToHp <= 0;
+  const berserkerSurvival = applyBerserkerHostileDamagePvP(
+    defender,
+    defender.hp - dmgToHp,
+  );
+  const defenderAfterSurvival = berserkerSurvival.side;
+  const wouldKill = defenderAfterSurvival.hp <= 0;
   const enduranceFires =
     wouldKill &&
     !!defender.player.enduranceActive &&
     !defender.flags.enduranceTriggered;
   const defenderHpAfterDmg = enduranceFires
     ? 1
-    : Math.max(0, defender.hp - dmgToHp);
+    : defenderAfterSurvival.hp;
   // 흡혈 갑옷 — 받은 HP 피해의 N% HP 회복 (생존 시).
   const bloodfeastPct = defender.player.bloodfeastPct ?? 0;
   const bloodfeastHeal =
-    bloodfeastPct > 0 && dmgToHp > 0 && defenderHpAfterDmg > 0
+    bloodfeastPct > 0 &&
+    dmgToHp > 0 &&
+    defenderHpAfterDmg > 0 &&
+    !berserkerSurvival.triggered
       ? Math.floor((dmgToHp * bloodfeastPct) / 100)
       : 0;
   const newDefenderHp =
@@ -654,6 +665,20 @@ export function advanceTurnPvP(
     kind: "player_attack",
     text: `${prefix}공격! ${dmgToHp} 피해를 입혔다.`,
   });
+  if (berserkerSurvival.triggered) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[사망 극복] ${defender.name}이(가) 쓰러지지 않고 HP ${defenderHpAfterDmg}로 돌아왔다.`,
+      side: defKey,
+    });
+    if ((defender.player.berserkerMadnessRank ?? 0) >= 4) {
+      log = appendLog(log, {
+        kind: "info",
+        text: `[패황의 지배] 다음 공격 강화 · 멸왕일도 1회 재충전.`,
+        side: defKey,
+      });
+    }
+  }
   if (enduranceFires) {
     log = appendLog(log, {
       kind: "info",
@@ -1118,8 +1143,16 @@ export function advanceTurnPvP(
         : attacker.turn.queuedExtraAttacks,
     },
   };
+  const guardedDefender = defenderAfterSurvival.berserker
+    ? {
+        ...defenderAfterSurvival,
+        berserker: finishBerserkerCurrentActionGuard(
+          defenderAfterSurvival.berserker,
+        ),
+      }
+    : defenderAfterSurvival;
   const newDefender: PvPSide = applyPvPOnHitDots({
-    ...defender,
+    ...guardedDefender,
     // 독니 on-crit 독(Phase 2) 합류 — 미발동=defender.v2Dots 그대로.
     v2Dots: !statusBlockSigStatus && (sigCritPoison || sigHitPoison)
       ? applyV2DotsToTarget(defender.v2Dots, [
@@ -1178,18 +1211,39 @@ export function advanceTurnPvP(
   // ── on-hit reflect (반사 갑주 + 가시 갑옷 + 무한 가시) — 공격자에게 반사 피해 ──
   // 베이스는 회피 경감 후 totalDmg(그 밖의 받피감·가드·보호막 적용 전).
   if (!hitStoppedByShield) {
-    const reflectResult = applyOnHitReflect(next, atkKey, defKey, totalDmg);
+    const reflectResult = applyOnHitReflect(
+      next,
+      atkKey,
+      defKey,
+      totalDmg,
+      false,
+    );
     next = reflectResult.state;
     if (reflectResult.attackerKilled) return next;
     // ── 반격의 룬 — 피격 후 일정 확률로 ATK 카운터 ──
-    const runeCounterResult = maybeApplyRuneCounter(next, atkKey, defKey);
+    const runeCounterResult = maybeApplyRuneCounter(
+      next,
+      atkKey,
+      defKey,
+      false,
+    );
     next = runeCounterResult.state;
     if (runeCounterResult.attackerKilled) return next;
     // ── 무도가/절정 반격 패시브 — 피격 후 일정 확률로 ATK 카운터(PvE enemyPhase 미러) ──
-    const martialCounterResult = maybeApplyMartialCounter(next, atkKey, defKey);
+    const martialCounterResult = maybeApplyMartialCounter(
+      next,
+      atkKey,
+      defKey,
+      false,
+    );
     next = martialCounterResult.state;
     if (martialCounterResult.attackerKilled) return next;
   }
+  next = finishPvPBerserkerAttackAction(
+    next,
+    atkKey,
+    attacker.berserker,
+  );
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
   const attacksLeft =
     attacker.attacksLeft - 1 + weakpointAdd + comboExtraAttacks + sigExtraAttack;

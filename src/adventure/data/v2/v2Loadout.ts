@@ -7,7 +7,15 @@
 // 전부 V2_CORE_LOOP_V2 뒤에서만 강제. flag off 면 기존 자동장착(learned ∩ chain, 상한 없음) 유지.
 // 이 모듈은 순수(부수효과·DB 없음) — 라우트가 budget 을 계산해 넘긴다(순환 import 회피).
 
-import { V2_SKILLS, spCostOf, type V2SkillId } from "./v2Skills";
+import {
+  V2_SKILLS,
+  exclusiveSkillConflicts,
+  includeLearnedLifestyleSkills,
+  resolveExclusiveSkills,
+  spCostOf,
+  type V2ExclusiveSkillConflict,
+  type V2SkillId,
+} from "./v2Skills";
 
 export type LoadoutCheck = {
   ok: boolean;
@@ -16,6 +24,7 @@ export type LoadoutCheck = {
   overBudget: boolean;
   notLearned: V2SkillId[]; // 장착했지만 배우지 않은 스킬(라이브러리 밖).
   unknown: V2SkillId[]; // 카탈로그에 없는 id(구버전/손상) — 검증기는 통과시키지 않는다.
+  exclusiveConflicts: V2ExclusiveSkillConflict[];
 };
 
 // 로드아웃 1벌 검증. equipped 가 (1) 전부 카탈로그에 있고 (2) 전부 learned 안 (3) Σ spCost ≤
@@ -41,18 +50,24 @@ export function validateLoadout(
     if (!learnedSet.has(id)) notLearned.push(id);
   }
   const overBudget = spUsed > spBudget;
+  const exclusiveConflicts = exclusiveSkillConflicts(equipped);
   return {
-    ok: !overBudget && notLearned.length === 0 && unknown.length === 0,
+    ok:
+      !overBudget &&
+      notLearned.length === 0 &&
+      unknown.length === 0 &&
+      exclusiveConflicts.length === 0,
     spUsed,
     spBudget,
     overBudget,
     notLearned,
     unknown,
+    exclusiveConflicts,
   };
 }
 
-// 저장된 로드아웃을 "유효한 부분집합"으로 정리(sanitize) — 플레이어의 수동 선택을 보존하되
-//   더는 유효하지 않은 항목만 떨군다. reconcile/환생/마이그(코어루프)의 단일 규칙.
+// 저장된 로드아웃을 "유효한 부분집합"으로 정리(sanitize) — 플레이어의 전투 스킬 선택을 보존하되
+//   더는 유효하지 않은 항목은 떨구고 배운 생활 패시브는 항상 추가한다. reconcile/환생/마이그의 단일 규칙.
 //   유효 = (1) 카탈로그에 있고 (2) learned 안 → 그 뒤 예산 클램프.
 //   강제 재산출이 아니라 보존-정리라, 수동 로드아웃·오픈믹스(타직업 공용)를 살린다.
 export function sanitizeLoadout(
@@ -64,7 +79,8 @@ export function sanitizeLoadout(
   const valid = equipped.filter(
     (id) => V2_SKILLS[id] !== undefined && learnedSet.has(id),
   );
-  return clampLoadoutToBudget(valid, spBudget);
+  const withLifestyle = includeLearnedLifestyleSkills(valid, learned);
+  return clampLoadoutToBudget(resolveExclusiveSkills(withLifestyle), spBudget);
 }
 
 // 후보 로드아웃을 SP 예산에 맞게 잘라낸다 — 순서(우선순위) 보존, 누적합이 예산을 넘기지

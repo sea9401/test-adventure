@@ -20,6 +20,7 @@ import { isMuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import { isCookingFoodId } from "@/adventure/v2/cooking";
 import { RARE_MAP_CAP, parseRareMaps } from "@/adventure/data/v2/rareMaps";
+import { fishIdFromSpecimenItemId } from "@/adventure/v2/fishSpecimens";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -134,7 +135,8 @@ export async function POST(req: Request) {
     if (
       listing.kind === "consumable" &&
       !isMuseunCashItemId(listing.itemId) &&
-      !isCookingFoodId(listing.itemId)
+      !isCookingFoodId(listing.itemId) &&
+      fishIdFromSpecimenItemId(listing.itemId) === null
     ) {
       const inst = restoreMarketplaceRareMap(listing.instancePayload, Date.now());
       if (!inst) {
@@ -161,6 +163,7 @@ export async function POST(req: Request) {
       listing.kind === "consumable" &&
       !isMuseunCashItemId(listing.itemId) &&
       !isCookingFoodId(listing.itemId) &&
+      fishIdFromSpecimenItemId(listing.itemId) === null &&
       parseRareMaps(charSave.rareMaps, Date.now()).length >= RARE_MAP_CAP
     ) {
       return {

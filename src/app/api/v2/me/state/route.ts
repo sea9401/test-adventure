@@ -563,7 +563,12 @@ export async function GET(req: Request) {
           ? charSave.discoveredOutpostIds
           : seededDiscovery(),
       equipmentCodex: { registeredIds: equipmentCodex.registeredIds },
-      fishingCodex: { discoveredIds: fishingCodex.discoveredIds },
+      fishingCodex: {
+        registeredIds: fishingCodex.registeredIds,
+        caughtIds: fishingCodex.caughtIds,
+        discoveredIds: fishingCodex.discoveredIds,
+        best: fishingCodex.best,
+      },
       frontierDepth: frontierDepthOf(charSave.frontierDepth),
       proficiency: proficiencySummary(proficiencyRow?.value, charSave),
     });

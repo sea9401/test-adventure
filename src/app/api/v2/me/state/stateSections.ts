@@ -81,10 +81,11 @@ import {
 import { FISH_TOTAL } from "@/adventure/data/v2/fish";
 import {
   FISHING_CODEX_SP_MILESTONES,
-  discoveredFishIds,
+  caughtFishIds,
   fishCodexSpBonus,
   nextFishCodexMilestone,
   parseFishCodex,
+  registeredFishIds,
 } from "@/adventure/v2/fishingCodex";
 import {
   COOKING_RECIPES,
@@ -469,16 +470,19 @@ export function materialCodexSection(materialsRaw: unknown) {
 // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
 export function fishingCodexSection(fishingCodexRaw: unknown) {
   const codex = parseFishCodex(fishingCodexRaw);
-  const ids = discoveredFishIds(codex);
+  const registeredIds = registeredFishIds(codex);
+  const caughtIds = caughtFishIds(codex);
   const best: Record<string, number> = {};
-  for (const id of ids) best[id] = codex.fish[id].bestSize;
+  for (const id of caughtIds) best[id] = codex.fish[id].bestSize;
   return {
-    discoveredIds: ids,
+    registeredIds,
+    caughtIds,
+    discoveredIds: registeredIds,
     total: FISH_TOTAL,
     best,
     spBonus: fishCodexSpBonus(codex),
     milestones: [...FISHING_CODEX_SP_MILESTONES],
-    nextMilestone: nextFishCodexMilestone(ids.length),
+    nextMilestone: nextFishCodexMilestone(registeredIds.length),
     tierCompletions: codexSpBonusFromRaw(fishingCodexRaw).fishTiers,
   };
 }

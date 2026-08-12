@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { COOP_ALL_EQUIPMENT_BOXES } from "@/adventure/data/v2/coopRewards";
 import { SP_FRUIT_TIERS, SP_FRUIT } from "@/adventure/data/v2/spFruit";
+import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import {
   itemTabForMarketplaceListing,
   itemTabForMaterial,
+  nextSortMode,
+  sortEquipInstances,
 } from "./v2ItemListShared";
 
 describe("itemTabForMaterial", () => {
@@ -36,5 +39,33 @@ describe("itemTabForMaterial", () => {
     expect(itemTabForMarketplaceListing("consumable", "rare_map")).toBe(
       "consumable",
     );
+  });
+});
+
+describe("equipment list sorting", () => {
+  it("기본 다음 정렬 기준으로 티어순을 제공한다", () => {
+    expect(nextSortMode("default")).toBe("tier");
+  });
+
+  it("표시 티어가 높은 장비부터 정렬하고 같은 표시 티어에서는 기본 순서를 유지한다", () => {
+    const instances: V2EquipInstance[] = [
+      { iid: "tier-1-catalog-2", id: "v2_greatsword" },
+      { iid: "tier-3", id: "v2_crafted_sunforge_blade" },
+      { iid: "tier-1-catalog-1", id: "v2_iron_sword" },
+      { iid: "tier-2", id: "v2_crafted_oathblade" },
+    ];
+
+    expect(sortEquipInstances(instances, "tier").map((item) => item.id)).toEqual([
+      "v2_crafted_sunforge_blade",
+      "v2_crafted_oathblade",
+      "v2_iron_sword",
+      "v2_greatsword",
+    ]);
+    expect(instances.map((item) => item.id)).toEqual([
+      "v2_greatsword",
+      "v2_crafted_sunforge_blade",
+      "v2_iron_sword",
+      "v2_crafted_oathblade",
+    ]);
   });
 });

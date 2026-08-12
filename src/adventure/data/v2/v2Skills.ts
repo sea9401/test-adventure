@@ -1828,6 +1828,9 @@ function describeMissingHpDamage(
 function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
   const chips: string[] = [];
 
+  if (skill.id === "v2c_warlord_bloodbath") {
+    chips.push("명중 시 혈전 준비 획득");
+  }
   if (
     skill.id === "v2c_overlord_ruin" ||
     skill.id === "v2c_hegemon_annihilation"
@@ -1836,8 +1839,8 @@ function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
   }
   if (skill.id === "v2c_hegemon_annihilation") {
     chips.push(
-      "사망 극복 강화: 반드시 발동 · 잃은 HP 100% · 광폭 계수 ×1.5",
       "사망 극복 시 1회 재충전 (전투당 최대 2회)",
+      "사망 극복 발동 시: 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
     );
   }
 
@@ -1848,18 +1851,20 @@ function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
     chips.push("HP 50% 이하: 공격 액티브 발동률 +10%p");
   }
   if (rank >= 2) {
-    chips.push("혈전 준비 필살기: 치명타 피해 +30%");
+    chips.push(
+      "혈전 준비로 강화된 파멸일격·멸왕일도: 치명타 피해 +30%",
+    );
   }
   if (rank >= 3) {
-    chips.push("전투당 1회 치명 피해 무효 · HP 40%로 회복");
+    chips.push("사망 극복: 전투당 1회 치명 피해 무효 · HP 40%로 회복");
   }
   if (rank === 3) {
     chips.push("현재 행동 종료까지 HP 40% 아래로 내려가지 않음");
   }
   if (rank >= 4) {
     chips.push(
-      "다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
-      "다음 공격 액티브: 반드시 발동 · 잃은 HP 100% · 광폭 계수 ×1.5",
+      "사망 극복 발생 시: 다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
+      "사망 극복 발생 시: 다음 공격 액티브 스킬 100% 발동 · 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
       "멸왕일도 1회 재충전 (전투당 최대 2회)",
     );
   }

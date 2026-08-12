@@ -230,6 +230,7 @@ echo "▶ [prod] sync application crontab"
 crontab deploy/crontab.txt
 systemctl is-active --quiet crond
 for path in \
+  /api/v2/cron/battle-replay-retention \
   /api/v2/cron/ops-retention \
   /api/v2/cron/ops-daily-report; do
   crontab -l | grep -Fq "$path" || {

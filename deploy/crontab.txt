@@ -20,7 +20,7 @@
 #     echo "* * * * * $C POST /api/v2/cron/battle-replay-retention";
 #     echo "20 4 * * * $C POST /api/v2/cron/ops-retention";
 #     echo "25 4 * * * $C POST /api/v2/cron/ops-daily-report";
-#     echo "0 17 * * * cd ~/adventure-rpg && bash deploy/backup-db.sh >> ~/backups/backup.log 2>&1"; } | crontab -
+#     echo "0 17 * * * cd ~/adventure-rpg && bash deploy/run-backup.sh"; } | crontab -
 #
 # 시간대는 UTC. run-cron.sh가 HTTP 오류·타임아웃을 운영 webhook으로 알린다.
 # crond 가 동작하려면: sudo dnf install -y cronie && sudo systemctl enable --now crond
@@ -45,4 +45,4 @@ CRON_TZ=UTC
 * * * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/battle-replay-retention
 20 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-retention
 25 4 * * * bash /home/ec2-user/adventure-rpg/deploy/run-cron.sh POST /api/v2/cron/ops-daily-report
-0 17 * * * cd ~/adventure-rpg && bash deploy/backup-db.sh >> ~/backups/backup.log 2>&1
+0 17 * * * cd ~/adventure-rpg && bash deploy/run-backup.sh

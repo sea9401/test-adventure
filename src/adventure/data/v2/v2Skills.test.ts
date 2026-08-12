@@ -736,6 +736,51 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     }
   });
 
+  it("잃은 HP 비례 공격은 비용·기본 피해·저체력 증폭을 나눠 설명한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_warlord_bloodbath)).toEqual(
+      expect.arrayContaining([
+        "명중 시 현재 HP 15% 소모 (소모 후 HP로 피해 계산)",
+        "기본 피해 공격력×1.1 + 힘×1.2",
+        "잃은 HP 1%당 피해 +0.7% (최대 ×1.7 · 대련 추가분 60%)",
+      ]),
+    );
+  });
+
+  it("멸왕일도 툴팁은 혈전·사망 극복 강화와 재충전을 빠짐없이 설명한다", () => {
+    const skill = V2_SKILLS.v2c_hegemon_annihilation;
+
+    expect(skill.description).toBe(
+      "잃은 HP가 많을수록 강해지는 패황의 최종 일격. 혈전과 사망 극복으로 더욱 강해진다.",
+    );
+    expect(describeV2Skill(skill)).toEqual([
+      "기본 피해 공격력×2 + 힘×2.4",
+      "잃은 HP 1%당 피해 +2% (최대 ×3 · 대련 추가분 60%)",
+      "혈전 준비 시 광폭 계수 +25% · 확정 치명타",
+      "사망 극복 강화: 반드시 발동 · 잃은 HP 100% · 광폭 계수 ×1.5",
+      "사망 극복 시 1회 재충전 (전투당 최대 2회)",
+      "발동 40%",
+      "MP 76",
+      "전투당 1회",
+    ]);
+  });
+
+  it("패황의 지배 툴팁은 계승 효과와 사망 극복 규칙을 수치로 설명한다", () => {
+    const skill = V2_SKILLS.v2c_hegemon_dominion;
+
+    expect(skill.description).toBe(
+      "광기 계열의 모든 하위 효과를 계승한다. 치명 피해를 한 번 극복한 뒤 다음 공격을 강화하고 멸왕일도를 재충전한다.",
+    );
+    expect(describeV2Skill(skill)).toEqual([
+      "HP 50% 이하: 공격 액티브 발동률 +10%p",
+      "혈전 준비 필살기: 치명타 피해 +30%",
+      "전투당 1회 치명 피해 무효 · HP 40%로 회복",
+      "다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
+      "다음 공격 액티브: 반드시 발동 · 잃은 HP 100% · 광폭 계수 ×1.5",
+      "멸왕일도 1회 재충전 (전투당 최대 2회)",
+      "광기 계열 중 1개만 장착",
+    ]);
+  });
+
   it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
     const chips = describeV2Skill(V2_SKILLS.v2_skill_strike); // 강타: 대지, coef 1.0
     expect(chips.some((c) => c.includes("공격력×1"))).toBe(true);

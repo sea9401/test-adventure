@@ -17,6 +17,7 @@ import {
   ANONYMOUS_MARKETPLACE_MAIL_KINDS,
   visibleInboxSenderName,
 } from "@/lib/server/inboxPrivacy";
+import { inboxClaimState } from "@/lib/server/inboxPayload";
 
 // 기록(history) 모드에서 한 번에 돌려주는 이미 읽은 우편 수 — 받은 우편 기록 보관용 상한.
 const HISTORY_LIMIT = 100;
@@ -39,10 +40,8 @@ function visiblePersonalMessageWhere(userId: string) {
   );
 }
 
-// GET /api/marketplace/inbox — 미수령 우편함 (전체). claimed_at IS NULL, created_at DESC.
-//   ?count=1   → 경량 카운트 모드(미수령 수만 반환, 우편 배지 폴링용 — 전체 행 fetch 회피).
-//   ?history=1 → 기록 모드(이미 읽은/수령한 우편 최근 N개). 받은 우편이 사라지지 않고
-//                기록으로 남도록. 미수령 모드와 달리 상한(HISTORY_LIMIT)을 둔다.
+// GET /api/marketplace/inbox — 미완료 전체 + 최근 완료 기록을 합친 받은 우편.
+//   ?count=1   → 경량 카운트 모드(미확인 수만 반환, 우편 배지 폴링용 — 전체 행 fetch 회피).
 //   ?sent=1    → 보낸 우편 기록. 거래 상대가 드러나는 구매/정산 우편은 제외한다.
 export async function GET(req: Request) {
   const userId = await ensureUser();
@@ -58,14 +57,13 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(marketplaceInbox.userId, userId),
-          isNull(marketplaceInbox.claimedAt),
+          isNull(marketplaceInbox.readAt),
           visiblePersonalMessageWhere(userId),
         ),
       );
-    return Response.json({ ok: true, unclaimedCount: row?.n ?? 0 });
+    return Response.json({ ok: true, unreadCount: row?.n ?? 0 });
   }
 
-  const history = params.get("history") === "1";
   const sent = params.get("sent") === "1";
 
   if (sent) {
@@ -80,6 +78,7 @@ export async function GET(req: Request) {
         fromUserId: marketplaceInbox.fromUserId,
         recipientName: users.gameName,
         createdAt: marketplaceInbox.createdAt,
+        readAt: marketplaceInbox.readAt,
         claimedAt: marketplaceInbox.claimedAt,
       })
       .from(marketplaceInbox)
@@ -107,55 +106,81 @@ export async function GET(req: Request) {
         recipientName: r.recipientName,
         direction: "sent" as const,
         createdAt: r.createdAt.toISOString(),
+        readAt: r.readAt ? r.readAt.toISOString() : null,
         claimedAt: r.claimedAt ? r.claimedAt.toISOString() : null,
+        claimState: inboxClaimState(r.kind, r.payload),
+        hasReward: inboxClaimState(r.kind, r.payload) === "claimable",
       })),
-      unclaimedCount: 0,
+      unreadCount: 0,
     });
   }
 
-  // 기록 모드는 이미 읽은(claimed) 우편을, 기본 모드는 미수령(unclaimed) 우편을 반환.
-  // 기본 모드는 상한 없음 — 수령 안 한 보상 우편이 잘려 영구 손실되는 걸 막는다.
-  const base = db
+  const fields = {
+    id: marketplaceInbox.id,
+    kind: marketplaceInbox.kind,
+    payload: marketplaceInbox.payload,
+    message: marketplaceInbox.message,
+    listingId: marketplaceInbox.listingId,
+    fromName: marketplaceInbox.fromName,
+    fromUserId: marketplaceInbox.fromUserId,
+    recipientName: sql<string | null>`null`,
+    createdAt: marketplaceInbox.createdAt,
+    readAt: marketplaceInbox.readAt,
+    claimedAt: marketplaceInbox.claimedAt,
+  };
+
+  // 미완료 우편은 상한 없이 보존하고, 완료 기록에만 최근 100개 상한을 둔다.
+  const pendingRows = await db
     .select({
-      id: marketplaceInbox.id,
-      kind: marketplaceInbox.kind,
-      payload: marketplaceInbox.payload,
-      message: marketplaceInbox.message,
-      listingId: marketplaceInbox.listingId,
-      fromName: marketplaceInbox.fromName,
-      fromUserId: marketplaceInbox.fromUserId,
-      recipientName: sql<string | null>`null`,
-      createdAt: marketplaceInbox.createdAt,
-      claimedAt: marketplaceInbox.claimedAt,
+      ...fields,
     })
     .from(marketplaceInbox)
     .where(
       and(
         eq(marketplaceInbox.userId, userId),
-        history
-          ? isNotNull(marketplaceInbox.claimedAt)
-          : isNull(marketplaceInbox.claimedAt),
+        isNull(marketplaceInbox.claimedAt),
         visiblePersonalMessageWhere(userId),
       ),
     )
     .orderBy(desc(marketplaceInbox.createdAt));
 
-  const rows = history ? await base.limit(HISTORY_LIMIT) : await base;
+  const completedRows = await db
+    .select({ ...fields })
+    .from(marketplaceInbox)
+    .where(
+      and(
+        eq(marketplaceInbox.userId, userId),
+        isNotNull(marketplaceInbox.claimedAt),
+        visiblePersonalMessageWhere(userId),
+      ),
+    )
+    .orderBy(desc(marketplaceInbox.createdAt))
+    .limit(HISTORY_LIMIT);
+
+  const rows = [...pendingRows, ...completedRows].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  );
 
   return Response.json({
-    items: rows.map((r) => ({
-      id: r.id,
-      kind: r.kind,
-      payload: r.payload,
-      message: r.message,
-      listingId: r.listingId,
-      fromName: visibleInboxSenderName(r.kind, r.fromName),
-      fromUserId: r.fromUserId,
-      recipientName: r.recipientName,
-      direction: "received" as const,
-      createdAt: r.createdAt.toISOString(),
-      claimedAt: r.claimedAt ? r.claimedAt.toISOString() : null,
-    })),
-    unclaimedCount: history ? 0 : rows.length,
+    items: rows.map((r) => {
+      const claimState = inboxClaimState(r.kind, r.payload);
+      return {
+        id: r.id,
+        kind: r.kind,
+        payload: r.payload,
+        message: r.message,
+        listingId: r.listingId,
+        fromName: visibleInboxSenderName(r.kind, r.fromName),
+        fromUserId: r.fromUserId,
+        recipientName: r.recipientName,
+        direction: "received" as const,
+        createdAt: r.createdAt.toISOString(),
+        readAt: r.readAt ? r.readAt.toISOString() : null,
+        claimedAt: r.claimedAt ? r.claimedAt.toISOString() : null,
+        claimState,
+        hasReward: claimState === "claimable",
+      };
+    }),
+    unreadCount: rows.filter((row) => row.readAt == null).length,
   });
 }

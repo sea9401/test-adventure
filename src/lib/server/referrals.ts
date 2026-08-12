@@ -11,6 +11,10 @@ import {
 } from "@/db/schema";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { huntStageName } from "@/adventure/data/v2/dungeon";
+import {
+  backfillReferralIdentityClaims,
+  reserveReferralIdentityClaims,
+} from "@/lib/server/referralIdentity";
 
 export const REFERRAL_COOKIE = "adventure_referral";
 export const REFERRAL_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
@@ -76,12 +80,19 @@ export async function attributeReferral(
     return { attributed: false };
   }
 
+  const identityReserved = await reserveReferralIdentityClaims(
+    tx,
+    referredUserId,
+  );
+  if (!identityReserved) return { attributed: false };
+
   const [conversion] = await tx
     .insert(referralConversions)
     .values({
       referredUserId,
       referrerUserId: owner.userId,
       referralCode: code,
+      referredName,
       rewardGold: 0,
       rewardedDepth: 0,
       referrerSignupRewardedAt: new Date(),
@@ -217,6 +228,28 @@ export async function rewardReferralProgress(
     staminaPotions: dueReferrerStaminaPotions,
     rewardedDepth: targetDepth,
   };
+}
+
+export async function preserveReferralBeforeUserDeletion(
+  tx: DbExecutor,
+  referredUserId: string,
+): Promise<void> {
+  const [conversion] = await tx
+    .select({ id: referralConversions.id })
+    .from(referralConversions)
+    .where(eq(referralConversions.referredUserId, referredUserId))
+    .limit(1);
+  if (!conversion) return;
+
+  await backfillReferralIdentityClaims(tx, referredUserId);
+  await tx
+    .update(referralConversions)
+    .set({
+      referredUserId: null,
+      referredName: "탈퇴한 사용자",
+      referredDeletedAt: new Date(),
+    })
+    .where(eq(referralConversions.id, conversion.id));
 }
 
 export async function referralCodeIsActive(

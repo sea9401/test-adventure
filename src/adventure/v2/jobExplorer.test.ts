@@ -18,6 +18,7 @@ import {
   jobCultivationSummary,
   jobTags,
   matchesJobExplorerFilters,
+  resolveJobAdvanceAction,
   toggleJobTagFilter,
   type JobExplorerJob,
 } from "./jobExplorer";
@@ -260,5 +261,82 @@ describe("jobExplorer tags", () => {
       "survivor",
       "camper",
     ]);
+  });
+});
+
+describe("job advancement action", () => {
+  it.each([
+    {
+      label: "eligible unlocked job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "warrior",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: true,
+        label: "전직",
+        ariaLabel: "견습 기사(으)로 전직",
+      },
+    },
+    {
+      label: "eligible current job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "squire",
+        atLevelCap: true,
+        currentJobSelectable: true,
+      },
+      expected: {
+        enabled: true,
+        label: "재전직",
+        ariaLabel: "견습 기사 재전직",
+      },
+    },
+    {
+      label: "locked job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: false }),
+        currentJobId: "warrior",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: false,
+        label: "조건 부족",
+        ariaLabel: "견습 기사 전직: 조건 부족",
+      },
+    },
+    {
+      label: "level-blocked job",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "warrior",
+        atLevelCap: false,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: false,
+        label: "Lv 100 필요",
+        ariaLabel: "견습 기사 전직: Lv 100 필요",
+      },
+    },
+    {
+      label: "current job below its repeat gate",
+      params: {
+        job: job("squire", { name: "견습 기사", unlocked: true }),
+        currentJobId: "squire",
+        atLevelCap: true,
+        currentJobSelectable: false,
+      },
+      expected: {
+        enabled: false,
+        label: "Lv 100 필요",
+        ariaLabel: "견습 기사 재전직: Lv 100 필요",
+      },
+    },
+  ])("resolves $label consistently", ({ params, expected }) => {
+    expect(resolveJobAdvanceAction(params)).toEqual(expected);
   });
 });

@@ -133,9 +133,10 @@ export async function POST(
         });
       }
 
+      const completedAt = new Date();
       await tx
         .update(marketplaceInbox)
-        .set({ claimedAt: new Date() })
+        .set({ claimedAt: completedAt, readAt: completedAt })
         .where(
           and(
             eq(marketplaceInbox.userId, userId),

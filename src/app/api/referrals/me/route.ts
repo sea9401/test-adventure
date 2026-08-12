@@ -34,7 +34,10 @@ async function referralSummary(userId: string) {
       .limit(1),
     db
       .select({
-        name: users.gameName,
+        currentName: users.gameName,
+        referredName: referralConversions.referredName,
+        referredUserId: referralConversions.referredUserId,
+        referredDeletedAt: referralConversions.referredDeletedAt,
         character: savesKv.value,
         rewardedDepth: referralConversions.rewardedStaminaDepth,
         referrerSignupRewardedAt:
@@ -42,7 +45,7 @@ async function referralSummary(userId: string) {
         convertedAt: referralConversions.convertedAt,
       })
       .from(referralConversions)
-      .innerJoin(users, eq(users.id, referralConversions.referredUserId))
+      .leftJoin(users, eq(users.id, referralConversions.referredUserId))
       .leftJoin(
         savesKv,
         and(
@@ -55,17 +58,21 @@ async function referralSummary(userId: string) {
   ]);
 
   const referralRows = referrals.map((row) => {
+    const deleted =
+      row.referredUserId === null || row.referredDeletedAt !== null;
     const character = row.character as { frontierDepth?: unknown } | null;
-    const currentFrontierDepth = Math.max(
-      2,
-      Math.floor(Number(character?.frontierDepth) || 2),
-    );
+    const currentFrontierDepth = deleted
+      ? Math.max(2, row.rewardedDepth)
+      : Math.max(2, Math.floor(Number(character?.frontierDepth) || 2));
     const completedMilestones = milestones.filter(
       (milestone) => milestone.frontierDepth <= row.rewardedDepth,
     ).length;
     const signupRewarded = row.referrerSignupRewardedAt !== null;
     return {
-      name: row.name ?? "새 모험가",
+      name: deleted
+        ? "탈퇴한 사용자"
+        : (row.currentName ?? row.referredName ?? "새 모험가"),
+      deleted,
       currentFrontierDepth,
       rewardedDepth: row.rewardedDepth,
       signupRewarded,

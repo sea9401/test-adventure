@@ -310,6 +310,34 @@ describe("masteryTower", () => {
     expect(log.some((entry) => entry.text.includes("850"))).toBe(true);
   });
 
+  it("50층 연습 로그는 추가 보상 없이 기록 유지 전투임을 표시한다", () => {
+    const log = masteryTowerAttemptLog({
+      floor: 50,
+      success: true,
+      practice: true,
+      tower: {
+        date: "2026-08-09",
+        todayBestFloor: 50,
+        runFloor: 50,
+        claimed: false,
+        lifetimeBestFloor: 50,
+        firstClearRewardsClaimed: [],
+      },
+      claimPreview: {
+        base: 2_400,
+        firstClearBonus: 1_500,
+        total: 3_900,
+        newlyClaimedMilestones: [10, 20, 30, 40, 50],
+      },
+    });
+
+    expect(log.some((entry) => entry.text.includes("연습 승리"))).toBe(true);
+    expect(log.some((entry) => entry.text.includes("기록 및 보상 변동 없음"))).toBe(
+      true,
+    );
+    expect(log.some((entry) => entry.kind === "reward")).toBe(false);
+  });
+
   it("패배하면 오늘 최고 기록은 유지하고 현재 등반만 초기화한다", () => {
     const cleared = clearMasteryTowerFloor(
       {
@@ -411,6 +439,54 @@ describe("masteryTower", () => {
     expect(resolveMasteryTowerAttemptFloor(state, 1)).toEqual({
       ok: false,
       error: "invalid_start_floor",
+    });
+  });
+
+  it("50층 완료 후에는 시작 층 지정 없이 50층 연습 전투를 다시 시작한다", () => {
+    const state = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        todayBestFloor: 50,
+        runFloor: 50,
+        lifetimeBestFloor: 50,
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 50,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(resolveMasteryTowerAttemptFloor(state)).toEqual({
+      ok: true,
+      floor: 50,
+    });
+    expect(resolveMasteryTowerAttemptFloor(state, 50)).toEqual({
+      ok: false,
+      error: "invalid_start_floor",
+    });
+  });
+
+  it("50층 연습 패배는 완료 기록을 유지하고 재도전 쿨다운만 건다", () => {
+    const completed = parseMasteryTowerState(
+      {
+        date: "2026-08-09",
+        todayBestFloor: 50,
+        runFloor: 50,
+        claimed: true,
+        lifetimeBestFloor: 50,
+        firstClearRewardsClaimed: [10, 20, 30, 40, 50],
+        weekStartedAt: "2026-08-03",
+        weekBestFloor: 50,
+        entryStaminaPaid: true,
+      },
+      "2026-08-09",
+      "2026-08-03",
+    );
+
+    expect(failMasteryTowerRun(completed, 1_000)).toEqual({
+      ...completed,
+      runFloor: 50,
+      cooldownUntil: 31_000,
     });
   });
 

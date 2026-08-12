@@ -13,9 +13,32 @@ import {
 import {
   RANCH_ANIMALS,
   RANCH_PEN_DEFINITIONS,
+  type RanchPenDefinition,
   type RanchPenId,
 } from "./ranch";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+
+export function confirmRanchPenUpgrade({
+  definition,
+  onUpgrade,
+  confirm = (message) => window.confirm(message),
+}: {
+  definition: RanchPenDefinition;
+  onUpgrade: (penId: RanchPenId) => void;
+  confirm?: (message: string) => boolean;
+}): boolean {
+  const animal = RANCH_ANIMALS[definition.animalId];
+  const penName = definition.animalId === "chicken" ? "닭장" : "외양간";
+  if (
+    !confirm(
+      `${animal.name} 축사 ${penName}을(를) 열까요?\n농장 증표 ${definition.costReputation.toLocaleString()}개가 사용됩니다.`,
+    )
+  ) {
+    return false;
+  }
+  onUpgrade(definition.id);
+  return true;
+}
 
 export function FarmRanchPanel({
   farm,
@@ -122,7 +145,9 @@ export function FarmRanchPanel({
                   </div>
                   <button
                     type="button"
-                    onClick={() => onUpgrade(definition.id)}
+                    onClick={() =>
+                      confirmRanchPenUpgrade({ definition, onUpgrade })
+                    }
                     disabled={!canUpgrade || busyUpgradePenId !== null}
                     className="mt-3 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:bg-zinc-950 dark:text-amber-200 dark:hover:bg-amber-950"
                   >

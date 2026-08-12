@@ -71,6 +71,7 @@ type CharacterSave = Record<string, unknown> & {
 type PostInput = {
   action?: unknown;
   routeId?: unknown;
+  mode?: unknown;
   choiceId?: unknown;
   expectedNodeIndex?: unknown;
   expectedEncounterIndex?: unknown;
@@ -116,8 +117,14 @@ export async function POST(req: Request) {
     if (input?.action === "start") {
       const route = stormExpeditionRoute(input.routeId);
       if (!route) return response(400, { ...statusBody(charSave, state), error: "invalid_route" });
+      const mode = input.mode === undefined || input.mode === "normal"
+        ? "normal"
+        : input.mode === "practice"
+          ? "practice"
+          : null;
+      if (!mode) return response(400, { ...statusBody(charSave, state), error: "invalid_mode" });
       if (state.active) return response(409, { ...statusBody(charSave, state), error: "already_active" });
-      if (state.attemptsUsed >= STORM_EXPEDITION_DAILY_ATTEMPTS) {
+      if (mode === "normal" && state.attemptsUsed >= STORM_EXPEDITION_DAILY_ATTEMPTS) {
         return response(409, { ...statusBody(charSave, state), error: "no_attempts" });
       }
       const prepared = await prepareV2BattleActor({ tx, userId, charSave, equipmentSave, deriveSkills: "sanitized" });
@@ -126,9 +133,10 @@ export async function POST(req: Request) {
       const maxMp = prepared.player.player.maxMp ?? 0;
       state = {
         ...state,
-        attemptsUsed: state.attemptsUsed + 1,
+        attemptsUsed: mode === "normal" ? state.attemptsUsed + 1 : state.attemptsUsed,
         active: {
           version: 2,
+          mode,
           routeId: route.id,
           nodeIndex: 0,
           encounterIndex: 0,
@@ -157,6 +165,16 @@ export async function POST(req: Request) {
       if (!active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
       if (hasStalePosition(input, active)) {
         return response(409, { ...statusBody(charSave, state), error: "stale_state" });
+      }
+      if (active.mode === "practice") {
+        state = { ...state, active: null };
+        await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
+        return response(200, {
+          ...statusBody(charSave, state),
+          practice: true,
+          practiceEnded: true,
+          claimedRewards: false,
+        });
       }
       if (active.nextBattleEffects.includes("risk_enemy_fury")) {
         return response(409, { ...statusBody(charSave, state), error: "risk_debt_pending" });
@@ -284,25 +302,36 @@ export async function POST(req: Request) {
     let droppedMaterials: Record<string, number> = {};
     let droppedEquipment: V2EquipInstance | null = null;
     let spFruitDropped = false;
+    const practice = active.mode === "practice";
 
     if (!success) {
       state = { ...state, active: null };
     } else {
       const rewardMultiplier = isAcceptedRisk(active, "golden_compass") ? 1.35 : 1;
-      const reward = Math.floor(
-        stormExpeditionBattleReward(node.encounterKind, active.encounterIndex) * rewardMultiplier,
-      );
+      const reward = practice
+        ? 0
+        : Math.floor(
+            stormExpeditionBattleReward(node.encounterKind, active.encounterIndex) * rewardMultiplier,
+          );
       const equipmentChanceMultiplier = isAcceptedRisk(active, "storm_contract") ? 2 : 1;
-      const loot = rollStormExpeditionLoot(
-        active.routeId,
-        node.encounterKind,
-        Math.random,
-        { equipmentChanceMultiplier },
-      );
+      const loot = practice
+        ? { materials: {}, equipmentId: null }
+        : rollStormExpeditionLoot(
+            active.routeId,
+            node.encounterKind,
+            Math.random,
+            { equipmentChanceMultiplier },
+          );
       droppedMaterials = loot.materials;
       droppedEquipment = loot.equipmentId ? mintRolledEquipInstance(loot.equipmentId) : null;
-      const pendingMaterials = mergeStormExpeditionMaterials(active.pendingMaterials, droppedMaterials);
-      const pendingEquipment = droppedEquipment ? [...active.pendingEquipment, droppedEquipment] : active.pendingEquipment;
+      const pendingMaterials = practice
+        ? {}
+        : mergeStormExpeditionMaterials(active.pendingMaterials, droppedMaterials);
+      const pendingEquipment = practice
+        ? []
+        : droppedEquipment
+          ? [...active.pendingEquipment, droppedEquipment]
+          : active.pendingEquipment;
       const nextEffects = consumeBattleEffects(active.nextBattleEffects, node.encounterKind);
       const nextHpBeforeHeal = Math.max(0, battle.finalState.playerHp);
       const nextHp = active.boons.includes("victory_vigor")
@@ -322,14 +351,16 @@ export async function POST(req: Request) {
         maxHp: baseMaxHp,
         maxMp: effectiveMaxMp,
         defeatedCount: active.defeatedCount + 1,
-        pendingGold: active.pendingGold + reward,
+        pendingGold: practice ? 0 : active.pendingGold + reward,
         pendingMaterials,
         pendingEquipment,
         nextBattleEffects: nextEffects,
         usedRecoverySkillIds: [...new Set(usedRecoverySkillIdsAfterBattle)],
       }, node.encounterCount ?? 1);
 
-      if (finalClear) {
+      if (finalClear && practice) {
+        state = { ...state, active: null };
+      } else if (finalClear) {
         const spFruitRoll = rollStormExpeditionSpFruit({
           pity: state.spFruitPity,
           obtained: state.spFruitObtained,
@@ -363,16 +394,18 @@ export async function POST(req: Request) {
 
     return response(200, {
       ...statusBody(responseCharSave, state),
+      practice,
       success,
       bossClear: finalClear,
       finalClear,
       failed: !success,
+      practiceCompleted: finalClear && practice,
       gainedGold,
       gainedMaterials,
       gainedEquipment,
       droppedMaterials,
       droppedEquipment,
-      claimedRewards: finalClear,
+      claimedRewards: finalClear && !practice,
       spFruitDropped,
       nodeIndex: active.nodeIndex,
       encounterIndex: active.encounterIndex,
@@ -467,7 +500,7 @@ function applyChoice(
   if (choiceId === "mana_ampoule") mp = heal(mp, effectiveMaxMp, 0.2);
   if (choiceId === "wind_barrier") nextBattleEffects = appendUnique(nextBattleEffects, "next_guard");
   if (choiceId === "storm_oil") nextBattleEffects = appendUnique(nextBattleEffects, "next_assault");
-  if (choiceId === "scavenged_coffer") pendingGold += 25_000;
+  if (choiceId === "scavenged_coffer" && active.mode === "normal") pendingGold += 25_000;
   if (choiceId === "deep_rest") hp = heal(hp, baseMaxHp, 0.35);
   if (choiceId === "meditation") mp = heal(mp, effectiveMaxMp, 0.45);
   if (choiceId === "balanced_rest") {
@@ -518,9 +551,11 @@ function applyRiskDecision(
   if (riskEvent.id === "rift_cache") {
     next = {
       ...next,
-      pendingMaterials: mergeStormExpeditionMaterials(next.pendingMaterials, {
-        [STORM_EXPEDITION_ROUTE_MATERIAL_ID[next.routeId]]: 2,
-      }),
+      pendingMaterials: next.mode === "practice"
+        ? {}
+        : mergeStormExpeditionMaterials(next.pendingMaterials, {
+            [STORM_EXPEDITION_ROUTE_MATERIAL_ID[next.routeId]]: 2,
+          }),
       nextBattleEffects: appendUnique(next.nextBattleEffects, "risk_enemy_fury"),
     };
   }

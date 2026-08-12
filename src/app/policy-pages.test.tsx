@@ -41,7 +41,7 @@ describe("공개 정책 페이지", () => {
   it("확인된 처리 위치와 외부 보안 서비스의 국외 처리 내용을 안내한다", () => {
     const html = renderToStaticMarkup(<PrivacyPage />);
 
-    expect(html).toContain("2026년 8월 8일");
+    expect(html).toContain("2026년 8월 12일");
     expect(html).toContain("대한민국 서울 리전");
     expect(html).toContain("ap-northeast-2");
     expect(html).toContain("CloudFront·AWS WAF");

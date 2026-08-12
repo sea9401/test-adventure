@@ -428,6 +428,10 @@ export function masteryTowerStartFloors(state: MasteryTowerState): number[] {
   return checkpointStartFloor === null ? [1] : [1, checkpointStartFloor];
 }
 
+export function masteryTowerNextFloor(state: MasteryTowerState): number {
+  return Math.min(state.runFloor + 1, MASTERY_TOWER_MAX_FLOOR);
+}
+
 export function resolveMasteryTowerAttemptFloor(
   state: MasteryTowerState,
   requestedStartFloor?: number,
@@ -436,7 +440,10 @@ export function resolveMasteryTowerAttemptFloor(
   | { ok: false; error: "invalid_start_floor" } {
   if (state.runFloor > 0) {
     return requestedStartFloor === undefined
-      ? { ok: true, floor: state.runFloor + 1 }
+      ? {
+          ok: true,
+          floor: masteryTowerNextFloor(state),
+        }
       : { ok: false, error: "invalid_start_floor" };
   }
   const floor = requestedStartFloor ?? 1;
@@ -465,7 +472,10 @@ export function failMasteryTowerRun(
 ): MasteryTowerState {
   return {
     ...state,
-    runFloor: 0,
+    runFloor:
+      state.runFloor >= MASTERY_TOWER_MAX_FLOOR
+        ? MASTERY_TOWER_MAX_FLOOR
+        : 0,
     cooldownUntil: now + MASTERY_TOWER_REENTRY_COOLDOWN_MS,
   };
 }
@@ -473,6 +483,7 @@ export function failMasteryTowerRun(
 export function masteryTowerAttemptLog({
   floor,
   success,
+  practice = false,
   tower,
   claimPreview,
   turns,
@@ -483,6 +494,7 @@ export function masteryTowerAttemptLog({
 }: {
   floor: number | null;
   success: boolean;
+  practice?: boolean;
   tower: MasteryTowerState;
   claimPreview: ReturnType<typeof masteryTowerClaimPreview>;
   turns?: number;
@@ -524,10 +536,12 @@ export function masteryTowerAttemptLog({
       },
       {
         kind: "success",
-        text: `${floor}층 돌파 · 오늘 최고층 ${tower.todayBestFloor}층`,
+        text: practice
+          ? `${floor}층 연습 승리 · 최고층 기록 및 보상 변동 없음`
+          : `${floor}층 돌파 · 오늘 최고층 ${tower.todayBestFloor}층`,
       },
     );
-    if (claimPreview.total > 0) {
+    if (!practice && claimPreview.total > 0) {
       lines.push({
         kind: "reward",
         text: `[보상] 현재 수령 가능 숙련 증서 ${fmt(claimPreview.total)}`,
@@ -539,7 +553,12 @@ export function masteryTowerAttemptLog({
         kind: "enemy",
         text: `수호자 잔여 HP ${enemyHpText}`,
       },
-      { kind: "fail", text: `${floor}층 실패` },
+      {
+        kind: "fail",
+        text: practice
+          ? `${floor}층 연습 실패 · 최고층 기록 유지`
+          : `${floor}층 실패`,
+      },
     );
   }
 

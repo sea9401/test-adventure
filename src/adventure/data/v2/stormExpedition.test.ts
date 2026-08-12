@@ -12,6 +12,31 @@ import {
 } from "./stormExpedition";
 
 describe("stormExpedition", () => {
+  it("기존 원정은 실전으로, 연습 원정은 연습 모드로 복원한다", () => {
+    const legacy = parseStormExpeditionState({
+      active: {
+        version: 2,
+        routeId: "gale",
+        nodeIndex: 0,
+        hp: 1_000,
+        mp: 500,
+      },
+    });
+    const practice = parseStormExpeditionState({
+      active: {
+        version: 2,
+        mode: "practice",
+        routeId: "thunder",
+        nodeIndex: 3,
+        hp: 700,
+        mp: 200,
+      },
+    });
+
+    expect(legacy.active).toMatchObject({ mode: "normal" });
+    expect(practice.active).toMatchObject({ mode: "practice" });
+  });
+
   it("새 날짜에는 입장 횟수만 초기화하고 진행 중 원정은 보존한다", () => {
     const state = parseStormExpeditionState({
       date: "2026-07-10",

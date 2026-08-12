@@ -34,6 +34,7 @@ type ReferralSummary = {
   totalRewardStaminaPotions: number;
   referrals: Array<{
     name: string;
+    deleted: boolean;
     currentFrontierDepth: number;
     rewardedDepth: number;
     completedMilestones: number;
@@ -42,6 +43,20 @@ type ReferralSummary = {
     convertedAt: string;
   }>;
 };
+
+export function referralProgressStatus({
+  deleted,
+  currentFrontierDepth,
+  completedRewardStages,
+}: {
+  deleted: boolean;
+  currentFrontierDepth: number;
+  completedRewardStages: number;
+}): string {
+  return deleted
+    ? `탈퇴 · 보상 완료 ${completedRewardStages}단계`
+    : `현재 ${huntStageName(currentFrontierDepth)} · 보상 완료 ${completedRewardStages}단계`;
+}
 
 const subscribeOrigin = () => () => {};
 
@@ -335,8 +350,11 @@ export function V2ReferralView({ embedded = false }: { embedded?: boolean }) {
                         />
                       </div>
                       <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        현재 {huntStageName(item.currentFrontierDepth)} · 보상 완료{" "}
-                        {completedRewardStages}단계
+                        {referralProgressStatus({
+                          deleted: item.deleted,
+                          currentFrontierDepth: item.currentFrontierDepth,
+                          completedRewardStages,
+                        })}
                         {" · "}
                         {new Date(item.convertedAt).toLocaleDateString("ko-KR")}
                       </p>

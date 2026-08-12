@@ -67,5 +67,7 @@ aws ssm get-parameter \
    직전 버전 값을 새 버전으로 다시 올려 롤백한다.
 
 `AUTH_SECRET` 회전은 모든 세션을 로그아웃시키며, `CRON_SECRET`은 앱 재시작과
-동시에 반영해야 한다. Kakao·RDS 비밀번호는 공급자에서 먼저/같이 바꾸는 별도
-순서를 `docs/credential-rotation.md`에서 따른다.
+동시에 반영해야 한다. `REFERRAL_IDENTITY_SECRET`은 홍보 보상 중복 방지 원장의
+HMAC 키이므로 이벤트 원장을 보유하는 동안 임의로 회전하지 않는다. 회전이 필요하면
+기존 키로 만든 원장의 안전한 재키잉 절차를 먼저 마련한다. Kakao·RDS 비밀번호는
+공급자에서 먼저/같이 바꾸는 별도 순서를 `docs/credential-rotation.md`에서 따른다.

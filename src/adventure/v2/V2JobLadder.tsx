@@ -24,6 +24,7 @@ import {
   jobCardTags,
   jobCultivationSummary,
   matchesJobExplorerFilters,
+  resolveJobAdvanceAction,
   toggleJobTagFilter,
 } from "./jobExplorer";
 
@@ -144,6 +145,15 @@ export function V2JobLadder({
     setActiveTags((prev) => toggleJobTagFilter(prev, key));
   }
 
+  function pickJob(job: Pick<JobLadderEntry, "id" | "name">) {
+    setMsg(null);
+    setPending({
+      id: job.id,
+      name: job.name,
+      current: job.id === currentJobId,
+    });
+  }
+
   async function confirmReJob() {
     if (!pending) return;
     setBusy(true);
@@ -177,6 +187,7 @@ export function V2JobLadder({
           : `✓ ${pending.name}(으)로 전직 완료. 레벨 1로 돌아왔어요`,
       );
       setPending(null);
+      setRoadmapOpen(false);
       await onChanged();
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
@@ -280,13 +291,7 @@ export function V2JobLadder({
               currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
             <JobSection
               title="현재 직업"
@@ -296,13 +301,7 @@ export function V2JobLadder({
               currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
             <JobSection
               title={atLevelCap ? "전직 가능" : "해금됨"}
@@ -315,13 +314,7 @@ export function V2JobLadder({
               currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
             <JobSection
               title="조건 부족"
@@ -334,13 +327,7 @@ export function V2JobLadder({
               currentJobSelectable={currentJobSelectable}
               goalJobId={goalJobId}
               onSetGoal={setGoal}
-              onPick={(job) =>
-                setPending({
-                  id: job.id,
-                  name: job.name,
-                  current: job.id === currentJobId,
-                })
-              }
+              onPick={pickJob}
             />
           </div>
         )}
@@ -357,7 +344,7 @@ export function V2JobLadder({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
           <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
             <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">
@@ -403,7 +390,10 @@ export function V2JobLadder({
           jobs={jobs}
           currentJobId={currentJobId}
           goalJobId={goalJobId}
+          atLevelCap={atLevelCap}
+          currentJobSelectable={currentJobSelectable}
           onSetGoal={setGoal}
+          onPickJob={pickJob}
           onClose={closeRoadmap}
         />
       ) : null}
@@ -554,7 +544,12 @@ function JobRow({
   const unlocked = job.unlocked !== false;
   const tags = jobCardTags(job, { currentJobId }).slice(0, 4);
   const cultivation = jobCultivationSummary(job.id);
-  const canPick = unlocked && (isCurrent ? currentJobSelectable : atLevelCap);
+  const advanceAction = resolveJobAdvanceAction({
+    job,
+    currentJobId,
+    atLevelCap,
+    currentJobSelectable,
+  });
   return (
     <li
       aria-current={isCurrent ? "true" : undefined}
@@ -639,16 +634,11 @@ function JobRow({
         <button
           type="button"
           onClick={onPick}
-          disabled={!canPick}
+          disabled={!advanceAction.enabled}
+          aria-label={advanceAction.ariaLabel}
           className="rounded-md border border-emerald-600 px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400 disabled:hover:bg-transparent dark:text-emerald-400 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:text-zinc-600"
         >
-          {!unlocked
-            ? "조건 부족"
-            : isCurrent && !currentJobSelectable
-              ? `Lv ${V2_LEVEL_CAP} 필요`
-              : isCurrent
-                ? "재전직"
-                : "전직"}
+          {advanceAction.label}
         </button>
       </div>
     </li>

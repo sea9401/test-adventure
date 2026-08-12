@@ -162,6 +162,17 @@ export const accountLinkIntents = pgTable(
 
 // 개인 홍보 링크. 코드는 URL에 노출되는 임의 64-bit hex 값이며 사용자당 하나만 발급한다.
 // disabledAt 이 박히면 기존 링크 유입만 중단되고 이미 완료된 홍보 실적은 보존된다.
+// 홍보 보상 중복 방지용 로그인 주체 원장. OAuth provider account ID 또는 운영자 계정
+// login ID의 원문은 저장하지 않고, 별도 운영 비밀키로 만든 HMAC-SHA-256만 보존한다.
+// users FK를 두지 않아 탈퇴·재가입으로 user id가 바뀌어도 같은 로그인 주체를 식별한다.
+export const referralRewardIdentities = pgTable(
+  "referral_reward_identities",
+  {
+    identityHash: text("identity_hash").primaryKey(),
+    claimedAt: timestamp("claimed_at").defaultNow().notNull(),
+  },
+);
+
 export const referralCodes = pgTable(
   "referral_codes",
   {
@@ -175,22 +186,27 @@ export const referralCodes = pgTable(
   (t) => [uniqueIndex("referral_codes_user_idx").on(t.userId)],
 );
 
-// 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. referredUserId PK가 한 계정의 중복
-// 귀속을 막는다. rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
+// 홍보 링크를 통해 신규 캐릭터가 귀속된 기록. 활성 referredUserId UNIQUE가 한 사용자
+// ID의 중복 귀속을 막고, 별도 로그인 주체 원장이 탈퇴·재가입 중복을 막는다. 탈퇴 시
+// referredUserId는 NULL로 분리하고 이름을 익명화해 추천인의 실적·보상 이력은 보존한다.
+// rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
 // 현재 회복약 보상은 referrerSignupRewardedAt과 rewardedStaminaDepth로 지급 여부를
 // 기록한다. 가입 보상은 귀속 트랜잭션에서 함께 지급하며, 과거 귀속은 NULL로 남긴다.
 export const referralConversions = pgTable(
   "referral_conversions",
   {
+    id: serial("id").primaryKey(),
     referredUserId: text("referred_user_id")
-      .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .unique()
+      .references(() => users.id, { onDelete: "set null" }),
     referrerUserId: text("referrer_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     referralCode: text("referral_code")
       .notNull()
       .references(() => referralCodes.code, { onDelete: "cascade" }),
+    referredName: text("referred_name").notNull(),
+    referredDeletedAt: timestamp("referred_deleted_at"),
     rewardGold: integer("reward_gold").default(0).notNull(),
     rewardedDepth: integer("rewarded_depth").default(0).notNull(),
     referrerSignupRewardedAt: timestamp("referrer_signup_rewarded_at"),
@@ -773,9 +789,14 @@ export const marketplaceInbox = pgTable(
     }),
     fromName: text("from_name"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    readAt: timestamp("read_at"),
     claimedAt: timestamp("claimed_at"),
   },
   (t) => [
+    // 미확인 우편 — 상단 배지와 받은 우편 강조 조회.
+    index("inbox_unread_idx")
+      .on(t.userId, t.createdAt)
+      .where(sql`${t.readAt} IS NULL`),
     // 미수령 우편 — 가장 빈번한 쿼리.
     index("inbox_unclaimed_idx")
       .on(t.userId, t.createdAt)

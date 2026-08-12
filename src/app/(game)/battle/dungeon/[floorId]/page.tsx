@@ -131,6 +131,7 @@ export default function DungeonFloorPage() {
       onProficiencyChange={(n) =>
         applyResourcePatch({ viewerProficiency: n })
       }
+      onExperienceChange={applyResourcePatch}
       onRecoveryChargesChange={applyResourcePatch}
       onEnterRareMap={(map) => router.push(rareMapEntryHref(map))}
       onReturnToNormalHunt={() =>

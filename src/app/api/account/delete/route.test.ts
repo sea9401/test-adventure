@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
     objectsDeleted: 0,
   })),
   sendOpsAlert: vi.fn(async () => undefined),
+  preserveReferral: vi.fn(async () => undefined),
 }));
 
 function queryResult(rows: Row[]) {
@@ -49,6 +50,9 @@ vi.mock("@/lib/server/storageDeletionQueue", () => ({
 }));
 vi.mock("@/lib/server/opsAlert", () => ({
   sendOpsAlert: mocks.sendOpsAlert,
+}));
+vi.mock("@/lib/server/referrals", () => ({
+  preserveReferralBeforeUserDeletion: mocks.preserveReferral,
 }));
 vi.mock("@/db", () => {
   const tx = {
@@ -148,6 +152,10 @@ describe("POST /api/account/delete", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(200);
+    expect(mocks.preserveReferral).toHaveBeenCalledWith(
+      expect.anything(),
+      "user-1",
+    );
     expect(mocks.deleteUser).toHaveBeenCalledOnce();
     expect(mocks.signOut).toHaveBeenCalledWith({ redirect: false });
   });

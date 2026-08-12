@@ -297,6 +297,57 @@ export function parseInboxPayload(
   }
 }
 
+export type InboxClaimState = "none" | "claimable" | "action" | "invalid";
+
+/** 읽음과 별개로 이 우편에 수령 또는 응답 동작이 남아 있는지 판정한다. */
+export function inboxClaimState(
+  kind: string,
+  payload: unknown,
+): InboxClaimState {
+  const parsed = parseInboxPayload(kind, payload);
+  if (!parsed) return "invalid";
+
+  switch (parsed.kind) {
+    case "user_message":
+    case "price_alert":
+      return "none";
+    case "guild_invite":
+      return "action";
+    case "sale_proceeds":
+    case "bid_refund":
+    case "buy_order_refund":
+      return parsed.gold > 0 ? "claimable" : "none";
+    case "buy_order_item":
+    case "buy_order_equipment":
+    case "recipe_gift":
+      return "claimable";
+    case "purchase_item":
+      return parsed.instance || parsed.item_kind === "recipe" || parsed.quantity > 0
+        ? "claimable"
+        : "none";
+    case "cancel_return":
+    case "listing_expired":
+      return parsed.instance || parsed.quantity > 0 ? "claimable" : "none";
+    case "guild_quest_reward":
+      return parsed.gold > 0 || parsed.materials.length > 0 || parsed.items.length > 0
+        ? "claimable"
+        : "none";
+    case "season_reward":
+      return parsed.coins > 0 ? "claimable" : "none";
+    case "admin_gift":
+      return parsed.gold > 0 ||
+        parsed.materials.length > 0 ||
+        parsed.items.length > 0 ||
+        parsed.staminaPotions > 0 ||
+        parsed.museunCoins > 0 ||
+        parsed.cashItems.length > 0 ||
+        parsed.adventureSupportDays > 0 ||
+        (parsed.titleIds?.length ?? 0) > 0
+        ? "claimable"
+        : "none";
+  }
+}
+
 // 빌더: write 사이트에서 kind 와 payload 가 drift 하지 않도록 묶어준다.
 // drizzle 의 `.values()` 가 받는 column 매핑으로 정규화 — kind 컬럼과 payload
 // 컬럼이 자동 분리된다.

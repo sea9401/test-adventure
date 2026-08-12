@@ -62,7 +62,9 @@ import {
   type HuntCount,
 } from "@/adventure/data/v2/adventureSupport";
 import {
+  experienceProgressUpdate,
   recoveryChargesUpdate,
+  type ExperienceProgressUpdate,
   type RecoveryChargesUpdate,
 } from "@/adventure/v2/recoveryChargesSync";
 import {
@@ -181,6 +183,7 @@ export function V2DungeonFloorView({
   setAtRiskGold,
   onGoldChange,
   onProficiencyChange,
+  onExperienceChange,
   onRecoveryChargesChange,
   onEnterRareMap,
   onReturnToNormalHunt,
@@ -243,6 +246,8 @@ export function V2DungeonFloorView({
   // 사냥으로 변한 공용 자원 readout 동기화 — 같은 layout 내 은행/상단 상태가 stale 해지지 않게 한다.
   onGoldChange?: (n: number) => void;
   onProficiencyChange?: (n: number | null) => void;
+  // 사냥 응답의 최신 경험치 진행도를 공유 레이아웃에도 반영해 화면 재진입 시 되돌아가지 않게 한다.
+  onExperienceChange?: (update: ExperienceProgressUpdate) => void;
   // 사냥 응답의 최신 충전약 잔량을 공유 레이아웃 상태에도 반영한다. 페이지를 떠났다가
   // 브라우저 뒤로가기·앞으로가기로 재진입해도 화면 진입 당시의 오래된 값이 복원되지 않는다.
   onRecoveryChargesChange?: (update: RecoveryChargesUpdate) => void;
@@ -608,6 +613,8 @@ export function V2DungeonFloorView({
           exp: b.expAfter,
           maxExp: b.maxExpAfter,
         });
+        const update = experienceProgressUpdate(b.expAfter, b.maxExpAfter);
+        if (update) onExperienceChange?.(update);
       }
       // 부수효과 — 서버가 합산해 준 마지막 상태로 한 번만.
       if (b.finalHpAfter != null && b.finalMaxHp != null) {
@@ -782,6 +789,11 @@ export function V2DungeonFloorView({
               exp: r.expAfter,
               maxExp: r.maxExpAfter,
             });
+            const update = experienceProgressUpdate(
+              r.expAfter,
+              r.maxExpAfter,
+            );
+            if (update) onExperienceChange?.(update);
           }
           // 연패 추적 — 승리면 리셋, 패배면 누적(넛지 배너 격상용).
           setLossStreak((s) => (r.won ? 0 : s + 1));

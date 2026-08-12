@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PolicyDocument } from "@/components/PolicyDocument";
 
-const UPDATED_DATE = "2026년 8월 8일";
+const UPDATED_DATE = "2026년 8월 12일";
 
 export const metadata: Metadata = {
   title: "계정 및 데이터 삭제 — 무슨무슨게임",
@@ -62,6 +62,7 @@ export default function AccountDeletionPage() {
         <ul>
           <li>완료된 콘텐츠 신고 기록은 분쟁 대응과 서비스 안전을 위해 계정 식별값과 이름을 익명화한 뒤 최대 180일 보관할 수 있습니다.</li>
           <li>보안·이상행동·접속 기록과 관리자 감사 기록은 개인정보처리방침에 정한 기간 동안 제한적으로 보관할 수 있습니다.</li>
+          <li>홍보 이벤트의 반복 가입 보상을 막기 위한 로그인 식별 HMAC 해시는 원문 없이 이벤트 운영 기간과 종료 후 180일까지 보관할 수 있습니다. 탈퇴한 참여자의 홍보 실적은 이름을 익명화해 유지됩니다.</li>
           <li>장애 복구용 백업은 정상 서비스에서 분리되며 생성 후 최대 90일 안에 순환 삭제됩니다.</li>
           <li>관계 법령이 별도 보존을 요구하는 정보는 해당 법정 기간 동안만 보관합니다.</li>
         </ul>

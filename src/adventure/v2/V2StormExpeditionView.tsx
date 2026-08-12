@@ -11,6 +11,7 @@ import {
   type StormExpeditionChoice,
   type StormExpeditionChoiceKind,
   type StormExpeditionEncounterKind,
+  type StormExpeditionMode,
   type StormExpeditionNode,
   type StormExpeditionRiskCurseId,
   type StormExpeditionRiskEventId,
@@ -31,9 +32,11 @@ import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { stormExpeditionEntryActions } from "./stormExpeditionViewModel";
 
 type ActiveExpedition = {
   version: 2;
+  mode: StormExpeditionMode;
   routeId: StormExpeditionRouteId;
   nodeIndex: number;
   encounterIndex: number;
@@ -90,6 +93,9 @@ type ExpeditionStatus = {
   bossClear?: boolean;
   failed?: boolean;
   withdrew?: boolean;
+  practice?: boolean;
+  practiceEnded?: boolean;
+  practiceCompleted?: boolean;
   choiceApplied?: boolean;
   choiceId?: string;
   riskEventResolved?: boolean;
@@ -127,6 +133,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   risk_event_unavailable: "이 위험 이벤트는 이미 처리했거나 현재 위치에서 선택할 수 없습니다.",
   risk_event_required: "현재 위험 이벤트를 수락하거나 지나친 뒤 정비를 선택해 주세요.",
   risk_debt_pending: "균열 상자의 대가인 강화 전투를 치른 뒤 귀환할 수 있습니다.",
+  invalid_mode: "선택할 수 없는 원정 모드입니다.",
 };
 
 export function V2StormExpeditionView() {
@@ -163,6 +170,7 @@ export function V2StormExpeditionView() {
     action: "start" | "fight" | "choose" | "risk_event" | "withdraw",
     payload?: {
       routeId?: StormExpeditionRouteId;
+      mode?: StormExpeditionMode;
       choiceId?: string;
       expectedNodeIndex?: number;
       expectedEncounterIndex?: number;
@@ -192,6 +200,8 @@ export function V2StormExpeditionView() {
   }, [refreshGameState, skipReplay]);
 
   const active = status?.state?.active ?? null;
+  const entryActions = stormExpeditionEntryActions(status?.attemptsLeft ?? 0);
+  const isPracticeRun = active?.mode === "practice" || result?.practice === true;
   const currentNode = active ? status?.nodes?.[active.nodeIndex] ?? null : null;
   const activeRoute = status?.routes?.find((route) => route.id === (active?.routeId ?? result?.routeId)) ?? null;
   const replay = useMemo(() => result?.replay ? {
@@ -240,24 +250,23 @@ export function V2StormExpeditionView() {
         <StatusBanner tone="warning">심해 폐허 최심부 돌파 후 개방 · 현재 진행 {Math.floor((status.frontierDepth ?? 2) / 2)}/{Math.floor((status.unlockDepth ?? 72) / 2)}단계</StatusBanner>
       )}
       {result?.error && <StatusBanner tone="error">{ERROR_MESSAGES[result.error] ?? "원정을 진행하지 못했습니다. 잠시 후 다시 시도해 주세요."}</StatusBanner>}
-      {result?.bossClear && <StatusBanner tone="success">폭풍의 심장을 쓰러뜨렸습니다. 모든 임시 전리품을 확보했습니다.</StatusBanner>}
+      {result?.practiceCompleted && <StatusBanner tone="success">폭풍의 심장까지 연습을 마쳤습니다. 입장 횟수와 보상·완주 기록은 변하지 않았습니다.</StatusBanner>}
+      {result?.bossClear && !result.practiceCompleted && <StatusBanner tone="success">폭풍의 심장을 쓰러뜨렸습니다. 모든 임시 전리품을 확보했습니다.</StatusBanner>}
       {result?.spFruitDropped && <StatusBanner tone="success">원정 완주 보상으로 SP 열매 V를 획득했습니다. SP 열매 천장 횟수가 초기화됩니다.</StatusBanner>}
       {result?.withdrew && <StatusBanner tone="success">안전하게 귀환해 임시 전리품을 모두 확보했습니다.</StatusBanner>}
-      {result?.failed && <StatusBanner tone="error">전투에서 패배해 이번 원정의 임시 전리품을 모두 잃었습니다.</StatusBanner>}
+      {result?.practiceEnded && <StatusBanner tone="info">연습을 종료했습니다. 입장 횟수와 보상·기록은 변하지 않았습니다.</StatusBanner>}
+      {result?.failed && <StatusBanner tone="error">{result.practice ? "연습 전투에서 패배해 연습이 종료됐습니다." : "전투에서 패배해 이번 원정의 임시 전리품을 모두 잃었습니다."}</StatusBanner>}
       {result?.choiceApplied && <StatusBanner tone="info">선택한 정비 효과를 적용했습니다.</StatusBanner>}
-      {result?.riskEventResolved && <StatusBanner tone={result.riskEventAccepted ? "warning" : "info"}>{result.riskEventAccepted ? "위험 계약을 수락했습니다. 이익과 대가가 즉시 적용됩니다." : "위험 이벤트를 지나쳤습니다."}</StatusBanner>}
+      {result?.riskEventResolved && <StatusBanner tone={result.riskEventAccepted ? "warning" : "info"}>{result.riskEventAccepted ? (isPracticeRun ? "위험 계약을 수락했습니다. 연습에서는 전투 효과와 대가만 적용됩니다." : "위험 계약을 수락했습니다. 이익과 대가가 즉시 적용됩니다.") : "위험 이벤트를 지나쳤습니다."}</StatusBanner>}
 
       {status?.unlocked && !active && !replay && (
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1"><Flag size={18} className="text-sky-500" /><h2 className="font-semibold">첫 입구 · 항로 선택</h2></div>
           <div className="grid gap-3 md:grid-cols-3">
             {status.routes?.map((route) => (
-              <button
-                type="button"
+              <article
                 key={route.id}
-                disabled={busy || (status.attemptsLeft ?? 0) <= 0}
-                onClick={() => void act("start", { routeId: route.id })}
-                className={`${SURFACE_CARD} min-h-48 p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 dark:hover:border-sky-800`}
+                className={`${SURFACE_CARD} flex min-h-48 flex-col p-4`}
               >
                 <span className="text-xs font-semibold text-sky-600 dark:text-sky-400">{route.statTheme}</span>
                 <h3 className="mt-1 text-base font-bold">{route.name}</h3>
@@ -267,17 +276,44 @@ export function V2StormExpeditionView() {
                   <p className="font-semibold">{V2_MATERIALS[STORM_EXPEDITION_ROUTE_MATERIAL_ID[route.id]]?.name}</p>
                   <p className="text-zinc-500 dark:text-zinc-400">{v2EquipCatalogTierLabel(16)} 장비 {STORM_EXPEDITION_EQUIPMENT_IDS[route.id].length}종</p>
                 </div>
-              </button>
+                <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
+                  <button
+                    type="button"
+                    disabled={busy || !entryActions.normal.enabled}
+                    onClick={() => void act("start", { routeId: route.id, mode: "normal" })}
+                    className="min-h-10 rounded-md bg-sky-600 px-2 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-400"
+                  >
+                    {entryActions.normal.label}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || !entryActions.practice.enabled}
+                    onClick={() => void act("start", { routeId: route.id, mode: "practice" })}
+                    className="min-h-10 rounded-md border border-violet-400 bg-violet-50 px-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                  >
+                    {entryActions.practice.label}
+                  </button>
+                </div>
+                <p className="mt-2 text-center text-[10px] font-medium text-violet-600 dark:text-violet-300">
+                  {entryActions.practice.description}
+                </p>
+              </article>
             ))}
           </div>
         </section>
       )}
 
       {active && !replay && (
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
+        <div className="space-y-4">
+          {active.mode === "practice" && (
+            <StatusBanner tone="info">
+              <strong>연습 모드</strong> · 실전과 같은 전투와 선택을 체험하지만 입장 횟수와 보상·완주 기록은 변하지 않습니다.
+            </StatusBanner>
+          )}
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
           <Card padding="md" className="space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-xs text-zinc-500">진행 중인 항로</p><h2 className="text-lg font-bold">{activeRoute?.name ?? "폭풍 항로"}</h2></div>
+              <div><p className="text-xs text-zinc-500">진행 중인 항로</p><div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">{activeRoute?.name ?? "폭풍 항로"}</h2>{active.mode === "practice" && <PracticeBadge />}</div></div>
               <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">{active.nodeIndex + 1}/{status?.nodeCount ?? 9}</span>
             </div>
             <ExpeditionMap nodes={status?.nodes ?? []} active={active} />
@@ -300,6 +336,7 @@ export function V2StormExpeditionView() {
                   offer={active.riskEvent}
                   definition={status?.riskEvents?.[active.riskEvent.id]}
                   curse={active.riskEvent.curseId ? status?.riskCurses?.[active.riskEvent.curseId] : undefined}
+                  practice={active.mode === "practice"}
                 />
               )}
               {currentNode?.kind === "battle" && currentNode.encounterKind && (
@@ -310,6 +347,7 @@ export function V2StormExpeditionView() {
                   lootRule={status?.lootRules?.[currentNode.encounterKind]}
                   equipmentChanceMultiplier={active.riskEvent?.status === "accepted" && active.riskEvent.id === "storm_contract" ? 2 : 1}
                   goldMultiplier={active.riskEvent?.status === "accepted" && active.riskEvent.id === "golden_compass" ? 1.35 : 1}
+                  practice={active.mode === "practice"}
                   skipReplay={skipReplay}
                   onSkipReplay={setSkipReplay}
                   onFight={() => void act("fight", {
@@ -325,6 +363,7 @@ export function V2StormExpeditionView() {
                   definition={status?.riskEvents?.[active.riskEvent.id]}
                   boon={active.riskEvent.boonId ? status?.choices?.altar.find((choice) => choice.id === active.riskEvent?.boonId) : undefined}
                   curse={active.riskEvent.curseId ? status?.riskCurses?.[active.riskEvent.curseId] : undefined}
+                  practice={active.mode === "practice"}
                   onDecision={(decision) => void act("risk_event", {
                     decision,
                     expectedNodeIndex: active.nodeIndex,
@@ -346,7 +385,17 @@ export function V2StormExpeditionView() {
               )}
             </Card>
 
-            <Card padding="md" className="space-y-3 border-amber-200 dark:border-amber-900/70">
+            {active.mode === "practice" ? (
+              <Card padding="md" className="space-y-3 border-violet-200 dark:border-violet-900/70">
+                <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">연습 안내</p><PracticeBadge /></div>
+                <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">연습에서는 골드·재료·장비·SP 열매가 생성되지 않으며 완주와 천장 기록도 오르지 않습니다.</p>
+                <button type="button" disabled={busy} onClick={() => void act("withdraw", {
+                  expectedNodeIndex: active.nodeIndex,
+                  expectedEncounterIndex: active.encounterIndex,
+                })} className="h-10 w-full rounded-md border border-violet-400 text-sm font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50 dark:border-violet-700 dark:text-violet-300 dark:hover:bg-violet-950">연습 종료</button>
+              </Card>
+            ) : (
+              <Card padding="md" className="space-y-3 border-amber-200 dark:border-amber-900/70">
               <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">임시 전리품 가방</p><span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">패배 시 전부 소실</span></div>
               <LootRows gold={active.pendingGold} materials={active.pendingMaterials} equipment={active.pendingEquipment} />
               <button type="button" disabled={busy || active.defeatedCount <= 0 || active.nextBattleEffects.includes("risk_enemy_fury")} onClick={() => void act("withdraw", {
@@ -354,7 +403,9 @@ export function V2StormExpeditionView() {
                 expectedEncounterIndex: active.encounterIndex,
               })} className="h-10 w-full rounded-md border border-amber-300 text-sm font-semibold text-amber-800 disabled:opacity-40 dark:border-amber-800 dark:text-amber-200">{active.nextBattleEffects.includes("risk_enemy_fury") ? "강화된 다음 전투 후 귀환 가능" : "지금 전리품을 확보하고 귀환"}</button>
               <p className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"><ShieldChevron size={14} /> 적 {active.defeatedCount}/7 처치 · 전투 체크포인트마다 귀환 가능</p>
-            </Card>
+              </Card>
+            )}
+          </div>
           </div>
         </div>
       )}
@@ -367,7 +418,7 @@ export function V2StormExpeditionView() {
           gender={replay.gender}
           exp={0}
           maxExp={1}
-          playerSubtitle={`${activeRoute?.name ?? "원정"} · ${status?.nodes?.[result?.nodeIndex ?? 0]?.name ?? "전투"}`}
+          playerSubtitle={`${isPracticeRun ? "연습 모드 · " : ""}${activeRoute?.name ?? "원정"} · ${status?.nodes?.[result?.nodeIndex ?? 0]?.name ?? "전투"}`}
           outcome={replay.outcome}
           outcomeAction={{
             label: active ? "원정 지도 확인" : "원정대로 돌아가기",
@@ -378,7 +429,7 @@ export function V2StormExpeditionView() {
         />
       )}
 
-      {!replay && (result?.success || result?.claimedRewards) && (
+      {!replay && !isPracticeRun && (result?.success || result?.claimedRewards) && (
         <Card padding="md" className="space-y-3 border-emerald-200 dark:border-emerald-900">
           <div><p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{result.claimedRewards ? "확정 획득" : "이번 전투 전리품"}</p><h2 className="mt-0.5 font-bold">{result.enemyName ?? "원정 전투"} 처치 보상</h2></div>
           <LootRows
@@ -414,13 +465,14 @@ function ExpeditionMap({ nodes, active }: { nodes: StormExpeditionNode[]; active
   );
 }
 
-function BattleControls({ busy, node, encounterIndex, lootRule, equipmentChanceMultiplier, goldMultiplier, skipReplay, onSkipReplay, onFight }: {
+function BattleControls({ busy, node, encounterIndex, lootRule, equipmentChanceMultiplier, goldMultiplier, practice, skipReplay, onSkipReplay, onFight }: {
   busy: boolean;
   node: StormExpeditionNode;
   encounterIndex: number;
   lootRule?: StormExpeditionLootRule;
   equipmentChanceMultiplier: number;
   goldMultiplier: number;
+  practice: boolean;
   skipReplay: boolean;
   onSkipReplay: (value: boolean) => void;
   onFight: () => void;
@@ -430,7 +482,8 @@ function BattleControls({ busy, node, encounterIndex, lootRule, equipmentChanceM
     <div className="space-y-3">
       {lootRule && (
         <div className={`${SURFACE_INSET} space-y-1 p-3 text-xs`}>
-          <p className="font-semibold">이번 전투 드롭</p>
+          <p className="font-semibold">{practice ? "실전 기준 보상 미리보기" : "이번 전투 드롭"}</p>
+          {practice && <p className="font-semibold text-violet-700 dark:text-violet-300">연습에서는 아래 보상이 지급되지 않습니다.</p>}
           <p className="text-zinc-600 dark:text-zinc-300">항로 재료 {lootRule.routeMaterialChance >= 1 ? `${lootRule.routeMaterialMin}~${lootRule.routeMaterialMax}개 확정` : formatChance(lootRule.routeMaterialChance)} · 6티어 장비 {formatChance(Math.min(1, lootRule.equipmentChance * equipmentChanceMultiplier))}</p>
           {(lootRule.originFragmentGuaranteed > 0 || lootRule.originFragmentChance > 0) && <p className="text-violet-700 dark:text-violet-300">7차 재료 {lootRule.originFragmentGuaranteed > 0 ? `${lootRule.originFragmentGuaranteed}개 이상 확정` : formatChance(lootRule.originFragmentChance)}</p>}
           {goldMultiplier > 1 && <p className="font-semibold text-amber-700 dark:text-amber-300">황금 나침반 · 이번 골드 +{Math.round((goldMultiplier - 1) * 100)}%</p>}
@@ -458,12 +511,13 @@ function ChoiceControls({ busy, kind, choices, onChoose }: { busy: boolean; kind
   );
 }
 
-function RiskEventControls({ busy, offer, definition, boon, curse, onDecision }: {
+function RiskEventControls({ busy, offer, definition, boon, curse, practice, onDecision }: {
   busy: boolean;
   offer: StormExpeditionRiskEventOffer;
   definition?: StormExpeditionChoice & { cost: string };
   boon?: StormExpeditionChoice;
   curse?: StormExpeditionChoice;
+  practice: boolean;
   onDecision: (decision: "accept" | "decline") => void;
 }) {
   return (
@@ -475,6 +529,7 @@ function RiskEventControls({ busy, offer, definition, boon, curse, onDecision }:
       <div className="space-y-1.5 text-xs">
         <p className="text-emerald-700 dark:text-emerald-300">이익 · {definition?.description}{boon ? ` (${boon.name}: ${boon.description})` : ""}</p>
         <p className="text-rose-700 dark:text-rose-300">대가 · {curse ? `${curse.name}: ${curse.description}` : definition?.cost}</p>
+        {practice && offer.id !== "unstable_blessing" && <p className="font-semibold text-violet-700 dark:text-violet-300">연습에서는 보상 이익은 지급되지 않고 전투 효과와 대가만 체험합니다.</p>}
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button type="button" disabled={busy} onClick={() => onDecision("decline")} className="h-10 rounded-md border border-zinc-300 text-sm font-semibold disabled:opacity-50 dark:border-zinc-700">지나치기</button>
@@ -484,16 +539,18 @@ function RiskEventControls({ busy, offer, definition, boon, curse, onDecision }:
   );
 }
 
-function AcceptedRisk({ offer, definition, curse }: {
+function AcceptedRisk({ offer, definition, curse, practice }: {
   offer: StormExpeditionRiskEventOffer;
   definition?: StormExpeditionChoice & { cost: string };
   curse?: StormExpeditionChoice;
+  practice: boolean;
 }) {
   return (
     <div className={`${SURFACE_INSET} space-y-1 p-3 text-xs`}>
       <p className="font-semibold text-rose-700 dark:text-rose-300">적용 중인 위험 · {definition?.name ?? offer.id}</p>
       <p className="text-zinc-600 dark:text-zinc-300">{definition?.description}</p>
       <p className="text-rose-700 dark:text-rose-300">{curse ? `${curse.name}: ${curse.description}` : definition?.cost}</p>
+      {practice && offer.id !== "unstable_blessing" && <p className="font-semibold text-violet-700 dark:text-violet-300">연습에서는 보상 이익 없이 전투 효과와 대가만 적용 중입니다.</p>}
     </div>
   );
 }
@@ -511,6 +568,10 @@ function BoonList({ boons }: { boons: StormExpeditionBoonId[] }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return <div className={`${SURFACE_INSET} px-2 py-2.5`}><p className="text-[11px] text-zinc-500">{label}</p><p className="mt-0.5 font-semibold tabular-nums">{value}</p></div>;
+}
+
+function PracticeBadge() {
+  return <span className="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">연습 모드</span>;
 }
 
 function SpFruitProgress({ reward, pity, obtained }: {

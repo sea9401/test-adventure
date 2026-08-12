@@ -16,6 +16,7 @@ export const STORM_EXPEDITION_NODE_COUNT = 9;
 /** 이전 화면/매뉴얼 import 호환용. 이제 전투 수가 아니라 지도 노드 수다. */
 export const STORM_EXPEDITION_STAGE_COUNT = STORM_EXPEDITION_NODE_COUNT;
 
+export type StormExpeditionMode = "normal" | "practice";
 export type StormExpeditionRouteId = "gale" | "thunder" | "wreckage";
 export type StormExpeditionNodeId =
   | "early_battle"
@@ -198,6 +199,7 @@ export const STORM_EXPEDITION_RISK_CURSES: Record<
 
 export type StormExpeditionActive = {
   version: 2;
+  mode: StormExpeditionMode;
   routeId: StormExpeditionRouteId;
   /** 다음에 처리할 0-based 지도 노드. */
   nodeIndex: number;
@@ -463,6 +465,7 @@ function parseActive(raw: unknown): StormExpeditionActive | null {
   ).slice(0, 3) as StormExpeditionBoonId[];
   return {
     version: 2,
+    mode: source.mode === "practice" ? "practice" : "normal",
     routeId: route.id,
     nodeIndex,
     encounterIndex: legacy ? 0 : clampInt(source.encounterIndex, 0, 1),

@@ -5,6 +5,7 @@ import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   SETTLEMENT_BUILDINGS,
   nextSettlementBuildingUpgrade,
+  type AnySettlementBuildingUpgradeDef,
   type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
 import type { GuildInfoResponse, Notice } from "./guildShared";
@@ -31,6 +32,31 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   trade_post: "채집품 주간 계약을 함께 완수하고 교역 토큰을 교환하는 시설입니다.",
   guild_warehouse: "길드 재료를 함께 보관하고 운영진이 필요한 곳에 배분하는 시설입니다.",
 };
+
+export function confirmGuildFacilityUpgrade({
+  buildingId,
+  next,
+  onUpgrade,
+  confirm = (message) => window.confirm(message),
+}: {
+  buildingId: SettlementBuildingId;
+  next: AnySettlementBuildingUpgradeDef;
+  onUpgrade: (buildingId: SettlementBuildingId) => void;
+  confirm?: (message: string) => boolean;
+}): boolean {
+  const goldCost = Math.max(0, Math.floor(next.cost.gold ?? 0));
+  const fameCost = Math.max(0, Math.floor(next.cost.fame ?? 0));
+  const fameText = fameCost > 0 ? ` · 명성 ${fameCost.toLocaleString()}` : "";
+  if (
+    !confirm(
+      `${SETTLEMENT_BUILDINGS[buildingId].name}을(를) Lv.${next.level}(으)로 업그레이드할까요?\n기부 완료 재료와 길드 자금 ${goldCost.toLocaleString()} G${fameText}이(가) 사용됩니다.`,
+    )
+  ) {
+    return false;
+  }
+  onUpgrade(buildingId);
+  return true;
+}
 
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
 export function GuildFacilitiesPanel({
@@ -231,7 +257,14 @@ export function GuildFacilitiesPanel({
                         guildFame={guildFame}
                         canComplete={canManage}
                         completing={upgradingId === row.id}
-                        onComplete={() => void upgradeFacility(row.id)}
+                        onComplete={() =>
+                          confirmGuildFacilityUpgrade({
+                            buildingId: row.id,
+                            next,
+                            onUpgrade: (buildingId) =>
+                              void upgradeFacility(buildingId),
+                          })
+                        }
                         onChanged={onChanged}
                       />
                     )}

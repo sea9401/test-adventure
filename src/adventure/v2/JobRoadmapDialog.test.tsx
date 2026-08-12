@@ -59,6 +59,86 @@ describe("JobRoadmapDetails", () => {
     ],
   };
 
+  it("offers advancement for an eligible unlocked job", () => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{ ...squireJob, unlocked: true }}
+        currentJobId="warrior"
+        goalJobId={null}
+        atLevelCap
+        currentJobSelectable={false}
+        onSetGoal={() => {}}
+        onPickJob={() => {}}
+      />,
+    );
+
+    const button = html.match(
+      /<button[^>]*aria-label="견습 기사\(으\)로 전직"[^>]*>/,
+    )?.[0];
+    expect(button).toBeDefined();
+    expect(button).not.toMatch(/\sdisabled(?:=|>)/);
+    expect(html).toContain(">전직</button>");
+  });
+
+  it("offers re-advancement for the current job when its level gate is met", () => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{ ...squireJob, unlocked: true }}
+        currentJobId="squire"
+        goalJobId={null}
+        atLevelCap
+        currentJobSelectable
+        onSetGoal={() => {}}
+        onPickJob={() => {}}
+      />,
+    );
+
+    const button = html.match(
+      /<button[^>]*aria-label="견습 기사 재전직"[^>]*>/,
+    )?.[0];
+    expect(button).toBeDefined();
+    expect(button).not.toMatch(/\sdisabled(?:=|>)/);
+    expect(html).toContain(">재전직</button>");
+  });
+
+  it.each([
+    {
+      label: "locked",
+      job: { ...squireJob, unlocked: false },
+      atLevelCap: true,
+      expectedReason: "조건 부족",
+    },
+    {
+      label: "below the advancement level",
+      job: { ...squireJob, unlocked: true },
+      atLevelCap: false,
+      expectedReason: "Lv 100 필요",
+    },
+  ])(
+    "disables advancement when the selected job is $label",
+    ({ job, atLevelCap, expectedReason }) => {
+      const html = renderToStaticMarkup(
+        <JobRoadmapDetails
+          job={job}
+          currentJobId="warrior"
+          goalJobId={null}
+          atLevelCap={atLevelCap}
+          currentJobSelectable={false}
+          onSetGoal={() => {}}
+          onPickJob={() => {}}
+        />,
+      );
+
+      const button = html.match(
+        new RegExp(
+          `<button[^>]*aria-label="견습 기사 전직: ${expectedReason}"[^>]*>`,
+        ),
+      )?.[0];
+      expect(button).toMatch(/\sdisabled(?:=|>)/);
+      expect(html).toContain(`>${expectedReason}</button>`);
+    },
+  );
+
   it("shows expandable skill details for an unlocked job", () => {
     const html = renderToStaticMarkup(
       <JobRoadmapDetails

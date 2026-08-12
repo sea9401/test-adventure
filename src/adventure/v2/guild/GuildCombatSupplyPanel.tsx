@@ -26,6 +26,27 @@ type CombatSupplyResponse = {
 
 type ErrorResponse = { ok: false; error: string };
 
+export function confirmCombatSupplyUpgrade({
+  supply,
+  onUpgrade,
+  confirm = (message) => window.confirm(message),
+}: {
+  supply: Pick<Supply, "id" | "name" | "level" | "nextEffect" | "nextCost">;
+  onUpgrade: (supplyId: string) => void;
+  confirm?: (message: string) => boolean;
+}): boolean {
+  if (supply.nextCost == null || supply.nextEffect == null) return false;
+  if (
+    !confirm(
+      `${supply.name}을(를) Lv.${supply.level + 1}(으)로 올릴까요?\n${supply.nextCost.toLocaleString()} 명성이 사용되며, ${supply.nextEffect} 효과가 적용됩니다.`,
+    )
+  ) {
+    return false;
+  }
+  onUpgrade(supply.id);
+  return true;
+}
+
 const SUPPLY_ACCENT: Record<
   string,
   {
@@ -259,7 +280,12 @@ export function GuildCombatSupplyPanel() {
 
                   <button
                     type="button"
-                    onClick={() => void upgrade(supply.id)}
+                    onClick={() =>
+                      confirmCombatSupplyUpgrade({
+                        supply,
+                        onUpgrade: (supplyId) => void upgrade(supplyId),
+                      })
+                    }
                     disabled={disabled}
                     className="ui-game-button min-h-10 rounded-md border border-zinc-300 bg-zinc-900 px-3 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 disabled:opacity-70 dark:border-zinc-700 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
                   >

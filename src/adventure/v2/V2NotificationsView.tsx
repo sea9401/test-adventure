@@ -18,6 +18,7 @@ import {
   UsersThree,
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { unreadInboxItems } from "@/adventure/v2/inboxViewState";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
 import { V2InboxView } from "@/adventure/v2/V2InboxView";
@@ -386,7 +387,7 @@ export function V2NotificationsView({
   const loadMail = useCallback(async () => {
     try {
       const result = await fetchInbox();
-      setMail(result.items);
+      setMail(unreadInboxItems(result.items));
     } catch {
       setMail([]);
     }
@@ -556,7 +557,7 @@ export function V2NotificationsView({
                         {mailBody(entry.item)}
                       </span>
                       <span className="mt-0.5 block text-[11px] text-zinc-400 dark:text-zinc-500">
-                        {formatRelative(entry.timestamp)} · 미수령
+                        {formatRelative(entry.timestamp)} · 미확인
                       </span>
                     </span>
                   </button>

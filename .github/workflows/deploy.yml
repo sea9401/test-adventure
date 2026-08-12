@@ -8,8 +8,9 @@ name: Deploy to EC2
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
 #   OPS_ALERT_WEBHOOK_URL — 외부 공개 표면 검사 실패 알림 전용(선택)
 #   WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY, WEB_PUSH_SUBJECT
-# 앱 런타임 비밀값은 EC2에서 SSM을 읽고, 푸시 전용 키는 배포 환경 비밀값에서
-# 서버의 접근 제한 파일로 설치한다.
+#   REFERRAL_IDENTITY_SECRET — 탈퇴·재가입 홍보 보상 중복 방지 HMAC 키
+# 일반 앱 런타임 비밀값은 EC2에서 SSM을 읽고, 위 배포 전용 키는 GitHub 환경
+# 비밀값에서 서버의 접근 제한 파일로 설치한다.
 on:
   workflow_dispatch:
     inputs:
@@ -114,11 +115,12 @@ jobs:
           WEB_PUSH_VAPID_PUBLIC_KEY: ${{ secrets.WEB_PUSH_VAPID_PUBLIC_KEY }}
           WEB_PUSH_VAPID_PRIVATE_KEY: ${{ secrets.WEB_PUSH_VAPID_PRIVATE_KEY }}
           WEB_PUSH_SUBJECT: ${{ secrets.WEB_PUSH_SUBJECT }}
+          REFERRAL_IDENTITY_SECRET: ${{ secrets.REFERRAL_IDENTITY_SECRET }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GH_TOKEN,DEPLOY_SHA,WEB_PUSH_VAPID_PUBLIC_KEY,WEB_PUSH_VAPID_PRIVATE_KEY,WEB_PUSH_SUBJECT
+          envs: GH_TOKEN,DEPLOY_SHA,WEB_PUSH_VAPID_PUBLIC_KEY,WEB_PUSH_VAPID_PRIVATE_KEY,WEB_PUSH_SUBJECT,REFERRAL_IDENTITY_SECRET
           script_stop: true
           command_timeout: 30m
           script: |
@@ -145,13 +147,15 @@ jobs:
             test -n "$WEB_PUSH_VAPID_PUBLIC_KEY"
             test -n "$WEB_PUSH_VAPID_PRIVATE_KEY"
             test -n "$WEB_PUSH_SUBJECT"
+            test -n "$REFERRAL_IDENTITY_SECRET"
             sudo install -d -o root -g ec2-user -m 0750 /etc/adventure-rpg
             push_env_file="$(mktemp)"
             chmod 0600 "$push_env_file"
-            printf 'WEB_PUSH_VAPID_PUBLIC_KEY=%s\nWEB_PUSH_VAPID_PRIVATE_KEY=%s\nWEB_PUSH_SUBJECT=%s\n' \
+            printf 'WEB_PUSH_VAPID_PUBLIC_KEY=%s\nWEB_PUSH_VAPID_PRIVATE_KEY=%s\nWEB_PUSH_SUBJECT=%s\nREFERRAL_IDENTITY_SECRET=%s\n' \
               "$WEB_PUSH_VAPID_PUBLIC_KEY" \
               "$WEB_PUSH_VAPID_PRIVATE_KEY" \
-              "$WEB_PUSH_SUBJECT" > "$push_env_file"
+              "$WEB_PUSH_SUBJECT" \
+              "$REFERRAL_IDENTITY_SECRET" > "$push_env_file"
             sudo install -o root -g ec2-user -m 0640 "$push_env_file" \
               /etc/adventure-rpg/web-push.env
             rm -f "$push_env_file"

@@ -259,8 +259,8 @@ export type V2CommonSkillId =
   | "v2c_swordsaint_flash" // 무심검 (강한 일격 + 무력 + ATB 지연)
   | "v2c_swordsaint_transcendence" // 일검필살 (힘 + 치명피해 + 단일 타격 물리 스킬 피해 + 명중)
   | "v2c_swordsaint_armorinsight3" // 갑주 간파 III (적 물리 방어 -13%)
-  | "v2c_hegemon_annihilation" // 멸왕난무 (HP 소모 + 취약 + 회복 억제)
-  | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해)
+  | "v2c_hegemon_annihilation" // 멸왕일도 (잃은 HP 비례 + 혈전·사망 극복 강화)
+  | "v2c_hegemon_dominion" // 패황의 지배 (광기 계승 + 사망 극복 + 멸왕일도 재충전)
   | "v2c_archmage_collapse" // 비전 붕괴 (순수 마법 피해 + ATB 지연)
   | "v2c_archmage_theory" // 대마도 이론 (지능 + 마법 스킬 피해)
   | "v2c_archmage_magicdismantle3" // 마력 해체 III (적 마법 방어 -13%)
@@ -2119,7 +2119,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_hegemon_annihilation: {
     id: "v2c_hegemon_annihilation", name: "멸왕일도", stat: "str", category: "attack", tier: 3,
-    description: "왕마저 베어 넘기는 단 한 번의 일도. 잃은 체력이 많을수록 파괴력이 폭증한다.",
+    description: "잃은 HP가 많을수록 강해지는 패황의 최종 일격. 혈전과 사망 극복으로 더욱 강해진다.",
     mpCost: 62, fixedMpCost: 76, cooldown: 0, procChance: 30, learnCost: 12000, spCost: 13,
     oncePerBattle: true,
     defaultPattern: {
@@ -2138,7 +2138,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_hegemon_dominion: {
     id: "v2c_hegemon_dominion", name: "패황의 지배", stat: "str", category: "passive", tier: 3,
-    description: "광기의 왕좌를 계승한다. 사망 극복 뒤 다음 공격은 죽음 직전의 힘을 담고, 멸왕일도를 한 번 되찾는다.",
+    description: "광기 계열의 모든 하위 효과를 계승한다. 치명 피해를 한 번 극복한 뒤 다음 공격을 강화하고 멸왕일도를 재충전한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 15,
     effects: [],
     exclusiveGroup: "berserker_madness",

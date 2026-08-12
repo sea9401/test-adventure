@@ -1811,6 +1811,62 @@ function targetActionsChip(actions: number): string {
   return `대상 행동 ${actions}회`;
 }
 
+function describeMissingHpDamage(
+  effect: Extract<V2SkillEffect, { kind: "missingHpDamage" }>,
+): string[] {
+  return [
+    ...(effect.selfCurrentHpCostPct
+      ? [
+          `명중 시 현재 HP ${effect.selfCurrentHpCostPct}% 소모 (소모 후 HP로 피해 계산)`,
+        ]
+      : []),
+    `기본 피해 공격력×${formatSkillCoefficient(effect.attackCoef)} + 힘×${formatSkillCoefficient(effect.statCoef)}`,
+    `잃은 HP 1%당 피해 +${formatSkillCoefficient(effect.missingHpCoef)}% (최대 ×${formatSkillCoefficient(1 + effect.missingHpCoef)} · 대련 추가분 60%)`,
+  ];
+}
+
+function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
+  const chips: string[] = [];
+
+  if (
+    skill.id === "v2c_overlord_ruin" ||
+    skill.id === "v2c_hegemon_annihilation"
+  ) {
+    chips.push("혈전 준비 시 광폭 계수 +25% · 확정 치명타");
+  }
+  if (skill.id === "v2c_hegemon_annihilation") {
+    chips.push(
+      "사망 극복 강화: 반드시 발동 · 잃은 HP 100% · 광폭 계수 ×1.5",
+      "사망 극복 시 1회 재충전 (전투당 최대 2회)",
+    );
+  }
+
+  if (skill.exclusiveGroup !== "berserker_madness") return chips;
+
+  const rank = skill.exclusiveRank ?? 0;
+  if (rank >= 1) {
+    chips.push("HP 50% 이하: 공격 액티브 발동률 +10%p");
+  }
+  if (rank >= 2) {
+    chips.push("혈전 준비 필살기: 치명타 피해 +30%");
+  }
+  if (rank >= 3) {
+    chips.push("전투당 1회 치명 피해 무효 · HP 40%로 회복");
+  }
+  if (rank === 3) {
+    chips.push("현재 행동 종료까지 HP 40% 아래로 내려가지 않음");
+  }
+  if (rank >= 4) {
+    chips.push(
+      "다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
+      "다음 공격 액티브: 반드시 발동 · 잃은 HP 100% · 광폭 계수 ×1.5",
+      "멸왕일도 1회 재충전 (전투당 최대 2회)",
+    );
+  }
+  chips.push("광기 계열 중 1개만 장착");
+  return chips;
+}
+
 function describeV2Effect(
   e: V2SkillEffect,
   tier: 1 | 2 | 3,
@@ -1873,7 +1929,7 @@ function describeV2Effect(
     case "hpCostDamage":
       return `명중 시 HP ${e.pctCurrentHp}% 소모 → 피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)} + 기준 소모량×${e.soakRatio}${e.soakCurrentHpFloorPct ? ` (추가 피해 기준 현재 HP 최소 ${e.soakCurrentHpFloorPct}%)` : ""}`;
     case "missingHpDamage":
-      return `${e.selfCurrentHpCostPct ? `명중 시 현재 HP ${e.selfCurrentHpCostPct}% 소모 → ` : ""}피해 공격력×${formatSkillCoefficient(e.attackCoef)} + 힘×${formatSkillCoefficient(e.statCoef)} (잃은 HP 비율 광폭 계수 ×${formatSkillCoefficient(e.missingHpCoef)})`;
+      return describeMissingHpDamage(e).join(" · ");
     case "healToDamage":
       return `자힐 ${scalingStatLabel(e.scaling)}×${formatSkillCoefficient(v2SkillHealStatCoef(e.healStatCoef))}${flatChip(undefined, e.healFlatByTier)} (회복량 보정 적용) → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
@@ -2073,14 +2129,19 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   );
   const chips = skill.passive
     ? describePassive(skill.passive)
-    : displayEffects.map((effect) =>
-        describeV2Effect(
-          effect,
-          skill.tier,
-          directDamageEffectCount,
-          skill.monsterOnly === true,
-        ),
+    : displayEffects.flatMap((effect) =>
+        effect.kind === "missingHpDamage"
+          ? describeMissingHpDamage(effect)
+          : [
+              describeV2Effect(
+                effect,
+                skill.tier,
+                directDamageEffectCount,
+                skill.monsterOnly === true,
+              ),
+            ],
       );
+  chips.push(...describeBerserkerLineageRules(skill));
   // 각 직접 피해 effect 는 전투 로그에서 별도 타격으로 처리된다. 피해 칩이 여러 개 나열되는 것만으로는
   // 다단 여부가 잘 드러나지 않으므로 학습·장착·전투 패턴 툴팁 맨 앞에 기본 타수를 명시한다.
   if (!skill.passive && directDamageEffectCount > 1) {

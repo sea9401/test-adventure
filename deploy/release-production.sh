@@ -171,6 +171,10 @@ sudo install -m 0644 deploy/adventure-resource-monitor.service \
 sudo install -m 0644 deploy/adventure-resource-monitor.timer \
   /etc/systemd/system/adventure-resource-monitor.timer
 sudo systemctl daemon-reload
+
+echo "▶ [prod] enforce journal retention"
+bash deploy/configure-log-retention.sh
+
 sudo systemctl enable --now adventure-resource-monitor.timer
 
 echo "▶ [prod] start production"

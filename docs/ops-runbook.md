@@ -264,6 +264,15 @@ sudo systemctl start adventure-resource-monitor.service
 journalctl -u adventure-resource-monitor.service -n 30 --no-pager
 ```
 
+운영 배포는 `deploy/configure-log-retention.sh`로 journald drop-in을 설치해
+persistent journal을 최대 512MB·최대 14일로 제한하고 루트 볼륨에 최소 3GB를
+남긴다. 적용 상태와 현재 사용량은 다음처럼 확인한다.
+
+```bash
+systemd-analyze cat-config systemd/journald.conf
+journalctl --disk-usage
+```
+
 ---
 
 ## 6. 크론 (EC2 `crontab -l`, UTC)

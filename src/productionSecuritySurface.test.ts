@@ -165,6 +165,12 @@ describe("production security surface", () => {
     );
   });
 
+  it("운영 배포가 journald 용량 제한을 적용한다", () => {
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+
+    expect(release).toContain("bash deploy/configure-log-retention.sh");
+  });
+
   it("배포 뒤 점검 화면을 유지하고 해제 뒤에는 전체 공개 표면을 검사한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
     const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));

@@ -93,7 +93,8 @@ describe("sim-v2-level-design", () => {
     expect(endgame.signatureAnyExpectedWins).toBe(2_000);
     expect(endgame.signatureSpecificExpectedWins).toBe(10_000);
     expect(skyRift.commonAnyExpectedWins).toBe(1_000);
-    expect(skyRift.commonSpecificExpectedWins).toBe(6_000);
+    // 천공 균열 1~6은 21종 방어구 전역 풀. 78단계 총 0.1%에서 특정 1종은 평균 21,000승.
+    expect(skyRift.commonSpecificExpectedWins).toBe(21_000);
     expect(skyRift.signatureAnyExpectedWins).toBeNull();
   });
 

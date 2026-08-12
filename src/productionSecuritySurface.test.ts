@@ -154,6 +154,23 @@ describe("production security surface", () => {
     }
   });
 
+  it("일일 DB 백업은 실패 알림 래퍼를 통해 실행한다", () => {
+    const crontab = source(join(ROOT, "deploy/crontab.txt"));
+
+    expect(crontab).toContain(
+      "0 17 * * * cd ~/adventure-rpg && bash deploy/run-backup.sh",
+    );
+    expect(crontab).not.toMatch(
+      /^0 17 \* \* \* .*bash deploy\/backup-db\.sh/m,
+    );
+  });
+
+  it("운영 배포가 journald 용량 제한을 적용한다", () => {
+    const release = source(join(ROOT, "deploy/release-production.sh"));
+
+    expect(release).toContain("bash deploy/configure-log-retention.sh");
+  });
+
   it("배포 뒤 점검 화면을 유지하고 해제 뒤에는 전체 공개 표면을 검사한다", () => {
     const workflow = source(join(ROOT, ".github/workflows/deploy.yml"));
     const manualDeploy = source(join(ROOT, "deploy/deploy.sh"));

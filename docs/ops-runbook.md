@@ -93,7 +93,7 @@ bash deploy/rollback.sh <좋은sha>        # reset→install→build→restart�
 ## 4. DB 운영
 
 ### 백업
-- **자동(일일)**: `deploy/backup-db.sh` 가 매일 **17:00 UTC(02:00 KST)** RDS → `~/backups/auto_*.sql.gz` (TLS 호스트 검증·gzip·14일 로테이션·무결성 검증). `BACKUP_S3_URI`가 있으면 S3에 SSE-S3 암호화 복제한다. crontab 등록은 `deploy/crontab.txt` 참고. 로그 `~/backups/backup.log`.
+- **자동(일일)**: `deploy/run-backup.sh`가 매일 **17:00 UTC(02:00 KST)** `deploy/backup-db.sh`를 실행해 RDS → `~/backups/auto_*.sql.gz`로 백업한다(TLS 호스트 검증·gzip·14일 로테이션·무결성 검증). `BACKUP_S3_URI`가 있으면 S3에 SSE-S3 암호화 복제한다. 실패하면 원래 종료 코드를 유지하면서 운영 webhook으로 알리고, 성공·실패 로그는 모두 `~/backups/backup.log`에 남긴다. crontab 등록은 `deploy/crontab.txt` 참고.
 - **수동(작업 직전 임시)**:
 ```bash
 cd ~/adventure-rpg && bash deploy/backup-db.sh         # 자동백업 스크립트 그대로(검증 포함)
@@ -262,6 +262,15 @@ aws iam put-role-policy \
 # 수동 검증: journal에 RDS MEMORY OK/WARN과 현재 MiB가 출력돼야 한다.
 sudo systemctl start adventure-resource-monitor.service
 journalctl -u adventure-resource-monitor.service -n 30 --no-pager
+```
+
+운영 배포는 `deploy/configure-log-retention.sh`로 journald drop-in을 설치해
+persistent journal을 최대 512MB·최대 14일로 제한하고 루트 볼륨에 최소 3GB를
+남긴다. 적용 상태와 현재 사용량은 다음처럼 확인한다.
+
+```bash
+systemd-analyze cat-config systemd/journald.conf
+journalctl --disk-usage
 ```
 
 ---

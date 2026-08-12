@@ -190,8 +190,9 @@ export const referralCodes = pgTable(
 // ID의 중복 귀속을 막고, 별도 로그인 주체 원장이 탈퇴·재가입 중복을 막는다. 탈퇴 시
 // referredUserId는 NULL로 분리하고 이름을 익명화해 추천인의 실적·보상 이력은 보존한다.
 // rewardGold/rewardedDepth는 과거 골드 보상 감사 기록으로 보존하고,
-// 현재 회복약 보상은 referrerSignupRewardedAt과 rewardedStaminaDepth로 지급 여부를
-// 기록한다. 가입 보상은 귀속 트랜잭션에서 함께 지급하며, 과거 귀속은 NULL로 남긴다.
+// 현재 회복약 보상은 referrerSignupRewardedAt과 completedTutorialTaskIds로 지급 여부를
+// 기록한다. rewardedStaminaDepth는 과거 깊이 보상 감사값으로만 보존한다.
+// 가입 보상은 귀속 트랜잭션에서 함께 지급하며, 과거 귀속은 NULL로 남긴다.
 export const referralConversions = pgTable(
   "referral_conversions",
   {
@@ -211,6 +212,10 @@ export const referralConversions = pgTable(
     rewardedDepth: integer("rewarded_depth").default(0).notNull(),
     referrerSignupRewardedAt: timestamp("referrer_signup_rewarded_at"),
     rewardedStaminaDepth: integer("rewarded_stamina_depth").default(0).notNull(),
+    completedTutorialTaskIds: text("completed_tutorial_task_ids")
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
     convertedAt: timestamp("converted_at").defaultNow().notNull(),
   },
   (t) => [
@@ -230,6 +235,10 @@ export const referralConversions = pgTable(
     check(
       "referral_conversions_rewarded_stamina_depth_check",
       sql`${t.rewardedStaminaDepth} in (0, 6, 12, 18, 24, 36)`,
+    ),
+    check(
+      "referral_conversions_tutorial_tasks_check",
+      sql`${t.completedTutorialTaskIds} <@ ARRAY['hunt_depth_24', 'join_guild', 'life_level_5', 'hunt_depth_36', 'life_level_10']::text[] AND cardinality(${t.completedTutorialTaskIds}) <= 5`,
     ),
   ],
 );

@@ -39,6 +39,8 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { MULTTAE_BY_ID, multtaeAt } from "@/adventure/data/v2/multtae";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 import {
   FISHING_SESSION_KEY,
   judgeCatch,
@@ -345,6 +347,12 @@ export async function POST(req: Request) {
       progressResult.state,
     );
     const progressView = fishingProgressionView(progressResult.state);
+    await rewardReferralTutorialTasks(
+      tx,
+      userId,
+      "새 모험가",
+      referralLifeTaskIds(progressView.level),
+    );
 
     // 낚시 숙련도 — 현재 직업과 관계없이 직접 전직해 본 낚시 직업 중
     // 가장 높은 차수의 직업 숙련도만 성공한 챔질당 +1. 생존자 직군 숙련도는 올리지 않는다.

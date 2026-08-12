@@ -78,4 +78,20 @@ describe("suspicious user score", () => {
     expect(rows[0]).toMatchObject({ events: 1, rateLimited: 1, score: 7 });
     expect(rows[0]?.recentEvents).toHaveLength(2);
   });
+
+  it("excludes administrator-requested verification tests from suspicion scoring", () => {
+    const rows = scoreSuspiciousUsers([
+      event("human_verification_required", "v2:mining:human-check", 10_000, {
+        manualTest: true,
+      }),
+      event("human_verification_failed", "v2:mining:human-check", 11_000, {
+        manualTest: true,
+      }),
+      event("human_verification_succeeded", "v2:mining:human-check", 12_000, {
+        manualTest: true,
+      }),
+    ]);
+
+    expect(rows).toEqual([]);
+  });
 });

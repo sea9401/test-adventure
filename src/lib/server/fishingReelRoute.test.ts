@@ -7,12 +7,18 @@ const {
   upsertFishingRecord,
   incrementGuildExplorationProgressForUser,
   grantTitleIfMissingInTx,
+  rewardReferralTutorialTasks,
 } = vi.hoisted(() => ({
     store: new Map<string, unknown>(),
     upsertFishingRecord: vi.fn(async () => {}),
     incrementGuildExplorationProgressForUser: vi.fn(async () => null),
-    grantTitleIfMissingInTx: vi.fn(async () => true),
-  }));
+  grantTitleIfMissingInTx: vi.fn(async () => true),
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
+}));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -29,6 +35,7 @@ vi.mock("@/lib/server/guildExplorationWeekly", () => ({
 vi.mock("@/lib/server/grantTitle", () => ({
   grantTitleIfMissingInTx,
 }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (cb: (tx: unknown) => unknown) => {
@@ -91,6 +98,7 @@ function seedFisherSession(now: number) {
   store.clear();
   upsertFishingRecord.mockClear();
   incrementGuildExplorationProgressForUser.mockClear();
+  rewardReferralTutorialTasks.mockClear();
   store.set("character.v2", {
     class: "survivor",
     specChoice: "fisher",
@@ -331,6 +339,25 @@ describe("POST /api/v2/fishing/reel", () => {
       fishingXpGained: 4,
       environmentXpGained: 0,
     });
+  });
+
+  it("낚시 레벨 5에 도달하면 홍보 생활 단계를 확인한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_PROGRESS_KEY, {
+      ...emptyFishingProgression(),
+      xp: 556,
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "새 모험가",
+      ["life_level_5"],
+    );
   });
 
   it("어종별 크기 하위 25% 물고기를 낚으면 잔챙이 전문 히든 칭호를 지급한다", async () => {

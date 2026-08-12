@@ -21,6 +21,7 @@ export const ACTIVITY_BEHAVIOR_SIGNAL_SCORE = 6;
 export const ACTIVITY_REGULARITY_MIN_INTERVALS = 24;
 export const ACTIVITY_REGULARITY_MAX_CV = 0.015;
 export const ACTIVITY_REGULARITY_MIN_ACTIVE_MS = 2 * 60_000;
+export const MANUAL_ACTIVITY_VERIFICATION_TTL_MS = 10 * 60_000;
 
 const ACTIVITY_GLOBAL_VOLUME_STAGES = [
   { completions: 500, score: 5 },
@@ -32,6 +33,13 @@ const ACTIVITY_GLOBAL_VOLUME_STAGES = [
 
 export type GuardedActivity = "fishing" | "woodcutting" | "mining";
 export type ActivityRiskLevel = "normal" | "watch" | "high" | "critical";
+export type ManualActivityVerificationMode = "standard" | "captcha";
+
+export type ManualActivityVerification = {
+  mode: ManualActivityVerificationMode;
+  requestedAt: number;
+  expiresAt: number;
+};
 
 type ActivityGuardEntry = {
   sequenceStartedAt: number | null;
@@ -51,6 +59,7 @@ type ActivityGuardEntry = {
   intervalM2Ms: number;
   behaviorStage: number;
   behaviorSignals: number;
+  manualVerification: ManualActivityVerification | null;
 };
 
 type ActivityRiskState = {
@@ -99,6 +108,7 @@ function emptyEntry(): ActivityGuardEntry {
     intervalM2Ms: 0,
     behaviorStage: 0,
     behaviorSignals: 0,
+    manualVerification: null,
   };
 }
 
@@ -144,6 +154,25 @@ function nullableTimestamp(value: unknown): number | null {
 function parseEntry(raw: unknown): ActivityGuardEntry {
   if (!raw || typeof raw !== "object") return emptyEntry();
   const value = raw as Record<string, unknown>;
+  const manualRaw = value.manualVerification;
+  const manualValue =
+    manualRaw && typeof manualRaw === "object"
+      ? (manualRaw as Record<string, unknown>)
+      : null;
+  const manualMode = manualValue?.mode;
+  const manualRequestedAt = nullableTimestamp(manualValue?.requestedAt);
+  const manualExpiresAt = nullableTimestamp(manualValue?.expiresAt);
+  const manualVerification: ManualActivityVerification | null =
+    (manualMode === "standard" || manualMode === "captcha") &&
+    manualRequestedAt !== null &&
+    manualExpiresAt !== null &&
+    manualExpiresAt > manualRequestedAt
+      ? {
+          mode: manualMode as ManualActivityVerificationMode,
+          requestedAt: manualRequestedAt,
+          expiresAt: manualExpiresAt,
+        }
+      : null;
   return {
     sequenceStartedAt: nullableTimestamp(value.sequenceStartedAt),
     lastCompletedAt: nullableTimestamp(value.lastCompletedAt),
@@ -165,6 +194,7 @@ function parseEntry(raw: unknown): ActivityGuardEntry {
     intervalM2Ms: nonNegativeNumber(value.intervalM2Ms),
     behaviorStage: nonNegativeInt(value.behaviorStage),
     behaviorSignals: nonNegativeInt(value.behaviorSignals),
+    manualVerification,
   };
 }
 
@@ -298,11 +328,89 @@ export function activityVerificationRequired(
   activity: GuardedActivity,
   verificationConfigured: boolean,
 ): boolean {
+  return activityVerificationContext(
+    state,
+    activity,
+    verificationConfigured,
+  ).required;
+}
+
+export function organicActivityVerificationRequired(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+): boolean {
   return (
-    verificationConfigured &&
-    (state.activities[activity].verificationRequiredAt !== null ||
-      state.risk.score >= ACTIVITY_RISK_HIGH_THRESHOLD)
+    state.activities[activity].verificationRequiredAt !== null ||
+    state.risk.score >= ACTIVITY_RISK_HIGH_THRESHOLD
   );
+}
+
+export function activeManualActivityVerification(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+  now = Date.now(),
+): ManualActivityVerification | null {
+  const manual = state.activities[activity].manualVerification;
+  return manual && manual.requestedAt <= now && manual.expiresAt > now
+    ? manual
+    : null;
+}
+
+export function setManualActivityVerification(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+  mode: ManualActivityVerificationMode,
+  now = Date.now(),
+): ActivityGuardState {
+  return withEntry(state, activity, {
+    ...state.activities[activity],
+    manualVerification: {
+      mode,
+      requestedAt: now,
+      expiresAt: now + MANUAL_ACTIVITY_VERIFICATION_TTL_MS,
+    },
+  });
+}
+
+export function clearManualActivityVerification(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+): ActivityGuardState {
+  return withEntry(state, activity, {
+    ...state.activities[activity],
+    manualVerification: null,
+  });
+}
+
+export function activityVerificationContext(
+  state: ActivityGuardState,
+  activity: GuardedActivity,
+  verificationConfigured: boolean,
+  now = Date.now(),
+): {
+  required: boolean;
+  reason: "volume" | "strong_signal";
+  manualTest: boolean;
+} {
+  if (!verificationConfigured) {
+    return { required: false, reason: "volume", manualTest: false };
+  }
+  if (organicActivityVerificationRequired(state, activity)) {
+    return {
+      required: true,
+      reason: activityVerificationReason(state, activity),
+      manualTest: false,
+    };
+  }
+  const manual = activeManualActivityVerification(state, activity, now);
+  if (!manual) {
+    return { required: false, reason: "volume", manualTest: false };
+  }
+  return {
+    required: true,
+    reason: manual.mode === "captcha" ? "strong_signal" : "volume",
+    manualTest: true,
+  };
 }
 
 function withEntry(
@@ -605,6 +713,12 @@ export function clearActivityVerification(
   activity: GuardedActivity,
   now: number,
 ): ActivityGuardState {
+  if (
+    activeManualActivityVerification(state, activity, now) &&
+    !organicActivityVerificationRequired(state, activity)
+  ) {
+    return clearManualActivityVerification(state, activity);
+  }
   const previous = state.activities[activity];
   const decayed = decayedRisk(state.risk, now);
   const dailyKey = kstDailyKey(new Date(now));

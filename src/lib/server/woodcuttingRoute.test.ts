@@ -2,9 +2,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, incrementGuildExplorationProgressForUser } = vi.hoisted(() => ({
+const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   incrementGuildExplorationProgressForUser: vi.fn(async () => null),
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -13,6 +18,7 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/guildExplorationWeekly", () => ({
   incrementGuildExplorationProgressForUser,
 }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
@@ -98,6 +104,7 @@ beforeEach(() => {
 afterEach(() => {
   store.clear();
   incrementGuildExplorationProgressForUser.mockClear();
+  rewardReferralTutorialTasks.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -512,6 +519,29 @@ describe("woodcutting routes", () => {
       "woodcuttingSuccesses",
       1,
       new Date(NOW + 4_600),
+    );
+  });
+
+  it("chop — 벌목 레벨 5에 도달하면 홍보 생활 단계를 확인한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "cut-life-5",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+    });
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 63, xp: 630 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await CHOP(chopReq("cut-life-5"));
+
+    expect(response.status).toBe(200);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "새 모험가",
+      ["life_level_5"],
     );
   });
 

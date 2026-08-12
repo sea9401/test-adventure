@@ -39,6 +39,8 @@ import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/l
 import { rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
+import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 
 // POST /api/v2/farm/harvest — 다 자란 밭을 수확한다.
 export async function POST(req: Request) {
@@ -119,6 +121,12 @@ export async function POST(req: Request) {
               }
             : harvested.result;
         await upsertSave(tx, userId, FARM_SAVE_KEY, harvestedState);
+        await rewardReferralTutorialTasks(
+          tx,
+          userId,
+          "새 모험가",
+          referralLifeTaskIds(harvestResult.farmingLevel),
+        );
 
         let masteryGained = 0;
         let masteryAfter: number | null = null;

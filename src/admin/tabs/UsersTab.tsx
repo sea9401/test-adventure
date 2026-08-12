@@ -350,6 +350,7 @@ export function UsersTab() {
               resetStormExpeditionDailyAttempts
             }
             canResetStormExpedition={Boolean(adminMe?.capabilities.reward)}
+            canTestActivityVerification={Boolean(adminMe?.capabilities.super)}
             stormExpeditionResetting={stormExpeditionResetting}
             onReload={() => loadSaves(selected.id)}
           />

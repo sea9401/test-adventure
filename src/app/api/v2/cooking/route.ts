@@ -63,6 +63,8 @@ import {
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { consumeFinishedItem, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 
 type CharacterSave = Record<string, unknown> & {
   gold?: number;
@@ -402,6 +404,12 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, FISHING_STOCK_KEY, fishing);
       await upsertSave(tx, userId, COOKING_SAVE_KEY, cooking);
       await upsertSave(tx, userId, "character.v2", nextCharacter);
+      await rewardReferralTutorialTasks(
+        tx,
+        userId,
+        "새 모험가",
+        referralLifeTaskIds(cookingLevelForXp(cooking.xp)),
+      );
       let blueprintRecipeId: string | null = null;
       if (action === "cook") {
         const blueprint = rollHiddenBlueprint(workshop.crafting, "cooking", quantity);

@@ -1,8 +1,7 @@
 import type { ActivityGuardState, GuardedActivity } from "./activityGuard";
 import {
   activityGuardView,
-  activityVerificationReason,
-  activityVerificationRequired,
+  activityVerificationContext,
 } from "./activityGuard";
 import { turnstileConfig } from "./turnstile";
 import { hcaptchaConfig } from "./hcaptcha";
@@ -35,13 +34,16 @@ export function activityVerificationGateResponse(
       },
     );
   }
-  if (
-    !config.siteKey ||
-    !activityVerificationRequired(state, activity, config.configured)
-  ) {
+  const context = activityVerificationContext(
+    state,
+    activity,
+    config.configured,
+    now,
+  );
+  if (!config.siteKey || !context.required) {
     return null;
   }
-  const reason = activityVerificationReason(state, activity);
+  const reason = context.reason;
   const captcha = hcaptchaConfig();
   return Response.json(
     {
@@ -50,6 +52,7 @@ export function activityVerificationGateResponse(
       activity,
       siteKey: config.siteKey,
       reason,
+      manualTest: context.manualTest,
       riskLevel: view.riskLevel,
       captchaSiteKey:
         reason === "strong_signal" && captcha.configured

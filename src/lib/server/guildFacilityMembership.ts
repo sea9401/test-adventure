@@ -7,6 +7,7 @@ import { guildMembers } from "@/db/schema";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { reconcileWeeklyFacilitySourcesOnGuildJoin } from "./adventurerAssociation";
 import { lockSaveForUpdate, upsertSave } from "./savesKv";
+import { rewardReferralTutorialTasks } from "./referrals";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -52,5 +53,11 @@ export async function addGuildMemberWithFacilityReconciliation(
     userId,
     role: "member",
   });
+  await rewardReferralTutorialTasks(
+    tx,
+    userId,
+    "새 모험가",
+    ["join_guild"],
+  );
   return reconcileGuildFacilitiesOnJoin(tx, userId, guildId, now);
 }

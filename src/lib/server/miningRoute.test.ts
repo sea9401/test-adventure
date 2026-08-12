@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({
+const { store, rewardReferralTutorialTasks } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
@@ -69,12 +75,37 @@ beforeEach(() => {
 
 afterEach(() => {
   store.clear();
+  rewardReferralTutorialTasks.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
 describe("mining routes", () => {
+  it("strike — 채광 레벨 5에 도달하면 홍보 생활 단계를 확인한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "mine-life-5",
+      spotId: "iron_quarry",
+      nodeId: "iron",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+      failureRate: 0,
+    });
+    store.set(MINING_LOG_KEY, { successes: 127, xp: 635 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await STRIKE(request("strike", { sessionId: "mine-life-5" }));
+
+    expect(response.status).toBe(200);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "새 모험가",
+      ["life_level_5"],
+    );
+  });
+
   it("2시간 느긋한 자동 채광을 선택해 낮은 성공률과 재료 효율을 고정한다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
 

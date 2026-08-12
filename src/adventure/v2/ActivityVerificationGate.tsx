@@ -184,7 +184,11 @@ export function ActivityVerificationGate({
           잠시 사람 확인이 필요합니다
         </div>
         <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
-          {challenge.captchaSiteKey
+          {challenge.manualTest
+            ? challenge.captchaSiteKey
+              ? "보안 확인을 위해 2단계 사람 확인을 진행합니다. 완료하면 바로 계속할 수 있습니다."
+              : "보안 확인을 위해 사람 확인을 진행합니다. 완료하면 바로 계속할 수 있습니다."
+            : challenge.captchaSiteKey
             ? "자동화 의심 신호가 반복되어 2단계 확인을 진행합니다. 완료하면 바로 계속할 수 있습니다."
             : "장시간 반복 활동을 보호하기 위한 확인입니다. 완료하면 바로 계속할 수 있습니다."}
         </p>

@@ -8,8 +8,10 @@ import {
   ACTIVITY_RISK_HIGH_THRESHOLD,
   ACTIVITY_SEQUENCE_RESET_MS,
   ACTIVITY_STRONG_SIGNAL_THRESHOLD,
+  activeManualActivityVerification,
   activityCheckpointTarget,
   activityGuardView,
+  activityVerificationContext,
   activityVerificationReason,
   activityVerificationRequired,
   clearActivityVerification,
@@ -18,6 +20,7 @@ import {
   recordActivityCompletion,
   recordActivityEarlyAttempt,
   recordActivityStrongSignal,
+  setManualActivityVerification,
 } from "./activityGuard";
 
 describe("activityGuard", () => {
@@ -255,6 +258,105 @@ describe("activityGuard", () => {
     });
     expect(activityGuardView(state, "fishing").checkpointTarget).toBeGreaterThanOrEqual(400);
     expect(activityGuardView(state, "fishing").checkpointTarget).toBeLessThanOrEqual(700);
+  });
+
+  it("관리자 일반 확인 요청은 10분 동안 해당 활동만 확인 대상으로 만든다", () => {
+    const requestedAt = 100_000;
+    const state = setManualActivityVerification(
+      emptyActivityGuardState(),
+      "woodcutting",
+      "standard",
+      requestedAt,
+    );
+
+    expect(
+      activeManualActivityVerification(state, "woodcutting", requestedAt + 1),
+    ).toMatchObject({
+      mode: "standard",
+      requestedAt,
+      expiresAt: requestedAt + 10 * 60_000,
+    });
+    expect(
+      activityVerificationContext(state, "woodcutting", true, requestedAt + 1),
+    ).toMatchObject({ required: true, reason: "volume", manualTest: true });
+    expect(
+      activityVerificationContext(state, "fishing", true, requestedAt + 1),
+    ).toMatchObject({ required: false, manualTest: false });
+    expect(
+      activityVerificationContext(
+        state,
+        "woodcutting",
+        true,
+        requestedAt + 10 * 60_000,
+      ),
+    ).toMatchObject({ required: false, manualTest: false });
+  });
+
+  it("관리자 2단계 확인 요청은 실제 의심 수치를 올리지 않고 CAPTCHA 사유로 분류한다", () => {
+    const requestedAt = 200_000;
+    const state = setManualActivityVerification(
+      emptyActivityGuardState(),
+      "fishing",
+      "captcha",
+      requestedAt,
+    );
+
+    expect(activityGuardView(state, "fishing")).toMatchObject({
+      riskScore: 0,
+      strongSignals: 0,
+      behaviorSignals: 0,
+      dailyVerifications: 0,
+    });
+    expect(
+      activityVerificationContext(state, "fishing", true, requestedAt + 1),
+    ).toEqual({ required: true, reason: "strong_signal", manualTest: true });
+  });
+
+  it("관리자 확인 성공은 요청만 지우고 실제 위험 상태와 확인 횟수를 보존한다", () => {
+    const requestedAt = 300_000;
+    let state = recordActivityStrongSignal(
+      emptyActivityGuardState(),
+      "fishing",
+      requestedAt - 1_000,
+    ).state;
+    state = setManualActivityVerification(
+      state,
+      "fishing",
+      "standard",
+      requestedAt,
+    );
+
+    const cleared = clearActivityVerification(
+      state,
+      "fishing",
+      requestedAt + 5_000,
+    );
+
+    expect(
+      activeManualActivityVerification(cleared, "fishing", requestedAt + 5_000),
+    ).toBeNull();
+    expect(activityGuardView(cleared, "fishing")).toMatchObject({
+      riskScore: 18,
+      strongSignals: 1,
+      dailyVerifications: 0,
+    });
+  });
+
+  it("실제 확인 대기가 있으면 관리자 요청보다 실제 판정을 우선한다", () => {
+    let state = emptyActivityGuardState();
+    state = recordActivityStrongSignal(state, "mining", 400_000).state;
+    state = recordActivityStrongSignal(state, "mining", 401_000).state;
+    state = recordActivityStrongSignal(state, "mining", 402_000).state;
+    state = setManualActivityVerification(
+      state,
+      "mining",
+      "standard",
+      403_000,
+    );
+
+    expect(
+      activityVerificationContext(state, "mining", true, 500_000),
+    ).toEqual({ required: true, reason: "strong_signal", manualTest: false });
   });
 
   it("일일 500회 도달 순간에 운영 알림을 한 번만 만든다", () => {

@@ -42,6 +42,17 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("영구 삭제");
   });
 
+  it("게임 홍보의 여섯 단계 튜토리얼 보상을 안내한다", () => {
+    const html = renderToStaticMarkup(<ControlsContent />);
+
+    expect(html).toContain("사냥터 깊이 24·36");
+    expect(html).toContain("길드 가입 또는 창단");
+    expect(html).toContain("최고 생활 레벨 5·10");
+    expect(html).toContain("단계마다 양쪽에 스태미나 회복약 2개");
+    expect(html).toContain("각자 최대 12개");
+    expect(html).not.toContain("지정된 사냥터의 최심부");
+  });
+
   it("사냥 패배 위험 골드와 지역 세금 폐지를 모순 없이 안내한다", () => {
     const combat = renderToStaticMarkup(<CombatContent />);
     const hunting = renderToStaticMarkup(<HuntingContent />);

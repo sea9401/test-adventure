@@ -134,9 +134,9 @@ export function EquipmentTab({
               미장착 전부 판매
             </Button>
           </div>
-          {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 품질순 → 위력순). */}
+          {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 티어순 → 품질순 → 위력순). */}
           <Button
-            title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
+            title="누를 때마다 정렬 전환 (기본 → 티어순 → 품질순 → 위력순)"
             onClick={() => setSortMode((m) => nextSortMode(m))}
             variant="secondary"
             size="xs"

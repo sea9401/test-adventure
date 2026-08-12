@@ -8,18 +8,18 @@
 
 ### Task 1: Protect tier sorting behavior
 
-- [ ] Add focused tests for displayed-tier descending order, deterministic same-tier order, and non-mutating input.
-- [ ] Run the focused test and confirm it fails for the missing mode.
+- [x] Add focused tests for displayed-tier descending order, deterministic same-tier order, and non-mutating input.
+- [x] Run the focused test and confirm it fails for the missing mode.
 
 ### Task 2: Implement the sort option
 
-- [ ] Add `tier` to the shared sort mode and cycle.
-- [ ] Implement displayed-tier comparison with the default comparator as a tie-breaker.
-- [ ] Update sort-button guidance text on both shared consumer screens.
-- [ ] Re-run focused tests and type checking.
+- [x] Add `tier` to the shared sort mode and cycle.
+- [x] Implement displayed-tier comparison with the default comparator as a tie-breaker.
+- [x] Update sort-button guidance text on both shared consumer screens.
+- [x] Re-run focused tests and type checking.
 
 ### Task 3: Verify and commit
 
-- [ ] Run the relevant test suite, lint, and TypeScript checks.
-- [ ] Review the final diff and whitespace checks.
-- [ ] Commit the verified local change without deploying.
+- [x] Run the relevant test suite, lint, and TypeScript checks.
+- [x] Review the final diff and whitespace checks.
+- [x] Commit the verified local change without deploying.

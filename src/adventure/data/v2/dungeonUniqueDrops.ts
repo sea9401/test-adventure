@@ -86,6 +86,32 @@ export type BandPool = {
   ids: V2EquipmentId[];
 };
 
+// 천공 균열(73~78) 전역 방어구 풀. 어느 난이도에서든 6T 방어구 21종 전체가
+// 동일한 확률로 후보가 되며, 난이도는 풀을 제한하지 않고 총 드랍률만 높인다.
+const SKY_RIFT_ARMOR_IDS: V2EquipmentId[] = [
+  "v2_storm_wreckage_armor",
+  "v2_storm_wreckage_gloves",
+  "v2_storm_wreckage_boots",
+  "v2_storm_breaker_armor",
+  "v2_storm_breaker_gloves",
+  "v2_storm_breaker_boots",
+  "v2_storm_gale_armor",
+  "v2_storm_gale_gloves",
+  "v2_storm_gale_boots",
+  "v2_storm_shadow_armor",
+  "v2_storm_shadow_gloves",
+  "v2_storm_shadow_boots",
+  "v2_storm_venom_armor",
+  "v2_storm_venom_gloves",
+  "v2_storm_venom_boots",
+  "v2_storm_thunder_armor",
+  "v2_storm_thunder_gloves",
+  "v2_storm_thunder_boots",
+  "v2_storm_sanctuary_armor",
+  "v2_storm_sanctuary_gloves",
+  "v2_storm_sanctuary_boots",
+];
+
 // 흔한 밴드 장비 풀(noDrop normal). 무기 4 + 갑주세트 3 + 장신구 2 = 밴드당 9종.
 export const BAND_COMMON_POOLS: readonly BandPool[] = [
   {
@@ -302,46 +328,22 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 천공 균열 초입(73~74) — 중력성채·붕괴의 선봉 방어구.
+    // 천공 균열 초입(73~74) — 전역 6T 방어구 풀, 총 드랍률 0.05%.
     minDepth: 73,
     maxDepth: 74,
-    ids: [
-      "v2_storm_wreckage_armor",
-      "v2_storm_wreckage_gloves",
-      "v2_storm_wreckage_boots",
-      "v2_storm_breaker_armor",
-      "v2_storm_breaker_gloves",
-      "v2_storm_breaker_boots",
-    ],
+    ids: SKY_RIFT_ARMOR_IDS,
   },
   {
-    // 천공 균열 중층(75~76) — 천공추적·무풍암영·만독침식 방어구.
+    // 천공 균열 중층(75~76) — 같은 전역 풀, 총 드랍률만 0.075%로 상승.
     minDepth: 75,
     maxDepth: 76,
-    ids: [
-      "v2_storm_gale_armor",
-      "v2_storm_gale_gloves",
-      "v2_storm_gale_boots",
-      "v2_storm_shadow_armor",
-      "v2_storm_shadow_gloves",
-      "v2_storm_shadow_boots",
-      "v2_storm_venom_armor",
-      "v2_storm_venom_gloves",
-      "v2_storm_venom_boots",
-    ],
+    ids: SKY_RIFT_ARMOR_IDS,
   },
   {
-    // 천공 균열 심층(77~78) — 뇌정술식·성역공명 방어구.
+    // 천공 균열 심층(77~78) — 같은 전역 풀, 총 드랍률만 0.10%로 상승.
     minDepth: 77,
     maxDepth: 78,
-    ids: [
-      "v2_storm_thunder_armor",
-      "v2_storm_thunder_gloves",
-      "v2_storm_thunder_boots",
-      "v2_storm_sanctuary_armor",
-      "v2_storm_sanctuary_gloves",
-      "v2_storm_sanctuary_boots",
-    ],
+    ids: SKY_RIFT_ARMOR_IDS,
   },
 ];
 

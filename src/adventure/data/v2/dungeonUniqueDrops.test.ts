@@ -127,7 +127,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(calls).toBe(0);
   });
 
-  it("심해 폐허 뒤 천공 균열은 목표 파밍용 2깊이 풀 3개로 이어짐", () => {
+  it("천공 균열 1~6은 같은 21종 방어구 전역 드랍 풀을 사용함", () => {
     const den = bandCommonPoolForDepth(37)!;
     expect(bandCommonPoolForDepth(42)).toBe(den);
     const throne = bandCommonPoolForDepth(43)!;
@@ -151,7 +151,12 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(bandCommonPoolForDepth(74)).toBe(skyEntry);
     expect(bandCommonPoolForDepth(76)).toBe(skyMiddle);
     expect(bandCommonPoolForDepth(78)).toBe(skyDeep);
-    expect(new Set([skyEntry, skyMiddle, skyDeep]).size).toBe(3);
+    expect(skyEntry.ids).toHaveLength(21);
+    expect(skyMiddle.ids).toEqual(skyEntry.ids);
+    expect(skyDeep.ids).toEqual(skyEntry.ids);
+    expect(skyEntry.ids).toContain("v2_storm_wreckage_armor");
+    expect(skyEntry.ids).toContain("v2_storm_gale_armor");
+    expect(skyEntry.ids).toContain("v2_storm_thunder_armor");
     expect(bandCommonPoolForDepth(79)).toBeNull();
     expect(rollBandCommonDrop(40, seqRng([0.0004, 0]))).toBe(den.ids[0]); // 밴드 내 드랍
     expect(rollBandCommonDrop(46, seqRng([0.0004, 0]))).toBe(throne.ids[0]); // 신규 밴드 내 드랍

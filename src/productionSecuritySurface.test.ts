@@ -146,6 +146,7 @@ describe("production security surface", () => {
     }
     for (const marker of [
       "crontab deploy/crontab.txt",
+      "/api/v2/cron/battle-replay-retention",
       "/api/v2/cron/ops-retention",
       "/api/v2/cron/ops-daily-report",
     ]) {

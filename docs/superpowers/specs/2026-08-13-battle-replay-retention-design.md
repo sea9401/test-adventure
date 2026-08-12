@@ -51,7 +51,8 @@ locally. An upload failure therefore leaves the new verified local dump intact.
   retries from the remaining expired rows.
 - Missing AWS CLI with configured offsite storage fails before a new dump uses
   more disk.
-- An unavailable or missing S3 object prevents deletion of its local copy.
+- An unavailable or missing S3 object preserves its local copy and aborts the
+  backup before a new dump can consume additional disk.
 - No `VACUUM FULL` is part of the workflow; normal autovacuum reclaims reusable
   table space without an exclusive table rewrite.
 
@@ -64,4 +65,3 @@ locally. An upload failure therefore leaves the new verified local dump intact.
   manual files remain.
 - Verify crontab and release checks include the new endpoint.
 - Run focused tests, typecheck, lint, and the production build before commit.
-

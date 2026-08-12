@@ -46,7 +46,7 @@
 
 **Files:**
 - Create: `deploy/prune-offsite-backups.sh`
-- Create: `deploy/prune-offsite-backups.test.ts`
+- Create: `src/lib/server/pruneOffsiteBackups.test.ts`
 - Modify: `deploy/backup-db.sh`
 
 **Interfaces:**
@@ -54,7 +54,7 @@
 - Consumes: AWS CLI `s3api head-object`; selects only `$BACKUP_DIR/auto_*.sql.gz`.
 
 - [ ] Write a failing temporary-directory test with a fake AWS CLI that confirms only S3-backed automatic dumps are removed.
-- [ ] Run `npm test -- deploy/prune-offsite-backups.test.ts` and verify failure because the helper does not exist.
+- [ ] Run `npm test -- src/lib/server/pruneOffsiteBackups.test.ts` and verify failure because the helper does not exist.
 - [ ] Implement strict S3 URI parsing, per-object verification, and exact-file deletion.
 - [ ] Run the focused helper test and verify it passes.
 - [ ] Call the helper before `pg_dump` when S3 is configured and validate AWS CLI before consuming disk.
@@ -71,4 +71,3 @@
 - [ ] Run `npm run build` to exercise the project-specific Next.js production build.
 - [ ] Inspect `git diff --check` and `git status --short`.
 - [ ] Commit the design, tests, implementation, and deployment configuration with a focused message.
-

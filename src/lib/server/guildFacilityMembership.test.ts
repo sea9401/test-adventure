@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 
-const { reconcileSources, lockSave, upsert } = vi.hoisted(() => ({
+const { reconcileSources, lockSave, rewardTasks, upsert } = vi.hoisted(() => ({
   reconcileSources: vi.fn(),
   lockSave: vi.fn(),
+  rewardTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [],
+    completedTaskIds: [],
+  })),
   upsert: vi.fn(async () => undefined),
 }));
 
@@ -14,6 +19,10 @@ vi.mock("@/lib/server/adventurerAssociation", () => ({
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: lockSave,
   upsertSave: upsert,
+}));
+
+vi.mock("@/lib/server/referrals", () => ({
+  rewardReferralTutorialTasks: rewardTasks,
 }));
 
 import {
@@ -88,6 +97,12 @@ describe("길드 가입 시설 승계", () => {
       userId: "u-join",
       role: "member",
     });
+    expect(rewardTasks).toHaveBeenCalledWith(
+      joinTx,
+      "u-join",
+      "새 모험가",
+      ["join_guild"],
+    );
     expect(result.transferred).toEqual(["training_ground"]);
   });
 });

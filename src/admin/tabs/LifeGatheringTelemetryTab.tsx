@@ -263,13 +263,21 @@ function guardReasonLabel(reason: TelemetryResponse["guard"]["recent"][number]["
   return "행동 패턴";
 }
 
-function guardDetail(detail: Record<string, unknown> | null): string {
+export function guardDetail(detail: Record<string, unknown> | null): string {
   if (!detail) return "-";
+  const manualTest = detail.manualTest === true;
+  const mode = detail.mode === "captcha"
+    ? "2단계 hCaptcha"
+    : detail.mode === "standard"
+      ? "일반 확인"
+      : null;
   const signal = typeof detail.signal === "string" ? detail.signal : null;
   const risk = Number(detail.riskScore);
   const target = Number(detail.nextCheckpointTarget ?? detail.checkpointTarget);
   const passes = Number(detail.dailyVerifications);
   return [
+    manualTest ? "운영 테스트" : null,
+    manualTest ? mode : null,
     signal ? `신호 ${signal}` : null,
     Number.isFinite(risk) ? `위험 ${risk}` : null,
     Number.isFinite(target) ? `다음 ${target}회` : null,

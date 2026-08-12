@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, incrementGuildExplorationProgressForUser } = vi.hoisted(() => ({
+const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   incrementGuildExplorationProgressForUser: vi.fn(async () => null),
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -17,6 +22,7 @@ vi.mock("@/lib/server/lifeGatheringTelemetry", () => ({
 vi.mock("@/lib/server/guildExplorationWeekly", () => ({
   incrementGuildExplorationProgressForUser,
 }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
@@ -48,6 +54,7 @@ import {
   FARM_CROPS,
   FARM_SAVE_KEY,
   emptyFarmState,
+  farmingLevelXpThreshold,
   plantCrop,
   type FarmState,
 } from "@/adventure/v2/farm";
@@ -74,6 +81,7 @@ describe("POST /api/v2/farm/harvest", () => {
   afterEach(() => {
     store.clear();
     incrementGuildExplorationProgressForUser.mockClear();
+    rewardReferralTutorialTasks.mockClear();
     resetUserRateLimitForTests();
     vi.restoreAllMocks();
   });
@@ -87,7 +95,11 @@ describe("POST /api/v2/farm/harvest", () => {
     );
     store.set(FARM_SAVE_KEY, {
       ...planted,
-      stats: { ...planted.stats, harvests: 7 },
+      stats: {
+        ...planted.stats,
+        harvests: 7,
+        farmingXp: farmingLevelXpThreshold(5),
+      },
     });
     store.set("character.v2", {});
     store.set("skills.v2", {});
@@ -148,5 +160,11 @@ describe("POST /api/v2/farm/harvest", () => {
       arenaTimes: [],
     }, { farmRaw: farm });
     expect(deriveRepeatViews(repeat, signals).find((quest) => quest.id === "d_farm")?.progress).toBe(1);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "새 모험가",
+      ["life_level_5"],
+    );
   });
 });

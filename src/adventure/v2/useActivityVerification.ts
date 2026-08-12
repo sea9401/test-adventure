@@ -8,6 +8,7 @@ export type ActivityVerificationChallenge = {
   siteKey: string;
   captchaSiteKey: string | null;
   reason: "volume" | "strong_signal";
+  manualTest: boolean;
 };
 
 export type ActivityVerificationSubmission = {
@@ -55,7 +56,7 @@ function cooldownUntil(
   return Date.now() + retryAfterSec * 1_000;
 }
 
-function parseChallenge(
+export function parseActivityVerificationChallenge(
   raw: unknown,
   activity: GuardedActivity,
 ): ActivityVerificationChallenge | null {
@@ -77,6 +78,7 @@ function parseChallenge(
         ? value.captchaSiteKey
         : null,
     reason: value.reason === "strong_signal" ? "strong_signal" : "volume",
+    manualTest: value.manualTest === true,
   };
 }
 
@@ -91,7 +93,7 @@ export function useActivityVerification(activity: GuardedActivity) {
       if (response.status === 429 && nextActionAt !== null) {
         throw new ActivityCooldownError(nextActionAt);
       }
-      const challenge = parseChallenge(json, activity);
+      const challenge = parseActivityVerificationChallenge(json, activity);
       if (response.status === 403 && challenge) {
         setVerification(challenge);
         throw new ActivityVerificationRequiredError();

@@ -9,12 +9,14 @@ import {
 import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import {
+  REFERRAL_TUTORIAL_TASKS,
+  normalizeReferralProgressTaskIds,
+} from "@/adventure/data/v2/referralTutorial";
+import {
   createReferralCode,
   REFERRAL_NEW_USER_STAMINA_POTIONS,
-  REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE,
   REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
-  REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
-  referralRewardMilestones,
+  REFERRAL_TUTORIAL_STAMINA_POTIONS_PER_TASK,
 } from "@/lib/server/referrals";
 
 async function requireUser(req: Request): Promise<string | Response> {
@@ -25,12 +27,21 @@ async function requireUser(req: Request): Promise<string | Response> {
 }
 
 async function referralSummary(userId: string) {
-  const milestones = referralRewardMilestones();
-  const [codeRow, referrals] = await Promise.all([
+  const [codeRow, currentProgressRows, referrals] = await Promise.all([
     db
       .select({ code: referralCodes.code, disabledAt: referralCodes.disabledAt })
       .from(referralCodes)
       .where(eq(referralCodes.userId, userId))
+      .limit(1),
+    db
+      .select({
+        referrerSignupRewardedAt:
+          referralConversions.referrerSignupRewardedAt,
+        completedTutorialTaskIds:
+          referralConversions.completedTutorialTaskIds,
+      })
+      .from(referralConversions)
+      .where(eq(referralConversions.referredUserId, userId))
       .limit(1),
     db
       .select({
@@ -39,7 +50,8 @@ async function referralSummary(userId: string) {
         referredUserId: referralConversions.referredUserId,
         referredDeletedAt: referralConversions.referredDeletedAt,
         character: savesKv.value,
-        rewardedDepth: referralConversions.rewardedStaminaDepth,
+        completedTutorialTaskIds:
+          referralConversions.completedTutorialTaskIds,
         referrerSignupRewardedAt:
           referralConversions.referrerSignupRewardedAt,
         convertedAt: referralConversions.convertedAt,
@@ -62,11 +74,11 @@ async function referralSummary(userId: string) {
       row.referredUserId === null || row.referredDeletedAt !== null;
     const character = row.character as { frontierDepth?: unknown } | null;
     const currentFrontierDepth = deleted
-      ? Math.max(2, row.rewardedDepth)
+      ? 2
       : Math.max(2, Math.floor(Number(character?.frontierDepth) || 2));
-    const completedMilestones = milestones.filter(
-      (milestone) => milestone.frontierDepth <= row.rewardedDepth,
-    ).length;
+    const completedTaskIds = normalizeReferralProgressTaskIds(
+      row.completedTutorialTaskIds,
+    );
     const signupRewarded = row.referrerSignupRewardedAt !== null;
     return {
       name: deleted
@@ -74,24 +86,37 @@ async function referralSummary(userId: string) {
         : (row.currentName ?? row.referredName ?? "새 모험가"),
       deleted,
       currentFrontierDepth,
-      rewardedDepth: row.rewardedDepth,
       signupRewarded,
-      completedMilestones,
-      completedRewardStages: completedMilestones + (signupRewarded ? 1 : 0),
+      completedTaskIds,
+      completedRewardStages:
+        completedTaskIds.length + (signupRewarded ? 1 : 0),
       convertedAt: row.convertedAt.toISOString(),
     };
   });
+  const currentProgress = currentProgressRows[0];
+  const myCompletedTaskIds = currentProgress
+    ? normalizeReferralProgressTaskIds(
+        currentProgress.completedTutorialTaskIds,
+      )
+    : [];
+  const mySignupRewarded = currentProgress?.referrerSignupRewardedAt != null;
 
   return {
     code: codeRow[0]?.disabledAt ? null : (codeRow[0]?.code ?? null),
     newUserStaminaPotions: REFERRAL_NEW_USER_STAMINA_POTIONS,
-    newUserStaminaPotionsPerMilestone:
-      REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE,
     referrerSignupStaminaPotions:
       REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
-    referrerStaminaPotionsPerMilestone:
-      REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
-    rewardMilestones: milestones,
+    tutorialTaskStaminaPotions:
+      REFERRAL_TUTORIAL_STAMINA_POTIONS_PER_TASK,
+    tutorialTasks: REFERRAL_TUTORIAL_TASKS,
+    myReferralProgress: currentProgress
+      ? {
+          signupRewarded: mySignupRewarded,
+          completedTaskIds: myCompletedTaskIds,
+          completedRewardStages:
+            myCompletedTaskIds.length + (mySignupRewarded ? 1 : 0),
+        }
+      : null,
     attributedCount: referralRows.length,
     totalRewardStaminaPotions: referralRows.reduce(
       (sum, referral) =>
@@ -99,8 +124,8 @@ async function referralSummary(userId: string) {
         (referral.signupRewarded
           ? REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS
           : 0) +
-        referral.completedMilestones *
-          REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
+        referral.completedTaskIds.length *
+          REFERRAL_TUTORIAL_STAMINA_POTIONS_PER_TASK,
       0,
     ),
     referrals: referralRows,

@@ -19,6 +19,7 @@ import { SanctionsSection } from "./SanctionsSection";
 import { V2GrantSection } from "./V2GrantSection";
 import { CharacterPreviewSection } from "./CharacterPreviewSection";
 import { UserImpersonationSection } from "./UserImpersonationSection";
+import { ActivityVerificationTestSection } from "./ActivityVerificationTestSection";
 import { Warning } from "@phosphor-icons/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 
@@ -35,6 +36,7 @@ export function SelectedUserPanel({
   onResetMasteryTowerDaily,
   onResetStormExpeditionDailyAttempts,
   canResetStormExpedition,
+  canTestActivityVerification,
   stormExpeditionResetting,
   onReload,
 }: {
@@ -50,6 +52,7 @@ export function SelectedUserPanel({
   onResetMasteryTowerDaily: () => void | Promise<void>;
   onResetStormExpeditionDailyAttempts: () => void | Promise<void>;
   canResetStormExpedition: boolean;
+  canTestActivityVerification: boolean;
   stormExpeditionResetting: boolean;
   onReload: () => void;
 }) {
@@ -118,6 +121,14 @@ export function SelectedUserPanel({
         userId={user.id}
         gameName={profile.name}
       />
+
+      {canTestActivityVerification ? (
+        <ActivityVerificationTestSection
+          key={`activity-verification:${user.id}`}
+          userId={user.id}
+          readOnly={readOnly}
+        />
+      ) : null}
 
       <CharacterPreviewSection
         key={`${user.id}:${previewDepth}`}

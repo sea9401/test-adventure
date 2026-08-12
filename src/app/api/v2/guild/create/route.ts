@@ -12,6 +12,7 @@ import {
   GUILD_CREATE_GOLD_COST,
 } from "@/adventure/data/guild";
 import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 
 // POST /api/v2/guild/create — 길드 생성.
 // body: { name: string }
@@ -101,6 +102,12 @@ export async function POST(req: Request) {
       }
       throw e;
     }
+    await rewardReferralTutorialTasks(
+      tx,
+      userId,
+      "새 모험가",
+      ["join_guild"],
+    );
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: spend.gold,

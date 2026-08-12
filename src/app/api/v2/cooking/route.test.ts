@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({
+const { store, rewardReferralTutorialTasks } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
+  rewardReferralTutorialTasks: vi.fn(async () => ({
+    staminaPotions: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
+  })),
 }));
 
 vi.mock("@/db", () => ({
@@ -14,6 +19,7 @@ vi.mock("@/db", () => ({
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "cook-user"),
 }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
 }));
@@ -72,6 +78,7 @@ describe("/api/v2/cooking", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     seed();
+    rewardReferralTutorialTasks.mockClear();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -125,6 +132,32 @@ describe("/api/v2/cooking", () => {
       discoveredRecipeIds: ["rustic_bread"],
       stats: expect.objectContaining({ dishesCooked: 1, ordersCompleted: 0 }),
     });
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "cook-user",
+      "새 모험가",
+      [],
+    );
+  });
+
+  it("요리 레벨 5 이상에서 조리하면 홍보 생활 단계를 확인한다", async () => {
+    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
+    const cooking = store.get("cooking.v1") as ReturnType<typeof emptyCookingState>;
+    store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
+    store.set("cooking.v1", { ...cooking, xp: cookingLevelXpThreshold(5) });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const response = await POST(
+      request({ action: "cook", recipeId: "rustic_bread", quantity: 1 }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "cook-user",
+      "새 모험가",
+      ["life_level_5"],
+    );
   });
 
   it("달걀과 우유 목장 요리는 농장 재료를 정확히 차감한다", async () => {

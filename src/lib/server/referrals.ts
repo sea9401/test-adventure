@@ -10,7 +10,11 @@ import {
   users,
 } from "@/db/schema";
 import { inboxValues } from "@/lib/server/inboxPayload";
-import { huntStageName } from "@/adventure/data/v2/dungeon";
+import {
+  REFERRAL_TUTORIAL_TASKS,
+  normalizeReferralProgressTaskIds,
+  type ReferralTutorialProgressTaskId,
+} from "@/adventure/data/v2/referralTutorial";
 import {
   backfillReferralIdentityClaims,
   reserveReferralIdentityClaims,
@@ -20,30 +24,12 @@ export const REFERRAL_COOKIE = "adventure_referral";
 export const REFERRAL_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 export const REFERRAL_CODE_PATTERN = /^[a-f0-9]{16}$/;
 export const REFERRAL_NEW_USER_STAMINA_POTIONS = 2;
-export const REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE = 2;
 export const REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS = 2;
-export const REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE = 2;
-export const REFERRAL_REWARD_DEPTHS = [6, 12, 18, 24, 36] as const;
-
-export type ReferralRewardMilestone = {
-  frontierDepth: (typeof REFERRAL_REWARD_DEPTHS)[number];
-  newUserStaminaPotions: number;
-  referrerStaminaPotions: number;
-};
+export const REFERRAL_TUTORIAL_STAMINA_POTIONS_PER_TASK = 2;
 
 type DbExecutor =
   | typeof db
   | Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-export function referralRewardMilestones(): ReferralRewardMilestone[] {
-  return REFERRAL_REWARD_DEPTHS.map((frontierDepth) => ({
-    frontierDepth,
-    newUserStaminaPotions:
-      REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE,
-    referrerStaminaPotions:
-      REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
-  }));
-}
 
 export function normalizeReferralCode(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -137,97 +123,111 @@ export async function attributeReferral(
   return { attributed: true };
 }
 
-export async function rewardReferralProgress(
+export async function rewardReferralTutorialTasks(
   tx: DbExecutor,
   referredUserId: string,
   referredName: string,
-  frontierDepthRaw: unknown,
-): Promise<{ staminaPotions: number; rewardedDepth: number }> {
-  const frontierDepth = Math.max(0, Math.floor(Number(frontierDepthRaw) || 0));
-  const milestones = referralRewardMilestones();
-  const reached = milestones.filter(
-    (milestone) => milestone.frontierDepth <= frontierDepth,
-  );
-  const targetDepth = reached.at(-1)?.frontierDepth ?? 0;
-  if (targetDepth === 0) return { staminaPotions: 0, rewardedDepth: 0 };
+  candidateTaskIds: readonly ReferralTutorialProgressTaskId[],
+): Promise<{
+  staminaPotions: number;
+  newlyCompletedTaskIds: ReferralTutorialProgressTaskId[];
+  completedTaskIds: ReferralTutorialProgressTaskId[];
+}> {
+  const candidates = normalizeReferralProgressTaskIds(candidateTaskIds);
+  if (candidates.length === 0) {
+    return {
+      staminaPotions: 0,
+      newlyCompletedTaskIds: [],
+      completedTaskIds: [],
+    };
+  }
 
   const [conversion] = await tx
     .select({
+      referredUserId: referralConversions.referredUserId,
+      referredName: referralConversions.referredName,
       referrerUserId: referralConversions.referrerUserId,
-      rewardedStaminaDepth: referralConversions.rewardedStaminaDepth,
+      completedTutorialTaskIds:
+        referralConversions.completedTutorialTaskIds,
     })
     .from(referralConversions)
     .where(eq(referralConversions.referredUserId, referredUserId))
     .for("update")
     .limit(1);
-  if (!conversion || conversion.rewardedStaminaDepth >= targetDepth) {
+  if (!conversion || conversion.referredUserId !== referredUserId) {
     return {
       staminaPotions: 0,
-      rewardedDepth: conversion?.rewardedStaminaDepth ?? 0,
+      newlyCompletedTaskIds: [],
+      completedTaskIds: [],
     };
   }
 
-  const dueMilestoneCount = milestones
-    .filter(
-      (milestone) =>
-        milestone.frontierDepth > conversion.rewardedStaminaDepth &&
-        milestone.frontierDepth <= targetDepth,
-    )
-    .length;
-  const dueNewUserStaminaPotions =
-    dueMilestoneCount * REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE;
-  const dueReferrerStaminaPotions =
-    dueMilestoneCount * REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE;
+  const completed = normalizeReferralProgressTaskIds(
+    conversion.completedTutorialTaskIds,
+  );
+  const completedSet = new Set(completed);
+  const newlyCompletedTaskIds = candidates.filter(
+    (taskId) => !completedSet.has(taskId),
+  );
+  if (newlyCompletedTaskIds.length === 0) {
+    return {
+      staminaPotions: 0,
+      newlyCompletedTaskIds: [],
+      completedTaskIds: completed,
+    };
+  }
+
+  const completedTaskIds = normalizeReferralProgressTaskIds([
+    ...completed,
+    ...newlyCompletedTaskIds,
+  ]);
+  const staminaPotions =
+    newlyCompletedTaskIds.length * REFERRAL_TUTORIAL_STAMINA_POTIONS_PER_TASK;
+  const displayName = conversion.referredName?.trim() || referredName;
+  const taskNames = newlyCompletedTaskIds
+    .map((taskId) =>
+      REFERRAL_TUTORIAL_TASKS.find((task) => task.id === taskId)?.title)
+    .filter((title) => title !== undefined)
+    .join(", ");
 
   await tx
     .update(referralConversions)
-    .set({
-      rewardedStaminaDepth: targetDepth,
-    })
+    .set({ completedTutorialTaskIds: completedTaskIds })
     .where(eq(referralConversions.referredUserId, referredUserId));
+  await tx.insert(marketplaceInbox).values(
+    inboxValues({
+      userId: referredUserId,
+      payload: {
+        kind: "admin_gift",
+        gold: 0,
+        materials: [],
+        items: [],
+        staminaPotions,
+        museunCoins: 0,
+        cashItems: [],
+        adventureSupportDays: 0,
+      },
+      message: `홍보 이벤트 과제(${taskNames})를 완료했습니다. 스태미나 회복약 ${staminaPotions}개를 받아 주세요.`,
+    }),
+  );
+  await tx.insert(marketplaceInbox).values(
+    inboxValues({
+      userId: conversion.referrerUserId,
+      payload: {
+        kind: "admin_gift",
+        gold: 0,
+        materials: [],
+        items: [],
+        staminaPotions,
+        museunCoins: 0,
+        cashItems: [],
+        adventureSupportDays: 0,
+      },
+      message: `${displayName}님이 홍보 이벤트 과제(${taskNames})를 완료했습니다. 스태미나 회복약 ${staminaPotions}개를 받아 주세요.`,
+    }),
+  );
 
-  if (dueNewUserStaminaPotions > 0) {
-    await tx.insert(marketplaceInbox).values(
-      inboxValues({
-        userId: referredUserId,
-        payload: {
-          kind: "admin_gift",
-          gold: 0,
-          materials: [],
-          items: [],
-          staminaPotions: dueNewUserStaminaPotions,
-          museunCoins: 0,
-          cashItems: [],
-          adventureSupportDays: 0,
-        },
-        message: `${huntStageName(targetDepth)}를 돌파했습니다. 홍보 이벤트 단계 보상 스태미나 회복약 ${dueNewUserStaminaPotions}개를 받아 주세요.`,
-      }),
-    );
-  }
-
-  if (dueReferrerStaminaPotions > 0) {
-    await tx.insert(marketplaceInbox).values(
-      inboxValues({
-        userId: conversion.referrerUserId,
-        payload: {
-          kind: "admin_gift",
-          gold: 0,
-          materials: [],
-          items: [],
-          staminaPotions: dueReferrerStaminaPotions,
-          museunCoins: 0,
-          cashItems: [],
-          adventureSupportDays: 0,
-        },
-        message: `${referredName}님이 ${huntStageName(targetDepth)}를 돌파했습니다. 홍보 보상 스태미나 회복약 ${dueReferrerStaminaPotions}개를 받아 주세요.`,
-      }),
-    );
-  }
-
-  return {
-    staminaPotions: dueReferrerStaminaPotions,
-    rewardedDepth: targetDepth,
-  };
+  return { staminaPotions, newlyCompletedTaskIds, completedTaskIds };
 }
 
 export async function preserveReferralBeforeUserDeletion(

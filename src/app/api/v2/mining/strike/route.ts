@@ -70,6 +70,8 @@ import {
   recordLifeFieldSuccessInTx,
 } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 
 type CharSave = {
   class?: unknown;
@@ -282,6 +284,12 @@ export async function POST(req: Request) {
       xp: xpGained,
     });
     await upsertSave(tx, userId, MINING_LOG_KEY, log);
+    await rewardReferralTutorialTasks(
+      tx,
+      userId,
+      "새 모험가",
+      referralLifeTaskIds(miningProgressionView(log.successes, log.xp).level),
+    );
 
     const playerClass = parseV2Class(charSave.class);
     const group = tier1ClassOf(playerClass);

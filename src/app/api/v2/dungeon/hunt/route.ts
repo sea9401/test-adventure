@@ -106,7 +106,8 @@ import {
   enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
-import { rewardReferralProgress } from "@/lib/server/referrals";
+import { referralHuntTaskIds } from "@/adventure/data/v2/referralTutorial";
+import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
 import { rollHuntDrops } from "./huntDrops";
 import { computeLossTax } from "./huntTax";
 import {
@@ -954,11 +955,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 갱신될 때 확인하고, conversion row lock으로 일괄 사냥/중복 요청도 멱등 처리한다.
   let referralRewardEarned = false;
   if (won && next.frontierDepth > frontierDepth) {
-    const referralReward = await rewardReferralProgress(
+    const referralReward = await rewardReferralTutorialTasks(
       tx,
       userId,
       playerName,
-      next.frontierDepth,
+      referralHuntTaskIds(next.frontierDepth),
     );
     referralRewardEarned = referralReward.staminaPotions > 0;
   }

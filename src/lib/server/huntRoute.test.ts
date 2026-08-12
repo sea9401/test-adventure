@@ -11,10 +11,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
-const { rewardReferralProgress, store } = vi.hoisted(() => ({
-  rewardReferralProgress: vi.fn(async () => ({
+const { rewardReferralTutorialTasks, store } = vi.hoisted(() => ({
+  rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
-    rewardedDepth: 0,
+    newlyCompletedTaskIds: [] as string[],
+    completedTaskIds: [] as string[],
   })),
   store: new Map<string, unknown>(),
 }));
@@ -29,7 +30,7 @@ vi.mock("@/lib/server/serverFeed", () => ({
   insertFeedEntry: vi.fn(async () => {}),
   resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
-vi.mock("@/lib/server/referrals", () => ({ rewardReferralProgress }));
+vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 // tx/db raw 쿼리 — 모든 select 체인은 빈 결과, insert 는 no-op. 솔로 경로는 안 타고,
 // outpostId 경로에선 occupations FOR SHARE [] = 미점령 거점으로 동작.
 vi.mock("@/db", () => {
@@ -105,6 +106,17 @@ function seedStrongWarrior() {
   store.set("skills.v2", { learned: [], equipped: [] });
   store.set("inventory.v2", { hpCharges: 0, mpCharges: 0 });
   store.set("adventure-log.v2", { monsters: {}, battleLosses: 0 });
+}
+
+function overpowerSeededWarrior() {
+  store.set("equipment.v2", {
+    owned: [{ iid: "w1", id: "v2_storm_gale_bow" }],
+    equipped: { weapon: "w1" },
+  });
+  store.set("proficiency.v2", {
+    groups: { warrior: { tier: 1, points: 0, cumLevel: 30 } },
+    grown: { str: 50_000, vit: 50_000, dex: 50_000, luk: 50_000 },
+  });
 }
 
 function huntReq(body: Record<string, unknown>): Request {
@@ -652,25 +664,38 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
   });
 
   it("홍보 단계 보상이 지급된 사냥 응답에만 우편 알림 갱신 신호를 담는다", async () => {
-    rewardReferralProgress.mockResolvedValueOnce({
+    overpowerSeededWarrior();
+    rewardReferralTutorialTasks.mockResolvedValueOnce({
       staminaPotions: 2,
-      rewardedDepth: 6,
+      newlyCompletedTaskIds: ["hunt_depth_24"],
+      completedTaskIds: ["hunt_depth_24"],
     });
     store.set("character.v2", {
       ...(store.get("character.v2") as object),
-      frontierDepth: 4,
+      frontierDepth: 22,
     });
 
-    const rewardedRes = await POST(huntReq({ floor: 6 }));
+    const rewardedRes = await POST(huntReq({ floor: 24 }));
     expect(rewardedRes.status).toBe(200);
-    await expect(rewardedRes.json()).resolves.toMatchObject({
+    const rewardedJson = await rewardedRes.json();
+    expect(rewardedJson).toMatchObject({
+      result: { won: true },
+    });
+    expect(rewardedJson).toMatchObject({
       result: { referralRewardEarned: true },
     });
+    expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      expect.any(String),
+      ["hunt_depth_24"],
+    );
 
-    const ordinaryRes = await POST(huntReq({ floor: 6 }));
+    const ordinaryRes = await POST(huntReq({ floor: 24 }));
     expect(ordinaryRes.status).toBe(200);
     await expect(ordinaryRes.json()).resolves.toMatchObject({
       result: { referralRewardEarned: false },
     });
   });
+
 });

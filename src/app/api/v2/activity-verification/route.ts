@@ -5,8 +5,9 @@ import { clientIpFromRequest, recordAbuseEventSoon } from "@/lib/server/abuseLog
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
+  activeManualActivityVerification,
   activityGuardView,
-  activityVerificationReason,
+  activityVerificationContext,
   activityVerificationRequired,
   clearActivityVerification,
   parseActivityGuardState,
@@ -57,7 +58,12 @@ export async function POST(req: Request) {
   const currentState = parseActivityGuardState(
     await readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
   );
-  if (!activityVerificationRequired(currentState, activity, true)) {
+  const verificationContext = activityVerificationContext(
+    currentState,
+    activity,
+    true,
+  );
+  if (!verificationContext.required) {
     return Response.json(
       { ok: false, error: "verification_not_required" },
       { status: 409 },
@@ -65,8 +71,12 @@ export async function POST(req: Request) {
   }
   const captcha = hcaptchaConfig();
   const captchaRequired =
-    activityVerificationReason(currentState, activity) === "strong_signal" &&
+    verificationContext.reason === "strong_signal" &&
     captcha.configured;
+  const manualTest = verificationContext.manualTest;
+  const manualMode = manualTest
+    ? activeManualActivityVerification(currentState, activity)?.mode ?? null
+    : null;
   const captchaToken =
     typeof body.captchaToken === "string" ? body.captchaToken : "";
   if (captchaRequired && !captchaToken) {
@@ -87,7 +97,12 @@ export async function POST(req: Request) {
       ip: clientIpFromRequest(req),
       action: `v2:${activity}:human-check`,
       reason: "human_verification_failed",
-      detail: { error: verification.error, codes: verification.codes ?? [] },
+      detail: {
+        error: verification.error,
+        codes: verification.codes ?? [],
+        manualTest,
+        ...(manualMode ? { mode: manualMode } : {}),
+      },
     });
     return Response.json(
       {
@@ -116,6 +131,8 @@ export async function POST(req: Request) {
           provider: "hcaptcha",
           error: captchaVerification.error,
           codes: captchaVerification.codes ?? [],
+          manualTest,
+          ...(manualMode ? { mode: manualMode } : {}),
         },
       });
       return Response.json(
@@ -167,6 +184,8 @@ export async function POST(req: Request) {
       dailyVerifications: view.dailyVerifications,
       riskScore: view.riskScore,
       riskLevel: view.riskLevel,
+      manualTest,
+      ...(manualMode ? { mode: manualMode } : {}),
     },
   });
   return Response.json({ ok: true, activity });

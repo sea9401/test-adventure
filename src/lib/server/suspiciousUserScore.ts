@@ -58,6 +58,14 @@ function isObservationOnlyFishingMacroEvent(event: InternalEvent): boolean {
   );
 }
 
+function isManualVerificationTest(event: { detail?: unknown }): boolean {
+  return Boolean(
+    event.detail &&
+      typeof event.detail === "object" &&
+      (event.detail as { manualTest?: unknown }).manualTest === true,
+  );
+}
+
 // 한 번의 빠른 챔질 판정에서 reel·activity-guard·human-check 이벤트가 연달아
 // 기록된다. 운영 점수에서는 이를 세 건이 아니라 한 사건으로 보고 가장 강한 사유만 반영한다.
 function collapseSuspicionScoreEvents(
@@ -144,6 +152,7 @@ export function scoreSuspiciousUsers(
   >();
   for (const row of rows) {
     if (!row.userId) continue;
+    if (isManualVerificationTest(row)) continue;
     const value = users.get(row.userId) ?? {
       ips: new Set<string>(),
       rawEvents: [],

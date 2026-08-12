@@ -83,4 +83,3 @@ the installed file plus restart/rotation/vacuum requests.
   operations.
 - Run focused tests, all unit tests, typecheck, ESLint, `bash -n`, JSON
   validation, and `git diff --check` before committing.
-

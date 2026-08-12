@@ -163,4 +163,3 @@ and no command disables maintenance mode.
 - [ ] **Step 4: Commit the implementation**
 
 Stage only the scoped files and commit with `fix: harden storage operations`.
-

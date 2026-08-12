@@ -16,6 +16,7 @@ import {
   resolveEconomyEventFilter,
   resolveEconomyItemKindFilter,
 } from "../economyLabels";
+import { AccountEconomyTracePanel } from "./economy/AccountEconomyTracePanel";
 
 type EconomyEntry = {
   id: number;
@@ -100,6 +101,10 @@ export function EconomyLogTab() {
           </Button>
         </div>
       </div>
+
+      <AccountEconomyTracePanel
+        initialUser={searchParams.get("traceUser") ?? ""}
+      />
 
       <div className="grid gap-2 md:grid-cols-3">
         <Filter label="이벤트" value={eventType} onChange={setEventType} placeholder="거래소 구매" />

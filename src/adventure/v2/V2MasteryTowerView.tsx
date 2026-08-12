@@ -11,6 +11,7 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { MASTERY_TOWER_MAX_FLOOR } from "@/adventure/data/v2/masteryTower";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
@@ -93,6 +94,7 @@ type TowerStatus = {
   nextGuardian: TowerGuardian | null;
   startOptions: TowerStartOption[];
   rewards: {
+    maxFloor: number;
     samples: { floor: number; reward: number }[];
     milestones: { floor: number; bonus: number }[];
   };
@@ -172,6 +174,9 @@ export function V2MasteryTowerView({
     status?.startOptions.at(-1) ??
     null;
   const isNewRun = (status?.tower.runFloor ?? 0) === 0;
+  const isPractice =
+    (status?.tower.runFloor ?? 0) >= MASTERY_TOWER_MAX_FLOOR &&
+    status?.nextFloor === MASTERY_TOWER_MAX_FLOOR;
   const targetFloor =
     isNewRun && selectedStartOption ? selectedStartOption.floor : status?.nextFloor;
   const targetRequiredPower =
@@ -277,11 +282,15 @@ export function V2MasteryTowerView({
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    다음 목표
+                    {isPractice ? "연습 상대" : "다음 목표"}
                   </p>
-                  {targetFloor == null ? (
+                  {isPractice ? (
                     <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                      50층 완료
+                      {status.rewards.maxFloor}층 연습
+                    </p>
+                  ) : targetFloor == null ? (
+                    <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {status.rewards.maxFloor}층 완료
                     </p>
                   ) : (
                     <p className="mt-1 text-3xl font-bold tabular-nums">
@@ -299,6 +308,11 @@ export function V2MasteryTowerView({
                       ? `오늘 최초 입장 스태미나 ${entryStaminaCost}`
                       : "오늘 입장료 지불 완료 · 재도전 무료"}
                   </p>
+                  {isPractice && (
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      연습 승패는 최고층 기록과 보상에 영향을 주지 않습니다.
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:text-right">
                   <CompactMetric
@@ -402,7 +416,9 @@ export function V2MasteryTowerView({
                     ? `스태미나 부족 (${entryStaminaCost} 필요)`
                     : entryStaminaCost > 0
                       ? `입장 (스태미나 ${entryStaminaCost})`
-                      : "입장"}
+                      : isPractice
+                        ? `${status.rewards.maxFloor}층 연습 재도전`
+                        : "입장"}
               </button>
               <button
                 type="button"

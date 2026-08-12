@@ -1,9 +1,53 @@
 import { describe, expect, it } from "vitest";
 import {
+  inboxClaimState,
   inboxValues,
   isInboxPayloadKind,
   parseInboxPayload,
 } from "./inboxPayload";
+
+describe("inboxClaimState", () => {
+  it("읽는 것으로 끝나는 쪽지·시세 알림과 별도 행동인 길드 초대를 구분한다", () => {
+    expect(inboxClaimState("user_message", { text: "안녕" })).toBe("none");
+    expect(inboxClaimState("price_alert", { text: "목표가 도달" })).toBe("none");
+    expect(
+      inboxClaimState("guild_invite", {
+        invite_id: 7,
+        guild_id: 42,
+        guild_name: "철의장막",
+        expires_at: "2026-08-20T00:00:00.000Z",
+      }),
+    ).toBe("action");
+  });
+
+  it("실제 내용물이 있는 우편만 수령 대상으로 분류한다", () => {
+    expect(inboxClaimState("admin_gift", { gold: 100 })).toBe("claimable");
+    expect(inboxClaimState("admin_gift", {})).toBe("none");
+    expect(
+      inboxClaimState("guild_quest_reward", {
+        quest_id: "q1",
+        quest_name: "의뢰",
+        gold: 0,
+        materials: [],
+        items: [],
+      }),
+    ).toBe("none");
+    expect(
+      inboxClaimState("guild_quest_reward", {
+        quest_id: "q1",
+        quest_name: "의뢰",
+        materials: [{ materialId: "iron_ore", count: 1 }],
+      }),
+    ).toBe("claimable");
+  });
+
+  it("손상된 payload는 자동 완료하거나 수령하지 않도록 invalid로 남긴다", () => {
+    expect(
+      inboxClaimState("season_reward", { season: "broken", coins: 100 }),
+    ).toBe("invalid");
+    expect(inboxClaimState("unknown", {})).toBe("invalid");
+  });
+});
 
 describe("isInboxPayloadKind", () => {
   it("승인된 우편 종류 모두 true", () => {

@@ -28,7 +28,10 @@ import {
   V2_SKILLS,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
-import { jobCultivationSummary } from "./jobExplorer";
+import {
+  jobCultivationSummary,
+  resolveJobAdvanceAction,
+} from "./jobExplorer";
 import { SkillEffectChips } from "./SkillEffectChips";
 import {
   buildJobRoadmap,
@@ -57,13 +60,19 @@ export function JobRoadmapDialog({
   jobs,
   currentJobId,
   goalJobId,
+  atLevelCap,
+  currentJobSelectable,
   onSetGoal,
+  onPickJob,
   onClose,
 }: {
   jobs: readonly JobRoadmapPlayerJob[];
   currentJobId: string;
   goalJobId: string | null;
+  atLevelCap: boolean;
+  currentJobSelectable: boolean;
   onSetGoal: (jobId: string | null) => void;
+  onPickJob: (job: JobRoadmapPlayerJob) => void;
   onClose: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -144,7 +153,10 @@ export function JobRoadmapDialog({
               job={selectedJob}
               currentJobId={currentJobId}
               goalJobId={goalJobId}
+              atLevelCap={atLevelCap}
+              currentJobSelectable={currentJobSelectable}
               onSetGoal={onSetGoal}
+              onPickJob={onPickJob}
             />
           ) : null}
         </div>
@@ -173,17 +185,29 @@ export function JobRoadmapDetails({
   job,
   currentJobId,
   goalJobId,
+  atLevelCap,
+  currentJobSelectable,
   onSetGoal,
+  onPickJob,
 }: {
   job: JobRoadmapPlayerJob;
   currentJobId: string;
   goalJobId: string | null;
+  atLevelCap?: boolean;
+  currentJobSelectable?: boolean;
   onSetGoal: (jobId: string | null) => void;
+  onPickJob?: (job: JobRoadmapPlayerJob) => void;
 }) {
   const cultivation = jobCultivationSummary(job.id);
   const tierLabel = job.tier <= 0 ? "루트 직업" : `${job.tier}차 직업`;
   const canInspectSkills =
     job.id === currentJobId || job.visited === true || job.unlocked !== false;
+  const advanceAction = resolveJobAdvanceAction({
+    job,
+    currentJobId,
+    atLevelCap: atLevelCap ?? false,
+    currentJobSelectable: currentJobSelectable ?? false,
+  });
 
   return (
     <section
@@ -216,21 +240,34 @@ export function JobRoadmapDetails({
             {Math.max(0, job.cumLevel ?? 0).toLocaleString("ko-KR")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => onSetGoal(job.id === goalJobId ? null : job.id)}
-          className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
-            job.id === goalJobId
-              ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-              : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <Star
-            size={14}
-            weight={job.id === goalJobId ? "fill" : "regular"}
-          />
-          {job.id === goalJobId ? "목표 해제" : "목표로 설정"}
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+            className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
+              job.id === goalJobId
+                ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <Star
+              size={14}
+              weight={job.id === goalJobId ? "fill" : "regular"}
+            />
+            {job.id === goalJobId ? "목표 해제" : "목표로 설정"}
+          </button>
+          {onPickJob ? (
+            <button
+              type="button"
+              onClick={() => onPickJob(job)}
+              disabled={!advanceAction.enabled}
+              aria-label={advanceAction.ariaLabel}
+              className="flex min-h-9 min-w-20 items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:border-emerald-700 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+            >
+              {advanceAction.label}
+            </button>
+          ) : null}
+        </div>
       </div>
       <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
         <div>

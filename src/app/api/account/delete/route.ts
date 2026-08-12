@@ -19,6 +19,7 @@ import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { normalizeFeedbackImageObjectKey } from "@/lib/feedbackImage";
 import { sendOpsAlert } from "@/lib/server/opsAlert";
 import { inboxValues } from "@/lib/server/inboxPayload";
+import { preserveReferralBeforeUserDeletion } from "@/lib/server/referrals";
 import {
   processStorageDeletionQueue,
   type StorageDeletionKind,
@@ -195,6 +196,7 @@ export async function POST(req: Request) {
       .update(ugcReports)
       .set({ targetName: "탈퇴한 사용자", updatedAt: new Date() })
       .where(eq(ugcReports.targetUserId, userId));
+    await preserveReferralBeforeUserDeletion(tx, userId);
     await tx.delete(users).where(eq(users.id, userId));
     return queued.map((row) => row.id);
   });

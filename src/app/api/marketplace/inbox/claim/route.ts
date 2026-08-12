@@ -672,7 +672,7 @@ export async function POST(req: Request) {
       if (idsToMark.length > 0) {
         await tx
           .update(marketplaceInbox)
-          .set({ claimedAt: now })
+          .set({ claimedAt: now, readAt: now })
           .where(
             and(
               eq(marketplaceInbox.userId, userId),

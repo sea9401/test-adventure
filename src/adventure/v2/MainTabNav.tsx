@@ -19,6 +19,7 @@ import {
   Lightning,
   PottedPlant,
   ShieldStar,
+  SlidersHorizontal,
   Skull,
   Sparkle,
   Storefront,
@@ -120,6 +121,22 @@ export function townMenuItemsForViewer(
     : TOWN_MENU_ITEMS.filter((item) => item.href !== "/town/association");
 }
 
+export const CHARACTER_MENU_ITEMS = [
+  { label: "내 정보", href: "/character/info", Icon: UserCircle, color: "text-amber-500" },
+  { label: "인벤토리", href: "/character/inventory", Icon: Backpack, color: "text-emerald-600" },
+  { label: "스킬", href: "/character/skills", Icon: Lightning, color: "text-violet-500" },
+  {
+    label: "전투 프리셋",
+    href: "/character/presets",
+    Icon: SlidersHorizontal,
+    color: "text-emerald-500",
+  },
+  { label: "퀘스트", href: "/quests", Icon: Compass, color: "text-rose-400" },
+  { label: "성장의 신전", href: "/character/shrine", Icon: Sparkle, color: "text-violet-400" },
+  { label: "트로피 전시대", href: "/character/trophies", Icon: Trophy, color: "text-amber-600" },
+  { label: "모험의 서", href: "/character/codex", Icon: BookOpen, color: "text-sky-500" },
+] satisfies SubItem[];
+
 // 하위 항목·아이콘은 각 탭 홈(card 메뉴)에서 그대로 가져온 라우트/아이콘. 새 하위화면 추가 시 여기 한 줄.
 const TABS: TabDef[] = [
   { key: "adventure", label: "모험", href: "/" },
@@ -146,15 +163,7 @@ const TABS: TabDef[] = [
     key: "character",
     label: "캐릭터",
     href: "/character",
-    sub: [
-      { label: "내 정보", href: "/character/info", Icon: UserCircle, color: "text-amber-500" },
-      { label: "인벤토리", href: "/character/inventory", Icon: Backpack, color: "text-emerald-600" },
-      { label: "스킬", href: "/character/skills", Icon: Lightning, color: "text-violet-500" },
-      { label: "퀘스트", href: "/quests", Icon: Compass, color: "text-rose-400" },
-      { label: "성장의 신전", href: "/character/shrine", Icon: Sparkle, color: "text-violet-400" },
-      { label: "트로피 전시대", href: "/character/trophies", Icon: Trophy, color: "text-amber-600" },
-      { label: "모험의 서", href: "/character/codex", Icon: BookOpen, color: "text-sky-500" },
-    ],
+    sub: CHARACTER_MENU_ITEMS,
   },
   { key: "guild", label: "길드", href: "/guild", sub: [GUILD_ROOT_ITEM] },
 ];

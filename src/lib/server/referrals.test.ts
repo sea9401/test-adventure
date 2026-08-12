@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   attributeReferral,
   createReferralCode,
@@ -7,6 +7,7 @@ import {
   REFERRAL_NEW_USER_STAMINA_POTIONS_PER_MILESTONE,
   REFERRAL_REFERRER_SIGNUP_STAMINA_POTIONS,
   REFERRAL_REFERRER_STAMINA_POTIONS_PER_MILESTONE,
+  preserveReferralBeforeUserDeletion,
   referralLandingUrl,
   referralRewardMilestones,
   rewardReferralProgress,
@@ -17,7 +18,24 @@ import {
   referralConversions,
 } from "@/db/schema";
 
+const identityMocks = vi.hoisted(() => ({
+  allowed: true,
+  backfilled: [] as string[],
+}));
+
+vi.mock("./referralIdentity", () => ({
+  reserveReferralIdentityClaims: vi.fn(async () => identityMocks.allowed),
+  backfillReferralIdentityClaims: vi.fn(async (_tx, userId: string) => {
+    identityMocks.backfilled.push(userId);
+  }),
+}));
+
 const originalAuthUrl = process.env.AUTH_URL;
+
+beforeEach(() => {
+  identityMocks.allowed = true;
+  identityMocks.backfilled = [];
+});
 
 afterEach(() => {
   if (originalAuthUrl === undefined) delete process.env.AUTH_URL;
@@ -101,6 +119,7 @@ describe("referrals", () => {
     expect(trace.inserted[0]?.values).toMatchObject({
       referredUserId: "new-user",
       referrerUserId: "referrer",
+      referredName: "새싹",
       rewardGold: 0,
       rewardedDepth: 0,
       referrerSignupRewardedAt: expect.any(Date),
@@ -123,6 +142,26 @@ describe("referrals", () => {
         message: expect.stringContaining("새싹님"),
       },
     });
+  });
+
+  it("로그인 주체가 과거 보상을 받았으면 새 사용자 ID에도 귀속과 우편을 만들지 않는다", async () => {
+    identityMocks.allowed = false;
+    const trace = makeTrace();
+    const tx = fakeExecutor({
+      ownerUserId: "referrer",
+      conversionInserted: true,
+      trace,
+    });
+
+    await expect(
+      attributeReferral(
+        tx as never,
+        "recreated-user-id",
+        "abcdef0123456789",
+        "돌아온 모험가",
+      ),
+    ).resolves.toEqual({ attributed: false });
+    expect(trace.inserted).toHaveLength(0);
   });
 
   it("자기 추천과 이미 귀속된 계정에는 새 귀속을 만들지 않는다", async () => {
@@ -254,6 +293,28 @@ describe("referrals", () => {
     ).resolves.toEqual({ staminaPotions: 0, rewardedDepth: 0 });
     expect(trace.selectedTables).toHaveLength(0);
   });
+
+  it("추천 참여자가 탈퇴하면 식별 원장을 보강하고 전환 기록을 익명화한다", async () => {
+    const trace = makeTrace();
+    const tx = fakeExecutor({
+      ownerUserId: "unused",
+      conversionInserted: false,
+      existingConversion: true,
+      trace,
+    });
+
+    await preserveReferralBeforeUserDeletion(tx as never, "referred-user");
+
+    expect(identityMocks.backfilled).toEqual(["referred-user"]);
+    expect(trace.updates).toContainEqual({
+      table: referralConversions,
+      values: {
+        referredUserId: null,
+        referredName: "탈퇴한 사용자",
+        referredDeletedAt: expect.any(Date),
+      },
+    });
+  });
 });
 
 type Trace = {
@@ -269,6 +330,7 @@ function makeTrace(): Trace {
 function fakeExecutor(args: {
   ownerUserId: string;
   conversionInserted: boolean;
+  existingConversion?: boolean;
   lockedConversion?: {
     referrerUserId: string;
     rewardedStaminaDepth: number;
@@ -282,7 +344,11 @@ function fakeExecutor(args: {
         return {
           where: () => ({
             limit: async () =>
-              table === referralCodes ? [{ userId: args.ownerUserId }] : [],
+              table === referralCodes
+                ? [{ userId: args.ownerUserId }]
+                : table === referralConversions && args.existingConversion
+                  ? [{ id: 1 }]
+                  : [],
             for: () => ({
               limit: async () =>
                 table === referralConversions && args.lockedConversion

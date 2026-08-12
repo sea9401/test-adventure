@@ -4,10 +4,11 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { savesStore, inboxRows, saveSelectRows } = vi.hoisted(() => ({
+const { savesStore, inboxRows, saveSelectRows, inboxUpdates } = vi.hoisted(() => ({
   savesStore: new Map<string, unknown>(),
   inboxRows: [] as Record<string, unknown>[],
   saveSelectRows: [] as Record<string, unknown>[],
+  inboxUpdates: [] as Record<string, unknown>[],
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -49,7 +50,13 @@ vi.mock("@/db", async () => {
               : [],
         ),
     }),
-    update: () => ({ set: () => ({ where: async () => undefined }) }),
+    update: () => ({
+      set: (values: Record<string, unknown>) => ({
+        where: async () => {
+          inboxUpdates.push(values);
+        },
+      }),
+    }),
   };
   return {
     db: { transaction: vi.fn(async (cb: (t: unknown) => unknown) => cb(tx)) },
@@ -69,6 +76,7 @@ beforeEach(() => {
   savesStore.clear();
   inboxRows.length = 0;
   saveSelectRows.length = 0;
+  inboxUpdates.length = 0;
 });
 
 describe("inbox claim — season_reward → 코인 지갑", () => {
@@ -140,6 +148,10 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(savesStore.get("u1::fishing-wallet.v1")).toEqual({ coins: 120 });
     const byS = Object.fromEntries(j.coinsAdded.map((c) => [c.season, c.coins]));
     expect(byS).toEqual({ pvp: 600, fishing: 120 });
+    expect(inboxUpdates).toContainEqual({
+      claimedAt: expect.any(Date),
+      readAt: expect.any(Date),
+    });
   });
 
   it("같은 시즌 여러 우편은 합산되어 한 지갑에", async () => {

@@ -16,6 +16,7 @@ import {
   masteryTowerEntryStaminaCost,
   masteryTowerFloorReward,
   masteryTowerGuardianPreview,
+  masteryTowerNextFloor,
   masteryTowerRequiredPower,
   masteryTowerStartFloors,
   parseMasteryTowerState,
@@ -142,6 +143,7 @@ export async function GET() {
     requiredPower: masteryTowerRequiredPower(floor),
     guardian: masteryTowerGuardianPreview(floor),
   }));
+  const nextFloor = masteryTowerNextFloor(tower);
 
   return Response.json({
     ok: true,
@@ -153,16 +155,9 @@ export async function GET() {
     claimPreview: preview,
     power,
     retryAfterSeconds,
-    nextFloor:
-      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR ? null : tower.runFloor + 1,
-    nextRequiredPower:
-      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
-        ? null
-        : masteryTowerRequiredPower(tower.runFloor + 1),
-    nextGuardian:
-      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
-        ? null
-        : masteryTowerGuardianPreview(tower.runFloor + 1),
+    nextFloor,
+    nextRequiredPower: masteryTowerRequiredPower(nextFloor),
+    nextGuardian: masteryTowerGuardianPreview(nextFloor),
     startOptions,
     rewards: {
       maxFloor: MASTERY_TOWER_MAX_FLOOR,

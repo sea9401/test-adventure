@@ -92,6 +92,8 @@ export type Occupation = {
 export type GameResourcePatch = {
   gold?: number;
   bankedGold?: number;
+  exp?: number;
+  expToNext?: number;
   hp?: number;
   maxHp?: number;
   mp?: number;
@@ -553,6 +555,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     if (typeof patch.gold === "number") setGold(Math.max(0, patch.gold));
     if (typeof patch.bankedGold === "number") {
       setBankedGold(Math.max(0, patch.bankedGold));
+    }
+    if (typeof patch.exp === "number") {
+      setViewerExp(Math.max(0, patch.exp));
+    }
+    if (typeof patch.expToNext === "number") {
+      setViewerExpToNext(Math.max(1, patch.expToNext));
     }
     if (typeof patch.staminaMax === "number") {
       setStaminaMax(Math.max(1, patch.staminaMax));

@@ -42,6 +42,7 @@ import {
   settlementBuildingUpgradeCostText,
   settlementResourceIcon,
   settlementResourceName,
+  type AnySettlementBuildingUpgradeDef,
   type SettlementBuildingId,
   type SettlementBuildingSlot,
   type VillageTier,
@@ -63,6 +64,28 @@ type Village = {
   buildings?: Record<string, SettlementBuildingId | SettlementBuildingSlot>;
 };
 type Resources = SettlementResources;
+
+export function confirmVillageBuildingUpgrade({
+  buildingId,
+  next,
+  onUpgrade,
+  confirm = (message) => window.confirm(message),
+}: {
+  buildingId: SettlementBuildingId;
+  next: AnySettlementBuildingUpgradeDef;
+  onUpgrade: () => void;
+  confirm?: (message: string) => boolean;
+}): boolean {
+  if (
+    !confirm(
+      `${SETTLEMENT_BUILDINGS[buildingId].name}을(를) Lv.${next.level}(으)로 업그레이드할까요?\n${settlementBuildingUpgradeCostText(next.cost)}이(가) 사용됩니다.`,
+    )
+  ) {
+    return false;
+  }
+  onUpgrade();
+  return true;
+}
 
 // 큰 골드는 억/만 단위로 — 5,000만 → "5,000만", 1억 → "1억", 1억 5,000만 → "1억 5,000만".
 function fmtGold(n: number): string {
@@ -704,7 +727,12 @@ export function V2VillagePanel({
                                 !canAffordBuildingUpgrade
                               }
                               onClick={() =>
-                                void act("building/upgrade", { slot: 0 })
+                                confirmVillageBuildingUpgrade({
+                                  buildingId: id,
+                                  next: nextUpgrade,
+                                  onUpgrade: () =>
+                                    void act("building/upgrade", { slot: 0 }),
+                                })
                               }
                               className="mt-2 w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
                             >

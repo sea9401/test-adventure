@@ -1,6 +1,6 @@
 "use client";
 
-// 우편 배지 — 미수령 수는 경량 폴링하고, 버튼을 열 때만 최근 우편을 조회한다.
+// 우편 배지 — 미확인 수는 경량 폴링하고, 버튼을 열 때만 최근 우편을 조회한다.
 // 미리보기의 항목/전체 보기를 누르면 우편함으로 이동한다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -69,8 +69,8 @@ export function MailboxBell() {
     try {
       const res = await fetch("/api/marketplace/inbox?count=1");
       if (!res.ok) return;
-      const json = (await res.json()) as { unclaimedCount?: number };
-      setUnread(json.unclaimedCount ?? 0);
+      const json = (await res.json()) as { unreadCount?: number };
+      setUnread(json.unreadCount ?? 0);
     } catch {
       /* 폴링 — 조용히 무시 */
     }
@@ -82,7 +82,7 @@ export function MailboxBell() {
     try {
       const result = await fetchInbox();
       setItems(result.items.slice(0, PREVIEW_LIMIT));
-      setUnread(result.unclaimedCount);
+      setUnread(result.unreadCount);
     } catch {
       setError(true);
     } finally {

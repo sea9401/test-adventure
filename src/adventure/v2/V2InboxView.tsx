@@ -6,7 +6,11 @@ import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
-import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import { SendMessageModal } from "@/adventure/marketplace/SendMessageModal";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -18,8 +22,8 @@ import {
 } from "@/adventure/data/v2/museunCashItems";
 import {
   fetchInbox,
-  fetchInboxHistory,
   fetchInboxSent,
+  markInboxRead,
   type InboxItem,
 } from "@/adventure/marketplace/api";
 import {
@@ -35,6 +39,7 @@ import {
 import { TITLES } from "@/adventure/data/titles";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import { cookingFoodDefinition } from "@/adventure/v2/cooking";
+import { bulkClaimIds, isUnreadInboxItem } from "./inboxViewState";
 
 const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
   Record<string, { name: string } | undefined>
@@ -47,10 +52,9 @@ const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
 //
 // 구성:
 //   - "쪽지 쓰기" — 우편함에서 바로 글만 보내는 쪽지(SendMessageModal). 게시판에만 있던 진입점 추가.
-//   - "받은 우편" 탭 — 미수령(읽지 않은) 우편. 수령/확인/초대 응답.
-//   - "지난 우편" 탭 — 이미 읽은(수령한) 우편 기록(history). 읽어도 사라지지 않고 남는다.
-//   - "보낸 우편" 탭 — 내가 보낸 쪽지/선물 최근 기록. 상대 확인 여부(claimedAt)도 표시.
-//   - 우편 클릭 — 상세 모달로 내용 전체 확인(받은 우편·지난 우편 공통).
+//   - "받은 우편" 탭 — 미확인·미수령·완료 우편을 한 목록에 표시.
+//   - "보낸 우편" 탭 — 내가 보낸 쪽지/선물 최근 기록. 상대 확인 여부(readAt)도 표시.
+//   - 우편 클릭 — 상세 모달을 즉시 열고 받은 우편이면 읽음 처리.
 
 // 길드 초대(guild_invite)는 수령(claim)이 아니라 수락/거절 — payload.invite_id 로 accept/decline.
 // 마켓 정산·선물 등 나머지는 수령(claim).
@@ -262,7 +266,7 @@ function formatFull(iso: string): string {
   });
 }
 
-type Tab = "inbox" | "history" | "sent";
+type Tab = "inbox" | "sent";
 
 export function V2InboxView({
   onBack,
@@ -276,8 +280,6 @@ export function V2InboxView({
   const { notifyReward } = useRewardToast();
   const [tab, setTab] = useState<Tab>("inbox");
   const [items, setItems] = useState<InboxItem[] | null>(null);
-  // 지난 우편(기록) — 탭 진입 시 지연 로드. 수령/응답 후엔 null 로 무효화해 재로드.
-  const [history, setHistory] = useState<InboxItem[] | null>(null);
   // 보낸 우편(기록) — 탭 진입 시 지연 로드. 쪽지 전송 후엔 null 로 무효화한다.
   const [sent, setSent] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -286,6 +288,7 @@ export function V2InboxView({
   const [composeOpen, setComposeOpen] = useState(false);
   // 상세 모달로 내용을 보고 있는 우편(없으면 닫힘).
   const [selected, setSelected] = useState<InboxItem | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -299,17 +302,6 @@ export function V2InboxView({
     } catch (e) {
       setError(e instanceof Error ? e.message : "우편함 로드 실패");
       setItems([]);
-    }
-  }, []);
-
-  const loadHistory = useCallback(async () => {
-    setError(null);
-    try {
-      const r = await fetchInboxHistory();
-      setHistory(r.items);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "우편 기록 로드 실패");
-      setHistory([]);
     }
   }, []);
 
@@ -329,15 +321,39 @@ export function V2InboxView({
     void load();
   }, [load]);
 
-  // 탭 전환 — 지난 우편으로 들어올 때 아직 안 불러왔으면(또는 무효화됐으면) 로드.
   const switchTab = useCallback(
     (t: Tab) => {
       setTab(t);
-      if (t === "history" && history === null) void loadHistory();
       if (t === "sent" && sent === null) void loadSent();
     },
-    [history, loadHistory, loadSent, sent],
+    [loadSent, sent],
   );
+
+  const openMail = useCallback((item: InboxItem) => {
+    setSelected(item);
+    setReadError(null);
+    if (item.direction === "sent" || item.readAt) return;
+
+    void markInboxRead(item.id)
+      .then((result) => {
+        const applyRead = (current: InboxItem): InboxItem =>
+          current.id === item.id
+            ? {
+                ...current,
+                readAt: result.readAt,
+                claimedAt: result.claimedAt,
+                claimState: result.claimState,
+                hasReward: result.claimState === "claimable",
+              }
+            : current;
+        setItems((current) => current?.map(applyRead) ?? []);
+        setSelected((current) => (current ? applyRead(current) : null));
+        window.dispatchEvent(new Event("v2inbox:refresh"));
+      })
+      .catch((cause: unknown) => {
+        setReadError(cause instanceof Error ? cause.message : "읽음 처리 실패");
+      });
+  }, []);
 
   const claim = useCallback(
     async (ids: number[]) => {
@@ -451,8 +467,7 @@ export function V2InboxView({
         setMsg(parts.length > 0 ? `✓ 수령 완료 — ${text}` : "✓ 수령 완료");
         notifyReward("우편 수령 완료", text);
         setSelected(null);
-        // 수령한 우편은 기록으로 이동 — 지난 우편 캐시 무효화 후 받은 우편 재로드.
-        setHistory(null);
+        // 완료 우편도 같은 받은 우편 목록에 남으므로 통합 목록을 다시 불러온다.
         await load();
       } catch (e) {
         setError(e instanceof Error ? e.message : "수령 실패");
@@ -497,20 +512,11 @@ export function V2InboxView({
     [busy, load, refreshGuildId, setMsg],
   );
 
-  const displayed =
-    (tab === "inbox" ? items : tab === "history" ? history : sent) ?? [];
-  const loading =
-    tab === "inbox"
-      ? items === null
-      : tab === "history"
-        ? history === null
-        : sent === null;
-  // 길드 초대는 수락/거절(전체 수령에서 제외). 나머지가 claim 대상.
-  const claimableIds = (items ?? [])
-    .filter((it) => !IS_INVITE(it))
-    .map((i) => i.id);
+  const displayed = (tab === "inbox" ? items : sent) ?? [];
+  const loading = tab === "inbox" ? items === null : sent === null;
+  const claimableIds = bulkClaimIds(items ?? []);
 
-  const unreadCount = items?.length ?? 0;
+  const unreadCount = items?.filter(isUnreadInboxItem).length ?? 0;
 
   const Root = embedded ? "section" : "main";
 
@@ -552,17 +558,12 @@ export function V2InboxView({
         </div>
       )}
 
-      {/* 받은 우편 / 지난 우편(기록) / 보낸 우편 탭 */}
+      {/* 받은 우편 / 보낸 우편 탭 */}
       <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-700">
         <TabButton
           active={tab === "inbox"}
           onClick={() => switchTab("inbox")}
           label={`받은 우편${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
-        />
-        <TabButton
-          active={tab === "history"}
-          onClick={() => switchTab("history")}
-          label="지난 우편"
         />
         <TabButton
           active={tab === "sent"}
@@ -603,86 +604,22 @@ export function V2InboxView({
             <div className="text-sm">
               {tab === "inbox"
                 ? "받은 우편이 없어요."
-                : tab === "history"
-                  ? "지난 우편 기록이 없어요."
-                  : "보낸 우편 기록이 없어요."}
+                : "보낸 우편 기록이 없어요."}
             </div>
           </div>
         </Card>
       ) : (
         <div className="space-y-2">
-          {displayed.map((it) => {
-            const rewards = rewardLinesOf(it);
-            return (
-              <Card
-                key={it.id}
-                padding="sm"
-                className={`ui-inbox-card ui-lift-card ${rewards.length > 0 ? "has-reward" : ""}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  {/* 본문 영역 클릭 → 상세 보기 */}
-                  <button
-                    type="button"
-                    onClick={() => setSelected(it)}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                        {KIND_LABEL[it.kind]}
-                      </span>
-                      {it.direction === "sent" ? (
-                        <>
-                          <span>· 받는이 {it.recipientName ?? "알 수 없음"}</span>
-                          <span>· {it.claimedAt ? "읽음" : "미확인"}</span>
-                        </>
-                      ) : (
-                        it.fromName && <span>· {it.fromName}</span>
-                      )}
-                      <span>· {timeAgo(it.createdAt)}</span>
-                    </div>
-                    <div className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100">
-                      {bodyOf(it)}
-                    </div>
-                    {rewards.length > 0 && (
-                      <div className="mt-2 line-clamp-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                        {rewards.join(" · ")}
-                      </div>
-                    )}
-                  </button>
-                  {tab === "inbox" &&
-                    (IS_INVITE(it) ? (
-                      <div className="flex shrink-0 flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => respondInvite(it, true)}
-                          disabled={busy}
-                          className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                        >
-                          수락
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => respondInvite(it, false)}
-                          disabled={busy}
-                          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                        >
-                          거절
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => claim([it.id])}
-                        disabled={busy}
-                        className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                      >
-                        {it.kind === "user_message" ? "확인" : "수령"}
-                      </button>
-                    ))}
-                </div>
-              </Card>
-            );
-          })}
+          {displayed.map((item) => (
+            <InboxMailCard
+              key={item.id}
+              item={item}
+              busy={busy}
+              onOpen={openMail}
+              onClaim={(id) => claim([id])}
+              onRespondInvite={respondInvite}
+            />
+          ))}
         </div>
       )}
 
@@ -690,15 +627,16 @@ export function V2InboxView({
         <MailDetailModal
           item={selected}
           busy={busy}
-          onClose={() => setSelected(null)}
+          readError={readError}
+          onClose={() => {
+            setSelected(null);
+            setReadError(null);
+          }}
           onClaim={(id) => claim([id])}
           onRespondInvite={respondInvite}
           onBlocked={(blockedUserId) => {
             setItems((current) =>
               current?.filter((item) => item.fromUserId !== blockedUserId) ?? [],
-            );
-            setHistory((current) =>
-              current?.filter((item) => item.fromUserId !== blockedUserId) ?? null,
             );
             setSelected(null);
           }}
@@ -716,6 +654,103 @@ export function V2InboxView({
         />
       )}
     </Root>
+  );
+}
+
+export function InboxMailCard({
+  item,
+  busy,
+  onOpen,
+  onClaim,
+  onRespondInvite,
+}: {
+  item: InboxItem;
+  busy: boolean;
+  onOpen: (item: InboxItem) => void;
+  onClaim: (id: number) => void;
+  onRespondInvite: (item: InboxItem, accept: boolean) => void;
+}) {
+  const rewards = rewardLinesOf(item);
+  const unread = isUnreadInboxItem(item);
+  const pending = item.claimedAt == null;
+  const claimable =
+    item.direction !== "sent" &&
+    pending &&
+    item.claimState === "claimable";
+  const actionable =
+    item.direction !== "sent" && pending && item.claimState === "action";
+
+  return (
+    <article
+      className={`${unread ? SURFACE_ACCENT : SURFACE_CARD} ui-game-card ui-inbox-card ui-lift-card p-3 ${rewards.length > 0 ? "has-reward" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          className="min-w-0 flex-1 text-left"
+        >
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              {KIND_LABEL[item.kind]}
+            </span>
+            {item.direction === "sent" ? (
+              <>
+                <span>· 받는이 {item.recipientName ?? "알 수 없음"}</span>
+                <span>· {item.readAt ? "읽음" : "미확인"}</span>
+              </>
+            ) : (
+              item.fromName && <span>· {item.fromName}</span>
+            )}
+            {claimable && (
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-100">
+                미수령
+              </span>
+            )}
+            <span>· {timeAgo(item.createdAt)}</span>
+          </div>
+          <div
+            className={`mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100 ${unread ? "font-semibold" : ""}`}
+          >
+            {bodyOf(item)}
+          </div>
+          {rewards.length > 0 && (
+            <div className="mt-2 line-clamp-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              {rewards.join(" · ")}
+            </div>
+          )}
+        </button>
+        {actionable ? (
+          <div className="flex shrink-0 flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => onRespondInvite(item, true)}
+              disabled={busy}
+              className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+            >
+              수락
+            </button>
+            <button
+              type="button"
+              onClick={() => onRespondInvite(item, false)}
+              disabled={busy}
+              className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            >
+              거절
+            </button>
+          </div>
+        ) : claimable ? (
+          <button
+            type="button"
+            onClick={() => onClaim(item.id)}
+            disabled={busy}
+            className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          >
+            수령
+          </button>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
@@ -747,6 +782,7 @@ function TabButton({
 export function MailDetailModal({
   item,
   busy,
+  readError,
   onClose,
   onClaim,
   onRespondInvite,
@@ -754,14 +790,17 @@ export function MailDetailModal({
 }: {
   item: InboxItem;
   busy: boolean;
+  readError?: string | null;
   onClose: () => void;
   onClaim: (id: number) => void;
   onRespondInvite: (it: InboxItem, accept: boolean) => void;
   onBlocked: (blockedUserId: string) => void;
 }) {
   const sent = item.direction === "sent";
+  const read = item.readAt != null;
   const claimed = item.claimedAt != null;
   const isInvite = IS_INVITE(item);
+  const claimable = item.claimState === "claimable";
   const rewards = rewardLinesOf(item);
   useEscapeKey(onClose);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -788,9 +827,9 @@ export function MailDetailModal({
               <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                 {KIND_LABEL[item.kind]}
               </span>
-              {(sent || claimed) && (
+              {(sent || read) && (
                 <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">
-                  {sent ? (claimed ? "읽음" : "미확인") : "읽음"}
+                  {sent ? (read ? "읽음" : "미확인") : "읽음"}
                 </span>
               )}
             </h2>
@@ -858,6 +897,11 @@ export function MailDetailModal({
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-zinc-200 px-5 py-3.5 dark:border-zinc-700 sm:px-6">
+          {readError && (
+            <p className="mr-auto self-center text-xs text-rose-600 dark:text-rose-400">
+              {readError}
+            </p>
+          )}
           {sent ? (
             <button
               type="button"
@@ -885,14 +929,14 @@ export function MailDetailModal({
                 수락
               </button>
             </>
-          ) : !claimed ? (
+          ) : !claimed && claimable ? (
             <button
               type="button"
               onClick={() => onClaim(item.id)}
               disabled={busy}
               className="rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
             >
-              {item.kind === "user_message" ? "확인" : "수령"}
+              수령
             </button>
           ) : (
             <button

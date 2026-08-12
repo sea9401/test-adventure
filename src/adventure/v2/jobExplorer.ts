@@ -4,6 +4,7 @@ import {
   V2_JOB_LIST,
   isLifestyleMasteryJobId,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { effectiveCultivateProfile } from "@/adventure/data/v2/proficiency";
 import {
   V2_STAT_KEYS,
@@ -30,6 +31,43 @@ export type JobExplorerJob = {
 export type JobExplorerContext = {
   currentJobId?: string | null;
 };
+
+export type JobAdvanceAction = {
+  enabled: boolean;
+  label: "전직" | "재전직" | "조건 부족" | `Lv ${number} 필요`;
+  ariaLabel: string;
+};
+
+export function resolveJobAdvanceAction({
+  job,
+  currentJobId,
+  atLevelCap,
+  currentJobSelectable,
+}: {
+  job: Pick<JobExplorerJob, "id" | "name" | "unlocked">;
+  currentJobId: string;
+  atLevelCap: boolean;
+  currentJobSelectable: boolean;
+}): JobAdvanceAction {
+  const isCurrent = job.id === currentJobId;
+  const unlocked = job.unlocked !== false;
+  const enabled = unlocked && (isCurrent ? currentJobSelectable : atLevelCap);
+  const label = !unlocked
+    ? "조건 부족"
+    : !enabled
+      ? (`Lv ${V2_LEVEL_CAP} 필요` as const)
+      : isCurrent
+        ? "재전직"
+        : "전직";
+  const actionName = isCurrent ? "재전직" : "전직";
+  const ariaLabel = enabled
+    ? isCurrent
+      ? `${job.name} 재전직`
+      : `${job.name}(으)로 전직`
+    : `${job.name} ${actionName}: ${label}`;
+
+  return { enabled, label, ariaLabel };
+}
 
 export function isJobVisibleInShrine(
   job: Pick<JobExplorerJob, "unlocked" | "conditionRevealed">,

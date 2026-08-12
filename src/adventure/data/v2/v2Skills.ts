@@ -1865,7 +1865,7 @@ function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
     chips.push(
       "사망 극복 발생 시: 다음 내 공격 종료까지 HP 40% 아래로 내려가지 않음",
       "사망 극복 발생 시: 다음 공격 액티브 스킬 100% 발동 · 잃은 HP 100% 취급 · 광폭 계수 ×1.5",
-      "멸왕일도 1회 재충전 (전투당 최대 2회)",
+      "사망 극복 발생 시: 멸왕일도 1회 재충전",
     );
   }
   chips.push("광기 계열 중 1개만 장착");

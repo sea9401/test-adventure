@@ -27,13 +27,15 @@ export type InboxItem = {
   recipientName: string | null;
   direction?: "received" | "sent";
   createdAt: string;
-  // 읽은(수령한) 시각. 미수령 우편은 null, 기록(history) 우편은 ISO 문자열.
-  claimedAt?: string | null;
+  readAt: string | null;
+  claimedAt: string | null;
+  hasReward: boolean;
+  claimState: "none" | "claimable" | "action" | "invalid";
 };
 
 export type InboxResponse = {
   items: InboxItem[];
-  unclaimedCount: number;
+  unreadCount: number;
 };
 
 export async function fetchInbox(): Promise<InboxResponse> {
@@ -42,19 +44,29 @@ export async function fetchInbox(): Promise<InboxResponse> {
   return (await r.json()) as InboxResponse;
 }
 
-// 받은 우편 기록 — 이미 읽은(수령한) 우편 최근분. 클릭 시 내용 다시 확인용.
-export async function fetchInboxHistory(): Promise<InboxResponse> {
-  const r = await fetch("/api/marketplace/inbox?history=1");
-  if (!r.ok) throw new Error(`우편 기록 로드 실패 (${r.status})`);
-  return (await r.json()) as InboxResponse;
-}
-
 // 보낸 우편 기록 — 내가 직접 발송한 쪽지/선물 최근분. 익명 거래 우편은 서버에서 제외한다.
-// claimedAt 으로 상대 확인 여부를 표시한다.
+// readAt 으로 상대 확인 여부를 표시한다.
 export async function fetchInboxSent(): Promise<InboxResponse> {
   const r = await fetch("/api/marketplace/inbox?sent=1");
   if (!r.ok) throw new Error(`보낸 우편 기록 로드 실패 (${r.status})`);
   return (await r.json()) as InboxResponse;
+}
+
+export type MarkInboxReadResult = {
+  ok: true;
+  claimState: InboxItem["claimState"];
+  readAt: string;
+  claimedAt: string | null;
+};
+
+export async function markInboxRead(id: number): Promise<MarkInboxReadResult> {
+  const r = await fetch("/api/marketplace/inbox/read", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!r.ok) throw new Error(`읽음 처리 실패 (${r.status})`);
+  return (await r.json()) as MarkInboxReadResult;
 }
 
 export type SendMessageResult = { ok: true; recipientName: string };

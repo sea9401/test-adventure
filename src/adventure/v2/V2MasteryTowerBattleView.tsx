@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CastleTurret } from "@phosphor-icons/react";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { MASTERY_TOWER_MAX_FLOOR } from "@/adventure/data/v2/masteryTower";
 import type { Gender } from "@/adventure/profile/avatars";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -21,6 +22,7 @@ type TowerLogEntry = {
 type TowerAttemptResult = {
   ok?: boolean;
   success?: boolean;
+  practice?: boolean;
   error?: string;
   tower?: {
     runFloor?: number;
@@ -45,18 +47,39 @@ type TowerAttemptResult = {
   } | null;
 };
 
-function resultMessage(
+export function masteryTowerResultMessage(
   result: TowerAttemptResult,
   cooldownSeconds: number,
 ): string {
   if (result.error === "max_floor") return "오늘 가능한 최고층에 도달했습니다.";
   if (result.error === "cooldown") {
-    return `재입장 대기 중 · ${cooldownSeconds}초 후 시작 위치 선택 가능`;
+    return result.practice
+      ? `재입장 대기 중 · ${cooldownSeconds}초 후 50층 연습 재도전 가능`
+      : `재입장 대기 중 · ${cooldownSeconds}초 후 시작 위치 선택 가능`;
   }
+  if (result.practice && result.success) return "50층 연습 승리";
   if (result.success) return `${result.floor ?? "-"}층 돌파`;
   const retry =
-    cooldownSeconds > 0 ? ` · ${cooldownSeconds}초 후 시작 위치 선택 가능` : "";
-  return `${result.floor ?? "-"}층 실패 · 전투력 ${(result.power ?? 0).toLocaleString("ko-KR")}/${(result.requiredPower ?? 0).toLocaleString("ko-KR")}${retry}`;
+    cooldownSeconds > 0
+      ? result.practice
+        ? ` · ${cooldownSeconds}초 후 연습 재도전 가능`
+        : ` · ${cooldownSeconds}초 후 시작 위치 선택 가능`
+      : "";
+  const attemptLabel = result.practice
+    ? `${result.floor ?? "-"}층 연습 실패`
+    : `${result.floor ?? "-"}층 실패`;
+  return `${attemptLabel} · 전투력 ${(result.power ?? 0).toLocaleString("ko-KR")}/${(result.requiredPower ?? 0).toLocaleString("ko-KR")}${retry}`;
+}
+
+export function canContinueMasteryTowerAttempt(
+  result: TowerAttemptResult | null,
+  busy: boolean,
+  cooldownSeconds: number,
+): boolean {
+  if (!result?.ok || busy || result.error === "max_floor") return false;
+  return Boolean(
+    result.success || (result.practice === true && cooldownSeconds <= 0),
+  );
 }
 
 function errorMessage(error: string | undefined): string {
@@ -132,6 +155,7 @@ export function V2MasteryTowerBattleView({
   }, [result]);
 
   const isMaxFloor = result?.error === "max_floor";
+  const isPractice = result?.practice === true;
   const cooldownUntil =
     typeof result?.tower?.cooldownUntil === "number"
       ? result.tower.cooldownUntil
@@ -142,9 +166,17 @@ export function V2MasteryTowerBattleView({
       : cooldownUntil
         ? 0
         : Math.max(0, Math.ceil(result?.retryAfterSeconds ?? 0));
-  const isCooldown = result?.error === "cooldown" || cooldownSeconds > 0;
-  const canContinue = Boolean(
-    result?.ok && result.success && !busy && !isMaxFloor,
+  const isCooldown = cooldownSeconds > 0;
+  const nextAttemptIsPractice = Boolean(
+    isPractice ||
+      (result?.success &&
+        result.floor === MASTERY_TOWER_MAX_FLOOR &&
+        result.tower?.runFloor === MASTERY_TOWER_MAX_FLOOR),
+  );
+  const canContinue = canContinueMasteryTowerAttempt(
+    result,
+    busy,
+    cooldownSeconds,
   );
 
   useEffect(() => {
@@ -191,14 +223,15 @@ export function V2MasteryTowerBattleView({
 
       {result?.ok && (
         <StatusBanner tone={result.success || isMaxFloor ? "success" : "error"}>
-          {resultMessage(result, cooldownSeconds)}
+          {masteryTowerResultMessage(result, cooldownSeconds)}
         </StatusBanner>
       )}
 
       {isCooldown && (
         <StatusBanner tone="warning">
-          패배하면 현재 등반은 초기화됩니다. 탑으로 돌아가 시작 위치를 다시
-          선택할 수 있습니다.
+          {isPractice
+            ? "50층 클리어 기록과 보상은 유지됩니다. 대기시간 뒤 같은 상대에게 다시 도전할 수 있습니다."
+            : "패배하면 현재 등반은 초기화됩니다. 탑으로 돌아가 시작 위치를 다시 선택할 수 있습니다."}
         </StatusBanner>
       )}
 
@@ -234,16 +267,23 @@ export function V2MasteryTowerBattleView({
           outcome={replay.outcome}
           outcomeAction={{
             label:
-              replay.outcome === "win"
+              nextAttemptIsPractice
+                ? `${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전`
+                : replay.outcome === "win"
                 ? "다음 층 입장"
                 : "시작 위치 선택",
             busyLabel: "입장 중...",
             busy,
-            disabled: replay.outcome === "win" ? !canContinue : false,
+            disabled:
+              nextAttemptIsPractice || replay.outcome === "win"
+                ? !canContinue
+                : false,
             onClick:
-              replay.outcome === "win"
+              nextAttemptIsPractice
                 ? enterTower
-                : () => router.push("/battle/mastery-tower"),
+                : replay.outcome === "win"
+                  ? enterTower
+                  : () => router.push("/battle/mastery-tower"),
           }}
         />
       )}
@@ -260,14 +300,20 @@ export function V2MasteryTowerBattleView({
           <button
             type="button"
             onClick={() =>
-              result.success
+              nextAttemptIsPractice || result.success
                 ? void enterTower()
                 : router.push("/battle/mastery-tower")
             }
-            disabled={result.success ? !canContinue : false}
+            disabled={
+              nextAttemptIsPractice || result.success ? !canContinue : false
+            }
             className="h-10 rounded-md border border-zinc-200 px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
           >
-            {result.success ? "다음 층 입장" : "시작 위치 선택"}
+            {nextAttemptIsPractice
+              ? `${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전`
+              : result.success
+                ? "다음 층 입장"
+                : "시작 위치 선택"}
           </button>
         </Card>
       )}

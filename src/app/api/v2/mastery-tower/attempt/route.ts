@@ -99,6 +99,7 @@ export async function POST(req: Request) {
     );
     const now = Date.now();
     let tower = rollover.tower;
+    const completedTower = tower.runFloor >= MASTERY_TOWER_MAX_FLOOR;
     if (tower.cooldownUntil && tower.cooldownUntil > now) {
       const retryAfterSeconds = Math.ceil((tower.cooldownUntil - now) / 1000);
       return {
@@ -106,10 +107,13 @@ export async function POST(req: Request) {
         body: {
           ok: true as const,
           success: false,
+          practice: completedTower,
           error: "cooldown" as const,
           tower,
           power,
-          floor: tower.runFloor + 1,
+          floor: completedTower
+            ? MASTERY_TOWER_MAX_FLOOR
+            : tower.runFloor + 1,
           requiredPower: null,
           guardian: null,
           retryAfterSeconds,
@@ -118,7 +122,9 @@ export async function POST(req: Request) {
           log: [
             {
               kind: "fail" as const,
-              text: `재입장 대기 중입니다. ${retryAfterSeconds}초 후 시작 위치를 다시 선택할 수 있습니다.`,
+              text: completedTower
+                ? `재입장 대기 중입니다. ${retryAfterSeconds}초 후 50층 연습에 다시 도전할 수 있습니다.`
+                : `재입장 대기 중입니다. ${retryAfterSeconds}초 후 시작 위치를 다시 선택할 수 있습니다.`,
             },
           ],
         },
@@ -136,6 +142,7 @@ export async function POST(req: Request) {
       };
     }
     const floor = resolvedFloor.floor;
+    const practice = completedTower && floor === MASTERY_TOWER_MAX_FLOOR;
     if (floor > MASTERY_TOWER_MAX_FLOOR) {
       const claimPreview = masteryTowerClaimPreview(tower);
       return {
@@ -143,6 +150,7 @@ export async function POST(req: Request) {
         body: {
           ok: true as const,
           success: false,
+          practice,
           error: "max_floor" as const,
           tower,
           power,
@@ -247,6 +255,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         success,
+        practice,
         stamina: afterStamina,
         staminaCost: entryStaminaCost,
         nextEntryStaminaCost: masteryTowerEntryStaminaCost(tower),
@@ -266,6 +275,7 @@ export async function POST(req: Request) {
         log: masteryTowerAttemptLog({
           floor,
           success,
+          practice,
           tower,
           claimPreview,
           turns: battle.turns,

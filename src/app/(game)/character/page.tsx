@@ -22,6 +22,9 @@ export default function CharacterPage() {
           case "open-skills":
             router.push("/character/skills");
             break;
+          case "open-presets":
+            router.push("/character/presets");
+            break;
           case "open-shrine":
             router.push("/character/shrine");
             break;

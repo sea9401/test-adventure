@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PolicyDocument } from "@/components/PolicyDocument";
 
-const EFFECTIVE_DATE = "2026년 8월 8일";
+const EFFECTIVE_DATE = "2026년 8월 12일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",
@@ -47,6 +47,11 @@ export default function PrivacyPage() {
                 <td>게임 이용</td>
                 <td>게임 닉네임, 캐릭터와 성장 정보, 저장 데이터, 재화·거래·길드·전투·랭킹 기록</td>
                 <td>게임 진행 저장, 콘텐츠 제공, 부정 이용 방지, 오류 복구</td>
+              </tr>
+              <tr>
+                <td>홍보 이벤트</td>
+                <td>홍보 참여·보상 기록, 로그인 식별자를 원문 없이 변환한 HMAC 해시</td>
+                <td>홍보 실적 제공, 탈퇴·재가입을 통한 중복 보상 방지</td>
               </tr>
               <tr>
                 <td>커뮤니티와 문의</td>
@@ -101,6 +106,7 @@ export default function PrivacyPage() {
               <tr><td>이상행동·보안 이벤트</td><td>발생 후 90일</td></tr>
               <tr><td>CloudFront·WAF 접속 및 보안 로그</td><td>생성 후 최대 90일</td></tr>
               <tr><td>재화 변동·경제 감사 이벤트</td><td>발생 후 180일</td></tr>
+              <tr><td>홍보 이벤트 중복 보상 방지 식별 해시</td><td>이벤트 운영 기간 및 종료 후 180일(로그인 식별 원문은 저장하지 않음)</td></tr>
               <tr><td>푸시 구독 정보</td><td>이용자가 알림을 해제하거나 회원 탈퇴할 때까지</td></tr>
               <tr><td>푸시 중복 발송 방지 기록</td><td>발송 후 최대 180일</td></tr>
               <tr>

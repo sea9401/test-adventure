@@ -1,12 +1,29 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { FARM_CROP_REQUIRED_SKILL_ID, emptyFarmState } from "./farm";
-import { addRanchFeed, settleRanch } from "./ranch";
-import { FarmRanchPanel } from "./FarmRanchPanel";
+import { addRanchFeed, RANCH_PEN_DEFINITIONS, settleRanch } from "./ranch";
+import { confirmRanchPenUpgrade, FarmRanchPanel } from "./FarmRanchPanel";
 
 const HOUR = 60 * 60 * 1000;
 
 describe("farm ranch panel", () => {
+  it("축사 열기 확인을 취소하면 해금 요청을 실행하지 않는다", () => {
+    const onUpgrade = vi.fn();
+    const confirm = vi.fn(() => false);
+
+    expect(
+      confirmRanchPenUpgrade({
+        definition: RANCH_PEN_DEFINITIONS[2],
+        confirm,
+        onUpgrade,
+      }),
+    ).toBe(false);
+    expect(confirm).toHaveBeenCalledWith(
+      expect.stringContaining("농장 증표 60개"),
+    );
+    expect(onUpgrade).not.toHaveBeenCalled();
+  });
+
   it("shows ready products, feed capacity, locked costs, and workshop navigation", () => {
     const now = 1_000 + 12 * HOUR;
     const base = emptyFarmState(1_000);

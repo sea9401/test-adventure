@@ -5,6 +5,7 @@ import {
   BookOpen,
   Compass,
   Lightning,
+  SlidersHorizontal,
   Sparkle,
   Trophy,
   UserCircle,
@@ -20,6 +21,7 @@ export type CharacterAction =
   | { kind: "open-info" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
+  | { kind: "open-presets" }
   | { kind: "open-shrine" }
   | { kind: "open-quests" }
   | { kind: "open-trophies" }
@@ -54,6 +56,18 @@ export function V2CharacterMenu({
           }
           title="스킬"
           onClick={() => onAction({ kind: "open-skills" })}
+        />
+        <EntryCard
+          icon={
+            <SlidersHorizontal
+              size={28}
+              weight="duotone"
+              className="text-emerald-500"
+            />
+          }
+          title="전투 프리셋"
+          description="스킬·전투패턴·장비를 한 번에 변경"
+          onClick={() => onAction({ kind: "open-presets" })}
         />
         <EntryCard
           icon={

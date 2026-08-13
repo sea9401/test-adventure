@@ -111,6 +111,24 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("같은 날 살 때마다 가격이 오릅니다");
   });
 
+  it("위험 해역의 해금·조작·화물 확정·사고 구조를 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("위험 해역 낚시");
+    expect(html).toContain("Lv.15");
+    expect(html).toContain("돌진");
+    expect(html).toContain("줄 풀기");
+    expect(html).toContain("몸부림·잠수");
+    expect(html).toContain("버티기");
+    expect(html).toContain("어체력과 거리");
+    expect(html).toContain("안전 귀환");
+    expect(html).toContain("위험도 3");
+    expect(html).toContain("12%");
+    expect(html).toContain("위험도 5");
+    expect(html).toContain("32%");
+    expect(html).toContain("전용 낚싯대·릴·낚싯줄");
+  });
+
   it("어종 표본의 등록 권리 이전과 어획 기록 보존을 안내한다", () => {
     const pastimes = renderToStaticMarkup(<PastimesContent />);
     const plaza = renderToStaticMarkup(<PlazaContent />);

@@ -8,7 +8,50 @@ import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import { staminaConfigForCharacter } from "@/adventure/v2/stamina";
+import {
+  FARM_SAVE_KEY,
+  farmingLevelForState,
+  farmingLevelXpThreshold,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
+  COOKING_LEVEL_CAP,
+  COOKING_SAVE_KEY,
+  cookingLevelForXp,
+  cookingLevelXpThreshold,
+  parseCookingState,
+} from "@/adventure/v2/cooking";
+import {
+  FISHING_LEVEL_CAP,
+  FISHING_PROGRESS_KEY,
+  fishingLevelForXp,
+  fishingLevelXpThreshold,
+  parseFishingProgression,
+} from "@/adventure/v2/fishingProgression";
+import { MINING_LOG_KEY, parseMiningLog } from "@/adventure/v2/miningSession";
+import {
+  MINING_LEVEL_CAP,
+  miningLevelForXp,
+  miningXpForLevel,
+} from "@/adventure/v2/miningProgression";
+import {
+  WOODCUTTING_LOG_KEY,
+  parseWoodcuttingLog,
+} from "@/adventure/v2/woodcuttingSession";
+import {
+  WOODCUTTING_LEVEL_CAP,
+  woodcuttingLevelForXp,
+  woodcuttingXpForLevel,
+} from "@/adventure/v2/woodcuttingProgression";
 import { MAX_LEVEL } from "@/lib/leveling";
+
+export const REVIEW_ADMIN_LIFE_SAVE_KEYS = {
+  farm: FARM_SAVE_KEY,
+  woodcutting: WOODCUTTING_LOG_KEY,
+  mining: MINING_LOG_KEY,
+  fishing: FISHING_PROGRESS_KEY,
+  cooking: COOKING_SAVE_KEY,
+} as const;
 
 export const REVIEW_ADMIN_OP_TARGETS = {
   level: MAX_LEVEL,
@@ -45,6 +88,74 @@ export type ReviewAdminOpPresetResult = {
   groupId: string;
   jobId: string;
 };
+
+export function buildReviewAdminLifePreset(input: {
+  farmRaw: unknown;
+  woodcuttingRaw: unknown;
+  miningRaw: unknown;
+  fishingRaw: unknown;
+  cookingRaw: unknown;
+  nowMs: number;
+}) {
+  const farmParsed = parseFarmState(input.farmRaw, input.nowMs);
+  const farm = {
+    ...farmParsed,
+    stats: {
+      ...farmParsed.stats,
+      farmingXp: Math.max(
+        farmParsed.stats.farmingXp,
+        farmingLevelXpThreshold(50),
+      ),
+    },
+  };
+  const woodcuttingParsed = parseWoodcuttingLog(input.woodcuttingRaw);
+  const woodcutting = {
+    ...woodcuttingParsed,
+    xp: Math.max(
+      woodcuttingParsed.xp,
+      woodcuttingXpForLevel(WOODCUTTING_LEVEL_CAP),
+    ),
+  };
+  const miningParsed = parseMiningLog(input.miningRaw);
+  const mining = {
+    ...miningParsed,
+    xp: Math.max(
+      miningParsed.xp,
+      miningXpForLevel(MINING_LEVEL_CAP),
+    ),
+  };
+  const fishingParsed = parseFishingProgression(input.fishingRaw);
+  const fishing = {
+    ...fishingParsed,
+    xp: Math.max(
+      fishingParsed.xp,
+      fishingLevelXpThreshold(FISHING_LEVEL_CAP),
+    ),
+  };
+  const cookingParsed = parseCookingState(input.cookingRaw, input.nowMs);
+  const cooking = {
+    ...cookingParsed,
+    xp: Math.max(
+      cookingParsed.xp,
+      cookingLevelXpThreshold(COOKING_LEVEL_CAP),
+    ),
+  };
+
+  return {
+    farm,
+    woodcutting,
+    mining,
+    fishing,
+    cooking,
+    levels: {
+      farming: Math.min(50, farmingLevelForState(farm)),
+      woodcutting: woodcuttingLevelForXp(woodcutting.xp),
+      mining: miningLevelForXp(mining.xp),
+      fishing: fishingLevelForXp(fishing.xp),
+      cooking: cookingLevelForXp(cooking.xp),
+    },
+  };
+}
 
 function nonNegativeInt(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value)

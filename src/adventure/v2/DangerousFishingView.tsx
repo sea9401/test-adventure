@@ -115,6 +115,26 @@ export function DangerousFishingView({
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         기존 낚시와 별개의 선택형 콘텐츠입니다. 정해진 20분 세션이나 일일 숙제 없이 한 번의 어획 후에도 귀환할 수 있습니다.
       </p>
+      <details className={`${SURFACE_INSET} group p-4 text-sm`}>
+        <summary className="cursor-pointer font-bold">처음 이용하시나요?</summary>
+        <div className="mt-3 space-y-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>해역과 수심을 고른 뒤 출항하고 미끼를 선택해 낚싯줄을 던집니다.</li>
+            <li>물고기의 현재 행동에 맞는 조작을 누릅니다.</li>
+            <li>어체력과 거리를 모두 0으로 만들면 어획에 성공합니다.</li>
+            <li>잡은 재료는 귀환 전 화물입니다. 안전 귀환해야 거래 가능한 재료로 확정됩니다.</li>
+          </ol>
+          <div className="grid gap-1 sm:grid-cols-3">
+            <span className={`${SURFACE_CARD} px-2 py-1.5`}>돌진 → 줄 풀기(S)</span>
+            <span className={`${SURFACE_CARD} px-2 py-1.5`}>몸부림·잠수 → 버티기(D)</span>
+            <span className={`${SURFACE_CARD} px-2 py-1.5`}>급선회 → 감아올리기(A)</span>
+          </div>
+          <p>
+            장력이 최대치를 넘으면 줄이 끊어지고, 너무 낮은 상태가 계속되면 바늘이 빠집니다.
+            위험도 3부터 다음 투척 때 사고로 화물 일부를 잃을 수 있으므로 처음에는 한 마리마다 귀환하는 편이 안전합니다.
+          </p>
+        </div>
+      </details>
 
       {error ? (
         <div role="alert" className={`${SURFACE_INSET} border-rose-300 p-3 text-sm text-rose-700 dark:border-rose-800 dark:text-rose-300`}>

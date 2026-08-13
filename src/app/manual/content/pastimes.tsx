@@ -24,6 +24,7 @@ import {
   FISHING_CATCH_COIN_BY_TIER,
   FISHING_CATCH_COIN_DAILY_CAP,
 } from "@/lib/server/fishing/coins";
+import { DANGEROUS_FISHING_UNLOCK_LEVEL } from "@/adventure/v2/dangerousFishingHeritage";
 import {
   FARM_CROP_LIST,
   FARM_DAILY_DELIVERY_LIMIT,
@@ -248,6 +249,44 @@ export function PastimesContent() {
         })}
         caption={`챔질 코인은 KST 일자 기준 하루 ${FISHING_CATCH_COIN_DAILY_CAP.toLocaleString()}코인까지만 직접 적립됩니다. 연속 낚시·물때·핫타임 보너스가 더해질 수 있으며, 일일 과제·의뢰·누적 목표·주간 랭킹·낚시 레벨업 보상은 별도 보상입니다.`}
       />
+
+      <H2>위험 해역 낚시</H2>
+      <P>
+        낚시 <Em>Lv.{DANGEROUS_FISHING_UNLOCK_LEVEL}</Em>부터 낚시 화면 상단의
+        위험 해역 탭에서 이용하는 선택형 상위 콘텐츠입니다. 기존 낚시 장비와는
+        별개인 <Em>전용 낚싯대·릴·낚싯줄</Em>을 사용하며, 스타터 장비와 기본
+        미끼는 무료로 지급됩니다.
+      </P>
+      <Table
+        head={["물고기 행동", "대응 조작", "효과"]}
+        rows={[
+          [<Em key="charge">돌진</Em>, "줄 풀기 (S)", "충격을 흘리고 장력을 크게 낮춤"],
+          [<Em key="thrash">몸부림·잠수</Em>, "버티기 (D)", "자세를 잡고 어체력을 소모"],
+          [<Em key="turn">급선회</Em>, "감아올리기 (A)", "거리를 빠르게 줄임"],
+        ]}
+        caption="화면에 표시되는 현재 행동을 우선 따라가되, 장력에 여유가 있을 때 감아올려 거리를 줄입니다."
+      />
+      <UL>
+        <li>
+          <Em>어체력과 거리</Em>를 모두 0으로 만들면 포획합니다. 장력이 최대치를
+          넘으면 줄이 끊어지고, 너무 낮은 상태가 이어지면 바늘이 빠집니다.
+        </li>
+        <li>
+          포획한 재료는 먼저 <Em>귀환 전 화물</Em>에 쌓입니다. <Em>안전 귀환</Em>을
+          마쳐야 거래 가능한 재료로 확정되며, 귀환 자체에는 사고 판정이 없습니다.
+        </li>
+        <li>
+          위험도 0~2에는 사고가 없습니다. 다음 투척 시 위험도 3은 <Em>12%</Em>,
+          위험도 4는 22%, 위험도 5는 <Em>32%</Em> 확률로 사고가 발생하며 화물
+          일부를 잃고 강제 귀환합니다. 기존 인벤토리·낚시 경험치·코인·도감 기록은
+          잃지 않습니다.
+        </li>
+        <li>
+          위험도 4 이상에서 영웅·전설 어종을 잡으면 서버 공용 거대어를 발견할 수
+          있습니다. 한 번 기여 자격을 확보하면 실패해도 기존 기여도는 유지되며,
+          처치 후 보상 수령 버튼으로 낚시 코인과 거래 가능한 증표를 받습니다.
+        </li>
+      </UL>
 
       <H2>낚시 레벨과 보상</H2>
       <UL>

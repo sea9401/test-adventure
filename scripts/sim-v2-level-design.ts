@@ -29,6 +29,7 @@ import {
 } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import {
   V2_CORE_LOOP_V2,
   V2_HUNT_USE_STAMINA,
@@ -1014,17 +1015,9 @@ function snapshotFor(
     passiveComboFinisherBonusPct: passive.comboFinisherBonusPct,
   });
   const player = derived.player;
-  const power = derivePowerScore({
-    atk: player.atk,
-    magicAtk: player.magicAtk,
-    def: player.def,
-    spd: player.spd,
-    maxHp: player.maxHp,
-    maxMp: player.maxMp,
-    magicBarrierMax: player.magicBarrierMax,
-    evaRating: player.evaRating,
-    accRating: player.accRating,
-  });
+  const power = derivePowerScore(
+    powerInputFromPlayer(player, player.maxHp, player.maxMp),
+  );
   const tiers = Object.values(equipment).map((id) => V2_EQUIPMENT[id].tier);
   return {
     arch,

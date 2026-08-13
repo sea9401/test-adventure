@@ -10,6 +10,7 @@ import { resolveBattle } from "../src/adventure/v2/combat/engine";
 import { resolveBattlePvP } from "../src/adventure/v2/combat/engine-pvp";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { computeStatFloors, rollLevelGrowth } from "../src/adventure/data/v2/statGrowth";
 import { emptyProficiency } from "../src/adventure/data/v2/proficiency";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
@@ -79,11 +80,9 @@ function makeRef(enhance: V2EnhanceState | undefined) {
     hp: undefined,
   });
   const p = d.player;
-  const power = derivePowerScore({
-    atk: p.atk, magicAtk: p.magicAtk ?? 0, def: p.def, spd: p.spd,
-    maxHp: d.maxHp, maxMp: p.maxMp ?? 0, magicBarrierMax: p.magicBarrierMax,
-    evaRating: p.evaRating, accRating: p.accRating,
-  });
+  const power = derivePowerScore(
+    powerInputFromPlayer(p, d.maxHp, p.maxMp),
+  );
   return { d, power };
 }
 

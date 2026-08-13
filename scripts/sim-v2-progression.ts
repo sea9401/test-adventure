@@ -31,6 +31,7 @@ import type { PlayerCombat } from "../src/adventure/v2/combat/engine";
 import { resolveBattleAtb as resolveBattle } from "../src/adventure/v2/combat/engine.atb";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import {
   aggregateEquippedPassives,
@@ -408,17 +409,9 @@ function levelForDepth(depth: number): number {
 function levelForPower(target: number): number {
   for (let lv = 1; lv <= 2000; lv++) {
     const p = makePlayer("BAL", lv).player;
-    const pw = derivePowerScore({
-      atk: p.atk,
-      magicAtk: p.magicAtk,
-      def: p.def,
-      spd: p.spd,
-      maxHp: p.maxHp,
-      maxMp: p.maxMp,
-      magicBarrierMax: p.magicBarrierMax,
-      evaRating: p.evaRating,
-      accRating: p.accRating,
-    });
+    const pw = derivePowerScore(
+      powerInputFromPlayer(p, p.maxHp, p.maxMp),
+    );
     if (pw >= target) return lv;
   }
   return 2000;
@@ -882,17 +875,9 @@ function runTowerCrosscheck() {
   for (const arch of CROSSCHECK_ARCHES) {
     const setup = crosscheckSetup(arch, tier6Count, power);
     const player = setup.derived.player;
-    const derivedPower = derivePowerScore({
-      atk: player.atk,
-      magicAtk: player.magicAtk,
-      def: player.def,
-      spd: player.spd,
-      maxHp: player.maxHp,
-      maxMp: player.maxMp,
-      magicBarrierMax: player.magicBarrierMax,
-      evaRating: player.evaRating,
-      accRating: player.accRating,
-    });
+    const derivedPower = derivePowerScore(
+      powerInputFromPlayer(player, player.maxHp, player.maxMp),
+    );
     console.log(
       `${arch.padEnd(5)} ${String(derivedPower).padStart(5)} ${String(player.maxHp).padStart(6)} ${String(player.atk).padStart(5)} ${String(player.magicAtk ?? 0).padStart(5)} ${String(player.def).padStart(5)} ${String(player.magicDef ?? 0).padStart(5)} ${String(player.spd).padStart(5)} ${String(Math.round(player.evaRating ?? 0)).padStart(5)} ${String(Math.round(player.accRating ?? 0)).padStart(5)} ${String(player.magicBarrierMax ?? 0).padStart(6)}`,
     );

@@ -6,6 +6,7 @@
 // 목표 프로파일: 권장레벨 회피몰빵(DEX/LUK) ~50%·균형(BAL) ~30%·비회피(STR/VIT) ~10%, 전 깊이 안정.
 
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
 import {
   floorPowerGate,
@@ -63,7 +64,9 @@ function levelForDepth(depth: number): number {
   const target = floorPowerGate(depth);
   for (let lv = 1; lv <= 2000; lv++) {
     const p = derivePlayerCombatV2Pure({ level: lv, allocatedStats: allocate("BAL", lv), v2Equipped: {} }).player;
-    const pw = derivePowerScore({ atk: p.atk, magicAtk: p.magicAtk, def: p.def, spd: p.spd, maxHp: p.maxHp, maxMp: p.maxMp, magicBarrierMax: p.magicBarrierMax, evaRating: p.evaRating, accRating: p.accRating });
+    const pw = derivePowerScore(
+      powerInputFromPlayer(p, p.maxHp, p.maxMp),
+    );
     if (pw >= target) return lv;
   }
   return 2000;

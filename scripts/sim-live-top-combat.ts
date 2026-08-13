@@ -10,6 +10,7 @@ import {
   type SavedCharacterV2,
 } from "../src/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import {
   parseV2SkillsState,
   type V2SkillsState,
@@ -117,17 +118,13 @@ export type LiveCoopAuditSummary = {
 function powerOf(
   combat: NonNullable<ReturnType<typeof derivePlayerCombatV2FromSaves>>,
 ): number {
-  return derivePowerScore({
-    atk: combat.player.atk,
-    magicAtk: combat.player.magicAtk,
-    def: combat.player.def,
-    spd: combat.player.spd,
-    maxHp: combat.maxHp,
-    maxMp: combat.player.maxMp,
-    magicBarrierMax: combat.player.magicBarrierMax,
-    evaRating: combat.player.evaRating,
-    accRating: combat.player.accRating,
-  });
+  return derivePowerScore(
+    powerInputFromPlayer(
+      combat.player,
+      combat.maxHp,
+      combat.player.maxMp,
+    ),
+  );
 }
 
 function seededRandom(seed: number): () => number {

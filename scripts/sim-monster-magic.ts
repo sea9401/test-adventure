@@ -20,6 +20,7 @@
 import { resolveBattle, type PlayerCombat } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import { type V2Class } from "../src/adventure/data/v2/classes";
 import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
@@ -128,7 +129,9 @@ function levelForDepth(depth: number): number {
   const target = floorPowerGate(depth);
   for (let lv = 1; lv <= 2000; lv++) {
     const p = makePlayer("BAL", lv);
-    const pw = derivePowerScore({ atk: p.atk, magicAtk: p.magicAtk, def: p.def, spd: p.spd, maxHp: p.maxHp, maxMp: p.maxMp, magicBarrierMax: p.magicBarrierMax, evaRating: p.evaRating, accRating: p.accRating });
+    const pw = derivePowerScore(
+      powerInputFromPlayer(p, p.maxHp, p.maxMp),
+    );
     if (pw >= target) return lv;
   }
   return 2000;

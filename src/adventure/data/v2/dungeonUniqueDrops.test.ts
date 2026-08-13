@@ -13,6 +13,8 @@ import {
   rollBandUniqueDrop,
   rollBandCommonDrop,
   rollSkyRiftWeaponDrop,
+  SKY_RIFT_SIGNATURE_UNIQUE_CHANCE,
+  SKY_RIFT_SIGNATURE_UNIQUE_IDS,
   SKY_RIFT_WEAPON_DROP_CHANCE,
   SKY_RIFT_WEAPON_IDS,
   rollUniqueDrop,
@@ -263,7 +265,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
   const plateau = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 55)!;
   const storm = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 61)!;
   const abyss = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 67)!;
-  const skyRiftPools = BAND_UNIQUE_POOLS.filter((p) => p.minDepth >= 73);
+  const skyRift = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 73)!;
 
   it("성소부터 심해 폐허까지 6깊이별 고유 5종, chance 0.0005, 전부 유니크", () => {
     for (const [pool, min, max] of [
@@ -286,25 +288,48 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
     }
   });
 
-  it("천공 균열은 깊이마다 목표 유니크 2종과 초저확률을 제공한다", () => {
-    const expected = new Map<number, { chance: number; ids: V2EquipmentId[] }>([
-      [73, { chance: 0.00005, ids: ["v2_sky_sig_collapse_armor", "v2_sky_sig_antigravity_ring"] }],
-      [74, { chance: 0.00005, ids: ["v2_sky_sig_bloodline_greatsword", "v2_sky_sig_scar_counter_gloves"] }],
-      [75, { chance: 0.000075, ids: ["v2_sky_sig_horizon_bow", "v2_sky_sig_windless_boots"] }],
-      [76, { chance: 0.000075, ids: ["v2_sky_sig_venom_dagger", "v2_sky_sig_corrosion_ring"] }],
-      [77, { chance: 0.0001, ids: ["v2_sky_sig_overload_staff", "v2_sky_sig_reverse_gloves"] }],
-      [78, { chance: 0.0001, ids: ["v2_sky_sig_dawn_chalice", "v2_sky_sig_unity_cloak"] }],
-    ]);
+  it("천공 균열 전 구간은 낮아진 확률로 신규 유니크 12종 전체를 공유한다", () => {
+    const expectedIds: V2EquipmentId[] = [
+      "v2_sky_sig_collapse_armor",
+      "v2_sky_sig_antigravity_ring",
+      "v2_sky_sig_bloodline_greatsword",
+      "v2_sky_sig_scar_counter_gloves",
+      "v2_sky_sig_horizon_bow",
+      "v2_sky_sig_windless_boots",
+      "v2_sky_sig_venom_dagger",
+      "v2_sky_sig_corrosion_ring",
+      "v2_sky_sig_overload_staff",
+      "v2_sky_sig_reverse_gloves",
+      "v2_sky_sig_dawn_chalice",
+      "v2_sky_sig_unity_cloak",
+    ];
 
-    expect(skyRiftPools).toHaveLength(6);
-    for (const [depth, rule] of expected) {
+    expect(SKY_RIFT_SIGNATURE_UNIQUE_CHANCE).toBe(0.000025);
+    expect(SKY_RIFT_SIGNATURE_UNIQUE_IDS).toEqual(expectedIds);
+    expect(BAND_UNIQUE_POOLS.filter((p) => p.minDepth >= 73)).toEqual([
+      skyRift,
+    ]);
+    expect(skyRift).toMatchObject({
+      minDepth: 73,
+      maxDepth: 78,
+      chance: 0.000025,
+      ids: expectedIds,
+    });
+
+    for (const depth of [73, 74, 75, 76, 77, 78]) {
       const pool = bandUniquePoolForDepth(depth)!;
-      expect(pool).toMatchObject({ minDepth: depth, maxDepth: depth, ...rule });
-      expect(rollBandUniqueDrop(depth, empty, seqRng([rule.chance, 0]))).toBeNull();
-      expect(rollBandUniqueDrop(depth, empty, seqRng([0, 0]))).toBe(rule.ids[0]);
-      expect(rollBandUniqueDrop(depth, empty, seqRng([0, 0.999]))).toBe(rule.ids[1]);
-      expect(rollBandUniqueDrop(depth, new Set(rule.ids), seqRng([0, 0]))).toBe(rule.ids[0]);
-      expect(rollBandUniqueDrop(depth, empty, seqRng([rule.chance, 0]), 2)).toBe(rule.ids[0]);
+      expect(pool).toBe(skyRift);
+      expect(rollBandUniqueDrop(depth, empty, seqRng([0.000025, 0]))).toBeNull();
+      expect(rollBandUniqueDrop(depth, empty, seqRng([0, 0]))).toBe(expectedIds[0]);
+      expect(rollBandUniqueDrop(depth, empty, seqRng([0, 0.999]))).toBe(
+        expectedIds[11],
+      );
+      expect(rollBandUniqueDrop(depth, new Set(expectedIds), seqRng([0, 0]))).toBe(
+        expectedIds[0],
+      );
+      expect(rollBandUniqueDrop(depth, empty, seqRng([0.000025, 0]), 2)).toBe(
+        expectedIds[0],
+      );
     }
   });
 
@@ -327,7 +352,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
     expect(bandUniquePoolForDepth(67)).toBe(abyss);
     expect(bandUniquePoolForDepth(72)).toBe(abyss);
     for (let depth = 73; depth <= 78; depth++) {
-      expect(bandUniquePoolForDepth(depth)?.minDepth).toBe(depth);
+      expect(bandUniquePoolForDepth(depth)).toBe(skyRift);
     }
     expect(bandUniquePoolForDepth(79)).toBeNull();
   });
@@ -353,7 +378,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
   });
 
   it("성소 이후 모든 고유 밴드는 후보 풀이 서로 겹치지 않음", () => {
-    const all = [sanctum, swamp, den, throne, redField, plateau, storm, abyss, ...skyRiftPools];
+    const all = [sanctum, swamp, den, throne, redField, plateau, storm, abyss, skyRift];
     for (const a of all) {
       const others = all.filter((p) => p !== a).flatMap((p) => p.ids);
       expect(

@@ -1409,7 +1409,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(s.p2.v2Skills.equipped).toEqual([]);
   });
 
-  it("3타 스킬은 PvP에서도 3회 모두 세어 추가 행동 1회를 만든다", () => {
+  it("3타 스킬은 PvP에서도 3회 모두 세어 추가 기본 공격 1회를 만든다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const state = initialBattleStatePvP(
       makePlayer({
@@ -1435,7 +1435,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(cast.p1.stacks.signatureHitCount).toBe(3);
     expect(attacksBefore).toBeGreaterThanOrEqual(1);
     expect(cast.p1.attacksLeft).toBe(1);
-    expect(cast.log.some((entry) => entry.text.includes("추가 행동 1회"))).toBe(
+    expect(cast.log.some((entry) => entry.text.includes("추가 기본 공격 1회"))).toBe(
       true,
     );
   });

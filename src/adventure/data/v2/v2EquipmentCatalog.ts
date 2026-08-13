@@ -1167,7 +1167,7 @@ const V2_EQUIPMENT_BASE = {
     options: { hp: 70, spd: 8 }, // 개성: 무거운 대검에 spd(관습 깨기)
     weaponType: "greatsword",
     rarity: "unique",
-    // 분쇄 — 평타·스킬을 합쳐 3회 적중할 때마다 추가 행동 1회.
+    // 분쇄 — 평타·스킬을 합쳐 3회 적중할 때마다 추가 기본 공격 1회.
     signature: { trigger: "every_n_hits", label: "분쇄", everyNHits: 3 },
   },
   v2_boss_canyon_fang: {

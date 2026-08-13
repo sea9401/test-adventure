@@ -231,7 +231,7 @@ export type PvPSideStacks = {
   spellCastCount: number;
   // 절초 — 누적 적중 4타째마다 피해 증폭. PvE BattleStacks.comboHitCount 미러.
   comboHitCount: number;
-  // 고유 시그니처 — 이 side 의 평타·스킬 누적 적중 횟수(N회마다 추가 행동). 미장착=0 고정.
+  // 고유 시그니처 — 이 side 의 평타·스킬 누적 적중 횟수(N회마다 추가 기본 공격). 미장착=0 고정.
   signatureHitCount: number;
   /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
   tier6Uniques?: Tier6UniqueRuntimeState;
@@ -2922,7 +2922,7 @@ export function castV2SkillOnAttackerTurnPvP(
   if (signatureExtraActions > 0) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] ${side.name} ${landedSkillHits}회 적중 — 추가 행동 ${signatureExtraActions}회!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${side.name} ${landedSkillHits}회 적중 — 추가 기본 공격 ${signatureExtraActions}회!`,
       side: who,
     });
   }
@@ -3100,7 +3100,7 @@ export function castV2SkillOnAttackerTurnPvP(
       : undefined;
   const nextSide: PvPSide = {
     ...side,
-    // 스킬은 이번 행동의 평타를 대체한다. 다단 적중 시그니처가 만든 추가 행동만 남긴다.
+    // 스킬은 이번 행동의 평타를 대체한다. 다단 적중 시그니처가 만든 추가 기본 공격만 남긴다.
     attacksLeft: result.castSkillId
       ? signatureExtraActions
       : side.attacksLeft,

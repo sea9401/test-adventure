@@ -202,7 +202,7 @@ function commandText(command: Tier6UniqueCommand, value: number): string {
   if (command.kind === "apply_dot") return `${command.dot} ${command.stacks}스택 부여`;
   if (command.kind === "def_debuff") return `방어 ${value}% 감소`;
   if (command.kind === "mdef_debuff") return `마법방어 ${value}% 감소`;
-  if (command.kind === "extra_action") return "추가 행동 +1";
+  if (command.kind === "extra_action") return "추가 기본 공격 +1회";
   return `공격·회복 효율 +${value}%`;
 }
 

@@ -492,7 +492,7 @@ export type SignatureEffect = {
   healToShieldPct?: number;
   /** status_block_once: 전투당 1회 DoT/한기 등 상태이상 부여를 막는다. */
   statusBlockOnce?: boolean;
-  /** every_n_hits: 평타·스킬의 실제 적중 횟수가 이 값에 도달할 때마다 추가 행동 1회. */
+  /** every_n_hits: 평타·스킬의 실제 적중 횟수가 이 값에 도달할 때마다 추가 기본 공격 1회. */
   everyNHits?: number;
 };
 
@@ -535,7 +535,7 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "status_block_once":
       return "전투당 1회 상태이상 무효";
     case "every_n_hits":
-      return `${sig.everyNHits ?? 0}회 공격 적중마다 추가 행동 1회`;
+      return `${sig.everyNHits ?? 0}회 공격 적중마다 추가 기본 공격 1회`;
     case "tier6_unique": {
       const labels: Record<Tier6UniqueMechanic, string> = {
         gravity_reprisal: "보호막 파괴 시 충격의 35%를 저장해 다음 직접 공격으로 반격",
@@ -551,7 +551,7 @@ export function signatureLabel(sig: SignatureEffect): string {
         sanctuary_reserve: "산출 회복량 30%를 저장해 HP 35% 이하에서 긴급 회복",
         mechanic_unity: "서로 다른 핵심 기믹 3종 발동 시 3행동 동안 합일 강화",
         shield_conversion: "행동마다 보호막 10%를 소비해 다음 직접 공격 피해로 전환",
-        gale_circuit: "적중·치명타·회피를 모두 달성하면 추가 행동 1회",
+        gale_circuit: "적중·치명타·회피를 모두 달성하면 추가 기본 공격 1회",
         status_mana_return: "상태이상 적 공격 시 소모 MP 8%, 복합 상태면 16% 회복",
         triphase_link: "폭발은 추적 표식을, 추적·잔상·낙뢰는 성역 축적을 생성",
         storm_confluence: "시그니처 피해와 회복·보호막이 서로의 다음 효과를 12% 강화",
@@ -1555,7 +1555,10 @@ export function v2EquipStatRows(
   const power = powerWithBonuses(eff.power, enhance, craftQuality);
   if (power) {
     const enhanceBonus = enhance
-      ? powerWithBonuses(eff.power, enhance) - eff.power
+      ? Math.round(
+          (powerWithBonuses(eff.power, enhance) - eff.power + Number.EPSILON) *
+            100,
+        ) / 100
       : 0;
     out.push({
       label: v2EquipPowerLabel(item),

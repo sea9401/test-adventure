@@ -116,6 +116,45 @@ describe("V2ItemCard set information", () => {
     expect(html).toContain("+108");
     expect(html).toContain("기본 +100 · 강화 +8");
   });
+
+  it("합일의 망토에서 핵심 기믹 판정과 강화 수치를 펼쳐 볼 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_sky_sig_unity_cloak}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
+    expect(html).toContain("핵심 기믹이란?");
+    for (const label of [
+      "중력 반발",
+      "상처 파열",
+      "추적 사격",
+      "그림자 잔상",
+      "맹독 폭발",
+      "과부하 낙뢰",
+      "성역 소비",
+    ]) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain("서로 다른 3종");
+    expect(html).toContain("공격·회복 +18% (3행동)");
+  });
+
+  it("다른 6티어 유니크에는 핵심 기믹 펼침을 표시하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_sky_sig_collapse_armor}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(html).not.toContain("핵심 기믹이란?");
+  });
 });
 
 describe("V2ItemCompareCard 읽기 전용", () => {

@@ -61,6 +61,10 @@ function levelOf(character: unknown): number {
     : 1;
 }
 
+function isCharacterRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
 export async function resolveFriendlySparringTarget(
   viewerUserId: string,
   rawName: string,
@@ -86,10 +90,7 @@ export async function resolveFriendlySparringTarget(
   `);
   const row = result.rows[0] as TargetRow | undefined;
   const targetUserId = row?.user_id;
-  const validCharacter =
-    row?.character != null &&
-    typeof row.character === "object" &&
-    !Array.isArray(row.character);
+  const validCharacter = isCharacterRecord(row?.character);
   if (
     !targetUserId ||
     targetUserId === viewerUserId ||
@@ -138,7 +139,7 @@ export async function prepareFriendlySparringCombatant(
     );
   const byKey = new Map(rows.map((row) => [row.key, row.value]));
   const character = byKey.get(CHARACTER_STATE_KEY);
-  if (!character || typeof character !== "object") return null;
+  if (!isCharacterRecord(character)) return null;
 
   const proficiencyRaw = byKey.get("proficiency.v2");
   let skills = parseV2SkillsState(byKey.get("skills.v2"));

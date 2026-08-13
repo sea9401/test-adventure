@@ -165,4 +165,14 @@ describe("prepareFriendlySparringCombatant", () => {
       prepareFriendlySparringCombatant("target"),
     ).resolves.toBeNull();
   });
+
+  it("배열로 손상된 캐릭터 저장값으로 전투원을 만들지 않는다", async () => {
+    mocks.saveRows = mocks.saveRows.map((row) =>
+      row.key === "character.v2" ? { ...row, value: [] } : row,
+    );
+    await expect(
+      prepareFriendlySparringCombatant("target"),
+    ).resolves.toBeNull();
+    expect(mocks.derivePlayerCombatV2).not.toHaveBeenCalled();
+  });
 });

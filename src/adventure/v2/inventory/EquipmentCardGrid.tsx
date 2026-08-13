@@ -78,6 +78,12 @@ export type EquipmentCard = {
   isEquipped: boolean;
 };
 
+export type EquipmentSaleCardSelection = {
+  active: boolean;
+  selectedIids: ReadonlySet<string>;
+  onToggle: (inst: V2EquipInstance) => void;
+};
+
 // 보유 장비 2열 카드 그리드 — 개체(instance) 단위. 슬롯 아이콘 + 장착 배지(✓/잠금) +
 // 표시 위력색 이름 + 굴림 반영 스탯줄. 카드 탭 → 옵션/장착 팝오버(V2ItemCard).
 export function EquipmentCardGrid({
@@ -86,6 +92,7 @@ export function EquipmentCardGrid({
   onRegisterCodex,
   codexBusyIid,
   selectedIid,
+  saleSelection,
   frontierDepth,
 }: {
   cards: EquipmentCard[];
@@ -97,10 +104,13 @@ export function EquipmentCardGrid({
   // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
   // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
   selectedIid?: string | null;
+  // 인벤토리 선택 판매 모드. 장착·잠금 카드는 서버 규칙과 동일하게 선택할 수 없다.
+  saleSelection?: EquipmentSaleCardSelection;
   // 인벤토리에서만 전달. 진행도 미달 장비는 보유·거래 가능하되 착용 잠금 배지를 표시한다.
   frontierDepth?: number;
 }) {
   const selectable = selectedIid !== undefined;
+  const saleSelectionActive = saleSelection?.active === true;
   if (cards.length === 0) {
     return (
       <EmptyState
@@ -117,7 +127,18 @@ export function EquipmentCardGrid({
         const { Icon, color } = SLOT_ICON[item.slot];
         const pct = rollQualityPct(item, inst.roll);
         const isSelected = selectable && inst.iid === selectedIid;
-        const highlighted = selectable ? isSelected : isEquipped;
+        const isSaleSelected =
+          saleSelectionActive && saleSelection.selectedIids.has(inst.iid);
+        const saleBlockedReason = isEquipped
+          ? "장착 중"
+          : inst.locked
+            ? "잠금됨"
+            : null;
+        const highlighted = saleSelectionActive
+          ? isSaleSelected
+          : selectable
+            ? isSelected
+            : isEquipped;
         const progressionLock =
           frontierDepth == null
             ? null
@@ -126,15 +147,29 @@ export function EquipmentCardGrid({
           <div
             key={inst.iid}
             className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-lift-card relative flex min-h-[7.5rem] flex-col gap-1 rounded-lg border p-3 text-left shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950 ${
-              highlighted
+              isSaleSelected
+                ? "is-active border-rose-400 bg-rose-50 ring-1 ring-rose-200 dark:border-rose-500 dark:bg-rose-950 dark:ring-rose-900/70"
+                : highlighted
                 ? "is-active border-emerald-400 bg-emerald-50 ring-1 ring-emerald-200 dark:border-emerald-500 dark:bg-emerald-950 dark:ring-emerald-900/70"
                 : "border-zinc-300 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-900"
             }`}
           >
             <button
               type="button"
-              onClick={(event) => onOpenCard(inst, anchorOf(event.currentTarget))}
-              aria-label={`${item.name} 정보`}
+              onClick={(event) =>
+                saleSelectionActive
+                  ? saleSelection.onToggle(inst)
+                  : onOpenCard(inst, anchorOf(event.currentTarget))
+              }
+              disabled={saleSelectionActive && saleBlockedReason !== null}
+              aria-label={
+                saleSelectionActive
+                  ? saleBlockedReason
+                    ? `${item.name} 판매 선택 불가: ${saleBlockedReason}`
+                    : `${item.name} 판매 ${isSaleSelected ? "선택됨" : "선택 안 됨"}`
+                  : `${item.name} 정보`
+              }
+              aria-pressed={saleSelectionActive ? isSaleSelected : undefined}
               className="absolute inset-0 z-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
@@ -150,6 +185,14 @@ export function EquipmentCardGrid({
                 )}
               </span>
               <span className="flex shrink-0 items-center gap-1">
+                {isSaleSelected ? (
+                  <CheckCircle
+                    size={18}
+                    weight="fill"
+                    className="text-rose-500"
+                    aria-hidden
+                  />
+                ) : null}
                 {pct != null && (
                   <span
                     className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums"
@@ -158,7 +201,7 @@ export function EquipmentCardGrid({
                     <QualityPctText pct={pct} />
                   </span>
                 )}
-                {isEquipped && selectable ? (
+                {isEquipped && (selectable || saleSelectionActive) ? (
                   <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                     착용중
                   </span>

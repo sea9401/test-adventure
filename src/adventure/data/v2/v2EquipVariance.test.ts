@@ -24,6 +24,7 @@ import {
   rollQualityPct,
   rollReforgeStoneDrops,
   selectBulkSell,
+  selectExplicitSell,
 } from "./v2EquipVariance";
 
 describe("조합소 공통 비용", () => {
@@ -315,6 +316,40 @@ describe("selectBulkSell", () => {
     // 경계 포함(이하) — belowPct=100 이면 100% 품질도 포함(미만이면 제외됐을 것).
     const all = selectBulkSell(bows, {}, { belowPct: 100 });
     expect(all.iids).toEqual(["low", "high"]);
+  });
+});
+
+describe("selectExplicitSell", () => {
+  const id = (value: string) => value as V2EquipmentId;
+  const owned: V2EquipInstance[] = [
+    { iid: "equipped", id: id("v2_iron_sword") },
+    { iid: "locked", id: id("v2_iron_sword"), locked: true },
+    { iid: "first", id: id("v2_iron_sword") },
+    { iid: "second", id: id("v2_leather_armor") },
+  ];
+
+  it("요청한 판매 가능 개체만 입력 순서대로 계획한다", () => {
+    const result = selectExplicitSell(owned, { weapon: "equipped" }, [
+      "second",
+      "first",
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.iids).toEqual(["second", "first"]);
+    expect(result.plan.count).toBe(2);
+    expect(result.plan.gold).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ["보유 목록에서 사라진 경우", ["first", "missing"]],
+    ["판매 직전에 장착된 경우", ["first", "equipped"]],
+    ["잠긴 경우", ["first", "locked"]],
+    ["같은 iid가 중복된 경우", ["first", "first"]],
+  ])("%s 부분 판매 없이 전체 계획을 거절한다", (_label, iids) => {
+    expect(
+      selectExplicitSell(owned, { weapon: "equipped" }, iids),
+    ).toEqual({ ok: false, reason: "selection_changed" });
   });
 });
 

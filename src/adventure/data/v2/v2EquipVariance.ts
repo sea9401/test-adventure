@@ -239,6 +239,10 @@ export type BulkSellOpts = {
   belowPct?: number;
 };
 export type BulkSellPlan = { iids: string[]; gold: number; count: number };
+export const MAX_EXPLICIT_SELL_COUNT = 100;
+export type ExplicitSellResult =
+  | { ok: true; plan: BulkSellPlan }
+  | { ok: false; reason: "selection_changed" };
 
 // 미장착 + 미잠금 + 판매 가능(유니크 등 비매 제외) 개체를 골라 판매 계획 산출.
 // equipped 의 iid 는 제외. locked 개체는 제외. belowPct 주면 품질% ≤ belowPct 만(굴림 없으면 제외).
@@ -266,6 +270,48 @@ export function selectBulkSell(
     gold += price;
   }
   return { iids, gold, count: iids.length };
+}
+
+// 사용자가 iid를 직접 고른 선택 판매 계획. 일괄 판매처럼 조건에 맞지 않는 개체를 조용히
+// 제외하면 의도보다 적게 팔린 사실을 놓칠 수 있으므로, 하나라도 사라졌거나 장착·잠금 상태로
+// 바뀌었으면 전체를 거절한다. 클라이언트 미리보기와 서버 트랜잭션 검증이 함께 사용한다.
+export function selectExplicitSell(
+  owned: V2EquipInstance[],
+  equipped: Partial<Record<V2EquipSlot, string>>,
+  requestedIids: readonly string[],
+): ExplicitSellResult {
+  if (requestedIids.length === 0) {
+    return { ok: false, reason: "selection_changed" };
+  }
+  const uniqueIids = new Set(requestedIids);
+  if (uniqueIids.size !== requestedIids.length) {
+    return { ok: false, reason: "selection_changed" };
+  }
+
+  const equippedIids = new Set(Object.values(equipped));
+  const ownedByIid = new Map(owned.map((inst) => [inst.iid, inst]));
+  let gold = 0;
+  for (const iid of requestedIids) {
+    const inst = ownedByIid.get(iid);
+    if (!inst || inst.locked || equippedIids.has(iid)) {
+      return { ok: false, reason: "selection_changed" };
+    }
+    const item = V2_EQUIPMENT[inst.id];
+    const price = item ? sellPriceOf(item) : null;
+    if (price == null) {
+      return { ok: false, reason: "selection_changed" };
+    }
+    gold += price;
+  }
+
+  return {
+    ok: true,
+    plan: {
+      iids: [...requestedIids],
+      gold,
+      count: requestedIids.length,
+    },
+  };
 }
 
 // effectiveStats 는 v2Equipment.ts(순수 장비-모델 함수)로 이전 — v2EquipStatRows 가 순환

@@ -114,6 +114,7 @@ const DAMAGE_CALCULATION_LABELS = [
 ] as const;
 
 const ACTION_RECOVERY_LABELS = ["봉인", "그림자", "해연"] as const;
+const ACTION_OPENING_DEFENSE_LABELS = ["철벽", "마나 실드"] as const;
 
 // 2026-08-10 이전 PvP 리플레이는 치명타 등 수식어가 붙은 기본 공격에서 `공격!`을
 // 빠뜨렸다. 반사·추가타까지 행동으로 오인하지 않도록 기본 공격 자체를 만들 수 있는
@@ -191,6 +192,9 @@ function isActionOpeningEffect(entry: BattleLogEntry): boolean {
   if (entry.kind === "hp_bar") return false;
   const { labels, body } = parseBattleLogText(entry.text);
   return (
+    labels.some((label) =>
+      ACTION_OPENING_DEFENSE_LABELS.some((defense) => label === defense),
+    ) ||
     (labels.some((label) =>
       ACTION_RECOVERY_LABELS.some((recovery) => label === recovery),
     ) &&
@@ -229,7 +233,9 @@ function canMergeActionHit(
   current: Extract<BattleLogDisplayItem, { kind: "action" }>,
   entry: BattleLogEntry,
 ): boolean {
-  if (current.effects.length > 0) return false;
+  if (current.effects.some((effect) => !isActionOpeningEffect(effect))) {
+    return false;
+  }
   const previous = current.hits.at(-1) ?? current.main;
   const previousHeadline = damageActionHeadline(previous);
   const nextHeadline = damageActionHeadline(entry);

@@ -9,6 +9,7 @@ import {
   attackerFacingDef,
   decrementTimedEffects,
   endAttackerPhase,
+  effectivePvPAccuracyRating,
   finishPvPBerserkerAttackAction,
   maybeApplyRuneCounter,
   maybeApplyMartialCounter,
@@ -486,7 +487,7 @@ export function advanceTurnPvP(
         precisionMult *
         (1 + Math.max(0, temporaryEvasionIncreasePct) / 100),
     );
-    const attackerAccR = attacker.player.accRating ?? attacker.player.accuracyPct ?? 0;
+    const attackerAccR = effectivePvPAccuracyRating(attacker);
     evasionReductionPct = pvpEvasionDamageReductionPct(
       defenderEvaR,
       attackerAccR,

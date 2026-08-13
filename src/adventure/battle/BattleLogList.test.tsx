@@ -491,6 +491,73 @@ describe("BattleLogList 행동 묶음", () => {
     ]);
   });
 
+  it("선행 계산 로그가 없어도 철벽 흡수를 암월난무 행동에 연결한다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "info",
+        text: "[철벽] 상대 보호막이 300 흡수 (남은 100)",
+        turn: "player",
+      },
+      {
+        kind: "player_attack",
+        text: "암월난무! 296 피해를 입혔다.",
+        turn: "player",
+        t: 10,
+      },
+      {
+        kind: "player_attack",
+        text: "암월난무! 266 피해를 입혔다.",
+        turn: "player",
+        t: 10,
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        kind: "action",
+        main: { text: "암월난무! 296 피해를 입혔다." },
+        hits: [
+          { text: "암월난무! 296 피해를 입혔다." },
+          { text: "암월난무! 266 피해를 입혔다." },
+        ],
+        effects: [
+          { text: "[철벽] 상대 보호막이 300 흡수 (남은 100)" },
+        ],
+      },
+    ]);
+  });
+
+  it("마나 실드 전개와 차단을 암월난무 행동에 연결한다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "info",
+        text: "[마나 실드] 상대 내구도 500 전개",
+        turn: "enemy",
+      },
+      {
+        kind: "info",
+        text: "[마나 실드] 피해 450 차단 (내구도 50/500)",
+        turn: "player",
+      },
+      {
+        kind: "player_attack",
+        text: "암월난무! 296 피해를 입혔다.",
+        turn: "player",
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        kind: "action",
+        main: { text: "암월난무! 296 피해를 입혔다." },
+        effects: [
+          { text: "[마나 실드] 상대 내구도 500 전개" },
+          { text: "[마나 실드] 피해 450 차단 (내구도 50/500)" },
+        ],
+      },
+    ]);
+  });
+
   it("해연 회복은 장비 전체 이름으로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

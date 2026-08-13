@@ -86,10 +86,14 @@ export async function resolveFriendlySparringTarget(
   `);
   const row = result.rows[0] as TargetRow | undefined;
   const targetUserId = row?.user_id;
+  const validCharacter =
+    row?.character != null &&
+    typeof row.character === "object" &&
+    !Array.isArray(row.character);
   if (
     !targetUserId ||
     targetUserId === viewerUserId ||
-    !row.character ||
+    !validCharacter ||
     isSuperAdminEmail(row.email) ||
     (await usersCannotInteract(viewerUserId, targetUserId))
   ) {

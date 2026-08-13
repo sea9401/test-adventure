@@ -115,6 +115,18 @@ describe("resolveFriendlySparringTarget", () => {
       resolveFriendlySparringTarget("viewer", "차단됨"),
     ).resolves.toBeNull();
   });
+
+  it("손상된 캐릭터 저장값은 검색 결과로 노출하지 않는다", async () => {
+    mocks.executeRows[0]!.character = "broken";
+    await expect(
+      resolveFriendlySparringTarget("viewer", "상대"),
+    ).resolves.toBeNull();
+
+    mocks.executeRows[0]!.character = [];
+    await expect(
+      resolveFriendlySparringTarget("viewer", "상대"),
+    ).resolves.toBeNull();
+  });
 });
 
 describe("prepareFriendlySparringCombatant", () => {

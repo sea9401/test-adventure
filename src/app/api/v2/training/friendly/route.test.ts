@@ -128,6 +128,12 @@ describe("GET /api/v2/training/friendly", () => {
 });
 
 describe("POST /api/v2/training/friendly", () => {
+  it("로그인하지 않은 전투 요청을 거부한다", async () => {
+    mocks.userId = null;
+    expect((await POST(postRequest())).status).toBe(401);
+    expect(mocks.resolveBattlePvP).not.toHaveBeenCalled();
+  });
+
   it("아레나 PvP 보정으로 읽기 전용 친선전을 계산한다", async () => {
     const response = await POST(postRequest());
     expect(response.status).toBe(200);

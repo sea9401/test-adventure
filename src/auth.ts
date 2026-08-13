@@ -27,6 +27,10 @@ import {
 import { mapKakaoOAuthProfile } from "@/lib/server/kakaoOAuthProfile";
 import { recoverOrphanedKakaoAccount } from "@/lib/server/orphanedKakaoAccount";
 import { authenticatePasswordAccount } from "@/lib/server/passwordAccount";
+import {
+  authenticateLocalDevAccount,
+  readLocalDevAutoLoginConfig,
+} from "@/lib/server/localDevAutoLogin";
 
 declare module "next-auth" {
   interface Session {
@@ -62,6 +66,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       // kakao_<id>@kakao.oauth 형태 — 같은 카카오 계정이면 항상 동일 이메일 생성.
       profile: mapKakaoOAuthProfile,
     }),
+    ...(readLocalDevAutoLoginConfig()
+      ? [
+          Credentials({
+            id: "local-dev",
+            name: "로컬 개발 자동 로그인",
+            credentials: {},
+            async authorize(_credentials, request) {
+              return authenticateLocalDevAccount(request);
+            },
+          }),
+        ]
+      : []),
     Credentials({
       id: "review-credentials",
       name: "아이디·비밀번호",

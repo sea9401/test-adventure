@@ -55,8 +55,8 @@ export const REVIEW_ADMIN_LIFE_SAVE_KEYS = {
 
 export const REVIEW_ADMIN_OP_TARGETS = {
   level: MAX_LEVEL,
-  stat: 3_000,
-  capGain: 3_000,
+  stat: 6_000,
+  capGain: 6_000,
   proficiencyPoints: 1_000_000,
   mastery: 1_000_000,
   groupTier: 5,

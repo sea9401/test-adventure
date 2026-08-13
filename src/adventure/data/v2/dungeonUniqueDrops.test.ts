@@ -15,6 +15,7 @@ import {
   rollSkyRiftWeaponDrop,
   SKY_RIFT_SIGNATURE_UNIQUE_CHANCE,
   SKY_RIFT_SIGNATURE_UNIQUE_IDS,
+  STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE,
   SKY_RIFT_WEAPON_DROP_CHANCE,
   SKY_RIFT_WEAPON_IDS,
   rollUniqueDrop,
@@ -42,7 +43,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   it("기존 밴드는 흔한 ≥9종, 천공 균열은 깊이별 6T 방어구 풀 — 전부 noDrop·비유니크", () => {
     // 2026-06-26 유니크 재정의: 옛 필드 유니크가 일반(noDrop)으로 강등돼 흔한 풀에 합류 →
     //   밴드별 9 + 강등분(canyon/lake+2·cave+4·sanctum/swamp+2·den+3).
-    expect(BAND_COMMON_POOLS).toHaveLength(14);
+    expect(BAND_COMMON_POOLS).toHaveLength(17);
     for (const p of BAND_COMMON_POOLS) {
       expect(p.ids.length, `밴드 ${p.minDepth}`).toBeGreaterThanOrEqual(
         p.minDepth >= 73 ? 6 : 9,
@@ -110,6 +111,19 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(commonIdsForDepthRange(73, 78)).toHaveLength(21);
   });
 
+  it("별의 무덤은 천공 균열과 같은 21종 방어구 풀과 단계별 확률을 사용한다", () => {
+    const skyIds = commonIdsForDepthRange(73, 78);
+    expect(commonIdsForDepthRange(79, 84)).toEqual(skyIds);
+    expect([79, 80, 81, 82, 83, 84].map(bandCommonChanceForDepth)).toEqual([
+      0.0005,
+      0.0005,
+      0.00075,
+      0.00075,
+      0.001,
+      0.001,
+    ]);
+  });
+
   it("rollBandCommonDrop — 깊이별 chance 로 통과/실패, 통과 시 흔한 후보 반환", () => {
     const canyon = bandCommonPoolForDepth(7)!;
     expect(rollBandCommonDrop(7, seqRng([0.0029, 0]))).toBe(canyon.ids[0]); // 로컬1 0.003 미만 통과
@@ -123,13 +137,13 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
       calls++;
       return 0;
     };
-    // 밴드 = 7~78(들판 1~6 전·마지막 천공 균열 밴드 78에서 끝=프론티어 캡).
+    // 밴드 = 7~84(들판 1~6 전·마지막 별의 무덤 밴드 84에서 끝=프론티어 캡).
     expect(rollBandCommonDrop(6, rng)).toBeNull(); // 들판(밴드 전)
-    expect(rollBandCommonDrop(79, rng)).toBeNull(); // 마지막 밴드(78) 너머 = 프론티어 끝
+    expect(rollBandCommonDrop(85, rng)).toBeNull(); // 마지막 밴드(84) 너머 = 프론티어 끝
     expect(calls).toBe(0);
   });
 
-  it("천공 균열 1~6은 같은 21종 방어구 전역 드랍 풀을 사용함", () => {
+  it("천공 균열과 별의 무덤은 같은 21종 방어구 전역 드랍 풀을 사용함", () => {
     const den = bandCommonPoolForDepth(37)!;
     expect(bandCommonPoolForDepth(42)).toBe(den);
     const throne = bandCommonPoolForDepth(43)!;
@@ -159,7 +173,16 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(skyEntry.ids).toContain("v2_storm_wreckage_armor");
     expect(skyEntry.ids).toContain("v2_storm_gale_armor");
     expect(skyEntry.ids).toContain("v2_storm_thunder_armor");
-    expect(bandCommonPoolForDepth(79)).toBeNull();
+    const starEntry = bandCommonPoolForDepth(79)!;
+    const starMiddle = bandCommonPoolForDepth(81)!;
+    const starDeep = bandCommonPoolForDepth(83)!;
+    expect(bandCommonPoolForDepth(80)).toBe(starEntry);
+    expect(bandCommonPoolForDepth(82)).toBe(starMiddle);
+    expect(bandCommonPoolForDepth(84)).toBe(starDeep);
+    expect(starEntry.ids).toEqual(skyEntry.ids);
+    expect(starMiddle.ids).toEqual(skyEntry.ids);
+    expect(starDeep.ids).toEqual(skyEntry.ids);
+    expect(bandCommonPoolForDepth(85)).toBeNull();
     expect(rollBandCommonDrop(40, seqRng([0.0004, 0]))).toBe(den.ids[0]); // 밴드 내 드랍
     expect(rollBandCommonDrop(46, seqRng([0.0004, 0]))).toBe(throne.ids[0]); // 신규 밴드 내 드랍
     expect(rollBandCommonDrop(46, seqRng([0.005, 0]))).toBeNull(); // 로컬4 0.0045 이상이라 실패
@@ -255,7 +278,7 @@ describe("BAND_UNIQUE_POOLS — 게이트 전(7~24) 유니크 풀 비었음(유�
   });
 });
 
-describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)", () => {
+describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~84)", () => {
   const empty = new Set<V2EquipmentId>();
   const sanctum = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
   const swamp = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 31)!;
@@ -266,6 +289,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
   const storm = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 61)!;
   const abyss = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 67)!;
   const skyRift = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 73)!;
+  const starGrave = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 79)!;
 
   it("성소부터 심해 폐허까지 6깊이별 고유 5종, chance 0.0005, 전부 유니크", () => {
     for (const [pool, min, max] of [
@@ -306,7 +330,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
 
     expect(SKY_RIFT_SIGNATURE_UNIQUE_CHANCE).toBe(0.000025);
     expect(SKY_RIFT_SIGNATURE_UNIQUE_IDS).toEqual(expectedIds);
-    expect(BAND_UNIQUE_POOLS.filter((p) => p.minDepth >= 73)).toEqual([
+    expect(BAND_UNIQUE_POOLS.filter((p) => p.minDepth >= 73 && p.maxDepth <= 78)).toEqual([
       skyRift,
     ]);
     expect(skyRift).toMatchObject({
@@ -333,7 +357,26 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
     }
   });
 
-  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴→왕도→붉은 벌판→백골 고원→폭풍 산맥→심해 폐허→천공 균열", () => {
+  it("별의 무덤 전 구간은 천공 균열 유니크 12종을 총 0.0035%로 추격한다", () => {
+    expect(STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE).toBe(0.000035);
+    for (const depth of [79, 80, 81, 82, 83, 84]) {
+      const pool = bandUniquePoolForDepth(depth)!;
+      expect(pool.ids).toEqual(SKY_RIFT_SIGNATURE_UNIQUE_IDS);
+      expect(pool.chance).toBe(STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE);
+      expect(
+        rollBandUniqueDrop(
+          depth,
+          empty,
+          seqRng([STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE, 0]),
+        ),
+      ).toBeNull();
+      expect(rollBandUniqueDrop(depth, empty, seqRng([0, 0]))).toBe(
+        SKY_RIFT_SIGNATURE_UNIQUE_IDS[0],
+      );
+    }
+  });
+
+  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴→왕도→붉은 벌판→백골 고원→폭풍 산맥→심해 폐허→천공 균열→별의 무덤", () => {
     expect(bandUniquePoolForDepth(24)!.ids).toEqual([]); // 심층 동굴(빈 풀)
     expect(bandUniquePoolForDepth(25)).toBe(sanctum);
     expect(bandUniquePoolForDepth(30)).toBe(sanctum);
@@ -354,7 +397,10 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)
     for (let depth = 73; depth <= 78; depth++) {
       expect(bandUniquePoolForDepth(depth)).toBe(skyRift);
     }
-    expect(bandUniquePoolForDepth(79)).toBeNull();
+    for (let depth = 79; depth <= 84; depth++) {
+      expect(bandUniquePoolForDepth(depth)).toBe(starGrave);
+    }
+    expect(bandUniquePoolForDepth(85)).toBeNull();
   });
 
   it("통과 굴림(rng<chance) → 그 밴드 고유 반환(pick 0 → 첫 id)", () => {

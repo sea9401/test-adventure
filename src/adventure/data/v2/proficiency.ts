@@ -63,11 +63,11 @@ export type V2ProficiencyState = {
 // §10 다이얼.
 // 승리당 숙달 포인트 — 초반은 유지하고 최상위 사냥터의 성장 보상을 강화한다.
 // 들판~심층 동굴 2 / 잊힌 성소~백골 고원 3 / 폭풍 산맥~심해 폐허 4 /
-// 천공 균열 5. 직업 숙련도(+1/승리)는 사냥터와 관계없이 그대로 유지한다.
+// 천공 균열 이후 5. 직업 숙련도(+1/승리)는 사냥터와 관계없이 그대로 유지한다.
 export const V2_PROFICIENCY_PER_KILL_BASE = 2;
 export function proficiencyPerKillAtDepth(depth: number): number {
   const themeIndex = themeIndexForDepth(depth);
-  if (themeIndex >= 12) return 5; // 천공 균열
+  if (themeIndex >= 12) return 5; // 천공 균열·별의 무덤
   if (themeIndex >= 10) return 4; // 폭풍 산맥~심해 폐허
   if (themeIndex >= 4) return 3; // 잊힌 성소~백골 고원
   return V2_PROFICIENCY_PER_KILL_BASE;

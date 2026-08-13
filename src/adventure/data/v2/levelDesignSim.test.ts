@@ -73,11 +73,11 @@ describe("sim-v2-level-design", () => {
     expect(parseOptions(["--trials=999"]).trials).toBe(100);
   });
 
-  it("검사 대상은 실제 선택 가능한 2~78 짝수 단계 39개다", () => {
+  it("검사 대상은 실제 선택 가능한 2~84 짝수 단계 42개다", () => {
     const depths = huntStageDepths();
-    expect(depths).toHaveLength(39);
+    expect(depths).toHaveLength(42);
     expect(depths[0]).toBe(2);
-    expect(depths.at(-1)).toBe(78);
+    expect(depths.at(-1)).toBe(84);
     expect(depths.every((depth) => depth % 2 === 0)).toBe(true);
   });
 
@@ -87,6 +87,7 @@ describe("sim-v2-level-design", () => {
     const frontierEntry = growth.rows.find((row) => row.depth === 8)!;
     const endgame = growth.rows.find((row) => row.depth === 72)!;
     const skyRift = growth.rows.find((row) => row.depth === 78)!;
+    const starGrave = growth.rows.find((row) => row.depth === 84)!;
 
     expect(growth.totalExpToLevelCap).toBe(2_275_428);
     expect(growth.energy).toMatchObject({
@@ -123,6 +124,13 @@ describe("sim-v2-level-design", () => {
       expect(1 / pool.chance).toBeCloseTo(40_000);
       expect(pool.ids.length / pool.chance).toBeCloseTo(480_000);
     }
+    expect(starGrave.avgVeteranExpPerWin).toBe(skyRift.avgVeteranExpPerWin);
+    expect(starGrave.commonAnyExpectedWins).toBe(1_000);
+    expect(starGrave.commonSpecificExpectedWins).toBe(21_000);
+    expect(starGrave.signatureAnyExpectedWins).toBeCloseTo(1 / 0.000035);
+    expect(starGrave.signatureSpecificExpectedWins).toBeCloseTo(
+      12 / 0.000035,
+    );
   });
 
   it("실제 승률 절벽·전직 회복 필요·저승률·빌드 격차·장기전을 독립적으로 경고한다", () => {

@@ -63,8 +63,8 @@ describe("buildReviewAdminOpPreset", () => {
           mage: { cultivations: 7, tier: 2, cumLevel: 9 },
           warrior: { cultivations: 3, tier: 4, cumLevel: 88 },
         },
-        caps: { int: 3500 },
-        grown: { int: 3600 },
+        caps: { int: 6500 },
+        grown: { int: 6600 },
         growthScaleVersion: 1,
         jobCumLevel: { mage: 10, archmage: 99 },
         jobHistory: ["archmage"],
@@ -91,11 +91,15 @@ describe("buildReviewAdminOpPreset", () => {
       tier: 4,
       cumLevel: 88,
     });
-    expect(result?.proficiency.caps.int).toBe(3500);
-    expect(result?.proficiency.grown.int).toBe(3600);
+    expect(result?.proficiency.caps.int).toBe(6500);
+    expect(result?.proficiency.grown.int).toBe(6600);
     for (const stat of V2_STAT_KEYS) {
-      expect(result?.proficiency.caps[stat]).toBeGreaterThanOrEqual(3_000);
-      expect(result?.proficiency.grown[stat]).toBeGreaterThanOrEqual(3_000);
+      expect(result?.proficiency.caps[stat]).toBeGreaterThanOrEqual(
+        REVIEW_ADMIN_OP_TARGETS.capGain,
+      );
+      expect(result?.proficiency.grown[stat]).toBeGreaterThanOrEqual(
+        REVIEW_ADMIN_OP_TARGETS.stat,
+      );
     }
     expect(result?.proficiency.jobCumLevel).toMatchObject({
       mage: 1_000_000,

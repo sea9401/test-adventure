@@ -52,13 +52,14 @@ describe("적중·회피 경감 전투 예상", () => {
         ...player,
         physicalDefense: 500,
         magicBarrierAbsorbPct: 20,
+        magicBarrierEfficiencyPct: 20,
         magicBarrierDurability: 100,
       },
       { ...enemy, incomingAttack: 1_000, incomingAttackType: "physical" },
     );
     expect(result.playerDefenseReductionPct).toBeCloseTo(42.5, 3);
     expect(result.playerBarrierAbsorbPct).toBe(20);
-    expect(result.playerDirectDamageRetainedPct).toBeCloseTo(15.13, 2);
+    expect(result.playerDirectDamageRetainedPct).toBeCloseTo(22.63, 2);
 
     const html = renderToStaticMarkup(
       <CombatMatchupSummary
@@ -66,6 +67,7 @@ describe("적중·회피 경감 전투 예상", () => {
           ...player,
           physicalDefense: 500,
           magicBarrierAbsorbPct: 20,
+          magicBarrierEfficiencyPct: 20,
           magicBarrierDurability: 100,
         }}
         enemy={{
@@ -76,8 +78,26 @@ describe("적중·회피 경감 전투 예상", () => {
       />,
     );
     expect(html).toContain("내 최종 직접 피해");
-    expect(html).toContain("15% 받음");
+    expect(html).toContain("23% 받음");
     expect(html).toContain("물리 방어");
-    expect(html).toContain("마나 실드 20%");
+    expect(html).toContain("방어 전 피해에서 20% 분리");
+    expect(html).toContain("몸통 피해에 방어·회피 적용");
+  });
+
+  it("새 효율 필드가 없는 옛 전투 데이터도 NaN 없이 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <CombatMatchupSummary
+        player={{
+          ...player,
+          physicalDefense: 500,
+          magicBarrierAbsorbPct: 20,
+          magicBarrierDurability: 100,
+        }}
+        enemy={{ ...enemy, incomingAttack: 1_000 }}
+      />,
+    );
+
+    expect(html).not.toContain("NaN");
+    expect(html).toContain("방어 전 피해에서 20% 분리");
   });
 });

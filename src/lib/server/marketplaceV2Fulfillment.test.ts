@@ -48,3 +48,30 @@ describe("거래소 물고기 표본 배송", () => {
     expect(store.get("character.v2")).toEqual({});
   });
 });
+
+describe("거래소 위험 해역 어획물 배송", () => {
+  beforeEach(() => {
+    store.clear();
+    store.set("character.v2", {
+      materials: { danger_catch_ironjaw_tuna: 1 },
+    });
+  });
+
+  it("구매자 재료 인벤토리에 체결 수량을 더한다", async () => {
+    const result = await deliverMarketplaceListing(
+      {} as Parameters<typeof deliverMarketplaceListing>[0],
+      "buyer",
+      {
+        kind: "material",
+        itemId: "danger_catch_ironjaw_tuna",
+        quantity: 4,
+        instancePayload: null,
+      } as Parameters<typeof deliverMarketplaceListing>[2],
+    );
+
+    expect(result).toBeNull();
+    expect(store.get("character.v2")).toEqual({
+      materials: { danger_catch_ironjaw_tuna: 5 },
+    });
+  });
+});

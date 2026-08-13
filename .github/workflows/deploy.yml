@@ -34,7 +34,7 @@ jobs:
     outputs:
       ci_run_id: ${{ steps.ci-run.outputs.ci_run_id }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
           fetch-depth: 0
@@ -80,14 +80,14 @@ jobs:
       contents: read
     steps:
       - name: Checkout deployed revision
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
       - name: Download exact CI production build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: production-next-${{ env.DEPLOY_SHA }}
           path: production-release
@@ -100,7 +100,7 @@ jobs:
           sha256sum --check production-next.tar.gz.sha256
       # 전송과 체크섬 검증은 운영 점검 모드를 켜기 전에 끝낸다.
       - name: Transfer production build to EC2
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
@@ -109,7 +109,7 @@ jobs:
           target: "/home/ec2-user/adventure-release-artifacts/${{ env.DEPLOY_SHA }}"
           strip_components: 1
       - name: SSH & deploy [prod]
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WEB_PUSH_VAPID_PUBLIC_KEY: ${{ secrets.WEB_PUSH_VAPID_PUBLIC_KEY }}

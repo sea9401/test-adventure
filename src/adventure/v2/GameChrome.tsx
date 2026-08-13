@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FocusEvent } from "react";
+import type { FocusEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
@@ -11,6 +11,8 @@ import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { shouldShowStaminaBar } from "@/adventure/v2/staminaBarVisibility";
 import { UgcConsentPrompt } from "@/components/safety/UgcConsentPrompt";
+import { GameSceneBackground } from "@/adventure/v2/GameSceneBackground";
+import { GameContentTransition } from "@/adventure/v2/GameContentTransition";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -33,38 +35,6 @@ function tabOfPath(pathname: string): TabId {
   if (pathname.startsWith("/guild")) return "guild";
   if (pathname.startsWith("/plaza")) return "plaza";
   return "adventure";
-}
-
-// 탭 배경 이미지 — fixed full-screen + 위에 반투명 dim 오버레이.
-// 길드 배경은 ui/guild.webp 정적 경로.
-// src 가 바뀌면 부모가 key 로 remount → errored 리셋.
-function TabBackground({
-  src,
-  fallbackSrc,
-}: {
-  src: string;
-  fallbackSrc?: string;
-}) {
-  const [errored, setErrored] = useState(false);
-  const finalSrc = errored && fallbackSrc ? fallbackSrc : src;
-  return (
-    <div
-      aria-hidden
-      className="game-scene-background pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={finalSrc}
-        alt=""
-        onError={() => {
-          if (fallbackSrc) setErrored(true);
-        }}
-        className="h-full w-full object-cover"
-      />
-      {/* 라이트는 흰 카드와 분리되는 옅은 회색 바탕으로 눌러 눈부심을 줄인다. */}
-      <div className="absolute inset-0 bg-zinc-100/80 dark:bg-zinc-950/80" />
-    </div>
-  );
 }
 
 function selectNumericInputValue(event: FocusEvent<HTMLDivElement>) {
@@ -169,8 +139,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
       <OfflineSettleCard />
       {background && (
-        <TabBackground
-          key={background.src}
+        <GameSceneBackground
           src={background.src}
           fallbackSrc={background.fallbackSrc}
         />
@@ -199,9 +168,11 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         )}
         {/* 모바일에서는 우하단 고정 채팅 버튼 뒤로 마지막 컨트롤이 가려지지 않도록
             버튼 높이·위치와 기기 하단 안전 영역만큼 스크롤 여유를 둔다. */}
-        <div className="pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:pb-0">
-          {children}
-        </div>
+        <GameContentTransition>
+          <div className="pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:pb-0">
+            {children}
+          </div>
+        </GameContentTransition>
       </div>
     </div>
   );

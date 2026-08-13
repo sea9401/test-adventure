@@ -101,6 +101,39 @@ describe("arena tournament replay retention", () => {
     });
     expect(bracket.matches[0]!.games[0]!.replay).toBeDefined();
   });
+
+  it("불명예 참가자는 공개 대진표에서 이름과 아바타를 숨기고 결과는 보존한다", () => {
+    const scheduled = createArenaTournamentSchedule({
+      seasonId: "2026-W32",
+      generatedAt: new Date(0),
+      startsAt: new Date(0),
+      entrants: entrants(8),
+      rng: () => 0.5,
+    });
+    const dishonoredUserId = scheduled.participants[0]!.userId;
+    const bracket = {
+      ...scheduled,
+      championUserId: dishonoredUserId,
+      dishonoredUserIds: [dishonoredUserId],
+      rewards: [{ userId: dishonoredUserId, placement: "1위", coins: 600 }],
+    };
+
+    const overview = arenaTournamentBracketOverview(bracket);
+    const publicParticipant = overview.participants.find(
+      (participant) => participant.userId === dishonoredUserId,
+    );
+
+    expect(publicParticipant).toMatchObject({
+      userId: dishonoredUserId,
+      name: "불명예 처리된 참가자",
+      dishonored: true,
+    });
+    expect(publicParticipant?.avatar).toBeUndefined();
+    expect(JSON.stringify(overview)).not.toContain("참가자 1");
+    expect(overview.championUserId).toBe(dishonoredUserId);
+    expect(overview.rewards).toEqual(bracket.rewards);
+    expect(overview.matches).toHaveLength(bracket.matches.length);
+  });
 });
 
 describe("arena tournament schedule", () => {

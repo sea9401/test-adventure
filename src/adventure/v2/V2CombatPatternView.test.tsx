@@ -5,6 +5,7 @@ import {
   PatternChoicePicker,
   SkillPatternChoiceList,
   SkillPatternPicker,
+  V2CombatPatternView,
   ENEMY_DEBUFF_OPTIONS,
   filterPatternChoiceOptions,
 } from "./V2CombatPatternView";
@@ -16,6 +17,14 @@ const OPTIONS = [
 ] as const;
 
 describe("combat pattern choice controls", () => {
+  it("발동 실패의 다음 순위 검사와 중복 스킬의 공유 판정을 안내한다", () => {
+    const html = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
+
+    expect(html).toContain("발동률 판정에 실패하면 다음");
+    expect(html).toContain("같은 판정값을 공유");
+    expect(html).toContain("중복 배치해도");
+  });
+
   it("적 디버프 선택지에 상대 회복 감소를 표시한다", () => {
     expect(ENEMY_DEBUFF_OPTIONS).toContainEqual({
       value: "healReduction",

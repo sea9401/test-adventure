@@ -35,7 +35,8 @@ vi.mock("@/db", () => {
   const chain: Record<string, unknown> = {};
   chain.from = () => chain;
   chain.where = () => chain;
-  chain.for = () => chain;
+  chain.orderBy = () => chain;
+  chain.for = async () => [];
   chain.limit = async () => [];
   const tx = {
     select: () => chain,

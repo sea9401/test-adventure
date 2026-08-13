@@ -374,8 +374,10 @@ describe("derivePlayerCombatV2Pure 마나 실드", () => {
     expect(base.magicBarrierMax).toBeUndefined();
     expect(invested.magicBarrierMax).toBeUndefined();
     expect(shielded.magicBarrierMax).toBe(1_008);
-    expect(shielded.magicBarrierAbsorbPct).toBeCloseTo(19.0909, 3);
-    expect(shielded.magicBarrierPvpAbsorbPct).toBeCloseTo(13.6364, 3);
+    expect(shielded.magicBarrierAbsorbPct).toBeCloseTo(24.5455, 3);
+    expect(shielded.magicBarrierPvpAbsorbPct).toBeCloseTo(16.3636, 3);
+    expect(shielded.magicBarrierEfficiencyPct).toBeCloseTo(12.0574, 3);
+    expect(shielded.magicBarrierPvpEfficiencyPct).toBeCloseTo(8.0383, 3);
     expect(shielded.mp).toBe(shielded.maxMp);
   });
 });

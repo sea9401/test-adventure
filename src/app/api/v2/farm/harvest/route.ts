@@ -41,6 +41,7 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
 import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
+import { settleRanch } from "@/adventure/v2/ranch";
 
 // POST /api/v2/farm/harvest — 다 자란 밭을 수확한다.
 export async function POST(req: Request) {
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
           await lockSaveForUpdate(tx, userId, "skills.v2", emptyV2SkillsState()),
         );
         const farmBonuses = equippedFarmBonuses(skills.equipped);
-        const farm = normalizeFarmForDay(
+        const parsedFarm = normalizeFarmForDay(
           parseFarmState(
             await lockSaveForUpdate(
               tx,
@@ -87,6 +88,10 @@ export async function POST(req: Request) {
           ),
           now,
         );
+        const farm = {
+          ...parsedFarm,
+          ranch: settleRanch(parsedFarm.ranch, now),
+        };
         const harvested = harvestPlot(
           farm,
           plotId,

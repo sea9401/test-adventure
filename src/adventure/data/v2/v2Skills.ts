@@ -140,7 +140,7 @@ export type V2PassiveSkillEffect = {
   /** 주간 훈련 보너스가 발동할 때 추가로 받는 직업 숙련도. */
   guildTrainingWeeklyBonusMastery?: number;
   // ── 농장(비전투) — 수확 서버 판정에서만 소비. 전투 derive 와 무관.
-  /** 수확량 보너스 +%. 작은 수확량에서도 체감되도록 수확 라우트가 최소 +1을 보장한다. */
+  /** 수확량 보너스 +%. 1개 미만의 보너스는 다음 수확에 누적해 지급한다. */
   farmYieldBonusPct?: number;
   /** 희귀 수확 확률 +%p. */
   farmRareChancePct?: number;
@@ -2013,18 +2013,21 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.fishingBigCatchSizeBonusPct)
     chips.push(`대물급 물고기 크기 +${p.fishingBigCatchSizeBonusPct}%`);
   if (p.guildTrainingRewardBonusPct)
-    chips.push(`훈련장 보상 +${p.guildTrainingRewardBonusPct}%`);
+    chips.push(`훈련장 보상 +${p.guildTrainingRewardBonusPct}% (누적 지급)`);
   if (p.guildTrainingWeeklyBonusMastery)
     chips.push(`주간 훈련 보너스 +${p.guildTrainingWeeklyBonusMastery}`);
-  if (p.farmYieldBonusPct) chips.push(`농장 수확량 +${p.farmYieldBonusPct}%`);
+  if (p.farmYieldBonusPct)
+    chips.push(`농장 수확량 +${p.farmYieldBonusPct}% (누적 지급)`);
   if (p.farmRareChancePct)
     chips.push(`희귀 수확 확률 +${p.farmRareChancePct}%`);
   if (p.cookingXpBonusPct)
-    chips.push(`요리 경험치 +${p.cookingXpBonusPct}%`);
+    chips.push(`요리 경험치 +${p.cookingXpBonusPct}% (평균 적용)`);
   if (p.cookingCarefulChancePct)
     chips.push(`정성작 확률 +${p.cookingCarefulChancePct}%`);
   if (p.cookingMaterialReductionPct)
-    chips.push(`묶음 조리 일반 재료 -${p.cookingMaterialReductionPct}%`);
+    chips.push(
+      `묶음 조리 일반 재료 -${p.cookingMaterialReductionPct}% (누적 절약)`,
+    );
   if (p.cookingMasterpieceChancePct)
     chips.push(`걸작 확률 +${p.cookingMasterpieceChancePct}%`);
   if (p.cookingRareIngredientSaveChancePct)

@@ -297,6 +297,8 @@ export type FarmState = {
     farmingXp: number;
     /** 희귀 작물을 얻지 못한 연속 수확 횟수. 20회째 희귀 수확을 보장한다. */
     rareMissStreak: number;
+    /** 추가 작물 1개를 100으로 두는 수확량 보너스 누적치. */
+    yieldBonusRemainderPct: number;
   };
 };
 
@@ -613,6 +615,7 @@ export function emptyFarmState(now = Date.now()): FarmState {
       reputationSpent: 0,
       farmingXp: 0,
       rareMissStreak: 0,
+      yieldBonusRemainderPct: 0,
     },
   };
 }
@@ -631,6 +634,10 @@ export function parseFarmState(raw: unknown, now = Date.now()): FarmState {
     rareMissStreak: Math.min(
       FARM_RARE_PITY_HARVESTS - 1,
       nonNegativeInt(value.stats?.rareMissStreak),
+    ),
+    yieldBonusRemainderPct: Math.min(
+      99,
+      nonNegativeInt(value.stats?.yieldBonusRemainderPct),
     ),
   };
   const savedPlots = Array.isArray(value.plots) ? value.plots : [];
@@ -1373,11 +1380,11 @@ export function harvestPlot(
     crop.yieldMin +
     Math.floor(rng() * (crop.yieldMax - crop.yieldMin + 1));
   const yieldBonusPct = Math.max(0, options.yieldBonusPct ?? 0);
-  const quantity =
-    baseQuantity +
-    (yieldBonusPct > 0
-      ? Math.max(1, Math.floor((baseQuantity * yieldBonusPct) / 100))
-      : 0);
+  const yieldBonusProgress =
+    state.stats.yieldBonusRemainderPct + baseQuantity * yieldBonusPct;
+  const bonusQuantity = Math.floor(yieldBonusProgress / 100);
+  const quantity = baseQuantity + bonusQuantity;
+  const yieldBonusRemainderPct = yieldBonusProgress % 100;
   const rareChance = Math.min(
     0.75,
     crop.rareChance + Math.max(0, options.rareChancePct ?? 0) / 100,
@@ -1409,6 +1416,7 @@ export function harvestPlot(
         rareHarvests: state.stats.rareHarvests + rareQuantity,
         farmingXp,
         rareMissStreak: gotRare ? 0 : state.stats.rareMissStreak + 1,
+        yieldBonusRemainderPct,
       },
     },
     result: {

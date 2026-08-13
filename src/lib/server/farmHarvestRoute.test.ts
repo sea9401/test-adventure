@@ -58,6 +58,7 @@ import {
   plantCrop,
   type FarmState,
 } from "@/adventure/v2/farm";
+import { ranchReadyPenCount } from "@/adventure/v2/ranch";
 import {
   deriveRepeatViews,
   kstDailyKey,
@@ -166,5 +167,49 @@ describe("POST /api/v2/farm/harvest", () => {
       "새 모험가",
       ["life_level_5"],
     );
+  });
+
+  it("작물을 수확해도 응답의 목장 수확 가능 배지를 유지한다", async () => {
+    const planted = plantCrop(
+      emptyFarmState(NOW),
+      "plot-1",
+      "wheat",
+      NOW - FARM_CROPS.wheat.growMs - 1,
+    );
+    const ranchStartedAt = NOW - 2 * 60 * 60 * 1_000;
+    store.set(FARM_SAVE_KEY, {
+      ...planted,
+      ranch: {
+        ...planted.ranch,
+        pens: {
+          ...planted.ranch.pens,
+          "coop-1": {
+            ...planted.ranch.pens["coop-1"],
+            feed: 1,
+            lastSettledAt: ranchStartedAt,
+          },
+          "coop-2": {
+            ...planted.ranch.pens["coop-2"],
+            unlocked: true,
+            feed: 1,
+            lastSettledAt: ranchStartedAt,
+          },
+        },
+      },
+    });
+    store.set("character.v2", {});
+    store.set("skills.v2", {});
+
+    const response = await POST(
+      new Request("http://test.local/api/v2/farm/harvest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plotId: "plot-1" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { farm: FarmState };
+    expect(ranchReadyPenCount(body.farm.ranch)).toBe(2);
   });
 });

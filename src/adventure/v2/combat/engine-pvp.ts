@@ -93,13 +93,30 @@ import {
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
   applyEvasionDamageReduction,
-  absorbWithMagicBarrier,
   cappedDefReductionPct,
   pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  magicBarrierCombatLogEntries,
+  resolveMagicBarrierDamage,
+} from "./magicBarrier";
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
-import { computeCritOverflowBonus } from "./engine.damageHelpers";
+import {
+  computeCritOverflowBonus,
+  reducedMagicDefense,
+} from "./engine.damageHelpers";
+import {
+  hasTier6Unique,
+  initialTier6UniqueRuntime,
+  activeTier6ResourceSnapshot,
+  type Tier6UniqueRuntimeState,
+} from "./tier6UniqueEffects";
+import {
+  applyTier6UniquePvpEvent,
+  tier6PvpDotContext,
+  tier6PvpStatusKindCount,
+} from "./tier6UniquePvpAdapter";
 import {
   applyBerserkerCastTransition,
   applyBerserkerLethalDamage,
@@ -160,6 +177,8 @@ export type PvPSideBuffs = {
   // 약점 노출 — 공격 시 상대 DEF -pct%.
   enemyDefDebuffPct: number;
   enemyDefDebuffTurnsLeft: number;
+  enemyMagicDefDebuffPct?: number;
+  enemyMagicDefDebuffTurnsLeft?: number;
   // 둔화 — SPD 비교에서 상대 SPD ×mult.
   enemySpdMult: number;
   enemySpdTurnsLeft: number;
@@ -170,6 +189,8 @@ export type PvPSideBuffs = {
   // 흡령 — 시한부 흡혈. 가한 데미지의 pct% 만큼 자가 회복. turnsLeft 0 이면 비활성.
   playerLifestealPct: number;
   playerLifestealTurnsLeft: number;
+  tier6UnityHealPct?: number;
+  tier6UnityTurnsLeft?: number;
 };
 
 export type PvPSideStacks = {
@@ -212,6 +233,8 @@ export type PvPSideStacks = {
   comboHitCount: number;
   // 고유 시그니처 — 이 side 의 평타·스킬 누적 적중 횟수(N회마다 추가 행동). 미장착=0 고정.
   signatureHitCount: number;
+  /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
+  tier6Uniques?: Tier6UniqueRuntimeState;
 };
 
 export type PvPSide = {
@@ -361,7 +384,11 @@ export function applyEvasionActionRecoveryPvP(
   const nextHp = Math.min(actor.maxHp, actor.hp + scaled);
   const actual = nextHp - actor.hp;
   if (actual <= 0) return state;
-  const shield = healToShield(actor.player.equipSignatures, actual);
+  const shield = healToShield(actor.player.equipSignatures, {
+    actualHeal: actual,
+    calculatedHeal: scaled,
+    maxHp: actor.maxHp,
+  });
   let next = setSide(state, who, {
     ...actor,
     hp: nextHp,
@@ -469,10 +496,15 @@ function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
 function skillTargetMagicDef(attacker: PvPSide, defender: PvPSide): number {
   const base = defender.player.magicDef ?? defender.player.def;
   const reductionPct = cappedDefReductionPct(
+    (attacker.buffs.enemyMagicDefDebuffTurnsLeft ?? 0) > 0
+      ? attacker.buffs.enemyMagicDefDebuffPct ?? 0
+      : 0,
     attacker.player.enemyMagicDefReductionPct ?? 0,
   );
-  if (reductionPct <= 0) return base;
-  return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
+  return reducedMagicDefense(
+    base,
+    reductionPct,
+  );
 }
 
 function applyPoisonDamageToDots(
@@ -693,6 +725,9 @@ function buildSide(
       spellCastCount: 0,
       comboHitCount: 0,
       signatureHitCount: 0,
+      ...(hasTier6Unique(player.equipSignatures)
+        ? { tier6Uniques: initialTier6UniqueRuntime() }
+        : {}),
     },
   };
 }
@@ -931,7 +966,11 @@ function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleState {
   const amount = scalePvPHealing(state, reducedAmount);
   const newHp = Math.min(side.maxHp, side.hp + amount);
   const actual = newHp - side.hp;
-  const sigShield = healToShield(side.player.equipSignatures, actual);
+  const sigShield = healToShield(side.player.equipSignatures, {
+    actualHeal: actual,
+    calculatedHeal: amount,
+    maxHp: side.maxHp,
+  });
   let next = setSide(state, key, {
     ...side,
     hp: newHp,
@@ -990,9 +1029,17 @@ function dealExtraDamage(
     ? Math.floor((defender.hp * HEAVEN_DECREE_HP_PCT) / 100)
     : 0;
   const rawTotalDmg = dmgAfterLuckyStar + decreeDmg;
-  const totalDmg = scalePvPDamage(state, rawTotalDmg);
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: rawTotalDmg,
+    durability: defender.magicBarrier ?? 0,
+    absorbPct: defender.player.magicBarrierPvpAbsorbPct,
+    efficiencyPct: defender.player.magicBarrierPvpEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) => scalePvPDamage(state, bodyRawDamage),
+  });
+  const totalDmg = barrier.hpBoundDamage;
   const survival = applyBerserkerHostileDamagePvP(
-    defender,
+    { ...defender, magicBarrier: barrier.durabilityLeft },
     defender.hp - totalDmg,
   );
   let defenderAfterDamage = survival.side;
@@ -1015,6 +1062,11 @@ function dealExtraDamage(
       ),
     };
   }
+  let nextLog = state.log;
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    nextLog = appendLog(nextLog, { ...entry, side: defKey });
+  }
+  state = { ...state, log: nextLog };
   // 흡혈류 — 비크리 기반만 (luckyLifesteal / runeLifesteal / 흡령).
   const luckyLifestealHeal =
     (player.luckyLifestealPct ?? 0) > 0
@@ -1131,6 +1183,15 @@ function applyDodgeEffects(
     ...state,
     log: appendLog(state.log, { kind: "info", text: dodgeLogText }),
   };
+  if (st[defKey].stacks.tier6Uniques) {
+    st = applyTier6UniquePvpEvent(st, defKey, atkKey, {
+      kind: "dodge",
+      origin: {
+        actionId: st[defKey].turn.completedPlayerTurns + 1,
+        eventId: st.log.length,
+      },
+    });
+  }
   if (st.phase === "ended") return st;
   const defenderAfterDodge = st[defKey];
   if (
@@ -1163,7 +1224,11 @@ function applyDodgeEffects(
   if (evadeHeal > 0 && defForHeal.hp < defForHeal.maxHp) {
     const newHp = Math.min(defForHeal.maxHp, defForHeal.hp + evadeHeal);
     const actual = newHp - defForHeal.hp;
-    const sigShield = healToShield(defForHeal.player.equipSignatures, actual);
+    const sigShield = healToShield(defForHeal.player.equipSignatures, {
+      actualHeal: actual,
+      calculatedHeal: evadeHeal,
+      maxHp: defForHeal.maxHp,
+    });
     st = setSide(st, defKey, {
       ...defForHeal,
       hp: newHp,
@@ -1260,15 +1325,30 @@ function applyDodgeEffects(
     reflexEvadeMult > 0 ? Math.floor(estimatedRawDmg * reflexEvadeMult) : 0;
   const rawReflect = infiniteThornsDmg + reflexEvadeDmg;
   if (rawReflect > 0) {
-    const totalReflect = scalePvPDamage(
-      st,
-      mitigatePvPReflectDamage(st, atkKey, defKey, rawReflect),
-    );
+    const barrier = resolveMagicBarrierDamage({
+      rawDamage: rawReflect,
+      durability: attackerNow.magicBarrier ?? 0,
+      absorbPct: attackerNow.player.magicBarrierPvpAbsorbPct,
+      efficiencyPct: attackerNow.player.magicBarrierPvpEfficiencyPct,
+      eligible: true,
+      mitigateBody: (bodyRawDamage) =>
+        scalePvPDamage(
+          st,
+          mitigatePvPReflectDamage(st, atkKey, defKey, bodyRawDamage),
+        ),
+    });
+    const totalReflect = barrier.hpBoundDamage;
     const survival = resolvePvPHostileDamageSurvival(
-      attackerNow,
+      { ...attackerNow, magicBarrier: barrier.durabilityLeft },
       attackerNow.hp - totalReflect,
     );
     st = setSide(st, atkKey, survival.side);
+    for (const entry of magicBarrierCombatLogEntries(barrier)) {
+      st = {
+        ...st,
+        log: appendLog(st.log, { ...entry, side: atkKey }),
+      };
+    }
     const labels: string[] = [];
     if (infiniteThornsDmg > 0) labels.push("무한 가시");
     if (reflexEvadeDmg > 0) labels.push("반사 회피");
@@ -1303,20 +1383,38 @@ function applyDodgeEffects(
       attackerAfterReflect.v2SelfDebuffs,
     );
     const counterRawAtk = defenderNow.player.atk + counterBonus;
-    const counterDmg = scalePvPDamage(
-      st,
-      damageBetween(
-        v2AtkMultCt !== 1 ? Math.floor(counterRawAtk * v2AtkMultCt) : counterRawAtk,
-        v2DefMultCt !== 1
-          ? Math.floor(attackerAfterReflect.player.def * v2DefMultCt)
-          : attackerAfterReflect.player.def,
-      ),
-    );
+    const counterAttack =
+      v2AtkMultCt !== 1
+        ? Math.floor(counterRawAtk * v2AtkMultCt)
+        : counterRawAtk;
+    const counterDefense =
+      v2DefMultCt !== 1
+        ? Math.floor(attackerAfterReflect.player.def * v2DefMultCt)
+        : attackerAfterReflect.player.def;
+    const barrier = resolveMagicBarrierDamage({
+      rawDamage: counterAttack,
+      durability: attackerAfterReflect.magicBarrier ?? 0,
+      absorbPct: attackerAfterReflect.player.magicBarrierPvpAbsorbPct,
+      efficiencyPct: attackerAfterReflect.player.magicBarrierPvpEfficiencyPct,
+      eligible: true,
+      mitigateBody: (bodyRawDamage) =>
+        scalePvPDamage(st, damageBetween(bodyRawDamage, counterDefense)),
+    });
+    const counterDmg = barrier.hpBoundDamage;
     const survival = resolvePvPHostileDamageSurvival(
-      attackerAfterReflect,
+      {
+        ...attackerAfterReflect,
+        magicBarrier: barrier.durabilityLeft,
+      },
       attackerAfterReflect.hp - counterDmg,
     );
     st = setSide(st, atkKey, survival.side);
+    for (const entry of magicBarrierCombatLogEntries(barrier)) {
+      st = {
+        ...st,
+        log: appendLog(st.log, { ...entry, side: atkKey }),
+      };
+    }
     st = {
       ...st,
       log: appendLog(st.log, {
@@ -1456,17 +1554,29 @@ export function applyOnHitReflect(
       ? Math.floor(baseTotal * (1 + reflectBoostPct / 100))
       : baseTotal;
   if (rawTotal <= 0) return { state, attackerKilled: false };
-  const total = scalePvPDamage(
-    state,
-    mitigatePvPReflectDamage(state, atkKey, defKey, rawTotal),
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: rawTotal,
+    durability: attacker.magicBarrier ?? 0,
+    absorbPct: attacker.player.magicBarrierPvpAbsorbPct,
+    efficiencyPct: attacker.player.magicBarrierPvpEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) =>
+      scalePvPDamage(
+        state,
+        mitigatePvPReflectDamage(state, atkKey, defKey, bodyRawDamage),
+      ),
+  });
+  const shieldAbsorbed = Math.min(
+    attacker.stacks.playerShield,
+    barrier.hpBoundDamage,
   );
-  const shieldAbsorbed = Math.min(attacker.stacks.playerShield, total);
-  const dmgToHp = total - shieldAbsorbed;
+  const dmgToHp = barrier.hpBoundDamage - shieldAbsorbed;
   const newShield = attacker.stacks.playerShield - shieldAbsorbed;
   const hpAfterReflect = Math.max(0, attacker.hp - dmgToHp);
   const survival = applyBerserkerHostileDamagePvP(
     {
       ...attacker,
+      magicBarrier: barrier.durabilityLeft,
       stacks: {
         ...attacker.stacks,
         playerShield: newShield,
@@ -1508,6 +1618,12 @@ export function applyOnHitReflect(
         kind: "info",
         text: `[철벽] ${attacker.name} 보호막이 반사 피해 ${shieldAbsorbed} 흡수 (남은 ${newShield})`,
       }),
+    };
+  }
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    st = {
+      ...st,
+      log: appendLog(st.log, { ...entry, side: atkKey }),
     };
   }
   st = {
@@ -1580,15 +1696,22 @@ export function maybeApplyRuneCounter(
   const v2DefMultRC = v2DefBuffMult(attacker.v2SelfBuffs, attacker.v2SelfDebuffs);
   const rcAtk = effectiveAttackerAtk(defender, attacker);
   const rcDef = attackerFacingDef(defender, attacker);
-  const dmg = scalePvPDamage(
-    state,
-    damageBetween(
-      v2AtkMultRC !== 1 ? Math.floor(rcAtk * v2AtkMultRC) : rcAtk,
-      v2DefMultRC !== 1 ? Math.floor(rcDef * v2DefMultRC) : rcDef,
-    ),
-  );
+  const counterAttack =
+    v2AtkMultRC !== 1 ? Math.floor(rcAtk * v2AtkMultRC) : rcAtk;
+  const counterDefense =
+    v2DefMultRC !== 1 ? Math.floor(rcDef * v2DefMultRC) : rcDef;
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: counterAttack,
+    durability: attacker.magicBarrier ?? 0,
+    absorbPct: attacker.player.magicBarrierPvpAbsorbPct,
+    efficiencyPct: attacker.player.magicBarrierPvpEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) =>
+      scalePvPDamage(state, damageBetween(bodyRawDamage, counterDefense)),
+  });
+  const dmg = barrier.hpBoundDamage;
   const survival = resolvePvPHostileDamageSurvival(
-    attacker,
+    { ...attacker, magicBarrier: barrier.durabilityLeft },
     attacker.hp - dmg,
   );
   if (finishCurrentAction && survival.side.berserker) {
@@ -1600,6 +1723,12 @@ export function maybeApplyRuneCounter(
     };
   }
   let st = setSide(state, atkKey, survival.side);
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    st = {
+      ...st,
+      log: appendLog(st.log, { ...entry, side: atkKey }),
+    };
+  }
   st = {
     ...st,
     log: appendLog(st.log, {
@@ -1652,15 +1781,20 @@ export function maybeApplyMartialCounter(
     counterBoostPct > 0
       ? Math.floor(counterAtk * (1 + counterBoostPct / 100))
       : counterAtk;
-  const dmg = scalePvPDamage(
-    state,
-    damageBetween(
-      boostedCounterAtk,
-      v2DefMultMC !== 1 ? Math.floor(mcDef * v2DefMultMC) : mcDef,
-    ),
-  );
+  const counterDefense =
+    v2DefMultMC !== 1 ? Math.floor(mcDef * v2DefMultMC) : mcDef;
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: boostedCounterAtk,
+    durability: attacker.magicBarrier ?? 0,
+    absorbPct: attacker.player.magicBarrierPvpAbsorbPct,
+    efficiencyPct: attacker.player.magicBarrierPvpEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) =>
+      scalePvPDamage(state, damageBetween(bodyRawDamage, counterDefense)),
+  });
+  const dmg = barrier.hpBoundDamage;
   const survival = resolvePvPHostileDamageSurvival(
-    attacker,
+    { ...attacker, magicBarrier: barrier.durabilityLeft },
     attacker.hp - dmg,
   );
   if (finishCurrentAction && survival.side.berserker) {
@@ -1672,6 +1806,12 @@ export function maybeApplyMartialCounter(
     };
   }
   let st = setSide(state, atkKey, survival.side);
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    st = {
+      ...st,
+      log: appendLog(st.log, { ...entry, side: atkKey }),
+    };
+  }
   st = {
     ...st,
     log: appendLog(st.log, {
@@ -1840,6 +1980,8 @@ export type PvPAttackDamageResult = {
   focusedBreathConsumed: boolean;
   impactFires: boolean;
   luckyStarFires: boolean;
+  manaShieldBypassDmg: number;
+  manaShieldEligibleDmg: number;
   totalDmg: number;
   weakpointDefIgnore: boolean;
 };
@@ -1857,15 +1999,28 @@ export function tickPvPSideDotsOnAction(
     dotTick.totalDmg > 0 && target.stacks.dotVulnTurns > 0
       ? Math.floor(dotTick.totalDmg * (1 + target.stacks.dotVulnPct / 100))
       : dotTick.totalDmg;
-  const dotDamage = scalePvPDamage(
-    state,
-    statusDamageAfterReduction(
-      rawDotDamage,
-      target.player.statusDamageReductionPct,
-    ),
-  );
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: rawDotDamage,
+    durability: target.magicBarrier ?? 0,
+    absorbPct: target.player.magicBarrierPvpAbsorbPct,
+    efficiencyPct: target.player.magicBarrierPvpEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) =>
+      scalePvPDamage(
+        state,
+        statusDamageAfterReduction(
+          bodyRawDamage,
+          target.player.statusDamageReductionPct,
+        ),
+      ),
+  });
+  const dotDamage = barrier.hpBoundDamage;
   const survival = applyBerserkerHostileDamagePvP(
-    { ...target, v2Dots: dotTick.nextDots },
+    {
+      ...target,
+      magicBarrier: barrier.durabilityLeft,
+      v2Dots: dotTick.nextDots,
+    },
     target.hp - dotDamage,
   );
   let nextTarget = survival.side;
@@ -1900,6 +2055,12 @@ export function tickPvPSideDotsOnAction(
           }),
         next.log,
       ),
+    };
+  }
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    next = {
+      ...next,
+      log: appendLog(next.log, { ...entry, side: targetKey }),
     };
   }
   if (survival.triggered) {
@@ -2014,7 +2175,11 @@ export function applyPotionTo(
     );
     const newHp = Math.min(side.maxHp, side.hp + heal);
     const actual = newHp - side.hp;
-    const sigShield = healToShield(side.player.equipSignatures, actual);
+    const sigShield = healToShield(side.player.equipSignatures, {
+      actualHeal: actual,
+      calculatedHeal: heal,
+      maxHp: side.maxHp,
+    });
     let next = setSide(state, key, {
       ...side,
       hp: newHp,
@@ -2175,6 +2340,15 @@ export function castV2SkillOnAttackerTurnPvP(
   st = setSide({ ...st, log: preLog }, who, sideStart);
   const side = st[who];
   const opp = st[otherKey];
+  const tier6UnityPct =
+    (side.buffs.tier6UnityTurnsLeft ?? 0) > 0
+      ? side.buffs.tier6UnityHealPct ?? 0
+      : 0;
+  const tier6UnityMult = 1 + tier6UnityPct / 100;
+  const tier6UnityAtk = Math.floor(side.player.atk * tier6UnityMult);
+  const tier6UnityMagicAtk = Math.floor(
+    (side.player.magicAtk ?? side.player.atk) * tier6UnityMult,
+  );
   // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
   const tickedSelfBuffs = tickV2BuffMap(side.v2SelfBuffs);
   const tickedSelfDebuffs = tickV2BuffMap(side.v2SelfDebuffs);
@@ -2206,9 +2380,9 @@ export function castV2SkillOnAttackerTurnPvP(
       : undefined,
     attacker: {
       mp: side.mp,
-      atk: side.player.atk,
+      atk: tier6UnityAtk,
       attackCount: side.player.attackCount,
-      magicAtk: side.player.magicAtk ?? side.player.atk,
+      magicAtk: tier6UnityMagicAtk,
       singleHitPhysicalSkillDamagePct:
         side.player.singleHitPhysicalSkillDamagePct,
       minDamage: side.player.minDamage,
@@ -2304,10 +2478,13 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextLog = st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
+  let tier6SkillHitDamages: number[] = [];
   let nextOppShield = opp.stacks.playerShield;
   let nextOppMagicBarrier = opp.magicBarrier ?? 0;
   let skillShieldAbsorbed = 0;
   let skillMagicBarrierAbsorbed = 0;
+  let skillMagicBarrierDurabilitySpent = 0;
+  let skillMagicBarrierDestroyed = false;
   let skillDamageToHp = 0;
   let healShieldAmount = 0;
   const castSkillDef = result.castSkillId ? V2_SKILLS[result.castSkillId] : null;
@@ -2476,6 +2653,7 @@ export function castV2SkillOnAttackerTurnPvP(
           : hit;
       return scalePvPDamage(st, reduced);
     });
+    tier6SkillHitDamages = perHit.filter((hit) => hit > 0);
     landedSkillHits = perHit.filter((hit) => hit > 0).length;
     nextComboHitCount = comboResult.nextComboHitCount;
     const skillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
@@ -2497,18 +2675,45 @@ export function castV2SkillOnAttackerTurnPvP(
     }
     // 모든 직접 피해 스킬은 보호막을 먼저 소모한다. 보호막을 뚫고 실제 HP 피해가
     // 남은 경우에만 아래 반사 판정이 활성화된다.
-    const hpHits = perHit.map((hit) => {
-      const absorbed = Math.min(nextOppShield, hit);
+    const manaShieldEligible =
+      result.selfHpCost <= 0 &&
+      !castSkillDef?.effects.some((effect) => effect.kind === "executeDamage");
+    const hpHits = comboResult.hitDamages.map((rawHit) => {
+      const barrier = resolveMagicBarrierDamage({
+        rawDamage: rawHit,
+        durability: nextOppMagicBarrier,
+        absorbPct: opp.player.magicBarrierPvpAbsorbPct,
+        efficiencyPct: opp.player.magicBarrierPvpEfficiencyPct,
+        eligible: manaShieldEligible,
+        mitigateBody: (bodyRawDamage) => {
+          if (bodyRawDamage <= 0) return 0;
+          const afterEvasion = applyEvasionDamageReduction(
+            bodyRawDamage,
+            skillEvasionReductionPct,
+          );
+          const reduced =
+            damageReductionPct > 0
+              ? Math.max(
+                  1,
+                  Math.floor(
+                    afterEvasion * (1 - damageReductionPct / 100),
+                  ),
+                )
+              : afterEvasion;
+          return scalePvPDamage(st, reduced);
+        },
+      });
+      nextOppMagicBarrier = barrier.durabilityLeft;
+      skillMagicBarrierAbsorbed += barrier.absorbedDamage;
+      skillMagicBarrierDurabilitySpent += barrier.durabilitySpent;
+      skillMagicBarrierDestroyed ||= barrier.destroyed;
+      const absorbed = Math.min(nextOppShield, barrier.hpBoundDamage);
       nextOppShield -= absorbed;
       skillShieldAbsorbed += absorbed;
-      const barrier = absorbWithMagicBarrier(
-        hit - absorbed,
-        nextOppMagicBarrier,
-        opp.player.magicBarrierPvpAbsorbPct ?? 0,
+      const actualHpDamage = Math.min(
+        nextOppHp,
+        barrier.hpBoundDamage - absorbed,
       );
-      nextOppMagicBarrier = barrier.durabilityLeft;
-      skillMagicBarrierAbsorbed += barrier.absorbed;
-      const actualHpDamage = Math.min(nextOppHp, barrier.damageToHp);
       nextOppHp -= actualHpDamage;
       skillDamageToHp += actualHpDamage;
       return actualHpDamage;
@@ -2521,11 +2726,18 @@ export function castV2SkillOnAttackerTurnPvP(
       });
     }
     if (skillMagicBarrierAbsorbed > 0) {
-      nextLog = appendLog(nextLog, {
-        kind: "info",
-        text: `[마나 실드] ${opp.name} ${skillMagicBarrierAbsorbed} 흡수 (남은 ${nextOppMagicBarrier})`,
-        side: otherKey,
-      });
+      for (const entry of magicBarrierCombatLogEntries({
+        bodyRawDamage: 0,
+        mitigatedBodyDamage: 0,
+        absorbedDamage: skillMagicBarrierAbsorbed,
+        spillDamage: 0,
+        hpBoundDamage: 0,
+        durabilitySpent: skillMagicBarrierDurabilitySpent,
+        durabilityLeft: nextOppMagicBarrier,
+        destroyed: skillMagicBarrierDestroyed,
+      })) {
+        nextLog = appendLog(nextLog, { ...entry, side: otherKey });
+      }
     }
     if (isBloodDemonReign) {
       bloodDemonEffectiveDamage =
@@ -2606,9 +2818,12 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   // heal: 같은 player_attack kind (자기 행동). 화상(healReduce)이 걸렸으면 회복 감소.
   //   디버프 없으면(0) Math.floor 미적용 → byte-identical.
-  const resolvedSelfHeal = isBloodDemonReign
+  const resolvedSelfHealBase = isBloodDemonReign
     ? Math.floor((bloodDemonEffectiveDamage * bloodDemonHealPct) / 100)
     : result.selfHeal;
+  const resolvedSelfHeal = Math.floor(
+    resolvedSelfHealBase * tier6UnityMult,
+  );
   if (resolvedSelfHeal > 0 && result.castSkillName) {
     const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
     const debuffAdjustedHeal =
@@ -2622,12 +2837,17 @@ export function castV2SkillOnAttackerTurnPvP(
     nextSideHp = Math.min(side.maxHp, nextSideHp + effHeal);
     const actual = nextSideHp - before;
     if (actual > 0) {
+      const overflowSuffix = effHeal > actual ? ` (산출 ${effHeal})` : "";
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
-        text: `${result.castSkillName}! ${side.name} HP ${actual} 회복했다.`,
+        text: `${result.castSkillName}! ${side.name} HP ${actual} 회복했다.${overflowSuffix}`,
         side: who,
       });
-      const sigShield = healToShield(side.player.equipSignatures, actual);
+      const sigShield = healToShield(side.player.equipSignatures, {
+        actualHeal: actual,
+        calculatedHeal: effHeal,
+        maxHp: side.maxHp,
+      });
       if (sigShield) {
         healShieldAmount += sigShield.amount;
         nextLog = appendLog(nextLog, {
@@ -2970,6 +3190,100 @@ export function castV2SkillOnAttackerTurnPvP(
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);
   next = setSide(next, otherKey, nextOpp);
+  let tier6ExtraActions = 0;
+  if (result.castSkillId && next[who].stacks.tier6Uniques) {
+    const actionId = side.turn.completedPlayerTurns + 1;
+    const dotsBefore = tier6PvpDotContext(opp);
+    const statusKindsBefore = tier6PvpStatusKindCount(side, opp);
+    next = applyTier6UniquePvpEvent(next, who, otherKey, {
+      kind: "action_start",
+      shield: side.stacks.playerShield,
+      maxHp: side.maxHp,
+      origin: { actionId, eventId: next.log.length },
+    });
+    if (costPaid > 0) {
+      next = applyTier6UniquePvpEvent(next, who, otherKey, {
+        kind: "mp_spent",
+        amount: costPaid,
+        magicAtk: tier6UnityMagicAtk,
+        targetHasStatus: statusKindsBefore > 0,
+        origin: { actionId, eventId: next.log.length },
+      });
+    }
+    for (let index = 0; index < tier6SkillHitDamages.length; index += 1) {
+      const attacksBefore = next[who].attacksLeft;
+      next = applyTier6UniquePvpEvent(next, who, otherKey, {
+        kind: "direct_hit",
+        damage: tier6SkillHitDamages[index]!,
+        crit: skillCritFired,
+        attackKind: "skill",
+        paidMp: index === 0 ? costPaid : 0,
+        statusKinds: statusKindsBefore,
+        bleedStacks: dotsBefore.bleed.stacks,
+        bleedRemainingDamage: dotsBefore.bleed.remainingDamage,
+        poisonStacks: dotsBefore.poison.stacks,
+        poisonRemainingDamage: dotsBefore.poison.remainingDamage,
+        magicAtk: tier6UnityMagicAtk,
+        maxHp: side.maxHp,
+        origin: { actionId, eventId: next.log.length + index + 1 },
+      });
+      tier6ExtraActions += Math.max(
+        0,
+        next[who].attacksLeft - attacksBefore,
+      );
+    }
+    if (resolvedSelfHeal > 0) {
+      next = applyTier6UniquePvpEvent(next, who, otherKey, {
+        kind: "heal_calculated",
+        amount: resolvedSelfHeal,
+        maxHp: side.maxHp,
+        origin: { actionId, eventId: next.log.length },
+      });
+    }
+    const tier6ShieldGain = shieldGain + healShieldAmount;
+    if (tier6ShieldGain > 0) {
+      next = applyTier6UniquePvpEvent(next, who, otherKey, {
+        kind: "shield_gained",
+        amount: tier6ShieldGain,
+        maxHp: side.maxHp,
+        origin: { actionId, eventId: next.log.length },
+      });
+    }
+    next = applyTier6UniquePvpEvent(next, who, otherKey, {
+      kind: "hp_threshold",
+      currentHp: next[who].hp,
+      maxHp: side.maxHp,
+      origin: { actionId, eventId: next.log.length },
+    });
+  }
+  if (
+    next[otherKey].stacks.tier6Uniques &&
+    opp.stacks.playerShield > 0 &&
+    nextOppShield <= 0 &&
+    skillShieldAbsorbed > 0
+  ) {
+    next = applyTier6UniquePvpEvent(next, otherKey, who, {
+      kind: "shield_broken",
+      shieldBefore: opp.stacks.playerShield,
+      overflowDamage: skillDamageToHp,
+      maxHp: opp.maxHp,
+      origin: {
+        actionId: side.turn.completedPlayerTurns + 1,
+        eventId: next.log.length,
+      },
+    });
+  }
+  if (next[otherKey].stacks.tier6Uniques) {
+    next = applyTier6UniquePvpEvent(next, otherKey, who, {
+      kind: "hp_threshold",
+      currentHp: next[otherKey].hp,
+      maxHp: next[otherKey].maxHp,
+      origin: {
+        actionId: side.turn.completedPlayerTurns + 1,
+        eventId: next.log.length,
+      },
+    });
+  }
   if (skillGuaranteedEvaded && result.castSkillName) {
     next = applyDodgeEffects(
       next,
@@ -3000,7 +3314,7 @@ export function castV2SkillOnAttackerTurnPvP(
       return {
         state: next,
         castFired: result.castSkillId != null,
-        signatureExtraActions,
+        signatureExtraActions: signatureExtraActions + tier6ExtraActions,
         selfHastePct,
         enemyDelayPct,
       };
@@ -3033,7 +3347,7 @@ export function castV2SkillOnAttackerTurnPvP(
         outcome: who === "p1" ? "p1_win" : "p2_win",
       },
       castFired: result.castSkillId != null,
-      signatureExtraActions,
+      signatureExtraActions: signatureExtraActions + tier6ExtraActions,
       selfHastePct,
       enemyDelayPct,
     };
@@ -3057,7 +3371,7 @@ export function castV2SkillOnAttackerTurnPvP(
   return {
     state: next,
     castFired: result.castSkillId != null,
-    signatureExtraActions,
+    signatureExtraActions: signatureExtraActions + tier6ExtraActions,
     selfHastePct,
     enemyDelayPct,
   };
@@ -3124,6 +3438,20 @@ function resolveBattlePvPLegacy(
     playerMagicBarrierMax: s.p1.maxMagicBarrier,
     enemyMagicBarrier: s.p2.magicBarrier,
     enemyMagicBarrierMax: s.p2.maxMagicBarrier,
+    ...(activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques)
+      ? {
+          playerSignatureResources: activeTier6ResourceSnapshot(
+            s.p1.stacks.tier6Uniques,
+          ),
+        }
+      : {}),
+    ...(activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques)
+      ? {
+          enemySignatureResources: activeTier6ResourceSnapshot(
+            s.p2.stacks.tier6Uniques,
+          ),
+        }
+      : {}),
   });
   let turns = 0;
   // v2 스킬 (PR-4a) — 각 side 의 턴 진입 시 1회 cast (framework only).

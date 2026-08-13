@@ -8,7 +8,8 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
   return { ...actual, V2_CORE_LOOP_V2: true, V2_ATB_SKILLS: true };
 });
 
-import { resolveBattle, type PlayerCombat } from "./engine";
+import { initialBattleState, resolveBattle, type PlayerCombat } from "./engine";
+import { tickPlayerDotsOnAction } from "./engine.atb";
 import { pickAutoAction } from "./pickAutoAction";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import {
@@ -67,6 +68,42 @@ function firstPoisonDamage(
 }
 
 describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
+  it("플레이어에게 걸린 DoT를 마나 실드가 막되 일반 보호막은 소모하지 않는다", () => {
+    const player = derive({
+      hp: 5_000,
+      maxHp: 5_000,
+      bulwarkShield: 100,
+      magicBarrierMax: 1_500,
+      magicBarrierAbsorbPct: 25,
+      magicBarrierEfficiencyPct: 20,
+      statusDamageReductionPct: 50,
+    });
+    const initial = initialBattleState(player, m("부서진 골렘"), "마도사");
+    const dotted = {
+      ...initial,
+      playerV2Dots: [
+        {
+          tag: "bleed" as const,
+          label: "출혈",
+          stacks: 1,
+          maxStacks: 10,
+          turns: 1,
+          flatPerStack: 1_000,
+          atkCoefPerStack: 0,
+          pctMaxHpPerStack: 0,
+          sourceAtk: 0,
+        },
+      ],
+    };
+
+    const next = tickPlayerDotsOnAction(dotted, player, "마도사");
+
+    expect(next.playerHp).toBe(4_625);
+    expect(next.playerMagicBarrier).toBe(1_300);
+    expect(next.stacks.playerShield).toBe(100);
+    expect(next.log.some((entry) => entry.text.includes("피해 250 차단"))).toBe(true);
+  });
+
   it("적에게 걸린 출혈은 적 행동 tick 에 붙는다", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
     const bleeder = derive({

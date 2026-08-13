@@ -27,6 +27,7 @@ import {
   nextFarmPlotUpgrade,
   parseFarmState,
   plantCrop,
+  type FarmState,
 } from "./farm";
 
 describe("adventurer farm", () => {
@@ -213,6 +214,7 @@ describe("adventurer farm", () => {
       reputationSpent: 0,
       farmingXp: 60,
       rareMissStreak: 0,
+      yieldBonusRemainderPct: 0,
     });
     expect(result.farmingXpGained).toBe(60);
     expect(result.farmingXp).toBe(60);
@@ -220,7 +222,33 @@ describe("adventurer farm", () => {
     expect(state.plots[0].cropId).toBeNull();
   });
 
-  it("applies farm harvest bonuses from farmer passives", () => {
+  it("농장 수확량 보너스를 소수점 손실 없이 다음 수확에 누적한다", () => {
+    let state: FarmState = {
+      ...emptyFarmState(1_000),
+      seeds: { wheat: 5 },
+    };
+    const quantities: number[] = [];
+
+    for (let index = 0; index < 5; index += 1) {
+      const plantedAt = 1_000 + index * FARM_CROPS.wheat.growMs;
+      state = plantCrop(state, "plot-1", "wheat", plantedAt);
+      const harvested = harvestPlot(
+        state,
+        "plot-1",
+        plantedAt + FARM_CROPS.wheat.growMs,
+        () => 0.5,
+        { yieldBonusPct: 10 },
+      );
+      state = harvested.state;
+      quantities.push(harvested.result.quantity);
+    }
+
+    expect(quantities).toEqual([4, 4, 5, 4, 5]);
+    expect(state.inventory.wheat).toBe(22);
+    expect(state.stats.yieldBonusRemainderPct).toBe(0);
+  });
+
+  it("농장 패시브의 희귀 수확 보너스를 적용한다", () => {
     const planted = plantCrop(
       { ...emptyFarmState(), seeds: { wheat: 1 } },
       "plot-1",
@@ -235,9 +263,9 @@ describe("adventurer farm", () => {
       { yieldBonusPct: 10, rareChancePct: 50 },
     );
 
-    expect(result.quantity).toBe(5);
+    expect(result.quantity).toBe(4);
     expect(result.rareItemId).toBe("golden_wheat");
-    expect(state.inventory.wheat).toBe(5);
+    expect(state.inventory.wheat).toBe(4);
     expect(state.inventory.golden_wheat).toBe(1);
     expect(result.farmingXpGained).toBe(30);
   });
@@ -645,6 +673,7 @@ describe("adventurer farm", () => {
       reputationSpent: 0,
       farmingXp: 0,
       rareMissStreak: 0,
+      yieldBonusRemainderPct: 0,
     });
   });
 });

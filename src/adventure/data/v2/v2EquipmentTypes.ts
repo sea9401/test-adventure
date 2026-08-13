@@ -71,11 +71,33 @@ export type SignatureTrigger =
   | "on_hit_taken"
   | "on_skill_cast"
   | "status_block_once"
-  | "every_n_hits";
+  | "every_n_hits"
+  | "tier6_unique";
+
+export type Tier6UniqueMechanic =
+  | "gravity_reprisal"
+  | "gravity_feedback"
+  | "bleed_burst"
+  | "bleed_aftermath"
+  | "pursuit_mark"
+  | "shadow_echo"
+  | "venom_burst"
+  | "venom_balance"
+  | "arcane_overload"
+  | "arcane_feedback"
+  | "sanctuary_reserve"
+  | "mechanic_unity"
+  | "shield_conversion"
+  | "gale_circuit"
+  | "status_mana_return"
+  | "triphase_link"
+  | "storm_confluence"
+  | "dominant_heart";
 
 export type SignatureEffect = {
   trigger: SignatureTrigger;
   label: string;
+  mechanic?: Tier6UniqueMechanic;
   hpThresholdPct?: number;
   damageTakenReductionPct?: number;
   spdBuffPct?: number;

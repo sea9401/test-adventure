@@ -14,11 +14,35 @@ export function battleLogPillColor(label: string): string {
   if (label === "완전 회피" || label.includes("확정 회피")) {
     return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200";
   }
-  if (label === "마나 실드") {
+  if (label.startsWith("마나 실드")) {
     return "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
   }
   if (label === "철벽" || label === "가드" || label === "인내") {
     return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200";
+  }
+  if (/중력|반중력|부유성채|보호막/.test(label)) {
+    return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200";
+  }
+  if (/혈맥|상흔|출혈/.test(label)) {
+    return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200";
+  }
+  if (/추적|질풍|칼바람/.test(label)) {
+    return "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200";
+  }
+  if (/그림자|잔상|삼상/.test(label)) {
+    return "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+  }
+  if (/만독|중독|부식|양면침/.test(label)) {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+  }
+  if (/과부하|뇌명|낙뢰|역류/.test(label)) {
+    return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200";
+  }
+  if (/성역|새벽|합일/.test(label)) {
+    return "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200";
+  }
+  if (/폭풍 합류|폭풍심장|지배/.test(label)) {
+    return "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-200";
   }
   return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
 }
@@ -378,6 +402,8 @@ export function BattleLogList({
           playerMagicBarrierMax={entry.playerMagicBarrierMax}
           enemyMagicBarrier={entry.enemyMagicBarrier}
           enemyMagicBarrierMax={entry.enemyMagicBarrierMax}
+          playerSignatureResources={entry.playerSignatureResources}
+          enemySignatureResources={entry.enemySignatureResources}
           sizes={s}
         />
       );
@@ -1065,6 +1091,8 @@ function HpBar({
   playerMagicBarrierMax,
   enemyMagicBarrier,
   enemyMagicBarrierMax,
+  playerSignatureResources,
+  enemySignatureResources,
   sizes,
 }: {
   playerHp: number;
@@ -1079,6 +1107,8 @@ function HpBar({
   playerMagicBarrierMax?: number;
   enemyMagicBarrier?: number;
   enemyMagicBarrierMax?: number;
+  playerSignatureResources?: Record<string, number | string>;
+  enemySignatureResources?: Record<string, number | string>;
   sizes: Sizes;
 }) {
   const showPlayerMp =
@@ -1158,6 +1188,69 @@ function HpBar({
           )}
         </div>
       )}
+      {(Object.keys(playerSignatureResources ?? {}).length > 0 ||
+        Object.keys(enemySignatureResources ?? {}).length > 0) && (
+        <div className="mt-1 grid grid-cols-2 gap-3">
+          <SignatureResourceChips resources={playerSignatureResources} />
+          <SignatureResourceChips
+            resources={enemySignatureResources}
+            align="right"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
+  gravityReprisal: "중력",
+  pursuitMarks: "추적",
+  shadowEchoes: "잔상",
+  arcaneOverload: "과부하",
+  sanctuaryReserve: "성역",
+  unity: "합일",
+  gale: "질풍",
+  dominant: "지배",
+  nextDamagePct: "다음 피해",
+  nextHealPct: "다음 회복",
+  nextShieldPct: "다음 보호막",
+};
+
+const DOMINANT_LABELS: Record<string, string> = {
+  gravity: "중력",
+  bleed: "출혈",
+  pursuit: "추적",
+  shadow: "잔상",
+  venom: "중독",
+  overload: "과부하",
+  sanctuary: "성역",
+};
+
+function SignatureResourceChips({
+  resources,
+  align = "left",
+}: {
+  resources?: Record<string, number | string>;
+  align?: "left" | "right";
+}) {
+  const entries = Object.entries(resources ?? {});
+  if (entries.length === 0) return <span />;
+  return (
+    <div
+      className={`flex flex-wrap gap-1 ${align === "right" ? "justify-end" : "justify-start"}`}
+    >
+      {entries.map(([key, value]) => (
+        <span
+          key={key}
+          aria-label={`${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${
+            key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value
+          }`}
+          className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+        >
+          {SIGNATURE_RESOURCE_LABELS[key] ?? key}{" "}
+          {key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value}
+        </span>
+      ))}
     </div>
   );
 }

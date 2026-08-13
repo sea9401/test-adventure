@@ -22,11 +22,12 @@ import {
   STORM_EXPEDITION_EQUIPMENT_IDS,
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
   type StormExpeditionLootRule,
+  type StormExpeditionUniqueRule,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { V2_EQUIPMENT, v2EquipCatalogTierLabel, type V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useRefreshGameState } from "@/adventure/v2/GameStateRefreshContext";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -83,6 +84,7 @@ type ExpeditionStatus = {
   riskEvents?: Record<StormExpeditionRiskEventId, StormExpeditionChoice & { nodeIndex: 1 | 3 | 5; cost: string }>;
   riskCurses?: Record<StormExpeditionRiskCurseId, StormExpeditionChoice>;
   lootRules?: Record<StormExpeditionEncounterKind, StormExpeditionLootRule>;
+  uniqueLootRules?: StormExpeditionUniqueRule;
   spFruitReward?: {
     materialId: string;
     chance: number;
@@ -107,6 +109,7 @@ type ExpeditionStatus = {
   gainedEquipment?: V2EquipInstance[];
   droppedMaterials?: Record<string, number>;
   droppedEquipment?: V2EquipInstance | null;
+  droppedUniqueEquipment?: V2EquipInstance[];
   claimedRewards?: boolean;
   spFruitDropped?: boolean;
   nodeIndex?: number;
@@ -138,7 +141,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export function V2StormExpeditionView() {
   const router = useRouter();
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const [status, setStatus] = useState<ExpeditionStatus | null>(null);
   const [result, setResult] = useState<ExpeditionStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -345,6 +348,7 @@ export function V2StormExpeditionView() {
                   node={currentNode}
                   encounterIndex={active.encounterIndex}
                   lootRule={status?.lootRules?.[currentNode.encounterKind]}
+                  uniqueLootRule={status?.uniqueLootRules}
                   equipmentChanceMultiplier={active.riskEvent?.status === "accepted" && active.riskEvent.id === "storm_contract" ? 2 : 1}
                   goldMultiplier={active.riskEvent?.status === "accepted" && active.riskEvent.id === "golden_compass" ? 1.35 : 1}
                   practice={active.mode === "practice"}
@@ -435,7 +439,12 @@ export function V2StormExpeditionView() {
           <LootRows
             gold={result.claimedRewards ? result.gainedGold : undefined}
             materials={result.claimedRewards ? result.gainedMaterials : result.droppedMaterials}
-            equipment={result.claimedRewards ? result.gainedEquipment : result.droppedEquipment ? [result.droppedEquipment] : []}
+            equipment={result.claimedRewards
+              ? result.gainedEquipment
+              : [
+                  ...(result.droppedEquipment ? [result.droppedEquipment] : []),
+                  ...(result.droppedUniqueEquipment ?? []),
+                ]}
           />
           {!result.claimedRewards && active && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">임시 가방에 담겼습니다. 다음 전투 전에 귀환하면 안전하게 확보할 수 있습니다.</p>}
         </Card>
@@ -465,11 +474,12 @@ function ExpeditionMap({ nodes, active }: { nodes: StormExpeditionNode[]; active
   );
 }
 
-function BattleControls({ busy, node, encounterIndex, lootRule, equipmentChanceMultiplier, goldMultiplier, practice, skipReplay, onSkipReplay, onFight }: {
+function BattleControls({ busy, node, encounterIndex, lootRule, uniqueLootRule, equipmentChanceMultiplier, goldMultiplier, practice, skipReplay, onSkipReplay, onFight }: {
   busy: boolean;
   node: StormExpeditionNode;
   encounterIndex: number;
   lootRule?: StormExpeditionLootRule;
+  uniqueLootRule?: StormExpeditionUniqueRule;
   equipmentChanceMultiplier: number;
   goldMultiplier: number;
   practice: boolean;
@@ -478,6 +488,13 @@ function BattleControls({ busy, node, encounterIndex, lootRule, equipmentChanceM
   onFight: () => void;
 }) {
   const finalBoss = node.encounterKind === "final_boss";
+  const uniquePreview = node.encounterKind && uniqueLootRule
+    ? stormUniqueDropPreview(
+        node.encounterKind,
+        uniqueLootRule,
+        equipmentChanceMultiplier,
+      )
+    : [];
   return (
     <div className="space-y-3">
       {lootRule && (
@@ -485,6 +502,11 @@ function BattleControls({ busy, node, encounterIndex, lootRule, equipmentChanceM
           <p className="font-semibold">{practice ? "실전 기준 보상 미리보기" : "이번 전투 드롭"}</p>
           {practice && <p className="font-semibold text-violet-700 dark:text-violet-300">연습에서는 아래 보상이 지급되지 않습니다.</p>}
           <p className="text-zinc-600 dark:text-zinc-300">항로 재료 {lootRule.routeMaterialChance >= 1 ? `${lootRule.routeMaterialMin}~${lootRule.routeMaterialMax}개 확정` : formatChance(lootRule.routeMaterialChance)} · 6티어 장비 {formatChance(Math.min(1, lootRule.equipmentChance * equipmentChanceMultiplier))}</p>
+          {uniquePreview.length > 0 && (
+            <p className="font-semibold text-violet-700 dark:text-violet-300">
+              {uniquePreview.join(" · ")} · 각각 독립 굴림
+            </p>
+          )}
           {(lootRule.originFragmentGuaranteed > 0 || lootRule.originFragmentChance > 0) && <p className="text-violet-700 dark:text-violet-300">7차 재료 {lootRule.originFragmentGuaranteed > 0 ? `${lootRule.originFragmentGuaranteed}개 이상 확정` : formatChance(lootRule.originFragmentChance)}</p>}
           {goldMultiplier > 1 && <p className="font-semibold text-amber-700 dark:text-amber-300">황금 나침반 · 이번 골드 +{Math.round((goldMultiplier - 1) * 100)}%</p>}
         </div>
@@ -618,4 +640,25 @@ function formatChance(chance: number): string {
   const pct = chance * 100;
   if (pct >= 1) return `${pct.toFixed(pct % 1 === 0 ? 0 : 1)}%`;
   return `${pct.toFixed(2)}%`;
+}
+
+export function stormUniqueDropPreview(
+  encounterKind: StormExpeditionEncounterKind,
+  rule: StormExpeditionUniqueRule,
+  multiplier: number,
+): string[] {
+  const boosted = Math.max(0, multiplier);
+  if (encounterKind === "guardian") {
+    return [
+      `항로 유니크 ${formatChance(
+        Math.min(1, rule.guardianRouteChance * boosted),
+      )}`,
+    ];
+  }
+  if (encounterKind !== "final_boss") return [];
+  return [
+    `항로 유니크 ${formatChance(Math.min(1, rule.finalRouteChance * boosted))}`,
+    `교차 유니크 ${formatChance(Math.min(1, rule.finalCrossChance * boosted))}`,
+    `폭풍심장 유니크 ${formatChance(rule.finalHeartChance)}`,
+  ];
 }

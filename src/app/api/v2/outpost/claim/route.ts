@@ -37,6 +37,7 @@ import { treasuryShares } from "@/adventure/data/v2/outposts";
 import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
   FORT_MAX_HP,
   fortMaxHpForTier,
@@ -397,17 +398,13 @@ export async function POST(req: Request) {
     //   return 이라 스태미나 미소모. 중립·분쟁지대(defense 0)는 게이트 없음 — 기존 난이도.
     const outpostDefense = outpostDefensePower(outpost);
     // 내 합성 전투력 — 수비 게이트 + 공성 데미지(전투력 비율) 양쪽에서 사용(화면 "내 전투력"과 동일 입력).
-    const myPower = derivePowerScore({
-      atk: player.player.atk,
-      magicAtk: player.player.magicAtk ?? 0,
-      def: player.player.def,
-      spd: player.player.spd,
-      maxHp: player.maxHp,
-      maxMp: player.player.maxMp,
-      magicBarrierMax: player.player.magicBarrierMax,
-      evaRating: player.player.evaRating,
-      accRating: player.player.accRating,
-    });
+    const myPower = derivePowerScore(
+      powerInputFromPlayer(
+        player.player,
+        player.maxHp,
+        player.player.maxMp,
+      ),
+    );
     if (outpostDefense > 0) {
       if (myPower < outpostDefense) {
         return {

@@ -1,10 +1,11 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { artisanLeaderboardSnapshots, savesKv } from "@/db/schema";
+import { artisanLeaderboardSnapshots, savesKv, users } from "@/db/schema";
 import {
   parseArtisanWeeklyWorkshopStats,
   rankArtisanLeaderboardEntries,
 } from "@/adventure/data/v2/artisanLeaderboard";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 type SnapshotCandidate = {
   userId: string;
@@ -45,10 +46,15 @@ export async function snapshotStaleArtisanLeaderboards(
   currentWeekKey: string,
 ): Promise<number> {
   const rows = await db
-    .select({ userId: savesKv.userId, value: savesKv.value })
+    .select({
+      userId: savesKv.userId,
+      value: savesKv.value,
+      bannedUntil: users.bannedUntil,
+    })
     .from(savesKv)
+    .innerJoin(users, eq(users.id, savesKv.userId))
     .where(eq(savesKv.key, "crafting.v2"));
-  const candidates = rows
+  const candidates = filterRankingEligibleRows(rows)
     .map(candidateFromSave)
     .filter((row): row is SnapshotCandidate => row != null)
     .filter((row) => row.weekKey !== currentWeekKey);

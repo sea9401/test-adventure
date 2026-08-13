@@ -1449,6 +1449,7 @@ export function FishingView({
   dailyCatchCoins,
   onBack,
   onOpenLeaderboard,
+  onOpenDangerous,
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
@@ -1463,6 +1464,7 @@ export function FishingView({
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
+  onOpenDangerous?: () => void;
   onOpenShop?: () => void;
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
@@ -1687,6 +1689,7 @@ export function FishingView({
         <FishingSubTabs
           active="fishing"
           challengeBadgeCount={challengeBadgeCount}
+          onOpenDangerous={onOpenDangerous}
           onOpenChallenges={onOpenChallenges}
           onOpenLeaderboard={onOpenLeaderboard}
           onOpenHallOfFame={onOpenHallOfFame}

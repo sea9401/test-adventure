@@ -59,19 +59,36 @@ import {
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
   applyEvasionDamageReduction,
-  absorbWithMagicBarrier,
   cappedDefReductionPct,
   evasionDamageReductionPct,
   pveEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  magicBarrierCombatLogEntries,
+  resolveMagicBarrierDamage,
+  type MagicBarrierDamageResult,
+} from "./magicBarrier";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
-import { computeCritOverflowBonus } from "./engine.damageHelpers";
+import {
+  computeCritOverflowBonus,
+  reducedMagicDefense,
+} from "./engine.damageHelpers";
 import {
   V2_CORE_LOOP_V2,
   V2_SKILL_PROC_IN_PATTERN,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { resolveBattleAtb } from "./engine.atb";
+import {
+  hasTier6Unique,
+  initialTier6UniqueRuntime,
+  activeTier6ResourceSnapshot,
+} from "./tier6UniqueEffects";
+import {
+  applyTier6UniquePveEvent,
+  tier6DotContext,
+  tier6StatusKindCount,
+} from "./tier6UniquePveAdapter";
 import {
   applyBerserkerCastTransition,
   applyBerserkerLethalDamage,
@@ -225,6 +242,40 @@ function reduceIncomingEnemySkillDamage(
   };
 }
 
+function resolveIncomingEnemySkillWithBarrier(
+  state: BattleState,
+  player: PlayerCombat,
+  result: Pick<V2SkillCastResult, "enemyDamage" | "magicEnemyDamage">,
+): {
+  barrier: MagicBarrierDamageResult;
+  mitigation: EnemySkillMitigation;
+} {
+  let mitigation: EnemySkillMitigation | undefined;
+  const magicShare = Math.min(
+    1,
+    Math.max(0, result.magicEnemyDamage / Math.max(1, result.enemyDamage)),
+  );
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: result.enemyDamage,
+    durability: state.playerMagicBarrier ?? 0,
+    absorbPct: player.magicBarrierAbsorbPct,
+    efficiencyPct: player.magicBarrierEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) => {
+      mitigation = reduceIncomingEnemySkillDamage(state, player, {
+        enemyDamage: bodyRawDamage,
+        magicEnemyDamage: Math.floor(bodyRawDamage * magicShare),
+      });
+      return mitigation.damage;
+    },
+  });
+  return {
+    barrier,
+    mitigation:
+      mitigation ?? reduceIncomingEnemySkillDamage(state, player, result),
+  };
+}
+
 function appendEnemySkillMitigationLogs(
   log: BattleLogEntry[],
   mitigation: EnemySkillMitigation,
@@ -293,8 +344,13 @@ export function applyHealShieldIfAny(
   state: BattleState,
   player: PlayerCombat,
   actualHeal: number,
+  calculatedHeal: number = actualHeal,
 ): BattleState {
-  const sig = healToShield(player.equipSignatures, actualHeal);
+  const sig = healToShield(player.equipSignatures, {
+    actualHeal,
+    calculatedHeal,
+    maxHp: state.playerMaxHp,
+  });
   if (!sig) return state;
   return {
     ...state,
@@ -371,7 +427,7 @@ export function applyEvasionActionRecoveryPvE(
       turn: "player" as const,
     }),
   };
-  return applyHealShieldIfAny(next, player, actual);
+  return applyHealShieldIfAny(next, player, actual, recovery.amount);
 }
 
 // 데미지 최소 비율(DAMAGE_FLOOR_FRACTION)·평타 데미지(damageBetween)는 combatShared 로 이전
@@ -440,10 +496,15 @@ function playerSkillTargetMagicDef(
 ): number {
   const base = state.enemy.magicDef ?? state.enemy.def;
   const reductionPct = cappedDefReductionPct(
+    (state.buffs.enemyMagicDefDebuffTurnsLeft ?? 0) > 0
+      ? state.buffs.enemyMagicDefDebuffPct ?? 0
+      : 0,
     player.enemyMagicDefReductionPct ?? 0,
   );
-  if (reductionPct <= 0) return base;
-  return Math.max(0, Math.round(base * (1 - reductionPct / 100)));
+  return reducedMagicDefense(
+    base,
+    reductionPct,
+  );
 }
 
 function applyPoisonDamageToDots(
@@ -731,7 +792,7 @@ function applyRegenIfAny(
       kind: "info",
       text: `[재생] ${playerName}의 HP +${actual}`,
     }),
-  }, player, actual);
+  }, player, actual, regen.amount);
 }
 
 // 별빛 재생(regen) — 매 플레이어 턴 종료 시 maxHp 의 %만큼 회복.
@@ -756,7 +817,7 @@ function applyEnchantRegenIfAny(
       kind: "info",
       text: `[재생] ${playerName}의 HP +${actual}`,
     }),
-  }, player, actual);
+  }, player, actual, heal);
 }
 
 // 매 플레이어 턴 종료 시 자가 회복 — 직업 패시브 가호(HP %) + 워메이지 마력 순환(MP flat).
@@ -803,7 +864,7 @@ function applyPassiveTurnHealIfAny(
       kind: "info",
       text: `[가호] ${playerName}의 HP +${actual}`,
     }),
-  }, player, actual);
+  }, player, actual, heal);
 }
 
 // 부가 공격(분신/난무 등) 1회 — 본인 빌드로 발동시킨 추가타라 "**모든 공격**" / "**매 공격마다**"
@@ -885,7 +946,12 @@ function dealExtraEnemyDamage(
     playerHp: newPlayerHp,
     log,
   };
-  healedState = applyHealShieldIfAny(healedState, player, actualHeal);
+  healedState = applyHealShieldIfAny(
+    healedState,
+    player,
+    actualHeal,
+    totalHeal,
+  );
   let next = applyPhaseTriggerIfAny(applyPlayerOnHitDots(healedState, player));
   if (enemyHp <= 0) {
     next = {
@@ -969,7 +1035,7 @@ export function finishPlayerTurn(
             turn: "player",
           }),
         };
-        st = applyHealShieldIfAny(st, player, nextHp - before);
+        st = applyHealShieldIfAny(st, player, nextHp - before, heal);
       }
     }
     const enemyTargetTurns = (turns: number) =>
@@ -1241,6 +1307,9 @@ export function initialBattleState(
       comboAtkBonus: 0,
       comboHitCount: 0,
       signatureHitCount: 0,
+      ...(hasTier6Unique(player.equipSignatures)
+        ? { tier6Uniques: initialTier6UniqueRuntime() }
+        : {}),
       spellCastCount: 0,
       enemyMagicVulnStacks: 0,
       skillRegenPct: 0,
@@ -1486,7 +1555,11 @@ function evadeIncomingEnemySkill(
   const actualHeal = nextPlayerHp - state.playerHp;
   const sigShield =
     actualHeal > 0
-      ? healToShield(player.equipSignatures, actualHeal)
+      ? healToShield(player.equipSignatures, {
+          actualHeal,
+          calculatedHeal: evadeHeal,
+          maxHp: state.playerMaxHp,
+        })
       : null;
   if (actualHeal > 0) {
     nextLog = appendLog(nextLog, {
@@ -1536,7 +1609,6 @@ function evadeIncomingEnemySkill(
     },
     log: nextLog,
   };
-
   const counter = applyCounterIfAny(nextState, player);
   nextState = counter.state;
 
@@ -1635,26 +1707,22 @@ export function applyEnemyV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextEnemyHp = state.enemyHp;
   let nextLog = state.log;
-  const mitigation = reduceIncomingEnemySkillDamage(
+  const resolvedEnemySkill = resolveIncomingEnemySkillWithBarrier(
     state,
     player,
     result,
   );
+  const mitigation = resolvedEnemySkill.mitigation;
   nextLog = appendEnemySkillMitigationLogs(nextLog, mitigation);
-  const enemySkillDamage = mitigation.damage;
+  const enemySkillMagicBarrier = resolvedEnemySkill.barrier;
   const enemySkillShieldAbsorbed = Math.min(
     state.stacks.playerShield,
-    enemySkillDamage,
+    enemySkillMagicBarrier.hpBoundDamage,
   );
-  const enemySkillAfterShield = enemySkillDamage - enemySkillShieldAbsorbed;
+  const enemySkillDamageToHp =
+    enemySkillMagicBarrier.hpBoundDamage - enemySkillShieldAbsorbed;
   const nextPlayerShield =
     state.stacks.playerShield - enemySkillShieldAbsorbed;
-  const enemySkillMagicBarrier = absorbWithMagicBarrier(
-    enemySkillAfterShield,
-    state.playerMagicBarrier ?? 0,
-    player.magicBarrierAbsorbPct ?? 0,
-  );
-  const enemySkillDamageToHp = enemySkillMagicBarrier.damageToHp;
   if (result.enemyDamage > 0 && result.castSkillName) {
     if (enemySkillShieldAbsorbed > 0) {
       nextLog = appendLog(nextLog, {
@@ -1662,11 +1730,8 @@ export function applyEnemyV2SkillCast(
         text: `[철벽] 보호막이 ${enemySkillShieldAbsorbed} 흡수 (남은 ${nextPlayerShield})`,
       });
     }
-    if (enemySkillMagicBarrier.absorbed > 0) {
-      nextLog = appendLog(nextLog, {
-        kind: "info",
-        text: `[마나 실드] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
-      });
+    for (const entry of magicBarrierCombatLogEntries(enemySkillMagicBarrier)) {
+      nextLog = appendLog(nextLog, entry);
     }
     nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamageToHp);
     nextLog = appendLog(nextLog, {
@@ -1797,6 +1862,34 @@ export function applyEnemyV2SkillCast(
     },
     log: nextLog,
   };
+  if (
+    nextState.stacks.tier6Uniques &&
+    state.stacks.playerShield > 0 &&
+    nextPlayerShield <= 0 &&
+    enemySkillShieldAbsorbed > 0
+  ) {
+    nextState = applyTier6UniquePveEvent(nextState, player, {
+      kind: "shield_broken",
+      shieldBefore: state.stacks.playerShield,
+      overflowDamage: enemySkillDamageToHp,
+      maxHp: nextState.playerMaxHp,
+      origin: {
+        actionId: nextState.turn.enemyPhasesCompleted + 1,
+        eventId: nextState.log.length,
+      },
+    });
+  }
+  if (nextState.stacks.tier6Uniques) {
+    nextState = applyTier6UniquePveEvent(nextState, player, {
+      kind: "hp_threshold",
+      currentHp: nextState.playerHp,
+      maxHp: nextState.playerMaxHp,
+      origin: {
+        actionId: nextState.turn.enemyPhasesCompleted + 1,
+        eventId: nextState.log.length,
+      },
+    });
+  }
   if (countered?.phase === "ended") {
     nextState = {
       ...nextState,
@@ -1898,6 +1991,15 @@ export function applyPlayerV2SkillCast(
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
   const tickedEnemyDebuffs = ticked.enemyDebuffs;
+  const tier6UnityPct =
+    (state.buffs.tier6UnityTurnsLeft ?? 0) > 0
+      ? state.buffs.tier6UnityHealPct ?? 0
+      : 0;
+  const tier6UnityMult = 1 + tier6UnityPct / 100;
+  const tier6UnityAtk = Math.floor(player.atk * tier6UnityMult);
+  const tier6UnityMagicAtk = Math.floor(
+    (player.magicAtk ?? player.atk) * tier6UnityMult,
+  );
   const result = resolveV2SkillCast({
     skills: state.v2Skills,
     cooldowns: state.v2SkillCooldowns,
@@ -1920,9 +2022,9 @@ export function applyPlayerV2SkillCast(
       : undefined,
     attacker: {
       mp: state.playerMp,
-      atk: player.atk,
+      atk: tier6UnityAtk,
       attackCount: player.attackCount,
-      magicAtk: player.magicAtk ?? player.atk,
+      magicAtk: tier6UnityMagicAtk,
       singleHitPhysicalSkillDamagePct:
         player.singleHitPhysicalSkillDamagePct,
       minDamage: player.minDamage,
@@ -2126,6 +2228,7 @@ export function applyPlayerV2SkillCast(
       )?.pct ?? 0)
     : 0;
   let bloodDemonEffectiveDamage = 0;
+  let tier6SkillHitDamages: number[] = [];
   // hpCostDamage의 HP는 적중한 피해로 바뀌는 자원이다. 확정 회피에서는 비용이 0이 되며,
   // 일반 회피 경감은 적중으로 취급해 흡혈보다 먼저 비용을 낸다.
   if (result.selfHpCost > 0) {
@@ -2188,6 +2291,7 @@ export function applyPlayerV2SkillCast(
     const perHit = perHitBeforeEvasion.map((hit) =>
       applyEvasionDamageReduction(hit, skillEvasionReductionPct),
     );
+    tier6SkillHitDamages = perHit.filter((hit) => hit > 0);
     const rawDamageBeforeEvasion = perHitBeforeEvasion.reduce(
       (sum, hit) => sum + hit,
       0,
@@ -2232,19 +2336,28 @@ export function applyPlayerV2SkillCast(
     });
   }
   // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
-  const resolvedSelfHeal = isBloodDemonReign
+  const resolvedSelfHealBase = isBloodDemonReign
     ? Math.floor((bloodDemonEffectiveDamage * bloodDemonHealPct) / 100)
     : result.selfHeal;
+  const resolvedSelfHeal = Math.floor(
+    resolvedSelfHealBase * tier6UnityMult,
+  );
   if (resolvedSelfHeal > 0 && result.castSkillName) {
     const before = nextPlayerHp;
     nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + resolvedSelfHeal);
     const actual = nextPlayerHp - before;
     if (actual > 0) {
+      const overflowSuffix =
+        resolvedSelfHeal > actual ? ` (산출 ${resolvedSelfHeal})` : "";
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
-        text: `${result.castSkillName}! HP ${actual} 회복했다.`,
+        text: `${result.castSkillName}! HP ${actual} 회복했다.${overflowSuffix}`,
       });
-      const sigHealShield = healToShield(player.equipSignatures, actual);
+      const sigHealShield = healToShield(player.equipSignatures, {
+        actualHeal: actual,
+        calculatedHeal: resolvedSelfHeal,
+        maxHp: state.playerMaxHp,
+      });
       if (sigHealShield) {
         healShieldAmount += sigHealShield.amount;
         nextLog = appendLog(nextLog, {
@@ -2446,6 +2559,13 @@ export function applyPlayerV2SkillCast(
     V2_SKILLS[result.castSkillId]?.category === "attack"
       ? finishBerserkerPlayerAttack(transitionedBerserker)
       : transitionedBerserker;
+  const tier6DotsBefore = tier6DotContext(state);
+  const tier6StatusKindsBefore = tier6StatusKindCount(state);
+  const tier6ShieldGain =
+    healShieldAmount +
+    (result.shieldToApply
+      ? result.shieldToApply.hp + result.shieldToApply.mp
+      : 0);
   state = {
     ...state,
     playerHp: nextPlayerHp,
@@ -2482,6 +2602,66 @@ export function applyPlayerV2SkillCast(
     },
     log: nextLog,
   };
+  let tier6ExtraActions = 0;
+  if (result.castSkillId && state.stacks.tier6Uniques) {
+    const actionId = state.turn.completedPlayerTurns + 1;
+    state = applyTier6UniquePveEvent(state, player, {
+      kind: "action_start",
+      shield: state.stacks.playerShield,
+      maxHp: state.playerMaxHp,
+      origin: { actionId, eventId: state.log.length },
+    });
+    if (costPaid > 0) {
+      state = applyTier6UniquePveEvent(state, player, {
+        kind: "mp_spent",
+        amount: costPaid,
+        magicAtk: tier6UnityMagicAtk,
+        targetHasStatus: tier6StatusKindsBefore > 0,
+        origin: { actionId, eventId: state.log.length },
+      });
+    }
+    for (let index = 0; index < tier6SkillHitDamages.length; index += 1) {
+      const attacksBefore = state.playerAttacksLeft;
+      state = applyTier6UniquePveEvent(state, player, {
+        kind: "direct_hit",
+        damage: tier6SkillHitDamages[index]!,
+        crit: skillCritFired,
+        attackKind: "skill",
+        paidMp: index === 0 ? costPaid : 0,
+        statusKinds: tier6StatusKindsBefore,
+        bleedStacks: tier6DotsBefore.bleed.stacks,
+        bleedRemainingDamage: tier6DotsBefore.bleed.remainingDamage,
+        poisonStacks: tier6DotsBefore.poison.stacks,
+        poisonRemainingDamage: tier6DotsBefore.poison.remainingDamage,
+        magicAtk: tier6UnityMagicAtk,
+        maxHp: state.playerMaxHp,
+        origin: { actionId, eventId: state.log.length + index + 1 },
+      });
+      tier6ExtraActions += Math.max(0, state.playerAttacksLeft - attacksBefore);
+    }
+    if (resolvedSelfHeal > 0) {
+      state = applyTier6UniquePveEvent(state, player, {
+        kind: "heal_calculated",
+        amount: resolvedSelfHeal,
+        maxHp: state.playerMaxHp,
+        origin: { actionId, eventId: state.log.length },
+      });
+    }
+    if (tier6ShieldGain > 0) {
+      state = applyTier6UniquePveEvent(state, player, {
+        kind: "shield_gained",
+        amount: tier6ShieldGain,
+        maxHp: state.playerMaxHp,
+        origin: { actionId, eventId: state.log.length },
+      });
+    }
+    state = applyTier6UniquePveEvent(state, player, {
+      kind: "hp_threshold",
+      currentHp: state.playerHp,
+      maxHp: state.playerMaxHp,
+      origin: { actionId, eventId: state.log.length },
+    });
+  }
   if (provokeImmediateBasicAttacks > 0 && result.castSkillName) {
     state = applyImmediateProvokedEnemyBasicAttacks(
       state,
@@ -2494,7 +2674,7 @@ export function applyPlayerV2SkillCast(
   return {
     state,
     castFired: result.castSkillId != null,
-    signatureExtraActions,
+    signatureExtraActions: signatureExtraActions + tier6ExtraActions,
     selfHastePct: result.selfHasteToApply?.pct ?? 0,
     enemyDelayPct: result.enemyDelayToApply?.pct ?? 0,
   };
@@ -2547,6 +2727,13 @@ function resolveBattleLegacy(
     enemyMaxMp: s.enemyMaxMp,
     playerMagicBarrier: s.playerMagicBarrier,
     playerMagicBarrierMax: s.playerMagicBarrierMax,
+    ...(activeTier6ResourceSnapshot(s.stacks.tier6Uniques)
+      ? {
+          playerSignatureResources: activeTier6ResourceSnapshot(
+            s.stacks.tier6Uniques,
+          ),
+        }
+      : {}),
   });
   // 초기 entry (적 등장 / 선공 / 능력 안내 등) 는 player 턴으로 태깅. 첫 턴 marker 도 박는다.
   // openingNote(전술 안내 등)가 있으면 적 등장 다음·첫 턴 marker 앞에 info 로 끼운다.
@@ -2799,27 +2986,24 @@ function resolveBattleLegacy(
         }
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
-        const mitigation = reduceIncomingEnemySkillDamage(
+        const resolvedEnemySkill = resolveIncomingEnemySkillWithBarrier(
           state,
           player,
           result,
         );
+        const mitigation = resolvedEnemySkill.mitigation;
         nextLog = appendEnemySkillMitigationLogs(nextLog, mitigation);
-        const enemySkillDamage = mitigation.damage;
+        const enemySkillMagicBarrier = resolvedEnemySkill.barrier;
+        const enemySkillShieldBefore = state.stacks.playerShield;
         const enemySkillShieldAbsorbed = Math.min(
-          state.stacks.playerShield,
-          enemySkillDamage,
+          enemySkillShieldBefore,
+          enemySkillMagicBarrier.hpBoundDamage,
         );
-        const enemySkillAfterShield =
-          enemySkillDamage - enemySkillShieldAbsorbed;
+        const enemySkillDamageToHp =
+          enemySkillMagicBarrier.hpBoundDamage - enemySkillShieldAbsorbed;
+        const enemySkillAfterShield = enemySkillDamageToHp;
         const nextPlayerShield =
-          state.stacks.playerShield - enemySkillShieldAbsorbed;
-        const enemySkillMagicBarrier = absorbWithMagicBarrier(
-          enemySkillAfterShield,
-          state.playerMagicBarrier ?? 0,
-          player.magicBarrierAbsorbPct ?? 0,
-        );
-        const enemySkillDamageToHp = enemySkillMagicBarrier.damageToHp;
+          enemySkillShieldBefore - enemySkillShieldAbsorbed;
         if (result.enemyDamage > 0 && result.castSkillName) {
           if (enemySkillShieldAbsorbed > 0) {
             nextLog = appendLog(nextLog, {
@@ -2828,12 +3012,8 @@ function resolveBattleLegacy(
               turn: "enemy",
             });
           }
-          if (enemySkillMagicBarrier.absorbed > 0) {
-            nextLog = appendLog(nextLog, {
-              kind: "info",
-              text: `[마나 실드] ${enemySkillMagicBarrier.absorbed} 흡수 (남은 ${enemySkillMagicBarrier.durabilityLeft})`,
-              turn: "enemy",
-            });
+          for (const entry of magicBarrierCombatLogEntries(enemySkillMagicBarrier)) {
+            nextLog = appendLog(nextLog, { ...entry, turn: "enemy" });
           }
           nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamageToHp);
           nextLog = appendLog(nextLog, {
@@ -2964,6 +3144,34 @@ function resolveBattleLegacy(
           },
           log: nextLog,
         };
+        if (
+          state.stacks.tier6Uniques &&
+          enemySkillShieldBefore > 0 &&
+          nextPlayerShield <= 0 &&
+          enemySkillShieldAbsorbed > 0
+        ) {
+          state = applyTier6UniquePveEvent(state, player, {
+            kind: "shield_broken",
+            shieldBefore: enemySkillShieldBefore,
+            overflowDamage: enemySkillAfterShield,
+            maxHp: state.playerMaxHp,
+            origin: {
+              actionId: state.turn.enemyPhasesCompleted + 1,
+              eventId: state.log.length,
+            },
+          });
+        }
+        if (state.stacks.tier6Uniques) {
+          state = applyTier6UniquePveEvent(state, player, {
+            kind: "hp_threshold",
+            currentHp: state.playerHp,
+            maxHp: state.playerMaxHp,
+            origin: {
+              actionId: state.turn.enemyPhasesCompleted + 1,
+              eventId: state.log.length,
+            },
+          });
+        }
         // lethal — enemy v2 damage 로 player 사망 시 outcome=lose.
         if (countered?.phase === "ended") {
           state = {

@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
   lockSaveForUpdate,
   readSave,
@@ -81,17 +82,13 @@ export async function POST(req: Request) {
       };
     }
     const { player, skills: v2Skills } = prepared;
-    const power = derivePowerScore({
-      atk: player.player.atk,
-      magicAtk: player.player.magicAtk ?? 0,
-      def: player.player.def,
-      spd: player.player.spd,
-      maxHp: player.maxHp,
-      maxMp: player.player.maxMp ?? 0,
-      magicBarrierMax: player.player.magicBarrierMax,
-      evaRating: player.player.evaRating,
-      accRating: player.player.accRating,
-    });
+    const power = derivePowerScore(
+      powerInputFromPlayer(
+        player.player,
+        player.maxHp,
+        player.player.maxMp ?? 0,
+      ),
+    );
     const rollover = await settleMasteryTowerRollover(
       tx,
       userId,

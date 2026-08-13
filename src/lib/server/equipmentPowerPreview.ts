@@ -15,6 +15,7 @@ import {
   type DerivedPlayerCombatV2,
   type SavedCharacterV2,
 } from "@/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 
 export type EquipmentPowerPreviewResult =
   | {
@@ -39,17 +40,13 @@ export type EquipmentPowerPreviewCandidate =
     };
 
 function powerOf(combat: DerivedPlayerCombatV2): number {
-  return derivePowerScore({
-    atk: combat.player.atk,
-    magicAtk: combat.player.magicAtk ?? 0,
-    def: combat.player.def,
-    spd: combat.player.spd,
-    maxHp: combat.maxHp,
-    maxMp: combat.player.maxMp ?? 0,
-    magicBarrierMax: combat.player.magicBarrierMax,
-    evaRating: combat.player.evaRating,
-    accRating: combat.player.accRating,
-  });
+  return derivePowerScore(
+    powerInputFromPlayer(
+      combat.player,
+      combat.maxHp,
+      combat.player.maxMp ?? 0,
+    ),
+  );
 }
 
 /** 후보 장비를 저장하지 않고 같은 슬롯에 임시 장착해 현재·변경 후 전투력을 계산한다. */

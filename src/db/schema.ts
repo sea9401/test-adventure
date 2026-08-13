@@ -2132,6 +2132,63 @@ export const fishingSeasons = pgTable("fishing_seasons", {
   totalCoins: integer("total_coins").notNull().default(0),
 });
 
+// 위험 해역 거대어 — 6시간 동안 서버 전체가 비동기로 체력을 누적해서 깎는다.
+// status: active | defeated | expired. 활성 partial unique 로 동시 발견 중복 생성을 막는다.
+export const dangerousFishingBossEvents = pgTable(
+  "dangerous_fishing_boss_events",
+  {
+    id: text("id").primaryKey(),
+    bossId: text("boss_id").notNull(),
+    discovererId: text("discoverer_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    maxStamina: integer("max_stamina").notNull(),
+    stamina: integer("stamina").notNull(),
+    status: text("status").notNull().default("active"),
+    spawnedAt: timestamp("spawned_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    defeatedAt: timestamp("defeated_at"),
+    lastHaulUserId: text("last_haul_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    uniqueIndex("dangerous_fishing_boss_one_active_idx")
+      .on(t.status)
+      .where(sql`${t.status} = 'active'`),
+    index("dangerous_fishing_boss_active_expiry_idx").on(
+      t.status,
+      t.expiresAt,
+    ),
+  ],
+);
+
+// 거대어 이벤트별 개인 누적 기여와 보상 수령 멱등 마커. 순위 노출 용도가 아니므로
+// 기여량 내림차순 인덱스는 두지 않고 본인 조회용 user 인덱스만 둔다.
+export const dangerousFishingBossContributions = pgTable(
+  "dangerous_fishing_boss_contributions",
+  {
+    eventId: text("event_id")
+      .notNull()
+      .references(() => dangerousFishingBossEvents.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    totalContribution: integer("total_contribution").notNull().default(0),
+    successfulAttempts: integer("successful_attempts").notNull().default(0),
+    firstContributedAt: timestamp("first_contributed_at").notNull(),
+    lastContributedAt: timestamp("last_contributed_at").notNull(),
+    rewardClaimedAt: timestamp("reward_claimed_at"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.eventId, t.userId] }),
+    index("dangerous_fishing_boss_contribution_user_idx").on(
+      t.userId,
+      t.lastContributedAt,
+    ),
+  ],
+);
+
 // v2 전용 알림 — 전쟁(거점 피격/함락/토벌당함) 등 개인 타겟 사건. 우편함(아이템·정산
 // 첨부)과 분리된 "읽고 끝" 채널 — docs/v2-war-visibility-plan.md PR-5. 타입은 범용이라
 // 추후 아레나/길드 가입신청 알림으로 확장 가능. insert 시 유저당 NOTIF_MAX_PER_USER

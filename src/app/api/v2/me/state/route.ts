@@ -33,8 +33,11 @@ import {
   CATALOG_USES_COOKING_LEVEL_CONDITION,
   CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
+  V2_JOB_CATALOG,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
+import { deriveBuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
 import {
   FARM_SAVE_KEY,
   farmingLevelForState,
@@ -469,6 +472,18 @@ export async function GET(req: Request) {
         skillsRaw: skillsRow?.value,
         jobUnlockCtx,
       });
+  const buildAdvisory =
+    !coreView && combat && jobsV2
+      ? deriveBuildAlignmentAdvisory({
+          atk: combat.player.atk,
+          magicAtk: combat.player.magicAtk ?? 0,
+          grown: parseProficiencyForChar(
+            proficiencyRow?.value,
+            charSave,
+          ).grown,
+          jobBonus: V2_JOB_CATALOG[jobsV2.currentJobId]?.jobBonus ?? {},
+        })
+      : null;
   // 직업 표시명 — 캐릭터 카드/전투 부제가 쓴다(jobDisplayName: 직업 시스템이면 견습 병사·방패병
   //   등, 아니면 옛 직군명). core-loop off 면 null(레거시 화면이 자체 처리).
   const classDisplaySpec =
@@ -662,6 +677,8 @@ export async function GET(req: Request) {
     },
     stats,
     combat: combatStats,
+    // 현재 장비 공격축과 저장된 성장·직업 방향이 크게 어긋난 경우 본인에게만 안내한다.
+    buildAdvisory,
     // 누적 전투 횟수(전적) — 내 정보 기본 정보 카드 표기용.
     battleCount,
     // 길드 — id/name + 내 직책(role)·마스터 여부. 정착지 관리 탭(마스터/관리자)·기타 권한 UI 용.

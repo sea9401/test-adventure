@@ -291,6 +291,47 @@ describe("advanceTurn (enemy phase)", () => {
     );
     expect(s1b.playerHp).toBe(PLAYER.hp - base);
   });
+
+  it("PvE 기본공격에 적용된 받피감 수치를 전투 로그에 표시한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const tanky: PlayerCombat = {
+      ...PLAYER,
+      hp: 100,
+      maxHp: 100,
+      passiveDamageTakenReductionPct: 50,
+    };
+    const enemy = makeEnemy({ atk: 40 });
+
+    const next = advanceTurn(
+      { ...initialBattleState(tanky, enemy, "P"), phase: "enemy" as const },
+      tanky,
+      "P",
+    );
+
+    expect(next.log.map((entry) => entry.text)).toContain(
+      "[받피감] 피해 -20",
+    );
+  });
+
+  it("받피감과 가드가 함께 적용되면 가드가 줄인 피해만 표시한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const guarded: PlayerCombat = {
+      ...PLAYER,
+      hp: 100,
+      maxHp: 100,
+      passiveDamageTakenReductionPct: 50,
+      guard: { turns: 1, reduction: 3 },
+    };
+    const enemy = makeEnemy({ atk: 40 });
+
+    const next = advanceTurn(
+      { ...initialBattleState(guarded, enemy, "P"), phase: "enemy" as const },
+      guarded,
+      "P",
+    );
+
+    expect(next.log.map((entry) => entry.text)).toContain("[가드] 피해 -3");
+  });
 });
 
 describe("applyPotionEffect", () => {

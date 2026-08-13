@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -123,6 +123,7 @@ import {
 } from "./huntKillLog";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { applyHuntProficiency } from "./huntProficiency";
+import { normalizedHuntLocationIds } from "./huntLocations";
 import { activeCookingBuff } from "@/adventure/v2/cooking";
 import {
   getAutoHuntStopReason,
@@ -293,29 +294,24 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 서로 막지 않아 같은 거점의 모든 이용자가 하나씩 직렬 처리되던 병목을 제거한다.
   const occupationById =
     ctx.batchState?.occupationById ?? new Map<string, OccupationRow>();
-  const locationIds = [
-    ...new Set(
-      [outpostId, lockedTileOutpostId].filter(
-        (id): id is string => typeof id === "string" && id.length > 0,
-      ),
-    ),
-  ].sort();
+  const locationIds = normalizedHuntLocationIds(
+    outpostId,
+    lockedTileOutpostId ?? null,
+  );
   // 후보가 둘(카탈로그 거점+자유 타일)이어도 id 정렬 순으로 잠가 동시 사냥 간 교착을 막는다.
-  if (!ctx.batchState?.occupationById) {
-    for (const locationId of locationIds) {
-      const row =
-        (
-          await tx
-            .select({
-              occupiedByGuildId: outpostOccupations.occupiedByGuildId,
-              policy: outpostOccupations.policy,
-            })
-            .from(outpostOccupations)
-            .where(eq(outpostOccupations.outpostId, locationId))
-            .for("share")
-            .limit(1)
-        )[0] ?? null;
-      if (row) occupationById.set(locationId, row);
+  if (!ctx.batchState?.occupationById && locationIds.length > 0) {
+    const rows = await tx
+      .select({
+        outpostId: outpostOccupations.outpostId,
+        occupiedByGuildId: outpostOccupations.occupiedByGuildId,
+        policy: outpostOccupations.policy,
+      })
+      .from(outpostOccupations)
+      .where(inArray(outpostOccupations.outpostId, locationIds))
+      .orderBy(outpostOccupations.outpostId)
+      .for("share");
+    for (const row of rows) {
+      occupationById.set(row.outpostId, row);
     }
     if (ctx.batchState) ctx.batchState.occupationById = occupationById;
   }

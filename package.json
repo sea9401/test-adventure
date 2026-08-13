@@ -16,6 +16,7 @@
     "test:e2e:db:setup": "node src/db/migrate.mjs && node scripts/seed-e2e-account.mjs",
     "test:e2e:report": "playwright show-report",
     "knip": "knip --no-exit-code",
+    "check-module-budgets": "node scripts/module-budgets.mjs",
     "optimize-images": "node scripts/optimize-images.mjs",
     "check-images": "node scripts/check-images.mjs",
     "check-asset-rights": "node scripts/check-asset-rights.mjs",
@@ -23,6 +24,7 @@
     "check-licenses": "node scripts/check-licenses.mjs",
     "update-licenses": "node scripts/check-licenses.mjs --write",
     "check-migrations": "node scripts/check-migrations.mjs",
+    "check-action-pins": "node scripts/check-action-pins.mjs",
     "check-secrets": "node scripts/check-secrets.mjs && node scripts/check-secrets.mjs --self-test",
     "check-public-release": "node scripts/check-public-release.mjs",
     "load-test": "node scripts/load-test.mjs",
@@ -69,6 +71,7 @@
     "eslint-config-next": "16.2.11",
     "knip": "^6.23.0",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.10"
   },

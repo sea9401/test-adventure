@@ -299,6 +299,75 @@ body {
   }
 }
 
+/* ── 장소 배경 교차 페이드 ───────────────────────────────────────
+   새 이미지를 다 받은 뒤에만 기존 배경과 교대한다. 두 레이어는 opacity 만 바꿔
+   모바일에서도 레이아웃 계산 없이 짧게 장소 전환을 전달한다. */
+@keyframes ui-game-background-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes ui-game-background-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ui-game-background-current[data-transitioning="true"],
+.ui-game-background-incoming[data-transitioning="true"] {
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+  will-change: opacity;
+}
+
+.ui-game-background-incoming {
+  opacity: 0;
+}
+
+.ui-game-background-current[data-transitioning="true"] {
+  animation-name: ui-game-background-fade-out;
+}
+
+.ui-game-background-incoming[data-transitioning="true"] {
+  animation-name: ui-game-background-fade-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-game-background-current[data-transitioning="true"] {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  .ui-game-background-incoming[data-transitioning="true"] {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
+/* 사냥터 목록에서 층 전투로 한 단계 들어갈 때만 본문에 방향을 준다.
+   영속 상단바·메뉴·스태미나 바는 이 래퍼 밖이라 움직이지 않는다. */
+@keyframes ui-hunt-floor-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(8px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.ui-hunt-floor-enter {
+  animation: ui-hunt-floor-enter 160ms ease-out both;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-hunt-floor-enter {
+    animation: none !important;
+  }
+}
+
 /* 전역 — 페이지·내부 컨테이너 모두의 네이티브 스크롤바 막대 숨김. 스크롤 동작은 유지.
    no-scrollbar 유틸과 동일 효과를 모든 요소에 자동 적용 (앞으로 추가될 스크롤도 자동). */
 * {

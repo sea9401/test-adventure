@@ -622,7 +622,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 2차 마법사 생존 패시브. 기존 id와 INT +20%는 세이브·선행 조건 호환을 위해 유지하고,
     //   전 캐릭터에게 열려 있던 INT 마력 장벽을 이 패시브 장착 효과로 이동한다.
     id: "v2c_caster_acumen", name: "마나 실드", stat: "int", category: "passive", tier: 2,
-    description: "지능이 크게 비례해 오른다. 전투 시작 시 지능과 최대 MP에 비례한 실드를 전개해 직접 피해 일부를 흡수한다. 현재 MP는 소모하지 않는다.", mpCost: 0, cooldown: 0,
+    description: "지능이 크게 비례해 오른다. 전투 시작 시 INT와 최대 MP로 내구도·흡수율·경감률을 정해 마나 실드를 전개한다. 방어 전 적대 피해 일부를 막으며 현재 MP는 소모하지 않는다. DoT·반사·반격·일반 상태 피해에도 적용되지만 고정·처형·보호막 무시·자해·HP 비용은 막지 않는다. 일반 보호막은 HP에 들어오기 직전에 별도로 적용된다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { int: 20 }, magicBarrier: true },
   },

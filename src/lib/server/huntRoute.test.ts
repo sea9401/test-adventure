@@ -9,6 +9,7 @@
 // 호출해 throw → 이 테스트가 실패한다. 즉 "사냥이 성공한다"는 사실 자체가 폴드 배선을 검증한다.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
 const { rewardReferralTutorialTasks, store } = vi.hoisted(() => ({
@@ -37,7 +38,8 @@ vi.mock("@/db", () => {
   const chain: Record<string, unknown> = {};
   chain.from = () => chain;
   chain.where = () => chain;
-  chain.for = () => chain;
+  chain.orderBy = () => chain;
+  chain.for = async () => [];
   chain.limit = async () => [];
   const tx = {
     select: () => chain,
@@ -221,7 +223,11 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         };
       };
     };
-    const expected = Math.floor(baseline.result.expGained * 1.6);
+    const expected = applyStochasticPercentBonus(
+      baseline.result.expGained,
+      60,
+      () => 0.5,
+    );
     expect(boosted.result.expGained).toBe(expected);
     expect(boosted.result.foodExpBuff).toEqual({
       name: "깨달음의 허브차",

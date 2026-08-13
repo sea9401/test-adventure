@@ -62,6 +62,7 @@ describe("방어 기제 로그 라벨", () => {
   it("회피·장벽·방어 라벨을 서로 다른 색상으로 구분한다", () => {
     expect(battleLogPillColor("회피 경감 32.5%")).toContain("teal");
     expect(battleLogPillColor("마나 실드")).toContain("violet");
+    expect(battleLogPillColor("마나 실드 파괴")).toContain("violet");
     expect(battleLogPillColor("철벽")).toContain("blue");
   });
 });
@@ -597,5 +598,33 @@ describe("BattleLogList 행동 묶음", () => {
 
     expect(html).toContain("기본 공격");
     expect(html).not.toContain("계산 상세");
+  });
+
+  it("HP 스냅샷에 6T 시그니처 자원을 양쪽 관점으로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 900,
+            playerMaxHp: 1_000,
+            enemyHp: 800,
+            enemyMaxHp: 1_000,
+            playerSignatureResources: {
+              gravityReprisal: 105,
+              pursuitMarks: 4,
+              dominant: "pursuit",
+            },
+            enemySignatureResources: { arcaneOverload: 75 },
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("중력 105");
+    expect(html).toContain("추적 4");
+    expect(html).toContain("지배 추적");
+    expect(html).toContain("과부하 75");
   });
 });

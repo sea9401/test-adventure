@@ -9,7 +9,8 @@ import {
   claimWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
+import { bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
+import { applyAccumulatedPercentBonus } from "@/lib/percentBonus";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
@@ -52,10 +53,12 @@ import {
 } from "@/lib/server/settlementBuildingAccess";
 import {
   claimGuildTrainingDrill,
+  GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
   GUILD_TRAINING_WEEKLY_BONUS_TARGET,
   guildTrainingDayWindow,
   guildTrainingDrillViews,
+  guildTrainingReward,
   isGuildTrainingDrillId,
   parseGuildTrainingState,
   recommendedGuildTrainingDrill,
@@ -455,16 +458,31 @@ export async function POST(req: Request) {
       };
     }
 
+    const reward = guildTrainingReward(
+      GUILD_TRAINING_DRILLS[drillId],
+      trainingGroundUpgradeForLevel(Math.max(1, trainingGroundLevel)),
+      trainingBonuses.rewardBonusPct,
+      state.rewardBonusRemainderPct ?? 0,
+    );
     const claim = claimGuildTrainingDrill(state, drillId);
     const weeklyBonusMastery =
       claim.weeklyBonusMastery > 0
         ? claim.weeklyBonusMastery + trainingBonuses.weeklyBonusMastery
         : 0;
     const hotTime = await readActiveHotTime(Date.now(), tx);
-    const beforeHotTimeMastery = drill.rewardMastery + weeklyBonusMastery;
-    const totalRewardMastery = hotTime.active
-      ? applyPctBonus(beforeHotTimeMastery, hotTime.bonuses.masteryPct)
-      : beforeHotTimeMastery;
+    const beforeHotTimeMastery = reward.mastery + weeklyBonusMastery;
+    const hotTimeReward = hotTime.active
+      ? applyAccumulatedPercentBonus(
+          beforeHotTimeMastery,
+          hotTime.bonuses.masteryPct,
+          state.hotTimeBonusRemainderPct ?? 0,
+        )
+      : {
+          value: beforeHotTimeMastery,
+          bonus: 0,
+          remainderPct: state.hotTimeBonusRemainderPct ?? 0,
+        };
+    const totalRewardMastery = hotTimeReward.value;
     const hotTimeMasteryBonus = bonusDelta(beforeHotTimeMastery, totalRewardMastery);
     let prof = current.prof;
     prof = addCumLevel(prof, current.group, totalRewardMastery);
@@ -473,7 +491,11 @@ export async function POST(req: Request) {
       current.job != null
         ? cumLevelForJob(prof, current.job)
         : groupCumLevel(prof, current.group);
-    const nextState = claim.state;
+    const nextState = {
+      ...claim.state,
+      rewardBonusRemainderPct: reward.remainderPct,
+      hotTimeBonusRemainderPct: hotTimeReward.remainderPct,
+    };
 
     await upsertSave(tx, userId, "proficiency.v2", prof);
     await upsertSave(tx, userId, TRAINING_SAVE_KEY, nextState);

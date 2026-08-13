@@ -11,8 +11,10 @@ import {
   type JobRoadmapNode as RoadmapNode,
 } from "@/adventure/v2/jobRoadmapModel";
 import {
+  MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST,
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_MILESTONES,
+  MASTERY_TOWER_REENTRY_COOLDOWN_MS,
   masteryTowerFloorReward,
   masteryTowerRequiredPower,
 } from "@/adventure/data/v2/masteryTower";
@@ -143,6 +145,13 @@ export function JobsContent() {
       </P>
       <UL>
         <li>
+          하루 첫 실제 전투에만 스태미나{" "}
+          <Em>{MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}</Em>을 사용합니다. 이후 층 진행과
+          재도전은 무료이며, 한 번 시도한 뒤에는{" "}
+          <Em>{MASTERY_TOWER_REENTRY_COOLDOWN_MS / 1_000}초</Em>가 지나면 다시
+          입장할 수 있습니다.
+        </li>
+        <li>
           탑은 총 <Em>{MASTERY_TOWER_MAX_FLOOR}층</Em>이고, 층마다 요구 전투력이
           있습니다. 전투력이 요구치를 넘으면 다음 층으로 올라갑니다.
         </li>
@@ -164,7 +173,8 @@ export function JobsContent() {
         </li>
         <li>
           50층을 완료한 뒤에는 같은 날 50층 수호자에게 연습 재도전할 수 있습니다.
-          연습 승패는 최고층 기록과 보상을 바꾸지 않으며 추가 입장료도 없습니다.
+          연습 승패는 최고층 기록과 보상을 바꾸지 않으며 추가 스태미나도 들지
+          않습니다. 각 연습 시도 사이에는 같은 재입장 대기 시간이 적용됩니다.
         </li>
       </UL>
       <Table

@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { GameStateRefreshProvider } from "./GameStateRefreshContext";
 import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import type { MpBarState } from "@/adventure/v2/MpBar";
@@ -1271,11 +1272,13 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameStateCtx.Provider value={value}>
-      <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
-        <FishingCodexCtx.Provider value={fishingCodexValue}>
-          {children}
-        </FishingCodexCtx.Provider>
-      </EquipmentCodexCtx.Provider>
+      <GameStateRefreshProvider refreshGameState={refreshGameState}>
+        <EquipmentCodexCtx.Provider value={equipmentCodexValue}>
+          <FishingCodexCtx.Provider value={fishingCodexValue}>
+            {children}
+          </FishingCodexCtx.Provider>
+        </EquipmentCodexCtx.Provider>
+      </GameStateRefreshProvider>
     </GameStateCtx.Provider>
   );
 }

@@ -47,6 +47,7 @@ import {
 } from "@/adventure/data/v2/stormExpedition";
 import {
   STORM_EXPEDITION_LOOT,
+  STORM_EXPEDITION_UNIQUE_LOOT,
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
   STORM_EXPEDITION_SP_FRUIT_CAP,
   STORM_EXPEDITION_SP_FRUIT_CHANCE,
@@ -55,6 +56,7 @@ import {
   mergeStormExpeditionMaterials,
   rollStormExpeditionLoot,
   rollStormExpeditionSpFruit,
+  rollStormExpeditionUniqueLoot,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import {
@@ -301,6 +303,7 @@ export async function POST(req: Request) {
     let gainedEquipment: V2EquipInstance[] = [];
     let droppedMaterials: Record<string, number> = {};
     let droppedEquipment: V2EquipInstance | null = null;
+    let droppedUniqueEquipment: V2EquipInstance[] = [];
     let spFruitDropped = false;
     const practice = active.mode === "practice";
 
@@ -322,16 +325,29 @@ export async function POST(req: Request) {
             Math.random,
             { equipmentChanceMultiplier },
           );
+      const uniqueLoot = practice
+        ? { uniqueIds: [] }
+        : rollStormExpeditionUniqueLoot(
+            active.routeId,
+            node.encounterKind,
+            Math.random,
+            { uniqueChanceMultiplier: equipmentChanceMultiplier },
+          );
       droppedMaterials = loot.materials;
       droppedEquipment = loot.equipmentId ? mintRolledEquipInstance(loot.equipmentId) : null;
+      droppedUniqueEquipment = uniqueLoot.uniqueIds.map((id) =>
+        mintRolledEquipInstance(id)
+      );
       const pendingMaterials = practice
         ? {}
         : mergeStormExpeditionMaterials(active.pendingMaterials, droppedMaterials);
       const pendingEquipment = practice
         ? []
-        : droppedEquipment
-          ? [...active.pendingEquipment, droppedEquipment]
-          : active.pendingEquipment;
+        : [
+            ...active.pendingEquipment,
+            ...(droppedEquipment ? [droppedEquipment] : []),
+            ...droppedUniqueEquipment,
+          ];
       const nextEffects = consumeBattleEffects(active.nextBattleEffects, node.encounterKind);
       const nextHpBeforeHeal = Math.max(0, battle.finalState.playerHp);
       const nextHp = active.boons.includes("victory_vigor")
@@ -405,6 +421,7 @@ export async function POST(req: Request) {
       gainedEquipment,
       droppedMaterials,
       droppedEquipment,
+      droppedUniqueEquipment,
       claimedRewards: finalClear && !practice,
       spFruitDropped,
       nodeIndex: active.nodeIndex,
@@ -713,6 +730,7 @@ function statusBody(charSave: CharacterSave, raw: unknown) {
     riskEvents: STORM_EXPEDITION_RISK_EVENTS,
     riskCurses: STORM_EXPEDITION_RISK_CURSES,
     lootRules: STORM_EXPEDITION_LOOT,
+    uniqueLootRules: STORM_EXPEDITION_UNIQUE_LOOT,
     spFruitReward: {
       materialId: STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID,
       chance: STORM_EXPEDITION_SP_FRUIT_CHANCE,

@@ -34,7 +34,8 @@ import { useModalA11y } from "@/lib/useModalA11y";
 import { useSystemMessageState } from "./RewardToastProvider";
 
 // "전투 패턴"(갬빗) 에디터 — 우선순위 {조건→행동} 블록을 배열하면 전투에서 위에서부터 조건 맞는
-// 첫 스킬을 발동(procChance 은퇴=확정). 조건 어휘는 1:1 자동전투 기준(내HP/MP/버프·적HP/상태·턴).
+// 스킬 후보를 검사한다. 운영에서는 procChance 실패 시 다음 후보로 넘어간다. 조건 어휘는 1:1
+// 자동전투 기준(내HP/MP/버프·적HP/상태·턴).
 // 행동은 학습한 스킬 사용(캐릭터>스킬 탭에서 학습). 저장 버튼은 없다 — 편집하면 짧은 디바운스
 // 뒤 자동으로 POST /api/v2/me/combat-pattern 한다.
 
@@ -896,8 +897,9 @@ export function V2CombatPatternView({
     >
       {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
-        다른 조건이 안 맞을 때의 기본기로 쓰입니다. 「스킬」 탭에서 스킬을 배우고 장착하세요.
+        위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음
+        블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 한 행동의 후보는 같은
+        판정값을 공유하므로 같은 스킬을 중복 배치해도 발동률을 따로 다시 굴리지는 않습니다.
       </p>
 
       {loading ? (

@@ -14,6 +14,9 @@ mkdir -p "$(dirname "$LOG_PATH")" || exit 1
 bash "$BACKUP_SCRIPT" >> "$LOG_PATH" 2>&1
 BACKUP_STATUS=$?
 if [ "$BACKUP_STATUS" -eq 0 ]; then
+  if ! node scripts/ops-heartbeat.mjs record "backup:database" >> "$LOG_PATH" 2>&1; then
+    echo "BACKUP WARN: 성공 heartbeat 기록 실패" | tee -a "$LOG_PATH" >&2
+  fi
   exit 0
 fi
 

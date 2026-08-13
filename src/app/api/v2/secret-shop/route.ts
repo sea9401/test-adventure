@@ -10,17 +10,14 @@ import {
 import {
   SECRET_SHOP_ITEM_BY_ID,
   SECRET_SHOP_STOCK,
-  STAMINA_POTION_AMOUNT,
 } from "@/adventure/data/v2/secretShop";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
-  applyRegen,
-  parseStaminaFromSave,
-  staminaConfigForCharacter,
-  staminaOverchargeCap,
-} from "@/adventure/v2/stamina";
+  STAMINA_POTIONS_KEY,
+  staminaPotionCount,
+} from "@/adventure/v2/staminaPotions";
 import {
   HUNT_COOLDOWN_MODE,
   V2_CORE_LOOP_V2,
@@ -39,7 +36,7 @@ const STAMINA_SHOP_ITEMS = new Set(["stamina_potion"]);
 // POST { map, itemId }       → 구매. 골드 차감 + 효과 적용 + bought 마킹.
 //
 // 효과 적용처: 강화석=character.v2.materials / 충전약=inventory.v2 /
-// 스태미나 회복약=character.v2.stamina(즉시, per-user 최대치 캡).
+// 스태미나 회복약=stamina-potions.v1(보관형 소비 아이템).
 
 type CharSave = {
   gold?: number;
@@ -185,30 +182,23 @@ export async function POST(req: Request) {
         ...nextChar,
         materials: mergeDrops(charSave.materials, { [matId]: 1 }),
       };
-    } else if (item.id === "stamina_potion") {
-      const staminaConfig = staminaConfigForCharacter(charSave, now);
-      const max = staminaConfig.max;
-      const cap = staminaOverchargeCap(max);
-      const cur = applyRegen(
-        parseStaminaFromSave(charSave.stamina, now),
-        now,
-        max,
-        staminaConfig.regenBonusPct,
-      );
-      nextChar = {
-        ...nextChar,
-        stamina: {
-          // 소모품 포션과 동일 — 최대치를 넘겨 비축(overcharge), 단 상한(cap)까지만.
-          //   max-guard: 이미 cap 이상(레거시)이면 줄이지 않음(min(cap,…) 단독은 깎음).
-          current: Math.max(
-            cur.current,
-            Math.min(cap, cur.current + STAMINA_POTION_AMOUNT),
-          ),
-          lastUpdatedAt: cur.lastUpdatedAt,
-        },
-      };
     }
     await upsertSave(tx, userId, "character.v2", nextChar);
+
+    // 보관형 스태미나 회복약 +1. 락 순서 character → stamina-potions(leaf).
+    let staminaPotions: number | undefined;
+    if (item.id === "stamina_potion") {
+      const potionSave = await lockSaveForUpdate<{ count?: number }>(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0 },
+      );
+      staminaPotions = staminaPotionCount(potionSave) + 1;
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
+        count: staminaPotions,
+      });
+    }
 
     // 충전약 완충 — inventory.v2 (락 순서 character → inventory, dev grant 와 동일).
     if (item.id === "hp_charge_pack" || item.id === "mp_charge_pack") {
@@ -234,6 +224,7 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2
           ? { bankedGold: nextChar.bankedGold as number }
           : {}),
+        ...(staminaPotions !== undefined ? { staminaPotions } : {}),
         mapCompleted: allBought,
       },
     };

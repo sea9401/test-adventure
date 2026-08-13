@@ -37,6 +37,11 @@ import {
   v2DotLogCause,
 } from "./combatShared";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  magicBarrierCombatLogEntries,
+  resolveMagicBarrierDamage,
+} from "./magicBarrier";
+import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 
 // PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
 // 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
@@ -59,6 +64,13 @@ function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
     enemyMaxMp: state.enemyMaxMp,
     playerMagicBarrier: state.playerMagicBarrier,
     playerMagicBarrierMax: state.playerMagicBarrierMax,
+    ...(activeTier6ResourceSnapshot(state.stacks.tier6Uniques)
+      ? {
+          playerSignatureResources: activeTier6ResourceSnapshot(
+            state.stacks.tier6Uniques,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -170,12 +182,23 @@ export function tickPlayerDotsOnAction(
   playerName: string,
 ): BattleState {
   const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-  const damage = statusDamageAfterReduction(
-    pTick.totalDmg,
-    player.statusDamageReductionPct,
-  );
-  if (damage <= 0) return { ...state, playerV2Dots: pTick.nextDots };
-  const dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
+  const barrier = resolveMagicBarrierDamage({
+    rawDamage: pTick.totalDmg,
+    durability: state.playerMagicBarrier ?? 0,
+    absorbPct: player.magicBarrierAbsorbPct,
+    efficiencyPct: player.magicBarrierEfficiencyPct,
+    eligible: true,
+    mitigateBody: (bodyRawDamage) =>
+      statusDamageAfterReduction(
+        bodyRawDamage,
+        player.statusDamageReductionPct,
+      ),
+  });
+  const damage = barrier.hpBoundDamage;
+  if (damage <= 0 && barrier.absorbedDamage <= 0) {
+    return { ...state, playerV2Dots: pTick.nextDots };
+  }
+  let dotLog = distributeV2DotTicks(pTick.ticks, damage).reduce(
     (log, tick) =>
       appendLog(log, {
         kind: "info",
@@ -185,8 +208,12 @@ export function tickPlayerDotsOnAction(
       }),
     state.log,
   );
+  for (const entry of magicBarrierCombatLogEntries(barrier)) {
+    dotLog = appendLog(dotLog, { ...entry, turn: "player" });
+  }
   let next: BattleState = {
     ...state,
+    playerMagicBarrier: barrier.durabilityLeft,
     playerV2Dots: pTick.nextDots,
     log: dotLog,
   };

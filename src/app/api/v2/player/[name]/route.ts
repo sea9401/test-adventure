@@ -6,6 +6,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { battleCountOf } from "@/lib/server/battleCount";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
   parseV2Class,
   tier1ClassOf,
@@ -289,6 +290,8 @@ export async function GET(_req: Request, ctx: Ctx) {
       magicDef: combat.player.magicDef ?? 0,
       magicBarrierMax: combat.player.magicBarrierMax ?? 0,
       magicBarrierAbsorbPct: combat.player.magicBarrierAbsorbPct ?? 0,
+      magicBarrierEfficiencyPct:
+        combat.player.magicBarrierEfficiencyPct ?? 0,
       evasionPct: combat.player.evasionPct,
       evaRating: combat.player.evaRating,
       accuracyPct: combat.player.accuracyPct,
@@ -297,17 +300,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       critMult: combat.player.critMult,
       skillCritOverflow: combat.player.skillCritOverflow === true,
       skillCritDmgPct: combat.player.skillCritDmgPct,
-      power: derivePowerScore({
-        atk: combat.player.atk,
-        magicAtk: combat.player.magicAtk ?? 0,
-        def: combat.player.def,
-        spd: combat.player.spd,
-        maxHp,
-        maxMp,
-        magicBarrierMax: combat.player.magicBarrierMax,
-        evaRating: combat.player.evaRating,
-        accRating: combat.player.accRating,
-      }),
+      power: derivePowerScore(
+        powerInputFromPlayer(combat.player, maxHp, maxMp),
+      ),
     },
     battleCount,
     frontierDepth: Math.min(

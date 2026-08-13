@@ -21,9 +21,11 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   회복량:
     "회복 스킬·흡혈·일부 자가 회복에 적용되는 최종 배율입니다. 정신과 활력이 높을수록 커지며 장비의 회복 옵션과 장착 패시브도 반영됩니다.",
   "마나 실드":
-    "마나 실드 패시브 장착 시 지능과 최대 MP로 정해지는 전투별 내구도입니다. 일반 보호막 다음에 남은 직접 피해 일부를 흡수하며 MP는 소모하지 않습니다.",
+    "마나 실드 패시브 장착 시 지능과 최대 MP로 정해지는 전투 시작 내구도입니다. 전투 중 재계산하거나 회복하지 않으며 현재 MP는 소모하지 않습니다.",
   "마나 실드 흡수율":
-    "마나 실드가 남아 있을 때 직접 피해에서 흡수하는 비율입니다. 지속 피해·반사·상태 피해에는 적용되지 않습니다.",
+    "방어·마법 방어·회피를 적용하기 전 적대 피해에서 마나 실드 채널로 나누는 비율입니다.",
+  "마나 실드 경감률":
+    "마나 실드 채널이 막은 피해보다 내구도를 적게 소모하게 하는 비율입니다. 최대 MP와 최대 내구도가 높을수록 커집니다.",
   적중도:
     "상대의 회피도와 함께 계산해 상대의 직접 피해 경감률을 낮추는 수치입니다. 장비·민첩·힘·지능·정신으로 얻은 수치에 적중도 증가 패시브가 적용됩니다.",
   회피도:
@@ -47,6 +49,7 @@ type CombatStats = {
   healMult?: number;
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
   spd?: number;
   evasionPct?: number;
   accuracyPct?: number;
@@ -118,12 +121,17 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
     items.push(
       {
         label: "마나 실드",
-        value: Math.round(combat.magicBarrierMax ?? 0),
+        value: Math.round(combat.magicBarrierMax ?? 0).toLocaleString(),
         accent: "text-violet-600 dark:text-violet-400",
       },
       {
         label: "마나 실드 흡수율",
         value: `${(combat.magicBarrierAbsorbPct ?? 0).toFixed(1)}%`,
+        accent: "text-violet-600 dark:text-violet-400",
+      },
+      {
+        label: "마나 실드 경감률",
+        value: `${(combat.magicBarrierEfficiencyPct ?? 0).toFixed(1)}%`,
         accent: "text-violet-600 dark:text-violet-400",
       },
     );

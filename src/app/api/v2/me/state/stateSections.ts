@@ -73,6 +73,7 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import {
   V2_CODEX_TOTAL,
   discoveredMaterialIds,
@@ -134,6 +135,8 @@ export function combatStatsSection(
         healMult: combat.player.healMult ?? 1,
         magicBarrierMax: combat.player.magicBarrierMax ?? 0,
         magicBarrierAbsorbPct: combat.player.magicBarrierAbsorbPct ?? 0,
+        magicBarrierEfficiencyPct:
+          combat.player.magicBarrierEfficiencyPct ?? 0,
         // 숨은 전투 축 — 회피/명중/치명타/다중공격.
         evasionPct: combat.player.evasionPct,
         // 회피 대결형(Slice 1b) — 캡 없는 raw 회피레이팅.
@@ -146,17 +149,9 @@ export function combatStatsSection(
         skillCritOverflow: combat.player.skillCritOverflow === true,
         skillCritDmgPct: combat.player.skillCritDmgPct,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
-        power: derivePowerScore({
-          atk: combat.player.atk,
-          magicAtk: combat.player.magicAtk ?? 0,
-          def: combat.player.def,
-          spd: combat.player.spd,
-          maxHp,
-          maxMp,
-          magicBarrierMax: combat.player.magicBarrierMax,
-          evaRating: combat.player.evaRating,
-          accRating: combat.player.accRating,
-        }),
+        power: derivePowerScore(
+          powerInputFromPlayer(combat.player, maxHp, maxMp),
+        ),
       }
     : null;
 }

@@ -52,7 +52,9 @@ describe("guild combat supply", () => {
       expPct: 4,
       proficiencyChancePct: 35,
     });
-    expect(applyGuildCombatRewardBonus(1234, bonuses.goldPct)).toBe(1357);
+    expect(applyGuildCombatRewardBonus(1234, bonuses.goldPct, () => 0.41)).toBe(1357);
+    expect(applyGuildCombatRewardBonus(3, 10, () => 0.29)).toBe(4);
+    expect(applyGuildCombatRewardBonus(3, 10, () => 0.3)).toBe(3);
     expect(rollGuildCombatProficiencyBonus(35, () => 0.34)).toBe(1);
     expect(rollGuildCombatProficiencyBonus(35, () => 0.35)).toBe(0);
   });

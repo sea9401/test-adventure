@@ -17,7 +17,7 @@ export type SecretShopItem = {
   price: number; // 골드
 };
 
-// 스태미나 회복약 즉시 회복량. 2026-06-12 사용자 조정: 1000→200.
+// 스태미나 회복약 1개 사용 시 회복량. 2026-06-12 사용자 조정: 1000→200.
 export const STAMINA_POTION_AMOUNT = 200;
 
 export const SECRET_SHOP_STOCK: SecretShopItem[] = [
@@ -48,7 +48,7 @@ export const SECRET_SHOP_STOCK: SecretShopItem[] = [
   {
     id: "stamina_potion",
     name: `스태미나 회복약 (+${STAMINA_POTION_AMOUNT.toLocaleString()})`,
-    desc: "마시는 즉시 스태미나를 회복한다.",
+    desc: "보관했다가 필요할 때 사용해 스태미나를 회복한다.",
     price: 100_000,
   },
 ];

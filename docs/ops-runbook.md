@@ -85,8 +85,21 @@ bash deploy/rollback.sh <좋은sha>        # reset→install→build→restart�
 ```
 → `rollback.sh` 가 배포와 동일 단계로 그 커밋을 띄운다. **끝나면 반드시 A(main revert)도** — 안 그러면 다음 배포의 `git reset --hard origin/main` 이 나쁜 코드를 다시 당겨온다.
 
-> 롤백 스크립트도 점검 화면을 자동으로 켜고, 복구된 앱의 health 200 확인 뒤 해제한다. 중간 실패 시 화면을 유지한다.
+> 롤백 스크립트도 점검 화면을 자동으로 켜고, 복구된 앱의 health 200을 확인한 뒤에도 유지한다. 운영자가 결과를 확인하고 별도로 승인한 경우에만 `bash deploy/maintenance.sh off`를 실행한다.
 > ⚠️ **마이그레이션 포함 배포**면 코드 롤백만으론 부족(마이그는 전진 전용). 롤백한 코드가 새 스키마와 안 맞으면 → **백업 복원**(§4) 또는 교정 마이그. 스키마-코드 정합을 먼저 확인.
+
+### 파괴적 마이그레이션 규칙
+
+- `0164_ambiguous_barracuda` 이후 새 마이그레이션의 `DROP TABLE`, `DROP COLUMN`,
+  `TRUNCATE`는 CI가 기본 차단한다.
+- expand-contract 전환과 데이터 이관이 끝나 실제 삭제가 필요하면 SQL 첫 부분에
+  `-- ops: allow-destructive reason=<12자 이상 구체적 사유>`를 남긴다. 이 표시는 자동
+  면제가 아니라 리뷰어가 파괴 작업을 식별하는 승인 표식이다.
+- 해당 배포 전에는 최신 자동백업의 성공·S3 복제 여부를 확인하고, 필요하면
+  `bash deploy/run-backup.sh`로 새 백업을 만든다. 복구 방법과 롤백 코드의 새 스키마
+  호환성까지 확인한 뒤 배포한다.
+- 로컬과 CI에서 `npm run check-migrations`로 journal 순서, SQL 파일 대응, 파괴 SQL
+  승인 사유를 한 번에 검사한다.
 
 ---
 
@@ -129,6 +142,31 @@ psql "$DBURL" < ~/backups/<백업>.sql                     # 평문 수동백업
 ### 복구 테스트 (정기 권장 — 백업은 복원돼야 백업)
 prod 무접촉으로 임시 DB 에 복원해 검증한다. 2026-07-23 최신 자동백업 실증 결과:
 public 테이블 65개·마이그레이션 122개·사용자/세이브 조회 정상, 임시 DB 정리 완료.
+
+수동 검증은 다음 한 줄로 실행한다. 최신 `auto_*.sql(.gz)`를 임시 DB에 복원하고
+public 테이블, `users`, Drizzle 마이그레이션 테이블을 검사한 뒤 성공·실패와 무관하게
+임시 DB를 제거한다.
+
+```bash
+cd ~/adventure-rpg
+bash deploy/verify-backup-restore.sh
+```
+
+주 1회 자동 실행용 `adventure-backup-restore-test.service/.timer`도 저장소에 있지만
+**배포만으로 설치·활성화되지 않는다.** RDS 부하·DB 생성 권한·실행 시간을 확인하고 운영
+승인을 받은 뒤에만 다음처럼 설치한다.
+
+```bash
+sudo cp deploy/adventure-backup-restore-test.service /etc/systemd/system/
+sudo cp deploy/adventure-backup-restore-test.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now adventure-backup-restore-test.timer
+systemctl list-timers adventure-backup-restore-test.timer
+```
+
+실패는 `~/backups/restore-test.log`와 운영 webhook에 남는다. 원리를 직접 확인해야 할 때의
+수동 절차는 다음과 같다.
+
 ```bash
 BK=$(ls -t ~/backups/*.sql* | head -1)
 RESTORE_DB="restore_verify_$(date -u +%Y%m%d_%H%M%S)_$$"
@@ -212,6 +250,11 @@ bash deploy/maintenance.sh status   # 현재 상태
   가용 메모리(15% 이하), 루트 디스크(85% 이상)와 RDS `FreeableMemory`(기본 192 MiB
   미만)를 확인한다. 상태 변화 시 즉시, 같은 경보가 계속되면 30분마다 webhook으로
   알린다. RDS 지표 조회에는 EC2 역할의 `cloudwatch:GetMetricStatistics` 권한이 필요하다.
+  CloudWatch 조회 실패·데이터 누락도 별도 감시 장애로 알리고, 조회가 복구되면 정상화
+  알림을 보낸다.
+- 같은 systemd 감시는 `deploy/ops-heartbeats.json`에 정의된 중요 cron과 DB 백업의
+  마지막 성공 시각도 검사한다. 성공한 작업만 `/var/lib/adventure-resource-monitor/heartbeats`
+  아래에 기록하므로 `crond` 자체가 멈춘 경우에도 독립된 systemd 경로에서 감지한다.
 
 ### 기능별 런타임 프로파일러
 
@@ -289,7 +332,92 @@ journalctl --disk-usage
 - **일요일 15:0x UTC**: 탑 주간 초기화 · PvP 시즌 전환 · PvP/낚시 시즌 보상
 - TLS: `certbot-renew.timer`(systemd, 하루 2회)
 
-각 작업은 `deploy/run-cron.sh`를 통해 실행되며, HTTP 오류·타임아웃 시 `OPS_ALERT_WEBHOOK_URL`로 즉시 알린다. 점검: `ssh … 'crontab -l'`, 로그 `journalctl`.
+각 작업은 `deploy/run-cron.sh`를 통해 실행되며, HTTP 오류·타임아웃 시
+`OPS_ALERT_WEBHOOK_URL`로 즉시 알린다. 성공 시 작업별 heartbeat를 갱신하며 실패 시에는
+갱신하지 않는다. 점검: `ssh … 'crontab -l'`, 로그 `journalctl`, heartbeat 상태는
+`sudo systemctl start adventure-resource-monitor.service` 실행 결과로 확인한다.
+
+## 6b. 운영 인프라 코드
+
+`infra/operations/template.yaml`은 기존 EC2·RDS를 변경하지 않고 SNS 알림 토픽과 EC2
+상태/CPU, RDS CPU/가용 메모리/가용 저장 공간 CloudWatch 경보를 만든다. 선택적으로
+CloudWatch Synthetics가 `https://msmsge.com/api/health`를 5분마다 AWS에서 호출해 HTTP 200과
+`ok=true`, `db=ok`를 함께 검증한다. 이 검사는 GitHub Actions 업타임 검사와 실행 주체가
+달라 한쪽 장애를 다른 쪽이 보완한다.
+
+외부 canary는 S3 결과 저장, Lambda 실행과 Synthetics 실행 비용이 생기므로
+`EnableExternalHealthCanary` 기본값은 `false`다. 활성화하면 결과 버킷은 공개 접근을 모두
+차단하고 서버 측 암호화를 사용하며, 산출물은 14일 뒤 만료된다. 버킷은 스택 삭제 시에도
+증거 보존을 위해 남으므로 최종 폐기는 별도 확인 후 수행한다. 실제 리소스 ID, 알림 이메일과
+비용 승인이 필요하므로 자동 배포하지 않는다. 적용 전에는 다음으로 검증한다.
+
+```bash
+uvx cfn-lint infra/operations/template.yaml
+```
+
+적용할 때는 변경 세트로 생성 리소스를 먼저 확인하고 이메일 구독 확인까지 마친다. 사건 등급,
+역할, 복구 완료 조건은 [장애 대응 절차](./incident-response.md), 목표 수치는
+[서비스 목표](./service-level-objectives.md), 변경 전후 확인은
+[운영 변경 체크리스트](./templates/operations-change-checklist.md)를 따른다.
+
+2026-08-13에는 `adventure-rpg-production-operations` 스택을 외부 canary 없이 적용했다.
+EC2 상태/CPU와 RDS CPU/가용 메모리/가용 저장 공간 경보 5개가 SNS
+`adventure-rpg-production-operations` 토픽으로 장애와 복구를 알린다. 이메일 endpoint는
+AWS 구독 확인 링크를 승인한 뒤 `PendingConfirmation`이 아닌 구독 ARN으로 표시되는지
+확인하고 테스트 메시지 수신까지 검증한다. `sea9401@gmail.com` 구독은 2026-08-13에
+활성 ARN 전환과 테스트 메시지 수신을 확인했다.
+
+스택 생성 직후 RDS 가용 메모리와 저장 공간 경보가 실제로 발생했다. 같은 날 확인한
+`FreeableMemory`는 약 86–160 MB, `FreeStorageSpace`는 약 6 GB였고, 후자는 7일 전 약
+18 GB에서 감소한 값이다. 원인은 약 10.9 GB의 `battle_replays` 물리 파일이었다. 운영 SHA
+`c3ca0ac9`의 매분 보존 정리는 만료 행을 수십 건 수준으로 유지하고 autovacuum도 동작한다.
+다만 일반 vacuum은 삭제 공간을 테이블 내부에서 재사용할 뿐 RDS 볼륨에 즉시 반환하지
+않으므로 경보를 임의로 끄지 말고 추세를 관찰한다. 다시 감소하면 테이블 증가 원인을 먼저
+확인하고, 스토리지 증설이나 테이블 재작성은 비용·잠금·추가 여유 공간을 검토해 별도 승인한다.
+
+2026-08-13 확인 기준 운영 EC2 `i-093253c4b87d0164a`의
+`MsmsgeProdDbBackupEc2Role`은 `rds:DescribeDBInstances`와
+`cloudformation:DescribeStacks`도 허용하지 않는 런타임 최소 권한 역할이다. 이 역할에 관리
+권한을 덧붙여 스택이나 RDS를 변경하지 않는다. 별도 AWS 관리자/배포 역할로 현재 RDS 설정과
+기존 스택을 읽고 변경 세트를 검토한 뒤 적용한다.
+
+2026-08-13 AWS 관리형 `AmazonSSMManagedInstanceCore`를 기존 EC2 역할에 연결하고
+에이전트를 재시작했다. 인스턴스 `i-093253c4b87d0164a`는 Systems Manager managed node
+`Online`으로 확인됐고 읽기 전용 Run Command도 성공했다. 이후에도 프로세스 `active`만 보지
+말고 Fleet Manager/`describe-instance-information`의 `Online` 상태와 실제 명령 결과까지
+확인한다. 재점검과 복구에는 다음 도구를 사용한다.
+
+```bash
+bash infra/operations/enable-ssm-managed-instance.sh check
+bash infra/operations/enable-ssm-managed-instance.sh apply
+```
+
+도구는 AWS 관리형 `AmazonSSMManagedInstanceCore`를 기존 EC2 역할에 붙이는 작업만 하며,
+RDS·CloudFormation 관리 권한은 추가하지 않는다. SSM 전환 전까지 현재 SSH 배포와 로컬
+break-glass 키를 제거하지 않는다.
+
+GitHub Actions용 `MsmsgeGitHubProductionSsmRole`은 OIDC subject를
+`repo:sea9401/test-adventure:environment:msmsge.com`으로 제한하고 운영 인스턴스에 대한
+SSM 명령 전송/상태 조회만 허용한다. 환경 변수 `AWS_PRODUCTION_ROLE_ARN`에 역할 ARN을
+등록했다. workflow 전환, 아티팩트 전달, 롤백 검증과 두 차례 성공 배포 전에는 기존 SSH
+시크릿을 제거하지 않는다.
+
+같은 날 GitHub `msmsge.com` 환경은 custom deployment branch policy를 켜고 `main` 브랜치
+하나만 허용하도록 적용했다. 저장소의 `main-ci-gate` ruleset과 배포 workflow의 정확한 SHA
+검증을 함께 유지한다.
+
+RDS 보호 상태는 관리자 자격으로 다음 도구를 먼저 `check`한다. 출력에는 자격증명이나
+endpoint를 포함하지 않고 Multi-AZ, 삭제 보호, 백업 보존, 암호화, 공개 접근, 성능/향상된
+모니터링, 스토리지 자동 확장, 유지보수 창과 pending modification만 표시한다.
+
+```bash
+bash infra/operations/harden-rds.sh check
+bash infra/operations/harden-rds.sh apply-safe
+```
+
+`apply-safe`는 DB가 `available`이고 pending modification이 비어 있을 때만 삭제 보호와 최소
+7일 자동 백업 보존을 `--no-apply-immediately`로 제출한다. Multi-AZ, 인스턴스 클래스,
+스토리지와 성능 모니터링은 바꾸지 않는다. Multi-AZ는 별도 비용 검토와 일정 승인을 거친다.
 
 ---
 
@@ -300,7 +428,7 @@ journalctl --disk-usage
 | 실행 중 복호화 캐시 | EC2 `/run/adventure-rpg/production.env` · 디렉터리 `700`, 파일 `600`, 재부팅 시 소멸 |
 | `BACKUP_S3_URI` | 위 SSM 파라미터 · 값은 S3 `adventure-rpg/` prefix |
 | SSM 읽기·S3 백업 권한 | EC2 IAM 역할 `MsmsgeProdDbBackupEc2Role` · 장기 액세스 키 없음 · 특정 리소스만 허용 |
-| 배포 SSH | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` |
+| 배포 SSH | GitHub 저장소 시크릿 `EC2_HOST` · `EC2_SSH_KEY` (OIDC/SSM 전환 완료 전까지 유지) |
 | SSH 키 .pem | 로컬 `~/.ssh/msmsge-key.pem` |
 | 빌드타임 플래그 | tracked `.env.production` (예: `NEXT_PUBLIC_*` 운영 플래그) |
 

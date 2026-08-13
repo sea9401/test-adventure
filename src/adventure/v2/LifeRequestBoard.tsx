@@ -679,9 +679,7 @@ export function LifeRequestCard({
   const ready = request.unlocked && request.requesterUnlocked && !request.chainLocked && !request.completed && !periodLimitReached && enough;
   const buttonText = busy
     ? "납품 중..."
-    : request.completed
-      ? "납품 완료"
-      : !request.unlocked
+    : !request.unlocked
         ? `누적 ${LIFE_REQUEST_GRADES[request.grade].unlockDeliveries}건에 해금`
         : !request.requesterUnlocked
           ? `신뢰 ${request.requiredRequesterTrust ?? 15}에 해금`
@@ -695,11 +693,15 @@ export function LifeRequestCard({
                 ? "즉시 납품"
                 : `부족 ${request.shortage.toLocaleString()}개`;
   return (
-    <article className={`${SURFACE_INSET} min-w-0 flex flex-col p-4 ${ready ? "ring-2 ring-emerald-400 dark:ring-emerald-600" : ""}`}>
+    <article className={`${SURFACE_INSET} min-w-0 flex flex-col p-4 ${ready || request.completed ? "ring-2 ring-emerald-400 dark:ring-emerald-600" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-            {request.completed ? <SealCheck size={14} weight="fill" /> : null}
+            {request.completed ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[10px] dark:border-emerald-700 dark:bg-zinc-950">
+                <SealCheck size={13} weight="fill" />납품 완료
+              </span>
+            ) : null}
             {categoryLabel ? <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-300">{categoryLabel}</span> : null}
             {LANE_LABEL[request.lane]}
             {request.chainStage ? <span>· {request.chainStage}/{request.chainTotal}단계</span> : null}
@@ -717,35 +719,47 @@ export function LifeRequestCard({
           ‘{closedByWeeklyRequestTitle}’ 의뢰를 선택하여 이번 주에는 납품할 수 없습니다.
         </div>
       ) : null}
-      <div className="mt-4 border-y border-zinc-200 py-3 dark:border-zinc-700">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <div className="min-w-0">
-            <div className="text-xs text-zinc-500">납품 품목</div>
-            <div className="mt-0.5 truncate font-bold">{request.itemName} × {request.quantity.toLocaleString()}</div>
+      {request.completed ? (
+        <div className="mt-4 flex items-center gap-3 border-y border-emerald-300 py-4 text-emerald-800 dark:border-emerald-800 dark:text-emerald-200" role="status">
+          <SealCheck className="shrink-0" size={28} weight="fill" />
+          <div>
+            <div className="text-sm font-extrabold">납품 완료</div>
+            <div className="mt-0.5 text-xs font-semibold">납품과 보상 수령을 완료했습니다.</div>
           </div>
-          <div className="shrink-0 text-right">
-            <div className="text-xs text-zinc-500">현재 보유</div>
-            <div className={`mt-0.5 font-extrabold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
-              {request.balance.toLocaleString()} / {request.quantity.toLocaleString()}
+        </div>
+      ) : (
+        <div className="mt-4 border-y border-zinc-200 py-3 dark:border-zinc-700">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <div className="min-w-0">
+              <div className="text-xs text-zinc-500">납품 품목</div>
+              <div className="mt-0.5 truncate font-bold">{request.itemName} × {request.quantity.toLocaleString()}</div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-xs text-zinc-500">현재 보유</div>
+              <div className={`mt-0.5 font-extrabold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
+                {request.balance.toLocaleString()} / {request.quantity.toLocaleString()}
+              </div>
             </div>
           </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar" aria-label={`${request.itemName} 납품 준비`} aria-valuemin={0} aria-valuemax={request.quantity} aria-valuenow={gathered}>
+            <div className={`h-full rounded-full ${enough ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${gatheredPct}%` }} />
+          </div>
+          <div className={`mt-1.5 text-right text-xs font-semibold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
+            {enough ? "납품 준비 완료" : `${request.shortage.toLocaleString()}개 더 필요`}
+          </div>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar" aria-label={`${request.itemName} 납품 준비`} aria-valuemin={0} aria-valuemax={request.quantity} aria-valuenow={gathered}>
-          <div className={`h-full rounded-full ${enough ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${gatheredPct}%` }} />
-        </div>
-        <div className={`mt-1.5 text-right text-xs font-semibold ${enough ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
-          {enough ? "납품 준비 완료" : `${request.shortage.toLocaleString()}개 더 필요`}
-        </div>
-      </div>
+      )}
       <div className="mt-3 text-xs font-semibold leading-5 text-amber-700 dark:text-amber-300">
         보상 · {request.rewardGold.toLocaleString()}골드 · {ACTIVITY_LABEL[request.activity]} XP +{request.rewardXp} · 신뢰 +{request.trustGain}
       </div>
-      <div className="life-workshop-touch-stack mt-4 grid grid-cols-2 gap-2">
-        <SourceAction request={request} onOpenWorkshopTab={onOpenWorkshopTab} />
-        <Button size="sm" disabled={busy || request.completed || !request.unlocked || !request.requesterUnlocked || request.chainLocked || periodLimitReached || !enough} onClick={onDeliver}>
-          {buttonText}
-        </Button>
-      </div>
+      {!request.completed ? (
+        <div className="life-workshop-touch-stack mt-4 grid grid-cols-2 gap-2">
+          <SourceAction request={request} onOpenWorkshopTab={onOpenWorkshopTab} />
+          <Button size="sm" disabled={busy || !request.unlocked || !request.requesterUnlocked || request.chainLocked || periodLimitReached || !enough} onClick={onDeliver}>
+            {buttonText}
+          </Button>
+        </div>
+      ) : null}
     </article>
   );
 }

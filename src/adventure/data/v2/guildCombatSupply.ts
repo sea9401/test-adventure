@@ -1,3 +1,5 @@
+import { applyStochasticPercentBonus } from "@/lib/percentBonus";
+
 export const GUILD_COMBAT_SUPPLY_MAX_LEVEL = 10;
 
 export const GUILD_COMBAT_SUPPLY_LEVEL_COSTS = [
@@ -140,11 +142,9 @@ export function guildCombatSupplyBonuses(levels: GuildCombatSupplyLevels): {
 export function applyGuildCombatRewardBonus(
   amount: number,
   bonusPct: number,
+  rng: () => number = Math.random,
 ): number {
-  const safeAmount = Math.max(0, Math.floor(amount));
-  const safePct = Math.max(0, Math.floor(bonusPct));
-  if (safeAmount <= 0 || safePct <= 0) return safeAmount;
-  return Math.floor((safeAmount * (100 + safePct)) / 100);
+  return applyStochasticPercentBonus(amount, bonusPct, rng);
 }
 
 export function rollGuildCombatProficiencyBonus(

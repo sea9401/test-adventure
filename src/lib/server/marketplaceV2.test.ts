@@ -4,6 +4,12 @@ import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
 import { cookingFoodId } from "@/adventure/v2/cooking";
 import {
+  DANGEROUS_BOSSES,
+  DANGEROUS_FISH,
+  dangerousBossMaterialId,
+  dangerousCatchMaterialId,
+} from "@/adventure/data/v2/dangerousFishing";
+import {
   MARKETPLACE_V2_BID_GRACE_MAX_HOURS,
   MARKETPLACE_V2_BID_GRACE_MIN_HOURS,
   MARKETPLACE_V2_BUY_ORDER_ESCROW_MAX,
@@ -196,6 +202,18 @@ describe("물고기 표본 거래 분류", () => {
   });
 });
 
+describe("위험 해역 귀환 어획물 거래 분류", () => {
+  it("확정된 철턱 참치는 표시명 있는 수량형 재료로 거래한다", () => {
+    expect(isTradableMaterial("danger_catch_ironjaw_tuna")).toBe(true);
+    expect(isStackableMarketplaceItem("material", "danger_catch_ironjaw_tuna")).toBe(
+      true,
+    );
+    expect(itemDisplayName("material", "danger_catch_ironjaw_tuna")).toBe(
+      "철턱 참치",
+    );
+  });
+});
+
 describe("isMarketKind", () => {
   it("v2 거래소 종류만 통과", () => {
     expect(isMarketKind("equip")).toBe(true);
@@ -260,7 +278,7 @@ describe("tradable 판정 + 이름 스냅샷", () => {
   });
 
   it("채광·생활 가공 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(69);
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(80);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",
@@ -277,6 +295,16 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     const matId = Object.keys(V2_MATERIALS)[0];
     expect(itemDisplayName("material", matId)).toBe(V2_MATERIALS[matId].name);
     expect(itemDisplayName("material", "nope")).toBeNull();
+    for (const fish of Object.values(DANGEROUS_FISH)) {
+      expect(itemDisplayName("material", dangerousCatchMaterialId(fish.id))).toBe(
+        fish.name,
+      );
+    }
+    for (const boss of Object.values(DANGEROUS_BOSSES)) {
+      expect(itemDisplayName("material", dangerousBossMaterialId(boss.id))).toBe(
+        `${boss.name}의 증표`,
+      );
+    }
     expect(itemDisplayName("consumable", "rename_permit")).toBe(
       MUSEUN_CASH_ITEMS.rename_permit.name,
     );

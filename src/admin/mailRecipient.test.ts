@@ -11,6 +11,7 @@ function user(
     id,
     gameName,
     email,
+    isSuperAdmin: false,
     className: null,
     lastSeenAt: null,
     createdAt: "2026-08-03T00:00:00.000Z",

@@ -325,15 +325,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("기존 카탈로그에 폭풍 원정 전용 6T 42종을 더한다", () => {
-    // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 189:
+  it("기존 카탈로그에 폭풍 원정 전용 6T 42종과 시그니처 유니크 18종을 더한다", () => {
+    // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제):
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 180(기존 138 + 폭풍 원정 6T 42종,
-    //     강등된 옛 필드 유니크 포함) · 유니크 48
+    //   전문화 스타터 3 · noDrop 198(기존 180 + 6T 시그니처 유니크 18종) · 유니크 66
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 304 = 정규 29 + 유니크 48 + 제작전용 67 + 전문화 스타터 3 + noDrop 157.
+    //     총 322 = 기존 304 + 6T 시그니처 유니크 18.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -341,13 +340,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(66);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(67);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(180);
+    ).toHaveLength(198);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -1274,6 +1273,58 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
 });
 
 describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
+  it("6티어 시그니처 유니크 18종은 세트에 속하지 않고 기준 장비 능력치를 복사한다", () => {
+    const pairs = [
+      ["v2_sky_sig_collapse_armor", "v2_storm_wreckage_armor", "gravity_reprisal"],
+      ["v2_sky_sig_antigravity_ring", "v2_storm_wreckage_ring", "gravity_feedback"],
+      ["v2_sky_sig_bloodline_greatsword", "v2_storm_breaker_greatsword", "bleed_burst"],
+      ["v2_sky_sig_scar_counter_gloves", "v2_storm_breaker_gloves", "bleed_aftermath"],
+      ["v2_sky_sig_horizon_bow", "v2_storm_gale_bow", "pursuit_mark"],
+      ["v2_sky_sig_windless_boots", "v2_storm_shadow_boots", "shadow_echo"],
+      ["v2_sky_sig_venom_dagger", "v2_storm_venom_dagger", "venom_burst"],
+      ["v2_sky_sig_corrosion_ring", "v2_storm_venom_ring", "venom_balance"],
+      ["v2_sky_sig_overload_staff", "v2_storm_thunder_staff", "arcane_overload"],
+      ["v2_sky_sig_reverse_gloves", "v2_storm_thunder_gloves", "arcane_feedback"],
+      ["v2_sky_sig_dawn_chalice", "v2_storm_sanctuary_necklace", "sanctuary_reserve"],
+      ["v2_sky_sig_unity_cloak", "v2_storm_sanctuary_armor", "mechanic_unity"],
+      ["v2_storm_sig_wreckage_power_armor", "v2_storm_wreckage_armor", "shield_conversion"],
+      ["v2_storm_sig_gale_orbit_boots", "v2_storm_gale_boots", "gale_circuit"],
+      ["v2_storm_sig_thunder_return_ring", "v2_storm_thunder_ring", "status_mana_return"],
+      ["v2_storm_sig_triphase_gloves", "v2_storm_shadow_gloves", "triphase_link"],
+      ["v2_storm_sig_confluence_necklace", "v2_storm_sanctuary_necklace", "storm_confluence"],
+      ["v2_storm_sig_heart_necklace", "v2_storm_sanctuary_necklace", "dominant_heart"],
+    ] as const;
+
+    expect(pairs).toHaveLength(18);
+    for (const [id, baseId, mechanic] of pairs) {
+      const item = V2_EQUIPMENT[id];
+      const base = V2_EQUIPMENT[baseId];
+      expect(item).toMatchObject({
+        tier: 16,
+        rarity: "unique",
+        noDrop: true,
+        slot: base.slot,
+        concept: base.concept,
+        power: base.power,
+        weight: base.weight,
+        options: base.options,
+        signature: { trigger: "tier6_unique", mechanic },
+      });
+      expect(item.weaponType).toBe(base.weaponType);
+      expect(item.setId).toBeUndefined();
+      expect(item.setTags).toBeUndefined();
+    }
+  });
+
+  it("6티어 시그니처 유니크 효과는 모두 고유한 한국어 설명을 가진다", () => {
+    const descriptions = Object.values(V2_EQUIPMENT)
+      .filter((item) => item.signature?.trigger === "tier6_unique")
+      .map((item) => signatureLabel(item.signature!));
+    expect(descriptions).toHaveLength(18);
+    expect(new Set(descriptions)).toHaveLength(18);
+    expect(descriptions.every((description) => description.length >= 10)).toBe(true);
+  });
+
   it("트리거별 한국어 한 줄 — 15 효과", () => {
     expect(
       signatureLabel({

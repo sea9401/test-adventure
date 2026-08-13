@@ -60,6 +60,11 @@ import {
   applyEvasionDamageReduction,
   evasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  applyTier6UniquePveEvent,
+  tier6DotContext,
+  tier6StatusKindCount,
+} from "./tier6UniquePveAdapter";
 
 type AttackDamageResult = {
   assassinFires: boolean;
@@ -411,6 +416,14 @@ export function resolvePlayerPhase(
   // (확률 기반 추가 공격 / 기습 보너스로 attackCount 비교가 신뢰할 수 없음).
   const turnNumber = state.turn.completedPlayerTurns + 1;
   const isFirstAttackOfTurn = state.turn.firstAttackPending;
+  if (isFirstAttackOfTurn && state.stacks.tier6Uniques) {
+    state = applyTier6UniquePveEvent(state, player, {
+      kind: "action_start",
+      shield: state.stacks.playerShield,
+      maxHp: state.playerMaxHp,
+      origin: { actionId: turnNumber, eventId: state.log.length },
+    });
+  }
   if (isFirstAttackOfTurn && state.playerAttacksLeft > 1) {
     state = {
       ...state,
@@ -948,13 +961,36 @@ export function resolvePlayerPhase(
         : state.turn.queuedExtraAttacks,
     },
   }, player, { bleedStacks: apBleedAdd + (sigHitBleed?.stacks ?? 0) }));
+  if (sigDealtDamage && afterDamage.stacks.tier6Uniques) {
+    const dots = tier6DotContext(state);
+    afterDamage = applyTier6UniquePveEvent(afterDamage, player, {
+      kind: "direct_hit",
+      damage: totalDmg,
+      crit: critRoll,
+      attackKind: "basic",
+      paidMp: 0,
+      statusKinds: tier6StatusKindCount(state),
+      bleedStacks: dots.bleed.stacks,
+      bleedRemainingDamage: dots.bleed.remainingDamage,
+      poisonStacks: dots.poison.stacks,
+      poisonRemainingDamage: dots.poison.remainingDamage,
+      magicAtk: Math.floor(
+        (player.magicAtk ?? player.atk) *
+          ((nextBuffsTimed.tier6UnityTurnsLeft ?? 0) > 0
+            ? 1 + (nextBuffsTimed.tier6UnityHealPct ?? 0) / 100
+            : 1),
+      ),
+      maxHp: state.playerMaxHp,
+      origin: { actionId: turnNumber, eventId: state.log.length + 1 },
+    });
+  }
   if (afterDamage.berserker) {
     afterDamage = {
       ...afterDamage,
       berserker: finishBerserkerPlayerAttack(afterDamage.berserker),
     };
   }
-  if (enemyHp <= 0) {
+  if (afterDamage.enemyHp <= 0) {
     return {
       ...afterDamage,
       log: appendLog(afterDamage.log, {

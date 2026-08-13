@@ -35,6 +35,7 @@ function runWrapper(
   const backupLog = join(root, "backup.log");
   const curlPayload = join(root, "curl-payload.json");
   const curlCalled = join(root, "curl-called");
+  const heartbeatDirectory = join(root, "heartbeats");
   mkdirSync(binDir);
   executable(backupScript, backupBody);
 
@@ -70,11 +71,13 @@ exit 91
         OPS_ALERT_WEBHOOK_URL: options.webhookUrl ?? "",
         CURL_PAYLOAD: curlPayload,
         CURL_CALLED: curlCalled,
+        OPS_HEARTBEAT_DIR: heartbeatDirectory,
+        OPS_HEARTBEAT_NOW_MS: "1786590000000",
       },
     },
   );
 
-  return { result, backupLog, curlPayload, curlCalled };
+  return { result, backupLog, curlPayload, curlCalled, heartbeatDirectory };
 }
 
 afterEach(() => {
@@ -86,7 +89,7 @@ afterEach(() => {
 describe("database backup runner", () => {
   it("성공한 백업은 로그만 남기고 운영 웹훅을 호출하지 않는다", () => {
     const root = temporaryDirectory();
-    const { result, backupLog, curlCalled } = runWrapper(
+    const { result, backupLog, curlCalled, heartbeatDirectory } = runWrapper(
       root,
       'echo "backup completed"\nexit 0\n',
       { webhookUrl: "https://ops.example.invalid/hook", withFakeCurl: true },
@@ -95,11 +98,16 @@ describe("database backup runner", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(readFileSync(backupLog, "utf8")).toContain("backup completed");
     expect(existsSync(curlCalled)).toBe(false);
+    expect(
+      JSON.parse(
+        readFileSync(join(heartbeatDirectory, "backup_database.json"), "utf8"),
+      ),
+    ).toEqual({ key: "backup:database", succeededAtMs: 1_786_590_000_000 });
   });
 
   it("실패한 백업은 원래 종료 코드를 보존하고 운영 알림을 한 번 보낸다", () => {
     const root = temporaryDirectory();
-    const { result, backupLog, curlPayload, curlCalled } = runWrapper(
+    const { result, backupLog, curlPayload, curlCalled, heartbeatDirectory } = runWrapper(
       root,
       'echo "pg_dump failed" >&2\nexit 23\n',
       { webhookUrl: "https://ops.example.invalid/hook", withFakeCurl: true },
@@ -111,6 +119,7 @@ describe("database backup runner", () => {
     const payload = JSON.parse(readFileSync(curlPayload, "utf8"));
     expect(payload.content).toContain("데이터베이스 백업 실패");
     expect(payload.detail).toEqual({ source: "db-backup", exitStatus: 23 });
+    expect(existsSync(join(heartbeatDirectory, "backup_database.json"))).toBe(false);
   });
 
   it("웹훅이 없어도 백업 실패를 로그에 남기고 원래 종료 코드를 반환한다", () => {

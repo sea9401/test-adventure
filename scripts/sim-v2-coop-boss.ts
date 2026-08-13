@@ -1,4 +1,4 @@
-// 새 방어 체계 기준 협동 보스 20턴 밸런스 점검기.
+// 새 방어 체계 기준 협동 보스 3,000 ATB 틱 밸런스 점검기.
 // 실행:
 //   npm run sim:coop-boss
 //   npm run sim:coop-boss -- --trials=50 --json

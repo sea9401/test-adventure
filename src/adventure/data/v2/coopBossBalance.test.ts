@@ -10,7 +10,7 @@ import { summarizeLiveCoopAudits } from "../../../../scripts/sim-live-top-combat
 // 이 파일은 이후 전투 공식 변경과 독립적인 시뮬레이터 결정성·익명 집계 계약만 검증한다.
 
 describe("협동 보스 결정적 밸런스 시뮬레이션", () => {
-  it("협동 보스 보고서는 6종과 7계보를 실제 20턴 전투로 집계한다", () => {
+  it("협동 보스 보고서는 6종과 7계보를 3,000틱 전투로 집계한다", () => {
     const report = buildCoopBossBalanceReport({ trials: 2, seed: 20260809 });
 
     expect(report).toHaveLength(6);

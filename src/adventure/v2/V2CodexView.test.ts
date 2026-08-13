@@ -4,6 +4,7 @@ import {
   codexTabFromParam,
   codexThemeDeepDepth,
   fishCodexCardState,
+  SKY_RIFT_CODEX_DROP_SUMMARY,
   shouldShowCodexTutorial,
   spFruitCodexSource,
 } from "./V2CodexView";
@@ -40,7 +41,7 @@ describe("모험의 서 URL 탭", () => {
 });
 
 describe("모험의 서 사냥터 표시", () => {
-  it("각 사냥터는 세 단계 중 심부를 대표 깊이로 사용한다", () => {
+  it("각 사냥터는 세 단계 중 최심부를 대표 깊이로 사용한다", () => {
     expect(codexThemeDeepDepth(1)).toBe(6);
     expect(codexThemeDeepDepth(7)).toBe(12);
     expect(codexThemeDeepDepth(67)).toBe(72);
@@ -81,6 +82,11 @@ describe("모험의 서 사냥터 표시", () => {
 
     expect(classified.common).toEqual([]);
     expect(classified.set).toEqual(ids);
+  });
+
+  it("천공 균열 장비는 난이도별 별도 풀이 아니라 전역 방어구 풀이라고 안내한다", () => {
+    expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("모든 난이도 동일 방어구 풀");
+    expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("깊이별 총 0.05~0.10%");
   });
 });
 

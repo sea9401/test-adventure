@@ -21,6 +21,8 @@ export type ArenaTournamentParticipant = {
   userId: string;
   name: string;
   avatar?: Avatar;
+  /** 공개 응답에서 시즌별 불명예 처리로 신원을 가린 참가자. DB 원본 참가자에는 생략한다. */
+  dishonored?: boolean;
   level: number;
   qualifyingRank: number;
   rating: number;
@@ -77,6 +79,8 @@ export type ArenaTournamentBracket = {
   snapshotsFrozenAt?: string;
   startsAt: string;
   status: ArenaTournamentStatus;
+  /** 경기 결과는 유지하되 공개 화면에서 신원을 영구히 가릴 시즌별 참가자 목록. */
+  dishonoredUserIds?: string[];
   participants: ArenaTournamentParticipant[];
   matches: ArenaTournamentMatch[];
   championUserId: string | null;
@@ -413,6 +417,9 @@ export function arenaTournamentBracketOverview(
 ): ArenaTournamentBracket {
   return {
     ...bracket,
+    participants: bracket.participants.map((participant) =>
+      arenaTournamentParticipantForPublic(bracket, participant),
+    ),
     matches: bracket.matches.map((match) => ({
       ...match,
       games: match.games.map(({ replay, ...game }) => ({
@@ -420,6 +427,62 @@ export function arenaTournamentBracketOverview(
         hasReplay: Boolean(replay) || game.hasReplay === true,
       })),
     })),
+  };
+}
+
+export const ARENA_TOURNAMENT_DISHONORED_NAME = "불명예 처리된 참가자";
+
+export function isArenaTournamentParticipantDishonored(
+  bracket: ArenaTournamentBracket,
+  userId: string | null | undefined,
+): boolean {
+  return Boolean(
+    userId &&
+      Array.isArray(bracket.dishonoredUserIds) &&
+      bracket.dishonoredUserIds.includes(userId),
+  );
+}
+
+export function arenaTournamentParticipantForPublic(
+  bracket: ArenaTournamentBracket,
+  participant: ArenaTournamentParticipant,
+): ArenaTournamentParticipant {
+  if (!isArenaTournamentParticipantDishonored(bracket, participant.userId)) {
+    return participant;
+  }
+  const { avatar: _avatar, ...publicParticipant } = participant;
+  return {
+    ...publicParticipant,
+    name: ARENA_TOURNAMENT_DISHONORED_NAME,
+    dishonored: true,
+  };
+}
+
+function replaceAllLiteral(value: string, search: string, replacement: string): string {
+  return search ? value.split(search).join(replacement) : value;
+}
+
+export function arenaTournamentReplayForPublic(
+  bracket: ArenaTournamentBracket,
+  replay: ReplayPayload,
+): ReplayPayload {
+  const hiddenNames = bracket.participants
+    .filter((participant) =>
+      isArenaTournamentParticipantDishonored(bracket, participant.userId),
+    )
+    .map((participant) => participant.name)
+    .filter(Boolean);
+  if (hiddenNames.length === 0) return replay;
+  const redact = (value: string) =>
+    hiddenNames.reduce(
+      (next, name) =>
+        replaceAllLiteral(next, name, ARENA_TOURNAMENT_DISHONORED_NAME),
+      value,
+    );
+  return {
+    ...replay,
+    enemy: { ...replay.enemy, name: redact(replay.enemy.name) },
+    log: replay.log.map((entry) => ({ ...entry, text: redact(entry.text) })),
   };
 }
 

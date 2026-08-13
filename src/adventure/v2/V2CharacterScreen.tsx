@@ -25,6 +25,7 @@ import type {
 import type { LifeSummary } from "./lifeSummary";
 import { LifeMasterySummaryCard } from "./LifeMasterySummaryCard";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
+import type { BuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -62,6 +63,7 @@ type StateResponse = {
     healMult?: number;
     magicBarrierMax?: number;
     magicBarrierAbsorbPct?: number;
+    magicBarrierEfficiencyPct?: number;
     evasionPct?: number;
     evaRating?: number; // 회피도. StatsPanel에서 원본 수치로 표시한다.
     accuracyPct?: number;
@@ -73,6 +75,7 @@ type StateResponse = {
     // 콘텐츠 파워(합성 전투력) — 기본 정보 카드 헤드라인.
     power?: number;
   } | null;
+  buildAdvisory?: BuildAlignmentAdvisory | null;
   // 누적 전투 횟수(전적) — 기본 정보 카드.
   battleCount?: number;
   codex?: { discovered: number; total: number; discoveredIds: string[] };
@@ -259,6 +262,7 @@ export function V2CharacterScreen({
           points={state?.proficiency?.current?.points ?? 0}
           battleCount={state?.battleCount ?? 0}
           power={combat?.power ?? 0}
+          buildAdvisory={playerName ? null : state?.buildAdvisory}
         />
       )}
 

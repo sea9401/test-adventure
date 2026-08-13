@@ -9,7 +9,7 @@ import { FARM_ITEMS, type FarmItemInventory } from "./farm";
 import {
   COOKING_SURPLUS_BATCH_SIZE,
   cookingOrderReward,
-  cookingIngredientRequirement,
+  cookingIngredientRequirementAccumulated,
   cookingRecipeMatchesQuery,
   cookingStatText,
   deliverableCookingFoods,
@@ -79,6 +79,32 @@ async function fetchCookingData(): Promise<CookingResponse> {
   const json = await response.json() as CookingResponse & { error?: string };
   if (!response.ok || !json.ok) throw new Error(json.error ?? "load_failed");
   return json;
+}
+
+export function cookingLevelProgressView(input: {
+  xp: number;
+  currentLevelXp: number;
+  nextLevelXp: number | null;
+}): { percent: number; label: string } {
+  if (input.nextLevelXp == null) {
+    return { percent: 100, label: "최고 레벨" };
+  }
+  const xpIntoLevel = Math.max(
+    0,
+    Math.floor(input.xp - input.currentLevelXp),
+  );
+  const xpForNext = Math.max(
+    1,
+    Math.floor(input.nextLevelXp - input.currentLevelXp),
+  );
+  const percent =
+    Math.round(
+      Math.max(0, Math.min(100, (xpIntoLevel / xpForNext) * 100)) * 10,
+    ) / 10;
+  return {
+    percent,
+    label: `${xpIntoLevel.toLocaleString("ko-KR")} / ${xpForNext.toLocaleString("ko-KR")} XP`,
+  };
 }
 
 export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) {
@@ -219,9 +245,11 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
     return <div className={`${SURFACE_CARD} p-6 text-center text-sm text-zinc-500`}>주방을 불러오지 못했습니다.</div>;
   }
 
-  const levelProgress = data.nextLevelXp == null
-    ? 100
-    : Math.max(0, Math.min(100, ((data.cooking.xp - data.currentLevelXp) / (data.nextLevelXp - data.currentLevelXp)) * 100));
+  const levelProgress = cookingLevelProgressView({
+    xp: data.cooking.xp,
+    currentLevelXp: data.currentLevelXp,
+    nextLevelXp: data.nextLevelXp,
+  });
 
   return (
     <div className="space-y-4">
@@ -253,10 +281,10 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
           </div>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-          <div className="h-full bg-amber-500" style={{ width: `${levelProgress}%` }} />
+          <div className="h-full bg-amber-500" style={{ width: `${levelProgress.percent}%` }} />
         </div>
         <div className="mt-1 text-right text-[11px] text-zinc-500">
-          {data.nextLevelXp == null ? "최고 레벨" : `${data.cooking.xp} / ${data.nextLevelXp} XP`}
+          {levelProgress.label}
         </div>
       </section>
 
@@ -573,25 +601,33 @@ function maxCookable(recipe: CookingRecipe, data: CookingResponse, useRare: bool
     const hasFarmIngredients = Object.entries(recipe.farmIngredients).every(
       ([itemId, rawCount]) =>
         (data.farmItems[itemId as keyof FarmItemInventory] ?? 0) >=
-        cookingIngredientRequirement({
+        cookingIngredientRequirementAccumulated({
           countPerDish: rawCount ?? 0,
           quantity,
           cookingJobTier: data.cookingJobTier,
           materialReductionPct:
             data.cookingSkillBonuses.materialReductionPct,
-        }),
+          reductionRemainderBps:
+            data.cooking.ingredientReductionRemainderBps?.[
+              `farm:${itemId}`
+            ],
+        }).required,
     );
     const hasFishingIngredients = Object.entries(
       recipe.fishingIngredients ?? {},
     ).every(
       ([itemId, rawCount]) =>
         (data.fishingItems[itemId as FishingCatchItemId] ?? 0) >=
-        cookingIngredientRequirement({
+        cookingIngredientRequirementAccumulated({
           countPerDish: rawCount ?? 0,
           quantity,
           materialReductionPct:
             data.cookingSkillBonuses.materialReductionPct,
-        }),
+          reductionRemainderBps:
+            data.cooking.ingredientReductionRemainderBps?.[
+              `fishing:${itemId}`
+            ],
+        }).required,
     );
     const hasRareIngredient =
       !useRare ||
@@ -607,21 +643,27 @@ function maxCookable(recipe: CookingRecipe, data: CookingResponse, useRare: bool
 function ingredientText(recipe: CookingRecipe, data: CookingResponse): string {
   const parts: string[] = [];
   for (const [itemId, rawCount] of Object.entries(recipe.farmIngredients)) {
-    const count = cookingIngredientRequirement({
+    const count = cookingIngredientRequirementAccumulated({
       countPerDish: rawCount ?? 0,
       quantity: 1,
       cookingJobTier: data.cookingJobTier,
       materialReductionPct: data.cookingSkillBonuses.materialReductionPct,
-    });
+      reductionRemainderBps:
+        data.cooking.ingredientReductionRemainderBps?.[`farm:${itemId}`],
+    }).required;
     parts.push(`${FARM_ITEMS[itemId as keyof typeof FARM_ITEMS]?.name ?? itemId} ${count} (${data.farmItems[itemId as keyof FarmItemInventory] ?? 0})`);
   }
   for (const [itemId, rawCount] of Object.entries(recipe.fishingIngredients ?? {})) {
     const fishId = itemId as FishingCatchItemId;
-    const count = cookingIngredientRequirement({
+    const count = cookingIngredientRequirementAccumulated({
       countPerDish: rawCount ?? 0,
       quantity: 1,
       materialReductionPct: data.cookingSkillBonuses.materialReductionPct,
-    });
+      reductionRemainderBps:
+        data.cooking.ingredientReductionRemainderBps?.[
+          `fishing:${itemId}`
+        ],
+    }).required;
     parts.push(`${FISHING_CATCH_ITEMS[fishId].name} ${count} (${data.fishingItems[fishId] ?? 0})`);
   }
   return `재료: ${parts.join(" · ")}`;

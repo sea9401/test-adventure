@@ -252,5 +252,15 @@ export function enhancedPower(
   enhance: V2EnhanceState | undefined,
 ): number {
   if (!enhance || enhance.bonusPct <= 0) return basePower;
-  return Math.floor(basePower * (1 + enhance.bonusPct / 100));
+  return equipmentPowerWithBonus(basePower, enhance.bonusPct);
+}
+
+/** 강화·제작 품질 위력을 전투 합산 전까지 0.01 단위로 보존한다. */
+export function equipmentPowerWithBonus(
+  basePower: number,
+  bonusPct: number,
+): number {
+  if (bonusPct <= 0) return basePower;
+  const scaled = basePower * (1 + bonusPct / 100);
+  return Math.round((scaled + Number.EPSILON) * 100) / 100;
 }

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  recordOpsSignal,
   resetOpsAlertsForTests,
   sanitizeOpsWebhookDetail,
   sendOpsAlert,
@@ -203,6 +204,92 @@ describe("운영 웹훅 식별 정보", () => {
         { name: "골드 변동", value: "-25,000,000 G", inline: true },
       ]),
     );
+  });
+
+  it("대규모 골드 이동을 만든 세 거래의 합계와 방향을 한 알림에 보여준다", async () => {
+    vi.stubEnv(
+      "OPS_ALERT_ECONOMY_WEBHOOK_URL",
+      "https://discord.com/api/webhooks/123/secret-token",
+    );
+    const common = {
+      key: "economy:large-gold-delta",
+      alertType: "economy.large_gold_movement",
+      label: "large gold movement detected",
+      threshold: 3,
+      windowMs: 10 * 60_000,
+      detail: { channel: "economy" },
+    };
+
+    recordOpsSignal({
+      ...common,
+      sample: {
+        occurredAt: "2026-08-13T12:19:54.000Z",
+        eventType: "marketplace.buy_order.escrow",
+        goldDelta: -105_060_000,
+        userId: "buyer-user-123456",
+        itemName: "활력의 파편",
+        quantity: 206,
+        orderId: 54,
+      },
+    });
+    recordOpsSignal({
+      ...common,
+      sample: {
+        occurredAt: "2026-08-13T12:19:57.000Z",
+        eventType: "marketplace.buy_order.sell",
+        goldDelta: 98_828_500,
+        userId: "seller-user-123456",
+        counterpartyUserId: "buyer-user-123456",
+        itemName: "활력의 파편",
+        quantity: 206,
+        grossGold: 104_030_000,
+        listingId: 1918,
+      },
+    });
+    recordOpsSignal({
+      ...common,
+      sample: {
+        occurredAt: "2026-08-13T12:21:44.000Z",
+        eventType: "marketplace.buy",
+        goldDelta: -70_000_000,
+        userId: "seller-user-123456",
+        counterpartyUserId: "buyer-user-123456",
+        itemName: "붕괴선봉 대검",
+        quantity: 1,
+        listingId: 1919,
+      },
+    });
+
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    const payload = JSON.parse(String(init.body)) as {
+      embeds: Array<{
+        fields: Array<{ name: string; value: string; inline: boolean }>;
+      }>;
+    };
+    const fields = payload.embeds[0].fields;
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        { name: "유입 골드", value: "98,828,500 G", inline: true },
+        { name: "소비 골드", value: "175,060,000 G", inline: true },
+      ]),
+    );
+    const transactions = fields.find(
+      (field) => field.name === "감지된 거래 내역",
+    );
+    expect(transactions).toMatchObject({ inline: false });
+    expect(transactions?.value).toContain("21:19:54");
+    expect(transactions?.value).toContain("활력의 파편 ×206");
+    expect(transactions?.value).toContain("buyer-us… → 거래소 에스크로");
+    expect(transactions?.value).toContain("buyer-us… → seller-u…");
+    expect(transactions?.value).toContain("주문 #54");
+    expect(transactions?.value).toContain("매물 #1919");
+    expect(transactions?.value).toContain("세금 5,201,500 G");
+    expect(transactions?.value).toContain("붕괴선봉 대검 ×1");
+    expect(transactions?.value).toContain("-70,000,000 G");
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain("buyer-user-123456");
+    expect(serialized).not.toContain("seller-user-123456");
   });
 
   it("극단적 저가 체결 알림에 판매자·구매자와 판정 근거를 보여준다", async () => {

@@ -24,6 +24,10 @@ describe("대문 로그인 선택지", () => {
     expect(html).not.toContain("캐릭터 만들고 시작하기");
     expect(html).toContain("카카오톡으로 로그인");
     expect(html).toContain(">무슨무슨게임</h1>");
+    expect(html).toContain('aria-label="게임 이미지 슬라이드"');
+    expect(html).toContain('href="#features"');
+    expect(html).toContain('href="/manual"');
+    expect(html).toContain("별도 설치 없이 브라우저에서 바로 시작");
     expect(html).toContain('href="/terms"');
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/operations"');

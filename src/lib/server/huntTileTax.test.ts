@@ -38,7 +38,14 @@ vi.mock("@/db", () => {
     const c: Record<string, unknown> = {};
     c.from = () => c;
     c.where = () => c;
-    c.for = () => c;
+    c.orderBy = () => c;
+    c.for = async () =>
+      cols &&
+      typeof cols === "object" &&
+      "occupiedByGuildId" in (cols as object) &&
+      "policy" in (cols as object)
+        ? [{ outpostId: "tile:2,3", occupiedByGuildId: 7, policy: "open" }]
+        : [];
     c.limit = async () =>
       cols &&
       typeof cols === "object" &&

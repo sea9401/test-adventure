@@ -33,6 +33,7 @@ import { STAMINA_SHARD_MATERIAL } from "./staminaPotionCrafting";
 import { SCAVENGED_CRAFT_MATERIALS } from "./scavengedCrafting";
 import { STORM_EXPEDITION_MATERIALS } from "./stormExpeditionRewards";
 import { LIFE_PROCESSED_MATERIALS } from "@/adventure/v2/lifeWorkshop";
+import { DANGEROUS_FISHING_MATERIALS } from "./dangerousFishing";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -122,6 +123,8 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 폭풍 원정 항로 재료 3종 + 향후 7차 전직 공통 파편. 일반 사냥 재료 플래그와
   // 무관하게 원정 보상에서 공급하며 인벤토리·도감·거래소 카탈로그에 즉시 노출한다.
   ...STORM_EXPEDITION_MATERIALS,
+  // 위험 해역 낚시 어획물·거대어 증표. 귀환 또는 보상 수령 이후에만 확정 재료로 들어온다.
+  ...DANGEROUS_FISHING_MATERIALS,
 };
 
 // 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,

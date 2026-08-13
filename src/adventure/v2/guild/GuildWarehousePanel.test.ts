@@ -46,7 +46,7 @@ describe("길드 창고 장비 선택 표시", () => {
     expect(plainLabel).toContain("회피도 +40 / 추가 회피도 +15 / 속도 +14");
     expect(plainLabel).toMatch(/품질 \d+%/);
     expect(masterworkLabel).toContain("기폭 사냥화 · 신발 · 명장 · ★★ 품질");
-    expect(masterworkLabel).toContain("회피도 +52 / 추가 회피도 +19 / 속도 +18");
+    expect(masterworkLabel).toContain("회피도 +52.8 / 추가 회피도 +19 / 속도 +18");
     expect(masterworkLabel).toMatch(/품질 \d+%/);
     expect(masterworkLabel).toContain("제작 폴라 · 잠금");
     expect(masterworkLabel).not.toBe(plainLabel);

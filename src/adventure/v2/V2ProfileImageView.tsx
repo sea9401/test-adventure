@@ -11,7 +11,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
-import { useGameState } from "./GameStateProvider";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 
 type LoadState = {
   avatar: Avatar;
@@ -36,7 +36,7 @@ const ERROR_TEXT: Record<string, string> = {
 };
 
 export function ProfileImagePanel() {
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<LoadState | null>(null);
   const [category, setCategory] = useState<AvatarCategory>("character");

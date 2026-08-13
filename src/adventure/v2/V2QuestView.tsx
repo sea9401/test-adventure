@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
-import { useGameState } from "./GameStateProvider";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useRewardToast } from "./RewardToastProvider";
 import {
   type QuestLine,
@@ -202,7 +202,7 @@ export function claimAllRewardText(reward: ClaimAllReward): string {
 }
 
 export function V2QuestView({ onBack }: { onBack: () => void }) {
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const { notifyReward, notifySystem } = useRewardToast();
   const [lines, setLines] = useState<QuestLine[]>([]);
   const [quests, setQuests] = useState<QuestView[]>([]);

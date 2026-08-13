@@ -9,6 +9,7 @@ import { SURFACE_FROSTED } from "@/components/ui/surfaces";
 
 export type FishingTabKey =
   | "fishing"
+  | "dangerous"
   | "challenges"
   | "leaderboard"
   | "hallOfFame"
@@ -18,6 +19,7 @@ export function FishingSubTabs({
   active,
   challengeBadgeCount,
   onOpenFishing,
+  onOpenDangerous,
   onOpenChallenges,
   onOpenLeaderboard,
   onOpenHallOfFame,
@@ -26,6 +28,7 @@ export function FishingSubTabs({
   active: FishingTabKey;
   challengeBadgeCount?: number;
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
@@ -40,6 +43,9 @@ export function FishingSubTabs({
   const tabs = [
     ...(active === "fishing" || onOpenFishing
       ? [{ key: "fishing" as const, label: "낚시" }]
+      : []),
+    ...(active === "dangerous" || onOpenDangerous
+      ? [{ key: "dangerous" as const, label: "위험 해역" }]
       : []),
     ...(active === "challenges" || onOpenChallenges
       ? [{ key: "challenges" as const, label: "의뢰", badge: challengeBadge }]
@@ -64,6 +70,7 @@ export function FishingSubTabs({
         onChange={(k) => {
           if (k === active) return;
           if (k === "fishing") onOpenFishing?.();
+          else if (k === "dangerous") onOpenDangerous?.();
           else if (k === "challenges") onOpenChallenges?.();
           else if (k === "leaderboard") onOpenLeaderboard?.();
           else if (k === "hallOfFame") onOpenHallOfFame?.();

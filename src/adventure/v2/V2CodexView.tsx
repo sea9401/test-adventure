@@ -81,7 +81,7 @@ import {
   FishSpecimenExtractModal,
   type FishSpecimenExtractProjection,
 } from "./FishSpecimenExtractModal";
-import { useGameState } from "./GameStateProvider";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useSystemToast } from "./RewardToastProvider";
 
 // v2 모험의 서 — 사냥터(장비·재료 드랍) + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
@@ -98,6 +98,9 @@ const TIER_BADGE: Record<FishTier, string> = {
   legendary:
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
+
+export const SKY_RIFT_CODEX_DROP_SUMMARY =
+  "모든 난이도 동일 방어구 풀 · 깊이별 총 0.05~0.10%";
 
 export function fishCodexCardState(registered: boolean, caughtEver: boolean) {
   if (!registered && !caughtEver) {
@@ -375,7 +378,7 @@ export function classifyCodexEquipmentIds(ids: V2EquipmentId[]): {
 export function V2CodexView({ onBack }: { onBack: () => void }) {
   const tabParam = useSearchParams().get("tab");
   const { has: hasStoryFlag, set: setStoryFlag } = useStoryFlags();
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const { notifySystem } = useSystemToast();
   const [tutorialReplayRequested, setTutorialReplayRequested] = useState(false);
   const showTutorial = shouldShowCodexTutorial(
@@ -866,7 +869,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               const classified = classifyCodexEquipmentIds(regularIds);
               const regularChance = bandIds.length > 0
                 ? theme.depthStart >= 73
-                  ? "깊이별 0.05~0.10% · 해당 구간 방어구 무작위 1종"
+                  ? SKY_RIFT_CODEX_DROP_SUMMARY
                   : `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`
                 : pool
                   ? `처치당 ${(equipPoolChance(pool) * 100).toFixed(0)}% · 무작위 1종`
@@ -882,7 +885,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
 
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300">
-                      심부 · 깊이 {deepDepth}
+                      최심부 · 깊이 {deepDepth}
                     </span>
                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
                       {combatPower == null

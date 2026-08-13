@@ -7,8 +7,9 @@
 
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { marketplaceInbox, pvpRatings, pvpSeasons } from "@/db/schema";
+import { marketplaceInbox, pvpRatings, pvpSeasons, users } from "@/db/schema";
 import { inboxValues } from "@/lib/server/inboxPayload";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 import { closeExpiredSeasons } from "./season";
 
 // 순위 보상표(코인). 작은 유저 풀 기준 초안 — 후속 튜닝 다이얼. 상점 가격(200~2500)과 연동.
@@ -54,17 +55,22 @@ export async function grantSeasonRewards(
     if (season.rewardsGrantedAt) return { kind: "already" };
 
     const ranked = await tx
-      .select({ userId: pvpRatings.userId })
+      .select({
+        userId: pvpRatings.userId,
+        bannedUntil: users.bannedUntil,
+      })
       .from(pvpRatings)
+      .innerJoin(users, eq(users.id, pvpRatings.userId))
       .where(eq(pvpRatings.seasonId, seasonId))
       .orderBy(desc(pvpRatings.rating));
+    const eligibleRanked = filterRankingEligibleRows(ranked, now);
 
     let granted = 0;
     let total = 0;
-    for (let i = 0; i < ranked.length; i += 1) {
+    for (let i = 0; i < eligibleRanked.length; i += 1) {
       const coins = seasonRewardForRank(i + 1);
       if (coins <= 0) continue;
-      const userId = ranked[i].userId;
+      const userId = eligibleRanked[i].userId;
       const rank = i + 1;
       // 우편함으로 발송 — 수령 시 투기장 지갑에 적립(claim 핸들러가 season 으로 분기).
       await tx.insert(marketplaceInbox).values(

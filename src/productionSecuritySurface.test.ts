@@ -236,12 +236,12 @@ describe("production security surface", () => {
     expect(ci).toContain("scripts/prepare-production-artifact.mjs");
     expect(ci).toContain("production-next-${{ github.sha }}");
     expect(ci).toContain("sha256sum production-next.tar.gz");
-    expect(ci).toContain("actions/upload-artifact@v7");
+    expect(ci).toMatch(/actions\/upload-artifact@[0-9a-f]{40} # v7/);
 
     expect(deploy).toContain("actions/workflows/ci.yml/runs");
     expect(deploy).toContain("head_sha=$DEPLOY_SHA");
-    expect(deploy).toContain("actions/download-artifact@v8");
-    expect(deploy).toContain("appleboy/scp-action@v1.0.0");
+    expect(deploy).toMatch(/actions\/download-artifact@[0-9a-f]{40} # v8/);
+    expect(deploy).toMatch(/appleboy\/scp-action@[0-9a-f]{40} # v1\.0\.0/);
     expect(deploy).toContain("PRODUCTION_BUILD_ARCHIVE");
     expect(deploy).not.toContain("- run: npm run build");
 

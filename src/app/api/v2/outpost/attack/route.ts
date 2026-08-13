@@ -55,6 +55,7 @@ import {
   undefendedSiegeDamage,
 } from "@/adventure/data/v2/outpostSiege";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import {
   lockVillage,
@@ -728,17 +729,9 @@ export async function POST(req: Request) {
     if (clearedQueue) {
       // 성벽 데미지는 시간당 자연 회복 외에는 즉시 복구되지 않는다.
       // 성벽 데미지 — 공격자 합성전투력 기반.
-      const attackerPower = derivePowerScore({
-        atk: attacker.player.atk,
-        magicAtk: attacker.player.magicAtk ?? 0,
-        def: attacker.player.def,
-        spd: attacker.player.spd,
-        maxHp: attacker.maxHp,
-        maxMp: aMaxMp,
-        magicBarrierMax: attacker.player.magicBarrierMax,
-        evaRating: attacker.player.evaRating,
-        accRating: attacker.player.accRating,
-      });
+      const attackerPower = derivePowerScore(
+        powerInputFromPlayer(attacker.player, attacker.maxHp, aMaxMp),
+      );
       // 무방비(수비 큐 0명 = defendersDefeated 0)면 전투력÷4(캡 50%HP·벌칙), 수비 격파면 전투력 비율.
       let siegeAmt =
         defendersDefeated === 0

@@ -7,13 +7,14 @@
 
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { fishingRecords, fishingSeasons, marketplaceInbox } from "@/db/schema";
+import { fishingRecords, fishingSeasons, marketplaceInbox, users } from "@/db/schema";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { currentFishingSeasonId } from "./season";
 import {
   computeSeasonPayouts,
   type PayoutRecord,
 } from "@/adventure/v2/fishingPayouts";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 export type GrantResult =
   | { kind: "ok"; seasonId: string; winners: number; total: number }
@@ -39,11 +40,15 @@ export async function grantFishingSeasonRewards(
         fishId: fishingRecords.fishId,
         userId: fishingRecords.userId,
         size: fishingRecords.bestSize,
+        bannedUntil: users.bannedUntil,
       })
       .from(fishingRecords)
+      .innerJoin(users, eq(users.id, fishingRecords.userId))
       .where(eq(fishingRecords.seasonId, seasonId));
 
-    const payouts = computeSeasonPayouts(records as PayoutRecord[]);
+    const payouts = computeSeasonPayouts(
+      filterRankingEligibleRows(records, now) as PayoutRecord[],
+    );
 
     let total = 0;
     let winners = 0;

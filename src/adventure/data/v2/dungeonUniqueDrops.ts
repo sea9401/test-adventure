@@ -554,8 +554,42 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_abyssruin_sig_sentinel_plate",
     ],
   },
-  // 천공 균열은 6T 세트 파밍 지역이다. 별도 시그니처 유니크는 두지 않는다.
-  { minDepth: 73, maxDepth: 78, chance: 0, ids: [] },
+  {
+    minDepth: 73,
+    maxDepth: 73,
+    chance: 0.00005,
+    ids: ["v2_sky_sig_collapse_armor", "v2_sky_sig_antigravity_ring"],
+  },
+  {
+    minDepth: 74,
+    maxDepth: 74,
+    chance: 0.00005,
+    ids: ["v2_sky_sig_bloodline_greatsword", "v2_sky_sig_scar_counter_gloves"],
+  },
+  {
+    minDepth: 75,
+    maxDepth: 75,
+    chance: 0.000075,
+    ids: ["v2_sky_sig_horizon_bow", "v2_sky_sig_windless_boots"],
+  },
+  {
+    minDepth: 76,
+    maxDepth: 76,
+    chance: 0.000075,
+    ids: ["v2_sky_sig_venom_dagger", "v2_sky_sig_corrosion_ring"],
+  },
+  {
+    minDepth: 77,
+    maxDepth: 77,
+    chance: 0.0001,
+    ids: ["v2_sky_sig_overload_staff", "v2_sky_sig_reverse_gloves"],
+  },
+  {
+    minDepth: 78,
+    maxDepth: 78,
+    chance: 0.0001,
+    ids: ["v2_sky_sig_dawn_chalice", "v2_sky_sig_unity_cloak"],
+  },
 ];
 
 // 깊이 → 밴드 유니크 풀(없으면 null). 밴드는 겹치지 않게 정의.

@@ -8,6 +8,7 @@ import {
   FISHING_CATCH_ITEMS,
   type FishingCatchItemId,
 } from "./fishingStock";
+import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 
 export const COOKING_SAVE_KEY = "cooking.v1";
 export const COOKING_LEVEL_CAP = 50;
@@ -63,6 +64,8 @@ export type CookingState = {
     surplusTrades: number;
     completedOrderIds: string[];
   };
+  /** 일반 재료별 절약 진행도. 10,000 = 재료 1개 절약이며 0~9,999만 저장한다. */
+  ingredientReductionRemainderBps?: Record<string, number>;
 };
 
 export type CookingOrder = {
@@ -407,6 +410,14 @@ export function parseCookingState(raw: unknown, now = Date.now()): CookingState 
   const known = new Set(COOKING_RECIPES.map((entry) => entry.id));
   const dayKey = cookingDayKey(now);
   const sameDay = source.daily?.dayKey === dayKey;
+  const ingredientReductionRemainderBps = Object.fromEntries(
+    Object.entries(source.ingredientReductionRemainderBps ?? {})
+      .slice(0, 100)
+      .flatMap(([key, value]) => {
+        const remainder = Math.min(9_999, safeInt(value));
+        return key.length <= 100 && remainder > 0 ? [[key, remainder]] : [];
+      }),
+  );
   return {
     version: 1,
     xp: safeInt(source.xp),
@@ -423,6 +434,9 @@ export function parseCookingState(raw: unknown, now = Date.now()): CookingState 
       surplusTrades: sameDay ? Math.min(COOKING_SURPLUS_DAILY_LIMIT, safeInt(source.daily?.surplusTrades)) : 0,
       completedOrderIds: sameDay ? Array.from(new Set(source.daily?.completedOrderIds ?? [])).slice(0, COOKING_DAILY_ORDER_COUNT) : [],
     },
+    ...(Object.keys(ingredientReductionRemainderBps).length > 0
+      ? { ingredientReductionRemainderBps }
+      : {}),
   };
 }
 
@@ -521,26 +535,61 @@ export function recordCookingActionStats(
   };
 }
 
-/** 직업 자체 절약을 먼저 적용한 뒤, 장착 스킬의 묶음 조리 절약을 총량에 적용한다. */
-export function cookingIngredientRequirement(args: {
+type CookingIngredientRequirementArgs = {
   countPerDish: number;
   quantity: number;
   cookingJobTier?: number;
   materialReductionPct?: number;
-}): number {
+  reductionRemainderBps?: number;
+};
+
+/** 직업·스킬 절약률을 곱연산하고 재료 1개의 1/10,000 진행도를 이월한다. */
+export function cookingIngredientRequirementAccumulated(
+  args: CookingIngredientRequirementArgs,
+): { required: number; remainderBps: number } {
   const countPerDish = Math.max(0, Math.floor(args.countPerDish));
   const quantity = Math.max(0, Math.floor(args.quantity));
-  if (countPerDish === 0 || quantity === 0) return 0;
-  const jobAdjustedPerDish =
-    (args.cookingJobTier ?? 0) >= 4
-      ? Math.max(1, Math.ceil(countPerDish * 0.9))
-      : countPerDish;
-  const total = jobAdjustedPerDish * quantity;
+  const remainderBps = Math.min(
+    9_999,
+    Math.max(0, Math.floor(args.reductionRemainderBps ?? 0)),
+  );
+  if (countPerDish === 0 || quantity === 0) {
+    return { required: 0, remainderBps };
+  }
+  const total = countPerDish * quantity;
   const reductionPct = Math.min(
     50,
     Math.max(0, args.materialReductionPct ?? 0),
   );
-  return Math.max(1, Math.ceil(total * (1 - reductionPct / 100)));
+  const jobKeepPct = (args.cookingJobTier ?? 0) >= 4 ? 90 : 100;
+  const keepRateBps = jobKeepPct * (100 - reductionPct);
+  const reductionRateBps = 10_000 - keepRateBps;
+  const progressBps = total * reductionRateBps + remainderBps;
+  const saved = Math.floor(progressBps / 10_000);
+  return {
+    required: Math.max(0, total - saved),
+    remainderBps: Math.floor(progressBps % 10_000),
+  };
+}
+
+/** 세이브 진행도가 없는 화면 미리보기용 재료 요구량. */
+export function cookingIngredientRequirement(
+  args: Omit<CookingIngredientRequirementArgs, "reductionRemainderBps">,
+): number {
+  return cookingIngredientRequirementAccumulated(args).required;
+}
+
+export function cookingXpReward(args: {
+  baseXp: number;
+  bonusPct?: number;
+  rng?: () => number;
+}): number {
+  const baseXp = Math.max(1, Math.floor(args.baseXp));
+  return applyStochasticPercentBonus(
+    baseXp,
+    Math.max(0, args.bonusPct ?? 0),
+    args.rng,
+  );
 }
 
 export function savedRareCookingIngredientCount(args: {

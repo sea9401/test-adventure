@@ -265,19 +265,43 @@ describe("battleStartShield (검은 왕좌 전투 시작 보호막)", () => {
 
 describe("healToShield (묵주 회복 보호막 전환)", () => {
   it("시그니처 없음/다른 트리거/회복 0 → null", () => {
-    expect(healToShield(undefined, 20)).toBeNull();
-    expect(healToShield([RELIC], 20)).toBeNull();
-    expect(healToShield([RELIQUARY], 0)).toBeNull();
+    const heal = { actualHeal: 20, calculatedHeal: 20, maxHp: 100 };
+    expect(healToShield(undefined, heal)).toBeNull();
+    expect(healToShield([RELIC], heal)).toBeNull();
+    expect(
+      healToShield([RELIQUARY], { ...heal, actualHeal: 0 }),
+    ).toBeNull();
   });
 
-  it("실제 회복량 비율 보호막을 합산하고 라벨을 보존", () => {
+  it("HP 상한 적용 전 산출 회복량 비율로 보호막을 합산한다", () => {
+    const chalice: SignatureEffect = {
+      trigger: "on_heal",
+      label: "정지된 성배",
+      healToShieldPct: 35,
+    };
+    expect(
+      healToShield([chalice], {
+        actualHeal: 1_000,
+        calculatedHeal: 3_000,
+        maxHp: 4_000,
+      }),
+    ).toEqual({ amount: 1_050, label: "정지된 성배" });
+  });
+
+  it("여러 효과를 합산하되 1회 최대 HP의 30%로 제한한다", () => {
     const other: SignatureEffect = {
       trigger: "on_heal",
       label: "성흔",
       healToShieldPct: 15,
     };
-    expect(healToShield([RELIQUARY, other], 40)).toEqual({
-      amount: 16,
+    expect(
+      healToShield([RELIQUARY, other], {
+        actualHeal: 40,
+        calculatedHeal: 400,
+        maxHp: 500,
+      }),
+    ).toEqual({
+      amount: 150,
       label: "묵주 + 성흔",
     });
   });
@@ -954,6 +978,44 @@ describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용
     expect(
       result.log.some(
         (e) => typeof e.text === "string" && e.text.includes("[묵주]"),
+      ),
+    ).toBe(true);
+  });
+
+  it("초과 회복은 산출 회복량으로 보호막을 만들고 두 값을 로그에 구분한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 50,
+      maxHp: 200,
+      maxMp: 1000,
+      mp: 1000,
+      healMult: 100,
+      equipSignatures: [RELIQUARY],
+    };
+    const state = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 999, atk: 0, def: 0, spd: 1 },
+      "용사",
+      {
+        learned: ["v2_skill_recover"],
+        equipped: ["v2_skill_recover"],
+      },
+    );
+
+    const result = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+
+    expect(result.playerHp).toBe(200);
+    expect(result.stacks.playerShield).toBe(60);
+    expect(
+      result.log.some(
+        (entry) =>
+          entry.text.includes("HP 150 회복") && entry.text.includes("산출"),
       ),
     ).toBe(true);
   });

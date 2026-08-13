@@ -31,6 +31,10 @@ CURL_STATUS=$?
 set -e
 
 if [ "$CURL_STATUS" -eq 0 ] && [[ "$HTTP_STATUS" =~ ^2[0-9][0-9]$ ]]; then
+  HEARTBEAT_KEY="cron:${ROUTE##*/}"
+  if ! node scripts/ops-heartbeat.mjs record "$HEARTBEAT_KEY"; then
+    echo "CRON WARN: 성공 heartbeat 기록 실패 ($HEARTBEAT_KEY)" >&2
+  fi
   exit 0
 fi
 

@@ -1,4 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
+import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 import { db } from "@/db";
 import { opsSettings } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
@@ -444,9 +445,12 @@ export function isHotTimeActive(hotTime: HotTimeSettings, now = Date.now()) {
   return start <= now && now < end;
 }
 
-export function applyPctBonus(value: number, pct: number) {
-  if (value <= 0 || pct <= 0) return Math.max(0, Math.floor(value));
-  return Math.max(0, Math.floor(value * (100 + pct) / 100));
+export function applyPctBonus(
+  value: number,
+  pct: number,
+  rng: () => number = Math.random,
+) {
+  return applyStochasticPercentBonus(value, pct, rng);
 }
 
 export function bonusDelta(before: number, after: number) {

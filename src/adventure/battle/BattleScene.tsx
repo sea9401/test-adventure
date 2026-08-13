@@ -201,6 +201,7 @@ export type BattleStats = {
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
   bonusAttackChancePct?: number; // 몬스터 행동 1회당 추가타 성향
   statusDamageReductionPct?: number; // 중독·출혈 등 상태 피해 감소율
   primaryAttack?: "physical" | "magic";
@@ -662,6 +663,8 @@ export function BattleScene({
                     magicDefense: playerCombat.magicDef ?? 0,
                     magicBarrierAbsorbPct:
                       playerCombat.magicBarrierAbsorbPct ?? 0,
+                    magicBarrierEfficiencyPct:
+                      playerCombat.magicBarrierEfficiencyPct ?? 0,
                     magicBarrierDurability: state.playerMagicBarrier ?? 0,
                   }}
                   enemy={{

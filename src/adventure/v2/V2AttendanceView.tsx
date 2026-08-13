@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
-import { useGameState } from "./GameStateProvider";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import { setAttendanceReminder } from "./useAttendanceReminder";
 
 type AttendanceResponse = {
@@ -52,7 +52,7 @@ function monthLabel(monthKey: string): string {
 }
 
 export function V2AttendanceView() {
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const [status, setStatus] = useState<AttendanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);

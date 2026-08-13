@@ -84,6 +84,8 @@ type TimedBuffTurns = {
   enemySpdTurnsLeft: number;
   enemySilenceTurnsLeft: number;
   playerLifestealTurnsLeft: number;
+  enemyMagicDefDebuffTurnsLeft?: number;
+  tier6UnityTurnsLeft?: number;
 };
 export function decrementTimedBuffs<T extends TimedBuffTurns>(buffs: T): T {
   return {
@@ -96,6 +98,19 @@ export function decrementTimedBuffs<T extends TimedBuffTurns>(buffs: T): T {
     enemySpdTurnsLeft: Math.max(0, buffs.enemySpdTurnsLeft - 1),
     enemySilenceTurnsLeft: Math.max(0, buffs.enemySilenceTurnsLeft - 1),
     playerLifestealTurnsLeft: Math.max(0, buffs.playerLifestealTurnsLeft - 1),
+    ...(buffs.enemyMagicDefDebuffTurnsLeft != null
+      ? {
+          enemyMagicDefDebuffTurnsLeft: Math.max(
+            0,
+            buffs.enemyMagicDefDebuffTurnsLeft - 1,
+          ),
+        }
+      : {}),
+    ...(buffs.tier6UnityTurnsLeft != null
+      ? {
+          tier6UnityTurnsLeft: Math.max(0, buffs.tier6UnityTurnsLeft - 1),
+        }
+      : {}),
   };
 }
 

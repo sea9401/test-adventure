@@ -5,6 +5,7 @@ import {
   guildMembers,
   guilds,
   savesKv,
+  users,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -36,6 +37,7 @@ import {
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 const RANKING_CACHE_TTL_MS = 30_000;
 
@@ -58,11 +60,16 @@ const rankingCache = new Map<string, RankingCache>();
 
 async function loadBlacksmithRankingsFresh(weekKey: string) {
   const craftingRows = await db
-    .select({ userId: savesKv.userId, value: savesKv.value })
+    .select({
+      userId: savesKv.userId,
+      value: savesKv.value,
+      bannedUntil: users.bannedUntil,
+    })
     .from(savesKv)
+    .innerJoin(users, eq(users.id, savesKv.userId))
     .where(eq(savesKv.key, "crafting.v2"));
 
-  return rankArtisanLeaderboardEntries(craftingRows
+  return rankArtisanLeaderboardEntries(filterRankingEligibleRows(craftingRows)
     .map((row) => {
       const value = (row.value ?? null) as {
         artisan?: unknown;

@@ -12,6 +12,7 @@ import {
   computeBerserkBonus,
   computeCritOverflowBonus,
   computeStormBonus,
+  reducedMagicDefense,
 } from "@/adventure/v2/combat/engine.damageHelpers";
 
 // 각 헬퍼가 추출 전 인라인 표현식과 "값이 1:1 동일"함을 직접 단언한다(골든 커버리지와 독립).
@@ -75,5 +76,13 @@ describe("engine.damageHelpers — 인라인 수식 동치", () => {
       computeStormBonus(137, { kind: "atk_plus_spd_pct_bonus", spdPct: 50 } as never),
     ).toBe(Math.floor((137 * 50) / 100));
     expect(computeStormBonus(100, { kind: "heal_pct", pct: 10 } as never)).toBe(0);
+  });
+
+  it("reducedMagicDefense clamps reduction and preserves existing rounding", () => {
+    expect(reducedMagicDefense(101, 0)).toBe(101);
+    expect(reducedMagicDefense(101, 25)).toBe(76);
+    expect(reducedMagicDefense(101, -20)).toBe(101);
+    expect(reducedMagicDefense(101, 999)).toBe(40);
+    expect(reducedMagicDefense(0, 50)).toBe(0);
   });
 });

@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
   limit: vi.fn(),
 }));
 
-vi.mock("@/lib/server/isAdmin", () => ({ requireAdmin: mocks.gate }));
+vi.mock("@/lib/server/isAdmin", () => ({
+  requireAdmin: mocks.gate,
+  isSuperAdminEmail: vi.fn((email: string | null) => email === "active@example.com"),
+}));
 vi.mock("@/db", () => ({ db: { select: mocks.select } }));
 
 import { GET } from "./route";
@@ -57,8 +60,13 @@ describe("GET /api/admin/users", () => {
       expect.objectContaining({
         id: "active-user",
         lastSeenAt: "2026-08-04T00:00:00.000Z",
+        isSuperAdmin: true,
       }),
-      expect.objectContaining({ id: "beta-user", lastSeenAt: null }),
+      expect.objectContaining({
+        id: "beta-user",
+        lastSeenAt: null,
+        isSuperAdmin: false,
+      }),
     ]);
   });
 

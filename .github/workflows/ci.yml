@@ -19,8 +19,8 @@ jobs:
     name: Static checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
           cache: npm
@@ -28,13 +28,15 @@ jobs:
         run: npm ci
       - name: Secret leak guard
         run: npm run check-secrets
+      - name: Immutable workflow action references
+        run: npm run check-action-pins
       - name: Image refs (check-images)
         run: npm run check-images
       - name: Static asset rights ledger
         run: npm run check-asset-rights -- --strict
       - name: Dependency licenses and notices
         run: npm run check-licenses
-      - name: Migration journal order
+      - name: Migration journal and destructive SQL guard
         run: npm run check-migrations
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
@@ -48,8 +50,8 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
           cache: npm
@@ -62,8 +64,8 @@ jobs:
     name: Production build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
           cache: npm
@@ -95,7 +97,7 @@ jobs:
       # 따라서 정확한 main SHA와 모든 검증을 통과한 빌드만 운영 배포 후보가 된다.
       - name: Upload production build artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: production-next-${{ github.sha }}
           path: production-release/
@@ -131,8 +133,8 @@ jobs:
       E2E_TEST_LOGIN_ID: browser-e2e
       E2E_TEST_PASSWORD: browser-e2e-only-password
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
           cache: npm
@@ -152,7 +154,7 @@ jobs:
         run: npm run test:e2e
       - name: Upload Playwright failure report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report
           path: playwright-report/

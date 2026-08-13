@@ -61,7 +61,7 @@ import {
   type ArenaChampionshipBadge as ArenaChampionshipBadgeId,
   type ArenaChampionshipBadges,
 } from "@/adventure/data/v2/arenaChampionshipBadges";
-import { useGameState } from "./GameStateProvider";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 import { ProfileImagePanel } from "./V2ProfileImageView";
 import { useSystemToast } from "./RewardToastProvider";
 
@@ -189,7 +189,7 @@ export function V2CosmeticsView({
   initialTab?: CosmeticTab;
 }) {
   const router = useRouter();
-  const { refreshGameState } = useGameState();
+  const refreshGameState = useRefreshGameState();
   const { notifySystem } = useSystemToast();
   const [tab, setTab] = useState<CosmeticTab>(initialTab);
   const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>

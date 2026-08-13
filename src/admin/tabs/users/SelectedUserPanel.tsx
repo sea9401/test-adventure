@@ -20,6 +20,7 @@ import { V2GrantSection } from "./V2GrantSection";
 import { CharacterPreviewSection } from "./CharacterPreviewSection";
 import { UserImpersonationSection } from "./UserImpersonationSection";
 import { ActivityVerificationTestSection } from "./ActivityVerificationTestSection";
+import { ReviewOpPresetSection } from "./ReviewOpPresetSection";
 import { Warning } from "@phosphor-icons/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 
@@ -37,6 +38,9 @@ export function SelectedUserPanel({
   onResetStormExpeditionDailyAttempts,
   canResetStormExpedition,
   canTestActivityVerification,
+  canApplyReviewOpPreset,
+  reviewOpPresetApplying,
+  onApplyReviewOpPreset,
   stormExpeditionResetting,
   onReload,
 }: {
@@ -53,6 +57,9 @@ export function SelectedUserPanel({
   onResetStormExpeditionDailyAttempts: () => void | Promise<void>;
   canResetStormExpedition: boolean;
   canTestActivityVerification: boolean;
+  canApplyReviewOpPreset: boolean;
+  reviewOpPresetApplying: boolean;
+  onApplyReviewOpPreset: () => void | Promise<void>;
   stormExpeditionResetting: boolean;
   onReload: () => void;
 }) {
@@ -121,6 +128,16 @@ export function SelectedUserPanel({
         userId={user.id}
         gameName={profile.name}
       />
+
+      {user.isSuperAdmin ? (
+        <ReviewOpPresetSection
+          disabled={
+            readOnly || loading || !canApplyReviewOpPreset
+          }
+          applying={reviewOpPresetApplying}
+          onApply={() => void onApplyReviewOpPreset()}
+        />
+      ) : null}
 
       {canTestActivityVerification ? (
         <ActivityVerificationTestSection

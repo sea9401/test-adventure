@@ -243,6 +243,8 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       enemyMaxHp: 450,
       enemyMp: 25,
       enemyMaxMp: 80,
+      playerSignatureResources: { pursuitMarks: 4 },
+      enemySignatureResources: { arcaneOverload: 75 },
     };
     const p = toPvpReplayPayloadForSide(
       pvpFinal([
@@ -265,6 +267,8 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       enemyMaxHp: 600,
       enemyMp: 40,
       enemyMaxMp: 100,
+      playerSignatureResources: { arcaneOverload: 75 },
+      enemySignatureResources: { pursuitMarks: 4 },
     });
     expect(p.enemy).toEqual({ name: "공격자", hp: 600 });
     expect(p.playerMaxHp).toBe(450);

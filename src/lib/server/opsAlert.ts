@@ -15,6 +15,7 @@ type OpsSignalOptions = {
   threshold: number;
   windowMs: number;
   detail?: Record<string, unknown>;
+  sample?: Record<string, unknown>;
 };
 
 type SignalBucket = {
@@ -22,6 +23,7 @@ type SignalBucket = {
   resetAt: number;
   alertedAt: number;
   userIds: Set<string>;
+  samples: Record<string, unknown>[];
 };
 
 const signalBuckets = new Map<string, SignalBucket>();
@@ -85,14 +87,17 @@ const SAFE_WEBHOOK_DISPLAY_KEYS = new Set([
   "buyerAccount",
   "sellerAccount",
 ]);
-const SAFE_WEBHOOK_DISPLAY_LIST_KEYS = new Set(["relatedAccounts"]);
+const SAFE_WEBHOOK_DISPLAY_LIST_KEYS = new Set([
+  "relatedAccounts",
+  "relatedTransactions",
+]);
 const SAFE_CODE = /^[a-zA-Z0-9._:/-]{1,160}$/;
 
 function safeCode(value: unknown): string | null {
   return typeof value === "string" && SAFE_CODE.test(value) ? value : null;
 }
 
-function safeDisplayText(value: unknown): string | null {
+function safeDisplayText(value: unknown, maxLength = 120): string | null {
   if (typeof value !== "string") return null;
   const text = value
     .replace(/[\u0000-\u001f\u007f]/g, " ")
@@ -101,7 +106,7 @@ function safeDisplayText(value: unknown): string | null {
     .replaceAll(">", "＞")
     .replace(/\s+/g, " ")
     .trim();
-  return text ? text.slice(0, 120) : null;
+  return text ? text.slice(0, maxLength) : null;
 }
 
 // 외부 웹훅은 허용 목록으로 새 객체를 만든다. userId/IP/name/accounts/queueIds 등은
@@ -127,9 +132,10 @@ export function sanitizeOpsWebhookDetail(detail: Record<string, unknown>) {
       continue;
     }
     if (SAFE_WEBHOOK_DISPLAY_LIST_KEYS.has(key) && Array.isArray(value)) {
+      const maxLength = key === "relatedTransactions" ? 180 : 120;
       sanitized[key] = value
         .flatMap((entry) => {
-          const text = safeDisplayText(entry);
+          const text = safeDisplayText(entry, maxLength);
           return text === null ? [] : [text];
         })
         .slice(0, 8);
@@ -332,6 +338,7 @@ const DETAIL_LABELS: Record<string, string> = {
   buyerAccount: "구매 계정",
   sellerAccount: "판매 계정",
   relatedAccounts: "관련 계정",
+  relatedTransactions: "감지된 거래 내역",
 };
 
 const CODE_DETAIL_KEYS = new Set(["eventType", "action"]);
@@ -342,6 +349,7 @@ const FULL_WIDTH_DETAIL_KEYS = new Set([
   "buyerAccount",
   "sellerAccount",
   "relatedAccounts",
+  "relatedTransactions",
 ]);
 const VALUE_LABELS: Record<string, string> = {
   fishing: "낚시",
@@ -541,6 +549,7 @@ export function recordOpsSignal({
   threshold,
   windowMs,
   detail,
+  sample,
 }: OpsSignalOptions) {
   const now = Date.now();
   const current = signalBuckets.get(key);
@@ -552,16 +561,29 @@ export function recordOpsSignal({
           resetAt: now + windowMs,
           alertedAt: 0,
           userIds: new Set<string>(),
+          samples: [],
         };
 
   bucket.count += 1;
-  for (const userId of userIdsFromDetail(detail)) bucket.userIds.add(userId);
+  if (sample) {
+    bucket.samples.push({ ...sample });
+    if (bucket.samples.length > 5) bucket.samples.shift();
+  }
+  for (const userId of userIdsFromDetail({
+    ...detail,
+    ...(sample ? { transactionSamples: [sample] } : {}),
+  })) {
+    bucket.userIds.add(userId);
+  }
   signalBuckets.set(key, bucket);
 
   if (bucket.count < threshold || bucket.alertedAt > 0) return;
   bucket.alertedAt = now;
   void sendOpsAlert(`[ops] ${label}`, {
     ...detail,
+    ...(bucket.samples.length > 0
+      ? { transactionSamples: bucket.samples.map((entry) => ({ ...entry })) }
+      : {}),
     relatedUserIds: [...bucket.userIds].slice(0, 8),
     alertType,
     signalKey: key,
@@ -607,12 +629,109 @@ function userIdsFromDetail(detail?: Record<string, unknown>): string[] {
       if (userId) ids.add(userId);
     }
   }
+  const transactionSamples = detail.transactionSamples;
+  if (Array.isArray(transactionSamples)) {
+    for (const sample of transactionSamples) {
+      if (!sample || typeof sample !== "object") continue;
+      const record = sample as Record<string, unknown>;
+      for (const key of ["userId", "counterpartyUserId"]) {
+        const userId = validUserId(record[key]);
+        if (userId) ids.add(userId);
+      }
+    }
+  }
   return [...ids].slice(0, 16);
+}
+
+function transactionSampleLines(
+  detail: Record<string, unknown>,
+  identityLabel: (userId: string) => string,
+): { lines: string[]; goldIn: number; goldOut: number } {
+  const raw = detail.transactionSamples;
+  if (!Array.isArray(raw)) return { lines: [], goldIn: 0, goldOut: 0 };
+  const lines: string[] = [];
+  let goldIn = 0;
+  let goldOut = 0;
+  for (const sample of raw.slice(0, 5)) {
+    if (!sample || typeof sample !== "object") continue;
+    const record = sample as Record<string, unknown>;
+    const eventType = safeCode(record.eventType);
+    const goldDelta = record.goldDelta;
+    if (!eventType || typeof goldDelta !== "number" || !Number.isFinite(goldDelta)) {
+      continue;
+    }
+    const actorId = validUserId(record.userId);
+    const counterpartyId = validUserId(record.counterpartyUserId);
+    const actor = actorId ? identityLabel(actorId) : "시스템";
+    const counterparty = counterpartyId
+      ? identityLabel(counterpartyId)
+      : eventType.includes("escrow")
+        ? "거래소 에스크로"
+        : "시스템";
+    const from = goldDelta < 0 ? actor : counterparty;
+    const to = goldDelta < 0 ? counterparty : actor;
+    const occurredAt =
+      typeof record.occurredAt === "string"
+        ? new Date(record.occurredAt)
+        : null;
+    const time =
+      occurredAt && Number.isFinite(occurredAt.getTime())
+        ? occurredAt.toLocaleTimeString("ko-KR", {
+            timeZone: "Asia/Seoul",
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        : "시각 미상";
+    const itemName =
+      safeDisplayText(record.itemName) ?? safeCode(record.itemId) ?? "아이템 없음";
+    const quantity =
+      typeof record.quantity === "number" && Number.isFinite(record.quantity)
+        ? Math.max(0, Math.trunc(record.quantity))
+        : 0;
+    const amount = `${goldDelta > 0 ? "+" : ""}${Math.trunc(
+      goldDelta,
+    ).toLocaleString("ko-KR")} G`;
+    const grossGold =
+      typeof record.grossGold === "number" && Number.isFinite(record.grossGold)
+        ? Math.max(0, Math.trunc(record.grossGold))
+        : 0;
+    const listingId =
+      typeof record.listingId === "number" && Number.isFinite(record.listingId)
+        ? Math.max(0, Math.trunc(record.listingId))
+        : 0;
+    const orderId =
+      typeof record.orderId === "number" && Number.isFinite(record.orderId)
+        ? Math.max(0, Math.trunc(record.orderId))
+        : 0;
+    const references = [
+      ...(orderId > 0 ? [`주문 #${orderId}`] : []),
+      ...(listingId > 0 ? [`매물 #${listingId}`] : []),
+    ].join(" · ");
+    const taxGold =
+      goldDelta > 0 && grossGold > goldDelta
+        ? grossGold - Math.trunc(goldDelta)
+        : 0;
+    const grossText =
+      grossGold > 0 && grossGold !== Math.abs(Math.trunc(goldDelta))
+        ? ` (총액 ${grossGold.toLocaleString("ko-KR")} G${
+            taxGold > 0
+              ? `, 세금 ${taxGold.toLocaleString("ko-KR")} G`
+              : ""
+          })`
+        : "";
+    lines.push(
+      `${time} · ${eventType}${references ? ` · ${references}` : ""} · ${itemName} ×${quantity} · ${from} → ${to} · ${amount}${grossText}`,
+    );
+    goldIn += Math.max(0, Math.trunc(goldDelta));
+    goldOut += Math.abs(Math.min(0, Math.trunc(goldDelta)));
+  }
+  return { lines, goldIn, goldOut };
 }
 
 async function resolveWebhookIdentities(detail: Record<string, unknown>) {
   const userIds = userIdsFromDetail(detail);
-  if (userIds.length === 0) return {};
 
   const nameByUserId = new Map<string, string>();
   if (Array.isArray(detail.accounts)) {
@@ -624,7 +743,7 @@ async function resolveWebhookIdentities(detail: Record<string, unknown>) {
       if (userId && name) nameByUserId.set(userId, name);
     }
   }
-  if (process.env.DATABASE_URL) {
+  if (process.env.DATABASE_URL && userIds.length > 0) {
     try {
       const rows = await db
         .select({ id: users.id, gameName: users.gameName })
@@ -644,6 +763,7 @@ async function resolveWebhookIdentities(detail: Record<string, unknown>) {
     const name = nameByUserId.get(userId);
     return name ? `${name} · ${shortId}` : shortId;
   };
+  const transactions = transactionSampleLines(detail, identityLabel);
   const actorId = validUserId(detail.userId);
   const counterpartyId = validUserId(detail.counterpartyUserId);
   const buyerId = validUserId(detail.buyerUserId);
@@ -677,6 +797,13 @@ async function resolveWebhookIdentities(detail: Record<string, unknown>) {
     ...(sellerId ? { sellerAccount: identityLabel(sellerId) } : {}),
     ...(relatedIds.size > 0
       ? { relatedAccounts: [...relatedIds].slice(0, 8).map(identityLabel) }
+      : {}),
+    ...(transactions.lines.length > 0
+      ? {
+          relatedTransactions: transactions.lines,
+          goldIn: transactions.goldIn,
+          goldOut: transactions.goldOut,
+        }
       : {}),
   };
 }

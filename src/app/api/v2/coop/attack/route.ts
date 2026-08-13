@@ -57,7 +57,7 @@ import { COOP_BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/data/v2/v2CombatConsta
 // 서버 권위 흐름(hunt 라우트와 같은 골격 — 단일 트랜잭션):
 //   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사.
 //   2. equipment/skills/proficiency lock-read → derive(왕복 0).
-//   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(COOP_ATTACK_TURNS 턴 캡, 전역 잔여
+//   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(일반 PvE와 같은 3,000 ATB 틱, 전역 잔여
 //      HP 시작 + 발악 스테이지 적용 — 플레이어는 현재 HP/MP와 무관하게 만전으로 시작).
 //   4. session FOR UPDATE → 재검증(처치/만료) + 쿨다운 → hp 차감 + 처치 CAS(락 보유로
 //      1명만 defeated 분기 — v1 attack.ts 의 C1/C2 race fix 승계).
@@ -244,9 +244,9 @@ export async function POST(req: Request) {
       ...(enrageNotes.length > 0
         ? { openingNote: enrageNotes.join(" ") }
         : {}),
-      // 1회 공격 = 플레이어 행동 N회. ATB 경로의 maxTurns 는 플레이어 행동 카운터라
-      // 레거시 페이즈 보정(*2)을 적용하면 코어루프에서 공격권이 두 배 길어진다.
-      // 도달 시 종료(타임아웃 lose 는 협동에선 정상 흐름 — 데미지만 누적).
+      // 라이브 ATB는 공통 3,000틱 제한이 먼저 끝낸다. maxTurns는 같은 수치의 안전 가드로만
+      // 남겨 20행동 조기 종료 없이 생존·지속형 빌드도 전투 시간 전체를 활용하게 한다.
+      // 타임아웃 lose 는 협동에선 정상 흐름이며 그때까지 준 데미지만 누적한다.
       maxTurns: COOP_ATTACK_TURNS,
       initialEnemyHp: bossStartHp,
     });

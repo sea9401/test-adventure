@@ -16,6 +16,7 @@ import {
   V2_SKILLS,
 } from "./v2Skills";
 import type { V2EquipSlot, V2EquipmentId } from "./v2Equipment";
+import { bandUniquePoolForDepth } from "./dungeonUniqueDrops";
 
 describe("sim-v2-level-design", () => {
   it("패황 STR 표본은 광기 중첩 없이 계보 액티브 4종과 최고 패시브를 51 SP로 장착한다", () => {
@@ -95,7 +96,20 @@ describe("sim-v2-level-design", () => {
     expect(skyRift.commonAnyExpectedWins).toBe(1_000);
     // 천공 균열 1~6은 21종 방어구 전역 풀. 78단계 총 0.1%에서 특정 1종은 평균 21,000승.
     expect(skyRift.commonSpecificExpectedWins).toBe(21_000);
-    expect(skyRift.signatureAnyExpectedWins).toBeNull();
+    expect(skyRift.signatureAnyExpectedWins).toBe(10_000);
+    expect(skyRift.signatureSpecificExpectedWins).toBe(20_000);
+    for (const [depth, chance] of [
+      [73, 0.00005],
+      [74, 0.00005],
+      [75, 0.000075],
+      [76, 0.000075],
+      [77, 0.0001],
+      [78, 0.0001],
+    ] as const) {
+      const pool = bandUniquePoolForDepth(depth)!;
+      expect(1 / pool.chance).toBeCloseTo(1 / chance);
+      expect(pool.ids.length / pool.chance).toBeCloseTo(2 / chance);
+    }
   });
 
   it("실제 승률 절벽·전직 회복 필요·저승률·빌드 격차·장기전을 독립적으로 경고한다", () => {

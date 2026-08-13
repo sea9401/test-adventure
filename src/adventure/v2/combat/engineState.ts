@@ -3,6 +3,7 @@ import type { V2Element } from "@/adventure/data/v2/elements";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 import type { Potion, PotionId } from "@/adventure/data/potions";
 import type { APSkill, APSkillCondition } from "@/adventure/character/apSkills";
+import type { Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
 
 export type BattleLogEntry =
   | {
@@ -59,6 +60,10 @@ export type BattleLogEntry =
       playerMagicBarrierMax?: number;
       enemyMagicBarrier?: number;
       enemyMagicBarrierMax?: number;
+      /** 6T 시그니처 전투 자원. 빈 객체/미장착은 생략한다. */
+      playerSignatureResources?: Record<string, number | string>;
+      /** PvP 상대의 6T 시그니처 전투 자원. PvE에서는 생략한다. */
+      enemySignatureResources?: Record<string, number | string>;
     };
 
 export type BattleOutcome = "win" | "lose";
@@ -154,6 +159,9 @@ export type BattleBuffs = {
   // 적 DEF -pct% (약점 노출). 곱연산으로 enemy.def 에 적용.
   enemyDefDebuffPct: number;
   enemyDefDebuffTurnsLeft: number;
+  /** 6T 부식 전용 마법방어 감소. 미장착 전투는 필드 자체를 만들지 않는다. */
+  enemyMagicDefDebuffPct?: number;
+  enemyMagicDefDebuffTurnsLeft?: number;
   // 적 SPD ×mult (둔화). 천칭 크리 계산에 영향.
   enemySpdMult: number;
   enemySpdTurnsLeft: number;
@@ -165,6 +173,9 @@ export type BattleBuffs = {
   // 룬 lifesteal/특기 흡혈과 별개 가산. 라벨은 "흡령" 으로 구분.
   playerLifestealPct: number;
   playerLifestealTurnsLeft: number;
+  /** 6T 합일의 회복·마법공격 효율. 미장착 전투는 필드 자체를 만들지 않는다. */
+  tier6UnityHealPct?: number;
+  tier6UnityTurnsLeft?: number;
 };
 
 // 가변 자원 스택 / 잔량 카운트.
@@ -194,6 +205,8 @@ export type BattleStacks = {
   // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 행동). every_n_hits
   //   시그니처 미장착이면 0 고정(증가 안 함) → byte-identical.
   signatureHitCount: number;
+  /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
+  tier6Uniques?: Tier6UniqueRuntimeState;
   // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).
   spellCastCount: number;
   // 약점 노출(마도사) — 적에 누적된 마법 취약 스택(스택당 받는 마법 피해 +%).
@@ -313,6 +326,8 @@ export type PlayerCombat = {
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
   magicBarrierPvpAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
+  magicBarrierPvpEfficiencyPct?: number;
   // 순수 물리 스킬의 STR 직접 계수용 최종 힘. 구 저장/테스트 호환을 위해 optional.
   strStat?: number;
   // v2 스킬 — 나한권(VIT 비례 딜) 스케일용 VIT total, 전문화 스킬 차수 flat(baseFlatByTier) 해석용 차수.

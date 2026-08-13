@@ -4,6 +4,7 @@ import {
   physicalDefenseDamageReductionPct,
   pveEvasionDamageReductionPct,
   pvpEvasionDamageReductionPct,
+  partitionWithMagicBarrier,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { actionInterval } from "@/adventure/v2/combat/combatTimeline";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -15,6 +16,7 @@ export type CombatMatchupRatings = {
   physicalDefense?: number;
   magicDefense?: number;
   magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
   magicBarrierDurability?: number;
   incomingAttack?: number;
   incomingAttackType?: "physical" | "magic";
@@ -75,24 +77,27 @@ export function combatMatchupResult(
             ),
       )
     : 0;
-  const damageBeforeBarrier = hasDefensePreview
-    ? Math.max(0, enemy.incomingAttack ?? 0) *
-      (1 - playerDefenseReductionPct / 100) *
-      (1 - playerEvasionReductionPct / 100)
-    : 0;
+  const incomingDamage = Math.max(0, Math.floor(enemy.incomingAttack ?? 0));
   const barrierDurability = Math.max(0, player.magicBarrierDurability ?? 0);
   const playerBarrierAbsorbPct =
-    barrierDurability > 0 && damageBeforeBarrier > 0
-      ? Math.min(
-          clampPct(player.magicBarrierAbsorbPct ?? 0),
-          (barrierDurability / damageBeforeBarrier) * 100,
-        )
+    barrierDurability > 0 && incomingDamage > 0
+      ? clampPct(player.magicBarrierAbsorbPct ?? 0)
       : 0;
+  const barrierPartition = partitionWithMagicBarrier(
+    incomingDamage,
+    barrierDurability,
+    playerBarrierAbsorbPct,
+    player.magicBarrierEfficiencyPct ?? 0,
+  );
+  const mitigatedBodyDamage =
+    barrierPartition.bodyRawDamage *
+    (1 - playerDefenseReductionPct / 100) *
+    (1 - playerEvasionReductionPct / 100);
   const playerDirectDamageRetainedPct = hasDefensePreview
-    ? 100 *
-      (1 - playerDefenseReductionPct / 100) *
-      (1 - playerEvasionReductionPct / 100) *
-      (1 - playerBarrierAbsorbPct / 100)
+    ? incomingDamage > 0
+      ? (100 * (mitigatedBodyDamage + barrierPartition.spillDamage)) /
+        incomingDamage
+      : 0
     : null;
   return {
     playerDamageRetainedPct: 100 - enemyEvasionReductionPct,
@@ -203,14 +208,14 @@ export function CombatMatchupSummary({
             {fmtPct(result.playerEvasionReductionPct)}
             {result.playerBarrierAbsorbPct > 0 && (
               <>
-                {" "}· 마나 실드 {fmtPct(result.playerBarrierAbsorbPct)}
+                {" "}· 방어 전 피해에서 {fmtPct(result.playerBarrierAbsorbPct)} 분리
                 {player.magicBarrierDurability != null &&
                   ` (남은 ${Math.round(player.magicBarrierDurability).toLocaleString()})`}
               </>
             )}
           </p>
           <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-            현재 상대의 일반 직접 공격 기준입니다. 관통·상태 피해·반사 피해와 전투 중 효과는 별도로 적용됩니다.
+            마나 채널에는 방어·회피가 적용되지 않고, 몸통 피해에 방어·회피 적용 후 넘친 피해를 합칩니다. 현재 상대의 일반 직접 공격 기준입니다.
           </p>
         </div>
       )}

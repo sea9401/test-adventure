@@ -44,19 +44,39 @@ export function battleStartShield(
   return { amount, label: labels.join(" + ") };
 }
 
-// on_heal 보호막 전환 — 실제 HP 회복량의 %만큼 playerShield 에 더한다.
+export const HEAL_TO_SHIELD_MAX_PCT_MAX_HP = 30;
+
+export type HealToShieldInput = {
+  /** 최대 HP 적용 뒤 실제로 회복된 양. 0이면 치유가 성립하지 않아 발동하지 않는다. */
+  actualHeal: number;
+  /** 최대 HP 적용 전 산출 회복량. 회복 투자가 보호막에 보존되는 기준값. */
+  calculatedHeal: number;
+  maxHp: number;
+};
+
+// on_heal 보호막 전환 — 실제 치유가 발생했을 때 산출 회복량의 %만큼 playerShield 에 더한다.
+// 초과 회복을 보호막으로 보존하되 한 번에 maxHp 30%까지만 허용한다.
 export function healToShield(
   signatures: SignatureEffect[] | undefined,
-  actualHeal: number,
+  input: HealToShieldInput,
 ): { amount: number; label: string } | null {
-  if (!signatures || actualHeal <= 0) return null;
+  const actualHeal = Math.max(0, input.actualHeal);
+  const calculatedHeal = Math.max(0, input.calculatedHeal);
+  const maxHp = Math.max(0, input.maxHp);
+  if (!signatures || actualHeal <= 0 || calculatedHeal <= 0 || maxHp <= 0) {
+    return null;
+  }
   let amount = 0;
   const labels: string[] = [];
   for (const s of signatures) {
     if (s.trigger !== "on_heal" || !s.healToShieldPct) continue;
-    amount += Math.floor((actualHeal * s.healToShieldPct) / 100);
+    amount += Math.floor((calculatedHeal * s.healToShieldPct) / 100);
     labels.push(s.label);
   }
+  amount = Math.min(
+    amount,
+    Math.floor((maxHp * HEAL_TO_SHIELD_MAX_PCT_MAX_HP) / 100),
+  );
   if (amount <= 0) return null;
   return { amount, label: labels.join(" + ") };
 }

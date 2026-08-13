@@ -18,6 +18,7 @@ export type PlayerCombatStats = {
   magicAtk?: number;
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
   accuracyPct?: number;
   accRating?: number;
   evasionPct?: number;
@@ -46,6 +47,7 @@ export function playerCombatToBattleStats(
     magicAtk: c.magicAtk,
     magicBarrierMax: c.magicBarrierMax,
     magicBarrierAbsorbPct: c.magicBarrierAbsorbPct,
+    magicBarrierEfficiencyPct: c.magicBarrierEfficiencyPct,
     primaryAttack: options.primaryAttack,
   };
 }

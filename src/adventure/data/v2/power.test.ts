@@ -81,6 +81,64 @@ describe("v2 콘텐츠 파워 지표", () => {
     ).toBe(30);
   });
 
+  it("물리·마법 방어는 높은 축 100%와 낮은 축 25%를 반영한다", () => {
+    expect(
+      derivePowerScore({
+        atk: 0,
+        def: 100,
+        magicDef: 80,
+        spd: 0,
+        maxHp: 0,
+      }),
+    ).toBe(120);
+  });
+
+  it("치명타 기대 공격 증가분은 50% 가중치로 반영한다", () => {
+    expect(
+      derivePowerScore({
+        atk: 100,
+        def: 0,
+        spd: 0,
+        maxHp: 0,
+        critChancePct: 50,
+        critMult: 2,
+      }),
+    ).toBe(125);
+  });
+
+  it("받는 피해 감소는 생존 기여분의 실질 내구도 증가량을 반영한다", () => {
+    expect(
+      derivePowerScore({
+        atk: 0,
+        def: 0,
+        spd: 0,
+        maxHp: 1_000,
+        damageTakenReductionPct: 20,
+      }),
+    ).toBe(125);
+  });
+
+  it("회복 배율은 HP 기여분의 15%만, 최대 3배까지 보조 반영한다", () => {
+    expect(
+      derivePowerScore({
+        atk: 0,
+        def: 0,
+        spd: 0,
+        maxHp: 1_000,
+        healMult: 3,
+      }),
+    ).toBe(130);
+    expect(
+      derivePowerScore({
+        atk: 0,
+        def: 0,
+        spd: 0,
+        maxHp: 1_000,
+        healMult: 30,
+      }),
+    ).toBe(130);
+  });
+
   it("magicAtk/maxMp 미지정은 0 취급", () => {
     expect(derivePowerScore({ atk: 0, def: 0, spd: 0, maxHp: 0 })).toBe(0);
   });
@@ -92,5 +150,7 @@ describe("v2 콘텐츠 파워 지표", () => {
     expect(V2_POWER_WEIGHT.magicBarrier).toBe(0.03);
     expect(V2_POWER_WEIGHT.evasion).toBe(0.45);
     expect(V2_POWER_WEIGHT.accuracy).toBe(0.35);
+    expect(V2_POWER_WEIGHT.criticalExpected).toBe(0.5);
+    expect(V2_POWER_WEIGHT.healingSupport).toBe(0.15);
   });
 });

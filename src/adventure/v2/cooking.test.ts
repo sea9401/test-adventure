@@ -8,6 +8,8 @@ import {
   cookingFoodId,
   cookingExpPct,
   cookingIngredientRequirement,
+  cookingIngredientRequirementAccumulated,
+  cookingXpReward,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrderReward,
@@ -196,6 +198,25 @@ describe("personal cooking", () => {
     expect(parsed.daily.surplusTrades).toBe(0);
   });
 
+  it("재료 절약 나머지는 날짜가 바뀌어도 안전한 값만 보존한다", () => {
+    const parsed = parseCookingState(
+      {
+        daily: { dayKey: "old" },
+        ingredientReductionRemainderBps: {
+          "farm:wheat": 5_700,
+          "fishing:catch_common": 20_000,
+          invalid: -1,
+        },
+      },
+      0,
+    );
+
+    expect(parsed.ingredientReductionRemainderBps).toEqual({
+      "farm:wheat": 5_700,
+      "fishing:catch_common": 9_999,
+    });
+  });
+
   it("chef quality and rare ingredients improve a food buff", () => {
     const recipe = COOKING_RECIPES.find((entry) => entry.id === "flame_corn_stew")!;
     expect(cookingQuality({ cookingJobTier: 6, usedRare: true, rng: () => 0.99 })).toBe("masterpiece");
@@ -267,6 +288,21 @@ describe("personal cooking", () => {
         materialReductionPct: 10,
       }),
     ).toBe(9);
+    const first = cookingIngredientRequirementAccumulated({
+      countPerDish: 3,
+      quantity: 1,
+      cookingJobTier: 4,
+      materialReductionPct: 10,
+    });
+    const second = cookingIngredientRequirementAccumulated({
+      countPerDish: 3,
+      quantity: 1,
+      cookingJobTier: 4,
+      materialReductionPct: 10,
+      reductionRemainderBps: first.remainderBps,
+    });
+    expect([first.required, second.required]).toEqual([3, 2]);
+    expect(second.remainderBps).toBe(1_400);
     const rolls = [0.1, 0.3, 0.2, 0.9];
     expect(
       savedRareCookingIngredientCount({
@@ -275,6 +311,15 @@ describe("personal cooking", () => {
         rng: () => rolls.shift() ?? 1,
       }),
     ).toBe(2);
+  });
+
+  it("작은 요리 경험치 보너스의 소수 부분도 확률적으로 지급한다", () => {
+    expect(
+      cookingXpReward({ baseXp: 12, bonusPct: 15, rng: () => 0.79 }),
+    ).toBe(14);
+    expect(
+      cookingXpReward({ baseXp: 12, bonusPct: 15, rng: () => 0.8 }),
+    ).toBe(13);
   });
 
   it("preserves crafted quality, rare ingredients, and chef duration in the food item id", () => {

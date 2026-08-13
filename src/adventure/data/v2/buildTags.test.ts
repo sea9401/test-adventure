@@ -64,6 +64,18 @@ describe("v2 build tags", () => {
       buildTagsForEquipment(V2_EQUIPMENT.v2_sanctum_sig_sealed_ring),
       ["evasion", "heal", "signature"],
     );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_sky_sig_collapse_armor),
+      ["tank", "shield", "signature"],
+    );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_sky_sig_overload_staff),
+      ["magic", "resource", "signature"],
+    );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_sky_sig_venom_dagger),
+      ["physical", "poison", "dot", "signature"],
+    );
   });
 
   it("세트 정의 태그는 조각 장비에 상속된다", () => {

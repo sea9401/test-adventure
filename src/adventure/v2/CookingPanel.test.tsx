@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { RecipeOwnedCount, SurplusCropLabel } from "./CookingPanel";
+import {
+  RecipeOwnedCount,
+  SurplusCropLabel,
+  cookingLevelProgressView,
+} from "./CookingPanel";
 import type { CookingFoodInventory } from "./cooking";
 
 describe("요리책 보유 수량", () => {
@@ -38,5 +42,30 @@ describe("농장 떨이 교환", () => {
     expect(html).toContain('aria-label="콩"');
     expect(html).toContain("<strong>23</strong>개");
     expect(html).not.toContain("🫘");
+  });
+});
+
+describe("주방 요리 경험치 표시", () => {
+  it("누적 경험치가 아니라 현재 레벨에서 쌓은 경험치로 표시한다", () => {
+    expect(
+      cookingLevelProgressView({
+        xp: 12_345,
+        currentLevelXp: 10_000,
+        nextLevelXp: 15_000,
+      }),
+    ).toEqual({
+      percent: 46.9,
+      label: "2,345 / 5,000 XP",
+    });
+  });
+
+  it("최고 레벨은 기존 안내를 유지한다", () => {
+    expect(
+      cookingLevelProgressView({
+        xp: 24_010,
+        currentLevelXp: 24_010,
+        nextLevelXp: null,
+      }),
+    ).toEqual({ percent: 100, label: "최고 레벨" });
   });
 });

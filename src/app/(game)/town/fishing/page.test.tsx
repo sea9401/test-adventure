@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   onBack: null as (() => void) | null,
+  onOpenDangerous: null as (() => void) | null,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -14,8 +15,15 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/adventure/v2/FishingPanel", () => ({
-  FishingPanel: ({ onBack }: { onBack: () => void }) => {
+  FishingPanel: ({
+    onBack,
+    onOpenDangerous,
+  }: {
+    onBack: () => void;
+    onOpenDangerous: () => void;
+  }) => {
     mocks.onBack = onBack;
+    mocks.onOpenDangerous = onOpenDangerous;
     return <div>낚시 화면</div>;
   },
 }));
@@ -25,6 +33,7 @@ describe("FishingPage", () => {
     mocks.push.mockClear();
     mocks.replace.mockClear();
     mocks.onBack = null;
+    mocks.onOpenDangerous = null;
   });
 
   it("낚시 화면에서 뒤로가면 생활지도로 이동한다", () => {
@@ -34,5 +43,11 @@ describe("FishingPage", () => {
     mocks.onBack?.();
 
     expect(mocks.push).toHaveBeenCalledWith("/map");
+  });
+
+  it("위험 해역 탭은 별도 낚시 화면으로 이동한다", () => {
+    renderToStaticMarkup(<FishingPage />);
+    mocks.onOpenDangerous?.();
+    expect(mocks.push).toHaveBeenCalledWith("/town/fishing/dangerous");
   });
 });

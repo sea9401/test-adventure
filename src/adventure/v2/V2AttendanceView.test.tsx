@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("./GameStateProvider", () => ({
-  useGameState: () => ({ refreshGameState: vi.fn() }),
+vi.mock("./GameStateRefreshContext", () => ({
+  useRefreshGameState: () => vi.fn(),
 }));
 
 import { V2AttendanceView } from "./V2AttendanceView";

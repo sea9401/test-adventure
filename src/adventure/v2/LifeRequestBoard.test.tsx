@@ -61,6 +61,29 @@ describe("생활 의뢰 정보 구조", () => {
     expect(html).not.toContain(">보유<");
   });
 
+  it("완료된 의뢰는 차감된 재료 현황 대신 완료 상태를 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <LifeRequestCard
+        request={{
+          ...REQUEST,
+          balance: 0,
+          shortage: 10,
+          completed: true,
+        }}
+        periodLimitReached={false}
+        busy={false}
+        onDeliver={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('role="status"');
+    expect(html).toContain("납품과 보상 수령을 완료했습니다.");
+    expect(html).not.toContain("현재 보유");
+    expect(html).not.toContain("10개 더 필요");
+    expect(html).not.toContain('role="progressbar"');
+    expect(html).not.toContain("벌목터에서 획득");
+  });
+
   it("다른 주간 의뢰를 선택해 마감된 카드에 선택한 의뢰명을 보여준다", () => {
     const html = renderToStaticMarkup(
       <LifeRequestCard

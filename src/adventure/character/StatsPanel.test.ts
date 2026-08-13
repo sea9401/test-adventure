@@ -61,6 +61,32 @@ describe("StatsPanel 회복량 표기", () => {
   });
 });
 
+describe("StatsPanel 마나 실드 표기", () => {
+  it("전투 시작 최대 내구도·흡수율·내구도 경감률을 함께 표시한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { int: 315 },
+        statKeys: ["int"],
+        statLabels: { int: "지능" },
+        combat: {
+          atk: 10,
+          def: 5,
+          magicBarrierMax: 1_500,
+          magicBarrierAbsorbPct: 24.5455,
+          magicBarrierEfficiencyPct: 15,
+        },
+      }),
+    );
+
+    expect(html).toContain("마나 실드");
+    expect(html).toContain("1,500");
+    expect(html).toContain("마나 실드 흡수율");
+    expect(html).toContain("24.5%");
+    expect(html).toContain("마나 실드 경감률");
+    expect(html).toContain("15.0%");
+  });
+});
+
 describe("StatsPanel 명중·회피 표기", () => {
   it("내 정보에는 원본 방어력·회피도만 표시하고 상대별 경감률은 숨긴다", () => {
     const html = renderToStaticMarkup(

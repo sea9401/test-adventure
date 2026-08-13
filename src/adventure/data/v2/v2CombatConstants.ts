@@ -17,14 +17,17 @@ export const PVE_DODGE_K = 2.5;
 export const DODGE_MAX = EVASION_DAMAGE_REDUCTION_MAX_PCT;
 export const DODGE_K = EVASION_CONTEST_K;
 
-// 마나 실드 패시브의 INT 생존축: 현재 MP를 소모하지 않는 전투별 장벽이다. 일반 보호막이 먼저 피해를
-// 받고, 남은 직접 피해의 일부만 장벽 내구도로 흡수한다. 지속/반사/상태 피해와 HP 비용은 제외한다.
+// 마나 실드 패시브의 INT·최대 MP 생존축. 현재 MP를 소모하지 않으며 전투 시작 시
+// 내구도·흡수율·내구도 경감률을 한 번만 결정한다.
 export const MAGIC_BARRIER_BASE_INT = 15;
 export const MAGIC_BARRIER_MAX_MP_PCT = 60;
 export const MAGIC_BARRIER_DURABILITY_PER_INT = 2;
-export const MAGIC_BARRIER_SCALE = 250;
-export const MAGIC_BARRIER_PVE_MAX_ABSORB_PCT = 35;
-export const MAGIC_BARRIER_PVP_MAX_ABSORB_PCT = 25;
+export const MAGIC_BARRIER_ABSORB_SCALE = 250;
+export const MAGIC_BARRIER_EFFICIENCY_SCALE = 1_500;
+export const MAGIC_BARRIER_PVE_MAX_ABSORB_PCT = 45;
+export const MAGIC_BARRIER_PVP_MAX_ABSORB_PCT = 30;
+export const MAGIC_BARRIER_PVE_MAX_EFFICIENCY_PCT = 30;
+export const MAGIC_BARRIER_PVP_MAX_EFFICIENCY_PCT = 20;
 
 // 적→플레이어 물리 피격 방어 점감식. 전투 엔진과 UI가 같은 수치로 설명하도록
 // 가벼운 공용 상수 파일에 둔다. 85%는 도달하지 않는 점근 상한이며 피해 하한도 15%다.
@@ -60,45 +63,112 @@ export type MagicBarrierStats = {
   maxDurability: number;
   pveAbsorbPct: number;
   pvpAbsorbPct: number;
+  pveEfficiencyPct: number;
+  pvpEfficiencyPct: number;
 };
 
 export function magicBarrierStats(intStat: number, maxMp: number): MagicBarrierStats {
   const effectiveInt = Math.max(0, Math.floor(intStat) - MAGIC_BARRIER_BASE_INT);
   if (effectiveInt <= 0 || maxMp <= 0) {
-    return { maxDurability: 0, pveAbsorbPct: 0, pvpAbsorbPct: 0 };
+    return {
+      maxDurability: 0,
+      pveAbsorbPct: 0,
+      pvpAbsorbPct: 0,
+      pveEfficiencyPct: 0,
+      pvpEfficiencyPct: 0,
+    };
   }
-  const ratio = effectiveInt / (effectiveInt + MAGIC_BARRIER_SCALE);
-  return {
-    maxDurability: Math.max(
-      1,
-      Math.floor(
-        (maxMp * MAGIC_BARRIER_MAX_MP_PCT) / 100 +
-          effectiveInt * MAGIC_BARRIER_DURABILITY_PER_INT,
-      ),
+  const maxDurability = Math.max(
+    1,
+    Math.floor(
+      (maxMp * MAGIC_BARRIER_MAX_MP_PCT) / 100 +
+        effectiveInt * MAGIC_BARRIER_DURABILITY_PER_INT,
     ),
-    pveAbsorbPct: MAGIC_BARRIER_PVE_MAX_ABSORB_PCT * ratio,
-    pvpAbsorbPct: MAGIC_BARRIER_PVP_MAX_ABSORB_PCT * ratio,
+  );
+  const absorbRatio = effectiveInt / (effectiveInt + MAGIC_BARRIER_ABSORB_SCALE);
+  const efficiencyRatio =
+    maxDurability / (maxDurability + MAGIC_BARRIER_EFFICIENCY_SCALE);
+  return {
+    maxDurability,
+    pveAbsorbPct: MAGIC_BARRIER_PVE_MAX_ABSORB_PCT * absorbRatio,
+    pvpAbsorbPct: MAGIC_BARRIER_PVP_MAX_ABSORB_PCT * absorbRatio,
+    pveEfficiencyPct:
+      MAGIC_BARRIER_PVE_MAX_EFFICIENCY_PCT * efficiencyRatio,
+    pvpEfficiencyPct:
+      MAGIC_BARRIER_PVP_MAX_EFFICIENCY_PCT * efficiencyRatio,
   };
 }
 
-export function absorbWithMagicBarrier(
-  damage: number,
+export type MagicBarrierPartition = {
+  bodyRawDamage: number;
+  absorbedDamage: number;
+  spillDamage: number;
+  durabilitySpent: number;
+  durabilityLeft: number;
+  destroyed: boolean;
+};
+
+export function partitionWithMagicBarrier(
+  rawDamage: number,
   durability: number,
   absorbPct: number,
-): { absorbed: number; damageToHp: number; durabilityLeft: number } {
-  const incoming = Math.max(0, Math.floor(damage));
-  const available = Math.max(0, Math.floor(durability));
-  if (incoming <= 0 || available <= 0 || absorbPct <= 0) {
-    return { absorbed: 0, damageToHp: incoming, durabilityLeft: available };
+  efficiencyPct: number,
+): MagicBarrierPartition {
+  const incoming = Number.isFinite(rawDamage)
+    ? Math.max(0, Math.floor(rawDamage))
+    : 0;
+  const available = Number.isFinite(durability)
+    ? Math.max(0, Math.floor(durability))
+    : 0;
+  const safeAbsorbPct = Number.isFinite(absorbPct)
+    ? Math.min(100, Math.max(0, absorbPct))
+    : 0;
+  const safeEfficiencyPct = Number.isFinite(efficiencyPct)
+    ? Math.min(100, Math.max(0, efficiencyPct))
+    : 0;
+  const targetShielded = Math.floor((incoming * safeAbsorbPct) / 100);
+
+  if (incoming <= 0 || available <= 0 || targetShielded <= 0) {
+    return {
+      bodyRawDamage: incoming,
+      absorbedDamage: 0,
+      spillDamage: 0,
+      durabilitySpent: 0,
+      durabilityLeft: available,
+      destroyed: false,
+    };
   }
-  const absorbed = Math.min(
+
+  const bodyRawDamage = incoming - targetShielded;
+  const costRatio = 1 - safeEfficiencyPct / 100;
+  const fullCost = Math.ceil(targetShielded * costRatio);
+  if (fullCost <= available) {
+    const durabilityLeft = available - fullCost;
+    return {
+      bodyRawDamage,
+      absorbedDamage: targetShielded,
+      spillDamage: 0,
+      durabilitySpent: fullCost,
+      durabilityLeft,
+      destroyed: durabilityLeft === 0,
+    };
+  }
+
+  const affordableDamage =
+    costRatio <= 0
+      ? targetShielded
+      : Math.min(targetShielded, Math.floor(available / costRatio));
+  const durabilitySpent = Math.min(
     available,
-    Math.floor(incoming * Math.min(100, absorbPct) / 100),
+    Math.ceil(affordableDamage * costRatio),
   );
   return {
-    absorbed,
-    damageToHp: incoming - absorbed,
-    durabilityLeft: available - absorbed,
+    bodyRawDamage,
+    absorbedDamage: affordableDamage,
+    spillDamage: targetShielded - affordableDamage,
+    durabilitySpent,
+    durabilityLeft: 0,
+    destroyed: true,
   };
 }
 

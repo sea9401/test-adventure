@@ -42,6 +42,9 @@ describe("트레이너 상시 패시브", () => {
       rewardBonusPct: 0,
       weeklyBonusMastery: 0,
     });
+    expect(describeV2Skill(V2_SKILLS.v2c_healthtrainer_routine)).toContain(
+      "훈련장 보상 +3% (누적 지급)",
+    );
   });
 });
 
@@ -272,7 +275,7 @@ describe("농부 생활 패시브", () => {
 
   it("describeV2Skill 가 농장 효과 칩을 낸다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_farmer_seedselection)).toContain(
-      "농장 수확량 +10%",
+      "농장 수확량 +10% (누적 지급)",
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_horticulturist_soilreading),
@@ -283,14 +286,14 @@ describe("농부 생활 패시브", () => {
 describe("요리사 생활 패시브", () => {
   it("describeV2Skill 가 요리 효과 칩을 낸다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_cook_prepwork)).toContain(
-      "요리 경험치 +5%",
+      "요리 경험치 +5% (평균 적용)",
     );
     expect(
       describeV2Skill(V2_SKILLS.v2c_professionalcook_seasoning),
     ).toContain("정성작 확률 +8%");
     expect(
       describeV2Skill(V2_SKILLS.v2c_headchef_batchcooking),
-    ).toContain("묶음 조리 일반 재료 -10%");
+    ).toContain("묶음 조리 일반 재료 -10% (누적 절약)");
     expect(
       describeV2Skill(V2_SKILLS.v2c_masterchef_heatcontrol),
     ).toContain("걸작 확률 +5%");

@@ -647,7 +647,13 @@ export function derivePlayerCombatV2Pure(
     (input.passiveMagicSkillDamagePct ?? 0);
   const magicBarrier = input.passiveMagicBarrier
     ? magicBarrierStats(totalStats.int, maxMp)
-    : { maxDurability: 0, pveAbsorbPct: 0, pvpAbsorbPct: 0 };
+    : {
+        maxDurability: 0,
+        pveAbsorbPct: 0,
+        pvpAbsorbPct: 0,
+        pveEfficiencyPct: 0,
+        pvpEfficiencyPct: 0,
+      };
 
   const player: PlayerCombat = {
     hp,
@@ -660,6 +666,8 @@ export function derivePlayerCombatV2Pure(
           magicBarrierMax: magicBarrier.maxDurability,
           magicBarrierAbsorbPct: magicBarrier.pveAbsorbPct,
           magicBarrierPvpAbsorbPct: magicBarrier.pvpAbsorbPct,
+          magicBarrierEfficiencyPct: magicBarrier.pveEfficiencyPct,
+          magicBarrierPvpEfficiencyPct: magicBarrier.pvpEfficiencyPct,
         }
       : {}),
     strStat: totalStats.str,

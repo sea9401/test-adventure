@@ -9,6 +9,7 @@ import {
   CRIT_OVERFLOW_DMG_PER_PCT,
   CRIT_PCT_CAP,
 } from "@/adventure/data/stats";
+import { cappedDefReductionPct } from "@/adventure/data/v2/v2CombatConstants";
 import { extractApEffect } from "./combatShared";
 import { DEF_IGNORE_FRACTION } from "./engine";
 
@@ -70,4 +71,17 @@ export function computeStormBonus(
   return apMultEffect?.kind === "atk_plus_spd_pct_bonus"
     ? Math.floor((atk * apMultEffect.spdPct) / 100)
     : 0;
+}
+
+// 마법 방어 감소 — PvE/PvP 스킬 대상 방어 계산이 공유하는 동일 수식.
+export function reducedMagicDefense(
+  baseDefense: number,
+  reductionPct: number,
+): number {
+  const cappedReductionPct = cappedDefReductionPct(reductionPct);
+  if (cappedReductionPct <= 0) return baseDefense;
+  return Math.max(
+    0,
+    Math.round(baseDefense * (1 - cappedReductionPct / 100)),
+  );
 }

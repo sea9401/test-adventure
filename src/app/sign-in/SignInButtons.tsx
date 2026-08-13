@@ -51,7 +51,7 @@ export function SignInButtons() {
       </button>
 
       <details className="group mt-1 border-t border-white/10 pt-2 text-left">
-        <summary className="cursor-pointer list-none text-center text-xs text-zinc-500 transition-colors hover:text-zinc-300 [&::-webkit-details-marker]:hidden">
+        <summary className="cursor-pointer list-none text-center text-xs text-zinc-400 transition-colors hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
           아이디·비밀번호로 로그인
           <span
             aria-hidden
@@ -108,7 +108,7 @@ export function SignInButtons() {
               {passwordLoginError}
             </p>
           )}
-          <p className="text-[10px] leading-relaxed text-zinc-600">
+          <p className="text-[10px] leading-relaxed text-zinc-400">
             아이디·비밀번호 계정은 카카오 이용이 어려운 해외 이용자에게
             운영자가 개별 발급합니다. 직접 회원가입은 지원하지 않습니다.
           </p>

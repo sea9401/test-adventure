@@ -3,9 +3,17 @@ import type { DbExecutor } from "./savesKv";
 import {
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
+  applyPctBonus,
   readActiveHotTime,
   parseLifeFieldFeatureSettings,
 } from "./opsSettings";
+
+describe("applyPctBonus", () => {
+  it("작은 핫타임 보너스도 소수 확률만큼 지급한다", () => {
+    expect(applyPctBonus(3, 20, () => 0.59)).toBe(4);
+    expect(applyPctBonus(3, 20, () => 0.6)).toBe(3);
+  });
+});
 
 function executorReturning(rows: Array<{ key: string; value: unknown }>) {
   const limit = vi.fn(async () => rows);

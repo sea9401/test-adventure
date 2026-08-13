@@ -26,6 +26,7 @@ import {
 } from "./v2EquipmentCatalog";
 import {
   enhanceGoldCost,
+  equipmentPowerWithBonus,
   parseEnhance,
   type V2EnhanceState,
 } from "./v2Enhance";
@@ -426,11 +427,33 @@ export type SignatureTrigger =
   | "on_hit_taken"
   | "on_skill_cast"
   | "status_block_once"
-  | "every_n_hits";
+  | "every_n_hits"
+  | "tier6_unique";
+export type Tier6UniqueMechanic =
+  | "gravity_reprisal"
+  | "gravity_feedback"
+  | "bleed_burst"
+  | "bleed_aftermath"
+  | "pursuit_mark"
+  | "shadow_echo"
+  | "venom_burst"
+  | "venom_balance"
+  | "arcane_overload"
+  | "arcane_feedback"
+  | "sanctuary_reserve"
+  | "mechanic_unity"
+  | "shield_conversion"
+  | "gale_circuit"
+  | "status_mana_return"
+  | "triphase_link"
+  | "storm_confluence"
+  | "dominant_heart";
 export type SignatureEffect = {
   trigger: SignatureTrigger;
   /** 전투로그/UI 표기 이름(예: "성물"). */
   label: string;
+  /** 6티어 단품 유니크의 데이터 주도 메커니즘. 세트 태그와 독립이다. */
+  mechanic?: Tier6UniqueMechanic;
   /** low_hp: 현재 HP 가 maxHp 의 이 % 이하일 때 효과 활성. */
   hpThresholdPct?: number;
   /** low_hp: 받는 피해 −% (조건 충족 시). */
@@ -513,6 +536,29 @@ export function signatureLabel(sig: SignatureEffect): string {
       return "전투당 1회 상태이상 무효";
     case "every_n_hits":
       return `${sig.everyNHits ?? 0}회 공격 적중마다 추가 행동 1회`;
+    case "tier6_unique": {
+      const labels: Record<Tier6UniqueMechanic, string> = {
+        gravity_reprisal: "보호막 파괴 시 충격의 35%를 저장해 다음 직접 공격으로 반격",
+        gravity_feedback: "보호막 획득량의 20%를 반발로 저장하고 반발 시 최대 HP 5% 보호막",
+        bleed_burst: "기본 공격으로 출혈을 소비해 남은 피해의 70%를 즉시 적용",
+        bleed_aftermath: "출혈 폭발 후 1스택을 남기고 소비 스택당 방어 3% 감소",
+        pursuit_mark: "연속 적중 5회마다 직전 공격 피해 60%의 추적 사격",
+        shadow_echo: "회피로 잔상을 쌓아 다음 치명타 피해의 45%를 복제",
+        venom_burst: "스킬로 중독을 쌓고 기본 공격으로 5스택 이상 중독을 폭발",
+        venom_balance: "중독 폭발 시 절반을 재부여하고 스택당 마법방어 2% 감소",
+        arcane_overload: "MP 100 소모마다 마법공격력 140%의 과부하 낙뢰",
+        arcane_feedback: "과부하 낙뢰 시 MP 20% 환급, 상태이상 대상이면 과부하 25 회수",
+        sanctuary_reserve: "산출 회복량 30%를 저장해 HP 35% 이하에서 긴급 회복",
+        mechanic_unity: "서로 다른 핵심 기믹 3종 발동 시 3행동 동안 합일 강화",
+        shield_conversion: "행동마다 보호막 10%를 소비해 다음 직접 공격 피해로 전환",
+        gale_circuit: "적중·치명타·회피를 모두 달성하면 추가 행동 1회",
+        status_mana_return: "상태이상 적 공격 시 소모 MP 8%, 복합 상태면 16% 회복",
+        triphase_link: "폭발은 추적 표식을, 추적·잔상·낙뢰는 성역 축적을 생성",
+        storm_confluence: "시그니처 피해와 회복·보호막이 서로의 다음 효과를 12% 강화",
+        dominant_heart: "먼저 3회 발동한 핵심 기믹의 계수와 자원 생성을 35% 강화",
+      };
+      return sig.mechanic ? labels[sig.mechanic] : "6티어 고유 기믹";
+    }
   }
 }
 
@@ -1730,7 +1776,7 @@ export function powerWithBonuses(
 ): number {
   const bonusPct = (enhance?.bonusPct ?? 0) + (craftQuality?.bonusPct ?? 0);
   if (bonusPct <= 0) return basePower;
-  return Math.floor(basePower * (1 + bonusPct / 100));
+  return equipmentPowerWithBonus(basePower, bonusPct);
 }
 
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
@@ -2053,7 +2099,7 @@ export function resolveEquippedForAggregate(
       const item = V2_EQUIPMENT[inst.id];
       const basePower = inst.roll?.power ?? item.power;
       rolls[inst.id] = {
-        power: Math.floor(basePower * (1 + bonusPct / 100)),
+        power: equipmentPowerWithBonus(basePower, bonusPct),
         weight: inst.roll?.weight ?? item.weight,
         ...(inst.roll?.options ? { options: inst.roll.options } : {}),
       };

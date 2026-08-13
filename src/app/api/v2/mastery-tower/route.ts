@@ -4,6 +4,7 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import { powerInputFromPlayer } from "@/lib/server/playerPowerInput";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { settleMasteryTowerRollover } from "@/lib/server/masteryTowerRollover";
 import {
@@ -109,17 +110,13 @@ export async function GET() {
     staminaConfig.regenBonusPct,
   );
   const prof = parseProficiencyForChar(map.get("proficiency.v2"), charSave);
-  const power = derivePowerScore({
-    atk: derived.player.atk,
-    magicAtk: derived.player.magicAtk ?? 0,
-    def: derived.player.def,
-    spd: derived.player.spd,
-    maxHp: derived.maxHp,
-    maxMp: derived.player.maxMp ?? 0,
-    magicBarrierMax: derived.player.magicBarrierMax,
-    evaRating: derived.player.evaRating,
-    accRating: derived.player.accRating,
-  });
+  const power = derivePowerScore(
+    powerInputFromPlayer(
+      derived.player,
+      derived.maxHp,
+      derived.player.maxMp ?? 0,
+    ),
+  );
 
   const jobs = V2_JOB_LIST.filter(
     (job) =>

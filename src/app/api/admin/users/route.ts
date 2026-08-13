@@ -1,7 +1,7 @@
 import { desc, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users, presence } from "@/db/schema";
-import { requireAdmin } from "@/lib/server/isAdmin";
+import { isSuperAdminEmail, requireAdmin } from "@/lib/server/isAdmin";
 
 // GET /api/admin/users?q=<search>
 // q 비어있으면 최근 활동 순 50명. q 있으면 email / 인게임 닉네임 부분 일치.
@@ -47,6 +47,7 @@ export async function GET(req: Request) {
   return Response.json(
     rows.map((r) => ({
       ...r,
+      isSuperAdmin: isSuperAdminEmail(r.email),
       lastSeenAt:
         r.lastSeenAt instanceof Date
           ? r.lastSeenAt.toISOString()

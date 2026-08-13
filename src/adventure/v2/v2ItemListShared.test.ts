@@ -40,6 +40,16 @@ describe("itemTabForMaterial", () => {
       "consumable",
     );
   });
+
+  it("위험 해역 귀환 어획물을 거래 가능한 재료 탭으로 분류한다", () => {
+    expect(itemTabForMaterial("danger_catch_ironjaw_tuna")).toBe("material");
+    expect(
+      itemTabForMarketplaceListing(
+        "material",
+        "danger_catch_ironjaw_tuna",
+      ),
+    ).toBe("material");
+  });
 });
 
 describe("equipment list sorting", () => {

@@ -36,6 +36,20 @@ Web Push 키 3개(`WEB_PUSH_VAPID_PUBLIC_KEY`,
 `/etc/adventure-rpg/web-push.env`에 설치한다. systemd는 SSM 런타임 파일과
 이 파일을 함께 읽는다.
 
+## OIDC·Systems Manager 배포 전환 조건
+
+2026-08-13 기준 EC2의 SSM Agent 프로세스는 실행 중이지만 인스턴스 역할에 관리 노드
+권한이 없어 `ssm:UpdateInstanceInformation` 단계에서 등록이 거부된다. 따라서 현재 배포를
+SSM Run Command로 바꾸지 않는다. AWS 관리자 자격으로
+`infra/operations/enable-ssm-managed-instance.sh`를 적용하고 Fleet Manager에서 인스턴스가
+`Online`인지 확인해야 한다.
+
+그 뒤 GitHub OIDC 역할은 `repo:sea9401/test-adventure:environment:msmsge.com` subject와 운영
+인스턴스 하나로 제한한다. Web Push 세 값과 `REFERRAL_IDENTITY_SECRET`을 명령 인자에
+실어 SSM으로 보내지 않는다. 먼저 이 네 값을 기존 SecureString 원본으로 옮기고 4KB 한도와
+사전 검사를 통과시킨 다음, 두 번의 정상 배포와 break-glass 접속 검증이 끝났을 때만
+`EC2_SSH_KEY`를 폐기한다.
+
 ## 최초 구성
 
 IAM 역할에 `deploy/aws/production-env-reader-policy.json`을 인라인 정책으로

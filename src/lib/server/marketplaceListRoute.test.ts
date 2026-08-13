@@ -87,6 +87,20 @@ function listSpecimenRequest(quantity: number): Request {
   });
 }
 
+function listDangerousCatchRequest(quantity: number): Request {
+  return new Request("http://test/api/v2/marketplace/list", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      kind: "material",
+      itemId: "danger_catch_ironjaw_tuna",
+      quantity,
+      price: 12_000,
+      graceHours: 2,
+    }),
+  });
+}
+
 describe("거래소 레어맵 등록", () => {
   beforeEach(() => {
     insertValues.length = 0;
@@ -148,5 +162,26 @@ describe("거래소 레어맵 등록", () => {
       version: 1,
       items: { carp: 1 },
     });
+  });
+
+  it("귀환한 위험 해역 어획물을 수량만큼 에스크로로 옮긴다", async () => {
+    store.set("character.v2", {
+      materials: { danger_catch_ironjaw_tuna: 5, v2_iron_ore: 2 },
+    });
+
+    const response = await POST(listDangerousCatchRequest(3));
+
+    expect(response.status).toBe(200);
+    expect(store.get("character.v2")).toEqual({
+      materials: { danger_catch_ironjaw_tuna: 2, v2_iron_ore: 2 },
+    });
+    expect(insertValues).toContainEqual(
+      expect.objectContaining({
+        kind: "material",
+        itemId: "danger_catch_ironjaw_tuna",
+        itemName: "철턱 참치",
+        quantity: 3,
+      }),
+    );
   });
 });

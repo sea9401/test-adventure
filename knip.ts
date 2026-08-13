@@ -11,7 +11,7 @@ import type { KnipConfig } from "knip";
 const config: KnipConfig = {
   // Next(app router)·vitest 엔트리는 플러그인이 자동 인식 — 여기는 독립 실행물만 추가.
   // scripts/sim-*.ts 는 `node --import tsx` 로 수동 실행하는 밸런스 sim(엔트리 없으면 오탐).
-  entry: ["scripts/*.{ts,mjs}", "src/db/*.mjs"],
+  entry: ["scripts/*.{ts,mjs}", "infra/**/*.{ts,mjs}", "src/db/*.mjs"],
   ignore: [
     // 서비스 워커 — 런타임 register 로 로드되어 정적 참조가 없다.
     "public/sw.js",

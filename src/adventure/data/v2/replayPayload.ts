@@ -149,6 +149,8 @@ export function toPvpReplayPayloadForSide(
         playerMaxMp: e.enemyMaxMp,
         enemyMp: e.playerMp,
         enemyMaxMp: e.playerMaxMp,
+        playerSignatureResources: e.enemySignatureResources,
+        enemySignatureResources: e.playerSignatureResources,
       };
     }
     if (e.kind === "turn_marker") return e;

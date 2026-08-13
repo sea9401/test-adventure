@@ -12,6 +12,7 @@ import {
 export function FishingPanel({
   onBack,
   onOpenLeaderboard,
+  onOpenDangerous,
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
@@ -20,6 +21,7 @@ export function FishingPanel({
 }: {
   onBack: () => void;
   onOpenLeaderboard: () => void;
+  onOpenDangerous: () => void;
   onOpenShop: () => void;
   onOpenChallenges: () => void;
   onOpenHallOfFame: () => void;
@@ -34,6 +36,7 @@ export function FishingPanel({
       fishingSpot={spot}
       onBack={onBack}
       onOpenLeaderboard={onOpenLeaderboard}
+      onOpenDangerous={onOpenDangerous}
       onOpenShop={onOpenShop}
       onOpenChallenges={onOpenChallenges}
       onOpenHallOfFame={onOpenHallOfFame}

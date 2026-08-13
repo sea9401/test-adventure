@@ -23,6 +23,47 @@ beforeEach(() => {
 });
 
 describe("개인 랭킹", () => {
+  it("정지 중인 계정을 제외하고 남은 이용자의 순위를 다시 매긴다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: "u-banned",
+          name: "정지계정",
+          avatar: "male1",
+          level: 50,
+          cum_level: 2000,
+          paragon_exp: 0,
+          fame: 999999,
+          bannedUntil: "9999-12-31T23:59:59.999Z",
+          rank: 1,
+        },
+        {
+          user_id: "u-me",
+          name: "정상이용자",
+          avatar: "female1",
+          level: 40,
+          cum_level: 1000,
+          paragon_exp: 0,
+          fame: 100,
+          bannedUntil: null,
+          rank: 2,
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/rankings?metric=fame"),
+    );
+    const json = await response.json();
+
+    expect(json.list).toEqual([
+      expect.objectContaining({ name: "정상이용자", rank: 1, mine: true }),
+    ]);
+    expect(json.me).toEqual(
+      expect.objectContaining({ name: "정상이용자", rank: 1 }),
+    );
+  });
+
   it("프로필 아바타를 목록과 내 순위에 포함하고 구형 값을 정규화한다", async () => {
     execute.mockResolvedValueOnce({
       rows: [

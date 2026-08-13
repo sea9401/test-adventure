@@ -26,6 +26,7 @@ import {
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
 import {
   applyV2DotsToTarget,
+  distributeBoostedHits,
   extractApEffect,
   makePoisonDot,
   v2AtkBuffMult,
@@ -75,9 +76,17 @@ import {
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
   applyEvasionDamageReduction,
-  absorbWithMagicBarrier,
   pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  magicBarrierCombatLogEntries,
+  resolveMagicBarrierDamage,
+} from "./magicBarrier";
+import {
+  applyTier6UniquePvpEvent,
+  tier6PvpDotContext,
+  tier6PvpStatusKindCount,
+} from "./tier6UniquePvpAdapter";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
 // 암살/분쇄/방어관통 → ATK 보너스 → 크리 → 베이스뎀 → 처형·크리·행운별·암살 배수 →
@@ -293,8 +302,13 @@ function computeAttackDamagePvP(
           Math.floor(totalDmgAfterVuln * (1 - attacker.stacks.damageDownPct / 100)),
         )
       : totalDmgAfterVuln;
+  const fixedDamage = decreeDmg + impactDmg + stormBonus;
+  const [manaShieldEligibleDmg, manaShieldBypassDmg] = distributeBoostedHits(
+    [executionActive ? 0 : dmg, (executionActive ? dmg : 0) + fixedDamage],
+    totalDmg,
+  );
   return {
-    assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, totalDmg, weakpointDefIgnore,
+    assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, manaShieldBypassDmg, manaShieldEligibleDmg, totalDmg, weakpointDefIgnore,
   };
 }
 
@@ -338,12 +352,22 @@ export function advanceTurnPvP(
     return endAttackerPhase(st, atkKey, defKey, phaseEndOptions);
   }
 
-  const attacker = state[atkKey];
-  const defender = state[defKey];
+  let attacker = state[atkKey];
+  let defender = state[defKey];
 
   // 강공격 — POWER_ATTACK_TURN_INTERVAL 턴마다 첫 공격에 ATK + powerAttackBonus.
   const turnNumber = attacker.turn.completedPlayerTurns + 1;
   const isFirstAttackOfTurn = attacker.turn.firstAttackPending;
+  if (isFirstAttackOfTurn && attacker.stacks.tier6Uniques) {
+    state = applyTier6UniquePvpEvent(state, atkKey, defKey, {
+      kind: "action_start",
+      shield: attacker.stacks.playerShield,
+      maxHp: attacker.maxHp,
+      origin: { actionId: turnNumber, eventId: state.log.length },
+    });
+    attacker = state[atkKey];
+    defender = state[defKey];
+  }
   if (isFirstAttackOfTurn && attacker.attacksLeft > 1) {
     state = {
       ...state,
@@ -486,7 +510,7 @@ export function advanceTurnPvP(
   // dodge cascade 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 위에서 이미 return 된 상태.
   const nextBuffsTimedFromAp = attacker.buffs;
 
-  const { assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg: dmgBeforeEvasion, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, totalDmg: totalDmgBeforeEvasion, weakpointDefIgnore } = computeAttackDamagePvP(
+  const { assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg: dmgBeforeEvasion, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, manaShieldBypassDmg, manaShieldEligibleDmg, totalDmg: totalDmgBeforeEvasion, weakpointDefIgnore } = computeAttackDamagePvP(
     attacker,
     defender,
     powerBonus,
@@ -502,10 +526,7 @@ export function advanceTurnPvP(
     dmgBeforeEvasion,
     evasionReductionPct,
   );
-  const totalDmg = applyEvasionDamageReduction(
-    totalDmgBeforeEvasion,
-    evasionReductionPct,
-  );
+  let totalDmg = 0;
   const labels: string[] = [];
   if (powerBonus > 0) labels.push("강공격");
   if (powerBonus > 0 && crushReduction > 0) labels.push("분쇄");
@@ -525,45 +546,76 @@ export function advanceTurnPvP(
   const resolveReductionActive =
     defender.buffs.playerDmgReductionTurnsLeft > 0 &&
     defender.buffs.playerDmgReductionPct > 0;
-  const dmgAfterResolve = resolveReductionActive
-    ? Math.max(1, Math.floor(totalDmg * (1 - defender.buffs.playerDmgReductionPct / 100)))
-    : totalDmg;
-  const resolveApplied = dmgAfterResolve < totalDmg;
+  let dmgAfterResolve = 0;
   // 별빛 인내(enchant endure) — 받는 피해 -pct%. 결의 다음·가드 전 곱연산, 항상 활성, 최소 1.
   //   PvE(enemyPhase)에선 적용되나 PvP 에선 inert 였던 걸 미러(2026-06-19, full mirror).
   const endurePct = defender.player.enchantEndurePct ?? 0;
-  const enduredDmg =
-    endurePct > 0
-      ? Math.max(1, Math.floor(dmgAfterResolve * (1 - endurePct / 100)))
-      : dmgAfterResolve;
-  const endureApplied = enduredDmg < dmgAfterResolve;
+  let enduredDmg = 0;
   // 받피감 — 패시브 + 액티브 임시 버프 + 저체력 성물을 합산해 인내 다음·가드 전에 적용한다.
   const passiveReducePct = pvpSideDamageTakenReductionPct(defender);
-  const passiveReduced =
-    passiveReducePct > 0
-      ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))
-      : enduredDmg;
-  const passiveReduceApplied = passiveReduced < enduredDmg;
+  let passiveReduced = 0;
   const guard = defender.player.guard;
-  const guarded =
-    guard && guard.turns > 0 && defender.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, passiveReduced - guard.reduction)
-      : passiveReduced;
-  const guardApplied = guarded < passiveReduced;
+  let guarded = 0;
   const steadfastFlat = defender.player.steadfastWillFlat ?? 0;
-  const afterSteadfast =
-    steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
+  let afterSteadfast = 0;
+  const magicBarrier = resolveMagicBarrierDamage({
+    rawDamage: manaShieldEligibleDmg,
+    durability: defender.magicBarrier ?? 0,
+    absorbPct: defender.player.magicBarrierPvpAbsorbPct,
+    efficiencyPct: defender.player.magicBarrierPvpEfficiencyPct,
+    eligible: manaShieldEligibleDmg > 0,
+    mitigateBody: (bodyRawDamage) => {
+      const bodyAndBypassDamage = bodyRawDamage + manaShieldBypassDmg;
+      if (bodyAndBypassDamage <= 0) return 0;
+      totalDmg = applyEvasionDamageReduction(
+        bodyAndBypassDamage,
+        evasionReductionPct,
+      );
+      dmgAfterResolve = resolveReductionActive
+        ? Math.max(
+            1,
+            Math.floor(
+              totalDmg *
+                (1 - defender.buffs.playerDmgReductionPct / 100),
+            ),
+          )
+        : totalDmg;
+      enduredDmg =
+        endurePct > 0
+          ? Math.max(
+              1,
+              Math.floor(dmgAfterResolve * (1 - endurePct / 100)),
+            )
+          : dmgAfterResolve;
+      passiveReduced =
+        passiveReducePct > 0
+          ? Math.max(
+              1,
+              Math.floor(enduredDmg * (1 - passiveReducePct / 100)),
+            )
+          : enduredDmg;
+      guarded =
+        guard &&
+        guard.turns > 0 &&
+        defender.turn.enemyPhasesCompleted < guard.turns
+          ? Math.max(0, passiveReduced - guard.reduction)
+          : passiveReduced;
+      afterSteadfast =
+        steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
+      return scalePvPDamage(state, afterSteadfast);
+    },
+  });
+  const resolveApplied = dmgAfterResolve < totalDmg;
+  const endureApplied = enduredDmg < dmgAfterResolve;
+  const passiveReduceApplied = passiveReduced < enduredDmg;
+  const guardApplied = guarded < passiveReduced;
   const steadfastApplied = afterSteadfast < guarded;
-  const arenaAdjustedDmg = scalePvPDamage(state, afterSteadfast);
-  const shieldAbsorbed = Math.min(defender.stacks.playerShield, arenaAdjustedDmg);
-  const afterShield = arenaAdjustedDmg - shieldAbsorbed;
-  const newShield = defender.stacks.playerShield - shieldAbsorbed;
-  const magicBarrier = absorbWithMagicBarrier(
-    afterShield,
-    defender.magicBarrier ?? 0,
-    defender.player.magicBarrierPvpAbsorbPct ?? 0,
+  const shieldAbsorbed = Math.min(
+    defender.stacks.playerShield,
+    magicBarrier.hpBoundDamage,
   );
-  const dmgToHp = magicBarrier.damageToHp;
+  const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
+  const newShield = defender.stacks.playerShield - shieldAbsorbed;
   // 보호막이 공격을 전부 흡수한 경우에는 피격 반사·반격이 발동하지 않는다.
   // 보호막을 뚫고 HP 피해가 남은 공격은 기존과 동일하게 처리한다.
   const hitStoppedByShield = shieldAbsorbed > 0 && dmgToHp <= 0;
@@ -597,7 +649,11 @@ export function advanceTurnPvP(
   const bloodfeastActualHeal = newDefenderHp - defenderHpAfterDmg;
   const defenderHealShield = healToShield(
     defender.player.equipSignatures,
-    bloodfeastActualHeal,
+    {
+      actualHeal: bloodfeastActualHeal,
+      calculatedHeal: bloodfeastHeal,
+      maxHp: defender.maxHp,
+    },
   );
   const newShieldAfterHeal = newShield + (defenderHealShield?.amount ?? 0);
   const sigDefGain = onHitTakenDefGain(defender.player.equipSignatures);
@@ -655,11 +711,8 @@ export function advanceTurnPvP(
       text: `[철벽] ${defender.name} 보호막이 ${shieldAbsorbed} 흡수 (남은 ${newShield})`,
     });
   }
-  if (magicBarrier.absorbed > 0) {
-    log = appendLog(log, {
-      kind: "info",
-      text: `[마나 실드] ${defender.name} ${magicBarrier.absorbed} 흡수 (남은 ${magicBarrier.durabilityLeft})`,
-    });
+  for (const entry of magicBarrierCombatLogEntries(magicBarrier)) {
+    log = appendLog(log, { ...entry, side: defKey });
   }
   log = appendLog(log, {
     kind: "player_attack",
@@ -767,7 +820,11 @@ export function advanceTurnPvP(
     });
     const attackerHealShield = healToShield(
       attacker.player.equipSignatures,
-      actualLifesteal,
+      {
+        actualHeal: actualLifesteal,
+        calculatedHeal: totalLifestealHeal,
+        maxHp: attacker.maxHp,
+      },
     );
     if (attackerHealShield) {
       attackerHealShieldAmount += attackerHealShield.amount;
@@ -834,7 +891,11 @@ export function advanceTurnPvP(
         });
         const apHealShield = healToShield(
           attacker.player.equipSignatures,
-          actual,
+          {
+            actualHeal: actual,
+            calculatedHeal: amount,
+            maxHp: attacker.maxHp,
+          },
         );
         if (apHealShield) {
           attackerHealShieldAmount += apHealShield.amount;
@@ -1192,12 +1253,58 @@ export function advanceTurnPvP(
   }, attacker, {
     bleedStacks: apBleedAdd + (!statusBlockSigStatus ? sigHitBleed?.stacks ?? 0 : 0),
   });
+  const tier6DotsBefore = tier6PvpDotContext(defender);
+  const tier6StatusKindsBefore = tier6PvpStatusKindCount(attacker, defender);
   let next: PvPBattleState = setSide(
     setSide({ ...state, log }, atkKey, newAttacker),
     defKey,
     newDefender,
   );
-  if (newDefenderHp <= 0) {
+  if (
+    newDefender.stacks.tier6Uniques &&
+    defender.stacks.playerShield > 0 &&
+    newDefender.stacks.playerShield <= 0 &&
+    shieldAbsorbed > 0
+  ) {
+    next = applyTier6UniquePvpEvent(next, defKey, atkKey, {
+      kind: "shield_broken",
+      shieldBefore: defender.stacks.playerShield,
+      overflowDamage: dmgToHp,
+      maxHp: defender.maxHp,
+      origin: { actionId: turnNumber, eventId: next.log.length },
+    });
+  }
+  if (sigDealtDamage && next[atkKey].stacks.tier6Uniques) {
+    next = applyTier6UniquePvpEvent(next, atkKey, defKey, {
+      kind: "direct_hit",
+      damage: totalDmg,
+      crit: critRoll,
+      attackKind: "basic",
+      paidMp: 0,
+      statusKinds: tier6StatusKindsBefore,
+      bleedStacks: tier6DotsBefore.bleed.stacks,
+      bleedRemainingDamage: tier6DotsBefore.bleed.remainingDamage,
+      poisonStacks: tier6DotsBefore.poison.stacks,
+      poisonRemainingDamage: tier6DotsBefore.poison.remainingDamage,
+      magicAtk: Math.floor(
+        (attacker.player.magicAtk ?? attacker.player.atk) *
+          ((nextBuffsTimedFromAp.tier6UnityTurnsLeft ?? 0) > 0
+            ? 1 + (nextBuffsTimedFromAp.tier6UnityHealPct ?? 0) / 100
+            : 1),
+      ),
+      maxHp: attacker.maxHp,
+      origin: { actionId: turnNumber, eventId: next.log.length + 1 },
+    });
+  }
+  if (next[defKey].stacks.tier6Uniques) {
+    next = applyTier6UniquePvpEvent(next, defKey, atkKey, {
+      kind: "hp_threshold",
+      currentHp: next[defKey].hp,
+      maxHp: next[defKey].maxHp,
+      origin: { actionId: turnNumber, eventId: next.log.length },
+    });
+  }
+  if (next[defKey].hp <= 0) {
     return {
       ...next,
       log: appendLog(next.log, {

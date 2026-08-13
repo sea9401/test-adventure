@@ -31,6 +31,7 @@ import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
+import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 import {
   derivePlayerCombatV2,
   type DerivedPlayerCombatV2,
@@ -595,6 +596,7 @@ export async function ensureArenaTournament(
         .select({
           userId: pvpRatings.userId,
           email: users.email,
+          bannedUntil: users.bannedUntil,
           rating: pvpRatings.rating,
           wins: pvpRatings.wins,
           losses: pvpRatings.losses,
@@ -617,7 +619,9 @@ export async function ensureArenaTournament(
           asc(pvpRatings.updatedAt),
           asc(pvpRatings.userId),
         );
-      const ranked = excludeArenaOperatorAccounts(rankedRows);
+      const ranked = excludeArenaOperatorAccounts(
+        filterRankingEligibleRows(rankedRows, now),
+      );
       const entrants = await buildCombatEntrants(tx, ranked);
       const bracket = createArenaTournamentSchedule({
         seasonId: season.id,

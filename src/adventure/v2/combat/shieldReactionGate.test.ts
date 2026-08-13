@@ -5,6 +5,8 @@ import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
 import {
   castV2SkillOnAttackerTurnPvP,
   initialBattleStatePvP,
+  applyOnHitReflect,
+  tickPvPSideDotsOnAction,
 } from "./engine-pvp";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { advanceTurnPvP } from "./engine.pvpPhase";
@@ -98,6 +100,9 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     const defender: PlayerCombat = {
       ...PLAYER,
       bulwarkShield: 1_000,
+      magicBarrierMax: 100,
+      magicBarrierAbsorbPct: 50,
+      magicBarrierEfficiencyPct: 20,
       passiveCounterChancePct: 100,
     };
     const skillEnemy: Monster = {
@@ -115,6 +120,7 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
 
     expect(next.playerHp).toBe(defender.hp);
     expect(next.stacks.playerShield).toBeLessThan(1_000);
+    expect(next.playerMagicBarrier).toBeLessThan(100);
     expect(hasReactionLog(next.log)).toBe(false);
   });
 
@@ -122,6 +128,9 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     const defender: PlayerCombat = {
       ...PLAYER,
       thornsFlatFromDef: 200,
+      magicBarrierMax: 100,
+      magicBarrierPvpAbsorbPct: 25,
+      magicBarrierPvpEfficiencyPct: 20,
       runeCounterChancePct: 100,
       passiveCounterChancePct: 100,
     };
@@ -175,6 +184,7 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     expect(next.p2.hp).toBe(defender.hp);
     expect(next.p1.hp).toBe(PLAYER.hp);
     expect(next.p2.stacks.playerShield).toBeLessThan(1_000);
+    expect(next.p2.magicBarrier).toBeLessThan(100);
     expect(hasReactionLog(next.log)).toBe(false);
     expect(
       next.log.some(
@@ -185,36 +195,181 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
 });
 
 describe("마나 실드 직접 피해 순서", () => {
-  it("일반 보호막이 먼저 소모된 뒤 남은 평타 일부를 별도 내구도로 흡수한다", () => {
+  it("PvE 평타를 방어 전에 나눠 몸통만 방어하고 HP행 피해에 일반 보호막을 적용한다", () => {
     const defender: PlayerCombat = {
       ...PLAYER,
-      bulwarkShield: 10,
-      magicBarrierMax: 100,
-      magicBarrierAbsorbPct: 50,
+      hp: 5_000,
+      maxHp: 5_000,
+      def: 500,
+      bulwarkShield: 100,
+      magicBarrierMax: 1_500,
+      magicBarrierAbsorbPct: 25,
+      magicBarrierEfficiencyPct: 20,
     };
+    const attacker: Monster = { ...ENEMY, atk: 1_000 };
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    const initial = initialBattleState(defender, ENEMY, "마도사");
+    const initial = initialBattleState(defender, attacker, "마도사");
     const next = resolveEnemyPhase(initial, defender, "마도사", true);
 
     expect(next.stacks.playerShield).toBe(0);
-    expect(next.playerMagicBarrier).toBeLessThan(100);
-    expect(next.playerHp).toBeLessThan(defender.hp);
+    expect(next.playerMagicBarrier).toBe(1_300);
+    expect(next.playerHp).toBe(4_669);
     expect(next.log.some((entry) => entry.text.includes("[철벽]"))).toBe(true);
-    expect(next.log.some((entry) => entry.text.includes("[마나 실드]"))).toBe(true);
+    expect(
+      next.log.some(
+        (entry) =>
+          entry.text ===
+          "[마나 실드] 피해 250 차단 · 내구도 200 소모 (남은 1,300)",
+      ),
+    ).toBe(true);
   });
 
   it("PvP에서는 별도 PvP 흡수율로 평타 일부를 흡수한다", () => {
     const defender: PlayerCombat = {
       ...PLAYER,
-      magicBarrierMax: 100,
+      hp: 5_000,
+      maxHp: 5_000,
+      magicBarrierMax: 1_500,
       magicBarrierPvpAbsorbPct: 25,
+      magicBarrierPvpEfficiencyPct: 20,
     };
+    const attacker = { ...PLAYER, atk: 1_000 };
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    const initial = initialBattleStatePvP(PLAYER, defender, "공격자", "마도사");
+    const initial = initialBattleStatePvP(attacker, defender, "공격자", "마도사");
     const next = advanceTurnPvP(initial, { kind: "attack" });
 
-    expect(next.p2.magicBarrier).toBeLessThan(100);
-    expect(next.p2.hp).toBeLessThan(defender.hp);
-    expect(next.log.some((entry) => entry.text.includes("[마나 실드]"))).toBe(true);
+    expect(next.p2.magicBarrier).toBe(1_300);
+    expect(next.p2.hp).toBe(4_250);
+    expect(
+      next.log.some((entry) => entry.text.includes("피해 250 차단")),
+    ).toBe(true);
+  });
+
+  it("PvP 고정 추가 피해는 마나 실드를 건너뛴다", () => {
+    const attacker: PlayerCombat = {
+      ...PLAYER,
+      atk: 1,
+      heavenDecreeChancePct: 100,
+    };
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      hp: 5_000,
+      maxHp: 5_000,
+      magicBarrierMax: 1_000,
+      magicBarrierPvpAbsorbPct: 100,
+      magicBarrierPvpEfficiencyPct: 0,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const next = advanceTurnPvP(
+      initialBattleStatePvP(attacker, defender, "공격자", "마도사"),
+      { kind: "attack" },
+    );
+
+    expect(next.p2.magicBarrier).toBe(999);
+    expect(next.p2.hp).toBe(4_750);
+  });
+});
+
+describe("마나 실드 상태 피해", () => {
+  it("한기 피해의 몸통 채널만 부분 방어하고 일반 보호막은 건드리지 않는다", () => {
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      hp: 5_000,
+      maxHp: 5_000,
+      def: 500,
+      bulwarkShield: 100,
+      magicBarrierMax: 1_500,
+      magicBarrierAbsorbPct: 25,
+      magicBarrierEfficiencyPct: 20,
+    };
+    const chillEnemy: Monster = {
+      ...ENEMY,
+      atk: 0,
+      skill: {
+        kind: "chill",
+        name: "시험 한기",
+        perHit: 0,
+        dmgPerStack: 250,
+        threshold: 4,
+        defMitigationFraction: 0.3,
+      },
+    };
+    const initial = initialBattleState(defender, chillEnemy, "마도사");
+    const chilled = {
+      ...initial,
+      stacks: { ...initial.stacks, chillStacks: 4 },
+    };
+
+    const next = resolveEnemyPhase(chilled, defender, "마도사", true);
+
+    // 원량 1,000 -> 마나 250(내구도 200), 몸통 750 - DEF 150 = HP 600.
+    expect(next.playerHp).toBe(4_400);
+    expect(next.playerMagicBarrier).toBe(1_300);
+    expect(next.stacks.playerShield).toBe(100);
+  });
+});
+
+describe("PvP 마나 실드 간접 피해", () => {
+  it("DoT는 마나 실드를 소모하지만 일반 보호막은 무시한다", () => {
+    const target = {
+      ...PLAYER,
+      hp: 5_000,
+      maxHp: 5_000,
+      magicBarrierMax: 1_500,
+      magicBarrierPvpAbsorbPct: 25,
+      magicBarrierPvpEfficiencyPct: 20,
+    };
+    const initial = initialBattleStatePvP(PLAYER, target, "공격자", "마도사");
+    const dotted = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        v2Dots: [{
+          tag: "bleed" as const,
+          label: "출혈",
+          stacks: 1,
+          maxStacks: 10,
+          turns: 1,
+          flatPerStack: 1_000,
+          atkCoefPerStack: 0,
+          pctMaxHpPerStack: 0,
+          sourceAtk: 0,
+        }],
+        stacks: { ...initial.p2.stacks, playerShield: 100 },
+      },
+    };
+
+    const next = tickPvPSideDotsOnAction(dotted, "p2");
+
+    expect(next.p2.hp).toBe(4_250);
+    expect(next.p2.magicBarrier).toBe(1_300);
+    expect(next.p2.stacks.playerShield).toBe(100);
+  });
+
+  it("반사 피해는 공격자의 마나 실드를 소모하지만 일반 보호막은 무시한다", () => {
+    const attacker = {
+      ...PLAYER,
+      hp: 5_000,
+      maxHp: 5_000,
+      magicBarrierMax: 1_500,
+      magicBarrierPvpAbsorbPct: 25,
+      magicBarrierPvpEfficiencyPct: 20,
+    };
+    const reflector = { ...PLAYER, thornsFlatFromDef: 1_000 };
+    const initial = initialBattleStatePvP(attacker, reflector, "공격자", "반사자");
+    const shielded = {
+      ...initial,
+      p1: {
+        ...initial.p1,
+        stacks: { ...initial.p1.stacks, playerShield: 100 },
+      },
+    };
+
+    const next = applyOnHitReflect(shielded, "p1", "p2", 1_000).state;
+
+    expect(next.p1.magicBarrier).toBeLessThan(1_500);
+    expect(next.p1.stacks.playerShield).toBeLessThan(100);
+    expect(next.p1.hp).toBeLessThan(5_000);
   });
 });

@@ -4,6 +4,7 @@ import { CombatContent } from "./content/combat";
 import { ControlsContent } from "./content/controls";
 import { EconomyContent } from "./content/economy";
 import { EnhanceContent } from "./content/enhance";
+import { EquipmentContent } from "./content/equipment";
 import { GuildContent } from "./content/guild";
 import { HuntingContent } from "./content/hunting";
 import { JobsContent } from "./content/jobs";
@@ -12,6 +13,7 @@ import { PlazaContent } from "./content/plaza";
 import { QuestsContent } from "./content/quests";
 import { SkillsContent } from "./content/skills";
 import { TownContent } from "./content/town";
+import { CompendiumContent } from "./content/compendium";
 
 describe("최신 게임 안내서 내용", () => {
   it("네 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
@@ -131,6 +133,69 @@ describe("최신 게임 안내서 내용", () => {
     expect(quests).toContain("모두 받기");
     expect(quests).toContain("수령 후 공개되는");
     expect(skills).toContain("장비 도감·어보 수집 단계");
+  });
+
+  it("스킬 패턴의 확률 폴백·공유 판정과 전투 프리셋 범위를 안내한다", () => {
+    const html = renderToStaticMarkup(<SkillsContent />);
+
+    expect(html).toContain("발동 확률");
+    expect(html).toContain("1순위가 확률 판정에 실패하면 2순위");
+    expect(html).toContain("같은 발동 판정값을 공유");
+    expect(html).toContain("독립된 재도전 횟수가 늘어나지 않습니다");
+    expect(html).toContain("최대 5개 슬롯");
+    expect(html).toContain("장착 스킬·전투 패턴·장비");
+  });
+
+  it("마나 실드의 성장식·피해 순서·예외와 복합 스킬 규칙을 안내한다", () => {
+    const combat = renderToStaticMarkup(<CombatContent />);
+    const skills = renderToStaticMarkup(<SkillsContent />);
+
+    expect(combat).toContain("최대 MP의 60% + (INT − 15) × 2");
+    expect(combat).toContain("45% × (INT − 15) ÷ ((INT − 15) + 250)");
+    expect(combat).toContain("30% × 최대 내구도 ÷ (최대 내구도 + 1,500)");
+    expect(combat).toContain("방어·마법 방어·회피보다 먼저");
+    expect(combat).toContain("지속 피해·반사·반격·일반 상태 피해");
+    expect(combat).toContain("고정·처형·보호막 무시·자해·HP 비용");
+    expect(combat).toContain("현재 MP는 소모하지");
+    expect(combat).toContain("전투 시작 시점");
+
+    expect(skills).toContain("복합 스킬 효과 읽는 법");
+    expect(skills).toContain("중첩과 상한");
+    expect(skills).toContain("반사와 반격");
+    expect(skills).toContain("전투당 1회 생존");
+    expect(skills).toContain("HP 비용과 보호막 우회");
+    expect(skills).toContain("PvE·PvP 차이");
+  });
+
+  it("천공 균열 전역 장비 풀과 폭풍 원정 연습 모드를 안내한다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+    const equipment = renderToStaticMarkup(<EquipmentContent />);
+    const compendium = renderToStaticMarkup(<CompendiumContent />);
+
+    expect(hunting).toContain("연습 모드");
+    expect(hunting).toContain("일일 입장 횟수를 소모하지 않고");
+    expect(hunting).toContain("천공 균열 73~78단계");
+    expect(hunting).toContain("같은 6티어 전역 후보 풀");
+    expect(equipment).toContain("난이도와 관계없이 같은 6티어");
+    expect(compendium).toContain("난이도에 따라 후보가 바뀌지 않고");
+  });
+
+  it("숙련의 탑 첫 입장 비용·재입장 대기·50층 연습을 함께 안내한다", () => {
+    const html = renderToStaticMarkup(<JobsContent />);
+
+    expect(html).toContain("하루 첫 실제 전투에만 스태미나");
+    expect(html).toContain(">200<");
+    expect(html).toContain(">30초<");
+    expect(html).toContain("50층 수호자에게 연습 재도전");
+    expect(html).toContain("추가 스태미나도 들지");
+  });
+
+  it("현재 우편함의 통합 받은 우편과 전체 수령 동작을 안내한다", () => {
+    const html = renderToStaticMarkup(<PlazaContent />);
+
+    expect(html).toContain("미확인·미수령·수령 완료 우편이 한 목록");
+    expect(html).toContain("전체 수령");
+    expect(html).not.toContain("지난 우편");
   });
 
   it("전직 로드맵에서 생산직과 생존자 전투 직업을 구분한다", () => {

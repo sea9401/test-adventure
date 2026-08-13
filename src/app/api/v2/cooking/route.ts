@@ -43,12 +43,13 @@ import {
   adjustedCookingXp,
   cookingFoodDefinition,
   cookingFoodId,
-  cookingIngredientRequirement,
+  cookingIngredientRequirementAccumulated,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrderReward,
   cookingOrders,
   cookingQuality,
+  cookingXpReward,
   deliverableCookingFoods,
   emptyCookingState,
   parseCookingFoodInventory,
@@ -249,19 +250,27 @@ export async function POST(req: Request) {
       let quality: CookingQuality;
       let deliveredFoodId: CookingFoodId | null = null;
       let nextInventory: InventorySave = inventory;
+      const ingredientReductionRemainderBps = {
+        ...(cooking.ingredientReductionRemainderBps ?? {}),
+      };
 
       if (action === "cook") {
         farmRequirements = Object.fromEntries(
-          Object.entries(recipe.farmIngredients).map(([id, count]) => [
-            id,
-            cookingIngredientRequirement({
+          Object.entries(recipe.farmIngredients).map(([id, count]) => {
+            const remainderKey = `farm:${id}`;
+            const requirement = cookingIngredientRequirementAccumulated({
               countPerDish: count ?? 0,
               quantity,
               cookingJobTier: job.tier,
               materialReductionPct:
                 cookingSkillBonuses.materialReductionPct,
-            }),
-          ]),
+              reductionRemainderBps:
+                ingredientReductionRemainderBps[remainderKey],
+            });
+            ingredientReductionRemainderBps[remainderKey] =
+              requirement.remainderBps;
+            return [id, requirement.required];
+          }),
         );
         usedRare = Boolean(useRare && recipe.optionalRareItemId);
         if (usedRare && recipe.optionalRareItemId) {
@@ -284,17 +293,23 @@ export async function POST(req: Request) {
         for (const [itemId, count] of Object.entries(
           recipe.fishingIngredients ?? {},
         )) {
+          const remainderKey = `fishing:${itemId}`;
+          const requirement = cookingIngredientRequirementAccumulated({
+            countPerDish: count ?? 0,
+            quantity,
+            materialReductionPct:
+              cookingSkillBonuses.materialReductionPct,
+            reductionRemainderBps:
+              ingredientReductionRemainderBps[remainderKey],
+          });
           const next = spendFishingCatchItem(
             fishing,
             itemId as keyof typeof FISHING_CATCH_ITEMS,
-            cookingIngredientRequirement({
-              countPerDish: count ?? 0,
-              quantity,
-              materialReductionPct:
-                cookingSkillBonuses.materialReductionPct,
-            }),
+            requirement.required,
           );
           if (!next) throw new Error("not_enough_fishing_items");
+          ingredientReductionRemainderBps[remainderKey] =
+            requirement.remainderBps;
           fishing = next;
         }
         if (usePrep) {
@@ -329,20 +344,20 @@ export async function POST(req: Request) {
 
       const orderReward = order ? cookingOrderReward(order, quality) : null;
       const baseXp = adjustedCookingXp(recipe.requiredLevel, level, recipe.xp);
-      const earnedXp = Math.max(
-        1,
-        Math.floor(
-          (action === "order"
+      const earnedXp = cookingXpReward({
+        baseXp:
+          action === "order"
             ? (orderReward?.bonusXp ?? 0)
-            : baseXp * quantity) *
-            (1 +
-              (job.tier >= 2 ? 0.1 : 0) +
-              cookingSkillBonuses.xpBonusPct / 100),
-        ),
-      );
+            : baseXp * quantity,
+        bonusPct:
+          (job.tier >= 2 ? 10 : 0) + cookingSkillBonuses.xpBonusPct,
+      });
       cooking = {
         ...cooking,
         xp: cooking.xp + earnedXp,
+        ...(action === "cook"
+          ? { ingredientReductionRemainderBps }
+          : {}),
         discoveredRecipeIds:
           action === "cook"
             ? Array.from(

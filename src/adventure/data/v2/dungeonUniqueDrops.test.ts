@@ -181,9 +181,9 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   });
 });
 
-describe("유니크 카탈로그 (48종 — 고유 아이템 40 + 보스 8)", () => {
-  it("V2_UNIQUE_IDS 48종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(48);
+describe("유니크 카탈로그 (66종 — 기존 48 + 6T 시그니처 18)", () => {
+  it("V2_UNIQUE_IDS 66종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(66);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -204,7 +204,7 @@ describe("UNIQUE_FLOOR_POOLS", () => {
     }
   });
 
-  it("38종 전부 어느 풀엔가 등장(밴드 또는 보스, 고아 없음) — floor 풀은 비었으므로 밴드+보스만", () => {
+  it("원정 전용 6종을 제외한 전부가 밴드 또는 보스 풀에 등장한다", () => {
     const inPools = new Set<string>();
     // 심층 밴드 풀(마른 협곡 등)의 유니크 — 깊이 밴드 드랍.
     for (const pool of BAND_UNIQUE_POOLS) {
@@ -218,7 +218,15 @@ describe("UNIQUE_FLOOR_POOLS", () => {
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
       inPools.add(id);
     }
-    for (const id of V2_UNIQUE_IDS) {
+    const expeditionOnly = new Set<V2EquipmentId>([
+      "v2_storm_sig_wreckage_power_armor",
+      "v2_storm_sig_gale_orbit_boots",
+      "v2_storm_sig_thunder_return_ring",
+      "v2_storm_sig_triphase_gloves",
+      "v2_storm_sig_confluence_necklace",
+      "v2_storm_sig_heart_necklace",
+    ]);
+    for (const id of V2_UNIQUE_IDS.filter((id) => !expeditionOnly.has(id))) {
       expect(inPools.has(id), `${id} 어느 풀에도 안 떨어짐`).toBe(true);
     }
   });
@@ -245,7 +253,7 @@ describe("BAND_UNIQUE_POOLS — 게이트 전(7~24) 유니크 풀 비었음(유�
   });
 });
 
-describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~72)", () => {
+describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~78)", () => {
   const empty = new Set<V2EquipmentId>();
   const sanctum = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
   const swamp = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 31)!;
@@ -255,7 +263,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~72)
   const plateau = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 55)!;
   const storm = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 61)!;
   const abyss = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 67)!;
-  const skyRift = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 73)!;
+  const skyRiftPools = BAND_UNIQUE_POOLS.filter((p) => p.minDepth >= 73);
 
   it("성소부터 심해 폐허까지 6깊이별 고유 5종, chance 0.0005, 전부 유니크", () => {
     for (const [pool, min, max] of [
@@ -278,7 +286,29 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~72)
     }
   });
 
-  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴→왕도→붉은 벌판→백골 고원→폭풍 산맥→심해 폐허", () => {
+  it("천공 균열은 깊이마다 목표 유니크 2종과 초저확률을 제공한다", () => {
+    const expected = new Map<number, { chance: number; ids: V2EquipmentId[] }>([
+      [73, { chance: 0.00005, ids: ["v2_sky_sig_collapse_armor", "v2_sky_sig_antigravity_ring"] }],
+      [74, { chance: 0.00005, ids: ["v2_sky_sig_bloodline_greatsword", "v2_sky_sig_scar_counter_gloves"] }],
+      [75, { chance: 0.000075, ids: ["v2_sky_sig_horizon_bow", "v2_sky_sig_windless_boots"] }],
+      [76, { chance: 0.000075, ids: ["v2_sky_sig_venom_dagger", "v2_sky_sig_corrosion_ring"] }],
+      [77, { chance: 0.0001, ids: ["v2_sky_sig_overload_staff", "v2_sky_sig_reverse_gloves"] }],
+      [78, { chance: 0.0001, ids: ["v2_sky_sig_dawn_chalice", "v2_sky_sig_unity_cloak"] }],
+    ]);
+
+    expect(skyRiftPools).toHaveLength(6);
+    for (const [depth, rule] of expected) {
+      const pool = bandUniquePoolForDepth(depth)!;
+      expect(pool).toMatchObject({ minDepth: depth, maxDepth: depth, ...rule });
+      expect(rollBandUniqueDrop(depth, empty, seqRng([rule.chance, 0]))).toBeNull();
+      expect(rollBandUniqueDrop(depth, empty, seqRng([0, 0]))).toBe(rule.ids[0]);
+      expect(rollBandUniqueDrop(depth, empty, seqRng([0, 0.999]))).toBe(rule.ids[1]);
+      expect(rollBandUniqueDrop(depth, new Set(rule.ids), seqRng([0, 0]))).toBe(rule.ids[0]);
+      expect(rollBandUniqueDrop(depth, empty, seqRng([rule.chance, 0]), 2)).toBe(rule.ids[0]);
+    }
+  });
+
+  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴→왕도→붉은 벌판→백골 고원→폭풍 산맥→심해 폐허→천공 균열", () => {
     expect(bandUniquePoolForDepth(24)!.ids).toEqual([]); // 심층 동굴(빈 풀)
     expect(bandUniquePoolForDepth(25)).toBe(sanctum);
     expect(bandUniquePoolForDepth(30)).toBe(sanctum);
@@ -296,8 +326,9 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~72)
     expect(bandUniquePoolForDepth(66)).toBe(storm);
     expect(bandUniquePoolForDepth(67)).toBe(abyss);
     expect(bandUniquePoolForDepth(72)).toBe(abyss);
-    expect(bandUniquePoolForDepth(73)).toBe(skyRift);
-    expect(skyRift).toMatchObject({ maxDepth: 78, chance: 0, ids: [] });
+    for (let depth = 73; depth <= 78; depth++) {
+      expect(bandUniquePoolForDepth(depth)?.minDepth).toBe(depth);
+    }
     expect(bandUniquePoolForDepth(79)).toBeNull();
   });
 
@@ -322,7 +353,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~72)
   });
 
   it("성소 이후 모든 고유 밴드는 후보 풀이 서로 겹치지 않음", () => {
-    const all = [sanctum, swamp, den, throne, redField, plateau];
+    const all = [sanctum, swamp, den, throne, redField, plateau, storm, abyss, ...skyRiftPools];
     for (const a of all) {
       const others = all.filter((p) => p !== a).flatMap((p) => p.ids);
       expect(

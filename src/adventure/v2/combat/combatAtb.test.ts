@@ -9,6 +9,7 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 });
 
 import type { Monster } from "@/adventure/data/monsters";
+import { COOP_ATTACK_TURNS } from "@/adventure/data/v2/coopBosses";
 import {
   resolveBattle,
   type BattleResolution,
@@ -225,6 +226,36 @@ describe("resolveBattle ATB invariants", () => {
     expect(result.outcome).toBe("lose");
     expect(result.turns).toBe(5);
     expect(counts.player).toBe(5);
+  });
+
+  it("협동 보스 공격은 20행동에서 끊지 않고 공통 3,000틱까지 진행한다", () => {
+    const result = run(
+      {
+        ...basePlayer,
+        hp: 1_000_000_000,
+        maxHp: 1_000_000_000,
+        atk: 1,
+        def: 1_000_000,
+      },
+      {
+        ...baseEnemy,
+        hp: 1_000_000_000,
+        atk: 1,
+        def: 1_000_000,
+      },
+      1,
+      COOP_ATTACK_TURNS,
+    );
+
+    expect(result.turns).toBeGreaterThan(20);
+    expect(result.endReason).toBe("timeout");
+    expect(
+      result.finalState.log.some(
+        (entry) =>
+          entry.kind === "info" &&
+          entry.text.includes(`${ATB_TICK_CAP}틱 경과`),
+      ),
+    ).toBe(true);
   });
 
   it("normal outcome: standard fixtures resolve to win or loss", () => {

@@ -22,6 +22,7 @@ import {
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
+import { Tier6CoreMechanicDisclosure } from "./Tier6CoreMechanicDisclosure";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
@@ -346,9 +347,14 @@ export function V2ItemCard({
 
         {/* 단품 마퀴 시그니처(세트 아닌 고유 아이템의 발동형 효과) — 장착만 하면 발동. */}
         {item.signature && (
-          <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium text-amber-600 dark:border-zinc-700 dark:text-amber-400">
-            ★ {signatureLabel(item.signature)}
-          </div>
+          <>
+            <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium text-amber-600 dark:border-zinc-700 dark:text-amber-400">
+              ★ {signatureLabel(item.signature)}
+            </div>
+            {item.signature.mechanic === "mechanic_unity" ? (
+              <Tier6CoreMechanicDisclosure />
+            ) : null}
+          </>
         )}
 
         {set && (

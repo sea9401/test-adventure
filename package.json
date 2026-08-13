@@ -5,6 +5,7 @@
   "scripts": {
     "predev": "npm run optimize-images && npm run check-images",
     "dev": "next dev",
+    "dev:local": "node scripts/start-local-development.mjs",
     "prebuild": "npm run optimize-images && npm run check-images",
     "build": "next build",
     "postbuild": "node scripts/fix-next-route-group-manifests.mjs",

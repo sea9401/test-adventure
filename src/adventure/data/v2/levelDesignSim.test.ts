@@ -96,19 +96,12 @@ describe("sim-v2-level-design", () => {
     expect(skyRift.commonAnyExpectedWins).toBe(1_000);
     // 천공 균열 1~6은 21종 방어구 전역 풀. 78단계 총 0.1%에서 특정 1종은 평균 21,000승.
     expect(skyRift.commonSpecificExpectedWins).toBe(21_000);
-    expect(skyRift.signatureAnyExpectedWins).toBe(10_000);
-    expect(skyRift.signatureSpecificExpectedWins).toBe(20_000);
-    for (const [depth, chance] of [
-      [73, 0.00005],
-      [74, 0.00005],
-      [75, 0.000075],
-      [76, 0.000075],
-      [77, 0.0001],
-      [78, 0.0001],
-    ] as const) {
+    expect(skyRift.signatureAnyExpectedWins).toBe(40_000);
+    expect(skyRift.signatureSpecificExpectedWins).toBe(480_000);
+    for (const depth of [73, 74, 75, 76, 77, 78]) {
       const pool = bandUniquePoolForDepth(depth)!;
-      expect(1 / pool.chance).toBeCloseTo(1 / chance);
-      expect(pool.ids.length / pool.chance).toBeCloseTo(2 / chance);
+      expect(1 / pool.chance).toBeCloseTo(40_000);
+      expect(pool.ids.length / pool.chance).toBeCloseTo(480_000);
     }
   });
 

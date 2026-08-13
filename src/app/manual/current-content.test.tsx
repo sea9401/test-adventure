@@ -176,8 +176,10 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("일일 입장 횟수를 소모하지 않고");
     expect(hunting).toContain("천공 균열 73~78단계");
     expect(hunting).toContain("같은 6티어 전역 후보 풀");
+    expect(hunting).toContain("시그니처 유니크 12종도 전 구간");
     expect(equipment).toContain("난이도와 관계없이 같은 6티어");
     expect(compendium).toContain("난이도에 따라 후보가 바뀌지 않고");
+    expect(compendium).toContain("시그니처 유니크 12종은 천공 균열 전");
   });
 
   it("숙련의 탑 첫 입장 비용·재입장 대기·50층 연습을 함께 안내한다", () => {

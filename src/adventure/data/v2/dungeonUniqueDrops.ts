@@ -445,6 +445,21 @@ export type BandUniquePool = {
 //   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~72 = 밴드당 고유 5종, chance 0.0005(밴드유니크보다
 //   희귀). droppedUnique 슬롯 → 바이올렛 배너 + unique_drop 전광판 방송(기존 인프라 그대로·강등 후 고유템만).
 export const SIGNATURE_UNIQUE_CHANCE = 0.0005; // 고유 아이템 총 드랍률(밴드당)·다이얼. 2026-08-01: 0.00015→0.0005.
+export const SKY_RIFT_SIGNATURE_UNIQUE_CHANCE = 0.000025;
+export const SKY_RIFT_SIGNATURE_UNIQUE_IDS: readonly V2EquipmentId[] = [
+  "v2_sky_sig_collapse_armor",
+  "v2_sky_sig_antigravity_ring",
+  "v2_sky_sig_bloodline_greatsword",
+  "v2_sky_sig_scar_counter_gloves",
+  "v2_sky_sig_horizon_bow",
+  "v2_sky_sig_windless_boots",
+  "v2_sky_sig_venom_dagger",
+  "v2_sky_sig_corrosion_ring",
+  "v2_sky_sig_overload_staff",
+  "v2_sky_sig_reverse_gloves",
+  "v2_sky_sig_dawn_chalice",
+  "v2_sky_sig_unity_cloak",
+];
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   // 마른 협곡(7~12)·얼음 호수(13~18)·심층 동굴(19~24) = 게이트 전 → 유니크 없음(빈 풀).
   { minDepth: 7, maxDepth: 12, chance: 0, ids: [] },
@@ -555,40 +570,12 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
+    // 천공 균열은 입구·심부·최심부 어디서든 신규 6T 시그니처 12종 전체를
+    // 추격한다. 다음 사냥터에서 완화할 여지를 두고 현재 총 확률은 낮게 유지한다.
     minDepth: 73,
-    maxDepth: 73,
-    chance: 0.00005,
-    ids: ["v2_sky_sig_collapse_armor", "v2_sky_sig_antigravity_ring"],
-  },
-  {
-    minDepth: 74,
-    maxDepth: 74,
-    chance: 0.00005,
-    ids: ["v2_sky_sig_bloodline_greatsword", "v2_sky_sig_scar_counter_gloves"],
-  },
-  {
-    minDepth: 75,
-    maxDepth: 75,
-    chance: 0.000075,
-    ids: ["v2_sky_sig_horizon_bow", "v2_sky_sig_windless_boots"],
-  },
-  {
-    minDepth: 76,
-    maxDepth: 76,
-    chance: 0.000075,
-    ids: ["v2_sky_sig_venom_dagger", "v2_sky_sig_corrosion_ring"],
-  },
-  {
-    minDepth: 77,
-    maxDepth: 77,
-    chance: 0.0001,
-    ids: ["v2_sky_sig_overload_staff", "v2_sky_sig_reverse_gloves"],
-  },
-  {
-    minDepth: 78,
     maxDepth: 78,
-    chance: 0.0001,
-    ids: ["v2_sky_sig_dawn_chalice", "v2_sky_sig_unity_cloak"],
+    chance: SKY_RIFT_SIGNATURE_UNIQUE_CHANCE,
+    ids: [...SKY_RIFT_SIGNATURE_UNIQUE_IDS],
   },
 ];
 

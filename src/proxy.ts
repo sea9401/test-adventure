@@ -61,7 +61,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
     <p class="lead">더 나은 서비스 제공을 위해<br />잠시 점검하고 있습니다.</p>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
-      점검이 끝나는 대로 다시 이용하실 수 있습니다.<br />
+      점검 시간은 22시부터 23시까지입니다.<br />
       잠시만 기다려 주세요.
     </p>
   </div>

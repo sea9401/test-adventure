@@ -47,7 +47,7 @@ function isValidEmail(value: string): boolean {
 
 export function readLocalDevAutoLoginConfig(
   env: LocalDevAutoLoginEnv = process.env,
-  nodeEnv = process.env.NODE_ENV,
+  nodeEnv: string | undefined = process.env.NODE_ENV,
 ): LocalDevAutoLoginConfig | null {
   if (nodeEnv !== "development") return null;
 
@@ -97,7 +97,7 @@ export function shouldStartLocalDevAutoLogin({
   hasSession: boolean;
   authError: string | null;
   env?: LocalDevAutoLoginEnv;
-  nodeEnv?: string;
+  nodeEnv?: string | undefined;
 }): boolean {
   if (hasSession || authError) return false;
   return (

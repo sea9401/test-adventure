@@ -117,6 +117,9 @@ describe("production security surface", () => {
     for (const maintenance of [proxy, maintenancePage]) {
       expect(maintenance).toContain("잠시 점검 중입니다");
       expect(maintenance).toContain("서비스 점검");
+      expect(maintenance).toContain(
+        "점검 시간은 06시부터 06시 30분까지입니다.",
+      );
       expect(maintenance).toContain("잠시만 기다려 주세요");
       expect(maintenance).not.toContain("점검 일정");
       expect(maintenance).not.toContain("예상 소요 시간");

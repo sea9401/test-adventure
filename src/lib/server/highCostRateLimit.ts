@@ -21,6 +21,11 @@ export const HIGH_COST_RATE_LIMITS = {
     userLimit: 20,
     ipLimit: 80,
   },
+  friendlySparring: {
+    action: "v2:training:friendly",
+    userLimit: 20,
+    ipLimit: 80,
+  },
   offlineSettle: {
     action: "v2:me:offline-settle",
     userLimit: 40,

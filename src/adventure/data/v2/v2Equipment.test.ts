@@ -952,6 +952,24 @@ describe("v2EquipStatRows (표시 행)", () => {
       detail: "기본 +100 · 강화 +8",
     });
   });
+
+  it("소수 강화 증가분을 부동소수점 오차 없이 표시한다", () => {
+    const rows = v2EquipStatRows(
+      V2_EQUIPMENT.v2_storm_sanctuary_armor,
+      {
+        power: 255,
+        weight: 0,
+        options: { hp: 1_178, mp: 330, magicDef: 156, healPowerPct: 18 },
+      },
+      { level: 7, bonusPct: 12 },
+    );
+
+    expect(rows[0]).toEqual({
+      label: "회피도",
+      value: "+285.6",
+      detail: "기본 +255 · 강화 +30.6",
+    });
+  });
 });
 
 describe("parseEquipmentSave (개체 instance 모델)", () => {

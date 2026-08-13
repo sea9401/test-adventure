@@ -1555,7 +1555,10 @@ export function v2EquipStatRows(
   const power = powerWithBonuses(eff.power, enhance, craftQuality);
   if (power) {
     const enhanceBonus = enhance
-      ? powerWithBonuses(eff.power, enhance) - eff.power
+      ? Math.round(
+          (powerWithBonuses(eff.power, enhance) - eff.power + Number.EPSILON) *
+            100,
+        ) / 100
       : 0;
     out.push({
       label: v2EquipPowerLabel(item),

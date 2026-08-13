@@ -254,7 +254,7 @@ export function resolveBattlePvPAtb(
     state = withAtbPlayers(applyEvasionActionRecoveryPvP(state, who));
 
     // v2 스킬 시전(V2_ATB_SKILLS) — 스킬이 발동하면 이번 행동을 소진해 평타를 대체한다.
-    // 다단 적중 시그니처로 생긴 추가 행동만 같은 번들에서 평타로 이어진다. PvP 의 v2 buff tick 은
+    // 다단 적중 시그니처로 생긴 추가 기본 공격만 같은 번들에서 평타로 이어진다. PvP 의 v2 buff tick 은
     // castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음.
     let castSelfHastePct = 0; // 바람 — who 의 다음 행동 틱 가속(아래 틱 증가에서 반영).
     let castFired = false;
@@ -286,7 +286,7 @@ export function resolveBattlePvPAtb(
 
     if (state.phase === who) {
       let action: PlayerAction = { kind: "attack" };
-      // 스킬로 얻은 추가 행동은 PvE와 동일하게 평타로만 소비한다.
+      // 스킬로 얻은 추가 기본 공격은 PvE와 동일하게 평타로만 소비한다.
       if (!castFired) {
         const picked = ctx.pickAction(state, who);
         if (picked.kind === "use_potion") {

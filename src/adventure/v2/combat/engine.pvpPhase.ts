@@ -927,7 +927,7 @@ export function advanceTurnPvP(
       queuedExtraAttacksAdd += effect.count;
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] 다음 턴 행동 +${effect.count}`,
+        text: `[${skill.name}] 다음 턴 기본 공격 +${effect.count}회`,
       });
     } else if (effect.kind === "crit_buff_next_attack") {
       focusedBreathQueueBonusPct = effect.critDmgBonusPct;
@@ -1001,7 +1001,7 @@ export function advanceTurnPvP(
   // 고유 시그니처 on-crit(Phase 2·PvP 미러) — 군림=공격자 속도 버프, 독니=방어자 중독.
   //   미장착=null/false → byte-identical. critRoll + 피해 발생 게이트.
   const sigDealtDamage = totalDmg > 0;
-  // every-N(PvP 미러) — 평타·스킬 공용 실제 적중 N회마다 추가 행동.
+  // every-N(PvP 미러) — 평타·스킬 공용 실제 적중 N회마다 추가 기본 공격.
   const sigEvery = everyNHitsEffect(attacker.player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
@@ -1017,7 +1017,7 @@ export function advanceTurnPvP(
   if (sigExtraAttack > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} ${sigEveryN}회 적중 — 추가 행동!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} ${sigEveryN}회 적중 — 추가 기본 공격!`,
     });
   }
   const sigCritSpeedBuff = onCritSpeedBuff(

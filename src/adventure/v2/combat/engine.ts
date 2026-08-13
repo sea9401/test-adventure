@@ -1982,7 +1982,7 @@ export function applyPlayerV2SkillCast(
 ): {
   state: BattleState;
   castFired: boolean;
-  /** 이번 스킬의 실제 적중 횟수로 발생한 추가 행동 수. */
+  /** 이번 스킬의 실제 적중 횟수로 발생한 추가 기본 공격 수. */
   signatureExtraActions: number;
   // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 무시. ATB 루프가 틱 계산에 반영.
   selfHastePct: number;
@@ -2528,7 +2528,7 @@ export function applyPlayerV2SkillCast(
   }
   // 평타 전용이던 every-N 시그니처를 직접 피해 스킬의 실제 적중에도 연결한다.
   // 다단 스킬은 양수 피해가 표시된 각 타격을 모두 세며, 한 시전에서 주기를 여러 번
-  // 넘으면 그 횟수만큼 추가 행동을 지급한다. 버프·회복 스킬과 완전 회피된 공격은 0회다.
+  // 넘으면 그 횟수만큼 추가 기본 공격을 지급한다. 버프·회복 스킬과 완전 회피된 공격은 0회다.
   const sigEvery = everyNHitsEffect(player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
@@ -2543,7 +2543,7 @@ export function applyPlayerV2SkillCast(
   if (signatureExtraActions > 0) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] ${landedSkillHits}회 적중 — 추가 행동 ${signatureExtraActions}회!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${landedSkillHits}회 적중 — 추가 기본 공격 ${signatureExtraActions}회!`,
       turn: "player",
     });
   }
@@ -2909,7 +2909,7 @@ function resolveBattleLegacy(
           };
           state = finishPlayerTurn(ended, player, playerName);
           if (cast.signatureExtraActions > 0) {
-            // 스킬 다단 적중으로 얻은 추가 행동은 같은 플레이어 페이즈에서 평타 행동으로
+            // 스킬 다단 적중으로 얻은 추가 기본 공격은 같은 플레이어 페이즈에서 평타 행동으로
             // 이어진다. 스킬 시전 훅은 이미 소비했으므로 보너스 행동에서 중복 시전하지 않는다.
             state = {
               ...state,

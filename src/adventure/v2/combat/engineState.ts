@@ -202,7 +202,7 @@ export type BattleStacks = {
   comboAtkBonus: number;
   // 절초(연환) — 전투 내 누적 적중 횟수(마무리 강타 주기 판정용).
   comboHitCount: number;
-  // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 행동). every_n_hits
+  // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 기본 공격). every_n_hits
   //   시그니처 미장착이면 0 고정(증가 안 함) → byte-identical.
   signatureHitCount: number;
   /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */

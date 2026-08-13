@@ -1567,7 +1567,7 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     expect(partial).toEqual([]);
   });
 
-  it("연격각인 6세트 → 3회 적중마다 추가 행동 시그니처", () => {
+  it("연격각인 6세트 → 3회 적중마다 추가 기본 공격 시그니처", () => {
     const sigs = collectEquipSignatures({
       weapon: "v2_crafted_combo_bow",
       armor: "v2_crafted_combo_coat",

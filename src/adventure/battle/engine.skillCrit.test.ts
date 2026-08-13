@@ -151,14 +151,14 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
   });
 });
 
-describe("스킬 적중 every-N 추가 행동", () => {
+describe("스킬 적중 every-N 추가 기본 공격", () => {
   const everyThree = {
     trigger: "every_n_hits" as const,
     label: "분쇄",
     everyNHits: 3,
   };
 
-  it("3타 스킬은 각 타격을 모두 세어 추가 행동 1회를 만든다", () => {
+  it("3타 스킬은 각 타격을 모두 세어 추가 기본 공격 1회를 만든다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const player: PlayerCombat = {
       ...MAGE,
@@ -174,12 +174,12 @@ describe("스킬 적중 every-N 추가 행동", () => {
 
     expect(cast.state.stacks.signatureHitCount).toBe(3);
     expect(cast.signatureExtraActions).toBe(1);
-    expect(cast.state.log.some((entry) => entry.text.includes("추가 행동 1회"))).toBe(
+    expect(cast.state.log.some((entry) => entry.text.includes("추가 기본 공격 1회"))).toBe(
       true,
     );
   });
 
-  it("추가 공격 횟수로 3타 스킬이 2묶음 적중하면 추가 행동도 2회다", () => {
+  it("추가 공격 횟수로 3타 스킬이 2묶음 적중하면 추가 기본 공격도 2회다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const player: PlayerCombat = {
       ...MAGE,
@@ -215,7 +215,7 @@ describe("스킬 적중 every-N 추가 행동", () => {
     expect(
       result.finalState.log.some(
         (entry) =>
-          entry.kind === "info" && entry.text.includes("추가 행동 1회"),
+          entry.kind === "info" && entry.text.includes("추가 기본 공격 1회"),
       ),
     ).toBe(true);
     expect(

@@ -7,6 +7,7 @@ import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { BattleStats } from "@/adventure/battle/BattleScene";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { useSparring } from "@/adventure/v2/useSparring";
+import { FriendlySparringPanel } from "@/adventure/v2/FriendlySparringPanel";
 import type { Gender } from "@/adventure/profile/avatars";
 import {
   DEFAULT_SPAR_DUMMY_CONFIG,
@@ -45,6 +46,8 @@ export function V2SparringView({
   onBack,
   playerSubtitle,
   playerCombat,
+  initialMode = "dummy",
+  initialTargetName,
 }: {
   playerName: string;
   gender: Gender;
@@ -52,8 +55,11 @@ export function V2SparringView({
   // 전투 장면 플레이어 부제(레벨·직업·속성).
   playerSubtitle?: string;
   playerCombat?: BattleStats;
+  initialMode?: "dummy" | "friendly";
+  initialTargetName?: string;
 }) {
   const { busy, lastResult, error, spar } = useSparring();
+  const [mode, setMode] = useState<"dummy" | "friendly">(initialMode);
   const [round, setRound] = useState(0);
   const [preset, setPreset] = useState<SparringDummyPresetId | "custom">(
     "sandbag",
@@ -87,7 +93,31 @@ export function V2SparringView({
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="대련장" onBack={onBack} />
-      <Card padding="md">
+      <nav className="grid grid-cols-2 gap-1 rounded-lg border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        {([
+          ["dummy", "허수아비 연습"],
+          ["friendly", "유저 친선전"],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setMode(id)}
+            aria-pressed={mode === id}
+            className={
+              "rounded-md px-3 py-2 text-sm font-semibold transition " +
+              (mode === id
+                ? "bg-sky-600 text-white shadow-sm"
+                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {mode === "dummy" ? (
+        <>
+          <Card padding="md">
         <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
           {SPARRING_DUMMY_PRESETS.map((p) => (
             <button
@@ -160,20 +190,30 @@ export function V2SparringView({
             )}`}
           </p>
         )}
-      </Card>
+          </Card>
 
-      {lastResult?.replay && (
-        <ReplayBattleScene
-          key={round}
-          payload={lastResult.replay}
-          startPlayerHp={lastResult.startPlayerHp}
+          {lastResult?.replay && (
+            <ReplayBattleScene
+              key={round}
+              payload={lastResult.replay}
+              startPlayerHp={lastResult.startPlayerHp}
+              playerName={playerName}
+              gender={gender}
+              exp={0}
+              maxExp={1}
+              playerSubtitle={playerSubtitle}
+              playerCombat={playerCombat}
+              logTitle="허수아비 전체 전투 로그"
+            />
+          )}
+        </>
+      ) : (
+        <FriendlySparringPanel
+          initialTargetName={initialTargetName}
           playerName={playerName}
           gender={gender}
-          exp={0}
-          maxExp={1}
           playerSubtitle={playerSubtitle}
           playerCombat={playerCombat}
-          logTitle="허수아비 전체 전투 로그"
         />
       )}
     </main>

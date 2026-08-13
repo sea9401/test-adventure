@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
@@ -26,6 +27,7 @@ import type { LifeSummary } from "./lifeSummary";
 import { LifeMasterySummaryCard } from "./LifeMasterySummaryCard";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
 import type { BuildAlignmentAdvisory } from "@/adventure/data/v2/buildAlignment";
+import { friendlySparringHref } from "@/adventure/v2/friendlySparringLink";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -241,19 +243,27 @@ export function V2CharacterScreen({
       )}
 
       {playerName && character ? (
-        <Card padding="sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              부적절한 이름이나 프로필 이미지를 발견하셨나요?
-            </p>
-            <ContentSafetyActions
-              sourceType="profile"
-              sourceId={character.name}
-              targetName={character.name}
-              onBlocked={() => onBack?.()}
-            />
-          </div>
-        </Card>
+        <div className="space-y-2">
+          <Link
+            href={friendlySparringHref(character.name)}
+            className="block w-full rounded-md border border-sky-600 bg-sky-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-sky-700"
+          >
+            이 모험가와 친선전
+          </Link>
+          <Card padding="sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                부적절한 이름이나 프로필 이미지를 발견하셨나요?
+              </p>
+              <ContentSafetyActions
+                sourceType="profile"
+                sourceId={character.name}
+                targetName={character.name}
+                onBlocked={() => onBack?.()}
+              />
+            </div>
+          </Card>
+        </div>
       ) : null}
 
       {character && (

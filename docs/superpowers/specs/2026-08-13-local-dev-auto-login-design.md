@@ -6,7 +6,7 @@
 
 ## 선택한 방식
 
-Auth.js에 개발 전용 Credentials 공급자 `local-dev`를 조건부로 추가하고, 비로그인 사용자가 `/sign-in`에 도착하면 클라이언트가 이 공급자로 한 번 자동 로그인한다.
+Auth.js에 개발 전용 Credentials 공급자 `local-dev`를 조건부로 추가한다. 비로그인 사용자가 `/sign-in`에 도착하면 서버가 로컬 전용 Route Handler로 이동시키고, Route Handler가 이 공급자로 한 번 로그인한 뒤 게임 홈으로 돌려보낸다.
 
 다른 대안은 다음 이유로 채택하지 않는다.
 
@@ -26,10 +26,10 @@ Auth.js에 개발 전용 Credentials 공급자 `local-dev`를 조건부로 추�
 
 1. `localDevAutoLogin` 서버 모듈이 환경변수와 요청 출처를 검증하고 기존 사용자를 조회한다.
 2. `auth.ts`는 유효한 개발 설정이 있을 때만 `local-dev` Credentials 공급자를 등록한다.
-3. `/sign-in`은 세션이 없고 개발 자동 로그인이 활성화됐을 때 `LocalDevAutoSignIn`을 렌더링한다.
-4. 클라이언트 컴포넌트는 `signIn("local-dev", { redirect: false, redirectTo: "/" })`를 한 번 호출한다.
+3. `/sign-in`은 세션과 로그인 오류가 없고 개발 자동 로그인이 활성화된 loopback 요청일 때 `/api/auth/local-dev`로 이동한다.
+4. 로컬 전용 Route Handler는 `signIn("local-dev", { redirect: false, redirectTo: "/" })`를 호출하고 반환 URL로 303 응답한다.
 5. 성공하면 `/`로 이동한다. 기존 Credentials callback이 takeover 쿠키를 발급하고 `SaveProvider`가 기기 세션을 claim한다.
-6. 계정이 없거나 요청 검증에 실패하면 자동 재시도하지 않고 오류를 표시하며 기존 카카오·비밀번호 로그인 화면은 계속 사용할 수 있게 둔다.
+6. 계정이 없으면 Auth.js 오류가 포함된 `/sign-in`으로 돌아온다. 로그인 오류가 존재하는 요청에서는 자동 로그인을 다시 시작하지 않으므로 반복 리다이렉트 없이 기존 카카오·비밀번호 로그인 화면과 오류 안내를 사용할 수 있다.
 
 ## 설정 방법
 
@@ -47,5 +47,6 @@ LOCAL_DEV_AUTO_LOGIN_USER_EMAIL=owner@example.com
 - production/test/빈 값/잘못된 이메일에서는 비활성화되는지 검증한다.
 - loopback Host와 Origin만 허용하고 원격 호스트를 거부하는지 검증한다.
 - 기존 계정 조회 성공, 계정 없음, 잘못된 요청에서 올바른 인증 결과를 반환하는지 검증한다.
-- 자동 로그인 클라이언트가 성공 URL로 이동하고 실패 시 무한 재시도 없이 오류를 보여주는지 검증한다.
+- 로컬 전용 Route Handler가 성공 URL로 이동하고 원격 요청을 404로 거부하는지 검증한다.
+- 로그인 오류가 있는 대문 요청에서는 자동 로그인을 다시 시작하지 않는지 검증한다.
 - 전체 테스트, 타입 검사, 린트와 프로덕션 빌드로 운영 빌드에서 기능이 빠지는지 확인한다.

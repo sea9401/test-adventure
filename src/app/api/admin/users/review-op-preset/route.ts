@@ -13,7 +13,11 @@ import {
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
-import { buildReviewAdminOpPreset } from "@/lib/server/reviewAdminOpPreset";
+import {
+  REVIEW_ADMIN_LIFE_SAVE_KEYS,
+  buildReviewAdminLifePreset,
+  buildReviewAdminOpPreset,
+} from "@/lib/server/reviewAdminOpPreset";
 
 function nonNegativeInt(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value)
@@ -104,11 +108,12 @@ export async function POST(req: Request) {
             )
           : 0,
     };
+    const nowMs = Date.now();
     const preset = buildReviewAdminOpPreset({
       characterRaw,
       proficiencyRaw,
       inventoryRaw,
-      nowMs: Date.now(),
+      nowMs,
     });
     if (!preset) {
       return { ok: false as const, error: "class_required" as const };
@@ -128,6 +133,45 @@ export async function POST(req: Request) {
       return { ok: false as const, error: "combat_unavailable" as const };
     }
 
+    const farmRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      REVIEW_ADMIN_LIFE_SAVE_KEYS.farm,
+      {},
+    );
+    const woodcuttingRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      REVIEW_ADMIN_LIFE_SAVE_KEYS.woodcutting,
+      {},
+    );
+    const miningRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      REVIEW_ADMIN_LIFE_SAVE_KEYS.mining,
+      {},
+    );
+    const fishingRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      REVIEW_ADMIN_LIFE_SAVE_KEYS.fishing,
+      {},
+    );
+    const cookingRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      REVIEW_ADMIN_LIFE_SAVE_KEYS.cooking,
+      {},
+    );
+    const life = buildReviewAdminLifePreset({
+      farmRaw,
+      woodcuttingRaw,
+      miningRaw,
+      fishingRaw,
+      cookingRaw,
+      nowMs,
+    });
+
     const character = {
       ...preset.character,
       hp: combat.maxHp,
@@ -136,6 +180,16 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, "character.v2", character);
     await upsertSave(tx, userId, "proficiency.v2", preset.proficiency);
     await upsertSave(tx, userId, "inventory.v2", preset.inventory);
+    await upsertSave(tx, userId, REVIEW_ADMIN_LIFE_SAVE_KEYS.farm, life.farm);
+    await upsertSave(
+      tx,
+      userId,
+      REVIEW_ADMIN_LIFE_SAVE_KEYS.woodcutting,
+      life.woodcutting,
+    );
+    await upsertSave(tx, userId, REVIEW_ADMIN_LIFE_SAVE_KEYS.mining, life.mining);
+    await upsertSave(tx, userId, REVIEW_ADMIN_LIFE_SAVE_KEYS.fishing, life.fishing);
+    await upsertSave(tx, userId, REVIEW_ADMIN_LIFE_SAVE_KEYS.cooking, life.cooking);
 
     return {
       ok: true as const,
@@ -143,6 +197,7 @@ export async function POST(req: Request) {
       character,
       proficiency: preset.proficiency,
       inventory: preset.inventory,
+      life,
     };
   });
 
@@ -158,6 +213,7 @@ export async function POST(req: Request) {
     frontierDepth: result.character.frontierDepth,
     gold: result.character.gold,
     proficiencyPoints: result.proficiency.points,
+    lifeLevels: result.life.levels,
   };
   await logAdminAction({
     adminEmail: await currentAdminEmail(),
@@ -181,5 +237,6 @@ export async function POST(req: Request) {
     mp: result.character.mp,
     hpCharges: result.inventory.hpCharges,
     mpCharges: result.inventory.mpCharges,
+    lifeLevels: result.life.levels,
   });
 }

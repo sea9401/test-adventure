@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-10",
+  "reviewedAt": "2026-08-14",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06 and the nine ranch and cooking rasters added on 2026-08-10 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, and the six Star Grave environment and monster rasters added on 2026-08-14 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -23,7 +23,8 @@
         "https://github.com/sea9401/test-adventure/pull/643",
         "https://github.com/sea9401/test-adventure/pull/1423",
         "https://github.com/sea9401/test-adventure/pull/1715",
-        "https://github.com/sea9401/test-adventure/pull/2271"
+        "https://github.com/sea9401/test-adventure/pull/2271",
+        "docs/superpowers/plans/2026-08-14-star-grave-hunting-area.md"
       ]
     },
     {
@@ -1218,8 +1219,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/monster/v2/comet-tail-stalker.webp",
+      "sha256": "2782a7945727b306fd117f0e80eacf443d7aec26f8a4bf8826b85e65af0c3e98",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/monster/v2/crow-shaman.webp",
       "sha256": "a7a86ee35eaf18eafe3f29bcd9f134bc1f0980c5e298915edcd438901b03de2e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/dead-star-observer.webp",
+      "sha256": "cfd2825f7048cba8e04abd53a5d8f33f302f7f2b2f204ad7e5d24b6956081e4d",
       "source": "operator-cleared-game-art"
     },
     {
@@ -1323,6 +1334,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/monster/v2/red-giant-priest.webp",
+      "sha256": "69a256b3ecbcba30fa0eb5deb32c990743b4bb6ee0c21eee39225b0efadbf14e",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/monster/v2/red-mane-wolf.webp",
       "sha256": "e51cd6a97d07d4054da03c350fbee466550e2214f7cea759a8d1d3d2390e3b37",
       "source": "operator-cleared-game-art"
@@ -1398,6 +1414,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/monster/v2/star-sea-warden.webp",
+      "sha256": "402d5fcc85ffe39637660d50af7dee8d5a4bd797eeffcdc9052c69092b914bc9",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/monster/v2/storm-standard-bearer.webp",
       "sha256": "e73cb329796e5536f3d6e026c11d027fbaeec8649d4c4d65484925d17e175921",
       "source": "operator-cleared-game-art"
@@ -1460,6 +1481,11 @@
     {
       "path": "public/images/monster/v2/undertow-sentinel.webp",
       "sha256": "7608e2e1d238f722e8f4fb2704ff1d7d1d216bc818d2a45a831dce3c70df514e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/monster/v2/void-devouring-beast.webp",
+      "sha256": "45ae0c1a776e01a52e5c485c4721d9caf46318de65f290ae8eecef02d6b0eb92",
       "source": "operator-cleared-game-art"
     },
     {
@@ -1975,6 +2001,11 @@
     {
       "path": "public/images/ui/star_corridor.webp",
       "sha256": "415135c2cf9b02befd72a791bcbe359de19d1dabe775e272c887a4b2bbe0cfae",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/star_grave.webp",
+      "sha256": "4c1a373eb31c32d59ac65c1a79f81dc33c41bbef9a472eaac2566a28435458a6",
       "source": "operator-cleared-game-art"
     },
     {

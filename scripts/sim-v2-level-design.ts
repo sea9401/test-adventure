@@ -1,7 +1,7 @@
-// v2 1→78 레벨 디자인 통합 점검기.
+// v2 1→84 레벨 디자인 통합 점검기.
 //
 // 운영 환경(.env.production)의 코어루프/스태미나/ATB/EXP 설정을 그대로 읽고, 플레이어가 실제로
-// 선택하는 대표 깊이(2·4·6 ... 78)를 전부 검사한다. 기존 sim-v2-progression 과 달리:
+// 선택하는 대표 깊이(2·4·6 ... 84)를 전부 검사한다. 기존 sim-v2-progression 과 달리:
 //   - 레벨은 실제 상한 100을 넘기지 않는다.
 //   - 직업 계보별 숙련도 해금, 직업 내장 보너스, SP 예산, 장착 패시브를 반영한다.
 //   - 수행은 실제 비용 곡선으로 계산한다(보수적으로 전 구간 최소 숙달 포인트 2/승 사용).
@@ -29,6 +29,7 @@ import {
 } from "../src/adventure/v2/combat/engine";
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import {
   V2_CORE_LOOP_V2,
   V2_HUNT_USE_STAMINA,
@@ -227,7 +228,7 @@ const STAMINA_PER_DAY = Math.floor(
 const MAX_CAREER_WINS = 500_000;
 const NEWBIE_BONUS_BATTLES = NEWBIE_BONUS_BATTLE_THRESHOLD + 1;
 const GROWTH_PACING_DEPTHS = [
-  2, 6, 8, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78,
+  2, 6, 8, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84,
 ] as const;
 
 export type CliOptions = {
@@ -1014,17 +1015,9 @@ function snapshotFor(
     passiveComboFinisherBonusPct: passive.comboFinisherBonusPct,
   });
   const player = derived.player;
-  const power = derivePowerScore({
-    atk: player.atk,
-    magicAtk: player.magicAtk,
-    def: player.def,
-    spd: player.spd,
-    maxHp: player.maxHp,
-    maxMp: player.maxMp,
-    magicBarrierMax: player.magicBarrierMax,
-    evaRating: player.evaRating,
-    accRating: player.accRating,
-  });
+  const power = derivePowerScore(
+    powerInputFromPlayer(player, player.maxHp, player.maxMp),
+  );
   const tiers = Object.values(equipment).map((id) => V2_EQUIPMENT[id].tier);
   return {
     arch,
@@ -1531,7 +1524,7 @@ function printBuilds(stage: StageAudit): void {
 }
 
 function printReport(report: AuditReport, options: CliOptions): void {
-  console.log("v2 1→78 레벨 디자인 통합 점검");
+  console.log("v2 1→84 레벨 디자인 통합 점검");
   console.log(
     `운영 설정: core=${report.config.coreLoop} stamina=${report.config.staminaHunt} atb=${report.config.atbSkills} XP×${report.config.xpRate} · 에너지 ${report.config.maxStamina}/${report.config.regenSecondsPerPoint}초 · 자연회복 ${report.config.staminaPerDay.toLocaleString("ko-KR")}회/일`,
   );

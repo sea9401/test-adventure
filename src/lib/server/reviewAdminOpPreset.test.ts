@@ -7,6 +7,7 @@ import { derivePlayerCombatV2FromSaves } from "./derivePlayerCombatV2";
 import { powerInputFromPlayer } from "./playerPowerInput";
 import {
   REVIEW_ADMIN_OP_TARGETS,
+  buildReviewAdminLifePreset,
   buildReviewAdminOpPreset,
 } from "./reviewAdminOpPreset";
 
@@ -62,8 +63,8 @@ describe("buildReviewAdminOpPreset", () => {
           mage: { cultivations: 7, tier: 2, cumLevel: 9 },
           warrior: { cultivations: 3, tier: 4, cumLevel: 88 },
         },
-        caps: { int: 3500 },
-        grown: { int: 3600 },
+        caps: { int: 6500 },
+        grown: { int: 6600 },
         growthScaleVersion: 1,
         jobCumLevel: { mage: 10, archmage: 99 },
         jobHistory: ["archmage"],
@@ -90,11 +91,15 @@ describe("buildReviewAdminOpPreset", () => {
       tier: 4,
       cumLevel: 88,
     });
-    expect(result?.proficiency.caps.int).toBe(3500);
-    expect(result?.proficiency.grown.int).toBe(3600);
+    expect(result?.proficiency.caps.int).toBe(6500);
+    expect(result?.proficiency.grown.int).toBe(6600);
     for (const stat of V2_STAT_KEYS) {
-      expect(result?.proficiency.caps[stat]).toBeGreaterThanOrEqual(3_000);
-      expect(result?.proficiency.grown[stat]).toBeGreaterThanOrEqual(3_000);
+      expect(result?.proficiency.caps[stat]).toBeGreaterThanOrEqual(
+        REVIEW_ADMIN_OP_TARGETS.capGain,
+      );
+      expect(result?.proficiency.grown[stat]).toBeGreaterThanOrEqual(
+        REVIEW_ADMIN_OP_TARGETS.stat,
+      );
     }
     expect(result?.proficiency.jobCumLevel).toMatchObject({
       mage: 1_000_000,
@@ -157,5 +162,77 @@ describe("buildReviewAdminOpPreset", () => {
     expect(power).toBeGreaterThanOrEqual(
       Math.ceil(floorPowerGate(MAX_FRONTIER_DEPTH) * 1.5),
     );
+  });
+});
+
+describe("buildReviewAdminLifePreset", () => {
+  it("다섯 생활 경험치를 Lv.50으로 올리면서 기존 기록과 보유 상태를 보존한다", () => {
+    const result = buildReviewAdminLifePreset({
+      farmRaw: {
+        inventory: { wheat: 9 },
+        stats: { farmingXp: 10, harvests: 7 },
+      },
+      woodcuttingRaw: { xp: 20, cuts: 8, timberEarned: 6 },
+      miningRaw: { xp: 30, successes: 9, oreEarned: 7 },
+      fishingRaw: { xp: 40, catches: 10, fishCounts: { carp: 3 } },
+      cookingRaw: {
+        xp: 50,
+        discoveredRecipeIds: ["rustic_bread"],
+        stats: { dishesCooked: 11 },
+      },
+      nowMs: 1_800_000_000_000,
+    });
+
+    expect(result.levels).toEqual({
+      farming: 50,
+      woodcutting: 50,
+      mining: 50,
+      fishing: 50,
+      cooking: 50,
+    });
+    expect(result.farm.stats).toMatchObject({ farmingXp: 24_010, harvests: 7 });
+    expect(result.farm.inventory).toMatchObject({ wheat: 9 });
+    expect(result.woodcutting).toMatchObject({ xp: 96_040, cuts: 8, timberEarned: 6 });
+    expect(result.mining).toMatchObject({ xp: 96_040, successes: 9, oreEarned: 7 });
+    expect(result.fishing).toMatchObject({ xp: 84_035, catches: 10 });
+    expect(result.cooking).toMatchObject({
+      xp: 24_010,
+      discoveredRecipeIds: ["rustic_bread"],
+      stats: expect.objectContaining({ dishesCooked: 11 }),
+    });
+  });
+
+  it("이미 만렙 기준보다 높은 경험치는 낮추지 않고 재적용 결과를 유지한다", () => {
+    const input = {
+      farmRaw: { stats: { farmingXp: 200_000 } },
+      woodcuttingRaw: { xp: 200_000 },
+      miningRaw: { xp: 200_000 },
+      fishingRaw: { xp: 200_000 },
+      cookingRaw: { xp: 200_000 },
+      nowMs: 1_800_000_000_000,
+    };
+    const first = buildReviewAdminLifePreset(input);
+    const second = buildReviewAdminLifePreset({
+      farmRaw: first.farm,
+      woodcuttingRaw: first.woodcutting,
+      miningRaw: first.mining,
+      fishingRaw: first.fishing,
+      cookingRaw: first.cooking,
+      nowMs: input.nowMs,
+    });
+
+    expect(first.farm.stats.farmingXp).toBe(200_000);
+    expect(first.woodcutting.xp).toBe(200_000);
+    expect(first.mining.xp).toBe(200_000);
+    expect(first.fishing.xp).toBe(200_000);
+    expect(first.cooking.xp).toBe(200_000);
+    expect(first.levels).toEqual({
+      farming: 50,
+      woodcutting: 50,
+      mining: 50,
+      fishing: 50,
+      cooking: 50,
+    });
+    expect(second).toEqual(first);
   });
 });

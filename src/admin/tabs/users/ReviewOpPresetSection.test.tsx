@@ -14,6 +14,8 @@ describe("ReviewOpPresetSection", () => {
 
     expect(html).toContain("심의용 OP 세팅");
     expect(html).toContain("최종 사냥터");
+    expect(html).toContain("생활 레벨 5종");
+    expect(html).toContain("Lv.50");
     expect(html).toContain("퀘스트와 장비는 유지");
     expect(html).toContain("자동으로 되돌아가지 않습니다");
     expect(html).toContain("심의용 OP 세팅 적용");

@@ -17,8 +17,28 @@ import {
 } from "./v2Skills";
 import type { V2EquipSlot, V2EquipmentId } from "./v2Equipment";
 import { bandUniquePoolForDepth } from "./dungeonUniqueDrops";
+import { derivePowerScore } from "./power";
+import { powerInputFromPlayer } from "../../../lib/server/playerPowerInput";
 
 describe("sim-v2-level-design", () => {
+  it("표본 전투력은 실제 게임과 동일한 전체 전투력 입력을 사용한다", () => {
+    const snapshot = buildLevelDesignProgressionSnapshot({
+      arch: "SPI",
+      depth: 78,
+      seed: 20260809,
+    });
+
+    expect(snapshot.power).toBe(
+      derivePowerScore(
+        powerInputFromPlayer(
+          snapshot.player,
+          snapshot.player.maxHp,
+          snapshot.player.maxMp,
+        ),
+      ),
+    );
+  });
+
   it("패황 STR 표본은 광기 중첩 없이 계보 액티브 4종과 최고 패시브를 51 SP로 장착한다", () => {
     const snapshot = buildLevelDesignProgressionSnapshot({
       arch: "STR",
@@ -53,11 +73,11 @@ describe("sim-v2-level-design", () => {
     expect(parseOptions(["--trials=999"]).trials).toBe(100);
   });
 
-  it("검사 대상은 실제 선택 가능한 2~78 짝수 단계 39개다", () => {
+  it("검사 대상은 실제 선택 가능한 2~84 짝수 단계 42개다", () => {
     const depths = huntStageDepths();
-    expect(depths).toHaveLength(39);
+    expect(depths).toHaveLength(42);
     expect(depths[0]).toBe(2);
-    expect(depths.at(-1)).toBe(78);
+    expect(depths.at(-1)).toBe(84);
     expect(depths.every((depth) => depth % 2 === 0)).toBe(true);
   });
 
@@ -67,6 +87,7 @@ describe("sim-v2-level-design", () => {
     const frontierEntry = growth.rows.find((row) => row.depth === 8)!;
     const endgame = growth.rows.find((row) => row.depth === 72)!;
     const skyRift = growth.rows.find((row) => row.depth === 78)!;
+    const starGrave = growth.rows.find((row) => row.depth === 84)!;
 
     expect(growth.totalExpToLevelCap).toBe(2_275_428);
     expect(growth.energy).toMatchObject({
@@ -103,6 +124,13 @@ describe("sim-v2-level-design", () => {
       expect(1 / pool.chance).toBeCloseTo(40_000);
       expect(pool.ids.length / pool.chance).toBeCloseTo(480_000);
     }
+    expect(starGrave.avgVeteranExpPerWin).toBe(skyRift.avgVeteranExpPerWin);
+    expect(starGrave.commonAnyExpectedWins).toBe(1_000);
+    expect(starGrave.commonSpecificExpectedWins).toBe(21_000);
+    expect(starGrave.signatureAnyExpectedWins).toBeCloseTo(1 / 0.000035);
+    expect(starGrave.signatureSpecificExpectedWins).toBeCloseTo(
+      12 / 0.000035,
+    );
   });
 
   it("실제 승률 절벽·전직 회복 필요·저승률·빌드 격차·장기전을 독립적으로 경고한다", () => {
@@ -147,18 +175,16 @@ describe("sim-v2-level-design", () => {
     ).toEqual([]);
   });
 
-  it("수행 0회·전투력 1,500 이하 캐릭터는 심해 폐허 최심부를 안정적으로 우회하지 못한다", () => {
+  it("수행 0회 캐릭터는 심해 폐허 최심부를 안정적으로 우회하지 못한다", () => {
     const builds = auditFixedProgressionCombat({
       depth: 72,
       careerWins: 500_000,
       cultivate: false,
       trials: 50,
     });
-    const underpowered = builds.filter((build) => build.power <= 1_500);
 
-    expect(underpowered.length).toBeGreaterThan(0);
     expect(builds.every((build) => build.cultivations === 0)).toBe(true);
-    expect(Math.max(...underpowered.map((build) => build.winRatePct))).toBeLessThan(20);
+    expect(Math.max(...builds.map((build) => build.winRatePct))).toBeLessThan(20);
   });
 
   it("전투력 미달 보정 없이도 무수행 저성장 캐릭터는 후반까지 연속 우회하지 못한다", () => {

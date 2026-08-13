@@ -93,6 +93,11 @@ describe("POST /api/admin/users/review-op-preset", () => {
       ["inventory.v2", { hpCharges: 1, mpCharges: 2 }],
       ["equipment.v2", { equipped: {} }],
       ["skills.v2", { learned: [], equipped: [] }],
+      ["farm.v2", { stats: { farmingXp: 10, harvests: 7 } }],
+      ["woodcutting-log.v1", { xp: 20, cuts: 8 }],
+      ["mining-log.v1", { xp: 30, successes: 9 }],
+      ["fishing-progress.v1", { xp: 40, catches: 10 }],
+      ["cooking.v1", { xp: 50, stats: { dishesCooked: 11 } }],
     ]);
     mocks.select.mockReturnValue({
       from: vi.fn(() => ({
@@ -173,7 +178,7 @@ describe("POST /api/admin/users/review-op-preset", () => {
     expect(mocks.upsert).not.toHaveBeenCalled();
   });
 
-  it("세 저장값을 상향하고 파생 최대 HP와 MP로 회복한 뒤 감사 로그를 남긴다", async () => {
+  it("전투와 다섯 생활 저장값을 상향하고 감사 로그를 남긴다", async () => {
     const response = await POST(request({ userId: "review-user" }));
     const json = (await response.json()) as Record<string, unknown>;
 
@@ -187,11 +192,23 @@ describe("POST /api/admin/users/review-op-preset", () => {
       fame: 1_000_000,
       hpCharges: 100_000,
       mpCharges: 100_000,
+      lifeLevels: {
+        farming: 50,
+        woodcutting: 50,
+        mining: 50,
+        fishing: 50,
+        cooking: 50,
+      },
     });
     expect(mocks.lock.mock.calls.map((call) => call[2])).toEqual([
       "character.v2",
       "proficiency.v2",
       "inventory.v2",
+      "farm.v2",
+      "woodcutting-log.v1",
+      "mining-log.v1",
+      "fishing-progress.v1",
+      "cooking.v1",
     ]);
     expect(mocks.upsert).toHaveBeenCalledWith(
       mocks.tx,
@@ -216,6 +233,41 @@ describe("POST /api/admin/users/review-op-preset", () => {
       "inventory.v2",
       expect.objectContaining({ hpCharges: 100_000, mpCharges: 100_000 }),
     );
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      mocks.tx,
+      "review-user",
+      "farm.v2",
+      expect.objectContaining({
+        stats: expect.objectContaining({ farmingXp: 24_010, harvests: 7 }),
+      }),
+    );
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      mocks.tx,
+      "review-user",
+      "woodcutting-log.v1",
+      expect.objectContaining({ xp: 96_040, cuts: 8 }),
+    );
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      mocks.tx,
+      "review-user",
+      "mining-log.v1",
+      expect.objectContaining({ xp: 96_040, successes: 9 }),
+    );
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      mocks.tx,
+      "review-user",
+      "fishing-progress.v1",
+      expect.objectContaining({ xp: 84_035, catches: 10 }),
+    );
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      mocks.tx,
+      "review-user",
+      "cooking.v1",
+      expect.objectContaining({
+        xp: 24_010,
+        stats: expect.objectContaining({ dishesCooked: 11 }),
+      }),
+    );
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.objectContaining({
         adminEmail: "operator@example.com",
@@ -228,6 +280,13 @@ describe("POST /api/admin/users/review-op-preset", () => {
             level: 100,
             frontierDepth: MAX_FRONTIER_DEPTH,
             proficiencyPoints: 1_000_000,
+            lifeLevels: {
+              farming: 50,
+              woodcutting: 50,
+              mining: 50,
+              fishing: 50,
+              cooking: 50,
+            },
           }),
         }),
       }),

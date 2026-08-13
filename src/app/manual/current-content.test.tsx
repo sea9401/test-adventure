@@ -111,6 +111,24 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("같은 날 살 때마다 가격이 오릅니다");
   });
 
+  it("위험 해역의 해금·조작·화물 확정·사고 구조를 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("위험 해역 낚시");
+    expect(html).toContain("Lv.15");
+    expect(html).toContain("돌진");
+    expect(html).toContain("줄 풀기");
+    expect(html).toContain("몸부림·잠수");
+    expect(html).toContain("버티기");
+    expect(html).toContain("어체력과 거리");
+    expect(html).toContain("안전 귀환");
+    expect(html).toContain("위험도 3");
+    expect(html).toContain("12%");
+    expect(html).toContain("위험도 5");
+    expect(html).toContain("32%");
+    expect(html).toContain("전용 낚싯대·릴·낚싯줄");
+  });
+
   it("어종 표본의 등록 권리 이전과 어획 기록 보존을 안내한다", () => {
     const pastimes = renderToStaticMarkup(<PastimesContent />);
     const plaza = renderToStaticMarkup(<PlazaContent />);
@@ -167,7 +185,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(skills).toContain("PvE·PvP 차이");
   });
 
-  it("천공 균열 전역 장비 풀과 폭풍 원정 연습 모드를 안내한다", () => {
+  it("천공 균열·별의 무덤 장비 풀과 폭풍 원정 연습 모드를 안내한다", () => {
     const hunting = renderToStaticMarkup(<HuntingContent />);
     const equipment = renderToStaticMarkup(<EquipmentContent />);
     const compendium = renderToStaticMarkup(<CompendiumContent />);
@@ -177,9 +195,15 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("천공 균열 73~78단계");
     expect(hunting).toContain("같은 6티어 전역 후보 풀");
     expect(hunting).toContain("시그니처 유니크 12종도 전 구간");
+    expect(hunting).toContain("별의 무덤 79~84단계");
+    expect(hunting).toContain("총 0.0035%");
+    expect(hunting).toContain("경험치와 골드");
+    expect(hunting).toContain("천공 균열 78단계와 동일");
     expect(equipment).toContain("난이도와 관계없이 같은 6티어");
     expect(compendium).toContain("난이도에 따라 후보가 바뀌지 않고");
     expect(compendium).toContain("시그니처 유니크 12종은 천공 균열 전");
+    expect(compendium).toContain("별의 무덤");
+    expect(compendium).toContain("0.0035%");
   });
 
   it("숙련의 탑 첫 입장 비용·재입장 대기·50층 연습을 함께 안내한다", () => {

@@ -13,7 +13,7 @@ describe("몬스터 처치 현황", () => {
     });
 
     expect(codex).toMatchObject({
-      huntableSpecies: 65,
+      huntableSpecies: 70,
       currentKilled: 1,
       recordedSpecies: 2,
       legacyKilled: 1,
@@ -31,7 +31,7 @@ describe("몬스터 처치 현황", () => {
     );
   });
 
-  it("저장값이 없으면 현재 60종을 모두 미처치로 표시한다", () => {
+  it("저장값이 없으면 현재 사냥 가능 종을 모두 미처치로 표시한다", () => {
     const codex = deriveMonsterHuntCodex(null);
 
     expect(codex.currentKilled).toBe(0);

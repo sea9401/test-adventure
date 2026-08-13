@@ -47,6 +47,7 @@ export const END_EXTENSION_STAT_STEP = 1.0;
 // 천공 균열(73~78)은 원정·개량으로 크게 성장한 유저가 힘을 체감하도록 더 가파르게
 // 4650→5500까지 상승한다. 단, 73은 5T 최종 세팅으로 진입 가능한 수준을 유지한다.
 export const SKY_RIFT_POWER_GATES = [4650, 4800, 4950, 5100, 5300, 5500] as const;
+export const STAR_GRAVE_POWER_GATES = [8000, 8400, 8800, 9200, 9600, 10000] as const;
 
 function endExtensionStatAnchorPower(depth: number): number {
   const d = Math.max(END_EXTENSION_START_DEPTH, Math.floor(depth));
@@ -80,6 +81,13 @@ function endExtensionRecommendedPower(depth: number): number {
   if (d <= 54) return 1400 + (d - 49) * 50;
   if (d <= 60) return 1700 + (d - 55) * 60;
   if (d <= 66) return 2050 + (d - 61) * 40;
+  if (d >= 79) {
+    const index = d - 79;
+    return index < STAR_GRAVE_POWER_GATES.length
+      ? STAR_GRAVE_POWER_GATES[index]
+      : STAR_GRAVE_POWER_GATES[STAR_GRAVE_POWER_GATES.length - 1] +
+          (index - STAR_GRAVE_POWER_GATES.length + 1) * 400;
+  }
   if (d >= 73) {
     const index = d - 73;
     return index < SKY_RIFT_POWER_GATES.length
@@ -149,18 +157,23 @@ export const FIXED_FRONTIER_DIFFICULTY_START_DEPTH = 49;
 export const FIXED_FRONTIER_DURABILITY_START = 1.5;
 export const FIXED_FRONTIER_DURABILITY_DEPTH_72 = 4.5;
 export const FIXED_FRONTIER_DURABILITY_DEPTH_78 = 6;
+export const FIXED_FRONTIER_DURABILITY_DEPTH_84 = 10;
 export const FIXED_FRONTIER_ATTACK_START = 1.1;
 export const FIXED_FRONTIER_ATTACK_DEPTH_72 = 2.3;
 export const FIXED_FRONTIER_ATTACK_DEPTH_78 = 2.7;
+export const FIXED_FRONTIER_ATTACK_DEPTH_84 = 3.6;
 export const FIXED_FRONTIER_DEFENSE_START = 1;
 export const FIXED_FRONTIER_DEFENSE_DEPTH_72 = 1.45;
 export const FIXED_FRONTIER_DEFENSE_DEPTH_78 = 1.5;
+export const FIXED_FRONTIER_DEFENSE_DEPTH_84 = 1.8;
 export const FIXED_FRONTIER_ACCURACY_START = 1;
 export const FIXED_FRONTIER_ACCURACY_DEPTH_72 = 1;
 export const FIXED_FRONTIER_ACCURACY_DEPTH_78 = 1.03;
+export const FIXED_FRONTIER_ACCURACY_DEPTH_84 = 1.08;
 export const FIXED_FRONTIER_EVASION_START = 0;
 export const FIXED_FRONTIER_EVASION_DEPTH_72 = 2;
 export const FIXED_FRONTIER_EVASION_DEPTH_78 = 3;
+export const FIXED_FRONTIER_EVASION_DEPTH_84 = 5;
 
 function linearRamp(
   depth: number,
@@ -187,12 +200,21 @@ export function fixedFrontierDurabilityMult(depth: number): number {
       FIXED_FRONTIER_DURABILITY_DEPTH_72,
     );
   }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_DURABILITY_DEPTH_72,
+      FIXED_FRONTIER_DURABILITY_DEPTH_78,
+    );
+  }
   return linearRamp(
     depth,
-    73,
     78,
-    FIXED_FRONTIER_DURABILITY_DEPTH_72,
+    84,
     FIXED_FRONTIER_DURABILITY_DEPTH_78,
+    FIXED_FRONTIER_DURABILITY_DEPTH_84,
   );
 }
 
@@ -207,12 +229,21 @@ export function fixedFrontierAttackMult(depth: number): number {
       FIXED_FRONTIER_ATTACK_DEPTH_72,
     );
   }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_ATTACK_DEPTH_72,
+      FIXED_FRONTIER_ATTACK_DEPTH_78,
+    );
+  }
   return linearRamp(
     depth,
-    73,
     78,
-    FIXED_FRONTIER_ATTACK_DEPTH_72,
+    84,
     FIXED_FRONTIER_ATTACK_DEPTH_78,
+    FIXED_FRONTIER_ATTACK_DEPTH_84,
   );
 }
 
@@ -227,12 +258,21 @@ export function fixedFrontierDefenseMult(depth: number): number {
       FIXED_FRONTIER_DEFENSE_DEPTH_72,
     );
   }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_DEFENSE_DEPTH_72,
+      FIXED_FRONTIER_DEFENSE_DEPTH_78,
+    );
+  }
   return linearRamp(
     depth,
-    73,
     78,
-    FIXED_FRONTIER_DEFENSE_DEPTH_72,
+    84,
     FIXED_FRONTIER_DEFENSE_DEPTH_78,
+    FIXED_FRONTIER_DEFENSE_DEPTH_84,
   );
 }
 
@@ -247,12 +287,21 @@ export function fixedFrontierAccuracyMult(depth: number): number {
       FIXED_FRONTIER_ACCURACY_DEPTH_72,
     );
   }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_ACCURACY_DEPTH_72,
+      FIXED_FRONTIER_ACCURACY_DEPTH_78,
+    );
+  }
   return linearRamp(
     depth,
-    73,
     78,
-    FIXED_FRONTIER_ACCURACY_DEPTH_72,
+    84,
     FIXED_FRONTIER_ACCURACY_DEPTH_78,
+    FIXED_FRONTIER_ACCURACY_DEPTH_84,
   );
 }
 
@@ -267,12 +316,21 @@ export function fixedFrontierEvasionBonus(depth: number): number {
       FIXED_FRONTIER_EVASION_DEPTH_72,
     );
   }
+  if (depth <= 78) {
+    return linearRamp(
+      depth,
+      73,
+      78,
+      FIXED_FRONTIER_EVASION_DEPTH_72,
+      FIXED_FRONTIER_EVASION_DEPTH_78,
+    );
+  }
   return linearRamp(
     depth,
-    73,
     78,
-    FIXED_FRONTIER_EVASION_DEPTH_72,
+    84,
     FIXED_FRONTIER_EVASION_DEPTH_78,
+    FIXED_FRONTIER_EVASION_DEPTH_84,
   );
 }
 
@@ -450,13 +508,15 @@ export const REWARD_SLOWDOWN_START_DEPTH = 31;
 export const REWARD_SLOWDOWN_ANCHOR_DEPTH = REWARD_SLOWDOWN_START_DEPTH - 1;
 export const REWARD_SLOWDOWN_EXP_STEP = 0.15;
 export const REWARD_EXP_MULT_CAP = 30;
+export const HUNT_REWARD_DEPTH_CAP = 78;
 export function floorExpMult(depth: number): number {
   if (depth <= 1) return 1;
   if (depth >= REWARD_SLOWDOWN_START_DEPTH) {
+    const rewardDepth = Math.min(HUNT_REWARD_DEPTH_CAP, depth);
     return Math.min(
       REWARD_EXP_MULT_CAP,
       floorExpMult(REWARD_SLOWDOWN_ANCHOR_DEPTH) +
-        (depth - REWARD_SLOWDOWN_ANCHOR_DEPTH) * REWARD_SLOWDOWN_EXP_STEP,
+        (rewardDepth - REWARD_SLOWDOWN_ANCHOR_DEPTH) * REWARD_SLOWDOWN_EXP_STEP,
     );
   }
   const sMult = floorStatMult(depth);

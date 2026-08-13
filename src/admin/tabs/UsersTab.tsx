@@ -235,7 +235,7 @@ export function UsersTab() {
     const label = selected.gameName?.trim() || selected.email || selected.id;
     const ok = window.confirm(
       `「${label}」 캐릭터를 심의용 OP 상태로 상향할까요?\n` +
-        "직업·장비·퀘스트는 유지되지만 진행도와 성장 수치는 자동으로 되돌아가지 않습니다.",
+        "생활 레벨 5종도 Lv.50으로 상향합니다. 직업·장비·퀘스트는 유지되지만 진행도와 성장 수치는 자동으로 되돌아가지 않습니다.",
     );
     if (!ok) return;
 
@@ -245,9 +245,10 @@ export function UsersTab() {
         level: number;
         frontierDepth: number;
         gold: number;
+        lifeLevels: Record<string, number>;
       }>("/api/admin/users/review-op-preset", { userId: selected.id });
       showToast(
-        `심의용 OP 세팅 완료: Lv.${result.level}, 사냥터 깊이 ${result.frontierDepth}. 대상 유저 새로고침 필요.`,
+        `심의용 OP 세팅 완료: Lv.${result.level}, 사냥터 깊이 ${result.frontierDepth}, 생활 5종 Lv.50. 대상 유저 새로고침 필요.`,
       );
       await loadSaves(selected.id);
     } catch (e) {

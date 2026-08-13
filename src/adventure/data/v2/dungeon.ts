@@ -137,6 +137,41 @@ const BAND_L_SKY_RIFT_ENEMIES: DungeonEnemy[] = [
   { key: "뇌정 성역지기", name: "뇌정 성역지기", image: "/images/monster/v2/lightning-oracle.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
 ];
 
+// 별의 무덤 — 천공 균열 너머의 성좌 잔해. 속성 상성 없이 물리/마법 방어 성향과
+// 강타·관통·출혈·중독·둔화·마법 폭발 역할을 나눠 6T 완성 빌드를 시험한다.
+const BAND_M_STAR_GRAVE_ENEMIES: DungeonEnemy[] = [
+  {
+    key: "성해의 파수꾼",
+    name: "성해의 파수꾼",
+    image: "/images/monster/v2/star-sea-warden.webp",
+  },
+  {
+    key: "혜성꼬리 추적자",
+    name: "혜성꼬리 추적자",
+    image: "/images/monster/v2/comet-tail-stalker.webp",
+    statusSkill: "mob_rending_claw",
+  },
+  {
+    key: "적색거성의 사제",
+    name: "적색거성의 사제",
+    image: "/images/monster/v2/red-giant-priest.webp",
+    castSkill: "mob_arcane_burst",
+  },
+  {
+    key: "공허를 먹는 짐승",
+    name: "공허를 먹는 짐승",
+    image: "/images/monster/v2/void-devouring-beast.webp",
+    statusSkill: "mob_venom_bite",
+  },
+  {
+    key: "죽은 별의 관측자",
+    name: "죽은 별의 관측자",
+    image: "/images/monster/v2/dead-star-observer.webp",
+    statusSkill: "mob_chilling_touch",
+    castSkill: "mob_arcane_burst",
+  },
+];
+
 // 들판 = 깊이 1~6 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
 export const MAIN_DUNGEON: Dungeon = {
   id: "main",
@@ -152,7 +187,7 @@ export const MAIN_DUNGEON: Dungeon = {
 };
 
 // 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판 onboarding 풀도 6깊이.
-// 마지막 테마(천공 균열)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
+// 마지막 테마(별의 무덤)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
 // "테마명 + 테마 내 로컬 번호(1~6)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
 // 2026-06-19: "깊은 산"(옛 7~12) 삭제 → 마른 협곡부터 6깊이씩 앞으로 당겨짐.
@@ -160,6 +195,7 @@ export const MAIN_DUNGEON: Dungeon = {
 // 2026-06-30: 붉은 벌판(49~54)·백골 고원(55~60) 추가.
 // 2026-07-04: 폭풍 산맥(61~66)·심해 폐허(67~72) 추가.
 // 2026-08-07: 천공 균열(73~78) 추가. 6T 장비의 방어구 목표 파밍 지역.
+// 2026-08-14: 별의 무덤(79~84) 추가. 6T 시그니처 유니크 추격 지역.
 export const THEME_DEPTH_SPAN = 6;
 const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "들판", enemies: FLOOR1_ENEMIES }, // 깊이 1~6
@@ -174,7 +210,8 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "백골 고원", enemies: BAND_I_BONE_PLATEAU_ENEMIES }, // 55~60
   { name: "폭풍 산맥", enemies: BAND_J_STORM_MOUNTAIN_ENEMIES }, // 61~66
   { name: "심해 폐허", enemies: BAND_K_ABYSS_RUINS_ENEMIES }, // 67~72
-  { name: "천공 균열", enemies: BAND_L_SKY_RIFT_ENEMIES }, // 73~78 (마지막 테마 = 프론티어 끝)
+  { name: "천공 균열", enemies: BAND_L_SKY_RIFT_ENEMIES }, // 73~78
+  { name: "별의 무덤", enemies: BAND_M_STAR_GRAVE_ENEMIES }, // 79~84 (마지막 테마 = 프론티어 끝)
 ];
 
 export type HuntMonsterCodexDefinition = {
@@ -212,7 +249,7 @@ export const HUNT_MONSTER_SPECIES_COUNT = HUNT_MONSTER_CODEX.length;
 // DUNGEON_THEMES 에 추가 → 이 캡이 자동으로 늘어난다. 깊이 게이트(hunt route)·UI 가 이 값으로 캡.
 export const MAX_FRONTIER_DEPTH = DUNGEON_THEMES.length * THEME_DEPTH_SPAN;
 
-// 플레이어가 선택하는 사냥 단계. 내부 깊이 1~72와 난이도·보상 테이블은 그대로 두고,
+// 플레이어가 선택하는 사냥 단계. 내부 깊이 1~84와 난이도·보상 테이블은 그대로 두고,
 // 각 테마의 두 깊이를 한 단계로 묶어 뒤쪽 깊이(2·4·6)를 대표 전투 깊이로 사용한다.
 // 레거시 깊이와 희귀 지도는 같은 쌍의 단계명으로 표시할 수 있다.
 export const HUNT_STAGE_LABELS = ["입구", "심부", "최심부"] as const;

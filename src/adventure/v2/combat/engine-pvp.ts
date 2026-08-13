@@ -207,6 +207,8 @@ export type PvPSideStacks = {
   skillCritTurns: number;
   skillEvasionPct: number; // 선풍각 — 회피도 +%
   skillEvasionTurns: number;
+  accuracyDownPct: number; // 암흑 — 이 side 의 적중도 -%.
+  accuracyDownTurns: number;
   skillDmgReducePct: number; // 진홍 심판·철포 — 받는 피해 -%
   skillDmgReduceTurns: number;
   skillReflectBoostPct: number; // 활성 반사 증폭 — 모든 반사 피해 +%
@@ -313,6 +315,17 @@ export function scalePvPShield(
   return scalePositivePvPValue(shield, state.sustainMultiplier);
 }
 
+export function effectivePvPAccuracyRating(side: PvPSide): number {
+  const baseAccuracy = side.player.accRating ?? side.player.accuracyPct ?? 0;
+  const accuracyDownPct =
+    side.stacks.accuracyDownTurns > 0 ? side.stacks.accuracyDownPct : 0;
+  return Math.max(
+    0,
+    baseAccuracy *
+      (1 - Math.min(100, Math.max(0, accuracyDownPct)) / 100),
+  );
+}
+
 export function playerPvpEvasionReductionPct(
   state: PvPBattleState,
   who: "p1" | "p2",
@@ -336,7 +349,7 @@ export function playerPvpEvasionReductionPct(
   );
   return pvpEvasionDamageReductionPct(
     evasionRating,
-    opponent.player.accRating ?? opponent.player.accuracyPct ?? 0,
+    effectivePvPAccuracyRating(opponent),
   );
 }
 
@@ -707,6 +720,8 @@ function buildSide(
       skillCritTurns: 0,
       skillEvasionPct: 0,
       skillEvasionTurns: 0,
+      accuracyDownPct: 0,
+      accuracyDownTurns: 0,
       skillDmgReducePct: 0,
       skillDmgReduceTurns: 0,
       skillReflectBoostPct: 0,
@@ -2470,7 +2485,7 @@ export function castV2SkillOnAttackerTurnPvP(
     );
     skillEvasionReductionPct = pvpEvasionDamageReductionPct(
       sDefenderEvaR,
-      side.player.accRating ?? side.player.accuracyPct ?? 0,
+      effectivePvPAccuracyRating(side),
     );
   }
   // 3) state 업데이트. 앞 단계에서 만든 st 의 로그를 이어서 누적한다.
@@ -2947,6 +2962,8 @@ export function castV2SkillOnAttackerTurnPvP(
     skillEvasionTurns: evaBuff
       ? evaBuff.turns
       : Math.max(0, side.stacks.skillEvasionTurns - 1),
+    accuracyDownPct: side.stacks.accuracyDownPct,
+    accuracyDownTurns: Math.max(0, side.stacks.accuracyDownTurns - 1),
     skillDmgReducePct:
       dmgReduceBuff?.pct ?? side.stacks.skillDmgReducePct,
     skillDmgReduceTurns: dmgReduceBuff
@@ -3015,6 +3032,13 @@ export function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
+      side: who,
+    });
+  }
+  if (result.enemyAccuracyDownToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "암흑"}] ${opp.name} 적중도 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}행동)`,
       side: who,
     });
   }
@@ -3170,6 +3194,11 @@ export function castV2SkillOnAttackerTurnPvP(
       healReduceTurns: result.enemyHealReduceToApply
         ? result.enemyHealReduceToApply.turns
         : opp.stacks.healReduceTurns,
+      accuracyDownPct:
+        result.enemyAccuracyDownToApply?.pct ?? opp.stacks.accuracyDownPct,
+      accuracyDownTurns: result.enemyAccuracyDownToApply
+        ? result.enemyAccuracyDownToApply.turns
+        : opp.stacks.accuracyDownTurns,
       damageDownPct: result.enemyDamageDownToApply?.pct ?? opp.stacks.damageDownPct,
       damageDownTurns: result.enemyDamageDownToApply
         ? result.enemyDamageDownToApply.turns

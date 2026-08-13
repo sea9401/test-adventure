@@ -189,7 +189,7 @@ micromark@4.0.2 | MIT | https://www.npmjs.com/package/micromark | texts: dd10818
 minimalistic-assert@1.0.1 | ISC | https://www.npmjs.com/package/minimalistic-assert | texts: 136fee1129ea
 minimist@1.2.8 | MIT | https://www.npmjs.com/package/minimist | texts: 435a6722c786
 ms@2.1.3 | MIT | https://www.npmjs.com/package/ms | texts: 1662fae9b531
-nanoid@3.3.17 | MIT | https://www.npmjs.com/package/nanoid | texts: da4db1480d9b
+nanoid@3.3.18 | MIT | https://www.npmjs.com/package/nanoid | texts: da4db1480d9b
 next-auth@5.0.0-beta.32 | ISC | https://www.npmjs.com/package/next-auth | texts: c886e96e9dea
 next@16.2.11 | MIT | https://www.npmjs.com/package/next | texts: ee765244e2d5, 117da2af0d4c, ff96bbd6a740, bb3a5cb8fb22, 7b34e99bc436, c71d239df917, 0b31f3a6ab66, 1f256ecad192, 1f256ecad192, b070d77bfb2c, 76a876cf886f, 6d2abc90a426, 6239c6144c31, 8cec82f7beea, 291ff3e2bd22, 117da2af0d4c, ddd770379e07, f25bf9bf3ae8, 06bafa45fdad, d06b5d27bbbb, e3b44af06661, 25bd22427e27, a8e260b5b60e, 04512a63dce4, 9dbd86998d3c, 23d466b1b134, 48da2f39e100, bd47ce7b88c7, 257aed989141, c02110eedc16, aaa78451b6fe, 6134c69bc22c, 98c970de440d, e399db7e952e, fc06db8dd5e7, e4f76a7a19ef, 631987b7616a, 48da2f39e100, a0ec0dab16b3, 6236fa0b88a4, 48da2f39e100, 589850dfc0a1, ff151c00207c, b2b54c738525, 62ba766e9b50, 3109783dad75, 62568a2d1337, e08c030e1274, 48da2f39e100, 48da2f39e100, 52412d7bc7ce, 53e59feb1305, 2144eb6894cb, 498d39c83164, 9068a8782d2f, 9068a8782d2f, ffd8b33b3545, 451ec07eeb9c, 9068a8782d2f, da4db1480d9b, cfc7749b96f6, 811238ba7d85, ea75e9321945, 5c932d88256b, d25d1d6d28c3, 5c932d88256b, 5c932d88256b, a22b9d5763f5, 4eeb3271453a, d0cd141b0c32, f26c92c1c16e, 9e534cfb7f7a, dd40f37957dd, 7774c8c4a3f7, 655287aefbf8, 597756adcb51, c4630ac8b89c, c4630ac8b89c, 368744703915, 59a400d04c50, cb72d9714ddc, c8e6bca72306, da6d3703ed11, da6d3703ed11, da6d3703ed11, da6d3703ed11, da6d3703ed11, 52412d7bc7ce, da6d3703ed11, da6d3703ed11, da6d3703ed11, da6d3703ed11, 51887a3d4705, 3a6d6de49d28, 2af12ca8b612, da6d3703ed11, da6d3703ed11, 9068a8782d2f, 9068a8782d2f, 4ec3d4c66cd8, 25a328069fe7, be8ba42db3b7, 8bb16db1b047, 6cb0631f71c7, 6cb0631f71c7, e1898814043c, 96e519318347, a0e6357a5e8e, 11f2aafb37d0, 48da2f39e100, 0f644bc01d85, 8a1af140fdfb, 901d0a7fcacc, 435a6722c786, d5f14c325842, 435a6722c786, fb9548e36708, 6239c6144c31, 3a62887f73cd, 9068a8782d2f, bfdeded4040e, bfdeded4040e, 9068a8782d2f, 214d0ac13edb, 214d0ac13edb, dcd0a622a3a2, 3f1189b28e38, 03cc9a630489
 oauth4webapi@3.8.6 | MIT | https://www.npmjs.com/package/oauth4webapi | texts: 81e7b4b0196e
@@ -6338,7 +6338,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================
 TEXT da4db1480d9b (LICENSE)
-Applies to: nanoid@3.3.17, next@16.2.11
+Applies to: nanoid@3.3.18, next@16.2.11
 ------------------------------------------------------------------------------
 The MIT License (MIT)
 

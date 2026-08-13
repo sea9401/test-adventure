@@ -119,6 +119,38 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(floorPowerGate(78)).toBe(5500);
   });
 
+  it("별의 무덤 79~84 권장 전투력은 8000에서 10000까지 일정하게 오른다", () => {
+    expect([79, 80, 81, 82, 83, 84].map(floorPowerGate)).toEqual([
+      8000,
+      8400,
+      8800,
+      9200,
+      9600,
+      10000,
+    ]);
+  });
+
+  it("별의 무덤 실제 전투 배율은 천공 균열 이후에도 계속 높아진다", () => {
+    for (let depth = 79; depth <= 84; depth++) {
+      expect(fixedFrontierDurabilityMult(depth)).toBeGreaterThan(
+        fixedFrontierDurabilityMult(depth - 1),
+      );
+      expect(fixedFrontierAttackMult(depth)).toBeGreaterThan(
+        fixedFrontierAttackMult(depth - 1),
+      );
+      expect(fixedFrontierDefenseMult(depth)).toBeGreaterThanOrEqual(
+        fixedFrontierDefenseMult(depth - 1),
+      );
+    }
+  });
+
+  it("별의 무덤 경험치와 골드 기반 배율은 천공 균열 최심부에서 멈춘다", () => {
+    const skyRiftCap = floorExpMult(78);
+    expect([79, 80, 81, 82, 83, 84].map(floorExpMult)).toEqual(
+      Array(6).fill(skyRiftCap),
+    );
+  });
+
   it("43+ 엔드 확장 전투 완화는 지역 경계부터 적용하고 심층 하한에서 멈춘다", () => {
     expect(endExtensionCombatSoften(42)).toBe(1);
     expect(endExtensionCombatSoften(43)).toBe(END_EXTENSION_COMBAT_SOFTEN);

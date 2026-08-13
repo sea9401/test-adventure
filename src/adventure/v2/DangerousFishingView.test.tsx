@@ -77,6 +77,26 @@ const handlers = {
 };
 
 describe("위험 해역 개인 화면", () => {
+  it("첫 이용자가 출항부터 안전 귀환까지 필요한 핵심 규칙을 한곳에서 확인한다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingView
+        model={model()}
+        boss={null}
+        loading={false}
+        busy={null}
+        error={null}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain("처음 이용하시나요?");
+    expect(html).toContain("돌진 → 줄 풀기");
+    expect(html).toContain("몸부림·잠수 → 버티기");
+    expect(html).toContain("급선회 → 감아올리기");
+    expect(html).toContain("어체력과 거리를 모두 0");
+    expect(html).toContain("안전 귀환해야");
+  });
+
   it("낚시 레벨 15 미만에는 해금 조건과 기존 낚시 성장 경로를 안내한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingView

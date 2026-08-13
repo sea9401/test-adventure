@@ -22,6 +22,7 @@ import {
 } from "@/adventure/data/v2/dungeonEquipDrops";
 import {
   uniqueIdsForDepthRange,
+  bandUniquePoolForDepth,
   bandCommonChanceForDepth,
   commonIdsForDepthRange,
   SKY_RIFT_WEAPON_DROP_CHANCE,
@@ -101,6 +102,12 @@ const TIER_BADGE: Record<FishTier, string> = {
 
 export const SKY_RIFT_CODEX_DROP_SUMMARY =
   "모든 난이도 동일 방어구 풀 · 깊이별 총 0.05~0.10%";
+
+export function codexUniqueDropSummary(depthStart: number): string {
+  const pool = bandUniquePoolForDepth(depthStart);
+  if (pool?.minDepth !== 79) return "매우 낮은 확률";
+  return `처치당 총 ${(pool.chance * 100).toFixed(4)}% · 무작위 1종`;
+}
 
 export function fishCodexCardState(registered: boolean, caughtEver: boolean) {
   if (!registered && !caughtEver) {
@@ -860,7 +867,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 depthEnd: deepDepth,
                 monsterKeys: theme.enemies.map((enemy) => enemy.key),
               });
-              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~78) 또는 들판 스타터 그리드(1~6).
+              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~84) 또는 들판 스타터 그리드(1~6).
               const regularIds: V2EquipmentId[] = bandIds.length > 0
                 ? [...bandIds, ...skyRiftWeaponIds]
                 : pool
@@ -1029,7 +1036,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         </span>
                         {uniqueIds.length > 0 && (
                           <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                            매우 낮은 확률
+                            {codexUniqueDropSummary(theme.depthStart)}
                           </span>
                         )}
                       </div>

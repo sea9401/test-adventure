@@ -53,8 +53,25 @@ describe("itemTabForMaterial", () => {
 });
 
 describe("equipment list sorting", () => {
-  it("기본 다음 정렬 기준으로 티어순을 제공한다", () => {
-    expect(nextSortMode("default")).toBe("tier");
+  it("기본 다음 정렬 기준으로 획득순을 제공한다", () => {
+    expect(nextSortMode("default")).toBe("acquired");
+  });
+
+  it("마지막에 획득한 장비부터 정렬하고 원본 순서를 유지한다", () => {
+    const instances: V2EquipInstance[] = [
+      { iid: "first", id: "v2_iron_sword" },
+      { iid: "second", id: "v2_greatsword" },
+      { iid: "latest", id: "v2_crafted_oathblade" },
+    ];
+
+    expect(
+      sortEquipInstances(instances, "acquired").map((item) => item.iid),
+    ).toEqual(["latest", "second", "first"]);
+    expect(instances.map((item) => item.iid)).toEqual([
+      "first",
+      "second",
+      "latest",
+    ]);
   });
 
   it("표시 티어가 높은 장비부터 정렬하고 같은 표시 티어에서는 기본 순서를 유지한다", () => {

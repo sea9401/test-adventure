@@ -6,6 +6,24 @@ import {
   gameSceneBackgroundReducer,
   initialGameSceneBackgroundState,
 } from "./GameSceneBackground";
+import { gameSceneBackgroundForPath } from "./gameSceneBackgroundForPath";
+
+describe("게임 경로별 장면 배경", () => {
+  it("별의 무덤 전투만 전용 배경을 사용하고 천공 균열은 기존 사냥 배경을 유지한다", () => {
+    expect(gameSceneBackgroundForPath("/battle/dungeon/78")).toEqual({
+      src: "/images/ui/hunt.webp",
+    });
+    expect(gameSceneBackgroundForPath("/battle/dungeon/79")).toEqual({
+      src: "/images/ui/star_grave.webp",
+    });
+    expect(gameSceneBackgroundForPath("/battle/dungeon/84")).toEqual({
+      src: "/images/ui/star_grave.webp",
+    });
+    expect(gameSceneBackgroundForPath("/battle/dungeon/85")).toEqual({
+      src: "/images/ui/hunt.webp",
+    });
+  });
+});
 
 describe("게임 장면 배경 교차 페이드", () => {
   it("새 이미지가 로드되고 180ms 전환이 끝날 때까지 이전 배경을 유지한다", () => {

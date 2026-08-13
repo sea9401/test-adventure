@@ -49,6 +49,7 @@ import {
   type V2Class,
 } from "../src/adventure/data/v2/classes";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
+import { powerInputFromPlayer } from "../src/lib/server/playerPowerInput";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import {
@@ -122,17 +123,9 @@ function maturePower(
     classTier: 1,
     jobBonus: job?.jobBonus,
   });
-  return derivePowerScore({
-    atk: d.player.atk,
-    magicAtk: d.player.magicAtk ?? 0,
-    def: d.player.def,
-    spd: d.player.spd,
-    maxHp: d.maxHp,
-    maxMp: d.player.maxMp ?? 0,
-    magicBarrierMax: d.player.magicBarrierMax,
-    evaRating: d.player.evaRating,
-    accRating: d.player.accRating,
-  });
+  return derivePowerScore(
+    powerInputFromPlayer(d.player, d.maxHp, d.player.maxMp),
+  );
 }
 
 // 사용가능 숙련도로 가능한 만큼 수행(cap↑). 비파괴 루프.

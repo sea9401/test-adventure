@@ -3,6 +3,7 @@ import {
   classifyCodexEquipmentIds,
   codexTabFromParam,
   codexThemeDeepDepth,
+  codexUniqueDropSummary,
   fishCodexCardState,
   SKY_RIFT_CODEX_DROP_SUMMARY,
   shouldShowCodexTutorial,
@@ -46,6 +47,7 @@ describe("모험의 서 사냥터 표시", () => {
     expect(codexThemeDeepDepth(7)).toBe(12);
     expect(codexThemeDeepDepth(67)).toBe(72);
     expect(codexThemeDeepDepth(73)).toBe(78);
+    expect(codexThemeDeepDepth(79)).toBe(84);
   });
 
   it("정규 드랍을 일반 장비와 세트 장비로 분리한다", () => {
@@ -87,6 +89,16 @@ describe("모험의 서 사냥터 표시", () => {
   it("천공 균열 장비는 난이도별 별도 풀이 아니라 전역 방어구 풀이라고 안내한다", () => {
     expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("모든 난이도 동일 방어구 풀");
     expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("깊이별 총 0.05~0.10%");
+  });
+
+  it("별의 무덤은 시그니처 유니크 총 드랍률을 정확히 안내한다", () => {
+    expect(commonIdsForDepthRange(79, 84)).toEqual(
+      commonIdsForDepthRange(73, 78),
+    );
+    expect(codexUniqueDropSummary(79)).toBe(
+      "처치당 총 0.0035% · 무작위 1종",
+    );
+    expect(codexUniqueDropSummary(73)).toBe("매우 낮은 확률");
   });
 });
 

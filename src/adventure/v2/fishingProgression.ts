@@ -475,7 +475,7 @@ export function fishingLevelBonuses(level: number): FishingGearBonuses {
   };
 }
 
-function xpRequiredForLevel(level: number): number {
+export function fishingLevelXpThreshold(level: number): number {
   const lv = Math.max(1, Math.floor(level));
   return (lv - 1) ** 2 * 35;
 }
@@ -484,8 +484,8 @@ export function fishingProgressionView(
   state: FishingProgressionState,
 ): FishingProgressionView {
   const level = fishingLevelForXp(state.xp);
-  const levelStart = xpRequiredForLevel(level);
-  const levelEnd = xpRequiredForLevel(level + 1);
+  const levelStart = fishingLevelXpThreshold(level);
+  const levelEnd = fishingLevelXpThreshold(level + 1);
   const capped = level >= FISHING_LEVEL_CAP;
   const levelBonuses = fishingLevelBonuses(level);
   return {

@@ -88,7 +88,7 @@ export type BandPool = {
 
 // 천공 균열(73~78) 전역 방어구 풀. 어느 난이도에서든 6T 방어구 21종 전체가
 // 동일한 확률로 후보가 되며, 난이도는 풀을 제한하지 않고 총 드랍률만 높인다.
-const SKY_RIFT_ARMOR_IDS: V2EquipmentId[] = [
+export const SKY_RIFT_ARMOR_IDS: V2EquipmentId[] = [
   "v2_storm_wreckage_armor",
   "v2_storm_wreckage_gloves",
   "v2_storm_wreckage_boots",
@@ -345,6 +345,22 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     maxDepth: 78,
     ids: SKY_RIFT_ARMOR_IDS,
   },
+  {
+    // 별의 무덤 초입(79~80) — 천공 균열 전역 6T 방어구 풀과 확률을 그대로 재사용.
+    minDepth: 79,
+    maxDepth: 80,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
+  {
+    minDepth: 81,
+    maxDepth: 82,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
+  {
+    minDepth: 83,
+    maxDepth: 84,
+    ids: SKY_RIFT_ARMOR_IDS,
+  },
 ];
 
 // 흔한 밴드 장비 드랍률 — 모든 테마에서 로컬 깊이 기준으로 통일한다.
@@ -376,6 +392,7 @@ export function bandCommonChanceForDepth(depth: number): number {
   const pool = bandCommonPoolForDepth(depth);
   if (!pool) return 0;
   const localDepth = depth - pool.minDepth + 1;
+  if (depth >= 79) return skyRiftCommonChance(depth - 6);
   if (depth >= 73) return skyRiftCommonChance(depth);
   return depth >= 55
     ? endgameBandCommonChance(localDepth)
@@ -446,6 +463,7 @@ export type BandUniquePool = {
 //   희귀). droppedUnique 슬롯 → 바이올렛 배너 + unique_drop 전광판 방송(기존 인프라 그대로·강등 후 고유템만).
 export const SIGNATURE_UNIQUE_CHANCE = 0.0005; // 고유 아이템 총 드랍률(밴드당)·다이얼. 2026-08-01: 0.00015→0.0005.
 export const SKY_RIFT_SIGNATURE_UNIQUE_CHANCE = 0.000025;
+export const STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE = 0.000035;
 export const SKY_RIFT_SIGNATURE_UNIQUE_IDS: readonly V2EquipmentId[] = [
   "v2_sky_sig_collapse_armor",
   "v2_sky_sig_antigravity_ring",
@@ -575,6 +593,13 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     minDepth: 73,
     maxDepth: 78,
     chance: SKY_RIFT_SIGNATURE_UNIQUE_CHANCE,
+    ids: [...SKY_RIFT_SIGNATURE_UNIQUE_IDS],
+  },
+  {
+    // 별의 무덤은 같은 6T 시그니처 12종을 조금 높은 총 확률로 추격한다.
+    minDepth: 79,
+    maxDepth: 84,
+    chance: STAR_GRAVE_SIGNATURE_UNIQUE_CHANCE,
     ids: [...SKY_RIFT_SIGNATURE_UNIQUE_IDS],
   },
 ];

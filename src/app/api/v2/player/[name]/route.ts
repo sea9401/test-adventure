@@ -69,7 +69,10 @@ export async function GET(_req: Request, ctx: Ctx) {
   //   포함) character-profile.v2.name (resolveActor·/api/profile/by-name 과 일치). 채팅·랭킹 등에서
   //   보이는 이름이 game_name 이어도 해석되게 한다(이름은 check-name 가 유니크 보장 · 대소문자 무시).
   const resolved = await db.execute(sql`
-    SELECT u.id AS user_id, u.email
+    SELECT
+      u.id AS user_id,
+      u.email,
+      COALESCE(NULLIF(btrim(u.game_name), ''), btrim(p.value->>'name')) AS display_name
     FROM users u
     LEFT JOIN saves_kv p
       ON p.user_id = u.id AND p.key = ${PROFILE_STORAGE_KEY}
@@ -78,7 +81,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     LIMIT 1
   `);
   const resolvedUser = resolved.rows[0] as
-    | { user_id?: string; email?: string }
+    | { user_id?: string; email?: string; display_name?: string }
     | undefined;
   const targetId = resolvedUser?.user_id;
   if (!targetId) {
@@ -122,7 +125,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   const profile = byKey.get("character-profile.v2") as
     | { name?: string; gender?: string }
     | undefined;
-  const name = profile?.name?.trim() || "모험가";
+  const name = resolvedUser?.display_name?.trim() || profile?.name?.trim() || "모험가";
   const gender =
     (profile?.gender as string | undefined) ??
     ((charSave.gender as string | undefined) || "male1");
@@ -256,6 +259,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   return Response.json({
     ok: true,
+    isSelf: targetId === viewerId,
     character: {
       name,
       gender,

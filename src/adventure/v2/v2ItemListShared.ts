@@ -47,11 +47,18 @@ export function itemTabForMarketplaceListing(
   return V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT]?.slot ?? null;
 }
 
-export type SortMode = "default" | "tier" | "roll" | "power";
+export type SortMode =
+  | "default"
+  | "acquired"
+  | "tier"
+  | "roll"
+  | "power";
 
-// 정렬 순환 — 단일 버튼이 누를 때마다 다음으로(기본 → 티어순 → 품질순 → 위력순 → 기본).
+// 정렬 순환 — 단일 버튼이 누를 때마다 다음으로
+// (기본 → 획득순 → 티어순 → 품질순 → 위력순 → 기본).
 export const SORT_CYCLE: ReadonlyArray<{ key: SortMode; label: string }> = [
   { key: "default", label: "기본" },
+  { key: "acquired", label: "획득순" },
   { key: "tier", label: "티어순" },
   { key: "roll", label: "품질순" },
   { key: "power", label: "위력순" },
@@ -83,6 +90,7 @@ function compareEquipInstancesDefault(
 
 // 장비 개체 목록 정렬(비파괴) —
 //   default: 티어 → 컨셉 → 이름(ko) → iid (안정).
+//   acquired: 저장 배열의 마지막(가장 최근에 획득한 장비)부터.
 //   tier:   표시 티어 높은 순, 동률은 default 순서.
 //   roll:    굴림 품질 높은 순(굴림 없는 상점템은 뒤로).
 //   power:   굴림 반영 실효 위력 높은 순.
@@ -91,7 +99,9 @@ export function sortEquipInstances(
   mode: SortMode,
 ): V2EquipInstance[] {
   const sorted = [...list];
-  if (mode === "roll") {
+  if (mode === "acquired") {
+    sorted.reverse();
+  } else if (mode === "roll") {
     sorted.sort((a, b) => {
       const ia = V2_EQUIPMENT[a.id];
       const ib = V2_EQUIPMENT[b.id];

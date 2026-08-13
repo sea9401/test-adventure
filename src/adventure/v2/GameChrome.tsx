@@ -13,6 +13,7 @@ import { shouldShowStaminaBar } from "@/adventure/v2/staminaBarVisibility";
 import { UgcConsentPrompt } from "@/components/safety/UgcConsentPrompt";
 import { GameSceneBackground } from "@/adventure/v2/GameSceneBackground";
 import { GameContentTransition } from "@/adventure/v2/GameContentTransition";
+import { gameSceneBackgroundForPath } from "@/adventure/v2/gameSceneBackgroundForPath";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -109,7 +110,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
                       : pathname.startsWith("/battle/arena")
                         ? { src: "/images/ui/arena.webp" }
                         : pathname.startsWith("/battle/dungeon")
-                          ? { src: "/images/ui/hunt.webp" }
+                          ? gameSceneBackgroundForPath(pathname)
                           : BG_TABS.has(activeTab)
                             ? { src: "/images/ui/village.webp" }
                             : activeTab === "guild"

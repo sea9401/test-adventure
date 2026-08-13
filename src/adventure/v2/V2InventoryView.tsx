@@ -32,7 +32,9 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
+  MAX_EXPLICIT_SELL_COUNT,
   selectBulkSell,
+  selectExplicitSell,
   type BulkSellOpts,
 } from "@/adventure/data/v2/v2EquipVariance";
 import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
@@ -102,6 +104,11 @@ const INVENTORY_PAGE_SIZE = 20;
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 
+type EquipmentSaleSelectionState = {
+  slot: V2EquipSlot;
+  iids: Set<string>;
+};
+
 function itemTabFromParam(value: string | null): V2ItemTabKey {
   return V2_ITEM_TABS.some((tab) => tab.key === value)
     ? (value as V2ItemTabKey)
@@ -114,6 +121,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<V2ItemTabKey>(() =>
     itemTabFromParam(tabParam),
   );
+  const [saleSelection, setSaleSelection] =
+    useState<EquipmentSaleSelectionState | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- URL tab 파라미터 변경 시 로컬 탭 재시드
     setTab(itemTabFromParam(tabParam));
@@ -791,6 +800,123 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [notifySystem, owned, equipped, setBankedGold, setGold],
   );
 
+  const startSelectedSale = useCallback((slot: V2EquipSlot) => {
+    setCard(null);
+    setSaleSelection({ slot, iids: new Set() });
+  }, []);
+
+  const cancelSelectedSale = useCallback(() => {
+    setSaleSelection(null);
+  }, []);
+
+  const toggleSelectedSale = useCallback(
+    (slot: V2EquipSlot, inst: V2EquipInstance) => {
+      const equippedIids = new Set(Object.values(equipped));
+      if (inst.locked || equippedIids.has(inst.iid)) return;
+
+      const currentIids =
+        saleSelection?.slot === slot ? saleSelection.iids : new Set<string>();
+      if (
+        !currentIids.has(inst.iid) &&
+        currentIids.size >= MAX_EXPLICIT_SELL_COUNT
+      ) {
+        notifySystem(`✗ 한 번에 최대 ${MAX_EXPLICIT_SELL_COUNT}개까지 선택할 수 있습니다`);
+        return;
+      }
+
+      setSaleSelection((current) => {
+        if (!current || current.slot !== slot) return current;
+        const nextIids = new Set(current.iids);
+        if (nextIids.has(inst.iid)) nextIids.delete(inst.iid);
+        else nextIids.add(inst.iid);
+        return { ...current, iids: nextIids };
+      });
+    },
+    [equipped, notifySystem, saleSelection],
+  );
+
+  const selectedSaleResult = useMemo(() => {
+    if (!saleSelection) return null;
+    return selectExplicitSell(owned, equipped, [...saleSelection.iids]);
+  }, [equipped, owned, saleSelection]);
+
+  const applySelectedSale = useCallback(async () => {
+    if (!saleSelection || !selectedSaleResult?.ok) {
+      notifySystem("✗ 판매할 장비를 다시 선택해 주세요");
+      setSaleSelection(null);
+      return;
+    }
+    const plan = selectedSaleResult.plan;
+    if (
+      !window.confirm(
+        `선택한 장비 ${plan.count}개를 판매할까요?\n판매 대금 +${plan.gold.toLocaleString()}골드는 은행에 입금됩니다.`,
+      )
+    ) {
+      return;
+    }
+
+    setBusy("selected-sell");
+    try {
+      const res = await fetch("/api/v2/shop/equipment/sell-bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ iids: plan.iids }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        owned?: V2EquipInstance[];
+        equipped?: Partial<Record<V2EquipSlot, string>>;
+        soldCount?: number;
+        soldGold?: number;
+        gold?: number;
+        bankedGold?: number;
+      } | null;
+
+      if (!j?.ok) {
+        if (j?.error === "selection_changed") {
+          if (Array.isArray(j.owned)) setOwned(j.owned);
+          if (j.equipped && typeof j.equipped === "object") {
+            setEquipped(j.equipped);
+          }
+          setSaleSelection(null);
+          notifySystem("✗ 장비 상태가 바뀌어 판매하지 않았습니다. 다시 선택해 주세요");
+        } else {
+          notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
+        }
+        return;
+      }
+
+      setOwned(j.owned ?? []);
+      if (j.equipped && typeof j.equipped === "object") {
+        setEquipped(j.equipped);
+      }
+      const soldIids = new Set(plan.iids);
+      setCard((current) =>
+        current && soldIids.has(current.inst.iid) ? null : current,
+      );
+      const balancePatch = shopSaleBalancePatch(j);
+      if (balancePatch.gold != null) setGold(balancePatch.gold);
+      if (balancePatch.bankedGold != null) {
+        setBankedGold(balancePatch.bankedGold);
+      }
+      setSaleSelection(null);
+      notifySystem(
+        shopSaleBankNotice(`${j.soldCount ?? 0}개`, j.soldGold ?? 0),
+      );
+    } catch (err) {
+      notifySystem(`✗ ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  }, [
+    notifySystem,
+    saleSelection,
+    selectedSaleResult,
+    setBankedGold,
+    setGold,
+  ]);
+
   // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(슬롯→iid → id).
   const equippedItemIds = useMemo(() => {
     const iids = new Set(Object.values(equipped));
@@ -924,7 +1050,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <TabBar
           tabs={V2_ITEM_TABS}
           active={tab}
-          onChange={setTab}
+          onChange={(nextTab) => {
+            setSaleSelection(null);
+            setTab(nextTab);
+          }}
           ariaLabel="인벤토리 카테고리"
           size="sm"
           variant="highlight"
@@ -976,6 +1105,25 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onBulkSell={applyBulkSell}
             onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
             onRegisterCodex={registerEquipmentCodex}
+            selection={{
+              active: saleSelection?.slot === tab,
+              selectedIids:
+                saleSelection?.slot === tab
+                  ? saleSelection.iids
+                  : new Set<string>(),
+              selectedCount:
+                saleSelection?.slot === tab && selectedSaleResult?.ok
+                  ? selectedSaleResult.plan.count
+                  : 0,
+              selectedGold:
+                saleSelection?.slot === tab && selectedSaleResult?.ok
+                  ? selectedSaleResult.plan.gold
+                  : 0,
+              onStart: () => startSelectedSale(tab),
+              onCancel: cancelSelectedSale,
+              onToggle: (inst) => toggleSelectedSale(tab, inst),
+              onConfirm: applySelectedSale,
+            }}
           />
         )}
       </Card>

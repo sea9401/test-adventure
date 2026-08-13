@@ -126,7 +126,7 @@ export function MarketplaceEquipmentTab({
         </select>
         <button
           type="button"
-          title="누를 때마다 정렬 전환 (기본 → 티어순 → 품질순 → 위력순)"
+          title="누를 때마다 정렬 전환 (기본 → 획득순 → 티어순 → 품질순 → 위력순)"
           onClick={() => setSellSort((m) => nextSortMode(m))}
           className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >

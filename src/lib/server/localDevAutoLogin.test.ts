@@ -3,6 +3,7 @@ import {
   authenticateLocalDevAccount,
   isLoopbackAuthRequest,
   readLocalDevAutoLoginConfig,
+  shouldStartLocalDevAutoLogin,
   type LocalDevAccountUser,
 } from "./localDevAutoLogin";
 
@@ -95,5 +96,36 @@ describe("local development auto login request", () => {
         findUserByEmail: async () => null,
       }),
     ).resolves.toBeNull();
+  });
+
+  it("비로그인 loopback 대문에서 이전 로그인 오류가 없을 때만 자동 로그인을 시작한다", () => {
+    const localRequest = request({ host: "localhost:3000" });
+    const base = {
+      request: localRequest,
+      env: DEV_ENV,
+      nodeEnv: "development",
+    };
+
+    expect(
+      shouldStartLocalDevAutoLogin({
+        ...base,
+        hasSession: false,
+        authError: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldStartLocalDevAutoLogin({
+        ...base,
+        hasSession: true,
+        authError: null,
+      }),
+    ).toBe(false);
+    expect(
+      shouldStartLocalDevAutoLogin({
+        ...base,
+        hasSession: false,
+        authError: "CredentialsSignin",
+      }),
+    ).toBe(false);
   });
 });

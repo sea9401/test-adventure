@@ -32,6 +32,12 @@ type FindUserByEmail = (
   email: string,
 ) => Promise<LocalDevAccountUser | null>;
 
+type AuthRequestLike = {
+  headers: {
+    get(name: string): string | null;
+  };
+};
+
 function isValidEmail(value: string): boolean {
   return (
     value.length <= MAX_EMAIL_LENGTH &&
@@ -69,7 +75,7 @@ function hostnameFromOrigin(value: string | null): string | null {
 }
 
 export function isLoopbackAuthRequest(
-  request: Pick<Request, "headers">,
+  request: AuthRequestLike,
 ): boolean {
   const host = hostnameFromHostHeader(request.headers.get("host"));
   if (!host || !LOOPBACK_HOSTNAMES.has(host)) return false;
@@ -78,6 +84,26 @@ export function isLoopbackAuthRequest(
   if (!originHeader) return true;
   const origin = hostnameFromOrigin(originHeader);
   return origin !== null && LOOPBACK_HOSTNAMES.has(origin);
+}
+
+export function shouldStartLocalDevAutoLogin({
+  request,
+  hasSession,
+  authError,
+  env = process.env,
+  nodeEnv = process.env.NODE_ENV,
+}: {
+  request: AuthRequestLike;
+  hasSession: boolean;
+  authError: string | null;
+  env?: LocalDevAutoLoginEnv;
+  nodeEnv?: string;
+}): boolean {
+  if (hasSession || authError) return false;
+  return (
+    readLocalDevAutoLoginConfig(env, nodeEnv) !== null &&
+    isLoopbackAuthRequest(request)
+  );
 }
 
 async function findExistingUserByEmail(
@@ -97,7 +123,7 @@ async function findExistingUserByEmail(
 }
 
 export async function authenticateLocalDevAccount(
-  request: Pick<Request, "headers">,
+  request: AuthRequestLike,
   options: {
     env?: LocalDevAutoLoginEnv;
     nodeEnv?: string;

@@ -39,8 +39,9 @@ export type V2CombatCondition =
   // 내 HP/MP 비율(0~100). below = 이하, above = 이상(둘 다 경계 포함).
   | { kind: "self_hp"; op: "below" | "above"; pct: number }
   | { kind: "self_mp"; op: "below" | "above"; pct: number }
-  // 내 보호막 보유 여부 — 보호막 스킬 재시전/중첩 낭비 방지.
+  // 내 보호막 보유 여부 또는 현재 보호막 포인트(경계 포함).
   | { kind: "self_shield"; active: boolean }
+  | { kind: "self_shield"; op: "atMost" | "atLeast"; value: number }
   // 내 상태 — 특정 스탯 버프 활성/미활성(재버프 낭비 방지 등). v2SelfBuffs 키 = StatKey.
   | { kind: "self_buff"; stat: StatKey; active: boolean }
   // 내 파생 버프(회피/치명/받피감/반사피해 = selfBuffPct) 활성/미활성 — 만료 시 재시전.
@@ -82,6 +83,7 @@ export type V2CombatPattern = { blocks: V2CombatBlock[] };
 export type V2PatternCtx = {
   selfHpPct: number; // 0~100
   selfMpPct: number; // 0~100
+  selfShield: number; // 현재 보호막 포인트
   selfShieldActive: boolean;
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
   // 내부 필드명은 기존 저장/호출부 호환을 위해 유지. 능력치 밖의 활성 상태 효과 전체를 담는다.
@@ -142,7 +144,11 @@ export function conditionPasses(
         ? ctx.selfMpPct <= cond.pct
         : ctx.selfMpPct >= cond.pct;
     case "self_shield":
-      return ctx.selfShieldActive === cond.active;
+      return "active" in cond
+        ? ctx.selfShieldActive === cond.active
+        : cond.op === "atMost"
+          ? ctx.selfShield <= cond.value
+          : ctx.selfShield >= cond.value;
     case "self_buff":
       return ctx.selfBuffStats.has(cond.stat) === cond.active;
     case "self_buff_pct":
@@ -397,8 +403,16 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
       return { kind: c.kind, op, pct: Math.max(0, Math.min(100, c.pct)) };
     }
     case "self_shield": {
-      if (typeof c.active !== "boolean") return null;
-      return { kind: "self_shield", active: c.active };
+      if (typeof c.active === "boolean") {
+        return { kind: "self_shield", active: c.active };
+      }
+      const op = c.op === "atMost" || c.op === "atLeast" ? c.op : null;
+      if (!op || !isFinitePct(c.value)) return null;
+      return {
+        kind: "self_shield",
+        op,
+        value: Math.max(0, Math.floor(c.value)),
+      };
     }
     case "self_buff": {
       if (typeof c.stat !== "string" || typeof c.active !== "boolean") return null;

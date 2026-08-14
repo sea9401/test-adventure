@@ -441,6 +441,8 @@ export function BattleScene({
   outcomeAction,
   profileBorder,
   logViewport = "contained",
+  ruleset = "pve",
+  maxHpDamageMult,
 }: {
   state: BattleState;
   playerName: string;
@@ -464,6 +466,9 @@ export function BattleScene({
   profileBorder?: ProfileBorderId | null;
   // 결과 화면 안에서는 높이가 제한된 로그, 전용 로그 페이지에서는 문서 흐름에 전체 로그를 표시한다.
   logViewport?: "contained" | "page";
+  // 회피 대결 계수와 지속 피해 콘텐츠 보정을 전투 시점 규칙으로 표시한다.
+  ruleset?: "pve" | "pvp";
+  maxHpDamageMult?: number;
 }) {
   const hasMp = state.playerMaxMp > 0;
   const hasMagicBarrier = (state.playerMagicBarrierMax ?? 0) > 0;
@@ -665,7 +670,10 @@ export function BattleScene({
                       playerCombat.magicBarrierAbsorbPct ?? 0,
                     magicBarrierEfficiencyPct:
                       playerCombat.magicBarrierEfficiencyPct ?? 0,
-                    magicBarrierDurability: state.playerMagicBarrier ?? 0,
+                    magicBarrierDurability:
+                      state.playerMagicBarrier ??
+                      playerCombat.magicBarrierMax ??
+                      0,
                   }}
                   enemy={{
                     accuracyRating: enemyCombat.accuracy ?? 0,
@@ -677,7 +685,11 @@ export function BattleScene({
                         : enemyCombat.atk,
                     incomingAttackType:
                       enemyCombat.primaryAttack ?? "physical",
+                    maxHpDamageMult,
+                    statusDamageReductionPct:
+                      enemyCombat.statusDamageReductionPct,
                   }}
+                  ruleset={ruleset}
                 />
               </div>
             )}

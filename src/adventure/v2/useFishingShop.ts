@@ -126,5 +126,12 @@ export function useFishingShop() {
     [setState, setBuying],
   );
 
-  return { state, loading, error, buying, buy, buyConsumable, buyGear };
+  const syncCoins = useCallback(
+    (coins: number) => {
+      setState((current) => (current ? { ...current, coins } : current));
+    },
+    [setState],
+  );
+
+  return { state, loading, error, buying, buy, buyConsumable, buyGear, syncCoins };
 }

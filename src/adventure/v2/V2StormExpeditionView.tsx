@@ -139,6 +139,23 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_mode: "선택할 수 없는 원정 모드입니다.",
 };
 
+export function confirmStormExpeditionExit({
+  mode,
+  onExit,
+  confirm = (message) => window.confirm(message),
+}: {
+  mode: StormExpeditionMode;
+  onExit: () => void;
+  confirm?: (message: string) => boolean;
+}): boolean {
+  const message = mode === "practice"
+    ? "연습 원정을 종료할까요?"
+    : "원정에서 귀환할까요?\n현재 임시 전리품을 모두 확보하고 원정을 종료합니다.";
+  if (!confirm(message)) return false;
+  onExit();
+  return true;
+}
+
 export function V2StormExpeditionView() {
   const router = useRouter();
   const refreshGameState = useRefreshGameState();
@@ -207,6 +224,16 @@ export function V2StormExpeditionView() {
   const isPracticeRun = active?.mode === "practice" || result?.practice === true;
   const currentNode = active ? status?.nodes?.[active.nodeIndex] ?? null : null;
   const activeRoute = status?.routes?.find((route) => route.id === (active?.routeId ?? result?.routeId)) ?? null;
+  const exitActiveExpedition = useCallback(() => {
+    if (!active) return;
+    confirmStormExpeditionExit({
+      mode: active.mode,
+      onExit: () => void act("withdraw", {
+        expectedNodeIndex: active.nodeIndex,
+        expectedEncounterIndex: active.encounterIndex,
+      }),
+    });
+  }, [act, active]);
   const replay = useMemo(() => result?.replay ? {
     payload: result.replay,
     outcome: result.success ? "win" as const : "lose" as const,
@@ -393,19 +420,13 @@ export function V2StormExpeditionView() {
               <Card padding="md" className="space-y-3 border-violet-200 dark:border-violet-900/70">
                 <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">연습 안내</p><PracticeBadge /></div>
                 <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">연습에서는 골드·재료·장비·SP 열매가 생성되지 않으며 완주와 천장 기록도 오르지 않습니다.</p>
-                <button type="button" disabled={busy} onClick={() => void act("withdraw", {
-                  expectedNodeIndex: active.nodeIndex,
-                  expectedEncounterIndex: active.encounterIndex,
-                })} className="h-10 w-full rounded-md border border-violet-400 text-sm font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50 dark:border-violet-700 dark:text-violet-300 dark:hover:bg-violet-950">연습 종료</button>
+                <button type="button" disabled={busy} onClick={exitActiveExpedition} className="h-10 w-full rounded-md border border-violet-400 text-sm font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50 dark:border-violet-700 dark:text-violet-300 dark:hover:bg-violet-950">연습 종료</button>
               </Card>
             ) : (
               <Card padding="md" className="space-y-3 border-amber-200 dark:border-amber-900/70">
               <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">임시 전리품 가방</p><span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">패배 시 전부 소실</span></div>
               <LootRows gold={active.pendingGold} materials={active.pendingMaterials} equipment={active.pendingEquipment} />
-              <button type="button" disabled={busy || active.defeatedCount <= 0 || active.nextBattleEffects.includes("risk_enemy_fury")} onClick={() => void act("withdraw", {
-                expectedNodeIndex: active.nodeIndex,
-                expectedEncounterIndex: active.encounterIndex,
-              })} className="h-10 w-full rounded-md border border-amber-300 text-sm font-semibold text-amber-800 disabled:opacity-40 dark:border-amber-800 dark:text-amber-200">{active.nextBattleEffects.includes("risk_enemy_fury") ? "강화된 다음 전투 후 귀환 가능" : "지금 전리품을 확보하고 귀환"}</button>
+              <button type="button" disabled={busy || active.defeatedCount <= 0 || active.nextBattleEffects.includes("risk_enemy_fury")} onClick={exitActiveExpedition} className="h-10 w-full rounded-md border border-amber-300 text-sm font-semibold text-amber-800 disabled:opacity-40 dark:border-amber-800 dark:text-amber-200">{active.nextBattleEffects.includes("risk_enemy_fury") ? "강화된 다음 전투 후 귀환 가능" : "지금 전리품을 확보하고 귀환"}</button>
               <p className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"><ShieldChevron size={14} /> 적 {active.defeatedCount}/7 처치 · 전투 체크포인트마다 귀환 가능</p>
               </Card>
             )}

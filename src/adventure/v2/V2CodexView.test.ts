@@ -4,11 +4,11 @@ import {
   codexTabFromParam,
   codexThemeDeepDepth,
   codexUniqueDropSummary,
-  fishCodexCardState,
   SKY_RIFT_CODEX_DROP_SUMMARY,
   shouldShowCodexTutorial,
   spFruitCodexSource,
 } from "./V2CodexView";
+import { fishCodexCardState } from "./FishingCodexPanel";
 import {
   commonIdsForDepthRange,
   SKY_RIFT_WEAPON_IDS,

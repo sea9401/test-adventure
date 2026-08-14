@@ -8,10 +8,12 @@ import { TabBar } from "@/components/ui/TabBar";
 import { FARM_ITEMS, type FarmItemInventory } from "./farm";
 import {
   COOKING_SURPLUS_BATCH_SIZE,
+  adjustedCookingXp,
   cookingOrderReward,
   cookingIngredientRequirementAccumulated,
   cookingRecipeMatchesQuery,
   cookingStatText,
+  cookingXpRewardRange,
   deliverableCookingFoods,
   type CookingFoodId,
   type CookingFoodInventory,
@@ -105,6 +107,35 @@ export function cookingLevelProgressView(input: {
     percent,
     label: `${xpIntoLevel.toLocaleString("ko-KR")} / ${xpForNext.toLocaleString("ko-KR")} XP`,
   };
+}
+
+export function CookingRecipeXpPreview({
+  recipe,
+  currentLevel,
+  bonusPct,
+}: {
+  recipe: CookingRecipe;
+  currentLevel: number;
+  bonusPct: number;
+}) {
+  const range = cookingXpRewardRange({
+    baseXp: adjustedCookingXp(
+      recipe.requiredLevel,
+      currentLevel,
+      recipe.xp,
+    ),
+    bonusPct,
+  });
+  const amount =
+    range.min === range.max
+      ? `+${range.min.toLocaleString("ko-KR")}`
+      : `+${range.min.toLocaleString("ko-KR")}~${range.max.toLocaleString("ko-KR")}`;
+
+  return (
+    <div className="mt-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
+      제작 XP · 1개당 {amount}
+    </div>
+  );
 }
 
 export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) {
@@ -250,6 +281,9 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
     currentLevelXp: data.currentLevelXp,
     nextLevelXp: data.nextLevelXp,
   });
+  const cookingXpBonusPct =
+    (data.cookingJobTier >= 2 ? 10 : 0) +
+    data.cookingSkillBonuses.xpBonusPct;
 
   return (
     <div className="space-y-4">
@@ -404,6 +438,11 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
                 <div className="mt-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
                   {ingredientText(recipe, data)}
                 </div>
+                <CookingRecipeXpPreview
+                  recipe={recipe}
+                  currentLevel={data.level}
+                  bonusPct={cookingXpBonusPct}
+                />
                 <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                   효과: {cookingStatText(recipe.baseStatPct, recipe.baseExpPct)}
                 </div>

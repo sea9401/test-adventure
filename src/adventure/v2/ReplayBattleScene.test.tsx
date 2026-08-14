@@ -49,4 +49,49 @@ describe("전투 로그 표시 방식", () => {
     expect(html).toContain('data-battle-log-viewport="page"');
     expect(html).not.toContain("h-[58svh]");
   });
+
+  it("payload 전투 스냅샷만으로 캐릭터 상세와 상대 비교를 같은 양식으로 표시한다", () => {
+    const detailedPayload: ReplayPayload = {
+      ...payload,
+      enemy: {
+        ...payload.enemy,
+        atk: 80,
+        def: 70,
+        magicDef: 60,
+        spd: 30,
+        accuracy: 15,
+        evasionPct: 10,
+        statusDamageReductionPct: 25,
+      },
+      playerCombat: {
+        atk: 100,
+        def: 90,
+        magicDef: 75,
+        spd: 40,
+        accuracy: 20,
+        evasionPct: 12,
+        evaRating: 12,
+        statusDamageReductionPct: 8,
+        primaryAttack: "physical",
+        magicBarrierMax: 50,
+        magicBarrierAbsorbPct: 20,
+        magicBarrierEfficiencyPct: 10,
+      },
+      ruleset: "pve",
+      maxHpDamageMult: 0.8,
+    };
+    const html = renderToStaticMarkup(
+      <ReplayBattleScene
+        {...commonProps}
+        payload={detailedPayload}
+        presentation="page"
+      />,
+    );
+
+    expect(html).toContain("마방");
+    expect(html).toContain("상태 피해 감소");
+    expect(html).toContain("내 공격 피해 유지");
+    expect(html).toContain("지속 피해 보정");
+    expect(html).toContain("방어 전 피해에서 20% 분리");
+  });
 });

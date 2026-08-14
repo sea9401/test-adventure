@@ -32,8 +32,19 @@ export function DangerousFishingCargoPanel({
       ) : (
         <ul className="space-y-2">
           {voyage.cargo.map((item) => (
-            <li key={item.fishId} className={`${SURFACE_INSET} flex justify-between p-3 text-sm`}>
-              <span>{model.catalogs.fish[item.fishId]?.name ?? item.fishId}</span>
+            <li key={item.fishId} className={`${SURFACE_INSET} flex items-center justify-between gap-3 p-3 text-sm`}>
+              <span className="flex min-w-0 items-center gap-3">
+                {model.catalogs.fish[item.fishId]?.imageSrc ? (
+                  <Image
+                    src={model.catalogs.fish[item.fishId].imageSrc}
+                    alt=""
+                    width={48}
+                    height={48}
+                    className="h-12 w-12 shrink-0 object-contain"
+                  />
+                ) : null}
+                <span>{model.catalogs.fish[item.fishId]?.name ?? item.fishId}</span>
+              </span>
               <span className="font-semibold">{item.quantity}개 · {item.totalValue.toLocaleString()}</span>
             </li>
           ))}
@@ -50,3 +61,4 @@ export function DangerousFishingCargoPanel({
     </section>
   );
 }
+import Image from "next/image";

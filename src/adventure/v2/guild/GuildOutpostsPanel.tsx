@@ -17,6 +17,7 @@ import { GuildAlchemyWorkshopPanel } from "./GuildAlchemyWorkshopPanel";
 import { GuildDiningHallPanel } from "./GuildDiningHallPanel";
 import { GuildTradePostPanel } from "./GuildTradePostPanel";
 import { GuildWarehousePanel } from "./GuildWarehousePanel";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   GUILD_FACILITY_IDS,
   GUILD_FACILITY_ICON_COLORS,
@@ -214,79 +215,83 @@ export function GuildFacilitiesPanel({
             return (
               <div
                 key={row.id}
-                className="flex min-h-[96px] flex-col justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
+                className={`${SURFACE_INSET} px-3 py-2.5`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <GameIcon
-                        name={row.iconName}
-                        size={18}
-                        className={GUILD_FACILITY_ICON_COLORS[row.id]}
-                      />
-                      <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                        {row.name}
-                      </span>
+                <div
+                  role="group"
+                  aria-label={`${row.name} 요약`}
+                  className="flex min-h-[8rem] flex-col"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <GameIcon
+                          name={row.iconName}
+                          size={18}
+                          className={GUILD_FACILITY_ICON_COLORS[row.id]}
+                        />
+                        <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                          {row.name}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 h-10 overflow-hidden text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {row.desc}
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      {row.desc}
-                    </p>
+                    {row.count > 0 ? (
+                      <div className="shrink-0 text-right">
+                        <span className="inline-flex rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                          Lv {row.level}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="shrink-0 text-right">
+                        <span className="inline-flex rounded bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                          준비 중
+                        </span>
+                      </div>
+                    )}
                   </div>
                   {row.count > 0 ? (
-                    <div className="shrink-0 text-right">
-                      <span className="inline-flex rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                        Lv {row.level}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="shrink-0 text-right">
-                      <span className="inline-flex rounded bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                        준비 중
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {row.count > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {next && (
-                      <GuildFacilityUpgradeFund
-                        buildingId={row.id}
-                        next={next}
-                        progress={info?.facilityUpgradeDonations?.[row.id]}
-                        guildGold={guildGold}
-                        guildFame={guildFame}
-                        canComplete={canManage}
-                        completing={upgradingId === row.id}
-                        onComplete={() =>
-                          confirmGuildFacilityUpgrade({
-                            buildingId: row.id,
-                            next,
-                            onUpgrade: (buildingId) =>
-                              void upgradeFacility(buildingId),
-                          })
-                        }
-                        onChanged={onChanged}
-                      />
-                    )}
-                    {!next && (
-                      <p className="text-center text-xs font-medium text-emerald-600 dark:text-emerald-300">
-                        최대 레벨에 도달했습니다.
-                      </p>
-                    )}
                     <button
                       type="button"
                       onClick={() => onFacilityChange(row.id)}
-                      className="mx-auto block w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                      className="mx-auto mt-auto block h-8 w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                     >
                       {row.name} {row.actionLabel}
                     </button>
-                  </div>
-                )}
-                {row.count <= 0 && (
-                  <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                    시설 정보를 준비하고 있습니다. 잠시 후 다시 확인해 주세요.
+                  ) : (
+                    <p className="mt-auto line-clamp-2 h-8 overflow-hidden text-center text-xs leading-4 text-zinc-500 dark:text-zinc-400">
+                      시설 정보를 준비하고 있습니다. 잠시 후 다시 확인해 주세요.
+                    </p>
+                  )}
+                </div>
+
+                {row.count > 0 && next ? (
+                  <GuildFacilityUpgradeFund
+                    buildingId={row.id}
+                    next={next}
+                    progress={info?.facilityUpgradeDonations?.[row.id]}
+                    guildGold={guildGold}
+                    guildFame={guildFame}
+                    canComplete={canManage}
+                    completing={upgradingId === row.id}
+                    onComplete={() =>
+                      confirmGuildFacilityUpgrade({
+                        buildingId: row.id,
+                        next,
+                        onUpgrade: (buildingId) =>
+                          void upgradeFacility(buildingId),
+                      })
+                    }
+                    onChanged={onChanged}
+                  />
+                ) : null}
+                {row.count > 0 && !next ? (
+                  <p className="mt-2 text-center text-xs font-medium text-emerald-600 dark:text-emerald-300">
+                    최대 레벨에 도달했습니다.
                   </p>
-                )}
+                ) : null}
               </div>
             );
           })}

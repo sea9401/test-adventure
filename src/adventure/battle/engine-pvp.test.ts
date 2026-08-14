@@ -1954,7 +1954,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         (e) =>
           e.kind === "info" &&
           e.text.includes("속박 사격") &&
-          e.text.includes("가하는 피해 +20%"),
+          e.text.includes("적 받는 피해 +20%"),
       ),
     ).toBe(true);
   });

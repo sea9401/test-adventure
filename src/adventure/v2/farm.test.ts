@@ -68,6 +68,69 @@ describe("adventurer farm", () => {
     expect(collected.state.stats.farmingXp).toBe(12);
   });
 
+  it("includes the first pig and spends four feed only to restock after shipment", () => {
+    const base = emptyFarmState(1_000);
+    const bought = buyFarmRanchPen(
+      {
+        ...base,
+        ranch: {
+          ...base.ranch,
+          pens: {
+            ...base.ranch.pens,
+            "coop-2": { ...base.ranch.pens["coop-2"], unlocked: true },
+            "cowshed-1": {
+              ...base.ranch.pens["cowshed-1"],
+              unlocked: true,
+            },
+            "cowshed-2": {
+              ...base.ranch.pens["cowshed-2"],
+              unlocked: true,
+            },
+          },
+        },
+        stats: {
+          ...base.stats,
+          reputation: 180,
+          farmingXp: 24_010,
+        },
+      },
+      "pigsty-1",
+      1_000,
+    );
+    expect(bought.state.inventory.compound_feed).toBeUndefined();
+    expect(bought.state.ranch.pens["pigsty-1"].feed).toBe(4);
+
+    const shipped = collectFarmRanch(
+      bought.state,
+      1_000 + 16 * 60 * 60 * 1000,
+    );
+    expect(shipped.result).toMatchObject({
+      items: { pork: 8 },
+      farmingXpGained: 16,
+    });
+    expect(shipped.state.inventory.pork).toBe(8);
+    expect(shipped.state.stats.farmingXp).toBe(24_026);
+
+    const restocked = feedFarmRanch(
+      {
+        ...shipped.state,
+        inventory: {
+          ...shipped.state.inventory,
+          compound_feed: 4,
+        },
+      },
+      "pigsty-1",
+      4,
+      1_000 + 16 * 60 * 60 * 1000,
+    );
+    expect(restocked.inventory.compound_feed).toBeUndefined();
+    expect(restocked.ranch.pens["pigsty-1"]).toMatchObject({
+      feed: 4,
+      progressMs: 0,
+      readyItems: 0,
+    });
+  });
+
   it("buys ranch pens with available reputation at the required farming level", () => {
     const state = {
       ...emptyFarmState(1_000),
@@ -93,6 +156,7 @@ describe("adventurer farm", () => {
     );
     expect(FARM_ITEMS.egg.imageSrc).toBe("/images/items/farm/egg.webp");
     expect(FARM_ITEMS.milk.imageSrc).toBe("/images/items/farm/milk.webp");
+    expect(FARM_ITEMS.pork.imageSrc).toBe("/images/items/farm/pork.webp");
   });
 
   it("초반 확인 주기는 늘리고 후반 재배 시간은 16시간 이하로 제한한다", () => {

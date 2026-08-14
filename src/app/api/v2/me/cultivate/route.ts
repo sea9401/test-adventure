@@ -9,7 +9,7 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
   parseProficiencyForChar,
-  applyCultivation,
+  applyCultivationBatch,
   emptyProficiency,
   usablePoints,
   cultivationCost,
@@ -18,13 +18,19 @@ import {
   effectiveStatCap,
   refundableCultivationPoints,
   V2_CULTIVATE_PROFILE,
+  V2_CULTIVATION_BATCH_LIMIT,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 
 // POST /api/v2/me/cultivate — 수행 1회. 공용 숙달 포인트로 현 직업 프로필의 stat cap 상승.
 // docs/v2-proficiency-redesign.md §4. 골드/쿨다운 없음. lock 순서 character.v2 → proficiency.v2.
-export async function POST() {
+export async function POST(req?: Request) {
+  const requestBody = req
+    ? ((await req.json().catch(() => null)) as { mode?: unknown } | null)
+    : null;
+  const maxIterations =
+    requestBody?.mode === "max" ? V2_CULTIVATION_BATCH_LIMIT : 1;
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -62,8 +68,15 @@ export async function POST() {
       emptyProficiency(),
     );
     const prof = parseProficiencyForChar(profSave, charSave);
-    // 크리티컬 다중 수행 — Math.random 로 mult 굴림(낮은 확률 ×3/×5).
-    const applied = applyCultivation(prof, group, Math.random, undefined, jobId);
+    // 크리티컬 다중 수행 — 각 회의 결과로 다음 비용을 다시 계산한다.
+    // 본문 없는 기존 요청은 maxIterations=1로 정확히 1회만 처리한다.
+    const applied = applyCultivationBatch(
+      prof,
+      group,
+      Math.random,
+      jobId,
+      maxIterations,
+    );
     if (!applied) {
       return {
         status: 400,
@@ -86,8 +99,12 @@ export async function POST() {
       status: 200,
       body: {
         ok: true as const,
-        spent: applied.cost,
-        mult: applied.mult, // 크리티컬 배수(1/3/5) — UI 표시용.
+        spent: applied.spent,
+        mult: applied.lastMult, // 마지막 크리티컬 배수(1/3/5) — 기존 1회 UI 호환용.
+        performed: applied.performed,
+        greatSuccesses: applied.greatSuccesses,
+        awakenings: applied.awakenings,
+        hasMore: applied.hasMore,
         group,
         caps: effectiveCaps,
         cultivations: nextCult,
@@ -103,10 +120,12 @@ export async function POST() {
 
   // 수행 각성(×5)은 트랜잭션이 성공적으로 커밋된 뒤 서버 전체 소식에 기록한다.
   // 피드 기록 실패는 수행 결과를 되돌리지 않으며, insertFeedEntry 내부에서 안전하게 처리한다.
-  if (result.body.ok && result.body.mult === 5) {
-    await insertFeedEntry(userId, "cultivation_awakening", {
-      cultivationMult: 5,
-    });
+  if (result.body.ok) {
+    for (let i = 0; i < result.body.awakenings; i += 1) {
+      await insertFeedEntry(userId, "cultivation_awakening", {
+        cultivationMult: 5,
+      });
+    }
   }
 
   return Response.json(result.body, { status: result.status });

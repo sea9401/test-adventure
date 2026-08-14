@@ -361,7 +361,7 @@ export function AdventurerFarmPanel({
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   {farm.plots.map((plot) => (
-                    <PlotCard
+                    <FarmPlotCard
                       key={plot.id}
                       plot={plot}
                       now={now}
@@ -1179,7 +1179,7 @@ function CropSelector({
   );
 }
 
-function PlotCard({
+export function FarmPlotCard({
   plot,
   now,
   crop,
@@ -1214,7 +1214,7 @@ function PlotCard({
       : 0;
 
   return (
-    <div className="flex min-h-[13rem] flex-col rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div className={`${SURFACE_CARD} flex min-h-[18rem] flex-col p-3`}>
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-bold text-stone-900 dark:text-stone-100">
           {plotLabel(plot.id)}
@@ -1248,27 +1248,9 @@ function PlotCard({
               style={{ width: `${ready ? 100 : progress}%` }}
             />
           </div>
-          <p className="mt-3 min-h-[2.5rem] text-xs leading-relaxed text-stone-600 dark:text-stone-300">
+          <p className="mt-3 line-clamp-2 h-10 overflow-hidden text-xs leading-relaxed text-stone-600 dark:text-stone-300">
             {crop.note}
           </p>
-          <button
-            type="button"
-            onClick={onHarvest}
-            disabled={!ready || busy}
-            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
-          >
-            {busy ? "처리 중..." : ready ? "수확하기" : "재배 중"}
-          </button>
-          {!ready ? (
-            <button
-              type="button"
-              onClick={onFertilize}
-              disabled={busy || plot.fertilized || fertilizerBalance < 1}
-              className="mt-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
-            >
-              {plot.fertilized ? "거름 사용 완료" : `유기질 거름 사용 · 보유 ${fertilizerBalance}`}
-            </button>
-          ) : null}
         </>
       ) : (
         <>
@@ -1289,24 +1271,57 @@ function PlotCard({
               </div>
             </div>
           </div>
+        </>
+      )}
+
+      <div
+        role="group"
+        aria-label={`${plotLabel(plot.id)} 작업`}
+        className="mt-auto grid min-h-[4.75rem] grid-rows-[2.25rem_2rem] gap-2"
+      >
+        {crop ? (
+          <button
+            type="button"
+            onClick={onHarvest}
+            disabled={!ready || busy}
+            className="h-9 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+          >
+            {busy ? "처리 중..." : ready ? "수확하기" : "재배 중"}
+          </button>
+        ) : (
           <button
             type="button"
             onClick={onPlant}
             disabled={
               !selectedCrop || selectedCropLocked || selectedSeedCount <= 0 || busy
             }
-            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+            className="h-9 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
           >
             {busy
               ? "심는 중..."
               : selectedCropLocked
                 ? `${selectedCrop?.requiredSkillName ?? "농부 패시브"} 필요`
                 : selectedSeedCount <= 0
-                ? "씨앗 부족"
-                : `${selectedCrop?.name ?? "작물"} 심기`}
+                  ? "씨앗 부족"
+                  : `${selectedCrop?.name ?? "작물"} 심기`}
           </button>
-        </>
-      )}
+        )}
+
+        {crop && !ready ? (
+          <button
+            type="button"
+            onClick={onFertilize}
+            disabled={busy || plot.fertilized || fertilizerBalance < 1}
+            className="h-8 rounded-md border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-700 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 dark:bg-zinc-900"
+          >
+            {plot.fertilized
+              ? "거름 사용 완료"
+              : `유기질 거름 사용 · 보유 ${fertilizerBalance}`}
+          </button>
+        ) : (
+          <span aria-hidden="true" className="h-8" />
+        )}
+      </div>
     </div>
   );
 }

@@ -152,6 +152,7 @@ export async function POST(req: Request) {
         outpostId: null,
         rareMapIid: null,
         hpPotionTargetPct: autoStopConfig.hpPotionTargetPct,
+        mpPotionTargetPct: autoStopConfig.mpPotionTargetPct,
         offline: true,
         nowOverride,
       };

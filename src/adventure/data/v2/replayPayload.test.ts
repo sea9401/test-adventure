@@ -108,10 +108,58 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(toReplayPayload(fs).enemy).toMatchObject({
       atkType: "magic",
       critPct: 25,
+      statusDamageReductionPct: 0,
     });
     expect(toReplayPayloadLite(fs).enemy).toMatchObject({
       atkType: "magic",
       critPct: 25,
+      statusDamageReductionPct: 0,
+    });
+  });
+
+  it("PvE 리플레이가 양쪽 마방·상태 피해 경감과 보스 지속 피해 보정을 보존한다", () => {
+    const state = {
+      ...fixture(1),
+      isBoss: true,
+      enemy: {
+        name: "수호자",
+        hp: 10_000,
+        atk: 300,
+        def: 200,
+        magicDef: 180,
+        spd: 40,
+        statusDamageReductionPct: 25,
+      },
+    } as BattleState;
+    const payload = toReplayPayload(state, {
+      playerCombat: {
+        hp: 1_000,
+        maxHp: 1_000,
+        atk: 400,
+        magicAtk: 500,
+        def: 220,
+        magicDef: 160,
+        spd: 50,
+        evasionPct: 10,
+        accRating: 20,
+        attackCount: 1,
+        passiveMagicBasicAttack: true,
+        statusDamageReductionPct: 12,
+      },
+    });
+
+    expect(payload).toMatchObject({
+      ruleset: "pve",
+      maxHpDamageMult: 0.8,
+      playerCombat: {
+        magicDef: 160,
+        statusDamageReductionPct: 12,
+        primaryAttack: "magic",
+      },
+      enemy: {
+        magicDef: 180,
+        statusDamageReductionPct: 25,
+      },
     });
   });
 
@@ -295,6 +343,72 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
     expect(p.playerMaxHp).toBe(600);
     expect(p.playerMaxMp).toBe(100);
     expect(p.playerMp).toBe(40);
+  });
+
+  it("PvP 관점 변환은 양쪽 전투 스탯을 함께 뒤집고 PvP 판정을 보존한다", () => {
+    const finalState = {
+      p1: {
+        maxHp: 600,
+        maxMp: 100,
+        mp: 40,
+        player: {
+          atk: 110,
+          def: 90,
+          magicDef: 70,
+          spd: 30,
+          evasionPct: 12,
+          accRating: 25,
+          attackCount: 1,
+          statusDamageReductionPct: 8,
+          magicBarrierAbsorbPct: 45,
+          magicBarrierPvpAbsorbPct: 30,
+          magicBarrierEfficiencyPct: 30,
+          magicBarrierPvpEfficiencyPct: 20,
+        },
+      },
+      p2: {
+        maxHp: 450,
+        maxMp: 80,
+        mp: 25,
+        player: {
+          atk: 95,
+          def: 120,
+          magicDef: 130,
+          spd: 20,
+          evasionPct: 18,
+          accRating: 15,
+          attackCount: 1,
+          statusDamageReductionPct: 20,
+        },
+      },
+      log: [],
+    } as unknown as Parameters<typeof toPvpReplayPayload>[0];
+
+    const attackerView = toPvpReplayPayload(finalState, "방어자");
+    const defenderView = toPvpReplayPayloadForSide(
+      finalState,
+      "p2",
+      "공격자",
+    );
+
+    expect(attackerView).toMatchObject({
+      ruleset: "pvp",
+      maxHpDamageMult: 1,
+      playerCombat: {
+        atk: 110,
+        magicDef: 70,
+        statusDamageReductionPct: 8,
+        magicBarrierAbsorbPct: 30,
+        magicBarrierEfficiencyPct: 20,
+      },
+      enemy: { atk: 95, magicDef: 130, statusDamageReductionPct: 20 },
+    });
+    expect(defenderView).toMatchObject({
+      ruleset: "pvp",
+      maxHpDamageMult: 1,
+      playerCombat: { atk: 95, magicDef: 130, statusDamageReductionPct: 20 },
+      enemy: { atk: 110, magicDef: 70, statusDamageReductionPct: 8 },
+    });
   });
 
   it("p2 info/phase 엔트리는 kind 유지하고 turn 만 enemy 로", () => {

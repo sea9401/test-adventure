@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { DANGEROUS_BOSSES, DANGEROUS_ZONES } from "@/adventure/data/v2/dangerousFishing";
 import type { DangerousBossReward } from "@/lib/server/dangerousFishingBoss";
 import type {
   DangerousEncounterView,
@@ -67,20 +69,44 @@ export function DangerousFishingBossPanel({
 }) {
   if (!model?.event) {
     return (
-      <section className={`${SURFACE_CARD} p-4 text-center`}>
-        <h2 className="font-bold">현재 포착된 거대어가 없습니다</h2>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          위험도 4 이상에서 영웅·전설 어종을 낚으면 거대어의 흔적을 발견할 수 있습니다.
-        </p>
+      <section className={`${SURFACE_CARD} space-y-3 p-4`}>
+        <div className="relative aspect-[16/7] overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-800">
+          <Image
+            src={DANGEROUS_ZONES.abyssal_rift.imageSrc}
+            alt="거대어의 흔적을 찾는 심연 균열"
+            fill
+            sizes="(min-width: 780px) 720px, 100vw"
+            className="object-cover"
+          />
+        </div>
+        <div className="text-center">
+          <h2 className="font-bold">현재 포착된 거대어가 없습니다</h2>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            위험도 4 이상에서 영웅·전설 어종을 낚으면 거대어의 흔적을 발견할 수 있습니다.
+          </p>
+        </div>
       </section>
     );
   }
 
   const event = model.event;
+  const boss = DANGEROUS_BOSSES[event.bossId as keyof typeof DANGEROUS_BOSSES];
+  const scene =
+    event.bossId === "tidal_colossus"
+      ? DANGEROUS_ZONES.storm_trench
+      : DANGEROUS_ZONES.abyssal_rift;
   const staminaPct = Math.min(100, (event.stamina / event.maxStamina) * 100);
   const active = event.status === "active";
   return (
     <section className={`${SURFACE_CARD} space-y-4 p-4`} aria-label="비동기 거대어">
+      {boss ? (
+        <div className="relative aspect-[16/7] overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-800">
+          <Image src={scene.imageSrc} alt="" fill sizes="(min-width: 780px) 720px, 100vw" className="object-cover" loading="eager" />
+          <div className="absolute inset-2">
+            <Image src={boss.imageSrc} alt={boss.name} fill sizes="(min-width: 780px) 420px, 80vw" className="object-contain drop-shadow-2xl" />
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
@@ -124,6 +150,9 @@ export function DangerousFishingBossPanel({
           <p className="text-center text-xs font-semibold">개인 장력 시도 · 약 1~3분</p>
           <DangerousFishingEncounterPanel
             encounter={model.attempt.encounter}
+            sceneImageSrc={scene.imageSrc}
+            targetImageSrc={boss.imageSrc}
+            targetName={boss.name}
             busy={busy}
             onAction={(action) =>
               void onAction(

@@ -17,6 +17,7 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
   return {
     selfHpPct: 100,
     selfMpPct: 100,
+    selfShield: 0,
     selfShieldActive: false,
     selfBuffStats: new Set<StatKey>(),
     selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),
@@ -89,6 +90,34 @@ describe("conditionPasses", () => {
         ctx({ selfShieldActive: true }),
       ),
     ).toBe(true);
+  });
+
+  it("self_shield atMost/atLeast — 현재 보호막 수치를 경계 포함 비교", () => {
+    const shielded = ctx({ selfShield: 120, selfShieldActive: true });
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atMost", value: 120 },
+        shielded,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atLeast", value: 120 },
+        shielded,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atMost", value: 119 },
+        shielded,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", op: "atLeast", value: 121 },
+        shielded,
+      ),
+    ).toBe(false);
   });
 
   it("self_buff active/inactive — 재버프 방지 패턴", () => {
@@ -292,6 +321,41 @@ describe("parseCombatPattern (저장 검증)", () => {
       })),
     });
     expect(many.blocks).toHaveLength(V2_COMBAT_PATTERN_MAX_BLOCKS);
+  });
+
+  it("보호막 수치 조건은 0 이상의 정수로 정규화하고 잘못된 값은 버린다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: { kind: "self_shield", op: "atLeast", value: 12.9 },
+          action: { kind: "skill", skillId: "shield-up" },
+        },
+        {
+          condition: { kind: "self_shield", op: "atMost", value: -3 },
+          action: { kind: "skill", skillId: "shield-zero" },
+        },
+        {
+          condition: { kind: "self_shield", op: "equal", value: 10 },
+          action: { kind: "skill", skillId: "bad-op" },
+        },
+        {
+          condition: { kind: "self_shield", op: "atLeast" },
+          action: { kind: "skill", skillId: "missing-value" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks).toHaveLength(2);
+    expect(parsed.blocks[0].condition).toEqual({
+      kind: "self_shield",
+      op: "atLeast",
+      value: 12,
+    });
+    expect(parsed.blocks[1].condition).toEqual({
+      kind: "self_shield",
+      op: "atMost",
+      value: 0,
+    });
   });
 
   it("상대 디버프 조건만 안전하게 파싱한다", () => {

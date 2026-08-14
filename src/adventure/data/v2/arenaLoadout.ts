@@ -107,7 +107,9 @@ export function arenaPatternConditionSummary(
     case "self_mp":
       return `내 MP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
     case "self_shield":
-      return `내 보호막 ${condition.active ? "있음" : "없음"}`;
+      return "active" in condition
+        ? `내 보호막 ${condition.active ? "있음" : "없음"}`
+        : `내 보호막 ${condition.value} ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "self_buff":
       return `내 ${STAT_LABELS[condition.stat]} 버프 ${condition.active ? "있음" : "없음"}`;
     case "self_buff_pct":

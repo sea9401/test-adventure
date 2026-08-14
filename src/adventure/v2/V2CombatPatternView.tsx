@@ -84,6 +84,13 @@ const ACTIVE_OPTIONS = [
   { value: "n", label: "없을 때" },
   { value: "y", label: "있을 때" },
 ] as const;
+type ShieldConditionMode = "inactive" | "active" | "atMost" | "atLeast";
+const SHIELD_CONDITION_MODE_OPTIONS = [
+  { value: "inactive", label: "없을 때" },
+  { value: "active", label: "있을 때" },
+  { value: "atMost", label: "이하" },
+  { value: "atLeast", label: "이상" },
+] as const;
 const ACTION_KIND_OPTIONS = [
   { value: "role", label: "역할 사용" },
   { value: "skill", label: "특정 스킬" },
@@ -1126,7 +1133,7 @@ export function V2CombatPatternView({
 }
 
 // 조건 kind 별 파라미터 입력. 변경 시 같은 kind 유지하며 파라미터만 갱신.
-function ConditionParams({
+export function ConditionParams({
   condition: c,
   onChange,
 }: {
@@ -1165,15 +1172,41 @@ function ConditionParams({
           <span className="text-zinc-400">%</span>
         </>
       );
-    case "self_shield":
+    case "self_shield": {
+      const mode: ShieldConditionMode =
+        "active" in c ? (c.active ? "active" : "inactive") : c.op;
       return (
-        <PatternChoiceButtons
-          value={c.active ? "y" : "n"}
-          options={ACTIVE_OPTIONS}
-          label="보호막 상태"
-          onChange={(active) => onChange({ ...c, active: active === "y" })}
-        />
+        <>
+          <PatternChoiceButtons
+            value={mode}
+            options={SHIELD_CONDITION_MODE_OPTIONS}
+            label="보호막 비교 방식"
+            onChange={(nextMode) => {
+              if (nextMode === "inactive" || nextMode === "active") {
+                onChange({
+                  kind: "self_shield",
+                  active: nextMode === "active",
+                });
+                return;
+              }
+              onChange({
+                kind: "self_shield",
+                op: nextMode,
+                value: "active" in c ? 0 : c.value,
+              });
+            }}
+          />
+          {"active" in c ? null : (
+            <PatternNumberInput
+              key="self-shield-value"
+              min={0}
+              value={c.value}
+              onValueChange={(value) => onChange({ ...c, value })}
+            />
+          )}
+        </>
       );
+    }
     case "self_buff":
       return (
         <>

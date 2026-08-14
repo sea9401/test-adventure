@@ -1215,9 +1215,47 @@ export function V2DungeonFloorView({
               />
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 사냥 후 HP 충전약을 설정한 체력까지만 사용합니다. 체력이
-                너무 낮아 사냥 전에 자동 회복할 때도 같은 기준을 적용하며,
-                MP 충전약은 기존처럼 100%까지 사용합니다.
+                너무 낮아 사냥 전에 자동 회복할 때도 같은 기준을 적용합니다.
               </p>
+
+              <div className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <div className="flex items-center justify-between gap-3">
+                  <label
+                    htmlFor="mp-potion-target"
+                    className="text-sm font-medium"
+                  >
+                    MP 충전약 사용 목표
+                  </label>
+                  <span className="text-sm font-semibold tabular-nums text-sky-700 dark:text-sky-300">
+                    {autoStopConfig.mpPotionTargetPct === 0
+                      ? "사용 안 함"
+                      : `마나 ${autoStopConfig.mpPotionTargetPct}%`}
+                  </span>
+                </div>
+                <input
+                  id="mp-potion-target"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={autoStopConfig.mpPotionTargetPct}
+                  onChange={(e) =>
+                    updateAutoStopConfig({
+                      mpPotionTargetPct: Number(e.target.value),
+                    })
+                  }
+                  aria-label="MP 충전약 사용 목표 마나"
+                  aria-valuetext={
+                    autoStopConfig.mpPotionTargetPct === 0
+                      ? "사용 안 함"
+                      : `마나 ${autoStopConfig.mpPotionTargetPct}%까지`
+                  }
+                  className="w-full accent-sky-600"
+                />
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  사냥 후 MP 충전약을 설정한 마나까지만 사용합니다.
+                </p>
+              </div>
             </div>
 
             <div className={`${SURFACE_INSET} space-y-3 p-3`}>

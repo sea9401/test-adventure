@@ -1,9 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, resolveBattleMock, prepareBattleActorMock } = vi.hoisted(() => ({
+const {
+  store,
+  resolveBattleMock,
+  prepareBattleActorMock,
+  toReplayPayloadMock,
+} = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   resolveBattleMock: vi.fn(),
   prepareBattleActorMock: vi.fn(),
+  toReplayPayloadMock: vi.fn(() => ({
+    log: [],
+    playerMaxHp: 1_000,
+    enemy: { hp: 1 },
+  })),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -23,7 +33,7 @@ vi.mock("@/adventure/v2/combat/engine", () => ({
 }));
 
 vi.mock("@/adventure/data/v2/replayPayload", () => ({
-  toReplayPayload: vi.fn(() => ({ log: [], playerMaxHp: 1_000, enemy: { hp: 1 } })),
+  toReplayPayload: toReplayPayloadMock,
 }));
 
 vi.mock("@/db", () => ({
@@ -123,6 +133,7 @@ describe("POST /api/v2/storm-expedition", () => {
       },
     });
     prepareBattleActorMock.mockReset();
+    toReplayPayloadMock.mockClear();
     prepareBattleActorMock.mockResolvedValue({
       player: {
         maxHp: 1_000,
@@ -282,6 +293,17 @@ describe("POST /api/v2/storm-expedition", () => {
     expect(store.get("equipment.v2")).toMatchObject({
       owned: [{ iid: "old", id: "v2_iron_sword" }],
     });
+    expect(toReplayPayloadMock).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        playerCombat: expect.objectContaining({
+          hp: 800,
+          maxHp: 1_000,
+          maxMp: 500,
+          atk: 100,
+        }),
+      },
+    );
     vi.restoreAllMocks();
   });
 

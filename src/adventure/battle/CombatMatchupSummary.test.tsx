@@ -34,6 +34,26 @@ describe("적중·회피 경감 전투 예상", () => {
     ).toBeCloseTo(32.8947, 3);
   });
 
+  it("PvP 물리 방어 예상은 PvE 점감식이 아닌 공격력-방어력 판정을 사용한다", () => {
+    const result = combatMatchupResult(
+      {
+        accuracyRating: 0,
+        evasionRating: 0,
+        physicalDefense: 500,
+      },
+      {
+        accuracyRating: 0,
+        evasionRating: 0,
+        incomingAttack: 1_000,
+        incomingAttackType: "physical",
+      },
+      "pvp",
+    );
+
+    expect(result.playerDefenseReductionPct).toBe(50);
+    expect(result.playerDirectDamageRetainedPct).toBe(50);
+  });
+
   it("원본 수치와 최종 경감률을 구분해 표시한다", () => {
     const html = renderToStaticMarkup(
       <CombatMatchupSummary player={player} enemy={enemy} />,
@@ -99,5 +119,23 @@ describe("적중·회피 경감 전투 예상", () => {
 
     expect(html).not.toContain("NaN");
     expect(html).toContain("방어 전 피해에서 20% 분리");
+    expect(html).not.toContain("지속 피해 보정");
+  });
+
+  it("중독 변동 원인인 최대 HP 성분 배율과 상태 피해 경감을 따로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <CombatMatchupSummary
+        player={player}
+        enemy={{
+          ...enemy,
+          maxHpDamageMult: 0.8,
+          statusDamageReductionPct: 25,
+        }}
+      />,
+    );
+
+    expect(html).toContain("지속 피해 보정");
+    expect(html).toContain("최대 HP 비례 성분 80%");
+    expect(html).toContain("상태 피해 25% 경감");
   });
 });

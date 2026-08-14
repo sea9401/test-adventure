@@ -88,4 +88,22 @@ describe("위험 해역 출시 카탈로그", () => {
     expect(materialIds.every(isDangerousCatchMaterialId)).toBe(true);
     expect(isDangerousCatchMaterialId("danger_catch_unknown")).toBe(false);
   });
+
+  it("모든 위험 해역 카탈로그 항목에 ID 기반 이미지 경로가 있다", () => {
+    expect(DANGEROUS_ZONES.shattered_reef.imageSrc).toBe(
+      "/images/ui/dangerous-fishing-shattered-reef.webp",
+    );
+    expect(DANGEROUS_FISH.ironjaw_tuna.imageSrc).toBe(
+      "/images/fish/ironjaw_tuna.webp",
+    );
+    expect(DANGEROUS_BOSSES.abyss_kraken.imageSrc).toBe(
+      "/images/fish/abyss_kraken.webp",
+    );
+    expect(DANGEROUS_REELS.current_reel.imageSrc).toBe(
+      "/images/items/fishing/dangerous/current_reel.webp",
+    );
+    expect(DANGEROUS_BAITS.luminous_bait.imageSrc).toBe(
+      "/images/items/fishing/dangerous/luminous_bait.webp",
+    );
+  });
 });

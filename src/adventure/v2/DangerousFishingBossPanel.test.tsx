@@ -56,6 +56,8 @@ describe("거대어 비동기 기여 패널", () => {
       <DangerousFishingBossPanel model={bossModel()} busy={false} {...handlers} />,
     );
     expect(html).toContain("해일의 거신");
+    expect(html).toContain("tidal_colossus.webp");
+    expect(html).toContain("dangerous-fishing-storm-trench.webp");
     expect(html).toContain("12,000 / 18,000");
     expect(html).toContain("약 5시간 남음");
     expect(html).toContain("발견자");
@@ -146,5 +148,6 @@ describe("거대어 비동기 기여 패널", () => {
     );
     expect(html).toContain("현재 포착된 거대어가 없습니다");
     expect(html).toContain("위험도 4 이상");
+    expect(html).toContain("dangerous-fishing-abyssal-rift.webp");
   });
 });

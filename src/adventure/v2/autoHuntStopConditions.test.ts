@@ -66,6 +66,7 @@ describe("normalizeAutoHuntStopConfig", () => {
     expect(
       normalizeAutoHuntStopConfig({
         hpPotionTargetPct: 150.9,
+        mpPotionTargetPct: 150.9,
         potionEnabled: "yes",
         potionThreshold: -10,
         rareMapEnabled: true,
@@ -73,6 +74,7 @@ describe("normalizeAutoHuntStopConfig", () => {
       }),
     ).toEqual({
       hpPotionTargetPct: 100,
+      mpPotionTargetPct: 100,
       potionEnabled: false,
       potionThreshold: 0,
       rareMapEnabled: true,
@@ -89,6 +91,18 @@ describe("normalizeAutoHuntStopConfig", () => {
     ).toMatchObject({ hpPotionTargetPct: 0 });
     expect(normalizeAutoHuntStopConfig({})).toMatchObject({
       hpPotionTargetPct: 100,
+    });
+  });
+
+  it("MP 충전약 목표 마나를 0~100 정수로 제한하고 옛 설정은 100%로 보완한다", () => {
+    expect(
+      normalizeAutoHuntStopConfig({ mpPotionTargetPct: 49.9 }),
+    ).toMatchObject({ mpPotionTargetPct: 49 });
+    expect(
+      normalizeAutoHuntStopConfig({ mpPotionTargetPct: -1 }),
+    ).toMatchObject({ mpPotionTargetPct: 0 });
+    expect(normalizeAutoHuntStopConfig({})).toMatchObject({
+      mpPotionTargetPct: 100,
     });
   });
 });

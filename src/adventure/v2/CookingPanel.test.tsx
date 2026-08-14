@@ -1,11 +1,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  CookingRecipeXpPreview,
   RecipeOwnedCount,
   SurplusCropLabel,
   cookingLevelProgressView,
 } from "./CookingPanel";
-import type { CookingFoodInventory } from "./cooking";
+import {
+  COOKING_RECIPE_BY_ID,
+  type CookingFoodInventory,
+} from "./cooking";
 
 describe("요리책 보유 수량", () => {
   it("같은 요리의 모든 품질을 합산하고 다른 요리는 제외한다", () => {
@@ -46,6 +50,18 @@ describe("농장 떨이 교환", () => {
 });
 
 describe("주방 요리 경험치 표시", () => {
+  it("요리별 제작 경험치는 현재 레벨 감쇠와 직업·스킬 보너스 범위를 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <CookingRecipeXpPreview
+        recipe={COOKING_RECIPE_BY_ID.get("rustic_bread")!}
+        currentLevel={11}
+        bonusPct={15}
+      />,
+    );
+
+    expect(html).toContain("제작 XP · 1개당 +3~4");
+  });
+
   it("누적 경험치가 아니라 현재 레벨에서 쌓은 경험치로 표시한다", () => {
     expect(
       cookingLevelProgressView({

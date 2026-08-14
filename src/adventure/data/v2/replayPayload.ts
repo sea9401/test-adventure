@@ -6,11 +6,33 @@
 
 import type { BattleLogEntry, BattleState } from "@/adventure/v2/combat/engine";
 import {
+  BOSS_MAX_HP_DAMAGE_MULT,
+  type PlayerCombat,
+} from "@/adventure/v2/combat/engineState";
+import {
   depthSpdCorrection,
   monsterActionSpd,
 } from "@/adventure/v2/combat/combatTimeline";
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { V2Element } from "@/adventure/data/v2/elements";
+
+export type ReplayCombatStats = {
+  atk: number;
+  def: number;
+  magicDef?: number;
+  spd: number;
+  accuracy?: number;
+  evasionPct?: number;
+  evaRating?: number;
+  critChancePct?: number;
+  magicAtk?: number;
+  magicBarrierMax?: number;
+  magicBarrierAbsorbPct?: number;
+  magicBarrierEfficiencyPct?: number;
+  bonusAttackChancePct?: number;
+  statusDamageReductionPct?: number;
+  primaryAttack?: "physical" | "magic";
+};
 
 // enemy.image = v2 사냥터 전용 초상화 경로. BattleScene 이 이걸 우선 쓰고, 없으면
 // 클라 MONSTERS 카탈로그(`MONSTERS[name]?.image`)로 폴백한다.
@@ -25,6 +47,7 @@ export type ReplayPayload = {
     //   없을 수 있어 optional — 없으면 BattleScene 이 스탯 줄을 생략(크래시 방지).
     atk?: number;
     def?: number;
+    magicDef?: number;
     spd?: number;
     actionSpd?: number;
     accuracy?: number;
@@ -32,7 +55,12 @@ export type ReplayPayload = {
     atkType?: Monster["atkType"];
     critPct?: number;
     bonusAttackChancePct?: number;
+    statusDamageReductionPct?: number;
   };
+  playerCombat?: ReplayCombatStats;
+  ruleset?: "pve" | "pvp";
+  /** 중독처럼 최대 HP 비례인 지속 피해 성분에만 적용하는 콘텐츠 배율. */
+  maxHpDamageMult?: number;
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0).
   playerMaxMp: number;
@@ -61,8 +89,37 @@ export type StoredReplayEnvelope = {
 
 type ReplayPayloadOptions = {
   depth?: number;
+  playerCombat?: PlayerCombat;
   logCap?: number;
 };
+
+function replayPlayerCombat(
+  player: PlayerCombat,
+  ruleset: "pve" | "pvp" = "pve",
+): ReplayCombatStats {
+  return {
+    atk: player.atk,
+    def: player.def,
+    magicDef: player.magicDef,
+    spd: player.spd,
+    accuracy: player.accRating ?? player.accuracyPct,
+    evasionPct: player.evasionPct,
+    evaRating: player.evaRating ?? player.evasionPct,
+    critChancePct: player.critChancePct,
+    magicAtk: player.magicAtk,
+    magicBarrierMax: player.magicBarrierMax,
+    magicBarrierAbsorbPct:
+      ruleset === "pvp"
+        ? player.magicBarrierPvpAbsorbPct
+        : player.magicBarrierAbsorbPct,
+    magicBarrierEfficiencyPct:
+      ruleset === "pvp"
+        ? player.magicBarrierPvpEfficiencyPct
+        : player.magicBarrierEfficiencyPct,
+    statusDamageReductionPct: player.statusDamageReductionPct,
+    primaryAttack: player.passiveMagicBasicAttack ? "magic" : "physical",
+  };
+}
 
 // 긴 배치 전투는 마지막 기록만 응답하되, 잘린 턴의 중간부터 시작하지 않게 첫 턴
 // 마커 전의 잔여 기록을 걷어낸다. 생략 안내는 로그가 잘렸다는 사실을 명확히 남긴다.
@@ -87,6 +144,7 @@ function replayEnemy(
     element: enemy.element,
     atk: enemy.atk,
     def: enemy.def,
+    magicDef: enemy.magicDef,
     spd: enemy.spd,
     actionSpd: monsterActionSpd(enemy, depthCorr),
     accuracy: enemy.accuracy,
@@ -94,6 +152,7 @@ function replayEnemy(
     atkType: enemy.atkType,
     critPct: enemy.critPct,
     bonusAttackChancePct: enemy.bonusAttackChancePct,
+    statusDamageReductionPct: enemy.statusDamageReductionPct ?? 0,
   };
 }
 
@@ -104,6 +163,13 @@ export function toReplayPayload(
 ): ReplayPayload {
   return {
     enemy: replayEnemy(finalState.enemy, options),
+    ...(options?.playerCombat
+      ? { playerCombat: replayPlayerCombat(options.playerCombat) }
+      : {}),
+    ruleset: "pve",
+    maxHpDamageMult:
+      finalState.maxHpDamageMult ??
+      (finalState.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,
@@ -138,7 +204,35 @@ export function toDeferredReplayPayload(
 // actor-relative 로그(모든 공격이 kind:"player_attack" + side 태그)를 들고 있다. 기본 호출은
 // "나=p1" 관점이지만, 방어자 전적 저장에는 p2 관점도 필요하므로 로그 레인과 hp_bar 를 선택한
 // 사이드 기준으로 재매핑한다.
-type PvpReplaySide = { maxHp: number; maxMp: number; mp: number };
+type PvpReplaySide = {
+  maxHp: number;
+  maxMp: number;
+  mp: number;
+  player?: PlayerCombat;
+};
+
+function replayPvpEnemy(
+  name: string,
+  side: PvpReplaySide,
+): ReplayPayload["enemy"] {
+  if (!side.player) return { name, hp: side.maxHp };
+  const combat = replayPlayerCombat(side.player, "pvp");
+  return {
+    name,
+    hp: side.maxHp,
+    atk: combat.atk,
+    def: combat.def,
+    magicDef: combat.magicDef,
+    spd: combat.spd,
+    actionSpd: combat.spd,
+    accuracy: combat.accuracy,
+    evasionPct: combat.evaRating ?? combat.evasionPct,
+    atkType: combat.primaryAttack,
+    critPct: combat.critChancePct,
+    bonusAttackChancePct: combat.bonusAttackChancePct,
+    statusDamageReductionPct: combat.statusDamageReductionPct ?? 0,
+  };
+}
 export function toPvpReplayPayloadForSide(
   finalState: {
     p1: PvpReplaySide;
@@ -187,7 +281,12 @@ export function toPvpReplayPayloadForSide(
   const me = finalState[perspective];
   const opponent = finalState[opponentSide];
   return {
-    enemy: { name: opponentName, hp: opponent.maxHp },
+    enemy: replayPvpEnemy(opponentName, opponent),
+    ...(me.player
+      ? { playerCombat: replayPlayerCombat(me.player, "pvp") }
+      : {}),
+    ruleset: "pvp",
+    maxHpDamageMult: 1,
     playerMaxHp: me.maxHp,
     playerMaxMp: me.maxMp,
     playerMp: me.mp,
@@ -216,6 +315,13 @@ export function toReplayPayloadLite(
 ): ReplayPayload {
   return {
     enemy: replayEnemy(finalState.enemy, options),
+    ...(options?.playerCombat
+      ? { playerCombat: replayPlayerCombat(options.playerCombat) }
+      : {}),
+    ruleset: "pve",
+    maxHpDamageMult:
+      finalState.maxHpDamageMult ??
+      (finalState.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1),
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,

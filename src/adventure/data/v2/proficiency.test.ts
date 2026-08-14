@@ -11,6 +11,7 @@ import {
   capGain,
   effectiveStatCap,
   applyCultivation,
+  applyCultivationBatch,
   recommendedCultivationStats,
   setGroupTier,
   flattenGroupTiers,
@@ -556,6 +557,41 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       expect(r!.next.caps[stat]).toBe(1);
     }
     expect(totalCapGains(r!.next)).toBe(6);
+  });
+
+  it("가능한 만큼 수행하며 특별 수행을 다음 비용에 반영한다", () => {
+    const rolls = [0.02, 0.5]; // 대성공 ×3, 일반 ×1
+    const result = applyCultivationBatch(
+      { ...emptyProficiency(), points: 88 },
+      "warrior",
+      () => rolls.shift() ?? 0.5,
+    );
+
+    expect(result).toMatchObject({
+      performed: 2,
+      spent: 88,
+      greatSuccesses: 1,
+      awakenings: 0,
+      hasMore: false,
+    });
+    expect(usablePoints(result!.next)).toBe(0);
+    expect(totalCapGains(result!.next)).toBe(16);
+  });
+
+  it("요청 상한에 도달하면 남은 수행 가능 여부를 알린다", () => {
+    const result = applyCultivationBatch(
+      { ...emptyProficiency(), points: 1_000 },
+      "warrior",
+      () => 0.5,
+      undefined,
+      2,
+    );
+
+    expect(result).toMatchObject({
+      performed: 2,
+      spent: 40,
+      hasMore: true,
+    });
   });
 
   it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none=균형 4스탯·무효는 빈 배열", () => {

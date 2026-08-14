@@ -1,8 +1,13 @@
 const HOUR = 60 * 60 * 1000;
 
-export type RanchAnimalId = "chicken" | "cow";
-export type RanchProductItemId = "egg" | "milk";
-export type RanchPenId = "coop-1" | "coop-2" | "cowshed-1" | "cowshed-2";
+export type RanchAnimalId = "chicken" | "cow" | "pig";
+export type RanchProductItemId = "egg" | "milk" | "pork";
+export type RanchPenId =
+  | "coop-1"
+  | "coop-2"
+  | "cowshed-1"
+  | "cowshed-2"
+  | "pigsty-1";
 
 export const RANCH_ANIMALS: Record<
   RanchAnimalId,
@@ -22,6 +27,11 @@ export const RANCH_ANIMALS: Record<
     outputName: "우유",
     imageSrc: "/images/items/farm/cow.webp",
   },
+  pig: {
+    name: "돼지",
+    outputName: "돼지고기",
+    imageSrc: "/images/items/farm/pig.webp",
+  },
 };
 
 export type RanchPenDefinition = {
@@ -31,6 +41,8 @@ export type RanchPenDefinition = {
   cycleMs: number;
   outputAmount: number;
   feedCapacity: number;
+  feedPerCycle: number;
+  mode: "recurring" | "shipment";
   xpPerCycle: number;
   requiredLevel: number;
   costReputation: number;
@@ -44,6 +56,8 @@ export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
     cycleMs: 2 * HOUR,
     outputAmount: 2,
     feedCapacity: 6,
+    feedPerCycle: 1,
+    mode: "recurring",
     xpPerCycle: 2,
     requiredLevel: 1,
     costReputation: 0,
@@ -55,6 +69,8 @@ export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
     cycleMs: 2 * HOUR,
     outputAmount: 2,
     feedCapacity: 6,
+    feedPerCycle: 1,
+    mode: "recurring",
     xpPerCycle: 2,
     requiredLevel: 10,
     costReputation: 30,
@@ -66,6 +82,8 @@ export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
     cycleMs: 6 * HOUR,
     outputAmount: 3,
     feedCapacity: 2,
+    feedPerCycle: 1,
+    mode: "recurring",
     xpPerCycle: 6,
     requiredLevel: 20,
     costReputation: 60,
@@ -77,9 +95,24 @@ export const RANCH_PEN_DEFINITIONS: readonly RanchPenDefinition[] = [
     cycleMs: 6 * HOUR,
     outputAmount: 3,
     feedCapacity: 2,
+    feedPerCycle: 1,
+    mode: "recurring",
     xpPerCycle: 6,
     requiredLevel: 35,
     costReputation: 120,
+  },
+  {
+    id: "pigsty-1",
+    animalId: "pig",
+    outputItemId: "pork",
+    cycleMs: 16 * HOUR,
+    outputAmount: 8,
+    feedCapacity: 4,
+    feedPerCycle: 4,
+    mode: "shipment",
+    xpPerCycle: 16,
+    requiredLevel: 50,
+    costReputation: 180,
   },
 ] as const;
 
@@ -105,8 +138,10 @@ export type RanchState = {
   stats: {
     chickenCycles: number;
     cowCycles: number;
+    pigCycles: number;
     eggsCollected: number;
     milkCollected: number;
+    porkCollected: number;
   };
 };
 
@@ -157,12 +192,15 @@ export function emptyRanchState(now = Date.now()): RanchState {
       "coop-2": emptyPenState(false, safeTimestamp),
       "cowshed-1": emptyPenState(false, safeTimestamp),
       "cowshed-2": emptyPenState(false, safeTimestamp),
+      "pigsty-1": emptyPenState(false, safeTimestamp),
     },
     stats: {
       chickenCycles: 0,
       cowCycles: 0,
+      pigCycles: 0,
       eggsCollected: 0,
       milkCollected: 0,
+      porkCollected: 0,
     },
   };
 }
@@ -188,7 +226,14 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
       lastSettledAtRaw <= safeTimestamp
         ? Math.floor(lastSettledAtRaw)
         : safeTimestamp;
-    const feed = Math.min(definition.feedCapacity, safeInt(candidate.feed));
+    const rawFeed = Math.min(
+      definition.feedCapacity,
+      safeInt(candidate.feed),
+    );
+    const feed =
+      definition.mode === "shipment" && rawFeed !== definition.feedPerCycle
+        ? 0
+        : rawFeed;
     const readyCycles = safeInt(candidate.readyCycles);
     pens[definition.id] = {
       unlocked:
@@ -212,8 +257,10 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
     stats: {
       chickenCycles: safeInt(statsSource.chickenCycles),
       cowCycles: safeInt(statsSource.cowCycles),
+      pigCycles: safeInt(statsSource.pigCycles),
       eggsCollected: safeInt(statsSource.eggsCollected),
       milkCollected: safeInt(statsSource.milkCollected),
+      porkCollected: safeInt(statsSource.porkCollected),
     },
   };
 }
@@ -224,11 +271,12 @@ export function settleRanch(state: RanchState, now = Date.now()): RanchState {
   const pens = { ...parsed.pens };
   let chickenCycles = parsed.stats.chickenCycles;
   let cowCycles = parsed.stats.cowCycles;
+  let pigCycles = parsed.stats.pigCycles;
 
   for (const definition of RANCH_PEN_DEFINITIONS) {
     const pen = pens[definition.id];
     const elapsed = Math.max(0, safeTimestamp - pen.lastSettledAt);
-    if (!pen.unlocked || pen.feed < 1) {
+    if (!pen.unlocked || pen.feed < definition.feedPerCycle) {
       pens[definition.id] = {
         ...pen,
         lastSettledAt: safeTimestamp,
@@ -238,10 +286,10 @@ export function settleRanch(state: RanchState, now = Date.now()): RanchState {
     }
     const totalProgress = pen.progressMs + elapsed;
     const completed = Math.min(
-      pen.feed,
+      Math.floor(pen.feed / definition.feedPerCycle),
       Math.floor(totalProgress / definition.cycleMs),
     );
-    const feed = pen.feed - completed;
+    const feed = pen.feed - completed * definition.feedPerCycle;
     pens[definition.id] = {
       ...pen,
       feed,
@@ -252,13 +300,14 @@ export function settleRanch(state: RanchState, now = Date.now()): RanchState {
       readyCycles: pen.readyCycles + completed,
     };
     if (definition.animalId === "chicken") chickenCycles += completed;
-    else cowCycles += completed;
+    else if (definition.animalId === "cow") cowCycles += completed;
+    else pigCycles += completed;
   }
 
   return {
     ...parsed,
     pens,
-    stats: { ...parsed.stats, chickenCycles, cowCycles },
+    stats: { ...parsed.stats, chickenCycles, cowCycles, pigCycles },
   };
 }
 
@@ -277,6 +326,13 @@ export function addRanchFeed(
   const settled = settleRanch(state, now);
   const pen = settled.pens[penId];
   if (!pen.unlocked) throw new RanchError("pen_locked");
+  if (definition.mode === "shipment") {
+    if (pen.readyItems > 0) throw new RanchError("shipment_pending");
+    if (pen.feed > 0) throw new RanchError("shipment_in_progress");
+    if (count !== definition.feedPerCycle) {
+      throw new RanchError("shipment_feed_required");
+    }
+  }
   if (pen.feed + count > definition.feedCapacity) {
     throw new RanchError("feed_capacity");
   }
@@ -296,7 +352,11 @@ export function collectRanchProducts(
   const settled = settleRanch(state, now);
   const pens = { ...settled.pens };
   const items: Partial<Record<RanchProductItemId, number>> = {};
-  const cycles: Record<RanchAnimalId, number> = { chicken: 0, cow: 0 };
+  const cycles: Record<RanchAnimalId, number> = {
+    chicken: 0,
+    cow: 0,
+    pig: 0,
+  };
   let farmingXp = 0;
 
   for (const definition of RANCH_PEN_DEFINITIONS) {
@@ -318,6 +378,7 @@ export function collectRanchProducts(
         ...settled.stats,
         eggsCollected: settled.stats.eggsCollected + (items.egg ?? 0),
         milkCollected: settled.stats.milkCollected + (items.milk ?? 0),
+        porkCollected: settled.stats.porkCollected + (items.pork ?? 0),
       },
     },
     items,
@@ -355,7 +416,14 @@ export function unlockRanchPen(
       ...settled,
       pens: {
         ...settled.pens,
-        [penId]: { ...settled.pens[penId], unlocked: true },
+        [penId]: {
+          ...settled.pens[penId],
+          unlocked: true,
+          feed:
+            definition.mode === "shipment"
+              ? definition.feedPerCycle
+              : settled.pens[penId].feed,
+        },
       },
     },
     costReputation: definition.costReputation,

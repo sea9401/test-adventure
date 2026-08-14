@@ -7,7 +7,6 @@ import type {
   DangerousDepth,
   DangerousDepthId,
   DangerousFish,
-  DangerousGearKind,
   DangerousLine,
   DangerousReel,
   DangerousRod,
@@ -70,7 +69,6 @@ export type DangerousFishingBusy =
   | "return"
   | "encounter"
   | "action"
-  | "shop"
   | "boss"
   | null;
 
@@ -188,15 +186,6 @@ export function useDangerousFishing() {
       }),
     [mutate],
   );
-  const shop = useCallback(
-    (kind: DangerousGearKind | "bait", id: string, action: "buy" | "equip") =>
-      mutate("shop", "/api/v2/dangerous-fishing/shop", {
-        kind,
-        id,
-        action,
-      }),
-    [mutate],
-  );
   const startBossAttempt = useCallback(
     (eventId: string) =>
       mutate("boss", "/api/v2/dangerous-fishing/boss", {
@@ -240,7 +229,6 @@ export function useDangerousFishing() {
     returnVoyage,
     startEncounter,
     act,
-    shop,
     startBossAttempt,
     actOnBoss,
     claimBossReward,

@@ -448,6 +448,34 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     ).toBeNull();
   });
 
+  it("self_shield 수치 조건 — 현재 보호막 포인트가 기준 이하일 때만 발동한다", () => {
+    const skillId = "v2c_warrior_strike";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "self_shield", op: "atMost", value: 120 },
+          action: { kind: "skill", skillId },
+        },
+      ],
+    };
+    const base = castInput([skillId], {
+      combatPattern: pattern,
+      attacker: {
+        ...castInput([skillId]).attacker,
+        selfShield: 120,
+        selfShieldActive: true,
+      },
+    });
+
+    expect(resolveV2SkillCast(base).castSkillId).toBe(skillId);
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        attacker: { ...base.attacker, selfShield: 121 },
+      }).castSkillId,
+    ).toBeNull();
+  });
+
   it("내 상태 효과 조건 — 지속 회복이 남아 있으면 같은 블록을 실행하지 않는다", () => {
     const skillId = "v2c_warrior_strike";
     const pattern: V2CombatPattern = {

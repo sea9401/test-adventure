@@ -10,6 +10,7 @@ import {
   cookingIngredientRequirement,
   cookingIngredientRequirementAccumulated,
   cookingXpReward,
+  cookingXpRewardRange,
   cookingLevelForXp,
   cookingLevelXpThreshold,
   cookingOrderReward,
@@ -90,14 +91,14 @@ describe("personal cooking", () => {
       new Map([
         [1, 7],
         [10, 6],
-        [20, 5],
-        [35, 5],
-        [50, 9],
+        [20, 7],
+        [35, 7],
+        [50, 12],
       ]),
     );
   });
 
-  it("adds four ranch recipes at the intended cooking tiers", () => {
+  it("adds ranch recipes at the intended cooking tiers", () => {
     expect(COOKING_RECIPE_BY_ID.get("country_egg_bread")).toMatchObject({
       name: "시골식 달걀빵",
       requiredLevel: 1,
@@ -123,6 +124,102 @@ describe("personal cooking", () => {
       xp: 90,
       baseStatPct: { int: 15, vit: 7 },
     });
+    const porkRecipe = COOKING_RECIPE_BY_ID.get("herb_roasted_pork");
+    expect(porkRecipe).toMatchObject({
+      name: "허브 돼지고기 구이",
+      requiredLevel: 50,
+      farmIngredients: { pork: 8, onion: 8, herb: 6 },
+      xp: 130,
+      baseStatPct: { str: 15, vit: 8 },
+    });
+    expect(cookingRecipeMatchesQuery(porkRecipe!, "돼지고기")).toBe(true);
+  });
+
+  it("expands pork, egg, and milk into six distinct ranch recipes", () => {
+    const expectedRecipes = [
+      {
+        id: "egg_fried_rice",
+        query: "달걀",
+        expected: {
+          name: "달걀 볶음밥",
+          requiredLevel: 20,
+          farmIngredients: { egg: 6, rice: 8, onion: 4 },
+          xp: 54,
+          baseStatPct: { dex: 8, luk: 4 },
+        },
+      },
+      {
+        id: "milk_rice_porridge",
+        query: "우유",
+        expected: {
+          name: "우유 쌀죽",
+          requiredLevel: 20,
+          farmIngredients: { milk: 6, rice: 8, herb: 2 },
+          xp: 52,
+          baseStatPct: { spi: 8, vit: 4 },
+        },
+      },
+      {
+        id: "soy_braised_eggs",
+        query: "달걀",
+        expected: {
+          name: "간장 달걀 조림",
+          requiredLevel: 35,
+          farmIngredients: { egg: 8, soybean: 6, herb: 4 },
+          optionalRareItemId: "black_soybean",
+          xp: 90,
+          baseStatPct: { vit: 15, luk: 7 },
+          specialStatPct: { vit: 18, luk: 9 },
+        },
+      },
+      {
+        id: "milk_custard_pudding",
+        query: "우유",
+        expected: {
+          name: "우유 커스터드 푸딩",
+          requiredLevel: 35,
+          farmIngredients: { milk: 8, egg: 6, sugarcane: 6 },
+          optionalRareItemId: "crystal_sugarcane",
+          xp: 92,
+          baseStatPct: { int: 15, spi: 7 },
+          specialStatPct: { int: 18, spi: 9 },
+        },
+      },
+      {
+        id: "crispy_pork_cutlet",
+        query: "돼지고기",
+        expected: {
+          name: "바삭한 돼지고기 커틀릿",
+          requiredLevel: 50,
+          farmIngredients: { pork: 8, wheat: 8, egg: 4, onion: 4 },
+          optionalRareItemId: "golden_wheat",
+          xp: 138,
+          baseStatPct: { str: 15, dex: 8 },
+          specialStatPct: { str: 20, dex: 10 },
+        },
+      },
+      {
+        id: "soy_pork_rice_bowl",
+        query: "돼지고기",
+        expected: {
+          name: "간장 돼지고기 덮밥",
+          requiredLevel: 50,
+          farmIngredients: { pork: 8, rice: 12, soybean: 6, onion: 4 },
+          optionalRareItemId: "black_soybean",
+          xp: 140,
+          baseStatPct: { vit: 15, str: 8 },
+          specialStatPct: { vit: 20, str: 10 },
+        },
+      },
+    ] as const;
+
+    for (const entry of expectedRecipes) {
+      const recipe = COOKING_RECIPE_BY_ID.get(entry.id);
+      expect(recipe, entry.id).toMatchObject(entry.expected);
+      expect(cookingRecipeMatchesQuery(recipe!, entry.query), entry.id).toBe(
+        true,
+      );
+    }
   });
 
   it("uses the previously underused pearl onion and crystal sugarcane specials", () => {
@@ -320,6 +417,25 @@ describe("personal cooking", () => {
     expect(
       cookingXpReward({ baseXp: 12, bonusPct: 15, rng: () => 0.8 }),
     ).toBe(13);
+  });
+
+  it("요리 경험치 미리보기는 실제 지급 가능한 최솟값과 최댓값을 반환한다", () => {
+    expect(cookingXpRewardRange({ baseXp: 12 })).toEqual({
+      min: 12,
+      max: 12,
+    });
+    expect(cookingXpRewardRange({ baseXp: 12, bonusPct: 25 })).toEqual({
+      min: 15,
+      max: 15,
+    });
+    expect(cookingXpRewardRange({ baseXp: 12, bonusPct: 15 })).toEqual({
+      min: 13,
+      max: 14,
+    });
+    expect(cookingXpRewardRange({ baseXp: -3, bonusPct: -10 })).toEqual({
+      min: 1,
+      max: 1,
+    });
   });
 
   it("preserves crafted quality, rare ingredients, and chef duration in the food item id", () => {

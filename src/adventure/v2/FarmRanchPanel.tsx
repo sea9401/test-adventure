@@ -18,6 +18,12 @@ import {
 } from "./ranch";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
+function ranchPenName(definition: RanchPenDefinition): string {
+  if (definition.animalId === "chicken") return "닭장";
+  if (definition.animalId === "cow") return "외양간";
+  return "돼지우리";
+}
+
 export function confirmRanchPenUpgrade({
   definition,
   onUpgrade,
@@ -28,7 +34,7 @@ export function confirmRanchPenUpgrade({
   confirm?: (message: string) => boolean;
 }): boolean {
   const animal = RANCH_ANIMALS[definition.animalId];
-  const penName = definition.animalId === "chicken" ? "닭장" : "외양간";
+  const penName = ranchPenName(definition);
   if (
     !confirm(
       `${animal.name} 축사 ${penName}을(를) 열까요?\n농장 증표 ${definition.costReputation.toLocaleString()}개가 사용됩니다.`,
@@ -84,7 +90,7 @@ export function FarmRanchPanel({
             목장
           </h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            배합 사료를 넣어 달걀과 우유를 생산합니다. 생산 시간은 접속하지 않은 동안에도 흐릅니다.
+            돼지우리에는 첫 돼지가 포함됩니다. 출하 후에는 배합 사료 4개로 새 돼지를 데려오며, 시간은 접속하지 않은 동안에도 흐릅니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -99,7 +105,7 @@ export function FarmRanchPanel({
           disabled={!ranchUnlocked || totalReady < 1 || busyCollect}
           className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busyCollect ? "수확 중..." : "모두 수확"}
+          {busyCollect ? "수확·출하 중..." : "모두 수확·출하"}
         </button>
       </div>
 
@@ -118,6 +124,7 @@ export function FarmRanchPanel({
           {RANCH_PEN_DEFINITIONS.map((definition, index) => {
             const pen = farm.ranch.pens[definition.id];
             const animal = RANCH_ANIMALS[definition.animalId];
+            const penName = ranchPenName(definition);
             const previous = RANCH_PEN_DEFINITIONS[index - 1];
             const previousUnlocked = previous
               ? farm.ranch.pens[previous.id].unlocked
@@ -136,7 +143,7 @@ export function FarmRanchPanel({
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-zinc-900 dark:text-zinc-100">
-                        {animal.name} 축사 {definition.animalId === "chicken" ? "닭장" : "외양간"}
+                        {animal.name} 축사 {penName}
                       </h3>
                       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
                         농사 Lv.{definition.requiredLevel} · 농장 증표 {definition.costReputation}개
@@ -175,6 +182,10 @@ export function FarmRanchPanel({
                   )
                 : 0;
             const nextReadyMs = Math.max(0, definition.cycleMs - liveProgressMs);
+            const shipmentReady =
+              definition.mode === "shipment" && pen.readyItems > 0;
+            const shipmentInProgress =
+              definition.mode === "shipment" && pen.feed > 0;
 
             return (
               <article key={definition.id} className={`${SURFACE_INSET} space-y-3 p-4`}>
@@ -191,7 +202,7 @@ export function FarmRanchPanel({
                   </span>
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-zinc-900 dark:text-zinc-100">
-                      {animal.name} · {definition.animalId === "chicken" ? "닭장" : "외양간"}
+                      {animal.name} · {penName}
                     </h3>
                     <div className="mt-2 flex items-center gap-2">
                       <FarmItemIcon itemId={definition.outputItemId} className="size-9" />
@@ -202,48 +213,102 @@ export function FarmRanchPanel({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className={`${SURFACE_CARD} px-3 py-2`}>
-                    <span className="block text-xs text-zinc-500 dark:text-zinc-400">사료</span>
-                    <strong>사료 {pen.feed} / {definition.feedCapacity}</strong>
-                  </div>
-                  <div className={`${SURFACE_CARD} px-3 py-2`}>
-                    <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      <Clock size={13} aria-hidden /> 다음 생산
-                    </span>
-                    <strong>{pen.feed > 0 ? formatDuration(nextReadyMs) : "사료 부족"}</strong>
-                  </div>
-                </div>
+                {definition.mode === "shipment" ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className={`${SURFACE_CARD} px-3 py-2`}>
+                        <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                          우리 상태
+                        </span>
+                        <strong>
+                          {shipmentReady
+                            ? "출하 대기"
+                            : shipmentInProgress
+                              ? "비육 중"
+                              : "비어 있음"}
+                        </strong>
+                      </div>
+                      <div className={`${SURFACE_CARD} px-3 py-2`}>
+                        <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          <Clock size={13} aria-hidden /> 출하까지
+                        </span>
+                        <strong>
+                          {shipmentReady
+                            ? "출하 대기"
+                            : shipmentInProgress
+                              ? formatDuration(nextReadyMs)
+                              : `새 돼지 · 사료 ${definition.feedPerCycle}개`}
+                        </strong>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={
+                        shipmentReady ||
+                        shipmentInProgress ||
+                        feedOwned < definition.feedPerCycle ||
+                        busyFeedPenId !== null
+                      }
+                      onClick={() =>
+                        onFeed(definition.id, definition.feedPerCycle)
+                      }
+                      className="w-full rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {busyFeedPenId === definition.id
+                        ? "새 돼지 데려오는 중..."
+                        : shipmentReady
+                          ? "먼저 출하해 주세요"
+                          : shipmentInProgress
+                            ? "비육 중"
+                            : `사료 ${definition.feedPerCycle}개로 새 돼지 데려오기`}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className={`${SURFACE_CARD} px-3 py-2`}>
+                        <span className="block text-xs text-zinc-500 dark:text-zinc-400">사료</span>
+                        <strong>사료 {pen.feed} / {definition.feedCapacity}</strong>
+                      </div>
+                      <div className={`${SURFACE_CARD} px-3 py-2`}>
+                        <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          <Clock size={13} aria-hidden /> 다음 생산
+                        </span>
+                        <strong>{pen.feed > 0 ? formatDuration(nextReadyMs) : "사료 부족"}</strong>
+                      </div>
+                    </div>
 
-                <div className="flex gap-2">
-                  <select
-                    aria-label={`${animal.name} 사료 수량`}
-                    value={maximumFeed > 0 ? selectedAmount : 0}
-                    disabled={maximumFeed < 1 || busyFeedPenId !== null}
-                    onChange={(event) =>
-                      setFeedAmounts((current) => ({
-                        ...current,
-                        [definition.id]: Number(event.target.value),
-                      }))
-                    }
-                    className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-                  >
-                    {maximumFeed < 1 ? <option value={0}>0개</option> : null}
-                    {Array.from({ length: maximumFeed }, (_, amount) => amount + 1).map(
-                      (amount) => (
-                        <option key={amount} value={amount}>{amount}개</option>
-                      ),
-                    )}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={maximumFeed < 1 || busyFeedPenId !== null}
-                    onClick={() => onFeed(definition.id, selectedAmount)}
-                    className="rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {busyFeedPenId === definition.id ? "넣는 중..." : "사료 넣기"}
-                  </button>
-                </div>
+                    <div className="flex gap-2">
+                      <select
+                        aria-label={`${animal.name} 사료 수량`}
+                        value={maximumFeed > 0 ? selectedAmount : 0}
+                        disabled={maximumFeed < 1 || busyFeedPenId !== null}
+                        onChange={(event) =>
+                          setFeedAmounts((current) => ({
+                            ...current,
+                            [definition.id]: Number(event.target.value),
+                          }))
+                        }
+                        className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                      >
+                        {maximumFeed < 1 ? <option value={0}>0개</option> : null}
+                        {Array.from({ length: maximumFeed }, (_, amount) => amount + 1).map(
+                          (amount) => (
+                            <option key={amount} value={amount}>{amount}개</option>
+                          ),
+                        )}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={maximumFeed < 1 || busyFeedPenId !== null}
+                        onClick={() => onFeed(definition.id, selectedAmount)}
+                        className="rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {busyFeedPenId === definition.id ? "넣는 중..." : "사료 넣기"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </article>
             );
           })}

@@ -9,17 +9,42 @@ import {
 import { gameSceneBackgroundForPath } from "./gameSceneBackgroundForPath";
 
 describe("게임 경로별 장면 배경", () => {
-  it("별의 무덤 전투만 전용 배경을 사용하고 천공 균열은 기존 사냥 배경을 유지한다", () => {
-    expect(gameSceneBackgroundForPath("/battle/dungeon/78")).toEqual({
-      src: "/images/ui/hunt.webp",
-    });
-    expect(gameSceneBackgroundForPath("/battle/dungeon/79")).toEqual({
-      src: "/images/ui/star_grave.webp",
-    });
-    expect(gameSceneBackgroundForPath("/battle/dungeon/84")).toEqual({
-      src: "/images/ui/star_grave.webp",
-    });
-    expect(gameSceneBackgroundForPath("/battle/dungeon/85")).toEqual({
+  const huntingGrounds = [
+    { depths: [1, 6], src: "/images/ui/plains.webp" },
+    { depths: [7, 12], src: "/images/ui/canyon.webp" },
+    { depths: [13, 18], src: "/images/ui/lake.webp" },
+    { depths: [19, 24], src: "/images/ui/deep_cave.webp" },
+    { depths: [25, 30], src: "/images/ui/forgotten_seal.webp" },
+    { depths: [31, 36], src: "/images/ui/forest.webp" },
+    { depths: [37, 42], src: "/images/ui/cave.webp" },
+    { depths: [43, 48], src: "/images/ui/oldwall_keep.webp" },
+    { depths: [49, 54], src: "/images/ui/volcanic_badlands.webp" },
+    { depths: [55, 60], src: "/images/ui/bone_marches.webp" },
+    { depths: [61, 66], src: "/images/ui/ashen_pass.webp" },
+    { depths: [67, 72], src: "/images/ui/starlit_reef.webp" },
+    { depths: [73, 78], src: "/images/ui/star_corridor.webp" },
+    { depths: [79, 84], src: "/images/ui/star_grave.webp" },
+  ] as const;
+
+  it.each(huntingGrounds)(
+    "$depths 사냥터는 시작과 끝 단계에서 $src 배경을 사용한다",
+    ({ depths, src }) => {
+      for (const depth of depths) {
+        expect(gameSceneBackgroundForPath(`/battle/dungeon/${depth}`)).toEqual(
+          { src },
+        );
+      }
+    },
+  );
+
+  it.each([
+    "/battle/dungeon",
+    "/battle/dungeon/",
+    "/battle/dungeon/not-a-depth",
+    "/battle/dungeon/0",
+    "/battle/dungeon/85",
+  ])("유효한 사냥 단계가 아닌 %s 경로는 공용 사냥 배경을 사용한다", (path) => {
+    expect(gameSceneBackgroundForPath(path)).toEqual({
       src: "/images/ui/hunt.webp",
     });
   });

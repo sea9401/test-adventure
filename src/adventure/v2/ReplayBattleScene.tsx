@@ -222,11 +222,13 @@ function ResolvedReplayBattleScene({
         layout="split"
         playerSubtitle={playerSubtitle}
         logAnchor="top"
-        playerCombat={playerCombat}
+        playerCombat={playerCombat ?? payload.playerCombat}
         outcome={outcome}
         outcomeAction={outcomeAction}
         profileBorder={profileBorder}
         logViewport={presentation === "page" ? "page" : "contained"}
+        ruleset={payload.ruleset ?? "pve"}
+        maxHpDamageMult={payload.maxHpDamageMult}
       />
       {presentation === "page" && (
         <BattleLogScrollTopButton scrollTargetId={scrollTargetId} />

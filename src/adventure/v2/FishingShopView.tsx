@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { TabBar } from "@/components/ui/TabBar";
 import { FISH_TIERS, FISH_TIER_ORDER } from "@/adventure/data/v2/fish";
 import { FishingSubTabs } from "./FishingSubTabs";
 import {
@@ -33,6 +34,11 @@ import type {
 } from "./useFishingShop";
 import { useSystemToast } from "./RewardToastProvider";
 import { CoinAmount } from "./CoinAmount";
+import {
+  DangerousFishingShopSection,
+  type DangerousFishingShopAction,
+} from "./DangerousFishingShopSection";
+import type { DangerousFishingViewModel } from "./useDangerousFishing";
 
 // 낚시 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useFishingShop 실 API / dev mock).
 // 설계: docs/fishing-content-plan.md §6
@@ -70,11 +76,14 @@ export function FishingShopView({
   onBuy,
   onBuyConsumable,
   onBuyGear,
+  dangerousShop,
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenChallenges,
   onOpenLeaderboard,
   onOpenHallOfFame,
+  initialTab = "regular",
   embedded = false,
 }: {
   state: FishingShopState | null;
@@ -89,14 +98,26 @@ export function FishingShopView({
     gearId: string,
     action: FishingGearAction,
   ) => Promise<BuyResult>;
+  dangerousShop?: {
+    model: DangerousFishingViewModel | null;
+    loading: boolean;
+    error?: string | null;
+    buying: string | null;
+    onShop: DangerousFishingShopAction;
+  };
   onBack?: () => void;
   // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
+  initialTab?: "regular" | "dangerous";
   embedded?: boolean;
 }) {
+  const [shopTab, setShopTab] = useState<"regular" | "dangerous">(
+    initialTab === "dangerous" && dangerousShop ? "dangerous" : "regular",
+  );
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
@@ -128,7 +149,18 @@ export function FishingShopView({
     showMessage(r);
   };
 
+  const handleDangerousShop: DangerousFishingShopAction = async (...args) => {
+    if (!dangerousShop) return { ok: false, message: "위험 해역 상점을 불러오지 못했다." };
+    const result = await dangerousShop.onShop(...args);
+    showMessage(result);
+    return result;
+  };
+
   const coins = state?.coins ?? 0;
+  const displayedCoins =
+    shopTab === "dangerous"
+      ? state?.coins ?? dangerousShop?.model?.fishingCoins ?? 0
+      : coins;
   const staminaPotions = state?.staminaPotions ?? 0;
   const progression = state?.progression ?? null;
   const seedPouch = state?.seedPouch ?? null;
@@ -178,7 +210,7 @@ export function FishingShopView({
             onBack={onBack}
             right={
               <CoinAmount
-                amount={coins}
+                amount={displayedCoins}
                 className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
               />
             }
@@ -187,6 +219,7 @@ export function FishingShopView({
           <FishingSubTabs
             active="shop"
             onOpenFishing={onOpenFishing}
+            onOpenDangerous={onOpenDangerous}
             onOpenChallenges={onOpenChallenges}
             onOpenLeaderboard={onOpenLeaderboard}
             onOpenHallOfFame={onOpenHallOfFame}
@@ -197,11 +230,24 @@ export function FishingShopView({
       {embedded && (
         <div className="flex justify-end">
           <CoinAmount
-            amount={coins}
+            amount={displayedCoins}
             className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
           />
         </div>
       )}
+
+      {dangerousShop ? (
+        <TabBar
+          tabs={[
+            { key: "regular", label: "일반 낚시" },
+            { key: "dangerous", label: "위험 해역" },
+          ]}
+          active={shopTab}
+          onChange={setShopTab}
+          ariaLabel="낚시 상점 종류"
+          size="md"
+        />
+      ) : null}
 
       {message && (
         <p
@@ -215,6 +261,23 @@ export function FishingShopView({
         </p>
       )}
 
+      {shopTab === "dangerous" && dangerousShop ? (
+        dangerousShop.loading ? (
+          <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">불러오는 중…</p>
+        ) : dangerousShop.error ? (
+          <p className="py-8 text-center text-sm text-rose-600 dark:text-rose-400">{dangerousShop.error}</p>
+        ) : dangerousShop.model ? (
+          <DangerousFishingShopSection
+            model={dangerousShop.model}
+            coins={state?.coins ?? dangerousShop.model.fishingCoins}
+            buying={dangerousShop.buying}
+            onShop={handleDangerousShop}
+          />
+        ) : (
+          <p className="py-8 text-center text-sm text-rose-600 dark:text-rose-400">위험 해역 상점을 불러오지 못했다.</p>
+        )
+      ) : (
+        <>
       {loading ? (
         <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
           불러오는 중…
@@ -493,6 +556,8 @@ export function FishingShopView({
             accent="sky"
           />
         </div>
+      )}
+        </>
       )}
     </Root>
   );

@@ -16,11 +16,14 @@ export default function DangerousFishingPage() {
       error={fishing.error}
       onBack={() => router.push("/map")}
       onOpenFishing={() => router.push("/town/fishing")}
+      onOpenChallenges={() => router.push("/town/fishing/challenges")}
+      onOpenLeaderboard={() => router.push("/town/fishing/leaderboard")}
+      onOpenHallOfFame={() => router.push("/town/fishing/hall-of-fame")}
+      onOpenShop={() => router.push("/town/fishing/shop?tab=dangerous")}
       onStartVoyage={fishing.startVoyage}
       onReturnVoyage={fishing.returnVoyage}
       onStartEncounter={fishing.startEncounter}
       onAction={fishing.act}
-      onShop={fishing.shop}
       onStartBossAttempt={fishing.startBossAttempt}
       onBossAction={fishing.actOnBoss}
       onClaimBossReward={fishing.claimBossReward}

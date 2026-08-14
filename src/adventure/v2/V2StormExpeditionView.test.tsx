@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { stormUniqueDropPreview } from "./V2StormExpeditionView";
+import { describe, expect, it, vi } from "vitest";
+import {
+  confirmStormExpeditionExit,
+  stormUniqueDropPreview,
+} from "./V2StormExpeditionView";
 
 const rules = {
   guardianRouteChance: 0.0015,
@@ -33,5 +36,31 @@ describe("폭풍 원정 유니크 보상 미리보기", () => {
 
   it("일반·정예 전투에는 유니크 보상 문구를 표시하지 않는다", () => {
     expect(stormUniqueDropPreview("elite", rules, 2)).toEqual([]);
+  });
+});
+
+describe("폭풍 원정 자진 이탈 확인", () => {
+  it("확인을 취소하면 이탈하지 않고 확인 창은 한 번만 표시한다", () => {
+    const confirm = vi.fn(() => false);
+    const onExit = vi.fn();
+
+    expect(
+      confirmStormExpeditionExit({ mode: "normal", confirm, onExit }),
+    ).toBe(false);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("귀환"));
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it("확인하면 이탈 요청을 한 번만 실행한다", () => {
+    const confirm = vi.fn(() => true);
+    const onExit = vi.fn();
+
+    expect(
+      confirmStormExpeditionExit({ mode: "practice", confirm, onExit }),
+    ).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("연습 원정"));
+    expect(onExit).toHaveBeenCalledTimes(1);
   });
 });

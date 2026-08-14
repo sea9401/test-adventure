@@ -123,6 +123,7 @@ function partyPatternCtx({
   return {
     selfHpPct: lowestHpPct,
     selfMpPct: actor.maxMp > 0 ? (actor.mp / actor.maxMp) * 100 : 100,
+    selfShield: 0,
     selfShieldActive: false,
     selfBuffStats: new Set<StatKey>(),
     selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),

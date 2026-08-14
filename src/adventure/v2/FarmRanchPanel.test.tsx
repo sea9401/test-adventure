@@ -1,7 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { FARM_CROP_REQUIRED_SKILL_ID, emptyFarmState } from "./farm";
-import { addRanchFeed, RANCH_PEN_DEFINITIONS, settleRanch } from "./ranch";
+import {
+  addRanchFeed,
+  RANCH_PEN_DEFINITIONS,
+  settleRanch,
+  unlockRanchPen,
+} from "./ranch";
 import { confirmRanchPenUpgrade, FarmRanchPanel } from "./FarmRanchPanel";
 
 const HOUR = 60 * 60 * 1000;
@@ -78,5 +83,120 @@ describe("farm ranch panel", () => {
 
     expect(html).toContain("씨앗 선별을 배우면 목장이 열립니다");
     expect(html).not.toContain("사료 넣기");
+  });
+
+  it("shows the empty pigsty as a four-feed replacement action", () => {
+    const base = emptyFarmState(1_000);
+    const farm = {
+      ...base,
+      inventory: { compound_feed: 4 },
+      ranch: {
+        ...base.ranch,
+        pens: {
+          ...base.ranch.pens,
+          "pigsty-1": {
+            ...base.ranch.pens["pigsty-1"],
+            unlocked: true,
+          },
+        },
+      },
+    };
+    const html = renderToStaticMarkup(
+      <FarmRanchPanel
+        farm={farm}
+        now={1_000}
+        learnedSkillIds={[FARM_CROP_REQUIRED_SKILL_ID]}
+        busyFeedPenId={null}
+        busyCollect={false}
+        busyUpgradePenId={null}
+        onFeed={vi.fn()}
+        onCollect={vi.fn()}
+        onUpgrade={vi.fn()}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("돼지우리");
+    expect(html).toContain("비어 있음");
+    expect(html).toContain("사료 4개로 새 돼지 데려오기");
+    expect(html).toContain("/images/items/farm/pig.webp");
+  });
+
+  it("shows the included first pig as fattening immediately after unlock", () => {
+    const base = emptyFarmState(1_000);
+    const unlockable = {
+      ...base.ranch,
+      pens: {
+        ...base.ranch.pens,
+        "coop-2": { ...base.ranch.pens["coop-2"], unlocked: true },
+        "cowshed-1": {
+          ...base.ranch.pens["cowshed-1"],
+          unlocked: true,
+        },
+        "cowshed-2": {
+          ...base.ranch.pens["cowshed-2"],
+          unlocked: true,
+        },
+      },
+    };
+    const unlocked = unlockRanchPen(unlockable, "pigsty-1", 50, 1_000);
+    const html = renderToStaticMarkup(
+      <FarmRanchPanel
+        farm={{ ...base, ranch: unlocked.ranch }}
+        now={1_000}
+        learnedSkillIds={[FARM_CROP_REQUIRED_SKILL_ID]}
+        busyFeedPenId={null}
+        busyCollect={false}
+        busyUpgradePenId={null}
+        onFeed={vi.fn()}
+        onCollect={vi.fn()}
+        onUpgrade={vi.fn()}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("비육 중");
+    expect(html).toContain("16시간");
+    expect(html).not.toContain("사료 4개로 새 돼지 데려오기");
+  });
+
+  it("shows a finished pig as ready for shipment", () => {
+    const base = emptyFarmState(1_000);
+    const unlockedRanch = {
+      ...base.ranch,
+      pens: {
+        ...base.ranch.pens,
+        "pigsty-1": {
+          ...base.ranch.pens["pigsty-1"],
+          unlocked: true,
+        },
+      },
+    };
+    const now = 1_000 + 16 * HOUR;
+    const farm = {
+      ...base,
+      ranch: settleRanch(
+        addRanchFeed(unlockedRanch, "pigsty-1", 4, 1_000),
+        now,
+      ),
+    };
+    const html = renderToStaticMarkup(
+      <FarmRanchPanel
+        farm={farm}
+        now={now}
+        learnedSkillIds={[FARM_CROP_REQUIRED_SKILL_ID]}
+        busyFeedPenId={null}
+        busyCollect={false}
+        busyUpgradePenId={null}
+        onFeed={vi.fn()}
+        onCollect={vi.fn()}
+        onUpgrade={vi.fn()}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("돼지고기 8개");
+    expect(html).toContain("출하 대기");
+    expect(html).toContain("모두 수확·출하");
   });
 });

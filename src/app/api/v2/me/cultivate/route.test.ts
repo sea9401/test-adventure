@@ -33,6 +33,14 @@ vi.mock("@/lib/server/serverFeed", () => ({
 import { POST } from "./route";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 
+function maxRequest() {
+  return new Request("http://localhost/api/v2/me/cultivate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode: "max" }),
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.store.clear();
@@ -44,6 +52,81 @@ beforeEach(() => {
 });
 
 describe("POST /api/v2/me/cultivate — 특별 수행", () => {
+  it("mode=max는 다음 비용을 낼 수 없을 때까지 한 트랜잭션에서 수행한다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 40,
+    });
+
+    const response = await POST(maxRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      ok: true,
+      performed: 2,
+      spent: 40,
+      points: 0,
+      hasMore: false,
+    });
+    expect(mocks.store.get("proficiency.v2")).toMatchObject({ points: 0 });
+  });
+
+  it("본문 없는 기존 요청은 1회만 수행한다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    const response = await POST();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, performed: 1, mult: 1 });
+  });
+
+  it("일괄 수행에서 발생한 각성 횟수만큼 소식을 기록한다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 136,
+    });
+
+    const response = await POST(maxRequest());
+    const json = await response.json();
+
+    expect(json).toMatchObject({ performed: 2, awakenings: 2 });
+    expect(mocks.insertFeedEntry).toHaveBeenCalledTimes(2);
+  });
+
+  it("일괄 수행은 요청당 10,000회에서 멈추고 추가 수행 가능을 알린다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 2_000_000_000,
+    });
+
+    const response = await POST(maxRequest());
+    const json = await response.json();
+
+    expect(json).toMatchObject({ performed: 10_000, hasMore: true });
+  });
+
+  it("한 번의 수행 비용도 낼 수 없으면 기존 부족 오류를 반환한다", async () => {
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 7,
+    });
+
+    const response = await POST(maxRequest());
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: "insufficient_proficiency",
+      required: 8,
+      have: 7,
+    });
+  });
+
   it("일반 수행은 새 한계 증가량만큼 대기 성장값을 현재 직업 프로필로 재분배한다", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     mocks.store.set("proficiency.v2", {

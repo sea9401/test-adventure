@@ -1928,17 +1928,17 @@
     },
     {
       "path": "public/images/ui/dangerous-fishing-abyssal-rift.webp",
-      "sha256": "479bc9fa69606eacac769452ffc15eae4ec5b20ab8bb234c3bf421b3ef051468",
+      "sha256": "c5e911aeeeabba5fd445bb0720e40f01ae195335287aa3ae1c43a6856f50259b",
       "source": "operator-cleared-game-art"
     },
     {
       "path": "public/images/ui/dangerous-fishing-shattered-reef.webp",
-      "sha256": "aff988ca27def630d8543ed6e71cf2108a174885aa24447b82885b4bf883cee5",
+      "sha256": "b5d9aadeb6447b6fc6cd9846f6b35d4febd2690b4568f10d4435eca3328f4a23",
       "source": "operator-cleared-game-art"
     },
     {
       "path": "public/images/ui/dangerous-fishing-storm-trench.webp",
-      "sha256": "86667b5916a7a5dfa9a8bcc28d92b81a02697aeab04fef2c7d6b5b668a9f69bb",
+      "sha256": "4b9d9801fac35c3ccbcd1af21ae24066d1c92acd992970a96fc5388db0e6b386",
       "source": "operator-cleared-game-art"
     },
     {

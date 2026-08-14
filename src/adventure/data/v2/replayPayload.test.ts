@@ -44,6 +44,17 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(p.log.at(-1)).toMatchObject({ text: "줄 499" });
   });
 
+  it("배치 응답은 지정한 로그 상한만 인라인으로 보존한다", () => {
+    const p = toReplayPayload(fixture(500), { logCap: 80 });
+
+    expect(p.log).toHaveLength(81);
+    expect(p.log[0]).toMatchObject({
+      kind: "info",
+      text: "앞선 턴 기록 생략 (긴 전투)",
+    });
+    expect(p.log.at(-1)).toMatchObject({ text: "줄 499" });
+  });
+
   it("별도 저장 참조는 메타와 replayId를 유지하고 인라인 로그만 비운다", () => {
     const full = toReplayPayload(fixture(500));
     const deferred = toDeferredReplayPayload(full, "replay-id");

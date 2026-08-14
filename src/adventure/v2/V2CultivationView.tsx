@@ -15,7 +15,6 @@ import {
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
 import {
-  cultivationOutcomeLabel,
   effectiveCultivateProfile,
   V2_HYBRID_CULTIVATE_PROFILE,
   V2_SPECIALIZED_CULTIVATE_PROFILE,
@@ -35,6 +34,13 @@ import {
   jobIdFromLegacy,
   V2_JOB_CATALOG,
 } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  CultivationActions,
+  cultivationCompletionMessage,
+  cultivationRequestInit,
+  type CultivationMode,
+  type CultivationRunSummary,
+} from "./CultivationActions";
 
 // 성장의 신전 내부 탭 — 직업(전직), 수행(스탯 한계↑).
 type ShrineTab = "job" | "cultivate";
@@ -201,16 +207,17 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       : "";
   const canCultivate =
     !!profile && !isLifestyleJob && !busy && usable >= nextCost && nextCost > 0;
-  const cultivate = useCallback(async () => {
+  const cultivate = useCallback(async (mode: CultivationMode) => {
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/v2/me/cultivate", { method: "POST" });
-      const j = (await res.json().catch(() => null)) as {
+      const res = await fetch(
+        "/api/v2/me/cultivate",
+        cultivationRequestInit(mode),
+      );
+      const j = (await res.json().catch(() => null)) as (CultivationRunSummary & {
         ok?: boolean;
         error?: string;
-        spent?: number;
-        mult?: number;
         caps?: Partial<Record<V2StatKey, number>>;
         cultivations?: number;
         capGains?: number;
@@ -221,7 +228,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         growthRespecPoints?: number;
         required?: number;
         have?: number;
-      } | null;
+      }) | null;
       if (!j?.ok) {
         const label =
           j?.error === "no_class"
@@ -234,22 +241,17 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setMsg(`✗ ${label}`);
         return;
       }
-      const outcome = cultivationOutcomeLabel(j.mult ?? 1);
-      const special = outcome ? ` · ${outcome} ×${j.mult}!` : "";
+      const spent = j.spent ?? nextCost;
       const redistributed = j.redistributedGrowthPoints ?? 0;
-      const redistribution =
-        redistributed > 0
-          ? ` · 성장 재분배 +${redistributed} (대기 ${(j.growthRespecPoints ?? 0).toLocaleString()})`
-          : "";
-      setMsg(
-        `✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${special}${redistribution}`,
-      );
+      setMsg(cultivationCompletionMessage(j, mode, nextCost));
       setCaps(j.caps ?? caps);
-      setCultivations(j.cultivations ?? cultivations + 1);
+      setCultivations(
+        j.cultivations ?? cultivations + (j.performed ?? 1),
+      );
       setCapGains(j.capGains ?? capGains);
-      setUsable(j.points ?? Math.max(0, usable - nextCost));
+      setUsable(j.points ?? Math.max(0, usable - spent));
       setCultivationPointsSpent(
-        j.cultivationPointsSpent ?? cultivationPointsSpent + (j.spent ?? nextCost),
+        j.cultivationPointsSpent ?? cultivationPointsSpent + spent,
       );
       setGrowthRespecPoints(j.growthRespecPoints ?? growthRespecPoints);
       setNextCost(j.nextCost ?? nextCost);
@@ -480,19 +482,13 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                       {nextCost}
                     </strong>
                   </span>
-                  <Button
-                    onClick={cultivate}
-                    disabled={!canCultivate}
-                    title={
-                      isLifestyleJob
-                        ? "생활직은 수행할 수 없습니다."
-                        : undefined
-                    }
-                    variant="success"
-                    size="md"
-                  >
-                    {busy ? "처리 중…" : isLifestyleJob ? "수행 불가" : "수행"}
-                  </Button>
+                  <CultivationActions
+                    canCultivate={canCultivate}
+                    busy={busy}
+                    isLifestyleJob={isLifestyleJob}
+                    onCultivate={() => void cultivate("once")}
+                    onCultivateMax={() => void cultivate("max")}
+                  />
                 </div>
 
                 <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">

@@ -800,6 +800,63 @@ export function applyCultivation(
   };
 }
 
+export const V2_CULTIVATION_BATCH_LIMIT = 10_000;
+
+export type CultivationBatchResult = {
+  next: V2ProficiencyState;
+  performed: number;
+  spent: number;
+  greatSuccesses: number;
+  awakenings: number;
+  redistributedGrowthPoints: number;
+  lastMult: number;
+  hasMore: boolean;
+};
+
+export function applyCultivationBatch(
+  p: V2ProficiencyState,
+  group: string,
+  rng: () => number,
+  jobId?: string | null,
+  maxIterations = V2_CULTIVATION_BATCH_LIMIT,
+): CultivationBatchResult | null {
+  const limit = Math.max(
+    1,
+    Math.min(V2_CULTIVATION_BATCH_LIMIT, Math.floor(maxIterations)),
+  );
+  let next = p;
+  let performed = 0;
+  let spent = 0;
+  let greatSuccesses = 0;
+  let awakenings = 0;
+  let redistributedGrowthPoints = 0;
+  let lastMult = 1;
+
+  while (performed < limit) {
+    const applied = applyCultivation(next, group, rng, undefined, jobId);
+    if (!applied) break;
+    next = applied.next;
+    performed += 1;
+    spent += applied.cost;
+    redistributedGrowthPoints += applied.redistributedGrowthPoints;
+    lastMult = applied.mult;
+    if (applied.mult === 3) greatSuccesses += 1;
+    if (applied.mult === 5) awakenings += 1;
+  }
+  if (performed === 0) return null;
+
+  return {
+    next,
+    performed,
+    spent,
+    greatSuccesses,
+    awakenings,
+    redistributedGrowthPoints,
+    lastMult,
+    hasMore: usablePoints(next) >= cultivationCost(totalCapGains(next)),
+  };
+}
+
 // UI 가이드(자유 수행, docs §6) — 직군 권장 수행 스탯(프로필 가중 내림차순). "막지 않되 권장 표시" 용.
 // 자유 수행에서 플레이어가 아무 스탯이나 고를 수 있되, 이 목록을 추천으로 노출(트랩 빌드 완화).
 export function recommendedCultivationStats(group: string): V2StatKey[] {

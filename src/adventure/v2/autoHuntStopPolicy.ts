@@ -2,6 +2,7 @@ export const AUTO_HUNT_LEVEL_TARGET = 100;
 
 export type AutoHuntStopConfig = {
   hpPotionTargetPct: number;
+  mpPotionTargetPct: number;
   potionEnabled: boolean;
   potionThreshold: number;
   rareMapEnabled: boolean;
@@ -22,13 +23,14 @@ const MAX_POTION_THRESHOLD = 9_999_999;
 
 export const DEFAULT_AUTO_HUNT_STOP_CONFIG: AutoHuntStopConfig = {
   hpPotionTargetPct: 100,
+  mpPotionTargetPct: 100,
   potionEnabled: false,
   potionThreshold: 100,
   rareMapEnabled: false,
   level100Enabled: false,
 };
 
-function normalizeHpPotionTargetPct(value: unknown): number {
+function normalizePotionTargetPct(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return DEFAULT_AUTO_HUNT_STOP_CONFIG.hpPotionTargetPct;
   }
@@ -50,7 +52,8 @@ export function normalizeAutoHuntStopConfig(
   }
   const raw = value as Partial<Record<keyof AutoHuntStopConfig, unknown>>;
   return {
-    hpPotionTargetPct: normalizeHpPotionTargetPct(raw.hpPotionTargetPct),
+    hpPotionTargetPct: normalizePotionTargetPct(raw.hpPotionTargetPct),
+    mpPotionTargetPct: normalizePotionTargetPct(raw.mpPotionTargetPct),
     potionEnabled: raw.potionEnabled === true,
     potionThreshold: normalizePotionThreshold(raw.potionThreshold),
     rareMapEnabled: raw.rareMapEnabled === true,

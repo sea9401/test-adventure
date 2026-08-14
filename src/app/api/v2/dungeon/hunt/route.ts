@@ -109,7 +109,7 @@ import { computeLossTax } from "./huntTax";
 import {
   applyChargeRestore,
   computeBattleRewards,
-  hpPotionTargetAmount,
+  potionTargetAmount,
 } from "./huntRewards";
 import { updateRareMaps } from "./huntRareMaps";
 import {
@@ -262,6 +262,8 @@ export type RunOneHuntCtx = {
   rareMapIid: string | null;
   // 전투 전·후 HP 충전약이 채울 목표 체력 비율. 미지정은 기존 동작인 100%.
   hpPotionTargetPct?: number;
+  // 전투 후 MP 충전약이 채울 목표 마나 비율. 미지정은 기존 동작인 100%.
+  mpPotionTargetPct?: number;
   // 오프라인 정산 모드 — 전투 쿨다운 게이트·per-battle lastBattleAt 기록을 건너뛴다(정산
   //   루프가 마지막에 한 번 lastBattleAt=realNow 기록). 패배 페널티/HP/포션/레벨업은 그대로 적용.
   offline?: boolean;
@@ -650,7 +652,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   let startPlayerHp = regenResult.hp;
   let usedPreBattleHpCharge = false;
   if (!canHuntWithHp(startPlayerHp, player.maxHp) && hpCharges > 0) {
-    const targetHp = hpPotionTargetAmount(
+    const targetHp = potionTargetAmount(
       player.maxHp,
       ctx.hpPotionTargetPct,
     );
@@ -863,6 +865,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     hpCharges,
     mpCharges,
     hpTargetPct: ctx.hpPotionTargetPct,
+    mpTargetPct: ctx.mpPotionTargetPct,
   }));
   const nextInventory: InventorySave = {
     ...invSave,
@@ -1268,6 +1271,7 @@ async function handleHunt(req: Request, userId: string) {
       tileOutpostId: lockedTileOutpostId,
       rareMapIid,
       hpPotionTargetPct: autoStopConfig.hpPotionTargetPct,
+      mpPotionTargetPct: autoStopConfig.mpPotionTargetPct,
     };
 
     // === 일괄(batch) 루프 ===

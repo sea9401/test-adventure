@@ -70,7 +70,7 @@ const handlers = {
   onReturnVoyage: vi.fn(async () => true),
   onStartEncounter: vi.fn(async () => true),
   onAction: vi.fn(async () => true),
-  onShop: vi.fn(async () => true),
+  onOpenShop: vi.fn(),
   onStartBossAttempt: vi.fn(async () => true),
   onBossAction: vi.fn(async () => true),
   onClaimBossReward: vi.fn(async () => true),
@@ -120,7 +120,7 @@ describe("위험 해역 개인 화면", () => {
     expect(html).not.toContain("출항하기");
   });
 
-  it("준비 화면에 해역·수심·장비·미끼·낚시 코인 가격과 불투명 표면을 표시한다", () => {
+  it("출항·거대어 탭을 나누고 준비 화면에 해역 이미지·잠금 상태·현재 장비·상점 이동을 표시한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingView
         model={model()}
@@ -131,17 +131,23 @@ describe("위험 해역 개인 화면", () => {
         {...handlers}
       />,
     );
+    expect(html).toContain("출항");
+    expect(html).toContain("거대어");
     expect(html).toContain("파쇄 암초");
+    expect(html).toContain("dangerous-fishing-shattered-reef.webp");
+    expect(html).toContain("낚시 Lv 25 필요");
+    expect(html).toContain('aria-disabled="true"');
     expect(html).toContain("표층");
+    expect(html).toContain("현재 장비");
     expect(html).toContain("해역 입문 낚싯대");
-    expect(html).toContain("순류 릴");
-    expect(html).toContain("15,000");
-    expect(html).toContain("무제한");
-    expect(html).toContain("보유");
-    expect(html).toContain("장착 중");
+    expect(html).toContain("입문 릴");
+    expect(html).toContain("위험 해역 장비 상점");
     expect(html).toContain("출항하기");
     expect(html).toContain("bg-white");
     expect(html).toContain("bg-zinc-50");
+    expect(html).not.toContain("15,000");
+    expect(html).not.toContain(">구매<");
+    expect(html).not.toContain("현재 포착된 거대어가 없습니다");
     expect(html).not.toMatch(/bg-[^" ]+\/40/);
     expect(html).not.toMatch(/bg-[^" ]+\/70/);
   });
@@ -188,6 +194,8 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("사고 확률 22%");
     expect(html).toContain("최대 손실 35%");
     expect(html).toContain("철턱 참치");
+    expect(html).toContain("dangerous-fishing-storm-trench.webp");
+    expect(html).toContain("ironjaw_tuna.webp");
     expect(html).toContain("2개");
     expect(html).toContain("안전 귀환");
     expect(html).toContain("한 마리만 잡고도 돌아갈 수 있습니다");
@@ -231,6 +239,8 @@ describe("위험 해역 개인 화면", () => {
       />,
     );
     expect(html).toContain("장력 42 / 100");
+    expect(html).toContain("dangerous-fishing-shattered-reef.webp");
+    expect(html).toContain("ironjaw_tuna.webp");
     expect(html).toContain("다음 징후");
     expect(html).toContain("감아올리기");
     expect(html).toContain("줄 풀기");

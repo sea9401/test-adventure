@@ -839,6 +839,40 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     ).toBe(true);
   });
 
+  it("속박 사격은 PvE 전투 로그에 적이 받는 피해 증가로 표기된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const archer: PlayerCombat = {
+      ...PLAYER,
+      atk: 30,
+      maxMp: 2000,
+      hp: 500,
+      maxHp: 500,
+      spd: 100,
+    };
+    const r = resolveBattle(archer, makeEnemy({ hp: 3000, atk: 5 }), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2c_archer_volley"],
+        equipped: ["v2c_archer_volley"],
+        pattern: {
+          blocks: [
+            { condition: { kind: "always" }, action: { kind: "skill", skillId: "v2c_archer_volley" } },
+          ],
+        },
+      },
+    });
+
+    expect(
+      r.finalState.log.some(
+        (e) =>
+          e.kind === "info" &&
+          e.text.includes("속박 사격") &&
+          e.text.includes("적 받는 피해 +20%"),
+      ),
+    ).toBe(true);
+  });
+
   // PR-cast-attack 부터 cast 가 attacksLeft 를 소모해 일반 공격 대체 (포션 패턴).
   // PR-5a 격리 해제 검증은 unit 테스트 (combatShared.test 의 v2AtkBuffMult) 가 cover —
   // 통합 비교 (with-skill vs no-skill 누적 데미지) 는 cast 가 attack 대체라 의미 변경.

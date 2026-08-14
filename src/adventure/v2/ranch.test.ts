@@ -70,7 +70,7 @@ describe("adventurer ranch", () => {
 
     expect(collected.items).toEqual({ egg: 12 });
     expect(collected.farmingXp).toBe(12);
-    expect(collected.cycles).toEqual({ chicken: 6, cow: 0 });
+    expect(collected.cycles).toEqual({ chicken: 6, cow: 0, pig: 0 });
     expect(collected.ranch.pens["coop-1"]).toMatchObject({
       readyItems: 0,
       readyCycles: 0,
@@ -78,6 +78,75 @@ describe("adventurer ranch", () => {
     expect(() =>
       collectRanchProducts(collected.ranch, 1_000 + 12 * HOUR),
     ).toThrow("nothing_to_collect");
+  });
+
+  it("fattens one pig with exactly four feed and finishes at sixteen hours", () => {
+    const started = addRanchFeed(
+      parseRanchState({
+        pens: {
+          "pigsty-1": { unlocked: true, lastSettledAt: 1_000 },
+        },
+      }, 1_000),
+      "pigsty-1",
+      4,
+      1_000,
+    );
+
+    expect(() =>
+      addRanchFeed(
+        parseRanchState({
+          pens: {
+            "pigsty-1": { unlocked: true, lastSettledAt: 1_000 },
+          },
+        }, 1_000),
+        "pigsty-1",
+        3,
+        1_000,
+      ),
+    ).toThrow("shipment_feed_required");
+    expect(
+      settleRanch(started, 1_000 + 16 * HOUR - 1).pens["pigsty-1"],
+    ).toMatchObject({ feed: 4, readyItems: 0, readyCycles: 0 });
+    expect(
+      settleRanch(started, 1_000 + 16 * HOUR).pens["pigsty-1"],
+    ).toMatchObject({
+      feed: 0,
+      progressMs: 0,
+      readyItems: 8,
+      readyCycles: 1,
+    });
+  });
+
+  it("ships pork once and leaves the pigsty empty for the next pig", () => {
+    const started = addRanchFeed(
+      parseRanchState({
+        pens: {
+          "pigsty-1": { unlocked: true, lastSettledAt: 1_000 },
+        },
+      }, 1_000),
+      "pigsty-1",
+      4,
+      1_000,
+    );
+
+    expect(() => addRanchFeed(started, "pigsty-1", 4, 1_000)).toThrow(
+      "shipment_in_progress",
+    );
+    const ready = settleRanch(started, 1_000 + 16 * HOUR);
+    expect(() =>
+      addRanchFeed(ready, "pigsty-1", 4, 1_000 + 16 * HOUR),
+    ).toThrow("shipment_pending");
+
+    const shipped = collectRanchProducts(ready, 1_000 + 16 * HOUR);
+    expect(shipped.items).toEqual({ pork: 8 });
+    expect(shipped.farmingXp).toBe(16);
+    expect(shipped.cycles).toEqual({ chicken: 0, cow: 0, pig: 1 });
+    expect(shipped.ranch.pens["pigsty-1"]).toMatchObject({
+      feed: 0,
+      readyItems: 0,
+      readyCycles: 0,
+    });
+    expect(shipped.ranch.stats.porkCollected).toBe(8);
   });
 
   it("requires the configured farming level and rejects duplicate pen unlocks", () => {
@@ -92,6 +161,31 @@ describe("adventurer ranch", () => {
     expect(() => unlockRanchPen(unlocked.ranch, "coop-2", 10, 1_000)).toThrow(
       "already_unlocked",
     );
+  });
+
+  it("includes the first pig when the pigsty is unlocked", () => {
+    const base = emptyRanchState(1_000);
+    const unlockable = {
+      ...base,
+      pens: {
+        ...base.pens,
+        "coop-2": { ...base.pens["coop-2"], unlocked: true },
+        "cowshed-1": { ...base.pens["cowshed-1"], unlocked: true },
+        "cowshed-2": { ...base.pens["cowshed-2"], unlocked: true },
+      },
+    };
+
+    const unlocked = unlockRanchPen(unlockable, "pigsty-1", 50, 1_000);
+    expect(unlocked.ranch.pens["pigsty-1"]).toMatchObject({
+      unlocked: true,
+      feed: 4,
+      lastSettledAt: 1_000,
+      progressMs: 0,
+      readyItems: 0,
+    });
+    expect(
+      settleRanch(unlocked.ranch, 1_000 + 16 * HOUR).pens["pigsty-1"],
+    ).toMatchObject({ feed: 0, readyItems: 8, readyCycles: 1 });
   });
 
   it("normalizes damaged ranch saves without manufacturing products", () => {
@@ -120,5 +214,11 @@ describe("adventurer ranch", () => {
       readyCycles: 0,
     });
     expect(parsed.pens["coop-2"].unlocked).toBe(false);
+    expect(parsed.pens["pigsty-1"]).toMatchObject({
+      unlocked: false,
+      feed: 0,
+      readyItems: 0,
+      lastSettledAt: 50_000,
+    });
   });
 });

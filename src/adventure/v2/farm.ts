@@ -125,7 +125,8 @@ export type FarmItemId =
   | "royal_cacao"
   | "compound_feed"
   | "egg"
-  | "milk";
+  | "milk"
+  | "pork";
 
 export type FarmItemDefinition = {
   name: string;
@@ -246,6 +247,11 @@ export const FARM_ITEMS: Record<FarmItemId, FarmItemDefinition> = {
     name: "우유",
     icon: "🥛",
     imageSrc: "/images/items/farm/milk.webp",
+  },
+  pork: {
+    name: "돼지고기",
+    icon: "🥩",
+    imageSrc: "/images/items/farm/pork.webp",
   },
 };
 

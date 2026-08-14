@@ -45,4 +45,34 @@ describe("applyChargeRestore", () => {
     expect(result.afterHp).toBe(70);
     expect(result.hpCharges).toBe(100);
   });
+
+  it("설정한 목표 마나까지만 MP 충전약을 사용한다", () => {
+    const result = applyChargeRestore({
+      afterHp: 100,
+      afterMp: 20,
+      maxHp: 100,
+      maxMp: 101,
+      hpCharges: 0,
+      mpCharges: 100,
+      mpTargetPct: 50,
+    });
+
+    expect(result.afterMp).toBe(51);
+    expect(result.mpCharges).toBe(69);
+  });
+
+  it("현재 마나가 목표 이상이면 MP 충전약을 사용하지 않는다", () => {
+    const result = applyChargeRestore({
+      afterHp: 100,
+      afterMp: 70,
+      maxHp: 100,
+      maxMp: 100,
+      hpCharges: 0,
+      mpCharges: 100,
+      mpTargetPct: 50,
+    });
+
+    expect(result.afterMp).toBe(70);
+    expect(result.mpCharges).toBe(100);
+  });
 });

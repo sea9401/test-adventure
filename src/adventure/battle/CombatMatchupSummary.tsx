@@ -7,6 +7,7 @@ import {
   partitionWithMagicBarrier,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { actionInterval } from "@/adventure/v2/combat/combatTimeline";
+import { damageBetween } from "@/adventure/v2/combat/combatShared";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 export type CombatMatchupRatings = {
@@ -20,6 +21,10 @@ export type CombatMatchupRatings = {
   magicBarrierDurability?: number;
   incomingAttack?: number;
   incomingAttackType?: "physical" | "magic";
+  /** 중독 등 최대 HP 비례 지속 피해 성분에만 적용하는 콘텐츠 배율. */
+  maxHpDamageMult?: number;
+  /** 중독·출혈 등 상태 피해 전체에 마지막으로 적용하는 경감률. */
+  statusDamageReductionPct?: number;
 };
 
 export type CombatMatchupResult = {
@@ -65,6 +70,7 @@ export function combatMatchupResult(
   const hasDefensePreview =
     player.physicalDefense != null || player.magicDefense != null;
   const incomingAttackType = enemy.incomingAttackType ?? "physical";
+  const incomingAttack = Math.max(0, Math.floor(enemy.incomingAttack ?? 0));
   const playerDefenseReductionPct = hasDefensePreview
     ? clampPct(
         incomingAttackType === "magic"
@@ -72,12 +78,20 @@ export function combatMatchupResult(
               enemy.incomingAttack ?? 0,
               player.magicDefense ?? 0,
             )
+          : ruleset === "pvp" && incomingAttack > 0
+            ? 100 *
+              (1 -
+                damageBetween(
+                  incomingAttack,
+                  player.physicalDefense ?? 0,
+                ) /
+                  incomingAttack)
           : physicalDefenseDamageReductionPct(
               player.physicalDefense ?? 0,
             ),
       )
     : 0;
-  const incomingDamage = Math.max(0, Math.floor(enemy.incomingAttack ?? 0));
+  const incomingDamage = incomingAttack;
   const barrierDurability = Math.max(0, player.magicBarrierDurability ?? 0);
   const playerBarrierAbsorbPct =
     barrierDurability > 0 && incomingDamage > 0
@@ -151,6 +165,13 @@ export function CombatMatchupSummary({
     player.speed != null && enemy.speed != null
       ? actionFrequencyLabel(player.speed, enemy.speed)
       : null;
+  const maxHpDamageMult = Math.max(0, enemy.maxHpDamageMult ?? 1);
+  const statusDamageReductionPct = clampPct(
+    enemy.statusDamageReductionPct ?? 0,
+  );
+  const hasStatusDamagePreview =
+    enemy.maxHpDamageMult != null ||
+    enemy.statusDamageReductionPct != null;
 
   return (
     <section className={`${SURFACE_INSET} px-3 py-2.5`}>
@@ -216,6 +237,21 @@ export function CombatMatchupSummary({
           </p>
           <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
             마나 채널에는 방어·회피가 적용되지 않고, 몸통 피해에 방어·회피 적용 후 넘친 피해를 합칩니다. 현재 상대의 일반 직접 공격 기준입니다.
+          </p>
+        </div>
+      )}
+      {hasStatusDamagePreview && (
+        <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+              지속 피해 보정
+            </span>
+            <span className="text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+              최대 HP 비례 성분 {fmtPct(maxHpDamageMult * 100)}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+            상태 피해 {fmtPct(statusDamageReductionPct)} 경감 · 중독은 스택·적 최대 HP·내 공격력 상한을 먼저 계산합니다.
           </p>
         </div>
       )}

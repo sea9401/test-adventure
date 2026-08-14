@@ -430,7 +430,9 @@ export async function POST(req: Request) {
       routeId: active.routeId,
       enemyName: enemy.name,
       turns: battle.turns,
-      replay: toReplayPayload(battle.finalState),
+      replay: toReplayPayload(battle.finalState, {
+        playerCombat: playerForBattle,
+      }),
       startPlayerHp,
       playerName,
       gender: profile?.gender ?? "male1",

@@ -2,8 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   AdventurerFarmPanel,
+  FarmPlotCard,
   prioritizeDeliverable,
 } from "./AdventurerFarmPanel";
+import { FARM_CROPS } from "./farm";
 
 vi.mock("./useFarm", async () => {
   const farmModule = await import("./farm");
@@ -88,6 +90,57 @@ describe("재배 작물 보유량", () => {
     expect(html).toContain("작물 5,678개");
     expect(html).toContain("씨앗 0개");
     expect(html).toContain("작물 0개");
+  });
+});
+
+describe("재배 카드 작업 위치", () => {
+  const commonProps = {
+    now: 1_000,
+    selectedCrop: FARM_CROPS.wheat,
+    selectedCropLocked: false,
+    selectedSeedCount: 3,
+    busy: false,
+    fertilizerBalance: 2,
+    onPlant: vi.fn(),
+    onHarvest: vi.fn(),
+    onFertilize: vi.fn(),
+  };
+
+  it("빈 밭과 재배 중인 밭 모두 같은 높이의 두 줄 작업 영역을 유지한다", () => {
+    const emptyHtml = renderToStaticMarkup(
+      <FarmPlotCard
+        {...commonProps}
+        plot={{
+          id: "plot-1",
+          cropId: null,
+          plantedAt: null,
+          readyAt: null,
+        }}
+        crop={null}
+      />,
+    );
+    const growingHtml = renderToStaticMarkup(
+      <FarmPlotCard
+        {...commonProps}
+        plot={{
+          id: "plot-1",
+          cropId: "wheat",
+          plantedAt: 0,
+          readyAt: 2_000,
+        }}
+        crop={FARM_CROPS.wheat}
+      />,
+    );
+
+    for (const html of [emptyHtml, growingHtml]) {
+      expect(html).toContain('aria-label="밭 1 작업"');
+      expect(html).toContain("min-h-[4.75rem]");
+      expect(html).toContain("grid-rows-[2.25rem_2rem]");
+    }
+    expect(emptyHtml).toContain('aria-hidden="true"');
+    expect(emptyHtml).toContain(">밀 심기<");
+    expect(growingHtml).toContain(">재배 중<");
+    expect(growingHtml).toContain("유기질 거름 사용");
   });
 });
 

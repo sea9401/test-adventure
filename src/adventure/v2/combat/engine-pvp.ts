@@ -2413,6 +2413,7 @@ export function castV2SkillOnAttackerTurnPvP(
       spi: side.player.spiStat,
       allStatTotal: side.player.allStatTotal,
       // 활성 파생버프 — 조건식이 만료된 버프만 다시 시전하도록 실제 PvP 스택을 전달한다.
+      selfShield: side.stacks.playerShield,
       selfShieldActive: side.stacks.playerShield > 0,
       selfStatBuffActive: {
         spd: side.buffs.playerSpdTurnsLeft > 0,
@@ -3031,7 +3032,14 @@ export function castV2SkillOnAttackerTurnPvP(
   if (result.enemyVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
+      text: `[${result.castSkillName ?? "속박"}] 적 받는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
+      side: who,
+    });
+  }
+  if (result.enemyAccuracyDownToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "암흑"}] ${opp.name} 적중도 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}행동)`,
       side: who,
     });
   }

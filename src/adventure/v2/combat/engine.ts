@@ -2043,6 +2043,7 @@ export function applyPlayerV2SkillCast(
       maxMp: state.playerMaxMp,
       classTier: player.classTier,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
+      selfShield: state.stacks.playerShield,
       selfShieldActive: state.stacks.playerShield > 0,
       // 군림·질주·적랑 등 장비 발동형 속도 버프는 v2SelfBuffs 가 아니라 BattleBuffs 에 저장된다.
       selfStatBuffActive: {
@@ -2471,7 +2472,7 @@ export function applyPlayerV2SkillCast(
   if (result.enemyVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (적 행동 ${result.enemyVulnToApply.turns}회)`,
+      text: `[${result.castSkillName ?? "속박"}] 적 받는 피해 +${result.enemyVulnToApply.pct}% (적 행동 ${result.enemyVulnToApply.turns}회)`,
       turn: "player",
     });
   }

@@ -139,12 +139,19 @@ export const COOKING_RECIPES: readonly CookingRecipe[] = [
   recipe({ id: "pearl_onion_soup", name: "진주 양파 수프", icon: "🧅", requiredLevel: 20, farmIngredients: { onion: 10, potato: 8, herb: 4 }, optionalRareItemId: "pearl_onion", xp: 54, baseStatPct: { int: 8, spi: 4 }, specialStatPct: { int: 11, spi: 6 }, description: "오래 볶은 양파의 깊은 맛으로 집중력을 높입니다." }),
   recipe({ id: "fish_croquettes", name: "고급 생선 크로켓", icon: "🧆", requiredLevel: 20, farmIngredients: { potato: 12, onion: 4 }, fishingIngredients: { catch_quality: 2 }, optionalRareItemId: "golden_potato", xp: 56, baseStatPct: { dex: 6, luk: 6 }, specialStatPct: { dex: 8, luk: 8 }, description: "바삭한 한입 요리로 몸놀림과 행운을 살립니다." }),
   recipe({ id: "milk_potato_soup", name: "우유 감자 수프", icon: "🥣", requiredLevel: 20, farmIngredients: { milk: 6, potato: 8, onion: 4 }, xp: 54, baseStatPct: { vit: 8, spi: 4 }, description: "우유와 감자를 천천히 끓여 활력과 정신을 따뜻하게 채웁니다." }),
+  recipe({ id: "egg_fried_rice", name: "달걀 볶음밥", icon: "🍳", requiredLevel: 20, farmIngredients: { egg: 6, rice: 8, onion: 4 }, xp: 54, baseStatPct: { dex: 8, luk: 4 }, description: "고슬고슬한 쌀과 달걀을 볶아 몸놀림과 행운을 북돋웁니다." }),
+  recipe({ id: "milk_rice_porridge", name: "우유 쌀죽", icon: "🥣", requiredLevel: 20, farmIngredients: { milk: 6, rice: 8, herb: 2 }, xp: 52, baseStatPct: { spi: 8, vit: 4 }, description: "우유와 쌀을 부드럽게 끓여 정신과 활력을 차분히 채웁니다." }),
   recipe({ id: "soybean_rice", name: "검은콩 약선밥", icon: "🍚", requiredLevel: 35, farmIngredients: { rice: 12, soybean: 8, herb: 4 }, optionalRareItemId: "black_soybean", xp: 88, baseStatPct: { spi: 15, vit: 7 }, specialStatPct: { spi: 18, vit: 9 }, description: "정신과 생존력을 함께 높이는 명인 요리입니다." }),
   recipe({ id: "special_seafood_rice", name: "특급 해산물 덮밥", icon: "🍤", requiredLevel: 35, farmIngredients: { rice: 12, onion: 5 }, fishingIngredients: { catch_special: 1 }, xp: 92, baseStatPct: { dex: 15, luk: 7 }, description: "특급 어획물로 속도와 행운을 살립니다." }),
   recipe({ id: "soy_glazed_fish_bowl", name: "간장 생선 덮밥", icon: "🍱", requiredLevel: 35, farmIngredients: { rice: 12, soybean: 8 }, fishingIngredients: { catch_quality: 2 }, optionalRareItemId: "black_soybean", xp: 90, baseStatPct: { str: 15, vit: 7 }, specialStatPct: { str: 18, vit: 9 }, description: "콩으로 빚은 장과 생선을 곁들여 힘과 활력을 채웁니다." }),
   recipe({ id: "aromatic_fish_curry", name: "향신 생선 카레", icon: "🍛", requiredLevel: 35, farmIngredients: { rice: 10, onion: 6, herb: 5 }, fishingIngredients: { catch_special: 1 }, optionalRareItemId: "pearl_onion", xp: 92, baseStatPct: { int: 15, dex: 7 }, specialStatPct: { int: 18, dex: 9 }, description: "향긋한 소스와 생선이 지능과 민첩을 끌어올립니다." }),
   recipe({ id: "ranch_cream_gratin", name: "목장 크림 그라탱", icon: "🫕", requiredLevel: 35, farmIngredients: { milk: 8, egg: 6, potato: 8 }, xp: 90, baseStatPct: { int: 15, vit: 7 }, description: "진한 우유와 달걀을 겹겹이 구워 집중력과 생존력을 높입니다." }),
+  recipe({ id: "soy_braised_eggs", name: "간장 달걀 조림", icon: "🥚", requiredLevel: 35, farmIngredients: { egg: 8, soybean: 6, herb: 4 }, optionalRareItemId: "black_soybean", xp: 90, baseStatPct: { vit: 15, luk: 7 }, specialStatPct: { vit: 18, luk: 9 }, description: "달걀을 콩 장에 졸여 끈기와 행운을 더하는 든든한 반찬입니다." }),
+  recipe({ id: "milk_custard_pudding", name: "우유 커스터드 푸딩", icon: "🍮", requiredLevel: 35, farmIngredients: { milk: 8, egg: 6, sugarcane: 6 }, optionalRareItemId: "crystal_sugarcane", xp: 92, baseStatPct: { int: 15, spi: 7 }, specialStatPct: { int: 18, spi: 9 }, description: "우유와 달걀로 만든 부드러운 푸딩이 집중력과 정신을 가다듬습니다." }),
   recipe({ id: "flame_corn_stew", name: "불꽃 옥수수 스튜", icon: "🔥", requiredLevel: 50, farmIngredients: { corn: 24, onion: 8, herb: 6 }, optionalRareItemId: "sweet_corn", xp: 130, baseStatPct: { str: 15, vit: 8 }, specialStatPct: { str: 20, vit: 10 }, description: "상위 사냥을 위한 힘 특화 최종 요리입니다." }),
+  recipe({ id: "herb_roasted_pork", name: "허브 돼지고기 구이", icon: "🍖", requiredLevel: 50, farmIngredients: { pork: 8, onion: 8, herb: 6 }, xp: 130, baseStatPct: { str: 15, vit: 8 }, description: "목장에서 출하한 돼지고기를 허브와 함께 구워 힘과 활력을 북돋웁니다." }),
+  recipe({ id: "crispy_pork_cutlet", name: "바삭한 돼지고기 커틀릿", icon: "🍖", requiredLevel: 50, farmIngredients: { pork: 8, wheat: 8, egg: 4, onion: 4 }, optionalRareItemId: "golden_wheat", xp: 138, baseStatPct: { str: 15, dex: 8 }, specialStatPct: { str: 20, dex: 10 }, description: "돼지고기에 고운 빵옷을 입혀 바삭하게 튀긴 힘과 민첩의 요리입니다." }),
+  recipe({ id: "soy_pork_rice_bowl", name: "간장 돼지고기 덮밥", icon: "🍱", requiredLevel: 50, farmIngredients: { pork: 8, rice: 12, soybean: 6, onion: 4 }, optionalRareItemId: "black_soybean", xp: 140, baseStatPct: { vit: 15, str: 8 }, specialStatPct: { vit: 20, str: 10 }, description: "간장 양념 돼지고기를 쌀밥에 얹어 활력과 힘을 든든히 채웁니다." }),
   recipe({ id: "golden_gratin", name: "황금 감자 그라탱", icon: "🫕", requiredLevel: 50, farmIngredients: { potato: 20, herb: 8, onion: 8 }, optionalRareItemId: "golden_potato", xp: 130, baseStatPct: { vit: 15, spi: 8 }, specialStatPct: { vit: 20, spi: 10 }, description: "강한 공격을 버티기 위한 활력 요리입니다." }),
   recipe({ id: "ancient_tomato_meal", name: "고대종 토마토 정식", icon: "🍅", requiredLevel: 50, farmIngredients: { tomato: 20, rice: 12, herb: 6 }, optionalRareItemId: "heirloom_tomato", xp: 130, baseStatPct: { dex: 15, luk: 8 }, specialStatPct: { dex: 20, luk: 10 }, description: "정확하고 빠른 전투를 위한 민첩 요리입니다." }),
   recipe({ id: "royal_cacao_tart", name: "왕실 카카오 타르트", icon: "🍫", requiredLevel: 50, farmIngredients: { cacao: 14, sugarcane: 14, wheat: 10 }, optionalRareItemId: "royal_cacao", xp: 130, baseStatPct: { int: 15, luk: 8 }, specialStatPct: { int: 20, luk: 10 }, description: "마법 화력을 끌어올리는 지능 요리입니다." }),
@@ -590,6 +597,17 @@ export function cookingXpReward(args: {
     Math.max(0, args.bonusPct ?? 0),
     args.rng,
   );
+}
+
+/** 현재 조건에서 서버의 확률 반올림이 낼 수 있는 요리 경험치 범위. */
+export function cookingXpRewardRange(args: {
+  baseXp: number;
+  bonusPct?: number;
+}): { min: number; max: number } {
+  return {
+    min: cookingXpReward({ ...args, rng: () => 1 }),
+    max: cookingXpReward({ ...args, rng: () => 0 }),
+  };
 }
 
 export function savedRareCookingIngredientCount(args: {

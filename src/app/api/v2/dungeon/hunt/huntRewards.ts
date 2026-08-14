@@ -6,7 +6,7 @@ import {
 import { monsterGoldReward } from "@/adventure/v2/combat/monsterGold";
 import type { Monster } from "@/adventure/data/monsters";
 
-export function hpPotionTargetAmount(
+export function potionTargetAmount(
   maxHp: number,
   targetPct: number = 100,
 ): number {
@@ -47,10 +47,12 @@ export function applyChargeRestore(params: {
   hpCharges: number;
   mpCharges: number;
   hpTargetPct?: number;
+  mpTargetPct?: number;
 }): { afterHp: number; afterMp: number; hpCharges: number; mpCharges: number } {
   let { afterHp, afterMp, hpCharges, mpCharges } = params;
   const { maxHp, maxMp } = params;
-  const hpTarget = hpPotionTargetAmount(maxHp, params.hpTargetPct);
+  const hpTarget = potionTargetAmount(maxHp, params.hpTargetPct);
+  const mpTarget = potionTargetAmount(maxMp, params.mpTargetPct);
   // 설정한 목표 HP까지의 부족분만큼 hpCharges 차감.
   if (afterHp < hpTarget && hpCharges > 0) {
     const need = hpTarget - afterHp;
@@ -58,9 +60,9 @@ export function applyChargeRestore(params: {
     afterHp += restore;
     hpCharges -= restore;
   }
-  // MP 부족분 만큼 mpCharges 차감.
-  if (afterMp < maxMp && mpCharges > 0) {
-    const need = maxMp - afterMp;
+  // 설정한 목표 MP까지의 부족분만큼 mpCharges 차감.
+  if (afterMp < mpTarget && mpCharges > 0) {
+    const need = mpTarget - afterMp;
     const restore = Math.min(need, mpCharges);
     afterMp += restore;
     mpCharges -= restore;

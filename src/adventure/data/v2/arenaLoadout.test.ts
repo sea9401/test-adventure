@@ -189,6 +189,27 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     );
   });
 
+  it("내 보호막 수치의 이하 조건을 표시한다", () => {
+    const loadout = mk("self-shield-at-most", {
+      pattern: {
+        blocks: [
+          {
+            condition: {
+              kind: "self_shield",
+              op: "atMost",
+              value: 100,
+            },
+            action: { kind: "role", role: "buff" },
+          },
+        ],
+      },
+    });
+
+    expect(arenaPatternActionSummary(loadout)[0]?.condition).toBe(
+      "내 보호막 100 이하",
+    );
+  });
+
   it("상대 회복 감소 조건을 표시한다", () => {
     const loadout = mk("enemy-heal-reduction", {
       pattern: {

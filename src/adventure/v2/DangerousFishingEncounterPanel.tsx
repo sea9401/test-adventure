@@ -14,10 +14,16 @@ const BEHAVIOR_COPY = {
 
 export function DangerousFishingEncounterPanel({
   encounter,
+  sceneImageSrc,
+  targetImageSrc,
+  targetName,
   busy,
   onAction,
 }: {
   encounter: DangerousEncounterView;
+  sceneImageSrc: string;
+  targetImageSrc: string;
+  targetName: string;
   busy: boolean;
   onAction: (action: DangerousFishingAction) => void;
 }) {
@@ -27,7 +33,14 @@ export function DangerousFishingEncounterPanel({
   const distancePct = Math.min(100, (encounter.distance / encounter.startDistance) * 100);
   return (
     <section className={`${SURFACE_CARD} space-y-4 p-4`} aria-label="위험 해역 조우">
+      <div className="relative aspect-[16/7] overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-800">
+        <Image src={sceneImageSrc} alt="" fill sizes="(min-width: 780px) 720px, 100vw" className="object-cover" loading="eager" />
+        <div className="absolute inset-2">
+          <Image src={targetImageSrc} alt={targetName} fill sizes="(min-width: 780px) 360px, 70vw" className="object-contain drop-shadow-2xl" />
+        </div>
+      </div>
       <div className="text-center">
+        <h2 className="mb-1 font-bold">{targetName}</h2>
         <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">
           현재 행동 · {behavior}
         </p>
@@ -101,3 +114,4 @@ function Meter({ label, value, color }: { label: string; value: number; color: s
     </div>
   );
 }
+import Image from "next/image";

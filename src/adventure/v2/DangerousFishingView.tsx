@@ -1,19 +1,19 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type {
   DangerousBaitId,
   DangerousDepthId,
-  DangerousGearKind,
   DangerousZoneId,
 } from "@/adventure/data/v2/dangerousFishing";
 import type { DangerousFishingAction } from "./dangerousFishingEncounter";
 import { DangerousFishingEncounterPanel } from "./DangerousFishingEncounterPanel";
 import { DangerousFishingCargoPanel } from "./DangerousFishingCargoPanel";
-import { DangerousFishingLoadoutPanel } from "./DangerousFishingLoadoutPanel";
+import { DangerousFishingPreparationPanel } from "./DangerousFishingPreparationPanel";
 import {
   DangerousFishingBossPanel,
   type DangerousFishingBossViewModel,
@@ -65,11 +65,14 @@ export function DangerousFishingView({
   error,
   onBack,
   onOpenFishing,
+  onOpenChallenges,
+  onOpenLeaderboard,
+  onOpenHallOfFame,
+  onOpenShop,
   onStartVoyage,
   onReturnVoyage,
   onStartEncounter,
   onAction,
-  onShop,
   onStartBossAttempt,
   onBossAction,
   onClaimBossReward,
@@ -81,22 +84,26 @@ export function DangerousFishingView({
   error: string | null;
   onBack?: () => void;
   onOpenFishing?: () => void;
+  onOpenChallenges?: () => void;
+  onOpenLeaderboard?: () => void;
+  onOpenHallOfFame?: () => void;
+  onOpenShop?: () => void;
   onStartVoyage: (zoneId: DangerousZoneId, depthId: DangerousDepthId) => Promise<boolean>;
   onReturnVoyage: () => Promise<boolean>;
   onStartEncounter: (baitId: DangerousBaitId) => Promise<boolean>;
   onAction: (action: DangerousFishingAction, encounterId: string, revision: number) => Promise<boolean>;
-  onShop: (kind: DangerousGearKind | "bait", id: string, action: "buy" | "equip") => Promise<boolean>;
   onStartBossAttempt: (eventId: string) => Promise<boolean>;
   onBossAction: (action: DangerousFishingAction, eventId: string, encounterId: string, revision: number) => Promise<boolean>;
   onClaimBossReward: (eventId: string) => Promise<boolean>;
 }) {
+  const [activeTab, setActiveTab] = useState<"voyage" | "boss">("voyage");
   const [zoneId, setZoneId] = useState<DangerousZoneId>("shattered_reef");
   const [depthId, setDepthId] = useState<DangerousDepthId>("surface");
   const [baitId, setBaitId] = useState<DangerousBaitId>("basic_bait");
   const encounter = model?.state.voyage?.encounter ?? null;
 
   useEffect(() => {
-    if (!encounter) return;
+    if (!encounter || activeTab !== "voyage") return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || busy) return;
       const action = dangerousFishingShortcut(event.key, isTextEntryTarget(event.target));
@@ -106,12 +113,36 @@ export function DangerousFishingView({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [busy, encounter, onAction]);
+  }, [activeTab, busy, encounter, onAction]);
 
   return (
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[780px] space-y-4 rounded-2xl p-4 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-6`}>
       <SubViewHeader title="위험 해역 낚시" onBack={onBack} />
-      <FishingSubTabs active="dangerous" onOpenFishing={onOpenFishing} />
+      <FishingSubTabs
+        active="dangerous"
+        onOpenFishing={onOpenFishing}
+        onOpenChallenges={onOpenChallenges}
+        onOpenLeaderboard={onOpenLeaderboard}
+        onOpenHallOfFame={onOpenHallOfFame}
+        onOpenShop={onOpenShop}
+      />
+      <TabBar
+        tabs={[
+          { key: "voyage", label: "출항", badge: model?.state.voyage ? "!" : undefined },
+          {
+            key: "boss",
+            label: "거대어",
+            badge:
+              boss?.event?.status === "active" || (boss?.eligible && !boss.claimed)
+                ? "!"
+                : undefined,
+          },
+        ]}
+        active={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="위험 해역 콘텐츠"
+        size="md"
+      />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         기존 낚시와 별개의 선택형 콘텐츠입니다. 정해진 20분 세션이나 일일 숙제 없이 한 번의 어획 후에도 귀환할 수 있습니다.
       </p>
@@ -151,63 +182,75 @@ export function DangerousFishingView({
           <h2 className="font-bold">낚시 레벨 15에 열립니다</h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">현재 {model.heritage.fishingLevel}레벨입니다. 기존 낚시에서 경험치를 쌓으면 별도 비용 없이 스타터 세트를 받습니다.</p>
         </section>
+      ) : activeTab === "boss" ? (
+        <DangerousFishingBossPanel
+          model={boss}
+          busy={busy !== null}
+          onStart={onStartBossAttempt}
+          onAction={onBossAction}
+          onClaim={onClaimBossReward}
+        />
       ) : (
         <>
-          <DangerousFishingBossPanel
-            model={boss}
-            busy={busy !== null}
-            onStart={onStartBossAttempt}
-            onAction={onBossAction}
-            onClaim={onClaimBossReward}
-          />
           {!model.state.voyage ? (
-            <section className={`${SURFACE_CARD} space-y-4 p-4`}>
-              <div>
-                <h2 className="font-bold">출항 준비</h2>
-                <p className="text-xs text-zinc-500">해역과 수심이 깊을수록 사고 위험과 희귀 어종 기회가 커집니다.</p>
-              </div>
-              <label className="block text-xs font-semibold">
-                해역
-                <select className="mt-1 min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900" value={zoneId} onChange={(event) => setZoneId(event.target.value as DangerousZoneId)}>
-                  {Object.values(model.catalogs.zones).map((zone) => <option key={zone.id} value={zone.id} disabled={model.heritage.fishingLevel < zone.unlockLevel}>{zone.name} · Lv {zone.unlockLevel}</option>)}
-                </select>
-              </label>
-              <label className="block text-xs font-semibold">
-                수심
-                <select className="mt-1 min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900" value={depthId} onChange={(event) => setDepthId(event.target.value as DangerousDepthId)}>
-                  {Object.values(model.catalogs.depths).map((depth) => <option key={depth.id} value={depth.id}>{depth.name} · 위험 +{depth.riskBonus}</option>)}
-                </select>
-              </label>
-              <Button fullWidth variant="danger" disabled={busy !== null || model.activeAutoActivity !== null} onClick={() => void onStartVoyage(zoneId, depthId)}>
-                {model.activeAutoActivity ? "자동 채집 정산 필요" : "출항하기"}
-              </Button>
-            </section>
+            <DangerousFishingPreparationPanel
+              model={model}
+              zoneId={zoneId}
+              depthId={depthId}
+              baitId={baitId}
+              busy={busy !== null}
+              onZoneChange={setZoneId}
+              onDepthChange={setDepthId}
+              onBaitChange={setBaitId}
+              onStartVoyage={() => void onStartVoyage(zoneId, depthId)}
+              onStartEncounter={() => void onStartEncounter(baitId)}
+              onOpenShop={onOpenShop}
+            />
           ) : (
             <>
+              {!encounter ? (
+                <div className="relative aspect-[16/7] overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-800">
+                  <Image
+                    src={model.catalogs.zones[model.state.voyage.zoneId].imageSrc}
+                    alt={`${model.catalogs.zones[model.state.voyage.zoneId].name} 항해 장면`}
+                    fill
+                    sizes="(min-width: 780px) 720px, 100vw"
+                    className="object-cover"
+                    loading="eager"
+                  />
+                </div>
+              ) : null}
               <section className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-2 p-3 text-sm`}>
                 <span className="font-bold">{model.catalogs.zones[model.state.voyage.zoneId].name} · {model.catalogs.depths[model.state.voyage.depthId].name}</span>
                 <span>위험도 {model.riskPreview.risk} · 사고 확률 {Math.round(model.riskPreview.accidentChance * 100)}% · 최대 손실 {Math.round(model.riskPreview.maxLossFraction * 100)}%</span>
               </section>
               {encounter ? (
-                <DangerousFishingEncounterPanel encounter={encounter} busy={busy !== null} onAction={(action) => void onAction(action, encounter.id, encounter.revision)} />
+                <DangerousFishingEncounterPanel
+                  encounter={encounter}
+                  sceneImageSrc={model.catalogs.zones[model.state.voyage.zoneId].imageSrc}
+                  targetImageSrc={model.catalogs.fish[encounter.targetId].imageSrc}
+                  targetName={model.catalogs.fish[encounter.targetId].name}
+                  busy={busy !== null}
+                  onAction={(action) => void onAction(action, encounter.id, encounter.revision)}
+                />
               ) : (
-                <section className={`${SURFACE_CARD} space-y-3 p-4`}>
-                  <h2 className="font-bold">다음 어획</h2>
-                  <label className="block text-xs font-semibold">
-                    미끼
-                    <select className="mt-1 min-h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900" value={baitId} onChange={(event) => setBaitId(event.target.value as DangerousBaitId)}>
-                      {Object.values(model.catalogs.baits).map((bait) => <option key={bait.id} value={bait.id} disabled={!bait.unlimited && (model.state.baitCounts[bait.id] ?? 0) <= 0}>{bait.name} · {bait.unlimited ? "무제한" : `${model.state.baitCounts[bait.id] ?? 0}개`}</option>)}
-                    </select>
-                  </label>
-                  <Button fullWidth variant="info" disabled={busy !== null} onClick={() => void onStartEncounter(baitId)}>낚싯줄 던지기</Button>
-                </section>
+                <DangerousFishingPreparationPanel
+                  model={model}
+                  zoneId={zoneId}
+                  depthId={depthId}
+                  baitId={baitId}
+                  busy={busy !== null}
+                  onZoneChange={setZoneId}
+                  onDepthChange={setDepthId}
+                  onBaitChange={setBaitId}
+                  onStartVoyage={() => void onStartVoyage(zoneId, depthId)}
+                  onStartEncounter={() => void onStartEncounter(baitId)}
+                  onOpenShop={onOpenShop}
+                />
               )}
               <DangerousFishingCargoPanel model={model} busy={busy !== null} onReturn={() => void onReturnVoyage()} />
             </>
           )}
-          {!model.state.voyage?.encounter ? (
-            <DangerousFishingLoadoutPanel model={model} busy={busy !== null} onShop={(kind, id, action) => void onShop(kind, id, action)} />
-          ) : null}
         </>
       )}
     </main>

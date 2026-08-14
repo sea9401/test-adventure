@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-14",
+  "reviewedAt": "2026-08-15",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, and the six Star Grave environment and monster rasters added on 2026-08-14 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, and the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -24,7 +24,10 @@
         "https://github.com/sea9401/test-adventure/pull/1423",
         "https://github.com/sea9401/test-adventure/pull/1715",
         "https://github.com/sea9401/test-adventure/pull/2271",
-        "docs/superpowers/plans/2026-08-14-star-grave-hunting-area.md"
+        "docs/superpowers/plans/2026-08-14-star-grave-hunting-area.md",
+        "docs/superpowers/plans/2026-08-15-dangerous-fishing-visual-refresh.md",
+        "docs/superpowers/plans/2026-08-15-pig-shipment-ranch.md",
+        "docs/superpowers/plans/2026-08-15-ranch-recipe-expansion.md"
       ]
     },
     {
@@ -91,6 +94,16 @@
     {
       "path": "public/images/fish/abyss_catfish.webp",
       "sha256": "79546b36fd37c8cf20f72380e162dd65d98e39a67bc23a75bd4fe4956cf1e86a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/abyss_kraken.webp",
+      "sha256": "3525f0183508418cd218770a036d684016c13bddc8806edf769d1cfcdeb2dcf6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/abyssal_crownfish.webp",
+      "sha256": "dbf9be79f3d0f9fdc5d31cc31d655f25fb349255b6423f64727ef1a9872e297b",
       "source": "operator-cleared-game-art"
     },
     {
@@ -199,8 +212,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/ironjaw_tuna.webp",
+      "sha256": "cf4ae4c940c18c1d71ca9e1d116a4b1b6406545a79655faeff2d161547cc32c0",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/killifish.webp",
       "sha256": "c028b424583658b0ddee8f037a39467d5edbbf509bfe546efc5a69e39131db3d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/lantern_eel.webp",
+      "sha256": "8ceff505a34a3c9a073fcc48dfbe2bd8beeaaa6844b366c79768778a3fcec0a0",
       "source": "operator-cleared-game-art"
     },
     {
@@ -274,8 +297,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/razor_sardine.webp",
+      "sha256": "2734a1b9cfa10cc3f66822c7cb8d44b64c86b82421074c79510dd85e095325f3",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/red_seabream.webp",
       "sha256": "441af91f6c717ad077815e9c00e187900cb89c1d6671fe4c8e399ebf64930810",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/reef_maw_grouper.webp",
+      "sha256": "7f3011b12108f376ca37f03c5710c9553067d65f545a41093acec8a4a1be3700",
       "source": "operator-cleared-game-art"
     },
     {
@@ -304,6 +337,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/storm_mackerel.webp",
+      "sha256": "db8f517bd80f028d394c580596b44fea84842400ea6a6d7b84e87a0d6cd4cd0a",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/stormrider.webp",
       "sha256": "abb6a4489624ae3e1c9db3ff38fbd29f475a447dd32abe0adbfb16b2bb83d430",
       "source": "operator-cleared-game-art"
@@ -324,8 +362,28 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/fish/tempest_swordfish.webp",
+      "sha256": "c4e50a19d2147c80d29960674992d5ab125c8198b9356b16dcd81b791edbc12c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/thunder_ray.webp",
+      "sha256": "24805187f7a15d16bb11861fb2ff64d5624c924c70b9b7a21f6a6a99182eb525",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/tidal_colossus.webp",
+      "sha256": "9f4a66bfe5dd0c0c2df1ad42c18964f0ef7945993d98b1c65114ccd0499c74b4",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/trout.webp",
       "sha256": "1341bd853ad6b3bb44fbab3cb2e35d8962c39b6e59fdcf25bd2cc04a68ef46f0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/fish/voidfin_coelacanth.webp",
+      "sha256": "2b174995143309d347c3b2f515204e1764013eaf96ce361388d0bb3c2901394b",
       "source": "operator-cleared-game-art"
     },
     {
@@ -439,6 +497,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/crispy_pork_cutlet.webp",
+      "sha256": "8afa32d95125d98319c03d43cc775649d0e9efee2c9523625318ee3242297423",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/crystal_cacao_drink.webp",
       "sha256": "0bf347dfedd3c3bf43681100039a46ebd57a76c10db72a6dc6ee8bfcc00e67d1",
       "source": "operator-cleared-game-art"
@@ -451,6 +514,11 @@
     {
       "path": "public/images/items/cooking/earth_grand_feast.webp",
       "sha256": "296207ce95bcad4f3bb86485d39b411bae4bb337b4b20c84ed613ab98f97e515",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_fried_rice.webp",
+      "sha256": "2dc09eb87c507f275ebf14a2a025925846454f3540ce226fa64724430b3f7be8",
       "source": "operator-cleared-game-art"
     },
     {
@@ -499,6 +567,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/herb_roasted_pork.webp",
+      "sha256": "743fbb4f5be2a73ac8d13b2c14554431128544bcef2b8621b3261602663498a0",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/herb_tea.webp",
       "sha256": "8f312bf257b0c02079e1a009bf1e62d3705a993830803320eac9a54d1709330d",
       "source": "operator-cleared-game-art"
@@ -509,8 +582,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/milk_custard_pudding.webp",
+      "sha256": "fef94bc32572ea5fc2299b11e248caedda71763894c90c12ec143bf7bad1c9ec",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/milk_potato_soup.webp",
       "sha256": "f3ac69cd43f7253433a983a85c02ea9c0eebd8ea2840b99143aaac752cb61ccc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/milk_rice_porridge.webp",
+      "sha256": "7e95b9a632a51f2fa2ddd0c7f380eeb8282c261c4e40c777a0447090638ea10c",
       "source": "operator-cleared-game-art"
     },
     {
@@ -544,8 +627,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/soy_braised_eggs.webp",
+      "sha256": "38d30c3149a238b6fe11a67539a39e7623d69b54f5c639a19eb72fdaab40c73f",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/soy_glazed_fish_bowl.webp",
       "sha256": "2beec77483eeea6afe0beb320798864acd5444c075eb971e778c92c01e67f7c3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/soy_pork_rice_bowl.webp",
+      "sha256": "dec32f8d7fdeee833c32e6a959ad2dd6e183b1299f8befe1f368c1ab44599739",
       "source": "operator-cleared-game-art"
     },
     {
@@ -689,6 +782,16 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/farm/pig.webp",
+      "sha256": "0449d307abf90c324d65f21f2780435964f45e356bb6393afcfb8a5f6208fe15",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/farm/pork.webp",
+      "sha256": "cd79472d1671eed0c811e155c089cb33e4cdcccad70d9fb8e5954f21cc22e322",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/farm/potato.webp",
       "sha256": "5896c592948ca0a56ded0333df48ebe0d27f55d63ef37f608f5991ababee28a1",
       "source": "operator-cleared-game-art"
@@ -746,6 +849,76 @@
     {
       "path": "public/images/items/fishing/daily_bait.webp",
       "sha256": "07d7cd88cd352cc198c7e69b8bd9cb7a6eb635428c72f813d66c1be3153c6617",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/abyss_bait.webp",
+      "sha256": "fd020912633e99af7582a198c0852b131d011da5a5b94504b05d6e32dd208d78",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/abyss_chain_line.webp",
+      "sha256": "af7e1b4165ebd863ac2d6e3949aeb2628af9d6fb37f7fb4cb8b847b6e75c9c7a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/basic_bait.webp",
+      "sha256": "9a95b5ce6462ee99bb4dc5c65b2286ea894855cc9d859a35b0378043d27ad7eb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/blood_bait.webp",
+      "sha256": "4b4419284f9098c9fe3ec4ff8dd6e539ba9415f269c4773a6372612cfdf6e577",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/braided_line.webp",
+      "sha256": "5642fc6b6b9b51db593a4d911fe6f0dc96581e15472ae5b52c93c54fcb0e643e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/breaker_rod.webp",
+      "sha256": "9aeaf4d3339ed10a21ec24eb71764369a9b8fc2ea168dad24ddee1bfbfb3ebfb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/current_reel.webp",
+      "sha256": "246f95b0dc8c2324aa0c4811dc5a7994a0ca244e3502f1761d394a6fb6517bf3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/leviathan_rod.webp",
+      "sha256": "6c945fdcac969b6065c6435e833fbfdb66a1c4839936d28c0037ec25aa5412b3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/luminous_bait.webp",
+      "sha256": "2748e736c1f1b8b068560aca388549612b830c5a81af971d359fa1eb3148726b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/maelstrom_reel.webp",
+      "sha256": "780b7f6fd1503980354cf838e3212399396c85c171591d5fd0148ad529a0858b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/reef_bait.webp",
+      "sha256": "96ce9d67b15cde29129d934c6c90f5eb3b2da55c33599cda77ba87a6ce27b214",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/starter_line.webp",
+      "sha256": "c7b92f3c4d1a4726ba50fc0285821faaa78026864a9dc29e0ba3cb167211f48c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/starter_reel.webp",
+      "sha256": "de014b28f5fda5b25f9dfb86f9a9cec59539b1c87bb29a1ba69a2fa91c1fb1bd",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/fishing/dangerous/starter_rod.webp",
+      "sha256": "70c5bf01b876852d75bceb527c67e08aea2ddb8cb7912db8412819fec4d9b58d",
       "source": "operator-cleared-game-art"
     },
     {
@@ -1754,6 +1927,21 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/ui/dangerous-fishing-abyssal-rift.webp",
+      "sha256": "479bc9fa69606eacac769452ffc15eae4ec5b20ab8bb234c3bf421b3ef051468",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/dangerous-fishing-shattered-reef.webp",
+      "sha256": "aff988ca27def630d8543ed6e71cf2108a174885aa24447b82885b4bf883cee5",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/ui/dangerous-fishing-storm-trench.webp",
+      "sha256": "86667b5916a7a5dfa9a8bcc28d92b81a02697aeab04fef2c7d6b5b668a9f69bb",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/ui/deep_cave.webp",
       "sha256": "738630a636be1096e2dbe27e28eaeedd65c8384061973acf3bcee4ee6202bd95",
       "source": "operator-cleared-game-art"
@@ -2005,7 +2193,7 @@
     },
     {
       "path": "public/images/ui/star_grave.webp",
-      "sha256": "4c1a373eb31c32d59ac65c1a79f81dc33c41bbef9a472eaac2566a28435458a6",
+      "sha256": "a37ce713bee3bc5264ee7b25f7e785340a569d170e9aa8eefcd9c96245961b92",
       "source": "operator-cleared-game-art"
     },
     {

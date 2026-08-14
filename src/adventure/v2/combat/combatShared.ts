@@ -777,6 +777,7 @@ export type V2SkillCastInput = {
     classTier?: number;
     // 능력치 밖의 활성 상태 효과 — 패턴 조건 self_buff_pct 평가용. 엔진이 turns/잔여 횟수로 채운다.
     // 미지정=전부 비활성(구 호출 안전).
+    selfShield?: number;
     selfShieldActive?: boolean;
     // 장비·AP 발동처럼 V2 selfBuffs 맵 밖에서 관리되는 능력치 버프 활성 여부.
     // 군림/질주/적랑의 playerSpdTurnsLeft 등을 "내 속도 버프" 패턴 조건에 합친다.
@@ -848,6 +849,10 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
   return {
     selfHpPct: ((a.currentHp ?? a.maxHp) / maxHp) * 100,
     selfMpPct: (a.mp / maxMp) * 100,
+    selfShield: Math.max(
+      0,
+      Math.floor(a.selfShield ?? (a.selfShieldActive ? 1 : 0)),
+    ),
     selfShieldActive: a.selfShieldActive ?? false,
     // 활성 자버프 스탯만(turns>0). 엔진은 tick 으로 만료 키를 제거하지만, 비-엔진 호출의 stale
     //   0턴 키가 false-positive(버프 활성) 내지 않게 방어적 필터.

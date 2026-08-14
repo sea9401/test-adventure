@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   PatternChoiceButtons,
   PatternChoicePicker,
+  ConditionParams,
   SkillPatternChoiceList,
   SkillPatternPicker,
   V2CombatPatternView,
@@ -72,6 +73,21 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('aria-checked="true"');
     expect(html).toContain("이하");
     expect(html).toContain("이상");
+  });
+
+  it("보호막 수치 조건은 있음·없음과 이하·이상 선택 및 기준값을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <ConditionParams
+        condition={{ kind: "self_shield", op: "atMost", value: 100 }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("없을 때");
+    expect(html).toContain("있을 때");
+    expect(html).toContain("이하");
+    expect(html).toContain("이상");
+    expect(html).toContain('value="100"');
   });
 
   it("renders the selected action skill as a large dialog trigger", () => {

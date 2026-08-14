@@ -395,6 +395,7 @@ export async function POST(req: Request) {
             }),
           }
         : battleResult.finalState,
+      { playerCombat: playerForBattle },
     );
 
     // === 5. contributor UPSERT + 공격 로그 ===

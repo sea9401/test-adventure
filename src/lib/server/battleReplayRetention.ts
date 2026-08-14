@@ -2,7 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { battleReplays } from "@/db/schema";
 
-export const BATTLE_REPLAY_CLEANUP_BATCH_SIZE = 5_000;
+export const BATTLE_REPLAY_CLEANUP_BATCH_SIZE = 1_000;
 
 type CleanupExecutor = {
   execute(query: SQL): Promise<unknown>;

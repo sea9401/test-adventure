@@ -8,10 +8,10 @@ describe("deleteExpiredBattleReplayBatch", () => {
     vi.restoreAllMocks();
   });
 
-  it("만료 인덱스와 ctid로 한 번에 5천 건만 삭제한다", async () => {
+  it("만료 인덱스와 ctid로 한 번에 1천 건만 삭제한다", async () => {
     const now = new Date("2026-08-13T00:00:00.000Z");
     const execute = vi.fn(async (_query: SQL) => ({
-      rows: [{ deleted: "5000" }],
+      rows: [{ deleted: "1000" }],
     }));
 
     const result = await deleteExpiredBattleReplayBatch(
@@ -24,11 +24,11 @@ describe("deleteExpiredBattleReplayBatch", () => {
     expect(compiled.sql).toContain('"expires_at" <');
     expect(compiled.sql).toContain("ctid");
     expect(compiled.sql).toContain('ORDER BY "battle_replays"."expires_at"');
-    expect(compiled.params).toEqual([now, 5_000]);
+    expect(compiled.params).toEqual([now, 1_000]);
     expect(result).toEqual({
-      deleted: 5_000,
+      deleted: 1_000,
       more: true,
-      batchSize: 5_000,
+      batchSize: 1_000,
     });
   });
 
@@ -37,7 +37,7 @@ describe("deleteExpiredBattleReplayBatch", () => {
 
     await expect(
       deleteExpiredBattleReplayBatch({ execute }),
-    ).resolves.toEqual({ deleted: 317, more: false, batchSize: 5_000 });
+    ).resolves.toEqual({ deleted: 317, more: false, batchSize: 1_000 });
   });
 
   it("삭제 대상이 없으면 0건으로 정규화한다", async () => {
@@ -45,6 +45,6 @@ describe("deleteExpiredBattleReplayBatch", () => {
 
     await expect(
       deleteExpiredBattleReplayBatch({ execute }),
-    ).resolves.toEqual({ deleted: 0, more: false, batchSize: 5_000 });
+    ).resolves.toEqual({ deleted: 0, more: false, batchSize: 1_000 });
   });
 });

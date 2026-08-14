@@ -93,20 +93,22 @@ export function FarmRanchPanel({
             돼지우리에는 첫 돼지가 포함됩니다. 출하 후에는 배합 사료 4개로 새 돼지를 데려오며, 시간은 접속하지 않은 동안에도 흐릅니다.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <FarmItemIcon itemId="compound_feed" className="size-9" />
-          <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-            사료 {feedOwned.toLocaleString("ko-KR")}개
-          </span>
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-start">
+          <div className="flex items-center gap-2">
+            <FarmItemIcon itemId="compound_feed" className="size-9" />
+            <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+              사료 {feedOwned.toLocaleString("ko-KR")}개
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onCollect}
+            disabled={!ranchUnlocked || totalReady < 1 || busyCollect}
+            className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busyCollect ? "수확·출하 중..." : "모두 수확·출하"}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onCollect}
-          disabled={!ranchUnlocked || totalReady < 1 || busyCollect}
-          className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busyCollect ? "수확·출하 중..." : "모두 수확·출하"}
-        </button>
       </div>
 
       {!ranchUnlocked ? (

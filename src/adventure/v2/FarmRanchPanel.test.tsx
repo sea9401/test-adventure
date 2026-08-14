@@ -12,6 +12,27 @@ import { confirmRanchPenUpgrade, FarmRanchPanel } from "./FarmRanchPanel";
 const HOUR = 60 * 60 * 1000;
 
 describe("farm ranch panel", () => {
+  it("모바일에서는 목장 설명과 요약 동작을 서로 다른 행에 배치한다", () => {
+    const html = renderToStaticMarkup(
+      <FarmRanchPanel
+        farm={emptyFarmState(1_000)}
+        now={1_000}
+        learnedSkillIds={[FARM_CROP_REQUIRED_SKILL_ID]}
+        busyFeedPenId={null}
+        busyCollect={false}
+        busyUpgradePenId={null}
+        onFeed={vi.fn()}
+        onCollect={vi.fn()}
+        onUpgrade={vi.fn()}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain(
+      'class="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-start"',
+    );
+  });
+
   it("축사 열기 확인을 취소하면 해금 요청을 실행하지 않는다", () => {
     const onUpgrade = vi.fn();
     const confirm = vi.fn(() => false);

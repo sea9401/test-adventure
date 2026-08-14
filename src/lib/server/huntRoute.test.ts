@@ -12,7 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
-const { rewardReferralTutorialTasks, store } = vi.hoisted(() => ({
+const { insertTargets, rewardReferralTutorialTasks, store } = vi.hoisted(() => ({
+  insertTargets: [] as unknown[],
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
     newlyCompletedTaskIds: [] as string[],
@@ -43,9 +44,12 @@ vi.mock("@/db", () => {
   chain.limit = async () => [];
   const tx = {
     select: () => chain,
-    insert: () => ({
-      values: () => ({ onConflictDoUpdate: async () => undefined }),
-    }),
+    insert: (target: unknown) => {
+      insertTargets.push(target);
+      return {
+        values: () => ({ onConflictDoUpdate: async () => undefined }),
+      };
+    },
   };
   return {
     db: {
@@ -75,6 +79,7 @@ import {
   upsertSave,
 } from "@/lib/server/savesKv";
 import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
+import { battleReplays } from "@/db/schema";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -131,6 +136,7 @@ function huntReq(body: Record<string, unknown>): Request {
 describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    insertTargets.length = 0;
     seedStrongWarrior();
     // 결정적 RNG — 0.5 는 명중 임계(missPct ~6) 위라 평타 적중, 크리/추가타 임계 아래라 단타.
     // 강한 무기(atk ~175) + 우호 명중 → depth1 몹 확정 1타 처치.
@@ -385,10 +391,10 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.replays).toHaveLength(5);
     expect(json.batch.replays[0]?.index).toBe(1);
     expect(json.batch.replays[0]?.enemyName).toBeTruthy();
-    expect(json.batch.replays[0]?.replay.log).toEqual([]);
-    expect(json.batch.replays[0]?.replay.replayId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
+    expect(json.batch.replays[0]?.replay.log.length).toBeGreaterThan(0);
+    expect(json.batch.replays[0]?.replay.log.length).toBeLessThanOrEqual(81);
+    expect(json.batch.replays[0]?.replay.replayId).toBeUndefined();
+    expect(insertTargets).not.toContain(battleReplays);
 
     // 판간 이월 — 매 판 stamina 1 차감을 다음 판이 재read. 5판 후 5000-5=4995.
     const char = store.get("character.v2") as {

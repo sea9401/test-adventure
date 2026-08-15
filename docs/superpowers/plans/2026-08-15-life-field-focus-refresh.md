@@ -28,7 +28,7 @@
 - Produces: `lifeFieldStatusPresentation({ hasData, loading, error }): "loading" | "error" | "ready"`
 - Consumes: existing `data`, `loading`, and `error` values from `useLifeFieldStatus`
 
-- [ ] **Step 1: Write the failing presentation-state test**
+- [x] **Step 1: Write the failing presentation-state test**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -46,13 +46,13 @@ describe("lifeFieldStatusPresentation", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and confirm RED**
+- [x] **Step 2: Run the test and confirm RED**
 
 Run: `npm test -- src/adventure/v2/lifeFieldStatusPresentation.test.ts`
 
 Expected: FAIL because `lifeFieldStatusPresentation` does not exist yet.
 
-- [ ] **Step 3: Implement the minimal pure state function**
+- [x] **Step 3: Implement the minimal pure state function**
 
 ```ts
 export type LifeFieldStatusPresentation = "loading" | "error" | "ready";
@@ -73,11 +73,11 @@ export function lifeFieldStatusPresentation({
 }
 ```
 
-- [ ] **Step 4: Apply the state to both consumers**
+- [x] **Step 4: Apply the state to both consumers**
 
 In `LifeFieldEnvironmentCard` and `LifeFieldCodexPanel`, compute the presentation state from `data !== null`, `loading`, and `error`. Render loading/error placeholders only for those states; when the state is `ready`, keep rendering the existing data even during refresh or refresh failure.
 
-- [ ] **Step 5: Run focused and related tests**
+- [x] **Step 5: Run focused and related tests**
 
 Run:
 
@@ -87,7 +87,7 @@ npm test -- src/adventure/v2/lifeFieldStatusPresentation.test.ts src/adventure/v
 
 Expected: 4 test files pass with 0 failures.
 
-- [ ] **Step 6: Run static verification**
+- [x] **Step 6: Run static verification**
 
 Run:
 
@@ -99,6 +99,6 @@ git diff --check
 
 Expected: all commands exit 0 without errors.
 
-- [ ] **Step 7: Review and commit**
+- [x] **Step 7: Review and commit**
 
 Review `git diff` to confirm that only the planned life-field files and documentation changed, then commit the implementation and test without adding `NUL` or `_workspace/`.

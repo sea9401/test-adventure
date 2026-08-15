@@ -14,6 +14,7 @@ import type {
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import { SURFACE_ACCENT, SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { environmentRefreshDelay } from "./lifeFieldRefresh";
+import { lifeFieldStatusPresentation } from "./lifeFieldStatusPresentation";
 
 type DailyView = {
   evaluated: number;
@@ -195,10 +196,15 @@ export function LifeFieldEnvironmentCard({
       environmentStatusRefreshDelay,
     );
   const clock = useServerMinuteClock(data?.serverNow ?? null);
-  if (loading) {
+  const presentation = lifeFieldStatusPresentation({
+    hasData: data !== null,
+    loading,
+    error,
+  });
+  if (presentation === "loading") {
     return <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-500`}>현장 환경 확인 중…</div>;
   }
-  if (error || !data) {
+  if (presentation === "error" || !data) {
     return <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-500`}>현장 정보를 불러오지 못했습니다.</div>;
   }
   if (!data.features.environmentEnabled || !data.environment) return null;
@@ -254,6 +260,11 @@ export function LifeFieldCodexPanel() {
       ]),
     ) as Record<LifeFieldActivity, LifeFieldRecordView[]>;
   }, [data]);
+  const presentation = lifeFieldStatusPresentation({
+    hasData: data !== null,
+    loading,
+    error,
+  });
 
   const abandon = async (activity: LifeFieldActivity) => {
     if (!window.confirm("이 흔적을 포기할까요? 피티 수치는 복구되지 않습니다.")) return;
@@ -270,8 +281,8 @@ export function LifeFieldCodexPanel() {
     }
   };
 
-  if (loading) return <div className={`${SURFACE_CARD} p-6 text-center text-sm text-zinc-500`}>현장 기록을 불러오는 중…</div>;
-  if (error || !data || !grouped) {
+  if (presentation === "loading") return <div className={`${SURFACE_CARD} p-6 text-center text-sm text-zinc-500`}>현장 기록을 불러오는 중…</div>;
+  if (presentation === "error" || !data || !grouped) {
     return (
       <div className={`${SURFACE_CARD} p-6 text-center`}>
         <p className="text-sm text-zinc-500">현장 기록을 불러오지 못했습니다.</p>

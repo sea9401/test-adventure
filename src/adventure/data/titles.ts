@@ -837,6 +837,20 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "낚시 코인 상점에서 낚시 코인 3000으로 구매",
     category: "fishing",
   },
+  dangerous_tidal_conqueror: {
+    id: "dangerous_tidal_conqueror",
+    name: "파도를 거둔 자",
+    description: "해일의 거신을 함께 제압하고 거친 파도를 거두어 낸 낚시꾼.",
+    condition: "위험 해역 교환에서 해일의 거신 증표 10개로 구매",
+    category: "fishing",
+  },
+  dangerous_abyss_conqueror: {
+    id: "dangerous_abyss_conqueror",
+    name: "심연을 낚은 자",
+    description: "심연 크라켄을 함께 끌어올려 바다 밑 어둠과 마주한 낚시꾼.",
+    condition: "위험 해역 교환에서 심연 크라켄 증표 10개로 구매",
+    category: "fishing",
+  },
   // 낚시 칭호 4종(심해의 어부·여명의 낚시꾼·물때를 읽는 자·특별한 손님의 벗) 정의 제거
   //   (2026-06-25 과다 정리). TitleId=string 이라 타입 영향 없음. 표시 경로는 미정의 id 를
   //   가드(resolveActor·V2Codex 의 `if(!t)`) — 옛 보유분은 칭호만 비표시(데이터 무손실·정의

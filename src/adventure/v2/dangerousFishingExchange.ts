@@ -188,7 +188,10 @@ export const DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID = new Map(
 );
 
 const fishEntries = Object.values(DANGEROUS_FISH);
-const fishByMaterialId = new Map(
+const fishByMaterialId = new Map<
+  string,
+  { fish: (typeof fishEntries)[number]; index: number }
+>(
   fishEntries.map((fish, index) => [
     dangerousCatchMaterialId(fish.id),
     { fish, index },

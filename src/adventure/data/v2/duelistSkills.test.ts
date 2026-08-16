@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { aggregateEquippedPassives, V2_SKILLS, type V2SkillId } from "./v2Skills";
+import {
+  aggregateEquippedPassives,
+  describeV2Skill,
+  spCostOf,
+  V2_SKILLS,
+  type V2SkillId,
+} from "./v2Skills";
 
 describe("결투가 선언과 평타 패시브", () => {
   it.each([
@@ -36,5 +42,53 @@ describe("결투가 선언과 평타 패시브", () => {
     expect(passive.basicCritChanceCap).toBe(85);
     expect(passive.enemyPhysicalDefReductionPct).toBe(0);
     expect(passive.critPct).toBe(0);
+  });
+
+  it.each([
+    [
+      "v2c_duelist_declaration",
+      7,
+      ["다음 평타 3회", "평타 피해 +15%", "평타 치명타 확률 +15%p"],
+    ],
+    [
+      "v2c_contender_insight",
+      8,
+      ["다음 평타 3회", "평타 방어 관통 +15%p"],
+    ],
+    [
+      "v2c_undefeated_momentum",
+      11,
+      ["다음 평타 4회", "연속 평타마다 피해 +5% (최대 +15%)"],
+    ],
+    [
+      "v2c_grandchampion_hour",
+      13,
+      [
+        "다음 평타 5회",
+        "평타 치명타 배율 +0.25배",
+        "평타 치명타 확률 상한 95%",
+      ],
+    ],
+  ] as const)("%s 툴팁과 SP가 계보 효과를 반영한다", (id, spCost, effectLines) => {
+    expect(spCostOf(V2_SKILLS[id])).toBe(spCost);
+    expect(describeV2Skill(V2_SKILLS[id])).toEqual(
+      expect.arrayContaining([...effectLines]),
+    );
+  });
+
+  it.each([
+    ["v2c_duelist_balance", 5, ["힘 +8%", "행운 +8%", "민첩 +8%"]],
+    ["v2c_contender_precision", 6, ["평타 방어 관통 +10%p"]],
+    [
+      "v2c_undefeated_rhythm",
+      6,
+      ["평타 치명타 시 다음 행동 간격 -8% (1회)"],
+    ],
+    ["v2c_grandchampion_instinct", 8, ["평타 치명타 확률 상한 85%"]],
+  ] as const)("%s 패시브 툴팁과 SP를 표시한다", (id, spCost, effectLines) => {
+    expect(spCostOf(V2_SKILLS[id])).toBe(spCost);
+    expect(describeV2Skill(V2_SKILLS[id])).toEqual(
+      expect.arrayContaining([...effectLines]),
+    );
   });
 });

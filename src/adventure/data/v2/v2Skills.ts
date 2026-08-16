@@ -441,7 +441,16 @@ export type V2SkillDefinition = {
    *  procRoll 롤 — 실패하면 미발동(평타로 폴백, MP·쿨다운 미소모). 스킬 발동확률 패시브 토대. */
   procChance?: number;
   /** 결투가 계보의 준비형 선언. 실제 효과는 장착한 선언을 합성해 전투 상태에 만든다. */
-  duelistDeclaration?: { rank: 1 | 2 | 3 | 4; hits: 3 | 4 | 5 };
+  duelistDeclaration?: {
+    rank: 1 | 2 | 3 | 4;
+    hits: 3 | 4 | 5;
+    basicDamagePct?: number;
+    basicCritChancePct?: number;
+    basicDefPenetrationPct?: number;
+    rampPctPerPriorHit?: number;
+    basicCritMultAdd?: number;
+    basicCritChanceCap?: number;
+  };
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
@@ -2127,6 +2136,35 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`회피 후 다음 직접 피해 스킬 확정 치명타`);
   if (p.comboFinisherBonusPct)
     chips.push(`4타마다 피해 +${p.comboFinisherBonusPct}%`);
+  if (p.basicDefPenetrationPct)
+    chips.push(`평타 방어 관통 +${p.basicDefPenetrationPct}%p`);
+  if (p.basicCritHastePct)
+    chips.push(`평타 치명타 시 다음 행동 간격 -${p.basicCritHastePct}% (1회)`);
+  if (p.basicCritChanceCap && p.basicCritChanceCap > 75)
+    chips.push(`평타 치명타 확률 상한 ${p.basicCritChanceCap}%`);
+  return chips;
+}
+
+function describeDuelistDeclaration(
+  declaration: NonNullable<V2SkillDefinition["duelistDeclaration"]>,
+): string[] {
+  const chips = [`다음 평타 ${declaration.hits}회`];
+  if (declaration.basicDamagePct)
+    chips.push(`평타 피해 +${declaration.basicDamagePct}%`);
+  if (declaration.basicCritChancePct)
+    chips.push(`평타 치명타 확률 +${declaration.basicCritChancePct}%p`);
+  if (declaration.basicDefPenetrationPct)
+    chips.push(`평타 방어 관통 +${declaration.basicDefPenetrationPct}%p`);
+  if (declaration.rampPctPerPriorHit) {
+    const maxPct = declaration.rampPctPerPriorHit * (declaration.hits - 1);
+    chips.push(
+      `연속 평타마다 피해 +${declaration.rampPctPerPriorHit}% (최대 +${maxPct}%)`,
+    );
+  }
+  if (declaration.basicCritMultAdd)
+    chips.push(`평타 치명타 배율 +${declaration.basicCritMultAdd.toFixed(2)}배`);
+  if (declaration.basicCritChanceCap && declaration.basicCritChanceCap > 75)
+    chips.push(`평타 치명타 확률 상한 ${declaration.basicCritChanceCap}%`);
   return chips;
 }
 
@@ -2229,6 +2267,9 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
     chips.push(
       `철벽 반사 ${skill.ironWallReflect.charges}회 · 받는 피해 -${skill.ironWallReflect.damageReductionPct}% · 방어력의 ${skill.ironWallReflect.reflectDefPct}% 반사`,
     );
+  }
+  if (skill.duelistDeclaration) {
+    chips.push(...describeDuelistDeclaration(skill.duelistDeclaration));
   }
   if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
   if (

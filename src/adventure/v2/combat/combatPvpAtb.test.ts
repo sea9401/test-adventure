@@ -41,11 +41,13 @@ function run(
   p1: PlayerCombat,
   p2: PlayerCombat,
   seed = 1,
+  initiativeRoll?: number,
 ): PvPBattleResolution {
   vi.spyOn(Math, "random").mockImplementation(mulberry32(seed));
   const result = resolveBattlePvP(p1, p2, "P1", "P2", {
     pickAction: () => ({ kind: "attack" }),
     potions: { p1: {}, p2: {} },
+    initiativeRoll,
   });
   vi.restoreAllMocks();
   return result;
@@ -69,6 +71,66 @@ function actionCounts(result: PvPBattleResolution): { p1: number; p2: number } {
 }
 
 describe("resolveBattlePvP ATB invariants", () => {
+  it("동속 첫 행동은 추첨 승자부터 같은 틱에 차례로 실행한다", () => {
+    const durable = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+    };
+    const result = run(durable, durable, 1, 0.75);
+    const firstTwo = result.finalState.log
+      .filter(
+        (entry) =>
+          entry.kind === "player_attack" && entry.text.includes("공격!"),
+      )
+      .slice(0, 2)
+      .map((entry) => ({ side: entry.side, tick: entry.t }));
+
+    expect(firstTwo).toEqual([
+      { side: "p2", tick: 0 },
+      { side: "p1", tick: 0 },
+    ]);
+  });
+
+  it("이후 동속 행동 시각이 겹치면 직전과 반대쪽에 우선권을 준다", () => {
+    const durable = {
+      ...basePlayer,
+      hp: 50_000,
+      maxHp: 50_000,
+      atk: 1,
+      def: 0,
+    };
+    const result = run(durable, durable, 1, 0.75);
+    const firstFour = result.finalState.log
+      .filter(
+        (entry) =>
+          entry.kind === "player_attack" && entry.text.includes("공격!"),
+      )
+      .slice(0, 4)
+      .map((entry) => ({ side: entry.side, tick: entry.t }));
+
+    expect(firstFour).toEqual([
+      { side: "p2", tick: 0 },
+      { side: "p1", tick: 0 },
+      { side: "p1", tick: actionInterval(durable.spd) },
+      { side: "p2", tick: actionInterval(durable.spd) },
+    ]);
+  });
+
+  it("더 느린 쪽도 추첨에 이기면 치명적인 첫 행동을 할 수 있다", () => {
+    const p1 = { ...basePlayer, hp: 100, maxHp: 100, atk: 1_000, spd: 120 };
+    const p2 = { ...p1, spd: 30 };
+    const result = run(p1, p2, 1, 0.99);
+
+    expect(result.outcome).toBe("p2_win");
+    expect(
+      result.finalState.log.find((entry) => entry.kind === "player_attack")
+        ?.side,
+    ).toBe("p2");
+  });
+
   it("치명타 기본 공격도 행동명을 보존해 독립 로그로 식별된다", () => {
     const result = run(
       { ...basePlayer, critChancePct: 100 },

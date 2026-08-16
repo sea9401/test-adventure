@@ -222,7 +222,10 @@ function buildView(args: {
     fishingLevel: args.fishingLevel,
     materials: materialView(materials),
     fishingCoins,
-    state: args.dangerous,
+    state: {
+      ownedGear: args.dangerous.ownedGear,
+      baitCounts: args.dangerous.baitCounts,
+    },
     ownedTitleIds,
     ownedCosmeticIds,
     entries: DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => {

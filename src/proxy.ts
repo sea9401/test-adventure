@@ -58,10 +58,10 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
   <div class="box" role="status" aria-live="polite">
     <div class="status">서비스 점검</div>
     <h1>잠시 점검 중입니다</h1>
-    <p class="lead">더 나은 서비스 제공을 위해<br />잠시 점검하고 있습니다.</p>
+    <p class="lead">업데이트 및 오류 수정을 위해<br />잠시 점검하고 있습니다.</p>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
-      점검 시간은 06시 30분부터 07시까지입니다.<br />
+      점검 시간은 8월 17일 04시부터 06시까지, 총 2시간입니다.<br />
       잠시만 기다려 주세요.
     </p>
   </div>

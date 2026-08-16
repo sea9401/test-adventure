@@ -26,6 +26,10 @@ import type {
   DangerousFishingAction,
 } from "./dangerousFishingEncounter";
 import type { DangerousFishingBossViewModel } from "./DangerousFishingBossPanel";
+import {
+  ActivityVerificationRequiredError,
+  useActivityVerification,
+} from "./useActivityVerification";
 
 export type DangerousFishingClientVoyage = Omit<
   DangerousFishingVoyage,
@@ -72,9 +76,19 @@ export type DangerousFishingBusy =
   | "boss"
   | null;
 
-async function apiJson(path: string, init?: RequestInit): Promise<Record<string, unknown>> {
+type DangerousFishingJsonReader = (response: Response) => Promise<unknown>;
+
+async function apiJson(
+  path: string,
+  readJson: DangerousFishingJsonReader,
+  init?: RequestInit,
+): Promise<Record<string, unknown>> {
   const response = await fetch(path, init);
-  const json = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  const raw = await readJson(response);
+  const json =
+    raw && typeof raw === "object"
+      ? (raw as Record<string, unknown>)
+      : {};
   if (!response.ok || json.ok !== true) {
     const error = new Error(
       typeof json.error === "string" ? json.error : "network",
@@ -90,6 +104,8 @@ function errorCode(error: unknown): string {
 }
 
 export function useDangerousFishing() {
+  const { verification, verifyHuman, readJson } =
+    useActivityVerification("fishing");
   const [model, setModel] = useState<DangerousFishingViewModel | null>(null);
   const [boss, setBoss] = useState<DangerousFishingBossViewModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,20 +115,22 @@ export function useDangerousFishing() {
   const refresh = useCallback(async () => {
     try {
       const [statusJson, bossJson] = await Promise.all([
-        apiJson("/api/v2/dangerous-fishing/status"),
-        apiJson("/api/v2/dangerous-fishing/boss"),
+        apiJson("/api/v2/dangerous-fishing/status", readJson),
+        apiJson("/api/v2/dangerous-fishing/boss", readJson),
       ]);
       setModel(statusJson as unknown as DangerousFishingViewModel);
       setBoss(bossJson as unknown as DangerousFishingBossViewModel);
       setError(null);
       return true;
     } catch (caught) {
-      setError(errorCode(caught));
+      if (!(caught instanceof ActivityVerificationRequiredError)) {
+        setError(errorCode(caught));
+      }
       return false;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [readJson]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
@@ -137,20 +155,26 @@ export function useDangerousFishing() {
       setBusy(kind);
       setError(null);
       try {
-        await apiJson(endpoint, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        await apiJson(
+          endpoint,
+          readJson,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
         return await refresh();
       } catch (caught) {
-        setError(errorCode(caught));
+        if (!(caught instanceof ActivityVerificationRequiredError)) {
+          setError(errorCode(caught));
+        }
         return false;
       } finally {
         setBusy(null);
       }
     },
-    [busy, refresh],
+    [busy, readJson, refresh],
   );
 
   const startVoyage = useCallback(
@@ -224,6 +248,8 @@ export function useDangerousFishing() {
     loading,
     busy,
     error,
+    verification,
+    verifyHuman,
     refresh,
     startVoyage,
     returnVoyage,

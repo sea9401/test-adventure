@@ -271,6 +271,33 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("다시 시도");
   });
 
+  it("사람 확인이 필요하면 확인창을 표시하고 포괄 오류 문구와 조작을 숨긴다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingView
+        model={model()}
+        boss={null}
+        loading={false}
+        busy={null}
+        error="human_verification_required"
+        verification={{
+          activity: "fishing",
+          siteKey: "turnstile-site-key",
+          captchaSiteKey: null,
+          reason: "volume",
+          manualTest: true,
+        }}
+        verifyHuman={vi.fn(async () => true)}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain("잠시 사람 확인이 필요합니다");
+    expect(html).not.toContain(
+      "요청을 처리하지 못했습니다. 상태를 확인하고 다시 시도해 주세요.",
+    );
+    expect(html).toContain("disabled");
+  });
+
   it("A/S/D 단축키는 입력창이 아닐 때만 각 조작으로 해석한다", () => {
     expect(dangerousFishingShortcut("a", false)).toBe("reel");
     expect(dangerousFishingShortcut("S", false)).toBe("give");

@@ -19,6 +19,11 @@ import {
   type DangerousFishingBossViewModel,
 } from "./DangerousFishingBossPanel";
 import { FishingSubTabs } from "./FishingSubTabs";
+import { ActivityVerificationGate } from "./ActivityVerificationGate";
+import type {
+  ActivityVerificationChallenge,
+  ActivityVerificationSubmission,
+} from "./useActivityVerification";
 import type {
   DangerousFishingBusy,
   DangerousFishingViewModel,
@@ -63,6 +68,8 @@ export function DangerousFishingView({
   loading,
   busy,
   error,
+  verification = null,
+  verifyHuman,
   onBack,
   onOpenFishing,
   onOpenChallenges,
@@ -82,6 +89,10 @@ export function DangerousFishingView({
   loading: boolean;
   busy: DangerousFishingBusy;
   error: string | null;
+  verification?: ActivityVerificationChallenge | null;
+  verifyHuman?: (
+    submission: ActivityVerificationSubmission,
+  ) => Promise<boolean>;
   onBack?: () => void;
   onOpenFishing?: () => void;
   onOpenChallenges?: () => void;
@@ -101,11 +112,12 @@ export function DangerousFishingView({
   const [depthId, setDepthId] = useState<DangerousDepthId>("surface");
   const [baitId, setBaitId] = useState<DangerousBaitId>("basic_bait");
   const encounter = model?.state.voyage?.encounter ?? null;
+  const interactionBlocked = busy !== null || verification !== null;
 
   useEffect(() => {
     if (!encounter || activeTab !== "voyage") return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || busy) return;
+      if (event.repeat || interactionBlocked) return;
       const action = dangerousFishingShortcut(event.key, isTextEntryTarget(event.target));
       if (!action) return;
       event.preventDefault();
@@ -113,7 +125,7 @@ export function DangerousFishingView({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, busy, encounter, onAction]);
+  }, [activeTab, encounter, interactionBlocked, onAction]);
 
   return (
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[780px] space-y-4 rounded-2xl p-4 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-6`}>
@@ -126,6 +138,12 @@ export function DangerousFishingView({
         onOpenHallOfFame={onOpenHallOfFame}
         onOpenShop={onOpenShop}
       />
+      {verification && verifyHuman ? (
+        <ActivityVerificationGate
+          challenge={verification}
+          onVerify={verifyHuman}
+        />
+      ) : null}
       <TabBar
         tabs={[
           { key: "voyage", label: "출항", badge: model?.state.voyage ? "!" : undefined },
@@ -167,7 +185,7 @@ export function DangerousFishingView({
         </div>
       </details>
 
-      {error ? (
+      {error && error !== "human_verification_required" ? (
         <div role="alert" className={`${SURFACE_INSET} border-rose-300 p-3 text-sm text-rose-700 dark:border-rose-800 dark:text-rose-300`}>
           {dangerousFishingErrorMessage(error)}
         </div>
@@ -185,7 +203,7 @@ export function DangerousFishingView({
       ) : activeTab === "boss" ? (
         <DangerousFishingBossPanel
           model={boss}
-          busy={busy !== null}
+          busy={interactionBlocked}
           onStart={onStartBossAttempt}
           onAction={onBossAction}
           onClaim={onClaimBossReward}
@@ -198,7 +216,7 @@ export function DangerousFishingView({
               zoneId={zoneId}
               depthId={depthId}
               baitId={baitId}
-              busy={busy !== null}
+              busy={interactionBlocked}
               onZoneChange={setZoneId}
               onDepthChange={setDepthId}
               onBaitChange={setBaitId}
@@ -230,7 +248,7 @@ export function DangerousFishingView({
                   sceneImageSrc={model.catalogs.zones[model.state.voyage.zoneId].imageSrc}
                   targetImageSrc={model.catalogs.fish[encounter.targetId].imageSrc}
                   targetName={model.catalogs.fish[encounter.targetId].name}
-                  busy={busy !== null}
+                  busy={interactionBlocked}
                   onAction={(action) => void onAction(action, encounter.id, encounter.revision)}
                 />
               ) : (
@@ -239,7 +257,7 @@ export function DangerousFishingView({
                   zoneId={zoneId}
                   depthId={depthId}
                   baitId={baitId}
-                  busy={busy !== null}
+                  busy={interactionBlocked}
                   onZoneChange={setZoneId}
                   onDepthChange={setDepthId}
                   onBaitChange={setBaitId}
@@ -248,7 +266,7 @@ export function DangerousFishingView({
                   onOpenShop={onOpenShop}
                 />
               )}
-              <DangerousFishingCargoPanel model={model} busy={busy !== null} onReturn={() => void onReturnVoyage()} />
+              <DangerousFishingCargoPanel model={model} busy={interactionBlocked} onReturn={() => void onReturnVoyage()} />
             </>
           )}
         </>

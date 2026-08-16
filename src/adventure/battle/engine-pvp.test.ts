@@ -214,6 +214,26 @@ describe("initialBattleStatePvP — 초기 상태", () => {
     expect(s.p1.attacksLeft).toBe(0);
   });
 
+  it("레거시 결판도 주입한 속도 가중 추첨 결과로 선공자를 정한다", () => {
+    const oneHit = makePlayer({ hp: 100, maxHp: 100, atk: 1_000, spd: 60 });
+    const result = resolveBattlePvP(oneHit, oneHit, "P1", "P2", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      initiativeRoll: 0.75,
+    });
+
+    expect(result.outcome).toBe("p2_win");
+    expect(
+      result.finalState.log.find((entry) => entry.kind === "player_attack")
+        ?.side,
+    ).toBe("p2");
+    expect(
+      result.finalState.log.some((entry) =>
+        entry.text.includes("속도 가중 추첨 결과 — P2의 선공"),
+      ),
+    ).toBe(true);
+  });
+
   it("HP/maxHp 가 양쪽에 시드", () => {
     const s = initialBattleStatePvP(
       makePlayer({ hp: 80, maxHp: 100 }),

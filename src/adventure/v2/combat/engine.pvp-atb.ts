@@ -22,6 +22,10 @@ import {
 } from "./engine-pvp";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
+import {
+  pickPvpInitiative,
+  type PvPInitiativeActor,
+} from "./pvpInitiative";
 
 // PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는
 // 각자의 actionInterval에 따라 달라지며, 장기전만 사냥과 동일한 타임라인 길이까지 허용한다.
@@ -86,11 +90,12 @@ function effectiveSideSpd(state: PvPBattleState, who: "p1" | "p2"): number {
 function nextActorPvP(
   p1NextTick: number,
   p2NextTick: number,
+  tiePriority: PvPInitiativeActor,
 ): "p1" | "p2" {
   if (p1NextTick !== p2NextTick) {
     return p1NextTick < p2NextTick ? "p1" : "p2";
   }
-  return "p1";
+  return tiePriority;
 }
 
 function tagNewLogEntries(
@@ -189,6 +194,11 @@ export function resolveBattlePvPAtb(
   p2Name: string,
   ctx: PvPResolveContext,
 ): PvPBattleResolution {
+  const initiative = pickPvpInitiative(
+    p1Player.spd,
+    p2Player.spd,
+    ctx.initiativeRoll ?? Math.random(),
+  );
   const potions = {
     p1: { ...ctx.potions.p1 },
     p2: { ...ctx.potions.p2 },
@@ -206,6 +216,7 @@ export function resolveBattlePvPAtb(
     ctx.v2Skills?.p2,
     ctx.damageMultiplier,
     ctx.sustainMultiplier,
+    initiative,
   );
   state = withAtbPlayers(state);
   if (state.p1.hp <= 0 && state.p2.hp <= 0) {
@@ -222,8 +233,11 @@ export function resolveBattlePvPAtb(
     };
   }
 
-  let p1NextTick = actionInterval(effectiveSideSpd(state, "p1"));
-  let p2NextTick = actionInterval(effectiveSideSpd(state, "p2"));
+  // 선공 추첨은 첫 행동 순서만 정한다. 양쪽 모두 같은 tick에 첫 행동을 얻고,
+  // 이후부터 각자의 actionInterval로 행동 빈도 차이를 만든다.
+  let p1NextTick = 0;
+  let p2NextTick = 0;
+  let tiePriority = initiative;
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
@@ -238,8 +252,10 @@ export function resolveBattlePvPAtb(
       return forceActionGuardDraw(state, turns, consumed);
     }
 
-    const who = nextActorPvP(p1NextTick, p2NextTick);
+    const tied = p1NextTick === p2NextTick;
+    const who = nextActorPvP(p1NextTick, p2NextTick, tiePriority);
     const other = who === "p1" ? "p2" : "p1";
+    if (tied) tiePriority = other;
     actions += 1;
     state = ensureBundleReady({ ...state, phase: who }, who);
 

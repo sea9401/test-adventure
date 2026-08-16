@@ -103,6 +103,10 @@ import {
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
 import {
+  pickPvpInitiative,
+  type PvPInitiativeActor,
+} from "./pvpInitiative";
+import {
   computeCritOverflowBonus,
   reducedMagicDefense,
 } from "./engine.damageHelpers";
@@ -865,7 +869,8 @@ export function finishPvPBerserkerAttackAction(
   return setSide(state, key, { ...current, berserker });
 }
 
-// 선공 — SPD 가 높은 쪽이 먼저. 동점이면 p1 우선.
+// 저수준 상태 빌더. 실제 결판은 속도 가중 추첨 결과를 initiative 로 넘긴다.
+// initiative 생략 시의 SPD 비교는 직접 상태를 만드는 기존 전투 메커닉 테스트 호환용이다.
 export function initialBattleStatePvP(
   p1Player: PlayerCombat,
   p2Player: PlayerCombat,
@@ -875,6 +880,7 @@ export function initialBattleStatePvP(
   p2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
   damageMultiplier?: number,
   sustainMultiplier?: number,
+  initiative?: PvPInitiativeActor,
 ): PvPBattleState {
   const normalizedDamageMultiplier =
     typeof damageMultiplier === "number" &&
@@ -900,12 +906,19 @@ export function initialBattleStatePvP(
     p2Skills,
     normalizedSustainMultiplier,
   );
-  const p1First = p1Player.spd >= p2Player.spd;
+  const resolvedInitiative =
+    initiative ?? (p1Player.spd >= p2Player.spd ? "p1" : "p2");
+  const p1First = resolvedInitiative === "p1";
   const phase: PvPPhase = p1First ? "p1" : "p2";
   const initiator = p1First ? p1Name : p2Name;
   const log: BattleLogEntry[] = [
     { kind: "info", text: `${p1Name} 와(과) ${p2Name} 가 마주섰다.` },
-    { kind: "info", text: `${initiator}의 선공.` },
+    {
+      kind: "info",
+      text: initiative
+        ? `속도 가중 추첨 결과 — ${initiator}의 선공.`
+        : `${initiator}의 선공.`,
+    },
   ];
   // 선공자 첫 턴 공격 횟수 세팅 + 기습 보너스.
   const firstAttacker = p1First ? p1Side : p2Side;
@@ -2255,6 +2268,8 @@ export type PvPResolveContext = {
   damageMultiplier?: number;
   // HP 회복과 새 보호막 생성 배율. 기본 1이며 아레나에서만 별도 조정한다.
   sustainMultiplier?: number;
+  // 선공 추첨값(0 이상 1 미만). 테스트·재현 경로는 명시하고 실제 전투는 Math.random 1회를 쓴다.
+  initiativeRoll?: number;
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped, 양 side 별도. 미지정/빈 배열이면
   // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
   v2Skills?: {
@@ -3421,6 +3436,11 @@ function resolveBattlePvPLegacy(
   p2Name: string,
   ctx: PvPResolveContext,
 ): PvPBattleResolution {
+  const initiative = pickPvpInitiative(
+    p1Player.spd,
+    p2Player.spd,
+    ctx.initiativeRoll ?? Math.random(),
+  );
   const potions = {
     p1: { ...ctx.potions.p1 },
     p2: { ...ctx.potions.p2 },
@@ -3438,6 +3458,7 @@ function resolveBattlePvPLegacy(
     ctx.v2Skills?.p2,
     ctx.damageMultiplier,
     ctx.sustainMultiplier,
+    initiative,
   );
   // PR-7a — 옛 spell 시스템 폐기. start-of-battle one-shot 도 제거됐고, v2 스킬 cast hook
   // 이 각 side 의 첫 turn 진입 시 1회 발동 (resolveBattlePvP main loop).

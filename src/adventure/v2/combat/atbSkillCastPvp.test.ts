@@ -176,8 +176,11 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     );
     expect(provokeIndex).toBeGreaterThanOrEqual(0);
     const provokeTick = res.finalState.log[provokeIndex]?.t;
+    const casterActionEnd = res.finalState.log.findIndex(
+      (entry, index) => index > provokeIndex && entry.kind === "hp_bar",
+    );
     const immediateOpponentAttacks = res.finalState.log
-      .slice(provokeIndex + 1)
+      .slice(provokeIndex + 1, casterActionEnd)
       .filter(
         (entry) =>
           entry.side === "p2" &&
@@ -187,7 +190,7 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
     );
     expect(immediateOpponentAttacks).toHaveLength(2);
     expect(
-      res.finalState.log.filter(
+      res.finalState.log.slice(provokeIndex + 1, casterActionEnd).filter(
         (entry) => entry.t === provokeTick && entry.text.includes("수호 반사"),
       ),
     ).toHaveLength(2);

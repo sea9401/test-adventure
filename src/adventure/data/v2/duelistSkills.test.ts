@@ -47,22 +47,22 @@ describe("결투가 선언과 평타 패시브", () => {
   it.each([
     [
       "v2c_duelist_declaration",
-      8,
+      7,
       ["다음 평타 3회", "평타 피해 +15%", "평타 치명타 확률 +15%p"],
     ],
     [
       "v2c_contender_insight",
-      10,
+      8,
       ["다음 평타 3회", "평타 방어 관통 +15%p"],
     ],
     [
       "v2c_undefeated_momentum",
-      13,
+      11,
       ["다음 평타 4회", "연속 평타마다 피해 +5% (최대 +15%)"],
     ],
     [
       "v2c_grandchampion_hour",
-      16,
+      13,
       [
         "다음 평타 5회",
         "평타 치명타 배율 +0.25배",
@@ -77,14 +77,14 @@ describe("결투가 선언과 평타 패시브", () => {
   });
 
   it.each([
-    ["v2c_duelist_balance", 6, ["힘 +8%", "행운 +8%", "민첩 +8%"]],
-    ["v2c_contender_precision", 7, ["평타 방어 관통 +10%p"]],
+    ["v2c_duelist_balance", 5, ["힘 +8%", "행운 +8%", "민첩 +8%"]],
+    ["v2c_contender_precision", 6, ["평타 방어 관통 +10%p"]],
     [
       "v2c_undefeated_rhythm",
-      8,
+      6,
       ["평타 치명타 시 다음 행동 간격 -8% (1회)"],
     ],
-    ["v2c_grandchampion_instinct", 10, ["평타 치명타 확률 상한 85%"]],
+    ["v2c_grandchampion_instinct", 8, ["평타 치명타 확률 상한 85%"]],
   ] as const)("%s 패시브 툴팁과 SP를 표시한다", (id, spCost, effectLines) => {
     expect(spCostOf(V2_SKILLS[id])).toBe(spCost);
     expect(describeV2Skill(V2_SKILLS[id])).toEqual(

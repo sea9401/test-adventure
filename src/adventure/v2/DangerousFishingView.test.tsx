@@ -18,6 +18,7 @@ import {
   dangerousFishingShortcut,
 } from "./DangerousFishingView";
 import type { DangerousFishingViewModel } from "./useDangerousFishing";
+import { DangerousFishingBossPanel } from "./DangerousFishingBossPanel";
 
 function model(overrides: Partial<DangerousFishingViewModel> = {}): DangerousFishingViewModel {
   return {
@@ -199,6 +200,54 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("2개");
     expect(html).toContain("안전 귀환");
     expect(html).toContain("한 마리만 잡고도 돌아갈 수 있습니다");
+    expect(html).toContain("낚시 상점의 위험 해역 교환");
+    expect(html).toContain("교환 보기");
+  });
+
+  it("거대어 증표 보상에서 장비·칭호·꾸미기 교환 사용처를 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingBossPanel
+        model={{
+          ok: true,
+          now: 1_800_000_000_000,
+          event: {
+            id: "boss-1",
+            bossId: "tidal_colossus",
+            name: "해일의 거신",
+            stamina: 0,
+            maxStamina: 10_000,
+            status: "defeated",
+            spawnedAt: 1_799_900_000_000,
+            expiresAt: 1_800_100_000_000,
+            defeatedAt: 1_800_000_000_000,
+            isDiscoverer: false,
+            isLastHaul: false,
+          },
+          contribution: {
+            totalContribution: 500,
+            successfulAttempts: 1,
+            rewardClaimedAt: null,
+          },
+          attempt: null,
+          eligible: true,
+          claimed: false,
+          rewardPreview: {
+            tier: "gold",
+            fishingCoins: 190,
+            materialCount: 3,
+            discovererBonus: false,
+          },
+        }}
+        busy={false}
+        onStart={vi.fn(async () => true)}
+        onAction={vi.fn(async () => true)}
+        onClaim={vi.fn(async () => true)}
+        onOpenShop={vi.fn()}
+      />,
+    );
+    expect(html).toContain("최상급 장비");
+    expect(html).toContain("칭호·영구 프로필 테두리");
+    expect(html).toContain("교환 보기");
   });
 
   it("복원된 조우에는 장력 숫자·행동 설명과 세 개의 큰 조작 버튼을 표시한다", () => {

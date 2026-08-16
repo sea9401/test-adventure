@@ -6,10 +6,12 @@ export function DangerousFishingCargoPanel({
   model,
   busy,
   onReturn,
+  onOpenShop,
 }: {
   model: DangerousFishingViewModel;
   busy: boolean;
   onReturn: () => void;
+  onOpenShop?: () => void;
 }) {
   const voyage = model.state.voyage;
   if (!voyage) return null;
@@ -50,14 +52,22 @@ export function DangerousFishingCargoPanel({
           ))}
         </ul>
       )}
-      <Button
-        fullWidth
-        variant="success"
-        disabled={busy || voyage.encounter !== null}
-        onClick={onReturn}
-      >
-        안전 귀환
-      </Button>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        안전 귀환으로 확정된 어획물은 낚시 상점의 위험 해역 교환에서 특수 미끼로 바꿀 수 있습니다.
+      </p>
+      <div className={onOpenShop ? "grid gap-2 sm:grid-cols-[1fr_auto]" : undefined}>
+        <Button
+          fullWidth
+          variant="success"
+          disabled={busy || voyage.encounter !== null}
+          onClick={onReturn}
+        >
+          안전 귀환
+        </Button>
+        {onOpenShop ? (
+          <Button disabled={busy} onClick={onOpenShop}>교환 보기</Button>
+        ) : null}
+      </div>
     </section>
   );
 }

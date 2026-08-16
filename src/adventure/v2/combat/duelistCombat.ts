@@ -103,19 +103,41 @@ export function composeDuelistDeclaration(
   const definition = V2_SKILLS[castSkillId];
   const hits = definition.duelistDeclaration?.hits;
   if (!hits) return null;
+  const declarations = DUELIST_DECLARATION_IDS
+    .filter((id) => equipped.has(id))
+    .map((id) => V2_SKILLS[id].duelistDeclaration)
+    .filter((declaration) => declaration != null);
 
   return {
     declarationId: castSkillId,
     declarationName: definition.name,
     chainCount: DUELIST_DECLARATION_IDS.filter((id) => equipped.has(id)).length,
     remainingBasicHits: hits,
-    basicDamagePct: equipped.has("v2c_duelist_declaration") ? 15 : 0,
-    basicCritChancePct: equipped.has("v2c_duelist_declaration") ? 15 : 0,
-    basicDefPenetrationPct: equipped.has("v2c_contender_insight") ? 15 : 0,
-    rampPctPerPriorHit: equipped.has("v2c_undefeated_momentum") ? 5 : 0,
+    basicDamagePct: declarations.reduce(
+      (sum, declaration) => sum + (declaration.basicDamagePct ?? 0),
+      0,
+    ),
+    basicCritChancePct: declarations.reduce(
+      (sum, declaration) => sum + (declaration.basicCritChancePct ?? 0),
+      0,
+    ),
+    basicDefPenetrationPct: declarations.reduce(
+      (sum, declaration) => sum + (declaration.basicDefPenetrationPct ?? 0),
+      0,
+    ),
+    rampPctPerPriorHit: declarations.reduce(
+      (sum, declaration) => sum + (declaration.rampPctPerPriorHit ?? 0),
+      0,
+    ),
     landedBasicHits: 0,
-    basicCritMultAdd: equipped.has("v2c_grandchampion_hour") ? 0.25 : 0,
-    basicCritChanceCap: equipped.has("v2c_grandchampion_hour") ? 95 : 75,
+    basicCritMultAdd: declarations.reduce(
+      (sum, declaration) => sum + (declaration.basicCritMultAdd ?? 0),
+      0,
+    ),
+    basicCritChanceCap: declarations.reduce(
+      (cap, declaration) => Math.max(cap, declaration.basicCritChanceCap ?? 75),
+      75,
+    ),
   };
 }
 

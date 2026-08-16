@@ -128,10 +128,14 @@ export async function POST() {
       let grantedMaterials: Record<string, number> | null = null;
       let grantedCosmeticBox: MuseunCosmeticBoxItemId | null = null;
 
-      if (reward.kind === "adventure_support") {
+      const adventureSupportDays =
+        reward.kind === "adventure_support"
+          ? reward.days
+          : reward.adventureSupportDays ?? 0;
+      if (adventureSupportDays > 0) {
         const grant = grantAdventureSupport(
           character.adventureSupport,
-          reward.days,
+          adventureSupportDays,
           nowMs,
         );
         if (!grant) throw new Error("invalid_adventure_support_reward");
@@ -163,7 +167,9 @@ export async function POST() {
             },
           };
         }
-      } else if (reward.kind === "stamina_potion") {
+      }
+
+      if (reward.kind === "stamina_potion") {
         const potionSave = await lockSaveForUpdate(
           tx,
           userId,
@@ -190,7 +196,7 @@ export async function POST() {
           ...inventory,
           [MASTERY_CERTIFICATE_KEY]: masteryCertificates,
         });
-      } else {
+      } else if (reward.kind !== "adventure_support") {
         const materials = materialCounts(character.materials);
         grantedMaterials = {};
         const grantMaterial = (materialId: string, count: number) => {
@@ -283,14 +289,20 @@ function recordAttendanceReward(
       quantity: 1,
     });
   }
-  if (reward.kind === "adventure_support") {
+  const adventureSupportDays =
+    reward.kind === "adventure_support"
+      ? reward.days
+      : reward.adventureSupportDays ?? 0;
+  if (adventureSupportDays > 0) {
     recordEconomyEventSoon({
       userId,
       eventType: "reward.monthly_attendance",
       itemKind: "entitlement",
       itemId: "monthly_adventure_support",
-      quantity: reward.days,
+      quantity: adventureSupportDays,
     });
+  }
+  if (reward.kind === "adventure_support") {
     return;
   }
   if (reward.kind === "stamina_potion") {

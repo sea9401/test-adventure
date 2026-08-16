@@ -180,6 +180,9 @@ export type BattleBuffs = {
 
 // 가변 자원 스택 / 잔량 카운트.
 export type BattleStacks = {
+  // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.
+  fortressImpact: number;
+  ironWallReflectCharges: number;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
   // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
   // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.
@@ -205,6 +208,8 @@ export type BattleStacks = {
   // 고유 시그니처 — 평타·스킬을 합친 전투 내 누적 적중 횟수(N회마다 추가 기본 공격). every_n_hits
   //   시그니처 미장착이면 0 고정(증가 안 함) → byte-identical.
   signatureHitCount: number;
+  // every_n_hits 로 예약된 추가 기본 공격 잔량. 이 공격은 자기 자신의 다음 주기 적중에는 포함하지 않는다.
+  signatureBonusAttacksLeft: number;
   /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
   tier6Uniques?: Tier6UniqueRuntimeState;
   // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).
@@ -244,6 +249,10 @@ export type BattleState = {
   enemyHp: number;
   playerHp: number;
   playerMaxHp: number;
+  /** 결투가 선언 계열이 합성한 평타 횟수형 버프. */
+  duelistBuff?: import("./duelistCombat").DuelistBuff | null;
+  /** 승자의 박자로 다음 ATB 행동 간격을 한 번만 줄이는 대기 상태. */
+  duelistCritHastePending?: boolean;
   /** 광전사–패황의 전투 중 준비, 사망 극복, 멸왕일도 사용 횟수. */
   berserker?: import("./berserkerCombat").BerserkerCombatState;
   // v2 마법 시스템 자원. INT 가 있는 캐릭만 > 0. 단판 전투당 풀충전 모델 —
@@ -378,14 +387,26 @@ export type PlayerCombat = {
   critChancePct?: number;
   // 크리티컬 데미지 배수. undefined = CRIT_MULT_BASE 사용. luk 비례로 호출 측이 계산.
   critMult?: number;
+  /** 결투가 계보의 현재 직업 전용 평타 최종 피해 보너스. */
+  duelistStanceBonusPct?: number;
+  /** 결투 태세를 비활성화한 공격 스킬 이름. */
+  duelistStanceBlockingSkillName?: string;
+  /** 평타 전용 방어 관통 %p. */
+  basicDefPenetrationPct?: number;
+  /** 평타 치명타 뒤 다음 행동 간격 단축 %. */
+  basicCritHastePct?: number;
+  /** 평타 전용 치명타 확률 상한. */
+  basicCritChanceCap?: number;
   // PR-2 v2 전투 재설계 신규 축 — 옵셔널 (라이브 미사용, v2 경로만 읽음).
   // magicDef: scaling="magic" 데미지에서 차감(combatShared). critResistPct: 피격 시 상대 치명 확률 −%p.
-  // minDamage: 데미지 하한. healMult: heal effect 스케일(1.0=무영향).
+  // minDamage: 물리 스킬 데미지 하한. magicMinDamage: 마법 스킬 데미지 하한.
+  // healMult: heal effect 스케일(1.0=무영향).
   magicDef?: number;
   critResistPct?: number;
   /** 중독·출혈 등 status_damage 피해 감소율. 직접 피해·둔화에는 적용하지 않는다. */
   statusDamageReductionPct?: number;
   minDamage?: number;
+  magicMinDamage?: number;
   healMult?: number;
   // 기존 원소술사 스킬의 연출 분기용. 전투 상성에는 사용하지 않는다.
   characterElement?: V2Element;
@@ -441,6 +462,9 @@ export type PlayerCombat = {
   //   시작 원량 복원용 계수이며, thornsFlatFromDef 가 PvE/PvP 공통 원량이다.
   thornsDefPct?: number;
   thornsFlatFromDef?: number;
+  fortressImpactOnHit?: boolean;
+  fortressImpactDamagePctPerStack?: number;
+  fortressDefSkillStatCoefPct?: number;
   // ── 2티어 특기 (각 스탯 50 도달) ────────────────────────────────────────
   // 불굴의 일격 — 매 턴 본타에 (전투 누적 피해 × N) 추가. 0/undefined = 미장착.
   enduringStrikeMult?: number;
@@ -578,6 +602,8 @@ export type PlayerCombat = {
   skillCritOverflow?: boolean;
   // 스킬 치명타 피해 +% — 기본 스킬 치명타 배율에 /100 가산. 미보유 = undefined.
   skillCritDmgPct?: number;
+  // 원초 증폭 — 장비 치명타 배율에서 변환된 직접 마법 스킬 치명타 피해 +%p. 키 존재=장착.
+  equipmentMagicSkillCritDmgPct?: number;
   // 흑월지배 — 회피 성공 후 다음 직접 피해 액티브 스킬 확정 치명타. 미보유 = undefined.
   skillCritAfterEvade?: boolean;
 };

@@ -1,5 +1,6 @@
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
+  equipmentPowerDisplayValue,
   powerWithBonuses,
   type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
@@ -33,13 +34,17 @@ export function buildEnhancePowerPreview(
   craftQuality: V2CraftQualityState | undefined,
   currentLevel: number,
 ): EnhancePowerPreviewRow[] {
-  const unenhancedPower = powerWithBonuses(basePower, undefined, craftQuality);
+  const unenhancedPower = equipmentPowerDisplayValue(
+    powerWithBonuses(basePower, undefined, craftQuality),
+  );
   return enhancePowerPreviewLevels(currentLevel).map((level) => {
     const bonusPct = enhanceBonusPct(level);
-    const power = powerWithBonuses(
-      basePower,
-      { level, bonusPct },
-      craftQuality,
+    const power = equipmentPowerDisplayValue(
+      powerWithBonuses(
+        basePower,
+        { level, bonusPct },
+        craftQuality,
+      ),
     );
     return {
       level,

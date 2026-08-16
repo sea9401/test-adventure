@@ -19,7 +19,6 @@ import {
   coopBossCurrentMp,
   coopBossMaxMp,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   evasionDamageReductionPct,
   pveEvasionDamageReductionPct,
@@ -68,34 +67,31 @@ export async function GET(_req: Request, { params }: Ctx) {
     return Response.json({ ok: false, error: "no_session" }, { status: 404 });
   }
   const def = COOP_BOSSES[kind];
-  // 코어루프 — 가시성 권한. 접근 권한 없으면 기여자(과거 참전·보상 확인)만 열람 허용,
-  //   그 외엔 존재 노출 안 하려 404. off 면 누구나 열람(현행).
-  if (V2_CORE_LOOP_V2) {
-    const viewerGuildId =
-      (
-        await db
-          .select({ guildId: guildMembers.guildId })
-          .from(guildMembers)
-          .where(eq(guildMembers.userId, userId))
-          .limit(1)
-      )[0]?.guildId ?? null;
-    if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
-      const [contrib] = await db
-        .select({ userId: coopBossContributors.userId })
-        .from(coopBossContributors)
-        .where(
-          and(
-            eq(coopBossContributors.sessionId, sessionId),
-            eq(coopBossContributors.userId, userId),
-          ),
-        )
-        .limit(1);
-      if (!contrib) {
-        return Response.json(
-          { ok: false, error: "no_session" },
-          { status: 404 },
-        );
-      }
+  // 접근 권한 없으면 기여자(과거 참전·보상 확인)만 열람을 허용한다.
+  const viewerGuildId =
+    (
+      await db
+        .select({ guildId: guildMembers.guildId })
+        .from(guildMembers)
+        .where(eq(guildMembers.userId, userId))
+        .limit(1)
+    )[0]?.guildId ?? null;
+  if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
+    const [contrib] = await db
+      .select({ userId: coopBossContributors.userId })
+      .from(coopBossContributors)
+      .where(
+        and(
+          eq(coopBossContributors.sessionId, sessionId),
+          eq(coopBossContributors.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (!contrib) {
+      return Response.json(
+        { ok: false, error: "no_session" },
+        { status: 404 },
+      );
     }
   }
 

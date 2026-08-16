@@ -271,11 +271,25 @@ export function rollMiningByproducts(
   node: MiningNode,
   rng: () => number = Math.random,
   chanceMultiplier = 1,
+  bonuses: {
+    byproductChancePct?: number;
+    rareByproductChancePct?: number;
+  } = {},
 ): Partial<Record<MiningMaterialId, number>> {
   if (!MINING_BYPRODUCTS_ENABLED) return {};
   const drops: Partial<Record<MiningMaterialId, number>> = {};
   for (const rule of node.byproducts) {
-    if (rng() < Math.min(1, rule.chance * Math.max(0, chanceMultiplier))) drops[rule.materialId] = 1;
+    const levelBonus =
+      Math.max(0, Number(bonuses.byproductChancePct) || 0) / 100 +
+      (rule.materialId === MINING_MATERIAL_ID.roughGem
+        ? Math.max(0, Number(bonuses.rareByproductChancePct) || 0) / 100
+        : 0);
+    if (
+      rng() <
+      Math.min(1, rule.chance * Math.max(0, chanceMultiplier) + levelBonus)
+    ) {
+      drops[rule.materialId] = 1;
+    }
   }
   return drops;
 }

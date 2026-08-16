@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -79,6 +79,20 @@ type QuestsResponse = {
 
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
 type ClaimAllScope = Extract<TopTab, "tutorial" | "achievement">;
+
+export function QuestTabContent({
+  tab,
+  children,
+}: {
+  tab: TopTab;
+  children: ReactNode;
+}) {
+  return (
+    <div data-quest-tab-content={tab} className="ui-tab-content-reveal">
+      {children}
+    </div>
+  );
+}
 
 export function QuestTopTabs({
   active,
@@ -399,17 +413,19 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         weeklyRewardReady={repeat?.weeklyBundle.claimable === true}
       />
 
-      {loading ? (
-        <Card padding="md">
-          <Skeleton rows={4} />
-        </Card>
-      ) : topTab === "tutorial" ? (
-        renderGuide(true)
-      ) : topTab === "achievement" ? (
-        renderGuide(false)
-      ) : (
-        renderRepeatTab(topTab)
-      )}
+      <QuestTabContent key={topTab} tab={topTab}>
+        {loading ? (
+          <Card padding="md">
+            <Skeleton rows={4} />
+          </Card>
+        ) : topTab === "tutorial" ? (
+          renderGuide(true)
+        ) : topTab === "achievement" ? (
+          renderGuide(false)
+        ) : (
+          renderRepeatTab(topTab)
+        )}
+      </QuestTabContent>
     </PageShell>
   );
 
@@ -518,14 +534,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
                 disabled={
                   claimableCount === 0 || busy !== null || claimAllBusy !== null
                 }
+                loading={claimAllBusy === claimAllScope}
+                loadingLabel={`${groupLabel} 보상 모두 수령 중`}
                 variant="warning"
                 size="sm"
                 className="shrink-0"
               >
                 <Gift size={16} weight="fill" aria-hidden />
-                {claimAllBusy === claimAllScope
-                  ? "모두 받는 중…"
-                  : `모두 받기 (${claimableCount})`}
+                모두 받기 ({claimableCount})
               </Button>
             </div>
           </Card>
@@ -669,11 +685,13 @@ function BundleCard({
           <Button
             onClick={onClaim}
             disabled={!bundle.claimable || busy}
+            loading={busy}
+            loadingLabel={`${scope === "daily" ? "일일" : "주간"} 마일스톤 보상 수령 중`}
             variant="warning"
             size="xs"
             className="shrink-0"
           >
-            {busy ? "수령 중…" : "받기"}
+            받기
           </Button>
         )}
       </div>
@@ -781,11 +799,13 @@ export function QuestRow({
             <Button
               onClick={onToggleTracking}
               disabled={trackingBusy || busy}
+              loading={trackingBusy}
+              loadingLabel={`${quest.title} 추적 상태 변경 중`}
               variant={tracked ? "warning" : "secondary"}
               size="xs"
             >
               <Star size={12} weight={tracked ? "fill" : "regular"} aria-hidden />
-              {trackingBusy ? "처리 중…" : tracked ? "추적 해제" : "메인 표시"}
+              {tracked ? "추적 해제" : "메인 표시"}
             </Button>
           )}
           {onOpenMonsterCodex && (
@@ -801,10 +821,12 @@ export function QuestRow({
             <Button
               onClick={onClaim}
               disabled={busy}
+              loading={busy}
+              loadingLabel={`${quest.title} 보상 수령 중`}
               variant="secondary"
               size="xs"
             >
-              {busy ? "처리 중…" : reward ? "받기" : "완료"}
+              {reward ? "받기" : "완료"}
             </Button>
           )}
           {status === "active" && quest.href && (

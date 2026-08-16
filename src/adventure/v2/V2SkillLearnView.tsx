@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import {
   SKILL_RITUAL_MAX_LEVEL,
@@ -58,6 +59,7 @@ type ElementalRow = {
 
 type StateShape = LoadoutStatSource & {
   ok?: boolean;
+  jobsV2?: { currentJobId?: string } | null;
   elementalSkills?: ElementalRow[];
   proficiency?: { current?: { points: number } };
   loadout?: V2LoadoutData; // 코어루프 flag-on 만 존재(SP 로드아웃).
@@ -79,6 +81,13 @@ export function nextLoadoutStatFeedback(
   };
 }
 
+export async function refreshLoadoutViews(
+  refreshLoadout: () => Promise<void>,
+  refreshGameState: () => Promise<void>,
+): Promise<void> {
+  await Promise.all([refreshLoadout(), refreshGameState()]);
+}
+
 function skillName(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.name ?? id;
 }
@@ -94,6 +103,33 @@ export function skillRitualCostLabel(cost: {
 }): string {
   return `비용 ${goldLabel(cost.goldCost)} · 숙달 ${cost.proficiencyCost.toLocaleString()}`;
 }
+
+export function SkillRitualPowerScopeHelp() {
+  return (
+    <div className={`${SURFACE_INSET} mt-3 space-y-2 p-3 text-[11px] leading-relaxed`}>
+      <div>
+        <strong className="text-emerald-700 dark:text-emerald-400">
+          강화 적용
+        </strong>{" "}
+        <span className="text-zinc-600 dark:text-zinc-300">
+          직접 피해, 즉시 회복, 보호막의 최종 수치
+        </span>
+      </div>
+      <p className="text-zinc-500 dark:text-zinc-400">
+        직접 피해에는 공격력·스탯·HP·스택·조건부 비례 피해가 모두 포함됩니다.
+      </p>
+      <div>
+        <strong className="text-zinc-700 dark:text-zinc-300">
+          적용 제외
+        </strong>{" "}
+        <span className="text-zinc-500 dark:text-zinc-400">
+          중독·출혈·화상 지속 피해, 지속 회복, 버프·디버프, MP 회복, HP 소모량
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function modeLabel(mode: SkillRitualMode): string {
   return mode === "focus" ? "집중 의식" : "위력 의식";
 }
@@ -140,9 +176,10 @@ export function V2SkillLearnView({
   // 허브 탭 분리 — "learn"=학습, "loadout"=프리셋+장착, "enhance"=강화 의식, "all"=전부.
   section?: "all" | "learn" | "loadout" | "enhance";
 }) {
-  const { applyResourcePatch } = useGameState();
+  const { applyResourcePatch, refreshGameState } = useGameState();
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
   const [loadout, setLoadout] = useState<V2LoadoutData | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | undefined>();
   const [usable, setUsable] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -164,6 +201,7 @@ export function V2SkillLearnView({
       if (j?.ok) {
         setElementalSkills(j.elementalSkills ?? []);
         setLoadout(j.loadout ?? null);
+        setCurrentJobId(j.jobsV2?.currentJobId);
         setUsable(j.proficiency?.current?.points ?? 0);
         const nextFeedback = nextLoadoutStatFeedback(
           statSnapshotRef.current,
@@ -180,8 +218,8 @@ export function V2SkillLearnView({
 
   const handleLoadoutChanged = useCallback(async () => {
     compareNextRefreshRef.current = true;
-    await refresh();
-  }, [refresh]);
+    await refreshLoadoutViews(refresh, refreshGameState);
+  }, [refresh, refreshGameState]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 스킬/로드아웃 fetch
@@ -447,6 +485,7 @@ export function V2SkillLearnView({
             />
             <V2LoadoutPanel
               loadout={loadout}
+              currentJobId={currentJobId}
               onChanged={handleLoadoutChanged}
             />
           </LoadoutStatResponsiveLayout>
@@ -460,6 +499,7 @@ export function V2SkillLearnView({
             />
             <V2LoadoutPanel
               loadout={loadout}
+              currentJobId={currentJobId}
               onChanged={handleLoadoutChanged}
             />
           </>
@@ -514,11 +554,13 @@ export function V2SkillLearnView({
                     <Button
                       onClick={() => learn(s.skillId, s.cost)}
                       disabled={busy != null || !affordable}
+                      loading={busy === s.skillId}
+                      loadingLabel={`${s.name} 학습 중`}
                       variant="success"
                       size="xs"
                       className="shrink-0"
                     >
-                      {busy === s.skillId ? "학습 중…" : "학습"}
+                      학습
                     </Button>
                   ) : (
                     <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
@@ -668,7 +710,7 @@ export function V2SkillLearnView({
                     <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
                       {mode === "focus"
                         ? "발동 확률이 있는 스킬의 발동률을 올립니다."
-                        : "피해, 회복, 보호막 수치를 올립니다."}
+                        : "직접 피해·즉시 회복·보호막의 최종 수치를 올립니다."}
                     </span>
                     <span className="mt-1 block text-[11px] text-zinc-500 dark:text-zinc-500">
                       {!eligible
@@ -681,6 +723,8 @@ export function V2SkillLearnView({
                 );
               })}
             </div>
+
+            {ritualMode === "power" && <SkillRitualPowerScopeHelp />}
 
             <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">

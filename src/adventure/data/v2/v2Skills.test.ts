@@ -796,7 +796,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
       "피해 마법 공격력×1.05 + 지능×0.4",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_shieldman_bash)).toContain(
-      "피해 공격력×1.05 + 방어력×1.5",
+      "피해 공격력×1.05 + 방어력×1.67",
     );
   });
 
@@ -900,7 +900,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     ).toBe(true);
     expect(
       describeV2Skill(V2_SKILLS.v2c_fortressknight_ram).some((chip) =>
-        chip.includes("공격력×1.2 + 방어력×1.97"),
+        chip.includes("공격력×1.2 + 방어력×2.36"),
       ),
     ).toBe(true);
 
@@ -941,8 +941,9 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   it("액티브 스킬은 100% 발동도 확률 칩으로 표시", () => {
     const chips = describeV2Skill(V2_SKILLS.v2c_ironknight_guard);
     expect(chips).toContain("발동 100%");
-    expect(chips).toContain("받는 피해 -30% (2행동)");
-    expect(chips).toContain("반사 피해 +50% (2행동)");
+    expect(chips).toContain(
+      "철벽 반사 3회 · 받는 피해 -30% · 방어력의 180% 반사",
+    );
   });
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
@@ -1207,9 +1208,21 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_warrior_warcry)).toBe(2);
   });
 
+  it("단계형 근력과 필살은 효과가 오를 때 SP도 함께 오른다", () => {
+    expect(
+      [
+        "v2c_warrior_might",
+        "v2c_squire_might",
+        "v2c_sensei_ironbody",
+      ].map((id) => spCostOf(V2_SKILLS[id as V2SkillId])),
+    ).toEqual([2, 3, 4]);
+    expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4); // 치명타 피해 +25%
+    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(5); // 치명타 피해 +30%
+  });
+
   it("치명타 피해는 회피보다 비싸게, 회피 단계는 완만하게 책정한다", () => {
     expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4); // 치명타 피해 +25%
-    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(4); // 치명타 피해 +30%
+    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(5); // 치명타 피해 +30%
     expect(spCostOf(V2_SKILLS.v2c_boxer_fortitude)).toBe(2); // 회피도 +8%
     expect(spCostOf(V2_SKILLS.v2c_brawler_fortitude3)).toBe(3); // 회피 +12%
     expect(spCostOf(V2_SKILLS.v2c_phantom_stealth)).toBe(3); // 회피도 +16%
@@ -1332,6 +1345,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(17);
     expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(15);
     expect(spCostOf(V2_SKILLS.v2c_primordialmage_return)).toBe(16);
+    expect(spCostOf(V2_SKILLS.v2c_primordialmage_amplification)).toBe(12);
   });
 
   it("🔑 트립와이어 — 자원·발동률까지 우월한 스킬이 더 싸지는 가격 역전을 막는다", () => {

@@ -45,6 +45,7 @@ import type { AutoGatheringActivity } from "./autoGathering";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { fishingRewardSummaryLabels } from "./fishingRewardSummary";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
+import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -1671,6 +1672,12 @@ export function FishingView({
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
 
         <ProductionJobAdvanceNotice refreshKey={progression?.catches ?? 0} />
+        {progression ? (
+          <LifeLevelMilestoneNotice
+            activity="fishing"
+            level={progression.level}
+          />
+        ) : null}
 
         {fishingSpot ? (
           <LifeFieldEnvironmentCard
@@ -1711,13 +1718,13 @@ export function FishingView({
             <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-1.5 text-[11px] dark:border-sky-900/60 dark:bg-sky-950/30 sm:hidden">
               <div className="flex items-center gap-2">
                 <span className="shrink-0 font-bold text-sky-900 dark:text-sky-100">
-                  Lv {progression.level}
+                  Lv {progression.level} / 100
                 </span>
                 <div className="h-1 flex-1 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
                   <div
                     className="h-full rounded-full bg-sky-500 transition-[width]"
                     style={{
-                      width: `${Math.round(
+                      width: `${progression.xpForNext <= 0 ? 100 : Math.round(
                         (progression.xpIntoLevel / progression.xpForNext) * 100,
                       )}%`,
                     }}
@@ -1736,11 +1743,13 @@ export function FishingView({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
-                    낚시 Lv {progression.level}
+                    낚시 Lv {progression.level} / 100
                   </div>
                   <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                     {progression.catches.toLocaleString()}마리 ·{" "}
-                    {progression.xpIntoLevel}/{progression.xpForNext} XP
+                    {progression.xpForNext <= 0
+                      ? "최종 숙련 달성 · MAX"
+                      : `${progression.xpIntoLevel}/${progression.xpForNext} XP`}
                   </div>
                 </div>
                 <div className="min-w-0 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
@@ -1756,7 +1765,7 @@ export function FishingView({
                 <div
                   className="h-full rounded-full bg-sky-500 transition-[width]"
                   style={{
-                    width: `${Math.round(
+                    width: `${progression.xpForNext <= 0 ? 100 : Math.round(
                       (progression.xpIntoLevel / progression.xpForNext) * 100,
                     )}%`,
                   }}

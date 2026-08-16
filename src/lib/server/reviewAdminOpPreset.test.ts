@@ -166,7 +166,7 @@ describe("buildReviewAdminOpPreset", () => {
 });
 
 describe("buildReviewAdminLifePreset", () => {
-  it("다섯 생활 경험치를 Lv.50으로 올리면서 기존 기록과 보유 상태를 보존한다", () => {
+  it("다섯 생활 경험치를 Lv.100으로 올리면서 기존 기록과 보유 상태를 보존한다", () => {
     const result = buildReviewAdminLifePreset({
       farmRaw: {
         inventory: { wheat: 9 },
@@ -184,25 +184,29 @@ describe("buildReviewAdminLifePreset", () => {
     });
 
     expect(result.levels).toEqual({
-      farming: 50,
-      woodcutting: 50,
-      mining: 50,
-      fishing: 50,
-      cooking: 50,
+      farming: 100,
+      woodcutting: 100,
+      mining: 100,
+      fishing: 100,
+      cooking: 100,
     });
-    expect(result.farm.stats).toMatchObject({ farmingXp: 24_010, harvests: 7 });
+    expect(result.farm).toMatchObject({
+      levelCurveVersion: 2,
+      stats: { farmingXp: 120_050, harvests: 7 },
+    });
     expect(result.farm.inventory).toMatchObject({ wheat: 9 });
-    expect(result.woodcutting).toMatchObject({ xp: 96_040, cuts: 8, timberEarned: 6 });
-    expect(result.mining).toMatchObject({ xp: 96_040, successes: 9, oreEarned: 7 });
-    expect(result.fishing).toMatchObject({ xp: 84_035, catches: 10 });
+    expect(result.woodcutting).toMatchObject({ levelCurveVersion: 2, xp: 480_200, cuts: 8, timberEarned: 6 });
+    expect(result.mining).toMatchObject({ levelCurveVersion: 2, xp: 480_200, successes: 9, oreEarned: 7 });
+    expect(result.fishing).toMatchObject({ levelCurveVersion: 2, xp: 420_175, catches: 10 });
     expect(result.cooking).toMatchObject({
-      xp: 24_010,
+      levelCurveVersion: 2,
+      xp: 120_050,
       discoveredRecipeIds: ["rustic_bread"],
       stats: expect.objectContaining({ dishesCooked: 11 }),
     });
   });
 
-  it("이미 만렙 기준보다 높은 경험치는 낮추지 않고 재적용 결과를 유지한다", () => {
+  it("만렙 기준을 넘은 경험치는 100레벨 상한으로 정규화하고 재적용 결과를 유지한다", () => {
     const input = {
       farmRaw: { stats: { farmingXp: 200_000 } },
       woodcuttingRaw: { xp: 200_000 },
@@ -221,17 +225,17 @@ describe("buildReviewAdminLifePreset", () => {
       nowMs: input.nowMs,
     });
 
-    expect(first.farm.stats.farmingXp).toBe(200_000);
-    expect(first.woodcutting.xp).toBe(200_000);
-    expect(first.mining.xp).toBe(200_000);
-    expect(first.fishing.xp).toBe(200_000);
-    expect(first.cooking.xp).toBe(200_000);
+    expect(first.farm.stats.farmingXp).toBe(120_050);
+    expect(first.woodcutting.xp).toBe(480_200);
+    expect(first.mining.xp).toBe(480_200);
+    expect(first.fishing.xp).toBe(420_175);
+    expect(first.cooking.xp).toBe(120_050);
     expect(first.levels).toEqual({
-      farming: 50,
-      woodcutting: 50,
-      mining: 50,
-      fishing: 50,
-      cooking: 50,
+      farming: 100,
+      woodcutting: 100,
+      mining: 100,
+      fishing: 100,
+      cooking: 100,
     });
     expect(second).toEqual(first);
   });

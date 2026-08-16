@@ -6,9 +6,18 @@ import {
   type FishTier,
   type FishTierWeightBonuses,
 } from "@/adventure/data/v2/fish";
+import {
+  LIFE_LEVEL_CAP,
+  LIFE_LEVEL_CURVE_VERSION,
+  applyLifeXpGain,
+  extendedLifeLevelForXp,
+  extendedLifeXpThreshold,
+  normalizeLifeXp,
+} from "./lifeLevelProgression";
+import { fishingPost50Bonuses } from "./lifeLevelBonuses";
 
 export const FISHING_PROGRESS_KEY = "fishing-progress.v1";
-export const FISHING_LEVEL_CAP = 50;
+export const FISHING_LEVEL_CAP = LIFE_LEVEL_CAP;
 export const FISHING_MASTER_LEVEL = 30;
 
 export type FishingRodId =
@@ -196,6 +205,7 @@ const DEFAULT_ROD: FishingRodId = "reed_rod";
 const DEFAULT_LURE: FishingLureId = "dough_lure";
 
 export type FishingProgressionState = {
+  levelCurveVersion: number;
   xp: number;
   catches: number;
   fishCounts: Partial<Record<FishId, number>>;
@@ -207,6 +217,7 @@ export type FishingProgressionState = {
 };
 
 export type FishingProgressionView = {
+  levelCurveVersion: number;
   xp: number;
   level: number;
   xpIntoLevel: number;
@@ -225,6 +236,7 @@ export type FishingProgressionView = {
 
 export function emptyFishingProgression(): FishingProgressionState {
   return {
+    levelCurveVersion: LIFE_LEVEL_CURVE_VERSION,
     xp: 0,
     catches: 0,
     fishCounts: {},
@@ -294,7 +306,7 @@ function uniqueLures(raw: unknown): FishingLureId[] {
   return FISHING_LURE_IDS.filter((id) => set.has(id));
 }
 
-export function parseFishingProgression(raw: unknown): FishingProgressionState {
+function parseFishingProgressionFields(raw: unknown): FishingProgressionState {
   if (!raw || typeof raw !== "object") return emptyFishingProgression();
   const r = raw as Record<string, unknown>;
   const ownedRods = uniqueRods(r.ownedRods);
@@ -302,6 +314,9 @@ export function parseFishingProgression(raw: unknown): FishingProgressionState {
   const equippedRodId = parseRodId(r.equippedRodId);
   const equippedLureId = parseLureId(r.equippedLureId);
   return {
+    levelCurveVersion: Number.isFinite(Number(r.levelCurveVersion))
+      ? Math.max(1, Math.floor(Number(r.levelCurveVersion)))
+      : 1,
     xp: posInt(r.xp),
     catches: posInt(r.catches),
     fishCounts: parseFishCounts(r.fishCounts),
@@ -317,6 +332,30 @@ export function parseFishingProgression(raw: unknown): FishingProgressionState {
         ? equippedLureId
         : DEFAULT_LURE,
   };
+}
+
+export function parseFishingProgressionWithLevelMigration(raw: unknown): {
+  state: FishingProgressionState;
+  levelCurveMigrated: boolean;
+} {
+  const state = parseFishingProgressionFields(raw);
+  const normalized = normalizeLifeXp({
+    xp: state.xp,
+    levelCurveVersion: state.levelCurveVersion,
+    legacyThreshold: legacyFishingLevelXpThreshold,
+  });
+  return {
+    state: {
+      ...state,
+      xp: normalized.xp,
+      levelCurveVersion: normalized.levelCurveVersion,
+    },
+    levelCurveMigrated: normalized.migrated,
+  };
+}
+
+export function parseFishingProgression(raw: unknown): FishingProgressionState {
+  return parseFishingProgressionWithLevelMigration(raw).state;
 }
 
 function fishCount(state: FishingProgressionState, fishId: FishId): number {
@@ -447,8 +486,7 @@ export function deriveFishingGoalViews(
 }
 
 export function fishingLevelForXp(xp: number): number {
-  const safe = Math.max(0, Math.floor(Number(xp) || 0));
-  return Math.min(FISHING_LEVEL_CAP, 1 + Math.floor(Math.sqrt(safe / 35)));
+  return extendedLifeLevelForXp(xp, legacyFishingLevelXpThreshold);
 }
 
 export function fishingLevelRewardCoins(level: number): number {
@@ -459,25 +497,35 @@ export function fishingLevelRewardCoins(level: number): number {
 }
 
 export function fishingLevelBonuses(level: number): FishingGearBonuses {
-  const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
+  const safeLevel = Math.max(1, Math.min(50, Math.floor(Number(level) || 1)));
   const masterLevel = Math.max(0, safeLevel - FISHING_MASTER_LEVEL);
+  const post50 = fishingPost50Bonuses(level);
   return {
     waitReductionPct: 0,
     sizeBonusPct:
       Math.min(7, Math.floor((safeLevel - 1) / 4)) +
-      Math.min(2, Math.floor((masterLevel + 5) / 10)),
-    rareSizeBonusPct: Math.min(2, Math.floor(masterLevel / 10)),
-    bigCatchSizeBonusPct: Math.min(1, Math.floor(masterLevel / 20)),
+      Math.min(2, Math.floor((masterLevel + 5) / 10)) +
+      post50.sizeBonusPct,
+    rareSizeBonusPct:
+      Math.min(2, Math.floor(masterLevel / 10)) + post50.rareSizeBonusPct,
+    bigCatchSizeBonusPct:
+      Math.min(1, Math.floor(masterLevel / 20)) +
+      post50.bigCatchSizeBonusPct,
     specialWeightPct:
       Math.min(14, Math.floor((safeLevel - 1) / 2)) +
-      Math.min(10, Math.floor(masterLevel / 2)),
+      Math.min(10, Math.floor(masterLevel / 2)) +
+      post50.specialWeightPct,
     tierWeightPct: {},
   };
 }
 
-export function fishingLevelXpThreshold(level: number): number {
-  const lv = Math.max(1, Math.floor(level));
+function legacyFishingLevelXpThreshold(level: number): number {
+  const lv = Math.max(1, Math.min(50, Math.floor(level) || 1));
   return (lv - 1) ** 2 * 35;
+}
+
+export function fishingLevelXpThreshold(level: number): number {
+  return extendedLifeXpThreshold(level, legacyFishingLevelXpThreshold);
 }
 
 export function fishingProgressionView(
@@ -492,7 +540,7 @@ export function fishingProgressionView(
     ...state,
     level,
     xpIntoLevel: capped ? 0 : Math.max(0, state.xp - levelStart),
-    xpForNext: capped ? 1 : Math.max(1, levelEnd - levelStart),
+    xpForNext: capped ? 0 : Math.max(1, levelEnd - levelStart),
     goals: deriveFishingGoalViews(state),
     levelBonuses,
     bonuses: fishingBonusesFromProgression(state),
@@ -522,9 +570,18 @@ export function addFishingCatchXp(
     ...state.fishCounts,
     [fishId]: (state.fishCounts[fishId] ?? 0) + 1,
   };
+  const applied = applyLifeXpGain({
+    xp: state.xp,
+    gainedXp: xpGained,
+    legacyThreshold: legacyFishingLevelXpThreshold,
+  });
   const next = {
     ...state,
-    xp: state.xp + xpGained,
+    levelCurveVersion: Math.max(
+      LIFE_LEVEL_CURVE_VERSION,
+      state.levelCurveVersion,
+    ),
+    xp: applied.xp,
     catches: state.catches + 1,
     fishCounts: nextFishCounts,
   };

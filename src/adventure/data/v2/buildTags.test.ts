@@ -145,6 +145,10 @@ describe("v2 build tags", () => {
       "vit",
       "tank",
     ]);
+    expectTags(
+      buildTagsForSkill(V2_SKILLS.v2c_primordialmage_amplification),
+      ["int", "magic", "crit"],
+    );
   });
 
   it("명시 buildTags 는 추론 태그와 함께 유지된다", () => {

@@ -19,9 +19,11 @@ import {
   fishingLevelBonuses,
   fishingLevelForXp,
   fishingLevelRewardCoins,
+  fishingLevelXpThreshold,
   fishingProgressionView,
   fishingSizeBonusLabels,
   parseFishingProgression,
+  parseFishingProgressionWithLevelMigration,
 } from "./fishingProgression";
 
 describe("낚시 크기 보정 표시", () => {
@@ -42,6 +44,24 @@ describe("낚시 크기 보정 표시", () => {
 });
 
 describe("낚시 진행도", () => {
+  it("기존 50레벨 기준을 보존하고 100레벨 곡선으로 확장한다", () => {
+    expect(fishingLevelXpThreshold(50)).toBe(84_035);
+    expect(fishingLevelXpThreshold(100)).toBe(420_175);
+    expect(fishingLevelForXp(fishingLevelXpThreshold(75))).toBe(75);
+  });
+
+  it("구 50레벨 초과 낚시 XP를 25%만 한 번 환산한다", () => {
+    const parsed = parseFishingProgressionWithLevelMigration({
+      ...emptyFishingProgression(),
+      levelCurveVersion: undefined,
+      xp: 999_999,
+    });
+
+    expect(parsed.levelCurveMigrated).toBe(true);
+    expect(parsed.state.levelCurveVersion).toBe(2);
+    expect(parsed.state.xp).toBe(fishingLevelXpThreshold(60));
+  });
+
   it("깨진 저장값은 기본 낚싯대/미끼로 복구한다", () => {
     const parsed = parseFishingProgression({
       xp: 42.9,
@@ -88,12 +108,12 @@ describe("낚시 진행도", () => {
     expect(goal?.claimable).toBe(true);
   });
 
-  it("레벨은 경험치 곡선에 따라 상승하고 50에서 멈춘다", () => {
+  it("레벨은 경험치 곡선에 따라 상승하고 100에서 멈춘다", () => {
     expect(fishingLevelForXp(0)).toBe(1);
     expect(fishingLevelForXp(35)).toBe(2);
     expect(fishingLevelForXp(140)).toBe(3);
     expect(fishingLevelForXp(29 * 29 * 35)).toBe(FISHING_MASTER_LEVEL);
-    expect(fishingLevelForXp(49 * 49 * 35)).toBe(FISHING_LEVEL_CAP);
+    expect(fishingLevelForXp(49 * 49 * 35)).toBe(50);
     expect(fishingLevelForXp(999_999)).toBe(FISHING_LEVEL_CAP);
   });
 
@@ -124,7 +144,7 @@ describe("낚시 진행도", () => {
     });
   });
 
-  it("50레벨 + 최고 장비 + 낚시 패시브 + 물때 보정 합산도 안전선 안에 둔다", () => {
+  it("100레벨 + 최고 장비 + 낚시 패시브 + 물때 보정 합산도 안전선 안에 둔다", () => {
     let maxProgress = {
       sizeBonusPct: 0,
       rareSizeBonusPct: 0,
@@ -201,15 +221,15 @@ describe("낚시 진행도", () => {
     };
 
     expect(total).toEqual({
-      sizeBonusPct: 22,
-      rareSizeBonusPct: 21,
-      bigCatchSizeBonusPct: 16,
-      specialWeightPct: 124,
+      sizeBonusPct: 25,
+      rareSizeBonusPct: 22,
+      bigCatchSizeBonusPct: 17,
+      specialWeightPct: 129,
     });
-    expect(total.sizeBonusPct).toBeLessThanOrEqual(22);
-    expect(total.rareSizeBonusPct).toBeLessThanOrEqual(21);
-    expect(total.bigCatchSizeBonusPct).toBeLessThanOrEqual(16);
-    expect(total.specialWeightPct).toBeLessThanOrEqual(125);
+    expect(total.sizeBonusPct).toBeLessThanOrEqual(25);
+    expect(total.rareSizeBonusPct).toBeLessThanOrEqual(22);
+    expect(total.bigCatchSizeBonusPct).toBeLessThanOrEqual(17);
+    expect(total.specialWeightPct).toBeLessThanOrEqual(129);
   });
 
   it("레벨업 코인 보상은 2레벨부터 주고 5레벨 단위에서 커진다", () => {

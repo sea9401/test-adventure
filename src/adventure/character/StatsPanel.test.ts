@@ -1,7 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { activeSkillCritStats, StatsPanel } from "./StatsPanel";
+import {
+  activeSkillCritStats,
+  combatStatDescription,
+  StatsPanel,
+} from "./StatsPanel";
 
 describe("activeSkillCritStats", () => {
   it("액티브 스킬은 캐릭터 치명타 확률을 75% 상한으로 공유한다", () => {
@@ -25,6 +29,61 @@ describe("activeSkillCritStats", () => {
     expect(
       activeSkillCritStats({ critChancePct: 83, skillCritDmgPct: 30 }),
     ).toEqual({ chancePct: 75, multiplier: 2 });
+  });
+
+  it("원초 증폭이 있으면 장비 변환분을 더한 마법 스킬 배율을 별도로 반환한다", () => {
+    expect(
+      activeSkillCritStats({
+        critChancePct: 83,
+        skillCritDmgPct: 30,
+        equipmentMagicSkillCritDmgPct: 29.5102,
+      }),
+    ).toEqual({
+      chancePct: 75,
+      multiplier: 2,
+      magicMultiplier: 2.295102,
+    });
+    expect(
+      activeSkillCritStats({
+        critChancePct: 0,
+        equipmentMagicSkillCritDmgPct: 0,
+      }),
+    ).toEqual({ chancePct: 0, multiplier: 1.7, magicMultiplier: 1.7 });
+  });
+});
+
+describe("StatsPanel 원초 증폭 표기", () => {
+  it("패시브 장착 시 실제 장비 기준 마법 스킬 치명타 배율을 별도 표시한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { int: 1 },
+        statKeys: ["int"],
+        statLabels: { int: "지능" },
+        combat: {
+          atk: 10,
+          def: 5,
+          evasionPct: 0,
+          critChancePct: 75,
+          equipmentMagicSkillCritDmgPct: 29.5102,
+        },
+      }),
+    );
+
+    expect(html).toContain("마법 스킬 치명타 배율");
+    expect(html).toContain("×2.00");
+  });
+
+  it("패시브 미장착이면 마법 전용 행을 표시하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { int: 1 },
+        statKeys: ["int"],
+        statLabels: { int: "지능" },
+        combat: { atk: 10, def: 5, evasionPct: 0, critChancePct: 75 },
+      }),
+    );
+
+    expect(html).not.toContain("마법 스킬 치명타 배율");
   });
 });
 
@@ -58,6 +117,15 @@ describe("StatsPanel 회복량 표기", () => {
     );
 
     expect(html).not.toContain("회복량");
+  });
+});
+
+describe("StatsPanel 마법 공격력 설명", () => {
+  it("정신의 기본 기여와 지능 초과분의 추가 전환을 함께 안내한다", () => {
+    const description = combatStatDescription("마법 공격력");
+
+    expect(description).toContain("정신도 일부 기여");
+    expect(description).toContain("지능을 초과한 정신은 더 높은 비율로 전환");
   });
 });
 

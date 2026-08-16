@@ -24,7 +24,7 @@ import {
   WOODCUTTING_SESSION_KEY,
   WOODCUTTING_MATERIAL_REWARD,
   WOODCUTTING_TREES,
-  parseWoodcuttingLog,
+  parseWoodcuttingLogWithLevelMigration,
   parseWoodcuttingSession,
   recordWoodcuttingSuccess,
   woodcuttingAttemptSucceeds,
@@ -58,6 +58,7 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { rollWoodcuttingSeedDrop } from "@/adventure/v2/woodcuttingSeedDrops";
+import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
@@ -172,8 +173,10 @@ export async function POST(req: Request) {
     ).nextActionAt;
     const tree = WOODCUTTING_TREES[session.treeId];
     const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
-    const currentLog = parseWoodcuttingLog(logRaw);
+    const parsedLog = parseWoodcuttingLogWithLevelMigration(logRaw);
+    const currentLog = parsedLog.log;
     const progression = woodcuttingProgressionView(currentLog.cuts, currentLog.xp);
+    const levelBonuses = woodcuttingPost50Bonuses(progression.level);
     const failureRate =
       session.failureRate ??
       woodcuttingFailureRate(tree.baseFailureRate, progression.level);
@@ -248,7 +251,10 @@ export async function POST(req: Request) {
       [materialId]: materialGained,
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
-    const seedDrop = rollWoodcuttingSeedDrop();
+    const seedDrop = rollWoodcuttingSeedDrop(
+      Math.random,
+      levelBonuses.seedChancePct,
+    );
     if (seedDrop) {
       const farm = parseFarmState(
         await lockSaveForUpdate(
@@ -268,7 +274,13 @@ export async function POST(req: Request) {
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
     crafting = consumeLifeAidUses(crafting, "woodcutting", session.aidItemId, 1).state;
-    const blueprint = rollHiddenBlueprint(crafting, "woodcutting");
+    const blueprint = rollHiddenBlueprint(
+      crafting,
+      "woodcutting",
+      1,
+      Math.random,
+      levelBonuses.rareResultChancePct,
+    );
     workshop = { ...workshop, crafting: blueprint.state };
     await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
 
@@ -353,6 +365,9 @@ export async function POST(req: Request) {
       materials: woodcuttingMaterialBalances(materials),
       // 구버전 클라이언트가 배포 중 응답을 받아도 깨지지 않도록 한동안 유지한다.
       timberGained: materialGained,
+      ...(parsedLog.levelCurveMigrated
+        ? { levelCurveMigrated: true as const }
+        : {}),
       timber: materials[SETTLEMENT_MATERIAL_ID.timber] ?? 0,
       log,
       blueprintRecipeId: blueprint.recipe?.id ?? null,

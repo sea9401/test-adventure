@@ -89,14 +89,19 @@ export const WAR_TICKER_MAX_ITEMS = 10;
 
 // === 분류(카테고리) — 패널의 분류별 보기 탭 + GET /api/feed?category= 서버 필터 ===
 // 전광판 묶음(WAR_FEED_TYPES — enhance_high 포함)과 별개: 이쪽은 열람용 의미 분류.
-// 유니크 드랍(unique_drop)은 어느 분류에도 안 넣는다 — 빈도가 높아 획득 칩을 도배하던
-// 것을 "전체"에서만 보이게(사용자 결정 2026-06-13). 강화는 획득에서 분리.
+// 유니크 드랍(unique_drop)은 획득 분류에 포함하되 전광판에는 올리지 않는다.
+// 강화는 획득에서 분리.
 export const FEED_CATEGORIES = ["acquisition", "enhance", "war", "boss"] as const;
 export type FeedCategory = (typeof FEED_CATEGORIES)[number];
 
 export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
-  // 획득 — 걸작 제작(유니크 드랍/레어맵 발견 제외).
-  acquisition: ["masterpiece", "life_blueprint", "life_discovery"],
+  // 획득 — 유니크 드랍·걸작 제작·생활 도면/발견(레어맵 발견 제외).
+  acquisition: [
+    "unique_drop",
+    "masterpiece",
+    "life_blueprint",
+    "life_discovery",
+  ],
   // 강화 — 고강(+9 이상) 성공/파괴.
   enhance: ["enhance_high", "enhance_destroy"],
   // 전쟁 — 거점 점령/공성/침입자 토벌.

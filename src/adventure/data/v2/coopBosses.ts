@@ -225,9 +225,10 @@ export const COOP_BOSS_MP_DAMAGE_RATIO = 1.2;
 export const COOP_BOSS_MP_ATTACK_DRAIN = 2;
 export const COOP_BOSS_MP_CRIT_DRAIN = 2;
 
-// === 가시성/공격 권한 — 코어루프 협동보스 리워크 ===========================
-// 소환 시 소환자가 공개 범위를 고른다. 공격 비용은 스태미나가 담당한다.
+// === 가시성/공격 권한 ======================================================
+// 모든 보스는 소환자 전용으로 시작하며, 소환 후 길드 또는 전체에 공개한다.
 export type CoopVisibility = "public" | "guild_only" | "summoner_only";
+export const COOP_INITIAL_VISIBILITY: CoopVisibility = "summoner_only";
 export const COOP_VISIBILITY_VALUES: readonly CoopVisibility[] = [
   "public",
   "guild_only",
@@ -237,7 +238,20 @@ export function parseCoopVisibility(v: unknown): CoopVisibility {
   return v === "guild_only" || v === "summoner_only" ? v : "public";
 }
 
-// 가시성 표시 라벨 + 선택지 — 소환 UI(목록)와 소환 후 변경 UI(상세) 공용.
+export function coopVisibilityTransition(
+  current: unknown,
+  requested: CoopVisibility,
+):
+  | { ok: true; changed: boolean }
+  | { ok: false; error: "visibility_locked" } {
+  const stored = parseCoopVisibility(current);
+  if (stored === "public" && requested !== "public") {
+    return { ok: false, error: "visibility_locked" };
+  }
+  return { ok: true, changed: stored !== requested };
+}
+
+// 가시성 표시 라벨 + 소환 후 변경 UI 선택지.
 export const COOP_VISIBILITY_LABEL: Record<CoopVisibility, string> = {
   public: "공개",
   guild_only: "길드원만",
@@ -249,6 +263,7 @@ export const COOP_VISIBILITY_OPTIONS: readonly (readonly [
 ])[] = COOP_VISIBILITY_VALUES.map((v) => [v, COOP_VISIBILITY_LABEL[v]] as const);
 
 // 공격/조회 권한 (순수). 가시성 + 소환자/소환 시점 길드 기준. 미지정/구행은 public 폴백.
+// 이미 피해를 기록한 참여자는 소환자가 나중에 범위를 좁혀도 진행 중 토벌 접근을 유지한다.
 export function canAccessCoopBoss(
   session: {
     visibility?: string | null;
@@ -256,7 +271,9 @@ export function canAccessCoopBoss(
     summonerGuildId?: number | null;
   },
   viewer: { userId: string; guildId: number | null },
+  hasContribution = false,
 ): boolean {
+  if (hasContribution) return true;
   const vis = session.visibility ?? "public";
   if (vis === "guild_only") {
     return (

@@ -81,10 +81,16 @@ import {
 } from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
+  effectiveCombatPatternFromEquipped,
   isLimitedRecoverySkillId,
   smartDefaultPatternFromEquipped,
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  composeDuelistDeclaration,
+  duelistDeclarationSummary,
+  interruptDuelistRamp,
+} from "./duelistCombat";
 import {
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
@@ -108,6 +114,7 @@ import {
 } from "./pvpInitiative";
 import {
   computeCritOverflowBonus,
+  computeDirectSkillDamage,
   reducedMagicDefense,
 } from "./engine.damageHelpers";
 import {
@@ -121,6 +128,11 @@ import {
   tier6PvpDotContext,
   tier6PvpStatusKindCount,
 } from "./tier6UniquePvpAdapter";
+import {
+  consumeReactiveDefenseCharges,
+  ironWallDamageReductionPct,
+  resolveFortressReaction,
+} from "./fortressKnight";
 import {
   applyBerserkerCastTransition,
   applyBerserkerLethalDamage,
@@ -198,6 +210,8 @@ export type PvPSideBuffs = {
 };
 
 export type PvPSideStacks = {
+  fortressImpact: number;
+  ironWallReflectCharges: number;
   playerShield: number;
   evadesRemaining: number;
   damageTakenThisCombat: number;
@@ -239,6 +253,8 @@ export type PvPSideStacks = {
   comboHitCount: number;
   // 고유 시그니처 — 이 side 의 평타·스킬 누적 적중 횟수(N회마다 추가 기본 공격). 미장착=0 고정.
   signatureHitCount: number;
+  // every_n_hits 로 예약된 추가 기본 공격 잔량. 이 공격은 자기 자신의 다음 주기 적중에는 포함하지 않는다.
+  signatureBonusAttacksLeft: number;
   /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
   tier6Uniques?: Tier6UniqueRuntimeState;
 };
@@ -248,6 +264,8 @@ export type PvPSide = {
   name: string;
   hp: number;
   maxHp: number;
+  duelistBuff?: import("./duelistCombat").DuelistBuff | null;
+  duelistCritHastePending?: boolean;
   // v2 마법 풀 — 일기토/토너먼트 매치 시작 시 풀충전 (PR-3·4). INT 0 = 둘 다 0.
   mp: number;
   maxMp: number;
@@ -613,6 +631,7 @@ export function pvpSideDamageTakenReductionPct(side: PvPSide): number {
     0,
     (side.player.passiveDamageTakenReductionPct ?? 0) +
       activePct +
+      ironWallDamageReductionPct(side.stacks.ironWallReflectCharges) +
       signaturePct,
   );
 }
@@ -713,6 +732,8 @@ function buildSide(
       playerLifestealTurnsLeft: 0,
     },
     stacks: {
+      fortressImpact: 0,
+      ironWallReflectCharges: 0,
       playerShield: startShield,
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
@@ -744,6 +765,7 @@ function buildSide(
       spellCastCount: 0,
       comboHitCount: 0,
       signatureHitCount: 0,
+      signatureBonusAttacksLeft: 0,
       ...(hasTier6Unique(player.equipSignatures)
         ? { tier6Uniques: initialTier6UniqueRuntime() }
         : {}),
@@ -1544,6 +1566,7 @@ export function applyOnHitReflect(
   defKey: "p1" | "p2",
   rawDmgBeforeMitigation: number,
   finishCurrentAction = true,
+  fortressOnly = false,
 ): { state: PvPBattleState; attackerKilled: boolean } {
   const attacker = state[atkKey];
   const defender = state[defKey];
@@ -1572,16 +1595,71 @@ export function applyOnHitReflect(
           ? Math.floor((defender.player.def * thornsDefPct) / 100)
           : 0))
       : 0;
-  const baseTotal = thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
+  const baseTotal = fortressOnly
+    ? 0
+    : thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
+  const fortressReaction = resolveFortressReaction({
+    landed: rawDmgBeforeMitigation > 0,
+    defenderDef: defender.player.def,
+    impact: defender.stacks.fortressImpact,
+    impactOnHit: defender.player.fortressImpactOnHit ?? false,
+    ironWallReflectCharges: defender.stacks.ironWallReflectCharges,
+  });
+  const reactiveDefenseCharges = consumeReactiveDefenseCharges(
+    {
+      evasion: defender.stacks.skillEvasionTurns,
+      damageReduction: defender.stacks.skillDmgReduceTurns,
+      reflect: defender.stacks.skillReflectBoostTurns,
+    },
+    {
+      evasionUsed: defender.stacks.skillEvasionTurns > 0,
+      landed: rawDmgBeforeMitigation > 0,
+      reflectEligible: baseTotal > 0,
+    },
+  );
   const reflectBoostPct =
     defender.stacks.skillReflectBoostTurns > 0
       ? defender.stacks.skillReflectBoostPct
       : 0;
-  const rawTotal =
+  const boostedBaseTotal =
     reflectBoostPct > 0
       ? Math.floor(baseTotal * (1 + reflectBoostPct / 100))
       : baseTotal;
-  if (rawTotal <= 0) return { state, attackerKilled: false };
+  const rawTotal = boostedBaseTotal + fortressReaction.rawReflectDamage;
+  let reactedState = setSide(state, defKey, {
+    ...defender,
+    stacks: {
+      ...defender.stacks,
+      skillEvasionTurns: reactiveDefenseCharges.evasion,
+      skillDmgReduceTurns: reactiveDefenseCharges.damageReduction,
+      skillReflectBoostTurns: reactiveDefenseCharges.reflect,
+      fortressImpact: fortressReaction.impact,
+      ironWallReflectCharges: fortressReaction.ironWallReflectCharges,
+    },
+  });
+  if (fortressReaction.impact > defender.stacks.fortressImpact) {
+    reactedState = {
+      ...reactedState,
+      log: appendLog(reactedState.log, {
+        kind: "info",
+        text: `[충격 방벽] ${defender.name} 충격 +1 (현재 ${fortressReaction.impact}/3)`,
+        side: defKey,
+      }),
+    };
+  }
+  if (fortressReaction.ironWallReflected) {
+    reactedState = {
+      ...reactedState,
+      log: appendLog(reactedState.log, {
+        kind: "info",
+        text: `[철벽 태세] ${defender.name} 철벽 반사 ${fortressReaction.ironWallReflectCharges}회 남음`,
+        side: defKey,
+      }),
+    };
+  }
+  if (rawTotal <= 0) {
+    return { state: reactedState, attackerKilled: false };
+  }
   const barrier = resolveMagicBarrierDamage({
     rawDamage: rawTotal,
     durability: attacker.magicBarrier ?? 0,
@@ -1590,8 +1668,8 @@ export function applyOnHitReflect(
     eligible: true,
     mitigateBody: (bodyRawDamage) =>
       scalePvPDamage(
-        state,
-        mitigatePvPReflectDamage(state, atkKey, defKey, bodyRawDamage),
+        reactedState,
+        mitigatePvPReflectDamage(reactedState, atkKey, defKey, bodyRawDamage),
       ),
   });
   const shieldAbsorbed = Math.min(
@@ -1630,7 +1708,7 @@ export function applyOnHitReflect(
       berserker: finishBerserkerCurrentActionGuard(nextAttacker.berserker),
     };
   }
-  let st = setSide(state, atkKey, {
+  let st = setSide(reactedState, atkKey, {
     ...nextAttacker,
   });
   const labels: string[] = [];
@@ -1639,6 +1717,7 @@ export function applyOnHitReflect(
   if (infiniteDmg > 0) labels.push("무한 가시");
   if (wardenReflectDmg > 0) labels.push("수호 반사");
   if (reflectBoostPct > 0) labels.push("반사 증폭");
+  if (fortressReaction.ironWallReflected) labels.push("철벽 반사");
   if (shieldAbsorbed > 0) {
     st = {
       ...st,
@@ -2399,8 +2478,11 @@ export function castV2SkillOnAttackerTurnPvP(
     // 저장된 커스텀 패턴 우선, 없으면 장착 스킬 종류별 스마트 기본 패턴(유틸 스팸 방지).
     turn: side.turn.completedPlayerTurns + 1,
     combatPattern: V2_COMBAT_PATTERN_ENABLED
-      ? (side.v2Skills.pattern ??
-        smartDefaultPatternFromEquipped(side.v2Skills.equipped))
+      ? effectiveCombatPatternFromEquipped(
+          side.v2Skills.equipped,
+          side.v2Skills.pattern ??
+            smartDefaultPatternFromEquipped(side.v2Skills.equipped),
+        )
       : undefined,
     berserker: side.berserker
       ? berserkerCastContext(
@@ -2416,6 +2498,7 @@ export function castV2SkillOnAttackerTurnPvP(
       singleHitPhysicalSkillDamagePct:
         side.player.singleHitPhysicalSkillDamagePct,
       minDamage: side.player.minDamage,
+      magicMinDamage: side.player.magicMinDamage,
       healMult: side.player.healMult,
       maxHp: side.maxHp,
       // PR2-B — PvP 시전자도 PlayerCombat → def/vit 비례딜·현재HP(사혈격)·maxMp(보호막/명상)·차수 flat 유효.
@@ -2440,10 +2523,16 @@ export function castV2SkillOnAttackerTurnPvP(
         reflectDamage: side.stacks.skillReflectBoostTurns > 0,
         regen: side.stacks.skillRegenTurns > 0,
         guaranteedEvade: side.stacks.evadesRemaining > 0,
+        duelistDeclaration: (side.duelistBuff?.remainingBasicHits ?? 0) > 0,
       },
       currentHp: side.hp,
       maxMp: side.maxMp,
       classTier: side.player.classTier,
+      fortressImpact: side.stacks.fortressImpact,
+      ironWallReflectCharges: side.stacks.ironWallReflectCharges,
+      fortressImpactDamagePctPerStack:
+        side.player.fortressImpactDamagePctPerStack,
+      fortressDefSkillStatCoefPct: side.player.fortressDefSkillStatCoefPct,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
       characterElement: side.player.characterElement,
@@ -2572,16 +2661,21 @@ export function castV2SkillOnAttackerTurnPvP(
       : 0;
   const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
-  //   로 분리. 데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
+  //   로 분리. PvP 확률 판정은 대상의 치명타 저항을 차감하며, 강제 치명타는 저항을 무시한다.
+  //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
+  const effectiveSkillCritPct = Math.max(
+    0,
+    Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0) -
+      (opp.player.critResistPct ?? 0),
+  );
   const skillCritAfterEvadeFired =
     result.enemyDamage > 0 && side.flags.skillCritAfterEvadePending;
   const skillCritFired =
     result.enemyDamage > 0 &&
     (result.berserkerTransition.forceSkillCrit ||
       skillCritAfterEvadeFired ||
-      ((side.player.critChancePct ?? 0) > 0 &&
-        Math.random() * 100 <
-          Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0)));
+      (effectiveSkillCritPct > 0 &&
+        Math.random() * 100 < effectiveSkillCritPct));
   // PvE와 동일하게 직접 피해 액티브 스킬 치명타도 on_crit 속도 고유 효과를 발동한다.
   const sigSkillCritSpeed = onCritSpeedBuff(
     side.player.equipSignatures,
@@ -2608,25 +2702,31 @@ export function castV2SkillOnAttackerTurnPvP(
     result.castSkillId && result.enemyDamage > 0
       ? Math.max(1, side.attacksLeft)
       : 1;
-  const singleSkillDamage = Math.floor(
-    skillDamageBase *
-      spellStackMult *
-      magicVulnMult *
-      erosionMult *
-      vulnMult *
-      (side.stacks.damageDownTurns > 0
-        ? 1 - side.stacks.damageDownPct / 100
-        : 1) *
-      // 천궁은 고정 스킬 치명 피해, 흑월은 75% 초과 치명 오버플로를 스킬 배율에 가산한다.
-      (skillCritFired
-        ? SKILL_CRIT_MULT +
-          Math.max(0, side.player.skillCritDmgPct ?? 0) / 100 +
-          result.berserkerTransition.bonusSkillCritDamagePct / 100 +
-          (side.player.skillCritOverflow
-            ? computeCritOverflowBonus(side.player.critChancePct ?? 0)
-            : 0)
-        : 1),
-  );
+  const skillPreCriticalMultiplier =
+    spellStackMult *
+    magicVulnMult *
+    erosionMult *
+    vulnMult *
+    (side.stacks.damageDownTurns > 0
+      ? 1 - side.stacks.damageDownPct / 100
+      : 1);
+  const skillCriticalMultiplier = skillCritFired
+    ? SKILL_CRIT_MULT +
+      Math.max(0, side.player.skillCritDmgPct ?? 0) / 100 +
+      result.berserkerTransition.bonusSkillCritDamagePct / 100 +
+      (side.player.skillCritOverflow
+        ? computeCritOverflowBonus(side.player.critChancePct ?? 0)
+        : 0)
+    : 1;
+  const singleSkillDamage = computeDirectSkillDamage({
+    totalDamage: skillDamageBase,
+    magicDamage: result.magicEnemyDamage + magicSkillDamageBonus,
+    preCriticalMultiplier: skillPreCriticalMultiplier,
+    criticalMultiplier: skillCriticalMultiplier,
+    equipmentMagicCritBonus:
+      Math.max(0, side.player.equipmentMagicSkillCritDmgPct ?? 0) / 100,
+    critical: skillCritFired,
+  });
   let nextComboHitCount = side.stacks.comboHitCount;
   let landedSkillHits = 0;
   let skillReflectBase = 0;
@@ -2977,18 +3077,18 @@ export function castV2SkillOnAttackerTurnPvP(
     skillEvasionPct: evaBuff?.pct ?? side.stacks.skillEvasionPct,
     skillEvasionTurns: evaBuff
       ? evaBuff.turns
-      : Math.max(0, side.stacks.skillEvasionTurns - 1),
+      : side.stacks.skillEvasionTurns,
     accuracyDownPct: side.stacks.accuracyDownPct,
     accuracyDownTurns: Math.max(0, side.stacks.accuracyDownTurns - 1),
     skillDmgReducePct:
       dmgReduceBuff?.pct ?? side.stacks.skillDmgReducePct,
     skillDmgReduceTurns: dmgReduceBuff
       ? dmgReduceBuff.turns
-      : Math.max(0, side.stacks.skillDmgReduceTurns - 1),
+      : side.stacks.skillDmgReduceTurns,
     skillReflectBoostPct: reflectBuff?.pct ?? side.stacks.skillReflectBoostPct,
     skillReflectBoostTurns: reflectBuff
       ? reflectBuff.turns
-      : Math.max(0, side.stacks.skillReflectBoostTurns - 1),
+      : side.stacks.skillReflectBoostTurns,
     // 속박 — 위 스킬피해 배수와 동일 값(turn-start 감소/set) 사용 → 같은 턴 스킬·평타 일관.
     enemyVulnPct: nextEnemyVulnPct,
     enemyVulnTurns: nextEnemyVulnTurns,
@@ -3008,7 +3108,34 @@ export function castV2SkillOnAttackerTurnPvP(
         : side.stacks.spellCastCount,
     comboHitCount: nextComboHitCount,
     signatureHitCount: nextSigHitCount,
+    signatureBonusAttacksLeft:
+      side.stacks.signatureBonusAttacksLeft + signatureExtraActions,
+    fortressImpact: Math.max(
+      0,
+      side.stacks.fortressImpact - result.fortressImpactToConsume,
+    ),
+    ironWallReflectCharges:
+      result.ironWallReflectToApply?.charges ??
+      side.stacks.ironWallReflectCharges,
   };
+  if (result.ironWallReflectToApply && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName}] 철벽 반사 ${result.ironWallReflectToApply.charges}회 준비`,
+      side: who,
+    });
+  }
+  if (
+    result.fortressImpactToConsume > 0 &&
+    result.enemyDamage > 0 &&
+    result.castSkillName
+  ) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName}] 충격 ${result.fortressImpactToConsume}스택 소비`,
+      side: who,
+    });
+  }
   if (shieldGain > 0) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -3145,6 +3272,21 @@ export function castV2SkillOnAttackerTurnPvP(
     V2_SKILLS[result.castSkillId]?.category === "attack"
       ? side.berserker
       : undefined;
+  const castDeclaration = result.castSkillId
+    ? composeDuelistDeclaration(side.v2Skills.equipped, result.castSkillId)
+    : null;
+  const nextDuelistBuff = castDeclaration
+    ? castDeclaration
+    : result.castSkillId
+      ? interruptDuelistRamp(side.duelistBuff)
+      : side.duelistBuff;
+  if (castDeclaration) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: duelistDeclarationSummary(castDeclaration),
+      side: who,
+    });
+  }
   const nextSide: PvPSide = {
     ...side,
     // 스킬은 이번 행동의 평타를 대체한다. 다단 적중 시그니처가 만든 추가 기본 공격만 남긴다.
@@ -3154,6 +3296,7 @@ export function castV2SkillOnAttackerTurnPvP(
     hp: nextSideHp,
     ...(nextBerserker ? { berserker: nextBerserker } : {}),
     mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
+    duelistBuff: nextDuelistBuff,
     buffs: sigSkillCritSpdBuff
       ? { ...side.buffs, ...sigSkillCritSpdBuff }
       : side.buffs,
@@ -3350,7 +3493,6 @@ export function castV2SkillOnAttackerTurnPvP(
   // 한 행동으로 취급하며, 스킬로 방어자가 쓰러진 경우에는 평타와 마찬가지로 반사하지 않는다.
   if (
     skillReflectBase > 0 &&
-    skillDamageToHp > 0 &&
     next[otherKey].hp > 0 &&
     next.phase !== "ended"
   ) {
@@ -3360,6 +3502,7 @@ export function castV2SkillOnAttackerTurnPvP(
       otherKey,
       skillReflectBase,
       false,
+      skillDamageToHp <= 0,
     );
     next = reflected.state;
     if (reflected.attackerKilled) {

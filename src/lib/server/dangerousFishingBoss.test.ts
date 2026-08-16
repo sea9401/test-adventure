@@ -317,6 +317,52 @@ describe("비동기 거대어 서비스", () => {
     expect(result).toMatchObject({ ok: false, error: "expired" });
   });
 
+  it("만료된 과거 이벤트의 개인 시도는 새 거대어 시도를 막지 않는다", async () => {
+    store.events.set("old-event", event({ id: "old-event" }));
+    const previous = await startBossAttemptInTx(store, {
+      userId: "angler",
+      eventId: "old-event",
+      now: NOW,
+      random: () => 0.5,
+      encounterId: "old-attempt",
+    });
+    expect(previous.ok).toBe(true);
+
+    store.events.set(
+      "old-event",
+      event({
+        id: "old-event",
+        status: "expired",
+        expiresAt: new Date(NOW.getTime() - 1),
+      }),
+    );
+    store.events.set(
+      "new-event",
+      event({
+        id: "new-event",
+        spawnedAt: new Date(NOW.getTime() + 1_000),
+      }),
+    );
+
+    const started = await startBossAttemptInTx(store, {
+      userId: "angler",
+      eventId: "new-event",
+      now: new Date(NOW.getTime() + 1_000),
+      random: () => 0.5,
+      encounterId: "new-attempt",
+    });
+
+    expect(started).toMatchObject({
+      ok: true,
+      event: { id: "new-event" },
+      encounter: { id: "new-attempt" },
+    });
+    expect(store.states.get("angler")?.bossAttempt).toMatchObject({
+      eventId: "new-event",
+      encounter: { id: "new-attempt" },
+    });
+  });
+
   it("성공한 개인 장력 시도가 공용 체력과 개인 기여를 원자적으로 누적한다", async () => {
     store.events.set("event-1", event());
     const result = await forceSuccessfulAttempt(store, "angler");

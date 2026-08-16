@@ -150,6 +150,20 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "게시판 활동 Lv.10 달성",
     category: "town",
   },
+  bulletin_elder: {
+    id: "bulletin_elder",
+    name: "광장 원로",
+    description: "오랜 시간 광장의 이야기를 듣고 사람들의 자리를 이어 준 원로.",
+    condition: "게시판 활동 Lv.15 달성",
+    category: "town",
+  },
+  bulletin_legend: {
+    id: "bulletin_legend",
+    name: "광장의 전설",
+    description: "수많은 이야기와 인연으로 광장의 역사를 함께 써 내려간 전설.",
+    condition: "게시판 활동 Lv.20 달성",
+    category: "town",
+  },
   patient: {
     id: "patient",
     name: "환자",
@@ -837,6 +851,20 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "낚시 코인 상점에서 낚시 코인 3000으로 구매",
     category: "fishing",
   },
+  dangerous_tidal_conqueror: {
+    id: "dangerous_tidal_conqueror",
+    name: "파도를 거둔 자",
+    description: "해일의 거신을 함께 제압하고 거친 파도를 거두어 낸 낚시꾼.",
+    condition: "위험 해역 교환에서 해일의 거신 증표 10개로 구매",
+    category: "fishing",
+  },
+  dangerous_abyss_conqueror: {
+    id: "dangerous_abyss_conqueror",
+    name: "심연을 낚은 자",
+    description: "심연 크라켄을 함께 끌어올려 바다 밑 어둠과 마주한 낚시꾼.",
+    condition: "위험 해역 교환에서 심연 크라켄 증표 10개로 구매",
+    category: "fishing",
+  },
   // 낚시 칭호 4종(심해의 어부·여명의 낚시꾼·물때를 읽는 자·특별한 손님의 벗) 정의 제거
   //   (2026-06-25 과다 정리). TitleId=string 이라 타입 영향 없음. 표시 경로는 미정의 id 를
   //   가드(resolveActor·V2Codex 의 `if(!t)`) — 옛 보유분은 칭호만 비표시(데이터 무손실·정의
@@ -918,6 +946,41 @@ export const TITLES: Record<TitleId, Title> = {
     description: "꾸준히 다듬어 만족스러운 결과를 낸 사람.",
     condition: "업적 '전설의 +10' 보상 수령",
     category: "training",
+  },
+  ach_farming_transcendent: {
+    id: "ach_farming_transcendent",
+    name: "대지의 초월자",
+    description: "백 번의 계절을 넘어 대지의 결실을 다루는 자.",
+    condition: "농사 레벨 100 달성",
+    category: "collection",
+  },
+  ach_worldtree_touch: {
+    id: "ach_worldtree_touch",
+    name: "세계수의 손길",
+    description: "숲의 오랜 숨결과 나이테의 시간을 손끝으로 읽는 자.",
+    condition: "벌목 레벨 100 달성",
+    category: "collection",
+  },
+  ach_deep_mine_ruler: {
+    id: "ach_deep_mine_ruler",
+    name: "심층의 지배자",
+    description: "빛이 닿지 않는 심층의 광맥까지 지배한 자.",
+    condition: "채광 레벨 100 달성",
+    category: "collection",
+  },
+  ach_boundless_angler: {
+    id: "ach_boundless_angler",
+    name: "만경창파의 강태공",
+    description: "끝없는 물결의 흐름을 읽고 모든 입질을 기다리는 자.",
+    condition: "낚시 레벨 100 달성",
+    category: "fishing",
+  },
+  ach_celestial_banquet: {
+    id: "ach_celestial_banquet",
+    name: "천상의 대연회",
+    description: "평범한 재료로도 천상의 만찬을 차려 내는 자.",
+    condition: "요리 레벨 100 달성",
+    category: "collection",
   },
   // 수집 칭호 — ⚠️ 레거시(2026-06: 수집 포인트/칭호 상점 폐지·불필요한 복잡도). 신규 획득 경로
   //   없음. 옛 상점에서 구매한 보유분이 정상 표시되도록 정의만 보존(비파괴). 새 칭호로 재사용 금지.

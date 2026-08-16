@@ -87,6 +87,38 @@ describe("POST /api/v2/farm/harvest", () => {
     vi.restoreAllMocks();
   });
 
+  it("구 초과 XP를 한 번 환산한 뒤 이번 수확 XP를 저장한다", async () => {
+    const planted = plantCrop(
+      emptyFarmState(NOW),
+      "plot-1",
+      "wheat",
+      NOW - FARM_CROPS.wheat.growMs - 1,
+    );
+    store.set(FARM_SAVE_KEY, {
+      ...planted,
+      levelCurveVersion: undefined,
+      stats: { ...planted.stats, farmingXp: 999_999 },
+    });
+    store.set("character.v2", {});
+    store.set("skills.v2", {});
+
+    const response = await POST(
+      new Request("http://test.local/api/v2/farm/harvest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plotId: "plot-1" }),
+      }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.levelCurveMigrated).toBe(true);
+    expect(store.get(FARM_SAVE_KEY)).toMatchObject({
+      levelCurveVersion: 2,
+      stats: { farmingXp: farmingLevelXpThreshold(60) + 30 },
+    });
+  });
+
   it("자정 뒤 첫 수확 전에 일일 퀘스트 기준값을 갱신한다", async () => {
     const planted = plantCrop(
       emptyFarmState(NOW),

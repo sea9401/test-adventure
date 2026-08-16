@@ -27,8 +27,10 @@ export type V2PatternSelfStatus =
   | "reflectDamage"
   | "regen"
   | "guaranteedEvade"
+  | "duelistDeclaration"
   | "berserkerFinisher"
   | "berserkerDeathOvercome";
+export type V2PatternSelfResource = "impact" | "ironWallReflect";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -49,6 +51,13 @@ export type V2CombatCondition =
       kind: "self_buff_pct";
       target: V2PatternSelfStatus;
       active: boolean;
+    }
+  // 전투 한정 숫자 자원. none 은 0, atLeast/atMost 는 경계 포함 비교.
+  | {
+      kind: "self_resource";
+      resource: V2PatternSelfResource;
+      op: "atLeast" | "atMost" | "none";
+      value: number;
     }
   // 적 HP 비율.
   | { kind: "enemy_hp"; op: "below" | "above"; pct: number }
@@ -88,6 +97,7 @@ export type V2PatternCtx = {
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
   // 내부 필드명은 기존 저장/호출부 호환을 위해 유지. 능력치 밖의 활성 상태 효과 전체를 담는다.
   selfBuffPctTargets: ReadonlySet<V2PatternSelfStatus>;
+  selfResources: Readonly<Record<V2PatternSelfResource, number>>;
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
   enemyPoison: number;
@@ -153,6 +163,14 @@ export function conditionPasses(
       return ctx.selfBuffStats.has(cond.stat) === cond.active;
     case "self_buff_pct":
       return ctx.selfBuffPctTargets.has(cond.target) === cond.active;
+    case "self_resource": {
+      const value = ctx.selfResources[cond.resource];
+      return cond.op === "none"
+        ? value === 0
+        : cond.op === "atMost"
+          ? value <= cond.value
+          : value >= cond.value;
+    }
     case "enemy_hp":
       return cond.op === "below"
         ? ctx.enemyHpPct <= cond.pct
@@ -426,12 +444,30 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.target === "reflectDamage" ||
         c.target === "regen" ||
         c.target === "guaranteedEvade" ||
+        c.target === "duelistDeclaration" ||
         c.target === "berserkerFinisher" ||
         c.target === "berserkerDeathOvercome"
           ? c.target
           : null;
       if (!target || typeof c.active !== "boolean") return null;
       return { kind: "self_buff_pct", target, active: c.active };
+    }
+    case "self_resource": {
+      const resource =
+        c.resource === "impact" || c.resource === "ironWallReflect"
+          ? c.resource
+          : null;
+      const op =
+        c.op === "atLeast" || c.op === "atMost" || c.op === "none"
+          ? c.op
+          : null;
+      if (!resource || !op || !isFinitePct(c.value)) return null;
+      return {
+        kind: "self_resource",
+        resource,
+        op,
+        value: Math.max(0, Math.floor(c.value)),
+      };
     }
     case "enemy_status": {
       const tag =

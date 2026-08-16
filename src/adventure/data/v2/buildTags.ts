@@ -263,6 +263,7 @@ export function buildTagsForSkill(skill: V2SkillDefinition): V2BuildTagId[] {
   if (skill.stat === "int") tags.add("magic");
   if (skill.category === "heal") tags.add("heal");
   if (skill.provokeImmediateBasicAttacks) tags.add("tank");
+  if (skill.ironWallReflect) tags.add("tank");
   if (skill.category === "passive" && skill.passive) {
     addPassiveTags(tags, skill.passive);
   }
@@ -329,6 +330,10 @@ function addPassiveTags(
   if ((passive.guildTrainingWeeklyBonusMastery ?? 0) > 0) tags.add("guild");
   if (passive.skillCritOverflow) tags.add("crit");
   if ((passive.skillCritDmgPct ?? 0) > 0) tags.add("crit");
+  if (passive.equipmentMagicSkillCritConversion) {
+    tags.add("magic");
+    tags.add("crit");
+  }
   if (passive.skillCritAfterEvade) {
     tags.add("crit");
     tags.add("evasion");

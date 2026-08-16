@@ -42,6 +42,7 @@ export function FishingHallOfFameView({
   error,
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenChallenges,
   onOpenLeaderboard,
   onOpenShop,
@@ -52,6 +53,7 @@ export function FishingHallOfFameView({
   onBack?: () => void;
   // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenShop?: () => void;
@@ -72,6 +74,7 @@ export function FishingHallOfFameView({
       <FishingSubTabs
         active="hallOfFame"
         onOpenFishing={onOpenFishing}
+        onOpenDangerous={onOpenDangerous}
         onOpenChallenges={onOpenChallenges}
         onOpenLeaderboard={onOpenLeaderboard}
         onOpenShop={onOpenShop}

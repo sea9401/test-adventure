@@ -90,6 +90,36 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('value="100"');
   });
 
+  it("성채 자원 조건은 충격·철벽 반사와 비교 기준을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "self_resource",
+          resource: "impact",
+          op: "atLeast",
+          value: 3,
+        }}
+        onChange={vi.fn()}
+      />,
+    ) + renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "self_resource",
+          resource: "ironWallReflect",
+          op: "none",
+          value: 0,
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("충격");
+    expect(html).toContain("철벽 반사");
+    expect(html).toContain("없을 때");
+    expect(html).toContain("이상");
+    expect(html).toContain('value="3"');
+  });
+
   it("renders the selected action skill as a large dialog trigger", () => {
     const html = renderToStaticMarkup(
       <SkillPatternPicker

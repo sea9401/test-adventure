@@ -6,6 +6,8 @@ import {
   codexUniqueDropSummary,
   SKY_RIFT_CODEX_DROP_SUMMARY,
   shouldShowCodexTutorial,
+  spCollectionSpRange,
+  spEligibleJobProgress,
   spFruitCodexSource,
 } from "./V2CodexView";
 import { fishCodexCardState } from "./FishingCodexPanel";
@@ -113,6 +115,40 @@ describe("모험의 서 SP 열매 획득처", () => {
 
   it("나머지 SP 열매는 기존 협동 보스 획득처만 표시한다", () => {
     expect(spFruitCodexSource(1)).toBe("산군 보상");
+  });
+});
+
+describe("모험의 서 SP 수집 목록", () => {
+  it("각 수집처의 현재 획득 SP와 규칙상 최대 SP를 함께 계산한다", () => {
+    expect(
+      [
+        ["기본 SP", 30, 42],
+        ["직업 해금", 8, 42],
+        ["어보", 3, 42],
+        ["장비 도감", 5, 42],
+      ].map(([label, value, jobUnlockTotal]) =>
+        spCollectionSpRange({
+          label: String(label),
+          value: Number(value),
+          jobUnlockTotal: Number(jobUnlockTotal),
+        }),
+      ),
+    ).toEqual([
+      { current: 30, maximum: 30 },
+      { current: 8, maximum: 42 },
+      { current: 3, maximum: 7 },
+      { current: 5, maximum: 12 },
+    ]);
+  });
+
+  it("SP를 지급하지 않는 0차 직업은 직업 해금 최대치에서 제외한다", () => {
+    expect(
+      spEligibleJobProgress([
+        { tier: 0, unlocked: true },
+        { tier: 1, unlocked: true },
+        { tier: 2, unlocked: false },
+      ]),
+    ).toEqual({ current: 1, total: 2 });
   });
 });
 

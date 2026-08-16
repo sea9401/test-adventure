@@ -44,6 +44,7 @@ import {
   woodcuttingXpForLevel,
 } from "@/adventure/v2/woodcuttingProgression";
 import { MAX_LEVEL } from "@/lib/leveling";
+import { LIFE_LEVEL_CAP } from "@/adventure/v2/lifeLevelProgression";
 
 export const REVIEW_ADMIN_LIFE_SAVE_KEYS = {
   farm: FARM_SAVE_KEY,
@@ -104,7 +105,7 @@ export function buildReviewAdminLifePreset(input: {
       ...farmParsed.stats,
       farmingXp: Math.max(
         farmParsed.stats.farmingXp,
-        farmingLevelXpThreshold(50),
+        farmingLevelXpThreshold(LIFE_LEVEL_CAP),
       ),
     },
   };
@@ -148,7 +149,7 @@ export function buildReviewAdminLifePreset(input: {
     fishing,
     cooking,
     levels: {
-      farming: Math.min(50, farmingLevelForState(farm)),
+      farming: Math.min(LIFE_LEVEL_CAP, farmingLevelForState(farm)),
       woodcutting: woodcuttingLevelForXp(woodcutting.xp),
       mining: miningLevelForXp(mining.xp),
       fishing: fishingLevelForXp(fishing.xp),

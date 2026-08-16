@@ -124,6 +124,59 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     expect(hasReactionLog(next.log)).toBe(false);
   });
 
+  it("철벽 반사와 충격은 PvE 일반 보호막이 직접 공격을 전부 흡수해도 발동한다", () => {
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      def: 100,
+      bulwarkShield: 1_000,
+      fortressImpactOnHit: true,
+    };
+    const initial = initialBattleState(defender, ENEMY, "성채기사");
+    const state = {
+      ...initial,
+      stacks: { ...initial.stacks, ironWallReflectCharges: 1 },
+    };
+
+    const next = resolveEnemyPhase(state, defender, "성채기사", true);
+
+    expect(next.playerHp).toBe(defender.hp);
+    expect(next.enemyHp).toBeLessThan(ENEMY.hp);
+    expect(next.stacks.ironWallReflectCharges).toBe(0);
+    expect(next.stacks.fortressImpact).toBe(1);
+    expect(next.log.some((entry) => entry.text.includes("[철벽 반사]"))).toBe(true);
+  });
+
+  it("철벽 반사와 충격은 PvE 몬스터 스킬을 보호막이 전부 흡수해도 발동한다", () => {
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      def: 100,
+      bulwarkShield: 1_000,
+      fortressImpactOnHit: true,
+    };
+    const skillEnemy: Monster = {
+      ...ENEMY,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+    const initial = initialBattleState(defender, skillEnemy, "성채기사");
+    const state = {
+      ...initial,
+      stacks: { ...initial.stacks, ironWallReflectCharges: 1 },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+
+    const next = applyEnemyV2SkillCast(state, defender).state;
+
+    expect(next.playerHp).toBe(defender.hp);
+    expect(next.enemyHp).toBeLessThan(skillEnemy.hp);
+    expect(next.stacks.ironWallReflectCharges).toBe(0);
+    expect(next.stacks.fortressImpact).toBe(1);
+    expect(next.log.some((entry) => entry.text.includes("[철벽 반사]"))).toBe(true);
+  });
+
   it("PvP 기본 공격을 보호막이 전부 흡수하면 반사와 피격 반격이 발동하지 않는다", () => {
     const defender: PlayerCombat = {
       ...PLAYER,
@@ -155,6 +208,42 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     expect(next.p1.hp).toBe(PLAYER.hp);
     expect(next.p2.stacks.playerShield).toBeLessThan(200);
     expect(hasReactionLog(next.log)).toBe(false);
+  });
+
+  it("철벽 반사와 충격은 PvP 보호막이 직접 공격을 전부 흡수해도 발동한다", () => {
+    const defender: PlayerCombat = {
+      ...PLAYER,
+      def: 100,
+      fortressImpactOnHit: true,
+    };
+    const initial = initialBattleStatePvP(
+      PLAYER,
+      defender,
+      "공격자",
+      "성채기사",
+    );
+    const shielded = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        stacks: {
+          ...initial.p2.stacks,
+          playerShield: 1_000,
+          ironWallReflectCharges: 1,
+        },
+      },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const next = advanceTurnPvP(shielded, { kind: "attack" });
+
+    expect(next.p2.hp).toBe(defender.hp);
+    expect(next.p1.hp).toBeLessThan(PLAYER.hp);
+    expect(next.p2.stacks.ironWallReflectCharges).toBe(0);
+    expect(next.p2.stacks.fortressImpact).toBe(1);
+    expect(next.log.some((entry) => entry.text.includes("[철벽 반사]"))).toBe(
+      true,
+    );
   });
 
   it("PvP 직접 피해 스킬도 보호막에 전부 막히면 반사를 발동하지 않는다", () => {

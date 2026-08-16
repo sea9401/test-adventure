@@ -46,6 +46,62 @@ describe("광기 계열 배타 장착 안내", () => {
   });
 });
 
+describe("결투가 태세와 선언 연계 안내", () => {
+  it("현재 직업의 태세와 최고 선언에 합쳐지는 하위 효과를 보여준다", () => {
+    const equipped = [
+      "v2c_duelist_declaration",
+      "v2c_contender_insight",
+      "v2c_undefeated_momentum",
+      "v2c_grandchampion_hour",
+    ];
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        currentJobId="grandchampion"
+        loadout={{
+          spBudget: 99,
+          spUsed: 16,
+          equipped,
+          library: equipped.map((skillId) => ({
+            skillId,
+            name: skillId,
+            spCost: 4,
+            equipped: true,
+            category: "buff" as const,
+          })),
+        }}
+      />,
+    );
+
+    expect(html).toContain("결투 태세 활성 · 평타 피해 +50%");
+    expect(html).toContain("챔피언의 시간에 하위 선언 3개 연계");
+    expect(html).toContain("다음 평타 5회");
+    expect(html).toContain("평타 방어 관통 +15%p");
+    expect(html).toContain("평타 치명 상한 95%");
+  });
+
+  it("공격 스킬이 태세를 막으면 스킬 이름으로 이유를 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        currentJobId="duelist"
+        loadout={{
+          spBudget: 99,
+          spUsed: 4,
+          equipped: ["v2c_paladin_cleave"],
+          library: [{
+            skillId: "v2c_paladin_cleave",
+            name: "심판",
+            spCost: 4,
+            equipped: true,
+            category: "attack",
+          }],
+        }}
+      />,
+    );
+
+    expect(html).toContain("결투 태세 비활성 · 심판 장착 중");
+  });
+});
+
 describe("장착 저장 후 상태 갱신", () => {
   it("부모의 비동기 갱신이 끝날 때까지 완료 처리하지 않는다", async () => {
     let release: (() => void) | undefined;
@@ -153,7 +209,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">생존 계열<");
   });
 
-  it("즐겨찾기 옆 동작 버튼의 폭을 고정하고 줄바꿈을 막는다", () => {
+  it("즐겨찾기 옆 동작 버튼을 모바일에서는 넓게, 데스크톱에서는 고정 폭으로 표시한다", () => {
     const html = renderToStaticMarkup(
       <V2LoadoutPanel
         loadout={{
@@ -178,8 +234,14 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
       />,
     );
 
-    expect(html.match(/w-\[6\.25rem\]/g)).toHaveLength(2);
+    expect(html.match(/w-full sm:w-\[6\.25rem\]/g)).toHaveLength(2);
     expect(html.match(/whitespace-nowrap/g)).toHaveLength(2);
+    expect(html).toContain("min-w-0 flex-1 sm:min-w-52");
+    expect(html).toContain("flex-col sm:flex-row");
+    expect(html).toContain("min-w-0 max-w-full overflow-x-auto");
+    expect(html).toContain("h-11 w-11 sm:h-9 sm:w-8");
+    expect(html).toContain("h-11 w-11 sm:h-8 sm:w-8");
+    expect(html).toContain("h-11 w-11 sm:h-6 sm:w-5");
     expect(html).toContain(">해제<");
     expect(html).toContain(">SP 부족<");
   });

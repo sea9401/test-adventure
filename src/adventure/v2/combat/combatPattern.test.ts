@@ -21,6 +21,7 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
     selfShieldActive: false,
     selfBuffStats: new Set<StatKey>(),
     selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),
+    selfResources: { impact: 0, ironWallReflect: 0 },
     enemyHpPct: 100,
     enemyBleed: 0,
     enemyPoison: 0,
@@ -171,6 +172,36 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "enemy_status", tag: "bleed", op: "none", stacks: 0 }, c)).toBe(false);
   });
 
+  it("self_resource none/atLeast/atMost — 내 전투 자원을 경계 포함 비교", () => {
+    const charged = ctx({
+      selfResources: { impact: 3, ironWallReflect: 2 },
+    });
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "impact", op: "atLeast", value: 3 },
+        charged,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "impact", op: "atMost", value: 2 },
+        charged,
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "ironWallReflect", op: "none", value: 99 },
+        ctx(),
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "ironWallReflect", op: "none", value: 0 },
+        charged,
+      ),
+    ).toBe(false);
+  });
+
   it("enemy_debuff — 봉쇄 효과가 없을 때만 재시전한다", () => {
     const condition = {
       kind: "enemy_debuff" as const,
@@ -265,6 +296,43 @@ describe("evaluateCombatPattern", () => {
 });
 
 describe("parseCombatPattern (저장 검증)", () => {
+  it("self_resource 조건을 정규화하고 알 수 없는 자원은 블록째 버린다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: {
+            kind: "self_resource",
+            resource: "impact",
+            op: "atLeast",
+            value: 3.9,
+          },
+          action: { kind: "skill", skillId: "ram" },
+        },
+        {
+          condition: {
+            kind: "self_resource",
+            resource: "unknown",
+            op: "none",
+            value: 0,
+          },
+          action: { kind: "skill", skillId: "guard" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks).toEqual([
+      {
+        condition: {
+          kind: "self_resource",
+          resource: "impact",
+          op: "atLeast",
+          value: 3,
+        },
+        action: { kind: "skill", skillId: "ram" },
+      },
+    ]);
+  });
+
   it("유효 블록만 통과, 잘못된 블록은 drop", () => {
     const raw = {
       blocks: [

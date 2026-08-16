@@ -86,6 +86,12 @@ export type V2PassiveSkillEffect = {
    *  derive 가 def × %/100 → PlayerCombat.thornsFlatFromDef, 엔진이 피격 시 가산(PvE enemyPhase +
    *  PvP applyOnHitReflect 양쪽). 미지정=무적용(byte-identical). 100 = "방어 계수의 수치만큼". */
   thornsDefPct?: number;
+  /** 성채기사 — 적의 직접 공격이 명중할 때 충격을 1 얻는다. */
+  fortressImpactOnHit?: boolean;
+  /** 충격을 소비하는 직접 공격의 스택당 최종 피해 증가율. 같은 계보에서는 최댓값 적용. */
+  fortressImpactDamagePctPerStack?: number;
+  /** 방어력 계수를 사용하는 직접 공격의 방어력 계수 증가율. 반사에는 적용하지 않는다. */
+  fortressDefSkillStatCoefPct?: number;
   /** 적중도 +% 증가(정밀) — 스탯·장비 적중도 합계에 적용. */
   accuracyPct?: number;
   // ── SPI 부활(신술 지원) — 회복 강화. healMult 에 곱연산(딜 아님 → INT 와 역할 분리·파워크립 차단).
@@ -181,10 +187,18 @@ export type V2PassiveSkillEffect = {
   skillCritOverflow?: boolean;
   /** 스킬 치명타 피해 +% — 액티브 스킬의 기본 치명타 배율(1.7)에 /100만큼 가산. */
   skillCritDmgPct?: number;
+  /** 장비 치명타 배율을 점근 곡선으로 변환해 직접 마법 스킬의 치명타 배율에 가산. */
+  equipmentMagicSkillCritConversion?: boolean;
   /** 흑월지배 — 회피 성공 후 다음에 적중하는 직접 피해 액티브 스킬을 확정 치명타로 만든다. */
   skillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 다단 액티브 스킬과 평타가 같은 카운터를 공유. */
   comboFinisherBonusPct?: number;
+  /** 평타에만 적용되는 대상 방어 관통 %p. */
+  basicDefPenetrationPct?: number;
+  /** 평타 치명타 뒤 다음 행동 간격을 한 번 단축하는 비율. */
+  basicCritHastePct?: number;
+  /** 평타 치명타 확률 상한. 75% 초과분의 피해 전환 기준은 바꾸지 않는다. */
+  basicCritChanceCap?: number;
 };
 
 // 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
@@ -426,11 +440,21 @@ export type V2SkillDefinition = {
   /** 발동 확률 % (0~100). 미지정=100=조건 충족 시 항상 발동. <100 이면 매 발동 판정마다
    *  procRoll 롤 — 실패하면 미발동(평타로 폴백, MP·쿨다운 미소모). 스킬 발동확률 패시브 토대. */
   procChance?: number;
+  /** 결투가 계보의 준비형 선언. 실제 효과는 장착한 선언을 합성해 전투 상태에 만든다. */
+  duelistDeclaration?: { rank: 1 | 2 | 3 | 4; hits: 3 | 4 | 5 };
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
   /** 도발 시 사냥·PvP 상대가 즉시 시전자에게 가하는 기본 공격 횟수. */
   provokeImmediateBasicAttacks?: number;
+  /** 철벽 태세 — 시전 시 갱신할 전용 반사 횟수와 피격 효과. */
+  ironWallReflect?: {
+    charges: number;
+    damageReductionPct: number;
+    reflectDefPct: number;
+  };
+  /** 적중 시 현재 충격을 모두 소비해 최종 피해를 강화하는 방패 계열 직접 공격. */
+  consumesFortressImpact?: boolean;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -784,6 +808,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     if (p.skillCritOverflow) mag += 0.5;
     // 스킬이 발동하고 치명타까지 발생해야 적용되는 조건부 배율이라 일반 치명 피해보다 낮게 평가한다.
     mag += (p.skillCritDmgPct ?? 0) / 60;
+    if (p.equipmentMagicSkillCritConversion) mag += 3.5;
     if (p.skillCritAfterEvade) mag += 0.5;
     if (p.counterDamageUsesReflectBoost) mag += 0.5;
     mag += (p.comboFinisherBonusPct ?? 0) / 25;
@@ -1389,6 +1414,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   counterDamageUsesReflectBoost: boolean;
   defPct: number;
   thornsDefPct: number;
+  fortressImpactOnHit: boolean;
+  fortressImpactDamagePctPerStack: number;
+  fortressDefSkillStatCoefPct: number;
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
@@ -1408,8 +1436,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   spdPerLukCoef: number;
   skillCritOverflow: boolean;
   skillCritDmgPct: number;
+  equipmentMagicSkillCritConversion: boolean;
   skillCritAfterEvade: boolean;
   comboFinisherBonusPct: number;
+  basicDefPenetrationPct: number;
+  basicCritHastePct: number;
+  basicCritChanceCap: number;
   berserkerMadnessRank: 0 | 1 | 2 | 3 | 4;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
@@ -1427,6 +1459,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let counterDamageUsesReflectBoost = false;
   let defPct = 0;
   let thornsDefPct = 0;
+  let fortressImpactOnHit = false;
+  let fortressImpactDamagePctPerStack = 0;
+  let fortressDefSkillStatCoefPct = 0;
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
@@ -1446,8 +1481,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let spdPerLukCoef = 0;
   let skillCritOverflow = false;
   let skillCritDmgPct = 0;
+  let equipmentMagicSkillCritConversion = false;
   let skillCritAfterEvade = false;
   let comboFinisherBonusPct = 0;
+  let basicDefPenetrationPct = 0;
+  let basicCritHastePct = 0;
+  let basicCritChanceCap = 75;
   let berserkerMadnessRank: 0 | 1 | 2 | 3 | 4 = 0;
   for (const id of resolveExclusiveSkills(equipped)) {
     const def = V2_SKILLS[id];
@@ -1487,6 +1526,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     if (p.counterDamageUsesReflectBoost) counterDamageUsesReflectBoost = true;
     defPct += p.defPct ?? 0;
     thornsDefPct += p.thornsDefPct ?? 0;
+    if (p.fortressImpactOnHit) fortressImpactOnHit = true;
+    fortressImpactDamagePctPerStack = Math.max(
+      fortressImpactDamagePctPerStack,
+      p.fortressImpactDamagePctPerStack ?? 0,
+    );
+    fortressDefSkillStatCoefPct += p.fortressDefSkillStatCoefPct ?? 0;
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
@@ -1524,8 +1569,14 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     spdPerLukCoef += p.spdPerLukCoef ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
     skillCritDmgPct += p.skillCritDmgPct ?? 0;
+    if (p.equipmentMagicSkillCritConversion) {
+      equipmentMagicSkillCritConversion = true;
+    }
     if (p.skillCritAfterEvade) skillCritAfterEvade = true;
     comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
+    basicDefPenetrationPct += p.basicDefPenetrationPct ?? 0;
+    basicCritHastePct = Math.max(basicCritHastePct, p.basicCritHastePct ?? 0);
+    basicCritChanceCap = Math.max(basicCritChanceCap, p.basicCritChanceCap ?? 75);
   }
   return {
     stat,
@@ -1543,6 +1594,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     counterDamageUsesReflectBoost,
     defPct,
     thornsDefPct,
+    fortressImpactOnHit,
+    fortressImpactDamagePctPerStack,
+    fortressDefSkillStatCoefPct,
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
@@ -1562,8 +1616,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     spdPerLukCoef,
     skillCritOverflow,
     skillCritDmgPct,
+    equipmentMagicSkillCritConversion,
     skillCritAfterEvade,
     comboFinisherBonusPct,
+    basicDefPenetrationPct,
+    basicCritHastePct,
+    basicCritChanceCap,
     berserkerMadnessRank,
   };
 }
@@ -1975,6 +2033,11 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.counterChancePct) chips.push(`HP 피해 시 ${p.counterChancePct}% 반격`);
   if (p.defPct) chips.push(`물리·마법 방어력 +${p.defPct}%`);
   if (p.thornsDefPct) chips.push(`HP 피해 시 방어력의 ${p.thornsDefPct}% 반사`);
+  if (p.fortressImpactOnHit) chips.push("적의 직접 공격 명중 시 충격 +1 (최대 3)");
+  if (p.fortressImpactDamagePctPerStack)
+    chips.push(`충격 소비 공격 최종 피해 스택당 +${p.fortressImpactDamagePctPerStack}%`);
+  if (p.fortressDefSkillStatCoefPct)
+    chips.push(`방어력 직접 공격 계수 +${p.fortressDefSkillStatCoefPct}%`);
   if (p.accuracyPct) chips.push(`적중도 +${p.accuracyPct}%`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
@@ -2058,6 +2121,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`치명타 한계(75%) 초과 보너스를 스킬에도 적용`);
   if (p.skillCritDmgPct)
     chips.push(`스킬 치명타 피해 +${p.skillCritDmgPct}%`);
+  if (p.equipmentMagicSkillCritConversion)
+    chips.push(`장비 치명타 배율을 마법 스킬 치명타 배율로 변환 (최대 +0.75배)`);
   if (p.skillCritAfterEvade)
     chips.push(`회피 후 다음 직접 피해 스킬 확정 치명타`);
   if (p.comboFinisherBonusPct)
@@ -2160,6 +2225,12 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
       `도발: 상대가 즉시 시전자를 기본 공격 ${skill.provokeImmediateBasicAttacks}회`,
     );
   }
+  if (skill.ironWallReflect) {
+    chips.push(
+      `철벽 반사 ${skill.ironWallReflect.charges}회 · 받는 피해 -${skill.ironWallReflect.damageReductionPct}% · 방어력의 ${skill.ironWallReflect.reflectDefPct}% 반사`,
+    );
+  }
+  if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
   if (
     skill.effects.some(
       (payoff) =>
@@ -2439,6 +2510,14 @@ export function smartDefaultConditionForSkill(
   if (def.provokeImmediateBasicAttacks) {
     return { kind: "always" };
   }
+  if (def.ironWallReflect) {
+    return {
+      kind: "self_resource",
+      resource: "ironWallReflect",
+      op: "none",
+      value: 0,
+    };
+  }
   // 기습(ambushDamage) — 풀피 적에게만 큰 딜(처형의 역). 기본딜이 낮아 깎인 적엔 평타 이하라, 기본
   //   조건을 "첫 턴만(turn≤1)"으로 깔아 자동전투가 오프너 1회만 쏘게 한다("딱 첫 턴만"). 더 정교하게
   //   쓰려면 패턴 편집(예: 적 풀피일 때 재발동) — 패턴 사용 유도. DAMAGE_EFFECT_KINDS 의 "항상"보다 먼저.
@@ -2517,6 +2596,34 @@ function isOncePerBattleEvadeOpener(skillId: string): boolean {
   );
 }
 
+function highestEquippedDuelistDeclaration(equipped: readonly string[]): string | null {
+  let highest: string | null = null;
+  let highestRank = 0;
+  for (const skillId of equipped) {
+    const rank = V2_SKILLS[skillId as V2SkillId]?.duelistDeclaration?.rank ?? 0;
+    if (rank > highestRank) {
+      highest = skillId;
+      highestRank = rank;
+    }
+  }
+  return highest;
+}
+
+function withoutLowerDuelistDeclarations(
+  equipped: readonly string[],
+  pattern: V2CombatPattern,
+): V2CombatPattern {
+  const highest = highestEquippedDuelistDeclaration(equipped);
+  if (!highest) return pattern;
+  return {
+    blocks: pattern.blocks.filter((block) => {
+      if (block.action.kind !== "skill") return true;
+      const declaration = V2_SKILLS[block.action.skillId as V2SkillId]?.duelistDeclaration;
+      return !declaration || block.action.skillId === highest;
+    }),
+  };
+}
+
 // 장착 스킬을 스마트 기본 조건으로 묶은 패턴. 미설정 캐릭의 폴백.
 //   전투당 1회 생존 오프너(그림자 도약)는 "항상" 공격보다 먼저 독립 시전되어야 하므로 최우선에
 //   둔다. 그 뒤 카탈로그가 명시한 기본 우선순위를 적용하고, 메타데이터가 없는 나머지는 슬롯
@@ -2526,7 +2633,12 @@ export function smartDefaultPatternFromEquipped(
   equipped: readonly string[],
 ): V2CombatPattern {
   const activeSkillIds = equipped.filter(
-    (skillId) => V2_SKILLS[skillId as V2SkillId]?.category !== "passive",
+    (skillId) => {
+      const definition = V2_SKILLS[skillId as V2SkillId];
+      if (definition?.category === "passive") return false;
+      if (!definition?.duelistDeclaration) return true;
+      return skillId === highestEquippedDuelistDeclaration(equipped);
+    },
   );
   const openerSkillIds = activeSkillIds.filter(isOncePerBattleEvadeOpener);
   const remainingSkillIds = activeSkillIds
@@ -2551,8 +2663,10 @@ export function smartDefaultPatternFromEquipped(
     blocks: orderedSkillIds.map((skillId) => {
       const def = V2_SKILLS[skillId as V2SkillId];
       return {
-        condition: def
-          ? (def.defaultPattern?.condition ?? smartDefaultConditionForSkill(def))
+        condition: def?.duelistDeclaration
+          ? ({ kind: "self_buff_pct", target: "duelistDeclaration", active: false } as const)
+          : def
+            ? (def.defaultPattern?.condition ?? smartDefaultConditionForSkill(def))
           : ({ kind: "always" } as V2CombatCondition),
         action: { kind: "skill" as const, skillId },
       };
@@ -2567,10 +2681,10 @@ export function effectiveCombatPatternFromEquipped(
   equipped: readonly string[],
   savedPattern: V2CombatPattern | null | undefined,
 ): V2CombatPattern {
-  const basePattern =
+  const basePattern = withoutLowerDuelistDeclarations(equipped,
     savedPattern && savedPattern.blocks.length > 0
       ? savedPattern
-      : smartDefaultPatternFromEquipped(equipped);
+      : smartDefaultPatternFromEquipped(equipped));
   const openerSkillId = equipped.find(isOncePerBattleEvadeOpener);
   if (!openerSkillId) return basePattern;
 

@@ -1,10 +1,21 @@
-export const MINING_LEVEL_CAP = 50;
+import {
+  LIFE_LEVEL_CAP,
+  extendedLifeLevelForXp,
+  extendedLifeXpThreshold,
+} from "./lifeLevelProgression";
+
+export const MINING_LEVEL_CAP = LIFE_LEVEL_CAP;
 export const MINING_XP_PER_SUCCESS = 10;
 export const MINING_TIME_REDUCTION_PER_LEVEL = 0.002;
 export const MINING_TIME_REDUCTION_CAP = 0.1;
 export const MINING_FAILURE_REDUCTION_PER_LEVEL = 0.015;
 export const MINING_FAILURE_REDUCTION_CAP = 0.75;
 const MINING_LEVEL_CURVE = 40;
+
+function legacyMiningXpForLevel(level: number): number {
+  const safeLevel = Math.max(1, Math.min(50, Math.floor(level) || 1));
+  return (safeLevel - 1) ** 2 * MINING_LEVEL_CURVE;
+}
 
 export type MiningProgressionView = {
   level: number;
@@ -21,16 +32,11 @@ function nonNegativeInt(value: unknown): number {
 }
 
 export function miningXpForLevel(level: number): number {
-  const safeLevel = Math.max(1, Math.min(MINING_LEVEL_CAP, Math.floor(level) || 1));
-  return (safeLevel - 1) ** 2 * MINING_LEVEL_CURVE;
+  return extendedLifeXpThreshold(level, legacyMiningXpForLevel);
 }
 
 export function miningLevelForXp(xp: number): number {
-  const safeXp = nonNegativeInt(xp);
-  return Math.min(
-    MINING_LEVEL_CAP,
-    Math.floor(Math.sqrt(safeXp / MINING_LEVEL_CURVE)) + 1,
-  );
+  return extendedLifeLevelForXp(xp, legacyMiningXpForLevel);
 }
 
 export function miningTimeReduction(level: number): number {

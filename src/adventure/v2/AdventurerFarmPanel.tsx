@@ -43,9 +43,15 @@ import {
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
 import { ranchReadyPenCount } from "./ranch";
+import {
+  farmBatchOutcomeText,
+  type FarmBatchAction,
+} from "./farmBatchActions";
 import { FarmRanchPanel } from "./FarmRanchPanel";
 import { useFarm } from "./useFarm";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
+import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
+import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
 type FarmSectionKey = "home" | "grow" | "ranch" | "delivery" | "shop";
 
@@ -91,6 +97,7 @@ export function AdventurerFarmPanel({
   const {
     loading,
     busyPlotId,
+    busyPlotAction,
     busyDeliveryId,
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
@@ -114,6 +121,9 @@ export function AdventurerFarmPanel({
     plant,
     harvest,
     fertilize,
+    plantAll,
+    harvestAll,
+    fertilizeAll,
     deliver,
     deliverSpecial,
     deliverWeekly,
@@ -132,14 +142,41 @@ export function AdventurerFarmPanel({
     [crops],
   );
   const selectedCrop = cropById.get(selectedCropId) ?? crops[0];
+  const selectedCropLocked = selectedCrop
+    ? !canPlantFarmCrop(selectedCrop.id, learnedSkillIds)
+    : false;
   const dailyDeliveryCount = farm?.deliveries.claimedIds.length ?? 0;
   const deliveryLimitReached = dailyDeliveryCount >= FARM_DAILY_DELIVERY_LIMIT;
-  const readyPlotCount = useMemo(
+  const readyPlotIds = useMemo(
     () =>
-      farm?.plots.filter((plot) => plot.cropId && plot.readyAt && plot.readyAt <= now)
-        .length ?? 0,
+      farm?.plots
+        .filter((plot) => plot.cropId && plot.readyAt && plot.readyAt <= now)
+        .map((plot) => plot.id) ?? [],
     [farm?.plots, now],
   );
+  const plantablePlotIds = useMemo(() => {
+    if (!farm || !selectedCrop || selectedCropLocked) return [];
+    const seedCount = Math.max(0, farm.seeds[selectedCrop.id] ?? 0);
+    return farm.plots
+      .filter((plot) => !plot.cropId)
+      .slice(0, seedCount)
+      .map((plot) => plot.id);
+  }, [farm, selectedCrop, selectedCropLocked]);
+  const fertilizablePlotIds = useMemo(
+    () =>
+      farm?.plots
+        .filter(
+          (plot) =>
+            plot.cropId &&
+            plot.readyAt &&
+            plot.readyAt > now &&
+            !plot.fertilized,
+        )
+        .slice(0, Math.max(0, fertilizerBalance))
+        .map((plot) => plot.id) ?? [],
+    [farm?.plots, fertilizerBalance, now],
+  );
+  const readyPlotCount = readyPlotIds.length;
   const readyRanchPenCount = farm ? ranchReadyPenCount(farm.ranch) : 0;
   const deliverableCount = useMemo(
     () =>
@@ -252,6 +289,32 @@ export function AdventurerFarmPanel({
     if (notice.kind === "fertilizer") {
       return { id: notice.id, tone: "ok", text: `유기질 거름을 사용해 수확 시간을 ${Math.max(1, Math.round(notice.reducedMs / 60_000))}분 줄였습니다.` };
     }
+    if (notice.kind === "batchPlant") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: farmBatchOutcomeText(
+          "plant",
+          notice.count,
+          null,
+          notice.cropName,
+        ),
+      };
+    }
+    if (notice.kind === "batchHarvest") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: farmBatchOutcomeText("harvest", notice.count, null),
+      };
+    }
+    if (notice.kind === "batchFertilizer") {
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: farmBatchOutcomeText("fertilize", notice.count, null),
+      };
+    }
     if (notice.kind === "ranchFeed") {
       return {
         id: notice.id,
@@ -314,6 +377,12 @@ export function AdventurerFarmPanel({
       <ProductionJobAdvanceNotice
         refreshKey={farm ? farmingLevelForState(farm) : 0}
       />
+      {farm ? (
+        <LifeLevelMilestoneNotice
+          activity="farming"
+          level={farmingLevelForState(farm)}
+        />
+      ) : null}
 
       <section className={`${SURFACE_CARD} overflow-clip`}>
         {loading ? (
@@ -359,6 +428,22 @@ export function AdventurerFarmPanel({
                   onSelect={setSelectedCropId}
                 />
 
+                <FarmBatchActionPanel
+                  cropName={selectedCrop?.name ?? "선택한 작물"}
+                  harvestCount={readyPlotIds.length}
+                  plantCount={plantablePlotIds.length}
+                  fertilizerCount={fertilizablePlotIds.length}
+                  busyAction={busyPlotAction}
+                  onHarvestAll={() => void harvestAll(readyPlotIds)}
+                  onPlantAll={() =>
+                    selectedCrop &&
+                    void plantAll(plantablePlotIds, selectedCrop.id)
+                  }
+                  onFertilizeAll={() =>
+                    void fertilizeAll(fertilizablePlotIds)
+                  }
+                />
+
                 <div className="grid gap-3 sm:grid-cols-3">
                   {farm.plots.map((plot) => (
                     <FarmPlotCard
@@ -367,15 +452,13 @@ export function AdventurerFarmPanel({
                       now={now}
                       crop={plot.cropId ? cropById.get(plot.cropId) : null}
                       selectedCrop={selectedCrop}
-                      selectedCropLocked={
-                        selectedCrop
-                          ? !canPlantFarmCrop(selectedCrop.id, learnedSkillIds)
-                          : false
-                      }
+                      selectedCropLocked={selectedCropLocked}
                       selectedSeedCount={
                         selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
                       }
-                      busy={busyPlotId === plot.id}
+                      busy={
+                        busyPlotAction !== null || busyPlotId === plot.id
+                      }
                       fertilizerBalance={fertilizerBalance}
                       onPlant={() =>
                         selectedCrop && plant(plot.id, selectedCrop.id)
@@ -693,20 +776,23 @@ function FarmToastMessage({
 
 function FarmSummary({ farm }: { farm: FarmState }) {
   const farmingLevel = farmingLevelForState(farm);
+  const maxLevel = farmingLevel >= LIFE_LEVEL_CAP;
   const levelStartXp = farmingLevelXpThreshold(farmingLevel);
   const nextLevelXp = farmingLevelXpThreshold(farmingLevel + 1);
-  const farmingLevelProgress = Math.max(0, farm.stats.farmingXp - levelStartXp);
+  const farmingLevelProgress = maxLevel
+    ? 1
+    : Math.max(0, farm.stats.farmingXp - levelStartXp);
   const farmingLevelRequired = Math.max(1, nextLevelXp - levelStartXp);
-  const farmingLevelProgressText = `${farmingLevelProgress.toLocaleString(
-    "ko-KR",
-  )} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
+  const farmingLevelProgressText = maxLevel
+    ? "최종 숙련 달성 · MAX"
+    : `${farmingLevelProgress.toLocaleString("ko-KR")} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
 
   return (
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농사 레벨"
-        value={`Lv ${farmingLevel.toLocaleString("ko-KR")}`}
+        value={`Lv ${farmingLevel.toLocaleString("ko-KR")} / ${LIFE_LEVEL_CAP}`}
       />
       <SummaryTile
         icon={<Leaf size={17} weight="duotone" />}
@@ -1175,6 +1261,70 @@ function CropSelector({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+export function FarmBatchActionPanel({
+  cropName,
+  harvestCount,
+  plantCount,
+  fertilizerCount,
+  busyAction,
+  onHarvestAll,
+  onPlantAll,
+  onFertilizeAll,
+}: {
+  cropName: string;
+  harvestCount: number;
+  plantCount: number;
+  fertilizerCount: number;
+  busyAction: FarmBatchAction | null;
+  onHarvestAll: () => void;
+  onPlantAll: () => void;
+  onFertilizeAll: () => void;
+}) {
+  const busy = busyAction !== null;
+  const buttonClass =
+    "h-10 rounded-md border border-emerald-300 bg-white px-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-300 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500";
+
+  return (
+    <div
+      role="group"
+      aria-label="농장 일괄 작업"
+      aria-busy={busy}
+      className={`${SURFACE_INSET} grid gap-2 p-3 sm:grid-cols-3`}
+    >
+      <button
+        type="button"
+        disabled={busy || harvestCount < 1}
+        onClick={onHarvestAll}
+        className={buttonClass}
+      >
+        {busyAction === "harvest"
+          ? "모두 수확 중..."
+          : `모두 수확 · ${harvestCount}칸`}
+      </button>
+      <button
+        type="button"
+        disabled={busy || plantCount < 1}
+        onClick={onPlantAll}
+        className={buttonClass}
+      >
+        {busyAction === "plant"
+          ? `${cropName} 모두 심는 중...`
+          : `${cropName} 모두 심기 · ${plantCount}칸`}
+      </button>
+      <button
+        type="button"
+        disabled={busy || fertilizerCount < 1}
+        onClick={onFertilizeAll}
+        className={buttonClass}
+      >
+        {busyAction === "fertilize"
+          ? "모두 비료 뿌리는 중..."
+          : `모두 비료 뿌리기 · ${fertilizerCount}칸`}
+      </button>
     </div>
   );
 }

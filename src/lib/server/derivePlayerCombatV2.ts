@@ -48,6 +48,7 @@ import {
   parseV2SkillsState,
   aggregateEquippedPassives,
 } from "@/adventure/data/v2/v2Skills";
+import { equipmentCritMultToMagicSkillCritBonus } from "@/adventure/data/v2/skillCritical";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import {
   V2_CORE_LOOP_V2,
@@ -85,6 +86,7 @@ import {
 } from "@/adventure/data/v2/v2JobPassives";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
+import { duelistStanceSnapshot } from "@/adventure/v2/combat/duelistCombat";
 import { activeCookingBuff } from "@/adventure/v2/cooking";
 import {
   ACCURACY_PCT_CAP,
@@ -111,10 +113,12 @@ import {
   HEAL_MULT_PER_VIT,
   HP_PER_VIT,
   MAGIC_ATK_PER_INT,
+  MAGIC_ATK_PER_SPI,
   MAGIC_ATK_PER_EXCESS_SPI,
   MAGIC_DEF_PER_INT,
   MAGIC_DEF_PER_SPI,
   MIN_DMG_PER_INT,
+  MIN_DMG_PER_SPI,
   MIN_DMG_PER_STR,
   MIN_DMG_PER_VIT,
   MP_PER_INT,
@@ -174,6 +178,8 @@ export {
   CRIT_MULT_SCALE,
   MAGIC_ATK_PER_EXCESS_SPI,
   MAGIC_ATK_PER_INT,
+  MAGIC_ATK_PER_SPI,
+  MIN_DMG_PER_SPI,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
 } from "./v2CombatCoefficients";
@@ -309,6 +315,9 @@ export type DerivePlayerCombatV2PureInput = {
   passiveDefPct?: number;
   /** 반사(수호자) — 피격 시 내 방어력의 이 %만큼 고정 데미지 반사. def 확정 후 thornsFlatFromDef 로 환산. */
   passiveThornsDefPct?: number;
+  passiveFortressImpactOnHit?: boolean;
+  passiveFortressImpactDamagePctPerStack?: number;
+  passiveFortressDefSkillStatCoefPct?: number;
   /** 적중도 +%(정밀) — 스탯·장비 적중도의 합을 증폭. */
   passiveAccuracyPct?: number;
   /** 회복 강화 +%(신술 지원 패시브, SPI 부활) — healMult 에 곱연산(×(1+%/100)). 미지정 = 무적용. */
@@ -349,10 +358,22 @@ export type DerivePlayerCombatV2PureInput = {
   passiveSkillCritOverflow?: boolean;
   /** 스킬 치명타 피해 +% — 액티브 스킬 치명타 배율에 /100 가산. */
   passiveSkillCritDmgPct?: number;
+  /** 원초 증폭 — 장비 치명타 배율을 직접 마법 스킬 치명타 배율로 변환. */
+  passiveEquipmentMagicSkillCritConversion?: boolean;
   /** 흑월지배 — 회피 후 다음 직접 피해 스킬 확정 치명타. 장착 패시브에서 주입. */
   passiveSkillCritAfterEvade?: boolean;
   /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 장착 패시브에서 주입. */
   passiveComboFinisherBonusPct?: number;
+  /** 현재 결투가 계보·로드아웃에서 스냅샷한 평타 최종 피해 보너스. */
+  duelistStanceBonusPct?: number;
+  /** 태세를 막은 공격 스킬 이름. 로드아웃 UI 설명용. */
+  duelistStanceBlockingSkillName?: string | null;
+  /** 장착 패시브의 평타 전용 방어 관통. */
+  passiveBasicDefPenetrationPct?: number;
+  /** 평타 치명타 뒤 다음 행동 1회 단축률. */
+  passiveBasicCritHastePct?: number;
+  /** 평타 전용 치명타 확률 상한. */
+  passiveBasicCritChanceCap?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -455,12 +476,13 @@ export function derivePlayerCombatV2Pure(
   const thornsFlatFromDef = input.passiveThornsDefPct
     ? Math.floor((def * input.passiveThornsDefPct) / 100)
     : 0;
-  // 마법 공격력 — 지능 + 무기 위력(magicAtk). 정신이 지능보다 높은 부분은 제한적으로 마공에
-  // 전환해 SPI 주력 빌드에 솔로 공격 수단을 준다. INT≥SPI면 전환량 0이라 INT 화력은 불변이다.
+  // 마법 공격력 — 지능 주력 + 정신 보조 + 무기 위력(magicAtk). 정신은 항상 소량 기여하고,
+  // 지능보다 높은 부분은 추가 전환해 SPI 주력 빌드에 솔로 공격 수단을 준다.
   const excessSpi = Math.max(0, totalStats.spi - totalStats.int);
   const magicAtk =
     Math.floor(
       totalStats.int * MAGIC_ATK_PER_INT +
+        totalStats.spi * MAGIC_ATK_PER_SPI +
         excessSpi * MAGIC_ATK_PER_EXCESS_SPI,
     ) +
     equipAcc.magicAtk +
@@ -478,11 +500,15 @@ export function derivePlayerCombatV2Pure(
   const magicDef = passiveMagicDefPct
     ? Math.floor(baseMagicDef * (1 + passiveMagicDefPct / 100))
     : baseMagicDef;
-  // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
+  // 직접 피해 스킬 최소 데미지 — 물리(힘 major+활력 minor)와 마법(지능 major+정신 minor)을
+  // 분리해 반대 계열 스탯이 스킬 하한까지 함께 올리는 교차 효율을 막는다.
   const minDamage = Math.floor(
     totalStats.str * MIN_DMG_PER_STR +
-      totalStats.int * MIN_DMG_PER_INT +
       totalStats.vit * MIN_DMG_PER_VIT,
+  );
+  const magicMinDamage = Math.floor(
+    totalStats.int * MIN_DMG_PER_INT +
+      totalStats.spi * MIN_DMG_PER_SPI,
   );
   // 회복량 배수(신규) — 정신(주력)·활력(보조). heal effect 스케일(1.0 기준). 회복강화는 곱연산
   //   ×(1+%/100) — 패시브(신술 지원) + 장비 옵션(SPI PR-2) 합산. 미지정/0 = ×1(byte-identical).
@@ -687,6 +713,13 @@ export function derivePlayerCombatV2Pure(
     ...(input.passiveSkillCritDmgPct
       ? { skillCritDmgPct: input.passiveSkillCritDmgPct }
       : {}),
+    ...(input.passiveEquipmentMagicSkillCritConversion
+      ? {
+          equipmentMagicSkillCritDmgPct:
+            equipmentCritMultToMagicSkillCritBonus(equipAcc.critMult / 100) *
+            100,
+        }
+      : {}),
     // 흑월지배 — 회피 뒤 다음 직접 피해 스킬 확정 치명타 플래그.
     ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),
     atk: specAtk,
@@ -719,6 +752,7 @@ export function derivePlayerCombatV2Pure(
         }
       : {}),
     minDamage,
+    magicMinDamage,
     healMult,
     // 직업 효과 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 합산(sumOrUndef).
     // (구 직업군 패시브는 은퇴 → specEff/input 만 합류.)
@@ -755,6 +789,21 @@ export function derivePlayerCombatV2Pure(
       ? {
           thornsDefPct: input.passiveThornsDefPct,
           thornsFlatFromDef,
+        }
+      : {}),
+    ...(input.passiveFortressImpactOnHit
+      ? { fortressImpactOnHit: true }
+      : {}),
+    ...((input.passiveFortressImpactDamagePctPerStack ?? 0) > 0
+      ? {
+          fortressImpactDamagePctPerStack:
+            input.passiveFortressImpactDamagePctPerStack,
+        }
+      : {}),
+    ...((input.passiveFortressDefSkillStatCoefPct ?? 0) > 0
+      ? {
+          fortressDefSkillStatCoefPct:
+            input.passiveFortressDefSkillStatCoefPct,
         }
       : {}),
     ...(totalBleedDmgPerStack > 0
@@ -805,6 +854,23 @@ export function derivePlayerCombatV2Pure(
       : {}),
     ...(input.passiveEnemyMagicDefReductionPct
       ? { enemyMagicDefReductionPct: input.passiveEnemyMagicDefReductionPct }
+      : {}),
+    ...(input.duelistStanceBonusPct != null
+      ? {
+          duelistStanceBonusPct: Math.max(0, input.duelistStanceBonusPct),
+          ...(input.duelistStanceBlockingSkillName
+            ? { duelistStanceBlockingSkillName: input.duelistStanceBlockingSkillName }
+            : {}),
+        }
+      : {}),
+    ...(input.passiveBasicDefPenetrationPct
+      ? { basicDefPenetrationPct: input.passiveBasicDefPenetrationPct }
+      : {}),
+    ...(input.passiveBasicCritHastePct
+      ? { basicCritHastePct: input.passiveBasicCritHastePct }
+      : {}),
+    ...((input.passiveBasicCritChanceCap ?? 75) > 75
+      ? { basicCritChanceCap: input.passiveBasicCritChanceCap }
       : {}),
     ...(input.passiveBerserkAtkPctPerLostHpPct
       ? {
@@ -959,6 +1025,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
   const maxMpPct = passiveAgg.maxMpPct;
   // 직업 효과 패시브(받피감·spd 등) — specEff 경로로 주입(현재 V2_JOB_PASSIVES 비어 inert).
   const jobPassiveEffect = jobPassive(v2JobId);
+  const duelistStance = duelistStanceSnapshot(v2JobId, equippedSkillIds, []);
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,
@@ -992,6 +1059,11 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.counterDamageUsesReflectBoost,
     passiveDefPct: passiveAgg.defPct,
     passiveThornsDefPct: passiveAgg.thornsDefPct,
+    passiveFortressImpactOnHit: passiveAgg.fortressImpactOnHit,
+    passiveFortressImpactDamagePctPerStack:
+      passiveAgg.fortressImpactDamagePctPerStack,
+    passiveFortressDefSkillStatCoefPct:
+      passiveAgg.fortressDefSkillStatCoefPct,
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
@@ -1020,8 +1092,20 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveSpdPerLukCoef: passiveAgg.spdPerLukCoef,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
     passiveSkillCritDmgPct: passiveAgg.skillCritDmgPct,
+    passiveEquipmentMagicSkillCritConversion:
+      passiveAgg.equipmentMagicSkillCritConversion,
     passiveSkillCritAfterEvade: passiveAgg.skillCritAfterEvade,
     passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,
+    ...(v2JobId in V2_JOB_CATALOG &&
+    ["duelist", "contender", "undefeated", "grandchampion"].includes(v2JobId)
+      ? {
+          duelistStanceBonusPct: duelistStance.bonusPct,
+          duelistStanceBlockingSkillName: duelistStance.blockingSkillName,
+        }
+      : {}),
+    passiveBasicDefPenetrationPct: passiveAgg.basicDefPenetrationPct,
+    passiveBasicCritHastePct: passiveAgg.basicCritHastePct,
+    passiveBasicCritChanceCap: passiveAgg.basicCritChanceCap,
   });
 }
 

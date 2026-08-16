@@ -951,7 +951,96 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
       }),
     );
 
-    expect(result.enemyDamage).toBe(404);
+    expect(result.enemyDamage).toBe(438);
+  });
+
+  it("장벽술은 방어력 직접 공격 계수만 15% 높인다", () => {
+    const base = castInput(["v2c_shieldman_bash"]);
+    const result = resolveV2SkillCast({
+      ...base,
+      procRoll: 0,
+      attacker: {
+        ...base.attacker,
+        atk: 100,
+        def: 200,
+        fortressDefSkillStatCoefPct: 15,
+      },
+      target: { ...base.target, def: 0 },
+    });
+
+    expect(result.enemyDamage).toBe(488);
+  });
+
+  it("충격 3스택은 스택당 15% 또는 20% 최종 피해를 주고 적중 소비를 알린다", () => {
+    const cast = (pct: number) => {
+      const base = castInput(["v2c_shieldman_bash"]);
+      return resolveV2SkillCast({
+        ...base,
+        procRoll: 0,
+        attacker: {
+          ...base.attacker,
+          atk: 100,
+          def: 200,
+          fortressImpact: 3,
+          fortressImpactDamagePctPerStack: pct,
+        },
+        target: { ...base.target, def: 0 },
+      });
+    };
+
+    expect(cast(15)).toMatchObject({
+      enemyDamage: 635,
+      fortressImpactToConsume: 3,
+    });
+    expect(cast(20)).toMatchObject({
+      enemyDamage: 700,
+      fortressImpactToConsume: 3,
+    });
+    expect(removeMissedV2SkillTargetEffects(cast(20))).toMatchObject({
+      enemyDamage: 0,
+      fortressImpactToConsume: 0,
+    });
+  });
+
+  it("철벽 태세 시전 결과는 반사 횟수 3회를 갱신한다", () => {
+    const result = resolveV2SkillCast(
+      castInput(["v2c_ironknight_guard"], { procRoll: 0 }),
+    );
+
+    expect(result.castSkillId).toBe("v2c_ironknight_guard");
+    expect(result.ironWallReflectToApply).toEqual({
+      charges: 3,
+      damageReductionPct: 30,
+      reflectDefPct: 180,
+    });
+  });
+
+  it("성채기사 스마트 기본 패턴은 충격 3 성채 충각 뒤 빈 철벽 태세를 둔다", () => {
+    expect(
+      smartDefaultPatternFromEquipped([
+        "v2c_ironknight_guard",
+        "v2c_fortressknight_ram",
+      ]).blocks,
+    ).toEqual([
+      {
+        condition: {
+          kind: "self_resource",
+          resource: "impact",
+          op: "atLeast",
+          value: 3,
+        },
+        action: { kind: "skill", skillId: "v2c_fortressknight_ram" },
+      },
+      {
+        condition: {
+          kind: "self_resource",
+          resource: "ironWallReflect",
+          op: "none",
+          value: 0,
+        },
+        action: { kind: "skill", skillId: "v2c_ironknight_guard" },
+      },
+    ]);
   });
 
   it("회복 스킬의 스탯 계수는 기존보다 10% 높다", () => {

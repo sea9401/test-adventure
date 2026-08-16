@@ -42,6 +42,7 @@ import {
   resolveMagicBarrierDamage,
 } from "./magicBarrier";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
+import { consumeDuelistCritHaste } from "./duelistCombat";
 
 // PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
 // 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
@@ -520,9 +521,14 @@ export function resolveBattleAtb(
         }
       }
       // 바람 — 이번 행동 후 내 다음 행동 틱을 가속(pct% 만큼 단축). 미시전이면 0 → 무변.
-      playerNextTick +=
+      const duelistHaste = consumeDuelistCritHaste(
         actionInterval(effectivePlayerSpd(atbPlayer, state)) *
-        (1 - castSelfHastePct / 100);
+          (1 - castSelfHastePct / 100),
+        atbPlayer.basicCritHastePct ?? 0,
+        state.duelistCritHastePending === true,
+      );
+      playerNextTick += duelistHaste.interval;
+      state = { ...state, duelistCritHastePending: duelistHaste.pending };
       turns += 1;
     } else {
       state = {

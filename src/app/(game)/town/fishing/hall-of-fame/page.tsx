@@ -10,6 +10,7 @@ export default function FishingHallOfFamePage() {
     <FishingHallOfFamePanel
       onBack={() => router.push("/town")}
       onOpenFishing={() => router.push("/town/fishing")}
+      onOpenDangerous={() => router.push("/town/fishing/dangerous")}
       onOpenChallenges={() => router.push("/town/fishing/challenges")}
       onOpenLeaderboard={() => router.push("/town/fishing/leaderboard")}
       onOpenShop={() => router.push("/town/fishing/shop")}

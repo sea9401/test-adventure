@@ -21,7 +21,6 @@ import {
   coopAttackCooldownMs,
   coopEnrageStatus,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { coopKillingBlowReward } from "@/adventure/data/v2/coopRewards";
 import {
   fmtCoopRemain,
@@ -37,6 +36,21 @@ import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
+}
+
+export const COOP_BOSS_PUBLICATION_CONFIRMATION =
+  "전체 공개하면 모든 모험가가 이 보스를 볼 수 있습니다. 공개 후에는 나만 또는 길드원만으로 되돌릴 수 없습니다. 전체 공개할까요?";
+
+export function confirmCoopBossPublication({
+  confirm,
+  onPublish,
+}: {
+  confirm: (message: string) => boolean;
+  onPublish: () => void;
+}): boolean {
+  if (!confirm(COOP_BOSS_PUBLICATION_CONFIRMATION)) return false;
+  onPublish();
+  return true;
 }
 
 export function V2CoopBossDetailView({
@@ -135,9 +149,10 @@ export function V2CoopBossDetailView({
   );
   const lowStamina = liveStamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.damage > 0;
-  // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.
-  const showScopeControl = V2_CORE_LOOP_V2 && session.isOwner && active;
-  const showScopeBadge = V2_CORE_LOOP_V2 && !showScopeControl;
+  // 전체 공개 전의 활성 보스만 소환자가 범위를 바꿀 수 있다. public 은 영구 잠금이다.
+  const showScopeControl =
+    session.isOwner && active && session.visibility !== "public";
+  const showScopeBadge = !showScopeControl;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
@@ -380,8 +395,8 @@ export function V2CoopBossDetailView({
             </span>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            기여 보상을 충분히 쌓은 뒤 공개로 바꿔 다른 모험가들과 함께 잡을 수
-            있어요.
+            전체 공개 전에는 나만 또는 길드원과 준비할 수 있어요. 전체 공개 후에는
+            범위를 다시 줄일 수 없습니다.
           </p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
             {COOP_VISIBILITY_OPTIONS.map(([val, label]) => {
@@ -391,7 +406,16 @@ export function V2CoopBossDetailView({
                   key={val}
                   type="button"
                   disabled={busy || cur}
-                  onClick={() => void setVisibility(val)}
+                  onClick={() => {
+                    if (val === "public") {
+                      confirmCoopBossPublication({
+                        confirm: (message) => window.confirm(message),
+                        onPublish: () => void setVisibility(val),
+                      });
+                      return;
+                    }
+                    void setVisibility(val);
+                  }}
                   aria-pressed={cur}
                   className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition disabled:cursor-default ${
                     cur

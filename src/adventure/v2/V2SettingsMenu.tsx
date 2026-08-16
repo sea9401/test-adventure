@@ -17,7 +17,6 @@ import {
   SignOut,
   Storefront,
 } from "@phosphor-icons/react";
-import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useAttendanceReminder } from "./useAttendanceReminder";
 
@@ -61,9 +60,14 @@ export function V2SettingsMenu() {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     setOpen(false);
-    signOut({ redirectTo: "/sign-in" });
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    if (!response.ok) {
+      setOpen(true);
+      return;
+    }
+    window.location.replace("/sign-in");
   };
 
   return (
@@ -191,7 +195,7 @@ export function V2SettingsMenu() {
             <li>
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={() => void handleSignOut()}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
               >
                 <SignOut size={18} weight="duotone" />

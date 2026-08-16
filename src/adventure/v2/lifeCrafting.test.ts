@@ -100,6 +100,120 @@ describe("life crafting", () => {
     expect(result.state.aidsUsed).toBe(1);
   });
 
+  it("continues using identical spare aids after the active one runs out", () => {
+    const state = parseLifeCraftingState({
+      balances: { logging_wedge_basic: 2 },
+      activeAids: {
+        woodcutting: {
+          itemId: "logging_wedge_basic",
+          remainingUses: 2,
+          enabled: true,
+        },
+      },
+    });
+
+    const result = consumeLifeAidUses(
+      state,
+      "woodcutting",
+      "logging_wedge_basic",
+      605,
+    );
+
+    expect(result.consumed).toBe(605);
+    expect(result.state.balances.logging_wedge_basic).toBeUndefined();
+    expect(result.state.activeAids.woodcutting).toEqual({
+      itemId: "logging_wedge_basic",
+      remainingUses: 597,
+      enabled: true,
+    });
+    expect(result.state.aidsUsed).toBe(605);
+  });
+
+  it("readies the next identical spare when an enabled aid ends on the last action", () => {
+    const state = parseLifeCraftingState({
+      balances: { mining_probe_basic: 2 },
+      activeAids: {
+        mining: {
+          itemId: "mining_probe_basic",
+          remainingUses: 1,
+          enabled: true,
+        },
+      },
+    });
+
+    const result = consumeLifeAidUses(
+      state,
+      "mining",
+      "mining_probe_basic",
+      1,
+    );
+
+    expect(result.consumed).toBe(1);
+    expect(result.state.balances.mining_probe_basic).toBe(1);
+    expect(result.state.activeAids.mining).toEqual({
+      itemId: "mining_probe_basic",
+      remainingUses: 600,
+      enabled: true,
+    });
+    expect(result.state.aidsUsed).toBe(1);
+  });
+
+  it("does not open a spare after the selected aid is turned off", () => {
+    const state = parseLifeCraftingState({
+      balances: { tidy_bait_box: 1 },
+      activeAids: {
+        fishing: {
+          itemId: "tidy_bait_box",
+          remainingUses: 1,
+          enabled: false,
+        },
+      },
+    });
+
+    const result = consumeLifeAidUses(
+      state,
+      "fishing",
+      "tidy_bait_box",
+      2,
+    );
+
+    expect(result.consumed).toBe(1);
+    expect(result.state.balances.tidy_bait_box).toBe(1);
+    expect(result.state.activeAids.fishing).toBeUndefined();
+    expect(result.state.aidsUsed).toBe(1);
+  });
+
+  it("does not open a reserved aid spare after another tier is selected", () => {
+    const state = parseLifeCraftingState({
+      balances: { logging_wedge_basic: 1 },
+      reserveAidUses: { logging_wedge_basic: 1 },
+      activeAids: {
+        woodcutting: {
+          itemId: "logging_wedge_advanced",
+          remainingUses: 800,
+          enabled: true,
+        },
+      },
+    });
+
+    const result = consumeLifeAidUses(
+      state,
+      "woodcutting",
+      "logging_wedge_basic",
+      2,
+    );
+
+    expect(result.consumed).toBe(1);
+    expect(result.state.balances.logging_wedge_basic).toBe(1);
+    expect(result.state.reserveAidUses.logging_wedge_basic).toBeUndefined();
+    expect(result.state.activeAids.woodcutting).toEqual({
+      itemId: "logging_wedge_advanced",
+      remainingUses: 800,
+      enabled: true,
+    });
+    expect(result.state.aidsUsed).toBe(1);
+  });
+
   it("uses the approved grade bands, charges and bonuses", () => {
     expect(lifeAidSpec("logging_wedge_basic")).toMatchObject({ gradeMin: 1, gradeMax: 2, uses: 600, bonusPct: 10 });
     expect(lifeAidSpec("mining_probe_advanced")).toMatchObject({ gradeMin: 3, gradeMax: 4, uses: 800, bonusPct: 8, byproductMultiplier: 1.25 });
@@ -179,6 +293,29 @@ describe("life crafting", () => {
     const second = rollHiddenBlueprint(first.state, "woodcutting", 100, () => 0);
     expect(second.recipe).toBeNull();
     expect(second.state.learnedHiddenRecipeIds).toEqual(["logging_wedge_master"]);
+  });
+
+  it("90레벨 벌목 보너스는 숨은 설계도 확률에 1%p를 더한다", () => {
+    const rolls = [0, 0.005];
+    expect(
+      rollHiddenBlueprint(
+        emptyLifeCraftingState(),
+        "woodcutting",
+        1,
+        () => rolls.shift() ?? 1,
+      ).recipe,
+    ).toBeNull();
+
+    const bonusRolls = [0, 0.005];
+    expect(
+      rollHiddenBlueprint(
+        emptyLifeCraftingState(),
+        "woodcutting",
+        1,
+        () => bonusRolls.shift() ?? 1,
+        1,
+      ).recipe?.id,
+    ).toBe("logging_wedge_master");
   });
 
   it("keeps housing recipes dormant without deleting their catalog data", () => {

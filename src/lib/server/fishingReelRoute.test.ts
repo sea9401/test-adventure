@@ -73,6 +73,7 @@ import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 import {
   FISHING_PROGRESS_KEY,
   emptyFishingProgression,
+  fishingLevelXpThreshold,
 } from "@/adventure/v2/fishingProgression";
 import {
   ACTIVITY_GUARD_KEY,
@@ -602,6 +603,27 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(store.get(FISHING_WALLET_KEY)).toMatchObject({
       coins: 43,
       catchDay: { earned: 3 },
+    });
+  });
+
+  it("구 초과 XP 환산 레벨은 이번 챔질의 레벨업 보상으로 세지 않는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_PROGRESS_KEY, {
+      ...emptyFishingProgression(),
+      levelCurveVersion: undefined,
+      xp: 999_999,
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.levelCurveMigrated).toBe(true);
+    expect(json.levelRewardCoins).toBe(0);
+    expect(store.get(FISHING_PROGRESS_KEY)).toMatchObject({
+      levelCurveVersion: 2,
+      xp: fishingLevelXpThreshold(60) + 4,
     });
   });
 

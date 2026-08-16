@@ -65,6 +65,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // 모바일 UI 회귀 테스트는 실행 중인 기본 개발 서버의 .next 잠금/캐시와 격리한다.
+  // 환경 변수가 없으면 모든 일반 개발·빌드가 기존 .next 를 그대로 사용한다.
+  distDir: process.env.MOBILE_UI_NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   images: {
     localPatterns: [

@@ -127,6 +127,7 @@ function partyPatternCtx({
     selfShieldActive: false,
     selfBuffStats: new Set<StatKey>(),
     selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),
+    selfResources: { impact: 0, ironWallReflect: 0 },
     enemyHpPct: (enemyHp / enemyMaxHp) * 100,
     enemyBleed: 0,
     enemyPoison: 0,

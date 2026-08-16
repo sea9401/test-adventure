@@ -6,6 +6,7 @@ import {
   WOODCUTTING_TREES,
   createWoodcuttingSession,
   parseWoodcuttingLog,
+  parseWoodcuttingLogWithLevelMigration,
   parseWoodcuttingSession,
   pickWoodcuttingTreeId,
   recordWoodcuttingSuccess,
@@ -76,5 +77,14 @@ describe("woodcuttingSession", () => {
   it("기존 기록은 완료 횟수당 10 XP로 이어받는다", () => {
     expect(parseWoodcuttingLog({ cuts: 7 }).xp).toBe(70);
     expect(parseWoodcuttingLog({ cuts: 7, xp: 93 }).xp).toBe(93);
+  });
+
+  it("횟수에서 복구한 구 XP도 60레벨 한도에서 한 번 환산한다", () => {
+    const parsed = parseWoodcuttingLogWithLevelMigration({ cuts: 999_999 });
+    expect(parsed.levelCurveMigrated).toBe(true);
+    expect(parsed.log).toMatchObject({
+      levelCurveVersion: 2,
+      xp: 135_993,
+    });
   });
 });

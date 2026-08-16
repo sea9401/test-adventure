@@ -19,6 +19,7 @@ import {
   WOODCUTTING_LOG_KEY,
   isWoodcuttingTreeId,
   parseWoodcuttingLog,
+  parseWoodcuttingLogWithLevelMigration,
   pickWoodcuttingTreeId,
   woodcuttingMaterialBalances,
 } from "@/adventure/v2/woodcuttingSession";
@@ -26,7 +27,10 @@ import {
   woodcuttingDurationWithPassive,
   woodcuttingFailureRate,
   woodcuttingProgressionView,
+  woodcuttingXpForLevel,
 } from "@/adventure/v2/woodcuttingProgression";
+import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   autoGatheringCompletedAttempts,
   beginAutoGathering,
@@ -139,6 +143,7 @@ export async function POST(req: Request) {
       parseWoodcuttingLog(logRaw).cuts,
       parseWoodcuttingLog(logRaw).xp,
     );
+    const levelBonuses = woodcuttingPost50Bonuses(progression.level);
     const bonuses = equippedWoodcuttingBonuses(
       parseV2SkillsState(skillsRaw).equipped,
     );
@@ -153,7 +158,8 @@ export async function POST(req: Request) {
       1,
       (bonuses.bonusLogChancePct +
         LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
-        lifeGatheringBonusPct("woodcutting", workshop, progression.level)) /
+        lifeGatheringBonusPct("woodcutting", workshop, progression.level) +
+        levelBonuses.bonusLogChancePct) /
         100,
     );
     const baseCycleDurationMs = woodcuttingDurationWithPassive(
@@ -298,6 +304,13 @@ export async function POST(req: Request) {
     const discoveryRewardXp = discoveryReward?.xp ?? 0;
     settlement.materialsGained += discoveryRewardGained;
     settlement.xpGained += discoveryRewardXp;
+    const parsedLog = parseWoodcuttingLogWithLevelMigration(
+      await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {}),
+    );
+    const currentLog = parsedLog.log;
+    const levelBonuses = woodcuttingPost50Bonuses(
+      woodcuttingProgressionView(currentLog.cuts, currentLog.xp).level,
+    );
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
     let aidSuccesses = 0;
@@ -309,7 +322,13 @@ export async function POST(req: Request) {
       );
       crafting = aidConsumption.state;
     }
-    const blueprint = rollHiddenBlueprint(crafting, "woodcutting", settlement.successes);
+    const blueprint = rollHiddenBlueprint(
+      crafting,
+      "woodcutting",
+      settlement.successes,
+      Math.random,
+      levelBonuses.rareResultChancePct,
+    );
     workshop = { ...workshop, crafting: blueprint.state };
     await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -342,13 +361,15 @@ export async function POST(req: Request) {
       new Date(now),
     );
     const xpGained = settlement.xpGained + diningXp.bonus;
-    const currentLog = parseWoodcuttingLog(
-      await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {}),
-    );
+    const appliedXp = applyLifeXpGain({
+      xp: currentLog.xp,
+      gainedXp: xpGained,
+      legacyThreshold: woodcuttingXpForLevel,
+    });
     const log = {
       ...currentLog,
       cuts: currentLog.cuts + settlement.successes,
-      xp: currentLog.xp + xpGained,
+      xp: appliedXp.xp,
       timberEarned: currentLog.timberEarned + settlement.materialsGained,
       trees: {
         ...currentLog.trees,
@@ -362,7 +383,10 @@ export async function POST(req: Request) {
       settlement.successes * session.materialEfficiency + 1e-9,
     );
     for (let index = 0; index < seedRolls; index += 1) {
-      const drop = rollWoodcuttingSeedDrop();
+      const drop = rollWoodcuttingSeedDrop(
+        Math.random,
+        levelBonuses.seedChancePct,
+      );
       if (drop) seedDrops[drop.cropId] = (seedDrops[drop.cropId] ?? 0) + drop.quantity;
     }
     if (Object.keys(seedDrops).length > 0) {
@@ -426,6 +450,7 @@ export async function POST(req: Request) {
           }
         : null,
       lifeFieldFeedEnabled: lifeFeatures.feedEnabled,
+      levelCurveMigrated: parsedLog.levelCurveMigrated,
     };
   });
 
@@ -482,5 +507,6 @@ export async function POST(req: Request) {
     log: result.log,
     autoSession: null,
     activeAutoActivity: result.activeAutoActivity,
+    ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

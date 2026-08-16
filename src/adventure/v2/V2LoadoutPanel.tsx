@@ -18,6 +18,13 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  DUELIST_STANCE_BONUS_PCT,
+  composeDuelistDeclaration,
+  duelistDeclarationSummary,
+  duelistStanceSnapshot,
+  highestEquippedDeclaration,
+} from "./combat/duelistCombat";
 import { SkillEffectChips } from "./SkillEffectChips";
 import { useSystemMessageState } from "./RewardToastProvider";
 import {
@@ -145,11 +152,13 @@ export function V2LoadoutPanel({
   loadout,
   onChanged,
   previewMode = false,
+  currentJobId,
 }: {
   loadout: V2LoadoutData;
   onChanged?: () => void | Promise<void>;
   /** 로그인·DB 없는 /dev 미리보기에서 저장 요청 없이 로컬 상호작용만 확인한다. */
   previewMode?: boolean;
+  currentJobId?: string;
 }) {
   // 단일 진실원천 = order(장착된 id 우선순위 리스트). 메타(코스트/잠금/시그)는 library 에서.
   const [order, setOrder] = useState<string[]>(loadout.equipped);
@@ -179,6 +188,16 @@ export function V2LoadoutPanel({
   const dragSessionRef = useRef<DragSession | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
+
+  const duelistPreview = useMemo(() => {
+    if (!currentJobId || !(currentJobId in DUELIST_STANCE_BONUS_PCT)) return null;
+    const stance = duelistStanceSnapshot(currentJobId, order, []);
+    const highest = highestEquippedDeclaration(order);
+    const declaration = highest
+      ? composeDuelistDeclaration(order, highest)
+      : null;
+    return { stance, declaration };
+  }, [currentJobId, order]);
 
   // 부모가 /me/state 를 다시 불러(예: 스킬 학습 후) loadout 이 갱신되면 서버 진실로 동기화.
   //   토글은 같은 prop 참조라 effect 미발화 → 낙관적 로컬 상태 유지. 학습 등 refresh 시에만 리셋.
@@ -681,7 +700,7 @@ export function V2LoadoutPanel({
 
   if (loadout.library.length === 0) {
     return (
-      <Card padding="md">
+      <Card padding="md" className="w-full min-w-0 max-w-full">
         <h2 className="text-sm font-semibold">스킬</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           아직 배운 스킬이 없어요. 아래에서 스킬을 먼저 배우세요.
@@ -691,7 +710,7 @@ export function V2LoadoutPanel({
   }
 
   return (
-    <Card padding="md">
+    <Card padding="md" className="w-full min-w-0 max-w-full">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">스킬</h2>
         <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -739,6 +758,30 @@ export function V2LoadoutPanel({
         배운 전투 스킬을 스킬포인트 예산 안에서 장착하세요. 생활 패시브는 SP를
         사용하지 않으며 배우면 자동으로 항상 적용됩니다.
       </p>
+      {duelistPreview && (
+        <div className={`mt-3 space-y-1.5 p-3 text-xs ${SURFACE_INSET}`}>
+          <div className="font-semibold text-zinc-800 dark:text-zinc-100">
+            {duelistPreview.stance.active
+              ? `결투 태세 활성 · 평타 피해 +${duelistPreview.stance.bonusPct}%`
+              : `결투 태세 비활성 · ${duelistPreview.stance.blockingSkillName ?? "현재 직업 조건 불충족"}${duelistPreview.stance.blockingSkillName ? " 장착 중" : ""}`}
+          </div>
+          {duelistPreview.declaration ? (
+            <>
+              <div className="font-medium text-violet-700 dark:text-violet-300">
+                {duelistPreview.declaration.declarationName}에 하위 선언{" "}
+                {Math.max(0, duelistPreview.declaration.chainCount - 1)}개 연계
+              </div>
+              <div className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">
+                {duelistDeclarationSummary(duelistPreview.declaration)}
+              </div>
+            </>
+          ) : (
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              선언을 장착하면 가장 높은 차수의 선언에 하위 효과가 합쳐집니다.
+            </div>
+          )}
+        </div>
+      )}
       <div className="mt-4 grid gap-2 border-t border-zinc-200 pt-3 sm:grid-cols-2 dark:border-zinc-800">
         <section className={`${SURFACE_INSET} p-3`} aria-labelledby="combat-equipped-heading">
           <div className="flex items-center justify-between gap-2">
@@ -766,7 +809,7 @@ export function V2LoadoutPanel({
                 <div
                   key={s.skillId}
                   data-equipped-drop-id={s.skillId}
-                  className={`ui-lift-card relative inline-flex h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 ${
+                  className={`ui-lift-card relative inline-flex min-h-11 sm:h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 ${
                     draggingId === s.skillId ? "opacity-55" : ""
                   }`}
                 >
@@ -810,7 +853,7 @@ export function V2LoadoutPanel({
                       finishPointerDrag(e.clientX, e.clientY);
                     }}
                     onPointerCancel={(e) => cancelPointerDrag(e.pointerId)}
-                    className={`flex h-6 w-5 touch-none cursor-grab items-center justify-center rounded text-violet-500 active:cursor-grabbing dark:text-violet-300 ${
+                    className={`flex h-11 w-11 sm:h-6 sm:w-5 touch-none cursor-grab items-center justify-center rounded text-violet-500 active:cursor-grabbing dark:text-violet-300 ${
                       busy
                         ? "pointer-events-none opacity-40"
                         : "hover:bg-violet-100 dark:hover:bg-violet-900"
@@ -970,8 +1013,8 @@ export function V2LoadoutPanel({
         <div className="mt-3 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
           {domain === "combat" ? "전투 스킬 목록" : "생활 스킬 목록"}
         </div>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <label className="relative min-w-52 flex-1 sm:max-w-xs">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <label className="relative min-w-0 flex-1 sm:min-w-52 sm:max-w-xs">
             <MagnifyingGlass
               size={14}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
@@ -983,11 +1026,11 @@ export function V2LoadoutPanel({
               className="h-8 w-full rounded-md border border-zinc-300 bg-white py-1 pl-8 pr-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
-          <div className="flex items-center gap-1.5">
+          <div className="flex w-full items-center gap-1.5 sm:w-auto">
             <button
               type="button"
               onClick={() => setCompact((v) => !v)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 sm:flex-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               {compact ? (
                 <Rows size={14} weight="bold" />
@@ -1000,7 +1043,7 @@ export function V2LoadoutPanel({
               type="button"
               onClick={sortPinnedFirst}
               disabled={busy || (order.length === 0 && favoriteIds.length === 0)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               <ArrowsDownUp size={14} weight="bold" />
               즐겨찾기 우선
@@ -1047,7 +1090,7 @@ export function V2LoadoutPanel({
             </select>
           </label>
         </div>
-        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+        <div className="mt-2 flex min-w-0 max-w-full overflow-x-auto gap-1.5 pb-1">
           {filterDefs.map((f) => (
             <button
               key={f.id}
@@ -1098,7 +1141,7 @@ export function V2LoadoutPanel({
             <li
               key={s.skillId}
               data-skill-drop-id={s.skillId}
-              className={`ui-skill-card relative flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
+              className={`ui-skill-card relative flex flex-col sm:flex-row gap-2 rounded-md border px-2 py-2 transition-colors sm:items-start sm:px-3 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
@@ -1115,6 +1158,7 @@ export function V2LoadoutPanel({
                   }`}
                 />
               )}
+              <div className="flex w-full min-w-0 items-start gap-2 sm:contents">
               <span
                 role="button"
                 tabIndex={0}
@@ -1152,7 +1196,7 @@ export function V2LoadoutPanel({
                   setDropTarget(null);
                   stopAutoScroll();
                 }}
-                className={`flex h-9 w-8 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
+                className={`flex h-11 w-11 sm:h-9 sm:w-8 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
                   busy ? "pointer-events-none opacity-40" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 }`}
               >
@@ -1182,7 +1226,8 @@ export function V2LoadoutPanel({
                   </span>
                 )}
               </div>
-              <div className="grid w-[6.25rem] shrink-0 grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
+              </div>
+              <div className="grid w-full sm:w-[6.25rem] shrink-0 grid-cols-[2.75rem_minmax(0,1fr)] sm:grid-cols-[2rem_minmax(0,1fr)] items-start gap-1.5">
                 <button
                   type="button"
                   onClick={() => toggleFavorite(s.skillId)}
@@ -1191,7 +1236,7 @@ export function V2LoadoutPanel({
                     favorite ? `${s.name} 즐겨찾기 해제` : `${s.name} 즐겨찾기`
                   }
                   title={favorite ? "즐겨찾기 해제" : "즐겨찾기"}
-                  className={`flex h-8 w-8 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`flex h-11 w-11 sm:h-8 sm:w-8 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
                     favorite
                       ? "border-amber-400 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
                       : "border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"

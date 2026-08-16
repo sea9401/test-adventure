@@ -28,6 +28,11 @@ describe("feed visibility config", () => {
     expect(FEED_HIDDEN_TYPES).not.toContain("cultivation_awakening");
   });
 
+  it("유니크 획득은 획득 분류에서 보이되 전광판에는 올리지 않는다", () => {
+    expect(FEED_CATEGORY_TYPES.acquisition).toContain("unique_drop");
+    expect(WAR_FEED_TYPES).not.toContain("unique_drop");
+  });
+
   it("수행 각성은 전체 소식과 전광판에 노출한다", () => {
     expect(FEED_TYPES).toContain("cultivation_awakening");
     expect(WAR_FEED_TYPES).toContain("cultivation_awakening");

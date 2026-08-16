@@ -7,6 +7,14 @@ import {
   type RanchPenId,
   type RanchState,
 } from "./ranch";
+import {
+  LIFE_LEVEL_CURVE_VERSION,
+  applyLifeXpGain,
+  extendedLifeLevelForXp,
+  extendedLifeXpThreshold,
+  normalizeLifeXp,
+} from "./lifeLevelProgression";
+import { farmingPost50Bonuses } from "./lifeLevelBonuses";
 
 export const FARM_SAVE_KEY = "farm.v2";
 
@@ -282,6 +290,7 @@ export type FarmPlot = {
 
 export type FarmState = {
   version: 1;
+  levelCurveVersion: number;
   plots: FarmPlot[];
   ranch: RanchState;
   inventory: FarmItemInventory;
@@ -607,6 +616,7 @@ export const FARM_STARTER_SEEDS: FarmSeedInventory = {
 export function emptyFarmState(now = Date.now()): FarmState {
   return {
     version: 1,
+    levelCurveVersion: LIFE_LEVEL_CURVE_VERSION,
     plots: createFarmPlots(FARM_PLOT_COUNT),
     ranch: emptyRanchState(now),
     inventory: {},
@@ -626,7 +636,7 @@ export function emptyFarmState(now = Date.now()): FarmState {
   };
 }
 
-export function parseFarmState(raw: unknown, now = Date.now()): FarmState {
+function parseFarmStateFields(raw: unknown, now = Date.now()): FarmState {
   const fallback = emptyFarmState(now);
   if (!raw || typeof raw !== "object") return fallback;
   const value = raw as Partial<FarmState>;
@@ -668,6 +678,9 @@ export function parseFarmState(raw: unknown, now = Date.now()): FarmState {
   });
   return {
     version: 1,
+    levelCurveVersion: Number.isFinite(Number(value.levelCurveVersion))
+      ? Math.max(1, Math.floor(Number(value.levelCurveVersion)))
+      : 1,
     plots,
     ranch: parseRanchState(value.ranch, now),
     inventory: parseInventory(value.inventory),
@@ -679,6 +692,30 @@ export function parseFarmState(raw: unknown, now = Date.now()): FarmState {
     weekly: parseWeeklyState(value.weekly),
     stats,
   };
+}
+
+export function parseFarmStateWithLevelMigration(
+  raw: unknown,
+  now = Date.now(),
+): { state: FarmState; levelCurveMigrated: boolean } {
+  const state = parseFarmStateFields(raw, now);
+  const normalized = normalizeLifeXp({
+    xp: state.stats.farmingXp,
+    levelCurveVersion: state.levelCurveVersion,
+    legacyThreshold: legacyFarmingLevelXpThreshold,
+  });
+  return {
+    state: {
+      ...state,
+      levelCurveVersion: normalized.levelCurveVersion,
+      stats: { ...state.stats, farmingXp: normalized.xp },
+    },
+    levelCurveMigrated: normalized.migrated,
+  };
+}
+
+export function parseFarmState(raw: unknown, now = Date.now()): FarmState {
+  return parseFarmStateWithLevelMigration(raw, now).state;
 }
 
 export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
@@ -995,14 +1032,17 @@ export function farmCropMasteryGain(cropId: FarmCropId): number {
   );
 }
 
-export function farmingLevelXpThreshold(level: number): number {
-  const safeLevel = Math.max(1, Math.floor(level));
+function legacyFarmingLevelXpThreshold(level: number): number {
+  const safeLevel = Math.max(1, Math.min(50, Math.floor(level) || 1));
   return (safeLevel - 1) * (safeLevel - 1) * FARMING_LEVEL_XP_SCALE;
 }
 
+export function farmingLevelXpThreshold(level: number): number {
+  return extendedLifeXpThreshold(level, legacyFarmingLevelXpThreshold);
+}
+
 export function farmingLevelForXp(xp: number): number {
-  const safeXp = Math.max(0, Math.floor(xp));
-  return Math.floor(Math.sqrt(safeXp / FARMING_LEVEL_XP_SCALE)) + 1;
+  return extendedLifeLevelForXp(xp, legacyFarmingLevelXpThreshold);
 }
 
 export function farmingLevelForState(state: FarmState): number {
@@ -1201,7 +1241,11 @@ export function collectFarmRanch(
       (inventory[itemId as FarmItemId] ?? 0) + nonNegativeInt(amount),
     );
   }
-  const farmingXp = state.stats.farmingXp + collected.farmingXp;
+  const farmingXp = applyLifeXpGain({
+    xp: state.stats.farmingXp,
+    gainedXp: collected.farmingXp,
+    legacyThreshold: legacyFarmingLevelXpThreshold,
+  }).xp;
   return {
     state: {
       ...state,
@@ -1382,10 +1426,14 @@ export function harvestPlot(
   if (plot.readyAt > now) throw new FarmError("not_ready");
 
   const crop = FARM_CROPS[plot.cropId];
+  const levelBonuses = farmingPost50Bonuses(farmingLevelForState(state));
   const baseQuantity =
     crop.yieldMin +
     Math.floor(rng() * (crop.yieldMax - crop.yieldMin + 1));
-  const yieldBonusPct = Math.max(0, options.yieldBonusPct ?? 0);
+  const yieldBonusPct = Math.max(
+    0,
+    (options.yieldBonusPct ?? 0) + levelBonuses.yieldBonusPct,
+  );
   const yieldBonusProgress =
     state.stats.yieldBonusRemainderPct + baseQuantity * yieldBonusPct;
   const bonusQuantity = Math.floor(yieldBonusProgress / 100);
@@ -1393,7 +1441,9 @@ export function harvestPlot(
   const yieldBonusRemainderPct = yieldBonusProgress % 100;
   const rareChance = Math.min(
     0.75,
-    crop.rareChance + Math.max(0, options.rareChancePct ?? 0) / 100,
+    crop.rareChance +
+      Math.max(0, (options.rareChancePct ?? 0) + levelBonuses.rareChancePct) /
+        100,
   );
   const pityReady = state.stats.rareMissStreak >= FARM_RARE_PITY_HARVESTS - 1;
   const gotRare = pityReady || rng() < rareChance;
@@ -1404,7 +1454,11 @@ export function harvestPlot(
     inventory[crop.rareItemId] = (inventory[crop.rareItemId] ?? 0) + 1;
   }
   const farmingXpGained = farmCropMasteryGain(crop.id);
-  const farmingXp = state.stats.farmingXp + farmingXpGained;
+  const farmingXp = applyLifeXpGain({
+    xp: state.stats.farmingXp,
+    gainedXp: farmingXpGained,
+    legacyThreshold: legacyFarmingLevelXpThreshold,
+  }).xp;
   const farmingLevel = farmingLevelForXp(farmingXp);
 
   return {

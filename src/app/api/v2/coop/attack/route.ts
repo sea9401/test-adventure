@@ -33,7 +33,6 @@ import {
   coopBossMpPressureDamage,
   withCoopBossMp,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   applyRegen,
@@ -171,11 +170,23 @@ export async function POST(req: Request) {
     }
     // 코어루프 — 가시성/공격 권한(공개/길드원만/소환자만). 소환자가 소환 "후" 범위를 바꿀 수 있어
     //   (코드 부재 시 race) peek 는 빠른 거절용이고, 아래 FOR UPDATE 잠금 후 한 번 더 재검증한다.
-    let viewerGuildId: number | null = null;
-    if (V2_CORE_LOOP_V2) {
-      viewerGuildId = await getGuildId(tx, userId);
+    const viewerGuildId = await getGuildId(tx, userId);
+    if (!canAccessCoopBoss(sessionPeek, { userId, guildId: viewerGuildId })) {
+      const [priorContrib] = await tx
+        .select({ damage: coopBossContributors.damage })
+        .from(coopBossContributors)
+        .where(
+          and(
+            eq(coopBossContributors.sessionId, sessionPeek.id),
+            eq(coopBossContributors.userId, userId),
+          ),
+        );
       if (
-        !canAccessCoopBoss(sessionPeek, { userId, guildId: viewerGuildId })
+        !canAccessCoopBoss(
+          sessionPeek,
+          { userId, guildId: viewerGuildId },
+          (priorContrib?.damage ?? 0) > 0,
+        )
       ) {
         return {
           status: 403,
@@ -288,18 +299,11 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "expired" as const },
       };
     }
-    // 가시성 race 가드 — 시뮬 도중 소환자가 범위를 좁혔으면(예: 공개→나만) 잠금 후 거절(데미지 미반영).
-    if (
-      V2_CORE_LOOP_V2 &&
-      !canAccessCoopBoss(s, { userId, guildId: viewerGuildId })
-    ) {
-      return {
-        status: 403,
-        body: { ok: false as const, error: "no_permission" as const },
-      };
-    }
     const [contrib] = await tx
-      .select({ lastAttackAt: coopBossContributors.lastAttackAt })
+      .select({
+        damage: coopBossContributors.damage,
+        lastAttackAt: coopBossContributors.lastAttackAt,
+      })
       .from(coopBossContributors)
       .where(
         and(
@@ -307,6 +311,20 @@ export async function POST(req: Request) {
           eq(coopBossContributors.userId, userId),
         ),
       );
+    // 가시성 race 가드 — 시뮬 도중 범위가 좁혀져도 기존 참여자는 유지하고,
+    // 아직 피해를 기록하지 않은 범위 밖 사용자의 데미지만 미반영한다.
+    if (
+      !canAccessCoopBoss(
+        s,
+        { userId, guildId: viewerGuildId },
+        (contrib?.damage ?? 0) > 0,
+      )
+    ) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "no_permission" as const },
+      };
+    }
     if (contrib?.lastAttackAt) {
       const nextAt = contrib.lastAttackAt.getTime() + coopAttackCooldownMs();
       if (now < nextAt) {

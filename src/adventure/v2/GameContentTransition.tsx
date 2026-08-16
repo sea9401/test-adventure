@@ -16,6 +16,16 @@ export function isHuntListToFloorNavigation(
   );
 }
 
+export function gameContentTransitionClass(
+  previousPathname: string | null,
+  pathname: string,
+): string {
+  if (previousPathname == null || previousPathname === pathname) return "";
+  return isHuntListToFloorNavigation(previousPathname, pathname)
+    ? "ui-hunt-floor-enter"
+    : "ui-route-content-enter";
+}
+
 export function GameContentTransition({
   children,
 }: {
@@ -23,20 +33,28 @@ export function GameContentTransition({
 }) {
   const pathname = usePathname();
   const previousPathname = useRef(pathname);
-  const [animatedPathname, setAnimatedPathname] = useState<string | null>(null);
+  const [transition, setTransition] = useState<{
+    pathname: string;
+    className: string;
+  } | null>(null);
 
   useClientLayoutEffect(() => {
     if (previousPathname.current === pathname) return;
-    setAnimatedPathname(
-      isHuntListToFloorNavigation(previousPathname.current, pathname)
-        ? pathname
-        : null,
-    );
+    setTransition({
+      pathname,
+      className: gameContentTransitionClass(
+        previousPathname.current,
+        pathname,
+      ),
+    });
     previousPathname.current = pathname;
   }, [pathname]);
 
+  const transitionClass =
+    transition?.pathname === pathname ? transition.className : "";
+
   return (
-    <div className={animatedPathname === pathname ? "ui-hunt-floor-enter" : ""}>
+    <div className={transitionClass}>
       {children}
     </div>
   );

@@ -189,6 +189,7 @@ export function V2HousingView({
   const [selectedFurnitureId, setSelectedFurnitureId] =
     useState<HousingFurnitureId | null>(null);
   const [selectedPlacementUid, setSelectedPlacementUid] = useState<string | null>(null);
+  const [roomZoomed, setRoomZoomed] = useState(false);
   const uidCounter = useRef(1);
 
   const fetchRoom = useCallback(async () => {
@@ -456,19 +457,54 @@ export function V2HousingView({
           ) : null}
         </div>
 
-        <RoomCanvas
-          room={room}
-          editable={editable}
-          selectedFurnitureId={selectedFurnitureId}
-          selectedPlacementUid={selectedPlacementUid}
-          optionMap={optionMap}
-          onCellClick={placeFurniture}
-          onPlacementClick={(uid) => {
-            if (!editable) return;
-            setSelectedFurnitureId(null);
-            setSelectedPlacementUid(uid);
-          }}
-        />
+        {editable ? (
+          <div className="space-y-2">
+            <button
+              type="button"
+              aria-pressed={roomZoomed}
+              onClick={() => setRoomZoomed((current) => !current)}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 sm:hidden dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {roomZoomed ? "전체 보기" : "방 확대"}
+            </button>
+            <div
+              data-testid="housing-room-scroll"
+              className={`max-w-full max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] ${
+                roomZoomed
+                  ? "max-h-[70vh] overflow-auto overscroll-contain touch-pan-x touch-pan-y"
+                  : "overflow-hidden"
+              }`}
+            >
+              <div
+                data-testid="housing-room-canvas"
+                className={roomZoomed ? "w-[200%] max-w-none sm:w-full" : "w-full"}
+              >
+                <RoomCanvas
+                  room={room}
+                  editable
+                  selectedFurnitureId={selectedFurnitureId}
+                  selectedPlacementUid={selectedPlacementUid}
+                  optionMap={optionMap}
+                  onCellClick={placeFurniture}
+                  onPlacementClick={(uid) => {
+                    setSelectedFurnitureId(null);
+                    setSelectedPlacementUid(uid);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <RoomCanvas
+            room={room}
+            editable={false}
+            selectedFurnitureId={selectedFurnitureId}
+            selectedPlacementUid={selectedPlacementUid}
+            optionMap={optionMap}
+            onCellClick={placeFurniture}
+            onPlacementClick={() => {}}
+          />
+        )}
 
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className={`${SURFACE_INSET} px-2 py-2`}>
@@ -698,7 +734,7 @@ function RoomCanvas({
                   />
                 )}
                 <span
-                  className={`pointer-events-none relative z-20 mb-0.5 max-w-full shrink-0 truncate rounded px-1 py-0.5 text-[7px] font-semibold leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[9px] ${
+                  className={`pointer-events-none relative z-20 mb-0.5 max-w-full shrink-0 truncate rounded px-1 py-0.5 text-xs font-semibold leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[9px] ${
                     def.category === "display" ? "bg-sky-950" : "bg-zinc-950"
                   } ${selected ? "opacity-100" : ""}`}
                 >
@@ -710,7 +746,7 @@ function RoomCanvas({
         </div>
       </div>
       {editable && selectedFurnitureId ? (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold text-white shadow-lg ring-1 ring-amber-300/50">
+        <div className="pointer-events-none absolute bottom-3 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-zinc-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-amber-300/50">
           배치할 바닥 칸을 선택하세요
         </div>
       ) : null}

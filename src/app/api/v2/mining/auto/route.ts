@@ -21,13 +21,17 @@ import {
   isMiningNodeId,
   miningMaterialBalances,
   parseMiningLog,
+  parseMiningLogWithLevelMigration,
   pickMiningNodeId,
 } from "@/adventure/v2/miningSession";
 import {
   miningDurationWithPassive,
   miningFailureRate,
   miningProgressionView,
+  miningXpForLevel,
 } from "@/adventure/v2/miningProgression";
+import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { miningPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   MINING_AUTO_KEY,
   autoGatheringCompletedAttempts,
@@ -129,6 +133,7 @@ export async function POST(req: Request) {
     const node = MINING_NODES[nodeId];
     const parsedLog = parseMiningLog(logRaw);
     const progression = miningProgressionView(parsedLog.successes, parsedLog.xp);
+    const levelBonuses = miningPost50Bonuses(progression.level);
     const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
     const workshop = parseLifeWorkshopState(workshopRaw);
     const toolTier = workshop.tools.mining;
@@ -141,7 +146,8 @@ export async function POST(req: Request) {
       1,
       (bonuses.bonusOreChancePct +
         LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
-        lifeGatheringBonusPct("mining", workshop, progression.level)) /
+        lifeGatheringBonusPct("mining", workshop, progression.level) +
+        levelBonuses.bonusOreChancePct) /
         100,
     );
     const baseCycleDurationMs = miningDurationWithPassive(
@@ -290,6 +296,13 @@ export async function POST(req: Request) {
     const discoveryRewardXp = discoveryReward?.xp ?? 0;
     settlement.materialsGained += discoveryRewardGained;
     settlement.xpGained += discoveryRewardXp;
+    const parsedLog = parseMiningLogWithLevelMigration(
+      await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {}),
+    );
+    const currentLog = parsedLog.log;
+    const levelBonuses = miningPost50Bonuses(
+      miningProgressionView(currentLog.successes, currentLog.xp).level,
+    );
     let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
     let crafting = workshop.crafting;
     let aidSuccesses = 0;
@@ -314,6 +327,7 @@ export async function POST(req: Request) {
             (lifeFeatures.environmentEnabled
               ? session.environmentByproductMultiplier ?? 1
               : 1),
+          levelBonuses,
         ),
       )) {
         byproductDrops[materialId] =
@@ -355,13 +369,15 @@ export async function POST(req: Request) {
       new Date(now),
     );
     const xpGained = settlement.xpGained + diningXp.bonus;
-    const currentLog = parseMiningLog(
-      await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {}),
-    );
+    const appliedXp = applyLifeXpGain({
+      xp: currentLog.xp,
+      gainedXp: xpGained,
+      legacyThreshold: miningXpForLevel,
+    });
     const log = {
       ...currentLog,
       successes: currentLog.successes + settlement.successes,
-      xp: currentLog.xp + xpGained,
+      xp: appliedXp.xp,
       oreEarned: currentLog.oreEarned + settlement.materialsGained,
       byproductsEarned: currentLog.byproductsEarned + byproductTotal,
       nodes: {
@@ -424,6 +440,7 @@ export async function POST(req: Request) {
           }
         : null,
       lifeFieldFeedEnabled: lifeFeatures.feedEnabled,
+      levelCurveMigrated: parsedLog.levelCurveMigrated,
     };
   });
 
@@ -485,5 +502,6 @@ export async function POST(req: Request) {
     log: result.log,
     autoSession: null,
     activeAutoActivity: result.activeAutoActivity,
+    ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

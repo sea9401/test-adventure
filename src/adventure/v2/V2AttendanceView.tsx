@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarCheck, Check, Gift } from "@phosphor-icons/react";
 import {
+  MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS,
   MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS,
   MONTHLY_ATTENDANCE_REWARDS,
   monthlyAttendanceRewardLabel,
@@ -157,7 +158,8 @@ export function V2AttendanceView() {
             {MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS}일이 이어집니다.
           </span>
           <span className="mt-1 block">
-            14일차에는 월간 모험 지원권 7일을 추가로 받아 이용 기간을 연장합니다.
+            14·21일차에는 월간 모험 지원권 {MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS}일을
+            추가로 받아 이용 기간을 연장합니다.
           </span>
           <span className="mt-1 block">
             7·14·28일차에는 닉네임·채팅 배지·프로필 꾸미기 상자를 추가로 받고,

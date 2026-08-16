@@ -12,7 +12,13 @@ import {
 import {
   WOODCUTTING_XP_PER_CUT,
   woodcuttingFailureRate,
+  woodcuttingXpForLevel,
 } from "./woodcuttingProgression";
+import {
+  LIFE_LEVEL_CURVE_VERSION,
+  applyLifeXpGain,
+  normalizeLifeXp,
+} from "./lifeLevelProgression";
 import {
   isLifeFieldEnvironmentId,
   type LifeFieldEnvironmentId,
@@ -157,6 +163,7 @@ export function woodcuttingAttemptSucceeds(
 }
 
 export type WoodcuttingLog = {
+  levelCurveVersion: number;
   cuts: number;
   xp: number;
   perfectCuts: number;
@@ -166,8 +173,9 @@ export type WoodcuttingLog = {
   trees: Record<string, number>;
 };
 
-export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
+function parseWoodcuttingLogFields(raw: unknown): WoodcuttingLog {
   const empty: WoodcuttingLog = {
+    levelCurveVersion: LIFE_LEVEL_CURVE_VERSION,
     cuts: 0,
     xp: 0,
     perfectCuts: 0,
@@ -191,6 +199,9 @@ export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
   const hasStoredXp = Object.prototype.hasOwnProperty.call(value, "xp");
   const storedXp = Number(value.xp);
   return {
+    levelCurveVersion: Number.isFinite(Number(value.levelCurveVersion))
+      ? Math.max(1, Math.floor(Number(value.levelCurveVersion)))
+      : 1,
     cuts,
     xp:
       hasStoredXp && Number.isFinite(storedXp)
@@ -204,14 +215,47 @@ export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
   };
 }
 
+export function parseWoodcuttingLogWithLevelMigration(raw: unknown): {
+  log: WoodcuttingLog;
+  levelCurveMigrated: boolean;
+} {
+  const log = parseWoodcuttingLogFields(raw);
+  const normalized = normalizeLifeXp({
+    xp: log.xp,
+    levelCurveVersion: log.levelCurveVersion,
+    legacyThreshold: woodcuttingXpForLevel,
+  });
+  return {
+    log: {
+      ...log,
+      xp: normalized.xp,
+      levelCurveVersion: normalized.levelCurveVersion,
+    },
+    levelCurveMigrated: normalized.migrated,
+  };
+}
+
+export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
+  return parseWoodcuttingLogWithLevelMigration(raw).log;
+}
+
 export function recordWoodcuttingSuccess(
   log: WoodcuttingLog,
   args: { treeId: WoodcuttingTreeId; timber: number; xp: number },
 ): WoodcuttingLog {
+  const xp = applyLifeXpGain({
+    xp: log.xp,
+    gainedXp: args.xp,
+    legacyThreshold: woodcuttingXpForLevel,
+  }).xp;
   return {
     ...log,
+    levelCurveVersion: Math.max(
+      LIFE_LEVEL_CURVE_VERSION,
+      log.levelCurveVersion,
+    ),
     cuts: log.cuts + 1,
-    xp: log.xp + Math.max(0, Math.floor(args.xp)),
+    xp,
     timberEarned: log.timberEarned + args.timber,
     trees: {
       ...log.trees,

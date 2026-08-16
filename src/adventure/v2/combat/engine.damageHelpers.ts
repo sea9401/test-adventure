@@ -1,8 +1,8 @@
 // PvE(engine.playerPhase computeAttackDamage)와 PvP(engine.pvpPhase computeAttackDamagePvP)에서
-// 표현식·순서가 1:1 동일했던 "순수 수학" 평타 데미지 조각만 단일화한다. 입력은 전부 primitive
+// 표현식·순서가 1:1 동일한 "순수 수학" 데미지 조각을 단일화한다. 입력은 전부 primitive
 // (number/boolean)라 양 엔진의 state/side 접근 차이와 무관 — 동작 불변(골든 PvE·PvP 매트릭스 가드 +
 // damageHelpers.test.ts 가 인라인 수식과 직접 대조). 캐스케이드 전체는 구조적으로 발산하므로
-// (hp 의미 max/current·vuln 적용범위·PvE 전용 레이어 등) 통합하지 않는다 — 이 6개만 공유.
+// (hp 의미 max/current·vuln 적용범위·PvE 전용 레이어 등) 통합하지 않는다.
 
 import {
   CRIT_OVERFLOW_DMG_CAP,
@@ -83,5 +83,36 @@ export function reducedMagicDefense(
   return Math.max(
     0,
     Math.round(baseDefense * (1 - cappedReductionPct / 100)),
+  );
+}
+
+/** 직접 스킬 피해의 공용 치명타 계산. 원초 증폭은 치명타인 마법 피해분에만 별도 floor로 가산한다. */
+export function computeDirectSkillDamage(input: {
+  totalDamage: number;
+  magicDamage: number;
+  preCriticalMultiplier: number;
+  criticalMultiplier: number;
+  equipmentMagicCritBonus: number;
+  critical: boolean;
+}): number {
+  const baseDamage = Math.floor(
+    input.totalDamage *
+      input.preCriticalMultiplier *
+      input.criticalMultiplier,
+  );
+  if (!input.critical || !(input.equipmentMagicCritBonus > 0)) {
+    return baseDamage;
+  }
+  const clampedMagicDamage = Math.max(
+    0,
+    Math.min(input.totalDamage, input.magicDamage),
+  );
+  return (
+    baseDamage +
+    Math.floor(
+      clampedMagicDamage *
+        input.preCriticalMultiplier *
+        input.equipmentMagicCritBonus,
+    )
   );
 }

@@ -289,7 +289,7 @@ export function LifeActivityCard({
 
           <div className="mt-2">
             <div className="mb-1 flex justify-between gap-2 text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-              <span>{maxLevel ? "최고 레벨" : "숙련도"}</span>
+              <span>{maxLevel ? "최종 숙련 달성 · MAX" : "숙련도"}</span>
               <span>
                 {maxLevel
                   ? `${activity.xp.toLocaleString()} 누적 XP`

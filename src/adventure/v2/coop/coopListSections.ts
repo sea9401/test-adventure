@@ -8,7 +8,7 @@ export const COOP_LIST_VISIBILITY_LABEL: Record<CoopVisibility, string> = {
 };
 
 export type CoopSessionListSection = {
-  id: "mine" | "guild" | "public";
+  id: "mine" | "participated" | "guild" | "public";
   title: string;
   description: string;
   emptyLabel: string;
@@ -28,12 +28,27 @@ export function coopSessionListSections(
       sessions: sessions.filter((session) => session.isOwner),
     },
     {
+      id: "participated",
+      title: "참여 중인 보스",
+      description: "공개 범위 변경 전부터 피해를 기록해 참여 권한이 유지된 목록",
+      emptyLabel: "공개 범위가 변경된 참여 중 보스가 없습니다.",
+      sessions: sessions.filter(
+        (session) =>
+          !session.isOwner &&
+          session.visibility !== "public" &&
+          session.myDamage > 0,
+      ),
+    },
+    {
       id: "guild",
       title: "길드 공개 보스",
       description: "다른 길드원이 길드에 공개한 목록",
       emptyLabel: "다른 길드원이 길드에 공개한 보스가 없습니다.",
       sessions: sessions.filter(
-        (session) => !session.isOwner && session.visibility === "guild_only",
+        (session) =>
+          !session.isOwner &&
+          session.visibility === "guild_only" &&
+          session.myDamage <= 0,
       ),
     },
     {

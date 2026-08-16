@@ -22,6 +22,7 @@ import {
 } from "./engine-pvp";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
+import { consumeDuelistCritHaste } from "./duelistCombat";
 import {
   pickPvpInitiative,
   type PvPInitiativeActor,
@@ -330,13 +331,18 @@ export function resolveBattlePvPAtb(
     }
 
     // 바람 — 이번 액터의 다음 행동 틱을 가속(pct% 단축). 미시전이면 0 → 무변.
-    if (who === "p1") {
-      p1NextTick +=
-        actionInterval(effectiveSideSpd(state, "p1")) * (1 - castSelfHastePct / 100);
-    } else {
-      p2NextTick +=
-        actionInterval(effectiveSideSpd(state, "p2")) * (1 - castSelfHastePct / 100);
-    }
+    const actingSide = state[who];
+    const duelistHaste = consumeDuelistCritHaste(
+      actionInterval(effectiveSideSpd(state, who)) * (1 - castSelfHastePct / 100),
+      actingSide.player.basicCritHastePct ?? 0,
+      actingSide.duelistCritHastePending === true,
+    );
+    if (who === "p1") p1NextTick += duelistHaste.interval;
+    else p2NextTick += duelistHaste.interval;
+    state = {
+      ...state,
+      [who]: { ...actingSide, duelistCritHastePending: duelistHaste.pending },
+    };
     turns += 1;
 
     if (state.phase !== "ended") {

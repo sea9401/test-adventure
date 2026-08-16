@@ -1,0 +1,20 @@
+[Unit]
+Description=Adventure RPG RDS memory monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ec2-user/adventure-rpg
+ExecStart=/usr/bin/node scripts/check-rds-memory.mjs
+Environment=RDS_MEMORY_MONITOR_STATE_PATH=/var/lib/adventure-resource-monitor/rds-memory-state.json
+User=ec2-user
+Group=ec2-user
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+StateDirectory=adventure-resource-monitor
+StateDirectoryMode=0700
+RestrictSUIDSGID=true

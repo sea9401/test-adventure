@@ -10,6 +10,7 @@ export default function FishingLeaderboardPage() {
     <FishingLeaderboardPanel
       onBack={() => router.push("/town")}
       onOpenFishing={() => router.push("/town/fishing")}
+      onOpenDangerous={() => router.push("/town/fishing/dangerous")}
       onOpenChallenges={() => router.push("/town/fishing/challenges")}
       onOpenHallOfFame={() => router.push("/town/fishing/hall-of-fame")}
       onOpenShop={() => router.push("/town/fishing/shop")}

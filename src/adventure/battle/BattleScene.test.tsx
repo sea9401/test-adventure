@@ -11,6 +11,60 @@ describe("전투 속도 표시", () => {
 });
 
 describe("좌우 전투 상태 정렬", () => {
+  it("진행 중인 선언의 남은 평타와 현재 기세 단계를 보여준다", () => {
+    const enemy: Monster = {
+      name: "훈련용 적",
+      tags: [],
+      hp: 100,
+      atk: 10,
+      def: 5,
+      spd: 5,
+      exp: 0,
+    };
+    const initial = initialBattleState(
+      {
+        hp: 100,
+        maxHp: 100,
+        atk: 10,
+        def: 5,
+        spd: 10,
+        evasionPct: 0,
+        attackCount: 1,
+      },
+      enemy,
+      "챔피언",
+    );
+    const state = {
+      ...initial,
+      duelistBuff: {
+        declarationId: "v2c_grandchampion_hour" as const,
+        declarationName: "챔피언의 시간",
+        chainCount: 4,
+        remainingBasicHits: 3,
+        basicDamagePct: 15,
+        basicCritChancePct: 15,
+        basicDefPenetrationPct: 15,
+        rampPctPerPriorHit: 5,
+        landedBasicHits: 2,
+        basicCritMultAdd: 0.25,
+        basicCritChanceCap: 95,
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <BattleScene
+        state={state}
+        playerName="챔피언"
+        playerStatus={{ gender: "male1", exp: 0, maxExp: 100, hpPotionCount: 0 }}
+        layout="split"
+      />,
+    );
+
+    expect(html).toContain("챔피언의 시간");
+    expect(html).toContain("남은 평타 3회");
+    expect(html).toContain("현재 기세 +10%");
+  });
+
   it("플레이어 부제가 있으면 적 쪽에도 같은 높이의 빈 줄을 둔다", () => {
     const enemy: Monster = {
       name: "훈련용 적",

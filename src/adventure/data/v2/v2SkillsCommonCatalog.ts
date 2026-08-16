@@ -114,6 +114,14 @@ export type V2CommonSkillId =
   | "v2c_ranger_ambush" // 연사 (DEX 비례 3연사)
   // 고차 패시브(다양성 2차: paladin 만 효과 리스킨[공방], brawler/magus/ranger 는 직군 축 % 유지)
   | "v2c_paladin_might3" // 기사도 (힘 +10% & 방어 +10%)
+  | "v2c_duelist_declaration"
+  | "v2c_duelist_balance"
+  | "v2c_contender_insight"
+  | "v2c_contender_precision"
+  | "v2c_undefeated_momentum"
+  | "v2c_undefeated_rhythm"
+  | "v2c_grandchampion_hour"
+  | "v2c_grandchampion_instinct"
   | "v2c_brawler_fortitude3" // 보법 II (회피 +12%·격투가)
   | "v2c_magus_acumen3" // 총명 III (지능 +30%)
   | "v2c_ranger_finesse3" // 민첩 II (DEX +20%·궁수 민첩의 상위판)
@@ -203,7 +211,7 @@ export type V2CommonSkillId =
   | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
   | "v2c_warden_aegis" // 수호의 도발 (상대의 즉시 기본 공격 2회 유도)
-  | "v2c_warden_thorns" // 가시 방벽 (HP 피해 시 방어력만큼 반사)
+  | "v2c_warden_thorns" // 충격 방벽 (직접 공격 피격 시 충격 축적)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) ──
   | "v2c_warlord_bloodbath" // 혈전 (HP 소모 강타)
   | "v2c_warlord_slaughter" // 광기 II (광기 상위)
@@ -219,7 +227,7 @@ export type V2CommonSkillId =
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
   | "v2c_swordmaster_armorinsight2" // 갑주 간파 II (적 물리 방어 -11%)
-  | "v2c_ironknight_guard" // 철벽 태세 (받는 피해 감소 + 반사 증폭)
+  | "v2c_ironknight_guard" // 철벽 태세 (다음 직접 공격 3회 경감 + 반사)
   | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
   | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
@@ -266,6 +274,7 @@ export type V2CommonSkillId =
   | "v2c_archmage_magicdismantle3" // 마력 해체 III (적 마법 방어 -13%)
   | "v2c_primordialmage_return" // 태초회귀 (근원 마법 피해 + 취약 + 지연)
   | "v2c_primordialmage_resonance" // 근원공명 (지능 + 정신 + 마법 운용)
+  | "v2c_primordialmage_amplification" // 원초 증폭 (장비 치명타 배율 → 마법 스킬 치명타 배율)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
@@ -500,7 +509,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   단단할수록 강타. DEF_PER_VIT(0.1)<ATK_PER_STR(0.15)라 계수를 높여 보정. PvE/PvP 공용.
     id: "v2c_shieldman_bash", name: "방패 타격", stat: "vit", category: "attack", tier: 2,
     description: "방어로 다져진 몸으로 들이받는다. 방어력이 높을수록 강하다.", mpCost: 30, cooldown: 0, procChance: 30,
-    effects: [dmg(1.8, 140, "def")],
+    effects: [dmg(2.02, 167, "def")],
+    consumesFortressImpact: true,
   },
   v2c_squire_cleave: {
     // 견습 기사 = 기사 라인 입문. 베기→돌격 리스킨(id 유지). 단숨에 파고드는 첫 기사 기술.
@@ -598,7 +608,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_squire_might: {
     id: "v2c_squire_might", name: "근력 II", stat: "str", category: "passive", tier: 2,
     description: "거듭된 단련. 힘이 비례해 오른다.", mpCost: 0, cooldown: 0,
-    effects: [],
+    effects: [], spCost: 3,
     passive: { statPct: { str: 15 } },
   },
   v2c_boxer_fortitude: {
@@ -876,6 +886,46 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "정의의 검이 죄를 내리친다. 적의 기세를 꺾는다.", mpCost: 38, cooldown: 0, procChance: 30,
     effects: [dmg(1.3, 230), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
   },
+  v2c_duelist_declaration: {
+    id: "v2c_duelist_declaration", name: "결투 선언", stat: "str", category: "buff", tier: 3,
+    description: "다음 평타 3회의 피해와 치명타 확률을 높인다.", mpCost: 32, cooldown: 5, procChance: 100,
+    effects: [], duelistDeclaration: { rank: 1, hits: 3 },
+  },
+  v2c_duelist_balance: {
+    id: "v2c_duelist_balance", name: "검의 균형", stat: "str", category: "passive", tier: 3,
+    description: "힘·행운·민첩이 각각 8% 오른다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 8, luk: 8, dex: 8 } },
+  },
+  v2c_contender_insight: {
+    id: "v2c_contender_insight", name: "빈틈 간파", stat: "luk", category: "buff", tier: 3,
+    description: "다음 평타 3회가 대상 방어력을 추가로 관통한다.", mpCost: 36, cooldown: 5, procChance: 100,
+    effects: [], duelistDeclaration: { rank: 2, hits: 3 },
+  },
+  v2c_contender_precision: {
+    id: "v2c_contender_precision", name: "정밀한 일격", stat: "dex", category: "passive", tier: 3,
+    description: "평타가 대상 방어력을 10% 추가 관통한다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { basicDefPenetrationPct: 10 },
+  },
+  v2c_undefeated_momentum: {
+    id: "v2c_undefeated_momentum", name: "무패의 기세", stat: "str", category: "buff", tier: 3,
+    description: "다음 평타 4회가 이어질수록 피해가 5%씩 오른다.", mpCost: 40, cooldown: 6, procChance: 100,
+    effects: [], duelistDeclaration: { rank: 3, hits: 4 },
+  },
+  v2c_undefeated_rhythm: {
+    id: "v2c_undefeated_rhythm", name: "승자의 박자", stat: "dex", category: "passive", tier: 3,
+    description: "평타 치명타 발생 시 다음 행동 간격이 8% 짧아진다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { basicCritHastePct: 8 },
+  },
+  v2c_grandchampion_hour: {
+    id: "v2c_grandchampion_hour", name: "챔피언의 시간", stat: "luk", category: "buff", tier: 3,
+    description: "다음 평타 5회의 치명타 배율과 치명타 확률 상한을 높인다.", mpCost: 44, cooldown: 7, procChance: 100,
+    effects: [], duelistDeclaration: { rank: 4, hits: 5 },
+  },
+  v2c_grandchampion_instinct: {
+    id: "v2c_grandchampion_instinct", name: "정점의 감각", stat: "luk", category: "passive", tier: 3,
+    description: "평타 치명타 확률 상한이 85%로 오른다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { basicCritChanceCap: 85 },
+  },
   v2c_brawler_combo: {
     // 격투가 = 권사 연타의 심화. 단타 강공격에서 "연격으로 빈틈을 만든다"로 전환해 권사→격투가→권룡
     //   계열 정체성을 통일한다. 취약은 낮게 짧게, 다음 연격/파티 딜을 살리는 정도.
@@ -936,7 +986,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   방패병 방패 타격과 같은 def 경로·tier-3 라 base 상향. DEF_PER_VIT<ATK_PER_STR 보정 계수 1.8.
     id: "v2c_guardian_bash", name: "방패 강타", stat: "vit", category: "attack", tier: 3,
     description: "방패를 앞세워 묵직하게 후려친다. 방어력이 높을수록 강하다.", mpCost: 36, cooldown: 0, procChance: 30,
-    effects: [dmg(1.8, 220, "def")],
+    effects: [dmg(2.12, 256, "def")],
+    consumesFortressImpact: true,
   },
   v2c_berserker_bloodslash: {
     id: "v2c_berserker_bloodslash", name: "사혈격", stat: "str", category: "attack", tier: 3,
@@ -1265,7 +1316,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 전사 심화 — 치명 피해(중장갑 라인의 딜 마무리). str% 는 견습기사·방어%는 기사가 유지.
     id: "v2c_veteran_lethal", name: "필살 II", stat: "str", category: "passive", tier: 3,
     description: "한 방에 모든 것을 싣는다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
-    effects: [],
+    effects: [], spCost: 5,
     passive: { critDmgPct: 30 }, // 크리축 차수 단조 — 정예 기사=4차 최상(2차20<3차25<4차30·25→30).
   },
   v2c_veteran_armorinsight: {
@@ -1279,7 +1330,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   (STR딜·회피) 정점의 공격 정체성. t4 STR% 는 유일 축(고유성 유지). 최대 HP%(철신)는 투승으로 이전. id 유지.
     id: "v2c_sensei_ironbody", name: "근력 III", stat: "str", category: "passive", tier: 3,
     description: "극한의 단련. 힘이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
-    effects: [],
+    effects: [], spCost: 4,
     passive: { statPct: { str: 20 } },
   },
   v2c_sensei_formationbreak: {
@@ -1589,13 +1640,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     provokeImmediateBasicAttacks: 2,
   },
   v2c_warden_thorns: {
-    // 가시 방벽(패시브) — HP 피해를 받을 때 전투 시작 방어력의 70%를 고정 반사.
-    //   엔진 thornsFlatFromDef 훅(derive 가 def×thornsDefPct% 환산·enemyPhase[PvE]·applyOnHitReflect[PvP]
-    //   양쪽 가산). 방어=딜로 전환되는 탱딜 시너지(방벽 방어%와 결합).
-    id: "v2c_warden_thorns", name: "가시 방벽", stat: "vit", category: "passive", tier: 3,
-    description: "방벽에 돋은 가시. 보호막을 뚫고 HP 피해를 받을 때 전투 시작 방어력의 일부를 되돌려준다.", mpCost: 0, cooldown: 0,
+    // 충격 방벽(패시브) — 적중한 직접 공격을 받을 때 충격 1스택(최대 3)을 축적한다.
+    // 방패 직접 공격이 모든 스택을 소비하며, 움직이는 성채가 스택당 보너스를 강화한다.
+    id: "v2c_warden_thorns", name: "충격 방벽", stat: "vit", category: "passive", tier: 3,
+    description: "공격을 방벽으로 받아 충격을 축적한다. 모은 충격은 방패 계열 직접 공격을 강화한다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { thornsDefPct: 70 },
+    passive: {
+      fortressImpactOnHit: true,
+      fortressImpactDamagePctPerStack: 15,
+    },
   },
 
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력을 끌어올리는 순수 공격 라인 ──
@@ -1696,19 +1749,26 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_ironknight_guard: {
     id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
-    description: "철벽처럼 버티며 받는 피해를 줄이고 반사 피해를 높인다.",
+    description: "철벽을 세워 다음 세 번의 직접 공격을 줄여 받고, 방어력에 비례한 피해를 되돌려준다.",
     mpCost: 48, cooldown: 3, procChance: 100, spCost: 10, learnCost: 8000,
-    effects: [
-      { kind: "selfBuffPct", target: "damageReduction", pct: 30, turns: 2 },
-      { kind: "selfBuffPct", target: "reflectDamage", pct: 50, turns: 2 },
-    ],
+    effects: [],
+    ironWallReflect: { charges: 3, damageReductionPct: 30, reflectDefPct: 180 },
+    defaultPattern: {
+      priority: 400,
+      condition: {
+        kind: "self_resource",
+        resource: "ironWallReflect",
+        op: "none",
+        value: 0,
+      },
+    },
   },
   v2c_ironknight_wall: {
     id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,
-    description: "단단한 장벽 운용에 익숙해진다. 물리·마법 방어력과 반사가 오른다.",
+    description: "단단한 장벽 운용에 익숙해진다. 물리·마법 방어력과 방어력 기반 직접 공격이 강해진다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { defPct: 18, thornsDefPct: 50 },
+    passive: { defPct: 18, fortressDefSkillStatCoefPct: 15 },
   },
   v2c_overlord_ruin: {
     id: "v2c_overlord_ruin", name: "파멸일격", stat: "str", category: "attack", tier: 3,
@@ -2079,14 +2139,28 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_fortressknight_ram", name: "성채 충각", stat: "vit", category: "attack", tier: 3,
     description: "성채처럼 밀고 들어가 방어력으로 적을 짓누르고, 충격으로 적이 주는 피해를 감소시킨다.",
     mpCost: 58, cooldown: 0, procChance: 35, learnCost: 12000,
-    effects: [dmg(1.8, 420, "def"), { kind: "enemyDamageDown", pct: 15, turns: 2 }],
+    effects: [dmg(2.16, 474, "def"), { kind: "enemyDamageDown", pct: 15, turns: 2 }],
+    consumesFortressImpact: true,
+    defaultPattern: {
+      priority: 500,
+      condition: {
+        kind: "self_resource",
+        resource: "impact",
+        op: "atLeast",
+        value: 3,
+      },
+    },
   },
   v2c_fortressknight_citadel: {
     id: "v2c_fortressknight_citadel", name: "움직이는 성채", stat: "vit", category: "passive", tier: 3,
-    description: "갑옷과 방패가 하나의 성채가 된다. 물리·마법 방어력과 피해 저항이 오르고, 물리 방어력 기반 반사가 강화된다.",
+    description: "갑옷과 방패가 하나의 성채가 된다. 방어와 피해 저항이 오르고, 충격을 소비하는 직접 공격이 더욱 강해진다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 80 },
+    passive: {
+      defPct: 30,
+      damageTakenReductionPct: 8,
+      fortressImpactDamagePctPerStack: 20,
+    },
   },
   v2c_swordsaint_flash: {
     id: "v2c_swordsaint_flash", name: "무심검", stat: "str", category: "attack", tier: 3,
@@ -2263,6 +2337,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { statPct: { int: 20, spi: 8 }, magicSkillDamagePct: 10, maxMpPct: 14 },
+  },
+  v2c_primordialmage_amplification: {
+    id: "v2c_primordialmage_amplification", name: "원초 증폭", stat: "int", category: "passive", tier: 3,
+    description: "장비에서 얻은 치명타 배율을 모든 직접 마법 스킬 피해의 치명타 배율로 변환한다. 투자량이 커질수록 효율이 완만해지며 최대 +0.75배에 가까워진다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 12,
+    effects: [],
+    passive: { equipmentMagicSkillCritConversion: true },
   },
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,

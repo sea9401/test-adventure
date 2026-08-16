@@ -90,7 +90,7 @@ import {
   fishingLevelRewardCoins,
   fishingProgressionView,
   fishingXpForCatch,
-  parseFishingProgression,
+  parseFishingProgressionWithLevelMigration,
 } from "@/adventure/v2/fishingProgression";
 import {
   FISHING_STOCK_KEY,
@@ -105,7 +105,6 @@ import {
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
 import {
-  broadcastCoopNotice,
   trySpawnFishingCoopBoss,
 } from "@/lib/server/v2Coop";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
@@ -312,7 +311,7 @@ export async function POST(req: Request) {
 
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
     // 락 순서: 세션 → streak → 어획물 → 낚시진행도 → 식사 효과 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
-    const progressBefore = parseFishingProgression(
+    const parsedProgress = parseFishingProgressionWithLevelMigration(
       await lockSaveForUpdate(
         tx,
         userId,
@@ -320,6 +319,7 @@ export async function POST(req: Request) {
         emptyFishingProgression(),
       ),
     );
+    const progressBefore = parsedProgress.state;
     const progressGoalViewsBefore = deriveFishingGoalViews(progressBefore);
     const diningXp = await consumeGuildDiningEffect(
       tx,
@@ -564,6 +564,7 @@ export async function POST(req: Request) {
       challengeClaimableCount,
       masteryGained,
       masteryAfter,
+      levelCurveMigrated: parsedProgress.levelCurveMigrated,
       coopBoss,
       streak,
       streakBuff,
@@ -760,16 +761,6 @@ export async function POST(req: Request) {
       },
     });
   }
-  if (result.coopBoss) {
-    await insertFeedEntry(userId, "coop_summon", {
-      kind: result.coopBoss.kind,
-      sessionId: result.coopBoss.sessionId,
-      expiresAt: result.coopBoss.expiresAt,
-    });
-    await broadcastCoopNotice(
-      `${result.coopBoss.name}이(가) 낚싯줄을 타고 올라왔다`,
-    );
-  }
   // 물때 한정 특별 손님이면 그 물때 정보를 동봉(결과 오버레이 "○○ 물때의 손님" 표시용).
   const mt = fish.condition ? MULTTAE_BY_ID.get(fish.condition) : undefined;
   return Response.json({
@@ -816,5 +807,6 @@ export async function POST(req: Request) {
     nextActionAt: result.nextActionAt,
     lifeEnvironment: result.lifeEnvironment,
     lifeField: result.lifeField,
+    ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

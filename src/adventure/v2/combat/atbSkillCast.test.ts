@@ -209,7 +209,8 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
         maxHp: 5_000,
         atk: 1,
         def: 100,
-        thornsFlatFromDef: 200,
+        fortressImpactOnHit: true,
+        fortressImpactDamagePctPerStack: 15,
       },
       enemy,
       "수호자",
@@ -217,8 +218,8 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
         pickAction: () => ({ kind: "attack" }),
         potions: {},
         v2Skills: {
-          learned: ["v2c_warden_aegis"],
-          equipped: ["v2c_warden_aegis"],
+          learned: ["v2c_ironknight_guard", "v2c_warden_aegis"],
+          equipped: ["v2c_ironknight_guard", "v2c_warden_aegis"],
         },
       } as never,
     );
@@ -238,11 +239,60 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(
       immediateEnemyAttacks.every((entry) => entry.text.startsWith("공격!")),
     ).toBe(true);
-    expect(countText(res, "수호 반사")).toBeGreaterThanOrEqual(2);
+    expect(
+      res.finalState.log
+        .slice(provokeIndex + 1)
+        .filter(
+          (entry) =>
+            entry.t === provokeTick && entry.text.includes("[철벽 반사]"),
+        ),
+    ).toHaveLength(2);
     expect(
       res.finalState.log.some(
         (entry) => entry.t !== provokeTick && entry.text.includes("독니"),
       ),
     ).toBe(true);
+  });
+
+  it("철벽 태세는 3회 반사하고 충격 3스택 성채 충각은 적중 후 충격을 소비한다", () => {
+    const enemy: Monster = {
+      name: "성채 허수아비",
+      tags: [],
+      hp: 20_000,
+      atk: 120,
+      def: 20,
+      spd: 25,
+      exp: 0,
+      evasionPct: 0,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 10_000,
+        maxHp: 10_000,
+        atk: 10,
+        def: 200,
+        spd: 35,
+        fortressImpactOnHit: true,
+        fortressImpactDamagePctPerStack: 20,
+        fortressDefSkillStatCoefPct: 15,
+      },
+      enemy,
+      "성채기사",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_ironknight_guard", "v2c_fortressknight_ram"],
+          equipped: ["v2c_ironknight_guard", "v2c_fortressknight_ram"],
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    expect(countText(res, "철벽 반사 3회")).toBeGreaterThan(0);
+    expect(countText(res, "[철벽 반사]")).toBeGreaterThanOrEqual(3);
+    expect(countText(res, "충격 3스택 소비")).toBeGreaterThan(0);
   });
 });

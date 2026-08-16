@@ -71,25 +71,25 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
   normal: {
     bubble: "text-[15px]",
     info: "text-[13px]",
-    label: "text-[11px]",
+    label: "text-xs sm:text-[11px]",
     actionBubble: "text-[13px] sm:text-[15px]",
-    actionInfo: "text-[11px] sm:text-[13px]",
-    actionLabel: "text-[10px] sm:text-[11px]",
+    actionInfo: "text-xs sm:text-[13px]",
+    actionLabel: "text-xs sm:text-[11px]",
     banner: "text-base",
     turnMarker: "text-[12px]",
-    hpBar: "text-[10px]",
+    hpBar: "text-xs sm:text-[10px]",
     spacing: "space-y-1.5",
   },
   compact: {
     bubble: "text-[13px]",
-    info: "text-[11px]",
-    label: "text-[10px]",
+    info: "text-xs sm:text-[11px]",
+    label: "text-xs sm:text-[10px]",
     actionBubble: "text-[12px] sm:text-[13px]",
-    actionInfo: "text-[10px] sm:text-[11px]",
-    actionLabel: "text-[9px] sm:text-[10px]",
+    actionInfo: "text-xs sm:text-[11px]",
+    actionLabel: "text-xs sm:text-[10px]",
     banner: "text-[13px]",
-    turnMarker: "text-[10px]",
-    hpBar: "text-[9px]",
+    turnMarker: "text-xs sm:text-[10px]",
+    hpBar: "text-xs sm:text-[9px]",
     spacing: "space-y-1",
   },
 };
@@ -177,6 +177,20 @@ function legacyStandaloneActionMain(
   };
 }
 
+function guaranteedDodgeActionMain(
+  entry: BattleLogEntry,
+): BattleLogEntry | null {
+  if (entry.kind !== "info" || entry.turn == null) return null;
+  const { labels, body } = parseBattleLogText(entry.text);
+  if (!labels.includes("회피 강화") || !/회피했다[.!]?$/.test(body)) {
+    return null;
+  }
+  return {
+    ...entry,
+    kind: entry.turn === "player" ? "player_attack" : "enemy_attack",
+  };
+}
+
 function isDamageCalculationEntry(entry: BattleLogEntry): boolean {
   if (entry.kind === "hp_bar") return false;
   const { labels } = parseBattleLogText(entry.text);
@@ -233,7 +247,12 @@ function canMergeActionHit(
   current: Extract<BattleLogDisplayItem, { kind: "action" }>,
   entry: BattleLogEntry,
 ): boolean {
-  if (current.effects.some((effect) => !isActionOpeningEffect(effect))) {
+  if (
+    current.effects.some(
+      (effect) =>
+        !isActionOpeningEffect(effect) && !isActionStartStatusDamage(effect),
+    )
+  ) {
     return false;
   }
   const previous = current.hits.at(-1) ?? current.main;
@@ -301,6 +320,20 @@ export function groupBattleLogActions(
         hits: [legacyStandaloneMain],
         calculations: pendingCalculations,
         effects: [...pendingEffects, entry],
+      };
+      pendingCalculations = [];
+      pendingEffects = [];
+      continue;
+    }
+    const dodgeActionMain = guaranteedDodgeActionMain(entry);
+    if (dodgeActionMain) {
+      flushCurrent();
+      current = {
+        kind: "action",
+        main: dodgeActionMain,
+        hits: [dodgeActionMain],
+        calculations: pendingCalculations,
+        effects: pendingEffects,
       };
       pendingCalculations = [];
       pendingEffects = [];
@@ -1075,6 +1108,7 @@ function TurnMarker({ text, sizes }: { text: string; sizes: Sizes }) {
     <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-600">
       <div className="h-px flex-1 bg-zinc-300 dark:bg-zinc-700" />
       <span
+        data-battle-log-metadata="turn-marker"
         className={`rounded-full bg-zinc-100 px-2 py-0.5 ${sizes.turnMarker} font-semibold uppercase tracking-wider text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300`}
       >
         {text}
@@ -1127,6 +1161,7 @@ function HpBar({
     enemyMagicBarrierMax != null && enemyMagicBarrierMax > 0 && enemyMagicBarrier != null;
   return (
     <div
+      data-battle-log-metadata="hp-bar"
       className={`${SURFACE_INSET} px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:text-zinc-300`}
     >
       <div className="grid grid-cols-2 gap-3">
@@ -1251,7 +1286,7 @@ function SignatureResourceChips({
           aria-label={`${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${
             key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value
           }`}
-          className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+          className="rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-800 sm:text-[10px] dark:bg-violet-950 dark:text-violet-200"
         >
           {SIGNATURE_RESOURCE_LABELS[key] ?? key}{" "}
           {key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value}
@@ -1282,7 +1317,7 @@ function InlineBar({
         align === "right" ? "justify-end" : "justify-start"
       }`}
     >
-      <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+      <span className="w-4 shrink-0 text-xs font-semibold uppercase tracking-wider text-zinc-500 sm:text-[9px] dark:text-zinc-400">
         {label}
       </span>
       <div className="h-2 min-w-0 max-w-[104px] flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">

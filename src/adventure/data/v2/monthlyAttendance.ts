@@ -6,6 +6,7 @@ import {
 
 export const MONTHLY_ATTENDANCE_SAVE_KEY = "monthly-attendance.v1";
 export const MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS = 15;
+export const MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS = 7;
 
 type MonthlyAttendanceBaseReward =
   | { kind: "adventure_support"; days: number }
@@ -17,6 +18,7 @@ type MonthlyAttendanceBaseReward =
 
 export type MonthlyAttendanceReward = MonthlyAttendanceBaseReward & {
   cosmeticBox?: MuseunCosmeticBoxItemId;
+  adventureSupportDays?: number;
 };
 
 export const MONTHLY_ATTENDANCE_REWARDS = [
@@ -42,7 +44,7 @@ export const MONTHLY_ATTENDANCE_REWARDS = [
   { kind: "stamina_potion", count: 2 },
   {
     kind: "adventure_support",
-    days: 7,
+    days: MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS,
     cosmeticBox: "chat_badge_box",
   },
   { kind: "coop_coin", count: 25 },
@@ -51,7 +53,11 @@ export const MONTHLY_ATTENDANCE_REWARDS = [
   { kind: "stamina_potion", count: 2 },
   { kind: "torn_map_fragment", count: 5 },
   { kind: "stamina_potion", count: 2 },
-  { kind: "mastery_certificate", count: 300 },
+  {
+    kind: "mastery_certificate",
+    count: 300,
+    adventureSupportDays: MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS,
+  },
   { kind: "coop_coin", count: 35 },
   { kind: "stamina_potion", count: 2 },
   { kind: "boss_summon_scroll", count: 3 },
@@ -134,9 +140,14 @@ export function monthlyAttendanceRewardLabel(
   reward: MonthlyAttendanceReward,
 ): string {
   const baseLabel = monthlyAttendanceBaseRewardLabel(reward);
-  return reward.cosmeticBox
-    ? `${baseLabel} · ${MUSEUN_CASH_ITEMS[reward.cosmeticBox].name}`
-    : baseLabel;
+  const extras: string[] = [];
+  if (reward.kind !== "adventure_support" && reward.adventureSupportDays) {
+    extras.push(`월간 모험 지원권 ${reward.adventureSupportDays}일`);
+  }
+  if (reward.cosmeticBox) {
+    extras.push(MUSEUN_CASH_ITEMS[reward.cosmeticBox].name);
+  }
+  return [baseLabel, ...extras].join(" · ");
 }
 
 function monthlyAttendanceBaseRewardLabel(

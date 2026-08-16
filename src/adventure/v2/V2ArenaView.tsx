@@ -548,7 +548,11 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const cooldownLeftMs = Math.max(0, cooldownUntil - nowMs);
   const onCooldown = cooldownLeftMs > 0;
   const cooldownLeftSec = Math.ceil(cooldownLeftMs / 1000);
-  const nextStaminaCost = state?.state?.nextStaminaCost ?? 1;
+  const season = state?.state?.season;
+  const tournamentDay = season?.phase === "tournament";
+  const nextStaminaCost = tournamentDay
+    ? 0
+    : (state?.state?.nextStaminaCost ?? 1);
   const liveStamina = applyRegen(
     stamina,
     nowMs,
@@ -557,8 +561,6 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   ).current;
   const lowStamina = liveStamina < nextStaminaCost;
   const canChallenge = !busy && !onCooldown && !lowStamina;
-  const season = state?.state?.season;
-  const tournamentDay = season?.phase === "tournament";
   const seasonMatches =
     (season?.wins ?? 0) + (season?.losses ?? 0) + (season?.draws ?? 0);
   const recent = history[0];
@@ -660,10 +662,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               ? "매치 진행 중..."
               : onCooldown
                 ? `재도전까지 ${cooldownLeftSec}초`
-                : lowStamina
-                  ? `스태미나 부족 (${nextStaminaCost} 필요)`
-                  : tournamentDay
-                    ? `일요일 연습전 (스태미나 ${nextStaminaCost})`
+                : tournamentDay
+                  ? "일요일 무료 연습전"
+                  : lowStamina
+                    ? `스태미나 부족 (${nextStaminaCost} 필요)`
                     : `도전 (스태미나 ${nextStaminaCost})`}
           </button>
 
@@ -688,7 +690,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 <div className="flex justify-between gap-3">
                   <dt>스태미나</dt>
                   <dd className="text-right">
-                    오늘 {state?.state?.dailyMatchCount ?? 0}전 · 10전마다 비용 +1
+                    {tournamentDay
+                      ? `일요일 연습전 무료 · 오늘 ${state?.state?.dailyMatchCount ?? 0}전`
+                      : `오늘 ${state?.state?.dailyMatchCount ?? 0}전 · 10전마다 비용 +1`}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">

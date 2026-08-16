@@ -10,6 +10,7 @@
 // 라이브 PvP 코드 직접 이식 X — 신규 모듈. resolveBattlePvP 엔진만 재사용.
 
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { ArenaSeasonPhase } from "@/lib/server/pvp/arenaTournament";
 
 // ─── 상수 (튜닝 다이얼) ─────────────────────────────────────────────────────
 
@@ -258,6 +259,15 @@ export function arenaNextStaminaCost(
     Math.floor(arenaDailyMatchCount(state, now) / ARENA_STAMINA_MATCHES_PER_STEP) +
     1
   );
+}
+
+/** 일요일 토너먼트 단계는 무보상 연습전이므로 무료로 제공한다. */
+export function arenaStaminaCostForPhase(
+  state: ArenaState,
+  phase: ArenaSeasonPhase,
+  now: Date | number = Date.now(),
+): number {
+  return phase === "tournament" ? 0 : arenaNextStaminaCost(state, now);
 }
 
 export function recordArenaDailyMatch(

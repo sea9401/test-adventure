@@ -3,15 +3,44 @@ import {
   STORM_EXPEDITION_DAILY_ATTEMPTS,
   STORM_EXPEDITION_NODES,
   STORM_EXPEDITION_ROUTES,
+  STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION,
   createStormAltarOffers,
   createStormRiskEvent,
   parseStormExpeditionState,
+  reconcileStormExpeditionSpFruitProgress,
   stormExpeditionBattleReward,
   stormExpeditionEncounterDepth,
   stormExpeditionEnemy,
 } from "./stormExpedition";
 
 describe("stormExpedition", () => {
+  it("등급 정보가 없던 누적값은 실제 확인되는 V 획득분만 새 상한으로 이전한다", () => {
+    const legacy = parseStormExpeditionState({
+      spFruitPity: 0,
+      spFruitObtained: 3,
+    });
+
+    expect(reconcileStormExpeditionSpFruitProgress(legacy, 2)).toMatchObject({
+      spFruitProgressVersion: STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION,
+      spFruitPity: 0,
+      spFruitObtained: 2,
+    });
+  });
+
+  it("V 진행도 이전을 마친 뒤에는 현재 보유량이 줄어도 획득 기록을 유지한다", () => {
+    const migrated = parseStormExpeditionState({
+      spFruitProgressVersion: STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION,
+      spFruitPity: 7,
+      spFruitObtained: 2,
+    });
+
+    expect(reconcileStormExpeditionSpFruitProgress(migrated, 0)).toMatchObject({
+      spFruitProgressVersion: STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION,
+      spFruitPity: 7,
+      spFruitObtained: 2,
+    });
+  });
+
   it("기존 원정은 실전으로, 연습 원정은 연습 모드로 복원한다", () => {
     const legacy = parseStormExpeditionState({
       active: {
@@ -54,9 +83,11 @@ describe("stormExpedition", () => {
     expect(state.attemptsUsed).toBe(0);
     expect(state.clears).toBe(2);
     expect(state.active).toMatchObject({
-      version: 2,
+      version: 3,
       routeId: "gale",
-      nodeIndex: 4,
+      currentNodeId: "gale_elite",
+      visitedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp", "gale_elite"],
+      completedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp"],
       encounterIndex: 0,
       defeatedCount: 2,
       hp: 123,
@@ -90,6 +121,60 @@ describe("stormExpedition", () => {
     expect(state.active?.usedRecoverySkillIds).toEqual([
       "v2c_survivor_firstaid",
     ]);
+  });
+
+  it.each([
+    [0, "thunder_outer"],
+    [1, "supply"],
+    [2, "thunder_middle"],
+    [3, "thunder_camp"],
+    [4, "thunder_elite"],
+    [5, "altar"],
+    [6, "thunder_guardian"],
+    [7, "final_prep"],
+    [8, "storm_heart"],
+  ] as const)("v2 nodeIndex %i를 v3 노드 %s로 이전한다", (nodeIndex, currentNodeId) => {
+    const state = parseStormExpeditionState({
+      active: {
+        version: 2,
+        mode: "normal",
+        routeId: "thunder",
+        nodeIndex,
+        encounterIndex: 1,
+        hp: 321,
+        mp: 123,
+        maxHp: 999,
+        maxMp: 444,
+        defeatedCount: 4,
+        pendingGold: 77_000,
+        pendingMaterials: { storm_core_thunder: 3 },
+        pendingEquipment: [{ iid: "saved", id: "iron_sword" }],
+        boons: ["storm_guard"],
+        nextBattleEffects: ["next_guard"],
+        usedRecoverySkillIds: ["v2c_survivor_firstaid"],
+        altarOffers: ["storm_guard", "swift_fate", "deep_mana"],
+        chosenChoices: { supply: "field_rations" },
+        riskEvent: { id: "unstable_blessing", nodeIndex: 5, status: "accepted", boonId: "storm_guard", curseId: "mana_fracture" },
+      },
+    });
+
+    expect(state.active).toMatchObject({
+      version: 3,
+      currentNodeId,
+      hp: 321,
+      mp: 123,
+      maxHp: 999,
+      maxMp: 444,
+      pendingGold: 77_000,
+      pendingMaterials: { storm_core_thunder: 3 },
+      boons: ["storm_guard"],
+      nextBattleEffects: ["next_guard"],
+      usedRecoverySkillIds: ["v2c_survivor_firstaid"],
+      chosenChoices: { supply: "field_rations" },
+      riskEvent: { triggerCheckpoint: "altar", status: "accepted" },
+    });
+    expect(state.active?.visitedNodeIds.at(-1)).toBe(currentNodeId);
+    expect(state.active?.completedNodeIds).toEqual(state.active?.visitedNodeIds.slice(0, -1));
   });
 
   it("손상된 저장값을 안전한 범위로 정규화한다", () => {
@@ -204,23 +289,23 @@ describe("stormExpedition", () => {
   it("위험 이벤트는 출발 시 종류와 불안정한 축복 결과까지 고정한다", () => {
     expect(createStormRiskEvent(() => 0)).toMatchObject({
       id: "rift_cache",
-      nodeIndex: 1,
+      triggerCheckpoint: "supply",
       status: "offered",
     });
     expect(createStormRiskEvent(() => 0.26)).toMatchObject({
       id: "storm_contract",
-      nodeIndex: 1,
+      triggerCheckpoint: "supply",
     });
     const unstable = createStormRiskEvent(() => 0.51);
     expect(unstable).toMatchObject({
       id: "unstable_blessing",
-      nodeIndex: 5,
+      triggerCheckpoint: "altar",
       boonId: "swift_fate",
       curseId: "mana_fracture",
     });
     expect(createStormRiskEvent(() => 0.99)).toMatchObject({
       id: "golden_compass",
-      nodeIndex: 3,
+      triggerCheckpoint: "camp",
     });
   });
 });

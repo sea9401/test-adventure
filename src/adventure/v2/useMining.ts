@@ -20,6 +20,8 @@ import {
   type AutoGatheringPlanId,
 } from "./autoGathering";
 import { useGameState } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
+import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -117,6 +119,7 @@ function wait(ms: number): Promise<void> {
 
 export function useMining(): MiningHandlers {
   const { setAutoGathering } = useGameState();
+  const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("mining");
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<MiningLogView>({
@@ -209,6 +212,9 @@ export function useMining(): MiningHandlers {
             nextActionAt: parseNextActionAt(json.nextActionAt),
           };
         }
+        if (json.levelCurveMigrated) {
+          notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+        }
         const nextMaterials = parseMaterials(json.materials);
         const nextLog = parseLog(json.log);
         setMaterials(nextMaterials);
@@ -235,7 +241,7 @@ export function useMining(): MiningHandlers {
       }
       throw new Error("mining_finish_failed");
     },
-    [readJson],
+    [notifySystem, readJson],
   );
 
   const startAuto = useCallback(async (
@@ -284,6 +290,9 @@ export function useMining(): MiningHandlers {
       });
       const json = await readJson(response);
       if (!response.ok || !json?.ok) throw new Error("mining_auto_claim_failed");
+      if (json.levelCurveMigrated) {
+        notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+      }
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
       setAutoSession(null);
@@ -293,7 +302,7 @@ export function useMining(): MiningHandlers {
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson, setAutoGathering]);
+  }, [notifySystem, readJson, setAutoGathering]);
 
   const cancelAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);

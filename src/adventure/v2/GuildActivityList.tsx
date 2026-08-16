@@ -94,7 +94,9 @@ function describe(a: GuildActivity): string {
     case "trade_delivery":
       return `${actor} 님이 교역소에 ${a.meta?.itemName ?? "물품"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 납품했어요${contributionText(a)}`;
     case "trade_shop_purchase":
-      return `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드원 ${(a.meta?.recipientCount ?? 0).toLocaleString()}명에게 ${(a.meta?.quantity ?? 0).toLocaleString()}개씩 지급했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
+      return a.meta?.recipientCount != null
+        ? `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드원 ${a.meta.recipientCount.toLocaleString()}명에게 ${(a.meta?.quantity ?? 0).toLocaleString()}개씩 지급했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`
+        : `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드 공용 보상으로 적용했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
     case "warehouse_deposit":
       return a.meta?.itemKind === "equipment"
         ? `${actor} 님이 길드 창고에 ${a.meta?.itemName ?? "장비"} 입고를 완료했어요`

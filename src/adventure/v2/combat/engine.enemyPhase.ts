@@ -32,6 +32,11 @@ import {
   resolveMagicBarrierDamage,
 } from "./magicBarrier";
 import { applyTier6UniquePveEvent } from "./tier6UniquePveAdapter";
+import {
+  consumeReactiveDefenseCharges,
+  ironWallDamageReductionPct,
+  resolveFortressReaction,
+} from "./fortressKnight";
 
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
@@ -740,6 +745,9 @@ export function resolveEnemyPhase(
   const endurePct = player.enchantEndurePct ?? 0;
   const buffReducePct =
     state.stacks.skillDmgReduceTurns > 0 ? state.stacks.skillDmgReducePct : 0;
+  const ironWallReducePct = ironWallDamageReductionPct(
+    state.stacks.ironWallReflectCharges,
+  );
   // 고유 시그니처(성물·Phase 2) — 저체력(HP≤임계%) 시 받피감 추가. 미장착/조건미충족=0 → byte-identical.
   const sigReducePct = lowHpDamageReductionPct(
     player.equipSignatures,
@@ -756,6 +764,7 @@ export function resolveEnemyPhase(
     (player.passiveDamageTakenReductionPct ?? 0) +
     openingMagicReducePct +
     buffReducePct +
+    ironWallReducePct +
     sigReducePct;
   // 가드 — 첫 N번의 적 페이즈 동안 받는 피해 -reduction. 선공자에 무관하게
   // enemyPhasesCompleted 가 N 미만이면 이번 페이즈가 그 N 중 하나.
@@ -1004,6 +1013,19 @@ export function resolveEnemyPhase(
       text: `[${sigDefGain.label}] 방어 +${braceDefDelta}`,
     });
   }
+  const fortressReaction = resolveFortressReaction({
+    landed: preDefenseDamage > 0,
+    defenderDef: player.def,
+    impact: state.stacks.fortressImpact,
+    impactOnHit: player.fortressImpactOnHit ?? false,
+    ironWallReflectCharges: state.stacks.ironWallReflectCharges,
+  });
+  if (fortressReaction.impact > state.stacks.fortressImpact) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[충격 방벽] 충격 +1 (현재 ${fortressReaction.impact}/3)`,
+    });
+  }
   // 반사 갑주 (특기) + 가시 갑옷 (5티어) — 보호막을 뚫고 적이 넣은 피해가 있을 때,
   // 가드/굳건/철벽 감산 전 원량(heavyBlow 반영)의
   // N% 를 적에게 반사. 둘 다 있으면 합산. 베이스가 pre-mit 이라 탱커 빌드여도 반사가 살아남는다.
@@ -1042,15 +1064,17 @@ export function resolveEnemyPhase(
     reflectBoostPct > 0
       ? Math.floor(baseReflectDmg * (1 + reflectBoostPct / 100))
       : baseReflectDmg;
+  const totalRawReflectDmg =
+    rawReflectDmg + fortressReaction.rawReflectDamage;
   const reflectTargetDef = playerFacingEnemyDef(state, player);
   const reflectTargetDefMult = v2DefBuffMult(
     state.enemyV2SelfBuffs,
     state.enemyV2Debuffs,
   );
   const reflectDmg =
-    rawReflectDmg > 0
+    totalRawReflectDmg > 0
       ? damageBetween(
-          rawReflectDmg,
+          totalRawReflectDmg,
           reflectTargetDefMult !== 1
             ? Math.floor(reflectTargetDef * reflectTargetDefMult)
             : reflectTargetDef,
@@ -1065,9 +1089,16 @@ export function resolveEnemyPhase(
     if (enchantReflectDmg > 0) reflectLabels.push("별빛 반사");
     if (wardenReflectDmg > 0) reflectLabels.push("수호 반사");
     if (reflectBoostPct > 0) reflectLabels.push("반사 증폭");
+    if (fortressReaction.ironWallReflected) reflectLabels.push("철벽 반사");
     log = appendLog(log, {
       kind: "player_attack",
       text: `[${reflectLabels.join(" + ")}] ${state.enemy.name}에게 ${reflectDmg} 반사 피해.`,
+    });
+  }
+  if (fortressReaction.ironWallReflected) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[철벽 태세] 철벽 반사 ${fortressReaction.ironWallReflectCharges}회 남음`,
     });
   }
   // 반격의 룬 — 피격 시 일정 확률로 적에게 ATK 데미지로 반격. 살아남았을 때만 발동.
@@ -1118,6 +1149,18 @@ export function resolveEnemyPhase(
       text: `[반격] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,
     });
   }
+  const reactiveDefenseCharges = consumeReactiveDefenseCharges(
+    {
+      evasion: state.stacks.skillEvasionTurns,
+      damageReduction: state.stacks.skillDmgReduceTurns,
+      reflect: state.stacks.skillReflectBoostTurns,
+    },
+    {
+      evasionUsed: state.stacks.skillEvasionTurns > 0,
+      landed: preDefenseDamage > 0,
+      reflectEligible: baseReflectDmg > 0,
+    },
+  );
   let resolvedState: BattleState = {
     ...state,
     playerHp,
@@ -1135,7 +1178,12 @@ export function resolveEnemyPhase(
     },
     stacks: {
       ...state.stacks,
+      skillEvasionTurns: reactiveDefenseCharges.evasion,
+      skillDmgReduceTurns: reactiveDefenseCharges.damageReduction,
+      skillReflectBoostTurns: reactiveDefenseCharges.reflect,
       playerShield: nextPlayerShield,
+      fortressImpact: fortressReaction.impact,
+      ironWallReflectCharges: fortressReaction.ironWallReflectCharges,
       chillStacks: chillStacksNext,
       curseStacks: curseStacksNext,
       damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,

@@ -27,6 +27,7 @@ import {
   type V2CombatCondition,
   type V2CombatPreset,
   type V2CombatRole,
+  type V2PatternSelfResource,
   type V2PatternSelfStatus,
 } from "@/adventure/v2/combat/combatPattern";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -57,6 +58,7 @@ const COND_KINDS: PatternChoiceOption<CondKind>[] = [
   { value: "self_shield", label: "내 보호막", group: "내 상태" },
   { value: "self_buff", label: "내 능력치 버프", group: "내 상태" },
   { value: "self_buff_pct", label: "내 상태 효과", group: "내 상태" },
+  { value: "self_resource", label: "내 전투 자원", group: "내 상태" },
   { value: "enemy_hp", label: "적 HP", group: "적 상태" },
   { value: "enemy_status", label: "적 상태", group: "적 상태" },
   { value: "enemy_debuff", label: "적 디버프", group: "적 상태" },
@@ -106,9 +108,19 @@ const SELF_STATUS_OPTIONS: PatternChoiceOption<V2PatternSelfStatus>[] = [
   { value: "reflectDamage", label: "반사 피해" },
   { value: "regen", label: "지속 회복" },
   { value: "guaranteedEvade", label: "확정 회피" },
+  { value: "duelistDeclaration", label: "결투가 선언" },
   { value: "berserkerFinisher", label: "혈전 준비" },
   { value: "berserkerDeathOvercome", label: "사망 극복 공격 준비" },
 ];
+const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
+  { value: "impact", label: "충격" },
+  { value: "ironWallReflect", label: "철벽 반사" },
+];
+const SELF_RESOURCE_OP_OPTIONS = [
+  { value: "none", label: "없을 때" },
+  { value: "atLeast", label: "이상" },
+  { value: "atMost", label: "이하" },
+] as const;
 const ENEMY_STATUS_OPTIONS = [
   { value: "bleed", label: "출혈" },
   { value: "poison", label: "중독" },
@@ -610,6 +622,13 @@ function defaultCondition(kind: CondKind): V2CombatCondition {
       return { kind: "self_buff", stat: "str", active: false };
     case "self_buff_pct":
       return { kind: "self_buff_pct", target: "evasion", active: false };
+    case "self_resource":
+      return {
+        kind: "self_resource",
+        resource: "impact",
+        op: "atLeast",
+        value: 3,
+      };
     case "enemy_hp":
       return { kind: "enemy_hp", op: "below", pct: 30 };
     case "enemy_status":
@@ -1241,6 +1260,33 @@ export function ConditionParams({
             label="내 상태 효과 유무"
             onChange={(active) => onChange({ ...c, active: active === "y" })}
           />
+        </>
+      );
+    case "self_resource":
+      return (
+        <>
+          <PatternChoicePicker
+            value={c.resource}
+            options={SELF_RESOURCE_OPTIONS}
+            label="내 전투 자원 선택"
+            className="w-36"
+            onChange={(resource) => onChange({ ...c, resource })}
+          />
+          <PatternChoiceButtons
+            value={c.op}
+            options={SELF_RESOURCE_OP_OPTIONS}
+            label="전투 자원 비교 방식"
+            onChange={(op) => onChange({ ...c, op })}
+          />
+          {c.op !== "none" && (
+            <PatternNumberInput
+              key="self-resource-value"
+              min={0}
+              max={3}
+              value={c.value}
+              onValueChange={(value) => onChange({ ...c, value })}
+            />
+          )}
         </>
       );
     case "enemy_status":

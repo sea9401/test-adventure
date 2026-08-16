@@ -29,6 +29,7 @@ import {
   woodcuttingFailureRate,
   woodcuttingProgressionView,
 } from "@/adventure/v2/woodcuttingProgression";
+import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   activeAutoGatheringActivity,
   lockAutoGatheringStatesForUpdate,
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
   if (verificationRequired) return verificationRequired;
   const log = parseWoodcuttingLog(logRaw);
   const progression = woodcuttingProgressionView(log.cuts, log.xp);
+  const levelBonuses = woodcuttingPost50Bonuses(progression.level);
   const bonuses = equippedWoodcuttingBonuses(
     parseV2SkillsState(skillsRaw).equipped,
   );
@@ -104,6 +106,7 @@ export async function POST(req: Request) {
     bonuses.bonusLogChancePct +
       LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
       lifeGatheringBonusPct("woodcutting", workshop, progression.level) +
+      levelBonuses.bonusLogChancePct +
       (aidApplies ? aidSpec?.bonusPct ?? 0 : 0),
   );
   const baseAdjustedDurationMs = woodcuttingDurationWithPassive(

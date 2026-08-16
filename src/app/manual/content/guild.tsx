@@ -408,12 +408,14 @@ export function GuildContent() {
         caption="토큰 보너스는 작은 묶음을 여러 번 납품해도 개인의 주간 누적 납품 점수를 기준으로 소수점 손실 없이 계산됩니다."
       />
       <Table
-        head={["교환 품목", "필요 시설", "비용", "개인 주간 한도"]}
+        head={["교환 품목", "필요 시설", "비용", "길드 주간 한도", "지급 대상", "효과"]}
         rows={GUILD_TRADE_SHOP_ITEMS.map((item) => [
           <Em key={item.id}>{item.name}</Em>,
           `Lv.${item.minFacilityLevel}`,
           `${item.tokenCost} 토큰`,
           `${item.weeklyLimit}회`,
+          item.target === "guild" ? "길드 공용 자원" : "현재 길드원 전원",
+          item.description,
         ])}
         caption={`계약 기본 완료 보상은 길드 금고 ${GUILD_TRADE_BASE_REWARD_GOLD.toLocaleString("ko-KR")}G와 명성 ${GUILD_TRADE_BASE_REWARD_FAME.toLocaleString("ko-KR")}이며, 교역소 레벨 보너스가 적용됩니다.`}
       />

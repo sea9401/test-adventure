@@ -10,7 +10,7 @@ import {
   getFarmSpecialDeliveryRequests,
   getFarmWeeklyDeliveryRequests,
   normalizeFarmForDay,
-  parseFarmState,
+  parseFarmStateWithLevelMigration,
 } from "@/adventure/v2/farm";
 import { emptyV2SkillsState, parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { RanchError } from "@/adventure/v2/ranch";
@@ -28,10 +28,22 @@ export async function POST(req: Request) {
     const result = await db.transaction(async (tx) => {
       const skills = parseV2SkillsState(await lockSaveForUpdate(tx, userId, "skills.v2", emptyV2SkillsState()));
       if (!skills.learned.includes(FARM_CROP_REQUIRED_SKILL_ID)) return { ok: false as const, error: "ranch_locked" as const };
-      const farm = normalizeFarmForDay(parseFarmState(await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now)), now), now);
+      const parsedFarm = parseFarmStateWithLevelMigration(
+        await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now)),
+        now,
+      );
+      const farm = normalizeFarmForDay(parsedFarm.state, now);
       const collected = collectFarmRanch(farm, now);
       await upsertSave(tx, userId, FARM_SAVE_KEY, collected.state);
-      return { ok: true as const, farm: collected.state, learnedSkillIds: skills.learned, ranchCollectResult: collected.result };
+      return {
+        ok: true as const,
+        farm: collected.state,
+        learnedSkillIds: skills.learned,
+        ranchCollectResult: collected.result,
+        ...(parsedFarm.levelCurveMigrated
+          ? { levelCurveMigrated: true as const }
+          : {}),
+      };
     });
     if (!result.ok) return Response.json({ ok: false, error: result.error }, { status: 400 });
     return Response.json({ now, ...result, crops: FARM_CROP_LIST, deliveries: getFarmDeliveryRequests(), specialDeliveries: getFarmSpecialDeliveryRequests(), weeklyDeliveries: getFarmWeeklyDeliveryRequests(), shopItems: getFarmShopItems() });

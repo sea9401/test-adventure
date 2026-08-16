@@ -43,17 +43,17 @@ function advisoryMessage(
 ): string {
   const focusLabel = focus === "magic" ? "마법" : "물리";
   const oppositeLabel = focus === "magic" ? "물리" : "마법";
-  const recommendation =
+  const focusBuildSettings =
     focus === "magic"
-      ? "지능·정신 성장과 마법 계열 직업을 확인해 주세요."
-      : "힘·민첩 성장과 물리 계열 직업을 확인해 주세요.";
+      ? "지능·정신 성장과 마법 계열 직업을"
+      : "힘·민첩 성장과 물리 계열 직업을";
   const mismatch =
     issues.length === 2
-      ? "성장 능력치와 현재 직업 보너스가"
+      ? "성장 능력치와 현재 직업 보너스는"
       : issues[0] === "growth"
-        ? "성장 능력치가"
-        : "현재 직업 보너스가";
-  return `현재 주 공격은 ${focusLabel} 중심이지만 ${mismatch} ${oppositeLabel} 계열에 치우쳐 있습니다. ${recommendation}`;
+        ? "성장 능력치는"
+        : "현재 직업 보너스는";
+  return `장비를 포함한 최종 ${focusLabel} 공격력이 ${oppositeLabel} 공격력보다 높지만, ${mismatch} ${oppositeLabel} 공격 쪽에 치우쳐 있습니다. ${oppositeLabel} 빌드라면 무기·장비를, ${focusLabel} 빌드라면 ${focusBuildSettings} 확인해 주세요.`;
 }
 
 /** LUK·VIT는 공용 축으로 두고 공격축과 직접 충돌하는 성장·직업 보너스만 안내한다. */

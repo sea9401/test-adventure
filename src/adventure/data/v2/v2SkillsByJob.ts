@@ -62,6 +62,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   miningtechnician: ["v2c_miningtechnician_toolcare"], // 광산 기술자 — 곡괭이 손질
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)
+  duelist: ["v2c_duelist_declaration", "v2c_duelist_balance"],
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력연권(연격+취약) + 보법 II(회피+12%)
   magus: ["v2c_magus_bolt", "v2c_magus_acumen3"], // 마력 작렬 + 총명 III(지능+20%)
   shaman: ["v2c_shaman_hex", "v2c_shaman_omen3"], // 저주(마법+약화) + 흉조(마법취약 누적)
@@ -107,7 +108,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   archbishop: ["v2c_archbishop_sanctuary", "v2c_archbishop_grace"], // 성역 선포 + 성직 권위
   spellsealer: ["v2c_spellsealer_sealingfield", "v2c_spellsealer_greatward"], // 봉마진(공격·스킬 봉쇄) + 봉마대법
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 도발 액티브 + 반사 패시브 ──
-  warden: ["v2c_warden_aegis", "v2c_warden_thorns"], // 수호의 도발 + 가시 방벽(HP 피해 시 방어력만큼 반사)
+  warden: ["v2c_warden_aegis", "v2c_warden_thorns"], // 수호의 도발 + 충격 방벽(피격 시 충격 축적)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력으로 밀어붙이는 라인 ──
   warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"], // 혈전(필살 준비) + 광기 II
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) — 옛 절정 킷(반격+철신) 상속 ──
@@ -123,8 +124,10 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"], // 성전사: 성전의 심판 + 불굴의 맹세
   runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"], // 룬 기사: 룬 검격 + 룬 각인
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판(방어비례/회복억제) + 피의 서약
+  contender: ["v2c_contender_insight", "v2c_contender_precision"],
   // ── 5차 직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──
   swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus", "v2c_swordmaster_armorinsight2"], // 검호: 검격 + 검의 집중 + 갑주 간파 II
+  undefeated: ["v2c_undefeated_momentum", "v2c_undefeated_rhythm"],
   ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"], // 철벽기사: 철벽 태세 + 장벽술
   overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"], // 패왕: 파멸일격 + 광기의 왕좌
   arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory", "v2c_arcanist_magicdismantle2"], // 비전술사: 비전 폭발 + 비전 이론 + 마력 해체 II
@@ -147,9 +150,10 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 6차 직업 — 5차 직업 숙련도 기반 엔드 성장 ──
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
   swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence", "v2c_swordsaint_armorinsight3"], // 검성: 무심검 + 일검필살 + 갑주 간파 III
+  grandchampion: ["v2c_grandchampion_hour", "v2c_grandchampion_instinct"],
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕일도 + 패황의 지배
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory", "v2c_archmage_magicdismantle3"], // 대마도사: 비전 붕괴 + 대마도 이론 + 마력 해체 III
-  primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance"], // 태초술사: 태초회귀 + 근원공명
+  primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance", "v2c_primordialmage_amplification"], // 태초술사: 태초회귀 + 근원공명 + 원초 증폭
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총
   doomprophet: ["v2c_doomprophet_sentence", "v2c_doomprophet_revelation"], // 종말예언자: 종말 선고 + 불길한 계시
   heavenlybow: ["v2c_heavenlybow_orbit", "v2c_heavenlybow_starpath"], // 천궁: 천궁궤적 + 성도 조준

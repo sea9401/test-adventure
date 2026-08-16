@@ -29,6 +29,8 @@ import {
   isJobUnlocked,
   isDirectNextJob,
   isJobUnlockConditionRevealed,
+  isVisitedJob,
+  cultivationGroupForJob,
   jobById,
   unlockedJobs,
   jobUnlockSpBonus,
@@ -183,16 +185,16 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("120개 직업(기존 115 + 요리 직업 5)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(120);
+  it("124개 직업(기존 120 + 결투가 계보 4)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(124);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(18);
-    expect(byTier(3)).toBe(24);
-    expect(byTier(4)).toBe(29);
-    expect(byTier(5)).toBe(22);
-    expect(byTier(6)).toBe(21);
+    expect(byTier(3)).toBe(25);
+    expect(byTier(4)).toBe(30);
+    expect(byTier(5)).toBe(23);
+    expect(byTier(6)).toBe(22);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -1377,6 +1379,29 @@ describe("cumLevelForJob (직업별 숙련도 — 전직 화면 표기)", () => 
     expect(cumLevelForJob(prof, V2_JOB_CATALOG.paladin)).toBe(333);
     // jobCumLevel 에 없는 상위 직업은 0.
     expect(cumLevelForJob(prof, V2_JOB_CATALOG.caster)).toBe(0);
+  });
+});
+
+describe("방문 직업 수행 선택", () => {
+  it("현재 직업과 전직 이력, 레거시 숙련도 기록을 방문 증거로 인정한다", () => {
+    const prof = {
+      ...emptyProficiency(),
+      jobHistory: ["fortressknight"],
+      jobCumLevel: { archmage: 1 },
+    };
+
+    expect(isVisitedJob(prof, "mage", "mage")).toBe(true);
+    expect(isVisitedJob(prof, "mage", "fortressknight")).toBe(true);
+    expect(isVisitedJob(prof, "mage", "archmage")).toBe(true);
+    expect(isVisitedJob(prof, "mage", "swordsaint")).toBe(false);
+    expect(isVisitedJob(prof, "mage", "unknown-job")).toBe(false);
+  });
+
+  it("선택 직업을 수행 횟수를 기록할 레거시 직군으로 변환한다", () => {
+    expect(cultivationGroupForJob("fortressknight")).toBe("warrior");
+    expect(cultivationGroupForJob("archmage")).toBe("mage");
+    expect(cultivationGroupForJob("none")).toBe("none");
+    expect(cultivationGroupForJob("unknown-job")).toBeNull();
   });
 });
 

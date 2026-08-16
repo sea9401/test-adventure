@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
+import {
+  advanceTurn,
+  finishPlayerTurn,
+  initialBattleState,
+  type PlayerCombat,
+} from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠르므로 항상 선공.
@@ -130,6 +135,32 @@ describe("5티어 — 가시 갑옷", () => {
     s = advanceTurn(s, p, "용사"); // 적 본타 + 증폭 반사
     expect(before - s.enemyHp).toBe(40);
     expect(s.log.some((e) => e.text.includes("반사 증폭"))).toBe(true);
+  });
+});
+
+describe("반응형 버프 횟수제", () => {
+  it("플레이어 행동 종료는 회피·피해 감소·반사 증가 횟수를 줄이지 않는다", () => {
+    const state = initialBattleState(PLAYER, enemy(9_999), "용사");
+    const next = finishPlayerTurn(
+      {
+        ...state,
+        stacks: {
+          ...state.stacks,
+          skillEvasionPct: 20,
+          skillEvasionTurns: 2,
+          skillDmgReducePct: 30,
+          skillDmgReduceTurns: 2,
+          skillReflectBoostPct: 50,
+          skillReflectBoostTurns: 2,
+        },
+      },
+      PLAYER,
+      "용사",
+    );
+
+    expect(next.stacks.skillEvasionTurns).toBe(2);
+    expect(next.stacks.skillDmgReduceTurns).toBe(2);
+    expect(next.stacks.skillReflectBoostTurns).toBe(2);
   });
 });
 

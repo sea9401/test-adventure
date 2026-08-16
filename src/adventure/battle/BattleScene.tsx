@@ -10,7 +10,7 @@ import {
   type NotificationKind,
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { GameIconName } from "@/adventure/data/v2/gameIcon";
@@ -752,6 +752,17 @@ export function BattleScene({
               </div>
             </div>
           </>
+        )}
+        {state.duelistBuff && (
+          <div className={`mt-3 px-3 py-2 text-xs ${SURFACE_INSET}`}>
+            <div className="font-semibold text-violet-700 dark:text-violet-300">
+              {state.duelistBuff.declarationName}
+            </div>
+            <div className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+              남은 평타 {state.duelistBuff.remainingBasicHits}회 · 현재 기세 +
+              {state.duelistBuff.rampPctPerPriorHit * state.duelistBuff.landedBasicHits}%
+            </div>
+          </div>
         )}
       </Card>
 

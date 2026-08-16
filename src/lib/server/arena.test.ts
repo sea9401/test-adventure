@@ -7,6 +7,7 @@ import {
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
   arenaNextStaminaCost,
+  arenaStaminaCostForPhase,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
@@ -235,6 +236,29 @@ describe("아레나 일일 스태미나 비용", () => {
     expect(arenaNextStaminaCost(state, new Date("2026-07-20T14:59:59Z"))).toBe(2);
     expect(arenaNextStaminaCost(state, new Date("2026-07-20T15:00:00Z"))).toBe(1);
   });
+
+  it("일요일 토너먼트 단계의 연습전은 누적 경기 수와 무관하게 무료다", () => {
+    const state = {
+      ...defaultArenaState(),
+      dailyMatchDate: "2026-07-20",
+      dailyMatchCount: 99,
+    };
+
+    expect(arenaStaminaCostForPhase(state, "tournament", now)).toBe(0);
+  });
+
+  it.each(["ranked", "closed"] as const)(
+    "%s 단계는 기존 누적 스태미나 비용을 유지한다",
+    (phase) => {
+      const state = {
+        ...defaultArenaState(),
+        dailyMatchDate: "2026-07-20",
+        dailyMatchCount: 20,
+      };
+
+      expect(arenaStaminaCostForPhase(state, phase, now)).toBe(3);
+    },
+  );
 });
 
 describe("arenaCooldownRemainingMs", () => {

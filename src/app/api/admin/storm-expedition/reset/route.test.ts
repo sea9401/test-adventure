@@ -108,8 +108,11 @@ describe("POST /api/admin/storm-expedition/reset", () => {
         spFruitPity: 11,
         spFruitObtained: 2,
         active: expect.objectContaining({
+          version: 3,
           routeId: "gale",
-          nodeIndex: 4,
+          currentNodeId: "gale_elite",
+          visitedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp", "gale_elite"],
+          completedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp"],
           hp: 123,
           mp: 45,
         }),

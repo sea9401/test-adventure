@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { savesKv, pvpRatings, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
-import { excludeArenaOperatorAccounts } from "@/lib/server/arenaOperatorEligibility";
+import { filterArenaOpponentEligibleRows } from "@/lib/server/arenaOpponentEligibility";
 import { enforceHighCostRateLimit } from "@/lib/server/highCostRateLimit";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import { arenaSeasonPhase } from "@/lib/server/pvp/arenaTournament";
@@ -58,7 +58,7 @@ import {
   arenaHistorySince,
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
-  arenaNextStaminaCost,
+  arenaStaminaCostForPhase,
   computeGoldReward,
   defaultArenaState,
   oppositeArenaOutcome,
@@ -101,6 +101,7 @@ import {
 //   7. 선정된 상대만 derive (real user snapshot) 또는 봇 snapshot 사용.
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동, 아레나 피해 ×0.65.
 //   9. outcome → 월~토 실유저전은 양쪽 Elo 정산(K=32). 일요일·봇전은 비랭크 연습전.
+//      일요일 연습전은 무보상인 대신 스태미나도 소모하지 않는다.
 //  10. 공격자/방어자 pvp_ratings(Elo/전적) + arena-state.v2(쿨타임/최근 상대) 저장.
 //  11. 양쪽 전투 로그(각자 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX).
 
@@ -230,9 +231,13 @@ export async function POST(req: Request) {
       };
     }
 
-    // 오늘 성립한 공격 매치 수 기준으로 10회마다 다음 비용이 1씩 증가한다.
-    // 여기서는 가능 여부만 계산하고, 실제 매치가 성립한 뒤 같은 트랜잭션에서 저장한다.
-    const staminaCost = arenaNextStaminaCost(parsedArena, now);
+    // 월~토에는 오늘 성립한 공격 매치 수 기준으로 10회마다 다음 비용이 1씩 증가한다.
+    // 일요일 무보상 연습전은 무료다. 실제 매치 수는 성립한 뒤 같은 트랜잭션에서 저장한다.
+    const staminaCost = arenaStaminaCostForPhase(
+      parsedArena,
+      seasonPhase,
+      now,
+    );
     const stamina = parseStaminaFromSave(charSave.stamina, now.getTime());
     const staminaConfig = staminaConfigForCharacter(charSave, now.getTime());
     const afterStamina = tryConsume(
@@ -322,6 +327,7 @@ export async function POST(req: Request) {
         userId: savesKv.userId,
         value: savesKv.value,
         email: users.email,
+        bannedUntil: users.bannedUntil,
       })
       .from(savesKv)
       .innerJoin(users, eq(users.id, savesKv.userId))
@@ -331,7 +337,7 @@ export async function POST(req: Request) {
           ne(savesKv.userId, userId),
         ),
       );
-    const candidateChars = excludeArenaOperatorAccounts(candidateRows);
+    const candidateChars = filterArenaOpponentEligibleRows(candidateRows, now);
     const candidateIds = candidateChars.map((r) => r.userId);
     // 6a. 순위표와 동일한 현재 시즌 pvp_ratings를 일괄 조회. 미참가자는 1000점.
     // arena-state.v2.score는 이전 누적 레이팅 호환 필드이며 매칭 기준으로 쓰지 않는다.
@@ -803,7 +809,11 @@ export async function POST(req: Request) {
         stamina: afterStamina,
         staminaCost,
         dailyMatchCount: nextArena.dailyMatchCount,
-        nextStaminaCost: arenaNextStaminaCost(nextArena, now),
+        nextStaminaCost: arenaStaminaCostForPhase(
+          nextArena,
+          seasonPhase,
+          now,
+        ),
         opponent: {
           name: oppName,
           level: oppLevel,

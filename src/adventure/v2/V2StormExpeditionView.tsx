@@ -12,12 +12,12 @@ import {
   type StormExpeditionChoiceKind,
   type StormExpeditionEncounterKind,
   type StormExpeditionMode,
-  type StormExpeditionNode,
   type StormExpeditionRiskCurseId,
   type StormExpeditionRiskEventId,
   type StormExpeditionRiskEventOffer,
   type StormExpeditionRouteId,
 } from "@/adventure/data/v2/stormExpedition";
+import type { StormExpeditionMapNode, StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
 import {
   STORM_EXPEDITION_EQUIPMENT_IDS,
   STORM_EXPEDITION_ROUTE_MATERIAL_ID,
@@ -32,14 +32,17 @@ import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
-import { stormExpeditionEntryActions } from "./stormExpeditionViewModel";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { stormExpeditionEntryActions, stormExpeditionMoveRequest, stormExpeditionStartRequest } from "./stormExpeditionViewModel";
+import { StormExpeditionRouteMap } from "./StormExpeditionRouteMap";
 
 type ActiveExpedition = {
-  version: 2;
+  version: 3;
   mode: StormExpeditionMode;
   routeId: StormExpeditionRouteId;
-  nodeIndex: number;
+  currentNodeId: StormExpeditionMapNodeId;
+  visitedNodeIds: StormExpeditionMapNodeId[];
+  completedNodeIds: StormExpeditionMapNodeId[];
   encounterIndex: number;
   hp: number;
   mp: number;
@@ -79,9 +82,11 @@ type ExpeditionStatus = {
     statTheme: string;
     accent: "sky" | "violet" | "amber";
   }>;
-  nodes?: StormExpeditionNode[];
+  nodes?: StormExpeditionMapNode[];
+  entranceNodeIds?: StormExpeditionMapNodeId[];
+  availableNextNodeIds?: StormExpeditionMapNodeId[];
   choices?: Record<StormExpeditionChoiceKind, StormExpeditionChoice[]>;
-  riskEvents?: Record<StormExpeditionRiskEventId, StormExpeditionChoice & { nodeIndex: 1 | 3 | 5; cost: string }>;
+  riskEvents?: Record<StormExpeditionRiskEventId, StormExpeditionChoice & { triggerCheckpoint: "supply" | "camp" | "altar"; cost: string }>;
   riskCurses?: Record<StormExpeditionRiskCurseId, StormExpeditionChoice>;
   lootRules?: Record<StormExpeditionEncounterKind, StormExpeditionLootRule>;
   uniqueLootRules?: StormExpeditionUniqueRule;
@@ -112,7 +117,7 @@ type ExpeditionStatus = {
   droppedUniqueEquipment?: V2EquipInstance[];
   claimedRewards?: boolean;
   spFruitDropped?: boolean;
-  nodeIndex?: number;
+  currentNodeId?: StormExpeditionMapNodeId;
   encounterIndex?: number;
   encounterKind?: StormExpeditionEncounterKind;
   routeId?: StormExpeditionRouteId;
@@ -137,6 +142,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   risk_event_required: "현재 위험 이벤트를 수락하거나 지나친 뒤 정비를 선택해 주세요.",
   risk_debt_pending: "균열 상자의 대가인 강화 전투를 치른 뒤 귀환할 수 있습니다.",
   invalid_mode: "선택할 수 없는 원정 모드입니다.",
+  invalid_node: "선택할 수 없는 원정 노드입니다.",
+  node_not_reachable: "현재 위치에서 연결되지 않은 노드입니다.",
+  node_not_completed: "현재 체크포인트를 완료한 뒤 이동할 수 있습니다.",
+  node_already_visited: "이미 지나온 노드로는 돌아갈 수 없습니다.",
+  node_already_completed: "현재 체크포인트는 이미 완료했습니다. 지도에서 다음 노드를 선택해 주세요.",
 };
 
 export function confirmStormExpeditionExit({
@@ -165,6 +175,8 @@ export function V2StormExpeditionView() {
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [skipReplay, setSkipReplay] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<StormExpeditionMode>("normal");
+  const [selectedNodeId, setSelectedNodeId] = useState<StormExpeditionMapNodeId | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -187,12 +199,12 @@ export function V2StormExpeditionView() {
   }, [refresh]);
 
   const act = useCallback(async (
-    action: "start" | "fight" | "choose" | "risk_event" | "withdraw",
+    action: "start" | "move" | "fight" | "choose" | "risk_event" | "withdraw",
     payload?: {
-      routeId?: StormExpeditionRouteId;
+      targetNodeId?: StormExpeditionMapNodeId;
       mode?: StormExpeditionMode;
       choiceId?: string;
-      expectedNodeIndex?: number;
+      expectedCurrentNodeId?: StormExpeditionMapNodeId;
       expectedEncounterIndex?: number;
       decision?: "accept" | "decline";
     },
@@ -211,6 +223,7 @@ export function V2StormExpeditionView() {
       }
       setStatus(json);
       setResult(action === "start" ? null : skipReplay ? { ...json, replay: undefined } : json);
+      if (action === "start" || action === "move" || json.error) setSelectedNodeId(null);
       if (json.claimedRewards) await refreshGameState();
     } catch {
       setResult({ ok: false, error: "network" });
@@ -222,14 +235,17 @@ export function V2StormExpeditionView() {
   const active = status?.state?.active ?? null;
   const entryActions = stormExpeditionEntryActions(status?.attemptsLeft ?? 0);
   const isPracticeRun = active?.mode === "practice" || result?.practice === true;
-  const currentNode = active ? status?.nodes?.[active.nodeIndex] ?? null : null;
+  const currentNode = active ? status?.nodes?.find((node) => node.id === active.currentNodeId) ?? null : null;
+  const selectedNode = status?.nodes?.find((node) => node.id === selectedNodeId) ?? null;
+  const selectedRoute = status?.routes?.find((route) => route.id === selectedNode?.routeId) ?? null;
+  const previewableNodeIds = active ? currentNode?.nextNodeIds ?? [] : status?.entranceNodeIds ?? [];
   const activeRoute = status?.routes?.find((route) => route.id === (active?.routeId ?? result?.routeId)) ?? null;
   const exitActiveExpedition = useCallback(() => {
     if (!active) return;
     confirmStormExpeditionExit({
       mode: active.mode,
       onExit: () => void act("withdraw", {
-        expectedNodeIndex: active.nodeIndex,
+        expectedCurrentNodeId: active.currentNodeId,
         expectedEncounterIndex: active.encounterIndex,
       }),
     });
@@ -292,44 +308,26 @@ export function V2StormExpeditionView() {
       {status?.unlocked && !active && !replay && (
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1"><Flag size={18} className="text-sky-500" /><h2 className="font-semibold">첫 입구 · 항로 선택</h2></div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {status.routes?.map((route) => (
-              <article
-                key={route.id}
-                className={`${SURFACE_CARD} flex min-h-48 flex-col p-4`}
-              >
-                <span className="text-xs font-semibold text-sky-600 dark:text-sky-400">{route.statTheme}</span>
-                <h3 className="mt-1 text-base font-bold">{route.name}</h3>
-                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{route.tagline}</p>
-                <p className="mt-3 text-xs font-medium text-rose-700 dark:text-rose-300">위협 · {route.threat}</p>
-                <div className={`${SURFACE_INSET} mt-3 space-y-1 p-2.5 text-xs`}>
-                  <p className="font-semibold">{V2_MATERIALS[STORM_EXPEDITION_ROUTE_MATERIAL_ID[route.id]]?.name}</p>
-                  <p className="text-zinc-500 dark:text-zinc-400">{v2EquipCatalogTierLabel(16)} 장비 {STORM_EXPEDITION_EQUIPMENT_IDS[route.id].length}종</p>
-                </div>
-                <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
-                  <button
-                    type="button"
-                    disabled={busy || !entryActions.normal.enabled}
-                    onClick={() => void act("start", { routeId: route.id, mode: "normal" })}
-                    className="min-h-10 rounded-md bg-sky-600 px-2 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-400"
-                  >
-                    {entryActions.normal.label}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || !entryActions.practice.enabled}
-                    onClick={() => void act("start", { routeId: route.id, mode: "practice" })}
-                    className="min-h-10 rounded-md border border-violet-400 bg-violet-50 px-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-                  >
-                    {entryActions.practice.label}
-                  </button>
-                </div>
-                <p className="mt-2 text-center text-[10px] font-medium text-violet-600 dark:text-violet-300">
-                  {entryActions.practice.description}
-                </p>
-              </article>
-            ))}
-          </div>
+          <Card padding="md" className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" aria-pressed={selectedMode === "normal"} onClick={() => setSelectedMode("normal")} className={`rounded-md border px-4 py-2 text-sm font-semibold ${selectedMode === "normal" ? "border-sky-500 bg-sky-600 text-white" : SURFACE_INSET}`}>{entryActions.normal.label}</button>
+              <button type="button" aria-pressed={selectedMode === "practice"} onClick={() => setSelectedMode("practice")} className={`rounded-md border px-4 py-2 text-sm font-semibold ${selectedMode === "practice" ? "border-violet-500 bg-violet-600 text-white" : SURFACE_INSET}`}>{entryActions.practice.label}</button>
+              <span className="self-center text-xs text-zinc-500">{selectedMode === "practice" ? entryActions.practice.description : `오늘 ${status.attemptsLeft ?? 0}회 입장 가능`}</span>
+            </div>
+            <StormExpeditionRouteMap nodes={status.nodes ?? []} currentNodeId={null} visitedNodeIds={[]} completedNodeIds={[]} availableNodeIds={status.entranceNodeIds ?? []} selectedNodeId={selectedNodeId} onSelect={setSelectedNodeId} />
+          </Card>
+          {selectedNode && selectedRoute && (
+            <RoutePreview
+              node={selectedNode}
+              route={selectedRoute}
+              actionLabel="이 항로로 원정 시작"
+              disabled={busy || (selectedMode === "normal" ? !entryActions.normal.enabled : !entryActions.practice.enabled)}
+              onConfirm={() => {
+                const request = stormExpeditionStartRequest(selectedMode, selectedNode.id);
+                void act(request.action, request);
+              }}
+            />
+          )}
         </section>
       )}
 
@@ -340,16 +338,37 @@ export function V2StormExpeditionView() {
               <strong>연습 모드</strong> · 실전과 같은 전투와 선택을 체험하지만 입장 횟수와 보상·완주 기록은 변하지 않습니다.
             </StatusBanner>
           )}
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
           <Card padding="md" className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div><p className="text-xs text-zinc-500">진행 중인 항로</p><div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">{activeRoute?.name ?? "폭풍 항로"}</h2>{active.mode === "practice" && <PracticeBadge />}</div></div>
-              <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">{active.nodeIndex + 1}/{status?.nodeCount ?? 9}</span>
+              <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">{active.visitedNodeIds.length}/{status?.nodeCount ?? 9}</span>
             </div>
-            <ExpeditionMap nodes={status?.nodes ?? []} active={active} />
+            <StormExpeditionRouteMap
+              nodes={status?.nodes ?? []}
+              currentNodeId={active.currentNodeId}
+              visitedNodeIds={active.visitedNodeIds}
+              completedNodeIds={active.completedNodeIds}
+              availableNodeIds={status?.availableNextNodeIds ?? []}
+              previewableNodeIds={previewableNodeIds}
+              selectedNodeId={selectedNodeId}
+              onSelect={setSelectedNodeId}
+            />
           </Card>
+          {selectedNode && (
+            <RoutePreview
+              node={selectedNode}
+              route={selectedRoute}
+              actionLabel="이 노드로 이동"
+              disabled={busy || !(status?.availableNextNodeIds ?? []).includes(selectedNode.id)}
+              disabledReason={active.completedNodeIds.includes(active.currentNodeId) ? undefined : "현재 체크포인트를 완료하면 이동할 수 있습니다."}
+              onConfirm={() => {
+                const request = stormExpeditionMoveRequest(selectedNode.id, active.currentNodeId, active.encounterIndex);
+                void act(request.action, request);
+              }}
+            />
+          )}
 
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <Card padding="md" className="space-y-3">
               <div>
                 <p className="text-xs font-semibold text-sky-600 dark:text-sky-400">현재 체크포인트</p>
@@ -369,7 +388,10 @@ export function V2StormExpeditionView() {
                   practice={active.mode === "practice"}
                 />
               )}
-              {currentNode?.kind === "battle" && currentNode.encounterKind && (
+              {active.completedNodeIds.includes(active.currentNodeId) && (
+                <div className={`${SURFACE_INSET} p-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300`}>체크포인트 완료 · 지도에서 연결된 다음 노드를 선택하세요.</div>
+              )}
+              {currentNode?.kind === "battle" && currentNode.encounterKind && !active.completedNodeIds.includes(active.currentNodeId) && (
                 <BattleControls
                   busy={busy}
                   node={currentNode}
@@ -382,12 +404,12 @@ export function V2StormExpeditionView() {
                   skipReplay={skipReplay}
                   onSkipReplay={setSkipReplay}
                   onFight={() => void act("fight", {
-                    expectedNodeIndex: active.nodeIndex,
+                    expectedCurrentNodeId: active.currentNodeId,
                     expectedEncounterIndex: active.encounterIndex,
                   })}
                 />
               )}
-              {currentNode && currentNode.kind !== "battle" && active.riskEvent?.status === "offered" && active.riskEvent.nodeIndex === active.nodeIndex && (
+              {currentNode && currentNode.kind !== "battle" && active.riskEvent?.status === "offered" && riskCheckpointForNode(active.currentNodeId) === active.riskEvent.triggerCheckpoint && (
                 <RiskEventControls
                   busy={busy}
                   offer={active.riskEvent}
@@ -397,19 +419,19 @@ export function V2StormExpeditionView() {
                   practice={active.mode === "practice"}
                   onDecision={(decision) => void act("risk_event", {
                     decision,
-                    expectedNodeIndex: active.nodeIndex,
+                    expectedCurrentNodeId: active.currentNodeId,
                     expectedEncounterIndex: active.encounterIndex,
                   })}
                 />
               )}
-              {currentNode && currentNode.kind !== "battle" && !(active.riskEvent?.status === "offered" && active.riskEvent.nodeIndex === active.nodeIndex) && (
+              {currentNode && currentNode.kind !== "battle" && !(active.riskEvent?.status === "offered" && riskCheckpointForNode(active.currentNodeId) === active.riskEvent.triggerCheckpoint) && !active.completedNodeIds.includes(active.currentNodeId) && (
                 <ChoiceControls
                   busy={busy}
                   kind={currentNode.kind}
                   choices={(status?.choices?.[currentNode.kind] ?? []).filter((choice) => currentNode.kind !== "altar" || (active.altarOffers.includes(choice.id as StormExpeditionBoonId) && !active.boons.includes(choice.id as StormExpeditionBoonId)))}
                   onChoose={(choiceId) => void act("choose", {
                     choiceId,
-                    expectedNodeIndex: active.nodeIndex,
+                    expectedCurrentNodeId: active.currentNodeId,
                     expectedEncounterIndex: active.encounterIndex,
                   })}
                 />
@@ -431,7 +453,6 @@ export function V2StormExpeditionView() {
               </Card>
             )}
           </div>
-          </div>
         </div>
       )}
 
@@ -443,7 +464,7 @@ export function V2StormExpeditionView() {
           gender={replay.gender}
           exp={0}
           maxExp={1}
-          playerSubtitle={`${isPracticeRun ? "연습 모드 · " : ""}${activeRoute?.name ?? "원정"} · ${status?.nodes?.[result?.nodeIndex ?? 0]?.name ?? "전투"}`}
+          playerSubtitle={`${isPracticeRun ? "연습 모드 · " : ""}${activeRoute?.name ?? "원정"} · ${status?.nodes?.find((node) => node.id === result?.currentNodeId)?.name ?? "전투"}`}
           outcome={replay.outcome}
           outcomeAction={{
             label: active ? "원정 지도 확인" : "원정대로 돌아가기",
@@ -474,30 +495,44 @@ export function V2StormExpeditionView() {
   );
 }
 
-function ExpeditionMap({ nodes, active }: { nodes: StormExpeditionNode[]; active: ActiveExpedition }) {
+function RoutePreview({ node, route, actionLabel, disabled, disabledReason, onConfirm }: {
+  node: StormExpeditionMapNode;
+  route: NonNullable<ExpeditionStatus["routes"]>[number] | null | undefined;
+  actionLabel: string;
+  disabled: boolean;
+  disabledReason?: string;
+  onConfirm: () => void;
+}) {
   return (
-    <ol className="space-y-0">
-      {nodes.map((node, index) => {
-        const completed = index < active.nodeIndex;
-        const current = index === active.nodeIndex;
-        return (
-          <li key={node.id} className="relative flex gap-3 pb-3 last:pb-0">
-            {index < nodes.length - 1 && <span className={`absolute left-[13px] top-7 h-[calc(100%-1rem)] w-px ${completed ? "bg-emerald-400" : "bg-zinc-200 dark:bg-zinc-700"}`} />}
-            <span className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${completed ? "border-emerald-500 bg-emerald-500 text-white" : current ? "border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "border-zinc-300 bg-white text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-500"}`}>{completed ? "✓" : index + 1}</span>
-            <div className={`min-w-0 pt-0.5 ${current ? "text-zinc-950 dark:text-white" : completed ? "text-zinc-600 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-500"}`}>
-              <p className="text-sm font-semibold">{node.name}{current && (node.encounterCount ?? 1) > 1 ? ` · ${active.encounterIndex + 1}/${node.encounterCount}전` : ""}</p>
-              <p className="text-xs">{node.description}</p>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <Card padding="md" className="space-y-3">
+      <div>
+        <p className="text-xs font-semibold text-sky-600 dark:text-sky-400">선택 노드 미리보기</p>
+        <h3 className="mt-1 text-lg font-bold">{node.name}</h3>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{node.description}</p>
+      </div>
+      {route && (
+        <div className={`${SURFACE_INSET} grid gap-1 p-3 text-xs sm:grid-cols-2`}>
+          <p><strong>위협</strong> · {route.threat}</p>
+          <p><strong>능력 경향</strong> · {route.statTheme}</p>
+          <p><strong>항로 재료</strong> · {V2_MATERIALS[STORM_EXPEDITION_ROUTE_MATERIAL_ID[route.id]]?.name}</p>
+          <p><strong>장비</strong> · {v2EquipCatalogTierLabel(16)} {STORM_EXPEDITION_EQUIPMENT_IDS[route.id].length}종</p>
+        </div>
+      )}
+      {disabledReason && disabled && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{disabledReason}</p>}
+      <button type="button" disabled={disabled} onClick={onConfirm} className="h-11 w-full rounded-md bg-sky-600 text-sm font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800">{actionLabel}</button>
+    </Card>
   );
+}
+
+function riskCheckpointForNode(nodeId: StormExpeditionMapNodeId): StormExpeditionRiskEventOffer["triggerCheckpoint"] | null {
+  if (nodeId === "supply") return "supply";
+  if (nodeId === "altar") return "altar";
+  return nodeId.endsWith("_camp") ? "camp" : null;
 }
 
 function BattleControls({ busy, node, encounterIndex, lootRule, uniqueLootRule, equipmentChanceMultiplier, goldMultiplier, practice, skipReplay, onSkipReplay, onFight }: {
   busy: boolean;
-  node: StormExpeditionNode;
+  node: StormExpeditionMapNode;
   encounterIndex: number;
   lootRule?: StormExpeditionLootRule;
   uniqueLootRule?: StormExpeditionUniqueRule;
@@ -543,7 +578,7 @@ function BattleControls({ busy, node, encounterIndex, lootRule, uniqueLootRule, 
 function ChoiceControls({ busy, kind, choices, onChoose }: { busy: boolean; kind: StormExpeditionChoiceKind; choices: StormExpeditionChoice[]; onChoose: (choiceId: string) => void }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-zinc-500">{kind === "altar" ? "제시된 축복 3개 중 하나를 선택하세요." : "한 가지를 선택하면 다음 구간으로 이동합니다."}</p>
+      <p className="text-xs font-semibold text-zinc-500">{kind === "altar" ? "제시된 축복 3개 중 하나를 선택하세요." : "한 가지를 선택하면 이 체크포인트가 완료됩니다."}</p>
       {choices.map((choice) => (
         <button key={choice.id} type="button" disabled={busy} onClick={() => onChoose(choice.id)} className={`${SURFACE_INSET} w-full p-3 text-left transition hover:border-sky-300 disabled:opacity-50 dark:hover:border-sky-800`}>
           <span className="text-sm font-semibold">{choice.name}</span>

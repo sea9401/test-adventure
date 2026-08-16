@@ -1,5 +1,8 @@
 import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
-import { MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS } from "@/adventure/data/v2/monthlyAttendance";
+import {
+  MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS,
+  MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS,
+} from "@/adventure/data/v2/monthlyAttendance";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
 
@@ -106,8 +109,11 @@ export function ControlsContent() {
           이 즉시 적용됩니다. 이용 중이라면 남은 기간 뒤에 이어집니다.
         </li>
         <li>
-          14일차에는 <Em>월간 모험 지원권 7일</Em>을 추가로 받아 현재 이용
-          기간을 연장합니다.
+          14·21일차에는{" "}
+          <Em>
+            월간 모험 지원권 {MONTHLY_ATTENDANCE_BONUS_SUPPORT_DAYS}일
+          </Em>
+          을 추가로 받아 현재 이용 기간을 연장합니다.
         </li>
         <li>
           지원권 적용 중에는 최대 스태미나 +

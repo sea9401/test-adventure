@@ -7,12 +7,14 @@ import { useFishingDailyChallenge } from "./useFishingDailyChallenge";
 export function FishingDailyChallengePanel({
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenLeaderboard,
   onOpenHallOfFame,
   onOpenShop,
 }: {
   onBack: () => void;
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenShop?: () => void;
@@ -27,6 +29,7 @@ export function FishingDailyChallengePanel({
       onClaim={claim}
       onBack={onBack}
       onOpenFishing={onOpenFishing}
+      onOpenDangerous={onOpenDangerous}
       onOpenLeaderboard={onOpenLeaderboard}
       onOpenHallOfFame={onOpenHallOfFame}
       onOpenShop={onOpenShop}

@@ -233,17 +233,48 @@ export function consumeLifeAidUses(
 ): { state: LifeCraftingState; consumed: number } {
   if (typeof itemIdRaw !== "string") return { state, consumed: 0 };
   const itemId = itemIdRaw as LifeFinishedItemId;
-  if (lifeAidSpec(itemId)?.activity !== activity) return { state, consumed: 0 };
+  const spec = lifeAidSpec(itemId);
+  if (spec?.activity !== activity) return { state, consumed: 0 };
   const requested = Math.max(0, Math.floor(requestedUses));
   if (requested < 1) return { state, consumed: 0 };
 
   const active = state.activeAids[activity];
   if (active?.itemId === itemId) {
-    const consumed = Math.min(requested, active.remainingUses);
+    const owned = state.balances[itemId] ?? 0;
+    const availableUses =
+      active.remainingUses + (active.enabled ? owned * spec.uses : 0);
+    const consumed = Math.min(requested, availableUses);
+    let opened = active.enabled
+      ? Math.ceil(Math.max(0, consumed - active.remainingUses) / spec.uses)
+      : 0;
+    let remainingUses = active.remainingUses + opened * spec.uses - consumed;
+    if (
+      active.enabled &&
+      consumed === requested &&
+      remainingUses === 0 &&
+      opened < owned
+    ) {
+      opened += 1;
+      remainingUses = spec.uses;
+    }
     const activeAids = { ...state.activeAids };
-    if (consumed >= active.remainingUses) delete activeAids[activity];
-    else activeAids[activity] = { ...active, remainingUses: active.remainingUses - consumed };
-    return { state: { ...state, activeAids, aidsUsed: state.aidsUsed + consumed }, consumed };
+    if (remainingUses < 1) delete activeAids[activity];
+    else activeAids[activity] = { ...active, remainingUses };
+    const balances = { ...state.balances };
+    if (opened > 0) {
+      const remainingOwned = owned - opened;
+      if (remainingOwned > 0) balances[itemId] = remainingOwned;
+      else delete balances[itemId];
+    }
+    return {
+      state: {
+        ...state,
+        balances,
+        activeAids,
+        aidsUsed: state.aidsUsed + consumed,
+      },
+      consumed,
+    };
   }
 
   const reservedUses = state.reserveAidUses[itemId] ?? 0;
@@ -264,7 +295,7 @@ export function recipeMasteryStage(count: number): 0 | 1 | 2 | 3 | 4 | 5 {
   return 0;
 }
 
-export function rollHiddenBlueprint(state: LifeCraftingState, source: LifeBlueprintSource, successes = 1, rng: () => number = Math.random): { state: LifeCraftingState; recipe: LifeCraftingRecipe | null } {
+export function rollHiddenBlueprint(state: LifeCraftingState, source: LifeBlueprintSource, successes = 1, rng: () => number = Math.random, bonusChancePct = 0): { state: LifeCraftingState; recipe: LifeCraftingRecipe | null } {
   const eligible = LIFE_CRAFTING_RECIPES.filter(
     (recipe) =>
       isLifeCraftingRecipeAvailable(recipe) &&
@@ -278,7 +309,11 @@ export function rollHiddenBlueprint(state: LifeCraftingState, source: LifeBluepr
     const recipe = eligible[Math.floor(rng() * eligible.length)] ?? eligible[0];
     const expected = recipe.blueprintRarity === "top" ? 100_000 : 20_000;
     const softPity = misses >= expected * 4 ? 2 : misses >= expected * 3 ? 1.5 : 1;
-    if (rng() < softPity / expected) {
+    const bonusChance = Math.min(
+      1,
+      Math.max(0, Number(bonusChancePct) || 0) / 100,
+    );
+    if (rng() < Math.min(1, softPity / expected + bonusChance)) {
       return { state: { ...state, learnedHiddenRecipeIds: [...state.learnedHiddenRecipeIds, recipe.id], blueprintMisses: { ...state.blueprintMisses, [source]: 0 } }, recipe };
     }
     misses += 1;

@@ -107,27 +107,23 @@ body {
 }
 
 /* ── 게임 드롭다운·도킹 패널 등장 모션 ────────────────────────────
-   메뉴는 즉시 조작할 수 있을 만큼 짧게 열되, 위에서 풀리며 항목이 연달아 보이는 감각을 준다.
-   채팅은 화면 아래에 붙으므로 같은 속도로 아래에서 살짝 올라온다. */
+   반복해서 여는 메뉴는 위치·크기를 바꾸지 않고 짧은 투명도 변화만 사용한다.
+   채팅처럼 화면에 새 표면이 생기는 패널은 별도의 짧은 등장 모션을 유지한다. */
 @keyframes ui-dropdown-reveal {
   from {
     opacity: 0;
-    transform: translate3d(0, -7px, 0) scaleY(0.94);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scaleY(1);
   }
 }
 
-@keyframes ui-dropdown-item-reveal {
+@keyframes ui-tab-content-reveal {
   from {
     opacity: 0;
-    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -187,33 +183,13 @@ body {
 }
 
 .ui-dropdown-reveal {
-  transform-origin: top center;
-  animation: ui-dropdown-reveal 170ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity;
+  animation: ui-dropdown-reveal 120ms ease-out both;
+  will-change: opacity;
 }
 
-.ui-dropdown-reveal > * {
-  animation: ui-dropdown-item-reveal 115ms ease-out both;
-}
-
-.ui-dropdown-reveal > :nth-child(2) {
-  animation-delay: 14ms;
-}
-
-.ui-dropdown-reveal > :nth-child(3) {
-  animation-delay: 28ms;
-}
-
-.ui-dropdown-reveal > :nth-child(4) {
-  animation-delay: 42ms;
-}
-
-.ui-dropdown-reveal > :nth-child(5) {
-  animation-delay: 56ms;
-}
-
-.ui-dropdown-reveal > :nth-child(n + 6) {
-  animation-delay: 70ms;
+.ui-tab-content-reveal {
+  animation: ui-tab-content-reveal 120ms ease-out both;
+  will-change: opacity;
 }
 
 .ui-popover-reveal {
@@ -284,7 +260,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .ui-dropdown-reveal,
-  .ui-dropdown-reveal > *,
+  .ui-tab-content-reveal,
   .ui-popover-reveal,
   .ui-modal-reveal,
   .ui-modal-panel,
@@ -346,6 +322,15 @@ body {
 
 /* 사냥터 목록에서 층 전투로 한 단계 들어갈 때만 본문에 방향을 준다.
    영속 상단바·메뉴·스태미나 바는 이 래퍼 밖이라 움직이지 않는다. */
+@keyframes ui-route-content-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes ui-hunt-floor-enter {
   from {
     opacity: 0;
@@ -357,12 +342,19 @@ body {
   }
 }
 
+.ui-route-content-enter {
+  /* 완료 뒤 stacking context를 남기면 이 래퍼 안의 fixed 오버레이가
+     영속 상단바 아래로 내려가 클릭을 받을 수 없다. */
+  animation: ui-route-content-enter 120ms ease-out;
+}
+
 .ui-hunt-floor-enter {
   animation: ui-hunt-floor-enter 160ms ease-out both;
   will-change: opacity, transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ui-route-content-enter,
   .ui-hunt-floor-enter {
     animation: none !important;
   }
@@ -858,7 +850,6 @@ body {
   position: relative;
   touch-action: manipulation;
   transition:
-    transform 120ms ease,
     box-shadow 120ms ease,
     border-color 140ms ease,
     background-color 140ms ease,
@@ -876,12 +867,7 @@ body {
     0 8px 18px rgba(0, 0, 0, 0.24);
 }
 
-.ui-game-button:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-
 .ui-game-button:not(:disabled):active {
-  transform: translateY(2px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 0 0 rgba(15, 23, 42, 0),
@@ -925,19 +911,17 @@ body {
 
 .ui-lift-card {
   transition:
-    transform 140ms ease,
     border-color 140ms ease,
     box-shadow 140ms ease,
     background-color 140ms ease;
 }
 
 .ui-lift-card:hover {
-  transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
 }
 
 .ui-lift-card:active {
-  transform: translateY(1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 
 .ui-equipment-card {
@@ -2217,6 +2201,25 @@ body {
   --profile-avatar-decoration-background: url("/images/ui/profile-decorations/oceanic.svg");
   --profile-avatar-decoration-opacity: 0.34;
   --profile-decoration-animation: none;
+}
+
+.ui-profile-frame-abyssal_master {
+  --profile-frame-rgb: 45 212 191;
+  --profile-frame-gradient: linear-gradient(110deg, #020617, #0f766e, #5eead4, #1d4ed8, #312e81, #020617);
+  --profile-theme-background:
+    radial-gradient(circle at 82% 28%, rgb(94 234 212 / 0.36), transparent 18%),
+    radial-gradient(ellipse at 68% 88%, rgb(29 78 216 / 0.58), transparent 42%),
+    linear-gradient(125deg, #020617, #083344 48%, #172554);
+  --profile-theme-pattern:
+    repeating-radial-gradient(ellipse at 78% 70%, transparent 0 12px, rgb(94 234 212 / 0.18) 13px 15px, transparent 16px 29px),
+    radial-gradient(ellipse at 84% 48%, rgb(255 255 255 / 0.24) 0 2%, transparent 3% 100%);
+  --profile-theme-pattern-size: 120px 76px, 180px 92px;
+  --profile-theme-pattern-opacity: 0.72;
+  --profile-avatar-decoration-background:
+    repeating-radial-gradient(circle at 50% 58%, transparent 0 8px, rgb(94 234 212 / 0.25) 9px 10px, transparent 11px 18px);
+  --profile-avatar-decoration-size: 150% 120%;
+  --profile-avatar-decoration-opacity: 0.54;
+  --profile-decoration-animation: profile-decoration-drift 8s ease-in-out infinite;
 }
 
 .ui-profile-frame-verdant {

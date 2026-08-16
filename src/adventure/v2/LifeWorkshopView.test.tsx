@@ -83,14 +83,15 @@ describe("생활 조합 작업장 수량 선택", () => {
         onSubmit={vi.fn()}
       />,
     );
+    const text = html.replace(/<[^>]+>/g, "");
 
-    expect(html).toContain(">1개</button>");
-    expect(html).toContain(">10개</button>");
-    expect(html).toContain("최대 37개");
+    expect(text).toContain("1개");
+    expect(text).toContain("10개");
+    expect(text).toContain("최대 37개");
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-label="쐐기 제작 수량"');
     expect(html).toContain('max="37"');
-    expect(html).toContain(">1개 제작</button>");
+    expect(text).toContain("1개 제작");
   });
 
   it("최대 수량은 별도 확인 창에서 실행량을 다시 안내한다", () => {
@@ -103,12 +104,13 @@ describe("생활 조합 작업장 수량 선택", () => {
         onClose={vi.fn()}
       />,
     );
+    const text = html.replace(/<[^>]+>/g, "");
 
     expect(html).toContain('role="dialog"');
-    expect(html).toContain("최대 37개를 제작할까요?");
-    expect(html).toContain("현재 보유 재료로 가능한 최대 수량");
-    expect(html).toContain(">취소</button>");
-    expect(html).toContain(">최대 37개 제작</button>");
+    expect(text).toContain("최대 37개를 제작할까요?");
+    expect(text).toContain("현재 보유 재료로 가능한 최대 수량");
+    expect(text).toContain("취소");
+    expect(text).toContain("최대 37개 제작");
   });
 
   it("10회분이 없으면 10회 빠른 가공을 비활성화한다", () => {
@@ -123,7 +125,9 @@ describe("생활 조합 작업장 수량 선택", () => {
       />,
     );
 
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>10회<\/button>/);
+    expect(html).toMatch(
+      /<button[^>]*disabled=""[^>]*>[\s\S]*?10회[\s\S]*?<\/button>/,
+    );
     expect(html).toContain("최대 4회");
     expect(html).toContain('max="4"');
   });

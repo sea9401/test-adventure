@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import Kakao from "next-auth/providers/kakao";
+import { AUTH_LOGOUT_GUARD_COOKIE } from "@/lib/authSessionConfig";
 
 export const PUBLIC_PATHS = [
   "/sign-in",
@@ -27,6 +28,18 @@ export const PUBLIC_PATHS = [
     : ["/settings/coin-shop", "/api/v2/museun-coin-shop"]),
 ];
 
+export function isAuthorizedRequest(
+  pathname: string,
+  authenticated: boolean,
+  loggedOut: boolean,
+): boolean {
+  const isPublic = PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(path + "/"),
+  );
+  if (isPublic) return true;
+  return authenticated && !loggedOut;
+}
+
 // Proxy 전용 설정 — adapter 없이 edge-compatible.
 // 실제 DB/OAuth 처리는 src/auth.ts (full config).
 export const authConfig: NextAuthConfig = {
@@ -39,12 +52,12 @@ export const authConfig: NextAuthConfig = {
       if (token.sub) session.user.id = token.sub;
       return session;
     },
-    authorized({ auth, request: { nextUrl } }) {
-      const isPublic = PUBLIC_PATHS.some(
-        (p) => nextUrl.pathname === p || nextUrl.pathname.startsWith(p + "/"),
+    authorized({ auth, request }) {
+      return isAuthorizedRequest(
+        request.nextUrl.pathname,
+        !!auth?.user,
+        request.cookies.has(AUTH_LOGOUT_GUARD_COOKIE),
       );
-      if (isPublic) return true;
-      return !!auth?.user;
     },
   },
 };

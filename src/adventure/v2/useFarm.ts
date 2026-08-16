@@ -19,7 +19,15 @@ import type {
   FarmWeeklyDeliveryRequest,
   FarmWeeklyDeliveryResult,
 } from "./farm";
+import { FARM_CROPS } from "./farm";
+import {
+  farmBatchOutcomeText,
+  runFarmPlotBatch,
+  type FarmBatchAction,
+} from "./farmBatchActions";
 import type { RanchPenId } from "./ranch";
+import { useSystemToast } from "./RewardToastProvider";
+import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 
 type FarmResponse = {
   ok: boolean;
@@ -45,11 +53,13 @@ type FarmResponse = {
   ranchFeedResult?: FarmRanchFeedResult;
   ranchCollectResult?: FarmRanchCollectResult;
   ranchUpgradeResult?: FarmRanchUpgradeResult;
+  levelCurveMigrated?: boolean;
 };
 
 export type FarmClientState = {
   loading: boolean;
   busyPlotId: string | null;
+  busyPlotAction: FarmBatchAction | null;
   busyDeliveryId: string | null;
   busySpecialDeliveryId: string | null;
   busyWeeklyDeliveryId: string | null;
@@ -82,6 +92,9 @@ export type FarmClientState = {
   plant: (plotId: string, cropId: FarmCropId) => Promise<void>;
   harvest: (plotId: string) => Promise<void>;
   fertilize: (plotId: string) => Promise<void>;
+  plantAll: (plotIds: readonly string[], cropId: FarmCropId) => Promise<void>;
+  harvestAll: (plotIds: readonly string[]) => Promise<void>;
+  fertilizeAll: (plotIds: readonly string[]) => Promise<void>;
   deliver: (requestId: string) => Promise<void>;
   deliverSpecial: (requestId: string) => Promise<void>;
   deliverWeekly: (requestId: string) => Promise<void>;
@@ -101,13 +114,19 @@ export type FarmNotice =
   | { id: number; kind: "shop"; result: FarmShopPurchaseResult }
   | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult }
   | { id: number; kind: "fertilizer"; reducedMs: number }
+  | { id: number; kind: "batchPlant"; count: number; cropName: string }
+  | { id: number; kind: "batchHarvest"; count: number }
+  | { id: number; kind: "batchFertilizer"; count: number }
   | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
   | { id: number; kind: "ranchCollect"; result: FarmRanchCollectResult }
   | { id: number; kind: "ranchUpgrade"; result: FarmRanchUpgradeResult };
 
 export function useFarm(): FarmClientState {
+  const { notifySystem } = useSystemToast();
   const [loading, setLoading] = useState(true);
   const [busyPlotId, setBusyPlotId] = useState<string | null>(null);
+  const [busyPlotAction, setBusyPlotAction] =
+    useState<FarmBatchAction | null>(null);
   const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
   const [busySpecialDeliveryId, setBusySpecialDeliveryId] = useState<
     string | null
@@ -159,7 +178,10 @@ export function useFarm(): FarmClientState {
 
   const clearNotice = useCallback(() => setNotice(null), []);
 
-  const apply = useCallback((data: FarmResponse) => {
+  const apply = useCallback((
+    data: FarmResponse,
+    options: { suppressActionNotice?: boolean } = {},
+  ) => {
     if (!data.ok || !data.farm || !data.crops || !data.deliveries) {
       throw new Error(data.error ?? "farm_failed");
     }
@@ -173,11 +195,22 @@ export function useFarm(): FarmClientState {
     setWeeklyDeliveries(data.weeklyDeliveries ?? []);
     setShopItems(data.shopItems ?? []);
     setNow(data.now ?? Date.now());
+    if (data.levelCurveMigrated) {
+      notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+    }
     if ("fertilizerBalance" in data) setFertilizerBalance(Math.max(0, data.fertilizerBalance ?? 0));
-    if (data.fertilizerResult) setNotice({ id: Date.now(), kind: "fertilizer", reducedMs: data.fertilizerResult.reducedMs });
+    if (data.fertilizerResult && !options.suppressActionNotice) {
+      setNotice({
+        id: Date.now(),
+        kind: "fertilizer",
+        reducedMs: data.fertilizerResult.reducedMs,
+      });
+    }
     if (data.result) {
       setLastResult(data.result);
-      setNotice({ id: Date.now(), kind: "harvest", result: data.result });
+      if (!options.suppressActionNotice) {
+        setNotice({ id: Date.now(), kind: "harvest", result: data.result });
+      }
       window.dispatchEvent(new Event("v2notif:read"));
     }
     if (data.deliveryResult) {
@@ -237,7 +270,7 @@ export function useFarm(): FarmClientState {
         result: data.ranchUpgradeResult,
       });
     }
-  }, []);
+  }, [notifySystem]);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -306,6 +339,80 @@ export function useFarm(): FarmClientState {
       setBusyPlotId(null);
     }
   }, [apply, reportError]);
+
+  const runBatch = useCallback(
+    async (
+      action: FarmBatchAction,
+      plotIds: readonly string[],
+      cropId?: FarmCropId,
+    ) => {
+      if (plotIds.length === 0) return;
+      setBusyPlotAction(action);
+      setError(null);
+      try {
+        const result = await runFarmPlotBatch<FarmResponse>({
+          action,
+          plotIds,
+          cropId,
+          onSuccess: (data) =>
+            apply(data, { suppressActionNotice: true }),
+        });
+        const cropName = cropId ? FARM_CROPS[cropId].name : undefined;
+        const outcomeText = farmBatchOutcomeText(
+          action,
+          result.completed,
+          result.error,
+          cropName,
+        );
+        if (result.error) {
+          const message =
+            result.completed > 0
+              ? outcomeText
+              : errorMessage(new Error(outcomeText));
+          setError(message);
+          setNotice({ id: Date.now(), kind: "error", text: message });
+        } else if (action === "plant") {
+          setNotice({
+            id: Date.now(),
+            kind: "batchPlant",
+            count: result.completed,
+            cropName: cropName ?? "선택한 작물",
+          });
+        } else if (action === "harvest") {
+          setNotice({
+            id: Date.now(),
+            kind: "batchHarvest",
+            count: result.completed,
+          });
+        } else {
+          setNotice({
+            id: Date.now(),
+            kind: "batchFertilizer",
+            count: result.completed,
+          });
+        }
+      } catch (batchError) {
+        reportError(batchError);
+      } finally {
+        setBusyPlotAction(null);
+      }
+    },
+    [apply, reportError],
+  );
+
+  const plantAll = useCallback(
+    (plotIds: readonly string[], cropId: FarmCropId) =>
+      runBatch("plant", plotIds, cropId),
+    [runBatch],
+  );
+  const harvestAll = useCallback(
+    (plotIds: readonly string[]) => runBatch("harvest", plotIds),
+    [runBatch],
+  );
+  const fertilizeAll = useCallback(
+    (plotIds: readonly string[]) => runBatch("fertilize", plotIds),
+    [runBatch],
+  );
 
   const deliver = useCallback(
     async (requestId: string) => {
@@ -488,6 +595,7 @@ export function useFarm(): FarmClientState {
   return {
     loading,
     busyPlotId,
+    busyPlotAction,
     busyDeliveryId,
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
@@ -520,6 +628,9 @@ export function useFarm(): FarmClientState {
     plant,
     harvest,
     fertilize,
+    plantAll,
+    harvestAll,
+    fertilizeAll,
     deliver,
     deliverSpecial,
     deliverWeekly,

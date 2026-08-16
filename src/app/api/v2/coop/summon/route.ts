@@ -7,23 +7,20 @@ import {
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
-import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
-  broadcastCoopNotice,
   expireStaleCoopSessions,
   findActiveCoopSessions,
 } from "@/lib/server/v2Coop";
 import {
   COOP_BOSSES,
+  COOP_INITIAL_VISIBILITY,
   MAX_ACTIVE_PER_KIND,
   SUMMON_SCROLL_MATERIAL_ID,
   coopBossDurationMs,
   isScrollSummonableCoopBossKind,
   parseCoopBossKindId,
-  parseCoopVisibility,
   coopBossMaxMp,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 // POST /api/v2/coop/summon — 소환서를 소모해 협동 보스 소환.
@@ -43,7 +40,7 @@ export async function POST(req: Request) {
   }
   const userId: string = maybeUserId;
 
-  let body: { kind?: unknown; visibility?: unknown };
+  let body: { kind?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -60,14 +57,6 @@ export async function POST(req: Request) {
     );
   }
   const kind = COOP_BOSSES[kindId];
-  // 코어루프 — 소환자가 공개 범위를 고른다(공개/길드원만/소환자만). off 면 항상 public(현행).
-  const visibility = V2_CORE_LOOP_V2
-    ? parseCoopVisibility(body.visibility)
-    : "public";
-
-  let summoned = false;
-  let summonedSessionId: string | null = null;
-  let summonedExpiresAt: number | null = null;
   let summonerName = "모험가";
   let result: { status: number; body: Record<string, unknown> };
   try {
@@ -132,11 +121,6 @@ export async function POST(req: Request) {
       summonerName = profile?.name?.trim() || "모험가";
       // 소환 시점 길드 — 길드원 가시성 판정 기준(나중에 길드 바뀌어도 소환 당시 기준).
       const summonerGuildId = await getGuildId(tx, userId);
-      // 길드 없는데 'guild_only' 면 본인 포함 아무도 못 침(소환서 낭비) → 'summoner_only' 로 강등.
-      const storedVisibility =
-        visibility === "guild_only" && summonerGuildId == null
-          ? "summoner_only"
-          : visibility;
       const sessionId = randomUUID();
       const expiresAt = now.getTime() + coopBossDurationMs(kind);
       await tx.insert(coopBossSessions).values({
@@ -152,12 +136,9 @@ export async function POST(req: Request) {
         summonedByName: summonerName,
         summonerId: userId,
         summonerGuildId,
-        visibility: storedVisibility,
+        visibility: COOP_INITIAL_VISIBILITY,
         mechanicState: { bossMp: coopBossMaxMp(kind) },
       });
-      summoned = true;
-      summonedSessionId = sessionId;
-      summonedExpiresAt = expiresAt;
       return {
         status: 200,
         body: {
@@ -174,24 +155,6 @@ export async function POST(req: Request) {
     return Response.json(
       { ok: false, error: "internal_error" },
       { status: 500 },
-    );
-  }
-
-  // 소환 알림 — 전체 소식 피드 + 채팅 알림 탭(둘 다 부수 효과·실패 삼킴).
-  // 코어루프 — 공개(public) 소환만 전체 브로드캐스트. 길드원만/소환자만은 목록에서만 노출.
-  if (
-    summoned &&
-    visibility === "public" &&
-    summonedSessionId &&
-    summonedExpiresAt
-  ) {
-    await insertFeedEntry(userId, "coop_summon", {
-      kind: kindId,
-      sessionId: summonedSessionId,
-      expiresAt: summonedExpiresAt,
-    });
-    await broadcastCoopNotice(
-      `${summonerName} 님이 「${kind.name}」을(를) 소환했다`,
     );
   }
 

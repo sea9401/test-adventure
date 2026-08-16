@@ -38,6 +38,8 @@ import {
   coopBossMpPressureDamage,
   withCoopBossMp,
   parseCoopMechanicState,
+  COOP_INITIAL_VISIBILITY,
+  coopVisibilityTransition,
 } from "./coopBosses";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
@@ -530,6 +532,50 @@ describe("소환서 드랍", () => {
 });
 
 describe("협동보스 가시성/권한 (코어루프 리워크)", () => {
+  it("새 협동 보스는 소환자만 볼 수 있는 상태로 시작한다", () => {
+    expect(COOP_INITIAL_VISIBILITY).toBe("summoner_only");
+  });
+
+  it("전체 공개 전에는 개인과 길드 범위를 오갈 수 있다", () => {
+    expect(coopVisibilityTransition("summoner_only", "guild_only")).toEqual({
+      ok: true,
+      changed: true,
+    });
+    expect(coopVisibilityTransition("guild_only", "summoner_only")).toEqual({
+      ok: true,
+      changed: true,
+    });
+  });
+
+  it("개인 또는 길드 보스는 전체 공개로 전환할 수 있다", () => {
+    expect(coopVisibilityTransition("summoner_only", "public")).toEqual({
+      ok: true,
+      changed: true,
+    });
+    expect(coopVisibilityTransition("guild_only", "public")).toEqual({
+      ok: true,
+      changed: true,
+    });
+  });
+
+  it("전체 공개된 보스는 개인이나 길드 범위로 되돌릴 수 없다", () => {
+    expect(coopVisibilityTransition("public", "summoner_only")).toEqual({
+      ok: false,
+      error: "visibility_locked",
+    });
+    expect(coopVisibilityTransition("public", "guild_only")).toEqual({
+      ok: false,
+      error: "visibility_locked",
+    });
+  });
+
+  it("이미 전체 공개된 보스를 다시 공개하는 요청은 무변경 성공이다", () => {
+    expect(coopVisibilityTransition("public", "public")).toEqual({
+      ok: true,
+      changed: false,
+    });
+  });
+
   it("parseCoopVisibility — 유효값만, 그 외 public 폴백", () => {
     expect(parseCoopVisibility("public")).toBe("public");
     expect(parseCoopVisibility("guild_only")).toBe("guild_only");
@@ -552,6 +598,18 @@ describe("협동보스 가시성/권한 (코어루프 리워크)", () => {
     // 소환자 길드가 null(무소속 소환)이면 아무도 매칭 안 됨(소환자조차 guildId null 매칭은 막음).
     const noGuild = { visibility: "guild_only", summonerId: "u1", summonerGuildId: null };
     expect(canAccessCoopBoss(noGuild, { userId: "u9", guildId: null })).toBe(false);
+  });
+
+  it("canAccessCoopBoss — 범위 밖이어도 이미 피해를 기록한 참여자는 계속 접근", () => {
+    const s = {
+      visibility: "guild_only",
+      summonerId: "summoner",
+      summonerGuildId: 3,
+    };
+    const outsider = { userId: "contributor", guildId: 5 };
+
+    expect(canAccessCoopBoss(s, outsider)).toBe(false);
+    expect(canAccessCoopBoss(s, outsider, true)).toBe(true);
   });
 
   it("canAccessCoopBoss — summoner_only 는 소환자 본인만", () => {

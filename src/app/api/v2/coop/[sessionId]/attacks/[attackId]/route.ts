@@ -11,7 +11,6 @@ import {
   canAccessCoopBoss,
   parseCoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
   readMuseunCosmeticAppearanceMap,
@@ -59,32 +58,30 @@ export async function GET(_req: Request, { params }: Ctx) {
     return Response.json({ ok: false, error: "no_attack" }, { status: 404 });
   }
 
-  if (V2_CORE_LOOP_V2) {
-    const viewerGuildId =
-      (
-        await db
-          .select({ guildId: guildMembers.guildId })
-          .from(guildMembers)
-          .where(eq(guildMembers.userId, userId))
-          .limit(1)
-      )[0]?.guildId ?? null;
-    if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
-      const [contributor] = await db
-        .select({ userId: coopBossContributors.userId })
-        .from(coopBossContributors)
-        .where(
-          and(
-            eq(coopBossContributors.sessionId, sessionId),
-            eq(coopBossContributors.userId, userId),
-          ),
-        )
-        .limit(1);
-      if (!contributor) {
-        return Response.json(
-          { ok: false, error: "no_attack" },
-          { status: 404 },
-        );
-      }
+  const viewerGuildId =
+    (
+      await db
+        .select({ guildId: guildMembers.guildId })
+        .from(guildMembers)
+        .where(eq(guildMembers.userId, userId))
+        .limit(1)
+    )[0]?.guildId ?? null;
+  if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
+    const [contributor] = await db
+      .select({ userId: coopBossContributors.userId })
+      .from(coopBossContributors)
+      .where(
+        and(
+          eq(coopBossContributors.sessionId, sessionId),
+          eq(coopBossContributors.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (!contributor) {
+      return Response.json(
+        { ok: false, error: "no_attack" },
+        { status: 404 },
+      );
     }
   }
 

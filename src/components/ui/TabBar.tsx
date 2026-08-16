@@ -15,9 +15,9 @@ type TabBadgeVariant = "solid" | "subtle" | "alert";
 type TabVariant = "underline" | "highlight";
 
 const SIZE: Record<TabSize, string> = {
-  sm: "px-3 py-2 text-sm font-medium",
-  md: "px-4 py-2 text-base font-semibold",
-  lg: "px-5 py-2.5 text-lg font-semibold",
+  sm: "min-h-10 sm:min-h-0 px-3 py-2 text-sm font-medium",
+  md: "min-h-10 sm:min-h-0 px-4 py-2 text-base font-semibold",
+  lg: "min-h-10 sm:min-h-0 px-5 py-2.5 text-lg font-semibold",
 };
 
 const CONTAINER: Record<TabVariant, string> = {
@@ -112,7 +112,9 @@ export function TabBar<K extends string>({
 
   const cls = [
     CONTAINER[variant],
-    scrollable ? "no-scrollbar flex-nowrap overflow-x-auto" : "",
+    scrollable
+      ? "no-scrollbar w-full min-w-0 max-w-full flex-nowrap overflow-x-auto"
+      : "",
     className,
   ]
     .filter(Boolean)

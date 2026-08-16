@@ -280,9 +280,11 @@ describe("폭풍 원정 V1 진행 상태 호환", () => {
       "2026-08-05",
     );
     expect(state.active).toMatchObject({
-      version: 2,
+      version: 3,
       routeId: "gale",
-      nodeIndex: 4,
+      currentNodeId: "gale_elite",
+      visitedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp", "gale_elite"],
+      completedNodeIds: ["gale_outer", "supply", "gale_middle", "gale_camp"],
       encounterIndex: 0,
       defeatedCount: 2,
       pendingGold: 46000,

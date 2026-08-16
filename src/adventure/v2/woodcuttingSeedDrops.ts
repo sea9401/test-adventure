@@ -41,16 +41,38 @@ export type WoodcuttingSeedDrop = {
 
 export function rollWoodcuttingSeedDrop(
   rng: () => number = Math.random,
+  bonusChancePct = 0,
 ): WoodcuttingSeedDrop | null {
   const raw = Number(rng());
   if (!Number.isFinite(raw)) return null;
   const roll = Math.floor(
     Math.min(1, Math.max(0, raw)) * WOODCUTTING_SEED_DROP_ROLL_SCALE,
   );
+  const bonusPerMillion = Math.max(
+    0,
+    Math.min(
+      WOODCUTTING_SEED_DROP_ROLL_SCALE -
+        WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION,
+      Math.round((Number(bonusChancePct) || 0) * 10_000),
+    ),
+  );
+  if (
+    roll >= WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION + bonusPerMillion
+  ) {
+    return null;
+  }
+  const weightedRoll =
+    roll < WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION
+      ? roll
+      : Math.floor(
+          ((roll - WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION) /
+            Math.max(1, bonusPerMillion)) *
+            WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION,
+        );
   let threshold = 0;
   for (const entry of WOODCUTTING_SEED_DROP_RATES) {
     threshold += entry.chancePerMillion;
-    if (roll < threshold) {
+    if (weightedRoll < threshold) {
       return {
         cropId: entry.cropId,
         seedName: FARM_CROPS[entry.cropId].seedName,

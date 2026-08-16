@@ -6,10 +6,7 @@ import { currentAdminEmail, requireAdmin } from "@/lib/server/isAdmin";
 import { upsertSave } from "@/lib/server/savesKv";
 import { isSyncedKey, type SyncedKey } from "@/lib/storage/synced-keys";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
-
-// 닉네임 길이 — profile/setup 과 동일.
-const NAME_MIN = 1;
-const NAME_MAX = 16;
+import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
 
 // "이름 중복" 신호 — 트랜잭션 안에서 throw 해서 깔끔하게 롤백.
 class TakenError extends Error {
@@ -91,21 +88,22 @@ export async function PATCH(req: Request) {
       await upsertSave(tx, userId, key, body.value);
 
       if (key === PROFILE_STORAGE_KEY) {
-        // character-profile.v2 의 name 을 users.gameName 으로 미러. 잘못된 값 (비문자열·
-        // 길이 위반) 은 gameName 업데이트를 생략 — savesKv 자체는 admin 신뢰로 통과시킨다.
+        // character-profile.v2 의 name 을 users.gameName 으로 미러. 공통 닉네임 정책을
+        // 위반하면 gameName 업데이트를 생략 — savesKv 자체는 admin 신뢰로 통과시킨다.
         const value =
           body.value && typeof body.value === "object"
             ? (body.value as { name?: unknown })
             : null;
-        const rawName = value && typeof value.name === "string" ? value.name.trim() : null;
-        if (rawName && rawName.length >= NAME_MIN && rawName.length <= NAME_MAX) {
+        const nameCheck = validateCharacterName(value?.name);
+        if (nameCheck.ok) {
+          const profileName = nameCheck.name;
           // 다른 유저와 충돌(23505) 이면 TakenError 로 변환 → 트랜잭션 롤백 + 409.
           try {
             await tx
               .update(users)
-              .set({ gameName: rawName, updatedAt: new Date() })
+              .set({ gameName: profileName, updatedAt: new Date() })
               .where(eq(users.id, userId));
-            profileNameSynced = rawName;
+            profileNameSynced = profileName;
           } catch (e) {
             const code = (e as { code?: string }).code;
             if (code === "23505") throw new TakenError();

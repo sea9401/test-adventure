@@ -1011,6 +1011,33 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBe(85);
   });
 
+  it("v2DamageAmount는 물리·마법 스킬에 각 계열 최소 피해를 적용한다", () => {
+    const common = {
+      attackerAtk: 10,
+      attackerMagicAtk: 10,
+      attackerMinDamage: 23,
+      attackerMagicMinDamage: 41,
+      targetDef: 999,
+      targetMagicDef: 999,
+      statCoef: 1,
+      baseFlat: 0,
+      attackerSelfBuffs: {},
+      attackerSelfDebuffs: {},
+      targetSelfBuffs: {},
+      targetSelfDebuffs: {},
+    };
+
+    expect(v2DamageAmount(common)).toBe(23);
+    expect(v2DamageAmount({ ...common, scaling: "magic" })).toBe(41);
+    expect(
+      v2DamageAmount({
+        ...common,
+        attackerMagicMinDamage: undefined,
+        scaling: "magic",
+      }),
+    ).toBe(23);
+  });
+
   it("v2DamageAmount scaling='magic' 인데 magicAtk 미지정 → atk 폴백 (적·구 호출 무영향)", () => {
     // magicAtk 없으면 attackerAtk 로 폴백: 40 × 1.5 + 0 = 60.
     expect(

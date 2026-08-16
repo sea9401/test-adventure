@@ -7,12 +7,14 @@ import { useFishingLeaderboard } from "./useFishingLeaderboard";
 export function FishingLeaderboardPanel({
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenChallenges,
   onOpenHallOfFame,
   onOpenShop,
 }: {
   onBack: () => void;
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenShop?: () => void;
@@ -25,6 +27,7 @@ export function FishingLeaderboardPanel({
       error={error}
       onBack={onBack}
       onOpenFishing={onOpenFishing}
+      onOpenDangerous={onOpenDangerous}
       onOpenChallenges={onOpenChallenges}
       onOpenHallOfFame={onOpenHallOfFame}
       onOpenShop={onOpenShop}

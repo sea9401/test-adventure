@@ -3,9 +3,24 @@ import { describe, expect, it, vi } from "vitest";
 import {
   claimAllRewardText,
   MonsterHuntCodexCard,
+  QuestTabContent,
   QuestTopTabs,
   QuestRow,
 } from "./V2QuestView";
+
+describe("퀘스트 탭 전환 경계", () => {
+  it("선택 탭을 독립 DOM 경계와 위치 이동 없는 전환으로 감싼다", () => {
+    const html = renderToStaticMarkup(
+      <QuestTabContent tab="weekly">
+        <p>주간 내용</p>
+      </QuestTabContent>,
+    );
+
+    expect(html).toContain('data-quest-tab-content="weekly"');
+    expect(html).toContain("ui-tab-content-reveal");
+    expect(html).toContain("주간 내용");
+  });
+});
 
 describe("일일·주간 퀘스트 보상 탭 알림", () => {
   it("업적 탭을 보고 있어도 받을 수 있는 일일·주간 보상을 표시한다", () => {
@@ -75,6 +90,26 @@ describe("업적 메인 추적", () => {
     );
     expect(tracked).toContain("메인 추적 중");
     expect(tracked).toContain("추적 해제");
+  });
+
+  it("보상 처리 중에도 원래 버튼 라벨 폭과 로딩 접근성 상태를 유지한다", () => {
+    const html = renderToStaticMarkup(
+      <QuestRow
+        quest={{
+          ...quest,
+          status: "claimable",
+          reward: { gold: 1000 },
+        }}
+        busy
+        onClaim={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('aria-label="두둑한 지갑 보상 수령 중"');
+    expect(html).toContain('data-button-spinner="true"');
+    expect(html).toContain(">받기</span>");
+    expect(html).not.toContain("처리 중…");
   });
 });
 

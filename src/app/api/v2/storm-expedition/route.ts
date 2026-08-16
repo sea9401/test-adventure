@@ -22,7 +22,6 @@ import {
   STORM_EXPEDITION_CAMP_CHOICES,
   STORM_EXPEDITION_DAILY_ATTEMPTS,
   STORM_EXPEDITION_FINAL_PREP_CHOICES,
-  STORM_EXPEDITION_NODES,
   STORM_EXPEDITION_NODE_COUNT,
   STORM_EXPEDITION_ROUTES,
   STORM_EXPEDITION_RISK_CURSES,
@@ -33,6 +32,7 @@ import {
   createStormAltarOffers,
   createStormRiskEvent,
   parseStormExpeditionState,
+  reconcileStormExpeditionSpFruitProgress,
   stormExpeditionBattleReward,
   stormExpeditionDateKey,
   stormExpeditionEnemy,
@@ -45,6 +45,14 @@ import {
   type StormExpeditionEncounterKind,
   type StormExpeditionRiskEventOffer,
 } from "@/adventure/data/v2/stormExpedition";
+import {
+  STORM_EXPEDITION_ENTRANCE_NODE_IDS,
+  STORM_EXPEDITION_MAP_NODES,
+  stormExpeditionAvailableNextNodeIds,
+  stormExpeditionMapNode,
+  stormExpeditionRouteNodeId,
+  type StormExpeditionMapNodeId,
+} from "@/adventure/data/v2/stormExpeditionMap";
 import {
   STORM_EXPEDITION_LOOT,
   STORM_EXPEDITION_UNIQUE_LOOT,
@@ -59,6 +67,7 @@ import {
   rollStormExpeditionUniqueLoot,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
+import { parseSpFruitUsed } from "@/adventure/data/v2/spFruit";
 import {
   LIMITED_RECOVERY_SKILL_IDS,
   type LimitedRecoverySkillId,
@@ -68,14 +77,17 @@ type CharacterSave = Record<string, unknown> & {
   frontierDepth?: number;
   gold?: number;
   materials?: Record<string, number>;
+  spFruitUsed?: unknown;
 };
 
 type PostInput = {
   action?: unknown;
   routeId?: unknown;
+  targetNodeId?: unknown;
   mode?: unknown;
   choiceId?: unknown;
   expectedNodeIndex?: unknown;
+  expectedCurrentNodeId?: unknown;
   expectedEncounterIndex?: unknown;
   decision?: unknown;
 };
@@ -109,7 +121,10 @@ export async function POST(req: Request) {
     // 공용 잠금 순서(character → equipment → expedition)를 유지한다.
     const equipmentSave = await lockSaveForUpdate<Record<string, unknown>>(tx, userId, "equipment.v2", {});
     const raw = await lockSaveForUpdate<unknown>(tx, userId, STORM_EXPEDITION_SAVE_KEY, {});
-    let state = parseStormExpeditionState(raw, stormExpeditionDateKey());
+    let state = reconcileStormExpeditionSpFruitProgress(
+      parseStormExpeditionState(raw, stormExpeditionDateKey()),
+      observedStormExpeditionSpFruitV(charSave),
+    );
     let responseCharSave = charSave;
     const frontierDepth = Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2));
     if (frontierDepth < STORM_EXPEDITION_UNLOCK_DEPTH) {
@@ -117,8 +132,17 @@ export async function POST(req: Request) {
     }
 
     if (input?.action === "start") {
-      const route = stormExpeditionRoute(input.routeId);
-      if (!route) return response(400, { ...statusBody(charSave, state), error: "invalid_route" });
+      const targetNode = input.targetNodeId === undefined
+        ? (() => {
+            const legacyRoute = stormExpeditionRoute(input.routeId);
+            return legacyRoute ? stormExpeditionMapNode(stormExpeditionRouteNodeId(legacyRoute.id, "outer")) : null;
+          })()
+        : stormExpeditionMapNode(input.targetNodeId);
+      if (!targetNode || !STORM_EXPEDITION_ENTRANCE_NODE_IDS.includes(targetNode.id as typeof STORM_EXPEDITION_ENTRANCE_NODE_IDS[number])) {
+        return response(400, { ...statusBody(charSave, state), error: input.targetNodeId === undefined ? "invalid_route" : "invalid_node" });
+      }
+      const route = stormExpeditionRoute(targetNode.routeId);
+      if (!route) return response(400, { ...statusBody(charSave, state), error: "invalid_node" });
       const mode = input.mode === undefined || input.mode === "normal"
         ? "normal"
         : input.mode === "practice"
@@ -137,10 +161,12 @@ export async function POST(req: Request) {
         ...state,
         attemptsUsed: mode === "normal" ? state.attemptsUsed + 1 : state.attemptsUsed,
         active: {
-          version: 2,
+          version: 3,
           mode,
           routeId: route.id,
-          nodeIndex: 0,
+          currentNodeId: targetNode.id,
+          visitedNodeIds: [targetNode.id],
+          completedNodeIds: [],
           encounterIndex: 0,
           hp: maxHp,
           mp: maxMp,
@@ -160,6 +186,27 @@ export async function POST(req: Request) {
       };
       await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
       return response(200, statusBody(charSave, state));
+    }
+
+    if (input?.action === "move") {
+      const active = state.active;
+      if (!active) return response(409, { ...statusBody(charSave, state), error: "no_active" });
+      if (hasStalePosition(input, active)) return response(409, { ...statusBody(charSave, state), error: "stale_state" });
+      const target = stormExpeditionMapNode(input.targetNodeId);
+      if (!target) return response(400, { ...statusBody(charSave, state), error: "invalid_node" });
+      if (active.visitedNodeIds.includes(target.id)) return response(409, { ...statusBody(charSave, state), error: "node_already_visited" });
+      if (!active.completedNodeIds.includes(active.currentNodeId)) return response(409, { ...statusBody(charSave, state), error: "node_not_completed" });
+      if (!stormExpeditionNode(active).nextNodeIds.includes(target.id)) return response(409, { ...statusBody(charSave, state), error: "node_not_reachable" });
+      const moved: StormExpeditionActive = {
+        ...active,
+        currentNodeId: target.id,
+        visitedNodeIds: [...active.visitedNodeIds, target.id],
+        routeId: target.routeId ?? active.routeId,
+        encounterIndex: 0,
+      };
+      state = { ...state, active: moved };
+      await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
+      return response(200, { ...statusBody(charSave, state), moved: true });
     }
 
     if (input?.action === "withdraw") {
@@ -203,7 +250,7 @@ export async function POST(req: Request) {
       }
       const decision = input.decision === "accept" ? "accept" : input.decision === "decline" ? "decline" : null;
       if (!decision) return response(400, { ...statusBody(charSave, state), error: "invalid_decision" });
-      if (!active.riskEvent || active.riskEvent.status !== "offered" || active.riskEvent.nodeIndex !== active.nodeIndex) {
+      if (!active.riskEvent || active.riskEvent.status !== "offered" || active.riskEvent.triggerCheckpoint !== currentRiskCheckpoint(active.currentNodeId)) {
         return response(409, { ...statusBody(charSave, state), error: "risk_event_unavailable" });
       }
       const resolved = applyRiskDecision(active, decision);
@@ -223,11 +270,14 @@ export async function POST(req: Request) {
       if (hasStalePosition(input, active)) {
         return response(409, { ...statusBody(charSave, state), error: "stale_state" });
       }
+      if (active.completedNodeIds.includes(active.currentNodeId)) {
+        return response(409, { ...statusBody(charSave, state), error: "node_already_completed" });
+      }
       const node = stormExpeditionNode(active);
       if (node.kind === "battle") {
         return response(409, { ...statusBody(charSave, state), error: "battle_required" });
       }
-      if (active.riskEvent?.status === "offered" && active.riskEvent.nodeIndex === active.nodeIndex) {
+      if (active.riskEvent?.status === "offered" && active.riskEvent.triggerCheckpoint === currentRiskCheckpoint(active.currentNodeId)) {
         return response(409, { ...statusBody(charSave, state), error: "risk_event_required" });
       }
       const choiceId = typeof input.choiceId === "string" ? input.choiceId : "";
@@ -255,6 +305,9 @@ export async function POST(req: Request) {
       return response(409, { ...statusBody(charSave, state), error: "stale_state" });
     }
     const node = stormExpeditionNode(active);
+    if (active.completedNodeIds.includes(active.currentNodeId)) {
+      return response(409, { ...statusBody(charSave, state), error: "node_already_completed" });
+    }
     if (node.kind !== "battle" || !node.encounterKind) {
       return response(409, { ...statusBody(charSave, state), error: "choice_required" });
     }
@@ -275,7 +328,7 @@ export async function POST(req: Request) {
       mp: Math.min(effectiveMaxMp, active.mp),
     }, active, node.encounterKind);
     const enemy = applyRiskToEnemy(
-      stormExpeditionEnemy(active.routeId, node.encounterKind, active.encounterIndex),
+      stormExpeditionEnemy(node.routeId ?? active.routeId, node.encounterKind, active.encounterIndex),
       active,
     );
     const isBoss = node.encounterKind === "guardian" || node.encounterKind === "final_boss";
@@ -320,7 +373,7 @@ export async function POST(req: Request) {
       const loot = practice
         ? { materials: {}, equipmentId: null }
         : rollStormExpeditionLoot(
-            active.routeId,
+            node.routeId ?? active.routeId,
             node.encounterKind,
             Math.random,
             { equipmentChanceMultiplier },
@@ -328,7 +381,7 @@ export async function POST(req: Request) {
       const uniqueLoot = practice
         ? { uniqueIds: [] }
         : rollStormExpeditionUniqueLoot(
-            active.routeId,
+            node.routeId ?? active.routeId,
             node.encounterKind,
             Math.random,
             { uniqueChanceMultiplier: equipmentChanceMultiplier },
@@ -424,10 +477,10 @@ export async function POST(req: Request) {
       droppedUniqueEquipment,
       claimedRewards: finalClear && !practice,
       spFruitDropped,
-      nodeIndex: active.nodeIndex,
+      currentNodeId: active.currentNodeId,
       encounterIndex: active.encounterIndex,
       encounterKind: node.encounterKind,
-      routeId: active.routeId,
+      routeId: node.routeId ?? active.routeId,
       enemyName: enemy.name,
       turns: battle.turns,
       replay: toReplayPayload(battle.finalState, {
@@ -484,7 +537,7 @@ function advanceAfterBattle(active: StormExpeditionActive, encounterCount: numbe
   }
   return {
     ...active,
-    nodeIndex: Math.min(STORM_EXPEDITION_NODE_COUNT - 1, active.nodeIndex + 1),
+    completedNodeIds: appendUnique(active.completedNodeIds, active.currentNodeId),
     encounterIndex: 0,
   };
 }
@@ -540,7 +593,7 @@ function applyChoice(
 
   return {
     ...active,
-    nodeIndex: Math.min(STORM_EXPEDITION_NODE_COUNT - 1, active.nodeIndex + 1),
+    completedNodeIds: appendUnique(active.completedNodeIds, active.currentNodeId),
     encounterIndex: 0,
     hp,
     mp,
@@ -601,7 +654,7 @@ function applyRiskDecision(
   if (riskEvent.id === "golden_compass") {
     next = {
       ...next,
-      nodeIndex: Math.min(STORM_EXPEDITION_NODE_COUNT - 1, next.nodeIndex + 1),
+      completedNodeIds: appendUnique(next.completedNodeIds, next.currentNodeId),
       encounterIndex: 0,
       chosenChoices: { ...next.chosenChoices, camp: "golden_compass" },
     };
@@ -649,10 +702,18 @@ function appendUnique<T>(values: T[], value: T): T[] {
 }
 
 function hasStalePosition(input: PostInput, active: StormExpeditionActive): boolean {
+  if (typeof input.expectedCurrentNodeId === "string" && input.expectedCurrentNodeId !== active.currentNodeId) return true;
   const expectedNode = Number(input.expectedNodeIndex);
   const expectedEncounter = Number(input.expectedEncounterIndex);
-  return (Number.isFinite(expectedNode) && Math.floor(expectedNode) !== active.nodeIndex)
+  return (Number.isFinite(expectedNode) && Math.floor(expectedNode) !== active.visitedNodeIds.length - 1)
     || (Number.isFinite(expectedEncounter) && Math.floor(expectedEncounter) !== active.encounterIndex);
+}
+
+function currentRiskCheckpoint(nodeId: StormExpeditionMapNodeId): StormExpeditionRiskEventOffer["triggerCheckpoint"] | null {
+  if (nodeId === "supply") return "supply";
+  if (nodeId === "altar") return "altar";
+  if (nodeId.endsWith("_camp")) return "camp";
+  return null;
 }
 
 async function claimPendingRewards({
@@ -710,7 +771,10 @@ async function claimPendingRewards({
 }
 
 function statusBody(charSave: CharacterSave, raw: unknown) {
-  const state = parseStormExpeditionState(raw, stormExpeditionDateKey());
+  const state = reconcileStormExpeditionSpFruitProgress(
+    parseStormExpeditionState(raw, stormExpeditionDateKey()),
+    observedStormExpeditionSpFruitV(charSave),
+  );
   const frontierDepth = Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2));
   return {
     ok: true as const,
@@ -722,7 +786,9 @@ function statusBody(charSave: CharacterSave, raw: unknown) {
     stageCount: STORM_EXPEDITION_NODE_COUNT,
     state,
     routes: STORM_EXPEDITION_ROUTES,
-    nodes: STORM_EXPEDITION_NODES,
+    nodes: STORM_EXPEDITION_MAP_NODES,
+    entranceNodeIds: STORM_EXPEDITION_ENTRANCE_NODE_IDS,
+    availableNextNodeIds: state.active ? stormExpeditionAvailableNextNodeIds(state.active) : [],
     choices: {
       supply: STORM_EXPEDITION_SUPPLY_CHOICES,
       camp: STORM_EXPEDITION_CAMP_CHOICES,
@@ -741,6 +807,15 @@ function statusBody(charSave: CharacterSave, raw: unknown) {
     },
     gold: Math.max(0, Math.floor(Number(charSave.gold) || 0)),
   };
+}
+
+function observedStormExpeditionSpFruitV(charSave: CharacterSave): number {
+  const held = Math.max(
+    0,
+    Math.floor(Number(charSave.materials?.[STORM_EXPEDITION_SP_FRUIT_MATERIAL_ID]) || 0),
+  );
+  const used = parseSpFruitUsed(charSave.spFruitUsed)[5];
+  return held + used;
 }
 
 function response(status: number, body: Record<string, unknown>) {

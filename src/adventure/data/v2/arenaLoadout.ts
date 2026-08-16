@@ -71,6 +71,7 @@ const DERIVED_BUFF_LABEL = {
   reflectDamage: "반사 피해",
   regen: "지속 회복",
   guaranteedEvade: "확정 회피",
+  duelistDeclaration: "선언",
   berserkerFinisher: "혈전 준비",
   berserkerDeathOvercome: "사망 극복 공격 준비",
 } as const;
@@ -79,6 +80,11 @@ const ENEMY_STATUS_LABEL = {
   bleed: "출혈",
   poison: "중독",
   vuln: "마법취약",
+} as const;
+
+const SELF_RESOURCE_LABEL = {
+  impact: "충격",
+  ironWallReflect: "철벽 반사",
 } as const;
 
 const ENEMY_DEBUFF_LABEL = {
@@ -114,6 +120,10 @@ export function arenaPatternConditionSummary(
       return `내 ${STAT_LABELS[condition.stat]} 버프 ${condition.active ? "있음" : "없음"}`;
     case "self_buff_pct":
       return `내 ${DERIVED_BUFF_LABEL[condition.target]} 상태 효과 ${condition.active ? "있음" : "없음"}`;
+    case "self_resource":
+      return condition.op === "none"
+        ? `내 ${SELF_RESOURCE_LABEL[condition.resource]} 없음`
+        : `내 ${SELF_RESOURCE_LABEL[condition.resource]} ${condition.value} ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "enemy_hp":
       return `적 HP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
     case "enemy_status":

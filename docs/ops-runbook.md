@@ -247,14 +247,15 @@ bash deploy/maintenance.sh status   # 현재 상태
   정기 실행에서만 최대 8회·20초 간격으로 재시도한다. 계속 실패하면 Action이 실패하고
   `OPS_ALERT_WEBHOOK_URL`에도 실패 경로를 알린다.
 - EC2의 `adventure-resource-monitor.timer`는 2분마다 5분 load(코어 대비 90%),
-  가용 메모리(15% 이하), 루트 디스크(85% 이상)와 RDS `FreeableMemory`(기본 192 MiB
-  미만)를 확인한다. 상태 변화 시 즉시, 같은 경보가 계속되면 30분마다 webhook으로
-  알린다. RDS 지표 조회에는 EC2 역할의 `cloudwatch:GetMetricStatistics` 권한이 필요하다.
-  CloudWatch 조회 실패·데이터 누락도 별도 감시 장애로 알리고, 조회가 복구되면 정상화
-  알림을 보낸다.
-- 같은 systemd 감시는 `deploy/ops-heartbeats.json`에 정의된 중요 cron과 DB 백업의
-  마지막 성공 시각도 검사한다. 성공한 작업만 `/var/lib/adventure-resource-monitor/heartbeats`
-  아래에 기록하므로 `crond` 자체가 멈춘 경우에도 독립된 systemd 경로에서 감지한다.
+  가용 메모리(15% 이하), 루트 디스크(85% 이상)를 확인한다. 같은 실행에서
+  `deploy/ops-heartbeats.json`에 정의된 중요 cron과 DB 백업의 마지막 성공 시각도
+  검사한다.
+- `adventure-rds-memory-monitor.timer`는 별도 5분 주기로 RDS `FreeableMemory`를
+  확인한다. 기본 192 MiB 미만, CloudWatch 조회 실패·데이터 누락, 정상화 상태를
+  journal과 webhook에 기록하며 지속되는 경보는 30분마다 다시 알린다. RDS 지표 조회에는
+  EC2 역할의 `cloudwatch:GetMetricStatistics` 권한이 필요하다.
+- heartbeat는 성공한 작업만 `/var/lib/adventure-resource-monitor/heartbeats` 아래에
+  기록하므로 `crond` 자체가 멈춘 경우에도 독립된 systemd 경로에서 감지한다.
 
 ### 기능별 런타임 프로파일러
 
@@ -292,7 +293,9 @@ CPU·event loop 지연이 상승하면 전투 연산을 본다. `chat` 요청 �
 폴링 주기·응답 페이로드·캐시를 먼저 확인한다.
 
 ```bash
-systemctl list-timers adventure-resource-monitor.timer
+systemctl list-timers \
+  adventure-resource-monitor.timer \
+  adventure-rds-memory-monitor.timer
 sudo systemctl start adventure-resource-monitor.service
 journalctl -u adventure-resource-monitor.service -n 50 --no-pager
 
@@ -303,8 +306,8 @@ aws iam put-role-policy \
   --policy-document file://infra/iam/adventure-rds-metrics-policy.json
 
 # 수동 검증: journal에 RDS MEMORY OK/WARN과 현재 MiB가 출력돼야 한다.
-sudo systemctl start adventure-resource-monitor.service
-journalctl -u adventure-resource-monitor.service -n 30 --no-pager
+sudo systemctl start adventure-rds-memory-monitor.service
+journalctl -u adventure-rds-memory-monitor.service -n 30 --no-pager
 ```
 
 운영 배포는 `deploy/configure-log-retention.sh`로 journald drop-in을 설치해

@@ -703,6 +703,10 @@ const FARMING: QuestDef[] = [
     { id: "farm_level10", title: "밭일에 익숙해지다", goal: 10, points: 10 },
     { id: "farm_level25", title: "숙련 농부", goal: 25, points: 20 },
     { id: "farm_level50", title: "대농장주", goal: 50, points: 50, badgeTier: "legendary" },
+    { id: "farm_level60", title: "깊어진 밭고랑", goal: 60, points: 20, badgeTier: "legendary" },
+    { id: "farm_level75", title: "사계절의 농부", goal: 75, points: 30, badgeTier: "legendary" },
+    { id: "farm_level90", title: "대지와 호흡하는 자", goal: 90, points: 40, badgeTier: "legendary" },
+    { id: "farm_level100", title: "대지의 초월자", goal: 100, points: 60, titleId: "ach_farming_transcendent", badgeTier: "legendary" },
   ]),
   ...milestones("farming", "희귀 작물 수확", (c) => c.farmRareHarvests, [
     { id: "farm_rare1", title: "뜻밖의 수확", goal: 1, points: 10 },
@@ -745,6 +749,10 @@ const WOODCUTTING: QuestDef[] = [
     { id: "wood_level10", title: "도끼 숙련", goal: 10, points: 10 },
     { id: "wood_level25", title: "노련한 벌목꾼", goal: 25, points: 20 },
     { id: "wood_level50", title: "숲의 대가", goal: 50, points: 50, badgeTier: "legendary" },
+    { id: "wood_level60", title: "나이테를 읽는 자", goal: 60, points: 20, badgeTier: "legendary" },
+    { id: "wood_level75", title: "고목의 벗", goal: 75, points: 30, badgeTier: "legendary" },
+    { id: "wood_level90", title: "숲의 숨결", goal: 90, points: 40, badgeTier: "legendary" },
+    { id: "wood_level100", title: "세계수의 손길", goal: 100, points: 60, titleId: "ach_worldtree_touch", badgeTier: "legendary" },
   ]),
 ];
 
@@ -764,6 +772,10 @@ const MINING: QuestDef[] = [
     { id: "mine_level10", title: "곡괭이 숙련", goal: 10, points: 10 },
     { id: "mine_level25", title: "숙련 광부", goal: 25, points: 20 },
     { id: "mine_level50", title: "광맥의 대가", goal: 50, points: 50, badgeTier: "legendary" },
+    { id: "mine_level60", title: "심층의 탐사자", goal: 60, points: 20, badgeTier: "legendary" },
+    { id: "mine_level75", title: "맥을 짚는 곡괭이", goal: 75, points: 30, badgeTier: "legendary" },
+    { id: "mine_level90", title: "지하의 군주", goal: 90, points: 40, badgeTier: "legendary" },
+    { id: "mine_level100", title: "심층의 지배자", goal: 100, points: 60, titleId: "ach_deep_mine_ruler", badgeTier: "legendary" },
   ]),
   ...milestones("mining", "부산물 발견", (c) => c.miningByproducts, [
     { id: "mine_byproduct1", title: "광맥의 선물", goal: 1, points: 10 },
@@ -906,6 +918,10 @@ const FISHING: QuestDef[] = [
     { id: "fish_level10", title: "찌를 읽는 눈", goal: 10, points: 10 },
     { id: "fish_level25", title: "숙련 낚시꾼", goal: 25, points: 20 },
     { id: "fish_level50", title: "낚시의 대가", goal: 50, points: 50, badgeTier: "legendary" },
+    { id: "fish_level60", title: "먼 물결을 읽는 눈", goal: 60, points: 20, badgeTier: "legendary" },
+    { id: "fish_level75", title: "바다의 벗", goal: 75, points: 30, badgeTier: "legendary" },
+    { id: "fish_level90", title: "만경의 낚시꾼", goal: 90, points: 40, badgeTier: "legendary" },
+    { id: "fish_level100", title: "만경창파의 강태공", goal: 100, points: 60, titleId: "ach_boundless_angler", badgeTier: "legendary" },
   ]),
   ...milestones("fishing", "어종 도감 등록", (c) => c.fishSpecies, [
     { id: "l_fish1", title: "도감의 첫 물고기", goal: 1, points: 5 },
@@ -920,6 +936,10 @@ const COOKING: QuestDef[] = [
     { id: "cooking_level10", title: "주방에 익숙해지다", goal: 10, points: 10, badgeTier: "bronze" },
     { id: "cooking_level25", title: "능숙한 요리사", goal: 25, points: 20, badgeTier: "gold" },
     { id: "cooking_level50", title: "전설의 요리사", goal: 50, points: 50, badgeTier: "legendary" },
+    { id: "cooking_level60", title: "불과 칼의 조율", goal: 60, points: 20, badgeTier: "legendary" },
+    { id: "cooking_level75", title: "대연회의 주방장", goal: 75, points: 30, badgeTier: "legendary" },
+    { id: "cooking_level90", title: "천상의 맛", goal: 90, points: 40, badgeTier: "legendary" },
+    { id: "cooking_level100", title: "천상의 대연회", goal: 100, points: 60, titleId: "ach_celestial_banquet", badgeTier: "legendary" },
   ]),
   ...milestones(
     "cooking",

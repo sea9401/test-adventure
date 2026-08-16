@@ -193,11 +193,11 @@ describe("POST /api/admin/users/review-op-preset", () => {
       hpCharges: 100_000,
       mpCharges: 100_000,
       lifeLevels: {
-        farming: 50,
-        woodcutting: 50,
-        mining: 50,
-        fishing: 50,
-        cooking: 50,
+        farming: 100,
+        woodcutting: 100,
+        mining: 100,
+        fishing: 100,
+        cooking: 100,
       },
     });
     expect(mocks.lock.mock.calls.map((call) => call[2])).toEqual([
@@ -238,33 +238,35 @@ describe("POST /api/admin/users/review-op-preset", () => {
       "review-user",
       "farm.v2",
       expect.objectContaining({
-        stats: expect.objectContaining({ farmingXp: 24_010, harvests: 7 }),
+        levelCurveVersion: 2,
+        stats: expect.objectContaining({ farmingXp: 120_050, harvests: 7 }),
       }),
     );
     expect(mocks.upsert).toHaveBeenCalledWith(
       mocks.tx,
       "review-user",
       "woodcutting-log.v1",
-      expect.objectContaining({ xp: 96_040, cuts: 8 }),
+      expect.objectContaining({ levelCurveVersion: 2, xp: 480_200, cuts: 8 }),
     );
     expect(mocks.upsert).toHaveBeenCalledWith(
       mocks.tx,
       "review-user",
       "mining-log.v1",
-      expect.objectContaining({ xp: 96_040, successes: 9 }),
+      expect.objectContaining({ levelCurveVersion: 2, xp: 480_200, successes: 9 }),
     );
     expect(mocks.upsert).toHaveBeenCalledWith(
       mocks.tx,
       "review-user",
       "fishing-progress.v1",
-      expect.objectContaining({ xp: 84_035, catches: 10 }),
+      expect.objectContaining({ levelCurveVersion: 2, xp: 420_175, catches: 10 }),
     );
     expect(mocks.upsert).toHaveBeenCalledWith(
       mocks.tx,
       "review-user",
       "cooking.v1",
       expect.objectContaining({
-        xp: 24_010,
+        levelCurveVersion: 2,
+        xp: 120_050,
         stats: expect.objectContaining({ dishesCooked: 11 }),
       }),
     );
@@ -281,11 +283,11 @@ describe("POST /api/admin/users/review-op-preset", () => {
             frontierDepth: MAX_FRONTIER_DEPTH,
             proficiencyPoints: 1_000_000,
             lifeLevels: {
-              farming: 50,
-              woodcutting: 50,
-              mining: 50,
-              fishing: 50,
-              cooking: 50,
+              farming: 100,
+              woodcutting: 100,
+              mining: 100,
+              fishing: 100,
+              cooking: 100,
             },
           }),
         }),

@@ -47,6 +47,17 @@ describe("EnhancePowerPreview", () => {
     expect(levels).toEqual([...levels].sort((a, b) => a - b));
   });
 
+  it("소수 강화 위력은 예상 위력과 증가분 모두 정수로 표시한다", () => {
+    const rows = buildEnhancePowerPreview(255, undefined, 7);
+
+    expect(rows.find((row) => row.level === 7)).toEqual({
+      level: 7,
+      bonusPct: 12,
+      power: 286,
+      gain: 31,
+    });
+  });
+
   it("표의 의미와 상한 없는 고강 규칙을 안내한다", () => {
     const html = renderToStaticMarkup(
       <EnhancePowerPreview

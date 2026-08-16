@@ -13,7 +13,7 @@ import {
   ARENA_MATCH_COOLDOWN_MS,
   arenaCooldownRemainingMs,
   arenaDailyMatchCount,
-  arenaNextStaminaCost,
+  arenaStaminaCostForPhase,
   parseArenaState,
 } from "@/lib/server/arena";
 import {
@@ -78,7 +78,7 @@ export async function GET() {
       score: ratingRow?.rating ?? 1000,
       cooldownRemainingMs: arenaCooldownRemainingMs(state, now),
       dailyMatchCount: arenaDailyMatchCount(state, now),
-      nextStaminaCost: arenaNextStaminaCost(state, now),
+      nextStaminaCost: arenaStaminaCostForPhase(state, phase, now),
       stamina,
       recentOpponents: state.recentOpponents,
       milestonesReached: state.milestonesReached,

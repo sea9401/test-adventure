@@ -43,6 +43,7 @@ import {
   fishCodexSpBonusForCount,
   nextFishCodexMilestone,
 } from "@/adventure/v2/fishingCodex";
+import { EQUIPMENT_CODEX_SP_MILESTONES } from "@/adventure/data/v2/equipmentCodex";
 import {
   FISH,
   FISH_IDS,
@@ -183,6 +184,46 @@ export function spFruitCodexSource(tier: SpFruitTier): string {
     sources.push("폭풍 원정 완주 보상");
   }
   return sources.join(" · ");
+}
+
+export function spEligibleJobProgress(
+  jobs: Array<{ tier?: unknown; unlocked?: unknown }>,
+): { current: number; total: number } {
+  const eligibleJobs = jobs.filter(
+    (job) => typeof job.tier === "number" && job.tier > 0,
+  );
+  return {
+    current: eligibleJobs.filter((job) => job.unlocked === true).length,
+    total: eligibleJobs.length,
+  };
+}
+
+export function spCollectionSpRange({
+  label,
+  value,
+  jobUnlockTotal,
+}: {
+  label: string;
+  value: number;
+  jobUnlockTotal: number;
+}): { current: number; maximum: number } {
+  const current = Number.isFinite(value) ? Math.trunc(value) : 0;
+  const normalizedJobTotal = Number.isFinite(jobUnlockTotal)
+    ? Math.max(0, Math.trunc(jobUnlockTotal))
+    : 0;
+  const configuredMaximum =
+    label === "직업 해금"
+      ? normalizedJobTotal
+      : label === "어보"
+        ? FISHING_CODEX_SP_MILESTONES.length
+        : label === "장비 도감"
+          ? EQUIPMENT_CODEX_SP_MILESTONES.length
+          : current;
+
+  return {
+    current,
+    maximum: Math.max(current, configuredMaximum),
+  };
 }
 
 function equipPoolChance(pool: FloorEquipDropPool): number {
@@ -492,11 +533,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           setSpBreakdown(j.loadout.spBreakdown as V2LoadoutSpBreakdown);
         }
         if (Array.isArray(j?.jobsV2?.jobs)) {
-          const jobs = j.jobsV2.jobs as Array<{ unlocked?: unknown }>;
-          setJobUnlockProgress({
-            current: jobs.filter((job) => job.unlocked === true).length,
-            total: jobs.length,
-          });
+          const jobs = j.jobsV2.jobs as Array<{
+            tier?: unknown;
+            unlocked?: unknown;
+          }>;
+          setJobUnlockProgress(spEligibleJobProgress(jobs));
         }
         if (j?.equipmentCodex && typeof j.equipmentCodex === "object") {
           const codex = j.equipmentCodex as {
@@ -748,7 +789,13 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       progress.total > 0
         ? Math.min(100, (progress.current / progress.total) * 100)
         : 0;
-    return { ...row, progress, progressPct };
+    const spRange = spCollectionSpRange({
+      label: row.label,
+      value: row.value,
+      jobUnlockTotal:
+        jobUnlockProgress.total || Math.max(spJobUnlockBonus, 1),
+    });
+    return { ...row, progress, progressPct, spRange };
   });
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
@@ -1121,8 +1168,10 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                             : "text-zinc-900 dark:text-zinc-100"
                         }`}
                       >
-                        {row.value > 0 && row.signed ? "+" : ""}
-                        {row.value}
+                        {row.spRange.current}
+                        <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                          /{row.spRange.maximum}
+                        </span>
                       </div>
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
                         <div

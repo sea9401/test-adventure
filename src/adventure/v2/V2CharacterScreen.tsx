@@ -74,6 +74,7 @@ type StateResponse = {
     critMult?: number;
     skillCritOverflow?: boolean;
     skillCritDmgPct?: number;
+    equipmentMagicSkillCritDmgPct?: number;
     // 콘텐츠 파워(합성 전투력) — 기본 정보 카드 헤드라인.
     power?: number;
   } | null;

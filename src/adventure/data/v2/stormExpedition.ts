@@ -8,6 +8,13 @@ import {
   LIMITED_RECOVERY_SKILL_IDS,
   type LimitedRecoverySkillId,
 } from "./v2Skills";
+import {
+  STORM_EXPEDITION_MAP_NODES,
+  stormExpeditionMapNode,
+  stormExpeditionRouteNodeId,
+  type StormExpeditionMapNode,
+  type StormExpeditionMapNodeId,
+} from "./stormExpeditionMap";
 
 export const STORM_EXPEDITION_SAVE_KEY = "storm-expedition.v1";
 export const STORM_EXPEDITION_UNLOCK_DEPTH = 72;
@@ -57,7 +64,7 @@ export type StormExpeditionRiskCurseId =
   | "mana_fracture";
 export type StormExpeditionRiskEventOffer = {
   id: StormExpeditionRiskEventId;
-  nodeIndex: 1 | 3 | 5;
+  triggerCheckpoint: "supply" | "camp" | "altar";
   status: "offered" | "accepted" | "declined";
   boonId: StormExpeditionBoonId | null;
   curseId: StormExpeditionRiskCurseId | null;
@@ -156,35 +163,35 @@ export const STORM_EXPEDITION_FINAL_PREP_CHOICES: readonly StormExpeditionChoice
 
 export const STORM_EXPEDITION_RISK_EVENTS: Record<
   StormExpeditionRiskEventId,
-  StormExpeditionChoice & { nodeIndex: 1 | 3 | 5; cost: string }
+  StormExpeditionChoice & { triggerCheckpoint: "supply" | "camp" | "altar"; cost: string }
 > = {
   rift_cache: {
     id: "rift_cache",
     name: "균열 상자",
     description: "항로 재료 2개를 즉시 임시 가방에 넣습니다.",
     cost: "다음 적의 공격력 20% 증가",
-    nodeIndex: 1,
+    triggerCheckpoint: "supply",
   },
   storm_contract: {
     id: "storm_contract",
     name: "폭풍 계약",
     description: "남은 전투의 6티어 장비 드롭 확률이 2배가 됩니다.",
     cost: "남은 모든 적의 공격력 10% 증가",
-    nodeIndex: 1,
+    triggerCheckpoint: "supply",
   },
   unstable_blessing: {
     id: "unstable_blessing",
     name: "불안정한 축복",
     description: "출발 시 정해진 강한 제단 축복 하나를 즉시 얻습니다.",
     cost: "출발 시 정해진 약화 효과 하나를 함께 받음",
-    nodeIndex: 5,
+    triggerCheckpoint: "altar",
   },
   golden_compass: {
     id: "golden_compass",
     name: "황금 나침반",
     description: "남은 전투의 골드 보상이 35% 증가합니다.",
     cost: "이번 야영지의 회복 선택을 포기하고 즉시 다음 구간으로 이동",
-    nodeIndex: 3,
+    triggerCheckpoint: "camp",
   },
 };
 
@@ -198,11 +205,12 @@ export const STORM_EXPEDITION_RISK_CURSES: Record<
 };
 
 export type StormExpeditionActive = {
-  version: 2;
+  version: 3;
   mode: StormExpeditionMode;
   routeId: StormExpeditionRouteId;
-  /** 다음에 처리할 0-based 지도 노드. */
-  nodeIndex: number;
+  currentNodeId: StormExpeditionMapNodeId;
+  visitedNodeIds: StormExpeditionMapNodeId[];
+  completedNodeIds: StormExpeditionMapNodeId[];
   /** 2연전 노드 안에서 다음에 싸울 적 번호. */
   encounterIndex: number;
   hp: number;
@@ -229,11 +237,15 @@ export type StormExpeditionState = {
   attemptsUsed: number;
   active: StormExpeditionActive | null;
   clears: number;
+  /** SP 열매 보상 등급별 진행도 저장 형식. 1은 등급을 기록하지 않던 레거시 값. */
+  spFruitProgressVersion: 1 | 2;
   /** 항로 공용 SP 열매 미획득 완주 횟수. 획득 시 0으로 초기화된다. */
   spFruitPity: number;
-  /** 이 원정에서 누적 획득한 SP 열매 수. */
+  /** 현재 보상 등급인 SP 열매 V를 이 원정에서 누적 획득한 수. */
   spFruitObtained: number;
 };
+
+export const STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION = 2 as const;
 
 export function stormExpeditionDateKey(now: number = Date.now()): string {
   return new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -249,8 +261,33 @@ export function parseStormExpeditionState(raw: unknown, date = stormExpeditionDa
     // 자정이 지나도 진행 중 원정은 사라지지 않는다. 새 입장 횟수만 갱신한다.
     active: parseActive(source.active),
     clears: clampInt(source.clears, 0, Number.MAX_SAFE_INTEGER),
+    spFruitProgressVersion: source.spFruitProgressVersion === STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION
+      ? STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION
+      : 1,
     spFruitPity: clampInt(source.spFruitPity, 0, 24),
     spFruitObtained: clampInt(source.spFruitObtained, 0, 3),
+  };
+}
+
+/**
+ * 열매 등급을 저장하지 않던 시기의 누적값에는 IV와 V가 섞여 있다.
+ * 최초 1회에 한해 현재 확인 가능한 V(보유 + 사용)까지만 V 획득 기록으로 이전한다.
+ * 이전 완료 뒤에는 보유량이 변해도 원정 획득 기록을 다시 계산하지 않는다.
+ */
+export function reconcileStormExpeditionSpFruitProgress(
+  state: StormExpeditionState,
+  observedCurrentTierFruit: number,
+): StormExpeditionState {
+  if (state.spFruitProgressVersion === STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION) {
+    return state;
+  }
+  return {
+    ...state,
+    spFruitProgressVersion: STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION,
+    spFruitObtained: Math.min(
+      state.spFruitObtained,
+      clampInt(observedCurrentTierFruit, 0, 3),
+    ),
   };
 }
 
@@ -258,8 +295,8 @@ export function stormExpeditionRoute(id: unknown): StormExpeditionRoute | null {
   return STORM_EXPEDITION_ROUTES.find((route) => route.id === id) ?? null;
 }
 
-export function stormExpeditionNode(active: Pick<StormExpeditionActive, "nodeIndex">): StormExpeditionNode {
-  return STORM_EXPEDITION_NODES[clampInt(active.nodeIndex, 0, STORM_EXPEDITION_NODE_COUNT - 1)];
+export function stormExpeditionNode(active: Pick<StormExpeditionActive, "currentNodeId">): StormExpeditionMapNode {
+  return stormExpeditionMapNode(active.currentNodeId) ?? STORM_EXPEDITION_MAP_NODES[0];
 }
 
 export function stormExpeditionBattleReward(kind: StormExpeditionEncounterKind, encounterIndex = 0): number {
@@ -333,7 +370,7 @@ export function createStormRiskEvent(
     .filter((curseId) => !(selectedBoon === "swift_fate" && curseId === "dulled_senses"));
   return {
     id,
-    nodeIndex: definition.nodeIndex,
+    triggerCheckpoint: definition.triggerCheckpoint,
     status: "offered",
     boonId: selectedBoon,
     curseId: id === "unstable_blessing"
@@ -454,9 +491,19 @@ function parseActive(raw: unknown): StormExpeditionActive | null {
   const source = raw as Record<string, unknown>;
   const route = stormExpeditionRoute(source.routeId);
   if (!route) return null;
-  const legacy = source.nodeIndex === undefined;
+  const legacy = source.nodeIndex === undefined && source.currentNodeId === undefined;
   const legacyStage = clampInt(source.stage, 0, 3);
   const nodeIndex = legacy ? [0, 2, 4, 6][legacyStage] : clampInt(source.nodeIndex, 0, STORM_EXPEDITION_NODE_COUNT - 1);
+  const migratedPath = legacyPath(route.id, nodeIndex);
+  const parsedCurrentNode = stormExpeditionMapNode(source.currentNodeId);
+  const currentNodeId = parsedCurrentNode?.id ?? migratedPath.at(-1)!;
+  const parsedVisited = parseMapNodeIds(source.visitedNodeIds);
+  const visitedNodeIds = source.version === 3 && parsedVisited.includes(currentNodeId)
+    ? [...parsedVisited.filter((id) => id !== currentNodeId), currentNodeId]
+    : migratedPath;
+  const completedNodeIds = source.version === 3
+    ? parseMapNodeIds(source.completedNodeIds).filter((id) => visitedNodeIds.includes(id))
+    : visitedNodeIds.slice(0, -1);
   const hp = clampInt(source.hp, 0, Number.MAX_SAFE_INTEGER);
   const mp = clampInt(source.mp, 0, Number.MAX_SAFE_INTEGER);
   const parsedAltarOffers = parseEnumArray(
@@ -464,11 +511,13 @@ function parseActive(raw: unknown): StormExpeditionActive | null {
     STORM_EXPEDITION_ALTAR_CHOICES.map((choice) => choice.id),
   ).slice(0, 3) as StormExpeditionBoonId[];
   return {
-    version: 2,
+    version: 3,
     mode: source.mode === "practice" ? "practice" : "normal",
     routeId: route.id,
-    nodeIndex,
-    encounterIndex: legacy ? 0 : clampInt(source.encounterIndex, 0, 1),
+    currentNodeId,
+    visitedNodeIds,
+    completedNodeIds,
+    encounterIndex: legacy ? 0 : clampInt(source.encounterIndex, 0, Math.max(0, (stormExpeditionMapNode(currentNodeId)?.encounterCount ?? 1) - 1)),
     hp,
     mp,
     maxHp: Math.max(1, clampInt(source.maxHp, hp || 1, Number.MAX_SAFE_INTEGER)),
@@ -532,11 +581,36 @@ function parseRiskEvent(raw: unknown): StormExpeditionRiskEventOffer | null {
     : null;
   return {
     id: definition.id as StormExpeditionRiskEventId,
-    nodeIndex: definition.nodeIndex,
+    triggerCheckpoint: definition.triggerCheckpoint,
     status,
     boonId: definition.id === "unstable_blessing" ? boonId : null,
     curseId: definition.id === "unstable_blessing" ? curseId : null,
   };
+}
+
+function legacyPath(routeId: StormExpeditionRouteId, nodeIndex: number): StormExpeditionMapNodeId[] {
+  const path: StormExpeditionMapNodeId[] = [
+    stormExpeditionRouteNodeId(routeId, "outer"),
+    "supply",
+    stormExpeditionRouteNodeId(routeId, "middle"),
+    stormExpeditionRouteNodeId(routeId, "camp"),
+    stormExpeditionRouteNodeId(routeId, "elite"),
+    "altar",
+    stormExpeditionRouteNodeId(routeId, "guardian"),
+    "final_prep",
+    "storm_heart",
+  ];
+  return path.slice(0, clampInt(nodeIndex, 0, STORM_EXPEDITION_NODE_COUNT - 1) + 1);
+}
+
+function parseMapNodeIds(raw: unknown): StormExpeditionMapNodeId[] {
+  if (!Array.isArray(raw)) return [];
+  const result: StormExpeditionMapNodeId[] = [];
+  for (const value of raw) {
+    const node = stormExpeditionMapNode(value);
+    if (node && !result.includes(node.id)) result.push(node.id);
+  }
+  return result;
 }
 
 function clampInt(raw: unknown, min: number, max: number): number {

@@ -50,6 +50,10 @@ vi.mock("@/lib/server/v2GuildResources", () => ({
   lockGuildResources: vi.fn(async () => ({ gold: 5_000_000 })),
   upsertGuildResources: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/v2Settlement", () => ({
+  lockGuildSettlement: vi.fn(async () => ({ crop: 20, ore: 30 })),
+  upsertGuildSettlement: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/server/v2GuildFame", () => ({
   addGuildFame: vi.fn(async () => undefined),
 }));
@@ -72,6 +76,7 @@ import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { upsertGuildResources } from "@/lib/server/v2GuildResources";
+import { upsertGuildSettlement } from "@/lib/server/v2Settlement";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { GET, POST } from "./route";
 
@@ -192,10 +197,69 @@ describe("길드 교역소", () => {
     );
   });
 
+  it("정착 보급품을 길드 정착지 공용 재화에 한 번 지급한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 500));
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "settlement_supplies" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upsertGuildSettlement).toHaveBeenCalledWith(expect.anything(), 7, {
+      crop: 120,
+      ore: 130,
+    });
+    expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tokens: 380,
+        purchases: { settlement_supplies: 1 },
+      }),
+    );
+    expect(upsertSave).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "character.v2",
+      expect.anything(),
+    );
+  });
+
+  it("교역 지원금을 길드 공용 자금에 한 번 지급한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 500));
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "trade_support_fund" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upsertGuildResources).toHaveBeenCalledWith(expect.anything(), 7, {
+      gold: 8_000_000,
+    });
+    expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tokens: 320 }),
+    );
+  });
+
+  it("길드 명성 문서를 길드 명성에 한 번 지급한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 500));
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "guild_fame_document" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(addGuildFame).toHaveBeenCalledWith(expect.anything(), 7, 100);
+    expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tokens: 300 }),
+    );
+  });
+
   it("품목 구매 한도는 관리자 개인이 아니라 길드 전체에 적용한다", async () => {
     vi.mocked(lockGuildTradeWeekly).mockResolvedValue({
       ...weekly(0, 100),
-      purchases: { refined_iron: 3 },
+      purchases: { refined_iron: 7 },
     });
 
     const response = await POST(

@@ -2,6 +2,7 @@
 
 import {
   craftQualityStars,
+  equipmentPowerDisplayValue,
   powerWithBonuses,
   scaledEquipWeight,
   v2EquipCatalogTierToDisplayTier,
@@ -318,10 +319,14 @@ export function statRowWithRollRange(
       ...row,
       value: `${row.value} (${formatRangeValue(
         row.label,
-        powerWithBonuses(range.lo, enhance, craftQuality),
+        equipmentPowerDisplayValue(
+          powerWithBonuses(range.lo, enhance, craftQuality),
+        ),
       )} - ${formatRangeValue(
         row.label,
-        powerWithBonuses(range.hi, enhance, craftQuality),
+        equipmentPowerDisplayValue(
+          powerWithBonuses(range.hi, enhance, craftQuality),
+        ),
       )})`,
     };
   }

@@ -39,4 +39,13 @@ describe("woodcuttingSeedDrops", () => {
     expect(rollWoodcuttingSeedDrop(() => 0.01495)).toBeNull();
     expect(rollWoodcuttingSeedDrop(() => 0.99)).toBeNull();
   });
+
+  it("60레벨 보너스는 기존 분포 뒤에 씨앗 확률 0.5%p를 더한다", () => {
+    expect(rollWoodcuttingSeedDrop(() => 0.01495)).toBeNull();
+    expect(rollWoodcuttingSeedDrop(() => 0.01495, 0.5)).toEqual({
+      cropId: "wheat",
+      seedName: "밀 씨앗",
+      quantity: 1,
+    });
+  });
 });

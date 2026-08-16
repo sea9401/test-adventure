@@ -1,9 +1,9 @@
 import { db } from "@/db";
 import {
-  GUILD_TRADE_SHOP_ITEMS,
+  ASSOCIATION_TRADE_SHOP_ITEMS,
+  associationTradeShopItem,
   guildTradeCompletionReward,
   guildTradeItem,
-  guildTradeShopItem,
   guildTradeTokenReward,
   parseGuildTradeUserState,
   type GuildTradeShopItem,
@@ -157,7 +157,7 @@ async function tradeView(args: {
         reward,
       };
     }),
-    shop: GUILD_TRADE_SHOP_ITEMS.map((item) => {
+    shop: ASSOCIATION_TRADE_SHOP_ITEMS.map((item) => {
       const purchased = args.userState.purchases[item.id] ?? 0;
       return {
         ...item,
@@ -332,7 +332,7 @@ export async function POST(req: Request) {
       };
     }
 
-    const item = guildTradeShopItem(body.shopItemId);
+    const item = associationTradeShopItem(body.shopItemId);
     if (!item) return { status: 400, body: { ok: false as const, error: "invalid_shop_item" } };
     if (level < item.minFacilityLevel) return { status: 403, body: { ok: false as const, error: "shop_item_locked" } };
     if ((userState.purchases[item.id] ?? 0) >= item.weeklyLimit) {
@@ -395,7 +395,10 @@ async function lockShopGrant(tx: Tx, userId: string, item: GuildTradeShopItem): 
     const count = parseStaminaPotions(raw).count;
     return () => upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: count + output.count });
   }
-  const inventory = await lockSaveForUpdate<Record<string, unknown>>(tx, userId, "inventory.v2", {});
-  const count = Math.max(0, Math.floor(Number(inventory[output.itemKey]) || 0));
-  return () => upsertSave(tx, userId, "inventory.v2", { ...inventory, [output.itemKey]: count + output.count });
+  if (output.kind === "mastery_certificate") {
+    const inventory = await lockSaveForUpdate<Record<string, unknown>>(tx, userId, "inventory.v2", {});
+    const count = Math.max(0, Math.floor(Number(inventory[output.itemKey]) || 0));
+    return () => upsertSave(tx, userId, "inventory.v2", { ...inventory, [output.itemKey]: count + output.count });
+  }
+  throw new Error(`guild_reward_unavailable_in_association:${item.id}`);
 }

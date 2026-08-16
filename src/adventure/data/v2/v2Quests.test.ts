@@ -92,6 +92,33 @@ const NEWCOMER: QuestCtx = { ...ZERO, class: "none", tier: 0 };
 const none = new Set<string>();
 
 describe("v2Quests 카탈로그 무결성", () => {
+  it("다섯 생활 레벨 업적을 60·75·90·100까지 확장하고 100 칭호를 지급한다", () => {
+    const activities = [
+      ["farm", "ach_farming_transcendent", "대지의 초월자"],
+      ["wood", "ach_worldtree_touch", "세계수의 손길"],
+      ["mine", "ach_deep_mine_ruler", "심층의 지배자"],
+      ["fish", "ach_boundless_angler", "만경창파의 강태공"],
+      ["cooking", "ach_celestial_banquet", "천상의 대연회"],
+    ] as const;
+
+    for (const [prefix, titleId, titleName] of activities) {
+      expect(
+        [10, 25, 50, 60, 75, 90, 100].map(
+          (level) => questById(`${prefix}_level${level}`)?.goal,
+        ),
+      ).toEqual([10, 25, 50, 60, 75, 90, 100]);
+      expect(questById(`${prefix}_level60`)?.points).toBe(20);
+      expect(questById(`${prefix}_level75`)?.points).toBe(30);
+      expect(questById(`${prefix}_level90`)?.points).toBe(40);
+      expect(questById(`${prefix}_level100`)).toMatchObject({
+        goal: 100,
+        points: 60,
+        reward: { titleId },
+      });
+      expect(TITLES[titleId]?.name).toBe(titleName);
+    }
+  });
+
   it("id 중복 없음 + 라인 id 가 정의된 라인", () => {
     const ids = new Set(V2_QUESTS.map((q) => q.id));
     expect(ids.size).toBe(V2_QUESTS.length);

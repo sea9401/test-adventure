@@ -37,6 +37,7 @@ import {
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
+import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 
 export type MiningLogView = {
   successes: number;
@@ -606,6 +607,7 @@ export function MiningView({
       />
 
       <ProductionJobAdvanceNotice refreshKey={progression.level} />
+      <LifeLevelMilestoneNotice activity="mining" level={progression.level} />
 
       <LifeFieldEnvironmentCard activity="mining" spotId={spotId} />
 
@@ -619,15 +621,15 @@ export function MiningView({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-extrabold text-amber-900 dark:text-amber-100">
-              채광 Lv {progression.level}
+              채광 Lv {progression.level} / 100
             </div>
             <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 50
+              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 100
             </div>
           </div>
           <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
             {progression.maxLevel
-              ? "최고 레벨"
+              ? "최종 숙련 달성 · MAX"
               : `${progression.xpIntoLevel}/${progression.xpForNext} XP`}
           </span>
         </div>

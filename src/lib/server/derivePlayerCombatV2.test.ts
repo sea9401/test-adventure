@@ -11,7 +11,6 @@ import {
   derivePlayerCombatV2FromSaves,
   derivePlayerCombatV2Pure,
   MAGIC_ATK_PER_INT,
-  MAGIC_ATK_PER_EXCESS_SPI,
   stackedDefenseIncreasePct,
   stackedDamageReductionPct,
   stackedMaxHpIncreasePct,
@@ -383,7 +382,7 @@ describe("derivePlayerCombatV2Pure 마나 실드", () => {
 });
 
 describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
-  it("기본 int 15 → magicAtk = floor(15×MAGIC_ATK_PER_INT) (마법 베이스라인)", () => {
+  it("기본 INT와 SPI가 함께 마법 공격력 베이스라인을 만든다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 245, dex: 0, vit: 0, luk: 0, int: 0 },
@@ -391,7 +390,8 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(15); // 기본 int 15 (할당 0)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        V2_BASE_COMBAT_BONUS,
     );
   });
 
@@ -404,7 +404,8 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(115);
     expect(d.player.magicAtk).toBe(
-      Math.floor(115 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+      Math.floor(115 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        V2_BASE_COMBAT_BONUS,
     );
   });
 
@@ -417,16 +418,29 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        staffPow +
+        V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.atk).toBe(
       Math.floor(15 * ATK_PER_STR + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS,
     );
   });
 
-  it("VIT의 범용 공격력 환산은 STR보다 낮은 보조 계수다", () => {
-    expect(VIT_ATK_COEF).toBe(0.07);
-    expect(VIT_ATK_COEF).toBeLessThan(0.15);
+  it("같은 100포인트 투자에서 활력은 공격력 10과 방어력 35를 더한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+    }).player;
+    const invested = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { vit: 100 },
+      v2Equipped: {},
+    }).player;
+
+    expect(invested.atk - base.atk).toBe(10);
+    expect(invested.def - base.def).toBe(35);
+    expect(invested.maxHp - base.maxHp).toBe(300);
   });
 
   it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
@@ -438,11 +452,13 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       v2Equipped: { weapon: "v2_oak_staff" },
     });
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT + 15 * 0.1) +
+        staffPow +
+        V2_BASE_COMBAT_BONUS,
     );
   });
 
-  it("INT를 초과한 SPI만 마공으로 전환하고, 유리할 때 평타도 마법으로 전환한다", () => {
+  it("SPI 전체와 INT를 초과한 SPI가 마공으로 전환되고, 유리할 때 평타도 마법으로 전환된다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0, spi: 200 },
@@ -452,23 +468,78 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     expect(d.player.magicAtk).toBe(
       Math.floor(
         d.totalStats.int * MAGIC_ATK_PER_INT +
-          excessSpi * MAGIC_ATK_PER_EXCESS_SPI,
+          d.totalStats.spi * 0.1 +
+          excessSpi * 0.6,
       ) + V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.magicAtk).toBeGreaterThan(d.player.atk);
     expect(d.player.passiveMagicBasicAttack).toBe(true);
   });
 
-  it("SPI가 INT 이하이면 정신 공격 전환이 발생하지 않는다", () => {
+  it("SPI가 INT 이하이어도 정신 1당 마법 공격력 0.1을 제공한다", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { int: 200, spi: 100 },
       v2Equipped: {},
     });
     expect(d.player.magicAtk).toBe(
-      Math.floor(d.totalStats.int * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+      Math.floor(
+        d.totalStats.int * MAGIC_ATK_PER_INT + d.totalStats.spi * 0.1,
+      ) + V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.passiveMagicBasicAttack).toBeUndefined();
+  });
+
+  it("SPI가 INT를 넘은 뒤에는 정신 100당 마법 공격력 70을 유지한다", () => {
+    const boundary = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100, spi: 100 },
+      v2Equipped: {},
+    }).player;
+    const excess = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100, spi: 200 },
+      v2Equipped: {},
+    }).player;
+
+    expect(excess.magicAtk! - boundary.magicAtk!).toBe(70);
+  });
+
+  it("물리·마법 스킬 최소 피해는 담당 스탯만 반영한다", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+    }).player;
+    const strBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 100 },
+      v2Equipped: {},
+    }).player;
+    const vitBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { vit: 100 },
+      v2Equipped: {},
+    }).player;
+    const intBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { int: 100 },
+      v2Equipped: {},
+    }).player;
+    const spiBuild = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { spi: 100 },
+      v2Equipped: {},
+    }).player;
+
+    expect(strBuild.minDamage! - base.minDamage!).toBe(15);
+    expect(vitBuild.minDamage! - base.minDamage!).toBe(5);
+    expect(intBuild.minDamage).toBe(base.minDamage);
+    expect(spiBuild.minDamage).toBe(base.minDamage);
+
+    expect(strBuild.magicMinDamage).toBe(base.magicMinDamage);
+    expect(vitBuild.magicMinDamage).toBe(base.magicMinDamage);
+    expect(intBuild.magicMinDamage! - base.magicMinDamage!).toBe(15);
+    expect(spiBuild.magicMinDamage! - base.magicMinDamage!).toBe(8);
   });
 });
 
@@ -1000,6 +1071,30 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     expect(unequipped.player.magicBarrierMax).toBeUndefined();
   });
 
+  it("원초 증폭 장착 여부를 save 집계에서 전투 상태까지 전달한다", () => {
+    const skillsRaw = {
+      learned: ["v2c_primordialmage_amplification"],
+      equipped: ["v2c_primordialmage_amplification"],
+    };
+    const equipped = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "mage", specChoice: "primordialmage" },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw,
+    })!;
+    const unequipped = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "mage", specChoice: "primordialmage" },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { ...skillsRaw, equipped: [] },
+    })!;
+
+    expect(equipped.player).toHaveProperty("equipmentMagicSkillCritDmgPct", 0);
+    expect(unequipped.player).not.toHaveProperty(
+      "equipmentMagicSkillCritDmgPct",
+    );
+  });
+
   it("맹독 네 단계와 만독지배를 장착하면 중독 피해 증폭 122.4%를 전투 캐릭터에 전달한다", () => {
     const poisonSkills = [
       "v2c_venomist_virulence",
@@ -1303,6 +1398,93 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(heavenlyBow.skillCritDmgPct).toBe(30);
   });
 
+  it("원초 증폭은 장비 치명타 배율만 마법 스킬 치명타 배율로 변환한다", () => {
+    const withoutPassive = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { ring: "v2_silver_ring" },
+      v2StatRolls: {
+        v2_silver_ring: {
+          power: 4,
+          weight: 0,
+          options: { critMult: 100 },
+        },
+      },
+    }).player;
+    const amplified = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { ring: "v2_silver_ring" },
+      v2StatRolls: {
+        v2_silver_ring: {
+          power: 4,
+          weight: 0,
+          options: { critMult: 100 },
+        },
+      },
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+    const withNonEquipmentCritDamage = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { luk: 500 },
+      v2Equipped: { ring: "v2_silver_ring" },
+      v2StatRolls: {
+        v2_silver_ring: {
+          power: 4,
+          weight: 0,
+          options: { critMult: 100 },
+        },
+      },
+      passiveCritDmgPct: 100,
+      passiveSkillCritDmgPct: 30,
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+
+    expect(withoutPassive).not.toHaveProperty("equipmentMagicSkillCritDmgPct");
+    expect(amplified.equipmentMagicSkillCritDmgPct).toBeCloseTo(
+      29.5102005,
+      6,
+    );
+    expect(withNonEquipmentCritDamage.equipmentMagicSkillCritDmgPct).toBe(
+      amplified.equipmentMagicSkillCritDmgPct,
+    );
+  });
+
+  it("원초 증폭은 일반 세트와 태그 세트의 활성 치명타 배율도 포함한다", () => {
+    const ordinarySet = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: {
+        armor: "v2_canyon_set_armor",
+        gloves: "v2_canyon_set_gloves",
+        boots: "v2_canyon_set_boots",
+      },
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+    const tagSet = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: {
+        gloves: "v2_crafted_spark_gloves",
+        boots: "v2_crafted_fury_boots",
+      },
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+
+    expect(ordinarySet.equipmentMagicSkillCritDmgPct).toBeCloseTo(
+      10.4469018,
+      6,
+    );
+    expect(tagSet.equipmentMagicSkillCritDmgPct).toBeCloseTo(
+      27.1778886,
+      6,
+    );
+  });
+
+  it("원초 증폭을 장착했지만 장비 치명타 배율이 없으면 표시용 0을 보존한다", () => {
+    const amplified = derivePlayerCombatV2Pure({
+      ...base,
+      passiveEquipmentMagicSkillCritConversion: true,
+    }).player;
+    expect(amplified).toHaveProperty("equipmentMagicSkillCritDmgPct", 0);
+  });
+
   it("흑월지배 패시브는 회피 후 스킬 치명타 레버로 노출된다", () => {
     const plain = derivePlayerCombatV2Pure({ ...base }).player;
     const blackmoon = derivePlayerCombatV2Pure({
@@ -1429,6 +1611,29 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
     const p = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
     expect(p.thornsDefPct).toBeUndefined();
     expect(p.thornsFlatFromDef).toBeUndefined();
+  });
+});
+
+describe("derivePlayerCombatV2Pure 성채기사 충격 파생 속성", () => {
+  it("충격 획득·스택 피해·방어력 직접 공격 계수를 PlayerCombat에 전달한다", () => {
+    const p = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      passiveFortressImpactOnHit: true,
+      passiveFortressImpactDamagePctPerStack: 20,
+      passiveFortressDefSkillStatCoefPct: 15,
+    }).player;
+
+    expect(p.fortressImpactOnHit).toBe(true);
+    expect(p.fortressImpactDamagePctPerStack).toBe(20);
+    expect(p.fortressDefSkillStatCoefPct).toBe(15);
+  });
+
+  it("미지정이면 성채기사 전투 속성을 만들지 않는다", () => {
+    const p = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    expect(p.fortressImpactOnHit).toBeUndefined();
+    expect(p.fortressImpactDamagePctPerStack).toBeUndefined();
+    expect(p.fortressDefSkillStatCoefPct).toBeUndefined();
   });
 });
 

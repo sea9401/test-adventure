@@ -12,6 +12,7 @@ import {
   verificationTokens,
 } from "@/db/schema";
 import { authConfig } from "@/auth.config";
+import { AUTH_LOGOUT_GUARD_COOKIE } from "@/lib/authSessionConfig";
 import { DEVICE_SESSION_TAKEOVER_COOKIE } from "@/lib/deviceSessionConfig";
 import {
   matchesReviewLoginCredentials,
@@ -160,6 +161,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       // 단일 기기 세션을 인계할 수 있게 일회성 takeover 표식을 발급한다.
       // OAuth 계정 연동 테이블을 건드리면 안 되므로 아래 분기에는 진입시키지 않는다.
       if (account.type === "credentials") {
+        cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, "", {
+          maxAge: 0,
+          path: "/",
+        });
         cookieStore.set(ACCOUNT_LINK_INTENT_COOKIE, "", {
           maxAge: 0,
           path: "/api/auth",
@@ -202,6 +207,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
           maxAge: 5 * 60,
           priority: "high",
         });
+        cookieStore.set(AUTH_LOGOUT_GUARD_COOKIE, "", {
+          maxAge: 0,
+          path: "/",
+        });
 
         return true;
       }
@@ -230,7 +239,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       // 경쟁 요청이나 DB 오류도 일반 로그인/가입으로 폴백하지 않는다.
       return "/?linkError=failed";
     },
-    jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      if (
+        !account &&
+        (await cookies()).has(AUTH_LOGOUT_GUARD_COOKIE)
+      ) {
+        return null;
+      }
       if (user?.id) token.sub = user.id;
       return token;
     },

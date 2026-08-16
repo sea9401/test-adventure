@@ -238,6 +238,42 @@ describe("woodcutting routes", () => {
     });
   });
 
+  it("자동 정산은 구 초과 XP를 한 번 환산하고 버전을 함께 저장한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-migration",
+        sourceId: "oak",
+        sourceName: "참나무",
+        materialId: OAK,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 999_999, xp: 999_999 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "cancel" }),
+      }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.levelCurveMigrated).toBe(true);
+    expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
+      levelCurveVersion: 2,
+      xp: 136_623,
+    });
+  });
+
   it("자동 벌목 보조품의 추가 원목은 작업 효율로 감산하지 않는다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
     store.set(WOODCUTTING_AUTO_KEY, {

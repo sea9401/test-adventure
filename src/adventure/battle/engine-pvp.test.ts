@@ -1460,6 +1460,33 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     );
   });
 
+  it("PvP에서도 every-N 효과가 만든 추가 기본 공격은 다음 주기 적중으로 집계하지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const state = initialBattleStatePvP(
+      makePlayer({
+        spd: 15,
+        magicAtk: 300,
+        maxMp: 10_000,
+        equipSignatures: [
+          { trigger: "every_n_hits", label: "분쇄", everyNHits: 3 },
+        ],
+      }),
+      makePlayer({ spd: 5, hp: 10_000, maxHp: 10_000, def: 0 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_mage_barrage"],
+        equipped: ["v2c_mage_barrage"],
+      },
+    );
+    const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+
+    const afterBonusAttack = advanceTurnPvP(cast, { kind: "attack" });
+
+    expect(cast.p1.stacks.signatureHitCount).toBe(3);
+    expect(afterBonusAttack.p1.stacks.signatureHitCount).toBe(3);
+  });
+
   it("직접 피해 스킬 피격에도 방어력 기반 반사가 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const state = initialBattleStatePvP(
@@ -1759,7 +1786,13 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         guaranteedEvades: 1,
         skillCritAfterEvade: true,
       }),
-      makePlayer({ hp: 1000, maxHp: 1000, atk: 100, spd: 99 }),
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        atk: 100,
+        spd: 99,
+        critResistPct: 100,
+      }),
       "P1",
       "P2",
       {
@@ -1813,6 +1846,95 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
 
     const noCritDamage = castDamage(0);
     expect(castDamage(100, 30)).toBe(Math.floor(noCritDamage * 2));
+  });
+
+  it("PvP 확률 스킬 치명타는 대상의 치명타 저항만큼 발생 확률이 감소한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castDamage = (critChancePct: number, critResistPct: number) => {
+      const state = initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          spd: 99,
+          critChancePct,
+        }),
+        makePlayer({
+          hp: 10_000,
+          maxHp: 10_000,
+          def: 0,
+          spd: 1,
+          critResistPct,
+        }),
+        "공격자",
+        "대상",
+        {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      );
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+      return state.p2.hp - cast.p2.hp;
+    };
+
+    const noCritDamage = castDamage(0, 0);
+    expect(castDamage(100, 75)).toBe(noCritDamage);
+    expect(castDamage(100, 74)).toBeGreaterThan(noCritDamage);
+  });
+
+  it("원초 증폭은 PvP에서도 직접 마법 스킬 치명타에만 적용된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castDamage = (
+      skillId:
+        | "v2c_mage_boltcast"
+        | "v2c_savior_judgment"
+        | "v2_skill_strike",
+      critChancePct: number,
+      equipmentMagicSkillCritDmgPct?: number,
+    ) => {
+      const state = initialBattleStatePvP(
+        makePlayer({
+          hp: 500,
+          maxHp: 500,
+          maxMp: 500,
+          mp: 500,
+          atk: 100,
+          magicAtk: 300,
+          spiStat: 300,
+          spd: 99,
+          critChancePct,
+          equipmentMagicSkillCritDmgPct,
+        }),
+        makePlayer({
+          hp: 10_000,
+          maxHp: 10_000,
+          def: 0,
+          magicDef: 0,
+          spd: 1,
+        }),
+        "태초술사",
+        "대상",
+        { learned: [skillId], equipped: [skillId] },
+      );
+      const cast = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+      return state.p2.hp - cast.p2.hp;
+    };
+
+    const magicNoCrit = castDamage("v2c_mage_boltcast", 0);
+    const magicCrit = castDamage("v2c_mage_boltcast", 100);
+    expect(castDamage("v2c_mage_boltcast", 100, 30)).toBe(
+      magicCrit + Math.floor(magicNoCrit * 0.3),
+    );
+    const spiNoCrit = castDamage("v2c_savior_judgment", 0);
+    const spiCrit = castDamage("v2c_savior_judgment", 100);
+    expect(castDamage("v2c_savior_judgment", 100, 30)).toBe(
+      spiCrit + Math.floor(spiNoCrit * 0.3),
+    );
+    expect(castDamage("v2_skill_strike", 100, 30)).toBe(
+      castDamage("v2_skill_strike", 100),
+    );
   });
 
   it("PvP 스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {

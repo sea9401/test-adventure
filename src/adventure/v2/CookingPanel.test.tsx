@@ -3,13 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   CookingRecipeXpPreview,
   RecipeOwnedCount,
+  StandingCookingDeliveryBoard,
   SurplusCropLabel,
   cookingLevelProgressView,
 } from "./CookingPanel";
 import {
   COOKING_RECIPE_BY_ID,
+  cookingFoodId,
   type CookingFoodInventory,
 } from "./cooking";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 describe("요리책 보유 수량", () => {
   it("같은 요리의 모든 품질을 합산하고 다른 요리는 제외한다", () => {
@@ -49,6 +52,68 @@ describe("농장 떨이 교환", () => {
   });
 });
 
+describe("상시 요리 납품", () => {
+  it("보유 음식의 품질 태그와 개당·총 보상을 기본 수량 1개로 표시한다", () => {
+    const foodId = cookingFoodId({
+      recipeId: "spicy_pork_stew",
+      quality: "masterpiece",
+      usedRare: true,
+      extended: true,
+    });
+    const html = renderToStaticMarkup(
+      <StandingCookingDeliveryBoard
+        cookingFoods={{ [foodId]: 3 }}
+        completed={4}
+        busy={null}
+        onDeliver={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("상시 납품 4/20");
+    expect(html).toContain("희귀 특선");
+    expect(html).toContain("장시간");
+    expect(html).toContain("보유 3개");
+    expect(html).toContain("개당 75,000 골드");
+    expect(html).toContain('value="1"');
+    expect(html).toContain("총 75,000 골드");
+    expect(html).toContain(SURFACE_INSET.split(" ")[0]);
+  });
+
+  it("완성 요리가 없으면 빈 상태를 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <StandingCookingDeliveryBoard
+        cookingFoods={{}}
+        completed={0}
+        busy={null}
+        onDeliver={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("납품할 완성 요리가 없습니다.");
+  });
+
+  it("하루 20개를 채우면 추가 납품을 비활성화한다", () => {
+    const foodId = cookingFoodId({
+      recipeId: "rustic_bread",
+      quality: "normal",
+      usedRare: false,
+      extended: false,
+    });
+    const html = renderToStaticMarkup(
+      <StandingCookingDeliveryBoard
+        cookingFoods={{ [foodId]: 2 }}
+        completed={20}
+        busy={null}
+        onDeliver={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("상시 납품 20/20");
+    expect(html).toContain("오늘 납품 완료");
+    expect(html).toContain("disabled");
+  });
+});
+
 describe("주방 요리 경험치 표시", () => {
   it("요리별 제작 경험치는 현재 레벨 감쇠와 직업·스킬 보너스 범위를 안내한다", () => {
     const html = renderToStaticMarkup(
@@ -75,13 +140,13 @@ describe("주방 요리 경험치 표시", () => {
     });
   });
 
-  it("최고 레벨은 기존 안내를 유지한다", () => {
+  it("최고 레벨은 최종 숙련 달성 상태를 안내한다", () => {
     expect(
       cookingLevelProgressView({
         xp: 24_010,
         currentLevelXp: 24_010,
         nextLevelXp: null,
       }),
-    ).toEqual({ percent: 100, label: "최고 레벨" });
+    ).toEqual({ percent: 100, label: "최종 숙련 달성 · MAX" });
   });
 });

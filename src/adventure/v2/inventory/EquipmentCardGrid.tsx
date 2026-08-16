@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
+  equipmentPowerDisplayValue,
   effectiveStats,
   powerWithBonuses,
   v2EquipPowerLabel,
@@ -62,7 +63,11 @@ function cardStatLine(
 ): string {
   const eff = effectiveStats(item, roll);
   const powerLabel = v2EquipPowerLabel(item);
-  const parts = [`${powerLabel} ${powerWithBonuses(eff.power, enhance, craftQuality)}`];
+  const parts = [
+    `${powerLabel} ${equipmentPowerDisplayValue(
+      powerWithBonuses(eff.power, enhance, craftQuality),
+    )}`,
+  ];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
     parts.push(V2_ELEMENT_LABEL[item.element]);
   }

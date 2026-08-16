@@ -15,7 +15,7 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   공격력: "일반 공격과 물리 스킬의 기본값입니다. 힘이 높을수록 커집니다.",
   방어력: "받는 물리 피해를 줄입니다. 활력이 높을수록 커집니다.",
   "마법 공격력":
-    "마법 스킬과 마법 기본 공격의 위력입니다. 정신이 지능보다 높은 캐릭터는 초과한 정신 일부가 마법 공격력으로 전환됩니다.",
+    "마법 스킬과 마법 기본 공격의 위력입니다. 지능이 주축이고 정신도 일부 기여하며, 지능을 초과한 정신은 더 높은 비율로 전환됩니다.",
   "마법 방어력":
     "마법형 몬스터의 공격과 마법 스킬 피해를 줄입니다. 정신이 주축이고 지능·반지·목걸이·마법 방어 옵션이 보조합니다.",
   회복량:
@@ -38,8 +38,14 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
     "직접 피해를 주는 액티브 스킬에 적용되는 치명타 확률. 캐릭터 치명타 확률을 공유하며 최대 75%까지 적용됩니다.",
   "스킬 치명타 배율":
     "액티브 스킬 치명타의 피해 배수. 평타 치명타 배율과 별개이며, 관련 패시브가 있으면 치명타 확률 75% 초과분도 포함됩니다.",
+  "마법 스킬 치명타 배율":
+    "원초 증폭 장착 시 모든 직접 마법 스킬 피해에 적용되는 치명타 배수입니다. 기본 스킬 치명타 배율에 현재 장비의 치명타 배율 변환값을 더해 표시합니다.",
   속도: "행동 빈도를 좌우합니다. 민첩에서 파생되고 장비 무게로 줄어듭니다.",
 };
+
+export function combatStatDescription(label: string): string | undefined {
+  return COMBAT_STAT_DESCRIPTIONS[label];
+}
 
 type CombatStats = {
   atk: number;
@@ -61,6 +67,7 @@ type CombatStats = {
   critMult?: number;
   skillCritOverflow?: boolean;
   skillCritDmgPct?: number;
+  equipmentMagicSkillCritDmgPct?: number;
 };
 
 type CombatItem = { label: string; value: string | number; accent: string };
@@ -75,16 +82,27 @@ function critOverflowMult(critChancePct: number | undefined): number {
 
 export function activeSkillCritStats(combat: Pick<
   CombatStats,
-  "critChancePct" | "skillCritOverflow" | "skillCritDmgPct"
+  | "critChancePct"
+  | "skillCritOverflow"
+  | "skillCritDmgPct"
+  | "equipmentMagicSkillCritDmgPct"
 >) {
+  const multiplier =
+    SKILL_CRIT_MULT +
+    Math.max(0, combat.skillCritDmgPct ?? 0) / 100 +
+    (combat.skillCritOverflow
+      ? critOverflowMult(combat.critChancePct)
+      : 0);
   return {
     chancePct: Math.min(CRIT_PCT_CAP, Math.max(0, combat.critChancePct ?? 0)),
-    multiplier:
-      SKILL_CRIT_MULT +
-      Math.max(0, combat.skillCritDmgPct ?? 0) / 100 +
-      (combat.skillCritOverflow
-        ? critOverflowMult(combat.critChancePct)
-        : 0),
+    multiplier,
+    ...(combat.equipmentMagicSkillCritDmgPct !== undefined
+      ? {
+          magicMultiplier:
+            multiplier +
+            Math.max(0, combat.equipmentMagicSkillCritDmgPct) / 100,
+        }
+      : {}),
   };
 }
 
@@ -170,6 +188,15 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
         value: `×${activeSkillCrit.multiplier.toFixed(2)}`,
         accent: "text-pink-600 dark:text-pink-400",
       },
+      ...(activeSkillCrit.magicMultiplier !== undefined
+        ? [
+            {
+              label: "마법 스킬 치명타 배율",
+              value: `×${activeSkillCrit.magicMultiplier.toFixed(2)}`,
+              accent: "text-violet-600 dark:text-violet-400",
+            },
+          ]
+        : []),
       {
         label: "속도",
         value: Math.round(combat.spd ?? 0),
@@ -226,7 +253,7 @@ export function StatsPanel({
             {combatItems.map((it, i) => (
               <Tooltip
                 key={it.label}
-                content={COMBAT_STAT_DESCRIPTIONS[it.label]}
+                content={combatStatDescription(it.label)}
                 // 2열 그리드 — 왼쪽 열은 좌측, 오른쪽 열은 우측 정렬해 가로 잘림 방지.
                 align={i % 2 === 0 ? "start" : "end"}
                 triggerClassName={COMBAT_CELL}

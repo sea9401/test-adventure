@@ -15,10 +15,10 @@ describe("V2AttendanceView", () => {
     expect(html).toContain("🪙");
   });
 
-  it("14일차 월간 모험 지원권 7일을 상단에서 안내한다", () => {
+  it("14·21일차 월간 모험 지원권 7일을 상단에서 안내한다", () => {
     const html = renderToStaticMarkup(<V2AttendanceView />);
 
-    expect(html).toContain("14일차");
+    expect(html).toContain("14·21일차");
     expect(html).toContain("지원권 7일");
   });
 });

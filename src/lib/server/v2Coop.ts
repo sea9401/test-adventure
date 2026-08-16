@@ -19,6 +19,7 @@ import { coopBossSessions, messages, users } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   COOP_BOSSES,
+  COOP_INITIAL_VISIBILITY,
   FISHING_COOP_BOSS_KIND_ID,
   MAX_ACTIVE_PER_KIND,
   coopBossDurationMs,
@@ -131,7 +132,7 @@ export async function trySpawnFishingCoopBoss(
     summonedByName: args.summonerName,
     summonerId: args.userId,
     summonerGuildId,
-    visibility: "public",
+    visibility: COOP_INITIAL_VISIBILITY,
   });
   return {
     sessionId,

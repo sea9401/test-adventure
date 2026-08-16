@@ -12,7 +12,6 @@ import { Card } from "@/components/ui/Card";
 import {
   COOP_BOSSES,
   COOP_TIER_LABEL,
-  COOP_VISIBILITY_OPTIONS,
   MAX_ACTIVE_PER_KIND,
   SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS,
   coopBossDurationLabel,
@@ -24,14 +23,11 @@ import {
   useCoopListState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import { CoopRewardTable } from "@/adventure/v2/coop/CoopRewardTable";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { V2CoopTabs } from "@/adventure/v2/coop/V2CoopTabs";
 import {
   COOP_LIST_VISIBILITY_LABEL,
   coopSessionListSections,
 } from "@/adventure/v2/coop/coopListSections";
-
-// 소환 공개 범위 선택지는 coopBosses.COOP_VISIBILITY_OPTIONS(상세 변경 UI 와 공용).
 
 type CoopBossSummonVariant = {
   kind: CoopBossKindId;
@@ -216,8 +212,6 @@ export function V2CoopBossListView({
     claim,
   } = useCoopListState();
   const [now, setNow] = useState(() => Date.now());
-  // 코어루프 소환 공개 범위(flag-on만 사용). 모든 종류 소환에 공통 적용.
-  const [visibility, setVisibility] = useState<string>("public");
   // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — UI 그룹 단위 토글.
   const [infoOpen, setInfoOpen] = useState<string | null>(null);
   const [selectedKindByGroup, setSelectedKindByGroup] = useState<
@@ -238,7 +232,7 @@ export function V2CoopBossListView({
 
   // 소환 후에도 목록에 머문다 — 여러 마리 연속 소환 흐름(이동은 보스 카드 클릭으로).
   const handleSummon = async (kind: CoopBossKindId) => {
-    await summon(kind, V2_CORE_LOOP_V2 ? visibility : undefined);
+    await summon(kind);
   };
 
   return (
@@ -391,43 +385,14 @@ export function V2CoopBossListView({
               새 보스 소환
             </div>
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              소환 설정을 선택한 뒤 원하는 보스의 소환 버튼을 누르세요.
+              새 보스는 먼저 나만 볼 수 있습니다. 필요할 때 상세 화면에서 길드 또는
+              전체에 공개하세요.
             </p>
           </div>
           <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             보스 소환서 {scrolls.toLocaleString()}장 보유
           </span>
         </div>
-
-        {/* 코어루프 — 아래 소환 버튼에 적용되는 공개 범위. flag off 면 항상 공개. */}
-        {V2_CORE_LOOP_V2 && (
-          <Card padding="sm" className="border-amber-200 dark:border-amber-900/70">
-            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
-              소환 후 공개 범위
-            </p>
-            <div className="mt-1.5 flex gap-2">
-              {COOP_VISIBILITY_OPTIONS.map(([v, label]) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVisibility(v)}
-                  aria-pressed={visibility === v}
-                  className={`flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                    visibility === v
-                      ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              이 설정은 아래에서 새로 소환하는 보스에 적용됩니다. 공개 범위 안의
-              모험가는 무료로 함께 공격할 수 있습니다.
-            </p>
-          </Card>
-        )}
 
         {COOP_SUMMON_GROUPS.map((group) => {
           const selectedKind =

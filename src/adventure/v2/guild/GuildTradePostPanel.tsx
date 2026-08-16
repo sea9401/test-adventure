@@ -391,13 +391,13 @@ export function GuildTradePostPanel({
               <h4 className="font-bold">교역 토큰 상점</h4>
               {sharedTokens && (
                 <span className="rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                  관리자 선택 · 전원 지급
+                  관리자 선택 · 길드 전체 혜택
                 </span>
               )}
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               {sharedTokens
-                ? "길드장과 관리자가 공동 토큰으로 품목을 선택하면 현재 길드원 전원에게 동일한 보상이 지급됩니다. 구매 한도는 길드 전체에 적용됩니다."
+                ? "길드장과 관리자가 공동 토큰으로 품목을 선택합니다. 길드원 전원 지급 상품과 길드 공용 자원 상품이 있으며, 구매 한도는 길드 전체에 적용됩니다."
                 : "내 협회 토큰으로 구매합니다. 상품 재고와 구매 한도도 이용자별로 관리됩니다."}
             </p>
           </div>
@@ -410,6 +410,7 @@ export function GuildTradePostPanel({
         )}
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {state.shop.map((item) => {
+            const targetsGuildPool = sharedTokens && item.target === "guild";
             const disabled =
               Boolean(busyKey) ||
               !state.canPurchase ||
@@ -440,7 +441,9 @@ export function GuildTradePostPanel({
                       if (
                         !window.confirm(
                           sharedTokens
-                            ? `${item.name}을(를) 길드원 전원에게 지급할까요?\n길드 공동 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`
+                            ? targetsGuildPool
+                              ? `${item.name}을(를) 길드 공용 보상으로 적용할까요?\n길드 공동 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`
+                              : `${item.name}을(를) 길드원 전원에게 지급할까요?\n길드 공동 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`
                             : `${item.name}을(를) 구매할까요?\n내 협회 토큰 ${item.tokenCost.toLocaleString()}개가 사용됩니다.`,
                         )
                       ) {
@@ -452,7 +455,9 @@ export function GuildTradePostPanel({
                         (json) => {
                           const purchase = json.purchased;
                           return sharedTokens
-                            ? `${purchase?.itemName ?? item.name} 길드원 ${(purchase?.recipientCount ?? 0).toLocaleString()}명 지급 완료 · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`
+                            ? targetsGuildPool
+                              ? `${purchase?.itemName ?? item.name} 길드 공용 보상 적용 완료 · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`
+                              : `${purchase?.itemName ?? item.name} 길드원 ${(purchase?.recipientCount ?? 0).toLocaleString()}명 지급 완료 · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`
                             : `${purchase?.itemName ?? item.name} ${(purchase?.quantity ?? item.output.count).toLocaleString()}개 구매 완료 · 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`;
                         },
                       );

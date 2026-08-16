@@ -7,17 +7,16 @@
 export const MP_PER_INT = 2; // 옛 10. 5×INT × 2 = 10 MP (동등)
 export const HP_PER_VIT = 3;
 
-export const DEF_PER_VIT = 0.3;
+export const DEF_PER_VIT = 0.35;
 // 초반부 템포 완화(2026-06-28): LUK 의 치명 도달 속도가 장비 flat crit·패시브와 합쳐져
 // 초반부터 높게 체감되어 0.15 → 0.12 로 소폭 하향. 치명피해(CRIT_DMG_PER_LUK)는 유지해
 // LUK 빌드 정체성은 확률보다 누적 투자 보상 쪽에 남긴다.
 export const CRIT_PER_LUK = 0.12;
 export const ATK_PER_STR = 0.35;
 // VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게 하는 보조 딜.
-// 2026-06-21 0.10→0.16은 VIT d50 생존 빌드의 막힌 사냥을 풀었지만, STR 0.15보다 높은 범용 공격
-// 환산에 HP·DEF까지 함께 붙어 VIT가 물리 공격 투자까지 대체했다. 범용 환산은 다시 STR의 약 2/3로
-// 두고, 탱커의 추가 화력은 생존 스탯을 공격력으로도 이중 지급하기보다 전용 DEF/VIT 스킬이 맡는다.
-export const VIT_ATK_COEF = 0.07;
+// 과거 0.16은 HP·DEF까지 함께 붙은 VIT가 물리 공격 투자를 대체했다. 현재 값은 STR 0.35의
+// 약 29%로 제한해 느린 탱커의 처치력을 돕되 주 공격 스탯을 대신하지 않는다.
+export const VIT_ATK_COEF = 0.1;
 // 도적 직군 패시브 "예기" — 공격력에 DEX×계수 가산(도적 한정). 죽은 축 DEX 부활.
 // 스킬 재설계(docs/v2-skill-system-plan.md). 🔑 v2c_rogue_finesse(예기) passive.atkPerDexCoef 와 동기.
 export const ROGUE_ATK_PER_DEX = 0.08;
@@ -40,10 +39,11 @@ export const SPD_PER_DEX = 0.95;
 //   2.0→0.5 (2026-06-25, 오너·sim): ATB 속도곡선 전환과 함께 중갑 탱(STR/VIT)이 속도열세로
 //   전멸하던 걸 막기 위해 무게 속도페널티를 1/4 로 완화 — 6배에서 STR 67%·VIT 58% 생존(sim 검증).
 export const WEIGHT_SPD_PENALTY = 0.5;
-// 최소 데미지(데미지 하한) — 힘·지능 major, 활력 minor.
+// 직접 피해 스킬 최소 데미지 — 물리는 힘 major+활력 minor, 마법은 지능 major+정신 minor.
 export const MIN_DMG_PER_STR = 0.15;
-export const MIN_DMG_PER_INT = 0.1;
+export const MIN_DMG_PER_INT = 0.15;
 export const MIN_DMG_PER_VIT = 0.05;
+export const MIN_DMG_PER_SPI = 0.08;
 // 적중도 — 힘·지능·정신 minor (민첩은 ACCURACY_PCT_PER_DEX).
 // 회피도 — 행운 minor (민첩은 EVA_PER_DEX). 적중도는 상대의 회피 피해 경감을 낮춘다.
 export const ACC_PER_STR = 0.1;
@@ -99,10 +99,11 @@ export const CRIT_MULT_SCALE = 3.0;
 // 2026-06-21 0.15→0.22: DEX 독주 재밸런스에서 INT 솔로 viability 부양(sim: INT d50 wr 62%→95%).
 //   STR 대칭(0.15)을 의도적으로 깸 — 마법 버스트축 회복. docs/v2-dex-rebalance-plan.md.
 export const MAGIC_ATK_PER_INT = 0.35;
-// 정신 우세 빌드의 공격 전환. INT보다 높은 SPI 부분만 마법 공격력으로 바꿔 INT 주력 빌드의
-// 화력을 함께 올리지 않는다. 기본 공격 전환은 derive에서 이 보너스를 포함한 마공이 물공보다
-// 높을 때만 켜져, VIT/SPI 혼합 빌드가 더 약한 공격 방식으로 강제되지 않는다.
-export const MAGIC_ATK_PER_EXCESS_SPI = 0.7;
+// 정신은 지능 이하에서도 마법 공격을 보조하고, 지능을 초과한 부분은 더 높은 비율로 전환한다.
+// 초과 구간의 한계 계수는 0.1+0.6=0.7로 기존과 같아 순수 SPI 빌드의 성장 기울기를 보존한다.
+// 기본 공격 전환은 derive에서 이 보너스를 포함한 마공이 물공보다 높을 때만 켜진다.
+export const MAGIC_ATK_PER_SPI = 0.1;
+export const MAGIC_ATK_PER_EXCESS_SPI = 0.6;
 export const EVA_PER_DEX = 0.5;
 export const ACCURACY_PCT_PER_DEX = 0.35;
 // 레거시 표시용 상한. 실제 전투는 캡 없는 accRating을 사용한다.

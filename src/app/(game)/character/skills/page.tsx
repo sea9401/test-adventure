@@ -40,16 +40,23 @@ export default function SkillsPage() {
         />
       </div>
 
-      <div className={tab === "loadout" ? "" : "mx-auto max-w-[720px]"}>
-        {tab === "pattern" && V2_COMBAT_PATTERN_ENABLED ? (
-          <V2CombatPatternView embedded onBack={back} />
-        ) : tab === "learn" ? (
-          <V2SkillLearnView embedded section="learn" onBack={back} />
-        ) : tab === "loadout" ? (
-          <V2SkillLearnView embedded section="loadout" onBack={back} />
-        ) : (
-          <V2SkillLearnView embedded section="enhance" onBack={back} />
-        )}
+      <div data-skill-content-frame="true" className="w-full min-w-0">
+        <div
+          data-skill-readable-frame={tab === "loadout" ? undefined : "true"}
+          className={`ui-tab-content-reveal w-full min-w-0 ${
+            tab === "loadout" ? "" : "mx-auto max-w-[720px]"
+          }`}
+        >
+          {tab === "pattern" && V2_COMBAT_PATTERN_ENABLED ? (
+            <V2CombatPatternView embedded onBack={back} />
+          ) : tab === "learn" ? (
+            <V2SkillLearnView embedded section="learn" onBack={back} />
+          ) : tab === "loadout" ? (
+            <V2SkillLearnView embedded section="loadout" onBack={back} />
+          ) : (
+            <V2SkillLearnView embedded section="enhance" onBack={back} />
+          )}
+        </div>
       </div>
     </main>
   );

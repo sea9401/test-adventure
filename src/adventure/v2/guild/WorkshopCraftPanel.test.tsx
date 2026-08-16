@@ -77,6 +77,40 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(html).toContain("제작 수수료: 20,000 G");
   });
 
+  it("부족한 일반·명장 제작 재료에 필요량과 보유량을 표시한다", () => {
+    const shortageRecipe = GUILD_WORKSHOP_RECIPES.crafted_toxic_mist_gloves;
+    const materialCost = guildWorkshopRecipeMaterialCost(shortageRecipe);
+    const materials = Object.fromEntries(
+      Object.entries(materialCost).map(([id, amount]) => [id, amount ?? 0]),
+    );
+    materials[GUILD_WORKSHOP_MATERIAL_ID.mithrilShard] = 1;
+    materials[GUILD_WORKSHOP_MATERIAL_ID.sunstone] = 1;
+    const state: WorkshopState = {
+      ...workshopState(),
+      materials,
+      smithyLevel: 5,
+      recipes: [
+        guildWorkshopRecipeView(
+          shortageRecipe,
+          {},
+          { blacksmith: { xp: 999_999, crafts: 999 } },
+          0,
+          5,
+          materials,
+        ),
+      ],
+    };
+
+    const html = renderWorkshop(new Set(), "ready", state);
+    expect(html).toContain(
+      '<span class="font-semibold text-rose-700 dark:text-rose-300">미스릴 조각 2 (필요 2 · 보유 1 · 부족)</span>',
+    );
+    expect(html).toContain("<span>태양석 1</span>");
+    expect(html).toContain(
+      '<span class="font-semibold text-rose-700 dark:text-rose-300">태양석 2 (필요 2 · 보유 1 · 부족)</span>',
+    );
+  });
+
   it("shows an explicit higher-material substitution action and marketplace link", () => {
     const substituteRecipe = GUILD_WORKSHOP_RECIPES.crafted_master_ring;
     const cost = guildWorkshopRecipeMaterialCost(substituteRecipe);

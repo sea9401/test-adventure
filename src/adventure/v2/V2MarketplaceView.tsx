@@ -1426,10 +1426,13 @@ export function V2MarketplaceView({
     : null;
 
   return (
-    <main className="mx-auto max-w-[760px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
+    <main className="mx-auto w-full min-w-0 max-w-[760px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader title="거래소" onBack={onBack} />
       <Card padding="none" className="overflow-hidden">
-        <div className="flex items-center justify-between gap-3 p-4">
+        <div
+          data-testid="marketplace-summary"
+          className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between p-4"
+        >
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
               <Storefront size={23} weight="duotone" />
@@ -1442,7 +1445,7 @@ export function V2MarketplaceView({
             </div>
           </div>
           {availableGold !== null && (
-            <div className={`${SURFACE_INSET} shrink-0 px-3 py-2 text-right`}>
+            <div className={`${SURFACE_INSET} px-3 py-2 text-right sm:shrink-0`}>
               <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
                 사용 가능
               </p>
@@ -3704,7 +3707,10 @@ function ListingList({
                 </div>
               </div>
             </div>
-            <div className="flex items-end justify-between gap-3 border-t border-zinc-200 px-3 py-2.5 sm:px-4 dark:border-zinc-700">
+            <div
+              data-testid="marketplace-listing-footer"
+              className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end sm:justify-between border-t border-zinc-200 px-3 py-2.5 sm:px-4 dark:border-zinc-700"
+            >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -3736,7 +3742,12 @@ function ListingList({
                   scoped={priceKey !== l.itemId && !!priceRef[priceKey]}
                 />
               </div>
-              {action(l)}
+              <div
+                data-testid="marketplace-listing-action"
+                className="w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto"
+              >
+                {action(l)}
+              </div>
             </div>
           </Card>
         );

@@ -52,7 +52,11 @@ describe("월간 출석", () => {
     expect(MONTHLY_ATTENDANCE_REWARDS[20]).toEqual({
       kind: "mastery_certificate",
       count: 300,
+      adventureSupportDays: 7,
     });
+    expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[20])).toBe(
+      "숙련의 증표 300개 · 월간 모험 지원권 7일",
+    );
     expect(MONTHLY_ATTENDANCE_REWARDS[27]).toEqual({
       kind: "mastery_certificate",
       count: 500,
@@ -60,7 +64,7 @@ describe("월간 출석", () => {
     });
   });
 
-  it("월간 합계는 지원권 22일과 탐험 재화 완결 수량을 지급한다", () => {
+  it("월간 합계는 지원권 29일과 탐험 재화 완결 수량을 지급한다", () => {
     const totals = {
       adventureSupportDays: 0,
       staminaPotions: 0,
@@ -73,7 +77,11 @@ describe("월간 출석", () => {
     for (const reward of MONTHLY_ATTENDANCE_REWARDS) {
       if (reward.kind === "adventure_support") {
         totals.adventureSupportDays += reward.days;
-      } else if (reward.kind === "stamina_potion") {
+      }
+      if ("adventureSupportDays" in reward) {
+        totals.adventureSupportDays += reward.adventureSupportDays;
+      }
+      if (reward.kind === "stamina_potion") {
         totals.staminaPotions += reward.count;
       } else if (reward.kind === "mastery_certificate") {
         totals.masteryCertificates += reward.count;
@@ -87,7 +95,7 @@ describe("월간 출석", () => {
     }
 
     expect(totals).toEqual({
-      adventureSupportDays: 22,
+      adventureSupportDays: 29,
       staminaPotions: 29,
       masteryCertificates: 800,
       bossSummonScrolls: 7,

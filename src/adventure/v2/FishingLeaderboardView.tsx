@@ -45,6 +45,7 @@ export function FishingLeaderboardView({
   error,
   onBack,
   onOpenFishing,
+  onOpenDangerous,
   onOpenChallenges,
   onOpenHallOfFame,
   onOpenShop,
@@ -55,6 +56,7 @@ export function FishingLeaderboardView({
   onBack?: () => void;
   // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenFishing?: () => void;
+  onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenShop?: () => void;
@@ -92,6 +94,7 @@ export function FishingLeaderboardView({
       <FishingSubTabs
         active="leaderboard"
         onOpenFishing={onOpenFishing}
+        onOpenDangerous={onOpenDangerous}
         onOpenChallenges={onOpenChallenges}
         onOpenHallOfFame={onOpenHallOfFame}
         onOpenShop={onOpenShop}

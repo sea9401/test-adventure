@@ -65,6 +65,12 @@ import {
   tier6DotContext,
   tier6StatusKindCount,
 } from "./tier6UniquePveAdapter";
+import {
+  consumeDuelistBasicHit,
+  duelistDeclarationProgress,
+  interruptDuelistRamp,
+  type DuelistBasicHitModifiers,
+} from "./duelistCombat";
 
 type AttackDamageResult = {
   assassinFires: boolean;
@@ -99,6 +105,7 @@ function computeAttackDamage(
   apAtkMult: number,
   apHits: number,
   apIgnoresDef: boolean,
+  duelistModifiers: DuelistBasicHitModifiers,
 ): AttackDamageResult {
   // 암살 (특기) — 전투 첫 공격이면 발동: 적 DEF 무시 + 데미지 배수 (배수는 아래에서 적용).
   const assassinFires =
@@ -120,7 +127,10 @@ function computeAttackDamage(
     assassinFires || weakpointDefIgnore || apIgnoresDef,
   );
   // 궁수 패시브 — 평타 방어 관통(%). 위 30% 무시 레이어 뒤에 곱연산(방어 투자가 항상 일부 유효).
-  const archerPenPct = player.passiveDefPenetrationPct ?? 0;
+  const archerPenPct =
+    (player.passiveDefPenetrationPct ?? 0) +
+    (player.basicDefPenetrationPct ?? 0) +
+    duelistModifiers.basicDefPenetrationPct;
   const targetDef =
     archerPenPct > 0
       ? Math.round(afterIgnore * (1 - archerPenPct / 100))
@@ -183,8 +193,14 @@ function computeAttackDamage(
   // 크리 확률은 CRIT_PCT_CAP(75%) 캡. 초과분은 크리 데미지로 자동 변환 — 캡 도달 후에도
   // LUK 투자 의미를 유지(빌드 수렴 방지, 회피 오버플로와 대칭).
   const rawCritPct =
-    baseCritPct + luckCritBonus + balanceCritBonus + universalLuckBonus + cyclingChiThisTurn;
-  const effectiveCritPct = Math.min(CRIT_PCT_CAP, rawCritPct);
+    baseCritPct + luckCritBonus + balanceCritBonus + universalLuckBonus +
+    cyclingChiThisTurn + duelistModifiers.basicCritChancePct;
+  const basicCritCap = Math.max(
+    CRIT_PCT_CAP,
+    player.basicCritChanceCap ?? CRIT_PCT_CAP,
+    duelistModifiers.basicCritChanceCap,
+  );
+  const effectiveCritPct = Math.min(basicCritCap, rawCritPct);
   const critOverflowDmgBonus = computeCritOverflowBonus(rawCritPct);
   // 연쇄 운명 (2티어 특기) — 큐가 있으면 이 공격 크리 강제. 큐는 아래에서 소비.
   const fatedChainConsumed = state.flags.fatedChainCritPending;
@@ -234,7 +250,15 @@ function computeAttackDamage(
     v2EffectiveTargetDef,
   );
   // 광살참 (AP) — 같은 fire 에서 hits 번 반복 데미지. apHits=1 이면 baseDmgSingleHit 그대로.
-  const baseDmg = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
+  const baseDmgBeforeDuelist = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
+  const stanceDmg = (player.duelistStanceBonusPct ?? 0) > 0
+    ? Math.max(1, Math.floor(baseDmgBeforeDuelist * (1 + player.duelistStanceBonusPct! / 100)))
+    : baseDmgBeforeDuelist;
+  const declarationDamagePct =
+    duelistModifiers.basicDamagePct + duelistModifiers.rampDamagePct;
+  const baseDmg = declarationDamagePct > 0
+    ? Math.max(1, Math.floor(stanceDmg * (1 + declarationDamagePct / 100)))
+    : stanceDmg;
   // 폭풍 일격 (AP) — fire 시 (player.atk × spdPct/100) 추가 고정 데미지. targetDef 무시.
   const stormBonus = computeStormBonus(player.atk, apMultEffect);
   // 처형 — 적 HP 비율 < executionHpFraction 일 때 데미지 ×executionDamageMult.
@@ -267,7 +291,8 @@ function computeAttackDamage(
   const critMult =
     (player.critMult ?? CRIT_MULT_BASE) +
     focusedBreathCritDmgBonus +
-    critOverflowDmgBonus;
+    critOverflowDmgBonus +
+    duelistModifiers.basicCritMultAdd;
   const dmgAfterCrit = critRoll
     ? Math.floor(dmgAfterEnchantExe * critMult)
     : dmgAfterEnchantExe;
@@ -393,7 +418,10 @@ export function resolvePlayerPhase(
   action: PlayerAction,
 ): BattleState {
   if (action.kind === "use_potion") {
-    const next = applyPotionEffect(state, action.potion, playerName);
+    const next = {
+      ...applyPotionEffect(state, action.potion, playerName),
+      duelistBuff: interruptDuelistRamp(state.duelistBuff),
+    };
     // 포션은 공격이 아니라 그 턴의 공격 "1회" 를 소모한다. 추가타 빌드(attackCount>1)는
     // 마신 뒤에도 남은 공격으로 계속 싸울 수 있고, 마지막 1회였다면 적 페이즈로 넘어간다.
     // (기본 1회 공격 캐릭터는 attacksLeft 가 0 이 되어 기존과 동일하게 턴이 끝난다.)
@@ -486,6 +514,19 @@ export function resolvePlayerPhase(
   // decrementTimedEffects 는 다음 플레이어 턴 진입 시 -1 → 발동턴 + (turns-1) 후속턴 = 총 turns 턴.
   // 일반 회피는 공격 자체를 무효화하지 않으므로 AP 효과와 적중 효과는 정상 발동한다.
   const nextBuffsTimed = state.buffs;
+  const consumedDuelist = state.duelistBuff
+    ? consumeDuelistBasicHit(state.duelistBuff)
+    : {
+        modifiers: {
+          basicDamagePct: 0,
+          basicCritChancePct: 0,
+          basicDefPenetrationPct: 0,
+          rampDamagePct: 0,
+          basicCritMultAdd: 0,
+          basicCritChanceCap: CRIT_PCT_CAP,
+        },
+        buff: null,
+      };
 
   const { assassinFires, breakerActive, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg: dmgBeforeEvasion, enchantBerserkActive, enchantExeActive, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, nextComboAtkBonus, nextComboHitCount, totalDmg: totalDmgBeforeEvasion, weakpointDefIgnore } = computeAttackDamage(
     state,
@@ -498,6 +539,7 @@ export function resolvePlayerPhase(
     apAtkMult,
     apHits,
     apIgnoresDef,
+    consumedDuelist.modifiers,
   );
   const dmg = applyEvasionDamageReduction(
     dmgBeforeEvasion,
@@ -515,6 +557,7 @@ export function resolvePlayerPhase(
   if (enchantBerserkActive) labels.push("폭주");
   if (breakerActive) labels.push("파괴");
   if (critRoll) labels.push("치명타");
+  if ((player.duelistStanceBonusPct ?? 0) > 0) labels.push("결투 태세");
   if (luckyStarFires) labels.push("행운의 별");
   if (assassinFires) labels.push("암살");
   if (decreeFires) labels.push("천명");
@@ -536,6 +579,15 @@ export function resolvePlayerPhase(
     kind: "player_attack",
     text: `공격! ${prefix}${totalDmg} 피해를 입혔다.`,
   });
+  if (state.duelistBuff) {
+    log = appendLog(log, {
+      kind: "info",
+      text: duelistDeclarationProgress(
+        consumedDuelist.buff,
+        state.duelistBuff.declarationName,
+      ),
+    });
+  }
   // 이중 행운 — 첫 크리티컬 발동 순간 활성화, 후속 공격/회피 부터 보너스 적용.
   const shouldActivateLucky =
     critRoll &&
@@ -749,8 +801,12 @@ export function resolvePlayerPhase(
   // 적중 1회씩 세고, 스킬 다단 적중은 applyPlayerV2SkillCast 에서 합산한다.
   const sigEvery = everyNHitsEffect(player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
+  const signatureBonusAttacksLeft = state.stacks.signatureBonusAttacksLeft;
+  const isSignatureBonusAttack =
+    signatureBonusAttacksLeft > 0 &&
+    state.playerAttacksLeft <= signatureBonusAttacksLeft;
   const nextSigHitCount =
-    sigEveryN > 0 && sigDealtDamage
+    sigEveryN > 0 && sigDealtDamage && !isSignatureBonusAttack
       ? state.stacks.signatureHitCount + 1
       : state.stacks.signatureHitCount;
   const sigExtraAttack =
@@ -906,6 +962,10 @@ export function resolvePlayerPhase(
   // 같은 턴 후속 공격(다중공격/연타)에 즉시 반영된다.
   let afterDamage = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
     ...state,
+    duelistBuff: consumedDuelist.buff,
+    duelistCritHastePending:
+      state.duelistCritHastePending ||
+      (critRoll && (player.basicCritHastePct ?? 0) > 0),
     enemyHp,
     enemyV2Dots: sigEnemyDots, // 고유 시그니처 on-crit 독(독니) 합류·미발동=state 그대로.
     playerHp: playerHpAfterMadSlash,
@@ -942,6 +1002,11 @@ export function resolvePlayerPhase(
       comboAtkBonus: nextComboAtkBonus,
       comboHitCount: nextComboHitCount,
       signatureHitCount: nextSigHitCount, // 평타·스킬 공용 every-N 카운터(미장착=불변)
+      signatureBonusAttacksLeft:
+        Math.max(
+          0,
+          signatureBonusAttacksLeft - (isSignatureBonusAttack ? 1 : 0),
+        ) + sigExtraAttack,
     },
     turn: {
       ...state.turn,
@@ -993,6 +1058,7 @@ export function resolvePlayerPhase(
   if (afterDamage.enemyHp <= 0) {
     return {
       ...afterDamage,
+      duelistBuff: null,
       log: appendLog(afterDamage.log, {
         kind: "info",
         text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,

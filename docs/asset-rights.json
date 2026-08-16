@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-15",
+  "reviewedAt": "2026-08-16",
   "instructions": "Every deployed visual or media asset must have an exact SHA-256 entry. Change a source rule only after reviewing evidence; --strict is the public-release clearance gate.",
   "sources": [
     {
@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, and the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, and the six ranch cooking rasters added on 2026-08-16 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -27,7 +27,8 @@
         "docs/superpowers/plans/2026-08-14-star-grave-hunting-area.md",
         "docs/superpowers/plans/2026-08-15-dangerous-fishing-visual-refresh.md",
         "docs/superpowers/plans/2026-08-15-pig-shipment-ranch.md",
-        "docs/superpowers/plans/2026-08-15-ranch-recipe-expansion.md"
+        "docs/superpowers/plans/2026-08-15-ranch-recipe-expansion.md",
+        "docs/superpowers/plans/2026-08-16-cooking-delivery-ranch-recipes.md"
       ]
     },
     {
@@ -487,6 +488,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/corn_milk_chowder.webp",
+      "sha256": "919707e59f5fc741ecf9a0f7024b27a4c6d0bcbb3b3c10884fb1a8be6fa69fe4",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/corn_tomato_potage.webp",
       "sha256": "fdca88455c9432121675563815f3a91024c87128b2a7079792859c6c5b08abf0",
       "source": "operator-cleared-game-art"
@@ -519,6 +525,11 @@
     {
       "path": "public/images/items/cooking/egg_fried_rice.webp",
       "sha256": "2dc09eb87c507f275ebf14a2a025925846454f3540ce226fa64724430b3f7be8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/egg_salad_sandwich.webp",
+      "sha256": "441270937364a568204b6e60d9d51ab20d131669e82eb81d93e6be61f29b5d0f",
       "source": "operator-cleared-game-art"
     },
     {
@@ -617,8 +628,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/ranch_grand_feast.webp",
+      "sha256": "f71d18a9072fbe6e27b5b1e3b999666ad42b06bdd768a7067b24cc0b9c4be961",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/royal_cacao_tart.webp",
       "sha256": "cee32f2be3c282b8a19b14ea4fed0bb2f91d80f9adeabb05dd3e7a755e35e874",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/royal_pork_pie.webp",
+      "sha256": "867e0838a94f420bc030c1a05ffeed17865cd9166eac1b918b87382c0a8d1dc6",
       "source": "operator-cleared-game-art"
     },
     {
@@ -652,8 +673,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/spicy_pork_stew.webp",
+      "sha256": "03b65bc69e022fbeed7a660645095bb39022f4fd45b1ef607e275d79b60b6529",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/strawberry_herb_punch.webp",
       "sha256": "628960db11c6852a645361f56c357de7232eecc7f63ddeacf394284df10d6d73",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/strawberry_milk_parfait.webp",
+      "sha256": "588447b480727ffd726d7db4db827f1474a8d13eb132d369e6d3f16a8d2dfdf9",
       "source": "operator-cleared-game-art"
     },
     {

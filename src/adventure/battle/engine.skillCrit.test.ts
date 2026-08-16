@@ -5,6 +5,7 @@ import {
   resolveBattle,
   type PlayerCombat,
 } from "../v2/combat/engine";
+import { resolvePlayerPhase } from "../v2/combat/engine.playerPhase";
 import { pickAutoAction } from "../v2/combat/pickAutoAction";
 import { emptyV2SkillsState } from "../data/v2/v2Skills";
 import { SKILL_CRIT_MULT } from "../data/v2/v2CombatConstants";
@@ -99,6 +100,17 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     );
   });
 
+  it("원초 증폭은 치명타가 발생한 직접 마법 스킬 피해에만 변환 배율을 더한다", () => {
+    const noCrit = battle(0);
+    const ordinaryCrit = battle(100);
+    const amplifiedCrit = battle(100, 3000, {
+      equipmentMagicSkillCritDmgPct: 30,
+    });
+    expect(amplifiedCrit.firstCastDamage).toBe(
+      ordinaryCrit.firstCastDamage + Math.floor(noCrit.firstCastDamage * 0.3),
+    );
+  });
+
   it("치명타 발동 시 로그에 [치명타] 표기", () => {
     const crit = battle(100);
     expect(crit.firstCastTexts.every((t) => t.includes("[치명타]"))).toBe(true);
@@ -177,6 +189,30 @@ describe("스킬 적중 every-N 추가 기본 공격", () => {
     expect(cast.state.log.some((entry) => entry.text.includes("추가 기본 공격 1회"))).toBe(
       true,
     );
+  });
+
+  it("every-N 효과가 만든 추가 기본 공격은 다음 주기 적중으로 집계하지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const player: PlayerCombat = {
+      ...MAGE,
+      equipSignatures: [everyThree],
+    };
+    const state = initialBattleState(player, dummy(10_000), "마법사", skills);
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    const afterBonusAttack = resolvePlayerPhase(
+      cast.state,
+      player,
+      "마법사",
+      { kind: "attack" },
+    );
+
+    expect(cast.state.stacks.signatureHitCount).toBe(3);
+    expect(afterBonusAttack.stacks.signatureHitCount).toBe(3);
   });
 
   it("추가 공격 횟수로 3타 스킬이 2묶음 적중하면 추가 기본 공격도 2회다", () => {

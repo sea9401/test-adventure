@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import {
+  CaretDown,
   CheckCircle,
   Lock,
   MagnifyingGlass,
@@ -19,6 +20,18 @@ import {
   toggleJobTagFilter,
 } from "./jobExplorer";
 
+export type JobCodexSectionKey = "goal" | "current" | "unlocked" | "locked";
+
+export function jobCodexSectionExpanded(
+  sectionKey: JobCodexSectionKey,
+  filteringActive: boolean,
+  toggledSections: ReadonlySet<JobCodexSectionKey>,
+): boolean {
+  if (filteringActive) return true;
+  const defaultExpanded = sectionKey === "goal" || sectionKey === "current";
+  return toggledSections.has(sectionKey) ? !defaultExpanded : defaultExpanded;
+}
+
 // 직업 도감 — 읽기 전용. 직업 해금·스킬 수집을 평면 목록으로 표기. 직군(계열) 묶음·정복 바·수집
 //   포인트/칭호는 폐기(오너 요청 — 불필요한 복잡도). 파워 무관. 데이터는 /api/v2/me/job-codex 또는 mock(dev).
 //   라이브 진입은 모험의 서(V2CodexView) "직업" 탭 — 거기선 JobCodexList 만 재사용(요약은 탭 부제가 담당).
@@ -28,6 +41,9 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
   const [goalJobId, setGoalJobId] = useState<string | null>(null);
+  const [toggledSections, setToggledSections] = useState<
+    Set<JobCodexSectionKey>
+  >(() => new Set());
   const currentJobId = codex.jobs.find((job) => job.isCurrent)?.id ?? null;
 
   useEffect(() => {
@@ -66,16 +82,26 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
   const lockedJobs = filteredJobs.filter(
     (job) => !job.unlocked && job.id !== goalJobId,
   );
+  const filteringActive = query.trim().length > 0 || activeTags.size > 0;
 
   function toggleTag(key: string) {
     setActiveTags((prev) => toggleJobTagFilter(prev, key));
+  }
+
+  function toggleSection(sectionKey: JobCodexSectionKey) {
+    setToggledSections((current) => {
+      const next = new Set(current);
+      if (next.has(sectionKey)) next.delete(sectionKey);
+      else next.add(sectionKey);
+      return next;
+    });
   }
 
   return (
     <Card padding="md" className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">직업 찾기</h3>
-        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span className="text-xs text-zinc-500 sm:text-[11px] dark:text-zinc-400">
           {filteredJobs.length}/{codex.jobs.length}
         </span>
       </div>
@@ -88,18 +114,17 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
           placeholder="직업명, 조건, 스탯 검색"
-          className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-8 pr-8 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
+          className="h-10 w-full rounded-md border border-zinc-300 bg-white pl-8 pr-12 text-sm outline-none focus:border-sky-400 sm:h-9 sm:pr-8 dark:border-zinc-700 dark:bg-zinc-900"
         />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery("")}
-            className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-            aria-label="검색 지우기"
-          >
-            <X size={13} />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setQuery("")}
+          disabled={!query}
+          className={`absolute right-0 top-1/2 flex h-11 w-11 sm:h-5 sm:w-5 -translate-y-1/2 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 sm:right-2 dark:hover:bg-zinc-800 ${query ? "" : "invisible"}`}
+          aria-label="검색 지우기"
+        >
+          <X size={13} />
+        </button>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {JOB_TAG_FILTERS.map((tag) => {
@@ -109,7 +134,7 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
               key={tag.key}
               type="button"
               onClick={() => toggleTag(tag.key)}
-              className={`h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-[11px] font-medium transition ${
+              className={`h-10 sm:h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-xs sm:text-[11px] font-medium transition ${
                 active
                   ? "border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300"
                   : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -127,29 +152,41 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
       ) : (
         <div className="space-y-3">
           <JobSection
+            sectionKey="goal"
             title="목표 직업"
             jobs={goalJobs}
+            expanded={jobCodexSectionExpanded("goal", filteringActive, toggledSections)}
+            onToggle={() => toggleSection("goal")}
             goalJobId={goalJobId}
             currentJobId={currentJobId}
             onSetGoal={setGoal}
           />
           <JobSection
+            sectionKey="current"
             title="현재 직업"
             jobs={currentJobs}
+            expanded={jobCodexSectionExpanded("current", filteringActive, toggledSections)}
+            onToggle={() => toggleSection("current")}
             goalJobId={goalJobId}
             currentJobId={currentJobId}
             onSetGoal={setGoal}
           />
           <JobSection
+            sectionKey="unlocked"
             title="해금된 직업"
             jobs={unlockedJobs}
+            expanded={jobCodexSectionExpanded("unlocked", filteringActive, toggledSections)}
+            onToggle={() => toggleSection("unlocked")}
             goalJobId={goalJobId}
             currentJobId={currentJobId}
             onSetGoal={setGoal}
           />
           <JobSection
+            sectionKey="locked"
             title="조건 부족"
             jobs={lockedJobs}
+            expanded={jobCodexSectionExpanded("locked", filteringActive, toggledSections)}
+            onToggle={() => toggleSection("locked")}
             goalJobId={goalJobId}
             currentJobId={currentJobId}
             onSetGoal={setGoal}
@@ -177,7 +214,7 @@ export function V2JobCodexView({
   ).length;
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto w-full min-w-0 max-w-[720px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader title="직업 도감" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         거쳐온 직업과 모은 스킬의 기록.{" "}
@@ -192,40 +229,57 @@ export function V2JobCodexView({
 }
 
 function JobSection({
+  sectionKey,
   title,
   jobs,
+  expanded,
+  onToggle,
   goalJobId,
   currentJobId,
   onSetGoal,
 }: {
+  sectionKey: JobCodexSectionKey;
   title: string;
   jobs: JobCodex["jobs"];
+  expanded: boolean;
+  onToggle: () => void;
   goalJobId: string | null;
   currentJobId: string | null;
   onSetGoal: (jobId: string | null) => void;
 }) {
   if (jobs.length === 0) return null;
   return (
-    <section className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-          {title}
-        </h4>
-        <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+    <section className="space-y-1.5" data-job-section={sectionKey}>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-label={`${title} ${expanded ? "접기" : "펼치기"}`}
+        onClick={onToggle}
+        className="flex min-h-10 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-xs font-semibold text-zinc-600 hover:bg-zinc-100 sm:min-h-0 sm:text-[11px] dark:text-zinc-300 dark:hover:bg-zinc-800"
+      >
+        <span>{title}</span>
+        <span className="flex items-center gap-1.5 tabular-nums text-zinc-400 dark:text-zinc-500">
           {jobs.length}
-        </span>
-      </div>
-      <ul className="space-y-1.5">
-        {jobs.map((job) => (
-          <JobRow
-            key={job.id}
-            job={job}
-            isGoal={job.id === goalJobId}
-            currentJobId={currentJobId}
-            onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+          <CaretDown
+            size={14}
+            weight="bold"
+            className={`transition-transform ${expanded ? "rotate-180" : ""}`}
           />
-        ))}
-      </ul>
+        </span>
+      </button>
+      {expanded ? (
+        <ul className="space-y-1.5">
+          {jobs.map((job) => (
+            <JobRow
+              key={job.id}
+              job={job}
+              isGoal={job.id === goalJobId}
+              currentJobId={currentJobId}
+              onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+            />
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }
@@ -247,14 +301,14 @@ function JobRow({
       className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${
         job.unlocked
           ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
-          : "border-zinc-200/60 bg-zinc-50/40 opacity-50 dark:border-zinc-700/60 dark:bg-zinc-900/40"
+          : "border-zinc-200 bg-zinc-100 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
       }`}
     >
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{job.name}</span>
           {job.isCurrent && (
-            <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 sm:text-[10px] dark:bg-emerald-500/15 dark:text-emerald-300">
               현재 직업
             </span>
           )}
@@ -266,7 +320,7 @@ function JobRow({
           {tags.map((tag) => (
             <span
               key={tag}
-              className="rounded bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400"
+              className="rounded bg-white px-1.5 py-0.5 text-xs text-zinc-500 sm:text-[10px] dark:bg-zinc-900 dark:text-zinc-400"
             >
               {tag}
             </span>
@@ -276,7 +330,7 @@ function JobRow({
           (() => {
             const done = job.skillsLearned >= job.skillsTotal;
             return (
-              <span className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span className="flex items-center gap-1 text-xs text-zinc-500 sm:text-[11px] dark:text-zinc-400">
                 {done ? (
                   <CheckCircle
                     size={13}
@@ -298,17 +352,17 @@ function JobRow({
               </span>
             );
           })()}
-        <span className="text-[11px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+        <span className="text-xs font-medium tabular-nums text-zinc-600 sm:text-[11px] dark:text-zinc-300">
           숙련도 {job.mastery.toLocaleString("ko-KR")}
         </span>
-        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+        <span className="text-xs text-zinc-400 sm:text-[11px] dark:text-zinc-500">
           해금 · {job.condition}
         </span>
       </div>
       <button
         type="button"
         onClick={onSetGoal}
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition ${
+        className={`flex h-11 w-11 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-md border transition ${
           isGoal
             ? "border-amber-400 bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300"
             : "border-zinc-300 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:border-zinc-700 dark:hover:bg-zinc-800"

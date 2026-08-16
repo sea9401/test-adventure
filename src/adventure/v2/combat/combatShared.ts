@@ -494,8 +494,10 @@ export function v2DefBuffMult(
 export function v2DamageAmount(args: {
   attackerAtk: number;
   attackerMagicAtk?: number;
-  // PR-2 — 공격자 최소 데미지(데미지 하한). 미지정=0(하한 1 유지).
+  // PR-2 — 공격자 물리 스킬 최소 데미지. 미지정=0(하한 1 유지).
   attackerMinDamage?: number;
+  // 마법 스킬 최소 데미지. 미지정이면 기존 attackerMinDamage 로 폴백한다.
+  attackerMagicMinDamage?: number;
   scaling?: "physical" | "magic";
   targetDef: number;
   // PR-2 — 마법 방어력. scaling="magic" 일 때 사용, 미지정이면 물리 def 폴백(몹·구호출 보존).
@@ -522,8 +524,14 @@ export function v2DamageAmount(args: {
   // 마법 데미지는 마법 방어력으로 경감(미지정=물리 def 폴백). 물리는 물리 def.
   const defStat = isMagic ? args.targetMagicDef ?? args.targetDef : args.targetDef;
   const effectiveDef = Math.floor(defStat * defMult);
-  // 데미지 하한 = max(1, 공격자 최소 데미지). 저-atk 빌드의 바닥 데미지 보장.
-  const floor = Math.max(1, args.attackerMinDamage ?? 0);
+  // 직접 피해 스킬 하한은 공격 계열별로 선택한다. 마법 하한 미지정 호출은 물리 하한으로
+  // 폴백해 기존 적·테스트·저장 데이터의 동작을 보존한다.
+  const floor = Math.max(
+    1,
+    isMagic
+      ? args.attackerMagicMinDamage ?? args.attackerMinDamage ?? 0
+      : args.attackerMinDamage ?? 0,
+  );
   return Math.max(floor, rawAtk - effectiveDef);
 }
 
@@ -592,7 +600,12 @@ export function pickAutoCastV2Skill(args: {
     if (!def) continue;
     if ((args.cooldowns[id] ?? 0) > 0) continue;
     if (args.mp < v2SkillMpCost(def)) continue;
-    if (def.effects.length === 0 && !def.provokeImmediateBasicAttacks) continue;
+    if (
+      def.effects.length === 0 &&
+      !def.provokeImmediateBasicAttacks &&
+      !def.duelistDeclaration &&
+      !def.ironWallReflect
+    ) continue;
     return id;
   }
   return null;
@@ -674,6 +687,10 @@ export type V2SkillCastResult = {
   enemyDotVulnToApply?: { pct: number; turns: number }; // 침식 — 적 지속/저주 피해 +%(N턴)
   manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
   berserkerTransition: V2BerserkerCastTransition;
+  /** 명중 확정 뒤 전투 엔진이 모두 소비할 충격 수. */
+  fortressImpactToConsume: number;
+  /** 철벽 태세 시전 시 전투 엔진이 갱신할 전용 반사 상태. */
+  ironWallReflectToApply?: NonNullable<V2SkillDefinition["ironWallReflect"]>;
 };
 
 /** 직접 피해뿐 아니라 DoT·약화·제어처럼 상대에게 적중해야 하는 효과가 있는지 판정한다. */
@@ -706,6 +723,7 @@ export function removeMissedV2SkillTargetEffects(
     // hpCostDamage 의 HP는 적중한 피해로 전환되는 자원이다. 빗나감·확정 회피로
     // 대상 효과가 사라지면 교환할 피해도 없으므로 HP 소모 역시 취소한다.
     selfHpCost: 0,
+    fortressImpactToConsume: 0,
     berserkerTransition: {
       ...result.berserkerTransition,
       grantFinisher: false,
@@ -758,13 +776,18 @@ export type V2SkillCastInput = {
     magicAtk?: number;
     // 일검필살 — 단일 일반 물리 damage 효과만 가진 공격 스킬 피해 +%.
     singleHitPhysicalSkillDamagePct?: number;
-    // PR-2 v2 — 최소 데미지(하한)·회복량 배수. 미지정 안전(폴백).
+    // PR-2 v2 — 물리·마법 스킬 최소 데미지(하한)와 회복량 배수. 미지정 안전(폴백).
     minDamage?: number;
+    magicMinDamage?: number;
     healMult?: number;
     maxHp: number;
     // PR2-B 스킬 메커닉 — def/vit 비례 딜(방패가격·나한권), 현재HP(사혈격·기공순환),
     //   maxMp(마나보호막·명상), 차수(전문화 스킬 baseFlatByTier flat 성장). 미지정=안전 폴백.
     def?: number;
+    fortressImpact?: number;
+    ironWallReflectCharges?: number;
+    fortressImpactDamagePctPerStack?: number;
+    fortressDefSkillStatCoefPct?: number;
     str?: number;
     int?: number;
     vit?: number;
@@ -822,6 +845,7 @@ const EMPTY_CAST_RESULT_BASE = {
   enemyDebuffsToApply: [] as V2SkillBuffApply[],
   dotsToApplyToTarget: [] as V2SkillDotApply[],
   selfHpCost: 0,
+  fortressImpactToConsume: 0,
   selfBuffPctToApply: [] as V2SkillPctBuffApply[],
   guaranteedEvadesToAdd: 0,
   manaRestored: 0,
@@ -867,6 +891,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
           "reflectDamage",
           "regen",
           "guaranteedEvade",
+          "duelistDeclaration",
           "berserkerFinisher",
           "berserkerDeathOvercome",
         ] as const
@@ -878,6 +903,13 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
             : a.selfBuffPctActive?.[tg],
       ),
     ),
+    selfResources: {
+      impact: Math.max(0, Math.floor(a.fortressImpact ?? 0)),
+      ironWallReflect: Math.max(
+        0,
+        Math.floor(a.ironWallReflectCharges ?? 0),
+      ),
+    },
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
     enemyBleed: t.bleedStacks ?? 0,
     enemyPoison: t.poisonStacks ?? 0,
@@ -910,6 +942,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     const d = V2_SKILLS[sid as V2SkillId];
     const hasUsefulEffect =
       (d?.provokeImmediateBasicAttacks ?? 0) > 0 ||
+      d?.duelistDeclaration != null ||
+      d?.ironWallReflect != null ||
       d?.effects.some((effect) => {
         if (effect.kind === "enemyDamageDown") {
           return !(input.target.enemyDamageDownActive ?? false);
@@ -1183,7 +1217,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
             specialized *
               (def.monsterOnly
                 ? statCoef
-                : v2SpecializedSkillStatCoef(statCoef, scaling)) *
+                : v2SpecializedSkillStatCoef(statCoef, scaling) *
+                  (scaling === "def"
+                    ? 1 +
+                      (input.attacker.fortressDefSkillStatCoefPct ?? 0) /
+                        100
+                    : 1)) *
               (skillElementMult ?? 1) +
               1e-9,
           );
@@ -1199,6 +1238,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       attackerAtk: attackPower,
       attackerMagicAtk: scale === "magic" ? attackPower : undefined,
       attackerMinDamage: input.attacker.minDamage,
+      attackerMagicMinDamage: input.attacker.magicMinDamage,
       scaling: scale,
       targetDef: targetPhysicalDef,
       targetMagicDef,
@@ -1642,10 +1682,24 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     singleHitPhysicalDamageMult === 1
       ? scaledEnemyDamage
       : Math.floor(scaledEnemyDamage * singleHitPhysicalDamageMult);
+  const fortressImpactToConsume = def.consumesFortressImpact
+    ? Math.max(0, Math.min(3, Math.floor(input.attacker.fortressImpact ?? 0)))
+    : 0;
+  const fortressImpactMult =
+    fortressImpactToConsume > 0
+      ? 1 +
+        (fortressImpactToConsume *
+          (input.attacker.fortressImpactDamagePctPerStack ?? 0)) /
+          100
+      : 1;
+  const fortressBoostedEnemyDamage =
+    fortressImpactMult === 1
+      ? boostedEnemyDamage
+      : Math.floor(boostedEnemyDamage * fortressImpactMult);
   // 공격 피해를 기준으로 하는 흡혈형 회복은 이미 피해 증가 효과의 영향을 받는다.
   // 회복량 증가까지 곱하면 두 번 증폭되므로 healMult와 분리한다.
   const damageBasedHeal = Math.floor(
-    (boostedEnemyDamage * healFromDamagePct) / 100,
+    (fortressBoostedEnemyDamage * healFromDamagePct) / 100,
   );
   const directHealMult = def.oncePerBattle ? 1 : skillMult;
   const patternScaledSelfHeal =
@@ -1675,7 +1729,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         ),
       }
     : undefined;
-  const finalEnemyDamage = applyRitualPower(boostedEnemyDamage);
+  const finalEnemyDamage = applyRitualPower(fortressBoostedEnemyDamage);
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: {
@@ -1718,6 +1772,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     enemyDotVulnToApply,
     manaRestored: manaRestore,
     berserkerTransition,
+    fortressImpactToConsume,
+    ironWallReflectToApply: def.ironWallReflect,
   };
 }
 

@@ -16,7 +16,7 @@ export function ReviewOpPresetSection({
       <p className="mt-1 max-w-2xl text-xs leading-5 text-zinc-600 dark:text-zinc-400">
         레벨과 전투 능력치, 숙련도, 재화, 회복약을 심의용 기준으로
         상향하고 최종 사냥터까지 개방합니다. 농사·벌목·채광·낚시·요리
-        생활 레벨 5종도 모두 Lv.50으로 올립니다. 현재 직업·스킬·퀘스트와
+        생활 레벨 5종도 모두 Lv.100으로 올립니다. 현재 직업·스킬·퀘스트와
         장비는 유지됩니다.
       </p>
       <p className="mt-2 text-[11px] font-medium text-amber-700 dark:text-amber-300">

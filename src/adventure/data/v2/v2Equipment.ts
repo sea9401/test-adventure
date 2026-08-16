@@ -1483,6 +1483,12 @@ export function scaledEquipWeight(item: V2Equipment, rawWeight: number): number 
   return 0;
 }
 
+/** 내부 계산 정밀도는 유지하고 장비 위력은 화면에서 정수로 표시한다. */
+export function equipmentPowerDisplayValue(value: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+}
+
 // 적용 스탯 — 개체 굴림(V2EquipRoll) 있으면 그 값, 없으면 카탈로그(상점 구매·옛 데이터·옵션
 // 없는 아이템). 옵션은 **카탈로그 키로 스코프 + per-key 병합** — 카탈로그에 없는 옵션은
 // (손상/변조 세이브라도) 주입 안 하고, 카탈로그 옵션이 굴림에서 누락돼도 떨어뜨리지 않음.
@@ -1552,20 +1558,21 @@ export function v2EquipStatRows(
 ): V2EquipStatRow[] {
   const eff = effectiveStats(item, roll);
   const out: V2EquipStatRow[] = [];
-  const power = powerWithBonuses(eff.power, enhance, craftQuality);
+  const basePower = equipmentPowerDisplayValue(eff.power);
+  const power = equipmentPowerDisplayValue(
+    powerWithBonuses(eff.power, enhance, craftQuality),
+  );
   if (power) {
     const enhanceBonus = enhance
-      ? Math.round(
-          (powerWithBonuses(eff.power, enhance) - eff.power + Number.EPSILON) *
-            100,
-        ) / 100
+      ? equipmentPowerDisplayValue(powerWithBonuses(eff.power, enhance)) -
+        basePower
       : 0;
     out.push({
       label: v2EquipPowerLabel(item),
       value: `+${power}`,
       ...(enhance && enhance.level > 0
         ? {
-            detail: `기본 +${eff.power} · 강화 +${Math.max(0, enhanceBonus)}`,
+            detail: `기본 +${basePower} · 강화 +${Math.max(0, enhanceBonus)}`,
           }
         : {}),
     });
@@ -1627,7 +1634,9 @@ function compareNumeric(
 ): Record<string, number> {
   const eff = effectiveStats(item, roll);
   const out: Record<string, number> = {
-    [v2EquipPowerLabel(item)]: powerWithBonuses(eff.power, enhance, craftQuality),
+    [v2EquipPowerLabel(item)]: equipmentPowerDisplayValue(
+      powerWithBonuses(eff.power, enhance, craftQuality),
+    ),
   };
   const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) out[OPTION_LABELS[k]] = opts[k] ?? 0;

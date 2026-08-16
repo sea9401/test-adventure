@@ -17,6 +17,8 @@ import type {
 import { useActivityVerification } from "./useActivityVerification";
 import type { AutoGatheringActivity } from "./autoGathering";
 import { useFishingCodexContext } from "./GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
+import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 
 function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
   return value === "woodcutting" || value === "mining" ? value : null;
@@ -44,6 +46,7 @@ function parseNextActionAt(value: unknown): number | null {
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
 export function useFishing(spotId?: FishingSpotId): FishingHandlers {
   const { verification, verifyHuman, readJson } = useActivityVerification("fishing");
+  const { notifySystem } = useSystemToast();
   const fishingCodex = useFishingCodexContext();
   const [dailyCatchCoins, setDailyCatchCoins] =
     useState<FishingDailyCatchCoins | null>(null);
@@ -155,6 +158,9 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
           throw new Error(j?.error === "auto_active" ? "auto_active" : "reel_failed");
         }
         if (!j?.ok) throw new Error("reel_failed");
+        if (j.levelCurveMigrated) {
+          notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+        }
         const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
         if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
         if (j.caught) {
@@ -281,7 +287,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         release();
       }
     },
-    [beginReel, fishingCodex, readJson],
+    [beginReel, fishingCodex, notifySystem, readJson],
   );
 
   return {

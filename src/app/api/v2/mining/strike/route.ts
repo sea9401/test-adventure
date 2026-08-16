@@ -28,7 +28,7 @@ import {
   MINING_SESSION_KEY,
   miningAttemptSucceeds,
   miningMaterialBalances,
-  parseMiningLog,
+  parseMiningLogWithLevelMigration,
   parseMiningSession,
   recordMiningSuccess,
 } from "@/adventure/v2/miningSession";
@@ -72,6 +72,7 @@ import {
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
 import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
+import { miningPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 
 type CharSave = {
   class?: unknown;
@@ -163,11 +164,13 @@ export async function POST(req: Request) {
 
     const node = MINING_NODES[session.nodeId];
     const logRaw = await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {});
-    const currentLog = parseMiningLog(logRaw);
+    const parsedLog = parseMiningLogWithLevelMigration(logRaw);
+    const currentLog = parsedLog.log;
     const progression = miningProgressionView(
       currentLog.successes,
       currentLog.xp,
     );
+    const levelBonuses = miningPost50Bonuses(progression.level);
     const failureRate =
       session.failureRate ??
       miningFailureRate(node.baseFailureRate, progression.level);
@@ -239,6 +242,7 @@ export async function POST(req: Request) {
       node,
       Math.random,
       (aidSpec?.byproductMultiplier ?? 1) * environmentByproductMultiplier,
+      levelBonuses,
     );
     const materialGained =
       MINING_ORE_REWARD +
@@ -343,6 +347,9 @@ export async function POST(req: Request) {
       log,
       blueprintRecipeId: blueprint.recipe?.id ?? null,
       lifeEnvironment: lifeFeatures.environmentEnabled ? lifeEnvironment : null,
+      ...(parsedLog.levelCurveMigrated
+        ? { levelCurveMigrated: true as const }
+        : {}),
       lifeField: {
         newRecordIds: lifeField.newRecordIds,
         foundTrace: lifeField.foundTrace,

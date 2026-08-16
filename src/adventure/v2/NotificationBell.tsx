@@ -279,7 +279,7 @@ export function NotificationBell() {
         }
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="relative rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        className="relative flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 sm:min-h-0 sm:min-w-0 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
       >
         <Bell size={18} weight="duotone" />
         {totalUnread > 0 && (

@@ -68,6 +68,40 @@ describe("방어 기제 로그 라벨", () => {
 });
 
 describe("BattleLogList 표시 기호", () => {
+  it("모바일에서는 일반·compact 보조 정보를 12px 이상으로 표시한다", () => {
+    const entries: BattleLogEntry[] = [
+      { kind: "turn_marker", text: "1턴 · AP 0", turn: "player" },
+      {
+        kind: "player_attack",
+        text: "[치명타] 공격! 220 피해를 입혔다.",
+        turn: "player",
+      },
+      {
+        kind: "hp_bar",
+        text: "",
+        playerHp: 540,
+        playerMaxHp: 600,
+        enemyHp: 380,
+        enemyMaxHp: 600,
+      },
+    ];
+
+    const normalHtml = renderToStaticMarkup(
+      <BattleLogList entries={entries} />,
+    );
+    const compactHtml = renderToStaticMarkup(
+      <BattleLogList entries={entries} compact />,
+    );
+
+    expect(normalHtml).toContain(
+      'data-battle-log-metadata="turn-marker"',
+    );
+    expect(normalHtml).toContain('data-battle-log-metadata="hp-bar"');
+    expect(normalHtml).toContain("text-xs sm:text-[10px]");
+    expect(compactHtml).toContain("text-xs sm:text-[9px]");
+    expect(compactHtml).toContain("text-xs sm:text-[10px]");
+  });
+
   it("치명타 라벨 앞에 별 아이콘을 붙이지 않는다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList
@@ -158,6 +192,59 @@ describe("BattleLogList 행동 묶음", () => {
         { text: "천궁궤적! 300 피해를 입혔다." },
       ],
       effects: [{ text: "[천궁궤적] 받는 피해 +18% (3행동)" }],
+    });
+  });
+
+  it("행동 시작 지속 피해가 있어도 동일 기술의 연타를 한 행동으로 묶는다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "info",
+        text: "[중독] 춘삼이(가) 중독으로 92 피해를 입었다.",
+        turn: "player",
+        effect: "status_damage",
+        t: 800,
+      },
+      {
+        kind: "info",
+        text: "[회피 경감 28.1%] 레히인 피해 -3979",
+        turn: "player",
+        t: 800,
+      },
+      {
+        kind: "info",
+        text: "[받피감] 레히인 피해 -1322",
+        turn: "player",
+        t: 800,
+      },
+      {
+        kind: "player_attack",
+        text: "월식! 1088 피해를 입혔다.",
+        turn: "player",
+        t: 800,
+      },
+      {
+        kind: "player_attack",
+        text: "월식! 0 피해를 입혔다.",
+        turn: "player",
+        t: 800,
+      },
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "action",
+      main: { text: "월식! 1088 피해를 입혔다." },
+      hits: [
+        { text: "월식! 1088 피해를 입혔다." },
+        { text: "월식! 0 피해를 입혔다." },
+      ],
+      effects: [
+        { text: "[중독] 춘삼이(가) 중독으로 92 피해를 입었다." },
+      ],
+      calculations: [
+        { text: "[회피 경감 28.1%] 레히인 피해 -3979" },
+        { text: "[받피감] 레히인 피해 -1322" },
+      ],
     });
   });
 
@@ -371,6 +458,65 @@ describe("BattleLogList 행동 묶음", () => {
       },
     ]);
     expect(items).toHaveLength(1);
+  });
+
+  it("상대의 그림자 도약으로 회피된 내 공격은 내 행동 카드로 분리한다", () => {
+    const items = groupBattleLogActions([
+      {
+        kind: "enemy_attack",
+        text: "그림자 도약! 확정 회피를 준비했다.",
+        turn: "enemy",
+        t: 10,
+      },
+      {
+        kind: "info",
+        text: "[그림자 도약] 춘삼이(가) 다음 공격 1회를 반드시 회피한다.",
+        turn: "enemy",
+        t: 10,
+      },
+      {
+        kind: "info",
+        text: "[회피 강화] 춘삼이(가) 공격을 회피했다.",
+        turn: "player",
+        t: 20,
+      },
+      {
+        kind: "info",
+        text: "[흑월지배] 춘삼의 다음 직접 피해 스킬 치명타 준비.",
+        turn: "enemy",
+        t: 20,
+      },
+      {
+        kind: "enemy_attack",
+        text: "월식! 120 피해를 입혔다.",
+        turn: "enemy",
+        t: 30,
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        kind: "action",
+        main: { kind: "enemy_attack", text: "그림자 도약! 확정 회피를 준비했다." },
+        effects: [
+          { text: "[그림자 도약] 춘삼이(가) 다음 공격 1회를 반드시 회피한다." },
+        ],
+      },
+      {
+        kind: "action",
+        main: {
+          kind: "player_attack",
+          text: "[회피 강화] 춘삼이(가) 공격을 회피했다.",
+        },
+        effects: [
+          { text: "[흑월지배] 춘삼의 다음 직접 피해 스킬 치명타 준비." },
+        ],
+      },
+      {
+        kind: "action",
+        main: { kind: "enemy_attack", text: "월식! 120 피해를 입혔다." },
+      },
+    ]);
   });
 
   it("다음 공격 전에 기록된 방어 계산을 그 공격에 연결한다", () => {

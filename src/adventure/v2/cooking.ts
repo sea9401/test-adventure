@@ -9,17 +9,25 @@ import {
   type FishingCatchItemId,
 } from "./fishingStock";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
+import {
+  LIFE_LEVEL_CAP,
+  LIFE_LEVEL_CURVE_VERSION,
+  extendedLifeLevelForXp,
+  extendedLifeXpThreshold,
+  normalizeLifeXp,
+} from "./lifeLevelProgression";
 
 export const COOKING_SAVE_KEY = "cooking.v1";
-export const COOKING_LEVEL_CAP = 50;
+export const COOKING_LEVEL_CAP = LIFE_LEVEL_CAP;
 export const COOKING_XP_SCALE = 10;
-export const COOKING_DAILY_ORDER_COUNT = 3;
+export const COOKING_DAILY_ORDER_COUNT = 6;
+export const COOKING_STANDING_DELIVERY_DAILY_LIMIT = 20;
 export const COOKING_SURPLUS_BATCH_SIZE = 20;
 export const COOKING_SURPLUS_DAILY_LIMIT = 5;
 export const COOKING_BUFF_MAX_HOURS = 8;
 
 export type CookingQuality = "normal" | "careful" | "masterpiece";
-export type CookingAction = "cook" | "order";
+export type CookingAction = "cook" | "order" | "standing_delivery";
 
 export type CookingRecipe = {
   id: string;
@@ -50,6 +58,7 @@ export type ActiveCookingBuff = {
 
 export type CookingState = {
   version: 1;
+  levelCurveVersion: number;
   xp: number;
   discoveredRecipeIds: string[];
   favoriteRecipeIds: string[];
@@ -62,6 +71,7 @@ export type CookingState = {
   daily: {
     dayKey: string;
     surplusTrades: number;
+    standingDeliveries: number;
     completedOrderIds: string[];
   };
   /** 일반 재료별 절약 진행도. 10,000 = 재료 1개 절약이며 0~9,999만 저장한다. */
@@ -82,6 +92,12 @@ export type CookingOrderReward = {
   bonusXp: number;
   qualityBonusPct: number;
   reputationBonus: number;
+};
+
+export type CookingStandingDeliveryReward = {
+  unitGold: number;
+  totalGold: number;
+  qualityBonusPct: number;
 };
 
 type CookingFoodRareKind = "base" | "rare";
@@ -134,6 +150,7 @@ export const COOKING_RECIPES: readonly CookingRecipe[] = [
   recipe({ id: "corn_tomato_potage", name: "옥수수 토마토 포타주", icon: "🥣", requiredLevel: 10, farmIngredients: { corn: 8, tomato: 8, herb: 3 }, optionalRareItemId: "heirloom_tomato", xp: 30, baseStatPct: { int: 7, vit: 3 }, specialStatPct: { int: 10, vit: 5 }, description: "부드럽게 끓인 채소가 지능과 활력을 보탭니다." }),
   recipe({ id: "strawberry_herb_punch", name: "딸기 허브 펀치", icon: "🍹", requiredLevel: 10, farmIngredients: { strawberry: 8, herb: 5 }, optionalRareItemId: "white_strawberry", xp: 29, baseStatPct: { spi: 7, luk: 3 }, specialStatPct: { spi: 10, luk: 5 }, description: "상큼한 과즙과 허브 향이 정신과 행운을 깨웁니다." }),
   recipe({ id: "herb_omelet", name: "허브 오믈렛", icon: "🍳", requiredLevel: 10, farmIngredients: { egg: 6, tomato: 5, herb: 3 }, xp: 29, baseStatPct: { dex: 7, vit: 3 }, description: "부드러운 달걀과 향긋한 허브로 몸놀림과 활력을 돕습니다." }),
+  recipe({ id: "egg_salad_sandwich", name: "달걀 샐러드 샌드위치", icon: "🥪", requiredLevel: 10, farmIngredients: { egg: 6, wheat: 8, tomato: 4 }, optionalRareItemId: "golden_wheat", xp: 30, baseStatPct: { vit: 7, luk: 3 }, specialStatPct: { vit: 10, luk: 5 }, description: "부드러운 달걀과 신선한 채소를 포갠 든든한 목장식 샌드위치입니다." }),
   recipe({ id: "potato_stew", name: "감자 양파 스튜", icon: "🥘", requiredLevel: 20, farmIngredients: { potato: 12, onion: 6, herb: 4 }, optionalRareItemId: "golden_potato", xp: 52, baseStatPct: { vit: 10 }, specialStatPct: { vit: 13 }, description: "오래 버틸 힘을 주는 고급 스튜입니다." }),
   recipe({ id: "quality_fish_platter", name: "고급 생선 모둠", icon: "🍣", requiredLevel: 20, farmIngredients: { rice: 8, onion: 4 }, fishingIngredients: { catch_quality: 2 }, xp: 56, baseStatPct: { str: 6, dex: 6 }, description: "힘과 민첩을 함께 끌어올립니다." }),
   recipe({ id: "pearl_onion_soup", name: "진주 양파 수프", icon: "🧅", requiredLevel: 20, farmIngredients: { onion: 10, potato: 8, herb: 4 }, optionalRareItemId: "pearl_onion", xp: 54, baseStatPct: { int: 8, spi: 4 }, specialStatPct: { int: 11, spi: 6 }, description: "오래 볶은 양파의 깊은 맛으로 집중력을 높입니다." }),
@@ -141,6 +158,7 @@ export const COOKING_RECIPES: readonly CookingRecipe[] = [
   recipe({ id: "milk_potato_soup", name: "우유 감자 수프", icon: "🥣", requiredLevel: 20, farmIngredients: { milk: 6, potato: 8, onion: 4 }, xp: 54, baseStatPct: { vit: 8, spi: 4 }, description: "우유와 감자를 천천히 끓여 활력과 정신을 따뜻하게 채웁니다." }),
   recipe({ id: "egg_fried_rice", name: "달걀 볶음밥", icon: "🍳", requiredLevel: 20, farmIngredients: { egg: 6, rice: 8, onion: 4 }, xp: 54, baseStatPct: { dex: 8, luk: 4 }, description: "고슬고슬한 쌀과 달걀을 볶아 몸놀림과 행운을 북돋웁니다." }),
   recipe({ id: "milk_rice_porridge", name: "우유 쌀죽", icon: "🥣", requiredLevel: 20, farmIngredients: { milk: 6, rice: 8, herb: 2 }, xp: 52, baseStatPct: { spi: 8, vit: 4 }, description: "우유와 쌀을 부드럽게 끓여 정신과 활력을 차분히 채웁니다." }),
+  recipe({ id: "corn_milk_chowder", name: "옥수수 우유 차우더", icon: "🥣", requiredLevel: 20, farmIngredients: { milk: 6, corn: 8, onion: 4 }, optionalRareItemId: "sweet_corn", xp: 56, baseStatPct: { int: 8, vit: 4 }, specialStatPct: { int: 11, vit: 6 }, description: "달콤한 옥수수와 우유를 진하게 끓여 집중력과 활력을 채웁니다." }),
   recipe({ id: "soybean_rice", name: "검은콩 약선밥", icon: "🍚", requiredLevel: 35, farmIngredients: { rice: 12, soybean: 8, herb: 4 }, optionalRareItemId: "black_soybean", xp: 88, baseStatPct: { spi: 15, vit: 7 }, specialStatPct: { spi: 18, vit: 9 }, description: "정신과 생존력을 함께 높이는 명인 요리입니다." }),
   recipe({ id: "special_seafood_rice", name: "특급 해산물 덮밥", icon: "🍤", requiredLevel: 35, farmIngredients: { rice: 12, onion: 5 }, fishingIngredients: { catch_special: 1 }, xp: 92, baseStatPct: { dex: 15, luk: 7 }, description: "특급 어획물로 속도와 행운을 살립니다." }),
   recipe({ id: "soy_glazed_fish_bowl", name: "간장 생선 덮밥", icon: "🍱", requiredLevel: 35, farmIngredients: { rice: 12, soybean: 8 }, fishingIngredients: { catch_quality: 2 }, optionalRareItemId: "black_soybean", xp: 90, baseStatPct: { str: 15, vit: 7 }, specialStatPct: { str: 18, vit: 9 }, description: "콩으로 빚은 장과 생선을 곁들여 힘과 활력을 채웁니다." }),
@@ -148,10 +166,14 @@ export const COOKING_RECIPES: readonly CookingRecipe[] = [
   recipe({ id: "ranch_cream_gratin", name: "목장 크림 그라탱", icon: "🫕", requiredLevel: 35, farmIngredients: { milk: 8, egg: 6, potato: 8 }, xp: 90, baseStatPct: { int: 15, vit: 7 }, description: "진한 우유와 달걀을 겹겹이 구워 집중력과 생존력을 높입니다." }),
   recipe({ id: "soy_braised_eggs", name: "간장 달걀 조림", icon: "🥚", requiredLevel: 35, farmIngredients: { egg: 8, soybean: 6, herb: 4 }, optionalRareItemId: "black_soybean", xp: 90, baseStatPct: { vit: 15, luk: 7 }, specialStatPct: { vit: 18, luk: 9 }, description: "달걀을 콩 장에 졸여 끈기와 행운을 더하는 든든한 반찬입니다." }),
   recipe({ id: "milk_custard_pudding", name: "우유 커스터드 푸딩", icon: "🍮", requiredLevel: 35, farmIngredients: { milk: 8, egg: 6, sugarcane: 6 }, optionalRareItemId: "crystal_sugarcane", xp: 92, baseStatPct: { int: 15, spi: 7 }, specialStatPct: { int: 18, spi: 9 }, description: "우유와 달걀로 만든 부드러운 푸딩이 집중력과 정신을 가다듬습니다." }),
+  recipe({ id: "strawberry_milk_parfait", name: "딸기 우유 파르페", icon: "🍨", requiredLevel: 35, farmIngredients: { milk: 8, strawberry: 8, sugarcane: 6 }, optionalRareItemId: "white_strawberry", xp: 92, baseStatPct: { luk: 15, spi: 7 }, specialStatPct: { luk: 18, spi: 9 }, description: "차가운 우유 크림과 딸기를 층층이 담아 행운과 정신을 북돋웁니다." }),
   recipe({ id: "flame_corn_stew", name: "불꽃 옥수수 스튜", icon: "🔥", requiredLevel: 50, farmIngredients: { corn: 24, onion: 8, herb: 6 }, optionalRareItemId: "sweet_corn", xp: 130, baseStatPct: { str: 15, vit: 8 }, specialStatPct: { str: 20, vit: 10 }, description: "상위 사냥을 위한 힘 특화 최종 요리입니다." }),
-  recipe({ id: "herb_roasted_pork", name: "허브 돼지고기 구이", icon: "🍖", requiredLevel: 50, farmIngredients: { pork: 8, onion: 8, herb: 6 }, xp: 130, baseStatPct: { str: 15, vit: 8 }, description: "목장에서 출하한 돼지고기를 허브와 함께 구워 힘과 활력을 북돋웁니다." }),
-  recipe({ id: "crispy_pork_cutlet", name: "바삭한 돼지고기 커틀릿", icon: "🍖", requiredLevel: 50, farmIngredients: { pork: 8, wheat: 8, egg: 4, onion: 4 }, optionalRareItemId: "golden_wheat", xp: 138, baseStatPct: { str: 15, dex: 8 }, specialStatPct: { str: 20, dex: 10 }, description: "돼지고기에 고운 빵옷을 입혀 바삭하게 튀긴 힘과 민첩의 요리입니다." }),
-  recipe({ id: "soy_pork_rice_bowl", name: "간장 돼지고기 덮밥", icon: "🍱", requiredLevel: 50, farmIngredients: { pork: 8, rice: 12, soybean: 6, onion: 4 }, optionalRareItemId: "black_soybean", xp: 140, baseStatPct: { vit: 15, str: 8 }, specialStatPct: { vit: 20, str: 10 }, description: "간장 양념 돼지고기를 쌀밥에 얹어 활력과 힘을 든든히 채웁니다." }),
+  recipe({ id: "herb_roasted_pork", name: "허브 돼지고기 구이", icon: "🍖", requiredLevel: 50, farmIngredients: { pork: 8, onion: 8, herb: 6 }, xp: 130, baseStatPct: { str: 20, vit: 10 }, description: "목장에서 출하한 돼지고기를 허브와 함께 구워 힘과 활력을 북돋웁니다." }),
+  recipe({ id: "crispy_pork_cutlet", name: "바삭한 돼지고기 커틀릿", icon: "🍖", requiredLevel: 50, farmIngredients: { pork: 8, wheat: 8, egg: 4, onion: 4 }, optionalRareItemId: "golden_wheat", xp: 138, baseStatPct: { str: 20, dex: 10 }, specialStatPct: { str: 25, dex: 12 }, description: "돼지고기에 고운 빵옷을 입혀 바삭하게 튀긴 힘과 민첩의 요리입니다." }),
+  recipe({ id: "soy_pork_rice_bowl", name: "간장 돼지고기 덮밥", icon: "🍱", requiredLevel: 50, farmIngredients: { pork: 8, rice: 12, soybean: 6, onion: 4 }, optionalRareItemId: "black_soybean", xp: 140, baseStatPct: { vit: 20, str: 10 }, specialStatPct: { vit: 25, str: 12 }, description: "간장 양념 돼지고기를 쌀밥에 얹어 활력과 힘을 든든히 채웁니다." }),
+  recipe({ id: "spicy_pork_stew", name: "매콤한 돼지고기 스튜", icon: "🥘", requiredLevel: 50, farmIngredients: { pork: 8, tomato: 12, onion: 6, herb: 4 }, optionalRareItemId: "heirloom_tomato", xp: 145, baseStatPct: { int: 20, vit: 10 }, specialStatPct: { int: 25, vit: 12 }, description: "오래 비육한 돼지고기를 매콤하게 끓여 지능과 활력을 크게 높입니다." }),
+  recipe({ id: "royal_pork_pie", name: "왕실 돼지고기 파이", icon: "🥧", requiredLevel: 50, farmIngredients: { pork: 8, wheat: 10, egg: 4, onion: 4 }, optionalRareItemId: "golden_wheat", xp: 145, baseStatPct: { luk: 20, dex: 10 }, specialStatPct: { luk: 25, dex: 12 }, description: "진한 돼지고기 소를 황금빛 파이 껍질에 담아 행운과 민첩을 끌어올립니다." }),
+  recipe({ id: "ranch_grand_feast", name: "목장 대만찬", icon: "🍽️", requiredLevel: 50, farmIngredients: { pork: 8, egg: 8, milk: 8, wheat: 8 }, xp: 160, baseStatPct: { str: 10, vit: 10, dex: 10, int: 10, spi: 10, luk: 10 }, description: "돼지고기와 달걀, 우유를 한 상에 차린 목장의 최고급 균형 만찬입니다." }),
   recipe({ id: "golden_gratin", name: "황금 감자 그라탱", icon: "🫕", requiredLevel: 50, farmIngredients: { potato: 20, herb: 8, onion: 8 }, optionalRareItemId: "golden_potato", xp: 130, baseStatPct: { vit: 15, spi: 8 }, specialStatPct: { vit: 20, spi: 10 }, description: "강한 공격을 버티기 위한 활력 요리입니다." }),
   recipe({ id: "ancient_tomato_meal", name: "고대종 토마토 정식", icon: "🍅", requiredLevel: 50, farmIngredients: { tomato: 20, rice: 12, herb: 6 }, optionalRareItemId: "heirloom_tomato", xp: 130, baseStatPct: { dex: 15, luk: 8 }, specialStatPct: { dex: 20, luk: 10 }, description: "정확하고 빠른 전투를 위한 민첩 요리입니다." }),
   recipe({ id: "royal_cacao_tart", name: "왕실 카카오 타르트", icon: "🍫", requiredLevel: 50, farmIngredients: { cacao: 14, sugarcane: 14, wheat: 10 }, optionalRareItemId: "royal_cacao", xp: 130, baseStatPct: { int: 15, luk: 8 }, specialStatPct: { int: 20, luk: 10 }, description: "마법 화력을 끌어올리는 지능 요리입니다." }),
@@ -351,6 +373,33 @@ export function cookingOrderReward(
   };
 }
 
+export function cookingStandingDeliveryReward(
+  recipe: CookingRecipe,
+  quality: CookingQuality,
+  quantity = 1,
+): CookingStandingDeliveryReward {
+  const tier =
+    recipe.requiredLevel >= 50
+      ? 5
+      : recipe.requiredLevel >= 35
+        ? 4
+        : recipe.requiredLevel >= 20
+          ? 3
+          : recipe.requiredLevel >= 10
+            ? 2
+            : 1;
+  const qualityBonusPct =
+    quality === "masterpiece" ? 50 : quality === "careful" ? 20 : 0;
+  const unitGold = Math.floor(
+    tier * 10_000 * (1 + qualityBonusPct / 100),
+  );
+  return {
+    unitGold,
+    totalGold: unitGold * safeInt(quantity),
+    qualityBonusPct,
+  };
+}
+
 export function cookingRecipeMatchesQuery(
   recipe: CookingRecipe,
   rawQuery: string,
@@ -397,6 +446,7 @@ export function cookingDayKey(now = Date.now()): string {
 export function emptyCookingState(now = Date.now()): CookingState {
   return {
     version: 1,
+    levelCurveVersion: LIFE_LEVEL_CURVE_VERSION,
     xp: 0,
     discoveredRecipeIds: [],
     favoriteRecipeIds: [],
@@ -406,13 +456,18 @@ export function emptyCookingState(now = Date.now()): CookingState {
       masterpiecesCooked: 0,
       rareIngredientDishes: 0,
     },
-    daily: { dayKey: cookingDayKey(now), surplusTrades: 0, completedOrderIds: [] },
+    daily: {
+      dayKey: cookingDayKey(now),
+      surplusTrades: 0,
+      standingDeliveries: 0,
+      completedOrderIds: [],
+    },
   };
 }
 
 const safeInt = (value: unknown) => Math.max(0, Math.floor(Number(value) || 0));
 
-export function parseCookingState(raw: unknown, now = Date.now()): CookingState {
+function parseCookingStateFields(raw: unknown, now = Date.now()): CookingState {
   const source = raw && typeof raw === "object" ? raw as Partial<CookingState> : {};
   const known = new Set(COOKING_RECIPES.map((entry) => entry.id));
   const dayKey = cookingDayKey(now);
@@ -427,6 +482,9 @@ export function parseCookingState(raw: unknown, now = Date.now()): CookingState 
   );
   return {
     version: 1,
+    levelCurveVersion: Number.isFinite(Number(source.levelCurveVersion))
+      ? Math.max(1, Math.floor(Number(source.levelCurveVersion)))
+      : 1,
     xp: safeInt(source.xp),
     discoveredRecipeIds: Array.from(new Set(source.discoveredRecipeIds ?? [])).filter((id) => known.has(id)),
     favoriteRecipeIds: Array.from(new Set(source.favoriteRecipeIds ?? [])).filter((id) => known.has(id)),
@@ -439,6 +497,12 @@ export function parseCookingState(raw: unknown, now = Date.now()): CookingState 
     daily: {
       dayKey,
       surplusTrades: sameDay ? Math.min(COOKING_SURPLUS_DAILY_LIMIT, safeInt(source.daily?.surplusTrades)) : 0,
+      standingDeliveries: sameDay
+        ? Math.min(
+            COOKING_STANDING_DELIVERY_DAILY_LIMIT,
+            safeInt(source.daily?.standingDeliveries),
+          )
+        : 0,
       completedOrderIds: sameDay ? Array.from(new Set(source.daily?.completedOrderIds ?? [])).slice(0, COOKING_DAILY_ORDER_COUNT) : [],
     },
     ...(Object.keys(ingredientReductionRemainderBps).length > 0
@@ -447,13 +511,41 @@ export function parseCookingState(raw: unknown, now = Date.now()): CookingState 
   };
 }
 
-export function cookingLevelXpThreshold(level: number): number {
-  const safe = Math.max(1, Math.min(COOKING_LEVEL_CAP, Math.floor(level)));
+export function parseCookingStateWithLevelMigration(
+  raw: unknown,
+  now = Date.now(),
+): { state: CookingState; levelCurveMigrated: boolean } {
+  const state = parseCookingStateFields(raw, now);
+  const normalized = normalizeLifeXp({
+    xp: state.xp,
+    levelCurveVersion: state.levelCurveVersion,
+    legacyThreshold: legacyCookingLevelXpThreshold,
+  });
+  return {
+    state: {
+      ...state,
+      xp: normalized.xp,
+      levelCurveVersion: normalized.levelCurveVersion,
+    },
+    levelCurveMigrated: normalized.migrated,
+  };
+}
+
+export function parseCookingState(raw: unknown, now = Date.now()): CookingState {
+  return parseCookingStateWithLevelMigration(raw, now).state;
+}
+
+function legacyCookingLevelXpThreshold(level: number): number {
+  const safe = Math.max(1, Math.min(50, Math.floor(level) || 1));
   return (safe - 1) * (safe - 1) * COOKING_XP_SCALE;
 }
 
+export function cookingLevelXpThreshold(level: number): number {
+  return extendedLifeXpThreshold(level, legacyCookingLevelXpThreshold);
+}
+
 export function cookingLevelForXp(xp: number): number {
-  return Math.min(COOKING_LEVEL_CAP, Math.floor(Math.sqrt(safeInt(xp) / COOKING_XP_SCALE)) + 1);
+  return extendedLifeLevelForXp(xp, legacyCookingLevelXpThreshold);
 }
 
 export function adjustedCookingXp(recipeLevel: number, currentLevel: number, baseXp: number): number {
@@ -476,8 +568,14 @@ export function cookingOrders(userId: string, state: CookingState): CookingOrder
   const level = cookingLevelForXp(state.xp);
   const pool = COOKING_RECIPES.filter((entry) => entry.requiredLevel <= level);
   const start = pool.length > 0 ? hashText(`${userId}:${state.daily.dayKey}`) % pool.length : 0;
+  const usedRecipeIds = new Set<string>();
   return Array.from({ length: Math.min(COOKING_DAILY_ORDER_COUNT, pool.length) }, (_, index) => {
-    const selected = pool[(start + index * 5) % pool.length];
+    let cursor = (start + index * 5) % pool.length;
+    while (usedRecipeIds.has(pool[cursor].id)) {
+      cursor = (cursor + 1) % pool.length;
+    }
+    const selected = pool[cursor];
+    usedRecipeIds.add(selected.id);
     const tier = selected.requiredLevel >= 50 ? 5 : selected.requiredLevel >= 35 ? 4 : selected.requiredLevel >= 20 ? 3 : selected.requiredLevel >= 10 ? 2 : 1;
     return { id: `${state.daily.dayKey}:${index}`, recipeId: selected.id, rewardGold: tier * 50_000, rewardReputation: tier, bonusXp: selected.xp };
   });

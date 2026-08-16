@@ -34,6 +34,10 @@ import {
   lockGuildResources,
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
+import {
+  lockGuildSettlement,
+  upsertGuildSettlement,
+} from "@/lib/server/v2Settlement";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { kstWeekMondayKey } from "@/lib/kst";
@@ -441,13 +445,9 @@ export async function POST(req: Request) {
     if (weekly.tokens < shopItem.tokenCost) {
       return { status: 409, body: { ok: false as const, error: "insufficient_tokens" } };
     }
-    const recipientUserIds = await guildMemberIds(tx, guildId);
-    if (recipientUserIds.length === 0) {
+    const grant = await lockGuildShopGrant(tx, guildId, shopItem);
+    if (!grant) {
       return { status: 409, body: { ok: false as const, error: "no_recipients" } };
-    }
-    const grants: Array<() => Promise<void>> = [];
-    for (const recipientUserId of recipientUserIds) {
-      grants.push(await lockShopGrant(tx, recipientUserId, shopItem));
     }
     const nextWeekly: GuildTradeWeeklyState = {
       ...weekly,
@@ -457,7 +457,7 @@ export async function POST(req: Request) {
         [shopItem.id]: (weekly.purchases[shopItem.id] ?? 0) + 1,
       },
     };
-    for (const grant of grants) await grant();
+    await grant.apply();
     await saveGuildTradeWeekly(tx, nextWeekly);
     await logGuildActivity(tx, {
       guildId,
@@ -468,7 +468,7 @@ export async function POST(req: Request) {
         quantity: shopItem.output.count,
         tokenCost: shopItem.tokenCost,
         remainingTokens: nextWeekly.tokens,
-        recipientCount: recipientUserIds.length,
+        recipientCount: grant.recipientCount,
       },
     });
     return {
@@ -481,7 +481,7 @@ export async function POST(req: Request) {
           quantity: shopItem.output.count,
           tokenCost: shopItem.tokenCost,
           remainingTokens: nextWeekly.tokens,
-          recipientCount: recipientUserIds.length,
+          recipientCount: grant.recipientCount,
         },
         ...(await tradeView({
           tx,
@@ -497,6 +497,55 @@ export async function POST(req: Request) {
   });
 
   return Response.json(result.body, { status: result.status });
+}
+
+async function lockGuildShopGrant(
+  tx: Tx,
+  guildId: number,
+  item: GuildTradeShopItem,
+): Promise<{ apply: () => Promise<void>; recipientCount?: number } | null> {
+  if (item.target === "members") {
+    const recipientUserIds = await guildMemberIds(tx, guildId);
+    if (recipientUserIds.length === 0) return null;
+    const grants: Array<() => Promise<void>> = [];
+    for (const recipientUserId of recipientUserIds) {
+      grants.push(await lockShopGrant(tx, recipientUserId, item));
+    }
+    return {
+      recipientCount: recipientUserIds.length,
+      async apply() {
+        for (const grant of grants) await grant();
+      },
+    };
+  }
+
+  const output = item.output;
+  if (output.kind === "guild_settlement") {
+    const resources = await lockGuildSettlement(tx, guildId);
+    return {
+      apply: () =>
+        upsertGuildSettlement(tx, guildId, {
+          ...resources,
+          crop: (resources.crop ?? 0) + output.crop,
+          ore: (resources.ore ?? 0) + output.ore,
+        }),
+    };
+  }
+  if (output.kind === "guild_gold") {
+    const resources = await lockGuildResources(tx, guildId);
+    return {
+      apply: () =>
+        upsertGuildResources(tx, guildId, {
+          gold: resources.gold + output.count,
+        }),
+    };
+  }
+  if (output.kind === "guild_fame") {
+    return {
+      apply: () => addGuildFame(tx, guildId, output.count),
+    };
+  }
+  throw new Error(`invalid_guild_trade_shop_target:${item.id}`);
 }
 
 async function lockShopGrant(
@@ -532,19 +581,22 @@ async function lockShopGrant(
         count: current + output.count,
       });
   }
-  const inventory = await lockSaveForUpdate<Record<string, unknown>>(
-    tx,
-    userId,
-    "inventory.v2",
-    {},
-  );
-  const current = Math.max(
-    0,
-    Math.floor(Number(inventory[output.itemKey]) || 0),
-  );
-  return () =>
-    upsertSave(tx, userId, "inventory.v2", {
-      ...inventory,
-      [output.itemKey]: current + output.count,
-    });
+  if (output.kind === "mastery_certificate") {
+    const inventory = await lockSaveForUpdate<Record<string, unknown>>(
+      tx,
+      userId,
+      "inventory.v2",
+      {},
+    );
+    const current = Math.max(
+      0,
+      Math.floor(Number(inventory[output.itemKey]) || 0),
+    );
+    return () =>
+      upsertSave(tx, userId, "inventory.v2", {
+        ...inventory,
+        [output.itemKey]: current + output.count,
+      });
+  }
+  throw new Error(`guild_reward_cannot_grant_to_member:${item.id}`);
 }

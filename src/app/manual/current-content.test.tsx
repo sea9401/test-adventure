@@ -12,10 +12,20 @@ import { PastimesContent } from "./content/pastimes";
 import { PlazaContent } from "./content/plaza";
 import { QuestsContent } from "./content/quests";
 import { SkillsContent } from "./content/skills";
+import { StatsContent } from "./content/stats";
 import { TownContent } from "./content/town";
 import { CompendiumContent } from "./content/compendium";
 
 describe("최신 게임 안내서 내용", () => {
+  it("정신의 마법 공격 보조와 초과 정신 추가 전환을 안내한다", () => {
+    const stats = renderToStaticMarkup(<StatsContent />);
+    const combat = renderToStaticMarkup(<CombatContent />);
+
+    expect(stats).toContain("마법 공격 보조");
+    expect(stats).toContain("지능을 초과한 정신");
+    expect(combat).toContain("마법 공격력은 INT가 주축이고 SPI가 보조");
+  });
+
   it("네 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
     const html = renderToStaticMarkup(<ControlsContent />);
 
@@ -36,7 +46,7 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("일반 알림");
     expect(html).toContain("월간 모험 지원권");
-    expect(html).toContain("14일차");
+    expect(html).toContain("14·21일차");
     expect(html).toContain("지원권 7일");
     expect(html).toContain("빨간");
     expect(html).toContain("프로필 이미지");
@@ -78,6 +88,10 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("공격력 − 방어력");
     expect(html).toContain("최종 HP 피해는");
     expect(html).toContain("최소 데미지");
+    expect(html).toContain("물리 스킬은");
+    expect(html).toContain("STR·VIT");
+    expect(html).toContain("마법 스킬은");
+    expect(html).toContain("INT·SPI");
     expect(html).toContain("전투 시작 방어력");
     expect(html).toContain("가드 등으로 최종 HP 피해가 0이어도 반사가 발생");
     expect(html).toContain("보호막이 공격을 전부 흡수하면 반사와 피격 반격은 발동하지 않습니다");
@@ -127,6 +141,12 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("위험도 5");
     expect(html).toContain("32%");
     expect(html).toContain("전용 낚싯대·릴·낚싯줄");
+    expect(html).toContain("위험 해역 교환");
+    expect(html).toContain("일반 어획물 4개");
+    expect(html).toContain("레비아탄 낚싯대");
+    expect(html).toContain("심해의 지배자");
+    expect(html).toContain("서로 다른 어종을 섞어");
+    expect(html).toContain("거래소에서 거래할 수 있지만 NPC에게 판매할 수는 없습니다");
   });
 
   it("어종 표본의 등록 권리 이전과 어획 기록 보존을 안내한다", () => {
@@ -192,6 +212,10 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(hunting).toContain("연습 모드");
     expect(hunting).toContain("일일 입장 횟수를 소모하지 않고");
+    expect(hunting).toContain("연결된 다음 노드");
+    expect(hunting).toContain("미리보기 후 이동을 확정");
+    expect(hunting).toContain("공용 보급과 폭풍 제단");
+    expect(hunting).toContain("지나온 노드로 돌아갈 수 없습니다");
     expect(hunting).toContain("천공 균열 73~78단계");
     expect(hunting).toContain("같은 6티어 전역 후보 풀");
     expect(hunting).toContain("시그니처 유니크 12종도 전 구간");

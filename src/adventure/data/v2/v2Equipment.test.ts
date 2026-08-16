@@ -953,7 +953,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     });
   });
 
-  it("소수 강화 증가분을 부동소수점 오차 없이 표시한다", () => {
+  it("소수 강화 위력과 증가분은 화면 표시용 정수로 반올림한다", () => {
     const rows = v2EquipStatRows(
       V2_EQUIPMENT.v2_storm_sanctuary_armor,
       {
@@ -966,8 +966,8 @@ describe("v2EquipStatRows (표시 행)", () => {
 
     expect(rows[0]).toEqual({
       label: "회피도",
-      value: "+285.6",
-      detail: "기본 +255 · 강화 +30.6",
+      value: "+286",
+      detail: "기본 +255 · 강화 +31",
     });
   });
 });

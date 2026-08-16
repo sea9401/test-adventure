@@ -2,6 +2,27 @@ import { describe, expect, it } from "vitest";
 import { deriveBuildAlignmentAdvisory } from "./buildAlignment";
 
 describe("deriveBuildAlignmentAdvisory", () => {
+  it("혈성기사처럼 물리 성장 중인 캐릭터는 장비 포함 마법 공격력이 높다는 뜻을 분명히 안내한다", () => {
+    const advisory = deriveBuildAlignmentAdvisory({
+      atk: 100,
+      magicAtk: 500,
+      grown: { str: 60, dex: 40, vit: 30 },
+      jobBonus: { str: 9, vit: 6, spi: 5 },
+    });
+
+    expect(advisory).toMatchObject({
+      focus: "magic",
+      issues: ["growth", "job"],
+    });
+    expect(advisory?.message).toContain(
+      "장비를 포함한 최종 마법 공격력이 물리 공격력보다 높지만",
+    );
+    expect(advisory?.message).toContain(
+      "성장 능력치와 현재 직업 보너스는 물리 공격 쪽에 치우쳐 있습니다",
+    );
+    expect(advisory?.message).toContain("물리 빌드라면 무기·장비를");
+  });
+
   it("마법 공격축에 물리 성장과 직업 보너스가 겹치면 두 문제를 안내한다", () => {
     expect(
       deriveBuildAlignmentAdvisory({

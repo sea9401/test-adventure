@@ -38,7 +38,9 @@ import {
 import {
   COOKING_RECIPE_BY_ID,
   COOKING_RECIPES,
+  COOKING_LEVEL_CAP,
   COOKING_SAVE_KEY,
+  COOKING_STANDING_DELIVERY_DAILY_LIMIT,
   addCookingFood,
   adjustedCookingXp,
   cookingFoodDefinition,
@@ -49,11 +51,13 @@ import {
   cookingOrderReward,
   cookingOrders,
   cookingQuality,
+  cookingStandingDeliveryReward,
   cookingXpReward,
   deliverableCookingFoods,
   emptyCookingState,
   parseCookingFoodInventory,
   parseCookingState,
+  parseCookingStateWithLevelMigration,
   recordCookingActionStats,
   removeCookingFood,
   savedRareCookingIngredientCount,
@@ -61,6 +65,8 @@ import {
   type CookingFoodId,
   type CookingQuality,
 } from "@/adventure/v2/cooking";
+import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { cookingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { consumeFinishedItem, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
@@ -118,7 +124,10 @@ function cookingView(userId: string, now: number, values: {
     ),
     level,
     currentLevelXp: cookingLevelXpThreshold(level),
-    nextLevelXp: level >= 50 ? null : cookingLevelXpThreshold(level + 1),
+    nextLevelXp:
+      level >= COOKING_LEVEL_CAP
+        ? null
+        : cookingLevelXpThreshold(level + 1),
     recipes: COOKING_RECIPES,
     orders: cookingOrders(userId, cooking),
     farmItems: farm.inventory,
@@ -190,13 +199,31 @@ export async function POST(req: Request) {
   } | null;
   const recipeId = typeof body?.recipeId === "string" ? body.recipeId : "";
   const action: CookingAction | null =
-    body?.action === "cook" || body?.action === "order" ? body.action : null;
+    body?.action === "cook" ||
+    body?.action === "order" ||
+    body?.action === "standing_delivery"
+      ? body.action
+      : null;
   const useRare = body?.useRare === true;
   const usePrep = body?.usePrep === true && action === "cook";
   const requestedFoodId =
     typeof body?.foodId === "string" ? body.foodId : null;
+  const rawQuantity = Number(body?.quantity);
+  if (
+    action === "standing_delivery" &&
+    (!Number.isInteger(rawQuantity) ||
+      rawQuantity < 1 ||
+      rawQuantity > COOKING_STANDING_DELIVERY_DAILY_LIMIT)
+  ) {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
   const requestedQuantity = Math.max(1, Math.min(20, Math.floor(Number(body?.quantity) || 1)));
-  const quantity = action === "order" ? 1 : requestedQuantity;
+  const quantity =
+    action === "order"
+      ? 1
+      : action === "standing_delivery"
+        ? rawQuantity
+        : requestedQuantity;
   const recipe = COOKING_RECIPE_BY_ID.get(recipeId);
   if (!recipe || !action) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
@@ -222,10 +249,11 @@ export async function POST(req: Request) {
       let fishing = parseFishingStock(
         await lockSaveForUpdate(tx, userId, FISHING_STOCK_KEY, emptyFishingStock()),
       );
-      let cooking = parseCookingState(
+      const parsedCooking = parseCookingStateWithLevelMigration(
         await lockSaveForUpdate(tx, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
         now,
       );
+      let cooking = parsedCooking.state;
       let workshop = parseLifeWorkshopState(await lockSaveForUpdate(tx, userId, LIFE_WORKSHOP_SAVE_KEY, {}));
       const inventory = await lockSaveForUpdate<InventorySave>(
         tx,
@@ -234,7 +262,10 @@ export async function POST(req: Request) {
         {},
       );
       const level = cookingLevelForXp(cooking.xp);
-      if (level < recipe.requiredLevel) throw new Error("recipe_locked");
+      const levelBonuses = cookingPost50Bonuses(level);
+      if (action !== "standing_delivery" && level < recipe.requiredLevel) {
+        throw new Error("recipe_locked");
+      }
 
       const job = currentCookingJob(character);
       const order = action === "order"
@@ -263,7 +294,8 @@ export async function POST(req: Request) {
               quantity,
               cookingJobTier: job.tier,
               materialReductionPct:
-                cookingSkillBonuses.materialReductionPct,
+                cookingSkillBonuses.materialReductionPct +
+                levelBonuses.materialReductionPct,
               reductionRemainderBps:
                 ingredientReductionRemainderBps[remainderKey],
             });
@@ -283,7 +315,8 @@ export async function POST(req: Request) {
           ? savedRareCookingIngredientCount({
               quantity,
               saveChancePct:
-                cookingSkillBonuses.rareIngredientSaveChancePct,
+                cookingSkillBonuses.rareIngredientSaveChancePct +
+                levelBonuses.rareIngredientSaveChancePct,
             })
           : 0;
         if (usedRare && recipe.optionalRareItemId) {
@@ -298,7 +331,8 @@ export async function POST(req: Request) {
             countPerDish: count ?? 0,
             quantity,
             materialReductionPct:
-              cookingSkillBonuses.materialReductionPct,
+              cookingSkillBonuses.materialReductionPct +
+              levelBonuses.materialReductionPct,
             reductionRemainderBps:
               ingredientReductionRemainderBps[remainderKey],
           });
@@ -321,9 +355,19 @@ export async function POST(req: Request) {
           cookingJobTier: job.tier,
           usedRare,
           carefulBonusPct: cookingSkillBonuses.carefulChancePct,
-          masterpieceBonusPct: cookingSkillBonuses.masterpieceChancePct + (usePrep ? 8 : 0),
+          masterpieceBonusPct:
+            cookingSkillBonuses.masterpieceChancePct +
+            levelBonuses.masterpieceChancePct +
+            (usePrep ? 8 : 0),
         });
       } else {
+        if (
+          action === "standing_delivery" &&
+          cooking.daily.standingDeliveries + quantity >
+            COOKING_STANDING_DELIVERY_DAILY_LIMIT
+        ) {
+          throw new Error("standing_delivery_limit");
+        }
         const requestedFood = requestedFoodId
           ? cookingFoodDefinition(requestedFoodId)
           : deliverableCookingFoods(inventory.cookingFoods, recipe.id)[0]?.food;
@@ -333,7 +377,7 @@ export async function POST(req: Request) {
         const remainingFoods = removeCookingFood(
           inventory.cookingFoods,
           requestedFood.id,
-          1,
+          action === "standing_delivery" ? quantity : 1,
         );
         if (!remainingFoods) throw new Error("cooked_food_unavailable");
         deliveredFoodId = requestedFood.id;
@@ -343,18 +387,31 @@ export async function POST(req: Request) {
       }
 
       const orderReward = order ? cookingOrderReward(order, quality) : null;
+      const standingDeliveryReward =
+        action === "standing_delivery"
+          ? cookingStandingDeliveryReward(recipe, quality, quantity)
+          : null;
       const baseXp = adjustedCookingXp(recipe.requiredLevel, level, recipe.xp);
-      const earnedXp = cookingXpReward({
-        baseXp:
-          action === "order"
-            ? (orderReward?.bonusXp ?? 0)
-            : baseXp * quantity,
-        bonusPct:
-          (job.tier >= 2 ? 10 : 0) + cookingSkillBonuses.xpBonusPct,
+      const earnedXp =
+        action === "standing_delivery"
+          ? 0
+          : cookingXpReward({
+              baseXp:
+                action === "order"
+                  ? (orderReward?.bonusXp ?? 0)
+                  : baseXp * quantity,
+              bonusPct:
+                (job.tier >= 2 ? 10 : 0) +
+                cookingSkillBonuses.xpBonusPct,
+            });
+      const appliedCookingXp = applyLifeXpGain({
+        xp: cooking.xp,
+        gainedXp: earnedXp,
+        legacyThreshold: cookingLevelXpThreshold,
       });
       cooking = {
         ...cooking,
-        xp: cooking.xp + earnedXp,
+        xp: appliedCookingXp.xp,
         ...(action === "cook"
           ? { ingredientReductionRemainderBps }
           : {}),
@@ -372,6 +429,10 @@ export async function POST(req: Request) {
         }),
         daily: {
           ...cooking.daily,
+          standingDeliveries:
+            action === "standing_delivery"
+              ? cooking.daily.standingDeliveries + quantity
+              : cooking.daily.standingDeliveries,
           completedOrderIds: order
             ? [...cooking.daily.completedOrderIds, order.id]
             : cooking.daily.completedOrderIds,
@@ -394,7 +455,8 @@ export async function POST(req: Request) {
         ...character,
         gold:
           Math.max(0, Math.floor(Number(character.gold) || 0)) +
-          (orderReward?.gold ?? 0),
+          (orderReward?.gold ?? 0) +
+          (standingDeliveryReward?.totalGold ?? 0),
       };
       const foodId = action === "cook"
         ? cookingFoodId({
@@ -451,6 +513,7 @@ export async function POST(req: Request) {
       }
 
       return {
+        levelCurveMigrated: parsedCooking.levelCurveMigrated,
         view: cookingView(userId, now, {
           cookingRaw: cooking,
           farmRaw: nextFarm,
@@ -470,6 +533,8 @@ export async function POST(req: Request) {
           savedRareIngredients,
           earnedXp,
           orderRewardGold: orderReward?.gold ?? 0,
+          standingDeliveryRewardGold:
+            standingDeliveryReward?.totalGold ?? 0,
           orderRewardReputation: orderReward?.reputation ?? 0,
           orderQualityBonusPct: orderReward?.qualityBonusPct ?? 0,
           foodId,
@@ -482,7 +547,11 @@ export async function POST(req: Request) {
       };
     });
     if (result.result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.result.blueprintRecipeId });
-    return Response.json({ ...result.view, result: result.result });
+    return Response.json({
+      ...result.view,
+      result: result.result,
+      ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
+    });
   } catch (error) {
     const code = error instanceof Error ? error.message : "cooking_failed";
     const known = new Set([
@@ -491,6 +560,7 @@ export async function POST(req: Request) {
       "not_enough_fishing_items",
       "cooked_food_unavailable",
       "order_unavailable",
+      "standing_delivery_limit",
       "not_enough_prep_sets",
     ]);
     if (known.has(code)) return Response.json({ ok: false, error: code }, { status: 409 });

@@ -23,6 +23,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import {
   effectiveStats,
+  equipmentPowerDisplayValue,
   enhanceGoldCostForEquipment,
   enhancementResetError,
   isUnique,
@@ -538,19 +539,21 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const uniqueMult = item && isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
   const basePower =
     selected && item ? effectiveStats(item, selected.roll).power : 0;
-  const curPower = powerWithBonuses(basePower, selected?.enhance, selected?.craftQuality);
-  const resetPower = powerWithBonuses(
-    basePower,
-    undefined,
-    selected?.craftQuality,
+  const curPower = equipmentPowerDisplayValue(
+    powerWithBonuses(basePower, selected?.enhance, selected?.craftQuality),
   );
-  const nextPower = powerWithBonuses(
-    basePower,
-    {
-      level: level + 1,
-      bonusPct: enhanceBonusPct(level + 1),
-    },
-    selected?.craftQuality,
+  const resetPower = equipmentPowerDisplayValue(
+    powerWithBonuses(basePower, undefined, selected?.craftQuality),
+  );
+  const nextPower = equipmentPowerDisplayValue(
+    powerWithBonuses(
+      basePower,
+      {
+        level: level + 1,
+        bonusPct: enhanceBonusPct(level + 1),
+      },
+      selected?.craftQuality,
+    ),
   );
   const stoneRequired = level >= ENHANCE_STONE_REQUIRED_FROM;
   const outcomeRow = enhanceOutcomeRow(level, stone);
@@ -688,17 +691,21 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const refinePreview =
     selected && item ? stormRefinementPreview(item, selected) : null;
   const refineCurrentPower = refinePreview
-    ? powerWithBonuses(
-        refinePreview.currentPower,
-        selected?.enhance,
-        selected?.craftQuality,
+    ? equipmentPowerDisplayValue(
+        powerWithBonuses(
+          refinePreview.currentPower,
+          selected?.enhance,
+          selected?.craftQuality,
+        ),
       )
     : 0;
   const refinedPower = refinePreview
-    ? powerWithBonuses(
-        refinePreview.refinedPower,
-        selected?.enhance,
-        selected?.craftQuality,
+    ? equipmentPowerDisplayValue(
+        powerWithBonuses(
+          refinePreview.refinedPower,
+          selected?.enhance,
+          selected?.craftQuality,
+        ),
       )
     : 0;
   const stormMaterialShort =

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SpinnerGap, Star, X } from "@phosphor-icons/react";
@@ -28,6 +28,7 @@ import type {
 import {
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
+  guildWorkshopMaterialName,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
   CRAFTED_EQUIP_TAG_SET_IDS,
@@ -96,6 +97,44 @@ const CRAFTED_TAG_SET_ID_SET: ReadonlySet<string> = new Set(
 type MaterialSubstitutionView = NonNullable<
   WorkshopRecipeView["materialSubstitution"]
 >;
+
+function WorkshopMaterialCostText({
+  materialCost,
+  materials,
+  fallbackText,
+}: {
+  materialCost?: Partial<Record<string, number>>;
+  materials: Record<string, number>;
+  fallbackText: string;
+}) {
+  const entries = Object.entries(materialCost ?? {}).flatMap(([id, amount]) => {
+    const required = Math.max(0, Math.floor(Number(amount) || 0));
+    return required > 0 ? [{ id, required }] : [];
+  });
+  if (entries.length === 0) return fallbackText;
+
+  return entries.map(({ id, required }, index) => {
+    const owned = Math.max(0, Math.floor(Number(materials[id]) || 0));
+    const shortage = owned < required;
+    return (
+      <Fragment key={id}>
+        {index > 0 ? " · " : null}
+        <span
+          className={
+            shortage
+              ? "font-semibold text-rose-700 dark:text-rose-300"
+              : undefined
+          }
+        >
+          {guildWorkshopMaterialName(id)} {required.toLocaleString()}
+          {shortage
+            ? ` (필요 ${required.toLocaleString()} · 보유 ${owned.toLocaleString()} · 부족)`
+            : null}
+        </span>
+      </Fragment>
+    );
+  });
+}
 
 function MaterialSubstitutionOption({
   substitution,
@@ -638,7 +677,12 @@ export function WorkshopCraftPanel({
               </button>
             </div>
             <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-              개인 재료: {recipe.costText}
+              개인 재료:{" "}
+              <WorkshopMaterialCostText
+                materialCost={recipe.materialCost}
+                materials={materials}
+                fallbackText={recipe.costText}
+              />
             </div>
             <div
               className={`mt-0.5 ${
@@ -683,7 +727,16 @@ export function WorkshopCraftPanel({
             </div>
             <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               {masterwork
-                ? `개인 재료: ${masterwork.costText}`
+                ? (
+                    <>
+                      개인 재료:{" "}
+                      <WorkshopMaterialCostText
+                        materialCost={masterwork.materialCost}
+                        materials={materials}
+                        fallbackText={masterwork.costText}
+                      />
+                    </>
+                  )
                 : "대장장이 Lv 8 필요"}
             </div>
             {masterwork ? (

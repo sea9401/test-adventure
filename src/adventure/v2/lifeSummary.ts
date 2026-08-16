@@ -45,8 +45,9 @@ import {
   woodcuttingTimeReduction,
 } from "./woodcuttingProgression";
 import { parseWoodcuttingLog } from "./woodcuttingSession";
+import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
 
-export const LIFE_MASTERY_ACTIVITY_LEVEL_CAP = 50;
+export const LIFE_MASTERY_ACTIVITY_LEVEL_CAP = LIFE_LEVEL_CAP;
 export const LIFE_MASTERY_MAX_LEVEL = LIFE_MASTERY_ACTIVITY_LEVEL_CAP * 5;
 
 export type LifeActivityId =
@@ -122,12 +123,23 @@ const LIFE_JOB_MILESTONES = {
   ],
 } as const;
 
+const LIFE_EXTENSION_MILESTONES = [60, 75, 90, 100] as const;
+
+function nextLifeExtensionGoal(level: number): string | null {
+  const nextLevel = LIFE_EXTENSION_MILESTONES.find(
+    (milestoneLevel) => milestoneLevel > level,
+  );
+  return nextLevel ? `다음 숙련 마일스톤 · Lv.${nextLevel}` : null;
+}
+
 function nextLifeJobGoal(
   milestones: readonly { level: number; name: string }[],
   level: number,
 ): string | null {
   const next = milestones.find((milestone) => milestone.level > level);
-  return next ? `${next.name} 생활 레벨 조건 · Lv.${next.level}` : null;
+  return next
+    ? `${next.name} 생활 레벨 조건 · Lv.${next.level}`
+    : nextLifeExtensionGoal(level);
 }
 
 function cappedProgress(args: {
@@ -299,7 +311,10 @@ export function lifeSummaryFromSaves(
         `물고기 크기 +${fishing.levelBonuses.sizeBonusPct}%`,
         `특별 손님 가중치 +${fishing.levelBonuses.specialWeightPct}%`,
       ],
-      nextGoal: nextFishingBonusGoal(fishing.level),
+      nextGoal:
+        fishing.level >= 50
+          ? nextLifeExtensionGoal(fishing.level)
+          : nextFishingBonusGoal(fishing.level),
     },
     {
       id: "cooking",

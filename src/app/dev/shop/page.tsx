@@ -9,7 +9,7 @@ import { GameStateProvider } from "@/adventure/v2/GameStateProvider";
 export default function ShopPreview() {
   return (
     <GameStateProvider>
-      <div className="mx-auto max-w-2xl p-2">
+      <div className="mx-auto w-full min-w-0 max-w-2xl p-2">
         <div className="m-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <strong>DEV</strong> · 상점 — 구매 표 레이아웃/정렬 QA. 헤더(아이템/가격/위력·무게)
           클릭으로 정렬. 골드 0이라 구매 버튼은 비활성.

@@ -88,6 +88,12 @@ import {
   tier6PvpDotContext,
   tier6PvpStatusKindCount,
 } from "./tier6UniquePvpAdapter";
+import {
+  consumeDuelistBasicHit,
+  duelistDeclarationProgress,
+  interruptDuelistRamp,
+  type DuelistBasicHitModifiers,
+} from "./duelistCombat";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
 // 암살/분쇄/방어관통 → ATK 보너스 → 크리 → 베이스뎀 → 처형·크리·행운별·암살 배수 →
@@ -104,6 +110,7 @@ function computeAttackDamagePvP(
   apAtkMult: number,
   apHits: number,
   apIgnoresDef: boolean,
+  duelistModifiers: DuelistBasicHitModifiers,
 ): PvPAttackDamageResult {
   // 암살 (특기) — 전투 첫 공격 시 1회, DEF 무시 + 데미지 배수.
   const assassinFires =
@@ -124,10 +131,17 @@ function computeAttackDamagePvP(
     ? Math.max(0, defender.player.magicDef ?? defender.player.def)
     : attackerFacingDef(attacker, defender, nextBuffsTimedFromAp);
   const afterCrush = computeAfterCrush(baseDef, powerBonus, crushReduction);
-  const targetDef = applyDefIgnore(
+  const afterIgnore = applyDefIgnore(
     afterCrush,
     assassinFires || weakpointDefIgnore || apIgnoresDef,
   );
+  const basicPenetrationPct =
+    (attacker.player.passiveDefPenetrationPct ?? 0) +
+    (attacker.player.basicDefPenetrationPct ?? 0) +
+    duelistModifiers.basicDefPenetrationPct;
+  const targetDef = basicPenetrationPct > 0
+    ? Math.round(afterIgnore * (1 - basicPenetrationPct / 100))
+    : afterIgnore;
 
   // 광전사 (특기) — 잃은 HP 비율만큼 ATK 가산.
   const berserkBonus = computeBerserkBonus(
@@ -182,11 +196,19 @@ function computeAttackDamagePvP(
     balanceCritBonus +
     universalLuckBonus +
     cyclingChiThisTurn +
-    skillCritThisTurn;
+    skillCritThisTurn +
+    duelistModifiers.basicCritChancePct;
   // PR-2 — 피격자(defender)의 치명타 저항(정신)만큼 공격자 크리 확률 차감. PvE 몹은 크리 없어 PvP 한정.
   const effectiveCritPct = Math.max(
     0,
-    Math.min(CRIT_PCT_CAP, rawCritPct) - (defender.player.critResistPct ?? 0),
+    Math.min(
+      Math.max(
+        CRIT_PCT_CAP,
+        attacker.player.basicCritChanceCap ?? CRIT_PCT_CAP,
+        duelistModifiers.basicCritChanceCap,
+      ),
+      rawCritPct,
+    ) - (defender.player.critResistPct ?? 0),
   );
   const critOverflowDmgBonus = computeCritOverflowBonus(rawCritPct);
   // 연쇄 운명 — 큐가 있으면 강제 크리. 큐는 이번 공격에 소비.
@@ -241,7 +263,15 @@ function computeAttackDamagePvP(
       : v2EffectiveAtk;
   const baseDmgSingleHit = damageBetween(atkForDmg, v2EffectiveTargetDef);
   // 광살참 (AP) — 같은 fire 에서 hits 번 반복. apHits=1 이면 그대로.
-  const baseDmg = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
+  const baseDmgBeforeDuelist = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
+  const stanceDmg = (attacker.player.duelistStanceBonusPct ?? 0) > 0
+    ? Math.max(1, Math.floor(baseDmgBeforeDuelist * (1 + attacker.player.duelistStanceBonusPct! / 100)))
+    : baseDmgBeforeDuelist;
+  const declarationDamagePct =
+    duelistModifiers.basicDamagePct + duelistModifiers.rampDamagePct;
+  const baseDmg = declarationDamagePct > 0
+    ? Math.max(1, Math.floor(stanceDmg * (1 + declarationDamagePct / 100)))
+    : stanceDmg;
   // 처형 — defender 의 HP 비율이 임계 미만이면 데미지 ×mult.
   const exMult = attacker.player.executionDamageMult ?? 1;
   const exFraction = attacker.player.executionHpFraction ?? 0;
@@ -254,7 +284,8 @@ function computeAttackDamagePvP(
   const critMult =
     (attacker.player.critMult ?? CRIT_MULT_BASE) +
     focusedBreathCritDmgBonus +
-    critOverflowDmgBonus;
+    critOverflowDmgBonus +
+    duelistModifiers.basicCritMultAdd;
   const dmgAfterCrit = critRoll
     ? Math.floor(dmgAfterExecution * critMult)
     : dmgAfterExecution;
@@ -347,6 +378,7 @@ export function advanceTurnPvP(
     const a = st[atkKey];
     st = setSide(st, atkKey, {
       ...a,
+      duelistBuff: interruptDuelistRamp(a.duelistBuff),
       attacksLeft: rollPvPAttackCount(a, st[defKey]),
       turn: { ...a.turn, firstAttackPending: true },
     });
@@ -384,6 +416,19 @@ export function advanceTurnPvP(
     (attacker.player.powerAttackBonus ?? 0) > 0
       ? attacker.player.powerAttackBonus!
       : 0;
+  const consumedDuelist = attacker.duelistBuff
+    ? consumeDuelistBasicHit(attacker.duelistBuff)
+    : {
+        modifiers: {
+          basicDamagePct: 0,
+          basicCritChancePct: 0,
+          basicDefPenetrationPct: 0,
+          rampDamagePct: 0,
+          basicCritMultAdd: 0,
+          basicCritChanceCap: CRIT_PCT_CAP,
+        },
+        buff: null,
+      };
 
   // AP 스킬 — 그 턴 첫 공격 명중에 슬롯 순서로 최대 3개 발동. 공격형은 최대 1개.
   // AP 스킬은 v2 미장착(equippedAPSkills 항상 빈값) — 발동 경로 제거, no-op 상수로 통과.
@@ -522,6 +567,7 @@ export function advanceTurnPvP(
     apAtkMult,
     apHits,
     apIgnoresDef,
+    consumedDuelist.modifiers,
   );
   const dmg = applyEvasionDamageReduction(
     dmgBeforeEvasion,
@@ -533,6 +579,7 @@ export function advanceTurnPvP(
   if (powerBonus > 0 && crushReduction > 0) labels.push("분쇄");
   if (executionActive) labels.push("처형");
   if (critRoll) labels.push("치명타");
+  if ((attacker.player.duelistStanceBonusPct ?? 0) > 0) labels.push("결투 태세");
   if (luckyStarFires) labels.push("행운의 별");
   if (assassinFires) labels.push("암살");
   if (decreeFires) labels.push("천명");
@@ -719,6 +766,16 @@ export function advanceTurnPvP(
     kind: "player_attack",
     text: `${prefix}공격! ${dmgToHp} 피해를 입혔다.`,
   });
+  if (attacker.duelistBuff) {
+    log = appendLog(log, {
+      kind: "info",
+      text: duelistDeclarationProgress(
+        consumedDuelist.buff,
+        attacker.duelistBuff.declarationName,
+      ),
+      side: atkKey,
+    });
+  }
   if (berserkerSurvival.triggered) {
     log = appendLog(log, {
       kind: "info",
@@ -1005,8 +1062,12 @@ export function advanceTurnPvP(
   // every-N(PvP 미러) — 평타·스킬 공용 실제 적중 N회마다 추가 기본 공격.
   const sigEvery = everyNHitsEffect(attacker.player.equipSignatures);
   const sigEveryN = sigEvery?.hits ?? 0;
+  const signatureBonusAttacksLeft = attacker.stacks.signatureBonusAttacksLeft;
+  const isSignatureBonusAttack =
+    signatureBonusAttacksLeft > 0 &&
+    attacker.attacksLeft <= signatureBonusAttacksLeft;
   const nextSigHitCount =
-    sigEveryN > 0 && sigDealtDamage
+    sigEveryN > 0 && sigDealtDamage && !isSignatureBonusAttack
       ? attacker.stacks.signatureHitCount + 1
       : attacker.stacks.signatureHitCount;
   const sigExtraAttack =
@@ -1167,6 +1228,10 @@ export function advanceTurnPvP(
   // attacksLeft 는 아래 분기에서 setSide 로 명시적으로 덮어쓰므로 여기 안 박음 (연환격 가산은 그 변수에서).
   const newAttacker: PvPSide = {
     ...attacker,
+    duelistBuff: consumedDuelist.buff,
+    duelistCritHastePending:
+      attacker.duelistCritHastePending ||
+      (critRoll && (attacker.player.basicCritHastePct ?? 0) > 0),
     hp: attackerHpAfterMadSlash,
     flags: {
       ...attacker.flags,
@@ -1185,6 +1250,11 @@ export function advanceTurnPvP(
       evadesRemaining: attacker.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointLeft,
       signatureHitCount: nextSigHitCount, // 평타·스킬 공용 every-N 카운터(미장착=불변)
+      signatureBonusAttacksLeft:
+        Math.max(
+          0,
+          signatureBonusAttacksLeft - (isSignatureBonusAttack ? 1 : 0),
+        ) + sigExtraAttack,
     },
     turn: {
       ...attacker.turn,
@@ -1346,6 +1416,9 @@ export function advanceTurnPvP(
     );
     next = martialCounterResult.state;
     if (martialCounterResult.attackerKilled) return next;
+  } else {
+    // 철벽 태세와 충격 방벽은 일반 보호막이 피해를 전부 받아도 적중한 직접 공격에 반응한다.
+    next = applyOnHitReflect(next, atkKey, defKey, totalDmg, false, true).state;
   }
   next = finishPvPBerserkerAttackAction(
     next,

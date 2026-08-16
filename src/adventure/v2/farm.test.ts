@@ -19,6 +19,7 @@ import {
   farmCropMasteryGain,
   farmAvailableReputation,
   farmingLevelForXp,
+  farmingLevelXpThreshold,
   getFarmDeliveryRequests,
   getFarmShopItems,
   getFarmWeeklyDeliveryRequests,
@@ -26,11 +27,31 @@ import {
   harvestPlot,
   nextFarmPlotUpgrade,
   parseFarmState,
+  parseFarmStateWithLevelMigration,
   plantCrop,
   type FarmState,
 } from "./farm";
 
 describe("adventurer farm", () => {
+  it("기존 50레벨 기준을 보존하고 100레벨 곡선으로 확장한다", () => {
+    expect(farmingLevelXpThreshold(50)).toBe(24_010);
+    expect(farmingLevelXpThreshold(100)).toBe(120_050);
+    expect(farmingLevelForXp(farmingLevelXpThreshold(75))).toBe(75);
+  });
+
+  it("구 50레벨 초과 농사 XP를 25%만 한 번 환산한다", () => {
+    const legacy = emptyFarmState(1_000);
+    const parsed = parseFarmStateWithLevelMigration({
+      ...legacy,
+      levelCurveVersion: undefined,
+      stats: { ...legacy.stats, farmingXp: 999_999 },
+    });
+
+    expect(parsed.levelCurveMigrated).toBe(true);
+    expect(parsed.state.levelCurveVersion).toBe(2);
+    expect(parsed.state.stats.farmingXp).toBe(farmingLevelXpThreshold(60));
+  });
+
   it("starts with two farm plots", () => {
     expect(emptyFarmState().plots).toHaveLength(2);
   });

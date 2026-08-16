@@ -367,6 +367,19 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 10, vit: 10 }, // 전사 고차 — 힘·활력 균형
     unlock: { prereqs: { squire: TIER3_UNLOCK_CUMLEVEL } }, // 견습 기사 계보
   },
+  duelist: {
+    id: "duelist",
+    name: "결투가",
+    tier: 3,
+    cultivateProfile: { str: 2, luk: 1, dex: 1 },
+    jobBonus: { str: 8, luk: 7, dex: 5 },
+    unlock: {
+      prereqs: {
+        paladin: TIER3_UNLOCK_CUMLEVEL,
+        assassin: TIER3_UNLOCK_CUMLEVEL,
+      },
+    },
+  },
   brawler: {
     id: "brawler",
     name: "격투가",
@@ -886,6 +899,15 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: { bloodtemplar: TIER4_UNLOCK_CUMLEVEL } },
   },
 
+  contender: {
+    id: "contender",
+    name: "승부사",
+    tier: 4,
+    cultivateProfile: { str: 2, luk: 1, dex: 1 },
+    jobBonus: { str: 10, luk: 8, dex: 6 },
+    unlock: { prereqs: { duelist: TIER4_UNLOCK_CUMLEVEL } },
+  },
+
   // ─── Tier 5: 상급 심화 직업 — 4차 직업 숙련도 TIER5_UNLOCK_CUMLEVEL + 도감 요건으로 여는 장기 목표 ───
   swordmaster: {
     id: "swordmaster",
@@ -894,6 +916,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 3, vit: 1, dex: 1 },
     jobBonus: { str: 18, vit: 8 },
     unlock: { prereqs: { veteran: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  undefeated: {
+    id: "undefeated",
+    name: "무패자",
+    tier: 5,
+    cultivateProfile: { str: 2, luk: 2, dex: 1 },
+    jobBonus: { str: 11, luk: 9, dex: 6 },
+    unlock: { prereqs: { contender: TIER5_UNLOCK_CUMLEVEL } },
   },
   ironknight: {
     id: "ironknight",
@@ -1120,6 +1150,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 3, dex: 2, vit: 1 },
     jobBonus: { str: 28, dex: 8 },
     unlock: { prereqs: { swordmaster: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  grandchampion: {
+    id: "grandchampion",
+    name: "그랜드 챔피언",
+    tier: 6,
+    cultivateProfile: { str: 2, luk: 2, dex: 2 },
+    jobBonus: { str: 16, luk: 14, dex: 10 },
+    unlock: { prereqs: { undefeated: TIER6_UNLOCK_CUMLEVEL } },
   },
   hegemon: {
     id: "hegemon",
@@ -1657,6 +1695,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   venomist: { class: "rogue", spec: "venomist" },
   // tier 3 — 새 spec id(옛 계파 아님, 식별 전용). jobIdFromLegacy 가 (class,spec)→jobId 로 왕복.
   paladin: { class: "warrior", spec: "paladin" },
+  duelist: { class: "warrior", spec: "duelist" },
   brawler: { class: "martial", spec: "brawler" },
   magus: { class: "mage", spec: "magus" },
   shaman: { class: "mage", spec: "shaman" },
@@ -1707,8 +1746,10 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
   crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 방어와 회복 억제의 탱딜
+  contender: { class: "warrior", spec: "contender" },
   // tier 5 — 핵심 5개 상급 심화 직업.
   swordmaster: { class: "warrior", spec: "swordmaster" },
+  undefeated: { class: "warrior", spec: "undefeated" },
   ironknight: { class: "warrior", spec: "ironknight" },
   overlord: { class: "warrior", spec: "overlord" },
   arcanist: { class: "mage", spec: "arcanist" },
@@ -1733,6 +1774,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   // tier 6 — 5차 직업 계승.
   fortressknight: { class: "warrior", spec: "fortressknight" },
   swordsaint: { class: "warrior", spec: "swordsaint" },
+  grandchampion: { class: "warrior", spec: "grandchampion" },
   hegemon: { class: "warrior", spec: "hegemon" },
   archmage: { class: "mage", spec: "archmage" },
   primordialmage: { class: "mage", spec: "primordialmage" },
@@ -1780,4 +1822,29 @@ export function jobIdFromLegacy(cls: string, spec: string | null): string {
     if (m.class === cls && m.spec === normSpec) return jobId;
   }
   return cls; // 폴백 — 기본 직업 id(또는 none)
+}
+
+/**
+ * 수행 프로필을 선택할 수 있는 실제 방문 직업인지 판정한다.
+ * jobHistory 도입 전 저장은 해당 직업 숙련도를 방문 증거로 소급 인정한다.
+ */
+export function isVisitedJob(
+  proficiency: V2ProficiencyState,
+  currentJobId: string | null | undefined,
+  jobId: string,
+): boolean {
+  const job = V2_JOB_CATALOG[jobId];
+  if (!job || !isRootJobSelectable(job)) return false;
+  return (
+    jobId === currentJobId ||
+    (proficiency.jobHistory ?? []).includes(jobId) ||
+    cumLevelForJob(proficiency, job) > 0
+  );
+}
+
+/** 선택 직업의 수행 횟수·숙련도 회계에 사용할 레거시 직군 키. */
+export function cultivationGroupForJob(jobId: string): string | null {
+  if (!V2_JOB_CATALOG[jobId]) return null;
+  if (jobId === "none") return "none";
+  return LEGACY_CLASS_SPEC_BY_JOB[jobId]?.class ?? null;
 }

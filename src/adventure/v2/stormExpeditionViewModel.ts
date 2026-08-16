@@ -12,3 +12,17 @@ export function stormExpeditionEntryActions(attemptsLeft: number) {
     },
   } as const;
 }
+
+export function stormExpeditionStartRequest(mode: StormExpeditionMode, targetNodeId: StormExpeditionMapNodeId) {
+  return { action: "start" as const, mode, targetNodeId };
+}
+
+export function stormExpeditionMoveRequest(
+  targetNodeId: StormExpeditionMapNodeId,
+  expectedCurrentNodeId: StormExpeditionMapNodeId,
+  expectedEncounterIndex: number,
+) {
+  return { action: "move" as const, targetNodeId, expectedCurrentNodeId, expectedEncounterIndex };
+}
+import type { StormExpeditionMode } from "@/adventure/data/v2/stormExpedition";
+import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";

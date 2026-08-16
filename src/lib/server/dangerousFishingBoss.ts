@@ -450,8 +450,19 @@ export async function startBossAttemptInTx(
   },
 ) {
   const state = await store.dangerousStateForUpdate(args.userId);
-  if (state.bossAttempt || state.voyage?.encounter) {
+  if (state.voyage?.encounter) {
     return { ok: false as const, error: "encounter_active" as const };
+  }
+  if (state.bossAttempt) {
+    if (state.bossAttempt.eventId === args.eventId) {
+      return { ok: false as const, error: "encounter_active" as const };
+    }
+    const previousEvent = await store.eventForUpdate(
+      state.bossAttempt.eventId,
+    );
+    if (!eventError(previousEvent, args.now)) {
+      return { ok: false as const, error: "encounter_active" as const };
+    }
   }
   const heritage = await store.heritageForUpdate(args.userId);
   if (!heritage.unlocked) {

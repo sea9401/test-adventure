@@ -199,6 +199,38 @@ describe("mining routes", () => {
     });
   });
 
+  it("자동 정산은 구 초과 XP를 한 번 환산하고 버전을 함께 저장한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    const iron = MINING_MATERIAL_ID.iron;
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-migration",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: iron,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 1,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set(MINING_LOG_KEY, { successes: 999_999, xp: 999_999 });
+    store.set("character.v2", { materials: {} });
+
+    const response = await AUTO(request("auto", { action: "cancel" }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.levelCurveMigrated).toBe(true);
+    expect(store.get(MINING_LOG_KEY)).toMatchObject({
+      levelCurveVersion: 2,
+      xp: 136_693,
+    });
+  });
+
   it("자동 채광 보조품의 추가 광석은 작업 효율로 감산하지 않는다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
     const iron = MINING_MATERIAL_ID.iron;

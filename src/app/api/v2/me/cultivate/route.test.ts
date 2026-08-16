@@ -34,10 +34,14 @@ import { POST } from "./route";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 
 function maxRequest() {
+  return cultivationRequest({ mode: "max" });
+}
+
+function cultivationRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/v2/me/cultivate", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ mode: "max" }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -144,6 +148,111 @@ describe("POST /api/v2/me/cultivate — 특별 수행", () => {
     expect(mocks.store.get("proficiency.v2")).toMatchObject({
       grown: { str: 2, dex: 1, vit: 1 },
       growthRespecPoints: 6,
+    });
+  });
+
+  it("과거 방문한 성채기사의 수행 수치를 현재 직업과 무관하게 적용한다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    mocks.store.set("character.v2", { class: "mage", level: 1 });
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 1_000,
+      jobHistory: ["fortressknight"],
+    });
+
+    const response = await POST(
+      cultivationRequest({ targetJobId: "fortressknight" }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      ok: true,
+      targetJobId: "fortressknight",
+      targetJobName: "성채기사",
+      group: "warrior",
+    });
+    expect(mocks.store.get("proficiency.v2")).toMatchObject({
+      points: 992,
+      caps: { str: 2, vit: 4 },
+      groups: { warrior: { cultivations: 1 } },
+    });
+  });
+
+  it("전직 이력 도입 전 직업 숙련도도 수행 직업 방문 증거로 인정한다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    mocks.store.set("character.v2", { class: "mage", level: 1 });
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 1_000,
+      jobCumLevel: { fortressknight: 1 },
+    });
+
+    const response = await POST(
+      cultivationRequest({ targetJobId: "fortressknight" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      targetJobId: "fortressknight",
+    });
+  });
+
+  it("방문하지 않은 직업의 수행 수치는 거부하고 포인트를 보존한다", async () => {
+    mocks.store.set("character.v2", { class: "mage", level: 1 });
+
+    const response = await POST(
+      cultivationRequest({ targetJobId: "fortressknight" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: "unvisited_job",
+    });
+    expect(mocks.store.get("proficiency.v2")).toMatchObject({ points: 1_000 });
+  });
+
+  it("방문한 생활직은 수행 대상으로 선택할 수 없다", async () => {
+    mocks.store.set("character.v2", { class: "mage", level: 1 });
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 1_000,
+      jobHistory: ["fisher"],
+    });
+
+    const response = await POST(
+      cultivationRequest({ targetJobId: "fisher" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ ok: false, error: "lifestyle_job" });
+    expect(mocks.store.get("proficiency.v2")).toMatchObject({ points: 1_000 });
+  });
+
+  it("현재 생활직이어도 방문한 전투직 수행 수치를 선택할 수 있다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    mocks.store.set("character.v2", {
+      class: "survivor",
+      specChoice: "fisher",
+      level: 1,
+    });
+    mocks.store.set("proficiency.v2", {
+      ...emptyProficiency(),
+      points: 1_000,
+      jobHistory: ["fortressknight", "fisher"],
+    });
+
+    const response = await POST(
+      cultivationRequest({ targetJobId: "fortressknight" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      targetJobId: "fortressknight",
+      group: "warrior",
     });
   });
 

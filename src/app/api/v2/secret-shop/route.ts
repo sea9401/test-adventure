@@ -15,8 +15,8 @@ import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import {
   HUNT_COOLDOWN_MODE,
@@ -194,10 +194,9 @@ export async function POST(req: Request) {
         STAMINA_POTIONS_KEY,
         { count: 0 },
       );
-      staminaPotions = staminaPotionCount(potionSave) + 1;
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: staminaPotions,
-      });
+      const nextPotions = grantStaminaPotions(potionSave, 1, { bound: true });
+      staminaPotions = nextPotions.count;
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
     }
 
     // 충전약 완충 — inventory.v2 (락 순서 character → inventory, dev grant 와 동일).

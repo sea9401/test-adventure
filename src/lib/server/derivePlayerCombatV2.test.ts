@@ -1692,9 +1692,7 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
         signature: {
           trigger: "on_hit",
           label: "뇌침",
-          shockChancePct: 20,
-          shockSlowPct: 25,
-          buffActions: 2,
+          shockChancePct: 10,
         },
       },
       {

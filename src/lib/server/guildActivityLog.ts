@@ -60,6 +60,13 @@ export type GuildActivityMeta = {
   tokenCost?: number; // trade_shop_purchase
   remainingTokens?: number; // trade_shop_purchase
   recipientCount?: number; // trade_shop_purchase
+  facilitySupport?: {
+    buildingId: string;
+    buildingName: string;
+    targetLevel: number;
+    crop: number;
+    ore: number;
+  }; // trade_shop_purchase
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade

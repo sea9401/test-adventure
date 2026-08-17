@@ -28,6 +28,7 @@ import {
   cookingLevelForXp,
   parseCookingState,
 } from "@/adventure/v2/cooking";
+import { readJobSpRebalanceState } from "./jobSpRollout";
 
 export function jobUnlockContextFromSaves(input: {
   farmRaw?: unknown;
@@ -82,6 +83,7 @@ export function jobUnlockContextFromSaves(input: {
 export async function readJobUnlockContext(
   executor: DbExecutor,
   userId: string,
+  now = Date.now(),
 ): Promise<JobUnlockContext> {
   // executor 가 transaction 이면 모든 쿼리가 같은 pg client 를 공유한다. pg client 는
   // 동시 query 를 지원하지 않으므로 조건별 read 를 순서대로 실행한다.
@@ -100,11 +102,15 @@ export async function readJobUnlockContext(
   const miningRaw = CATALOG_USES_MINING_LEVEL_CONDITION
     ? await readSave(executor, userId, MINING_LOG_KEY, {})
     : undefined;
-  return jobUnlockContextFromSaves({
-    farmRaw,
-    cookingRaw,
-    woodcuttingRaw,
-    miningRaw,
-    completedQuestIds,
-  });
+  const jobSpRebalance = await readJobSpRebalanceState(executor, now);
+  return {
+    ...jobUnlockContextFromSaves({
+      farmRaw,
+      cookingRaw,
+      woodcuttingRaw,
+      miningRaw,
+      completedQuestIds,
+    }),
+    jobSpRebalance,
+  };
 }

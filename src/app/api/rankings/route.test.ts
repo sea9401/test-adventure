@@ -314,6 +314,7 @@ describe("개인 랭킹", () => {
           fishing_codex_save: {},
           arena_wins: 0,
           arena_matches: 0,
+          referral_count: 0,
           siege_attempts: 0,
           siege_wins: 0,
           has_guild: false,
@@ -342,6 +343,7 @@ describe("개인 랭킹", () => {
           fishing_codex_save: {},
           arena_wins: 0,
           arena_matches: 0,
+          referral_count: 50,
           siege_attempts: 0,
           siege_wins: 0,
           has_guild: false,
@@ -363,7 +365,7 @@ describe("개인 랭킹", () => {
       "전투업적가",
     ]);
     expect(json.list[0]).toEqual(
-      expect.objectContaining({ achievementScore: 40, achievementCompleted: 1 }),
+      expect.objectContaining({ achievementScore: 90, achievementCompleted: 2 }),
     );
     expect(json.me).toEqual(
       expect.objectContaining({ achievementScore: 20, achievementCompleted: 3 }),

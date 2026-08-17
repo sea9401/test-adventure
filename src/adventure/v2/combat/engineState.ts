@@ -210,6 +210,8 @@ export type BattleStacks = {
   signatureHitCount: number;
   // every_n_hits 로 예약된 추가 기본 공격 잔량. 이 공격은 자기 자신의 다음 주기 적중에는 포함하지 않는다.
   signatureBonusAttacksLeft: number;
+  /** 적에게 걸린 감전 행동 상태. pending 행동을 건너뛴 뒤 immune 동안 재부여를 막는다. */
+  enemyShockAction?: import("./shockAction").ShockActionState;
   /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
   tier6Uniques?: Tier6UniqueRuntimeState;
   // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).

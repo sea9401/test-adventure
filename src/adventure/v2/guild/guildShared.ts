@@ -102,6 +102,7 @@ export type GuildSubTab =
   | "info"
   | "members"
   | "browse"
+  | "raid"
   | "manage"
   | "facilities";
 // 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·길드 연구·길드 설정.

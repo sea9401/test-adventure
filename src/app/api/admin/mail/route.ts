@@ -157,6 +157,7 @@ export async function POST(req: Request) {
     materials,
     items,
     staminaPotions,
+    staminaPotionsBound: true,
     museunCoins,
     cashItems,
     adventureSupportDays,

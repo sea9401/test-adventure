@@ -8,12 +8,29 @@ import {
   guildTradeItem,
   guildTradeShopItem,
   guildTradeTokenReward,
+  type GuildFacilitySupportTarget,
   parseGuildTradeUserState,
   type GuildTradeShopItem,
   type GuildTradeUserState,
 } from "@/adventure/data/v2/guildTrade";
-import { tradePostUpgradeForLevel } from "@/adventure/data/v2/settlement";
-import { STAMINA_POTIONS_KEY, parseStaminaPotions } from "@/adventure/v2/staminaPotions";
+import {
+  PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  SETTLEMENT_BUILDINGS,
+  isSettlementBuildingId,
+  nextSettlementBuildingUpgrade,
+  settlementBuildingLevelOf,
+  tradePostUpgradeForLevel,
+  type SettlementBuildingId,
+  type SettlementResources,
+} from "@/adventure/data/v2/settlement";
+import {
+  applyGuildFacilitySupport,
+  guildFacilitySupportAllocation,
+} from "@/adventure/data/v2/guildFacilitySupport";
+import {
+  grantStaminaPotions,
+  STAMINA_POTIONS_KEY,
+} from "@/adventure/v2/staminaPotions";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
@@ -35,9 +52,13 @@ import {
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
 import {
-  lockGuildSettlement,
-  upsertGuildSettlement,
+  lockGuildSettlementBuilding,
 } from "@/lib/server/v2Settlement";
+import {
+  lockGuildFacilityDonationProgress,
+  readGuildFacilityDonationProgress,
+  setGuildFacilityDonationProgress,
+} from "@/lib/server/guildFacilityUpgradeDonations";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { kstWeekMondayKey } from "@/lib/kst";
@@ -48,6 +69,7 @@ type TradeBody = {
   contractId?: unknown;
   batches?: unknown;
   shopItemId?: unknown;
+  facilityId?: unknown;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -62,6 +84,81 @@ async function tradePostLevel(tx: Tx, guildId: number): Promise<number> {
       Math.max(level, buildingLevelFromSlots(row.buildings, "trade_post")),
     0,
   );
+}
+
+function guildFacilitySupportTarget(args: {
+  buildingId: SettlementBuildingId;
+  currentLevel: number;
+  donated: SettlementResources;
+}): GuildFacilitySupportTarget {
+  const { buildingId, currentLevel, donated } = args;
+  const next = nextSettlementBuildingUpgrade(buildingId, currentLevel);
+  const cropCurrent = Math.max(0, Math.floor(donated.crop ?? 0));
+  const oreCurrent = Math.max(0, Math.floor(donated.ore ?? 0));
+  const cropRequired = Math.max(0, Math.floor(next?.cost.crop ?? 0));
+  const oreRequired = Math.max(0, Math.floor(next?.cost.ore ?? 0));
+  const allocation = next
+    ? guildFacilitySupportAllocation(next.cost, donated)
+    : null;
+  const reason: GuildFacilitySupportTarget["reason"] = !next
+    ? "max_level"
+    : cropRequired + oreRequired <= 0
+      ? "materials_not_required"
+      : allocation == null
+        ? "remaining_below_200"
+        : null;
+
+  return {
+    buildingId,
+    buildingName: SETTLEMENT_BUILDINGS[buildingId].name,
+    currentLevel,
+    targetLevel: next?.level ?? null,
+    eligible: allocation != null,
+    reason,
+    crop: {
+      current: cropCurrent,
+      required: cropRequired,
+      grant: allocation?.crop ?? 0,
+      after: cropCurrent + (allocation?.crop ?? 0),
+    },
+    ore: {
+      current: oreCurrent,
+      required: oreRequired,
+      grant: allocation?.ore ?? 0,
+      after: oreCurrent + (allocation?.ore ?? 0),
+    },
+  };
+}
+
+async function readGuildFacilitySupportTargets(
+  tx: Tx,
+  guildId: number,
+): Promise<GuildFacilitySupportTarget[]> {
+  const [rows, progress] = await Promise.all([
+    tx
+      .select({ buildings: outpostVillages.buildings })
+      .from(outpostVillages)
+      .where(eq(outpostVillages.guildId, guildId)),
+    readGuildFacilityDonationProgress(tx, guildId),
+  ]);
+
+  return PLACEABLE_SETTLEMENT_BUILDING_IDS.flatMap((buildingId) => {
+    const currentLevel = rows.reduce(
+      (level, row) =>
+        Math.max(level, buildingLevelFromSlots(row.buildings, buildingId)),
+      0,
+    );
+    if (currentLevel <= 0) return [];
+    const next = nextSettlementBuildingUpgrade(buildingId, currentLevel);
+    const savedProgress = progress[buildingId];
+    const donated =
+      next && savedProgress?.targetLevel === next.level
+        ? savedProgress.materials
+        : {};
+    return [
+      guildFacilitySupportTarget({ buildingId, currentLevel, donated }),
+    ];
+  });
 }
 
 async function guildMemberIds(
@@ -112,6 +209,7 @@ async function lockTradeUserStateAndMigrateTokens(args: {
 
 async function tradeView(args: {
   tx: Tx;
+  guildId: number;
   userId: string;
   level: number;
   weekly: GuildTradeWeeklyState;
@@ -125,6 +223,10 @@ async function tradeView(args: {
     .map(guildTradeItem)
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
   const balances = await readGuildTradeItemBalances(tx, userId, items, now);
+  const facilitySupportTargets = await readGuildFacilitySupportTargets(
+    tx,
+    args.guildId,
+  );
   const userState = args.userState;
   const reward = guildTradeCompletionReward(
     upgrade.completionRewardBonusPct,
@@ -149,6 +251,7 @@ async function tradeView(args: {
       remaining: personalRemaining,
     },
     tokens: weekly.tokens,
+    facilitySupportTargets,
     contracts: items.map((item) => {
       const progress = Math.min(weekly.target, weekly.progress[item.id] ?? 0);
       const remainingPoints = Math.max(0, weekly.target - progress);
@@ -223,6 +326,7 @@ export async function GET() {
         ok: true as const,
         ...(await tradeView({
           tx,
+          guildId,
           userId,
           level,
           weekly,
@@ -415,6 +519,7 @@ export async function POST(req: Request) {
           guildReward,
           ...(await tradeView({
             tx,
+            guildId,
             userId,
             level,
             weekly: nextWeekly,
@@ -445,9 +550,17 @@ export async function POST(req: Request) {
     if (weekly.tokens < shopItem.tokenCost) {
       return { status: 409, body: { ok: false as const, error: "insufficient_tokens" } };
     }
-    const grant = await lockGuildShopGrant(tx, guildId, shopItem);
-    if (!grant) {
-      return { status: 409, body: { ok: false as const, error: "no_recipients" } };
+    const grant = await lockGuildShopGrant(
+      tx,
+      guildId,
+      shopItem,
+      body.facilityId,
+    );
+    if (!grant.ok) {
+      return {
+        status: grant.status,
+        body: { ok: false as const, error: grant.error },
+      };
     }
     const nextWeekly: GuildTradeWeeklyState = {
       ...weekly,
@@ -469,6 +582,7 @@ export async function POST(req: Request) {
         tokenCost: shopItem.tokenCost,
         remainingTokens: nextWeekly.tokens,
         recipientCount: grant.recipientCount,
+        facilitySupport: grant.facilitySupport,
       },
     });
     return {
@@ -482,9 +596,11 @@ export async function POST(req: Request) {
           tokenCost: shopItem.tokenCost,
           remainingTokens: nextWeekly.tokens,
           recipientCount: grant.recipientCount,
+          facilitySupport: grant.facilitySupport,
         },
         ...(await tradeView({
           tx,
+          guildId,
           userId,
           level,
           weekly: nextWeekly,
@@ -499,19 +615,47 @@ export async function POST(req: Request) {
   return Response.json(result.body, { status: result.status });
 }
 
+type GuildFacilitySupportPurchase = {
+  buildingId: SettlementBuildingId;
+  buildingName: string;
+  targetLevel: number;
+  crop: number;
+  ore: number;
+};
+
+type GuildShopGrantResult =
+  | {
+      ok: true;
+      apply: () => Promise<void>;
+      recipientCount?: number;
+      facilitySupport?: GuildFacilitySupportPurchase;
+    }
+  | {
+      ok: false;
+      status: 400 | 409;
+      error:
+        | "invalid_facility_support_target"
+        | "facility_support_unavailable"
+        | "no_recipients";
+    };
+
 async function lockGuildShopGrant(
   tx: Tx,
   guildId: number,
   item: GuildTradeShopItem,
-): Promise<{ apply: () => Promise<void>; recipientCount?: number } | null> {
+  rawFacilityId: unknown,
+): Promise<GuildShopGrantResult> {
   if (item.target === "members") {
     const recipientUserIds = await guildMemberIds(tx, guildId);
-    if (recipientUserIds.length === 0) return null;
+    if (recipientUserIds.length === 0) {
+      return { ok: false, status: 409, error: "no_recipients" };
+    }
     const grants: Array<() => Promise<void>> = [];
     for (const recipientUserId of recipientUserIds) {
       grants.push(await lockShopGrant(tx, recipientUserId, item));
     }
     return {
+      ok: true,
       recipientCount: recipientUserIds.length,
       async apply() {
         for (const grant of grants) await grant();
@@ -520,20 +664,76 @@ async function lockGuildShopGrant(
   }
 
   const output = item.output;
-  if (output.kind === "guild_settlement") {
-    const resources = await lockGuildSettlement(tx, guildId);
+  if (output.kind === "guild_facility_support") {
+    if (
+      !isSettlementBuildingId(rawFacilityId) ||
+      !PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(rawFacilityId)
+    ) {
+      return {
+        ok: false,
+        status: 400,
+        error: "invalid_facility_support_target",
+      };
+    }
+    const buildingId = rawFacilityId;
+    const location = await lockGuildSettlementBuilding(tx, guildId, buildingId);
+    if (!location) {
+      return {
+        ok: false,
+        status: 409,
+        error: "facility_support_unavailable",
+      };
+    }
+    const building = location.village.buildings[location.slot];
+    const next = nextSettlementBuildingUpgrade(
+      buildingId,
+      settlementBuildingLevelOf(building),
+    );
+    if (!next) {
+      return {
+        ok: false,
+        status: 409,
+        error: "facility_support_unavailable",
+      };
+    }
+    const donated = await lockGuildFacilityDonationProgress(
+      tx,
+      guildId,
+      buildingId,
+      next.level,
+    );
+    const allocation = guildFacilitySupportAllocation(next.cost, donated);
+    if (!allocation) {
+      return {
+        ok: false,
+        status: 409,
+        error: "facility_support_unavailable",
+      };
+    }
+    const nextProgress = applyGuildFacilitySupport(donated, allocation);
     return {
+      ok: true,
       apply: () =>
-        upsertGuildSettlement(tx, guildId, {
-          ...resources,
-          crop: (resources.crop ?? 0) + output.crop,
-          ore: (resources.ore ?? 0) + output.ore,
-        }),
+        setGuildFacilityDonationProgress(
+          tx,
+          guildId,
+          buildingId,
+          next.level,
+          nextProgress,
+        ),
+      facilitySupport: {
+        buildingId,
+        buildingName: SETTLEMENT_BUILDINGS[buildingId].name,
+        targetLevel: next.level,
+        crop: allocation.crop,
+        ore: allocation.ore,
+      },
     };
   }
   if (output.kind === "guild_gold") {
     const resources = await lockGuildResources(tx, guildId);
     return {
+      ok: true,
       apply: () =>
         upsertGuildResources(tx, guildId, {
           gold: resources.gold + output.count,
@@ -542,6 +742,7 @@ async function lockGuildShopGrant(
   }
   if (output.kind === "guild_fame") {
     return {
+      ok: true,
       apply: () => addGuildFame(tx, guildId, output.count),
     };
   }
@@ -575,11 +776,9 @@ async function lockShopGrant(
   }
   if (output.kind === "stamina_potion") {
     const raw = await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, {});
-    const current = parseStaminaPotions(raw).count;
+    const next = grantStaminaPotions(raw, output.count, { bound: true });
     return () =>
-      upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: current + output.count,
-      });
+      upsertSave(tx, userId, STAMINA_POTIONS_KEY, next);
   }
   if (output.kind === "mastery_certificate") {
     const inventory = await lockSaveForUpdate<Record<string, unknown>>(

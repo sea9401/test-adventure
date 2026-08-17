@@ -94,6 +94,13 @@ export async function GET() {
         tokenCost?: number;
         remainingTokens?: number;
         recipientCount?: number;
+        facilitySupport?: {
+          buildingId: string;
+          buildingName: string;
+          targetLevel: number;
+          crop: number;
+          ore: number;
+        };
         smithyLevel?: number;
         buildingName?: string;
         buildingLevel?: number;

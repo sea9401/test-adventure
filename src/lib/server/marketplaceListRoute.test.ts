@@ -107,14 +107,16 @@ describe("거래소 레어맵 등록", () => {
     store.clear();
   });
 
-  it("품목을 하나라도 구매한 비밀상점 지도는 등록하지 않는다", async () => {
+  it.each([
+    ["비밀 상점 지도", "secret_shop_map"],
+    ["개명 신전 지도", "rename_map"],
+  ] as const)("%s는 등록하지 않는다", async (_name, kind) => {
     const map = {
-      iid: "secret-shop-used",
-      kind: "secret_shop_map",
+      iid: `non-tradable-${kind}`,
+      kind,
       depth: 12,
       runsLeft: 1,
       foundAt: Date.now(),
-      bought: ["stone_red"],
     };
     store.set("character.v2", { rareMaps: [map] });
 
@@ -123,10 +125,33 @@ describe("거래소 레어맵 등록", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       ok: false,
-      error: "secret_shop_used",
+      error: "not_tradable",
     });
     expect(store.get("character.v2")).toEqual({ rareMaps: [map] });
     expect(insertValues).toHaveLength(0);
+  });
+
+  it("다른 레어 지도는 기존처럼 등록한다", async () => {
+    const map = {
+      iid: "tradable-worn-map",
+      kind: "worn_map" as const,
+      depth: 12,
+      runsLeft: 3,
+      foundAt: Date.now(),
+    };
+    store.set("character.v2", { rareMaps: [map] });
+
+    const response = await POST(listRareMapRequest(map.iid));
+
+    expect(response.status).toBe(200);
+    expect(store.get("character.v2")).toEqual({ rareMaps: [] });
+    expect(insertValues).toContainEqual(
+      expect.objectContaining({
+        kind: "consumable",
+        itemId: "worn_map",
+        quantity: 1,
+      }),
+    );
   });
 
   it("보유한 어종 표본을 수량만큼 에스크로로 옮긴다", async () => {

@@ -6,7 +6,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveActor } from "@/lib/server/resolveActor";
 import { resolveUgcSource } from "@/lib/server/ugcSafety";
 import {
-  isUgcReportReason,
+  isAllowedUgcReportReason,
   isUgcReportSubject,
   isUgcSourceType,
   normalizeUgcSourceId,
@@ -39,11 +39,17 @@ export async function POST(req: Request) {
   if (!isUgcSourceType(body.sourceType)) {
     return new Response("invalid source type", { status: 400 });
   }
+  if (
+    body.sourceType === "marketplace_trade" &&
+    body.subjectType !== "content"
+  ) {
+    return new Response("invalid subject type", { status: 400 });
+  }
   const sourceId = normalizeUgcSourceId(body.sourceId);
   if (!sourceId) {
     return new Response("invalid source id", { status: 400 });
   }
-  if (!isUgcReportReason(body.reason)) {
+  if (!isAllowedUgcReportReason(body.sourceType, body.reason)) {
     return new Response("invalid reason", { status: 400 });
   }
   const details =
@@ -95,6 +101,15 @@ export async function POST(req: Request) {
       })
       .returning({ id: ugcReports.id });
     after(async () => {
+      const accounts = [
+        { userId: reporterUserId, name: reporter.name },
+        { userId: target.targetUserId, name: target.targetName },
+        ...(target.relatedAccounts ?? []),
+      ].filter(
+        (account, index, all) =>
+          all.findIndex((candidate) => candidate.userId === account.userId) ===
+          index,
+      );
       await sendOpsAlert("[ops] 사용자 콘텐츠 신고 접수", {
         alertType: "ugc.report.created",
         reportId: inserted.id,
@@ -102,10 +117,7 @@ export async function POST(req: Request) {
         reason: body.reason,
         userId: reporterUserId,
         counterpartyUserId: target.targetUserId,
-        accounts: [
-          { userId: reporterUserId, name: reporter.name },
-          { userId: target.targetUserId, name: target.targetName },
-        ],
+        accounts,
       });
     });
     return Response.json({ ok: true, reportId: inserted.id }, { status: 201 });

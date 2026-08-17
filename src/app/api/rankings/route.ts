@@ -449,6 +449,10 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       FROM guild_activity_rollups
       WHERE period_key = 'lifetime'
       GROUP BY user_id
+    ), referrals AS (
+      SELECT referrer_user_id AS user_id, COUNT(*)::bigint AS referral_count
+      FROM referral_conversions
+      GROUP BY referrer_user_id
     )
     SELECT
       u.id AS user_id,
@@ -473,6 +477,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       fishing_codex.value AS fishing_codex_save,
       COALESCE(pvp.wins, 0)::bigint AS arena_wins,
       COALESCE(pvp.matches, 0)::bigint AS arena_matches,
+      COALESCE(referrals.referral_count, 0)::bigint AS referral_count,
       (COALESCE(guild_activity.dining_meals, 0) + COALESCE(guild_activity_archived.dining_meals, 0))::bigint AS guild_dining_meals,
       (COALESCE(guild_activity.training_drills, 0) + COALESCE(guild_activity_archived.training_drills, 0))::bigint AS guild_training_drills,
       (COALESCE(guild_activity.expeditions, 0) + COALESCE(guild_activity_archived.expeditions, 0))::bigint AS guild_expeditions,
@@ -507,6 +512,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
     LEFT JOIN pvp ON pvp.user_id = u.id
+    LEFT JOIN referrals ON referrals.user_id = u.id
     LEFT JOIN guild_activity ON guild_activity.user_id = u.id
     LEFT JOIN guild_activity_archived ON guild_activity_archived.user_id = u.id
     WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
@@ -521,6 +527,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     fishing_save: unknown; equipment_codex_save: unknown; tower_save: unknown;
     cooking_save: unknown; life_workshop_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
     arena_wins: number | string; arena_matches: number | string;
+    referral_count: number | string;
     guild_dining_meals: number | string;
     guild_training_drills: number | string;
     guild_expeditions: number | string;
@@ -559,6 +566,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
           hasTraded: r.has_traded,
           arenaPlayed: Number(r.arena_matches) > 0,
           arenaWins: Number(r.arena_wins),
+          referralCount: Number(r.referral_count ?? 0),
           fishSpecies: Object.keys(fishCodex.fish).length,
           fishCaught,
           arenaTimes: [],

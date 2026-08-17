@@ -249,28 +249,79 @@ export function rollOnHitShock(
   signatures: SignatureEffect[] | undefined,
   dealtDamage: boolean,
   roll: () => number = Math.random,
-): { mult: number; turns: number; label: string } | null {
+): { label: string } | null {
   if (!dealtDamage || !signatures) return null;
-  let best: { mult: number; turns: number } | null = null;
   const labels: string[] = [];
   for (const s of signatures) {
-    if (s.trigger !== "on_hit" || !s.shockChancePct || !s.shockSlowPct) continue;
+    if (s.trigger !== "on_hit" || !s.shockChancePct) continue;
     if (roll() * 100 >= s.shockChancePct) continue;
-    const mult = Math.max(0.1, 1 - s.shockSlowPct / 100);
-    const turns = Math.max(1, s.buffActions ?? 1);
     labels.push(s.label);
-    if (!best || mult < best.mult) best = { mult, turns };
   }
-  if (!best) return null;
-  return { ...best, label: labels.join(" + ") };
+  if (labels.length === 0) return null;
+  return { label: labels.join(" + ") };
 }
 
-export function formatShockSlowLog(
+export type OffensiveSignatureTriggers = {
+  critSpeed: ReturnType<typeof onCritSpeedBuff>;
+  critPoison: boolean;
+  hitPoison: ReturnType<typeof rollOnHitPoison>;
+  hitBleed: ReturnType<typeof rollOnHitBleed>;
+  critChill: ReturnType<typeof onCritEnemyChill>;
+  critDefDebuff: ReturnType<typeof onCritEnemyDefDebuff>;
+  hitShock: ReturnType<typeof rollOnHitShock>;
+};
+
+/** 한 번의 실제 피해 공격에서 발동할 적중·치명타 장비 시그니처를 함께 판정한다. */
+export function resolveOffensiveSignatureTriggers(
+  signatures: SignatureEffect[] | undefined,
+  input: {
+    critical: boolean;
+    dealtDamage: boolean;
+    allowShock: boolean;
+  },
+  roll: () => number = Math.random,
+): OffensiveSignatureTriggers {
+  const critSpeed = onCritSpeedBuff(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const critPoison = firesOnCritPoison(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const hitPoison = rollOnHitPoison(signatures, input.dealtDamage, roll);
+  const hitBleed = rollOnHitBleed(signatures, input.dealtDamage, roll);
+  const critChill = onCritEnemyChill(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const critDefDebuff = onCritEnemyDefDebuff(
+    signatures,
+    input.critical,
+    input.dealtDamage,
+  );
+  const hitShock = input.allowShock
+    ? rollOnHitShock(signatures, input.dealtDamage, roll)
+    : null;
+  return {
+    critSpeed,
+    critPoison,
+    hitPoison,
+    hitBleed,
+    critChill,
+    critDefDebuff,
+    hitShock,
+  };
+}
+
+export function formatShockAppliedLog(
   targetName: string,
-  shock: { mult: number; turns: number; label: string },
+  shock: { label: string },
 ): string {
-  const slowPct = Math.max(0, Math.round((1 - shock.mult) * 100));
-  return `[${shock.label}] ${targetName}이(가) 감전되어 움직임이 끊긴다. (속도 ${slowPct}% 감소, ${shock.turns}행동)`;
+  return `[${shock.label}] ${targetName}의 다음 행동이 감전으로 끊긴다.`;
 }
 
 // on_action_evasion 회복 — 행동마다 현재 상대 기준 회피 경감률의 절반 확률로

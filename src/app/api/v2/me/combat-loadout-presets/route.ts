@@ -225,6 +225,7 @@ export async function POST(req: Request) {
       proficiencyRaw,
       (await readCodexSpBonus(tx, userId)).total,
       await readJobUnlockContext(tx, userId),
+      "strict",
     );
     const finalSkillSet = new Set(sanitized.equipped);
     const excludedSkillIds = [

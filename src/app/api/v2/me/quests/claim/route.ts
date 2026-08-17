@@ -24,8 +24,8 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { backfillClaimedQuestTitleRewardsInTx } from "@/lib/server/questTitleBackfill";
@@ -204,13 +204,19 @@ export async function POST(req: Request) {
     // 스태미나 회복약(stamina-potions.v1) — 항상 마지막 잠금(leaf). 번들 보상과 동일 소비템.
     let grantedPotions = 0;
     if (def.reward.staminaPotions && def.reward.staminaPotions > 0) {
-      const count = staminaPotionCount(
-        await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+      const current = await lockSaveForUpdate(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0 },
       );
       grantedPotions = def.reward.staminaPotions;
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: count + grantedPotions,
-      });
+      await upsertSave(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        grantStaminaPotions(current, grantedPotions),
+      );
     }
 
     claimed.add(def.id);

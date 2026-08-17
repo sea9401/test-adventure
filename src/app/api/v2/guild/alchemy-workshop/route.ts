@@ -26,6 +26,7 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
@@ -252,9 +253,13 @@ export async function POST(req: Request) {
       FARM_SAVE_KEY,
       emptyFarmState(now.getTime()),
     );
-    const staminaPotions = staminaPotionCount(
-      await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+    const staminaPotionSave = await lockSaveForUpdate(
+      tx,
+      userId,
+      STAMINA_POTIONS_KEY,
+      { count: 0 },
     );
+    const staminaPotions = staminaPotionCount(staminaPotionSave);
     const inventory = await lockSaveForUpdate<InventorySave>(
       tx,
       userId,
@@ -356,6 +361,10 @@ export async function POST(req: Request) {
         ? (recipe.staminaPotionAmount ?? 0) * quantity
         : 0;
     const nextStaminaPotions = staminaPotions + staminaPotionsGranted;
+    const nextStaminaPotionSave = grantStaminaPotions(
+      staminaPotionSave,
+      staminaPotionsGranted,
+    );
     const materialId = recipe.output === "material" ? recipe.outputMaterialId : undefined;
     const materialGranted =
       materialId == null ? 0 : (recipe.outputMaterialAmount ?? 0) * quantity;
@@ -378,9 +387,7 @@ export async function POST(req: Request) {
     }
     await upsertSave(tx, userId, "inventory.v2", nextInventory);
     if (staminaPotionsGranted > 0) {
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: nextStaminaPotions,
-      });
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextStaminaPotionSave);
     }
     if (!association) {
       await logGuildActivity(tx, {

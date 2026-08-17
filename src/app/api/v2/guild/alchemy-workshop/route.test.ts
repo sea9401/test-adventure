@@ -152,7 +152,7 @@ describe("길드 연금 공방", () => {
       expect.anything(),
       "u-alchemist",
       "stamina-potions.v1",
-      { count: 3 },
+      { count: 3, boundCount: 0 },
     );
   });
 

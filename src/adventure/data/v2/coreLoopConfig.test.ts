@@ -241,7 +241,7 @@ describe("calcSpBudget — 스킬포인트 예산 (직업 해금 수집)", () =>
     expect(calcSpBudget({ warrior: { cumLevel: 100_000 } })).toBe(40);
   });
 
-  it("해금 직업 수집 보너스는 직업 하나당 SP +1", () => {
+  it("환산된 해금 직업 SP를 예산에 그대로 더한다", () => {
     expect(calcSpBudget({}, 0, 0, 4)).toBe(44);
     expect(calcSpBudget({ a: { cumLevel: 100_000, tier: 4 } }, 0, 0, 76)).toBe(
       116,

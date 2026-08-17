@@ -111,6 +111,8 @@ export type InboxPayload =
       materials: GuildQuestRewardMaterial[];
       items: GuildQuestRewardItem[];
       staminaPotions: number;
+      /** 관리자 지급분만 귀속 처리한다. 누락된 레거시·이벤트 보상은 비귀속으로 유지. */
+      staminaPotionsBound?: boolean;
       museunCoins: number;
       cashItems: AdminGiftCashItem[];
       /** 수령 시점부터 시작되는 월간 모험 지원권 기간. 활성 중이면 남은 기간 뒤에 이어 붙임. */
@@ -278,6 +280,7 @@ export function parseInboxPayload(
       const materials = parseRewardMaterials(p.materials);
       const items = parseRewardItems(p.items);
       const staminaPotions = asNonNegInt(p.staminaPotions) ?? 0;
+      const staminaPotionsBound = p.staminaPotionsBound === true;
       const museunCoins = asNonNegInt(p.museunCoins) ?? 0;
       const cashItems = parseRewardCashItems(p.cashItems);
       const adventureSupportDays = asNonNegInt(p.adventureSupportDays) ?? 0;
@@ -288,6 +291,7 @@ export function parseInboxPayload(
         materials,
         items,
         staminaPotions,
+        ...(staminaPotionsBound ? { staminaPotionsBound: true } : {}),
         museunCoins,
         cashItems,
         adventureSupportDays,

@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { V2DungeonFloorView } from "./V2DungeonFloorView";
+import {
+  RareMapProgressNotice,
+  V2DungeonFloorView,
+} from "./V2DungeonFloorView";
+import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
 
 vi.mock("@/adventure/storyFlags/useStoryFlags", () => ({
   useStoryFlags: () => ({
@@ -28,5 +32,23 @@ describe("희귀 탐사 일반 사냥터 복귀", () => {
 
     expect(html).toContain("희귀 탐사 진행 중");
     expect(html).toContain("일반 사냥터로");
+  });
+
+  it("진행 안내에 남은 판수와 만료 시간을 함께 표시한다", () => {
+    const map = {
+      ...newRareMapInstance("worn_map", 10, 1_000, "rare-map-1"),
+      runsLeft: 4,
+    };
+    const html = renderToStaticMarkup(
+      <RareMapProgressNotice
+        map={map}
+        serverNow={map.foundAt}
+        onReturnToNormalHunt={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("희귀 탐사 진행 중 — 남은 4판");
+    expect(html).toContain("30분 동안 개방");
+    expect(html).toContain("남은 시간 30:00");
   });
 });

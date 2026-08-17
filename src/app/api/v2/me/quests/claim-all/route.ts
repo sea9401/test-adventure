@@ -25,8 +25,8 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
@@ -219,12 +219,18 @@ export async function POST(req: Request) {
       0,
     );
     if (staminaPotions > 0) {
-      const count = staminaPotionCount(
-        await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+      const current = await lockSaveForUpdate(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0 },
       );
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: count + staminaPotions,
-      });
+      await upsertSave(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        grantStaminaPotions(current, staminaPotions),
+      );
     }
 
     for (const quest of claimable) claimed.add(quest.id);

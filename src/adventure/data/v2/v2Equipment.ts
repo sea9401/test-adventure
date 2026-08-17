@@ -476,10 +476,8 @@ export type SignatureEffect = {
   bleedChancePct?: number;
   /** on_hit: 공격 적중 시 부여하는 출혈 스택 수. 기본 1. */
   bleedStacks?: number;
-  /** on_hit: 공격 적중 시 대상에게 감전(둔화)을 부여할 확률. */
+  /** on_hit: 공격 적중 시 대상의 다음 행동 1회를 막는 감전을 부여할 확률. */
   shockChancePct?: number;
-  /** on_hit: 감전 발동 시 적 속도 −% (buffActions 행동). */
-  shockSlowPct?: number;
   /** on_crit: 치명타 시 적 DEF −% (buffActions 행동). */
   enemyDefDebuffPct?: number;
   /** on_hit_taken: 받은 HP 피해의 이 % 만큼 DEF 보너스 누적(전투 중, 상한=기본 DEF). */
@@ -526,7 +524,7 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.bleedChancePct)
         return `공격 적중 시 ${sig.bleedChancePct}% 확률로 출혈 ${sig.bleedStacks ?? 1}스택`;
       if (sig.shockChancePct)
-        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 속도 −${sig.shockSlowPct ?? 0}% (${sig.buffActions ?? 1}행동)`;
+        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 다음 행동 1회 불가`;
       return "공격 적중 시 발동";
     case "on_hit_taken":
       return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
@@ -1288,9 +1286,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
         signature: {
           trigger: "on_hit",
           label: "전도 낙뢰",
-          shockChancePct: 20,
-          shockSlowPct: 25,
-          buffActions: 2,
+          shockChancePct: 10,
         },
       },
       {

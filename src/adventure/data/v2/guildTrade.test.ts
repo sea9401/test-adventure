@@ -97,6 +97,21 @@ describe("guildTrade", () => {
       "sunstone",
     ]);
     expect(associationTradeShopItem("settlement_supplies")).toBeNull();
+
+    const support = GUILD_TRADE_SHOP_ITEMS.find(
+      (item) => item.id === "settlement_supplies",
+    );
+    expect(support).toMatchObject({
+      id: "settlement_supplies",
+      name: "길드 시설 지원 물자",
+      tokenCost: 120,
+      weeklyLimit: 3,
+      minFacilityLevel: 1,
+      target: "guild",
+      output: { kind: "guild_facility_support", count: 200 },
+    });
+    expect(support?.description).toContain("통나무·철광석");
+    expect(support?.description).toContain("총 200개");
   });
 
   it("같은 길드에서는 증표를 보존하되 주차가 바뀌면 주간 기록만 초기화한다", () => {

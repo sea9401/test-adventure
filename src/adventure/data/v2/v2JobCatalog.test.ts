@@ -176,11 +176,48 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("jobUnlockSpBonus", () => {
-  it("실제 해금 직업(tier>0) 하나당 SP +1로 센다", () => {
+  it("50개 이하의 실제 해금 직업은 하나당 SP +1로 센다", () => {
     expect(jobUnlockSpBonus(emptyProficiency())).toBe(4);
     expect(jobUnlockSpBonus(profWith({ warrior: TIER2_UNLOCK_CUMLEVEL }))).toBe(
       6,
     );
+  });
+
+  it("현재 122개 직업을 모두 해금하면 51개째부터 두 직업당 SP +1을 준다", () => {
+    const proficiency = emptyProficiency();
+    const completedQuestIds = new Set<string>();
+    const killCounts: Record<string, number> = {};
+    for (const job of V2_JOB_LIST) {
+      proficiency.groups[job.id] = {
+        cultivations: 0,
+        tier: 1,
+        cumLevel: 1_000_000,
+      };
+      proficiency.jobCumLevel ??= {};
+      proficiency.jobCumLevel[job.id] = 1_000_000;
+      for (const condition of job.unlock.extraConditions ?? []) {
+        if (condition.type === "questCompleted") {
+          completedQuestIds.add(condition.questId);
+        }
+        if (condition.type === "monsterKilled") {
+          killCounts[condition.monsterId] = condition.minCount;
+        }
+        if (condition.type === "statThreshold") {
+          proficiency.caps[condition.stat] = condition.min;
+        }
+      }
+    }
+
+    expect(
+      jobUnlockSpBonus(proficiency, {
+        completedQuestIds,
+        killCounts,
+        farmingLevel: 1_000,
+        cookingLevel: 1_000,
+        woodcuttingLevel: 1_000,
+        miningLevel: 1_000,
+      }),
+    ).toBe(86);
   });
 });
 

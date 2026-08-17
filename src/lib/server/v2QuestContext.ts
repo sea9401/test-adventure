@@ -44,6 +44,7 @@ import {
   marketplaceListingsV2,
   marketplaceUserTradeTotals,
   pvpRatings,
+  referralConversions,
 } from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import { parseArenaHistory } from "@/lib/server/arena";
@@ -115,6 +116,7 @@ export type QuestExtras = {
   hasTraded: boolean;
   arenaPlayed: boolean;
   arenaWins: number;
+  referralCount: number;
   guildDiningMeals: number;
   guildTrainingDrills: number;
   guildExpeditions: number;
@@ -291,6 +293,7 @@ export function buildQuestCtx(args: {
     hasTraded: args.extras.hasTraded,
     arenaPlayed: args.extras.arenaPlayed,
     arenaWins: args.extras.arenaWins,
+    referralCount: args.extras.referralCount,
     gold,
     outpostsDiscovered,
     titleCount,
@@ -397,6 +400,10 @@ export async function assembleQuestExtras(
       ),
     )
     .limit(1);
+  const referralAgg = await ex
+    .select({ count: sql<number>`count(*)::bigint` })
+    .from(referralConversions)
+    .where(eq(referralConversions.referrerUserId, userId));
   const arenaRaw = await readSave(ex, userId, ARENA_HISTORY_KEY, {});
   const arenaAgg = await ex
     .select({
@@ -446,6 +453,7 @@ export async function assembleQuestExtras(
       lifetimeArenaWins,
       arenaHistory.filter((e) => e.outcome === "win").length,
     ),
+    referralCount: Number(referralAgg[0]?.count ?? 0),
     guildDiningMeals:
       Number(guildActivityAgg[0]?.diningMeals ?? 0) +
       Number(archivedGuildActivityAgg[0]?.diningMeals ?? 0),

@@ -10,6 +10,7 @@ import {
   advanceTurnPvP,
   applyEvasionActionRecoveryPvP,
   castV2SkillOnAttackerTurnPvP,
+  decrementTimedEffects,
   endAttackerPhase,
   initialBattleStatePvP,
   rollPvPAttackCount,
@@ -23,6 +24,8 @@ import {
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
+import { tickV2BuffMap } from "./combatShared";
+import { enterShockAction } from "./shockAction";
 import {
   pickPvpInitiative,
   type PvPInitiativeActor,
@@ -268,65 +271,106 @@ export function resolveBattlePvPAtb(
       turns += 1;
       break;
     }
-    state = withAtbPlayers(applyEvasionActionRecoveryPvP(state, who));
-
-    // v2 스킬 시전(V2_ATB_SKILLS) — 스킬이 발동하면 이번 행동을 소진해 평타를 대체한다.
-    // 다단 적중 시그니처로 생긴 추가 기본 공격만 같은 번들에서 평타로 이어진다. PvP 의 v2 buff tick 은
-    // castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음.
-    let castSelfHastePct = 0; // 바람 — who 의 다음 행동 틱 가속(아래 틱 증가에서 반영).
-    let castFired = false;
-    if (V2_ATB_SKILLS) {
-      const castLogLen = state.log.length;
-      const cast = castV2SkillOnAttackerTurnPvP(state, who);
-      state = withAtbPlayers(cast.state);
-      state = tagNewLogEntries(state, castLogLen, who, nextTick);
-      castFired = cast.castFired;
-      castSelfHastePct = cast.selfHastePct;
-      if (cast.enemyDelayPct > 0) {
-        // 대지 — 상대(other)의 다음 행동(p?NextTick 에 예약됨)을 상대 인터벌의 pct% 만큼 뒤로 민다.
-        const push =
-          actionInterval(effectiveSideSpd(state, other)) * (cast.enemyDelayPct / 100);
-        if (other === "p1") p1NextTick += push;
-        else p2NextTick += push;
-      }
-      if (
-        cast.castFired &&
-        cast.signatureExtraActions <= 0 &&
-        state.phase === who
-      ) {
-        state = withAtbPlayers(
-          endAttackerPhase(state, who, other, { tickDefenderDots: false }),
-        );
-        state = tagNewLogEntries(state, castLogLen, who, nextTick);
-      }
+    let castSelfHastePct = 0;
+    const shockEntry = enterShockAction(state[who].stacks.shockAction);
+    if (state[who].stacks.shockAction !== shockEntry.next) {
+      const side = state[who];
+      state = {
+        ...state,
+        [who]: {
+          ...side,
+          stacks: { ...side.stacks, shockAction: shockEntry.next },
+        },
+      };
     }
+    if (shockEntry.skip) {
+      const side = state[who];
+      const tickClassicBuffs = side.turn.completedPlayerTurns > 0;
+      state = {
+        ...state,
+        [who]: {
+          ...side,
+          attacksLeft: 0,
+          buffs: tickClassicBuffs
+            ? decrementTimedEffects(side.buffs)
+            : side.buffs,
+          v2SelfBuffs: tickV2BuffMap(side.v2SelfBuffs),
+          v2SelfDebuffs: tickV2BuffMap(side.v2SelfDebuffs),
+        },
+        log: appendLog(state.log, {
+          kind: "info",
+          text: `[감전] ${side.name}이(가) 움직이지 못했다.`,
+          side: who,
+          t: nextTick,
+        }),
+      };
+      state = withAtbPlayers(
+        endAttackerPhase(state, who, other, {
+          tickDefenderDots: false,
+          skipOffensiveFollowups: true,
+        }),
+      );
+    } else {
+      state = withAtbPlayers(applyEvasionActionRecoveryPvP(state, who));
 
-    if (state.phase === who) {
-      let action: PlayerAction = { kind: "attack" };
-      // 스킬로 얻은 추가 기본 공격은 PvE와 동일하게 평타로만 소비한다.
-      if (!castFired) {
-        const picked = ctx.pickAction(state, who);
-        if (picked.kind === "use_potion") {
-          const have = potions[who][picked.potionId] ?? 0;
-          if (have > 0) {
-            potions[who][picked.potionId] = have - 1;
-            consumed[who][picked.potionId] =
-              (consumed[who][picked.potionId] ?? 0) + 1;
-            action = picked;
-          }
-        } else {
-          action = picked;
+      // v2 스킬 시전(V2_ATB_SKILLS) — 스킬이 발동하면 이번 행동을 소진해 평타를 대체한다.
+      // 다단 적중 시그니처로 생긴 추가 기본 공격만 같은 번들에서 평타로 이어진다. PvP 의 v2 buff tick 은
+      // castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음.
+      let castFired = false;
+      if (V2_ATB_SKILLS) {
+        const castLogLen = state.log.length;
+        const cast = castV2SkillOnAttackerTurnPvP(state, who);
+        state = withAtbPlayers(cast.state);
+        state = tagNewLogEntries(state, castLogLen, who, nextTick);
+        castFired = cast.castFired;
+        castSelfHastePct = cast.selfHastePct;
+        if (cast.enemyDelayPct > 0) {
+          // 대지 — 상대(other)의 다음 행동(p?NextTick 에 예약됨)을 상대 인터벌의 pct% 만큼 뒤로 민다.
+          const push =
+            actionInterval(effectiveSideSpd(state, other)) *
+            (cast.enemyDelayPct / 100);
+          if (other === "p1") p1NextTick += push;
+          else p2NextTick += push;
+        }
+        if (
+          cast.castFired &&
+          cast.signatureExtraActions <= 0 &&
+          state.phase === who
+        ) {
+          state = withAtbPlayers(
+            endAttackerPhase(state, who, other, { tickDefenderDots: false }),
+          );
+          state = tagNewLogEntries(state, castLogLen, who, nextTick);
         }
       }
 
-      while (state.phase === who) {
-        const prevLogLen = state.log.length;
-        state = withAtbPlayers(
-          advanceTurnPvP(state, action, { tickDefenderDots: false }),
-        );
-        state = tagNewLogEntries(state, prevLogLen, who, nextTick);
-        action = { kind: "attack" };
-        if (state.phase === "ended") break;
+      if (state.phase === who) {
+        let action: PlayerAction = { kind: "attack" };
+        // 스킬로 얻은 추가 기본 공격은 PvE와 동일하게 평타로만 소비한다.
+        if (!castFired) {
+          const picked = ctx.pickAction(state, who);
+          if (picked.kind === "use_potion") {
+            const have = potions[who][picked.potionId] ?? 0;
+            if (have > 0) {
+              potions[who][picked.potionId] = have - 1;
+              consumed[who][picked.potionId] =
+                (consumed[who][picked.potionId] ?? 0) + 1;
+              action = picked;
+            }
+          } else {
+            action = picked;
+          }
+        }
+
+        while (state.phase === who) {
+          const prevLogLen = state.log.length;
+          state = withAtbPlayers(
+            advanceTurnPvP(state, action, { tickDefenderDots: false }),
+          );
+          state = tagNewLogEntries(state, prevLogLen, who, nextTick);
+          action = { kind: "attack" };
+          if (state.phase === "ended") break;
+        }
       }
     }
 

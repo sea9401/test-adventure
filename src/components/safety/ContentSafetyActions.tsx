@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { DotsThreeVertical, Flag, Prohibit, X } from "@phosphor-icons/react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
-  UGC_REPORT_REASONS,
+  CONTENT_REPORT_REASONS,
   UGC_REPORT_REASON_LABELS,
   type UgcReportReason,
   type UgcReportSubject,
@@ -28,6 +28,7 @@ const SOURCE_LABEL: Record<UgcSourceType, string> = {
   profile: "프로필",
   guild_profile: "길드 정보",
   chat_room: "채팅방 정보",
+  marketplace_trade: "거래",
 };
 
 function responseMessage(status: number, text: string): string {
@@ -283,7 +284,7 @@ export function ContentSafetyActions({
           onChange={(event) => setReason(event.target.value as UgcReportReason)}
           className="mt-2 min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
-          {UGC_REPORT_REASONS.map((value) => (
+          {CONTENT_REPORT_REASONS.map((value) => (
             <option key={value} value={value}>
               {UGC_REPORT_REASON_LABELS[value]}
             </option>

@@ -7,8 +7,8 @@ import {
   STAMINA_SHARD_MATERIAL_ID,
 } from "@/adventure/data/v2/staminaPotionCrafting";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
@@ -76,9 +76,13 @@ export async function POST(req: Request) {
       };
     }
 
-    const potionCount = staminaPotionCount(
-      await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+    const potionSave = await lockSaveForUpdate(
+      tx,
+      userId,
+      STAMINA_POTIONS_KEY,
+      { count: 0 },
     );
+    const nextPotions = grantStaminaPotions(potionSave, 1);
     const shardsLeft = heldShards - STAMINA_SHARD_COMBINE_COST;
     if (shardsLeft > 0) materials[STAMINA_SHARD_MATERIAL_ID] = shardsLeft;
     else delete materials[STAMINA_SHARD_MATERIAL_ID];
@@ -89,16 +93,14 @@ export async function POST(req: Request) {
       bankedGold: spend.bankedGold,
       materials,
     });
-    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-      count: potionCount + 1,
-    });
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
 
     return {
       status: 200,
       body: {
         ok: true as const,
         shardsLeft,
-        staminaPotions: potionCount + 1,
+        staminaPotions: nextPotions.count,
         goldCost: COMBINE_GOLD_COST,
         gold: spend.gold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),

@@ -18,6 +18,7 @@ import { UGC_POLICY_VERSION } from "@/lib/ugc-safety";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import { resolveActor } from "./resolveActor";
+import { resolveMarketplaceTradeReportSource } from "./marketplaceTradeReport";
 
 export type ResolvedUgcSource = {
   sourceType: UgcSourceType;
@@ -26,6 +27,7 @@ export type ResolvedUgcSource = {
   targetName: string;
   contentSnapshot: string;
   contextSnapshot: Record<string, unknown>;
+  relatedAccounts?: Array<{ userId: string; name: string }>;
 };
 
 export async function hasCurrentUgcConsent(userId: string): Promise<boolean> {
@@ -90,6 +92,14 @@ export async function resolveUgcSource(
     Number.isSafeInteger(numericSourceId) && numericSourceId > 0
       ? numericSourceId
       : null;
+
+  if (sourceType === "marketplace_trade") {
+    if (validNumericSourceId == null) return null;
+    return resolveMarketplaceTradeReportSource(
+      viewerUserId,
+      validNumericSourceId,
+    );
+  }
 
   if (sourceType === "profile") {
     const resolved = await db.execute(sql`

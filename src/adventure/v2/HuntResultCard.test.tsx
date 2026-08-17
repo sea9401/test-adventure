@@ -129,6 +129,8 @@ describe("희귀맵 발견 바로가기", () => {
 
     expect(html).toContain("낡은 탐사로");
     expect(html).toContain(">바로가기</button>");
+    expect(html).toContain("30분 동안 개방");
+    expect(html).toContain("남은 시간 30:00");
   });
 
   it("일괄 결과에 발견한 각 지도 바로가기 버튼을 표시한다", () => {
@@ -154,6 +156,8 @@ describe("희귀맵 발견 바로가기", () => {
 
     expect(html).toContain("낡은 탐사로");
     expect(html.match(/>바로가기<\/button>/g)).toHaveLength(1);
+    expect(html).toContain("30분 동안 개방");
+    expect(html).toContain("남은 시간 30:00");
   });
 });
 

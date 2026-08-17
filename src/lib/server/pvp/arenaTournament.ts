@@ -5,9 +5,9 @@ export const ARENA_TOURNAMENT_MIN_MATCHES = 10;
 export const ARENA_TOURNAMENT_MAX_SIZE = 32;
 export const ARENA_TOURNAMENT_MIN_SIZE = 8;
 export const ARENA_TOURNAMENT_DAY_MS = 24 * 60 * 60 * 1000;
-export const ARENA_TOURNAMENT_START_BEFORE_END_MS = 5 * 60 * 60 * 1000;
-export const ARENA_TOURNAMENT_SNAPSHOT_BEFORE_END_MS = 6 * 60 * 60 * 1000;
-export const ARENA_TOURNAMENT_ROUND_INTERVAL_MS = 15 * 60 * 1000;
+export const ARENA_TOURNAMENT_START_BEFORE_END_MS = 11 * 60 * 60 * 1000;
+export const ARENA_TOURNAMENT_SNAPSHOT_BEFORE_END_MS = 12 * 60 * 60 * 1000;
+export const ARENA_TOURNAMENT_ROUND_INTERVAL_MS = 5 * 60 * 1000;
 export const ARENA_TOURNAMENT_MAX_GAMES_PER_MATCH = 5;
 
 export type ArenaSeasonPhase = "ranked" | "tournament" | "closed";

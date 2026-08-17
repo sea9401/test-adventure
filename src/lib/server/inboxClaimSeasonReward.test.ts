@@ -191,7 +191,13 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     inboxRows.push({
       id: 1,
       kind: "admin_gift",
-      payload: { gold: 0, materials: [], items: [], staminaPotions: 3 },
+      payload: {
+        gold: 0,
+        materials: [],
+        items: [],
+        staminaPotions: 3,
+        staminaPotionsBound: true,
+      },
       claimedAt: null,
     });
     const res = await POST(req([1]));
@@ -206,7 +212,27 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.claimed).toEqual([1]);
     expect(j.staminaPotionsAdded).toBe(3);
     expect(j.staminaPotions).toBe(3);
-    expect(savesStore.get("u1::stamina-potions.v1")).toEqual({ count: 3 });
+    expect(savesStore.get("u1::stamina-potions.v1")).toEqual({
+      count: 3,
+      boundCount: 3,
+    });
+  });
+
+  it("귀속 표시가 없는 이벤트·레거시 우편 회복약은 비귀속으로 유지한다", async () => {
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: { staminaPotions: 2 },
+      claimedAt: null,
+    });
+
+    const res = await POST(req([1]));
+
+    expect(res.status).toBe(200);
+    expect(savesStore.get("u1::stamina-potions.v1")).toEqual({
+      count: 2,
+      boundCount: 0,
+    });
   });
 
   it("admin_gift 무슨 코인과 코인샵 아이템이 각 전용 세이브에 적립된다", async () => {

@@ -31,6 +31,7 @@ import {
   huntEndReasonText,
   type HuntEndReason,
 } from "@/adventure/v2/huntEndNotice";
+import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
 
@@ -187,18 +188,26 @@ export function BatchSummaryCard({
               ) : undefined
             }
           >
-            {def.category === "hunt"
-              ? `희귀 탐사 「${def.name}」 개방!`
-              : def.category === "location"
-                ? `희귀 장소 「${def.name}」 개방!`
-                : `「${def.name}」 획득! — 가방 소모품에서 사용`}
+            {def.category === "hunt" ? (
+              <>
+                희귀 탐사 「{def.name}」 개방! · 30분 동안 개방 ·{" "}
+                <RareMapCountdownText
+                  foundAt={map.foundAt}
+                  serverNow={map.foundAt}
+                />
+              </>
+            ) : def.category === "location" ? (
+              `희귀 장소 「${def.name}」 개방!`
+            ) : (
+              `「${def.name}」 획득! — 가방 소모품에서 사용`
+            )}
           </DiscoveryNotice>
         );
       })}
       {rareMapDropInstances.length === 0 && huntRareMapNames.length > 0 && (
         <DiscoveryNotice kind="hunt" className="mb-2">
-          희귀 탐사 {huntRareMapNames.join(", ")} 개방! — 전투 탭 &gt;
-          사냥터에서 입장
+          희귀 탐사 {huntRareMapNames.join(", ")} 개방! · 30분 동안 개방 — 전투
+          탭 &gt; 사냥터에서 입장
         </DiscoveryNotice>
       )}
       {rareMapDropInstances.length === 0 && locationMapNames.length > 0 && (

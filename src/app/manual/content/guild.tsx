@@ -65,6 +65,10 @@ import {
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
 } from "@/adventure/data/v2/guildWorkshop";
 import { GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
+import {
+  GUILD_RAID_DAILY_ATTACKS,
+  GUILD_RAID_ELIGIBLE_ATTACKS,
+} from "@/adventure/data/v2/guildRaid";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function GuildContent() {
@@ -116,12 +120,37 @@ export function GuildContent() {
 
       <H2>길드 운영</H2>
       <P>
-        길드 탭은 <Em>길드 정보·길드원·길드 목록·시설</Em>로 나뉩니다. 길드
-        정보에서는 소개와 명성, 길드 자금과 활동 내역을 확인합니다. 길드 목록에서는
-        가입 후에도 다른 길드의 이름·레벨·인원·명성·길드장과 소개를 검색해서 볼 수
-        있습니다. 마스터·관리자에게는 <Em>관리</Em> 탭이 추가되며, 초대·가입
-        신청·직책·길드 연구와 설정을 관리할 수 있습니다.
+        길드 탭은 <Em>길드 정보·길드원·토벌전·길드 목록·시설</Em>로 나뉩니다.
+        길드 정보에서는 소개와 명성, 길드 자금과 활동 내역을 확인합니다. 길드
+        목록에서는 가입 후에도 다른 길드의 이름·레벨·인원·명성·길드장과 소개를
+        검색해서 볼 수 있습니다. 마스터·관리자에게는 <Em>관리</Em> 탭이 추가되며,
+        초대·가입 신청·직책·길드 연구와 설정을 관리할 수 있습니다.
       </P>
+
+      <H2>길드 토벌전</H2>
+      <P>
+        토벌전은 모든 길드가 한 주 동안 같은 단계형 보스를 공격하고, 길드원 전원의
+        누적 피해 합계로 순위를 겨루는 경쟁 콘텐츠입니다. 보스의 현재 단계와 HP는
+        모든 길드가 공유하며, 한 단계를 쓰러뜨리면 남은 피해가 다음 단계로 이어집니다.
+        토벌전 주간 기록은 매주 <Em>월요일 00:00 KST</Em>를 기준으로 바뀝니다.
+      </P>
+      <UL>
+        <li>
+          길드원마다 하루 <Em>{GUILD_RAID_DAILY_ATTACKS}회</Em> 공격할 수 있습니다.
+          사용하지 않은 횟수는 다음 날로 이월되지 않으며, 별도의 스태미너나 소환서를
+          소비하지 않습니다.
+        </li>
+        <li>
+          첫 유효 공격을 한 길드에 그 주의 참여가 고정됩니다. 주중에 다른 길드로
+          옮기면 새 길드에서는 공격할 수 없고, 이미 기록한 피해와 공격 횟수는 그대로
+          유지됩니다.
+        </li>
+        <li>
+          개인 참여 조건은 주간 유효 공격 <Em>{GUILD_RAID_ELIGIBLE_ATTACKS}회 이상</Em>과
+          누적 피해 1 이상입니다. 순위별 보상 내용과 지급 방식은 아직 준비 중이며,
+          현재 토벌전에서는 보상이 지급되지 않습니다.
+        </li>
+      </UL>
 
       <H2>길드 금고</H2>
       <P>
@@ -383,9 +412,16 @@ export function GuildContent() {
           공동 교역 토큰은 다음 주에도 유지됩니다.
         </li>
         <li>
-          상점 품목은 길드장과 관리자만 선택할 수 있습니다. 선택한 품목은 현재
-          길드원 전원에게 같은 수량으로 지급되며, 구매 한도는 길드 전체에
-          적용됩니다.
+          상점 품목은 길드장과 관리자만 선택할 수 있습니다. 길드원 지급 상품은
+          현재 길드원 전원에게 같은 수량으로 지급되며, 시설 지원 상품은 선택한
+          시설의 다음 업그레이드 공동 기부 진행도에 즉시 적용됩니다. 구매 한도는
+          길드 전체에 적용됩니다.
+        </li>
+        <li>
+          길드 시설 지원 물자는 통나무와 철광석만 합계 200개 지원합니다. 각
+          재료를 최대 100개씩 우선 배분하고, 한쪽의 남은 요구량이 100개보다
+          적으면 남는 수량을 다른 재료에 더합니다. 두 재료의 남은 요구량이
+          합계 200개 이상인 시설만 선택할 수 있습니다.
         </li>
         <li>
           선택한 관리자·품목·인원·사용 토큰과 남은 공동 토큰은 길드 활동 내역에
@@ -417,7 +453,7 @@ export function GuildContent() {
           item.target === "guild" ? "길드 공용 자원" : "현재 길드원 전원",
           item.description,
         ])}
-        caption={`계약 기본 완료 보상은 길드 금고 ${GUILD_TRADE_BASE_REWARD_GOLD.toLocaleString("ko-KR")}G와 명성 ${GUILD_TRADE_BASE_REWARD_FAME.toLocaleString("ko-KR")}이며, 교역소 레벨 보너스가 적용됩니다.`}
+        caption={`시설 지원 물자는 개인 인벤토리나 별도 길드 재화로 보관되지 않고 선택한 시설에 바로 적용됩니다. 계약 기본 완료 보상은 길드 금고 ${GUILD_TRADE_BASE_REWARD_GOLD.toLocaleString("ko-KR")}G와 명성 ${GUILD_TRADE_BASE_REWARD_FAME.toLocaleString("ko-KR")}이며, 교역소 레벨 보너스가 적용됩니다.`}
       />
 
       <H2>길드 제작소</H2>

@@ -94,6 +94,7 @@ import {
 } from "@/adventure/v2/cooking";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import type { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
+import type { JobSpLoadoutMigration } from "@/lib/server/v2Skills";
 
 // 라우트가 cast 해 들고 있는 character.v2 의 느슨한 모양 — 섹션이 읽는 키만 선언.
 type StateCharSave = {
@@ -351,6 +352,8 @@ export function loadoutSection(params: {
   fishingCodexRaw: unknown;
   equipmentCodexSpBonus: number;
   jobUnlockCtx?: JobUnlockContext;
+  jobSpMigration?: JobSpLoadoutMigration | null;
+  now?: number;
 }) {
   const {
     charSave,
@@ -359,6 +362,8 @@ export function loadoutSection(params: {
     fishingCodexRaw,
     equipmentCodexSpBonus: equipmentCodexBonus,
     jobUnlockCtx,
+    jobSpMigration,
+    now = Date.now(),
   } = params;
   const prof = parseProficiencyForChar(proficiencyRaw, charSave);
   const skillsState = parseV2SkillsState(skillsRaw);
@@ -433,6 +438,17 @@ export function loadoutSection(params: {
     spUsed,
     equipped,
     library,
+    ...(jobSpMigration
+      ? {
+          spMigration: {
+            graceActive: jobSpMigration.graceActive,
+            graceEndsAt: jobSpMigration.graceEndsAt,
+            serverNow: now,
+            overBudgetBy: Math.max(0, spUsed - spBudget),
+            removedSkillIds: jobSpMigration.removedSkillIds,
+          },
+        }
+      : {}),
     spBreakdown: {
       base: spBreakdownBase.base,
       milestoneSp,

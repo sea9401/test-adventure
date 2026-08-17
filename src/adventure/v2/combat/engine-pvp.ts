@@ -71,14 +71,20 @@ import {
 import {
   battleStartShield,
   everyNHitsEffect,
+  formatChillSlowLog,
+  formatDefDebuffLog,
+  formatShockAppliedLog,
   healToShield,
   lowHpDamageReductionPct,
-  onCritSpeedBuff,
   onDodgeSpeedBuff,
   onSkillCastMpRefund,
+  resolveOffensiveSignatureTriggers,
   rollEvasionActionRecovery,
+  SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+  SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
   statusBlockOnce,
 } from "./signatureEffects";
+import { canApplyShock, enterShockAction } from "./shockAction";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   effectiveCombatPatternFromEquipped,
@@ -153,6 +159,8 @@ export type PvPOutcome = "p1_win" | "p2_win" | "draw";
 
 export type PvPPhaseEndOptions = {
   tickDefenderDots?: boolean;
+  /** 감전 등으로 본 행동이 취소됐을 때 분신·난무 같은 공격 후속타만 생략한다. */
+  skipOffensiveFollowups?: boolean;
 };
 
 // 각 사이드별 1회성 토글. PvE 의 BattleFlags 와 비교해 Monster 전용(phaseTriggered, enrageTriggered) 제거.
@@ -255,6 +263,8 @@ export type PvPSideStacks = {
   signatureHitCount: number;
   // every_n_hits 로 예약된 추가 기본 공격 잔량. 이 공격은 자기 자신의 다음 주기 적중에는 포함하지 않는다.
   signatureBonusAttacksLeft: number;
+  /** 이 side에 걸린 감전 행동 상태. */
+  shockAction?: import("./shockAction").ShockActionState;
   /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
   tier6Uniques?: Tier6UniqueRuntimeState;
 };
@@ -1948,6 +1958,7 @@ function finishAttackerTurn(
   state: PvPBattleState,
   atkKey: "p1" | "p2",
   defKey: "p1" | "p2",
+  allowOffensiveFollowups = true,
 ): PvPBattleState {
   let st = state;
   const attacker = st[atkKey];
@@ -1965,7 +1976,7 @@ function finishAttackerTurn(
   const clonePct = attacker.player.shadowCloneAtkPct ?? 0;
   const cloneExtra = attacker.player.shadowLegionExtraClones ?? 0;
   const cloneCount = clonePct > 0 ? 1 + cloneExtra : 0;
-  if (st.phase !== "ended" && cloneCount > 0) {
+  if (allowOffensiveFollowups && st.phase !== "ended" && cloneCount > 0) {
     for (let i = 0; i < cloneCount; i += 1) {
       if (st.phase === "ended") break;
       const atk = st[atkKey];
@@ -1987,6 +1998,7 @@ function finishAttackerTurn(
   const attackerAfter = st[atkKey];
   const flurry = attackerAfter.player.flurryAttacks ?? 0;
   if (
+    allowOffensiveFollowups &&
     st.phase !== "ended" &&
     flurry > 0 &&
     attackerAfter.stacks.damageTakenThisCombat === 0
@@ -2239,7 +2251,12 @@ export function endAttackerPhase(
     },
   });
   // 공격자 턴 후처리 (분신/난무/막다른 격노/약점 분석/재생).
-  next = finishAttackerTurn(next, atkKey, defKey);
+  next = finishAttackerTurn(
+    next,
+    atkKey,
+    defKey,
+    options.skipOffensiveFollowups !== true,
+  );
   if (next.phase === "ended") return next;
   if (options.tickDefenderDots !== false) {
     next = tickPvPSideDotsOnAction(next, defKey);
@@ -2676,26 +2693,6 @@ export function castV2SkillOnAttackerTurnPvP(
       skillCritAfterEvadeFired ||
       (effectiveSkillCritPct > 0 &&
         Math.random() * 100 < effectiveSkillCritPct));
-  // PvE와 동일하게 직접 피해 액티브 스킬 치명타도 on_crit 속도 고유 효과를 발동한다.
-  const sigSkillCritSpeed = onCritSpeedBuff(
-    side.player.equipSignatures,
-    skillCritFired,
-    result.enemyDamage > 0,
-  );
-  const activeSkillCritSpdMult =
-    side.buffs.playerSpdTurnsLeft > 0 ? side.buffs.playerSpdMult : 1;
-  const sigSkillCritSpdBuff = sigSkillCritSpeed
-    ? {
-        playerSpdMult: Math.max(
-          activeSkillCritSpdMult,
-          sigSkillCritSpeed.mult,
-        ),
-        playerSpdTurnsLeft: Math.max(
-          side.buffs.playerSpdTurnsLeft,
-          sigSkillCritSpeed.turns,
-        ),
-      }
-    : null;
   // 스킬 다단히트(PvE 미러) — 시전자가 이 턴 굴려둔 공격 횟수(attacksLeft)만큼 데미지 스킬 반복 타격.
   //   데미지 스킬에만(버프/힐/마나/DoT 부여는 1회). 추가 공격 0 빌드는 skillHitCount=1 → 기존 byte-동일.
   const skillHitCount =
@@ -2882,10 +2879,156 @@ export function castV2SkillOnAttackerTurnPvP(
       });
     }
   }
+  const sigSkill = resolveOffensiveSignatureTriggers(
+    side.player.equipSignatures,
+    {
+      critical: skillCritFired,
+      dealtDamage: landedSkillHits > 0,
+      allowShock: canApplyShock(opp.stacks.shockAction),
+    },
+  );
+  const sigSkillTargetDots = [
+    ...(sigSkill.critPoison
+      ? [
+          makePoisonDot({
+            stacks: 1,
+            pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: side.player.atk,
+          }),
+        ]
+      : []),
+    ...(sigSkill.hitPoison
+      ? [
+          makePoisonDot({
+            stacks: sigSkill.hitPoison.stacks,
+            pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: side.player.atk,
+          }),
+        ]
+      : []),
+    ...(sigSkill.hitBleed
+      ? [
+          makeBleedDot({
+            stacks: sigSkill.hitBleed.stacks,
+            flatPerStack: 0,
+            sourceAtk: side.player.atk,
+          }),
+        ]
+      : []),
+  ];
+  const sigSkillTargetStatusFired =
+    sigSkill.critPoison ||
+    !!sigSkill.hitPoison ||
+    !!sigSkill.hitBleed ||
+    !!sigSkill.critChill ||
+    !!sigSkill.critDefDebuff ||
+    !!sigSkill.hitShock;
+  const sigStatusBlock = statusBlockOnce(opp.player.equipSignatures);
+  const statusBlockTargetEffects =
+    (result.dotsToApplyToTarget.length > 0 || sigSkillTargetStatusFired) &&
+    !!sigStatusBlock &&
+    !opp.flags.statusBlockUsed;
+  const activeSkillCritSpdMult =
+    side.buffs.playerSpdTurnsLeft > 0 ? side.buffs.playerSpdMult : 1;
+  const sigSkillCritSpdBuff = sigSkill.critSpeed
+    ? {
+        playerSpdMult: Math.max(
+          activeSkillCritSpdMult,
+          sigSkill.critSpeed.mult,
+        ),
+        playerSpdTurnsLeft: Math.max(
+          side.buffs.playerSpdTurnsLeft,
+          sigSkill.critSpeed.turns,
+        ),
+      }
+    : null;
+  const activeSkillEnemySpdMult =
+    side.buffs.enemySpdTurnsLeft > 0 ? side.buffs.enemySpdMult : 1;
+  const sigSkillEnemySlow =
+    !statusBlockTargetEffects && sigSkill.critChill
+      ? {
+          enemySpdMult: Math.min(
+            activeSkillEnemySpdMult,
+            sigSkill.critChill.mult,
+          ),
+          enemySpdTurnsLeft: Math.max(
+            side.buffs.enemySpdTurnsLeft,
+            sigSkill.critChill.turns,
+          ),
+        }
+      : null;
+  const activeSkillEnemyDefDebuffPct =
+    side.buffs.enemyDefDebuffTurnsLeft > 0
+      ? side.buffs.enemyDefDebuffPct
+      : 0;
+  const sigSkillEnemyDefDebuff =
+    !statusBlockTargetEffects && sigSkill.critDefDebuff
+      ? {
+          enemyDefDebuffPct: Math.max(
+            activeSkillEnemyDefDebuffPct,
+            sigSkill.critDefDebuff.pct,
+          ),
+          enemyDefDebuffTurnsLeft: Math.max(
+            side.buffs.enemyDefDebuffTurnsLeft,
+            sigSkill.critDefDebuff.turns,
+          ),
+        }
+      : null;
+  const sigSkillBuffs = {
+    ...(sigSkillCritSpdBuff ?? {}),
+    ...(sigSkillEnemySlow ?? {}),
+    ...(sigSkillEnemyDefDebuff ?? {}),
+  };
+  const hasSigSkillBuffs =
+    !!sigSkillCritSpdBuff ||
+    !!sigSkillEnemySlow ||
+    !!sigSkillEnemyDefDebuff;
   if (sigSkillCritSpdBuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${sigSkillCritSpeed?.label ?? "군림"}] ${side.name} 결정타 — 속도가 솟구친다!`,
+      text: `[${sigSkill.critSpeed?.label ?? "군림"}] ${side.name} 결정타 — 속도가 솟구친다!`,
+      side: who,
+    });
+  }
+  if (!statusBlockTargetEffects && sigSkill.critPoison) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[독니] ${opp.name}을(를) 중독시켰다!`,
+      side: who,
+    });
+  }
+  if (!statusBlockTargetEffects && sigSkill.hitPoison) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkill.hitPoison.label}] ${opp.name}에게 중독 ${sigSkill.hitPoison.stacks}스택을 남겼다.`,
+      side: who,
+    });
+  }
+  if (!statusBlockTargetEffects && sigSkill.hitBleed) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkill.hitBleed.label}] ${opp.name}에게 출혈 ${sigSkill.hitBleed.stacks}스택을 남겼다.`,
+      side: who,
+    });
+  }
+  if (!statusBlockTargetEffects && sigSkill.critChill) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: formatChillSlowLog(opp.name, sigSkill.critChill),
+      side: who,
+    });
+  }
+  if (!statusBlockTargetEffects && sigSkill.critDefDebuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: formatDefDebuffLog(opp.name, sigSkill.critDefDebuff),
+      side: who,
+    });
+  }
+  if (!statusBlockTargetEffects && sigSkill.hitShock) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: formatShockAppliedLog(opp.name, sigSkill.hitShock),
       side: who,
     });
   }
@@ -3220,18 +3363,16 @@ export function castV2SkillOnAttackerTurnPvP(
     result.enemyDebuffsToApply,
   );
   // PR-8 — dot 결과는 상대 side 의 v2Dots 에 박힌다.
-  const sigStatusBlock = statusBlockOnce(opp.player.equipSignatures);
-  const statusBlockDots =
-    result.dotsToApplyToTarget.length > 0 &&
-    !!sigStatusBlock &&
-    !opp.flags.statusBlockUsed;
   const dotsToApplyToTarget = applyPoisonDamageToDots(
     result.dotsToApplyToTarget,
     side.player,
   );
-  const nextOppDots = statusBlockDots
+  const nextOppDots = statusBlockTargetEffects
     ? opp.v2Dots
-    : applyV2DotsToTarget(opp.v2Dots, dotsToApplyToTarget);
+    : applyV2DotsToTarget(
+        applyV2DotsToTarget(opp.v2Dots, dotsToApplyToTarget),
+        sigSkillTargetDots,
+      );
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -3246,14 +3387,14 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  if (statusBlockDots && sigStatusBlock) {
+  if (statusBlockTargetEffects && sigStatusBlock) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${sigStatusBlock.label}] ${opp.name} 상태이상을 막았다.`,
       side: who,
     });
   }
-  for (const dot of statusBlockDots ? [] : dotsToApplyToTarget) {
+  for (const dot of statusBlockTargetEffects ? [] : dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? dot.label}] +${dot.stacks}스택 (${dot.turns}회)`,
@@ -3297,8 +3438,8 @@ export function castV2SkillOnAttackerTurnPvP(
     ...(nextBerserker ? { berserker: nextBerserker } : {}),
     mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
     duelistBuff: nextDuelistBuff,
-    buffs: sigSkillCritSpdBuff
-      ? { ...side.buffs, ...sigSkillCritSpdBuff }
+    buffs: hasSigSkillBuffs
+      ? { ...side.buffs, ...sigSkillBuffs }
       : side.buffs,
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
@@ -3342,7 +3483,8 @@ export function castV2SkillOnAttackerTurnPvP(
       ...opp.flags,
       enduranceTriggered:
         opp.flags.enduranceTriggered || skillEnduranceFires,
-      statusBlockUsed: opp.flags.statusBlockUsed || statusBlockDots,
+      statusBlockUsed:
+        opp.flags.statusBlockUsed || statusBlockTargetEffects,
     },
     ...(nextOppBerserker
       ? {
@@ -3378,6 +3520,9 @@ export function castV2SkillOnAttackerTurnPvP(
       dotVulnTurns: result.enemyDotVulnToApply
         ? result.enemyDotVulnToApply.turns
         : opp.stacks.dotVulnTurns,
+      ...(!statusBlockTargetEffects && sigSkill.hitShock
+        ? { shockAction: "pending" as const }
+        : {}),
     },
   };
   const selfHastePct = result.selfHasteToApply?.pct ?? 0;
@@ -3675,57 +3820,93 @@ function resolveBattlePvPLegacy(
     v2CastedThisPhase[other] = false;
     v2SkillConsumedThisPhase[other] = false;
     evasionRecoveryAppliedThisPhase[other] = false;
-    if (!evasionRecoveryAppliedThisPhase[who]) {
-      evasionRecoveryAppliedThisPhase[who] = true;
-      state = applyEvasionActionRecoveryPvP(state, who);
+    const shockEntry = enterShockAction(state[who].stacks.shockAction);
+    if (state[who].stacks.shockAction !== shockEntry.next) {
+      const side = state[who];
+      state = setSide(state, who, {
+        ...side,
+        stacks: { ...side.stacks, shockAction: shockEntry.next },
+      });
     }
-    let castFiredThisPhase = v2SkillConsumedThisPhase[who];
-    if (!v2CastedThisPhase[who]) {
-      v2CastedThisPhase[who] = true;
-      // legacy(턴제)는 ATB 템포(selfHaste/enemyDelay)를 쓰지 않는다.
-      const cast = castV2SkillOnAttackerTurnPvP(state, who);
-      state = cast.state;
-      castFiredThisPhase = cast.castFired;
-      v2SkillConsumedThisPhase[who] = cast.castFired;
-      if (
-        cast.castFired &&
-        cast.signatureExtraActions <= 0 &&
-        state.phase === who
-      ) {
-        state = endAttackerPhase(state, who, other);
+    if (shockEntry.skip) {
+      const side = state[who];
+      state = setSide(
+        {
+          ...state,
+          log: appendLog(state.log, {
+            kind: "info",
+            text: `[감전] ${side.name}이(가) 움직이지 못했다.`,
+            side: who,
+          }),
+        },
+        who,
+        {
+          ...side,
+          attacksLeft: 0,
+          buffs:
+            side.turn.completedPlayerTurns > 0
+              ? decrementTimedEffects(side.buffs)
+              : side.buffs,
+          v2SelfBuffs: tickV2BuffMap(side.v2SelfBuffs),
+          v2SelfDebuffs: tickV2BuffMap(side.v2SelfDebuffs),
+        },
+      );
+      state = endAttackerPhase(state, who, other, {
+        skipOffensiveFollowups: true,
+      });
+    } else {
+      if (!evasionRecoveryAppliedThisPhase[who]) {
+        evasionRecoveryAppliedThisPhase[who] = true;
+        state = applyEvasionActionRecoveryPvP(state, who);
       }
-      // 스킬 피해 또는 페이즈 종료 후처리로 side 가 사망하면 후속 처리를 건너뛴다.
-      if (state.phase === "ended") {
-        state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };
-        turns += 1;
-        break;
-      }
-    }
-    if (state.phase === who) {
-      let action: PlayerAction = { kind: "attack" };
-      if (!castFiredThisPhase) {
-        const picked = ctx.pickAction(state, who);
-        if (picked.kind === "use_potion") {
-          const have = potions[who][picked.potionId] ?? 0;
-          if (have > 0) {
-            potions[who][picked.potionId] = have - 1;
-            consumed[who][picked.potionId] =
-              (consumed[who][picked.potionId] ?? 0) + 1;
-            action = picked;
-          }
-        } else {
-          action = picked;
+      let castFiredThisPhase = v2SkillConsumedThisPhase[who];
+      if (!v2CastedThisPhase[who]) {
+        v2CastedThisPhase[who] = true;
+        // legacy(턴제)는 ATB 템포(selfHaste/enemyDelay)를 쓰지 않는다.
+        const cast = castV2SkillOnAttackerTurnPvP(state, who);
+        state = cast.state;
+        castFiredThisPhase = cast.castFired;
+        v2SkillConsumedThisPhase[who] = cast.castFired;
+        if (
+          cast.castFired &&
+          cast.signatureExtraActions <= 0 &&
+          state.phase === who
+        ) {
+          state = endAttackerPhase(state, who, other);
+        }
+        // 스킬 피해 또는 페이즈 종료 후처리로 side 가 사망하면 후속 처리를 건너뛴다.
+        if (state.phase === "ended") {
+          state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };
+          turns += 1;
+          break;
         }
       }
-      const prevLogLen = state.log.length;
-      state = advanceTurnPvP(state, action);
-      // advanceTurnPvP 안에서 push 된 entry 들은 모두 이번 액터(who) 의 것.
-      // 이미 side 가 박힌 entry 는 보존.
-      if (state.log.length > prevLogLen) {
-        const tagged = state.log.map((e, idx) =>
-          idx < prevLogLen || e.side ? e : { ...e, side: who },
-        );
-        state = { ...state, log: tagged };
+      if (state.phase === who) {
+        let action: PlayerAction = { kind: "attack" };
+        if (!castFiredThisPhase) {
+          const picked = ctx.pickAction(state, who);
+          if (picked.kind === "use_potion") {
+            const have = potions[who][picked.potionId] ?? 0;
+            if (have > 0) {
+              potions[who][picked.potionId] = have - 1;
+              consumed[who][picked.potionId] =
+                (consumed[who][picked.potionId] ?? 0) + 1;
+              action = picked;
+            }
+          } else {
+            action = picked;
+          }
+        }
+        const prevLogLen = state.log.length;
+        state = advanceTurnPvP(state, action);
+        // advanceTurnPvP 안에서 push 된 entry 들은 모두 이번 액터(who) 의 것.
+        // 이미 side 가 박힌 entry 는 보존.
+        if (state.log.length > prevLogLen) {
+          const tagged = state.log.map((e, idx) =>
+            idx < prevLogLen || e.side ? e : { ...e, side: who },
+          );
+          state = { ...state, log: tagged };
+        }
       }
     }
     // 턴 종료 시점 HP/AP 스냅샷. 종료된 상태(phase==="ended")에서도 한 번 박는다.

@@ -14,7 +14,7 @@ import {
 import { ARENA_CHAMPION_TITLE_ID, TITLES } from "@/adventure/data/titles";
 import { hasArenaChampionshipWin } from "@/adventure/data/v2/arenaChampionshipBadges";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
+import { reconcileV2EquippedSkillsWithResult } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { parseV2Class, jobDisplayName } from "@/adventure/data/v2/classes";
@@ -203,11 +203,13 @@ export async function GET(req: Request) {
   // reconcileV2EquippedSkills 는 idempotent — 코어루프에서는 수동 SP 로드아웃을 보존하고
   // 학습분/SP예산 기준으로만 정리한다. learned 불변.
   // 길드는 더 이상 자동 생성 X — null 이면 무소속.
-  const guildId = await db.transaction(async (tx) => {
+  const { guildId, jobSpMigration } = await db.transaction(async (tx) => {
     const gid = await getGuildId(tx, userId);
-    await reconcileV2EquippedSkills(tx, userId);
+    const reconciled = await reconcileV2EquippedSkillsWithResult(tx, userId, {
+      consumeJobSpNotice: !coreView,
+    });
     await ensureV2Character(tx, userId);
-    return gid;
+    return { guildId: gid, jobSpMigration: reconciled.migration };
   });
 
   const [stateSaves, guildRow, resources, userRow] = await Promise.all([
@@ -717,6 +719,8 @@ export async function GET(req: Request) {
             fishingCodexRaw: fishingCodexRow?.value,
             equipmentCodexSpBonus: equipmentCodex.spBonus,
             jobUnlockCtx,
+            jobSpMigration,
+            now,
           }),
         }
       : {}),

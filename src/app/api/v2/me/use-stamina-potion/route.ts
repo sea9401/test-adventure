@@ -9,9 +9,10 @@ import {
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
+  consumeStaminaPotions,
+  parseStaminaPotions,
   STAMINA_POTIONS_KEY,
   STAMINA_POTION_RESTORE,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 
 // POST /api/v2/me/use-stamina-potion — 보유 스태미나 포션 사용 → 스태미나 회복(최대치 초과 비축 허용).
@@ -56,9 +57,10 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
-    const held = staminaPotionCount(
+    const potionSave = parseStaminaPotions(
       await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
     );
+    const held = potionSave.count;
     if (held <= 0) {
       return { status: 400, body: { ok: false as const, error: "no_potion" } };
     }
@@ -97,12 +99,13 @@ export async function POST(req: Request) {
       ...charSave,
       stamina: nextStamina,
     });
-    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: held - useCount });
+    const nextPotions = consumeStaminaPotions(potionSave, useCount);
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
     return {
       status: 200,
       body: {
         ok: true as const,
-        count: held - useCount,
+        count: nextPotions.count,
         used: useCount,
         stamina: nextStamina.current,
         max,

@@ -128,7 +128,7 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     expect(battle(100).turns).toBeLessThan(battle(0).turns);
   });
 
-  it("스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {
+  it("스킬 치명타도 치명타 시 장비 효과를 모두 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const player: PlayerCombat = {
       ...MAGE,
@@ -138,6 +138,23 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
           trigger: "on_crit",
           label: "유성우",
           spdBuffPct: 20,
+          buffActions: 2,
+        },
+        {
+          trigger: "on_crit",
+          label: "독니",
+          poisonOnCrit: true,
+        },
+        {
+          trigger: "on_crit",
+          label: "한기",
+          chillSlowPct: 30,
+          buffActions: 2,
+        },
+        {
+          trigger: "on_crit",
+          label: "갑주부식",
+          enemyDefDebuffPct: 10,
           buffActions: 2,
         },
       ],
@@ -158,8 +175,72 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     expect(cast.state.buffs.playerSpdMult).toBe(1.2);
     expect(cast.state.buffs.playerSpdTurnsLeft).toBe(2);
     expect(
+      cast.state.enemyV2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(cast.state.buffs.enemySpdMult).toBe(0.7);
+    expect(cast.state.buffs.enemySpdTurnsLeft).toBe(2);
+    expect(cast.state.buffs.enemyDefDebuffPct).toBe(10);
+    expect(cast.state.buffs.enemyDefDebuffTurnsLeft).toBe(2);
+    expect(
       cast.state.log.some((entry) => entry.text.includes("[유성우]")),
     ).toBe(true);
+    expect(cast.state.log.some((entry) => entry.text.includes("[독니]"))).toBe(
+      true,
+    );
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[갑주부식]")),
+    ).toBe(true);
+  });
+
+  it("다단 스킬도 적중 시 중독·출혈·감전을 시전당 한 번 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = {
+      ...MAGE,
+      critChancePct: 0,
+      equipSignatures: [
+        {
+          trigger: "on_hit",
+          label: "독무응축",
+          poisonChancePct: 100,
+          poisonStacks: 1,
+        },
+        {
+          trigger: "on_hit",
+          label: "골절",
+          bleedChancePct: 100,
+          bleedStacks: 1,
+        },
+        {
+          trigger: "on_hit",
+          label: "뇌침",
+          shockChancePct: 100,
+        },
+      ],
+    };
+    const state = initialBattleState(player, dummy(3000), "마법사", skills);
+
+    const cast = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(
+      cast.state.enemyV2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(
+      cast.state.enemyV2Dots.find((dot) => dot.tag === "bleed")?.stacks,
+    ).toBe(1);
+    expect(cast.state.stacks.enemyShockAction).toBe("pending");
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[독무응축]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[골절]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[뇌침]")),
+    ).toHaveLength(1);
   });
 });
 

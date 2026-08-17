@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
   boolean,
+  bigint,
   check,
   numeric,
   doublePrecision,
@@ -592,11 +593,11 @@ export const ugcReports = pgTable(
     ),
     check(
       "ugc_reports_source_type_check",
-      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room')`,
+      sql`${t.sourceType} IN ('bulletin_post', 'bulletin_comment', 'chat_message', 'inbox_message', 'profile', 'guild_profile', 'chat_room', 'marketplace_trade')`,
     ),
     check(
       "ugc_reports_reason_check",
-      sql`${t.reason} IN ('harassment', 'hate', 'sexual', 'violence', 'spam', 'fraud', 'personal_info', 'other')`,
+      sql`${t.reason} IN ('harassment', 'hate', 'sexual', 'violence', 'spam', 'fraud', 'personal_info', 'abnormal_price', 'market_manipulation', 'real_money_trade', 'other')`,
     ),
     check(
       "ugc_reports_status_check",
@@ -1547,6 +1548,136 @@ export const coopBossAttackLog = pgTable(
   },
   (t) => [
     index("coop_boss_attack_log_session_idx").on(t.sessionId, t.createdAt),
+  ],
+);
+
+// 길드 토벌전 — 모든 길드가 한 주 동안 같은 단계형 보스를 공격하는 전역 이벤트.
+// 일반 협동 보스의 소환/공개/기여 보상 수명주기와 분리하고 전투 엔진·리플레이만 공유한다.
+export const guildRaidEvents = pgTable(
+  "guild_raid_events",
+  {
+    id: text("id").primaryKey(),
+    weekKey: text("week_key").notNull(),
+    bossKind: text("boss_kind").notNull(),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at").notNull(),
+    status: text("status").notNull().default("active"),
+    stage: integer("stage").notNull().default(1),
+    hp: bigint("hp", { mode: "number" }).notNull(),
+    maxHp: bigint("max_hp", { mode: "number" }).notNull(),
+    mechanicState: jsonb("mechanic_state")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    settledAt: timestamp("settled_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("guild_raid_events_week_unique_idx").on(t.weekKey),
+    index("guild_raid_events_status_end_idx").on(t.status, t.endsAt),
+    check("guild_raid_events_stage_positive", sql`${t.stage} > 0`),
+    check("guild_raid_events_hp_positive", sql`${t.hp} > 0`),
+    check("guild_raid_events_max_hp_positive", sql`${t.maxHp} > 0`),
+    check(
+      "guild_raid_events_status_valid",
+      sql`${t.status} IN ('active','settled')`,
+    ),
+  ],
+);
+
+// 이벤트별 길드 누적 피해. 길드가 해산돼도 과거 순위를 남기기 위해 guildId 는 스냅샷이며
+// guilds FK 를 두지 않는다.
+export const guildRaidGuildScores = pgTable(
+  "guild_raid_guild_scores",
+  {
+    eventId: text("event_id")
+      .notNull()
+      .references(() => guildRaidEvents.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id").notNull(),
+    guildNameSnapshot: text("guild_name_snapshot").notNull(),
+    guildEmblemSnapshot: text("guild_emblem_snapshot"),
+    damage: bigint("damage", { mode: "number" }).notNull().default(0),
+    finalRank: integer("final_rank"),
+    settledAt: timestamp("settled_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.eventId, t.guildId] }),
+    index("guild_raid_guild_scores_rank_idx").on(
+      t.eventId,
+      sql`${t.damage} DESC`,
+    ),
+    check("guild_raid_guild_scores_damage_nonnegative", sql`${t.damage} >= 0`),
+  ],
+);
+
+// 첫 유효 공격 시 길드가 고정되는 개인 주간 상태 + KST 일일 공격 횟수.
+export const guildRaidParticipants = pgTable(
+  "guild_raid_participants",
+  {
+    eventId: text("event_id")
+      .notNull()
+      .references(() => guildRaidEvents.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id").notNull(),
+    nameSnapshot: text("name_snapshot").notNull(),
+    damage: bigint("damage", { mode: "number" }).notNull().default(0),
+    attackCount: integer("attack_count").notNull().default(0),
+    dayKey: text("day_key").notNull(),
+    dailyAttackCount: integer("daily_attack_count").notNull().default(0),
+    eligibleAtSettlement: boolean("eligible_at_settlement"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.eventId, t.userId] }),
+    index("guild_raid_participants_guild_damage_idx").on(
+      t.eventId,
+      t.guildId,
+      sql`${t.damage} DESC`,
+    ),
+    check("guild_raid_participants_damage_nonnegative", sql`${t.damage} >= 0`),
+    check("guild_raid_participants_attacks_nonnegative", sql`${t.attackCount} >= 0`),
+    check(
+      "guild_raid_participants_daily_attacks_nonnegative",
+      sql`${t.dailyAttackCount} >= 0`,
+    ),
+  ],
+);
+
+// 공격 1회당 전투 결과. requestId 고유 제약으로 네트워크 재시도 시 같은 결과를 반환한다.
+export const guildRaidAttackLogs = pgTable(
+  "guild_raid_attack_logs",
+  {
+    id: serial("id").primaryKey(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => guildRaidEvents.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id").notNull(),
+    requestId: text("request_id").notNull(),
+    name: text("name").notNull(),
+    damageDealt: bigint("damage_dealt", { mode: "number" }).notNull(),
+    damageTaken: bigint("damage_taken", { mode: "number" }).notNull(),
+    diedEarly: boolean("died_early").notNull().default(false),
+    stageBefore: integer("stage_before").notNull(),
+    stageAfter: integer("stage_after").notNull(),
+    hpBefore: bigint("hp_before", { mode: "number" }).notNull(),
+    hpAfter: bigint("hp_after", { mode: "number" }).notNull(),
+    replay: jsonb("replay").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("guild_raid_attack_logs_request_unique_idx").on(
+      t.eventId,
+      t.userId,
+      t.requestId,
+    ),
+    index("guild_raid_attack_logs_recent_idx").on(t.eventId, t.createdAt),
+    check("guild_raid_attack_logs_damage_nonnegative", sql`${t.damageDealt} >= 0`),
+    check("guild_raid_attack_logs_damage_taken_nonnegative", sql`${t.damageTaken} >= 0`),
   ],
 );
 

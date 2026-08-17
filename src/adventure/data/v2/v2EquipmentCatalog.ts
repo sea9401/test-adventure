@@ -956,9 +956,7 @@ const V2_EQUIPMENT_BASE = {
     signature: {
       trigger: "on_hit",
       label: "뇌침",
-      shockChancePct: 20,
-      shockSlowPct: 25,
-      buffActions: 2,
+      shockChancePct: 10,
     },
   },
   v2_crafted_thunder_oracle_grimoire: {
@@ -1592,9 +1590,7 @@ const V2_EQUIPMENT_BASE = {
     signature: {
       trigger: "on_hit",
       label: "뇌정 구속",
-      shockChancePct: 55,
-      shockSlowPct: 45,
-      buffActions: 3,
+      shockChancePct: 15,
     },
   },
   v2_crafted_white_night_grimoire: {
@@ -4744,9 +4740,7 @@ const V2_EQUIPMENT_BASE = {
     signature: {
       trigger: "on_hit",
       label: "뇌운",
-      shockChancePct: 15,
-      shockSlowPct: 50,
-      buffActions: 1,
+      shockChancePct: 5,
     },
   },
   v2_stormpeak_sig_stormhorn_plate: {

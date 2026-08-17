@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAllowedUgcReportReason,
   isUgcReportReason,
   isUgcReportSubject,
   isUgcSourceType,
@@ -15,6 +16,7 @@ describe("UGC 신고 입력 검증", () => {
     expect(isUgcSourceType("profile")).toBe(true);
     expect(isUgcSourceType("guild_profile")).toBe(true);
     expect(isUgcSourceType("chat_room")).toBe(true);
+    expect(isUgcSourceType("marketplace_trade")).toBe(true);
     expect(isUgcSourceType("unknown")).toBe(false);
   });
 
@@ -36,5 +38,25 @@ describe("UGC 신고 입력 검증", () => {
     expect(isUgcReportReason("harassment")).toBe(true);
     expect(isUgcReportReason("personal_info")).toBe(true);
     expect(isUgcReportReason("unknown")).toBe(false);
+  });
+
+  it("출처별 신고 사유만 허용한다", () => {
+    expect(
+      isAllowedUgcReportReason("marketplace_trade", "abnormal_price"),
+    ).toBe(true);
+    expect(
+      isAllowedUgcReportReason("marketplace_trade", "market_manipulation"),
+    ).toBe(true);
+    expect(
+      isAllowedUgcReportReason("marketplace_trade", "real_money_trade"),
+    ).toBe(true);
+    expect(isAllowedUgcReportReason("marketplace_trade", "other")).toBe(true);
+    expect(
+      isAllowedUgcReportReason("marketplace_trade", "harassment"),
+    ).toBe(false);
+    expect(
+      isAllowedUgcReportReason("bulletin_post", "abnormal_price"),
+    ).toBe(false);
+    expect(isAllowedUgcReportReason("bulletin_post", "harassment")).toBe(true);
   });
 });

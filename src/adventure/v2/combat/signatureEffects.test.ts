@@ -3,7 +3,7 @@ import {
   battleStartShield,
   formatChillSlowLog,
   formatDefDebuffLog,
-  formatShockSlowLog,
+  formatShockAppliedLog,
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
@@ -16,6 +16,7 @@ import {
   rollOnHitBleed,
   rollOnHitPoison,
   rollOnHitShock,
+  resolveOffensiveSignatureTriggers,
   rollEvasionActionRecovery,
   statusBlockOnce,
   everyNHitsValue,
@@ -63,8 +64,6 @@ const THUNDER_FANG: SignatureEffect = {
   trigger: "on_hit",
   label: "뇌운",
   shockChancePct: 15,
-  shockSlowPct: 50,
-  buffActions: 1,
 };
 
 const BLUE_VENOM: SignatureEffect = {
@@ -449,39 +448,43 @@ describe("rollOnHitBleed (공격 적중 시 확률 출혈)", () => {
   });
 });
 
-describe("rollOnHitShock (공격 적중 시 감전 둔화)", () => {
+describe("rollOnHitShock (공격 적중 시 다음 행동 감전)", () => {
   it("피해 없음/미장착/확률 실패 → null", () => {
     expect(rollOnHitShock([THUNDER_FANG], false, () => 0)).toBeNull();
     expect(rollOnHitShock(undefined, true, () => 0)).toBeNull();
     expect(rollOnHitShock([THUNDER_FANG], true, () => 0.99)).toBeNull();
   });
 
-  it("확률 성공 시 슬로우 배수와 지속행동을 반환", () => {
+  it("확률 성공 시 라벨을 반환", () => {
     expect(rollOnHitShock([THUNDER_FANG], true, () => 0)).toEqual({
-      mult: 0.5,
-      turns: 1,
       label: "뇌운",
     });
   });
 
-  it("여러 개면 가장 강한 슬로우를 사용하고 라벨은 보존", () => {
-    const weaker: SignatureEffect = {
+  it("여러 감전 효과가 성공하면 라벨을 보존", () => {
+    const other: SignatureEffect = {
       trigger: "on_hit",
       label: "잔전",
       shockChancePct: 100,
-      shockSlowPct: 20,
-      buffActions: 3,
     };
-    expect(rollOnHitShock([weaker, THUNDER_FANG], true, () => 0)).toEqual({
-      mult: 0.5,
-      turns: 1,
+    expect(rollOnHitShock([other, THUNDER_FANG], true, () => 0)).toEqual({
       label: "잔전 + 뇌운",
     });
   });
 
-  it("전투 로그는 감전 라벨과 둔화량을 표시", () => {
-    expect(formatShockSlowLog("허수아비", { mult: 0.5, turns: 1, label: "뇌운" })).toBe(
-      "[뇌운] 허수아비이(가) 감전되어 움직임이 끊긴다. (속도 50% 감소, 1행동)",
+  it("한기와 감전은 같은 공격에서 함께 발동할 수 있다", () => {
+    const result = resolveOffensiveSignatureTriggers(
+      [FROST, THUNDER_FANG],
+      { critical: true, dealtDamage: true, allowShock: true },
+      () => 0,
+    );
+    expect(result.critChill).not.toBeNull();
+    expect(result.hitShock).toEqual({ label: "뇌운" });
+  });
+
+  it("전투 로그는 다음 행동이 끊긴다는 점을 표시", () => {
+    expect(formatShockAppliedLog("허수아비", { label: "뇌운" })).toBe(
+      "[뇌운] 허수아비의 다음 행동이 감전으로 끊긴다.",
     );
   });
 });

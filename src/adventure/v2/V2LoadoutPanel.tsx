@@ -89,7 +89,22 @@ export type V2LoadoutData = {
   equipped: string[]; // 장착 우선순위 순서(갬빗 fallback).
   library: V2LoadoutSkill[];
   spBreakdown?: V2LoadoutSpBreakdown;
+  spMigration?: {
+    graceActive: boolean;
+    graceEndsAt: number | null;
+    serverNow: number;
+    overBudgetBy: number;
+    removedSkillIds: string[];
+  };
 };
+
+export function formatJobSpGraceRemaining(endsAt: number, now: number): string {
+  const remainingMs = Math.max(0, endsAt - now);
+  const totalMinutes = Math.ceil(remainingMs / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
+}
 
 export async function waitForLoadoutRefresh(
   onChanged?: () => void | Promise<void>,
@@ -178,6 +193,7 @@ export function V2LoadoutPanel({
     useState<SkillLineageFilter>("all");
   const [domain, setDomain] = useState<SkillDomain>("combat");
   const [compact, setCompact] = useState(false);
+  const [combatEquippedOpen, setCombatEquippedOpen] = useState(false);
   const [visibilitySettingsOpen, setVisibilitySettingsOpen] = useState(false);
   const [hiddenSkillIds, setHiddenSkillIds] = useState<Set<string>>(
     () => new Set(),
@@ -185,6 +201,9 @@ export function V2LoadoutPanel({
   const [showSpDetails, setShowSpDetails] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
+  const [migrationNow, setMigrationNow] = useState(
+    () => loadout.spMigration?.serverNow ?? Date.now(),
+  );
   const dragSessionRef = useRef<DragSession | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
@@ -223,6 +242,13 @@ export function V2LoadoutPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryKey]);
 
+  useEffect(() => {
+    const migration = loadout.spMigration;
+    if (!migration?.graceActive || migration.graceEndsAt == null) return;
+    const timer = window.setInterval(() => setMigrationNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [loadout.spMigration]);
+
   // 사냥터 표시 설정과 같은 로컬 저장 방식. 서버 렌더 결과와 첫 화면을 맞춘 뒤
   // 브라우저에서만 저장값을 불러온다.
   useEffect(() => {
@@ -241,6 +267,9 @@ export function V2LoadoutPanel({
   );
   const equippedSet = useMemo(() => new Set(order), [order]);
   const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const removedSkillNames = (loadout.spMigration?.removedSkillIds ?? []).map(
+    (skillId) => meta.get(skillId)?.name ?? skillId,
+  );
   const orderedLibrary = useMemo(() => {
     const byId = new Map(loadout.library.map((s) => [s.skillId, s]));
     const seen = new Set<string>();
@@ -740,6 +769,42 @@ export function V2LoadoutPanel({
           style={{ width: `${pct}%` }}
         />
       </div>
+      {loadout.spMigration?.graceActive &&
+        loadout.spMigration.graceEndsAt != null && (
+          <div className={`mt-3 p-3 text-xs ${SURFACE_INSET}`}>
+            <div className="font-semibold text-violet-700 dark:text-violet-300">
+              직업 SP 조정 유예 중
+            </div>
+            <div className="mt-1 text-zinc-700 dark:text-zinc-200">
+              현재 {spUsed} / 새 한도 {spBudget}
+              {loadout.spMigration.overBudgetBy > 0
+                ? ` · ${loadout.spMigration.overBudgetBy} SP 초과`
+                : ""}
+            </div>
+            <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+              남은 시간 {formatJobSpGraceRemaining(
+                loadout.spMigration.graceEndsAt,
+                migrationNow,
+              )}
+              {loadout.spMigration.overBudgetBy > 0
+                ? " · 현재 구성을 수정하면 새 한도가 적용됩니다."
+                : ""}
+            </div>
+          </div>
+        )}
+      {!loadout.spMigration?.graceActive && removedSkillNames.length > 0 && (
+        <div className={`mt-3 p-3 text-xs ${SURFACE_INSET}`}>
+          <div className="font-semibold text-violet-700 dark:text-violet-300">
+            직업 SP 조정 완료
+          </div>
+          <div className="mt-1 text-zinc-700 dark:text-zinc-200">
+            새 한도에 맞춰 {removedSkillNames.join(", ")} 스킬을 장착 해제했습니다.
+          </div>
+          <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+            저장된 프리셋은 유지되며 적용할 때 새 한도에 맞게 정리됩니다.
+          </div>
+        </div>
+      )}
       {spBreakdown && showSpDetails && (
         <div className={`mt-2 px-3 py-2 ${SURFACE_INSET}`}>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
@@ -789,98 +854,122 @@ export function V2LoadoutPanel({
               id="combat-equipped-heading"
               className="text-xs font-semibold text-zinc-700 dark:text-zinc-200"
             >
-              전투 스킬 장착
+              <span className="hidden sm:inline">전투 스킬 장착</span>
+              <span className="shrink-0 sm:hidden">
+                <span className="sr-only">
+                  전투 스킬 {combatEquippedSkills.length}개 장착
+                </span>
+                <span aria-hidden="true">
+                  전투 · {combatEquippedSkills.length}개
+                </span>
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={clearCombatSkills}
-              disabled={busy || combatEquippedSkills.length === 0}
-              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              전부 해제
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCombatEquippedOpen((open) => !open)}
+                aria-expanded={combatEquippedOpen}
+                aria-controls="combat-equipped-skills"
+                className="inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded px-2 text-[11px] font-medium text-violet-700 hover:bg-violet-100 sm:hidden dark:text-violet-300 dark:hover:bg-violet-900"
+              >
+                {combatEquippedOpen ? "접기" : "펼쳐보기"}
+              </button>
+              <button
+                type="button"
+                onClick={clearCombatSkills}
+                disabled={busy || combatEquippedSkills.length === 0}
+                className="inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded px-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-auto sm:py-0.5 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                전부 해제
+              </button>
+            </div>
           </div>
-          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            표시 순서대로 전투에서 먼저 사용합니다.
-          </p>
-          {combatEquippedSkills.length > 0 ? (
-            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
-              {combatEquippedSkills.map((s, idx) => (
-                <div
-                  key={s.skillId}
-                  data-equipped-drop-id={s.skillId}
-                  className={`ui-lift-card relative inline-flex min-h-11 sm:h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 ${
-                    draggingId === s.skillId ? "opacity-55" : ""
-                  }`}
-                >
-                  {dropTarget?.kind === "equipped" &&
-                    dropTarget.skillId === s.skillId && (
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none absolute bottom-1 top-1 w-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
-                          dropTarget.edge === "before" ? "-left-1" : "-right-1"
-                        }`}
-                      />
-                    )}
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${s.name} 장착 순서 이동`}
-                    title="드래그해서 장착 순서 변경"
-                    onPointerDown={(e) => {
-                      if (busy || e.button !== 0) return;
-                      e.preventDefault();
-                      e.currentTarget.setPointerCapture(e.pointerId);
-                      startPointerDrag(
-                        "equipped",
-                        s.skillId,
-                        e.pointerId,
-                        e.clientX,
-                        e.clientY,
-                      );
-                    }}
-                    onPointerMove={(e) => {
-                      if (dragSessionRef.current?.pointerId !== e.pointerId) return;
-                      e.preventDefault();
-                      updatePointerDrag(e.clientX, e.clientY);
-                    }}
-                    onPointerUp={(e) => {
-                      if (dragSessionRef.current?.pointerId !== e.pointerId) return;
-                      e.preventDefault();
-                      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-                        e.currentTarget.releasePointerCapture(e.pointerId);
-                      }
-                      finishPointerDrag(e.clientX, e.clientY);
-                    }}
-                    onPointerCancel={(e) => cancelPointerDrag(e.pointerId)}
-                    className={`flex h-11 w-11 sm:h-6 sm:w-5 touch-none cursor-grab items-center justify-center rounded text-violet-500 active:cursor-grabbing dark:text-violet-300 ${
-                      busy
-                        ? "pointer-events-none opacity-40"
-                        : "hover:bg-violet-100 dark:hover:bg-violet-900"
+          <div
+            id="combat-equipped-skills"
+            className={combatEquippedOpen ? "block" : "hidden sm:block"}
+          >
+            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              표시 순서대로 전투에서 먼저 사용합니다.
+            </p>
+            {combatEquippedSkills.length > 0 ? (
+              <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
+                {combatEquippedSkills.map((s, idx) => (
+                  <div
+                    key={s.skillId}
+                    data-equipped-drop-id={s.skillId}
+                    className={`ui-lift-card relative inline-flex min-h-11 sm:h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 ${
+                      draggingId === s.skillId ? "opacity-55" : ""
                     }`}
                   >
-                    <DotsSixVertical size={14} weight="bold" />
-                  </span>
-                  <span className="tabular-nums text-violet-500 dark:text-violet-400">
-                    {idx + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => toggle(s.skillId)}
-                    disabled={busy}
-                    title={`${s.name} 해제`}
-                    className="min-w-0 truncate rounded px-1 py-0.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {s.name}
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              장착한 전투 스킬이 없어요.
-            </p>
-          )}
+                    {dropTarget?.kind === "equipped" &&
+                      dropTarget.skillId === s.skillId && (
+                        <span
+                          aria-hidden="true"
+                          className={`pointer-events-none absolute bottom-1 top-1 w-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
+                            dropTarget.edge === "before" ? "-left-1" : "-right-1"
+                          }`}
+                        />
+                      )}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${s.name} 장착 순서 이동`}
+                      title="드래그해서 장착 순서 변경"
+                      onPointerDown={(e) => {
+                        if (busy || e.button !== 0) return;
+                        e.preventDefault();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        startPointerDrag(
+                          "equipped",
+                          s.skillId,
+                          e.pointerId,
+                          e.clientX,
+                          e.clientY,
+                        );
+                      }}
+                      onPointerMove={(e) => {
+                        if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                        e.preventDefault();
+                        updatePointerDrag(e.clientX, e.clientY);
+                      }}
+                      onPointerUp={(e) => {
+                        if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                        e.preventDefault();
+                        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                          e.currentTarget.releasePointerCapture(e.pointerId);
+                        }
+                        finishPointerDrag(e.clientX, e.clientY);
+                      }}
+                      onPointerCancel={(e) => cancelPointerDrag(e.pointerId)}
+                      className={`flex h-11 w-11 sm:h-6 sm:w-5 touch-none cursor-grab items-center justify-center rounded text-violet-500 active:cursor-grabbing dark:text-violet-300 ${
+                        busy
+                          ? "pointer-events-none opacity-40"
+                          : "hover:bg-violet-100 dark:hover:bg-violet-900"
+                      }`}
+                    >
+                      <DotsSixVertical size={14} weight="bold" />
+                    </span>
+                    <span className="tabular-nums text-violet-500 dark:text-violet-400">
+                      {idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(s.skillId)}
+                      disabled={busy}
+                      title={`${s.name} 해제`}
+                      className="min-w-0 truncate rounded px-1 py-0.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {s.name}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                장착한 전투 스킬이 없어요.
+              </p>
+            )}
+          </div>
         </section>
 
         <section className={`${SURFACE_INSET} p-3`} aria-labelledby="lifestyle-equipped-heading">

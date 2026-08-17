@@ -1937,7 +1937,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     );
   });
 
-  it("PvP 스킬 치명타도 치명타 시 속도 증가 고유 효과를 발동하고 표시한다", () => {
+  it("PvP 스킬 치명타도 치명타 시 장비 효과를 모두 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const s0 = initialBattleStatePvP(
       makePlayer({
@@ -1952,6 +1952,23 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
             trigger: "on_crit",
             label: "낙뢰",
             spdBuffPct: 20,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_crit",
+            label: "독니",
+            poisonOnCrit: true,
+          },
+          {
+            trigger: "on_crit",
+            label: "한기",
+            chillSlowPct: 30,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_crit",
+            label: "갑주부식",
+            enemyDefDebuffPct: 10,
             buffActions: 2,
           },
         ],
@@ -1970,7 +1987,148 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(cast.state.p1.buffs.playerSpdMult).toBe(1.2);
     expect(cast.state.p1.buffs.playerSpdTurnsLeft).toBe(2);
     expect(
+      cast.state.p2.v2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(cast.state.p1.buffs.enemySpdMult).toBe(0.7);
+    expect(cast.state.p1.buffs.enemySpdTurnsLeft).toBe(2);
+    expect(cast.state.p1.buffs.enemyDefDebuffPct).toBe(10);
+    expect(cast.state.p1.buffs.enemyDefDebuffTurnsLeft).toBe(2);
+    expect(
       cast.state.log.some((entry) => entry.text.includes("[낙뢰]")),
+    ).toBe(true);
+    expect(cast.state.log.some((entry) => entry.text.includes("[독니]"))).toBe(
+      true,
+    );
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[갑주부식]")),
+    ).toBe(true);
+  });
+
+  it("PvP 다단 스킬도 적중 시 중독·출혈·감전을 시전당 한 번 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 500,
+        maxMp: 500,
+        atk: 100,
+        spd: 15,
+        critChancePct: 0,
+        equipSignatures: [
+          {
+            trigger: "on_hit",
+            label: "독무응축",
+            poisonChancePct: 100,
+            poisonStacks: 1,
+          },
+          {
+            trigger: "on_hit",
+            label: "골절",
+            bleedChancePct: 100,
+            bleedStacks: 1,
+          },
+          {
+            trigger: "on_hit",
+            label: "뇌침",
+            shockChancePct: 100,
+          },
+        ],
+      }),
+      makePlayer({ hp: 1000, maxHp: 1000, spd: 5 }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_mage_barrage"],
+        equipped: ["v2c_mage_barrage"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(s0, "p1");
+
+    expect(
+      cast.state.p2.v2Dots.find((dot) => dot.tag === "poison")?.stacks,
+    ).toBe(1);
+    expect(
+      cast.state.p2.v2Dots.find((dot) => dot.tag === "bleed")?.stacks,
+    ).toBe(1);
+    expect(cast.state.p2.stacks.shockAction).toBe("pending");
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[독무응축]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[골절]")),
+    ).toHaveLength(1);
+    expect(
+      cast.state.log.filter((entry) => entry.text.includes("[뇌침]")),
+    ).toHaveLength(1);
+  });
+
+  it("PvP 상태 차단은 스킬과 장비가 한번에 거는 적 상태이상을 모두 막는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const s0 = initialBattleStatePvP(
+      makePlayer({
+        hp: 500,
+        maxHp: 500,
+        maxMp: 500,
+        atk: 100,
+        spd: 15,
+        critChancePct: 100,
+        equipSignatures: [
+          {
+            trigger: "on_crit",
+            label: "낙뢰",
+            spdBuffPct: 20,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_crit",
+            label: "갑주부식",
+            enemyDefDebuffPct: 10,
+            buffActions: 2,
+          },
+          {
+            trigger: "on_hit",
+            label: "독무응축",
+            poisonChancePct: 100,
+            poisonStacks: 1,
+          },
+          {
+            trigger: "on_hit",
+            label: "뇌침",
+            shockChancePct: 100,
+          },
+        ],
+      }),
+      makePlayer({
+        hp: 1000,
+        maxHp: 1000,
+        spd: 5,
+        equipSignatures: [
+          {
+            trigger: "status_block_once",
+            label: "결계",
+            statusBlockOnce: true,
+          },
+        ],
+      }),
+      "P1",
+      "P2",
+      {
+        learned: ["v2c_rogue_poison"],
+        equipped: ["v2c_rogue_poison"],
+      },
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(s0, "p1");
+
+    expect(cast.state.p1.buffs.playerSpdMult).toBe(1.2);
+    expect(cast.state.p2.v2Dots).toEqual([]);
+    expect(cast.state.p1.buffs.enemySpdMult).toBe(1);
+    expect(cast.state.p1.buffs.enemyDefDebuffPct).toBe(0);
+    expect(cast.state.p2.stacks.shockAction).toBeUndefined();
+    expect(cast.state.p2.flags.statusBlockUsed).toBe(true);
+    expect(
+      cast.state.log.some((entry) => entry.text.includes("[결계]")),
     ).toBe(true);
   });
 

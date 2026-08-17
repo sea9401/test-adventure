@@ -738,7 +738,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     });
     expect(V2_EQUIPMENT.v2_crafted_thundercoil_gloves.signature).toMatchObject({
       trigger: "on_hit",
-      shockChancePct: 20,
+      shockChancePct: 10,
     });
     expect(V2_EQUIPMENT.v2_crafted_veinbreaker_bow.signature).toMatchObject({
       trigger: "on_crit",
@@ -765,6 +765,23 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_trench_hymn_necklace.signature).toMatchObject({
       trigger: "on_heal",
       healToShieldPct: 24,
+    });
+  });
+
+  it("감전 장비와 세트는 행동 차단에 맞춘 낮은 발동 확률을 사용한다", () => {
+    expect(V2_EQUIPMENT.v2_stormpeak_sig_wolf_dagger.signature).toMatchObject({
+      shockChancePct: 5,
+    });
+    expect(V2_EQUIPMENT.v2_crafted_thundercoil_gloves.signature).toMatchObject({
+      shockChancePct: 10,
+    });
+    expect(
+      V2_EQUIP_TAG_SETS.find(({ id }) => id === "storm_arcane")?.thresholds.find(
+        ({ count }) => count === 4,
+      )?.signature,
+    ).toMatchObject({ shockChancePct: 10 });
+    expect(V2_EQUIPMENT.v2_crafted_thunder_lock_bow.signature).toMatchObject({
+      shockChancePct: 15,
     });
   });
 
@@ -1419,11 +1436,9 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
       signatureLabel({
         trigger: "on_hit",
         label: "뇌운",
-        shockChancePct: 15,
-        shockSlowPct: 50,
-        buffActions: 1,
+        shockChancePct: 5,
       }),
-    ).toBe("공격 적중 시 15% 확률로 감전 — 속도 −50% (1행동)");
+    ).toBe("공격 적중 시 5% 확률로 감전 — 다음 행동 1회 불가");
     expect(
       signatureLabel({
         trigger: "on_hit_taken",

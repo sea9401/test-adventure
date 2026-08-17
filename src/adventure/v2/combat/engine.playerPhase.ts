@@ -36,7 +36,7 @@ import {
   formatDefDebuffLog,
   firesOnCritPoison,
   formatChillSlowLog,
-  formatShockSlowLog,
+  formatShockAppliedLog,
   onCritEnemyDefDebuff,
   onCritEnemyChill,
   onCritSpeedBuff,
@@ -46,6 +46,7 @@ import {
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
   SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
+import { canApplyShock } from "./shockAction";
 import {
   CRIT_PCT_CAP,
 } from "@/adventure/data/stats";
@@ -882,11 +883,9 @@ export function resolvePlayerPhase(
   );
   const sigEnemySlowActiveMult =
     nextBuffsTimed.enemySpdTurnsLeft > 0 ? nextBuffsTimed.enemySpdMult : 1;
-  // 감전은 중첩/갱신하지 않는다. 기존 둔화 슬롯이 살아 있거나 같은 타격에서 한기가 발동하면 미발동.
-  const sigHitShock =
-    nextBuffsTimed.enemySpdTurnsLeft > 0 || sigCritChill
-      ? null
-      : rollOnHitShock(player.equipSignatures, sigDealtDamage);
+  const sigHitShock = canApplyShock(state.stacks.enemyShockAction)
+    ? rollOnHitShock(player.equipSignatures, sigDealtDamage)
+    : null;
   const sigChillDebuff = sigCritChill
     ? {
         enemySpdMult: Math.min(sigEnemySlowActiveMult, sigCritChill.mult),
@@ -894,12 +893,6 @@ export function resolvePlayerPhase(
           nextBuffsTimed.enemySpdTurnsLeft,
           sigCritChill.turns,
         ),
-      }
-    : null;
-  const sigShockDebuff = sigHitShock
-    ? {
-        enemySpdMult: sigHitShock.mult,
-        enemySpdTurnsLeft: sigHitShock.turns,
       }
     : null;
   const sigEnemyDefDebuffActivePct =
@@ -955,7 +948,7 @@ export function resolvePlayerPhase(
   if (sigHitShock) {
     log = appendLog(log, {
       kind: "info",
-      text: formatShockSlowLog(state.enemy.name, sigHitShock),
+      text: formatShockAppliedLog(state.enemy.name, sigHitShock),
     });
   }
   // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
@@ -988,8 +981,6 @@ export function resolvePlayerPhase(
       ...(sigSpdBuff ?? {}),
       // 고유 시그니처 on-crit 한기(동결의 갑주) 적 둔화 — 미발동이면 빈 객체(불변).
       ...(sigChillDebuff ?? {}),
-      // 고유 시그니처 on-hit 감전 적 둔화 — 한기와 같은 enemySpd 슬롯에 가장 강한 슬로우로 병합.
-      ...(sigShockDebuff ?? {}),
       // 고유 시그니처 표식 방어 감소 — AP 약점 노출과 같은 enemyDef 슬롯에 병합.
       ...(sigEnemyDefDebuff ?? {}),
     },
@@ -1007,6 +998,7 @@ export function resolvePlayerPhase(
           0,
           signatureBonusAttacksLeft - (isSignatureBonusAttack ? 1 : 0),
         ) + sigExtraAttack,
+      ...(sigHitShock ? { enemyShockAction: "pending" as const } : {}),
     },
     turn: {
       ...state.turn,

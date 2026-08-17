@@ -289,6 +289,7 @@ describe("parseInboxPayload — happy path", () => {
         materials: [{ materialId: "iron_ore", count: 3 }],
         items: [{ itemId: "iron_sword", count: 2 }],
         staminaPotions: 4,
+        staminaPotionsBound: true,
       }),
     ).toEqual({
       kind: "admin_gift",
@@ -296,6 +297,7 @@ describe("parseInboxPayload — happy path", () => {
       materials: [{ materialId: "iron_ore", count: 3 }],
       items: [{ itemId: "iron_sword", count: 2 }],
       staminaPotions: 4,
+      staminaPotionsBound: true,
       museunCoins: 0,
       cashItems: [],
       adventureSupportDays: 0,

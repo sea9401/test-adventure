@@ -10,7 +10,10 @@ import {
   type GuildTradeUserState,
 } from "@/adventure/data/v2/guildTrade";
 import { tradePostUpgradeForLevel } from "@/adventure/data/v2/settlement";
-import { STAMINA_POTIONS_KEY, parseStaminaPotions } from "@/adventure/v2/staminaPotions";
+import {
+  grantStaminaPotions,
+  STAMINA_POTIONS_KEY,
+} from "@/adventure/v2/staminaPotions";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   associationFacilityLevel,
@@ -392,8 +395,8 @@ async function lockShopGrant(tx: Tx, userId: string, item: GuildTradeShopItem): 
   }
   if (output.kind === "stamina_potion") {
     const raw = await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, {});
-    const count = parseStaminaPotions(raw).count;
-    return () => upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: count + output.count });
+    const next = grantStaminaPotions(raw, output.count, { bound: true });
+    return () => upsertSave(tx, userId, STAMINA_POTIONS_KEY, next);
   }
   if (output.kind === "mastery_certificate") {
     const inventory = await lockSaveForUpdate<Record<string, unknown>>(tx, userId, "inventory.v2", {});

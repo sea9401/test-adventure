@@ -37,15 +37,15 @@ function entrants(count: number): ArenaTournamentEntrant<{ seed: number }>[] {
 describe("arena tournament phase", () => {
   const endAt = new Date("2026-07-26T15:00:00.000Z");
 
-  it("일요일 00시에 예선을 닫고 19시에 챔피언십을 시작한다", () => {
+  it("일요일 00시에 예선을 닫고 12시에 세팅을 동결한 뒤 13시에 챔피언십을 시작한다", () => {
     expect(arenaRankedEndsAt(endAt).toISOString()).toBe(
       "2026-07-25T15:00:00.000Z",
     );
     expect(arenaTournamentStartsAt(endAt).toISOString()).toBe(
-      "2026-07-26T10:00:00.000Z",
+      "2026-07-26T04:00:00.000Z",
     );
     expect(arenaTournamentSnapshotsAt(endAt).toISOString()).toBe(
-      "2026-07-26T09:00:00.000Z",
+      "2026-07-26T03:00:00.000Z",
     );
     expect(arenaSeasonPhase(endAt, new Date("2026-07-25T14:59:59.999Z"))).toBe(
       "ranked",
@@ -161,8 +161,8 @@ describe("arena tournament schedule", () => {
     }
   });
 
-  it("같은 라운드는 동시에, 다음 라운드는 15분 뒤로 예약한다", () => {
-    const startsAt = new Date("2026-07-26T10:00:00.000Z");
+  it("같은 라운드는 동시에, 다음 라운드는 5분 뒤로 예약한다", () => {
+    const startsAt = new Date("2026-07-26T04:00:00.000Z");
     const bracket = createArenaTournamentSchedule({
       seasonId: "2026-W30",
       generatedAt: new Date("2026-07-25T15:00:00.000Z"),
@@ -187,8 +187,8 @@ describe("arena tournament schedule", () => {
     expect(nextDueArenaTournamentMatch(bracket, startsAt)?.sequence).toBe(1);
   });
 
-  it("32강은 20시에 3·4위전, 20시 15분에 결승을 예약한다", () => {
-    const startsAt = new Date("2026-07-26T10:00:00.000Z");
+  it("32강은 13시 20분에 3·4위전, 13시 25분에 결승을 예약한다", () => {
+    const startsAt = new Date("2026-07-26T04:00:00.000Z");
     const bracket = createArenaTournamentSchedule({
       seasonId: "2026-W30",
       generatedAt: new Date("2026-07-25T15:00:00.000Z"),
@@ -201,13 +201,13 @@ describe("arena tournament schedule", () => {
       kind: "third_place",
       roundName: "3·4위전",
       sequence: 31,
-      scheduledAt: "2026-07-26T11:00:00.000Z",
+      scheduledAt: "2026-07-26T04:20:00.000Z",
     });
     expect(bracket.matches.at(-1)).toMatchObject({
       kind: "final",
       roundName: "결승",
       sequence: 32,
-      scheduledAt: "2026-07-26T11:15:00.000Z",
+      scheduledAt: "2026-07-26T04:25:00.000Z",
     });
   });
 

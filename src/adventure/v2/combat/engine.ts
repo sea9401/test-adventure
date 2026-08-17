@@ -38,14 +38,20 @@ import {
 import {
   battleStartShield,
   everyNHitsEffect,
+  formatChillSlowLog,
+  formatDefDebuffLog,
+  formatShockAppliedLog,
   healToShield,
   lowHpDamageReductionPct,
-  onCritSpeedBuff,
   onDodgeSpeedBuff,
   onSkillCastMpRefund,
+  resolveOffensiveSignatureTriggers,
   rollEvasionActionRecovery,
+  SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+  SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
   statusBlockOnce,
 } from "./signatureEffects";
+import { canApplyShock, enterShockAction } from "./shockAction";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   CRIT_PCT_CAP,
@@ -2309,26 +2315,6 @@ export function applyPlayerV2SkillCast(
       skillCritAfterEvadeFired ||
       ((player.critChancePct ?? 0) > 0 &&
         Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0)));
-  // 치명타 발동형 고유 효과는 평타뿐 아니라 직접 피해 액티브 스킬 치명타에도 적용한다.
-  const sigSkillCritSpeed = onCritSpeedBuff(
-    player.equipSignatures,
-    skillCritFired,
-    result.enemyDamage > 0,
-  );
-  const activeSkillCritSpdMult =
-    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
-  const sigSkillCritSpdBuff = sigSkillCritSpeed
-    ? {
-        playerSpdMult: Math.max(
-          activeSkillCritSpdMult,
-          sigSkillCritSpeed.mult,
-        ),
-        playerSpdTurnsLeft: Math.max(
-          state.buffs.playerSpdTurnsLeft,
-          sigSkillCritSpeed.turns,
-        ),
-      }
-    : null;
   // 스킬 다단히트 — 이 턴 추가 공격 확률로 굴려둔 공격 횟수(playerAttacksLeft)만큼 데미지
   //   스킬을 반복 타격한다. 평타 빌드가 누리는 SPD(추가 공격) 가치를 스킬 빌드에도 부여.
   //   데미지 스킬에만 적용(버프/힐/마나/DoT 부여는 1회 — 다중 적용 X). 새 RNG 미소비(이미
@@ -2502,6 +2488,96 @@ export function applyPlayerV2SkillCast(
       });
     }
   }
+  const sigSkill = resolveOffensiveSignatureTriggers(
+    player.equipSignatures,
+    {
+      critical: skillCritFired,
+      dealtDamage: landedSkillHits > 0,
+      allowShock: canApplyShock(state.stacks.enemyShockAction),
+    },
+  );
+  const sigSkillTargetDots = [
+    ...(sigSkill.critPoison
+      ? [
+          makePoisonDot({
+            stacks: 1,
+            pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: player.atk,
+          }),
+        ]
+      : []),
+    ...(sigSkill.hitPoison
+      ? [
+          makePoisonDot({
+            stacks: sigSkill.hitPoison.stacks,
+            pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: player.atk,
+          }),
+        ]
+      : []),
+    ...(sigSkill.hitBleed
+      ? [
+          makeBleedDot({
+            stacks: sigSkill.hitBleed.stacks,
+            flatPerStack: 0,
+            sourceAtk: player.atk,
+          }),
+        ]
+      : []),
+  ];
+  const activeSkillCritSpdMult =
+    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
+  const sigSkillCritSpdBuff = sigSkill.critSpeed
+    ? {
+        playerSpdMult: Math.max(
+          activeSkillCritSpdMult,
+          sigSkill.critSpeed.mult,
+        ),
+        playerSpdTurnsLeft: Math.max(
+          state.buffs.playerSpdTurnsLeft,
+          sigSkill.critSpeed.turns,
+        ),
+      }
+    : null;
+  const activeSkillEnemySpdMult =
+    state.buffs.enemySpdTurnsLeft > 0 ? state.buffs.enemySpdMult : 1;
+  const sigSkillEnemySlow = sigSkill.critChill
+    ? {
+        enemySpdMult: Math.min(
+          activeSkillEnemySpdMult,
+          sigSkill.critChill.mult,
+        ),
+        enemySpdTurnsLeft: Math.max(
+          state.buffs.enemySpdTurnsLeft,
+          sigSkill.critChill.turns,
+        ),
+      }
+    : null;
+  const activeSkillEnemyDefDebuffPct =
+    state.buffs.enemyDefDebuffTurnsLeft > 0
+      ? state.buffs.enemyDefDebuffPct
+      : 0;
+  const sigSkillEnemyDefDebuff = sigSkill.critDefDebuff
+    ? {
+        enemyDefDebuffPct: Math.max(
+          activeSkillEnemyDefDebuffPct,
+          sigSkill.critDefDebuff.pct,
+        ),
+        enemyDefDebuffTurnsLeft: Math.max(
+          state.buffs.enemyDefDebuffTurnsLeft,
+          sigSkill.critDefDebuff.turns,
+        ),
+      }
+    : null;
+  const sigSkillBuffs = {
+    ...(sigSkillCritSpdBuff ?? {}),
+    ...(sigSkillEnemySlow ?? {}),
+    ...(sigSkillEnemyDefDebuff ?? {}),
+  };
+  const hasSigSkillBuffs =
+    !!sigSkillCritSpdBuff ||
+    !!sigSkillEnemySlow ||
+    !!sigSkillEnemyDefDebuff;
   if (nextMagicVulnStacks > state.stacks.enemyMagicVulnStacks) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -2511,7 +2587,49 @@ export function applyPlayerV2SkillCast(
   if (sigSkillCritSpdBuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${sigSkillCritSpeed?.label ?? "군림"}] 결정타 — 속도가 솟구친다!`,
+      text: `[${sigSkill.critSpeed?.label ?? "군림"}] 결정타 — 속도가 솟구친다!`,
+      turn: "player",
+    });
+  }
+  if (sigSkill.critPoison) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[독니] ${state.enemy.name}을(를) 중독시켰다!`,
+      turn: "player",
+    });
+  }
+  if (sigSkill.hitPoison) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkill.hitPoison.label}] ${state.enemy.name}에게 중독 ${sigSkill.hitPoison.stacks}스택을 남겼다.`,
+      turn: "player",
+    });
+  }
+  if (sigSkill.hitBleed) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkill.hitBleed.label}] ${state.enemy.name}에게 출혈 ${sigSkill.hitBleed.stacks}스택을 남겼다.`,
+      turn: "player",
+    });
+  }
+  if (sigSkill.critChill) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: formatChillSlowLog(state.enemy.name, sigSkill.critChill),
+      turn: "player",
+    });
+  }
+  if (sigSkill.critDefDebuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: formatDefDebuffLog(state.enemy.name, sigSkill.critDefDebuff),
+      turn: "player",
+    });
+  }
+  if (sigSkill.hitShock) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: formatShockAppliedLog(state.enemy.name, sigSkill.hitShock),
       turn: "player",
     });
   }
@@ -2599,7 +2717,10 @@ export function applyPlayerV2SkillCast(
     player,
   );
   // PR-8 — dot effect 결과를 적 측 v2Dots 에 박음. 같은 label refresh.
-  const nextEnemyDots = applyV2DotsToTarget(state.enemyV2Dots, dotsToApplyToTarget);
+  const nextEnemyDots = applyV2DotsToTarget(
+    applyV2DotsToTarget(state.enemyV2Dots, dotsToApplyToTarget),
+    sigSkillTargetDots,
+  );
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -2791,8 +2912,8 @@ export function applyPlayerV2SkillCast(
     v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
     enemyV2Debuffs: nextEnemyDebuffs,
     enemyV2Dots: nextEnemyDots,
-    buffs: sigSkillCritSpdBuff
-      ? { ...state.buffs, ...sigSkillCritSpdBuff }
+    buffs: hasSigSkillBuffs
+      ? { ...state.buffs, ...sigSkillBuffs }
       : state.buffs,
     flags: skillCritAfterEvadeFired
       ? { ...state.flags, skillCritAfterEvadePending: false }
@@ -2806,6 +2927,7 @@ export function applyPlayerV2SkillCast(
       signatureHitCount: nextSigHitCount,
       signatureBonusAttacksLeft:
         state.stacks.signatureBonusAttacksLeft + signatureExtraActions,
+      ...(sigSkill.hitShock ? { enemyShockAction: "pending" as const } : {}),
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
       fortressImpact: Math.max(
@@ -2987,9 +3109,31 @@ function resolveBattleLegacy(
     let action: PlayerAction = { kind: "attack" };
     // 이 iteration 의 enemy 페이즈에서 몹이 스킬을 실제 발동했는지 — true 면 평타 생략(더블어택 fix).
     let enemySkillFiredThisTurn = false;
+    let shockSkipsEnemyAction = false;
     // PR-5b 회귀: enemy phase 가 player 로 전환되면 enemy cast flag reset (offlineSim 과 동작 일치).
     if (state.phase === "player") {
       v2CastedThisEnemyPhase = false;
+    }
+    if (state.phase === "enemy" && !v2CastedThisEnemyPhase) {
+      const shockEntry = enterShockAction(state.stacks.enemyShockAction);
+      if (state.stacks.enemyShockAction !== shockEntry.next) {
+        state = {
+          ...state,
+          stacks: { ...state.stacks, enemyShockAction: shockEntry.next },
+        };
+      }
+      if (shockEntry.skip) {
+        shockSkipsEnemyAction = true;
+        v2CastedThisEnemyPhase = true;
+        state = {
+          ...state,
+          log: appendLog(state.log, {
+            kind: "info",
+            text: `[감전] ${state.enemy.name}이(가) 움직이지 못했다.`,
+            turn: "enemy",
+          }),
+        };
+      }
     }
     if (state.phase === "player") {
       // v2 스킬 cast (PR-4b) — MP 차감 + cooldown set + 효과 적용 (damage/heal/buff/debuff).
@@ -3145,7 +3289,7 @@ function resolveBattleLegacy(
           }
         }
       }
-    } else if (state.phase === "enemy") {
+    } else if (state.phase === "enemy" && !shockSkipsEnemyAction) {
       // PR-5b — enemy 의 v2 스킬 cast (player cast hook 미러). monster.v2Skills 미지정이면 no-op.
       v2CastedThisPlayerPhase = false;
       if (!v2CastedThisEnemyPhase) {
@@ -3533,7 +3677,7 @@ function resolveBattleLegacy(
       player,
       playerName,
       action,
-      enemySkillFiredThisTurn,
+      enemySkillFiredThisTurn || shockSkipsEnemyAction,
     );
     // 새로 추가된 entry 에만 turn 을 부여. (이미 turn 이 있는 entry — 만약 직접 박은
     // 곳이 있어도 — 는 보존.)

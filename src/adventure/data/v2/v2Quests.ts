@@ -77,6 +77,8 @@ export type QuestCtx = {
   arenaPlayed: boolean;
   /** 투기장 승리 수. arena-history.v2 outcome==='win'. */
   arenaWins: number;
+  /** 내 홍보 링크로 합류한 누적 사용자 수. referral_conversions. */
+  referralCount: number;
   /** 지갑 보유 골드. character.v2.gold. */
   gold: number;
   /** 발견한 거점 수. character.v2.discoveredOutpostIds. */
@@ -627,7 +629,7 @@ const GROWTH_ACHIEVEMENTS: QuestDef[] = [
   ]),
   { id: "a_apex", line: "growth_achievement", chain: "growth_achievement:tier", title: "심화 직업", desc: "4차 직업으로 전직하세요.", reward: {}, points: 25, progress: (c) => c.tier, goal: 4, check: (c) => c.tier >= 4 },
   { id: "growth_tier5", line: "growth_achievement", chain: "growth_achievement:tier", title: "상급 직업", desc: "5차 직업으로 전직하세요.", reward: {}, points: 40, progress: (c) => c.tier, goal: 5, check: (c) => c.tier >= 5 },
-  { id: "growth_tier6", line: "growth_achievement", chain: "growth_achievement:tier", title: "초월 직업", desc: "6차 직업으로 전직하세요.", reward: {}, points: 60, badgeTier: "legendary", progress: (c) => c.tier, goal: 6, check: (c) => c.tier >= 6 },
+  { id: "growth_tier6", line: "growth_achievement", chain: "growth_achievement:tier", title: "초월 직업", desc: "6차 직업으로 전직하세요.", reward: { titleId: "ach_transcendent" }, points: 60, badgeTier: "legendary", progress: (c) => c.tier, goal: 6, check: (c) => c.tier >= 6 },
 ];
 
 export const UNIQUE_EQUIPMENT_ACQUISITION_LABEL = "유니크 장비 누적 획득";
@@ -656,7 +658,7 @@ const EQUIPMENT: QuestDef[] = [
     { id: "codex_100", title: "백 가지 장비", goal: 100, points: 25, badgeTier: "silver" },
     { id: "codex_150", title: "대수집가", goal: 150, points: 35 },
     { id: "codex_200", title: "도감 박사", goal: 200, points: 50, badgeTier: "gold" },
-    { id: "codex_240", title: "장비 도감 완주", goal: 240, points: 70, badgeTier: "legendary" },
+    { id: "codex_240", title: "장비 도감 완주", goal: 240, points: 70, titleId: "ach_equipment_archivist", badgeTier: "legendary" },
   ]),
   ...milestones("equipment", "장비 최고 강화 +", (c) => c.maxEnhanceLevel, [
     { id: "e_first", title: "첫 단조", goal: 1, points: 5 },
@@ -679,12 +681,23 @@ const ARENA: QuestDef[] = [
     { id: "arena_win20", title: "검투사", goal: 20, points: 15, badgeTier: "silver" },
     { id: "arena_win50", title: "아레나 베테랑", goal: 50, points: 25 },
     { id: "arena_win100", title: "백승의 명예", goal: 100, points: 40, badgeTier: "gold" },
-    { id: "arena_win250", title: "투기장의 지배자", goal: 250, points: 60, badgeTier: "legendary" },
+    { id: "arena_win250", title: "투기장의 지배자", goal: 250, points: 60, titleId: "ach_arena_conqueror", badgeTier: "legendary" },
     ...marathonMilestones("marathon_arena", "투기장 승리", [
       500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000,
     ]),
   ]),
 ];
+
+const PROMOTION: QuestDef[] = milestones(
+  "promotion",
+  "홍보 합류 인원",
+  (c) => c.referralCount,
+  [
+    { id: "promotion_referrals50", title: "홍보사원", goal: 50, points: 50, titleId: "ach_promotion_staff", badgeTier: "gold" },
+    { id: "promotion_referrals100", title: "홍보왕", goal: 100, points: 80, titleId: "ach_promotion_king", badgeTier: "legendary" },
+  ],
+  (goal) => `내 홍보 링크로 새 모험가 ${goal}명이 합류하도록 하세요.`,
+);
 
 const FARMING: QuestDef[] = [
   ...milestones("farming", "작물 수확", (c) => c.farmHarvests, [
@@ -841,7 +854,7 @@ const LIFE_PROCESSING: QuestDef[] = [
     { id: "life_request1", title: "첫 심부름", goal: 1, points: 5 },
     { id: "life_request10", title: "마을의 일손", goal: 10, points: 15, badgeTier: "bronze" },
     { id: "life_request50", title: "믿고 맡기는 사람", goal: 50, points: 35, badgeTier: "gold" },
-    { id: "life_request100", title: "생활 해결사", goal: 100, points: 60, badgeTier: "legendary" },
+    { id: "life_request100", title: "생활 해결사", goal: 100, points: 60, titleId: "ach_town_helper", badgeTier: "legendary" },
   ]),
 ];
 
@@ -1075,7 +1088,7 @@ const CHALLENGE: QuestDef[] = [
     { id: "tower_20", title: "탑의 도전자", goal: 20, points: 15 },
     { id: "tower_30", title: "구름 위로", goal: 30, points: 25 },
     { id: "tower_40", title: "정상이 보인다", goal: 40, points: 35 },
-    { id: "tower_50", title: "숙련의 정점", goal: 50, points: 60 },
+    { id: "tower_50", title: "숙련의 정점", goal: 50, points: 60, titleId: "ach_mastery_tower_peak", badgeTier: "legendary" },
   ]),
 ];
 
@@ -1085,7 +1098,7 @@ const COLLECTION: QuestDef[] = [
   ...milestones("collection", "총 보유 골드", (c) => c.gold + c.bankedGold, [
     { id: "x_rich", title: "재력가", goal: 10_000, points: 10, titleId: "ach_gold_keeper" },
     { id: "gold_100k", title: "두둑한 지갑", goal: 100_000, points: 20 },
-    { id: "gold_1m", title: "백만장자", goal: 1_000_000, points: 40 },
+    { id: "gold_1m", title: "백만장자", goal: 1_000_000, points: 40, titleId: "ach_millionaire" },
     ...marathonMilestones("marathon_gold", "총 보유 골드", [
       5_000_000, 10_000_000, 25_000_000, 50_000_000, 100_000_000,
       250_000_000, 500_000_000, 1_000_000_000, 2_500_000_000,
@@ -1093,8 +1106,8 @@ const COLLECTION: QuestDef[] = [
     ], 60),
   ]),
   ...milestones("collection", "칭호 획득", (c) => c.titleCount, [
-    { id: "x_titles", title: "칭호 수집가", goal: 3, points: 10 },
-    { id: "titles_10", title: "수많은 이름", goal: 10, points: 25 },
+    { id: "x_titles", title: "칭호 수집 입문", goal: 3, points: 10 },
+    { id: "titles_10", title: "칭호 수집가", goal: 10, points: 25, titleId: "ach_title_collector" },
   ]),
 ];
 
@@ -1120,6 +1133,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·전투직 재전직 기록.", sequential: false },
   { id: "equipment", name: "장비와 도감", subtitle: "장비 수집·도감 등록·강화 기록.", sequential: false },
   { id: "arena_social", name: "경쟁과 교류", subtitle: "길드·거래소·투기장 승리 기록.", sequential: false },
+  { id: "promotion", name: "게임 홍보", subtitle: "내 홍보 링크로 합류한 새 모험가 기록.", sequential: false },
   { id: "farming", name: "농사", subtitle: "수확·희귀 작물·납품·농사 레벨.", sequential: false },
   { id: "woodcutting", name: "벌목", subtitle: "벌목 성공·벌목 레벨.", sequential: false },
   { id: "mining", name: "채광", subtitle: "채광 성공·부산물·채광 레벨.", sequential: false },
@@ -1141,6 +1155,7 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...GROWTH_ACHIEVEMENTS,
   ...EQUIPMENT,
   ...ARENA,
+  ...PROMOTION,
   ...FARMING,
   ...WOODCUTTING,
   ...MINING,

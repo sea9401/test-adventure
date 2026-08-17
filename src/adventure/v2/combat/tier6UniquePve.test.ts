@@ -157,6 +157,35 @@ describe("6T 유니크 PvE 연동", () => {
       .toBe(true);
   });
 
+  it("적의 치명적인 공격에 쓰러지면 저장한 성역으로 부활하지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    const player = {
+      ...basePlayer,
+      equipSignatures: [signature("sanctuary_reserve")],
+    };
+    const initial = initialBattleState(player, enemy, "성역기사");
+    const primed = {
+      ...initial,
+      phase: "enemy" as const,
+      playerHp: 100,
+      stacks: {
+        ...initial.stacks,
+        tier6Uniques: {
+          ...initial.stacks.tier6Uniques!,
+          sanctuaryReserve: 200,
+        },
+      },
+    };
+
+    const after = resolveEnemyPhase(primed, player, "성역기사", true);
+
+    expect(after.outcome).toBe("lose");
+    expect(after.playerHp).toBe(0);
+    expect(after.stacks.tier6Uniques?.sanctuaryReserve).toBe(200);
+    expect(after.log.some((entry) => entry.text.includes("성역 소비")))
+      .toBe(false);
+  });
+
   it("부식은 물리 방어가 아닌 마법방어 전용 감소 슬롯에 기록한다", () => {
     const player = {
       ...basePlayer,

@@ -417,6 +417,32 @@ describe("adventurer farm", () => {
     expect(next.stats.reputationSpent).toBe(0);
   });
 
+  it("옥수수와 토마토 납품에 해금 단계 순서대로 증표를 지급한다", () => {
+    const corn = claimFarmDelivery(
+      {
+        ...emptyFarmState(1_000),
+        inventory: { corn: 5 },
+        seeds: {},
+      },
+      "market-corn",
+      1_000,
+    );
+    const tomato = claimFarmDelivery(
+      {
+        ...emptyFarmState(1_000),
+        inventory: { tomato: 3 },
+        seeds: {},
+      },
+      "inn-tomato",
+      1_000,
+    );
+
+    expect(corn.result.rewardReputation).toBe(3);
+    expect(corn.state.stats.reputation).toBe(3);
+    expect(tomato.result.rewardReputation).toBe(4);
+    expect(tomato.state.stats.reputation).toBe(4);
+  });
+
   it("모든 작물 일일 납품이 같은 작물 씨앗 2개를 돌려준다", () => {
     for (const request of getFarmDeliveryRequests().filter(
       (entry) => entry.requiredItemId !== "egg" && entry.requiredItemId !== "milk",
@@ -610,7 +636,7 @@ describe("adventurer farm", () => {
 
     expect(nextDay.deliveries.claimedIds).toEqual(["market-corn"]);
     expect(nextDay.stats.deliveries).toBe(3);
-    expect(nextDay.stats.reputation).toBe(9);
+    expect(nextDay.stats.reputation).toBe(8);
     expect(nextDay.plots).toHaveLength(2);
   });
 

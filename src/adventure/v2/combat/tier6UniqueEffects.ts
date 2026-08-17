@@ -625,6 +625,7 @@ export function resolveTier6UniqueEvent(
   if (
     event.kind === "hp_threshold" &&
     event.maxHp > 0 &&
+    event.currentHp > 0 &&
     event.currentHp <= event.maxHp * 0.35 &&
     state.sanctuaryReserve > 0 &&
     owns("sanctuary_reserve")

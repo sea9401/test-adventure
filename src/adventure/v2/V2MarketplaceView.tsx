@@ -78,6 +78,7 @@ import {
   compareMarketplaceListings,
   equipDetail,
   groupMarketplaceStackListings,
+  individualMarketplaceListings,
   isStackableMarketplaceListing,
   listingEquipRoll,
   marketplaceStackQuote,
@@ -119,6 +120,7 @@ import {
   equippedItemIdsForMarketplace,
 } from "./marketplace/equipmentComparison";
 import { EquipmentCodexBadge } from "./EquipmentCodexBadge";
+import { MarketplaceTradeReportButton } from "./marketplace/MarketplaceTradeReportButton";
 import {
   MARKETPLACE_EQUIPMENT_TIER_OPTIONS,
   matchesMarketplaceEquipmentTier,
@@ -148,7 +150,7 @@ function listingCraftQuality(payload: unknown): V2CraftQualityState | undefined 
   return parseInstanceCraftQuality(raw?.craftQuality, raw?.enhance, listingCraftedBy(payload));
 }
 
-type Tab = "browse" | "mine" | "sell";
+type Tab = "browse" | "sell" | "recent" | "mine";
 type MineTab = "active" | "orders" | "history";
 type ListingMode = "fixed" | "auction";
 type BrowseMode = "fixed" | "auction";
@@ -167,6 +169,7 @@ const MARKETPLACE_TABS: ReadonlyArray<{
 }> = [
   { key: "browse", label: "구매", description: "매물 찾기", Icon: ShoppingCart },
   { key: "sell", label: "판매", description: "아이템 올리기", Icon: ListPlus },
+  { key: "recent", label: "최근 거래", description: "전체 체결", Icon: Receipt },
   { key: "mine", label: "내 거래", description: "판매·체결 관리", Icon: Package },
 ];
 
@@ -203,6 +206,27 @@ type Trade = {
   closedAt: string | null;
   side?: "buy" | "sell";
 };
+
+function tradeToListing(trade: Trade): Listing {
+  return {
+    id: trade.id,
+    isMine: trade.side === "sell",
+    isHighestBidder: trade.side === "buy",
+    kind: trade.kind as Listing["kind"],
+    itemId: trade.itemId,
+    itemName: trade.itemName,
+    quantity: trade.quantity,
+    price: trade.price,
+    instancePayload: trade.instancePayload,
+    createdAt: trade.closedAt ?? "",
+    bidEndsAt: trade.closedAt ?? "",
+    expiresAt: trade.closedAt ?? "",
+    highestBid: null,
+    bidCount: 0,
+    bidResolvedAt: trade.closedAt,
+    nextBid: 1,
+  };
+}
 
 type BuyOrder = {
   id: number;
@@ -352,7 +376,8 @@ export function V2MarketplaceView({
   );
   const [mine, setMine] = useState<Listing[] | null>(null);
   // 최근 거래 — Trade 를 Listing 형태로 매핑(ListingList 재사용). createdAt 자리 = 체결 시각.
-  const [history, setHistory] = useState<Listing[] | null>(null);
+  const [recentTrades, setRecentTrades] = useState<Listing[] | null>(null);
+  const [myHistory, setMyHistory] = useState<Listing[] | null>(null);
   const [buyOrders, setBuyOrders] = useState<BuyOrder[] | null>(null);
   const [buyOrderBook, setBuyOrderBook] = useState<Record<string, BuyOrderBookRow>>({});
   const [equipmentBuyOrders, setEquipmentBuyOrders] = useState<
@@ -524,34 +549,19 @@ export function V2MarketplaceView({
     if (j?.ok && j.prices) setPriceRef(j.prices);
   }, []);
 
-  const loadHistory = useCallback(async () => {
-    const res = await fetch("/api/v2/marketplace/history?mine=1");
+  const loadHistory = useCallback(async (mineOnly: boolean) => {
+    const res = await fetch(
+      `/api/v2/marketplace/history${mineOnly ? "?mine=1" : ""}`,
+    );
     const j = (await res.json().catch(() => null)) as {
       ok?: boolean;
       trades?: Trade[];
     } | null;
     if (!res.ok || !j?.ok) throw new Error(`거래 내역 로드 실패 (${res.status})`);
     // ListingList 재사용 — createdAt 자리에 체결 시각(closedAt). expiry 미전달이라 timeAgo 에만 쓰임.
-    setHistory(
-      (j.trades ?? []).map((t) => ({
-        id: t.id,
-        isMine: t.side === "sell",
-        isHighestBidder: t.side === "buy",
-        kind: t.kind as Listing["kind"],
-        itemId: t.itemId,
-        itemName: t.itemName,
-        quantity: t.quantity,
-        price: t.price,
-        instancePayload: t.instancePayload,
-        createdAt: t.closedAt ?? "",
-        bidEndsAt: t.closedAt ?? "",
-        expiresAt: t.closedAt ?? "",
-        highestBid: null,
-        bidCount: 0,
-        bidResolvedAt: t.closedAt,
-        nextBid: 1,
-      })),
-    );
+    const rows = (j.trades ?? []).map(tradeToListing);
+    if (mineOnly) setMyHistory(rows);
+    else setRecentTrades(rows);
   }, []);
 
   const loadMarketAutomation = useCallback(async () => {
@@ -598,9 +608,11 @@ export function V2MarketplaceView({
       void loadEquipment();
       void loadPrices();
       void loadMarketAutomation();
+    } else if (tab === "recent") {
+      void loadHistory(false).catch((e) => setError(String(e.message ?? e)));
     } else if (tab === "mine") {
       void loadBrowse(true).catch((e) => setError(String(e.message ?? e)));
-      void loadHistory().catch((e) => setError(String(e.message ?? e)));
+      void loadHistory(true).catch((e) => setError(String(e.message ?? e)));
       void loadEquipment();
       void loadPrices();
       void loadMarketAutomation();
@@ -1319,9 +1331,9 @@ export function V2MarketplaceView({
       a.itemName.localeCompare(b.itemName, "ko"),
     );
   })();
-  const individualListings = displayedListings.filter(
-    (listing) =>
-      browseMode === "auction" || !isStackableMarketplaceListing(listing),
+  const individualListings = individualMarketplaceListings(
+    displayedListings,
+    browseMode,
   );
   const displayedItemCount = stackGroups.length + individualListings.length;
   const activeFilterCount =
@@ -1351,10 +1363,15 @@ export function V2MarketplaceView({
     MARKETPLACE_PAGE_SIZE,
     `stack:${browseTab}:${q}:${favoriteOnly}:${sort}`,
   );
-  const historyPager = usePagination(
-    history ?? [],
+  const recentTradesPager = usePagination(
+    recentTrades ?? [],
     MARKETPLACE_PAGE_SIZE,
-    "history",
+    "recent-trades",
+  );
+  const myHistoryPager = usePagination(
+    myHistory ?? [],
+    MARKETPLACE_PAGE_SIZE,
+    "my-history",
   );
   const minePager = usePagination(mine ?? [], MARKETPLACE_PAGE_SIZE, "mine");
 
@@ -1458,7 +1475,7 @@ export function V2MarketplaceView({
         </div>
         <nav
           aria-label="거래소 메뉴"
-          className="grid grid-cols-3 gap-1 border-t border-zinc-200 p-1.5 dark:border-zinc-700"
+          className="grid grid-cols-4 gap-1 border-t border-zinc-200 p-1.5 dark:border-zinc-700"
         >
           {MARKETPLACE_TABS.map(({ key, label, description, Icon }) => {
             const active = tab === key;
@@ -1884,7 +1901,16 @@ export function V2MarketplaceView({
                 );
               }
               return l.isMine ? (
-                <span className="shrink-0 text-[11px] text-zinc-400">내 매물</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMineTab("active");
+                    setTab("mine");
+                  }}
+                  className="h-9 shrink-0 rounded-md border border-sky-300 px-3 text-xs font-semibold text-sky-700 dark:border-sky-800 dark:text-sky-300"
+                >
+                  내 매물 관리
+                </button>
               ) : (
                 <button
                   type="button"
@@ -1912,6 +1938,31 @@ export function V2MarketplaceView({
               setPage={browsePager.setPage}
             />
           )}
+        </>
+      )}
+
+      {tab === "recent" && (
+        <>
+          <Card padding="sm">
+            <p className="text-sm font-semibold">전체 최근 체결</p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              판매자와 구매자는 공개되지 않습니다. 수상한 거래는 기록에서 신고할 수 있어요.
+            </p>
+          </Card>
+          <MarketplaceRecentTradeList
+            rows={
+              recentTrades === null ? null : recentTradesPager.pageItems
+            }
+            frontierDepth={frontierDepth}
+            clockMs={clockMs}
+          />
+          {recentTrades !== null && recentTrades.length > 0 ? (
+            <Pagination
+              page={recentTradesPager.page}
+              pageCount={recentTradesPager.pageCount}
+              setPage={recentTradesPager.setPage}
+            />
+          ) : null}
         </>
       )}
 
@@ -2023,7 +2074,7 @@ export function V2MarketplaceView({
           ) : (
             <>
               <ListingList
-                rows={history === null ? null : historyPager.pageItems}
+                rows={myHistory === null ? null : myHistoryPager.pageItems}
                 emptyText="아직 체결된 거래가 없어요."
                 historical
                 priceRef={{}}
@@ -2040,11 +2091,11 @@ export function V2MarketplaceView({
                   </span>
                 )}
               />
-              {history !== null && history.length > 0 && (
+              {myHistory !== null && myHistory.length > 0 && (
                 <Pagination
-                  page={historyPager.page}
-                  pageCount={historyPager.pageCount}
-                  setPage={historyPager.setPage}
+                  page={myHistoryPager.page}
+                  pageCount={myHistoryPager.pageCount}
+                  setPage={myHistoryPager.setPage}
                 />
               )}
             </>
@@ -3473,6 +3524,33 @@ function consumableStatusLine(payload: unknown, nowMs: number): {
   return { text: usage, expired: false };
 }
 
+export function MarketplaceRecentTradeList({
+  rows,
+  frontierDepth,
+  clockMs,
+}: {
+  rows: Listing[] | null;
+  frontierDepth?: number;
+  clockMs: number;
+}) {
+  return (
+    <ListingList
+      rows={rows}
+      emptyText="아직 체결된 거래가 없어요."
+      historical
+      priceRef={{}}
+      frontierDepth={frontierDepth}
+      clockMs={clockMs}
+      action={(listing) => (
+        <MarketplaceTradeReportButton
+          tradeId={listing.id}
+          itemName={listing.itemName}
+        />
+      )}
+    />
+  );
+}
+
 function ListingList({
   rows,
   emptyText,
@@ -3719,6 +3797,11 @@ function ListingList({
                   <span className="text-base font-bold tabular-nums text-amber-700 dark:text-amber-400">
                     {l.price.toLocaleString()}G
                   </span>
+                  {historical && l.kind !== "equip" && l.quantity > 1 ? (
+                    <span className="text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
+                      개당 {Math.ceil(l.price / l.quantity).toLocaleString()}G
+                    </span>
+                  ) : null}
                   {!historical && l.highestBid != null ? (
                     <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sky-700 dark:bg-sky-950 dark:text-sky-300">
                       현재 입찰 {l.highestBid.toLocaleString()}G · {l.bidCount}건

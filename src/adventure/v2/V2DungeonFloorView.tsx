@@ -50,6 +50,7 @@ import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
+import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 import {
   AUTO_HUNT_LEVEL_TARGET,
   getAutoHuntStopReason,
@@ -110,6 +111,45 @@ type ExpProgressSnapshot = {
   exp: number;
   maxExp: number;
 };
+
+export function RareMapProgressNotice({
+  map,
+  serverNow,
+  onReturnToNormalHunt,
+  onExpire,
+}: {
+  map: RareMapInstance;
+  serverNow: number;
+  onReturnToNormalHunt?: () => void;
+  onExpire?: () => void;
+}) {
+  return (
+    <DiscoveryNotice
+      kind="hunt"
+      align="start"
+      action={
+        onReturnToNormalHunt ? (
+          <Button
+            size="xs"
+            variant="info"
+            onClick={onReturnToNormalHunt}
+            className="shrink-0"
+          >
+            일반 사냥터로
+          </Button>
+        ) : undefined
+      }
+    >
+      희귀 탐사 진행 중 — 남은 {map.runsLeft}판 · 30분 동안 개방 ·{" "}
+      <RareMapCountdownText
+        foundAt={map.foundAt}
+        serverNow={serverNow}
+        onExpire={onExpire}
+      />
+      {map.runsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
+    </DiscoveryNotice>
+  );
+}
 
 function nextRecoveryChargesSnapshot({
   prev,
@@ -296,6 +336,44 @@ export function V2DungeonFloorView({
   });
   // 레어맵 남은 판수 — 단판/일괄 응답에서 갱신(서버 권위). null = 아직 응답 없음.
   const [rareMapRunsLeft, setRareMapRunsLeft] = useState<number | null>(null);
+  const [rareMapSnapshot, setRareMapSnapshot] = useState<{
+    map: RareMapInstance;
+    serverNow: number;
+  } | null>(null);
+  const [rareMapExpired, setRareMapExpired] = useState(false);
+  useEffect(() => {
+    if (!rareMapIid) return;
+    let alive = true;
+    fetch("/api/v2/me/rare-maps")
+      .then((response) => (response.ok ? response.json() : null))
+      .then(
+        (data: {
+          ok?: boolean;
+          rareMaps?: RareMapInstance[];
+          serverNow?: number;
+        } | null) => {
+          if (!alive || !data?.ok) return;
+          const map = (data.rareMaps ?? []).find(
+            (candidate) => candidate.iid === rareMapIid,
+          );
+          if (
+            !map ||
+            typeof data.serverNow !== "number" ||
+            !Number.isFinite(data.serverNow)
+          ) {
+            setRareMapExpired(true);
+            onReturnToNormalHunt?.();
+            return;
+          }
+          setRareMapSnapshot({ map, serverNow: data.serverNow });
+          setRareMapRunsLeft(map.runsLeft);
+        },
+      )
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [onReturnToNormalHunt, rareMapIid]);
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
@@ -1014,7 +1092,24 @@ export function V2DungeonFloorView({
           {readiness.label}
         </span>
       </p>
-      {rareMapIid && (
+      {rareMapIid && rareMapExpired ? (
+        <DiscoveryNotice kind="hunt" align="start">
+          희귀 탐사 시간이 만료되어 일반 사냥터로 이동합니다.
+        </DiscoveryNotice>
+      ) : rareMapIid && rareMapSnapshot ? (
+        <RareMapProgressNotice
+          map={{
+            ...rareMapSnapshot.map,
+            runsLeft: rareMapRunsLeft ?? rareMapSnapshot.map.runsLeft,
+          }}
+          serverNow={rareMapSnapshot.serverNow}
+          onReturnToNormalHunt={onReturnToNormalHunt}
+          onExpire={() => {
+            setRareMapExpired(true);
+            onReturnToNormalHunt?.();
+          }}
+        />
+      ) : rareMapIid ? (
         <DiscoveryNotice
           kind="hunt"
           align="start"
@@ -1033,9 +1128,8 @@ export function V2DungeonFloorView({
         >
           희귀 탐사 진행 중
           {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
-          {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
         </DiscoveryNotice>
-      )}
+      ) : null}
 
       {autoStopReason && (
         <StatusBanner tone="warning" role="status" className="py-2.5">

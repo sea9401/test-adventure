@@ -743,12 +743,12 @@ export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
     {
       id: "market-corn",
       title: "장터 간식 상자",
-      note: "오래 자라는 작물을 요구하지만 농장 증표를 더 줍니다.",
+      note: "수확량이 좋은 옥수수를 장터 간식 재료로 납품합니다.",
       requiredItemId: "corn",
       requiredItemName: "옥수수",
       requiredQuantity: 5,
       rewardSeeds: { corn: 2 },
-      rewardReputation: 4,
+      rewardReputation: 3,
     },
     {
       id: "inn-tomato",
@@ -758,7 +758,7 @@ export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
       requiredItemName: "토마토",
       requiredQuantity: 3,
       rewardSeeds: { tomato: 2 },
-      rewardReputation: 3,
+      rewardReputation: 4,
     },
     {
       id: "bakery-strawberry",

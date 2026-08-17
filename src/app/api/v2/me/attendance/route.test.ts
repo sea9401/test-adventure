@@ -198,7 +198,10 @@ describe("월간 출석 보상 수령", () => {
     expect(response.status).toBe(200);
     expect(json.reward).toEqual({ kind: "stamina_potion", count: 2 });
     expect(json.staminaPotions).toBe(7);
-    expect(mocks.saves.get("stamina-potions.v1")).toEqual({ count: 7 });
+    expect(mocks.saves.get("stamina-potions.v1")).toEqual({
+      count: 7,
+      boundCount: 0,
+    });
     expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith(
       expect.objectContaining({
         itemId: "stamina_potion",

@@ -34,9 +34,24 @@ const EXTRAS: QuestExtras = {
   fishSpecies: 0,
   fishCaught: 0,
   arenaTimes: [],
+  referralCount: 57,
 };
 
 describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
+  it("홍보 링크로 합류한 누적 인원을 업적 컨텍스트로 전달한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: {},
+      proficiencyRaw: {},
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      extras: EXTRAS,
+    });
+
+    expect(ctx.referralCount).toBe(57);
+  });
+
   it("유니크 장비는 현재 보유량이 아니라 저장된 누적 획득량을 사용한다", () => {
     const ctx = buildQuestCtx({
       charRaw: {},

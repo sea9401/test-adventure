@@ -2,12 +2,93 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   isSkillDisplayed,
+  formatJobSpGraceRemaining,
   loadoutExclusiveConflictMessage,
   parseHiddenSkillIds,
   toggleHiddenSkill,
   V2LoadoutPanel,
   waitForLoadoutRefresh,
 } from "./V2LoadoutPanel";
+
+describe("직업 SP 산식 전환 안내", () => {
+  it("유예 남은 시간을 올림한 시·분으로 표시한다", () => {
+    expect(formatJobSpGraceRemaining(90 * 60 * 1_000, 0)).toBe(
+      "1시간 30분",
+    );
+    expect(formatJobSpGraceRemaining(60_001, 0)).toBe("2분");
+    expect(formatJobSpGraceRemaining(0, 1)).toBe("0분");
+  });
+
+  it("유예 중 현재 사용 SP, 새 한도, 초과량과 남은 시간을 보여준다", () => {
+    const serverNow = Date.UTC(2026, 7, 17, 0, 0, 0);
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 126,
+          spUsed: 140,
+          equipped: ["v2c_warrior_strike"],
+          library: [
+            {
+              skillId: "v2c_warrior_strike",
+              name: "강타",
+              spCost: 140,
+              equipped: true,
+            },
+          ],
+          spMigration: {
+            graceActive: true,
+            graceEndsAt: serverNow + 90 * 60 * 1_000,
+            serverNow,
+            overBudgetBy: 14,
+            removedSkillIds: [],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("직업 SP 조정 유예 중");
+    expect(html).toContain("현재 140 / 새 한도 126");
+    expect(html).toContain("14 SP 초과");
+    expect(html).toContain("남은 시간 1시간 30분");
+  });
+
+  it("유예 종료 후 이번 조회에서 장착 해제된 스킬 이름을 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 126,
+          spUsed: 122,
+          equipped: ["v2c_warrior_strike"],
+          library: [
+            {
+              skillId: "v2c_warrior_strike",
+              name: "강타",
+              spCost: 4,
+              equipped: true,
+            },
+            {
+              skillId: "v2c_mage_fireball",
+              name: "화염구",
+              spCost: 4,
+              equipped: false,
+            },
+          ],
+          spMigration: {
+            graceActive: false,
+            graceEndsAt: 1,
+            serverNow: 2,
+            overBudgetBy: 0,
+            removedSkillIds: ["v2c_mage_fireball"],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("직업 SP 조정 완료");
+    expect(html).toContain("화염구");
+    expect(html).toContain("장착 해제");
+  });
+});
 
 describe("광기 계열 배타 장착 안내", () => {
   it("후보 로드아웃에 광기 계열이 둘이면 즉시 설명한다", () => {
@@ -235,7 +316,7 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     );
 
     expect(html.match(/w-full sm:w-\[6\.25rem\]/g)).toHaveLength(2);
-    expect(html.match(/whitespace-nowrap/g)).toHaveLength(2);
+    expect(html.match(/whitespace-nowrap/g)).toHaveLength(4);
     expect(html).toContain("min-w-0 flex-1 sm:min-w-52");
     expect(html).toContain("flex-col sm:flex-row");
     expect(html).toContain("min-w-0 max-w-full overflow-x-auto");
@@ -280,5 +361,44 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain("적용 중");
     expect(html.match(/전부 해제/g)).toHaveLength(1);
     expect(html).not.toContain('aria-label="씨앗 선별 해제"');
+  });
+
+  it("모바일에서 장착 전투 스킬을 개수 요약과 함께 기본으로 접는다", () => {
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 8,
+          spUsed: 8,
+          equipped: ["v2_skill_strike", "v2c_rogue_poison"],
+          library: [
+            {
+              skillId: "v2_skill_strike",
+              name: "강타",
+              spCost: 4,
+              equipped: true,
+            },
+            {
+              skillId: "v2c_rogue_poison",
+              name: "독침",
+              spCost: 4,
+              equipped: true,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain('class="sr-only">전투 스킬 2개 장착</span>');
+    expect(html).toContain('aria-hidden="true">전투 · 2개</span>');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-controls="combat-equipped-skills"');
+    expect(html).toContain(">펼쳐보기<");
+    expect(html).toContain('class="flex shrink-0 items-center gap-1"');
+    expect(html.match(/h-11 shrink-0 items-center whitespace-nowrap/g)).toHaveLength(
+      2,
+    );
+    expect(html).toContain(
+      'id="combat-equipped-skills" class="hidden sm:block"',
+    );
   });
 });

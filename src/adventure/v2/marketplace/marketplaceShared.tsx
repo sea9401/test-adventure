@@ -236,6 +236,18 @@ export function groupMarketplaceStackListings(
   return [...groups.values()];
 }
 
+export function individualMarketplaceListings(
+  listings: Listing[],
+  browseMode: "fixed" | "auction",
+): Listing[] {
+  return listings.filter(
+    (listing) =>
+      browseMode === "auction" ||
+      !isStackableMarketplaceListing(listing) ||
+      listing.isMine,
+  );
+}
+
 export function marketplaceStackQuote(
   listings: Listing[],
   requestedQuantity: number,

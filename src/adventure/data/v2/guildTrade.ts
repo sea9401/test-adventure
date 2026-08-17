@@ -10,6 +10,7 @@ import {
 } from "./woodcuttingSpots";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { MASTERY_CERTIFICATE_KEY } from "./masteryTower";
+import type { SettlementBuildingId } from "./settlement";
 import {
   FARM_ITEMS,
   type FarmItemId,
@@ -276,9 +277,24 @@ export type GuildTradeShopItem = {
     | { kind: "material"; materialId: string; count: number }
     | { kind: "stamina_potion"; count: number }
     | { kind: "mastery_certificate"; itemKey: string; count: number }
-    | { kind: "guild_settlement"; crop: number; ore: number; count: number }
+    | { kind: "guild_facility_support"; count: number }
     | { kind: "guild_gold"; count: number }
     | { kind: "guild_fame"; count: number };
+};
+
+export type GuildFacilitySupportTarget = {
+  buildingId: SettlementBuildingId;
+  buildingName: string;
+  currentLevel: number;
+  targetLevel: number | null;
+  eligible: boolean;
+  reason:
+    | "max_level"
+    | "materials_not_required"
+    | "remaining_below_200"
+    | null;
+  crop: { current: number; required: number; grant: number; after: number };
+  ore: { current: number; required: number; grant: number; after: number };
 };
 
 export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
@@ -360,15 +376,16 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
   },
   {
     id: "settlement_supplies",
-    name: "정착 보급품",
-    description: "길드 정착지 재화에 통나무와 철광석을 각각 100개 추가합니다.",
+    name: "길드 시설 지원 물자",
+    description:
+      "선택한 길드 시설의 통나무·철광석 기부 진행도에 총 200개를 즉시 지원합니다.",
     icon: "📦",
     iconName: "House",
     tokenCost: 120,
     weeklyLimit: 3,
     minFacilityLevel: 1,
     target: "guild",
-    output: { kind: "guild_settlement", crop: 100, ore: 100, count: 100 },
+    output: { kind: "guild_facility_support", count: 200 },
   },
   {
     id: "trade_support_fund",

@@ -69,7 +69,10 @@ describe("POST /api/v2/me/stamina-potion-combine", () => {
     });
     expect(character().materials[STAMINA_SHARD_MATERIAL_ID]).toBe(2);
     expect(character().gold).toBe(COMBINE_GOLD_COST);
-    expect(store.get(STAMINA_POTIONS_KEY)).toEqual({ count: 4 });
+    expect(store.get(STAMINA_POTIONS_KEY)).toEqual({
+      count: 4,
+      boundCount: 0,
+    });
   });
 
   it("removes the material key when exactly six shards are spent", async () => {

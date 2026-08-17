@@ -31,6 +31,7 @@ import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
 import { RewardNotice } from "@/adventure/v2/RewardNotice";
+import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 
 export type HuntResult = {
   floor: number;
@@ -314,11 +315,27 @@ export function HuntResultCard({
             ) : undefined
           }
         >
-          {rareMapDropDef.category === "hunt"
-            ? `희귀 탐사 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
-            : rareMapDropDef.category === "location"
-              ? `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
-              : `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`}
+          {rareMapDropDef.category === "hunt" ? (
+            <>
+              희귀 탐사 「{rareMapDropDef.name}」 개방! · 30분 동안 개방
+              {result.rareMapDropInstance ? (
+                <>
+                  {" · "}
+                  <RareMapCountdownText
+                    key={result.rareMapDropInstance.iid}
+                    foundAt={result.rareMapDropInstance.foundAt}
+                    serverNow={result.rareMapDropInstance.foundAt}
+                  />
+                </>
+              ) : (
+                " — 전투 탭 > 사냥터에서 입장"
+              )}
+            </>
+          ) : rareMapDropDef.category === "location" ? (
+            `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
+          ) : (
+            `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`
+          )}
         </DiscoveryNotice>
       )}
       {droppedUniq && (

@@ -148,4 +148,36 @@ describe("6T 유니크 PvP 대칭 연동", () => {
     expect(after.log.some((entry) => entry.text.includes("성역 소비")))
       .toBe(true);
   });
+
+  it("방어자가 쓰러지면 저장한 성역으로 부활하지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    const initial = initialBattleStatePvP(
+      player({ spd: 100, atk: 10_000 }),
+      player({ spd: 1, equipSignatures: [signature("sanctuary_reserve")] }),
+      "공격자",
+      "성역기사",
+    );
+    const primed = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        hp: 100,
+        stacks: {
+          ...initial.p2.stacks,
+          tier6Uniques: {
+            ...initial.p2.stacks.tier6Uniques!,
+            sanctuaryReserve: 300,
+          },
+        },
+      },
+    };
+
+    const after = advanceTurnPvP(primed);
+
+    expect(after.outcome).toBe("p1_win");
+    expect(after.p2.hp).toBe(0);
+    expect(after.p2.stacks.tier6Uniques?.sanctuaryReserve).toBe(300);
+    expect(after.log.some((entry) => entry.text.includes("성역 소비")))
+      .toBe(false);
+  });
 });

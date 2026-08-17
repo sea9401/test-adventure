@@ -40,6 +40,54 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("PvP 감전은 대상의 다음 행동 묶음만 건너뛰고 그 다음 행동은 보장한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const shockCaster: PlayerCombat = {
+      ...caster,
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 1,
+      def: 100,
+      spd: 30,
+      equipSignatures: [
+        {
+          trigger: "on_hit",
+          label: "시험 감전",
+          shockChancePct: 100,
+        },
+      ],
+    };
+    const durableTarget: PlayerCombat = {
+      ...target,
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 1,
+      def: 100,
+      spd: 30,
+    };
+
+    const res = resolveBattlePvP(shockCaster, durableTarget, "P1", "P2", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      initiativeRoll: 0,
+    });
+
+    const firstSkip = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("[감전] P2이(가) 움직이지 못했다."),
+    );
+    const secondSkip = res.finalState.log.findIndex(
+      (entry, index) =>
+        index > firstSkip && entry.text.includes("[감전] P2이(가) 움직이지 못했다."),
+    );
+    expect(firstSkip).toBeGreaterThan(-1);
+    expect(secondSkip).toBeGreaterThan(firstSkip);
+    expect(
+      res.finalState.log
+        .slice(firstSkip + 1, secondSkip)
+        .some((entry) => entry.kind === "player_attack" && entry.side === "p2"),
+    ).toBe(true);
+  });
+
   it("그림자 도약은 독립 행동 로그를 남기고 같은 행동에서 평타를 쓰지 않는다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.1);
     const res = resolveBattlePvP(

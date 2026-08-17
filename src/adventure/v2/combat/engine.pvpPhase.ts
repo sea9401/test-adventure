@@ -38,7 +38,7 @@ import {
   formatDefDebuffLog,
   firesOnCritPoison,
   formatChillSlowLog,
-  formatShockSlowLog,
+  formatShockAppliedLog,
   healToShield,
   onCritEnemyDefDebuff,
   onCritEnemyChill,
@@ -51,6 +51,7 @@ import {
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
   SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
+import { canApplyShock } from "./shockAction";
 import {
   appendLog,
   damageBetween,
@@ -1111,11 +1112,9 @@ export function advanceTurnPvP(
     nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
       ? nextBuffsTimedFromAp.enemySpdMult
       : 1;
-  // 감전은 중첩/갱신하지 않는다. 기존 둔화 슬롯이 살아 있거나 같은 타격에서 한기가 발동하면 미발동.
-  const sigHitShock =
-    nextBuffsTimedFromAp.enemySpdTurnsLeft > 0 || sigCritChill
-      ? null
-      : rollOnHitShock(attacker.player.equipSignatures, sigDealtDamage);
+  const sigHitShock = canApplyShock(defender.stacks.shockAction)
+    ? rollOnHitShock(attacker.player.equipSignatures, sigDealtDamage)
+    : null;
   const sigStatusFired =
     sigCritPoison ||
     !!sigHitPoison ||
@@ -1169,7 +1168,7 @@ export function advanceTurnPvP(
   if (!statusBlockSigStatus && sigHitShock) {
     log = appendLog(log, {
       kind: "info",
-      text: formatShockSlowLog(defender.name, sigHitShock),
+      text: formatShockAppliedLog(defender.name, sigHitShock),
     });
   }
   const sigSpdActiveMult =
@@ -1199,13 +1198,6 @@ export function advanceTurnPvP(
             nextBuffsTimedFromAp.enemySpdTurnsLeft,
             sigCritChill.turns,
           ),
-        }
-      : {}),
-    // 감전 on-hit 적 둔화 병합(한기와 같은 enemySpd 슬롯).
-    ...(!statusBlockSigStatus && sigHitShock
-      ? {
-          enemySpdMult: sigHitShock.mult,
-          enemySpdTurnsLeft: sigHitShock.turns,
         }
       : {}),
     // 표식 on-crit 적 방어 감소 병합(AP 약점 노출과 같은 enemyDef 슬롯).
@@ -1320,6 +1312,9 @@ export function advanceTurnPvP(
       playerShield: newShieldAfterHeal,
       damageTakenThisCombat: defender.stacks.damageTakenThisCombat + dmgToHp,
       braceDefBonus: nextBraceDefBonus,
+      ...(!statusBlockSigStatus && sigHitShock
+        ? { shockAction: "pending" as const }
+        : {}),
     },
   }, attacker, {
     bleedStacks: apBleedAdd + (!statusBlockSigStatus ? sigHitBleed?.stacks ?? 0 : 0),

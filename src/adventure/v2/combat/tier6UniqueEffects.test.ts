@@ -260,6 +260,29 @@ describe("6T 유니크 순수 런타임", () => {
     expect(fired.state.sanctuaryReserve).toBe(0);
   });
 
+  it("성역은 HP가 0이 된 뒤에는 소비해 부활시키지 않는다", () => {
+    const state = {
+      ...initialTier6UniqueRuntime(),
+      sanctuaryReserve: 600,
+    };
+
+    const result = resolveTier6UniqueEvent(
+      signatures("sanctuary_reserve"),
+      state,
+      {
+        kind: "hp_threshold",
+        currentHp: 0,
+        maxHp: 1_000,
+        origin,
+      },
+    );
+
+    expect(result.commands).not.toContainEqual(
+      expect.objectContaining({ kind: "heal" }),
+    );
+    expect(result.state.sanctuaryReserve).toBe(600);
+  });
+
   it("생성 효과는 같은 기믹으로 재진입하지 않는다", () => {
     const result = resolveTier6UniqueEvent(
       signatures("shadow_echo"),

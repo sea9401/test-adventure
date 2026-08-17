@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type {
+  GuildFacilitySupportTarget,
   GuildTradeItem,
   GuildTradeShopItem,
 } from "@/adventure/data/v2/guildTrade";
@@ -45,6 +46,7 @@ type TradeState = {
   contribution: { points: number; cap: number; remaining: number };
   tokens: number;
   claimableRewards?: Array<{ contractId: string; itemName: string; tokens: number }>;
+  facilitySupportTargets?: GuildFacilitySupportTarget[];
   contracts: TradeContract[];
   shop: TradeShopItem[];
 };
@@ -68,6 +70,13 @@ type TradeResponse = TradeState & {
     tokenCost: number;
     remainingTokens: number;
     recipientCount?: number;
+    facilitySupport?: {
+      buildingId: string;
+      buildingName: string;
+      targetLevel: number;
+      crop: number;
+      ore: number;
+    };
   };
   completionReward?: { contracts: number; tokensGained: number };
 };
@@ -89,6 +98,11 @@ export function GuildTradePostPanel({
   const [state, setState] = useState<TradeState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [supportDialogItem, setSupportDialogItem] =
+    useState<TradeShopItem | null>(null);
+  const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(
+    null,
+  );
   const [notice, setNotice] = useState<{
     kind: "ok" | "err";
     text: string;
@@ -411,12 +425,18 @@ export function GuildTradePostPanel({
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {state.shop.map((item) => {
             const targetsGuildPool = sharedTokens && item.target === "guild";
+            const isFacilitySupport =
+              item.output.kind === "guild_facility_support";
+            const eligibleFacilityTargets = (
+              state.facilitySupportTargets ?? []
+            ).filter((target) => target.eligible);
             const disabled =
               Boolean(busyKey) ||
               !state.canPurchase ||
               !item.unlocked ||
               item.remaining <= 0 ||
-              !item.affordable;
+              !item.affordable ||
+              (isFacilitySupport && eligibleFacilityTargets.length === 0);
             return (
               <article key={item.id} className={`${SURFACE_INSET} flex flex-col p-3`}>
                 <div className="flex items-start gap-2">
@@ -438,6 +458,13 @@ export function GuildTradePostPanel({
                     type="button"
                     disabled={disabled}
                     onClick={() => {
+                      if (isFacilitySupport) {
+                        setSelectedFacilityId(
+                          eligibleFacilityTargets[0]?.buildingId ?? null,
+                        );
+                        setSupportDialogItem(item);
+                        return;
+                      }
                       if (
                         !window.confirm(
                           sharedTokens
@@ -464,7 +491,9 @@ export function GuildTradePostPanel({
                     }}
                     className="w-full rounded-md border border-cyan-700 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-cyan-300 dark:hover:bg-zinc-900"
                   >
-                    {shopButtonText(item, state.canPurchase)}
+                    {isFacilitySupport && eligibleFacilityTargets.length === 0
+                      ? "지원 가능한 시설 없음"
+                      : shopButtonText(item, state.canPurchase)}
                   </button>
                 </div>
               </article>
@@ -472,8 +501,210 @@ export function GuildTradePostPanel({
           })}
         </div>
       </section>
+
+      {supportDialogItem && (
+        <GuildFacilitySupportDialog
+          targets={state.facilitySupportTargets ?? []}
+          selectedFacilityId={selectedFacilityId}
+          tokenCost={supportDialogItem.tokenCost}
+          busy={Boolean(busyKey)}
+          onSelect={setSelectedFacilityId}
+          onClose={() => setSupportDialogItem(null)}
+          onConfirm={() => {
+            const facilityId = selectedFacilityId;
+            const item = supportDialogItem;
+            if (!facilityId) return;
+            setSupportDialogItem(null);
+            void submit(
+              `buy:${item.id}`,
+              { action: "buy", shopItemId: item.id, facilityId },
+              (json) => {
+                const purchase = json.purchased;
+                const support = purchase?.facilitySupport;
+                return `${support?.buildingName ?? "선택한 시설"} Lv.${support?.targetLevel ?? "?"} 지원 완료 · 통나무 +${(support?.crop ?? 0).toLocaleString()} · 철광석 +${(support?.ore ?? 0).toLocaleString()} · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`;
+              },
+            );
+          }}
+        />
+      )}
     </section>
   );
+}
+
+export function GuildFacilitySupportDialog({
+  targets,
+  selectedFacilityId,
+  tokenCost,
+  busy,
+  onSelect,
+  onConfirm,
+  onClose,
+}: {
+  targets: GuildFacilitySupportTarget[];
+  selectedFacilityId: string | null;
+  tokenCost: number;
+  busy: boolean;
+  onSelect: (buildingId: string) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const selected = targets.find(
+    (target) => target.buildingId === selectedFacilityId && target.eligible,
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-3 backdrop-blur-sm sm:items-center"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guild-facility-support-title"
+        className={`${SURFACE_CARD} flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden shadow-2xl`}
+      >
+        <header className="flex items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+          <div>
+            <h2 id="guild-facility-support-title" className="text-base font-bold">
+              시설 지원 대상 선택
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              선택한 시설의 다음 업그레이드에 통나무·철광석 총 200개를 즉시
+              지원합니다. 개인 인벤토리나 별도 길드 재화로 들어가지 않습니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="시설 지원 닫기"
+            disabled={busy}
+            onClick={onClose}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-lg text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="min-h-0 space-y-2 overflow-y-auto p-4">
+          {targets.map((target) => {
+            const isSelected = target.buildingId === selectedFacilityId;
+            return (
+              <button
+                key={target.buildingId}
+                type="button"
+                disabled={!target.eligible || busy}
+                aria-pressed={isSelected}
+                onClick={() => onSelect(target.buildingId)}
+                className={`${SURFACE_INSET} w-full p-3 text-left transition-colors disabled:cursor-not-allowed ${
+                  isSelected
+                    ? "border-cyan-500 ring-1 ring-cyan-500"
+                    : "hover:border-cyan-400"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="font-semibold">
+                    {target.buildingName} Lv.{target.currentLevel} → Lv.
+                    {target.targetLevel}
+                  </span>
+                  <span
+                    className={`shrink-0 text-[11px] font-semibold ${
+                      target.eligible
+                        ? "text-cyan-700 dark:text-cyan-300"
+                        : "text-zinc-500 dark:text-zinc-400"
+                    }`}
+                  >
+                    {target.eligible ? (isSelected ? "선택됨" : "선택 가능") : "지원 불가"}
+                  </span>
+                </div>
+
+                {target.eligible ? (
+                  <div className="mt-2 grid gap-1.5 text-xs sm:grid-cols-2">
+                    <FacilitySupportResourcePreview
+                      label="통나무"
+                      current={target.crop.current}
+                      after={target.crop.after}
+                      required={target.crop.required}
+                      grant={target.crop.grant}
+                    />
+                    <FacilitySupportResourcePreview
+                      label="철광석"
+                      current={target.ore.current}
+                      after={target.ore.after}
+                      required={target.ore.required}
+                      grant={target.ore.grant}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {facilitySupportUnavailableText(target.reason)}
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <footer className="flex items-center justify-between gap-3 border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            구매 후에는 지원 대상을 변경할 수 없습니다.
+          </span>
+          <button
+            type="button"
+            disabled={!selected || busy}
+            onClick={onConfirm}
+            className="shrink-0 rounded-md bg-cyan-700 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            공동 토큰 {tokenCost.toLocaleString()}개로 지원하기
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function FacilitySupportResourcePreview({
+  label,
+  current,
+  after,
+  required,
+  grant,
+}: {
+  label: string;
+  current: number;
+  after: number;
+  required: number;
+  grant: number;
+}) {
+  return (
+    <div className="rounded-md bg-white px-2.5 py-2 dark:bg-zinc-950">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium">{label}</span>
+        <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+          +{grant.toLocaleString()}
+        </span>
+      </div>
+      <div className="mt-1 tabular-nums text-zinc-500 dark:text-zinc-400">
+        {current.toLocaleString()} → {after.toLocaleString()} / {required.toLocaleString()}
+      </div>
+    </div>
+  );
+}
+
+function facilitySupportUnavailableText(
+  reason: GuildFacilitySupportTarget["reason"],
+): string {
+  switch (reason) {
+    case "max_level":
+      return "이미 최고 레벨에 도달한 시설입니다.";
+    case "materials_not_required":
+      return "다음 업그레이드에 통나무·철광석이 필요하지 않습니다.";
+    case "remaining_below_200":
+      return "남은 통나무·철광석 요구량이 200개 미만입니다.";
+    default:
+      return "현재 지원할 수 없는 시설입니다.";
+  }
 }
 
 function deliveryNotice(json: TradeResponse, sharedTokens: boolean): string {

@@ -9,6 +9,7 @@ import {
   isRecordedJobVisit,
   elementalSkillsSection,
   materialCodexSection,
+  loadoutSection,
   proficiencySection,
   spFruitSection,
   tilePosOf,
@@ -82,6 +83,46 @@ describe("spFruitSection / materialCodexSection", () => {
     expect(codex.discovered).toBe(0);
     expect(codex.discoveredIds).toEqual([]);
     expect(codex.total).toBeGreaterThan(0);
+  });
+});
+
+describe("loadoutSection — 직업 SP 산식 전환", () => {
+  it("유예 상태와 이번 조회에서 제외된 스킬을 응답에 포함한다", () => {
+    const endsAt = Date.UTC(2026, 7, 18, 0, 0, 0);
+    const params = {
+      charSave: { class: "warrior", level: 100 },
+      proficiencyRaw: {},
+      skillsRaw: {
+        learned: ["v2c_warrior_strike"],
+        equipped: ["v2c_warrior_strike"],
+      },
+      fishingCodexRaw: {},
+      equipmentCodexSpBonus: 0,
+      jobSpMigration: {
+        graceActive: true,
+        graceEndsAt: endsAt,
+        newSpBudget: 44,
+        legacySpBudget: 44,
+        removedSkillIds: ["v2c_mage_fireball"],
+      },
+    } as Parameters<typeof loadoutSection>[0] & {
+      jobSpMigration: {
+        graceActive: boolean;
+        graceEndsAt: number;
+        newSpBudget: number;
+        legacySpBudget: number;
+        removedSkillIds: string[];
+      };
+    };
+
+    expect(loadoutSection(params)).toMatchObject({
+      spMigration: {
+        graceActive: true,
+        graceEndsAt: endsAt,
+        overBudgetBy: 0,
+        removedSkillIds: ["v2c_mage_fireball"],
+      },
+    });
   });
 });
 

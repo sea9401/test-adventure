@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   character: null as Record<string, unknown> | null,
-  staminaPotions: { count: 0 },
+  staminaPotions: { count: 0, boundCount: 0 },
 }));
 
 vi.mock("@/db", () => ({
@@ -29,7 +29,7 @@ vi.mock("@/lib/server/savesKv", () => ({
         mocks.character = value as Record<string, unknown>;
       }
       if (key === "stamina-potions.v1") {
-        mocks.staminaPotions = value as { count: number };
+        mocks.staminaPotions = value as { count: number; boundCount: number };
       }
     },
   ),
@@ -55,7 +55,7 @@ beforeEach(() => {
       newRareMapInstance("secret_shop_map", 70, FOUND_AT, "rm-shop"),
     ],
   };
-  mocks.staminaPotions = { count: 2 };
+  mocks.staminaPotions = { count: 2, boundCount: 1 };
 });
 
 afterEach(() => {
@@ -95,7 +95,7 @@ describe("POST /api/v2/secret-shop", () => {
 
     expect(response.status).toBe(200);
     expect(json).toMatchObject({ ok: true, staminaPotions: 3 });
-    expect(mocks.staminaPotions).toEqual({ count: 3 });
+    expect(mocks.staminaPotions).toEqual({ count: 3, boundCount: 2 });
     expect(mocks.character?.stamina).toEqual(staminaBefore);
   });
 });

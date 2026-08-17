@@ -22,6 +22,7 @@ import {
   dungeonReadiness,
 } from "@/adventure/v2/dungeonReadiness";
 import { useSystemToast } from "@/adventure/v2/RewardToastProvider";
+import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 
 // 프론티어 사냥터 목록 — 2단. 테마 카드 → 입구·심부·최심부의 3단계.
 // 내부 깊이와 밸런스는 유지하고 각 두 깊이의 뒤쪽 값(2·4·6)을 대표 전투 깊이로 사용한다.
@@ -105,19 +106,29 @@ export function V2DungeonList({
 
   // 열린 레어맵 — 마운트 1회 조회(판수/장소 완료와 30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
+  const [rareMapServerNow, setRareMapServerNow] = useState<number | null>(null);
   const [discardingMapIid, setDiscardingMapIid] = useState<string | null>(null);
   useEffect(() => {
     if (!onSelectRareMap) return;
     let alive = true;
     fetch("/api/v2/me/rare-maps")
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
+      .then((j: {
+        ok?: boolean;
+        rareMaps?: RareMapInstance[];
+        serverNow?: number;
+      } | null) => {
         if (alive && j?.ok) {
           // 테스트 전용 즉시 사용 항목만 제외. 희귀 탐사와 희귀 장소는 모두 여기서 입장.
           setRareMaps(
             (j.rareMaps ?? []).filter(
               (m) => RARE_MAP_KINDS[m.kind]?.category !== "utility",
             ),
+          );
+          setRareMapServerNow(
+            typeof j.serverNow === "number" && Number.isFinite(j.serverNow)
+              ? j.serverNow
+              : null,
           );
         }
       })
@@ -272,10 +283,16 @@ export function V2DungeonList({
                 <RareMapButton
                   key={m.iid}
                   map={m}
+                  serverNow={rareMapServerNow}
                   frontierDepth={frontierDepth}
                   onSelect={onSelectRareMap}
                   onDiscard={discardRareMap}
                   discarding={discardingMapIid === m.iid}
+                  onExpire={() =>
+                    setRareMaps((current) =>
+                      removeExpiredRareMap(current, m.iid),
+                    )
+                  }
                 />
               ))}
             </div>
@@ -354,18 +371,22 @@ export function V2DungeonList({
   );
 }
 
-function RareMapButton({
+export function RareMapButton({
   map,
+  serverNow,
   frontierDepth,
   onSelect,
   onDiscard,
   discarding,
+  onExpire,
 }: {
   map: RareMapInstance;
+  serverNow: number | null;
   frontierDepth: number;
   onSelect: (map: RareMapInstance) => void;
   onDiscard: (map: RareMapInstance) => void;
   discarding: boolean;
+  onExpire: () => void;
 }) {
   const def = RARE_MAP_KINDS[map.kind];
   const isLocation = def?.category === "location";
@@ -388,9 +409,23 @@ function RareMapButton({
         </span>
         <span className="mt-0.5 block text-[11px] text-sky-700 dark:text-sky-400">
           {unavailable ??
-            (isLocation
-              ? "희귀 장소 · 발견 후 30분 동안 개방"
-              : `남은 ${map.runsLeft}판`)}
+            (isLocation ? (
+              "희귀 장소 · 발견 후 30분 동안 개방"
+            ) : (
+              <>
+                남은 {map.runsLeft}판 · 30분 동안 개방
+                {serverNow != null && (
+                  <>
+                    {" · "}
+                    <RareMapCountdownText
+                      foundAt={map.foundAt}
+                      serverNow={serverNow}
+                      onExpire={onExpire}
+                    />
+                  </>
+                )}
+              </>
+            ))}
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -413,6 +448,13 @@ function RareMapButton({
       </div>
     </div>
   );
+}
+
+export function removeExpiredRareMap(
+  maps: RareMapInstance[],
+  iid: string,
+): RareMapInstance[] {
+  return maps.filter((map) => map.iid !== iid);
 }
 
 export function rareMapUnavailable(

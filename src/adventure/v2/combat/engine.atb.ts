@@ -43,6 +43,7 @@ import {
 } from "./magicBarrier";
 import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
+import { enterShockAction } from "./shockAction";
 
 // PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
 // 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
@@ -548,7 +549,31 @@ export function resolveBattleAtb(
       state = tickEnemyBundleEntry(state);
       // 적 번들 진입 로그도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
       state = stampTick(state, enemyBundleStart, nextTick);
-      if (state.phase !== "ended") {
+      const shockEntry = enterShockAction(state.stacks.enemyShockAction);
+      if (state.stacks.enemyShockAction !== shockEntry.next) {
+        state = {
+          ...state,
+          stacks: { ...state.stacks, enemyShockAction: shockEntry.next },
+        };
+      }
+      if (shockEntry.skip) {
+        state = {
+          ...state,
+          phase: "player",
+          turn: {
+            ...state.turn,
+            enemyAttacksLeft: 0,
+            enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+          },
+          log: appendLog(state.log, {
+            kind: "info",
+            text: `[감전] ${state.enemy.name}이(가) 움직이지 못했다.`,
+            turn: "enemy",
+            t: nextTick,
+          }),
+        };
+      }
+      if (state.phase !== "ended" && !shockEntry.skip) {
         // 적 v2 스킬 시전(V2_ATB_SKILLS) — cast 발동이면 이 틱은 시전으로 소진, 평타 생략(player ATB
         //   cast 미러·더블어택 방지). v2Skills 미장착 몹은 헬퍼가 즉시 no-op → 기존 전투 byte-identical.
         //   버프/디버프 tick 은 위 tickEnemyBundleEntry 가 이미 했으므로 헬퍼는 tick 없이 cast+적용만.

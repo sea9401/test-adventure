@@ -11,6 +11,10 @@
 //    타입 전용 import 만 사용하므로 런타임 의존성은 0.
 
 import type { V2StatKey } from "./v2StatKeys";
+import {
+  jobUnlockSpForCount,
+  type JobSpRebalanceState,
+} from "./jobSpPolicy";
 import type { V2ProficiencyState } from "./proficiency";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 
@@ -47,6 +51,8 @@ export type JobUnlockContext = {
   woodcuttingLevel?: number;
   /** 채광 콘텐츠 레벨(mining-log.v1 XP에서 파생). */
   miningLevel?: number;
+  /** 직업 SP 산식 전환 유예 상태(서버 ops 설정에서 파생). */
+  jobSpRebalance?: JobSpRebalanceState;
 };
 
 /** 직업 해금 조건. */
@@ -1449,13 +1455,20 @@ function isJobUnlockedInternal(
   return true;
 }
 
-export function jobUnlockSpBonus(
+export function unlockedJobCount(
   proficiency: V2ProficiencyState,
   ctx?: JobUnlockContext,
 ): number {
   return V2_JOB_LIST.filter(
     (job) => job.tier > 0 && isJobUnlocked(job, proficiency, ctx),
   ).length;
+}
+
+export function jobUnlockSpBonus(
+  proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
+): number {
+  return jobUnlockSpForCount(unlockedJobCount(proficiency, ctx));
 }
 
 // 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 숙련도 임계.

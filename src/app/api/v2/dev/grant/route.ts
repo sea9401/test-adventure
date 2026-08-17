@@ -3,8 +3,8 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { requireAdminRole } from "@/lib/server/isAdmin";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { applyExpGain, MAX_LEVEL } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
@@ -212,13 +212,17 @@ export async function POST(req: Request) {
     // 스태미나 포션(stamina-potions.v1, 전용 키 — leaf 마지막 잠금). 지급분이 있을 때만.
     let staminaPotions: number | undefined;
     if (staminaPotionGain > 0) {
-      const cur = staminaPotionCount(
-        await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+      const current = await lockSaveForUpdate(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0 },
       );
-      staminaPotions = cur + staminaPotionGain;
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-        count: staminaPotions,
+      const next = grantStaminaPotions(current, staminaPotionGain, {
+        bound: true,
       });
+      staminaPotions = next.count;
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, next);
     }
 
     return {

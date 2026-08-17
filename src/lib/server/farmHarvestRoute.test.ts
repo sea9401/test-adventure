@@ -182,6 +182,7 @@ describe("POST /api/v2/farm/harvest", () => {
       hasTraded: false,
       arenaPlayed: false,
       arenaWins: 0,
+      referralCount: 0,
       guildDiningMeals: 0,
       guildTrainingDrills: 0,
       guildExpeditions: 0,

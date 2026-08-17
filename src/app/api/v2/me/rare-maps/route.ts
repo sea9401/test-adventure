@@ -27,9 +27,11 @@ export async function GET() {
     "character.v2",
     null,
   );
+  const now = Date.now();
   return Response.json({
     ok: true,
-    rareMaps: parseRareMaps(save?.rareMaps, Date.now()),
+    serverNow: now,
+    rareMaps: parseRareMaps(save?.rareMaps, now),
     cashItems: parseMuseunCashItems(save?.cashItems),
     cosmetics: parseMuseunCosmetics(save?.museunCosmetics),
   });

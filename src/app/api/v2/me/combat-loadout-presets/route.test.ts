@@ -7,7 +7,14 @@ const mocks = vi.hoisted(() => ({
   userId: "combat-preset-user" as string | null,
   lockOrder: [] as string[],
   failOnWriteKey: null as string | null,
+  jobContext: {} as Record<string, unknown>,
 }));
+
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/adventure/data/v2/coreLoopConfig")>();
+  return { ...actual, V2_CORE_LOOP_V2: true };
+});
 
 vi.mock("@/db", () => ({
   db: {
@@ -51,10 +58,7 @@ vi.mock("@/lib/server/codexSpBonus", () => ({
 }));
 
 vi.mock("@/lib/server/jobUnlockContext", () => ({
-  readJobUnlockContext: vi.fn(async () => ({
-    currentClass: "warrior",
-    unlocked: ["warrior"],
-  })),
+  readJobUnlockContext: vi.fn(async () => mocks.jobContext),
 }));
 
 import {
@@ -62,10 +66,51 @@ import {
   GET,
   POST,
 } from "./route";
+import { V2_JOB_LIST } from "@/adventure/data/v2/v2JobCatalog";
+import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 
 const STRIKE = "v2c_warrior_strike";
 const MIGHT = "v2c_warrior_might";
 const weapon = { iid: "weapon-1", id: "v2_iron_sword" } as const;
+const REBALANCE_LOADOUT = [
+  "v2c_warrior_strike",
+  "v2c_warrior_flurry",
+  "v2c_warrior_sunder",
+  "v2c_warrior_warcry",
+  "v2c_martial_combo",
+  "v2c_martial_chi",
+  "v2c_mage_fireball",
+  "v2c_mage_barrage",
+  "v2c_mage_shield",
+  "v2c_mage_meditate",
+  "v2c_rogue_poison",
+  "v2c_martial_steelguard",
+  "v2c_mage_boltcast",
+  "v2c_warrior_might",
+  "v2c_martial_fortitude",
+  "v2c_mage_acumen",
+  "v2c_rogue_finesse",
+  "v2c_survivor_firstaid",
+  "v2c_survivor_knowledge",
+  "v2c_none_toughness",
+  "v2c_none_diligence",
+  "v2c_shieldman_bash",
+  "v2c_squire_cleave",
+  "v2c_boxer_combo",
+  "v2c_monk_palm",
+  "v2c_caster_bolt",
+  "v2c_acolyte_smite",
+  "v2c_warder_barrier",
+  "v2c_assassin_ambush",
+  "v2c_archer_volley",
+  "v2c_venomist_toxiccloud",
+  "v2c_camper_camp",
+  "v2c_ironman_brace",
+  "v2c_shieldman_vitality",
+  "v2c_squire_might",
+  "v2c_boxer_fortitude",
+  "v2c_monk_spirit",
+] as const;
 
 function request(body: unknown): Request {
   return new Request("http://localhost/api/v2/me/combat-loadout-presets", {
@@ -111,6 +156,7 @@ beforeEach(() => {
   mocks.userId = "combat-preset-user";
   mocks.lockOrder.length = 0;
   mocks.failOnWriteKey = null;
+  mocks.jobContext = {};
   seedCurrent();
 });
 
@@ -225,6 +271,72 @@ describe("통합 전투 프리셋 API", () => {
       "skills.v2",
       "proficiency.v2",
     ]);
+  });
+
+  it("유예 중에도 프리셋 적용은 신규 직업 SP 한도로 정리한다", async () => {
+    const proficiency = emptyProficiency();
+    const completedQuestIds = new Set<string>();
+    const killCounts: Record<string, number> = {};
+    for (const job of V2_JOB_LIST) {
+      proficiency.groups[job.id] = {
+        cultivations: 0,
+        tier: 1,
+        cumLevel: 1_000_000,
+      };
+      proficiency.jobCumLevel ??= {};
+      proficiency.jobCumLevel[job.id] = 1_000_000;
+      for (const condition of job.unlock.extraConditions ?? []) {
+        if (condition.type === "questCompleted") {
+          completedQuestIds.add(condition.questId);
+        }
+        if (condition.type === "monsterKilled") {
+          killCounts[condition.monsterId] = condition.minCount;
+        }
+        if (condition.type === "statThreshold") {
+          proficiency.caps[condition.stat] = condition.min;
+        }
+      }
+    }
+    mocks.jobContext = {
+      completedQuestIds,
+      killCounts,
+      farmingLevel: 1_000,
+      cookingLevel: 1_000,
+      woodcuttingLevel: 1_000,
+      miningLevel: 1_000,
+      jobSpRebalance: {
+        startedAt: 1,
+        endsAt: 24 * 60 * 60 * 1_000 + 1,
+        active: true,
+      },
+    };
+    mocks.saves.set("proficiency.v2", proficiency);
+    mocks.saves.set("skills.v2", {
+      learned: [...REBALANCE_LOADOUT],
+      equipped: [],
+    });
+    mocks.saves.set(COMBAT_LOADOUT_PRESETS_KEY, [
+      {
+        name: "기존 고SP 프리셋",
+        savedAt: "2026-08-17T00:00:00.000Z",
+        skills: [...REBALANCE_LOADOUT],
+        pattern: null,
+        equipment: {},
+      },
+      null,
+      null,
+      null,
+      null,
+    ]);
+
+    const response = await POST(request({ action: "apply", slot: 0 }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      (mocks.saves.get("skills.v2") as { equipped: string[] }).equipped,
+    ).toEqual(REBALANCE_LOADOUT.slice(0, 32));
+    expect(json.excluded.skillIds).toEqual(REBALANCE_LOADOUT.slice(32));
   });
 
   it("적용 도중 저장이 실패하면 스킬과 장비 모두 원래 상태로 롤백한다", async () => {

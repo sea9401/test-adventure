@@ -55,6 +55,58 @@ function countText(res: BattleResolution, needle: string): number {
 }
 
 describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
+  it("감전은 적의 다음 행동 묶음만 건너뛰고 그 다음 행동은 보장한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const shockPlayer: PlayerCombat = {
+      ...player,
+      hp: 10_000,
+      maxHp: 10_000,
+      atk: 1,
+      def: 100,
+      spd: 30,
+      equipSignatures: [
+        {
+          trigger: "on_hit",
+          label: "시험 감전",
+          shockChancePct: 100,
+        },
+      ],
+    };
+    const enemy: Monster = {
+      name: "감전 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 100,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      accuracy: 100,
+    };
+
+    const res = resolveBattle(shockPlayer, enemy, "테스터", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      maxTurns: 6,
+    });
+
+    const firstSkip = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("[감전] 감전 허수아비이(가) 움직이지 못했다."),
+    );
+    const secondSkip = res.finalState.log.findIndex(
+      (entry, index) =>
+        index > firstSkip &&
+        entry.text.includes("[감전] 감전 허수아비이(가) 움직이지 못했다."),
+    );
+    expect(firstSkip).toBeGreaterThan(-1);
+    expect(secondSkip).toBeGreaterThan(firstSkip);
+    expect(
+      res.finalState.log
+        .slice(firstSkip + 1, secondSkip)
+        .some((entry) => entry.kind === "enemy_attack"),
+    ).toBe(true);
+  });
+
   it("회피 회복 장비는 스킬 행동 시작에도 한 번 발동한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.1);
     const recoveringPlayer: PlayerCombat = {

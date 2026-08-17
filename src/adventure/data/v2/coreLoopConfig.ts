@@ -203,8 +203,8 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 
 // === 스킬포인트(SP) 로드아웃 예산 (직업 해금 수집 파생) ========================
 // 레벨 슬롯(스킬 1개씩) 폐지 → "배운 스킬 중 합(spCost) ≤ SP예산"으로 자유 장착. SP 는
-// 기본 예산 + 해금한 실제 직업 수 + 별도 수집/소모품 보너스로 쌓인다. 숙련도 자체는 더 이상
-// SP 를 직접 주지 않고, 직업 해금 조건을 채우는 간접 동기로만 남긴다.
+// 기본 예산 + 해금 직업에서 환산한 SP + 별도 수집/소모품 보너스로 쌓인다. 해금 직업 SP는
+// 첫 50개 +1, 이후 두 직업당 +1이며 숙련도 자체는 해금 조건을 채우는 간접 동기로만 남긴다.
 //
 export const SP_BASE = 40; // 시작 SP. 기본 조합 선택지를 넓히기 위해 28 → 40.
 export const SP_MILESTONE_BASE = 45; // deprecated: 숙련도 SP 마일스톤은 더 이상 사용하지 않는다.
@@ -258,7 +258,7 @@ export function nextSpMilestoneProgressForCumLevel(cumLevel: number): {
   };
 }
 
-// SP 예산 계산 — 기본 + 해금 직업 수 + SP 열매 + 도감 보너스. 소프트캡 없음.
+// SP 예산 계산 — 기본 + 환산된 해금 직업 SP + SP 열매 + 도감 보너스. 추가 소프트캡 없음.
 //   groups 인자는 옛 숙련도 기반 호출 호환용으로 남기며 계산에는 사용하지 않는다.
 export function calcSpBudget(
   groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,

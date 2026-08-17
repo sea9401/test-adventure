@@ -27,6 +27,13 @@ export type GuildActivity = {
     tokenCost?: number;
     remainingTokens?: number;
     recipientCount?: number;
+    facilitySupport?: {
+      buildingId: string;
+      buildingName: string;
+      targetLevel: number;
+      crop: number;
+      ore: number;
+    };
     smithyLevel?: number;
     buildingName?: string;
     buildingLevel?: number;
@@ -94,7 +101,9 @@ function describe(a: GuildActivity): string {
     case "trade_delivery":
       return `${actor} 님이 교역소에 ${a.meta?.itemName ?? "물품"} ${(a.meta?.quantity ?? 0).toLocaleString()}개를 납품했어요${contributionText(a)}`;
     case "trade_shop_purchase":
-      return a.meta?.recipientCount != null
+      return a.meta?.facilitySupport
+        ? `${actor} 님이 교역소에서 ${a.meta.itemName ?? "시설 지원 물자"}을 선택해 ${a.meta.facilitySupport.buildingName} Lv.${a.meta.facilitySupport.targetLevel}에 통나무 ${a.meta.facilitySupport.crop.toLocaleString()}개·철광석 ${a.meta.facilitySupport.ore.toLocaleString()}개를 지원했어요 · 공동 토큰 -${(a.meta.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta.remainingTokens ?? 0).toLocaleString()}`
+        : a.meta?.recipientCount != null
         ? `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드원 ${a.meta.recipientCount.toLocaleString()}명에게 ${(a.meta?.quantity ?? 0).toLocaleString()}개씩 지급했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`
         : `${actor} 님이 교역소에서 ${a.meta?.itemName ?? "품목"}을 선택해 길드 공용 보상으로 적용했어요 · 공동 토큰 -${(a.meta?.tokenCost ?? 0).toLocaleString()} · 잔액 ${(a.meta?.remainingTokens ?? 0).toLocaleString()}`;
     case "warehouse_deposit":

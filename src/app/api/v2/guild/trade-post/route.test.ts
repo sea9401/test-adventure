@@ -28,7 +28,10 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => 7),
 }));
 vi.mock("@/lib/server/settlementBuildingAccess", () => ({
-  buildingLevelFromSlots: vi.fn(() => 3),
+  buildingLevelFromSlots: vi.fn(
+    (_buildings: unknown, buildingId: string) =>
+      buildingId === "trade_post" ? 3 : buildingId === "guild_smithy" ? 1 : 0,
+  ),
 }));
 vi.mock("@/lib/server/guildTrade", () => ({
   lockGuildTradeWeekly: vi.fn(),
@@ -51,8 +54,22 @@ vi.mock("@/lib/server/v2GuildResources", () => ({
   upsertGuildResources: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/server/v2Settlement", () => ({
-  lockGuildSettlement: vi.fn(async () => ({ crop: 20, ore: 30 })),
-  upsertGuildSettlement: vi.fn(async () => undefined),
+  lockGuildSettlementBuilding: vi.fn(async () => ({
+    slot: 0,
+    village: {
+      buildings: { 0: { id: "guild_smithy", level: 1 } },
+    },
+  })),
+}));
+vi.mock("@/lib/server/guildFacilityUpgradeDonations", () => ({
+  readGuildFacilityDonationProgress: vi.fn(async () => ({
+    guild_smithy: {
+      targetLevel: 2,
+      materials: { crop: 20, ore: 30 },
+    },
+  })),
+  lockGuildFacilityDonationProgress: vi.fn(async () => ({ crop: 20, ore: 30 })),
+  setGuildFacilityDonationProgress: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/server/v2GuildFame", () => ({
   addGuildFame: vi.fn(async () => undefined),
@@ -76,7 +93,12 @@ import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { upsertGuildResources } from "@/lib/server/v2GuildResources";
-import { upsertGuildSettlement } from "@/lib/server/v2Settlement";
+import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
+import {
+  lockGuildFacilityDonationProgress,
+  readGuildFacilityDonationProgress,
+  setGuildFacilityDonationProgress,
+} from "@/lib/server/guildFacilityUpgradeDonations";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { GET, POST } from "./route";
 
@@ -125,6 +147,22 @@ beforeEach(() => {
   vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly());
   vi.mocked(lockGuildTradeItem).mockResolvedValue({ owned: 100, consume });
   vi.mocked(readGuildTradeItemBalances).mockResolvedValue({ [CONTRACT_ID]: 100 });
+  vi.mocked(lockGuildSettlementBuilding).mockResolvedValue({
+    slot: 0,
+    village: {
+      buildings: { 0: { id: "guild_smithy", level: 1 } },
+    },
+  } as unknown as Awaited<ReturnType<typeof lockGuildSettlementBuilding>>);
+  vi.mocked(readGuildFacilityDonationProgress).mockResolvedValue({
+    guild_smithy: {
+      targetLevel: 2,
+      materials: { crop: 20, ore: 30 },
+    },
+  });
+  vi.mocked(lockGuildFacilityDonationProgress).mockResolvedValue({
+    crop: 20,
+    ore: 30,
+  });
   vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
     if (key === GUILD_TRADE_USER_SAVE_KEY) return userState();
     return {};
@@ -145,6 +183,25 @@ describe("길드 교역소", () => {
       canPurchase: true,
     });
     expect(json.shop[0]).toMatchObject({ tokenCost: 20, affordable: true });
+  });
+
+  it("지원 가능한 시설과 구매 후 진행도를 미리 보여준다", async () => {
+    const response = await GET();
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.facilitySupportTargets).toContainEqual(
+      expect.objectContaining({
+        buildingId: "guild_smithy",
+        buildingName: "제작소",
+        currentLevel: 1,
+        targetLevel: 2,
+        eligible: true,
+        reason: null,
+        crop: { current: 20, required: 500, grant: 100, after: 120 },
+        ore: { current: 30, required: 500, grant: 100, after: 130 },
+      }),
+    );
   });
 
   it("일반 길드원은 공동 토큰 상점 물품을 선택할 수 없다", async () => {
@@ -197,17 +254,62 @@ describe("길드 교역소", () => {
     );
   });
 
-  it("정착 보급품을 길드 정착지 공용 재화에 한 번 지급한다", async () => {
-    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 500));
+  it("교역 토큰 상점에서 구매한 스태미나 회복약을 길드원에게 귀속 지급한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === GUILD_TRADE_USER_SAVE_KEY) return userState();
+      if (key === "stamina-potions.v1") return { count: 2, boundCount: 1 };
+      return {};
+    });
 
     const response = await POST(
-      request({ action: "buy", shopItemId: "settlement_supplies" }),
+      request({ action: "buy", shopItemId: "stamina_potion" }),
     );
 
     expect(response.status).toBe(200);
-    expect(upsertGuildSettlement).toHaveBeenCalledWith(expect.anything(), 7, {
-      crop: 120,
-      ore: 130,
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-trader",
+      "stamina-potions.v1",
+      { count: 3, boundCount: 2 },
+    );
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-member",
+      "stamina-potions.v1",
+      { count: 3, boundCount: 2 },
+    );
+  });
+
+  it("시설 지원 물자를 선택한 시설 공동 기부 진행도에 적용한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 500));
+
+    const response = await POST(
+      request({
+        action: "buy",
+        shopItemId: "settlement_supplies",
+        facilityId: "guild_smithy",
+      }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(setGuildFacilityDonationProgress).toHaveBeenCalledWith(
+      expect.anything(),
+      7,
+      "guild_smithy",
+      2,
+      {
+        crop: 120,
+        ore: 130,
+      },
+    );
+    expect(json.purchased.facilitySupport).toEqual({
+      buildingId: "guild_smithy",
+      buildingName: "제작소",
+      targetLevel: 2,
+      crop: 100,
+      ore: 100,
     });
     expect(saveGuildTradeWeekly).toHaveBeenCalledWith(
       expect.anything(),
@@ -221,6 +323,43 @@ describe("길드 교역소", () => {
       expect.anything(),
       "character.v2",
       expect.anything(),
+    );
+  });
+
+  it("확인 뒤 남은 기초 재료가 200개 미만이면 구매를 롤백한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 500));
+    vi.mocked(lockGuildFacilityDonationProgress).mockResolvedValue({
+      crop: 450,
+      ore: 400,
+    });
+
+    const response = await POST(
+      request({
+        action: "buy",
+        shopItemId: "settlement_supplies",
+        facilityId: "guild_smithy",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("facility_support_unavailable");
+    expect(setGuildFacilityDonationProgress).not.toHaveBeenCalled();
+    expect(saveGuildTradeWeekly).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ purchases: { settlement_supplies: 1 } }),
+    );
+  });
+
+  it("시설 지원 물자 구매에는 유효한 시설 ID가 필요하다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 500));
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "settlement_supplies" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe(
+      "invalid_facility_support_target",
     );
   });
 

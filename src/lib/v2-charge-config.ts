@@ -4,3 +4,16 @@
 // 충전 모델: inventory.v2.{hpCharges, mpCharges} 정수, 0..MAX_CHARGE. 1 G = 1 충전.
 // 사냥 후 HP/MP 부족분 만큼 자동 소모(hunt route). 옛 POTIONS 카탈로그 폐기 후 단순 카운터.
 export const MAX_CHARGE = 10_000_000;
+
+export function affordableFullCharge(
+  current: number,
+  spendableGold: number,
+): number {
+  const safeCurrent = Number.isFinite(current)
+    ? Math.max(0, Math.min(MAX_CHARGE, Math.floor(current)))
+    : 0;
+  const safeGold = Number.isFinite(spendableGold)
+    ? Math.max(0, Math.floor(spendableGold))
+    : 0;
+  return Math.min(MAX_CHARGE - safeCurrent, safeGold);
+}

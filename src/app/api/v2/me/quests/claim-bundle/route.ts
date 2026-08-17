@@ -16,8 +16,8 @@ import {
   rolloverRepeatSave,
 } from "@/adventure/data/v2/v2RepeatQuests";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import {
   FARM_DAILY_QUEST_SEED_POUCH_NAME,
@@ -109,11 +109,15 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, FARM_SAVE_KEY, grantFarmSeeds(farm, seedPouch.seeds));
     }
     // 스태미나 포션 지급(leaf 마지막 잠금).
-    const count = staminaPotionCount(
-      await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+    const current = await lockSaveForUpdate(
+      tx,
+      userId,
+      STAMINA_POTIONS_KEY,
+      { count: 0 },
     );
-    const staminaPotions = count + bundle.potions;
-    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: staminaPotions });
+    const nextPotions = grantStaminaPotions(current, bundle.potions);
+    const staminaPotions = nextPotions.count;
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
     return {
       status: 200,
       body: {

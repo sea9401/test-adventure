@@ -48,15 +48,19 @@ vi.mock("@/lib/server/opsAlert", () => ({
 
 import { POST } from "./route";
 
-function request(sourceType: string, sourceId: unknown) {
+function request(
+  sourceType: string,
+  sourceId: unknown,
+  overrides: { subjectType?: string; reason?: string } = {},
+) {
   return new Request("http://localhost/api/safety/reports", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      subjectType: "content",
+      subjectType: overrides.subjectType ?? "content",
       sourceType,
       sourceId,
-      reason: "harassment",
+      reason: overrides.reason ?? "harassment",
       details: "확인해주세요",
     }),
   });
@@ -128,6 +132,62 @@ describe("사용자 콘텐츠 신고 접수", () => {
 
     expect(empty.status).toBe(400);
     expect(long.status).toBe(400);
+    expect(mocks.resolveSource).not.toHaveBeenCalled();
+  });
+
+  it("거래 전용 사유로 체결 스냅샷을 저장하고 양쪽 계정을 알린다", async () => {
+    mocks.resolveSource.mockResolvedValue({
+      sourceType: "marketplace_trade",
+      sourceId: "42",
+      targetUserId: "seller-id",
+      targetName: "판매자",
+      contentSnapshot: "거래 번호: 42",
+      contextSnapshot: {
+        seller: { userId: "seller-id", name: "판매자" },
+        buyer: { userId: "buyer-id", name: "구매자" },
+      },
+      relatedAccounts: [
+        { userId: "seller-id", name: "판매자" },
+        { userId: "buyer-id", name: "구매자" },
+      ],
+    });
+
+    const response = await POST(
+      request("marketplace_trade", 42, { reason: "abnormal_price" }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.state.inserted).toMatchObject({
+      sourceType: "marketplace_trade",
+      sourceId: "42",
+      reason: "abnormal_price",
+      contentSnapshot: "거래 번호: 42",
+    });
+    expect(mocks.sendOpsAlert).toHaveBeenCalledWith(
+      "[ops] 사용자 콘텐츠 신고 접수",
+      expect.objectContaining({
+        accounts: [
+          { userId: "viewer-id", name: "신고자" },
+          { userId: "seller-id", name: "판매자" },
+          { userId: "buyer-id", name: "구매자" },
+        ],
+      }),
+    );
+  });
+
+  it("거래 신고의 사용자 대상과 콘텐츠 전용 사유를 거부한다", async () => {
+    const userSubject = await POST(
+      request("marketplace_trade", 42, {
+        subjectType: "user",
+        reason: "abnormal_price",
+      }),
+    );
+    const contentReason = await POST(
+      request("marketplace_trade", 42, { reason: "harassment" }),
+    );
+
+    expect(userSubject.status).toBe(400);
+    expect(contentReason.status).toBe(400);
     expect(mocks.resolveSource).not.toHaveBeenCalled();
   });
 });

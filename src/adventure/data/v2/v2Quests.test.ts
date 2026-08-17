@@ -85,6 +85,7 @@ const ZERO: QuestCtx = {
   guildWorkshopDeliveries: 0,
   guildAlchemyCrafts: 0,
   guildTradeContracts: 0,
+  referralCount: 0,
 };
 
 const NEWCOMER: QuestCtx = { ...ZERO, class: "none", tier: 0 };
@@ -92,6 +93,62 @@ const NEWCOMER: QuestCtx = { ...ZERO, class: "none", tier: 0 };
 const none = new Set<string>();
 
 describe("v2Quests 카탈로그 무결성", () => {
+  it("대표 성장·생활·경제·수집 업적이 합의한 칭호를 지급한다", () => {
+    const rewards = [
+      ["growth_tier6", "ach_transcendent", "초월자"],
+      ["life_request100", "ach_town_helper", "마을 해결사"],
+      ["gold_1m", "ach_millionaire", "백만장자"],
+      ["titles_10", "ach_title_collector", "칭호 수집가"],
+    ] as const;
+
+    for (const [questId, titleId, titleName] of rewards) {
+      expect(questById(questId)?.reward.titleId).toBe(titleId);
+      expect(TITLES[titleId]?.name).toBe(titleName);
+    }
+    expect(questById("x_titles")?.title).toBe("칭호 수집 입문");
+    expect(questById("titles_10")?.title).toBe("칭호 수집가");
+  });
+
+  it("홍보 50명과 100명 업적이 각각 홍보사원·홍보왕 칭호를 지급한다", () => {
+    expect(questById("promotion_referrals50")).toMatchObject({
+      line: "promotion",
+      goal: 50,
+      points: 50,
+      reward: { titleId: "ach_promotion_staff" },
+    });
+    expect(questById("promotion_referrals100")).toMatchObject({
+      line: "promotion",
+      goal: 100,
+      points: 80,
+      reward: { titleId: "ach_promotion_king" },
+    });
+    expect(TITLES.ach_promotion_staff?.name).toBe("홍보사원");
+    expect(TITLES.ach_promotion_king?.name).toBe("홍보왕");
+  });
+
+  it("장비 도감·투기장·숙련의 탑 종착 업적도 고유 칭호를 지급한다", () => {
+    const rewards = [
+      ["codex_240", "ach_equipment_archivist", "장비 기록관"],
+      ["arena_win250", "ach_arena_conqueror", "투기장 정복자"],
+      ["tower_50", "ach_mastery_tower_peak", "탑 정복자"],
+    ] as const;
+
+    for (const [questId, titleId, titleName] of rewards) {
+      expect(questById(questId)?.reward.titleId).toBe(titleId);
+      expect(TITLES[titleId]?.name).toBe(titleName);
+    }
+  });
+
+  it("홍보 실적은 50명과 100명 경계에서 단계별로 완료된다", () => {
+    const staff = questById("promotion_referrals50")!;
+    const king = questById("promotion_referrals100")!;
+
+    expect(staff.check({ ...ZERO, referralCount: 49 })).toBe(false);
+    expect(staff.check({ ...ZERO, referralCount: 50 })).toBe(true);
+    expect(king.check({ ...ZERO, referralCount: 99 })).toBe(false);
+    expect(king.check({ ...ZERO, referralCount: 100 })).toBe(true);
+  });
+
   it("다섯 생활 레벨 업적을 60·75·90·100까지 확장하고 100 칭호를 지급한다", () => {
     const activities = [
       ["farm", "ach_farming_transcendent", "대지의 초월자"],
@@ -813,6 +870,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       hasTraded: true,
       arenaPlayed: true,
       arenaWins: 3,
+      referralCount: 100,
       gold: 20000,
       outpostsDiscovered: 20,
       titleCount: 5,

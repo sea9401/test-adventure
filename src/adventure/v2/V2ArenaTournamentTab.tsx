@@ -156,8 +156,8 @@ export function V2ArenaTournamentTab() {
         </div>
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
           월~토 예선 상위 참가자가 포트 추첨 후 3판 2선승으로 맞붙습니다.
-          일요일 19:00에 같은 라운드 경기를 일괄 진행하고 15분마다 다음
-          라운드로 넘어갑니다. 20:00에 3·4위전, 20:15에 결승을 진행합니다.
+          일요일 13:00에 같은 라운드 경기를 일괄 진행하고 5분마다 다음
+          라운드로 넘어갑니다. 13:20에 3·4위전, 13:25에 결승을 진행합니다.
         </p>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
           <span>예선 마감 {formatKst(data.season?.rankedEndsAt)}</span>
@@ -170,8 +170,8 @@ export function V2ArenaTournamentTab() {
       {data.phase === "ranked" && !tournament?.isCurrent && (
         <div className={`${SURFACE_CARD} p-4 text-sm`}>
           토요일 23:59까지 예선 순위를 올려 주세요. 순위와 대진은 일요일 00:00에
-          확정되지만, 아레나 전투 세팅은 18:00 전까지 다시 저장할 수 있습니다.
-          경기는 19:00부터 시작합니다.
+          확정되지만, 아레나 전투 세팅은 12:00 전까지 다시 저장할 수 있습니다.
+          경기는 13:00부터 시작합니다.
         </div>
       )}
 

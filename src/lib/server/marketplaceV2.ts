@@ -51,7 +51,7 @@ export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
 // 시세 — 최근 며칠간 판매 완료(sold) 기록을 종목별 집계. 가격 판단 참고용.
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 // 최근 거래 내역 — 체결(sold) 매물을 최신순으로 이만큼 반환(거래소 "최근 거래" 탭).
-export const MARKETPLACE_V2_HISTORY_LIMIT = 50;
+export const MARKETPLACE_V2_HISTORY_LIMIT = 100;
 // 새 매물은 즉시구매(유예 0)가 기본이며 24시간 노출한다.
 // 선택형 공개 입찰은 판매자가 2~24시간 중 선택. 초과 입찰이 없으면 유예 종료 후
 // 고정가 즉시구매로 2시간 더 노출하고, 그 뒤 만료·반환한다.

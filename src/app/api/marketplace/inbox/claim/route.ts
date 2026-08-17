@@ -10,7 +10,10 @@ import {
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
-import { STAMINA_POTIONS_KEY } from "@/adventure/v2/staminaPotions";
+import {
+  grantStaminaPotions,
+  STAMINA_POTIONS_KEY,
+} from "@/adventure/v2/staminaPotions";
 import {
   addGradedEquip,
   addInstance,
@@ -162,6 +165,7 @@ export async function POST(req: Request) {
       const v2MaterialsToAdd: { id: string; count: number }[] = [];
       const recipesToAdd: AddRecipe[] = [];
       let staminaPotionsTotal = 0;
+      let boundStaminaPotionsTotal = 0;
       let museunCoinsTotal = 0;
       const museunCashItemTotals = new Map<MuseunCashItemId, number>();
       const cookingFoodTotals = new Map<CookingFoodId, number>();
@@ -318,6 +322,9 @@ export async function POST(req: Request) {
             }
             if (parsed.staminaPotions > 0) {
               staminaPotionsTotal += parsed.staminaPotions;
+              if (parsed.staminaPotionsBound) {
+                boundStaminaPotionsTotal += parsed.staminaPotions;
+              }
             }
             if (parsed.museunCoins > 0) {
               museunCoinsTotal += parsed.museunCoins;
@@ -643,15 +650,21 @@ export async function POST(req: Request) {
           )
           .for("update");
         const raw = (prows[0]?.value ?? {}) as Record<string, unknown>;
-        const cur =
-          typeof raw.count === "number" && Number.isFinite(raw.count)
-            ? Math.max(0, Math.floor(raw.count))
-            : 0;
-        staminaPotions = cur + staminaPotionsTotal;
-        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-          ...raw,
-          count: staminaPotions,
-        });
+        const unboundStaminaPotionsTotal =
+          staminaPotionsTotal - boundStaminaPotionsTotal;
+        const withUnbound = grantStaminaPotions(
+          raw,
+          unboundStaminaPotionsTotal,
+        );
+        const nextPotions = grantStaminaPotions(
+          withUnbound,
+          boundStaminaPotionsTotal,
+          {
+            bound: true,
+          },
+        );
+        staminaPotions = nextPotions.count;
+        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
       }
 
       // 영구 칭호 — 같은 칭호가 여러 우편에 있어도 한 번만 지급한다. 기존 보유분은

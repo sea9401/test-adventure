@@ -25,8 +25,8 @@ import {
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
+  grantStaminaPotions,
   STAMINA_POTIONS_KEY,
-  parseStaminaPotions,
 } from "@/adventure/v2/staminaPotions";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { hasCompletedOnboarding } from "@/lib/server/profile";
@@ -176,10 +176,9 @@ export async function POST() {
           STAMINA_POTIONS_KEY,
           { count: 0 },
         );
-        staminaPotions = parseStaminaPotions(potionSave).count + reward.count;
-        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
-          count: staminaPotions,
-        });
+        const nextPotions = grantStaminaPotions(potionSave, reward.count);
+        staminaPotions = nextPotions.count;
+        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
       } else if (reward.kind === "mastery_certificate") {
         const inventory = await lockSaveForUpdate<Record<string, unknown>>(
           tx,

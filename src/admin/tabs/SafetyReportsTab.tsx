@@ -10,7 +10,7 @@ import { UGC_REPORT_REASON_LABELS, type UgcReportReason } from "@/lib/ugc-safety
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
 
-type SafetyReport = {
+export type SafetyReport = {
   id: number;
   reporterUserId: string | null;
   reporterName: string;
@@ -44,6 +44,7 @@ const SOURCE_LABELS: Record<string, string> = {
   profile: "프로필",
   guild_profile: "길드 정보",
   chat_room: "채팅방 정보",
+  marketplace_trade: "거래소 체결",
 };
 
 export function SafetyReportsTab() {
@@ -75,9 +76,9 @@ export function SafetyReportsTab() {
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold">콘텐츠·사용자 신고</h3>
+          <h3 className="text-sm font-semibold">콘텐츠·사용자·거래 신고</h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            신고 당시 원문을 확인하고 콘텐츠 삭제 또는 유저 제재로 연결합니다.
+            신고 당시 기록을 확인하고 콘텐츠 삭제 또는 유저 제재로 연결합니다.
           </p>
         </div>
         <Button onClick={() => void refetch()} disabled={loading}>
@@ -123,7 +124,7 @@ export function SafetyReportsTab() {
   );
 }
 
-function SafetyReportItem({
+export function SafetyReportItem({
   report,
   canModerate,
   onSaved,
@@ -137,6 +138,15 @@ function SafetyReportItem({
   const [status, setStatus] = useState(report.status);
   const [adminNote, setAdminNote] = useState(report.adminNote ?? "");
   const [busy, setBusy] = useState(false);
+  const relatedAccounts = Array.isArray(report.contextSnapshot.relatedAccounts)
+    ? report.contextSnapshot.relatedAccounts.filter(
+        (account): account is { userId: string; name: string } =>
+          typeof account === "object" &&
+          account !== null &&
+          typeof (account as { userId?: unknown }).userId === "string" &&
+          typeof (account as { name?: unknown }).name === "string",
+      )
+    : [];
 
   const save = async () => {
     setBusy(true);
@@ -196,6 +206,24 @@ function SafetyReportItem({
         <span className="text-zinc-400">{new Date(report.createdAt).toLocaleString("ko-KR")}</span>
         <span className="ml-auto font-semibold">{STATUS_LABELS[report.status]}</span>
       </div>
+
+      {report.sourceType === "marketplace_trade" && relatedAccounts.length > 0 ? (
+        <div className={`${SURFACE_INSET} mt-3 p-3`}>
+          <p className="text-[11px] font-semibold text-zinc-500">
+            관련 거래 계정
+          </p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {relatedAccounts.map((account) => (
+              <AdminUserLink
+                key={account.userId}
+                userId={account.userId}
+                gameName={account.name}
+                compact
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className={`${SURFACE_INSET} p-3`}>
@@ -273,9 +301,11 @@ function SafetyReportItem({
         />
         <Button variant="primary" onClick={() => void save()} disabled={!canModerate || busy}>저장</Button>
         <div className="sm:col-span-3 flex flex-wrap justify-end gap-2">
-          <Button variant="danger" onClick={() => void removeContent()} disabled={!canModerate || busy}>
-            신고 콘텐츠 제거
-          </Button>
+          {report.sourceType !== "marketplace_trade" ? (
+            <Button variant="danger" onClick={() => void removeContent()} disabled={!canModerate || busy}>
+              신고 콘텐츠 제거
+            </Button>
+          ) : null}
           {report.targetUserId && (
             <a
               href={`/admin?tab=users&q=${encodeURIComponent(report.targetUserId)}`}

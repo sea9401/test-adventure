@@ -94,6 +94,25 @@ describe("PvP 한기·빙결", () => {
     expect(freezeDamage(arena)).toBe(Math.floor(freezeDamage(normal) * 0.65));
   });
 
+  it("빙결 피해를 흡수한 보호막은 로그에 기록된 양만 한 번 차감한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const ready = state();
+    const shieldBefore = 100_000;
+    ready.p2.stacks.frostChillStacks = 2;
+    ready.p2.stacks.playerShield = shieldBefore;
+
+    const result = castV2SkillOnAttackerTurnPvP(ready, "p1");
+    const loggedAbsorption = result.state.log.reduce((sum, entry) => {
+      const match = entry.text.match(/보호막이 (\d+) 흡수/);
+      return sum + (match ? Number(match[1]) : 0);
+    }, 0);
+
+    expect(result.state.p2.hp).toBe(ready.p2.hp);
+    expect(result.state.p2.stacks.playerShield).toBe(
+      shieldBefore - loggedAbsorption,
+    );
+  });
+
   it("보장 회피는 직접 피해와 한기를 함께 막는다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const result = castV2SkillOnAttackerTurnPvP(

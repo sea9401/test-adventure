@@ -279,6 +279,8 @@ export type V2CommonSkillId =
   | "v2c_primordialmage_return" // 태초회귀 (근원 마법 피해 + 취약 + 지연)
   | "v2c_primordialmage_resonance" // 근원공명 (지능 + 정신 + 마법 운용)
   | "v2c_primordialmage_amplification" // 원초 증폭 (장비 치명타 배율 → 마법 스킬 치명타 배율)
+  | "v2c_frostsovereign_eternalprison" // 빙천제: 영겁빙옥 (강한 마법 피해 + 한기 4)
+  | "v2c_frostsovereign_permafrost" // 빙천제: 영구동토 (빙결 강화 + 한기 잔류)
   | "v2c_lawweaver_release" // 만상각인 해방 (전투 중 각인 전량 소비)
   | "v2c_lawweaver_inscription" // 법칙 각인 (문장 해방 시 각인 생성)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
@@ -2535,6 +2537,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { equipmentMagicSkillCritConversion: true },
+  },
+  v2c_frostsovereign_eternalprison: {
+    id: "v2c_frostsovereign_eternalprison", name: "영겁빙옥", stat: "int", category: "attack", tier: 3,
+    description: "영겁의 얼음 감옥을 닫아 큰 마법 피해를 주고 적에게 한기를 4중첩 쌓는다.",
+    mpCost: 84, fixedMpCost: 195, cooldown: 0, procChance: 32, learnCost: 12000, spCost: 10,
+    effects: [dmg(3, 760, "magic")],
+    frostChillGain: 4,
+  },
+  v2c_frostsovereign_permafrost: {
+    id: "v2c_frostsovereign_permafrost", name: "영구동토", stat: "int", category: "passive", tier: 3,
+    description: "빙결 뒤에도 녹지 않는 한기를 남겨 다음 빙결을 앞당기고 그 위력과 지연을 강화한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11,
+    effects: [],
+    passive: {
+      maxMpPct: 16,
+      freezeDamagePct: 35,
+      freezeDelayPct: 50,
+      freezeRetainStacks: 1,
+    },
   },
   v2c_lawweaver_release: {
     id: "v2c_lawweaver_release", name: "만상각인 해방", stat: "int", category: "attack", tier: 3,

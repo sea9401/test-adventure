@@ -74,6 +74,8 @@ export type V2PassiveSkillEffect = {
   freezeDamagePct?: number;
   /** 한기 5중첩으로 발생하는 다음 행동 지연율. */
   freezeDelayPct?: number;
+  /** 빙결 발동 뒤 대상에게 남기는 한기 수. 여러 패시브는 최대값만 적용한다. */
+  freezeRetainStacks?: number;
   /** 마나 실드 활성화 — INT·최대 MP 기반 전투별 장벽을 전개한다. 현재 MP는 소모하지 않는다. */
   magicBarrier?: boolean;
   /** 민첩→공격력 보조 계수(예기). */
@@ -2222,6 +2224,9 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`마법 MP 소모 -${p.mpCostReductionPct}%`);
   if (p.freezeDamagePct) chips.push(`빙결 피해 +${p.freezeDamagePct}%`);
   if (p.freezeDelayPct) chips.push(`빙결 행동 지연 ${p.freezeDelayPct}%`);
+  if (p.freezeRetainStacks) {
+    chips.push(`빙결 후 한기 ${p.freezeRetainStacks} 잔류`);
+  }
   if (p.magicBarrier) chips.push("마나 실드 활성화");
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
@@ -2442,7 +2447,7 @@ const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 const MP_CASTER_JOBS = new Set([
   "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
   "firemage", "frostmage", "lightningmage", "windmage", "earthmage",
-  "elementallord", "cryomancer", "inscriber", "archmage", "primordialmage",
+  "elementallord", "cryomancer", "inscriber", "archmage", "primordialmage", "frostsovereign",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([

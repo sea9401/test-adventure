@@ -1659,6 +1659,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_frostmage_glacier", name: "빙하진", stat: "int", category: "attack", tier: 3,
     description: "빙하의 마력을 폭발시켜 적에게 한기를 2중첩 쌓는다.",
     mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
+    spCost: 7,
     effects: [dmg(1.5, 290, "magic")],
     frostChillGain: 2,
   },

@@ -71,11 +71,13 @@ describe("빙결술사 5차 카탈로그", () => {
 
   it("빙하진은 보호막·즉시 지연 대신 한기 2를 부여한다", () => {
     expect(V2_SKILLS.v2c_frostmage_glacier).toMatchObject({
+      spCost: 7,
       frostChillGain: 2,
       effects: [
         { kind: "damage", statCoef: 1.26, baseFlat: 244, scaling: "magic" },
       ],
     });
+    expect(spCostOf(V2_SKILLS.v2c_frostmage_glacier)).toBe(7);
   });
 
   it("한기 생성량을 스킬 설명에 표시한다", () => {

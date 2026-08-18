@@ -9,6 +9,23 @@ import {
   V2LoadoutPanel,
   waitForLoadoutRefresh,
 } from "./V2LoadoutPanel";
+import {
+  V2_SKILLS,
+  spCostOf,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
+
+const realLoadoutLibrary = (skillIds: readonly V2SkillId[]) =>
+  skillIds.map((skillId) => ({
+    skillId,
+    name: V2_SKILLS[skillId].name,
+    spCost: spCostOf(V2_SKILLS[skillId]),
+    equipped: true,
+    category: V2_SKILLS[skillId].category,
+  }));
+
+const visibleText = (html: string) =>
+  html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 describe("직업 SP 산식 전환 안내", () => {
   it("유예 남은 시간을 올림한 시·분으로 표시한다", () => {
@@ -432,5 +449,82 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(
       'id="lifestyle-equipped-skills" class="hidden sm:block"',
     );
+  });
+});
+
+describe("V2LoadoutPanel 원소 공명 유효 SP", () => {
+  const materials = [
+    "v2c_firemage_inferno",
+    "v2c_frostmage_glacier",
+    "v2c_lightningmage_thunderbolt",
+    "v2c_windmage_tempest",
+    "v2c_earthmage_tectonic",
+  ] as const satisfies readonly V2SkillId[];
+
+  it("원소군주 회로의 28 SP 총액과 공명 재료 기본·유효 비용을 보여준다", () => {
+    const equipped = [
+      ...materials,
+      "v2c_elementallord_surge",
+      "v2c_elementallord_resonance",
+    ] as const;
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 99,
+          spUsed: 52,
+          equipped: [...equipped],
+          library: realLoadoutLibrary(equipped),
+        }}
+      />,
+    );
+
+    expect(visibleText(html)).toContain("스킬포인트 28 / 99");
+    expect(html.match(/공명 재료 · 2 SP/g)).toHaveLength(5);
+    expect(visibleText(html)).toContain("기본 8 SP");
+  });
+
+  it("태초술사 회로에 흡수된 오원소 폭주를 근원 촉매로 표시한다", () => {
+    const equipped = [
+      ...materials,
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+      "v2c_elementallord_surge",
+    ] as const;
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 99,
+          spUsed: 75,
+          equipped: [...equipped],
+          library: realLoadoutLibrary(equipped),
+        }}
+      />,
+    );
+
+    expect(visibleText(html)).toContain("스킬포인트 37 / 99");
+    expect(html).toContain("근원 촉매 · 2 SP · 태초회귀 강화");
+    expect(visibleText(html)).toContain("기본 16 SP");
+  });
+
+  it("두 회로를 모두 장착하면 근원공명 우선 안내를 표시한다", () => {
+    const equipped = [
+      ...materials,
+      "v2c_elementallord_surge",
+      "v2c_elementallord_resonance",
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+    ] as const;
+    const html = renderToStaticMarkup(
+      <V2LoadoutPanel
+        loadout={{
+          spBudget: 99,
+          spUsed: 99,
+          equipped: [...equipped],
+          library: realLoadoutLibrary(equipped),
+        }}
+      />,
+    );
+
+    expect(html).toContain("근원공명 우선 · 원소군주 회로 비활성");
   });
 });

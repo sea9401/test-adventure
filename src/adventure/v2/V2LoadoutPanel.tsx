@@ -17,6 +17,7 @@ import {
   v2SkillSearchText,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   DUELIST_STANCE_BONUS_PCT,
@@ -44,6 +45,8 @@ export type V2LoadoutSkill = {
   skillId: string;
   name: string;
   spCost: number;
+  effectiveSpCost?: number;
+  resonanceRole?: "material" | "catalyst" | "inactive";
   equipped: boolean;
   favorite?: boolean;
   category?: V2LoadoutSkillCategory;
@@ -146,6 +149,30 @@ export const V2_SKILL_VISIBILITY_STORAGE_KEY =
 function isLifestyleSkillId(skillId: string): boolean {
   const skill = V2_SKILLS[skillId as V2SkillId];
   return !!skill && isLifestyleSkill(skill);
+}
+
+function knownV2SkillIds(skillIds: readonly string[]): V2SkillId[] {
+  return skillIds.filter(
+    (skillId): skillId is V2SkillId => skillId in V2_SKILLS,
+  );
+}
+
+function localLoadoutResolution(
+  order: readonly string[],
+  learned: readonly V2SkillId[],
+  meta: ReadonlyMap<string, V2LoadoutSkill>,
+) {
+  const resonance = resolveElementalResonanceLoadout({
+    learned,
+    equipped: knownV2SkillIds(order),
+  });
+  const absorbedSet = new Set<string>(resonance.absorbedSkillIds);
+  const spUsed = order.reduce(
+    (sum, skillId) =>
+      sum + (absorbedSet.has(skillId) ? 2 : (meta.get(skillId)?.spCost ?? 0)),
+    0,
+  );
+  return { resonance, absorbedSet, spUsed };
 }
 
 export function loadoutExclusiveConflictMessage(
@@ -266,6 +293,14 @@ export function V2LoadoutPanel({
     () => new Map(loadout.library.map((s) => [s.skillId, s])),
     [loadout.library],
   );
+  const learnedSkillIds = useMemo(
+    () => knownV2SkillIds(loadout.library.map((skill) => skill.skillId)),
+    [loadout.library],
+  );
+  const localResolution = useMemo(
+    () => localLoadoutResolution(order, learnedSkillIds, meta),
+    [learnedSkillIds, meta, order],
+  );
   const equippedSet = useMemo(() => new Set(order), [order]);
   const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const removedSkillNames = (loadout.spMigration?.removedSkillIds ?? []).map(
@@ -288,7 +323,7 @@ export function V2LoadoutPanel({
     }
     return out;
   }, [libraryOrder, loadout.library]);
-  const spUsed = order.reduce((a, id) => a + (meta.get(id)?.spCost ?? 0), 0);
+  const spUsed = localResolution.spUsed;
   const { spBudget } = loadout;
   const pct = spBudget > 0 ? Math.min(100, (spUsed / spBudget) * 100) : 0;
   const spBreakdown = loadout.spBreakdown;
@@ -347,7 +382,9 @@ export function V2LoadoutPanel({
       displayedDomainLibrary.filter((s) => {
         const equipped = equippedSet.has(s.skillId);
         const favorite = favoriteSet.has(s.skillId);
-        const wouldFit = spUsed + s.spCost <= spBudget;
+        const wouldFit =
+          localLoadoutResolution([...order, s.skillId], learnedSkillIds, meta)
+            .spUsed <= spBudget;
         const searchText = searchIndex.get(s.skillId) ?? "";
         const matchesQuery =
           queryTerms.length === 0 ||
@@ -378,8 +415,10 @@ export function V2LoadoutPanel({
       searchIndex,
       skillLineageFilter,
       skillTierFilter,
+      learnedSkillIds,
+      meta,
+      order,
       spBudget,
-      spUsed,
     ],
   );
   const allFilterDefs: Array<{ id: SkillFilter; label: string }> = [
@@ -770,6 +809,13 @@ export function V2LoadoutPanel({
           style={{ width: `${pct}%` }}
         />
       </div>
+      {localResolution.resonance.circuit === "primordial" &&
+        equippedSet.has("v2c_elementallord_surge") &&
+        equippedSet.has("v2c_elementallord_resonance") && (
+          <div className={`mt-2 px-3 py-2 text-xs font-medium ${SURFACE_INSET}`}>
+            근원공명 우선 · 원소군주 회로 비활성
+          </div>
+        )}
       {loadout.spMigration?.graceActive &&
         loadout.spMigration.graceEndsAt != null && (
           <div className={`mt-3 p-3 text-xs ${SURFACE_INSET}`}>
@@ -1253,8 +1299,19 @@ export function V2LoadoutPanel({
           const equipped = equippedSet.has(s.skillId);
           const lifestyle = isLifestyleSkillId(s.skillId);
           const favorite = favoriteSet.has(s.skillId);
-          const wouldFit = spUsed + s.spCost <= spBudget;
+          const wouldFit =
+            localLoadoutResolution([...order, s.skillId], learnedSkillIds, meta)
+              .spUsed <= spBudget;
           const skillDef = V2_SKILLS[s.skillId as V2SkillId];
+          const resonanceRole = equipped
+            ? localResolution.resonance.catalystActive &&
+              s.skillId === "v2c_elementallord_surge"
+              ? "catalyst"
+              : localResolution.absorbedSet.has(s.skillId)
+                ? "material"
+                : undefined
+            : undefined;
+          const effectiveSpCost = resonanceRole ? 2 : s.spCost;
           return (
             <li
               key={s.skillId}
@@ -1333,14 +1390,29 @@ export function V2LoadoutPanel({
                     {s.name}
                   </span>
                   <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                    SP {s.spCost}
+                    SP {effectiveSpCost}
                   </span>
+                  {effectiveSpCost !== s.spCost && (
+                    <span className="shrink-0 text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      기본 {s.spCost} SP
+                    </span>
+                  )}
                 </div>
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 {!compact && <SkillEffectChips skillId={s.skillId} />}
                 {skillDef?.exclusiveGroup && (
                   <span className="mt-1 text-[10px] font-medium text-amber-700 dark:text-amber-300">
                     같은 계열 1개만 장착
+                  </span>
+                )}
+                {resonanceRole === "material" && (
+                  <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                    공명 재료 · 2 SP
+                  </span>
+                )}
+                {resonanceRole === "catalyst" && (
+                  <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                    근원 촉매 · 2 SP · 태초회귀 강화
                   </span>
                 )}
               </div>

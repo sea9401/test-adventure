@@ -1322,10 +1322,17 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
     expect(result.castSkillName).toBe("살점 뜯기");
     // DoT 는 별도 경로로 적용 대기 목록에 실린다(프리셋 + 시전자 atk).
-    expect(result.dotsToApplyToTarget).toContainEqual({
-      ...V2_DOT_PRESETS.출혈,
-      sourceAtk: 5,
-    });
+    expect(result.dotsToApplyToTarget).toContainEqual(
+      expect.objectContaining({
+        tag: "bleed",
+        label: "출혈",
+        stacks: 1,
+        turns: 3,
+        flatPerStack: 10,
+        atkCoefPerStack: 0.12,
+        sourceAtk: 5,
+      }),
+    );
   });
 });
 

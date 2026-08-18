@@ -17,7 +17,7 @@ import {
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
-import { BLEED_ATK_COEF_PER_STACK } from "@/adventure/data/v2/v2CombatConstants";
+import { PLAYER_BLEED_ATK_COEF_PER_STACK } from "@/adventure/data/v2/v2CombatConstants";
 import type { Monster } from "@/adventure/data/monsters";
 import { actionInterval, effectiveMonsterSpd } from "./combatTimeline";
 
@@ -109,7 +109,7 @@ describe("DoT 행동 틱 (ATB) — 대상 행동 시작 시 틱", () => {
     const bleeder = derive({
       bleedOnHit: {
         flatPerStack: 10,
-        atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
+        atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,
       },
     });
     const enemy = m("부서진 골렘");

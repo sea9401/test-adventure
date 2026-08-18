@@ -14,7 +14,11 @@ import {
   resolveBattlePvP,
   type PvPResolveContext,
 } from "../v2/combat/engine-pvp";
-import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../data/v2/v2CombatConstants";
+import {
+  CRIT_MULT_BASE,
+  PLAYER_BLEED_ATK_COEF_PER_STACK,
+  RAMPAGE_START_TURN,
+} from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
 import {
   V2_SKILLS,
@@ -511,7 +515,17 @@ describe("공격자 측 능력 — 대칭 적용", () => {
   it("출혈 도트 — p2 페이즈 진입 시 p2.hp 가 tagged bleed 만큼 추가 감소", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
-      makePlayer({ spd: 15, atk: 20, def: 0, bleedOnHit: { flatPerStack: 5, atkCoefPerStack: 0.12 }, hp: 1000, maxHp: 1000 }),
+      makePlayer({
+        spd: 15,
+        atk: 20,
+        def: 0,
+        bleedOnHit: {
+          flatPerStack: 10,
+          atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,
+        },
+        hp: 1000,
+        maxHp: 1000,
+      }),
       makePlayer({ spd: 5, atk: 1, def: 0, hp: 500, maxHp: 500 }),
       "P1",
       "P2",
@@ -519,7 +533,9 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     // p1 공격 1회 — 본타 20 (def 0) + 출혈 스택 1, p2 턴 진입 시 출혈 tick.
     const s1 = advanceTurnPvP(s0);
     expect(s1.phase).toBe("p2");
-    expect(s1.p2.hp).toBe(500 - 20 - Math.floor(5 + 20 * 0.12)); // 출혈 floor(7.4)=7
+    expect(s1.p2.hp).toBe(
+      500 - 20 - Math.floor(10 + 20 * PLAYER_BLEED_ATK_COEF_PER_STACK),
+    );
     expect(s1.log.find((e) => e.text.includes("출혈"))).toMatchObject({
       effect: "status_damage",
       side: "p2",

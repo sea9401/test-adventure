@@ -711,6 +711,7 @@ export function applyPlayerOnHitDots(
     dots.push(makeBleedDot({
       stacks: bleedStacks,
       flatPerStack: player.bleedOnHit?.flatPerStack ?? 0,
+      atkCoefPerStack: player.bleedOnHit?.atkCoefPerStack,
       sourceAtk: player.atk,
     }));
   }

@@ -23,6 +23,7 @@ import {
   rubricSpCost,
   skillPowerScore,
   v2SkillMpCostValue,
+  type V2SkillEffect,
   type V2SkillId,
 } from "./v2Skills";
 
@@ -677,6 +678,23 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
       for (const e of s.effects) {
         expect(["dot", "enemyDebuff"]).toContain(e.kind);
       }
+    }
+  });
+
+  it("모든 몬스터 전용 출혈은 플레이어 상향과 분리된 ATK 계수 0.12를 사용한다", () => {
+    const monsterBleedEffects = Object.values(V2_SKILLS)
+      .filter((skill) => skill.monsterOnly)
+      .flatMap((skill) => skill.effects)
+      .filter(
+        (
+          effect,
+        ): effect is Extract<V2SkillEffect, { kind: "dot" }> =>
+          effect.kind === "dot" && effect.tag === "bleed",
+      );
+
+    expect(monsterBleedEffects).not.toHaveLength(0);
+    for (const effect of monsterBleedEffects) {
+      expect(effect.atkCoefPerStack).toBe(0.12);
     }
   });
 

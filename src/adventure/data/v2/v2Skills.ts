@@ -1264,6 +1264,9 @@ function rebalanceDamageEffect(effect: V2SkillEffect, scale: number): V2SkillEff
           : {}),
       };
     case "dot":
+      // 플레이어 출혈은 짧고 강한 공용 상태 피해로 별도 밸런싱한다. 직업 차수 배율로
+      // 다시 낮추면 프리셋의 플레이어 전용 ATK 계수와 고정 피해가 훼손된다.
+      if (effect.tag === "bleed") return effect;
       return {
         ...effect,
         flatPerStack: scaledFlat(effect.flatPerStack, scale),

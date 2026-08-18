@@ -11,7 +11,7 @@
 
 import type { StatKey } from "@/adventure/data/stats";
 import {
-  BLEED_ATK_COEF_PER_STACK,
+  PLAYER_BLEED_ATK_COEF_PER_STACK,
   BLEED_MAX_STACKS,
   POISON_MAX_STACKS,
   POISON_PCT_PER_POINT,
@@ -27,7 +27,7 @@ export const V2_DOT_PRESETS = {
     maxStacks: BLEED_MAX_STACKS,
     turns: 3,
     flatPerStack: 10,
-    atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
+    atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,
     pctMaxHpPerStack: 0,
   },
   중독: {

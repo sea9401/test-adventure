@@ -2,6 +2,7 @@
 // 타입·생성로직(속성스킬 자동생성·V2_SKILLS merge·parse)은 v2Skills.ts 에.
 // 소비자는 v2Skills 의 V2_SKILLS 로 접근(이 카탈로그는 내부 합성용).
 import type { V2SkillId, V2SkillDefinition } from "./v2Skills";
+import { MONSTER_BLEED_ATK_COEF_PER_STACK } from "./v2CombatConstants";
 import { V2_DEBUFF_PRESETS, V2_DOT_PRESETS } from "./statusEffects";
 
 export const V2_BASE_SKILLS = {
@@ -109,7 +110,13 @@ export const V2_BASE_SKILLS = {
     mpCost: 0,
     cooldown: 3,
     monsterOnly: true,
-    effects: [{ kind: "dot", ...V2_DOT_PRESETS.출혈 }],
+    effects: [
+      {
+        kind: "dot",
+        ...V2_DOT_PRESETS.출혈,
+        atkCoefPerStack: MONSTER_BLEED_ATK_COEF_PER_STACK,
+      },
+    ],
   },
   // ── 사냥터 마법몹 시전 스킬 (DungeonEnemy.castSkill) — scaling magic → 플레이어 정신(magicDef)로 경감.
   //   몹은 attackerMagicAtk 미지정 → atk 폴백(combatShared). mpCost 0(statusSkill 과 동일·자원 무관),

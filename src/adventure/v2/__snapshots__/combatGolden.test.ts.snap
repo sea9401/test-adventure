@@ -336,7 +336,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "enemy_dot_tick",
-    "logSha": "70c69322e663b181c95b8eb8c1fdac312407c752",
+    "logSha": "4166d61f13fe71c8452ff9a1701d86828127751d",
     "outcome": "win",
     "playerHp": 818,
     "playerMp": 227,

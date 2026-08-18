@@ -31,7 +31,7 @@ import {
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
-  BLEED_ATK_COEF_PER_STACK,
+  PLAYER_BLEED_ATK_COEF_PER_STACK,
   BLEED_MAX_STACKS,
   COMBO_FINISHER_PERIOD,
   MAGIC_DEF_MITIGATION_K as MAGIC_DEF_MITIGATION_K_VALUE,
@@ -370,6 +370,7 @@ export function makeBleedDot(args: {
   stacks?: number;
   turns?: number;
   flatPerStack: number;
+  atkCoefPerStack?: number;
   sourceAtk: number;
 }): V2Dot {
   return {
@@ -379,7 +380,8 @@ export function makeBleedDot(args: {
     maxStacks: BLEED_MAX_STACKS,
     turns: args.turns ?? 3,
     flatPerStack: args.flatPerStack,
-    atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
+    atkCoefPerStack:
+      args.atkCoefPerStack ?? PLAYER_BLEED_ATK_COEF_PER_STACK,
     pctMaxHpPerStack: 0,
     sourceAtk: args.sourceAtk,
   };

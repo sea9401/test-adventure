@@ -26,7 +26,7 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
-  BLEED_ATK_COEF_PER_STACK,
+  PLAYER_BLEED_ATK_COEF_PER_STACK,
   CRIT_MULT_BASE,
   POISON_PCT_PER_POINT,
   combineDefReductionPcts,
@@ -834,7 +834,7 @@ export function derivePlayerCombatV2Pure(
       ? {
           bleedOnHit: {
             flatPerStack: totalBleedDmgPerStack,
-            atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
+            atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,
           },
         }
       : {}),

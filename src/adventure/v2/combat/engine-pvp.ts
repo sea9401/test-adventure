@@ -622,6 +622,7 @@ export function applyPvPOnHitDots(
     dots.push(makeBleedDot({
       stacks: bleedStacks,
       flatPerStack: attacker.player.bleedOnHit?.flatPerStack ?? 0,
+      atkCoefPerStack: attacker.player.bleedOnHit?.atkCoefPerStack,
       sourceAtk: attacker.player.atk,
     }));
   }

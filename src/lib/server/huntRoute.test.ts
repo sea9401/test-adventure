@@ -12,7 +12,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
-const { insertTargets, rewardReferralTutorialTasks, store } = vi.hoisted(() => ({
+const {
+  deferLongBattleReplays,
+  insertTargets,
+  rewardReferralTutorialTasks,
+  store,
+} = vi.hoisted(() => ({
+  deferLongBattleReplays: vi.fn(
+    async (_executor: unknown, _userId: string, payloads: unknown[]) =>
+      payloads,
+  ),
   insertTargets: [] as unknown[],
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
@@ -33,6 +42,10 @@ vi.mock("@/lib/server/serverFeed", () => ({
   resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/battleReplayStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/server/battleReplayStore")>()),
+  deferLongBattleReplays,
+}));
 // tx/db raw 쿼리 — 모든 select 체인은 빈 결과, insert 는 no-op. 솔로 경로는 안 타고,
 // outpostId 경로에선 occupations FOR SHARE [] = 미점령 거점으로 동작.
 vi.mock("@/db", () => {
@@ -392,8 +405,17 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.replays[0]?.index).toBe(1);
     expect(json.batch.replays[0]?.enemyName).toBeTruthy();
     expect(json.batch.replays[0]?.replay.log.length).toBeGreaterThan(0);
-    expect(json.batch.replays[0]?.replay.log.length).toBeLessThanOrEqual(81);
     expect(json.batch.replays[0]?.replay.replayId).toBeUndefined();
+    expect(deferLongBattleReplays).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      expect.arrayContaining([
+        expect.objectContaining({ log: expect.any(Array) }),
+      ]),
+    );
+    expect(
+      deferLongBattleReplays.mock.calls[0]?.[2] as unknown[],
+    ).toHaveLength(5);
     expect(insertTargets).not.toContain(battleReplays);
 
     // 판간 이월 — 매 판 stamina 1 차감을 다음 판이 재read. 5판 후 5000-5=4995.

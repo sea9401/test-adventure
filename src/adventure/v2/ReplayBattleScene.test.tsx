@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
-import { ReplayBattleScene } from "./ReplayBattleScene";
+import {
+  DEFERRED_REPLAY_UNAVAILABLE_MESSAGE,
+  ReplayBattleScene,
+} from "./ReplayBattleScene";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -33,6 +36,12 @@ const commonProps = {
 };
 
 describe("전투 로그 표시 방식", () => {
+  it("만료되거나 사라진 임시 로그를 명확하게 안내한다", () => {
+    expect(DEFERRED_REPLAY_UNAVAILABLE_MESSAGE).toBe(
+      "전투 기록 보관 시간이 지났거나 찾을 수 없습니다.",
+    );
+  });
+
   it("결과 화면에서는 전체 로그 대신 전용 페이지 이동 버튼을 표시한다", () => {
     const html = renderToStaticMarkup(<ReplayBattleScene {...commonProps} />);
 

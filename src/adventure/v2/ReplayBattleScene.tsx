@@ -23,6 +23,9 @@ import {
   type BattleLogReplayProps,
 } from "@/adventure/v2/battleLogHandoff";
 
+export const DEFERRED_REPLAY_UNAVAILABLE_MESSAGE =
+  "전투 기록 보관 시간이 지났거나 찾을 수 없습니다.";
+
 // 플레이어 결과 화면에서는 전용 로그 페이지 링크를, 이미 고유 URL인 기록 화면에서는
 // 전체 BattleScene을 렌더한다. 관리자·개발 하니스만 embedded 모드를 명시한다.
 
@@ -148,7 +151,7 @@ function ReplayBattleLogContent(props: ReplayBattleSceneProps) {
     if (failedId === replayId) {
       return (
         <LoadErrorBanner
-          message="전체 전투 로그를 불러오지 못했습니다."
+          message={DEFERRED_REPLAY_UNAVAILABLE_MESSAGE}
           onRetry={() => {
             setFailedId(null);
             setRetry((value) => value + 1);

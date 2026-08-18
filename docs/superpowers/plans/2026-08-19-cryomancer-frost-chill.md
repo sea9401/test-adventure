@@ -406,4 +406,3 @@ Expected: image checks and Next.js production build pass.
 - [ ] **Step 5: Review the final commit boundary**
 
 Run `git show --stat --oneline HEAD`, `git status --short`, and search the committed diff for unrelated concurrent feature names. Confirm pre-existing working-tree changes remain uncommitted and no deployment occurred.
-

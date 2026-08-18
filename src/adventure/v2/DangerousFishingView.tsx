@@ -207,7 +207,6 @@ export function DangerousFishingView({
           onStart={onStartBossAttempt}
           onAction={onBossAction}
           onClaim={onClaimBossReward}
-          onOpenShop={onOpenShop}
         />
       ) : (
         <>
@@ -267,12 +266,7 @@ export function DangerousFishingView({
                   onOpenShop={onOpenShop}
                 />
               )}
-              <DangerousFishingCargoPanel
-                model={model}
-                busy={interactionBlocked}
-                onReturn={() => void onReturnVoyage()}
-                onOpenShop={onOpenShop}
-              />
+              <DangerousFishingCargoPanel model={model} busy={interactionBlocked} onReturn={() => void onReturnVoyage()} />
             </>
           )}
         </>

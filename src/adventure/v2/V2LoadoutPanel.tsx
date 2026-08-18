@@ -194,6 +194,7 @@ export function V2LoadoutPanel({
   const [domain, setDomain] = useState<SkillDomain>("combat");
   const [compact, setCompact] = useState(false);
   const [combatEquippedOpen, setCombatEquippedOpen] = useState(false);
+  const [lifestyleEquippedOpen, setLifestyleEquippedOpen] = useState(false);
   const [visibilitySettingsOpen, setVisibilitySettingsOpen] = useState(false);
   const [hiddenSkillIds, setHiddenSkillIds] = useState<Set<string>>(
     () => new Set(),
@@ -870,6 +871,7 @@ export function V2LoadoutPanel({
                 onClick={() => setCombatEquippedOpen((open) => !open)}
                 aria-expanded={combatEquippedOpen}
                 aria-controls="combat-equipped-skills"
+                aria-label={`전투 스킬 ${combatEquippedOpen ? "접기" : "펼쳐보기"}`}
                 className="inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded px-2 text-[11px] font-medium text-violet-700 hover:bg-violet-100 sm:hidden dark:text-violet-300 dark:hover:bg-violet-900"
               >
                 {combatEquippedOpen ? "접기" : "펼쳐보기"}
@@ -892,7 +894,7 @@ export function V2LoadoutPanel({
               표시 순서대로 전투에서 먼저 사용합니다.
             </p>
             {combatEquippedSkills.length > 0 ? (
-              <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
+              <div className="mt-2 flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
                 {combatEquippedSkills.map((s, idx) => (
                   <div
                     key={s.skillId}
@@ -973,34 +975,61 @@ export function V2LoadoutPanel({
         </section>
 
         <section className={`${SURFACE_INSET} p-3`} aria-labelledby="lifestyle-equipped-heading">
-          <div
-            id="lifestyle-equipped-heading"
-            className="text-xs font-semibold text-emerald-700 dark:text-emerald-300"
-          >
-            생활 패시브 적용 <span className="font-normal">· SP 0</span>
-          </div>
-          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            배우면 자동으로 항상 적용됩니다.
-          </p>
-          {lifestyleEquippedSkills.length > 0 ? (
-            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
-              {lifestyleEquippedSkills.map((s) => (
-                <span
-                  key={s.skillId}
-                  className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-                >
-                  <span className="truncate">{s.name}</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                    적용 중
-                  </span>
+          <div className="flex items-center justify-between gap-2">
+            <div
+              id="lifestyle-equipped-heading"
+              className="text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+            >
+              <span className="hidden sm:inline">
+                생활 패시브 적용 <span className="font-normal">· SP 0</span>
+              </span>
+              <span className="shrink-0 sm:hidden">
+                <span className="sr-only">
+                  생활 패시브 {lifestyleEquippedSkills.length}개 적용
                 </span>
-              ))}
+                <span aria-hidden="true">
+                  생활 · {lifestyleEquippedSkills.length}개
+                </span>
+              </span>
             </div>
-          ) : (
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              배운 생활 패시브가 없어요.
+            <button
+              type="button"
+              onClick={() => setLifestyleEquippedOpen((open) => !open)}
+              aria-expanded={lifestyleEquippedOpen}
+              aria-controls="lifestyle-equipped-skills"
+              aria-label={`생활 패시브 ${lifestyleEquippedOpen ? "접기" : "펼쳐보기"}`}
+              className="inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded px-2 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 sm:hidden dark:text-emerald-300 dark:hover:bg-emerald-900"
+            >
+              {lifestyleEquippedOpen ? "접기" : "펼쳐보기"}
+            </button>
+          </div>
+          <div
+            id="lifestyle-equipped-skills"
+            className={lifestyleEquippedOpen ? "block" : "hidden sm:block"}
+          >
+            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              배우면 자동으로 항상 적용됩니다.
             </p>
-          )}
+            {lifestyleEquippedSkills.length > 0 ? (
+              <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
+                {lifestyleEquippedSkills.map((s) => (
+                  <span
+                    key={s.skillId}
+                    className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                  >
+                    <span className="truncate">{s.name}</span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                      적용 중
+                    </span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                배운 생활 패시브가 없어요.
+              </p>
+            )}
+          </div>
         </section>
       </div>
       <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">

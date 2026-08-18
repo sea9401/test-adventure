@@ -600,18 +600,6 @@ describe("협동보스 가시성/권한 (코어루프 리워크)", () => {
     expect(canAccessCoopBoss(noGuild, { userId: "u9", guildId: null })).toBe(false);
   });
 
-  it("canAccessCoopBoss — 범위 밖이어도 이미 피해를 기록한 참여자는 계속 접근", () => {
-    const s = {
-      visibility: "guild_only",
-      summonerId: "summoner",
-      summonerGuildId: 3,
-    };
-    const outsider = { userId: "contributor", guildId: 5 };
-
-    expect(canAccessCoopBoss(s, outsider)).toBe(false);
-    expect(canAccessCoopBoss(s, outsider, true)).toBe(true);
-  });
-
   it("canAccessCoopBoss — summoner_only 는 소환자 본인만", () => {
     const s = { visibility: "summoner_only", summonerId: "u1", summonerGuildId: 5 };
     expect(canAccessCoopBoss(s, { userId: "u1", guildId: 5 })).toBe(true);

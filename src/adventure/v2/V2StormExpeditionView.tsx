@@ -34,6 +34,7 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { stormExpeditionEntryActions, stormExpeditionMoveRequest, stormExpeditionStartRequest } from "./stormExpeditionViewModel";
+import { StormExpeditionActiveLayout } from "./StormExpeditionActiveLayout";
 import { StormExpeditionRouteMap } from "./StormExpeditionRouteMap";
 
 type ActiveExpedition = {
@@ -338,37 +339,8 @@ export function V2StormExpeditionView() {
               <strong>연습 모드</strong> · 실전과 같은 전투와 선택을 체험하지만 입장 횟수와 보상·완주 기록은 변하지 않습니다.
             </StatusBanner>
           )}
-          <Card padding="md" className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div><p className="text-xs text-zinc-500">진행 중인 항로</p><div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">{activeRoute?.name ?? "폭풍 항로"}</h2>{active.mode === "practice" && <PracticeBadge />}</div></div>
-              <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">{active.visitedNodeIds.length}/{status?.nodeCount ?? 9}</span>
-            </div>
-            <StormExpeditionRouteMap
-              nodes={status?.nodes ?? []}
-              currentNodeId={active.currentNodeId}
-              visitedNodeIds={active.visitedNodeIds}
-              completedNodeIds={active.completedNodeIds}
-              availableNodeIds={status?.availableNextNodeIds ?? []}
-              previewableNodeIds={previewableNodeIds}
-              selectedNodeId={selectedNodeId}
-              onSelect={setSelectedNodeId}
-            />
-          </Card>
-          {selectedNode && (
-            <RoutePreview
-              node={selectedNode}
-              route={selectedRoute}
-              actionLabel="이 노드로 이동"
-              disabled={busy || !(status?.availableNextNodeIds ?? []).includes(selectedNode.id)}
-              disabledReason={active.completedNodeIds.includes(active.currentNodeId) ? undefined : "현재 체크포인트를 완료하면 이동할 수 있습니다."}
-              onConfirm={() => {
-                const request = stormExpeditionMoveRequest(selectedNode.id, active.currentNodeId, active.encounterIndex);
-                void act(request.action, request);
-              }}
-            />
-          )}
-
-          <div className="grid gap-4 md:grid-cols-2">
+          <StormExpeditionActiveLayout
+            currentAction={(
             <Card padding="md" className="space-y-3">
               <div>
                 <p className="text-xs font-semibold text-sky-600 dark:text-sky-400">현재 체크포인트</p>
@@ -437,8 +409,41 @@ export function V2StormExpeditionView() {
                 />
               )}
             </Card>
-
-            {active.mode === "practice" ? (
+            )}
+            routePlanner={(
+              <>
+                <Card padding="md" className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div><p className="text-xs text-zinc-500">진행 중인 항로</p><div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">{activeRoute?.name ?? "폭풍 항로"}</h2>{active.mode === "practice" && <PracticeBadge />}</div></div>
+                    <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">{active.visitedNodeIds.length}/{status?.nodeCount ?? 9}</span>
+                  </div>
+                  <StormExpeditionRouteMap
+                    nodes={status?.nodes ?? []}
+                    currentNodeId={active.currentNodeId}
+                    visitedNodeIds={active.visitedNodeIds}
+                    completedNodeIds={active.completedNodeIds}
+                    availableNodeIds={status?.availableNextNodeIds ?? []}
+                    previewableNodeIds={previewableNodeIds}
+                    selectedNodeId={selectedNodeId}
+                    onSelect={setSelectedNodeId}
+                  />
+                </Card>
+                {selectedNode && (
+                  <RoutePreview
+                    node={selectedNode}
+                    route={selectedRoute}
+                    actionLabel="이 노드로 이동"
+                    disabled={busy || !(status?.availableNextNodeIds ?? []).includes(selectedNode.id)}
+                    disabledReason={active.completedNodeIds.includes(active.currentNodeId) ? undefined : "현재 체크포인트를 완료하면 이동할 수 있습니다."}
+                    onConfirm={() => {
+                      const request = stormExpeditionMoveRequest(selectedNode.id, active.currentNodeId, active.encounterIndex);
+                      void act(request.action, request);
+                    }}
+                  />
+                )}
+              </>
+            )}
+            support={active.mode === "practice" ? (
               <Card padding="md" className="space-y-3 border-violet-200 dark:border-violet-900/70">
                 <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">연습 안내</p><PracticeBadge /></div>
                 <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">연습에서는 골드·재료·장비·SP 열매가 생성되지 않으며 완주와 천장 기록도 오르지 않습니다.</p>
@@ -452,7 +457,7 @@ export function V2StormExpeditionView() {
               <p className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"><ShieldChevron size={14} /> 적 {active.defeatedCount}/7 처치 · 전투 체크포인트마다 귀환 가능</p>
               </Card>
             )}
-          </div>
+          />
         </div>
       )}
 

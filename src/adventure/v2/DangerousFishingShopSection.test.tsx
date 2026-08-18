@@ -14,8 +14,6 @@ import { DangerousFishingShopSection } from "./DangerousFishingShopSection";
 import { FishingShopView } from "./FishingShopView";
 import type { DangerousFishingViewModel } from "./useDangerousFishing";
 import { dangerousFishingShopMessage } from "./useDangerousFishingShop";
-import { DANGEROUS_FISHING_EXCHANGE_ENTRIES } from "./dangerousFishingExchange";
-import type { DangerousFishingExchangeViewModel } from "./useDangerousFishingExchange";
 
 function shopModel(): DangerousFishingViewModel {
   return {
@@ -59,26 +57,6 @@ function shopModel(): DangerousFishingViewModel {
       baits: DANGEROUS_BAITS,
     },
     riskPreview: { risk: 0, accidentChance: 0, maxLossFraction: 0 },
-  };
-}
-
-function exchangeModel(): DangerousFishingExchangeViewModel {
-  const dangerous = shopModel();
-  return {
-    ok: true,
-    unlocked: true,
-    requiredLevel: 15,
-    fishingLevel: 25,
-    materials: {},
-    fishingCoins: 150_000,
-    state: dangerous.state,
-    ownedTitleIds: [],
-    ownedCosmeticIds: [],
-    entries: DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => ({
-      ...entry,
-      alreadyOwned: false,
-      maxBatches: 0,
-    })),
   };
 }
 
@@ -137,14 +115,6 @@ describe("위험 해역 낚시 상점", () => {
           error: null,
           buying: null,
           onShop: vi.fn(async () => ({ ok: true, message: "완료" })),
-          exchange: {
-            model: exchangeModel(),
-            loading: false,
-            error: null,
-            exchanging: null,
-            onRefresh: vi.fn(async () => true),
-            onExchange: vi.fn(async () => ({ ok: true, message: "교환 완료" })),
-          },
         }}
         initialTab="dangerous"
       />,
@@ -153,7 +123,6 @@ describe("위험 해역 낚시 상점", () => {
     expect(html).toContain("일반 낚시");
     expect(html).toContain("위험 해역");
     expect(html).toContain("위험 해역 전용 장비");
-    expect(html).toContain("위험 해역 교환");
     expect(html).not.toContain(">칭호<");
   });
 });

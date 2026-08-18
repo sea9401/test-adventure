@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  MUSEUN_CASH_ITEMS,
-  MUSEUN_SHOP_ITEM_IDS,
-} from "./museunCashItems";
-import { DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID } from "@/adventure/v2/dangerousFishingExchange";
+import { MUSEUN_CASH_ITEMS } from "./museunCashItems";
 import {
   CHROMA_NAME_VARIANTS,
   CHAT_BADGE_RARITIES,
@@ -32,7 +28,6 @@ import {
   sortCosmeticVariantsByRarity,
   type CosmeticItemRarity,
   unlockMuseunCosmetic,
-  unlockPermanentMuseunCosmetic,
 } from "./museunCosmetics";
 
 const NOW = Date.UTC(2026, 6, 20, 12);
@@ -50,7 +45,6 @@ describe("무슨 코인 기간제 꾸미기", () => {
       }),
     ).toEqual({
       owned: ["starlight_chat_badge"],
-      permanentOwned: [],
       chromaNames: ["spectrum"],
       accessUntil: {
         spectrum: LEGACY_MUSEUN_COSMETIC_ACCESS_UNTIL,
@@ -63,74 +57,6 @@ describe("무슨 코인 기간제 꾸미기", () => {
     });
     expect(isMuseunCosmeticItemId("prismatic_profile_border")).toBe(true);
     expect(isMuseunCosmeticItemId("rename_permit")).toBe(false);
-  });
-
-  it("위험 해역 테두리는 영구 보유하며 직접 장착하기 전에는 표시하지 않는다", () => {
-    const first = unlockPermanentMuseunCosmetic(
-      {},
-      DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-    );
-    expect(first.alreadyOwned).toBe(false);
-    expect(first.state.owned).toEqual([
-      DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-    ]);
-    expect(first.state.permanentOwned).toEqual([
-      DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-    ]);
-    expect(first.state.equippedProfileBorder).toBeNull();
-    expect(
-      museunCosmeticAccessActive(
-        first.state,
-        DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-        Number.MAX_SAFE_INTEGER,
-      ),
-    ).toBe(true);
-    expect(
-      extendMuseunCosmeticAccess(
-        first.state,
-        DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-        30,
-        NOW,
-      ),
-    ).toBeNull();
-
-    const equipped = equipProfileBorder(
-      first.state,
-      DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-      Number.MAX_SAFE_INTEGER,
-    );
-    expect(equipped?.equippedProfileBorder).toBe(
-      DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-    );
-    expect(
-      museunCosmeticAppearance(
-        equipped,
-        Number.MAX_SAFE_INTEGER,
-      ).profileBorder,
-    ).toBe("abyssal_master");
-  });
-
-  it("위험 해역 영구 테두리는 무슨 코인 상점과 꾸미기 상자에서 나오지 않는다", () => {
-    expect(MUSEUN_CASH_ITEMS[DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID]).toMatchObject({
-      delivery: "entitlement",
-      tradeable: false,
-      effect: {
-        kind: "cosmetic",
-        slot: "profile_border",
-        style: "abyssal_master",
-      },
-    });
-    expect(MUSEUN_SHOP_ITEM_IDS).not.toContain(
-      DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-    );
-    expect(profileBorderOdds({})).not.toContainEqual(
-      expect.objectContaining({
-        itemId: DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-      }),
-    );
-    expect(drawProfileBorderByRoll({}, Number.MAX_SAFE_INTEGER)).not.toBe(
-      DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID,
-    );
   });
 
   it("구매 권리를 한 번만 해금한다", () => {
@@ -155,8 +81,8 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(second.state).toEqual(first.state);
   });
 
-  it("프로필 꾸미기 16종과 채팅 배지 28종을 독립 장착한다", () => {
-    expect(PROFILE_BORDER_VARIANTS).toHaveLength(16);
+  it("프로필 꾸미기 15종과 채팅 배지 28종을 독립 장착한다", () => {
+    expect(PROFILE_BORDER_VARIANTS).toHaveLength(15);
     expect(CHAT_BADGE_VARIANTS).toHaveLength(28);
     for (const variant of PROFILE_BORDER_VARIANTS) {
       expect(MUSEUN_CASH_ITEMS[variant.itemId].effect).toEqual({
@@ -274,10 +200,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
         ["common", "rare", "epic", "legendary"].map((rarity) => [
           rarity,
           PROFILE_BORDER_VARIANTS.filter(
-            (variant) =>
-              variant.itemId !==
-                DANGEROUS_ABYSSAL_PROFILE_BORDER_ITEM_ID &&
-              variant.rarity === rarity,
+            (variant) => variant.rarity === rarity,
           ).length,
         ]),
       ),

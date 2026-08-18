@@ -226,7 +226,7 @@ test("직업 없는 신규 모험가가 첫 출석으로 15일 지원권을 받�
   });
 });
 
-test("모바일 전체화면 채팅은 헤더에서 방 목록으로 돌아가고 플로팅 토글로 닫을 수 있다", async ({
+test("모바일 전체화면 채팅은 플로팅 토글을 숨기고 헤더에서 이동·닫기할 수 있다", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"));
@@ -241,8 +241,8 @@ test("모바일 전체화면 채팅은 헤더에서 방 목록으로 돌아가�
 
   await expect(page.getByRole("dialog", { name: "채팅" })).toBeVisible();
   await expect(floatingToggle).toHaveAttribute("aria-label", "채팅 닫기");
-  await expect(floatingToggle).toBeVisible();
-  await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(2);
+  await expect(floatingToggle).toBeHidden();
+  await expect(page.getByRole("button", { name: "채팅 닫기" })).toHaveCount(1);
 
   const globalRoomButton = page.getByRole("button", {
     name: "전체 채팅방 메시지가 없습니다",
@@ -255,8 +255,9 @@ test("모바일 전체화면 채팅은 헤더에서 방 목록으로 돌아가�
   await expect(headerRoomBack).toHaveCount(0);
   await expect(globalRoomButton).toBeVisible();
 
-  await floatingToggle.click();
+  await page.getByRole("button", { name: "채팅 닫기" }).click();
   await expect(page.getByRole("dialog", { name: "채팅" })).toHaveCount(0);
+  await expect(floatingToggle).toBeVisible();
 });
 
 test("전투 메뉴로 사냥터에 진입해 얻은 진행은 새로고침과 재로그인 뒤에도 복원된다", async ({

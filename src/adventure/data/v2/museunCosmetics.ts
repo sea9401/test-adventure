@@ -26,7 +26,6 @@ export const LEGACY_MUSEUN_COSMETIC_ACCESS_UNTIL = Date.UTC(2026, 7, 20);
 
 export type MuseunCosmeticsState = {
   owned: MuseunCosmeticItemId[];
-  permanentOwned: MuseunCosmeticItemId[];
   chromaNames: ChromaNameId[];
   accessUntil: Partial<Record<MuseunCosmeticAccessId, number>>;
   equippedChromaName: ChromaNameId | null;
@@ -241,15 +240,6 @@ export const PROFILE_BORDER_VARIANTS = [
     interior: "none",
     feature: "비취 단색 테두리",
   },
-  {
-    id: "abyssal_master",
-    itemId: "dangerous_abyssal_profile_border",
-    name: "심해의 지배자",
-    rarity: "legendary",
-    motion: "animated",
-    interior: "animated",
-    feature: "심해 파문과 거대어의 잔광",
-  },
 ] as const;
 
 export type ProfileBorderId = (typeof PROFILE_BORDER_VARIANTS)[number]["id"];
@@ -353,7 +343,6 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {
       owned: [],
-      permanentOwned: [],
       chromaNames: [],
       accessUntil: {},
       equippedChromaName: null,
@@ -365,7 +354,6 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
   const raw = value as {
     [key: string]: unknown;
     owned?: unknown;
-    permanentOwned?: unknown;
     chromaNames?: unknown;
     accessUntil?: unknown;
     equippedChromaName?: unknown;
@@ -379,18 +367,6 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
     for (const itemId of rawOwned) {
       if (isMuseunCosmeticItemId(itemId) && !owned.includes(itemId)) {
         owned.push(itemId);
-      }
-    }
-  }
-  const permanentOwned: MuseunCosmeticItemId[] = [];
-  if (Array.isArray(raw.permanentOwned)) {
-    for (const itemId of raw.permanentOwned) {
-      if (
-        isMuseunCosmeticItemId(itemId) &&
-        !permanentOwned.includes(itemId)
-      ) {
-        permanentOwned.push(itemId);
-        if (!owned.includes(itemId)) owned.push(itemId);
       }
     }
   }
@@ -453,7 +429,6 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
       ? (raw.accessUntil as Record<string, unknown>)
       : {};
   for (const itemId of [...owned, ...chromaNames]) {
-    if (permanentOwned.includes(itemId as MuseunCosmeticItemId)) continue;
     const expiration = Number(rawAccessUntil[itemId]);
     accessUntil[itemId] =
       Number.isFinite(expiration) && expiration > 0
@@ -462,7 +437,6 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
   }
   return {
     owned,
-    permanentOwned,
     chromaNames,
     accessUntil,
     equippedChromaName,
@@ -515,26 +489,6 @@ export function unlockMuseunCosmetic(
   };
 }
 
-export function unlockPermanentMuseunCosmetic(
-  value: unknown,
-  itemId: MuseunCosmeticItemId,
-): { state: MuseunCosmeticsState; alreadyOwned: boolean } {
-  const state = parseMuseunCosmetics(value);
-  if (state.permanentOwned.includes(itemId)) {
-    return { state, alreadyOwned: true };
-  }
-  return {
-    state: {
-      ...state,
-      owned: state.owned.includes(itemId)
-        ? state.owned
-        : [...state.owned, itemId],
-      permanentOwned: [...state.permanentOwned, itemId],
-    },
-    alreadyOwned: false,
-  };
-}
-
 export function isProfileBorderItemId(
   value: unknown,
 ): value is ProfileBorderItemId {
@@ -574,14 +528,7 @@ export function museunCosmeticAccessActive(
   itemId: MuseunCosmeticAccessId,
   now: number = Date.now(),
 ): boolean {
-  const state = parseMuseunCosmetics(value);
-  if (
-    !isChromaNameId(itemId) &&
-    state.permanentOwned.includes(itemId)
-  ) {
-    return true;
-  }
-  const activeUntil = museunCosmeticAccessUntil(state, itemId);
+  const activeUntil = museunCosmeticAccessUntil(value, itemId);
   return activeUntil !== null && activeUntil > now;
 }
 
@@ -600,9 +547,6 @@ export function extendMuseunCosmeticAccess(
   if (!Number.isFinite(days) || days <= 0 || days > 3_650) return null;
   const state = parseMuseunCosmetics(value);
   if (!isMuseunCosmeticUnlocked(state, itemId)) return null;
-  if (!isChromaNameId(itemId) && state.permanentOwned.includes(itemId)) {
-    return null;
-  }
   const previousUntil = state.accessUntil[itemId] ?? 0;
   const activeUntil = Math.max(now, previousUntil) + days * 24 * 60 * 60 * 1_000;
   return {
@@ -619,9 +563,7 @@ export function extendMuseunCosmeticAccess(
 export function unownedProfileBorders(value: unknown): ProfileBorderItemId[] {
   const owned = new Set(parseMuseunCosmetics(value).owned);
   return PROFILE_BORDER_VARIANTS.filter(
-    (variant) =>
-      variant.itemId !== "dangerous_abyssal_profile_border" &&
-      !owned.has(variant.itemId),
+    (variant) => !owned.has(variant.itemId),
   ).map((variant) => variant.itemId);
 }
 

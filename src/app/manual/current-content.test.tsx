@@ -141,12 +141,6 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("위험도 5");
     expect(html).toContain("32%");
     expect(html).toContain("전용 낚싯대·릴·낚싯줄");
-    expect(html).toContain("위험 해역 교환");
-    expect(html).toContain("일반 어획물 4개");
-    expect(html).toContain("레비아탄 낚싯대");
-    expect(html).toContain("심해의 지배자");
-    expect(html).toContain("서로 다른 어종을 섞어");
-    expect(html).toContain("거래소에서 거래할 수 있지만 NPC에게 판매할 수는 없습니다");
   });
 
   it("어종 표본의 등록 권리 이전과 어획 기록 보존을 안내한다", () => {

@@ -545,7 +545,7 @@ export const DANGEROUS_FISHING_MATERIALS: Record<
         {
           id,
           name: fish.name,
-          description: `${fish.description} 안전 귀환 후 위험 해역 교환이나 거래소에서 사용하는 어획물이다.`,
+          description: `${fish.description} 위험 해역에서 귀환을 마쳐 확정한 거래 가능 어획물이다.`,
         },
       ];
     }),
@@ -558,7 +558,7 @@ export const DANGEROUS_FISHING_MATERIALS: Record<
         {
           id,
           name: `${boss.name}의 증표`,
-          description: `${boss.name} 공동 제압에 기여한 낚시꾼에게 주어지는 증표. 최상급 전용 장비와 한정 꾸미기 교환 또는 거래소에서 사용한다.`,
+          description: `${boss.name} 공동 제압에 기여한 낚시꾼에게 주어지는 거래 가능 증표.`,
         },
       ];
     }),

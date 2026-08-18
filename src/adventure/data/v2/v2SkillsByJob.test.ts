@@ -52,7 +52,7 @@ describe("직업 킷 — 스킬셋", () => {
   it("변이 액티브는 출혈·중량 계약을 카탈로그에 선언한다", () => {
     expect(V2_SKILLS.v2c_beastkin_rend.effects).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 2 }),
+        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 1 }),
       ]),
     );
     expect(V2_SKILLS.v2c_beastkin_clawflurry.effects.filter(
@@ -60,7 +60,7 @@ describe("직업 킷 — 스킬셋", () => {
     )).toHaveLength(3);
     expect(V2_SKILLS.v2c_beastkin_clawflurry.effects).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 3 }),
+        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 2 }),
       ]),
     );
     expect(V2_SKILLS.v2c_golem_rocksmash.mutationWeightGain).toBe(1);

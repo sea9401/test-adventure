@@ -357,7 +357,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "날카로운 발톱으로 상처를 벌려 출혈을 겹친다.", mpCost: 28, cooldown: 0, procChance: 40,
     effects: [
       dmg(0.9, 110),
-      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 2 },
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 1 },
     ],
   },
   v2c_beastkin_clawflurry: {
@@ -365,7 +365,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "세 번 연달아 할퀴고 깊은 출혈을 남긴다.", mpCost: 32, cooldown: 0, procChance: 38,
     effects: [
       ...hits(3, 0.36, 42),
-      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 3 },
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 2 },
     ],
   },
   v2c_beastkin_bloodscent: {

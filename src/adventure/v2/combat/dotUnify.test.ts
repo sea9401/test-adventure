@@ -21,7 +21,7 @@ import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
 import {
-  BLEED_ATK_COEF_PER_STACK,
+  PLAYER_BLEED_ATK_COEF_PER_STACK,
   POISON_CAP_ATK_COEF,
 } from "@/adventure/data/v2/v2CombatConstants";
 import type { Monster } from "@/adventure/data/monsters";
@@ -42,8 +42,8 @@ afterEach(() => vi.restoreAllMocks());
 describe("PR-2 DoT 피해 공식", () => {
   it("출혈 = flatPerStack + sourceAtk × ATK계수 (HP 무관)", () => {
     const dot = makeBleedDot({ flatPerStack: 10, sourceAtk: 100 });
-    expect(v2DotPerStackDamage(dot, 1000)).toBeCloseTo(10 + 100 * BLEED_ATK_COEF_PER_STACK);
-    expect(v2DotPerStackDamage(dot, 999999)).toBeCloseTo(10 + 100 * BLEED_ATK_COEF_PER_STACK);
+    expect(v2DotPerStackDamage(dot, 1000)).toBe(55);
+    expect(v2DotPerStackDamage(dot, 999999)).toBe(55);
   });
 
   it("중독 = %최대HP, 저HP 적은 상한 미적용(HP 비례 그대로)", () => {
@@ -93,12 +93,12 @@ describe("PR-2 DoT 피해 공식", () => {
   });
 
   it("tick = 스택 × 스택당, 여러 tag 합산", () => {
-    const bleed = makeBleedDot({ stacks: 3, flatPerStack: 10, sourceAtk: 100 }); // (10+12)*3=66
+    const bleed = makeBleedDot({ stacks: 3, flatPerStack: 10, sourceAtk: 100 });
     const poison = makePoisonDot({ stacks: 2, pctMaxHpPerStack: 0.005, sourceAtk: 100 }); // min(5,90)*2=10
     const r = tickV2Dots([bleed, poison], 1000);
-    expect(r.totalDmg).toBe(66 + 10);
+    expect(r.totalDmg).toBe(165 + 10);
     expect(r.ticks).toEqual([
-      { tag: "bleed", label: "출혈", damage: 66 },
+      { tag: "bleed", label: "출혈", damage: 165 },
       { tag: "poison", label: "중독", damage: 10 },
     ]);
   });
@@ -118,10 +118,10 @@ describe("PR-2 DoT 피해 공식", () => {
   });
 
   it("tick 피해는 정수로 내림 (소수점 누수 차단)", () => {
-    // perStack = 10 + 37×0.12 = 14.44 → 3스택 = 43.32 → floor 43 (43.32 아님).
+    // perStack = 10 + 37×0.45 = 26.65 → 3스택 = 79.95 → floor 79 (79.95 아님).
     const bleed = makeBleedDot({ stacks: 3, flatPerStack: 10, sourceAtk: 37 });
     const r = tickV2Dots([bleed], 1000);
-    expect(r.totalDmg).toBe(43);
+    expect(r.totalDmg).toBe(79);
     expect(Number.isInteger(r.totalDmg)).toBe(true);
   });
 });
@@ -164,7 +164,12 @@ describe("PR-2 라이브 경로 — 적 DoT 가 resolveBattle 에서 실제로 �
 
   it("bleedOnHit 보유 시 적이 [출혈] 도트 피해를 받는다", () => {
     vi.spyOn(Math, "random").mockImplementation(mulberry32(1));
-    const bleeder = derive({ bleedOnHit: { flatPerStack: 10, atkCoefPerStack: BLEED_ATK_COEF_PER_STACK } });
+    const bleeder = derive({
+      bleedOnHit: {
+        flatPerStack: 10,
+        atkCoefPerStack: PLAYER_BLEED_ATK_COEF_PER_STACK,
+      },
+    });
     const res = resolveBattle(bleeder, m("부서진 골렘"), "용사", {
       pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
       potions: {},

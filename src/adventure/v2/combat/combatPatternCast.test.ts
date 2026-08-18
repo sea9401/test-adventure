@@ -865,6 +865,26 @@ describe("resolveV2SkillCast — 수집형 변이 자원", () => {
     });
   };
 
+  it("수인 공격은 플레이어 출혈 계수로 각각 1·2중첩만 부여한다", () => {
+    const rend = castMutation("v2c_beastkin_rend");
+    const flurry = castMutation("v2c_beastkin_clawflurry");
+
+    expect(rend.dotsToApplyToTarget).toContainEqual(
+      expect.objectContaining({
+        tag: "bleed",
+        stacks: 1,
+        atkCoefPerStack: 0.45,
+      }),
+    );
+    expect(flurry.dotsToApplyToTarget).toContainEqual(
+      expect.objectContaining({
+        tag: "bleed",
+        stacks: 2,
+        atkCoefPerStack: 0.45,
+      }),
+    );
+  });
+
   it("암석 강타는 피해 뒤 중량을 얻고 지각 붕괴는 빗나가도 기존 중량을 소비한다", () => {
     expect(
       castMutation("v2c_golem_rocksmash", { weight: 2 })

@@ -1657,6 +1657,53 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
   });
 });
 
+describe("derivePlayerCombatV2 빙결 강화", () => {
+  it("Pure 입력의 빙결 피해·지연을 PlayerCombat에 전달하고 0은 생략한다", () => {
+    const mastered = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      passiveFreezeDamagePct: 50,
+      passiveFreezeDelayPct: 40,
+    }).player;
+    const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+
+    expect(mastered).toMatchObject({ freezeDamagePct: 50, freezeDelayPct: 40 });
+    expect(plain.freezeDamagePct).toBeUndefined();
+    expect(plain.freezeDelayPct).toBeUndefined();
+  });
+
+  it("빙점 지배 장착 여부를 save 집계에서 전투 상태까지 전달한다", () => {
+    const base = {
+      character: {
+        level: 50,
+        hp: 500,
+        mp: 100,
+        class: "mage",
+        selectedStance: null,
+        specChoice: "cryomancer",
+      },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: {
+        learned: ["v2c_cryomancer_freezingpoint"],
+        equipped: ["v2c_cryomancer_freezingpoint"],
+      },
+    };
+    const equipped = derivePlayerCombatV2FromSaves(base)!;
+    const unequipped = derivePlayerCombatV2FromSaves({
+      ...base,
+      skillsRaw: { ...base.skillsRaw, equipped: [] },
+    })!;
+
+    expect(equipped.player).toMatchObject({
+      freezeDamagePct: 50,
+      freezeDelayPct: 40,
+    });
+    expect(unequipped.player.freezeDamagePct).toBeUndefined();
+    expect(unequipped.player.freezeDelayPct).toBeUndefined();
+  });
+});
+
 describe("derivePlayerCombatV2Pure 성채기사 충격 파생 속성", () => {
   it("충격 획득·스택 피해·방어력 직접 공격 계수를 PlayerCombat에 전달한다", () => {
     const p = derivePlayerCombatV2Pure({

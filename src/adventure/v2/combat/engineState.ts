@@ -394,6 +394,10 @@ export type PlayerCombat = {
   // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
+  /** 한기 임계점에서 발생하는 빙결 추가타 피해 증가율. */
+  freezeDamagePct?: number;
+  /** 한기 임계점에서 발생하는 다음 행동 지연율. */
+  freezeDelayPct?: number;
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
   magicBarrierPvpAbsorbPct?: number;

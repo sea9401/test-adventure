@@ -31,7 +31,7 @@ import {
   toPvpReplayPayloadForSide,
 } from "@/adventure/data/v2/replayPayload";
 import {
-  BATTLE_REPLAY_RETENTION_DAYS,
+  BATTLE_REPLAY_RETENTION_MS,
   storeBattleReplay,
 } from "@/lib/server/battleReplayStore";
 import {
@@ -699,7 +699,7 @@ export async function POST(req: Request) {
       tx,
       userId,
       toPvpReplayPayload(battle.finalState, oppName),
-      BATTLE_REPLAY_RETENTION_DAYS.arena,
+      BATTLE_REPLAY_RETENTION_MS.arena,
       now,
     );
     const defenderReplay =
@@ -712,7 +712,7 @@ export async function POST(req: Request) {
               "p2",
               viewerName,
             ),
-            BATTLE_REPLAY_RETENTION_DAYS.arena,
+            BATTLE_REPLAY_RETENTION_MS.arena,
             now,
           )
         : null;

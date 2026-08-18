@@ -5,12 +5,30 @@ import {
   toggleLoadoutPresetDraftSkill,
   type LoadoutPresetSkillMeta,
 } from "./loadoutPresetDiagnostics";
+import { V2_SKILLS, spCostOf, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 
 const library: LoadoutPresetSkillMeta[] = [
   { skillId: "skill-a", name: "선봉 기술", spCost: 30 },
   { skillId: "skill-b", name: "중심 기술", spCost: 20 },
   { skillId: "skill-c", name: "후순위 기술", spCost: 17 },
 ];
+
+const primordialCatalyst = [
+  "v2c_firemage_inferno",
+  "v2c_frostmage_glacier",
+  "v2c_lightningmage_thunderbolt",
+  "v2c_windmage_tempest",
+  "v2c_earthmage_tectonic",
+  "v2c_primordialmage_return",
+  "v2c_primordialmage_resonance",
+  "v2c_elementallord_surge",
+] as const satisfies readonly V2SkillId[];
+
+const primordialLibrary: LoadoutPresetSkillMeta[] = primordialCatalyst.map((skillId) => ({
+  skillId,
+  name: V2_SKILLS[skillId].name,
+  spCost: spCostOf(V2_SKILLS[skillId]),
+}));
 
 describe("프리셋 SP 진단", () => {
   it("현재 비용으로 필요한 SP와 초과분을 계산한다", () => {
@@ -68,6 +86,22 @@ describe("프리셋 SP 진단", () => {
       diagnoseLoadoutPreset(["skill-a", "skill-b"], library, 50),
     ).toMatchObject({ spUsed: 50, overBy: 0, canApply: true });
   });
+
+  it("근원 촉매 구성의 유효 비용과 37 SP 총액을 표시한다", () => {
+    const diagnosis = diagnoseLoadoutPreset(
+      primordialCatalyst,
+      primordialLibrary,
+      37,
+    );
+
+    expect(diagnosis).toMatchObject({ spUsed: 37, overBy: 0, canApply: true });
+    expect(
+      diagnosis.rows.find((row) => row.skillId === "v2c_firemage_inferno"),
+    ).toMatchObject({ spCost: 8, effectiveSpCost: 2 });
+    expect(
+      diagnosis.rows.find((row) => row.skillId === "v2c_elementallord_surge"),
+    ).toMatchObject({ spCost: 16, effectiveSpCost: 2 });
+  });
 });
 
 describe("프리셋 자동 맞춤", () => {
@@ -105,6 +139,15 @@ describe("프리셋 자동 맞춤", () => {
       removed: [],
       spUsed: 50,
       spBudget: 60,
+    });
+  });
+
+  it("후순위 촉매 제거 뒤 공명 총액을 다시 계산해 나머지 회로를 보존한다", () => {
+    expect(autoFitLoadoutPreset(primordialCatalyst, primordialLibrary, 36)).toEqual({
+      skills: primordialCatalyst.slice(0, -1),
+      removed: ["v2c_elementallord_surge"],
+      spUsed: 35,
+      spBudget: 36,
     });
   });
 });

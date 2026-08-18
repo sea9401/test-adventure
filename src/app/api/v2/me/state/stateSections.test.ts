@@ -124,6 +124,34 @@ describe("loadoutSection — 직업 SP 산식 전환", () => {
       },
     });
   });
+
+  it("근원 촉매 구성의 유효 SP와 재료·촉매 메타데이터를 직렬화한다", () => {
+    const equipped = [
+      "v2c_firemage_inferno",
+      "v2c_frostmage_glacier",
+      "v2c_lightningmage_thunderbolt",
+      "v2c_windmage_tempest",
+      "v2c_earthmage_tectonic",
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+      "v2c_elementallord_surge",
+    ] as const;
+    const section = loadoutSection({
+      charSave: { class: "warrior", level: 100 },
+      proficiencyRaw: {},
+      skillsRaw: { learned: equipped, equipped },
+      fishingCodexRaw: {},
+      equipmentCodexSpBonus: 0,
+    });
+
+    expect(section.spUsed).toBe(37);
+    expect(
+      section.library.find((row) => row.skillId === "v2c_firemage_inferno"),
+    ).toMatchObject({ spCost: 8, effectiveSpCost: 2, resonanceRole: "material" });
+    expect(
+      section.library.find((row) => row.skillId === "v2c_elementallord_surge"),
+    ).toMatchObject({ spCost: 16, effectiveSpCost: 2, resonanceRole: "catalyst" });
+  });
 });
 
 describe("cookingCodexSection", () => {

@@ -16,6 +16,7 @@ import {
   type V2ExclusiveSkillConflict,
   type V2SkillId,
 } from "./v2Skills";
+import { resolveElementalResonanceLoadout } from "./elementalResonance";
 
 export type LoadoutCheck = {
   ok: boolean;
@@ -39,16 +40,21 @@ export function validateLoadout(
   const learnedSet = new Set(learned);
   const notLearned: V2SkillId[] = [];
   const unknown: V2SkillId[] = [];
-  let spUsed = 0;
+  const knownEquipped: V2SkillId[] = [];
   for (const id of equipped) {
     const def = V2_SKILLS[id];
     if (!def) {
       unknown.push(id); // 카탈로그 밖 — 비용 산정 불가·ok 를 막는다.
       continue;
     }
-    spUsed += spCostOf(def);
+    knownEquipped.push(id);
     if (!learnedSet.has(id)) notLearned.push(id);
   }
+  const knownLearned = learned.filter((id) => V2_SKILLS[id] !== undefined);
+  const spUsed = resolveElementalResonanceLoadout({
+    learned: knownLearned,
+    equipped: knownEquipped,
+  }).spUsed;
   const overBudget = spUsed > spBudget;
   const exclusiveConflicts = exclusiveSkillConflicts(equipped);
   return {
@@ -91,16 +97,29 @@ export function clampLoadoutToBudget(
   ids: readonly V2SkillId[],
   spBudget: number,
 ): V2SkillId[] {
+  const known = ids.filter((id) => V2_SKILLS[id] !== undefined);
+  const fullResolution = resolveElementalResonanceLoadout({
+    learned: known,
+    equipped: known,
+  });
   const out: V2SkillId[] = [];
   let sum = 0;
-  for (const id of ids) {
+  for (const id of known) {
     const def = V2_SKILLS[id];
-    if (!def) continue;
-    const cost = spCostOf(def);
+    const cost = fullResolution.effectiveSpCosts.get(id) ?? spCostOf(def);
     if (sum + cost <= spBudget) {
       out.push(id);
       sum += cost;
     }
+  }
+
+  while (
+    resolveElementalResonanceLoadout({ learned: known, equipped: out }).spUsed >
+    spBudget
+  ) {
+    const removeIndex = out.findLastIndex((id) => spCostOf(V2_SKILLS[id]) > 0);
+    if (removeIndex < 0) break;
+    out.splice(removeIndex, 1);
   }
   return out;
 }

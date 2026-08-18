@@ -53,7 +53,9 @@ export function buildJobRoadmap(): JobRoadmapNode {
 }
 
 function primaryParentId(job: V2JobDefinition): string {
-  if (job.id === "none" || job.id === "survivor") return "start";
+  if (job.id === "none" || job.id === "survivor" || job.id === "mutant") {
+    return "start";
+  }
   return prerequisiteJobIds(job)[0] ?? "none";
 }
 

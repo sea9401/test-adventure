@@ -90,7 +90,6 @@ export type StoredReplayEnvelope = {
 type ReplayPayloadOptions = {
   depth?: number;
   playerCombat?: PlayerCombat;
-  logCap?: number;
 };
 
 function replayPlayerCombat(
@@ -119,16 +118,6 @@ function replayPlayerCombat(
     statusDamageReductionPct: player.statusDamageReductionPct,
     primaryAttack: player.passiveMagicBasicAttack ? "magic" : "physical",
   };
-}
-
-// 긴 배치 전투는 마지막 기록만 응답하되, 잘린 턴의 중간부터 시작하지 않게 첫 턴
-// 마커 전의 잔여 기록을 걷어낸다. 생략 안내는 로그가 잘렸다는 사실을 명확히 남긴다.
-function clampReplayLog(log: BattleLogEntry[], cap: number): BattleLogEntry[] {
-  if (log.length <= cap) return log;
-  let tail = log.slice(-cap);
-  const firstMarker = tail.findIndex((entry) => entry.kind === "turn_marker");
-  if (firstMarker > 0) tail = tail.slice(firstMarker);
-  return [{ kind: "info", text: "앞선 턴 기록 생략 (긴 전투)" }, ...tail];
 }
 
 function replayEnemy(
@@ -175,10 +164,7 @@ export function toReplayPayload(
     playerMp: finalState.playerMp,
     enemyMp: finalState.enemyMp,
     enemyMaxMp: finalState.enemyMaxMp,
-    log:
-      options?.logCap == null
-        ? finalState.log
-        : clampReplayLog(finalState.log, options.logCap),
+    log: finalState.log,
   };
 }
 

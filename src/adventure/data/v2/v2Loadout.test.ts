@@ -14,6 +14,23 @@ const RECOVER: V2SkillId = "v2_skill_recover"; // 기본기(힐 t1)
 const WARCRY: V2SkillId = "v2c_warrior_warcry"; // 공용(버프)
 const SUNDER: V2SkillId = "v2c_warrior_sunder"; // 공용(공격·디버프)
 const FARMING: V2SkillId = "v2c_farmer_seedselection"; // 생활(농사·SP 0)
+const ELEMENTAL_MATERIALS = [
+  "v2c_firemage_inferno",
+  "v2c_frostmage_glacier",
+  "v2c_lightningmage_thunderbolt",
+  "v2c_windmage_tempest",
+  "v2c_earthmage_tectonic",
+] as const satisfies readonly V2SkillId[];
+const ELEMENTAL_LORD = [
+  ...ELEMENTAL_MATERIALS,
+  "v2c_elementallord_surge",
+  "v2c_elementallord_resonance",
+] as const satisfies readonly V2SkillId[];
+const PRIMORDIAL = [
+  ...ELEMENTAL_MATERIALS,
+  "v2c_primordialmage_return",
+  "v2c_primordialmage_resonance",
+] as const satisfies readonly V2SkillId[];
 
 describe("validateLoadout — SP 예산 + 학습", () => {
   const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, SUNDER];
@@ -66,6 +83,32 @@ describe("validateLoadout — SP 예산 + 학습", () => {
 
     expect(r.ok).toBe(true);
     expect(r.exclusiveConflicts).toEqual([]);
+  });
+
+  it.each([
+    ["원소군주", ELEMENTAL_LORD, 28],
+    ["태초술사", PRIMORDIAL, 35],
+    ["태초술사 촉매", [...PRIMORDIAL, "v2c_elementallord_surge"], 37],
+    [
+      "태초술사 촉매·증폭",
+      [
+        ...PRIMORDIAL,
+        "v2c_elementallord_surge",
+        "v2c_primordialmage_amplification",
+      ],
+      46,
+    ],
+  ] as const)("%s 공명 구성은 %i SP 경계에서 검증한다", (_label, equipped, budget) => {
+    expect(validateLoadout(equipped, equipped, budget)).toMatchObject({
+      ok: true,
+      spUsed: budget,
+      overBudget: false,
+    });
+    expect(validateLoadout(equipped, equipped, budget - 1)).toMatchObject({
+      ok: false,
+      spUsed: budget,
+      overBudget: true,
+    });
   });
 });
 
@@ -178,5 +221,21 @@ describe("sanitizeLoadout — 수동 로드아웃 보존 + 무효분/예산 정�
     const lower: V2SkillId = "v2c_warlord_slaughter";
     const higher: V2SkillId = "v2c_hegemon_dominion";
     expect(sanitizeLoadout([lower], [lower, higher], 99)).toEqual([lower]);
+  });
+
+  it("공명 할인으로 예산에 맞는 완성 회로를 그대로 보존한다", () => {
+    expect(sanitizeLoadout(ELEMENTAL_LORD, ELEMENTAL_LORD, 28)).toEqual(
+      ELEMENTAL_LORD,
+    );
+  });
+
+  it("클램프 결과의 공명 재계산 총액은 항상 예산 이하다", () => {
+    const catalyst = [...PRIMORDIAL, "v2c_elementallord_surge"] as const;
+    for (const budget of [0, 20, 34, 35, 36, 37]) {
+      const clamped = clampLoadoutToBudget(catalyst, budget);
+      expect(validateLoadout(clamped, catalyst, budget).spUsed).toBeLessThanOrEqual(
+        budget,
+      );
+    }
   });
 });

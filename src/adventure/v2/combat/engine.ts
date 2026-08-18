@@ -3,6 +3,7 @@ import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
 import {
   effectiveCombatPatternFromEquipped,
   smartDefaultPatternFromEquipped,
+  aggregateEquippedPassives,
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
 import {
@@ -98,6 +99,13 @@ import {
   activeTier6ResourceSnapshot,
 } from "./tier6UniqueEffects";
 import {
+  addLawInscriptionGain,
+  emptyLawInscriptionState,
+  lawInscriptionConsumeLog,
+  lawInscriptionGainLog,
+  mergeLawInscriptionSnapshot,
+} from "./lawInscription";
+import {
   applyTier6UniquePveEvent,
   tier6DotContext,
   tier6StatusKindCount,
@@ -116,6 +124,21 @@ import {
   ironWallDamageReductionPct,
   resolveFortressReaction,
 } from "./fortressKnight";
+import {
+  consumePurificationWard,
+  initialTripleWardState,
+  mergeTripleWardResourceSnapshot,
+  refreshTripleWardState,
+  resolveTripleWardDamage,
+  TRIPLE_WARD_LABELS,
+  tripleWardStabilityReductionPct,
+  type TripleWardDamageKind,
+  type TripleWardState,
+} from "./tripleWard";
+import {
+  effectiveMutationDef,
+  mutationTransitionLogLines,
+} from "./mutationCombat";
 
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
@@ -154,6 +177,15 @@ type EnemySkillMitigation = {
   resolveReducedBy: number;
   endureReducedBy: number;
   passiveReducedBy: number;
+  stabilityReducedBy: number;
+  stabilityStacksBefore: number;
+  wardReductions: Array<{
+    kind: TripleWardDamageKind;
+    reductionPct: number;
+    reducedBy: number;
+    remaining: number;
+  }>;
+  tripleWard: TripleWardState;
   guardReducedBy: number;
   steadfastReducedBy: number;
 };
@@ -243,6 +275,7 @@ function reduceIncomingEnemySkillDamage(
   state: BattleState,
   player: PlayerCombat,
   result: Pick<V2SkillCastResult, "enemyDamage" | "magicEnemyDamage">,
+  applyTripleWard = true,
 ): EnemySkillMitigation {
   const damage = result.enemyDamage;
   if (damage <= 0) {
@@ -253,6 +286,10 @@ function reduceIncomingEnemySkillDamage(
       resolveReducedBy: 0,
       endureReducedBy: 0,
       passiveReducedBy: 0,
+      stabilityReducedBy: 0,
+      stabilityStacksBefore: state.stacks.tripleWard.stabilityStacks,
+      wardReductions: [],
+      tripleWard: state.stacks.tripleWard,
       guardReducedBy: 0,
       steadfastReducedBy: 0,
     };
@@ -320,13 +357,45 @@ function reduceIncomingEnemySkillDamage(
         Math.floor(afterEndure * (1 - passiveReductionPct / 100)),
       )
     : afterEndure;
+  const stabilityPct = applyTripleWard
+    ? tripleWardStabilityReductionPct(state.stacks.tripleWard)
+    : 0;
+  const afterStability = stabilityPct > 0
+    ? Math.max(1, Math.floor(afterPassive * (1 - stabilityPct / 100)))
+    : afterPassive;
+  let tripleWard = state.stacks.tripleWard;
+  const wardReductions: EnemySkillMitigation["wardReductions"] = [];
+  let afterWards = afterStability;
+  if (applyTripleWard && afterStability > 0) {
+    const physicalDamage = Math.floor(afterStability * (1 - magicDamageShare));
+    const magicDamage = afterStability - physicalDamage;
+    let resolvedTotal = 0;
+    for (const [kind, part] of [
+      ["physical", physicalDamage],
+      ["magic", magicDamage],
+    ] as const) {
+      if (part <= 0) continue;
+      const ward = resolveTripleWardDamage(tripleWard, kind, "pve", [part]);
+      tripleWard = ward.state;
+      resolvedTotal += ward.totalDamage;
+      if (ward.consumed) {
+        wardReductions.push({
+          kind,
+          reductionPct: ward.reductionPct,
+          reducedBy: part - ward.totalDamage,
+          remaining: ward.remaining,
+        });
+      }
+    }
+    afterWards = resolvedTotal;
+  }
   const guard = player.guard;
   const afterGuard =
     guard &&
     guard.turns > 0 &&
     state.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, afterPassive - guard.reduction)
-      : afterPassive;
+      ? Math.max(0, afterWards - guard.reduction)
+      : afterWards;
   const steadfastFlat = player.steadfastWillFlat ?? 0;
   const afterSteadfast =
     steadfastFlat > 0 ? Math.max(0, afterGuard - steadfastFlat) : afterGuard;
@@ -337,7 +406,11 @@ function reduceIncomingEnemySkillDamage(
     resolveReducedBy: afterEnemyDamageDown - afterResolve,
     endureReducedBy: afterResolve - afterEndure,
     passiveReducedBy: afterEndure - afterPassive,
-    guardReducedBy: afterPassive - afterGuard,
+    stabilityReducedBy: afterPassive - afterStability,
+    stabilityStacksBefore: state.stacks.tripleWard.stabilityStacks,
+    wardReductions,
+    tripleWard,
+    guardReducedBy: afterWards - afterGuard,
     steadfastReducedBy: afterGuard - afterSteadfast,
   };
 }
@@ -372,7 +445,7 @@ function resolveIncomingEnemySkillWithBarrier(
   return {
     barrier,
     mitigation:
-      mitigation ?? reduceIncomingEnemySkillDamage(state, player, result),
+      mitigation ?? reduceIncomingEnemySkillDamage(state, player, result, false),
   };
 }
 
@@ -403,6 +476,18 @@ function appendEnemySkillMitigationLogs(
     next = appendLog(next, {
       kind: "info",
       text: `[받피감] 피해 -${mitigation.passiveReducedBy}`,
+    });
+  }
+  if (mitigation.stabilityReducedBy > 0) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[영역 안정 ${mitigation.stabilityStacksBefore}중첩] 피해 -${mitigation.stabilityReducedBy}`,
+    });
+  }
+  for (const ward of mitigation.wardReductions) {
+    next = appendLog(next, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS[ward.kind]}] 직접 ${ward.kind === "magic" ? "마법" : "물리"} 피해 ${ward.reductionPct}% 감소 (${ward.remaining}회 남음)`,
     });
   }
   if (mitigation.guardReducedBy > 0) {
@@ -1097,6 +1182,11 @@ function applySkillTempBuffs(
     skillReflectBoostTurns: reflect ? reflect.turns : prev.skillReflectBoostTurns,
     enemyVulnPct: result.enemyVulnToApply?.pct ?? prev.enemyVulnPct,
     enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns : prev.enemyVulnTurns,
+    enemyMagicVulnPct:
+      result.enemyMagicVulnToApply?.pct ?? prev.enemyMagicVulnPct ?? 0,
+    enemyMagicVulnTurns: result.enemyMagicVulnToApply
+      ? result.enemyMagicVulnToApply.turns
+      : prev.enemyMagicVulnTurns ?? 0,
     enemyEvasionDownPct: result.enemyEvasionDownToApply?.pct ?? prev.enemyEvasionDownPct,
     enemyEvasionDownTurns: result.enemyEvasionDownToApply ? result.enemyEvasionDownToApply.turns : prev.enemyEvasionDownTurns,
     enemyAccuracyDownPct: result.enemyAccuracyDownToApply?.pct ?? prev.enemyAccuracyDownPct,
@@ -1151,6 +1241,9 @@ export function finishPlayerTurn(
         skillDmgReduceTurns: s.skillDmgReduceTurns,
         skillReflectBoostTurns: s.skillReflectBoostTurns,
         enemyVulnTurns: enemyTargetTurns(s.enemyVulnTurns),
+        enemyMagicVulnTurns: enemyTargetTurns(
+          s.enemyMagicVulnTurns ?? 0,
+        ),
         enemyEvasionDownTurns: enemyTargetTurns(s.enemyEvasionDownTurns),
         enemyAccuracyDownTurns: enemyTargetTurns(s.enemyAccuracyDownTurns),
         enemyHealReduceTurns: enemyTargetTurns(s.enemyHealReduceTurns),
@@ -1328,6 +1421,8 @@ export function initialBattleState(
     skillId === "v2c_overlord_ruin" ||
     skillId === "v2c_hegemon_annihilation",
   );
+  const tripleWardRank = aggregateEquippedPassives(v2Skills.equipped)
+    .tripleWardRank;
   return {
     enemy,
     enemyHp:
@@ -1398,8 +1493,13 @@ export function initialBattleState(
       playerLifestealTurnsLeft: 0,
     },
     stacks: {
+      tripleWard: initialTripleWardState(tripleWardRank),
       fortressImpact: 0,
       ironWallReflectCharges: 0,
+      mutationWeight: 0,
+      ...(player.lawInscription
+        ? { lawInscriptions: emptyLawInscriptionState() }
+        : {}),
       chillStacks: 0,
       curseStacks: 0,
       playerShield: startShield,
@@ -1428,6 +1528,8 @@ export function initialBattleState(
       skillReflectBoostTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
+      enemyMagicVulnPct: 0,
+      enemyMagicVulnTurns: 0,
       enemyEvasionDownPct: 0,
       enemyEvasionDownTurns: 0,
       enemyAccuracyDownPct: 0,
@@ -1770,7 +1872,11 @@ export function applyEnemyV2SkillCast(
       characterElement: state.enemy.element,
     },
     target: {
-      def: player.def,
+      def: effectiveMutationDef(
+        player.def,
+        state.stacks.mutationWeight,
+        player.stoneskinDefPctPerWeight ?? 0,
+      ),
       magicDef: player.magicDef,
       selfBuffs: state.v2SelfBuffs,
       selfDebuffs: state.v2SelfDebuffs,
@@ -1813,7 +1919,11 @@ export function applyEnemyV2SkillCast(
   let nextLog = state.log;
   const fortressReaction = resolveFortressReaction({
     landed: result.enemyDamage > 0,
-    defenderDef: player.def,
+    defenderDef: effectiveMutationDef(
+      player.def,
+      state.stacks.mutationWeight,
+      player.stoneskinDefPctPerWeight ?? 0,
+    ),
     impact: state.stacks.fortressImpact,
     impactOnHit: player.fortressImpactOnHit ?? false,
     ironWallReflectCharges: state.stacks.ironWallReflectCharges,
@@ -1938,16 +2048,27 @@ export function applyEnemyV2SkillCast(
     state.enemyV2SelfBuffs,
     result.selfBuffsToApply,
   );
-  const nextPlayerDebuffs = applyV2BuffsToMap(
-    state.v2SelfDebuffs,
-    result.enemyDebuffsToApply,
-  );
   const sigStatusBlock = statusBlockOnce(player.equipSignatures);
-  const statusBlockDots =
-    result.dotsToApplyToTarget.length > 0 &&
+  const hasHostileStatus =
+    result.enemyDebuffsToApply.length > 0 ||
+    result.dotsToApplyToTarget.length > 0;
+  const statusBlockTargetEffects =
+    hasHostileStatus &&
     !!sigStatusBlock &&
     !state.flags.statusBlockUsed;
-  const nextPlayerDots = statusBlockDots
+  const purificationBlockTargetEffects =
+    hasHostileStatus &&
+    !statusBlockTargetEffects &&
+    mitigation.tripleWard.purification > 0;
+  const blockHostileStatus =
+    statusBlockTargetEffects || purificationBlockTargetEffects;
+  const nextTripleWard = purificationBlockTargetEffects
+    ? consumePurificationWard(mitigation.tripleWard).state
+    : mitigation.tripleWard;
+  const nextPlayerDebuffs = blockHostileStatus
+    ? state.v2SelfDebuffs
+    : applyV2BuffsToMap(state.v2SelfDebuffs, result.enemyDebuffsToApply);
+  const nextPlayerDots = blockHostileStatus
     ? state.playerV2Dots
     : applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget);
   for (const b of result.selfBuffsToApply) {
@@ -1957,21 +2078,28 @@ export function applyEnemyV2SkillCast(
       turn: "enemy",
     });
   }
-  for (const d of result.enemyDebuffsToApply) {
+  for (const d of blockHostileStatus ? [] : result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (대상 행동 ${d.turns}회)`,
       turn: "enemy",
     });
   }
-  if (statusBlockDots && sigStatusBlock) {
+  if (statusBlockTargetEffects && sigStatusBlock) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
       turn: "enemy",
     });
   }
-  for (const dot of statusBlockDots ? [] : result.dotsToApplyToTarget) {
+  if (purificationBlockTargetEffects) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS.purification}] 상태이상을 막았다. (${nextTripleWard.purification}회 남음)`,
+      turn: "enemy",
+    });
+  }
+  for (const dot of blockHostileStatus ? [] : result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,
@@ -2009,10 +2137,12 @@ export function applyEnemyV2SkillCast(
       ...state.flags,
       enduranceTriggered:
         state.flags.enduranceTriggered || enemySkillEnduranceFires,
-      statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
+      statusBlockUsed:
+        state.flags.statusBlockUsed || statusBlockTargetEffects,
     },
     stacks: {
       ...state.stacks,
+      tripleWard: nextTripleWard,
       playerShield: nextPlayerShield,
       skillEvasionTurns: reactiveDefenseCharges.evasion,
       skillDmgReduceTurns: reactiveDefenseCharges.damageReduction,
@@ -2207,7 +2337,11 @@ export function applyPlayerV2SkillCast(
       healMult: player.healMult,
       maxHp: state.playerMaxHp,
       // PR2-B — def/vit 비례 딜·현재HP(사혈격/기공순환)·maxMp(보호막/명상)·차수 flat.
-      def: player.def,
+      def: effectiveMutationDef(
+        player.def,
+        state.stacks.mutationWeight,
+        player.stoneskinDefPctPerWeight ?? 0,
+      ),
       str: player.strStat,
       int: player.intStat,
       vit: player.vitStat,
@@ -2223,6 +2357,11 @@ export function applyPlayerV2SkillCast(
       fortressImpactDamagePctPerStack:
         player.fortressImpactDamagePctPerStack,
       fortressDefSkillStatCoefPct: player.fortressDefSkillStatCoefPct,
+      lawInscription: player.lawInscription,
+      lawInscriptions: state.stacks.lawInscriptions,
+      mutationWeight: state.stacks.mutationWeight,
+      bleedPhysicalSkillDamagePctPerStack:
+        player.bleedPhysicalSkillDamagePctPerStack,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
       selfShield: state.stacks.playerShield,
       selfShieldActive: state.stacks.playerShield > 0,
@@ -2303,7 +2442,17 @@ export function applyPlayerV2SkillCast(
           (result.magicEnemyDamage * (player.magicSkillDamagePct ?? 0)) / 100,
         )
       : 0;
-  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
+  const lawMagicVulnBonus =
+    result.magicEnemyDamage > 0 &&
+    (state.stacks.enemyMagicVulnTurns ?? 0) > 0
+      ? Math.floor(
+          (result.magicEnemyDamage *
+            (state.stacks.enemyMagicVulnPct ?? 0)) /
+            100,
+        )
+      : 0;
+  const skillDamageBase =
+    result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus;
   // 스킬 치명타 — 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT 로
   //   분리(평타 critMult 비연동 → 비폭주). 오버플로는 관련 패시브 보유 시에만 스킬에도 적용.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
@@ -2335,7 +2484,8 @@ export function applyPlayerV2SkillCast(
     : 1;
   const singleSkillDamageBeforeEvasion = computeDirectSkillDamage({
     totalDamage: skillDamageBase,
-    magicDamage: result.magicEnemyDamage + magicSkillDamageBonus,
+    magicDamage:
+      result.magicEnemyDamage + magicSkillDamageBonus + lawMagicVulnBonus,
     preCriticalMultiplier: skillPreCriticalMultiplier,
     criticalMultiplier: skillCriticalMultiplier,
     equipmentMagicCritBonus:
@@ -2692,6 +2842,54 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  const lawGain = addLawInscriptionGain(
+    state.stacks.lawInscriptions,
+    result.lawInscriptionGain,
+  );
+  const nextLawInscriptions = result.lawInscriptionsToConsume
+    ? emptyLawInscriptionState()
+    : lawGain.state;
+  const lawGainText = lawInscriptionGainLog(
+    lawGain.gained,
+    nextLawInscriptions,
+  );
+  const lawConsumeText = lawInscriptionConsumeLog(
+    result.lawInscriptionsToConsume,
+  );
+  if (lawGainText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawGainText,
+      turn: "player",
+    });
+  }
+  if (lawConsumeText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawConsumeText,
+      turn: "player",
+    });
+  }
+  if (result.lawInscriptionComplete) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: "공격·환류·침식·수호가 하나로 이어져 완성 각인이 발동했다.",
+      turn: "player",
+    });
+  }
+  const refreshedTripleWard = result.refreshTripleWards
+    ? refreshTripleWardState(
+        state.stacks.tripleWard,
+        aggregateEquippedPassives(state.v2Skills.equipped).tripleWardRank,
+      )
+    : state.stacks.tripleWard;
+  if (result.refreshTripleWards && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName}] 삼중 결계 ${refreshedTripleWard.physical}회 재전개`,
+      turn: "player",
+    });
+  }
   if (
     result.fortressImpactToConsume > 0 &&
     result.enemyDamage > 0 &&
@@ -2702,6 +2900,12 @@ export function applyPlayerV2SkillCast(
       text: `[${result.castSkillName}] 충격 ${result.fortressImpactToConsume}스택 소비`,
       turn: "player",
     });
+  }
+  for (const text of mutationTransitionLogLines(
+    result.castSkillName,
+    result.mutationTransition,
+  )) {
+    nextLog = appendLog(nextLog, { kind: "info", text, turn: "player" });
   }
   if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
     nextLog = appendLog(nextLog, {
@@ -2791,6 +2995,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "속박"}] 적 받는 피해 +${result.enemyVulnToApply.pct}% (적 행동 ${result.enemyVulnToApply.turns}회)`,
+      turn: "player",
+    });
+  }
+  if (result.enemyMagicVulnToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "침식"}] 적이 받는 마법 피해 +${result.enemyMagicVulnToApply.pct}% (적 행동 ${result.enemyMagicVulnToApply.turns}회)`,
       turn: "player",
     });
   }
@@ -2921,6 +3132,7 @@ export function applyPlayerV2SkillCast(
     stacks: {
       // PR2-B-2c — 운기/연환집중/선풍각/속박 temp 버프 갱신.
       ...applySkillTempBuffs(state.stacks, result),
+      tripleWard: refreshedTripleWard,
       evadesRemaining:
         state.stacks.evadesRemaining + result.guaranteedEvadesToAdd,
       comboHitCount: nextComboHitCount,
@@ -2934,9 +3146,15 @@ export function applyPlayerV2SkillCast(
         0,
         state.stacks.fortressImpact - result.fortressImpactToConsume,
       ),
+      mutationWeight: result.mutationTransition.weightAfter,
       ironWallReflectCharges:
         result.ironWallReflectToApply?.charges ??
         state.stacks.ironWallReflectCharges,
+      ...((state.stacks.lawInscriptions != null ||
+        player.lawInscription ||
+        result.lawInscriptionsToConsume != null)
+        ? { lawInscriptions: nextLawInscriptions }
+        : {}),
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
       playerShield:
         state.stacks.playerShield +
@@ -3058,8 +3276,16 @@ function resolveBattleLegacy(
   // 턴 마커 — 그 턴 시작 시점 AP 동봉. 미장착 캐릭터도 그대로 노출 (시스템 발견용).
   const turnMarkerText = (turnNo: number): string => `${turnNo}턴`;
   // 그 시점 HP 스냅샷 — 매 턴 종료 시 + 전투 종료 시 로그 마지막에 박는다.
-  const hpBarEntry = (s: BattleState): BattleLogEntry => ({
-    kind: "hp_bar",
+  const hpBarEntry = (s: BattleState): BattleLogEntry => {
+    const playerResources = mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        activeTier6ResourceSnapshot(s.stacks.tier6Uniques),
+        s.stacks.tripleWard,
+      ),
+      s.stacks.lawInscriptions,
+    );
+    return {
+      kind: "hp_bar",
     text: "",
     turn: "player",
     playerHp: s.playerHp,
@@ -3072,14 +3298,13 @@ function resolveBattleLegacy(
     enemyMaxMp: s.enemyMaxMp,
     playerMagicBarrier: s.playerMagicBarrier,
     playerMagicBarrierMax: s.playerMagicBarrierMax,
-    ...(activeTier6ResourceSnapshot(s.stacks.tier6Uniques)
+    ...(playerResources
       ? {
-          playerSignatureResources: activeTier6ResourceSnapshot(
-            s.stacks.tier6Uniques,
-          ),
+          playerSignatureResources: playerResources,
         }
       : {}),
-  });
+    };
+  };
   // 초기 entry (적 등장 / 선공 / 능력 안내 등) 는 player 턴으로 태깅. 첫 턴 marker 도 박는다.
   // openingNote(전술 안내 등)가 있으면 적 등장 다음·첫 턴 marker 앞에 info 로 끼운다.
   const openingExtra: BattleLogEntry[] = ctx.openingNote
@@ -3323,7 +3548,11 @@ function resolveBattleLegacy(
             characterElement: state.enemy.element,
           },
           target: {
-            def: player.def,
+            def: effectiveMutationDef(
+              player.def,
+              state.stacks.mutationWeight,
+              player.stoneskinDefPctPerWeight ?? 0,
+            ),
             magicDef: player.magicDef,
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: tickedPlayerDebuffs,
@@ -3353,7 +3582,11 @@ function resolveBattleLegacy(
         }
         const legacyFortressReaction = resolveFortressReaction({
           landed: result.enemyDamage > 0,
-          defenderDef: player.def,
+          defenderDef: effectiveMutationDef(
+            player.def,
+            state.stacks.mutationWeight,
+            player.stoneskinDefPctPerWeight ?? 0,
+          ),
           impact: state.stacks.fortressImpact,
           impactOnHit: player.fortressImpactOnHit ?? false,
           ironWallReflectCharges: state.stacks.ironWallReflectCharges,
@@ -3490,15 +3723,30 @@ function resolveBattleLegacy(
           nextEnemyHp = Math.max(1, nextEnemyHp - result.selfHpCost);
         }
         const nextEnemySelfBuffs = applyV2BuffsToMap(tickedEnemySelfBuffs, result.selfBuffsToApply);
-        // enemyDebuff effect (적이 player 에 거는 약화) → state.v2SelfDebuffs 갱신.
-        const nextPlayerDebuffs = applyV2BuffsToMap(tickedPlayerDebuffs, result.enemyDebuffsToApply);
-        // PR-8 — enemy cast 의 dot 결과 → state.playerV2Dots 박힘 (target=player).
+        // 적대 상태는 장비 1회 방어를 먼저, 그 다음 정화결계를 소비한다.
         const sigStatusBlock = statusBlockOnce(player.equipSignatures);
-        const statusBlockDots =
-          result.dotsToApplyToTarget.length > 0 &&
+        const hasHostileStatus =
+          result.enemyDebuffsToApply.length > 0 ||
+          result.dotsToApplyToTarget.length > 0;
+        const statusBlockTargetEffects =
+          hasHostileStatus &&
           !!sigStatusBlock &&
           !state.flags.statusBlockUsed;
-        const nextPlayerDots = statusBlockDots
+        const purificationBlockTargetEffects =
+          hasHostileStatus &&
+          !statusBlockTargetEffects &&
+          mitigation.tripleWard.purification > 0;
+        const blockHostileStatus =
+          statusBlockTargetEffects || purificationBlockTargetEffects;
+        const nextTripleWard = purificationBlockTargetEffects
+          ? consumePurificationWard(mitigation.tripleWard).state
+          : mitigation.tripleWard;
+        // enemyDebuff effect (적이 player 에 거는 약화) → state.v2SelfDebuffs 갱신.
+        const nextPlayerDebuffs = blockHostileStatus
+          ? tickedPlayerDebuffs
+          : applyV2BuffsToMap(tickedPlayerDebuffs, result.enemyDebuffsToApply);
+        // PR-8 — enemy cast 의 dot 결과 → state.playerV2Dots 박힘 (target=player).
+        const nextPlayerDots = blockHostileStatus
           ? state.playerV2Dots
           : applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget);
         for (const b of result.selfBuffsToApply) {
@@ -3508,21 +3756,28 @@ function resolveBattleLegacy(
             turn: "enemy",
           });
         }
-        for (const d of result.enemyDebuffsToApply) {
+        for (const d of blockHostileStatus ? [] : result.enemyDebuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
             text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
             turn: "enemy",
           });
         }
-        if (statusBlockDots && sigStatusBlock) {
+        if (statusBlockTargetEffects && sigStatusBlock) {
           nextLog = appendLog(nextLog, {
             kind: "info",
             text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
             turn: "enemy",
           });
         }
-        for (const dot of statusBlockDots ? [] : result.dotsToApplyToTarget) {
+        if (purificationBlockTargetEffects) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${TRIPLE_WARD_LABELS.purification}] 상태이상을 막았다. (${nextTripleWard.purification}회 남음)`,
+            turn: "enemy",
+          });
+        }
+        for (const dot of blockHostileStatus ? [] : result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
             text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,
@@ -3561,10 +3816,12 @@ function resolveBattleLegacy(
             ...state.flags,
             enduranceTriggered:
               state.flags.enduranceTriggered || enemySkillEnduranceFires,
-            statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
+            statusBlockUsed:
+              state.flags.statusBlockUsed || statusBlockTargetEffects,
           },
           stacks: {
             ...state.stacks,
+            tripleWard: nextTripleWard,
             playerShield: nextPlayerShield,
             skillEvasionTurns: legacyReactiveDefenseCharges.evasion,
             skillDmgReduceTurns:

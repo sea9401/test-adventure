@@ -16,7 +16,9 @@ vi.mock("./V2SettingsMenu", () => ({
 
 describe("V2TopBar", () => {
   it("홈 아이콘과 휴식 상태를 분리하고 아이콘을 32px로 표시한다", () => {
-    const html = renderToStaticMarkup(<V2TopBar autoGathering={null} />);
+    const html = renderToStaticMarkup(
+      <V2TopBar autoGathering={null} fishingActive={false} />,
+    );
 
     expect(html).toContain('href="/"');
     expect(html).toContain('href="/plaza/notices"');
@@ -37,6 +39,7 @@ describe("V2TopBar", () => {
           sourceName: "자작나무",
           readyAt: Date.now() + 60_000,
         }}
+        fishingActive={false}
       />,
     );
 
@@ -53,6 +56,7 @@ describe("V2TopBar", () => {
           sourceName: "은 광맥",
           readyAt: Date.now() + 60_000,
         }}
+        fishingActive={false}
       />,
     );
 
@@ -69,6 +73,7 @@ describe("V2TopBar", () => {
           sourceName: "아주 길어서 좁은 화면을 가득 채우는 자작나무 숲",
           readyAt: Date.now() + 2 * 60 * 60 * 1_000,
         }}
+        fishingActive={false}
       />,
     );
 
@@ -76,5 +81,33 @@ describe("V2TopBar", () => {
     expect(html).toContain("data-auto-gathering-status-detail");
     expect(html).toContain("shrink-0 whitespace-nowrap");
     expect(html).toContain("남은 2:00:00");
+  });
+
+  it("낚시 진행 중에는 낚시 화면 링크를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2TopBar autoGathering={null} fishingActive />,
+    );
+
+    expect(html).toContain("낚시 중");
+    expect(html).toContain('href="/town/fishing"');
+    expect(html).toContain('aria-label="낚시 화면으로 이동"');
+    expect(html).not.toContain("휴식 중");
+  });
+
+  it("자동 채집과 낚시가 겹치면 자동 채집을 우선 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2TopBar
+        autoGathering={{
+          activity: "woodcutting",
+          sourceId: "birch",
+          sourceName: "자작나무",
+          readyAt: Date.now() + 60_000,
+        }}
+        fishingActive
+      />,
+    );
+
+    expect(html).toContain('href="/town/logging?spot=birch_grove"');
+    expect(html).not.toContain('href="/town/fishing"');
   });
 });

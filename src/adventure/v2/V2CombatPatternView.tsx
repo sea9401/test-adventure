@@ -115,6 +115,8 @@ const SELF_STATUS_OPTIONS: PatternChoiceOption<V2PatternSelfStatus>[] = [
 const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
   { value: "impact", label: "충격" },
   { value: "ironWallReflect", label: "철벽 반사" },
+  { value: "inscription", label: "각인 총합" },
+  { value: "weight", label: "중량" },
 ];
 const SELF_RESOURCE_OP_OPTIONS = [
   { value: "none", label: "없을 때" },
@@ -1282,7 +1284,7 @@ export function ConditionParams({
             <PatternNumberInput
               key="self-resource-value"
               min={0}
-              max={3}
+              max={c.resource === "inscription" ? 8 : 3}
               value={c.value}
               onValueChange={(value) => onChange({ ...c, value })}
             />

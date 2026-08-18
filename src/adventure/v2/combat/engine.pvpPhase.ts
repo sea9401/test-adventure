@@ -52,6 +52,7 @@ import {
   SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
 import { canApplyShock } from "./shockAction";
+import { weightSpeedMultiplier } from "./mutationCombat";
 import {
   appendLog,
   damageBetween,
@@ -95,6 +96,12 @@ import {
   interruptDuelistRamp,
   type DuelistBasicHitModifiers,
 } from "./duelistCombat";
+import {
+  consumePurificationWard,
+  resolveTripleWardDamage,
+  TRIPLE_WARD_LABELS,
+  tripleWardStabilityReductionPct,
+} from "./tripleWard";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
 // 암살/분쇄/방어관통 → ATK 보너스 → 크리 → 베이스뎀 → 처형·크리·행운별·암살 배수 →
@@ -174,13 +181,15 @@ function computeAttackDamagePvP(
     ? attacker.player.doubleLuck?.crit ?? 0
     : 0;
   const effectiveAtkSpd =
-    nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
+    (nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
       ? attacker.player.spd * nextBuffsTimedFromAp.playerSpdMult
-      : attacker.player.spd;
+      : attacker.player.spd) *
+    weightSpeedMultiplier(attacker.stacks.mutationWeight);
   const effectiveDefSpd =
-    nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
+    (nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
       ? defender.player.spd * nextBuffsTimedFromAp.enemySpdMult
-      : defender.player.spd;
+      : defender.player.spd) *
+    weightSpeedMultiplier(defender.stacks.mutationWeight);
   const balanceCritBonus = computeBalanceCritBonus(
     effectiveAtkSpd,
     effectiveDefSpd,
@@ -603,6 +612,16 @@ export function advanceTurnPvP(
   // 받피감 — 패시브 + 액티브 임시 버프 + 저체력 성물을 합산해 인내 다음·가드 전에 적용한다.
   const passiveReducePct = pvpSideDamageTakenReductionPct(defender);
   let passiveReduced = 0;
+  let stabilityReduced = 0;
+  let wardReduced = 0;
+  let nextTripleWard = defender.stacks.tripleWard;
+  let wardDamageReductionPct = 0;
+  let wardDamageRemaining = 0;
+  const wardDamageKind =
+    attacker.player.passiveMagicBasicAttack === true &&
+    (attacker.player.magicAtk ?? 0) > attacker.player.atk
+      ? "magic"
+      : "physical";
   const guard = defender.player.guard;
   let guarded = 0;
   const steadfastFlat = defender.player.steadfastWillFlat ?? 0;
@@ -643,12 +662,29 @@ export function advanceTurnPvP(
               Math.floor(enduredDmg * (1 - passiveReducePct / 100)),
             )
           : enduredDmg;
+      const stabilityPct = tripleWardStabilityReductionPct(nextTripleWard);
+      stabilityReduced = stabilityPct > 0
+        ? Math.max(
+            1,
+            Math.floor(passiveReduced * (1 - stabilityPct / 100)),
+          )
+        : passiveReduced;
+      const ward = resolveTripleWardDamage(
+        nextTripleWard,
+        wardDamageKind,
+        "pvp",
+        [stabilityReduced],
+      );
+      nextTripleWard = ward.state;
+      wardReduced = ward.totalDamage;
+      wardDamageReductionPct = ward.reductionPct;
+      wardDamageRemaining = ward.remaining;
       guarded =
         guard &&
         guard.turns > 0 &&
         defender.turn.enemyPhasesCompleted < guard.turns
-          ? Math.max(0, passiveReduced - guard.reduction)
-          : passiveReduced;
+          ? Math.max(0, wardReduced - guard.reduction)
+          : wardReduced;
       afterSteadfast =
         steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
       return scalePvPDamage(state, afterSteadfast);
@@ -657,7 +693,7 @@ export function advanceTurnPvP(
   const resolveApplied = dmgAfterResolve < totalDmg;
   const endureApplied = enduredDmg < dmgAfterResolve;
   const passiveReduceApplied = passiveReduced < enduredDmg;
-  const guardApplied = guarded < passiveReduced;
+  const guardApplied = guarded < wardReduced;
   const steadfastApplied = afterSteadfast < guarded;
   const shieldAbsorbed = Math.min(
     defender.stacks.playerShield,
@@ -740,6 +776,18 @@ export function advanceTurnPvP(
     log = appendLog(log, {
       kind: "info",
       text: `[받피감] ${defender.name} 피해 -${enduredDmg - passiveReduced}`,
+    });
+  }
+  if (stabilityReduced < passiveReduced) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[영역 안정 ${defender.stacks.tripleWard.stabilityStacks}중첩] ${defender.name} 피해 -${passiveReduced - stabilityReduced}`,
+    });
+  }
+  if (wardDamageReductionPct > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS[wardDamageKind]}] ${defender.name} 직접 ${wardDamageKind === "magic" ? "마법" : "물리"} 피해 ${wardDamageReductionPct}% 감소 (${wardDamageRemaining}회 남음)`,
     });
   }
   if (guardApplied) {
@@ -1116,6 +1164,7 @@ export function advanceTurnPvP(
     ? rollOnHitShock(attacker.player.equipSignatures, sigDealtDamage)
     : null;
   const sigStatusFired =
+    apBleedAdd > 0 ||
     sigCritPoison ||
     !!sigHitPoison ||
     !!sigHitBleed ||
@@ -1124,10 +1173,24 @@ export function advanceTurnPvP(
     !!sigCritDefDebuff;
   const statusBlockSigStatus =
     sigStatusFired && !!sigStatusBlock && !defender.flags.statusBlockUsed;
+  const purificationBlockSigStatus =
+    sigStatusFired &&
+    !statusBlockSigStatus &&
+    nextTripleWard.purification > 0;
+  const blockSigStatus =
+    statusBlockSigStatus || purificationBlockSigStatus;
+  if (purificationBlockSigStatus) {
+    nextTripleWard = consumePurificationWard(nextTripleWard).state;
+  }
   if (statusBlockSigStatus && sigStatusBlock) {
     log = appendLog(log, {
       kind: "info",
       text: `[${sigStatusBlock.label}] ${defender.name} 상태이상을 막았다.`,
+    });
+  } else if (purificationBlockSigStatus) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS.purification}] ${defender.name} 상태이상을 막았다. (${nextTripleWard.purification}회 남음)`,
     });
   } else if (sigCritPoison) {
     log = appendLog(log, {
@@ -1135,13 +1198,13 @@ export function advanceTurnPvP(
       text: `[독니] ${defender.name}을(를) 중독시켰다!`,
     });
   }
-  if (!statusBlockSigStatus && sigHitPoison) {
+  if (!blockSigStatus && sigHitPoison) {
     log = appendLog(log, {
       kind: "info",
       text: `[${sigHitPoison.label}] ${defender.name}에게 중독 ${sigHitPoison.stacks}스택을 남겼다.`,
     });
   }
-  if (!statusBlockSigStatus && sigHitBleed) {
+  if (!blockSigStatus && sigHitBleed) {
     log = appendLog(log, {
       kind: "info",
       text: `[${sigHitBleed.label}] ${defender.name}에게 출혈 ${sigHitBleed.stacks}스택을 남겼다.`,
@@ -1153,19 +1216,19 @@ export function advanceTurnPvP(
       text: `[${sigCritSpeedBuff.label}] 결정타 — 속도가 솟구친다!`,
     });
   }
-  if (!statusBlockSigStatus && sigCritChill) {
+  if (!blockSigStatus && sigCritChill) {
     log = appendLog(log, {
       kind: "info",
       text: formatChillSlowLog(defender.name, sigCritChill),
     });
   }
-  if (!statusBlockSigStatus && sigCritDefDebuff) {
+  if (!blockSigStatus && sigCritDefDebuff) {
     log = appendLog(log, {
       kind: "info",
       text: formatDefDebuffLog(defender.name, sigCritDefDebuff),
     });
   }
-  if (!statusBlockSigStatus && sigHitShock) {
+  if (!blockSigStatus && sigHitShock) {
     log = appendLog(log, {
       kind: "info",
       text: formatShockAppliedLog(defender.name, sigHitShock),
@@ -1278,7 +1341,7 @@ export function advanceTurnPvP(
   const newDefender: PvPSide = applyPvPOnHitDots({
     ...guardedDefender,
     // 독니 on-crit 독(Phase 2) 합류 — 미발동=defender.v2Dots 그대로.
-    v2Dots: !statusBlockSigStatus && (sigCritPoison || sigHitPoison)
+    v2Dots: !blockSigStatus && (sigCritPoison || sigHitPoison)
       ? applyV2DotsToTarget(defender.v2Dots, [
           ...(sigCritPoison
             ? [
@@ -1309,15 +1372,19 @@ export function advanceTurnPvP(
     },
     stacks: {
       ...defender.stacks,
+      tripleWard: nextTripleWard,
       playerShield: newShieldAfterHeal,
       damageTakenThisCombat: defender.stacks.damageTakenThisCombat + dmgToHp,
       braceDefBonus: nextBraceDefBonus,
-      ...(!statusBlockSigStatus && sigHitShock
+      ...(!blockSigStatus && sigHitShock
         ? { shockAction: "pending" as const }
         : {}),
     },
   }, attacker, {
-    bleedStacks: apBleedAdd + (!statusBlockSigStatus ? sigHitBleed?.stacks ?? 0 : 0),
+    bleedStacks: blockSigStatus
+      ? 0
+      : apBleedAdd + (sigHitBleed?.stacks ?? 0),
+    blockStatus: blockSigStatus,
   });
   const tier6DotsBefore = tier6PvpDotContext(defender);
   const tier6StatusKindsBefore = tier6PvpStatusKindCount(attacker, defender);

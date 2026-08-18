@@ -37,6 +37,13 @@ import {
   ironWallDamageReductionPct,
   resolveFortressReaction,
 } from "./fortressKnight";
+import {
+  consumePurificationWard,
+  resolveTripleWardDamage,
+  TRIPLE_WARD_LABELS,
+  tripleWardStabilityReductionPct,
+} from "./tripleWard";
+import { effectiveMutationDef } from "./mutationCombat";
 
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
@@ -49,7 +56,7 @@ const MONSTER_CRIT_MULT_DEFAULT = 1.5;
 // 동작은 advanceTurn 인라인이던 시절과 1비트도 다르지 않다(combatGolden 적 페이즈 매트릭스 가드).
 export function resolveEnemyPhase(
   state: BattleState,
-  player: PlayerCombat,
+  basePlayer: PlayerCombat,
   playerName: string,
   enteringEnemyPhase: boolean,
   // 몹이 이 턴 스킬을 시전했으면 평타 생략(스킬이 평타 대체 — 플레이어 대칭). 한기 틱 뒤 분기.
@@ -57,6 +64,15 @@ export function resolveEnemyPhase(
   // 도발로 즉시 발생한 공격은 몬스터 고유 스킬 없이 기본 공격 판정만 수행한다.
   forceBasicAttack: boolean = false,
 ): BattleState {
+  const effectiveDef = effectiveMutationDef(
+    basePlayer.def,
+    state.stacks.mutationWeight,
+    basePlayer.stoneskinDefPctPerWeight ?? 0,
+  );
+  const player =
+    effectiveDef === basePlayer.def
+      ? basePlayer
+      : { ...basePlayer, def: effectiveDef };
   const applyTier6Dodge = (next: BattleState): BattleState =>
     next.stacks.tier6Uniques
       ? applyTier6UniquePveEvent(next, player, {
@@ -624,8 +640,18 @@ export function resolveEnemyPhase(
     chillAdd > 0 && !!sigStatusBlock && !state.flags.statusBlockUsed;
   const statusBlockCurse =
     curseAdd > 0 && !!sigStatusBlock && !state.flags.statusBlockUsed;
-  const effectiveChillAdd = statusBlockChill ? 0 : chillAdd;
-  const effectiveCurseAdd = statusBlockCurse ? 0 : curseAdd;
+  const purificationBlockChill =
+    chillAdd > 0 &&
+    !statusBlockChill &&
+    state.stacks.tripleWard.purification > 0;
+  const purificationBlockCurse =
+    curseAdd > 0 &&
+    !statusBlockCurse &&
+    state.stacks.tripleWard.purification > 0;
+  const effectiveChillAdd =
+    statusBlockChill || purificationBlockChill ? 0 : chillAdd;
+  const effectiveCurseAdd =
+    statusBlockCurse || purificationBlockCurse ? 0 : curseAdd;
   // maxStacks 지정 시 상한 클램프 — 무한 누적 폭주 방지.
   const chillStacksNext =
     skill?.kind === "chill" && skill.maxStacks !== undefined
@@ -740,8 +766,15 @@ export function resolveEnemyPhase(
   let rawDmg = 0;
   let enduredDmg = 0;
   let passiveReduced = 0;
+  let stabilityReduced = 0;
+  let wardReduced = 0;
   let guarded = 0;
   let bodyDamage = 0;
+  let nextTripleWard = state.stacks.tripleWard;
+  let wardDamageReductionPct = 0;
+  let wardDamageRemaining = state.stacks.tripleWard[
+    magicAttack ? "magic" : "physical"
+  ];
   const endurePct = player.enchantEndurePct ?? 0;
   const buffReducePct =
     state.stacks.skillDmgReduceTurns > 0 ? state.stacks.skillDmgReducePct : 0;
@@ -820,12 +853,30 @@ export function resolveEnemyPhase(
               Math.floor(enduredDmg * (1 - passiveReducePct / 100)),
             )
           : enduredDmg;
+      const stabilityPct = tripleWardStabilityReductionPct(nextTripleWard);
+      stabilityReduced =
+        stabilityPct > 0
+          ? Math.max(
+              1,
+              Math.floor(passiveReduced * (1 - stabilityPct / 100)),
+            )
+          : passiveReduced;
+      const ward = resolveTripleWardDamage(
+        nextTripleWard,
+        magicAttack ? "magic" : "physical",
+        "pve",
+        [stabilityReduced],
+      );
+      nextTripleWard = ward.state;
+      wardReduced = ward.totalDamage;
+      wardDamageReductionPct = ward.reductionPct;
+      wardDamageRemaining = ward.remaining;
       guarded =
         guard &&
         guard.turns > 0 &&
         state.turn.enemyPhasesCompleted < guard.turns
-          ? Math.max(0, passiveReduced - guard.reduction)
-          : passiveReduced;
+          ? Math.max(0, wardReduced - guard.reduction)
+          : wardReduced;
       bodyDamage =
         steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
       return bodyDamage;
@@ -833,7 +884,7 @@ export function resolveEnemyPhase(
   });
   const enduredApplied = enduredDmg < rawDmg;
   const passiveReduceApplied = passiveReduced < enduredDmg;
-  const guardApplied = guarded < passiveReduced;
+  const guardApplied = guarded < wardReduced;
   const steadfastApplied = bodyDamage < guarded;
   // 마나 채널과 경감된 몸통 피해를 합친 뒤 일반 보호막이 HP 직전에서 직접 피해를 흡수한다.
   const shieldAbsorbed = Math.min(
@@ -901,6 +952,9 @@ export function resolveEnemyPhase(
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
   const statusBlockUsed =
     state.flags.statusBlockUsed || statusBlockChill || statusBlockCurse;
+  if (purificationBlockChill || purificationBlockCurse) {
+    nextTripleWard = consumePurificationWard(nextTripleWard).state;
+  }
   // 강체 (금강 시그니처) + 장비 on_hit_taken — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적
   // (상한 = 기본 DEF). 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
   const sigDefGain = onHitTakenDefGain(player.equipSignatures);
@@ -934,6 +988,12 @@ export function resolveEnemyPhase(
       text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
     });
   }
+  if (purificationBlockChill || purificationBlockCurse) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS.purification}] 상태이상을 막았다. (${nextTripleWard.purification}회 남음)`,
+    });
+  }
   if (rawDmgBeforeReduction < rawDmgBeforeEvasion) {
     log = appendLog(log, {
       kind: "info",
@@ -950,6 +1010,19 @@ export function resolveEnemyPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[받피감] 피해 -${enduredDmg - passiveReduced}`,
+    });
+  }
+  if (stabilityReduced < passiveReduced) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[영역 안정 ${state.stacks.tripleWard.stabilityStacks}중첩] 피해 -${passiveReduced - stabilityReduced}`,
+    });
+  }
+  if (wardDamageReductionPct > 0) {
+    const wardKind = magicAttack ? "magic" : "physical";
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS[wardKind]}] 직접 ${magicAttack ? "마법" : "물리"} 피해 ${wardDamageReductionPct}% 감소 (${wardDamageRemaining}회 남음)`,
     });
   }
   if (guardApplied) {
@@ -1178,6 +1251,7 @@ export function resolveEnemyPhase(
     },
     stacks: {
       ...state.stacks,
+      tripleWard: nextTripleWard,
       skillEvasionTurns: reactiveDefenseCharges.evasion,
       skillDmgReduceTurns: reactiveDefenseCharges.damageReduction,
       skillReflectBoostTurns: reactiveDefenseCharges.reflect,

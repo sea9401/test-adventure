@@ -26,10 +26,13 @@ import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
 import { tickV2BuffMap } from "./combatShared";
 import { enterShockAction } from "./shockAction";
+import { mergeTripleWardResourceSnapshot } from "./tripleWard";
+import { mergeLawInscriptionSnapshot } from "./lawInscription";
 import {
   pickPvpInitiative,
   type PvPInitiativeActor,
 } from "./pvpInitiative";
+import { weightSpeedMultiplier } from "./mutationCombat";
 
 // PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는
 // 각자의 actionInterval에 따라 달라지며, 장기전만 사냥과 동일한 타임라인 길이까지 허용한다.
@@ -37,6 +40,20 @@ export const PVP_ATB_TICK_CAP = 3_000;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
+  const playerResources = mergeLawInscriptionSnapshot(
+    mergeTripleWardResourceSnapshot(
+      activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
+      state.p1.stacks.tripleWard,
+    ),
+    state.p1.stacks.lawInscriptions,
+  );
+  const enemyResources = mergeLawInscriptionSnapshot(
+    mergeTripleWardResourceSnapshot(
+      activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
+      state.p2.stacks.tripleWard,
+    ),
+    state.p2.stacks.lawInscriptions,
+  );
   return {
     kind: "hp_bar",
     text: "",
@@ -53,18 +70,14 @@ function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
     playerMagicBarrierMax: state.p1.maxMagicBarrier,
     enemyMagicBarrier: state.p2.magicBarrier,
     enemyMagicBarrierMax: state.p2.maxMagicBarrier,
-    ...(activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques)
+    ...(playerResources
       ? {
-          playerSignatureResources: activeTier6ResourceSnapshot(
-            state.p1.stacks.tier6Uniques,
-          ),
+          playerSignatureResources: playerResources,
         }
       : {}),
-    ...(activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques)
+    ...(enemyResources
       ? {
-          enemySignatureResources: activeTier6ResourceSnapshot(
-            state.p2.stacks.tier6Uniques,
-          ),
+          enemySignatureResources: enemyResources,
         }
       : {}),
   };
@@ -78,7 +91,10 @@ function atbPlayerView(player: PlayerCombat): PlayerCombat {
   };
 }
 
-function effectiveSideSpd(state: PvPBattleState, who: "p1" | "p2"): number {
+export function effectiveSideSpd(
+  state: PvPBattleState,
+  who: "p1" | "p2",
+): number {
   const side = state[who];
   const other = state[who === "p1" ? "p2" : "p1"];
   let spd = side.player.spd;
@@ -88,7 +104,7 @@ function effectiveSideSpd(state: PvPBattleState, who: "p1" | "p2"): number {
   if (other.buffs.enemySpdTurnsLeft > 0) {
     spd *= other.buffs.enemySpdMult;
   }
-  return spd;
+  return spd * weightSpeedMultiplier(side.stacks.mutationWeight);
 }
 
 function nextActorPvP(

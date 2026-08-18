@@ -81,6 +81,9 @@ export type V2JobDefinition = {
  */
 export const TIER2_UNLOCK_CUMLEVEL = 1000;
 
+/** 변이자 루트의 세 1차 변이가 동시에 열리는 직군 숙련도. */
+export const MUTANT_TIER1_UNLOCK_CUMLEVEL = 1000;
+
 /**
  * 고차(Tier 3) 해금 임계 — 🔑 2026-06-21 계보 게이팅 전환: 직군(base) 숙련도가 아니라 "그 직업의 바로
  *   아래 2차 직업"의 jobCumLevel 을 본다(예: 대사제 ← 사제 숙련도 2500, 마도사 ← 마법사 숙련도 2500).
@@ -172,8 +175,32 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: {}, // HP/회복 정체성은 착용형 패시브로 제공
     unlock: { prereqs: {} },
   },
+  mutant: {
+    id: "mutant",
+    name: "변이자",
+    tier: 0,
+    cultivateProfile: { vit: 2, str: 1, int: 1 },
+    jobBonus: {},
+    unlock: { prereqs: {} },
+  },
 
   // ─── Tier 1: 기본 직업(견습) — 모험가/생존자 루트가 레벨 한계에 도달하면 전직 패널에 노출 ───
+  beastkin: {
+    id: "beastkin",
+    name: "수인",
+    tier: 1,
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 5 },
+    unlock: { prereqs: { mutant: MUTANT_TIER1_UNLOCK_CUMLEVEL } },
+  },
+  golem: {
+    id: "golem",
+    name: "골렘",
+    tier: 1,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 5 },
+    unlock: { prereqs: { mutant: MUTANT_TIER1_UNLOCK_CUMLEVEL } },
+  },
   warrior: {
     id: "warrior",
     name: "견습 병사",
@@ -1003,6 +1030,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { spi: 18, vit: 6, int: 2 },
     unlock: { prereqs: { archbishop: TIER5_UNLOCK_CUMLEVEL } },
   },
+  grandwarder: {
+    id: "grandwarder",
+    name: "대결계사",
+    tier: 5,
+    cultivateProfile: { spi: 3, vit: 2 },
+    jobBonus: { spi: 20, vit: 8 },
+    unlock: { prereqs: { spellsealer: TIER5_UNLOCK_CUMLEVEL } },
+  },
   plaguebringer: {
     id: "plaguebringer",
     name: "역병 군주",
@@ -1189,6 +1224,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 32, spi: 14 },
     unlock: { prereqs: { elementallord: TIER6_UNLOCK_CUMLEVEL } },
   },
+  lawweaver: {
+    id: "lawweaver",
+    name: "법칙술사",
+    tier: 6,
+    cultivateProfile: { int: 3, spi: 3 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { inscriber: TIER6_UNLOCK_CUMLEVEL } },
+  },
   savior: {
     id: "savior",
     name: "구원자",
@@ -1196,6 +1239,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { spi: 3, int: 2, vit: 1 },
     jobBonus: { spi: 28, vit: 10, int: 4 },
     unlock: { prereqs: { saint: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  lawguardian: {
+    id: "lawguardian",
+    name: "만법수호자",
+    tier: 6,
+    cultivateProfile: { spi: 3, vit: 2, int: 1 },
+    jobBonus: { spi: 30, vit: 12 },
+    unlock: { prereqs: { grandwarder: TIER6_UNLOCK_CUMLEVEL } },
   },
   doomprophet: {
     id: "doomprophet",
@@ -1649,7 +1700,12 @@ export function rejobRequiredLevel(jobId: string): number {
 }
 
 export function isRootJobSelectable(job: V2JobDefinition): boolean {
-  return job.tier > 0 || job.id === "none" || job.id === "survivor";
+  return (
+    job.tier > 0 ||
+    job.id === "none" ||
+    job.id === "survivor" ||
+    job.id === "mutant"
+  );
 }
 
 /** 현재 숙련도로 전직 가능한 직업 목록(전직 UI 용). */
@@ -1680,6 +1736,9 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   mage: { class: "mage", spec: null },
   rogue: { class: "rogue", spec: null },
   survivor: { class: "survivor", spec: null },
+  mutant: { class: "mutant", spec: null },
+  beastkin: { class: "mutant", spec: "beastkin" },
+  golem: { class: "mutant", spec: "golem" },
   camper: { class: "survivor", spec: "camper" },
   ironman: { class: "survivor", spec: "ironman" },
   fisher: { class: "survivor", spec: "fisher" },
@@ -1771,6 +1830,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   marksman: { class: "rogue", spec: "marksman" },
   nightshade: { class: "rogue", spec: "nightshade" },
   saint: { class: "mage", spec: "saint" },
+  grandwarder: { class: "mage", spec: "grandwarder" },
   plaguebringer: { class: "rogue", spec: "plaguebringer" },
   dragonfist: { class: "martial", spec: "dragonfist" },
   adamantmonk: { class: "martial", spec: "adamantmonk" },
@@ -1791,7 +1851,9 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   hegemon: { class: "warrior", spec: "hegemon" },
   archmage: { class: "mage", spec: "archmage" },
   primordialmage: { class: "mage", spec: "primordialmage" },
+  lawweaver: { class: "mage", spec: "lawweaver" },
   savior: { class: "mage", spec: "savior" },
+  lawguardian: { class: "mage", spec: "lawguardian" },
   doomprophet: { class: "mage", spec: "doomprophet" },
   heavenlybow: { class: "rogue", spec: "heavenlybow" },
   blackmoon: { class: "rogue", spec: "blackmoon" },

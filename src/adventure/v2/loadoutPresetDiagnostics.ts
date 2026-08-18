@@ -3,6 +3,7 @@ import {
   V2_SKILLS,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 
 export type LoadoutPresetSkillMeta = {
   skillId: string;
@@ -16,6 +17,7 @@ export type LoadoutPresetDiagnosisRow = {
   skillId: string;
   name: string;
   spCost: number;
+  effectiveSpCost?: number;
   status: LoadoutPresetSkillStatus;
 };
 
@@ -37,13 +39,28 @@ export function diagnoseLoadoutPreset(
   spBudget: number,
 ): LoadoutPresetDiagnosis {
   const learnedById = new Map(library.map((skill) => [skill.skillId, skill]));
+  const learnedIds = library
+    .map((skill) => skill.skillId as V2SkillId)
+    .filter((skillId) => V2_SKILLS[skillId] !== undefined);
+  const equippedIds = skills
+    .filter((skillId) => learnedById.has(skillId) && V2_SKILLS[skillId as V2SkillId])
+    .map((skillId) => skillId as V2SkillId);
+  const resonance = resolveElementalResonanceLoadout({
+    learned: learnedIds,
+    equipped: equippedIds,
+  });
   const rows = skills.map<LoadoutPresetDiagnosisRow>((skillId) => {
     const learned = learnedById.get(skillId);
     if (learned) {
+      const baseCost = Math.max(0, Math.floor(Number(learned.spCost) || 0));
+      const effectiveSpCost = resonance.effectiveSpCosts.get(skillId as V2SkillId);
       return {
         skillId,
         name: learned.name,
-        spCost: Math.max(0, Math.floor(Number(learned.spCost) || 0)),
+        spCost: baseCost,
+        ...(effectiveSpCost !== undefined && effectiveSpCost !== baseCost
+          ? { effectiveSpCost }
+          : {}),
         status: "learned",
       };
     }
@@ -61,7 +78,10 @@ export function diagnoseLoadoutPreset(
     return { skillId, name: skillId, spCost: 0, status: "unknown" };
   });
   const budget = safeBudget(spBudget);
-  const spUsed = rows.reduce((sum, row) => sum + row.spCost, 0);
+  const spUsed = rows.reduce(
+    (sum, row) => sum + (row.effectiveSpCost ?? row.spCost),
+    0,
+  );
   const overBy = Math.max(0, spUsed - budget);
   return {
     rows,
@@ -84,23 +104,25 @@ export function autoFitLoadoutPreset(
   spBudget: number;
 } {
   const diagnosis = diagnoseLoadoutPreset(skills, library, spBudget);
-  const keptRows = diagnosis.rows.filter((row) => row.status === "learned");
+  const keptSkills = diagnosis.rows
+    .filter((row) => row.status === "learned")
+    .map((row) => row.skillId);
   const removed = diagnosis.rows
     .filter((row) => row.status !== "learned")
     .map((row) => row.skillId);
-  let spUsed = keptRows.reduce((sum, row) => sum + row.spCost, 0);
+  let fittedDiagnosis = diagnoseLoadoutPreset(keptSkills, library, diagnosis.spBudget);
 
-  while (spUsed > diagnosis.spBudget && keptRows.length > 0) {
-    const row = keptRows.pop();
-    if (!row) break;
-    spUsed -= row.spCost;
-    removed.push(row.skillId);
+  while (fittedDiagnosis.spUsed > diagnosis.spBudget && keptSkills.length > 0) {
+    const skillId = keptSkills.pop();
+    if (!skillId) break;
+    removed.push(skillId);
+    fittedDiagnosis = diagnoseLoadoutPreset(keptSkills, library, diagnosis.spBudget);
   }
 
   return {
-    skills: keptRows.map((row) => row.skillId),
+    skills: keptSkills,
     removed,
-    spUsed,
+    spUsed: fittedDiagnosis.spUsed,
     spBudget: diagnosis.spBudget,
   };
 }

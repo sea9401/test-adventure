@@ -280,6 +280,9 @@ type GameStateValue = {
   setAutoGathering: React.Dispatch<
     React.SetStateAction<AutoGatheringStatus | null>
   >;
+  // 수동 낚시 미니게임 진행 여부 — 헤더의 생활 상태 표시에 사용.
+  fishingActive: boolean;
+  setFishingActive: React.Dispatch<React.SetStateAction<boolean>>;
   // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
   atRiskGold: number | null;
   setAtRiskGold: React.Dispatch<React.SetStateAction<number | null>>;
@@ -489,6 +492,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   } | null>(null);
   const [autoGathering, setAutoGathering] =
     useState<AutoGatheringStatus | null>(null);
+  const [fishingActive, setFishingActive] = useState(false);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
   const [registeredEquipmentIds, setRegisteredEquipmentIds] = useState<
     Set<V2EquipmentId>
@@ -1147,6 +1151,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       setOfflineHunt,
       autoGathering,
       setAutoGathering,
+      fishingActive,
+      setFishingActive,
       atRiskGold,
       setAtRiskGold,
       mp,
@@ -1217,6 +1223,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setOfflineHunt,
     autoGathering,
     setAutoGathering,
+    fishingActive,
+    setFishingActive,
     atRiskGold,
     setAtRiskGold,
     mp,

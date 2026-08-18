@@ -16,6 +16,57 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
+  it("변이자와 수인·골렘은 수집 가능한 변이 스킬 8개만 제공한다", () => {
+    expect(skillsForJob("mutant")).toEqual([
+      "v2c_mutant_morphstrike",
+      "v2c_mutant_adaptation",
+    ]);
+    expect(skillsForJob("beastkin")).toEqual([
+      "v2c_beastkin_rend",
+      "v2c_beastkin_clawflurry",
+      "v2c_beastkin_bloodscent",
+    ]);
+    expect(skillsForJob("golem")).toEqual([
+      "v2c_golem_rocksmash",
+      "v2c_golem_tectoniccollapse",
+      "v2c_golem_stoneskin",
+    ]);
+    expect("slime" in V2_SKILLS_BY_JOB).toBe(false);
+    expect("v2c_slime_split" in V2_SKILLS).toBe(false);
+    expect("v2c_slime_barrage" in V2_SKILLS).toBe(false);
+    expect("v2c_slime_fusioncrash" in V2_SKILLS).toBe(false);
+  });
+
+  it("변이 패시브는 장착 스킬만으로 집계되어 현재 직업과 독립적이다", () => {
+    expect(aggregateEquippedPassives(["v2c_mutant_adaptation"])).toMatchObject({
+      statusDamageReductionPct: 8,
+    });
+    expect(aggregateEquippedPassives(["v2c_beastkin_bloodscent"])).toMatchObject({
+      bleedPhysicalSkillDamagePctPerStack: 2,
+    });
+    expect(aggregateEquippedPassives(["v2c_golem_stoneskin"])).toMatchObject({
+      stoneskinDefPctPerWeight: 6,
+    });
+  });
+
+  it("변이 액티브는 출혈·중량 계약을 카탈로그에 선언한다", () => {
+    expect(V2_SKILLS.v2c_beastkin_rend.effects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 2 }),
+      ]),
+    );
+    expect(V2_SKILLS.v2c_beastkin_clawflurry.effects.filter(
+      (effect) => effect.kind === "damage",
+    )).toHaveLength(3);
+    expect(V2_SKILLS.v2c_beastkin_clawflurry.effects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 3 }),
+      ]),
+    );
+    expect(V2_SKILLS.v2c_golem_rocksmash.mutationWeightGain).toBe(1);
+    expect(V2_SKILLS.v2c_golem_tectoniccollapse.mutationWeightConsumePctPerStack).toBe(20);
+  });
+
   it("마법사 코어 기본기는 누락된 경우에만 지급해 수동 해제를 보존한다", () => {
     const granted = grantCoreStarterSkill({ learned: [], equipped: [] }, "mage");
     expect(granted).toEqual({
@@ -738,6 +789,28 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("5차 직업 = 액티브 1 + 패시브 1", () => {
+    expect(skillsForJob("grandwarder")).toEqual([
+      "v2c_grandwarder_eightgate",
+      "v2c_grandwarder_tripleward",
+    ]);
+    expect(V2_SKILLS.v2c_grandwarder_eightgate).toMatchObject({
+      name: "팔문금쇄진",
+      category: "buff",
+      fixedMpCost: 160,
+      procChance: 100,
+      learnCost: 8000,
+    });
+    expect(V2_SKILLS.v2c_grandwarder_eightgate.effects).toEqual([
+      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_grandwarder_tripleward).toMatchObject({
+      name: "삼중결계",
+      category: "passive",
+      exclusiveGroup: "triple_ward",
+      exclusiveRank: 1,
+      passive: { tripleWardRank: 1 },
+    });
     const KIT: Record<
       string,
       | readonly [V2SkillId, V2SkillId]
@@ -839,6 +912,12 @@ describe("직업 킷 — 스킬셋", () => {
         "v2c_windmage_tempest",
         "v2c_earthmage_tectonic",
       ]),
+    });
+    expect(V2_SKILLS.v2c_elementallord_surge.castVariants?.[0].effects[0]).toEqual({
+      kind: "damage",
+      statCoef: 2.79,
+      baseFlat: 702,
+      scaling: "magic",
     });
     expect(
       V2_SKILLS.v2c_elementallord_surge.castVariants?.find(
@@ -972,6 +1051,30 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("6차 직업 = 계열 컨셉을 확장한 액티브 + 패시브", () => {
+    expect(skillsForJob("lawguardian")).toEqual([
+      "v2c_lawguardian_inviolable",
+      "v2c_lawguardian_domain",
+    ]);
+    expect(V2_SKILLS.v2c_lawguardian_inviolable).toMatchObject({
+      name: "만법불침",
+      category: "buff",
+      fixedMpCost: 210,
+      procChance: 100,
+      learnCost: 12000,
+      oncePerBattle: true,
+      refreshTripleWards: true,
+    });
+    expect(V2_SKILLS.v2c_lawguardian_inviolable.effects).toEqual([
+      { kind: "shield", pctMaxHp: 24, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 18, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_lawguardian_domain).toMatchObject({
+      name: "만법수호영역",
+      category: "passive",
+      exclusiveGroup: "triple_ward",
+      exclusiveRank: 2,
+      passive: { tripleWardRank: 2 },
+    });
     expect(skillsForJob("fortressknight")).toEqual([
       "v2c_fortressknight_ram",
       "v2c_fortressknight_citadel",
@@ -1080,24 +1183,36 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_primordialmage_return.castVariants?.[0].name).toBe(
       "개벽·오원소 회귀",
     );
+    expect(V2_SKILLS.v2c_primordialmage_return.castVariants?.[0].effects[0]).toEqual({
+      kind: "damage",
+      statCoef: 3.33,
+      baseFlat: 879,
+      scaling: "magic",
+    });
     expect(V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.[0]).toMatchObject({
       requiredSkillId: "v2c_primordialmage_resonance",
+    });
+    expect(V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.[1]).toMatchObject({
+      requiredSkillIds: [
+        "v2c_primordialmage_resonance",
+        "v2c_elementallord_surge",
+      ],
     });
     expect(V2_SKILLS.v2c_primordialmage_resonance.name).toBe("근원공명");
     expect(V2_SKILLS.v2c_primordialmage_resonance.category).toBe("passive");
     expect(V2_SKILLS.v2c_primordialmage_resonance.passive).toMatchObject({
-      statPct: { int: 20, spi: 8 },
-      magicSkillDamagePct: 10,
-      maxMpPct: 14,
+      statPct: { int: 24, spi: 12 },
+      magicSkillDamagePct: 16,
+      maxMpPct: 20,
     });
     expect(V2_SKILLS.v2c_primordialmage_amplification).toMatchObject({
       name: "원초 증폭",
       category: "passive",
       tier: 3,
       learnCost: 12000,
-      spCost: 12,
       passive: { equipmentMagicSkillCritConversion: true },
     });
+    expect(spCostOf(V2_SKILLS.v2c_primordialmage_amplification)).toBe(9);
     expect(
       aggregateEquippedPassives(["v2c_primordialmage_amplification"])
         .equipmentMagicSkillCritConversion,

@@ -209,6 +209,8 @@ export type V2CommonSkillId =
   | "v2c_archbishop_grace" // 성직 권위 (회복 + 최대 HP)
   | "v2c_spellsealer_sealingfield" // 봉마진 (적 공격·스킬 발동 봉쇄)
   | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
+  | "v2c_grandwarder_eightgate" // 팔문금쇄진 (보호막 + 받는 피해 감소)
+  | "v2c_grandwarder_tripleward" // 삼중결계 (금강·봉마·정화 결계)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
   | "v2c_warden_aegis" // 수호의 도발 (상대의 즉시 기본 공격 2회 유도)
   | "v2c_warden_thorns" // 충격 방벽 (직접 공격 피격 시 충격 축적)
@@ -275,8 +277,12 @@ export type V2CommonSkillId =
   | "v2c_primordialmage_return" // 태초회귀 (근원 마법 피해 + 취약 + 지연)
   | "v2c_primordialmage_resonance" // 근원공명 (지능 + 정신 + 마법 운용)
   | "v2c_primordialmage_amplification" // 원초 증폭 (장비 치명타 배율 → 마법 스킬 치명타 배율)
+  | "v2c_lawweaver_release" // 만상각인 해방 (전투 중 각인 전량 소비)
+  | "v2c_lawweaver_inscription" // 법칙 각인 (문장 해방 시 각인 생성)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
+  | "v2c_lawguardian_inviolable" // 만법불침 (삼중 결계 갱신)
+  | "v2c_lawguardian_domain" // 만법수호영역 (강화 삼중 결계)
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
   | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + 궤도 마무리)
@@ -296,7 +302,16 @@ export type V2CommonSkillId =
   | "v2c_blooddemon_reign" // 혈마군림 (HP 소모 + 처형 + 피해 회복)
   | "v2c_blooddemon_immortalblood" // 불사마혈 (최대 HP + 흡혈 + 방어)
   | "v2c_absolute_unity" // 만상귀일 (올스탯 피해 + 취약 + 행동 가속)
-  | "v2c_absolute_harmony"; // 절대 조화 (올스탯 + HP·MP)
+  | "v2c_absolute_harmony" // 절대 조화 (올스탯 + HP·MP)
+  // ── 변이자 수집형 킷 ──
+  | "v2c_mutant_morphstrike"
+  | "v2c_mutant_adaptation"
+  | "v2c_beastkin_rend"
+  | "v2c_beastkin_clawflurry"
+  | "v2c_beastkin_bloodscent"
+  | "v2c_golem_rocksmash"
+  | "v2c_golem_tectoniccollapse"
+  | "v2c_golem_stoneskin";
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -326,6 +341,57 @@ const dmg = (
 });
 
 export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
+  // ═══ 변이자 — 배운 뒤 어느 직업에서도 장착하는 수집형 변이 ═══
+  v2c_mutant_morphstrike: {
+    id: "v2c_mutant_morphstrike", name: "불완전 변형", stat: "vit", category: "attack", tier: 1,
+    description: "불안정하게 신체를 바꾸어 활력으로 적을 들이받는다.", mpCost: 24, cooldown: 0, procChance: 40,
+    effects: [dmg(0.8, 100, "vit")],
+  },
+  v2c_mutant_adaptation: {
+    id: "v2c_mutant_adaptation", name: "변이 적응", stat: "vit", category: "passive", tier: 1,
+    description: "변화에 적응해 출혈·중독 같은 상태 피해를 줄인다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statusDamageReductionPct: 8 },
+  },
+  v2c_beastkin_rend: {
+    id: "v2c_beastkin_rend", name: "찢어발기기", stat: "str", category: "attack", tier: 1,
+    description: "날카로운 발톱으로 상처를 벌려 출혈을 겹친다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: [
+      dmg(0.9, 110),
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 2 },
+    ],
+  },
+  v2c_beastkin_clawflurry: {
+    id: "v2c_beastkin_clawflurry", name: "연속 할퀴기", stat: "str", category: "attack", tier: 1,
+    description: "세 번 연달아 할퀴고 깊은 출혈을 남긴다.", mpCost: 32, cooldown: 0, procChance: 38,
+    effects: [
+      ...hits(3, 0.36, 42),
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 3 },
+    ],
+  },
+  v2c_beastkin_bloodscent: {
+    id: "v2c_beastkin_bloodscent", name: "피 냄새", stat: "str", category: "passive", tier: 1,
+    description: "대상의 출혈이 짙을수록 직접 물리 스킬이 강해진다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { bleedPhysicalSkillDamagePctPerStack: 2 },
+  },
+  v2c_golem_rocksmash: {
+    id: "v2c_golem_rocksmash", name: "암석 강타", stat: "vit", category: "attack", tier: 1,
+    description: "몸을 무겁게 굳혀 방어력으로 내리치고 중량을 얻는다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: [dmg(1.05, 110, "def")], mutationWeightGain: 1,
+  },
+  v2c_golem_tectoniccollapse: {
+    id: "v2c_golem_tectoniccollapse", name: "지각 붕괴", stat: "vit", category: "attack", tier: 1,
+    description: "쌓인 중량을 모두 소모해 지면과 함께 적을 무너뜨린다.", mpCost: 38, cooldown: 0, procChance: 34,
+    effects: [dmg(1.35, 150, "def")], mutationWeightConsumePctPerStack: 20,
+    defaultPattern: {
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    },
+  },
+  v2c_golem_stoneskin: {
+    id: "v2c_golem_stoneskin", name: "돌가죽", stat: "vit", category: "passive", tier: 1,
+    description: "중량이 쌓일수록 몸이 단단해져 방어력이 오른다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { stoneskinDefPctPerWeight: 6 },
+  },
   // ═══ 전사 (STR · 물리) — 정직한 파워 ═══
   v2c_warrior_strike: {
     id: "v2c_warrior_strike", name: "강타", stat: "str", category: "attack", tier: 1,
@@ -1827,7 +1893,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         effects: [
-          dmg(2.75, 700, "magic"),
+          dmg(3.1, 780, "magic"),
           { kind: "dot", ...V2_DOT_PRESETS.연소 },
           { kind: "enemyHealReduce", pct: 55, turns: 3 },
           { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
@@ -2015,6 +2081,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { healPowerPct: 25, maxHpPct: 12, damageTakenReductionPct: 5 },
+  },
+  v2c_grandwarder_eightgate: {
+    id: "v2c_grandwarder_eightgate", name: "팔문금쇄진", stat: "int", category: "buff", tier: 3,
+    description: "여덟 방위의 문을 잠가 보호막을 두르고, 3행동 동안 받는 피해를 줄인다.",
+    mpCost: 56, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
+    effects: [
+      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+    ],
+  },
+  v2c_grandwarder_tripleward: {
+    id: "v2c_grandwarder_tripleward", name: "삼중결계", stat: "int", category: "passive", tier: 3,
+    description: "전투 시작 시 직접 물리 피해를 막는 금강결계, 직접 마법 피해를 막는 봉마결계, 새 상태이상을 막는 정화결계를 각각 1회 전개한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    exclusiveGroup: "triple_ward",
+    exclusiveRank: 1,
+    passive: { tripleWardRank: 1 },
   },
   v2c_plaguebringer_outbreak: {
     id: "v2c_plaguebringer_outbreak", name: "역병 창궐", stat: "luk", category: "attack", tier: 3,
@@ -2250,7 +2334,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
-    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다.",
+    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다. 근원공명과 함께 장착하면 선택된 주문식 재료를 공명시키고, 오원소 폭주는 태초회귀를 강화하는 촉매가 된다.",
     mpCost: 82, fixedMpCost: 180, cooldown: 0, procChance: 32, learnCost: 12000,
     effects: [dmg(2.45, 650, "magic"), { kind: "enemyVuln", pct: 14, turns: 3 }, { kind: "enemyDelay", pct: 30 }],
     castVariants: [
@@ -2259,7 +2343,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
         effects: [
-          dmg(3.05, 820, "magic"),
+          dmg(3.5, 925, "magic"),
           { kind: "dot", ...V2_DOT_PRESETS.연소 },
           { kind: "enemyHealReduce", pct: 65, turns: 3 },
           { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 },
@@ -2329,21 +2413,45 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredSkillId: "v2c_primordialmage_resonance",
         effects: [dmg(0.28, 110, "magic"), { kind: "manaRestore", pctMaxMp: 8 }],
       },
+      {
+        requiredSkillIds: ["v2c_primordialmage_resonance", "v2c_elementallord_surge"],
+        // 6차 액티브 정규화(×0.95) 뒤 실제 촉매 증가량을 정확히 +0.28/+110으로 맞춘다.
+        effects: [dmg(0.28 / 0.95, 110 / 0.95, "magic")],
+      },
     ],
   },
   v2c_primordialmage_resonance: {
     id: "v2c_primordialmage_resonance", name: "근원공명", stat: "int", category: "passive", tier: 3,
-    description: "원소의 근원을 몸에 새긴다. 마법 위력과 마나의 그릇, 정신력을 함께 끌어올린다.",
+    description: "원소의 근원을 몸에 새긴다. 지능 +24%, 정신 +12%, 마법 스킬 피해 +16%, 최대 MP +20%. 태초회귀와 함께 장착하면 선택된 주문식 재료가 공명한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
+    spCostDiscount: 4,
     effects: [],
-    passive: { statPct: { int: 20, spi: 8 }, magicSkillDamagePct: 10, maxMpPct: 14 },
+    passive: { statPct: { int: 24, spi: 12 }, magicSkillDamagePct: 16, maxMpPct: 20 },
   },
   v2c_primordialmage_amplification: {
     id: "v2c_primordialmage_amplification", name: "원초 증폭", stat: "int", category: "passive", tier: 3,
     description: "장비에서 얻은 치명타 배율을 모든 직접 마법 스킬 피해의 치명타 배율로 변환한다. 투자량이 커질수록 효율이 완만해지며 최대 +0.75배에 가까워진다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 12,
+    mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { equipmentMagicSkillCritConversion: true },
+  },
+  v2c_lawweaver_release: {
+    id: "v2c_lawweaver_release", name: "만상각인 해방", stat: "int", category: "attack", tier: 3,
+    description: "전투 중 쌓은 공격·환류·침식·수호 각인을 모두 해방해 개수와 조합에 따른 효과를 일으킨다.",
+    mpCost: 86, fixedMpCost: 200, cooldown: 0, procChance: 100, learnCost: 12000, spCost: 13,
+    effects: [],
+    consumesLawInscriptions: true,
+    defaultPattern: {
+      priority: 600,
+      condition: { kind: "self_resource", resource: "inscription", op: "atLeast", value: 4 },
+    },
+  },
+  v2c_lawweaver_inscription: {
+    id: "v2c_lawweaver_inscription", name: "법칙 각인", stat: "int", category: "passive", tier: 3,
+    description: "대문장 해방과 각인 해방을 정상 시전하면 장착한 문장 재료에 대응하는 법칙 각인을 얻는다. 지능 +18%, 정신 +8%, 최대 MP +16%.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 13,
+    effects: [],
+    passive: { statPct: { int: 18, spi: 8 }, maxMpPct: 16, lawInscription: true },
   },
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,
@@ -2360,6 +2468,26 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { healPowerPct: 35, maxHpPct: 18, damageTakenReductionPct: 8 },
+  },
+  v2c_lawguardian_inviolable: {
+    id: "v2c_lawguardian_inviolable", name: "만법불침", stat: "int", category: "buff", tier: 3,
+    description: "전투당 한 번, 모든 결계를 다시 세우고 강한 보호막과 피해 저항을 3행동 동안 얻는다.",
+    mpCost: 84, fixedMpCost: 210, cooldown: 0, procChance: 100, learnCost: 12000,
+    oncePerBattle: true,
+    refreshTripleWards: true,
+    effects: [
+      { kind: "shield", pctMaxHp: 24, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 18, turns: 3 },
+    ],
+  },
+  v2c_lawguardian_domain: {
+    id: "v2c_lawguardian_domain", name: "만법수호영역", stat: "int", category: "passive", tier: 3,
+    description: "삼중 결계를 각각 3회 전개한다. 결계가 소모될 때마다 전투 동안 영역 안정이 쌓여 받는 피해가 감소한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    exclusiveGroup: "triple_ward",
+    exclusiveRank: 2,
+    passive: { tripleWardRank: 2 },
   },
   v2c_doomprophet_sentence: {
     id: "v2c_doomprophet_sentence", name: "종말 선고", stat: "int", category: "attack", tier: 3,

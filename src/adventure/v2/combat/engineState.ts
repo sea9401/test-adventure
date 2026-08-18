@@ -4,6 +4,8 @@ import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 import type { Potion, PotionId } from "@/adventure/data/potions";
 import type { APSkill, APSkillCondition } from "@/adventure/character/apSkills";
 import type { Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
+import type { LawInscriptionState } from "./lawInscription";
+import type { TripleWardState } from "./tripleWard";
 
 export type BattleLogEntry =
   | {
@@ -180,9 +182,15 @@ export type BattleBuffs = {
 
 // 가변 자원 스택 / 잔량 카운트.
 export type BattleStacks = {
+  /** 대결계사·만법수호자 전용 삼중 결계와 영역 안정 상태. */
+  tripleWard: TripleWardState;
   // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.
   fortressImpact: number;
   ironWallReflectCharges: number;
+  /** 골렘 변이 — 전투 한정 중량(0..3). */
+  mutationWeight: number;
+  /** 법칙술사 전투 한정 각인. 패시브 미보유·기존 상태에서는 생략한다. */
+  lawInscriptions?: LawInscriptionState;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
   // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
   // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.
@@ -231,6 +239,8 @@ export type BattleStacks = {
   skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 적 받는 피해 +%(전 데미지)
   enemyVulnTurns: number;
+  enemyMagicVulnPct?: number; // 법칙술사 침식 — 적이 받는 직접 마법 피해 +%
+  enemyMagicVulnTurns?: number;
   // 원소술사 — 빛(실명: 적 회피 -%) / 어둠(암흑: 적 명중 -%). enemyVuln 미러(타겟 디버프).
   enemyEvasionDownPct: number; // 실명 — 적 회피도 -%
   enemyEvasionDownTurns: number;
@@ -407,6 +417,10 @@ export type PlayerCombat = {
   critResistPct?: number;
   /** 중독·출혈 등 status_damage 피해 감소율. 직접 피해·둔화에는 적용하지 않는다. */
   statusDamageReductionPct?: number;
+  /** 대상 출혈 스택당 직접 물리 스킬 피해 증가율. */
+  bleedPhysicalSkillDamagePctPerStack?: number;
+  /** 전투 중량 스택당 방어력 증가율. */
+  stoneskinDefPctPerWeight?: number;
   minDamage?: number;
   magicMinDamage?: number;
   healMult?: number;
@@ -467,6 +481,8 @@ export type PlayerCombat = {
   fortressImpactOnHit?: boolean;
   fortressImpactDamagePctPerStack?: number;
   fortressDefSkillStatCoefPct?: number;
+  /** 법칙술사 — 문장 해방 시 전투 한정 각인을 생성한다. */
+  lawInscription?: boolean;
   // ── 2티어 특기 (각 스탯 50 도달) ────────────────────────────────────────
   // 불굴의 일격 — 매 턴 본타에 (전투 누적 피해 × N) 추가. 0/undefined = 미장착.
   enduringStrikeMult?: number;

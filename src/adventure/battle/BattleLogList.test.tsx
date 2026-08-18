@@ -840,4 +840,71 @@ describe("BattleLogList 행동 묶음", () => {
     expect(html).toContain("지배 추적");
     expect(html).toContain("과부하 75");
   });
+
+  it("법칙 각인 스냅샷이 있을 때만 총합과 종류별 개수를 한 줄로 표시한다", () => {
+    const withInscription = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 900,
+            playerMaxHp: 1_000,
+            enemyHp: 800,
+            enemyMaxHp: 1_000,
+            playerSignatureResources: {
+              lawInscriptions: "4/8 · 공격 2 · 환류 2",
+            },
+          },
+        ]}
+      />,
+    );
+    expect(withInscription).toContain("각인 4/8 · 공격 2 · 환류 2");
+
+    const legacy = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 900,
+            playerMaxHp: 1_000,
+            enemyHp: 800,
+            enemyMaxHp: 1_000,
+          },
+        ]}
+      />,
+    );
+    expect(legacy).not.toContain("각인 ");
+  });
+
+  it("HP 스냅샷에 삼중 결계 잔량과 영역 안정을 밝음·소모 상태로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 900,
+            playerMaxHp: 1_000,
+            enemyHp: 800,
+            enemyMaxHp: 1_000,
+            playerSignatureResources: {
+              physicalWard: 2,
+              magicWard: 1,
+              purificationWard: 0,
+              domainStability: 3,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('aria-label="금강결계 2"');
+    expect(html).toContain('aria-label="봉마결계 1"');
+    expect(html).toContain('aria-label="정화결계 0"');
+    expect(html).toContain('aria-label="영역 안정 3"');
+    expect(html).toContain('data-active="true"');
+    expect(html).toContain('data-active="false"');
+  });
 });

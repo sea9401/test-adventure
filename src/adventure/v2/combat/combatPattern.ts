@@ -30,7 +30,11 @@ export type V2PatternSelfStatus =
   | "duelistDeclaration"
   | "berserkerFinisher"
   | "berserkerDeathOvercome";
-export type V2PatternSelfResource = "impact" | "ironWallReflect";
+export type V2PatternSelfResource =
+  | "impact"
+  | "ironWallReflect"
+  | "inscription"
+  | "weight";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -97,7 +101,7 @@ export type V2PatternCtx = {
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
   // 내부 필드명은 기존 저장/호출부 호환을 위해 유지. 능력치 밖의 활성 상태 효과 전체를 담는다.
   selfBuffPctTargets: ReadonlySet<V2PatternSelfStatus>;
-  selfResources: Readonly<Record<V2PatternSelfResource, number>>;
+  selfResources: Readonly<Partial<Record<V2PatternSelfResource, number>>>;
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
   enemyPoison: number;
@@ -164,7 +168,7 @@ export function conditionPasses(
     case "self_buff_pct":
       return ctx.selfBuffPctTargets.has(cond.target) === cond.active;
     case "self_resource": {
-      const value = ctx.selfResources[cond.resource];
+      const value = ctx.selfResources[cond.resource] ?? 0;
       return cond.op === "none"
         ? value === 0
         : cond.op === "atMost"
@@ -454,7 +458,10 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
     }
     case "self_resource": {
       const resource =
-        c.resource === "impact" || c.resource === "ironWallReflect"
+        c.resource === "impact" ||
+        c.resource === "ironWallReflect" ||
+        c.resource === "inscription" ||
+        c.resource === "weight"
           ? c.resource
           : null;
       const op =

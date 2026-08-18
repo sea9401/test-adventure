@@ -24,6 +24,7 @@ export const V2_CLASSES = [
   "mage", // 마법사 (구 마술 + 신술)
   "rogue", // 도적 (구 궁술 + 인술)
   "survivor", // 생존자 (HP·회복 루트)
+  "mutant", // 변이자 (수집형 변이 스킬 루트)
 ] as const;
 export type V2Class = (typeof V2_CLASSES)[number];
 
@@ -114,6 +115,14 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     anchorStat: "vit",
     description:
       "최대 HP와 자기 회복 기반 생존술. 회복기·HP 패시브·보호막을 챙기는 보조 루트다.",
+  },
+  mutant: {
+    id: "mutant",
+    name: "변이자",
+    group: "변이자",
+    anchorStat: "vit",
+    description:
+      "신체 변이를 수집하고 조합하는 루트. 익힌 변이 스킬은 다른 직업에서도 장착할 수 있다.",
   },
 };
 

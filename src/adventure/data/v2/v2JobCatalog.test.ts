@@ -7,6 +7,7 @@ import {
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
+  MUTANT_TIER1_UNLOCK_CUMLEVEL,
   FISHING_TIER2_UNLOCK_CUMLEVEL,
   FISHING_TIER3_UNLOCK_CUMLEVEL,
   FISHING_TIER4_UNLOCK_CUMLEVEL,
@@ -60,7 +61,7 @@ import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
 const BASE_JOBS = ["warrior", "martial", "mage", "rogue"];
-const LEGACY_CLASSES = [...BASE_JOBS, "survivor"];
+const LEGACY_CLASSES = [...BASE_JOBS, "survivor", "mutant"];
 const TIER2_BY_PARENT: Record<string, string[]> = {
   warrior: ["shieldman", "squire"],
   martial: ["boxer", "monk"],
@@ -127,6 +128,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   marksman: "chief",
   nightshade: "phantom",
   saint: "archbishop",
+  grandwarder: "spellsealer",
   plaguebringer: "venomlord",
   dragonfist: "sensei",
   adamantmonk: "battlemonk",
@@ -145,7 +147,9 @@ const TIER6_LINEAGE: Record<string, string> = {
   hegemon: "overlord",
   archmage: "arcanist",
   primordialmage: "elementallord",
+  lawweaver: "inscriber",
   savior: "saint",
+  lawguardian: "grandwarder",
   doomprophet: "calamitycaller",
   heavenlybow: "marksman",
   blackmoon: "nightshade",
@@ -183,7 +187,7 @@ describe("jobUnlockSpBonus", () => {
     );
   });
 
-  it("현재 122개 직업을 모두 해금하면 51개째부터 두 직업당 SP +1을 준다", () => {
+  it("현재 직업을 모두 해금하면 51개째부터 두 직업당 SP +1을 준다", () => {
     const proficiency = emptyProficiency();
     const completedQuestIds = new Set<string>();
     const killCounts: Record<string, number> = {};
@@ -217,21 +221,21 @@ describe("jobUnlockSpBonus", () => {
         woodcuttingLevel: 1_000,
         miningLevel: 1_000,
       }),
-    ).toBe(86);
+    ).toBe(88);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("124개 직업(기존 120 + 결투가 계보 4)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(124);
+  it("변이자 루트와 수인·골렘을 포함한 130개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(130);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
-    expect(byTier(0)).toBe(2);
-    expect(byTier(1)).toBe(4);
+    expect(byTier(0)).toBe(3);
+    expect(byTier(1)).toBe(6);
     expect(byTier(2)).toBe(18);
     expect(byTier(3)).toBe(25);
     expect(byTier(4)).toBe(30);
-    expect(byTier(5)).toBe(23);
-    expect(byTier(6)).toBe(22);
+    expect(byTier(5)).toBe(24);
+    expect(byTier(6)).toBe(24);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -361,6 +365,28 @@ describe("스탯 맵 무결성", () => {
 });
 
 describe("해금 트리", () => {
+  it("변이자는 기본 해금되고 수인·골렘은 숙련도 1000에 동시에 열린다", () => {
+    expect(MUTANT_TIER1_UNLOCK_CUMLEVEL).toBe(1000);
+    expect(V2_JOB_CATALOG.mutant).toMatchObject({
+      tier: 0,
+      unlock: { prereqs: {} },
+    });
+
+    for (const id of ["beastkin", "golem"] as const) {
+      const job = V2_JOB_CATALOG[id];
+      expect(job.tier).toBe(1);
+      expect(job.unlock.prereqs).toEqual({ mutant: 1000 });
+      expect(isJobUnlocked(job, profWith({ mutant: 999 }))).toBe(false);
+      expect(isJobUnlocked(job, profWith({ mutant: 1000 }))).toBe(true);
+      expect(LEGACY_CLASS_SPEC_BY_JOB[id]).toEqual({
+        class: "mutant",
+        spec: id,
+      });
+      expect(jobIdFromLegacy("mutant", id)).toBe(id);
+    }
+    expect("slime" in V2_JOB_CATALOG).toBe(false);
+    expect("slime" in LEGACY_CLASS_SPEC_BY_JOB).toBe(false);
+  });
   it("일반 직업 차수별 숙련도 요구치를 고정한다", () => {
     expect(TIER2_UNLOCK_CUMLEVEL).toBe(1000);
     expect(TIER3_UNLOCK_CUMLEVEL).toBe(2500);
@@ -959,7 +985,7 @@ describe("isJobUnlocked / unlockedJobs", () => {
   it("unlockedJobs 는 루트 직업과 충족한 직업만 반환한다", () => {
     const empty = emptyProficiency();
     const ids = unlockedJobs(empty).map((j) => j.id);
-    expect(ids).toEqual(expect.arrayContaining(["none", "survivor", ...BASE_JOBS]));
+    expect(ids).toEqual(expect.arrayContaining(["none", "survivor", "mutant", ...BASE_JOBS]));
     expect(ids).not.toContain("squire");
 
     const ready = profWith({ warrior: TIER2_UNLOCK_CUMLEVEL });
@@ -1284,6 +1310,7 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("mage", "elementallord")).toBe("원소군주");
     expect(displayName("mage", "primordialmage")).toBe("태초술사");
     expect(displayName("mage", "inscriber")).toBe("각인술사");
+    expect(displayName("mage", "lawweaver")).toBe("법칙술사");
     expect(displayName("mage", "archmage")).toBe("대마도사");
     expect(displayName("mage", "savior")).toBe("구원자");
     expect(displayName("mage", "calamitycaller")).toBe("재앙술사");

@@ -1112,6 +1112,27 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
 
     expect(derived.player.poisonDamagePct).toBeCloseTo(122.4);
   });
+
+  it("마법사도 장착한 변이 패시브를 그대로 전투 캐릭터에 전달한다", () => {
+    const mutationPassives = [
+      "v2c_mutant_adaptation",
+      "v2c_beastkin_bloodscent",
+      "v2c_golem_stoneskin",
+    ];
+    const derived = derivePlayerCombatV2FromSaves({
+      character: { ...character, class: "mage", specChoice: null },
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: {
+        learned: mutationPassives,
+        equipped: mutationPassives,
+      },
+    })!;
+
+    expect(derived.player.statusDamageReductionPct).toBe(8);
+    expect(derived.player.bleedPhysicalSkillDamagePctPerStack).toBe(2);
+    expect(derived.player.stoneskinDefPctPerWeight).toBe(6);
+  });
 });
 
 describe("derivePlayerCombatV2 preloaded (사냥 배치 char/equip 중복 select 제거)", () => {

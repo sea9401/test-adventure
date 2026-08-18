@@ -77,6 +77,7 @@ import {
   healToShield,
   lowHpDamageReductionPct,
   onDodgeSpeedBuff,
+  onHitTakenDefGain,
   onSkillCastMpRefund,
   resolveOffensiveSignatureTriggers,
   rollEvasionActionRecovery,
@@ -88,10 +89,21 @@ import { canApplyShock, enterShockAction } from "./shockAction";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   effectiveCombatPatternFromEquipped,
+  aggregateEquippedPassives,
   isLimitedRecoverySkillId,
   smartDefaultPatternFromEquipped,
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  consumePurificationWard,
+  initialTripleWardState,
+  mergeTripleWardResourceSnapshot,
+  refreshTripleWardState,
+  resolveTripleWardDamage,
+  TRIPLE_WARD_LABELS,
+  tripleWardStabilityReductionPct,
+  type TripleWardState,
+} from "./tripleWard";
 import {
   composeDuelistDeclaration,
   duelistDeclarationSummary,
@@ -129,6 +141,18 @@ import {
   activeTier6ResourceSnapshot,
   type Tier6UniqueRuntimeState,
 } from "./tier6UniqueEffects";
+import {
+  addLawInscriptionGain,
+  emptyLawInscriptionState,
+  lawInscriptionConsumeLog,
+  lawInscriptionGainLog,
+  mergeLawInscriptionSnapshot,
+  type LawInscriptionState,
+} from "./lawInscription";
+import {
+  effectiveMutationDef,
+  mutationTransitionLogLines,
+} from "./mutationCombat";
 import {
   applyTier6UniquePvpEvent,
   tier6PvpDotContext,
@@ -218,8 +242,12 @@ export type PvPSideBuffs = {
 };
 
 export type PvPSideStacks = {
+  tripleWard: TripleWardState;
   fortressImpact: number;
   ironWallReflectCharges: number;
+  /** 골렘 변이 — 전투 한정 중량(0..3). */
+  mutationWeight: number;
+  lawInscriptions?: LawInscriptionState;
   playerShield: number;
   evadesRemaining: number;
   damageTakenThisCombat: number;
@@ -241,6 +269,8 @@ export type PvPSideStacks = {
   skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
   enemyVulnTurns: number;
+  enemyMagicVulnPct?: number;
+  enemyMagicVulnTurns?: number;
   // 화상(원소술사 불) — 이 side 에 걸린 회복 감소 디버프(상대가 부착). 이 side 의 회복(회복 스킬·재생)
   //   −healReducePct%. 흡혈/공격파생 회복은 제외. 자기 턴(cast hook)에 turns 감소.
   healReducePct: number;
@@ -479,7 +509,11 @@ export function attackerFacingDef(
   const braceDefBonus = defender.stacks.braceDefBonus ?? 0;
   const raw = Math.max(
     0,
-    defender.player.def + braceDefBonus - attackerBuffs.opponentDefPenalty,
+    effectiveMutationDef(
+      defender.player.def + braceDefBonus,
+      defender.stacks.mutationWeight,
+      defender.player.stoneskinDefPctPerWeight ?? 0,
+    ) - attackerBuffs.opponentDefPenalty,
   );
   const frac = attacker.player.armorPierceFraction ?? 0;
   let afterPierce = frac > 0 ? Math.round(raw * (1 - frac)) : raw;
@@ -573,8 +607,14 @@ export function rollPvPAttackCount(attacker: PvPSide, defender: PvPSide): number
 export function applyPvPOnHitDots(
   defender: PvPSide,
   attacker: PvPSide,
-  add?: { bleedStacks?: number; poisonStacks?: number },
+  add?: {
+    bleedStacks?: number;
+    poisonStacks?: number;
+    /** 같은 행동에서 장비 효과나 정화결계가 이미 모든 상태이상을 막은 경우. */
+    blockStatus?: boolean;
+  },
 ): PvPSide {
+  if (add?.blockStatus) return defender;
   const dots: import("./combatShared").V2Dot[] = [];
   const bleedStacks =
     (add?.bleedStacks ?? 0) + (attacker.player.bleedOnHit ? 1 : 0);
@@ -609,6 +649,15 @@ export function applyPvPOnHitDots(
       flags: {
         ...defender.flags,
         statusBlockUsed: true,
+      },
+    };
+  }
+  if (defender.stacks.tripleWard.purification > 0) {
+    return {
+      ...defender,
+      stacks: {
+        ...defender.stacks,
+        tripleWard: consumePurificationWard(defender.stacks.tripleWard).state,
       },
     };
   }
@@ -675,6 +724,8 @@ function buildSide(
     skillId === "v2c_overlord_ruin" ||
     skillId === "v2c_hegemon_annihilation",
   );
+  const tripleWardRank = aggregateEquippedPassives(v2Skills.equipped)
+    .tripleWardRank;
   return {
     player,
     name,
@@ -742,8 +793,13 @@ function buildSide(
       playerLifestealTurnsLeft: 0,
     },
     stacks: {
+      tripleWard: initialTripleWardState(tripleWardRank),
       fortressImpact: 0,
       ironWallReflectCharges: 0,
+      mutationWeight: 0,
+      ...(player.lawInscription
+        ? { lawInscriptions: emptyLawInscriptionState() }
+        : {}),
       playerShield: startShield,
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
@@ -763,6 +819,8 @@ function buildSide(
       skillReflectBoostTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
+      enemyMagicVulnPct: 0,
+      enemyMagicVulnTurns: 0,
       healReducePct: 0,
       healReduceTurns: 0,
       damageDownPct: 0,
@@ -1610,7 +1668,11 @@ export function applyOnHitReflect(
     : thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
   const fortressReaction = resolveFortressReaction({
     landed: rawDmgBeforeMitigation > 0,
-    defenderDef: defender.player.def,
+    defenderDef: effectiveMutationDef(
+      defender.player.def,
+      defender.stacks.mutationWeight,
+      defender.player.stoneskinDefPctPerWeight ?? 0,
+    ),
     impact: defender.stacks.fortressImpact,
     impactOnHit: defender.player.fortressImpactOnHit ?? false,
     ironWallReflectCharges: defender.stacks.ironWallReflectCharges,
@@ -2519,7 +2581,11 @@ export function castV2SkillOnAttackerTurnPvP(
       healMult: side.player.healMult,
       maxHp: side.maxHp,
       // PR2-B — PvP 시전자도 PlayerCombat → def/vit 비례딜·현재HP(사혈격)·maxMp(보호막/명상)·차수 flat 유효.
-      def: side.player.def,
+      def: effectiveMutationDef(
+        side.player.def,
+        side.stacks.mutationWeight,
+        side.player.stoneskinDefPctPerWeight ?? 0,
+      ),
       str: side.player.strStat,
       int: side.player.intStat,
       vit: side.player.vitStat,
@@ -2550,6 +2616,11 @@ export function castV2SkillOnAttackerTurnPvP(
       fortressImpactDamagePctPerStack:
         side.player.fortressImpactDamagePctPerStack,
       fortressDefSkillStatCoefPct: side.player.fortressDefSkillStatCoefPct,
+      lawInscription: side.player.lawInscription,
+      lawInscriptions: side.stacks.lawInscriptions,
+      mutationWeight: side.stacks.mutationWeight,
+      bleedPhysicalSkillDamagePctPerStack:
+        side.player.bleedPhysicalSkillDamagePctPerStack,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
       characterElement: side.player.characterElement,
@@ -2618,6 +2689,14 @@ export function castV2SkillOnAttackerTurnPvP(
   let tier6SkillHitDamages: number[] = [];
   let nextOppShield = opp.stacks.playerShield;
   let nextOppMagicBarrier = opp.magicBarrier ?? 0;
+  let nextOppTripleWard = opp.stacks.tripleWard;
+  let skillStabilityReducedBy = 0;
+  const skillWardReductions: Array<{
+    kind: "physical" | "magic";
+    reductionPct: number;
+    remaining: number;
+  }> = [];
+  const skillWardConsumedKinds = new Set<"physical" | "magic">();
   let skillShieldAbsorbed = 0;
   let skillMagicBarrierAbsorbed = 0;
   let skillMagicBarrierDurabilitySpent = 0;
@@ -2676,7 +2755,17 @@ export function castV2SkillOnAttackerTurnPvP(
             100,
         )
       : 0;
-  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
+  const lawMagicVulnBonus =
+    result.magicEnemyDamage > 0 &&
+    (side.stacks.enemyMagicVulnTurns ?? 0) > 0
+      ? Math.floor(
+          (result.magicEnemyDamage *
+            (side.stacks.enemyMagicVulnPct ?? 0)) /
+            100,
+        )
+      : 0;
+  const skillDamageBase =
+    result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus;
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
   //   로 분리. PvP 확률 판정은 대상의 치명타 저항을 차감하며, 강제 치명타는 저항을 무시한다.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
@@ -2717,7 +2806,8 @@ export function castV2SkillOnAttackerTurnPvP(
     : 1;
   const singleSkillDamage = computeDirectSkillDamage({
     totalDamage: skillDamageBase,
-    magicDamage: result.magicEnemyDamage + magicSkillDamageBonus,
+    magicDamage:
+      result.magicEnemyDamage + magicSkillDamageBonus + lawMagicVulnBonus,
     preCriticalMultiplier: skillPreCriticalMultiplier,
     criticalMultiplier: skillCriticalMultiplier,
     equipmentMagicCritBonus:
@@ -2828,7 +2918,52 @@ export function castV2SkillOnAttackerTurnPvP(
                   ),
                 )
               : afterEvasion;
-          return scalePvPDamage(st, reduced);
+          const stabilityPct = tripleWardStabilityReductionPct(
+            nextOppTripleWard,
+          );
+          const afterStability = stabilityPct > 0
+            ? Math.max(1, Math.floor(reduced * (1 - stabilityPct / 100)))
+            : reduced;
+          skillStabilityReducedBy += reduced - afterStability;
+          const magicShare = Math.min(
+            1,
+            Math.max(
+              0,
+              result.magicEnemyDamage / Math.max(1, result.enemyDamage),
+            ),
+          );
+          const physicalDamage = Math.floor(
+            afterStability * (1 - magicShare),
+          );
+          const magicDamage = afterStability - physicalDamage;
+          let wardedDamage = 0;
+          for (const [kind, part] of [
+            ["physical", physicalDamage],
+            ["magic", magicDamage],
+          ] as const) {
+            if (part <= 0) continue;
+            if (skillWardConsumedKinds.has(kind)) {
+              wardedDamage += part;
+              continue;
+            }
+            const ward = resolveTripleWardDamage(
+              nextOppTripleWard,
+              kind,
+              "pvp",
+              [part],
+            );
+            nextOppTripleWard = ward.state;
+            wardedDamage += ward.totalDamage;
+            if (ward.consumed) {
+              skillWardConsumedKinds.add(kind);
+              skillWardReductions.push({
+                kind,
+                reductionPct: ward.reductionPct,
+                remaining: ward.remaining,
+              });
+            }
+          }
+          return scalePvPDamage(st, wardedDamage);
         },
       });
       nextOppMagicBarrier = barrier.durabilityLeft;
@@ -2846,6 +2981,20 @@ export function castV2SkillOnAttackerTurnPvP(
       skillDamageToHp += actualHpDamage;
       return actualHpDamage;
     });
+    if (skillStabilityReducedBy > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[영역 안정] ${opp.name} 피해 -${skillStabilityReducedBy}`,
+        side: otherKey,
+      });
+    }
+    for (const ward of skillWardReductions) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[${TRIPLE_WARD_LABELS[ward.kind]}] ${opp.name} 직접 ${ward.kind === "magic" ? "마법" : "물리"} 피해 ${ward.reductionPct}% 감소 (${ward.remaining}회 남음)`,
+        side: otherKey,
+      });
+    }
     if (skillShieldAbsorbed > 0) {
       nextLog = appendLog(nextLog, {
         kind: "info",
@@ -2878,6 +3027,26 @@ export function castV2SkillOnAttackerTurnPvP(
         side: who,
       });
     }
+  }
+  // on_hit_taken 방어 누적은 기본 공격뿐 아니라 직접 피해 스킬에도 동일하게 발동한다.
+  // 보호막·마법 장벽을 통과해 실제 HP에 들어간 피해만 사용하고, 지속 피해는 이 경로를 타지 않는다.
+  const sigSkillDefGain = onHitTakenDefGain(opp.player.equipSignatures);
+  const prevOppBraceDefBonus = opp.stacks.braceDefBonus ?? 0;
+  const nextOppBraceDefBonus =
+    sigSkillDefGain && skillDamageToHp > 0
+      ? Math.min(
+          opp.player.def,
+          prevOppBraceDefBonus +
+            Math.floor((skillDamageToHp * sigSkillDefGain.pct) / 100),
+        )
+      : prevOppBraceDefBonus;
+  const skillBraceDefDelta = nextOppBraceDefBonus - prevOppBraceDefBonus;
+  if (sigSkillDefGain && skillBraceDefDelta > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigSkillDefGain.label}] ${opp.name} 방어 +${skillBraceDefDelta}`,
+      side: otherKey,
+    });
   }
   const sigSkill = resolveOffensiveSignatureTriggers(
     side.player.equipSignatures,
@@ -2924,10 +3093,33 @@ export function castV2SkillOnAttackerTurnPvP(
     !!sigSkill.critDefDebuff ||
     !!sigSkill.hitShock;
   const sigStatusBlock = statusBlockOnce(opp.player.equipSignatures);
+  const hasHostileStatus =
+    result.enemyDebuffsToApply.length > 0 ||
+    result.dotsToApplyToTarget.length > 0 ||
+    result.enemyVulnToApply != null ||
+    result.enemyEvasionDownToApply != null ||
+    result.enemyAccuracyDownToApply != null ||
+    result.enemyDelayToApply != null ||
+    result.enemyHealReduceToApply != null ||
+    result.enemyDamageDownToApply != null ||
+    result.enemySkillProcDownToApply != null ||
+    result.enemyDotVulnToApply != null ||
+    ((side.player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
+      result.enemyDamage > 0) ||
+    sigSkillTargetStatusFired;
   const statusBlockTargetEffects =
-    (result.dotsToApplyToTarget.length > 0 || sigSkillTargetStatusFired) &&
+    hasHostileStatus &&
     !!sigStatusBlock &&
     !opp.flags.statusBlockUsed;
+  const purificationBlockTargetEffects =
+    hasHostileStatus &&
+    !statusBlockTargetEffects &&
+    nextOppTripleWard.purification > 0;
+  const blockHostileStatus =
+    statusBlockTargetEffects || purificationBlockTargetEffects;
+  if (purificationBlockTargetEffects) {
+    nextOppTripleWard = consumePurificationWard(nextOppTripleWard).state;
+  }
   const activeSkillCritSpdMult =
     side.buffs.playerSpdTurnsLeft > 0 ? side.buffs.playerSpdMult : 1;
   const sigSkillCritSpdBuff = sigSkill.critSpeed
@@ -2945,7 +3137,7 @@ export function castV2SkillOnAttackerTurnPvP(
   const activeSkillEnemySpdMult =
     side.buffs.enemySpdTurnsLeft > 0 ? side.buffs.enemySpdMult : 1;
   const sigSkillEnemySlow =
-    !statusBlockTargetEffects && sigSkill.critChill
+    !blockHostileStatus && sigSkill.critChill
       ? {
           enemySpdMult: Math.min(
             activeSkillEnemySpdMult,
@@ -2962,7 +3154,7 @@ export function castV2SkillOnAttackerTurnPvP(
       ? side.buffs.enemyDefDebuffPct
       : 0;
   const sigSkillEnemyDefDebuff =
-    !statusBlockTargetEffects && sigSkill.critDefDebuff
+    !blockHostileStatus && sigSkill.critDefDebuff
       ? {
           enemyDefDebuffPct: Math.max(
             activeSkillEnemyDefDebuffPct,
@@ -2990,42 +3182,42 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  if (!statusBlockTargetEffects && sigSkill.critPoison) {
+  if (!blockHostileStatus && sigSkill.critPoison) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[독니] ${opp.name}을(를) 중독시켰다!`,
       side: who,
     });
   }
-  if (!statusBlockTargetEffects && sigSkill.hitPoison) {
+  if (!blockHostileStatus && sigSkill.hitPoison) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${sigSkill.hitPoison.label}] ${opp.name}에게 중독 ${sigSkill.hitPoison.stacks}스택을 남겼다.`,
       side: who,
     });
   }
-  if (!statusBlockTargetEffects && sigSkill.hitBleed) {
+  if (!blockHostileStatus && sigSkill.hitBleed) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${sigSkill.hitBleed.label}] ${opp.name}에게 출혈 ${sigSkill.hitBleed.stacks}스택을 남겼다.`,
       side: who,
     });
   }
-  if (!statusBlockTargetEffects && sigSkill.critChill) {
+  if (!blockHostileStatus && sigSkill.critChill) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: formatChillSlowLog(opp.name, sigSkill.critChill),
       side: who,
     });
   }
-  if (!statusBlockTargetEffects && sigSkill.critDefDebuff) {
+  if (!blockHostileStatus && sigSkill.critDefDebuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: formatDefDebuffLog(opp.name, sigSkill.critDefDebuff),
       side: who,
     });
   }
-  if (!statusBlockTargetEffects && sigSkill.hitShock) {
+  if (!blockHostileStatus && sigSkill.hitShock) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: formatShockAppliedLog(opp.name, sigSkill.hitShock),
@@ -3171,7 +3363,9 @@ export function castV2SkillOnAttackerTurnPvP(
   const rawShieldGain = result.shieldToApply
     ? result.shieldToApply.hp + result.shieldToApply.mp
     : 0;
-  const shieldGain = isLimitedRecoverySkillId(result.castSkillId)
+  const shieldGain =
+    result.castSkillId === "v2c_lawweaver_release" ||
+    isLimitedRecoverySkillId(result.castSkillId)
     ? rawShieldGain
     : scalePvPShield(st, rawShieldGain);
   const critBuff = result.selfBuffPctToApply.find((b) => b.target === "crit");
@@ -3180,6 +3374,12 @@ export function castV2SkillOnAttackerTurnPvP(
     (b) => b.target === "damageReduction",
   );
   const reflectBuff = result.selfBuffPctToApply.find((b) => b.target === "reflectDamage");
+  const refreshedTripleWard = result.refreshTripleWards
+    ? refreshTripleWardState(
+        side.stacks.tripleWard,
+        aggregateEquippedPassives(side.v2Skills.equipped).tripleWardRank,
+      )
+    : side.stacks.tripleWard;
   // PvE와 동일하게 직접 피해 스킬의 실제 타격 수를 every-N 카운터에 합산한다.
   // 다단 스킬이 한 번에 여러 주기를 넘기면 넘긴 횟수만큼 후속 행동을 추가한다.
   const sigEvery = everyNHitsEffect(side.player.equipSignatures);
@@ -3193,6 +3393,13 @@ export function castV2SkillOnAttackerTurnPvP(
       ? Math.floor(nextSigHitCount / sigEveryN) -
         Math.floor(side.stacks.signatureHitCount / sigEveryN)
       : 0;
+  const lawGain = addLawInscriptionGain(
+    side.stacks.lawInscriptions,
+    result.lawInscriptionGain,
+  );
+  const nextLawInscriptions = result.lawInscriptionsToConsume
+    ? emptyLawInscriptionState()
+    : lawGain.state;
   if (signatureExtraActions > 0) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -3205,6 +3412,7 @@ export function castV2SkillOnAttackerTurnPvP(
   // 시전 턴 직후 1턴 손실 없이 N 턴 유지(PvE 는 자기 턴에 소비/감소라 turn-end, PvP 는 turn-start).
   const nextStacks: PvPSideStacks = {
     ...side.stacks,
+    tripleWard: refreshedTripleWard,
     evadesRemaining:
       side.stacks.evadesRemaining + result.guaranteedEvadesToAdd,
     playerShield: side.stacks.playerShield + shieldGain,
@@ -3233,8 +3441,20 @@ export function castV2SkillOnAttackerTurnPvP(
       ? reflectBuff.turns
       : side.stacks.skillReflectBoostTurns,
     // 속박 — 위 스킬피해 배수와 동일 값(turn-start 감소/set) 사용 → 같은 턴 스킬·평타 일관.
-    enemyVulnPct: nextEnemyVulnPct,
-    enemyVulnTurns: nextEnemyVulnTurns,
+    enemyVulnPct: blockHostileStatus
+      ? side.stacks.enemyVulnPct
+      : nextEnemyVulnPct,
+    enemyVulnTurns: blockHostileStatus
+      ? Math.max(0, side.stacks.enemyVulnTurns - 1)
+      : nextEnemyVulnTurns,
+    enemyMagicVulnPct:
+      result.enemyMagicVulnToApply && !blockHostileStatus
+        ? result.enemyMagicVulnToApply.pct
+        : side.stacks.enemyMagicVulnPct ?? 0,
+    enemyMagicVulnTurns:
+      result.enemyMagicVulnToApply && !blockHostileStatus
+        ? result.enemyMagicVulnToApply.turns
+        : Math.max(0, (side.stacks.enemyMagicVulnTurns ?? 0) - 1),
     // 화상 — 이 side 에 걸린 회복 감소. 자기 턴 시작에 turns 감소(부착은 상대 cast 의 nextOpp 에서).
     healReducePct: side.stacks.healReducePct,
     healReduceTurns: Math.max(0, side.stacks.healReduceTurns - 1),
@@ -3257,14 +3477,55 @@ export function castV2SkillOnAttackerTurnPvP(
       0,
       side.stacks.fortressImpact - result.fortressImpactToConsume,
     ),
+    mutationWeight: result.mutationTransition.weightAfter,
     ironWallReflectCharges:
       result.ironWallReflectToApply?.charges ??
       side.stacks.ironWallReflectCharges,
+    ...((side.stacks.lawInscriptions != null ||
+      side.player.lawInscription ||
+      result.lawInscriptionsToConsume != null)
+      ? { lawInscriptions: nextLawInscriptions }
+      : {}),
   };
+  const lawGainText = lawInscriptionGainLog(
+    lawGain.gained,
+    nextLawInscriptions,
+  );
+  const lawConsumeText = lawInscriptionConsumeLog(
+    result.lawInscriptionsToConsume,
+  );
+  if (lawGainText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawGainText,
+      side: who,
+    });
+  }
+  if (lawConsumeText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawConsumeText,
+      side: who,
+    });
+  }
+  if (result.lawInscriptionComplete) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: "공격·환류·침식·수호가 하나로 이어져 완성 각인이 발동했다.",
+      side: who,
+    });
+  }
   if (result.ironWallReflectToApply && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName}] 철벽 반사 ${result.ironWallReflectToApply.charges}회 준비`,
+      side: who,
+    });
+  }
+  if (result.refreshTripleWards && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName}] ${side.name} 삼중 결계 ${refreshedTripleWard.physical}회 재전개`,
       side: who,
     });
   }
@@ -3278,6 +3539,12 @@ export function castV2SkillOnAttackerTurnPvP(
       text: `[${result.castSkillName}] 충격 ${result.fortressImpactToConsume}스택 소비`,
       side: who,
     });
+  }
+  for (const text of mutationTransitionLogLines(
+    result.castSkillName,
+    result.mutationTransition,
+  )) {
+    nextLog = appendLog(nextLog, { kind: "info", text, side: who });
   }
   if (shieldGain > 0) {
     nextLog = appendLog(nextLog, {
@@ -3314,42 +3581,49 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  if (result.enemyVulnToApply) {
+  if (result.enemyVulnToApply && !blockHostileStatus) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "속박"}] 적 받는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
       side: who,
     });
   }
-  if (result.enemyAccuracyDownToApply) {
+  if (result.enemyMagicVulnToApply && !blockHostileStatus) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "침식"}] ${opp.name}이(가) 받는 마법 피해 +${result.enemyMagicVulnToApply.pct}% (${result.enemyMagicVulnToApply.turns}행동)`,
+      side: who,
+    });
+  }
+  if (result.enemyAccuracyDownToApply && !blockHostileStatus) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "암흑"}] ${opp.name} 적중도 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}행동)`,
       side: who,
     });
   }
-  if (result.enemyAccuracyDownToApply) {
+  if (result.enemyAccuracyDownToApply && !blockHostileStatus) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "암흑"}] ${opp.name} 적중도 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}행동)`,
       side: who,
     });
   }
-  if (result.enemyDamageDownToApply) {
+  if (result.enemyDamageDownToApply && !blockHostileStatus) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "쇠약"}] ${opp.name} 주는 피해 −${result.enemyDamageDownToApply.pct}% (${result.enemyDamageDownToApply.turns}행동)`,
       side: who,
     });
   }
-  if (result.enemySkillProcDownToApply) {
+  if (result.enemySkillProcDownToApply && !blockHostileStatus) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "금제"}] ${opp.name} 스킬 발동률 −${result.enemySkillProcDownToApply.pct}%p (${result.enemySkillProcDownToApply.turns}행동)`,
       side: who,
     });
   }
-  if (result.enemyDotVulnToApply) {
+  if (result.enemyDotVulnToApply && !blockHostileStatus) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "침식"}] ${opp.name} 지속/저주 피해 +${result.enemyDotVulnToApply.pct}% (${result.enemyDotVulnToApply.turns}행동)`,
@@ -3358,16 +3632,15 @@ export function castV2SkillOnAttackerTurnPvP(
   }
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   // enemyDebuff 결과는 상대 side 의 v2SelfDebuffs 에 박힌다.
-  const nextOppSelfDebuffs = applyV2BuffsToMap(
-    opp.v2SelfDebuffs,
-    result.enemyDebuffsToApply,
-  );
+  const nextOppSelfDebuffs = blockHostileStatus
+    ? opp.v2SelfDebuffs
+    : applyV2BuffsToMap(opp.v2SelfDebuffs, result.enemyDebuffsToApply);
   // PR-8 — dot 결과는 상대 side 의 v2Dots 에 박힌다.
   const dotsToApplyToTarget = applyPoisonDamageToDots(
     result.dotsToApplyToTarget,
     side.player,
   );
-  const nextOppDots = statusBlockTargetEffects
+  const nextOppDots = blockHostileStatus
     ? opp.v2Dots
     : applyV2DotsToTarget(
         applyV2DotsToTarget(opp.v2Dots, dotsToApplyToTarget),
@@ -3380,7 +3653,7 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  for (const d of result.enemyDebuffsToApply) {
+  for (const d of blockHostileStatus ? [] : result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "약화"}] ${STAT_LABELS[d.stat]} -${d.pct}% (${d.turns}행동)`,
@@ -3394,7 +3667,14 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  for (const dot of statusBlockTargetEffects ? [] : dotsToApplyToTarget) {
+  if (purificationBlockTargetEffects) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${TRIPLE_WARD_LABELS.purification}] ${opp.name} 상태이상을 막았다. (${nextOppTripleWard.purification}회 남음)`,
+      side: otherKey,
+    });
+  }
+  for (const dot of blockHostileStatus ? [] : dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? dot.label}] +${dot.stacks}스택 (${dot.turns}회)`,
@@ -3458,6 +3738,7 @@ export function castV2SkillOnAttackerTurnPvP(
   // 약점 노출 — 시전자가 패시브 보유 + 시전 + 데미지 적중이면 확률로 상대 마법취약 +1(상한 클램프, 감쇠 없음).
   const magicVulnApplyChancePct = side.player.enemyMagicVulnApplyChancePct ?? 100;
   const magicVulnApplied =
+    !blockHostileStatus &&
     (side.player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
     result.castSkillId &&
     result.enemyDamage > 0 &&
@@ -3495,38 +3776,53 @@ export function castV2SkillOnAttackerTurnPvP(
     v2Dots: nextOppDots,
     stacks: {
       ...opp.stacks,
+      tripleWard: nextOppTripleWard,
       playerShield: nextOppShield,
+      braceDefBonus: nextOppBraceDefBonus,
       magicVulnStacks: nextOppMagicVuln,
       // 화상 부착 — 시전자가 상대에게 회복 감소 디버프. 상대는 자기 턴(cast hook)에 turns 감소.
-      healReducePct: result.enemyHealReduceToApply?.pct ?? opp.stacks.healReducePct,
-      healReduceTurns: result.enemyHealReduceToApply
+      healReducePct: !blockHostileStatus && result.enemyHealReduceToApply
+        ? result.enemyHealReduceToApply.pct
+        : opp.stacks.healReducePct,
+      healReduceTurns: !blockHostileStatus && result.enemyHealReduceToApply
         ? result.enemyHealReduceToApply.turns
         : opp.stacks.healReduceTurns,
       accuracyDownPct:
-        result.enemyAccuracyDownToApply?.pct ?? opp.stacks.accuracyDownPct,
-      accuracyDownTurns: result.enemyAccuracyDownToApply
+        !blockHostileStatus && result.enemyAccuracyDownToApply
+          ? result.enemyAccuracyDownToApply.pct
+          : opp.stacks.accuracyDownPct,
+      accuracyDownTurns: !blockHostileStatus && result.enemyAccuracyDownToApply
         ? result.enemyAccuracyDownToApply.turns
         : opp.stacks.accuracyDownTurns,
-      damageDownPct: result.enemyDamageDownToApply?.pct ?? opp.stacks.damageDownPct,
-      damageDownTurns: result.enemyDamageDownToApply
+      damageDownPct: !blockHostileStatus && result.enemyDamageDownToApply
+        ? result.enemyDamageDownToApply.pct
+        : opp.stacks.damageDownPct,
+      damageDownTurns: !blockHostileStatus && result.enemyDamageDownToApply
         ? result.enemyDamageDownToApply.turns
         : opp.stacks.damageDownTurns,
       skillProcDownPct:
-        result.enemySkillProcDownToApply?.pct ?? opp.stacks.skillProcDownPct,
-      skillProcDownTurns: result.enemySkillProcDownToApply
+        !blockHostileStatus && result.enemySkillProcDownToApply
+          ? result.enemySkillProcDownToApply.pct
+          : opp.stacks.skillProcDownPct,
+      skillProcDownTurns:
+        !blockHostileStatus && result.enemySkillProcDownToApply
         ? result.enemySkillProcDownToApply.turns
         : opp.stacks.skillProcDownTurns,
-      dotVulnPct: result.enemyDotVulnToApply?.pct ?? opp.stacks.dotVulnPct,
-      dotVulnTurns: result.enemyDotVulnToApply
+      dotVulnPct: !blockHostileStatus && result.enemyDotVulnToApply
+        ? result.enemyDotVulnToApply.pct
+        : opp.stacks.dotVulnPct,
+      dotVulnTurns: !blockHostileStatus && result.enemyDotVulnToApply
         ? result.enemyDotVulnToApply.turns
         : opp.stacks.dotVulnTurns,
-      ...(!statusBlockTargetEffects && sigSkill.hitShock
+      ...(!blockHostileStatus && sigSkill.hitShock
         ? { shockAction: "pending" as const }
         : {}),
     },
   };
   const selfHastePct = result.selfHasteToApply?.pct ?? 0;
-  const enemyDelayPct = result.enemyDelayToApply?.pct ?? 0;
+  const enemyDelayPct = blockHostileStatus
+    ? 0
+    : result.enemyDelayToApply?.pct ?? 0;
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);
   next = setSide(next, otherKey, nextOpp);
@@ -3768,8 +4064,23 @@ function resolveBattlePvPLegacy(
   // hp_bar 는 p1=player / p2=enemy 관점으로 박는다. challenge API 가 me=p1 로
   // 호출하므로 그대로 도전자 시점 렌더에 맞음. (대전자 시점 미러가 필요해지면
   // 동일 데이터를 그쪽 관점으로 swap 해 새 entry 생성.)
-  const hpBarEntry = (s: PvPBattleState): BattleLogEntry => ({
-    kind: "hp_bar",
+  const hpBarEntry = (s: PvPBattleState): BattleLogEntry => {
+    const playerResources = mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques),
+        s.p1.stacks.tripleWard,
+      ),
+      s.p1.stacks.lawInscriptions,
+    );
+    const enemyResources = mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques),
+        s.p2.stacks.tripleWard,
+      ),
+      s.p2.stacks.lawInscriptions,
+    );
+    return {
+      kind: "hp_bar",
     text: "",
     playerHp: s.p1.hp,
     playerMaxHp: s.p1.maxHp,
@@ -3784,21 +4095,18 @@ function resolveBattlePvPLegacy(
     playerMagicBarrierMax: s.p1.maxMagicBarrier,
     enemyMagicBarrier: s.p2.magicBarrier,
     enemyMagicBarrierMax: s.p2.maxMagicBarrier,
-    ...(activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques)
+    ...(playerResources
       ? {
-          playerSignatureResources: activeTier6ResourceSnapshot(
-            s.p1.stacks.tier6Uniques,
-          ),
+          playerSignatureResources: playerResources,
         }
       : {}),
-    ...(activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques)
+    ...(enemyResources
       ? {
-          enemySignatureResources: activeTier6ResourceSnapshot(
-            s.p2.stacks.tier6Uniques,
-          ),
+          enemySignatureResources: enemyResources,
         }
       : {}),
-  });
+    };
+  };
   let turns = 0;
   // v2 스킬 (PR-4a) — 각 side 의 턴 진입 시 1회 cast (framework only).
   // advanceTurnPvP 는 attacksLeft > 0 (다대시·블록 등) 일 때 같은 phase 를 반환하므로

@@ -16,6 +16,7 @@ import {
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 
 // 전투 패턴이 resolveV2SkillCast 에 주입됐을 때: (1) procChance 은퇴(확정 발동), (2) 조건 게이팅.
 function castInput(
@@ -838,6 +839,72 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
   });
 });
 
+describe("resolveV2SkillCast — 수집형 변이 자원", () => {
+  const castMutation = (
+    skillId: string,
+    resources: { weight?: number; bleed?: number } = {},
+    attacker: Partial<V2SkillCastInput["attacker"]> = {},
+  ) => {
+    const base = castInput([skillId]);
+    return resolveV2SkillCast({
+      ...base,
+      attacker: {
+        ...base.attacker,
+        def: 100,
+        vit: 100,
+        magicAtk: 100,
+        mutationWeight: resources.weight ?? 0,
+        ...attacker,
+      },
+      target: {
+        ...base.target,
+        def: 0,
+        magicDef: 0,
+        bleedStacks: resources.bleed ?? 0,
+      },
+    });
+  };
+
+  it("암석 강타는 피해 뒤 중량을 얻고 지각 붕괴는 빗나가도 기존 중량을 소비한다", () => {
+    expect(
+      castMutation("v2c_golem_rocksmash", { weight: 2 })
+        .mutationTransition,
+    ).toMatchObject({ weightAfter: 3, weightGained: 1 });
+
+    const collapse = castMutation("v2c_golem_tectoniccollapse", {
+      weight: 3,
+    });
+    expect(collapse.enemyDamage).toBeGreaterThan(0);
+    expect(collapse.mutationTransition).toMatchObject({
+      weightAfter: 0,
+      weightConsumed: 3,
+    });
+    expect(removeMissedV2SkillTargetEffects(collapse).mutationTransition)
+      .toEqual(collapse.mutationTransition);
+  });
+
+  it("중량과 피 냄새는 직접 물리 스킬만 강화하고 마법에는 적용하지 않는다", () => {
+    const physical = castMutation("v2c_warrior_strike");
+    const weighted = castMutation("v2c_warrior_strike", { weight: 3 });
+    expect(weighted.enemyDamage).toBe(Math.floor(physical.enemyDamage * 1.15));
+
+    const scented = castMutation(
+      "v2c_warrior_strike",
+      { bleed: 10 },
+      { bleedPhysicalSkillDamagePctPerStack: 2 },
+    );
+    expect(scented.enemyDamage).toBe(Math.floor(physical.enemyDamage * 1.2));
+
+    const magic = castMutation("v2c_mage_boltcast", { weight: 3, bleed: 10 });
+    const magicWithPassive = castMutation(
+      "v2c_mage_boltcast",
+      { weight: 3, bleed: 10 },
+      { bleedPhysicalSkillDamagePctPerStack: 2 },
+    );
+    expect(magicWithPassive.enemyDamage).toBe(magic.enemyDamage);
+  });
+});
+
 describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
   const alwaysFor = (skillId: string): V2CombatPattern => ({
     blocks: [{ condition: { kind: "always" }, action: { kind: "skill", skillId } }],
@@ -1269,5 +1336,163 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
     expect(primordial.castSkillName).toBe("태초의 화염폭풍");
     expect(primordial.enemyDamage).toBeGreaterThan(lord.enemyDamage);
     expect(primordial.selfHasteToApply).toEqual({ pct: 45 });
+  });
+
+  it("완성된 원소공명은 선택 주문식 재료의 독립 시전을 막고 주력기를 시전한다", () => {
+    const equipped = [
+      "v2c_elementallord_surge",
+      "v2c_elementallord_resonance",
+      "v2c_firemage_inferno",
+      "v2c_windmage_tempest",
+    ];
+    const combatPattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "v2c_firemage_inferno" },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "v2c_elementallord_surge" },
+        },
+      ],
+    };
+
+    const result = resolveV2SkillCast(castInput(equipped, { combatPattern }));
+    expect(result.castSkillId).toBe("v2c_elementallord_surge");
+    expect(result.castSkillName).toBe("화염폭풍");
+
+    const broken = resolveV2SkillCast(
+      castInput(equipped.filter((id) => id !== "v2c_elementallord_resonance"), {
+        combatPattern,
+      }),
+    );
+    expect(broken.castSkillId).toBe("v2c_firemage_inferno");
+  });
+
+  it("선택 주문식에 쓰이지 않은 원소 주문은 독립 시전 후보로 남는다", () => {
+    const equipped = [
+      "v2c_elementallord_surge",
+      "v2c_elementallord_resonance",
+      "v2c_firemage_inferno",
+      "v2c_windmage_tempest",
+      "v2c_frostmage_glacier",
+    ];
+    const result = resolveV2SkillCast(
+      castInput(equipped, {
+        combatPattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: { kind: "skill", skillId: "v2c_frostmage_glacier" },
+            },
+            {
+              condition: { kind: "always" },
+              action: { kind: "skill", skillId: "v2c_elementallord_surge" },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result.castSkillId).toBe("v2c_frostmage_glacier");
+  });
+
+  it("오원소 폭주 촉매는 태초회귀에 직접 마법 피해를 정확히 한 번 추가한다", () => {
+    const baseSkills = [
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+      "v2c_firemage_inferno",
+      "v2c_windmage_tempest",
+    ];
+    const shared = {
+      attacker: {
+        ...castInput(baseSkills).attacker,
+        atk: 100,
+        magicAtk: 100,
+        int: 100,
+      },
+      target: {
+        ...castInput(baseSkills).target,
+        def: 0,
+        magicDef: 0,
+      },
+    };
+    const base = resolveV2SkillCast(castInput(baseSkills, shared));
+    const catalyst = resolveV2SkillCast(
+      castInput([...baseSkills, "v2c_elementallord_surge"], shared),
+    );
+
+    expect(base.castSkillName).toBe("태초의 화염폭풍");
+    expect(catalyst.castSkillName).toBe("태초의 화염폭풍");
+    expect(catalyst.hitDamages).toHaveLength(base.hitDamages.length + 1);
+    expect(catalyst.enemyDamage - base.enemyDamage).toBe(28);
+  });
+
+  it("동일 46 SP에서 태초술사 개벽 직타는 천궁·흑월 중앙값보다 15~30% 강하다", () => {
+    const primordial = [
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+      "v2c_elementallord_surge",
+      ...elemental,
+      "v2c_primordialmage_amplification",
+    ] as const;
+    const heavenlyBow = [
+      "v2c_heavenlybow_orbit",
+      "v2c_heavenlybow_starpath",
+      "v2c_marksman_aim",
+      "v2c_ranger_finesse3",
+      "v2c_archer_agility",
+      "v2c_chief_afterimage",
+      "v2c_assassin_fortune",
+      "v2c_shadow_lethality3",
+    ] as const;
+    const blackMoon = [
+      "v2c_blackmoon_flurry",
+      "v2c_blackmoon_dominion",
+      "v2c_blackmoon_weakpoint3",
+      "v2c_nightshade_cloak",
+    ] as const;
+    const builds = [primordial, heavenlyBow, blackMoon];
+    for (const equipped of builds) {
+      expect(
+        resolveElementalResonanceLoadout({ learned: equipped, equipped }).spUsed,
+      ).toBe(46);
+    }
+
+    const expectedDirectDamage = (equipped: typeof builds[number]) => {
+      const result = resolveV2SkillCast(
+        castInput([...equipped], {
+          attacker: {
+            ...castInput([...equipped]).attacker,
+            atk: 1_000,
+            magicAtk: 1_000,
+            str: 1_000,
+            int: 1_000,
+            dex: 1_000,
+            luk: 1_000,
+            spi: 1_000,
+            allStatTotal: 6_000,
+            maxHp: 10_000,
+            currentHp: 10_000,
+          },
+          target: {
+            ...castInput([...equipped]).target,
+            def: 1_000,
+            magicDef: 1_000,
+            currentHp: 5_000,
+            maxHp: 10_000,
+          },
+        }),
+      );
+      const procChance = V2_SKILLS[result.castSkillId!].procChance ?? 100;
+      return result.enemyDamage * (procChance / 100);
+    };
+    const primordialDamage = expectedDirectDamage(primordial);
+    const comparisonMedian =
+      (expectedDirectDamage(heavenlyBow) + expectedDirectDamage(blackMoon)) / 2;
+
+    expect(primordialDamage).toBeGreaterThanOrEqual(comparisonMedian * 1.15);
+    expect(primordialDamage).toBeLessThanOrEqual(comparisonMedian * 1.3);
   });
 });

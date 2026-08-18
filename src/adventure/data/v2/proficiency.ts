@@ -90,6 +90,7 @@ export const V2_CULTIVATE_PROFILE: Record<
   mage: { int: 2, spi: 2 }, // 마법사 — 공격마법(int)·신성(spi)
   rogue: { dex: 2, luk: 2 }, // 도적 — 궁수(dex)·암살(luk)
   survivor: { vit: 2, spi: 1, str: 1 }, // 생존자 — 최대 HP·회복·버티기
+  mutant: { vit: 2, str: 1, int: 1 }, // 변이자 — 신체 적응과 물리·마법 변이 기반
   // 모험가(none) — 전직 전에도 균형 수행 가능(STR/VIT/DEX/INT 각 1, SPI/LUK 제외). cap 은 전역이라
   //   전직 후에도 유지. 전직은 별개(advance-class)·none 은 직군 정복/도감엔 미포함(cumLevel 미적립).
   none: { str: 1, vit: 1, dex: 1, int: 1 },
@@ -122,6 +123,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   swordsaint: { str: 3, dex: 2, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
   hegemon: { str: 3, vit: 2, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
   archmage: { int: 3, spi: 3 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
+  lawweaver: { int: 3, spi: 3 }, // 법칙술사 — 각인술사 최종형, 문장 조합과 해방 중심
   savior: { spi: 3, int: 2, vit: 1 }, // 구원자 — 성자 최종형, 치유와 생존 보조 중심
   calamitycaller: { int: 3, spi: 1, luk: 1 }, // 재앙술사 — 대주술사 심화, 저주·재앙 디버프 중심
   doomprophet: { int: 3, spi: 2, luk: 1 }, // 종말예언자 — 재앙술사 최종형, 종말 선고와 침식 중심
@@ -154,6 +156,9 @@ export function effectiveCultivateProfile(
   const job = jobId ? V2_JOB_CATALOG[jobId] : undefined;
   if (jobId && V2_SPECIALIZED_CULTIVATE_PROFILE[jobId]) {
     return V2_SPECIALIZED_CULTIVATE_PROFILE[jobId];
+  }
+  if (group === "mutant" && job?.tier === 1) {
+    return job.cultivateProfile;
   }
   if (job?.tier === 5 || job?.tier === 6) {
     return job.cultivateProfile;

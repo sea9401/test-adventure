@@ -472,6 +472,10 @@ export function BattleScene({
 }) {
   const hasMp = state.playerMaxMp > 0;
   const hasMagicBarrier = (state.playerMagicBarrierMax ?? 0) > 0;
+  const equippedSkillIds = state.v2Skills?.equipped ?? [];
+  const showMutationWeight = equippedSkillIds.includes(
+    "v2c_golem_rocksmash",
+  );
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -762,6 +766,18 @@ export function BattleScene({
               남은 평타 {state.duelistBuff.remainingBasicHits}회 · 현재 기세 +
               {state.duelistBuff.rampPctPerPriorHit * state.duelistBuff.landedBasicHits}%
             </div>
+          </div>
+        )}
+        {showMutationWeight && (
+          <div
+            aria-label="변이 전투 자원"
+            className={`mt-3 flex flex-wrap gap-2 px-3 py-2 text-xs ${SURFACE_INSET}`}
+          >
+            {showMutationWeight && (
+              <span className="font-semibold tabular-nums text-stone-700 dark:text-stone-200">
+                중량 {state.stacks.mutationWeight}/3
+              </span>
+            )}
           </div>
         )}
       </Card>

@@ -9,6 +9,7 @@ import {
   spCostOf,
   orderedLearnedSkills,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 import {
   isSkillRitualFocusEligible,
   isSkillRitualPowerEligible,
@@ -149,6 +150,8 @@ export function combatStatsSection(
         critMult: combat.player.critMult,
         skillCritOverflow: combat.player.skillCritOverflow === true,
         skillCritDmgPct: combat.player.skillCritDmgPct,
+        equipmentMagicSkillCritDmgPct:
+          combat.player.equipmentMagicSkillCritDmgPct,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
         power: derivePowerScore(
           powerInputFromPlayer(combat.player, maxHp, maxMp),
@@ -368,6 +371,11 @@ export function loadoutSection(params: {
   const prof = parseProficiencyForChar(proficiencyRaw, charSave);
   const skillsState = parseV2SkillsState(skillsRaw);
   const equippedSet = new Set<string>(skillsState.equipped);
+  const resonance = resolveElementalResonanceLoadout({
+    learned: skillsState.learned,
+    equipped: skillsState.equipped,
+  });
+  const absorbedSet = new Set(resonance.absorbedSkillIds);
   const collectionBonus = codexSpBonusFromRaw(fishingCodexRaw);
   const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
   const spBudgetGroups = Object.fromEntries(
@@ -395,7 +403,7 @@ export function loadoutSection(params: {
   });
   const milestoneSp = groups.reduce((sum, g) => sum + g.milestoneSp, 0);
   const masteryBonusSp = groups.reduce((sum, g) => sum + g.masteryBonusSp, 0);
-  let spUsed = 0;
+  const spUsed = resonance.spUsed;
   const favoriteSet = new Set<string>(skillsState.favoriteSkills ?? []);
   const library = orderedLearnedSkills(
     skillsState.learned,
@@ -407,11 +415,25 @@ export function loadoutSection(params: {
       const equipped = equippedSet.has(id);
       const ritualLevel = skillRitualLevel(skillsState.enhancements, id);
       const ritualMode = skillRitualMode(skillsState.enhancements, id);
-      if (equipped) spUsed += spCostOf(def);
+      const baseSpCost = spCostOf(def);
+      const effectiveSpCost = equipped
+        ? resonance.effectiveSpCosts.get(id)
+        : undefined;
+      const resonanceRole = equipped
+        ? resonance.catalystActive && id === "v2c_elementallord_surge"
+          ? "catalyst"
+          : absorbedSet.has(id)
+            ? "material"
+            : "inactive"
+        : undefined;
       return {
         skillId: id,
         name: def.name,
-        spCost: spCostOf(def),
+        spCost: baseSpCost,
+        ...(effectiveSpCost !== undefined && effectiveSpCost !== baseSpCost
+          ? { effectiveSpCost }
+          : {}),
+        ...(resonanceRole ? { resonanceRole } : {}),
         category: def.category,
         equipped,
         favorite: favoriteSet.has(id),

@@ -12,6 +12,11 @@ describe("job roadmap model", () => {
 
     expect(root.name).toBe("시작");
     expect(root.children.map((node) => node.id)).toContain("none");
+    const mutant = root.children.find((node) => node.id === "mutant");
+    expect(mutant?.children.map((node) => node.id)).toEqual([
+      "beastkin",
+      "golem",
+    ]);
     expect(nodes.find((node) => node.id === "squire")?.prereqText).toContain(
       "숙련도",
     );

@@ -44,15 +44,13 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(p.log.at(-1)).toMatchObject({ text: "줄 499" });
   });
 
-  it("배치 응답은 지정한 로그 상한만 인라인으로 보존한다", () => {
-    const p = toReplayPayload(fixture(500), { logCap: 80 });
+  it("배치 저장 전 페이로드는 생략 안내 없이 전체 로그를 보존한다", () => {
+    const p = toReplayPayload(fixture(500));
 
-    expect(p.log).toHaveLength(81);
-    expect(p.log[0]).toMatchObject({
-      kind: "info",
-      text: "앞선 턴 기록 생략 (긴 전투)",
-    });
+    expect(p.log).toHaveLength(500);
+    expect(p.log[0]).toMatchObject({ text: "줄 0" });
     expect(p.log.at(-1)).toMatchObject({ text: "줄 499" });
+    expect(p.log.some((entry) => entry.text.includes("생략"))).toBe(false);
   });
 
   it("별도 저장 참조는 메타와 replayId를 유지하고 인라인 로그만 비운다", () => {
@@ -302,8 +300,14 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       enemyMaxHp: 450,
       enemyMp: 25,
       enemyMaxMp: 80,
-      playerSignatureResources: { pursuitMarks: 4 },
-      enemySignatureResources: { arcaneOverload: 75 },
+      playerSignatureResources: {
+        pursuitMarks: 4,
+        lawInscriptions: "4/8 · 공격 2 · 환류 2",
+      },
+      enemySignatureResources: {
+        arcaneOverload: 75,
+        lawInscriptions: "3/8 · 침식 2 · 수호 1",
+      },
     };
     const p = toPvpReplayPayloadForSide(
       pvpFinal([
@@ -326,8 +330,14 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       enemyMaxHp: 600,
       enemyMp: 40,
       enemyMaxMp: 100,
-      playerSignatureResources: { arcaneOverload: 75 },
-      enemySignatureResources: { pursuitMarks: 4 },
+      playerSignatureResources: {
+        arcaneOverload: 75,
+        lawInscriptions: "3/8 · 침식 2 · 수호 1",
+      },
+      enemySignatureResources: {
+        pursuitMarks: 4,
+        lawInscriptions: "4/8 · 공격 2 · 환류 2",
+      },
     });
     expect(p.enemy).toEqual({ name: "공격자", hp: 600 });
     expect(p.playerMaxHp).toBe(450);

@@ -1,6 +1,7 @@
 "use client";
 
 import { FishingView } from "./FishingView";
+import { useGameState } from "./GameStateProvider";
 import { useFishing } from "./useFishing";
 import {
   DEFAULT_FISHING_SPOT_ID,
@@ -29,10 +30,12 @@ export function FishingPanel({
   spotId?: FishingSpotId;
 }) {
   const handlers = useFishing(spotId);
+  const { setFishingActive } = useGameState();
   const spot = FISHING_SPOTS[spotId];
   return (
     <FishingView
       {...handlers}
+      onFishingActiveChange={setFishingActive}
       fishingSpot={spot}
       onBack={onBack}
       onOpenLeaderboard={onOpenLeaderboard}

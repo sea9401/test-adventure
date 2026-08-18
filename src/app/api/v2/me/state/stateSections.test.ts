@@ -51,6 +51,23 @@ describe("combatStatsSection", () => {
       healMult: 1.2744,
     });
   });
+
+  it("원초 증폭의 장비 치명타 변환값을 캐릭터 전투 스탯에 전달한다", () => {
+    const combat = {
+      player: {
+        atk: 10,
+        def: 8,
+        spd: 7,
+        equipmentMagicSkillCritDmgPct: 29.5102,
+      },
+    } as unknown as NonNullable<
+      Parameters<typeof combatStatsSection>[0]
+    >;
+
+    expect(combatStatsSection(combat, 100, 50)).toMatchObject({
+      equipmentMagicSkillCritDmgPct: 29.5102,
+    });
+  });
 });
 
 describe("frontierDepthOf", () => {
@@ -123,6 +140,34 @@ describe("loadoutSection — 직업 SP 산식 전환", () => {
         removedSkillIds: ["v2c_mage_fireball"],
       },
     });
+  });
+
+  it("근원 촉매 구성의 유효 SP와 재료·촉매 메타데이터를 직렬화한다", () => {
+    const equipped = [
+      "v2c_firemage_inferno",
+      "v2c_frostmage_glacier",
+      "v2c_lightningmage_thunderbolt",
+      "v2c_windmage_tempest",
+      "v2c_earthmage_tectonic",
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+      "v2c_elementallord_surge",
+    ] as const;
+    const section = loadoutSection({
+      charSave: { class: "warrior", level: 100 },
+      proficiencyRaw: {},
+      skillsRaw: { learned: equipped, equipped },
+      fishingCodexRaw: {},
+      equipmentCodexSpBonus: 0,
+    });
+
+    expect(section.spUsed).toBe(37);
+    expect(
+      section.library.find((row) => row.skillId === "v2c_firemage_inferno"),
+    ).toMatchObject({ spCost: 8, effectiveSpCost: 2, resonanceRole: "material" });
+    expect(
+      section.library.find((row) => row.skillId === "v2c_elementallord_surge"),
+    ).toMatchObject({ spCost: 16, effectiveSpCost: 2, resonanceRole: "catalyst" });
   });
 });
 

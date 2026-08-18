@@ -90,7 +90,7 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('value="100"');
   });
 
-  it("성채 자원 조건은 충격·철벽 반사와 비교 기준을 표시한다", () => {
+  it("전투 자원 조건은 충격·철벽 반사·각인·중량만 표시한다", () => {
     const html = renderToStaticMarkup(
       <ConditionParams
         condition={{
@@ -111,10 +111,34 @@ describe("combat pattern choice controls", () => {
         }}
         onChange={vi.fn()}
       />,
+    ) + renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "self_resource",
+          resource: "inscription",
+          op: "atLeast",
+          value: 4,
+        }}
+        onChange={vi.fn()}
+      />,
+    ) + renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "self_resource",
+          resource: "weight",
+          op: "atLeast",
+          value: 3,
+        }}
+        onChange={vi.fn()}
+      />,
     );
 
     expect(html).toContain("충격");
     expect(html).toContain("철벽 반사");
+    expect(html).toContain("각인 총합");
+    expect(html).toContain("중량");
+    expect(html).not.toContain("분열체");
+    expect(html).toContain('max="8"');
     expect(html).toContain("없을 때");
     expect(html).toContain("이상");
     expect(html).toContain('value="3"');

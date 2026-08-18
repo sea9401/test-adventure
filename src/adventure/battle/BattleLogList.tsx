@@ -1255,7 +1255,18 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   nextDamagePct: "다음 피해",
   nextHealPct: "다음 회복",
   nextShieldPct: "다음 보호막",
+  physicalWard: "금강결계",
+  magicWard: "봉마결계",
+  purificationWard: "정화결계",
+  domainStability: "영역 안정",
+  lawInscriptions: "각인",
 };
+
+const TRIPLE_WARD_RESOURCE_KEYS = new Set([
+  "physicalWard",
+  "magicWard",
+  "purificationWard",
+]);
 
 const DOMINANT_LABELS: Record<string, string> = {
   gravity: "중력",
@@ -1280,18 +1291,27 @@ function SignatureResourceChips({
     <div
       className={`flex flex-wrap gap-1 ${align === "right" ? "justify-end" : "justify-start"}`}
     >
-      {entries.map(([key, value]) => (
-        <span
-          key={key}
-          aria-label={`${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${
-            key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value
-          }`}
-          className="rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-800 sm:text-[10px] dark:bg-violet-950 dark:text-violet-200"
-        >
-          {SIGNATURE_RESOURCE_LABELS[key] ?? key}{" "}
-          {key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value}
-        </span>
-      ))}
+      {entries.map(([key, value]) => {
+        const isTripleWard = TRIPLE_WARD_RESOURCE_KEYS.has(key);
+        const active = !isTripleWard || Number(value) > 0;
+        return (
+          <span
+            key={key}
+            aria-label={`${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${
+              key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value
+            }`}
+            data-active={isTripleWard ? active : undefined}
+            className={`rounded-full px-1.5 py-0.5 text-xs font-semibold sm:text-[10px] ${
+              active
+                ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+                : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+            }`}
+          >
+            {SIGNATURE_RESOURCE_LABELS[key] ?? key}{" "}
+            {key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value}
+          </span>
+        );
+      })}
     </div>
   );
 }

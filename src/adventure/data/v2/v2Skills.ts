@@ -101,16 +101,26 @@ export type V2PassiveSkillEffect = {
   //   PvE/PvP 양쪽 작동(#835 PvP 미러 후). 미지정=무적용(byte-identical).
   /** 받는 피해 -% 가산(방벽) — totalDamageTakenReductionPct 에 합산. */
   damageTakenReductionPct?: number;
+  /** 중독·출혈 등 상태 피해 감소율. 직접 피해에는 적용하지 않는다. */
+  statusDamageReductionPct?: number;
+  /** 대상의 출혈 스택당 직접 물리 스킬 피해 증가율. */
+  bleedPhysicalSkillDamagePctPerStack?: number;
+  /** 현재 중량 스택당 방어력 증가율. */
+  stoneskinDefPctPerWeight?: number;
   /** 마법 방어력 +% 가산(결계술) — magicDef 에 곱연산. */
   magicDefPct?: number;
   /** 전투 초반 마법형 평타 받는 피해 -% 가산(결계술). */
   openingMagicDamageReductionPct?: number;
   /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
   openingMagicDamageReductionPhases?: number;
+  /** 삼중 결계 단계. 1=각 1회, 2=각 3회와 영역 안정. */
+  tripleWardRank?: 1 | 2;
   /** 원소 공명 — 원소 폭주 같은 속성 분기 액티브의 보조 효과를 강화. */
   elementResonance?: boolean;
   /** 각인 증폭 — 각인 해방의 복수 장착 시너지를 강화. */
   inscriptionAmplification?: boolean;
+  /** 법칙 각인 — 문장 해방의 정상 시전을 장착 재료별 전투 각인으로 변환한다. */
+  lawInscription?: boolean;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
   /** 중독 지속 피해 +% 가산(맹독). 부식과 분리해 독 피해에만 적용한다. */
@@ -462,8 +472,16 @@ export type V2SkillDefinition = {
     damageReductionPct: number;
     reflectDefPct: number;
   };
+  /** 시전 성공 시 장착한 삼중 결계를 최대 횟수로 갱신한다. */
+  refreshTripleWards?: boolean;
   /** 적중 시 현재 충격을 모두 소비해 최종 피해를 강화하는 방패 계열 직접 공격. */
   consumesFortressImpact?: boolean;
+  /** 정상 시전 확정 시 현재 법칙 각인을 모두 소비해 동적 효과를 만든다. */
+  consumesLawInscriptions?: boolean;
+  /** 시전 뒤 중량을 얻는 양. 피해 계산에는 시전 전 중량을 사용한다. */
+  mutationWeightGain?: number;
+  /** 현재 중량을 모두 소비하고 스택당 최종 피해를 높이는 비율. */
+  mutationWeightConsumePctPerStack?: number;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -794,9 +812,11 @@ export function skillPowerScore(def: V2SkillDefinition): number {
         (p.openingMagicDamageReductionPct / 10) *
         Math.sqrt((p.openingMagicDamageReductionPhases ?? 3) / 3);
     }
+    if (p.tripleWardRank) mag += p.tripleWardRank === 2 ? 6 : 3;
     // 마커 패시브의 실제 추가 효과는 액티브의 조건부 시너지 쪽에서 절반 가격으로 평가한다.
     if (p.elementResonance) mag += 0.75;
     if (p.inscriptionAmplification) mag += 0.75;
+    if (p.lawInscription) mag += 1;
     // 방어 감소는 여러 직업을 순회해 자유롭게 모을 수 있는 대신 높은 SP 기회비용을 치른다.
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 6;
     // 맹독은 독 계보 안에서 부식과 같은 단계별 선택지다. 각 단계의 명시 SP가
@@ -1033,6 +1053,8 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   immortal: "steady",
   fortressknight: "steady",
   savior: "steady",
+  grandwarder: "steady",
+  lawguardian: "steady",
   myriadvenom: "steady",
   // 큰 한 방·처형·광전 — 한 번의 위력이 높은 대신 조금 덜 발동.
   mage: "burst",
@@ -1054,6 +1076,7 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   arcanist: "burst",
   elementallord: "burst",
   inscriber: "burst",
+  lawweaver: "burst",
   marksman: "burst",
   bloodlord: "burst",
   swordsaint: "burst",
@@ -1115,6 +1138,7 @@ const ACTIVE_SKILL_TEMPO: Partial<Record<V2SkillId, V2SkillTempo>> = {
   v2c_arcanist_burst: "burst",
   v2c_elementallord_surge: "burst",
   v2c_inscriber_release: "burst",
+  v2c_lawweaver_release: "payoff",
   v2c_marksman_shot: "burst",
   v2c_swordsaint_flash: "burst",
   v2c_archmage_collapse: "burst",
@@ -1258,6 +1282,17 @@ function rebalanceEffects(
   scale: number,
 ): readonly V2SkillEffect[] {
   return effects.map((effect) => rebalanceDamageEffect(effect, scale));
+}
+
+/** 런타임에 합성한 효과를 같은 직업 차수 액티브 보정에 정확히 한 번 태운다. */
+export function rebalanceDynamicV2SkillEffects(
+  skillId: V2SkillId,
+  effects: readonly V2SkillEffect[],
+): readonly V2SkillEffect[] {
+  const jobTier = combatJobTierForSkill(skillId);
+  return jobTier == null
+    ? effects
+    : rebalanceEffects(effects, ACTIVE_DAMAGE_SCALE_BY_JOB_TIER[jobTier]);
 }
 
 function rebalanceElementEffects(
@@ -1426,12 +1461,17 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   fortressImpactOnHit: boolean;
   fortressImpactDamagePctPerStack: number;
   fortressDefSkillStatCoefPct: number;
+  lawInscription: boolean;
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
+  statusDamageReductionPct: number;
+  bleedPhysicalSkillDamagePctPerStack: number;
+  stoneskinDefPctPerWeight: number;
   magicDefPct: number;
   openingMagicDamageReductionPct: number;
   openingMagicDamageReductionPhases: number;
+  tripleWardRank: 0 | 1 | 2;
   poisonedEnemyDefReductionPct: number;
   poisonDamagePct: number;
   enemyPhysicalDefReductionPct: number;
@@ -1471,12 +1511,17 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let fortressImpactOnHit = false;
   let fortressImpactDamagePctPerStack = 0;
   let fortressDefSkillStatCoefPct = 0;
+  let lawInscription = false;
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
+  let statusDamageReductionPct = 0;
+  let bleedPhysicalSkillDamagePctPerStack = 0;
+  let stoneskinDefPctPerWeight = 0;
   let magicDefPct = 0;
   let openingMagicDamageReductionPct = 0;
   let openingMagicDamageReductionPhases = 0;
+  let tripleWardRank: 0 | 1 | 2 = 0;
   let poisonedEnemyDefReductionPct = 0;
   let poisonDamagePct = 0;
   let enemyPhysicalDefReductionPct = 0;
@@ -1541,15 +1586,24 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       p.fortressImpactDamagePctPerStack ?? 0,
     );
     fortressDefSkillStatCoefPct += p.fortressDefSkillStatCoefPct ?? 0;
+    if (p.lawInscription) lawInscription = true;
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
+    statusDamageReductionPct += p.statusDamageReductionPct ?? 0;
+    bleedPhysicalSkillDamagePctPerStack +=
+      p.bleedPhysicalSkillDamagePctPerStack ?? 0;
+    stoneskinDefPctPerWeight += p.stoneskinDefPctPerWeight ?? 0;
     magicDefPct += p.magicDefPct ?? 0;
     openingMagicDamageReductionPct += p.openingMagicDamageReductionPct ?? 0;
     openingMagicDamageReductionPhases = Math.max(
       openingMagicDamageReductionPhases,
       p.openingMagicDamageReductionPhases ?? 0,
     );
+    tripleWardRank = Math.max(
+      tripleWardRank,
+      p.tripleWardRank ?? 0,
+    ) as 0 | 1 | 2;
     poisonedEnemyDefReductionPct = combineDefReductionPcts(
       poisonedEnemyDefReductionPct,
       p.poisonedEnemyDefReductionPct ?? 0,
@@ -1606,12 +1660,17 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     fortressImpactOnHit,
     fortressImpactDamagePctPerStack,
     fortressDefSkillStatCoefPct,
+    lawInscription,
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
+    statusDamageReductionPct,
+    bleedPhysicalSkillDamagePctPerStack,
+    stoneskinDefPctPerWeight,
     magicDefPct,
     openingMagicDamageReductionPct,
     openingMagicDamageReductionPhases,
+    tripleWardRank,
     poisonedEnemyDefReductionPct,
     poisonDamagePct,
     enemyPhysicalDefReductionPct,
@@ -2051,6 +2110,14 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
     chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);
+  if (p.statusDamageReductionPct)
+    chips.push(`상태이상 피해 -${p.statusDamageReductionPct}%`);
+  if (p.bleedPhysicalSkillDamagePctPerStack)
+    chips.push(
+      `대상 출혈 스택당 직접 물리 스킬 피해 +${p.bleedPhysicalSkillDamagePctPerStack}% (최대 +20%)`,
+    );
+  if (p.stoneskinDefPctPerWeight)
+    chips.push(`중량당 방어력 +${p.stoneskinDefPctPerWeight}%`);
   if (p.magicDefPct) chips.push(`마법 방어력 +${p.magicDefPct}%`);
   if (p.openingMagicDamageReductionPct)
     chips.push(
@@ -2058,6 +2125,14 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     );
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
+  if (p.lawInscription) chips.push("문장 해방 시 장착 재료별 법칙 각인 생성");
+  if (p.tripleWardRank === 1) {
+    chips.push("삼중 결계 각 1회 · 직접 피해 PvE -45% / PvP -30%");
+  }
+  if (p.tripleWardRank === 2) {
+    chips.push("삼중 결계 각 3회 · 직접 피해 PvE -60% / PvP -40%");
+    chips.push("결계 소모 시 영역 안정 +1 (받는 피해 -4%, 최대 3중첩)");
+  }
   if (p.poisonedEnemyDefReductionPct)
     chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
   if (p.poisonDamagePct) chips.push(`중독 피해 +${p.poisonDamagePct}%`);
@@ -2268,10 +2343,19 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
       `철벽 반사 ${skill.ironWallReflect.charges}회 · 받는 피해 -${skill.ironWallReflect.damageReductionPct}% · 방어력의 ${skill.ironWallReflect.reflectDefPct}% 반사`,
     );
   }
+  if (skill.refreshTripleWards) chips.push("삼중 결계 전부 재전개");
   if (skill.duelistDeclaration) {
     chips.push(...describeDuelistDeclaration(skill.duelistDeclaration));
   }
   if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
+  if (skill.mutationWeightGain) {
+    chips.push(`중량 +${skill.mutationWeightGain} (최대 3)`);
+  }
+  if (skill.mutationWeightConsumePctPerStack) {
+    chips.push(
+      `중량 전부 소모 · 스택당 최종 피해 +${skill.mutationWeightConsumePctPerStack}%`,
+    );
+  }
   if (
     skill.effects.some(
       (payoff) =>

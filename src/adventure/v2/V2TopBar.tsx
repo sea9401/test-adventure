@@ -57,8 +57,10 @@ function LifeActivityStatus({
 
 export function V2TopBar({
   autoGathering,
+  fishingActive,
 }: {
   autoGathering: AutoGatheringStatus | null;
+  fishingActive: boolean;
 }) {
   const activityHref = autoGatheringActivityHref(autoGathering);
 
@@ -92,6 +94,16 @@ export function V2TopBar({
               key={autoGathering?.readyAt}
               status={autoGathering}
             />
+          </Link>
+        ) : fishingActive ? (
+          <Link
+            href="/town/fishing"
+            aria-label="낚시 화면으로 이동"
+            className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          >
+            <span className="text-[10px] font-medium text-emerald-700 sm:text-[11px] dark:text-emerald-300">
+              낚시 중
+            </span>
           </Link>
         ) : (
           <div className="flex h-10 min-w-0 items-center rounded-lg border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-900">

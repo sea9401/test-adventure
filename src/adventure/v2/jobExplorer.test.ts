@@ -243,6 +243,9 @@ describe("jobExplorer tags", () => {
       "guardian",
       "survivor",
       "camper",
+      "mutant",
+      "beastkin",
+      "golem",
     ];
 
     expect(
@@ -260,6 +263,9 @@ describe("jobExplorer tags", () => {
       "caster",
       "survivor",
       "camper",
+      "mutant",
+      "beastkin",
+      "golem",
     ]);
   });
 });

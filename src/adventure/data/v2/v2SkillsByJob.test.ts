@@ -1083,21 +1083,27 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.[0]).toMatchObject({
       requiredSkillId: "v2c_primordialmage_resonance",
     });
+    expect(V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.[1]).toMatchObject({
+      requiredSkillIds: [
+        "v2c_primordialmage_resonance",
+        "v2c_elementallord_surge",
+      ],
+    });
     expect(V2_SKILLS.v2c_primordialmage_resonance.name).toBe("근원공명");
     expect(V2_SKILLS.v2c_primordialmage_resonance.category).toBe("passive");
     expect(V2_SKILLS.v2c_primordialmage_resonance.passive).toMatchObject({
-      statPct: { int: 20, spi: 8 },
-      magicSkillDamagePct: 10,
-      maxMpPct: 14,
+      statPct: { int: 24, spi: 12 },
+      magicSkillDamagePct: 16,
+      maxMpPct: 20,
     });
     expect(V2_SKILLS.v2c_primordialmage_amplification).toMatchObject({
       name: "원초 증폭",
       category: "passive",
       tier: 3,
       learnCost: 12000,
-      spCost: 12,
       passive: { equipmentMagicSkillCritConversion: true },
     });
+    expect(spCostOf(V2_SKILLS.v2c_primordialmage_amplification)).toBe(9);
     expect(
       aggregateEquippedPassives(["v2c_primordialmage_amplification"])
         .equipmentMagicSkillCritConversion,

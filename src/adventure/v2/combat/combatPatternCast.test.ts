@@ -16,6 +16,7 @@ import {
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
 } from "@/adventure/data/v2/v2Skills";
+import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 
 // 전투 패턴이 resolveV2SkillCast 에 주입됐을 때: (1) procChance 은퇴(확정 발동), (2) 조건 게이팅.
 function castInput(
@@ -1360,5 +1361,72 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
     expect(catalyst.castSkillName).toBe("태초의 화염폭풍");
     expect(catalyst.hitDamages).toHaveLength(base.hitDamages.length + 1);
     expect(catalyst.enemyDamage - base.enemyDamage).toBe(28);
+  });
+
+  it("동일 46 SP에서 태초술사 지속 직타는 천궁·흑월 중앙값의 ±10%다", () => {
+    const primordial = [
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+      "v2c_elementallord_surge",
+      ...elemental,
+      "v2c_primordialmage_amplification",
+    ] as const;
+    const heavenlyBow = [
+      "v2c_heavenlybow_orbit",
+      "v2c_heavenlybow_starpath",
+      "v2c_marksman_aim",
+      "v2c_ranger_finesse3",
+      "v2c_archer_agility",
+      "v2c_chief_afterimage",
+      "v2c_assassin_fortune",
+      "v2c_shadow_lethality3",
+    ] as const;
+    const blackMoon = [
+      "v2c_blackmoon_flurry",
+      "v2c_blackmoon_dominion",
+      "v2c_blackmoon_weakpoint3",
+      "v2c_nightshade_cloak",
+    ] as const;
+    const builds = [primordial, heavenlyBow, blackMoon];
+    for (const equipped of builds) {
+      expect(
+        resolveElementalResonanceLoadout({ learned: equipped, equipped }).spUsed,
+      ).toBe(46);
+    }
+
+    const expectedDirectDamage = (equipped: typeof builds[number]) => {
+      const result = resolveV2SkillCast(
+        castInput([...equipped], {
+          attacker: {
+            ...castInput([...equipped]).attacker,
+            atk: 1_000,
+            magicAtk: 1_000,
+            str: 1_000,
+            int: 1_000,
+            dex: 1_000,
+            luk: 1_000,
+            spi: 1_000,
+            allStatTotal: 6_000,
+            maxHp: 10_000,
+            currentHp: 10_000,
+          },
+          target: {
+            ...castInput([...equipped]).target,
+            def: 1_000,
+            magicDef: 1_000,
+            currentHp: 5_000,
+            maxHp: 10_000,
+          },
+        }),
+      );
+      const procChance = V2_SKILLS[result.castSkillId!].procChance ?? 100;
+      return result.enemyDamage * (procChance / 100);
+    };
+    const primordialDamage = expectedDirectDamage(primordial);
+    const comparisonMedian =
+      (expectedDirectDamage(heavenlyBow) + expectedDirectDamage(blackMoon)) / 2;
+
+    expect(primordialDamage).toBeGreaterThanOrEqual(comparisonMedian * 0.9);
+    expect(primordialDamage).toBeLessThanOrEqual(comparisonMedian * 1.1);
   });
 });

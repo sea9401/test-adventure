@@ -75,6 +75,8 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
+  v2DamageAmount,
+  v2MagicBuffMult,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -103,6 +105,7 @@ import {
   effectiveCombatPatternFromEquipped,
   aggregateEquippedPassives,
   isLimitedRecoverySkillId,
+  rebalanceDynamicV2SkillEffects,
   smartDefaultPatternFromEquipped,
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
@@ -184,6 +187,12 @@ import {
   effectiveMutationDef,
   mutationTransitionLogLines,
 } from "./mutationCombat";
+import {
+  formatFrostChillGainLog,
+  formatFrostChillTriggerLog,
+  freezeRawDamage,
+  resolveFrostChillGain,
+} from "./frostChill";
 import {
   applyTier6UniquePvpEvent,
   tier6PvpDotContext,
@@ -280,6 +289,8 @@ export type PvPSideStacks = {
   /** 골렘 변이 — 전투 한정 중량(0..3). */
   mutationWeight: number;
   lawInscriptions?: LawInscriptionState;
+  /** 이 전투자가 상대에게서 받은 한기. */
+  frostChillStacks?: number;
   playerShield: number;
   trackedSetShield?: number;
   evadesRemaining: number;
@@ -3665,6 +3676,7 @@ export function castV2SkillOnAttackerTurnPvP(
     !!sigSkill.hitShock;
   const sigStatusBlock = statusBlockOnce(opp.player.equipSignatures);
   const hasHostileStatus =
+    (landedSkillHits > 0 && result.frostChillGain > 0) ||
     result.enemyDebuffsToApply.length > 0 ||
     result.dotsToApplyToTarget.length > 0 ||
     result.enemyVulnToApply != null ||
@@ -3691,6 +3703,190 @@ export function castV2SkillOnAttackerTurnPvP(
     statusBlockTargetEffects || purificationBlockTargetEffects;
   if (purificationBlockTargetEffects) {
     nextOppTripleWard = consumePurificationWard(nextOppTripleWard).state;
+  }
+  const frostChill = resolveFrostChillGain(
+    opp.stacks.frostChillStacks,
+    !blockHostileStatus && landedSkillHits > 0 ? result.frostChillGain : 0,
+    {
+      damagePct: side.player.freezeDamagePct,
+      delayPct: side.player.freezeDelayPct,
+    },
+  );
+  if (frostChill.requestedGain > 0) {
+    if (frostChill.triggered && result.castSkillId) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: formatFrostChillTriggerLog(),
+        side: who,
+      });
+      const effectiveInt = Math.floor(
+        Math.max(0, side.player.intStat ?? 0) *
+          v2MagicBuffMult(tickedSelfBuffs, tickedSelfDebuffs),
+      );
+      const rawFreezeDamage = freezeRawDamage({
+        int: effectiveInt,
+        maxMp: side.maxMp,
+        damagePct: frostChill.damagePct,
+      });
+      const [tierScaledEffect] = rebalanceDynamicV2SkillEffects(
+        result.castSkillId,
+        [
+          {
+            kind: "damage",
+            statCoef: 0,
+            baseFlat: rawFreezeDamage,
+            scaling: "magic",
+          },
+        ],
+      );
+      const tierScaledRaw =
+        tierScaledEffect?.kind === "damage"
+          ? tierScaledEffect.baseFlat ?? rawFreezeDamage
+          : rawFreezeDamage;
+      const freezeBaseDamage = v2DamageAmount({
+        attackerAtk: 0,
+        attackerMagicAtk: 0,
+        attackerMagicMinDamage: side.player.magicMinDamage,
+        scaling: "magic",
+        targetDef: skillTargetDef(side, opp),
+        targetMagicDef: skillTargetMagicDef(side, opp),
+        statCoef: 0,
+        baseFlat: tierScaledRaw,
+        attackerSelfBuffs: {},
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: opp.v2SelfBuffs,
+        targetSelfDebuffs: opp.v2SelfDebuffs,
+      });
+      const freezeMagicSkillBonus =
+        (side.player.magicSkillDamagePct ?? 0) > 0
+          ? Math.floor(
+              (freezeBaseDamage *
+                (side.player.magicSkillDamagePct ?? 0)) /
+                100,
+            )
+          : 0;
+      const freezeLawVulnBonus =
+        (side.stacks.enemyMagicVulnTurns ?? 0) > 0
+          ? Math.floor(
+              (freezeBaseDamage *
+                (side.stacks.enemyMagicVulnPct ?? 0)) /
+                100,
+            )
+          : 0;
+      const freezeMagicDamage =
+        freezeBaseDamage + freezeMagicSkillBonus + freezeLawVulnBonus;
+      const freezeBeforeMitigation = computeDirectSkillDamage({
+        totalDamage: freezeMagicDamage,
+        magicDamage: freezeMagicDamage,
+        preCriticalMultiplier: skillPreCriticalMultiplier,
+        criticalMultiplier: skillCriticalMultiplier,
+        equipmentMagicCritBonus:
+          Math.max(0, side.player.equipmentMagicSkillCritDmgPct ?? 0) / 100,
+        critical: skillCritFired,
+      });
+      const freezeAfterEvasion = applyEvasionDamageReduction(
+        freezeBeforeMitigation,
+        skillEvasionReductionPct,
+      );
+      skillReflectBase += freezeAfterEvasion;
+      const freezeBarrier = resolveMagicBarrierDamage({
+        rawDamage: freezeBeforeMitigation,
+        durability: nextOppMagicBarrier,
+        absorbPct: opp.player.magicBarrierPvpAbsorbPct,
+        efficiencyPct: opp.player.magicBarrierPvpEfficiencyPct,
+        eligible: true,
+        mitigateBody: (bodyRawDamage) => {
+          if (bodyRawDamage <= 0) return 0;
+          const afterEvasion = applyEvasionDamageReduction(
+            bodyRawDamage,
+            skillEvasionReductionPct,
+          );
+          const damageReductionPct = pvpSideDamageTakenReductionPct(opp);
+          const afterReduction =
+            damageReductionPct > 0
+              ? Math.max(
+                  1,
+                  Math.floor(
+                    afterEvasion * (1 - damageReductionPct / 100),
+                  ),
+                )
+              : afterEvasion;
+          const stabilityPct = tripleWardStabilityReductionPct(
+            nextOppTripleWard,
+          );
+          const afterStability =
+            stabilityPct > 0
+              ? Math.max(
+                  1,
+                  Math.floor(afterReduction * (1 - stabilityPct / 100)),
+                )
+              : afterReduction;
+          const ward = resolveTripleWardDamage(
+            nextOppTripleWard,
+            "magic",
+            "pvp",
+            [afterStability],
+          );
+          nextOppTripleWard = ward.state;
+          if (ward.consumed) {
+            nextLog = appendLog(nextLog, {
+              kind: "info",
+              text: `[${TRIPLE_WARD_LABELS.magic}] ${opp.name} 직접 마법 피해 ${ward.reductionPct}% 감소 (${ward.remaining}회 남음)`,
+              side: otherKey,
+            });
+          }
+          return scalePvPDamage(st, ward.totalDamage);
+        },
+      });
+      nextOppMagicBarrier = freezeBarrier.durabilityLeft;
+      const freezeShieldAbsorbed = Math.min(
+        nextOppShield,
+        freezeBarrier.hpBoundDamage,
+      );
+      nextOppShield -= freezeShieldAbsorbed;
+      const freezeHpDamage = Math.min(
+        nextOppHp,
+        freezeBarrier.hpBoundDamage - freezeShieldAbsorbed,
+      );
+      nextOppHp -= freezeHpDamage;
+      skillDamageToHp += freezeHpDamage;
+      tier6SkillHitDamages.push(freezeBarrier.hpBoundDamage);
+      if (freezeBarrier.absorbedDamage > 0) {
+        for (const entry of magicBarrierCombatLogEntries({
+          bodyRawDamage: 0,
+          mitigatedBodyDamage: 0,
+          absorbedDamage: freezeBarrier.absorbedDamage,
+          spillDamage: 0,
+          hpBoundDamage: 0,
+          durabilitySpent: freezeBarrier.durabilitySpent,
+          durabilityLeft: freezeBarrier.durabilityLeft,
+          destroyed: freezeBarrier.destroyed,
+        })) {
+          nextLog = appendLog(nextLog, { ...entry, side: otherKey });
+        }
+      }
+      if (freezeShieldAbsorbed > 0) {
+        nextLog = appendLog(nextLog, {
+          kind: "info",
+          text: `[철벽] ${opp.name} 보호막이 ${freezeShieldAbsorbed} 흡수 (남은 ${nextOppShield})`,
+          side: otherKey,
+        });
+      }
+      nextLog = appendLog(nextLog, {
+        kind: "player_attack",
+        text: `빙결!${skillCritFired ? " [치명타]" : ""} ${freezeHpDamage} 피해를 입혔다.`,
+        side: who,
+      });
+    } else {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: formatFrostChillGainLog(
+          frostChill.requestedGain,
+          frostChill.next,
+        ),
+        side: who,
+      });
+    }
   }
   const activeSkillCritSpdMult =
     side.buffs.playerSpdTurnsLeft > 0 ? side.buffs.playerSpdMult : 1;
@@ -4520,6 +4716,9 @@ export function castV2SkillOnAttackerTurnPvP(
       playerShield: nextOppShield,
       braceDefBonus: nextOppBraceDefBonus,
       magicVulnStacks: nextOppMagicVuln,
+      ...(!blockHostileStatus && frostChill.requestedGain > 0
+        ? { frostChillStacks: frostChill.next }
+        : {}),
       // 화상 부착 — 시전자가 상대에게 회복 감소 디버프. 상대는 자기 턴(cast hook)에 turns 감소.
       healReducePct: !blockHostileStatus && result.enemyHealReduceToApply
         ? result.enemyHealReduceToApply.pct
@@ -4581,6 +4780,7 @@ export function castV2SkillOnAttackerTurnPvP(
     : Math.max(
         result.enemyDelayToApply?.pct ?? 0,
         crossover?.enemyDelayPct ?? 0,
+        frostChill.triggered ? frostChill.delayPct : 0,
       );
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);

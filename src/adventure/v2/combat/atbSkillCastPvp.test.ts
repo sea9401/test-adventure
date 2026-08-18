@@ -25,6 +25,7 @@ import type {
   V2SkillId,
   V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { actionInterval } from "./combatTimeline";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -52,6 +53,64 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("빙점 지배 빙결은 상대의 예약된 다음 행동을 정확히 40% 미룬다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const speed = 30;
+    const res = resolveBattlePvP(
+      {
+        ...caster,
+        hp: 100_000,
+        maxHp: 100_000,
+        atk: 100,
+        magicAtk: 100,
+        intStat: 100,
+        maxMp: 1_000,
+        mp: 100_000,
+        spd: speed,
+        freezeDamagePct: 50,
+        freezeDelayPct: 40,
+      },
+      {
+        ...target,
+        hp: 100_000,
+        maxHp: 100_000,
+        atk: 1,
+        def: 0,
+        magicDef: 0,
+        spd: speed,
+      },
+      "P1",
+      "P2",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: { p1: {}, p2: {} },
+        maxTurns: 6,
+        v2Skills: {
+          p1: {
+            learned: ["v2c_cryomancer_absolutezero"],
+            equipped: ["v2c_cryomancer_absolutezero"],
+          },
+        },
+      } as never,
+    );
+    const p2Ticks = res.finalState.log
+      .filter(
+        (entry) =>
+          entry.kind === "player_attack" &&
+          entry.side === "p2" &&
+          entry.text.startsWith("공격!"),
+      )
+      .map((entry) => entry.t)
+      .filter((tick): tick is number => typeof tick === "number");
+    const interval = actionInterval(speed);
+
+    expect(p2Ticks.slice(0, 3)).toEqual([
+      0,
+      interval,
+      interval * 2.4,
+    ]);
+  });
+
   it("검영은 PvP에서 상대의 다음 행동 종료 뒤 보호막보다 먼저 실현된다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const skills: V2SkillsState = {

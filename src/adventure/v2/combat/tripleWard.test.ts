@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   consumePurificationWard,
   initialTripleWardState,
+  mergeTripleWardResourceSnapshot,
   refreshTripleWardState,
   resolveTripleWardDamage,
   tripleWardResourceSnapshot,
@@ -107,11 +108,20 @@ describe("삼중 결계", () => {
 
   it("전투 자원 스냅샷은 결계 미사용 전투에서는 생략한다", () => {
     expect(tripleWardResourceSnapshot(initialTripleWardState(0))).toBeNull();
+    expect(
+      mergeTripleWardResourceSnapshot(undefined, initialTripleWardState(0)),
+    ).toBeUndefined();
     expect(tripleWardResourceSnapshot(initialTripleWardState(2))).toEqual({
       physicalWard: 3,
       magicWard: 3,
       purificationWard: 3,
       domainStability: 0,
     });
+    expect(
+      mergeTripleWardResourceSnapshot(
+        { arcaneOverload: 75 },
+        initialTripleWardState(1),
+      ),
+    ).toMatchObject({ arcaneOverload: 75, physicalWard: 1 });
   });
 });

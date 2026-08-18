@@ -1588,3 +1588,20 @@ describe("태초술사 공명 개편", () => {
     ]);
   });
 });
+
+describe("삼중 결계 스킬 안내", () => {
+  it("패시브 단계별 충전량·감소율과 만법불침 재전개를 상세 칩에 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_grandwarder_tripleward)).toContain(
+      "삼중 결계 각 1회 · 직접 피해 PvE -45% / PvP -30%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_lawguardian_domain)).toEqual(
+      expect.arrayContaining([
+        "삼중 결계 각 3회 · 직접 피해 PvE -60% / PvP -40%",
+        "결계 소모 시 영역 안정 +1 (받는 피해 -4%, 최대 3중첩)",
+      ]),
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_lawguardian_inviolable)).toContain(
+      "삼중 결계 전부 재전개",
+    );
+  });
+});

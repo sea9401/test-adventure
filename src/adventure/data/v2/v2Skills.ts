@@ -2072,6 +2072,13 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     );
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
+  if (p.tripleWardRank === 1) {
+    chips.push("삼중 결계 각 1회 · 직접 피해 PvE -45% / PvP -30%");
+  }
+  if (p.tripleWardRank === 2) {
+    chips.push("삼중 결계 각 3회 · 직접 피해 PvE -60% / PvP -40%");
+    chips.push("결계 소모 시 영역 안정 +1 (받는 피해 -4%, 최대 3중첩)");
+  }
   if (p.poisonedEnemyDefReductionPct)
     chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
   if (p.poisonDamagePct) chips.push(`중독 피해 +${p.poisonDamagePct}%`);
@@ -2282,6 +2289,7 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
       `철벽 반사 ${skill.ironWallReflect.charges}회 · 받는 피해 -${skill.ironWallReflect.damageReductionPct}% · 방어력의 ${skill.ironWallReflect.reflectDefPct}% 반사`,
     );
   }
+  if (skill.refreshTripleWards) chips.push("삼중 결계 전부 재전개");
   if (skill.duelistDeclaration) {
     chips.push(...describeDuelistDeclaration(skill.duelistDeclaration));
   }

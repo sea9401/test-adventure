@@ -26,6 +26,7 @@ import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
 import { tickV2BuffMap } from "./combatShared";
 import { enterShockAction } from "./shockAction";
+import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 import {
   pickPvpInitiative,
   type PvPInitiativeActor,
@@ -37,6 +38,14 @@ export const PVP_ATB_TICK_CAP = 3_000;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
+  const playerResources = mergeTripleWardResourceSnapshot(
+    activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
+    state.p1.stacks.tripleWard,
+  );
+  const enemyResources = mergeTripleWardResourceSnapshot(
+    activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
+    state.p2.stacks.tripleWard,
+  );
   return {
     kind: "hp_bar",
     text: "",
@@ -53,18 +62,14 @@ function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
     playerMagicBarrierMax: state.p1.maxMagicBarrier,
     enemyMagicBarrier: state.p2.magicBarrier,
     enemyMagicBarrierMax: state.p2.maxMagicBarrier,
-    ...(activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques)
+    ...(playerResources
       ? {
-          playerSignatureResources: activeTier6ResourceSnapshot(
-            state.p1.stacks.tier6Uniques,
-          ),
+          playerSignatureResources: playerResources,
         }
       : {}),
-    ...(activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques)
+    ...(enemyResources
       ? {
-          enemySignatureResources: activeTier6ResourceSnapshot(
-            state.p2.stacks.tier6Uniques,
-          ),
+          enemySignatureResources: enemyResources,
         }
       : {}),
   };

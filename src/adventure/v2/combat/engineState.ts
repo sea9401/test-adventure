@@ -4,6 +4,7 @@ import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 import type { Potion, PotionId } from "@/adventure/data/potions";
 import type { APSkill, APSkillCondition } from "@/adventure/character/apSkills";
 import type { Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
+import type { TripleWardState } from "./tripleWard";
 
 export type BattleLogEntry =
   | {
@@ -180,6 +181,8 @@ export type BattleBuffs = {
 
 // 가변 자원 스택 / 잔량 카운트.
 export type BattleStacks = {
+  /** 대결계사·만법수호자 전용 삼중 결계와 영역 안정 상태. */
+  tripleWard: TripleWardState;
   // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.
   fortressImpact: number;
   ironWallReflectCharges: number;

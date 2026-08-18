@@ -163,3 +163,12 @@ export function tripleWardResourceSnapshot(
     ...(state.rank === 2 ? { domainStability: state.stabilityStacks } : {}),
   };
 }
+
+export function mergeTripleWardResourceSnapshot(
+  base: Record<string, number | string> | null | undefined,
+  state: TripleWardState,
+): Record<string, number | string> | undefined {
+  const ward = tripleWardResourceSnapshot(state);
+  if (!base && !ward) return undefined;
+  return { ...(base ?? {}), ...(ward ?? {}) };
+}

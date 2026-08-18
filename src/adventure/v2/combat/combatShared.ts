@@ -695,6 +695,8 @@ export type V2SkillCastResult = {
   fortressImpactToConsume: number;
   /** 철벽 태세 시전 시 전투 엔진이 갱신할 전용 반사 상태. */
   ironWallReflectToApply?: NonNullable<V2SkillDefinition["ironWallReflect"]>;
+  /** 만법불침 시전 성공 시 삼중 결계를 최대 횟수로 갱신한다. */
+  refreshTripleWards?: boolean;
 };
 
 /** 직접 피해뿐 아니라 DoT·약화·제어처럼 상대에게 적중해야 하는 효과가 있는지 판정한다. */
@@ -1780,6 +1782,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     berserkerTransition,
     fortressImpactToConsume,
     ironWallReflectToApply: def.ironWallReflect,
+    refreshTripleWards: def.refreshTripleWards,
   };
 }
 

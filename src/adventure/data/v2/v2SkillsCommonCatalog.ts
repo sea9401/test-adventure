@@ -2021,7 +2021,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { healPowerPct: 25, maxHpPct: 12, damageTakenReductionPct: 5 },
   },
   v2c_grandwarder_eightgate: {
-    id: "v2c_grandwarder_eightgate", name: "팔문금쇄진", stat: "spi", category: "buff", tier: 3,
+    id: "v2c_grandwarder_eightgate", name: "팔문금쇄진", stat: "int", category: "buff", tier: 3,
     description: "여덟 방위의 문을 잠가 보호막을 두르고, 3행동 동안 받는 피해를 줄인다.",
     mpCost: 56, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
@@ -2030,7 +2030,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_grandwarder_tripleward: {
-    id: "v2c_grandwarder_tripleward", name: "삼중결계", stat: "spi", category: "passive", tier: 3,
+    id: "v2c_grandwarder_tripleward", name: "삼중결계", stat: "int", category: "passive", tier: 3,
     description: "전투 시작 시 직접 물리 피해를 막는 금강결계, 직접 마법 피해를 막는 봉마결계, 새 상태이상을 막는 정화결계를 각각 1회 전개한다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
@@ -2390,7 +2390,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { healPowerPct: 35, maxHpPct: 18, damageTakenReductionPct: 8 },
   },
   v2c_lawguardian_inviolable: {
-    id: "v2c_lawguardian_inviolable", name: "만법불침", stat: "spi", category: "buff", tier: 3,
+    id: "v2c_lawguardian_inviolable", name: "만법불침", stat: "int", category: "buff", tier: 3,
     description: "전투당 한 번, 모든 결계를 다시 세우고 강한 보호막과 피해 저항을 3행동 동안 얻는다.",
     mpCost: 84, fixedMpCost: 210, cooldown: 0, procChance: 100, learnCost: 12000,
     oncePerBattle: true,
@@ -2401,7 +2401,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_lawguardian_domain: {
-    id: "v2c_lawguardian_domain", name: "만법수호영역", stat: "spi", category: "passive", tier: 3,
+    id: "v2c_lawguardian_domain", name: "만법수호영역", stat: "int", category: "passive", tier: 3,
     description: "삼중 결계를 각각 3회 전개한다. 결계가 소모될 때마다 전투 동안 영역 안정이 쌓여 받는 피해가 감소한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],

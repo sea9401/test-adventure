@@ -4,6 +4,7 @@ import {
   effectiveCombatPatternFromEquipped,
   smartDefaultPatternFromEquipped,
   aggregateEquippedPassives,
+  rebalanceDynamicV2SkillEffects,
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
 import {
@@ -38,6 +39,8 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
   v2DotLogCause,
+  v2DamageAmount,
+  v2MagicBuffMult,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -163,6 +166,12 @@ import {
   effectiveMutationDef,
   mutationTransitionLogLines,
 } from "./mutationCombat";
+import {
+  formatFrostChillGainLog,
+  formatFrostChillTriggerLog,
+  freezeRawDamage,
+  resolveFrostChillGain,
+} from "./frostChill";
 
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
@@ -3031,6 +3040,107 @@ export function applyPlayerV2SkillCast(
       });
     }
   }
+  const frostChill = resolveFrostChillGain(
+    state.stacks.enemyFrostChillStacks,
+    landedSkillHits > 0 ? result.frostChillGain : 0,
+    {
+      damagePct: player.freezeDamagePct,
+      delayPct: player.freezeDelayPct,
+    },
+  );
+  let freezeDamage = 0;
+  if (landedSkillHits > 0 && frostChill.requestedGain > 0) {
+    if (frostChill.triggered && result.castSkillId) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: formatFrostChillTriggerLog(),
+        turn: "player",
+      });
+      const effectiveInt = Math.floor(
+        Math.max(0, player.intStat ?? 0) *
+          v2MagicBuffMult(tickedSelfBuffs, tickedSelfDebuffs),
+      );
+      const rawFreezeDamage = freezeRawDamage({
+        int: effectiveInt,
+        maxMp: state.playerMaxMp,
+        damagePct: frostChill.damagePct,
+      });
+      const [tierScaledEffect] = rebalanceDynamicV2SkillEffects(
+        result.castSkillId,
+        [
+          {
+            kind: "damage",
+            statCoef: 0,
+            baseFlat: rawFreezeDamage,
+            scaling: "magic",
+          },
+        ],
+      );
+      const tierScaledRaw =
+        tierScaledEffect?.kind === "damage"
+          ? tierScaledEffect.baseFlat ?? rawFreezeDamage
+          : rawFreezeDamage;
+      const freezeBaseDamage = v2DamageAmount({
+        attackerAtk: 0,
+        attackerMagicAtk: 0,
+        attackerMagicMinDamage: player.magicMinDamage,
+        scaling: "magic",
+        targetDef: playerSkillTargetDef(state, player),
+        targetMagicDef: playerSkillTargetMagicDef(state, player),
+        statCoef: 0,
+        baseFlat: tierScaledRaw,
+        attackerSelfBuffs: {},
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: state.enemyV2SelfBuffs,
+        targetSelfDebuffs: tickedEnemyDebuffs,
+      });
+      const freezeMagicSkillBonus =
+        (player.magicSkillDamagePct ?? 0) > 0
+          ? Math.floor(
+              (freezeBaseDamage * (player.magicSkillDamagePct ?? 0)) / 100,
+            )
+          : 0;
+      const freezeLawVulnBonus =
+        (state.stacks.enemyMagicVulnTurns ?? 0) > 0
+          ? Math.floor(
+              (freezeBaseDamage *
+                (state.stacks.enemyMagicVulnPct ?? 0)) /
+                100,
+            )
+          : 0;
+      const freezeMagicDamage =
+        freezeBaseDamage + freezeMagicSkillBonus + freezeLawVulnBonus;
+      freezeDamage = applyEvasionDamageReduction(
+        computeDirectSkillDamage({
+          totalDamage: freezeMagicDamage,
+          magicDamage: freezeMagicDamage,
+          preCriticalMultiplier: skillPreCriticalMultiplier,
+          criticalMultiplier: skillCriticalMultiplier,
+          equipmentMagicCritBonus:
+            Math.max(0, player.equipmentMagicSkillCritDmgPct ?? 0) / 100,
+          critical: skillCritFired,
+        }),
+        skillEvasionReductionPct,
+      );
+      nextEnemyHp = Math.max(0, nextEnemyHp - freezeDamage);
+      if (freezeDamage > 0) {
+        tier6SkillHitDamages.push(freezeDamage);
+        nextLog = appendLog(nextLog, {
+          kind: "player_attack",
+          text: `빙결!${skillCritFired ? " [치명타]" : ""} ${freezeDamage} 피해를 입혔다.`,
+        });
+      }
+    } else {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: formatFrostChillGainLog(
+          frostChill.requestedGain,
+          frostChill.next,
+        ),
+        turn: "player",
+      });
+    }
+  }
   const sigSkill = resolveOffensiveSignatureTriggers(
     player.equipSignatures,
     {
@@ -3695,6 +3805,9 @@ export function applyPlayerV2SkillCast(
         state.stacks.fortressImpact - result.fortressImpactToConsume,
       ),
       mutationWeight: result.mutationTransition.weightAfter,
+      ...(landedSkillHits > 0 && frostChill.requestedGain > 0
+        ? { enemyFrostChillStacks: frostChill.next }
+        : {}),
       ironWallReflectCharges:
         result.ironWallReflectToApply?.charges ??
         state.stacks.ironWallReflectCharges,
@@ -3795,6 +3908,7 @@ export function applyPlayerV2SkillCast(
     enemyDelayPct: Math.max(
       result.enemyDelayToApply?.pct ?? 0,
       crossover?.enemyDelayPct ?? 0,
+      frostChill.triggered ? frostChill.delayPct : 0,
     ),
   };
 }

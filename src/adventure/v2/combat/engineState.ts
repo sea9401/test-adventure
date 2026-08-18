@@ -237,6 +237,8 @@ export type BattleStacks = {
   mutationWeight: number;
   /** 법칙술사 전투 한정 각인. 패시브 미보유·기존 상태에서는 생략한다. */
   lawInscriptions?: LawInscriptionState;
+  /** 플레이어가 현재 적에게 누적한 한기. 기존 몬스터→플레이어 chillStacks와 별개다. */
+  enemyFrostChillStacks?: number;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
   // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
   // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.

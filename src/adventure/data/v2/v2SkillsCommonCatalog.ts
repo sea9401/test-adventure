@@ -209,6 +209,8 @@ export type V2CommonSkillId =
   | "v2c_archbishop_grace" // 성직 권위 (회복 + 최대 HP)
   | "v2c_spellsealer_sealingfield" // 봉마진 (적 공격·스킬 발동 봉쇄)
   | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
+  | "v2c_grandwarder_eightgate" // 팔문금쇄진 (보호막 + 받는 피해 감소)
+  | "v2c_grandwarder_tripleward" // 삼중결계 (금강·봉마·정화 결계)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
   | "v2c_warden_aegis" // 수호의 도발 (상대의 즉시 기본 공격 2회 유도)
   | "v2c_warden_thorns" // 충격 방벽 (직접 공격 피격 시 충격 축적)
@@ -277,6 +279,8 @@ export type V2CommonSkillId =
   | "v2c_primordialmage_amplification" // 원초 증폭 (장비 치명타 배율 → 마법 스킬 치명타 배율)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
+  | "v2c_lawguardian_inviolable" // 만법불침 (삼중 결계 갱신)
+  | "v2c_lawguardian_domain" // 만법수호영역 (강화 삼중 결계)
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
   | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + 궤도 마무리)
@@ -2016,6 +2020,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { healPowerPct: 25, maxHpPct: 12, damageTakenReductionPct: 5 },
   },
+  v2c_grandwarder_eightgate: {
+    id: "v2c_grandwarder_eightgate", name: "팔문금쇄진", stat: "spi", category: "buff", tier: 3,
+    description: "여덟 방위의 문을 잠가 보호막을 두르고, 3행동 동안 받는 피해를 줄인다.",
+    mpCost: 56, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
+    effects: [
+      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+    ],
+  },
+  v2c_grandwarder_tripleward: {
+    id: "v2c_grandwarder_tripleward", name: "삼중결계", stat: "spi", category: "passive", tier: 3,
+    description: "전투 시작 시 직접 물리 피해를 막는 금강결계, 직접 마법 피해를 막는 봉마결계, 새 상태이상을 막는 정화결계를 각각 1회 전개한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    exclusiveGroup: "triple_ward",
+    exclusiveRank: 1,
+    passive: { tripleWardRank: 1 },
+  },
   v2c_plaguebringer_outbreak: {
     id: "v2c_plaguebringer_outbreak", name: "역병 창궐", stat: "luk", category: "attack", tier: 3,
     description: "역병을 퍼뜨려 중독을 깊게 쌓고 한꺼번에 터뜨린다.",
@@ -2366,6 +2388,26 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { healPowerPct: 35, maxHpPct: 18, damageTakenReductionPct: 8 },
+  },
+  v2c_lawguardian_inviolable: {
+    id: "v2c_lawguardian_inviolable", name: "만법불침", stat: "spi", category: "buff", tier: 3,
+    description: "전투당 한 번, 모든 결계를 다시 세우고 강한 보호막과 피해 저항을 3행동 동안 얻는다.",
+    mpCost: 84, fixedMpCost: 210, cooldown: 0, procChance: 100, learnCost: 12000,
+    oncePerBattle: true,
+    refreshTripleWards: true,
+    effects: [
+      { kind: "shield", pctMaxHp: 24, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 18, turns: 3 },
+    ],
+  },
+  v2c_lawguardian_domain: {
+    id: "v2c_lawguardian_domain", name: "만법수호영역", stat: "spi", category: "passive", tier: 3,
+    description: "삼중 결계를 각각 3회 전개한다. 결계가 소모될 때마다 전투 동안 영역 안정이 쌓여 받는 피해가 감소한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    exclusiveGroup: "triple_ward",
+    exclusiveRank: 2,
+    passive: { tripleWardRank: 2 },
   },
   v2c_doomprophet_sentence: {
     id: "v2c_doomprophet_sentence", name: "종말 선고", stat: "int", category: "attack", tier: 3,

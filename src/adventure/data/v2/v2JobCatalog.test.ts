@@ -127,6 +127,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   marksman: "chief",
   nightshade: "phantom",
   saint: "archbishop",
+  grandwarder: "spellsealer",
   plaguebringer: "venomlord",
   dragonfist: "sensei",
   adamantmonk: "battlemonk",
@@ -146,6 +147,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   archmage: "arcanist",
   primordialmage: "elementallord",
   savior: "saint",
+  lawguardian: "grandwarder",
   doomprophet: "calamitycaller",
   heavenlybow: "marksman",
   blackmoon: "nightshade",
@@ -217,21 +219,21 @@ describe("jobUnlockSpBonus", () => {
         woodcuttingLevel: 1_000,
         miningLevel: 1_000,
       }),
-    ).toBe(86);
+    ).toBe(87);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("124개 직업(기존 120 + 결투가 계보 4)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(124);
+  it("126개 직업(기존 124 + 봉마사 상위 계보 2)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(126);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(18);
     expect(byTier(3)).toBe(25);
     expect(byTier(4)).toBe(30);
-    expect(byTier(5)).toBe(23);
-    expect(byTier(6)).toBe(22);
+    expect(byTier(5)).toBe(24);
+    expect(byTier(6)).toBe(23);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {

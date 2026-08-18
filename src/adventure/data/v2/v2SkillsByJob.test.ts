@@ -738,6 +738,28 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("5차 직업 = 액티브 1 + 패시브 1", () => {
+    expect(skillsForJob("grandwarder")).toEqual([
+      "v2c_grandwarder_eightgate",
+      "v2c_grandwarder_tripleward",
+    ]);
+    expect(V2_SKILLS.v2c_grandwarder_eightgate).toMatchObject({
+      name: "팔문금쇄진",
+      category: "buff",
+      fixedMpCost: 160,
+      procChance: 100,
+      learnCost: 8000,
+    });
+    expect(V2_SKILLS.v2c_grandwarder_eightgate.effects).toEqual([
+      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_grandwarder_tripleward).toMatchObject({
+      name: "삼중결계",
+      category: "passive",
+      exclusiveGroup: "triple_ward",
+      exclusiveRank: 1,
+      passive: { tripleWardRank: 1 },
+    });
     const KIT: Record<
       string,
       | readonly [V2SkillId, V2SkillId]
@@ -972,6 +994,30 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("6차 직업 = 계열 컨셉을 확장한 액티브 + 패시브", () => {
+    expect(skillsForJob("lawguardian")).toEqual([
+      "v2c_lawguardian_inviolable",
+      "v2c_lawguardian_domain",
+    ]);
+    expect(V2_SKILLS.v2c_lawguardian_inviolable).toMatchObject({
+      name: "만법불침",
+      category: "buff",
+      fixedMpCost: 210,
+      procChance: 100,
+      learnCost: 12000,
+      oncePerBattle: true,
+      refreshTripleWards: true,
+    });
+    expect(V2_SKILLS.v2c_lawguardian_inviolable.effects).toEqual([
+      { kind: "shield", pctMaxHp: 24, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 18, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_lawguardian_domain).toMatchObject({
+      name: "만법수호영역",
+      category: "passive",
+      exclusiveGroup: "triple_ward",
+      exclusiveRank: 2,
+      passive: { tripleWardRank: 2 },
+    });
     expect(skillsForJob("fortressknight")).toEqual([
       "v2c_fortressknight_ram",
       "v2c_fortressknight_citadel",

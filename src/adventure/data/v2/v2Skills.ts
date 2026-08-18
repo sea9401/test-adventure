@@ -107,6 +107,8 @@ export type V2PassiveSkillEffect = {
   openingMagicDamageReductionPct?: number;
   /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
   openingMagicDamageReductionPhases?: number;
+  /** 삼중 결계 단계. 1=각 1회, 2=각 3회와 영역 안정. */
+  tripleWardRank?: 1 | 2;
   /** 원소 공명 — 원소 폭주 같은 속성 분기 액티브의 보조 효과를 강화. */
   elementResonance?: boolean;
   /** 각인 증폭 — 각인 해방의 복수 장착 시너지를 강화. */
@@ -462,6 +464,8 @@ export type V2SkillDefinition = {
     damageReductionPct: number;
     reflectDefPct: number;
   };
+  /** 시전 성공 시 장착한 삼중 결계를 최대 횟수로 갱신한다. */
+  refreshTripleWards?: boolean;
   /** 적중 시 현재 충격을 모두 소비해 최종 피해를 강화하는 방패 계열 직접 공격. */
   consumesFortressImpact?: boolean;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
@@ -794,6 +798,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
         (p.openingMagicDamageReductionPct / 10) *
         Math.sqrt((p.openingMagicDamageReductionPhases ?? 3) / 3);
     }
+    if (p.tripleWardRank) mag += p.tripleWardRank === 2 ? 6 : 3;
     // 마커 패시브의 실제 추가 효과는 액티브의 조건부 시너지 쪽에서 절반 가격으로 평가한다.
     if (p.elementResonance) mag += 0.75;
     if (p.inscriptionAmplification) mag += 0.75;
@@ -1033,6 +1038,8 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   immortal: "steady",
   fortressknight: "steady",
   savior: "steady",
+  grandwarder: "steady",
+  lawguardian: "steady",
   myriadvenom: "steady",
   // 큰 한 방·처형·광전 — 한 번의 위력이 높은 대신 조금 덜 발동.
   mage: "burst",
@@ -1432,6 +1439,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   magicDefPct: number;
   openingMagicDamageReductionPct: number;
   openingMagicDamageReductionPhases: number;
+  tripleWardRank: 0 | 1 | 2;
   poisonedEnemyDefReductionPct: number;
   poisonDamagePct: number;
   enemyPhysicalDefReductionPct: number;
@@ -1477,6 +1485,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let magicDefPct = 0;
   let openingMagicDamageReductionPct = 0;
   let openingMagicDamageReductionPhases = 0;
+  let tripleWardRank: 0 | 1 | 2 = 0;
   let poisonedEnemyDefReductionPct = 0;
   let poisonDamagePct = 0;
   let enemyPhysicalDefReductionPct = 0;
@@ -1550,6 +1559,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       openingMagicDamageReductionPhases,
       p.openingMagicDamageReductionPhases ?? 0,
     );
+    tripleWardRank = Math.max(
+      tripleWardRank,
+      p.tripleWardRank ?? 0,
+    ) as 0 | 1 | 2;
     poisonedEnemyDefReductionPct = combineDefReductionPcts(
       poisonedEnemyDefReductionPct,
       p.poisonedEnemyDefReductionPct ?? 0,
@@ -1612,6 +1625,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     magicDefPct,
     openingMagicDamageReductionPct,
     openingMagicDamageReductionPhases,
+    tripleWardRank,
     poisonedEnemyDefReductionPct,
     poisonDamagePct,
     enemyPhysicalDefReductionPct,

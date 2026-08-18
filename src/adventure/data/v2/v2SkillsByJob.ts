@@ -136,6 +136,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준
   nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak", "v2c_nightshade_weakpoint2"], // 밤그림자: 월식 + 은신 II + 급소 노출 II
   saint: ["v2c_saint_miracle", "v2c_saint_benediction"], // 성자: 기적 + 축복
+  grandwarder: ["v2c_grandwarder_eightgate", "v2c_grandwarder_tripleward"], // 대결계사: 팔문금쇄진 + 삼중결계
   plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay", "v2c_plaguebringer_virulence4"], // 역병 군주: 역병 창궐 + 부식 IV + 맹독 IV
   dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork", "v2c_dragonfist_formationbreak2"], // 권황: 용린파쇄 + 무극보법 + 파진경 II
   adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"], // 금강승: 금강 자세 + 금강불괴
@@ -155,6 +156,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory", "v2c_archmage_magicdismantle3"], // 대마도사: 비전 붕괴 + 대마도 이론 + 마력 해체 III
   primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance", "v2c_primordialmage_amplification"], // 태초술사: 태초회귀 + 근원공명 + 원초 증폭
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총
+  lawguardian: ["v2c_lawguardian_inviolable", "v2c_lawguardian_domain"], // 만법수호자: 만법불침 + 만법수호영역
   doomprophet: ["v2c_doomprophet_sentence", "v2c_doomprophet_revelation"], // 종말예언자: 종말 선고 + 불길한 계시
   heavenlybow: ["v2c_heavenlybow_orbit", "v2c_heavenlybow_starpath"], // 천궁: 천궁궤적 + 성도 조준
   blackmoon: ["v2c_blackmoon_flurry", "v2c_blackmoon_dominion", "v2c_blackmoon_weakpoint3"], // 흑월: 암월난무 + 흑월지배 + 급소 노출 III

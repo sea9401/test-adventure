@@ -34,8 +34,7 @@ export type V2PatternSelfResource =
   | "impact"
   | "ironWallReflect"
   | "inscription"
-  | "weight"
-  | "split";
+  | "weight";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -462,8 +461,7 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.resource === "impact" ||
         c.resource === "ironWallReflect" ||
         c.resource === "inscription" ||
-        c.resource === "weight" ||
-        c.resource === "split"
+        c.resource === "weight"
           ? c.resource
           : null;
       const op =

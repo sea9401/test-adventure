@@ -11,7 +11,7 @@ describe("전투 속도 표시", () => {
 });
 
 describe("좌우 전투 상태 정렬", () => {
-  it("관련 변이 스킬을 장착했을 때만 현재 중량·분열체를 표시한다", () => {
+  it("암석 강타를 장착했을 때 현재 중량만 표시한다", () => {
     const enemy: Monster = {
       name: "훈련용 적",
       tags: [],
@@ -26,35 +26,39 @@ describe("좌우 전투 상태 정렬", () => {
       enemy,
       "변이자",
       {
-        learned: ["v2c_golem_rocksmash", "v2c_slime_split"],
-        equipped: ["v2c_golem_rocksmash", "v2c_slime_split"],
+        learned: ["v2c_golem_rocksmash"],
+        equipped: ["v2c_golem_rocksmash"],
       },
     );
     const state = {
       ...initial,
       stacks: { ...initial.stacks, mutationWeight: 2, splitBodies: 3 },
+      v2Skills: {
+        learned: ["v2c_golem_rocksmash", "v2c_slime_split"],
+        equipped: ["v2c_golem_rocksmash", "v2c_slime_split"],
+      },
     };
 
     const visible = renderToStaticMarkup(
       <BattleScene
-        state={state}
+        state={state as never}
         playerName="변이자"
         playerStatus={{ gender: "male1", exp: 0, maxExp: 100, hpPotionCount: 0 }}
         layout="split"
       />,
     );
     expect(visible).toContain("중량 2/3");
-    expect(visible).toContain("분열체 3/3");
+    expect(visible).not.toContain("분열체 3/3");
 
     const hidden = renderToStaticMarkup(
       <BattleScene
         state={{
           ...state,
           v2Skills: {
-            learned: ["v2c_golem_tectoniccollapse", "v2c_slime_fusioncrash"],
-            equipped: ["v2c_golem_tectoniccollapse", "v2c_slime_fusioncrash"],
+            learned: ["v2c_golem_tectoniccollapse"],
+            equipped: ["v2c_golem_tectoniccollapse"],
           },
-        }}
+        } as never}
         playerName="변이자"
         playerStatus={{ gender: "male1", exp: 0, maxExp: 100, hpPotionCount: 0 }}
         layout="split"

@@ -311,10 +311,7 @@ export type V2CommonSkillId =
   | "v2c_beastkin_bloodscent"
   | "v2c_golem_rocksmash"
   | "v2c_golem_tectoniccollapse"
-  | "v2c_golem_stoneskin"
-  | "v2c_slime_split"
-  | "v2c_slime_barrage"
-  | "v2c_slime_fusioncrash";
+  | "v2c_golem_stoneskin";
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -395,30 +392,6 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "중량이 쌓일수록 몸이 단단해져 방어력이 오른다.", mpCost: 0, cooldown: 0,
     effects: [], passive: { stoneskinDefPctPerWeight: 6 },
   },
-  v2c_slime_split: {
-    id: "v2c_slime_split", name: "분열", stat: "int", category: "buff", tier: 1,
-    description: "몸 일부를 떼어 분열체를 하나 만든다.", mpCost: 20, cooldown: 0, procChance: 100,
-    effects: [], splitGain: 1,
-    defaultPattern: {
-      priority: 360,
-      condition: { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
-    },
-  },
-  v2c_slime_barrage: {
-    id: "v2c_slime_barrage", name: "점액 탄막", stat: "int", category: "attack", tier: 1,
-    description: "점액을 쏘고 분열체마다 약한 보조 탄환을 하나씩 더한다.", mpCost: 30, cooldown: 0, procChance: 42,
-    effects: [dmg(0.9, 120, "magic")], splitAuxHitPctPerStack: 25,
-  },
-  v2c_slime_fusioncrash: {
-    id: "v2c_slime_fusioncrash", name: "융합 충돌", stat: "int", category: "attack", tier: 1,
-    description: "분열체를 모두 융합해 응축된 몸으로 충돌한다.", mpCost: 38, cooldown: 0, procChance: 34,
-    effects: [dmg(1.2, 150, "magic")], splitConsumePctPerStack: 25,
-    defaultPattern: {
-      priority: 500,
-      condition: { kind: "self_resource", resource: "split", op: "atLeast", value: 3 },
-    },
-  },
-
   // ═══ 전사 (STR · 물리) — 정직한 파워 ═══
   v2c_warrior_strike: {
     id: "v2c_warrior_strike", name: "강타", stat: "str", category: "attack", tier: 1,

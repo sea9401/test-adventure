@@ -201,14 +201,6 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 5 },
     unlock: { prereqs: { mutant: MUTANT_TIER1_UNLOCK_CUMLEVEL } },
   },
-  slime: {
-    id: "slime",
-    name: "점액체",
-    tier: 1,
-    cultivateProfile: { int: 2, vit: 1, spi: 1 },
-    jobBonus: { int: 5 },
-    unlock: { prereqs: { mutant: MUTANT_TIER1_UNLOCK_CUMLEVEL } },
-  },
   warrior: {
     id: "warrior",
     name: "견습 병사",
@@ -1747,7 +1739,6 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   mutant: { class: "mutant", spec: null },
   beastkin: { class: "mutant", spec: "beastkin" },
   golem: { class: "mutant", spec: "golem" },
-  slime: { class: "mutant", spec: "slime" },
   camper: { class: "survivor", spec: "camper" },
   ironman: { class: "survivor", spec: "ironman" },
   fisher: { class: "survivor", spec: "fisher" },

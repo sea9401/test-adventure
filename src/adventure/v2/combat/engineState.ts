@@ -189,8 +189,6 @@ export type BattleStacks = {
   ironWallReflectCharges: number;
   /** 골렘 변이 — 전투 한정 중량(0..3). */
   mutationWeight: number;
-  /** 점액체 변이 — 전투 한정 분열체(0..3). */
-  splitBodies: number;
   /** 법칙술사 전투 한정 각인. 패시브 미보유·기존 상태에서는 생략한다. */
   lawInscriptions?: LawInscriptionState;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.

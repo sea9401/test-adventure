@@ -1497,7 +1497,6 @@ export function initialBattleState(
       fortressImpact: 0,
       ironWallReflectCharges: 0,
       mutationWeight: 0,
-      splitBodies: 0,
       ...(player.lawInscription
         ? { lawInscriptions: emptyLawInscriptionState() }
         : {}),
@@ -2361,7 +2360,6 @@ export function applyPlayerV2SkillCast(
       lawInscription: player.lawInscription,
       lawInscriptions: state.stacks.lawInscriptions,
       mutationWeight: state.stacks.mutationWeight,
-      splitBodies: state.stacks.splitBodies,
       bleedPhysicalSkillDamagePctPerStack:
         player.bleedPhysicalSkillDamagePctPerStack,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
@@ -3149,7 +3147,6 @@ export function applyPlayerV2SkillCast(
         state.stacks.fortressImpact - result.fortressImpactToConsume,
       ),
       mutationWeight: result.mutationTransition.weightAfter,
-      splitBodies: result.mutationTransition.splitAfter,
       ironWallReflectCharges:
         result.ironWallReflectToApply?.charges ??
         state.stacks.ironWallReflectCharges,

@@ -202,20 +202,14 @@ describe("conditionPasses", () => {
     ).toBe(false);
   });
 
-  it("중량·분열체 자원을 다른 직업 스킬의 패턴에서도 판정한다", () => {
+  it("중량 자원을 다른 직업 스킬의 패턴에서도 판정한다", () => {
     const mutation = ctx({
-      selfResources: { weight: 3, split: 1 },
+      selfResources: { weight: 3 },
     });
 
     expect(
       conditionPasses(
         { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
-        mutation,
-      ),
-    ).toBe(true);
-    expect(
-      conditionPasses(
-        { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
         mutation,
       ),
     ).toBe(true);
@@ -348,7 +342,7 @@ describe("evaluateCombatPattern", () => {
 });
 
 describe("parseCombatPattern (저장 검증)", () => {
-  it("중량·분열체 조건을 저장 데이터에서 보존한다", () => {
+  it("중량 조건은 보존하고 제거된 분열체 조건은 버린다", () => {
     const parsed = parseCombatPattern({
       blocks: [
         {
@@ -362,10 +356,9 @@ describe("parseCombatPattern (저장 검증)", () => {
       ],
     });
 
-    expect(parsed.blocks).toHaveLength(2);
+    expect(parsed.blocks).toHaveLength(1);
     expect(parsed.blocks.map((block) => block.condition)).toEqual([
       { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
-      { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
     ]);
   });
 

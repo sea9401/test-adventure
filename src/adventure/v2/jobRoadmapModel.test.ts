@@ -16,7 +16,6 @@ describe("job roadmap model", () => {
     expect(mutant?.children.map((node) => node.id)).toEqual([
       "beastkin",
       "golem",
-      "slime",
     ]);
     expect(nodes.find((node) => node.id === "squire")?.prereqText).toContain(
       "숙련도",

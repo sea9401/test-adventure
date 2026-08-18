@@ -16,7 +16,7 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
-  it("변이자와 세 분기는 수집 가능한 변이 스킬 11개를 제공한다", () => {
+  it("변이자와 수인·골렘은 수집 가능한 변이 스킬 8개만 제공한다", () => {
     expect(skillsForJob("mutant")).toEqual([
       "v2c_mutant_morphstrike",
       "v2c_mutant_adaptation",
@@ -31,11 +31,10 @@ describe("직업 킷 — 스킬셋", () => {
       "v2c_golem_tectoniccollapse",
       "v2c_golem_stoneskin",
     ]);
-    expect(skillsForJob("slime")).toEqual([
-      "v2c_slime_split",
-      "v2c_slime_barrage",
-      "v2c_slime_fusioncrash",
-    ]);
+    expect("slime" in V2_SKILLS_BY_JOB).toBe(false);
+    expect("v2c_slime_split" in V2_SKILLS).toBe(false);
+    expect("v2c_slime_barrage" in V2_SKILLS).toBe(false);
+    expect("v2c_slime_fusioncrash" in V2_SKILLS).toBe(false);
   });
 
   it("변이 패시브는 장착 스킬만으로 집계되어 현재 직업과 독립적이다", () => {
@@ -50,7 +49,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
   });
 
-  it("변이 액티브는 출혈·중량·분열 계약을 카탈로그에 선언한다", () => {
+  it("변이 액티브는 출혈·중량 계약을 카탈로그에 선언한다", () => {
     expect(V2_SKILLS.v2c_beastkin_rend.effects).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 2 }),
@@ -66,9 +65,6 @@ describe("직업 킷 — 스킬셋", () => {
     );
     expect(V2_SKILLS.v2c_golem_rocksmash.mutationWeightGain).toBe(1);
     expect(V2_SKILLS.v2c_golem_tectoniccollapse.mutationWeightConsumePctPerStack).toBe(20);
-    expect(V2_SKILLS.v2c_slime_split.splitGain).toBe(1);
-    expect(V2_SKILLS.v2c_slime_barrage.splitAuxHitPctPerStack).toBe(25);
-    expect(V2_SKILLS.v2c_slime_fusioncrash.splitConsumePctPerStack).toBe(25);
   });
 
   it("마법사 코어 기본기는 누락된 경우에만 지급해 수동 해제를 보존한다", () => {

@@ -482,12 +482,6 @@ export type V2SkillDefinition = {
   mutationWeightGain?: number;
   /** 현재 중량을 모두 소비하고 스택당 최종 피해를 높이는 비율. */
   mutationWeightConsumePctPerStack?: number;
-  /** 시전 뒤 분열체를 얻는 양. */
-  splitGain?: number;
-  /** 분열체 하나당 추가되는 비재귀 보조 타격의 본타 대비 피해율. */
-  splitAuxHitPctPerStack?: number;
-  /** 현재 분열체를 모두 융합하고 스택당 최종 피해를 높이는 비율. */
-  splitConsumePctPerStack?: number;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -2360,17 +2354,6 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   if (skill.mutationWeightConsumePctPerStack) {
     chips.push(
       `중량 전부 소모 · 스택당 최종 피해 +${skill.mutationWeightConsumePctPerStack}%`,
-    );
-  }
-  if (skill.splitGain) {
-    chips.push(`분열체 +${skill.splitGain} (최대 3)`);
-  }
-  if (skill.splitAuxHitPctPerStack) {
-    chips.push(`분열체당 ${skill.splitAuxHitPctPerStack}% 보조타`);
-  }
-  if (skill.splitConsumePctPerStack) {
-    chips.push(
-      `분열체 전부 융합 · 개체당 최종 피해 +${skill.splitConsumePctPerStack}%`,
     );
   }
   if (

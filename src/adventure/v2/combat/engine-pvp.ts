@@ -246,8 +246,6 @@ export type PvPSideStacks = {
   ironWallReflectCharges: number;
   /** 골렘 변이 — 전투 한정 중량(0..3). */
   mutationWeight: number;
-  /** 점액체 변이 — 전투 한정 분열체(0..3). */
-  splitBodies: number;
   lawInscriptions?: LawInscriptionState;
   playerShield: number;
   evadesRemaining: number;
@@ -798,7 +796,6 @@ function buildSide(
       fortressImpact: 0,
       ironWallReflectCharges: 0,
       mutationWeight: 0,
-      splitBodies: 0,
       ...(player.lawInscription
         ? { lawInscriptions: emptyLawInscriptionState() }
         : {}),
@@ -2621,7 +2618,6 @@ export function castV2SkillOnAttackerTurnPvP(
       lawInscription: side.player.lawInscription,
       lawInscriptions: side.stacks.lawInscriptions,
       mutationWeight: side.stacks.mutationWeight,
-      splitBodies: side.stacks.splitBodies,
       bleedPhysicalSkillDamagePctPerStack:
         side.player.bleedPhysicalSkillDamagePctPerStack,
       selfBuffs: tickedSelfBuffs,
@@ -3461,7 +3457,6 @@ export function castV2SkillOnAttackerTurnPvP(
       side.stacks.fortressImpact - result.fortressImpactToConsume,
     ),
     mutationWeight: result.mutationTransition.weightAfter,
-    splitBodies: result.mutationTransition.splitAfter,
     ironWallReflectCharges:
       result.ironWallReflectToApply?.charges ??
       side.stacks.ironWallReflectCharges,

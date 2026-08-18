@@ -39,42 +39,28 @@ export function effectiveMutationDef(
 
 export type MutationCastTransition = {
   weightAfter: number;
-  splitAfter: number;
   weightGained: number;
   weightConsumed: number;
-  splitGained: number;
-  splitConsumed: number;
 };
 
 export function mutationCastTransition(
-  resources: { weight: number; split: number },
+  weightRaw: number,
   action: {
     weightGain?: number;
-    splitGain?: number;
     consumeWeight?: boolean;
-    consumeSplit?: boolean;
   },
 ): MutationCastTransition {
-  const weight = clampMutationResource(resources.weight);
-  const split = clampMutationResource(resources.split);
+  const weight = clampMutationResource(weightRaw);
   const weightConsumed = action.consumeWeight ? weight : 0;
-  const splitConsumed = action.consumeSplit ? split : 0;
   const weightBeforeGain = action.consumeWeight ? 0 : weight;
-  const splitBeforeGain = action.consumeSplit ? 0 : split;
   const weightAfter = clampMutationResource(
     weightBeforeGain + Math.max(0, Math.floor(action.weightGain ?? 0)),
-  );
-  const splitAfter = clampMutationResource(
-    splitBeforeGain + Math.max(0, Math.floor(action.splitGain ?? 0)),
   );
 
   return {
     weightAfter,
-    splitAfter,
     weightGained: weightAfter - weightBeforeGain,
     weightConsumed,
-    splitGained: splitAfter - splitBeforeGain,
-    splitConsumed,
   };
 }
 
@@ -91,16 +77,6 @@ export function mutationTransitionLogLines(
   if (transition.weightConsumed > 0) {
     lines.push(
       `[${skillName ?? "중량 해방"}] 중량 ${transition.weightConsumed} 소모`,
-    );
-  }
-  if (transition.splitGained > 0) {
-    lines.push(
-      `[분열] 분열체 +${transition.splitGained} (${transition.splitAfter}/${MUTATION_RESOURCE_MAX})`,
-    );
-  }
-  if (transition.splitConsumed > 0) {
-    lines.push(
-      `[${skillName ?? "융합"}] 분열체 ${transition.splitConsumed} 융합`,
     );
   }
   return lines;

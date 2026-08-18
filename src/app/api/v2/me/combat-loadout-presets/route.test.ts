@@ -111,6 +111,16 @@ const REBALANCE_LOADOUT = [
   "v2c_boxer_fortitude",
   "v2c_monk_spirit",
 ] as const;
+const REBALANCED_EQUIPPED = [
+  ...REBALANCE_LOADOUT.slice(0, 32),
+  "v2c_boxer_fortitude",
+] as const;
+const REBALANCED_REMOVED = [
+  "v2c_ironman_brace",
+  "v2c_shieldman_vitality",
+  "v2c_squire_might",
+  "v2c_monk_spirit",
+] as const;
 
 function request(body: unknown): Request {
   return new Request("http://localhost/api/v2/me/combat-loadout-presets", {
@@ -335,8 +345,8 @@ describe("통합 전투 프리셋 API", () => {
     expect(response.status).toBe(200);
     expect(
       (mocks.saves.get("skills.v2") as { equipped: string[] }).equipped,
-    ).toEqual(REBALANCE_LOADOUT.slice(0, 33));
-    expect(json.excluded.skillIds).toEqual(REBALANCE_LOADOUT.slice(33));
+    ).toEqual(REBALANCED_EQUIPPED);
+    expect(json.excluded.skillIds).toEqual(REBALANCED_REMOVED);
   });
 
   it("적용 도중 저장이 실패하면 스킬과 장비 모두 원래 상태로 롤백한다", async () => {

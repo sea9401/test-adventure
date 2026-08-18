@@ -117,7 +117,6 @@ const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
   { value: "ironWallReflect", label: "철벽 반사" },
   { value: "inscription", label: "각인 총합" },
   { value: "weight", label: "중량" },
-  { value: "split", label: "분열체" },
 ];
 const SELF_RESOURCE_OP_OPTIONS = [
   { value: "none", label: "없을 때" },

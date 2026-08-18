@@ -36,7 +36,7 @@
 - Produces: a mutation lineage containing exactly `mutant -> beastkin | golem`.
 - Removes: job ID `slime` and skill IDs `v2c_slime_split | v2c_slime_barrage | v2c_slime_fusioncrash`.
 
-- [ ] **Step 1: Change catalog tests to require the slime leaf to be absent**
+- [x] **Step 1: Change catalog tests to require the slime leaf to be absent**
 
 ```ts
 expect("slime" in V2_JOB_CATALOG).toBe(false);
@@ -45,21 +45,21 @@ expect(buildJobRoadmap().children.find((node) => node.id === "mutant")?.children
 expect("v2c_slime_split" in V2_SKILLS).toBe(false);
 ```
 
-- [ ] **Step 2: Run the focused tests and verify the new absence assertions fail**
+- [x] **Step 2: Run the focused tests and verify the new absence assertions fail**
 
 Run: `npm test -- src/adventure/data/v2/v2JobCatalog.test.ts src/adventure/data/v2/v2SkillsByJob.test.ts src/adventure/v2/jobExplorer.test.ts src/adventure/v2/jobRoadmapModel.test.ts`
 
 Expected: FAIL because the slime job and skills still exist.
 
-- [ ] **Step 3: Delete the slime catalog, legacy mapping, profile, skill union entries, definitions, and job mapping**
+- [x] **Step 3: Delete the slime catalog, legacy mapping, profile, skill union entries, definitions, and job mapping**
 
 Remove only job-level `slime` identifiers. Do not remove monster/material strings containing `slime`.
 
-- [ ] **Step 4: Update exact job counts and mutation lineage ordering expectations**
+- [x] **Step 4: Update exact job counts and mutation lineage ordering expectations**
 
 The combined catalog count decreases by one, Tier 1 decreases by one, and root/job SP baselines are recalculated from the actual catalog result.
 
-- [ ] **Step 5: Run the focused catalog tests**
+- [x] **Step 5: Run the focused catalog tests**
 
 Run: `npm test -- src/adventure/data/v2/v2JobCatalog.test.ts src/adventure/data/v2/proficiency.test.ts src/adventure/data/v2/v2SkillsByJob.test.ts src/adventure/v2/jobExplorer.test.ts src/adventure/v2/jobRoadmapModel.test.ts`
 
@@ -82,7 +82,7 @@ Expected: PASS.
 - Keeps: `MutationCastTransition` weight fields and golem transition helpers.
 - Removes: every `split*` field and `splitBodies` from skill definitions, cast inputs, transitions, and PvE/PvP stacks.
 
-- [ ] **Step 1: Add an absence regression test for split skill metadata**
+- [x] **Step 1: Add an absence regression test for split skill metadata**
 
 ```ts
 expect(Object.values(V2_SKILLS).some((skill) =>
@@ -90,13 +90,13 @@ expect(Object.values(V2_SKILLS).some((skill) =>
 )).toBe(false);
 ```
 
-- [ ] **Step 2: Run the skill test and verify it fails on the existing slime metadata**
+- [x] **Step 2: Run the skill test and verify it fails on the existing slime metadata**
 
 Run: `npm test -- src/adventure/data/v2/v2Skills.test.ts`
 
 Expected: FAIL because split metadata remains.
 
-- [ ] **Step 3: Reduce the mutation transition to weight-only state**
+- [x] **Step 3: Reduce the mutation transition to weight-only state**
 
 ```ts
 export type MutationCastTransition = {
@@ -108,15 +108,15 @@ export type MutationCastTransition = {
 
 Update `mutationCastTransition`, its log formatter, and all callers to pass only current weight and weight actions.
 
-- [ ] **Step 4: Remove split skill calculations and state propagation from the common resolver and both engines**
+- [x] **Step 4: Remove split skill calculations and state propagation from the common resolver and both engines**
 
 Delete split candidate gates, auxiliary hits, fusion multipliers, stack initialization, cast input fields, state updates, and PvE/PvP logs. Keep weight physical damage, speed, stoneskin DEF, and collapse consumption unchanged.
 
-- [ ] **Step 5: Replace split scenarios in engine/cast tests with weight-only assertions**
+- [x] **Step 5: Replace split scenarios in engine/cast tests with weight-only assertions**
 
 Assert PvE/PvP start at weight 0, rock smash gains weight, collapse consumes it, and no test fixture requires `splitBodies`.
 
-- [ ] **Step 6: Run mutation combat tests**
+- [x] **Step 6: Run mutation combat tests**
 
 Run: `npm test -- src/adventure/data/v2/v2Skills.test.ts src/adventure/v2/combat/mutationCombat.test.ts src/adventure/v2/combat/combatPatternCast.test.ts src/adventure/v2/combat/mutationCombatEngine.test.ts`
 
@@ -138,7 +138,7 @@ Expected: PASS.
 - `V2PatternSelfResource` retains `weight` and rejects stored `split` conditions.
 - Battle UI exposes only the generator-gated weight counter.
 
-- [ ] **Step 1: Add failing parser/UI absence tests**
+- [x] **Step 1: Add failing parser/UI absence tests**
 
 ```ts
 expect(parseCombatPattern(patternWithResource("split"))).toEqual([]);
@@ -146,23 +146,23 @@ expect(renderPatternEditor()).not.toContain("분열체");
 expect(renderBattle()).not.toContain("분열체");
 ```
 
-- [ ] **Step 2: Run the pattern/UI tests and verify the absence assertions fail**
+- [x] **Step 2: Run the pattern/UI tests and verify the absence assertions fail**
 
 Run: `npm test -- src/adventure/v2/combat/combatPattern.test.ts src/adventure/v2/V2CombatPatternView.test.tsx src/adventure/battle/BattleScene.test.tsx`
 
 Expected: FAIL because split remains an accepted/displayed resource.
 
-- [ ] **Step 3: Remove split from the parser union, labels, choice list, arena formatting, and battle readout**
+- [x] **Step 3: Remove split from the parser union, labels, choice list, arena formatting, and battle readout**
 
 Keep `weight` labels and the opaque `SURFACE_INSET` weight counter unchanged.
 
-- [ ] **Step 4: Search production code for orphaned job-level slime and split identifiers**
+- [x] **Step 4: Search production code for orphaned job-level slime and split identifiers**
 
 Run: `rg -n "v2c_slime_|splitBodies|splitGain|splitAuxHit|splitConsume|분열체" src scripts`
 
 Expected: no matches. Generic monster/material `slime` matches are allowed and must remain.
 
-- [ ] **Step 5: Run complete verification**
+- [x] **Step 5: Run complete verification**
 
 Run:
 
@@ -176,9 +176,17 @@ git diff --check
 
 Expected: every command exits 0.
 
-- [ ] **Step 6: Check off this plan and commit the removal**
+- [x] **Step 6: Check off this plan and commit the removal**
 
 ```bash
 git add docs/superpowers/plans/2026-08-19-remove-slime-mutation-branch.md src/adventure
 git commit -m "refactor: remove slime mutation branch"
 ```
+
+## Execution Record
+
+- Catalog RED: 3 expected failures proved that the slime job, skills, and roadmap leaf still existed.
+- Split metadata RED: the legacy split chip remained visible until the formatter and skill contract were removed.
+- Pattern/UI RED: the parser kept a stored split condition and the battle scene rendered a split counter until both paths were removed.
+- Removing one unlockable job changed the fully unlocked job SP budget from 127 to 126; server and preset expectations now preserve the actual priority-selected loadout.
+- Final verification passed with `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`, and `git diff --check`.

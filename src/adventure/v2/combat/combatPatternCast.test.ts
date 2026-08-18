@@ -842,7 +842,7 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
 describe("resolveV2SkillCast — 수집형 변이 자원", () => {
   const castMutation = (
     skillId: string,
-    resources: { weight?: number; split?: number; bleed?: number } = {},
+    resources: { weight?: number; bleed?: number } = {},
     attacker: Partial<V2SkillCastInput["attacker"]> = {},
   ) => {
     const base = castInput([skillId]);
@@ -854,7 +854,6 @@ describe("resolveV2SkillCast — 수집형 변이 자원", () => {
         vit: 100,
         magicAtk: 100,
         mutationWeight: resources.weight ?? 0,
-        splitBodies: resources.split ?? 0,
         ...attacker,
       },
       target: {
@@ -884,49 +883,6 @@ describe("resolveV2SkillCast — 수집형 변이 자원", () => {
       .toEqual(collapse.mutationTransition);
   });
 
-  it("분열은 분열체를 얻고 융합 충돌은 0스택 기본 피해를 가지며 전량 소비한다", () => {
-    expect(castMutation("v2c_slime_split", { split: 2 }).mutationTransition)
-      .toMatchObject({ splitAfter: 3, splitGained: 1 });
-
-    const baseline = castMutation("v2c_slime_fusioncrash", { split: 0 });
-    const full = castMutation("v2c_slime_fusioncrash", { split: 3 });
-    expect(baseline.enemyDamage).toBeGreaterThan(0);
-    expect(full.enemyDamage).toBeGreaterThan(baseline.enemyDamage);
-    expect(full.mutationTransition).toMatchObject({
-      splitAfter: 0,
-      splitConsumed: 3,
-    });
-  });
-
-  it("분열체가 최대면 사용자 지정 항상 패턴도 분열을 시전 후보에서 제외한다", () => {
-    const base = castInput(["v2c_slime_split"]);
-    const result = resolveV2SkillCast({
-      ...base,
-      combatPattern: {
-        blocks: [
-          {
-            condition: { kind: "always" },
-            action: { kind: "skill", skillId: "v2c_slime_split" },
-          },
-        ],
-      },
-      attacker: {
-        ...base.attacker,
-        splitBodies: 3,
-      },
-    });
-
-    expect(result.castSkillId).toBeNull();
-  });
-
-  it("점액 탄막은 분열체마다 본타 25%의 비재귀 보조 타격을 하나 추가한다", () => {
-    const baseline = castMutation("v2c_slime_barrage", { split: 0 });
-    const full = castMutation("v2c_slime_barrage", { split: 3 });
-    expect(baseline.hitDamages).toHaveLength(1);
-    expect(full.hitDamages).toHaveLength(4);
-    expect(full.enemyDamage).toBeGreaterThan(baseline.enemyDamage);
-  });
-
   it("중량과 피 냄새는 직접 물리 스킬만 강화하고 마법에는 적용하지 않는다", () => {
     const physical = castMutation("v2c_warrior_strike");
     const weighted = castMutation("v2c_warrior_strike", { weight: 3 });
@@ -939,9 +895,9 @@ describe("resolveV2SkillCast — 수집형 변이 자원", () => {
     );
     expect(scented.enemyDamage).toBe(Math.floor(physical.enemyDamage * 1.2));
 
-    const magic = castMutation("v2c_slime_barrage", { weight: 3, bleed: 10 });
+    const magic = castMutation("v2c_mage_boltcast", { weight: 3, bleed: 10 });
     const magicWithPassive = castMutation(
-      "v2c_slime_barrage",
+      "v2c_mage_boltcast",
       { weight: 3, bleed: 10 },
       { bleedPhysicalSkillDamagePctPerStack: 2 },
     );

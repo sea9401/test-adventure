@@ -48,11 +48,11 @@ const skills = (id: V2SkillId): V2SkillsState => ({
 afterEach(() => vi.restoreAllMocks());
 
 describe("PvE mutation resource transitions", () => {
-  const cast = (id: V2SkillId, weight = 0, split = 0) => {
+  const cast = (id: V2SkillId, weight = 0) => {
     const initial = initialBattleState(PLAYER, ENEMY, "수집가", skills(id));
     const state = {
       ...initial,
-      stacks: { ...initial.stacks, mutationWeight: weight, splitBodies: split },
+      stacks: { ...initial.stacks, mutationWeight: weight },
     };
     vi.spyOn(Math, "random").mockReturnValue(0);
     return applyPlayerV2SkillCast(state, PLAYER, {
@@ -73,22 +73,10 @@ describe("PvE mutation resource transitions", () => {
     expect(consumed.log.some((entry) => entry.text === "[지각 붕괴] 중량 3 소모"))
       .toBe(true);
   });
-
-  it("분열체 생성·융합을 상태와 로그에 반영한다", () => {
-    const gained = cast("v2c_slime_split", 0, 1);
-    expect(gained.stacks.splitBodies).toBe(2);
-    expect(gained.log.some((entry) => entry.text === "[분열] 분열체 +1 (2/3)"))
-      .toBe(true);
-
-    const consumed = cast("v2c_slime_fusioncrash", 0, 3);
-    expect(consumed.stacks.splitBodies).toBe(0);
-    expect(consumed.log.some((entry) => entry.text === "[융합 충돌] 분열체 3 융합"))
-      .toBe(true);
-  });
 });
 
 describe("PvP mutation resource transitions", () => {
-  const cast = (id: V2SkillId, weight = 0, split = 0) => {
+  const cast = (id: V2SkillId, weight = 0) => {
     const initial = initialBattleStatePvP(
       PLAYER,
       PLAYER,
@@ -104,7 +92,6 @@ describe("PvP mutation resource transitions", () => {
         stacks: {
           ...initial.p1.stacks,
           mutationWeight: weight,
-          splitBodies: split,
         },
       },
     };
@@ -112,15 +99,10 @@ describe("PvP mutation resource transitions", () => {
     return castV2SkillOnAttackerTurnPvP(state, "p1").state;
   };
 
-  it("양쪽 엔진이 같은 중량·분열 전이 계약을 사용한다", () => {
+  it("양쪽 엔진이 같은 중량 전이 계약을 사용한다", () => {
     const weight = cast("v2c_golem_rocksmash", 2);
     expect(weight.p1.stacks.mutationWeight).toBe(3);
     expect(weight.log.some((entry) => entry.text === "[중량] +1 (3/3)"))
-      .toBe(true);
-
-    const split = cast("v2c_slime_fusioncrash", 0, 3);
-    expect(split.p1.stacks.splitBodies).toBe(0);
-    expect(split.log.some((entry) => entry.text === "[융합 충돌] 분열체 3 융합"))
       .toBe(true);
   });
 });

@@ -221,16 +221,16 @@ describe("jobUnlockSpBonus", () => {
         woodcuttingLevel: 1_000,
         miningLevel: 1_000,
       }),
-    ).toBe(89);
+    ).toBe(88);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("변이자 루트와 세 분기를 포함한 131개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(131);
+  it("변이자 루트와 수인·골렘을 포함한 130개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(130);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
-    expect(byTier(1)).toBe(7);
+    expect(byTier(1)).toBe(6);
     expect(byTier(2)).toBe(18);
     expect(byTier(3)).toBe(25);
     expect(byTier(4)).toBe(30);
@@ -365,14 +365,14 @@ describe("스탯 맵 무결성", () => {
 });
 
 describe("해금 트리", () => {
-  it("변이자는 기본 해금되고 세 1차 변이는 숙련도 1000에 동시에 열린다", () => {
+  it("변이자는 기본 해금되고 수인·골렘은 숙련도 1000에 동시에 열린다", () => {
     expect(MUTANT_TIER1_UNLOCK_CUMLEVEL).toBe(1000);
     expect(V2_JOB_CATALOG.mutant).toMatchObject({
       tier: 0,
       unlock: { prereqs: {} },
     });
 
-    for (const id of ["beastkin", "golem", "slime"] as const) {
+    for (const id of ["beastkin", "golem"] as const) {
       const job = V2_JOB_CATALOG[id];
       expect(job.tier).toBe(1);
       expect(job.unlock.prereqs).toEqual({ mutant: 1000 });
@@ -384,6 +384,8 @@ describe("해금 트리", () => {
       });
       expect(jobIdFromLegacy("mutant", id)).toBe(id);
     }
+    expect("slime" in V2_JOB_CATALOG).toBe(false);
+    expect("slime" in LEGACY_CLASS_SPEC_BY_JOB).toBe(false);
   });
   it("일반 직업 차수별 숙련도 요구치를 고정한다", () => {
     expect(TIER2_UNLOCK_CUMLEVEL).toBe(1000);

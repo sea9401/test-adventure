@@ -243,7 +243,6 @@ describe("jobExplorer tags", () => {
       "guardian",
       "survivor",
       "camper",
-      "slime",
       "mutant",
       "beastkin",
       "golem",
@@ -267,7 +266,6 @@ describe("jobExplorer tags", () => {
       "mutant",
       "beastkin",
       "golem",
-      "slime",
     ]);
   });
 });

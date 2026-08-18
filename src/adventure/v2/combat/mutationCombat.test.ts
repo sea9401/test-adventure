@@ -9,7 +9,7 @@ import {
 } from "./mutationCombat";
 
 describe("mutation battle resources", () => {
-  it("중량과 분열체를 전투 상한 0..3으로 정규화한다", () => {
+  it("중량을 전투 상한 0..3으로 정규화한다", () => {
     expect(clampMutationResource(-1)).toBe(0);
     expect(clampMutationResource(2.9)).toBe(2);
     expect(clampMutationResource(9)).toBe(3);
@@ -29,24 +29,18 @@ describe("mutation battle resources", () => {
 
   it("마무리기는 기존 자원을 모두 소비하고 생성기는 피해 뒤 자원을 얻는다", () => {
     expect(
-      mutationCastTransition({ weight: 2, split: 1 }, { weightGain: 1 }),
+      mutationCastTransition(2, { weightGain: 1 }),
     ).toMatchObject({
       weightAfter: 3,
       weightGained: 1,
       weightConsumed: 0,
     });
     expect(
-      mutationCastTransition(
-        { weight: 3, split: 3 },
-        { consumeWeight: true, consumeSplit: true },
-      ),
+      mutationCastTransition(3, { consumeWeight: true }),
     ).toEqual({
       weightAfter: 0,
-      splitAfter: 0,
       weightGained: 0,
       weightConsumed: 3,
-      splitGained: 0,
-      splitConsumed: 3,
     });
   });
 });

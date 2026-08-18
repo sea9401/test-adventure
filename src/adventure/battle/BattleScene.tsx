@@ -476,7 +476,6 @@ export function BattleScene({
   const showMutationWeight = equippedSkillIds.includes(
     "v2c_golem_rocksmash",
   );
-  const showSplitBodies = equippedSkillIds.includes("v2c_slime_split");
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -769,7 +768,7 @@ export function BattleScene({
             </div>
           </div>
         )}
-        {(showMutationWeight || showSplitBodies) && (
+        {showMutationWeight && (
           <div
             aria-label="변이 전투 자원"
             className={`mt-3 flex flex-wrap gap-2 px-3 py-2 text-xs ${SURFACE_INSET}`}
@@ -777,11 +776,6 @@ export function BattleScene({
             {showMutationWeight && (
               <span className="font-semibold tabular-nums text-stone-700 dark:text-stone-200">
                 중량 {state.stacks.mutationWeight}/3
-              </span>
-            )}
-            {showSplitBodies && (
-              <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-                분열체 {state.stacks.splitBodies}/3
               </span>
             )}
           </div>

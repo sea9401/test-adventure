@@ -44,11 +44,6 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
     "v2c_golem_tectoniccollapse",
     "v2c_golem_stoneskin",
   ],
-  slime: [
-    "v2c_slime_split",
-    "v2c_slime_barrage",
-    "v2c_slime_fusioncrash",
-  ],
   // ── 기본 직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과) ──
   warrior: ["v2c_warrior_strike", "v2c_warrior_might"], // 강타 + 근력(힘+10%)
   martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 하급 권법(단일딜) + 강건(활력+10%)

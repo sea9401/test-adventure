@@ -191,6 +191,7 @@ import {
   formatFrostChillGainLog,
   formatFrostChillTriggerLog,
   freezeRawDamage,
+  mergeFrostChillSnapshot,
   resolveFrostChillGain,
 } from "./frostChill";
 import {
@@ -2953,6 +2954,7 @@ export function castV2SkillOnAttackerTurnPvP(
       poisonStacks: opp.v2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
       // 약점 노출 — 비전 작렬(magicVuln payoff)이 상대 누적 스택을 읽어 추가딜.
       magicVulnStacks: opp.stacks.magicVulnStacks,
+      frostChillStacks: opp.stacks.frostChillStacks,
       enemyVulnerabilityActive: opp.stacks.enemyVulnTurns > 0,
       enemyDamageDownActive: opp.stacks.damageDownTurns > 0,
       enemySkillProcDownActive: opp.stacks.skillProcDownTurns > 0,
@@ -5029,25 +5031,31 @@ function resolveBattlePvPLegacy(
   // 호출하므로 그대로 도전자 시점 렌더에 맞음. (대전자 시점 미러가 필요해지면
   // 동일 데이터를 그쪽 관점으로 swap 해 새 entry 생성.)
   const hpBarEntry = (s: PvPBattleState): BattleLogEntry => {
-    const playerResources = mergeLawInscriptionSnapshot(
-      mergeTripleWardResourceSnapshot(
-        mergeTier7ResourceSnapshot(
-          activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques),
-          s.p1.stacks.tier7,
+    const playerResources = mergeFrostChillSnapshot(
+      mergeLawInscriptionSnapshot(
+        mergeTripleWardResourceSnapshot(
+          mergeTier7ResourceSnapshot(
+            activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques),
+            s.p1.stacks.tier7,
+          ),
+          s.p1.stacks.tripleWard,
         ),
-        s.p1.stacks.tripleWard,
+        s.p1.stacks.lawInscriptions,
       ),
-      s.p1.stacks.lawInscriptions,
+      s.p1.stacks.frostChillStacks,
     );
-    const enemyResources = mergeLawInscriptionSnapshot(
-      mergeTripleWardResourceSnapshot(
-        mergeTier7ResourceSnapshot(
-          activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques),
-          s.p2.stacks.tier7,
+    const enemyResources = mergeFrostChillSnapshot(
+      mergeLawInscriptionSnapshot(
+        mergeTripleWardResourceSnapshot(
+          mergeTier7ResourceSnapshot(
+            activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques),
+            s.p2.stacks.tier7,
+          ),
+          s.p2.stacks.tripleWard,
         ),
-        s.p2.stacks.tripleWard,
+        s.p2.stacks.lawInscriptions,
       ),
-      s.p2.stacks.lawInscriptions,
+      s.p2.stacks.frostChillStacks,
     );
     return {
       kind: "hp_bar",

@@ -989,6 +989,7 @@ export type V2SkillCastInput = {
     bleedTurns?: number;
     poisonStacks?: number;
     magicVulnStacks?: number;
+    frostChillStacks?: number;
     // 전투 패턴의 봉쇄 계열 상태 판정 및 순수 디버프 중복 시전 방지.
     enemyVulnerabilityActive?: boolean;
     enemyDamageDownActive?: boolean;
@@ -1088,6 +1089,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
     enemyBleed: t.bleedStacks ?? 0,
     enemyPoison: t.poisonStacks ?? 0,
     enemyVuln: t.magicVulnStacks ?? 0,
+    enemyFrostChill: t.frostChillStacks ?? 0,
     enemyVulnerabilityActive: t.enemyVulnerabilityActive ?? false,
     enemyDamageDownActive: t.enemyDamageDownActive ?? false,
     enemySkillProcDownActive: t.enemySkillProcDownActive ?? false,

@@ -109,6 +109,13 @@ describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
       interval,
       interval * 2.4,
     ]);
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "hp_bar" &&
+          entry.enemySignatureResources?.frostChill === "한기 3/5",
+      ),
+    ).toBe(true);
   });
 
   it("검영은 PvP에서 상대의 다음 행동 종료 뒤 보호막보다 먼저 실현된다", () => {

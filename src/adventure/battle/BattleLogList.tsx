@@ -1271,6 +1271,7 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   purificationWard: "정화결계",
   domainStability: "영역 안정",
   lawInscriptions: "각인",
+  frostChill: "한기",
 };
 
 const TRIPLE_WARD_RESOURCE_KEYS = new Set([
@@ -1305,12 +1306,18 @@ function SignatureResourceChips({
       {entries.map(([key, value]) => {
         const isTripleWard = TRIPLE_WARD_RESOURCE_KEYS.has(key);
         const active = !isTripleWard || Number(value) > 0;
+        const displayedValue =
+          key === "dominant"
+            ? DOMINANT_LABELS[String(value)] ?? value
+            : value;
+        const displayedText =
+          key === "frostChill"
+            ? String(value)
+            : `${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${displayedValue}`;
         return (
           <span
             key={key}
-            aria-label={`${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${
-              key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value
-            }`}
+            aria-label={displayedText}
             data-active={isTripleWard ? active : undefined}
             className={`rounded-full px-1.5 py-0.5 text-xs font-semibold sm:text-[10px] ${
               active
@@ -1318,8 +1325,7 @@ function SignatureResourceChips({
                 : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
             }`}
           >
-            {SIGNATURE_RESOURCE_LABELS[key] ?? key}{" "}
-            {key === "dominant" ? DOMINANT_LABELS[String(value)] ?? value : value}
+            {displayedText}
           </span>
         );
       })}

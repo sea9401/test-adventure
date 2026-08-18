@@ -327,12 +327,14 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
         lawInscriptions: "4/8 · 공격 2 · 환류 2",
         swordIntent: 3,
         crossFamily: "원거리",
+        frostChill: "한기 2/5",
       },
       enemySignatureResources: {
         arcaneOverload: 75,
         lawInscriptions: "3/8 · 침식 2 · 수호 1",
         formula: "2/3",
         ruinCharge: "충전 · HP 손실 120",
+        frostChill: "한기 4/5",
       },
     };
     const p = toPvpReplayPayloadForSide(
@@ -361,12 +363,14 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
         lawInscriptions: "3/8 · 침식 2 · 수호 1",
         formula: "2/3",
         ruinCharge: "충전 · HP 손실 120",
+        frostChill: "한기 4/5",
       },
       enemySignatureResources: {
         pursuitMarks: 4,
         lawInscriptions: "4/8 · 공격 2 · 환류 2",
         swordIntent: 3,
         crossFamily: "원거리",
+        frostChill: "한기 2/5",
       },
     });
     expect(p.enemy).toEqual({ name: "공격자", hp: 600 });

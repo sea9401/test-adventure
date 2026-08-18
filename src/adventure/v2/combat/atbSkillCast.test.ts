@@ -111,6 +111,13 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(firstEnemyAfterFreeze).toBe(
       unshiftedNextTick + interval * 0.3,
     );
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "hp_bar" &&
+          entry.enemySignatureResources?.frostChill === "한기 2/5",
+      ),
+    ).toBe(true);
   });
 
   it("무영검신은 단일 피해를 기록해 적의 다음 행동 뒤 검영으로 실현한다", () => {

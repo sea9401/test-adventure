@@ -2548,6 +2548,9 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   if (skill.mutationWeightGain) {
     chips.push(`중량 +${skill.mutationWeightGain} (최대 3)`);
   }
+  if (skill.frostChillGain) {
+    chips.push(`적중 시 한기 +${skill.frostChillGain}`);
+  }
   if (skill.mutationWeightConsumePctPerStack) {
     chips.push(
       `중량 전부 소모 · 스택당 최종 피해 +${skill.mutationWeightConsumePctPerStack}%`,

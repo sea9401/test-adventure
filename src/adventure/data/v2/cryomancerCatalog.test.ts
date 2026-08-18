@@ -8,6 +8,7 @@ import { effectiveCultivateProfile } from "./proficiency";
 import {
   V2_SKILLS,
   aggregateEquippedPassives,
+  describeV2Skill,
   spCostOf,
 } from "./v2Skills";
 import { skillsForJob } from "./v2SkillsByJob";
@@ -75,6 +76,15 @@ describe("빙결술사 5차 카탈로그", () => {
         { kind: "damage", statCoef: 1.26, baseFlat: 244, scaling: "magic" },
       ],
     });
+  });
+
+  it("한기 생성량을 스킬 설명에 표시한다", () => {
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_frostmage_glacier),
+    ).toContain("적중 시 한기 +2");
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_cryomancer_absolutezero),
+    ).toContain("적중 시 한기 +3");
   });
 
   it("빙점 지배의 패시브를 집계하고 미장착 기본값은 0이다", () => {

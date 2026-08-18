@@ -170,6 +170,7 @@ import {
   formatFrostChillGainLog,
   formatFrostChillTriggerLog,
   freezeRawDamage,
+  mergeFrostChillSnapshot,
   resolveFrostChillGain,
 } from "./frostChill";
 
@@ -2561,6 +2562,7 @@ export function applyPlayerV2SkillCast(
       bleedTurns: activeEnemyBleed?.turns ?? 0,
       poisonStacks: state.enemyV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
       magicVulnStacks: state.stacks.enemyMagicVulnStacks,
+      frostChillStacks: state.stacks.enemyFrostChillStacks,
       enemyVulnerabilityActive: state.stacks.enemyVulnTurns > 0,
       enemyDamageDownActive: state.stacks.enemyDamageDownTurns > 0,
       enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
@@ -3957,6 +3959,10 @@ function resolveBattleLegacy(
       ),
       s.stacks.lawInscriptions,
     );
+    const enemyResources = mergeFrostChillSnapshot(
+      undefined,
+      s.stacks.enemyFrostChillStacks,
+    );
     return {
       kind: "hp_bar",
     text: "",
@@ -3974,6 +3980,11 @@ function resolveBattleLegacy(
     ...(playerResources
       ? {
           playerSignatureResources: playerResources,
+        }
+      : {}),
+    ...(enemyResources
+      ? {
+          enemySignatureResources: enemyResources,
         }
       : {}),
     };

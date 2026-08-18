@@ -108,7 +108,7 @@ export type BattleLogEntry =
       enemyMagicBarrierMax?: number;
       /** 6T 시그니처 전투 자원. 빈 객체/미장착은 생략한다. */
       playerSignatureResources?: Record<string, number | string>;
-      /** PvP 상대의 6T 시그니처 전투 자원. PvE에서는 생략한다. */
+      /** 상대가 보유한 전투 자원. PvE 한기와 PvP 시그니처·한기를 표시한다. */
       enemySignatureResources?: Record<string, number | string>;
     };
 

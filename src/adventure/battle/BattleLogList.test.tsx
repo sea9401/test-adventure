@@ -912,6 +912,42 @@ describe("BattleLogList 행동 묶음", () => {
     expect(legacy).not.toContain("각인 ");
   });
 
+  it("대상의 한기 스냅샷을 중복 표기 없이 표시하고 예전 로그는 그대로 읽는다", () => {
+    const chilled = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 900,
+            playerMaxHp: 1_000,
+            enemyHp: 800,
+            enemyMaxHp: 1_000,
+            enemySignatureResources: { frostChill: "한기 3/5" },
+          },
+        ]}
+      />,
+    );
+    expect(chilled.match(/한기 3\/5/g)).toHaveLength(2);
+    expect(chilled).not.toContain("한기 한기");
+
+    const legacy = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          {
+            kind: "hp_bar",
+            text: "",
+            playerHp: 900,
+            playerMaxHp: 1_000,
+            enemyHp: 800,
+            enemyMaxHp: 1_000,
+          },
+        ]}
+      />,
+    );
+    expect(legacy).not.toContain("한기");
+  });
+
   it("HP 스냅샷에 삼중 결계 잔량과 영역 안정을 밝음·소모 상태로 표시한다", () => {
     const html = renderToStaticMarkup(
       <BattleLogList

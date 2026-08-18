@@ -157,6 +157,15 @@ export type FishingPhase =
   | "resolving"
   | "result";
 
+export function isFishingActivePhase(phase: FishingPhase): boolean {
+  return (
+    phase === "casting" ||
+    phase === "waiting" ||
+    phase === "biting" ||
+    phase === "resolving"
+  );
+}
+
 export function fishingTapAction(
   phase: FishingPhase,
 ): "cast" | "reel" | null {
@@ -1455,6 +1464,7 @@ export function FishingView({
   onOpenChallenges,
   onOpenHallOfFame,
   onOpenCoopSession,
+  onFishingActiveChange,
   progression,
   progressionLoading,
   challengeBadgeCount,
@@ -1470,6 +1480,7 @@ export function FishingView({
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenCoopSession?: (sessionId: string) => void;
+  onFishingActiveChange?: (active: boolean) => void;
 }) {
   const [phase, setPhase] = useState<FishingPhase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
@@ -1521,6 +1532,17 @@ export function FishingView({
       clearTimers();
     };
   }, [clearTimers]);
+
+  useEffect(() => {
+    onFishingActiveChange?.(isFishingActivePhase(phase));
+  }, [onFishingActiveChange, phase]);
+
+  useEffect(
+    () => () => {
+      onFishingActiveChange?.(false);
+    },
+    [onFishingActiveChange],
+  );
 
   const resolveReel = useCallback(
     async (reactionMs: number) => {

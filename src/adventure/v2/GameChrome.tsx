@@ -61,6 +61,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     viewerGuildId,
     gameStateLoaded,
     autoGathering,
+    fishingActive,
     coreLoopOn,
     huntStaminaMode,
     refreshGameState,
@@ -126,7 +127,10 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       className="game-desktop-compact"
       onFocusCapture={selectNumericInputValue}
     >
-      <V2TopBar autoGathering={autoGathering} />
+      <V2TopBar
+        autoGathering={autoGathering}
+        fishingActive={fishingActive}
+      />
       <UgcConsentPrompt />
       {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.
           모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}

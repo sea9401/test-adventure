@@ -202,6 +202,39 @@ describe("conditionPasses", () => {
     ).toBe(false);
   });
 
+  it("법칙 각인 총합 자원을 파싱하고 누락된 옛 컨텍스트는 0으로 판정한다", () => {
+    const condition = {
+      kind: "self_resource" as const,
+      resource: "inscription" as const,
+      op: "atLeast" as const,
+      value: 4,
+    };
+    expect(
+      conditionPasses(
+        condition,
+        ctx({ selfResources: { inscription: 4 } }),
+      ),
+    ).toBe(true);
+    expect(conditionPasses(condition, ctx())).toBe(false);
+    expect(
+      parseCombatPattern({
+        blocks: [
+          {
+            condition,
+            action: { kind: "skill", skillId: "v2c_lawweaver_release" },
+          },
+        ],
+      }),
+    ).toEqual({
+      blocks: [
+        {
+          condition,
+          action: { kind: "skill", skillId: "v2c_lawweaver_release" },
+        },
+      ],
+    });
+  });
+
   it("enemy_debuff — 봉쇄 효과가 없을 때만 재시전한다", () => {
     const condition = {
       kind: "enemy_debuff" as const,

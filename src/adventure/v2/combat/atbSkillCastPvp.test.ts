@@ -40,6 +40,64 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("PvP도 문장 시전으로 각인을 쌓고 같은 규칙으로 전량 해방한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const skills = [
+      "v2c_lawweaver_release",
+      "v2c_inscriber_release",
+      "v2c_lawweaver_inscription",
+      "v2c_mage_acumen",
+      "v2c_caster_acumen",
+      "v2c_magus_acumen3",
+      "v2c_runecaster_circuit",
+    ];
+    const res = resolveBattlePvP(
+      {
+        ...caster,
+        hp: 10_000,
+        maxHp: 10_000,
+        atk: 100,
+        magicAtk: 100,
+        intStat: 100,
+        lawInscription: true,
+      },
+      { ...target, hp: 100_000, maxHp: 100_000, atk: 1 },
+      "P1",
+      "P2",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: { p1: {}, p2: {} },
+        v2Skills: {
+          p1: { learned: skills, equipped: skills },
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    expect(
+      res.finalState.log.some((entry) =>
+        entry.text.includes("법칙 각인: 공격 +1 · 환류 +1 · 침식 +1 · 수호 +1 (총 4/8)"),
+      ),
+    ).toBe(true);
+    expect(
+      res.finalState.log.some((entry) =>
+        entry.text.includes("만상각인 해방: 공격 1 · 환류 1 · 침식 1 · 수호 1 소비"),
+      ),
+    ).toBe(true);
+    expect(
+      res.finalState.log.some((entry) =>
+        entry.text.includes("받는 마법 피해 +7%"),
+      ),
+    ).toBe(true);
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "hp_bar" &&
+          entry.playerSignatureResources?.lawInscriptions ===
+            "4/8 · 공격 1 · 환류 1 · 침식 1 · 수호 1",
+      ),
+    ).toBe(true);
+  });
   it("PvP 감전은 대상의 다음 행동 묶음만 건너뛰고 그 다음 행동은 보장한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const shockCaster: PlayerCombat = {

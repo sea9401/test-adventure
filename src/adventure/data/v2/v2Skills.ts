@@ -113,6 +113,8 @@ export type V2PassiveSkillEffect = {
   elementResonance?: boolean;
   /** 각인 증폭 — 각인 해방의 복수 장착 시너지를 강화. */
   inscriptionAmplification?: boolean;
+  /** 법칙 각인 — 문장 해방의 정상 시전을 장착 재료별 전투 각인으로 변환한다. */
+  lawInscription?: boolean;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
   /** 중독 지속 피해 +% 가산(맹독). 부식과 분리해 독 피해에만 적용한다. */
@@ -468,6 +470,8 @@ export type V2SkillDefinition = {
   refreshTripleWards?: boolean;
   /** 적중 시 현재 충격을 모두 소비해 최종 피해를 강화하는 방패 계열 직접 공격. */
   consumesFortressImpact?: boolean;
+  /** 정상 시전 확정 시 현재 법칙 각인을 모두 소비해 동적 효과를 만든다. */
+  consumesLawInscriptions?: boolean;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -802,6 +806,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     // 마커 패시브의 실제 추가 효과는 액티브의 조건부 시너지 쪽에서 절반 가격으로 평가한다.
     if (p.elementResonance) mag += 0.75;
     if (p.inscriptionAmplification) mag += 0.75;
+    if (p.lawInscription) mag += 1;
     // 방어 감소는 여러 직업을 순회해 자유롭게 모을 수 있는 대신 높은 SP 기회비용을 치른다.
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 6;
     // 맹독은 독 계보 안에서 부식과 같은 단계별 선택지다. 각 단계의 명시 SP가
@@ -1061,6 +1066,7 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   arcanist: "burst",
   elementallord: "burst",
   inscriber: "burst",
+  lawweaver: "burst",
   marksman: "burst",
   bloodlord: "burst",
   swordsaint: "burst",
@@ -1122,6 +1128,7 @@ const ACTIVE_SKILL_TEMPO: Partial<Record<V2SkillId, V2SkillTempo>> = {
   v2c_arcanist_burst: "burst",
   v2c_elementallord_surge: "burst",
   v2c_inscriber_release: "burst",
+  v2c_lawweaver_release: "payoff",
   v2c_marksman_shot: "burst",
   v2c_swordsaint_flash: "burst",
   v2c_archmage_collapse: "burst",
@@ -1265,6 +1272,17 @@ function rebalanceEffects(
   scale: number,
 ): readonly V2SkillEffect[] {
   return effects.map((effect) => rebalanceDamageEffect(effect, scale));
+}
+
+/** 런타임에 합성한 효과를 같은 직업 차수 액티브 보정에 정확히 한 번 태운다. */
+export function rebalanceDynamicV2SkillEffects(
+  skillId: V2SkillId,
+  effects: readonly V2SkillEffect[],
+): readonly V2SkillEffect[] {
+  const jobTier = combatJobTierForSkill(skillId);
+  return jobTier == null
+    ? effects
+    : rebalanceEffects(effects, ACTIVE_DAMAGE_SCALE_BY_JOB_TIER[jobTier]);
 }
 
 function rebalanceElementEffects(
@@ -1433,6 +1451,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   fortressImpactOnHit: boolean;
   fortressImpactDamagePctPerStack: number;
   fortressDefSkillStatCoefPct: number;
+  lawInscription: boolean;
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
@@ -1479,6 +1498,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let fortressImpactOnHit = false;
   let fortressImpactDamagePctPerStack = 0;
   let fortressDefSkillStatCoefPct = 0;
+  let lawInscription = false;
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
@@ -1550,6 +1570,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       p.fortressImpactDamagePctPerStack ?? 0,
     );
     fortressDefSkillStatCoefPct += p.fortressDefSkillStatCoefPct ?? 0;
+    if (p.lawInscription) lawInscription = true;
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
@@ -1619,6 +1640,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     fortressImpactOnHit,
     fortressImpactDamagePctPerStack,
     fortressDefSkillStatCoefPct,
+    lawInscription,
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
@@ -2072,6 +2094,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     );
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
+  if (p.lawInscription) chips.push("문장 해방 시 장착 재료별 법칙 각인 생성");
   if (p.tripleWardRank === 1) {
     chips.push("삼중 결계 각 1회 · 직접 피해 PvE -45% / PvP -30%");
   }

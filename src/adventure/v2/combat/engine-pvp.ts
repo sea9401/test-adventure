@@ -141,6 +141,14 @@ import {
   type Tier6UniqueRuntimeState,
 } from "./tier6UniqueEffects";
 import {
+  addLawInscriptionGain,
+  emptyLawInscriptionState,
+  lawInscriptionConsumeLog,
+  lawInscriptionGainLog,
+  mergeLawInscriptionSnapshot,
+  type LawInscriptionState,
+} from "./lawInscription";
+import {
   applyTier6UniquePvpEvent,
   tier6PvpDotContext,
   tier6PvpStatusKindCount,
@@ -232,6 +240,7 @@ export type PvPSideStacks = {
   tripleWard: TripleWardState;
   fortressImpact: number;
   ironWallReflectCharges: number;
+  lawInscriptions?: LawInscriptionState;
   playerShield: number;
   evadesRemaining: number;
   damageTakenThisCombat: number;
@@ -253,6 +262,8 @@ export type PvPSideStacks = {
   skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
   enemyVulnTurns: number;
+  enemyMagicVulnPct?: number;
+  enemyMagicVulnTurns?: number;
   // 화상(원소술사 불) — 이 side 에 걸린 회복 감소 디버프(상대가 부착). 이 side 의 회복(회복 스킬·재생)
   //   −healReducePct%. 흡혈/공격파생 회복은 제외. 자기 턴(cast hook)에 turns 감소.
   healReducePct: number;
@@ -774,6 +785,9 @@ function buildSide(
       tripleWard: initialTripleWardState(tripleWardRank),
       fortressImpact: 0,
       ironWallReflectCharges: 0,
+      ...(player.lawInscription
+        ? { lawInscriptions: emptyLawInscriptionState() }
+        : {}),
       playerShield: startShield,
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
@@ -793,6 +807,8 @@ function buildSide(
       skillReflectBoostTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
+      enemyMagicVulnPct: 0,
+      enemyMagicVulnTurns: 0,
       healReducePct: 0,
       healReduceTurns: 0,
       damageDownPct: 0,
@@ -2580,6 +2596,8 @@ export function castV2SkillOnAttackerTurnPvP(
       fortressImpactDamagePctPerStack:
         side.player.fortressImpactDamagePctPerStack,
       fortressDefSkillStatCoefPct: side.player.fortressDefSkillStatCoefPct,
+      lawInscription: side.player.lawInscription,
+      lawInscriptions: side.stacks.lawInscriptions,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
       characterElement: side.player.characterElement,
@@ -2714,7 +2732,17 @@ export function castV2SkillOnAttackerTurnPvP(
             100,
         )
       : 0;
-  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
+  const lawMagicVulnBonus =
+    result.magicEnemyDamage > 0 &&
+    (side.stacks.enemyMagicVulnTurns ?? 0) > 0
+      ? Math.floor(
+          (result.magicEnemyDamage *
+            (side.stacks.enemyMagicVulnPct ?? 0)) /
+            100,
+        )
+      : 0;
+  const skillDamageBase =
+    result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus;
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
   //   로 분리. PvP 확률 판정은 대상의 치명타 저항을 차감하며, 강제 치명타는 저항을 무시한다.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
@@ -2755,7 +2783,8 @@ export function castV2SkillOnAttackerTurnPvP(
     : 1;
   const singleSkillDamage = computeDirectSkillDamage({
     totalDamage: skillDamageBase,
-    magicDamage: result.magicEnemyDamage + magicSkillDamageBonus,
+    magicDamage:
+      result.magicEnemyDamage + magicSkillDamageBonus + lawMagicVulnBonus,
     preCriticalMultiplier: skillPreCriticalMultiplier,
     criticalMultiplier: skillCriticalMultiplier,
     equipmentMagicCritBonus:
@@ -3289,7 +3318,9 @@ export function castV2SkillOnAttackerTurnPvP(
   const rawShieldGain = result.shieldToApply
     ? result.shieldToApply.hp + result.shieldToApply.mp
     : 0;
-  const shieldGain = isLimitedRecoverySkillId(result.castSkillId)
+  const shieldGain =
+    result.castSkillId === "v2c_lawweaver_release" ||
+    isLimitedRecoverySkillId(result.castSkillId)
     ? rawShieldGain
     : scalePvPShield(st, rawShieldGain);
   const critBuff = result.selfBuffPctToApply.find((b) => b.target === "crit");
@@ -3317,6 +3348,13 @@ export function castV2SkillOnAttackerTurnPvP(
       ? Math.floor(nextSigHitCount / sigEveryN) -
         Math.floor(side.stacks.signatureHitCount / sigEveryN)
       : 0;
+  const lawGain = addLawInscriptionGain(
+    side.stacks.lawInscriptions,
+    result.lawInscriptionGain,
+  );
+  const nextLawInscriptions = result.lawInscriptionsToConsume
+    ? emptyLawInscriptionState()
+    : lawGain.state;
   if (signatureExtraActions > 0) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -3364,6 +3402,14 @@ export function castV2SkillOnAttackerTurnPvP(
     enemyVulnTurns: blockHostileStatus
       ? Math.max(0, side.stacks.enemyVulnTurns - 1)
       : nextEnemyVulnTurns,
+    enemyMagicVulnPct:
+      result.enemyMagicVulnToApply && !blockHostileStatus
+        ? result.enemyMagicVulnToApply.pct
+        : side.stacks.enemyMagicVulnPct ?? 0,
+    enemyMagicVulnTurns:
+      result.enemyMagicVulnToApply && !blockHostileStatus
+        ? result.enemyMagicVulnToApply.turns
+        : Math.max(0, (side.stacks.enemyMagicVulnTurns ?? 0) - 1),
     // 화상 — 이 side 에 걸린 회복 감소. 자기 턴 시작에 turns 감소(부착은 상대 cast 의 nextOpp 에서).
     healReducePct: side.stacks.healReducePct,
     healReduceTurns: Math.max(0, side.stacks.healReduceTurns - 1),
@@ -3389,7 +3435,40 @@ export function castV2SkillOnAttackerTurnPvP(
     ironWallReflectCharges:
       result.ironWallReflectToApply?.charges ??
       side.stacks.ironWallReflectCharges,
+    ...((side.stacks.lawInscriptions != null ||
+      side.player.lawInscription ||
+      result.lawInscriptionsToConsume != null)
+      ? { lawInscriptions: nextLawInscriptions }
+      : {}),
   };
+  const lawGainText = lawInscriptionGainLog(
+    lawGain.gained,
+    nextLawInscriptions,
+  );
+  const lawConsumeText = lawInscriptionConsumeLog(
+    result.lawInscriptionsToConsume,
+  );
+  if (lawGainText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawGainText,
+      side: who,
+    });
+  }
+  if (lawConsumeText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawConsumeText,
+      side: who,
+    });
+  }
+  if (result.lawInscriptionComplete) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: "공격·환류·침식·수호가 하나로 이어져 완성 각인이 발동했다.",
+      side: who,
+    });
+  }
   if (result.ironWallReflectToApply && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -3454,6 +3533,13 @@ export function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "속박"}] 적 받는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
+      side: who,
+    });
+  }
+  if (result.enemyMagicVulnToApply && !blockHostileStatus) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "침식"}] ${opp.name}이(가) 받는 마법 피해 +${result.enemyMagicVulnToApply.pct}% (${result.enemyMagicVulnToApply.turns}행동)`,
       side: who,
     });
   }
@@ -3926,13 +4012,19 @@ function resolveBattlePvPLegacy(
   // 호출하므로 그대로 도전자 시점 렌더에 맞음. (대전자 시점 미러가 필요해지면
   // 동일 데이터를 그쪽 관점으로 swap 해 새 entry 생성.)
   const hpBarEntry = (s: PvPBattleState): BattleLogEntry => {
-    const playerResources = mergeTripleWardResourceSnapshot(
-      activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques),
-      s.p1.stacks.tripleWard,
+    const playerResources = mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        activeTier6ResourceSnapshot(s.p1.stacks.tier6Uniques),
+        s.p1.stacks.tripleWard,
+      ),
+      s.p1.stacks.lawInscriptions,
     );
-    const enemyResources = mergeTripleWardResourceSnapshot(
-      activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques),
-      s.p2.stacks.tripleWard,
+    const enemyResources = mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        activeTier6ResourceSnapshot(s.p2.stacks.tier6Uniques),
+        s.p2.stacks.tripleWard,
+      ),
+      s.p2.stacks.lawInscriptions,
     );
     return {
       kind: "hp_bar",

@@ -318,6 +318,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveFortressImpactOnHit?: boolean;
   passiveFortressImpactDamagePctPerStack?: number;
   passiveFortressDefSkillStatCoefPct?: number;
+  passiveLawInscription?: boolean;
   /** 적중도 +%(정밀) — 스탯·장비 적중도의 합을 증폭. */
   passiveAccuracyPct?: number;
   /** 회복 강화 +%(신술 지원 패시브, SPI 부활) — healMult 에 곱연산(×(1+%/100)). 미지정 = 무적용. */
@@ -806,6 +807,7 @@ export function derivePlayerCombatV2Pure(
             input.passiveFortressDefSkillStatCoefPct,
         }
       : {}),
+    ...(input.passiveLawInscription ? { lawInscription: true } : {}),
     ...(totalBleedDmgPerStack > 0
       ? {
           bleedOnHit: {
@@ -1064,6 +1066,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.fortressImpactDamagePctPerStack,
     passiveFortressDefSkillStatCoefPct:
       passiveAgg.fortressDefSkillStatCoefPct,
+    passiveLawInscription: passiveAgg.lawInscription,
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,

@@ -277,6 +277,8 @@ export type V2CommonSkillId =
   | "v2c_primordialmage_return" // 태초회귀 (근원 마법 피해 + 취약 + 지연)
   | "v2c_primordialmage_resonance" // 근원공명 (지능 + 정신 + 마법 운용)
   | "v2c_primordialmage_amplification" // 원초 증폭 (장비 치명타 배율 → 마법 스킬 치명타 배율)
+  | "v2c_lawweaver_release" // 만상각인 해방 (전투 중 각인 전량 소비)
+  | "v2c_lawweaver_inscription" // 법칙 각인 (문장 해방 시 각인 생성)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
   | "v2c_lawguardian_inviolable" // 만법불침 (삼중 결계 갱신)
@@ -2372,6 +2374,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { equipmentMagicSkillCritConversion: true },
+  },
+  v2c_lawweaver_release: {
+    id: "v2c_lawweaver_release", name: "만상각인 해방", stat: "int", category: "attack", tier: 3,
+    description: "전투 중 쌓은 공격·환류·침식·수호 각인을 모두 해방해 개수와 조합에 따른 효과를 일으킨다.",
+    mpCost: 86, fixedMpCost: 200, cooldown: 0, procChance: 100, learnCost: 12000, spCost: 13,
+    effects: [],
+    consumesLawInscriptions: true,
+    defaultPattern: {
+      priority: 600,
+      condition: { kind: "self_resource", resource: "inscription", op: "atLeast", value: 4 },
+    },
+  },
+  v2c_lawweaver_inscription: {
+    id: "v2c_lawweaver_inscription", name: "법칙 각인", stat: "int", category: "passive", tier: 3,
+    description: "대문장 해방과 각인 해방을 정상 시전하면 장착한 문장 재료에 대응하는 법칙 각인을 얻는다. 지능 +18%, 정신 +8%, 최대 MP +16%.",
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 13,
+    effects: [],
+    passive: { statPct: { int: 18, spi: 8 }, maxMpPct: 16, lawInscription: true },
   },
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,

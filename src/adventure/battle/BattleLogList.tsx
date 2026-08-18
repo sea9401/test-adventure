@@ -1259,6 +1259,7 @@ const SIGNATURE_RESOURCE_LABELS: Record<string, string> = {
   magicWard: "봉마결계",
   purificationWard: "정화결계",
   domainStability: "영역 안정",
+  lawInscriptions: "각인",
 };
 
 const TRIPLE_WARD_RESOURCE_KEYS = new Set([

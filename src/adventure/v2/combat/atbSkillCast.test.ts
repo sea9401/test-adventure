@@ -347,4 +347,77 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "[철벽 반사]")).toBeGreaterThanOrEqual(3);
     expect(countText(res, "충격 3스택 소비")).toBeGreaterThan(0);
   });
+
+  it("법칙술사는 문장 시전으로 네 각인을 쌓고 다음 행동에 완성 해방한다", () => {
+    const enemy: Monster = {
+      name: "각인 허수아비",
+      tags: [],
+      hp: 100_000,
+      atk: 1,
+      def: 0,
+      spd: 5,
+      exp: 0,
+      evasionPct: 0,
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattle(
+      {
+        ...player,
+        hp: 10_000,
+        maxHp: 10_000,
+        atk: 100,
+        magicAtk: 100,
+        intStat: 100,
+        spd: 100,
+        lawInscription: true,
+      },
+      enemy,
+      "법칙술사",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 4,
+        v2Skills: {
+          learned: [
+            "v2c_lawweaver_release",
+            "v2c_inscriber_release",
+            "v2c_lawweaver_inscription",
+            "v2c_mage_acumen",
+            "v2c_caster_acumen",
+            "v2c_magus_acumen3",
+            "v2c_runecaster_circuit",
+          ],
+          equipped: [
+            "v2c_lawweaver_release",
+            "v2c_inscriber_release",
+            "v2c_lawweaver_inscription",
+            "v2c_mage_acumen",
+            "v2c_caster_acumen",
+            "v2c_magus_acumen3",
+            "v2c_runecaster_circuit",
+          ],
+        },
+      } as never,
+    );
+    vi.restoreAllMocks();
+
+    expect(countText(res, "법칙 각인: 공격 +1 · 환류 +1 · 침식 +1 · 수호 +1 (총 4/8)")).toBeGreaterThan(0);
+    expect(countText(res, "만상각인 해방: 공격 1 · 환류 1 · 침식 1 · 수호 1 소비")).toBeGreaterThan(0);
+    expect(countText(res, "공격·환류·침식·수호가 하나로 이어져 완성 각인이 발동했다.")).toBeGreaterThan(0);
+    expect(countText(res, "적이 받는 마법 피해 +7%")).toBeGreaterThan(0);
+    expect(res.finalState.stacks.lawInscriptions).toEqual({
+      assault: 0,
+      reflux: 0,
+      erosion: 0,
+      ward: 0,
+    });
+    expect(
+      res.finalState.log.some(
+        (entry) =>
+          entry.kind === "hp_bar" &&
+          entry.playerSignatureResources?.lawInscriptions ===
+            "4/8 · 공격 1 · 환류 1 · 침식 1 · 수호 1",
+      ),
+    ).toBe(true);
+  });
 });

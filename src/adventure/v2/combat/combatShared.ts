@@ -11,6 +11,7 @@ import type { APSkillEffect } from "@/adventure/character/apSkills";
 import {
   effectiveCombatPatternFromEquipped,
   isLimitedRecoverySkillId,
+  rebalanceDynamicV2SkillEffects,
   V2_SKILLS,
   v2SkillMpCostValue,
   type V2SkillDefinition,
@@ -57,6 +58,15 @@ import {
   type V2PatternCtx,
   type V2PatternSelfStatus,
 } from "./combatPattern";
+import {
+  canReleaseLawInscriptions,
+  emptyLawInscriptionState,
+  lawInscriptionGainForCast,
+  lawInscriptionRelease,
+  lawInscriptionTotal,
+  normalizeLawInscriptionState,
+  type LawInscriptionState,
+} from "./lawInscription";
 
 // 기본 명중 상수는 v2CombatConstants 로 이관(UI StatsPanel 이 무거운 combatShared 를 끌어오지
 // 않고 가벼운 상수 파일에서 읽도록). 두 엔진은 여전히 combatShared 에서 import 하므로 재노출.
@@ -608,7 +618,8 @@ export function pickAutoCastV2Skill(args: {
       def.effects.length === 0 &&
       !def.provokeImmediateBasicAttacks &&
       !def.duelistDeclaration &&
-      !def.ironWallReflect
+      !def.ironWallReflect &&
+      !def.consumesLawInscriptions
     ) continue;
     return id;
   }
@@ -681,6 +692,7 @@ export type V2SkillCastResult = {
   shieldToApply?: { hp: number; mp: number; turns: number }; // 마나 보호막(흡수량)
   selfRegenToApply?: { pctMaxHpPerTurn: number; turns: number }; // 운기 리젠
   enemyVulnToApply?: { pct: number; turns: number }; // 속박 취약(받는 피해 +%)
+  enemyMagicVulnToApply?: { pct: number; turns: number }; // 법칙술사 침식 — 받는 직접 마법 피해 +%
   enemyEvasionDownToApply?: { pct: number; turns: number }; // 실명 — 적 회피도 -%
   enemyAccuracyDownToApply?: { pct: number; turns: number }; // 암흑 — 적 적중도 -%
   selfHasteToApply?: { pct: number }; // 바람(원소술사) — ATB 내 다음 행동 가속 %(1회). 비-ATB 무시.
@@ -693,6 +705,12 @@ export type V2SkillCastResult = {
   berserkerTransition: V2BerserkerCastTransition;
   /** 명중 확정 뒤 전투 엔진이 모두 소비할 충격 수. */
   fortressImpactToConsume: number;
+  /** 정상 생성 스킬 시전이 요청한 장착 재료별 법칙 각인 증가량. */
+  lawInscriptionGain: LawInscriptionState;
+  /** 정상 해방 시전이 전량 소비할 시전 직전 법칙 각인 스냅샷. */
+  lawInscriptionsToConsume?: LawInscriptionState;
+  /** 네 종류를 모두 소비해 완성 각인이 발동했는지. */
+  lawInscriptionComplete: boolean;
   /** 철벽 태세 시전 시 전투 엔진이 갱신할 전용 반사 상태. */
   ironWallReflectToApply?: NonNullable<V2SkillDefinition["ironWallReflect"]>;
   /** 만법불침 시전 성공 시 삼중 결계를 최대 횟수로 갱신한다. */
@@ -706,6 +724,7 @@ export function v2SkillHasTargetEffects(result: V2SkillCastResult): boolean {
     result.enemyDebuffsToApply.length > 0 ||
     result.dotsToApplyToTarget.length > 0 ||
     result.enemyVulnToApply != null ||
+    result.enemyMagicVulnToApply != null ||
     result.enemyEvasionDownToApply != null ||
     result.enemyAccuracyDownToApply != null ||
     result.enemyDelayToApply != null ||
@@ -737,6 +756,7 @@ export function removeMissedV2SkillTargetEffects(
     enemyDebuffsToApply: [],
     dotsToApplyToTarget: [],
     enemyVulnToApply: undefined,
+    enemyMagicVulnToApply: undefined,
     enemyEvasionDownToApply: undefined,
     enemyAccuracyDownToApply: undefined,
     enemyDelayToApply: undefined,
@@ -794,6 +814,8 @@ export type V2SkillCastInput = {
     ironWallReflectCharges?: number;
     fortressImpactDamagePctPerStack?: number;
     fortressDefSkillStatCoefPct?: number;
+    lawInscription?: boolean;
+    lawInscriptions?: Partial<LawInscriptionState>;
     str?: number;
     int?: number;
     vit?: number;
@@ -852,6 +874,8 @@ const EMPTY_CAST_RESULT_BASE = {
   dotsToApplyToTarget: [] as V2SkillDotApply[],
   selfHpCost: 0,
   fortressImpactToConsume: 0,
+  lawInscriptionGain: emptyLawInscriptionState(),
+  lawInscriptionComplete: false,
   selfBuffPctToApply: [] as V2SkillPctBuffApply[],
   guaranteedEvadesToAdd: 0,
   manaRestored: 0,
@@ -915,6 +939,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
         0,
         Math.floor(a.ironWallReflectCharges ?? 0),
       ),
+      inscription: lawInscriptionTotal(a.lawInscriptions),
     },
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
     enemyBleed: t.bleedStacks ?? 0,
@@ -956,6 +981,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       (d?.provokeImmediateBasicAttacks ?? 0) > 0 ||
       d?.duelistDeclaration != null ||
       d?.ironWallReflect != null ||
+      d?.consumesLawInscriptions === true ||
       d?.effects.some((effect) => {
         if (effect.kind === "enemyDamageDown") {
           return !(input.target.enemyDamageDownActive ?? false);
@@ -973,6 +999,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       isAnnihilation &&
       input.berserker != null &&
       input.berserker.annihilationUsesRemaining <= 0
+    ) {
+      return false;
+    }
+    if (
+      d?.consumesLawInscriptions &&
+      !canReleaseLawInscriptions(input.attacker.lawInscriptions)
     ) {
       return false;
     }
@@ -1072,6 +1104,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
+  const lawRelease = def.consumesLawInscriptions
+    ? lawInscriptionRelease(input.attacker.lawInscriptions)
+    : null;
   const isBerserkerFinisher =
     id === "v2c_overlord_ruin" || id === "v2c_hegemon_annihilation";
   const bloodPrepared =
@@ -1127,6 +1162,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let shieldToApply: V2SkillCastResult["shieldToApply"];
   let selfRegenToApply: V2SkillCastResult["selfRegenToApply"];
   let enemyVulnToApply: V2SkillCastResult["enemyVulnToApply"];
+  let enemyMagicVulnToApply: V2SkillCastResult["enemyMagicVulnToApply"];
   let enemyEvasionDownToApply: V2SkillCastResult["enemyEvasionDownToApply"];
   let enemyAccuracyDownToApply: V2SkillCastResult["enemyAccuracyDownToApply"];
   let selfHasteToApply: V2SkillCastResult["selfHasteToApply"];
@@ -1304,8 +1340,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
 
   // 속성 분기(원소술사) — def.elementEffects 가 있으면 시전자 캐릭 속성의 효과 배열을 쓴다(매칭
   //   없으면 effects 폴백=무속성). 기존 스킬은 elementEffects 미정의 → def.effects 그대로(byte-identical).
-  let baseCastEffects =
-    castVariant?.effects ?? def.elementEffects?.[charEl] ?? def.effects;
+  let baseCastEffects = lawRelease
+    ? rebalanceDynamicV2SkillEffects(id, lawRelease.effects)
+    : castVariant?.effects ?? def.elementEffects?.[charEl] ?? def.effects;
   for (const synergy of def.elementEffectSynergies ?? []) {
     if (!equippedSet.has(synergy.requiredSkillId)) continue;
     baseCastEffects =
@@ -1738,6 +1775,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       }
     : undefined;
   const finalEnemyDamage = applyRitualPower(fortressBoostedEnemyDamage);
+  if ((lawRelease?.magicVulnerabilityPct ?? 0) > 0) {
+    enemyMagicVulnToApply = {
+      pct: lawRelease!.magicVulnerabilityPct,
+      turns: 3,
+    };
+  }
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: {
@@ -1770,6 +1813,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     shieldToApply: boostedShield,
     selfRegenToApply,
     enemyVulnToApply,
+    enemyMagicVulnToApply,
     enemyEvasionDownToApply,
     enemyAccuracyDownToApply,
     selfHasteToApply,
@@ -1780,6 +1824,17 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     enemyDotVulnToApply,
     manaRestored: manaRestore,
     berserkerTransition,
+    lawInscriptionGain: input.attacker.lawInscription
+      ? lawInscriptionGainForCast(id, input.skills.equipped)
+      : emptyLawInscriptionState(),
+    ...(lawRelease
+      ? {
+          lawInscriptionsToConsume: normalizeLawInscriptionState(
+            lawRelease.state,
+          ),
+        }
+      : {}),
+    lawInscriptionComplete: lawRelease?.complete ?? false,
     fortressImpactToConsume,
     ironWallReflectToApply: def.ironWallReflect,
     refreshTripleWards: def.refreshTripleWards,

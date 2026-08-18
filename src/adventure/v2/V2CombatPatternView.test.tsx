@@ -120,6 +120,25 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('value="3"');
   });
 
+  it("법칙 각인 자원 조건은 총합 8까지 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <ConditionParams
+        condition={{
+          kind: "self_resource",
+          resource: "inscription",
+          op: "atLeast",
+          value: 4,
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("각인 총합");
+    expect(html).toContain("이상");
+    expect(html).toContain('max="8"');
+    expect(html).toContain('value="4"');
+  });
+
   it("renders the selected action skill as a large dialog trigger", () => {
     const html = renderToStaticMarkup(
       <SkillPatternPicker

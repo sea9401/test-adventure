@@ -45,6 +45,7 @@ import { activeTier6ResourceSnapshot } from "./tier6UniqueEffects";
 import { consumeDuelistCritHaste } from "./duelistCombat";
 import { enterShockAction } from "./shockAction";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
+import { mergeLawInscriptionSnapshot } from "./lawInscription";
 
 // PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
 // 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
@@ -52,9 +53,12 @@ export const ATB_TICK_CAP = 50 * 60;
 export const ATB_ACTION_GUARD = 1000;
 
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
-  const playerResources = mergeTripleWardResourceSnapshot(
-    activeTier6ResourceSnapshot(state.stacks.tier6Uniques),
-    state.stacks.tripleWard,
+  const playerResources = mergeLawInscriptionSnapshot(
+    mergeTripleWardResourceSnapshot(
+      activeTier6ResourceSnapshot(state.stacks.tier6Uniques),
+      state.stacks.tripleWard,
+    ),
+    state.stacks.lawInscriptions,
   );
   return {
     kind: "hp_bar",
@@ -169,6 +173,10 @@ function tickEnemyTargetDebuffs(state: BattleState): BattleState {
     stacks: {
       ...s,
       enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
+      enemyMagicVulnTurns: Math.max(
+        0,
+        (s.enemyMagicVulnTurns ?? 0) - 1,
+      ),
       enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
       enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
       enemyHealReduceTurns: Math.max(0, s.enemyHealReduceTurns - 1),

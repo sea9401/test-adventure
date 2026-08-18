@@ -155,6 +155,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕일도 + 패황의 지배
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory", "v2c_archmage_magicdismantle3"], // 대마도사: 비전 붕괴 + 대마도 이론 + 마력 해체 III
   primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance", "v2c_primordialmage_amplification"], // 태초술사: 태초회귀 + 근원공명 + 원초 증폭
+  lawweaver: ["v2c_lawweaver_release", "v2c_lawweaver_inscription"], // 법칙술사: 만상각인 해방 + 법칙 각인
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총
   lawguardian: ["v2c_lawguardian_inviolable", "v2c_lawguardian_domain"], // 만법수호자: 만법불침 + 만법수호영역
   doomprophet: ["v2c_doomprophet_sentence", "v2c_doomprophet_revelation"], // 종말예언자: 종말 선고 + 불길한 계시

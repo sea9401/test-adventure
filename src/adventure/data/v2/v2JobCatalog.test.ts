@@ -146,6 +146,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   hegemon: "overlord",
   archmage: "arcanist",
   primordialmage: "elementallord",
+  lawweaver: "inscriber",
   savior: "saint",
   lawguardian: "grandwarder",
   doomprophet: "calamitycaller",
@@ -224,8 +225,8 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("126개 직업(기존 124 + 봉마사 상위 계보 2)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(126);
+  it("127개 직업(기존 126 + 법칙술사)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(127);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
@@ -233,7 +234,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(3)).toBe(25);
     expect(byTier(4)).toBe(30);
     expect(byTier(5)).toBe(24);
-    expect(byTier(6)).toBe(23);
+    expect(byTier(6)).toBe(24);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -1286,6 +1287,7 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("mage", "elementallord")).toBe("원소군주");
     expect(displayName("mage", "primordialmage")).toBe("태초술사");
     expect(displayName("mage", "inscriber")).toBe("각인술사");
+    expect(displayName("mage", "lawweaver")).toBe("법칙술사");
     expect(displayName("mage", "archmage")).toBe("대마도사");
     expect(displayName("mage", "savior")).toBe("구원자");
     expect(displayName("mage", "calamitycaller")).toBe("재앙술사");

@@ -99,6 +99,13 @@ import {
   activeTier6ResourceSnapshot,
 } from "./tier6UniqueEffects";
 import {
+  addLawInscriptionGain,
+  emptyLawInscriptionState,
+  lawInscriptionConsumeLog,
+  lawInscriptionGainLog,
+  mergeLawInscriptionSnapshot,
+} from "./lawInscription";
+import {
   applyTier6UniquePveEvent,
   tier6DotContext,
   tier6StatusKindCount,
@@ -1171,6 +1178,11 @@ function applySkillTempBuffs(
     skillReflectBoostTurns: reflect ? reflect.turns : prev.skillReflectBoostTurns,
     enemyVulnPct: result.enemyVulnToApply?.pct ?? prev.enemyVulnPct,
     enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns : prev.enemyVulnTurns,
+    enemyMagicVulnPct:
+      result.enemyMagicVulnToApply?.pct ?? prev.enemyMagicVulnPct ?? 0,
+    enemyMagicVulnTurns: result.enemyMagicVulnToApply
+      ? result.enemyMagicVulnToApply.turns
+      : prev.enemyMagicVulnTurns ?? 0,
     enemyEvasionDownPct: result.enemyEvasionDownToApply?.pct ?? prev.enemyEvasionDownPct,
     enemyEvasionDownTurns: result.enemyEvasionDownToApply ? result.enemyEvasionDownToApply.turns : prev.enemyEvasionDownTurns,
     enemyAccuracyDownPct: result.enemyAccuracyDownToApply?.pct ?? prev.enemyAccuracyDownPct,
@@ -1225,6 +1237,9 @@ export function finishPlayerTurn(
         skillDmgReduceTurns: s.skillDmgReduceTurns,
         skillReflectBoostTurns: s.skillReflectBoostTurns,
         enemyVulnTurns: enemyTargetTurns(s.enemyVulnTurns),
+        enemyMagicVulnTurns: enemyTargetTurns(
+          s.enemyMagicVulnTurns ?? 0,
+        ),
         enemyEvasionDownTurns: enemyTargetTurns(s.enemyEvasionDownTurns),
         enemyAccuracyDownTurns: enemyTargetTurns(s.enemyAccuracyDownTurns),
         enemyHealReduceTurns: enemyTargetTurns(s.enemyHealReduceTurns),
@@ -1477,6 +1492,9 @@ export function initialBattleState(
       tripleWard: initialTripleWardState(tripleWardRank),
       fortressImpact: 0,
       ironWallReflectCharges: 0,
+      ...(player.lawInscription
+        ? { lawInscriptions: emptyLawInscriptionState() }
+        : {}),
       chillStacks: 0,
       curseStacks: 0,
       playerShield: startShield,
@@ -1505,6 +1523,8 @@ export function initialBattleState(
       skillReflectBoostTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
+      enemyMagicVulnPct: 0,
+      enemyMagicVulnTurns: 0,
       enemyEvasionDownPct: 0,
       enemyEvasionDownTurns: 0,
       enemyAccuracyDownPct: 0,
@@ -2320,6 +2340,8 @@ export function applyPlayerV2SkillCast(
       fortressImpactDamagePctPerStack:
         player.fortressImpactDamagePctPerStack,
       fortressDefSkillStatCoefPct: player.fortressDefSkillStatCoefPct,
+      lawInscription: player.lawInscription,
+      lawInscriptions: state.stacks.lawInscriptions,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
       selfShield: state.stacks.playerShield,
       selfShieldActive: state.stacks.playerShield > 0,
@@ -2400,7 +2422,17 @@ export function applyPlayerV2SkillCast(
           (result.magicEnemyDamage * (player.magicSkillDamagePct ?? 0)) / 100,
         )
       : 0;
-  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
+  const lawMagicVulnBonus =
+    result.magicEnemyDamage > 0 &&
+    (state.stacks.enemyMagicVulnTurns ?? 0) > 0
+      ? Math.floor(
+          (result.magicEnemyDamage *
+            (state.stacks.enemyMagicVulnPct ?? 0)) /
+            100,
+        )
+      : 0;
+  const skillDamageBase =
+    result.enemyDamage + magicSkillDamageBonus + lawMagicVulnBonus;
   // 스킬 치명타 — 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT 로
   //   분리(평타 critMult 비연동 → 비폭주). 오버플로는 관련 패시브 보유 시에만 스킬에도 적용.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
@@ -2432,7 +2464,8 @@ export function applyPlayerV2SkillCast(
     : 1;
   const singleSkillDamageBeforeEvasion = computeDirectSkillDamage({
     totalDamage: skillDamageBase,
-    magicDamage: result.magicEnemyDamage + magicSkillDamageBonus,
+    magicDamage:
+      result.magicEnemyDamage + magicSkillDamageBonus + lawMagicVulnBonus,
     preCriticalMultiplier: skillPreCriticalMultiplier,
     criticalMultiplier: skillCriticalMultiplier,
     equipmentMagicCritBonus:
@@ -2789,6 +2822,41 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  const lawGain = addLawInscriptionGain(
+    state.stacks.lawInscriptions,
+    result.lawInscriptionGain,
+  );
+  const nextLawInscriptions = result.lawInscriptionsToConsume
+    ? emptyLawInscriptionState()
+    : lawGain.state;
+  const lawGainText = lawInscriptionGainLog(
+    lawGain.gained,
+    nextLawInscriptions,
+  );
+  const lawConsumeText = lawInscriptionConsumeLog(
+    result.lawInscriptionsToConsume,
+  );
+  if (lawGainText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawGainText,
+      turn: "player",
+    });
+  }
+  if (lawConsumeText) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: lawConsumeText,
+      turn: "player",
+    });
+  }
+  if (result.lawInscriptionComplete) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: "공격·환류·침식·수호가 하나로 이어져 완성 각인이 발동했다.",
+      turn: "player",
+    });
+  }
   const refreshedTripleWard = result.refreshTripleWards
     ? refreshTripleWardState(
         state.stacks.tripleWard,
@@ -2901,6 +2969,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "속박"}] 적 받는 피해 +${result.enemyVulnToApply.pct}% (적 행동 ${result.enemyVulnToApply.turns}회)`,
+      turn: "player",
+    });
+  }
+  if (result.enemyMagicVulnToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "침식"}] 적이 받는 마법 피해 +${result.enemyMagicVulnToApply.pct}% (적 행동 ${result.enemyMagicVulnToApply.turns}회)`,
       turn: "player",
     });
   }
@@ -3048,6 +3123,11 @@ export function applyPlayerV2SkillCast(
       ironWallReflectCharges:
         result.ironWallReflectToApply?.charges ??
         state.stacks.ironWallReflectCharges,
+      ...((state.stacks.lawInscriptions != null ||
+        player.lawInscription ||
+        result.lawInscriptionsToConsume != null)
+        ? { lawInscriptions: nextLawInscriptions }
+        : {}),
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
       playerShield:
         state.stacks.playerShield +
@@ -3170,9 +3250,12 @@ function resolveBattleLegacy(
   const turnMarkerText = (turnNo: number): string => `${turnNo}턴`;
   // 그 시점 HP 스냅샷 — 매 턴 종료 시 + 전투 종료 시 로그 마지막에 박는다.
   const hpBarEntry = (s: BattleState): BattleLogEntry => {
-    const playerResources = mergeTripleWardResourceSnapshot(
-      activeTier6ResourceSnapshot(s.stacks.tier6Uniques),
-      s.stacks.tripleWard,
+    const playerResources = mergeLawInscriptionSnapshot(
+      mergeTripleWardResourceSnapshot(
+        activeTier6ResourceSnapshot(s.stacks.tier6Uniques),
+        s.stacks.tripleWard,
+      ),
+      s.stacks.lawInscriptions,
     );
     return {
       kind: "hp_bar",

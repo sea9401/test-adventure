@@ -27,6 +27,7 @@ import { consumeDuelistCritHaste } from "./duelistCombat";
 import { tickV2BuffMap } from "./combatShared";
 import { enterShockAction } from "./shockAction";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
+import { mergeLawInscriptionSnapshot } from "./lawInscription";
 import {
   pickPvpInitiative,
   type PvPInitiativeActor,
@@ -38,13 +39,19 @@ export const PVP_ATB_TICK_CAP = 3_000;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
-  const playerResources = mergeTripleWardResourceSnapshot(
-    activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
-    state.p1.stacks.tripleWard,
+  const playerResources = mergeLawInscriptionSnapshot(
+    mergeTripleWardResourceSnapshot(
+      activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
+      state.p1.stacks.tripleWard,
+    ),
+    state.p1.stacks.lawInscriptions,
   );
-  const enemyResources = mergeTripleWardResourceSnapshot(
-    activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
-    state.p2.stacks.tripleWard,
+  const enemyResources = mergeLawInscriptionSnapshot(
+    mergeTripleWardResourceSnapshot(
+      activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
+      state.p2.stacks.tripleWard,
+    ),
+    state.p2.stacks.lawInscriptions,
   );
   return {
     kind: "hp_bar",

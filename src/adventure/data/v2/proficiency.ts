@@ -122,6 +122,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   swordsaint: { str: 3, dex: 2, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
   hegemon: { str: 3, vit: 2, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
   archmage: { int: 3, spi: 3 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
+  lawweaver: { int: 3, spi: 3 }, // 법칙술사 — 각인술사 최종형, 문장 조합과 해방 중심
   savior: { spi: 3, int: 2, vit: 1 }, // 구원자 — 성자 최종형, 치유와 생존 보조 중심
   calamitycaller: { int: 3, spi: 1, luk: 1 }, // 재앙술사 — 대주술사 심화, 저주·재앙 디버프 중심
   doomprophet: { int: 3, spi: 2, luk: 1 }, // 종말예언자 — 재앙술사 최종형, 종말 선고와 침식 중심

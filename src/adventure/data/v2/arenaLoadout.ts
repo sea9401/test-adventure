@@ -85,6 +85,7 @@ const ENEMY_STATUS_LABEL = {
 const SELF_RESOURCE_LABEL = {
   impact: "충격",
   ironWallReflect: "철벽 반사",
+  inscription: "각인 총합",
 } as const;
 
 const ENEMY_DEBUFF_LABEL = {

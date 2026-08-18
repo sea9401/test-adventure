@@ -67,6 +67,13 @@ import {
   normalizeLawInscriptionState,
   type LawInscriptionState,
 } from "./lawInscription";
+import {
+  MUTATION_RESOURCE_MAX,
+  clampMutationResource,
+  mutationCastTransition,
+  weightPhysicalSkillMultiplier,
+  type MutationCastTransition,
+} from "./mutationCombat";
 
 // 기본 명중 상수는 v2CombatConstants 로 이관(UI StatsPanel 이 무거운 combatShared 를 끌어오지
 // 않고 가벼운 상수 파일에서 읽도록). 두 엔진은 여전히 combatShared 에서 import 하므로 재노출.
@@ -619,7 +626,9 @@ export function pickAutoCastV2Skill(args: {
       !def.provokeImmediateBasicAttacks &&
       !def.duelistDeclaration &&
       !def.ironWallReflect &&
-      !def.consumesLawInscriptions
+      !def.consumesLawInscriptions &&
+      !(def.mutationWeightGain ?? 0) &&
+      !(def.splitGain ?? 0)
     ) continue;
     return id;
   }
@@ -715,6 +724,8 @@ export type V2SkillCastResult = {
   ironWallReflectToApply?: NonNullable<V2SkillDefinition["ironWallReflect"]>;
   /** 만법불침 시전 성공 시 삼중 결계를 최대 횟수로 갱신한다. */
   refreshTripleWards?: boolean;
+  /** 시전 성공으로 확정된 중량·분열체 변화. 대상 회피와 무관하게 적용한다. */
+  mutationTransition: MutationCastTransition;
 };
 
 /** 직접 피해뿐 아니라 DoT·약화·제어처럼 상대에게 적중해야 하는 효과가 있는지 판정한다. */
@@ -816,6 +827,9 @@ export type V2SkillCastInput = {
     fortressDefSkillStatCoefPct?: number;
     lawInscription?: boolean;
     lawInscriptions?: Partial<LawInscriptionState>;
+    mutationWeight?: number;
+    splitBodies?: number;
+    bleedPhysicalSkillDamagePctPerStack?: number;
     str?: number;
     int?: number;
     vit?: number;
@@ -880,6 +894,10 @@ const EMPTY_CAST_RESULT_BASE = {
   guaranteedEvadesToAdd: 0,
   manaRestored: 0,
   berserkerTransition: EMPTY_BERSERKER_CAST_TRANSITION,
+  mutationTransition: mutationCastTransition(
+    { weight: 0, split: 0 },
+    {},
+  ),
 };
 
 // 전투 패턴 조건 평가용 ctx — cast 입력(공격자/대상 상태)에서 합성. 자버프 활성 스탯 = selfBuffs 키.
@@ -940,6 +958,8 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
         Math.floor(a.ironWallReflectCharges ?? 0),
       ),
       inscription: lawInscriptionTotal(a.lawInscriptions),
+      weight: clampMutationResource(a.mutationWeight ?? 0),
+      split: clampMutationResource(a.splitBodies ?? 0),
     },
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
     enemyBleed: t.bleedStacks ?? 0,
@@ -982,6 +1002,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       d?.duelistDeclaration != null ||
       d?.ironWallReflect != null ||
       d?.consumesLawInscriptions === true ||
+      (d?.mutationWeightGain ?? 0) > 0 ||
+      (d?.splitGain ?? 0) > 0 ||
       d?.effects.some((effect) => {
         if (effect.kind === "enemyDamageDown") {
           return !(input.target.enemyDamageDownActive ?? false);
@@ -1005,6 +1027,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     if (
       d?.consumesLawInscriptions &&
       !canReleaseLawInscriptions(input.attacker.lawInscriptions)
+    ) {
+      return false;
+    }
+    if (
+      (d?.splitGain ?? 0) > 0 &&
+      clampMutationResource(input.attacker.splitBodies ?? 0) >=
+        MUTATION_RESOURCE_MAX
     ) {
       return false;
     }
@@ -1741,10 +1770,66 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     fortressImpactMult === 1
       ? boostedEnemyDamage
       : Math.floor(boostedEnemyDamage * fortressImpactMult);
+  const mutationWeight = clampMutationResource(
+    input.attacker.mutationWeight ?? 0,
+  );
+  const splitBodies = clampMutationResource(input.attacker.splitBodies ?? 0);
+  const directPhysicalDamage = Math.max(
+    0,
+    fortressBoostedEnemyDamage - scaledMagicEnemyDamage,
+  );
+  const bloodScentBonusPct = Math.min(
+    20,
+    Math.max(0, Math.floor(input.target.bleedStacks ?? 0)) *
+      Math.max(0, input.attacker.bleedPhysicalSkillDamagePctPerStack ?? 0),
+  );
+  const physicalMutationMult =
+    weightPhysicalSkillMultiplier(mutationWeight) *
+    (1 + bloodScentBonusPct / 100);
+  const mutationPhysicalDamage =
+    directPhysicalDamage > 0
+      ? Math.floor(directPhysicalDamage * physicalMutationMult)
+      : 0;
+  const directAfterPhysicalMutation =
+    mutationPhysicalDamage + scaledMagicEnemyDamage;
+  const splitAuxHitPct = Math.max(0, def.splitAuxHitPctPerStack ?? 0);
+  const splitAuxHitDamage =
+    splitAuxHitPct > 0
+      ? Math.floor((directAfterPhysicalMutation * splitAuxHitPct) / 100)
+      : 0;
+  const splitAuxDamage = splitAuxHitDamage * splitBodies;
+  const directAfterSplit = directAfterPhysicalMutation + splitAuxDamage;
+  const mutationPayoffPct =
+    mutationWeight *
+      Math.max(0, def.mutationWeightConsumePctPerStack ?? 0) +
+    splitBodies * Math.max(0, def.splitConsumePctPerStack ?? 0);
+  const mutationBoostedEnemyDamage =
+    mutationPayoffPct > 0
+      ? Math.floor(directAfterSplit * (1 + mutationPayoffPct / 100))
+      : directAfterSplit;
+  const mutationMagicEnemyDamage =
+    scaledMagicEnemyDamage <= 0
+      ? 0
+      : Math.min(
+          mutationBoostedEnemyDamage,
+          Math.floor(
+            (scaledMagicEnemyDamage + splitAuxDamage) *
+              (1 + mutationPayoffPct / 100),
+          ),
+        );
+  const mutationTransition = mutationCastTransition(
+    { weight: mutationWeight, split: splitBodies },
+    {
+      weightGain: def.mutationWeightGain,
+      splitGain: def.splitGain,
+      consumeWeight: (def.mutationWeightConsumePctPerStack ?? 0) > 0,
+      consumeSplit: (def.splitConsumePctPerStack ?? 0) > 0,
+    },
+  );
   // 공격 피해를 기준으로 하는 흡혈형 회복은 이미 피해 증가 효과의 영향을 받는다.
   // 회복량 증가까지 곱하면 두 번 증폭되므로 healMult와 분리한다.
   const damageBasedHeal = Math.floor(
-    (fortressBoostedEnemyDamage * healFromDamagePct) / 100,
+    (mutationBoostedEnemyDamage * healFromDamagePct) / 100,
   );
   const directHealMult = def.oncePerBattle ? 1 : skillMult;
   const patternScaledSelfHeal =
@@ -1774,13 +1859,20 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         ),
       }
     : undefined;
-  const finalEnemyDamage = applyRitualPower(fortressBoostedEnemyDamage);
+  const finalEnemyDamage = applyRitualPower(mutationBoostedEnemyDamage);
   if ((lawRelease?.magicVulnerabilityPct ?? 0) > 0) {
     enemyMagicVulnToApply = {
       pct: lawRelease!.magicVulnerabilityPct,
       turns: 3,
     };
   }
+  const mutationHitDamages =
+    splitAuxHitDamage > 0
+      ? [
+          ...hitDamages,
+          ...Array.from({ length: splitBodies }, () => splitAuxHitDamage),
+        ]
+      : hitDamages;
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: {
@@ -1796,12 +1888,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       castVariant?.name ??
       (def.elementNamed ? `${V2_ELEMENT_LABEL[charEl]} 마법` : def.name),
     enemyDamage: finalEnemyDamage,
-    magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
+    magicEnemyDamage: applyRitualPower(mutationMagicEnemyDamage),
     hitDamages:
       (singleHitPhysicalBonusActive || missingHpSingleHit) &&
-      hitDamages.length === 1
+      mutationHitDamages.length === 1
         ? [finalEnemyDamage]
-        : hitDamages,
+        : mutationHitDamages,
     selfHeal: applyRitualPower(scaledSelfHeal),
     selfHealOnMiss: applyRitualPower(scaledSelfHealOnMiss),
     selfBuffsToApply,
@@ -1838,6 +1930,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     fortressImpactToConsume,
     ironWallReflectToApply: def.ironWallReflect,
     refreshTripleWards: def.refreshTripleWards,
+    mutationTransition,
   };
 }
 

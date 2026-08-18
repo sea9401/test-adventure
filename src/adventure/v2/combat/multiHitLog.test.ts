@@ -190,7 +190,7 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
         },
       });
 
-    expect(multiHitSkills).toHaveLength(21);
+    expect(multiHitSkills).toHaveLength(22);
     for (const skill of multiHitSkills) {
       const noDef = cast(skill.id, 0);
       const guarded = cast(skill.id, TARGET_DEF);

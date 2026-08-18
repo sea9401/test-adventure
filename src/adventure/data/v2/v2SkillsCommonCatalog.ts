@@ -302,7 +302,19 @@ export type V2CommonSkillId =
   | "v2c_blooddemon_reign" // 혈마군림 (HP 소모 + 처형 + 피해 회복)
   | "v2c_blooddemon_immortalblood" // 불사마혈 (최대 HP + 흡혈 + 방어)
   | "v2c_absolute_unity" // 만상귀일 (올스탯 피해 + 취약 + 행동 가속)
-  | "v2c_absolute_harmony"; // 절대 조화 (올스탯 + HP·MP)
+  | "v2c_absolute_harmony" // 절대 조화 (올스탯 + HP·MP)
+  // ── 변이자 수집형 킷 ──
+  | "v2c_mutant_morphstrike"
+  | "v2c_mutant_adaptation"
+  | "v2c_beastkin_rend"
+  | "v2c_beastkin_clawflurry"
+  | "v2c_beastkin_bloodscent"
+  | "v2c_golem_rocksmash"
+  | "v2c_golem_tectoniccollapse"
+  | "v2c_golem_stoneskin"
+  | "v2c_slime_split"
+  | "v2c_slime_barrage"
+  | "v2c_slime_fusioncrash";
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -332,6 +344,81 @@ const dmg = (
 });
 
 export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
+  // ═══ 변이자 — 배운 뒤 어느 직업에서도 장착하는 수집형 변이 ═══
+  v2c_mutant_morphstrike: {
+    id: "v2c_mutant_morphstrike", name: "불완전 변형", stat: "vit", category: "attack", tier: 1,
+    description: "불안정하게 신체를 바꾸어 활력으로 적을 들이받는다.", mpCost: 24, cooldown: 0, procChance: 40,
+    effects: [dmg(0.8, 100, "vit")],
+  },
+  v2c_mutant_adaptation: {
+    id: "v2c_mutant_adaptation", name: "변이 적응", stat: "vit", category: "passive", tier: 1,
+    description: "변화에 적응해 출혈·중독 같은 상태 피해를 줄인다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statusDamageReductionPct: 8 },
+  },
+  v2c_beastkin_rend: {
+    id: "v2c_beastkin_rend", name: "찢어발기기", stat: "str", category: "attack", tier: 1,
+    description: "날카로운 발톱으로 상처를 벌려 출혈을 겹친다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: [
+      dmg(0.9, 110),
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 2 },
+    ],
+  },
+  v2c_beastkin_clawflurry: {
+    id: "v2c_beastkin_clawflurry", name: "연속 할퀴기", stat: "str", category: "attack", tier: 1,
+    description: "세 번 연달아 할퀴고 깊은 출혈을 남긴다.", mpCost: 32, cooldown: 0, procChance: 38,
+    effects: [
+      ...hits(3, 0.36, 42),
+      { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 3 },
+    ],
+  },
+  v2c_beastkin_bloodscent: {
+    id: "v2c_beastkin_bloodscent", name: "피 냄새", stat: "str", category: "passive", tier: 1,
+    description: "대상의 출혈이 짙을수록 직접 물리 스킬이 강해진다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { bleedPhysicalSkillDamagePctPerStack: 2 },
+  },
+  v2c_golem_rocksmash: {
+    id: "v2c_golem_rocksmash", name: "암석 강타", stat: "vit", category: "attack", tier: 1,
+    description: "몸을 무겁게 굳혀 방어력으로 내리치고 중량을 얻는다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: [dmg(1.05, 110, "def")], mutationWeightGain: 1,
+  },
+  v2c_golem_tectoniccollapse: {
+    id: "v2c_golem_tectoniccollapse", name: "지각 붕괴", stat: "vit", category: "attack", tier: 1,
+    description: "쌓인 중량을 모두 소모해 지면과 함께 적을 무너뜨린다.", mpCost: 38, cooldown: 0, procChance: 34,
+    effects: [dmg(1.35, 150, "def")], mutationWeightConsumePctPerStack: 20,
+    defaultPattern: {
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    },
+  },
+  v2c_golem_stoneskin: {
+    id: "v2c_golem_stoneskin", name: "돌가죽", stat: "vit", category: "passive", tier: 1,
+    description: "중량이 쌓일수록 몸이 단단해져 방어력이 오른다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { stoneskinDefPctPerWeight: 6 },
+  },
+  v2c_slime_split: {
+    id: "v2c_slime_split", name: "분열", stat: "int", category: "buff", tier: 1,
+    description: "몸 일부를 떼어 분열체를 하나 만든다.", mpCost: 20, cooldown: 0, procChance: 100,
+    effects: [], splitGain: 1,
+    defaultPattern: {
+      priority: 360,
+      condition: { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
+    },
+  },
+  v2c_slime_barrage: {
+    id: "v2c_slime_barrage", name: "점액 탄막", stat: "int", category: "attack", tier: 1,
+    description: "점액을 쏘고 분열체마다 약한 보조 탄환을 하나씩 더한다.", mpCost: 30, cooldown: 0, procChance: 42,
+    effects: [dmg(0.9, 120, "magic")], splitAuxHitPctPerStack: 25,
+  },
+  v2c_slime_fusioncrash: {
+    id: "v2c_slime_fusioncrash", name: "융합 충돌", stat: "int", category: "attack", tier: 1,
+    description: "분열체를 모두 융합해 응축된 몸으로 충돌한다.", mpCost: 38, cooldown: 0, procChance: 34,
+    effects: [dmg(1.2, 150, "magic")], splitConsumePctPerStack: 25,
+    defaultPattern: {
+      priority: 500,
+      condition: { kind: "self_resource", resource: "split", op: "atLeast", value: 3 },
+    },
+  },
+
   // ═══ 전사 (STR · 물리) — 정직한 파워 ═══
   v2c_warrior_strike: {
     id: "v2c_warrior_strike", name: "강타", stat: "str", category: "attack", tier: 1,

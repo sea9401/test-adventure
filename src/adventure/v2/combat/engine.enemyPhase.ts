@@ -43,6 +43,7 @@ import {
   TRIPLE_WARD_LABELS,
   tripleWardStabilityReductionPct,
 } from "./tripleWard";
+import { effectiveMutationDef } from "./mutationCombat";
 
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
@@ -55,7 +56,7 @@ const MONSTER_CRIT_MULT_DEFAULT = 1.5;
 // 동작은 advanceTurn 인라인이던 시절과 1비트도 다르지 않다(combatGolden 적 페이즈 매트릭스 가드).
 export function resolveEnemyPhase(
   state: BattleState,
-  player: PlayerCombat,
+  basePlayer: PlayerCombat,
   playerName: string,
   enteringEnemyPhase: boolean,
   // 몹이 이 턴 스킬을 시전했으면 평타 생략(스킬이 평타 대체 — 플레이어 대칭). 한기 틱 뒤 분기.
@@ -63,6 +64,15 @@ export function resolveEnemyPhase(
   // 도발로 즉시 발생한 공격은 몬스터 고유 스킬 없이 기본 공격 판정만 수행한다.
   forceBasicAttack: boolean = false,
 ): BattleState {
+  const effectiveDef = effectiveMutationDef(
+    basePlayer.def,
+    state.stacks.mutationWeight,
+    basePlayer.stoneskinDefPctPerWeight ?? 0,
+  );
+  const player =
+    effectiveDef === basePlayer.def
+      ? basePlayer
+      : { ...basePlayer, def: effectiveDef };
   const applyTier6Dodge = (next: BattleState): BattleState =>
     next.stacks.tier6Uniques
       ? applyTier6UniquePveEvent(next, player, {

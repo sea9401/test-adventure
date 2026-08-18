@@ -187,6 +187,10 @@ export type BattleStacks = {
   // 성채기사 — 피격으로 쌓아 방패 직접 공격에 소비하는 충격, 철벽 태세의 남은 반사 횟수.
   fortressImpact: number;
   ironWallReflectCharges: number;
+  /** 골렘 변이 — 전투 한정 중량(0..3). */
+  mutationWeight: number;
+  /** 점액체 변이 — 전투 한정 분열체(0..3). */
+  splitBodies: number;
   /** 법칙술사 전투 한정 각인. 패시브 미보유·기존 상태에서는 생략한다. */
   lawInscriptions?: LawInscriptionState;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
@@ -415,6 +419,10 @@ export type PlayerCombat = {
   critResistPct?: number;
   /** 중독·출혈 등 status_damage 피해 감소율. 직접 피해·둔화에는 적용하지 않는다. */
   statusDamageReductionPct?: number;
+  /** 대상 출혈 스택당 직접 물리 스킬 피해 증가율. */
+  bleedPhysicalSkillDamagePctPerStack?: number;
+  /** 전투 중량 스택당 방어력 증가율. */
+  stoneskinDefPctPerWeight?: number;
   minDamage?: number;
   magicMinDamage?: number;
   healMult?: number;

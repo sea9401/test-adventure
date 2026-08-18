@@ -16,6 +16,61 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
+  it("변이자와 세 분기는 수집 가능한 변이 스킬 11개를 제공한다", () => {
+    expect(skillsForJob("mutant")).toEqual([
+      "v2c_mutant_morphstrike",
+      "v2c_mutant_adaptation",
+    ]);
+    expect(skillsForJob("beastkin")).toEqual([
+      "v2c_beastkin_rend",
+      "v2c_beastkin_clawflurry",
+      "v2c_beastkin_bloodscent",
+    ]);
+    expect(skillsForJob("golem")).toEqual([
+      "v2c_golem_rocksmash",
+      "v2c_golem_tectoniccollapse",
+      "v2c_golem_stoneskin",
+    ]);
+    expect(skillsForJob("slime")).toEqual([
+      "v2c_slime_split",
+      "v2c_slime_barrage",
+      "v2c_slime_fusioncrash",
+    ]);
+  });
+
+  it("변이 패시브는 장착 스킬만으로 집계되어 현재 직업과 독립적이다", () => {
+    expect(aggregateEquippedPassives(["v2c_mutant_adaptation"])).toMatchObject({
+      statusDamageReductionPct: 8,
+    });
+    expect(aggregateEquippedPassives(["v2c_beastkin_bloodscent"])).toMatchObject({
+      bleedPhysicalSkillDamagePctPerStack: 2,
+    });
+    expect(aggregateEquippedPassives(["v2c_golem_stoneskin"])).toMatchObject({
+      stoneskinDefPctPerWeight: 6,
+    });
+  });
+
+  it("변이 액티브는 출혈·중량·분열 계약을 카탈로그에 선언한다", () => {
+    expect(V2_SKILLS.v2c_beastkin_rend.effects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 2 }),
+      ]),
+    );
+    expect(V2_SKILLS.v2c_beastkin_clawflurry.effects.filter(
+      (effect) => effect.kind === "damage",
+    )).toHaveLength(3);
+    expect(V2_SKILLS.v2c_beastkin_clawflurry.effects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "dot", tag: "bleed", stacks: 3 }),
+      ]),
+    );
+    expect(V2_SKILLS.v2c_golem_rocksmash.mutationWeightGain).toBe(1);
+    expect(V2_SKILLS.v2c_golem_tectoniccollapse.mutationWeightConsumePctPerStack).toBe(20);
+    expect(V2_SKILLS.v2c_slime_split.splitGain).toBe(1);
+    expect(V2_SKILLS.v2c_slime_barrage.splitAuxHitPctPerStack).toBe(25);
+    expect(V2_SKILLS.v2c_slime_fusioncrash.splitConsumePctPerStack).toBe(25);
+  });
+
   it("마법사 코어 기본기는 누락된 경우에만 지급해 수동 해제를 보존한다", () => {
     const granted = grantCoreStarterSkill({ learned: [], equipped: [] }, "mage");
     expect(granted).toEqual({

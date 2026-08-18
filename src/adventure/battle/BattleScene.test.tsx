@@ -11,6 +11,59 @@ describe("전투 속도 표시", () => {
 });
 
 describe("좌우 전투 상태 정렬", () => {
+  it("관련 변이 스킬을 장착했을 때만 현재 중량·분열체를 표시한다", () => {
+    const enemy: Monster = {
+      name: "훈련용 적",
+      tags: [],
+      hp: 100,
+      atk: 10,
+      def: 5,
+      spd: 5,
+      exp: 0,
+    };
+    const initial = initialBattleState(
+      { hp: 100, maxHp: 100, atk: 10, def: 5, spd: 10, evasionPct: 0, attackCount: 1 },
+      enemy,
+      "변이자",
+      {
+        learned: ["v2c_golem_rocksmash", "v2c_slime_split"],
+        equipped: ["v2c_golem_rocksmash", "v2c_slime_split"],
+      },
+    );
+    const state = {
+      ...initial,
+      stacks: { ...initial.stacks, mutationWeight: 2, splitBodies: 3 },
+    };
+
+    const visible = renderToStaticMarkup(
+      <BattleScene
+        state={state}
+        playerName="변이자"
+        playerStatus={{ gender: "male1", exp: 0, maxExp: 100, hpPotionCount: 0 }}
+        layout="split"
+      />,
+    );
+    expect(visible).toContain("중량 2/3");
+    expect(visible).toContain("분열체 3/3");
+
+    const hidden = renderToStaticMarkup(
+      <BattleScene
+        state={{
+          ...state,
+          v2Skills: {
+            learned: ["v2c_golem_tectoniccollapse", "v2c_slime_fusioncrash"],
+            equipped: ["v2c_golem_tectoniccollapse", "v2c_slime_fusioncrash"],
+          },
+        }}
+        playerName="변이자"
+        playerStatus={{ gender: "male1", exp: 0, maxExp: 100, hpPotionCount: 0 }}
+        layout="split"
+      />,
+    );
+    expect(hidden).not.toContain("중량 2/3");
+    expect(hidden).not.toContain("분열체 3/3");
+  });
+
   it("진행 중인 선언의 남은 평타와 현재 기세 단계를 보여준다", () => {
     const enemy: Monster = {
       name: "훈련용 적",

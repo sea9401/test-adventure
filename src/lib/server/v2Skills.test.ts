@@ -355,7 +355,7 @@ describe("v2Skills — 직업 SP 산식 전환 유예", () => {
     expect(next.equipped).toEqual([...REBALANCE_LOADOUT]);
   });
 
-  it("유예 종료 후에는 현재 우선순위를 보존하며 신규 126 SP 안으로 정리한다", () => {
+  it("유예 종료 후에는 현재 우선순위를 보존하며 신규 127 SP 안으로 정리한다", () => {
     const { proficiency, context } = fullyUnlocked();
     context.jobSpRebalance = {
       startedAt: 1,
@@ -374,7 +374,7 @@ describe("v2Skills — 직업 SP 산식 전환 유예", () => {
       context,
     );
 
-    expect(next.equipped).toEqual(REBALANCE_LOADOUT.slice(0, 32));
+    expect(next.equipped).toEqual(REBALANCE_LOADOUT.slice(0, 33));
   });
 
   it("state reconcile도 유예 중인 저장 로드아웃을 종전 예산으로 보존한다", async () => {
@@ -411,10 +411,10 @@ describe("v2Skills — 직업 SP 산식 전환 유예", () => {
       "u-rebalance-ended",
     );
 
-    expect(first.skills.equipped).toEqual(REBALANCE_LOADOUT.slice(0, 32));
+    expect(first.skills.equipped).toEqual(REBALANCE_LOADOUT.slice(0, 33));
     expect(first.migration).toMatchObject({
       graceActive: false,
-      removedSkillIds: REBALANCE_LOADOUT.slice(32),
+      removedSkillIds: REBALANCE_LOADOUT.slice(33),
     });
     expect(second.migration?.removedSkillIds).toEqual([]);
   });
@@ -446,10 +446,10 @@ describe("v2Skills — 직업 SP 산식 전환 유예", () => {
     );
 
     expect(storedCharacter.jobSpRebalanceNotice?.removedSkillIds).toEqual(
-      REBALANCE_LOADOUT.slice(32),
+      REBALANCE_LOADOUT.slice(33),
     );
     expect(fullView.migration?.removedSkillIds).toEqual(
-      REBALANCE_LOADOUT.slice(32),
+      REBALANCE_LOADOUT.slice(33),
     );
     expect(
       (store.get("character.v2") as { jobSpRebalanceNotice?: unknown })

@@ -52,6 +52,7 @@ import {
   SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
 import { canApplyShock } from "./shockAction";
+import { weightSpeedMultiplier } from "./mutationCombat";
 import {
   appendLog,
   damageBetween,
@@ -180,13 +181,15 @@ function computeAttackDamagePvP(
     ? attacker.player.doubleLuck?.crit ?? 0
     : 0;
   const effectiveAtkSpd =
-    nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
+    (nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
       ? attacker.player.spd * nextBuffsTimedFromAp.playerSpdMult
-      : attacker.player.spd;
+      : attacker.player.spd) *
+    weightSpeedMultiplier(attacker.stacks.mutationWeight);
   const effectiveDefSpd =
-    nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
+    (nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
       ? defender.player.spd * nextBuffsTimedFromAp.enemySpdMult
-      : defender.player.spd;
+      : defender.player.spd) *
+    weightSpeedMultiplier(defender.stacks.mutationWeight);
   const balanceCritBonus = computeBalanceCritBonus(
     effectiveAtkSpd,
     effectiveDefSpd,

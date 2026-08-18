@@ -71,6 +71,7 @@ export const GUILD_TRAINING_FOCUS_LABEL: Record<
   mage: "마법",
   rogue: "민첩",
   survivor: "회복",
+  mutant: "변이",
 };
 
 export const GUILD_TRAINING_CATEGORY_LABEL: Record<

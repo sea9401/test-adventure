@@ -335,8 +335,8 @@ describe("통합 전투 프리셋 API", () => {
     expect(response.status).toBe(200);
     expect(
       (mocks.saves.get("skills.v2") as { equipped: string[] }).equipped,
-    ).toEqual(REBALANCE_LOADOUT.slice(0, 32));
-    expect(json.excluded.skillIds).toEqual(REBALANCE_LOADOUT.slice(32));
+    ).toEqual(REBALANCE_LOADOUT.slice(0, 33));
+    expect(json.excluded.skillIds).toEqual(REBALANCE_LOADOUT.slice(33));
   });
 
   it("적용 도중 저장이 실패하면 스킬과 장비 모두 원래 상태로 롤백한다", async () => {

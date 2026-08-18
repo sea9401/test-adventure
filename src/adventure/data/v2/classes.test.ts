@@ -18,16 +18,25 @@ const EXPECTED_ANCHOR = {
   mage: "int",
   rogue: "dex",
   survivor: "vit",
+  mutant: "vit",
 } as const;
 
 describe("v2 직업", () => {
-  it("none + 직군 5개 = 6개, 선택가능은 5직군", () => {
-    expect(V2_CLASSES).toHaveLength(6);
-    expect(V2_SELECTABLE_CLASSES).toHaveLength(5);
+  it("none + 직군 6개 = 7개, 선택가능은 6직군", () => {
+    expect(V2_CLASSES).toHaveLength(7);
+    expect(V2_SELECTABLE_CLASSES).toHaveLength(6);
     expect(V2_SELECTABLE_CLASSES).not.toContain("none");
     expect([...V2_SELECTABLE_CLASSES].sort()).toEqual(
-      ["martial", "mage", "rogue", "survivor", "warrior"].sort(),
+      ["martial", "mage", "mutant", "rogue", "survivor", "warrior"].sort(),
     );
+  });
+
+  it("변이자는 기본 해금 루트 직군으로 파싱되고 표시된다", () => {
+    expect(parseV2Class("mutant")).toBe("mutant");
+    expect(V2_CLASS_DEFS.mutant).toMatchObject({
+      name: "변이자",
+      anchorStat: "vit",
+    });
   });
 
   it("각 직군의 앵커 스탯이 설계 매핑과 일치", () => {

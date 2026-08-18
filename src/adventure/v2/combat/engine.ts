@@ -135,6 +135,10 @@ import {
   type TripleWardDamageKind,
   type TripleWardState,
 } from "./tripleWard";
+import {
+  effectiveMutationDef,
+  mutationTransitionLogLines,
+} from "./mutationCombat";
 
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
@@ -1492,6 +1496,8 @@ export function initialBattleState(
       tripleWard: initialTripleWardState(tripleWardRank),
       fortressImpact: 0,
       ironWallReflectCharges: 0,
+      mutationWeight: 0,
+      splitBodies: 0,
       ...(player.lawInscription
         ? { lawInscriptions: emptyLawInscriptionState() }
         : {}),
@@ -1867,7 +1873,11 @@ export function applyEnemyV2SkillCast(
       characterElement: state.enemy.element,
     },
     target: {
-      def: player.def,
+      def: effectiveMutationDef(
+        player.def,
+        state.stacks.mutationWeight,
+        player.stoneskinDefPctPerWeight ?? 0,
+      ),
       magicDef: player.magicDef,
       selfBuffs: state.v2SelfBuffs,
       selfDebuffs: state.v2SelfDebuffs,
@@ -1910,7 +1920,11 @@ export function applyEnemyV2SkillCast(
   let nextLog = state.log;
   const fortressReaction = resolveFortressReaction({
     landed: result.enemyDamage > 0,
-    defenderDef: player.def,
+    defenderDef: effectiveMutationDef(
+      player.def,
+      state.stacks.mutationWeight,
+      player.stoneskinDefPctPerWeight ?? 0,
+    ),
     impact: state.stacks.fortressImpact,
     impactOnHit: player.fortressImpactOnHit ?? false,
     ironWallReflectCharges: state.stacks.ironWallReflectCharges,
@@ -2324,7 +2338,11 @@ export function applyPlayerV2SkillCast(
       healMult: player.healMult,
       maxHp: state.playerMaxHp,
       // PR2-B — def/vit 비례 딜·현재HP(사혈격/기공순환)·maxMp(보호막/명상)·차수 flat.
-      def: player.def,
+      def: effectiveMutationDef(
+        player.def,
+        state.stacks.mutationWeight,
+        player.stoneskinDefPctPerWeight ?? 0,
+      ),
       str: player.strStat,
       int: player.intStat,
       vit: player.vitStat,
@@ -2342,6 +2360,10 @@ export function applyPlayerV2SkillCast(
       fortressDefSkillStatCoefPct: player.fortressDefSkillStatCoefPct,
       lawInscription: player.lawInscription,
       lawInscriptions: state.stacks.lawInscriptions,
+      mutationWeight: state.stacks.mutationWeight,
+      splitBodies: state.stacks.splitBodies,
+      bleedPhysicalSkillDamagePctPerStack:
+        player.bleedPhysicalSkillDamagePctPerStack,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).
       selfShield: state.stacks.playerShield,
       selfShieldActive: state.stacks.playerShield > 0,
@@ -2881,6 +2903,12 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  for (const text of mutationTransitionLogLines(
+    result.castSkillName,
+    result.mutationTransition,
+  )) {
+    nextLog = appendLog(nextLog, { kind: "info", text, turn: "player" });
+  }
   if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -3120,6 +3148,8 @@ export function applyPlayerV2SkillCast(
         0,
         state.stacks.fortressImpact - result.fortressImpactToConsume,
       ),
+      mutationWeight: result.mutationTransition.weightAfter,
+      splitBodies: result.mutationTransition.splitAfter,
       ironWallReflectCharges:
         result.ironWallReflectToApply?.charges ??
         state.stacks.ironWallReflectCharges,
@@ -3521,7 +3551,11 @@ function resolveBattleLegacy(
             characterElement: state.enemy.element,
           },
           target: {
-            def: player.def,
+            def: effectiveMutationDef(
+              player.def,
+              state.stacks.mutationWeight,
+              player.stoneskinDefPctPerWeight ?? 0,
+            ),
             magicDef: player.magicDef,
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: tickedPlayerDebuffs,
@@ -3551,7 +3585,11 @@ function resolveBattleLegacy(
         }
         const legacyFortressReaction = resolveFortressReaction({
           landed: result.enemyDamage > 0,
-          defenderDef: player.def,
+          defenderDef: effectiveMutationDef(
+            player.def,
+            state.stacks.mutationWeight,
+            player.stoneskinDefPctPerWeight ?? 0,
+          ),
           impact: state.stacks.fortressImpact,
           impactOnHit: player.fortressImpactOnHit ?? false,
           ironWallReflectCharges: state.stacks.ironWallReflectCharges,

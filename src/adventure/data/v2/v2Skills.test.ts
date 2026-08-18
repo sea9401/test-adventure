@@ -1605,3 +1605,38 @@ describe("삼중 결계 스킬 안내", () => {
     );
   });
 });
+
+describe("변이 자원 스킬 안내와 기본 패턴", () => {
+  it("중량·분열체의 생성·증폭·소모 규칙을 상세 칩에 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_golem_rocksmash)).toContain(
+      "중량 +1 (최대 3)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_golem_tectoniccollapse)).toContain(
+      "중량 전부 소모 · 스택당 최종 피해 +20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_slime_split)).toContain(
+      "분열체 +1 (최대 3)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_slime_barrage)).toContain(
+      "분열체당 25% 보조타",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_slime_fusioncrash)).toContain(
+      "분열체 전부 융합 · 개체당 최종 피해 +25%",
+    );
+  });
+
+  it("스마트 기본 패턴은 중량 3에 붕괴하고 분열체를 1까지 만든 뒤 3에 융합한다", () => {
+    expect(V2_SKILLS.v2c_golem_tectoniccollapse.defaultPattern).toEqual({
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    });
+    expect(V2_SKILLS.v2c_slime_split.defaultPattern).toEqual({
+      priority: 360,
+      condition: { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
+    });
+    expect(V2_SKILLS.v2c_slime_fusioncrash.defaultPattern).toEqual({
+      priority: 500,
+      condition: { kind: "self_resource", resource: "split", op: "atLeast", value: 3 },
+    });
+  });
+});

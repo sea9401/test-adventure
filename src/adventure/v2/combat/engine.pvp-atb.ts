@@ -32,6 +32,7 @@ import {
   pickPvpInitiative,
   type PvPInitiativeActor,
 } from "./pvpInitiative";
+import { weightSpeedMultiplier } from "./mutationCombat";
 
 // PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는
 // 각자의 actionInterval에 따라 달라지며, 장기전만 사냥과 동일한 타임라인 길이까지 허용한다.
@@ -90,7 +91,10 @@ function atbPlayerView(player: PlayerCombat): PlayerCombat {
   };
 }
 
-function effectiveSideSpd(state: PvPBattleState, who: "p1" | "p2"): number {
+export function effectiveSideSpd(
+  state: PvPBattleState,
+  who: "p1" | "p2",
+): number {
   const side = state[who];
   const other = state[who === "p1" ? "p2" : "p1"];
   let spd = side.player.spd;
@@ -100,7 +104,7 @@ function effectiveSideSpd(state: PvPBattleState, who: "p1" | "p2"): number {
   if (other.buffs.enemySpdTurnsLeft > 0) {
     spd *= other.buffs.enemySpdMult;
   }
-  return spd;
+  return spd * weightSpeedMultiplier(side.stacks.mutationWeight);
 }
 
 function nextActorPvP(

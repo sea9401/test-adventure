@@ -46,6 +46,7 @@ import { consumeDuelistCritHaste } from "./duelistCombat";
 import { enterShockAction } from "./shockAction";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 import { mergeLawInscriptionSnapshot } from "./lawInscription";
+import { weightSpeedMultiplier } from "./mutationCombat";
 
 // PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
 // 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
@@ -91,10 +92,14 @@ function rollEnemyAttackCount(enemy: Monster): number {
   return 1 + guaranteed + (Math.random() * 100 < remainder ? 1 : 0);
 }
 
-function effectivePlayerSpd(player: PlayerCombat, state: BattleState): number {
-  return state.buffs.playerSpdTurnsLeft > 0
+export function effectivePlayerSpd(
+  player: PlayerCombat,
+  state: BattleState,
+): number {
+  const buffed = state.buffs.playerSpdTurnsLeft > 0
     ? player.spd * state.buffs.playerSpdMult
     : player.spd;
+  return buffed * weightSpeedMultiplier(state.stacks.mutationWeight);
 }
 
 function effectiveEnemyTimelineSpd(

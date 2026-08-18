@@ -82,6 +82,7 @@ const JOB_LINE_ROOT_ORDER = [
   "mage",
   "rogue",
   "survivor",
+  "mutant",
 ];
 
 const JOB_CATALOG_INDEX = new Map(

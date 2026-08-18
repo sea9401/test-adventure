@@ -325,6 +325,12 @@ export type DerivePlayerCombatV2PureInput = {
   passiveHealPowerPct?: number;
   /** 받는 피해 -%(방벽 패시브) — totalDamageTakenReductionPct 에 합산. PvE/PvP 양쪽(#835). */
   passiveDamageTakenReductionPct?: number;
+  /** 출혈·중독 같은 상태 피해 감소율. */
+  passiveStatusDamageReductionPct?: number;
+  /** 대상 출혈 스택당 직접 물리 스킬 피해 증가율. */
+  passiveBleedPhysicalSkillDamagePctPerStack?: number;
+  /** 중량 스택당 방어력 증가율. */
+  passiveStoneskinDefPctPerWeight?: number;
   /** 마법 방어력 +%(결계술 패시브) — magicDef 에 곱연산. */
   passiveMagicDefPct?: number;
   /** 초반 마법형 평타 받는 피해 -%(결계술 패시브). */
@@ -659,6 +665,14 @@ export function derivePlayerCombatV2Pure(
     (specEff.damageTakenReductionPct ?? 0) +
       (input.passiveDamageTakenReductionPct ?? 0),
   ); // 장착 패시브(방벽) — 합산 후 다중 중첩 점감.
+  const totalStatusDamageReductionPct = Math.min(
+    100,
+    Math.max(
+      0,
+      equipAcc.statusDamageReductionPct +
+        (input.passiveStatusDamageReductionPct ?? 0),
+    ),
+  );
   const totalBleedDmgPerStack = specEff.bleedDmgPerStack ?? 0;
   const totalPoisonStrength = specEff.poisonPctPerStackBase ?? 0;
   const totalLifestealPct =
@@ -744,12 +758,9 @@ export function derivePlayerCombatV2Pure(
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
     magicDef,
     critResistPct,
-    ...(equipAcc.statusDamageReductionPct > 0
+    ...(totalStatusDamageReductionPct > 0
       ? {
-          statusDamageReductionPct: Math.min(
-            100,
-            equipAcc.statusDamageReductionPct,
-          ),
+          statusDamageReductionPct: totalStatusDamageReductionPct,
         }
       : {}),
     minDamage,
@@ -808,6 +819,17 @@ export function derivePlayerCombatV2Pure(
         }
       : {}),
     ...(input.passiveLawInscription ? { lawInscription: true } : {}),
+    ...((input.passiveBleedPhysicalSkillDamagePctPerStack ?? 0) > 0
+      ? {
+          bleedPhysicalSkillDamagePctPerStack:
+            input.passiveBleedPhysicalSkillDamagePctPerStack,
+        }
+      : {}),
+    ...((input.passiveStoneskinDefPctPerWeight ?? 0) > 0
+      ? {
+          stoneskinDefPctPerWeight: input.passiveStoneskinDefPctPerWeight,
+        }
+      : {}),
     ...(totalBleedDmgPerStack > 0
       ? {
           bleedOnHit: {
@@ -1070,6 +1092,10 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
+    passiveStatusDamageReductionPct: passiveAgg.statusDamageReductionPct,
+    passiveBleedPhysicalSkillDamagePctPerStack:
+      passiveAgg.bleedPhysicalSkillDamagePctPerStack,
+    passiveStoneskinDefPctPerWeight: passiveAgg.stoneskinDefPctPerWeight,
     passiveMagicDefPct: passiveAgg.magicDefPct,
     passiveOpeningMagicDamageReductionPct:
       passiveAgg.openingMagicDamageReductionPct,

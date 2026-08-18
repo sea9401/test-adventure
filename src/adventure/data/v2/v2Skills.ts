@@ -101,6 +101,12 @@ export type V2PassiveSkillEffect = {
   //   PvE/PvP 양쪽 작동(#835 PvP 미러 후). 미지정=무적용(byte-identical).
   /** 받는 피해 -% 가산(방벽) — totalDamageTakenReductionPct 에 합산. */
   damageTakenReductionPct?: number;
+  /** 중독·출혈 등 상태 피해 감소율. 직접 피해에는 적용하지 않는다. */
+  statusDamageReductionPct?: number;
+  /** 대상의 출혈 스택당 직접 물리 스킬 피해 증가율. */
+  bleedPhysicalSkillDamagePctPerStack?: number;
+  /** 현재 중량 스택당 방어력 증가율. */
+  stoneskinDefPctPerWeight?: number;
   /** 마법 방어력 +% 가산(결계술) — magicDef 에 곱연산. */
   magicDefPct?: number;
   /** 전투 초반 마법형 평타 받는 피해 -% 가산(결계술). */
@@ -472,6 +478,16 @@ export type V2SkillDefinition = {
   consumesFortressImpact?: boolean;
   /** 정상 시전 확정 시 현재 법칙 각인을 모두 소비해 동적 효과를 만든다. */
   consumesLawInscriptions?: boolean;
+  /** 시전 뒤 중량을 얻는 양. 피해 계산에는 시전 전 중량을 사용한다. */
+  mutationWeightGain?: number;
+  /** 현재 중량을 모두 소비하고 스택당 최종 피해를 높이는 비율. */
+  mutationWeightConsumePctPerStack?: number;
+  /** 시전 뒤 분열체를 얻는 양. */
+  splitGain?: number;
+  /** 분열체 하나당 추가되는 비재귀 보조 타격의 본타 대비 피해율. */
+  splitAuxHitPctPerStack?: number;
+  /** 현재 분열체를 모두 융합하고 스택당 최종 피해를 높이는 비율. */
+  splitConsumePctPerStack?: number;
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
@@ -1455,6 +1471,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
+  statusDamageReductionPct: number;
+  bleedPhysicalSkillDamagePctPerStack: number;
+  stoneskinDefPctPerWeight: number;
   magicDefPct: number;
   openingMagicDamageReductionPct: number;
   openingMagicDamageReductionPhases: number;
@@ -1502,6 +1521,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
+  let statusDamageReductionPct = 0;
+  let bleedPhysicalSkillDamagePctPerStack = 0;
+  let stoneskinDefPctPerWeight = 0;
   let magicDefPct = 0;
   let openingMagicDamageReductionPct = 0;
   let openingMagicDamageReductionPhases = 0;
@@ -1574,6 +1596,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
+    statusDamageReductionPct += p.statusDamageReductionPct ?? 0;
+    bleedPhysicalSkillDamagePctPerStack +=
+      p.bleedPhysicalSkillDamagePctPerStack ?? 0;
+    stoneskinDefPctPerWeight += p.stoneskinDefPctPerWeight ?? 0;
     magicDefPct += p.magicDefPct ?? 0;
     openingMagicDamageReductionPct += p.openingMagicDamageReductionPct ?? 0;
     openingMagicDamageReductionPhases = Math.max(
@@ -1644,6 +1670,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
+    statusDamageReductionPct,
+    bleedPhysicalSkillDamagePctPerStack,
+    stoneskinDefPctPerWeight,
     magicDefPct,
     openingMagicDamageReductionPct,
     openingMagicDamageReductionPhases,
@@ -2087,6 +2116,14 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
     chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);
+  if (p.statusDamageReductionPct)
+    chips.push(`상태이상 피해 -${p.statusDamageReductionPct}%`);
+  if (p.bleedPhysicalSkillDamagePctPerStack)
+    chips.push(
+      `대상 출혈 스택당 직접 물리 스킬 피해 +${p.bleedPhysicalSkillDamagePctPerStack}% (최대 +20%)`,
+    );
+  if (p.stoneskinDefPctPerWeight)
+    chips.push(`중량당 방어력 +${p.stoneskinDefPctPerWeight}%`);
   if (p.magicDefPct) chips.push(`마법 방어력 +${p.magicDefPct}%`);
   if (p.openingMagicDamageReductionPct)
     chips.push(
@@ -2317,6 +2354,25 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
     chips.push(...describeDuelistDeclaration(skill.duelistDeclaration));
   }
   if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
+  if (skill.mutationWeightGain) {
+    chips.push(`중량 +${skill.mutationWeightGain} (최대 3)`);
+  }
+  if (skill.mutationWeightConsumePctPerStack) {
+    chips.push(
+      `중량 전부 소모 · 스택당 최종 피해 +${skill.mutationWeightConsumePctPerStack}%`,
+    );
+  }
+  if (skill.splitGain) {
+    chips.push(`분열체 +${skill.splitGain} (최대 3)`);
+  }
+  if (skill.splitAuxHitPctPerStack) {
+    chips.push(`분열체당 ${skill.splitAuxHitPctPerStack}% 보조타`);
+  }
+  if (skill.splitConsumePctPerStack) {
+    chips.push(
+      `분열체 전부 융합 · 개체당 최종 피해 +${skill.splitConsumePctPerStack}%`,
+    );
+  }
   if (
     skill.effects.some(
       (payoff) =>

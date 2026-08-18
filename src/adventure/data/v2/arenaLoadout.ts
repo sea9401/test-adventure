@@ -86,6 +86,8 @@ const SELF_RESOURCE_LABEL = {
   impact: "충격",
   ironWallReflect: "철벽 반사",
   inscription: "각인 총합",
+  weight: "중량",
+  split: "분열체",
 } as const;
 
 const ENEMY_DEBUFF_LABEL = {

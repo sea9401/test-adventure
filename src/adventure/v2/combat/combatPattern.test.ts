@@ -202,6 +202,25 @@ describe("conditionPasses", () => {
     ).toBe(false);
   });
 
+  it("중량·분열체 자원을 다른 직업 스킬의 패턴에서도 판정한다", () => {
+    const mutation = ctx({
+      selfResources: { weight: 3, split: 1 },
+    });
+
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+        mutation,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
+        mutation,
+      ),
+    ).toBe(true);
+  });
+
   it("법칙 각인 총합 자원을 파싱하고 누락된 옛 컨텍스트는 0으로 판정한다", () => {
     const condition = {
       kind: "self_resource" as const,
@@ -329,6 +348,27 @@ describe("evaluateCombatPattern", () => {
 });
 
 describe("parseCombatPattern (저장 검증)", () => {
+  it("중량·분열체 조건을 저장 데이터에서 보존한다", () => {
+    const parsed = parseCombatPattern({
+      blocks: [
+        {
+          condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+          action: { kind: "skill", skillId: "v2c_golem_tectoniccollapse" },
+        },
+        {
+          condition: { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
+          action: { kind: "skill", skillId: "v2c_slime_split" },
+        },
+      ],
+    });
+
+    expect(parsed.blocks).toHaveLength(2);
+    expect(parsed.blocks.map((block) => block.condition)).toEqual([
+      { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+      { kind: "self_resource", resource: "split", op: "atMost", value: 1 },
+    ]);
+  });
+
   it("self_resource 조건을 정규화하고 알 수 없는 자원은 블록째 버린다", () => {
     const parsed = parseCombatPattern({
       blocks: [

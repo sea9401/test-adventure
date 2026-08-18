@@ -149,6 +149,10 @@ import {
   type LawInscriptionState,
 } from "./lawInscription";
 import {
+  effectiveMutationDef,
+  mutationTransitionLogLines,
+} from "./mutationCombat";
+import {
   applyTier6UniquePvpEvent,
   tier6PvpDotContext,
   tier6PvpStatusKindCount,
@@ -240,6 +244,10 @@ export type PvPSideStacks = {
   tripleWard: TripleWardState;
   fortressImpact: number;
   ironWallReflectCharges: number;
+  /** 골렘 변이 — 전투 한정 중량(0..3). */
+  mutationWeight: number;
+  /** 점액체 변이 — 전투 한정 분열체(0..3). */
+  splitBodies: number;
   lawInscriptions?: LawInscriptionState;
   playerShield: number;
   evadesRemaining: number;
@@ -502,7 +510,11 @@ export function attackerFacingDef(
   const braceDefBonus = defender.stacks.braceDefBonus ?? 0;
   const raw = Math.max(
     0,
-    defender.player.def + braceDefBonus - attackerBuffs.opponentDefPenalty,
+    effectiveMutationDef(
+      defender.player.def + braceDefBonus,
+      defender.stacks.mutationWeight,
+      defender.player.stoneskinDefPctPerWeight ?? 0,
+    ) - attackerBuffs.opponentDefPenalty,
   );
   const frac = attacker.player.armorPierceFraction ?? 0;
   let afterPierce = frac > 0 ? Math.round(raw * (1 - frac)) : raw;
@@ -785,6 +797,8 @@ function buildSide(
       tripleWard: initialTripleWardState(tripleWardRank),
       fortressImpact: 0,
       ironWallReflectCharges: 0,
+      mutationWeight: 0,
+      splitBodies: 0,
       ...(player.lawInscription
         ? { lawInscriptions: emptyLawInscriptionState() }
         : {}),
@@ -1656,7 +1670,11 @@ export function applyOnHitReflect(
     : thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
   const fortressReaction = resolveFortressReaction({
     landed: rawDmgBeforeMitigation > 0,
-    defenderDef: defender.player.def,
+    defenderDef: effectiveMutationDef(
+      defender.player.def,
+      defender.stacks.mutationWeight,
+      defender.player.stoneskinDefPctPerWeight ?? 0,
+    ),
     impact: defender.stacks.fortressImpact,
     impactOnHit: defender.player.fortressImpactOnHit ?? false,
     ironWallReflectCharges: defender.stacks.ironWallReflectCharges,
@@ -2565,7 +2583,11 @@ export function castV2SkillOnAttackerTurnPvP(
       healMult: side.player.healMult,
       maxHp: side.maxHp,
       // PR2-B — PvP 시전자도 PlayerCombat → def/vit 비례딜·현재HP(사혈격)·maxMp(보호막/명상)·차수 flat 유효.
-      def: side.player.def,
+      def: effectiveMutationDef(
+        side.player.def,
+        side.stacks.mutationWeight,
+        side.player.stoneskinDefPctPerWeight ?? 0,
+      ),
       str: side.player.strStat,
       int: side.player.intStat,
       vit: side.player.vitStat,
@@ -2598,6 +2620,10 @@ export function castV2SkillOnAttackerTurnPvP(
       fortressDefSkillStatCoefPct: side.player.fortressDefSkillStatCoefPct,
       lawInscription: side.player.lawInscription,
       lawInscriptions: side.stacks.lawInscriptions,
+      mutationWeight: side.stacks.mutationWeight,
+      splitBodies: side.stacks.splitBodies,
+      bleedPhysicalSkillDamagePctPerStack:
+        side.player.bleedPhysicalSkillDamagePctPerStack,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
       characterElement: side.player.characterElement,
@@ -3061,6 +3087,8 @@ export function castV2SkillOnAttackerTurnPvP(
     result.enemyDamageDownToApply != null ||
     result.enemySkillProcDownToApply != null ||
     result.enemyDotVulnToApply != null ||
+    ((side.player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
+      result.enemyDamage > 0) ||
     sigSkillTargetStatusFired;
   const statusBlockTargetEffects =
     hasHostileStatus &&
@@ -3432,6 +3460,8 @@ export function castV2SkillOnAttackerTurnPvP(
       0,
       side.stacks.fortressImpact - result.fortressImpactToConsume,
     ),
+    mutationWeight: result.mutationTransition.weightAfter,
+    splitBodies: result.mutationTransition.splitAfter,
     ironWallReflectCharges:
       result.ironWallReflectToApply?.charges ??
       side.stacks.ironWallReflectCharges,
@@ -3493,6 +3523,12 @@ export function castV2SkillOnAttackerTurnPvP(
       text: `[${result.castSkillName}] 충격 ${result.fortressImpactToConsume}스택 소비`,
       side: who,
     });
+  }
+  for (const text of mutationTransitionLogLines(
+    result.castSkillName,
+    result.mutationTransition,
+  )) {
+    nextLog = appendLog(nextLog, { kind: "info", text, side: who });
   }
   if (shieldGain > 0) {
     nextLog = appendLog(nextLog, {

@@ -7,6 +7,7 @@ import {
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
+  MUTANT_TIER1_UNLOCK_CUMLEVEL,
   FISHING_TIER2_UNLOCK_CUMLEVEL,
   FISHING_TIER3_UNLOCK_CUMLEVEL,
   FISHING_TIER4_UNLOCK_CUMLEVEL,
@@ -60,7 +61,7 @@ import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
 const BASE_JOBS = ["warrior", "martial", "mage", "rogue"];
-const LEGACY_CLASSES = [...BASE_JOBS, "survivor"];
+const LEGACY_CLASSES = [...BASE_JOBS, "survivor", "mutant"];
 const TIER2_BY_PARENT: Record<string, string[]> = {
   warrior: ["shieldman", "squire"],
   martial: ["boxer", "monk"],
@@ -186,7 +187,7 @@ describe("jobUnlockSpBonus", () => {
     );
   });
 
-  it("현재 122개 직업을 모두 해금하면 51개째부터 두 직업당 SP +1을 준다", () => {
+  it("현재 직업을 모두 해금하면 51개째부터 두 직업당 SP +1을 준다", () => {
     const proficiency = emptyProficiency();
     const completedQuestIds = new Set<string>();
     const killCounts: Record<string, number> = {};
@@ -220,16 +221,16 @@ describe("jobUnlockSpBonus", () => {
         woodcuttingLevel: 1_000,
         miningLevel: 1_000,
       }),
-    ).toBe(87);
+    ).toBe(89);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("127개 직업(기존 126 + 법칙술사)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(127);
+  it("변이자 루트와 세 분기를 포함한 131개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(131);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
-    expect(byTier(0)).toBe(2);
-    expect(byTier(1)).toBe(4);
+    expect(byTier(0)).toBe(3);
+    expect(byTier(1)).toBe(7);
     expect(byTier(2)).toBe(18);
     expect(byTier(3)).toBe(25);
     expect(byTier(4)).toBe(30);
@@ -364,6 +365,26 @@ describe("스탯 맵 무결성", () => {
 });
 
 describe("해금 트리", () => {
+  it("변이자는 기본 해금되고 세 1차 변이는 숙련도 1000에 동시에 열린다", () => {
+    expect(MUTANT_TIER1_UNLOCK_CUMLEVEL).toBe(1000);
+    expect(V2_JOB_CATALOG.mutant).toMatchObject({
+      tier: 0,
+      unlock: { prereqs: {} },
+    });
+
+    for (const id of ["beastkin", "golem", "slime"] as const) {
+      const job = V2_JOB_CATALOG[id];
+      expect(job.tier).toBe(1);
+      expect(job.unlock.prereqs).toEqual({ mutant: 1000 });
+      expect(isJobUnlocked(job, profWith({ mutant: 999 }))).toBe(false);
+      expect(isJobUnlocked(job, profWith({ mutant: 1000 }))).toBe(true);
+      expect(LEGACY_CLASS_SPEC_BY_JOB[id]).toEqual({
+        class: "mutant",
+        spec: id,
+      });
+      expect(jobIdFromLegacy("mutant", id)).toBe(id);
+    }
+  });
   it("일반 직업 차수별 숙련도 요구치를 고정한다", () => {
     expect(TIER2_UNLOCK_CUMLEVEL).toBe(1000);
     expect(TIER3_UNLOCK_CUMLEVEL).toBe(2500);
@@ -962,7 +983,7 @@ describe("isJobUnlocked / unlockedJobs", () => {
   it("unlockedJobs 는 루트 직업과 충족한 직업만 반환한다", () => {
     const empty = emptyProficiency();
     const ids = unlockedJobs(empty).map((j) => j.id);
-    expect(ids).toEqual(expect.arrayContaining(["none", "survivor", ...BASE_JOBS]));
+    expect(ids).toEqual(expect.arrayContaining(["none", "survivor", "mutant", ...BASE_JOBS]));
     expect(ids).not.toContain("squire");
 
     const ready = profWith({ warrior: TIER2_UNLOCK_CUMLEVEL });

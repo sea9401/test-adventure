@@ -40,7 +40,7 @@
 - Produces: `V2Class` member `mutant`, `MUTANT_TIER1_UNLOCK_CUMLEVEL = 1_000`, job IDs `mutant | beastkin | golem | slime`, and legacy pairs using class `mutant`.
 - Consumes: existing `isJobUnlocked`, `cumLevelForJob`, `jobIdFromLegacy`, `effectiveCultivateProfile`, and roadmap root discovery.
 
-- [ ] **Step 1: Write failing class and catalog tests**
+- [x] **Step 1: Write failing class and catalog tests**
 
 ```ts
 expect(parseV2Class("mutant")).toBe("mutant");
@@ -53,13 +53,13 @@ for (const id of ["beastkin", "golem", "slime"] as const) {
 }
 ```
 
-- [ ] **Step 2: Run focused tests and confirm the missing-root failures**
+- [x] **Step 2: Run focused tests and confirm the missing-root failures**
 
 Run: `npm test -- src/adventure/data/v2/classes.test.ts src/adventure/data/v2/v2JobCatalog.test.ts src/adventure/data/v2/proficiency.test.ts`
 
 Expected: FAIL because `mutant`, the three jobs, and the proficiency profile do not exist.
 
-- [ ] **Step 3: Add the class, job definitions, bridge, and normalized proficiency profile**
+- [x] **Step 3: Add the class, job definitions, bridge, and normalized proficiency profile**
 
 ```ts
 export const MUTANT_TIER1_UNLOCK_CUMLEVEL = 1_000;
@@ -84,7 +84,7 @@ beastkin: {
 
 Add equivalent `golem` and `slime` definitions from the approved spec, include `mutant` in `V2_CLASSES`, `V2_CLASS_DEFS`, and `V2_CULTIVATE_PROFILE`, and change `isRootJobSelectable`/roadmap start handling so `mutant` is a selectable root.
 
-- [ ] **Step 4: Add failing lineage ordering tests**
+- [x] **Step 4: Add failing lineage ordering tests**
 
 ```ts
 const roadmap = buildJobRoadmap();
@@ -97,17 +97,17 @@ expect(mutant?.children.map((node) => node.id)).toEqual([
 expect(compareJobExplorerLineOrder(job("mutant"), job("beastkin"))).toBeLessThan(0);
 ```
 
-- [ ] **Step 5: Add `mutant` to explorer root order and roadmap root detection**
+- [x] **Step 5: Add `mutant` to explorer root order and roadmap root detection**
 
 Place `mutant` after `survivor` in the explicit root order and treat `none | survivor | mutant` as roadmap children of `start`.
 
-- [ ] **Step 6: Run job/lineage tests**
+- [x] **Step 6: Run job/lineage tests**
 
 Run: `npm test -- src/adventure/data/v2/classes.test.ts src/adventure/data/v2/v2JobCatalog.test.ts src/adventure/data/v2/proficiency.test.ts src/adventure/v2/jobExplorer.test.ts src/adventure/v2/jobRoadmapModel.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit only mutation job/root hunks**
+- [x] **Step 7: Commit only mutation job/root hunks**
 
 ```bash
 git add -p src/adventure/data/v2/classes.ts src/adventure/data/v2/classes.test.ts src/adventure/data/v2/proficiency.ts src/adventure/data/v2/proficiency.test.ts src/adventure/data/v2/v2JobCatalog.ts src/adventure/data/v2/v2JobCatalog.test.ts src/adventure/v2/jobExplorer.ts src/adventure/v2/jobExplorer.test.ts src/adventure/v2/jobRoadmapModel.ts src/adventure/v2/jobRoadmapModel.test.ts
@@ -130,7 +130,7 @@ git commit -m "feat: add mutant job root and first branches"
 - Produces all 11 skill IDs and `V2_SKILLS_BY_JOB` entries.
 - Consumes Task 1 job IDs only for catalog mapping; skill operation remains independent of current job.
 
-- [ ] **Step 1: Write failing kit and aggregation tests**
+- [x] **Step 1: Write failing kit and aggregation tests**
 
 ```ts
 expect(skillsForJob("mutant")).toEqual([
@@ -151,13 +151,13 @@ expect(aggregateEquippedPassives(["v2c_golem_stoneskin"])).toMatchObject({
 });
 ```
 
-- [ ] **Step 2: Run skill catalog tests and confirm missing-ID failures**
+- [x] **Step 2: Run skill catalog tests and confirm missing-ID failures**
 
 Run: `npm test -- src/adventure/data/v2/v2SkillsByJob.test.ts src/adventure/data/v2/v2Skills.test.ts`
 
 Expected: FAIL with unknown mutation skill IDs and missing passive properties.
 
-- [ ] **Step 3: Add passive/active type fields and aggregate them**
+- [x] **Step 3: Add passive/active type fields and aggregate them**
 
 ```ts
 export type V2PassiveSkillEffect = {
@@ -179,7 +179,7 @@ export type V2SkillDefinition = {
 
 Aggregate numeric passives additively, clamp status-damage reduction through the existing final 0..100 path, and expose the two mutation combat passives on `PlayerCombat` through `derivePlayerCombatV2Pure`.
 
-- [ ] **Step 4: Add the 11 catalog definitions and job mappings**
+- [x] **Step 4: Add the 11 catalog definitions and job mappings**
 
 Use Tier 1 baseline coefficients and costs, with these fixed behaviors:
 
@@ -195,17 +195,17 @@ v2c_slime_fusioncrash.splitConsumePctPerStack = 25;
 
 Set collapse default pattern to `weight atLeast 3`, split to `split atMost 1`, and fusion crash to `split atLeast 3`.
 
-- [ ] **Step 5: Prove cross-job derivation does not inspect current job**
+- [x] **Step 5: Prove cross-job derivation does not inspect current job**
 
 Add a pure derive test using `playerClass: "mage"` with equipped mutation passives and assert the passive values appear on `PlayerCombat` unchanged.
 
-- [ ] **Step 6: Run skill and derive tests**
+- [x] **Step 6: Run skill and derive tests**
 
 Run: `npm test -- src/adventure/data/v2/v2SkillsByJob.test.ts src/adventure/data/v2/v2Skills.test.ts src/lib/server/derivePlayerCombatV2.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit only mutation skill/derive hunks**
+- [x] **Step 7: Commit only mutation skill/derive hunks**
 
 ```bash
 git add -p src/adventure/data/v2/v2Skills.ts src/adventure/data/v2/v2SkillsCommonCatalog.ts src/adventure/data/v2/v2SkillsByJob.ts src/adventure/data/v2/v2SkillsByJob.test.ts src/adventure/data/v2/v2Skills.test.ts src/lib/server/derivePlayerCombatV2.ts src/lib/server/derivePlayerCombatV2.test.ts
@@ -242,7 +242,7 @@ export type MutationCastTransition = {
 - Common resolver input consumes `attacker.mutationWeight` and `attacker.splitBodies`.
 - Common resolver result produces `mutationTransition` and auxiliary hit damage already included in `enemyDamage`/`hitDamages`.
 
-- [ ] **Step 1: Write failing pure resource tests**
+- [x] **Step 1: Write failing pure resource tests**
 
 ```ts
 expect(clampMutationResource(-1)).toBe(0);
@@ -252,17 +252,17 @@ expect(weightSpeedMultiplier(3)).toBe(0.85);
 expect(stoneskinDefMultiplier(3, 6)).toBe(1.18);
 ```
 
-- [ ] **Step 2: Run the new test and confirm module-not-found failure**
+- [x] **Step 2: Run the new test and confirm module-not-found failure**
 
 Run: `npm test -- src/adventure/v2/combat/mutationCombat.test.ts`
 
 Expected: FAIL because `mutationCombat.ts` does not exist.
 
-- [ ] **Step 3: Implement clamped pure helpers and transition calculation**
+- [x] **Step 3: Implement clamped pure helpers and transition calculation**
 
 Implement all exported functions without importing either battle engine. Transition order is snapshot current resources, compute bonuses, consume finisher resources, then apply non-finisher generation; rock smash therefore gains weight after its own damage.
 
-- [ ] **Step 4: Add failing common resolver tests**
+- [x] **Step 4: Add failing common resolver tests**
 
 Cover:
 
@@ -276,7 +276,7 @@ expect(cast("barrage", { split: 0 }).hitDamages).toHaveLength(1);
 
 Also verify blood scent reads target bleed from any source and boosts only physical direct skill damage, not magic or DoT.
 
-- [ ] **Step 5: Extend `resolveV2SkillCast` with the shared mutation contract**
+- [x] **Step 5: Extend `resolveV2SkillCast` with the shared mutation contract**
 
 The resolver must:
 
@@ -286,13 +286,13 @@ The resolver must:
 4. Apply collapse/fusion payoff multipliers.
 5. Return the transition even when target damage is evaded later; engines apply it when the cast itself succeeds.
 
-- [ ] **Step 6: Run pure and common cast tests**
+- [x] **Step 6: Run pure and common cast tests**
 
 Run: `npm test -- src/adventure/v2/combat/mutationCombat.test.ts src/adventure/v2/combat/combatPatternCast.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit mutation resource core**
+- [x] **Step 7: Commit mutation resource core**
 
 ```bash
 git add src/adventure/v2/combat/mutationCombat.ts src/adventure/v2/combat/mutationCombat.test.ts src/adventure/v2/combat/combatShared.ts src/adventure/v2/combat/combatPatternCast.test.ts
@@ -315,7 +315,7 @@ git commit -m "feat: resolve mutation battle resources"
 - Consumes Task 3 `MutationCastTransition` and effective-stat helpers.
 - Produces `[중량]`, `[지각 붕괴]`, `[분열]`, and `[융합 충돌]` log entries.
 
-- [ ] **Step 1: Write failing PvE/PvP transition tests**
+- [x] **Step 1: Write failing PvE/PvP transition tests**
 
 Assert both engines:
 
@@ -328,13 +328,13 @@ expect(afterFusion.stacks.splitBodies).toBe(0);
 
 Use a non-mutation current class/player fixture to prove only equipped skills matter.
 
-- [ ] **Step 2: Run engine tests and confirm missing-stack failures**
+- [x] **Step 2: Run engine tests and confirm missing-stack failures**
 
 Run: `npm test -- src/adventure/v2/combat/mutationCombatEngine.test.ts src/adventure/v2/combat/mutationCombatPvp.test.ts`
 
 Expected: FAIL because battle stacks and engine transitions are absent.
 
-- [ ] **Step 3: Initialize and apply resource transitions in both engines**
+- [x] **Step 3: Initialize and apply resource transitions in both engines**
 
 Update stack construction and successful cast application. Log exact values:
 
@@ -345,17 +345,17 @@ Update stack construction and successful cast application. Log exact values:
 [융합 충돌] 분열체 3 융합
 ```
 
-- [ ] **Step 4: Apply dynamic DEF and SPD without mutating base combat data**
+- [x] **Step 4: Apply dynamic DEF and SPD without mutating base combat data**
 
 Use `stoneskinDefMultiplier` at defense and DEF-scaled skill boundaries. Use `weightSpeedMultiplier` in PvE/PvP ATB interval calculations and PvP speed comparisons. Resource consumption restores the original effective speed on the next calculation.
 
-- [ ] **Step 5: Run engine tests and adjacent combat regressions**
+- [x] **Step 5: Run engine tests and adjacent combat regressions**
 
 Run: `npm test -- src/adventure/v2/combat/mutationCombatEngine.test.ts src/adventure/v2/combat/mutationCombatPvp.test.ts src/adventure/v2/combat/engine.magicAttack.test.ts src/adventure/v2/combat/combatAtb.test.ts src/adventure/v2/combat/combatPvpAtb.test.ts src/adventure/v2/combat/fortressKnight.test.ts`
 
 Expected: PASS, including unchanged fortress impact behavior.
 
-- [ ] **Step 6: Commit engine integration**
+- [x] **Step 6: Commit engine integration**
 
 ```bash
 git add src/adventure/v2/combat/engineState.ts src/adventure/v2/combat/engine.ts src/adventure/v2/combat/engine-pvp.ts src/adventure/v2/combat/engine.atb.ts src/adventure/v2/combat/engine.pvp-atb.ts src/adventure/v2/combat/mutationCombatEngine.test.ts src/adventure/v2/combat/mutationCombatPvp.test.ts
@@ -379,7 +379,7 @@ git commit -m "feat: run mutation resources in pve and pvp"
 - Pattern contexts source both values from battle stack/cast input.
 - Battle scene reads `state.stacks.mutationWeight` and `state.stacks.splitBodies`; visibility is based on equipped resource-producing/consuming mutation skills.
 
-- [ ] **Step 1: Write failing parser, UI, and readout tests**
+- [x] **Step 1: Write failing parser, UI, and readout tests**
 
 ```ts
 expect(parseCombatPattern(patternFor("weight", 3))).toEqual(expectedWeightPattern);
@@ -390,25 +390,25 @@ expect(renderBattle({ weight: 2, split: 3 })).toContain("중량 2/3");
 expect(renderBattle({ weight: 2, split: 3 })).toContain("분열체 3/3");
 ```
 
-- [ ] **Step 2: Run UI/pattern tests and confirm missing-option failures**
+- [x] **Step 2: Run UI/pattern tests and confirm missing-option failures**
 
 Run: `npm test -- src/adventure/v2/combat/combatPattern.test.ts src/adventure/v2/V2CombatPatternView.test.tsx src/adventure/battle/BattleScene.test.tsx`
 
 Expected: FAIL because the resource union, options, parser whitelist, and readout are missing.
 
-- [ ] **Step 3: Extend parser/context/editor with the two resources**
+- [x] **Step 3: Extend parser/context/editor with the two resources**
 
 Add `weight` and `split` to the union and parser whitelist, provide Korean labels, and keep the numeric editor range `0..3`. Unknown stored keys continue to be dropped by `parseCombatPattern`.
 
-- [ ] **Step 4: Add a compact opaque resource readout**
+- [x] **Step 4: Add a compact opaque resource readout**
 
 Render the two counters in the existing player status area only when a related equipped skill exists. Use the existing card/inset surface and accessible text labels; do not create a new client boundary.
 
-- [ ] **Step 5: Add skill detail chips**
+- [x] **Step 5: Add skill detail chips**
 
 Extend the existing skill chip formatter to show weight/split gain, cap, per-stack effect, and consume behavior for the five resource skills.
 
-- [ ] **Step 6: Run focused and full static verification**
+- [x] **Step 6: Run focused and full static verification**
 
 Run:
 
@@ -420,7 +420,7 @@ npx eslint src/adventure/data/v2/classes.ts src/adventure/data/v2/proficiency.ts
 
 Expected: all commands exit 0.
 
-- [ ] **Step 7: Inspect the final diff and commit only mutation work**
+- [x] **Step 7: Inspect the final diff and commit only mutation work**
 
 ```bash
 git diff --check
@@ -438,19 +438,25 @@ git commit -m "feat: expose mutation resources in combat ui"
 - Consumes all prior task test evidence.
 - Produces a checked-off execution record without changing the approved design.
 
-- [ ] **Step 1: Check every completed plan checkbox and record command deviations inline**
+- [x] **Step 1: Check every completed plan checkbox and record command deviations inline**
 
 Use `[x]` for completed steps. If an exact test filename differs because the existing repository groups tests elsewhere, replace the command with the actual passing command rather than adding a placeholder.
 
-- [ ] **Step 2: Verify no unrelated work was staged**
+- [x] **Step 2: Verify no unrelated work was staged**
 
 Run: `git diff --cached --name-only`
 
 Expected: empty after task commits. Uncommitted `grandwarder`/`lawguardian` changes may remain and must not be reverted.
 
-- [ ] **Step 3: Commit the completed implementation plan record**
+- [x] **Step 3: Commit the completed implementation plan record**
 
 ```bash
 git add docs/superpowers/plans/2026-08-18-mutant-root-first-advancements.md
 git commit -m "docs: record mutant root implementation plan"
 ```
+
+## Execution Record
+
+- PvE/PvP mutation coverage was consolidated in `mutationCombatEngine.test.ts`; a separate `mutationCombatPvp.test.ts` was not needed.
+- The implementation was committed as one selectively isolated feature commit because concurrent lawweaver work overlapped the catalog and engine files. The pre-existing staged lawweaver work was preserved separately.
+- Final verification passed with `npm test` (6,006 passed, 14 skipped), `npx tsc --noEmit`, `npm run lint`, `npm run build`, and `git diff --check`.

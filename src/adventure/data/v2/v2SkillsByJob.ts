@@ -33,6 +33,22 @@ export function grantCoreStarterSkill(
 export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 모험가(none) — 착용형 패시브 2(학습+SP 슬롯). 상위직업과 달리 액티브 없이 패시브 2개. ──
   none: ["v2c_none_toughness", "v2c_none_diligence"],
+  mutant: ["v2c_mutant_morphstrike", "v2c_mutant_adaptation"],
+  beastkin: [
+    "v2c_beastkin_rend",
+    "v2c_beastkin_clawflurry",
+    "v2c_beastkin_bloodscent",
+  ],
+  golem: [
+    "v2c_golem_rocksmash",
+    "v2c_golem_tectoniccollapse",
+    "v2c_golem_stoneskin",
+  ],
+  slime: [
+    "v2c_slime_split",
+    "v2c_slime_barrage",
+    "v2c_slime_fusioncrash",
+  ],
   // ── 기본 직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과) ──
   warrior: ["v2c_warrior_strike", "v2c_warrior_might"], // 강타 + 근력(힘+10%)
   martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 하급 권법(단일딜) + 강건(활력+10%)

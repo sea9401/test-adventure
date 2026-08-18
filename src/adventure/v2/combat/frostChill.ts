@@ -24,7 +24,11 @@ export function normalizeFrostChill(value: unknown): number {
 export function resolveFrostChillGain(
   current: unknown,
   gain: unknown,
-  mastery: { damagePct?: number; delayPct?: number } = {},
+  mastery: {
+    damagePct?: number;
+    delayPct?: number;
+    retainStacks?: number;
+  } = {},
 ): FrostChillTransition {
   const previous = normalizeFrostChill(current);
   const requestedGain = nonNegativeInteger(gain);
@@ -49,7 +53,7 @@ export function resolveFrostChillGain(
   return {
     previous,
     requestedGain,
-    next: 0,
+    next: normalizeFrostChill(mastery.retainStacks),
     triggered: true,
     consumed: FROST_CHILL_THRESHOLD,
     damagePct,

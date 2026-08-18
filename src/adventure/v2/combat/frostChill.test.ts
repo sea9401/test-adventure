@@ -54,6 +54,27 @@ describe("한기 전이", () => {
     });
   });
 
+  it("영구동토는 빙결 뒤 한기 1을 남기고 초과 생성량은 버린다", () => {
+    expect(resolveFrostChillGain(4, 99, { retainStacks: 1 })).toEqual({
+      previous: 4,
+      requestedGain: 99,
+      next: 1,
+      triggered: true,
+      consumed: 5,
+      damagePct: 0,
+      delayPct: 30,
+    });
+  });
+
+  it("손상된 잔류 한기를 0~4 정수로 정규화한다", () => {
+    expect(resolveFrostChillGain(4, 1, { retainStacks: -1 }).next).toBe(0);
+    expect(resolveFrostChillGain(4, 1, { retainStacks: 2.9 }).next).toBe(2);
+    expect(
+      resolveFrostChillGain(4, 1, { retainStacks: Number.NaN }).next,
+    ).toBe(0);
+    expect(resolveFrostChillGain(4, 1, { retainStacks: 99 }).next).toBe(4);
+  });
+
   it("손상되거나 범위를 벗어난 저장값을 안전하게 정규화한다", () => {
     expect(normalizeFrostChill(undefined)).toBe(0);
     expect(normalizeFrostChill(null)).toBe(0);

@@ -7,6 +7,7 @@ import {
 import { effectiveCultivateProfile } from "./proficiency";
 import {
   V2_SKILLS,
+  aggregateEquippedPassives,
   describeV2Skill,
   spCostOf,
 } from "./v2Skills";
@@ -69,5 +70,20 @@ describe("빙천제 6차 카탈로그", () => {
     expect(
       describeV2Skill(V2_SKILLS.v2c_frostsovereign_permafrost),
     ).toContain("빙결 후 한기 1 잔류");
+  });
+
+  it("빙점 지배와 영구동토를 합산하고 잔류 한기는 최대값을 취한다", () => {
+    expect(
+      aggregateEquippedPassives([
+        "v2c_cryomancer_freezingpoint",
+        "v2c_frostsovereign_permafrost",
+      ]),
+    ).toMatchObject({
+      maxMpPct: 28,
+      freezeDamagePct: 85,
+      freezeDelayPct: 50,
+      freezeRetainStacks: 1,
+    });
+    expect(aggregateEquippedPassives([]).freezeRetainStacks).toBe(0);
   });
 });

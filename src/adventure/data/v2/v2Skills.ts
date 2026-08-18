@@ -1513,6 +1513,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   mpCostReductionPct: number;
   freezeDamagePct: number;
   freezeDelayPct: number;
+  freezeRetainStacks: number;
   magicBarrier: boolean;
   atkPerDexCoef: number;
   atkPerLukCoef: number;
@@ -1566,6 +1567,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let mpCostReductionPct = 0;
   let freezeDamagePct = 0;
   let freezeDelayPct = 0;
+  let freezeRetainStacks = 0;
   let magicBarrier = false;
   let atkPerDexCoef = 0;
   let atkPerLukCoef = 0;
@@ -1638,6 +1640,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     mpCostReductionPct += p.mpCostReductionPct ?? 0;
     freezeDamagePct += p.freezeDamagePct ?? 0;
     freezeDelayPct = Math.max(freezeDelayPct, p.freezeDelayPct ?? 0);
+    freezeRetainStacks = Math.max(
+      freezeRetainStacks,
+      p.freezeRetainStacks ?? 0,
+    );
     if (p.magicBarrier) magicBarrier = true;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
     atkPerLukCoef += p.atkPerLukCoef ?? 0;
@@ -1721,6 +1727,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     mpCostReductionPct,
     freezeDamagePct,
     freezeDelayPct,
+    freezeRetainStacks,
     magicBarrier,
     atkPerDexCoef,
     atkPerLukCoef,

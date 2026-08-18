@@ -400,6 +400,8 @@ export type PlayerCombat = {
   freezeDamagePct?: number;
   /** 한기 임계점에서 발생하는 다음 행동 지연율. */
   freezeDelayPct?: number;
+  /** 빙결 발동 뒤 대상에게 남기는 한기 수. */
+  freezeRetainStacks?: number;
   magicBarrierMax?: number;
   magicBarrierAbsorbPct?: number;
   magicBarrierPvpAbsorbPct?: number;

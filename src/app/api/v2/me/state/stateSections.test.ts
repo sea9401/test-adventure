@@ -51,6 +51,23 @@ describe("combatStatsSection", () => {
       healMult: 1.2744,
     });
   });
+
+  it("원초 증폭의 장비 치명타 변환값을 캐릭터 전투 스탯에 전달한다", () => {
+    const combat = {
+      player: {
+        atk: 10,
+        def: 8,
+        spd: 7,
+        equipmentMagicSkillCritDmgPct: 29.5102,
+      },
+    } as unknown as NonNullable<
+      Parameters<typeof combatStatsSection>[0]
+    >;
+
+    expect(combatStatsSection(combat, 100, 50)).toMatchObject({
+      equipmentMagicSkillCritDmgPct: 29.5102,
+    });
+  });
 });
 
 describe("frontierDepthOf", () => {

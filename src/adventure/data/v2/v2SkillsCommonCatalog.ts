@@ -238,6 +238,8 @@ export type V2CommonSkillId =
   | "v2c_arcanist_magicdismantle2" // 마력 해체 II (적 마법 방어 -11%)
   | "v2c_elementallord_surge" // 원소 폭주 (속성별 강화 마법)
   | "v2c_elementallord_resonance" // 원소 공명 (원소 폭주 보조 효과 강화)
+  | "v2c_cryomancer_absolutezero" // 빙결술사: 절대영도
+  | "v2c_cryomancer_freezingpoint" // 빙결술사: 빙점 지배
   | "v2c_inscriber_release" // 각인 해방 (장착 문장 조합형 마법)
   | "v2c_inscriber_amplification" // 각인 증폭 (각인 해방 시너지 강화)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
@@ -1655,13 +1657,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_frostmage_glacier: {
     id: "v2c_frostmage_glacier", name: "빙하진", stat: "int", category: "attack", tier: 3,
-    description: "빙하의 마력을 폭발시켜 적의 행동을 늦추고 자신을 얼음 장벽으로 감싼다.",
+    description: "빙하의 마력을 폭발시켜 적에게 한기를 2중첩 쌓는다.",
     mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
-    effects: [
-      dmg(1.5, 290, "magic"),
-      { kind: "shield", pctMaxHp: 8, pctMaxMp: 4, turns: 3 },
-      { kind: "enemyDelay", pct: 25 },
-    ],
+    effects: [dmg(1.5, 290, "magic")],
+    frostChillGain: 2,
   },
   v2c_frostmage_frozenheart: {
     id: "v2c_frostmage_frozenheart", name: "얼어붙은 심장", stat: "int", category: "passive", tier: 3,
@@ -2063,6 +2062,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { elementResonance: true },
+  },
+  v2c_cryomancer_absolutezero: {
+    id: "v2c_cryomancer_absolutezero", name: "절대영도", stat: "int", category: "attack", tier: 3,
+    description: "극한의 냉기를 응축해 적에게 큰 마법 피해를 주고 한기를 3중첩 쌓는다.",
+    mpCost: 0, fixedMpCost: 155, cooldown: 0, procChance: 30,
+    learnCost: 8000, spCost: 7,
+    effects: [dmg(2.2, 540, "magic")],
+    frostChillGain: 3,
+  },
+  v2c_cryomancer_freezingpoint: {
+    id: "v2c_cryomancer_freezingpoint", name: "빙점 지배", stat: "int", category: "passive", tier: 3,
+    description: "빙점을 지배해 마나를 늘리고 한기에서 발생하는 빙결을 강화한다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 6, effects: [],
+    passive: { maxMpPct: 12, freezeDamagePct: 50, freezeDelayPct: 40 },
   },
   v2c_inscriber_release: {
     id: "v2c_inscriber_release", name: "각인 해방", stat: "int", category: "attack", tier: 3,

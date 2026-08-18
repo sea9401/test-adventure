@@ -172,6 +172,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   ironknight: "warden",
   overlord: "warlord",
   arcanist: "sage",
+  cryomancer: "frostmage",
   inscriber: "runecaster",
   marksman: "chief",
   nightshade: "phantom",
@@ -274,15 +275,15 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("수인 2~6차를 포함한 135개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(135);
+  it("빙결술사와 수인 2~6차를 포함한 136개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(136);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
     expect(byTier(2)).toBe(19);
     expect(byTier(3)).toBe(26);
     expect(byTier(4)).toBe(31);
-    expect(byTier(5)).toBe(25);
+    expect(byTier(5)).toBe(26);
     expect(byTier(6)).toBe(25);
   });
 

@@ -35,8 +35,9 @@ describe("다섯 원소 마법사 직업", () => {
       "damage", "dot", "enemyHealReduce",
     ]);
     expect(V2_SKILLS.v2c_frostmage_glacier.effects.map((e) => e.kind)).toEqual([
-      "damage", "shield", "enemyDelay",
+      "damage",
     ]);
+    expect(V2_SKILLS.v2c_frostmage_glacier.frostChillGain).toBe(2);
     expect(V2_SKILLS.v2c_lightningmage_thunderbolt.effects.map((e) => e.kind)).toEqual([
       "damage", "enemyVuln",
     ]);

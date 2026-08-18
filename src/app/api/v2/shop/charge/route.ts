@@ -3,7 +3,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
-import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  V2_CORE_LOOP_V2,
+  spendTreatmentGold,
+} from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/shop/charge — HP / MP 충전 구매.
 //
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
       return { ok: false as const, error: "already_full" };
     }
     const charge = Math.min(amount, room);
-    const spend = spendGold(gold, bankedGold, charge);
+    const spend = spendTreatmentGold(gold, bankedGold, charge);
     if (!spend.ok) {
       return { ok: false as const, error: "not_enough_gold" };
     }

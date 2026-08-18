@@ -10,6 +10,7 @@ import {
   parseV2SkillsState,
   emptyV2SkillsState,
   includeLearnedLifestyleSkills,
+  isLifestyleSkill,
   V2_SKILLS,
   type V2SkillsState,
   type V2SkillId,
@@ -24,9 +25,29 @@ import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 
+function isStrictOrderPreservingSubset(
+  next: readonly V2SkillId[],
+  current: readonly V2SkillId[],
+): boolean {
+  if (next.length >= current.length) return false;
+  let currentIndex = 0;
+  for (const skillId of next) {
+    while (
+      currentIndex < current.length &&
+      current[currentIndex] !== skillId
+    ) {
+      currentIndex += 1;
+    }
+    if (currentIndex >= current.length) return false;
+    currentIndex += 1;
+  }
+  return true;
+}
+
 // POST /api/v2/me/loadout — 수동 SP 로드아웃 저장(코어루프). body: { equipped: string[] }(우선순위 순서).
-//   배운 스킬 중 SP 예산 내여야 통과(validateLoadout). 생활 패시브를 항상 합친 뒤 저장(순서 보존),
-//   위반이면 400 + 위반 버킷(UI 안내). learned 불변. 갬빗 pattern 보존(spread).
+//   배운 스킬 중 SP 예산 내여야 통과(validateLoadout). 생활 패시브를 항상 합친 뒤 저장(순서 보존).
+//   직업 SP 조정 유예 중인 초과 구성은 기존 순서를 보존한 순수 해제만 예외로 허용한다.
+//   그 밖의 위반은 400 + 위반 버킷(UI 안내). learned 불변. 갬빗 pattern 보존(spread).
 //   lock 순서: character.v2 → skills.v2 → proficiency.v2 (다른 스킬 라우트와 동일).
 //   flag off: SP 로드아웃 개념 없음 → disabled(클라가 호출 안 함).
 export async function GET() {
@@ -121,7 +142,30 @@ export async function POST(req: Request) {
       skills.learned,
     );
     const check = validateLoadout(nextEquipped, skills.learned, spBudget);
-    if (!check.ok) {
+    const combatIds = (ids: readonly V2SkillId[]) =>
+      ids.filter((skillId) => !isLifestyleSkill(V2_SKILLS[skillId]));
+    const currentEquipped = includeLearnedLifestyleSkills(
+      skills.equipped,
+      skills.learned,
+    );
+    const currentCheck = validateLoadout(
+      currentEquipped,
+      skills.learned,
+      spBudget,
+    );
+    // 유예 중 초과 구성은 한 번에 전부 비우지 않아도 되도록 SP가 줄어드는 순수 해제를 허용한다.
+    const graceUnequipAllowed =
+      jobUnlockCtx.jobSpRebalance?.active === true &&
+      check.overBudget &&
+      check.notLearned.length === 0 &&
+      check.unknown.length === 0 &&
+      check.exclusiveConflicts.length === 0 &&
+      check.spUsed < currentCheck.spUsed &&
+      isStrictOrderPreservingSubset(
+        combatIds(nextEquipped),
+        combatIds(currentEquipped),
+      );
+    if (!check.ok && !graceUnequipAllowed) {
       return {
         status: 400 as const,
         body: {

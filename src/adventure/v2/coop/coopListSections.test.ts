@@ -6,7 +6,6 @@ function session(
   id: string,
   visibility: CoopSessionSummary["visibility"],
   isOwner: boolean,
-  myDamage = 0,
 ): CoopSessionSummary {
   return {
     id,
@@ -20,7 +19,7 @@ function session(
     visibility,
     isOwner,
     participantCount: 0,
-    myDamage,
+    myDamage: 0,
     myTier: null,
   };
 }
@@ -38,12 +37,8 @@ describe("coopSessionListSections", () => {
       "mine-guild",
       "mine-public",
     ]);
-    expect(
-      sections.find((section) => section.id === "guild")?.sessions,
-    ).toHaveLength(0);
-    expect(
-      sections.find((section) => section.id === "public")?.sessions,
-    ).toHaveLength(0);
+    expect(sections[1]?.sessions).toHaveLength(0);
+    expect(sections[2]?.sessions).toHaveLength(0);
   });
 
   it("다른 사람의 소환은 길드 공개와 전체 공개로 구분한다", () => {
@@ -52,33 +47,7 @@ describe("coopSessionListSections", () => {
       session("public", "public", false),
     ]);
 
-    expect(
-      sections
-        .find((section) => section.id === "guild")
-        ?.sessions.map((item) => item.id),
-    ).toEqual(["guild"]);
-    expect(
-      sections
-        .find((section) => section.id === "public")
-        ?.sessions.map((item) => item.id),
-    ).toEqual(["public"]);
-  });
-
-  it("공개 범위가 좁아져도 이미 피해를 기록한 세션을 참여 중 구역에 남긴다", () => {
-    const sections = coopSessionListSections([
-      session("private-contribution", "summoner_only", false, 37_515),
-      session("other-guild-contribution", "guild_only", false, 37_515),
-    ]);
-    const participated = sections.find((section) => section.id === "participated");
-
-    expect(participated?.sessions.map((item) => item.id)).toEqual([
-      "private-contribution",
-      "other-guild-contribution",
-    ]);
-    expect(
-      sections
-        .filter((section) => section.id === "guild" || section.id === "public")
-        .flatMap((section) => section.sessions.map((item) => item.id)),
-    ).toEqual([]);
+    expect(sections[1]?.sessions.map((item) => item.id)).toEqual(["guild"]);
+    expect(sections[2]?.sessions.map((item) => item.id)).toEqual(["public"]);
   });
 });

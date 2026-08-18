@@ -15,10 +15,11 @@ import { chatPollDelayMs } from "./chat/chatPollingPolicy";
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
 // 배경 폴링은 모든 로그인 유저에게서 영구히 도는 비용이라 보수적으로 길게.
-// 열린 플로팅 토글은 모바일 전체화면(z-65)과 데스크톱 도킹 패널(z-45)보다
-// 위에 남겨, 패널이 버튼 입력을 가로채지 않고 같은 버튼으로 닫을 수 있게 한다.
+// 모바일 전체화면에는 헤더 닫기 버튼이 있으므로 열린 플로팅 토글을 숨겨
+// 하단 전송 버튼과 겹치지 않게 한다. 데스크톱에서는 도킹 패널(z-45) 위에 남긴다.
 export const CHAT_FLOATING_CLOSED_LAYER_CLASS = "z-[44]";
-export const CHAT_FLOATING_OPEN_LAYER_CLASS = "z-[75] sm:z-[46]";
+export const CHAT_FLOATING_OPEN_LAYER_CLASS =
+  "invisible pointer-events-none z-[44] sm:visible sm:pointer-events-auto sm:z-[46]";
 // 채팅 / 알림(협동 보스 등) 의 "마지막으로 본 메시지 id" 를 따로 저장 — 둘이 섞이지 않게.
 const LAST_SEEN_KEY = "chat:lastSeenId";
 const LAST_SEEN_TRADE_KEY = "chat:lastSeenTradeId";

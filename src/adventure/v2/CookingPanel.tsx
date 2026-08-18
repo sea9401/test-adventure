@@ -34,6 +34,7 @@ import { useSystemMessageState } from "./RewardToastProvider";
 import { SurplusExchangePanel } from "./SurplusExchangePanel";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { lifeLevelMigrationMessage } from "./lifeLevelProgression";
+import { useRefreshGameState } from "./GameStateRefreshContext";
 
 export { SurplusCropLabel } from "./SurplusExchangePanel";
 
@@ -148,6 +149,7 @@ export function CookingRecipeXpPreview({
 }
 
 export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) {
+  const refreshGameState = useRefreshGameState();
   const [data, setData] = useState<CookingResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -199,6 +201,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
       const json = await response.json() as CookingResponse & { error?: string };
       if (!response.ok || !json.ok) throw new Error(json.error ?? "cooking_failed");
       setData(json);
+      if (action !== "cook") await refreshGameState();
       const result = json.result;
       const resultNotice = result
           ? result.action === "order"
@@ -215,7 +218,7 @@ export function CookingPanel({ onFarmChanged }: { onFarmChanged?: () => void }) 
     } finally {
       setBusy(null);
     }
-  }, [onFarmChanged, setNotice, usePrepByRecipe, useRareByRecipe]);
+  }, [onFarmChanged, refreshGameState, setNotice, usePrepByRecipe, useRareByRecipe]);
 
   const toggleFavorite = useCallback(async (recipeId: string) => {
     setBusy(`favorite:${recipeId}`);

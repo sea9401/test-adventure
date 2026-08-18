@@ -150,20 +150,6 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "게시판 활동 Lv.10 달성",
     category: "town",
   },
-  bulletin_elder: {
-    id: "bulletin_elder",
-    name: "광장 원로",
-    description: "오랜 시간 광장의 이야기를 듣고 사람들의 자리를 이어 준 원로.",
-    condition: "게시판 활동 Lv.15 달성",
-    category: "town",
-  },
-  bulletin_legend: {
-    id: "bulletin_legend",
-    name: "광장의 전설",
-    description: "수많은 이야기와 인연으로 광장의 역사를 함께 써 내려간 전설.",
-    condition: "게시판 활동 Lv.20 달성",
-    category: "town",
-  },
   patient: {
     id: "patient",
     name: "환자",
@@ -849,20 +835,6 @@ export const TITLES: Record<TitleId, Title> = {
     name: "강태공",
     description: "물가에 앉아 세월을 낚는 느긋한 손맛의 주인.",
     condition: "낚시 코인 상점에서 낚시 코인 3000으로 구매",
-    category: "fishing",
-  },
-  dangerous_tidal_conqueror: {
-    id: "dangerous_tidal_conqueror",
-    name: "파도를 거둔 자",
-    description: "해일의 거신을 함께 제압하고 거친 파도를 거두어 낸 낚시꾼.",
-    condition: "위험 해역 교환에서 해일의 거신 증표 10개로 구매",
-    category: "fishing",
-  },
-  dangerous_abyss_conqueror: {
-    id: "dangerous_abyss_conqueror",
-    name: "심연을 낚은 자",
-    description: "심연 크라켄을 함께 끌어올려 바다 밑 어둠과 마주한 낚시꾼.",
-    condition: "위험 해역 교환에서 심연 크라켄 증표 10개로 구매",
     category: "fishing",
   },
   // 낚시 칭호 4종(심해의 어부·여명의 낚시꾼·물때를 읽는 자·특별한 손님의 벗) 정의 제거

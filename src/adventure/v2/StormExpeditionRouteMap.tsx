@@ -3,7 +3,7 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import type { StormExpeditionMapNode, StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
 import {
-  stormExpeditionMobileSegment,
+  stormExpeditionMobileWindow,
   type StormExpeditionMobileNodeLayout,
 } from "./stormExpeditionMobileMap";
 
@@ -15,7 +15,7 @@ type Props = {
   availableNodeIds: readonly StormExpeditionMapNodeId[];
   previewableNodeIds?: readonly StormExpeditionMapNodeId[];
   selectedNodeId: StormExpeditionMapNodeId | null;
-  onSelect: (nodeId: StormExpeditionMapNodeId) => void;
+  onSelect: (nodeId: StormExpeditionMapNodeId | null) => void;
 };
 
 const ROUTE_STYLE = {
@@ -53,8 +53,11 @@ export function StormExpeditionRouteMap({
   onSelect,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const mobileSegment = stormExpeditionMobileSegment(currentNodeId);
-  const mobileNodes = positionedMobileNodes(nodes, mobileSegment.nodes);
+  const mobileWindow = stormExpeditionMobileWindow(
+    currentNodeId,
+    previewableNodeIds,
+  );
+  const mobileNodes = positionedMobileNodes(nodes, mobileWindow.nodes);
   const nodeStateProps: NodeStateProps = {
     currentNodeId,
     visitedNodeIds,
@@ -76,16 +79,16 @@ export function StormExpeditionRouteMap({
       <div data-testid="storm-expedition-mobile-map" className="space-y-2 sm:hidden">
         <div className="flex items-center justify-between px-1 text-xs">
           <span className="font-semibold text-sky-700 dark:text-sky-300">
-            {mobileSegment.id}/3 {mobileSegment.label}
+            {mobileWindow.label}
           </span>
-          <span className="text-zinc-500 dark:text-zinc-400">현재 진행 구간</span>
+          <span className="text-zinc-500 dark:text-zinc-400">선택 가능한 경로</span>
         </div>
         <div
           data-testid="storm-expedition-mobile-canvas"
           className="relative w-full overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-900"
-          style={{ height: mobileSegment.height }}
+          style={{ height: mobileWindow.height }}
         >
-          <MapEdges nodes={mobileNodes} viewBoxWidth={360} viewBoxHeight={mobileSegment.height} />
+          <MapEdges nodes={mobileNodes} viewBoxWidth={360} viewBoxHeight={mobileWindow.height} />
           {mobileNodes.map(({ node, x, y }) => (
             <MapNodeButton
               key={node.id}
@@ -188,6 +191,7 @@ function MapNodeButton({
   const previewable = previewableNodeIds.includes(node.id);
   const selected = selectedNodeId === node.id;
   const visited = visitedNodeIds.includes(node.id);
+  const selectable = previewable || (current && selectedNodeId !== null);
   const statuses = [
     current && "현재",
     completed && "완료",
@@ -204,9 +208,9 @@ function MapNodeButton({
       type="button"
       data-node-id={node.id}
       aria-label={`${node.name}, ${statuses.join(", ")}`}
-      disabled={!previewable}
-      onClick={() => onSelect(node.id)}
-      className={`absolute z-10 flex h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 bg-white px-1 text-center shadow-sm transition dark:bg-zinc-950 ${routeStyle} ${completed ? "ring-2 ring-emerald-500" : ""} ${current ? "ring-4 ring-sky-300 dark:ring-sky-800" : ""} ${selected ? "outline-4 outline-offset-2 outline-sky-500" : ""} ${previewable ? "cursor-pointer shadow-md hover:scale-105" : "cursor-default text-zinc-400 dark:text-zinc-500"}`}
+      disabled={!selectable}
+      onClick={() => onSelect(current ? null : node.id)}
+      className={`absolute z-10 flex h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 bg-white px-1 text-center shadow-sm transition dark:bg-zinc-950 ${routeStyle} ${completed ? "ring-2 ring-emerald-500" : ""} ${current ? "ring-4 ring-sky-300 dark:ring-sky-800" : ""} ${selected ? "outline-4 outline-offset-2 outline-sky-500" : ""} ${selectable ? "cursor-pointer shadow-md hover:scale-105" : "cursor-default text-zinc-400 dark:text-zinc-500"}`}
       style={position}
     >
       <span aria-hidden="true" className="text-sm font-bold">

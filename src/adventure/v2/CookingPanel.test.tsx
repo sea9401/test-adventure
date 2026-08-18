@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  CookingPanel,
   CookingRecipeXpPreview,
   RecipeOwnedCount,
   StandingCookingDeliveryBoard,
@@ -11,8 +12,84 @@ import {
   COOKING_RECIPE_BY_ID,
   cookingFoodId,
   type CookingFoodInventory,
+  type CookingRecipe,
 } from "./cooking";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+
+const mocks = vi.hoisted(() => ({
+  callbacks: [] as Array<(...args: never[]) => unknown>,
+  refreshGameState: vi.fn(async () => {}),
+  setNotice: vi.fn(),
+}));
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    useCallback: <T extends (...args: never[]) => unknown>(callback: T) => {
+      mocks.callbacks.push(callback);
+      return callback;
+    },
+  };
+});
+
+vi.mock("./GameStateRefreshContext", () => ({
+  useRefreshGameState: () => mocks.refreshGameState,
+}));
+
+vi.mock("./RewardToastProvider", () => ({
+  useSystemMessageState: () => [null, mocks.setNotice],
+}));
+
+describe("요리 납품 공용 골드 동기화", () => {
+  beforeEach(() => {
+    mocks.callbacks = [];
+    mocks.refreshGameState.mockClear();
+    mocks.setNotice.mockClear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          ok: true,
+          result: {
+            action: "order",
+            recipeName: "소박한 빵",
+            quantity: 1,
+            quality: "normal",
+            earnedXp: 1,
+            savedRareIngredients: 0,
+            orderRewardGold: 100,
+            standingDeliveryRewardGold: 0,
+            orderRewardReputation: 1,
+            orderQualityBonusPct: 0,
+          },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each(["order", "standing_delivery"] as const)(
+    "%s 성공 직후 은행 화면이 읽는 공용 게임 상태를 갱신한다",
+    async (action) => {
+      renderToStaticMarkup(<CookingPanel />);
+      const cook = mocks.callbacks[1] as unknown as (
+        recipe: CookingRecipe,
+        action: "order" | "standing_delivery",
+        quantity?: number,
+        foodId?: string,
+      ) => Promise<void>;
+
+      expect(cook).toBeTypeOf("function");
+      await cook(COOKING_RECIPE_BY_ID.get("rustic_bread")!, action, 1);
+
+      expect(mocks.refreshGameState).toHaveBeenCalledOnce();
+    },
+  );
+});
 
 describe("요리책 보유 수량", () => {
   it("같은 요리의 모든 품질을 합산하고 다른 요리는 제외한다", () => {

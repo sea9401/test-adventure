@@ -120,7 +120,8 @@ export function offlineFarmDepth(
 // 코어루프 은행 모델: 출금 폐지·입금만 가능. 은행이 black hole 이 되지 않게 모든 골드 소비가
 //   은행(bankedGold)을 먼저 쓰고 모자라면 보유(gold)에서 뺀다. flag off(prod)면 보유만 사용 →
 //   현행과 바이트 동일(은행 불변). 충분치 않으면 ok:false (호출부가 insufficient_gold 반환).
-// 사용처: 상점/치료/강화/제작/이동/창단/점령/계파변경/거래소/비밀상점 등 모든 골드 sink.
+// 사용처: 상점/강화/제작/이동/창단/점령/계파변경/거래소/비밀상점 등 골드 sink.
+// 치료소 충전약만 사냥 실패 위험 골드를 먼저 줄이기 위해 아래 지갑 우선 래퍼를 사용한다.
 //
 // 순수 코어(bankFirst 명시) + flag 래퍼 분리 — 코어는 mocking 없이 양쪽 분기 테스트 가능.
 export function spendGoldWith(
@@ -150,6 +151,36 @@ export function spendGold(
   cost: number,
 ): { ok: boolean; gold: number; bankedGold: number } {
   return spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
+}
+
+// 치료소 충전약 전용 — 지갑에서 가능한 만큼 먼저 쓰고 부족분만 은행에서 차감한다.
+// 지갑 전용이 아니며, 총합이 충분하면 은행 잔액으로 나머지를 결제한다.
+export function spendGoldWalletFirstWithBank(
+  gold: number,
+  bankedGold: number,
+  cost: number,
+): { ok: boolean; gold: number; bankedGold: number } {
+  const g = Math.max(0, Math.floor(Number(gold) || 0));
+  const b = Math.max(0, Math.floor(Number(bankedGold) || 0));
+  const c = Math.max(0, Math.floor(Number(cost) || 0));
+  if (g + b < c) return { ok: false, gold: g, bankedGold: b };
+  const fromWallet = Math.min(g, c);
+  return {
+    ok: true,
+    gold: g - fromWallet,
+    bankedGold: b - (c - fromWallet),
+  };
+}
+
+// 코어루프가 꺼진 환경은 기존 호환 동작(지갑 전용)을 유지한다.
+export function spendTreatmentGold(
+  gold: number,
+  bankedGold: number,
+  cost: number,
+): { ok: boolean; gold: number; bankedGold: number } {
+  return V2_CORE_LOOP_V2
+    ? spendGoldWalletFirstWithBank(gold, bankedGold, cost)
+    : spendGoldWith(gold, bankedGold, cost, false);
 }
 
 // "지불 가능한 총 골드" — 클라 affordability 게이트용. bankFirst 면 보유+은행, 아니면 보유만.

@@ -55,7 +55,6 @@ export function DangerousFishingBossPanel({
   onStart,
   onAction,
   onClaim,
-  onOpenShop,
 }: {
   model: DangerousFishingBossViewModel | null;
   busy: boolean;
@@ -67,7 +66,6 @@ export function DangerousFishingBossPanel({
     revision: number,
   ) => Promise<boolean>;
   onClaim: (eventId: string) => Promise<boolean>;
-  onOpenShop?: () => void;
 }) {
   if (!model?.event) {
     return (
@@ -178,10 +176,9 @@ export function DangerousFishingBossPanel({
       ) : event.status === "defeated" && model.eligible ? (
         <div className="space-y-2">
           {model.rewardPreview ? (
-            <div className="space-y-1 text-center text-xs text-zinc-600 dark:text-zinc-300">
-              <p>{model.rewardPreview.tier} · 낚시 코인 {model.rewardPreview.fishingCoins} · 증표 {model.rewardPreview.materialCount}개</p>
-              <p>증표는 낚시 상점에서 최상급 장비, 칭호·영구 프로필 테두리, 특수 미끼로 교환할 수 있습니다.</p>
-            </div>
+            <p className="text-center text-xs text-zinc-600 dark:text-zinc-300">
+              {model.rewardPreview.tier} · 낚시 코인 {model.rewardPreview.fishingCoins} · 증표 {model.rewardPreview.materialCount}개
+            </p>
           ) : null}
           <Button
             fullWidth
@@ -191,9 +188,6 @@ export function DangerousFishingBossPanel({
           >
             {model.claimed ? "보상 수령 완료" : "보상 수령"}
           </Button>
-          {onOpenShop ? (
-            <Button fullWidth disabled={busy} onClick={onOpenShop}>교환 보기</Button>
-          ) : null}
         </div>
       ) : null}
     </section>

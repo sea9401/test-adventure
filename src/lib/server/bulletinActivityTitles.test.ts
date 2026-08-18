@@ -104,45 +104,6 @@ describe("syncBulletinActivityTitles", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("Lv.20에서는 미보유 상위 이정표 칭호만 순서대로 지급한다", async () => {
-    mocks.rows = [
-      {
-        value: {
-          titles: {
-            bulletin_storyteller: { obtainedAt: 1 },
-            bulletin_regular: { obtainedAt: 2 },
-            bulletin_adviser: { obtainedAt: 3 },
-            bulletin_keeper: { obtainedAt: 4 },
-          },
-        },
-      },
-    ];
-    const activity = deriveBulletinActivity({
-      creditedPosts: 0,
-      creditedComments: 2_610,
-      receivedLikes: 0,
-    });
-
-    const granted = await syncBulletinActivityTitles("u1", activity, 456);
-
-    expect(activity.level).toBe(20);
-    expect(granted).toEqual(["bulletin_elder", "bulletin_legend"]);
-    expect(mocks.grantTitleIfMissingInTx).toHaveBeenNthCalledWith(
-      1,
-      mocks.tx,
-      "u1",
-      "bulletin_elder",
-      456,
-    );
-    expect(mocks.grantTitleIfMissingInTx).toHaveBeenNthCalledWith(
-      2,
-      mocks.tx,
-      "u1",
-      "bulletin_legend",
-      456,
-    );
-  });
-
   it("칭호 보상 전 레벨이면 보유 목록도 조회하지 않는다", async () => {
     const activity = deriveBulletinActivity({
       creditedPosts: 1,

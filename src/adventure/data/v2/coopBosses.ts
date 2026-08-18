@@ -263,7 +263,6 @@ export const COOP_VISIBILITY_OPTIONS: readonly (readonly [
 ])[] = COOP_VISIBILITY_VALUES.map((v) => [v, COOP_VISIBILITY_LABEL[v]] as const);
 
 // 공격/조회 권한 (순수). 가시성 + 소환자/소환 시점 길드 기준. 미지정/구행은 public 폴백.
-// 이미 피해를 기록한 참여자는 소환자가 나중에 범위를 좁혀도 진행 중 토벌 접근을 유지한다.
 export function canAccessCoopBoss(
   session: {
     visibility?: string | null;
@@ -271,9 +270,7 @@ export function canAccessCoopBoss(
     summonerGuildId?: number | null;
   },
   viewer: { userId: string; guildId: number | null },
-  hasContribution = false,
 ): boolean {
-  if (hasContribution) return true;
   const vis = session.visibility ?? "public";
   if (vis === "guild_only") {
     return (

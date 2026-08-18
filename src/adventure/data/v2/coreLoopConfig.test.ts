@@ -16,6 +16,8 @@ import {
   offlineBattlesAccrued,
   offlineFarmDepth,
   spendGold,
+  spendGoldWalletFirstWithBank,
+  spendTreatmentGold,
   spendGoldWith,
   spendableGold,
   spendableGoldWith,
@@ -202,6 +204,42 @@ describe("spendGoldWith — bankFirst=true (코어루프, 은행 우선)", () =>
       ok: true,
       gold: 0,
       bankedGold: 0,
+    });
+  });
+});
+
+describe("spendGoldWalletFirstWithBank — 치료소 지갑 우선", () => {
+  it("지갑으로 전액 충당하면 은행을 보존한다", () => {
+    expect(spendGoldWalletFirstWithBank(100, 500, 30)).toEqual({
+      ok: true,
+      gold: 70,
+      bankedGold: 500,
+    });
+  });
+
+  it("지갑이 부족하면 지갑을 먼저 소진하고 부족분만 은행에서 차감한다", () => {
+    expect(spendGoldWalletFirstWithBank(20, 500, 30)).toEqual({
+      ok: true,
+      gold: 0,
+      bankedGold: 490,
+    });
+  });
+
+  it("총합이 부족하면 두 잔액을 보존한다", () => {
+    expect(spendGoldWalletFirstWithBank(20, 5, 30)).toEqual({
+      ok: false,
+      gold: 20,
+      bankedGold: 5,
+    });
+  });
+});
+
+describe("spendTreatmentGold — 코어루프 플래그 호환", () => {
+  it("플래그가 꺼져 있으면 은행을 쓰지 않는 기존 동작을 유지한다", () => {
+    expect(spendTreatmentGold(20, 500, 30)).toEqual({
+      ok: false,
+      gold: 20,
+      bankedGold: 500,
     });
   });
 });

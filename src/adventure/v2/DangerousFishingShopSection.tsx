@@ -12,10 +12,6 @@ import type {
 import type { BuyResult } from "./useFishingShop";
 import type { DangerousFishingViewModel } from "./useDangerousFishing";
 import { CoinAmount } from "./CoinAmount";
-import {
-  DangerousFishingExchangeSection,
-  type DangerousFishingExchangeSectionProps,
-} from "./DangerousFishingExchangeSection";
 
 export type DangerousFishingShopAction = (
   kind: DangerousGearKind | "bait",
@@ -48,13 +44,11 @@ export function DangerousFishingShopSection({
   coins,
   buying,
   onShop,
-  exchange,
 }: {
   model: DangerousFishingViewModel;
   coins: number;
   buying: string | null;
   onShop: DangerousFishingShopAction;
-  exchange?: DangerousFishingExchangeSectionProps;
 }) {
   const gearSections = [
     {
@@ -204,8 +198,6 @@ export function DangerousFishingShopSection({
           })}
         </div>
       </section>
-
-      {exchange ? <DangerousFishingExchangeSection {...exchange} /> : null}
     </div>
   );
 }

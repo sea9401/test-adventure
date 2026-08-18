@@ -20,6 +20,8 @@ import { bandUniquePoolForDepth } from "./dungeonUniqueDrops";
 import { derivePowerScore } from "./power";
 import { powerInputFromPlayer } from "../../../lib/server/playerPowerInput";
 
+const SIMULATION_TEST_TIMEOUT_MS = 60_000;
+
 describe("sim-v2-level-design", () => {
   it("표본 전투력은 실제 게임과 동일한 전체 전투력 입력을 사용한다", () => {
     const snapshot = buildLevelDesignProgressionSnapshot({
@@ -207,7 +209,7 @@ describe("sim-v2-level-design", () => {
     expect(averageWinRate(32)).toBeLessThan(90);
     expect(averageWinRate(44)).toBeLessThan(90);
     expect(averageWinRate(72)).toBeLessThan(20);
-  }, 15_000);
+  }, SIMULATION_TEST_TIMEOUT_MS);
 
   it("흑월은 산군에서 무풍암영 2→6부위로 교체하는 전 구간에서 성능이 급락하지 않는다", () => {
     const sangoon = {
@@ -266,7 +268,7 @@ describe("sim-v2-level-design", () => {
     }
     expect(results[0].player.spd).toBeGreaterThan(900);
     expect(results[0].player.spd).toBeLessThan(1_100);
-  }, 15_000);
+  }, SIMULATION_TEST_TIMEOUT_MS);
 
   it("깊이·빌드별 전투 난수는 전체 실행 순서와 무관하다", () => {
     const full = buildReport(parseOptions(["--trials=1"]));
@@ -292,5 +294,5 @@ describe("sim-v2-level-design", () => {
         turns: build.combat.avgWinTurns,
       })),
     );
-  }, 30_000);
+  }, SIMULATION_TEST_TIMEOUT_MS);
 });

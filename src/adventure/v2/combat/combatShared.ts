@@ -18,6 +18,10 @@ import {
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
+  resolveElementalResonanceLoadout,
+  selectV2CastVariant,
+} from "@/adventure/data/v2/elementalResonance";
+import {
   skillRitualFocusBonusFor,
   skillRitualPowerBonusFor,
 } from "@/adventure/data/v2/skillRitual";
@@ -925,20 +929,26 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
 export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   // 1) cd tick.
   const ticked = tickV2SkillCooldowns(input.cooldowns);
+  const resonance = resolveElementalResonanceLoadout({
+    learned: input.skills.learned,
+    equipped: input.skills.equipped,
+  });
+  const activeCombatSkillIds = resonance.activeCombatSkillIds;
   // 2) 발동 후보 선택 — 전투 패턴(갬빗)이 주어지면 우선순위 평가, 아니면 옛 슬롯순서+proc.
   const viaPattern = input.combatPattern != null;
   const effectivePattern = viaPattern
     ? effectiveCombatPatternFromEquipped(
-        input.skills.equipped,
+        activeCombatSkillIds,
         input.combatPattern,
       )
     : undefined;
   // 패턴 경로도 "장착 스킬만 발동"(옛 pickAutoCastV2Skill 의 equipped 풀 의미 유지) — 커스텀 패턴이
   //   미장착/미학습 스킬 id 를 참조해도 발동 안 함. + 효과 있음·쿨다운·MP 게이트.
   const equippedSet = new Set<string>(input.skills.equipped);
-  const learnedSet = new Set<string>(input.skills.learned);
+  const activeCombatSet = new Set<string>(activeCombatSkillIds);
+  const learnedSet = new Set<V2SkillId>(input.skills.learned);
   const isUsable = (sid: string) => {
-    if (!equippedSet.has(sid)) return false;
+    if (!activeCombatSet.has(sid)) return false;
     const d = V2_SKILLS[sid as V2SkillId];
     const hasUsefulEffect =
       (d?.provokeImmediateBasicAttacks ?? 0) > 0 ||
@@ -974,7 +984,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     );
   };
   const resolveRole = (role: V2CombatRole): string | null => {
-    for (const sid of input.skills.equipped) {
+    for (const sid of activeCombatSkillIds) {
       const d = V2_SKILLS[sid as V2SkillId];
       if (!d) continue;
       if (role === "main_attack" && d.category !== "attack") continue;
@@ -992,7 +1002,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       ) as V2SkillId[])
     : ([
         pickAutoCastV2Skill({
-          equipped: input.skills.equipped,
+          equipped: activeCombatSkillIds,
           cooldowns: ticked,
           mp: input.attacker.mp,
         }),
@@ -1284,14 +1294,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
 
   // 조합형 주문식 — 보유 스킬로 변형을 해금하고 장착 스킬로 실제 발현한다. 데이터 선언 순서상
   // 가장 구체적인 조합이 먼저 오며, 첫 일치 변형만 선택해 조합 효과가 중복 누적되지 않게 한다.
-  const castVariant = def.castVariants?.find(
-    (variant) =>
-      (variant.requiredLearnedSkillIds ?? []).every((sid) =>
-        learnedSet.has(sid),
-      ) &&
-      (variant.requiredEquippedSkillIds ?? []).every((sid) =>
-        equippedSet.has(sid),
-      ),
+  const castVariant = selectV2CastVariant(
+    def,
+    learnedSet,
+    new Set(input.skills.equipped),
   );
 
   // 속성 분기(원소술사) — def.elementEffects 가 있으면 시전자 캐릭 속성의 효과 배열을 쓴다(매칭

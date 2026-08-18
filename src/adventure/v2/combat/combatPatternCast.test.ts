@@ -1270,4 +1270,95 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
     expect(primordial.enemyDamage).toBeGreaterThan(lord.enemyDamage);
     expect(primordial.selfHasteToApply).toEqual({ pct: 45 });
   });
+
+  it("완성된 원소공명은 선택 주문식 재료의 독립 시전을 막고 주력기를 시전한다", () => {
+    const equipped = [
+      "v2c_elementallord_surge",
+      "v2c_elementallord_resonance",
+      "v2c_firemage_inferno",
+      "v2c_windmage_tempest",
+    ];
+    const combatPattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "v2c_firemage_inferno" },
+        },
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId: "v2c_elementallord_surge" },
+        },
+      ],
+    };
+
+    const result = resolveV2SkillCast(castInput(equipped, { combatPattern }));
+    expect(result.castSkillId).toBe("v2c_elementallord_surge");
+    expect(result.castSkillName).toBe("화염폭풍");
+
+    const broken = resolveV2SkillCast(
+      castInput(equipped.filter((id) => id !== "v2c_elementallord_resonance"), {
+        combatPattern,
+      }),
+    );
+    expect(broken.castSkillId).toBe("v2c_firemage_inferno");
+  });
+
+  it("선택 주문식에 쓰이지 않은 원소 주문은 독립 시전 후보로 남는다", () => {
+    const equipped = [
+      "v2c_elementallord_surge",
+      "v2c_elementallord_resonance",
+      "v2c_firemage_inferno",
+      "v2c_windmage_tempest",
+      "v2c_frostmage_glacier",
+    ];
+    const result = resolveV2SkillCast(
+      castInput(equipped, {
+        combatPattern: {
+          blocks: [
+            {
+              condition: { kind: "always" },
+              action: { kind: "skill", skillId: "v2c_frostmage_glacier" },
+            },
+            {
+              condition: { kind: "always" },
+              action: { kind: "skill", skillId: "v2c_elementallord_surge" },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result.castSkillId).toBe("v2c_frostmage_glacier");
+  });
+
+  it("오원소 폭주 촉매는 태초회귀에 직접 마법 피해를 정확히 한 번 추가한다", () => {
+    const baseSkills = [
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+      "v2c_firemage_inferno",
+      "v2c_windmage_tempest",
+    ];
+    const shared = {
+      attacker: {
+        ...castInput(baseSkills).attacker,
+        atk: 100,
+        magicAtk: 100,
+        int: 100,
+      },
+      target: {
+        ...castInput(baseSkills).target,
+        def: 0,
+        magicDef: 0,
+      },
+    };
+    const base = resolveV2SkillCast(castInput(baseSkills, shared));
+    const catalyst = resolveV2SkillCast(
+      castInput([...baseSkills, "v2c_elementallord_surge"], shared),
+    );
+
+    expect(base.castSkillName).toBe("태초의 화염폭풍");
+    expect(catalyst.castSkillName).toBe("태초의 화염폭풍");
+    expect(catalyst.hitDamages).toHaveLength(base.hitDamages.length + 1);
+    expect(catalyst.enemyDamage - base.enemyDamage).toBe(28);
+  });
 });

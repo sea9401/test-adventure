@@ -270,13 +270,13 @@ describe("jobUnlockSpBonus", () => {
         woodcuttingLevel: 1_000,
         miningLevel: 1_000,
       }),
-    ).toBe(91);
+    ).toBe(92);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("빙결술사와 수인 2~6차를 포함한 136개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(136);
+  it("빙결술사·빙천제와 수인 2~6차를 포함한 137개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(137);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
@@ -284,7 +284,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(3)).toBe(26);
     expect(byTier(4)).toBe(31);
     expect(byTier(5)).toBe(26);
-    expect(byTier(6)).toBe(25);
+    expect(byTier(6)).toBe(26);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {

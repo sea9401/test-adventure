@@ -57,12 +57,15 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <main>
   <div class="box" role="status" aria-live="polite">
     <div class="status">서비스 점검</div>
-    <h1>잠시 점검 중입니다</h1>
-    <p class="lead">안정적인 서비스 제공을 위해<br />잠시 점검하고 있습니다.</p>
+    <h1>8월 19일 점검 안내</h1>
+    <p class="lead">잠시 점검 중입니다.<br />게임 안정화 및 업데이트 적용을 위해 점검이 진행됩니다.</p>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
-      점검 시간은 04시부터 04시 30분까지, 총 30분입니다.<br />
-      점검 중에는 서비스 이용이 일시적으로 제한됩니다.
+      점검 일시: 8월 19일(수) 오전 4시 ~ 오전 5시<br />
+      점검 시간: 약 1시간<br /><br />
+      점검 중에는 게임 이용이 불가능합니다.<br />
+      더욱 안정적인 서비스 제공을 위해 노력하겠습니다.<br />
+      감사합니다.
     </p>
   </div>
 </main>

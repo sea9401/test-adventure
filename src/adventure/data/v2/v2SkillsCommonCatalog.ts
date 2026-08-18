@@ -2250,7 +2250,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
-    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다.",
+    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다. 근원공명과 함께 장착하면 선택된 주문식 재료를 공명시키고, 오원소 폭주는 태초회귀를 강화하는 촉매가 된다.",
     mpCost: 82, fixedMpCost: 180, cooldown: 0, procChance: 32, learnCost: 12000,
     effects: [dmg(2.45, 650, "magic"), { kind: "enemyVuln", pct: 14, turns: 3 }, { kind: "enemyDelay", pct: 30 }],
     castVariants: [
@@ -2329,19 +2329,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredSkillId: "v2c_primordialmage_resonance",
         effects: [dmg(0.28, 110, "magic"), { kind: "manaRestore", pctMaxMp: 8 }],
       },
+      {
+        requiredSkillIds: ["v2c_primordialmage_resonance", "v2c_elementallord_surge"],
+        // 6차 액티브 정규화(×0.95) 뒤 실제 촉매 증가량을 정확히 +0.28/+110으로 맞춘다.
+        effects: [dmg(0.28 / 0.95, 110 / 0.95, "magic")],
+      },
     ],
   },
   v2c_primordialmage_resonance: {
     id: "v2c_primordialmage_resonance", name: "근원공명", stat: "int", category: "passive", tier: 3,
-    description: "원소의 근원을 몸에 새긴다. 마법 위력과 마나의 그릇, 정신력을 함께 끌어올린다.",
+    description: "원소의 근원을 몸에 새긴다. 지능 +24%, 정신 +12%, 마법 스킬 피해 +16%, 최대 MP +20%. 태초회귀와 함께 장착하면 선택된 주문식 재료가 공명한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
+    spCostDiscount: 4,
     effects: [],
-    passive: { statPct: { int: 20, spi: 8 }, magicSkillDamagePct: 10, maxMpPct: 14 },
+    passive: { statPct: { int: 24, spi: 12 }, magicSkillDamagePct: 16, maxMpPct: 20 },
   },
   v2c_primordialmage_amplification: {
     id: "v2c_primordialmage_amplification", name: "원초 증폭", stat: "int", category: "passive", tier: 3,
     description: "장비에서 얻은 치명타 배율을 모든 직접 마법 스킬 피해의 치명타 배율로 변환한다. 투자량이 커질수록 효율이 완만해지며 최대 +0.75배에 가까워진다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 12,
+    mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { equipmentMagicSkillCritConversion: true },
   },

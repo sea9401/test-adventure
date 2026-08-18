@@ -1345,7 +1345,7 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(17);
     expect(spCostOf(V2_SKILLS.v2c_hegemon_dominion)).toBe(15);
     expect(spCostOf(V2_SKILLS.v2c_primordialmage_return)).toBe(16);
-    expect(spCostOf(V2_SKILLS.v2c_primordialmage_amplification)).toBe(12);
+    expect(spCostOf(V2_SKILLS.v2c_primordialmage_amplification)).toBe(9);
   });
 
   it("🔑 트립와이어 — 자원·발동률까지 우월한 스킬이 더 싸지는 가격 역전을 막는다", () => {
@@ -1552,5 +1552,39 @@ describe("레거시 시그니처 id 제거 (P4 은퇴 + 카탈로그 청소)", (
     const valid = "v2c_mage_fireball";
     const parsed = parseV2SkillsState({ learned: [valid], equipped: [valid] });
     expect(parsed.equipped).toEqual([valid]);
+  });
+});
+
+describe("태초술사 공명 개편", () => {
+  it("근원공명은 강화된 지능·정신·마법 운용 효과를 9 SP에 제공한다", () => {
+    const resonance = V2_SKILLS.v2c_primordialmage_resonance;
+
+    expect(resonance.passive).toMatchObject({
+      statPct: { int: 24, spi: 12 },
+      magicSkillDamagePct: 16,
+      maxMpPct: 20,
+    });
+    expect(spCostOf(resonance)).toBe(9);
+  });
+
+  it("원초 증폭은 기존 효과를 유지하면서 9 SP를 사용한다", () => {
+    const amplification = V2_SKILLS.v2c_primordialmage_amplification;
+
+    expect(amplification.passive).toEqual({
+      equipmentMagicSkillCritConversion: true,
+    });
+    expect(spCostOf(amplification)).toBe(9);
+  });
+
+  it("태초회귀는 근원공명과 오원소 폭주를 함께 요구하는 직접 피해 촉매를 가진다", () => {
+    const catalyst = V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.find(
+      (synergy) =>
+        synergy.requiredSkillIds?.includes("v2c_primordialmage_resonance") &&
+        synergy.requiredSkillIds.includes("v2c_elementallord_surge"),
+    );
+
+    expect(catalyst?.effects).toEqual([
+      { kind: "damage", statCoef: 0.28, baseFlat: 110, scaling: "magic" },
+    ]);
   });
 });

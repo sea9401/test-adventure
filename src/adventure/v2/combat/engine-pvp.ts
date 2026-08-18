@@ -3712,6 +3712,7 @@ export function castV2SkillOnAttackerTurnPvP(
     {
       damagePct: side.player.freezeDamagePct,
       delayPct: side.player.freezeDelayPct,
+      retainStacks: side.player.freezeRetainStacks,
     },
   );
   if (frostChill.requestedGain > 0) {

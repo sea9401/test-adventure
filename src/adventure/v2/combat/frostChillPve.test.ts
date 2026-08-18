@@ -93,6 +93,26 @@ describe("PvE 한기·빙결", () => {
     expect(freezeDamage(mastered)).toBe(Math.round(freezeDamage(plain) * 1.5));
   });
 
+  it("영구동토는 빙결 뒤 한기 1을 남기고 지연을 50%로 높인다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const ready = initial("v2c_cryomancer_absolutezero");
+    ready.stacks.enemyFrostChillStacks = 2;
+
+    const result = applyPlayerV2SkillCast(
+      ready,
+      {
+        ...player,
+        freezeDamagePct: 85,
+        freezeDelayPct: 50,
+        freezeRetainStacks: 1,
+      },
+      ticked,
+    );
+
+    expect(result.state.stacks.enemyFrostChillStacks).toBe(1);
+    expect(result.enemyDelayPct).toBe(50);
+  });
+
   it("빙결 추가타는 원래 시전과 치명타 결과를 공유한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const ready = initial("v2c_cryomancer_absolutezero");

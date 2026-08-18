@@ -3048,6 +3048,7 @@ export function applyPlayerV2SkillCast(
     {
       damagePct: player.freezeDamagePct,
       delayPct: player.freezeDelayPct,
+      retainStacks: player.freezeRetainStacks,
     },
   );
   let freezeDamage = 0;

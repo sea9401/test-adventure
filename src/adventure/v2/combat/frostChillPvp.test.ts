@@ -82,6 +82,22 @@ describe("PvP 한기·빙결", () => {
     expect(freezeDamage(masteredCast)).toBe(Math.round(freezeDamage(plain) * 1.5));
   });
 
+  it("영구동토는 PvP에서도 빙결 뒤 한기 1을 남기고 지연을 50%로 높인다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const ready = state({
+      ...player,
+      freezeDamagePct: 85,
+      freezeDelayPct: 50,
+      freezeRetainStacks: 1,
+    });
+    ready.p2.stacks.frostChillStacks = 2;
+
+    const result = castV2SkillOnAttackerTurnPvP(ready, "p1");
+
+    expect(result.state.p2.stacks.frostChillStacks).toBe(1);
+    expect(result.enemyDelayPct).toBe(50);
+  });
+
   it("PvP 최종 피해 배율을 빙결 추가타에도 한 번 적용한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const normalReady = state();

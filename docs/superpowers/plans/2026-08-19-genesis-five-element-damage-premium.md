@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- `개벽·오원소 폭주` raw direct damage becomes exactly `3.10/780`, normalized to `2.95/741`.
+- `개벽·오원소 폭주` raw direct damage becomes exactly `3.10/780`, normalized at tier 5 to `2.79/702`.
 - `개벽·오원소 회귀` raw direct damage becomes exactly `3.50/925`, normalized to `3.33/879`.
 - Do not change proc chance, MP, SP, statuses, learned-only variants, resonance synergy, or catalyst damage.
 - The equal-46-SP Primordial comparison must be 15% to 30% above the Heavenly Bow/Black Moon direct-damage median.
@@ -34,7 +34,7 @@
 
 **Interfaces:**
 - Consumes: existing `V2_SKILLS`, `resolveV2SkillCast`, and `resolveElementalResonanceLoadout` behavior.
-- Produces: normalized first-variant damage values `2.95/741` and `3.33/879`; no new runtime interface.
+- Produces: normalized first-variant damage values `2.79/702` and `3.33/879`; no new runtime interface.
 
 - [ ] **Step 1: Add failing literal catalog assertions**
 
@@ -43,8 +43,8 @@ In `v2SkillsByJob.test.ts`, extend the existing Elemental Lord and Primordial Ma
 ```ts
 expect(V2_SKILLS.v2c_elementallord_surge.castVariants?.[0].effects[0]).toEqual({
   kind: "damage",
-  statCoef: 2.95,
-  baseFlat: 741,
+  statCoef: 2.79,
+  baseFlat: 702,
   scaling: "magic",
 });
 expect(V2_SKILLS.v2c_primordialmage_return.castVariants?.[0].effects[0]).toEqual({
@@ -70,7 +70,7 @@ Run:
 npm test -- src/adventure/data/v2/v2SkillsByJob.test.ts src/adventure/v2/combat/combatPatternCast.test.ts
 ```
 
-Expected: the literal effects still report `2.61/665` and `2.90/779`, and the old damage output does not reach the new lower bound.
+Expected: the literal effects still report `2.48/630` and `2.90/779`, and the old damage output does not reach the new lower bound.
 
 - [ ] **Step 3: Apply the minimal catalog change**
 

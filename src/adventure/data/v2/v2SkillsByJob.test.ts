@@ -913,6 +913,12 @@ describe("직업 킷 — 스킬셋", () => {
         "v2c_earthmage_tectonic",
       ]),
     });
+    expect(V2_SKILLS.v2c_elementallord_surge.castVariants?.[0].effects[0]).toEqual({
+      kind: "damage",
+      statCoef: 2.79,
+      baseFlat: 702,
+      scaling: "magic",
+    });
     expect(
       V2_SKILLS.v2c_elementallord_surge.castVariants?.find(
         (variant) => variant.name === "화염폭풍",
@@ -1177,6 +1183,12 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_primordialmage_return.castVariants?.[0].name).toBe(
       "개벽·오원소 회귀",
     );
+    expect(V2_SKILLS.v2c_primordialmage_return.castVariants?.[0].effects[0]).toEqual({
+      kind: "damage",
+      statCoef: 3.33,
+      baseFlat: 879,
+      scaling: "magic",
+    });
     expect(V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.[0]).toMatchObject({
       requiredSkillId: "v2c_primordialmage_resonance",
     });

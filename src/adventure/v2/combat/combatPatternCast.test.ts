@@ -1429,7 +1429,7 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
     expect(catalyst.enemyDamage - base.enemyDamage).toBe(28);
   });
 
-  it("동일 46 SP에서 태초술사 지속 직타는 천궁·흑월 중앙값의 ±10%다", () => {
+  it("동일 46 SP에서 태초술사 개벽 직타는 천궁·흑월 중앙값보다 15~30% 강하다", () => {
     const primordial = [
       "v2c_primordialmage_return",
       "v2c_primordialmage_resonance",
@@ -1492,7 +1492,7 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
     const comparisonMedian =
       (expectedDirectDamage(heavenlyBow) + expectedDirectDamage(blackMoon)) / 2;
 
-    expect(primordialDamage).toBeGreaterThanOrEqual(comparisonMedian * 0.9);
-    expect(primordialDamage).toBeLessThanOrEqual(comparisonMedian * 1.1);
+    expect(primordialDamage).toBeGreaterThanOrEqual(comparisonMedian * 1.15);
+    expect(primordialDamage).toBeLessThanOrEqual(comparisonMedian * 1.3);
   });
 });

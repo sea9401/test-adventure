@@ -1,8 +1,9 @@
 // 자동 벌목 start/chop/status route 통합 테스트 — savesKv/db 경계만 in-memory/mock 처리.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks } = vi.hoisted(() => ({
+const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   incrementGuildExplorationProgressForUser: vi.fn(async () => null),
   rewardReferralTutorialTasks: vi.fn(async () => ({
@@ -10,6 +11,14 @@ const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialT
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -19,6 +28,9 @@ vi.mock("@/lib/server/guildExplorationWeekly", () => ({
   incrementGuildExplorationProgressForUser,
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
@@ -105,6 +117,7 @@ afterEach(() => {
   store.clear();
   incrementGuildExplorationProgressForUser.mockClear();
   rewardReferralTutorialTasks.mockClear();
+  recordCodexMasteryGameplayBatch.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -200,7 +213,15 @@ describe("woodcutting routes", () => {
         mastery: 0.4,
       },
     });
-    store.set("character.v2", { materials: { [OAK]: 3 } });
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "lumberjack",
+      materials: { [OAK]: 3 },
+    });
+    store.set("proficiency.v2", {
+      groups: { survivor: { tier: 1, cumLevel: 900 } },
+      jobCumLevel: { lumberjack: 10 },
+    });
 
     const response = await AUTO(
       new Request("http://test.local/api/v2/woodcutting/auto", {
@@ -217,6 +238,7 @@ describe("woodcutting routes", () => {
       successes: 90,
       materialsGained: 72,
       xpGained: 630,
+      masteryGained: 63,
     });
     expect(store.get(WOODCUTTING_AUTO_KEY)).toMatchObject({
       session: null,
@@ -236,6 +258,17 @@ describe("woodcutting routes", () => {
       xp: 630,
       timberEarned: 72,
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "lumberjack",
+        amount: 63,
+        source: "job.activity",
+      }],
+      new Date(NOW + 15 * 60_000),
+    );
   });
 
   it("자동 정산은 구 초과 XP를 한 번 환산하고 버전을 함께 저장한다", async () => {
@@ -722,6 +755,17 @@ describe("woodcutting routes", () => {
       groups: { survivor: { cumLevel: 901 } },
       jobCumLevel: { lumberjack: 13 },
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "lumberjack",
+        amount: 1,
+        source: "job.activity",
+      }],
+      new Date(NOW + 4_600),
+    );
   });
 
   it("chop — 벌목 명인 패시브가 실패를 20% 확률로 성공 처리한다", async () => {

@@ -1,18 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, rewardReferralTutorialTasks } = vi.hoisted(() => ({
+const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
@@ -76,6 +88,7 @@ beforeEach(() => {
 afterEach(() => {
   store.clear();
   rewardReferralTutorialTasks.mockClear();
+  recordCodexMasteryGameplayBatch.mockClear();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -175,7 +188,15 @@ describe("mining routes", () => {
         baseXp: 10,
       },
     });
-    store.set("character.v2", { materials: { [iron]: 2 } });
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "miner",
+      materials: { [iron]: 2 },
+    });
+    store.set("proficiency.v2", {
+      groups: { survivor: { tier: 1, cumLevel: 900 } },
+      jobCumLevel: { miner: 10 },
+    });
 
     const response = await AUTO(request("auto", { action: "cancel" }));
 
@@ -187,6 +208,7 @@ describe("mining routes", () => {
       successes: 100,
       materialsGained: 80,
       xpGained: 700,
+      masteryGained: 70,
     });
     expect(store.get(MINING_AUTO_KEY)).toMatchObject({ session: null });
     expect(store.get("character.v2")).toMatchObject({
@@ -197,6 +219,17 @@ describe("mining routes", () => {
       xp: 700,
       oreEarned: 80,
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "miner",
+        amount: 70,
+        source: "job.activity",
+      }],
+      new Date(NOW + 15 * 60_000),
+    );
   });
 
   it("자동 정산은 구 초과 XP를 한 번 환산하고 버전을 함께 저장한다", async () => {
@@ -583,6 +616,17 @@ describe("mining routes", () => {
       groups: { survivor: { cumLevel: 901 } },
       jobCumLevel: { miner: 13 },
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "job",
+        entryId: "miner",
+        amount: 1,
+        source: "job.activity",
+      }],
+      new Date(NOW + 4_100),
+    );
   });
 
   it("strike — 채광 명인은 실패를 구제하고 전설의 광부는 광석을 하나 더 얻는다", async () => {

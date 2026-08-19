@@ -1,12 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
-const { store, rewardReferralTutorialTasks } = vi.hoisted(() => ({
+const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   rewardReferralTutorialTasks: vi.fn(async () => ({
     staminaPotions: 0,
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
 }));
 
 vi.mock("@/db", () => ({
@@ -20,6 +29,9 @@ vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "cook-user"),
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
 vi.mock("@/lib/server/userRateLimit", () => ({
   enforceUserAndIpRateLimit: vi.fn(() => null),
 }));
@@ -79,6 +91,7 @@ describe("/api/v2/cooking", () => {
     vi.setSystemTime(NOW);
     seed();
     rewardReferralTutorialTasks.mockClear();
+    recordCodexMasteryGameplayBatch.mockClear();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -169,6 +182,46 @@ describe("/api/v2/cooking", () => {
       "cook-user",
       "새 모험가",
       [],
+    );
+  });
+
+  it("요리사의 조리 XP를 직업 도감 숙련도로 기록한다", async () => {
+    const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
+    store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "cook",
+      level: 1,
+      gold: 100,
+    });
+    store.set("proficiency.v2", {
+      groups: { survivor: { tier: 1, cumLevel: 900 } },
+      jobCumLevel: { cook: 10 },
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const response = await POST(
+      request({ action: "cook", recipeId: "rustic_bread", quantity: 1 }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      result: {
+        earnedXp: 13,
+        masteryGained: 13,
+        masteryAfter: 23,
+      },
+    });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "cook-user",
+      [{
+        category: "job",
+        entryId: "cook",
+        amount: 13,
+        source: "job.activity",
+      }],
+      new Date(NOW),
     );
   });
 

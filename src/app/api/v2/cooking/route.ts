@@ -72,6 +72,7 @@ import { consumeFinishedItem, rollHiddenBlueprint } from "@/adventure/v2/lifeCra
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 
 type CharacterSave = Record<string, unknown> & {
   gold?: number;
@@ -510,6 +511,19 @@ export async function POST(req: Request) {
         proficiency = addJobCumLevel(proficiency, job.jobId, masteryGained);
         masteryAfter = proficiency.jobCumLevel?.[job.jobId] ?? 0;
         await upsertSave(tx, userId, "proficiency.v2", proficiency);
+        if (masteryGained > 0) {
+          await recordCodexMasteryGameplayBatch(
+            tx,
+            userId,
+            [{
+              category: "job",
+              entryId: job.jobId,
+              amount: masteryGained,
+              source: "job.activity",
+            }],
+            new Date(now),
+          );
+        }
       }
 
       return {

@@ -1,5 +1,5 @@
 {
-  "id": "d72d1121-b5e1-4a5c-98a5-ca12178a55ce",
+  "id": "99d4c0c7-9b1e-4dde-9be8-6f647774b783",
   "prevId": "60366c8f-f29d-4614-9794-235a059b8cd8",
   "version": "7",
   "dialect": "postgresql",
@@ -2023,15 +2023,15 @@
           "name": "codex_mastery_summary_total_score_rank_idx",
           "columns": [
             {
-              "expression": "\"total_score_milli\" DESC",
-              "asc": true,
-              "isExpression": true,
+              "expression": "total_score_milli",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             },
             {
-              "expression": "\"score_reached_at\" DESC",
+              "expression": "score_reached_at",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -2050,15 +2050,15 @@
           "name": "codex_mastery_summary_equipment_score_rank_idx",
           "columns": [
             {
-              "expression": "\"equipment_score_milli\" DESC",
-              "asc": true,
-              "isExpression": true,
+              "expression": "equipment_score_milli",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             },
             {
-              "expression": "\"score_reached_at\" DESC",
+              "expression": "score_reached_at",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -2077,15 +2077,15 @@
           "name": "codex_mastery_summary_fish_score_rank_idx",
           "columns": [
             {
-              "expression": "\"fish_score_milli\" DESC",
-              "asc": true,
-              "isExpression": true,
+              "expression": "fish_score_milli",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             },
             {
-              "expression": "\"score_reached_at\" DESC",
+              "expression": "score_reached_at",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -2104,15 +2104,15 @@
           "name": "codex_mastery_summary_monster_score_rank_idx",
           "columns": [
             {
-              "expression": "\"monster_score_milli\" DESC",
-              "asc": true,
-              "isExpression": true,
+              "expression": "monster_score_milli",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             },
             {
-              "expression": "\"score_reached_at\" DESC",
+              "expression": "score_reached_at",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -2131,15 +2131,15 @@
           "name": "codex_mastery_summary_cooking_score_rank_idx",
           "columns": [
             {
-              "expression": "\"cooking_score_milli\" DESC",
-              "asc": true,
-              "isExpression": true,
+              "expression": "cooking_score_milli",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             },
             {
-              "expression": "\"score_reached_at\" DESC",
+              "expression": "score_reached_at",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -2158,15 +2158,15 @@
           "name": "codex_mastery_summary_life_score_rank_idx",
           "columns": [
             {
-              "expression": "\"life_score_milli\" DESC",
-              "asc": true,
-              "isExpression": true,
+              "expression": "life_score_milli",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             },
             {
-              "expression": "\"score_reached_at\" DESC",
+              "expression": "score_reached_at",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -2185,15 +2185,15 @@
           "name": "codex_mastery_summary_job_score_rank_idx",
           "columns": [
             {
-              "expression": "\"job_score_milli\" DESC",
-              "asc": true,
-              "isExpression": true,
+              "expression": "job_score_milli",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             },
             {
-              "expression": "\"score_reached_at\" DESC",
+              "expression": "score_reached_at",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {

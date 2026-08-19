@@ -2541,14 +2541,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_frostsovereign_eternalprison: {
     id: "v2c_frostsovereign_eternalprison", name: "영겁빙옥", stat: "int", category: "attack", tier: 3,
     description: "영겁의 얼음 감옥을 닫아 큰 마법 피해를 주고 적에게 한기를 4중첩 쌓는다.",
-    mpCost: 84, fixedMpCost: 195, cooldown: 0, procChance: 32, learnCost: 12000, spCost: 10,
+    mpCost: 84, fixedMpCost: 195, cooldown: 0, procChance: 32, learnCost: 12000, spCost: 9,
     effects: [dmg(3, 760, "magic")],
     frostChillGain: 4,
   },
   v2c_frostsovereign_permafrost: {
     id: "v2c_frostsovereign_permafrost", name: "영구동토", stat: "int", category: "passive", tier: 3,
     description: "빙결 뒤에도 녹지 않는 한기를 남겨 다음 빙결을 앞당기고 그 위력과 지연을 강화한다.",
-    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11,
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 10,
     effects: [],
     passive: {
       maxMpPct: 16,

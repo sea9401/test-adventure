@@ -42,7 +42,7 @@ describe("빙천제 6차 카탈로그", () => {
       fixedMpCost: 195,
       procChance: 45,
       learnCost: 12000,
-      spCost: 10,
+      spCost: 9,
       frostChillGain: 4,
       effects: [
         { kind: "damage", statCoef: 2.85, baseFlat: 722, scaling: "magic" },
@@ -51,7 +51,7 @@ describe("빙천제 6차 카탈로그", () => {
     expect(V2_SKILLS.v2c_frostsovereign_permafrost).toMatchObject({
       name: "영구동토",
       learnCost: 12000,
-      spCost: 11,
+      spCost: 10,
       passive: {
         maxMpPct: 16,
         freezeDamagePct: 35,
@@ -59,8 +59,8 @@ describe("빙천제 6차 카탈로그", () => {
         freezeRetainStacks: 1,
       },
     });
-    expect(spCostOf(V2_SKILLS.v2c_frostsovereign_eternalprison)).toBe(10);
-    expect(spCostOf(V2_SKILLS.v2c_frostsovereign_permafrost)).toBe(11);
+    expect(spCostOf(V2_SKILLS.v2c_frostsovereign_eternalprison)).toBe(9);
+    expect(spCostOf(V2_SKILLS.v2c_frostsovereign_permafrost)).toBe(10);
   });
 
   it("새 한기 생성량과 잔류 규칙을 설명한다", () => {

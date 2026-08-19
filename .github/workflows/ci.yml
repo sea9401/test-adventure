@@ -57,8 +57,10 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      # 장시간 결정적 시뮬레이션이 일반 단위 테스트와 CPU를 경쟁하면 각 테스트의 고정
+      # timeout을 넘길 수 있다. CI에서는 재현 가능한 단일 worker 실행을 병합 게이트로 쓴다.
       - name: Tests (vitest)
-        run: npx vitest run
+        run: npx vitest run --maxWorkers=1
 
   production-build:
     name: Production build

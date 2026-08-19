@@ -83,10 +83,32 @@ function isTier(value: unknown): value is CodexMasteryTier {
   );
 }
 
-function isCanonicalIsoTimestamp(value: unknown): value is string {
+function isIsoTimestamp(value: unknown): value is string {
   if (typeof value !== "string") return false;
-  const timestamp = new Date(value);
-  return !Number.isNaN(timestamp.getTime()) && timestamp.toISOString() === value;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+  if (!match) return false;
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, offsetHourText, offsetMinuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const calendarDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    calendarDate.getUTCFullYear() !== year ||
+    calendarDate.getUTCMonth() !== month - 1 ||
+    calendarDate.getUTCDate() !== day ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return false;
+  }
+  return offsetHourText === undefined || (
+    Number(offsetHourText) <= 23 && Number(offsetMinuteText) <= 59
+  );
 }
 
 function tierIndex(tier: CodexMasteryTier): number {
@@ -112,7 +134,7 @@ function normalizedTierAchievedAt(
   const timestamps: Partial<Record<CodexMasteryStage, string>> = {};
   for (const stage of CODEX_MASTERY_STAGES) {
     const timestamp = record[stage];
-    if (tierIndex(stage) <= currentTierIndex && isCanonicalIsoTimestamp(timestamp)) {
+    if (tierIndex(stage) <= currentTierIndex && isIsoTimestamp(timestamp)) {
       timestamps[stage] = timestamp;
     }
   }
@@ -294,6 +316,9 @@ export async function lockCodexMasteryState(
     .values(emptySummaryRow(userId, now))
     .onConflictDoNothing();
   const summaryRow = await selectSummary(executor, userId, { forUpdate: true });
+  if (!summaryRow) {
+    throw new Error("codex mastery summary row could not be locked");
+  }
 
   await executor
     .insert(codexMasteryProgress)
@@ -307,8 +332,8 @@ export async function lockCodexMasteryState(
     { forUpdate: true },
   );
 
-  if (!summaryRow || !progressRow) {
-    throw new Error("codex mastery rows could not be locked");
+  if (!progressRow) {
+    throw new Error("codex mastery progress row could not be locked");
   }
   return {
     summary: codexMasterySummaryRowToState(summaryRow),
@@ -344,7 +369,7 @@ export async function saveCodexMasteryState(
   });
   const progress = codexMasteryRowToProgress(input.progress);
 
-  await executor
+  const savedSummary = await executor
     .update(codexMasterySummary)
     .set({
       totalScoreMilli: summary.totalScoreMilli,
@@ -364,9 +389,13 @@ export async function saveCodexMasteryState(
       scoreReachedAt: summary.scoreReachedAt,
       updatedAt: now,
     })
-    .where(eq(codexMasterySummary.userId, input.userId));
+    .where(eq(codexMasterySummary.userId, input.userId))
+    .returning({ userId: codexMasterySummary.userId });
+  if (savedSummary.length !== 1) {
+    throw new Error("codex mastery summary row was not saved");
+  }
 
-  await executor
+  const savedProgress = await executor
     .update(codexMasteryProgress)
     .set({
       count: progress.count,
@@ -381,7 +410,11 @@ export async function saveCodexMasteryState(
       eq(codexMasteryProgress.userId, input.userId),
       eq(codexMasteryProgress.category, progress.category),
       eq(codexMasteryProgress.entryId, progress.entryId),
-    ));
+    ))
+    .returning({ userId: codexMasteryProgress.userId });
+  if (savedProgress.length !== 1) {
+    throw new Error("codex mastery progress row was not saved");
+  }
 }
 
 export function createDrizzleCodexMasteryStore(

@@ -49,6 +49,9 @@ const REQUIRED_SOURCES = [
   ["cooking", "cooking.complete"],
   ["life", "life.complete"],
   ["job", "job.victory"],
+  ["job", "job.activity"],
+  ["job", "job.training"],
+  ["job", "job.consumable"],
 ] as const satisfies readonly (readonly [CodexMasteryCategory, string])[];
 
 function testEntry(category: CodexMasteryCategory): CodexMasteryEntryDefinition {
@@ -109,6 +112,14 @@ describe("recordCodexMastery", () => {
       .toEqualTypeOf<"fishing.catch" | "codex.backfill.v1">();
     expectTypeOf<CodexMasterySourceForCategory<"equipment">>()
       .toEqualTypeOf<"equipment.drop" | "equipment.craft" | "codex.backfill.v1">();
+    expectTypeOf<CodexMasterySourceForCategory<"job">>()
+      .toEqualTypeOf<
+        | "job.victory"
+        | "job.activity"
+        | "job.training"
+        | "job.consumable"
+        | "codex.backfill.v1"
+      >();
     expectTypeOf<"hunt.victory">().not
       .toMatchTypeOf<CodexMasterySourceForCategory<"fish">>();
   });

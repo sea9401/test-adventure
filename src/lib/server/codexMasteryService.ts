@@ -27,7 +27,13 @@ export const CODEX_MASTERY_SOURCES = {
   monster: ["hunt.victory", "codex.backfill.v1"],
   cooking: ["cooking.complete", "codex.backfill.v1"],
   life: ["life.complete", "codex.backfill.v1"],
-  job: ["job.victory", "codex.backfill.v1"],
+  job: [
+    "job.victory",
+    "job.activity",
+    "job.training",
+    "job.consumable",
+    "codex.backfill.v1",
+  ],
 } as const satisfies Record<CodexMasteryCategory, readonly string[]>;
 
 export type CodexMasterySourceForCategory<

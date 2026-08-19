@@ -1,12 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { StormExpeditionAutoplayPlan } from "./stormExpeditionAutoplayPolicy";
 import {
   chooseStormExpeditionBoon,
   chooseStormExpeditionCheckpointChoice,
   isStormExpeditionPlanCompatible,
+  loadStormExpeditionResumePlan,
+  loadStormExpeditionAutoplayDefaults,
   parseStoredStormExpeditionPlan,
   serializeStormExpeditionPlan,
   stormExpeditionPlannedNodeId,
+  storeStormExpeditionAutoplayPlan,
+  clearStormExpeditionAutoplayPlan,
+  STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY,
+  STORM_EXPEDITION_AUTOPLAY_PLAN_KEY,
 } from "./stormExpeditionAutoplayPolicy";
 
 const basePlan: StormExpeditionAutoplayPlan = {
@@ -160,5 +166,49 @@ describe("폭풍 원정 자동 계획 저장 형식", () => {
     JSON.stringify({ ...basePlan, boonStrategy: "greed" }),
   ])("손상되거나 알 수 없는 계획 %j을 거부한다", (raw) => {
     expect(parseStoredStormExpeditionPlan(raw)).toBeNull();
+  });
+
+  it("실행 계획과 다음 원정 기본값을 분리해 저장한다", () => {
+    const storage = { getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() };
+    storeStormExpeditionAutoplayPlan(storage, basePlan);
+    expect(storage.setItem).toHaveBeenCalledWith(STORM_EXPEDITION_AUTOPLAY_PLAN_KEY, JSON.stringify(basePlan));
+    expect(storage.setItem).toHaveBeenCalledWith(STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY, JSON.stringify(basePlan));
+  });
+
+  it("다음 원정 기본값은 실행 계획과 별도로 읽는다", () => {
+    const storage = {
+      getItem: vi.fn((key: string) => key === STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY ? JSON.stringify(basePlan) : null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+    expect(loadStormExpeditionAutoplayDefaults(storage)).toEqual(basePlan);
+    expect(storage.getItem).toHaveBeenCalledWith(STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY);
+  });
+
+  it("방문 이력과 호환되는 실행 계획만 명시적 재개 대상으로 읽는다", () => {
+    const storage = {
+      getItem: vi.fn(() => JSON.stringify(basePlan)),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+    expect(loadStormExpeditionResumePlan(storage, ["gale_outer", "supply", "thunder_middle"])).toEqual(basePlan);
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("손상되거나 방문 이력과 충돌하는 실행 계획은 폐기한다", () => {
+    const storage = {
+      getItem: vi.fn(() => JSON.stringify(basePlan)),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+    expect(loadStormExpeditionResumePlan(storage, ["wreckage_outer"])).toBeNull();
+    expect(storage.removeItem).toHaveBeenCalledWith(STORM_EXPEDITION_AUTOPLAY_PLAN_KEY);
+  });
+
+  it("실행 계획을 지울 때 다음 원정 기본값은 보존한다", () => {
+    const storage = { getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() };
+    clearStormExpeditionAutoplayPlan(storage);
+    expect(storage.removeItem).toHaveBeenCalledTimes(1);
+    expect(storage.removeItem).toHaveBeenCalledWith(STORM_EXPEDITION_AUTOPLAY_PLAN_KEY);
   });
 });

@@ -28,6 +28,12 @@ type StormExpeditionResources = {
   maxMp: number;
 };
 
+export type StormExpeditionPlanStorage = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+};
+
 const ROUTE_IDS = ["gale", "thunder", "wreckage"] as const;
 const MODES = ["normal", "practice"] as const;
 const BOON_STRATEGIES = ["offense", "survival", "resource"] as const;
@@ -130,6 +136,38 @@ export function parseStoredStormExpeditionPlan(raw: string | null): StormExpedit
 
 export function serializeStormExpeditionPlan(plan: StormExpeditionAutoplayPlan): string {
   return JSON.stringify(plan);
+}
+
+export function storeStormExpeditionAutoplayPlan(
+  storage: StormExpeditionPlanStorage,
+  plan: StormExpeditionAutoplayPlan,
+): void {
+  const serialized = serializeStormExpeditionPlan(plan);
+  storage.setItem(STORM_EXPEDITION_AUTOPLAY_PLAN_KEY, serialized);
+  storage.setItem(STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY, serialized);
+}
+
+export function loadStormExpeditionAutoplayDefaults(
+  storage: Pick<StormExpeditionPlanStorage, "getItem">,
+): StormExpeditionAutoplayPlan | null {
+  return parseStoredStormExpeditionPlan(storage.getItem(STORM_EXPEDITION_AUTOPLAY_DEFAULTS_KEY));
+}
+
+export function loadStormExpeditionResumePlan(
+  storage: Pick<StormExpeditionPlanStorage, "getItem" | "removeItem">,
+  visitedNodeIds: readonly StormExpeditionMapNodeId[],
+): StormExpeditionAutoplayPlan | null {
+  const raw = storage.getItem(STORM_EXPEDITION_AUTOPLAY_PLAN_KEY);
+  const plan = parseStoredStormExpeditionPlan(raw);
+  if (plan && isStormExpeditionPlanCompatible(plan, visitedNodeIds)) return plan;
+  if (raw !== null) storage.removeItem(STORM_EXPEDITION_AUTOPLAY_PLAN_KEY);
+  return null;
+}
+
+export function clearStormExpeditionAutoplayPlan(
+  storage: Pick<StormExpeditionPlanStorage, "removeItem">,
+): void {
+  storage.removeItem(STORM_EXPEDITION_AUTOPLAY_PLAN_KEY);
 }
 
 function resourceRatio(current: number, maximum: number): number {

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildStormExpeditionAutoplayResultModel,
   confirmStormExpeditionExit,
   shouldShowAcceptedRisk,
   stormExpeditionArrivalNodeId,
@@ -106,5 +107,37 @@ describe("폭풍 원정 수동 도착 모달", () => {
     expect(stormExpeditionArrivalNodeId("fight", response)).toBeNull();
     expect(stormExpeditionArrivalNodeId("move", { ...response, error: "stale_state" })).toBeNull();
     expect(stormExpeditionArrivalNodeId("move", { state: { active: null } })).toBeNull();
+  });
+});
+
+describe("폭풍 원정 일괄 진행 결과 요약", () => {
+  it("완주하면 최종 도달 지점과 확정 획득 보상을 요약한다", () => {
+    expect(buildStormExpeditionAutoplayResultModel("complete", {
+      currentNodeId: "storm_heart",
+      nodes: [{ id: "storm_heart", name: "폭풍의 심장" }],
+      gainedGold: 12_000,
+      gainedMaterials: { storm_shard: 2 },
+      gainedEquipment: [{ id: "reward-1" }],
+    }, null)).toEqual({
+      kind: "complete",
+      reachedNodeName: "폭풍의 심장",
+      rewards: ["12,000 G", "재료 2개", "장비 1개"],
+    });
+  });
+
+  it("패배하면 직전 상태를 기준으로 잃은 임시 전리품을 요약한다", () => {
+    expect(buildStormExpeditionAutoplayResultModel("defeated", {
+      currentNodeId: "thunder_elite",
+      nodes: [{ id: "thunder_elite", name: "뇌운 정예" }],
+    }, {
+      currentNodeId: "thunder_elite",
+      pendingGold: 8_500,
+      pendingMaterials: { storm_shard: 3, wreckage: 2 },
+      pendingEquipment: [{ id: "lost-1" }, { id: "lost-2" }],
+    })).toEqual({
+      kind: "defeated",
+      reachedNodeName: "뇌운 정예",
+      lostLoot: ["8,500 G", "재료 5개", "장비 2개"],
+    });
   });
 });

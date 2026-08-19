@@ -40,6 +40,8 @@ type Props = {
   onNodeOpen: (nodeId: StormExpeditionMapNodeId) => void;
   onOpenAutoplayPlan: () => void;
   onStopAutoplay: () => void;
+  onResumeAutoplay?: () => void;
+  onUseManual?: () => void;
 };
 
 export function StormExpeditionCommandMap({
@@ -54,6 +56,8 @@ export function StormExpeditionCommandMap({
   onNodeOpen,
   onOpenAutoplayPlan,
   onStopAutoplay,
+  onResumeAutoplay,
+  onUseManual,
 }: Props) {
   const visitedCount = active?.visitedNodeIds.length ?? 0;
   return (
@@ -119,6 +123,12 @@ export function StormExpeditionCommandMap({
             >
               일괄 진행 설정
             </button>
+          )}
+          {autoplay.kind === "resume" && (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={onUseManual} className="min-h-11 rounded-md border border-zinc-300 px-3 font-semibold dark:border-zinc-700">직접 진행</button>
+              <button type="button" onClick={onResumeAutoplay} className="min-h-11 rounded-md bg-sky-600 px-3 font-semibold text-white hover:bg-sky-500">일괄 진행 재개</button>
+            </div>
           )}
         </div>
       </header>

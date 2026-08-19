@@ -164,9 +164,9 @@ export async function runStormExpeditionAutoplay({
 }: StormExpeditionAutoplayRunnerOptions): Promise<StormExpeditionAutoplayRunResult> {
   let status = initialStatus;
   while (true) {
-    if (shouldStop()) return { kind: "stopped", status };
     const step = nextStormExpeditionAutoplayStep(status, plan);
     if (step.kind === "complete" || step.kind === "defeated") return { kind: step.kind, status };
+    if (shouldStop()) return { kind: "stopped", status };
     if (step.kind === "conflict") return { kind: "conflict", status, message: step.message };
 
     try {

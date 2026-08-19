@@ -266,6 +266,21 @@ describe("폭풍 원정 자동 진행 실행기", () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
+  it("중단을 누른 사이 현재 요청이 완주되면 재개 상태가 아니라 완료로 끝낸다", async () => {
+    let stopped = false;
+    const completed = status(null, { bossClear: true });
+
+    const result = await runStormExpeditionAutoplay({
+      initialStatus: status(active()),
+      plan,
+      request: async () => completed,
+      onStatus: () => { stopped = true; },
+      shouldStop: () => stopped,
+    });
+
+    expect(result).toEqual({ kind: "complete", status: completed });
+  });
+
   it("네트워크 오류가 나면 마지막 서버 상태에서 멈춘다", async () => {
     const error = new Error("offline");
     const request = vi.fn(async () => { throw error; });

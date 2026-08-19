@@ -82,4 +82,25 @@ describe("StormExpeditionCommandMap", () => {
     expect(html).toContain("현재 요청 후 중단");
     expect(html).toContain("min-h-11");
   });
+
+  it("저장된 계획이 있으면 명시적 재개와 직접 진행을 함께 제공한다", () => {
+    const html = renderToStaticMarkup(
+      <StormExpeditionCommandMap
+        nodes={STORM_EXPEDITION_MAP_NODES}
+        active={active}
+        availableNodeIds={[]}
+        nodeCount={9}
+        plan={null}
+        autoplay={{ kind: "resume" }}
+        onNodeOpen={vi.fn()}
+        onOpenAutoplayPlan={vi.fn()}
+        onStopAutoplay={vi.fn()}
+        onResumeAutoplay={vi.fn()}
+        onUseManual={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("일괄 진행 재개");
+    expect(html).toContain("직접 진행");
+  });
 });

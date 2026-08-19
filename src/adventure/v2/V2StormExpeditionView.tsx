@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowClockwise, CloudLightning, ShieldChevron } from "@phosphor-icons/react";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -41,12 +41,28 @@ import {
   stormExpeditionWithdrawRequest,
   type StormExpeditionActionRequest,
 } from "./stormExpeditionViewModel";
-import { StormExpeditionCommandMap } from "./StormExpeditionCommandMap";
+import {
+  StormExpeditionCommandMap,
+  type StormExpeditionAutoplayDisplay,
+} from "./StormExpeditionCommandMap";
+import { StormExpeditionAutoPlanDialog } from "./StormExpeditionAutoPlanDialog";
+import {
+  StormExpeditionAutoplayResultDialog,
+  type StormExpeditionAutoplayResultModel,
+} from "./StormExpeditionAutoplayResultDialog";
 import {
   StormExpeditionNodeDialog,
   type StormExpeditionNodeDialogAction,
   type StormExpeditionNodeDialogModel,
 } from "./StormExpeditionNodeDialog";
+import { runStormExpeditionAutoplay } from "./stormExpeditionAutoplay";
+import {
+  clearStormExpeditionAutoplayPlan,
+  loadStormExpeditionAutoplayDefaults,
+  loadStormExpeditionResumePlan,
+  storeStormExpeditionAutoplayPlan,
+  type StormExpeditionAutoplayPlan,
+} from "./stormExpeditionAutoplayPolicy";
 
 type ActiveExpedition = {
   version: 3;
@@ -161,6 +177,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   node_already_completed: "현재 체크포인트는 이미 완료했습니다. 지도에서 다음 노드를 선택해 주세요.",
 };
 
+const DEFAULT_AUTOPLAY_PLAN: StormExpeditionAutoplayPlan = {
+  version: 1,
+  mode: "normal",
+  outerRouteId: "gale",
+  middleRouteId: "gale",
+  guardianRouteId: "gale",
+  boonStrategy: "offense",
+};
+
 export function confirmStormExpeditionExit({
   mode,
   onExit,
@@ -198,6 +223,61 @@ export function shouldShowAcceptedRisk(
     || nextBattleEffects.includes("risk_enemy_fury");
 }
 
+export function buildStormExpeditionAutoplayResultModel(
+  kind: "complete" | "defeated",
+  status: {
+    currentNodeId?: StormExpeditionMapNodeId;
+    nodes?: readonly { id: StormExpeditionMapNodeId; name: string }[];
+    gainedGold?: number;
+    gainedMaterials?: Record<string, number>;
+    gainedEquipment?: readonly unknown[];
+  },
+  latestActive: {
+    currentNodeId: StormExpeditionMapNodeId;
+    pendingGold: number;
+    pendingMaterials: Record<string, number>;
+    pendingEquipment: readonly unknown[];
+  } | null,
+): StormExpeditionAutoplayResultModel {
+  const reachedNodeId = status.currentNodeId ?? latestActive?.currentNodeId;
+  const reachedNodeName = status.nodes?.find((node) => node.id === reachedNodeId)?.name
+    ?? reachedNodeId
+    ?? "원정 시작점";
+  if (kind === "complete") {
+    return {
+      kind,
+      reachedNodeName,
+      rewards: compactLootSummary(
+        status.gainedGold,
+        status.gainedMaterials,
+        status.gainedEquipment,
+      ),
+    };
+  }
+  return {
+    kind,
+    reachedNodeName,
+    lostLoot: compactLootSummary(
+      latestActive?.pendingGold,
+      latestActive?.pendingMaterials,
+      latestActive?.pendingEquipment,
+    ),
+  };
+}
+
+function compactLootSummary(
+  gold: number | undefined,
+  materials: Record<string, number> | undefined,
+  equipment: readonly unknown[] | undefined,
+): string[] {
+  const lines: string[] = [];
+  if ((gold ?? 0) > 0) lines.push(`${Math.floor(gold ?? 0).toLocaleString("ko-KR")} G`);
+  const materialCount = Object.values(materials ?? {}).reduce((sum, amount) => sum + Math.max(0, amount), 0);
+  if (materialCount > 0) lines.push(`재료 ${materialCount.toLocaleString("ko-KR")}개`);
+  if ((equipment?.length ?? 0) > 0) lines.push(`장비 ${equipment?.length.toLocaleString("ko-KR")}개`);
+  return lines;
+}
+
 export function V2StormExpeditionView() {
   const router = useRouter();
   const refreshGameState = useRefreshGameState();
@@ -209,6 +289,15 @@ export function V2StormExpeditionView() {
   const [skipReplay, setSkipReplay] = useState(false);
   const [selectedMode, setSelectedMode] = useState<StormExpeditionMode>("normal");
   const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
+  const [autoPlanOpen, setAutoPlanOpen] = useState(false);
+  const [autoPlan, setAutoPlan] = useState<StormExpeditionAutoplayPlan>(DEFAULT_AUTOPLAY_PLAN);
+  const [resumePlan, setResumePlan] = useState<StormExpeditionAutoplayPlan | null>(null);
+  const [autoplay, setAutoplay] = useState<StormExpeditionAutoplayDisplay>({ kind: "idle" });
+  const [autoplayResult, setAutoplayResult] = useState<StormExpeditionAutoplayResultModel | null>(null);
+  const stopAutoplayRef = useRef(false);
+  const autoplayRunIdRef = useRef(0);
+  const latestAutoplayActiveRef = useRef<ActiveExpedition | null>(null);
+  const storageInitializedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -230,8 +319,26 @@ export function V2StormExpeditionView() {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
+  useEffect(() => {
+    if (!status || storageInitializedRef.current) return;
+    storageInitializedRef.current = true;
+    const defaults = loadStormExpeditionAutoplayDefaults(window.localStorage);
+    if (defaults) setAutoPlan(defaults);
+    const activeRun = status.state?.active;
+    if (!activeRun) {
+      clearStormExpeditionAutoplayPlan(window.localStorage);
+      return;
+    }
+    const storedPlan = loadStormExpeditionResumePlan(window.localStorage, activeRun.visitedNodeIds);
+    if (!storedPlan) return;
+    setAutoPlan(storedPlan);
+    setResumePlan(storedPlan);
+    setAutoplay({ kind: "resume" });
+  }, [status]);
+
   const requestAction = useCallback(async (
     request: StormExpeditionActionRequest,
+    options: { suppressReplay?: boolean } = {},
   ): Promise<ExpeditionStatus | null> => {
     setBusy(true);
     try {
@@ -246,9 +353,17 @@ export function V2StormExpeditionView() {
         return null;
       }
       setStatus(json);
-      setResult(request.action === "start" ? null : skipReplay ? { ...json, replay: undefined } : json);
+      setResult(request.action === "start"
+        ? null
+        : skipReplay || options.suppressReplay
+          ? { ...json, replay: undefined }
+          : json);
       if (json.error) setOpenNodeId(null);
       if (json.claimedRewards) await refreshGameState();
+      if (json.failed || json.bossClear || json.practiceCompleted || json.withdrew || json.practiceEnded) {
+        clearStormExpeditionAutoplayPlan(window.localStorage);
+        setResumePlan(null);
+      }
       return json;
     } catch {
       setResult({ ok: false, error: "network" });
@@ -259,10 +374,87 @@ export function V2StormExpeditionView() {
   }, [refreshGameState, skipReplay]);
 
   const active = status?.state?.active ?? null;
+  const autoplayLocked = autoplay.kind === "running" || autoplay.kind === "stopping";
+  const displayedPlan = resumePlan ?? (autoplayLocked ? autoPlan : null);
   const isPracticeRun = active?.mode === "practice" || result?.practice === true;
   const currentNode = active ? status?.nodes?.find((node) => node.id === active.currentNodeId) ?? null : null;
   const previewableNodeIds = active ? currentNode?.nextNodeIds ?? [] : status?.entranceNodeIds ?? [];
   const activeRoute = status?.routes?.find((route) => route.id === (active?.routeId ?? result?.routeId)) ?? null;
+
+  const runAutoplay = useCallback(async (plan: StormExpeditionAutoplayPlan) => {
+    if (!status || autoplayLocked) return;
+    storeStormExpeditionAutoplayPlan(window.localStorage, plan);
+    setAutoPlan(plan);
+    setSelectedMode(plan.mode);
+    setResumePlan(null);
+    setAutoPlanOpen(false);
+    setOpenNodeId(null);
+    setAutoplayResult(null);
+    setResult(null);
+    stopAutoplayRef.current = false;
+    const runId = autoplayRunIdRef.current + 1;
+    autoplayRunIdRef.current = runId;
+    latestAutoplayActiveRef.current = status.state?.active ?? null;
+    setAutoplay({ kind: "running", label: "계획 확인 중" });
+
+    const runResult = await runStormExpeditionAutoplay({
+      initialStatus: status,
+      plan,
+      request: async (request) => {
+        const response = await requestAction(request, { suppressReplay: true });
+        if (!response) throw new Error("network");
+        return response;
+      },
+      onStatus: (nextStatus, label) => {
+        if (autoplayRunIdRef.current !== runId) return;
+        const nextActive = nextStatus.state?.active;
+        if (nextActive) latestAutoplayActiveRef.current = nextActive as ActiveExpedition;
+        setAutoplay((current) => current.kind === "stopping"
+          ? { kind: "stopping", label }
+          : { kind: "running", label });
+      },
+      shouldStop: () => stopAutoplayRef.current || autoplayRunIdRef.current !== runId,
+    });
+
+    if (autoplayRunIdRef.current !== runId) return;
+    const finalStatus = runResult.status as ExpeditionStatus;
+    if (runResult.kind === "complete" || runResult.kind === "defeated") {
+      clearStormExpeditionAutoplayPlan(window.localStorage);
+      setResumePlan(null);
+      setAutoplay({ kind: "idle" });
+      setAutoplayResult(buildStormExpeditionAutoplayResultModel(
+        runResult.kind,
+        finalStatus,
+        latestAutoplayActiveRef.current,
+      ));
+      return;
+    }
+    if (runResult.kind === "conflict") {
+      clearStormExpeditionAutoplayPlan(window.localStorage);
+      setResumePlan(null);
+      setAutoplay({ kind: "error", message: runResult.message });
+      return;
+    }
+    setResumePlan(plan);
+    setAutoplay({ kind: "resume" });
+    if (runResult.kind === "stale") void refresh();
+  }, [autoplayLocked, refresh, requestAction, status]);
+
+  const stopAutoplay = useCallback(() => {
+    stopAutoplayRef.current = true;
+    setAutoplay((current) => current.kind === "running"
+      ? { kind: "stopping", label: current.label }
+      : current);
+  }, []);
+
+  const useManualProgress = useCallback(() => {
+    autoplayRunIdRef.current += 1;
+    stopAutoplayRef.current = true;
+    clearStormExpeditionAutoplayPlan(window.localStorage);
+    setResumePlan(null);
+    setAutoplay({ kind: "idle" });
+  }, []);
+
   const exitActiveExpedition = useCallback(() => {
     if (!active) return;
     confirmStormExpeditionExit({
@@ -371,20 +563,25 @@ export function V2StormExpeditionView() {
             active={null}
             availableNodeIds={status.entranceNodeIds ?? []}
             nodeCount={status.nodeCount ?? 9}
-            plan={null}
-            autoplay={{ kind: "idle" }}
+            plan={displayedPlan}
+            autoplay={autoplay}
             entry={{ selectedMode, attemptsLeft: status.attemptsLeft ?? 0, onModeChange: setSelectedMode }}
             onNodeOpen={(nodeId) => {
-              if (!busy) setOpenNodeId(nodeId);
+              if (!busy && !autoplayLocked && autoplay.kind !== "resume") setOpenNodeId(nodeId);
             }}
-            onOpenAutoplayPlan={() => undefined}
-            onStopAutoplay={() => undefined}
+            onOpenAutoplayPlan={() => {
+              setAutoPlan((current) => ({ ...current, mode: selectedMode }));
+              setAutoPlanOpen(true);
+            }}
+            onStopAutoplay={stopAutoplay}
+            onResumeAutoplay={() => resumePlan && void runAutoplay(resumePlan)}
+            onUseManual={useManualProgress}
           />
           {openNodeDialogModel && (
             <StormExpeditionNodeDialog
               open={openNodeId !== null}
               model={openNodeDialogModel}
-              busy={busy}
+              busy={busy || autoplayLocked}
               onAction={handleNodeAction}
               onClose={() => setOpenNodeId(null)}
             />
@@ -405,13 +602,15 @@ export function V2StormExpeditionView() {
             availableNodeIds={status?.availableNextNodeIds ?? []}
             previewableNodeIds={previewableNodeIds}
             nodeCount={status?.nodeCount ?? 9}
-            plan={null}
-            autoplay={{ kind: "idle" }}
+            plan={displayedPlan}
+            autoplay={autoplay}
             onNodeOpen={(nodeId) => {
-              if (!busy) setOpenNodeId(nodeId);
+              if (!busy && !autoplayLocked && autoplay.kind !== "resume") setOpenNodeId(nodeId);
             }}
-            onOpenAutoplayPlan={() => undefined}
-            onStopAutoplay={() => undefined}
+            onOpenAutoplayPlan={() => setAutoPlanOpen(true)}
+            onStopAutoplay={stopAutoplay}
+            onResumeAutoplay={() => resumePlan && void runAutoplay(resumePlan)}
+            onUseManual={useManualProgress}
           />
           <Card as="details" padding="md" className="group space-y-3" data-testid="storm-expedition-support">
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-bold">
@@ -437,7 +636,7 @@ export function V2StormExpeditionView() {
               )}
               <button
                 type="button"
-                disabled={busy || (active.mode === "normal" && (active.defeatedCount <= 0 || active.nextBattleEffects.includes("risk_enemy_fury")))}
+                disabled={busy || autoplayLocked || autoplay.kind === "resume" || (active.mode === "normal" && (active.defeatedCount <= 0 || active.nextBattleEffects.includes("risk_enemy_fury")))}
                 onClick={exitActiveExpedition}
                 className="min-h-11 w-full rounded-md border border-amber-300 text-sm font-semibold text-amber-800 disabled:opacity-50 dark:border-amber-800 dark:text-amber-200"
               >
@@ -454,12 +653,30 @@ export function V2StormExpeditionView() {
             <StormExpeditionNodeDialog
               open={openNodeId !== null}
               model={openNodeDialogModel}
-              busy={busy}
+              busy={busy || autoplayLocked}
               onAction={handleNodeAction}
               onClose={() => setOpenNodeId(null)}
             />
           )}
         </section>
+      )}
+
+      <StormExpeditionAutoPlanDialog
+        open={autoPlanOpen}
+        value={autoPlan}
+        attemptsLeft={status?.attemptsLeft ?? 0}
+        busy={autoplayLocked}
+        onChange={setAutoPlan}
+        onSubmit={() => void runAutoplay(autoPlan)}
+        onClose={() => setAutoPlanOpen(false)}
+      />
+
+      {autoplayResult && (
+        <StormExpeditionAutoplayResultDialog
+          open
+          model={autoplayResult}
+          onClose={() => setAutoplayResult(null)}
+        />
       )}
 
       {replay && (

@@ -73,6 +73,7 @@ import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { recordUniqueEquipmentAcquisitions } from "@/lib/server/uniqueEquipmentAchievement";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   associationFacilityLevel,
   canUseAdventurerAssociation,
@@ -758,6 +759,17 @@ export async function POST(req: Request) {
         },
       });
     }
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      [{
+        category: "equipment",
+        entryId: recipe.equipmentId,
+        amount: 1,
+        source: "equipment.craft",
+      }],
+      new Date(craftedAt),
+    );
 
     const obtainedAt = Date.now();
     const grantedTitles: string[] = [];

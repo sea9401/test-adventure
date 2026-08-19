@@ -4,7 +4,9 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import type { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import {
+  applyCodexMasteryBackfillUser,
   listCodexMasteryBackfillUserIds,
+  previewCodexMasteryBackfillUser,
   runCodexMasteryBackfillUserWithRuntime,
   type CodexMasteryBackfillRunnerRuntime,
 } from "./codexMasteryBackfillRunner";
@@ -49,6 +51,11 @@ function runtime(options: { completed?: boolean; failSync?: boolean } = {}) {
 }
 
 describe("codex mastery backfill runner", () => {
+  it("exposes separate preview and apply operation entry points", () => {
+    expect(previewCodexMasteryBackfillUser).toBeTypeOf("function");
+    expect(applyCodexMasteryBackfillUser).toBeTypeOf("function");
+  });
+
   it("previews without a transaction or writes", async () => {
     const fake = runtime();
     const result = await runCodexMasteryBackfillUserWithRuntime(

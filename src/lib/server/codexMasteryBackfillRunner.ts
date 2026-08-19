@@ -200,6 +200,22 @@ export async function backfillCodexMasteryUser(
   );
 }
 
+export function previewCodexMasteryBackfillUser(
+  database: typeof db,
+  userId: string,
+  now: Date,
+): Promise<CodexMasteryBackfillRunResult> {
+  return backfillCodexMasteryUser(database, userId, { apply: false, now });
+}
+
+export function applyCodexMasteryBackfillUser(
+  database: typeof db,
+  userId: string,
+  now: Date,
+): Promise<CodexMasteryBackfillRunResult> {
+  return backfillCodexMasteryUser(database, userId, { apply: true, now });
+}
+
 export async function listCodexMasteryBackfillUserIds(
   database: typeof db,
   options: { afterUserId?: string; limit: number },

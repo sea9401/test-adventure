@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { userSanctions } from "@/db/schema";
@@ -26,19 +26,27 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { warningId?: unknown };
+  let body: { warningId?: unknown; sanctionId?: unknown; kind?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const warningId =
-    typeof body.warningId === "number" && Number.isInteger(body.warningId)
-      ? body.warningId
+  const isTradeAcknowledgement = body.kind === "trade";
+  const acknowledgementValue = isTradeAcknowledgement ? body.sanctionId : body.warningId;
+  const acknowledgementId =
+    typeof acknowledgementValue === "number" && Number.isInteger(acknowledgementValue)
+      ? acknowledgementValue
       : 0;
-  if (warningId <= 0) {
-    return Response.json({ ok: false, error: "invalid_warning_id" }, { status: 400 });
+  if (acknowledgementId <= 0) {
+    return Response.json(
+      {
+        ok: false,
+        error: isTradeAcknowledgement ? "invalid_sanction_id" : "invalid_warning_id",
+      },
+      { status: 400 },
+    );
   }
 
   const acknowledged = await db
@@ -46,17 +54,30 @@ export async function POST(req: Request) {
     .set({ acknowledgedAt: new Date() })
     .where(
       and(
-        eq(userSanctions.id, warningId),
+        eq(userSanctions.id, acknowledgementId),
         eq(userSanctions.userId, userId),
-        eq(userSanctions.type, "warn"),
+        isTradeAcknowledgement
+          ? inArray(userSanctions.type, ["trade_suspend", "trade_ban"])
+          : eq(userSanctions.type, "warn"),
+        ...(isTradeAcknowledgement ? [isNull(userSanctions.liftedAt)] : []),
         isNull(userSanctions.acknowledgedAt),
       ),
     )
     .returning({ id: userSanctions.id });
 
   if (acknowledged.length === 0) {
-    return Response.json({ ok: false, error: "warning_not_found" }, { status: 404 });
+    return Response.json(
+      {
+        ok: false,
+        error: isTradeAcknowledgement ? "trade_sanction_not_found" : "warning_not_found",
+      },
+      { status: 404 },
+    );
   }
 
-  return Response.json({ ok: true, warningId });
+  return Response.json(
+    isTradeAcknowledgement
+      ? { ok: true, sanctionId: acknowledgementId, kind: "trade" }
+      : { ok: true, warningId: acknowledgementId },
+  );
 }

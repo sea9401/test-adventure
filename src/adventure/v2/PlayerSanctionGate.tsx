@@ -35,6 +35,7 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
         kind: "ready",
         status: {
           suspension: json.suspension,
+          tradeSuspension: json.tradeSuspension,
           warning: json.warning,
         },
       });

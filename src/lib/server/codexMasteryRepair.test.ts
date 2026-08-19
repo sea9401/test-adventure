@@ -207,22 +207,33 @@ describe("codex mastery summary repair", () => {
     const query = (table: unknown, userIds: readonly string[]) => ({
       from(selectedTable: unknown) {
         expect(selectedTable).toBe(table);
+        const tableName = table === codexMasterySummary
+          ? "codex_mastery_summary"
+          : table === codexMasteryProgress
+            ? "codex_mastery_progress"
+            : (() => { throw new Error("unexpected repair candidate table"); })();
         let afterUserId: string | undefined;
+        let orderedByUserIdAscending = false;
         const builder = {
           where(condition: SQL) {
             const compiled = dialect.sqlToQuery(condition);
-            expect(compiled.sql).toContain('"user_id" >');
-            expect(compiled.params).toHaveLength(1);
+            expect(compiled.sql).toBe(`"${tableName}"."user_id" > $1`);
+            expect(compiled.params).toEqual([expect.any(String)]);
             afterUserId = String(compiled.params[0]);
             return builder;
           },
-          orderBy() {
+          orderBy(...expressions: SQL[]) {
+            expect(expressions).toHaveLength(1);
+            expect(dialect.sqlToQuery(expressions[0]).sql)
+              .toBe(`"${tableName}"."user_id" asc`);
+            orderedByUserIdAscending = true;
             return builder;
           },
           async limit(limit: number) {
-            return [...new Set(userIds)]
-              .filter((userId) => afterUserId === undefined || userId > afterUserId)
-              .sort()
+            const rows = [...new Set(userIds)]
+              .filter((userId) => afterUserId === undefined || userId > afterUserId);
+            if (orderedByUserIdAscending) rows.sort();
+            return rows
               .slice(0, limit)
               .map((userId) => ({ userId }));
           },
@@ -232,10 +243,10 @@ describe("codex mastery summary repair", () => {
     });
     const executor = {
       select() {
-        return query(codexMasterySummary, ["user-a", "user-c", "user-e"]);
+        return query(codexMasterySummary, ["user-e", "user-a", "user-c"]);
       },
       selectDistinct() {
-        return query(codexMasteryProgress, ["user-b", "user-c", "user-d", "user-f"]);
+        return query(codexMasteryProgress, ["user-f", "user-c", "user-b", "user-d"]);
       },
     } as unknown as DbExecutor;
 

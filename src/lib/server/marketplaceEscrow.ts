@@ -165,7 +165,11 @@ async function refundMarketplaceHighestBid(
   );
   await tx
     .update(marketplaceListingsV2)
-    .set({ highestBid: null, highestBidderId: null, bidResolvedAt: now })
+    .set({
+      highestBid: null,
+      highestBidderId: null,
+      bidResolvedAt: reason === "trade_suspension" ? null : now,
+    })
     .where(eq(marketplaceListingsV2.id, listing.id));
   return gold;
 }

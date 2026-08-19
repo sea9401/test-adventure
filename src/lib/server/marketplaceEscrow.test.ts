@@ -234,7 +234,7 @@ describe("거래소 에스크로 취소", () => {
     expect(insertedInbox).toHaveLength(1);
   });
 
-  it("최고 입찰을 반환하고 목록에서 지운다", async () => {
+  it("거래 제재 최고 입찰 반환은 활성 경매의 후속 입찰과 정산을 위해 미정산 상태를 보존한다", async () => {
     const { tx, insertedInbox, listingUpdates } = transactionRecorder();
     const active = listing({ highestBid: 7000, highestBidderId: "bidder-1", bidCount: 2 });
 
@@ -245,6 +245,25 @@ describe("거래소 에스크로 취소", () => {
       userId: "bidder-1",
       kind: "bid_refund",
     }));
+    expect(listingUpdates).toContainEqual({
+      highestBid: null,
+      highestBidderId: null,
+      bidResolvedAt: null,
+    });
+    expect(listingUpdates.at(-1)).not.toHaveProperty("bidCount");
+  });
+
+  it("만료 최고 입찰 반환은 경매 정산 완료 시각을 기록한다", async () => {
+    const { tx, listingUpdates } = transactionRecorder();
+    const active = listing({
+      highestBid: 7000,
+      highestBidderId: "bidder-1",
+      bidCount: 2,
+    });
+
+    await expect(
+      clearMarketplaceHighestBid(tx as never, active, now, "expired"),
+    ).resolves.toEqual({ cleared: true, refundedGold: 7000 });
     expect(listingUpdates).toContainEqual({
       highestBid: null,
       highestBidderId: null,

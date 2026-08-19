@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { userSanctions, users } from "@/db/schema";
 
 type TargetRow = {
@@ -147,6 +147,8 @@ function lastSanctionUpdate() {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-08-20T12:00:00.000Z"));
   vi.clearAllMocks();
   mocks.events.length = 0;
   mocks.updates.length = 0;
@@ -183,6 +185,10 @@ beforeEach(() => {
       return result;
     },
   );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("/api/admin/sanctions", () => {

@@ -89,7 +89,9 @@ import {
   readSave,
   upsertSave,
   type DbExecutor,
+  type DbTransactionExecutor,
 } from "@/lib/server/savesKv";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   drizzleDangerousFishingBossStore,
   maybeSpawnDangerousFishingBoss,
@@ -453,7 +455,7 @@ function caughtSize(fish: DangerousFish, random: number, sizeBonusPct: number) {
 }
 
 export async function actOnEncounterInTx(
-  tx: DbExecutor,
+  tx: DbTransactionExecutor,
   userId: string,
   args: {
     action: DangerousFishingAction;
@@ -590,6 +592,14 @@ export async function actOnEncounterInTx(
     fishingWalletWithCoins(walletRaw, nextCoins),
   );
   await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guard.state);
+  if (highestFishingJobId) {
+    await recordCodexMasteryGameplayBatch(tx, userId, [{
+      category: "job",
+      entryId: highestFishingJobId,
+      amount: 1,
+      source: "job.activity",
+    }], new Date(args.now));
+  }
   const risk = state.voyage?.risk ?? 0;
   const bossSpawn =
     risk >= 4 && (fish.rarity === "epic" || fish.rarity === "legendary")
@@ -682,7 +692,7 @@ export async function purchaseDangerousFishingItemInTx(
 }
 
 export async function withDangerousFishingTransaction<T>(
-  callback: (tx: DbExecutor) => Promise<T>,
+  callback: (tx: DbTransactionExecutor) => Promise<T>,
 ): Promise<T> {
   return db.transaction(callback);
 }

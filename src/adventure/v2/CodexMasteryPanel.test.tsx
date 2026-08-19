@@ -9,6 +9,7 @@ import {
   CODEX_MASTERY_PAGE_SIZE,
   CodexMasteryPanel,
   filterCodexMasteryEntries,
+  formatCodexMasteryDate,
   paginateCodexMasteryEntries,
 } from "./CodexMasteryPanel";
 
@@ -207,6 +208,11 @@ describe("codex mastery exploration helpers", () => {
     });
     expect(paginateCodexMasteryEntries(many, 99).entries).toHaveLength(5);
     expect(CODEX_MASTERY_PAGE_SIZE).toBe(30);
+  });
+
+  it("formats repository-supported comma fractional ISO timestamps", () => {
+    expect(formatCodexMasteryDate("2026-08-20T00:00:00,123Z"))
+      .not.toBe("기록 없음");
   });
 });
 

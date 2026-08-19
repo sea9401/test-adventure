@@ -143,8 +143,8 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 }).format(value);
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
+export function formatCodexMasteryDate(value: string): string {
+  const date = new Date(value.replace(",", "."));
   if (Number.isNaN(date.getTime())) return "기록 없음";
   return new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -281,7 +281,7 @@ function EntryDetail({ entry, sealsEnabled }: {
                   {threshold === null ? "" : ` · ${formatNumber(threshold)}회`}
                 </span>
                 <span className="text-zinc-500 dark:text-zinc-400">
-                  {achievedAt ? formatDate(achievedAt) : "미달성"}
+                  {achievedAt ? formatCodexMasteryDate(achievedAt) : "미달성"}
                 </span>
               </div>
             );
@@ -448,7 +448,7 @@ export function CodexMasteryPanel({
               ? snapshot.recentPromotions.map((promotion) => (
                   <div key={`${promotion.key}:${promotion.stage}`} className={`${SURFACE_INSET} p-2 text-xs`}>
                     <span className="font-semibold">{promotion.label}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400"> · {CODEX_MASTERY_STAGE_LABELS[promotion.stage]} · {formatDate(promotion.achievedAt)}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400"> · {CODEX_MASTERY_STAGE_LABELS[promotion.stage]} · {formatCodexMasteryDate(promotion.achievedAt)}</span>
                   </div>
                 ))
               : <p className="text-xs text-zinc-500 dark:text-zinc-400">아직 승급 기록이 없습니다.</p>}

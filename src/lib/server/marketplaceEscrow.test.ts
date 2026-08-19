@@ -251,4 +251,72 @@ describe("거래소 에스크로 취소", () => {
       bidResolvedAt: now,
     });
   });
+
+  it("이미 정산된 활성 최고 입찰은 다시 환불하거나 지우지 않는다", async () => {
+    const { tx, insertedInbox, listingUpdates } = transactionRecorder();
+    const resolved = listing({
+      highestBid: 7000,
+      highestBidderId: "bidder-1",
+      bidCount: 2,
+      bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
+    });
+
+    await expect(
+      clearMarketplaceHighestBid(tx as never, resolved, now, "trade_suspension"),
+    ).resolves.toEqual({ cleared: false, refundedGold: 0 });
+    await expect(
+      cancelMarketplaceListingEscrow(tx as never, resolved, {
+        now,
+        refundHighestBid: true,
+        reason: "trade_suspension",
+      }),
+    ).resolves.toEqual({ cancelled: true, refundedBidGold: 0 });
+    expect(insertedInbox).toHaveLength(0);
+    expect(listingUpdates).not.toContainEqual(expect.objectContaining({
+      highestBid: null,
+      highestBidderId: null,
+    }));
+  });
+
+  it("비활성 매물의 최고 입찰 정리는 아무 반환도 하지 않는다", async () => {
+    const { tx, insertedInbox, listingUpdates } = transactionRecorder();
+    await expect(
+      clearMarketplaceHighestBid(
+        tx as never,
+        listing({
+          status: "cancelled",
+          highestBid: 7000,
+          highestBidderId: "bidder-1",
+        }),
+        now,
+        "trade_suspension",
+      ),
+    ).resolves.toEqual({ cleared: false, refundedGold: 0 });
+    expect(insertedInbox).toHaveLength(0);
+    expect(listingUpdates).toHaveLength(0);
+  });
+
+  it("만료 사유는 목록과 구매 주문의 기존 expired 상태를 보존한다", async () => {
+    const listingTx = transactionRecorder();
+    const orderTx = transactionRecorder();
+
+    await cancelMarketplaceListingEscrow(
+      listingTx.tx as never,
+      listing(),
+      { now, refundHighestBid: false, reason: "expired" },
+    );
+    await cancelMarketplaceBuyOrderEscrow(
+      orderTx.tx as never,
+      buyOrder(),
+      now,
+      "expired",
+    );
+
+    expect(listingTx.listingUpdates).toContainEqual({ status: "expired", closedAt: now });
+    expect(orderTx.buyOrderUpdates).toContainEqual({
+      status: "expired",
+      goldEscrow: 0,
+      closedAt: now,
+    });
+  });
 });

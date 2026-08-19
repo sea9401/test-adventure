@@ -155,7 +155,7 @@ async function refundMarketplaceHighestBid(
   reason: EscrowReason,
 ) {
   const gold = listing.highestBid ?? 0;
-  if (!listing.highestBidderId || gold <= 0) return 0;
+  if (listing.bidResolvedAt || !listing.highestBidderId || gold <= 0) return 0;
   await tx.insert(marketplaceInbox).values(
     inboxValues({
       userId: listing.highestBidderId,
@@ -202,7 +202,10 @@ export async function cancelMarketplaceListingEscrow(
     : 0;
   await tx
     .update(marketplaceListingsV2)
-    .set({ status: "cancelled", closedAt: options.now })
+    .set({
+      status: options.reason === "expired" ? "expired" : "cancelled",
+      closedAt: options.now,
+    })
     .where(eq(marketplaceListingsV2.id, listing.id));
   return { cancelled: true, refundedBidGold };
 }
@@ -228,7 +231,11 @@ export async function cancelMarketplaceBuyOrderEscrow(
   }
   await tx
     .update(marketplaceBuyOrdersV2)
-    .set({ status: "cancelled", goldEscrow: 0, closedAt: now })
+    .set({
+      status: reason === "expired" ? "expired" : "cancelled",
+      goldEscrow: 0,
+      closedAt: now,
+    })
     .where(eq(marketplaceBuyOrdersV2.id, order.id));
   return { cancelled: true, refundedGold };
 }

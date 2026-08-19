@@ -426,6 +426,8 @@ export type SignatureTrigger =
   | "on_hit"
   | "on_hit_taken"
   | "on_skill_cast"
+  | "direct_skill_hit"
+  | "tracked_shield_break"
   | "status_block_once"
   | "every_n_hits"
   | "tier6_unique";
@@ -472,6 +474,8 @@ export type SignatureEffect = {
   poisonChancePct?: number;
   /** on_hit: 공격 적중 시 부여하는 중독 스택 수. 기본 1. */
   poisonStacks?: number;
+  /** direct_skill_hit: 대상이 중독 상태면 직접 스킬 최종 피해 +%. */
+  poisonedTargetDamagePct?: number;
   /** on_hit: 공격 적중 시 대상에게 출혈을 부여할 확률. */
   bleedChancePct?: number;
   /** on_hit: 공격 적중 시 부여하는 출혈 스택 수. 기본 1. */
@@ -484,6 +488,10 @@ export type SignatureEffect = {
   defGainOnHitPct?: number;
   /** battle_start: 전투 시작 시 maxHp 의 이 % 만큼 보호막 생성. */
   battleStartShieldPctMaxHp?: number;
+  /** tracked_shield_break: 별도 추적할 전투 시작 보호막의 최대 HP 비율. */
+  trackedShieldPctMaxHp?: number;
+  /** tracked_shield_break: 전용 보호막 소진 시 해로운 상태를 정화. */
+  cleanseHarmfulStatuses?: boolean;
   /** on_skill_cast: 실제로 낸 스킬 MP 비용의 이 % 만큼 환급. */
   mpRefundPctOfCost?: number;
   /** on_heal: 실제 HP 회복량의 이 % 만큼 보호막 생성. */
@@ -530,6 +538,12 @@ export function signatureLabel(sig: SignatureEffect): string {
       return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
     case "on_skill_cast":
       return `스킬 사용 시 소모 MP의 ${sig.mpRefundPctOfCost ?? 0}% 환급`;
+    case "direct_skill_hit":
+      if (sig.poisonChancePct)
+        return `직접 피해 액티브 적중 시 ${sig.poisonChancePct}% 확률로 중독 ${sig.poisonStacks ?? 1}스택`;
+      return `중독 대상 직접 스킬 최종 피해 +${sig.poisonedTargetDamagePct ?? 0}%`;
+    case "tracked_shield_break":
+      return `전용 보호막 소진 시 해로운 상태 정화 및 ${sig.buffActions ?? 0}행동 동안 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
     case "status_block_once":
       return "전투당 1회 상태이상 무효";
     case "every_n_hits":
@@ -905,6 +919,60 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
           crit: 4,
           spd: 6,
           critResist: 8,
+        },
+      },
+    ],
+  },
+  {
+    id: "catastrophe_venom",
+    name: "재앙독갑",
+    buildTags: ["physical", "crit", "speed", "poison", "dot"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: {},
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "재앙독 주입",
+          poisonChancePct: 25,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: { spd: 8 },
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "맹독 추격",
+          poisonedTargetDamagePct: 10,
+        },
+      },
+    ],
+  },
+  {
+    id: "frozen_lake_guard",
+    name: "빙호수호",
+    buildTags: ["magic", "tank", "shield", "heal"],
+    thresholds: [
+      {
+        count: 2,
+        bonus: { statusDamageReductionPct: 10 },
+        signature: {
+          trigger: "battle_start",
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+      },
+      {
+        count: 3,
+        bonus: {},
+        signature: {
+          trigger: "tracked_shield_break",
+          label: "빙호 해방",
+          trackedShieldPctMaxHp: 8,
+          cleanseHarmfulStatuses: true,
+          damageTakenReductionPct: 15,
+          buffActions: 2,
         },
       },
     ],

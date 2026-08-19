@@ -6,6 +6,50 @@ import type { APSkill, APSkillCondition } from "@/adventure/character/apSkills";
 import type { Tier6UniqueRuntimeState } from "./tier6UniqueEffects";
 import type { LawInscriptionState } from "./lawInscription";
 import type { TripleWardState } from "./tripleWard";
+import type { SwordShadowState } from "./shadowBladeCombat";
+import type { RuinChargeState } from "./ruinBladeCombat";
+import type { CrossFamily } from "./skyAscendantCombat";
+import type { FormulaState } from "./primordialSageCombat";
+
+export type Tier7BattleResources = {
+  swordShadow?: SwordShadowState;
+  shadowFollowUpPct?: number;
+  shadowReleaseHastePct?: number;
+  swordIntent?: number;
+  ruinCharge?: RuinChargeState;
+  lastCrossFamily?: CrossFamily;
+  formula?: FormulaState;
+};
+
+export function mergeTier7ResourceSnapshot(
+  base: Record<string, number | string> | undefined,
+  tier7: Tier7BattleResources | undefined,
+): Record<string, number | string> | undefined {
+  if (!tier7) return base;
+  const next: Record<string, number | string> = { ...(base ?? {}) };
+  if (tier7.swordShadow) {
+    next.swordShadow = `${Math.round(
+      tier7.swordShadow.sourceFinalDamage *
+        (tier7.swordShadow.recordPct / 100),
+    )}${tier7.swordShadow.refined ? " · 정련" : ""}`;
+  }
+  if ((tier7.shadowFollowUpPct ?? 0) > 0) {
+    next.shadowFollowUp = tier7.shadowFollowUpPct!;
+  }
+  if ((tier7.swordIntent ?? 0) > 0) next.swordIntent = tier7.swordIntent!;
+  if (tier7.ruinCharge) {
+    next.ruinCharge = `충전 · HP 손실 ${Math.round(
+      tier7.ruinCharge.actualHpLost,
+    )}`;
+  }
+  if (tier7.lastCrossFamily) {
+    next.crossFamily = tier7.lastCrossFamily === "ranged" ? "원거리" : "체술";
+  }
+  if ((tier7.formula?.stages ?? 0) > 0) {
+    next.formula = `${tier7.formula!.stages}/3`;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
 
 export type BattleLogEntry =
   | {
@@ -128,6 +172,8 @@ export type BattleFlags = {
   skillCritAfterEvadePending: boolean;
   // 장비 시그니처 — 전투당 1회 상태이상 무효 사용 여부.
   statusBlockUsed: boolean;
+  /** 빙호수호 전용 시작 보호막 소진 효과의 전투당 1회 사용 여부. */
+  trackedShieldBreakUsed?: boolean;
 };
 
 // 누적 +/- 보너스/페널티 (수치, 0 기준으로 더해짐).
@@ -200,6 +246,8 @@ export type BattleStacks = {
   curseStacks: number;
   // 철벽 (4티어) — 남은 보호막. 받는 피해를 먼저 흡수. 회복 안 됨.
   playerShield: number;
+  /** 다른 보호막과 합산되지만 별도 소진을 추적하는 빙호수호 시작 보호막 잔량. */
+  trackedSetShield?: number;
   // 회피 강화로 적립된 보장 회피 잔량 — enemy phase 에서 % 회피 판정 전에 우선 소모.
   evadesRemaining: number;
   // 무피해 난무 (4티어) — 이 전투에서 플레이어가 실제로 받은 누적 HP 피해 (보호막 흡수분 제외). 0 = 무피해.
@@ -222,6 +270,8 @@ export type BattleStacks = {
   enemyShockAction?: import("./shockAction").ShockActionState;
   /** 6T 시그니처를 하나라도 장착했을 때만 생성하는 전투 한정 자원. */
   tier6Uniques?: Tier6UniqueRuntimeState;
+  /** 내부 7차 스킬을 장착했을 때만 생성하는 전투 한정 자원. */
+  tier7?: Tier7BattleResources;
   // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).
   spellCastCount: number;
   // 약점 노출(마도사) — 적에 누적된 마법 취약 스택(스택당 받는 마법 피해 +%).
@@ -365,6 +415,9 @@ export type PlayerCombat = {
   // v2 마법 공격력(magicAtk = INT 환산). scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
   // 0/undefined(라이브·STR/DEX 빌드·적) = 마법 경로 비활성, v2DamageAmount 가 atk 로 폴백.
   magicAtk?: number;
+  // 전투 카드의 대표 공격력 표시. 실제 평타 속성(passiveMagicBasicAttack)과 분리해
+  // 지팡이처럼 마공을 제공하는 무기는 마공 수치를 앞에 보여준다.
+  displayAttack?: "physical" | "magic";
   def: number;
   spd: number; // 선공 판정에 사용
   evasionPct: number; // 레거시 표시 호환용. 전투 경감은 evaRating 대결.

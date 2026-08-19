@@ -18,8 +18,24 @@ import { GameIcon } from "@/adventure/v2/GameIcon";
 import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { CombatMatchupSummary } from "./CombatMatchupSummary";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import {
+  bleedHuntStage,
+  bleedHuntStageLabel,
+} from "@/adventure/data/v2/bleedHunt";
 
 export { actionFrequencyLabel } from "./CombatMatchupSummary";
+
+function BleedHuntStageBadge({ label }: { label: string | null }) {
+  if (!label) return null;
+  return (
+    <div
+      className={`px-2 py-1 text-center text-[11px] font-medium text-rose-700 dark:text-rose-300 ${SURFACE_INSET}`}
+    >
+      출혈 사냥 · {label}
+    </div>
+  );
+}
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -205,6 +221,7 @@ export type BattleStats = {
   bonusAttackChancePct?: number; // 몬스터 행동 1회당 추가타 성향
   statusDamageReductionPct?: number; // 중독·출혈 등 상태 피해 감소율
   primaryAttack?: "physical" | "magic";
+  displayAttack?: "physical" | "magic";
 };
 
 // 상세 스탯 칩 — 항목별 은은한 색 강조(명중/회피/치명/마공).
@@ -233,7 +250,8 @@ export function BattleStatStrip({
   variant?: "player" | "enemy";
 }) {
   const [open, setOpen] = useState(false);
-  const usesMagicAttack = stats.primaryAttack === "magic";
+  const usesMagicAttack =
+    (stats.displayAttack ?? stats.primaryAttack) === "magic";
   const primaryAttackLabel = usesMagicAttack ? "마공" : "공";
   const primaryAttackValue = usesMagicAttack
     ? (stats.magicAtk ?? stats.atk ?? 0)
@@ -473,6 +491,17 @@ export function BattleScene({
   const hasMp = state.playerMaxMp > 0;
   const hasMagicBarrier = (state.playerMagicBarrierMax ?? 0) > 0;
   const equippedSkillIds = state.v2Skills?.equipped ?? [];
+  const hasBleedHunt = equippedSkillIds.some(
+    (skillId) => V2_SKILLS[skillId]?.bleedHunt != null,
+  );
+  const activeEnemyBleedStacks = (state.enemyV2Dots ?? []).reduce(
+    (sum, dot) =>
+      dot.tag === "bleed" && dot.turns > 0 ? sum + dot.stacks : sum,
+    0,
+  );
+  const bleedHuntLabel = hasBleedHunt
+    ? bleedHuntStageLabel(bleedHuntStage(activeEnemyBleedStacks))
+    : null;
   const showMutationWeight = equippedSkillIds.includes(
     "v2c_golem_rocksmash",
   );
@@ -490,6 +519,7 @@ export function BattleScene({
   );
   const enemyDisplay = state.enemy as typeof state.enemy & {
     actionSpd?: number;
+    displayAttack?: "physical" | "magic";
   };
   const enemyCombat: BattleStats | null =
     typeof state.enemy.atk === "number"
@@ -508,6 +538,7 @@ export function BattleScene({
           statusDamageReductionPct: state.enemy.statusDamageReductionPct,
           primaryAttack:
             state.enemy.atkType === "magic" ? "magic" : "physical",
+          displayAttack: enemyDisplay.displayAttack,
         }
       : null;
 
@@ -635,6 +666,7 @@ export function BattleScene({
                   max={state.enemy.hp}
                   color="bg-rose-500"
                 />
+                <BleedHuntStageBadge label={bleedHuntLabel} />
                 {hasMagicBarrier && (
                   <div aria-hidden="true" className="h-[1.125rem]" />
                 )}
@@ -714,6 +746,11 @@ export function BattleScene({
                   max={state.enemy.hp}
                   color="bg-rose-500"
                 />
+                {bleedHuntLabel && (
+                  <div className="mt-1.5">
+                    <BleedHuntStageBadge label={bleedHuntLabel} />
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-4 flex items-start gap-4">

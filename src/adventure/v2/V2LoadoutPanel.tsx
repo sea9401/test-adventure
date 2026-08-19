@@ -169,7 +169,12 @@ function localLoadoutResolution(
   const absorbedSet = new Set<string>(resonance.absorbedSkillIds);
   const spUsed = order.reduce(
     (sum, skillId) =>
-      sum + (absorbedSet.has(skillId) ? 2 : (meta.get(skillId)?.spCost ?? 0)),
+      sum +
+      (absorbedSet.has(skillId)
+        ? (resonance.effectiveSpCosts.get(skillId as V2SkillId) ??
+          meta.get(skillId)?.spCost ??
+          0)
+        : (meta.get(skillId)?.spCost ?? 0)),
     0,
   );
   return { resonance, absorbedSet, spUsed };
@@ -1311,7 +1316,11 @@ export function V2LoadoutPanel({
                 ? "material"
                 : undefined
             : undefined;
-          const effectiveSpCost = resonanceRole ? 2 : s.spCost;
+          const effectiveSpCost = resonanceRole
+            ? localResolution.resonance.effectiveSpCosts.get(
+                s.skillId as V2SkillId,
+              ) ?? s.spCost
+            : s.spCost;
           return (
             <li
               key={s.skillId}
@@ -1407,12 +1416,12 @@ export function V2LoadoutPanel({
                 )}
                 {resonanceRole === "material" && (
                   <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
-                    공명 재료 · 2 SP
+                    공명 재료 · {effectiveSpCost} SP
                   </span>
                 )}
                 {resonanceRole === "catalyst" && (
                   <span className="mt-1 text-[10px] font-medium text-violet-700 dark:text-violet-300">
-                    근원 촉매 · 2 SP · 태초회귀 강화
+                    근원 촉매 · {effectiveSpCost} SP · 태초회귀 강화
                   </span>
                 )}
               </div>

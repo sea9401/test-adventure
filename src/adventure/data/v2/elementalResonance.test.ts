@@ -35,18 +35,18 @@ describe("원소 공명 로드아웃 해석", () => {
         learned: PRIMORDIAL,
         equipped: PRIMORDIAL,
       }).spUsed,
-    ).toBe(35);
+    ).toBe(30);
 
     const catalyst = [...PRIMORDIAL, "v2c_elementallord_surge"] as const;
     expect(
       resolveElementalResonanceLoadout({ learned: catalyst, equipped: catalyst }).spUsed,
-    ).toBe(37);
+    ).toBe(31);
     expect(
       resolveElementalResonanceLoadout({
         learned: [...catalyst, "v2c_primordialmage_amplification"],
         equipped: [...catalyst, "v2c_primordialmage_amplification"],
       }).spUsed,
-    ).toBe(46);
+    ).toBe(40);
   });
 
   it("선택된 복합 주문식의 재료만 흡수하고 남는 원소는 기본 비용과 시전권을 유지한다", () => {
@@ -108,7 +108,8 @@ describe("원소 공명 로드아웃 해석", () => {
     expect(resolved.circuit).toBe("primordial");
     expect(resolved.castVariant?.name).toBe("개벽·오원소 회귀");
     expect(resolved.catalystActive).toBe(true);
-    expect(resolved.effectiveSpCosts.get("v2c_elementallord_surge")).toBe(2);
+    expect(resolved.effectiveSpCosts.get("v2c_firemage_inferno")).toBe(1);
+    expect(resolved.effectiveSpCosts.get("v2c_elementallord_surge")).toBe(1);
     expect(resolved.activeCombatSkillIds).not.toContain("v2c_elementallord_surge");
   });
 });

@@ -87,8 +87,8 @@ describe("validateLoadout — SP 예산 + 학습", () => {
 
   it.each([
     ["원소군주", ELEMENTAL_LORD, 28],
-    ["태초술사", PRIMORDIAL, 35],
-    ["태초술사 촉매", [...PRIMORDIAL, "v2c_elementallord_surge"], 37],
+    ["태초술사", PRIMORDIAL, 30],
+    ["태초술사 촉매", [...PRIMORDIAL, "v2c_elementallord_surge"], 31],
     [
       "태초술사 촉매·증폭",
       [
@@ -96,7 +96,7 @@ describe("validateLoadout — SP 예산 + 학습", () => {
         "v2c_elementallord_surge",
         "v2c_primordialmage_amplification",
       ],
-      46,
+      40,
     ],
   ] as const)("%s 공명 구성은 %i SP 경계에서 검증한다", (_label, equipped, budget) => {
     expect(validateLoadout(equipped, equipped, budget)).toMatchObject({

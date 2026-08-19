@@ -167,6 +167,15 @@ export function confirmStormExpeditionExit({
   return true;
 }
 
+export function shouldShowAcceptedRisk(
+  riskEvent: StormExpeditionRiskEventOffer | null,
+  nextBattleEffects: readonly string[],
+): boolean {
+  if (riskEvent?.status !== "accepted") return false;
+  return riskEvent.id !== "rift_cache"
+    || nextBattleEffects.includes("risk_enemy_fury");
+}
+
 export function V2StormExpeditionView() {
   const router = useRouter();
   const refreshGameState = useRefreshGameState();
@@ -352,7 +361,7 @@ export function V2StormExpeditionView() {
                 <Metric label="MP" value={`${active.mp.toLocaleString("ko-KR")} / ${active.maxMp.toLocaleString("ko-KR")}`} />
               </div>
               {active.boons.length > 0 && <BoonList boons={active.boons} />}
-              {active.riskEvent?.status === "accepted" && (
+              {shouldShowAcceptedRisk(active.riskEvent, active.nextBattleEffects) && active.riskEvent && (
                 <AcceptedRisk
                   offer={active.riskEvent}
                   definition={status?.riskEvents?.[active.riskEvent.id]}

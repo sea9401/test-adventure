@@ -70,6 +70,8 @@ export type SignatureTrigger =
   | "on_hit"
   | "on_hit_taken"
   | "on_skill_cast"
+  | "direct_skill_hit"
+  | "tracked_shield_break"
   | "status_block_once"
   | "every_n_hits"
   | "tier6_unique";
@@ -107,12 +109,15 @@ export type SignatureEffect = {
   chillSlowPct?: number;
   poisonChancePct?: number;
   poisonStacks?: number;
+  poisonedTargetDamagePct?: number;
   bleedChancePct?: number;
   bleedStacks?: number;
   shockChancePct?: number;
   enemyDefDebuffPct?: number;
   defGainOnHitPct?: number;
   battleStartShieldPctMaxHp?: number;
+  trackedShieldPctMaxHp?: number;
+  cleanseHarmfulStatuses?: boolean;
   mpRefundPctOfCost?: number;
   healToShieldPct?: number;
   statusBlockOnce?: boolean;

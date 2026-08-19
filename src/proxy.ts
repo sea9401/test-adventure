@@ -39,7 +39,7 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>잠시 점검 중입니다 — 무슨무슨게임</title>
+<title>8월 20일 점검 연장 안내 — 무슨무슨게임</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   main{min-height:100%;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box}
@@ -57,15 +57,15 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <main>
   <div class="box" role="status" aria-live="polite">
     <div class="status">서비스 점검</div>
-    <h1>8월 19일 점검 안내</h1>
-    <p class="lead">잠시 점검 중입니다.<br />게임 안정화 및 업데이트 적용을 위해 점검이 진행됩니다.</p>
+    <h1>8월 20일 점검 연장 안내</h1>
+    <p class="lead">잠시 점검 중입니다.<br />안정적인 서비스 제공과 업데이트 적용을 위해 점검이 1시간 연장되었습니다.</p>
     <div class="divider" aria-hidden="true"></div>
     <p class="note">
-      점검 일시: 8월 19일(수) 오전 4시 ~ 오전 5시<br />
-      점검 시간: 약 1시간<br /><br />
-      점검 중에는 게임 이용이 불가능합니다.<br />
-      더욱 안정적인 서비스 제공을 위해 노력하겠습니다.<br />
-      감사합니다.
+      점검 일시: 2026년 8월 20일(목) 오전 4시 ~ 오전 7시<br />
+      점검 시간: 약 3시간 (1시간 연장)<br />
+      점검 내용: 게임 시스템 안정화 및 확인된 오류 수정<br /><br />
+      이용에 불편을 드려 죄송합니다.<br />
+      더욱 안정적인 서비스로 보답하겠습니다.
     </p>
   </div>
 </main>

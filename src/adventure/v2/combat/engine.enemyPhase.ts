@@ -22,7 +22,9 @@ import {
   healToShield,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
+  resolveTrackedShieldAbsorption,
   statusBlockOnce,
+  trackedShieldBreakEffect,
 } from "./signatureEffects";
 import {
   applyEvasionDamageReduction,
@@ -37,6 +39,8 @@ import {
   ironWallDamageReductionPct,
   resolveFortressReaction,
 } from "./fortressKnight";
+import { releaseSwordShadow } from "./shadowBladeCombat";
+import { recordChargeHpLoss } from "./ruinBladeCombat";
 import {
   consumePurificationWard,
   resolveTripleWardDamage,
@@ -48,6 +52,35 @@ import { effectiveMutationDef } from "./mutationCombat";
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
 const MONSTER_CRIT_MULT_DEFAULT = 1.5;
+
+export function releaseSwordShadowAfterEnemyAction(
+  state: BattleState,
+): BattleState {
+  const swordShadow = state.stacks.tier7?.swordShadow;
+  if (!swordShadow) return state;
+  const released = releaseSwordShadow(swordShadow, {
+    nextSingleDamagePct: 15,
+  });
+  const shadowDamage = Math.min(state.enemyHp, released.damage);
+  return {
+    ...state,
+    enemyHp: Math.max(0, state.enemyHp - released.damage),
+    stacks: {
+      ...state.stacks,
+      tier7: {
+        ...state.stacks.tier7,
+        swordShadow: undefined,
+        shadowFollowUpPct: released.followUpPct,
+        shadowReleaseHastePct: swordShadow.refined ? 20 : 0,
+      },
+    },
+    log: appendLog(state.log, {
+      kind: "player_attack",
+      effect: "extra_damage",
+      text: `[검영] ${state.enemy.name}에게 ${shadowDamage} 지연 피해.`,
+    }),
+  };
+}
 
 // 적 페이즈 전체 — advanceTurn 에서 플레이어 페이즈(평타·스킬)와 분량을 가르기 위해 분리한다.
 // 한기 틱 → 잔상(AP 블록) → 회피 캐스케이드(그림자보법·보장회피·%회피·별빛가드·흘려막기·
@@ -893,6 +926,15 @@ export function resolveEnemyPhase(
   );
   const dmgToHp = magicBarrier.hpBoundDamage - shieldAbsorbed;
   const newShield = state.stacks.playerShield - shieldAbsorbed;
+  const trackedShieldResolution = resolveTrackedShieldAbsorption({
+    remaining: state.stacks.trackedSetShield ?? 0,
+    totalShieldBefore: state.stacks.playerShield,
+    shieldAbsorbed,
+    alreadyTriggered: state.flags.trackedShieldBreakUsed ?? false,
+  });
+  const trackedShieldEffect = trackedShieldResolution.triggered
+    ? trackedShieldBreakEffect(player.equipSignatures)
+    : null;
   if (
     state.stacks.tier6Uniques &&
     state.stacks.playerShield > 0 &&
@@ -1041,6 +1083,12 @@ export function resolveEnemyPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[철벽] 보호막이 ${shieldAbsorbed} 흡수 (남은 ${newShield})`,
+    });
+  }
+  if (trackedShieldEffect) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${trackedShieldEffect.label}] 해로운 상태를 정화하고 ${trackedShieldEffect.actions}행동 동안 받는 피해가 ${trackedShieldEffect.damageReductionPct}% 감소한다.`,
     });
   }
   for (const entry of magicBarrierCombatLogEntries(magicBarrier)) {
@@ -1244,10 +1292,25 @@ export function resolveEnemyPhase(
       enduranceTriggered,
       enrageTriggered,
       statusBlockUsed,
+      ...(trackedShieldEffect ? { trackedShieldBreakUsed: true } : {}),
     },
     buffs: {
       ...state.buffs,
       enemyAtkBonus,
+      ...(trackedShieldEffect
+        ? {
+            playerDmgReductionPct: Math.max(
+              state.buffs.playerDmgReductionTurnsLeft > 0
+                ? state.buffs.playerDmgReductionPct
+                : 0,
+              trackedShieldEffect.damageReductionPct,
+            ),
+            playerDmgReductionTurnsLeft: Math.max(
+              state.buffs.playerDmgReductionTurnsLeft,
+              trackedShieldEffect.actions,
+            ),
+          }
+        : {}),
     },
     stacks: {
       ...state.stacks,
@@ -1256,19 +1319,45 @@ export function resolveEnemyPhase(
       skillDmgReduceTurns: reactiveDefenseCharges.damageReduction,
       skillReflectBoostTurns: reactiveDefenseCharges.reflect,
       playerShield: nextPlayerShield,
+      ...(state.stacks.trackedSetShield != null
+        ? { trackedSetShield: trackedShieldResolution.remaining }
+        : {}),
       fortressImpact: fortressReaction.impact,
       ironWallReflectCharges: fortressReaction.ironWallReflectCharges,
-      chillStacks: chillStacksNext,
-      curseStacks: curseStacksNext,
+      chillStacks: trackedShieldEffect?.cleanse ? 0 : chillStacksNext,
+      curseStacks: trackedShieldEffect?.cleanse ? 0 : curseStacksNext,
       damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
       braceDefBonus: nextBraceDefBonus,
     },
+    ...(trackedShieldEffect?.cleanse
+      ? { playerV2Dots: [], v2SelfDebuffs: {} }
+      : {}),
     turn: {
       ...state.turn,
       enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
     },
     log,
   };
+  if (resolvedState.stacks.tier7?.ruinCharge) {
+    resolvedState = {
+      ...resolvedState,
+      stacks: {
+        ...resolvedState.stacks,
+        tier7: {
+          ...resolvedState.stacks.tier7,
+          ruinCharge: {
+            ...recordChargeHpLoss(
+              resolvedState.stacks.tier7.ruinCharge,
+              Math.min(state.playerHp, dmgToHp),
+            ),
+            deathBypassTriggered:
+              resolvedState.stacks.tier7.ruinCharge.deathBypassTriggered ||
+              berserkerSurvival.triggered,
+          },
+        },
+      },
+    };
+  }
   if (resolvedState.stacks.tier6Uniques) {
     resolvedState = applyTier6UniquePveEvent(resolvedState, player, {
       kind: "hp_threshold",
@@ -1280,6 +1369,7 @@ export function resolveEnemyPhase(
       },
     });
   }
+  resolvedState = releaseSwordShadowAfterEnemyAction(resolvedState);
   if (resolvedState.playerHp <= 0) {
     return {
       ...resolvedState,

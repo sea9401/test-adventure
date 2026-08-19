@@ -196,6 +196,42 @@ describe("POST /api/v2/storm-expedition", () => {
     });
   });
 
+  it("불안정한 축복과 겹치지 않는 제단 선택지 세 개를 시작할 때 고정한다", async () => {
+    store.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: stormExpeditionDateKey(),
+      attemptsUsed: 0,
+      clears: 0,
+      active: null,
+    });
+    const randomValues = [0.51, 0.51, 0.51, 0.51, 0.51, 0, 0.51];
+    let randomIndex = 0;
+    vi.spyOn(Math, "random").mockImplementation(
+      () => randomValues[randomIndex++] ?? 0.51,
+    );
+
+    const response = await POST(request({
+      action: "start",
+      mode: "normal",
+      targetNodeId: "thunder_outer",
+    }));
+    const json = await response.json() as {
+      state: {
+        active: {
+          altarOffers: string[];
+          riskEvent: { id: string; boonId: string | null };
+        };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.state.active.riskEvent.id).toBe("unstable_blessing");
+    expect(json.state.active.altarOffers).toHaveLength(3);
+    expect(new Set(json.state.active.altarOffers)).toHaveLength(3);
+    expect(json.state.active.altarOffers).not.toContain(
+      json.state.active.riskEvent.boonId,
+    );
+  });
+
   it("완료한 현재 노드에서 연결된 미방문 노드로만 이동한다", async () => {
     store.set(STORM_EXPEDITION_SAVE_KEY, {
       date: stormExpeditionDateKey(), attemptsUsed: 1,

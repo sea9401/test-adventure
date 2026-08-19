@@ -87,6 +87,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critResistPct": 4.5,
   "def": 10,
   "dexStat": 15,
+  "displayAttack": "magic",
   "evaRating": 0,
   "evasionPct": 0,
   "extraAttackChancePct": 7.125,

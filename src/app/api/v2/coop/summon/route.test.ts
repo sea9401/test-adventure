@@ -75,4 +75,32 @@ describe("POST /api/v2/coop/summon", () => {
     expect(insertFeedEntry).not.toHaveBeenCalled();
     expect(broadcastCoopNotice).not.toHaveBeenCalled();
   });
+
+  it("신규 HARD 6T 보스는 소환서 30장과 24시간 세션을 사용한다", async () => {
+    const response = await POST(
+      new Request("http://test/api/v2/coop/summon", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "canyon_predator_hard" }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: true,
+      kind: "canyon_predator_hard",
+      scrollsLeft: 69,
+    });
+    expect(insertedSessions[0]).toMatchObject({
+      regionId: "canyon_predator_hard",
+      bossName: "재앙의 스콜피온 킹",
+      hp: 14_000_000,
+      maxHp: 14_000_000,
+      visibility: "summoner_only",
+    });
+    const spawnedAt = insertedSessions[0]?.spawnedAt as Date;
+    const expiresAt = insertedSessions[0]?.expiresAt as Date;
+    expect(expiresAt.getTime() - spawnedAt.getTime()).toBe(24 * 60 * 60 * 1000);
+  });
 });

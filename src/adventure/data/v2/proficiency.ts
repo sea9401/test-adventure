@@ -144,6 +144,11 @@ export const V2_SPECIALIZED_CULTIVATE_PROFILE: Record<
   warden: { vit: 3, str: 1 },
   ironknight: { vit: 4, str: 1 },
   fortressknight: { vit: 4, str: 2 },
+  beastwarrior: { str: 2, dex: 2 },
+  tracker: { str: 2, dex: 2 },
+  bloodtracker: { str: 2, dex: 2 },
+  predator: { str: 3, dex: 2 },
+  primalpredator: { str: 3, dex: 2, vit: 1 },
 };
 
 // 캐릭터의 실효 수행 프로필 — 전문 계보, 고차 직업, 하이브리드 순으로 직업 전용값을 사용한다.

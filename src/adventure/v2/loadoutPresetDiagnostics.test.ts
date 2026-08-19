@@ -87,20 +87,20 @@ describe("프리셋 SP 진단", () => {
     ).toMatchObject({ spUsed: 50, overBy: 0, canApply: true });
   });
 
-  it("근원 촉매 구성의 유효 비용과 37 SP 총액을 표시한다", () => {
+  it("근원 촉매 구성의 유효 비용과 31 SP 총액을 표시한다", () => {
     const diagnosis = diagnoseLoadoutPreset(
       primordialCatalyst,
       primordialLibrary,
-      37,
+      31,
     );
 
-    expect(diagnosis).toMatchObject({ spUsed: 37, overBy: 0, canApply: true });
+    expect(diagnosis).toMatchObject({ spUsed: 31, overBy: 0, canApply: true });
     expect(
       diagnosis.rows.find((row) => row.skillId === "v2c_firemage_inferno"),
-    ).toMatchObject({ spCost: 8, effectiveSpCost: 2 });
+    ).toMatchObject({ spCost: 8, effectiveSpCost: 1 });
     expect(
       diagnosis.rows.find((row) => row.skillId === "v2c_elementallord_surge"),
-    ).toMatchObject({ spCost: 16, effectiveSpCost: 2 });
+    ).toMatchObject({ spCost: 16, effectiveSpCost: 1 });
   });
 });
 
@@ -143,11 +143,11 @@ describe("프리셋 자동 맞춤", () => {
   });
 
   it("후순위 촉매 제거 뒤 공명 총액을 다시 계산해 나머지 회로를 보존한다", () => {
-    expect(autoFitLoadoutPreset(primordialCatalyst, primordialLibrary, 36)).toEqual({
+    expect(autoFitLoadoutPreset(primordialCatalyst, primordialLibrary, 30)).toEqual({
       skills: primordialCatalyst.slice(0, -1),
       removed: ["v2c_elementallord_surge"],
-      spUsed: 35,
-      spBudget: 36,
+      spUsed: 30,
+      spBudget: 30,
     });
   });
 });

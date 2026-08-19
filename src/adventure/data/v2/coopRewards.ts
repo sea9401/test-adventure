@@ -28,7 +28,9 @@ export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
   mountain_chief_hard: "v2_coop_mountain_trace",
   abyssal_tyrant: "v2_coop_abyssal_scale",
   canyon_predator: "v2_coop_canyon_chitin",
+  canyon_predator_hard: "v2_coop_catastrophe_stinger",
   lake_sovereign: "v2_coop_lake_crystal",
+  lake_sovereign_hard: "v2_coop_frozen_lake_core",
   void_priest: "v2_coop_void_relic",
 };
 
@@ -37,7 +39,9 @@ export const COOP_EQUIPMENT_BOX_ID: Record<CoopBossKindId, string> = {
   mountain_chief_hard: "v2_coop_mountain_hard_equipment_box",
   abyssal_tyrant: "v2_coop_abyssal_equipment_box",
   canyon_predator: "v2_coop_canyon_equipment_box",
+  canyon_predator_hard: "v2_coop_catastrophe_equipment_box",
   lake_sovereign: "v2_coop_lake_equipment_box",
+  lake_sovereign_hard: "v2_coop_frozen_lake_equipment_box",
   void_priest: "v2_coop_void_equipment_box",
 };
 
@@ -45,7 +49,7 @@ export type CoopEquipmentBoxDef = {
   id: string;
   name: string;
   description: string;
-  displayTier: 1 | 2 | 3 | 4 | 5;
+  displayTier: 1 | 2 | 3 | 4 | 5 | 6;
   source: string;
   catalogTiers: readonly V2EquipCatalogTier[];
   itemIds?: readonly V2EquipmentId[];
@@ -99,6 +103,20 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
     source: "2T 정규 장비",
     catalogTiers: [4, 5, 6],
   },
+  canyon_predator_hard: {
+    id: COOP_EQUIPMENT_BOX_ID.canyon_predator_hard,
+    name: "재앙의 스콜피온 킹 6T 장비 상자",
+    description:
+      "사용하면 재앙의 스콜피온 킹 전용 6T 장비 중 1개를 무작위로 획득한다.",
+    displayTier: 6,
+    source: "재앙의 스콜피온 킹",
+    catalogTiers: [16],
+    itemIds: [
+      "v2_boss_catastrophe_gloves",
+      "v2_boss_catastrophe_boots",
+      "v2_boss_catastrophe_ring",
+    ],
+  },
   lake_sovereign: {
     id: COOP_EQUIPMENT_BOX_ID.lake_sovereign,
     name: "3T 장비 상자",
@@ -106,6 +124,20 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
     displayTier: 3,
     source: "3T 정규 장비",
     catalogTiers: [7, 8, 9],
+  },
+  lake_sovereign_hard: {
+    id: COOP_EQUIPMENT_BOX_ID.lake_sovereign_hard,
+    name: "혹한의 호수 괴물 6T 장비 상자",
+    description:
+      "사용하면 혹한의 호수 괴물 전용 6T 장비 중 1개를 무작위로 획득한다.",
+    displayTier: 6,
+    source: "혹한의 호수 괴물",
+    catalogTiers: [16],
+    itemIds: [
+      "v2_boss_frozen_lake_armor",
+      "v2_boss_frozen_lake_boots",
+      "v2_boss_frozen_lake_necklace",
+    ],
   },
   void_priest: {
     id: COOP_EQUIPMENT_BOX_ID.void_priest,
@@ -166,11 +198,23 @@ export const COOP_BOSS_MATERIAL: Record<
     description:
       "스콜피온 킹 토벌 기여 보상으로 얻는 재료. 독샘 단검을 전갈왕의 독침으로 개량하는 데 쓰인다.",
   },
+  canyon_predator_hard: {
+    id: COOP_BOSS_MATERIAL_ID.canyon_predator_hard,
+    name: "재앙의 꼬리침",
+    description:
+      "재앙의 스콜피온 킹 토벌 기여 보상으로 얻는 재료. 재앙독갑 장비 교환에 쓰인다.",
+  },
   lake_sovereign: {
     id: COOP_BOSS_MATERIAL_ID.lake_sovereign,
     name: "호수의 서리 결정",
     description:
       "호수의 괴물 토벌 기여 보상으로 얻는 재료. 협동 보스 교환 보상에 쓰일 수 있다.",
+  },
+  lake_sovereign_hard: {
+    id: COOP_BOSS_MATERIAL_ID.lake_sovereign_hard,
+    name: "혹한의 심핵",
+    description:
+      "혹한의 호수 괴물 토벌 기여 보상으로 얻는 재료. 빙호수호 장비 교환에 쓰인다.",
   },
   void_priest: {
     id: COOP_BOSS_MATERIAL_ID.void_priest,
@@ -256,7 +300,7 @@ export function coopExtraRewardRuleFor(
   boss: CoopBossKindId,
   tier: CoopRewardTier,
 ): CoopExtraRewardRule {
-  return boss === "mountain_chief_hard" || boss === "abyssal_tyrant"
+  return coopBossDifficultyOf(boss) === "hard"
     ? COOP_HARD_EXTRA_REWARD_RULES[tier]
     : COOP_EXTRA_REWARD_RULES[tier];
 }

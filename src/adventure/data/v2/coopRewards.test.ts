@@ -126,6 +126,40 @@ describe("coopRewards", () => {
       .toBe(1);
   });
 
+  it("신규 HARD 6T 보스는 산군과 같은 주화·재료·상자 확률과 전용 3종 상자를 사용한다", () => {
+    expect(COOP_BOSS_MATERIAL.canyon_predator_hard.name).toBe("재앙의 꼬리침");
+    expect(COOP_BOSS_MATERIAL.lake_sovereign_hard.name).toBe("혹한의 심핵");
+    expect(COOP_EQUIPMENT_BOX.canyon_predator_hard).toMatchObject({
+      name: "재앙의 스콜피온 킹 6T 장비 상자",
+      displayTier: 6,
+      catalogTiers: [16],
+      itemIds: [
+        "v2_boss_catastrophe_gloves",
+        "v2_boss_catastrophe_boots",
+        "v2_boss_catastrophe_ring",
+      ],
+    });
+    expect(COOP_EQUIPMENT_BOX.lake_sovereign_hard).toMatchObject({
+      name: "혹한의 호수 괴물 6T 장비 상자",
+      displayTier: 6,
+      catalogTiers: [16],
+      itemIds: [
+        "v2_boss_frozen_lake_armor",
+        "v2_boss_frozen_lake_boots",
+        "v2_boss_frozen_lake_necklace",
+      ],
+    });
+    for (const boss of ["canyon_predator_hard", "lake_sovereign_hard"] as const) {
+      expect(coopExtraRewardRuleFor(boss, "bronze")).toEqual(
+        COOP_HARD_EXTRA_REWARD_RULES.bronze,
+      );
+      expect(coopExtraRewardRuleFor(boss, "legend")).toEqual(
+        COOP_HARD_EXTRA_REWARD_RULES.legend,
+      );
+      expect(coopKillingBlowReward(boss).coin).toBe(COOP_KILLING_BLOW_HARD_COIN);
+    }
+  });
+
   it("rollCoopExtraRewards — 확정 보상 + 상자 확률 경계", () => {
     const noBox = rollCoopExtraRewards("mountain_chief", "silver", () => 0.99);
     expect(noBox.coin).toBe(COOP_EXTRA_REWARD_RULES.silver.coin);
@@ -158,10 +192,25 @@ describe("coopRewards", () => {
       const got = rollCoopEquipmentBoxItem(boss, () => 0);
       expect(got).toBeTruthy();
       const item = V2_EQUIPMENT[got!];
-      if (boss === "mountain_chief_hard" || boss === "abyssal_tyrant") {
-        expect(item.tier).toBe(13);
+      if (
+        boss === "mountain_chief_hard" ||
+        boss === "abyssal_tyrant" ||
+        boss === "canyon_predator_hard" ||
+        boss === "lake_sovereign_hard"
+      ) {
+        expect(item.tier).toBe(
+          boss === "canyon_predator_hard" || boss === "lake_sovereign_hard"
+            ? 16
+            : 13,
+        );
         expect(item.setTags).toContain(
-          boss === "abyssal_tyrant" ? "abyssal_current" : "hard_sangoon",
+          boss === "abyssal_tyrant"
+            ? "abyssal_current"
+            : boss === "canyon_predator_hard"
+              ? "catastrophe_venom"
+              : boss === "lake_sovereign_hard"
+                ? "frozen_lake_guard"
+                : "hard_sangoon",
         );
         expect(COOP_EQUIPMENT_BOX[boss].itemIds).toContain(got);
         continue;

@@ -206,9 +206,9 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   });
 });
 
-describe("유니크 카탈로그 (66종 — 기존 48 + 6T 시그니처 18)", () => {
-  it("V2_UNIQUE_IDS 66종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(66);
+describe("유니크 카탈로그 (72종 — 기존 48 + 6T 시그니처 18 + HARD 보스 6)", () => {
+  it("V2_UNIQUE_IDS 72종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(72);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -229,7 +229,7 @@ describe("UNIQUE_FLOOR_POOLS", () => {
     }
   });
 
-  it("원정 전용 6종을 제외한 전부가 밴드 또는 보스 풀에 등장한다", () => {
+  it("원정·HARD 보스 상자 전용을 제외한 전부가 밴드 또는 보스 풀에 등장한다", () => {
     const inPools = new Set<string>();
     // 심층 밴드 풀(마른 협곡 등)의 유니크 — 깊이 밴드 드랍.
     for (const pool of BAND_UNIQUE_POOLS) {
@@ -250,6 +250,12 @@ describe("UNIQUE_FLOOR_POOLS", () => {
       "v2_storm_sig_triphase_gloves",
       "v2_storm_sig_confluence_necklace",
       "v2_storm_sig_heart_necklace",
+      "v2_boss_catastrophe_gloves",
+      "v2_boss_catastrophe_boots",
+      "v2_boss_catastrophe_ring",
+      "v2_boss_frozen_lake_armor",
+      "v2_boss_frozen_lake_boots",
+      "v2_boss_frozen_lake_necklace",
     ]);
     for (const id of V2_UNIQUE_IDS.filter((id) => !expeditionOnly.has(id))) {
       expect(inPools.has(id), `${id} 어느 풀에도 안 떨어짐`).toBe(true);

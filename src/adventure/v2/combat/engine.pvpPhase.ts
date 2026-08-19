@@ -1,6 +1,7 @@
 import {
   actorKeys,
   applyBerserkerHostileDamagePvP,
+  applyTrackedSetShieldAbsorptionPvP,
   applyOnHitReflect,
   applyPerAttackDodge,
   applyPotionTo,
@@ -14,6 +15,7 @@ import {
   maybeApplyRuneCounter,
   maybeApplyMartialCounter,
   pvpSideDamageTakenReductionPct,
+  releaseSwordShadowAfterPvPAction,
   rollPvPAttackCount,
   scalePvPDamage,
   scalePvPHealing,
@@ -102,6 +104,7 @@ import {
   TRIPLE_WARD_LABELS,
   tripleWardStabilityReductionPct,
 } from "./tripleWard";
+import { recordChargeHpLoss } from "./ruinBladeCombat";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
 // 암살/분쇄/방어관통 → ATK 보너스 → 크리 → 베이스뎀 → 처형·크리·행운별·암살 배수 →
@@ -1338,7 +1341,7 @@ export function advanceTurnPvP(
         ),
       }
     : defenderAfterSurvival;
-  const newDefender: PvPSide = applyPvPOnHitDots({
+  const newDefenderBeforeTrackedShield: PvPSide = applyPvPOnHitDots({
     ...guardedDefender,
     // 독니 on-crit 독(Phase 2) 합류 — 미발동=defender.v2Dots 그대로.
     v2Dots: !blockSigStatus && (sigCritPoison || sigHitPoison)
@@ -1372,6 +1375,22 @@ export function advanceTurnPvP(
     },
     stacks: {
       ...defender.stacks,
+      ...(defender.stacks.tier7?.ruinCharge
+        ? {
+            tier7: {
+              ...defender.stacks.tier7,
+              ruinCharge: {
+                ...recordChargeHpLoss(
+                  defender.stacks.tier7.ruinCharge,
+                  Math.min(defender.hp, dmgToHp),
+                ),
+                deathBypassTriggered:
+                  defender.stacks.tier7.ruinCharge.deathBypassTriggered ||
+                  berserkerSurvival.triggered,
+              },
+            },
+          }
+        : {}),
       tripleWard: nextTripleWard,
       playerShield: newShieldAfterHeal,
       damageTakenThisCombat: defender.stacks.damageTakenThisCombat + dmgToHp,
@@ -1386,6 +1405,19 @@ export function advanceTurnPvP(
       : apBleedAdd + (sigHitBleed?.stacks ?? 0),
     blockStatus: blockSigStatus,
   });
+  const trackedShieldBreak = applyTrackedSetShieldAbsorptionPvP(
+    newDefenderBeforeTrackedShield,
+    shieldAbsorbed,
+    defender.stacks.playerShield,
+  );
+  const newDefender = trackedShieldBreak.side;
+  if (trackedShieldBreak.triggered) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${trackedShieldBreak.label ?? "보호막 해방"}] ${defender.name}의 해로운 효과가 해제되고 받는 피해가 감소한다.`,
+      side: defKey,
+    });
+  }
   const tier6DotsBefore = tier6PvpDotContext(defender);
   const tier6StatusKindsBefore = tier6PvpStatusKindCount(attacker, defender);
   let next: PvPBattleState = setSide(
@@ -1438,7 +1470,7 @@ export function advanceTurnPvP(
     });
   }
   if (next[defKey].hp <= 0) {
-    return {
+    const endedState: PvPBattleState = {
       ...next,
       log: appendLog(next.log, {
         kind: "info",
@@ -1447,6 +1479,11 @@ export function advanceTurnPvP(
       phase: "ended",
       outcome: atkKey === "p1" ? "p1_win" : "p2_win",
     };
+    return releaseSwordShadowAfterPvPAction(
+      endedState,
+      atkKey,
+      defKey,
+    );
   }
   // ── on-hit reflect (반사 갑주 + 가시 갑옷 + 무한 가시) — 공격자에게 반사 피해 ──
   // 베이스는 회피 경감 후 totalDmg(그 밖의 받피감·가드·보호막 적용 전).

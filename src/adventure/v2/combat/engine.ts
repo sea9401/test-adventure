@@ -13,6 +13,8 @@ import {
 } from "@/adventure/data/potions";
 import {
   applyV2BuffsToMap,
+  applyBleedChangeToDots,
+  bleedChangeLogText,
   applyV2DotsToTarget,
   applyPlayerPoisonDamageScaling,
   damageBetween,
@@ -25,6 +27,7 @@ import {
   potionHealAmount,
   applyComboFinisherToHits,
   resolveV2SkillCast,
+  type V2SkillCastInput,
   type V2SkillCastResult,
   type V2SkillDotApply,
   distributeBoostedHits,
@@ -47,10 +50,14 @@ import {
   onDodgeSpeedBuff,
   onSkillCastMpRefund,
   resolveOffensiveSignatureTriggers,
+  resolveDirectSkillHitSignatures,
   rollEvasionActionRecovery,
+  resolveTrackedShieldAbsorption,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
   SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
   statusBlockOnce,
+  trackedBattleStartShield,
+  trackedShieldBreakEffect,
 } from "./signatureEffects";
 import { canApplyShock, enterShockAction } from "./shockAction";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
@@ -60,6 +67,7 @@ import {
 } from "@/adventure/data/stats";
 import {
   ANALYSIS_PENALTY_CAP_PCT,
+  BLEED_MAX_STACKS,
   HEAVEN_DECREE_HP_PCT,
   LUCKY_STAR_DAMAGE_MULT,
   MAGIC_VULN_STACK_CAP,
@@ -88,6 +96,22 @@ import {
   computeDirectSkillDamage,
   reducedMagicDefense,
 } from "./engine.damageHelpers";
+import {
+  consumeShadowFollowUp,
+  recordSwordShadow,
+  refineSwordShadow,
+} from "./shadowBladeCombat";
+import {
+  gainSwordIntent,
+  ruinSwordBonuses,
+  startRuinCharge,
+} from "./ruinBladeCombat";
+import { resolveCrossover, type CrossFamily } from "./skyAscendantCombat";
+import {
+  formulaCompletionOverdraftSkillIds,
+  formulaStagesForCast,
+  previewFormulaCast,
+} from "./primordialSageCombat";
 import {
   V2_CORE_LOOP_V2,
   V2_SKILL_PROC_IN_PATTERN,
@@ -143,6 +167,7 @@ import {
 import {
   BOSS_MAX_HP_DAMAGE_MULT,
   BOSS_PCT_HP_DAMAGE_MULT,
+  mergeTier7ResourceSnapshot,
   type BattleBuffs,
   type BattleLogEntry,
   type BattleOutcome,
@@ -169,6 +194,55 @@ export type {
   PlayerAction,
   PlayerCombat,
 } from "./engineState";
+
+function applyTrackedSetShieldAbsorptionPve(
+  state: BattleState,
+  player: PlayerCombat,
+  shieldAbsorbed: number,
+): BattleState {
+  const effect = trackedShieldBreakEffect(player.equipSignatures);
+  if (!effect) return state;
+  const resolution = resolveTrackedShieldAbsorption({
+    remaining: state.stacks.trackedSetShield ?? 0,
+    totalShieldBefore: state.stacks.playerShield + shieldAbsorbed,
+    shieldAbsorbed,
+    alreadyTriggered: state.flags.trackedShieldBreakUsed ?? false,
+  });
+  if (!resolution.triggered) {
+    return {
+      ...state,
+      stacks: { ...state.stacks, trackedSetShield: resolution.remaining },
+    };
+  }
+  return {
+    ...state,
+    flags: { ...state.flags, trackedShieldBreakUsed: true },
+    buffs: {
+      ...state.buffs,
+      playerDmgReductionPct: Math.max(
+        state.buffs.playerDmgReductionTurnsLeft > 0
+          ? state.buffs.playerDmgReductionPct
+          : 0,
+        effect.damageReductionPct,
+      ),
+      playerDmgReductionTurnsLeft: Math.max(
+        state.buffs.playerDmgReductionTurnsLeft,
+        effect.actions,
+      ),
+    },
+    stacks: {
+      ...state.stacks,
+      trackedSetShield: 0,
+      ...(effect.cleanse ? { chillStacks: 0, curseStacks: 0 } : {}),
+    },
+    ...(effect.cleanse ? { playerV2Dots: [], v2SelfDebuffs: {} } : {}),
+    log: appendLog(state.log, {
+      kind: "info",
+      text: `[${effect.label}] 해로운 효과가 해제되고 받는 피해가 감소한다.`,
+      turn: "enemy",
+    }),
+  };
+}
 
 type EnemySkillMitigation = {
   damage: number;
@@ -1388,6 +1462,10 @@ export function initialBattleState(
   const barrierStart =
     barrierPct > 0 ? Math.floor((player.maxHp * barrierPct) / 100) : 0;
   const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
+  const trackedStartShield = trackedBattleStartShield(
+    player.equipSignatures,
+    player.maxHp,
+  );
   const startShield =
     bulwarkStart + barrierStart + (sigStartShield?.amount ?? 0);
   if (bulwarkStart > 0) {
@@ -1467,6 +1545,7 @@ export function initialBattleState(
       fatedChainCritPending: false,
       skillCritAfterEvadePending: false,
       statusBlockUsed: false,
+      ...(trackedStartShield ? { trackedShieldBreakUsed: false } : {}),
     },
     buffs: {
       enemyDefBonus: 0,
@@ -1504,6 +1583,9 @@ export function initialBattleState(
       chillStacks: 0,
       curseStacks: 0,
       playerShield: startShield,
+      ...(trackedStartShield
+        ? { trackedSetShield: trackedStartShield.amount }
+        : {}),
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
       weakpointDefIgnoreLeft: 0,
@@ -1600,6 +1682,9 @@ export function advanceTurn(
         enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
       },
     };
+    const enemyBleedBeforeTick = state.enemyV2Dots.find(
+      (dot) => dot.tag === "bleed" && dot.turns > 0,
+    );
     const enemyDotTick = tickV2Dots(
       state.enemyV2Dots,
       state.enemy.hp,
@@ -1615,8 +1700,13 @@ export function advanceTurn(
       state.enemy.statusDamageReductionPct,
     );
     if (enemyDotDamage > 0) {
+      const actualEnemyDotDamage = Math.min(state.enemyHp, enemyDotDamage);
+      const actualBleedDamage =
+        distributeV2DotTicks(enemyDotTick.ticks, actualEnemyDotDamage).find(
+          (tick) => tick.tag === "bleed",
+        )?.damage ?? 0;
       const newHp = Math.max(0, state.enemyHp - enemyDotDamage);
-      const dotLog = distributeV2DotTicks(
+      let dotLog = distributeV2DotTicks(
         enemyDotTick.ticks,
         enemyDotDamage,
       ).reduce(
@@ -1628,8 +1718,36 @@ export function advanceTurn(
           }),
         state.log,
       );
+      const bleedTickHealPct =
+        enemyBleedBeforeTick && enemyBleedBeforeTick.stacks >= BLEED_MAX_STACKS
+          ? state.v2Skills.equipped.reduce((sum, skillId) => {
+              const mechanic = V2_SKILLS[skillId]?.passive
+                ? V2_SKILLS[skillId]?.bleedHunt
+                : undefined;
+              return (
+                sum + Math.max(0, mechanic?.bleedTickHealMaxHpPct ?? 0)
+              );
+            }, 0)
+          : 0;
+      const bleedTickHeal =
+        actualBleedDamage > 0 && bleedTickHealPct > 0
+          ? Math.floor((state.playerMaxHp * bleedTickHealPct) / 100)
+          : 0;
+      const nextPlayerHp = Math.min(
+        state.playerMaxHp,
+        state.playerHp + bleedTickHeal,
+      );
+      const actualBleedTickHeal = nextPlayerHp - state.playerHp;
+      if (actualBleedTickHeal > 0) {
+        dotLog = appendLog(dotLog, {
+          kind: "info",
+          text: `[피의 양식] HP ${actualBleedTickHeal} 회복했다.`,
+          turn: "enemy",
+        });
+      }
       state = applyPhaseTriggerIfAny({
         ...state,
+        playerHp: nextPlayerHp,
         enemyHp: newHp,
         enemyV2Dots: enemyDotTick.nextDots,
         log: dotLog,
@@ -2153,6 +2271,11 @@ export function applyEnemyV2SkillCast(
     },
     log: nextLog,
   };
+  nextState = applyTrackedSetShieldAbsorptionPve(
+    nextState,
+    player,
+    enemySkillShieldAbsorbed,
+  );
   if (
     nextState.stacks.tier6Uniques &&
     state.stacks.playerShield > 0 &&
@@ -2294,6 +2417,27 @@ export function applyPlayerV2SkillCast(
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
   const tickedEnemyDebuffs = ticked.enemyDebuffs;
+  const shadowCoreEquipped = state.v2Skills.equipped.includes(
+    "v2c_shadowblade_swordshadow",
+  );
+  const formulaCoreEquipped = state.v2Skills.equipped.includes(
+    "v2c_primordialsage_completeformula",
+  );
+  const formulaOptimizationEquipped = state.v2Skills.equipped.includes(
+    "v2c_primordialsage_optimization",
+  );
+  const formulaState = state.stacks.tier7?.formula ?? {
+    stages: 0,
+    seenSkillIds: [],
+  };
+  const formulaOverdraftSkillIds =
+    formulaCoreEquipped && formulaOptimizationEquipped
+      ? formulaCompletionOverdraftSkillIds({
+          state: formulaState,
+          learned: state.v2Skills.learned,
+          equipped: state.v2Skills.equipped,
+        })
+      : [];
   const tier6UnityPct =
     (state.buffs.tier6UnityTurnsLeft ?? 0) > 0
       ? state.buffs.tier6UnityHealPct ?? 0
@@ -2303,10 +2447,20 @@ export function applyPlayerV2SkillCast(
   const tier6UnityMagicAtk = Math.floor(
     (player.magicAtk ?? player.atk) * tier6UnityMult,
   );
-  const result = resolveV2SkillCast({
+  const activeEnemyBleed = state.enemyV2Dots.find(
+    (dot) => dot.tag === "bleed" && dot.turns > 0,
+  );
+  const needsBleedHuntRoll = state.v2Skills.equipped.some(
+    (skillId) =>
+      V2_SKILLS[skillId]?.bleedHunt?.directPhysicalHitBleedExtend != null,
+  );
+  const castInput: V2SkillCastInput = {
     skills: state.v2Skills,
     cooldowns: state.v2SkillCooldowns,
+    magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
+    mpOverdraftSkillIds: formulaOverdraftSkillIds,
     procRoll: Math.random() * 100,
+    bleedHuntRoll: needsBleedHuntRoll ? Math.random() * 100 : undefined,
     procChanceBonus: player.skillProcChanceAdd ?? 0,
     // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
     applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
@@ -2394,7 +2548,8 @@ export function applyPlayerV2SkillCast(
       maxHp: state.enemy.hp,
       executeHpThresholdFloorPct:
         state.isBoss === true ? 0 : NORMAL_MONSTER_EXECUTION_HP_PCT,
-      bleedStacks: state.enemyV2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
+      bleedStacks: activeEnemyBleed?.stacks ?? 0,
+      bleedTurns: activeEnemyBleed?.turns ?? 0,
       poisonStacks: state.enemyV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
       magicVulnStacks: state.stacks.enemyMagicVulnStacks,
       enemyVulnerabilityActive: state.stacks.enemyVulnTurns > 0,
@@ -2402,7 +2557,172 @@ export function applyPlayerV2SkillCast(
       enemySkillProcDownActive: state.stacks.enemySkillProcDownTurns > 0,
       enemyHealReductionActive: state.stacks.enemyHealReduceTurns > 0,
     },
-  });
+  };
+  const ruinChargeAtActionStart = state.stacks.tier7?.ruinCharge;
+  let result = ruinChargeAtActionStart
+    ? resolveV2SkillCast({
+        ...castInput,
+        skills: {
+          learned: ["v2c_ruinblade_ruinsword"],
+          equipped: ["v2c_ruinblade_ruinsword"],
+        },
+        cooldowns: {
+          ...state.v2SkillCooldowns,
+          v2c_ruinblade_ruinsword: 0,
+        },
+        combatPattern: undefined,
+        procRoll: 0,
+        attacker: {
+          ...castInput.attacker,
+          mp: Math.max(castInput.attacker.mp, 100),
+        },
+      })
+    : resolveV2SkillCast(castInput);
+  const rerunSelectedCast = (
+    current: V2SkillCastResult,
+    overrides: Pick<
+      V2SkillCastInput,
+      "directDamagePiercePctAdd" | "directDamagePiercePctOverride"
+    > & {
+      attacker?: Partial<V2SkillCastInput["attacker"]>;
+    },
+  ): V2SkillCastResult => {
+    if (!current.castSkillId) return current;
+    const tier7AttackerOverride =
+      current.castSkillId === "v2c_swordsaint_flash" && shadowCoreEquipped
+        ? { str: Math.max(player.strStat ?? 0, player.lukStat ?? 0) }
+        : current.castSkillId === "v2c_celestialdragon_combo" &&
+            state.v2Skills.equipped.includes("v2c_skyascendant_crossover")
+          ? { str: Math.max(player.strStat ?? 0, player.dexStat ?? 0) }
+          : {};
+    return resolveV2SkillCast({
+      ...castInput,
+      ...overrides,
+      skills: {
+        ...castInput.skills,
+        equipped: [
+          current.castSkillId,
+          ...castInput.skills.equipped.filter(
+            (skillId) => skillId !== current.castSkillId,
+          ),
+        ],
+      },
+      cooldowns: {
+        ...castInput.cooldowns,
+        [current.castSkillId]: 0,
+      },
+      combatPattern: undefined,
+      procRoll: 0,
+      attacker: {
+        ...castInput.attacker,
+        ...tier7AttackerOverride,
+        ...overrides.attacker,
+        mp: ruinChargeAtActionStart
+          ? Math.max(castInput.attacker.mp, 100)
+          : castInput.attacker.mp,
+      },
+    });
+  };
+  if (
+    result.castSkillId === "v2c_swordsaint_flash" &&
+    shadowCoreEquipped
+  ) {
+    result = rerunSelectedCast(result, {
+      attacker: {
+        str: Math.max(player.strStat ?? 0, player.lukStat ?? 0),
+      },
+    });
+  } else if (
+    result.castSkillId === "v2c_celestialdragon_combo" &&
+    state.v2Skills.equipped.includes("v2c_skyascendant_crossover")
+  ) {
+    result = rerunSelectedCast(result, {
+      attacker: {
+        str: Math.max(player.strStat ?? 0, player.dexStat ?? 0),
+      },
+    });
+  }
+  if (ruinChargeAtActionStart) {
+    result = {
+      ...result,
+      nextMp: state.playerMp,
+      nextCooldowns: state.v2SkillCooldowns,
+    };
+  }
+  const startingRuinCharge =
+    !ruinChargeAtActionStart &&
+    result.castSkillId === "v2c_ruinblade_ruinsword";
+  if (startingRuinCharge) {
+    result = {
+      ...result,
+      enemyDamage: 0,
+      magicEnemyDamage: 0,
+      hitDamages: [],
+    };
+  }
+  const castDefinition = result.castSkillId
+    ? V2_SKILLS[result.castSkillId]
+    : undefined;
+  const directDamageEffects = castDefinition?.effects.filter(
+    (effect) => effect.kind === "damage",
+  );
+  const isSinglePhysicalSkill =
+    castDefinition?.category === "attack" &&
+    directDamageEffects?.length === 1 &&
+    directDamageEffects[0]?.kind === "damage" &&
+    directDamageEffects[0].scaling !== "magic" &&
+    directDamageEffects[0].scaling !== "spi";
+  const crossCoreEquipped = state.v2Skills.equipped.includes(
+    "v2c_skyascendant_crossover",
+  );
+  const crossFamily: CrossFamily | undefined = result.castSkillId
+    ? (["v2c_skyascendant_fallingstar", "v2c_heavenlybow_orbit"].includes(
+        result.castSkillId,
+      )
+        ? "ranged"
+        : [
+              "v2c_skyascendant_voidbreak",
+              "v2c_celestialdragon_combo",
+            ].includes(result.castSkillId)
+          ? "martial"
+          : undefined)
+    : undefined;
+  const crossover = crossCoreEquipped
+    ? resolveCrossover({
+        state: { lastFamily: state.stacks.tier7?.lastCrossFamily },
+        currentFamily: crossFamily,
+        hit: result.enemyDamage > 0,
+        pvp: false,
+      })
+    : undefined;
+  const formulaStages: 0 | 1 | 2 =
+    result.castSkillId
+      ? formulaStagesForCast(result.castSkillId, result.castSkillName)
+      : 0;
+  const formulaPreview =
+    formulaCoreEquipped && result.castSkillId
+      ? previewFormulaCast({
+          state: formulaState,
+          skillId: result.castSkillId,
+          stages: formulaStages,
+        })
+      : undefined;
+  const catalogPiercePct = Math.max(
+    0,
+    ...(directDamageEffects ?? []).map((effect) =>
+      effect.kind === "damage" ? effect.pierceDamagePct ?? 0 : 0,
+    ),
+  );
+  const crossoverPierceAdd =
+    crossover?.bonus === "capture"
+      ? Math.max(0, crossover.penetrationPct - catalogPiercePct)
+      : 0;
+  const formulaPierceAdd = formulaPreview?.completes ? 35 : 0;
+  if (crossoverPierceAdd > 0 || formulaPierceAdd > 0) {
+    result = rerunSelectedCast(result, {
+      directDamagePiercePctAdd: crossoverPierceAdd + formulaPierceAdd,
+    });
+  }
   // 일반 회피도는 스킬을 빗나가게 하지 않는다. 대상의 회피도와 시전자의 적중도를
   // 대결해 직접 피해만 줄이고, 적중 시 부가 효과는 정상 적용한다.
   const skillEvaDown =
@@ -2415,7 +2735,12 @@ export function applyPlayerV2SkillCast(
     (player.precisionEvasionMult ?? 1);
   const skillEvasionReductionPct = evasionDamageReductionPct(
     skillEnemyEvaRating,
-    player.accRating ?? player.accuracyPct ?? 0,
+    (player.accRating ?? player.accuracyPct ?? 0) +
+      (result.castSkillId
+        ? (V2_SKILLS[result.castSkillId]?.accuracyBonusPct ?? 0)
+        : 0) +
+      result.skillAccuracyBonusPct +
+      (crossover?.accuracyBonusPct ?? 0),
   );
   // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).
   //   주문중첩: 누적 시전 횟수 × skillDmgPctPerCast.  약점노출: 적 마법취약 스택 × enemyMagicVulnPctPerStack.
@@ -2463,8 +2788,19 @@ export function applyPlayerV2SkillCast(
     result.enemyDamage > 0 &&
     (result.berserkerTransition.forceSkillCrit ||
       skillCritAfterEvadeFired ||
-      ((player.critChancePct ?? 0) > 0 &&
-        Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0)));
+      ((player.critChancePct ?? 0) +
+        (result.castSkillId
+          ? (V2_SKILLS[result.castSkillId]?.skillCritChancePct ?? 0)
+          : 0) >
+        0 &&
+        Math.random() * 100 <
+          Math.min(
+            CRIT_PCT_CAP,
+            (player.critChancePct ?? 0) +
+              (result.castSkillId
+                ? (V2_SKILLS[result.castSkillId]?.skillCritChancePct ?? 0)
+                : 0),
+          )));
   // 스킬 다단히트 — 이 턴 추가 공격 확률로 굴려둔 공격 횟수(playerAttacksLeft)만큼 데미지
   //   스킬을 반복 타격한다. 평타 빌드가 누리는 SPD(추가 공격) 가치를 스킬 빌드에도 부여.
   //   데미지 스킬에만 적용(버프/힐/마나/DoT 부여는 1회 — 다중 적용 X). 새 RNG 미소비(이미
@@ -2483,19 +2819,66 @@ export function applyPlayerV2SkillCast(
         ? computeCritOverflowBonus(player.critChancePct ?? 0)
         : 0)
     : 1;
-  const singleSkillDamageBeforeEvasion = computeDirectSkillDamage({
+  const directSkillSignature = resolveDirectSkillHitSignatures(
+    player.equipSignatures,
+    {
+      dealtDamage: Boolean(result.castSkillId && result.enemyDamage > 0),
+      targetPoisoned: isEnemyPoisoned(state),
+    },
+  );
+  const baseSingleSkillDamageBeforeEvasion = computeDirectSkillDamage({
     totalDamage: skillDamageBase,
     magicDamage:
       result.magicEnemyDamage + magicSkillDamageBonus + lawMagicVulnBonus,
-    preCriticalMultiplier: skillPreCriticalMultiplier,
+    preCriticalMultiplier:
+      skillPreCriticalMultiplier * directSkillSignature.damageMult,
     criticalMultiplier: skillCriticalMultiplier,
     equipmentMagicCritBonus:
       Math.max(0, player.equipmentMagicSkillCritDmgPct ?? 0) / 100,
     critical: skillCritFired,
   });
-  const singleSkillDamage = singleSkillDamageBeforeEvasion;
+  const intentCoreEquipped = state.v2Skills.equipped.includes(
+    "v2c_ruinblade_oneintent",
+  );
+  let tier7FinalDamagePct = 0;
+  if (
+    intentCoreEquipped &&
+    isSinglePhysicalSkill &&
+    result.castSkillId !== "v2c_ruinblade_ruinsword"
+  ) {
+    tier7FinalDamagePct += (state.stacks.tier7?.swordIntent ?? 0) * 8;
+  }
+  if (result.castSkillId === "v2c_ruinblade_limitstrike") {
+    tier7FinalDamagePct += Math.min(
+      60,
+      ((state.playerMaxHp - state.playerHp) / Math.max(1, state.playerMaxHp)) *
+        60,
+    );
+  }
+  if (ruinChargeAtActionStart) {
+    tier7FinalDamagePct += ruinSwordBonuses({
+      state: ruinChargeAtActionStart,
+      hp: state.playerHp,
+      maxHp: state.playerMaxHp,
+      pvp: false,
+    }).damagePct;
+  }
+  if (crossover?.bonus === "capture") {
+    tier7FinalDamagePct += crossover.damagePct;
+  }
+  if (formulaPreview?.completes) tier7FinalDamagePct += 50;
+  const shadowFollowUp = consumeShadowFollowUp({
+    pendingPct: state.stacks.tier7?.shadowFollowUpPct ?? 0,
+    isSinglePhysical: Boolean(isSinglePhysicalSkill),
+    hit: result.enemyDamage > 0,
+    damage: Math.round(
+      baseSingleSkillDamageBeforeEvasion * (1 + tier7FinalDamagePct / 100),
+    ),
+  });
+  const singleSkillDamage = shadowFollowUp.damage;
   let nextComboHitCount = state.stacks.comboHitCount;
   let landedSkillHits = 0;
+  let dealtDirectSkillDamage = 0;
   // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
   const nextSpellCastCount =
     (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
@@ -2516,10 +2899,14 @@ export function applyPlayerV2SkillCast(
           state.stacks.enemyMagicVulnStacks + 1,
         )
       : state.stacks.enemyMagicVulnStacks;
-  // 절제(워메이지 특성) — 스킬 마나 소모 -%. resolveV2SkillCast 가 이미 풀 코스트를 깐
-  // result.nextMp 에, 소모분(costPaid)의 pct% 를 환급. 미시전이면 costPaid 0 → 무변.
-  const mpCostReduction = player.mpCostReductionPct ?? 0;
-  const costPaid = state.playerMp - result.nextMp;
+  // 절제(워메이지 특성) — 스킬 마나 소모 -%. resolveV2SkillCast 가 계산한 회복 전
+  // 실제 지불액의 pct% 를 환급한다. 미시전이면 mpSpent 0 → 무변.
+  const mpCostReduction = Math.max(
+    0,
+    (player.mpCostReductionPct ?? 0) -
+      (formulaOptimizationEquipped ? 20 : 0),
+  );
+  const costPaid = result.mpSpent;
   const mpRefund =
     mpCostReduction > 0 && costPaid > 0
       ? Math.floor((costPaid * mpCostReduction) / 100)
@@ -2538,13 +2925,7 @@ export function applyPlayerV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextLog = state.log;
   let healShieldAmount = 0;
-  const isBloodDemonReign = result.castSkillId === "v2c_blooddemon_reign";
-  const bloodDemonHealPct = isBloodDemonReign
-    ? (V2_SKILLS.v2c_blooddemon_reign.effects.find(
-        (effect) => effect.kind === "healFromDamage",
-      )?.pct ?? 0)
-    : 0;
-  let bloodDemonEffectiveDamage = 0;
+  let actualSkillDamage = 0;
   let tier6SkillHitDamages: number[] = [];
   // hpCostDamage의 HP는 적중한 피해로 바뀌는 자원이다. 확정 회피에서는 비용이 0이 되며,
   // 일반 회피 경감은 적중으로 취급해 흡혈보다 먼저 비용을 낸다.
@@ -2626,11 +3007,22 @@ export function applyPlayerV2SkillCast(
     landedSkillHits = perHit.filter((hit) => hit > 0).length;
     nextComboHitCount = comboResult.nextComboHitCount;
     const boostedSkillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
+    dealtDirectSkillDamage = boostedSkillDamage;
     const enemyHpBeforeSkill = nextEnemyHp;
     nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
-    if (isBloodDemonReign) {
-      bloodDemonEffectiveDamage = enemyHpBeforeSkill - nextEnemyHp;
+    if (crossover?.bonus === "pursuit") {
+      const pursuitDamage = Math.round(
+        boostedSkillDamage * (crossover.damagePct / 100),
+      );
+      nextEnemyHp = Math.max(0, nextEnemyHp - pursuitDamage);
+      nextLog = appendLog(nextLog, {
+        kind: "player_attack",
+        effect: "extra_damage",
+        text: `[교차·추격] ${pursuitDamage} 추가 피해.`,
+        turn: "player",
+      });
     }
+    actualSkillDamage = Math.max(0, enemyHpBeforeSkill - nextEnemyHp);
     for (const hit of perHit) {
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
@@ -2648,6 +3040,15 @@ export function applyPlayerV2SkillCast(
     },
   );
   const sigSkillTargetDots = [
+    ...(directSkillSignature.poison
+      ? [
+          makePoisonDot({
+            stacks: directSkillSignature.poison.stacks,
+            pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: player.atk,
+          }),
+        ]
+      : []),
     ...(sigSkill.critPoison
       ? [
           makePoisonDot({
@@ -2742,6 +3143,13 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  if (directSkillSignature.poison) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${directSkillSignature.poison.label}] ${state.enemy.name}에게 중독 ${directSkillSignature.poison.stacks}스택을 남겼다.`,
+      turn: "player",
+    });
+  }
   if (sigSkill.critPoison) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -2785,9 +3193,13 @@ export function applyPlayerV2SkillCast(
     });
   }
   // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
-  const resolvedSelfHealBase = isBloodDemonReign
-    ? Math.floor((bloodDemonEffectiveDamage * bloodDemonHealPct) / 100)
-    : result.selfHeal;
+  const resolvedSelfHealBase =
+    result.selfHeal +
+    Math.floor(
+      (actualSkillDamage *
+        Math.max(0, result.healFromActualDamagePct)) /
+        100,
+    );
   const resolvedSelfHeal = Math.floor(
     resolvedSelfHealBase * tier6UnityMult,
   );
@@ -2922,10 +3334,36 @@ export function applyPlayerV2SkillCast(
     player,
   );
   // PR-8 — dot effect 결과를 적 측 v2Dots 에 박음. 같은 label refresh.
-  const nextEnemyDots = applyV2DotsToTarget(
+  const dotsBeforeBleedHunt = applyV2DotsToTarget(
     applyV2DotsToTarget(state.enemyV2Dots, dotsToApplyToTarget),
     sigSkillTargetDots,
   );
+  const nextEnemyDots = applyBleedChangeToDots(
+    dotsBeforeBleedHunt,
+    result.bleedChangeToApply,
+  );
+  const bleedBeforeChange = dotsBeforeBleedHunt.find(
+    (dot) => dot.tag === "bleed" && dot.turns > 0,
+  );
+  const bleedAfterChange = nextEnemyDots.find(
+    (dot) => dot.tag === "bleed" && dot.turns > 0,
+  );
+  if (
+    result.bleedChangeToApply &&
+    bleedBeforeChange &&
+    bleedAfterChange &&
+    (bleedBeforeChange.stacks !== bleedAfterChange.stacks ||
+      bleedBeforeChange.turns !== bleedAfterChange.turns)
+  ) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: bleedChangeLogText(
+        result.bleedChangeToApply,
+        bleedAfterChange.turns,
+      ),
+      turn: "player",
+    });
+  }
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -3112,12 +3550,121 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  let nextTier7 = state.stacks.tier7;
+  if (shadowCoreEquipped || nextTier7?.swordShadow) {
+    nextTier7 = {
+      ...nextTier7,
+      shadowFollowUpPct: shadowFollowUp.pendingPct,
+    };
+    if (
+      shadowCoreEquipped &&
+      result.castSkillId &&
+      isSinglePhysicalSkill &&
+      dealtDirectSkillDamage > 0
+    ) {
+      const mechanic = V2_SKILLS[result.castSkillId]?.tier7Mechanic;
+      const recordPct =
+        mechanic?.kind === "shadowStrike" ? mechanic.recordPct : 50;
+      nextTier7.swordShadow = recordSwordShadow({
+        existing: nextTier7.swordShadow,
+        sourceSkillId: result.castSkillId,
+        dealtDamage: dealtDirectSkillDamage,
+        recordPct,
+      });
+    }
+    if (
+      result.castSkillId === "v2c_shadowblade_traceless" ||
+      result.castSkillId === "v2c_blackmoon_flurry"
+    ) {
+      nextTier7.swordShadow = refineSwordShadow(
+        nextTier7.swordShadow,
+        15,
+      );
+    }
+  }
+  if (
+    intentCoreEquipped ||
+    startingRuinCharge ||
+    ruinChargeAtActionStart ||
+    crossCoreEquipped ||
+    formulaCoreEquipped
+  ) {
+    nextTier7 = { ...nextTier7 };
+  }
+  if (
+    nextTier7 &&
+    intentCoreEquipped &&
+    result.castSkillId &&
+    isSinglePhysicalSkill &&
+    result.castSkillId !== "v2c_ruinblade_ruinsword" &&
+    dealtDirectSkillDamage > 0
+  ) {
+    const gain =
+      result.castSkillId === "v2c_ruinblade_limitstrike" &&
+      state.playerHp / Math.max(1, state.playerMaxHp) <= 0.4
+        ? 2
+        : 1;
+    nextTier7.swordIntent = gainSwordIntent(
+      nextTier7.swordIntent ?? 0,
+      gain,
+    );
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[검의] ${nextTier7.swordIntent}/3`,
+      turn: "player",
+    });
+  }
+  if (nextTier7 && startingRuinCharge) {
+    nextTier7.ruinCharge = startRuinCharge({
+      hp: state.playerHp,
+      intent: nextTier7.swordIntent ?? 0,
+    });
+    nextTier7.swordIntent = 0;
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[멸검] 충전을 시작했다. 다음 행동 기회에 자동 해방한다.`,
+      turn: "player",
+    });
+  } else if (nextTier7 && ruinChargeAtActionStart) {
+    nextTier7.ruinCharge = undefined;
+    nextTier7.swordIntent = 1;
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[멸검] 충전을 해방하고 검의 1개를 되찾았다.`,
+      turn: "player",
+    });
+  }
+  if (nextTier7 && crossover) {
+    nextTier7.lastCrossFamily = crossover.state.lastFamily;
+    if (crossover.bonus !== "none") {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[교차·${crossover.bonus === "capture" ? "포획" : "추격"}] 행동 가속 ${crossover.hastePct}%`,
+        turn: "player",
+      });
+    }
+  }
+  if (nextTier7 && formulaPreview) {
+    nextTier7.formula = formulaPreview.next;
+    if (formulaPreview.completes) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[완전식] ${result.castSkillName ?? "주문"} 강화 발동.`,
+        turn: "player",
+      });
+    }
+  }
+  const formulaRestore =
+    formulaPreview?.completes &&
+    state.v2Skills.equipped.includes("v2c_primordialsage_optimization")
+      ? Math.floor(state.playerMaxMp * 0.1)
+      : 0;
   state = {
     ...state,
     playerHp: nextPlayerHp,
     ...(nextBerserker ? { berserker: nextBerserker } : {}),
     enemyHp: nextEnemyHp,
-    playerMp: adjustedNextMp,
+    playerMp: Math.min(state.playerMaxMp, adjustedNextMp + formulaRestore),
     duelistBuff: nextDuelistBuff,
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
@@ -3163,6 +3710,7 @@ export function applyPlayerV2SkillCast(
         (result.shieldToApply
           ? result.shieldToApply.hp + result.shieldToApply.mp
           : 0),
+      ...(nextTier7 ? { tier7: nextTier7 } : {}),
     },
     log: nextLog,
   };
@@ -3239,8 +3787,15 @@ export function applyPlayerV2SkillCast(
     state,
     castFired: result.castSkillId != null,
     signatureExtraActions: signatureExtraActions + tier6ExtraActions,
-    selfHastePct: result.selfHasteToApply?.pct ?? 0,
-    enemyDelayPct: result.enemyDelayToApply?.pct ?? 0,
+    selfHastePct: Math.max(
+      result.selfHasteToApply?.pct ?? 0,
+      crossover?.hastePct ?? 0,
+      formulaPreview?.completes ? 20 : 0,
+    ),
+    enemyDelayPct: Math.max(
+      result.enemyDelayToApply?.pct ?? 0,
+      crossover?.enemyDelayPct ?? 0,
+    ),
   };
 }
 
@@ -3280,7 +3835,10 @@ function resolveBattleLegacy(
   const hpBarEntry = (s: BattleState): BattleLogEntry => {
     const playerResources = mergeLawInscriptionSnapshot(
       mergeTripleWardResourceSnapshot(
-        activeTier6ResourceSnapshot(s.stacks.tier6Uniques),
+        mergeTier7ResourceSnapshot(
+          activeTier6ResourceSnapshot(s.stacks.tier6Uniques),
+          s.stacks.tier7,
+        ),
         s.stacks.tripleWard,
       ),
       s.stacks.lawInscriptions,
@@ -3834,6 +4392,11 @@ function resolveBattleLegacy(
           },
           log: nextLog,
         };
+        state = applyTrackedSetShieldAbsorptionPve(
+          state,
+          player,
+          enemySkillShieldAbsorbed,
+        );
         if (
           state.stacks.tier6Uniques &&
           enemySkillShieldBefore > 0 &&

@@ -14,6 +14,7 @@ import {
   CloudLightning,
   Compass,
   CookingPot,
+  Crown,
   FirstAid,
   Hammer,
   Lightning,
@@ -62,6 +63,13 @@ const GUILD_ROOT_ITEM: SubItem = {
   color: "text-indigo-600 dark:text-indigo-400",
 };
 
+const GUILD_RAID_ITEM: SubItem = {
+  label: "토벌전",
+  href: "/guild?tab=raid",
+  Icon: Crown,
+  color: "text-rose-600 dark:text-rose-400",
+};
+
 // 길드 메뉴 전용 아이콘·색. 다른 메인 드롭다운 항목과 아이콘을 공유하지 않으며,
 // 시설끼리도 색이 겹치지 않아 작은 화면에서도 형태와 색으로 함께 구분된다.
 const GUILD_FACILITY_VISUALS: Record<
@@ -98,6 +106,18 @@ function guildFacilityMenuItem(id: GuildFacilityId): SubItem {
     color: GUILD_FACILITY_ICON_COLORS[id],
     ...GUILD_FACILITY_VISUALS[id],
   };
+}
+
+export function guildMenuItemsForViewer(
+  viewerGuildId: number | null,
+  facilityIds: readonly GuildFacilityId[] = [],
+): SubItem[] {
+  if (viewerGuildId == null) return [GUILD_ROOT_ITEM];
+  return [
+    GUILD_ROOT_ITEM,
+    GUILD_RAID_ITEM,
+    ...facilityIds.map(guildFacilityMenuItem),
+  ];
 }
 
 export const TOWN_MENU_ITEMS = [
@@ -219,7 +239,7 @@ export function MainTabNav({
       : [];
   const openSubItems =
     openTab?.key === "guild"
-      ? [GUILD_ROOT_ITEM, ...cachedGuildFacilityIds.map(guildFacilityMenuItem)]
+      ? guildMenuItemsForViewer(viewerGuildId, cachedGuildFacilityIds)
       : openTab?.key === "town"
         ? townMenuItemsForViewer(viewerGuildId, gameStateLoaded)
       : (openTab?.sub ?? []);

@@ -32,6 +32,7 @@ export type ReplayCombatStats = {
   bonusAttackChancePct?: number;
   statusDamageReductionPct?: number;
   primaryAttack?: "physical" | "magic";
+  displayAttack?: "physical" | "magic";
 };
 
 // enemy.image = v2 사냥터 전용 초상화 경로. BattleScene 이 이걸 우선 쓰고, 없으면
@@ -56,6 +57,7 @@ export type ReplayPayload = {
     critPct?: number;
     bonusAttackChancePct?: number;
     statusDamageReductionPct?: number;
+    displayAttack?: "physical" | "magic";
   };
   playerCombat?: ReplayCombatStats;
   ruleset?: "pve" | "pvp";
@@ -117,6 +119,9 @@ function replayPlayerCombat(
         : player.magicBarrierEfficiencyPct,
     statusDamageReductionPct: player.statusDamageReductionPct,
     primaryAttack: player.passiveMagicBasicAttack ? "magic" : "physical",
+    ...(player.displayAttack
+      ? { displayAttack: player.displayAttack }
+      : {}),
   };
 }
 
@@ -217,6 +222,9 @@ function replayPvpEnemy(
     critPct: combat.critChancePct,
     bonusAttackChancePct: combat.bonusAttackChancePct,
     statusDamageReductionPct: combat.statusDamageReductionPct ?? 0,
+    ...(combat.displayAttack
+      ? { displayAttack: combat.displayAttack }
+      : {}),
   };
 }
 export function toPvpReplayPayloadForSide(

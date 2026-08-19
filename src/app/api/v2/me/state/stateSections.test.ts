@@ -161,13 +161,13 @@ describe("loadoutSection — 직업 SP 산식 전환", () => {
       equipmentCodexSpBonus: 0,
     });
 
-    expect(section.spUsed).toBe(37);
+    expect(section.spUsed).toBe(31);
     expect(
       section.library.find((row) => row.skillId === "v2c_firemage_inferno"),
-    ).toMatchObject({ spCost: 8, effectiveSpCost: 2, resonanceRole: "material" });
+    ).toMatchObject({ spCost: 8, effectiveSpCost: 1, resonanceRole: "material" });
     expect(
       section.library.find((row) => row.skillId === "v2c_elementallord_surge"),
-    ).toMatchObject({ spCost: 16, effectiveSpCost: 2, resonanceRole: "catalyst" });
+    ).toMatchObject({ spCost: 16, effectiveSpCost: 1, resonanceRole: "catalyst" });
   });
 });
 

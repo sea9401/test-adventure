@@ -81,6 +81,19 @@ type TradeResponse = TradeState & {
   completionReward?: { contracts: number; tokensGained: number };
 };
 
+export function guildTradeQuickDelivery(contract: {
+  maxBatches: number;
+  pointValue: number;
+}): { batches: number; points: number } {
+  const maxBatches = Math.max(0, Math.floor(contract.maxBatches));
+  const pointValue = Math.max(1, Math.floor(contract.pointValue));
+  const batches = Math.min(
+    maxBatches,
+    Math.max(1, Math.floor(10 / pointValue)),
+  );
+  return { batches, points: batches * pointValue };
+}
+
 const PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
 const SHARED_TOKENS_POLL_MS = 10_000;
 
@@ -303,6 +316,7 @@ export function GuildTradePostPanel({
             <div className="grid gap-2 lg:grid-cols-2">
               {state.contracts.map((contract) => {
             const percent = Math.min(100, (contract.progress / contract.target) * 100);
+            const quickDelivery = guildTradeQuickDelivery(contract);
             const disabled =
               Boolean(busyKey) ||
               !state.eligible ||
@@ -370,6 +384,24 @@ export function GuildTradePostPanel({
                     className="flex-1 rounded-md border border-cyan-700 bg-white px-2 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-950 dark:text-cyan-300 dark:hover:bg-zinc-900"
                   >
                     1묶음 납품
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() =>
+                      void submit(
+                        `deliver-quick:${contract.id}`,
+                        {
+                          action: "deliver",
+                          contractId: contract.id,
+                          batches: quickDelivery.batches,
+                        },
+                        (json) => deliveryNotice(json, sharedTokens),
+                      )
+                    }
+                    className="flex-1 rounded-md border border-cyan-700 bg-cyan-50 px-2 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-cyan-950 dark:text-cyan-200 dark:hover:bg-cyan-900"
+                  >
+                    {quickDelivery.points}점 납품
                   </button>
                   <button
                     type="button"

@@ -11,9 +11,144 @@ import {
   equippedCookingBonuses,
   equippedFarmBonuses,
   equippedProfPerKillBonus,
+  skillPowerScore,
   spCostOf,
   type V2SkillId,
 } from "./v2Skills";
+import { V2_JOB_LIST } from "./v2JobCatalog";
+import {
+  TIER7_COMBAT_JOB_PREREQS,
+  validateTier7Package,
+} from "./tier7SkillMechanics";
+
+const directCoef = (skillId: V2SkillId): number =>
+  V2_SKILLS[skillId].effects.reduce(
+    (sum, effect) => sum + (effect.kind === "damage" ? effect.statCoef : 0),
+    0,
+  );
+
+describe("내부 7차 전투 패키지", () => {
+  const packages = {
+    shadowblade: [
+      "v2c_shadowblade_afterimage",
+      "v2c_shadowblade_traceless",
+      "v2c_shadowblade_swordshadow",
+    ],
+    ruinblade: [
+      "v2c_ruinblade_limitstrike",
+      "v2c_ruinblade_oneintent",
+      "v2c_ruinblade_ruinsword",
+    ],
+    skyascendant: [
+      "v2c_skyascendant_fallingstar",
+      "v2c_skyascendant_voidbreak",
+      "v2c_skyascendant_crossover",
+    ],
+    primordialsage: [
+      "v2c_primordialsage_greatorb",
+      "v2c_primordialsage_optimization",
+      "v2c_primordialsage_completeformula",
+    ],
+  } as const satisfies Record<string, readonly V2SkillId[]>;
+
+  it("maps the approved names, prerequisites, and 46 SP packages", () => {
+    expect(TIER7_COMBAT_JOB_PREREQS).toEqual({
+      shadowblade: ["swordsaint", "blackmoon"],
+      ruinblade: ["swordsaint", "hegemon"],
+      skyascendant: ["heavenlybow", "celestialdragon"],
+      primordialsage: ["archmage", "primordialmage"],
+    });
+    expect(packages.shadowblade.map((id) => V2_SKILLS[id].name)).toEqual([
+      "잔영",
+      "무흔",
+      "검영",
+    ]);
+    expect(packages.ruinblade.map((id) => V2_SKILLS[id].name)).toEqual([
+      "극한일격",
+      "일념",
+      "멸검",
+    ]);
+    expect(packages.skyascendant.map((id) => V2_SKILLS[id].name)).toEqual([
+      "낙성",
+      "파공",
+      "교차",
+    ]);
+    expect(packages.primordialsage.map((id) => V2_SKILLS[id].name)).toEqual([
+      "대마력구",
+      "마력 최적화",
+      "완전식",
+    ]);
+
+    for (const [jobId, ids] of Object.entries(packages)) {
+      expect(skillsForJob(jobId)).toEqual(ids);
+      const defs = ids.map((id) => V2_SKILLS[id]);
+      expect(defs.map(spCostOf).reduce((sum, cost) => sum + cost, 0)).toBe(46);
+      expect(() => validateTier7Package(defs, skillPowerScore)).not.toThrow();
+    }
+  });
+
+  it("keeps internal packages out of every selectable job pool", () => {
+    const selectableSkills = new Set(
+      V2_JOB_LIST.flatMap((job) => skillsForJob(job.id)),
+    );
+    for (const ids of Object.values(packages)) {
+      for (const id of ids) expect(selectableSkills.has(id)).toBe(false);
+    }
+  });
+
+  it("preserves the approved normalized direct-damage ratios", () => {
+    expect(directCoef("v2c_shadowblade_afterimage")).toBeCloseTo(
+      directCoef("v2c_swordsaint_flash") * 0.9,
+      2,
+    );
+    expect(directCoef("v2c_shadowblade_traceless")).toBeCloseTo(
+      directCoef("v2c_blackmoon_flurry"),
+      6,
+    );
+    expect(directCoef("v2c_ruinblade_limitstrike")).toBeCloseTo(
+      directCoef("v2c_swordsaint_flash") * 0.85,
+      2,
+    );
+    expect(directCoef("v2c_ruinblade_ruinsword")).toBeCloseTo(
+      directCoef("v2c_swordsaint_flash") * 1.8,
+      6,
+    );
+    expect(directCoef("v2c_skyascendant_fallingstar")).toBeCloseTo(
+      directCoef("v2c_swordsaint_flash"),
+      6,
+    );
+    expect(directCoef("v2c_skyascendant_voidbreak")).toBeCloseTo(
+      directCoef("v2c_celestialdragon_combo") * 1.05,
+      6,
+    );
+    expect(directCoef("v2c_primordialsage_greatorb")).toBeCloseTo(
+      directCoef("v2c_archmage_collapse") * 0.85,
+      2,
+    );
+  });
+
+  it("aggregates the approved tier 7 ordinary passive stats", () => {
+    expect(
+      aggregateEquippedPassives(["v2c_ruinblade_oneintent"]),
+    ).toMatchObject({ statPct: { str: 18 }, accuracyPct: 15 });
+    expect(
+      aggregateEquippedPassives(["v2c_skyascendant_crossover"]),
+    ).toMatchObject({
+      statPct: { dex: 20, str: 12 },
+      critPct: 8,
+      accuracyPct: 20,
+    });
+    expect(
+      aggregateEquippedPassives(["v2c_primordialsage_optimization"]),
+    ).toMatchObject({ maxMpPct: 20, mpCostReductionPct: 20 });
+    expect(
+      aggregateEquippedPassives(["v2c_primordialsage_completeformula"]),
+    ).toMatchObject({
+      statPct: { int: 20, spi: 10 },
+      magicSkillDamagePct: 24,
+    });
+  });
+});
 
 describe("직업 킷 — 스킬셋", () => {
   it("변이자와 수인·골렘은 수집 가능한 변이 스킬 8개만 제공한다", () => {
@@ -1447,7 +1582,7 @@ describe("직업 킷 — 스킬셋", () => {
         hpThresholdPct: 35,
         bonusMult: 2.3,
       },
-      { kind: "healFromDamage", pct: 20 },
+      { kind: "healFromDamage", pct: 20, basis: "actual" },
     ]);
     expect(V2_SKILLS.v2c_blooddemon_immortalblood.passive).toMatchObject({
       maxHpPct: 28,

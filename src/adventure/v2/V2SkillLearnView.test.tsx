@@ -5,8 +5,10 @@ import {
   refreshLoadoutViews,
   SkillRitualPowerScopeHelp,
   SkillLearningCostSummary,
+  skillRitualCurrencyPatch,
   skillRitualCostLabel,
 } from "./V2SkillLearnView";
+import { spCostOf, V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 
 describe("장착 변경 후 전투 상태 동기화", () => {
   it("스킬 상세와 전역 전투 상태를 모두 갱신하고 완료될 때까지 기다린다", async () => {
@@ -49,6 +51,20 @@ describe("장착 변경 후 전투 상태 동기화", () => {
 });
 
 describe("SkillLearningCostSummary", () => {
+  it("원시 포식자 액티브와 패시브의 파생 SP를 표시한다", () => {
+    for (const skillId of [
+      "v2c_primalpredator_primalfeast",
+      "v2c_primalpredator_apex",
+    ] as const) {
+      const sp = spCostOf(V2_SKILLS[skillId]);
+      const html = renderToStaticMarkup(
+        <SkillLearningCostSummary learnCost={12_000} spCost={sp} learned />,
+      );
+      expect(sp).toBe(13);
+      expect(html).toContain("장착 SP 13");
+    }
+  });
+
   it("학습 전에 숙달 포인트와 장착 SP 비용을 명확히 구분한다", () => {
     const html = renderToStaticMarkup(
       <SkillLearningCostSummary learnCost={1500} spCost={4} learned={false} />,
@@ -73,6 +89,18 @@ describe("skillRitualCostLabel", () => {
     expect(
       skillRitualCostLabel({ goldCost: 3_000_000, proficiencyCost: 800 }),
     ).toBe("비용 3,000,000G · 숙달 800");
+  });
+});
+
+describe("skillRitualCurrencyPatch", () => {
+  it("숙달 포인트 잔액을 직업 숙련도 전역 상태에 기록하지 않는다", () => {
+    expect(
+      skillRitualCurrencyPatch({
+        gold: 1_200,
+        bankedGold: 3_400,
+        points: 567,
+      }),
+    ).toEqual({ gold: 1_200, bankedGold: 3_400 });
   });
 });
 

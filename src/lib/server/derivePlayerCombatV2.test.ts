@@ -109,6 +109,20 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicAtk).toBe(staffPow);
   });
 
+  it("지팡이는 대표 공격력을 마공으로 표시하고 다른 무기는 기존 물공 표시에 폴백한다", () => {
+    const staff = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_oak_staff" },
+    }).player;
+    const sword = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_iron_sword" },
+    }).player;
+
+    expect(staff.displayAttack).toBe("magic");
+    expect(sword.displayAttack).toBeUndefined();
+  });
+
   it("6T 추적 장비의 명중 옵션이 PvE/PvP 공용 accRating에 반영된다", () => {
     const id = "v2_storm_gale_bow" as const;
     const optionAccuracy = V2_EQUIPMENT[id].options?.accuracy ?? 0;
@@ -716,6 +730,14 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
 });
 
 describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPct/maxMpPct)", () => {
+  it("passes passive MP cost reduction into combat", () => {
+    const { player } = derivePlayerCombatV2Pure({
+      level: 1,
+      passiveMpCostReductionPct: 20,
+    });
+    expect(player.mpCostReductionPct).toBe(20);
+  });
+
   it("statPct — 플랫 가산 뒤 곱 적용(근력 II 힘 +15%)", () => {
     const base = derivePlayerCombatV2Pure({
       level: 1,
@@ -1659,6 +1681,66 @@ describe("derivePlayerCombatV2Pure 성채기사 충격 파생 속성", () => {
 });
 
 describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 Phase 2)", () => {
+  it("신규 6T HARD 3부위 세트는 2·3세트 시그니처와 정적 보너스를 단계적으로 집계한다", () => {
+    const catastropheTwo = {
+      gloves: "v2_boss_catastrophe_gloves",
+      boots: "v2_boss_catastrophe_boots",
+    } as const;
+    expect(collectEquipSignatures(catastropheTwo as never)).toContainEqual({
+      trigger: "direct_skill_hit",
+      label: "재앙독 주입",
+      poisonChancePct: 25,
+      poisonStacks: 1,
+    });
+    expect(
+      collectEquipSignatures(catastropheTwo as never).some(
+        (signature) => signature.label === "맹독 추격",
+      ),
+    ).toBe(false);
+    const catastropheThree = {
+      ...catastropheTwo,
+      ring: "v2_boss_catastrophe_ring",
+    } as const;
+    expect(collectEquipSignatures(catastropheThree as never)).toContainEqual({
+      trigger: "direct_skill_hit",
+      label: "맹독 추격",
+      poisonedTargetDamagePct: 10,
+    });
+    expect(aggregateV2Equipment(catastropheThree as never).spd).toBe(
+      aggregateV2Equipment(catastropheTwo as never).spd +
+        (V2_EQUIPMENT.v2_boss_catastrophe_ring.options?.spd ?? 0) +
+        8,
+    );
+
+    const frozenTwo = {
+      armor: "v2_boss_frozen_lake_armor",
+      boots: "v2_boss_frozen_lake_boots",
+    } as const;
+    expect(collectEquipSignatures(frozenTwo as never)).toContainEqual({
+      trigger: "battle_start",
+      label: "빙호수호",
+      battleStartShieldPctMaxHp: 8,
+    });
+    expect(aggregateV2Equipment(frozenTwo as never).statusDamageReductionPct).toBe(
+      (V2_EQUIPMENT.v2_boss_frozen_lake_armor.options?.statusDamageReductionPct ?? 0) +
+        (V2_EQUIPMENT.v2_boss_frozen_lake_boots.options?.statusDamageReductionPct ?? 0) +
+        10,
+    );
+    expect(
+      collectEquipSignatures({
+        ...frozenTwo,
+        necklace: "v2_boss_frozen_lake_necklace",
+      } as never),
+    ).toContainEqual({
+      trigger: "tracked_shield_break",
+      label: "빙호 해방",
+      trackedShieldPctMaxHp: 8,
+      cleanseHarmfulStatuses: true,
+      damageTakenReductionPct: 15,
+      buffActions: 2,
+    });
+  });
+
   it("시그니처 없음 → 빈 배열", () => {
     expect(collectEquipSignatures({})).toEqual([]);
     // 일반 장비(시그니처 없는 흔한템)만 → 빈 배열.

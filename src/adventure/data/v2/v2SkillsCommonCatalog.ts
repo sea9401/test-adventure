@@ -309,9 +309,32 @@ export type V2CommonSkillId =
   | "v2c_beastkin_rend"
   | "v2c_beastkin_clawflurry"
   | "v2c_beastkin_bloodscent"
+  | "v2c_beastwarrior_reopen"
+  | "v2c_beastwarrior_keenscent"
+  | "v2c_tracker_pounce"
+  | "v2c_tracker_instinct"
+  | "v2c_bloodtracker_trailslash"
+  | "v2c_bloodtracker_reading"
+  | "v2c_predator_devour"
+  | "v2c_predator_bloodnourishment"
+  | "v2c_primalpredator_primalfeast"
+  | "v2c_primalpredator_apex"
   | "v2c_golem_rocksmash"
   | "v2c_golem_tectoniccollapse"
-  | "v2c_golem_stoneskin";
+  | "v2c_golem_stoneskin"
+  // ── 내부 7차 전투 패키지 — 직업 카탈로그 공개 전 전투 검증용 ──
+  | "v2c_shadowblade_afterimage"
+  | "v2c_shadowblade_traceless"
+  | "v2c_shadowblade_swordshadow"
+  | "v2c_ruinblade_limitstrike"
+  | "v2c_ruinblade_oneintent"
+  | "v2c_ruinblade_ruinsword"
+  | "v2c_skyascendant_fallingstar"
+  | "v2c_skyascendant_voidbreak"
+  | "v2c_skyascendant_crossover"
+  | "v2c_primordialsage_greatorb"
+  | "v2c_primordialsage_optimization"
+  | "v2c_primordialsage_completeformula";
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -372,6 +395,70 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_beastkin_bloodscent", name: "피 냄새", stat: "str", category: "passive", tier: 1,
     description: "대상의 출혈이 짙을수록 직접 물리 스킬이 강해진다.", mpCost: 0, cooldown: 0,
     effects: [], passive: { bleedPhysicalSkillDamagePctPerStack: 2 },
+  },
+  v2c_beastwarrior_reopen: {
+    id: "v2c_beastwarrior_reopen", name: "상처 덧내기", stat: "str", category: "attack", tier: 2,
+    description: "벌어진 상처를 다시 헤집어 출혈이 끊기지 않게 만든다.", mpCost: 34, cooldown: 0, procChance: 35, tempo: "control",
+    effects: [dmg(2.65, 190)],
+    bleedHunt: { minStacks: 5, hitBleedStacks: 1, hitBleedSetTurns: 4 },
+  },
+  v2c_beastwarrior_keenscent: {
+    id: "v2c_beastwarrior_keenscent", name: "예민한 후각", stat: "dex", category: "passive", tier: 2,
+    description: "짙어진 피 냄새를 놓치지 않고 상처 난 적을 정확히 노린다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: {},
+    bleedHunt: { minStacks: 5, directPhysicalAccuracyPct: 8 },
+  },
+  v2c_tracker_pounce: {
+    id: "v2c_tracker_pounce", name: "추격 도약", stat: "str", category: "attack", tier: 3,
+    description: "피 냄새를 따라 단숨에 뛰어들어 적의 다음 움직임을 늦춘다.", mpCost: 46, cooldown: 0, procChance: 35, tempo: "control",
+    effects: [dmg(1.45, 230)],
+    bleedHunt: { minStacks: 5, skillAccuracyPct: 15, hitEnemyDelayPct: 20 },
+  },
+  v2c_tracker_instinct: {
+    id: "v2c_tracker_instinct", name: "추격 본능", stat: "dex", category: "passive", tier: 3,
+    description: "사냥감의 흔적을 읽어 몸을 앞당기고 추격의 흐름을 이어 간다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { dex: 12 } },
+    bleedHunt: { minStacks: 5, directPhysicalHastePct: 6 },
+  },
+  v2c_bloodtracker_trailslash: {
+    id: "v2c_bloodtracker_trailslash", name: "혈흔 가르기", stat: "str", category: "attack", tier: 3,
+    description: "완성된 혈흔을 깊게 갈라 최대 중첩의 출혈을 붙잡아 둔다.", mpCost: 50, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(2.82, 260)],
+    bleedHunt: { minStacks: 10, hitBleedSetTurns: 4 },
+  },
+  v2c_bloodtracker_reading: {
+    id: "v2c_bloodtracker_reading", name: "혈흔 감식", stat: "str", category: "passive", tier: 3,
+    description: "피가 흐르는 결을 읽어 힘을 싣고 방어의 틈으로 파고든다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 18 } },
+    bleedHunt: { minStacks: 10, directPhysicalPenetrationPct: 8 },
+  },
+  v2c_predator_devour: {
+    id: "v2c_predator_devour", name: "포식", stat: "str", category: "attack", tier: 3,
+    description: "피 흘리는 사냥감을 물어뜯어 실제로 앗은 생명만큼 상처를 메운다.", mpCost: 54, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(2.62, 320)],
+    bleedHunt: { minStacks: 10, skillActualDamageHealPct: 14 },
+  },
+  v2c_predator_bloodnourishment: {
+    id: "v2c_predator_bloodnourishment", name: "피의 양식", stat: "str", category: "passive", tier: 3,
+    description: "최대 중첩의 출혈이 사냥감의 생명을 깎을 때마다 육신을 회복한다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 12 }, maxHpPct: 12 },
+    bleedHunt: { minStacks: 10, bleedTickHealMaxHpPct: 1 },
+  },
+  v2c_primalpredator_primalfeast: {
+    id: "v2c_primalpredator_primalfeast", name: "원시 포식", stat: "str", category: "attack", tier: 3,
+    description: "본능만으로 약점을 꿰뚫고 사냥감의 생명을 빼앗아 다음 도약을 앞당긴다.", mpCost: 60, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(2.89, 380)],
+    bleedHunt: { minStacks: 10, skillPenetrationPct: 12, skillActualDamageHealPct: 18, castHastePct: 15 },
+  },
+  v2c_primalpredator_apex: {
+    id: "v2c_primalpredator_apex", name: "야수의 정점", stat: "str", category: "passive", tier: 3,
+    description: "극대화된 본능으로 피 흘리는 사냥감을 몰아붙이고 혈흔을 놓치지 않는다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 24, dex: 18 }, maxHpPct: 16 },
+    bleedHunt: {
+      minStacks: 10,
+      directPhysicalDamagePct: 12,
+      directPhysicalHitBleedExtend: { chancePct: 30, turns: 1, maxTurns: 4 },
+    },
   },
   v2c_golem_rocksmash: {
     id: "v2c_golem_rocksmash", name: "암석 강타", stat: "vit", category: "attack", tier: 1,
@@ -2334,7 +2421,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
-    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다. 근원공명과 함께 장착하면 선택된 주문식 재료를 공명시키고, 오원소 폭주는 태초회귀를 강화하는 촉매가 된다.",
+    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다. 근원공명과 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 회복하며 선택된 주문식 재료를 공명시킨다. 오원소 폭주는 태초회귀를 강화하는 촉매가 된다.",
     mpCost: 82, fixedMpCost: 180, cooldown: 0, procChance: 32, learnCost: 12000,
     effects: [dmg(2.45, 650, "magic"), { kind: "enemyVuln", pct: 14, turns: 3 }, { kind: "enemyDelay", pct: 30 }],
     castVariants: [
@@ -2422,7 +2509,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialmage_resonance: {
     id: "v2c_primordialmage_resonance", name: "근원공명", stat: "int", category: "passive", tier: 3,
-    description: "원소의 근원을 몸에 새긴다. 지능 +24%, 정신 +12%, 마법 스킬 피해 +16%, 최대 MP +20%. 태초회귀와 함께 장착하면 선택된 주문식 재료가 공명한다.",
+    description: "원소의 근원을 몸에 새긴다. 지능 +24%, 정신 +12%, 마법 스킬 피해 +16%, 최대 MP +20%. 태초회귀와 함께 장착하면 추가 마법 피해를 주고 최대 MP의 8%를 회복하며 선택된 주문식 재료가 공명한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     spCostDiscount: 4,
     effects: [],
@@ -2655,7 +2742,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [
       { kind: "hpCostDamage", pctCurrentHp: 14, soakCurrentHpFloorPct: 50, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.62 },
       { kind: "executeDamage", statCoef: 0.32, baseFlatByTier: [220, 220, 220], hpThresholdPct: 35, bonusMult: 2.3 },
-      { kind: "healFromDamage", pct: 20 },
+      { kind: "healFromDamage", pct: 20, basis: "actual" },
     ],
   },
   v2c_blooddemon_immortalblood: {
@@ -2685,6 +2772,111 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       maxHpPct: 10,
       maxMpPct: 10,
     },
+  },
+  // ═══ 내부 7차 전투 패키지 — 해금 경제/직업 보너스 확정 전 선택 불가 ═══
+  v2c_shadowblade_afterimage: {
+    id: "v2c_shadowblade_afterimage", name: "잔영", stat: "luk", category: "attack", tier: 3,
+    description: "찰나의 참격 뒤 검영을 남긴다. 검영을 익혔다면 최종 피해의 70%를 기록하고 무흔으로 정련한 검영은 85%를 기록한다.",
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 14,
+    effects: [dmg(1.665, 393, "luk", 20)],
+    skillCritChancePct: 25,
+    tier7Mechanic: { kind: "shadowStrike", recordPct: 70, refinedRecordPct: 85 },
+  },
+  v2c_shadowblade_traceless: {
+    id: "v2c_shadowblade_traceless", name: "무흔", stat: "luk", category: "attack", tier: 3,
+    description: "흔적 없이 다섯 번 베어 기존 검영을 한 번 정련한다. 정련된 검영이 발동하면 다음 행동이 20% 빨라진다.",
+    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 12,
+    effects: hits(5, 0.326, 108, "luk"),
+    tier7Mechanic: { kind: "shadowRefine", refinePctPoints: 15, hastePct: 20 },
+  },
+  v2c_shadowblade_swordshadow: {
+    id: "v2c_shadowblade_swordshadow", name: "검영", stat: "luk", category: "passive", tier: 3,
+    description: "단일 물리 공격의 최종 피해를 검영으로 남겨 적의 다음 행동 뒤 실현한다. 발동 뒤 다음 단일 물리 공격이 강해진다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 20,
+    effects: [], passive: {},
+    tier7Mechanic: { kind: "shadowCore", recordPct: 50, refinedRecordPct: 65, nextSingleDamagePct: 15, pvpScalePct: 80 },
+  },
+  v2c_ruinblade_limitstrike: {
+    id: "v2c_ruinblade_limitstrike", name: "극한일격", stat: "str", category: "attack", tier: 3,
+    description: "궁지에서 더 강해지는 일격이다. 잃은 체력에 따라 최종 피해가 최대 60% 증가하고 체력이 40% 이하면 검의를 두 개 얻는다.",
+    mpCost: 65, cooldown: 0, procChance: 45, learnCost: 20000, spCost: 10, spCostDiscount: 4,
+    effects: [dmg(1.57, 371, undefined, 20)],
+    tier7Mechanic: { kind: "intentStrike", missingHpBonusCapPct: 60, lowHpThresholdPct: 40 },
+  },
+  v2c_ruinblade_oneintent: {
+    id: "v2c_ruinblade_oneintent", name: "일념", stat: "str", category: "passive", tier: 3,
+    description: "단일 물리 공격으로 검의를 최대 세 개 모은다. 검의마다 단일 물리 피해가 8% 오르고 멸검은 검의마다 15% 강해진다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 12,
+    effects: [], passive: { statPct: { str: 18 }, accuracyPct: 15 },
+    tier7Mechanic: { kind: "intentCore", maxStacks: 3, damagePctPerStack: 8, finisherPctPerStack: 15 },
+  },
+  v2c_ruinblade_ruinsword: {
+    id: "v2c_ruinblade_ruinsword", name: "멸검", stat: "str", category: "attack", tier: 3,
+    description: "현재 행동을 충전에 쓰고 다음 행동 기회에 자동으로 해방하는 전투당 한 번의 필살검이다.",
+    mpCost: 100, cooldown: 0, procChance: 100, learnCost: 20000, spCost: 24,
+    defaultPattern: {
+      priority: 350,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 60 },
+          { kind: "enemy_hp", op: "above", pct: 25 },
+        ],
+      },
+    },
+    effects: [dmg(3.33, 787, undefined, 45)], oncePerBattle: true,
+    tier7Mechanic: { kind: "chargedFinisher", currentMissingHpCapPct: 75, chargeLostHpCapPct: 75, pvpCapPct: 40, pvpPenetrationPct: 30 },
+  },
+  v2c_skyascendant_fallingstar: {
+    id: "v2c_skyascendant_fallingstar", name: "낙성", stat: "dex", category: "attack", tier: 3,
+    description: "별처럼 떨어지는 화살로 적을 꿰뚫는다. 체술 뒤 사용하면 포획이 발동해 피해·명중·관통이 강화된다.",
+    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 13, spCostDiscount: 3,
+    effects: [dmg(1.85, 437, "dex", 30)],
+    accuracyBonusPct: 25, skillCritChancePct: 15,
+    tier7Mechanic: { kind: "crossStrike", family: "ranged" },
+  },
+  v2c_skyascendant_voidbreak: {
+    id: "v2c_skyascendant_voidbreak", name: "파공", stat: "dex", category: "attack", tier: 3,
+    description: "세 번의 연타 뒤 두 배 위력의 마지막 타격으로 허공을 깨뜨린다. 원거리 기술 뒤 사용하면 추격이 발동한다.",
+    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 13,
+    effects: [
+      dmg(0.357, 150, "dex"), dmg(0.357, 150, "dex"),
+      dmg(0.357, 150, "dex"), dmg(0.714, 300, "dex"),
+    ],
+    tier7Mechanic: { kind: "crossStrike", family: "martial" },
+  },
+  v2c_skyascendant_crossover: {
+    id: "v2c_skyascendant_crossover", name: "교차", stat: "dex", category: "passive", tier: 3,
+    description: "원거리와 체술을 번갈아 적중시키면 포획 또는 추격이 발동하고 다음 행동이 빨라진다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 20,
+    effects: [], passive: { statPct: { dex: 20, str: 12 }, critPct: 8, accuracyPct: 20 },
+    tier7Mechanic: {
+      kind: "crossCore", captureDamagePct: 20, captureAccuracyPct: 25, capturePenetrationPct: 45,
+      pursuitDamagePct: 40, pursuitEnemyDelayPct: 20, hastePct: 15,
+      pvpCaptureDamagePct: 12, pvpCapturePenetrationPct: 10,
+      pvpPursuitDamagePct: 25, pvpPursuitEnemyDelayPct: 10, pvpHastePct: 10,
+    },
+  },
+  v2c_primordialsage_greatorb: {
+    id: "v2c_primordialsage_greatorb", name: "대마력구", stat: "int", category: "attack", tier: 3,
+    description: "거대한 마력구를 압축해 던진다. 새로운 주문식 한 단계를 쌓고 완전식을 완성하면 다음 행동이 15% 빨라진다.",
+    mpCost: 41, fixedMpCost: 133, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 12,
+    effects: [dmg(1.98, 501, "magic", 15)],
+    tier7Mechanic: { kind: "formulaStrike", stages: 1, completionHastePct: 15 },
+  },
+  v2c_primordialsage_optimization: {
+    id: "v2c_primordialsage_optimization", name: "마력 최적화", stat: "int", category: "passive", tier: 3,
+    description: "최대 마력이 20% 늘고 모든 액티브 스킬의 MP 소모가 20% 줄어든다. 완전식은 MP가 부족해도 시전하고 최대 MP의 10%를 회복한다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 12,
+    effects: [], passive: { maxMpPct: 20, mpCostReductionPct: 20 },
+    tier7Mechanic: { kind: "manaOptimization", restoreMaxMpPct: 10, allowCompletionOverdraft: true },
+  },
+  v2c_primordialsage_completeformula: {
+    id: "v2c_primordialsage_completeformula", name: "완전식", stat: "int", category: "passive", tier: 3,
+    description: "서로 다른 직접 마법으로 세 단계를 완성한 현재 주문을 강화한다. 직접 피해·관통·다음 행동 속도가 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 20000, spCost: 22,
+    effects: [], passive: { statPct: { int: 20, spi: 10 }, magicSkillDamagePct: 24 },
+    tier7Mechanic: { kind: "completeFormula", directDamagePct: 50, penetrationPct: 35, hastePct: 20, pvpDamagePct: 30, pvpPenetrationPct: 20, pvpHastePct: 12 },
   },
 };
 

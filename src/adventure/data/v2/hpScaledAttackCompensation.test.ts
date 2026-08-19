@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { V2_COMMON_SKILLS } from "./v2SkillsCommonCatalog";
-import { describeV2Skill, spCostOf, V2_SKILLS } from "./v2Skills";
+import {
+  describeV2Skill,
+  skillPowerScore,
+  spCostOf,
+  V2_SKILLS,
+} from "./v2Skills";
 
 const HP_COST_RATIOS = {
   v2c_bloodtemplar_stigma: 1.14,
@@ -63,7 +68,11 @@ describe("HP 기반 공격 계수 보상", () => {
     expect(V2_SKILLS.v2c_blooddemon_reign.effects).toContainEqual({
       kind: "healFromDamage",
       pct: 20,
+      basis: "actual",
     });
+    expect(skillPowerScore(V2_SKILLS.v2c_blooddemon_reign)).toBeCloseTo(
+      3.893326475343888,
+    );
     expect(describeV2Skill(V2_SKILLS.v2c_immortal_lifestrike)).toContain(
       "피해 공격력×1.2 + 최대 HP×0.04",
     );

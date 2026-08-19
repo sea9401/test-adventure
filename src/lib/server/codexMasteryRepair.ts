@@ -251,20 +251,58 @@ export async function listCodexMasterySummaryUserIds(
   executor: DbExecutor,
   options: { afterUserId?: string; limit: number },
 ): Promise<string[]> {
-  const query = executor
-    .select({ userId: codexMasterySummary.userId })
-    .from(codexMasterySummary)
-    .orderBy(asc(codexMasterySummary.userId))
-    .limit(options.limit);
-  const rows = options.afterUserId
+  const summaryRows = options.afterUserId
     ? await executor
       .select({ userId: codexMasterySummary.userId })
       .from(codexMasterySummary)
       .where(gt(codexMasterySummary.userId, options.afterUserId))
       .orderBy(asc(codexMasterySummary.userId))
       .limit(options.limit)
-    : await query;
-  return rows.map((row) => row.userId);
+    : await executor
+      .select({ userId: codexMasterySummary.userId })
+      .from(codexMasterySummary)
+      .orderBy(asc(codexMasterySummary.userId))
+      .limit(options.limit);
+  const progressRows = options.afterUserId
+    ? await executor
+      .selectDistinct({ userId: codexMasteryProgress.userId })
+      .from(codexMasteryProgress)
+      .where(gt(codexMasteryProgress.userId, options.afterUserId))
+      .orderBy(asc(codexMasteryProgress.userId))
+      .limit(options.limit)
+    : await executor
+      .selectDistinct({ userId: codexMasteryProgress.userId })
+      .from(codexMasteryProgress)
+      .orderBy(asc(codexMasteryProgress.userId))
+      .limit(options.limit);
+  return [...new Set([
+    ...summaryRows.map((row) => row.userId),
+    ...progressRows.map((row) => row.userId),
+  ])]
+    .sort((left, right) => left < right ? -1 : left > right ? 1 : 0)
+    .slice(0, options.limit);
+}
+
+function emptyCodexMasterySummaryRow(userId: string, now: Date) {
+  return {
+    userId,
+    totalScoreMilli: 0,
+    equipmentScoreMilli: 0,
+    fishScoreMilli: 0,
+    monsterScoreMilli: 0,
+    cookingScoreMilli: 0,
+    lifeScoreMilli: 0,
+    jobScoreMilli: 0,
+    bronzeCount: 0,
+    silverCount: 0,
+    goldCount: 0,
+    platinumCount: 0,
+    diamondCount: 0,
+    legendaryCount: 0,
+    sealCount: 0,
+    scoreReachedAt: null,
+    updatedAt: now,
+  };
 }
 
 export function createDrizzleCodexMasteryRepairStore(
@@ -273,16 +311,28 @@ export function createDrizzleCodexMasteryRepairStore(
 ): CodexMasteryRepairStore {
   return {
     async readSummary(userId) {
-      const query = executor
-        .select()
-        .from(codexMasterySummary)
-        .where(eq(codexMasterySummary.userId, userId));
-      const rows = options.lockSummary
-        ? await query.for("update").limit(1)
-        : await query.limit(1);
-      const row = rows[0];
-      if (!row) throw new Error("codex mastery summary row was not found");
-      return codexMasterySummaryRowToRepairState(row);
+      const readRow = async () => {
+        const query = executor
+          .select()
+          .from(codexMasterySummary)
+          .where(eq(codexMasterySummary.userId, userId));
+        const rows = options.lockSummary
+          ? await query.for("update").limit(1)
+          : await query.limit(1);
+        return rows[0];
+      };
+      let row = await readRow();
+      if (!row && options.lockSummary) {
+        await executor
+          .insert(codexMasterySummary)
+          .values(emptyCodexMasterySummaryRow(userId, new Date()))
+          .onConflictDoNothing();
+        row = await readRow();
+        if (!row) throw new Error("codex mastery summary row could not be locked");
+      }
+      return row
+        ? codexMasterySummaryRowToRepairState(row)
+        : emptyCodexMasterySummary();
     },
     async readProgress(userId) {
       const rows = await executor

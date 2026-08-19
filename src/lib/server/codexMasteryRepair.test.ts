@@ -4,7 +4,7 @@ import type {
   CodexMasteryProgress,
   CodexMasteryTier,
 } from "@/adventure/data/v2/codexMasteryTypes";
-import { codexMasterySummary } from "@/db/schema";
+import { codexMasteryProgress, codexMasterySummary } from "@/db/schema";
 import {
   emptyCodexMasterySummary,
   type CodexMasterySummaryState,
@@ -13,6 +13,7 @@ import {
   aggregateCodexMasterySummary,
   compareCodexMasterySummary,
   createDrizzleCodexMasteryRepairStore,
+  listCodexMasterySummaryUserIds,
   repairCodexMasterySummary,
   repairCodexMasterySummaryWithDatabase,
   type CodexMasteryRepairDatabase,
@@ -155,6 +156,19 @@ function recordingRepairExecutor(options: {
         },
       };
     },
+    insert(table: unknown) {
+      expect(table).toBe(codexMasterySummary);
+      return {
+        values(values: Record<string, unknown>) {
+          return {
+            async onConflictDoNothing() {
+              events.push(`${options.label}:insert-summary`);
+              summaryRows.push(persistedSummaryRow({ userId: values.userId }));
+            },
+          };
+        },
+      };
+    },
     update(table: unknown) {
       expect(table).toBe(codexMasterySummary);
       return {
@@ -179,6 +193,115 @@ function recordingRepairExecutor(options: {
 }
 
 describe("codex mastery summary repair", () => {
+  it("lists progress-only users as stable repair candidates", async () => {
+    // Break caught: a historical progress backfill is invisible to global repair until a summary exists.
+    const query = (table: unknown, rows: Array<{ userId: string }>) => ({
+      from(selectedTable: unknown) {
+        expect(selectedTable).toBe(table);
+        return {
+          orderBy() {
+            return this;
+          },
+          async limit() {
+            return rows;
+          },
+        };
+      },
+    });
+    const executor = {
+      select() {
+        return query(codexMasterySummary, [{ userId: "user-a" }, { userId: "user-c" }]);
+      },
+      selectDistinct() {
+        return query(codexMasteryProgress, [{ userId: "user-b" }, { userId: "user-c" }]);
+      },
+    } as unknown as DbExecutor;
+
+    await expect(listCodexMasterySummaryUserIds(executor, { limit: 100 }))
+      .resolves.toEqual(["user-a", "user-b", "user-c"]);
+  });
+
+  it("treats a missing summary as empty during a progress-only dry run", async () => {
+    // Break caught: dry-run throws instead of reporting the summary a backfilled row needs.
+    const executor = recordingRepairExecutor({
+      label: "dry",
+      summaryRows: [],
+      progressRows: [{
+        category: "fish",
+        entryId: "fish:salmon",
+        count: 30,
+        bestValue: null,
+        currentTier: "silver",
+        sealIds: [],
+        tierAchievedAt: {},
+        scoreMilli: 4_000,
+        updatedAt: new Date("2026-08-20T00:00:00.000Z"),
+      }],
+    });
+
+    await expect(repairCodexMasterySummary(
+      createDrizzleCodexMasteryRepairStore(executor.executor),
+      "user-1",
+      { apply: false, now: new Date("2026-08-20T01:00:00.000Z") },
+    )).resolves.toMatchObject({
+      changed: true,
+      applied: false,
+      before: { totalScoreMilli: 0 },
+      after: { totalScoreMilli: 4_000 },
+    });
+    expect(executor.events).toEqual(["dry:read-summary", "dry:read-progress"]);
+  });
+
+  it("creates and locks a missing summary before applying a progress-only rebuild", async () => {
+    // Break caught: apply cannot persist rebuilt aggregates for a backfilled user without a summary row.
+    const events: string[] = [];
+    const base = recordingRepairExecutor({ label: "base", events });
+    const transaction = recordingRepairExecutor({
+      label: "tx",
+      events,
+      summaryRows: [],
+      progressRows: [{
+        category: "fish",
+        entryId: "fish:salmon",
+        count: 30,
+        bestValue: null,
+        currentTier: "silver",
+        sealIds: [],
+        tierAchievedAt: {},
+        scoreMilli: 4_000,
+        updatedAt: new Date("2026-08-20T00:00:00.000Z"),
+      }],
+    });
+    const database = Object.assign(base.executor, {
+      async transaction<T>(callback: (tx: DbExecutor) => Promise<T>): Promise<T> {
+        events.push("transaction");
+        return callback(transaction.executor);
+      },
+    }) as CodexMasteryRepairDatabase;
+
+    await expect(repairCodexMasterySummaryWithDatabase(
+      database,
+      "user-1",
+      { apply: true, now: new Date("2026-08-20T01:00:00.000Z") },
+    )).resolves.toMatchObject({ changed: true, applied: true });
+    expect(transaction.updates).toEqual([
+      expect.objectContaining({
+        totalScoreMilli: 4_000,
+        fishScoreMilli: 4_000,
+        bronzeCount: 1,
+        silverCount: 1,
+      }),
+    ]);
+    expect(events).toEqual([
+      "transaction",
+      "tx:lock-summary",
+      "tx:insert-summary",
+      "tx:lock-summary",
+      "tx:read-progress",
+      "tx:write-summary",
+    ]);
+  });
+
   it("rebuilds category scores and cumulative stage counts from progress rows", () => {
     // Break caught: summing only exact tiers, or omitting a stored score category.
     const rebuilt = aggregateCodexMasterySummary([

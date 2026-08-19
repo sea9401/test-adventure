@@ -16,6 +16,8 @@ export async function readPlayerSanctionStatus(
       .select({
         bannedUntil: users.bannedUntil,
         banReason: users.banReason,
+        tradeSuspendedUntil: users.tradeSuspendedUntil,
+        tradeSuspensionReason: users.tradeSuspensionReason,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -44,12 +46,14 @@ export async function readPlayerSanctionStatus(
         acknowledgedAt: userSanctions.acknowledgedAt,
       })
       .from(userSanctions)
+      .innerJoin(users, eq(users.id, userSanctions.userId))
       .where(
         and(
           eq(userSanctions.userId, userId),
           inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
           isNull(userSanctions.liftedAt),
           gt(userSanctions.expiresAt, now),
+          eq(userSanctions.expiresAt, users.tradeSuspendedUntil),
         ),
       )
       .orderBy(desc(userSanctions.id))
@@ -61,7 +65,13 @@ export async function readPlayerSanctionStatus(
 
   const bannedUntil = user.bannedUntil;
   const warning = warningRows[0];
-  const tradeSuspension = tradeSuspensionRows[0];
+  const currentTradeUntil = user.tradeSuspendedUntil;
+  const tradeSuspension =
+    currentTradeUntil && currentTradeUntil.getTime() > now.getTime()
+      ? tradeSuspensionRows.find(
+          (row) => row.expiresAt?.getTime() === currentTradeUntil.getTime(),
+        )
+      : undefined;
   return {
     suspension:
       bannedUntil && bannedUntil.getTime() > now.getTime()
@@ -75,7 +85,9 @@ export async function readPlayerSanctionStatus(
       ? {
           id: tradeSuspension.id,
           reason:
-            tradeSuspension.reason || "운영 정책에 따라 거래 이용이 제한되었습니다.",
+            tradeSuspension.reason ||
+            user.tradeSuspensionReason ||
+            "운영 정책에 따라 거래 이용이 제한되었습니다.",
           expiresAt: tradeSuspension.expiresAt!.toISOString(),
           permanent: tradeSuspension.expiresAt!.getUTCFullYear() >= PERMANENT_YEAR,
           acknowledged: tradeSuspension.acknowledgedAt !== null,

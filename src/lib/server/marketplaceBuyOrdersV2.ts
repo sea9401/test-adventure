@@ -37,6 +37,10 @@ import {
   lockTradeParticipantStatuses,
 } from "@/lib/server/tradeSuspension";
 import type { ActiveTradeRestriction } from "@/lib/tradeSuspension";
+import {
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 type CharSave = { adventureSupport?: unknown; [key: string]: unknown };
 
@@ -143,6 +147,8 @@ export async function prepareMarketplaceMatchScope(
       id: marketplaceListingsV2.id,
       sellerId: marketplaceListingsV2.sellerId,
       highestBidderId: marketplaceListingsV2.highestBidderId,
+      highestBid: marketplaceListingsV2.highestBid,
+      bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
     })
     .from(marketplaceListingsV2)
     .where(
@@ -169,10 +175,10 @@ export async function prepareMarketplaceMatchScope(
   const participantIds = new Set([
     ...(args.participantIds ?? []),
     ...orders.map((order) => order.buyerId),
-    ...listings.flatMap((listing) => [
-      listing.sellerId,
-      ...(listing.highestBidderId ? [listing.highestBidderId] : []),
-    ]),
+    ...listings.flatMap((listing) => {
+      const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+      return [listing.sellerId, ...(bidderId ? [bidderId] : [])];
+    }),
   ]);
   const participantStatuses = await lockTradeParticipantStatuses(
     tx,
@@ -339,13 +345,14 @@ export async function matchMarketplaceBuyOrder(
 
   for (const listing of listings) {
     if (remaining <= 0) break;
+    const bidderId = unresolvedMarketplaceHighestBidderId(listing);
     if (
       !scope.listingIds.has(listing.id) ||
       !scope.participantIds.has(listing.sellerId) ||
       scope.participantStatuses.get(listing.sellerId) ||
-      (listing.highestBidderId != null &&
-        (!scope.participantIds.has(listing.highestBidderId) ||
-          scope.participantStatuses.get(listing.highestBidderId)))
+      (bidderId != null &&
+        (!scope.participantIds.has(bidderId) ||
+          scope.participantStatuses.get(bidderId)))
     ) {
       continue;
     }
@@ -394,19 +401,7 @@ export async function matchMarketplaceBuyOrder(
         }),
       );
     }
-    if (
-      !listing.bidResolvedAt &&
-      listing.highestBidderId &&
-      (listing.highestBid ?? 0) > 0
-    ) {
-      await tx.insert(marketplaceInbox).values(
-        inboxValues({
-          userId: listing.highestBidderId,
-          payload: { kind: "bid_refund", gold: listing.highestBid! },
-          message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-        }),
-      );
-    }
+    await clearMarketplaceHighestBid(tx, listing, now, "expired");
 
     await tx
       .update(marketplaceListingsV2)

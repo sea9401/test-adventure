@@ -26,6 +26,10 @@ import {
   requireTradeParticipants,
   tradeSuspendedResponse,
 } from "@/lib/server/tradeSuspension";
+import {
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -77,6 +81,8 @@ export async function POST(req: Request) {
       .select({
         sellerId: marketplaceListingsV2.sellerId,
         highestBidderId: marketplaceListingsV2.highestBidderId,
+        highestBid: marketplaceListingsV2.highestBid,
+        bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
       })
       .from(marketplaceListingsV2)
       .where(eq(marketplaceListingsV2.id, listingId))
@@ -85,10 +91,11 @@ export async function POST(req: Request) {
       await requireTradeParticipants(tx, [userId], now);
       return { status: 404, body: { ok: false as const, error: "not_found" } };
     }
+    const probeBidderId = unresolvedMarketplaceHighestBidderId(probe);
     const participantIds = [
       userId,
       probe.sellerId,
-      ...(probe.highestBidderId ? [probe.highestBidderId] : []),
+      ...(probeBidderId ? [probeBidderId] : []),
     ];
     await requireTradeParticipants(tx, participantIds, now);
 
@@ -99,10 +106,10 @@ export async function POST(req: Request) {
       .where(eq(marketplaceListingsV2.id, listingId))
       .for("update");
     if (!listing) return { status: 404, body: { ok: false as const, error: "not_found" } };
+    const bidderId = unresolvedMarketplaceHighestBidderId(listing);
     if (
       listing.sellerId !== probe.sellerId ||
-      (listing.highestBidderId != null &&
-        !participantIds.includes(listing.highestBidderId))
+      (bidderId != null && !participantIds.includes(bidderId))
     ) {
       return { status: 409, body: { ok: false as const, error: "not_available" } };
     }
@@ -125,23 +132,7 @@ export async function POST(req: Request) {
     if (phase !== "fixed") {
       return { status: 409, body: { ok: false as const, error: "listing_expired" } };
     }
-    if (
-      !listing.bidResolvedAt &&
-      listing.highestBidderId &&
-      (listing.highestBid ?? 0) > 0
-    ) {
-      await tx.insert(marketplaceInbox).values(
-        inboxValues({
-          userId: listing.highestBidderId,
-          payload: { kind: "bid_refund", gold: listing.highestBid! },
-          message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-        }),
-      );
-      await tx
-        .update(marketplaceListingsV2)
-        .set({ bidResolvedAt: now })
-        .where(eq(marketplaceListingsV2.id, listingId));
-    }
+    await clearMarketplaceHighestBid(tx, listing, now, "expired");
     if (listing.kind === "material" && !isTradableMaterial(listing.itemId)) {
       return {
         status: 409,

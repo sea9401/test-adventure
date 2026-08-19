@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { cancelMarketplaceListingEscrow } from "@/lib/server/marketplaceEscrow";
+import { lockTradeParticipantStatuses } from "@/lib/server/tradeSuspension";
 
 // POST /api/v2/marketplace/cancel — 내 활성 매물 취소(에스크로 반환).
 //   body: { listingId:int }
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
   const listingId = body.listingId;
 
   const result = await db.transaction(async (tx) => {
+    const now = new Date();
+    // Cancellation is always allowed, including while suspended. The user
+    // lock only establishes the canonical users-before-assets order.
+    await lockTradeParticipantStatuses(tx, [userId], now);
     const [listing] = await tx
       .select()
       .from(marketplaceListingsV2)
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
     }
 
     await cancelMarketplaceListingEscrow(tx, listing, {
-      now: new Date(),
+      now,
       refundHighestBid: false,
       reason: "user_cancel",
     });

@@ -155,7 +155,6 @@ export async function POST(req: Request) {
       const restriction = participantStatuses.get(userId) ?? null;
       const blockedPlayerGift = rows.some(
         (row) =>
-          row.fromUserId !== null &&
           parseInboxPayload(row.kind, row.payload)?.kind === "recipe_gift",
       );
       if (restriction && blockedPlayerGift) {

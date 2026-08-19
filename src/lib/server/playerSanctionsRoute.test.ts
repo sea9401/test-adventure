@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   set: vi.fn(),
   where: vi.fn(),
   returning: vi.fn(),
+  select: vi.fn(),
+  transaction: vi.fn(),
+  tradeCurrentUntil: new Date("2026-08-25T00:00:00.000Z") as Date | null,
 }));
 
 vi.mock("@/auth", () => ({ auth: mocks.auth }));
@@ -14,7 +17,10 @@ vi.mock("@/lib/server/playerSanctions", () => ({
   readPlayerSanctionStatus: mocks.readStatus,
 }));
 vi.mock("@/db", () => ({
-  db: { update: mocks.update },
+  db: {
+    update: mocks.update,
+    transaction: mocks.transaction,
+  },
 }));
 
 import { GET, POST } from "@/app/api/v2/me/sanctions/route";
@@ -27,13 +33,46 @@ function acknowledgeRequest(body: unknown) {
   });
 }
 
+function recursiveDates(value: unknown, seen = new Set<object>()): Date[] {
+  if (value instanceof Date) return [value];
+  if (!value || typeof value !== "object" || seen.has(value)) return [];
+  seen.add(value);
+  return Object.values(value).flatMap((entry) => recursiveDates(entry, seen));
+}
+
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-08-20T12:00:00.000Z"));
   vi.clearAllMocks();
+  mocks.tradeCurrentUntil = new Date("2026-08-25T00:00:00.000Z");
   mocks.auth.mockResolvedValue({ user: { id: "u-test" } });
   mocks.update.mockReturnValue({ set: mocks.set });
   mocks.set.mockReturnValue({ where: mocks.where });
   mocks.where.mockReturnValue({ returning: mocks.returning });
   mocks.returning.mockResolvedValue([{ id: 7 }]);
+  mocks.select.mockImplementation(() => {
+    const query = {
+      from: vi.fn(() => query),
+      where: vi.fn(() => query),
+      for: vi.fn(() => query),
+      limit: vi.fn(async () => [
+        { expiresAt: mocks.tradeCurrentUntil },
+      ]),
+    };
+    return query;
+  });
+  mocks.transaction.mockImplementation(
+    async (
+      callback: (executor: {
+        select: typeof mocks.select;
+        update: typeof mocks.update;
+      }) => Promise<unknown>,
+    ) => callback({ select: mocks.select, update: mocks.update }),
+  );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("/api/v2/me/sanctions", () => {
@@ -115,5 +154,22 @@ describe("/api/v2/me/sanctions", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, sanctionId: 11, kind: "trade" });
     expect(mocks.set).toHaveBeenCalledWith({ acknowledgedAt: expect.any(Date) });
+    expect(recursiveDates(mocks.where.mock.calls.at(-1)?.[0])).toEqual(
+      expect.arrayContaining([
+        new Date("2026-08-20T12:00:00.000Z"),
+        new Date("2026-08-25T00:00:00.000Z"),
+      ]),
+    );
+  });
+
+  it("만료된 거래 제재 이력은 확인 처리하지 않는다", async () => {
+    mocks.tradeCurrentUntil = new Date("2026-08-19T00:00:00.000Z");
+
+    const response = await POST(
+      acknowledgeRequest({ sanctionId: 11, kind: "trade" }),
+    );
+
+    expect(response.status).toBe(404);
+    expect(mocks.set).not.toHaveBeenCalled();
   });
 });

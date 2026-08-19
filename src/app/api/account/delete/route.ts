@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { signOut } from "@/auth";
 import { normalizeProfileImageUserId } from "@/adventure/profile/avatars";
 import { db } from "@/db";
@@ -6,8 +6,6 @@ import {
   feedbackReports,
   guildMembers,
   guilds,
-  marketplaceInbox,
-  marketplaceListingsV2,
   storageDeletionQueue,
   ugcReports,
   users,
@@ -18,8 +16,16 @@ import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
 import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { normalizeFeedbackImageObjectKey } from "@/lib/feedbackImage";
 import { sendOpsAlert } from "@/lib/server/opsAlert";
-import { inboxValues } from "@/lib/server/inboxPayload";
 import { preserveReferralBeforeUserDeletion } from "@/lib/server/referrals";
+import {
+  clearMarketplaceHighestBid,
+  discardMarketplaceHighestBid,
+} from "@/lib/server/marketplaceEscrow";
+import {
+  lockActiveTradeExposure,
+  TradeExposureChangedError,
+} from "@/lib/server/tradeSuspensionCleanup";
+import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   processStorageDeletionQueue,
   type StorageDeletionKind,
@@ -42,6 +48,7 @@ import {
 // DB 삭제가 성공하면 같은 응답에서 Auth.js 세션 쿠키도 만료한다. 클라이언트의 후속
 // signOut() 성공 여부에 계정 삭제의 완결성을 의존하지 않는다.
 const FALLBACK_PHRASE = "탈퇴";
+const MAX_TRADE_EXPOSURE_ATTEMPTS = 3;
 
 type StorageDeletionTarget = {
   kind: StorageDeletionKind;
@@ -69,6 +76,24 @@ async function processQueuedStorageSafely(ids: number[]) {
       error: error instanceof Error ? error.message : "unknown_error",
     });
   }
+}
+
+async function transactionWithBoundedExposureRetry<T>(
+  callback: (tx: DbExecutor) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; attempt <= MAX_TRADE_EXPOSURE_ATTEMPTS; attempt += 1) {
+    try {
+      return await db.transaction((tx) => callback(tx));
+    } catch (error) {
+      if (
+        !(error instanceof TradeExposureChangedError) ||
+        attempt === MAX_TRADE_EXPOSURE_ATTEMPTS
+      ) {
+        throw error;
+      }
+    }
+  }
+  throw new TradeExposureChangedError();
 }
 
 export async function POST(req: Request) {
@@ -103,7 +128,30 @@ export async function POST(req: Request) {
     return new Response("confirmation mismatch", { status: 400 });
   }
 
-  const queuedIds = await db.transaction(async (tx) => {
+  const queuedIds = await transactionWithBoundedExposureRetry(async (tx) => {
+    const now = new Date();
+    // Account deletion is an allowed escape path. It acquires the same full
+    // participant/user and asset lock set as sanctions, but never treats a
+    // suspension status as a reason to reject deletion.
+    const exposure = await lockActiveTradeExposure(tx, userId, now, {
+      // Closed listings still hold seller/bidder/buyer FKs. Include them in
+      // the same users-before-listings lock set so ON DELETE actions cannot
+      // form cross-account listing cycles or break the highest-bid pair.
+      includeHistoricalReferences: true,
+    });
+    for (const listing of exposure.listings) {
+      if (listing.status === "active" && listing.sellerId === userId) {
+        await clearMarketplaceHighestBid(
+          tx,
+          listing,
+          now,
+          "account_delete",
+        );
+      } else if (listing.highestBidderId === userId) {
+        await discardMarketplaceHighestBid(tx, listing);
+      }
+    }
+
     const [membership] = await tx
       .select({ guildId: guildMembers.guildId, role: guildMembers.role })
       .from(guildMembers)
@@ -143,41 +191,6 @@ export async function POST(req: Request) {
         deletionTargets.push({ kind: "feedback_image", target: imageKey });
       }
     }
-
-    // 탈퇴자가 판매 중인 매물은 users 삭제와 함께 사라진다. 그 전에 현재 선두
-    // 입찰자의 에스크로를 반환해 다른 사용자의 골드가 함께 소멸하지 않게 한다.
-    const listedWithBid = await tx
-      .select({
-        highestBidderId: marketplaceListingsV2.highestBidderId,
-        highestBid: marketplaceListingsV2.highestBid,
-        itemName: marketplaceListingsV2.itemName,
-      })
-      .from(marketplaceListingsV2)
-      .where(
-        and(
-          eq(marketplaceListingsV2.sellerId, userId),
-          eq(marketplaceListingsV2.status, "active"),
-          isNotNull(marketplaceListingsV2.highestBidderId),
-        ),
-      )
-      .for("update");
-    for (const listing of listedWithBid) {
-      if (!listing.highestBidderId || !listing.highestBid) continue;
-      await tx.insert(marketplaceInbox).values(
-        inboxValues({
-          userId: listing.highestBidderId,
-          payload: { kind: "bid_refund", gold: listing.highestBid },
-          message: `${listing.itemName} 판매자 탈퇴 · ${listing.highestBid.toLocaleString()}골드 반환`,
-        }),
-      );
-    }
-
-    // 탈퇴자가 다른 매물의 선두 입찰자라면 FK의 SET NULL 전에 금액도 함께 비워
-    // 최고 입찰가/입찰자 쌍 제약을 지키고, 해당 매물이 정상적으로 계속 진행되게 한다.
-    await tx
-      .update(marketplaceListingsV2)
-      .set({ highestBid: null, highestBidderId: null })
-      .where(eq(marketplaceListingsV2.highestBidderId, userId));
 
     const queued =
       deletionTargets.length > 0

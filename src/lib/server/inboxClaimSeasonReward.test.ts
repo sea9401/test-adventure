@@ -542,6 +542,26 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(inboxUpdates).toEqual([]);
   });
 
+  it("발신자가 탈퇴해 FK가 null이 된 정상 제작서 선물도 플레이어 이전으로 계속 차단한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push({
+      id: 1,
+      kind: "recipe_gift",
+      payload: {
+        recipe_id: "starlit_greatsword_str",
+        recipe_name: "힘의 별빛 대검 제작서",
+      },
+      fromUserId: null,
+      claimedAt: null,
+    });
+
+    const response = await POST(req([1]));
+
+    expect(response.status).toBe(403);
+    expect(savesStore.size).toBe(0);
+    expect(inboxUpdates).toEqual([]);
+  });
+
   it("거래 정지 중에도 분류할 수 없는 사용자 우편은 보존하고 정상 시스템 보상만 수령한다", async () => {
     tradeState.restricted = true;
     inboxRows.push(

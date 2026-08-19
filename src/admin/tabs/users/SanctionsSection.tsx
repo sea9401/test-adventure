@@ -535,18 +535,22 @@ export function SanctionsSection({
             />
             {tradeSuspended && (
               <>
-                <Button
-                  disabled={disabled}
-                  onClick={() => void actTrade("extend", 1)}
-                >
-                  1일 거래 연장
-                </Button>
-                <Button
-                  disabled={disabled}
-                  onClick={() => void actTrade("extend", 3)}
-                >
-                  3일 거래 연장
-                </Button>
+                {!status?.trade.permanent && (
+                  <>
+                    <Button
+                      disabled={disabled}
+                      onClick={() => void actTrade("extend", 1)}
+                    >
+                      1일 거래 연장
+                    </Button>
+                    <Button
+                      disabled={disabled}
+                      onClick={() => void actTrade("extend", 3)}
+                    >
+                      3일 거래 연장
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="primary"
                   disabled={disabled}

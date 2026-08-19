@@ -1,7 +1,7 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { userSanctions } from "@/db/schema";
+import { users, userSanctions } from "@/db/schema";
 import { readPlayerSanctionStatus } from "@/lib/server/playerSanctions";
 
 export async function GET() {
@@ -49,21 +49,49 @@ export async function POST(req: Request) {
     );
   }
 
-  const acknowledged = await db
-    .update(userSanctions)
-    .set({ acknowledgedAt: new Date() })
-    .where(
-      and(
-        eq(userSanctions.id, acknowledgementId),
-        eq(userSanctions.userId, userId),
-        isTradeAcknowledgement
-          ? inArray(userSanctions.type, ["trade_suspend", "trade_ban"])
-          : eq(userSanctions.type, "warn"),
-        ...(isTradeAcknowledgement ? [isNull(userSanctions.liftedAt)] : []),
-        isNull(userSanctions.acknowledgedAt),
-      ),
-    )
-    .returning({ id: userSanctions.id });
+  const now = new Date();
+  const acknowledged = isTradeAcknowledgement
+    ? await db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({ expiresAt: users.tradeSuspendedUntil })
+          .from(users)
+          .where(eq(users.id, userId))
+          .for("update")
+          .limit(1);
+        if (
+          !current?.expiresAt ||
+          current.expiresAt.getTime() <= now.getTime()
+        ) {
+          return [];
+        }
+        return tx
+          .update(userSanctions)
+          .set({ acknowledgedAt: now })
+          .where(
+            and(
+              eq(userSanctions.id, acknowledgementId),
+              eq(userSanctions.userId, userId),
+              inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
+              isNull(userSanctions.liftedAt),
+              isNull(userSanctions.acknowledgedAt),
+              eq(userSanctions.expiresAt, current.expiresAt),
+              gt(userSanctions.expiresAt, now),
+            ),
+          )
+          .returning({ id: userSanctions.id });
+      })
+    : await db
+        .update(userSanctions)
+        .set({ acknowledgedAt: now })
+        .where(
+          and(
+            eq(userSanctions.id, acknowledgementId),
+            eq(userSanctions.userId, userId),
+            eq(userSanctions.type, "warn"),
+            isNull(userSanctions.acknowledgedAt),
+          ),
+        )
+        .returning({ id: userSanctions.id });
 
   if (acknowledged.length === 0) {
     return Response.json(

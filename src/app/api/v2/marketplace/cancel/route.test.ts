@@ -10,6 +10,19 @@ const mocks = vi.hoisted(() => ({
   requireTradeParticipants: vi.fn(async () => {
     throw new Error("strict trade guard must not run for cancellation");
   }),
+  lockTradeParticipantStatuses: vi.fn(async () =>
+    new Map([
+      [
+        "seller-1",
+        {
+          source: "trade",
+          reason: "조사",
+          expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+          permanent: false,
+        },
+      ],
+    ]),
+  ),
 }));
 
 let selectedListing: typeof marketplaceListingsV2.$inferSelect | undefined;
@@ -43,9 +56,13 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 vi.mock("@/lib/server/tradeSuspension", () => ({
   requireTradeParticipants: mocks.requireTradeParticipants,
+  lockTradeParticipantStatuses: mocks.lockTradeParticipantStatuses,
 }));
 
-import { requireTradeParticipants } from "@/lib/server/tradeSuspension";
+import {
+  lockTradeParticipantStatuses,
+  requireTradeParticipants,
+} from "@/lib/server/tradeSuspension";
 import { POST } from "./route";
 
 function activeListing(
@@ -101,6 +118,14 @@ describe("내 매물 취소", () => {
       { materials: { iron_ore: 3 } },
     );
     expect(requireTradeParticipants).not.toHaveBeenCalled();
+    expect(lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      tx,
+      ["seller-1"],
+      expect.any(Date),
+    );
+    expect(
+      mocks.lockTradeParticipantStatuses.mock.invocationCallOrder[0],
+    ).toBeLessThan(tx.select.mock.invocationCallOrder[0]);
   });
 
   it("활성 경매에 입찰이 있으면 기존 has_bids 오류를 유지한다", async () => {

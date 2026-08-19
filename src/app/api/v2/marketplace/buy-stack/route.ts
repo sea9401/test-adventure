@@ -23,6 +23,10 @@ import {
   requireTradeParticipants,
   tradeSuspendedResponse,
 } from "@/lib/server/tradeSuspension";
+import {
+  clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId,
+} from "@/lib/server/marketplaceEscrow";
 
 type CharSave = {
   gold?: number;
@@ -115,10 +119,10 @@ export async function POST(req: Request) {
     const probedListingIds = probedCandidates.map((listing) => listing.id);
     const participantIds = [
       userId,
-      ...probedCandidates.flatMap((listing) => [
-        listing.sellerId,
-        ...(listing.highestBidderId ? [listing.highestBidderId] : []),
-      ]),
+      ...probedCandidates.flatMap((listing) => {
+        const bidderId = unresolvedMarketplaceHighestBidderId(listing);
+        return [listing.sellerId, ...(bidderId ? [bidderId] : [])];
+      }),
     ];
     await requireTradeParticipants(tx, participantIds, now);
 
@@ -168,10 +172,10 @@ export async function POST(req: Request) {
 
     for (const listing of candidates) {
       if (remaining <= 0) break;
+      const bidderId = unresolvedMarketplaceHighestBidderId(listing);
       if (
         !prelockedParticipants.has(listing.sellerId) ||
-        (listing.highestBidderId != null &&
-          !prelockedParticipants.has(listing.highestBidderId))
+        (bidderId != null && !prelockedParticipants.has(bidderId))
       ) {
         continue;
       }
@@ -264,19 +268,7 @@ export async function POST(req: Request) {
         throw new Error(`marketplace_stack_delivery_failed:${deliveryError}`);
       }
 
-      if (
-        !listing.bidResolvedAt &&
-        listing.highestBidderId &&
-        (listing.highestBid ?? 0) > 0
-      ) {
-        await tx.insert(marketplaceInbox).values(
-          inboxValues({
-            userId: listing.highestBidderId,
-            payload: { kind: "bid_refund", gold: listing.highestBid! },
-            message: `${listing.itemName} 유예 종료 · ${listing.highestBid!.toLocaleString()}골드 반환`,
-          }),
-        );
-      }
+      await clearMarketplaceHighestBid(tx, listing, now, "expired");
 
       await tx
         .update(marketplaceListingsV2)

@@ -20,6 +20,7 @@ import {
   requireTradeParticipants,
   tradeSuspendedResponse,
 } from "@/lib/server/tradeSuspension";
+import { unresolvedMarketplaceHighestBidderId } from "@/lib/server/marketplaceEscrow";
 
 type CharSave = {
   gold?: number;
@@ -68,6 +69,8 @@ export async function POST(req: Request) {
       .select({
         sellerId: marketplaceListingsV2.sellerId,
         highestBidderId: marketplaceListingsV2.highestBidderId,
+        highestBid: marketplaceListingsV2.highestBid,
+        bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
       })
       .from(marketplaceListingsV2)
       .where(eq(marketplaceListingsV2.id, listingId))
@@ -76,10 +79,11 @@ export async function POST(req: Request) {
       await requireTradeParticipants(tx, [userId], now);
       return { status: 404, body: { ok: false as const, error: "not_found" } };
     }
+    const probeBidderId = unresolvedMarketplaceHighestBidderId(probe);
     const participantIds = [
       userId,
       probe.sellerId,
-      ...(probe.highestBidderId ? [probe.highestBidderId] : []),
+      ...(probeBidderId ? [probeBidderId] : []),
     ];
     await requireTradeParticipants(tx, participantIds, now);
 
@@ -91,10 +95,10 @@ export async function POST(req: Request) {
     if (!listing) {
       return { status: 404, body: { ok: false as const, error: "not_found" } };
     }
+    const bidderId = unresolvedMarketplaceHighestBidderId(listing);
     if (
       listing.sellerId !== probe.sellerId ||
-      (listing.highestBidderId != null &&
-        !participantIds.includes(listing.highestBidderId))
+      (bidderId != null && !participantIds.includes(bidderId))
     ) {
       return {
         status: 409,

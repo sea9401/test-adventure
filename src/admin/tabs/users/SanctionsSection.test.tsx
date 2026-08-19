@@ -209,6 +209,25 @@ describe("SanctionsSection 거래 제재", () => {
     });
   });
 
+  it("영구 거래 정지에는 센티넬을 바꾸는 거래 연장 동작을 노출하지 않는다", async () => {
+    api.adminGet.mockResolvedValue({
+      ...activeStatus,
+      trade: {
+        suspended: true,
+        suspendedUntil: "9999-12-31T00:00:00.000Z",
+        reason: "영구 거래 제재",
+        permanent: true,
+      },
+    });
+
+    render(<SanctionsSection userId="target-user" readOnly={false} />);
+
+    await screen.findByText(/영구 거래 정지 중/);
+    expect(screen.queryByRole("button", { name: "1일 거래 연장" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "3일 거래 연장" })).toBeNull();
+    expect(screen.getByRole("button", { name: "거래 제재 해제" })).toBeDefined();
+  });
+
   it("선택한 유저가 바뀌면 이전 유저의 거래 정리 결과를 숨긴다", async () => {
     api.adminPost.mockResolvedValue({
       ok: true,

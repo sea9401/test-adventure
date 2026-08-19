@@ -175,10 +175,32 @@ const tx = {
   })),
   update: vi.fn((table: unknown) => ({
     set: vi.fn((values: Record<string, unknown>) => ({
-      where: vi.fn(async () => {
-        if (table === marketplaceListingsV2 && mocks.listing) {
-          Object.assign(mocks.listing, values);
-        }
+      where: vi.fn(() => {
+        const apply = () => {
+          if (table === marketplaceListingsV2 && mocks.listing) {
+            Object.assign(mocks.listing, values);
+          }
+        };
+        return {
+          returning: vi.fn(async () => {
+            const canClaim =
+              table === marketplaceListingsV2 &&
+              mocks.listing?.status === "active" &&
+              mocks.listing.bidResolvedAt == null &&
+              mocks.listing.highestBidderId !== null &&
+              (mocks.listing.highestBid ?? 0) > 0;
+            if (!canClaim) return [];
+            apply();
+            return [{ id: mocks.listing!.id }];
+          }),
+          then<TResult1 = void>(
+            onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null,
+            onrejected?: ((reason: unknown) => never) | null,
+          ) {
+            apply();
+            return Promise.resolve().then(onfulfilled, onrejected);
+          },
+        };
       }),
     })),
   })),

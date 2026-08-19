@@ -55,6 +55,11 @@ const mocks = vi.hoisted(() => ({
         return { cleared: false, refundedGold: 0 };
       }
       mocks.operationOrder.push(`highest-bid:${listing.id}`);
+      if (listing.bidResolvedAt) {
+        listing.highestBid = null;
+        listing.highestBidderId = null;
+        return { cleared: false, refundedGold: 0 };
+      }
       const refundedGold = listing.highestBid;
       mocks.inboxRows.push({
         userId: listing.highestBidderId,
@@ -65,6 +70,13 @@ const mocks = vi.hoisted(() => ({
       return { cleared: true, refundedGold };
     },
   ),
+  unresolvedMarketplaceHighestBidderId: vi.fn((listing: Listing) =>
+    !listing.bidResolvedAt &&
+    listing.highestBidderId &&
+    (listing.highestBid ?? 0) > 0
+      ? listing.highestBidderId
+      : null,
+  ),
 }));
 
 vi.mock("@/lib/server/tradeSuspension", () => ({
@@ -74,9 +86,14 @@ vi.mock("@/lib/server/marketplaceEscrow", () => ({
   cancelMarketplaceListingEscrow: mocks.cancelMarketplaceListingEscrow,
   cancelMarketplaceBuyOrderEscrow: mocks.cancelMarketplaceBuyOrderEscrow,
   clearMarketplaceHighestBid: mocks.clearMarketplaceHighestBid,
+  unresolvedMarketplaceHighestBidderId:
+    mocks.unresolvedMarketplaceHighestBidderId,
 }));
 
-import { clearActiveTradeExposure } from "./tradeSuspensionCleanup";
+import {
+  clearActiveTradeExposure,
+  lockActiveTradeExposure,
+} from "./tradeSuspensionCleanup";
 
 type Listing = typeof marketplaceListingsV2.$inferSelect;
 type BuyOrder = typeof marketplaceBuyOrdersV2.$inferSelect;
@@ -132,8 +149,31 @@ function buyOrder(overrides: Partial<BuyOrder>): BuyOrder {
 function fakeTransaction(
   listings: Listing[],
   buyOrders: BuyOrder[],
+  options: { includeHistoricalReferences?: boolean } = {},
 ) {
-  let listingQueryCount = 0;
+  let listingLockCount = 0;
+  const rowsFor = (table: unknown) => {
+    if (table === marketplaceBuyOrdersV2) {
+      return buyOrders
+        .filter(
+          (order) => order.buyerId === "u-target" && order.status === "active",
+        )
+        .sort((a, b) => a.id - b.id);
+    }
+    return listings
+      .filter((row) =>
+        options.includeHistoricalReferences
+          ? row.sellerId === "u-target" ||
+            row.highestBidderId === "u-target" ||
+            row.buyerId === "u-target"
+          : row.status === "active" &&
+            (row.sellerId === "u-target" ||
+              (row.sellerId !== "u-target" &&
+                row.highestBidderId === "u-target" &&
+                (row.highestBid ?? 0) > 0)),
+      )
+      .sort((a, b) => a.id - b.id);
+  };
   const tx = {
     select: vi.fn(() => {
       let table: unknown;
@@ -149,28 +189,22 @@ function fakeTransaction(
           return query;
         },
         async for() {
-          if (table === marketplaceBuyOrdersV2) {
-            return buyOrders
-              .filter((order) => order.buyerId === "u-target" && order.status === "active")
-              .sort((a, b) => a.id - b.id);
-          }
-          listingQueryCount += 1;
-          const ownedQuery = listingQueryCount % 2 === 1;
-          return listings
-            .filter((row) =>
-              ownedQuery
-                ? row.sellerId === "u-target" && row.status === "active"
-                : row.sellerId !== "u-target" &&
-                  row.highestBidderId === "u-target" &&
-                  row.status === "active",
-            )
-            .sort((a, b) => a.id - b.id);
+          if (table === marketplaceListingsV2) listingLockCount += 1;
+          return rowsFor(table);
+        },
+        then<TResult1 = Array<Listing | BuyOrder>>(
+          onfulfilled?: (
+            value: Array<Listing | BuyOrder>,
+          ) => TResult1 | PromiseLike<TResult1>,
+          onrejected?: (reason: unknown) => never,
+        ) {
+          return Promise.resolve(rowsFor(table)).then(onfulfilled, onrejected);
         },
       };
       return query;
     }),
   };
-  return tx;
+  return { tx, listingLockCount: () => listingLockCount };
 }
 
 beforeEach(() => {
@@ -197,9 +231,17 @@ describe("거래 제재 활성 노출 정리", () => {
         highestBidderId: "u-bidder",
         bidCount: 2,
       }),
+      listing({
+        id: 31,
+        sellerId: "u-resolved-seller",
+        highestBid: 3_000,
+        highestBidderId: "u-target",
+        bidCount: 1,
+        bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
+      }),
     ];
     const buyOrders = [buyOrder({ id: 20 })];
-    const tx = fakeTransaction(listings, buyOrders);
+    const { tx, listingLockCount } = fakeTransaction(listings, buyOrders);
 
     await expect(
       clearActiveTradeExposure(tx as never, "u-target", now),
@@ -208,19 +250,68 @@ describe("거래 제재 활성 노출 정리", () => {
       buyOrdersCancelled: 1,
       highestBidsCleared: 1,
       refundedGold: 12_000,
+      economyEvents: [
+        expect.objectContaining({
+          userId: "u-target",
+          eventType: "marketplace.trade_cleanup.listing_return",
+          itemKind: "material",
+          itemId: "iron_ore",
+          quantity: 1,
+          detail: { listingId: 10 },
+        }),
+        expect.objectContaining({
+          userId: "u-bidder",
+          eventType: "marketplace.trade_cleanup.bid_refund",
+          goldDelta: 2_000,
+          detail: { listingId: 10 },
+        }),
+        expect.objectContaining({
+          userId: "u-target",
+          eventType: "marketplace.trade_cleanup.listing_return",
+          detail: { listingId: 11 },
+        }),
+        expect.objectContaining({
+          userId: "u-target",
+          eventType: "marketplace.trade_cleanup.buy_order_refund",
+          goldDelta: 6_000,
+          detail: { orderId: 20 },
+        }),
+        expect.objectContaining({
+          userId: "u-target",
+          eventType: "marketplace.trade_cleanup.bid_refund",
+          goldDelta: 4_000,
+          detail: { listingId: 30 },
+        }),
+      ],
     });
+    expect(mocks.lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      tx,
+      ["u-bidder", "u-other", "u-resolved-seller", "u-target"],
+      now,
+    );
     expect(mocks.operationOrder).toEqual([
+      "lock:user:u-bidder",
+      "lock:user:u-other",
+      "lock:user:u-resolved-seller",
       "lock:user:u-target",
       "listing:10",
       "listing:11",
       "buy-order:20",
       "highest-bid:30",
+      "highest-bid:31",
     ]);
+    expect(listingLockCount()).toBe(1);
     expect(listings.find((row) => row.id === 30)).toMatchObject({
       status: "active",
       highestBid: null,
       highestBidderId: null,
       bidCount: 3,
+    });
+    expect(listings.find((row) => row.id === 31)).toMatchObject({
+      status: "active",
+      highestBid: null,
+      highestBidderId: null,
+      bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
     });
     const inboxCount = mocks.inboxRows.length;
 
@@ -231,7 +322,54 @@ describe("거래 제재 활성 노출 정리", () => {
       buyOrdersCancelled: 0,
       highestBidsCleared: 0,
       refundedGold: 0,
+      economyEvents: [],
     });
     expect(mocks.inboxRows).toHaveLength(inboxCount);
+  });
+
+  it("계정 삭제 모드는 종료 매물의 판매자·입찰자·구매자까지 같은 순서로 잠근다", async () => {
+    const listings = [
+      listing({
+        id: 41,
+        sellerId: "u-seller",
+        status: "sold",
+        highestBid: 5_000,
+        highestBidderId: "u-target",
+        buyerId: "u-target",
+        bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
+      }),
+      listing({
+        id: 42,
+        sellerId: "u-target",
+        status: "sold",
+        highestBid: 7_000,
+        highestBidderId: "u-bidder",
+        buyerId: "u-buyer",
+        bidResolvedAt: new Date("2026-08-20T11:06:00.000Z"),
+      }),
+    ];
+    const { tx, listingLockCount } = fakeTransaction(listings, [], {
+      includeHistoricalReferences: true,
+    });
+
+    await expect(
+      lockActiveTradeExposure(tx as never, "u-target", now, {
+        includeHistoricalReferences: true,
+      }),
+    ).resolves.toMatchObject({
+      participantUserIds: [
+        "u-bidder",
+        "u-buyer",
+        "u-seller",
+        "u-target",
+      ],
+      listings: [{ id: 41 }, { id: 42 }],
+    });
+    expect(mocks.lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      tx,
+      ["u-bidder", "u-buyer", "u-seller", "u-target"],
+      now,
+    );
+    expect(listingLockCount()).toBe(1);
   });
 });

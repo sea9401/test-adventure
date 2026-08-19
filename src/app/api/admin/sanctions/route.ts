@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { users, userSanctions } from "@/db/schema";
 import {
@@ -7,16 +7,21 @@ import {
   requireAdminRole,
 } from "@/lib/server/isAdmin";
 import { logAdminAction } from "@/lib/server/adminAudit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import {
   clearActiveTradeExposure,
+  TradeExposureChangedError,
   type TradeExposureCleanupResult,
+  type TradeExposureCleanupSummary,
 } from "@/lib/server/tradeSuspensionCleanup";
+import type { DbExecutor } from "@/lib/server/savesKv";
 
 export const dynamic = "force-dynamic";
 
 // 영구 밴/거래 정지의 센티넬 — 사실상 무한(Postgres timestamp 범위 내).
 const PERMANENT = new Date("9999-12-31T00:00:00.000Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_TRADE_EXPOSURE_ATTEMPTS = 3;
 
 const ACTIONS = ["ban", "suspend", "extend", "warn", "lift"] as const;
 const TRADE_ACTIONS = ["ban", "suspend", "extend", "lift"] as const;
@@ -44,7 +49,39 @@ function emptyCleanup(): TradeExposureCleanupResult {
     buyOrdersCancelled: 0,
     highestBidsCleared: 0,
     refundedGold: 0,
+    economyEvents: [],
   };
+}
+
+function cleanupSummary(
+  cleanup: TradeExposureCleanupResult,
+): TradeExposureCleanupSummary {
+  const { economyEvents: _economyEvents, ...summary } = cleanup;
+  return summary;
+}
+
+async function transactionWithBoundedExposureRetry<T>(
+  callback: (tx: DbExecutor) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; attempt <= MAX_TRADE_EXPOSURE_ATTEMPTS; attempt += 1) {
+    try {
+      return await db.transaction((tx) => callback(tx));
+    } catch (error) {
+      if (
+        !(error instanceof TradeExposureChangedError) ||
+        attempt === MAX_TRADE_EXPOSURE_ATTEMPTS
+      ) {
+        throw error;
+      }
+    }
+  }
+  throw new TradeExposureChangedError();
+}
+
+class CannotExtendPermanentTradeSuspensionError extends Error {
+  constructor() {
+    super("cannot_extend_permanent_trade_suspension");
+  }
 }
 
 export async function GET(req: Request) {
@@ -169,8 +206,14 @@ export async function POST(req: Request) {
   }
 
   const now = new Date();
-  const result = await db.transaction(async (tx) => {
-    // 제재와 모든 거래 정리보다 대상 유저 행을 먼저 잠근다.
+  const result = await transactionWithBoundedExposureRetry(async (tx) => {
+    // Cleanup owns the complete users -> buy orders -> listings lock protocol.
+    // It must run before the target-only lookup so mutually exposed users do
+    // not form target-A/target-B lock inversions.
+    const cleanup =
+      action === "warn" || action === "lift"
+        ? emptyCleanup()
+        : await clearActiveTradeExposure(tx, userId, now);
     const [target] = await tx
       .select({
         id: users.id,
@@ -182,7 +225,7 @@ export async function POST(req: Request) {
       .where(eq(users.id, userId))
       .for("update")
       .limit(1);
-    if (!target) return { found: false as const };
+    if (!target) return { found: false as const, economyEvents: [] };
 
     if (action === "lift") {
       if (scope === "trade") {
@@ -194,16 +237,26 @@ export async function POST(req: Request) {
             updatedAt: now,
           })
           .where(eq(users.id, userId));
-        await tx
-          .update(userSanctions)
-          .set({ liftedAt: now, liftedByEmail: adminEmail })
-          .where(
-            and(
-              eq(userSanctions.userId, userId),
-              isNull(userSanctions.liftedAt),
-              inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
-            ),
-          );
+        if (
+          target.tradeSuspendedUntil &&
+          target.tradeSuspendedUntil.getTime() > now.getTime()
+        ) {
+          await tx
+            .update(userSanctions)
+            .set({ liftedAt: now, liftedByEmail: adminEmail })
+            .where(
+              and(
+                eq(userSanctions.userId, userId),
+                isNull(userSanctions.liftedAt),
+                inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
+                eq(
+                  userSanctions.expiresAt,
+                  target.tradeSuspendedUntil,
+                ),
+                gt(userSanctions.expiresAt, now),
+              ),
+            );
+        }
       } else {
         await tx
           .update(users)
@@ -224,12 +277,21 @@ export async function POST(req: Request) {
         found: true as const,
         gameName: target.gameName,
         expiresAt: null,
-        cleanup: emptyCleanup(),
+        cleanup: cleanupSummary(cleanup),
+        economyEvents: cleanup.economyEvents,
       };
     }
 
     const currentExpiresAt =
       scope === "trade" ? target.tradeSuspendedUntil : target.bannedUntil;
+    if (
+      scope === "trade" &&
+      action === "extend" &&
+      currentExpiresAt &&
+      currentExpiresAt.getTime() >= PERMANENT.getTime()
+    ) {
+      throw new CannotExtendPermanentTradeSuspensionError();
+    }
     const expiresAt =
       action === "ban"
         ? PERMANENT
@@ -250,6 +312,23 @@ export async function POST(req: Request) {
         : action === "extend"
           ? "suspend"
           : action;
+
+    if (scope === "trade") {
+      // Replacing the denormalized current state also retires every still-
+      // active same-scope history row. This repairs pre-existing orphan rows
+      // and leaves one authoritative current lifecycle.
+      await tx
+        .update(userSanctions)
+        .set({ liftedAt: now, liftedByEmail: adminEmail })
+        .where(
+          and(
+            eq(userSanctions.userId, userId),
+            isNull(userSanctions.liftedAt),
+            inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
+            gt(userSanctions.expiresAt, now),
+          ),
+        );
+    }
 
     await tx.insert(userSanctions).values({
       userId,
@@ -279,20 +358,32 @@ export async function POST(req: Request) {
         .where(eq(users.id, userId));
     }
 
-    const cleanup =
-      action === "warn"
-        ? emptyCleanup()
-        : await clearActiveTradeExposure(tx, userId, now);
     return {
       found: true as const,
       gameName: target.gameName,
       expiresAt: effectiveExpiresAt,
-      cleanup,
+      cleanup: cleanupSummary(cleanup),
+      economyEvents: cleanup.economyEvents,
     };
+  }).catch((error: unknown) => {
+    if (error instanceof CannotExtendPermanentTradeSuspensionError) {
+      return error;
+    }
+    throw error;
   });
+  if (result instanceof CannotExtendPermanentTradeSuspensionError) {
+    return Response.json(
+      { ok: false, error: result.message },
+      { status: 409 },
+    );
+  }
 
   if (!result.found) {
     return Response.json({ ok: false, error: "user not found" }, { status: 404 });
+  }
+
+  for (const event of result.economyEvents) {
+    recordEconomyEventSoon(event);
   }
 
   const auditAction =

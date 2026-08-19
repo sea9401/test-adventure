@@ -18,14 +18,17 @@ const cleanupResult = {
 };
 
 const mocks = vi.hoisted(() => ({
+  TradeExposureChangedError: class TradeExposureChangedError extends Error {},
   gate: vi.fn(async () => null as Response | null),
   currentAdminEmail: vi.fn(async () => "admin@example.com"),
   audit: vi.fn(async (_entry: unknown) => undefined),
+  economy: vi.fn(),
   cleanup: vi.fn(async (_tx: unknown, _userId: string, _now: Date) => ({
     listingsCancelled: 2,
     buyOrdersCancelled: 1,
     highestBidsCleared: 1,
     refundedGold: 12_000,
+    economyEvents: [] as Array<Record<string, unknown>>,
   })),
   transaction: vi.fn(),
   dbSelect: vi.fn(),
@@ -91,7 +94,14 @@ vi.mock("@/lib/server/adminAudit", () => ({
     return mocks.audit(entry);
   }),
 }));
+vi.mock("@/lib/server/economyLog", () => ({
+  recordEconomyEventSoon: vi.fn((entry: unknown) => {
+    mocks.events.push("economy");
+    mocks.economy(entry);
+  }),
+}));
 vi.mock("@/lib/server/tradeSuspensionCleanup", () => ({
+  TradeExposureChangedError: mocks.TradeExposureChangedError,
   clearActiveTradeExposure: vi.fn(async (executor: unknown, userId: string, now: Date) => {
     mocks.events.push("cleanup");
     return mocks.cleanup(executor, userId, now);
@@ -138,6 +148,13 @@ function recursiveStrings(value: unknown, seen = new Set<object>()): string[] {
   return Object.values(value).flatMap((entry) => recursiveStrings(entry, seen));
 }
 
+function recursiveDates(value: unknown, seen = new Set<object>()): Date[] {
+  if (value instanceof Date) return [value];
+  if (!value || typeof value !== "object" || seen.has(value)) return [];
+  seen.add(value);
+  return Object.values(value).flatMap((entry) => recursiveDates(entry, seen));
+}
+
 function lastUserUpdate() {
   return mocks.updates.filter((entry) => entry.table === users).at(-1);
 }
@@ -163,7 +180,7 @@ beforeEach(() => {
   };
   mocks.sanctions = [];
   mocks.gate.mockResolvedValue(null);
-  mocks.cleanup.mockResolvedValue(cleanupResult);
+  mocks.cleanup.mockResolvedValue({ ...cleanupResult, economyEvents: [] });
   mocks.dbSelect.mockImplementation(() => selectQuery());
   mocks.dbInsert.mockImplementation((table: unknown) => ({
     values: vi.fn(async (values: Record<string, unknown>) => {
@@ -294,9 +311,64 @@ describe("/api/admin/sanctions", () => {
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "sanction.trade_extend" }),
     );
+    expect(lastSanctionUpdate()?.values).toMatchObject({
+      liftedAt: expect.any(Date),
+      liftedByEmail: "admin@example.com",
+    });
+  });
+
+  it.each([
+    ["더 짧은 기간", new Date("2026-08-30T00:00:00.000Z")],
+    ["영구 정지", new Date("9999-12-31T00:00:00.000Z")],
+  ] as const)("활성 %s을 새 기간 정지로 교체할 때 이전 현재 이력을 먼저 종료한다", async (_label, currentUntil) => {
+    mocks.target!.tradeSuspendedUntil = currentUntil;
+    mocks.target!.tradeSuspensionReason = "기존 제재";
+
+    const result = await post({
+      userId: "u",
+      scope: "trade",
+      action: "suspend",
+      days: 1,
+      reason: "교체 제재",
+    });
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { tradeSuspendedUntil: "2026-08-21T12:00:00.000Z" },
+    });
+    expect(lastSanctionUpdate()?.values).toMatchObject({
+      liftedAt: new Date("2026-08-20T12:00:00.000Z"),
+      liftedByEmail: "admin@example.com",
+    });
+    expect(mocks.inserts.at(-1)?.values).toMatchObject({
+      type: "trade_suspend",
+      expiresAt: new Date("2026-08-21T12:00:00.000Z"),
+    });
+  });
+
+  it("영구 거래 정지는 연장으로 센티넬을 변경하지 않는다", async () => {
+    mocks.target!.tradeSuspendedUntil = new Date("9999-12-31T00:00:00.000Z");
+    mocks.target!.tradeSuspensionReason = "영구 제재";
+
+    const result = await post({
+      userId: "u",
+      scope: "trade",
+      action: "extend",
+      days: 1,
+      reason: "연장 시도",
+    });
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: { error: "cannot_extend_permanent_trade_suspension" },
+    });
+    expect(mocks.inserts).toHaveLength(0);
+    expect(mocks.audit).not.toHaveBeenCalled();
   });
 
   it("거래 제재 해제는 거래 필드와 거래 제재 이력만 해제한다", async () => {
+    mocks.target!.tradeSuspendedUntil = new Date("2026-08-25T00:00:00.000Z");
+    mocks.target!.tradeSuspensionReason = "현재 조사";
     const result = await post({ userId: "u", scope: "trade", action: "lift" });
 
     expect(result).toMatchObject({ status: 200, body: { tradeSuspended: false } });
@@ -308,7 +380,20 @@ describe("/api/admin/sanctions", () => {
     const filterValues = recursiveStrings(lastSanctionUpdate()?.condition);
     expect(filterValues).toEqual(expect.arrayContaining(["trade_suspend", "trade_ban"]));
     expect(filterValues).not.toEqual(expect.arrayContaining(["suspend", "ban"]));
+    expect(recursiveDates(lastSanctionUpdate()?.condition)).toContainEqual(
+      new Date("2026-08-25T00:00:00.000Z"),
+    );
     expect(mocks.cleanup).not.toHaveBeenCalled();
+  });
+
+  it("만료된 거래 제재 필드를 해제해도 과거 이력을 현재 행처럼 해제하지 않는다", async () => {
+    mocks.target!.tradeSuspendedUntil = new Date("2026-08-19T00:00:00.000Z");
+    mocks.target!.tradeSuspensionReason = "만료 제재";
+
+    const result = await post({ userId: "u", scope: "trade", action: "lift" });
+
+    expect(result).toMatchObject({ status: 200, body: { tradeSuspended: false } });
+    expect(mocks.updates.filter((entry) => entry.table === userSanctions)).toHaveLength(0);
   });
 
   it("계정 제재 해제는 계정 필드와 계정 제재 이력만 해제해 독립 거래 정지를 보존한다", async () => {
@@ -352,6 +437,9 @@ describe("/api/admin/sanctions", () => {
       "transaction:commit",
       "audit",
     ]);
+    expect(mocks.cleanup.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.dbSelect.mock.invocationCallOrder[0],
+    );
   });
 
   it("활성 거래 정리가 실패하면 제재 트랜잭션을 커밋하거나 감사하지 않는다", async () => {
@@ -361,6 +449,100 @@ describe("/api/admin/sanctions", () => {
       POST(request({ userId: "u", scope: "trade", action: "ban", reason: "악용" })),
     ).rejects.toThrow("cleanup failed");
     expect(mocks.events).not.toContain("transaction:commit");
+    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.economy).not.toHaveBeenCalled();
+  });
+
+  it("노출 probe가 계속 확장되면 트랜잭션을 유한 횟수만 재시도하고 제재를 적용하지 않는다", async () => {
+    mocks.cleanup.mockRejectedValue(
+      new mocks.TradeExposureChangedError("trade_exposure_changed"),
+    );
+
+    await expect(
+      POST(
+        request({
+          userId: "u",
+          scope: "trade",
+          action: "suspend",
+          days: 1,
+          reason: "조사",
+        }),
+      ),
+    ).rejects.toThrow("trade_exposure_changed");
+    expect(mocks.transaction).toHaveBeenCalledTimes(3);
+    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.economy).not.toHaveBeenCalled();
+  });
+
+  it("정리로 확정된 아이템 반환과 골드 환불 경제 이벤트를 커밋 뒤에만 기록한다", async () => {
+    mocks.cleanup.mockResolvedValueOnce({
+      ...cleanupResult,
+      economyEvents: [
+        {
+          userId: "u-bidder",
+          eventType: "marketplace.trade_suspension.bid_refund",
+          goldDelta: 4_000,
+          detail: { listingId: 30 },
+        },
+        {
+          userId: "u",
+          eventType: "marketplace.trade_suspension.listing_return",
+          goldDelta: 0,
+          itemKind: "material",
+          itemId: "iron_ore",
+          quantity: 2,
+          detail: { listingId: 10 },
+        },
+      ],
+    });
+
+    const result = await post({
+      userId: "u",
+      scope: "trade",
+      action: "suspend",
+      days: 1,
+      reason: "조사",
+    });
+
+    expect(result.status).toBe(200);
+    expect(mocks.economy).toHaveBeenCalledTimes(2);
+    expect(mocks.events.indexOf("transaction:commit")).toBeLessThan(
+      mocks.events.indexOf("economy"),
+    );
+  });
+
+  it("정리 콜백 뒤 트랜잭션이 롤백되면 수집한 경제 이벤트를 기록하지 않는다", async () => {
+    mocks.cleanup.mockResolvedValueOnce({
+      ...cleanupResult,
+      economyEvents: [
+        {
+          userId: "u-bidder",
+          eventType: "marketplace.trade_suspension.bid_refund",
+          goldDelta: 4_000,
+        },
+      ],
+    });
+    mocks.transaction.mockImplementationOnce(
+      async (callback: (executor: typeof tx) => Promise<unknown>) => {
+        mocks.events.push("transaction:begin");
+        await callback(tx);
+        mocks.events.push("transaction:rollback");
+        throw new Error("serialization rollback");
+      },
+    );
+
+    await expect(
+      POST(
+        request({
+          userId: "u",
+          scope: "trade",
+          action: "suspend",
+          days: 1,
+          reason: "조사",
+        }),
+      ),
+    ).rejects.toThrow("serialization rollback");
+    expect(mocks.economy).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
   });
 

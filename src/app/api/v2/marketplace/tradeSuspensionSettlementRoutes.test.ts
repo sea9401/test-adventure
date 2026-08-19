@@ -260,3 +260,27 @@ describe.each([
     expect(mocks.deliverMarketplaceListing).not.toHaveBeenCalled();
   });
 });
+
+describe("정산 완료 입찰 캐시", () => {
+  it("이미 환불된 옛 최고 입찰자가 제한되어도 고정가 구매를 막거나 다시 환불하지 않는다", async () => {
+    mocks.restrictedId = "bidder-m";
+    mocks.listing = {
+      ...listing(),
+      highestBid: 900,
+      highestBidderId: "bidder-m",
+      bidCount: 1,
+      bidResolvedAt: new Date("2026-08-20T11:05:00.000Z"),
+    };
+
+    const response = await buy(requestFor("buy"));
+
+    expect(response.status).toBe(200);
+    expect(mocks.lockedParticipants).toEqual(["buyer-a", "seller-z"]);
+    expect(mocks.inboxWrites.filter((row) => row.kind === "bid_refund")).toHaveLength(0);
+    expect(mocks.listing).toMatchObject({
+      status: "sold",
+      highestBid: null,
+      highestBidderId: null,
+    });
+  });
+});

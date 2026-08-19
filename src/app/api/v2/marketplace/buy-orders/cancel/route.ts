@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { cancelMarketplaceBuyOrderEscrow } from "@/lib/server/marketplaceEscrow";
+import { lockTradeParticipantStatuses } from "@/lib/server/tradeSuspension";
 
 function bad(error: string, status = 400) {
   return Response.json({ ok: false, error }, { status });
@@ -31,6 +32,10 @@ export async function POST(req: Request) {
     return bad("bad_order");
   }
   const result = await db.transaction(async (tx) => {
+    const now = new Date();
+    // Cancellation remains an allowed escape path; this lock is ordering,
+    // not a suspension gate.
+    await lockTradeParticipantStatuses(tx, [userId], now);
     const [order] = await tx
       .select()
       .from(marketplaceBuyOrdersV2)
@@ -46,7 +51,7 @@ export async function POST(req: Request) {
     const escrow = await cancelMarketplaceBuyOrderEscrow(
       tx,
       order,
-      new Date(),
+      now,
       "user_cancel",
     );
     return {

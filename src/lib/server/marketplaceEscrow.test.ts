@@ -106,7 +106,9 @@ function buyOrder(overrides: Partial<BuyOrder> = {}): BuyOrder {
 function transactionRecorder() {
   const insertedInbox: Array<Record<string, unknown>> = [];
   const listingUpdates: Array<Record<string, unknown>> = [];
+  const listingConditions: unknown[] = [];
   const buyOrderUpdates: Array<Record<string, unknown>> = [];
+  let bidClaimed = false;
   const tx = {
     insert: vi.fn(() => ({
       values: vi.fn(async (values: Record<string, unknown>) => {
@@ -115,17 +117,65 @@ function transactionRecorder() {
     })),
     update: vi.fn((table: unknown) => ({
       set: vi.fn((values: Record<string, unknown>) => ({
-        where: vi.fn(async () => {
+        where: vi.fn((condition: unknown) => {
           if (table === marketplaceListingsV2) {
-            listingUpdates.push(values);
-          } else {
-            buyOrderUpdates.push(values);
+            listingConditions.push(condition);
           }
+          let recorded = false;
+          const record = () => {
+            if (recorded) return;
+            recorded = true;
+            if (table === marketplaceListingsV2) {
+              listingUpdates.push(values);
+            } else {
+              buyOrderUpdates.push(values);
+            }
+          };
+          return {
+            returning: vi.fn(async () => {
+              record();
+              if (bidClaimed) return [];
+              bidClaimed = true;
+              return [{ id: 71 }];
+            }),
+            then<TResult1 = void>(
+              onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null,
+              onrejected?: ((reason: unknown) => never) | null,
+            ) {
+              record();
+              return Promise.resolve().then(onfulfilled, onrejected);
+            },
+          };
         }),
       })),
     })),
   };
-  return { tx, insertedInbox, listingUpdates, buyOrderUpdates };
+  return {
+    tx,
+    insertedInbox,
+    listingUpdates,
+    listingConditions,
+    buyOrderUpdates,
+  };
+}
+
+function sqlColumnNames(value: unknown, seen = new Set<object>()): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => sqlColumnNames(entry, seen));
+  }
+  if (!value || typeof value !== "object" || seen.has(value)) return [];
+  seen.add(value);
+  if (
+    "columnType" in value &&
+    "name" in value &&
+    typeof value.name === "string"
+  ) {
+    return [value.name];
+  }
+  if ("queryChunks" in value) {
+    return sqlColumnNames(value.queryChunks, seen);
+  }
+  return [];
 }
 
 beforeEach(() => {
@@ -235,7 +285,8 @@ describe("거래소 에스크로 취소", () => {
   });
 
   it("거래 제재 최고 입찰 반환은 활성 경매의 후속 입찰과 정산을 위해 미정산 상태를 보존한다", async () => {
-    const { tx, insertedInbox, listingUpdates } = transactionRecorder();
+    const { tx, insertedInbox, listingUpdates, listingConditions } =
+      transactionRecorder();
     const active = listing({ highestBid: 7000, highestBidderId: "bidder-1", bidCount: 2 });
 
     await expect(
@@ -251,6 +302,7 @@ describe("거래소 에스크로 취소", () => {
       bidResolvedAt: null,
     });
     expect(listingUpdates.at(-1)).not.toHaveProperty("bidCount");
+    expect(sqlColumnNames(listingConditions[0])).toContain("bid_count");
   });
 
   it("만료 최고 입찰 반환은 경매 정산 완료 시각을 기록한다", async () => {
@@ -271,7 +323,21 @@ describe("거래소 에스크로 취소", () => {
     });
   });
 
-  it("이미 정산된 활성 최고 입찰은 다시 환불하거나 지우지 않는다", async () => {
+  it("같은 미정산 최고 입찰 스냅샷을 두 번 처리해도 반환 우편은 한 번만 만든다", async () => {
+    const { tx, insertedInbox } = transactionRecorder();
+    const active = listing({
+      highestBid: 7000,
+      highestBidderId: "bidder-1",
+      bidCount: 2,
+    });
+
+    await clearMarketplaceHighestBid(tx as never, active, now, "expired");
+    await clearMarketplaceHighestBid(tx as never, active, now, "expired");
+
+    expect(insertedInbox).toHaveLength(1);
+  });
+
+  it("이미 정산된 활성 최고 입찰은 다시 환불하지 않고 낡은 캐시만 지운다", async () => {
     const { tx, insertedInbox, listingUpdates } = transactionRecorder();
     const resolved = listing({
       highestBid: 7000,
@@ -291,7 +357,7 @@ describe("거래소 에스크로 취소", () => {
       }),
     ).resolves.toEqual({ cancelled: true, refundedBidGold: 0 });
     expect(insertedInbox).toHaveLength(0);
-    expect(listingUpdates).not.toContainEqual(expect.objectContaining({
+    expect(listingUpdates).toContainEqual(expect.objectContaining({
       highestBid: null,
       highestBidderId: null,
     }));

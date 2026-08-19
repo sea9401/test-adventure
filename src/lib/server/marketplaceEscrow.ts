@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { marketplaceBuyOrdersV2, marketplaceInbox, marketplaceListingsV2 } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -24,7 +24,8 @@ export type MarketplaceListingRow = typeof marketplaceListingsV2.$inferSelect;
 export type MarketplaceBuyOrderRow = typeof marketplaceBuyOrdersV2.$inferSelect;
 
 type EscrowReason = "user_cancel" | "trade_suspension" | "expired";
-type BidClearReason = Exclude<EscrowReason, "user_cancel">;
+type BidClearReason = Exclude<EscrowReason, "user_cancel"> | "account_delete";
+type BidRefundReason = EscrowReason | "account_delete";
 
 type CharSave = {
   rareMaps?: unknown;
@@ -54,14 +55,16 @@ function buyOrderRefundMessage(
 function bidRefundMessage(
   itemName: string,
   gold: number,
-  reason: EscrowReason,
+  reason: BidRefundReason,
 ) {
   const subject =
-    reason === "expired"
-      ? "유예 종료"
-      : reason === "user_cancel"
-        ? "매물 취소"
-        : "거래 제한 해제";
+    reason === "account_delete"
+      ? "판매자 탈퇴"
+      : reason === "expired"
+        ? "유예 종료"
+        : reason === "user_cancel"
+          ? "매물 취소"
+          : "거래 제한 해제";
   return `${itemName} ${subject} · ${gold.toLocaleString()}골드 반환`;
 }
 
@@ -152,26 +155,74 @@ async function refundMarketplaceHighestBid(
   tx: DbExecutor,
   listing: MarketplaceListingRow,
   now: Date,
-  reason: EscrowReason,
+  reason: BidRefundReason,
 ) {
   const gold = listing.highestBid ?? 0;
-  if (listing.bidResolvedAt || !listing.highestBidderId || gold <= 0) return 0;
-  await tx.insert(marketplaceInbox).values(
-    inboxValues({
-      userId: listing.highestBidderId,
-      payload: { kind: "bid_refund", gold },
-      message: bidRefundMessage(listing.itemName, gold, reason),
-    }),
-  );
-  await tx
+  if (listing.bidResolvedAt) {
+    await discardMarketplaceHighestBid(tx, listing);
+    return 0;
+  }
+  const bidderId = listing.highestBidderId;
+  if (!bidderId || gold <= 0) {
+    if (reason === "expired") {
+      await tx
+        .update(marketplaceListingsV2)
+        .set({ highestBid: null, highestBidderId: null, bidResolvedAt: now })
+        .where(
+          and(
+            eq(marketplaceListingsV2.id, listing.id),
+            eq(marketplaceListingsV2.status, "active"),
+            isNull(marketplaceListingsV2.bidResolvedAt),
+          ),
+        );
+    }
+    return 0;
+  }
+
+  // The conditional update claims this exact unresolved escrow before the
+  // refund row is inserted. A stale caller therefore cannot refund the same
+  // bid twice; a later insert failure rolls the claim back with the tx.
+  const [cleared] = await tx
     .update(marketplaceListingsV2)
     .set({
       highestBid: null,
       highestBidderId: null,
       bidResolvedAt: reason === "trade_suspension" ? null : now,
     })
-    .where(eq(marketplaceListingsV2.id, listing.id));
+    .where(
+      and(
+        eq(marketplaceListingsV2.id, listing.id),
+        eq(marketplaceListingsV2.status, "active"),
+        isNull(marketplaceListingsV2.bidResolvedAt),
+        eq(marketplaceListingsV2.highestBidderId, bidderId),
+        eq(marketplaceListingsV2.highestBid, gold),
+        eq(marketplaceListingsV2.bidCount, listing.bidCount),
+      ),
+    )
+    .returning({ id: marketplaceListingsV2.id });
+  if (!cleared) return 0;
+
+  await tx.insert(marketplaceInbox).values(
+    inboxValues({
+      userId: bidderId,
+      payload: { kind: "bid_refund", gold },
+      message: bidRefundMessage(listing.itemName, gold, reason),
+    }),
+  );
   return gold;
+}
+
+export function unresolvedMarketplaceHighestBidderId(
+  listing: Pick<
+    MarketplaceListingRow,
+    "bidResolvedAt" | "highestBid" | "highestBidderId"
+  >,
+): string | null {
+  return !listing.bidResolvedAt &&
+    listing.highestBidderId &&
+    (listing.highestBid ?? 0) > 0
+    ? listing.highestBidderId
+    : null;
 }
 
 export async function clearMarketplaceHighestBid(
@@ -183,8 +234,59 @@ export async function clearMarketplaceHighestBid(
   if (listing.status !== "active") {
     return { cleared: false, refundedGold: 0 };
   }
-  const refundedGold = await refundMarketplaceHighestBid(tx, listing, now, reason);
+  const refundedGold = await refundMarketplaceHighestBid(
+    tx,
+    listing,
+    now,
+    reason,
+  );
   return { cleared: refundedGold > 0, refundedGold };
+}
+
+export async function discardMarketplaceHighestBid(
+  tx: DbExecutor,
+  listing: MarketplaceListingRow,
+): Promise<{ cleared: boolean }> {
+  const bidderId = listing.highestBidderId;
+  const gold = listing.highestBid;
+  if (!bidderId || !gold) return { cleared: false };
+  if (listing.status !== "active" || listing.bidResolvedAt) {
+    // Account deletion also needs to remove historical bidder references:
+    // ON DELETE SET NULL on bidder_id alone would violate the bid-pair check.
+    // These rows are already locked by lockActiveTradeExposure's historical
+    // mode, so an exact guarded update is sufficient and never refunds gold.
+    await tx
+      .update(marketplaceListingsV2)
+      .set({ highestBid: null, highestBidderId: null })
+      .where(
+        and(
+          eq(marketplaceListingsV2.id, listing.id),
+          eq(marketplaceListingsV2.status, listing.status),
+          eq(marketplaceListingsV2.highestBidderId, bidderId),
+          eq(marketplaceListingsV2.highestBid, gold),
+          eq(marketplaceListingsV2.bidCount, listing.bidCount),
+          listing.bidResolvedAt
+            ? eq(marketplaceListingsV2.bidResolvedAt, listing.bidResolvedAt)
+            : isNull(marketplaceListingsV2.bidResolvedAt),
+        ),
+      );
+    return { cleared: true };
+  }
+  const [cleared] = await tx
+    .update(marketplaceListingsV2)
+    .set({ highestBid: null, highestBidderId: null, bidResolvedAt: null })
+    .where(
+      and(
+        eq(marketplaceListingsV2.id, listing.id),
+        eq(marketplaceListingsV2.status, "active"),
+        isNull(marketplaceListingsV2.bidResolvedAt),
+        eq(marketplaceListingsV2.highestBidderId, bidderId),
+        eq(marketplaceListingsV2.highestBid, gold),
+        eq(marketplaceListingsV2.bidCount, listing.bidCount),
+      ),
+    )
+    .returning({ id: marketplaceListingsV2.id });
+  return { cleared: Boolean(cleared) };
 }
 
 export async function cancelMarketplaceListingEscrow(

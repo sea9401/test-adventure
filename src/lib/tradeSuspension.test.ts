@@ -99,7 +99,7 @@ describe("resolveTradeRestriction", () => {
 });
 
 describe("tradeSuspensionMessage", () => {
-  it("거래 제한과 사유를 한국어 안내문으로 표시한다", () => {
+  it("기간 거래 제한은 만료 시각과 사유를 한국어 안내문으로 표시한다", () => {
     const message = tradeSuspensionMessage({
       reason: "비정상 거래 조사",
       expiresAt: "2026-08-23T00:00:00.000Z",
@@ -109,5 +109,17 @@ describe("tradeSuspensionMessage", () => {
     expect(message).toContain("거래 이용");
     expect(message).toContain("비정상 거래 조사");
     expect(message).toContain("2026");
+    expect(message).not.toContain("영구");
+  });
+
+  it("영구 거래 제한은 만료 날짜 대신 영구임을 명시한다", () => {
+    const message = tradeSuspensionMessage({
+      reason: "거래 악용",
+      expiresAt: "9999-12-31T00:00:00.000Z",
+      permanent: true,
+    });
+
+    expect(message).toContain("영구");
+    expect(message).toContain("거래 악용");
   });
 });

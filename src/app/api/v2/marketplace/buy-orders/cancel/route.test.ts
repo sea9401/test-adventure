@@ -8,6 +8,19 @@ const mocks = vi.hoisted(() => ({
   requireTradeParticipants: vi.fn(async () => {
     throw new Error("strict trade guard must not run for cancellation");
   }),
+  lockTradeParticipantStatuses: vi.fn(async () =>
+    new Map([
+      [
+        "restricted-buyer",
+        {
+          source: "trade",
+          reason: "조사",
+          expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+          permanent: false,
+        },
+      ],
+    ]),
+  ),
 }));
 
 let selectedOrder: typeof marketplaceBuyOrdersV2.$inferSelect | undefined;
@@ -40,9 +53,13 @@ vi.mock("@/lib/server/economyLog", () => ({
 }));
 vi.mock("@/lib/server/tradeSuspension", () => ({
   requireTradeParticipants: mocks.requireTradeParticipants,
+  lockTradeParticipantStatuses: mocks.lockTradeParticipantStatuses,
 }));
 
-import { requireTradeParticipants } from "@/lib/server/tradeSuspension";
+import {
+  lockTradeParticipantStatuses,
+  requireTradeParticipants,
+} from "@/lib/server/tradeSuspension";
 import { POST } from "./route";
 
 function activeOrder(
@@ -97,5 +114,13 @@ describe("내 구매 주문 취소", () => {
       }),
     ]);
     expect(requireTradeParticipants).not.toHaveBeenCalled();
+    expect(lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      tx,
+      ["restricted-buyer"],
+      expect.any(Date),
+    );
+    expect(
+      mocks.lockTradeParticipantStatuses.mock.invocationCallOrder[0],
+    ).toBeLessThan(tx.select.mock.invocationCallOrder[0]);
   });
 });

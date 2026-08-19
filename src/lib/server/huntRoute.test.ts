@@ -10,12 +10,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyStochasticPercentBonus } from "@/lib/percentBonus";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
 // vi.mock 팩토리는 호이스팅되므로 공유 스토어는 vi.hoisted 로.
 const {
   deferLongBattleReplays,
   insertTargets,
   rewardReferralTutorialTasks,
+  recordCodexMasteryGameplayBatch,
   store,
 } = vi.hoisted(() => ({
   deferLongBattleReplays: vi.fn(
@@ -28,6 +30,14 @@ const {
     newlyCompletedTaskIds: [] as string[],
     completedTaskIds: [] as string[],
   })),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
   store: new Map<string, unknown>(),
 }));
 
@@ -42,6 +52,9 @@ vi.mock("@/lib/server/serverFeed", () => ({
   resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
 vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
+}));
 vi.mock("@/lib/server/battleReplayStore", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/server/battleReplayStore")>()),
   deferLongBattleReplays,
@@ -208,6 +221,26 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       monsters: Record<string, { kills?: number }>;
     };
     expect(log.monsters[json.result.enemyName]?.kills).toBe(1);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [
+        {
+          category: "monster",
+          entryId: "박쥐",
+          amount: 1,
+          source: "hunt.victory",
+        },
+        {
+          category: "job",
+          entryId: "warrior",
+          amount: 1,
+          source: "job.victory",
+        },
+      ],
+      expect.any(Date),
+    );
   });
 
   it("활성 음식의 사냥 경험치 버프를 캐릭터 EXP에 적용한다", async () => {
@@ -417,6 +450,23 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       deferLongBattleReplays.mock.calls[0]?.[2] as unknown[],
     ).toHaveLength(5);
     expect(insertTargets).not.toContain(battleReplays);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    const masteryEvents = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2];
+    expect(masteryEvents).toHaveLength(10);
+    expect(masteryEvents).toEqual(Array.from({ length: 5 }, () => [
+      {
+        category: "monster",
+        entryId: "박쥐",
+        amount: 1,
+        source: "hunt.victory",
+      },
+      {
+        category: "job",
+        entryId: "warrior",
+        amount: 1,
+        source: "job.victory",
+      },
+    ]).flat());
 
     // 판간 이월 — 매 판 stamina 1 차감을 다음 판이 재read. 5판 후 5000-5=4995.
     const char = store.get("character.v2") as {

@@ -14,6 +14,7 @@ import {
   type CodexMasterySummaryState,
 } from "./codexMasteryRepository";
 import {
+  CodexMasteryRecordError,
   createCodexMasteryRecorder,
   type CodexMasteryRecordInput,
 } from "./codexMasteryService";
@@ -170,6 +171,34 @@ describe("recordCodexMastery", () => {
     expect(store.lockCalls).toBe(0);
   });
 
+  it("classifies invalid caller mutation before locking", async () => {
+    // Break caught: malformed caller input creates a locked row before returning a typed error.
+    const store = memoryCodexMasteryStore();
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    await expect(recorder.record({
+      ...validInput(),
+      mutation: { amount: -1 },
+    }, ENABLED, new Date())).rejects.toMatchObject({ code: "invalid_mutation" });
+    expect(store.lockCalls).toBe(0);
+  });
+
+  it("does not convert a locked progress identity mismatch into caller input error", async () => {
+    // Break caught: corrupt or mismatched stored state is mislabeled as an invalid caller mutation.
+    const store = memoryCodexMasteryStore({
+      progress: emptyCodexMasteryProgress("fish", "fish:wrong-entry"),
+    });
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    const error = await recorder.record(validInput(), ENABLED, new Date())
+      .catch((reason: unknown) => reason);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(CodexMasteryRecordError);
+    expect(error).toMatchObject({ message: "progress does not match definition" });
+    expect(store.saveCalls).toBe(0);
+  });
+
   it("does not write when a repeated event adds no progress", async () => {
     // Break caught: idempotent events issue unnecessary writes after no state changes.
     const store = memoryCodexMasteryStore();
@@ -186,16 +215,51 @@ describe("recordCodexMastery", () => {
     expect(store.saveCalls).toBe(0);
   });
 
-  it("rejects summary overflow before saving", async () => {
-    // Break caught: an overflowing summary is persisted after a valid entry transition.
+  it.each([
+    {
+      name: "total score",
+      mutation: { amount: 1 },
+      overflow: (summary: CodexMasterySummaryState) => {
+        summary.totalScoreMilli = Number.MAX_SAFE_INTEGER;
+      },
+    },
+    {
+      name: "matching category score",
+      mutation: { amount: 1 },
+      overflow: (summary: CodexMasterySummaryState) => {
+        summary.categoryScoreMilli.fish = Number.MAX_SAFE_INTEGER;
+      },
+    },
+    {
+      name: "seal count",
+      mutation: { amount: 0, sealIds: ["giant"] },
+      overflow: (summary: CodexMasterySummaryState) => {
+        summary.sealCount = Number.MAX_SAFE_INTEGER;
+      },
+    },
+    ...([
+      ["bronze", 5],
+      ["silver", 30],
+      ["gold", 150],
+      ["platinum", 500],
+      ["diamond", 1_500],
+      ["legendary", 5_000],
+    ] as const).map(([stage, amount]) => ({
+      name: `${stage} stage count`,
+      mutation: { amount },
+      overflow: (summary: CodexMasterySummaryState) => {
+        summary.stageCounts[stage] = Number.MAX_SAFE_INTEGER;
+      },
+    })),
+  ])("rejects $name overflow before saving", async ({ mutation, overflow }) => {
+    // Break caught: any summary aggregate can overflow and still reach persistence.
     const summary = emptyCodexMasterySummary();
-    summary.totalScoreMilli = Number.MAX_SAFE_INTEGER;
+    overflow(summary);
     const store = memoryCodexMasteryStore({ summary });
     const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
 
-    await expect(recorder.record(validInput(), ENABLED, new Date())).rejects.toMatchObject({
-      code: "invalid_mutation",
-    });
+    await expect(recorder.record({ ...validInput(), mutation }, ENABLED, new Date()))
+      .rejects.toMatchObject({ code: "invalid_mutation" });
     expect(store.saveCalls).toBe(0);
   });
 });

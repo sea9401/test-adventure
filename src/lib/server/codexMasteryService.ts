@@ -54,12 +54,24 @@ function invalidMutation(message: string): CodexMasteryRecordError {
   return new CodexMasteryRecordError("invalid_mutation", message);
 }
 
-function validateRequestedSeals(
+function validateCallerMutation(
   mutation: CodexMasteryMutation,
   seals: Readonly<Record<string, unknown>>,
 ): void {
   if (!mutation || typeof mutation !== "object") {
     throw invalidMutation("mutation is required");
+  }
+  if (!Number.isSafeInteger(mutation.amount) || mutation.amount < 0) {
+    throw invalidMutation("amount must be a non-negative safe integer");
+  }
+  if (mutation.discovered !== undefined && typeof mutation.discovered !== "boolean") {
+    throw invalidMutation("discovered must be a boolean");
+  }
+  if (
+    mutation.bestValue !== undefined &&
+    (!Number.isFinite(mutation.bestValue) || mutation.bestValue < 0)
+  ) {
+    throw invalidMutation("bestValue must be finite and non-negative");
   }
   if (mutation.sealIds !== undefined && !Array.isArray(mutation.sealIds)) {
     throw invalidMutation("sealIds must be an array");
@@ -166,7 +178,7 @@ export function createCodexMasteryRecorder(
       if (typeof input.source !== "string" || !SERVER_SOURCE_ID.test(input.source)) {
         throw new CodexMasteryRecordError("invalid_source", "source must be server-owned");
       }
-      validateRequestedSeals(input.mutation, entry.seals);
+      validateCallerMutation(input.mutation, entry.seals);
 
       const locked = await store.lock({
         userId: input.userId,
@@ -177,13 +189,7 @@ export function createCodexMasteryRecorder(
         ? input.mutation
         : { ...input.mutation, sealIds: [] };
 
-      let transition: ReturnType<typeof applyCodexMasteryMutation>;
-      try {
-        transition = applyCodexMasteryMutation(entry, locked.progress, mutation, now);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "mutation is invalid";
-        throw invalidMutation(message);
-      }
+      const transition = applyCodexMasteryMutation(entry, locked.progress, mutation, now);
 
       if (unchangedProgress(locked.progress, transition.next)) {
         return { recorded: false, reason: "unchanged" };

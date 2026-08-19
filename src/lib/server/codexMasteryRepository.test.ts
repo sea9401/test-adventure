@@ -173,19 +173,38 @@ describe("codex mastery repository", () => {
       currentTier: "silver",
       sealIds: [],
       tierAchievedAt: {
-        discovered: "2026-08-18T00:00:00Z",
-        bronze: "2026-08-19T09:00:00+09:00",
-        silver: "not-an-iso-timestamp",
+        discovered: "0001-01-01T00:00:00Z",
+        bronze: "2026-08-20T00:00:00,123Z",
+        silver: "2026-02-30T00:00:00Z",
         gold: "2026-08-21T00:00:00.000Z",
       },
       scoreMilli: 5_000,
     })).toMatchObject({
       currentTier: "silver",
       tierAchievedAt: {
-        discovered: "2026-08-18T00:00:00Z",
-        bronze: "2026-08-19T09:00:00+09:00",
+        discovered: "0001-01-01T00:00:00Z",
+        bronze: "2026-08-20T00:00:00,123Z",
       },
     });
+  });
+
+  it("rejects rolled-over ISO calendar dates, times, and offsets", () => {
+    // Break caught: JavaScript date rollover accepts malformed persisted timestamps.
+    expect(codexMasteryRowToProgress({
+      category: "fish",
+      entryId: "fish:a",
+      count: 4,
+      bestValue: 9.5,
+      currentTier: "legendary",
+      sealIds: [],
+      tierAchievedAt: {
+        discovered: "2026-02-30T00:00:00Z",
+        bronze: "2026-08-20T24:00:00Z",
+        silver: "2026-08-20T00:00:00+24:00",
+        gold: "2026-08-20T00:00:00-12:60",
+      },
+      scoreMilli: 5_000,
+    }).tierAchievedAt).toEqual({});
   });
 
   it("ensures and locks the user summary before the entry row", async () => {

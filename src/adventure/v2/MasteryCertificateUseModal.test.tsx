@@ -33,6 +33,31 @@ describe("MasteryCertificateUseModal", () => {
     expect(html).toContain("전사");
   });
 
+  it("변이자 직군 탭을 내부 키 대신 한글로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <MasteryCertificateUseModal
+        open
+        initialStatus={{
+          certificates: 1,
+          jobs: [
+            {
+              id: "beastkin",
+              name: "수인",
+              tier: 2,
+              group: "mutant",
+              mastery: 0,
+            },
+          ],
+        }}
+        onClose={vi.fn()}
+        onUsed={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("<span>변이자</span>");
+    expect(html).not.toContain("<span>mutant</span>");
+  });
+
   it("닫힌 상태에서는 아무것도 렌더하지 않는다", () => {
     expect(
       renderToStaticMarkup(

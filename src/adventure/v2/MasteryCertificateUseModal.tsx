@@ -27,6 +27,7 @@ const JOB_GROUP_LABELS: Record<string, string> = {
   mage: "마법사",
   rogue: "도적",
   survivor: "생존자",
+  mutant: "변이자",
 };
 
 export function masteryCertificateErrorLabel(error: string | undefined): string {

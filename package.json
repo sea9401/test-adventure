@@ -40,6 +40,7 @@
     "coin:grant-review": "node scripts/grant-review-museun-coins.mjs",
     "codex-mastery:repair": "tsx scripts/repair-codex-mastery-summary.ts",
     "codex-mastery:budget": "tsx scripts/report-codex-mastery-budget.ts",
+    "codex-mastery:backfill": "tsx scripts/backfill-codex-mastery.ts",
     "db:reset-game-progress": "node scripts/reset-game-progress.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node src/db/migrate.mjs",

@@ -290,7 +290,11 @@ export function V2StormExpeditionView() {
   const [selectedMode, setSelectedMode] = useState<StormExpeditionMode>("normal");
   const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
-  const [autoPlan, setAutoPlan] = useState<StormExpeditionAutoplayPlan>(DEFAULT_AUTOPLAY_PLAN);
+  const [autoPlan, setAutoPlan] = useState<StormExpeditionAutoplayPlan>(() =>
+    typeof window === "undefined"
+      ? DEFAULT_AUTOPLAY_PLAN
+      : loadStormExpeditionAutoplayDefaults(window.localStorage) ?? DEFAULT_AUTOPLAY_PLAN
+  );
   const [resumePlan, setResumePlan] = useState<StormExpeditionAutoplayPlan | null>(null);
   const [autoplay, setAutoplay] = useState<StormExpeditionAutoplayDisplay>({ kind: "idle" });
   const [autoplayResult, setAutoplayResult] = useState<StormExpeditionAutoplayResultModel | null>(null);
@@ -307,6 +311,20 @@ export function V2StormExpeditionView() {
       const json = await response.json().catch(() => null) as ExpeditionStatus | null;
       if (!json?.ok) throw new Error(json?.error ?? `http ${response.status}`);
       setStatus(json);
+      if (!storageInitializedRef.current) {
+        storageInitializedRef.current = true;
+        const activeRun = json.state?.active;
+        if (!activeRun) {
+          clearStormExpeditionAutoplayPlan(window.localStorage);
+        } else {
+          const storedPlan = loadStormExpeditionResumePlan(window.localStorage, activeRun.visitedNodeIds);
+          if (storedPlan) {
+            setAutoPlan(storedPlan);
+            setResumePlan(storedPlan);
+            setAutoplay({ kind: "resume" });
+          }
+        }
+      }
     } catch {
       setLoadError(true);
     } finally {
@@ -318,23 +336,6 @@ export function V2StormExpeditionView() {
     const timer = window.setTimeout(() => void refresh(), 0);
     return () => window.clearTimeout(timer);
   }, [refresh]);
-
-  useEffect(() => {
-    if (!status || storageInitializedRef.current) return;
-    storageInitializedRef.current = true;
-    const defaults = loadStormExpeditionAutoplayDefaults(window.localStorage);
-    if (defaults) setAutoPlan(defaults);
-    const activeRun = status.state?.active;
-    if (!activeRun) {
-      clearStormExpeditionAutoplayPlan(window.localStorage);
-      return;
-    }
-    const storedPlan = loadStormExpeditionResumePlan(window.localStorage, activeRun.visitedNodeIds);
-    if (!storedPlan) return;
-    setAutoPlan(storedPlan);
-    setResumePlan(storedPlan);
-    setAutoplay({ kind: "resume" });
-  }, [status]);
 
   const requestAction = useCallback(async (
     request: StormExpeditionActionRequest,

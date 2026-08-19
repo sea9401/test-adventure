@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import {
   recordEconomyEventSoon,
   recordRewardFailureSoon,
@@ -140,6 +141,17 @@ export async function POST(req: Request) {
       ...inventory,
       [MASTERY_CERTIFICATE_KEY]: remaining,
     });
+    await recordCodexMasteryGameplayBatch(
+      tx,
+      userId,
+      [{
+        category: "job",
+        entryId: job.id,
+        amount,
+        source: "job.consumable",
+      }],
+      new Date(),
+    );
 
     return {
       status: 200,

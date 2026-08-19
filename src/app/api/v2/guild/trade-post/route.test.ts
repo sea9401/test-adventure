@@ -20,6 +20,7 @@ const tradeMocks = vi.hoisted(() => {
         new Map(
           userIds.map((userId) => [
             userId,
+            (state.actorRestricted && userId === "u-trader") ||
             state.restrictedRecipients.has(userId)
               ? {
                   source: "trade" as const,
@@ -49,6 +50,7 @@ const tx = {
 
 vi.mock("@/db", () => ({
   db: {
+    select: (fields?: Record<string, unknown>) => tx.select(fields),
     transaction: vi.fn(async (callback: (value: typeof tx) => unknown) => callback(tx)),
   },
 }));
@@ -57,6 +59,7 @@ vi.mock("@/lib/server/ensureUser", () => ({
 }));
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => 7),
+  getGuildIdByUser: vi.fn(async () => 7),
 }));
 vi.mock("@/lib/server/settlementBuildingAccess", () => ({
   buildingLevelFromSlots: vi.fn(
@@ -212,9 +215,17 @@ beforeEach(() => {
 
 describe("길드 교역소", () => {
   it.each([
-    ["납품", { action: "deliver", contractId: CONTRACT_ID, batches: 1 }],
-    ["구매", { action: "buy", shopItemId: "refined_iron" }],
-  ])("거래 정지 actor의 %s를 길드·자산 잠금 전에 차단한다", async (_label, body) => {
+    [
+      "납품",
+      { action: "deliver", contractId: CONTRACT_ID, batches: 1 },
+      ["u-trader"],
+    ],
+    [
+      "구매",
+      { action: "buy", shopItemId: "refined_iron" },
+      ["u-member", "u-trader"],
+    ],
+  ])("거래 정지 actor의 %s를 길드·자산 잠금 전에 차단한다", async (_label, body, participantIds) => {
     tradeMocks.state.actorRestricted = true;
 
     const response = await POST(request(body));
@@ -223,9 +234,9 @@ describe("길드 교역소", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: "trade_suspended",
     });
-    expect(tradeMocks.requireTradeParticipants).toHaveBeenCalledWith(
+    expect(tradeMocks.lockTradeParticipantStatuses).toHaveBeenCalledWith(
       tx,
-      ["u-trader"],
+      participantIds,
       expect.any(Date),
     );
     expect(getGuildId).not.toHaveBeenCalled();
@@ -274,6 +285,54 @@ describe("길드 교역소", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it("역순 멤버 ID도 actor와 함께 잠근 뒤 weekly와 모든 save를 잠근다", async () => {
+    mockRecipientIds = ["u-z-member", "u-trader", "u-a-member"];
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === GUILD_TRADE_USER_SAVE_KEY) return userState();
+      if (key === "character.v2") return { materials: {} };
+      return {};
+    });
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "refined_iron" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(tradeMocks.lockTradeParticipantStatuses).toHaveBeenCalledTimes(1);
+    expect(tradeMocks.lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      tx,
+      ["u-a-member", "u-trader", "u-z-member"],
+      expect.any(Date),
+    );
+    expect(
+      tradeMocks.lockTradeParticipantStatuses.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(lockGuildTradeWeekly).mock.invocationCallOrder[0],
+    );
+    expect(
+      tradeMocks.lockTradeParticipantStatuses.mock.invocationCallOrder[0],
+    ).toBeLessThan(vi.mocked(lockSaveForUpdate).mock.invocationCallOrder[0]);
+  });
+
+  it("지급 대상 길드원이 모두 거래 정지면 토큰과 grant 자산을 잠그지 않는다", async () => {
+    mockRecipientIds = ["u-z-member", "u-a-member"];
+    tradeMocks.state.restrictedRecipients.add("u-a-member");
+    tradeMocks.state.restrictedRecipients.add("u-z-member");
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "refined_iron" }),
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("no_recipients");
+    expect(lockGuildTradeWeekly).not.toHaveBeenCalled();
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(saveGuildTradeWeekly).not.toHaveBeenCalled();
   });
 
   it("조회한 길드원에게 개인 잔고가 아닌 길드 공동 토큰을 보여준다", async () => {

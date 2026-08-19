@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { CodexMasteryStage } from "@/adventure/data/v2/codexMasteryTypes";
 import {
   pgTable,
   text,
@@ -2503,5 +2504,115 @@ export const adminAuditLog = pgTable(
     index("admin_audit_log_admin_created_idx").on(t.adminEmail, sql`${t.id} DESC`),
     index("admin_audit_log_action_created_idx").on(t.action, sql`${t.id} DESC`),
     index("admin_audit_log_target_created_idx").on(t.targetUserId, sql`${t.id} DESC`),
+  ],
+);
+
+// 도감 숙련도 항목별 진행 — 사용자/분야/항목 복합키로 한 항목의 단조 진행을 보관한다.
+export const codexMasteryProgress = pgTable(
+  "codex_mastery_progress",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    entryId: text("entry_id").notNull(),
+    count: bigint("count", { mode: "number" }).notNull().default(0),
+    bestValue: doublePrecision("best_value"),
+    currentTier: text("current_tier").notNull().default("none"),
+    sealIds: jsonb("seal_ids").$type<string[]>().notNull().default([]),
+    tierAchievedAt: jsonb("tier_achieved_at")
+      .$type<Partial<Record<CodexMasteryStage, string>>>()
+      .notNull()
+      .default({}),
+    scoreMilli: bigint("score_milli", { mode: "number" }).notNull().default(0),
+    firstRecordedAt: timestamp("first_recorded_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.category, t.entryId] }),
+    index("codex_mastery_progress_user_category_tier_idx").on(
+      t.userId,
+      t.category,
+      t.currentTier,
+    ),
+    check("codex_mastery_progress_count_nonnegative", sql`${t.count} >= 0`),
+    check("codex_mastery_progress_score_nonnegative", sql`${t.scoreMilli} >= 0`),
+  ],
+);
+
+// 도감 숙련도 요약 — 공개 랭킹과 사용자별 총점 조회를 위한 사용자당 한 행이다.
+export const codexMasterySummary = pgTable(
+  "codex_mastery_summary",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    totalScoreMilli: bigint("total_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    equipmentScoreMilli: bigint("equipment_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    fishScoreMilli: bigint("fish_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    monsterScoreMilli: bigint("monster_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    cookingScoreMilli: bigint("cooking_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    lifeScoreMilli: bigint("life_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    jobScoreMilli: bigint("job_score_milli", { mode: "number" })
+      .notNull()
+      .default(0),
+    bronzeCount: integer("bronze_count").notNull().default(0),
+    silverCount: integer("silver_count").notNull().default(0),
+    goldCount: integer("gold_count").notNull().default(0),
+    platinumCount: integer("platinum_count").notNull().default(0),
+    diamondCount: integer("diamond_count").notNull().default(0),
+    legendaryCount: integer("legendary_count").notNull().default(0),
+    sealCount: integer("seal_count").notNull().default(0),
+    scoreReachedAt: timestamp("score_reached_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("codex_mastery_summary_total_score_rank_idx").on(
+      sql`${t.totalScoreMilli} DESC`,
+      sql`${t.scoreReachedAt} DESC`,
+      t.userId,
+    ),
+    index("codex_mastery_summary_equipment_score_rank_idx").on(
+      sql`${t.equipmentScoreMilli} DESC`,
+      sql`${t.scoreReachedAt} DESC`,
+      t.userId,
+    ),
+    index("codex_mastery_summary_fish_score_rank_idx").on(
+      sql`${t.fishScoreMilli} DESC`,
+      sql`${t.scoreReachedAt} DESC`,
+      t.userId,
+    ),
+    index("codex_mastery_summary_monster_score_rank_idx").on(
+      sql`${t.monsterScoreMilli} DESC`,
+      sql`${t.scoreReachedAt} DESC`,
+      t.userId,
+    ),
+    index("codex_mastery_summary_cooking_score_rank_idx").on(
+      sql`${t.cookingScoreMilli} DESC`,
+      sql`${t.scoreReachedAt} DESC`,
+      t.userId,
+    ),
+    index("codex_mastery_summary_life_score_rank_idx").on(
+      sql`${t.lifeScoreMilli} DESC`,
+      sql`${t.scoreReachedAt} DESC`,
+      t.userId,
+    ),
+    index("codex_mastery_summary_job_score_rank_idx").on(
+      sql`${t.jobScoreMilli} DESC`,
+      sql`${t.scoreReachedAt} DESC`,
+      t.userId,
+    ),
   ],
 );

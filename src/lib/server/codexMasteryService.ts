@@ -22,12 +22,12 @@ import {
 import type { DbTransactionExecutor } from "./savesKv";
 
 export const CODEX_MASTERY_SOURCES = {
-  equipment: ["equipment.drop", "equipment.craft"],
-  fish: ["fishing.catch"],
-  monster: ["hunt.victory"],
-  cooking: ["cooking.complete"],
-  life: ["life.complete"],
-  job: ["job.victory"],
+  equipment: ["equipment.drop", "equipment.craft", "codex.backfill.v1"],
+  fish: ["fishing.catch", "codex.backfill.v1"],
+  monster: ["hunt.victory", "codex.backfill.v1"],
+  cooking: ["cooking.complete", "codex.backfill.v1"],
+  life: ["life.complete", "codex.backfill.v1"],
+  job: ["job.victory", "codex.backfill.v1"],
 } as const satisfies Record<CodexMasteryCategory, readonly string[]>;
 
 export type CodexMasterySourceForCategory<
@@ -46,6 +46,25 @@ type CodexMasteryRecordInputForCategory<
 
 export type CodexMasteryRecordInput = {
   [Category in CodexMasteryCategory]: CodexMasteryRecordInputForCategory<Category>;
+}[CodexMasteryCategory];
+
+type CodexMasteryTargetInputForCategory<
+  Category extends CodexMasteryCategory,
+> = {
+  userId: string;
+  category: Category;
+  entryId: string;
+  target: {
+    count: number;
+    discovered?: boolean;
+    bestValue?: number;
+    sealIds?: readonly string[];
+  };
+  source: CodexMasterySourceForCategory<Category>;
+};
+
+export type CodexMasteryTargetInput = {
+  [Category in CodexMasteryCategory]: CodexMasteryTargetInputForCategory<Category>;
 }[CodexMasteryCategory];
 
 export type CodexMasteryRecordingSettings = {
@@ -286,17 +305,79 @@ function nextSummaryFromTransition(
 export function createCodexMasteryRecorder(
   store: CodexMasteryStore,
   catalog: CodexMasteryCatalog,
-): { record(
-  input: CodexMasteryRecordInput,
-  settings: CodexMasteryRecordingSettings,
-  now?: Date,
-): Promise<CodexMasteryRecordResult> } {
+): {
+  record(
+    input: CodexMasteryRecordInput,
+    settings: CodexMasteryRecordingSettings,
+    now?: Date,
+  ): Promise<CodexMasteryRecordResult>;
+  syncTarget(
+    input: CodexMasteryTargetInput,
+    settings: CodexMasteryRecordingSettings,
+    now?: Date,
+  ): Promise<CodexMasteryRecordResult>;
+} {
+  const applyLockedMutation = async (
+    input: Pick<CodexMasteryRecordInput, "userId" | "category" | "entryId" | "source">,
+    mutationForLockedProgress: (progress: CodexMasteryProgress) => CodexMasteryMutation,
+    settings: CodexMasteryRecordingSettings,
+    now: Date,
+  ): Promise<CodexMasteryRecordResult> => {
+    if (!settings.recordingEnabled) {
+      return { recorded: false, reason: "disabled" };
+    }
+
+    const entry = catalog.get(input.category, input.entryId);
+    if (!entry) {
+      throw new CodexMasteryRecordError("unknown_entry", "codex mastery entry is unknown");
+    }
+    if (!isCodexMasterySourceForCategory(input.category, input.source)) {
+      throw new CodexMasteryRecordError("invalid_source", "source must be server-owned");
+    }
+
+    const locked = await store.lock({
+      userId: input.userId,
+      category: input.category,
+      entryId: input.entryId,
+    }, now);
+    assertLockedProgressMatchesDefinition(entry, locked.progress);
+    const requestedMutation = mutationForLockedProgress(locked.progress);
+    validateCallerMutation(requestedMutation, entry.seals);
+    const mutation = settings.sealsEnabled
+      ? requestedMutation
+      : { ...requestedMutation, sealIds: [] };
+
+    const transition = applyCodexMasteryMutation(entry, locked.progress, mutation, now);
+
+    if (unchangedProgress(locked.progress, transition.next)) {
+      return { recorded: false, reason: "unchanged" };
+    }
+
+    const summary = nextSummaryFromTransition(
+      locked.summary,
+      input.category,
+      transition,
+      now,
+    );
+    await store.save({
+      userId: input.userId,
+      summary,
+      progress: transition.next,
+    }, now);
+    return {
+      recorded: true,
+      progress: transition.next,
+      newStages: transition.newStages,
+      newSealIds: transition.newSealIds,
+      scoreDeltaMilli: transition.scoreDeltaMilli,
+    };
+  };
+
   return {
     async record(input, settings, now = new Date()) {
       if (!settings.recordingEnabled) {
         return { recorded: false, reason: "disabled" };
       }
-
       const entry = catalog.get(input.category, input.entryId);
       if (!entry) {
         throw new CodexMasteryRecordError("unknown_entry", "codex mastery entry is unknown");
@@ -305,41 +386,36 @@ export function createCodexMasteryRecorder(
         throw new CodexMasteryRecordError("invalid_source", "source must be server-owned");
       }
       validateCallerMutation(input.mutation, entry.seals);
-
-      const locked = await store.lock({
-        userId: input.userId,
-        category: input.category,
-        entryId: input.entryId,
-      }, now);
-      assertLockedProgressMatchesDefinition(entry, locked.progress);
-      const mutation = settings.sealsEnabled
-        ? input.mutation
-        : { ...input.mutation, sealIds: [] };
-
-      const transition = applyCodexMasteryMutation(entry, locked.progress, mutation, now);
-
-      if (unchangedProgress(locked.progress, transition.next)) {
-        return { recorded: false, reason: "unchanged" };
+      return applyLockedMutation(input, () => input.mutation, settings, now);
+    },
+    async syncTarget(input, settings, now = new Date()) {
+      if (!settings.recordingEnabled) {
+        return { recorded: false, reason: "disabled" };
       }
-
-      const summary = nextSummaryFromTransition(
-        locked.summary,
-        input.category,
-        transition,
-        now,
-      );
-      await store.save({
-        userId: input.userId,
-        summary,
-        progress: transition.next,
-      }, now);
-      return {
-        recorded: true,
-        progress: transition.next,
-        newStages: transition.newStages,
-        newSealIds: transition.newSealIds,
-        scoreDeltaMilli: transition.scoreDeltaMilli,
+      if (!input.target || typeof input.target !== "object") {
+        throw invalidMutation("target is required");
+      }
+      if (!Number.isSafeInteger(input.target.count) || input.target.count < 0) {
+        throw invalidMutation("target count must be a non-negative safe integer");
+      }
+      const targetMutation: CodexMasteryMutation = {
+        amount: 0,
+        discovered: input.target.discovered,
+        bestValue: input.target.bestValue,
+        sealIds: input.target.sealIds,
       };
+      const entry = catalog.get(input.category, input.entryId);
+      if (!entry) {
+        throw new CodexMasteryRecordError("unknown_entry", "codex mastery entry is unknown");
+      }
+      if (!isCodexMasterySourceForCategory(input.category, input.source)) {
+        throw new CodexMasteryRecordError("invalid_source", "source must be server-owned");
+      }
+      validateCallerMutation(targetMutation, entry.seals);
+      return applyLockedMutation(input, (progress) => ({
+        ...targetMutation,
+        amount: Math.max(0, input.target.count - progress.count),
+      }), settings, now);
     },
   };
 }
@@ -353,4 +429,15 @@ export async function recordCodexMastery(
 ): Promise<CodexMasteryRecordResult> {
   const store = createDrizzleCodexMasteryStore(executor);
   return createCodexMasteryRecorder(store, catalog).record(input, settings, now);
+}
+
+export async function syncCodexMasteryTarget(
+  executor: DbTransactionExecutor,
+  catalog: CodexMasteryCatalog,
+  input: CodexMasteryTargetInput,
+  settings: CodexMasteryRecordingSettings,
+  now = new Date(),
+): Promise<CodexMasteryRecordResult> {
+  const store = createDrizzleCodexMasteryStore(executor);
+  return createCodexMasteryRecorder(store, catalog).syncTarget(input, settings, now);
 }

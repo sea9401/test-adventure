@@ -19,6 +19,7 @@ import {
   type CodexMasterySourceForCategory,
   createCodexMasteryRecorder,
   type CodexMasteryRecordInput,
+  type CodexMasteryTargetInput,
 } from "./codexMasteryService";
 
 const TEST_ENTRY: CodexMasteryEntryDefinition = {
@@ -105,9 +106,9 @@ function validInput(): CodexMasteryRecordInput {
 describe("recordCodexMastery", () => {
   it("types authoritative sources by their compatible category", () => {
     expectTypeOf<CodexMasterySourceForCategory<"fish">>()
-      .toEqualTypeOf<"fishing.catch">();
+      .toEqualTypeOf<"fishing.catch" | "codex.backfill.v1">();
     expectTypeOf<CodexMasterySourceForCategory<"equipment">>()
-      .toEqualTypeOf<"equipment.drop" | "equipment.craft">();
+      .toEqualTypeOf<"equipment.drop" | "equipment.craft" | "codex.backfill.v1">();
     expectTypeOf<"hunt.victory">().not
       .toMatchTypeOf<CodexMasterySourceForCategory<"fish">>();
   });
@@ -384,6 +385,92 @@ describe("recordCodexMastery", () => {
 
     expect(result).toEqual({ recorded: false, reason: "unchanged" });
     expect(store.saveCalls).toBe(0);
+  });
+
+  it("syncs an absolute backfill target from the locked count exactly once", async () => {
+    // Break caught: a backfill adds its historical total on top of progress recorded before apply.
+    const store = memoryCodexMasteryStore({
+      progress: {
+        ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+        count: 5,
+        bestValue: 40,
+        currentTier: "bronze",
+        scoreMilli: 2_000,
+        tierAchievedAt: {},
+      },
+    });
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+    const input: CodexMasteryTargetInput = {
+      userId: "user-1",
+      category: "fish",
+      entryId: TEST_ENTRY.entryId,
+      target: { count: 30, discovered: true, bestValue: 80 },
+      source: "codex.backfill.v1",
+    };
+
+    await expect(recorder.syncTarget(input, ENABLED, new Date(
+      "2026-08-20T00:00:00.000Z",
+    ))).resolves.toMatchObject({
+      recorded: true,
+      newStages: ["silver"],
+      scoreDeltaMilli: 2_000,
+      progress: { count: 30, bestValue: 80, currentTier: "silver" },
+    });
+
+    store.saveCalls = 0;
+    await expect(recorder.syncTarget(input, ENABLED, new Date(
+      "2026-08-21T00:00:00.000Z",
+    ))).resolves.toEqual({ recorded: false, reason: "unchanged" });
+    expect(store.saveCalls).toBe(0);
+  });
+
+  it("never lowers an existing count or best value when a target is older", async () => {
+    // Break caught: stale legacy data overwrites progress earned after recording was enabled.
+    const store = memoryCodexMasteryStore({
+      progress: {
+        ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+        count: 30,
+        bestValue: 100,
+        currentTier: "silver",
+        scoreMilli: 4_000,
+        tierAchievedAt: {},
+      },
+    });
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    await expect(recorder.syncTarget({
+      userId: "user-1",
+      category: "fish",
+      entryId: TEST_ENTRY.entryId,
+      target: { count: 5, bestValue: 80 },
+      source: "codex.backfill.v1",
+    }, ENABLED, new Date())).resolves.toEqual({ recorded: false, reason: "unchanged" });
+    expect(store.progress).toMatchObject({ count: 30, bestValue: 100 });
+    expect(store.saveCalls).toBe(0);
+  });
+
+  it("validates absolute targets and disabled state before locking", async () => {
+    // Break caught: malformed or disabled backfill targets create persistence rows.
+    const store = memoryCodexMasteryStore();
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+    const invalid = {
+      userId: "user-1",
+      category: "fish",
+      entryId: TEST_ENTRY.entryId,
+      target: { count: -1 },
+      source: "codex.backfill.v1",
+    } as CodexMasteryTargetInput;
+
+    await expect(recorder.syncTarget(invalid, ENABLED, new Date()))
+      .rejects.toMatchObject({ code: "invalid_mutation" });
+    await expect(recorder.syncTarget({
+      ...invalid,
+      target: { count: 1 },
+    }, { ...ENABLED, recordingEnabled: false }, new Date())).resolves.toEqual({
+      recorded: false,
+      reason: "disabled",
+    });
+    expect(store.lockCalls).toBe(0);
   });
 
   it("increments scored categories only on zero-to-positive crossings", async () => {

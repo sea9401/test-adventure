@@ -72,7 +72,9 @@ function promotionSort(
   left: CodexMasteryPromotionView,
   right: CodexMasteryPromotionView,
 ): number {
-  return right.achievedAt.localeCompare(left.achievedAt) ||
+  const leftTime = Date.parse(left.achievedAt.replace(",", "."));
+  const rightTime = Date.parse(right.achievedAt.replace(",", "."));
+  return rightTime - leftTime ||
     left.key.localeCompare(right.key) ||
     CODEX_MASTERY_STAGES.indexOf(right.stage) -
       CODEX_MASTERY_STAGES.indexOf(left.stage);

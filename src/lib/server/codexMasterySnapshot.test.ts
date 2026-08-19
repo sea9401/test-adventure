@@ -158,6 +158,32 @@ describe("codex mastery view snapshot", () => {
     ]);
   });
 
+  it("sorts promotion instants correctly across ISO timezone offsets", () => {
+    const snapshot = buildCodexMasterySnapshot({
+      summary: emptyCodexMasterySummary(),
+      progressRows: [
+        progress({
+          tierAchievedAt: { silver: "2026-08-10T00:00:00+09:00" },
+        }),
+        progress({
+          category: "job",
+          entryId: "warrior",
+          count: 49,
+          currentTier: "discovered",
+          tierAchievedAt: { discovered: "2026-08-09T16:00:00Z" },
+          bestValue: null,
+          sealIds: [],
+        }),
+      ],
+      pinnedGoals: [],
+      features,
+      catalog,
+    });
+
+    expect(snapshot.recentPromotions.map((promotion) => promotion.key))
+      .toEqual(["job:warrior", "fish:carp"]);
+  });
+
   it("ranks only started non-legendary entries as near goals", () => {
     const snapshot = buildCodexMasterySnapshot({
       summary: emptyCodexMasterySummary(),

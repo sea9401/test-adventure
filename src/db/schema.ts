@@ -59,6 +59,9 @@ export const users = pgTable(
     // ensureUser 가 매 API 호출에서 PK 읽기로 검사 → 차단 시 null 반환(=401).
     bannedUntil: timestamp("banned_until"),
     banReason: text("ban_reason"),
+    // 거래 제재는 계정 제재와 독립적으로 경제 활동만 제한한다.
+    tradeSuspendedUntil: timestamp("trade_suspended_until"),
+    tradeSuspensionReason: text("trade_suspension_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -923,6 +926,10 @@ export const marketplaceListingsV2 = pgTable(
     index("listings_v2_sold_idx")
       .on(t.closedAt)
       .where(sql`${t.status} = 'sold'`),
+    // 활성 최고 입찰의 입찰자별 정리와 잠금 조회.
+    index("listings_v2_active_highest_bidder_idx")
+      .on(t.highestBidderId, t.id)
+      .where(sql`${t.status} = 'active' AND ${t.highestBidderId} IS NOT NULL`),
     check(
       "listings_v2_kind_valid",
       sql`${t.kind} IN ('equip','material','consumable')`,

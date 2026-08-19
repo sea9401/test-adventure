@@ -7,22 +7,44 @@ import {
   requireAdminRole,
 } from "@/lib/server/isAdmin";
 import { logAdminAction } from "@/lib/server/adminAudit";
+import {
+  clearActiveTradeExposure,
+  type TradeExposureCleanupResult,
+} from "@/lib/server/tradeSuspensionCleanup";
 
-// 유저 제재 — 밴/정지/경고 부과 + 해제 + 이력 조회. requireAdmin 게이트.
-//   GET  ?userId=...        → 현재 차단 상태 + 제재 이력
-//   POST { userId, action, reason?, days? }
-//        action: 'ban'(영구) | 'suspend'(기간, days 필수) | 'extend'(기간 연장) | 'warn'(경고) | 'lift'(해제)
-//
-// 차단 enforcement 는 users.bannedUntil 비정규화 필드(ensureUser 가 검사). 이 라우트는
-// 그 필드 + user_sanctions 이력을 함께 갱신한다. 모든 변경은 감사 로그에 기록.
+export const dynamic = "force-dynamic";
 
-// 영구 밴의 bannedUntil 센티넬 — 사실상 무한(Postgres timestamp 범위 내).
+// 영구 밴/거래 정지의 센티넬 — 사실상 무한(Postgres timestamp 범위 내).
 const PERMANENT = new Date("9999-12-31T00:00:00.000Z");
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const ACTIONS = ["ban", "suspend", "extend", "warn", "lift"] as const;
+const TRADE_ACTIONS = ["ban", "suspend", "extend", "lift"] as const;
+const SCOPES = ["account", "trade"] as const;
 type Action = (typeof ACTIONS)[number];
-function isAction(v: unknown): v is Action {
-  return typeof v === "string" && (ACTIONS as readonly string[]).includes(v);
+type Scope = (typeof SCOPES)[number];
+
+function isAction(value: unknown): value is Action {
+  return (
+    typeof value === "string" &&
+    (ACTIONS as readonly string[]).includes(value)
+  );
+}
+
+function isScope(value: unknown): value is Scope {
+  return (
+    typeof value === "string" &&
+    (SCOPES as readonly string[]).includes(value)
+  );
+}
+
+function emptyCleanup(): TradeExposureCleanupResult {
+  return {
+    listingsCancelled: 0,
+    buyOrdersCancelled: 0,
+    highestBidsCleared: 0,
+    refundedGold: 0,
+  };
 }
 
 export async function GET(req: Request) {
@@ -34,12 +56,17 @@ export async function GET(req: Request) {
     return Response.json({ ok: false, error: "missing userId" }, { status: 400 });
   }
 
-  const [u] = await db
-    .select({ bannedUntil: users.bannedUntil, banReason: users.banReason })
+  const [user] = await db
+    .select({
+      bannedUntil: users.bannedUntil,
+      banReason: users.banReason,
+      tradeSuspendedUntil: users.tradeSuspendedUntil,
+      tradeSuspensionReason: users.tradeSuspensionReason,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  if (!u) {
+  if (!user) {
     return Response.json({ ok: false, error: "user not found" }, { status: 404 });
   }
 
@@ -51,13 +78,27 @@ export async function GET(req: Request) {
     .limit(50);
 
   const now = Date.now();
-  const banned = !!(u.bannedUntil && u.bannedUntil.getTime() > now);
+  const banned = !!(user.bannedUntil && user.bannedUntil.getTime() > now);
+  const tradeSuspended = !!(
+    user.tradeSuspendedUntil && user.tradeSuspendedUntil.getTime() > now
+  );
   return Response.json({
     ok: true,
     banned,
-    bannedUntil: u.bannedUntil?.toISOString() ?? null,
-    banReason: u.banReason ?? null,
-    permanent: !!(u.bannedUntil && u.bannedUntil.getTime() >= PERMANENT.getTime()),
+    bannedUntil: user.bannedUntil?.toISOString() ?? null,
+    banReason: user.banReason ?? null,
+    permanent: !!(
+      user.bannedUntil && user.bannedUntil.getTime() >= PERMANENT.getTime()
+    ),
+    trade: {
+      suspended: tradeSuspended,
+      suspendedUntil: user.tradeSuspendedUntil?.toISOString() ?? null,
+      reason: user.tradeSuspensionReason ?? null,
+      permanent: !!(
+        user.tradeSuspendedUntil &&
+        user.tradeSuspendedUntil.getTime() >= PERMANENT.getTime()
+      ),
+    },
     sanctions: history,
   });
 }
@@ -69,6 +110,7 @@ export async function POST(req: Request) {
 
   let body: {
     userId?: unknown;
+    scope?: unknown;
     action?: unknown;
     reason?: unknown;
     adminMemo?: unknown;
@@ -82,6 +124,7 @@ export async function POST(req: Request) {
 
   const userId = typeof body.userId === "string" ? body.userId : "";
   const action = body.action;
+  const scopeValue = body.scope ?? "account";
   const reason = typeof body.reason === "string" ? body.reason.slice(0, 500) : "";
   const adminMemo =
     typeof body.adminMemo === "string" ? body.adminMemo.slice(0, 500) : "";
@@ -93,99 +136,198 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if ((action === "suspend" || action === "extend") && (!Number.isFinite(days) || days <= 0)) {
+  if (!isScope(scopeValue)) {
+    return Response.json(
+      { ok: false, error: "invalid scope", allowed: SCOPES },
+      { status: 400 },
+    );
+  }
+  const scope = scopeValue;
+  if (
+    scope === "trade" &&
+    !(TRADE_ACTIONS as readonly string[]).includes(action)
+  ) {
+    return Response.json(
+      { ok: false, error: "invalid trade action", allowed: TRADE_ACTIONS },
+      { status: 400 },
+    );
+  }
+  if (
+    (action === "suspend" || action === "extend") &&
+    (!Number.isFinite(days) || days <= 0)
+  ) {
     return Response.json(
       { ok: false, error: `${action} requires days > 0` },
       { status: 400 },
     );
   }
-
-  const [target] = await db
-    .select({ id: users.id, gameName: users.gameName })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!target) {
-    return Response.json({ ok: false, error: "user not found" }, { status: 404 });
+  if (scope === "trade" && action !== "lift" && !reason.trim()) {
+    return Response.json(
+      { ok: false, error: "trade sanction requires reason" },
+      { status: 400 },
+    );
   }
 
   const now = new Date();
+  const result = await db.transaction(async (tx) => {
+    // 제재와 모든 거래 정리보다 대상 유저 행을 먼저 잠근다.
+    const [target] = await tx
+      .select({
+        id: users.id,
+        gameName: users.gameName,
+        bannedUntil: users.bannedUntil,
+        tradeSuspendedUntil: users.tradeSuspendedUntil,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for("update")
+      .limit(1);
+    if (!target) return { found: false as const };
 
-  if (action === "lift") {
-    await db
-      .update(users)
-      .set({ bannedUntil: null, banReason: null, updatedAt: now })
-      .where(eq(users.id, userId));
-    // 활성(미해제) 밴/정지 이력을 해제 처리(경고는 건드리지 않음).
-    await db
-      .update(userSanctions)
-      .set({ liftedAt: now, liftedByEmail: adminEmail })
-      .where(
-        and(
-          eq(userSanctions.userId, userId),
-          isNull(userSanctions.liftedAt),
-          inArray(userSanctions.type, ["ban", "suspend"]),
-        ),
-      );
-    await logAdminAction({
-      adminEmail,
-      action: "sanction.lift",
-      targetUserId: userId,
-      detail: { gameName: target.gameName },
+    if (action === "lift") {
+      if (scope === "trade") {
+        await tx
+          .update(users)
+          .set({
+            tradeSuspendedUntil: null,
+            tradeSuspensionReason: null,
+            updatedAt: now,
+          })
+          .where(eq(users.id, userId));
+        await tx
+          .update(userSanctions)
+          .set({ liftedAt: now, liftedByEmail: adminEmail })
+          .where(
+            and(
+              eq(userSanctions.userId, userId),
+              isNull(userSanctions.liftedAt),
+              inArray(userSanctions.type, ["trade_suspend", "trade_ban"]),
+            ),
+          );
+      } else {
+        await tx
+          .update(users)
+          .set({ bannedUntil: null, banReason: null, updatedAt: now })
+          .where(eq(users.id, userId));
+        await tx
+          .update(userSanctions)
+          .set({ liftedAt: now, liftedByEmail: adminEmail })
+          .where(
+            and(
+              eq(userSanctions.userId, userId),
+              isNull(userSanctions.liftedAt),
+              inArray(userSanctions.type, ["ban", "suspend"]),
+            ),
+          );
+      }
+      return {
+        found: true as const,
+        gameName: target.gameName,
+        expiresAt: null,
+        cleanup: emptyCleanup(),
+      };
+    }
+
+    const currentExpiresAt =
+      scope === "trade" ? target.tradeSuspendedUntil : target.bannedUntil;
+    const expiresAt =
+      action === "ban"
+        ? PERMANENT
+        : action === "suspend" || action === "extend"
+          ? new Date(now.getTime() + days * DAY_MS)
+          : null;
+    const effectiveExpiresAt =
+      action === "extend" &&
+      currentExpiresAt &&
+      currentExpiresAt.getTime() > now.getTime()
+        ? new Date(currentExpiresAt.getTime() + days * DAY_MS)
+        : expiresAt;
+    const sanctionType =
+      scope === "trade"
+        ? action === "ban"
+          ? "trade_ban"
+          : "trade_suspend"
+        : action === "extend"
+          ? "suspend"
+          : action;
+
+    await tx.insert(userSanctions).values({
+      userId,
+      type: sanctionType,
+      reason,
+      expiresAt: effectiveExpiresAt,
+      createdByEmail: adminEmail,
     });
-    return Response.json({ ok: true, action, banned: false });
-  }
 
-  // ban / suspend / extend / warn
-  const expiresAt =
-    action === "ban"
-      ? PERMANENT
-      : action === "suspend" || action === "extend"
-        ? new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
-        : null;
-  const currentBan = await db
-    .select({ bannedUntil: users.bannedUntil })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-    .then((rows) => rows[0]?.bannedUntil ?? null);
-  const effectiveExpiresAt =
-    action === "extend" && currentBan && currentBan.getTime() > now.getTime()
-      ? new Date(currentBan.getTime() + days * 24 * 60 * 60 * 1000)
-      : expiresAt;
+    if (scope === "trade") {
+      await tx
+        .update(users)
+        .set({
+          tradeSuspendedUntil: effectiveExpiresAt,
+          tradeSuspensionReason: reason,
+          updatedAt: now,
+        })
+        .where(eq(users.id, userId));
+    } else if (action !== "warn") {
+      await tx
+        .update(users)
+        .set({
+          bannedUntil: effectiveExpiresAt,
+          banReason: reason || null,
+          updatedAt: now,
+        })
+        .where(eq(users.id, userId));
+    }
 
-  await db.insert(userSanctions).values({
-    userId,
-    type: action === "extend" ? "suspend" : action,
-    reason,
-    expiresAt: effectiveExpiresAt,
-    createdByEmail: adminEmail,
+    const cleanup =
+      action === "warn"
+        ? emptyCleanup()
+        : await clearActiveTradeExposure(tx, userId, now);
+    return {
+      found: true as const,
+      gameName: target.gameName,
+      expiresAt: effectiveExpiresAt,
+      cleanup,
+    };
   });
 
-  // 경고(warn)는 enforcement 없음 — bannedUntil 미변경.
-  if (action !== "warn") {
-    await db
-      .update(users)
-      .set({ bannedUntil: effectiveExpiresAt, banReason: reason || null, updatedAt: now })
-      .where(eq(users.id, userId));
+  if (!result.found) {
+    return Response.json({ ok: false, error: "user not found" }, { status: 404 });
   }
 
+  const auditAction =
+    scope === "trade"
+      ? `sanction.trade_${action}`
+      : `sanction.${action}`;
   await logAdminAction({
     adminEmail,
-    action: `sanction.${action}`,
+    action: auditAction,
     targetUserId: userId,
     detail: {
-      gameName: target.gameName,
+      gameName: result.gameName,
       reason,
       adminMemo,
       ...(action === "suspend" || action === "extend" ? { days } : {}),
+      ...result.cleanup,
     },
   });
 
+  if (scope === "trade") {
+    return Response.json({
+      ok: true,
+      scope,
+      action,
+      tradeSuspended: action !== "lift",
+      tradeSuspendedUntil: result.expiresAt?.toISOString() ?? null,
+      cleanup: result.cleanup,
+    });
+  }
   return Response.json({
     ok: true,
+    scope,
     action,
-    banned: action !== "warn",
-    bannedUntil: effectiveExpiresAt?.toISOString() ?? null,
+    banned: action !== "warn" && action !== "lift",
+    bannedUntil: result.expiresAt?.toISOString() ?? null,
+    cleanup: result.cleanup,
   });
 }

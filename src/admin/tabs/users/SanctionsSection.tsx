@@ -223,6 +223,7 @@ export function SanctionsSection({
   }, [userId]);
 
   const load = useCallback(async () => {
+    if (selectedUserIdRef.current !== userId) return;
     const requestId = ++loadRequestRef.current;
     setLoading(true);
     try {

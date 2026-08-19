@@ -261,6 +261,49 @@ describe("SanctionsSection 거래 제재", () => {
     });
   });
 
+  it("늦게 끝난 이전 유저 액션이 새 선택의 조회를 무효화하지 않는다", async () => {
+    let resolvePost: ((value: { ok: true }) => void) | undefined;
+    const pendingPost = new Promise<{ ok: true }>((resolve) => {
+      resolvePost = resolve;
+    });
+    let resolveNextUserLoad: ((value: typeof activeStatus) => void) | undefined;
+    const nextUserLoad = new Promise<typeof activeStatus>((resolve) => {
+      resolveNextUserLoad = resolve;
+    });
+    const nextUserStatus = {
+      ...activeStatus,
+      banReason: "새 선택 액션 이후 상태",
+      trade: { ...activeStatus.trade, reason: "새 선택 거래 상태" },
+    };
+    api.adminGet
+      .mockResolvedValueOnce(activeStatus)
+      .mockImplementationOnce(() => nextUserLoad);
+    api.adminPost.mockImplementationOnce(() => pendingPost);
+
+    const { rerender } = render(
+      <SanctionsSection userId="first-user" readOnly={false} />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "거래 제재 해제" }),
+    );
+    await waitFor(() => expect(api.adminPost).toHaveBeenCalledTimes(1));
+
+    rerender(<SanctionsSection userId="next-user" readOnly={false} />);
+    await waitFor(() => expect(api.adminGet).toHaveBeenCalledTimes(2));
+
+    resolvePost?.({ ok: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(api.adminGet).toHaveBeenCalledTimes(2);
+
+    resolveNextUserLoad?.(nextUserStatus);
+    await screen.findByText(/새 선택 액션 이후 상태/);
+    expect(screen.getByRole("button", { name: "거래 제재 해제" })).toHaveProperty(
+      "disabled",
+      false,
+    );
+  });
+
   it("보기 전용 또는 제재 권한이 없으면 거래 제재 변경을 막는다", async () => {
     const { rerender } = render(
       <SanctionsSection userId="target-user" readOnly />,

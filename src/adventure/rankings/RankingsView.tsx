@@ -17,6 +17,11 @@ import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { chatNameClass } from "@/components/chat/ChatCosmetics";
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import type {
+  CodexMasteryRankingScope,
+} from "@/adventure/data/v2/codexMasteryRanking";
+import { CodexMasteryRankingPanel } from "./CodexMasteryRankingPanel";
+import { useCodexMasteryRanking } from "./useCodexMasteryRanking";
 import {
   useGuildRankings,
   useRankings,
@@ -40,6 +45,17 @@ const TABS: { key: RankingMetric; label: string }[] = [
 export function RankingsView() {
   const router = useRouter();
   const [metric, setMetric] = useState<RankingMetric>("combatPower");
+  const [codexView, setCodexView] = useState<CodexRankingView>("completion");
+  const [codexCategory, setCodexCategory] =
+    useState<CodexMasteryCategoryScope>("equipment");
+  const masteryScope =
+    codexMasteryScopeForView(codexView, codexCategory) ?? "overall";
+  const mastery = useCodexMasteryRanking(
+    metric === "codexCompletion" && codexView !== "completion",
+    masteryScope,
+  );
+  const selectName = (name: string) =>
+    router.push(`/profile/${encodeURIComponent(name)}`);
   return (
     <div className="space-y-3">
       <Card as="section" padding="sm">
@@ -54,19 +70,105 @@ export function RankingsView() {
 
       {metric === "level" && <LevelMetricPill />}
       {metric === "lifeMastery" && <LifeMasteryMetricPill />}
-      {metric === "codexCompletion" && <CodexMetricPill />}
+      {metric === "codexCompletion" && (
+        <>
+          <CodexRankingControls
+            view={codexView}
+            category={codexCategory}
+            onViewChange={setCodexView}
+            onCategoryChange={setCodexCategory}
+          />
+          <CodexMetricPill view={codexView} />
+        </>
+      )}
       {metric === "masteryTower" && <MasteryTowerMetricPill />}
       {metric === "achievementScore" && <AchievementMetricPill />}
 
       {metric === "guild" ? (
         <GuildRankingsBody />
+      ) : metric === "codexCompletion" && codexView !== "completion" ? (
+        <CodexMasteryRankingPanel
+          scope={masteryScope}
+          state={mastery.state}
+          onRetry={mastery.retry}
+          onSelectName={selectName}
+        />
       ) : (
         <UserRankingsBody
           metric={metric}
-          onSelectName={(n) => router.push(`/profile/${encodeURIComponent(n)}`)}
+          onSelectName={selectName}
         />
       )}
     </div>
+  );
+}
+
+export type CodexRankingView = "completion" | "overall" | "category";
+type CodexMasteryCategoryScope = Exclude<
+  CodexMasteryRankingScope,
+  "overall"
+>;
+
+const CODEX_RANKING_VIEW_TABS: ReadonlyArray<{
+  key: CodexRankingView;
+  label: string;
+}> = [
+  { key: "completion", label: "완성도" },
+  { key: "overall", label: "종합 숙련" },
+  { key: "category", label: "분야별" },
+];
+
+const CODEX_RANKING_CATEGORY_TABS: ReadonlyArray<{
+  key: CodexMasteryCategoryScope;
+  label: string;
+}> = [
+  { key: "equipment", label: "장비 연구" },
+  { key: "fish", label: "어류 연구" },
+  { key: "monster", label: "생태 연구" },
+  { key: "cooking", label: "미식 연구" },
+  { key: "life", label: "현장 연구" },
+  { key: "job", label: "직업 연구" },
+];
+
+export function codexMasteryScopeForView(
+  view: CodexRankingView,
+  category: CodexMasteryCategoryScope,
+): CodexMasteryRankingScope | null {
+  if (view === "completion") return null;
+  return view === "overall" ? "overall" : category;
+}
+
+export function CodexRankingControls({
+  view,
+  category,
+  onViewChange,
+  onCategoryChange,
+}: {
+  view: CodexRankingView;
+  category: CodexMasteryCategoryScope;
+  onViewChange: (view: CodexRankingView) => void;
+  onCategoryChange: (category: CodexMasteryCategoryScope) => void;
+}) {
+  return (
+    <Card as="section" padding="sm" className="space-y-2">
+      <TabBar
+        tabs={CODEX_RANKING_VIEW_TABS}
+        active={view}
+        onChange={onViewChange}
+        ariaLabel="도감 랭킹 종류"
+        scrollable
+      />
+      {view === "category" && (
+        <TabBar
+          tabs={CODEX_RANKING_CATEGORY_TABS}
+          active={category}
+          onChange={onCategoryChange}
+          ariaLabel="도감 숙련 분야"
+          size="sm"
+          scrollable
+        />
+      )}
+    </Card>
   );
 }
 
@@ -115,7 +217,7 @@ function AchievementMetricPill() {
   );
 }
 
-function CodexMetricPill() {
+function CodexMetricPill({ view }: { view: CodexRankingView }) {
   return (
     <Card as="section" padding="sm">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -123,7 +225,9 @@ function CodexMetricPill() {
           도감
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
-          직업 해금·장비 등록·어보 발견 수를 전체 수집 항목과 비교합니다.
+          {view === "completion"
+            ? "직업 해금·장비 등록·어보 발견 수를 전체 수집 항목과 비교합니다."
+            : "도감 단계와 특별 인장으로 쌓은 영구 연구 점수를 비교합니다."}
         </span>
       </div>
     </Card>

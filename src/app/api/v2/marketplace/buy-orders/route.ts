@@ -490,6 +490,9 @@ export async function PATCH(req: Request) {
     if (order.status !== "active" || order.expiresAt <= now) {
       return { status: 409, body: { ok: false as const, error: "not_active" } };
     }
+    // PATCH 대상은 비잠금 probe와 구매자 잠금을 이미 거쳤다. 일반 상위 50개 scope에서
+    // 빠진 주문도 수정 직후의 기존 자동 매칭 의미를 보존하도록 명시 대상만 추가한다.
+    matchScope?.orderIds.add(order.id);
     const equipOrder = order.kind === "equip";
     if (equipOrder && requestedQuantity !== 1) {
       return { status: 400, body: { ok: false as const, error: "bad_quantity" } };

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   restrictedIds: new Set<string>(),
   lockedParticipants: [] as string[],
   order: null as Record<string, unknown> | null,
+  generalOrders: [] as Array<Record<string, unknown>>,
   probeListings: [] as Array<Record<string, unknown>>,
   authoritativeListings: [] as Array<Record<string, unknown>>,
   inboxWrites: [] as Array<Record<string, unknown>>,
@@ -94,6 +95,7 @@ function listing(id = 21, sellerId = "seller-z") {
 function selectQuery() {
   let table: unknown;
   let locked = false;
+  let ordered = false;
   const builder = {
     from(selected: unknown) {
       table = selected;
@@ -103,6 +105,7 @@ function selectQuery() {
       return builder;
     },
     orderBy() {
+      ordered = true;
       return builder;
     },
     limit() {
@@ -118,9 +121,15 @@ function selectQuery() {
     ) {
       const rows =
         table === marketplaceBuyOrdersV2
-          ? mocks.order
-            ? [mocks.order]
-            : []
+          ? locked
+            ? mocks.order
+              ? [mocks.order]
+              : []
+            : ordered
+              ? mocks.generalOrders
+              : mocks.order
+                ? [mocks.order]
+                : []
           : table === marketplaceListingsV2
             ? locked
               ? mocks.authoritativeListings
@@ -158,6 +167,7 @@ beforeEach(() => {
   mocks.restrictedIds.clear();
   mocks.lockedParticipants.length = 0;
   mocks.order = order();
+  mocks.generalOrders = [mocks.order];
   mocks.probeListings = [listing()];
   mocks.authoritativeListings = [mocks.probeListings[0]];
   mocks.inboxWrites.length = 0;
@@ -186,6 +196,28 @@ describe("거래소 구매 주문 배송 분류", () => {
 });
 
 describe("거래 정지 구매 주문 자동 매칭", () => {
+  it("일반 상위 50개 밖의 명시 주문도 별도 probe 후 체결한다", async () => {
+    mocks.generalOrders = Array.from({ length: 50 }, (_, index) => ({
+      ...order(),
+      id: 100 + index,
+      buyerId: `other-buyer-${String(index).padStart(2, "0")}`,
+      unitPrice: 20_000 - index,
+    }));
+    mocks.restrictedIds.add("other-buyer-00");
+
+    const fills = await matchMarketplaceBuyOrder(
+      tx as never,
+      12,
+      new Date("2026-08-20T12:00:00.000Z"),
+    );
+
+    expect(mocks.generalOrders).toHaveLength(50);
+    expect(mocks.generalOrders.some((row) => row.id === 12)).toBe(false);
+    expect(mocks.restrictedIds.has("other-buyer-00")).toBe(true);
+    expect(fills).toHaveLength(1);
+    expect(fills[0]).toMatchObject({ orderId: 12, listingId: 21 });
+  });
+
   it("제한된 구매자의 주문은 활성 에스크로 상태로 남긴다", async () => {
     mocks.restrictedIds.add("buyer-a");
 

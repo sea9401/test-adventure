@@ -269,6 +269,9 @@ export async function matchMarketplaceBuyOrder(
       now,
       participantIds: [probe.buyerId],
     });
+    // 명시 호출 대상은 위에서 별도 probe했고 구매자도 참여자 잠금에 포함했다.
+    // 일반 우선순위 상위 50개 밖이어도 이 시도에서 권위 재검증할 수 있게 허용한다.
+    scope.orderIds.add(probe.id);
   }
   if (!scope.orderIds.has(orderId)) return [];
 

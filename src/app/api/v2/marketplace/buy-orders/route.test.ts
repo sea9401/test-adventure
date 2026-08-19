@@ -5,6 +5,15 @@ const mocks = vi.hoisted(() => {
   class TradeSuspendedError extends Error {}
   return {
     TradeSuspendedError,
+    suspended: true,
+    preparedScope: null as null | {
+      participantIds: Set<string>;
+      participantStatuses: Map<string, unknown>;
+      orderIds: Set<number>;
+      listingIds: Set<number>;
+    },
+    generalScopeOrderIds: new Set<number>(),
+    recordedFills: [] as Array<Record<string, unknown>>,
     requireTradeParticipants: vi.fn(async () => {
       throw new TradeSuspendedError();
     }),
@@ -65,16 +74,30 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 vi.mock("@/lib/server/economyLog", () => ({ recordEconomyEventSoon: vi.fn() }));
 vi.mock("@/lib/server/marketplaceBuyOrdersV2", () => ({
-  matchMarketplaceBuyOrder: vi.fn(async () => []),
-  prepareMarketplaceMatchScope: vi.fn(async () => ({
-    participantIds: new Set(["buyer-1"]),
-    participantStatuses: new Map(),
-    orderIds: new Set([88]),
-    listingIds: new Set(),
-  })),
-  recordMarketplaceAutoMatchFills: vi.fn(),
+  matchMarketplaceBuyOrder: vi.fn(
+    async (_tx: unknown, orderId: number, _now: Date, scope: { orderIds: Set<number> }) =>
+      scope.orderIds.has(orderId)
+        ? [{ orderId, listingId: 71, buyerId: "buyer-1", sellerId: "seller-1" }]
+        : [],
+  ),
+  prepareMarketplaceMatchScope: vi.fn(async () => {
+    mocks.generalScopeOrderIds = new Set(
+      Array.from({ length: 50 }, (_, index) => index + 1),
+    );
+    const scope = {
+      participantIds: new Set(["buyer-1"]),
+      participantStatuses: new Map<string, unknown>(),
+      orderIds: new Set(mocks.generalScopeOrderIds),
+      listingIds: new Set<number>(),
+    };
+    mocks.preparedScope = scope;
+    return scope;
+  }),
+  recordMarketplaceAutoMatchFills: vi.fn((fills: Array<Record<string, unknown>>) => {
+    mocks.recordedFills.push(...fills);
+  }),
   requireMarketplaceMatchParticipants: vi.fn(() => {
-    throw new mocks.TradeSuspendedError();
+    if (mocks.suspended) throw new mocks.TradeSuspendedError();
   }),
 }));
 vi.mock("@/lib/server/abuseLog", () => ({
@@ -107,6 +130,10 @@ function patchRequest() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.suspended = true;
+  mocks.preparedScope = null;
+  mocks.generalScopeOrderIds.clear();
+  mocks.recordedFills.length = 0;
   mocks.insertValues.length = 0;
 });
 
@@ -127,5 +154,24 @@ describe("구매 주문 거래 제한", () => {
     await expect(response.json()).resolves.toMatchObject({ error: "trade_suspended" });
     expect(mocks.upsertSave).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("일반 상위 50개 밖의 명시 수정 주문도 자동 매칭에 포함한다", async () => {
+    mocks.suspended = false;
+
+    const response = await PATCH(patchRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.generalScopeOrderIds.size).toBe(50);
+    expect(mocks.generalScopeOrderIds.has(88)).toBe(false);
+    expect(mocks.preparedScope?.orderIds.has(88)).toBe(true);
+    expect(mocks.recordedFills).toEqual([
+      {
+        orderId: 88,
+        listingId: 71,
+        buyerId: "buyer-1",
+        sellerId: "seller-1",
+      },
+    ]);
   });
 });

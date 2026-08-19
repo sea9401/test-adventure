@@ -1,3 +1,14 @@
+import type { StormExpeditionMode } from "@/adventure/data/v2/stormExpedition";
+import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
+
+export type StormExpeditionActionRequest =
+  | ReturnType<typeof stormExpeditionStartRequest>
+  | ReturnType<typeof stormExpeditionMoveRequest>
+  | ReturnType<typeof stormExpeditionFightRequest>
+  | ReturnType<typeof stormExpeditionChooseRequest>
+  | ReturnType<typeof stormExpeditionRiskRequest>
+  | ReturnType<typeof stormExpeditionWithdrawRequest>;
+
 export function stormExpeditionEntryActions(attemptsLeft: number) {
   const canEnterNormal = attemptsLeft > 0;
   return {
@@ -24,5 +35,33 @@ export function stormExpeditionMoveRequest(
 ) {
   return { action: "move" as const, targetNodeId, expectedCurrentNodeId, expectedEncounterIndex };
 }
-import type { StormExpeditionMode } from "@/adventure/data/v2/stormExpedition";
-import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
+
+export function stormExpeditionFightRequest(
+  expectedCurrentNodeId: StormExpeditionMapNodeId,
+  expectedEncounterIndex: number,
+) {
+  return { action: "fight" as const, expectedCurrentNodeId, expectedEncounterIndex };
+}
+
+export function stormExpeditionChooseRequest(
+  choiceId: string,
+  expectedCurrentNodeId: StormExpeditionMapNodeId,
+  expectedEncounterIndex: number,
+) {
+  return { action: "choose" as const, choiceId, expectedCurrentNodeId, expectedEncounterIndex };
+}
+
+export function stormExpeditionRiskRequest(
+  decision: "accept" | "decline",
+  expectedCurrentNodeId: StormExpeditionMapNodeId,
+  expectedEncounterIndex: number,
+) {
+  return { action: "risk_event" as const, decision, expectedCurrentNodeId, expectedEncounterIndex };
+}
+
+export function stormExpeditionWithdrawRequest(
+  expectedCurrentNodeId: StormExpeditionMapNodeId,
+  expectedEncounterIndex: number,
+) {
+  return { action: "withdraw" as const, expectedCurrentNodeId, expectedEncounterIndex };
+}

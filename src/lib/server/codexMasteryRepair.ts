@@ -10,7 +10,6 @@ import { codexMasteryProgress, codexMasterySummary } from "@/db/schema";
 import type { DbExecutor } from "./savesKv";
 import {
   codexMasteryRowToProgress,
-  codexMasterySummaryRowToState,
   emptyCodexMasterySummary,
   type CodexMasterySummaryState,
 } from "./codexMasteryRepository";
@@ -27,6 +26,10 @@ export type CodexMasteryRepairStore = {
     summary: CodexMasterySummaryState,
     now: Date,
   ): Promise<void>;
+};
+
+export type CodexMasteryRepairDatabase = DbExecutor & {
+  transaction<T>(callback: (tx: DbExecutor) => Promise<T>): Promise<T>;
 };
 
 export type CodexMasterySummaryDifference = {
@@ -48,11 +51,53 @@ function tierIndex(tier: CodexMasteryTier): number {
 }
 
 function safeAdd(value: number, delta: number): number {
+  if (
+    !Number.isSafeInteger(value) ||
+    value < 0 ||
+    !Number.isSafeInteger(delta) ||
+    delta < 0
+  ) {
+    throw new Error("codex mastery summary rebuild requires non-negative safe integers");
+  }
   const result = value + delta;
   if (!Number.isSafeInteger(result)) {
     throw new Error("codex mastery summary rebuild would overflow a safe integer");
   }
   return result;
+}
+
+function rawRepairNumber(value: unknown): number {
+  // Keep even negative/unsafe numeric DB values so compare can see and repair them.
+  // Non-numeric driver output becomes NaN, which also differs from every rebuilt value.
+  return typeof value === "number" ? value : Number.NaN;
+}
+
+function codexMasterySummaryRowToRepairState(
+  row: typeof codexMasterySummary.$inferSelect,
+): CodexMasterySummaryState {
+  return {
+    totalScoreMilli: rawRepairNumber(row.totalScoreMilli),
+    categoryScoreMilli: {
+      equipment: rawRepairNumber(row.equipmentScoreMilli),
+      fish: rawRepairNumber(row.fishScoreMilli),
+      monster: rawRepairNumber(row.monsterScoreMilli),
+      cooking: rawRepairNumber(row.cookingScoreMilli),
+      life: rawRepairNumber(row.lifeScoreMilli),
+      job: rawRepairNumber(row.jobScoreMilli),
+    },
+    stageCounts: {
+      bronze: rawRepairNumber(row.bronzeCount),
+      silver: rawRepairNumber(row.silverCount),
+      gold: rawRepairNumber(row.goldCount),
+      platinum: rawRepairNumber(row.platinumCount),
+      diamond: rawRepairNumber(row.diamondCount),
+      legendary: rawRepairNumber(row.legendaryCount),
+    },
+    sealCount: rawRepairNumber(row.sealCount),
+    scoreReachedAt: row.scoreReachedAt instanceof Date
+      ? new Date(row.scoreReachedAt.getTime())
+      : null,
+  };
 }
 
 function validUpdatedAt(value: Date | null): Date | null {
@@ -182,6 +227,26 @@ export async function repairCodexMasterySummary(
   };
 }
 
+export async function repairCodexMasterySummaryWithDatabase(
+  database: CodexMasteryRepairDatabase,
+  userId: string,
+  options: { apply: boolean; now: Date },
+): ReturnType<typeof repairCodexMasterySummary> {
+  if (!options.apply) {
+    return repairCodexMasterySummary(
+      createDrizzleCodexMasteryRepairStore(database),
+      userId,
+      options,
+    );
+  }
+
+  return database.transaction(async (tx) => repairCodexMasterySummary(
+    createDrizzleCodexMasteryRepairStore(tx, { lockSummary: true }),
+    userId,
+    options,
+  ));
+}
+
 export async function listCodexMasterySummaryUserIds(
   executor: DbExecutor,
   options: { afterUserId?: string; limit: number },
@@ -204,16 +269,20 @@ export async function listCodexMasterySummaryUserIds(
 
 export function createDrizzleCodexMasteryRepairStore(
   executor: DbExecutor,
+  options: { lockSummary?: boolean } = {},
 ): CodexMasteryRepairStore {
   return {
     async readSummary(userId) {
-      const row = (await executor
+      const query = executor
         .select()
         .from(codexMasterySummary)
-        .where(eq(codexMasterySummary.userId, userId))
-        .limit(1))[0];
+        .where(eq(codexMasterySummary.userId, userId));
+      const rows = options.lockSummary
+        ? await query.for("update").limit(1)
+        : await query.limit(1);
+      const row = rows[0];
       if (!row) throw new Error("codex mastery summary row was not found");
-      return codexMasterySummaryRowToState(row);
+      return codexMasterySummaryRowToRepairState(row);
     },
     async readProgress(userId) {
       const rows = await executor

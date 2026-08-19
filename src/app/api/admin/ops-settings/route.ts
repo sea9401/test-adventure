@@ -187,7 +187,7 @@ export async function POST(req: Request) {
     updated.lifeFieldFeatures = lifeFieldFeatures;
   }
 
-  if ("codexMasteryFeatures" in body) {
+  if (Object.hasOwn(body, "codexMasteryFeatures")) {
     const codexMasteryFeatures = parseCodexMasteryFeatureSettings(
       body.codexMasteryFeatures,
     );

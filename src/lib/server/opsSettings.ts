@@ -379,35 +379,42 @@ export function parseCodexMasteryFeatureSettings(
       : {};
   return {
     recordingEnabled:
+      Object.hasOwn(value, "recordingEnabled") &&
       typeof value.recordingEnabled === "boolean"
         ? value.recordingEnabled
         : DEFAULT_CODEX_MASTERY_FEATURES.recordingEnabled,
     rankingVisible:
+      Object.hasOwn(value, "rankingVisible") &&
       typeof value.rankingVisible === "boolean"
         ? value.rankingVisible
         : DEFAULT_CODEX_MASTERY_FEATURES.rankingVisible,
     sealsEnabled:
+      Object.hasOwn(value, "sealsEnabled") &&
       typeof value.sealsEnabled === "boolean"
         ? value.sealsEnabled
         : DEFAULT_CODEX_MASTERY_FEATURES.sealsEnabled,
     trophiesEnabled:
+      Object.hasOwn(value, "trophiesEnabled") &&
       typeof value.trophiesEnabled === "boolean"
         ? value.trophiesEnabled
         : DEFAULT_CODEX_MASTERY_FEATURES.trophiesEnabled,
     monthlyProgressEnabled:
+      Object.hasOwn(value, "monthlyProgressEnabled") &&
       typeof value.monthlyProgressEnabled === "boolean"
         ? value.monthlyProgressEnabled
         : DEFAULT_CODEX_MASTERY_FEATURES.monthlyProgressEnabled,
     monthlyRankingVisible:
+      Object.hasOwn(value, "monthlyRankingVisible") &&
       typeof value.monthlyRankingVisible === "boolean"
         ? value.monthlyRankingVisible
         : DEFAULT_CODEX_MASTERY_FEATURES.monthlyRankingVisible,
     settlementEnabled:
+      Object.hasOwn(value, "settlementEnabled") &&
       typeof value.settlementEnabled === "boolean"
         ? value.settlementEnabled
         : DEFAULT_CODEX_MASTERY_FEATURES.settlementEnabled,
     feedEnabled:
-      typeof value.feedEnabled === "boolean"
+      Object.hasOwn(value, "feedEnabled") && typeof value.feedEnabled === "boolean"
         ? value.feedEnabled
         : DEFAULT_CODEX_MASTERY_FEATURES.feedEnabled,
   };

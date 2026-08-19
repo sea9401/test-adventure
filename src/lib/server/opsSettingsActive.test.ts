@@ -118,6 +118,24 @@ describe("codex mastery feature settings", () => {
     });
   });
 
+  it("ignores inherited switches while preserving own boolean siblings", () => {
+    const inherited = Object.create({ recordingEnabled: true }) as {
+      rankingVisible?: unknown;
+    };
+    inherited.rankingVisible = true;
+
+    expect(parseCodexMasteryFeatureSettings(inherited)).toEqual({
+      recordingEnabled: false,
+      rankingVisible: true,
+      sealsEnabled: false,
+      trophiesEnabled: false,
+      monthlyProgressEnabled: false,
+      monthlyRankingVisible: false,
+      settlementEnabled: false,
+      feedEnabled: false,
+    });
+  });
+
   it("reads through the supplied executor", async () => {
     const { executor, select } = executorReturning([
       {

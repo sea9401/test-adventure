@@ -126,4 +126,23 @@ describe("/api/admin/ops-settings", () => {
     expect(mocks.upsert).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
   });
+
+  it("rejects inherited supported setting keys without writing or auditing", async () => {
+    const body = Object.create({
+      codexMasteryFeatures: { recordingEnabled: true },
+    });
+    const request = {
+      json: vi.fn(async () => body),
+    } as unknown as Request;
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "no setting provided",
+    });
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
 });

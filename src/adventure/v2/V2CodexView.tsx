@@ -86,6 +86,14 @@ import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useEquipmentCodexContext } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import { FishingCodexPanel } from "./FishingCodexPanel";
+import {
+  CodexMasteryPanel,
+  type CodexMasteryPanelState,
+} from "./CodexMasteryPanel";
+import type {
+  CodexMasteryOverviewResponse,
+  CodexMasteryPinnedGoal,
+} from "@/adventure/data/v2/codexMasteryView";
 
 // v2 모험의 서 — 사냥터(장비·재료 드랍) + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
@@ -150,6 +158,7 @@ export type CodexTab =
   | "huntground"
   | "equipment"
   | "spFruit"
+  | "mastery"
   | "fish"
   | "cooking"
   | "life"
@@ -160,6 +169,7 @@ const CODEX_TABS: readonly CodexTab[] = [
   "huntground",
   "equipment",
   "spFruit",
+  "mastery",
   "fish",
   "cooking",
   "life",
@@ -171,6 +181,27 @@ export function codexTabFromParam(value: string | null): CodexTab {
   return CODEX_TABS.some((tab) => tab === value)
     ? (value as CodexTab)
     : "spFruit";
+}
+
+export const CODEX_TAB_ITEMS = [
+  ["spFruit", "SP 수집"],
+  ["mastery", "숙련"],
+  ["job", "직업"],
+  ["equipment", "장비"],
+  ["huntground", "사냥터"],
+  ["fish", "어보"],
+  ["cooking", "요리"],
+  ["life", "현장 기록"],
+  ["title", "칭호"],
+] as const satisfies ReadonlyArray<readonly [CodexTab, string]>;
+
+type CodexMasteryLoadStatus = "idle" | CodexMasteryPanelState["status"];
+
+export function shouldLoadCodexMastery(
+  tab: CodexTab,
+  status: CodexMasteryLoadStatus,
+): boolean {
+  return tab === "mastery" && status === "idle";
 }
 
 export function shouldShowCodexTutorial(
@@ -473,6 +504,97 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 제작 결과 등 외부 링크의 URL 탭 변경을 로컬 탭에 반영
     setTab(codexTabFromParam(tabParam));
   }, [tabParam]);
+  const [masteryState, setMasteryState] = useState<
+    { status: "idle" } | CodexMasteryPanelState
+  >({ status: "idle" });
+  const [masteryRetryVersion, setMasteryRetryVersion] = useState(0);
+  useEffect(() => {
+    if (!shouldLoadCodexMastery(tab, masteryState.status)) return;
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 숙련 탭 최초 진입 또는 명시적 재시도에서 lazy fetch 상태 시작
+    setMasteryState({ status: "loading" });
+    fetch("/api/v2/me/codex-mastery")
+      .then(async (response) => ({
+        response,
+        json: (await response.json().catch(() => null)) as
+          | CodexMasteryOverviewResponse
+          | null,
+      }))
+      .then(({ response, json }) => {
+        if (!alive) return;
+        if (!response.ok || !json?.ok) {
+          setMasteryState({
+            status: "error",
+            message: json && !json.ok ? json.error : `http ${response.status}`,
+          });
+          return;
+        }
+        setMasteryState(
+          json.enabled
+            ? { status: "ready", snapshot: json.snapshot }
+            : { status: "disabled" },
+        );
+      })
+      .catch((error: unknown) => {
+        if (alive) {
+          setMasteryState({
+            status: "error",
+            message: error instanceof Error ? error.message : "network_error",
+          });
+        }
+      });
+    return () => {
+      alive = false;
+    };
+    // masteryState.status intentionally stays outside the dependency list: changing idle to loading
+    // must not cancel the request that caused that transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, masteryRetryVersion]);
+
+  const retryCodexMastery = () => {
+    setMasteryState({ status: "idle" });
+    setMasteryRetryVersion((version) => version + 1);
+  };
+
+  const replaceCodexMasteryPins = async (
+    pinnedGoals: CodexMasteryPinnedGoal[],
+  ) => {
+    const response = await fetch("/api/v2/me/codex-mastery", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pinnedGoals }),
+    });
+    const json = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      error?: string;
+      pinnedGoals?: CodexMasteryPinnedGoal[];
+    } | null;
+    if (!response.ok || !json?.ok || !Array.isArray(json.pinnedGoals)) {
+      throw new Error(json?.error ?? `http ${response.status}`);
+    }
+    const savedPins = json.pinnedGoals;
+    const savedKeys = new Set(
+      savedPins.map((goal) => `${goal.category}:${goal.entryId}`),
+    );
+    setMasteryState((current) => {
+      if (current.status !== "ready") return current;
+      return {
+        status: "ready",
+        snapshot: {
+          ...current.snapshot,
+          pinnedGoals: savedPins,
+          entries: current.snapshot.entries.map((entry) => ({
+            ...entry,
+            pinned: savedKeys.has(entry.key),
+          })),
+          nearGoals: current.snapshot.nearGoals.map((goal) => ({
+            ...goal,
+            pinned: savedKeys.has(goal.key),
+          })),
+        },
+      };
+    });
+  };
   // 드랍 칩 클릭 시 뜨는 옵션 팝오버(읽기전용 카탈로그 미리보기 — 굴림 없음).
   const [card, setCard] = useState<{
     item: V2Equipment;
@@ -882,18 +1004,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         }
       />
       <div className="flex flex-wrap gap-1.5">
-        {(
-          [
-            ["spFruit", "SP 수집"],
-            ["job", "직업"],
-            ["equipment", "장비"],
-            ["huntground", "사냥터"],
-            ["fish", "어보"],
-            ["cooking", "요리"],
-            ["life", "현장 기록"],
-            ["title", "칭호"],
-          ] as const
-        ).map(([key, label]) => (
+        {CODEX_TAB_ITEMS.map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -1183,6 +1294,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
 
 
       {tab === "equipment" && <CodexEquipmentPanel onShowCard={setCard} />}
+
+      {tab === "mastery" && (
+        <CodexMasteryPanel
+          state={masteryState.status === "idle" ? { status: "loading" } : masteryState}
+          onRetry={retryCodexMastery}
+          onReplacePinnedGoals={replaceCodexMasteryPins}
+        />
+      )}
 
       {tab === "spFruit" && (
         <div className={`${CODEX_PANEL_SURFACE} space-y-3`}>

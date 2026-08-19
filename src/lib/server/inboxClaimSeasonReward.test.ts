@@ -4,18 +4,53 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { savesStore, inboxRows, saveSelectRows, inboxUpdates } = vi.hoisted(() => ({
-  savesStore: new Map<string, unknown>(),
-  inboxRows: [] as Record<string, unknown>[],
-  saveSelectRows: [] as Record<string, unknown>[],
-  inboxUpdates: [] as Record<string, unknown>[],
-}));
+const {
+  savesStore,
+  inboxRows,
+  saveSelectRows,
+  inboxUpdates,
+  lockTradeParticipantStatuses,
+  TradeSuspendedError,
+  tradeState,
+} = vi.hoisted(() => {
+  class TradeSuspendedError extends Error {}
+  const tradeState = { restricted: false };
+  return {
+    TradeSuspendedError,
+    tradeState,
+    savesStore: new Map<string, unknown>(),
+    inboxRows: [] as Record<string, unknown>[],
+    saveSelectRows: [] as Record<string, unknown>[],
+    inboxUpdates: [] as Record<string, unknown>[],
+    lockTradeParticipantStatuses: vi.fn(async () =>
+      new Map([
+        [
+          "u1",
+          tradeState.restricted
+            ? {
+                source: "trade" as const,
+                reason: "test",
+                expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+                permanent: false,
+              }
+            : null,
+        ],
+      ]),
+    ),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u1"),
 }));
 vi.mock("@/lib/server/checkSession", () => ({
   requireActiveDeviceSession: vi.fn(async () => null),
+}));
+vi.mock("@/lib/server/tradeSuspension", () => ({
+  TradeSuspendedError,
+  lockTradeParticipantStatuses,
+  tradeSuspendedResponse: () =>
+    Response.json({ ok: false, error: "trade_suspended" }, { status: 403 }),
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async (_tx: unknown, u: string, key: string, v: unknown) => {
@@ -77,6 +112,8 @@ beforeEach(() => {
   inboxRows.length = 0;
   saveSelectRows.length = 0;
   inboxUpdates.length = 0;
+  tradeState.restricted = false;
+  vi.clearAllMocks();
 });
 
 describe("inbox claim — season_reward → 코인 지갑", () => {
@@ -382,6 +419,154 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     };
     expect(ch.materials).toEqual({ v2_red_enhance_stone: 5 });
     expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
+  });
+
+  it("거래 정지 중에는 사용자에게 받은 제작서 선물을 수령하지 않는다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push({
+      id: 1,
+      kind: "recipe_gift",
+      payload: {
+        recipe_id: "starlit_greatsword_str",
+        recipe_name: "힘의 별빛 대검 제작서",
+      },
+      fromUserId: "u-sender",
+      claimedAt: null,
+    });
+
+    const response = await POST(req([1]));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "trade_suspended",
+    });
+    expect(savesStore.size).toBe(0);
+    expect(inboxUpdates).toEqual([]);
+  });
+
+  it("거래 정지 중에도 시스템 보상·정산·환불과 자산 없는 사용자 메시지를 수령한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push(
+      {
+        id: 1,
+        kind: "sale_proceeds",
+        payload: { gold: 100 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 2,
+        kind: "bid_refund",
+        payload: { gold: 20 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 3,
+        kind: "buy_order_refund",
+        payload: { gold: 30 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 4,
+        kind: "season_reward",
+        payload: { season: "pvp", coins: 40 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 5,
+        kind: "admin_gift",
+        payload: { gold: 10 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 6,
+        kind: "user_message",
+        payload: { text: "확인 메시지" },
+        fromUserId: "u-sender",
+        claimedAt: null,
+      },
+    );
+    saveSelectRows.push({ value: { gold: 1, bankedGold: 2 } });
+
+    const response = await POST(req([1, 2, 3, 4, 5, 6]));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.claimed).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(savesStore.get("u1::character.v2")).toMatchObject({
+      gold: 61,
+      bankedGold: 102,
+    });
+    expect(savesStore.get("u1::pvp-wallet.v1")).toEqual({
+      gold: 1,
+      bankedGold: 2,
+      coins: 40,
+    });
+    expect(lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      expect.anything(),
+      ["u1"],
+      expect.any(Date),
+    );
+  });
+
+  it("사용자 제작서 선물이 섞인 수령 요청은 시스템 보상까지 함께 롤백한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push(
+      {
+        id: 1,
+        kind: "admin_gift",
+        payload: { gold: 50 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+      {
+        id: 2,
+        kind: "recipe_gift",
+        payload: {
+          recipe_id: "starlit_greatsword_str",
+          recipe_name: "힘의 별빛 대검 제작서",
+        },
+        fromUserId: "u-sender",
+        claimedAt: null,
+      },
+    );
+
+    const response = await POST(req([1, 2]));
+
+    expect(response.status).toBe(403);
+    expect(savesStore.size).toBe(0);
+    expect(inboxUpdates).toEqual([]);
+  });
+
+  it("거래 정지 중에도 분류할 수 없는 사용자 우편은 보존하고 정상 시스템 보상만 수령한다", async () => {
+    tradeState.restricted = true;
+    inboxRows.push(
+      {
+        id: 1,
+        kind: "recipe_gift",
+        payload: { recipe_name: "손상된 선물" },
+        fromUserId: "u-sender",
+        claimedAt: null,
+      },
+      {
+        id: 2,
+        kind: "season_reward",
+        payload: { season: "fishing", coins: 25 },
+        fromUserId: null,
+        claimedAt: null,
+      },
+    );
+
+    const response = await POST(req([1, 2]));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.claimed).toEqual([2]);
+    expect(savesStore.get("u1::fishing-wallet.v1")).toEqual({ coins: 25 });
   });
 
 });

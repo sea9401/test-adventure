@@ -72,6 +72,11 @@ import {
   fishIdFromSpecimenItemId,
   parseFishSpecimenInventory,
 } from "@/adventure/v2/fishSpecimens";
+import {
+  TradeSuspendedError,
+  lockTradeParticipantStatuses,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
@@ -126,6 +131,11 @@ export async function POST(req: Request) {
 
   try {
     const result = await db.transaction(async (tx) => {
+      const participantStatuses = await lockTradeParticipantStatuses(
+        tx,
+        [userId],
+        new Date(),
+      );
       const rows = await tx
         .select()
         .from(marketplaceInbox)
@@ -140,6 +150,16 @@ export async function POST(req: Request) {
 
       if (rows.length === 0) {
         return { error: "no_unclaimed", status: 404 as const };
+      }
+
+      const restriction = participantStatuses.get(userId) ?? null;
+      const blockedPlayerGift = rows.some(
+        (row) =>
+          row.fromUserId !== null &&
+          parseInboxPayload(row.kind, row.payload)?.kind === "recipe_gift",
+      );
+      if (restriction && blockedPlayerGift) {
+        throw new TradeSuspendedError(restriction);
       }
 
       // 판매 대금은 은행으로, 환불·기타 우편 골드는 기존처럼 보유 현금으로 지급한다.
@@ -742,6 +762,7 @@ export async function POST(req: Request) {
     }
     return Response.json(result);
   } catch (e) {
+    if (e instanceof TradeSuspendedError) return tradeSuspendedResponse(e);
     console.error("[marketplace.inbox.claim] ", e);
     return new Response("internal error", { status: 500 });
   }

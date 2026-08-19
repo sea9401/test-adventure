@@ -3,6 +3,37 @@ import { GUILD_TRADE_USER_SAVE_KEY } from "@/adventure/data/v2/guildTrade";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { kstWeekMondayKey } from "@/lib/kst";
 
+const tradeMocks = vi.hoisted(() => {
+  class TradeSuspendedError extends Error {}
+  const state = {
+    actorRestricted: false,
+    restrictedRecipients: new Set<string>(),
+  };
+  return {
+    TradeSuspendedError,
+    state,
+    requireTradeParticipants: vi.fn(async () => {
+      if (state.actorRestricted) throw new TradeSuspendedError();
+    }),
+    lockTradeParticipantStatuses: vi.fn(
+      async (_tx: unknown, userIds: readonly string[]) =>
+        new Map(
+          userIds.map((userId) => [
+            userId,
+            state.restrictedRecipients.has(userId)
+              ? {
+                  source: "trade" as const,
+                  reason: "test",
+                  expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+                  permanent: false,
+                }
+              : null,
+          ]),
+        ),
+    ),
+  };
+});
+
 let mockRecipientIds = ["u-trader", "u-member"];
 const tx = {
   select: vi.fn((fields?: Record<string, unknown>) => ({
@@ -83,6 +114,13 @@ vi.mock("@/lib/server/adventurerAssociation", () => ({
 vi.mock("@/lib/server/guildAdmin", () => ({
   isGuildMasterOrManager: vi.fn(async () => true),
 }));
+vi.mock("@/lib/server/tradeSuspension", () => ({
+  TradeSuspendedError: tradeMocks.TradeSuspendedError,
+  requireTradeParticipants: tradeMocks.requireTradeParticipants,
+  lockTradeParticipantStatuses: tradeMocks.lockTradeParticipantStatuses,
+  tradeSuspendedResponse: () =>
+    Response.json({ ok: false, error: "trade_suspended" }, { status: 403 }),
+}));
 
 import { lockGuildTradeWeekly, saveGuildTradeWeekly } from "@/lib/server/guildTrade";
 import {
@@ -100,6 +138,7 @@ import {
   setGuildFacilityDonationProgress,
 } from "@/lib/server/guildFacilityUpgradeDonations";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { GET, POST } from "./route";
 
 const CONTRACT_ID = "material:v2_timber";
@@ -143,6 +182,8 @@ function userState(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRecipientIds = ["u-trader", "u-member"];
+  tradeMocks.state.actorRestricted = false;
+  tradeMocks.state.restrictedRecipients.clear();
   vi.mocked(isGuildMasterOrManager).mockResolvedValue(true);
   vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly());
   vi.mocked(lockGuildTradeItem).mockResolvedValue({ owned: 100, consume });
@@ -170,6 +211,71 @@ beforeEach(() => {
 });
 
 describe("길드 교역소", () => {
+  it.each([
+    ["납품", { action: "deliver", contractId: CONTRACT_ID, batches: 1 }],
+    ["구매", { action: "buy", shopItemId: "refined_iron" }],
+  ])("거래 정지 actor의 %s를 길드·자산 잠금 전에 차단한다", async (_label, body) => {
+    tradeMocks.state.actorRestricted = true;
+
+    const response = await POST(request(body));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "trade_suspended",
+    });
+    expect(tradeMocks.requireTradeParticipants).toHaveBeenCalledWith(
+      tx,
+      ["u-trader"],
+      expect.any(Date),
+    );
+    expect(getGuildId).not.toHaveBeenCalled();
+    expect(lockGuildTradeWeekly).not.toHaveBeenCalled();
+    expect(lockGuildTradeItem).not.toHaveBeenCalled();
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("길드 전원 지급에서 거래 정지 멤버만 제외하고 나머지에게 지급한다", async () => {
+    mockRecipientIds = ["u-trader", "u-suspended", "u-member"];
+    tradeMocks.state.restrictedRecipients.add("u-suspended");
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === GUILD_TRADE_USER_SAVE_KEY) return userState();
+      if (key === "character.v2") return { materials: {} };
+      return {};
+    });
+
+    const response = await POST(
+      request({ action: "buy", shopItemId: "refined_iron" }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.purchased).toMatchObject({ recipientCount: 2 });
+    expect(tradeMocks.lockTradeParticipantStatuses).toHaveBeenCalledWith(
+      tx,
+      ["u-member", "u-suspended", "u-trader"],
+      expect.any(Date),
+    );
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-trader",
+      "character.v2",
+      expect.anything(),
+    );
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-member",
+      "character.v2",
+      expect.anything(),
+    );
+    expect(upsertSave).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "u-suspended",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
   it("조회한 길드원에게 개인 잔고가 아닌 길드 공동 토큰을 보여준다", async () => {
     vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 37));
 

@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 
+const tradeMocks = vi.hoisted(() => {
+  class TradeSuspendedError extends Error {}
+  const state = { restricted: false };
+  return {
+    TradeSuspendedError,
+    state,
+    requireTradeParticipants: vi.fn(async () => {
+      if (state.restricted) throw new TradeSuspendedError();
+    }),
+  };
+});
+
 const tx = {};
 
 vi.mock("@/db", () => ({
@@ -46,6 +58,12 @@ vi.mock("@/lib/server/guildWarehouse", async (importOriginal) => {
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/tradeSuspension", () => ({
+  TradeSuspendedError: tradeMocks.TradeSuspendedError,
+  requireTradeParticipants: tradeMocks.requireTradeParticipants,
+  tradeSuspendedResponse: () =>
+    Response.json({ ok: false, error: "trade_suspended" }, { status: 403 }),
+}));
 
 import { isGuildAdmin } from "@/lib/server/guildAdmin";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
@@ -56,6 +74,7 @@ import {
 } from "@/lib/server/guildWarehouse";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { POST } from "./route";
 
 const MATERIAL_ID = ENHANCE_STONE_MATERIAL_ID.red;
@@ -85,6 +104,7 @@ function request(body: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  tradeMocks.state.restricted = false;
   vi.mocked(lockGuildSettlementBuilding).mockResolvedValue({
     village: {
       outpostId: "guild-facility:7:guild_warehouse",
@@ -119,6 +139,30 @@ beforeEach(() => {
 });
 
 describe("길드 창고 입출고", () => {
+  it.each([
+    ["입고", { action: "deposit", materialId: MATERIAL_ID, quantity: 1 }],
+    ["출고", { action: "withdraw", materialId: MATERIAL_ID, quantity: 1 }],
+  ])("거래 정지 길드원의 %s를 자산 잠금 전에 차단한다", async (_label, body) => {
+    tradeMocks.state.restricted = true;
+
+    const response = await POST(request(body));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "trade_suspended",
+    });
+    expect(tradeMocks.requireTradeParticipants).toHaveBeenCalledWith(
+      tx,
+      ["u-member"],
+      expect.any(Date),
+    );
+    expect(getGuildId).not.toHaveBeenCalled();
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+    expect(lockGuildWarehouse).not.toHaveBeenCalled();
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(upsertGuildWarehouse).not.toHaveBeenCalled();
+  });
+
   it("권한을 받은 길드원 입고는 개인 재료 차감과 창고 적립을 같은 트랜잭션에 기록한다", async () => {
     const response = await POST(
       request({ action: "deposit", materialId: MATERIAL_ID, quantity: 3 }),

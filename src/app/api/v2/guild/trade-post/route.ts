@@ -63,6 +63,12 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
+import {
+  TradeSuspendedError,
+  lockTradeParticipantStatuses,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 type TradeBody = {
   action?: unknown;
@@ -367,6 +373,7 @@ export async function POST(req: Request) {
   const now = new Date();
   const weekKey = kstWeekMondayKey(now);
   const result = await db.transaction(async (tx) => {
+    await requireTradeParticipants(tx, [userId], now);
     const guildId = await getGuildId(tx, userId);
     if (guildId == null) {
       return { status: 403, body: { ok: false as const, error: "no_guild" } };
@@ -550,11 +557,24 @@ export async function POST(req: Request) {
     if (weekly.tokens < shopItem.tokenCost) {
       return { status: 409, body: { ok: false as const, error: "insufficient_tokens" } };
     }
+    let eligibleRecipientUserIds: string[] | null = null;
+    if (shopItem.target === "members") {
+      const recipientUserIds = await guildMemberIds(tx, guildId);
+      const participantStatuses = await lockTradeParticipantStatuses(
+        tx,
+        recipientUserIds,
+        now,
+      );
+      eligibleRecipientUserIds = recipientUserIds.filter(
+        (recipientUserId) => !participantStatuses.get(recipientUserId),
+      );
+    }
     const grant = await lockGuildShopGrant(
       tx,
       guildId,
       shopItem,
       body.facilityId,
+      eligibleRecipientUserIds,
     );
     if (!grant.ok) {
       return {
@@ -610,8 +630,15 @@ export async function POST(req: Request) {
         })),
       },
     };
+  }).catch((error: unknown) => {
+    if (error instanceof TradeSuspendedError) {
+      return error;
+    }
+    throw error;
   });
-
+  if (result instanceof TradeSuspendedError) {
+    return tradeSuspendedResponse(result);
+  }
   return Response.json(result.body, { status: result.status });
 }
 
@@ -644,9 +671,10 @@ async function lockGuildShopGrant(
   guildId: number,
   item: GuildTradeShopItem,
   rawFacilityId: unknown,
+  memberRecipientUserIds: readonly string[] | null,
 ): Promise<GuildShopGrantResult> {
   if (item.target === "members") {
-    const recipientUserIds = await guildMemberIds(tx, guildId);
+    const recipientUserIds = memberRecipientUserIds ?? [];
     if (recipientUserIds.length === 0) {
       return { ok: false, status: 409, error: "no_recipients" };
     }

@@ -115,7 +115,7 @@ function assertValidMutation(
     throw new Error("sealIds must be an array");
   }
   for (const sealId of mutation.sealIds ?? []) {
-    if (!isNonEmptyString(sealId) || definition.seals[sealId] === undefined) {
+    if (!isNonEmptyString(sealId) || !Object.hasOwn(definition.seals, sealId)) {
       throw new Error(`unknown seal: ${String(sealId)}`);
     }
   }

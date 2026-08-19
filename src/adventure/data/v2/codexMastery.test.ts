@@ -86,6 +86,21 @@ describe("codex mastery transition", () => {
       { amount: 1, sealIds: ["missing"] },
       new Date(),
     )).toThrow("unknown seal");
+    for (const sealId of ["constructor", "toString"]) {
+      expect(() => applyCodexMasteryMutation(
+        FISH,
+        emptyCodexMasteryProgress("fish", FISH.entryId),
+        { amount: 1, sealIds: [sealId] },
+        new Date(),
+      )).toThrow("unknown seal");
+    }
+    const inheritedSeals = Object.create({ inherited: { pointUnits: 2 } }) as CodexMasteryEntryDefinition["seals"];
+    expect(() => applyCodexMasteryMutation(
+      { ...FISH, seals: inheritedSeals },
+      emptyCodexMasteryProgress("fish", FISH.entryId),
+      { amount: 1, sealIds: ["inherited"] },
+      new Date(),
+    )).toThrow("unknown seal");
   });
 
   it("rounds milli-points only for display", () => {

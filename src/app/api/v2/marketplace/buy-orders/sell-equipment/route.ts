@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import {
   marketplaceEquipListError,
@@ -11,8 +11,15 @@ import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import { clientIpFromRequest } from "@/lib/server/abuseLog";
 import {
   fillBestEquipmentBuyOrder,
+  prepareEquipmentBuyOrderSaleScope,
   recordEquipmentBuyOrderSale,
+  requireEquipmentBuyOrderSaleParticipants,
 } from "@/lib/server/equipmentBuyOrderSale";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 type CharSave = { adventureSupport?: unknown; [key: string]: unknown };
 
@@ -46,6 +53,29 @@ export async function POST(req: Request) {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
+    const probeEquipment = parseEquipmentSave(
+      await readSave<Record<string, unknown>>(tx, sellerId, "equipment.v2", {}),
+    );
+    const probeInstance = probeEquipment.owned.find((item) => item.iid === iid);
+    if (!probeInstance) {
+      await requireTradeParticipants(tx, [sellerId], now);
+      return { status: 400, body: { ok: false as const, error: "not_owned" } };
+    }
+    const probeListError = marketplaceEquipListError(
+      probeInstance,
+      Object.values(probeEquipment.equipped).includes(iid),
+    );
+    if (probeListError) {
+      await requireTradeParticipants(tx, [sellerId], now);
+      return { status: 400, body: { ok: false as const, error: probeListError } };
+    }
+    const saleScope = await prepareEquipmentBuyOrderSaleScope(tx, {
+      sellerId,
+      instances: [probeInstance],
+      now,
+    });
+    requireEquipmentBuyOrderSaleParticipants(saleScope, [sellerId]);
+
     const sellerCharacter = await lockSaveForUpdate<CharSave>(
       tx,
       sellerId,
@@ -77,6 +107,7 @@ export async function POST(req: Request) {
         adventureSupportActive(sellerCharacter.adventureSupport),
       ),
       now,
+      preparedScope: saleScope,
     });
     if (!audit) {
       return {
@@ -98,7 +129,11 @@ export async function POST(req: Request) {
         proceeds: audit.proceeds,
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   const audit = "audit" in result ? result.audit : undefined;
   if (result.status === 200 && audit) {

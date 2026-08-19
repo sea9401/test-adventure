@@ -84,6 +84,16 @@ vi.mock("@/lib/server/marketplaceBuyOrdersV2", () => ({
   recordMarketplaceAutoMatchFills: vi.fn(),
   triggerMarketplacePriceAlertsForListing: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/server/tradeSuspension", () => ({
+  TradeSuspendedError: class TradeSuspendedError extends Error {},
+  requireTradeParticipants: vi.fn(async () => undefined),
+  lockTradeParticipantStatuses: vi.fn(async (_tx: unknown, userIds: string[]) =>
+    new Map(userIds.map((userId) => [userId, null])),
+  ),
+  tradeSuspendedResponse: vi.fn(() =>
+    Response.json({ ok: false, error: "trade_suspended" }, { status: 403 }),
+  ),
+}));
 
 import { clearMarketplaceHighestBid } from "./marketplaceEscrow";
 import { POST as placeBid } from "@/app/api/v2/marketplace/bid/route";
@@ -115,7 +125,7 @@ function listing(): Listing {
   };
 }
 
-function query() {
+function query(transactional = false) {
   let table: unknown;
   let locked = false;
   const builder = {
@@ -133,6 +143,7 @@ function query() {
     async limit() {
       if (table === marketplaceListingsV2) {
         const row = mocks.listing;
+        if (transactional) return row ? [row] : [];
         const now = new Date();
         return row &&
           row.status === "active" &&
@@ -155,7 +166,7 @@ function query() {
 }
 
 const tx = {
-  select: vi.fn(() => query()),
+  select: vi.fn(() => query(true)),
   insert: vi.fn((table: unknown) => ({
     values: vi.fn(async (values: Record<string, unknown>) => {
       if (table === marketplaceInbox) mocks.inboxRows.push(values);
@@ -181,7 +192,7 @@ beforeEach(() => {
   mocks.listing = listing();
   mocks.inboxRows.length = 0;
   mocks.bidRows.length = 0;
-  mocks.dbSelect.mockImplementation(() => query());
+  mocks.dbSelect.mockImplementation(() => query(false));
   mocks.dbInsert.mockImplementation(tx.insert);
   mocks.dbUpdate.mockImplementation(tx.update);
   mocks.transaction.mockImplementation(

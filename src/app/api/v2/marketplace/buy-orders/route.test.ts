@@ -39,6 +39,7 @@ const tx = {
     from: () => ({
       where: () => ({
         for: async () => [activeOrder],
+        limit: async () => [activeOrder],
         then: <T>(resolve: (value: Array<{ value: number }>) => T) =>
           Promise.resolve([{ value: 0 }]).then(resolve),
       }),
@@ -65,7 +66,16 @@ vi.mock("@/lib/server/savesKv", () => ({
 vi.mock("@/lib/server/economyLog", () => ({ recordEconomyEventSoon: vi.fn() }));
 vi.mock("@/lib/server/marketplaceBuyOrdersV2", () => ({
   matchMarketplaceBuyOrder: vi.fn(async () => []),
+  prepareMarketplaceMatchScope: vi.fn(async () => ({
+    participantIds: new Set(["buyer-1"]),
+    participantStatuses: new Map(),
+    orderIds: new Set([88]),
+    listingIds: new Set(),
+  })),
   recordMarketplaceAutoMatchFills: vi.fn(),
+  requireMarketplaceMatchParticipants: vi.fn(() => {
+    throw new mocks.TradeSuspendedError();
+  }),
 }));
 vi.mock("@/lib/server/abuseLog", () => ({
   clientIpFromRequest: vi.fn(),

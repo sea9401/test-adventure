@@ -38,7 +38,12 @@ const listing = {
 
 const tx = {
   select: () => ({
-    from: () => ({ where: () => ({ for: async () => [listing] }) }),
+    from: () => ({
+      where: () => ({
+        limit: async () => [listing],
+        for: async () => [listing],
+      }),
+    }),
   }),
   update: mocks.update,
 };
@@ -51,7 +56,16 @@ vi.mock("@/lib/server/userRateLimit", () => ({ enforceUserAndIpRateLimit: vi.fn(
 vi.mock("@/lib/server/economyLog", () => ({ recordEconomyEventSoon: vi.fn() }));
 vi.mock("@/lib/server/marketplaceBuyOrdersV2", () => ({
   matchMarketplaceBuyOrdersForItem: vi.fn(async () => []),
+  prepareMarketplaceMatchScope: vi.fn(async () => ({
+    participantIds: new Set(["seller-1"]),
+    participantStatuses: new Map(),
+    orderIds: new Set(),
+    listingIds: new Set([71]),
+  })),
   recordMarketplaceAutoMatchFills: vi.fn(),
+  requireMarketplaceMatchParticipants: vi.fn(() => {
+    throw new mocks.TradeSuspendedError();
+  }),
   triggerMarketplacePriceAlertsForListing: vi.fn(),
 }));
 vi.mock("@/lib/server/tradeSuspension", () => ({

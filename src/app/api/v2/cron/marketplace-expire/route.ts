@@ -36,6 +36,8 @@ import {
   recordMarketplaceAutoMatchFills,
   triggerMarketplacePriceAlertsForListing,
 } from "@/lib/server/marketplaceBuyOrdersV2";
+import { lockTradeParticipantStatuses } from "@/lib/server/tradeSuspension";
+import { cancelMarketplaceListingEscrow } from "@/lib/server/marketplaceEscrow";
 
 type CharSave = {
   materials?: Record<string, number>;
@@ -49,7 +51,8 @@ type InventorySave = Record<string, unknown> & { cookingFoods?: unknown };
 const BATCH = 200;
 
 // 공개 입찰 유예 종료와 고정가 등록 만료를 함께 정산한다. cron은 5분마다 호출하며,
-// per-listing FOR UPDATE로 buy/bid/cancel과 직렬화해 중복 지급·환불을 막는다.
+// 참여자 user 행을 먼저 잠근 뒤 per-listing FOR UPDATE로 buy/bid/cancel과 직렬화해
+// 중복 지급·환불을 막는다.
 export async function POST(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -75,14 +78,55 @@ export async function POST(req: Request) {
   let auctionsSold = 0;
   let bidsRefunded = 0;
   let expired = 0;
+  let restrictedCancelled = 0;
   for (const { id } of due) {
     const result = await db.transaction(async (tx) => {
+      const [probe] = await tx
+        .select({
+          sellerId: marketplaceListingsV2.sellerId,
+          highestBidderId: marketplaceListingsV2.highestBidderId,
+        })
+        .from(marketplaceListingsV2)
+        .where(eq(marketplaceListingsV2.id, id))
+        .limit(1);
+      if (!probe) return { action: "skip" as const };
+      const participantIds = [
+        probe.sellerId,
+        ...(probe.highestBidderId ? [probe.highestBidderId] : []),
+      ];
+      const participantStatuses = await lockTradeParticipantStatuses(
+        tx,
+        participantIds,
+        now,
+      );
       const [listing] = await tx
         .select()
         .from(marketplaceListingsV2)
         .where(eq(marketplaceListingsV2.id, id))
         .for("update");
       if (!listing || listing.status !== "active") return { action: "skip" as const };
+      if (
+        listing.sellerId !== probe.sellerId ||
+        (listing.highestBidderId != null &&
+          !participantIds.includes(listing.highestBidderId))
+      ) {
+        return { action: "skip" as const };
+      }
+      if (
+        participantStatuses.get(listing.sellerId) ||
+        (listing.highestBidderId &&
+          participantStatuses.get(listing.highestBidderId))
+      ) {
+        const cancellation = await cancelMarketplaceListingEscrow(tx, listing, {
+          now,
+          refundHighestBid: true,
+          reason: "trade_suspension",
+        });
+        return {
+          action: "restricted_cancelled" as const,
+          refundedGold: cancellation.refundedBidGold,
+        };
+      }
 
       if (listing.bidEndsAt <= now && !listing.bidResolvedAt) {
         if (
@@ -188,6 +232,9 @@ export async function POST(req: Request) {
       bidsRefunded++;
     } else if (result.action === "expired") {
       expired++;
+    } else if (result.action === "restricted_cancelled") {
+      restrictedCancelled++;
+      if (result.refundedGold > 0) bidsRefunded++;
     }
   }
 
@@ -262,6 +309,7 @@ export async function POST(req: Request) {
     auctionsSold,
     bidsRefunded,
     expired,
+    restrictedCancelled,
     ordersExpired,
     ordersMatched,
   });

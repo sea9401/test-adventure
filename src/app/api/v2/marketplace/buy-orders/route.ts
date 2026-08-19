@@ -19,7 +19,9 @@ import {
 } from "@/lib/server/marketplaceV2";
 import {
   matchMarketplaceBuyOrder,
+  prepareMarketplaceMatchScope,
   recordMarketplaceAutoMatchFills,
+  requireMarketplaceMatchParticipants,
 } from "@/lib/server/marketplaceBuyOrdersV2";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { marketplaceBuyOrderEdit } from "@/lib/server/marketplaceBuyOrderEdit";
@@ -285,7 +287,16 @@ export async function POST(req: Request) {
   const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
   const result = await db.transaction(async (tx) => {
-    await requireTradeParticipants(tx, [userId], now);
+    const matchScope = equipOrder
+      ? null
+      : await prepareMarketplaceMatchScope(tx, {
+          kind,
+          itemId,
+          now,
+          participantIds: [userId],
+        });
+    if (matchScope) requireMarketplaceMatchParticipants(matchScope, [userId]);
+    else await requireTradeParticipants(tx, [userId], now);
     const character = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -335,9 +346,10 @@ export async function POST(req: Request) {
         expiresAt,
       })
       .returning({ id: marketplaceBuyOrdersV2.id });
+    matchScope?.orderIds.add(order.id);
     const fills = equipOrder
       ? []
-      : await matchMarketplaceBuyOrder(tx, order.id, now);
+      : await matchMarketplaceBuyOrder(tx, order.id, now, matchScope!);
     return {
       status: 200,
       fills,
@@ -432,7 +444,31 @@ export async function PATCH(req: Request) {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
-    await requireTradeParticipants(tx, [userId], now);
+    const [probe] = await tx
+      .select({
+        id: marketplaceBuyOrdersV2.id,
+        buyerId: marketplaceBuyOrdersV2.buyerId,
+        kind: marketplaceBuyOrdersV2.kind,
+        itemId: marketplaceBuyOrdersV2.itemId,
+      })
+      .from(marketplaceBuyOrdersV2)
+      .where(eq(marketplaceBuyOrdersV2.id, body.orderId as number))
+      .limit(1);
+    if (!probe) {
+      await requireTradeParticipants(tx, [userId], now);
+      return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    const matchScope =
+      probe.kind === "equip"
+        ? null
+        : await prepareMarketplaceMatchScope(tx, {
+            kind: probe.kind,
+            itemId: probe.itemId,
+            now,
+            participantIds: [userId, probe.buyerId],
+          });
+    if (matchScope) requireMarketplaceMatchParticipants(matchScope, [userId]);
+    else await requireTradeParticipants(tx, [userId], now);
     const [order] = await tx
       .select()
       .from(marketplaceBuyOrdersV2)
@@ -440,6 +476,13 @@ export async function PATCH(req: Request) {
       .for("update");
     if (!order) {
       return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    if (
+      order.buyerId !== probe.buyerId ||
+      order.kind !== probe.kind ||
+      order.itemId !== probe.itemId
+    ) {
+      return { status: 409, body: { ok: false as const, error: "not_active" } };
     }
     if (order.buyerId !== userId) {
       return { status: 403, body: { ok: false as const, error: "not_owner" } };
@@ -558,7 +601,7 @@ export async function PATCH(req: Request) {
       .where(eq(marketplaceBuyOrdersV2.id, order.id));
     const fills = equipOrder
       ? []
-      : await matchMarketplaceBuyOrder(tx, order.id, now);
+      : await matchMarketplaceBuyOrder(tx, order.id, now, matchScope!);
     return {
       status: 200,
       fills,

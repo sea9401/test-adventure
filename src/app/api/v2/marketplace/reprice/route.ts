@@ -10,8 +10,11 @@ import {
   marketplaceListingPhase,
 } from "@/lib/server/marketplaceV2";
 import {
+  lockMarketplaceMatchOrdersForItem,
   matchMarketplaceBuyOrdersForItem,
+  prepareMarketplaceMatchScope,
   recordMarketplaceAutoMatchFills,
+  requireMarketplaceMatchParticipants,
   triggerMarketplacePriceAlertsForListing,
 } from "@/lib/server/marketplaceBuyOrdersV2";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
@@ -49,13 +52,54 @@ export async function POST(req: Request) {
   const requestedPrice = body.price;
   const now = new Date();
   const result = await db.transaction(async (tx) => {
-    await requireTradeParticipants(tx, [userId], now);
+    const [probe] = await tx
+      .select({
+        sellerId: marketplaceListingsV2.sellerId,
+        kind: marketplaceListingsV2.kind,
+        itemId: marketplaceListingsV2.itemId,
+      })
+      .from(marketplaceListingsV2)
+      .where(eq(marketplaceListingsV2.id, body.listingId as number))
+      .limit(1);
+    if (!probe) {
+      await requireTradeParticipants(tx, [userId], now);
+      return { status: 404, body: { ok: false as const, error: "not_found" } };
+    }
+    const stackableProbe = isStackableMarketplaceItem(
+      probe.kind as "equip" | "material" | "consumable",
+      probe.itemId,
+    );
+    const matchScope = stackableProbe
+      ? await prepareMarketplaceMatchScope(tx, {
+          kind: probe.kind,
+          itemId: probe.itemId,
+          now,
+          participantIds: [userId, probe.sellerId],
+        })
+      : null;
+    if (matchScope) requireMarketplaceMatchParticipants(matchScope, [userId]);
+    else await requireTradeParticipants(tx, [userId], now);
+    if (matchScope) {
+      await lockMarketplaceMatchOrdersForItem(tx, {
+        scope: matchScope,
+        kind: probe.kind,
+        itemId: probe.itemId,
+        now,
+      });
+    }
     const [listing] = await tx
       .select()
       .from(marketplaceListingsV2)
       .where(eq(marketplaceListingsV2.id, body.listingId as number))
       .for("update");
     if (!listing) return { status: 404, body: { ok: false as const, error: "not_found" } };
+    if (
+      listing.sellerId !== probe.sellerId ||
+      listing.kind !== probe.kind ||
+      listing.itemId !== probe.itemId
+    ) {
+      return { status: 409, body: { ok: false as const, error: "not_active" } };
+    }
     if (listing.sellerId !== userId) {
       return { status: 403, body: { ok: false as const, error: "not_owner" } };
     }
@@ -83,12 +127,14 @@ export async function POST(req: Request) {
       .update(marketplaceListingsV2)
       .set({ price: totalPrice })
       .where(eq(marketplaceListingsV2.id, listing.id));
+    matchScope?.listingIds.add(listing.id);
     const autoMatchFills = stackable
       ? await matchMarketplaceBuyOrdersForItem(
           tx,
           listing.kind,
           listing.itemId,
           now,
+          matchScope!,
         )
       : [];
     await triggerMarketplacePriceAlertsForListing(tx, listing.id, now);

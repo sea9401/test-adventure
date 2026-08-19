@@ -150,13 +150,13 @@ describe("/api/v2/cooking", () => {
     });
   });
 
-  it("일반 조리는 계속 완성품을 인벤토리에 저장한다", async () => {
+  it("일반 조리는 완성 수량을 인벤토리와 요리 도감 숙련도에 함께 기록한다", async () => {
     const farm = store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
     store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
     vi.spyOn(Math, "random").mockReturnValue(0.99);
 
     const response = await POST(
-      request({ action: "cook", recipeId: "rustic_bread", quantity: 1 }),
+      request({ action: "cook", recipeId: "rustic_bread", quantity: 2 }),
     );
     const json = await response.json();
 
@@ -168,20 +168,31 @@ describe("/api/v2/cooking", () => {
     });
     expect(json.result.foodId).toBeTruthy();
     expect(store.get("inventory.v2")).toMatchObject({
-      cookingFoods: { [json.result.foodId]: 1 },
+      cookingFoods: { [json.result.foodId]: 2 },
     });
     expect(store.get("farm.v2")).toMatchObject({
-      inventory: { wheat: 15 },
+      inventory: {},
     });
     expect(store.get("cooking.v1")).toMatchObject({
       discoveredRecipeIds: ["rustic_bread"],
-      stats: expect.objectContaining({ dishesCooked: 1, ordersCompleted: 0 }),
+      stats: expect.objectContaining({ dishesCooked: 2, ordersCompleted: 0 }),
     });
     expect(rewardReferralTutorialTasks).toHaveBeenCalledWith(
       expect.anything(),
       "cook-user",
       "새 모험가",
       [],
+    );
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "cook-user",
+      [{
+        category: "cooking",
+        entryId: "rustic_bread",
+        amount: 2,
+        source: "cooking.complete",
+      }],
+      new Date(NOW),
     );
   });
 
@@ -215,12 +226,20 @@ describe("/api/v2/cooking", () => {
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
       expect.anything(),
       "cook-user",
-      [{
-        category: "job",
-        entryId: "cook",
-        amount: 13,
-        source: "job.activity",
-      }],
+      [
+        {
+          category: "cooking",
+          entryId: "rustic_bread",
+          amount: 1,
+          source: "cooking.complete",
+        },
+        {
+          category: "job",
+          entryId: "cook",
+          amount: 13,
+          source: "job.activity",
+        },
+      ],
       new Date(NOW),
     );
   });
@@ -348,6 +367,7 @@ describe("/api/v2/cooking", () => {
         rareIngredientDishes: 0,
       },
     });
+    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
   it("주문과 일치하는 완성품이 없으면 원재료가 있어도 거부한다", async () => {
@@ -414,6 +434,7 @@ describe("/api/v2/cooking", () => {
       daily: { standingDeliveries: 3, completedOrderIds: [] },
       stats: { ordersCompleted: 0 },
     });
+    expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
   it("상시 납품은 남은 일일 한도를 넘으면 아무 상태도 바꾸지 않는다", async () => {

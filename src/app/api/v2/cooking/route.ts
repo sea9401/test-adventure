@@ -72,7 +72,10 @@ import { consumeFinishedItem, rollHiddenBlueprint } from "@/adventure/v2/lifeCra
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { referralLifeTaskIds } from "@/adventure/data/v2/referralTutorial";
 import { rewardReferralTutorialTasks } from "@/lib/server/referrals";
-import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
+import {
+  recordCodexMasteryGameplayBatch,
+  type CodexMasteryGameplayEvent,
+} from "@/lib/server/codexMasteryGameplay";
 
 type CharacterSave = Record<string, unknown> & {
   gold?: number;
@@ -501,6 +504,14 @@ export async function POST(req: Request) {
 
       let masteryGained = 0;
       let masteryAfter: number | null = null;
+      const codexMasteryEvents: CodexMasteryGameplayEvent[] = action === "cook"
+        ? [{
+            category: "cooking",
+            entryId: recipe.id,
+            amount: quantity,
+            source: "cooking.complete",
+          }]
+        : [];
       if (job.jobId) {
         let proficiency = parseProficiencyForChar(
           await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
@@ -512,18 +523,21 @@ export async function POST(req: Request) {
         masteryAfter = proficiency.jobCumLevel?.[job.jobId] ?? 0;
         await upsertSave(tx, userId, "proficiency.v2", proficiency);
         if (masteryGained > 0) {
-          await recordCodexMasteryGameplayBatch(
-            tx,
-            userId,
-            [{
-              category: "job",
-              entryId: job.jobId,
-              amount: masteryGained,
-              source: "job.activity",
-            }],
-            new Date(now),
-          );
+          codexMasteryEvents.push({
+            category: "job",
+            entryId: job.jobId,
+            amount: masteryGained,
+            source: "job.activity",
+          });
         }
+      }
+      if (codexMasteryEvents.length > 0) {
+        await recordCodexMasteryGameplayBatch(
+          tx,
+          userId,
+          codexMasteryEvents,
+          new Date(now),
+        );
       }
 
       return {

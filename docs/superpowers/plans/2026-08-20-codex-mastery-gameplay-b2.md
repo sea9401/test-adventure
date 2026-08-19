@@ -341,7 +341,8 @@ Run:
 rg -n "addJobCumLevel" src/app src/lib/server -g '*.ts'
 ```
 
-Confirm every non-development call is paired with a B2 event. `src/app/api/v2/dev/grant/route.ts` must remain unconnected.
+Confirm every gameplay call is paired with a B2 event. Direct-value injection through
+`src/app/api/admin/v2-grant/route.ts` and `src/app/api/v2/dev/grant/route.ts` must remain unconnected.
 
 - [ ] **Step 2: Run the complete B2 and foundation suites**
 

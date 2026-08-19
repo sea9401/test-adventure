@@ -106,7 +106,8 @@ ID를 다시 추론하지 않게 한다.
 
 생활 활동은 `job.activity`, 사냥은 `job.victory`, 길드 훈련은 `job.training`, 소비형 숙련은
 `job.consumable`을 사용한다. 각 호출은 기존 `addJobCumLevel`의 동일 직업 ID와 증가량을 사용한다.
-`src/app/api/v2/dev/grant`는 운영 활동이 아니므로 연결하지 않는다.
+`src/app/api/admin/v2-grant`와 `src/app/api/v2/dev/grant`의 직접 지급은 플레이 활동이 아니며
+운영 보상·QA 수치가 랭킹을 부풀릴 수 있으므로 연결하지 않는다.
 
 ## 7. 잠금, 오류와 운영
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const codexMasteryFeatures = {
   recordingEnabled: false,
+  overviewVisible: false,
   rankingVisible: false,
   sealsEnabled: false,
   trophiesEnabled: false,

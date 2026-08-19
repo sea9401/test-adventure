@@ -32,6 +32,7 @@ export const DEFAULT_LIFE_FIELD_FEATURES: LifeFieldFeatureSettings = {
 
 export type CodexMasteryFeatureSettings = {
   recordingEnabled: boolean;
+  overviewVisible: boolean;
   rankingVisible: boolean;
   sealsEnabled: boolean;
   trophiesEnabled: boolean;
@@ -43,6 +44,7 @@ export type CodexMasteryFeatureSettings = {
 
 export const DEFAULT_CODEX_MASTERY_FEATURES: CodexMasteryFeatureSettings = {
   recordingEnabled: false,
+  overviewVisible: false,
   rankingVisible: false,
   sealsEnabled: false,
   trophiesEnabled: false,
@@ -383,6 +385,11 @@ export function parseCodexMasteryFeatureSettings(
       typeof value.recordingEnabled === "boolean"
         ? value.recordingEnabled
         : DEFAULT_CODEX_MASTERY_FEATURES.recordingEnabled,
+    overviewVisible:
+      Object.hasOwn(value, "overviewVisible") &&
+      typeof value.overviewVisible === "boolean"
+        ? value.overviewVisible
+        : DEFAULT_CODEX_MASTERY_FEATURES.overviewVisible,
     rankingVisible:
       Object.hasOwn(value, "rankingVisible") &&
       typeof value.rankingVisible === "boolean"

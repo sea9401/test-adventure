@@ -331,7 +331,7 @@ function emptyProgressRow(
 }
 
 async function selectSummary(
-  executor: DbTransactionExecutor,
+  executor: DbExecutor,
   userId: string,
   options: { forUpdate: boolean },
 ) {
@@ -375,6 +375,14 @@ export async function readCodexMasteryProgressRows(
     .from(codexMasteryProgress)
     .where(eq(codexMasteryProgress.userId, userId));
   return rows.map(codexMasteryRowToProgress);
+}
+
+export async function readCodexMasterySummary(
+  executor: DbExecutor,
+  userId: string,
+): Promise<CodexMasterySummaryState> {
+  const row = await selectSummary(executor, userId, { forUpdate: false });
+  return row ? codexMasterySummaryRowToState(row) : emptyCodexMasterySummary();
 }
 
 export async function lockCodexMasteryState(

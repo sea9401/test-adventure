@@ -10,6 +10,7 @@ import {
   emptyCodexMasterySummary,
   lockCodexMasteryState,
   readCodexMasteryProgressRows,
+  readCodexMasterySummary,
   saveCodexMasteryState,
 } from "./codexMasteryRepository";
 import { recordCodexMastery } from "./codexMasteryService";
@@ -109,6 +110,10 @@ function recordingExecutor(options: {
                   events.push(table === codexMasterySummary
                     ? "lock-summary"
                     : "lock-progress");
+                } else {
+                  events.push(table === codexMasterySummary
+                    ? "read-summary"
+                    : "read-progress");
                 }
                 return rows;
               };
@@ -154,6 +159,53 @@ function recordingExecutor(options: {
 }
 
 describe("codex mastery repository", () => {
+  it("reads an existing summary without inserting or locking rows", async () => {
+    const fake = recordingExecutor({
+      summaryRows: [{
+        userId: "user-1",
+        totalScoreMilli: 12_500,
+        equipmentScoreMilli: 1_500,
+        fishScoreMilli: 2_500,
+        monsterScoreMilli: 3_500,
+        cookingScoreMilli: 0,
+        lifeScoreMilli: 0,
+        jobScoreMilli: 5_000,
+        bronzeCount: 4,
+        silverCount: 3,
+        goldCount: 2,
+        platinumCount: 1,
+        diamondCount: 0,
+        legendaryCount: 0,
+        sealCount: 2,
+        scoredCategoryCount: 4,
+        scoreReachedAt: new Date("2026-08-20T01:00:00.000Z"),
+        equipmentScoreReachedAt: null,
+        fishScoreReachedAt: null,
+        monsterScoreReachedAt: null,
+        cookingScoreReachedAt: null,
+        lifeScoreReachedAt: null,
+        jobScoreReachedAt: null,
+      }],
+    });
+
+    await expect(readCodexMasterySummary(fake.executor, "user-1"))
+      .resolves.toMatchObject({
+        totalScoreMilli: 12_500,
+        categoryScoreMilli: { fish: 2_500, job: 5_000 },
+        stageCounts: { bronze: 4, silver: 3, gold: 2, platinum: 1 },
+        sealCount: 2,
+      });
+    expect(fake.events).toEqual(["read-summary"]);
+  });
+
+  it("returns an in-memory empty summary when no row exists", async () => {
+    const fake = recordingExecutor({ summaryRows: [] });
+
+    await expect(readCodexMasterySummary(fake.executor, "new-user"))
+      .resolves.toEqual(emptyCodexMasterySummary());
+    expect(fake.events).toEqual(["read-summary"]);
+  });
+
   it("exposes every mastery mutation boundary only to transaction executors", () => {
     // Break caught: callers can pass the global database and split mastery writes across commits.
     type GlobalDbIsTransactionExecutor = typeof db extends DbTransactionExecutor

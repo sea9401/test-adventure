@@ -106,8 +106,12 @@ describe("life field feature settings", () => {
 
 describe("codex mastery feature settings", () => {
   it("defaults every new feature off and preserves explicit switches", () => {
-    expect(parseCodexMasteryFeatureSettings({ recordingEnabled: true })).toEqual({
+    expect(parseCodexMasteryFeatureSettings({
       recordingEnabled: true,
+      overviewVisible: true,
+    })).toEqual({
+      recordingEnabled: true,
+      overviewVisible: true,
       rankingVisible: false,
       sealsEnabled: false,
       trophiesEnabled: false,
@@ -126,6 +130,7 @@ describe("codex mastery feature settings", () => {
 
     expect(parseCodexMasteryFeatureSettings(inherited)).toEqual({
       recordingEnabled: false,
+      overviewVisible: false,
       rankingVisible: true,
       sealsEnabled: false,
       trophiesEnabled: false,

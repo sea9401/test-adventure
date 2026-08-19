@@ -1,14 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
 const {
   store,
   resolveBattleMock,
   prepareBattleActorMock,
+  recordCodexMasteryGameplayBatch,
   toReplayPayloadMock,
 } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   resolveBattleMock: vi.fn(),
   prepareBattleActorMock: vi.fn(),
+  recordCodexMasteryGameplayBatch: vi.fn(
+    async (
+      _executor: unknown,
+      _userId: string,
+      _events: readonly CodexMasteryGameplayEvent[],
+      _now: Date,
+    ) => [],
+  ),
   toReplayPayloadMock: vi.fn(() => ({
     log: [],
     playerMaxHp: 1_000,
@@ -34,6 +44,10 @@ vi.mock("@/adventure/v2/combat/engine", () => ({
 
 vi.mock("@/adventure/data/v2/replayPayload", () => ({
   toReplayPayload: toReplayPayloadMock,
+}));
+
+vi.mock("@/lib/server/codexMasteryGameplay", () => ({
+  recordCodexMasteryGameplayBatch,
 }));
 
 vi.mock("@/db", () => ({
@@ -114,6 +128,7 @@ describe("POST /api/v2/storm-expedition", () => {
 
   beforeEach(() => {
     store.clear();
+    recordCodexMasteryGameplayBatch.mockClear();
     store.set("character.v2", {
       frontierDepth: 72,
       gold: 1_000,
@@ -673,6 +688,17 @@ describe("POST /api/v2/storm-expedition", () => {
       ],
       equipped: { weapon: "old" },
     });
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      [{
+        category: "equipment",
+        entryId: "v2_storm_gale_bow",
+        amount: 1,
+        source: "equipment.drop",
+      }],
+      expect.any(Date),
+    );
     expect(store.get(STORM_EXPEDITION_SAVE_KEY)).toMatchObject({
       active: null,
       attemptsUsed: 1,

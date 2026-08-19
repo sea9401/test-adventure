@@ -1041,6 +1041,22 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       source: "hunt.victory",
     });
   }
+  if (droppedEquipment) {
+    codexMasteryEvents.push({
+      category: "equipment",
+      entryId: droppedEquipment,
+      amount: 1,
+      source: "equipment.drop",
+    });
+  }
+  if (droppedUnique) {
+    codexMasteryEvents.push({
+      category: "equipment",
+      entryId: droppedUnique,
+      amount: 1,
+      source: "equipment.drop",
+    });
+  }
   if (masteryJobId && masteryGained > 0) {
     codexMasteryEvents.push({
       category: "job",

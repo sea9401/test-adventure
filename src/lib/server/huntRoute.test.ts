@@ -18,6 +18,7 @@ const {
   insertTargets,
   rewardReferralTutorialTasks,
   recordCodexMasteryGameplayBatch,
+  huntDropOverride,
   store,
 } = vi.hoisted(() => ({
   deferLongBattleReplays: vi.fn(
@@ -38,6 +39,10 @@ const {
       _now: Date,
     ) => [],
   ),
+  huntDropOverride: {
+    equipmentId: null as string | null,
+    uniqueId: null as string | null,
+  },
   store: new Map<string, unknown>(),
 }));
 
@@ -55,6 +60,34 @@ vi.mock("@/lib/server/referrals", () => ({ rewardReferralTutorialTasks }));
 vi.mock("@/lib/server/codexMasteryGameplay", () => ({
   recordCodexMasteryGameplayBatch,
 }));
+vi.mock("@/app/api/v2/dungeon/hunt/huntDrops", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/app/api/v2/dungeon/hunt/huntDrops")
+  >();
+  return {
+    ...actual,
+    rollHuntDrops: (
+      params: Parameters<typeof actual.rollHuntDrops>[0],
+    ): ReturnType<typeof actual.rollHuntDrops> => {
+      const result = actual.rollHuntDrops(params);
+      if (!huntDropOverride.equipmentId && !huntDropOverride.uniqueId) return result;
+      const forced = [
+        huntDropOverride.equipmentId
+          ? { iid: "forced-regular", id: huntDropOverride.equipmentId }
+          : null,
+        huntDropOverride.uniqueId
+          ? { iid: "forced-unique", id: huntDropOverride.uniqueId }
+          : null,
+      ].filter((entry): entry is { iid: string; id: string } => entry !== null);
+      return {
+        ...result,
+        droppedEquipment: huntDropOverride.equipmentId,
+        droppedUnique: huntDropOverride.uniqueId,
+        nextOwned: [...params.ownedEquip, ...forced],
+      } as ReturnType<typeof actual.rollHuntDrops>;
+    },
+  };
+});
 vi.mock("@/lib/server/battleReplayStore", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/server/battleReplayStore")>()),
   deferLongBattleReplays,
@@ -164,6 +197,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     vi.clearAllMocks();
     insertTargets.length = 0;
     seedStrongWarrior();
+    huntDropOverride.equipmentId = null;
+    huntDropOverride.uniqueId = null;
     // 결정적 RNG — 0.5 는 명중 임계(missPct ~6) 위라 평타 적중, 크리/추가타 임계 아래라 단타.
     // 강한 무기(atk ~175) + 우호 명중 → depth1 몹 확정 1타 처치.
     vi.spyOn(Math, "random").mockReturnValue(0.5);
@@ -241,6 +276,44 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       ],
       expect.any(Date),
     );
+  });
+
+  it("실제 정규·유니크 장비 드롭을 단판과 배치 수집기에 각각 기록한다", async () => {
+    // Break caught: equipment is persisted by huntDrops but only monster/job mastery is flushed.
+    huntDropOverride.equipmentId = "v2_iron_sword";
+    huntDropOverride.uniqueId = "v2_storm_gale_bow";
+
+    const response = await POST(huntReq({ floor: 2, count: 2 }));
+
+    expect(response.status).toBe(200);
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    const events = recordCodexMasteryGameplayBatch.mock.calls[0]?.[2] ?? [];
+    expect(events.filter((event) => event.category === "equipment")).toEqual([
+      {
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        amount: 1,
+        source: "equipment.drop",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_storm_gale_bow",
+        amount: 1,
+        source: "equipment.drop",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        amount: 1,
+        source: "equipment.drop",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_storm_gale_bow",
+        amount: 1,
+        source: "equipment.drop",
+      },
+    ]);
   });
 
   it("활성 음식의 사냥 경험치 버프를 캐릭터 EXP에 적용한다", async () => {

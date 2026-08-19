@@ -4,6 +4,7 @@ import {
   stormExpeditionEntryActions,
   stormExpeditionFightRequest,
   stormExpeditionMoveRequest,
+  stormExpeditionNodeIntent,
   stormExpeditionRiskRequest,
   stormExpeditionStartRequest,
 } from "./stormExpeditionViewModel";
@@ -29,6 +30,52 @@ describe("stormExpeditionEntryActions", () => {
         description: "입장 횟수 소모 없음 · 보상 없음",
       },
     });
+  });
+});
+
+describe("폭풍 원정 지도 노드 의도", () => {
+  const active = {
+    currentNodeId: "gale_outer" as const,
+    visitedNodeIds: ["gale_outer"] as const,
+    completedNodeIds: [] as const,
+    riskEvent: null,
+  };
+
+  it("입장 전 외곽 노드는 시작 이동 확인으로 분류한다", () => {
+    expect(stormExpeditionNodeIntent("thunder_outer", null, ["gale_outer", "thunder_outer", "wreckage_outer"], "battle")).toEqual({ kind: "move" });
+  });
+
+  it("현재 전투와 선택 노드를 종류에 맞게 분류한다", () => {
+    expect(stormExpeditionNodeIntent("gale_outer", active, [], "battle")).toEqual({ kind: "battle" });
+    expect(stormExpeditionNodeIntent("supply", {
+      ...active,
+      currentNodeId: "supply",
+      visitedNodeIds: ["gale_outer", "supply"],
+    }, [], "supply")).toEqual({ kind: "choice" });
+  });
+
+  it("현재 노드의 미결 위험 이벤트를 전투·정비보다 먼저 분류한다", () => {
+    expect(stormExpeditionNodeIntent("supply", {
+      ...active,
+      currentNodeId: "supply",
+      visitedNodeIds: ["gale_outer", "supply"],
+      riskEvent: { status: "offered", triggerCheckpoint: "supply" },
+    }, [], "supply")).toEqual({ kind: "risk" });
+  });
+
+  it("완료한 노드와 이동 가능한 다음 노드를 구분한다", () => {
+    expect(stormExpeditionNodeIntent("gale_outer", {
+      ...active,
+      completedNodeIds: ["gale_outer"],
+    }, ["supply"], "battle")).toEqual({ kind: "completed" });
+    expect(stormExpeditionNodeIntent("supply", {
+      ...active,
+      completedNodeIds: ["gale_outer"],
+    }, ["supply"], "supply")).toEqual({ kind: "move" });
+  });
+
+  it("진행할 수 없는 미래 노드는 정보 전용 잠금으로 분류한다", () => {
+    expect(stormExpeditionNodeIntent("storm_heart", active, [], "battle")).toEqual({ kind: "locked" });
   });
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { StormExpeditionMapNode, StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
+import type { StormExpeditionMode } from "@/adventure/data/v2/stormExpedition";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import type { StormExpeditionAutoplayPlan } from "./stormExpeditionAutoplayPolicy";
@@ -31,6 +32,11 @@ type Props = {
   nodeCount: number;
   plan: StormExpeditionAutoplayPlan | null;
   autoplay: StormExpeditionAutoplayDisplay;
+  entry?: {
+    selectedMode: StormExpeditionMode;
+    attemptsLeft: number;
+    onModeChange: (mode: StormExpeditionMode) => void;
+  };
   onNodeOpen: (nodeId: StormExpeditionMapNodeId) => void;
   onOpenAutoplayPlan: () => void;
   onStopAutoplay: () => void;
@@ -44,6 +50,7 @@ export function StormExpeditionCommandMap({
   nodeCount,
   plan,
   autoplay,
+  entry,
   onNodeOpen,
   onOpenAutoplayPlan,
   onStopAutoplay,
@@ -66,6 +73,29 @@ export function StormExpeditionCommandMap({
           <div className="grid grid-cols-2 gap-2 text-center text-sm">
             <Metric label="HP" value={`${formatNumber(active.hp)} / ${formatNumber(active.maxHp)}`} />
             <Metric label="MP" value={`${formatNumber(active.mp)} / ${formatNumber(active.maxMp)}`} />
+          </div>
+        )}
+
+        {!active && entry && (
+          <div className={`${SURFACE_INSET} flex flex-wrap items-center gap-2 p-2 text-xs`}>
+            <button
+              type="button"
+              aria-pressed={entry.selectedMode === "normal"}
+              disabled={entry.attemptsLeft <= 0}
+              onClick={() => entry.onModeChange("normal")}
+              className={`min-h-11 rounded-md border px-4 font-semibold disabled:opacity-50 ${entry.selectedMode === "normal" ? "border-sky-500 bg-sky-600 text-white" : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"}`}
+            >
+              {entry.attemptsLeft > 0 ? "실전 출발" : "오늘 입장 완료"}
+            </button>
+            <button
+              type="button"
+              aria-pressed={entry.selectedMode === "practice"}
+              onClick={() => entry.onModeChange("practice")}
+              className={`min-h-11 rounded-md border px-4 font-semibold ${entry.selectedMode === "practice" ? "border-violet-500 bg-violet-600 text-white" : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"}`}
+            >
+              연습 시작
+            </button>
+            <span>{entry.selectedMode === "practice" ? "입장 횟수 소모 없음 · 보상 없음" : `오늘 ${entry.attemptsLeft}회 입장 가능`}</span>
           </div>
         )}
 

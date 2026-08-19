@@ -49,6 +49,7 @@ describe("StormExpeditionCommandMap", () => {
         nodeCount={9}
         plan={null}
         autoplay={{ kind: "idle" }}
+        entry={{ selectedMode: "normal", attemptsLeft: 2, onModeChange: vi.fn() }}
         onNodeOpen={vi.fn()}
         onOpenAutoplayPlan={vi.fn()}
         onStopAutoplay={vi.fn()}
@@ -56,6 +57,9 @@ describe("StormExpeditionCommandMap", () => {
     );
 
     expect(html).toContain("직접 진행 · 지도에서 외곽 항로 선택");
+    expect(html).toContain("실전 출발");
+    expect(html).toContain("연습 시작");
+    expect(html).toContain("오늘 2회 입장 가능");
     expect(html).toContain("일괄 진행 설정");
   });
 

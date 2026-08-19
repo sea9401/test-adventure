@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   confirmStormExpeditionExit,
   shouldShowAcceptedRisk,
+  stormExpeditionArrivalNodeId,
   stormUniqueDropPreview,
 } from "./V2StormExpeditionView";
 import type { StormExpeditionRiskEventOffer } from "@/adventure/data/v2/stormExpedition";
@@ -87,5 +88,23 @@ describe("폭풍 원정 적용 중인 위험 표시", () => {
 
   it("남은 원정에 적용되는 위험은 다음 전투 효과가 없어도 표시한다", () => {
     expect(shouldShowAcceptedRisk(acceptedRisk("storm_contract"), [])).toBe(true);
+  });
+});
+
+describe("폭풍 원정 수동 도착 모달", () => {
+  const response = {
+    error: undefined,
+    state: { active: { currentNodeId: "supply" as const } },
+  };
+
+  it("수동 시작과 이동 성공 뒤에는 도착 노드를 연다", () => {
+    expect(stormExpeditionArrivalNodeId("start", response)).toBe("supply");
+    expect(stormExpeditionArrivalNodeId("move", response)).toBe("supply");
+  });
+
+  it("전투·선택 응답이나 오류·초기 로드에서는 모달을 강제로 열지 않는다", () => {
+    expect(stormExpeditionArrivalNodeId("fight", response)).toBeNull();
+    expect(stormExpeditionArrivalNodeId("move", { ...response, error: "stale_state" })).toBeNull();
+    expect(stormExpeditionArrivalNodeId("move", { state: { active: null } })).toBeNull();
   });
 });

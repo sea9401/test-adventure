@@ -5,7 +5,11 @@ import {
   inboxActionErrorLabel,
   type InboxItem,
 } from "@/adventure/marketplace/api";
-import { InboxMailCard, MailDetailModal } from "./V2InboxView";
+import {
+  inboxClaimErrorLabel,
+  InboxMailCard,
+  MailDetailModal,
+} from "./V2InboxView";
 
 function inboxItem(overrides: Partial<InboxItem> = {}): InboxItem {
   return {
@@ -40,6 +44,19 @@ describe("우편 거래 정지 오류", () => {
 
     expect(message).toContain("거래 이용 제한");
     expect(message).toContain("비정상 거래 조사");
+  });
+
+  it("기존 수령 오류 코드는 발송용 번역 없이 원문을 유지한다", () => {
+    expect(inboxClaimErrorLabel({ error: "no_unclaimed" }, 404)).toBe(
+      "no_unclaimed",
+    );
+    expect(inboxClaimErrorLabel({ error: "inventory_full" }, 409)).toBe(
+      "inventory_full",
+    );
+  });
+
+  it("수령 응답이 JSON이 아니면 기존 상태 코드 fallback을 정확히 유지한다", () => {
+    expect(inboxClaimErrorLabel(null, 500)).toBe("수령 실패 (500)");
   });
 });
 

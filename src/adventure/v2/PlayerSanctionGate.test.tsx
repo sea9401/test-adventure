@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -23,6 +24,14 @@ function response(body: Record<string, unknown>, status = 200): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 describe("PlayerSanctionGate 거래 이용 제한 안내", () => {
@@ -130,5 +139,73 @@ describe("PlayerSanctionGate 거래 이용 제한 안내", () => {
     expect(await screen.findByText("게임 이용이 제한되었습니다")).toBeDefined();
     expect(screen.queryByText("게임 본문")).toBeNull();
     expect(screen.queryByRole("dialog", { name: "거래 이용 제한" })).toBeNull();
+  });
+
+  it("확인 뒤 늦게 끝난 이전 상태 조회가 같은 거래 제한 안내를 다시 열지 않는다", async () => {
+    const tradeSuspension = {
+      id: 13,
+      reason: "순서 역전 조사",
+      expiresAt: "2026-08-25T00:00:00.000Z",
+      permanent: false,
+      acknowledged: false,
+    };
+    const staleGet = deferred<Response>();
+    fetchMock
+      .mockResolvedValueOnce(
+        response({
+          ok: true,
+          suspension: null,
+          tradeSuspension,
+          warning: null,
+        }),
+      )
+      .mockImplementationOnce(() => staleGet.promise)
+      .mockResolvedValueOnce(response({ ok: true, sanctionId: 13, kind: "trade" }))
+      .mockResolvedValueOnce(
+        response({
+          ok: true,
+          suspension: null,
+          tradeSuspension: { ...tradeSuspension, acknowledged: true },
+          warning: null,
+        }),
+      );
+
+    render(
+      <PlayerSanctionGate>
+        <div>게임 본문</div>
+      </PlayerSanctionGate>,
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: "거래 이용 제한" }),
+    ).toBeDefined();
+
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "내용을 확인했습니다" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "거래 이용 제한" })).toBeNull();
+    });
+
+    await act(async () => {
+      staleGet.resolve(
+        response({
+          ok: true,
+          suspension: null,
+          tradeSuspension,
+          warning: null,
+        }),
+      );
+      await staleGet.promise;
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "거래 이용 제한" })).toBeNull();
+    });
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(1);
+    expect(auth.signOut).not.toHaveBeenCalled();
   });
 });

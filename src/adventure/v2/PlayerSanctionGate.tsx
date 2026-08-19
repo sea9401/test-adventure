@@ -22,16 +22,20 @@ type GateState =
 
 export function PlayerSanctionGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<GateState>({ kind: "loading" });
+  const refreshRequestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestId = ++refreshRequestIdRef.current;
     try {
       const res = await fetch("/api/v2/me/sanctions", { cache: "no-store" });
+      if (requestId !== refreshRequestIdRef.current) return;
       if (res.status === 401 || res.status === 404) {
         setState({ kind: "unauthorized" });
         return;
       }
       if (!res.ok) throw new Error(`sanctions -> ${res.status}`);
       const json = (await res.json()) as PlayerSanctionStatus & { ok?: boolean };
+      if (requestId !== refreshRequestIdRef.current) return;
       if (!json.ok) throw new Error("invalid sanction status");
       setState({
         kind: "ready",
@@ -44,6 +48,7 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
     } catch {
       // 최초 확인 실패는 제재 여부를 모른 채 저장 API를 호출하지 않도록 재시도 화면을
       // 보여준다. 플레이 중 폴링 한 번이 실패한 경우에는 마지막 정상 상태를 유지한다.
+      if (requestId !== refreshRequestIdRef.current) return;
       setState((current) => (current.kind === "ready" ? current : { kind: "error" }));
     }
   }, []);

@@ -388,6 +388,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 12, dex: 8 }, // 중독 누적·부식 특화
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
+  beastwarrior: {
+    id: "beastwarrior",
+    name: "야수전사",
+    tier: 2,
+    cultivateProfile: { str: 2, dex: 2 },
+    jobBonus: { str: 12, dex: 6 },
+    unlock: { prereqs: { beastkin: TIER2_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 3: 고차 직업 — 🔑 계보 게이팅: 바로 아래 2차 직업의 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL ───
   //   (견습 기사→기사·마법사→마도사·사제→대사제 …). 직군 단일풀이 아니라 계보 직업을 키워야 열린다.
@@ -659,6 +667,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       },
     },
   },
+  tracker: {
+    id: "tracker",
+    name: "추적자",
+    tier: 3,
+    cultivateProfile: { str: 2, dex: 2 },
+    jobBonus: { str: 13, dex: 7 },
+    unlock: { prereqs: { beastwarrior: TIER3_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL ───
   //   (기사→정예 기사·마도사→대마법사/원소별 마법사·궁사→신궁 …).
@@ -670,6 +686,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
     jobBonus: { str: 11, vit: 11 }, // 전사 심화(기사 라인 정점)
     unlock: { prereqs: { paladin: TIER4_UNLOCK_CUMLEVEL } }, // 기사 계보
+  },
+  bloodtracker: {
+    id: "bloodtracker",
+    name: "혈흔추적자",
+    tier: 4,
+    cultivateProfile: { str: 2, dex: 2 },
+    jobBonus: { str: 14, dex: 8 },
+    unlock: { prereqs: { tracker: TIER4_UNLOCK_CUMLEVEL } },
   },
   sensei: {
     id: "sensei",
@@ -1174,6 +1198,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 18, spi: 6, luk: 4 },
     unlock: { prereqs: { archshaman: TIER5_UNLOCK_CUMLEVEL } },
   },
+  predator: {
+    id: "predator",
+    name: "포식자",
+    tier: 5,
+    cultivateProfile: { str: 3, dex: 2 },
+    jobBonus: { str: 17, dex: 9 },
+    unlock: { prereqs: { bloodtracker: TIER5_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 6: 초월 심화 직업 — 5차 직업 숙련도 기반 엔드 성장 ───
   fortressknight: {
@@ -1387,6 +1419,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 22, vit: 14, spi: 6 },
     unlock: { prereqs: { bloodlord: TIER6_UNLOCK_CUMLEVEL } },
   },
+  primalpredator: {
+    id: "primalpredator",
+    name: "원시 포식자",
+    tier: 6,
+    cultivateProfile: { str: 3, dex: 2, vit: 1 },
+    jobBonus: { str: 26, dex: 10, vit: 4 },
+    unlock: { prereqs: { predator: TIER6_UNLOCK_CUMLEVEL } },
+  },
   absolute: {
     id: "absolute",
     name: "절대자",
@@ -1490,13 +1530,10 @@ function isJobUnlockedInternal(
   seen: ReadonlySet<string>,
 ): boolean {
   for (const [prereqJobId, minCumLevel] of Object.entries(job.unlock.prereqs)) {
-    // 직군 키(tier-1 직업 id, 예: warrior)=직군 숙련도(groups.cumLevel). 특정 상위 직업
-    //   키(예: paladin·acolyte)=직업별 숙련도(jobCumLevel·하이브리드 게이트). prereq 키의 tier 로 분기.
-    const prereqTier = V2_JOB_CATALOG[prereqJobId]?.tier ?? 1;
-    const actual =
-      prereqTier <= 1
-        ? (proficiency.groups[prereqJobId]?.cumLevel ?? 0)
-        : (proficiency.jobCumLevel?.[prereqJobId] ?? 0);
+    const prerequisite = V2_JOB_CATALOG[prereqJobId];
+    const actual = prerequisite
+      ? cumLevelForJob(proficiency, prerequisite)
+      : (proficiency.groups[prereqJobId]?.cumLevel ?? 0);
     if (actual < (minCumLevel ?? 0)) return false;
   }
   // 추가 조건(quest/stat/kill/farming/jobUnlocked).
@@ -1588,13 +1625,16 @@ export function isJobUnlockConditionRevealed(
   });
 }
 
-// 그 직업에 쌓은 숙련도(표시용) — tier1 직업=직군 숙련도(groups), tier2+=직업별 숙련도(jobCumLevel).
-//   isJobUnlocked 의 prereq 분기와 같은 기준. 미적립=0.
+// 그 직업에 쌓은 숙련도(표시용) — 직군 자체인 기본 직업은 groups, 직군 아래 별도 전문 직업은
+// jobCumLevel. 대부분 tier1=groups/tier2+=jobCumLevel 이지만 수인·골렘은 tier1 이면서
+// mutant 직군의 전문 직업이므로 jobCumLevel 을 사용한다. 미적립=0.
 export function cumLevelForJob(
   prof: V2ProficiencyState,
   job: V2JobDefinition,
 ): number {
-  return job.tier <= 1
+  const legacyMapping = LEGACY_CLASS_SPEC_BY_JOB[job.id];
+  const usesGroupMastery = job.tier <= 1 && legacyMapping?.spec == null;
+  return usesGroupMastery
     ? (prof.groups[job.id]?.cumLevel ?? 0)
     : (prof.jobCumLevel?.[job.id] ?? 0);
 }
@@ -1739,6 +1779,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   mutant: { class: "mutant", spec: null },
   beastkin: { class: "mutant", spec: "beastkin" },
   golem: { class: "mutant", spec: "golem" },
+  beastwarrior: { class: "mutant", spec: "beastwarrior" },
+  tracker: { class: "mutant", spec: "tracker" },
+  bloodtracker: { class: "mutant", spec: "bloodtracker" },
+  predator: { class: "mutant", spec: "predator" },
+  primalpredator: { class: "mutant", spec: "primalpredator" },
   camper: { class: "survivor", spec: "camper" },
   ironman: { class: "survivor", spec: "ironman" },
   fisher: { class: "survivor", spec: "fisher" },

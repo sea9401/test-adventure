@@ -28,6 +28,7 @@ import { tickV2BuffMap } from "./combatShared";
 import { enterShockAction } from "./shockAction";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 import { mergeLawInscriptionSnapshot } from "./lawInscription";
+import { mergeTier7ResourceSnapshot } from "./engineState";
 import {
   pickPvpInitiative,
   type PvPInitiativeActor,
@@ -42,14 +43,20 @@ export const PVP_ATB_ACTION_GUARD = 2000;
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
   const playerResources = mergeLawInscriptionSnapshot(
     mergeTripleWardResourceSnapshot(
-      activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
+      mergeTier7ResourceSnapshot(
+        activeTier6ResourceSnapshot(state.p1.stacks.tier6Uniques),
+        state.p1.stacks.tier7,
+      ),
       state.p1.stacks.tripleWard,
     ),
     state.p1.stacks.lawInscriptions,
   );
   const enemyResources = mergeLawInscriptionSnapshot(
     mergeTripleWardResourceSnapshot(
-      activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
+      mergeTier7ResourceSnapshot(
+        activeTier6ResourceSnapshot(state.p2.stacks.tier6Uniques),
+        state.p2.stacks.tier7,
+      ),
       state.p2.stacks.tripleWard,
     ),
     state.p2.stacks.lawInscriptions,
@@ -302,16 +309,21 @@ export function resolveBattlePvPAtb(
     if (shockEntry.skip) {
       const side = state[who];
       const tickClassicBuffs = side.turn.completedPlayerTurns > 0;
+      const forcedRuinRelease = side.stacks.tier7?.ruinCharge != null;
       state = {
         ...state,
         [who]: {
           ...side,
           attacksLeft: 0,
-          buffs: tickClassicBuffs
+          buffs: tickClassicBuffs && !forcedRuinRelease
             ? decrementTimedEffects(side.buffs)
             : side.buffs,
-          v2SelfBuffs: tickV2BuffMap(side.v2SelfBuffs),
-          v2SelfDebuffs: tickV2BuffMap(side.v2SelfDebuffs),
+          v2SelfBuffs: forcedRuinRelease
+            ? side.v2SelfBuffs
+            : tickV2BuffMap(side.v2SelfBuffs),
+          v2SelfDebuffs: forcedRuinRelease
+            ? side.v2SelfDebuffs
+            : tickV2BuffMap(side.v2SelfDebuffs),
         },
         log: appendLog(state.log, {
           kind: "info",
@@ -320,12 +332,26 @@ export function resolveBattlePvPAtb(
           t: nextTick,
         }),
       };
-      state = withAtbPlayers(
-        endAttackerPhase(state, who, other, {
-          tickDefenderDots: false,
-          skipOffensiveFollowups: true,
-        }),
-      );
+      if (forcedRuinRelease) {
+        const cast = castV2SkillOnAttackerTurnPvP(state, who);
+        state = withAtbPlayers(cast.state);
+        castSelfHastePct = cast.selfHastePct;
+        if (cast.enemyDelayPct > 0) {
+          const push =
+            actionInterval(effectiveSideSpd(state, other)) *
+            (cast.enemyDelayPct / 100);
+          if (other === "p1") p1NextTick += push;
+          else p2NextTick += push;
+        }
+      }
+      if (state.phase !== "ended") {
+        state = withAtbPlayers(
+          endAttackerPhase(state, who, other, {
+            tickDefenderDots: false,
+            skipOffensiveFollowups: true,
+          }),
+        );
+      }
     } else {
       state = withAtbPlayers(applyEvasionActionRecoveryPvP(state, who));
 
@@ -388,6 +414,30 @@ export function resolveBattlePvPAtb(
           if (state.phase === "ended") break;
         }
       }
+    }
+
+    const shadowReleaseHastePct =
+      state[other].stacks.tier7?.shadowReleaseHastePct ?? 0;
+    if (shadowReleaseHastePct > 0) {
+      const pull =
+        actionInterval(effectiveSideSpd(state, other)) *
+        (shadowReleaseHastePct / 100);
+      if (other === "p1") p1NextTick = Math.max(nextTick + 1, p1NextTick - pull);
+      else p2NextTick = Math.max(nextTick + 1, p2NextTick - pull);
+      const hastenedSide = state[other];
+      state = {
+        ...state,
+        [other]: {
+          ...hastenedSide,
+          stacks: {
+            ...hastenedSide.stacks,
+            tier7: {
+              ...hastenedSide.stacks.tier7,
+              shadowReleaseHastePct: 0,
+            },
+          },
+        },
+      };
     }
 
     // 바람 — 이번 액터의 다음 행동 틱을 가속(pct% 단축). 미시전이면 0 → 무변.

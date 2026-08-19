@@ -695,10 +695,12 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
     });
 
-    expect(result.selfHeal).toBeGreaterThan(0);
+    expect(result.selfHeal).toBe(0);
+    expect(result.healFromActualDamagePct).toBe(20);
     expect(result.selfHpCost).toBeGreaterThan(0);
     const missed = removeMissedV2SkillTargetEffects(result);
     expect(missed.selfHeal).toBe(0);
+    expect(missed.healFromActualDamagePct).toBe(0);
     expect(missed.selfHpCost).toBe(0);
   });
 

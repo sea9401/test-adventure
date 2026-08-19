@@ -17,6 +17,13 @@ describe("job roadmap model", () => {
       "beastkin",
       "golem",
     ]);
+    const beastkin = mutant?.children.find((node) => node.id === "beastkin");
+    expect(beastkin?.children[0]?.id).toBe("beastwarrior");
+    expect(beastkin?.children[0]?.prereqText).toBe("수인 숙련도 1000");
+    expect(
+      beastkin?.children[0]?.children[0]?.children[0]?.children[0]?.children[0]
+        ?.id,
+    ).toBe("primalpredator");
     expect(nodes.find((node) => node.id === "squire")?.prereqText).toContain(
       "숙련도",
     );

@@ -55,6 +55,217 @@ function countText(res: BattleResolution, needle: string): number {
 }
 
 describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
+  it("무영검신은 단일 피해를 기록해 적의 다음 행동 뒤 검영으로 실현한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      { ...player, atk: 120, lukStat: 200, hp: 5_000, maxHp: 5_000 },
+      {
+        name: "검영 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        spd: 30,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 4,
+        v2Skills: {
+          learned: [
+            "v2c_shadowblade_afterimage",
+            "v2c_shadowblade_swordshadow",
+          ],
+          equipped: [
+            "v2c_shadowblade_afterimage",
+            "v2c_shadowblade_swordshadow",
+          ],
+        },
+      } as never,
+    );
+
+    expect(countText(res, "잔영!")).toBeGreaterThan(0);
+    expect(countText(res, "[검영]")).toBeGreaterThan(0);
+  });
+
+  it("멸검은 한 행동을 충전에 쓰고 다음 행동 기회에 자동 해방한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      { ...player, atk: 200, strStat: 200, hp: 2_500, maxHp: 5_000 },
+      {
+        name: "멸검 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        spd: 20,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 5,
+        v2Skills: {
+          learned: [
+            "v2c_ruinblade_ruinsword",
+            "v2c_ruinblade_oneintent",
+          ],
+          equipped: [
+            "v2c_ruinblade_ruinsword",
+            "v2c_ruinblade_oneintent",
+          ],
+        },
+      } as never,
+    );
+
+    const chargeIndex = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("[멸검] 충전을 시작했다"),
+    );
+    const releaseIndex = res.finalState.log.findIndex((entry) =>
+      entry.text.includes("[멸검] 충전을 해방"),
+    );
+    expect(chargeIndex).toBeGreaterThan(-1);
+    expect(releaseIndex).toBeGreaterThan(chargeIndex);
+    expect(countText(res, "멸검!")).toBeGreaterThan(0);
+  });
+
+  it("비천무신은 원거리 다음 체술에 교차 추격을 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      { ...player, atk: 150, dexStat: 200, hp: 5_000, maxHp: 5_000 },
+      {
+        name: "교차 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        spd: 20,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 5,
+        v2Skills: {
+          learned: [
+            "v2c_skyascendant_fallingstar",
+            "v2c_skyascendant_voidbreak",
+            "v2c_skyascendant_crossover",
+          ],
+          equipped: [
+            "v2c_skyascendant_fallingstar",
+            "v2c_skyascendant_voidbreak",
+            "v2c_skyascendant_crossover",
+          ],
+          pattern: {
+            blocks: [
+              {
+                condition: { kind: "turn", op: "atMost", value: 1 },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_skyascendant_fallingstar",
+                },
+              },
+              {
+                condition: { kind: "always" },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_skyascendant_voidbreak",
+                },
+              },
+            ],
+          },
+        },
+      } as never,
+    );
+
+    expect(countText(res, "낙성!")).toBeGreaterThan(0);
+    expect(countText(res, "파공!")).toBeGreaterThan(0);
+    expect(countText(res, "[교차·추격]")).toBeGreaterThan(0);
+  });
+
+  it("태초현자는 서로 다른 직접 마법 세 번째 시전에 완전식을 발동한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const res = resolveBattle(
+      {
+        ...player,
+        atk: 100,
+        magicAtk: 220,
+        intStat: 220,
+        hp: 5_000,
+        maxHp: 5_000,
+      },
+      {
+        name: "완전식 허수아비",
+        tags: [],
+        hp: 100_000,
+        atk: 1,
+        def: 10,
+        magicDef: 10,
+        spd: 20,
+        exp: 0,
+        evasionPct: 0,
+      },
+      "테스터",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        maxTurns: 6,
+        v2Skills: {
+          learned: [
+            "v2c_mage_fireball",
+            "v2c_archmage_collapse",
+            "v2c_primordialsage_greatorb",
+            "v2c_primordialsage_optimization",
+            "v2c_primordialsage_completeformula",
+          ],
+          equipped: [
+            "v2c_mage_fireball",
+            "v2c_archmage_collapse",
+            "v2c_primordialsage_greatorb",
+            "v2c_primordialsage_optimization",
+            "v2c_primordialsage_completeformula",
+          ],
+          pattern: {
+            blocks: [
+              {
+                condition: { kind: "turn", op: "atMost", value: 1 },
+                action: { kind: "skill", skillId: "v2c_mage_fireball" },
+              },
+              {
+                condition: { kind: "turn", op: "every", value: 2 },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_archmage_collapse",
+                },
+              },
+              {
+                condition: { kind: "always" },
+                action: {
+                  kind: "skill",
+                  skillId: "v2c_primordialsage_greatorb",
+                },
+              },
+            ],
+          },
+        },
+      } as never,
+    );
+
+    expect(countText(res, "[완전식]")).toBeGreaterThan(0);
+    expect(countText(res, "대마력구!")).toBeGreaterThan(0);
+  });
+
+
+
+
   it("감전은 적의 다음 행동 묶음만 건너뛰고 그 다음 행동은 보장한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const shockPlayer: PlayerCombat = {

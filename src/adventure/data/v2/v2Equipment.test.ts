@@ -325,14 +325,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("기존 카탈로그에 폭풍 원정 전용 6T 42종과 시그니처 유니크 18종을 더한다", () => {
+  it("기존 카탈로그에 폭풍 원정과 HARD 협동 보스 6T 장비를 더한다", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제):
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
     //   전문화 스타터 3 · noDrop 198(기존 180 + 6T 시그니처 유니크 18종) · 유니크 66
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 322 = 기존 304 + 6T 시그니처 유니크 18.
+    //     총 328 = 기존 304 + 6T 시그니처 유니크 18 + HARD 협동 보스 6.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -340,13 +340,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(66);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(72);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(67);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
       "noDrop(밴드흔한+하드 보스+폭풍 원정+강등 필드유니크)",
-    ).toHaveLength(198);
+    ).toHaveLength(204);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -527,10 +527,127 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
         expect(threshold.count, `${set.id} threshold reachable`).toBeLessThanOrEqual(
           pieces.length,
         );
-        expect(Object.keys(threshold.bonus).length, `${set.id} bonus`).toBeGreaterThan(0);
+        expect(
+          Object.keys(threshold.bonus).length > 0 || threshold.signature != null,
+          `${set.id} bonus or signature`,
+        ).toBe(true);
         prev = threshold.count;
       }
     }
+  });
+
+  it("6T HARD 협동 보스 장비 6종은 설계된 슬롯·수치·세트 태그를 가진다", () => {
+    expect(V2_EQUIPMENT.v2_boss_catastrophe_gloves).toMatchObject({
+      slot: "gloves",
+      tier: 16,
+      name: "재앙독 완갑",
+      power: 74,
+      noDrop: true,
+      setTags: ["catastrophe_venom"],
+      options: { hp: 180, crit: 13, spd: 10, accuracy: 12, statusDamageReductionPct: 4 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_catastrophe_boots).toMatchObject({
+      slot: "boots",
+      tier: 16,
+      name: "사막잠행 장화",
+      power: 68,
+      noDrop: true,
+      setTags: ["catastrophe_venom"],
+      options: { hp: 180, eva: 12, spd: 20, accuracy: 10, statusDamageReductionPct: 6 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_catastrophe_ring).toMatchObject({
+      slot: "ring",
+      tier: 16,
+      name: "독왕의 침환",
+      power: 124,
+      noDrop: true,
+      setTags: ["catastrophe_venom"],
+      options: { hp: 220, crit: 11, critMult: 65, spd: 8, accuracy: 10 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_frozen_lake_armor).toMatchObject({
+      slot: "armor",
+      tier: 16,
+      name: "빙호 갑주",
+      power: 235,
+      noDrop: true,
+      setTags: ["frozen_lake_guard"],
+      options: { hp: 760, mp: 120, def: 65, magicDef: 55, statusDamageReductionPct: 12 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_frozen_lake_boots).toMatchObject({
+      slot: "boots",
+      tier: 16,
+      name: "동결수면 장화",
+      power: 68,
+      noDrop: true,
+      setTags: ["frozen_lake_guard"],
+      options: { hp: 260, def: 30, magicDef: 25, spd: 4, statusDamageReductionPct: 10 },
+    });
+    expect(V2_EQUIPMENT.v2_boss_frozen_lake_necklace).toMatchObject({
+      slot: "necklace",
+      tier: 16,
+      name: "혹한의 심장",
+      power: 132,
+      noDrop: true,
+      setTags: ["frozen_lake_guard"],
+      options: { hp: 320, mp: 220, magicDef: 55, healPowerPct: 6, statusDamageReductionPct: 10 },
+    });
+
+    const catastrophe = V2_EQUIP_TAG_SETS.find((set) => set.id === "catastrophe_venom");
+    expect(catastrophe?.thresholds).toEqual([
+      {
+        count: 2,
+        bonus: {},
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "재앙독 주입",
+          poisonChancePct: 25,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 3,
+        bonus: { spd: 8 },
+        signature: {
+          trigger: "direct_skill_hit",
+          label: "맹독 추격",
+          poisonedTargetDamagePct: 10,
+        },
+      },
+    ]);
+    const frozen = V2_EQUIP_TAG_SETS.find((set) => set.id === "frozen_lake_guard");
+    expect(frozen?.thresholds).toEqual([
+      {
+        count: 2,
+        bonus: { statusDamageReductionPct: 10 },
+        signature: {
+          trigger: "battle_start",
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+      },
+      {
+        count: 3,
+        bonus: {},
+        signature: {
+          trigger: "tracked_shield_break",
+          label: "빙호 해방",
+          trackedShieldPctMaxHp: 8,
+          cleanseHarmfulStatuses: true,
+          damageTakenReductionPct: 15,
+          buffActions: 2,
+        },
+      },
+    ]);
+
+    const allSix = [
+      "v2_boss_catastrophe_gloves",
+      "v2_boss_catastrophe_boots",
+      "v2_boss_catastrophe_ring",
+      "v2_boss_frozen_lake_armor",
+      "v2_boss_frozen_lake_boots",
+      "v2_boss_frozen_lake_necklace",
+    ].map((id) => V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT]);
+    expect(allSix.filter((item) => item.slot === "boots")).toHaveLength(2);
   });
 
   it("기존 제작 세트와 세트 없는 5T 키카드를 함께 구성한다", () => {

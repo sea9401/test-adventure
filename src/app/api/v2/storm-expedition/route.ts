@@ -157,6 +157,7 @@ export async function POST(req: Request) {
       if (!prepared) return response(400, { ok: false, error: "no_character" });
       const maxHp = prepared.player.player.maxHp;
       const maxMp = prepared.player.player.maxMp ?? 0;
+      const riskEvent = createStormRiskEvent();
       state = {
         ...state,
         attemptsUsed: mode === "normal" ? state.attemptsUsed + 1 : state.attemptsUsed,
@@ -179,9 +180,9 @@ export async function POST(req: Request) {
           boons: [],
           nextBattleEffects: [],
           usedRecoverySkillIds: [],
-          altarOffers: createStormAltarOffers(),
+          altarOffers: createStormAltarOffers(Math.random, riskEvent.boonId),
           chosenChoices: {},
-          riskEvent: createStormRiskEvent(),
+          riskEvent,
         },
       };
       await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);

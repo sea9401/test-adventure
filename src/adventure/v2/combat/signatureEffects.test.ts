@@ -20,6 +20,10 @@ import {
   rollEvasionActionRecovery,
   statusBlockOnce,
   everyNHitsValue,
+  resolveDirectSkillHitSignatures,
+  trackedBattleStartShield,
+  resolveTrackedShieldAbsorption,
+  trackedShieldBreakEffect,
 } from "./signatureEffects";
 import {
   advanceTurn,
@@ -31,8 +35,12 @@ import {
 import { pickAutoAction } from "./pickAutoAction";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import {
+  emptyV2SkillsState,
+  type V2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
+import { makePoisonDot } from "./combatShared";
 
 const CROWN: SignatureEffect = {
   trigger: "on_crit",
@@ -116,6 +124,116 @@ const VOID_CROWN: SignatureEffect = {
   label: "공허왕관",
   statusBlockOnce: true,
 };
+
+const CATASTROPHE_POISON: SignatureEffect = {
+  trigger: "direct_skill_hit",
+  label: "재앙독 주입",
+  poisonChancePct: 25,
+  poisonStacks: 1,
+};
+
+const CATASTROPHE_PURSUIT: SignatureEffect = {
+  trigger: "direct_skill_hit",
+  label: "맹독 추격",
+  poisonedTargetDamagePct: 10,
+};
+
+const FROZEN_RELEASE: SignatureEffect = {
+  trigger: "tracked_shield_break",
+  label: "빙호 해방",
+  trackedShieldPctMaxHp: 8,
+  cleanseHarmfulStatuses: true,
+  damageTakenReductionPct: 15,
+  buffActions: 2,
+};
+
+describe("6T HARD 세트 공용 시그니처", () => {
+  it("직접 액티브 적중은 시전당 한 번 중독을 판정하고 중독 대상 피해 배율을 반환한다", () => {
+    expect(
+      resolveDirectSkillHitSignatures(
+        [CATASTROPHE_POISON, CATASTROPHE_PURSUIT],
+        { dealtDamage: true, targetPoisoned: true },
+        () => 0.249,
+      ),
+    ).toEqual({
+      damageMult: 1.1,
+      poison: { stacks: 1, label: "재앙독 주입" },
+    });
+    expect(
+      resolveDirectSkillHitSignatures(
+        [CATASTROPHE_POISON, CATASTROPHE_PURSUIT],
+        { dealtDamage: true, targetPoisoned: false },
+        () => 0.25,
+      ),
+    ).toEqual({ damageMult: 1, poison: null });
+  });
+
+  it("피해 없는 액티브와 일반 on_hit 시그니처는 직접 액티브 세트 판정에서 제외한다", () => {
+    expect(
+      resolveDirectSkillHitSignatures(
+        [CATASTROPHE_POISON, BLUE_VENOM],
+        { dealtDamage: false, targetPoisoned: true },
+        () => 0,
+      ),
+    ).toEqual({ damageMult: 1, poison: null });
+  });
+
+  it("빙호수호는 최대 HP 8%를 별도 추적하고 그 잔량이 처음 0이 될 때만 발동한다", () => {
+    expect(trackedBattleStartShield([FROZEN_RELEASE], 1_000)).toEqual({
+      amount: 80,
+      label: "빙호 해방",
+    });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 80,
+        shieldAbsorbed: 50,
+        totalShieldBefore: 80,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 30, triggered: false });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 30,
+        shieldAbsorbed: 40,
+        totalShieldBefore: 30,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 0, triggered: true });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 0,
+        shieldAbsorbed: 999,
+        totalShieldBefore: 999,
+        alreadyTriggered: true,
+      }),
+    ).toEqual({ remaining: 0, triggered: false });
+    expect(trackedShieldBreakEffect([FROZEN_RELEASE])).toEqual({
+      label: "빙호 해방",
+      cleanse: true,
+      damageReductionPct: 15,
+      actions: 2,
+    });
+  });
+
+  it("다른 출처 보호막은 먼저 소모되며 빙호수호 전용 잔량이나 해방을 건드리지 않는다", () => {
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 80,
+        totalShieldBefore: 180,
+        shieldAbsorbed: 100,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 80, triggered: false });
+    expect(
+      resolveTrackedShieldAbsorption({
+        remaining: 80,
+        totalShieldBefore: 180,
+        shieldAbsorbed: 140,
+        alreadyTriggered: false,
+      }),
+    ).toEqual({ remaining: 40, triggered: false });
+  });
+});
 
 describe("onCritEnemyChill (동결의 갑주 한기 — 크리 시 적 둔화)", () => {
   it("시그니처 없음/빈 배열/미장착 → null (골든 byte-identical 가드)", () => {
@@ -946,6 +1064,43 @@ describe("엔진 통합 — on-skill-cast MP 환급이 스킬 시전 후 적용�
       ),
     ).toBe(true);
   });
+
+  it("스킬 자체 MP 회복과 별개로 실제 지불 비용을 기준으로 환급한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player = skillCaster([
+      {
+        trigger: "on_skill_cast",
+        label: "마력 순환",
+        mpRefundPctOfCost: 15,
+      },
+    ]);
+    const skills: V2SkillsState = {
+      learned: [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+      ],
+      equipped: [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+      ],
+    };
+    const state = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 999_999, def: 0, spd: 1 },
+      "용사",
+      skills,
+    );
+
+    const result = applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+
+    expect(result.playerMp).toBe(927);
+    expect(result.log.some((entry) => entry.text === "태초회귀! 마나 80 회복했다.")).toBe(true);
+    expect(result.log.some((entry) => entry.text === "[마력 순환] 마나 27 환급")).toBe(true);
+  });
 });
 
 describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용된다 (PvE)", () => {
@@ -1021,6 +1176,144 @@ describe("엔진 통합 — on-heal 보호막 전환이 실제 회복 후 적용
           entry.text.includes("HP 150 회복") && entry.text.includes("산출"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("엔진 통합 — 재앙독갑 직접 액티브 효과 (PvE)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function castWith(
+    signatures: SignatureEffect[],
+    poisoned: boolean,
+    skillId = "v2_skill_strike",
+  ) {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const basePlayer = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...basePlayer,
+      hp: 500,
+      maxHp: 500,
+      atk: 100,
+      maxMp: 1_000,
+      mp: 1_000,
+      critChancePct: 0,
+      attackCount: 1,
+      equipSignatures: signatures,
+    };
+    const initial = initialBattleState(
+      player,
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 10_000, def: 0, spd: 1 },
+      "용사",
+      { learned: [skillId], equipped: [skillId] } as never,
+    );
+    const state = poisoned
+      ? {
+          ...initial,
+          enemyV2Dots: [
+            makePoisonDot({
+              stacks: 1,
+              pctMaxHpPerStack: 0.001,
+              sourceAtk: 100,
+            }),
+          ],
+        }
+      : initial;
+    return applyPlayerV2SkillCast(state, player, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    }).state;
+  }
+
+  it("중독 대상 직접 액티브 최종 피해를 10% 높인다", () => {
+    const plain = castWith([], true);
+    vi.restoreAllMocks();
+    const boosted = castWith([CATASTROPHE_PURSUIT], true);
+    expect(10_000 - boosted.enemyHp).toBe(
+      Math.floor((10_000 - plain.enemyHp) * 1.1),
+    );
+  });
+
+  it("다단 액티브도 시전당 중독 1스택만 추가하고 회복 스킬에는 발동하지 않는다", () => {
+    const multihit = castWith([CATASTROPHE_POISON], false, "v2c_warrior_flurry");
+    expect(multihit.enemyV2Dots.find((dot) => dot.tag === "poison")?.stacks).toBe(1);
+    vi.restoreAllMocks();
+    const recovery = castWith([CATASTROPHE_POISON], false, "v2_skill_recover");
+    expect(recovery.enemyV2Dots.some((dot) => dot.tag === "poison")).toBe(false);
+  });
+});
+
+describe("엔진 통합 — 빙호수호 전용 보호막 (PvE)", () => {
+  it("3세트 장착 시 합산 보호막과 별도로 최대 HP 8%를 추적한다", () => {
+    const player = {
+      ...derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player,
+      hp: 1_000,
+      maxHp: 1_000,
+      equipSignatures: [
+        {
+          trigger: "battle_start" as const,
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+        FROZEN_RELEASE,
+      ],
+    };
+    const state = initialBattleState(player, V2_MONSTERS["훈련용 허수아비"], "용사");
+    expect(state.stacks.playerShield).toBe(80);
+    expect(state.stacks.trackedSetShield).toBe(80);
+    expect(state.flags.trackedShieldBreakUsed).toBe(false);
+  });
+
+  it("전용 보호막 첫 소진은 해로운 상태를 정화하고 2행동 피해 감소를 부여한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player = {
+      ...derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player,
+      hp: 1_000,
+      maxHp: 1_000,
+      def: 0,
+      evaRating: 0,
+      evasionPct: 0,
+      equipSignatures: [
+        {
+          trigger: "battle_start" as const,
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+        FROZEN_RELEASE,
+      ],
+    };
+    const enemy = {
+      ...V2_MONSTERS["훈련용 허수아비"],
+      hp: 10_000,
+      atk: 300,
+      def: 0,
+      spd: 100,
+      accuracy: 100,
+    };
+    const initial = initialBattleState(player, enemy, "용사");
+    const poisoned = makePoisonDot({
+      stacks: 2,
+      pctMaxHpPerStack: 0.001,
+      sourceAtk: 100,
+    });
+    const state = {
+      ...initial,
+      phase: "enemy" as const,
+      playerV2Dots: [poisoned],
+      v2SelfDebuffs: { spd: { pct: 20, turns: 3 } },
+      stacks: { ...initial.stacks, chillStacks: 4, curseStacks: 3 },
+    };
+
+    const after = advanceTurn(state, player, "용사");
+    expect(after.stacks.trackedSetShield).toBe(0);
+    expect(after.flags.trackedShieldBreakUsed).toBe(true);
+    expect(after.playerV2Dots).toEqual([]);
+    expect(after.v2SelfDebuffs).toEqual({});
+    expect(after.stacks.chillStacks).toBe(0);
+    expect(after.stacks.curseStacks).toBe(0);
+    expect(after.buffs.playerDmgReductionPct).toBe(15);
+    expect(after.buffs.playerDmgReductionTurnsLeft).toBe(2);
+    expect(after.log.filter((entry) => entry.text.includes("[빙호 해방]")).length).toBe(1);
   });
 });
 

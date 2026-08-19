@@ -245,6 +245,11 @@ describe("jobExplorer tags", () => {
       "camper",
       "mutant",
       "beastkin",
+      "beastwarrior",
+      "tracker",
+      "bloodtracker",
+      "predator",
+      "primalpredator",
       "golem",
     ];
 
@@ -265,6 +270,11 @@ describe("jobExplorer tags", () => {
       "camper",
       "mutant",
       "beastkin",
+      "beastwarrior",
+      "tracker",
+      "bloodtracker",
+      "predator",
+      "primalpredator",
       "golem",
     ]);
   });

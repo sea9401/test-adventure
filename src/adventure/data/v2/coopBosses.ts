@@ -107,6 +107,7 @@ export function coopBossDifficultyOf(
     return kind.difficulty;
   }
   return kind === "mountain_chief_hard" || kind === "abyssal_tyrant"
+    || kind === "canyon_predator_hard" || kind === "lake_sovereign_hard"
     ? "hard"
     : "normal";
 }
@@ -295,7 +296,9 @@ export type CoopBossKindId =
   | "mountain_chief_hard"
   | "abyssal_tyrant"
   | "canyon_predator"
+  | "canyon_predator_hard"
   | "lake_sovereign"
+  | "lake_sovereign_hard"
   | "void_priest";
 
 // 발악 스테이지 — 전역 공유 HP 비율이 hpFraction 이하면 적용(누적). 시뮬이 공격 단위
@@ -310,6 +313,16 @@ export type CoopEnrageStage = {
   defBonus?: number;
   /** 회피율 가산(%p). */
   evasionBonus?: number;
+  /** 행동 속도 곱. */
+  spdMult?: number;
+  /** 관통 스킬의 방어 관통 가산. */
+  armorPierceBonus?: number;
+  /** 이 페이즈에서 사용할 몬스터 상태 스킬. */
+  statusSkill?: V2MonsterStatusSkillId;
+  /** 한기 스택의 적중당 누적량 가산. */
+  chillAmountBonus?: number;
+  /** 한기 스택당 고정 피해 가산. */
+  chillFixedDamageBonus?: number;
 };
 
 export type CoopConditionalEnrage = {
@@ -533,6 +546,21 @@ const CANYON_PREDATOR_BASE: Monster = {
   v2MaxMp: 90,
 };
 
+const CANYON_PREDATOR_HARD_BASE: Monster = {
+  ...CANYON_PREDATOR_BASE,
+  name: "재앙의 스콜피온 킹",
+  hp: 900,
+  atk: 3.5,
+  def: 30,
+  magicDef: 28,
+  spd: 18,
+  accuracy: -135,
+  evasionPct: 15,
+  skill: { kind: "pierce", name: "왕독의 집게", armorPierce: 10 },
+  dropQualityBias: 4,
+  v2MaxMp: 120,
+};
+
 const LAKE_SOVEREIGN_BASE: Monster = {
   name: "호수의 괴물",
   tags: ["golem"],
@@ -564,6 +592,31 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   // v2 시그니처 액티브(MP 게이트) — 비전 폭발(마법 단일타). MP 소진(≈3회) 후엔 평타·한기만.
   v2Skills: { learned: ["mob_arcane_nova"], equipped: ["mob_arcane_nova"] },
   v2MaxMp: 105,
+};
+
+const LAKE_SOVEREIGN_HARD_BASE: Monster = {
+  ...LAKE_SOVEREIGN_BASE,
+  name: "혹한의 호수 괴물",
+  hp: 950,
+  atk: 3.5,
+  atkType: "magic",
+  def: 32,
+  magicDef: 40,
+  spd: 15,
+  accuracy: -135,
+  evasionPct: 10,
+  skill: {
+    kind: "chill",
+    name: "얼어붙는 손길",
+    perHit: 2,
+    threshold: 2,
+    dmgPerStack: 22,
+    maxStacks: 10,
+    defMitigationFraction: 0.25,
+    evasionPenaltyPerStack: 1.5,
+  },
+  dropQualityBias: 4,
+  v2MaxMp: 130,
 };
 
 const VOID_PRIEST_BASE: Monster = {
@@ -706,6 +759,40 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(회피·공격력)",
     ],
   },
+  canyon_predator_hard: {
+    id: "canyon_predator_hard",
+    difficulty: "hard",
+    name: "재앙의 스콜피온 킹",
+    desc: "왕독과 모래폭풍을 두른 스콜피온 킹. 깊어질수록 더 빠르고 날카롭게 갑각을 꿰뚫는다.",
+    scrollCost: 30,
+    sharedMaxHp: 14_000_000,
+    anchorDepth: 78,
+    base: CANYON_PREDATOR_HARD_BASE,
+    uniqueIds: [],
+    titleId: "v2_boss_canyon",
+    statusSkill: "mob_venom_bite",
+    enrageStages: [
+      {
+        hpFraction: 0.7,
+        note: "재앙의 모래폭풍이 일어난다! (속도·회피·중독 압박 상승)",
+        spdMult: 1.12,
+        evasionBonus: 6,
+        statusSkill: "mob_catastrophe_venom",
+      },
+      {
+        hpFraction: 0.4,
+        note: "맹독 갑각이 붕괴하며 집게가 날카로워진다! (공격력·관통 상승)",
+        atkMult: 1.25,
+        armorPierceBonus: 14,
+        statusSkill: "mob_venom_sunder",
+      },
+    ],
+    traits: [
+      "왕독의 집게 — 방어 관통과 제한된 MP의 강한 물리 액티브",
+      "재앙의 모래폭풍 — HP 70%부터 속도·회피·중독 압박 상승",
+      "맹독갑각 붕괴 — HP 40%부터 공격력·관통·방어 약화 강화",
+    ],
+  },
   lake_sovereign: {
     id: "lake_sovereign",
     name: "호수의 괴물",
@@ -742,6 +829,42 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "얼어붙는 손길 — 한기 누적(맞을수록 고정 피해·회피 감소)",
       "한기 — 둔화",
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(방어력·공격력)",
+    ],
+  },
+  lake_sovereign_hard: {
+    id: "lake_sovereign_hard",
+    difficulty: "hard",
+    name: "혹한의 호수 괴물",
+    desc: "호수 밑바닥의 혹한을 깨운 괴물. 얼음 갑주가 두꺼워질수록 한기와 마력이 거세진다.",
+    scrollCost: 30,
+    sharedMaxHp: 14_000_000,
+    anchorDepth: 78,
+    base: LAKE_SOVEREIGN_HARD_BASE,
+    uniqueIds: [],
+    titleId: "v2_boss_lake",
+    statusSkill: "mob_chilling_touch",
+    enrageStages: [
+      {
+        hpFraction: 0.7,
+        note: "빙결 갑주가 호수를 뒤덮는다! (방어력·한기 압박 상승)",
+        defBonus: 30,
+        statusSkill: "mob_deep_chill",
+        chillAmountBonus: 1,
+      },
+      {
+        hpFraction: 0.4,
+        note: "혹한의 심장이 폭주한다! (마법 공격·한기 피해 상승)",
+        atkMult: 1.25,
+        defBonus: 20,
+        statusSkill: "mob_glacial_chill",
+        chillAmountBonus: 1,
+        chillFixedDamageBonus: 8,
+      },
+    ],
+    traits: [
+      "얼어붙는 손길 — 한기 누적과 제한된 MP의 강한 마법 액티브",
+      "빙결 갑주 — HP 70%부터 물리·마법 방어와 한기 압박 상승",
+      "혹한의 심장 — HP 40%부터 마법 공격·한기 누적·고정 피해 상승",
     ],
   },
   void_priest: {
@@ -889,6 +1012,9 @@ export function coopBossForBattle(
   let def = scaled.def;
   let magicDef = scaled.magicDef;
   let evasion = scaled.evasionPct ?? 0;
+  let spd = scaled.spd;
+  let skill = scaled.skill;
+  let statusSkill = kind.statusSkill;
   const enrageNotes: string[] = [];
   const applyEnrage = (stage: CoopEnrageStage) => {
     if (frac > stage.hpFraction) return;
@@ -898,6 +1024,25 @@ export function coopBossForBattle(
       if (magicDef != null) magicDef += stage.defBonus;
     }
     if (stage.evasionBonus) evasion += stage.evasionBonus;
+    if (stage.spdMult) spd = Math.round(spd * stage.spdMult);
+    if (stage.statusSkill) statusSkill = stage.statusSkill;
+    if (stage.armorPierceBonus && skill?.kind === "pierce") {
+      skill = {
+        ...skill,
+        armorPierce: skill.armorPierce + stage.armorPierceBonus,
+      };
+    }
+    if (skill?.kind === "chill") {
+      if (stage.chillAmountBonus) {
+        skill = { ...skill, perHit: skill.perHit + stage.chillAmountBonus };
+      }
+      if (stage.chillFixedDamageBonus) {
+        skill = {
+          ...skill,
+          dmgPerStack: skill.dmgPerStack + stage.chillFixedDamageBonus,
+        };
+      }
+    }
     enrageNotes.push(stage.note);
   };
   for (const stage of kind.enrageStages) {
@@ -915,15 +1060,17 @@ export function coopBossForBattle(
     hp,
     atk,
     def,
+    spd,
+    skill,
     ...(magicDef != null ? { magicDef } : {}),
     ...(evasion > 0 ? { evasionPct: evasion } : {}),
-    v2Skills: kind.statusSkill
+    v2Skills: statusSkill
       ? {
           learned: Array.from(
-            new Set([...(scaled.v2Skills?.learned ?? []), kind.statusSkill]),
+            new Set([...(scaled.v2Skills?.learned ?? []), statusSkill]),
           ),
           equipped: Array.from(
-            new Set([...(scaled.v2Skills?.equipped ?? []), kind.statusSkill]),
+            new Set([...(scaled.v2Skills?.equipped ?? []), statusSkill]),
           ),
         }
       : scaled.v2Skills,

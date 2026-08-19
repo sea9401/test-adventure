@@ -483,7 +483,7 @@ describe("V2LoadoutPanel 원소 공명 유효 SP", () => {
     expect(visibleText(html)).toContain("기본 8 SP");
   });
 
-  it("태초술사 회로에 흡수된 오원소 폭주를 근원 촉매로 표시한다", () => {
+  it("태초술사 회로의 재료와 오원소 폭주 촉매를 각각 1 SP로 표시한다", () => {
     const equipped = [
       ...materials,
       "v2c_primordialmage_return",
@@ -501,8 +501,9 @@ describe("V2LoadoutPanel 원소 공명 유효 SP", () => {
       />,
     );
 
-    expect(visibleText(html)).toContain("스킬포인트 37 / 99");
-    expect(html).toContain("근원 촉매 · 2 SP · 태초회귀 강화");
+    expect(visibleText(html)).toContain("스킬포인트 31 / 99");
+    expect(html.match(/공명 재료 · 1 SP/g)).toHaveLength(5);
+    expect(html).toContain("근원 촉매 · 1 SP · 태초회귀 강화");
     expect(visibleText(html)).toContain("기본 16 SP");
   });
 

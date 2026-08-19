@@ -3,6 +3,52 @@ import { describe, expect, it } from "vitest";
 import { V2JobLadder } from "./V2JobLadder";
 
 describe("V2JobLadder production-job guidance", () => {
+  it("수인 단일 계보와 바로 아래 직업 숙련도 조건을 표시한다", () => {
+    const names = [
+      "야수전사",
+      "추적자",
+      "혈흔추적자",
+      "포식자",
+      "원시 포식자",
+    ];
+    const ids = [
+      "beastwarrior",
+      "tracker",
+      "bloodtracker",
+      "predator",
+      "primalpredator",
+    ];
+    const requirements = [1000, 2500, 4500, 18000, 35000];
+
+    for (const [index, name] of names.entries()) {
+      const parentName = index === 0 ? "수인" : names[index - 1];
+      const condition = `${parentName} 숙련도 ${requirements[index]}`;
+      const html = renderToStaticMarkup(
+        <V2JobLadder
+          level={100}
+          currentJobName={parentName}
+          currentJobId={index === 0 ? "beastkin" : ids[index - 1]}
+          atLevelCap
+          revisitExpedited={false}
+          rejobRequiredLevel={100}
+          jobs={[
+            {
+              id: ids[index],
+              name,
+              tier: (index + 2) as 2 | 3 | 4 | 5 | 6,
+              unlocked: true,
+              condition,
+            },
+          ]}
+          onChanged={() => {}}
+        />,
+      );
+
+      expect(html).toContain(name);
+      expect(html).toContain(condition);
+    }
+  });
+
   it("describes a level-one internal gate as no character-level requirement", () => {
     const html = renderToStaticMarkup(
       <V2JobLadder

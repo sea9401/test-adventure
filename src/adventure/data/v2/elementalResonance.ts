@@ -79,12 +79,13 @@ export function resolveElementalResonanceLoadout({
   if (catalystActive) absorbedSkillIds.push(ELEMENTAL_SURGE_ID);
 
   const absorbedSet = new Set(absorbedSkillIds);
+  const absorbedSpCost = circuit === "primordial" ? 1 : 2;
   const effectiveSpCosts = new Map<V2SkillId, number>();
   let spUsed = 0;
   for (const id of equipped) {
     const skill = V2_SKILLS[id];
     if (!skill) continue;
-    const cost = absorbedSet.has(id) ? 2 : spCostOf(skill);
+    const cost = absorbedSet.has(id) ? absorbedSpCost : spCostOf(skill);
     effectiveSpCosts.set(id, cost);
     spUsed += cost;
   }

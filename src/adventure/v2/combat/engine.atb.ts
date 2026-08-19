@@ -26,7 +26,10 @@ import {
   rollPlayerAttackCountWithBleed,
 } from "./engine";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
-import { resolveEnemyPhase } from "./engine.enemyPhase";
+import {
+  releaseSwordShadowAfterEnemyAction,
+  resolveEnemyPhase,
+} from "./engine.enemyPhase";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import {
   decrementTimedBuffs,
@@ -46,7 +49,9 @@ import { consumeDuelistCritHaste } from "./duelistCombat";
 import { enterShockAction } from "./shockAction";
 import { mergeTripleWardResourceSnapshot } from "./tripleWard";
 import { mergeLawInscriptionSnapshot } from "./lawInscription";
+import { mergeTier7ResourceSnapshot } from "./engineState";
 import { weightSpeedMultiplier } from "./mutationCombat";
+import { recordChargeHpLoss } from "./ruinBladeCombat";
 
 // PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
 // 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
@@ -56,7 +61,10 @@ export const ATB_ACTION_GUARD = 1000;
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
   const playerResources = mergeLawInscriptionSnapshot(
     mergeTripleWardResourceSnapshot(
-      activeTier6ResourceSnapshot(state.stacks.tier6Uniques),
+      mergeTier7ResourceSnapshot(
+        activeTier6ResourceSnapshot(state.stacks.tier6Uniques),
+        state.stacks.tier7,
+      ),
       state.stacks.tripleWard,
     ),
     state.stacks.lawInscriptions,
@@ -262,6 +270,26 @@ export function tickPlayerDotsOnAction(
         text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
         turn: "player",
       }),
+    };
+  }
+  if (next.stacks.tier7?.ruinCharge) {
+    next = {
+      ...next,
+      stacks: {
+        ...next.stacks,
+        tier7: {
+          ...next.stacks.tier7,
+          ruinCharge: {
+            ...recordChargeHpLoss(
+              next.stacks.tier7.ruinCharge,
+              Math.min(state.playerHp, damage),
+            ),
+            deathBypassTriggered:
+              next.stacks.tier7.ruinCharge.deathBypassTriggered ||
+              survival.triggered,
+          },
+        },
+      },
     };
   }
   if (next.playerHp > 0) return next;
@@ -588,6 +616,21 @@ export function resolveBattleAtb(
             t: nextTick,
           }),
         };
+        state = releaseSwordShadowAfterEnemyAction(state);
+        if (state.enemyHp <= 0) {
+          state = {
+            ...state,
+            enemyHp: 0,
+            phase: "ended",
+            outcome: "win",
+            log: appendLog(state.log, {
+              kind: "info",
+              text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+              turn: "player",
+              t: nextTick,
+            }),
+          };
+        }
       }
       if (state.phase !== "ended" && !shockEntry.skip) {
         // 적 v2 스킬 시전(V2_ATB_SKILLS) — cast 발동이면 이 틱은 시전으로 소진, 평타 생략(player ATB
@@ -626,6 +669,26 @@ export function resolveBattleAtb(
         }
       }
       if (state.phase !== "ended") state = tickEnemyTargetDebuffs(state);
+      const shadowReleaseHastePct =
+        state.stacks.tier7?.shadowReleaseHastePct ?? 0;
+      if (shadowReleaseHastePct > 0) {
+        playerNextTick = Math.max(
+          nextTick + 1,
+          playerNextTick -
+            actionInterval(effectivePlayerSpd(atbPlayer, state)) *
+              (shadowReleaseHastePct / 100),
+        );
+        state = {
+          ...state,
+          stacks: {
+            ...state.stacks,
+            tier7: {
+              ...state.stacks.tier7,
+              shadowReleaseHastePct: 0,
+            },
+          },
+        };
+      }
       enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
     }
 

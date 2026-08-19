@@ -1449,7 +1449,7 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
     expect(catalyst.enemyDamage - base.enemyDamage).toBe(28);
   });
 
-  it("동일 46 SP에서 태초술사 개벽 직타는 천궁·흑월 중앙값보다 15~30% 강하다", () => {
+  it("동일 40 SP에서 태초술사 개벽 직타는 천궁·흑월 중앙값보다 15~30% 강하다", () => {
     const primordial = [
       "v2c_primordialmage_return",
       "v2c_primordialmage_resonance",
@@ -1461,9 +1461,7 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
       "v2c_heavenlybow_orbit",
       "v2c_heavenlybow_starpath",
       "v2c_marksman_aim",
-      "v2c_ranger_finesse3",
       "v2c_archer_agility",
-      "v2c_chief_afterimage",
       "v2c_assassin_fortune",
       "v2c_shadow_lethality3",
     ] as const;
@@ -1471,13 +1469,13 @@ describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
       "v2c_blackmoon_flurry",
       "v2c_blackmoon_dominion",
       "v2c_blackmoon_weakpoint3",
-      "v2c_nightshade_cloak",
+      "v2c_shadow_lethality3",
     ] as const;
     const builds = [primordial, heavenlyBow, blackMoon];
     for (const equipped of builds) {
       expect(
         resolveElementalResonanceLoadout({ learned: equipped, equipped }).spUsed,
-      ).toBe(46);
+      ).toBe(40);
     }
 
     const expectedDirectDamage = (equipped: typeof builds[number]) => {

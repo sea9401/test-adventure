@@ -47,8 +47,8 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("6종 — 노말 4단 사다리 + 하드 보스 2종", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(6);
+  it("8종 — 노말 4단 사다리 + 하드 보스 4종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(8);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -83,6 +83,65 @@ describe("coopBosses 카탈로그", () => {
       scrollCost: 30,
       sharedMaxHp: 1_400_000,
       anchorDepth: 60,
+    });
+    expect(COOP_BOSSES.canyon_predator_hard).toMatchObject({
+      difficulty: "hard",
+      name: "재앙의 스콜피온 킹",
+      scrollCost: 30,
+      sharedMaxHp: 14_000_000,
+      anchorDepth: 78,
+    });
+    expect(COOP_BOSSES.lake_sovereign_hard).toMatchObject({
+      difficulty: "hard",
+      name: "혹한의 호수 괴물",
+      scrollCost: 30,
+      sharedMaxHp: 14_000_000,
+      anchorDepth: 78,
+    });
+  });
+
+  it("신규 6T HARD 보스는 일반판 이미지를 재사용하고 70%·40%에서 다음 공격의 페이즈를 강화한다", () => {
+    const scorpion = COOP_BOSSES.canyon_predator_hard;
+    const lake = COOP_BOSSES.lake_sovereign_hard;
+
+    expect(scorpion.base.image).toBe(COOP_BOSSES.canyon_predator.base.image);
+    expect(lake.base.image).toBe(COOP_BOSSES.lake_sovereign.base.image);
+    expect(coopBossDurationMs(scorpion)).toBe(COOP_DURATION_MAX_MS);
+    expect(coopBossDurationMs(lake)).toBe(COOP_DURATION_MAX_MS);
+    const hardSangoonOneShotDamage = COOP_BOSSES.mountain_chief_hard.sharedMaxHp;
+    expect(Math.ceil(scorpion.sharedMaxHp / hardSangoonOneShotDamage)).toBe(12);
+    expect(Math.ceil(lake.sharedMaxHp / hardSangoonOneShotDamage)).toBe(12);
+
+    const scorpionFull = coopBossForBattle(scorpion, scorpion.sharedMaxHp).monster;
+    const scorpionMid = coopBossForBattle(scorpion, scorpion.sharedMaxHp * 0.7).monster;
+    const scorpionDeep = coopBossForBattle(scorpion, scorpion.sharedMaxHp * 0.4).monster;
+    expect(scorpionFull.v2Skills?.equipped).toContain("mob_venom_bite");
+    expect(scorpionMid.v2Skills?.equipped).toContain("mob_catastrophe_venom");
+    expect(scorpionMid.spd).toBeGreaterThan(scorpionFull.spd);
+    expect(scorpionMid.evasionPct).toBeGreaterThan(scorpionFull.evasionPct ?? 0);
+    expect(scorpionDeep.v2Skills?.equipped).toContain("mob_venom_sunder");
+    expect(scorpionDeep.atk).toBeGreaterThan(scorpionMid.atk);
+    expect(scorpionDeep.skill).toMatchObject({
+      kind: "pierce",
+      armorPierce: 24,
+    });
+
+    const lakeFull = coopBossForBattle(lake, lake.sharedMaxHp).monster;
+    const lakeMid = coopBossForBattle(lake, lake.sharedMaxHp * 0.7).monster;
+    const lakeDeep = coopBossForBattle(lake, lake.sharedMaxHp * 0.4).monster;
+    expect(lakeFull.atkType).toBe("magic");
+    expect(scorpionFull.accuracy).toBeLessThan(110);
+    expect(lakeFull.accuracy).toBeLessThan(110);
+    expect(lakeFull.v2Skills?.equipped).toContain("mob_chilling_touch");
+    expect(lakeMid.v2Skills?.equipped).toContain("mob_deep_chill");
+    expect(lakeMid.def).toBeGreaterThan(lakeFull.def);
+    expect(lakeMid.magicDef).toBeGreaterThan(lakeFull.magicDef ?? 0);
+    expect(lakeDeep.v2Skills?.equipped).toContain("mob_glacial_chill");
+    expect(lakeDeep.atk).toBeGreaterThan(lakeMid.atk);
+    expect(lakeDeep.skill).toMatchObject({
+      kind: "chill",
+      perHit: 4,
+      dmgPerStack: 30,
     });
   });
 
@@ -330,7 +389,7 @@ describe("coopBosses 카탈로그", () => {
     ).toBe(100);
   });
 
-  it("6종은 새 방어 체계에 재보정된 파생 전투 스탯을 가진다", () => {
+  it("기존 6종은 새 방어 체계에 재보정된 파생 전투 스탯을 유지한다", () => {
     const expected = {
       mountain_chief: { atk: 136, def: 45, magicDef: 49, accuracy: 9.63 },
       canyon_predator: { atk: 317, def: 56, magicDef: undefined, accuracy: 15.99 },
@@ -355,7 +414,7 @@ describe("coopBosses 카탈로그", () => {
       },
     } as const;
 
-    for (const id of COOP_BOSS_KIND_IDS) {
+    for (const id of Object.keys(expected) as Array<keyof typeof expected>) {
       const monster = coopBossForBattle(
         COOP_BOSSES[id],
         COOP_BOSSES[id].sharedMaxHp,
@@ -431,6 +490,8 @@ describe("coopBosses 카탈로그", () => {
     expect(parseCoopBossKindId("mountain_chief")).toBe("mountain_chief");
     expect(parseCoopBossKindId("void_priest")).toBe("void_priest");
     expect(parseCoopBossKindId("abyssal_tyrant")).toBe("abyssal_tyrant");
+    expect(parseCoopBossKindId("canyon_predator_hard")).toBe("canyon_predator_hard");
+    expect(parseCoopBossKindId("lake_sovereign_hard")).toBe("lake_sovereign_hard");
     expect(parseCoopBossKindId("nope")).toBeNull();
     expect(parseCoopBossKindId(42)).toBeNull();
     expect(parseCoopBossKindId(null)).toBeNull();
@@ -511,6 +572,12 @@ describe("coopTierForRatio", () => {
       coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.legend, "mountain_chief_hard"),
     ).toBe("legend");
     expect(coopTierThresholdFor("bronze", "abyssal_tyrant")).toBe(
+      COOP_HARD_TIER_THRESHOLDS.bronze,
+    );
+    expect(coopTierThresholdFor("bronze", "canyon_predator_hard")).toBe(
+      COOP_HARD_TIER_THRESHOLDS.bronze,
+    );
+    expect(coopTierThresholdFor("bronze", "lake_sovereign_hard")).toBe(
       COOP_HARD_TIER_THRESHOLDS.bronze,
     );
   });

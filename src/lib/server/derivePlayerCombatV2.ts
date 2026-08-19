@@ -296,6 +296,8 @@ export type DerivePlayerCombatV2PureInput = {
   maxHpPct?: number;
   /** 최대 MP % 패시브(마나) — 합산 후 maxMp 에 1회 적용. 미지정 = 무적용. */
   maxMpPct?: number;
+  /** 장착 패시브의 직접 피해 마법 MP 소모 감소율. */
+  passiveMpCostReductionPct?: number;
   /** 마나 실드 패시브 장착 여부. true일 때만 INT·최대 MP 기반 장벽을 활성화한다. */
   passiveMagicBarrier?: boolean;
   // ── 다양성 확장(A 메타) — 장착 패시브 합산분. 엔진 레버에 가산. 미지정 = 무적용(byte-identical).
@@ -701,6 +703,9 @@ export function derivePlayerCombatV2Pure(
     maxHp,
     mp,
     maxMp,
+    ...(input.passiveMpCostReductionPct
+      ? { mpCostReductionPct: input.passiveMpCostReductionPct }
+      : {}),
     intStat: totalStats.int,
     ...(magicBarrier.maxDurability > 0
       ? {
@@ -739,6 +744,9 @@ export function derivePlayerCombatV2Pure(
     ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
+    ...(weaponTypeOf(v2Equipped.weapon) === "staff"
+      ? { displayAttack: "magic" as const }
+      : {}),
     ...(excessSpi > 0 && specMagicAtk > specAtk
       ? { passiveMagicBasicAttack: true as const }
       : {}),
@@ -1072,6 +1080,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     statPct,
     maxHpPct,
     maxMpPct,
+    passiveMpCostReductionPct: passiveAgg.mpCostReductionPct,
     passiveMagicBarrier: passiveAgg.magicBarrier,
     // 다양성 패시브(A 메타) — 장착 합산분을 엔진 레버로 전달.
     passiveCritPct: passiveAgg.critPct,

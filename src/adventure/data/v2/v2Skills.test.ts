@@ -27,6 +27,49 @@ import {
   type V2SkillId,
 } from "./v2Skills";
 
+describe("7차 스킬 설명", () => {
+  it("전용 전투 규칙을 수치 칩으로 모두 표시한다", () => {
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_shadowblade_swordshadow),
+    ).toEqual(
+      expect.arrayContaining([
+        "단일 물리 최종 피해 50% 기록 · 정련 시 65%",
+        "검영 발동 후 다음 단일 물리 피해 +15%",
+        "PvP 검영·후속 보너스 80% 적용",
+      ]),
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_skyascendant_crossover),
+    ).toEqual(
+      expect.arrayContaining([
+        "포획: 최종 피해 +20% · 적중 +25% · 관통 45%",
+        "추격: 추가 피해 40% · 적 행동 지연 20%",
+      ]),
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_primordialsage_optimization),
+    ).toEqual(
+      expect.arrayContaining([
+        "마법 MP 소모 -20%",
+        "완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP 10% 회복",
+      ]),
+    );
+  });
+
+  it("멸검 스마트 기본 패턴은 저체력에서 마무리 직전이 아닌 적에게만 충전한다", () => {
+    expect(V2_SKILLS.v2c_ruinblade_ruinsword.defaultPattern).toEqual({
+      priority: 350,
+      condition: {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 60 },
+          { kind: "enemy_hp", op: "above", pct: 25 },
+        ],
+      },
+    });
+  });
+});
+
 describe("트레이너 상시 패시브", () => {
   it("학습 목록만으로 훈련장 보너스를 합산하고 중복은 한 번만 적용한다", () => {
     expect(
@@ -666,9 +709,13 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
     "mob_venom_bite",
     "mob_chilling_touch",
     "mob_rending_claw",
+    "mob_catastrophe_venom",
+    "mob_venom_sunder",
+    "mob_deep_chill",
+    "mob_glacial_chill",
   ] as const;
 
-  it("3종 monsterOnly + learn 없음(플레이어 미학습) + mpCost 0", () => {
+  it("7종 monsterOnly + learn 없음(플레이어 미학습) + mpCost 0", () => {
     for (const id of MOB_SKILLS) {
       const s = V2_SKILLS[id];
       expect(s.monsterOnly, `${id} monsterOnly`).toBe(true);
@@ -679,6 +726,22 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
         expect(["dot", "enemyDebuff"]).toContain(e.kind);
       }
     }
+  });
+
+  it("6T HARD 페이즈 상태 스킬은 중독·한기 압박을 단계적으로 높인다", () => {
+    expect(V2_SKILLS.mob_catastrophe_venom.effects).toEqual([
+      expect.objectContaining({ kind: "dot", tag: "poison", stacks: 2 }),
+    ]);
+    expect(V2_SKILLS.mob_venom_sunder.effects).toEqual([
+      expect.objectContaining({ kind: "dot", tag: "poison", stacks: 2 }),
+      { kind: "enemyDebuff", stat: "vit", pct: 12, turns: 2 },
+    ]);
+    expect(V2_SKILLS.mob_deep_chill.effects).toEqual([
+      { kind: "enemyDebuff", stat: "spd", pct: 22, turns: 3 },
+    ]);
+    expect(V2_SKILLS.mob_glacial_chill.effects).toEqual([
+      { kind: "enemyDebuff", stat: "spd", pct: 28, turns: 3 },
+    ]);
   });
 
   it("모든 몬스터 전용 출혈은 플레이어 상향과 분리된 ATK 계수 0.12를 사용한다", () => {
@@ -1060,6 +1123,25 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 });
 
 describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
+  it("tier 7 mechanic power is added to the ordinary skill score", () => {
+    const ordinary = V2_SKILLS.v2c_swordsaint_transcendence;
+    const capstone = {
+      ...ordinary,
+      tier7Mechanic: {
+        kind: "shadowCore" as const,
+        recordPct: 50,
+        refinedRecordPct: 65,
+        nextSingleDamagePct: 15,
+        pvpScalePct: 80,
+      },
+    };
+
+    expect(skillPowerScore(capstone) - skillPowerScore(ordinary)).toBeCloseTo(
+      8.1,
+      8,
+    );
+  });
+
   it("명시 할인은 루브릭 산정 뒤 정수만 적용하고 최소 1 SP를 보장한다", () => {
     const strike = V2_SKILLS.v2_skill_strike;
     const oneCost = V2_SKILLS.v2c_none_diligence;
@@ -1348,16 +1430,16 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(isLifestyleSkill(V2_SKILLS.v2c_none_diligence)).toBe(false);
   });
 
-  it("저비용·1~4차 압축은 유지하고 5·6차 고성능 스킬은 원시 비용을 쓴다", () => {
+  it("저비용·1~4차 압축은 유지하고 5·6·7차 고성능 스킬은 원시 비용을 쓴다", () => {
     expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
     expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(8);
     expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(11);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBe(19);
+    ).toBe(24);
   });
 
-  it("5·6차만 고가 SP 압축을 제거하고 1~4차·조합형 상한은 유지한다", () => {
+  it("5·6·7차만 고가 SP 압축을 제거하고 1~4차·조합형 상한은 유지한다", () => {
     expect(spCostOf(V2_SKILLS.v2c_spellsealer_greatward)).toBe(10);
     expect(spCostOf(V2_SKILLS.v2c_elementallord_surge)).toBe(16);
     expect(spCostOf(V2_SKILLS.v2c_blackmoon_dominion)).toBe(17);

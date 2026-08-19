@@ -49,7 +49,7 @@ const coinCost = (coins: number, materials: Record<string, number> = {}) => ({
 });
 
 const EQUIPMENT_BOX_SHOP_COST_BY_TIER: Record<
-  1 | 2 | 3 | 4 | 5,
+  1 | 2 | 3 | 4 | 5 | 6,
   { coins: number; bossMaterial: number }
 > = {
   1: { coins: 80, bossMaterial: 10 },
@@ -57,6 +57,7 @@ const EQUIPMENT_BOX_SHOP_COST_BY_TIER: Record<
   3: { coins: 280, bossMaterial: 15 },
   4: { coins: 480, bossMaterial: 20 },
   5: { coins: 720, bossMaterial: 30 },
+  6: { coins: 900, bossMaterial: 40 },
 };
 
 function equipmentBoxShopEntries(): CoopShopEntry[] {
@@ -99,7 +100,22 @@ function equipmentBoxShopEntries(): CoopShopEntry[] {
       count: 1,
     },
   };
-  return [...regularEntries, tier5Entry];
+  const hardTier6Entries = (
+    ["canyon_predator_hard", "lake_sovereign_hard"] as const
+  ).map<CoopShopEntry>((boss) => {
+    const box = COOP_EQUIPMENT_BOX[boss];
+    const material = COOP_BOSS_MATERIAL[boss];
+    const cost = EQUIPMENT_BOX_SHOP_COST_BY_TIER[6];
+    return {
+      itemId: `${boss}_equipment_box`,
+      category: "equipment_box",
+      name: box.name,
+      description: box.description,
+      cost: coinCost(cost.coins, { [material.id]: cost.bossMaterial }),
+      output: { kind: "material", materialId: box.id, count: 1 },
+    };
+  });
+  return [...regularEntries, tier5Entry, ...hardTier6Entries];
 }
 
 function allBossMaterialCost(count: number): Record<string, number> {

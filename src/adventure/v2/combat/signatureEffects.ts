@@ -44,6 +44,106 @@ export function battleStartShield(
   return { amount, label: labels.join(" + ") };
 }
 
+export function trackedBattleStartShield(
+  signatures: SignatureEffect[] | undefined,
+  maxHp: number,
+): { amount: number; label: string } | null {
+  if (!signatures || maxHp <= 0) return null;
+  const tracked = signatures.filter(
+    (signature) =>
+      signature.trigger === "tracked_shield_break" &&
+      (signature.trackedShieldPctMaxHp ?? 0) > 0,
+  );
+  const amount = tracked.reduce(
+    (sum, signature) =>
+      sum + Math.floor((maxHp * (signature.trackedShieldPctMaxHp ?? 0)) / 100),
+    0,
+  );
+  if (amount <= 0) return null;
+  return { amount, label: tracked.map((signature) => signature.label).join(" + ") };
+}
+
+export function resolveTrackedShieldAbsorption(input: {
+  remaining: number;
+  totalShieldBefore: number;
+  shieldAbsorbed: number;
+  alreadyTriggered: boolean;
+}): { remaining: number; triggered: boolean } {
+  const before = Math.max(0, input.remaining);
+  if (before <= 0 || input.alreadyTriggered) {
+    return { remaining: before, triggered: false };
+  }
+  const untrackedShieldBefore = Math.max(
+    0,
+    Math.max(0, input.totalShieldBefore) - before,
+  );
+  const trackedAbsorbed = Math.max(
+    0,
+    Math.max(0, input.shieldAbsorbed) - untrackedShieldBefore,
+  );
+  const remaining = Math.max(0, before - trackedAbsorbed);
+  return { remaining, triggered: remaining === 0 };
+}
+
+export function trackedShieldBreakEffect(
+  signatures: SignatureEffect[] | undefined,
+): {
+  label: string;
+  cleanse: boolean;
+  damageReductionPct: number;
+  actions: number;
+} | null {
+  const effects = (signatures ?? []).filter(
+    (signature) => signature.trigger === "tracked_shield_break",
+  );
+  if (effects.length === 0) return null;
+  return {
+    label: effects.map((effect) => effect.label).join(" + "),
+    cleanse: effects.some((effect) => effect.cleanseHarmfulStatuses),
+    damageReductionPct: effects.reduce(
+      (sum, effect) => sum + Math.max(0, effect.damageTakenReductionPct ?? 0),
+      0,
+    ),
+    actions: Math.max(1, ...effects.map((effect) => effect.buffActions ?? 1)),
+  };
+}
+
+export function resolveDirectSkillHitSignatures(
+  signatures: SignatureEffect[] | undefined,
+  input: { dealtDamage: boolean; targetPoisoned: boolean },
+  roll: () => number = Math.random,
+): {
+  damageMult: number;
+  poison: { stacks: number; label: string } | null;
+} {
+  if (!signatures || !input.dealtDamage) {
+    return { damageMult: 1, poison: null };
+  }
+  let damagePct = 0;
+  let poisonStacks = 0;
+  const poisonLabels: string[] = [];
+  for (const signature of signatures) {
+    if (signature.trigger !== "direct_skill_hit") continue;
+    if (input.targetPoisoned) {
+      damagePct += Math.max(0, signature.poisonedTargetDamagePct ?? 0);
+    }
+    if (
+      (signature.poisonChancePct ?? 0) > 0 &&
+      roll() * 100 < (signature.poisonChancePct ?? 0)
+    ) {
+      poisonStacks += Math.max(1, signature.poisonStacks ?? 1);
+      poisonLabels.push(signature.label);
+    }
+  }
+  return {
+    damageMult: 1 + damagePct / 100,
+    poison:
+      poisonStacks > 0
+        ? { stacks: poisonStacks, label: poisonLabels.join(" + ") }
+        : null,
+  };
+}
+
 export const HEAL_TO_SHIELD_MAX_PCT_MAX_HP = 30;
 
 export type HealToShieldInput = {

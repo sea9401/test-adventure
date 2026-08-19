@@ -30,7 +30,10 @@ import {
   type LoadoutStatSnapshot,
   type LoadoutStatSource,
 } from "./LoadoutStatSummary";
-import { useGameState } from "./GameStateProvider";
+import {
+  useGameState,
+  type GameResourcePatch,
+} from "./GameStateProvider";
 import { useSystemMessageState } from "./RewardToastProvider";
 
 // v2 학습 — 숙달 포인트로 직업 스킬을 습득하고 SP 로드아웃을 구성한다.
@@ -102,6 +105,18 @@ export function skillRitualCostLabel(cost: {
   proficiencyCost: number;
 }): string {
   return `비용 ${goldLabel(cost.goldCost)} · 숙달 ${cost.proficiencyCost.toLocaleString()}`;
+}
+
+export function skillRitualCurrencyPatch(result: {
+  gold?: number;
+  bankedGold?: number;
+  points?: number;
+}): Pick<GameResourcePatch, "gold" | "bankedGold"> {
+  return {
+    gold: typeof result.gold === "number" ? result.gold : undefined,
+    bankedGold:
+      typeof result.bankedGold === "number" ? result.bankedGold : undefined,
+  };
 }
 
 export function SkillRitualPowerScopeHelp() {
@@ -355,12 +370,7 @@ export function V2SkillLearnView({
           return;
         }
         if (typeof j.points === "number") setUsable(j.points);
-        applyResourcePatch({
-          gold: typeof j.gold === "number" ? j.gold : undefined,
-          bankedGold:
-            typeof j.bankedGold === "number" ? j.bankedGold : undefined,
-          viewerProficiency: typeof j.points === "number" ? j.points : undefined,
-        });
+        applyResourcePatch(skillRitualCurrencyPatch(j));
         setRitualTarget(null);
         setMsg(
           `✓ ${skillName(skillId)} ${modeLabel(j.mode ?? mode)} +${j.level ?? 0} 완료 (${modeBonusLabel(j.mode ?? mode, j.bonusPct ?? 0)})`,
@@ -405,12 +415,7 @@ export function V2SkillLearnView({
           return;
         }
         if (typeof j.points === "number") setUsable(j.points);
-        applyResourcePatch({
-          gold: typeof j.gold === "number" ? j.gold : undefined,
-          bankedGold:
-            typeof j.bankedGold === "number" ? j.bankedGold : undefined,
-          viewerProficiency: typeof j.points === "number" ? j.points : undefined,
-        });
+        applyResourcePatch(skillRitualCurrencyPatch(j));
         setRitualTarget(null);
         setMsg(
           `✓ ${skillName(skillId)} 의식 초기화 완료 (${goldLabel(j.refundedGold ?? 0)} · 숙달 ${(j.refundedProficiency ?? 0).toLocaleString()} 환급)`,

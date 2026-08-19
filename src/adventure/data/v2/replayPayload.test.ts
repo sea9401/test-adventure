@@ -161,6 +161,28 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     });
   });
 
+  it("지팡이 대표 마공 표시는 실제 평타 속성과 분리해 보존한다", () => {
+    const state = fixture(1);
+    const payload = toReplayPayload(state, {
+      playerCombat: {
+        hp: 1_000,
+        maxHp: 1_000,
+        atk: 100,
+        magicAtk: 500,
+        def: 200,
+        spd: 50,
+        evasionPct: 10,
+        attackCount: 1,
+        displayAttack: "magic",
+      },
+    });
+
+    expect(payload.playerCombat).toMatchObject({
+      displayAttack: "magic",
+      primaryAttack: "physical",
+    });
+  });
+
   it("몹 행동속도와 연타 보정 전달 — 원시 속도 대신 체감 스탯 표시용", () => {
     const fs = {
       ...fixture(3),
@@ -303,10 +325,14 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       playerSignatureResources: {
         pursuitMarks: 4,
         lawInscriptions: "4/8 · 공격 2 · 환류 2",
+        swordIntent: 3,
+        crossFamily: "원거리",
       },
       enemySignatureResources: {
         arcaneOverload: 75,
         lawInscriptions: "3/8 · 침식 2 · 수호 1",
+        formula: "2/3",
+        ruinCharge: "충전 · HP 손실 120",
       },
     };
     const p = toPvpReplayPayloadForSide(
@@ -333,10 +359,14 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
       playerSignatureResources: {
         arcaneOverload: 75,
         lawInscriptions: "3/8 · 침식 2 · 수호 1",
+        formula: "2/3",
+        ruinCharge: "충전 · HP 손실 120",
       },
       enemySignatureResources: {
         pursuitMarks: 4,
         lawInscriptions: "4/8 · 공격 2 · 환류 2",
+        swordIntent: 3,
+        crossFamily: "원거리",
       },
     });
     expect(p.enemy).toEqual({ name: "공격자", hp: 600 });
@@ -374,6 +404,7 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
           magicBarrierPvpAbsorbPct: 30,
           magicBarrierEfficiencyPct: 30,
           magicBarrierPvpEfficiencyPct: 20,
+          displayAttack: "magic",
         },
       },
       p2: {
@@ -389,6 +420,7 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
           accRating: 15,
           attackCount: 1,
           statusDamageReductionPct: 20,
+          displayAttack: "physical",
         },
       },
       log: [],
@@ -410,14 +442,30 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
         statusDamageReductionPct: 8,
         magicBarrierAbsorbPct: 30,
         magicBarrierEfficiencyPct: 20,
+        displayAttack: "magic",
       },
-      enemy: { atk: 95, magicDef: 130, statusDamageReductionPct: 20 },
+      enemy: {
+        atk: 95,
+        magicDef: 130,
+        statusDamageReductionPct: 20,
+        displayAttack: "physical",
+      },
     });
     expect(defenderView).toMatchObject({
       ruleset: "pvp",
       maxHpDamageMult: 1,
-      playerCombat: { atk: 95, magicDef: 130, statusDamageReductionPct: 20 },
-      enemy: { atk: 110, magicDef: 70, statusDamageReductionPct: 8 },
+      playerCombat: {
+        atk: 95,
+        magicDef: 130,
+        statusDamageReductionPct: 20,
+        displayAttack: "physical",
+      },
+      enemy: {
+        atk: 110,
+        magicDef: 70,
+        statusDamageReductionPct: 8,
+        displayAttack: "magic",
+      },
     });
   });
 

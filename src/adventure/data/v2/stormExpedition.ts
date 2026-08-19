@@ -169,7 +169,7 @@ export const STORM_EXPEDITION_RISK_EVENTS: Record<
     id: "rift_cache",
     name: "균열 상자",
     description: "항로 재료 2개를 즉시 임시 가방에 넣습니다.",
-    cost: "다음 적의 공격력 20% 증가",
+    cost: "다음 적 1명의 공격력 20% 증가 · 해당 전투 후 해제",
     triggerCheckpoint: "supply",
   },
   storm_contract: {
@@ -340,8 +340,13 @@ export function stormExpeditionEnemy(
   return scaleMonsterForFloor(stormExpeditionEnemyBase(routeId, kind, encounterIndex), depth);
 }
 
-export function createStormAltarOffers(rng: () => number = Math.random): StormExpeditionBoonId[] {
-  const pool = STORM_EXPEDITION_ALTAR_CHOICES.map((choice) => choice.id as StormExpeditionBoonId);
+export function createStormAltarOffers(
+  rng: () => number = Math.random,
+  excludedBoon: StormExpeditionBoonId | null = null,
+): StormExpeditionBoonId[] {
+  const pool = STORM_EXPEDITION_ALTAR_CHOICES
+    .map((choice) => choice.id as StormExpeditionBoonId)
+    .filter((boonId) => boonId !== excludedBoon);
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.min(i, Math.max(0, Math.floor(rng() * (i + 1))));
     [pool[i], pool[j]] = [pool[j], pool[i]];

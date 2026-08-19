@@ -40,11 +40,22 @@ import {
   resetLevelGrowth,
   V2_CULTIVATION_RESET_GOLD_COST,
   V2_CULTIVATE_PROFILE,
+  effectiveCultivateProfile,
 } from "./proficiency";
 
 describe("변이자 수행 프로필", () => {
   it("활력 중심 2:1:1 비율을 사용한다", () => {
     expect(V2_CULTIVATE_PROFILE.mutant).toEqual({ vit: 2, str: 1, int: 1 });
+  });
+
+  it.each([
+    ["beastwarrior", { str: 2, dex: 2 }],
+    ["tracker", { str: 2, dex: 2 }],
+    ["bloodtracker", { str: 2, dex: 2 }],
+    ["predator", { str: 3, dex: 2 }],
+    ["primalpredator", { str: 3, dex: 2, vit: 1 }],
+  ] as const)("%s 계보는 승인된 수행 프로필을 사용한다", (id, profile) => {
+    expect(effectiveCultivateProfile("mutant", id)).toEqual(profile);
   });
 });
 

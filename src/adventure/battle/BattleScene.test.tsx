@@ -2,11 +2,35 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Monster } from "../data/monsters";
 import { initialBattleState } from "../v2/combat/engine";
-import { actionFrequencyLabel, BattleScene } from "./BattleScene";
+import {
+  actionFrequencyLabel,
+  BattleScene,
+  BattleStatStrip,
+} from "./BattleScene";
 
 describe("전투 속도 표시", () => {
   it("속도를 적 1회당 내 행동 횟수로 바꿔 보여준다", () => {
     expect(actionFrequencyLabel(100, 50)).toMatch(/^적 1회당 내 \d+\.\d회$/);
+  });
+});
+
+describe("대표 공격력 표시", () => {
+  it("지팡이 표시 타입은 실제 물리 평타와 무관하게 마공을 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <BattleStatStrip
+        stats={{
+          atk: 68,
+          magicAtk: 412,
+          def: 169,
+          spd: 182,
+          primaryAttack: "physical",
+          displayAttack: "magic",
+        }}
+      />,
+    );
+
+    expect(html).toContain("마공</span> 412");
+    expect(html).not.toContain("공</span> 68");
   });
 });
 

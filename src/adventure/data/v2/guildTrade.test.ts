@@ -38,6 +38,30 @@ describe("guildTrade", () => {
     ).toBe(true);
   });
 
+  it("농작물 계약은 성장 단계에 따라 적은 수량으로 같은 점수를 낸다", () => {
+    expect(
+      GUILD_TRADE_ITEMS.filter((item) => item.category === "farm").map(
+        ({ sourceItemId, batchSize, pointValue }) => [
+          sourceItemId,
+          batchSize,
+          pointValue,
+        ],
+      ),
+    ).toEqual([
+      ["wheat", 5, 1],
+      ["herb", 4, 1],
+      ["corn", 3, 1],
+      ["tomato", 3, 1],
+      ["strawberry", 2, 1],
+      ["potato", 2, 1],
+      ["onion", 1, 1],
+      ["rice", 1, 1],
+      ["soybean", 1, 1],
+      ["sugarcane", 1, 2],
+      ["cacao", 1, 2],
+    ]);
+  });
+
   it("계약 목표는 1인 40점에서 20인 230점까지 증가하고 이후 고정된다", () => {
     expect(guildTradeContractTarget(1)).toBe(40);
     expect(guildTradeContractTarget(20)).toBe(230);

@@ -73,6 +73,29 @@ describe("PvE mutation resource transitions", () => {
     expect(consumed.log.some((entry) => entry.text === "[지각 붕괴] 중량 3 소모"))
       .toBe(true);
   });
+
+  it("스킬이 발동하지 않아 기본 공격으로 전환되어도 중량을 보존한다", () => {
+    const initial = initialBattleState(
+      PLAYER,
+      ENEMY,
+      "수집가",
+      skills("v2c_golem_rocksmash"),
+    );
+    const state = {
+      ...initial,
+      playerMp: 0,
+      stacks: { ...initial.stacks, mutationWeight: 2 },
+    };
+
+    const result = applyPlayerV2SkillCast(state, PLAYER, {
+      selfBuffs: {},
+      selfDebuffs: {},
+      enemyDebuffs: {},
+    });
+
+    expect(result.castFired).toBe(false);
+    expect(result.state.stacks.mutationWeight).toBe(2);
+  });
 });
 
 describe("PvP mutation resource transitions", () => {
@@ -104,6 +127,30 @@ describe("PvP mutation resource transitions", () => {
     expect(weight.p1.stacks.mutationWeight).toBe(3);
     expect(weight.log.some((entry) => entry.text === "[중량] +1 (3/3)"))
       .toBe(true);
+  });
+
+  it("PvP에서도 스킬이 발동하지 않으면 중량을 보존한다", () => {
+    const initial = initialBattleStatePvP(
+      PLAYER,
+      PLAYER,
+      "P1",
+      "P2",
+      skills("v2c_golem_rocksmash"),
+      { learned: [], equipped: [] },
+    );
+    const state = {
+      ...initial,
+      p1: {
+        ...initial.p1,
+        mp: 0,
+        stacks: { ...initial.p1.stacks, mutationWeight: 2 },
+      },
+    };
+
+    const result = castV2SkillOnAttackerTurnPvP(state, "p1");
+
+    expect(result.castFired).toBe(false);
+    expect(result.state.p1.stacks.mutationWeight).toBe(2);
   });
 });
 

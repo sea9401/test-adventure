@@ -15,6 +15,7 @@ import {
   V2_SKILLS,
   v2SkillMpCostValue,
   type V2SkillDefinition,
+  type V2SkillEffect,
   type V2SkillId,
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
@@ -425,6 +426,56 @@ export function applyV2DotsToTarget(
   return Array.from(byTag.values());
 }
 
+export type BleedChangeIntent = {
+  stacksToAdd: number;
+  setTurns?: number;
+  extendTurns?: number;
+  maxTurns?: number;
+  reason: "refresh" | "extend";
+};
+
+export function bleedChangeLogText(
+  change: Pick<BleedChangeIntent, "reason">,
+  resultingTurns: number,
+): string {
+  return change.reason === "refresh"
+    ? `출혈 지속이 ${resultingTurns}회로 갱신됐다.`
+    : `출혈 지속이 ${resultingTurns}회로 늘어났다.`;
+}
+
+/** 출혈 사냥은 기존 출혈의 출처 계수를 건드리지 않고 스택과 남은 횟수만 바꾼다. */
+export function applyBleedChangeToDots(
+  current: V2DotList,
+  change: BleedChangeIntent | undefined,
+): V2Dot[] {
+  if (!change) return [...current];
+  return current.map((dot) => {
+    if (dot.tag !== "bleed" || dot.turns <= 0) return dot;
+    const setTurns =
+      change.setTurns == null
+        ? dot.turns
+        : Math.max(dot.turns, Math.max(0, Math.floor(change.setTurns)));
+    const extendedTurns =
+      setTurns + Math.max(0, Math.floor(change.extendTurns ?? 0));
+    const turns =
+      change.maxTurns == null
+        ? extendedTurns
+        : Math.min(
+            Math.max(0, Math.floor(change.maxTurns)),
+            extendedTurns,
+          );
+    return {
+      ...dot,
+      stacks: Math.min(
+        BLEED_MAX_STACKS,
+        dot.maxStacks,
+        Math.max(0, dot.stacks + Math.floor(change.stacksToAdd)),
+      ),
+      turns,
+    };
+  });
+}
+
 // ── v2 스킬 런타임 (PR-4a~b) ──────────────────────────────────────────────
 // v2 스탯 스킬 시스템 (v2_skill_*, V2_SKILLS) 의 전투 런타임 헬퍼. PR-7a 부터 옛 spell
 // 시스템 (data/v2/spells.ts) 폐기 — 모든 마법은 V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델.
@@ -576,6 +627,26 @@ export function v2SkillMpCost(def: V2SkillDefinition): number {
   return v2SkillMpCostValue(def);
 }
 
+export function v2SkillHasDirectMagicDamage(
+  def: V2SkillDefinition,
+): boolean {
+  const hasMagicDamage = (effects: readonly V2SkillEffect[]) =>
+    effects.some(
+      (effect) =>
+        effect.kind === "damage" &&
+        (effect.scaling === "magic" || effect.scaling === "spi"),
+    );
+  return (
+    hasMagicDamage(def.effects) ||
+    Object.values(def.elementEffects ?? {}).some(
+      (effects) => effects != null && hasMagicDamage(effects),
+    ) ||
+    (def.castVariants ?? []).some((variant) =>
+      hasMagicDamage(variant.effects),
+    )
+  );
+}
+
 // PR-5b — monster.v2MaxMp 미지정 시 자동 시드. equipped 중 max mpCost × 3 → 약 3-5 회 cast.
 // 0 = equipped 비어 cast 불가능. monster 데이터 작성 부담 줄이는 default.
 export function defaultV2MaxMpFor(skills: V2SkillsState): number {
@@ -677,8 +748,36 @@ const EMPTY_BERSERKER_CAST_TRANSITION: V2BerserkerCastTransition = {
   forceSkillCrit: false,
   bonusSkillCritDamagePct: 0,
 };
+
+const PURE_DIRECT_DAMAGE_KINDS = new Set<V2SkillEffect["kind"]>([
+  "damage",
+  "hpCostDamage",
+  "missingHpDamage",
+  "executeDamage",
+  "ambushDamage",
+  "stackPayoffDamage",
+]);
+
+/** 변형·장착 시너지까지 반영된 효과 배열이 순수 직접 물리 공격인지 판정한다. */
+export function isPureDirectPhysicalSkill(
+  category: V2SkillDefinition["category"],
+  effects: readonly V2SkillEffect[],
+): boolean {
+  if (category !== "attack") return false;
+  const directEffects = effects.filter((effect) =>
+    PURE_DIRECT_DAMAGE_KINDS.has(effect.kind),
+  );
+  if (directEffects.length === 0) return false;
+  return directEffects.every((effect) => {
+    const scaling = "scaling" in effect ? effect.scaling : undefined;
+    return scaling !== "magic" && scaling !== "spi";
+  });
+}
+
 export type V2SkillCastResult = {
   nextMp: number;
+  /** 스킬 내부 MP 회복을 적용하기 전에 실제로 지불한 MP. */
+  mpSpent: number;
   nextCooldowns: V2SkillCooldowns;
   castSkillId: V2SkillId | null;
   castSkillName: string | null;
@@ -691,6 +790,12 @@ export type V2SkillCastResult = {
   selfHeal: number;
   /** 빗나감 시에도 유지되는 직접 회복분. healFromDamage 회복은 포함하지 않는다. */
   selfHealOnMiss: number;
+  /** 시전 전 출혈 스냅샷으로 얻은 이번 스킬의 조건부 적중 보너스(%p). */
+  skillAccuracyBonusPct: number;
+  /** 명중 뒤 실제로 감소시킨 대상 HP를 기준으로 엔진이 계산할 회복 비율. */
+  healFromActualDamagePct: number;
+  /** 기존 출혈의 스택·지속만 바꾸는 명중 후 적용 의도. */
+  bleedChangeToApply?: BleedChangeIntent;
   selfBuffsToApply: V2SkillBuffApply[];
   enemyDebuffsToApply: V2SkillBuffApply[];
   dotsToApplyToTarget: V2SkillDotApply[];
@@ -739,6 +844,8 @@ export function v2SkillHasTargetEffects(result: V2SkillCastResult): boolean {
     result.enemyEvasionDownToApply != null ||
     result.enemyAccuracyDownToApply != null ||
     result.enemyDelayToApply != null ||
+    result.bleedChangeToApply != null ||
+    result.healFromActualDamagePct > 0 ||
     result.enemyHealReduceToApply != null ||
     result.enemyDamageDownToApply != null ||
     result.enemySkillProcDownToApply != null ||
@@ -756,6 +863,8 @@ export function removeMissedV2SkillTargetEffects(
     magicEnemyDamage: 0,
     hitDamages: [],
     selfHeal: result.selfHealOnMiss,
+    healFromActualDamagePct: 0,
+    bleedChangeToApply: undefined,
     // hpCostDamage 의 HP는 적중한 피해로 전환되는 자원이다. 빗나감·확정 회피로
     // 대상 효과가 사라지면 교환할 피해도 없으므로 HP 소모 역시 취소한다.
     selfHpCost: 0,
@@ -785,6 +894,8 @@ export type V2SkillCastInput = {
   /** 발동 확률 롤 (0~100). 엔진이 Math.random()*100 로 채움. procChance<100 스킬만 사용 —
    *  미지정이면 항상 발동(구 호출·테스트 호환). */
   procRoll?: number;
+  /** 출혈 지속 연장 전용 독립 롤(0~100). 한 시전에서 정확히 한 번 공급한다. */
+  bleedHuntRoll?: number;
   /** 발동 확률 보너스 %p (워메이지 주문연사 등 — 스킬 procChance 에 합산, 100 클램프). 미지정=0. */
   procChanceBonus?: number;
   /** 전투 패턴(갬빗) — 주어지면 슬롯순서+procChance 대신 우선순위 평가로 스킬 선택(조건 충족=확정
@@ -800,6 +911,14 @@ export type V2SkillCastInput = {
   turn?: number;
   /** 전투 환경별 스킬 수치 분기. 미지정은 PvE로 취급한다. */
   combatMode?: "pve" | "pvp";
+  /** 현재 시전의 모든 직접 damage 효과에 더할 방어 무시 추가타 비율(%p). */
+  directDamagePiercePctAdd?: number;
+  /** 현재 시전의 모든 직접 damage 효과가 사용할 방어 무시 추가타 비율. 지정 시 카탈로그 값을 대체한다. */
+  directDamagePiercePctOverride?: number;
+  /** 직접 피해 마법의 MP 비용 감소율. 선택 가능 판정과 실제 차감에 함께 적용한다. */
+  magicMpCostReductionPct?: number;
+  /** MP가 부족해도 현재 MP를 전부 소비하고 시전할 수 있는 스킬 ID. */
+  mpOverdraftSkillIds?: readonly V2SkillId[];
   /** 광전사–패황 계보의 전투 중 준비/사용 횟수. 미지정이면 기존 호출과 동일하게 동작한다. */
   berserker?: V2BerserkerCastContext;
   attacker: {
@@ -863,6 +982,7 @@ export type V2SkillCastInput = {
     maxHp?: number;
     executeHpThresholdFloorPct?: number;
     bleedStacks?: number;
+    bleedTurns?: number;
     poisonStacks?: number;
     magicVulnStacks?: number;
     // 전투 패턴의 봉쇄 계열 상태 판정 및 순수 디버프 중복 시전 방지.
@@ -877,11 +997,14 @@ export type V2SkillCastInput = {
 };
 
 const EMPTY_CAST_RESULT_BASE = {
+  mpSpent: 0,
   enemyDamage: 0,
   magicEnemyDamage: 0,
   hitDamages: [] as number[],
   selfHeal: 0,
   selfHealOnMiss: 0,
+  skillAccuracyBonusPct: 0,
+  healFromActualDamagePct: 0,
   selfBuffsToApply: [] as V2SkillBuffApply[],
   enemyDebuffsToApply: [] as V2SkillBuffApply[],
   dotsToApplyToTarget: [] as V2SkillDotApply[],
@@ -989,6 +1112,17 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const equippedSet = new Set<string>(input.skills.equipped);
   const activeCombatSet = new Set<string>(activeCombatSkillIds);
   const learnedSet = new Set<V2SkillId>(input.skills.learned);
+  const overdraftSkillIds = new Set(input.mpOverdraftSkillIds ?? []);
+  const castMpCost = (def: V2SkillDefinition): number => {
+    const base = v2SkillMpCost(def);
+    if (!v2SkillHasDirectMagicDamage(def)) return base;
+    const reduction = Math.min(
+      100,
+      Math.max(0, input.magicMpCostReductionPct ?? 0),
+    );
+    if (base <= 0 || reduction <= 0) return base;
+    return Math.max(1, base - Math.floor((base * reduction) / 100));
+  };
   const isUsable = (sid: string) => {
     if (!activeCombatSet.has(sid)) return false;
     const d = V2_SKILLS[sid as V2SkillId];
@@ -1030,7 +1164,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       (isAnnihilation && input.berserker != null
         ? true
         : (ticked[sid as V2SkillId] ?? 0) === 0) &&
-      input.attacker.mp >= v2SkillMpCost(d)
+      (input.attacker.mp >= castMpCost(d) ||
+        overdraftSkillIds.has(sid as V2SkillId))
     );
   };
   const resolveRole = (role: V2CombatRole): string | null => {
@@ -1050,13 +1185,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         isUsable,
         resolveRole,
       ) as V2SkillId[])
-    : ([
-        pickAutoCastV2Skill({
-          equipped: activeCombatSkillIds,
-          cooldowns: ticked,
-          mp: input.attacker.mp,
-        }),
-      ].filter(Boolean) as V2SkillId[]);
+    : (activeCombatSkillIds.find((skillId) => isUsable(skillId))
+        ? [activeCombatSkillIds.find((skillId) => isUsable(skillId))!]
+        : []);
   let id: V2SkillId | null = null;
   let selectedPatternUsesProcGate = false;
   for (const candidateId of candidateIds) {
@@ -1113,6 +1244,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   if (!id) {
     return {
       ...EMPTY_CAST_RESULT_BASE,
+      mutationTransition: mutationCastTransition(
+        input.attacker.mutationWeight ?? 0,
+        {},
+      ),
       nextMp: input.attacker.mp,
       nextCooldowns: ticked,
       castSkillId: null,
@@ -1195,14 +1330,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     byTier: readonly [number, number, number] | undefined,
   ): number => (byTier ? byTier[tierIdx] : baseFlat ?? 0);
 
-  const directDamageKinds = new Set([
-    "damage",
-    "hpCostDamage",
-    "missingHpDamage",
-    "executeDamage",
-    "ambushDamage",
-    "stackPayoffDamage",
-  ]);
+  const directDamageKinds = PURE_DIRECT_DAMAGE_KINDS;
   // 실제 변형·시너지를 합친 castEffects 가 아래에서 정해진 뒤 갱신한다. damageWith 는 이후에만 호출된다.
   let directDamageEffectCount = 1;
 
@@ -1377,6 +1505,119 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     synergyEffects.length > 0
       ? [...baseCastEffects, ...synergyEffects]
       : baseCastEffects;
+  const pureDirectPhysical = isPureDirectPhysicalSkill(
+    def.category,
+    castEffects,
+  );
+  const bleedSnapshot = {
+    stacks: Math.max(0, Math.floor(input.target.bleedStacks ?? 0)),
+    turns: Math.max(0, Math.floor(input.target.bleedTurns ?? 0)),
+  };
+  const equippedPassiveMechanics = input.skills.equipped.flatMap((skillId) => {
+    const equippedDef = V2_SKILLS[skillId];
+    return equippedDef?.passive && equippedDef.bleedHunt
+      ? [equippedDef.bleedHunt]
+      : [];
+  });
+  const activeBleedHuntMechanics = [
+    ...(def.bleedHunt ? [def.bleedHunt] : []),
+    ...equippedPassiveMechanics,
+  ].filter((mechanic) => mechanic.minStacks <= bleedSnapshot.stacks);
+  const sumBleedHunt = (
+    key:
+      | "skillAccuracyPct"
+      | "hitEnemyDelayPct"
+      | "skillPenetrationPct"
+      | "skillActualDamageHealPct"
+      | "castHastePct"
+      | "directPhysicalAccuracyPct"
+      | "directPhysicalHastePct"
+      | "directPhysicalPenetrationPct"
+      | "directPhysicalDamagePct",
+  ): number =>
+    activeBleedHuntMechanics.reduce(
+      (sum, mechanic) => sum + Math.max(0, mechanic[key] ?? 0),
+      0,
+    );
+  const skillAccuracyBonusPct =
+    sumBleedHunt("skillAccuracyPct") +
+    (pureDirectPhysical ? sumBleedHunt("directPhysicalAccuracyPct") : 0);
+  const bleedHuntPiercePct =
+    sumBleedHunt("skillPenetrationPct") +
+    (pureDirectPhysical ? sumBleedHunt("directPhysicalPenetrationPct") : 0);
+  const bleedHuntDamagePct = pureDirectPhysical
+    ? sumBleedHunt("directPhysicalDamagePct")
+    : 0;
+  const bleedHuntHastePct =
+    sumBleedHunt("castHastePct") +
+    (pureDirectPhysical ? sumBleedHunt("directPhysicalHastePct") : 0);
+  const bleedHuntDelayPct = sumBleedHunt("hitEnemyDelayPct");
+  let healFromActualDamagePct = sumBleedHunt("skillActualDamageHealPct");
+  const refreshMechanics = activeBleedHuntMechanics.filter(
+    (mechanic) =>
+      (mechanic.hitBleedStacks ?? 0) > 0 ||
+      mechanic.hitBleedSetTurns != null,
+  );
+  const refreshIntent: BleedChangeIntent | undefined =
+    refreshMechanics.length > 0
+      ? {
+          stacksToAdd: refreshMechanics.reduce(
+            (sum, mechanic) => sum + Math.max(0, mechanic.hitBleedStacks ?? 0),
+            0,
+          ),
+          setTurns: Math.max(
+            ...refreshMechanics.map((mechanic) =>
+              Math.max(0, mechanic.hitBleedSetTurns ?? 0),
+            ),
+          ),
+          reason: "refresh",
+        }
+      : undefined;
+  const extension = pureDirectPhysical
+    ? activeBleedHuntMechanics.find(
+        (mechanic) => mechanic.directPhysicalHitBleedExtend,
+      )?.directPhysicalHitBleedExtend
+    : undefined;
+  const extensionIntent: BleedChangeIntent | undefined =
+    extension &&
+    bleedSnapshot.turns < extension.maxTurns &&
+    input.bleedHuntRoll != null &&
+    input.bleedHuntRoll < extension.chancePct
+      ? {
+          stacksToAdd: 0,
+          extendTurns: extension.turns,
+          maxTurns: extension.maxTurns,
+          reason: "extend",
+        }
+      : undefined;
+  const bleedChangeToApply = refreshIntent ?? extensionIntent;
+  if (bleedHuntHastePct > 0) {
+    selfHasteToApply = {
+      pct: (selfHasteToApply?.pct ?? 0) + bleedHuntHastePct,
+    };
+  }
+  if (bleedHuntDelayPct > 0) {
+    enemyDelayToApply = {
+      pct: (enemyDelayToApply?.pct ?? 0) + bleedHuntDelayPct,
+    };
+  }
+  const directDamagePiercePct = (effectPiercePct = 0): number =>
+    Math.max(
+      0,
+      input.directDamagePiercePctOverride ??
+        effectPiercePct +
+          (input.directDamagePiercePctAdd ?? 0) +
+          bleedHuntPiercePct,
+    );
+  const addPierceDamage = (
+    defendedDamage: number,
+    zeroDefenseDamage: number,
+    piercePct: number,
+  ): number =>
+    defendedDamage +
+    (piercePct > 0
+      ? Math.round((zeroDefenseDamage * piercePct) / 100)
+      : 0);
   directDamageEffectCount = Math.max(
     1,
     castEffects.filter((effect) => directDamageKinds.has(effect.kind)).length,
@@ -1414,7 +1655,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         flatOf(effect.baseFlat, effect.baseFlatByTier),
       );
       // 관통(방어 무시) 추가타 — 0방어 피해의 pierceDamagePct% 를 방어로 깎이지 않는 추가분으로 합산.
-      const pierceBonus = effect.pierceDamagePct
+      const pierceDamagePct = directDamagePiercePct(
+        effect.pierceDamagePct ?? 0,
+      );
+      const pierceBonus = pierceDamagePct
         ? Math.round(
             (damageWith(
               effect.statCoef,
@@ -1424,7 +1668,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
               0,
               0,
             ) *
-              effect.pierceDamagePct) /
+              pierceDamagePct) /
               100,
           )
         : 0;
@@ -1453,7 +1697,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       }
       selfHeal += amount;
     } else if (effect.kind === "healFromDamage") {
-      healFromDamagePct += effect.pct;
+      if (effect.basis === "actual") {
+        healFromActualDamagePct += effect.pct;
+      } else {
+        healFromDamagePct += effect.pct;
+      }
     } else if (effect.kind === "selfBuff") {
       selfBuffsToApply.push({ stat: effect.stat, pct: effect.pct, turns: effect.turns });
     } else if (effect.kind === "selfBuffPct") {
@@ -1482,10 +1730,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       enemyAccuracyDownToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "selfHaste") {
       // 바람 — ATB 1회성 자기 가속. 효과 적용은 ATB 루프(틱)에서. cast 결과로만 전달.
-      selfHasteToApply = { pct: effect.pct };
+      selfHasteToApply = {
+        pct: (selfHasteToApply?.pct ?? 0) + effect.pct,
+      };
     } else if (effect.kind === "enemyDelay") {
       // 대지 — ATB 1회성 적 지연. 효과 적용은 ATB 루프(틱)에서. cast 결과로만 전달.
-      enemyDelayToApply = { pct: effect.pct };
+      enemyDelayToApply = {
+        pct: (enemyDelayToApply?.pct ?? 0) + effect.pct,
+      };
     } else if (effect.kind === "enemyHealReduce") {
       // 화상 — 적 회복 효과 감소 디버프(N턴). 소비는 적/상대 회복 지점(회복 스킬·재생).
       enemyHealReduceToApply = { pct: effect.pct, turns: effect.turns };
@@ -1506,14 +1758,23 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       );
       const soakAmount = Math.floor((soakBaseHp * effect.pctCurrentHp) / 100);
       selfHpCost += cost;
+      const base = damageWith(
+        effect.statCoef,
+        effect.scaling,
+        effect.attackCoef,
+        flatOf(undefined, effect.baseFlatByTier),
+        Math.floor(soakAmount * effect.soakRatio),
+      );
+      const zeroDefense = damageWith(
+        effect.statCoef,
+        effect.scaling,
+        effect.attackCoef,
+        flatOf(undefined, effect.baseFlatByTier),
+        Math.floor(soakAmount * effect.soakRatio),
+        0,
+      );
       dealDamage(
-        damageWith(
-          effect.statCoef,
-          effect.scaling,
-          effect.attackCoef,
-          flatOf(undefined, effect.baseFlatByTier),
-          Math.floor(soakAmount * effect.soakRatio),
-        ),
+        addPierceDamage(base, zeroDefense, directDamagePiercePct()),
         effect.scaling,
       );
     } else if (effect.kind === "missingHpDamage") {
@@ -1556,8 +1817,16 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       );
       const effectiveDefense = Math.floor(input.target.def * defenseMult);
       selfHpCost += cost;
+      const defendedDamage = Math.max(
+        input.attacker.minDamage ?? 1,
+        rawDamage - effectiveDefense,
+      );
       dealDamage(
-        Math.max(input.attacker.minDamage ?? 1, rawDamage - effectiveDefense),
+        addPierceDamage(
+          defendedDamage,
+          rawDamage,
+          directDamagePiercePct(),
+        ),
         effect.scaling,
       );
     } else if (effect.kind === "healToDamage") {
@@ -1586,8 +1855,23 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         effect.hpThresholdPct,
         input.target.executeHpThresholdFloorPct ?? 0,
       );
+      const zeroDefense = damageWith(
+        effect.statCoef,
+        effect.scaling,
+        effect.attackCoef,
+        flatOf(undefined, effect.baseFlatByTier),
+        0,
+        0,
+      );
+      const multiplier = frac <= thresholdPct / 100 ? effect.bonusMult : 1;
       dealDamage(
-        frac <= thresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base,
+        addPierceDamage(
+          multiplier === 1 ? base : Math.floor(base * multiplier),
+          multiplier === 1
+            ? zeroDefense
+            : Math.floor(zeroDefense * multiplier),
+          directDamagePiercePct(),
+        ),
         effect.scaling,
       );
     } else if (effect.kind === "ambushDamage") {
@@ -1603,8 +1887,23 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         input.combatMode === "pvp"
           ? effect.pvpBonusMult ?? effect.bonusMult
           : effect.bonusMult;
+      const zeroDefense = damageWith(
+        effect.statCoef,
+        effect.scaling,
+        effect.attackCoef,
+        flatOf(undefined, effect.baseFlatByTier),
+        0,
+        0,
+      );
+      const multiplier = frac >= effect.hpThresholdPct / 100 ? bonusMult : 1;
       dealDamage(
-        frac >= effect.hpThresholdPct / 100 ? Math.floor(base * bonusMult) : base,
+        addPierceDamage(
+          multiplier === 1 ? base : Math.floor(base * multiplier),
+          multiplier === 1
+            ? zeroDefense
+            : Math.floor(zeroDefense * multiplier),
+          directDamagePiercePct(),
+        ),
         effect.scaling,
       );
     } else if (effect.kind === "stackPayoffDamage") {
@@ -1623,14 +1922,25 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       const payoffBonus = Math.max(0, stacks * effect.perStackFlat);
       const poisonPayoffBonus = effect.tag === "poison" ? payoffBonus : 0;
       stackPayoffBonusDamage += poisonPayoffBonus;
-      dealDamage(
+      const base =
         damageWith(
           effect.statCoef,
           effect.scaling,
           effect.attackCoef,
           flatOf(undefined, effect.baseFlatByTier),
           effect.tag === "poison" ? 0 : payoffBonus,
-        ) + poisonPayoffBonus,
+        ) + poisonPayoffBonus;
+      const zeroDefense =
+        damageWith(
+          effect.statCoef,
+          effect.scaling,
+          effect.attackCoef,
+          flatOf(undefined, effect.baseFlatByTier),
+          effect.tag === "poison" ? 0 : payoffBonus,
+          0,
+        ) + poisonPayoffBonus;
+      dealDamage(
+        addPierceDamage(base, zeroDefense, directDamagePiercePct()),
         effect.scaling,
       );
     } else if (effect.kind === "dot") {
@@ -1771,7 +2081,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   );
   const physicalMutationMult =
     weightPhysicalSkillMultiplier(mutationWeight) *
-    (1 + bloodScentBonusPct / 100);
+    (1 + bloodScentBonusPct / 100) *
+    (1 + bleedHuntDamagePct / 100);
   const mutationPhysicalDamage =
     directPhysicalDamage > 0
       ? Math.floor(directPhysicalDamage * physicalMutationMult)
@@ -1832,8 +2143,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       turns: 3,
     };
   }
+  const effectiveMpCost = castMpCost(def);
+  const mpSpent = Math.min(Math.max(0, input.attacker.mp), effectiveMpCost);
   return {
-    nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
+    nextMp: Math.max(0, input.attacker.mp - effectiveMpCost) + manaRestore,
+    mpSpent,
     nextCooldowns: {
       ...ticked,
       [id]:
@@ -1855,6 +2169,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : hitDamages,
     selfHeal: applyRitualPower(scaledSelfHeal),
     selfHealOnMiss: applyRitualPower(scaledSelfHealOnMiss),
+    skillAccuracyBonusPct,
+    healFromActualDamagePct,
+    bleedChangeToApply,
     selfBuffsToApply,
     enemyDebuffsToApply,
     dotsToApplyToTarget,

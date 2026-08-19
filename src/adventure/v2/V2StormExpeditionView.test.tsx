@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   confirmStormExpeditionExit,
+  shouldShowAcceptedRisk,
   stormUniqueDropPreview,
 } from "./V2StormExpeditionView";
+import type { StormExpeditionRiskEventOffer } from "@/adventure/data/v2/stormExpedition";
 
 const rules = {
   guardianRouteChance: 0.0015,
@@ -62,5 +64,28 @@ describe("폭풍 원정 자진 이탈 확인", () => {
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining("연습 원정"));
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("폭풍 원정 적용 중인 위험 표시", () => {
+  const acceptedRisk = (
+    id: StormExpeditionRiskEventOffer["id"],
+  ): StormExpeditionRiskEventOffer => ({
+    id,
+    triggerCheckpoint: "supply",
+    status: "accepted",
+    boonId: null,
+    curseId: null,
+  });
+
+  it("균열 상자는 강화 전투 대가가 남아 있을 때만 표시한다", () => {
+    const riftCache = acceptedRisk("rift_cache");
+
+    expect(shouldShowAcceptedRisk(riftCache, ["risk_enemy_fury"])).toBe(true);
+    expect(shouldShowAcceptedRisk(riftCache, [])).toBe(false);
+  });
+
+  it("남은 원정에 적용되는 위험은 다음 전투 효과가 없어도 표시한다", () => {
+    expect(shouldShowAcceptedRisk(acceptedRisk("storm_contract"), [])).toBe(true);
   });
 });

@@ -81,6 +81,23 @@ const FARM_TRADE_ITEM_IDS = [
   "cacao",
 ] as const satisfies readonly FarmItemId[];
 
+const FARM_TRADE_BATCH: Record<
+  (typeof FARM_TRADE_ITEM_IDS)[number],
+  { batchSize: number; pointValue: number }
+> = {
+  wheat: { batchSize: 5, pointValue: 1 },
+  herb: { batchSize: 4, pointValue: 1 },
+  corn: { batchSize: 3, pointValue: 1 },
+  tomato: { batchSize: 3, pointValue: 1 },
+  strawberry: { batchSize: 2, pointValue: 1 },
+  potato: { batchSize: 2, pointValue: 1 },
+  onion: { batchSize: 1, pointValue: 1 },
+  rice: { batchSize: 1, pointValue: 1 },
+  soybean: { batchSize: 1, pointValue: 1 },
+  sugarcane: { batchSize: 1, pointValue: 2 },
+  cacao: { batchSize: 1, pointValue: 2 },
+};
+
 const FISH_TRADE_BATCH: Record<
   FishingCatchItemId,
   { batchSize: number; pointValue: number }
@@ -139,8 +156,7 @@ const farmItems = FARM_TRADE_ITEM_IDS.map((itemId) => ({
   name: FARM_ITEMS[itemId].name,
   icon: FARM_ITEMS[itemId].icon,
   iconName: "Plant" as const,
-  batchSize: 5,
-  pointValue: 1,
+  ...FARM_TRADE_BATCH[itemId],
 }));
 
 const fishItems = Object.values(FISHING_CATCH_ITEMS).map((item) => ({

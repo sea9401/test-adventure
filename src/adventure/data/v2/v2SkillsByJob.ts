@@ -39,6 +39,20 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
     "v2c_beastkin_clawflurry",
     "v2c_beastkin_bloodscent",
   ],
+  beastwarrior: [
+    "v2c_beastwarrior_reopen",
+    "v2c_beastwarrior_keenscent",
+  ],
+  tracker: ["v2c_tracker_pounce", "v2c_tracker_instinct"],
+  bloodtracker: [
+    "v2c_bloodtracker_trailslash",
+    "v2c_bloodtracker_reading",
+  ],
+  predator: ["v2c_predator_devour", "v2c_predator_bloodnourishment"],
+  primalpredator: [
+    "v2c_primalpredator_primalfeast",
+    "v2c_primalpredator_apex",
+  ],
   golem: [
     "v2c_golem_rocksmash",
     "v2c_golem_tectoniccollapse",
@@ -176,6 +190,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath", "v2c_celestialdragon_formationbreak3"], // 천룡권성: 천룡난무 + 천룡의 호흡 + 파진경 III
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
   eternal: ["v2c_eternal_cycle", "v2c_eternal_body"], // 영겁자: 영겁 순환 + 영겁의 육신
+  // ── 내부 7차 — 직업 카탈로그/해금 경제 확정 전에는 선택 경로가 없다. ──
+  shadowblade: ["v2c_shadowblade_afterimage", "v2c_shadowblade_traceless", "v2c_shadowblade_swordshadow"],
+  ruinblade: ["v2c_ruinblade_limitstrike", "v2c_ruinblade_oneintent", "v2c_ruinblade_ruinsword"],
+  skyascendant: ["v2c_skyascendant_fallingstar", "v2c_skyascendant_voidbreak", "v2c_skyascendant_crossover"],
+  primordialsage: ["v2c_primordialsage_greatorb", "v2c_primordialsage_optimization", "v2c_primordialsage_completeformula"],
   legendarytrainer: ["v2c_legendarytrainer_mentorship"], // 전설의 트레이너 — 전설의 지도
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기

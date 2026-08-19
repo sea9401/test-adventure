@@ -43,6 +43,15 @@ import {
   type V2SkillEnhancements,
 } from "./skillRitual";
 import type { V2BuildTagId } from "./buildTags";
+import {
+  bleedHuntPowerValue,
+  type BleedHuntMechanic,
+} from "./bleedHunt";
+import {
+  tier7CombatJobIdForSkillId,
+  tier7MechanicPower,
+  type Tier7Mechanic,
+} from "./tier7SkillMechanics";
 import { combineDefReductionPcts } from "./v2CombatConstants";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
@@ -59,6 +68,8 @@ export type V2PassiveSkillEffect = {
   maxHpPct?: number;
   /** 최대 MP % 가산(마나). */
   maxMpPct?: number;
+  /** 직접 피해 마법 스킬의 실제 MP 소모 감소율. 여러 패시브는 가산한다. */
+  mpCostReductionPct?: number;
   /** 마나 실드 활성화 — INT·최대 MP 기반 전투별 장벽을 전개한다. 현재 MP는 소모하지 않는다. */
   magicBarrier?: boolean;
   /** 민첩→공격력 보조 계수(예기). */
@@ -241,6 +252,10 @@ export type V2SkillId =
   | "mob_venom_bite" // 독니 — 중독(DoT)
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
   | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
+  | "mob_catastrophe_venom" // 재앙독 — 중독 2스택
+  | "mob_venom_sunder" // 맹독 파쇄 — 중독 2스택 + 방어 약화
+  | "mob_deep_chill" // 심층 한기 — 강화 둔화
+  | "mob_glacial_chill" // 혹한 — 최종 강화 둔화
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
   // ── 몬스터 전용 마법 시전 (사냥터 마법몹 castSkill) — scaling magic·플레이어 미학습 ──
   | "mob_arcane_bolt" // 마력탄 — 마법 단일딜(magicDef 경감)
@@ -263,7 +278,11 @@ export type V2SkillId =
 export type V2MonsterStatusSkillId =
   | "mob_venom_bite"
   | "mob_chilling_touch"
-  | "mob_rending_claw";
+  | "mob_rending_claw"
+  | "mob_catastrophe_venom"
+  | "mob_venom_sunder"
+  | "mob_deep_chill"
+  | "mob_glacial_chill";
 
 // 몬스터 전용 마법 시전 스킬 id (DungeonEnemy.castSkill 부착 타입 안전). 사냥터 마법몹이
 //   마법 평타 대신 시전(시전 턴엔 평타 생략 → DPS 대략 중립·"체감"↑). scaling magic → 플레이어
@@ -312,7 +331,12 @@ export type V2SkillEffect =
       scaling?: V2DamageScaling;
     }
   // 이번 스킬로 가한 피해량의 pct% 만큼 회복. 회복량 증가 보정은 적용하지 않는다.
-  | { kind: "healFromDamage"; pct: number }
+  // basis 미지정은 기존처럼 방어·보호막 적용 전 명목 피해를 사용한다.
+  | {
+      kind: "healFromDamage";
+      pct: number;
+      basis?: "nominal" | "actual";
+    }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   // 파생 스탯 버프 — StatKey 밖(회피=선풍각, 크리율=연환 집중, 받피감 등).
   | { kind: "selfBuffPct"; target: "evasion" | "crit" | "damageReduction" | "reflectDamage"; pct: number; turns: number }
@@ -464,6 +488,10 @@ export type V2SkillDefinition = {
   /** 개별 스킬 전투 리듬. 차수·직업 보정 뒤 마지막 발동률 미세 조정에 사용한다. */
   tempo?: V2SkillTempo;
   effects: readonly V2SkillEffect[];
+  /** 이 액티브에만 적용되는 치명타 확률 가산(%p). */
+  skillCritChancePct?: number;
+  /** 이 액티브에만 적용되는 명중도 가산(%p). */
+  accuracyBonusPct?: number;
   /** 도발 시 사냥·PvP 상대가 즉시 시전자에게 가하는 기본 공격 횟수. */
   provokeImmediateBasicAttacks?: number;
   /** 철벽 태세 — 시전 시 갱신할 전용 반사 횟수와 피격 효과. */
@@ -539,6 +567,10 @@ export type V2SkillDefinition = {
   }[];
   /** 전투당 1회만 시전 가능. 시전 후 해당 전투가 끝날 때까지 쿨다운으로 잠근다. */
   oncePerBattle?: boolean;
+  /** 7차 전용 전투 규칙. 점수 계산과 런타임이 같은 수치를 읽는다. */
+  tier7Mechanic?: Tier7Mechanic;
+  /** 출혈 유지형 수인 계보. 전투·표기·성능 점수가 같은 선언을 읽는다. */
+  bleedHunt?: BleedHuntMechanic;
 };
 
 // === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
@@ -789,6 +821,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     for (const v of Object.values(p.statPct ?? {})) mag += Math.abs(v ?? 0) / 20;
     mag += (p.maxHpPct ?? 0) / 8;
     mag += (p.maxMpPct ?? 0) / 12;
+    mag += (p.mpCostReductionPct ?? 0) / 20;
     // 마나 실드는 기존 전역 INT 장벽을 2차 마법사 패시브로 옮긴 것이므로,
     // 기존 총명 II 장착자의 SP 구성이 깨지지 않게 별도 비용을 더하지 않는다.
     mag += (p.atkPerDexCoef ?? 0) * 12;
@@ -841,7 +874,11 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     if (p.skillCritAfterEvade) mag += 0.5;
     if (p.counterDamageUsesReflectBoost) mag += 0.5;
     mag += (p.comboFinisherBonusPct ?? 0) / 25;
-    return mag;
+    return (
+      mag +
+      bleedHuntPowerValue(def.bleedHunt) +
+      (def.tier7Mechanic ? tier7MechanicPower(def.tier7Mechanic) : 0)
+    );
   }
   const sumEffects = (effects: readonly V2SkillEffect[]): number => {
     let r = 0;
@@ -899,6 +936,10 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     // 넘어서는 증분의 절반만 본체에 청구해 선행 패시브와 같은 효과를 이중 과금하지 않는다.
     raw += Math.max(0, strongestSynergyRaw - baseVariantRaw) * 0.5;
   }
+  // 단일 액티브에만 적용되는 치명 확률은 상시 패시브보다 제한적이므로 낮게 평가한다.
+  raw += (def.skillCritChancePct ?? 0) / 20;
+  raw += (def.accuracyBonusPct ?? 0) / 30;
+  raw += bleedHuntPowerValue(def.bleedHunt);
   // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.35): 저확률 스킬에
   //   의미 있는 할인을 주되 최강 누크가 최저가가 되지 않게. 10%→0.56 · 30%→0.71 · 100%→1.0.
   const proc = Math.min(1, Math.max(0, (def.procChance ?? 100) / 100));
@@ -906,7 +947,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   raw *= spMpEfficiencyMultiplier(def);
   if (def.oncePerBattle) raw *= 0.65;
   if (def.cooldown > 0) raw /= 1 + def.cooldown / 4;
-  return raw;
+  return raw + (def.tier7Mechanic ? tier7MechanicPower(def.tier7Mechanic) : 0);
 }
 
 // 성능비례 코스트 바닥(루브릭) — power 점수 → 원시 SP. 1~4차의 중·고비용 구간만 압축하고
@@ -919,7 +960,8 @@ export function rubricSpCost(skill: V2SkillDefinition): number {
   if (rawSp <= 5) return rawSp;
   const compressed = 5 + Math.ceil((rawSp - 5) * 0.6);
   const jobTier = combatJobTierForSkill(skill.id);
-  const pricedSp = jobTier === 5 || jobTier === 6 ? rawSp : compressed;
+  const pricedSp =
+    jobTier === 5 || jobTier === 6 || jobTier === 7 ? rawSp : compressed;
   // 조합형 액티브는 표시된 최대 효과를 혼자 내는 스킬이 아니다. 강한 주문식을 쓰려면 하위 재료
   // 스킬도 각각 SP를 지불해 함께 장착해야 하므로, 본체까지 최대 효과 전액으로 청구하면 조합 자체가
   // 성립하지 않는다. 재료 비용을 감안해 본체는 현 카탈로그 고성능 상한(16 SP)에서 제한한다.
@@ -991,7 +1033,7 @@ export function spCostOf(skill: V2SkillDefinition): number {
 // 기존 30~40% 확률형은 차수별 바닥까지 올리고, 조건이 이미 throttle 하는 100% 스킬은
 // 내리지 않는다. 더 자주 쓰는 대신 공격 계수·고정 피해를 낮추고 MP 비용은 유지한다.
 // 패시브·몬스터·예전 공용 스타터(v2_skill_*)는 적용하지 않는다.
-type CombatJobTier = 1 | 2 | 3 | 4 | 5 | 6;
+type CombatJobTier = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 const ACTIVE_PROC_FLOOR_BY_JOB_TIER: Record<CombatJobTier, number> = {
   1: 75,
@@ -1000,6 +1042,7 @@ const ACTIVE_PROC_FLOOR_BY_JOB_TIER: Record<CombatJobTier, number> = {
   4: 56,
   5: 50,
   6: 45,
+  7: 40,
 };
 
 const ACTIVE_DAMAGE_SCALE_BY_JOB_TIER: Record<CombatJobTier, number> = {
@@ -1009,6 +1052,7 @@ const ACTIVE_DAMAGE_SCALE_BY_JOB_TIER: Record<CombatJobTier, number> = {
   4: 0.84,
   5: 0.9,
   6: 0.95,
+  7: 1,
 };
 
 // 같은 차수 안에서도 직업의 전투 리듬이 같아지지 않게 ±2~4%p만 미세 조정한다.
@@ -1056,6 +1100,11 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   grandwarder: "steady",
   lawguardian: "steady",
   myriadvenom: "steady",
+  beastwarrior: "steady",
+  tracker: "steady",
+  bloodtracker: "steady",
+  predator: "steady",
+  primalpredator: "steady",
   // 큰 한 방·처형·광전 — 한 번의 위력이 높은 대신 조금 덜 발동.
   mage: "burst",
   caster: "burst",
@@ -1175,6 +1224,7 @@ function combatJobIdForSkill(skillId: V2SkillId): string | null {
 }
 
 function combatJobTierForSkill(skillId: V2SkillId): CombatJobTier | null {
+  if (tier7CombatJobIdForSkillId(skillId) != null) return 7;
   const jobId = combatJobIdForSkill(skillId);
   if (jobId == null) return null;
   // 원소술사는 4차 다섯 계통으로 분리됐지만 옛 통합 액티브 id 는 세이브 호환용으로 남아 있다.
@@ -1182,7 +1232,7 @@ function combatJobTierForSkill(skillId: V2SkillId): CombatJobTier | null {
   const tier = jobId ? V2_JOB_CATALOG[jobId]?.tier : undefined;
   // 생존자처럼 tier 0 카탈로그에 속한 전투 킷은 입문(tier 1) 정책을 쓴다.
   if (tier === 0) return 1;
-  return tier != null && tier >= 1 && tier <= 6 ? (tier as CombatJobTier) : null;
+  return tier != null && tier >= 1 && tier <= 7 ? (tier as CombatJobTier) : null;
 }
 
 function scaledCoef(value: number, scale: number): number {
@@ -1450,6 +1500,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   statPct: Partial<Record<V2StatKey, number>>;
   maxHpPct: number;
   maxMpPct: number;
+  mpCostReductionPct: number;
   magicBarrier: boolean;
   atkPerDexCoef: number;
   atkPerLukCoef: number;
@@ -1500,6 +1551,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   const statPct: Partial<Record<V2StatKey, number>> = {};
   let maxHpPct = 0;
   let maxMpPct = 0;
+  let mpCostReductionPct = 0;
   let magicBarrier = false;
   let atkPerDexCoef = 0;
   let atkPerLukCoef = 0;
@@ -1569,6 +1621,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     }
     maxHpPct += p.maxHpPct ?? 0;
     maxMpPct += p.maxMpPct ?? 0;
+    mpCostReductionPct += p.mpCostReductionPct ?? 0;
     if (p.magicBarrier) magicBarrier = true;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
     atkPerLukCoef += p.atkPerLukCoef ?? 0;
@@ -1649,6 +1702,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     statPct,
     maxHpPct,
     maxMpPct,
+    mpCostReductionPct,
     magicBarrier,
     atkPerDexCoef,
     atkPerLukCoef,
@@ -2001,6 +2055,59 @@ function describeBerserkerLineageRules(skill: V2SkillDefinition): string[] {
   return chips;
 }
 
+function describeBleedHunt(skill: V2SkillDefinition): string[] {
+  const mechanic = skill.bleedHunt;
+  if (!mechanic) return [];
+  const chips = [`출혈 ${mechanic.minStacks}중첩 이상`];
+  if (mechanic.hitBleedStacks) {
+    chips.push(`명중 시 출혈 +${mechanic.hitBleedStacks}중첩`);
+  }
+  if (mechanic.hitBleedSetTurns) {
+    chips.push(`명중 시 출혈 지속 ${mechanic.hitBleedSetTurns}회로 갱신`);
+  }
+  if (mechanic.skillAccuracyPct) {
+    chips.push(`이 스킬 적중도 +${mechanic.skillAccuracyPct}%`);
+  }
+  if (mechanic.hitEnemyDelayPct) {
+    chips.push(`명중 시 적 다음 행동 지연 +${mechanic.hitEnemyDelayPct}%`);
+  }
+  if (mechanic.skillPenetrationPct) {
+    chips.push(`이 스킬 방어 관통 +${mechanic.skillPenetrationPct}%p`);
+  }
+  if (mechanic.skillActualDamageHealPct) {
+    chips.push(`실제 피해의 ${mechanic.skillActualDamageHealPct}% HP 회복`);
+  }
+  if (mechanic.castHastePct) {
+    chips.push(`정상 시전 시 다음 행동 속도 +${mechanic.castHastePct}%`);
+  }
+  if (mechanic.directPhysicalAccuracyPct) {
+    chips.push(`직접 물리 스킬 적중도 +${mechanic.directPhysicalAccuracyPct}%`);
+  }
+  if (mechanic.directPhysicalHastePct) {
+    chips.push(
+      `직접 물리 스킬 정상 시전 시 다음 행동 속도 +${mechanic.directPhysicalHastePct}%`,
+    );
+  }
+  if (mechanic.directPhysicalPenetrationPct) {
+    chips.push(
+      `직접 물리 스킬 방어 관통 +${mechanic.directPhysicalPenetrationPct}%p`,
+    );
+  }
+  if (mechanic.directPhysicalDamagePct) {
+    chips.push(`직접 물리 스킬 피해 +${mechanic.directPhysicalDamagePct}%`);
+  }
+  if (mechanic.bleedTickHealMaxHpPct) {
+    chips.push(`출혈 피해 발생 시 최대 HP ${mechanic.bleedTickHealMaxHpPct}% 회복`);
+  }
+  const extend = mechanic.directPhysicalHitBleedExtend;
+  if (extend) {
+    chips.push(
+      `직접 물리 스킬 명중 시 ${extend.chancePct}% 확률로 출혈 지속 +${extend.turns} (최대 ${extend.maxTurns}회)`,
+    );
+  }
+  return chips;
+}
+
 function describeV2Effect(
   e: V2SkillEffect,
   tier: 1 | 2 | 3,
@@ -2095,6 +2202,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   }
   if (p.maxHpPct) chips.push(`최대 HP +${p.maxHpPct}%`);
   if (p.maxMpPct) chips.push(`최대 MP +${p.maxMpPct}%`);
+  if (p.mpCostReductionPct)
+    chips.push(`마법 MP 소모 -${p.mpCostReductionPct}%`);
   if (p.magicBarrier) chips.push("마나 실드 활성화");
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
@@ -2223,6 +2332,63 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   return chips;
 }
 
+function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
+  switch (mechanic.kind) {
+    case "shadowStrike":
+      return [
+        `검영 기록 ${mechanic.recordPct}% · 정련 시 ${mechanic.refinedRecordPct}%`,
+      ];
+    case "shadowRefine":
+      return [
+        `검영 정련 +${mechanic.refinePctPoints}%p · 발동 후 행동 가속 ${mechanic.hastePct}%`,
+      ];
+    case "shadowCore":
+      return [
+        `단일 물리 최종 피해 ${mechanic.recordPct}% 기록 · 정련 시 ${mechanic.refinedRecordPct}%`,
+        `검영 발동 후 다음 단일 물리 피해 +${mechanic.nextSingleDamagePct}%`,
+        `PvP 검영·후속 보너스 ${mechanic.pvpScalePct}% 적용`,
+      ];
+    case "intentStrike":
+      return [
+        `잃은 HP 비례 최종 피해 최대 +${mechanic.missingHpBonusCapPct}%`,
+        `HP ${mechanic.lowHpThresholdPct}% 이하 적중 시 검의 2개`,
+      ];
+    case "intentCore":
+      return [
+        `검의 최대 ${mechanic.maxStacks}개 · 단일 물리 최종 피해 개당 +${mechanic.damagePctPerStack}%`,
+        `멸검 최종 피해 검의 개당 +${mechanic.finisherPctPerStack}%`,
+      ];
+    case "chargedFinisher":
+      return [
+        `현재 잃은 HP 최대 +${mechanic.currentMissingHpCapPct}% · 충전 중 잃은 HP 최대 +${mechanic.chargeLostHpCapPct}%`,
+        `PvP 각 보너스 최대 ${mechanic.pvpCapPct}% · 관통 ${mechanic.pvpPenetrationPct}%`,
+      ];
+    case "crossStrike":
+      return [`교차 계열: ${mechanic.family === "ranged" ? "원거리" : "체술"}`];
+    case "crossCore":
+      return [
+        `포획: 최종 피해 +${mechanic.captureDamagePct}% · 적중 +${mechanic.captureAccuracyPct}% · 관통 ${mechanic.capturePenetrationPct}%`,
+        `추격: 추가 피해 ${mechanic.pursuitDamagePct}% · 적 행동 지연 ${mechanic.pursuitEnemyDelayPct}%`,
+        `교차 적중 시 행동 가속 ${mechanic.hastePct}% · PvP ${mechanic.pvpHastePct}%`,
+      ];
+    case "formulaStrike":
+      return [
+        `술식 ${mechanic.stages}단계 · 완전식 발동 후 행동 가속 ${mechanic.completionHastePct}%`,
+      ];
+    case "manaOptimization":
+      return [
+        `완전식 MP 부족 시 현재 MP 전부 소비 · 최대 MP ${mechanic.restoreMaxMpPct}% 회복`,
+      ];
+    case "completeFormula":
+      return [
+        `완전식: 직접 최종 피해 +${mechanic.directDamagePct}% · 관통 +${mechanic.penetrationPct}% · 행동 가속 ${mechanic.hastePct}%`,
+        `PvP: 직접 최종 피해 +${mechanic.pvpDamagePct}% · 관통 +${mechanic.pvpPenetrationPct}% · 행동 가속 ${mechanic.pvpHastePct}%`,
+      ];
+  }
+  const _exhaustive: never = mechanic;
+  return _exhaustive;
+}
+
 function describeDuelistDeclaration(
   declaration: NonNullable<V2SkillDefinition["duelistDeclaration"]>,
 ): string[] {
@@ -2331,6 +2497,7 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
             ],
       );
   chips.push(...describeBerserkerLineageRules(skill));
+  chips.push(...describeBleedHunt(skill));
   // 각 직접 피해 effect 는 전투 로그에서 별도 타격으로 처리된다. 피해 칩이 여러 개 나열되는 것만으로는
   // 다단 여부가 잘 드러나지 않으므로 학습·장착·전투 패턴 툴팁 맨 앞에 기본 타수를 명시한다.
   if (!skill.passive && directDamageEffectCount > 1) {
@@ -2349,6 +2516,15 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   if (skill.refreshTripleWards) chips.push("삼중 결계 전부 재전개");
   if (skill.duelistDeclaration) {
     chips.push(...describeDuelistDeclaration(skill.duelistDeclaration));
+  }
+  if (skill.skillCritChancePct) {
+    chips.push(`이 스킬 치명타 확률 +${skill.skillCritChancePct}%p`);
+  }
+  if (skill.accuracyBonusPct) {
+    chips.push(`이 스킬 적중도 +${skill.accuracyBonusPct}%`);
+  }
+  if (skill.tier7Mechanic) {
+    chips.push(...describeTier7Mechanic(skill.tier7Mechanic));
   }
   if (skill.consumesFortressImpact) chips.push("명중 시 충격 전부 소비");
   if (skill.mutationWeightGain) {

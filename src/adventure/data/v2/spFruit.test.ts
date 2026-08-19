@@ -99,6 +99,8 @@ describe("fruitTierForBoss / fruitTierForMaterial", () => {
     expect(fruitTierForBoss("canyon_predator")).toBe(2);
     expect(fruitTierForBoss("lake_sovereign")).toBe(3);
     expect(fruitTierForBoss("void_priest")).toBe(4);
+    expect(fruitTierForBoss("canyon_predator_hard")).toBeNull();
+    expect(fruitTierForBoss("lake_sovereign_hard")).toBeNull();
     expect(fruitTierForBoss("unknown")).toBeNull();
   });
 

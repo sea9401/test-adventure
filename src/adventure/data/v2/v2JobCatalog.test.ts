@@ -62,6 +62,53 @@ import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
 const BASE_JOBS = ["warrior", "martial", "mage", "rogue"];
 const LEGACY_CLASSES = [...BASE_JOBS, "survivor", "mutant"];
+const BEASTKIN_LINE = [
+  [
+    "beastwarrior",
+    "야수전사",
+    2,
+    "beastkin",
+    TIER2_UNLOCK_CUMLEVEL,
+    { str: 2, dex: 2 },
+    { str: 12, dex: 6 },
+  ],
+  [
+    "tracker",
+    "추적자",
+    3,
+    "beastwarrior",
+    TIER3_UNLOCK_CUMLEVEL,
+    { str: 2, dex: 2 },
+    { str: 13, dex: 7 },
+  ],
+  [
+    "bloodtracker",
+    "혈흔추적자",
+    4,
+    "tracker",
+    TIER4_UNLOCK_CUMLEVEL,
+    { str: 2, dex: 2 },
+    { str: 14, dex: 8 },
+  ],
+  [
+    "predator",
+    "포식자",
+    5,
+    "bloodtracker",
+    TIER5_UNLOCK_CUMLEVEL,
+    { str: 3, dex: 2 },
+    { str: 17, dex: 9 },
+  ],
+  [
+    "primalpredator",
+    "원시 포식자",
+    6,
+    "predator",
+    TIER6_UNLOCK_CUMLEVEL,
+    { str: 3, dex: 2, vit: 1 },
+    { str: 26, dex: 10, vit: 4 },
+  ],
+] as const;
 const TIER2_BY_PARENT: Record<string, string[]> = {
   warrior: ["shieldman", "squire"],
   martial: ["boxer", "monk"],
@@ -221,21 +268,21 @@ describe("jobUnlockSpBonus", () => {
         woodcuttingLevel: 1_000,
         miningLevel: 1_000,
       }),
-    ).toBe(88);
+    ).toBe(91);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("변이자 루트와 수인·골렘을 포함한 130개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(130);
+  it("수인 2~6차를 포함한 135개 직업을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(135);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
-    expect(byTier(2)).toBe(18);
-    expect(byTier(3)).toBe(25);
-    expect(byTier(4)).toBe(30);
-    expect(byTier(5)).toBe(24);
-    expect(byTier(6)).toBe(24);
+    expect(byTier(2)).toBe(19);
+    expect(byTier(3)).toBe(26);
+    expect(byTier(4)).toBe(31);
+    expect(byTier(5)).toBe(25);
+    expect(byTier(6)).toBe(25);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -312,9 +359,14 @@ describe("스탯 맵 무결성", () => {
   });
 
   it("방패 계보는 민첩 없이 활력·힘 전용 수행 프로필을 사용한다", () => {
-    for (const [id, profile] of Object.entries(
-      V2_SPECIALIZED_CULTIVATE_PROFILE,
-    )) {
+    for (const id of [
+      "shieldman",
+      "guardian",
+      "warden",
+      "ironknight",
+      "fortressknight",
+    ]) {
+      const profile = V2_SPECIALIZED_CULTIVATE_PROFILE[id];
       expect(V2_JOB_CATALOG[id]?.cultivateProfile, id).toEqual(profile);
       expect(profile.dex, `${id} 민첩`).toBeUndefined();
 
@@ -900,6 +952,44 @@ describe("해금 트리", () => {
 });
 
 describe("isJobUnlocked / unlockedJobs", () => {
+  it.each(BEASTKIN_LINE)(
+    "%s 직업 데이터와 선행 숙련도 경계를 지킨다",
+    (id, name, tier, parent, required, cultivateProfile, jobBonus) => {
+      const definition = V2_JOB_CATALOG[id];
+      expect(definition).toMatchObject({
+        id,
+        name,
+        tier,
+        cultivateProfile,
+        jobBonus,
+        unlock: { prereqs: { [parent]: required } },
+      });
+
+      expect(
+        isJobUnlocked(definition, profJobs({ [parent]: required - 1 })),
+      ).toBe(false);
+      expect(
+        isJobUnlocked(definition, profJobs({ [parent]: required })),
+      ).toBe(true);
+    },
+  );
+
+  it("야수전사는 변이자·골렘이 아니라 수인 직업 숙련도로만 열린다", () => {
+    const wrongSource = profWith({ mutant: 999_999 });
+    wrongSource.jobCumLevel = { golem: 999_999 };
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.beastwarrior, wrongSource),
+    ).toBe(false);
+
+    const rightSource = {
+      ...wrongSource,
+      jobCumLevel: { beastkin: TIER2_UNLOCK_CUMLEVEL },
+    };
+    expect(isJobUnlocked(V2_JOB_CATALOG.beastwarrior, rightSource)).toBe(
+      true,
+    );
+  });
+
   it("빈 숙련도에서 기본 직업은 해금, 상위 직업은 잠김", () => {
     const empty = emptyProficiency();
     expect(isJobUnlocked(V2_JOB_CATALOG.warrior, empty)).toBe(true);
@@ -1443,6 +1533,22 @@ describe("cumLevelForJob (직업별 숙련도 — 전직 화면 표기)", () => 
     expect(cumLevelForJob(prof, V2_JOB_CATALOG.paladin)).toBe(333);
     // jobCumLevel 에 없는 상위 직업은 0.
     expect(cumLevelForJob(prof, V2_JOB_CATALOG.caster)).toBe(0);
+  });
+
+  it("1차 변이 전문 직업은 직군이 아닌 개별 직업 숙련도를 읽는다", () => {
+    const prof = profWith({ mutant: 999_999, beastkin: 777_777 });
+    prof.jobCumLevel = { beastkin: 42 };
+    expect(cumLevelForJob(prof, V2_JOB_CATALOG.beastkin)).toBe(42);
+  });
+});
+
+describe("수인 2~6차 레거시 브리지", () => {
+  it.each(BEASTKIN_LINE)("%s 를 mutant spec 으로 왕복한다", (id) => {
+    expect(LEGACY_CLASS_SPEC_BY_JOB[id]).toEqual({
+      class: "mutant",
+      spec: id,
+    });
+    expect(jobIdFromLegacy("mutant", id)).toBe(id);
   });
 });
 

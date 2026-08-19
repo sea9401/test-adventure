@@ -11,8 +11,20 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
   return { ...actual, V2_CORE_LOOP_V2: true, V2_ATB_SKILLS: true };
 });
 
-import { resolveBattlePvP, type PvPBattleResolution } from "./engine-pvp";
+import {
+  castV2SkillOnAttackerTurnPvP,
+  endAttackerPhase,
+  initialBattleStatePvP,
+  releaseSwordShadowAfterPvPAction,
+  resolveBattlePvP,
+  type PvPBattleResolution,
+} from "./engine-pvp";
 import type { PlayerCombat } from "./engine";
+import { makePoisonDot } from "./combatShared";
+import type {
+  V2SkillId,
+  V2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -40,6 +52,334 @@ function run(): PvPBattleResolution {
 }
 
 describe("PR-C: V2_ATB_SKILLS on → PvP ATB 스킬 시전", () => {
+  it("검영은 PvP에서 상대의 다음 행동 종료 뒤 보호막보다 먼저 실현된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills: V2SkillsState = {
+      learned: [
+        "v2c_shadowblade_afterimage",
+        "v2c_shadowblade_swordshadow",
+      ],
+      equipped: [
+        "v2c_shadowblade_afterimage",
+        "v2c_shadowblade_swordshadow",
+      ],
+    };
+    let state = initialBattleStatePvP(
+      { ...caster, atk: 200, lukStat: 200 },
+      { ...target, hp: 20_000, maxHp: 20_000 },
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+    state = castV2SkillOnAttackerTurnPvP(state, "p1").state;
+    expect(state.p1.stacks.tier7?.swordShadow).toBeDefined();
+    state = endAttackerPhase(state, "p1", "p2");
+    const hpBeforeRelease = state.p2.hp;
+    state = endAttackerPhase(state, "p2", "p1", {
+      skipOffensiveFollowups: true,
+    });
+
+    expect(state.p2.hp).toBeLessThan(hpBeforeRelease);
+    expect(state.p1.stacks.tier7?.swordShadow).toBeUndefined();
+    expect(state.p1.stacks.tier7?.shadowFollowUpPct).toBe(12);
+    expect(state.log.some((entry) => entry.text.includes("[검영]"))).toBe(true);
+  });
+
+  it("검영 시전자가 상대 행동에 쓰러져도 검영을 실현해 동시 사망을 무승부로 만든다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills: V2SkillsState = {
+      learned: [
+        "v2c_shadowblade_afterimage",
+        "v2c_shadowblade_swordshadow",
+      ],
+      equipped: [
+        "v2c_shadowblade_afterimage",
+        "v2c_shadowblade_swordshadow",
+      ],
+    };
+    const initial = initialBattleStatePvP(
+      { ...caster, atk: 200, lukStat: 200 },
+      { ...target, hp: 20_000, maxHp: 20_000 },
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+    const recorded = castV2SkillOnAttackerTurnPvP(initial, "p1").state;
+    const ended = {
+      ...recorded,
+      p1: { ...recorded.p1, hp: 0 },
+      p2: { ...recorded.p2, hp: 1 },
+      phase: "ended" as const,
+      outcome: "p2_win" as const,
+    };
+
+    const released = releaseSwordShadowAfterPvPAction(
+      ended,
+      "p2",
+      "p1",
+    );
+    expect(released.p1.hp).toBe(0);
+    expect(released.p2.hp).toBe(0);
+    expect(released.outcome).toBe("draw");
+  });
+
+  it("완전식은 PvP에서도 MP 0에서 완성 주문을 시전하고 최대 MP 10%를 회복한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills: V2SkillsState = {
+      learned: [
+        "v2c_archmage_collapse",
+        "v2c_primordialsage_optimization",
+        "v2c_primordialsage_completeformula",
+      ],
+      equipped: [
+        "v2c_archmage_collapse",
+        "v2c_primordialsage_optimization",
+        "v2c_primordialsage_completeformula",
+      ],
+    };
+    const initial = initialBattleStatePvP(
+      { ...caster, maxMp: 1_000, magicAtk: 200, intStat: 200 },
+      { ...target, hp: 20_000, maxHp: 20_000 },
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+    const prepared = {
+      ...initial,
+      p1: {
+        ...initial.p1,
+        mp: 0,
+        stacks: {
+          ...initial.p1.stacks,
+          tier7: {
+            formula: {
+              stages: 2,
+              seenSkillIds: ["v2c_mage_fireball"] as V2SkillId[],
+            },
+          },
+        },
+      },
+    };
+    const cast = castV2SkillOnAttackerTurnPvP(prepared, "p1");
+
+    expect(cast.castFired).toBe(true);
+    expect(cast.state.p1.mp).toBe(100);
+    expect(cast.selfHastePct).toBe(12);
+    expect(cast.state.log.some((entry) => entry.text.includes("[완전식]"))).toBe(true);
+  });
+
+  it("PvP에서도 스킬 자체 MP 회복과 별개로 실제 지불 비용을 기준으로 환급한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const skills: V2SkillsState = {
+      learned: [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+      ],
+      equipped: [
+        "v2c_primordialmage_return",
+        "v2c_primordialmage_resonance",
+      ],
+    };
+    const initial = initialBattleStatePvP(
+      {
+        ...caster,
+        maxMp: 1_000,
+        mp: 1_000,
+        equipSignatures: [
+          {
+            trigger: "on_skill_cast",
+            label: "마력 순환",
+            mpRefundPctOfCost: 15,
+          },
+        ],
+      },
+      { ...target, hp: 20_000, maxHp: 20_000 },
+      "P1",
+      "P2",
+      skills,
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+
+    const cast = castV2SkillOnAttackerTurnPvP(initial, "p1");
+
+    expect(cast.state.p1.mp).toBe(927);
+    expect(cast.state.log.some((entry) => entry.text === "태초회귀! P1 마나 80 회복했다.")).toBe(true);
+    expect(cast.state.log.some((entry) => entry.text === "[마력 순환] P1 마나 27 환급")).toBe(true);
+  });
+
+  it("재앙독갑 직접 액티브 효과가 PvP에서도 중독 대상 피해와 시전당 중독을 적용한다", () => {
+    const cast = (boosted: boolean, poisoned: boolean) => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const attacker: PlayerCombat = {
+        ...caster,
+        atk: 100,
+        critChancePct: 0,
+        equipSignatures: boosted
+          ? [
+              {
+                trigger: "direct_skill_hit",
+                label: "재앙독 주입",
+                poisonChancePct: 25,
+                poisonStacks: 1,
+              },
+              {
+                trigger: "direct_skill_hit",
+                label: "맹독 추격",
+                poisonedTargetDamagePct: 10,
+              },
+            ]
+          : undefined,
+      };
+      const initial = initialBattleStatePvP(
+        attacker,
+        { ...target, hp: 10_000, maxHp: 10_000, def: 0 },
+        "P1",
+        "P2",
+        { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+        { learned: [], equipped: [] },
+        undefined,
+        undefined,
+        "p1",
+      );
+      const prepared = poisoned
+        ? {
+            ...initial,
+            p2: {
+              ...initial.p2,
+              v2Dots: [
+                makePoisonDot({
+                  stacks: 1,
+                  pctMaxHpPerStack: 0.001,
+                  sourceAtk: 100,
+                }),
+              ],
+            },
+          }
+        : initial;
+      const result = castV2SkillOnAttackerTurnPvP(prepared, "p1").state;
+      vi.restoreAllMocks();
+      return result;
+    };
+
+    const plain = cast(false, true);
+    const boosted = cast(true, true);
+    expect(10_000 - boosted.p2.hp).toBe(Math.floor((10_000 - plain.p2.hp) * 1.1));
+    const newlyPoisoned = cast(true, false);
+    expect(newlyPoisoned.p2.v2Dots.find((dot) => dot.tag === "poison")?.stacks).toBe(1);
+  });
+
+  it("빙호수호 3세트는 PvP 시작 보호막 8%를 별도 추적한다", () => {
+    const guarded: PlayerCombat = {
+      ...target,
+      hp: 1_000,
+      maxHp: 1_000,
+      equipSignatures: [
+        {
+          trigger: "battle_start",
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+        {
+          trigger: "tracked_shield_break",
+          label: "빙호 해방",
+          trackedShieldPctMaxHp: 8,
+          cleanseHarmfulStatuses: true,
+          damageTakenReductionPct: 15,
+          buffActions: 2,
+        },
+      ],
+    };
+    const initial = initialBattleStatePvP(
+      caster,
+      guarded,
+      "P1",
+      "P2",
+      { learned: [], equipped: [] },
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+    expect(initial.p2.stacks.playerShield).toBe(80);
+    expect(initial.p2.stacks.trackedSetShield).toBe(80);
+    expect(initial.p2.flags.trackedShieldBreakUsed).toBe(false);
+  });
+
+  it("빙호수호 전용 시작 보호막이 처음 소진되면 PvP 해로운 효과를 정화하고 2행동 받피감을 건다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const guarded: PlayerCombat = {
+      ...target,
+      hp: 1_000,
+      maxHp: 1_000,
+      def: 0,
+      equipSignatures: [
+        {
+          trigger: "battle_start",
+          label: "빙호수호",
+          battleStartShieldPctMaxHp: 8,
+        },
+        {
+          trigger: "tracked_shield_break",
+          label: "빙호 해방",
+          trackedShieldPctMaxHp: 8,
+          cleanseHarmfulStatuses: true,
+          damageTakenReductionPct: 15,
+          buffActions: 2,
+        },
+      ],
+    };
+    const initial = initialBattleStatePvP(
+      { ...caster, atk: 100 },
+      guarded,
+      "P1",
+      "P2",
+      { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      { learned: [], equipped: [] },
+      undefined,
+      undefined,
+      "p1",
+    );
+    const prepared = {
+      ...initial,
+      p2: {
+        ...initial.p2,
+        v2Dots: [
+          makePoisonDot({
+            stacks: 2,
+            pctMaxHpPerStack: 0.001,
+            sourceAtk: 100,
+          }),
+        ],
+        v2SelfDebuffs: { spd: { pct: 20, turns: 3 } },
+      },
+    };
+    const result = castV2SkillOnAttackerTurnPvP(prepared, "p1").state;
+    vi.restoreAllMocks();
+
+    expect(result.p2.stacks.trackedSetShield).toBe(0);
+    expect(result.p2.flags.trackedShieldBreakUsed).toBe(true);
+    expect(result.p2.v2Dots).toEqual([]);
+    expect(result.p2.v2SelfDebuffs).toEqual({});
+    expect(result.p2.buffs.playerDmgReductionPct).toBe(15);
+    expect(result.p2.buffs.playerDmgReductionTurnsLeft).toBe(2);
+    expect(result.log.filter((entry) => entry.text.includes("빙호 해방"))).toHaveLength(1);
+  });
+
   it("PvP도 문장 시전으로 각인을 쌓고 같은 규칙으로 전량 해방한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.1);
     const skills = [

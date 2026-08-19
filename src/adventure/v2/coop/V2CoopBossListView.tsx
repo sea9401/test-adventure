@@ -40,9 +40,13 @@ type CoopBossSummonGroup = {
   variants: readonly CoopBossSummonVariant[];
 };
 
-const SANGOON_KIND_IDS = new Set<CoopBossKindId>([
+const DIFFICULTY_VARIANT_KIND_IDS = new Set<CoopBossKindId>([
   "mountain_chief",
   "mountain_chief_hard",
+  "canyon_predator",
+  "canyon_predator_hard",
+  "lake_sovereign",
+  "lake_sovereign_hard",
 ]);
 
 const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
@@ -54,8 +58,24 @@ const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
       { kind: "mountain_chief_hard", label: "HARD" },
     ],
   },
+  {
+    id: "canyon_predator",
+    baseKind: "canyon_predator",
+    variants: [
+      { kind: "canyon_predator", label: "NORMAL" },
+      { kind: "canyon_predator_hard", label: "HARD" },
+    ],
+  },
+  {
+    id: "lake_sovereign",
+    baseKind: "lake_sovereign",
+    variants: [
+      { kind: "lake_sovereign", label: "NORMAL" },
+      { kind: "lake_sovereign_hard", label: "HARD" },
+    ],
+  },
   ...SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS.filter(
-    (kindId) => !SANGOON_KIND_IDS.has(kindId),
+    (kindId) => !DIFFICULTY_VARIANT_KIND_IDS.has(kindId),
   ).map((kindId) => ({
       id: kindId,
       baseKind: kindId,
@@ -64,13 +84,19 @@ const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
 ];
 
 function coopBossListName(kindId: CoopBossKindId): string {
-  return kindId === "mountain_chief_hard"
-    ? COOP_BOSSES.mountain_chief.name
-    : COOP_BOSSES[kindId].name;
+  const baseKind =
+    kindId === "mountain_chief_hard"
+      ? "mountain_chief"
+      : kindId === "canyon_predator_hard"
+        ? "canyon_predator"
+        : kindId === "lake_sovereign_hard"
+          ? "lake_sovereign"
+          : kindId;
+  return COOP_BOSSES[baseKind].name;
 }
 
 function coopBossDifficultyBadge(kindId: CoopBossKindId): string | null {
-  if (!SANGOON_KIND_IDS.has(kindId)) return null;
+  if (!DIFFICULTY_VARIANT_KIND_IDS.has(kindId)) return null;
   return COOP_BOSSES[kindId].difficulty === "hard" ? "HARD" : "NORMAL";
 }
 

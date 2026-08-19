@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
@@ -508,9 +508,15 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     { status: "idle" } | CodexMasteryPanelState
   >({ status: "idle" });
   const [masteryRetryVersion, setMasteryRetryVersion] = useState(0);
+  const masteryViewMounted = useRef(true);
+  useEffect(() => {
+    masteryViewMounted.current = true;
+    return () => {
+      masteryViewMounted.current = false;
+    };
+  }, []);
   useEffect(() => {
     if (!shouldLoadCodexMastery(tab, masteryState.status)) return;
-    let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 숙련 탭 최초 진입 또는 명시적 재시도에서 lazy fetch 상태 시작
     setMasteryState({ status: "loading" });
     fetch("/api/v2/me/codex-mastery")
@@ -521,7 +527,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           | null,
       }))
       .then(({ response, json }) => {
-        if (!alive) return;
+        if (!masteryViewMounted.current) return;
         if (!response.ok || !json?.ok) {
           setMasteryState({
             status: "error",
@@ -536,18 +542,16 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         );
       })
       .catch((error: unknown) => {
-        if (alive) {
+        if (masteryViewMounted.current) {
           setMasteryState({
             status: "error",
             message: error instanceof Error ? error.message : "network_error",
           });
         }
       });
-    return () => {
-      alive = false;
-    };
     // masteryState.status intentionally stays outside the dependency list: changing idle to loading
-    // must not cancel the request that caused that transition.
+    // must not cancel the request that caused that transition. Tab changes also keep the request alive;
+    // only unmounting the entire codex view makes its response irrelevant.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, masteryRetryVersion]);
 

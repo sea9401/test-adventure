@@ -14,19 +14,36 @@ const definition = (entryId: string): CodexMasteryEntryDefinition => ({
     platinum: 500, diamond: 1_500, legendary: 5_000,
   },
   scoreWeightMilli: 1_000,
-  seals: {},
+  seals: { giant: { pointUnits: 4 } },
 });
 
 describe("codex mastery catalog", () => {
   it("provides immutable keyed lookup and deterministic category lists", () => {
+    const sourceDefinition = definition("fish:a");
     const catalog = createCodexMasteryCatalog([
       definition("fish:b"),
-      definition("fish:a"),
+      sourceDefinition,
     ]);
-    expect(catalog.get("fish", "fish:a")?.label).toBe("fish:a");
+    const storedDefinition = catalog.get("fish", "fish:a");
+    expect(storedDefinition?.label).toBe("fish:a");
     expect(catalog.list("fish").map((entry) => entry.entryId)).toEqual([
       "fish:a", "fish:b",
     ]);
+    expect(Object.isFrozen(storedDefinition)).toBe(true);
+    expect(Object.isFrozen(storedDefinition?.thresholds)).toBe(true);
+    expect(Object.isFrozen(storedDefinition?.seals)).toBe(true);
+    expect(Object.isFrozen(storedDefinition?.seals.giant)).toBe(true);
+    expect(Object.isFrozen(catalog.list("fish"))).toBe(true);
+    expect(Object.isFrozen(catalog.list())).toBe(true);
+
+    sourceDefinition.label = "mutated label";
+    sourceDefinition.thresholds.bronze = 999;
+    sourceDefinition.seals.giant.pointUnits = 2;
+    expect(catalog.get("fish", "fish:a")).toMatchObject({
+      label: "fish:a",
+      thresholds: { bronze: 5 },
+      seals: { giant: { pointUnits: 4 } },
+    });
   });
 
   it("rejects duplicate category/entry keys", () => {

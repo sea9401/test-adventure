@@ -28,6 +28,11 @@ import {
   clientIpFromRequest,
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 type CharSave = {
   gold?: number;
@@ -280,6 +285,7 @@ export async function POST(req: Request) {
   const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
   const result = await db.transaction(async (tx) => {
+    await requireTradeParticipants(tx, [userId], now);
     const character = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -343,7 +349,11 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   if (result.status === 200 && "fills" in result && result.body.ok) {
     recordEconomyEventSoon({
@@ -422,6 +432,7 @@ export async function PATCH(req: Request) {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
+    await requireTradeParticipants(tx, [userId], now);
     const [order] = await tx
       .select()
       .from(marketplaceBuyOrdersV2)
@@ -562,7 +573,11 @@ export async function PATCH(req: Request) {
           : {}),
       },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   if (result.status === 200 && "fills" in result && result.body.ok) {
     recordEconomyEventSoon({

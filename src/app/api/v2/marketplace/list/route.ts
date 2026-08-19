@@ -5,6 +5,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { huntStageName } from "@/adventure/data/v2/dungeon";
 import {
@@ -105,6 +110,7 @@ export async function POST(req: Request) {
   const listingWindow = { createdAt, ...listingTimes };
 
   const result = await db.transaction(async (tx) => {
+    await requireTradeParticipants(tx, [userId], createdAt);
     // 판매자 직렬화 — character.v2 를 먼저 잠가 동시 list 요청이 슬롯 상한을 우회하지 못하게 한다
     //   (같은 seller 의 모든 list 가 이 단일 행으로 순서화). 잠금 순서 character.v2 → equipment.v2
     //   는 buy·sell-bulk 와 일관(데드락 회피). material 경로는 이 charSave 를 그대로 씀.
@@ -512,7 +518,11 @@ export async function POST(req: Request) {
       },
       body: { ok: true as const, listingId: row.id },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
 
   const economyLog = result.status === 200 && "log" in result ? result.log : null;
   if (economyLog) {

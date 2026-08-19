@@ -15,6 +15,11 @@ import {
   triggerMarketplacePriceAlertsForListing,
 } from "@/lib/server/marketplaceBuyOrdersV2";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse,
+} from "@/lib/server/tradeSuspension";
 
 function bad(error: string, status = 400) {
   return Response.json({ ok: false, error }, { status });
@@ -44,6 +49,7 @@ export async function POST(req: Request) {
   const requestedPrice = body.price;
   const now = new Date();
   const result = await db.transaction(async (tx) => {
+    await requireTradeParticipants(tx, [userId], now);
     const [listing] = await tx
       .select()
       .from(marketplaceListingsV2)
@@ -91,7 +97,11 @@ export async function POST(req: Request) {
       autoMatchFills,
       body: { ok: true as const, totalPrice },
     };
+  }).catch((error) => {
+    if (error instanceof TradeSuspendedError) return tradeSuspendedResponse(error);
+    throw error;
   });
+  if (result instanceof Response) return result;
   if (result.status === 200 && "autoMatchFills" in result) {
     recordEconomyEventSoon({
       userId,

@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { insertValues, store } = vi.hoisted(() => ({
-  insertValues: [] as unknown[],
-  store: new Map<string, unknown>(),
-}));
+const { insertValues, store, upsertSave, requireTradeParticipants, TradeSuspendedError } = vi.hoisted(() => {
+  class TradeSuspendedError extends Error {}
+  const store = new Map<string, unknown>();
+  return {
+    TradeSuspendedError,
+    insertValues: [] as unknown[],
+    store,
+    upsertSave: vi.fn(async (_tx, _userId, key: string, value: unknown) => {
+      store.set(key, value);
+    }),
+    requireTradeParticipants: vi.fn(async () => undefined),
+  };
+});
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "seller-test"),
@@ -45,9 +54,14 @@ vi.mock("@/lib/server/savesKv", () => ({
     async (_tx, _userId, key: string, fallback: unknown) =>
       store.has(key) ? store.get(key) : fallback,
   ),
-  upsertSave: vi.fn(async (_tx, _userId, key: string, value: unknown) => {
-    store.set(key, value);
-  }),
+  upsertSave,
+}));
+
+vi.mock("@/lib/server/tradeSuspension", () => ({
+  TradeSuspendedError,
+  requireTradeParticipants,
+  tradeSuspendedResponse: () =>
+    Response.json({ ok: false, error: "trade_suspended" }, { status: 403 }),
 }));
 
 vi.mock("@/lib/server/marketplaceV2", async (importActual) => {
@@ -105,6 +119,24 @@ describe("거래소 레어맵 등록", () => {
   beforeEach(() => {
     insertValues.length = 0;
     store.clear();
+    vi.clearAllMocks();
+  });
+
+  it("거래 정지 판매자는 표본 매물을 등록하지 못하고 에스크로를 건드리지 않는다", async () => {
+    store.set("character.v2", {});
+    store.set("fishing-specimens.v1", { version: 1, items: { carp: 3 } });
+    requireTradeParticipants.mockRejectedValueOnce(new TradeSuspendedError());
+
+    const response = await POST(listSpecimenRequest(2));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "trade_suspended" });
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(insertValues).toHaveLength(0);
+    expect(store.get("fishing-specimens.v1")).toEqual({
+      version: 1,
+      items: { carp: 3 },
+    });
   });
 
   it.each([

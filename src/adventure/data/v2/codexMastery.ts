@@ -52,7 +52,20 @@ export function validateCodexMasteryDefinition(
   }
 
   let previousThreshold = 0;
+  if (!Object.hasOwn(definition, "thresholds")) {
+    return "thresholds must be an own property";
+  }
+  if (
+    !definition.thresholds ||
+    typeof definition.thresholds !== "object" ||
+    Array.isArray(definition.thresholds)
+  ) {
+    return "thresholds must be an object";
+  }
   for (const stage of COUNT_STAGES) {
+    if (!Object.hasOwn(definition.thresholds, stage)) {
+      return `${stage} threshold must be an own property`;
+    }
     const threshold = definition.thresholds?.[stage];
     if (!Number.isSafeInteger(threshold) || threshold <= 0) {
       return `${stage} threshold must be a positive safe integer`;
@@ -61,11 +74,17 @@ export function validateCodexMasteryDefinition(
     previousThreshold = threshold;
   }
 
+  if (!Object.hasOwn(definition, "seals")) {
+    return "seals must be an own property";
+  }
   if (!definition.seals || typeof definition.seals !== "object") {
     return "seals must be an object";
   }
   for (const [sealId, seal] of Object.entries(definition.seals)) {
     if (!isNonEmptyString(sealId)) return "seal IDs must be non-empty";
+    if (!seal || typeof seal !== "object" || !Object.hasOwn(seal, "pointUnits")) {
+      return "seal pointUnits must be an own property";
+    }
     if (seal?.pointUnits !== 2 && seal?.pointUnits !== 4) {
       return "seal point units must be 2 or 4";
     }
@@ -162,7 +181,8 @@ export function applyCodexMasteryMutation(
   const reached = CODEX_MASTERY_STAGES.filter((stage) =>
     stage === "discovered" ? discovered : nextCount >= definition.thresholds[stage],
   );
-  const newStages = reached.filter((stage) => previous.tierAchievedAt[stage] == null);
+  const previousTierIndex = tierIndex(previous.currentTier);
+  const newStages = reached.filter((stage) => tierIndex(stage) > previousTierIndex);
   const timestamp = now.toISOString();
   const tierAchievedAt = { ...previous.tierAchievedAt };
   for (const stage of newStages) tierAchievedAt[stage] = timestamp;

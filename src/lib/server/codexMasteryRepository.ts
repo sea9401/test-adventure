@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import {
+  CODEX_MASTERY_CATEGORIES,
   CODEX_MASTERY_STAGES,
   type CodexMasteryCategory,
   type CodexMasteryProgress,
@@ -7,7 +8,7 @@ import {
   type CodexMasteryTier,
 } from "@/adventure/data/v2/codexMasteryTypes";
 import { codexMasteryProgress, codexMasterySummary } from "@/db/schema";
-import type { DbExecutor } from "./savesKv";
+import type { DbExecutor, DbTransactionExecutor } from "./savesKv";
 
 type CodexMasterySummaryStage = Exclude<CodexMasteryStage, "discovered">;
 
@@ -16,7 +17,9 @@ export type CodexMasterySummaryState = {
   categoryScoreMilli: Record<CodexMasteryCategory, number>;
   stageCounts: Record<CodexMasterySummaryStage, number>;
   sealCount: number;
+  scoredCategoryCount: number;
   scoreReachedAt: Date | null;
+  categoryScoreReachedAt: Record<CodexMasteryCategory, Date | null>;
 };
 
 export type CodexMasteryStore = {
@@ -61,7 +64,14 @@ type PersistedSummaryRow = {
   diamondCount: unknown;
   legendaryCount: unknown;
   sealCount: unknown;
+  scoredCategoryCount: unknown;
   scoreReachedAt: unknown;
+  equipmentScoreReachedAt: unknown;
+  fishScoreReachedAt: unknown;
+  monsterScoreReachedAt: unknown;
+  cookingScoreReachedAt: unknown;
+  lifeScoreReachedAt: unknown;
+  jobScoreReachedAt: unknown;
 };
 
 function nonNegativeSafeInteger(value: unknown): number {
@@ -129,6 +139,38 @@ function normalizedSealIds(value: unknown): string[] {
   ))];
 }
 
+function lockedCodexMasteryRowToProgress(
+  row: PersistedProgressRow,
+): CodexMasteryProgress {
+  const sealIdsAreValid = Array.isArray(row.sealIds) &&
+    row.sealIds.every((sealId) =>
+      typeof sealId === "string" && sealId.trim().length > 0
+    ) &&
+    new Set(row.sealIds).size === row.sealIds.length;
+  const rowIsStructurallyValid =
+    typeof row.category === "string" &&
+    (CODEX_MASTERY_CATEGORIES as readonly string[]).includes(row.category) &&
+    typeof row.entryId === "string" &&
+    row.entryId.length > 0 &&
+    typeof row.count === "number" &&
+    Number.isSafeInteger(row.count) &&
+    row.count >= 0 &&
+    (row.bestValue === null || (
+      typeof row.bestValue === "number" &&
+      Number.isFinite(row.bestValue) &&
+      row.bestValue >= 0
+    )) &&
+    isTier(row.currentTier) &&
+    sealIdsAreValid &&
+    typeof row.scoreMilli === "number" &&
+    Number.isSafeInteger(row.scoreMilli) &&
+    row.scoreMilli >= 0;
+  if (!rowIsStructurallyValid) {
+    throw new Error("codex mastery locked progress row is malformed");
+  }
+  return codexMasteryRowToProgress(row);
+}
+
 function normalizedTierAchievedAt(
   value: unknown,
   currentTier: CodexMasteryTier,
@@ -149,7 +191,9 @@ function normalizedTierAchievedAt(
 }
 
 function normalizedDate(value: unknown): Date | null {
-  return value instanceof Date && !Number.isNaN(value.getTime()) ? value : null;
+  return value instanceof Date && !Number.isNaN(value.getTime())
+    ? new Date(value.getTime())
+    : null;
 }
 
 export function emptyCodexMasterySummary(): CodexMasterySummaryState {
@@ -172,7 +216,16 @@ export function emptyCodexMasterySummary(): CodexMasterySummaryState {
       legendary: 0,
     },
     sealCount: 0,
+    scoredCategoryCount: 0,
     scoreReachedAt: null,
+    categoryScoreReachedAt: {
+      equipment: null,
+      fish: null,
+      monster: null,
+      cooking: null,
+      life: null,
+      job: null,
+    },
   };
 }
 
@@ -214,7 +267,16 @@ export function codexMasterySummaryRowToState(
       legendary: nonNegativeSafeInteger(row.legendaryCount),
     },
     sealCount: nonNegativeSafeInteger(row.sealCount),
+    scoredCategoryCount: nonNegativeSafeInteger(row.scoredCategoryCount),
     scoreReachedAt: normalizedDate(row.scoreReachedAt),
+    categoryScoreReachedAt: {
+      equipment: normalizedDate(row.equipmentScoreReachedAt),
+      fish: normalizedDate(row.fishScoreReachedAt),
+      monster: normalizedDate(row.monsterScoreReachedAt),
+      cooking: normalizedDate(row.cookingScoreReachedAt),
+      life: normalizedDate(row.lifeScoreReachedAt),
+      job: normalizedDate(row.jobScoreReachedAt),
+    },
   };
 }
 
@@ -235,7 +297,14 @@ function emptySummaryRow(userId: string, now: Date) {
     diamondCount: 0,
     legendaryCount: 0,
     sealCount: 0,
+    scoredCategoryCount: 0,
     scoreReachedAt: null,
+    equipmentScoreReachedAt: null,
+    fishScoreReachedAt: null,
+    monsterScoreReachedAt: null,
+    cookingScoreReachedAt: null,
+    lifeScoreReachedAt: null,
+    jobScoreReachedAt: null,
     updatedAt: now,
   };
 }
@@ -262,7 +331,7 @@ function emptyProgressRow(
 }
 
 async function selectSummary(
-  executor: DbExecutor,
+  executor: DbTransactionExecutor,
   userId: string,
   options: { forUpdate: boolean },
 ) {
@@ -277,7 +346,7 @@ async function selectSummary(
 }
 
 async function selectProgress(
-  executor: DbExecutor,
+  executor: DbTransactionExecutor,
   userId: string,
   category: CodexMasteryCategory,
   entryId: string,
@@ -309,7 +378,7 @@ export async function readCodexMasteryProgressRows(
 }
 
 export async function lockCodexMasteryState(
-  executor: DbExecutor,
+  executor: DbTransactionExecutor,
   userId: string,
   category: CodexMasteryCategory,
   entryId: string,
@@ -344,12 +413,12 @@ export async function lockCodexMasteryState(
   }
   return {
     summary: codexMasterySummaryRowToState(summaryRow),
-    progress: codexMasteryRowToProgress(progressRow),
+    progress: lockedCodexMasteryRowToProgress(progressRow),
   };
 }
 
 export async function saveCodexMasteryState(
-  executor: DbExecutor,
+  executor: DbTransactionExecutor,
   input: {
     userId: string;
     summary: CodexMasterySummaryState;
@@ -372,7 +441,14 @@ export async function saveCodexMasteryState(
     diamondCount: input.summary.stageCounts.diamond,
     legendaryCount: input.summary.stageCounts.legendary,
     sealCount: input.summary.sealCount,
+    scoredCategoryCount: input.summary.scoredCategoryCount,
     scoreReachedAt: input.summary.scoreReachedAt,
+    equipmentScoreReachedAt: input.summary.categoryScoreReachedAt.equipment,
+    fishScoreReachedAt: input.summary.categoryScoreReachedAt.fish,
+    monsterScoreReachedAt: input.summary.categoryScoreReachedAt.monster,
+    cookingScoreReachedAt: input.summary.categoryScoreReachedAt.cooking,
+    lifeScoreReachedAt: input.summary.categoryScoreReachedAt.life,
+    jobScoreReachedAt: input.summary.categoryScoreReachedAt.job,
   });
   const progress = codexMasteryRowToProgress(input.progress);
 
@@ -393,7 +469,14 @@ export async function saveCodexMasteryState(
       diamondCount: summary.stageCounts.diamond,
       legendaryCount: summary.stageCounts.legendary,
       sealCount: summary.sealCount,
+      scoredCategoryCount: summary.scoredCategoryCount,
       scoreReachedAt: summary.scoreReachedAt,
+      equipmentScoreReachedAt: summary.categoryScoreReachedAt.equipment,
+      fishScoreReachedAt: summary.categoryScoreReachedAt.fish,
+      monsterScoreReachedAt: summary.categoryScoreReachedAt.monster,
+      cookingScoreReachedAt: summary.categoryScoreReachedAt.cooking,
+      lifeScoreReachedAt: summary.categoryScoreReachedAt.life,
+      jobScoreReachedAt: summary.categoryScoreReachedAt.job,
       updatedAt: now,
     })
     .where(eq(codexMasterySummary.userId, input.userId))
@@ -425,7 +508,7 @@ export async function saveCodexMasteryState(
 }
 
 export function createDrizzleCodexMasteryStore(
-  executor: DbExecutor,
+  executor: DbTransactionExecutor,
 ): CodexMasteryStore {
   return {
     lock: (input, now) => lockCodexMasteryState(

@@ -58,4 +58,37 @@ describe("codex mastery catalog", () => {
     );
     expect(report.fish).toEqual({ entries: 1, scoreMilli: 22_000 });
   });
+
+  it("rejects inherited threshold and seal point fields before cloning", () => {
+    // Break caught: validation sees prototype values that immutable cloning silently drops.
+    const inheritedThresholds = Object.assign(
+      Object.create({ bronze: 5 }) as Record<string, number>,
+      { silver: 30, gold: 150, platinum: 500, diamond: 1_500, legendary: 5_000 },
+    );
+    expect(() => createCodexMasteryCatalog([{
+      ...definition("fish:inherited-threshold"),
+      thresholds: inheritedThresholds as CodexMasteryEntryDefinition["thresholds"],
+    }])).toThrow("bronze threshold must be an own property");
+
+    const inheritedPointUnits = Object.create({ pointUnits: 4 }) as { pointUnits: 4 };
+    expect(() => createCodexMasteryCatalog([{
+      ...definition("fish:inherited-seal"),
+      seals: { giant: inheritedPointUnits },
+    }])).toThrow("seal pointUnits must be an own property");
+  });
+
+  it("rejects unsafe budget multiplication and addition", () => {
+    // Break caught: budget reports round products or cumulative category totals above MAX_SAFE_INTEGER.
+    const unsafeProductWeight = Math.floor(Number.MAX_SAFE_INTEGER / 22) + 1;
+    expect(() => codexMasteryBudgetReport(createCodexMasteryCatalog([{
+      ...definition("fish:unsafe-product"),
+      scoreWeightMilli: unsafeProductWeight,
+    }]))).toThrow("budget score must be a safe integer");
+
+    const individuallySafeWeight = Math.floor(Number.MAX_SAFE_INTEGER / 22);
+    expect(() => codexMasteryBudgetReport(createCodexMasteryCatalog([
+      { ...definition("fish:unsafe-sum-a"), scoreWeightMilli: individuallySafeWeight },
+      { ...definition("fish:unsafe-sum-b"), scoreWeightMilli: individuallySafeWeight },
+    ]))).toThrow("budget total must be a safe integer");
+  });
 });

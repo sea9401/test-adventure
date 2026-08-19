@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
+import { db } from "@/db";
 import { codexMasteryProgress, codexMasterySummary } from "@/db/schema";
-import type { DbExecutor } from "./savesKv";
 import {
   codexMasterySummaryRowToState,
   codexMasteryRowToProgress,
@@ -12,6 +12,8 @@ import {
   readCodexMasteryProgressRows,
   saveCodexMasteryState,
 } from "./codexMasteryRepository";
+import { recordCodexMastery } from "./codexMasteryService";
+import type { DbTransactionExecutor } from "./savesKv";
 
 type RecordedUpdate = {
   table: unknown;
@@ -20,10 +22,27 @@ type RecordedUpdate = {
 };
 
 type RecordedExecutor = {
-  executor: DbExecutor;
+  executor: DbTransactionExecutor;
   events: string[];
   updates: RecordedUpdate[];
 };
+
+function persistedProgressRow(overrides: Record<string, unknown> = {}) {
+  return {
+    userId: "user-1",
+    category: "fish",
+    entryId: "fish:a",
+    count: 0,
+    bestValue: null,
+    currentTier: "none",
+    sealIds: [],
+    tierAchievedAt: {},
+    scoreMilli: 0,
+    firstRecordedAt: new Date("2026-08-20T00:00:00.000Z"),
+    updatedAt: new Date("2026-08-20T00:00:00.000Z"),
+    ...overrides,
+  };
+}
 
 function recordingExecutor(options: {
   summaryRows?: unknown[];
@@ -49,22 +68,17 @@ function recordingExecutor(options: {
     diamondCount: 0,
     legendaryCount: 0,
     sealCount: 0,
+    scoredCategoryCount: 0,
     scoreReachedAt: null,
+    equipmentScoreReachedAt: null,
+    fishScoreReachedAt: null,
+    monsterScoreReachedAt: null,
+    cookingScoreReachedAt: null,
+    lifeScoreReachedAt: null,
+    jobScoreReachedAt: null,
     updatedAt: new Date("2026-08-20T00:00:00.000Z"),
   };
-  const progressRow = {
-    userId: "user-1",
-    category: "fish",
-    entryId: "fish:a",
-    count: 0,
-    bestValue: null,
-    currentTier: "none",
-    sealIds: [],
-    tierAchievedAt: {},
-    scoreMilli: 0,
-    firstRecordedAt: new Date("2026-08-20T00:00:00.000Z"),
-    updatedAt: new Date("2026-08-20T00:00:00.000Z"),
-  };
+  const progressRow = persistedProgressRow();
   const summaryRows = options.summaryRows ?? [summaryRow];
   const progressRows = options.progressRows ?? [progressRow];
   const summaryUpdateRows = options.summaryUpdateRows ?? [{ userId: "user-1" }];
@@ -134,12 +148,28 @@ function recordingExecutor(options: {
         },
       };
     },
-  } as unknown as DbExecutor;
+  } as unknown as DbTransactionExecutor;
 
   return { executor, events, updates };
 }
 
 describe("codex mastery repository", () => {
+  it("exposes every mastery mutation boundary only to transaction executors", () => {
+    // Break caught: callers can pass the global database and split mastery writes across commits.
+    type GlobalDbIsTransactionExecutor = typeof db extends DbTransactionExecutor
+      ? true
+      : false;
+    expectTypeOf<GlobalDbIsTransactionExecutor>().toEqualTypeOf<false>();
+    expectTypeOf<Parameters<typeof lockCodexMasteryState>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof saveCodexMasteryState>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof createDrizzleCodexMasteryStore>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof recordCodexMastery>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+  });
+
   it("normalizes corrupted persisted progress fields without changing its identity", () => {
     // Break caught: accepting corrupt counters, IDs, tiers, seals, or achievement timestamps.
     expect(codexMasteryRowToProgress({
@@ -262,6 +292,34 @@ describe("codex mastery repository", () => {
     ]);
   });
 
+  it.each([
+    ["invalid count", { count: -1 }],
+    ["invalid score", { scoreMilli: -1 }],
+    ["invalid tier", { currentTier: "bogus" }],
+    ["non-array seals", { sealIds: "giant" }],
+    ["non-string seal", { sealIds: ["giant", 4] }],
+    ["duplicate seal", { sealIds: ["giant", "giant"] }],
+  ])("fails closed when a locked row has %s", async (_label, overrides) => {
+    // Break caught: the locked write path silently normalizes authoritative corruption.
+    const fake = recordingExecutor({
+      progressRows: [persistedProgressRow(overrides)],
+    });
+
+    await expect(lockCodexMasteryState(
+      fake.executor,
+      "user-1",
+      "fish",
+      "fish:a",
+      new Date("2026-08-20T00:00:00.000Z"),
+    )).rejects.toThrow("locked progress row is malformed");
+    expect(fake.events).toEqual([
+      "ensure-summary",
+      "lock-summary",
+      "ensure-progress",
+      "lock-progress",
+    ]);
+  });
+
   it("normalizes corrupted persisted summary fields", () => {
     // Break caught: corrupt persisted summary counters or reach time leak into domain state.
     expect(codexMasterySummaryRowToState({
@@ -279,7 +337,14 @@ describe("codex mastery repository", () => {
       diamondCount: Number.NaN,
       legendaryCount: 6,
       sealCount: -1,
+      scoredCategoryCount: 3,
       scoreReachedAt: new Date("not a date"),
+      equipmentScoreReachedAt: new Date("2026-08-20T00:00:00.000Z"),
+      fishScoreReachedAt: null,
+      monsterScoreReachedAt: null,
+      cookingScoreReachedAt: null,
+      lifeScoreReachedAt: null,
+      jobScoreReachedAt: null,
     })).toEqual({
       totalScoreMilli: 0,
       categoryScoreMilli: {
@@ -299,8 +364,52 @@ describe("codex mastery repository", () => {
         legendary: 6,
       },
       sealCount: 0,
+      scoredCategoryCount: 3,
       scoreReachedAt: null,
+      categoryScoreReachedAt: {
+        equipment: new Date("2026-08-20T00:00:00.000Z"),
+        fish: null,
+        monster: null,
+        cooking: null,
+        life: null,
+        job: null,
+      },
     });
+  });
+
+  it("clones valid summary dates at the repository snapshot boundary", () => {
+    // Break caught: callers can mutate Date objects retained by the persistence adapter.
+    const totalReachedAt = new Date("2026-08-19T00:00:00.000Z");
+    const fishReachedAt = new Date("2026-08-20T00:00:00.000Z");
+    const state = codexMasterySummaryRowToState({
+      totalScoreMilli: 1_000,
+      equipmentScoreMilli: 0,
+      fishScoreMilli: 1_000,
+      monsterScoreMilli: 0,
+      cookingScoreMilli: 0,
+      lifeScoreMilli: 0,
+      jobScoreMilli: 0,
+      bronzeCount: 0,
+      silverCount: 0,
+      goldCount: 0,
+      platinumCount: 0,
+      diamondCount: 0,
+      legendaryCount: 0,
+      sealCount: 0,
+      scoredCategoryCount: 1,
+      scoreReachedAt: totalReachedAt,
+      equipmentScoreReachedAt: null,
+      fishScoreReachedAt: fishReachedAt,
+      monsterScoreReachedAt: null,
+      cookingScoreReachedAt: null,
+      lifeScoreReachedAt: null,
+      jobScoreReachedAt: null,
+    });
+
+    expect(state.scoreReachedAt).toEqual(totalReachedAt);
+    expect(state.scoreReachedAt).not.toBe(totalReachedAt);
+    expect(state.categoryScoreReachedAt.fish).toEqual(fishReachedAt);
+    expect(state.categoryScoreReachedAt.fish).not.toBe(fishReachedAt);
   });
 
   it("normalizes progress rows read through the repository", async () => {
@@ -335,6 +444,17 @@ describe("codex mastery repository", () => {
     const fake = recordingExecutor();
     const now = new Date("2026-08-20T00:00:00.000Z");
     const summary = emptyCodexMasterySummary();
+    Object.assign(summary, {
+      scoredCategoryCount: 1,
+      categoryScoreReachedAt: {
+        equipment: null,
+        fish: now,
+        monster: null,
+        cooking: null,
+        life: null,
+        job: null,
+      },
+    });
     const progress = codexMasteryRowToProgress({
       category: "fish",
       entryId: "fish:a",
@@ -358,6 +478,10 @@ describe("codex mastery repository", () => {
     expect(fake.updates.map(({ values }) => values.updatedAt)).toEqual([now, now]);
     expect(fake.updates[0].values.updatedAt).toBe(now);
     expect(fake.updates[1].values.updatedAt).toBe(now);
+    expect(fake.updates[0].values).toMatchObject({
+      scoredCategoryCount: 1,
+      fishScoreReachedAt: now,
+    });
     const dialect = new PgDialect();
     const summaryTarget = dialect.sqlToQuery(fake.updates[0].where);
     const progressTarget = dialect.sqlToQuery(fake.updates[1].where);

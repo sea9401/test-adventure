@@ -5,9 +5,9 @@ import {
   PRESERVED_TABLES,
   RESET_CONFIRMATION,
   RESET_TABLES,
+  buildResetTablePlan,
   parseResetArgs,
   quoteIdentifier,
-  validateTableCoverage,
 } from "./reset-game-progress-plan.mjs";
 
 const LOCK_NAME = "adventure-rpg:reset-game-progress:v1";
@@ -67,7 +67,7 @@ try {
   await assertMigrationTableIsolation(client);
 
   const publicTables = await readPublicTables(client);
-  validateTableCoverage(publicTables);
+  buildResetTablePlan(publicTables, args);
 
   if (args.execute) {
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [LOCK_NAME]);

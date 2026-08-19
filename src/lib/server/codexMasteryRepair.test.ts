@@ -50,8 +50,14 @@ type MemoryRepairStore = CodexMasteryRepairStore & {
 };
 
 function repairStore(
-  summary: Omit<Partial<CodexMasterySummaryState>, "categoryScoreMilli" | "stageCounts"> & {
+  summary: Omit<
+    Partial<CodexMasterySummaryState>,
+    "categoryScoreMilli" | "categoryScoreReachedAt" | "stageCounts"
+  > & {
     categoryScoreMilli?: Partial<CodexMasterySummaryState["categoryScoreMilli"]>;
+    categoryScoreReachedAt?: Partial<
+      CodexMasterySummaryState["categoryScoreReachedAt"]
+    >;
     stageCounts?: Partial<CodexMasterySummaryState["stageCounts"]>;
   },
   progress: CodexMasteryRepairProgressRow[],
@@ -65,6 +71,10 @@ function repairStore(
       categoryScoreMilli: {
         ...initial.categoryScoreMilli,
         ...summary.categoryScoreMilli,
+      },
+      categoryScoreReachedAt: {
+        ...initial.categoryScoreReachedAt,
+        ...summary.categoryScoreReachedAt,
       },
       stageCounts: { ...initial.stageCounts, ...summary.stageCounts },
     },
@@ -85,6 +95,7 @@ function repairStore(
 type RecordedRepairExecutor = {
   executor: DbExecutor;
   events: string[];
+  inserts: Array<Record<string, unknown>>;
   updates: Array<Record<string, unknown>>;
 };
 
@@ -107,7 +118,14 @@ function persistedSummaryRow(
     diamondCount: 0,
     legendaryCount: 0,
     sealCount: 0,
+    scoredCategoryCount: 0,
     scoreReachedAt: null,
+    equipmentScoreReachedAt: null,
+    fishScoreReachedAt: null,
+    monsterScoreReachedAt: null,
+    cookingScoreReachedAt: null,
+    lifeScoreReachedAt: null,
+    jobScoreReachedAt: null,
     updatedAt: new Date("2026-08-20T00:00:00.000Z"),
     ...overrides,
   };
@@ -122,6 +140,7 @@ function recordingRepairExecutor(options: {
   insertConflictSummaryRow?: unknown;
 }): RecordedRepairExecutor {
   const events = options.events ?? [];
+  const inserts: Array<Record<string, unknown>> = [];
   const updates: Array<Record<string, unknown>> = [];
   const summaryRows = options.summaryRows ?? [persistedSummaryRow()];
   const progressRows = options.progressRows ?? [];
@@ -163,15 +182,20 @@ function recordingRepairExecutor(options: {
       expect(table).toBe(codexMasterySummary);
       return {
         values(values: Record<string, unknown>) {
+          inserts.push(values);
           return {
-            async onConflictDoNothing() {
-              events.push(`${options.label}:insert-summary`);
-              if (options.insertConflictSummaryRow !== undefined) {
-                summaryRows.push(options.insertConflictSummaryRow);
-                return [];
-              }
-              summaryRows.push(persistedSummaryRow({ userId: values.userId }));
-              return [{ userId: values.userId }];
+            onConflictDoNothing() {
+              return {
+                async returning() {
+                  events.push(`${options.label}:insert-summary`);
+                  if (options.insertConflictSummaryRow !== undefined) {
+                    summaryRows.push(options.insertConflictSummaryRow);
+                    return [];
+                  }
+                  summaryRows.push(persistedSummaryRow({ userId: values.userId }));
+                  return [{ userId: values.userId }];
+                },
+              };
             },
           };
         },
@@ -197,7 +221,7 @@ function recordingRepairExecutor(options: {
     },
   } as unknown as DbExecutor;
 
-  return { executor, events, updates };
+  return { executor, events, inserts, updates };
 }
 
 describe("codex mastery summary repair", () => {
@@ -412,6 +436,7 @@ describe("codex mastery summary repair", () => {
         legendary: 0,
       },
       sealCount: 1,
+      scoredCategoryCount: 2,
     });
   });
 
@@ -434,7 +459,14 @@ describe("codex mastery summary repair", () => {
     ]);
 
     expect(rebuilt.sealCount).toBe(2);
+    expect(rebuilt.scoredCategoryCount).toBe(2);
     expect(rebuilt.scoreReachedAt).toEqual(latest);
+    expect(rebuilt).toMatchObject({
+      categoryScoreReachedAt: {
+        fish: new Date("2026-08-20T00:00:00.000Z"),
+        monster: latest,
+      },
+    });
   });
 
   it("reports field-level summary differences", () => {
@@ -446,13 +478,23 @@ describe("codex mastery summary repair", () => {
       totalScoreMilli: 1_000,
       categoryScoreMilli: { ...emptyCodexMasterySummary().categoryScoreMilli, fish: 1_000 },
       stageCounts: { ...emptyCodexMasterySummary().stageCounts, bronze: 1 },
+      scoredCategoryCount: 1,
       scoreReachedAt: new Date("2026-08-20T00:00:00.000Z"),
+      categoryScoreReachedAt: {
+        ...emptyCodexMasterySummary().categoryScoreReachedAt,
+        fish: new Date("2026-08-20T00:00:00.000Z"),
+      },
     };
 
     expect(compareCodexMasterySummary(before, after)).toEqual({
       totalScoreMilli: { before: 0, after: 1_000 },
       "categoryScoreMilli.fish": { before: 0, after: 1_000 },
       "stageCounts.bronze": { before: 0, after: 1 },
+      scoredCategoryCount: { before: 0, after: 1 },
+      "categoryScoreReachedAt.fish": {
+        before: null,
+        after: new Date("2026-08-20T00:00:00.000Z"),
+      },
     });
   });
 
@@ -479,7 +521,9 @@ describe("codex mastery summary repair", () => {
       totalScoreMilli: 9_000,
       categoryScoreMilli: { fish: 9_000 },
       stageCounts: { bronze: 1, silver: 1, gold: 1 },
+      scoredCategoryCount: 1,
       scoreReachedAt: exact,
+      categoryScoreReachedAt: { fish: exact },
     }, [
       progressRow({
         category: "fish",
@@ -496,7 +540,76 @@ describe("codex mastery summary repair", () => {
 
     expect(result.changed).toBe(false);
     expect(result.after.scoreReachedAt).toEqual(exact);
+    expect(result.after.categoryScoreReachedAt.fish).toEqual(exact);
     expect(store.saveCalls).toBe(0);
+  });
+
+  it("preserves unchanged category reach times and falls back for changed scores", async () => {
+    // Break caught: repair replaces exact category ties or reuses one global fallback for all ranks.
+    const fishExact = new Date("2026-08-19T18:00:00.000Z");
+    const fishUpdated = new Date("2026-08-20T00:00:00.000Z");
+    const jobUpdated = new Date("2026-08-21T00:00:00.000Z");
+    const store = repairStore({
+      totalScoreMilli: 9_000,
+      categoryScoreMilli: { fish: 9_000 },
+      scoredCategoryCount: 1,
+      scoreReachedAt: fishExact,
+      categoryScoreReachedAt: { fish: fishExact },
+    }, [
+      progressRow({ category: "fish", scoreMilli: 9_000, updatedAt: fishUpdated }),
+      progressRow({ category: "job", scoreMilli: 4_000, updatedAt: jobUpdated }),
+    ]);
+
+    const result = await repairCodexMasterySummary(store, "user-1", {
+      apply: false,
+      now: new Date("2026-08-22T00:00:00.000Z"),
+    });
+
+    expect(result.after).toMatchObject({
+      totalScoreMilli: 13_000,
+      scoredCategoryCount: 2,
+      scoreReachedAt: jobUpdated,
+      categoryScoreReachedAt: { fish: fishExact, job: jobUpdated },
+    });
+    expect(result.after.categoryScoreReachedAt.fish).not.toBe(fishExact);
+  });
+
+  it("reports an applied all-zero summary creation using the injected time", async () => {
+    // Break caught: apply inserts a missing zero row with wall-clock time but reports no change.
+    const events: string[] = [];
+    const base = recordingRepairExecutor({ label: "base", events });
+    const transaction = recordingRepairExecutor({
+      label: "tx",
+      events,
+      summaryRows: [],
+      progressRows: [],
+    });
+    const database = Object.assign(base.executor, {
+      async transaction<T>(callback: (tx: DbExecutor) => Promise<T>): Promise<T> {
+        events.push("transaction");
+        return callback(transaction.executor);
+      },
+    }) as CodexMasteryRepairDatabase;
+    const now = new Date("2026-08-20T01:00:00.000Z");
+
+    const result = await repairCodexMasterySummaryWithDatabase(
+      database,
+      "user-1",
+      { apply: true, now },
+    );
+
+    expect(result).toMatchObject({ changed: true, applied: true, created: true });
+    expect(transaction.inserts).toEqual([
+      expect.objectContaining({ userId: "user-1", updatedAt: now }),
+    ]);
+    expect(transaction.updates).toEqual([]);
+    expect(events).toEqual([
+      "transaction",
+      "tx:lock-summary",
+      "tx:insert-summary",
+      "tx:lock-summary",
+      "tx:read-progress",
+    ]);
   });
 
   it("applies only changed summaries when apply mode is selected", async () => {
@@ -624,6 +737,31 @@ describe("codex mastery summary repair", () => {
       "tx:read-progress",
       "tx:write-summary",
     ]);
+  });
+
+  it("clones progress update dates at the repair snapshot boundary", async () => {
+    // Break caught: repair consumers can mutate a Date object owned by the database row snapshot.
+    const updatedAt = new Date("2026-08-20T00:00:00.000Z");
+    const executor = recordingRepairExecutor({
+      label: "read",
+      progressRows: [{
+        category: "fish",
+        entryId: "fish:salmon",
+        count: 0,
+        bestValue: null,
+        currentTier: "none",
+        sealIds: [],
+        tierAchievedAt: {},
+        scoreMilli: 0,
+        updatedAt,
+      }],
+    });
+    const store = createDrizzleCodexMasteryRepairStore(executor.executor);
+
+    const [progress] = await store.readProgress("user-1");
+
+    expect(progress.updatedAt).toEqual(updatedAt);
+    expect(progress.updatedAt).not.toBe(updatedAt);
   });
 
   it("fails apply when the production adapter update affects no summary row", async () => {

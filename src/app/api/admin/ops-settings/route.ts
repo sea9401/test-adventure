@@ -2,6 +2,7 @@ import { logAdminAction } from "@/lib/server/adminAudit";
 import {
   currentAdminEmail,
   requireAdmin,
+  requireAdminRole,
 } from "@/lib/server/isAdmin";
 import {
   ALERT_THRESHOLDS_KEY,
@@ -86,7 +87,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdminRole("super");
   if (gate) return gate;
 
   const body = (await req.json().catch(() => null)) as

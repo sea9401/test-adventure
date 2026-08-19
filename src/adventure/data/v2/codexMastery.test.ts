@@ -69,11 +69,44 @@ describe("codex mastery transition", () => {
     expect(second.scoreDeltaMilli).toBe(0);
   });
 
+  it("uses the persisted tier rather than optional timestamps for backfill idempotency", () => {
+    // Break caught: a supported backfill row without timestamp metadata is scored a second time.
+    const backfilled = {
+      ...emptyCodexMasteryProgress("fish", FISH.entryId),
+      count: 30,
+      currentTier: "silver" as const,
+      scoreMilli: 4_000,
+      tierAchievedAt: {},
+    };
+
+    const result = applyCodexMasteryMutation(
+      FISH,
+      backfilled,
+      { amount: 0 },
+      new Date("2026-08-20T00:00:00.000Z"),
+    );
+
+    expect(result).toEqual({
+      next: backfilled,
+      newStages: [],
+      newSealIds: [],
+      scoreDeltaMilli: 0,
+    });
+  });
+
   it("rejects decreasing thresholds, unknown seals, and negative or non-finite input", () => {
     expect(validateCodexMasteryDefinition({
       ...FISH,
       thresholds: { ...FISH.thresholds, silver: 4 },
     })).toContain("thresholds must increase");
+    expect(() => validateCodexMasteryDefinition({
+      ...FISH,
+      thresholds: null as never,
+    })).not.toThrow();
+    expect(validateCodexMasteryDefinition({
+      ...FISH,
+      thresholds: null as never,
+    })).toBe("thresholds must be an object");
     expect(() => applyCodexMasteryMutation(
       FISH,
       emptyCodexMasteryProgress("fish", FISH.entryId),

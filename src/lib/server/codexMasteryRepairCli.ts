@@ -78,7 +78,16 @@ async function runCodexMasteryRepairCli(
     const pageSize = 100;
     let afterUserId: string | undefined;
     while (true) {
-      const userIds = await runtime.listUserIds({ afterUserId, limit: pageSize });
+      let userIds: string[];
+      try {
+        userIds = await runtime.listUserIds({ afterUserId, limit: pageSize });
+      } catch (error) {
+        errors += 1;
+        dependencies.error(
+          `error cursor=${afterUserId ?? "<start>"}: ${errorMessage(error)}`,
+        );
+        break;
+      }
       if (userIds.length === 0) break;
       for (const userId of userIds) await repairUser(userId);
       afterUserId = userIds.at(-1);

@@ -7,7 +7,7 @@ import {
   type CodexMasteryTier,
 } from "@/adventure/data/v2/codexMasteryTypes";
 import { codexMasteryProgress, codexMasterySummary } from "@/db/schema";
-import type { DbExecutor } from "./savesKv";
+import type { DbExecutor, DbTransactionExecutor } from "./savesKv";
 import {
   codexMasteryRowToProgress,
   emptyCodexMasterySummary,
@@ -19,7 +19,10 @@ export type CodexMasteryRepairProgressRow = CodexMasteryProgress & {
 };
 
 export type CodexMasteryRepairStore = {
-  readSummary(userId: string): Promise<CodexMasterySummaryState>;
+  readSummary(
+    userId: string,
+    now: Date,
+  ): Promise<CodexMasterySummaryState | CodexMasteryRepairSummarySnapshot>;
   readProgress(userId: string): Promise<CodexMasteryRepairProgressRow[]>;
   saveSummary(
     userId: string,
@@ -28,8 +31,14 @@ export type CodexMasteryRepairStore = {
   ): Promise<void>;
 };
 
+export type CodexMasteryRepairSummarySnapshot = {
+  summary: CodexMasterySummaryState;
+  exists: boolean;
+  created: boolean;
+};
+
 export type CodexMasteryRepairDatabase = DbExecutor & {
-  transaction<T>(callback: (tx: DbExecutor) => Promise<T>): Promise<T>;
+  transaction<T>(callback: (tx: DbTransactionExecutor) => Promise<T>): Promise<T>;
 };
 
 export type CodexMasterySummaryDifference = {
@@ -94,14 +103,37 @@ function codexMasterySummaryRowToRepairState(
       legendary: rawRepairNumber(row.legendaryCount),
     },
     sealCount: rawRepairNumber(row.sealCount),
+    scoredCategoryCount: rawRepairNumber(row.scoredCategoryCount),
     scoreReachedAt: row.scoreReachedAt instanceof Date
       ? new Date(row.scoreReachedAt.getTime())
       : null,
+    categoryScoreReachedAt: {
+      equipment: row.equipmentScoreReachedAt instanceof Date
+        ? new Date(row.equipmentScoreReachedAt.getTime())
+        : null,
+      fish: row.fishScoreReachedAt instanceof Date
+        ? new Date(row.fishScoreReachedAt.getTime())
+        : null,
+      monster: row.monsterScoreReachedAt instanceof Date
+        ? new Date(row.monsterScoreReachedAt.getTime())
+        : null,
+      cooking: row.cookingScoreReachedAt instanceof Date
+        ? new Date(row.cookingScoreReachedAt.getTime())
+        : null,
+      life: row.lifeScoreReachedAt instanceof Date
+        ? new Date(row.lifeScoreReachedAt.getTime())
+        : null,
+      job: row.jobScoreReachedAt instanceof Date
+        ? new Date(row.jobScoreReachedAt.getTime())
+        : null,
+    },
   };
 }
 
 function validUpdatedAt(value: Date | null): Date | null {
-  return value instanceof Date && !Number.isNaN(value.getTime()) ? value : null;
+  return value instanceof Date && !Number.isNaN(value.getTime())
+    ? new Date(value.getTime())
+    : null;
 }
 
 function countDistinctRowSeals(sealIds: readonly string[]): number {
@@ -116,6 +148,9 @@ export function aggregateCodexMasterySummary(
 ): CodexMasterySummaryState {
   const summary = emptyCodexMasterySummary();
   let latestUpdatedAt: Date | null = null;
+  const latestCategoryUpdatedAt = Object.fromEntries(
+    CODEX_MASTERY_CATEGORIES.map((category) => [category, null]),
+  ) as Record<(typeof CODEX_MASTERY_CATEGORIES)[number], Date | null>;
 
   for (const row of rows) {
     summary.totalScoreMilli = safeAdd(summary.totalScoreMilli, row.scoreMilli);
@@ -133,12 +168,27 @@ export function aggregateCodexMasterySummary(
     }
 
     const updatedAt = validUpdatedAt(row.updatedAt);
-    if (!latestUpdatedAt || (updatedAt && updatedAt > latestUpdatedAt)) {
-      latestUpdatedAt = updatedAt;
+    if (row.scoreMilli > 0 && updatedAt) {
+      if (!latestUpdatedAt || updatedAt > latestUpdatedAt) {
+        latestUpdatedAt = new Date(updatedAt.getTime());
+      }
+      const categoryUpdatedAt = latestCategoryUpdatedAt[row.category];
+      if (!categoryUpdatedAt || updatedAt > categoryUpdatedAt) {
+        latestCategoryUpdatedAt[row.category] = new Date(updatedAt.getTime());
+      }
     }
   }
 
+  summary.scoredCategoryCount = CODEX_MASTERY_CATEGORIES.filter(
+    (category) => summary.categoryScoreMilli[category] > 0,
+  ).length;
   summary.scoreReachedAt = summary.totalScoreMilli > 0 ? latestUpdatedAt : null;
+  for (const category of CODEX_MASTERY_CATEGORIES) {
+    summary.categoryScoreReachedAt[category] =
+      summary.categoryScoreMilli[category] > 0
+        ? latestCategoryUpdatedAt[category]
+        : null;
+  }
   return summary;
 }
 
@@ -181,22 +231,68 @@ export function compareCodexMasterySummary(
     );
   }
   addDifference("sealCount", before.sealCount, after.sealCount);
+  addDifference(
+    "scoredCategoryCount",
+    before.scoredCategoryCount,
+    after.scoredCategoryCount,
+  );
   addDifference("scoreReachedAt", before.scoreReachedAt, after.scoreReachedAt);
+  for (const category of CODEX_MASTERY_CATEGORIES) {
+    addDifference(
+      `categoryScoreReachedAt.${category}`,
+      before.categoryScoreReachedAt[category],
+      after.categoryScoreReachedAt[category],
+    );
+  }
   return differences;
 }
 
-function preserveExactScoreReachTime(
+function preserveExactScoreReachTimes(
   before: CodexMasterySummaryState,
   rebuilt: CodexMasterySummaryState,
 ): CodexMasterySummaryState {
+  const preserved: CodexMasterySummaryState = {
+    ...rebuilt,
+    categoryScoreMilli: { ...rebuilt.categoryScoreMilli },
+    stageCounts: { ...rebuilt.stageCounts },
+    scoreReachedAt: rebuilt.scoreReachedAt
+      ? new Date(rebuilt.scoreReachedAt.getTime())
+      : null,
+    categoryScoreReachedAt: Object.fromEntries(
+      CODEX_MASTERY_CATEGORIES.map((category) => [
+        category,
+        rebuilt.categoryScoreReachedAt[category]
+          ? new Date(rebuilt.categoryScoreReachedAt[category]!.getTime())
+          : null,
+      ]),
+    ) as CodexMasterySummaryState["categoryScoreReachedAt"],
+  };
   if (
     rebuilt.totalScoreMilli > 0 &&
     rebuilt.totalScoreMilli === before.totalScoreMilli &&
     validUpdatedAt(before.scoreReachedAt)
   ) {
-    return { ...rebuilt, scoreReachedAt: before.scoreReachedAt };
+    preserved.scoreReachedAt = new Date(before.scoreReachedAt!.getTime());
   }
-  return rebuilt;
+  for (const category of CODEX_MASTERY_CATEGORIES) {
+    const exact = validUpdatedAt(before.categoryScoreReachedAt[category]);
+    if (
+      rebuilt.categoryScoreMilli[category] > 0 &&
+      rebuilt.categoryScoreMilli[category] === before.categoryScoreMilli[category] &&
+      exact
+    ) {
+      preserved.categoryScoreReachedAt[category] = new Date(exact.getTime());
+    }
+  }
+  return preserved;
+}
+
+function summarySnapshot(
+  value: CodexMasterySummaryState | CodexMasteryRepairSummarySnapshot,
+): CodexMasteryRepairSummarySnapshot {
+  return "summary" in value
+    ? value
+    : { summary: value, exists: true, created: false };
 }
 
 export async function repairCodexMasterySummary(
@@ -206,21 +302,27 @@ export async function repairCodexMasterySummary(
 ): Promise<{
   changed: boolean;
   applied: boolean;
+  created: boolean;
   before: CodexMasterySummaryState;
   after: CodexMasterySummaryState;
   differences: Record<string, CodexMasterySummaryDifference>;
 }> {
-  const before = await store.readSummary(userId);
-  const after = preserveExactScoreReachTime(
+  const snapshot = summarySnapshot(await store.readSummary(userId, options.now));
+  const before = snapshot.summary;
+  const after = preserveExactScoreReachTimes(
     before,
     aggregateCodexMasterySummary(await store.readProgress(userId)),
   );
   const differences = compareCodexMasterySummary(before, after);
-  const changed = Object.keys(differences).length > 0;
-  if (options.apply && changed) await store.saveSummary(userId, after, options.now);
+  const valuesChanged = Object.keys(differences).length > 0;
+  const changed = !snapshot.exists || valuesChanged;
+  if (options.apply && valuesChanged) {
+    await store.saveSummary(userId, after, options.now);
+  }
   return {
     changed,
     applied: options.apply && changed,
+    created: options.apply && snapshot.created,
     before,
     after,
     differences,
@@ -300,7 +402,14 @@ function emptyCodexMasterySummaryRow(userId: string, now: Date) {
     diamondCount: 0,
     legendaryCount: 0,
     sealCount: 0,
+    scoredCategoryCount: 0,
     scoreReachedAt: null,
+    equipmentScoreReachedAt: null,
+    fishScoreReachedAt: null,
+    monsterScoreReachedAt: null,
+    cookingScoreReachedAt: null,
+    lifeScoreReachedAt: null,
+    jobScoreReachedAt: null,
     updatedAt: now,
   };
 }
@@ -310,7 +419,7 @@ export function createDrizzleCodexMasteryRepairStore(
   options: { lockSummary?: boolean } = {},
 ): CodexMasteryRepairStore {
   return {
-    async readSummary(userId) {
+    async readSummary(userId, now) {
       const readRow = async () => {
         const query = executor
           .select()
@@ -322,17 +431,24 @@ export function createDrizzleCodexMasteryRepairStore(
         return rows[0];
       };
       let row = await readRow();
+      let created = false;
       if (!row && options.lockSummary) {
-        await executor
+        const inserted = await executor
           .insert(codexMasterySummary)
-          .values(emptyCodexMasterySummaryRow(userId, new Date()))
-          .onConflictDoNothing();
+          .values(emptyCodexMasterySummaryRow(userId, now))
+          .onConflictDoNothing()
+          .returning({ userId: codexMasterySummary.userId });
+        created = inserted.length === 1;
         row = await readRow();
         if (!row) throw new Error("codex mastery summary row could not be locked");
       }
-      return row
-        ? codexMasterySummaryRowToRepairState(row)
-        : emptyCodexMasterySummary();
+      return {
+        summary: row
+          ? codexMasterySummaryRowToRepairState(row)
+          : emptyCodexMasterySummary(),
+        exists: row != null && !created,
+        created,
+      };
     },
     async readProgress(userId) {
       const rows = await executor
@@ -362,7 +478,14 @@ export function createDrizzleCodexMasteryRepairStore(
           diamondCount: summary.stageCounts.diamond,
           legendaryCount: summary.stageCounts.legendary,
           sealCount: summary.sealCount,
+          scoredCategoryCount: summary.scoredCategoryCount,
           scoreReachedAt: summary.scoreReachedAt,
+          equipmentScoreReachedAt: summary.categoryScoreReachedAt.equipment,
+          fishScoreReachedAt: summary.categoryScoreReachedAt.fish,
+          monsterScoreReachedAt: summary.categoryScoreReachedAt.monster,
+          cookingScoreReachedAt: summary.categoryScoreReachedAt.cooking,
+          lifeScoreReachedAt: summary.categoryScoreReachedAt.life,
+          jobScoreReachedAt: summary.categoryScoreReachedAt.job,
           updatedAt: now,
         })
         .where(eq(codexMasterySummary.userId, userId))

@@ -149,6 +149,35 @@ describe("codex mastery repair CLI", () => {
     expect(output).toEqual(["changed=1 applied=0 errors=1"]);
   });
 
+  it("reports a failed page cursor and final totals after prior users committed", async () => {
+    // Break caught: page enumeration failure loses both its cursor and committed-user totals.
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    const exitCode = await executeCodexMasteryRepairCli(["--apply"], {
+      async loadRuntime() {
+        return runtime({
+          async listUserIds({ afterUserId }) {
+            if (afterUserId === undefined) return ["user-a"];
+            throw new Error("page unavailable");
+          },
+          async repairUser() {
+            return { changed: true, applied: true };
+          },
+        });
+      },
+      log: (message) => output.push(message),
+      error: (message) => errors.push(message),
+      now: () => new Date("2026-08-20T00:00:00.000Z"),
+    });
+
+    expect(exitCode).toBe(1);
+    expect(errors).toEqual([
+      "error cursor=user-a: page unavailable",
+    ]);
+    expect(output).toEqual(["changed=1 applied=1 errors=1"]);
+  });
+
   it.each([
     { label: "neither", args: [] },
     { label: "both", args: ["--dry-run", "--apply"] },

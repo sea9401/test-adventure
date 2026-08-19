@@ -9,7 +9,10 @@ import { savesKv } from "@/db/schema";
 //
 // `executor` 는 최상위 `db` 또는 `db.transaction` 콜백 인자 (`tx`) 양쪽을 받을 수 있도록
 // 타입을 느슨하게 가져감.
-export type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbTransactionExecutor = Parameters<
+  Parameters<typeof db.transaction>[0]
+>[0];
+export type DbExecutor = typeof db | DbTransactionExecutor;
 
 // 트랜잭션 안에서 save 키 한 행을 잠그고(FOR UPDATE) 값을 파싱해 돌려준다.
 // read-modify-write 의 read 측 표준화 — 행 잠금을 빠뜨려 동시 변경이 서로 덮어쓰는 race

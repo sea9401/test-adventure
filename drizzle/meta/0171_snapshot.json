@@ -1,5 +1,5 @@
 {
-  "id": "99d4c0c7-9b1e-4dde-9be8-6f647774b783",
+  "id": "ff5ca65c-33a9-426d-8368-2a6a5ea18239",
   "prevId": "60366c8f-f29d-4614-9794-235a059b8cd8",
   "version": "7",
   "dialect": "postgresql",
@@ -2004,8 +2004,51 @@
           "notNull": true,
           "default": 0
         },
+        "scored_category_count": {
+          "name": "scored_category_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "score_reached_at": {
           "name": "score_reached_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "equipment_score_reached_at": {
+          "name": "equipment_score_reached_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fish_score_reached_at": {
+          "name": "fish_score_reached_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monster_score_reached_at": {
+          "name": "monster_score_reached_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cooking_score_reached_at": {
+          "name": "cooking_score_reached_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "life_score_reached_at": {
+          "name": "life_score_reached_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "job_score_reached_at": {
+          "name": "job_score_reached_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -2024,6 +2067,24 @@
           "columns": [
             {
               "expression": "total_score_milli",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "gold_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "seal_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "scored_category_count",
               "isExpression": false,
               "asc": false,
               "nulls": "last"
@@ -2056,7 +2117,25 @@
               "nulls": "last"
             },
             {
-              "expression": "score_reached_at",
+              "expression": "gold_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "seal_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "scored_category_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "equipment_score_reached_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2083,7 +2162,25 @@
               "nulls": "last"
             },
             {
-              "expression": "score_reached_at",
+              "expression": "gold_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "seal_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "scored_category_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "fish_score_reached_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2110,7 +2207,25 @@
               "nulls": "last"
             },
             {
-              "expression": "score_reached_at",
+              "expression": "gold_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "seal_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "scored_category_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "monster_score_reached_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2137,7 +2252,25 @@
               "nulls": "last"
             },
             {
-              "expression": "score_reached_at",
+              "expression": "gold_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "seal_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "scored_category_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "cooking_score_reached_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2164,7 +2297,25 @@
               "nulls": "last"
             },
             {
-              "expression": "score_reached_at",
+              "expression": "gold_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "seal_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "scored_category_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "life_score_reached_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2191,7 +2342,25 @@
               "nulls": "last"
             },
             {
-              "expression": "score_reached_at",
+              "expression": "gold_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "seal_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "scored_category_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "job_score_reached_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

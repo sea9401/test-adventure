@@ -12,7 +12,8 @@ const codexMasteryFeatures = {
 };
 
 const mocks = vi.hoisted(() => ({
-  gate: vi.fn(async () => null as Response | null),
+  adminGate: vi.fn(async () => null as Response | null),
+  roleGate: vi.fn(async () => null as Response | null),
   currentAdminEmail: vi.fn(async () => "owner@example.com"),
   audit: vi.fn(async () => {}),
   upsert: vi.fn(async () => {}),
@@ -46,7 +47,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/isAdmin", () => ({
-  requireAdmin: mocks.gate,
+  requireAdmin: mocks.adminGate,
+  requireAdminRole: mocks.roleGate,
   currentAdminEmail: mocks.currentAdminEmail,
 }));
 vi.mock("@/lib/server/adminAudit", () => ({ logAdminAction: mocks.audit }));
@@ -75,7 +77,8 @@ function postRequest(body: unknown): Request {
 describe("/api/admin/ops-settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.gate.mockResolvedValue(null);
+    mocks.adminGate.mockResolvedValue(null);
+    mocks.roleGate.mockResolvedValue(null);
     mocks.currentAdminEmail.mockResolvedValue("owner@example.com");
     mocks.readCodexMasteryFeatureSettings.mockResolvedValue(codexMasteryFeatures);
   });
@@ -113,6 +116,24 @@ describe("/api/admin/ops-settings", () => {
       action: "ops-settings.codex-mastery-features.update",
       detail: expected,
     });
+    expect(mocks.roleGate).toHaveBeenCalledWith("super");
+  });
+
+  it("rejects a lower-role admin before writing or auditing settings", async () => {
+    // Break caught: broadly authenticated admins can mutate operational switches.
+    mocks.roleGate.mockResolvedValue(
+      Response.json({ ok: false, error: "forbidden" }, { status: 403 }),
+    );
+
+    const response = await POST(
+      postRequest({ codexMasteryFeatures: { recordingEnabled: true } }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.roleGate).toHaveBeenCalledWith("super");
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.currentAdminEmail).not.toHaveBeenCalled();
   });
 
   it("rejects requests without a supported setting", async () => {

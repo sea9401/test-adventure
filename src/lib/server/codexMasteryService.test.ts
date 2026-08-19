@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { emptyCodexMasteryProgress } from "@/adventure/data/v2/codexMastery";
 import {
   createCodexMasteryCatalog,
   type CodexMasteryCatalog,
 } from "@/adventure/data/v2/codexMasteryCatalog";
 import type {
+  CodexMasteryCategory,
   CodexMasteryEntryDefinition,
   CodexMasteryProgress,
 } from "@/adventure/data/v2/codexMasteryTypes";
@@ -15,6 +16,7 @@ import {
 } from "./codexMasteryRepository";
 import {
   CodexMasteryRecordError,
+  type CodexMasterySourceForCategory,
   createCodexMasteryRecorder,
   type CodexMasteryRecordInput,
 } from "./codexMasteryService";
@@ -37,6 +39,29 @@ const TEST_ENTRY: CodexMasteryEntryDefinition = {
 
 const TEST_CATALOG: CodexMasteryCatalog = createCodexMasteryCatalog([TEST_ENTRY]);
 const ENABLED = { recordingEnabled: true, sealsEnabled: true };
+
+const REQUIRED_SOURCES = [
+  ["fish", "fishing.catch"],
+  ["monster", "hunt.victory"],
+  ["equipment", "equipment.drop"],
+  ["equipment", "equipment.craft"],
+  ["cooking", "cooking.complete"],
+  ["life", "life.complete"],
+  ["job", "job.victory"],
+] as const satisfies readonly (readonly [CodexMasteryCategory, string])[];
+
+function testEntry(category: CodexMasteryCategory): CodexMasteryEntryDefinition {
+  return {
+    ...TEST_ENTRY,
+    category,
+    entryId: `${category}:test-entry`,
+    label: `Test ${category}`,
+  };
+}
+
+const REQUIRED_SOURCE_CATALOG = createCodexMasteryCatalog(
+  [...new Set(REQUIRED_SOURCES.map(([category]) => category))].map(testEntry),
+);
 
 type MemoryCodexMasteryStore = CodexMasteryStore & {
   summary: CodexMasterySummaryState;
@@ -78,6 +103,15 @@ function validInput(): CodexMasteryRecordInput {
 }
 
 describe("recordCodexMastery", () => {
+  it("types authoritative sources by their compatible category", () => {
+    expectTypeOf<CodexMasterySourceForCategory<"fish">>()
+      .toEqualTypeOf<"fishing.catch">();
+    expectTypeOf<CodexMasterySourceForCategory<"equipment">>()
+      .toEqualTypeOf<"equipment.drop" | "equipment.craft">();
+    expectTypeOf<"hunt.victory">().not
+      .toMatchTypeOf<CodexMasterySourceForCategory<"fish">>();
+  });
+
   it("updates entry and cumulative summary deltas exactly once", async () => {
     // Break caught: summary tiers, seals, or score use the final tier instead of transition deltas.
     const store = memoryCodexMasteryStore();
@@ -102,7 +136,11 @@ describe("recordCodexMastery", () => {
       categoryScoreMilli: { fish: 9_000 },
       stageCounts: { bronze: 1, silver: 1, gold: 1 },
       sealCount: 1,
+      scoredCategoryCount: 1,
       scoreReachedAt: new Date("2026-08-20T00:00:00.000Z"),
+      categoryScoreReachedAt: {
+        fish: new Date("2026-08-20T00:00:00.000Z"),
+      },
     });
     expect(store.saveCalls).toBe(1);
   });
@@ -149,13 +187,70 @@ describe("recordCodexMastery", () => {
     await expect(recorder.record({
       ...validInput(),
       source: " ",
-    }, ENABLED, new Date())).rejects.toMatchObject({ code: "invalid_source" });
+    } as unknown as CodexMasteryRecordInput, ENABLED, new Date())).rejects.toMatchObject({
+      code: "invalid_source",
+    });
     await expect(recorder.record({
       ...validInput(),
       source: "client",
-    }, ENABLED, new Date())).rejects.toMatchObject({ code: "invalid_source" });
+    } as unknown as CodexMasteryRecordInput, ENABLED, new Date())).rejects.toMatchObject({
+      code: "invalid_source",
+    });
     expect(store.lockCalls).toBe(0);
   });
+
+  it.each(REQUIRED_SOURCES)(
+    "accepts the registered %s source %s",
+    async (category, source) => {
+      // Break caught: a required authoritative gameplay integration is absent from the registry.
+      const entry = testEntry(category);
+      const store = memoryCodexMasteryStore({
+        progress: emptyCodexMasteryProgress(category, entry.entryId),
+      });
+      const recorder = createCodexMasteryRecorder(store, REQUIRED_SOURCE_CATALOG);
+
+      await expect(recorder.record({
+        userId: "user-1",
+        category,
+        entryId: entry.entryId,
+        mutation: { amount: 1 },
+        source,
+      } as CodexMasteryRecordInput, ENABLED, new Date(
+        "2026-08-20T00:00:00.000Z",
+      ))).resolves.toMatchObject({
+        recorded: true,
+      });
+      expect(store.lockCalls).toBe(1);
+    },
+  );
+
+  it.each([
+    ["fish", "client.forged"],
+    ["fish", "fishing.cath"],
+    ["fish", "hunt.victory"],
+    ["monster", "fishing.catch"],
+  ] as const)(
+    "rejects unregistered or category-mismatched source %s/%s before locking",
+    async (category, source) => {
+      // Break caught: syntax-valid forged, misspelled, or cross-category sources reach the lock.
+      const entry = testEntry(category);
+      const store = memoryCodexMasteryStore({
+        progress: emptyCodexMasteryProgress(category, entry.entryId),
+      });
+      const recorder = createCodexMasteryRecorder(store, REQUIRED_SOURCE_CATALOG);
+
+      await expect(recorder.record({
+        userId: "user-1",
+        category,
+        entryId: entry.entryId,
+        mutation: { amount: 1 },
+        source,
+      } as unknown as CodexMasteryRecordInput, ENABLED, new Date())).rejects.toMatchObject({
+        code: "invalid_source",
+      });
+      expect(store.lockCalls).toBe(0);
+    },
+  );
 
   it("rejects an unknown requested seal even when seal scoring is disabled", async () => {
     // Break caught: the seal switch hides integration typos from server-side validation.
@@ -199,6 +294,82 @@ describe("recordCodexMastery", () => {
     expect(store.saveCalls).toBe(0);
   });
 
+  it("accepts a consistent timestamp-free backfill without re-awarding stages", async () => {
+    // Break caught: supported historical rows need fabricated timestamps to avoid double scoring.
+    const progress: CodexMasteryProgress = {
+      ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+      count: 30,
+      currentTier: "silver",
+      scoreMilli: 4_000,
+      tierAchievedAt: {},
+    };
+    const store = memoryCodexMasteryStore({ progress });
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    await expect(recorder.record({
+      ...validInput(),
+      mutation: { amount: 0 },
+    }, ENABLED, new Date("2026-08-20T00:00:00.000Z"))).resolves.toEqual({
+      recorded: false,
+      reason: "unchanged",
+    });
+    expect(store.saveCalls).toBe(0);
+  });
+
+  it.each([
+    {
+      label: "unknown stored seal",
+      progress: {
+        ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+        count: 30,
+        currentTier: "silver" as const,
+        sealIds: ["missing"],
+        scoreMilli: 4_000,
+      },
+    },
+    {
+      label: "tier/count mismatch",
+      progress: {
+        ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+        count: 1,
+        currentTier: "silver" as const,
+        scoreMilli: 4_000,
+        tierAchievedAt: {
+          discovered: "2026-08-19T00:00:00.000Z",
+          bronze: "2026-08-19T00:00:00.000Z",
+          silver: "2026-08-19T00:00:00.000Z",
+        },
+      },
+    },
+    {
+      label: "authoritative score mismatch",
+      progress: {
+        ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+        count: 30,
+        currentTier: "silver" as const,
+        scoreMilli: 3_000,
+        tierAchievedAt: {
+          discovered: "2026-08-19T00:00:00.000Z",
+          bronze: "2026-08-19T00:00:00.000Z",
+          silver: "2026-08-19T00:00:00.000Z",
+        },
+      },
+    },
+  ])("fails closed on a locked $label", async ({ progress }) => {
+    // Break caught: corrupt authoritative state is normalized or rewritten into a new award.
+    const store = memoryCodexMasteryStore({ progress });
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    const error = await recorder.record({
+      ...validInput(),
+      mutation: { amount: 0 },
+    }, ENABLED, new Date()).catch((reason: unknown) => reason);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(CodexMasteryRecordError);
+    expect(store.saveCalls).toBe(0);
+  });
+
   it("does not write when a repeated event adds no progress", async () => {
     // Break caught: idempotent events issue unnecessary writes after no state changes.
     const store = memoryCodexMasteryStore();
@@ -213,6 +384,92 @@ describe("recordCodexMastery", () => {
 
     expect(result).toEqual({ recorded: false, reason: "unchanged" });
     expect(store.saveCalls).toBe(0);
+  });
+
+  it("increments scored categories only on zero-to-positive crossings", async () => {
+    // Break caught: repeated score in one category inflates diversity, or a new category is missed.
+    const existingReach = new Date("2026-08-20T00:00:00.000Z");
+    const summary = Object.assign(emptyCodexMasterySummary(), {
+      totalScoreMilli: 1_000,
+      categoryScoreMilli: {
+        ...emptyCodexMasterySummary().categoryScoreMilli,
+        fish: 1_000,
+      },
+      scoredCategoryCount: 1,
+      categoryScoreReachedAt: {
+        equipment: null,
+        fish: existingReach,
+        monster: null,
+        cooking: null,
+        life: null,
+        job: null,
+      },
+    });
+    const monster = testEntry("monster");
+    const store = memoryCodexMasteryStore({
+      summary,
+      progress: emptyCodexMasteryProgress("monster", monster.entryId),
+    });
+    const recorder = createCodexMasteryRecorder(store, REQUIRED_SOURCE_CATALOG);
+    const now = new Date("2026-08-21T00:00:00.000Z");
+
+    await recorder.record({
+      userId: "user-1",
+      category: "monster",
+      entryId: monster.entryId,
+      mutation: { amount: 1 },
+      source: "hunt.victory",
+    }, ENABLED, now);
+
+    expect(store.summary).toMatchObject({
+      totalScoreMilli: 2_000,
+      categoryScoreMilli: { fish: 1_000, monster: 1_000 },
+      scoredCategoryCount: 2,
+      scoreReachedAt: now,
+      categoryScoreReachedAt: { fish: existingReach, monster: now },
+    });
+  });
+
+  it("never moves total or category score reach timestamps backwards", async () => {
+    // Break caught: an older historical event makes a later score rank as if reached earlier.
+    const reachedAt = new Date("2026-08-20T00:00:00.000Z");
+    const summary = Object.assign(emptyCodexMasterySummary(), {
+      totalScoreMilli: 1_000,
+      categoryScoreMilli: {
+        ...emptyCodexMasterySummary().categoryScoreMilli,
+        fish: 1_000,
+      },
+      scoredCategoryCount: 1,
+      scoreReachedAt: reachedAt,
+      categoryScoreReachedAt: {
+        equipment: null,
+        fish: reachedAt,
+        monster: null,
+        cooking: null,
+        life: null,
+        job: null,
+      },
+    });
+    const progress = {
+      ...emptyCodexMasteryProgress("fish", TEST_ENTRY.entryId),
+      count: 1,
+      currentTier: "discovered" as const,
+      scoreMilli: 1_000,
+      tierAchievedAt: { discovered: "2026-08-20T00:00:00.000Z" },
+    };
+    const store = memoryCodexMasteryStore({ summary, progress });
+    const recorder = createCodexMasteryRecorder(store, TEST_CATALOG);
+
+    await recorder.record({
+      ...validInput(),
+      mutation: { amount: 4 },
+    }, ENABLED, new Date("2026-08-19T00:00:00.000Z"));
+
+    expect(store.summary.scoreReachedAt).toEqual(reachedAt);
+    expect(store.summary).toMatchObject({
+      scoredCategoryCount: 1,
+      categoryScoreReachedAt: { fish: reachedAt },
+    });
   });
 
   it.each([
@@ -235,6 +492,14 @@ describe("recordCodexMastery", () => {
       mutation: { amount: 0, sealIds: ["giant"] },
       overflow: (summary: CodexMasterySummaryState) => {
         summary.sealCount = Number.MAX_SAFE_INTEGER;
+      },
+    },
+    {
+      name: "scored category count",
+      mutation: { amount: 1 },
+      overflow: (summary: CodexMasterySummaryState) => {
+        (summary as CodexMasterySummaryState & { scoredCategoryCount: number })
+          .scoredCategoryCount = Number.MAX_SAFE_INTEGER;
       },
     },
     ...([

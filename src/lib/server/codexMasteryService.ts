@@ -4,24 +4,49 @@ import {
 import type { CodexMasteryCatalog } from "@/adventure/data/v2/codexMasteryCatalog";
 import type {
   CodexMasteryCategory,
+  CodexMasteryCountStage,
+  CodexMasteryEntryDefinition,
   CodexMasteryMutation,
   CodexMasteryProgress,
   CodexMasteryStage,
+} from "@/adventure/data/v2/codexMasteryTypes";
+import {
+  CODEX_MASTERY_POINT_UNITS,
+  CODEX_MASTERY_STAGES,
 } from "@/adventure/data/v2/codexMasteryTypes";
 import {
   createDrizzleCodexMasteryStore,
   type CodexMasteryStore,
   type CodexMasterySummaryState,
 } from "./codexMasteryRepository";
-import type { DbExecutor } from "./savesKv";
+import type { DbTransactionExecutor } from "./savesKv";
 
-export type CodexMasteryRecordInput = {
+export const CODEX_MASTERY_SOURCES = {
+  equipment: ["equipment.drop", "equipment.craft"],
+  fish: ["fishing.catch"],
+  monster: ["hunt.victory"],
+  cooking: ["cooking.complete"],
+  life: ["life.complete"],
+  job: ["job.victory"],
+} as const satisfies Record<CodexMasteryCategory, readonly string[]>;
+
+export type CodexMasterySourceForCategory<
+  Category extends CodexMasteryCategory,
+> = (typeof CODEX_MASTERY_SOURCES)[Category][number];
+
+type CodexMasteryRecordInputForCategory<
+  Category extends CodexMasteryCategory,
+> = {
   userId: string;
-  category: CodexMasteryCategory;
+  category: Category;
   entryId: string;
   mutation: CodexMasteryMutation;
-  source: string;
+  source: CodexMasterySourceForCategory<Category>;
 };
+
+export type CodexMasteryRecordInput = {
+  [Category in CodexMasteryCategory]: CodexMasteryRecordInputForCategory<Category>;
+}[CodexMasteryCategory];
 
 export type CodexMasteryRecordingSettings = {
   recordingEnabled: boolean;
@@ -48,7 +73,13 @@ export class CodexMasteryRecordError extends Error {
   }
 }
 
-const SERVER_SOURCE_ID = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/;
+function isCodexMasterySourceForCategory(
+  category: CodexMasteryCategory,
+  source: unknown,
+): source is CodexMasterySourceForCategory<typeof category> {
+  return typeof source === "string" &&
+    (CODEX_MASTERY_SOURCES[category] as readonly string[]).includes(source);
+}
 
 function invalidMutation(message: string): CodexMasteryRecordError {
   return new CodexMasteryRecordError("invalid_mutation", message);
@@ -117,6 +148,73 @@ function unchangedProgress(
   );
 }
 
+const COUNT_STAGES: readonly CodexMasteryCountStage[] = [
+  "bronze",
+  "silver",
+  "gold",
+  "platinum",
+  "diamond",
+  "legendary",
+];
+
+function assertLockedProgressMatchesDefinition(
+  definition: CodexMasteryEntryDefinition,
+  progress: CodexMasteryProgress,
+): void {
+  if (
+    progress.category !== definition.category ||
+    progress.entryId !== definition.entryId
+  ) {
+    throw new Error("progress does not match definition");
+  }
+  if (
+    !Array.isArray(progress.sealIds) ||
+    new Set(progress.sealIds).size !== progress.sealIds.length ||
+    progress.sealIds.some((sealId) =>
+      typeof sealId !== "string" ||
+      sealId.trim().length === 0 ||
+      !Object.hasOwn(definition.seals, sealId)
+    )
+  ) {
+    throw new Error("codex mastery locked progress seals are invalid");
+  }
+
+  const countTier = COUNT_STAGES.filter((stage) =>
+    progress.count >= definition.thresholds[stage]
+  ).at(-1);
+  if (
+    (countTier !== undefined && progress.currentTier !== countTier) ||
+    (countTier === undefined && progress.count > 0 &&
+      progress.currentTier !== "discovered") ||
+    (countTier === undefined && progress.count === 0 &&
+      progress.currentTier !== "none" && progress.currentTier !== "discovered")
+  ) {
+    throw new Error("codex mastery locked progress tier/count is inconsistent");
+  }
+
+  const currentTierIndex = progress.currentTier === "none"
+    ? -1
+    : CODEX_MASTERY_STAGES.indexOf(progress.currentTier);
+  const stagePointUnits = CODEX_MASTERY_STAGES.reduce(
+    (sum, stage, index) => index <= currentTierIndex
+      ? sum + CODEX_MASTERY_POINT_UNITS[stage]
+      : sum,
+    0,
+  );
+  const sealPointUnits = progress.sealIds.reduce(
+    (sum, sealId) => sum + definition.seals[sealId].pointUnits,
+    0,
+  );
+  const expectedScoreMilli =
+    (stagePointUnits + sealPointUnits) * definition.scoreWeightMilli;
+  if (
+    !Number.isSafeInteger(expectedScoreMilli) ||
+    progress.scoreMilli !== expectedScoreMilli
+  ) {
+    throw new Error("codex mastery locked progress score is inconsistent");
+  }
+}
+
 function safeAdd(value: number, delta: number): number {
   if (!Number.isSafeInteger(value) || !Number.isSafeInteger(delta)) {
     throw invalidMutation("summary values must be safe integers");
@@ -138,6 +236,15 @@ function nextSummaryFromTransition(
     ...summary,
     categoryScoreMilli: { ...summary.categoryScoreMilli },
     stageCounts: { ...summary.stageCounts },
+    scoreReachedAt: summary.scoreReachedAt
+      ? new Date(summary.scoreReachedAt.getTime())
+      : null,
+    categoryScoreReachedAt: Object.fromEntries(
+      Object.entries(summary.categoryScoreReachedAt).map(([key, value]) => [
+        key,
+        value ? new Date(value.getTime()) : null,
+      ]),
+    ) as CodexMasterySummaryState["categoryScoreReachedAt"],
   };
   for (const stage of transition.newStages) {
     if (stage !== "discovered") {
@@ -145,15 +252,34 @@ function nextSummaryFromTransition(
     }
   }
   nextSummary.sealCount = safeAdd(nextSummary.sealCount, transition.newSealIds.length);
+  const previousCategoryScoreMilli = nextSummary.categoryScoreMilli[category];
   nextSummary.totalScoreMilli = safeAdd(
     nextSummary.totalScoreMilli,
     transition.scoreDeltaMilli,
   );
   nextSummary.categoryScoreMilli[category] = safeAdd(
-    nextSummary.categoryScoreMilli[category],
+    previousCategoryScoreMilli,
     transition.scoreDeltaMilli,
   );
-  if (transition.scoreDeltaMilli > 0) nextSummary.scoreReachedAt = now;
+  if (transition.scoreDeltaMilli > 0) {
+    if (
+      previousCategoryScoreMilli === 0 &&
+      nextSummary.categoryScoreMilli[category] > 0
+    ) {
+      nextSummary.scoredCategoryCount = safeAdd(
+        nextSummary.scoredCategoryCount,
+        1,
+      );
+    }
+    const laterReachTime = (current: Date | null): Date =>
+      current && current.getTime() > now.getTime()
+        ? new Date(current.getTime())
+        : new Date(now.getTime());
+    nextSummary.scoreReachedAt = laterReachTime(nextSummary.scoreReachedAt);
+    nextSummary.categoryScoreReachedAt[category] = laterReachTime(
+      nextSummary.categoryScoreReachedAt[category],
+    );
+  }
   return nextSummary;
 }
 
@@ -175,7 +301,7 @@ export function createCodexMasteryRecorder(
       if (!entry) {
         throw new CodexMasteryRecordError("unknown_entry", "codex mastery entry is unknown");
       }
-      if (typeof input.source !== "string" || !SERVER_SOURCE_ID.test(input.source)) {
+      if (!isCodexMasterySourceForCategory(input.category, input.source)) {
         throw new CodexMasteryRecordError("invalid_source", "source must be server-owned");
       }
       validateCallerMutation(input.mutation, entry.seals);
@@ -185,6 +311,7 @@ export function createCodexMasteryRecorder(
         category: input.category,
         entryId: input.entryId,
       }, now);
+      assertLockedProgressMatchesDefinition(entry, locked.progress);
       const mutation = settings.sealsEnabled
         ? input.mutation
         : { ...input.mutation, sealIds: [] };
@@ -218,7 +345,7 @@ export function createCodexMasteryRecorder(
 }
 
 export async function recordCodexMastery(
-  executor: DbExecutor,
+  executor: DbTransactionExecutor,
   catalog: CodexMasteryCatalog,
   input: CodexMasteryRecordInput,
   settings: CodexMasteryRecordingSettings,

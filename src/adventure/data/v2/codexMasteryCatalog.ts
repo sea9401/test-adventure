@@ -98,14 +98,22 @@ export function codexMasteryBudgetReport(
   return Object.fromEntries(
     CODEX_MASTERY_CATEGORIES.map((category) => {
       const entries = catalog.list(category);
+      let scoreMilli = 0;
+      for (const entry of entries) {
+        const entryScoreMilli = STANDARD_POINT_UNITS * entry.scoreWeightMilli;
+        if (!Number.isSafeInteger(entryScoreMilli)) {
+          throw new Error("codex mastery budget score must be a safe integer");
+        }
+        scoreMilli += entryScoreMilli;
+        if (!Number.isSafeInteger(scoreMilli)) {
+          throw new Error("codex mastery budget total must be a safe integer");
+        }
+      }
       return [
         category,
         {
           entries: entries.length,
-          scoreMilli: entries.reduce(
-            (sum, entry) => sum + STANDARD_POINT_UNITS * entry.scoreWeightMilli,
-            0,
-          ),
+          scoreMilli,
         },
       ];
     }),

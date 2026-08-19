@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { STORM_EXPEDITION_ENTRANCE_NODE_IDS } from "@/adventure/data/v2/stormExpeditionMap";
-import { stormExpeditionMobileWindow } from "./stormExpeditionMobileMap";
+import {
+  stormExpeditionMobilePlanSummary,
+  stormExpeditionMobileProgressSummary,
+  stormExpeditionMobileWindow,
+} from "./stormExpeditionMobileMap";
 
 describe("폭풍 원정 모바일 축약 지도", () => {
   it("입장 전에는 세 입구만 짧은 캔버스에 표시한다", () => {
@@ -66,5 +70,23 @@ describe("폭풍 원정 모바일 축약 지도", () => {
         expect(node.y).toBeLessThanOrEqual(window.height);
       }
     }
+  });
+
+  it("세 구간에 서로 다른 예약 항로를 한 줄로 요약한다", () => {
+    expect(stormExpeditionMobilePlanSummary({
+      version: 1,
+      mode: "normal",
+      outerRouteId: "gale",
+      middleRouteId: "thunder",
+      guardianRouteId: "wreckage",
+      boonStrategy: "offense",
+    })).toBe("예약 경로 · 외곽 칼바람 · 중층 뇌운 · 수호자 잔해");
+  });
+
+  it("완료한 방문 노드만 짧은 경로로 접어 표시한다", () => {
+    expect(stormExpeditionMobileProgressSummary(
+      ["gale_outer", "supply", "thunder_middle"],
+      ["gale_outer", "supply"],
+    )).toBe("완료 경로 · 칼바람 외곽 → 표류 보급품");
   });
 });

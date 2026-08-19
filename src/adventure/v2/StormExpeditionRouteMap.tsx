@@ -3,9 +3,12 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import type { StormExpeditionMapNode, StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
 import {
+  stormExpeditionMobilePlanSummary,
+  stormExpeditionMobileProgressSummary,
   stormExpeditionMobileWindow,
   type StormExpeditionMobileNodeLayout,
 } from "./stormExpeditionMobileMap";
+import type { StormExpeditionAutoplayPlan } from "./stormExpeditionAutoplayPolicy";
 
 type Props = {
   nodes: readonly StormExpeditionMapNode[];
@@ -14,8 +17,8 @@ type Props = {
   completedNodeIds: readonly StormExpeditionMapNodeId[];
   availableNodeIds: readonly StormExpeditionMapNodeId[];
   previewableNodeIds?: readonly StormExpeditionMapNodeId[];
-  selectedNodeId: StormExpeditionMapNodeId | null;
-  onSelect: (nodeId: StormExpeditionMapNodeId | null) => void;
+  plan: StormExpeditionAutoplayPlan | null;
+  onNodeOpen: (nodeId: StormExpeditionMapNodeId) => void;
 };
 
 const ROUTE_STYLE = {
@@ -36,8 +39,7 @@ type NodeStateProps = Pick<
   | "visitedNodeIds"
   | "completedNodeIds"
   | "availableNodeIds"
-  | "selectedNodeId"
-  | "onSelect"
+  | "onNodeOpen"
 > & {
   previewableNodeIds: readonly StormExpeditionMapNodeId[];
 };
@@ -49,8 +51,8 @@ export function StormExpeditionRouteMap({
   completedNodeIds,
   availableNodeIds,
   previewableNodeIds = availableNodeIds,
-  selectedNodeId,
-  onSelect,
+  plan,
+  onNodeOpen,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const mobileWindow = stormExpeditionMobileWindow(
@@ -64,9 +66,10 @@ export function StormExpeditionRouteMap({
     completedNodeIds,
     availableNodeIds,
     previewableNodeIds,
-    selectedNodeId,
-    onSelect,
+    onNodeOpen,
   };
+  const progressSummary = stormExpeditionMobileProgressSummary(visitedNodeIds, completedNodeIds);
+  const planSummary = stormExpeditionMobilePlanSummary(plan);
 
   useEffect(() => {
     if (!currentNodeId) return;
@@ -77,6 +80,12 @@ export function StormExpeditionRouteMap({
   return (
     <>
       <div data-testid="storm-expedition-mobile-map" className="space-y-2 sm:hidden">
+        {(progressSummary || planSummary) && (
+          <div className="space-y-1 px-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+            {progressSummary && <p>{progressSummary}</p>}
+            {planSummary && <p className="font-semibold text-sky-700 dark:text-sky-300">{planSummary}</p>}
+          </div>
+        )}
         <div className="flex items-center justify-between px-1 text-xs">
           <span className="font-semibold text-sky-700 dark:text-sky-300">
             {mobileWindow.label}
@@ -179,8 +188,7 @@ function MapNodeButton({
   completedNodeIds,
   availableNodeIds,
   previewableNodeIds,
-  selectedNodeId,
-  onSelect,
+  onNodeOpen,
 }: NodeStateProps & {
   node: StormExpeditionMapNode;
   position: Pick<CSSProperties, "left" | "top">;
@@ -189,16 +197,16 @@ function MapNodeButton({
   const current = currentNodeId === node.id;
   const available = availableNodeIds.includes(node.id);
   const previewable = previewableNodeIds.includes(node.id);
-  const selected = selectedNodeId === node.id;
   const visited = visitedNodeIds.includes(node.id);
-  const selectable = previewable || (current && selectedNodeId !== null);
+  const locked = !current && !completed && !available && !previewable;
+  const action = current ? "현재 행동 열기" : available ? "이동 확인" : "정보 보기";
   const statuses = [
     current && "현재",
     completed && "완료",
     available && "이동 가능",
     previewable && !available && "다음 경로",
-    selected && "선택됨",
-    !current && !completed && !previewable && "잠김",
+    locked && "잠김",
+    action,
   ].filter(Boolean);
   const routeStyle = node.routeId
     ? ROUTE_STYLE[node.routeId]
@@ -208,9 +216,8 @@ function MapNodeButton({
       type="button"
       data-node-id={node.id}
       aria-label={`${node.name}, ${statuses.join(", ")}`}
-      disabled={!selectable}
-      onClick={() => onSelect(current ? null : node.id)}
-      className={`absolute z-10 flex h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 bg-white px-1 text-center shadow-sm transition dark:bg-zinc-950 ${routeStyle} ${completed ? "ring-2 ring-emerald-500" : ""} ${current ? "ring-4 ring-sky-300 dark:ring-sky-800" : ""} ${selected ? "outline-4 outline-offset-2 outline-sky-500" : ""} ${selectable ? "cursor-pointer shadow-md hover:scale-105" : "cursor-default text-zinc-400 dark:text-zinc-500"}`}
+      onClick={() => onNodeOpen(node.id)}
+      className={`absolute z-10 flex h-[76px] min-h-11 w-[76px] min-w-11 -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center justify-center rounded-full border-2 bg-white px-1 text-center shadow-sm transition hover:scale-105 hover:shadow-md dark:bg-zinc-950 ${routeStyle} ${completed ? "ring-2 ring-emerald-500" : ""} ${current ? "ring-4 ring-sky-300 dark:ring-sky-800" : ""} ${locked ? "text-zinc-400 dark:text-zinc-500" : ""}`}
       style={position}
     >
       <span aria-hidden="true" className="text-sm font-bold">

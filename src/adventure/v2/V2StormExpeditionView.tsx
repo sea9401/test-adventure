@@ -324,7 +324,7 @@ export function V2StormExpeditionView() {
               <button type="button" aria-pressed={selectedMode === "practice"} onClick={() => setSelectedMode("practice")} className={`rounded-md border px-4 py-2 text-sm font-semibold ${selectedMode === "practice" ? "border-violet-500 bg-violet-600 text-white" : SURFACE_INSET}`}>{entryActions.practice.label}</button>
               <span className="self-center text-xs text-zinc-500">{selectedMode === "practice" ? entryActions.practice.description : `오늘 ${status.attemptsLeft ?? 0}회 입장 가능`}</span>
             </div>
-            <StormExpeditionRouteMap nodes={status.nodes ?? []} currentNodeId={null} visitedNodeIds={[]} completedNodeIds={[]} availableNodeIds={status.entranceNodeIds ?? []} selectedNodeId={selectedNodeId} onSelect={setSelectedNodeId} />
+            <StormExpeditionRouteMap nodes={status.nodes ?? []} currentNodeId={null} visitedNodeIds={[]} completedNodeIds={[]} availableNodeIds={status.entranceNodeIds ?? []} plan={null} onNodeOpen={setSelectedNodeId} />
           </Card>
           {selectedNode && selectedRoute && (
             <RoutePreview
@@ -433,8 +433,8 @@ export function V2StormExpeditionView() {
                     completedNodeIds={active.completedNodeIds}
                     availableNodeIds={status?.availableNextNodeIds ?? []}
                     previewableNodeIds={previewableNodeIds}
-                    selectedNodeId={selectedNodeId}
-                    onSelect={setSelectedNodeId}
+                    plan={null}
+                    onNodeOpen={setSelectedNodeId}
                   />
                 </Card>
                 {selectedNode && (

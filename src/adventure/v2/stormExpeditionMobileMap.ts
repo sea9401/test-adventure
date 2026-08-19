@@ -1,4 +1,6 @@
 import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
+import { stormExpeditionMapNode } from "@/adventure/data/v2/stormExpeditionMap";
+import type { StormExpeditionAutoplayPlan } from "./stormExpeditionAutoplayPolicy";
 
 export type StormExpeditionMobileNodeLayout = {
   id: StormExpeditionMapNodeId;
@@ -17,6 +19,30 @@ const X_POSITIONS_BY_COUNT: Record<number, readonly number[]> = {
   2: [120, 240],
   3: [60, 180, 300],
 };
+
+const ROUTE_LABELS = {
+  gale: "칼바람",
+  thunder: "뇌운",
+  wreckage: "잔해",
+} as const;
+
+export function stormExpeditionMobilePlanSummary(
+  plan: StormExpeditionAutoplayPlan | null,
+): string | null {
+  if (!plan) return null;
+  return `예약 경로 · 외곽 ${ROUTE_LABELS[plan.outerRouteId]} · 중층 ${ROUTE_LABELS[plan.middleRouteId]} · 수호자 ${ROUTE_LABELS[plan.guardianRouteId]}`;
+}
+
+export function stormExpeditionMobileProgressSummary(
+  visitedNodeIds: readonly StormExpeditionMapNodeId[],
+  completedNodeIds: readonly StormExpeditionMapNodeId[],
+): string | null {
+  const completedSet = new Set(completedNodeIds);
+  const names = visitedNodeIds
+    .filter((nodeId) => completedSet.has(nodeId))
+    .map((nodeId) => stormExpeditionMapNode(nodeId)?.name ?? nodeId);
+  return names.length > 0 ? `완료 경로 · ${names.join(" → ")}` : null;
+}
 
 export function stormExpeditionMobileWindow(
   currentNodeId: StormExpeditionMapNodeId | null,

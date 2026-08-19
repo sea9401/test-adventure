@@ -221,7 +221,7 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(json.fishingCatches).toBe(1);
     expect(json.masteryGained).toBe(1);
     expect(json.masteryAfter).toBe(6);
-    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledOnce();
+    expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledTimes(2);
     expect(recordCodexMasteryGameplayBatch).toHaveBeenCalledWith(
       expect.anything(),
       "u-test",

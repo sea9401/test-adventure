@@ -1,5 +1,6 @@
 import type { FishId } from "@/adventure/data/v2/fish";
 import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { DbTransactionExecutor } from "./savesKv";
 import { readCodexMasteryFeatureSettings } from "./opsSettings";
 import {
@@ -28,6 +29,24 @@ export type CodexMasteryGameplayEvent =
       entryId: string;
       amount: number;
       source: "job.victory" | "job.activity" | "job.training" | "job.consumable";
+    }
+  | {
+      category: "equipment";
+      entryId: V2EquipmentId;
+      amount: number;
+      source: "equipment.drop" | "equipment.craft";
+    }
+  | {
+      category: "cooking";
+      entryId: string;
+      amount: number;
+      source: "cooking.complete";
+    }
+  | {
+      category: "life";
+      entryId: string;
+      amount: number;
+      source: "life.complete";
     };
 
 export type CodexMasteryGameplayRecorderRuntime<Executor> = {
@@ -40,13 +59,7 @@ export type CodexMasteryGameplayRecorderRuntime<Executor> = {
   ): Promise<CodexMasteryRecordResult>;
 };
 
-type AggregatedEvent = {
-  category: CodexMasteryGameplayEvent["category"];
-  entryId: string;
-  amount: number;
-  bestValue?: number;
-  source: CodexMasteryGameplayEvent["source"];
-};
+type AggregatedEvent = CodexMasteryGameplayEvent;
 
 function eventKey(event: CodexMasteryGameplayEvent): string {
   return `${event.category}:${event.entryId}:${event.source}`;
@@ -76,14 +89,13 @@ function inputFor(userId: string, event: AggregatedEvent): CodexMasteryRecordInp
   const mutation = {
     amount: event.amount,
     discovered: true,
-    ...(event.bestValue === undefined ? {} : { bestValue: event.bestValue }),
   };
   if (event.category === "fish") {
     return {
       userId,
       category: "fish",
       entryId: event.entryId,
-      mutation,
+      mutation: { ...mutation, bestValue: event.bestValue },
       source: "fishing.catch",
     };
   }
@@ -96,15 +108,39 @@ function inputFor(userId: string, event: AggregatedEvent): CodexMasteryRecordInp
       source: "hunt.victory",
     };
   }
+  if (event.category === "job") {
+    return {
+      userId,
+      category: "job",
+      entryId: event.entryId,
+      mutation,
+      source: event.source,
+    };
+  }
+  if (event.category === "equipment") {
+    return {
+      userId,
+      category: "equipment",
+      entryId: event.entryId,
+      mutation,
+      source: event.source,
+    };
+  }
+  if (event.category === "cooking") {
+    return {
+      userId,
+      category: "cooking",
+      entryId: event.entryId,
+      mutation,
+      source: "cooking.complete",
+    };
+  }
   return {
     userId,
-    category: "job",
+    category: "life",
     entryId: event.entryId,
     mutation,
-    source: event.source as Extract<
-      CodexMasteryGameplayEvent,
-      { category: "job" }
-    >["source"],
+    source: "life.complete",
   };
 }
 
@@ -126,15 +162,19 @@ export function createCodexMasteryGameplayRecorder<Executor>(
       if (event.amount === 0) continue;
       const key = eventKey(event);
       const previous = aggregated.get(key);
-      aggregated.set(key, {
-        category: event.category,
-        entryId: event.entryId,
-        amount: safeAdd(previous?.amount ?? 0, event.amount),
-        source: event.source,
-        ...(event.category === "fish"
-          ? { bestValue: Math.max(previous?.bestValue ?? 0, event.bestValue) }
-          : {}),
-      });
+      const amount = safeAdd(previous?.amount ?? 0, event.amount);
+      if (event.category === "fish") {
+        aggregated.set(key, {
+          ...event,
+          amount,
+          bestValue: Math.max(
+            previous?.category === "fish" ? previous.bestValue : 0,
+            event.bestValue,
+          ),
+        });
+      } else {
+        aggregated.set(key, { ...event, amount });
+      }
     }
 
     const results: CodexMasteryRecordResult[] = [];

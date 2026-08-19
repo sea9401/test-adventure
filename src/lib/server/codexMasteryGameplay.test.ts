@@ -93,6 +93,77 @@ describe("codex mastery gameplay recorder", () => {
     ]);
   });
 
+  it("aggregates equipment, cooking, and life events with exact sources", async () => {
+    // Break caught: content integrations either lose batch quantities or record them under a transferable source.
+    const fake = runtime();
+    const record = createCodexMasteryGameplayRecorder(fake.value);
+    const events: CodexMasteryGameplayEvent[] = [
+      {
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        amount: 1,
+        source: "equipment.drop",
+      },
+      {
+        category: "cooking",
+        entryId: "grilled_fish",
+        amount: 3,
+        source: "cooking.complete",
+      },
+      {
+        category: "life",
+        entryId: "region:fishing:river",
+        amount: 7,
+        source: "life.complete",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        amount: 2,
+        source: "equipment.drop",
+      },
+      {
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        amount: 1,
+        source: "equipment.craft",
+      },
+    ];
+
+    await record({}, "user-1", events, NOW);
+
+    expect(fake.inputs).toEqual([
+      {
+        userId: "user-1",
+        category: "cooking",
+        entryId: "grilled_fish",
+        mutation: { amount: 3, discovered: true },
+        source: "cooking.complete",
+      },
+      {
+        userId: "user-1",
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        mutation: { amount: 1, discovered: true },
+        source: "equipment.craft",
+      },
+      {
+        userId: "user-1",
+        category: "equipment",
+        entryId: "v2_iron_sword",
+        mutation: { amount: 3, discovered: true },
+        source: "equipment.drop",
+      },
+      {
+        userId: "user-1",
+        category: "life",
+        entryId: "region:fishing:river",
+        mutation: { amount: 7, discovered: true },
+        source: "life.complete",
+      },
+    ]);
+  });
+
   it("reads settings once and performs no records while disabled", async () => {
     // Break caught: a disabled rollout still locks or creates mastery rows for gameplay actions.
     const fake = runtime({ enabled: false });

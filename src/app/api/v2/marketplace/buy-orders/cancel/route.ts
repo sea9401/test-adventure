@@ -1,13 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  marketplaceBuyOrdersV2,
-  marketplaceInbox,
-} from "@/db/schema";
+import { marketplaceBuyOrdersV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { inboxValues } from "@/lib/server/inboxPayload";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { cancelMarketplaceBuyOrderEscrow } from "@/lib/server/marketplaceEscrow";
 
 function bad(error: string, status = 400) {
   return Response.json({ ok: false, error }, { status });
@@ -46,23 +43,16 @@ export async function POST(req: Request) {
     if (order.status !== "active") {
       return { status: 409, body: { ok: false as const, error: "not_active" } };
     }
-    if (order.goldEscrow > 0) {
-      await tx.insert(marketplaceInbox).values(
-        inboxValues({
-          userId,
-          payload: { kind: "buy_order_refund", gold: order.goldEscrow },
-          message: `${order.itemName} 구매 주문 취소 · ${order.goldEscrow.toLocaleString()}골드 반환`,
-        }),
-      );
-    }
-    await tx
-      .update(marketplaceBuyOrdersV2)
-      .set({ status: "cancelled", goldEscrow: 0, closedAt: new Date() })
-      .where(eq(marketplaceBuyOrdersV2.id, order.id));
+    const escrow = await cancelMarketplaceBuyOrderEscrow(
+      tx,
+      order,
+      new Date(),
+      "user_cancel",
+    );
     return {
       status: 200,
-      refund: order.goldEscrow,
-      body: { ok: true as const, refund: order.goldEscrow },
+      refund: escrow.refundedGold,
+      body: { ok: true as const, refund: escrow.refundedGold },
     };
   });
   if (result.status === 200 && "refund" in result && (result.refund ?? 0) > 0) {

@@ -36,6 +36,10 @@ import {
 } from "@/adventure/v2/V2ItemCard";
 import { InventoryItemIcon } from "@/adventure/v2/inventory/InventoryItemIcon";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import {
+  isTradeSuspensionMessagePayload,
+  tradeSuspensionMessage,
+} from "@/lib/tradeSuspension";
 
 type WarehouseAction = "deposit" | "withdraw";
 type WarehouseKind = "material" | "equipment";
@@ -64,6 +68,9 @@ type WarehouseMember = {
 type WarehouseResponse = {
   ok?: boolean;
   error?: string;
+  reason?: string;
+  expiresAt?: string;
+  permanent?: boolean;
   level?: number;
   capacity?: number;
   used?: number;
@@ -259,7 +266,7 @@ export function GuildWarehousePanel() {
       });
       const json = (await res.json().catch(() => null)) as WarehouseResponse | null;
       if (!res.ok || !json?.ok) {
-        setNotice({ kind: "err", text: warehouseErrorText(json?.error) });
+        setNotice({ kind: "err", text: warehouseErrorText(json, res.status) });
         return;
       }
       const itemName =
@@ -299,9 +306,12 @@ export function GuildWarehousePanel() {
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
+        reason?: string;
+        expiresAt?: string;
+        permanent?: boolean;
       } | null;
       if (!res.ok || !json?.ok) {
-        setNotice({ kind: "err", text: warehouseErrorText(json?.error) });
+        setNotice({ kind: "err", text: warehouseErrorText(json, res.status) });
         return;
       }
       setNotice({
@@ -1154,7 +1164,19 @@ function KindTab(props: {
   return <ActionTab {...props} />;
 }
 
-function warehouseErrorText(error?: string): string {
+type WarehouseErrorPayload = Pick<
+  WarehouseResponse,
+  "error" | "reason" | "expiresAt" | "permanent"
+>;
+
+export function warehouseErrorText(
+  payload: WarehouseErrorPayload | null,
+  _status: number,
+): string {
+  if (isTradeSuspensionMessagePayload(payload)) {
+    return tradeSuspensionMessage(payload);
+  }
+  const error = payload?.error;
   switch (error) {
     case "not_authorized":
       return "창고 입출고 권한이 없습니다.";

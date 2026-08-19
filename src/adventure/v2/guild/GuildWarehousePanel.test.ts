@@ -6,7 +6,25 @@ import {
   EquipmentTransferForm,
   WarehouseEquipmentPickerDialog,
   formatWarehouseEquipmentOptionLabel,
+  warehouseErrorText,
 } from "./GuildWarehousePanel";
+
+describe("길드 창고 거래 정지 오류", () => {
+  it("입출고 제한 응답을 공통 사유와 기간 안내로 변환한다", () => {
+    const message = warehouseErrorText(
+      {
+        error: "trade_suspended",
+        reason: "비정상 거래 조사",
+        expiresAt: "2026-08-23T00:00:00.000Z",
+        permanent: false,
+      },
+      403,
+    );
+
+    expect(message).toContain("거래 이용 제한");
+    expect(message).toContain("비정상 거래 조사");
+  });
+});
 
 describe("길드 창고 장비 선택 표시", () => {
   it("같은 베이스 장비도 개체 수치와 제작 정보를 함께 표시한다", () => {

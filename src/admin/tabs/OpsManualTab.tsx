@@ -1,5 +1,7 @@
 "use client";
 
+import { SURFACE_CARD } from "@/components/ui/surfaces";
+
 const SECTIONS = [
   {
     title: "현재 접속자 확인",
@@ -47,6 +49,17 @@ const SECTIONS = [
       "유저 상세의 운영 메모에 검토 근거와 다음 확인 시점을 남깁니다.",
       "차단 중인 유저는 제재 패널에서 1일/3일 연장 또는 해제를 처리합니다.",
       "정상 플레이도 제한에 걸리면 해당 API limit/window를 조정합니다.",
+    ],
+  },
+  {
+    title: "거래 정지 운영",
+    steps: [
+      "유저 탭의 거래 제재 카드에서 유저 노출 사유와 기간을 확인한 뒤 기간 정지 또는 영구 거래 정지를 실행합니다.",
+      "거래 정지는 계정 제재와 독립된 상태입니다. 계정 제재를 해제해도 거래 정지는 유지되며, 거래 제재 해제 버튼으로 별도 해제해야 합니다.",
+      "기간 정지·영구 정지·연장은 제재 상태 갱신과 활성 매물·구매주문·최고 입찰 에스크로 정리를 한 트랜잭션에서 처리합니다. 일부 정리가 실패하면 전체 작업이 롤백됩니다.",
+      "제재 결과의 거래 노출 정리 건수와 감사 로그를 확인하고, 취소된 매물·주문·입찰은 해제 뒤 자동 복구되지 않는다고 안내합니다.",
+      "길드 교역소의 구성원 그룹 지급은 거래 정지 중인 길드원을 수령 대상에서 제외하고 나머지 허용된 길드원에게만 지급합니다.",
+      "거래 정지 확인 모달의 확인은 안내 확인 기록만 남기며 제한을 해제하지 않습니다.",
     ],
   },
   {
@@ -132,7 +145,7 @@ export function OpsManualTab() {
         {SECTIONS.map((section) => (
           <section
             key={section.title}
-            className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+            className={`${SURFACE_CARD} p-3`}
           >
             <h4 className="text-xs font-semibold">{section.title}</h4>
             <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs text-zinc-600 dark:text-zinc-300">

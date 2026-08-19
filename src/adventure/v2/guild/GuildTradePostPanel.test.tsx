@@ -4,6 +4,7 @@ import type { GuildFacilitySupportTarget } from "@/adventure/data/v2/guildTrade"
 import {
   GuildFacilitySupportDialog,
   guildTradeQuickDelivery,
+  tradeErrorText,
 } from "./GuildTradePostPanel";
 
 const eligibleTarget: GuildFacilitySupportTarget = {
@@ -16,6 +17,23 @@ const eligibleTarget: GuildFacilitySupportTarget = {
   crop: { current: 20, required: 500, grant: 100, after: 120 },
   ore: { current: 30, required: 500, grant: 100, after: 130 },
 };
+
+describe("길드 교역소 거래 정지 오류", () => {
+  it("계약·납품 제한 응답을 공통 사유와 기간 안내로 변환한다", () => {
+    const message = tradeErrorText(
+      {
+        error: "trade_suspended",
+        reason: "비정상 거래 조사",
+        expiresAt: "2026-08-23T00:00:00.000Z",
+        permanent: false,
+      },
+      403,
+    );
+
+    expect(message).toContain("거래 이용 제한");
+    expect(message).toContain("비정상 거래 조사");
+  });
+});
 
 describe("길드 교역소 빠른 납품", () => {
   it.each([

@@ -1,7 +1,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { InboxItem } from "@/adventure/marketplace/api";
+import {
+  inboxActionErrorLabel,
+  type InboxItem,
+} from "@/adventure/marketplace/api";
 import { InboxMailCard, MailDetailModal } from "./V2InboxView";
 
 function inboxItem(overrides: Partial<InboxItem> = {}): InboxItem {
@@ -22,6 +25,23 @@ function inboxItem(overrides: Partial<InboxItem> = {}): InboxItem {
     ...overrides,
   };
 }
+
+describe("우편 거래 정지 오류", () => {
+  it("유저 발송과 제한된 수령에 공통 사유와 기간 안내를 사용한다", () => {
+    const message = inboxActionErrorLabel(
+      {
+        error: "trade_suspended",
+        reason: "비정상 거래 조사",
+        expiresAt: "2026-08-23T00:00:00.000Z",
+        permanent: false,
+      },
+      403,
+    );
+
+    expect(message).toContain("거래 이용 제한");
+    expect(message).toContain("비정상 거래 조사");
+  });
+});
 
 describe("MailDetailModal 장문 가독성", () => {
   it("넓은 모달과 분리된 스크롤 본문에 여유 있는 줄간격을 사용한다", () => {

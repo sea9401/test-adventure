@@ -23,6 +23,7 @@ import {
 import {
   fetchInbox,
   fetchInboxSent,
+  inboxActionErrorLabel,
   markInboxRead,
   type InboxItem,
 } from "@/adventure/marketplace/api";
@@ -387,9 +388,12 @@ export function V2InboxView({
           materialsV2Added?: { count: number }[];
           instancesAdded?: unknown[];
           error?: string;
+          reason?: string;
+          expiresAt?: string;
+          permanent?: boolean;
         } | null;
         if (!res.ok || !j?.ok) {
-          setError(j?.error ?? `수령 실패 (${res.status})`);
+          setError(inboxActionErrorLabel(j, res.status, `수령 실패 (${res.status})`));
           return;
         }
         const gold = j.goldAdded ?? 0;

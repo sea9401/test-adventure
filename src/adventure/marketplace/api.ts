@@ -1,6 +1,11 @@
 // 우편함 클라이언트 API. v2 가 쓰는 우편함 조회 + 쪽지 보내기만 유지
 // (거래소 listings/buy/create/cancel 흐름은 v2 미사용으로 제거됨).
 
+import {
+  isTradeSuspensionMessagePayload,
+  tradeSuspensionMessage,
+} from "@/lib/tradeSuspension";
+
 export type InboxItem = {
   id: number;
   kind:
@@ -71,6 +76,24 @@ export async function markInboxRead(id: number): Promise<MarkInboxReadResult> {
 
 export type SendMessageResult = { ok: true; recipientName: string };
 
+type InboxActionErrorPayload = {
+  error?: string;
+  reason?: string;
+  expiresAt?: string;
+  permanent?: boolean;
+};
+
+export function inboxActionErrorLabel(
+  payload: InboxActionErrorPayload | null,
+  status: number,
+  fallbackText = "",
+): string {
+  if (isTradeSuspensionMessagePayload(payload)) {
+    return tradeSuspensionMessage(payload);
+  }
+  return translateError(payload?.error ?? fallbackText, status);
+}
+
 export async function sendUserMessage(
   recipientName: string,
   text: string,
@@ -82,17 +105,13 @@ export async function sendUserMessage(
     body: JSON.stringify({ recipientName, text, attachedRecipeId }),
   });
   if (!r.ok) {
+    const parsed = (await r.clone().json().catch(() => null)) as
+      | (InboxActionErrorPayload & { probe?: unknown })
+      | null;
     const body = await r.text();
-    let code = body;
     let suffix = "";
-    try {
-      const parsed = JSON.parse(body) as { error?: string; probe?: unknown };
-      if (typeof parsed.error === "string") code = parsed.error;
-      if (parsed.probe) suffix = ` [디버그: ${JSON.stringify(parsed.probe)}]`;
-    } catch {
-      // body 가 plain text 인 기존 응답 — 그대로 code 로 사용.
-    }
-    throw new Error(translateError(code, r.status) + suffix);
+    if (parsed?.probe) suffix = ` [디버그: ${JSON.stringify(parsed.probe)}]`;
+    throw new Error(inboxActionErrorLabel(parsed, r.status, body) + suffix);
   }
   return (await r.json()) as SendMessageResult;
 }

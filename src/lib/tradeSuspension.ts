@@ -22,6 +22,21 @@ export type TradeSuspendedPayload = {
   permanent: boolean;
 };
 
+export type TradeSuspensionMessagePayload = Omit<TradeSuspendedPayload, "ok">;
+
+export function isTradeSuspensionMessagePayload(
+  payload: unknown,
+): payload is TradeSuspensionMessagePayload {
+  if (!payload || typeof payload !== "object") return false;
+  const candidate = payload as Record<string, unknown>;
+  return (
+    candidate.error === "trade_suspended" &&
+    typeof candidate.reason === "string" &&
+    typeof candidate.expiresAt === "string" &&
+    typeof candidate.permanent === "boolean"
+  );
+}
+
 function activeRestriction(
   source: ActiveTradeRestriction["source"],
   expiresAt: Date | null,
@@ -77,8 +92,8 @@ export function tradeSuspensionMessage(
   restriction: Pick<TradeSuspendedPayload, "reason" | "expiresAt" | "permanent">,
 ): string {
   if (restriction.permanent) {
-    return `거래 이용이 제한되었습니다. 사유: ${restriction.reason}`;
+    return `거래 이용 제한이 적용되었습니다. 사유: ${restriction.reason}`;
   }
 
-  return `거래 이용이 ${new Date(restriction.expiresAt).toLocaleString("ko-KR")}까지 제한되었습니다. 사유: ${restriction.reason}`;
+  return `거래 이용 제한이 ${new Date(restriction.expiresAt).toLocaleString("ko-KR")}까지 적용됩니다. 사유: ${restriction.reason}`;
 }

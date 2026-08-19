@@ -6,7 +6,7 @@ import {
 } from "@/app/dev/marketplace/MarketplaceHarness";
 import { GameStateProvider } from "./GameStateProvider";
 import { RewardToastProvider } from "./RewardToastProvider";
-import { V2MarketplaceView } from "./V2MarketplaceView";
+import { actionErrorLabel, V2MarketplaceView } from "./V2MarketplaceView";
 import { MarketplaceRecentTradeList } from "./V2MarketplaceView";
 
 vi.mock("next/navigation", () => ({
@@ -15,6 +15,31 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("V2MarketplaceView 모바일 매물 카드", () => {
+  it("거래 정지 응답을 공통 사유와 기간 안내로 변환한다", () => {
+    expect(
+      actionErrorLabel(
+        {
+          error: "trade_suspended",
+          reason: "비정상 거래 조사",
+          expiresAt: "2026-08-23T00:00:00.000Z",
+          permanent: false,
+        },
+        403,
+      ),
+    ).toContain("거래 이용 제한");
+    expect(
+      actionErrorLabel(
+        {
+          error: "trade_suspended",
+          reason: "비정상 거래 조사",
+          expiresAt: "2026-08-23T00:00:00.000Z",
+          permanent: false,
+        },
+        403,
+      ),
+    ).toContain("비정상 거래 조사");
+  });
+
   it("거래소 안내와 보유 골드를 모바일에서 세로로 쌓는다", () => {
     const html = renderToStaticMarkup(<MarketplaceHarness />);
 

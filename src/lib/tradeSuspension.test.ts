@@ -100,12 +100,14 @@ describe("resolveTradeRestriction", () => {
 
 describe("tradeSuspensionMessage", () => {
   it("거래 제한과 사유를 한국어 안내문으로 표시한다", () => {
-    expect(
-      tradeSuspensionMessage({
-        reason: "비정상 거래 조사",
-        expiresAt: "2026-08-23T00:00:00.000Z",
-        permanent: false,
-      }),
-    ).toContain("비정상 거래 조사");
+    const message = tradeSuspensionMessage({
+      reason: "비정상 거래 조사",
+      expiresAt: "2026-08-23T00:00:00.000Z",
+      permanent: false,
+    });
+
+    expect(message).toContain("거래 이용");
+    expect(message).toContain("비정상 거래 조사");
+    expect(message).toContain("2026");
   });
 });

@@ -57,10 +57,24 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      # 장시간 결정적 시뮬레이션이 일반 단위 테스트와 CPU를 경쟁하면 각 테스트의 고정
-      # timeout을 넘길 수 있다. CI에서는 재현 가능한 단일 worker 실행을 병합 게이트로 쓴다.
+      # 장시간 결정적 시뮬레이션은 별도 단일-worker 잡에서 검증하고, 나머지는 기본
+      # worker 풀로 병렬 실행해 빠른 피드백을 유지한다.
       - name: Tests (vitest)
-        run: npx vitest run --maxWorkers=1
+        run: npx vitest run --exclude src/adventure/data/v2/levelDesignSim.test.ts
+
+  level-design-sim-tests:
+    name: Level design simulation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Deterministic level design simulation
+        run: npx vitest run src/adventure/data/v2/levelDesignSim.test.ts --maxWorkers=1
 
   production-build:
     name: Production build
@@ -167,17 +181,19 @@ jobs:
   check:
     name: check
     if: ${{ always() }}
-    needs: [static-checks, unit-tests, production-build, browser-e2e]
+    needs: [static-checks, unit-tests, level-design-sim-tests, production-build, browser-e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Require every CI lane to pass
         env:
           STATIC_CHECKS_RESULT: ${{ needs.static-checks.result }}
           UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
+          LEVEL_DESIGN_SIM_TESTS_RESULT: ${{ needs.level-design-sim-tests.result }}
           PRODUCTION_BUILD_RESULT: ${{ needs.production-build.result }}
           BROWSER_E2E_RESULT: ${{ needs.browser-e2e.result }}
         run: |
           test "$STATIC_CHECKS_RESULT" = "success"
           test "$UNIT_TESTS_RESULT" = "success"
+          test "$LEVEL_DESIGN_SIM_TESTS_RESULT" = "success"
           test "$PRODUCTION_BUILD_RESULT" = "success"
           test "$BROWSER_E2E_RESULT" = "success"

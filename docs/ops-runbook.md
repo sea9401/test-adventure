@@ -276,9 +276,11 @@ RUNTIME_PROFILER_INTERVAL_MS=60000
 
 - `features.*.requests/errors/durationMs`: 기능별 요청량, 5xx/중단 수, 지연 분포.
 - `features.*.database`: 해당 기능 요청에서 실행한 쿼리 수와 처리 시간.
-- `operations.*`: query string과 동적 ID를 제거한 안전한 작업명별 동일 집계. 전투는
+- `operations.*`: query string과 동적 ID를 제거한 안전한 작업명별 동일 집계. 전투·저장·생활은
   `POST /api/v2/dungeon/hunt`, `GET /api/v2/coop/:sessionId`처럼 라우트 단위로
-  요청·바이트·DB 쿼리를 비교한다. 허용 목록 밖 경로는 `combat:other` 등 기능명으로만
+  요청·바이트·DB 쿼리를 비교한다. 예를 들어 생활 부하는 `POST /api/v2/farm/harvest`와
+  `POST /api/v2/fishing/reel`로 분리된다. 허용 목록 밖 경로는 `combat:other`나 `POST life`
+  등 기능명으로만
   남아 원본 경로나 사용자 입력이 기록되지 않는다.
 - `runtime.cpuPercent/eventLoopDelayMs`: Node 연산 또는 이벤트 루프 포화 판단 기준.
 - `runtime.databasePool.waiting`: DB 커넥션 풀 대기 요청 수. 여러 기능에서 동시에
@@ -291,6 +293,21 @@ RUNTIME_PROFILER_INTERVAL_MS=60000
 판단 예: `combat` 지연과 DB 시간이 같이 상승하면 전투 DB/락을, DB 시간은 낮지만
 CPU·event loop 지연이 상승하면 전투 연산을 본다. `chat` 요청 수와 바이트가 대부분이면
 폴링 주기·응답 페이로드·캐시를 먼저 확인한다.
+
+DB 지연은 다음 순서로 판단한다.
+
+1. `operations.*.database.queries / requests`로 요청당 쿼리 수가 큰 라우트를 찾는다.
+2. 같은 라우트의 DB 처리 시간과 전체 요청 시간을 비교해 DB 왕복 비중을 확인한다.
+3. `runtime.databasePool.waiting`이 함께 상승할 때만 풀 대기를 의심한다. waiting 없이
+   쿼리 수만 많으면 쿼리 배치·중복 조회 제거를 먼저 한다.
+4. 여러 라우트의 DB 시간과 RDS CPU·I/O 지연이 함께 포화될 때 인덱스·실행 계획과
+   인스턴스 용량을 조사한다. 작은 RDS에서 근거 없이 풀 크기부터 올리면 커넥션 메모리와
+   동시 쿼리 경합이 늘 수 있다.
+
+`pg_stat_statements` 활성화나 RDS Performance/Database Insights 변경은 이 프로파일러보다
+상세한 SQL별 분석이 필요할 때 수행한다. 파라미터 그룹 재부팅 또는 과금·보존기간 변경이
+수반될 수 있으므로 운영 승인 없이 적용하지 않는다. 승인 후에는 변경 전 파라미터 그룹,
+예상 재부팅 여부, 비용과 롤백 절차를 기록하고 점검 시간에 적용한다.
 
 ```bash
 systemctl list-timers \

@@ -123,6 +123,44 @@ const STATIC_COMBAT_PATHS = new Set([
   "/api/v2/storm-expedition",
 ]);
 
+const STATIC_SAVE_PATHS = new Set([
+  "/api/save",
+  "/api/v2/me/state",
+  "/api/v2/me/offline-hunt",
+  "/api/v2/me/offline-settle",
+]);
+
+const STATIC_LIFE_PATHS = new Set([
+  "/api/v2/artisan/leaderboard",
+  "/api/v2/cooking",
+  "/api/v2/cooking/surplus",
+  "/api/v2/farm",
+  "/api/v2/farm/deliver",
+  "/api/v2/farm/feed-craft",
+  "/api/v2/farm/fertilize",
+  "/api/v2/farm/harvest",
+  "/api/v2/farm/plant",
+  "/api/v2/farm/plot-upgrade",
+  "/api/v2/farm/ranch/collect",
+  "/api/v2/farm/ranch/feed",
+  "/api/v2/farm/ranch/upgrade",
+  "/api/v2/farm/shop",
+  "/api/v2/farm/special-deliver",
+  "/api/v2/farm/weekly",
+  "/api/v2/fishing/cast",
+  "/api/v2/fishing/challenges",
+  "/api/v2/fishing/challenges/claim",
+  "/api/v2/fishing/hall-of-fame",
+  "/api/v2/fishing/leaderboard",
+  "/api/v2/fishing/progression",
+  "/api/v2/fishing/reel",
+  "/api/v2/fishing/shop",
+  "/api/v2/fishing/status",
+  "/api/v2/life-fields",
+  "/api/v2/life-requests",
+  "/api/v2/life-workshop",
+]);
+
 const SAFE_METHODS = new Set([
   "GET",
   "POST",
@@ -145,6 +183,12 @@ export function classifyRequestOperation(
   const pathname = rawUrl.split("?", 1)[0] || "/";
   const verb = safeMethod(method);
   const feature = classifyRequestPath(pathname);
+  if (
+    (feature === "save" && STATIC_SAVE_PATHS.has(pathname)) ||
+    (feature === "life" && STATIC_LIFE_PATHS.has(pathname))
+  ) {
+    return `${verb} ${pathname}`;
+  }
   if (feature !== "combat") return `${verb} ${feature}`;
 
   if (STATIC_COMBAT_PATHS.has(pathname)) return `${verb} ${pathname}`;

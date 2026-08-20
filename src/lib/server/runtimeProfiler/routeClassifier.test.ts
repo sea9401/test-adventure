@@ -58,6 +58,11 @@ describe("classifyRequestOperation", () => {
       "GET",
       "GET /api/v2/battle-replays/:replayId",
     ],
+    ["/api/save?key=private", "GET", "GET /api/save"],
+    ["/api/v2/me/state?view=core", "GET", "GET /api/v2/me/state"],
+    ["/api/v2/farm/harvest?plot=private", "POST", "POST /api/v2/farm/harvest"],
+    ["/api/v2/life-fields?view=codex", "GET", "GET /api/v2/life-fields"],
+    ["/api/v2/farm/private-secret", "POST", "POST life"],
     ["/api/profile/by-name?name=hidden", "GET", "GET auth"],
   ] as const)("%s를 비식별 작업명으로 분류한다", (url, method, expected) => {
     const operation = classifyRequestOperation(url, method);

@@ -194,13 +194,16 @@ describe("advance-class — 모험가(none) 전직 허용(킷 재학습 경로)"
     expect(json.error).toBe("bad_target");
   });
 
-  it("아직 공개하지 않은 7차 직업 타겟은 bad_target", async () => {
+  it("공개된 7차 직업 타겟은 bad_target 대신 최초 전직 조건을 검사한다", async () => {
     seed("warrior", "warrior", 100);
 
     const res = await POST(advanceReq("shadowblade"));
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ ok: false, error: "bad_target" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "tier7_prerequisite_proficiency",
+    });
   });
 });
 

@@ -2711,6 +2711,7 @@ export const codexResearchSeasons = pgTable(
       .notNull()
       .default("scheduled"),
     settledAt: timestamp("settled_at"),
+    publishedAt: timestamp("published_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -2805,6 +2806,34 @@ export const codexResearchProgress = pgTable(
     check(
       "codex_research_progress_final_tier_valid",
       sql`${t.finalTier} IS NULL OR ${t.finalTier} IN ('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary')`,
+    ),
+  ],
+);
+
+export type CodexResearchPublicationChannel = "notification" | "feed";
+
+// 월간 도감 연구 공개 원장 — 사용자/시즌/채널별 발행을 멱등하게 보장한다.
+export const codexResearchPublications = pgTable(
+  "codex_research_publications",
+  {
+    seasonId: text("season_id")
+      .notNull()
+      .references(() => codexResearchSeasons.seasonId, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channel: text("channel").$type<CodexResearchPublicationChannel>().notNull(),
+    publishedAt: timestamp("published_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.seasonId, t.userId, t.channel] }),
+    index("codex_research_publications_user_published_idx").on(
+      t.userId,
+      t.publishedAt,
+    ),
+    check(
+      "codex_research_publications_channel_valid",
+      sql`${t.channel} IN ('notification', 'feed')`,
     ),
   ],
 );

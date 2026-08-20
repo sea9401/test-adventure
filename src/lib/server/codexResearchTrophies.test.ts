@@ -68,6 +68,7 @@ function season(
     endAt: window.endAt,
     status: "closed",
     settledAt: SETTLED_AT,
+    publishedAt: null,
     ...overrides,
   };
 }

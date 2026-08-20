@@ -31,6 +31,7 @@ export type CodexResearchSeasonOpsSummary = {
   endAt: string;
   status: CodexResearchSeasonStatus;
   settledAt: string | null;
+  publishedAt: string | null;
   opsState: CodexResearchSeasonOpsState;
   counts: {
     progress: number;
@@ -50,6 +51,7 @@ type RawOpsRow = {
   end_at_ms: unknown;
   status: unknown;
   settled_at_ms: unknown;
+  published_at_ms: unknown;
   progress_count: unknown;
   scored_count: unknown;
   final_rank_count: unknown;
@@ -111,6 +113,7 @@ export function codexResearchSeasonOpsRowToSummary(
   const startAt = epochDate(row.start_at_ms);
   const endAt = epochDate(row.end_at_ms);
   const settledAt = nullableEpochDate(row.settled_at_ms);
+  const publishedAt = nullableEpochDate(row.published_at_ms);
   const window = kstCodexResearchSeasonWindow(row.season_id);
   if (
     window.startAt.getTime() !== startAt.getTime() ||
@@ -144,6 +147,7 @@ export function codexResearchSeasonOpsRowToSummary(
     trophies > tiered ||
     (row.status === "closed" && settledAt === null) ||
     (row.status !== "closed" && settledAt !== null) ||
+    (row.status !== "closed" && publishedAt !== null) ||
     (row.status === "closed" && scored > 0 && finalRanked === 0) ||
     (row.status !== "closed" && finalRanked > 0) ||
     (row.status === "settling" && endAt.getTime() > now.getTime());
@@ -164,6 +168,7 @@ export function codexResearchSeasonOpsRowToSummary(
     endAt: endAt.toISOString(),
     status: row.status,
     settledAt: settledAt?.toISOString() ?? null,
+    publishedAt: publishedAt?.toISOString() ?? null,
     opsState,
     counts: { progress, scored, finalRanked, finalTiers, trophies },
   };
@@ -204,6 +209,10 @@ export async function readCodexResearchSeasonOpsList(
         WHEN s.settled_at IS NULL THEN NULL
         ELSE (EXTRACT(EPOCH FROM s.settled_at) * 1000)::bigint
       END AS settled_at_ms,
+      CASE
+        WHEN s.published_at IS NULL THEN NULL
+        ELSE (EXTRACT(EPOCH FROM s.published_at) * 1000)::bigint
+      END AS published_at_ms,
       COUNT(p.user_id)::bigint AS progress_count,
       COUNT(p.user_id) FILTER (WHERE p.score > 0)::bigint AS scored_count,
       COUNT(p.user_id) FILTER (WHERE p.final_rank IS NOT NULL)::bigint

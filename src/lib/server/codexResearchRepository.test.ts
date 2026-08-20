@@ -23,6 +23,7 @@ import {
   lockCodexResearchSeasonForSettlement,
   markCodexResearchSeasonSettling,
   markCodexResearchSeasonResettling,
+  markCodexResearchSeasonPublished,
   lockCodexResearchProgress,
   readCurrentCodexResearchSeason,
   saveCodexResearchProgress,
@@ -105,6 +106,7 @@ function seasonRow(overrides: Record<string, unknown> = {}) {
     endAt: window.endAt,
     status: "scheduled",
     settledAt: null,
+    publishedAt: null,
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -242,6 +244,8 @@ describe("codex research repository", () => {
       .toEqualTypeOf<DbTransactionExecutor>();
     expectTypeOf<Parameters<typeof markCodexResearchSeasonResettling>[0]>()
       .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof markCodexResearchSeasonPublished>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
     expectTypeOf<Parameters<typeof writeCodexResearchFinalResults>[0]>()
       .toEqualTypeOf<DbTransactionExecutor>();
     expectTypeOf<Parameters<typeof closeCodexResearchSeason>[0]>()
@@ -325,6 +329,8 @@ describe("codex research repository", () => {
     });
     expect(new PgDialect().sqlToQuery(reopened.updates[0].where).params)
       .toEqual(["2026-08", "closed"]);
+    expect(new PgDialect().sqlToQuery(reopened.updates[0].where).sql)
+      .toContain('"published_at" is null');
 
     const missing = fakeExecutor({ activateRows: [] });
     await expect(markCodexResearchSeasonResettling(
@@ -332,6 +338,26 @@ describe("codex research repository", () => {
       "2026-08",
       NOW,
     )).rejects.toThrow("was not marked resettling");
+  });
+
+  it("maps and clones publication time and preserves the first publish time", async () => {
+    const publishedAt = new Date("2026-09-01T00:00:00.000Z");
+    const state = codexResearchSeasonRowToState(seasonRow({ publishedAt }));
+
+    expect(state.publishedAt).toEqual(publishedAt);
+    expect(state.publishedAt).not.toBe(publishedAt);
+    expect(() => codexResearchSeasonRowToState(seasonRow({ publishedAt: "bad" })))
+      .toThrow("season row is malformed");
+
+    const first = fakeExecutor({ activateRows: [{ publishedAt }] });
+    await expect(markCodexResearchSeasonPublished(
+      first.executor,
+      "2026-08",
+      new Date("2026-09-02T00:00:00.000Z"),
+    )).resolves.toEqual(publishedAt);
+    expect(first.updates[0].values).toHaveProperty("updatedAt");
+    const query = new PgDialect().sqlToQuery(first.updates[0].where);
+    expect(query.params).toEqual(["2026-08", "closed"]);
   });
 
   it("rejects duplicate final users or ranks before clearing stored results", async () => {

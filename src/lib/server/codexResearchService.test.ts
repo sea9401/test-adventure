@@ -98,6 +98,7 @@ function season(overrides: Partial<CodexResearchSeasonState> = {}): CodexResearc
     endAt: window.endAt,
     status: "scheduled",
     settledAt: null,
+    publishedAt: null,
     ...overrides,
   };
 }

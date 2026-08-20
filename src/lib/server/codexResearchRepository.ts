@@ -4,7 +4,9 @@ import {
   eq,
   gt,
   inArray,
+  isNull,
   lte,
+  sql,
 } from "drizzle-orm";
 import {
   CODEX_RESEARCH_DIVERSITY_SCORE,
@@ -38,6 +40,7 @@ export type CodexResearchSeasonState = {
   endAt: Date;
   status: CodexResearchSeasonStatus;
   settledAt: Date | null;
+  publishedAt: Date | null;
 };
 
 type PersistedSeasonRow = {
@@ -48,6 +51,7 @@ type PersistedSeasonRow = {
   endAt: unknown;
   status: unknown;
   settledAt: unknown;
+  publishedAt: unknown;
 };
 
 type PersistedProgressRow = {
@@ -91,7 +95,8 @@ export function codexResearchSeasonRowToState(
     !validDate(row.startAt) ||
     !validDate(row.endAt) ||
     !validStatus(row.status) ||
-    (row.settledAt !== null && !validDate(row.settledAt))
+    (row.settledAt !== null && !validDate(row.settledAt)) ||
+    (row.publishedAt !== null && !validDate(row.publishedAt))
   ) {
     throw new Error("codex research season row is malformed");
   }
@@ -117,6 +122,7 @@ export function codexResearchSeasonRowToState(
     endAt: new Date(row.endAt.getTime()),
     status: row.status,
     settledAt: row.settledAt ? new Date(row.settledAt.getTime()) : null,
+    publishedAt: row.publishedAt ? new Date(row.publishedAt.getTime()) : null,
   };
 }
 
@@ -224,6 +230,7 @@ export async function scheduleCodexResearchSeason(
     endAt: new Date(window.endAt.getTime()),
     status: "scheduled",
     settledAt: null,
+    publishedAt: null,
   };
 }
 
@@ -317,11 +324,37 @@ export async function markCodexResearchSeasonResettling(
     .where(and(
       eq(codexResearchSeasons.seasonId, seasonId),
       eq(codexResearchSeasons.status, "closed"),
+      isNull(codexResearchSeasons.publishedAt),
     ))
     .returning({ seasonId: codexResearchSeasons.seasonId });
   if (rows.length !== 1) {
     throw new Error("codex research season was not marked resettling");
   }
+}
+
+export async function markCodexResearchSeasonPublished(
+  executor: DbTransactionExecutor,
+  seasonId: string,
+  publishedAt: Date,
+): Promise<Date> {
+  if (!validDate(publishedAt)) {
+    throw new Error("publishedAt must be a valid date");
+  }
+  const rows = await executor
+    .update(codexResearchSeasons)
+    .set({
+      publishedAt: sql`COALESCE(${codexResearchSeasons.publishedAt}, ${publishedAt})`,
+      updatedAt: publishedAt,
+    })
+    .where(and(
+      eq(codexResearchSeasons.seasonId, seasonId),
+      eq(codexResearchSeasons.status, "closed"),
+    ))
+    .returning({ publishedAt: codexResearchSeasons.publishedAt });
+  if (rows.length !== 1 || !validDate(rows[0].publishedAt)) {
+    throw new Error("codex research season was not published");
+  }
+  return new Date(rows[0].publishedAt.getTime());
 }
 
 function validateFinalResults(

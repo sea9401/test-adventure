@@ -33,6 +33,7 @@ export type CodexResearchOpsErrorCode =
   | "season_not_found"
   | "season_not_future"
   | "season_not_ready"
+  | "season_already_published"
   | "trophies_already_published";
 
 export class CodexResearchOpsError extends Error {
@@ -192,6 +193,13 @@ export function createCodexResearchResettlement<Executor>(
         "season_not_ready",
         409,
         "종료되어 닫힌 시즌만 재결산할 수 있습니다.",
+      );
+    }
+    if (season.publishedAt) {
+      throw new CodexResearchOpsError(
+        "season_already_published",
+        409,
+        "공개된 시즌은 재결산할 수 없습니다.",
       );
     }
     const definitionError = validateCodexResearchSeasonDefinition(

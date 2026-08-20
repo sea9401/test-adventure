@@ -69,6 +69,7 @@ function season(
     endAt: window.endAt,
     status: "closed",
     settledAt: NOW,
+    publishedAt: null,
     ...overrides,
   };
 }
@@ -197,6 +198,30 @@ describe("codex research season operations service", () => {
       now: NOW,
     })).rejects.toMatchObject({ code: "trophies_already_published" });
     expect(trophyCalls).toEqual(["lock", "count"]);
+
+    const publicationCalls: string[] = [];
+    const publiclyVisible = createCodexResearchResettlement({
+      lockSeason: vi.fn(async () => {
+        publicationCalls.push("lock");
+        return season({ publishedAt: NOW });
+      }),
+      countTrophies: vi.fn(async () => {
+        publicationCalls.push("count");
+        return 0;
+      }),
+      markResettling: vi.fn(async () => {
+        publicationCalls.push("mark");
+      }),
+      readCandidates: vi.fn(async () => []),
+      writeResults: vi.fn(async () => undefined),
+      closeSeason: vi.fn(async () => undefined),
+    });
+    await expect(publiclyVisible({}, {
+      seasonId: "2026-08",
+      adminEmails: [],
+      now: NOW,
+    })).rejects.toMatchObject({ code: "season_already_published" });
+    expect(publicationCalls).toEqual(["lock"]);
   });
 
   it("resettles in one guarded sequence and returns exact tier counts", async () => {

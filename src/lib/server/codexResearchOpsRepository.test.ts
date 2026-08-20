@@ -21,6 +21,7 @@ function rawRow(overrides: Record<string, unknown> = {}) {
     end_at_ms: String(new Date("2026-09-30T15:00:00.000Z").getTime()),
     status: "closed",
     settled_at_ms: String(new Date("2026-09-30T16:00:00.000Z").getTime()),
+    published_at_ms: String(new Date("2026-09-30T17:00:00.000Z").getTime()),
     progress_count: "12",
     scored_count: "10",
     final_rank_count: "10",
@@ -75,6 +76,7 @@ describe("codex research operations repository", () => {
         end_at_ms: String(new Date("2026-10-31T15:00:00.000Z").getTime()),
         status: "active",
         settled_at_ms: null,
+        published_at_ms: null,
         progress_count: 2,
         scored_count: 1,
         final_rank_count: 0,
@@ -93,6 +95,7 @@ describe("codex research operations repository", () => {
         {
           seasonId: "2026-09",
           status: "closed",
+          publishedAt: "2026-09-30T17:00:00.000Z",
           opsState: "closed",
           counts: {
             progress: 12,
@@ -127,6 +130,19 @@ describe("codex research operations repository", () => {
     }), NOW).opsState).toBe("inconsistent");
     expect(codexResearchSeasonOpsRowToSummary(rawRow({
       trophy_count: 11,
+    }), NOW).opsState).toBe("inconsistent");
+    expect(codexResearchSeasonOpsRowToSummary(rawRow({
+      status: "active",
+      settled_at_ms: null,
+      published_at_ms: String(NOW.getTime()),
+      final_rank_count: 0,
+      bronze_count: 0,
+      silver_count: 0,
+      gold_count: 0,
+      platinum_count: 0,
+      diamond_count: 0,
+      legendary_count: 0,
+      trophy_count: 0,
     }), NOW).opsState).toBe("inconsistent");
     expect(() => codexResearchSeasonOpsRowToSummary(rawRow({
       progress_count: -1,

@@ -51,6 +51,44 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("수행 성장 직업");
   });
 
+  it("도감 숙련의 6분야와 발견부터 전설까지의 장기 수집 단계를 안내한다", () => {
+    const html = renderToStaticMarkup(<CompendiumContent />);
+
+    expect(html).toContain("도감 숙련");
+    for (const label of ["장비 연구", "어류 연구", "생태 연구", "미식 연구", "현장 연구", "직업 연구"]) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain("발견 → 동 → 은 → 금 → 백금 → 다이아 → 전설");
+    expect(html).toContain("SP·스탯·드랍률");
+    expect(html).toContain("종합·분야별 영구 랭킹");
+  });
+
+  it("월간 연구의 2만점 구성과 잠정·확정 순위를 구분해 안내한다", () => {
+    const html = renderToStaticMarkup(<CompendiumContent />);
+
+    expect(html).toContain("월간 연구");
+    expect(html).toContain("20,000점");
+    expect(html).toContain("연구 목표 12,000");
+    expect(html).toContain("다양성 5,000");
+    expect(html).toContain("기록 3,000");
+    expect(html).toContain("잠정 순위");
+    expect(html).toContain("명예의 전당");
+  });
+
+  it("도감·월간 트로피의 6단계와 대표 3종 전시를 안내한다", () => {
+    const quests = renderToStaticMarkup(<QuestsContent />);
+    const plaza = renderToStaticMarkup(<PlazaContent />);
+
+    expect(quests).toContain("도감 숙련");
+    expect(quests).toContain("월간 연구");
+    expect(quests).toContain("동·은·금·백금·다이아·전설");
+    expect(quests).toContain("대표 트로피 3종");
+    expect(quests).toContain("업적 점수에는 더하지 않습니다");
+    expect(plaza).toContain("도감 숙련");
+    expect(plaza).toContain("월간 연구");
+    expect(plaza).toContain("명예의 전당");
+  });
+
   it("정신의 마법 공격 보조와 초과 정신 추가 전환을 안내한다", () => {
     const stats = renderToStaticMarkup(<StatsContent />);
     const combat = renderToStaticMarkup(<CombatContent />);

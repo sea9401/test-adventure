@@ -58,6 +58,11 @@ type HousingResponse = {
   ownedCounts?: Partial<Record<HousingFurnitureId, number>>;
 };
 
+type HousingArtifactDisplayOption = Exclude<
+  HousingDisplayOption,
+  { kind: "masteryTrophy" }
+>;
+
 export type HousingPreviewData = {
   ownerName: string;
   room: HousingState;
@@ -134,6 +139,8 @@ const SAVE_ERROR: Record<string, string> = {
   items_overlap: "서로 겹친 가구가 있습니다.",
   invalid_display: "가구에 맞지 않는 전시품이 지정되어 있습니다.",
   display_not_owned: "더 이상 보유하지 않은 전시품이 포함되어 있습니다.",
+  invalid_mastery_trophy: "이 가구에는 해당 도감 숙련 트로피를 전시할 수 없습니다.",
+  mastery_trophy_not_owned: "아직 획득하지 않은 도감 숙련 트로피가 포함되어 있습니다.",
 };
 
 function roomSnapshot(room: HousingState): string {
@@ -171,13 +178,12 @@ function placementFits(
   return placementCells(candidate).every((cell) => !occupied.has(cell));
 }
 
-function optionDisplayRef(option: HousingDisplayOption): HousingDisplayRef {
+function optionDisplayRef(option: HousingArtifactDisplayOption): HousingDisplayRef {
   if (option.kind === "equipment") {
     return { kind: "equipment", iid: option.iid };
   }
   if (option.kind === "fish") return { kind: "fish", fishId: option.fishId };
-  if (option.kind === "boss") return { kind: "boss", bossId: option.bossId };
-  throw new Error("mastery trophy options use the companion display field");
+  return { kind: "boss", bossId: option.bossId };
 }
 
 function optionForDisplay(
@@ -369,7 +375,7 @@ export function V2HousingView({
   function setSelectedDisplay(value: string) {
     if (!selectedPlacement) return;
     const option = displayOptions.find(
-      (candidate) =>
+      (candidate): candidate is HousingArtifactDisplayOption =>
         candidate.kind !== "masteryTrophy" &&
         housingOptionKey(candidate) === value,
     );

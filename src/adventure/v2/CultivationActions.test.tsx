@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   CultivationActions,
+  CultivationJobPickerDialog,
   CultivationJobSelector,
   CultivationMaxConfirmDialog,
   cultivationCompletionMessage,
@@ -184,12 +185,35 @@ describe("수행 성장 직업 선택", () => {
     );
 
     expect(html).toContain("수행 성장 직업");
-    expect(html).toContain('<option value="mage">견습 마법사</option>');
-    expect(html).toContain(
-      '<option value="fortressknight" selected="">성채기사</option>',
-    );
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("<select");
+    expect(html).toContain("성채기사");
     expect(html).toContain("활력 +4 · 힘 +2");
     expect(html).toContain("전직한 적이 있는 전투직만 선택할 수 있습니다.");
+  });
+
+  it("커스텀 목록에서 모든 직업의 수행 수치와 현재 선택을 비교한다", () => {
+    const html = renderToStaticMarkup(
+      <CultivationJobPickerDialog
+        options={options}
+        value="fortressknight"
+        busy={false}
+        onChange={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain('role="radiogroup"');
+    expect(html).toContain('aria-checked="true"');
+    expect(html).toContain("견습 마법사");
+    expect(html).toContain("지능 +2 · 정신 +2");
+    expect(html).toContain("성채기사");
+    expect(html).toContain("활력 +4 · 힘 +2");
+    expect(html).toContain(">취소<");
+    expect(html).toContain("선택 완료");
   });
 
   it("수행 중에는 직업 선택을 비활성화한다", () => {

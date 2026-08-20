@@ -19,10 +19,14 @@ import {
   activateCodexResearchSeason,
   codexResearchProgressRowToState,
   codexResearchSeasonRowToState,
+  closeCodexResearchSeason,
+  lockCodexResearchSeasonForSettlement,
+  markCodexResearchSeasonSettling,
   lockCodexResearchProgress,
   readCurrentCodexResearchSeason,
   saveCodexResearchProgress,
   scheduleCodexResearchSeason,
+  writeCodexResearchFinalResults,
 } from "./codexResearchRepository";
 
 const NOW = new Date("2026-08-20T03:04:05.000Z");
@@ -166,9 +170,13 @@ function fakeExecutor(options: FakeOptions = {}) {
                 ? options.seasonRows ?? [seasonRow()]
                 : options.progressRows ?? [progressRow()];
               const read = async () => {
-                events.push(table === codexResearchSeasons
-                  ? "read-season"
-                  : locked ? "lock-progress" : "read-progress");
+                events.push(locked
+                  ? table === codexResearchSeasons
+                    ? "lock-season"
+                    : "lock-progress"
+                  : table === codexResearchSeasons
+                    ? "read-season"
+                    : "read-progress");
                 return rows;
               };
               return {
@@ -227,6 +235,91 @@ describe("codex research repository", () => {
       .toEqualTypeOf<DbTransactionExecutor>();
     expectTypeOf<Parameters<typeof activateCodexResearchSeason>[0]>()
       .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof lockCodexResearchSeasonForSettlement>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof markCodexResearchSeasonSettling>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof writeCodexResearchFinalResults>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+    expectTypeOf<Parameters<typeof closeCodexResearchSeason>[0]>()
+      .toEqualTypeOf<DbTransactionExecutor>();
+  });
+
+  it("locks exactly one season before settlement and fails if it disappeared", async () => {
+    const locked = fakeExecutor({
+      seasonRows: [seasonRow({ status: "active" })],
+    });
+
+    await expect(lockCodexResearchSeasonForSettlement(
+      locked.executor,
+      "2026-08",
+    )).resolves.toMatchObject({
+      seasonId: "2026-08",
+      status: "active",
+    });
+    expect(locked.events).toEqual(["lock-season"]);
+    const query = new PgDialect().sqlToQuery(locked.selects[0].where);
+    expect(query.params).toEqual(["2026-08"]);
+
+    const missing = fakeExecutor({ seasonRows: [] });
+    await expect(lockCodexResearchSeasonForSettlement(
+      missing.executor,
+      "2026-08",
+    )).rejects.toThrow("season does not exist");
+  });
+
+  it("writes final results only between settling and closed season states", async () => {
+    const fake = fakeExecutor();
+
+    await markCodexResearchSeasonSettling(fake.executor, "2026-08", NOW);
+    await writeCodexResearchFinalResults(
+      fake.executor,
+      "2026-08",
+      [{ userId: "user-1", finalRank: 1, finalTier: "legendary" }],
+      NOW,
+    );
+    await closeCodexResearchSeason(fake.executor, "2026-08", NOW);
+
+    expect(fake.updates.map(({ table, values }) => ({ table, values })))
+      .toEqual([
+        {
+          table: codexResearchSeasons,
+          values: { status: "settling", updatedAt: NOW },
+        },
+        {
+          table: codexResearchProgress,
+          values: { finalRank: null, finalTier: null, updatedAt: NOW },
+        },
+        {
+          table: codexResearchProgress,
+          values: { finalRank: 1, finalTier: "legendary", updatedAt: NOW },
+        },
+        {
+          table: codexResearchSeasons,
+          values: { status: "closed", settledAt: NOW, updatedAt: NOW },
+        },
+      ]);
+    expect(new PgDialect().sqlToQuery(fake.updates[0].where).params)
+      .toEqual(["2026-08", "scheduled", "active", "settling"]);
+    expect(new PgDialect().sqlToQuery(fake.updates[2].where).params)
+      .toEqual(["user-1", "2026-08"]);
+    expect(new PgDialect().sqlToQuery(fake.updates[3].where).params)
+      .toEqual(["2026-08", "settling"]);
+  });
+
+  it("rejects duplicate final users or ranks before clearing stored results", async () => {
+    const fake = fakeExecutor();
+
+    await expect(writeCodexResearchFinalResults(
+      fake.executor,
+      "2026-08",
+      [
+        { userId: "user-1", finalRank: 1, finalTier: "legendary" },
+        { userId: "user-2", finalRank: 1, finalTier: "diamond" },
+      ],
+      NOW,
+    )).rejects.toThrow("final results are invalid");
+    expect(fake.updates).toEqual([]);
   });
 
   it("maps a valid immutable season and rejects malformed stored definitions", () => {

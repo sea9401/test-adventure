@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   codexMasteryProgress,
   codexMasterySummary,
+  codexResearchProgress,
   codexTrophyHistory,
 } from "./schema";
 
@@ -55,6 +56,19 @@ describe("codex mastery schema", () => {
     expect(config.indexes.map((index) => index.config.name)).toContain(
       "codex_trophy_history_user_kind_tier_idx",
     );
+  });
+
+  it("enforces one immutable final rank per monthly season", () => {
+    const config = getTableConfig(codexResearchProgress);
+    const index = config.indexes.find((candidate) =>
+      candidate.config.name === "codex_research_progress_season_final_rank_unique"
+    );
+
+    expect(index?.config.unique).toBe(true);
+    expect(index?.config.columns.map((column) => (
+      "name" in column ? column.name : null
+    ))).toEqual(["season_id", "final_rank"]);
+    expect(index?.config.where).toBeDefined();
   });
 
   it("orders every leaderboard by the complete approved tie contract", () => {

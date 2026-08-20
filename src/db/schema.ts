@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import type { CodexMasteryStage } from "@/adventure/data/v2/codexMasteryTypes";
 import type {
-  CodexMasteryTrophyKind,
   CodexMasteryTrophyTier,
+  CodexTrophyKind,
 } from "@/adventure/data/v2/codexMasteryTrophies";
 import type {
   CodexResearchDefinitionSnapshot,
@@ -2663,7 +2663,7 @@ export const codexTrophyHistory = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     trophyId: text("trophy_id").notNull(),
-    trophyKind: text("trophy_kind").$type<CodexMasteryTrophyKind>().notNull(),
+    trophyKind: text("trophy_kind").$type<CodexTrophyKind>().notNull(),
     currentTier: text("current_tier").$type<CodexMasteryTrophyTier>().notNull(),
     tierAchievedAt: jsonb("tier_achieved_at")
       .$type<Partial<Record<CodexMasteryTrophyTier, string>>>()
@@ -2682,7 +2682,7 @@ export const codexTrophyHistory = pgTable(
     ),
     check(
       "codex_trophy_history_kind_valid",
-      sql`${t.trophyKind} IN ('mastery_category', 'mastery_overall')`,
+      sql`${t.trophyKind} IN ('mastery_category', 'mastery_overall', 'research_season')`,
     ),
     check(
       "codex_trophy_history_tier_valid",
@@ -2769,6 +2769,9 @@ export const codexResearchProgress = pgTable(
       t.scoreReachedAt.asc().nullsLast(),
       t.userId.asc(),
     ),
+    uniqueIndex("codex_research_progress_season_final_rank_unique")
+      .on(t.seasonId, t.finalRank)
+      .where(sql`${t.finalRank} IS NOT NULL`),
     check(
       "codex_research_progress_score_valid",
       sql`${t.score} >= 0 AND ${t.score} <= 20000`,

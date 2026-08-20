@@ -1219,6 +1219,13 @@
       "when": 1787254829965,
       "tag": "0173_wandering_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1787255088027,
+      "tag": "0174_codex_research_settlement",
+      "breakpoints": true
     }
   ]
 }

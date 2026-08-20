@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { createCodexMasteryCatalog } from "@/adventure/data/v2/codexMasteryCatalog";
 import { emptyCodexMasteryProgress } from "@/adventure/data/v2/codexMastery";
 import type {
@@ -8,6 +10,7 @@ import type {
 import type { CodexMasteryTrophyHistory } from "@/adventure/data/v2/codexMasteryTrophies";
 import {
   codexTrophyHistoryRowToState,
+  readCodexMasteryTrophyHistory,
   reconcileCodexMasteryTrophiesWithRuntime,
 } from "./codexMasteryTrophyRepository";
 
@@ -45,6 +48,34 @@ function goldProgress(): CodexMasteryProgress {
 }
 
 describe("codex mastery trophy repository", () => {
+  it("reads only permanent trophy kinds when monthly history shares the table", async () => {
+    let where: SQL | null = null;
+    const executor = {
+      select() {
+        return {
+          from() {
+            return {
+              where(condition: SQL) {
+                where = condition;
+                return Promise.resolve([]);
+              },
+            };
+          },
+        };
+      },
+    } as unknown as Parameters<typeof readCodexMasteryTrophyHistory>[0];
+
+    await expect(readCodexMasteryTrophyHistory(executor, "u1"))
+      .resolves.toEqual([]);
+    const query = new PgDialect().sqlToQuery(where as unknown as SQL);
+    expect(query.sql).toContain('"codex_trophy_history"."trophy_kind" in');
+    expect(query.params).toEqual([
+      "u1",
+      "mastery_category",
+      "mastery_overall",
+    ]);
+  });
+
   it("rejects malformed persisted trophy rows instead of hiding corruption", () => {
     expect(() => codexTrophyHistoryRowToState({
       trophyId: "mastery:equipment",

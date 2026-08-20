@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { CodexMasteryCatalog } from "@/adventure/data/v2/codexMasteryCatalog";
 import { CODEX_MASTERY_CATALOG_VERSION } from "@/adventure/data/v2/codexMasteryProductionCatalog";
 import type { CodexMasteryProgress } from "@/adventure/data/v2/codexMasteryTypes";
@@ -91,7 +91,13 @@ export async function readCodexMasteryTrophyHistory(
       catalogVersion: codexTrophyHistory.catalogVersion,
     })
     .from(codexTrophyHistory)
-    .where(eq(codexTrophyHistory.userId, userId));
+    .where(and(
+      eq(codexTrophyHistory.userId, userId),
+      inArray(codexTrophyHistory.trophyKind, [
+        "mastery_category",
+        "mastery_overall",
+      ]),
+    ));
   return rows.map(codexTrophyHistoryRowToState);
 }
 

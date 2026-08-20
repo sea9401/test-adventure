@@ -264,6 +264,121 @@ export async function readCodexResearchProgress(
   return rows[0] ? codexResearchProgressRowToState(rows[0]) : null;
 }
 
+export async function lockCodexResearchSeasonForSettlement(
+  executor: DbTransactionExecutor,
+  seasonId: string,
+): Promise<CodexResearchSeasonState> {
+  const rows = await executor
+    .select()
+    .from(codexResearchSeasons)
+    .where(eq(codexResearchSeasons.seasonId, seasonId))
+    .for("update")
+    .limit(1);
+  if (rows.length !== 1) {
+    throw new Error("codex research season does not exist");
+  }
+  return codexResearchSeasonRowToState(rows[0]);
+}
+
+export type CodexResearchFinalResult = {
+  userId: string;
+  finalRank: number;
+  finalTier: CodexMasteryTrophyTier | null;
+};
+
+export async function markCodexResearchSeasonSettling(
+  executor: DbTransactionExecutor,
+  seasonId: string,
+  now: Date,
+): Promise<void> {
+  if (!validDate(now)) throw new Error("now must be a valid date");
+  const rows = await executor
+    .update(codexResearchSeasons)
+    .set({ status: "settling", updatedAt: now })
+    .where(and(
+      eq(codexResearchSeasons.seasonId, seasonId),
+      inArray(codexResearchSeasons.status, ["scheduled", "active", "settling"]),
+    ))
+    .returning({ seasonId: codexResearchSeasons.seasonId });
+  if (rows.length !== 1) {
+    throw new Error("codex research season was not marked settling");
+  }
+}
+
+function validateFinalResults(
+  results: readonly CodexResearchFinalResult[],
+): void {
+  const userIds = new Set<string>();
+  const ranks = new Set<number>();
+  for (const result of results) {
+    if (
+      typeof result.userId !== "string" ||
+      result.userId.trim().length === 0 ||
+      result.userId !== result.userId.trim() ||
+      !Number.isSafeInteger(result.finalRank) ||
+      result.finalRank < 1 ||
+      !validFinalTier(result.finalTier) ||
+      userIds.has(result.userId) ||
+      ranks.has(result.finalRank)
+    ) {
+      throw new Error("codex research final results are invalid");
+    }
+    userIds.add(result.userId);
+    ranks.add(result.finalRank);
+  }
+}
+
+export async function writeCodexResearchFinalResults(
+  executor: DbTransactionExecutor,
+  seasonId: string,
+  results: readonly CodexResearchFinalResult[],
+  now: Date,
+): Promise<void> {
+  if (!validDate(now)) throw new Error("now must be a valid date");
+  validateFinalResults(results);
+  await executor
+    .update(codexResearchProgress)
+    .set({ finalRank: null, finalTier: null, updatedAt: now })
+    .where(eq(codexResearchProgress.seasonId, seasonId))
+    .returning({ userId: codexResearchProgress.userId });
+  for (const result of results) {
+    const rows = await executor
+      .update(codexResearchProgress)
+      .set({
+        finalRank: result.finalRank,
+        finalTier: result.finalTier,
+        updatedAt: now,
+      })
+      .where(and(
+        eq(codexResearchProgress.userId, result.userId),
+        eq(codexResearchProgress.seasonId, seasonId),
+      ))
+      .returning({ userId: codexResearchProgress.userId });
+    if (rows.length !== 1) {
+      throw new Error("codex research final result row was not saved");
+    }
+  }
+}
+
+export async function closeCodexResearchSeason(
+  executor: DbTransactionExecutor,
+  seasonId: string,
+  settledAt: Date,
+): Promise<void> {
+  if (!validDate(settledAt)) throw new Error("settledAt must be a valid date");
+  const rows = await executor
+    .update(codexResearchSeasons)
+    .set({ status: "closed", settledAt, updatedAt: settledAt })
+    .where(and(
+      eq(codexResearchSeasons.seasonId, seasonId),
+      eq(codexResearchSeasons.status, "settling"),
+    ))
+    .returning({ seasonId: codexResearchSeasons.seasonId });
+  if (rows.length !== 1) {
+    throw new Error("codex research season was not closed");
+  }
+}
+
 export async function lockCodexResearchProgress(
   executor: DbTransactionExecutor,
   userId: string,

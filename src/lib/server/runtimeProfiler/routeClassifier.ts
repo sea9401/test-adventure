@@ -64,7 +64,10 @@ export function classifyRequestPath(rawPathname: string): RuntimeFeature {
     matchesAny(pathname, [
       "/api/v2/farm",
       "/api/v2/fishing",
+      "/api/v2/dangerous-fishing",
       "/api/v2/cooking",
+      "/api/v2/mining",
+      "/api/v2/woodcutting",
       "/api/v2/life-fields",
       "/api/v2/life-requests",
       "/api/v2/life-workshop",
@@ -134,6 +137,12 @@ const STATIC_LIFE_PATHS = new Set([
   "/api/v2/artisan/leaderboard",
   "/api/v2/cooking",
   "/api/v2/cooking/surplus",
+  "/api/v2/dangerous-fishing/boss",
+  "/api/v2/dangerous-fishing/encounter",
+  "/api/v2/dangerous-fishing/exchange",
+  "/api/v2/dangerous-fishing/shop",
+  "/api/v2/dangerous-fishing/status",
+  "/api/v2/dangerous-fishing/voyage",
   "/api/v2/farm",
   "/api/v2/farm/deliver",
   "/api/v2/farm/feed-craft",
@@ -159,6 +168,14 @@ const STATIC_LIFE_PATHS = new Set([
   "/api/v2/life-fields",
   "/api/v2/life-requests",
   "/api/v2/life-workshop",
+  "/api/v2/mining/auto",
+  "/api/v2/mining/start",
+  "/api/v2/mining/status",
+  "/api/v2/mining/strike",
+  "/api/v2/woodcutting/auto",
+  "/api/v2/woodcutting/chop",
+  "/api/v2/woodcutting/start",
+  "/api/v2/woodcutting/status",
 ]);
 
 const SAFE_METHODS = new Set([

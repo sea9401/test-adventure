@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client, Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -19,6 +19,12 @@ import {
   codexTrophyHistory,
 } from "@/db/schema";
 import { scheduleCodexResearchSeason } from "./codexResearchRepository";
+import {
+  previewCodexResearchSettlementForOps,
+  resettleCodexResearchSeason,
+  scheduleCodexResearchSeasonForOps,
+} from "./codexResearchOps";
+import { readCodexResearchSeasonOpsList } from "./codexResearchOpsRepository";
 import { recordCodexResearchGameplayBatch } from "./codexResearchService";
 import { settleCodexResearchSeason } from "./codexResearchSettlement";
 import {
@@ -540,5 +546,199 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
       .where(eq(codexResearchProgress.seasonId, rollbackDefinition.seasonId));
     expect(rolledBackSeason).toMatchObject({ status: "scheduled", settledAt: null });
     expect(rolledBackProgress).toMatchObject({ finalRank: null, finalTier: null });
+  }, 30_000);
+
+  it("operates preview, correction, publication guards, and aggregates end to end", async () => {
+    const futureDefinition = researchDefinition("2027-01");
+    await expect(database.transaction((tx) =>
+      scheduleCodexResearchSeasonForOps(tx, {
+        definition: futureDefinition,
+        now: new Date("2026-08-20T00:00:00.000Z"),
+      })
+    )).resolves.toMatchObject({
+      seasonId: "2027-01",
+      status: "scheduled",
+    });
+    const futureSummary = (await readCodexResearchSeasonOpsList(
+      database,
+      new Date("2026-08-20T00:00:00.000Z"),
+      24,
+    )).find((row) => row.seasonId === futureDefinition.seasonId);
+    expect(futureSummary).toMatchObject({
+      opsState: "too_early",
+      counts: { progress: 0, scored: 0, finalRanked: 0, trophies: 0 },
+    });
+
+    const correctionDefinition = researchDefinition("2026-11");
+    const users = ["ops-correction-a", "ops-correction-b"];
+    await admin.query(
+      "INSERT INTO users (id, email, game_name) VALUES ($1, $2, $3), ($4, $5, $6)",
+      [
+        users[0],
+        "ops-correction-a@example.com",
+        "재결산 연구자 A",
+        users[1],
+        "ops-correction-b@example.com",
+        "재결산 연구자 B",
+      ],
+    );
+    await database.transaction((tx) => scheduleCodexResearchSeasonForOps(tx, {
+      definition: correctionDefinition,
+      now: new Date("2026-10-20T00:00:00.000Z"),
+    }));
+    await database.insert(codexResearchProgress).values([
+      {
+        userId: users[0],
+        seasonId: correctionDefinition.seasonId,
+        score: 18_000,
+        objectiveProgress: { objectives: {}, diversityEntries: {}, recordValues: {} },
+        objectiveCompletedCount: 18,
+        diversityScore: 3_000,
+        recordScore: 3_000,
+        scoreReachedAt: new Date("2026-11-20T00:00:00.000Z"),
+        representativeRecord: null,
+        updatedAt: new Date("2026-11-20T00:00:00.000Z"),
+      },
+      {
+        userId: users[1],
+        seasonId: correctionDefinition.seasonId,
+        score: 16_000,
+        objectiveProgress: { objectives: {}, diversityEntries: {}, recordValues: {} },
+        objectiveCompletedCount: 16,
+        diversityScore: 2_000,
+        recordScore: 2_000,
+        scoreReachedAt: new Date("2026-11-20T00:00:01.000Z"),
+        representativeRecord: null,
+        updatedAt: new Date("2026-11-20T00:00:01.000Z"),
+      },
+    ]);
+    const endedAt = new Date("2026-11-30T15:00:00.000Z");
+    await expect(previewCodexResearchSettlementForOps(database, {
+      seasonId: correctionDefinition.seasonId,
+      adminEmails: [],
+      now: endedAt,
+    })).resolves.toMatchObject({
+      participantCount: 2,
+      top: [
+        { userId: users[0], rank: 1, tier: "legendary" },
+        { userId: users[1], rank: 2, tier: "diamond" },
+      ],
+    });
+    expect(await database
+      .select({ finalRank: codexResearchProgress.finalRank })
+      .from(codexResearchProgress)
+      .where(eq(codexResearchProgress.seasonId, correctionDefinition.seasonId)))
+      .toEqual([{ finalRank: null }, { finalRank: null }]);
+
+    await database.transaction((tx) => settleCodexResearchSeason(tx, {
+      seasonId: correctionDefinition.seasonId,
+      adminEmails: [],
+      now: endedAt,
+    }));
+    await database
+      .update(codexResearchProgress)
+      .set({
+        score: 4_000,
+        objectiveCompletedCount: 1,
+        diversityScore: 0,
+        recordScore: 0,
+        scoreReachedAt: new Date("2026-11-29T00:00:00.000Z"),
+      })
+      .where(and(
+        eq(codexResearchProgress.seasonId, correctionDefinition.seasonId),
+        eq(codexResearchProgress.userId, users[0]),
+      ));
+    await expect(database.transaction((tx) => resettleCodexResearchSeason(tx, {
+      seasonId: correctionDefinition.seasonId,
+      adminEmails: [],
+      now: new Date("2026-11-30T16:00:00.000Z"),
+    }))).resolves.toMatchObject({
+      status: "resettled",
+      participantCount: 2,
+      tierCounts: { bronze: 1, diamond: 1 },
+    });
+    const corrected = await database
+      .select({
+        userId: codexResearchProgress.userId,
+        score: codexResearchProgress.score,
+        finalRank: codexResearchProgress.finalRank,
+        finalTier: codexResearchProgress.finalTier,
+      })
+      .from(codexResearchProgress)
+      .where(eq(codexResearchProgress.seasonId, correctionDefinition.seasonId))
+      .orderBy(asc(codexResearchProgress.finalRank));
+    expect(corrected).toEqual([
+      { userId: users[1], score: 16_000, finalRank: 1, finalTier: "diamond" },
+      { userId: users[0], score: 4_000, finalRank: 2, finalTier: "bronze" },
+    ]);
+    const [correctedSeason] = await database
+      .select()
+      .from(codexResearchSeasons)
+      .where(eq(codexResearchSeasons.seasonId, correctionDefinition.seasonId));
+
+    await expect(database.transaction(async (tx) => {
+      await tx
+        .update(codexResearchProgress)
+        .set({
+          score: 19_000,
+          objectiveCompletedCount: 18,
+          diversityScore: 4_000,
+          recordScore: 3_000,
+          scoreReachedAt: new Date("2026-11-29T01:00:00.000Z"),
+        })
+        .where(and(
+          eq(codexResearchProgress.seasonId, correctionDefinition.seasonId),
+          eq(codexResearchProgress.userId, users[0]),
+        ));
+      await resettleCodexResearchSeason(tx, {
+        seasonId: correctionDefinition.seasonId,
+        adminEmails: [],
+        now: new Date("2026-11-30T17:00:00.000Z"),
+      });
+      throw new Error("resettlement rollback sentinel");
+    })).rejects.toThrow("resettlement rollback sentinel");
+    const afterRollback = await database
+      .select({
+        userId: codexResearchProgress.userId,
+        score: codexResearchProgress.score,
+        finalRank: codexResearchProgress.finalRank,
+        finalTier: codexResearchProgress.finalTier,
+      })
+      .from(codexResearchProgress)
+      .where(eq(codexResearchProgress.seasonId, correctionDefinition.seasonId))
+      .orderBy(asc(codexResearchProgress.finalRank));
+    const [seasonAfterRollback] = await database
+      .select()
+      .from(codexResearchSeasons)
+      .where(eq(codexResearchSeasons.seasonId, correctionDefinition.seasonId));
+    expect(afterRollback).toEqual(corrected);
+    expect(seasonAfterRollback).toMatchObject({
+      status: "closed",
+      settledAt: correctedSeason.settledAt,
+    });
+
+    await expect(database.transaction((tx) =>
+      awardCodexResearchSeasonTrophies(tx, correctionDefinition.seasonId)
+    )).resolves.toMatchObject({ createdCount: 2, existingCount: 0 });
+    await expect(database.transaction((tx) => resettleCodexResearchSeason(tx, {
+      seasonId: correctionDefinition.seasonId,
+      adminEmails: [],
+      now: new Date("2026-11-30T18:00:00.000Z"),
+    }))).rejects.toMatchObject({ code: "trophies_already_published" });
+
+    const publishedSummary = (await readCodexResearchSeasonOpsList(
+      database,
+      new Date("2026-11-30T18:00:00.000Z"),
+      24,
+    )).find((row) => row.seasonId === correctionDefinition.seasonId);
+    expect(publishedSummary).toMatchObject({
+      opsState: "closed",
+      counts: {
+        progress: 2,
+        scored: 2,
+        finalRanked: 2,
+        trophies: 2,
+      },
+    });
   }, 30_000);
 });

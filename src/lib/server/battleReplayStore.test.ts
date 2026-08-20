@@ -107,7 +107,12 @@ describe("storeBattleReplays", () => {
 
   it("임시 저장이 실패하면 긴 로그 원본을 그대로 반환한다", async () => {
     const values = vi.fn(async () => {
-      throw new Error("store unavailable");
+      throw Object.assign(
+        new Error(
+          "Failed query: insert into battle_replays params: SECRET_BATTLE_PAYLOAD",
+        ),
+        { name: "DrizzleQueryError", code: "57P01" },
+      );
     });
     const executor = {
       insert: vi.fn(() => ({ values })),
@@ -120,8 +125,18 @@ describe("storeBattleReplays", () => {
     ).resolves.toEqual([long]);
     expect(warn).toHaveBeenCalledWith(
       "[battleReplayStore] batch replay persistence failed",
-      expect.any(Error),
+      { name: "DrizzleQueryError", code: "57P01" },
     );
+    const renderedWarning = warn.mock.calls
+      .flat()
+      .map((value) =>
+        value instanceof Error
+          ? `${value.name}:${value.message}`
+          : JSON.stringify(value),
+      )
+      .join(" ");
+    expect(renderedWarning).not.toContain("SECRET_BATTLE_PAYLOAD");
+    expect(renderedWarning).not.toContain("insert into battle_replays");
 
     warn.mockRestore();
   });

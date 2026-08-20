@@ -12,7 +12,7 @@ import {
   V2_JOB_CATALOG,
   isFarmingJobId,
   isFishingJobId,
-  isJobUnlocked,
+  isJobContentUnlocked,
   isRootJobSelectable,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -127,7 +127,7 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "farming_job" },
       };
     }
-    if (!isJobUnlocked(job, prof)) {
+    if (!isJobContentUnlocked(job, prof)) {
       return { status: 400, body: { ok: false as const, error: "job_locked" } };
     }
 

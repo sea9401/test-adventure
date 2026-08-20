@@ -1,7 +1,7 @@
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_LIST,
-  isJobUnlocked,
+  isJobContentUnlocked,
   isLifestyleMasteryJobId,
   isRootJobSelectable,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -45,7 +45,7 @@ export function masteryCertificateStatusFromSaves(
       job.id !== "none" &&
       !isLifestyleMasteryJobId(job.id) &&
       isRootJobSelectable(job) &&
-      isJobUnlocked(job, proficiency),
+      isJobContentUnlocked(job, proficiency),
   ).map((job) => {
     const group = LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id;
     return {

@@ -165,7 +165,7 @@ export function effectiveCultivateProfile(
   if (group === "mutant" && job?.tier === 1) {
     return job.cultivateProfile;
   }
-  if (job?.tier === 5 || job?.tier === 6) {
+  if (job && job.tier >= 5) {
     return job.cultivateProfile;
   }
   if (jobId && V2_HYBRID_CULTIVATE_PROFILE[jobId]) {

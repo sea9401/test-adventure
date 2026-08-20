@@ -17,6 +17,13 @@ import {
 } from "./jobSpPolicy";
 import type { V2ProficiencyState } from "./proficiency";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
+import {
+  TIER7_COMBAT_JOB_NAMES,
+  TIER7_COMBAT_JOB_PREREQS,
+  isTier7CombatJobId,
+  type Tier7CombatJobId,
+} from "./tier7Jobs";
+import { TIER7_PREREQUISITE_MASTERY } from "./tier7Advancement";
 
 /**
  * 추가 해금 조건(cumLevel prereqs 외). isJobUnlocked 가 평가(#818 배선). 현 카탈로그 직업은
@@ -153,6 +160,16 @@ export const TIER5_UNLOCK_CUMLEVEL = 18000;
  * 스펙업하는 장기 목표.
  */
 export const TIER6_UNLOCK_CUMLEVEL = 35000;
+
+function tier7Prerequisites(
+  jobId: Tier7CombatJobId,
+): Record<string, number> {
+  const [first, second] = TIER7_COMBAT_JOB_PREREQS[jobId];
+  return {
+    [first]: TIER7_PREREQUISITE_MASTERY,
+    [second]: TIER7_PREREQUISITE_MASTERY,
+  };
+}
 
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
@@ -1451,6 +1468,40 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 6, vit: 6, dex: 6, int: 6, spi: 6, luk: 6 },
     unlock: { prereqs: { transcendent: TIER6_UNLOCK_CUMLEVEL } },
   },
+
+  // ─── Tier 7: 두 6차 계보를 결합한 최상위 전투 직업 ───
+  shadowblade: {
+    id: "shadowblade",
+    name: TIER7_COMBAT_JOB_NAMES.shadowblade,
+    tier: 7,
+    cultivateProfile: { luk: 4, dex: 2, str: 1 },
+    jobBonus: { luk: 32, dex: 10, str: 6 },
+    unlock: { prereqs: tier7Prerequisites("shadowblade") },
+  },
+  ruinblade: {
+    id: "ruinblade",
+    name: TIER7_COMBAT_JOB_NAMES.ruinblade,
+    tier: 7,
+    cultivateProfile: { str: 4, vit: 2, luk: 1 },
+    jobBonus: { str: 34, vit: 10, luk: 4 },
+    unlock: { prereqs: tier7Prerequisites("ruinblade") },
+  },
+  skyascendant: {
+    id: "skyascendant",
+    name: TIER7_COMBAT_JOB_NAMES.skyascendant,
+    tier: 7,
+    cultivateProfile: { dex: 4, str: 2, luk: 1 },
+    jobBonus: { dex: 32, str: 10, luk: 6 },
+    unlock: { prereqs: tier7Prerequisites("skyascendant") },
+  },
+  primordialsage: {
+    id: "primordialsage",
+    name: TIER7_COMBAT_JOB_NAMES.primordialsage,
+    tier: 7,
+    cultivateProfile: { int: 4, spi: 3 },
+    jobBonus: { int: 32, spi: 16 },
+    unlock: { prereqs: tier7Prerequisites("primordialsage") },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -1539,6 +1590,22 @@ export function isJobUnlocked(
   return isJobUnlockedInternal(job, proficiency, ctx, new Set([job.id]));
 }
 
+/**
+ * 해금된 직업에 영구 보상이나 반복 콘텐츠 권한을 부여해도 되는지 판정한다.
+ * 7차는 선행 숙련도 충족과 최초 전직 성공이 분리되어 있으므로 jobHistory를
+ * 진실 출처로 사용한다. 0~6차는 기존 해금 판정을 그대로 유지한다.
+ */
+export function isJobContentUnlocked(
+  job: V2JobDefinition,
+  proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
+): boolean {
+  if (isTier7CombatJobId(job.id)) {
+    return (proficiency.jobHistory ?? []).includes(job.id);
+  }
+  return isJobUnlocked(job, proficiency, ctx);
+}
+
 function isJobUnlockedInternal(
   job: V2JobDefinition,
   proficiency: V2ProficiencyState,
@@ -1564,7 +1631,7 @@ export function unlockedJobCount(
   ctx?: JobUnlockContext,
 ): number {
   return V2_JOB_LIST.filter(
-    (job) => job.tier > 0 && isJobUnlocked(job, proficiency, ctx),
+    (job) => job.tier > 0 && isJobContentUnlocked(job, proficiency, ctx),
   ).length;
 }
 
@@ -1770,7 +1837,9 @@ export function unlockedJobs(
   ctx?: JobUnlockContext,
 ): V2JobDefinition[] {
   return V2_JOB_LIST.filter(
-    (job) => isRootJobSelectable(job) && isJobUnlocked(job, proficiency, ctx),
+    (job) =>
+      isRootJobSelectable(job) &&
+      isJobContentUnlocked(job, proficiency, ctx),
   );
 }
 
@@ -1932,6 +2001,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   legendaryminer: { class: "survivor", spec: "legendaryminer" },
   blooddemon: { class: "warrior", spec: "blooddemon" },
   absolute: { class: "warrior", spec: "absolute" },
+  // tier 7 — 첫 선행 계보 직군을 저장 class로 사용하고 고유 spec으로 왕복한다.
+  shadowblade: { class: "warrior", spec: "shadowblade" },
+  ruinblade: { class: "warrior", spec: "ruinblade" },
+  skyascendant: { class: "rogue", spec: "skyascendant" },
+  primordialsage: { class: "mage", spec: "primordialsage" },
 };
 
 /**

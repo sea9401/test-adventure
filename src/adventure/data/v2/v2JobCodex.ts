@@ -8,8 +8,8 @@
 import {
   V2_JOB_LIST,
   cumLevelForJob,
+  isJobContentUnlocked,
   isJobUnlockConditionRevealed,
-  isJobUnlocked,
   jobIdFromLegacy,
   jobUnlockConditionText,
   type JobUnlockContext,
@@ -55,7 +55,7 @@ export function buildJobCodex(
 
   const realJobs = V2_JOB_LIST.filter((j) => j.tier > 0);
   const jobs: JobCodexJob[] = realJobs.map((job) => {
-    const unlocked = isJobUnlocked(job, prof, unlockCtx);
+    const unlocked = isJobContentUnlocked(job, prof, unlockCtx);
     const conditionRevealed = isJobUnlockConditionRevealed(
       job,
       prof,

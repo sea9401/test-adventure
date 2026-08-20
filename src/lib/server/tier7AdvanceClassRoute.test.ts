@@ -75,6 +75,19 @@ vi.mock("@/lib/server/savesKv", () => ({
       fallback: unknown,
     ) => (tx.__saves.has(key) ? tx.__saves.get(key) : fallback),
   ),
+  readSaves: vi.fn(
+    async (
+      tx: { __saves: Map<string, unknown> },
+      _uid: string,
+      fallbacks: Record<string, unknown>,
+    ) =>
+      Object.fromEntries(
+        Object.entries(fallbacks).map(([key, fallback]) => [
+          key,
+          tx.__saves.has(key) ? tx.__saves.get(key) : fallback,
+        ]),
+      ),
+  ),
   upsertSave: vi.fn(
     async (
       tx: { __saves: Map<string, unknown> },

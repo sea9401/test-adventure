@@ -16,14 +16,17 @@ async function trackedRead(key: string) {
 }
 
 vi.mock("@/lib/server/savesKv", () => ({
-  readSave: vi.fn(async (_executor, _userId, key: string) => trackedRead(key)),
+  readSaves: vi.fn(
+    async (_executor, _userId, fallbacks: Record<string, unknown>) => {
+      await trackedRead(Object.keys(fallbacks).sort().join(","));
+      return fallbacks;
+    },
+  ),
 }));
 
 vi.mock("@/lib/server/v2QuestContext", () => ({
-  loadCompletedQuestIds: vi.fn(async () => {
-    await trackedRead("guide-quests.v2");
-    return new Set<string>();
-  }),
+  GUIDE_QUESTS_KEY: "guide-quests.v2",
+  parseClaimed: vi.fn(() => new Set<string>()),
 }));
 
 vi.mock("@/adventure/data/v2/v2JobCatalog", () => ({
@@ -45,22 +48,20 @@ beforeEach(() => {
 });
 
 describe("transaction 호환 DB helper", () => {
-  it("도감 보너스 save를 같은 executor에서 순차 조회한다", async () => {
+  it("도감 보너스 save를 같은 executor의 한 batch로 조회한다", async () => {
     await readCodexSpBonus({} as DbExecutor, "u-test");
 
-    expect(tracker.calls).toHaveLength(2);
+    expect(tracker.calls).toEqual([
+      "equipment-codex.v1,fishing-codex.v1",
+    ]);
     expect(tracker.maxActive).toBe(1);
   });
 
-  it("직업 해금 조건을 같은 executor에서 순차 조회한다", async () => {
+  it("직업 해금 조건 save를 같은 executor의 한 batch로 조회한다", async () => {
     await readJobUnlockContext({} as DbExecutor, "u-test");
 
     expect(tracker.calls).toEqual([
-      "guide-quests.v2",
-      "farm.v2",
-      "cooking.v1",
-      "woodcutting-log.v1",
-      "mining-log.v1",
+      "cooking.v1,farm.v2,guide-quests.v2,mining-log.v1,woodcutting-log.v1",
     ]);
     expect(tracker.maxActive).toBe(1);
   });

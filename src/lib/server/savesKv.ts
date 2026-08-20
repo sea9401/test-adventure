@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { db } from "@/db";
 import { savesKv } from "@/db/schema";
 
@@ -13,6 +13,60 @@ export type DbTransactionExecutor = Parameters<
   Parameters<typeof db.transaction>[0]
 >[0];
 export type DbExecutor = typeof db | DbTransactionExecutor;
+
+type SaveFallbacks = Record<string, unknown>;
+
+function sortedSaveKeys(values: SaveFallbacks): string[] {
+  return Object.keys(values).sort((a, b) => a.localeCompare(b));
+}
+
+function savesWithFallbacks<T extends SaveFallbacks>(
+  fallbacks: T,
+  rows: Array<{ key: string; value: unknown }>,
+): T {
+  const result = { ...fallbacks };
+  for (const row of rows) {
+    if (Object.hasOwn(fallbacks, row.key)) {
+      result[row.key as keyof T] = row.value as T[keyof T];
+    }
+  }
+  return result;
+}
+
+// 같은 사용자의 여러 save 키를 한 SELECT 로 읽는다. 반환값은 요청한 모든 키를 포함하며,
+// DB 행이 없는 키는 호출부 fallback 을 그대로 사용한다.
+export async function readSaves<T extends SaveFallbacks>(
+  executor: DbExecutor,
+  userId: string,
+  fallbacks: T,
+): Promise<T> {
+  const keys = sortedSaveKeys(fallbacks);
+  if (keys.length === 0) return { ...fallbacks };
+  const rows = await executor
+    .select({ key: savesKv.key, value: savesKv.value })
+    .from(savesKv)
+    .where(and(eq(savesKv.userId, userId), inArray(savesKv.key, keys)));
+  return savesWithFallbacks(fallbacks, rows);
+}
+
+// character.v2 같은 선행 잠금을 호출부가 먼저 잡은 뒤, 나머지 save 키를 정렬된 순서로
+// 한 번에 잠글 때 사용한다. 정렬은 서로 다른 라우트의 동일 사용자 동시 요청에서도 잠금
+// 획득 순서를 안정적으로 유지한다.
+export async function lockSavesForUpdate<T extends SaveFallbacks>(
+  executor: DbExecutor,
+  userId: string,
+  fallbacks: T,
+): Promise<T> {
+  const keys = sortedSaveKeys(fallbacks);
+  if (keys.length === 0) return { ...fallbacks };
+  const rows = await executor
+    .select({ key: savesKv.key, value: savesKv.value })
+    .from(savesKv)
+    .where(and(eq(savesKv.userId, userId), inArray(savesKv.key, keys)))
+    .orderBy(savesKv.key)
+    .for("update");
+  return savesWithFallbacks(fallbacks, rows);
+}
 
 // 트랜잭션 안에서 save 키 한 행을 잠그고(FOR UPDATE) 값을 파싱해 돌려준다.
 // read-modify-write 의 read 측 표준화 — 행 잠금을 빠뜨려 동시 변경이 서로 덮어쓰는 race
@@ -70,6 +124,39 @@ export async function upsertSave(
         value,
         version: sql`${savesKv.version} + 1`,
         updatedAt: now,
+      },
+    });
+}
+
+// 한 요청에서 최종 상태가 확정된 여러 save 키를 한 INSERT ... ON CONFLICT 문으로 쓴다.
+// 각 행의 version 은 기존 단건 upsert 와 동일하게 한 번 증가한다.
+export async function upsertSaves(
+  executor: DbExecutor,
+  userId: string,
+  entries: Record<string, unknown>,
+): Promise<void> {
+  const orderedEntries = Object.entries(entries).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  if (orderedEntries.length === 0) return;
+  const now = new Date();
+  await executor
+    .insert(savesKv)
+    .values(
+      orderedEntries.map(([key, value]) => ({
+        userId,
+        key,
+        value,
+        version: 1,
+        updatedAt: now,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [savesKv.userId, savesKv.key],
+      set: {
+        value: sql`excluded.value`,
+        version: sql`${savesKv.version} + 1`,
+        updatedAt: sql`excluded.updated_at`,
       },
     });
 }

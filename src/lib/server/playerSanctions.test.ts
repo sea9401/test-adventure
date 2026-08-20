@@ -49,6 +49,19 @@ beforeEach(() => {
 });
 
 describe("플레이어 거래 제재 현재 행", () => {
+  it("활성 거래 제재 시각이 없으면 거래 이력을 추가 조회하지 않는다", async () => {
+    mocks.userRows[0] = {
+      ...mocks.userRows[0],
+      tradeSuspendedUntil: null,
+      tradeSuspensionReason: null,
+    };
+
+    await expect(readPlayerSanctionStatus("u", now)).resolves.toMatchObject({
+      tradeSuspension: null,
+    });
+    expect(mocks.selectCall).toBe(2);
+  });
+
   it("더 오래 남은 과거 이력이 아니라 users 현재 만료 시각과 일치하는 행만 표시한다", async () => {
     mocks.tradeRows = [
       {
@@ -71,6 +84,7 @@ describe("플레이어 거래 제재 현재 행", () => {
         reason: "현재 조사",
       },
     });
+    expect(mocks.selectCall).toBe(3);
   });
 
   it("users의 현재 거래 제재가 만료됐으면 남아 있는 미래 이력을 현재로 노출하지 않는다", async () => {
@@ -90,5 +104,6 @@ describe("플레이어 거래 제재 현재 행", () => {
     await expect(readPlayerSanctionStatus("u", now)).resolves.toMatchObject({
       tradeSuspension: null,
     });
+    expect(mocks.selectCall).toBe(2);
   });
 });

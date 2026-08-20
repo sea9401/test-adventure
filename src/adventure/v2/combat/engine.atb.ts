@@ -1,6 +1,7 @@
 import type { Monster } from "@/adventure/data/monsters";
 import type { PotionId } from "@/adventure/data/potions";
 import {
+  ATB_TIMELINE_TICK_CAP,
   actionInterval,
   depthSpdCorrection,
   monsterActionSpd,
@@ -53,9 +54,7 @@ import { mergeTier7ResourceSnapshot } from "./engineState";
 import { weightSpeedMultiplier } from "./mutationCombat";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
 
-// PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
-// 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
-export const ATB_TICK_CAP = 50 * 60;
+export const ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const ATB_ACTION_GUARD = 1000;
 
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {

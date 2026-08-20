@@ -67,7 +67,7 @@ export function V2TopBar({
   return (
     <header
       data-game-top-bar
-      className="sticky top-0 z-[60] flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90"
+      className="sticky top-0 z-[60] flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90"
     >
       <div className="flex min-w-0 items-center gap-2">
         <Link

@@ -67,8 +67,8 @@ export type V2JobUnlock = {
 export type V2JobDefinition = {
   id: string;
   name: string;
-  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4=심화, 5=상급 심화, 6=초월 심화. */
-  tier: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4=심화, 5=상급 심화, 6=초월 심화, 7=최상위. */
+  tier: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
   cultivateProfile: Partial<Record<V2StatKey, number>>;
   jobBonus: Partial<Record<V2StatKey, number>>;
   unlock: V2JobUnlock;

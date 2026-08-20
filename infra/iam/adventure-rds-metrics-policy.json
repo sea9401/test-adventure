@@ -6,6 +6,15 @@
       "Effect": "Allow",
       "Action": "cloudwatch:GetMetricStatistics",
       "Resource": "*"
+    },
+    {
+      "Sid": "DescribeRdsIncidents",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBInstances",
+        "rds:DescribeEvents"
+      ],
+      "Resource": "*"
     }
   ]
 }

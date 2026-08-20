@@ -5,7 +5,13 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import {
   SKILL_RITUAL_MAX_LEVEL,
@@ -155,6 +161,144 @@ function ritualBonusFor(mode: SkillRitualMode, level: number): number {
   return mode === "focus"
     ? skillRitualFocusBonusPct(level)
     : skillRitualPowerBonusPct(level);
+}
+
+export function SkillRitualResetAction({
+  skillName,
+  mode,
+  level,
+  refund,
+  busy,
+  onConfirm,
+}: {
+  skillName: string;
+  mode: SkillRitualMode;
+  level: number;
+  refund: { gold: number; proficiency: number };
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        variant="warning"
+        size="sm"
+        onClick={() => setConfirmOpen(true)}
+        disabled={busy}
+      >
+        {busy ? "초기화 중…" : "초기화"}
+      </Button>
+      {confirmOpen ? (
+        <SkillRitualResetConfirmDialog
+          skillName={skillName}
+          mode={mode}
+          level={level}
+          refund={refund}
+          busy={busy}
+          onConfirm={onConfirm}
+          onClose={() => setConfirmOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export function SkillRitualResetConfirmDialog({
+  skillName,
+  mode,
+  level,
+  refund,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  skillName: string;
+  mode: SkillRitualMode;
+  level: number;
+  refund: { gold: number; proficiency: number };
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeIfIdle = useCallback(() => {
+    if (!busy) onClose();
+  }, [busy, onClose]);
+
+  useEscapeKey(closeIfIdle);
+  useModalA11y(panelRef);
+
+  return (
+    <div
+      className="ui-modal-reveal fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) closeIfIdle();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="skill-ritual-reset-confirm-title"
+        aria-describedby="skill-ritual-reset-confirm-description"
+        className={`${SURFACE_CARD} ui-modal-panel w-full max-w-md p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl`}
+      >
+        <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">
+          스킬 강화 초기화 확인
+        </p>
+        <h2
+          id="skill-ritual-reset-confirm-title"
+          className="mt-1 text-lg font-bold text-zinc-900 dark:text-zinc-100"
+        >
+          {skillName}의 강화 의식을 초기화할까요?
+        </h2>
+        <p
+          id="skill-ritual-reset-confirm-description"
+          className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300"
+        >
+          현재 적용된 강화 의식과 효과가 사라집니다.
+        </p>
+
+        <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">현재 강화</span>
+            <strong>{modeLabel(mode)} +{level}</strong>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">환급 골드</span>
+            <strong className="tabular-nums">{goldLabel(refund.gold)}</strong>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">환급 숙달</span>
+            <strong className="tabular-nums">
+              {refund.proficiency.toLocaleString()}
+            </strong>
+          </div>
+        </div>
+
+        <div className={`${SURFACE_ACCENT} mt-4 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:text-amber-200`}>
+          누적 비용의 50%만 환급됩니다. 초기화는 되돌릴 수 없습니다.
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Button size="md" disabled={busy} onClick={closeIfIdle}>
+            취소
+          </Button>
+          <Button
+            size="md"
+            variant="danger"
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? "초기화 중…" : "강화 초기화 확정"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function SkillLearningCostSummary({
@@ -826,16 +970,14 @@ export function V2SkillLearnView({
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               {ritualLevel > 0 && (
-                <Button
-                  variant="warning"
-                  size="sm"
-                  onClick={() => resetRitual(ritualTarget.skillId)}
-                  disabled={busy != null}
-                >
-                  {busy === `ritual-reset:${ritualTarget.skillId}`
-                    ? "초기화 중…"
-                    : "초기화"}
-                </Button>
+                <SkillRitualResetAction
+                  skillName={ritualTarget.name}
+                  mode={currentRitualMode ?? ritualMode}
+                  level={ritualLevel}
+                  refund={currentRefund}
+                  busy={busy != null}
+                  onConfirm={() => resetRitual(ritualTarget.skillId)}
+                />
               )}
               <Button
                 variant="success"

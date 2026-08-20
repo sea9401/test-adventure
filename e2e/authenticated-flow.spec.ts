@@ -292,7 +292,7 @@ test("폭풍 원정을 모바일 지도와 노드 모달에서 직접 진행한�
   }));
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
 
-  await nodeDialog.getByRole("button", { name: "닫기" }).click();
+  await nodeDialog.getByRole("button", { name: "확인" }).click();
   const order = await page.evaluate(() => {
     const mapElement = document.querySelector('[data-testid="storm-expedition-command-map"]');
     const support = document.querySelector('[data-testid="storm-expedition-support"]');

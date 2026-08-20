@@ -215,9 +215,13 @@ describe("좌우 전투 상태 정렬", () => {
       "모험가",
     );
 
+    const timedState = {
+      ...state,
+      log: state.log.map((entry) => ({ ...entry, t: 0 })),
+    };
     const html = renderToStaticMarkup(
       <BattleScene
-        state={state}
+        state={timedState}
         playerName="모험가"
         playerStatus={{
           gender: "male1",
@@ -233,5 +237,50 @@ describe("좌우 전투 상태 정렬", () => {
     expect(html).toContain('data-battle-log-viewport="page"');
     expect(html).not.toContain("h-[58svh]");
     expect(html).not.toContain("overflow-y-auto");
+    expect(html).toContain('data-battle-log-tick-indicator="full"');
+    expect(html).toContain('data-battle-log-tick-indicator="compact"');
+    expect(html).toContain("0 / 3,000틱");
+  });
+
+  it("전용 페이지여도 틱이 없는 레거시 로그에는 시간대를 표시하지 않는다", () => {
+    const enemy: Monster = {
+      name: "훈련용 적",
+      tags: [],
+      hp: 100,
+      atk: 10,
+      def: 5,
+      spd: 5,
+      exp: 0,
+    };
+    const state = initialBattleState(
+      {
+        hp: 100,
+        maxHp: 100,
+        atk: 10,
+        def: 5,
+        spd: 10,
+        evasionPct: 0,
+        attackCount: 1,
+      },
+      enemy,
+      "모험가",
+    );
+
+    const html = renderToStaticMarkup(
+      <BattleScene
+        state={state}
+        playerName="모험가"
+        playerStatus={{
+          gender: "male1",
+          exp: 0,
+          maxExp: 100,
+          hpPotionCount: 0,
+        }}
+        layout="split"
+        logViewport="page"
+      />,
+    );
+
+    expect(html).not.toContain("data-battle-log-tick-indicator");
   });
 });

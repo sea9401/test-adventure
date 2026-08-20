@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BattleState } from "../v2/combat/engine";
-import { BattleLogList } from "./BattleLogList";
+import {
+  BattleLogList,
+  battleLogGroupFirstTick,
+} from "./BattleLogList";
+import {
+  BattleLogTickIndicator,
+  useBattleLogCurrentTick,
+} from "./BattleLogTickIndicator";
+import { ATB_TIMELINE_TICK_CAP } from "../v2/combat/combatTimeline";
 import { MONSTERS } from "../data/monsters";
 import {
   formatRelative,
@@ -506,6 +514,13 @@ export function BattleScene({
     "v2c_golem_rocksmash",
   );
   const logRef = useRef<HTMLDivElement>(null);
+  const initialLogTick = battleLogGroupFirstTick(state.log);
+  const currentLogTick = useBattleLogCurrentTick(
+    logRef,
+    initialLogTick,
+    logViewport === "page" && initialLogTick != null,
+    state.log,
+  );
 
   useEffect(() => {
     if (logViewport === "page") return;
@@ -819,20 +834,42 @@ export function BattleScene({
         )}
       </Card>
 
-      <div
-        ref={logRef}
-        data-battle-log-viewport={logViewport}
-        className={`${SURFACE_CARD} mb-6 p-3 sm:mb-8 ${
-          logViewport === "page"
-            ? ""
-            : "no-scrollbar h-[58svh] min-h-[22rem] overflow-y-auto sm:h-[40rem] sm:min-h-0"
-        }`}
-      >
-        <BattleLogList
-          entries={state.log}
-          playerName={playerName}
-          enemyName={state.enemy.name}
-        />
+      <div className="relative mb-6 sm:mb-8">
+        <div
+          ref={logRef}
+          data-battle-log-viewport={logViewport}
+          className={`${SURFACE_CARD} p-3 ${
+            logViewport === "page"
+              ? ""
+              : "no-scrollbar h-[58svh] min-h-[22rem] overflow-y-auto sm:h-[40rem] sm:min-h-0"
+          }`}
+        >
+          {currentLogTick != null && (
+            <div className="sticky top-20 z-20 mb-2 flex justify-end xl:hidden">
+              <BattleLogTickIndicator
+                currentTick={currentLogTick}
+                maxTick={ATB_TIMELINE_TICK_CAP}
+                compact
+              />
+            </div>
+          )}
+          <BattleLogList
+            entries={state.log}
+            playerName={playerName}
+            enemyName={state.enemy.name}
+          />
+        </div>
+
+        {currentLogTick != null && (
+          <aside className="absolute inset-y-0 left-full ml-4 hidden w-36 xl:block">
+            <div className="sticky top-20">
+              <BattleLogTickIndicator
+                currentTick={currentLogTick}
+                maxTick={ATB_TIMELINE_TICK_CAP}
+              />
+            </div>
+          </aside>
+        )}
       </div>
 
       {recents.length > 0 && (

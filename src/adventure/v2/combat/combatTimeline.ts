@@ -29,6 +29,10 @@ export const RATE_CAP =
 //   순수 표시 다이얼 — 엔진/리플레이 불변, 한 줄로 조절. BattleLogList 가 e.t 를 이 값으로 버킷팅.
 export const ATB_LOG_WINDOW_TICKS = 400;
 
+// PvE·PvP·전투 로그 UI가 공유하는 전투 타임라인 상한. 기준 속도(actionInterval≈100)에서
+// 플레이어 행동 약 30회분으로, 지속형 빌드가 작동할 여지를 주되 장기전을 제한한다.
+export const ATB_TIMELINE_TICK_CAP = 3_000;
+
 // 행동 레이트 — SPD^POW 비례(멱 곡선). spd=REF(64)에서 100 기준, 높을수록 ↑(RATE_CAP 상한).
 export function actionRate(spd: number): number {
   const s = Math.max(1, Number(spd) || 0);

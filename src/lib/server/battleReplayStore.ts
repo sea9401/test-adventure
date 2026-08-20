@@ -23,6 +23,22 @@ type DeferredReplayOptions = {
   retentionMs?: number;
 };
 
+function safeReplayErrorMetadata(error: unknown): {
+  name: string;
+  code?: string;
+} {
+  if (!(error instanceof Error)) return { name: "UnknownError" };
+  const name = /^[A-Za-z0-9_]{1,64}$/.test(error.name)
+    ? error.name
+    : "Error";
+  const rawCode = (error as Error & { code?: unknown }).code;
+  const code =
+    typeof rawCode === "string" && /^[A-Za-z0-9_]{1,64}$/.test(rawCode)
+      ? rawCode
+      : null;
+  return { name, ...(code ? { code } : {}) };
+}
+
 export async function storeBattleReplays(
   executor: DbExecutor,
   userId: string,
@@ -85,7 +101,7 @@ export async function deferLongBattleReplays(
   } catch (error) {
     console.warn(
       "[battleReplayStore] batch replay persistence failed",
-      error,
+      safeReplayErrorMetadata(error),
     );
     return payloads;
   }

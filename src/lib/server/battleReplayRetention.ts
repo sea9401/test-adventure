@@ -3,12 +3,15 @@ import { db } from "@/db";
 import { battleReplays } from "@/db/schema";
 
 export const BATTLE_REPLAY_CLEANUP_BATCH_SIZE = 1_000;
+const BATTLE_REPLAY_CLEANUP_LOCK_KEY =
+  "adventure-rpg:battle-replay-retention:v1";
 
 type CleanupExecutor = {
   execute(query: SQL): Promise<unknown>;
 };
 
 type CleanupCountRow = {
+  acquired?: boolean;
   deleted: string | number;
 };
 
@@ -25,25 +28,36 @@ export async function deleteExpiredBattleReplayBatch(
   now = new Date(),
 ) {
   const result = await executor.execute(sql`
-    WITH due AS MATERIALIZED (
-      SELECT ctid
+    WITH cleanup_lock AS MATERIALIZED (
+      SELECT pg_try_advisory_xact_lock(
+        hashtext(${BATTLE_REPLAY_CLEANUP_LOCK_KEY})
+      ) AS acquired
+    ), due AS MATERIALIZED (
+      SELECT battle_replays.ctid
       FROM ${battleReplays}
-      WHERE ${battleReplays.expiresAt} < ${now}
+      CROSS JOIN cleanup_lock
+      WHERE cleanup_lock.acquired
+        AND ${battleReplays.expiresAt} < ${now}
       ORDER BY ${battleReplays.expiresAt}
       LIMIT ${BATTLE_REPLAY_CLEANUP_BATCH_SIZE}
     ), removed AS (
       DELETE FROM ${battleReplays} AS replay
       USING due
       WHERE replay.ctid = due.ctid
-      RETURNING replay.ctid
+      RETURNING 1 AS removed
     )
-    SELECT count(*)::int AS deleted
-    FROM removed
+    SELECT cleanup_lock.acquired,
+      count(removed.removed)::int AS deleted
+    FROM cleanup_lock
+    LEFT JOIN removed ON true
+    GROUP BY cleanup_lock.acquired
   `);
-  const deleted = Number(rowsOf(result)[0]?.deleted ?? 0);
+  const row = rowsOf(result)[0];
+  const deleted = Number(row?.deleted ?? 0);
   return {
     deleted,
     more: deleted >= BATTLE_REPLAY_CLEANUP_BATCH_SIZE,
     batchSize: BATTLE_REPLAY_CLEANUP_BATCH_SIZE,
+    skipped: row?.acquired === false,
   };
 }

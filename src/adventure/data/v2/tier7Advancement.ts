@@ -66,7 +66,7 @@ export function tier7AdvancementStatus(input: {
 
   const jobId = input.targetJobId;
   const allowed = TIER7_COMBAT_JOB_PREREQS[jobId];
-  const prerequisiteProgress = allowed.map((prerequisiteJobId) => {
+  const prerequisiteProgressFor = (prerequisiteJobId: string) => {
     const current = nonNegativeInteger(input.jobCumLevel[prerequisiteJobId]);
     return {
       jobId: prerequisiteJobId,
@@ -74,7 +74,9 @@ export function tier7AdvancementStatus(input: {
       required: TIER7_PREREQUISITE_MASTERY,
       met: current >= TIER7_PREREQUISITE_MASTERY,
     };
-  }) as Tier7AdvancementStatus["prerequisiteProgress"];
+  };
+  const prerequisiteProgress: Tier7AdvancementStatus["prerequisiteProgress"] =
+    [prerequisiteProgressFor(allowed[0]), prerequisiteProgressFor(allowed[1])];
   const currentLevel = nonNegativeInteger(input.currentLevel);
   const materialCurrent = materialCounts(input.materials)[
     TIER7_FIRST_UNLOCK_MATERIAL_ID

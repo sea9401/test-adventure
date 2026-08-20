@@ -492,9 +492,11 @@ export function BattleLogList({
           (entry, index) => entry.kind !== "hp_bar" || index === lastHpIdx,
         );
         const displayItems = groupBattleLogActions(visibleGroup);
+        const groupTick = battleLogGroupFirstTick(group);
         return (
           <div
             key={gi}
+            data-battle-log-group-tick={groupTick ?? undefined}
             className={`${SURFACE_INSET} ${s.spacing} p-2`}
           >
             {displayItems.map((item, index) =>
@@ -521,6 +523,15 @@ export function BattleLogList({
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────
+
+export function battleLogGroupFirstTick(
+  group: BattleLogEntry[],
+): number | null {
+  for (const entry of group) {
+    if (entry.t != null && Number.isFinite(entry.t)) return entry.t;
+  }
+  return null;
+}
 
 function isReceivedDamageEffect(entry: BattleLogEntry): boolean {
   return (

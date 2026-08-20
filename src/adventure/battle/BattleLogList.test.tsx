@@ -4,6 +4,7 @@ import type { BattleLogEntry } from "../v2/combat/engine";
 import {
   battleLogPillColor,
   BattleLogList,
+  battleLogGroupFirstTick,
   groupBattleLogActions,
 } from "./BattleLogList";
 
@@ -68,6 +69,39 @@ describe("방어 기제 로그 라벨", () => {
 });
 
 describe("BattleLogList 표시 기호", () => {
+  it("묶음에서 처음 기록된 ATB 틱을 반환한다", () => {
+    expect(
+      battleLogGroupFirstTick([
+        { kind: "info", text: "전투 시작" },
+        { kind: "player_attack", text: "공격", t: 420 },
+        { kind: "info", text: "효과", t: 425 },
+      ]),
+    ).toBe(420);
+  });
+
+  it("ATB 로그 묶음은 첫 틱을 스크롤 추적 메타데이터로 노출한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList
+        entries={[
+          { kind: "info", text: "전투 시작" },
+          { kind: "player_attack", text: "공격", t: 420 },
+          { kind: "info", text: "효과", t: 425 },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-battle-log-group-tick="420"');
+  });
+
+  it("틱이 없는 레거시 묶음은 DOM에 시간대 메타데이터를 노출하지 않는다", () => {
+    const entries: BattleLogEntry[] = [{ kind: "info", text: "옛 로그" }];
+
+    expect(battleLogGroupFirstTick(entries)).toBeNull();
+    expect(renderToStaticMarkup(<BattleLogList entries={entries} />)).not.toContain(
+      "data-battle-log-group-tick",
+    );
+  });
+
   it("모바일에서는 일반·compact 보조 정보를 12px 이상으로 표시한다", () => {
     const entries: BattleLogEntry[] = [
       { kind: "turn_marker", text: "1턴 · AP 0", turn: "player" },

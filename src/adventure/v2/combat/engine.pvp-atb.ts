@@ -1,5 +1,8 @@
 import type { PotionId } from "@/adventure/data/potions";
-import { actionInterval } from "./combatTimeline";
+import {
+  ATB_TIMELINE_TICK_CAP,
+  actionInterval,
+} from "./combatTimeline";
 import {
   appendLog,
   type BattleLogEntry,
@@ -37,7 +40,7 @@ import { weightSpeedMultiplier } from "./mutationCombat";
 
 // PvE 사냥과 같은 3000틱 상한을 사용한다. 양쪽 모두 플레이어 스케일 SPD를 쓰므로 실제 행동 수는
 // 각자의 actionInterval에 따라 달라지며, 장기전만 사냥과 동일한 타임라인 길이까지 허용한다.
-export const PVP_ATB_TICK_CAP = 3_000;
+export const PVP_ATB_TICK_CAP = ATB_TIMELINE_TICK_CAP;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
 function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {

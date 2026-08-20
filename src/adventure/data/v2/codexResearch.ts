@@ -242,6 +242,22 @@ function validateFilter(value: unknown): string | null {
   return null;
 }
 
+function validateThemeFilter(
+  value: unknown,
+  themeCategories: ReadonlySet<CodexMasteryCategory>,
+): string | null {
+  const filterError = validateFilter(value);
+  if (filterError) return filterError;
+  if (
+    !isObject(value) ||
+    !isCategory(value.category) ||
+    !themeCategories.has(value.category)
+  ) {
+    return "filter category must belong to the season theme";
+  }
+  return null;
+}
+
 function validateObjectiveRule(value: unknown): string | null {
   if (!isObject(value)) return "objective rule must be an object";
   if (
@@ -299,6 +315,10 @@ export function validateCodexResearchSeasonDefinition(
   ) {
     return "primary and support categories must be three distinct categories";
   }
+  const themeCategories = new Set<CodexMasteryCategory>([
+    ...definition.primaryCategories,
+    definition.supportCategory,
+  ]);
 
   if (
     !Array.isArray(definition.objectives) ||
@@ -336,7 +356,7 @@ export function validateCodexResearchSeasonDefinition(
       return "objective points must be a positive safe integer";
     }
     objectivePoints.push(objective.points);
-    const filterError = validateFilter(objective.filter);
+    const filterError = validateThemeFilter(objective.filter, themeCategories);
     if (filterError) return filterError;
     const ruleError = validateObjectiveRule(objective.rule);
     if (ruleError) return ruleError;
@@ -362,7 +382,7 @@ export function validateCodexResearchSeasonDefinition(
     }
     diversityIds.add(track.id);
     if (!isNonEmptyString(track.label)) return "diversity track label must be non-empty";
-    const filterError = validateFilter(track.filter);
+    const filterError = validateThemeFilter(track.filter, themeCategories);
     if (filterError) return filterError;
     if (!isPositiveSafeInteger(track.pointsPerEntry) || !isPositiveSafeInteger(track.maxEntries)) {
       return "diversity points and cap must be positive safe integers";
@@ -387,7 +407,7 @@ export function validateCodexResearchSeasonDefinition(
     }
     recordIds.add(track.id);
     if (!isNonEmptyString(track.label)) return "record track label must be non-empty";
-    const filterError = validateFilter(track.filter);
+    const filterError = validateThemeFilter(track.filter, themeCategories);
     if (filterError) return filterError;
     if (!Array.isArray(track.milestones) || track.milestones.length === 0) {
       return "record milestones must be a non-empty array";
@@ -506,7 +526,40 @@ function storedProgressError(): never {
 }
 
 function isValidStoredTimestamp(value: unknown): value is string {
-  return typeof value === "string" && Number.isFinite(Date.parse(value));
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?Z$/.exec(
+    value,
+  );
+  if (!match) return false;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [
+    31,
+    leapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  return month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= daysInMonth[month - 1] &&
+    hour <= 23 &&
+    minute <= 59 &&
+    second <= 59;
 }
 
 function assertStoredProgressConsistent(
@@ -517,7 +570,6 @@ function assertStoredProgressConsistent(
     !isObject(progress) ||
     !Number.isSafeInteger(progress.score) ||
     progress.score < 0 ||
-    progress.score > CODEX_RESEARCH_MAX_SCORE ||
     !Number.isSafeInteger(progress.objectiveCompletedCount) ||
     progress.objectiveCompletedCount < 0 ||
     progress.objectiveCompletedCount > CODEX_RESEARCH_OBJECTIVE_COUNT ||
@@ -529,7 +581,7 @@ function assertStoredProgressConsistent(
     progress.recordScore > CODEX_RESEARCH_RECORD_SCORE ||
     (progress.scoreReachedAt !== null &&
       !isValidStoredTimestamp(progress.scoreReachedAt)) ||
-    (progress.score > 0 && progress.scoreReachedAt === null) ||
+    ((progress.score === 0) !== (progress.scoreReachedAt === null)) ||
     !isObject(progress.objectiveProgress) ||
     !isObject(progress.objectiveProgress.objectives) ||
     !isObject(progress.objectiveProgress.diversityEntries) ||

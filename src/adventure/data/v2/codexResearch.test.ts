@@ -179,6 +179,13 @@ describe("codex research season definition", () => {
       definition.objectives[0].filter.sources = ["life.complete"];
       return { definition, window: kstCodexResearchSeasonWindow("2026-08") };
     }],
+    ["theme category", (definition: CodexResearchDefinitionSnapshot) => {
+      definition.objectives[0].filter = {
+        category: "monster",
+        sources: ["hunt.victory"],
+      };
+      return { definition, window: kstCodexResearchSeasonWindow("2026-08") };
+    }],
     ["objective budget", (definition: CodexResearchDefinitionSnapshot) => {
       definition.objectives[0].points += 1;
       return { definition, window: kstCodexResearchSeasonWindow("2026-08") };
@@ -375,5 +382,35 @@ describe("codex research progress evaluator", () => {
       NOW,
     )).toThrow("stored research progress is inconsistent");
     expect(corrupted.score).toBe(9_999);
+  });
+
+  it("rejects rolled-over achievement dates and a zero score reach time", () => {
+    const definition = validCodexResearchDefinition();
+    const completed = applyCodexResearchEvents(
+      definition,
+      emptyCodexResearchProgress(),
+      [event("fish-basic-1", { amount: 3 })],
+      NOW,
+    ).next;
+    const rolledOver = structuredClone(completed);
+    rolledOver.objectiveProgress.objectives["basic-1"].completedAt =
+      "2026-02-30T00:00:00.000Z";
+    const zeroWithReachTime = {
+      ...emptyCodexResearchProgress(),
+      scoreReachedAt: NOW.toISOString(),
+    };
+
+    expect(() => applyCodexResearchEvents(
+      definition,
+      rolledOver,
+      [],
+      NOW,
+    )).toThrow("stored research progress is inconsistent");
+    expect(() => applyCodexResearchEvents(
+      definition,
+      zeroWithReachTime,
+      [],
+      NOW,
+    )).toThrow("stored research progress is inconsistent");
   });
 });

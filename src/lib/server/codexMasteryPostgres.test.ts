@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client, Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -15,10 +15,15 @@ import {
   codexMasteryProgress,
   codexMasterySummary,
   codexResearchProgress,
+  codexResearchPublications,
   codexResearchSeasons,
   codexTrophyHistory,
+  serverFeed,
+  v2Notifications,
 } from "@/db/schema";
 import { scheduleCodexResearchSeason } from "./codexResearchRepository";
+import { readCodexResearchArchive } from "./codexResearchArchive";
+import { publishCodexResearchSeasonHonors } from "./codexResearchPublication";
 import {
   previewCodexResearchSettlementForOps,
   resettleCodexResearchSeason,
@@ -158,12 +163,40 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
         PRIMARY KEY (user_id, key)
       )
     `);
+    await admin.query(`
+      CREATE TABLE user_blocks (
+        blocker_user_id text NOT NULL,
+        blocked_user_id text NOT NULL,
+        PRIMARY KEY (blocker_user_id, blocked_user_id)
+      )
+    `);
+    await admin.query(`
+      CREATE TABLE v2_notifications (
+        id serial PRIMARY KEY,
+        user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type text NOT NULL,
+        payload jsonb NOT NULL,
+        read_at timestamp,
+        created_at timestamp DEFAULT now() NOT NULL
+      )
+    `);
+    await admin.query(`
+      CREATE TABLE server_feed (
+        id serial PRIMARY KEY,
+        user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        actor_name text NOT NULL,
+        type text NOT NULL,
+        payload jsonb NOT NULL,
+        created_at timestamp DEFAULT now() NOT NULL
+      )
+    `);
 
     for (const migrationName of [
       "0169_codex_mastery_foundation.sql",
       "0170_codex_mastery_trophy_history.sql",
       "0171_wandering_scrambler.sql",
       "0172_codex_research_settlement.sql",
+      "0173_codex_research_publication.sql",
     ]) {
       const migration = await readFile(
         new URL(`../../../drizzle/${migrationName}`, import.meta.url),
@@ -726,6 +759,97 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
       now: new Date("2026-11-30T18:00:00.000Z"),
     }))).rejects.toMatchObject({ code: "trophies_already_published" });
 
+    await expect(readCodexResearchArchive(database, {
+      viewerUserId: users[0],
+      seasonId: correctionDefinition.seasonId,
+      now: new Date("2026-11-30T18:01:00.000Z"),
+    })).resolves.toMatchObject({ status: "no_season" });
+
+    await expect(database.transaction(async (tx) => {
+      await publishCodexResearchSeasonHonors(tx, {
+        seasonId: correctionDefinition.seasonId,
+        now: new Date("2026-11-30T18:02:00.000Z"),
+        feedEnabled: false,
+      });
+      throw new Error("publication rollback sentinel");
+    })).rejects.toThrow("publication rollback sentinel");
+    expect(await database.select().from(codexResearchPublications).where(
+      eq(codexResearchPublications.seasonId, correctionDefinition.seasonId),
+    )).toEqual([]);
+    expect(await database.select().from(v2Notifications).where(
+      inArray(v2Notifications.userId, users),
+    )).toEqual([]);
+    const [unpublishedAfterRollback] = await database.select().from(
+      codexResearchSeasons,
+    ).where(eq(codexResearchSeasons.seasonId, correctionDefinition.seasonId));
+    expect(unpublishedAfterRollback.publishedAt).toBeNull();
+
+    await expect(database.transaction((tx) =>
+      publishCodexResearchSeasonHonors(tx, {
+        seasonId: correctionDefinition.seasonId,
+        now: new Date("2026-11-30T18:03:00.000Z"),
+        feedEnabled: false,
+      })
+    )).resolves.toMatchObject({
+      notificationCreatedCount: 2,
+      notificationExistingCount: 0,
+      feedCreatedCount: 0,
+    });
+    expect(await database.select().from(v2Notifications).where(
+      inArray(v2Notifications.userId, users),
+    )).toHaveLength(2);
+    expect(await database.select().from(serverFeed).where(
+      inArray(serverFeed.userId, users),
+    )).toHaveLength(0);
+    await expect(readCodexResearchArchive(database, {
+      viewerUserId: users[0],
+      seasonId: correctionDefinition.seasonId,
+      now: new Date("2026-11-30T18:04:00.000Z"),
+    })).resolves.toMatchObject({
+      status: "ready",
+      selectedSeasonId: correctionDefinition.seasonId,
+      list: [
+        { rank: 1, finalTier: "diamond", firstPlaceEngraving: true },
+        { rank: 2, finalTier: "bronze", firstPlaceEngraving: false },
+      ],
+    });
+
+    await expect(database.transaction((tx) =>
+      publishCodexResearchSeasonHonors(tx, {
+        seasonId: correctionDefinition.seasonId,
+        now: new Date("2026-11-30T18:05:00.000Z"),
+        feedEnabled: true,
+      })
+    )).resolves.toMatchObject({
+      notificationCreatedCount: 0,
+      notificationExistingCount: 2,
+      feedCreatedCount: 1,
+      feedExistingCount: 0,
+    });
+    await expect(database.transaction((tx) =>
+      publishCodexResearchSeasonHonors(tx, {
+        seasonId: correctionDefinition.seasonId,
+        now: new Date("2026-11-30T18:06:00.000Z"),
+        feedEnabled: true,
+      })
+    )).resolves.toMatchObject({
+      notificationCreatedCount: 0,
+      notificationExistingCount: 2,
+      feedCreatedCount: 0,
+      feedExistingCount: 1,
+    });
+    expect(await database.select().from(v2Notifications).where(
+      inArray(v2Notifications.userId, users),
+    )).toHaveLength(2);
+    expect(await database.select().from(serverFeed).where(
+      inArray(serverFeed.userId, users),
+    )).toHaveLength(1);
+    await expect(database.transaction((tx) => resettleCodexResearchSeason(tx, {
+      seasonId: correctionDefinition.seasonId,
+      adminEmails: [],
+      now: new Date("2026-11-30T18:07:00.000Z"),
+    }))).rejects.toMatchObject({ code: "season_already_published" });
+
     const publishedSummary = (await readCodexResearchSeasonOpsList(
       database,
       new Date("2026-11-30T18:00:00.000Z"),
@@ -733,6 +857,7 @@ describeWithDatabase("codex mastery PostgreSQL transaction integration", () => {
     )).find((row) => row.seasonId === correctionDefinition.seasonId);
     expect(publishedSummary).toMatchObject({
       opsState: "closed",
+      publishedAt: "2026-11-30T18:03:00.000Z",
       counts: {
         progress: 2,
         scored: 2,

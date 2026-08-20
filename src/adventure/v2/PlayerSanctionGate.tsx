@@ -20,16 +20,38 @@ type GateState =
   | { kind: "unauthorized" }
   | { kind: "error" };
 
+const SANCTION_RETRY_DELAYS_MS = [2_000, 5_000, 10_000] as const;
+
+function sanctionRetryDelay(failureCount: number): number {
+  const index = Math.min(
+    Math.max(0, failureCount - 1),
+    SANCTION_RETRY_DELAYS_MS.length - 1,
+  );
+  return SANCTION_RETRY_DELAYS_MS[index];
+}
+
 export function PlayerSanctionGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<GateState>({ kind: "loading" });
   const refreshRequestIdRef = useRef(0);
+  const initialFailureCountRef = useRef(0);
+  const hasReadyStatusRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+
+  const clearScheduledRetry = useCallback(() => {
+    if (retryTimerRef.current === null) return;
+    window.clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = null;
+  }, []);
 
   const refresh = useCallback(async () => {
+    clearScheduledRetry();
     const requestId = ++refreshRequestIdRef.current;
     try {
       const res = await fetch("/api/v2/me/sanctions", { cache: "no-store" });
       if (requestId !== refreshRequestIdRef.current) return;
       if (res.status === 401 || res.status === 404) {
+        initialFailureCountRef.current = 0;
+        hasReadyStatusRef.current = false;
         setState({ kind: "unauthorized" });
         return;
       }
@@ -37,6 +59,8 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
       const json = (await res.json()) as PlayerSanctionStatus & { ok?: boolean };
       if (requestId !== refreshRequestIdRef.current) return;
       if (!json.ok) throw new Error("invalid sanction status");
+      initialFailureCountRef.current = 0;
+      hasReadyStatusRef.current = true;
       setState({
         kind: "ready",
         status: {
@@ -49,9 +73,10 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
       // 최초 확인 실패는 제재 여부를 모른 채 저장 API를 호출하지 않도록 재시도 화면을
       // 보여준다. 플레이 중 폴링 한 번이 실패한 경우에는 마지막 정상 상태를 유지한다.
       if (requestId !== refreshRequestIdRef.current) return;
+      if (!hasReadyStatusRef.current) initialFailureCountRef.current += 1;
       setState((current) => (current.kind === "ready" ? current : { kind: "error" }));
     }
-  }, []);
+  }, [clearScheduledRetry]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 서버의 최신 제재 상태를 1회 로드
@@ -66,6 +91,15 @@ export function PlayerSanctionGate({ children }: { children: React.ReactNode }) 
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    if (state.kind !== "error") return;
+    retryTimerRef.current = window.setTimeout(
+      () => void refresh(),
+      sanctionRetryDelay(initialFailureCountRef.current),
+    );
+    return clearScheduledRetry;
+  }, [clearScheduledRetry, refresh, state]);
 
   if (state.kind === "loading") return <SanctionStatusLoading />;
   if (state.kind === "unauthorized") return <SanctionStatusUnauthorized />;

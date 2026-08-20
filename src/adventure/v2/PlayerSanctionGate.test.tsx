@@ -43,7 +43,122 @@ describe("PlayerSanctionGate 거래 이용 제한 안내", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("최초 상태 확인 실패 후 2초 뒤 자동 재시도해 게임 본문을 복구한다", async () => {
+    vi.useFakeTimers();
+    const failed = deferred<Response>();
+    fetchMock
+      .mockImplementationOnce(() => failed.promise)
+      .mockResolvedValueOnce(
+        response({
+          ok: true,
+          suspension: null,
+          tradeSuspension: null,
+          warning: null,
+        }),
+      );
+
+    render(
+      <PlayerSanctionGate>
+        <div>게임 본문</div>
+      </PlayerSanctionGate>,
+    );
+
+    await act(async () => {
+      failed.resolve(response({}, 503));
+      await failed.promise;
+    });
+    expect(screen.getByText("계정 상태를 확인하지 못했습니다")).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_999);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("게임 본문")).toBeDefined();
+  });
+
+  it("오류 화면이 언마운트되면 예약된 자동 재시도를 취소한다", async () => {
+    vi.useFakeTimers();
+    const failed = deferred<Response>();
+    fetchMock.mockImplementationOnce(() => failed.promise);
+
+    const { unmount } = render(
+      <PlayerSanctionGate>
+        <div>게임 본문</div>
+      </PlayerSanctionGate>,
+    );
+
+    await act(async () => {
+      failed.resolve(response({}, 503));
+      await failed.promise;
+    });
+    expect(screen.getByText("계정 상태를 확인하지 못했습니다")).toBeDefined();
+
+    unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("반복 실패하면 재시도 간격을 5초와 최대 10초까지 늘린다", async () => {
+    vi.useFakeTimers();
+    const failed = deferred<Response>();
+    fetchMock
+      .mockImplementationOnce(() => failed.promise)
+      .mockResolvedValueOnce(response({}, 503))
+      .mockResolvedValueOnce(response({}, 503))
+      .mockResolvedValueOnce(
+        response({
+          ok: true,
+          suspension: null,
+          tradeSuspension: null,
+          warning: null,
+        }),
+      );
+
+    render(
+      <PlayerSanctionGate>
+        <div>게임 본문</div>
+      </PlayerSanctionGate>,
+    );
+    await act(async () => {
+      failed.resolve(response({}, 503));
+      await failed.promise;
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_999);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_999);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(screen.getByText("게임 본문")).toBeDefined();
   });
 
   it("게임 본문 위에 미확인 거래 제한을 한 번 안내하고 해당 제재만 확인 처리한다", async () => {

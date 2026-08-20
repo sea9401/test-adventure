@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   codexMasteryProgress,
   codexMasterySummary,
+  codexTrophyHistory,
 } from "./schema";
 
 describe("codex mastery schema", () => {
@@ -27,6 +28,32 @@ describe("codex mastery schema", () => {
         "fishScoreReachedAt", "monsterScoreReachedAt", "cookingScoreReachedAt",
         "lifeScoreReachedAt", "jobScoreReachedAt", "updatedAt",
       ]),
+    );
+  });
+
+  it("persists monotonic trophy families outside the save JSON", () => {
+    expect(getTableName(codexTrophyHistory)).toBe("codex_trophy_history");
+    expect(Object.keys(getTableColumns(codexTrophyHistory))).toEqual([
+      "userId",
+      "trophyId",
+      "trophyKind",
+      "currentTier",
+      "tierAchievedAt",
+      "catalogVersion",
+      "seasonMetadata",
+      "updatedAt",
+    ]);
+
+    const config = getTableConfig(codexTrophyHistory);
+    expect(config.primaryKeys).toHaveLength(1);
+    expect(config.primaryKeys[0].columns.map((column) => column.name)).toEqual([
+      "user_id",
+      "trophy_id",
+    ]);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(config.foreignKeys[0].onDelete).toBe("cascade");
+    expect(config.indexes.map((index) => index.config.name)).toContain(
+      "codex_trophy_history_user_kind_tier_idx",
     );
   });
 

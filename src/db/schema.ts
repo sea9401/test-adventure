@@ -1,5 +1,9 @@
 import { sql } from "drizzle-orm";
 import type { CodexMasteryStage } from "@/adventure/data/v2/codexMasteryTypes";
+import type {
+  CodexMasteryTrophyKind,
+  CodexMasteryTrophyTier,
+} from "@/adventure/data/v2/codexMasteryTrophies";
 import {
   pgTable,
   text,
@@ -2641,6 +2645,46 @@ export const codexMasterySummary = pgTable(
       t.scoredCategoryCount.desc(),
       t.jobScoreReachedAt.asc().nullsLast(),
       t.userId.asc(),
+    ),
+  ],
+);
+
+// 도감·월간 트로피 연혁 — 가족 ID별 최고 등급과 모든 승급일을 단조 증가로 보존한다.
+export const codexTrophyHistory = pgTable(
+  "codex_trophy_history",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    trophyId: text("trophy_id").notNull(),
+    trophyKind: text("trophy_kind").$type<CodexMasteryTrophyKind>().notNull(),
+    currentTier: text("current_tier").$type<CodexMasteryTrophyTier>().notNull(),
+    tierAchievedAt: jsonb("tier_achieved_at")
+      .$type<Partial<Record<CodexMasteryTrophyTier, string>>>()
+      .notNull()
+      .default({}),
+    catalogVersion: integer("catalog_version").notNull().default(1),
+    seasonMetadata: jsonb("season_metadata").$type<Record<string, unknown>>(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.trophyId] }),
+    index("codex_trophy_history_user_kind_tier_idx").on(
+      t.userId,
+      t.trophyKind,
+      t.currentTier,
+    ),
+    check(
+      "codex_trophy_history_kind_valid",
+      sql`${t.trophyKind} IN ('mastery_category', 'mastery_overall')`,
+    ),
+    check(
+      "codex_trophy_history_tier_valid",
+      sql`${t.currentTier} IN ('bronze', 'silver', 'gold', 'platinum', 'diamond', 'legendary')`,
+    ),
+    check(
+      "codex_trophy_history_catalog_version_positive",
+      sql`${t.catalogVersion} >= 1`,
     ),
   ],
 );

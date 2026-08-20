@@ -5,6 +5,7 @@ import { useAdmin } from "../AdminContext";
 import { adminPost } from "../api";
 import { Button } from "../ui/Field";
 import { DangerAction } from "../ui/DangerAction";
+import { CodexResearchSeasonOps } from "./CodexResearchSeasonOps";
 
 // 시즌 수동 트리거 — cron(주 1회)을 기다리지 않고 롤오버/보상 지급을 즉시 실행.
 // 모든 op 는 cron 과 동일한 헬퍼라 멱등(중복 클릭/cron 과 겹쳐도 두 번 지급 안 됨).
@@ -155,6 +156,8 @@ export function SeasonOpsTab() {
           보기 전용 모드 — 상단에서 편집 가능으로 전환해야 동작합니다.
         </p>
       )}
+
+      <CodexResearchSeasonOps />
     </section>
   );
 }

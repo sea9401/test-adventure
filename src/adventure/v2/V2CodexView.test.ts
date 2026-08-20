@@ -1,6 +1,10 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  DropChip,
   classifyCodexEquipmentIds,
+  codexEquipmentProgress,
   codexTabFromParam,
   codexThemeDeepDepth,
   codexUniqueDropSummary,
@@ -101,6 +105,65 @@ describe("모험의 서 사냥터 표시", () => {
       "처치당 총 0.0035% · 무작위 1종",
     );
     expect(codexUniqueDropSummary(73)).toBe("매우 낮은 확률");
+  });
+});
+
+describe("모험의 서 사냥터 장비 도감 상태", () => {
+  it("중복 드랍을 한 번만 세어 지역 진행률과 완료 여부를 계산한다", () => {
+    expect(
+      codexEquipmentProgress(
+        [
+          "v2_canyon_greatsword",
+          "v2_canyon_set_armor",
+          "v2_canyon_greatsword",
+        ],
+        new Set(["v2_canyon_greatsword"]),
+      ),
+    ).toEqual({ registeredCount: 1, totalCount: 2, complete: false });
+
+    expect(
+      codexEquipmentProgress(
+        ["v2_canyon_greatsword", "v2_canyon_set_armor"],
+        new Set(["v2_canyon_greatsword", "v2_canyon_set_armor"]),
+      ),
+    ).toEqual({ registeredCount: 2, totalCount: 2, complete: true });
+  });
+
+  it("장비 칩에 등록과 미등록을 글자로 표시한다", () => {
+    const registered = renderToStaticMarkup(
+      createElement(DropChip, {
+        id: "v2_canyon_greatsword",
+        kind: "common",
+        registered: true,
+        onOpen: () => undefined,
+      }),
+    );
+    const missing = renderToStaticMarkup(
+      createElement(DropChip, {
+        id: "v2_canyon_set_armor",
+        kind: "set",
+        registered: false,
+        onOpen: () => undefined,
+      }),
+    );
+
+    expect(registered).toContain("장비 도감 등록");
+    expect(registered).toContain("등록");
+    expect(missing).toContain("장비 도감 미등록");
+    expect(missing).toContain("미등록");
+  });
+
+  it("도감 상태를 알 수 없으면 미등록으로 단정하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      createElement(DropChip, {
+        id: "v2_canyon_greatsword",
+        kind: "common",
+        onOpen: () => undefined,
+      }),
+    );
+
+    expect(html).not.toContain("장비 도감 미등록");
+    expect(html).not.toContain(">미등록<");
   });
 });
 

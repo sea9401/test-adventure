@@ -92,6 +92,13 @@ export function nextStormExpeditionAutoplayStep(
     };
   }
 
+  if (active.mode !== plan.mode) {
+    return {
+      kind: "conflict",
+      message: "현재 원정 모드와 일괄 진행 계획의 모드가 다릅니다. 현재 원정을 종료한 뒤 다시 시작해 주세요.",
+    };
+  }
+
   if (!isStormExpeditionPlanCompatible(plan, active.visitedNodeIds)) {
     return { kind: "conflict", message: "현재 방문 경로와 저장된 일괄 진행 계획이 다릅니다." };
   }
@@ -162,7 +169,7 @@ export async function runStormExpeditionAutoplay({
   onStatus,
   shouldStop,
 }: StormExpeditionAutoplayRunnerOptions): Promise<StormExpeditionAutoplayRunResult> {
-  let status = initialStatus;
+  let status = freshStormExpeditionAutoplayStatus(initialStatus);
   while (true) {
     const step = nextStormExpeditionAutoplayStep(status, plan);
     if (step.kind === "complete" || step.kind === "defeated") return { kind: step.kind, status };
@@ -181,6 +188,19 @@ export async function runStormExpeditionAutoplay({
       return { kind: "error", status, error: new Error(status.error ?? "storm_expedition_request_failed") };
     }
   }
+}
+
+function freshStormExpeditionAutoplayStatus(
+  status: StormExpeditionAutoplayStatus,
+): StormExpeditionAutoplayStatus {
+  if (status.state?.active || (!status.failed && !status.bossClear && !status.practiceCompleted)) {
+    return status;
+  }
+  const freshStatus = { ...status };
+  delete freshStatus.failed;
+  delete freshStatus.bossClear;
+  delete freshStatus.practiceCompleted;
+  return freshStatus;
 }
 
 function automaticChoiceId(

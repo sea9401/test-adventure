@@ -150,6 +150,20 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "게시판 활동 Lv.10 달성",
     category: "town",
   },
+  bulletin_elder: {
+    id: "bulletin_elder",
+    name: "광장 원로",
+    description: "오랜 시간 광장의 이야기를 듣고 사람들의 자리를 이어 준 원로.",
+    condition: "게시판 활동 Lv.15 달성",
+    category: "town",
+  },
+  bulletin_legend: {
+    id: "bulletin_legend",
+    name: "광장의 전설",
+    description: "수많은 이야기와 인연으로 광장의 역사를 함께 써 내려간 전설.",
+    condition: "게시판 활동 Lv.20 달성",
+    category: "town",
+  },
   patient: {
     id: "patient",
     name: "환자",

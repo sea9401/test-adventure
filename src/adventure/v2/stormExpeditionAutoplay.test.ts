@@ -75,6 +75,15 @@ describe("폭풍 원정 다음 자동 행동", () => {
     });
   });
 
+  it("진행 중인 원정과 계획의 모드가 다르면 기존 원정을 이어가지 않는다", () => {
+    const practiceRun = active({ mode: "practice" });
+
+    expect(nextStormExpeditionAutoplayStep(status(practiceRun), plan)).toEqual({
+      kind: "conflict",
+      message: "현재 원정 모드와 일괄 진행 계획의 모드가 다릅니다. 현재 원정을 종료한 뒤 다시 시작해 주세요.",
+    });
+  });
+
   it("현재 체크포인트에 위험 이벤트가 대기하면 다른 행동보다 먼저 지나친다", () => {
     const riskEvent: StormExpeditionRiskEventOffer = {
       id: "rift_cache",
@@ -222,6 +231,30 @@ describe("폭풍 원정 다음 자동 행동", () => {
 });
 
 describe("폭풍 원정 자동 진행 실행기", () => {
+  it.each(["bossClear", "practiceCompleted"] as const)(
+    "활성 원정이 없으면 직전 %s 상태를 새 실행의 완료로 오인하지 않는다",
+    async (terminalFlag) => {
+      let stopped = false;
+      const started = status(active());
+      const request = vi.fn(async (_action: StormExpeditionActionRequest) => started);
+
+      const result = await runStormExpeditionAutoplay({
+        initialStatus: status(null, { [terminalFlag]: true }),
+        plan,
+        request,
+        onStatus: () => { stopped = true; },
+        shouldStop: () => stopped,
+      });
+
+      expect(result).toEqual({ kind: "stopped", status: started });
+      expect(request).toHaveBeenCalledWith({
+        action: "start",
+        mode: "normal",
+        targetNodeId: "gale_outer",
+      });
+    },
+  );
+
   it("각 서버 응답을 반영한 뒤 start, fight, move, choose를 한 번씩 순서대로 보낸다", async () => {
     const started = status(active());
     const fought = status(active({ completedNodeIds: ["gale_outer"] }), {

@@ -366,6 +366,53 @@ describe("CodexMasteryPanel", () => {
     expect(html).not.toMatch(/data-research-objective=[^>]+opacity-/);
   });
 
+  it("shows a compact provisional monthly standing only from an enabled ranking response", () => {
+    const value = snapshot();
+    value.features.monthlyProgressEnabled = true;
+    value.monthlyResearch = activeMonthlyResearch();
+    const monthlyRow = {
+      rank: 7,
+      name: "연구자",
+      avatar: "male1" as const,
+      score: 12_345,
+      objectiveCompletedCount: 7,
+      objectiveScore: 7_200,
+      diversityScore: 3_645,
+      recordScore: 1_500,
+      provisionalTier: "gold" as const,
+      mine: true,
+      profileBorder: null,
+      chatNameEffect: null,
+    };
+    const html = renderToStaticMarkup(
+      <CodexMasteryPanel
+        state={{ status: "ready", snapshot: value }}
+        onRetry={vi.fn()}
+        onReplacePinnedGoals={vi.fn()}
+        monthlyRanking={{
+          status: "ready",
+          data: {
+            ok: true,
+            enabled: true,
+            status: "active",
+            seasonId: "2026-08",
+            themeId: "rivers-and-lakes",
+            themeName: "강과 호수의 달",
+            startAt: "2026-07-31T15:00:00.000Z",
+            endAt: "2026-08-31T15:00:00.000Z",
+            list: [monthlyRow],
+            nearby: [monthlyRow],
+            me: monthlyRow,
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("월간 연구 잠정 순위");
+    expect(html).toContain("7위");
+    expect(html).toContain("금 예상 트로피");
+  });
+
   it("bounds the rendered catalog rows to thirty", () => {
     const many = Array.from({ length: 35 }, (_, index) =>
       entry({

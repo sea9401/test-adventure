@@ -15,12 +15,13 @@ describe("생활 숙련도 랭킹 안내", () => {
   });
 });
 
-describe("도감 영구 숙련 랭킹 전환", () => {
+describe("도감 숙련·월간 연구 랭킹 전환", () => {
   it("완성도는 기존 랭킹을 유지하고 숙련 화면만 전용 scope를 선택한다", () => {
     expect(codexMasteryScopeForView("completion", "fish")).toBeNull();
     expect(codexMasteryScopeForView("overall", "fish")).toBe("overall");
     expect(codexMasteryScopeForView("category", "fish")).toBe("fish");
     expect(codexMasteryScopeForView("category", "job")).toBe("job");
+    expect(codexMasteryScopeForView("monthly", "job")).toBeNull();
   });
 
   it("완성도·종합 숙련·분야별과 여섯 분야를 모두 노출한다", () => {
@@ -36,6 +37,7 @@ describe("도감 영구 숙련 랭킹 전환", () => {
     expect(html).toContain("완성도");
     expect(html).toContain("종합 숙련");
     expect(html).toContain("분야별");
+    expect(html).toContain("월간 연구");
     expect(html).toContain("장비 연구");
     expect(html).toContain("어류 연구");
     expect(html).toContain("생태 연구");

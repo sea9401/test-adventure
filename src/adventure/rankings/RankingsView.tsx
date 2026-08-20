@@ -22,6 +22,8 @@ import type {
 } from "@/adventure/data/v2/codexMasteryRanking";
 import { CodexMasteryRankingPanel } from "./CodexMasteryRankingPanel";
 import { useCodexMasteryRanking } from "./useCodexMasteryRanking";
+import { CodexResearchRankingPanel } from "./CodexResearchRankingPanel";
+import { useCodexResearchRanking } from "./useCodexResearchRanking";
 import {
   useGuildRankings,
   useRankings,
@@ -51,8 +53,11 @@ export function RankingsView() {
   const masteryScope =
     codexMasteryScopeForView(codexView, codexCategory) ?? "overall";
   const mastery = useCodexMasteryRanking(
-    metric === "codexCompletion" && codexView !== "completion",
+    metric === "codexCompletion" && (codexView === "overall" || codexView === "category"),
     masteryScope,
+  );
+  const research = useCodexResearchRanking(
+    metric === "codexCompletion" && codexView === "monthly",
   );
   const selectName = (name: string) =>
     router.push(`/profile/${encodeURIComponent(name)}`);
@@ -86,6 +91,12 @@ export function RankingsView() {
 
       {metric === "guild" ? (
         <GuildRankingsBody />
+      ) : metric === "codexCompletion" && codexView === "monthly" ? (
+        <CodexResearchRankingPanel
+          state={research.state}
+          onRetry={research.retry}
+          onSelectName={selectName}
+        />
       ) : metric === "codexCompletion" && codexView !== "completion" ? (
         <CodexMasteryRankingPanel
           scope={masteryScope}
@@ -103,7 +114,7 @@ export function RankingsView() {
   );
 }
 
-export type CodexRankingView = "completion" | "overall" | "category";
+export type CodexRankingView = "completion" | "overall" | "category" | "monthly";
 type CodexMasteryCategoryScope = Exclude<
   CodexMasteryRankingScope,
   "overall"
@@ -116,6 +127,7 @@ const CODEX_RANKING_VIEW_TABS: ReadonlyArray<{
   { key: "completion", label: "완성도" },
   { key: "overall", label: "종합 숙련" },
   { key: "category", label: "분야별" },
+  { key: "monthly", label: "월간 연구" },
 ];
 
 const CODEX_RANKING_CATEGORY_TABS: ReadonlyArray<{
@@ -134,7 +146,7 @@ export function codexMasteryScopeForView(
   view: CodexRankingView,
   category: CodexMasteryCategoryScope,
 ): CodexMasteryRankingScope | null {
-  if (view === "completion") return null;
+  if (view === "completion" || view === "monthly") return null;
   return view === "overall" ? "overall" : category;
 }
 
@@ -227,7 +239,9 @@ function CodexMetricPill({ view }: { view: CodexRankingView }) {
         <span className="text-zinc-500 dark:text-zinc-400">
           {view === "completion"
             ? "직업 해금·장비 등록·어보 발견 수를 전체 수집 항목과 비교합니다."
-            : "도감 단계와 특별 인장으로 쌓은 영구 연구 점수를 비교합니다."}
+            : view === "monthly"
+              ? "매달 바뀌는 목표·다양성·기록 점수의 잠정 순위를 비교합니다."
+              : "도감 단계와 특별 인장으로 쌓은 영구 연구 점수를 비교합니다."}
         </span>
       </div>
     </Card>

@@ -17,6 +17,7 @@ import type {
   CodexResearchObjectiveGroup,
   CodexResearchPersonalView,
 } from "@/adventure/data/v2/codexResearch";
+import type { CodexResearchRankingLoadState } from "@/adventure/rankings/useCodexResearchRanking";
 import { Card } from "@/components/ui/Card";
 import {
   SURFACE_ACCENT,
@@ -329,8 +330,10 @@ function formatCodexResearchPeriod(startAt: string, endAt: string): string {
 
 function MonthlyResearchPanel({
   research,
+  ranking,
 }: {
   research: CodexResearchPersonalView;
+  ranking?: CodexResearchRankingLoadState;
 }) {
   if (research.status === "no_season") {
     return (
@@ -390,6 +393,20 @@ function MonthlyResearchPanel({
             </div>
           ))}
         </div>
+        {ranking?.status === "ready" ? (
+          <div className={`${SURFACE_CARD} mt-3 flex flex-wrap items-center justify-between gap-2 p-3 text-xs`}>
+            <span className="font-semibold">월간 연구 잠정 순위</span>
+            {ranking.data.me ? (
+              <span className="font-bold tabular-nums">
+                {formatNumber(ranking.data.me.rank)}위 · {ranking.data.me.provisionalTier
+                  ? `${CODEX_MASTERY_STAGE_LABELS[ranking.data.me.provisionalTier]} 예상 트로피`
+                  : "현재 등급권 밖"}
+              </span>
+            ) : (
+              <span className="text-zinc-500 dark:text-zinc-400">아직 순위 집계 전</span>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-4">
@@ -451,10 +468,12 @@ export function CodexMasteryPanel({
   state,
   onRetry,
   onReplacePinnedGoals,
+  monthlyRanking,
 }: {
   state: CodexMasteryPanelState;
   onRetry: () => void;
   onReplacePinnedGoals: (entries: CodexMasteryPinnedGoal[]) => Promise<void> | void;
+  monthlyRanking?: CodexResearchRankingLoadState;
 }) {
   const [category, setCategory] = useState<"all" | CodexMasteryCategory>("all");
   const [filter, setFilter] = useState<CodexMasteryEntryFilter>("all");
@@ -570,6 +589,7 @@ export function CodexMasteryPanel({
       {snapshot.features.monthlyProgressEnabled && (
         <MonthlyResearchPanel
           research={snapshot.monthlyResearch ?? { status: "no_season" }}
+          ranking={monthlyRanking}
         />
       )}
 

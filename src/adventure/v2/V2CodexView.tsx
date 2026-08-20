@@ -90,6 +90,7 @@ import {
   CodexMasteryPanel,
   type CodexMasteryPanelState,
 } from "./CodexMasteryPanel";
+import { useCodexResearchRanking } from "@/adventure/rankings/useCodexResearchRanking";
 import type {
   CodexMasteryOverviewResponse,
   CodexMasteryPinnedGoal,
@@ -559,6 +560,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     setMasteryState({ status: "idle" });
     setMasteryRetryVersion((version) => version + 1);
   };
+  const monthlyRanking = useCodexResearchRanking(
+    tab === "mastery" &&
+      masteryState.status === "ready" &&
+      masteryState.snapshot.features.monthlyProgressEnabled,
+  );
 
   const replaceCodexMasteryPins = async (
     pinnedGoals: CodexMasteryPinnedGoal[],
@@ -1304,6 +1310,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           state={masteryState.status === "idle" ? { status: "loading" } : masteryState}
           onRetry={retryCodexMastery}
           onReplacePinnedGoals={replaceCodexMasteryPins}
+          monthlyRanking={monthlyRanking.state}
         />
       )}
 

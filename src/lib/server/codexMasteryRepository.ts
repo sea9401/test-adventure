@@ -9,6 +9,7 @@ import {
 } from "@/adventure/data/v2/codexMasteryTypes";
 import { codexMasteryProgress, codexMasterySummary } from "@/db/schema";
 import type { DbExecutor, DbTransactionExecutor } from "./savesKv";
+import type { CodexMasteryTrophyPromotion } from "@/adventure/data/v2/codexMasteryTrophies";
 
 type CodexMasterySummaryStage = Exclude<CodexMasteryStage, "discovered">;
 
@@ -36,6 +37,10 @@ export type CodexMasteryStore = {
     summary: CodexMasterySummaryState;
     progress: CodexMasteryProgress;
   }, now: Date): Promise<void>;
+  reconcileTrophies?(
+    userId: string,
+    now: Date,
+  ): Promise<{ promotions: CodexMasteryTrophyPromotion[] }>;
 };
 
 type PersistedProgressRow = {

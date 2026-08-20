@@ -16,6 +16,7 @@ import { StatsContent } from "./content/stats";
 import { TownContent } from "./content/town";
 import { CompendiumContent } from "./content/compendium";
 import { CoopContent } from "./content/coop";
+import { OverviewContent } from "./content/overview";
 
 describe("최신 게임 안내서 내용", () => {
   it("협동 보스 공격 비용과 단방향 전체 공개 규칙을 안내한다", () => {
@@ -89,6 +90,62 @@ describe("최신 게임 안내서 내용", () => {
     expect(plaza).toContain("명예의 전당");
   });
 
+  it("폭풍 원정의 일괄 진행 계획·위험·중단과 재개 규칙을 안내한다", () => {
+    const html = renderToStaticMarkup(<HuntingContent />);
+
+    expect(html).toContain("직접 진행과 일괄 진행");
+    expect(html).toContain("외곽·중층·수호자");
+    expect(html).toContain("공격·생존·자원");
+    expect(html).toContain("위험 이벤트는 자동으로 지나칩니다");
+    expect(html).toContain("자동 귀환하지 않습니다");
+    expect(html).toContain("일괄 진행 재개");
+    expect(html).toContain("현재 요청이 끝난 뒤");
+  });
+
+  it("게시판 활동 점수·일일 인정 한도와 Lv.20 칭호를 안내한다", () => {
+    const html = renderToStaticMarkup(<PlazaContent />);
+
+    expect(html).toContain("게시글 3점");
+    expect(html).toContain("댓글 1점");
+    expect(html).toContain("받은 좋아요 4점");
+    expect(html).toContain("게시글 2개·댓글 5개");
+    expect(html).toContain("Lv.15");
+    expect(html).toContain("광장 원로");
+    expect(html).toContain("Lv.20");
+    expect(html).toContain("광장의 전설");
+  });
+
+  it("거래 이용 제한 중 가능한 조회·취소·정산과 제한 행위를 안내한다", () => {
+    const html = renderToStaticMarkup(<PlazaContent />);
+
+    expect(html).toContain("거래 이용 제한");
+    expect(html).toContain("거래 정보 조회");
+    expect(html).toContain("신규 등록·구매·입찰·구매 주문·선물");
+    expect(html).toContain("취소·정산·환불");
+  });
+
+  it("장비 등록 상태와 공용 스킬 상세, 전투 기록 틱 표시를 안내한다", () => {
+    const compendium = renderToStaticMarkup(<CompendiumContent />);
+    const skills = renderToStaticMarkup(<SkillsContent />);
+    const combat = renderToStaticMarkup(<CombatContent />);
+
+    expect(compendium).toContain("등록·미등록");
+    expect(skills).toContain("스킬 상세 보기");
+    expect(skills).toContain("스킬 학습·장착");
+    expect(skills).toContain("전직 로드맵");
+    expect(skills).toContain("SP·MP·발동 확률·재사용 대기");
+    expect(combat).toContain("현재 틱 / 전체 틱");
+    expect(combat).toContain("같은 틱 안의 사건 순서");
+  });
+
+  it("게임 개요에서 도감 숙련과 월간 연구를 장기 목표로 안내한다", () => {
+    const html = renderToStaticMarkup(<OverviewContent />);
+
+    expect(html).toContain("도감 숙련");
+    expect(html).toContain("월간 연구");
+    expect(html).toContain("전투력 보상 없이");
+  });
+
   it("정신의 마법 공격 보조와 초과 정신 추가 전환을 안내한다", () => {
     const stats = renderToStaticMarkup(<StatsContent />);
     const combat = renderToStaticMarkup(<CombatContent />);
@@ -101,6 +158,7 @@ describe("최신 게임 안내서 내용", () => {
   it("네 가지 화면 모드의 표시 방식과 저장 동작을 안내한다", () => {
     const html = renderToStaticMarkup(<ControlsContent />);
 
+    expect(html).toContain("트로피 전시대");
     expect(html).toContain("기본 모드");
     expect(html).toContain("배경 숨김");
     expect(html).toContain("은신 모드");

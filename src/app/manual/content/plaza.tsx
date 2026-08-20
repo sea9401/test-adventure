@@ -13,7 +13,25 @@ import {
   MARKETPLACE_V2_FIXED_LISTING_HOURS,
   MARKETPLACE_V2_MIN_BID_RAISE_RATE,
 } from "@/lib/server/marketplaceV2";
+import {
+  BULLETIN_ACTIVITY_LEVELS,
+  BULLETIN_ACTIVITY_TITLE_REWARDS,
+  BULLETIN_COMMENT_POINTS,
+  BULLETIN_DAILY_COMMENT_CREDIT_LIMIT,
+  BULLETIN_DAILY_POST_CREDIT_LIMIT,
+  BULLETIN_POST_POINTS,
+  BULLETIN_RECEIVED_LIKE_POINTS,
+} from "@/lib/bulletinActivity";
 import { H2, P, UL, Em, Table, Note, Code } from "./primitives";
+
+const BULLETIN_TITLE_ROWS = BULLETIN_ACTIVITY_TITLE_REWARDS.map((reward) => {
+  const level = BULLETIN_ACTIVITY_LEVELS.find((entry) => entry.level === reward.level);
+  return [
+    "Lv." + reward.level,
+    (level?.minPoints.toLocaleString("ko-KR") ?? "-") + "점",
+    reward.name,
+  ];
+});
 
 export function PlazaContent() {
   return (
@@ -64,6 +82,25 @@ export function PlazaContent() {
           안전을 위해 HTML 직접 입력과 외부 이미지 삽입은 지원하지 않습니다.
         </li>
       </UL>
+
+      <H2>게시판 활동 레벨</H2>
+      <P>
+        일반 게시판 활동은 <Em>게시글 {BULLETIN_POST_POINTS}점</Em>,
+        <Em>댓글 {BULLETIN_COMMENT_POINTS}점</Em>,
+        <Em>받은 좋아요 {BULLETIN_RECEIVED_LIKE_POINTS}점</Em>으로 누적됩니다. 게시글과
+        댓글은 KST 하루 기준 각각
+        <Em>
+          게시글 {BULLETIN_DAILY_POST_CREDIT_LIMIT}개·댓글{" "}
+          {BULLETIN_DAILY_COMMENT_CREDIT_LIMIT}개
+        </Em>
+        까지만 점수를 받습니다. 자신의 좋아요와 공지사항의 좋아요는 활동 점수에
+        포함되지 않습니다.
+      </P>
+      <Table
+        head={["활동 레벨", "필요 누적 점수", "영구 칭호"]}
+        rows={BULLETIN_TITLE_ROWS}
+        caption="활동 레벨은 Lv.20까지 이어집니다. Lv.15에는 광장 원로, Lv.20에는 광장의 전설 칭호를 얻습니다."
+      />
 
       <H2>우편함</H2>
       <P>거래·선물·초대가 우편함으로 도착합니다.</P>
@@ -156,6 +193,18 @@ export function PlazaContent() {
           환불·구매 물품·판매 대금은 거래소와 우편함에서 확인합니다.
         </li>
       </UL>
+
+      <H2>거래 이용 제한</H2>
+      <P>
+        운영정책에 따라 거래 이용이 제한된 동안에도 일반 게임과 <Em>거래 정보 조회</Em>는
+        이용할 수 있습니다. 다만 <Em>신규 등록·구매·입찰·구매 주문·선물</Em>과 길드
+        창고·교역처럼 다른 이용자에게 자산을 옮기는 행위는 제한됩니다.
+      </P>
+      <P>
+        제한 적용 전에 남은 매물과 주문은 안전하게 정리되며, 필요한
+        <Em>취소·정산·환불</Em>과 시스템 우편 수령은 계속 처리할 수 있습니다. 제한이
+        끝나도 정리된 매물과 주문이 자동으로 다시 등록되지는 않습니다.
+      </P>
 
       <H2>공지·채팅</H2>
       <P>

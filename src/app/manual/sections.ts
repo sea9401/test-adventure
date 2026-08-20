@@ -70,7 +70,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "quests",
     title: "퀘스트와 업적",
-    summary: "튜토리얼·일일·주간 퀘스트와 업적 보상 수령 방법을 설명합니다.",
+    summary: "퀘스트·업적 보상과 트로피 수집·대표 전시 방법을 설명합니다.",
     group: "growth",
   },
   {
@@ -112,13 +112,13 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "plaza",
     title: "광장과 소통",
-    summary: "게시판·거래소·우편함·채팅방의 이용 방법을 안내합니다.",
+    summary: "게시판 활동·거래소·우편함·채팅방·랭킹의 이용 방법을 안내합니다.",
     group: "world",
   },
   {
     slug: "compendium",
     title: "모험의 서",
-    summary: "수집 기록과 칭호, 직업 계보를 확인하는 방법을 설명합니다.",
+    summary: "수집 기록과 도감 숙련·월간 연구, 칭호와 직업 계보를 설명합니다.",
     group: "world",
   },
   {

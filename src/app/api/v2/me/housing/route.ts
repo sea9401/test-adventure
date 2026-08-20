@@ -2,12 +2,19 @@ import { db } from "@/db";
 import {
   HOUSING_SAVE_KEY,
   parseHousingState,
+  restoreHousingMasteryTrophies,
+  stripHousingMasteryTrophies,
   validateHousingState,
 } from "@/adventure/data/v2/housing";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { housingContextFromSaves } from "@/lib/server/housing";
+import {
+  housingContextFromSaves,
+  housingMasteryTrophyContext,
+} from "@/lib/server/housing";
+import { readCodexMasteryFeatureSettings } from "@/lib/server/opsSettings";
+import { readCodexMasteryTrophyHistory } from "@/lib/server/codexMasteryTrophyRepository";
 import {
   lockSaveForUpdate,
   readSave,
@@ -56,16 +63,36 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
 
-  const source = await housingSourceSaves(userId);
+  const [source, settings] = await Promise.all([
+    housingSourceSaves(userId),
+    readCodexMasteryFeatureSettings(db),
+  ]);
   const room = parseHousingState(source.housingRaw);
-  const { displayOptions, entitlements } = housingContextFromSaves(source);
+  const baseContext = housingContextFromSaves(source);
+  const trophyContext = settings.trophiesEnabled
+    ? housingMasteryTrophyContext(
+        await readCodexMasteryTrophyHistory(db, userId),
+      )
+    : null;
+  const displayOptions = [
+    ...baseContext.displayOptions,
+    ...(trophyContext?.displayOptions ?? []),
+  ];
   const profile = source.profileRaw as { name?: unknown };
   const ownerName =
     typeof profile?.name === "string" && profile.name.trim()
       ? profile.name.trim()
       : "모험가";
 
-  return Response.json({ ok: true, ownerName, room, displayOptions, ownedCounts: entitlements.ownedCounts });
+  return Response.json({
+    ok: true,
+    ownerName,
+    room: settings.trophiesEnabled
+      ? room
+      : stripHousingMasteryTrophies(room),
+    displayOptions,
+    ownedCounts: baseContext.entitlements.ownedCounts,
+  });
 }
 
 export async function POST(req: Request) {
@@ -90,9 +117,42 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const source = await housingSourceSaves(userId);
-  const { entitlements, displayOptions } = housingContextFromSaves(source);
-  const validated = validateHousingState(body, entitlements);
+  const [source, settings] = await Promise.all([
+    housingSourceSaves(userId),
+    readCodexMasteryFeatureSettings(db),
+  ]);
+  const baseContext = housingContextFromSaves(source);
+  const trophyContext = settings.trophiesEnabled
+    ? housingMasteryTrophyContext(
+        await readCodexMasteryTrophyHistory(db, userId),
+      )
+    : null;
+  const initialEntitlements = {
+    ...baseContext.entitlements,
+    ...trophyContext?.entitlements,
+  };
+  const initiallyValidated = validateHousingState(body, initialEntitlements);
+  if (!initiallyValidated.ok) {
+    return Response.json(
+      { ok: false, error: initiallyValidated.error },
+      { status: 400 },
+    );
+  }
+  const storedRoom = parseHousingState(source.housingRaw);
+  const candidate = settings.trophiesEnabled
+    ? initiallyValidated.state
+    : restoreHousingMasteryTrophies(storedRoom, initiallyValidated.state);
+  const retainedTrophyIds = new Set(
+    storedRoom.layout.flatMap((placement) =>
+      placement.masteryTrophy ? [placement.masteryTrophy.trophyId] : []
+    ),
+  );
+  const validated = settings.trophiesEnabled
+    ? initiallyValidated
+    : validateHousingState(candidate, {
+        ...baseContext.entitlements,
+        masteryTrophyIds: retainedTrophyIds,
+      });
   if (!validated.ok) {
     return Response.json(
       { ok: false, error: validated.error },
@@ -106,5 +166,15 @@ export async function POST(req: Request) {
     return validated.state;
   });
 
-  return Response.json({ ok: true, room, displayOptions, ownedCounts: entitlements.ownedCounts });
+  return Response.json({
+    ok: true,
+    room: settings.trophiesEnabled
+      ? room
+      : stripHousingMasteryTrophies(room),
+    displayOptions: [
+      ...baseContext.displayOptions,
+      ...(trophyContext?.displayOptions ?? []),
+    ],
+    ownedCounts: baseContext.entitlements.ownedCounts,
+  });
 }

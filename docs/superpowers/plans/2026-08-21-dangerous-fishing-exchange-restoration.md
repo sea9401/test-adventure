@@ -135,4 +135,3 @@ git diff --name-only origin/main...HEAD
 ```
 
 Expected: 설계 문서와 위험 해역 교환·꾸미기·상점·매뉴얼·테스트 파일만 나타난다.
-

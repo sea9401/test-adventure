@@ -136,4 +136,3 @@ git diff --name-only origin/main...HEAD
 ```
 
 Expected: 설계 문서와 냉기 카탈로그·전투·표시·테스트 파일만 나타난다.
-
